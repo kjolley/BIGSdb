@@ -1,0 +1,984 @@
+#GenomeComparator.pm - Genome comparison plugin for BIGSdb
+#Written by Keith Jolley
+#Copyright (c) 2010, University of Oxford
+#E-mail: keith.jolley@zoo.ox.ac.uk
+#
+#This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
+#
+#BIGSdb is free software: you can redistribute it and/or modify
+#it under the terms of the GNU General Public License as published by
+#the Free Software Foundation, either version 3 of the License, or
+#(at your option) any later version.
+#
+#BIGSdb is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+#
+#You should have received a copy of the GNU General Public License
+#along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
+package BIGSdb::Plugins::GenomeComparator;
+use strict;
+use base qw(BIGSdb::Plugin);
+use Log::Log4perl qw(get_logger);
+my $logger = get_logger('BIGSdb.Plugins');
+use Error qw(:try);
+use Apache2::Connection ();
+use Bio::DB::Registry;
+use List::MoreUtils qw(uniq any);
+use BIGSdb::Page 'SEQ_METHODS';
+
+sub get_attributes {
+	my %att = (
+		name        => 'GenomeComparator',
+		author      => 'Keith Jolley',
+		affiliation => 'University of Oxford, UK',
+		email       => 'keith.jolley@zoo.ox.ac.uk',
+		description => 'Compare genomes at defined loci or against loci defined in a reference genome',
+		category    => 'Genome',
+		buttontext  => 'Genome Camparator',
+		menutext    => 'Genome comparator',
+		module      => 'GenomeComparator',
+		version     => '1.0.0',
+		dbtype      => 'isolates',
+		section     => 'analysis',
+		order       => 30,
+		requires    => 'muscle',
+		system_flag => 'GenomeComparator'
+	);
+	return \%att;
+}
+
+sub get_plugin_javascript {
+	my $buffer = << "END";
+function listbox_selectall(listID, isSelect) {
+	var listbox = document.getElementById(listID);
+	for(var count=0; count < listbox.options.length; count++) {
+		listbox.options[count].selected = isSelect;
+	}
+}
+
+function enable_seqs(){
+	var accession_element = document.getElementById('accession');
+	if (accession_element.value.length){
+		document.getElementById('locus').disabled=true;
+		document.getElementById('scheme_id').disabled=true;
+	} else {
+		document.getElementById('locus').disabled=false;
+		document.getElementById('scheme_id').disabled=false;
+	}
+}
+	
+END
+	return $buffer;
+}
+
+sub run {
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $view   = $self->{'system'}->{'view'};
+	my $qry =
+	  "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM sequence_bin LEFT JOIN $view ON $view.id=sequence_bin.isolate_id ORDER BY $view.id";
+	my $sql = $self->{'db'}->prepare($qry);
+	eval { $sql->execute; };
+	if ($@) {
+		$logger->error("Can't execute $qry; $@");
+	}
+	my @ids;
+	my %labels;
+	while ( my ( $id, $isolate ) = $sql->fetchrow_array ) {
+		push @ids, $id;
+		$labels{$id} = "$id) $isolate";
+	}
+	print "<h1>Genome Comparator</h1>\n";
+	if ( !@ids ) {
+		print "<div class=\"box\" id=\"statusbad\"><p>There are no sequences in the sequence bin.</p></div>\n";
+		return;
+	}
+	print "<div class=\"box\" id=\"queryform\">\n";
+	print "<p>Please select the required isolate ids and loci for comparison - use ctrl or shift to make 
+	  multiple selections. In addition to selecting individual loci, you can choose to include all loci defined in schemes
+	  by selecting the appropriate scheme description. Alternatively, you can enter the accession number for an
+	  annotated reference genome and compare using the loci defined in that.</p>\n";
+	my $loci = $self->{'datastore'}->get_loci( 0, 1 );
+	my %cleaned;
+	foreach (@$loci) {
+		( $cleaned{$_} = $_ ) =~ tr/_/ /;
+	}
+	print $q->start_form( -onMouseMove => 'enable_seqs()' );
+	print
+"<table style=\"border-collapse:separate; border-spacing:1px\"><tr><th>Isolates</th><th>Loci</th><th>Schemes</th><th>Reference genome</th><th>Parameters</th></tr>\n";
+	print "<tr><td style=\"text-align:center\">\n";
+	print $q->scrolling_list(
+		-name     => 'isolate_id',
+		-id       => 'isolate_id',
+		-values   => \@ids,
+		-labels   => \%labels,
+		-size     => 12,
+		-multiple => 'true'
+	);
+	print
+"<br /><input type=\"button\" onclick='listbox_selectall(\"isolate_id\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
+	print
+"<input type=\"button\" onclick='listbox_selectall(\"isolate_id\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
+	print "</td><td style=\"text-align:center\">\n";
+	print $q->scrolling_list( -name => 'locus', -id => 'locus', -values => $loci, -labels => \%cleaned, -size => 12, -multiple => 'true' );
+	print
+"<br /><input type=\"button\" onclick='listbox_selectall(\"locus\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
+	print
+"<input type=\"button\" onclick='listbox_selectall(\"locus\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
+	print "</td><td style=\"text-align:center\">\n";
+	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
+	my %scheme_desc;
+
+	foreach (@$schemes) {
+		my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
+		$scheme_desc{$_} = $scheme_info->{'description'};
+	}
+	push @$schemes, 0;
+	$scheme_desc{0} = 'No scheme';
+	print $q->scrolling_list(
+		-name     => 'scheme_id',
+		-id       => 'scheme_id',
+		-values   => $schemes,
+		-labels   => \%scheme_desc,
+		-size     => 12,
+		-multiple => 'true'
+	);
+	print
+"<br /><input type=\"button\" onclick='listbox_selectall(\"scheme_id\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
+	print
+"<input type=\"button\" onclick='listbox_selectall(\"scheme_id\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
+	print "</td><td style=\"vertical-align:top\">\n";
+	print "<p>Enter accession number:</p>\n";
+	print $q->textfield(
+		-name      => 'accession',
+		-id        => 'accession',
+		-size      => 10,
+		-maxlength => 20,
+		-onKeyUp   => 'enable_seqs()',
+		-onBlur    => 'enable_seqs()'
+	);
+	print
+" <a class=\"tooltip\" title=\"Reference genome - Use of a reference genome will override any locus or scheme settings.\">&nbsp;<i>i</i>&nbsp;</a>"
+	  if $self->{'prefs'}->{'tooltips'};
+	print "</td><td style=\"vertical-align:top\">\n";
+	print "<table><tr><td style=\"text-align:right\">Min % identity: </td><td>";
+	print $q->popup_menu( -name => 'identity', -values => [qw(50 55 60 65 70 75 80 85 90 91 92 93 94 95 96 97 98 99 100)], -default => 70 );
+	print " <a class=\"tooltip\" title=\"Minimum % identity - Match required for partial matching.\">&nbsp;<i>i</i>&nbsp;</a>"
+	  if $self->{'prefs'}->{'tooltips'};
+	print "</td></tr><tr><td>\n";
+	print "</td></tr>\n<tr><td style=\"text-align:right\">Min % alignment: </td><td>";
+	print $q->popup_menu(
+		-name    => 'alignment',
+		-values  => [qw(30 35 40 45 50 55 60 65 70 75 80 85 90 91 92 93 94 95 96 97 98 99 100)],
+		-default => 50
+	);
+	print
+" <a class=\"tooltip\" title=\"Minimum % alignment - Percentage of allele sequence length required to be aligned for partial matching.\">&nbsp;<i>i</i>&nbsp;</a>"
+	  if $self->{'prefs'}->{'tooltips'};
+	print "</td></tr><tr><td style=\"text-align:right\">BLASTN word size: </td><td>\n";
+	print $q->popup_menu( -name => 'word_size', -values => [qw(8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28)],
+		-default => 15 );
+	print
+" <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a>"
+	  if $self->{'prefs'}->{'tooltips'};
+	print "</td></tr><tr><td colspan=\"2\">";
+	print $q->checkbox( -name => 'align', -label => 'Produce alignments' );
+	print
+" <a class=\"tooltip\" title=\"Alignments - Alignments will be produced in muscle for any loci that vary between isolates when analysing by reference genome. This may slow the analysis considerably.\">&nbsp;<i>i</i>&nbsp;</a>"
+	  if $self->{'prefs'}->{'tooltips'};
+	print "</td></tr>\n";
+	print "<tr><th colspan=\"2\">Restrict included sequences by</th></tr>";
+	print "<tr><td style=\"text-align:right\">Sequence method: </td><td style=\"text-align:left\">";
+	print $q->popup_menu( -name => 'seq_method', -values => [ '', SEQ_METHODS ] );
+	print
+" <a class=\"tooltip\" title=\"Sequence method - Only include sequences generated from the selected method.\">&nbsp;<i>i</i>&nbsp;</a>"
+	  if $self->{'prefs'}->{'tooltips'};
+	print "</td></tr>\n";
+	$sql = $self->{'db'}->prepare("SELECT id,description FROM experiments ORDER BY description");
+	my @experiments;
+	undef %labels;
+	eval { $sql->execute; };
+
+	if ($@) {
+		$logger->error("Can't execute $@");
+	}
+	while ( my ( $id, $desc ) = $sql->fetchrow_array ) {
+		push @experiments, $id;
+		$labels{$id} = $desc;
+	}
+	if (@experiments) {
+		unshift @experiments, '';
+		print "<tr><td style=\"text-align:right\">Experiment: </td><td>";
+		print $q->popup_menu( -name => 'experiment', -values => \@experiments, -labels => \%labels );
+		print
+" <a class=\"tooltip\" title=\"Experiments - Only include sequences that have been linked to the specified experiment.\">&nbsp;<i>i</i>&nbsp;</a>"
+		  if $self->{'prefs'}->{'tooltips'};
+		print "</td></tr>\n";
+	}
+	print "</table>\n";
+	print "</td></tr>";
+	print "<tr><td>";
+	print
+"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=GenomeComparator\" class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\" colspan=\"4\">";
+	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
+	print "</td></tr>";
+	print "</table>\n";
+
+	foreach (qw (page name db)) {
+		print $q->hidden($_);
+	}
+	print $q->end_form;
+	print "</div>\n";
+	return if !$q->param('submit');
+	my @loci = $q->param('locus');
+	@ids = $q->param('isolate_id');
+	my @scheme_ids = $q->param('scheme_id');
+	my $accession  = $q->param('accession');
+
+	if ( !@ids ) {
+		print "<div class=\"box\" id=\"statusbad\"><p>You must select one or more isolates.</p></div>\n";
+		return;
+	}
+	if ( !$accession && !@loci && !@scheme_ids ) {
+		print
+		  "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci or schemes, or a genome accession number.</p></div>\n";
+		return;
+	}
+	if ($accession) {
+		my $registry = Bio::DB::Registry->new;
+		my $seq_db   = $registry->get_database('embl');
+		$seq_db->verbose(2);    #convert warn to exception
+		my $seq_obj;
+		try {
+			$seq_obj = $seq_db->get_Seq_by_acc($accession);
+		}
+		catch Bio::Root::Exception with {
+			print "<div class=\"box\" id=\"statusbad\"><p>No data returned for accession number #$accession.</p></div>\n";
+			my $err = shift;
+			$logger->debug($err);
+		};
+		return if !$seq_obj;
+		$self->_analyse_by_reference( $accession, $seq_obj, \@ids );
+	} else {
+		$self->_add_scheme_loci( \@loci );
+		$self->_analyse_by_loci( \@loci, \@ids );
+	}
+}
+
+sub _analyse_by_loci {
+	my ( $self, $loci, $ids ) = @_;
+	if ( @$ids < 2 ) {
+		print "<div class=\"box\" id=\"statusbad\"><p>You must select at least two isolates for comparison.</p></div>\n";
+		return;
+	}
+	my %isolate_FASTA;
+	my $prefix = BIGSdb::Utils::get_random();
+	foreach (@$ids) {
+		$isolate_FASTA{$_} = $self->_create_isolate_FASTA( $_, $prefix );
+	}
+	print "<div class=\"box\" id=\"resultstable\">\n";
+	my $temp = BIGSdb::Utils::get_random();
+	open( my $fh, '>', "$self->{'config'}->{'tmp_dir'}/$temp.txt" );
+	print "<h2>Analysis against defined loci</h2>\n";
+	print $fh "Analysis against defined loci\n";
+	print $fh "Time: " . ( localtime(time) ) . "\n\n";
+	print
+"<p><a href=\"/tmp/$temp.txt\">Download tab-delimited text</a> (suitable for editing in a spreadsheet). Please wait for page to finish loading.</p>\n";
+	my $blastn_word_size = $1 if $self->{'cgi'}->param('word_size') =~ /(\d+)/;
+	$blastn_word_size = $blastn_word_size || 15;
+	print "<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Locus</th>";
+	print $fh "Locus";
+	my %names;
+	my $isolate;
+
+	foreach my $id (@$ids) {
+		my $isolate_ref = $self->{'datastore'}->run_simple_query( "SELECT $self->{'system'}->{'labelfield'} FROM isolates WHERE id=?", $id );
+		if ( ref $isolate_ref eq 'ARRAY' ) {
+			$names{$id} = $isolate_ref->[0];
+			$isolate = ' (' . ( $isolate_ref->[0] ) . ')' if ref $isolate_ref eq 'ARRAY';
+		}
+		print "<th>$id$isolate</th>\n";
+		print $fh "\t$id$isolate";
+	}
+	print "</tr>\n";
+	print $fh "\n";
+	my $td = 1;
+	@$loci = uniq @$loci;
+	foreach my $locus (@$loci) {
+		my $locus_FASTA = $self->_create_locus_FASTA_db( $locus, $prefix );
+		my $cleaned_locus = $locus;
+		if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
+			$cleaned_locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
+		}
+		$cleaned_locus =~ tr/_/ /;
+		print "<tr class=\"td$td\"><td>$cleaned_locus</td>";
+		print $fh $locus;
+		my $new_allele = 1;
+		my %new;
+		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+		foreach my $id (@$ids) {
+			$id = $1 if $id =~ /(\d*)/;    #avoid taint check
+			my $out_file = "$self->{'config'}->{'secure_tmp_dir'}/$prefix\_isolate_$id\_outfile.txt";
+			if ( $locus_info->{'data_type'} eq 'DNA' ) {
+				$self->_blast( $blastn_word_size, $locus_FASTA, $isolate_FASTA{$id}, $out_file );
+			} else {
+				$self->_blast( 3, $locus_FASTA, $isolate_FASTA{$id}, $out_file, 1 );
+			}
+			my $match = $self->_parse_blast_by_locus( $locus, $out_file );
+			if ( ref $match ne 'HASH' ) {
+				print "<td>X</td>";
+				print $fh "\tX";
+			} elsif ( $match->{'exact'} ) {
+				print "<td>$match->{'allele'}</td>";
+				print $fh "\t$match->{'allele'}";
+			} else {
+				my $seq = $self->_extract_sequence($match);
+				my $found;
+				foreach ( keys %new ) {
+					if ( $seq eq $new{$_} ) {
+						print "<td>new#$_</td>\n";
+						print $fh "\tnew#$_";
+						$found = 1;
+					}
+				}
+				if ( !$found ) {
+					$new{$new_allele} = $seq;
+					print "<td>new#$new_allele</td>";
+					print $fh "\tnew#$new_allele";
+					$new_allele++;
+				}
+			}
+		}
+		print "</tr>\n";
+		print $fh "\n";
+		$td = $td == 1 ? 2 : 1;
+		if ( $ENV{'MOD_PERL'} ) {
+			$self->{'mod_perl_request'}->rflush;
+			return if $self->{'mod_perl_request'}->connection->aborted;
+		}
+		system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$prefix\_fastafile*";
+	}
+	print "</table></div>\n";
+	close $fh;
+	print "</div>\n";
+	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$prefix\*";
+}
+
+sub _add_scheme_loci {
+	my ( $self, $loci ) = @_;
+	my @scheme_ids = $self->{'cgi'}->param('scheme_id');
+	my %locus_selected;
+	foreach (@$loci) {
+		$locus_selected{$_} = 1;
+	}
+	foreach (@scheme_ids) {
+		my $scheme_loci = $_ ? $self->{'datastore'}->get_scheme_loci($_) : $self->{'datastore'}->get_loci_in_no_scheme;
+		foreach my $locus (@$scheme_loci) {
+			if ( !$locus_selected{$locus} ) {
+				push @$loci, $locus;
+				$locus_selected{$locus} = 1;
+			}
+		}
+	}
+}
+
+sub _analyse_by_reference {
+	my ( $self, $accession, $seq_obj, $ids ) = @_;
+	print "<div class=\"box\" id=\"resultstable\">\n";
+	my @cds;
+	foreach ( $seq_obj->get_SeqFeatures ) {
+		push @cds, $_ if $_->primary_tag eq 'CDS';
+	}
+	my $temp = BIGSdb::Utils::get_random();
+	open( my $fh,       '>', "$self->{'config'}->{'tmp_dir'}/$temp.txt" );
+	open( my $align_fh, '>', "$self->{'config'}->{'tmp_dir'}/$temp\_align.txt" );
+	print "<h2>Analysis by reference genome</h2>\n";
+	print
+"<p><a href=\"/tmp/$temp.txt\">Download tab-delimited text</a> (suitable for editing in a spreadsheet). Please wait for page to finish loading.</p>\n";
+	print "<p><a href=\"/tmp/$temp\_align.txt\">Download alignments</a></p>\n" if @$ids > 1 && $self->{'cgi'}->param('align');
+	print $fh "Analysis by reference genome\n\n";
+	print $fh "Time: " . ( localtime(time) ) . "\n\n";
+	my %att = (
+		'accession'   => $accession,
+		'version'     => $seq_obj->seq_version,
+		'type'        => $seq_obj->alphabet,
+		'length'      => $seq_obj->length,
+		'description' => $seq_obj->description,
+		'cds'         => scalar @cds
+	);
+	my %abb = ( 'cds' => 'coding regions' );
+	print "<table class=\"resultstable\">\n";
+	my $td = 1;
+
+	foreach (qw (accession version type length description cds)) {
+		if ( $att{$_} ) {
+			print "<tr class=\"td$td\"><th>" . ( $abb{$_} || $_ ) . "</th><td style=\"text-align:left\">$att{$_}</td></tr>\n";
+			print $fh ( $abb{$_} || $_ ) . ": $att{$_}\n";
+			$td = $td == 1 ? 2 : 1;
+		}
+	}
+	print "</table>\n";
+	$| = 1;
+	my %isolate_FASTA;
+	my $prefix = BIGSdb::Utils::get_random();
+	foreach (@$ids) {
+		$isolate_FASTA{$_} = $self->_create_isolate_FASTA_db( $_, $prefix );
+	}
+	my %loci;
+	my $blastn_word_size = $1 if $self->{'cgi'}->param('word_size') =~ /(\d+)/;
+	$blastn_word_size = $blastn_word_size || 15;
+	my $exacts;
+	my $exact_except_ref;
+	my $all_missing;
+	my $truncated_loci;
+	my $varying_loci;
+	my $i = 1;
+	my $j = 0;
+	print "<p class=\"comment\">Progress (one dot for every 25 loci analysed): ";
+
+	foreach my $cds (@cds) {
+		print "." if !$i;
+		print " " if !$j;
+		$i++;
+		if ( $i == 25 ) {
+			$i = 0;
+			$j++;
+		}
+		$j = 0 if $j == 10;
+		if ( !$i && $ENV{'MOD_PERL'} ) {
+			$self->{'mod_perl_request'}->rflush;
+			return if $self->{'mod_perl_request'}->connection->aborted;
+		}
+		my @aliases;
+		my $locus;
+		my %seqs;
+		foreach (qw (gene gene_synonym locus_tag old_locus_tag)) {
+			my @values = $cds->get_tag_values($_) if $cds->has_tag($_);
+			foreach my $value (@values) {
+				if ($locus) {
+					push @aliases, $value;
+				} else {
+					$locus = $value;
+				}
+			}
+		}
+		$" = '|';
+		my $locus_name = $locus;
+		$locus_name .= "|@aliases" if @aliases;
+		my $seq = $cds->seq->seq;
+		$seqs{'ref'} = $seq;
+		my @tags;
+		foreach ( $cds->each_tag_value('product') ) {
+			push @tags, $_;
+		}
+		$" = '; ';
+		my $desc                 = "@tags";
+		my $length               = length $seq;
+		my $ref_seq_file         = $self->_create_reference_FASTA_file( \$seq, $prefix );
+		my $seqbin_length_sql    = $self->{'db'}->prepare("SELECT length(sequence) FROM sequence_bin where id=?");
+		my $all_exact            = 1;
+		my $missing_in_all       = 1;
+		my $exact_except_for_ref = 1;
+		my $truncated_locus      = 0;
+		my $first                = 1;
+		my $first_seq;
+		my $previous_seq;
+
+		foreach my $id (@$ids) {
+			$id = $1 if $id =~ /(\d*)/;    #avoid taint check
+			my $out_file = "$self->{'config'}->{'secure_tmp_dir'}/$prefix\_isolate_$id\_outfile.txt";
+			$self->_blast( $blastn_word_size, $isolate_FASTA{$id}, $ref_seq_file, $out_file );
+			my $match = $self->_parse_blast_ref( \$seq, $out_file );
+			my $extracted_seq;
+			my $seqbin_length;
+			if ( ref $match eq 'HASH' ) {
+				if ( $match->{'identity'} == 100 && $match->{'alignment'} == $length ) {
+					$missing_in_all       = 0;
+					$exact_except_for_ref = 0;
+				} else {
+					$all_exact      = 0;
+					$missing_in_all = 0;
+				}
+				eval { $seqbin_length_sql->execute( $match->{'seqbin_id'} ); };
+				if ($@) {
+					$logger->error("Can't execute $@");
+				}
+				($seqbin_length) = $seqbin_length_sql->fetchrow_array;
+				if ( $match->{'predicted_start'} < 1 ) {
+					$match->{'predicted_start'} = 1;
+					$truncated_locus = 1;
+				} elsif ( $match->{'predicted_start'} > $seqbin_length ) {
+					$match->{'predicted_start'} = $seqbin_length;
+					$truncated_locus = 1;
+				}
+				if ( $match->{'predicted_end'} < 1 ) {
+					$match->{'predicted_end'} = 1;
+					$truncated_locus = 1;
+				} elsif ( $match->{'predicted_end'} > $seqbin_length ) {
+					$match->{'predicted_end'} = $seqbin_length;
+					$truncated_locus = 1;
+				}
+				$extracted_seq = $self->_extract_sequence($match);
+				$seqs{$id} = $extracted_seq;
+				if ($first) {
+					$previous_seq = $extracted_seq;
+				} else {
+					if ( $extracted_seq ne $previous_seq ) {
+						$exact_except_for_ref = 0;
+					}
+				}
+			} else {
+				$all_exact            = 0;
+				$exact_except_for_ref = 0;
+			}
+			$first = 0;
+		}
+		if ($all_exact) {
+			$exacts->{$locus}->{'length'} = length $seq;
+			$exacts->{$locus}->{'desc'}   = $desc;
+		} elsif ($missing_in_all) {
+			$all_missing->{$locus}->{'length'} = length $seq;
+			$all_missing->{$locus}->{'desc'}   = $desc;
+		} elsif ($exact_except_for_ref) {
+			$exact_except_ref->{$locus}->{'length'} = length $seq;
+			$exact_except_ref->{$locus}->{'desc'}   = $desc;
+		} elsif ($truncated_locus) {
+			$truncated_loci->{$locus}->{'length'} = length $seq;
+			$truncated_loci->{$locus}->{'desc'}   = $desc;
+		} else {
+			foreach ( keys %seqs ) {
+				$varying_loci->{$locus}->{$_} = $seqs{$_};
+			}
+			$varying_loci->{$locus}->{'desc'} = $desc;
+
+			#			print $buffer;
+			$td = $td == 1 ? 2 : 1;
+		}
+		if ( $ENV{'MOD_PERL'} ) {
+			$self->{'mod_perl_request'}->rflush;
+			if ( $self->{'mod_perl_request'}->connection->aborted ) {
+				return;
+			}
+		}
+	}
+	print "</p>\n";
+	print $fh "\n###\n\n";
+	$self->_print_variable_loci( $fh, $align_fh, $ids, $varying_loci );
+	print $fh "\n###\n\n";
+	$self->_print_missing_in_all( $fh, $all_missing );
+	print $fh "\n###\n\n";
+	$self->_print_exact_matches( $fh, $exacts );
+	print $fh "\n###\n\n";
+	$self->_print_exact_except_ref( $fh, $exact_except_ref );
+	print $fh "\n###\n\n";
+	$self->_print_truncated_loci( $fh, $truncated_loci );
+	print "</div>\n";
+	close $fh;
+	close $align_fh;
+	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$prefix\*";
+}
+
+sub _print_variable_loci {
+	my ( $self, $fh, $fh_align, $ids, $loci ) = @_;
+	my $q = $self->{'cgi'};
+	return if ref $loci ne 'HASH';
+	print "<h2>Loci with sequence differences between isolates</h2>\n";
+	print $fh "Loci with sequence differences between isolates\n";
+	print $fh "-----------------------------------------------\n\n";
+	print "<p>Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'.</p>";
+	print $fh "Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'.\n\n";
+	print "<p>Variable loci: " . ( scalar keys %$loci ) . "</p>\n";
+	print $fh "Variable loci: " . ( scalar keys %$loci ) . "\n\n";
+	print "<div class=\"scrollable\">\n";
+	print "<table class=\"resultstable\"><tr><th>Locus</th><th>Product</th><th>Reference genome</th>";
+	print $fh "Locus\tProduct\tReference genome";
+	my %names;
+	my $isolate;
+
+	foreach my $id (@$ids) {
+		my $isolate_ref = $self->{'datastore'}->run_simple_query( "SELECT isolate FROM isolates WHERE id=?", $id );
+		if ( ref $isolate_ref eq 'ARRAY' ) {
+			$names{$id} = $isolate_ref->[0];
+			$isolate = ' (' . ( $isolate_ref->[0] ) . ')' if ref $isolate_ref eq 'ARRAY';
+		}
+		print "<th>$id$isolate</th>\n";
+		print $fh "\t$id$isolate";
+	}
+	print "</tr>\n";
+	print $fh "\n";
+	my $td = 1;
+	my $count;
+	my $temp = BIGSdb::Utils::get_random();
+	foreach ( sort keys %$loci ) {
+		my $fasta_file = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$_.fasta";
+		my $muscle_out = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$_.muscle";
+		open( my $fasta_fh, '>', $fasta_file );
+		my %alleles;
+		my $allele        = 1;
+		my $cleaned_locus = $_;
+		if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
+			$cleaned_locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
+		}
+		$cleaned_locus =~ tr/_/ /;
+		print "<tr class=\"td$td\"><td>$cleaned_locus</td><td>$loci->{$_}->{'desc'}</td><td>1</td>";
+		print $fh "$_\t$loci->{$_}->{'desc'}\t1";
+		$alleles{1} = $loci->{$_}->{'ref'};
+		print $fasta_fh ">ref\n";
+		print $fasta_fh "$loci->{$_}->{'ref'}\n";
+		foreach my $id (@$ids) {
+			my $this_allele;
+			if ( !$loci->{$_}->{$id} ) {
+				$this_allele = 'X';
+			} else {
+				print $fasta_fh ">$names{$id}\n";
+				print $fasta_fh "$loci->{$_}->{$id}\n";
+				my $i;
+				for ( $i = 1 ; $i <= $allele ; $i++ ) {
+					if ( $loci->{$_}->{$id} eq $alleles{$i} ) {
+						$this_allele = $i;
+					}
+				}
+				if ( !$this_allele ) {
+					$allele++;
+					$this_allele = $allele;
+					$alleles{$this_allele} = $loci->{$_}->{$id};
+				}
+			}
+			print "<td>$this_allele</td>";
+			print $fh "\t$this_allele";
+		}
+		print "</tr>\n";
+		print $fh "\n";
+		$td = $td == 1 ? 2 : 1;
+		close $fasta_fh;
+		if ( $q->param('align') ) {
+			system( $self->{'config'}->{'muscle_path'}, '-in', $fasta_file, '-out', $muscle_out, '-stable', '-quiet', '-clw' );
+			if ( -e $muscle_out ) {
+				open( my $muscle_fh, '<', $muscle_out );
+				print $fh_align "$_\n";
+				print $fh_align '-' x ( length $_ ) . "\n\n";
+				while ( my $line = <$muscle_fh> ) {
+					print $fh_align $line;
+				}
+				close $muscle_out;
+				unlink $muscle_out;
+			}
+		}
+		unlink $fasta_file;
+		if ( $ENV{'MOD_PERL'} ) {
+			$self->{'mod_perl_request'}->rflush;
+			return if $self->{'mod_perl_request'}->connection->aborted;
+		}
+	}
+	print "</table>\n";
+	print "</div>\n";
+}
+
+sub _print_exact_matches {
+	my ( $self, $fh, $exacts ) = @_;
+	my $q = $self->{'cgi'};
+	return if ref $exacts ne 'HASH';
+	print "<h2>Exactly matching loci</h2>\n";
+	print $fh "Exactly matching loci\n";
+	print $fh "---------------------\n\n";
+	print "<p>These loci are identical in all isolates";
+	print $fh "These loci are identical in all isolates";
+
+	if ( $q->param('accession') ) {
+		print ", including the reference genome";
+		print $fh ", including the reference genome";
+	}
+	print ".</p>\n";
+	print $fh ".\n\n";
+	print "<p>Matches: " . ( scalar keys %$exacts ) . "</p>\n";
+	print $fh "Matches: " . ( scalar keys %$exacts ) . "\n\n";
+	$self->_print_locus_table( $fh, $exacts );
+}
+
+sub _print_exact_except_ref {
+	my ( $self, $fh, $exacts ) = @_;
+	my $q = $self->{'cgi'};
+	return if ref $exacts ne 'HASH';
+	print "<h2>Loci exactly the same in all compared genomes except the reference</h2>\n";
+	print $fh "Loci exactly the same in all compared genomes except the reference\n";
+	print $fh "------------------------------------------------------------------\n\n";
+	print "<p>Matches: " . ( scalar keys %$exacts ) . "</p>\n";
+	print $fh "Matches: " . ( scalar keys %$exacts ) . "\n\n";
+	$self->_print_locus_table( $fh, $exacts );
+}
+
+sub _print_missing_in_all {
+	my ( $self, $fh, $missing ) = @_;
+	my $q = $self->{'cgi'};
+	return if ref $missing ne 'HASH';
+	print "<h2>Loci missing in all isolates</h2>\n";
+	print $fh "Loci missing in all isolates\n";
+	print $fh "----------------------------\n\n";
+	print "<p>Missing loci: " . ( scalar keys %$missing ) . "</p>\n";
+	print $fh "Missing loci: " . ( scalar keys %$missing ) . "\n\n";
+	$self->_print_locus_table( $fh, $missing );
+}
+
+sub _print_truncated_loci {
+	my ( $self, $fh, $truncated ) = @_;
+	my $q = $self->{'cgi'};
+	return if ref $truncated ne 'HASH';
+	print "<h2>Loci that are truncated in some isolates</h2>\n";
+	print $fh "Loci that are truncated in some isolates\n";
+	print $fh "----------------------------------------\n\n";
+	print "<p>Truncated: " . ( scalar keys %$truncated ) . "</p>\n";
+	print $fh "Truncated: " . ( scalar keys %$truncated ) . "\n\n";
+	print "<p>These loci are incomplete and located at the ends of contigs in at least one isolate.</p>\n";
+	print $fh "These loci are incomplete and located at the ends of contigs in at least one isolate.\n\n";
+	$self->_print_locus_table( $fh, $truncated );
+}
+
+sub _print_locus_table {
+	my ( $self, $fh, $loci ) = @_;
+	print "<div class=\"scrollable\">\n";
+	print "<table class=\"resultstable\"><tr><th>Locus</th><th>Product</th><th>Sequence length</th>";
+	print $fh "Locus\tProduct\tSequence length";
+	print "</tr>\n";
+	print $fh "\n";
+	my $td = 1;
+	foreach ( sort keys %$loci ) {
+		my $cleaned_locus = $_;
+		if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
+			$cleaned_locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
+		}
+		$cleaned_locus =~ tr/_/ /;
+		print "<tr class=\"td$td\"><td>$cleaned_locus</td><td>$loci->{$_}->{'desc'}</td><td>$loci->{$_}->{'length'}</td>";
+		print $fh "$_\t$loci->{$_}->{'desc'}\t$loci->{$_}->{'length'}";
+		print "</tr>\n";
+		print $fh "\n";
+		$td = $td == 1 ? 2 : 1;
+	}
+	print "</table>\n";
+	print "</div>\n";
+}
+
+sub _extract_sequence {
+	my ( $self, $match ) = @_;
+	my $start  = $match->{'predicted_start'};
+	my $end    = $match->{'predicted_end'};
+	my $length = abs( $end - $start ) + 1;
+	if ( $end < $start ) {
+		$start = $end;
+	}
+	my $seq_ref =
+	  $self->{'datastore'}
+	  ->run_simple_query( "SELECT substring(sequence from $start for $length) FROM sequence_bin WHERE id=?", $match->{'seqbin_id'} );
+	if ( ref $seq_ref eq 'ARRAY' ) {
+		if ( $match->{'reverse'} ) {
+			return BIGSdb::Utils::reverse_complement( $seq_ref->[0] );
+		}
+		return $seq_ref->[0];
+	}
+}
+
+sub _blast {
+	my ( $self, $word_size, $fasta_file, $in_file, $out_file, $blastx ) = @_;
+	my $program = $blastx ? 'blastx' : 'blastn';
+	system(
+"$self->{'config'}->{'blast_path'}/blastall -b 10 -p $program -W $word_size -d $fasta_file -i $in_file -o $out_file -m8 -F F 2> /dev/null"
+	);
+}
+
+sub _parse_blast_by_locus {
+
+	#return best match
+	my ( $self, $locus, $blast_file ) = @_;
+	my $identity  = $self->{'cgi'}->param('identity');
+	my $alignment = $self->{'cgi'}->param('alignment');
+	$identity  = 70 if !BIGSdb::Utils::is_int($identity);
+	$alignment = 50 if !BIGSdb::Utils::is_int($alignment);
+	my $full_path = "$blast_file";
+	open( my $blast_fh, '<', $full_path ) || ( $logger->error("Can't open BLAST output file $full_path. $!"), return \$; );
+	my $match;
+	my $quality;    #simple metric of alignment length x percentage identity
+	my $ref_seq_sql = $self->{'db'}->prepare("SELECT length(reference_sequence) FROM loci WHERE id=?");
+	my %lengths;
+
+	while ( my $line = <$blast_fh> ) {
+		next if !$line || $line =~ /^#/;
+		my @record = split /\s+/, $line;
+		if ( !$lengths{ $record[1] } ) {
+			if ( $record[1] eq 'ref' ) {
+				eval {
+					$ref_seq_sql->execute($locus);
+					( $lengths{ $record[1] } ) = $ref_seq_sql->fetchrow_array;
+				};
+				if ($@) {
+					$logger->error("Can't execute ref_seq query $@");
+				}
+			} else {
+				my $seq_ref = $self->{'datastore'}->get_locus($locus)->get_allele_sequence( $record[1] );
+				$lengths{ $record[1] } = length($$seq_ref);
+			}
+		}
+		my $length       = $lengths{ $record[1] };
+		my $this_quality = $record[3] * $record[2];
+		if ( $this_quality > $quality && $record[3] > $alignment * 0.01 * $length && $record[2] >= $identity ) {
+			$quality              = $this_quality;
+			$match->{'seqbin_id'} = $record[0];
+			$match->{'allele'}    = $record[1];
+			$match->{'identity'}  = $record[2];
+			$match->{'length'}    = $length;
+			$match->{'alignment'} = $record[3];
+			$match->{'start'}     = $record[6];
+			$match->{'end'}       = $record[7];
+			$match->{'reverse'} = 1 if $record[8] > $record[9];
+			$match->{'exact'} = 1 if $match->{'identity'} == 100 && $match->{'alignment'} == $length;
+
+			if ( $length > $match->{'alignment'} ) {
+				if ( $match->{'reverse'} ) {
+					$match->{'predicted_start'} = $match->{'start'} - $length + $record[8];
+					$match->{'predicted_end'}   = $match->{'end'} + $record[9] - 1;
+				} else {
+					$match->{'predicted_start'} = $match->{'start'} - $record[8] + 1;
+					$match->{'predicted_end'}   = $match->{'end'} + $length - $record[9];
+				}
+			} else {
+				$match->{'predicted_start'} = $match->{'start'};
+				$match->{'predicted_end'}   = $match->{'end'};
+			}
+		}
+	}
+	close $blast_fh;
+	return $match;
+}
+
+sub _parse_blast_ref {
+
+	#return best match
+	my ( $self, $seq_ref, $blast_file ) = @_;
+	my $identity  = $self->{'cgi'}->param('identity');
+	my $alignment = $self->{'cgi'}->param('alignment');
+	$identity  = 70 if !BIGSdb::Utils::is_int($identity);
+	$alignment = 50 if !BIGSdb::Utils::is_int($alignment);
+	open( my $blast_fh, '<', $blast_file ) || ( $logger->error("Can't open BLAST output file $blast_file. $!"), return \$; );
+	my $match;
+	my $quality;    #simple metric of alignment length x percentage identity
+	my $ref_length = length $$seq_ref;
+
+	while ( my $line = <$blast_fh> ) {
+		next if !$line || $line =~ /^#/;
+		my @record = split /\s+/, $line;
+		my $this_quality = $record[3] * $record[2];
+		if ( $this_quality > $quality && $record[3] > $alignment * 0.01 * $ref_length && $record[2] > $identity ) {
+			$quality              = $this_quality;
+			$match->{'seqbin_id'} = $record[1];
+			$match->{'identity'}  = $record[2];
+			$match->{'alignment'} = $record[3];
+			$match->{'start'}     = $record[8];
+			$match->{'end'}       = $record[9];
+			$match->{'reverse'} = 1 if ( $record[8] > $record[9] );
+			if ( $ref_length > $match->{'alignment'} ) {
+
+				if ( $match->{'reverse'} ) {
+					$match->{'predicted_start'} = $match->{'start'} - $ref_length + $record[6];
+					$match->{'predicted_end'}   = $match->{'end'} + $record[7] - 1;
+				} else {
+					$match->{'predicted_start'} = $match->{'start'} - $record[6] + 1;
+					$match->{'predicted_end'}   = $match->{'end'} + $ref_length - $record[7];
+				}
+			} else {
+				if ( $match->{'reverse'} ) {
+					$match->{'predicted_start'} = $match->{'end'};
+					$match->{'predicted_end'}   = $match->{'start'};
+				} else {
+					$match->{'predicted_start'} = $match->{'start'};
+					$match->{'predicted_end'}   = $match->{'end'};
+				}
+			}
+		}
+	}
+	close $blast_fh;
+	return $match;
+}
+
+sub _create_locus_FASTA_db {
+	my ( $self, $locus, $prefix ) = @_;
+	my $clean_locus = $locus;
+	$clean_locus =~ s/\W/_/g;
+	$clean_locus = $1 if $locus =~ /(\w*)/;    #avoid taint check
+	my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$prefix\_fastafile_$clean_locus.txt";
+	$temp_fastafile =~ s/\\/\\\\/g;
+	$temp_fastafile =~ s/'/__prime__/g;
+	if ( !-e $temp_fastafile ) {
+		open( my $fasta_fh, '>', $temp_fastafile );
+		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+		if ( $locus_info->{'dbase_name'} ) {
+			my $seqs_ref = $self->{'datastore'}->get_locus($locus)->get_all_sequences;
+			foreach ( keys %$seqs_ref ) {
+				next if !length $seqs_ref->{$_};
+				print $fasta_fh ">$_\n$seqs_ref->{$_}\n";
+			}
+		} else {
+			print $fasta_fh ">ref\n$locus_info->{'reference_sequence'}\n";
+		}
+		close $fasta_fh;
+		if ( $locus_info->{'data_type'} eq 'DNA' ) {
+			system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p F -o T");
+		} else {
+			system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p T -o T");
+		}
+	}
+	return $temp_fastafile;
+}
+
+sub _create_reference_FASTA_file {
+	my ( $self, $seq_ref, $prefix ) = @_;
+	my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$prefix\_fastafile.txt";
+	open( my $fasta_fh, '>', $temp_fastafile );
+	print $fasta_fh ">ref\n$$seq_ref\n";
+	close $fasta_fh;
+	return $temp_fastafile;
+}
+
+sub _create_isolate_FASTA {
+	my ( $self, $isolate_id, $prefix ) = @_;
+	my $qry = "SELECT id,sequence FROM sequence_bin LEFT JOIN experiment_sequences ON sequence_bin.id=seqbin_id WHERE isolate_id=?";
+	my @criteria = ($isolate_id);
+	my $method   = $self->{'cgi'}->param('seq_method');
+	if ($method) {
+		if ( !any { $_ eq $method } SEQ_METHODS ) {
+			$logger->error("Invalid method $method");
+			return;
+		}
+		$qry .= " AND method=?";
+		push @criteria, $method;
+	}
+	my $experiment = $self->{'cgi'}->param('experiment');
+	if ($experiment) {
+		if ( !BIGSdb::Utils::is_int($experiment) ) {
+			$logger->error("Invalid experiment $experiment");
+			return;
+		}
+		$qry .= " AND experiment_id=?";
+		push @criteria, $experiment;
+	}
+	my $sql = $self->{'db'}->prepare($qry);
+	eval { $sql->execute(@criteria); };
+	if ($@) {
+		$logger->error("Can't execute $qry $@");
+	}
+	$isolate_id = $1 if $isolate_id =~ /(\d*)/;    #avoid taint check
+	my $temp_infile = "$self->{'config'}->{'secure_tmp_dir'}/$prefix\_isolate_$isolate_id.txt";
+	open( my $infile_fh, '>', $temp_infile );
+	while ( my ( $id, $seq ) = $sql->fetchrow_array ) {
+		print $infile_fh ">$id\n$seq\n";
+	}
+	close $infile_fh;
+	return $temp_infile;
+}
+
+sub _create_isolate_FASTA_db {
+	my ( $self, $isolate_id, $prefix ) = @_;
+	my $temp_infile = $self->_create_isolate_FASTA( $isolate_id, $prefix );
+	system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_infile -p F -o T");
+	return $temp_infile;
+}
+1;

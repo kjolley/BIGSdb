@@ -1,0 +1,10 @@
+analysis.png        LGPL2.1         http://www.oxygen-icons.org/
+breakdown.png       LGPL2.1         http://www.oxygen-icons.org/
+configure.png       LGPL2.1         http://www.oxygen-icons.org/
+download.png        Public domain   http://tango.freedesktop.org/Tango_icon_Library
+edit.png            LGPL2.1         http://commons.wikimedia.org/wiki/Crystal_Clear
+export.png          LGP2.1          http://www.oxygen-icons.org/
+information.png     GPL2            http://code.google.com/p/gnome-colors/
+miscellaneous.png   LGPL2.1         http://www.oxygen-icons.org/
+preferences.png     Public domain   http://tango.freedesktop.org/Tango_icon_Library
+search.png          Public domain   http://tango.freedesktop.org/Tango_icon_Library

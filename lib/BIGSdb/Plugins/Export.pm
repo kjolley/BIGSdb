@@ -1,0 +1,291 @@
+#Export.pm - Export plugin for BIGSdb
+#Written by Keith Jolley
+#Copyright (c) 2010, University of Oxford
+#E-mail: keith.jolley@zoo.ox.ac.uk
+#
+#This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
+#
+#BIGSdb is free software: you can redistribute it and/or modify
+#it under the terms of the GNU General Public License as published by
+#the Free Software Foundation, either version 3 of the License, or
+#(at your option) any later version.
+#
+#BIGSdb is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+#
+#You should have received a copy of the GNU General Public License
+#along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
+package BIGSdb::Plugins::Export;
+use strict;
+use base qw(BIGSdb::Plugin);
+use Log::Log4perl qw(get_logger);
+my $logger = get_logger('BIGSdb.Plugins');
+use Error qw(:try);
+use Apache2::Connection ();
+use Bio::Tools::SeqStats;
+
+sub get_attributes {
+	my %att = (
+		name        => 'Export',
+		author      => 'Keith Jolley',
+		affiliation => 'University of Oxford, UK',
+		email       => 'keith.jolley@zoo.ox.ac.uk',
+		description => 'Export dataset generated from query results',
+		category    => 'Export',
+		buttontext  => 'Dataset',
+		menutext    => 'Export dataset',
+		module      => 'Export',
+		version     => '1.0.0',
+		dbtype      => 'isolates',
+		section     => 'export,postquery',
+		input       => 'query',
+		requires    => 'refdb',
+		order       => 15
+	);
+	return \%att;
+}
+
+sub get_option_list {
+	my @list = (
+		{ name => 'alleles', description => 'Export allele numbers',            default => '1' },
+		{ name => 'molwt',   description => 'Export protein molecular weights', default => '0' },
+		{ name => 'met', description => 'GTG/TTG at start codes for methionine', default => '1'}
+	);
+	return \@list;
+}
+
+sub run {
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
+	my $query_file = $q->param('query_file');
+	print "<h1>Export dataset</h1>\n";
+	if ( $q->param('submit') ) {
+		my $selected_fields = $self->get_selected_fields;
+		if ( !@$selected_fields ) {
+			print "<div class=\"box\" id=\"statusbad\"><p>No fields have been selected!</p></div>\n";
+		} else {
+			my $filename   = BIGSdb::Utils::get_random() . '.txt';
+			my $query_file = $q->param('query_file');
+			my $qry_ref    = $self->get_query($query_file);
+			return if ref $qry_ref ne 'SCALAR';
+			my $view = $self->{'system'}->{'view'};
+			print "<div class=\"box\" id=\"resultstable\">";
+			print "<p>Please wait for processing to finish (do not refresh page).</p>\n";
+			print "<p>Output file being generated ...";
+			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
+			return if !$self->create_temp_tables($qry_ref);
+			my $fields = $self->{'xmlHandler'}->get_field_list;
+			$" = ",$view.";
+			my $field_string = "$view.@$fields";
+			$$qry_ref =~ s/SELECT ($view\.\*|\*)/SELECT $field_string/;
+			$self->rewrite_query_ref_order_by($qry_ref);
+			$| = 1;
+			$self->_write_tab_text( $qry_ref, $selected_fields, $full_path );
+			print " done</p>";
+			print "<p><a href=\"/tmp/$filename\">Output file</a> (right-click to save)</p>\n";
+			print "</div>\n";
+			return;
+		}
+	}
+	print <<"HTML";
+<div class="box" id="queryform">
+<p>This script will export the dataset in tab-delimited text, suitable for importing into a spreadsheet.
+You can choose which fields you would like included - please uncheck any that are not required.</p>
+HTML
+	foreach (qw (shtml html)) {
+		my $policy = "$ENV{'DOCUMENT_ROOT'}$self->{'system'}->{'webroot'}/policy.$_";
+		if ( -e $policy ) {
+			print
+"<p>Use of exported data is subject to the terms of the <a href='$self->{'system'}->{'webroot'}/policy.$_'>policy document</a>!</p>";
+			last;
+		}
+	}
+	$self->print_field_export_form( 1, [], { 'include_composites' => 1, 'extended_attributes' => 1 } );
+	print "</div>\n";
+}
+
+sub _write_tab_text {
+	my ( $self, $qry_ref, $fields, $filename ) = @_;
+	my $guid = $self->get_guid;
+	my %prefs;
+	my %default_prefs = ( 'alleles' => 1, 'molwt' => 0, 'met' => 1 );
+	foreach (qw (alleles molwt met)) {
+		try {
+			$prefs{$_} = $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'Export', $_ );
+			$prefs{$_} = $prefs{$_} eq 'true' ? 1 : 0;
+		}
+		catch BIGSdb::DatabaseNoRecordException with {
+			$prefs{$_} = $default_prefs{$_};
+		};
+	}
+	open( my $fh, '>', $filename )
+	  or $logger->error("Can't open temp file $filename for writing");
+	my $first = 1;
+	my %schemes;
+	foreach (@$fields) {
+		my $field = $_;
+		if ( $field =~ /^s_(\d+)_f/ ) {
+			my $scheme_info = $self->{'datastore'}->get_scheme_info($1);
+			$field .= " ($scheme_info->{'description'})"
+			  if $scheme_info->{'description'};
+			$schemes{$1} = 1;
+		}
+		my $is_locus;
+		if ( $field =~ /(s_\d+_l_|l_)/ ) {
+			$is_locus = 1;
+		}
+		$field =~ s/^(s_\d+_l|s_\d+_f|f|l|c)_//g;    #strip off prefix for header row
+		$field =~ s/___/../;
+		$field =~ tr/_/ /;
+		if ($is_locus) {
+			if ( $prefs{'alleles'} ) {
+				print $fh "\t" if !$first;
+				print $fh $field;
+				$first = 0;
+			}
+			if ( $prefs{'molwt'} ) {
+				print $fh "\t" if !$first;
+				print $fh "$field Mwt";
+				$first = 0;
+			}
+		} else {
+			print $fh "\t" if !$first;
+			print $fh $field;
+			$first = 0;
+		}
+	}
+	my $scheme_field_pos;
+	foreach my $scheme_id ( keys %schemes ) {
+		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+		my $i             = 0;
+		foreach (@$scheme_fields) {
+			$scheme_field_pos->{$scheme_id}->{$_} = $i;
+			$i++;
+		}
+	}
+	if ($first) {
+		print $fh "Make sure you select an option for locus export (see options in the top-right corner).\n";
+		return;
+	}
+	print $fh "\n";
+	my $sql = $self->{'db'}->prepare($$qry_ref);
+	eval { $sql->execute; };
+	if ($@) {
+		$logger->error("Can't execute $$qry_ref");
+	}
+	my %data           = ();
+	my $fields_to_bind = $self->{'xmlHandler'}->get_field_list;
+	$sql->bind_columns( map { \$data{$_} } @$fields_to_bind );    #quicker binding hash to arrayref than to use hashref
+	my $i         = 0;
+	my $j         = 0;
+	my $alias_sql = $self->{'db'}->prepare("SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias");
+	my $attribute_sql =
+	  $self->{'db'}->prepare("SELECT value FROM isolate_value_extended_attributes WHERE isolate_field=? AND attribute=? AND field_value=?");
+
+	while ( $sql->fetchrow_arrayref ) {
+		print "." if !$i;
+		print " " if !$j;
+		if ( !$i && $ENV{'MOD_PERL'} ) {
+			$self->{'mod_perl_request'}->rflush;
+			return if $self->{'mod_perl_request'}->connection->aborted;
+		}
+		my $first      = 1;
+		my $allele_ids = $self->{'datastore'}->get_all_allele_ids( $data{'id'} );
+		my $scheme_field_values;
+		foreach (@$fields) {
+			print $fh "\t" if !$first;
+			if ( $_ =~ /^f_(.*)/ ) {
+				my $field = $1;
+				if ( $field eq 'aliases' ) {
+					eval { $alias_sql->execute( $data{'id'} ); };
+					if ($@) {
+						$logger->error("Can't execute alias query $@");
+					}
+					my @aliases;
+					while ( my ($alias) = $alias_sql->fetchrow_array ) {
+						push @aliases, $alias;
+					}
+					$" = '; ';
+					print $fh "@aliases";
+				} elsif ( $field =~ /(.*)___(.*)/ ) {
+					my ( $isolate_field, $attribute ) = ( $1, $2 );
+					eval { $attribute_sql->execute( $isolate_field, $attribute, $data{$isolate_field} ); };
+					if ($@) {
+						$logger->error("Can't execute $@");
+					}
+					my ($value) = $attribute_sql->fetchrow_array;
+					print $fh $value;
+				} else {
+					print $fh $data{$field};
+				}
+			} elsif ( $_ =~ /^(s_\d+_l_|l_)(.*)/ ) {
+				my $locus            = $2;
+				my $locus_value_used = 0;
+				if ( $prefs{'alleles'} ) {
+					print $fh $allele_ids->{$locus};
+					$locus_value_used = 1;
+				}
+				if ( $prefs{'molwt'} ) {
+					print $fh "\t" if $locus_value_used;
+					print $fh $self->_get_molwt( $locus, $allele_ids->{$locus} ,$prefs{'met'});
+				}
+			} elsif ( $_ =~ /^s_(\d+)_f_(.*)/ ) {
+				if ( ref $scheme_field_values->{$1} ne 'ARRAY' ) {
+					$scheme_field_values->{$1} = $self->{'datastore'}->get_scheme_field_values( $data{'id'}, $1 );
+				}
+				my $value = $scheme_field_values->{$1}->[ $scheme_field_pos->{$1}->{$2} ];
+				undef $value
+				  if $value eq '-999';    #old null code from mlstdbNet databases
+				print $fh $value;
+			} elsif ( $_ =~ /^c_(.*)/ ) {
+				my $value = $self->{'datastore'}->get_composite_value( $data{'id'}, $1, \%data );
+				print $fh $value;
+			}
+			$first = 0;
+		}
+		print $fh "\n";
+		$i++;
+		if ( $i == 50 ) {
+			$i = 0;
+			$j++;
+		}
+		$j = 0 if $j == 10;
+	}
+	close $fh;
+}
+
+sub _get_molwt {
+	my ( $self, $locus_name, $allele, $met ) = @_;
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
+	my $peptide;
+	my $locus = $self->{'datastore'}->get_locus($locus_name);
+	if ( $locus_info->{'data_type'} eq 'DNA' ) {
+		my $seq_ref;
+		try {
+			$seq_ref = $locus->get_allele_sequence($allele);
+		}
+		catch BIGSdb::DatabaseConnectionException with {
+
+			#do nothing
+		};
+		my $seq = BIGSdb::Utils::chop_seq( $$seq_ref, $locus_info->{'orf'} || 1 );
+		if ($met){
+			$seq =~ s/^(TTG|GTG)/ATG/;
+		}
+		$peptide = Bio::Perl::translate_as_string($seq) if $seq;
+	} else {
+		$peptide = ${ $locus->get_allele_sequence($allele) };
+	}
+	return if !$peptide;
+	my $seqobj = Bio::PrimarySeq->new ( -seq => $peptide,
+				   -id  => $allele,
+				   -alphabet => 'protein',
+				   );
+	
+	my $seq_stats  = Bio::Tools::SeqStats->new($seqobj);
+  	my $weight = $seq_stats->get_mol_wt;
+	return $weight->[0];
+}
+1;
