@@ -247,8 +247,7 @@ sub run {
 		return;
 	}
 	if ($accession) {
-		my $registry = Bio::DB::Registry->new;
-		my $seq_db   = $registry->get_database('embl');
+		my $seq_db = new Bio::DB::GenBank;
 		$seq_db->verbose(2);    #convert warn to exception
 		my $seq_obj;
 		try {
