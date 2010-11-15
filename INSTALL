@@ -1,0 +1,92 @@
+BIGSdb installation
+-------------------
+
+1) Unpack the distribution package in a temporary directory:
+
+gunzip bigsdb_1.x.x.tar.gz
+tar xvf bigsdb_1.x.x.tar
+
+2) Copy the bigsdb.pl and bigscurate.pl scripts to a subdirectory of your
+web server's cgi-bin directory.  Make sure these are readable and executable
+by the web server daemon.
+
+3) Copy the contents of the lib directory to /usr/local/lib/BIGSdb/.  Make
+sure you include the Plugins directory which is a subdirectory of the main
+lib directory.
+
+4) Copy the contents of the javascript directory to a javascript directory
+within the web root tree, i.e. accessible from 
+http://your_website/javascript/.
+
+5) Copy the bigsdb.css stylesheet to the root directory of your website,
+i.e. accessible from http://your_website/bigsdb.css.
+
+6) Copy the images directory to the root directory of your website, 
+i.e. accessible from http://your_website/images.
+
+7) Copy the contents of the conf directory to /etc/bigsdb/.  Check the
+paths of helper applications and database names in the bigsdb.conf file
+and modify for your system.
+
+8) Create PostgreSQL database users called apache and remote - these 
+should not have any special priveleges.  Use the createuser command to do 
+this, e.g.
+
+createuser apache
+
+9) Create PostgreSQL databases called bigsdb_auth, bigsdb_prefs and refs
+using the scripts in the sql directory.  Create the database using the
+createdb command and set up the tables using the psql command, e.g.
+
+createdb bigsdb_auth
+psql -f auth.sql bigsdb_auth 
+
+10) Create a writable temporary directory in the root of the web site called
+tmp, i.e. accessible from http://your_website/tmp
+
+11) Create a log file, bigsdb.log, in /var/log owned by the web server daemon, e.g.
+
+touch /var/log/bigsdb.log
+chown www-data /var/log/bigsdb.log (substitute www-data for the web daemon user).
+
+Set up databases
+----------------
+
+Use the seqdef.sql and isolatedb.sql scripts to set up sequence/
+profile definitions or isolate databases respectively.  Copy the
+corresponding XML files, renamed as config.xml for these databases to a 
+subdirectory off /etc/bigsdb/dbases/ named according to how you want to 
+name the database within your web paths, e.g. for an isolate database
+that you will access with the name test_db (e.g. from
+http://your_website/cgi-bin/bigsdb/bigsdb.pl?db=test_db) create a directory
+/etc/bigsdb/dbases/test_db and copy the isolates_config.xml file renamed
+as config.xml, i.e. /etc/bigsdb/dbases/test_db/config.xml.
+
+The system name of the database is defined with the db attribute within
+the system tag of the XML description file.
+
+Add any fields you wish to the isolates table using psql or pg_access and
+edit the XML file correspondingly, keeping the two in sync.  See 
+http://pubmlst.org/software/database/bigsdb/installation/xml.shtml for
+details of how to edit the XML file.
+
+The website can be customized by adding the following files to the database configuration directory, e.g. /etc/bigsdb/dbases/test_db:
+
+banner.html, header.html, footer.html, curate_header.html, curate_footer.html.
+Header and footer files are placed around the script output.  The contents
+of banner.html are displayed as a banner within the contents page of the
+database.
+
+Setting up the admin user
+-------------------------
+The first admin user needs to be manually added to the users table of the
+database.  Connect to the database using psql and add the following 
+(changing details to suit the user).
+
+INSERT INTO users (id,user_name,surname,first_name,email,affiliation,status,date_entered,datestamp,curator) VALUES (1,'keith','Jolley','Keith','keith.jolley@zoo.ox.ac.uk','University of Oxford, UK','admin','today','today',1);
+
+If you are using built-in authentication, set the password for this user
+using the add_user.pl script.  Other users can be added by the admin user
+from the curation interface accessible from 
+http://your_website/cgi-bin/private/bigscurate.pl?db=test_db (or wherever 
+you have located your bigscurate.pl script).
