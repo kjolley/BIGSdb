@@ -631,27 +631,9 @@ sub _scheme_data_present {
 
 sub _data_not_in_scheme_present {
 	my ($self,$isolate_id) = @_;
-	if (!$self->{'sql'}->{'no_scheme_data_designations'}){
-		$self->{'sql'}->{'no_scheme_data_designations'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM allele_designations WHERE isolate_id=? AND locus NOT IN (SELECT locus FROM scheme_members)");
-	}
-	eval {
-		$self->{'sql'}->{'no_scheme_data_designations'}->execute($isolate_id);
-	};
-	if ($@){
-		$logger->error("Can't execute $@");
-	}
-	if (!$self->{'sql'}->{'no_scheme_data_sequences'}){
-		$self->{'sql'}->{'no_scheme_data_sequences'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id WHERE isolate_id=? AND locus NOT IN (SELECT locus FROM scheme_members)");
-	}
-	eval {
-		$self->{'sql'}->{'no_scheme_data_sequences'}->execute($isolate_id);
-	};
-	if ($@){
-		$logger->error("Can't execute $@");
-	}
-	my ($designations_present) = $self->{'sql'}->{'no_scheme_data_designations'}->fetchrow_array;
-	my ($sequences_present) = $self->{'sql'}->{'no_scheme_data_sequences'}->fetchrow_array;
-	return $designations_present+$sequences_present;
+	my $designations = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM allele_designations WHERE isolate_id=? AND locus NOT IN (SELECT locus FROM scheme_members)",$isolate_id)->[0];
+	my $sequences = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id WHERE isolate_id=? AND locus NOT IN (SELECT locus FROM scheme_members)",$isolate_id)->[0];
+	return $designations+$sequences;
 }
 
 sub get_sample_summary {
