@@ -555,8 +555,9 @@ sub _get_tree {
 		$temp_buffer.= "</ul></li>";
 		$buffer.=$temp_buffer if $data_exists;
 	}
-	$buffer.= "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$id&amp;scheme_id=0\" rel=\"ajax\">Loci not in schemes</a></li>\n";
-
+	if ($self->_data_not_in_scheme_present($id)){
+		$buffer.= "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$id&amp;scheme_id=0\" rel=\"ajax\">Loci not in schemes</a></li>\n";
+	}
 	$buffer.= "</ul>\n";
 	$buffer.= "</li></ul>\n";
 	$buffer.="</td><td style=\"vertical-align:top;width:80%\" id=\"scheme_table\">\n";
@@ -625,6 +626,31 @@ sub _scheme_data_present {
 	}
 	my ($designations_present) = $self->{'sql'}->{'scheme_data_designations'}->fetchrow_array;
 	my ($sequences_present) = $self->{'sql'}->{'scheme_data_sequences'}->fetchrow_array;
+	return $designations_present+$sequences_present;
+}
+
+sub _data_not_in_scheme_present {
+	my ($self,$isolate_id) = @_;
+	if (!$self->{'sql'}->{'no_scheme_data_designations'}){
+		$self->{'sql'}->{'no_scheme_data_designations'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM allele_designations WHERE isolate_id=? AND locus NOT IN (SELECT locus FROM scheme_members)");
+	}
+	eval {
+		$self->{'sql'}->{'no_scheme_data_designations'}->execute($isolate_id);
+	};
+	if ($@){
+		$logger->error("Can't execute $@");
+	}
+	if (!$self->{'sql'}->{'no_scheme_data_sequences'}){
+		$self->{'sql'}->{'no_scheme_data_sequences'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id WHERE isolate_id=? AND locus NOT IN (SELECT locus FROM scheme_members)");
+	}
+	eval {
+		$self->{'sql'}->{'no_scheme_data_sequences'}->execute($isolate_id);
+	};
+	if ($@){
+		$logger->error("Can't execute $@");
+	}
+	my ($designations_present) = $self->{'sql'}->{'no_scheme_data_designations'}->fetchrow_array;
+	my ($sequences_present) = $self->{'sql'}->{'no_scheme_data_sequences'}->fetchrow_array;
 	return $designations_present+$sequences_present;
 }
 
