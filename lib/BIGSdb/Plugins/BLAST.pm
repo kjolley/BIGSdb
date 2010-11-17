@@ -209,7 +209,7 @@ sub run {
 
 	foreach (@ids) {
 		my $matches = $self->_blast( $_, \$seq );
-		next if !@$matches;
+		next if ref $matches ne 'ARRAY' || !@$matches;
 		print $header_buffer if $first;
 		$some_results = 1;
 		eval { $sql->execute($_); };
@@ -345,11 +345,13 @@ sub _blast {
 		print $fastafile_fh ">$id\n$seq\n";
 	}
 	close $fastafile_fh;
+	return if -z $temp_fastafile;
 	system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p F -o T");
 	my $blastn_word_size = $1 if $self->{'cgi'}->param('word_size') =~ /(\d+)/;
 	my $hits             = $1 if $self->{'cgi'}->param('hits')      =~ /(\d+)/;
 	my $word_size = $program eq 'blastn' ? ( $blastn_word_size || 11 ) : 0;
 	$hits = 1 if !$hits;
+	$logger->error($isolate_id);
 	system(
 "$self->{'config'}->{'blast_path'}/blastall -b $hits -p $program -W $word_size -d $temp_fastafile -i $temp_queryfile -o $temp_outfile -m8 -F F 2> /dev/null"
 	);
