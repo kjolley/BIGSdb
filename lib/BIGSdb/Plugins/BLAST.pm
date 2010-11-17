@@ -351,7 +351,6 @@ sub _blast {
 	my $hits             = $1 if $self->{'cgi'}->param('hits')      =~ /(\d+)/;
 	my $word_size = $program eq 'blastn' ? ( $blastn_word_size || 11 ) : 0;
 	$hits = 1 if !$hits;
-	$logger->error($isolate_id);
 	system(
 "$self->{'config'}->{'blast_path'}/blastall -b $hits -p $program -W $word_size -d $temp_fastafile -i $temp_queryfile -o $temp_outfile -m8 -F F 2> /dev/null"
 	);
