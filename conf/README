@@ -1,0 +1,3 @@
+The paths set in bigsdb.conf file should be modified for your system.
+
+Place both these files in /etc/bigsdb/.

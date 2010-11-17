@@ -1,0 +1,17 @@
+This directory contains example XML database description files.  Replace
+'DATABASE_NAME' with the name your database is called on your system. The
+file should be renamed to config.xml and placed in a subdirectory of the 
+/etc/bigsdb/dbases directory, with the subdirectory named how you would
+like to call the database within a web url, e.g.
+
+put configuration file in /etc/bigsdb/dbases/test_db for access from
+http://your_website/cgi-bin/bigsdb/bigsdb.pl?db=test_db.
+
+The isolates_config.xml file contains the minimum required isolate table
+fields and matches the isolate table that will be generated using the
+isolatedb.sql SQL script.  Add any other fields that you would like to both
+this XML file and to the database table itself.  The XML description and the
+physical structure of the database table must be kept in sync. The fields
+will be ordered within the website as they appear in the XML description -
+this can be different from the order that they appear within the database
+table.

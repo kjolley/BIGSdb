@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<db>
+<system
+ db="DATABASE_NAME"
+ dbtype="isolates"
+ webroot=""
+ indexpage=""
+ view="isolates"
+ script_path_includes="/bigsdb/"
+ curate_path_includes="/bigsdb/"
+ maindisplay_aliases="yes"
+ description="Isolates"
+ locus_superscript_prefix="yes"
+ authentication="builtin"
+ read_access="public"
+ projects="yes"
+>
+</system>
+<field type="int" required="yes" length="5" maindisplay="yes" comments="primary key">id</field>
+<field type="text" required="yes" length="20" maindisplay="yes" comments="isolate name">isolate</field>
+<field type="int" required="yes" length="4" maindisplay="no" comments="sender unique name, link to users">sender</field>
+<field type="int" required="yes" length="4" maindisplay="no" comments="curator who entered data,link to users">curator</field>
+<field type="date" required="yes" length="10" maindisplay="no" comments="date first entered">date_entered</field>
+<field type="date" required="yes" length="10" maindisplay="no" comments="date last modified">datestamp</field>
+</db>

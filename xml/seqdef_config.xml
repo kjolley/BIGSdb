@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<db>
+<system
+ db="DATABASE_NAME"
+ dbtype="sequences"
+ webroot=""
+ indexpage=""
+ script_path_includes="/bigsdb/"
+ curate_path_includes="/bigsdb/"
+ description="Locus/sequence definitions"
+ locus_superscript_prefix="yes"
+ authentication="builtin"
+ read_access="public"
+>
+</system>
+</db>
