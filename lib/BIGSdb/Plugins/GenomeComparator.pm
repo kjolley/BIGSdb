@@ -196,33 +196,28 @@ sub run {
 " <a class=\"tooltip\" title=\"Sequence method - Only include sequences generated from the selected method.\">&nbsp;<i>i</i>&nbsp;</a>"
 	  if $self->{'prefs'}->{'tooltips'};
 	print "</td></tr>\n";
-	$sql = $self->{'db'}->prepare("SELECT id,short_description FROM projects ORDER BY short_description");
 	my $project_list = $self->{'datastore'}->run_list_query_hashref("SELECT id,short_description FROM projects ORDER BY short_description");	
 	my @projects;
-	my %project_labels;
+	undef %labels;
 	foreach (@$project_list){
 		push @projects,$_->{'id'};
-		$project_labels{$_->{'id'}} = $_->{'short_description'};
+		$labels{$_->{'id'}} = $_->{'short_description'};
 	}
 	if (@projects) {
 		unshift @projects, '';
 		print "<tr><td style=\"text-align:right\">Project: </td><td style=\"text-align:left\">";
-		print $q->popup_menu( -name => 'project', -values => \@projects, -labels => \%project_labels );
+		print $q->popup_menu( -name => 'project', -values => \@projects, -labels => \%labels );
 		print
 " <a class=\"tooltip\" title=\"Projects - Filter isolate list to only include those belonging to a specific project.\">&nbsp;<i>i</i>&nbsp;</a>"
 		  if $self->{'prefs'}->{'tooltips'};
 		print "</td></tr>\n";
 	}
-	$sql = $self->{'db'}->prepare("SELECT id,description FROM experiments ORDER BY description");
+	my $experiment_list = $self->{'datastore'}->run_list_query_hashref("SELECT id,description FROM experiments ORDER BY description");	
 	my @experiments;
 	undef %labels;
-	eval { $sql->execute; };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
-	while ( my ( $id, $desc ) = $sql->fetchrow_array ) {
-		push @experiments, $id;
-		$labels{$id} = $desc;
+	foreach (@$experiment_list){
+		push @experiments,$_->{'id'};
+		$labels{$_->{'id'}} = $_->{'description'};
 	}
 	if (@experiments) {
 		unshift @experiments, '';
