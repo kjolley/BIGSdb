@@ -1355,7 +1355,6 @@ sub _run_profile_query {
 		}
 		foreach ( @{ $self->{'xmlHandler'}->get_field_list() } ) {
 			push @hidden_attributes, $_ . '_list';
-			#TODO persist extended attributes too
 		}
 		push @hidden_attributes, qw (publication_list scheme_id);
 		$self->paged_display( 'profiles', $qry, '', \@hidden_attributes );
