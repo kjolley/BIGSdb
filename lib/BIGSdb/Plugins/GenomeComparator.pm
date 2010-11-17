@@ -209,7 +209,7 @@ sub run {
 		print "<tr><td style=\"text-align:right\">Project: </td><td style=\"text-align:left\">";
 		print $q->popup_menu( -name => 'project', -values => \@projects, -labels => \%project_labels );
 		print
-" <a class=\"tooltip\" title=\"Projects - Only include sequences whose isolate belong to the specified experiment.\">&nbsp;<i>i</i>&nbsp;</a>"
+" <a class=\"tooltip\" title=\"Projects - Filter isolate list to only include those belonging to a specific project.\">&nbsp;<i>i</i>&nbsp;</a>"
 		  if $self->{'prefs'}->{'tooltips'};
 		print "</td></tr>\n";
 	}
