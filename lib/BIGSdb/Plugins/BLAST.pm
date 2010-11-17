@@ -65,7 +65,7 @@ sub run {
 	my $q      = $self->{'cgi'};
 	my $view   = $self->{'system'}->{'view'};
 	my $qry =
-	  "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM sequence_bin LEFT JOIN $view ON $view.id=sequence_bin.isolate_id ORDER BY $view.id";
+"SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM sequence_bin LEFT JOIN $view ON $view.id=sequence_bin.isolate_id ORDER BY $view.id";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute; };
 	if ($@) {
@@ -128,37 +128,29 @@ sub run {
 " <a class=\"tooltip\" title=\"Sequence method - Only include sequences generated from the selected method.\">&nbsp;<i>i</i>&nbsp;</a>"
 	  if $self->{'prefs'}->{'tooltips'};
 	print "</td></tr>\n";
-	$sql = $self->{'db'}->prepare("SELECT id,short_description FROM projects ORDER BY short_description");
 	my @projects;
-	my %project_labels;
-	eval { $sql->execute; };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}	
-	while ( my ( $id, $desc ) = $sql->fetchrow_array ) {
-		push @projects, $id;
-		$project_labels{$id} = $desc;
-	}	
+	my $project_list = $self->{'datastore'}->run_list_query_hashref("SELECT id,short_description FROM projects ORDER BY short_description");
+	undef %labels;
+
+	foreach (@$project_list) {
+		push @projects, $_->{'id'};
+		$labels{ $_->{'id'} } = $_->{'short_description'};
+	}
 	if (@projects) {
 		unshift @projects, '';
 		print "<tr><td style=\"text-align:right\">Project: </td><td style=\"text-align:left\">";
-		print $q->popup_menu( -name => 'project', -values => \@projects, -labels => \%project_labels );
+		print $q->popup_menu( -name => 'project', -values => \@projects, -labels => \%labels );
 		print
 " <a class=\"tooltip\" title=\"Projects - Filter isolate list to only include those belonging to a specific project.\">&nbsp;<i>i</i>&nbsp;</a>"
 		  if $self->{'prefs'}->{'tooltips'};
 		print "</td></tr>\n";
 	}
-	$sql = $self->{'db'}->prepare("SELECT id,description FROM experiments ORDER BY description");
+	my $experiment_list = $self->{'datastore'}->run_list_query_hashref("SELECT id,description FROM experiments ORDER BY description");
 	my @experiments;
 	undef %labels;
-	eval { $sql->execute; };
-
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
-	while ( my ( $id, $desc ) = $sql->fetchrow_array ) {
-		push @experiments, $id;
-		$labels{$id} = $desc;
+	foreach (@$experiment_list) {
+		push @experiments, $_->{'id'};
+		$labels{ $_->{'id'} } = $_->{'description'};
 	}
 	if (@experiments) {
 		unshift @experiments, '';
@@ -200,12 +192,14 @@ sub run {
 	my $first        = 1;
 	my $some_results = 0;
 	$sql = $self->{'db'}->prepare("SELECT $labelfield FROM $self->{'system'}->{'view'} WHERE id=?");
-	my $td = 1;
-	my $temp = BIGSdb::Utils::get_random();
-	my $out_file = "$temp.txt";
+	my $td                = 1;
+	my $temp              = BIGSdb::Utils::get_random();
+	my $out_file          = "$temp.txt";
 	my $out_file_flanking = "$temp\_flanking.txt";
-	open (my $fh_output,'>',"$self->{'config'}->{'tmp_dir'}/$out_file") or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$out_file for writing");
-	open (my $fh_output_flanking,'>',"$self->{'config'}->{'tmp_dir'}/$out_file_flanking") or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$out_file_flanking for writing");
+	open( my $fh_output, '>', "$self->{'config'}->{'tmp_dir'}/$out_file" )
+	  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$out_file for writing");
+	open( my $fh_output_flanking, '>', "$self->{'config'}->{'tmp_dir'}/$out_file_flanking" )
+	  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$out_file_flanking for writing");
 
 	foreach (@ids) {
 		my $matches = $self->_blast( $_, \$seq );
@@ -241,8 +235,8 @@ sub run {
 			print "</tr>\n";
 			$first_match = 0;
 			my $flanking = $self->{'prefs'}->{'flanking'};
-			my $start = $match->{'start'};
-			my $end = $match->{'end'};
+			my $start    = $match->{'start'};
+			my $end      = $match->{'end'};
 			my $length   = abs( $end - $start + 1 );
 			my $qry =
 "SELECT substring(sequence from $start for $length) AS seq,substring(sequence from ($start-$flanking) for $flanking) AS upstream,substring(sequence from ($end+1) for $flanking) AS downstream FROM sequence_bin WHERE id=?";
@@ -252,11 +246,16 @@ sub run {
 			$seq_ref->{'downstream'} = BIGSdb::Utils::reverse_complement( $seq_ref->{'downstream'} ) if $match->{'reverse'};
 			print $fh_output ">$_|$label|$match->{'seqbin_id'}|$start\n";
 			print $fh_output_flanking ">$_|$label|$match->{'seqbin_id'}|$start\n";
-			print $fh_output BIGSdb::Utils::break_line($seq_ref->{'seq'},60) . "\n";
-			if ($match->{'reverse'}){
-				print $fh_output_flanking BIGSdb::Utils::break_line($seq_ref->{'downstream'} . $seq_ref->{'seq'} . $seq_ref->{'upstream'},60) . "\n";
+			print $fh_output BIGSdb::Utils::break_line( $seq_ref->{'seq'}, 60 ) . "\n";
+
+			if ( $match->{'reverse'} ) {
+				print $fh_output_flanking BIGSdb::Utils::break_line( $seq_ref->{'downstream'} . $seq_ref->{'seq'} . $seq_ref->{'upstream'},
+					60 )
+				  . "\n";
 			} else {
-				print $fh_output_flanking BIGSdb::Utils::break_line($seq_ref->{'upstream'} . $seq_ref->{'seq'} . $seq_ref->{'downstream'},60) . "\n";
+				print $fh_output_flanking BIGSdb::Utils::break_line( $seq_ref->{'upstream'} . $seq_ref->{'seq'} . $seq_ref->{'downstream'},
+					60 )
+				  . "\n";
 			}
 		}
 		$td = $td == 1 ? 2 : 1;
@@ -270,11 +269,11 @@ sub run {
 	}
 	if ($some_results) {
 		print "</table>\n";
-		print "<p style=\"margin-top:1em\">Download <a href=\"/tmp/$out_file\">FASTA</a> | <a href=\"/tmp/$out_file_flanking\">FASTA with flanking</a>";
+		print
+"<p style=\"margin-top:1em\">Download <a href=\"/tmp/$out_file\">FASTA</a> | <a href=\"/tmp/$out_file_flanking\">FASTA with flanking</a>";
 		print
 " <a class=\"tooltip\" title=\"Flanking sequence - You can change the amount of flanking sequence exported by selecting the appropriate length in the options page.\">&nbsp;<i>i</i>&nbsp;</a>"
-	  if $self->{'prefs'}->{'tooltips'};
-		
+		  if $self->{'prefs'}->{'tooltips'};
 		print "</p>\n";
 	} else {
 		print "<p>No matches found.</p>\n";
@@ -306,7 +305,8 @@ sub _blast {
 	close $queryfile_fh;
 
 	#create isolate FASTA database
-	my $qry = "SELECT DISTINCT sequence_bin.id,sequence FROM sequence_bin LEFT JOIN experiment_sequences ON sequence_bin.id=seqbin_id LEFT JOIN project_members ON sequence_bin.isolate_id = project_members.isolate_id WHERE sequence_bin.isolate_id=?";
+	my $qry =
+"SELECT DISTINCT sequence_bin.id,sequence FROM sequence_bin LEFT JOIN experiment_sequences ON sequence_bin.id=seqbin_id LEFT JOIN project_members ON sequence_bin.isolate_id = project_members.isolate_id WHERE sequence_bin.isolate_id=?";
 	my @criteria = ($isolate_id);
 	my $method   = $self->{'cgi'}->param('seq_method');
 	if ($method) {
@@ -318,14 +318,14 @@ sub _blast {
 		push @criteria, $method;
 	}
 	my $project = $self->{'cgi'}->param('project');
-		if ($project) {
-			if ( !BIGSdb::Utils::is_int($project) ) {
-				$logger->error("Invalid project $project");
-				return;
-			}	
-			$qry .= " AND project_id=?";
-			push @criteria, $project;		
+	if ($project) {
+		if ( !BIGSdb::Utils::is_int($project) ) {
+			$logger->error("Invalid project $project");
+			return;
 		}
+		$qry .= " AND project_id=?";
+		push @criteria, $project;
+	}
 	my $experiment = $self->{'cgi'}->param('experiment');
 	if ($experiment) {
 		if ( !BIGSdb::Utils::is_int($experiment) ) {
@@ -372,12 +372,12 @@ sub _parse_blast {
 		next if !$line || $line =~ /^#/;
 		my @record = split /\s+/, $line;
 		my $match;
-		$match->{'seqbin_id'} = $record[1];
-		$match->{'identity'}  = $record[2];
-		$match->{'alignment'} = $record[3];
-		$match->{'mismatches'}      = $record[4];
-		$match->{'gaps'} = $record[5];
-		$match->{'reverse'}   = 1
+		$match->{'seqbin_id'}  = $record[1];
+		$match->{'identity'}   = $record[2];
+		$match->{'alignment'}  = $record[3];
+		$match->{'mismatches'} = $record[4];
+		$match->{'gaps'}       = $record[5];
+		$match->{'reverse'}    = 1
 		  if ( ( $record[8] > $record[9] && $record[7] > $record[6] ) || ( $record[8] < $record[9] && $record[7] < $record[6] ) );
 
 		if ( $record[8] < $record[9] ) {
