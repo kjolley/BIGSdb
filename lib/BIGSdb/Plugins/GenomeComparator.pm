@@ -78,7 +78,7 @@ sub run {
 	my $q      = $self->{'cgi'};
 	my $view   = $self->{'system'}->{'view'};
 	my $qry =
-	  "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM sequence_bin LEFT JOIN $view ON $view.id=sequence_bin.isolate_id ORDER BY $view.id";
+"SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM sequence_bin LEFT JOIN $view ON $view.id=sequence_bin.isolate_id ORDER BY $view.id";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute; };
 	if ($@) {
@@ -196,11 +196,27 @@ sub run {
 " <a class=\"tooltip\" title=\"Sequence method - Only include sequences generated from the selected method.\">&nbsp;<i>i</i>&nbsp;</a>"
 	  if $self->{'prefs'}->{'tooltips'};
 	print "</td></tr>\n";
+	$sql = $self->{'db'}->prepare("SELECT id,short_description FROM projects ORDER BY short_description");
+	my $project_list = $self->{'datastore'}->run_list_query_hashref("SELECT id,short_description FROM projects ORDER BY short_description");	
+	my @projects;
+	my %project_labels;
+	foreach (@$project_list){
+		push @projects,$_->{'id'};
+		$project_labels{$_->{'id'}} = $_->{'short_description'};
+	}
+	if (@projects) {
+		unshift @projects, '';
+		print "<tr><td style=\"text-align:right\">Project: </td><td style=\"text-align:left\">";
+		print $q->popup_menu( -name => 'project', -values => \@projects, -labels => \%project_labels );
+		print
+" <a class=\"tooltip\" title=\"Projects - Only include sequences whose isolate belong to the specified experiment.\">&nbsp;<i>i</i>&nbsp;</a>"
+		  if $self->{'prefs'}->{'tooltips'};
+		print "</td></tr>\n";
+	}
 	$sql = $self->{'db'}->prepare("SELECT id,description FROM experiments ORDER BY description");
 	my @experiments;
 	undef %labels;
 	eval { $sql->execute; };
-
 	if ($@) {
 		$logger->error("Can't execute $@");
 	}
@@ -234,11 +250,12 @@ sub run {
 	return if !$q->param('submit');
 	my @loci = $q->param('locus');
 	@ids = $q->param('isolate_id');
+	my $filtered_ids = $self->_filter_ids_by_project(\@ids);
 	my @scheme_ids = $q->param('scheme_id');
 	my $accession  = $q->param('accession');
 
-	if ( !@ids ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>You must select one or more isolates.</p></div>\n";
+	if ( !@$filtered_ids ) {
+		print "<div class=\"box\" id=\"statusbad\"><p>You must include one or more isolates. Make sure your selected isolates haven't been filtered to none by selecting a project.</p></div>\n";
 		return;
 	}
 	if ( !$accession && !@loci && !@scheme_ids ) {
@@ -259,17 +276,29 @@ sub run {
 			$logger->debug($err);
 		};
 		return if !$seq_obj;
-		$self->_analyse_by_reference( $accession, $seq_obj, \@ids );
+		$self->_analyse_by_reference( $accession, $seq_obj, $filtered_ids );
 	} else {
 		$self->_add_scheme_loci( \@loci );
-		$self->_analyse_by_loci( \@loci, \@ids );
+		$self->_analyse_by_loci( \@loci, $filtered_ids );
 	}
+}
+
+sub _filter_ids_by_project {
+	my ($self, $ids) = @_;
+	my $project_id = $self->{'cgi'}->param('project');
+	return $ids if !$project_id;
+	my $ids_in_project = $self->{'datastore'}->run_list_query("SELECT isolate_id FROM project_members WHERE project_id = ?",$project_id);
+	my @filtered_ids;
+	foreach my $id (@$ids){
+		push @filtered_ids,$id if any {$id eq $_} @$ids_in_project;
+	}
+	return \@filtered_ids;
 }
 
 sub _analyse_by_loci {
 	my ( $self, $loci, $ids ) = @_;
 	if ( @$ids < 2 ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>You must select at least two isolates for comparison.</p></div>\n";
+		print "<div class=\"box\" id=\"statusbad\"><p>You must select at least two isolates for comparison against defined loci. Make sure your selected isolates haven't been filtered to less than two by selecting a project.</p></div>\n";
 		return;
 	}
 	my %isolate_FASTA;
@@ -293,7 +322,8 @@ sub _analyse_by_loci {
 	my $isolate;
 
 	foreach my $id (@$ids) {
-		my $isolate_ref = $self->{'datastore'}->run_simple_query( "SELECT $self->{'system'}->{'labelfield'} FROM isolates WHERE id=?", $id );
+		my $isolate_ref =
+		  $self->{'datastore'}->run_simple_query( "SELECT $self->{'system'}->{'labelfield'} FROM isolates WHERE id=?", $id );
 		if ( ref $isolate_ref eq 'ARRAY' ) {
 			$names{$id} = $isolate_ref->[0];
 			$isolate = ' (' . ( $isolate_ref->[0] ) . ')' if ref $isolate_ref eq 'ARRAY';
@@ -305,6 +335,7 @@ sub _analyse_by_loci {
 	print $fh "\n";
 	my $td = 1;
 	@$loci = uniq @$loci;
+	$| = 1;
 	foreach my $locus (@$loci) {
 		my $locus_FASTA = $self->_create_locus_FASTA_db( $locus, $prefix );
 		my $cleaned_locus = $locus;
@@ -551,8 +582,6 @@ sub _analyse_by_reference {
 				$varying_loci->{$locus}->{$_} = $seqs{$_};
 			}
 			$varying_loci->{$locus}->{'desc'} = $desc;
-
-			#			print $buffer;
 			$td = $td == 1 ? 2 : 1;
 		}
 		if ( $ENV{'MOD_PERL'} ) {
@@ -939,7 +968,7 @@ sub _create_reference_FASTA_file {
 
 sub _create_isolate_FASTA {
 	my ( $self, $isolate_id, $prefix ) = @_;
-	my $qry = "SELECT id,sequence FROM sequence_bin LEFT JOIN experiment_sequences ON sequence_bin.id=seqbin_id WHERE isolate_id=?";
+	my $qry      = "SELECT id,sequence FROM sequence_bin LEFT JOIN experiment_sequences ON sequence_bin.id=seqbin_id LEFT JOIN project_members ON sequence_bin.isolate_id = project_members.isolate_id WHERE sequence_bin.isolate_id=?";
 	my @criteria = ($isolate_id);
 	my $method   = $self->{'cgi'}->param('seq_method');
 	if ($method) {
@@ -949,6 +978,15 @@ sub _create_isolate_FASTA {
 		}
 		$qry .= " AND method=?";
 		push @criteria, $method;
+	}
+	my $project = $self->{'cgi'}->param('project');
+	if ($project) {
+		if ( !BIGSdb::Utils::is_int($project) ) {
+			$logger->error("Invalid project $project");
+			return;
+		}	
+		$qry .= " AND project_id=?";
+		push @criteria, $project;		
 	}
 	my $experiment = $self->{'cgi'}->param('experiment');
 	if ($experiment) {
