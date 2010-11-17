@@ -574,7 +574,7 @@ sub _run_isolate_query {
 	my $system = $self->{'system'};
 	my $qry;
 	my @errors;
-
+	my $extended = $self->get_extended_attributes;
 	if ( !defined $q->param('query') ) {
 		$qry = "SELECT * FROM $system->{'view'} WHERE (";
 		my $andor       = $q->param('c0');
@@ -823,7 +823,7 @@ sub _run_isolate_query {
 			}
 		}
 		$qry .= ')';
-		my $extended = $self->get_extended_attributes;
+		
 		foreach ( @{ $self->{'xmlHandler'}->get_field_list() } ) {
 			if ( $q->param( $_ . '_list' ) ne '' ) {
 				my $value = $q->param( $_ . '_list' );
@@ -1171,7 +1171,13 @@ sub _run_isolate_query {
 		}
 		foreach ( @{ $self->{'xmlHandler'}->get_field_list() } ) {
 			push @hidden_attributes, "$_\_list";
-			#TODO persist extended attributes too
+			my $extatt = $extended->{$_};
+			if ( ref $extatt eq 'ARRAY' ) {
+				foreach my $extended_attribute (@$extatt) {
+					push @hidden_attributes,"$_\..$extended_attribute\_list";
+				}
+			}
+			
 		}
 		push @hidden_attributes, 'publication_list';
 		push @hidden_attributes, 'linked_sequences';
