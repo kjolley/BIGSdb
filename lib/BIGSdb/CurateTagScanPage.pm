@@ -689,7 +689,7 @@ sub _print_row {
 	$cleaned_locus =~ s/ /__space__/g;
 	$cleaned_locus =~ s/\(/_OPEN_/g;
 	$cleaned_locus =~ s/\)/_CLOSE_/g;
-
+	$exact = 0 if $warning;
 	if ( $exact && $match->{'allele'} ne $existing_allele && !$matching_pending && $match->{'allele'} ne 'ref' && !$q->param('tblastx')) {
 		print $q->checkbox(
 			-name    => "id_$isolate_id\_$locus\_allele_$id",
