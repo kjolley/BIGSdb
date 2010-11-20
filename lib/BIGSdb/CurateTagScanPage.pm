@@ -664,7 +664,6 @@ sub _print_row {
 		$complete_gene = $self->_is_complete_gene($seq_ref->[0]);
 		$complete_tooltip = "<a class=\"cds\" title=\"CDS - this is a complete coding sequence including start and terminating stop codons with no internal stop codons.\">CDS</a>" if $complete_gene;
 	} 
-	$logger->error($complete_gene);
 	my $cleaned_locus = $locus;
 	if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
 		$cleaned_locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
