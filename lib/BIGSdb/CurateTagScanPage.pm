@@ -654,6 +654,17 @@ sub _print_row {
 	$predicted_start =~ s/\*//;
 	my $predicted_end = $match->{'predicted_end'};
 	$predicted_end =~ s/\*//;
+	
+	my $predicted_length = $predicted_end - $predicted_start + 1;
+	my $seq_ref = $self->{'datastore'}->run_simple_query("SELECT substring(sequence from $predicted_start for $predicted_length) FROM sequence_bin WHERE id=?",$match->{'seqbin_id'});
+	my $complete_gene;
+	my $complete_tooltip;
+	if (ref $seq_ref eq 'ARRAY'){
+		$seq_ref->[0] = BIGSdb::Utils::reverse_complement( $seq_ref->[0] ) if $match->{'reverse'};
+		$complete_gene = $self->_is_complete_gene($seq_ref->[0]);
+		$complete_tooltip = "<a class=\"cds\" title=\"CDS - this is a complete coding sequence including start and terminating stop codons with no internal stop codons.\">CDS</a>" if $complete_gene;
+	} 
+	$logger->error($complete_gene);
 	my $cleaned_locus = $locus;
 	if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
 		$cleaned_locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
@@ -674,7 +685,7 @@ sub _print_row {
 <td>$match->{'identity'}</td><td>$match->{'alignment'}</td>
 <td>$match->{'length'}</td><td>$match->{'e-value'}</td><td>$match->{'seqbin_id'} </td>
 <td>$match->{'start'}</td><td>$match->{'end'} </td>
-<td>$match->{'predicted_start'}</td><td>$match->{'predicted_end'} <a target=\"_blank\" class=\"extract_tooltip\" href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=extractedSequence&amp;seqbin_id=$match->{'seqbin_id'}&amp;start=$predicted_start&amp;end=$predicted_end&amp;reverse=$match->{'reverse'}&amp;translate=$translate&amp;orf=$orf\">extract&nbsp;&rarr;</a></td><td style=\"font-size:2em\">"
+<td>$match->{'predicted_start'}</td><td>$match->{'predicted_end'} <a target=\"_blank\" class=\"extract_tooltip\" href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=extractedSequence&amp;seqbin_id=$match->{'seqbin_id'}&amp;start=$predicted_start&amp;end=$predicted_end&amp;reverse=$match->{'reverse'}&amp;translate=$translate&amp;orf=$orf\">extract&nbsp;&rarr;</a>$complete_tooltip</td><td style=\"font-size:2em\">"
 	  . ( $match->{'reverse'} ? '&larr;' : '&rarr;' ) . "</td><td>";
 	my $sender = $self->{'datastore'}->run_simple_query( "SELECT sender FROM sequence_bin WHERE id=?", $match->{'seqbin_id'} )->[0];
 	my $matching_pending =
@@ -1082,5 +1093,23 @@ sub _get_designation_tooltip {
 		}
 	}
 	return " <a class=\"$class\" title=\"$buffer\">$text</a>";
+}
+
+sub _is_complete_gene {
+	my ($self,$seq) = @_;
+	#Check that sequence has an initial start codon, 
+	my $start = substr($seq,0,3);
+	return 0 if $start ne 'ATG' && $start ne 'GTG' && $start ne 'TTG'; 
+	#and a stop codon
+	my $stop = substr($seq,-3);
+	return 0 if $stop ne 'TAA' && $stop ne 'TGA' && $stop ne 'TAG';
+	#is a multiple of 3
+	return 0 if length($seq)/3 != int(length($seq)/3); 
+	#and has no internal stop codons
+	for (my $i=0;  $i<length($seq)-3; $i+=3){
+		my $codon = substr($seq,$i,3);
+	    return 0 if $codon eq 'TAA' || $codon eq 'TGA' || $codon eq 'TAG';
+	}
+	return 1;
 }
 1;
