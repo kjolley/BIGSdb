@@ -183,7 +183,7 @@ sub print_content {
 	existing allele and is not a complete coding sequence with start and stop codons at the ends, selecting this 
 	option will hunt for these by walking in and out from the ends in complete codons for up to 6 amino acids.\">&nbsp;<i>i</i>&nbsp;</a>"
 		  if $self->{'prefs'}->{'tooltips'};
-	print "</td><tr><td colspan=\"2\">";
+	print "</td></tr><tr><td colspan=\"2\">";
 	print $q->checkbox( -name => 'rescan_alleles', label => 'Rescan even if allele designations are already set' );
 	print "</td></tr>\n<tr><td colspan=\"2\">";
 	print $q->checkbox( -name => 'rescan_seqs', label => 'Rescan even if allele sequences are tagged' );
