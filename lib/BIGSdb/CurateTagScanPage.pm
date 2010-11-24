@@ -177,6 +177,13 @@ sub print_content {
 		print "</span></td></tr>\n";
 	}
 	print "<tr><td colspan=\"2\">";
+	print $q->checkbox( -name => 'hunt', label => 'Hunt for nearby start and stop codons' );
+	print
+	" <a class=\"tooltip\" title=\"Hunt for start/stop codons - If the aligned sequence is not an exact match to an
+	existing allele and is not a complete coding sequence with start and stop codons at the ends, selecting this 
+	option will hunt for these by walking in and out from the ends in complete codons for up to 6 amino acids.\">&nbsp;<i>i</i>&nbsp;</a>"
+		  if $self->{'prefs'}->{'tooltips'};
+	print "</td><tr><td colspan=\"2\">";
 	print $q->checkbox( -name => 'rescan_alleles', label => 'Rescan even if allele designations are already set' );
 	print "</td></tr>\n<tr><td colspan=\"2\">";
 	print $q->checkbox( -name => 'rescan_seqs', label => 'Rescan even if allele sequences are tagged' );
@@ -645,28 +652,71 @@ sub _print_row {
 	my $seqbin_length =
 	  $self->{'datastore'}->run_simple_query( "SELECT length(sequence) FROM sequence_bin WHERE id=?", $match->{'seqbin_id'} )->[0];
 	my $off_end;
-	if ( $match->{'predicted_start'} < 1 ) {
-		$match->{'predicted_start'} = '1*';
-		$off_end = 1;
+	my $hunt_for_start_end = 1 if !$exact && $q->param('hunt');
+	my $original_start = $match->{'predicted_start'};
+	my $original_end = $match->{'predicted_end'};
+	my ($predicted_start,$predicted_end,$complete_tooltip);
+	my ($complete_gene,$status);
+	#Hunt for nearby start and stop codons.  Walk in from each end by 3 bases, then out by 3 bases, then in by 6 etc.
+	my @runs = qw (-3 3 -6 6 -9 9 -12 12 -15 15 -18 18) if $hunt_for_start_end;
+	RUN: foreach (0,@runs){
+		my @end_to_adjust = $hunt_for_start_end ? (1,2) : (0);
+		foreach my $end (@end_to_adjust){
+			
+			if ($end == 1){
+				if ((!$status->{'start'} && $match->{'reverse'})
+				|| (!$status->{'stop'} && !$match->{'reverse'})){
+					$match->{'predicted_end'} = $original_end + $_;
+					$logger->error("end $_");
+				}
+			} elsif ($end == 2) {
+				if ((!$status->{'stop'} && $match->{'reverse'})
+				|| (!$status->{'start'} && !$match->{'reverse'})){
+					$match->{'predicted_start'} = $original_start + $_;
+				}
+			}
+			
+			if ( $match->{'predicted_start'} < 1 ) {
+				$match->{'predicted_start'} = '1*';
+				$off_end = 1;
+			}
+			if ( $match->{'predicted_end'} > $seqbin_length ) {
+				$match->{'predicted_end'} = "$seqbin_length\*";
+				$off_end = 1;
+			}
+			$predicted_start = $match->{'predicted_start'};
+			$predicted_start =~ s/\*//;
+			$predicted_end = $match->{'predicted_end'};
+			$predicted_end =~ s/\*//;
+			
+			my $predicted_length = $predicted_end - $predicted_start + 1;
+			my $seq_ref = $self->{'datastore'}->run_simple_query("SELECT substring(sequence from $predicted_start for $predicted_length) FROM sequence_bin WHERE id=?",$match->{'seqbin_id'});
+			
+			
+			if (ref $seq_ref eq 'ARRAY'){
+				$seq_ref->[0] = BIGSdb::Utils::reverse_complement( $seq_ref->[0] ) if $match->{'reverse'};
+				($complete_gene,$status) = $self->_is_complete_gene($seq_ref->[0]);
+				if ($complete_gene){
+					$complete_tooltip = "<a class=\"cds\" title=\"CDS - this is a complete coding sequence including start and terminating stop codons with no internal stop codons.\">CDS</a>" ;
+					last RUN;
+				}
+			} 
+		}
 	}
-	if ( $match->{'predicted_end'} > $seqbin_length ) {
-		$match->{'predicted_end'} = "$seqbin_length\*";
-		$off_end = 1;
+	if ($hunt_for_start_end && !$complete_gene){
+		$match->{'predicted_end'} = $original_end;
+		$predicted_end = $original_end;
+		$match->{'predicted_start'} = $original_start;
+		$predicted_start = $original_start;
+		if ( $match->{'predicted_start'} < 1 ) {
+			$match->{'predicted_start'} = '1*';
+			$off_end = 1;
+		}
+		if ( $match->{'predicted_end'} > $seqbin_length ) {
+			$match->{'predicted_end'} = "$seqbin_length\*";
+			$off_end = 1;
+		}
 	}
-	my $predicted_start = $match->{'predicted_start'};
-	$predicted_start =~ s/\*//;
-	my $predicted_end = $match->{'predicted_end'};
-	$predicted_end =~ s/\*//;
-	
-	my $predicted_length = $predicted_end - $predicted_start + 1;
-	my $seq_ref = $self->{'datastore'}->run_simple_query("SELECT substring(sequence from $predicted_start for $predicted_length) FROM sequence_bin WHERE id=?",$match->{'seqbin_id'});
-	my $complete_gene;
-	my $complete_tooltip;
-	if (ref $seq_ref eq 'ARRAY'){
-		$seq_ref->[0] = BIGSdb::Utils::reverse_complement( $seq_ref->[0] ) if $match->{'reverse'};
-		$complete_gene = $self->_is_complete_gene($seq_ref->[0]);
-		$complete_tooltip = "<a class=\"cds\" title=\"CDS - this is a complete coding sequence including start and terminating stop codons with no internal stop codons.\">CDS</a>" if $complete_gene;
-	} 
 	my $cleaned_locus = $locus;
 	if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
 		$cleaned_locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
@@ -1099,19 +1149,24 @@ sub _get_designation_tooltip {
 
 sub _is_complete_gene {
 	my ($self,$seq) = @_;
+	my $status;
 	#Check that sequence has an initial start codon, 
 	my $start = substr($seq,0,3);
-	return 0 if $start ne 'ATG' && $start ne 'GTG' && $start ne 'TTG'; 
+	$status->{'start'} = 1 if any {$start eq $_} qw (ATG GTG TTG); 
 	#and a stop codon
 	my $stop = substr($seq,-3);
-	return 0 if $stop ne 'TAA' && $stop ne 'TGA' && $stop ne 'TAG';
+	$status->{'stop'} = 1 if any {$stop eq $_} qw (TAA TGA TAG);
 	#is a multiple of 3
-	return 0 if length($seq)/3 != int(length($seq)/3); 
+	$status->{'in_frame'} = 1 if length($seq)/3 == int(length($seq)/3); 
 	#and has no internal stop codons
+	$status->{'no_internal_stops'} = 1;
 	for (my $i=0;  $i<length($seq)-3; $i+=3){
 		my $codon = substr($seq,$i,3);
-	    return 0 if $codon eq 'TAA' || $codon eq 'TGA' || $codon eq 'TAG';
+	    $status->{'no_internal_stops'} = 0 if any {$codon eq $_} qw (TAA TGA TAG);
 	}
-	return 1;
+	if ($status->{'start'} && $status->{'stop'} && $status->{'in_frame'} && $status->{'no_internal_stops'}){
+		return (1,$status);
+	}
+	return (0,$status);
 }
 1;
