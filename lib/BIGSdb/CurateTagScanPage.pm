@@ -600,7 +600,7 @@ sub print_content {
 			print $q->submit( -name => 'tag', -label => 'Tag alleles/sequences', -class => 'submit' );
 			print "<noscript><p><span class=\"comment\"> Enable javascript for select buttons to work!</span></p></noscript>\n";
 			foreach (
-				qw (db page isolate_id rescan_alleles rescan_seqs locus scheme_id identity alignment limit_matches limit_time seq_method experiment project tblastx)
+				qw (db page isolate_id rescan_alleles rescan_seqs locus scheme_id identity alignment limit_matches limit_time seq_method experiment project tblastx hunt)
 			  )
 			{
 				print $q->hidden($_);
