@@ -465,10 +465,13 @@ sub print_content {
 			next if $isolate_id eq '' || $isolate_id eq 'all';
 			next if !$self->is_allowed_to_view_isolate($isolate_id);
 			$| = 1;
+			my %locus_checked;
 			foreach my $locus (@loci) {
 				if ($locus =~ /^l_(.+)/ || $locus =~ /^cn_(.+)/){
 					$locus = $1;
 				}
+				next if $locus_checked{$locus}; #prevent multiple checking when locus selected individually and as part of scheme.
+				$locus_checked{$locus} = 1;
 				if ( $match >= $limit ) {
 					$match_limit_reached = 1;
 					last;
