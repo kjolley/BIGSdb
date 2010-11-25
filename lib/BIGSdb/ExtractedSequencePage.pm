@@ -81,6 +81,7 @@ sub print_content {
 
 sub display_sequence {
 	my ( $self, $seqbin_id, $reverse, $start, $end, $translate, $orf ) = @_;
+	$start = 1 if $start < 1;
 	my $flanking = $self->{'prefs'}->{'flanking'};
 	my $length   = abs( $end - $start + 1 );
 	my $qry =
@@ -117,19 +118,14 @@ sub display_sequence {
 		my $highlight_end = $1-1+$highlight_start if $length =~ /(\d+)/;
 		$orf = 1 if !$orf;
 		my $first_codon = substr ($seq_ref->{'seq'},$orf-1,3);
-#		my $last_codon = substr ($seq_ref->{'seq'},-3);
 		my $end_codon_pos = $orf -1 + 3*int((length($seq_ref->{'seq'})-$orf + 1 - 3)/3);
 		my $last_codon = substr ($seq_ref->{'seq'},$end_codon_pos,3);
-#		$logger->error($last_codon);
 		my ($start_offset,$end_offset);
 		if ($first_codon eq 'ATG' || $first_codon eq 'TTG' || $first_codon eq 'GTG'){		
 			$start_offset = $orf+2;
 		}
 		if ($last_codon eq 'TAA' || $last_codon eq 'TAG' || $last_codon eq 'TGA'){
-#			$end_offset = 3;
-			
 			$end_offset = $length - $end_codon_pos;
-#			$logger->error("End codon pos: $end_codon_pos; offset: $end_offset");
 		}
 		#5' of start codon
 		if ($orf > 1 && $start_offset){
@@ -179,8 +175,6 @@ sub display_sequence {
 		foreach (my $i=($orf||1) -1; $i<length ($seq_ref->{'seq'})-3; $i+=3){
 			my $codon = substr ($seq_ref->{'seq'},$i,3);
 			if ($codon eq 'TAA' || $codon eq 'TAG' || $codon eq 'TGA' ){
-#				push @internal_stop_codons,$i+1+$self->{'prefs'}->{'flanking'};
-#				$logger->error($self->{'prefs'}->{'flanking'} . '; ' . length($seq_ref->{'upstream'})) if $self->{'prefs'}->{'flanking'} != length($seq_ref->{'upstream'});
 				push @internal_stop_codons,$i+1+ ($reverse ? length($seq_ref->{'downstream'}) : length($seq_ref->{'upstream'}));
 			}
 		}
