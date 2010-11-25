@@ -667,7 +667,6 @@ sub _print_row {
 				if ((!$status->{'start'} && $match->{'reverse'})
 				|| (!$status->{'stop'} && !$match->{'reverse'})){
 					$match->{'predicted_end'} = $original_end + $_;
-					$logger->error("end $_");
 				}
 			} elsif ($end == 2) {
 				if ((!$status->{'stop'} && $match->{'reverse'})
