@@ -82,6 +82,8 @@ sub print_content {
 sub display_sequence {
 	my ( $self, $seqbin_id, $reverse, $start, $end, $translate, $orf ) = @_;
 	$start = 1 if $start < 1;
+	my $contig_length = $self->{'datastore'}->run_simple_query("SELECT length(sequence) FROM sequence_bin WHERE id=?",$seqbin_id)->[0];
+	$end = $contig_length if $end > $contig_length;
 	my $flanking = $self->{'prefs'}->{'flanking'};
 	my $length   = abs( $end - $start + 1 );
 	my $qry =
