@@ -23,6 +23,17 @@ use base qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
+sub get_javascript {
+	my ($self) = @_;
+	return $self->get_tree_javascript;
+}
+
+sub initiate {
+	my ($self) = @_;
+	$self->{'jQuery'} = 1; 
+	$self->{'jQuery.jstree'} = 1;
+}
+
 sub print_content {
 	my ($self) = @_;
 	my $q    = $self->{'cgi'};
