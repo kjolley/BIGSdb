@@ -1,0 +1,7 @@
+This folder contains sample HTML headers for use with an isolate database.
+The standard interface includes the contents of the header.html at the top
+of the page and the header.html at the bottom.  Use this to customise the
+look of the website to your needs.  Correspondingly, the curate_footer.html
+and curate_header.html files are used in the same way in the curation interface.
+These files should be placed in the database configuration directory, e.g.
+/etc/bigsdb/dbases/DBASE_NAME along with the config.xml file.
