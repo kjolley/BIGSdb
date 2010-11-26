@@ -812,7 +812,6 @@ sub _print_row {
 sub _blast {
 	my ( $self, $locus, $isolate_id, $file_prefix, $locus_prefix ) = @_;
 	my $locus_info   = $self->{'datastore'}->get_locus_info($locus);
-#	my $program      = $locus_info->{'data_type'} eq 'DNA' ? 'blastn' : 'blastx';
 	my $program;
 	if ($locus_info->{'data_type'} eq 'DNA'){
 		$program = $self->{'cgi'}->param('tblastx') ? 'tblastx' : 'blastn';
@@ -995,8 +994,6 @@ sub _parse_blast_exact {
 				$match->{'predicted_end'}   = $match->{'end'};
 				$match->{'reverse'}   = 1
 		  if ( ( $record[8] > $record[9] && $record[7] > $record[6] ) || ( $record[8] < $record[9] && $record[7] < $record[6] ) );
-				
-#				$match->{'reverse'}         = 1 if ( $record[8] > $record[9] || $record[7] < $record[6] );
 				$match->{'e-value'}   = $record[10];
 				next if $matched_already->{$match->{'allele'}}->{$match->{'predicted_start'}};				
 				push @matches, $match;
