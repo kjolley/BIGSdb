@@ -25,7 +25,7 @@ use Time::HiRes qw(gettimeofday);
 use List::MoreUtils qw(uniq any);
 use base 'Exporter';
 use constant SEQ_METHODS => qw(Sanger Solexa 454 SOLiD PacBio other unknown);
-use constant SEQ_FLAGS   => ( 'ambiguous read', 'frameshift', 'internal stop codon', 'truncated' );
+use constant SEQ_FLAGS   => ( 'ambiguous read', 'frameshift', 'internal stop codon', 'truncated', 'no start codon' );
 use constant DATABANKS   => qw(Genbank);
 our @EXPORT = qw(SEQ_METHODS SEQ_FLAGS DATABANKS);
 
