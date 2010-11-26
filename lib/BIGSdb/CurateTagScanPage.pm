@@ -424,7 +424,6 @@ sub print_content {
 			return;
 		}
 		$self->_add_scheme_loci( \@loci );
-		@loci = uniq @loci;
 		my $header_buffer =
 "<table class=\"resultstable\"><tr><th>Isolate</th><th>Match</th><th>Locus</th><th>Allele</th><th>% identity</th><th>Alignment length</th><th>Allele length</th><th>E-value</th><th>Sequence bin id</th>
 <th>Start</th><th>End</th><th>Predicted start</th><th>Predicted end</th><th>Orientation</th><th>Designate allele</th><th>Tag sequence</th><th>Flag";
