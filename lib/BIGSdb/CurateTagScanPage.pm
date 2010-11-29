@@ -688,6 +688,7 @@ sub _print_row {
 			$predicted_end =~ s/\*//;
 			
 			my $predicted_length = $predicted_end - $predicted_start + 1;
+			$predicted_length = 1 if $predicted_length < 1;
 			my $seq_ref = $self->{'datastore'}->run_simple_query("SELECT substring(sequence from $predicted_start for $predicted_length) FROM sequence_bin WHERE id=?",$match->{'seqbin_id'});
 			
 			
