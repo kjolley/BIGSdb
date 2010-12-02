@@ -128,6 +128,7 @@ sub display_sequence {
 		}
 		if ($last_codon eq 'TAA' || $last_codon eq 'TAG' || $last_codon eq 'TGA'){
 			$end_offset = $length - $end_codon_pos;
+			$end_offset = 0 if $end_offset > 3;
 		}
 		#5' of start codon
 		if ($orf > 1 && $start_offset){
