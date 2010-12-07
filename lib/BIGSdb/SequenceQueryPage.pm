@@ -339,7 +339,18 @@ sub _run_query {
 "$self->{'config'}->{'emboss_path'}/stretcher -aformat markx2 -awidth $self->{'prefs'}->{'alignwidth'} $seq1_infile $seq2_infile $outfile 2> /dev/null"
 							);
 							unlink $seq1_infile,$seq2_infile;
-							if ( !$partial_match->{'gaps'} ) {
+							my $gaps;
+							if (-e $outfile){
+								open my $fh, '<', $outfile;
+								while (<$fh>){
+									if ($_ =~ /^# Gaps:\s+(\d+)+\//){
+										$gaps = $1;
+									}
+								}
+								close $fh;
+							}
+							#Display nucleotide differences if both BLAST and stretcher report no gaps.
+							if ( !$gaps && !$partial_match->{'gaps'} ) {
 								my $qstart = $partial_match->{'qstart'};
 								my $sstart = $partial_match->{'sstart'};
 								my $ssend  = $partial_match->{'send'};
