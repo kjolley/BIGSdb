@@ -458,7 +458,7 @@ sub print_content {
 		open( my $seqs_fh, '>', $seq_filename ) or $logger->error("Can't open $seq_filename for writing");
 		print $seqs_fh "locus\tallele_id\tstatus\tsequence\n";
 		my $new_seqs_found;
-
+		my $last_id_checked;
 		foreach my $isolate_id (@ids) {
 			if ( $match >= $limit ) {
 				$match_limit_reached = 1;
@@ -563,6 +563,7 @@ sub print_content {
 
 			#delete isolate working files
 			system "rm -f $self->{'config'}->{'secure_tmp_dir'}/*$file_prefix*";
+			$last_id_checked = $isolate_id;
 		}
 		close $seqs_fh;
 
@@ -585,8 +586,8 @@ sub print_content {
 			print "</td></tr>\n";
 		}
 		print $buffer;
-		print "<p>Time limit reached.</p>"  if $out_of_time;
-		print "<p>Match limit reached.</p>" if $match_limit_reached;
+		print "<p>Time limit reached (checked up to id-$last_id_checked).</p>"  if $out_of_time;
+		print "<p>Match limit reached (checked up to id-$last_id_checked).</p>" if $match_limit_reached;
 		if ($new_seqs_found) {
 			print "<p><a href=\"/tmp/$file_prefix\_unique_sequences.txt\" target=\"_blank\">New unique sequences</a>\n";
 			print
