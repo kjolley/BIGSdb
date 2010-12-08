@@ -56,17 +56,10 @@ to be DNA if it contains 90% or more G,A,T,C or N characters.\">&nbsp;<i>i</i>&n
 	print $q->start_form;
 	print "<table><tr><td style=\"text-align:right\">Please select locus/scheme: </td><td>";
 	my ($display_loci,$cleaned) = $self->{'datastore'}->get_locus_list;
-	my $sql = $self->{'db'}->prepare("SELECT id,description FROM schemes ORDER BY display_order,description desc");
-	eval {
-		$sql->execute;
-	};
-	if ($@){
-		$logger->error("Can't execute $@");
-	} else {
-		while (my ($id, $desc) = $sql->fetchrow_array){
-			unshift @$display_loci, "SCHEME_$id";
-			$cleaned->{"SCHEME_$id"} = $desc;
-		}
+	my $scheme_list = $self->{'datastore'}->run_list_query_hashref("SELECT id,description FROM schemes ORDER BY display_order desc,description desc");
+	foreach (@$scheme_list){
+		unshift @$display_loci,"SCHEME_$_->{'id'}";
+		$cleaned->{"SCHEME_$_->{'id'}"} = $_->{'description'};
 	}
 	unshift @$display_loci, 0;
 	$cleaned->{0} = 'All loci';
