@@ -29,10 +29,7 @@ use BIGSdb::Page qw(SEQ_METHODS SEQ_FLAGS);
 sub get_javascript {
 	my $buffer = << "END";
 function listbox_selectall(listID, isSelect) {
-	var listbox = document.getElementById(listID);
-	for(var count=0; count < listbox.options.length; count++) {
-		listbox.options[count].selected = isSelect;
-	}
+	\$("#" + listID + " option").attr("selected",isSelect);
 }
 	
 END
