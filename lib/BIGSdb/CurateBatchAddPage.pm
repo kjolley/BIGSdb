@@ -550,7 +550,11 @@ sub print_content {
 							}
 							my ($exists) = $sql_sequence_exists->fetchrow_array;
 							if ($exists) {
-								$problems{$pk_combination} .= "Sequence already exists in the database ($locus: $exists).<br />";
+								if ( $q->param('complete_CDS') ) {
+									$continue = 0;
+								} else {
+									$problems{$pk_combination} .= "Sequence already exists in the database ($locus: $exists).<br />";
+								}
 							}
 							if ( $q->param('complete_CDS') ) {
 								my $first_codon = substr( $value, 0, 3 );
@@ -955,7 +959,7 @@ HTML
 			print $q->checkbox(
 				-name => 'complete_CDS',
 				-label =>
-'Silently reject all sequences that are not complete reading frames - these must have a start and in-frame stop codon at the ends and no internal stop codons'
+'Silently reject all sequences that are not complete reading frames - these must have a start and in-frame stop codon at the ends and no internal stop codons.  Existing sequences are also ignored.'
 			);
 			print "</li><li>\n";
 			print $q->checkbox( -name => 'ignore_similarity', -label => 'Override sequence similarity check' );
