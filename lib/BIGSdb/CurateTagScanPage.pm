@@ -422,7 +422,7 @@ sub print_content {
 		}
 		$self->_add_scheme_loci( \@loci );
 		my $header_buffer =
-"<table class=\"resultstable\"><tr><th>Isolate</th><th>Match</th><th>Locus</th><th>Allele</th><th>% identity</th><th>Alignment length</th><th>Allele length</th><th>E-value</th><th>Sequence bin id</th>
+"<div class=\"scrollable\">\n<table class=\"resultstable\"><tr><th>Isolate</th><th>Match</th><th>Locus</th><th>Allele</th><th>% identity</th><th>Alignment length</th><th>Allele length</th><th>E-value</th><th>Sequence bin id</th>
 <th>Start</th><th>End</th><th>Predicted start</th><th>Predicted end</th><th>Orientation</th><th>Designate allele</th><th>Tag sequence</th><th>Flag";
 		$header_buffer .=
 " <a class=\"tooltip\" title=\"Flag - Set a status flag for the sequence.  You need to also tag the sequence for
@@ -569,9 +569,10 @@ sub print_content {
 		if ($first) {
 			$tag_button = 0;
 		} else {
-			$buffer .= "</table>";
+			$buffer .= "</table></div>\n";
 			$buffer .= "<p>* Allele continues beyond end of contig</p>\n" if $show_key;
 		}
+		
 		if ($tag_button) {
 			$" = ';';
 			print "<tr class=\"td\"><td colspan=\"14\" /><td>\n";
