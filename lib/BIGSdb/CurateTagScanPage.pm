@@ -299,7 +299,7 @@ sub print_content {
 						my $seqbin_info = $sql->fetchrow_hashref;
 						my $sender      = $seqbin_info->{'sender'};
 						if ( $allele_id_to_set eq '' || !$pending_allele_ids_to_set{$allele_id} ) {
-							if ( !$set_allele_id && $allele_id_to_set eq '' ) {
+							if ( !defined $set_allele_id && $allele_id_to_set eq '' ) {
 								push @updates,
 "INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp,comments) VALUES ($isolate_id,'$cleaned_locus','$allele_id',$sender,'confirmed','automatic',$curator_id,'today','today','Scanned from sequence bin')";
 								$allele_id_to_set = $allele_id;
