@@ -643,7 +643,7 @@ sub _print_row {
 	my $existing_allele = $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
 	if ( $match->{'allele'} eq $existing_allele ) {
 		$tooltip = $self->_get_designation_tooltip( $isolate_id, $locus, 'existing' );
-	} elsif ( $match->{'allele'} && $existing_allele && $existing_allele ne $match->{'allele'} ) {
+	} elsif ( $match->{'allele'} && defined $existing_allele && $existing_allele ne $match->{'allele'} ) {
 		$tooltip = $self->_get_designation_tooltip( $isolate_id, $locus, 'clashing' );
 	}
 	my $seqbin_length =
