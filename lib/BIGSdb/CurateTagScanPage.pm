@@ -41,7 +41,7 @@ sub print_content {
 	my $q      = $self->{'cgi'};
 	my $view   = $self->{'system'}->{'view'};
 	my $qry =
-"SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM sequence_bin LEFT JOIN $view ON $view.id=sequence_bin.isolate_id ORDER BY $view.id";
+"SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM sequence_bin LEFT JOIN $view ON $view.id=sequence_bin.isolate_id WHERE $view.id IS NOT NULL ORDER BY $view.id";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute; };
 	if ($@) {
