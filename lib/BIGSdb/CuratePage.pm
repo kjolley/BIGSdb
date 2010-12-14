@@ -71,6 +71,7 @@ sub create_record_table {
 	foreach (qw(page table db action )) {
 		$buffer .= $q->hidden($_);
 	}
+	$buffer .= $q->hidden( 'locus', $newdata{'locus'} ) if $table eq 'allele_designations';
 	$buffer .= $q->hidden( 'sent', 1 );
 	$buffer .= "<div class=\"box\" id=\"queryform\">" if !$nodiv;
 	$buffer .= "<p>Please fill in the fields below - required fields are marked with an exclamation mark (!).</p>\n";
