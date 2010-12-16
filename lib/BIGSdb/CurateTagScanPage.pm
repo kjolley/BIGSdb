@@ -628,7 +628,7 @@ sub _add_scheme_loci {
 		my $scheme_loci = $_ ? $self->{'datastore'}->get_scheme_loci($_) : $self->{'datastore'}->get_loci_in_no_scheme;
 		foreach my $locus (@$scheme_loci) {
 			if ( !$locus_selected{$locus} ) {
-				push @$loci, $locus;
+				push @$loci, "l_$locus";
 				$locus_selected{$locus} = 1;
 			}
 		}
