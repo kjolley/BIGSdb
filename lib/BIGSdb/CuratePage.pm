@@ -270,10 +270,10 @@ sub create_record_table {
 					unshift @optlist, '' if !$_->{'default'};
 					$buffer .= $q->popup_menu( -name => $name, -values => [@optlist], -default => $newdata{ $_->{'name'} } );
 				} else {
-					if ( $length > 256 ) {
+					if ( $length >= 256 ) {
 						$newdata{ $_->{'name'} } = BIGSdb::Utils::split_line( $newdata{ $_->{'name'} } ) if $_->{'name'} eq 'sequence';
 						$buffer .= $q->textarea( -name => $name, -rows => '6', -cols => '70', -default => $newdata{ $_->{'name'} } );
-					} elsif ( $length > 160 ) {
+					} elsif ( $length >= 120 ) {
 						$newdata{ $_->{'name'} } = BIGSdb::Utils::split_line( $newdata{ $_->{'name'} } ) if $_->{'name'} eq 'sequence';
 						$buffer .= $q->textarea( -name => $name, -rows => '3', -cols => '70', -default => $newdata{ $_->{'name'} } );
 					} else {
