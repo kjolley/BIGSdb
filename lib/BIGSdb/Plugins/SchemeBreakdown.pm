@@ -161,6 +161,7 @@ s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT \* FROM $self->{'system'}->{
 				$field_query =~ s/\*/DISTINCT(allele_id),COUNT(allele_id)/;
 			}
 			if ( $field_query =~ /WHERE/ ) {
+				$field_query =~ s/WHERE (.*)$/WHERE \($1\)/;
 				$field_query .= " AND locus='$locus'";
 			} else {
 				$field_query .= " WHERE locus='$locus'";
@@ -173,6 +174,7 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 			$logger->error( "Invalid field passed for analysis. Field type is set as '" . $q->param('type') . "'." );
 			return;
 		}
+		$logger->error($field_query);
 		my $order;
 		my $guid = $self->get_guid;
 		my $temp_fieldname = $q->param('type') eq 'locus' ? 'allele_id' : $field;
@@ -424,6 +426,7 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT \* FROM $self->{'system'}->{'view'} LEFT JOIN allele_designations ON isolate_id=id/;
 				$locus_query =~ s/\*/COUNT (DISTINCT(allele_id))/;
 				if ( $locus_query =~ /WHERE/ ) {
+					$locus_query =~ s/WHERE (.*)$/WHERE \($1\)/;
 					$locus_query .= " AND locus='$cleaned_locus'";
 				} else {
 					$locus_query .= " WHERE locus='$cleaned_locus'";
