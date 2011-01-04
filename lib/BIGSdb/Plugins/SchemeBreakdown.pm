@@ -383,25 +383,9 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 			} else {
 				print "<td /><td />";
 			}
-#			if ($scheme_id) {
-#				my $alias;
-#				eval { $alias_sql2->execute( $scheme_id, $loci->[$i] ); };
-#				if ($@) {
-#					$logger->error("Can't execute alias check $@");
-#				} else {
-#					($alias) = $alias_sql2->fetchrow_array;
-#				}
-#				if ( $self->{'prefs'}->{'scheme_members_alias'} ) {
-#					$display = $alias || $loci->[$i];
-#				} else {
-#					$display = $alias ? "$alias <span class=\"comment\">($loci->[$i])</span>" : $loci->[$i];
-#				}
-#			} else {
-				$display = $loci->[$i];
-#			}
+			$display = $loci->[$i];
 			my @other_display_names;
 			push @other_display_names, $locus_info->{$loci->[$i]}->{'common_name'} if $locus_info->{$loci->[$i]}->{'common_name'};
-#			my @aliases;
 			if ( $self->{'prefs'}->{'locus_alias'} ) {
 				eval { $alias_sql->execute( $loci->[$i] ); };
 				if ($@) {
