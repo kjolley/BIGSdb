@@ -174,7 +174,6 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 			$logger->error( "Invalid field passed for analysis. Field type is set as '" . $q->param('type') . "'." );
 			return;
 		}
-		$logger->error($field_query);
 		my $order;
 		my $guid = $self->get_guid;
 		my $temp_fieldname = $q->param('type') eq 'locus' ? 'allele_id' : $field;
