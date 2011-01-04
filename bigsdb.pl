@@ -20,7 +20,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::main;
 use strict;
-use version; our $VERSION = qv('1.0.0');
+use version; our $VERSION = qv('1.0.1');
 ###########Local configuration################################
 use constant {
 	CONFIG_DIR       => '/etc/bigsdb',
