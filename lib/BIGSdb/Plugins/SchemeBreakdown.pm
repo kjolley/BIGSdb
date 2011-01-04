@@ -35,7 +35,7 @@ sub get_attributes {
 		buttontext  => 'Schemes/alleles',
 		menutext    => 'Scheme and alleles',
 		module      => 'SchemeBreakdown',
-		version     => '1.0.1',
+		version     => '1.0.2',
 		section     => 'breakdown,postquery',
 		input       => 'query',
 		requires    => '',
