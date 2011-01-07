@@ -189,7 +189,7 @@ sub print_content {
 		}
 	}
 	print "<div class=\"box\" id=\"queryform\"><p>Please fill in the fields below - required fields are marked with an exclamation mark (!).</p>\n";
-	my $qry = "select id,user_name,first_name,surname from users order by surname";
+	my $qry = "select id,user_name,first_name,surname from users where id>0 order by surname";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute(); };
 	if ($@) {
