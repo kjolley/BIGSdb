@@ -344,8 +344,8 @@ div.content {
 	position:relative;
 	width:auto;
 	min-width:120px;
-	margin:5px 0 0 0;
-	border:1px solid black;
+	margin:5px 0 1px 0;
+	border:1px solid #999;
 	padding:10px 5px
 }
 
@@ -355,9 +355,15 @@ div.menu {
 	width:auto;
 	min-width:120px;
 	margin:5px 0 0 0;
-	border:1px solid black;
+	border:1px solid #999;
 	padding:2px;
 	font-size:0.8em;
+}
+
+div.menu,div.content {
+	-webkit-border-radius: 10px;
+	-moz-border-radius: 10px;
+	border-radius: 10px;		
 }
 
 div.menu a {
@@ -657,7 +663,7 @@ div #logindetails {
 	float:left;
 	font-size:0.7em;
 	position:absolute;
-	top:2px;
+	top:3px;
 	left:5px;
 	z-index:4;
 }
@@ -668,7 +674,7 @@ div #fieldvalueshelp {
 	float:right;
 	font-size:0.7em;
 	position:absolute;
-	top:2px;
+	top:3px;
 	right:5px;
 	z-index:3;	
 }
