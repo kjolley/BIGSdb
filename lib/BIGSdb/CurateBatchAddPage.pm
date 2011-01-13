@@ -920,12 +920,27 @@ HTML
 				print
 				  " Please note, some loci have extended attributes which may be required.  For affected loci please use the batch insert
 				page specific to that locus: ";
-				my $first = 1;
-				foreach (@$loci_with_extended) {
-					print ' | ' if !$first;
-					print
-"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=sequences&amp;locus=$_\">$_</a>";
-					$first = 0;
+				if (@$loci_with_extended > 10){
+					print $q->start_form;
+					foreach (qw (page db table)){
+						print $q->hidden($_);
+					}
+					print "Reload page specific for locus: ";
+					my @values = @$loci_with_extended;
+					my %labels;
+					unshift @values, '';
+					$labels{''} = 'Select ...';
+					print $q->popup_menu(-name => 'locus', -values => \@values, -labels => \%labels);
+					print $q->submit (-name => 'Reload', -class => 'submit');
+					print $q->end_form;
+				} else {
+					my $first = 1;
+					foreach (@$loci_with_extended) {
+						print ' | ' if !$first;
+						print
+	"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=sequences&amp;locus=$_\">$_</a>";
+						$first = 0;
+					}
 				}
 			}
 		}
