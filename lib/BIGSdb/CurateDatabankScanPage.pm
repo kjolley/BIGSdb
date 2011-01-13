@@ -20,7 +20,6 @@ package BIGSdb::CurateDatabankScanPage;
 use strict;
 use base qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
-use Bio::DB::Registry;
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -48,8 +47,7 @@ sub print_content {
 	print $q->end_form;
 	print "</div>\n";
 	if ( $accession ) {
-		my $registry = Bio::DB::Registry->new;
-		my $seq_db   = $registry->get_database('embl');
+		my $seq_db = new Bio::DB::GenBank;
 		$seq_db->verbose(2);    #convert warn to exception
 		my $seq_obj;
 		try {

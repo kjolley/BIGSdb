@@ -24,7 +24,6 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 use Apache2::Connection ();
-use Bio::DB::Registry;
 use List::MoreUtils qw(uniq any);
 use BIGSdb::Page 'SEQ_METHODS';
 
