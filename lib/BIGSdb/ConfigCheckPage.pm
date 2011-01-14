@@ -50,6 +50,7 @@ sub print_content {
 		  $td = $td == 1 ? 2 : 1;
 	}
 	print "</table></div>\n";
+	$| = 1;
 	if ($self->{'system'}->{'dbtype'} eq 'isolates'){
 		print "<h2>Locus databases</h2>\n";
 		my $loci = $self->{'datastore'}->get_loci;
@@ -83,9 +84,20 @@ sub print_content {
 			if ($@ || (ref $seq eq 'SCALAR' && $$seq =~ /^\(/)){
 				#seq can contain opening brace if sequence_field = table by mistake
 				$logger->debug("$_; $@");
-				$buffer .= '<span class="statusbad">X</span>'
+				$buffer .= '<span class="statusbad">X</span>';
 			} else {
 				$buffer .= '<span class="statusgood">ok</span>';
+			}
+			$buffer.="</td><td>";
+			my $seqs;
+			eval {
+				$seqs = $self->{'datastore'}->get_locus($_)->get_all_sequences;
+			};
+			if ($@ || (ref $seqs eq 'HASH' && scalar keys %$seqs == 0)){
+				$logger->debug("$_; $@");
+				$buffer .= '<span class="statusbad">X</span>';
+			} else {
+				$buffer .= '<span class="statusgood">' . scalar keys (%$seqs) . '</span>';
 			}
 			$buffer.= "</td></tr>\n";
 			$td = $td == 1 ? 2 : 1;
@@ -93,7 +105,7 @@ sub print_content {
 		if ($buffer){
 			print "<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Locus</th><th>Database</th><th>Host</th><th>Port</th>
 			<th>Table</th><th>Primary id field</th><th>Secondary id field</th><th>Secondary id field value</th>
-			<th>Sequence field</th><th>Database accessible</th><th>Sequence query</th></tr>\n";
+			<th>Sequence field</th><th>Database accessible</th><th>Sequence query</th><th>Sequences assigned</th></tr>\n";
 			print $buffer;
 			print "</table></div>\n";
 		} else {
