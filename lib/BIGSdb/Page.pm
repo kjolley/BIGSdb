@@ -1589,6 +1589,7 @@ sub _create_join_sql_for_scheme {
 sub _create_join_sql_for_locus {
 	my ( $self, $locus ) = @_;
 	( my $clean_locus_name = $locus ) =~ s/'/_PRIME_/g;
+	$clean_locus_name =~ s/-/_/g;
 	( my $escaped_locus    = $locus ) =~ s/'/\\'/g;
 	my $qry =
 " LEFT JOIN allele_designations AS l_$clean_locus_name ON l_$clean_locus_name\.isolate_id=$self->{'system'}->{'view'}.id AND l_$clean_locus_name.locus='$escaped_locus'";
