@@ -44,7 +44,7 @@ sub new {
 	$self->{'curate'}           = $curate;
 	bless( $self, $class );
 	$self->_initiate( $config_dir, $dbase_config_dir );
-	$self->{'dataConnector'}->initiate($self->{'system'});
+	$self->{'dataConnector'}->initiate( $self->{'system'} );
 	my $logger_benchmark = get_logger('BIGSdb.Application_Benchmark');
 
 	if ( !$self->{'error'} ) {
@@ -52,8 +52,9 @@ sub new {
 		if ( $self->{'db'} ) {
 			$self->_setup_datastore();
 			$self->_setup_prefstore();
-			$self->_initiate_authdb if $self->{'system'}->{'authentication'} eq 'builtin';
-			$self->_initiate_plugins($plugin_dir);
+			$self->_initiate_authdb if $self->{'system'}->{'authentication'} eq 'builtin';		
+			$self->_initiate_jobmanager( $config_dir, $plugin_dir, $dbase_config_dir );
+			$self->_initiate_plugins($plugin_dir);			
 		}
 	}
 	( my $elapsed = gettimeofday() - $self->{'start_time'} ) =~ s/(^\d{1,}\.\d{4}).*$/$1/;
@@ -116,19 +117,18 @@ sub _initiate {
 	$self->{'system'}->{'user'} = 'apache'    if !$self->{'system'}->{'user'};
 	$self->{'system'}->{'password'} = 'remote'
 	  if !$self->{'system'}->{'password'};
-	
 	$self->{'system'}->{'privacy'} = $self->{'system'}->{'privacy'} eq 'no' ? 0 : 1;
-	if ($self->{'system'}->{'dbtype'} eq 'isolates'){
-		$self->{'system'}->{'view'} = 'isolates' if !$self->{'system'}->{'view'};
-		$self->{'system'}->{'labelfield'} = 'isolate' if !$self->{'system'}->{'labelfield'};
-		if (!$self->{'xmlHandler'}->is_field($self->{'system'}->{'labelfield'})){
-			$logger->error("The defined labelfield '$self->{'system'}->{'labelfield'}' does not exist in the database.  Please set the labelfield attribute in the system tag of the database XML file.");
+
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		$self->{'system'}->{'view'}       = 'isolates' if !$self->{'system'}->{'view'};
+		$self->{'system'}->{'labelfield'} = 'isolate'  if !$self->{'system'}->{'labelfield'};
+		if ( !$self->{'xmlHandler'}->is_field( $self->{'system'}->{'labelfield'} ) ) {
+			$logger->error(
+"The defined labelfield '$self->{'system'}->{'labelfield'}' does not exist in the database.  Please set the labelfield attribute in the system tag of the database XML file."
+			);
 		}
 	}
 }
-
-
-
 
 sub _initiate_authdb {
 	my ($self) = @_;
@@ -184,8 +184,6 @@ SQL
 	}
 }
 
-
-
 sub _initiate_plugins {
 	my ( $self, $plugin_dir ) = @_;
 	$self->{'pluginManager'} = BIGSdb::PluginManager->new(
@@ -199,8 +197,20 @@ sub _initiate_plugins {
 		'xmlHandler'       => $self->{'xmlHandler'},
 		'dataConnector'    => $self->{'dataConnector'},
 		'mod_perl_request' => $self->{'mod_perl_request'},
+		'jobManager'	   => $self->{'jobManager'},
 		'pluginDir'        => $plugin_dir
 	);
+}
+
+sub _initiate_jobmanager {
+	my ( $self, $config_dir, $plugin_dir, $dbase_config_dir, ) = @_;
+	$self->{'jobManager'} = BIGSdb::OfflineJobManager->new(
+		$config_dir, $plugin_dir, $dbase_config_dir,
+		$self->{'system'}->{'host'},
+		$self->{'system'}->{'port'},
+		$self->{'system'}->{'user'},
+		$self->{'system'}->{'password'},
+	  );
 }
 
 sub _read_config_file {
@@ -322,8 +332,8 @@ sub print_page {
 		'alleleInfo'         => 'AlleleInfoPage',
 		'fieldValues'        => 'FieldHelpPage',
 		'extractedSequence'  => 'ExtractedSequencePage',
-		'alleleQuery'		 => 'AlleleQueryPage',
-		'locusInfo'			 => 'LocusInfoPage'
+		'alleleQuery'        => 'AlleleQueryPage',
+		'locusInfo'          => 'LocusInfoPage'
 	);
 	my $page;
 	my %page_attributes = (
@@ -360,13 +370,12 @@ sub print_page {
 	if ( $self->{'page'} eq 'options'
 		&& ( $self->{'cgi'}->param('set') || $self->{'cgi'}->param('reset') ) )
 	{
-		$page           = BIGSdb::OptionsPage->new(%page_attributes);
+		$page = BIGSdb::OptionsPage->new(%page_attributes);
 		$page->initiate_prefs;
 		$page->set_options;
 		$self->{'page'} = 'index';
-		$self->{'cgi'}->param('page','index'); #stop prefs initiating twice
-		$set_options    = 1;
-		
+		$self->{'cgi'}->param( 'page', 'index' );     #stop prefs initiating twice
+		$set_options = 1;
 	}
 	if ( !$self->{'db'} ) {
 		$page_attributes{'error'} = 'noConnect';

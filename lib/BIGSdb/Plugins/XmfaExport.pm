@@ -127,26 +127,34 @@ sub run {
 					$list = $self->{'datastore'}->run_list_query($qry);
 				}
 			}
-			print "<div class=\"box\" id=\"resultstable\">";
-			print "<p>Please wait for processing to finish (do not refresh page).</p>\n";
-			print "<p>Output file being generated ...";
+			print <<"HTML";		
+<div class="box" id="resultstable">
+<p>The output file has been submitted to the job queue.</p>
+<p>Please be aware that this job may take a long time depending on the number of sequences to align.</p>			
+HTML
 			my $filename  = (BIGSdb::Utils::get_random()) . '.txt';
 			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
-			$| = 1;
-			my ( $problem_ids, $no_output ) = $self->_write_xmfa( $list, \@fields_selected, $full_path, $pk );
-			print " done</p>";
-
-			if ($no_output) {
-				print "<p>No output generated.  Please ensure that your sequences have been defined for these isolates.</p>\n";
-			} else {
-				print "<p><a href=\"/tmp/$filename\">Output file</a> (right-click to save)</p>\n";
-			}
-			print "</div>\n";
-			if (@$problem_ids) {
-				$" = '; ';
-				print
-"<div class=\"box\" id=\"statusbad\"><p>The following ids could not be processed (they do not exist): @$problem_ids.</p></div>\n";
-			}
+			$self->{'jobManager'}->add_job({
+				'dbase_config' => $self->{'instance'},
+				'ip_address' => $q->remote_host,
+				'module' => 'XmfaExport',
+				'function' => 'write_xmfa'
+			});
+#			$| = 1;
+#			my ( $problem_ids, $no_output ) = $self->_write_xmfa( $list, \@fields_selected, $full_path, $pk );
+#			print " done</p>";
+#
+#			if ($no_output) {
+#				print "<p>No output generated.  Please ensure that your sequences have been defined for these isolates.</p>\n";
+#			} else {
+#				print "<p><a href=\"/tmp/$filename\">Output file</a> (right-click to save)</p>\n";
+#			}
+#			print "</div>\n";
+#			if (@$problem_ids) {
+#				$" = '; ';
+#				print
+#"<div class=\"box\" id=\"statusbad\"><p>The following ids could not be processed (they do not exist): @$problem_ids.</p></div>\n";
+#			}
 			return;
 		}
 	}

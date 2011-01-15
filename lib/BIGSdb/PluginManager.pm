@@ -58,6 +58,7 @@ sub initiate {
 				'db'               => $self->{'db'},
 				'xmlHandler'       => $self->{'xmlHandler'},
 				'dataConnector'    => $self->{'dataConnector'},
+				'jobManager'	   => $self->{'jobManager'},
 				'mod_perl_request' => $self->{'mod_perl_request'}
 			);
 			$self->{'plugins'}->{$plugin_name}    = $plugin;
