@@ -25,7 +25,7 @@ use version; our $VERSION = qv('1.0.1');
 use constant {
 	CONFIG_DIR       => '/etc/bigsdb',
 	LIB_DIR          => '/usr/local/lib',
-	DBASE_CONFIG_DIR => '/etc/bigsdb/dbases',
+	DBASE_CONFIG_DIR => '/etc/bigsdb/dbases'
 };
 #######End Local configuration################################
 use CGI;

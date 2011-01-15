@@ -1,0 +1,26 @@
+Version 1.1 introduces an offline job manager.  This is required to control
+analyses that take a long time for which it is inappropriate to require the
+browser remains connected.  When upgrading to version 1.1, you will need to
+do the following:
+
+1) Create new bigsdb_jobs database using jobs.sql found in the sql directory
+2) Create new bigsdb UNIX user, e.g.
+
+   sudo useradd -s /bin/sh bigsdb
+   
+3) Create new bigsdb Postgres user, e.g.
+ 	
+ 	as postgres
+ 	createuser bigsdb (no need to set specific roles)
+
+4) Create empty bigsdb_jobs.log file in the /var/log directory, make this owned
+   by bigsdb, e.g.
+   
+   sudo touch /var/log/bigsdb_jobs.log
+   sudo chown bigsdb:bigsdb /var/log/bigsdb_jobs.log
+
+5) Copy the job_logging.conf file from the conf directory to /etc/bigsdb.
+6) Update the /etc/bigsdb/bigsdb.conf file with the following (top section):
+   
+   jobs_db=bigsdb_jobs
+   
