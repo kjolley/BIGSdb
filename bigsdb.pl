@@ -75,6 +75,7 @@ use BIGSdb::FieldHelpPage;
 use BIGSdb::ExtractedSequencePage;
 use BIGSdb::AlleleQueryPage;
 use BIGSdb::LocusInfoPage;
+use BIGSdb::OfflineJobManager;
 
 my $r = shift;    #Apache request object (used for mod_perl)
 Log::Log4perl->init_once( CONFIG_DIR . '/logging.conf' );
