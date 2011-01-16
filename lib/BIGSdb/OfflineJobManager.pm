@@ -20,6 +20,7 @@ package BIGSdb::OfflineJobManager;
 use base qw(BIGSdb::Application);
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
+my $logger = get_logger('BIGSdb.Job');
 
 sub new {
 	#The job manager uses its own Dataconnector since it may be called by a stand-alone script.
@@ -81,10 +82,8 @@ sub add_job {
 	#Optional params:
 	#username and email of user
 	#priority: (highest 1 - lowest 9)
-	#query: SQL of query used to generate dataset
-	#parameters: any additional parameters needed by plugin (| separated list)
+	#parameters: any additional parameters needed by plugin (hashref)
 	my ( $self, $params ) = @_;
-	my $logger = get_logger('BIGSdb.Job');
 	foreach (qw (dbase_config ip_address module function)) {
 		if ( !$params->{$_} ) {
 			$logger->error("Parameter $_ not passed");
@@ -93,9 +92,14 @@ sub add_job {
 	}
 	$params->{'priority'} = 5 if !$params->{'priority'};
 	my $id = BIGSdb::Utils::get_random();
+	my $cgi_params = $params->{'parameters'};
+	if (ref $cgi_params ne 'HASH'){
+		$logger->error("CGI parameters not passed as a ref");
+		throw BIGSdb::DataException("CGI parameters not passed as a ref");
+	}
 	eval {
 		$self->{'db'}->do(
-"INSERT INTO jobs (id,dbase_config,username,email,ip_address,submit_time,module,function,query,parameters,status,priority) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+"INSERT INTO jobs (id,dbase_config,username,email,ip_address,submit_time,module,status,percent_complete,priority) VALUES (?,?,?,?,?,?,?,?,?,?)",
 			undef, 
 			$id, 
 			$params->{'dbase_config'},
@@ -104,12 +108,16 @@ sub add_job {
 			$params->{'ip_address'},
 			'now',
 			$params->{'module'},
-			$params->{'function'},
-			$params->{'query'},
-			$params->{'parameters'},
 			'submitted',
+			0,
 			$params->{'priority'}
 		);
+		my $param_sql = $self->{'db'}->prepare("INSERT INTO params (job_id,key,value) VALUES (?,?,?)");
+		$"='||';
+		foreach (keys %$cgi_params){
+			my @values = split("\0",$cgi_params->{$_});
+			$param_sql->execute($id,$_,"@values");
+		}
 	};
 	if ($@){
 		$logger->error($@);
@@ -118,4 +126,65 @@ sub add_job {
 		$self->{'db'}->commit;
 	}
 }
+
+sub update_job_status {
+	my ($self,$job_id,$status_hash) = @_;
+	if (ref $status_hash ne 'HASH'){
+		$logger->error("status hash not passed as a ref");
+		throw BIGSdb::DataException("status hash not passed as a ref");
+	}
+	eval {
+		foreach (keys %$status_hash){
+			$self->{'db'}->do("UPDATE jobs SET $_=? WHERE id=?",undef,$status_hash->{$_},$job_id);
+			$logger->debug("$job_id $_: $status_hash->{$_}")
+		}
+	};
+	if ($@){
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+}
+
+sub get_job {
+	my ($self, $job_id) = @_;
+	my $sql = $self->{'db'}->prepare("SELECT * FROM jobs WHERE id=?");
+	eval {
+		$sql->execute($job_id);		
+	};
+	if ($@){
+		$logger->error($@);
+		return;
+	}
+	my $job = $sql->fetchrow_hashref;
+	$sql = $self->{'db'}->prepare("SELECT key,value FROM params WHERE job_id=?");
+	my $params;
+	eval {
+		$sql->execute($job->{'id'});		
+	};
+	if ($@){
+		$logger->error($@);
+		return;
+	}
+	while (my ($key,$value) = $sql->fetchrow_array){
+		$params->{$key} = $value;
+	}
+	return ($job, $params);	
+}
+
+sub get_next_job_id {
+	my ($self) = @_;
+	my $sql = $self->{'db'}->prepare("SELECT id FROM jobs WHERE status='submitted' ORDER BY priority asc,submit_time asc LIMIT 1");
+	eval {
+		$sql->execute;		
+	};
+	if ($@){
+		$logger->error($@);
+		return;
+	}
+	my ($job) = $sql->fetchrow_array;
+	return $job;	
+}
+
 1;

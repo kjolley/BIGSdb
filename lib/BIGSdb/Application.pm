@@ -52,9 +52,10 @@ sub new {
 		if ( $self->{'db'} ) {
 			$self->_setup_datastore();
 			$self->_setup_prefstore();
-			$self->_initiate_authdb if $self->{'system'}->{'authentication'} eq 'builtin';		
-			$self->_initiate_jobmanager( $config_dir, $plugin_dir, $dbase_config_dir );
-			$self->_initiate_plugins($plugin_dir);			
+			$self->_initiate_authdb if $self->{'system'}->{'authentication'} eq 'builtin';
+			$self->_initiate_jobmanager( $config_dir, $plugin_dir, $dbase_config_dir )
+			  if $self->{'cgi'}->param('page') eq 'plugin';
+			$self->_initiate_plugins($plugin_dir);
 		}
 	}
 	( my $elapsed = gettimeofday() - $self->{'start_time'} ) =~ s/(^\d{1,}\.\d{4}).*$/$1/;
@@ -197,7 +198,7 @@ sub _initiate_plugins {
 		'xmlHandler'       => $self->{'xmlHandler'},
 		'dataConnector'    => $self->{'dataConnector'},
 		'mod_perl_request' => $self->{'mod_perl_request'},
-		'jobManager'	   => $self->{'jobManager'},
+		'jobManager'       => $self->{'jobManager'},
 		'pluginDir'        => $plugin_dir
 	);
 }
@@ -210,7 +211,7 @@ sub _initiate_jobmanager {
 		$self->{'system'}->{'port'},
 		$self->{'system'}->{'user'},
 		$self->{'system'}->{'password'},
-	  );
+	);
 }
 
 sub _read_config_file {

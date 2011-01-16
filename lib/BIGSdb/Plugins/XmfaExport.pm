@@ -102,60 +102,63 @@ sub run {
 		$list = \@;;
 	}
 	if ( $q->param('submit') ) {
-		my @params = $q->param;
+		my @param_names = $q->param;
 		my @fields_selected;
-		foreach (@params) {
+		foreach (@param_names) {
 			push @fields_selected, $_ if $_ =~ /^l_/ or $_ =~ /s_\d+_l_/;
 		}
 		if ( !@fields_selected ) {
 			print "<div class=\"box\" id=\"statusbad\"><p>No fields have been selected!</p></div>\n";
 		} else {
-			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-				if ( !@$list ) {
-					my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
-					$list = $self->{'datastore'}->run_list_query($qry);
-				}
-			} else {
-				if ( !@$list ) {
-					my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $pk );
-					my $qry;
-					if ( $field_info->{'type'} eq 'integer' ) {
-						$qry = "SELECT $pk FROM scheme_$scheme_id ORDER BY CAST($pk AS integer)";
-					} else {
-						$qry = "SELECT $pk FROM scheme_$scheme_id ORDER BY $pk";
-					}
-					$list = $self->{'datastore'}->run_list_query($qry);
-				}
-			}
-			print <<"HTML";		
+			print <<"HTML";
 <div class="box" id="resultstable">
 <p>The output file has been submitted to the job queue.</p>
 <p>Please be aware that this job may take a long time depending on the number of sequences to align.</p>			
 HTML
-			my $filename  = (BIGSdb::Utils::get_random()) . '.txt';
+			my $filename  = ( BIGSdb::Utils::get_random() ) . '.txt';
 			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
-			$self->{'jobManager'}->add_job({
-				'dbase_config' => $self->{'instance'},
-				'ip_address' => $q->remote_host,
-				'module' => 'XmfaExport',
-				'function' => 'write_xmfa'
-			});
-#			$| = 1;
-#			my ( $problem_ids, $no_output ) = $self->_write_xmfa( $list, \@fields_selected, $full_path, $pk );
-#			print " done</p>";
-#
-#			if ($no_output) {
-#				print "<p>No output generated.  Please ensure that your sequences have been defined for these isolates.</p>\n";
-#			} else {
-#				print "<p><a href=\"/tmp/$filename\">Output file</a> (right-click to save)</p>\n";
-#			}
-#			print "</div>\n";
-#			if (@$problem_ids) {
-#				$" = '; ';
-#				print
-#"<div class=\"box\" id=\"statusbad\"><p>The following ids could not be processed (they do not exist): @$problem_ids.</p></div>\n";
-#			}
+			my $params    = $q->Vars;
+			$self->{'jobManager'}->add_job(
+				{
+					'dbase_config' => $self->{'instance'},
+					'ip_address'   => $q->remote_host,
+					'module'       => 'XmfaExport',
+					'function'     => 'run_job',
+					'parameters'   => $params
+				}
+			);
+
+		 #			$| = 1;
+		 #			my ( $problem_ids, $no_output ) = $self->_write_xmfa( $list, \@fields_selected, $full_path, $pk );
+		 #			print " done</p>";
+		 #
+		 #			if ($no_output) {
+		 #				print "<p>No output generated.  Please ensure that your sequences have been defined for these isolates.</p>\n";
+		 #			} else {
+		 #				print "<p><a href=\"/tmp/$filename\">Output file</a> (right-click to save)</p>\n";
+		 #			}
+		 #			print "</div>\n";
+		 #			if (@$problem_ids) {
+		 #				$" = '; ';
+		 #				print
+		 #"<div class=\"box\" id=\"statusbad\"><p>The following ids could not be processed (they do not exist): @$problem_ids.</p></div>\n";
+		 #			}
 			return;
+		}
+	}
+	if ( !@$list ) {
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+			my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
+			$list = $self->{'datastore'}->run_list_query($qry);
+		} else {
+			my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $pk );
+			my $qry;
+			if ( $field_info->{'type'} eq 'integer' ) {
+				$qry = "SELECT $pk FROM scheme_$scheme_id ORDER BY CAST($pk AS integer)";
+			} else {
+				$qry = "SELECT $pk FROM scheme_$scheme_id ORDER BY $pk";
+			}
+			$list = $self->{'datastore'}->run_list_query($qry);
 		}
 	}
 	my $limit = $self->{'system'}->{'XMFA_limit'} || 200;
@@ -167,8 +170,13 @@ can be included.  Please check the loci that you would like to include.  If a se
 the remote database, it will be replaced with 'N's. Output is limited to $limit records. Please be aware that it may take a long time 
 to generate the output file as the sequences are passed through muscle to align them.</p>
 HTML
-	$self->print_sequence_export_form( $pk, $list, $scheme_id,1 );
+	$self->print_sequence_export_form( $pk, $list, $scheme_id, 1 );
 	print "</div>\n";
+}
+
+sub run_job {
+	my ( $self, $job_id, $params ) = @_;
+#	$self->{'jobManager'}->update_job_status($job_id,{'status' => 'started', 'start_time' => 'now'});
 }
 
 sub _write_xmfa {
@@ -178,11 +186,11 @@ sub _write_xmfa {
 	open( my $fh, '>', $filename )
 	  or $logger->error("Can't open temp file $filename for writing");
 	my $isolate_sql;
-	if ($q->param('includes')){
+	if ( $q->param('includes') ) {
 		my @includes = $q->param('includes');
-		$"=',';
+		$"           = ',';
 		$isolate_sql = $self->{'db'}->prepare("SELECT @includes FROM $self->{'system'}->{'view'} WHERE id=?");
-	} 
+	}
 	my $profile_sql = $self->{'db'}->prepare("SELECT $pk FROM scheme_$scheme_id WHERE $pk=?");
 	my $length_sql  = $self->{'db'}->prepare("SELECT length FROM loci WHERE id=?");
 	my $seqbin_sql =
@@ -228,28 +236,27 @@ sub _write_xmfa {
 		print "." if !$i;
 		print " " if !$j;
 		my $limit = $self->{'system'}->{'XMFA_limit'} || 200;
-		
+
 		foreach my $id (@$list) {
-			last      if $count == $limit;
+			last if $count == $limit;
 			$count++;
 			$id =~ s/[\r\n]//g;
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 				my @includes;
 				next if !BIGSdb::Utils::is_int($id);
-				if ($q->param('includes')){
+				if ( $q->param('includes') ) {
 					eval { $isolate_sql->execute($id); };
 					if ($@) {
 						$logger->error("Can't execute $@");
 					}
 					@includes = $isolate_sql->fetchrow_array;
-					foreach (@includes){
-						$_=~tr/ /_/;
+					foreach (@includes) {
+						$_ =~ tr/ /_/;
 					}
 				}
-				
 				if ($id) {
 					print $fh_muscle ">$id";
-					$"='|';
+					$" = '|';
 					print $fh_muscle "|@includes" if $q->param('includes');
 					print $fh_muscle "\n";
 				} else {
@@ -319,8 +326,8 @@ sub _write_xmfa {
 						$seq = 'N' x $common_length;
 					}
 				}
-				if ($q->param('translate')){	
-					$seq = BIGSdb::Utils::chop_seq($seq,$locus_info->{'orf'} || 1);
+				if ( $q->param('translate') ) {
+					$seq = BIGSdb::Utils::chop_seq( $seq, $locus_info->{'orf'} || 1 );
 					my $peptide = Bio::Perl::translate_as_string($seq);
 					print $fh_muscle "$peptide\n";
 				} else {
@@ -342,7 +349,6 @@ sub _write_xmfa {
 					next;
 				}
 			}
-
 		}
 		close $fh_muscle;
 		system( $self->{'config'}->{'muscle_path'}, '-in', $temp_file, '-out', $muscle_file, '-stable', '-quiet' );
