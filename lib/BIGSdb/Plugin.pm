@@ -63,6 +63,11 @@ sub run {
 	#override in subclass
 }
 
+sub run_job {
+	#used to run offline job
+	#override in subclass
+}
+
 sub get_javascript {
 	my ($self) = @_;
 	my $plugin_name = $self->{'cgi'}->param('name');
