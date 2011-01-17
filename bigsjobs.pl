@@ -44,6 +44,7 @@ use BIGSdb::Dataconnector;
 use BIGSdb::BIGSException;
 
 Log::Log4perl->init_once( CONFIG_DIR . '/job_logging.conf' );
+$ENV{'PATH'} = '/bin:/usr/bin'; #so we don't foul taint check
 my $cgi = new CGI;    #Plugins expect a CGI object even though we're not using one
 my $job_manager = BIGSdb::OfflineJobManager->new( CONFIG_DIR, LIB_DIR, DBASE_CONFIG_DIR, HOST, PORT, USER, PASSWORD );
 my $job_id      = $job_manager->get_next_job_id;
@@ -60,8 +61,6 @@ if ($@) {
 	$logger->fatal("Invalid XML description: $@");
 	return;
 }
-my $dataConnector = BIGSdb::Dataconnector->new();
-my $db;
 if ($@) {
 	$logger->fatal("Invalid XML description: $@");
 	return;
@@ -72,6 +71,9 @@ $system->{'port'}     = 5432        if !$system->{'port'};
 $system->{'user'}     = 'apache'    if !$system->{'user'};
 $system->{'password'} = 'remote'    if !$system->{'password'};
 $system->{'view'}     = 'isolates'  if !$system->{'view'};
+my $dataConnector = BIGSdb::Dataconnector->new();
+$dataConnector->initiate($system);
+my $db;
 print << "TEXT";
 Job:    $job->{'id'}
 Module: $job->{'module'}
@@ -93,7 +95,9 @@ my $plugin_manager = BIGSdb::PluginManager->new(
 	'pluginDir'     => LIB_DIR
 );
 my $plugin = $plugin_manager->get_plugin( $job->{'module'} );
+$job_manager->update_job_status($job_id,{'status' => 'started', 'start_time' => 'now'});
 $plugin->run_job( $job_id, $params );
+$job_manager->update_job_status($job_id,{'status' => 'finished', 'stop_time' => 'now', 'percent_complete' => 100});
 undef $dataConnector;
 
 sub read_config_file {

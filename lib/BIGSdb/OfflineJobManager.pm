@@ -17,9 +17,11 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::OfflineJobManager;
+use strict;
 use base qw(BIGSdb::Application);
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
+
 my $logger = get_logger('BIGSdb.Job');
 
 sub new {

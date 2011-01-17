@@ -27,6 +27,7 @@ use Apache2::Connection ();
 use Bio::Perl;
 use Bio::SeqIO;
 use Bio::AlignIO;
+use BIGSdb::Utils;
 
 sub get_attributes {
 	my %att = (
@@ -115,9 +116,12 @@ sub run {
 <p>The output file has been submitted to the job queue.</p>
 <p>Please be aware that this job may take a long time depending on the number of sequences to align.</p>			
 HTML
-			my $filename  = ( BIGSdb::Utils::get_random() ) . '.txt';
-			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
+#			my $filename  = ( BIGSdb::Utils::get_random() ) . '.txt';
+#			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
 			my $params    = $q->Vars;
+			$params->{'pk'} = $pk;
+			(my $list = $q->param('list')) =~ s/[\r\n]+/\|\|/g;
+			$params->{'list'} = $list;
 			$self->{'jobManager'}->add_job(
 				{
 					'dbase_config' => $self->{'instance'},
@@ -177,17 +181,14 @@ HTML
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 #	$self->{'jobManager'}->update_job_status($job_id,{'status' => 'started', 'start_time' => 'now'});
-}
-
-sub _write_xmfa {
-	my ( $self, $list, $fields, $filename, $pk ) = @_;
-	my $q         = $self->{'cgi'};
-	my $scheme_id = $q->param('scheme_id');
+	my $scheme_id = $params->{'scheme_id'};
+	my $pk = $params->{'pk'};
+	my $filename = "$self->{'config'}->{'tmp_dir'}/$job_id\.txt";
 	open( my $fh, '>', $filename )
-	  or $logger->error("Can't open temp file $filename for writing");
+	  or $logger->error("Can't open output file $filename for writing");
 	my $isolate_sql;
-	if ( $q->param('includes') ) {
-		my @includes = $q->param('includes');
+	if ( $params->{'includes'} ) {
+		my @includes = split/\|\|/,$params->{'includes'};
 		$"           = ',';
 		$isolate_sql = $self->{'db'}->prepare("SELECT @includes FROM $self->{'system'}->{'view'} WHERE id=?");
 	}
@@ -214,7 +215,7 @@ sub _write_xmfa {
 	}
 	my @selected_fields;
 	while ( my ( $locus, $scheme_id ) = $locus_sql->fetchrow_array ) {
-		if ( ( $scheme_id && $q->param("s_$scheme_id\_l_$locus") ) || ( !$scheme_id && $q->param("l_$locus") ) ) {
+		if ( ( $scheme_id && $params->{"s_$scheme_id\_l_$locus"} ) || ( !$scheme_id && $params->{"l_$locus"} ) ) {
 			push @selected_fields, $locus;
 		}
 	}
@@ -236,15 +237,15 @@ sub _write_xmfa {
 		print "." if !$i;
 		print " " if !$j;
 		my $limit = $self->{'system'}->{'XMFA_limit'} || 200;
-
-		foreach my $id (@$list) {
+		my @list = split/\|\|/,$params->{'list'};
+		
+		foreach my $id (@list) {
 			last if $count == $limit;
 			$count++;
-			$id =~ s/[\r\n]//g;
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 				my @includes;
 				next if !BIGSdb::Utils::is_int($id);
-				if ( $q->param('includes') ) {
+				if ( $params->{'includes'} ) {
 					eval { $isolate_sql->execute($id); };
 					if ($@) {
 						$logger->error("Can't execute $@");
@@ -257,7 +258,7 @@ sub _write_xmfa {
 				if ($id) {
 					print $fh_muscle ">$id";
 					$" = '|';
-					print $fh_muscle "|@includes" if $q->param('includes');
+					print $fh_muscle "|@includes" if $params->{'includes'};
 					print $fh_muscle "\n";
 				} else {
 					push @problem_ids, $id;
@@ -287,7 +288,7 @@ sub _write_xmfa {
 				}
 				my $seq;
 				if ( ref $allele_seq && $$allele_seq && $seqbin_seq ) {
-					$seq = $q->param('chooseseq') eq 'seqbin' ? $seqbin_seq : $$allele_seq;
+					$seq = $params->{'chooseseq'} eq 'seqbin' ? $seqbin_seq : $$allele_seq;
 				} elsif ( ref $allele_seq && $$allele_seq && !$seqbin_seq ) {
 					$seq = $$allele_seq;
 				} elsif ($seqbin_seq) {
@@ -326,7 +327,7 @@ sub _write_xmfa {
 						$seq = 'N' x $common_length;
 					}
 				}
-				if ( $q->param('translate') ) {
+				if ( $params->{'translate'} ) {
 					$seq = BIGSdb::Utils::chop_seq( $seq, $locus_info->{'orf'} || 1 );
 					my $peptide = Bio::Perl::translate_as_string($seq);
 					print $fh_muscle "$peptide\n";
@@ -381,4 +382,5 @@ sub _write_xmfa {
 	close $fh;
 	return ( \@problem_ids, $no_output );
 }
+
 1;

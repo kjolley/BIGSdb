@@ -24,6 +24,8 @@ use List::MoreUtils qw(any);
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Datastore');
 use BIGSdb::Page qw(SEQ_METHODS DATABANKS);
+use BIGSdb::Locus;
+use BIGSdb::Scheme;
 
 sub new {
 	my $class = shift;
