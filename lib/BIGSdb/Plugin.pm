@@ -591,8 +591,8 @@ sub print_sequence_export_form {
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $loci =
 		  $self->{'datastore'}->run_list_query(
-"SELECT distinct(id) FROM loci LEFT JOIN scheme_members ON loci.id = scheme_members.locus where scheme_id is null AND (loci.id IN (SELECT locus FROM allele_designations LEFT JOIN loci ON allele_designations.locus = loci.id AND loci.data_type = 'DNA' AND loci.dbase_name IS NOT NULL AND loci.dbase_id_field IS NOT NULL AND loci.dbase_seq_field IS NOT NULL) OR loci.id IN (SELECT locus FROM allele_sequences)) ORDER BY id"
-		  );
+"SELECT id FROM loci WHERE id NOT IN (SELECT DISTINCT locus FROM scheme_members) AND (id IN (SELECT DISTINCT locus FROM allele_designations LEFT JOIN loci ON allele_designations.locus = loci.id AND loci.data_type = 'DNA' AND loci.dbase_name IS NOT NULL AND loci.dbase_id_field IS NOT NULL AND loci.dbase_seq_field IS NOT NULL) OR id IN (SELECT DISTINCT locus FROM allele_sequences)) ORDER BY id"
+		  );		
 		if (@$loci) {
 			print "<h2>Loci not belonging to any scheme</h2>\n";
 			my ( @scheme_js, @scheme_js2 );
