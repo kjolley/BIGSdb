@@ -139,6 +139,9 @@ sub get_appropriate_plugin_names {
 			next
 			  if !$self->{'config'}->{'mogrify_path'}
 				  && $attr->{'requires'} =~ /mogrify/;
+		 	next
+		 	  if !$self->{'config'}->{'jobs_db'}
+				  && $attr->{'requires'} =~ /offline_jobs/;
 		}
 		next
 		  if (

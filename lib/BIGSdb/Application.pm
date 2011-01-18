@@ -54,7 +54,7 @@ sub new {
 			$self->_setup_prefstore();
 			$self->_initiate_authdb if $self->{'system'}->{'authentication'} eq 'builtin';
 			$self->_initiate_jobmanager( $config_dir, $plugin_dir, $dbase_config_dir )
-			  if $self->{'cgi'}->param('page') eq 'plugin';
+			  if $self->{'cgi'}->param('page') eq 'plugin' && $self->{'config'}->{'jobs_db'};
 			$self->_initiate_plugins($plugin_dir);
 		}
 	}
@@ -220,7 +220,7 @@ sub _read_config_file {
 	my $config = Config::Tiny->new();
 	$config = Config::Tiny->read("$config_dir/bigsdb.conf");
 	foreach (
-		qw ( prefs_db auth_db jobs_db emboss_path tmp_dir secure_tmp_dir blast_path muscle_path mogrify_path
+		qw ( prefs_db auth_db jobs_db max_load emboss_path tmp_dir secure_tmp_dir blast_path muscle_path mogrify_path
 		reference refdb chartdirector)
 	  )
 	{

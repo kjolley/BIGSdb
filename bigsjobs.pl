@@ -42,10 +42,9 @@ use BIGSdb::OfflineJobManager;
 use BIGSdb::PluginManager;
 use BIGSdb::Dataconnector;
 use BIGSdb::BIGSException;
-
 Log::Log4perl->init_once( CONFIG_DIR . '/job_logging.conf' );
-$ENV{'PATH'} = '/bin:/usr/bin'; #so we don't foul taint check
-my $cgi = new CGI;    #Plugins expect a CGI object even though we're not using one
+$ENV{'PATH'} = '/bin:/usr/bin';    #so we don't foul taint check
+my $cgi = new CGI;                 #Plugins expect a CGI object even though we're not using one
 my $job_manager = BIGSdb::OfflineJobManager->new( CONFIG_DIR, LIB_DIR, DBASE_CONFIG_DIR, HOST, PORT, USER, PASSWORD );
 my $job_id      = $job_manager->get_next_job_id;
 exit if !$job_id;
@@ -53,6 +52,20 @@ my ( $job, $params ) = $job_manager->get_job($job_id);
 my $logger     = get_logger('BIGSdb.Application_Initiate');
 my $instance   = $job->{'dbase_config'};
 my $full_path  = DBASE_CONFIG_DIR . "/$instance/config.xml";
+my $config = read_config_file();
+
+my $load_average = 1000; 
+my $max_load = $config->{'max_load'} || 8;
+while ($load_average > $max_load){
+	try {
+		$load_average = $job_manager->get_load_average;
+	} catch BIGSdb::DataException with {
+		print "Can't determine load average ... aborting!\n";
+		exit;
+	};
+	sleep 10 if $load_average > $max_load;
+}
+
 my $xmlHandler = BIGSdb::Parser->new();
 my $parser     = XML::Parser::PerlSAX->new( Handler => $xmlHandler );
 eval { $parser->parse( Source => { SystemId => $full_path } ); };
@@ -78,7 +91,7 @@ print << "TEXT";
 Job:    $job->{'id'}
 Module: $job->{'module'}
 TEXT
-my $config = read_config_file();
+
 db_connect($system);
 my $datastore = BIGSdb::Datastore->new(
 	( 'db' => $db, 'dataConnector' => $dataConnector, 'system' => $system, 'config' => $config, 'xmlHandler' => $xmlHandler ) );
@@ -95,9 +108,9 @@ my $plugin_manager = BIGSdb::PluginManager->new(
 	'pluginDir'     => LIB_DIR
 );
 my $plugin = $plugin_manager->get_plugin( $job->{'module'} );
-$job_manager->update_job_status($job_id,{'status' => 'started', 'start_time' => 'now'});
+$job_manager->update_job_status( $job_id, { 'status' => 'started', 'start_time' => 'now' } );
 $plugin->run_job( $job_id, $params );
-$job_manager->update_job_status($job_id,{'status' => 'finished', 'stop_time' => 'now', 'percent_complete' => 100});
+$job_manager->update_job_status( $job_id, { 'status' => 'finished', 'stop_time' => 'now', 'percent_complete' => 100 } );
 undef $dataConnector;
 
 sub read_config_file {
@@ -105,8 +118,8 @@ sub read_config_file {
 	my $config = Config::Tiny->new();
 	$config = Config::Tiny->read( CONFIG_DIR . "/bigsdb.conf" );
 	foreach (
-		qw ( prefs_db auth_db jobs_db emboss_path tmp_dir secure_tmp_dir blast_path muscle_path mogrify_path
-		reference refdb )
+		qw ( prefs_db auth_db jobs_db max_load emboss_path tmp_dir secure_tmp_dir 
+		blast_path muscle_path mogrify_path reference refdb )
 	  )
 	{
 		$config->{$_} = $config->{_}->{$_};
@@ -132,3 +145,5 @@ sub db_connect {
 		return;
 	};
 }
+
+

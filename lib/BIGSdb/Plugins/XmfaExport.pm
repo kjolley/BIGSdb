@@ -45,7 +45,7 @@ sub get_attributes {
 		seqdb_type  => 'schemes',
 		section     => 'export,postquery',
 		input       => 'query',
-		requires    => 'muscle',
+		requires    => 'muscle,offline_jobs',
 		order       => 22
 	);
 	return \%att;
@@ -114,7 +114,8 @@ sub run {
 			print <<"HTML";
 <div class="box" id="resultstable">
 <p>The output file has been submitted to the job queue.</p>
-<p>Please be aware that this job may take a long time depending on the number of sequences to align.</p>			
+<p>Please be aware that this job may take a long time depending on the number of sequences to align.</p>	
+</div>		
 HTML
 #			my $filename  = ( BIGSdb::Utils::get_random() ) . '.txt';
 #			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
