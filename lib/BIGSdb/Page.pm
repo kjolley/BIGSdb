@@ -102,8 +102,18 @@ sub get_tree_javascript {
 });
 
 function loadContent(url) {
-	\$("#scheme_table").html('<img src=\"/javascript/themes/default/throbber.gif\" /> Loading ...').load(url);
+	\$("#scheme_table").html('<img src=\"/javascript/themes/default/throbber.gif\" /> Loading ...').load(url,tooltip);
 }
+
+tooltip = function(e){
+	\$('div.content a').tooltip({ 
+	    track: true, 
+	    delay: 0, 
+	    showURL: false, 
+	    showBody: " - ", 
+	    fade: 250 
+	});
+};
 END
 	return $buffer;
 
