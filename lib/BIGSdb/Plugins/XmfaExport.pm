@@ -111,19 +111,11 @@ sub run {
 		if ( !@fields_selected ) {
 			print "<div class=\"box\" id=\"statusbad\"><p>No fields have been selected!</p></div>\n";
 		} else {
-			print <<"HTML";
-<div class="box" id="resultstable">
-<p>The output file has been submitted to the job queue.</p>
-<p>Please be aware that this job may take a long time depending on the number of sequences to align.</p>	
-</div>		
-HTML
-#			my $filename  = ( BIGSdb::Utils::get_random() ) . '.txt';
-#			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
 			my $params    = $q->Vars;
 			$params->{'pk'} = $pk;
 			(my $list = $q->param('list')) =~ s/[\r\n]+/\|\|/g;
 			$params->{'list'} = $list;
-			$self->{'jobManager'}->add_job(
+			my $job_id = $self->{'jobManager'}->add_job(
 				{
 					'dbase_config' => $self->{'instance'},
 					'ip_address'   => $q->remote_host,
@@ -132,6 +124,16 @@ HTML
 					'parameters'   => $params
 				}
 			);
+			print <<"HTML";
+<div class="box" id="resultstable">
+<p>This analysis has been submitted to the job queue.</p>
+<p>Please be aware that this job may take a long time depending on the number of sequences to align
+and how busy the server is.  Alignment of hundreds of sequences can take many hours!</p>
+<p><a href="$self->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">
+Follow the progress of this job and view the output.</a></p> 	
+</div>	
+HTML
+
 
 		 #			$| = 1;
 		 #			my ( $problem_ids, $no_output ) = $self->_write_xmfa( $list, \@fields_selected, $full_path, $pk );

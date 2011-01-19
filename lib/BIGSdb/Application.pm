@@ -54,7 +54,9 @@ sub new {
 			$self->_setup_prefstore();
 			$self->_initiate_authdb if $self->{'system'}->{'authentication'} eq 'builtin';
 			$self->_initiate_jobmanager( $config_dir, $plugin_dir, $dbase_config_dir )
-			  if $self->{'cgi'}->param('page') eq 'plugin' && $self->{'config'}->{'jobs_db'};
+			  if ( $self->{'cgi'}->param('page') eq 'plugin'
+				|| $self->{'cgi'}->param('page') eq 'job' )
+			  && $self->{'config'}->{'jobs_db'};
 			$self->_initiate_plugins($plugin_dir);
 		}
 	}
@@ -334,7 +336,8 @@ sub print_page {
 		'fieldValues'        => 'FieldHelpPage',
 		'extractedSequence'  => 'ExtractedSequencePage',
 		'alleleQuery'        => 'AlleleQueryPage',
-		'locusInfo'          => 'LocusInfoPage'
+		'locusInfo'          => 'LocusInfoPage',
+		'job'				 => 'JobViewerPage'
 	);
 	my $page;
 	my %page_attributes = (
@@ -351,6 +354,7 @@ sub print_page {
 		'dataConnector'    => $self->{'dataConnector'},
 		'pluginManager'    => $self->{'pluginManager'},
 		'mod_perl_request' => $self->{'mod_perl_request'},
+		'jobManager'       => $self->{'jobManager'},
 	);
 	my $continue = 1;
 	my $auth_cookies_ref;

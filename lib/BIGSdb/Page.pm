@@ -190,16 +190,21 @@ sub print {
 				close $fh;
 			}
 		}
+		my $http_equiv;
+		if ($self->{'refresh'}){
+			$http_equiv = "<meta http-equiv=\"refresh\" content=\"$self->{'refresh'}\" />";
+		} 
+		
 		if (%shortcut_icon) {
 			print $q->start_html(
 				-title  => $title,
 				-meta   => {%meta_content},
 				-style  => { -src => $stylesheet },
-				-head   => CGI->Link( {%shortcut_icon} ),
+				-head   => [CGI->Link( {%shortcut_icon} ), $http_equiv],
 				-script => \@javascript
 			);
 		} else {
-			print $q->start_html( -title => $title, -meta => {%meta_content}, -style => { -src => $stylesheet }, -script => \@javascript );
+			print $q->start_html( -title => $title, -meta => {%meta_content}, -style => { -src => $stylesheet }, -script => \@javascript, -head => $http_equiv );
 		}
 		$self->_print_header();
 		$self->_print_login_details if $self->{'system'}->{'read_access'} ne 'public' || $self->{'curate'};
