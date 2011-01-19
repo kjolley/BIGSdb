@@ -134,23 +134,6 @@ Follow the progress of this job and view the output.</a></p>
 <p>Please note that the % complete value will only update after the alignment of each locus.</p>
 </div>	
 HTML
-
-
-		 #			$| = 1;
-		 #			my ( $problem_ids, $no_output ) = $self->_write_xmfa( $list, \@fields_selected, $full_path, $pk );
-		 #			print " done</p>";
-		 #
-		 #			if ($no_output) {
-		 #				print "<p>No output generated.  Please ensure that your sequences have been defined for these isolates.</p>\n";
-		 #			} else {
-		 #				print "<p><a href=\"/tmp/$filename\">Output file</a> (right-click to save)</p>\n";
-		 #			}
-		 #			print "</div>\n";
-		 #			if (@$problem_ids) {
-		 #				$" = '; ';
-		 #				print
-		 #"<div class=\"box\" id=\"statusbad\"><p>The following ids could not be processed (they do not exist): @$problem_ids.</p></div>\n";
-		 #			}
 			return;
 		}
 	}
