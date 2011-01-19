@@ -422,7 +422,7 @@ header for your spreadsheet</a> - use Paste special &rarr; text to paste the dat
 </ul>
 HTML
 		print $q->start_form;
-		my $qry = "select id,user_name,first_name,surname from users order by surname";
+		my $qry = "select id,user_name,first_name,surname from users WHERE id> 0 order by surname";
 		my $sql = $self->{'db'}->prepare($qry);
 		eval { $sql->execute(); };
 		if ($@) {

@@ -208,7 +208,7 @@ sub print_content {
 			}
 		}
 	}
-	$qry = "select id,user_name,first_name,surname from users order by surname";
+	$qry = "select id,user_name,first_name,surname from users WHERE id>0 order by surname";
 	$sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute(); };
 	if ($@) {
