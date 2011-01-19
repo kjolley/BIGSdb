@@ -33,7 +33,7 @@ CREATE TABLE output (
 job_id text NOT NULL,
 filename text NOT NULL,
 description text NOT NULL,
-PRIMARY KEY (job_id),
+PRIMARY KEY (job_id,filename),
 CONSTRAINT o_job_id FOREIGN KEY (job_id) REFERENCES jobs
 ON DELETE CASCADE
 ON UPDATE CASCADE

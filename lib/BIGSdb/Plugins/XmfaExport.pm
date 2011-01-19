@@ -60,7 +60,7 @@ sub run {
 	my $list;
 	my $qry_ref;
 	my $pk;
-
+	
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$pk = 'id';
 	} else {
@@ -131,6 +131,7 @@ sub run {
 and how busy the server is.  Alignment of hundreds of sequences can take many hours!</p>
 <p><a href="$self->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">
 Follow the progress of this job and view the output.</a></p> 	
+<p>Please note that the % complete value will only update after the alignment of each locus.</p>
 </div>	
 HTML
 
@@ -183,7 +184,6 @@ HTML
 
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
-#	$self->{'jobManager'}->update_job_status($job_id,{'status' => 'started', 'start_time' => 'now'});
 	my $scheme_id = $params->{'scheme_id'};
 	my $pk = $params->{'pk'};
 	my $filename = "$self->{'config'}->{'tmp_dir'}/$job_id\.txt";
@@ -202,8 +202,6 @@ sub run_job {
 "SELECT substring(sequence from start_pos for end_pos-start_pos+1),reverse FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE isolate_id=? AND locus=? ORDER BY complete desc,allele_sequences.datestamp LIMIT 1"
 	  );
 	my @problem_ids;
-	my $i     = 0;
-	my $j     = 0;
 	my $start = 1;
 	my $end;
 	my $no_output = 1;
@@ -217,11 +215,14 @@ sub run_job {
 		$logger->error("Can't execute $@");
 	}
 	my @selected_fields;
+	my %picked;
 	while ( my ( $locus, $scheme_id ) = $locus_sql->fetchrow_array ) {
 		if ( ( $scheme_id && $params->{"s_$scheme_id\_l_$locus"} ) || ( !$scheme_id && $params->{"l_$locus"} ) ) {
-			push @selected_fields, $locus;
+			push @selected_fields, $locus if !$picked{$locus};
+			$picked{$locus} = 1;
 		}
 	}
+	my $progress = 0;
 	foreach my $locus_name (@selected_fields) {
 		my $locus;
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
@@ -237,8 +238,6 @@ sub run_job {
 		my $muscle_file = "$self->{'config'}->{secure_tmp_dir}/$temp.muscle";
 		open( my $fh_muscle, '>', "$temp_file" ) or $logger->error("could not open temp file $temp_file");
 		my $count;
-		print "." if !$i;
-		print " " if !$j;
 		my $limit = $self->{'system'}->{'XMFA_limit'} || 200;
 		my @list = split/\|\|/,$params->{'list'};
 		
@@ -356,12 +355,6 @@ sub run_job {
 		}
 		close $fh_muscle;
 		system( $self->{'config'}->{'muscle_path'}, '-in', $temp_file, '-out', $muscle_file, '-stable', '-quiet' );
-		$i++;
-		if ( $i == 10 ) {
-			$i = 0;
-			$j++;
-		}
-		$j = 0 if $j == 10;
 		if ( $ENV{'MOD_PERL'} ) {
 			$self->{'mod_perl_request'}->rflush;
 			return if $self->{'mod_perl_request'}->connection->aborted;
@@ -381,9 +374,22 @@ sub run_job {
 		}
 		unlink $muscle_file;
 		unlink $temp_file;
+		$progress++;
+		my $complete = int (100 * $progress / scalar @selected_fields); 
+		$self->{'jobManager'}->update_job_status($job_id,{'percent_complete' => $complete});		
 	}
 	close $fh;
-	return ( \@problem_ids, $no_output );
+	my $message_html;
+	if (@problem_ids){
+		$"=', ';
+		$message_html = "<p>The following ids could not be processed (they do not exist): @problem_ids.</p>\n";
+	}
+	if ($no_output) {
+		 $message_html .= "<p>No output generated.  Please ensure that your sequences have been defined for these isolates.</p>\n";
+	} else {
+		$self->{'jobManager'}->update_job_output($job_id,{'filename' => "$job_id.txt", 'description' => 'XMFA output file'});
+	}
+	$self->{'jobManager'}->update_job_status($job_id,{'message_html' => $message_html}) if $message_html;
 }
 
 1;

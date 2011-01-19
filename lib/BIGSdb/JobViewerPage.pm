@@ -27,7 +27,7 @@ sub initiate {
 	my ($self) = @_;
 	$self->{'jQuery'}  = 1;
 	$self->{'noCache'} = 1;
-	$self->{'refresh'} = 30;
+	$self->{'refresh'} = 5;
 }
 
 sub print_content {
@@ -59,7 +59,7 @@ sub print_content {
 <tr class="td2"><th style="text-align:right">Submit time: </th><td style="text-align:left">$submit_time</td></tr>
 <tr class="td1"><th style="text-align:right">Status: </th><td style="text-align:left">$job->{'status'}</td></tr>
 <tr class="td2"><th style="text-align:right">Start time: </th><td style="text-align:left">$start_time</td></tr>
-<tr class="td1"><th style="text-align:right">% complete: </th><td style="text-align:left">$job->{'percent_complete'}</td></tr>
+<tr class="td1"><th style="text-align:right">Progress: </th><td style="text-align:left">$job->{'percent_complete'}%</td></tr>
 <tr class="td2"><th style="text-align:right">Stop time: </th><td style="text-align:left">$stop_time</td></tr>
 </table>
 <h2>Output</h2>
@@ -68,6 +68,16 @@ HTML
 		print "<p>No output yet.</p>\n";
 	} else {
 		print "$job->{'message_html'}";
+		my @buffer;
+		if (ref $output eq 'HASH'){
+			foreach (sort keys (%$output)){
+				push @buffer, "<li><a href=\"/tmp/$output->{$_}\">$_</a></li>\n";
+			}
+		}
+		if (@buffer){
+			$"="\n";
+			print "<ul>\n@buffer</ul>\n";
+		}
 	}
 	print "<p>This page will reload in $self->{'refresh'} seconds.  You can refresh it any time, or bookmark it and close your browser if you wish.</p>\n";
 	print "</div>\n";

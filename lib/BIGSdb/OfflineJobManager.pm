@@ -139,11 +139,13 @@ sub update_job_output {
 	}
 	eval {
 		$self->{'db'}->do(
-			"UPDATE output SET filename=?, description=? WHERE job_id=?",
+			"INSERT INTO output (job_id,filename,description) VALUES (?,?,?)",
 			undef,
+			$job_id,
 			$output_hash->{'filename'},
-			$output_hash->{'description'}, $job_id
+			$output_hash->{'description'}
 		);
+		$logger->error($output_hash->{'filename'} . '; ' .$output_hash->{'description'}. "; $job_id");
 	};
 	if ($@) {
 		$logger->error($@);
@@ -151,6 +153,7 @@ sub update_job_output {
 	} else {
 		$self->{'db'}->commit;
 	}
+	
 }
 
 sub update_job_status {
