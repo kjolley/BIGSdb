@@ -127,7 +127,9 @@ than the number of processor cores or you may find that jobs never run on a
 busy server.  Setting it to double the number of cores is probably a good
 starting point.  
 
-4) Set the script to run frequently (preferably every minute) from CRON. Note
+4) Copy the job_logging.conf file to the /etc/bigsdb directory.
+
+5) Set the script to run frequently (preferably every minute) from CRON. Note
 that CRON does not like '.' in executable filenames, so either rename the
 script to 'bigsjobs' or create a symlink and call that from CRON, e.g.
 
@@ -140,8 +142,8 @@ Add the following to /etc/crontab:
 
 (set to run every minute from the 'bigsdb' user account).
 
-5) Create a log file, bigsdb_jobs.log, in /var/log owned by 'bigsdb',
+6) Create a log file, bigsdb_jobs.log, in /var/log owned by 'bigsdb',
  e.g.
 
-touch /var/log/bigsdb_jobs.log
-chown bigsdb /var/log/bigsdb.log 
+sudo touch /var/log/bigsdb_jobs.log
+sudo chown bigsdb /var/log/bigsdb.log 
