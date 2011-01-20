@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -27,7 +27,7 @@ sub initiate {
 	my ($self) = @_;
 	$self->{'jQuery'}  = 1;
 	$self->{'noCache'} = 1;
-	$self->{'refresh'} = 5;
+	$self->{'refresh'} = 60;
 }
 
 sub print_content {
@@ -80,6 +80,7 @@ HTML
 		}
 	}
 	print "<p>This page will reload in $self->{'refresh'} seconds.  You can refresh it any time, or bookmark it and close your browser if you wish.</p>\n";
+	print "<p>Please note that job results will not be stored on the server indefinitely.</p>\n";
 	print "</div>\n";
 }
 

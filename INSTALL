@@ -44,10 +44,12 @@ psql -f auth.sql bigsdb_auth
 10) Create a writable temporary directory in the root of the web site called
 tmp, i.e. accessible from http://your_website/tmp
 
-11) Create a log file, bigsdb.log, in /var/log owned by the web server daemon, e.g.
+11) Create a log file, bigsdb.log, in /var/log owned by the web server daemon,
+ e.g.
 
 touch /var/log/bigsdb.log
-chown www-data /var/log/bigsdb.log (substitute www-data for the web daemon user).
+chown www-data /var/log/bigsdb.log (substitute www-data for the web daemon
+user).
 
 Set up databases
 ----------------
@@ -70,7 +72,8 @@ edit the XML file correspondingly, keeping the two in sync.  See
 http://pubmlst.org/software/database/bigsdb/installation/xml.shtml for
 details of how to edit the XML file.
 
-The website can be customized by adding the following files to the database configuration directory, e.g. /etc/bigsdb/dbases/test_db:
+The website can be customized by adding the following files to the database
+configuration directory, e.g. /etc/bigsdb/dbases/test_db:
 
 banner.html, header.html, footer.html, curate_header.html, curate_footer.html.
 Header and footer files are placed around the script output.  The contents
@@ -83,10 +86,61 @@ The first admin user needs to be manually added to the users table of the
 database.  Connect to the database using psql and add the following 
 (changing details to suit the user).
 
-INSERT INTO users (id,user_name,surname,first_name,email,affiliation,status,date_entered,datestamp,curator) VALUES (1,'keith','Jolley','Keith','keith.jolley@zoo.ox.ac.uk','University of Oxford, UK','admin','today','today',1);
+INSERT INTO users (id,user_name,surname,first_name,email,affiliation,status,
+date_entered,datestamp,curator) VALUES (1,'keith','Jolley','Keith',
+'keith.jolley@zoo.ox.ac.uk','University of Oxford, UK','admin','today','today',
+1);
 
 If you are using built-in authentication, set the password for this user
 using the add_user.pl script.  Other users can be added by the admin user
 from the curation interface accessible from 
 http://your_website/cgi-bin/private/bigscurate.pl?db=test_db (or wherever 
 you have located your bigscurate.pl script).
+
+Setting up the offline job manager
+----------------------------------
+To run plugins that require a long time to complete their analyses, an offline
+job manager has been developed.  The plugin will save the parameters of a job
+to a job database and then provide a link to the job status page.  An offline
+script, run frequently from CRON, will then process the job queue and update
+status and outputs via the job status page.
+
+1) Create a 'bigsdb' UNIX user, e.g.
+
+sudo useradd -s /bin/sh bigsdb
+
+2) As the postgres user, create a bigsdb_jobs database using the jobs.sql SQL
+file, e.g.
+
+createdb bigsdb_jobs
+psql -f jobs.sql bigsdb_jobs
+
+3) Set up the jobs parameters in the /etc/bigsdb/bigsdb.conf file, e.g.
+
+jobs_db=bigsdb_jobs
+max_load=8
+
+The jobs script will not process a job if the server's load average (over the
+last minute) is higher than the max_load parameter.  This should be set higher
+than the number of processor cores or you may find that jobs never run on a
+busy server.  Setting it to double the number of cores is probably a good
+starting point.  
+
+4) Set the script to run frequently (preferably every minute) from CRON. Note
+that CRON does not like '.' in executable filenames, so either rename the
+script to 'bigsjobs' or create a symlink and call that from CRON, e.g.
+
+copy bigsjobs.pl to /usr/local/bin
+sudo ln -s /usr/local/bin/bigsjobs.pl /usr/local/bin/bigsjobs
+
+Add the following to /etc/crontab:
+
+* *    * * *	bigsdb  /usr/local/bin/bigsjobs
+
+(set to run every minute from the 'bigsdb' user account).
+
+5) Create a log file, bigsdb_jobs.log, in /var/log owned by 'bigsdb',
+ e.g.
+
+touch /var/log/bigsdb_jobs.log
+chown bigsdb /var/log/bigsdb.log 

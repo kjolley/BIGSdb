@@ -145,7 +145,7 @@ sub update_job_output {
 			$output_hash->{'filename'},
 			$output_hash->{'description'}
 		);
-		$logger->error($output_hash->{'filename'} . '; ' .$output_hash->{'description'}. "; $job_id");
+		$logger->debug($output_hash->{'filename'} . '; ' .$output_hash->{'description'}. "; $job_id");
 	};
 	if ($@) {
 		$logger->error($@);
@@ -220,14 +220,4 @@ sub get_next_job_id {
 	return $job;
 }
 
-sub get_load_average {
-	my $uptime = `uptime`;
-	my $load;
-	if ( $uptime =~ /load average:\s+([\d\.]+)/ ) {
-		$load = $1;
-	} else {
-		throw BIGSdb::DataException("Can't determine load average");
-	}
-	return $load;
-}
 1;
