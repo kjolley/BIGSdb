@@ -258,13 +258,13 @@ sub print_content {
 sub _is_scheme_field_bad {
 	my ( $self, $scheme_id, $field, $value ) = @_;
 	my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
-	if ( $scheme_field_info->{'primary_key'} && !$value ) {
+	if ( $scheme_field_info->{'primary_key'} && $value eq '' ) {
 		return "Field '$field' is the primary key and requires a value.";
-	} elsif ( $scheme_field_info->{'type'} eq 'integer'
+	} elsif ( $value ne '' && $scheme_field_info->{'type'} eq 'integer'
 		&& !BIGSdb::Utils::is_int($value) )
 	{
 		return "Field '$field' must be an integer.";
-	} elsif ( $scheme_field_info->{'value_regex'} && $value !~ /$scheme_field_info->{'value_regex'}/ ) {
+	} elsif ( $value ne '' && $scheme_field_info->{'value_regex'} && $value !~ /$scheme_field_info->{'value_regex'}/ ) {
 		return "Field value is invalid - it must match the regular expression /$scheme_field_info->{'value_regex'}/.";
 	}
 }
