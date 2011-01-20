@@ -109,9 +109,10 @@ status and outputs via the job status page.
 
 sudo useradd -s /bin/sh bigsdb
 
-2) As the postgres user, create a bigsdb_jobs database using the jobs.sql SQL
-file, e.g.
+2) As the postgres user, create a 'bigsdb' user and create a bigsdb_jobs 
+database using the jobs.sql SQL file, e.g.
 
+createuser bigsdb [no need for special priveleges]
 createdb bigsdb_jobs
 psql -f jobs.sql bigsdb_jobs
 
