@@ -44,4 +44,4 @@ Add the following to /etc/crontab:
  e.g.
 
 sudo touch /var/log/bigsdb_jobs.log
-sudo chown bigsdb /var/log/bigsdb.log 
+sudo chown bigsdb /var/log/bigsdb_jobs.log 
