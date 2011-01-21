@@ -54,7 +54,7 @@ my $logger     = get_logger('BIGSdb.Job');
 $ENV{'PATH'} = '/bin:/usr/bin';    #so we don't foul taint check
 my $config = read_config_file();
 
-my $load_average = 1000; 
+my $load_average; 
 my $max_load = $config->{'max_load'} || 8;
 
 try {
@@ -82,10 +82,7 @@ if ($@) {
 	$logger->fatal("Invalid XML description: $@");
 	return;
 }
-if ($@) {
-	$logger->fatal("Invalid XML description: $@");
-	return;
-}
+
 my $system = $xmlHandler->get_system_hash;
 $system->{'host'}     = 'localhost' if !$system->{'host'};
 $system->{'port'}     = 5432        if !$system->{'port'};
