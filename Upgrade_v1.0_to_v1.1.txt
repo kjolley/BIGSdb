@@ -3,24 +3,45 @@ analyses that take a long time for which it is inappropriate to require the
 browser remains connected.  When upgrading to version 1.1, you will need to
 do the following:
 
-1) Create new bigsdb_jobs database using jobs.sql found in the sql directory
-2) Create new bigsdb UNIX user, e.g.
+1) Create a 'bigsdb' UNIX user, e.g.
 
-   sudo useradd -s /bin/sh bigsdb
-   
-3) Create new bigsdb Postgres user, e.g.
- 	
- 	as postgres
- 	createuser bigsdb (no need to set specific roles)
+sudo useradd -s /bin/sh bigsdb
 
-4) Create empty bigsdb_jobs.log file in the /var/log directory, make this owned
-   by bigsdb, e.g.
-   
-   sudo touch /var/log/bigsdb_jobs.log
-   sudo chown bigsdb:bigsdb /var/log/bigsdb_jobs.log
+2) As the postgres user, create a 'bigsdb' user and create a bigsdb_jobs 
+database using the jobs.sql SQL file, e.g.
 
-5) Copy the job_logging.conf file from the conf directory to /etc/bigsdb.
-6) Update the /etc/bigsdb/bigsdb.conf file with the following (top section):
-   
-   jobs_db=bigsdb_jobs
-   
+createuser bigsdb [no need for special priveleges]
+createdb bigsdb_jobs
+psql -f jobs.sql bigsdb_jobs
+
+3) Set up the jobs parameters in the /etc/bigsdb/bigsdb.conf file, e.g.
+
+jobs_db=bigsdb_jobs
+max_load=8
+
+The jobs script will not process a job if the server's load average (over the
+last minute) is higher than the max_load parameter.  This should be set higher
+than the number of processor cores or you may find that jobs never run on a
+busy server.  Setting it to double the number of cores is probably a good
+starting point.  
+
+4) Copy the job_logging.conf file to the /etc/bigsdb directory.
+
+5) Set the script to run frequently (preferably every minute) from CRON. Note
+that CRON does not like '.' in executable filenames, so either rename the
+script to 'bigsjobs' or create a symlink and call that from CRON, e.g.
+
+copy bigsjobs.pl to /usr/local/bin
+sudo ln -s /usr/local/bin/bigsjobs.pl /usr/local/bin/bigsjobs
+
+Add the following to /etc/crontab:
+
+* *    * * *	bigsdb  /usr/local/bin/bigsjobs
+
+(set to run every minute from the 'bigsdb' user account).
+
+6) Create a log file, bigsdb_jobs.log, in /var/log owned by 'bigsdb',
+ e.g.
+
+sudo touch /var/log/bigsdb_jobs.log
+sudo chown bigsdb /var/log/bigsdb.log 
