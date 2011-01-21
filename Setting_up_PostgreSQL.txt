@@ -1,0 +1,34 @@
+Setting up PostgreSQL
+---------------------
+The following security settings will allow the appropriate users 'apache' and
+'bigsdb' to access databases without allowing all logged in users full access.
+Only the UNIX users 'postgres' and 'webmaster' can log in to the databases
+as the Postgres user 'postgres'.
+
+You will need to edit the pg_hba.conf and pg_ident.conf files.  These are
+found somewhere like /etc/postgresql/8.3/main/
+
+pg_hba.conf
+-----------
+# Database administrative login by UNIX sockets
+local   all         postgres                          ident map=mymap
+
+# TYPE  DATABASE    USER        CIDR-ADDRESS          METHOD
+
+# "local" is for Unix domain socket connections only
+local   all         all                               ident
+local   all         all                               ident map=mymap
+# IPv4 local connections:
+host    all         all         127.0.0.1/32          ident map=mymap
+# IPv6 local connections:
+host    all         all         ::1/128               md5
+
+pg_ident.conf
+-------------
+# MAPNAME     SYSTEM-USERNAME    PG-USERNAME
+
+mymap   postgres        postgres
+mymap   webmaster       postgres
+mymap   www-data        apache
+mymap   bigsdb          bigsdb
+mymap   bigsdb          apache
