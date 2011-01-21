@@ -137,21 +137,7 @@ HTML
 			return;
 		}
 	}
-	if ( !@$list ) {
-		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-			my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
-			$list = $self->{'datastore'}->run_list_query($qry);
-		} else {
-			my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $pk );
-			my $qry;
-			if ( $field_info->{'type'} eq 'integer' ) {
-				$qry = "SELECT $pk FROM scheme_$scheme_id ORDER BY CAST($pk AS integer)";
-			} else {
-				$qry = "SELECT $pk FROM scheme_$scheme_id ORDER BY $pk";
-			}
-			$list = $self->{'datastore'}->run_list_query($qry);
-		}
-	}
+
 	my $limit = $self->{'system'}->{'XMFA_limit'} || 200;
 	print <<"HTML";
 <div class="box" id="queryform">
@@ -205,6 +191,23 @@ sub run_job {
 			$picked{$locus} = 1;
 		}
 	}
+	my @list = split/\|\|/,$params->{'list'};
+	if ( !@list ) {
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+			my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
+			@list = @{$self->{'datastore'}->run_list_query($qry)};
+		} else {
+			my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $pk );
+			my $qry;
+			if ( $field_info->{'type'} eq 'integer' ) {
+				$qry = "SELECT $pk FROM scheme_$scheme_id ORDER BY CAST($pk AS integer)";
+			} else {
+				$qry = "SELECT $pk FROM scheme_$scheme_id ORDER BY $pk";
+			}
+			@list = @{$self->{'datastore'}->run_list_query($qry)};
+		}
+	}	
+	
 	my $progress = 0;
 	foreach my $locus_name (@selected_fields) {
 		my $locus;
@@ -222,7 +225,7 @@ sub run_job {
 		open( my $fh_muscle, '>', "$temp_file" ) or $logger->error("could not open temp file $temp_file");
 		my $count;
 		my $limit = $self->{'system'}->{'XMFA_limit'} || 200;
-		my @list = split/\|\|/,$params->{'list'};
+		
 		
 		foreach my $id (@list) {
 			last if $count == $limit;
