@@ -87,7 +87,7 @@ sub add_job {
 	#priority: (highest 1 - lowest 9)
 	#parameters: any additional parameters needed by plugin (hashref)
 	my ( $self, $params ) = @_;
-	foreach (qw (dbase_config ip_address module function)) {
+	foreach (qw (dbase_config ip_address module)) {
 		if ( !$params->{$_} ) {
 			$logger->error("Parameter $_ not passed");
 			throw BIGSdb::DataException("Parameter $_ not passed");

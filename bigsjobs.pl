@@ -89,6 +89,7 @@ $system->{'port'}     = 5432        if !$system->{'port'};
 $system->{'user'}     = 'apache'    if !$system->{'user'};
 $system->{'password'} = 'remote'    if !$system->{'password'};
 $system->{'view'}     = 'isolates'  if !$system->{'view'};
+$system->{'labelfield'} = 'isolate' if !$system->{'labelfield'};
 my $dataConnector = BIGSdb::Dataconnector->new();
 $dataConnector->initiate($system);
 my $db;

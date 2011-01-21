@@ -120,7 +120,6 @@ sub run {
 					'dbase_config' => $self->{'instance'},
 					'ip_address'   => $q->remote_host,
 					'module'       => 'XmfaExport',
-					'function'     => 'run_job',
 					'parameters'   => $params
 				}
 			);
@@ -341,10 +340,6 @@ sub run_job {
 		}
 		close $fh_muscle;
 		system( $self->{'config'}->{'muscle_path'}, '-in', $temp_file, '-out', $muscle_file, '-stable', '-quiet' );
-		if ( $ENV{'MOD_PERL'} ) {
-			$self->{'mod_perl_request'}->rflush;
-			return if $self->{'mod_perl_request'}->connection->aborted;
-		}
 		if ( -e $muscle_file ) {
 			$no_output = 0;
 			my $seq_in = Bio::SeqIO->new( '-format' => 'fasta', '-file' => $muscle_file );
