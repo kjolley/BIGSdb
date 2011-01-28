@@ -711,7 +711,7 @@ sub _print_variable_loci {
 		$td = $td == 1 ? 2 : 1;
 		close $fasta_fh;
 		if ( $params->{'align'} ) {
-			system( $self->{'config'}->{'muscle_path'}, '-in', $fasta_file, '-out', $muscle_out, '-stable', '-quiet', '-clw' );
+			system( $self->{'config'}->{'muscle_path'}, '-in', $fasta_file, '-out', $muscle_out, '-quiet', '-clw' );
 			if ( -e $muscle_out ) {
 				open( my $muscle_fh, '<', $muscle_out );
 				print $fh_align "$_\n";

@@ -339,7 +339,7 @@ sub run_job {
 			}
 		}
 		close $fh_muscle;
-		system( $self->{'config'}->{'muscle_path'}, '-in', $temp_file, '-out', $muscle_file, '-stable', '-quiet' );
+		system( $self->{'config'}->{'muscle_path'}, '-in', $temp_file, '-out', $muscle_file, '-quiet' );
 		if ( -e $muscle_file ) {
 			$no_output = 0;
 			my $seq_in = Bio::SeqIO->new( '-format' => 'fasta', '-file' => $muscle_file );
