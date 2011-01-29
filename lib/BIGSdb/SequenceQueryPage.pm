@@ -31,6 +31,27 @@ sub get_title {
 	return $self->{'cgi'}->param('page') eq 'sequenceQuery' ? "Sequence query - $desc" : "Batch sequence query - $desc";
 }
 
+sub get_javascript {
+	my $buffer = << "END";
+\$(function () {
+	\$('a[rel=ajax]').click(function(){
+  		\$(this).attr('href', function(){
+  			if (this.href.match(/javascript.loadContent/)){
+  				return;
+  			};
+    		return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1\'\)"));
+    	});
+  	});
+});
+
+function loadContent(url) {
+	\$("#alignment").html('<img src=\"/javascript/themes/default/throbber.gif\" /> Loading ...').load(url);
+	\$("#alignment_link").hide();
+}
+
+END
+}
+
 sub print_content {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
@@ -374,9 +395,12 @@ sub _run_query {
 									print "<p>The sequence is reverse-complemented with respect to the reference sequence.  
 								This will confuse the list of differences so try reversing it and query again.</p>\n";
 								} else {
-									if ( -e $outfile ) {
-										print "<p><a href=\"/tmp/$temp\_outfile.txt\">Show alignment</a></p>\n";
-									}
+									if ( -e $outfile ) {										
+										my $cleaned_file = "$self->{'config'}->{'tmp_dir'}/$temp\_cleaned.txt";
+										$self->_cleanup_alignment($outfile,$cleaned_file);
+										print "<p><a href=\"/tmp/$temp\_cleaned.txt\" id=\"alignment_link\" rel=\"ajax\">Show alignment</a></p>\n";
+										print "<pre><div id=\"alignment\"></div></pre>\n";
+ 									}
 									my $diffs = $self->_get_differences( $seq_ref, \$seq, $sstart, $qstart );
 									print "<h2>Differences</h2>\n";
 									if (@$diffs) {
@@ -638,5 +662,18 @@ sub _get_differences {
 		$qpos++;
 	}
 	return \@diffs;
+}
+
+sub _cleanup_alignment {
+	my ($self, $infile, $outfile) = @_;
+	open (my $in_fh, '<', $infile);
+	open (my $out_fh, '>', $outfile);
+	while (<$in_fh>){
+		next if $_ =~ /^#/;
+		print $out_fh $_;
+	}
+	close $in_fh;
+	close $out_fh;
+	
 }
 1;
