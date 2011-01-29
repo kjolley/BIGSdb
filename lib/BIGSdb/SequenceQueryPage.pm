@@ -341,18 +341,24 @@ sub _run_query {
 									if ($_ =~ /^# Gaps:\s+(\d+)+\//){
 										$gaps = $1;
 									}
+									if ($_ =~ /^\s+Ref [^-]+$/){
+										#Reset end gap count if line contains anything other than gaps
+										$end_gaps = 0;
+									}
 									if ($first_line && $_ =~ /^\s+Ref/){
 										if ($_ =~ /^\s+Ref (-*)/){
-											$opening_gaps = length $1;											
+											$opening_gaps += length $1;											
 										}
-										$first_line = 0;
 									}
 									if ($_ =~ /^\s+Ref.+?(-*)\s*$/){										
-										$end_gaps = length $1;
-									}									
+										$end_gaps += length $1;
+									}		
+									if ($_ =~ /^\s+Ref [^-]+$/){
+										$first_line = 0;
+									}							
 								}
 								close $fh;
-								$logger->debug("Opening gaps: $opening_gaps; End gaps: $end_gaps");
+								$logger->error("Opening gaps: $opening_gaps; End gaps: $end_gaps");
 								$internal_gaps = $gaps - $opening_gaps - $end_gaps;
 							}
 							#Display nucleotide differences if both BLAST and stretcher report no gaps.
