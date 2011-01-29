@@ -358,7 +358,7 @@ sub _run_query {
 									}							
 								}
 								close $fh;
-								$logger->error("Opening gaps: $opening_gaps; End gaps: $end_gaps");
+								$logger->debug("Opening gaps: $opening_gaps; End gaps: $end_gaps");
 								$internal_gaps = $gaps - $opening_gaps - $end_gaps;
 							}
 							#Display nucleotide differences if both BLAST and stretcher report no gaps.
