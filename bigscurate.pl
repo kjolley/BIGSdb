@@ -1,7 +1,7 @@
 #!/usr/bin/perl -T
 #bigscurate.pl
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,7 +18,7 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
-package BIGSdb::Curate_main;
+
 use strict;
 
 ###########Local configuration###############################################

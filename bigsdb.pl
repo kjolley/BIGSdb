@@ -1,7 +1,7 @@
 #!/usr/bin/perl -T
 #bigsdb.pl
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,9 +18,10 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
-package BIGSdb::main;
+
 use strict;
-use version; our $VERSION = qv('1.0.1');
+use version; our $VERSION = qv('1.1.0');
+
 ###########Local configuration################################
 use constant {
 	CONFIG_DIR       => '/etc/bigsdb',
@@ -28,6 +29,7 @@ use constant {
 	DBASE_CONFIG_DIR => '/etc/bigsdb/dbases'
 };
 #######End Local configuration################################
+
 use CGI;
 use DBI;
 use Log::Log4perl qw(get_logger);               #Also need Log::Dispatch::File
