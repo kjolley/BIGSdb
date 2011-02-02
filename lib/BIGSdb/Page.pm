@@ -2042,7 +2042,7 @@ sub initiate_prefs {
 		&& $q->param('page') eq 'options'
 		&& $q->param('set') )
 	{
-		foreach (qw(displayrecs pagebar combfields combfields_locus alignwidth flanking)) {
+		foreach (qw(displayrecs pagebar combfields_locus alignwidth flanking)) {
 			$self->{'prefs'}->{$_} = $q->param($_);
 		}
 
@@ -2071,7 +2071,6 @@ sub initiate_prefs {
 			$general_prefs = $self->{'prefstore'}->get_all_general_prefs( $guid, $dbname );
 			$self->{'prefs'}->{'displayrecs'}      = $general_prefs->{'displayrecs'}      || 25;
 			$self->{'prefs'}->{'pagebar'}          = $general_prefs->{'pagebar'}          || 'top and bottom';
-			$self->{'prefs'}->{'combfields'}       = $general_prefs->{'combfields'}       || 4;
 			$self->{'prefs'}->{'alignwidth'}       = $general_prefs->{'alignwidth'}       || 100;
 			$self->{'prefs'}->{'flanking'}         = $general_prefs->{'flanking'}         || 100;
 			$self->{'prefs'}->{'combfields_locus'} = $general_prefs->{'combfields_locus'} || 2;

@@ -22,11 +22,11 @@ use base qw(BIGSdb::Page);
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use constant MAX_ROWS   => 20;
+use constant MAX_ROWS => 20;
 
 sub initiate {
 	my ($self) = @_;
-	if ($self->{'cgi'}->param('no_header') ){
+	if ( $self->{'cgi'}->param('no_header') ) {
 		$self->{'type'} = 'no_header';
 		return;
 	}
@@ -40,15 +40,12 @@ sub set_pref_requirements {
 }
 
 sub get_javascript {
-	my ($self) = @_;
+	my ($self)   = @_;
 	my $max_rows = MAX_ROWS;
-	my $buffer = << "END";
+	my $buffer   = << "END";
 \$(function () {
 	\$('a[rel=ajax]').click(function(){
   		\$(this).attr('href', function(){
- // 			if (this.href.match(/javascript.loadContent/)){
- // 				return;
-  //			}
     		return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1\'\)"));
     	});
   	});
@@ -57,10 +54,10 @@ sub get_javascript {
 function loadContent(url) {
 	var row = parseInt(url.match(/row=(\\d+)/)[1]);
 	var new_row = row+1;
-	var fields = url.match(/fields=([provenance|loci]+)/)[1];
+	var fields = url.match(/fields=([provenance|loci|scheme]+)/)[1];
 	if (fields == 'provenance'){	
 		\$("ul#provenance").append('<li id="fields' + row + '" />');
-		\$("#fields"+row).html('<img src=\"/javascript/themes/default/throbber.gif\" /> Loading ...').load(url);
+		\$("li#fields"+row).html('<img src=\"/javascript/themes/default/throbber.gif\" /> Loading ...').load(url);
 		url = url.replace(/row=\\d+/,'row='+new_row);
 		\$("#add_fields").attr('href',url);
 		\$("span#prov_field_heading").show();
@@ -69,12 +66,21 @@ function loadContent(url) {
 		}
 	} else if (fields == 'loci'){
 		\$("ul#loci").append('<li id="locus' + row + '" />');
-		\$("#locus"+row).html('<img src=\"/javascript/themes/default/throbber.gif\" /> Loading ...').load(url);
+		\$("li#locus"+row).html('<img src=\"/javascript/themes/default/throbber.gif\" /> Loading ...').load(url);
 		url = url.replace(/row=\\d+/,'row='+new_row);
 		\$("#add_loci").attr('href',url);	
 		\$("span#loci_field_heading").show();
 		if (new_row > $max_rows){
 			\$("#add_loci").hide();
+		}	
+	} else if (fields == 'scheme'){
+		\$("ul#scheme_fields").append('<li id="scheme_field' + row + '" />');
+		\$("li#scheme_field"+row).html('<img src=\"/javascript/themes/default/throbber.gif\" /> Loading ...').load(url);
+		url = url.replace(/row=\\d+/,'row='+new_row);
+		\$("#add_scheme_fields").attr('href',url);	
+		\$("span#scheme_field_heading").show();
+		if (new_row > $max_rows){
+			\$("#add_scheme_fields").hide();
 		}	
 	}
 }
@@ -86,18 +92,23 @@ sub _ajax_content {
 	my ($self) = @_;
 	my $system = $self->{'system'};
 	my $q      = $self->{'cgi'};
-	my $row = $q->param('row');
-	return if !BIGSdb::Utils::is_int($row) || $row > 20 || $row <2;
-	if ($system->{'dbtype'} eq 'isolates'){
-		if ($q->param('fields') eq 'provenance'){
-			my ($select_items,$labels) = $self->_get_select_items;
-			$self->_print_provenance_fields ($row,$select_items,$labels);
-		} elsif ($q->param('fields') eq 'loci'){
-			my ( $locus_list, $locus_labels ) = $self->get_field_selection_list( { 'loci' => 1, 'scheme_fields' => 1, 'sort_labels' => 1 } );
-			$self->_print_loci_fields ($row, $locus_list, $locus_labels);
+	my $row    = $q->param('row');
+	return if !BIGSdb::Utils::is_int($row) || $row > 20 || $row < 2;
+	if ( $system->{'dbtype'} eq 'isolates' ) {
+		if ( $q->param('fields') eq 'provenance' ) {
+			my ( $select_items, $labels ) = $self->_get_isolate_select_items;
+			$self->_print_provenance_fields( $row, 0, $select_items, $labels );
+		} elsif ( $q->param('fields') eq 'loci' ) {
+			my ( $locus_list, $locus_labels ) =
+			  $self->get_field_selection_list( { 'loci' => 1, 'scheme_fields' => 1, 'sort_labels' => 1 } );
+			$self->_print_loci_fields( $row, 0, $locus_list, $locus_labels );
 		}
-	} elsif ($system->{'dbtype'} eq 'sequences'){
-		
+	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
+		if ( $q->param('fields') eq 'scheme' ) {
+			my $scheme_id = $q->param('scheme_id');
+			my ( $primary_key, $select_items, $orderitems, $cleaned ) = $self->_get_profile_select_items($scheme_id);
+			$self->_print_scheme_fields( $row, 0, $scheme_id, $select_items, $cleaned );
+		}
 	}
 }
 
@@ -107,7 +118,7 @@ sub print_content {
 	my $q      = $self->{'cgi'};
 	my $scheme_id;
 	my $scheme_info;
-	if ($q->param('no_header')){
+	if ( $q->param('no_header') ) {
 		$self->_ajax_content;
 		return;
 	}
@@ -150,40 +161,44 @@ sub print_content {
 		print "<p />\n";
 	}
 }
-
 ####START ISOLATE INTERFACE#####################################################
-
 sub _print_provenance_fields {
+
 	#split so single row can be added by AJAX call
-	my ($self, $row, $select_items, $labels) = @_;
+	my ( $self, $row, $max_rows, $select_items, $labels ) = @_;
 	my $q = $self->{'cgi'};
 	print "<span style=\"white-space:nowrap\">\n";
 	print $q->popup_menu( -name => "s$row", -values => $select_items, -labels => $labels, -class => 'fieldlist' );
 	print $q->popup_menu( -name => "y$row", -values => [ "=", "contains", ">", "<", "NOT", "NOT contain" ] );
 	print $q->textfield( -name => "t$row", -class => 'value_entry' );
 	if ( $row == 1 ) {
+		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		print
-" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>The number of fields that can be combined can be set in the options page.\">&nbsp;<i>i</i>&nbsp;</a>"
+"<a id=\"add_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;fields=provenance&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
+		print
+" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>Add more fields by clicked the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>"
 		  if $self->{'prefs'}->{'tooltips'};
 	}
 	print "</span>\n";
 }
 
 sub _print_loci_fields {
-	my ($self, $row, $locus_list, $locus_labels) = @_;
+	my ( $self, $row, $max_rows, $locus_list, $locus_labels ) = @_;
 	my $loci_disabled = 1 if !@$locus_list;
 	my $q = $self->{'cgi'};
 	print "<span style=\"white-space:nowrap\">\n";
 	if ($loci_disabled) {
 		print $q->popup_menu( -name => "ls$row", -values => ['No loci available'], -disabled => 'disabled' );
-		print $q->popup_menu( -name => "ly$row", -values => [ "=", "contains", ">", "<", "NOT", "NOT contain" ],
-			-disabled => 'disabled' );
+		print $q->popup_menu( -name => "ly$row", -values => [ "=", "contains", ">", "<", "NOT", "NOT contain" ], -disabled => 'disabled' );
 		print $q->textfield( -name => "lt$row", -class => 'value_entry', -disabled => 'disabled' );
 	} else {
 		print $q->popup_menu( -name => "ls$row", -values => $locus_list, -labels => $locus_labels, -class => 'fieldlist' );
 		print $q->popup_menu( -name => "ly$row", -values => [ "=", "contains", ">", "<", "NOT", "NOT contain" ] );
 		print $q->textfield( -name => "lt$row", -class => 'allele_entry' );
 		if ( $row == 1 ) {
+			my $next_row = $max_rows ? $max_rows + 1 : 2;
+			print
+"<a id=\"add_loci\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;fields=loci&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
 			print
 " <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>The number of fields that can be combined can be set in the options page.\">&nbsp;<i>i</i>&nbsp;</a>"
 			  if $self->{'prefs'}->{'tooltips'};
@@ -192,7 +207,7 @@ sub _print_loci_fields {
 	print "</span>\n";
 }
 
-sub _get_select_items {
+sub _get_isolate_select_items {
 	my ($self) = @_;
 	my ( $field_list, $labels ) =
 	  $self->get_field_selection_list( { 'isolate_fields' => 1, 'sender_attributes' => 1, 'extended_attributes' => 1 } );
@@ -201,7 +216,7 @@ sub _get_select_items {
 	foreach (@$grouped) {
 		push @grouped_fields, "f_$_";
 		( $labels->{"f_$_"} = $_ ) =~ tr/_/ /;
-	}	
+	}
 	my @select_items = ( @grouped_fields, @$field_list );
 	return \@select_items, $labels;
 }
@@ -229,17 +244,15 @@ sub _print_isolate_query_interface {
 	  if $self->{'prefs'}->{'tooltips'};
 	print "</span>\n";
 	print "<ul id=\"provenance\">\n";
-	my ($select_items,$labels) = $self->_get_select_items;
-	
+	my ( $select_items, $labels ) = $self->_get_isolate_select_items;
 	my $i;
+
 	for ( $i = 1 ; $i <= $prov_fields ; $i++ ) {
 		print "<li>\n";
-		$self->_print_provenance_fields ($i,$select_items,$labels);
+		$self->_print_provenance_fields( $i, $prov_fields, $select_items, $labels );
 		print "</li>\n";
 	}
 	print "</ul>\n";
-	print "<a id=\"add_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;fields=provenance&amp;row=$i&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
-
 	print "</fieldset>\n";
 
 	#Loci/scheme fields
@@ -249,8 +262,7 @@ sub _print_isolate_query_interface {
 	my $locus_fields = $self->_highest_entered_fields('loci') || 1;
 	my $loci_field_heading = $locus_fields == 1 ? 'none' : 'inline';
 	print "<span id=\"loci_field_heading\" style=\"display:$loci_field_heading\"><label for=\"c1\">Combine with: </label>\n";
-
-	if (!@$locus_list) {
+	if ( !@$locus_list ) {
 		print $q->popup_menu( -name => 'c1', -id => 'c1', -values => [ "AND", "OR" ], -disabled => 'disabled' );
 	} else {
 		print $q->popup_menu( -name => 'c1', -id => 'c1', -values => [ "AND", "OR" ], );
@@ -259,14 +271,12 @@ sub _print_isolate_query_interface {
 		  if $self->{'prefs'}->{'tooltips'};
 	}
 	print "</span>\n<ul id=\"loci\">\n";
-	
 	for ( my $i = 1 ; $i <= $locus_fields ; $i++ ) {
 		print "<li>\n";
-		$self->_print_loci_fields ($i, $locus_list, $locus_labels);
+		$self->_print_loci_fields( $i, $locus_fields, $locus_list, $locus_labels );
 		print "</li>\n";
 	}
 	print "</ul>\n";
-	print "<a id=\"add_loci\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;fields=loci&amp;row=$i&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
 	print "</fieldset></div>\n";
 
 	#Filters
@@ -506,41 +516,31 @@ sub _print_isolate_query_interface {
 }
 
 sub _highest_entered_fields {
-	my ($self, $type) = @_;
-	my $param_name = $type eq 'provenance' ? 't' : 'lt';
+	my ( $self, $type ) = @_;
+	my $param_name = ( $type eq 'provenance' || $type eq 'scheme' ) ? 't' : 'lt';
 	my $q = $self->{'cgi'};
 	my $highest;
-	for (my $i = 1; $i < MAX_ROWS; $i++){
-		if (defined $q->param("$param_name$i")){
+	for ( my $i = 1 ; $i < MAX_ROWS ; $i++ ) {
+		if ( defined $q->param("$param_name$i") ) {
 			$highest = $i;
-		} 
+		}
 	}
 	return $highest;
 }
-
 ####END ISOLATE INTERFACE#######################################################
-
-sub _print_profile_query_interface {
+####START PROFILE INTERFACE#####################################################
+sub _get_profile_select_items {
 	my ( $self, $scheme_id ) = @_;
-	my $system = $self->{'system'};
-	my $prefs  = $self->{'prefs'};
-	my $q      = $self->{'cgi'};
-	my @selectitems;
-	my @orderitems;
+	my ( @selectitems, @orderitems, %cleaned );
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my %cleaned;
 	my $primary_key;
 	eval {
 		$primary_key =
 		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )->[0];
 	};
-
-	if ( !$primary_key ) {
-		print
-"<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  Profile querying can not be done until this has been set.</p></div>\n";
-		return;
+	if ($@) {
+		$logger->error("No primary key - this should not have been called");
 	}
-	( $cleaned{"$primary_key"} = $primary_key ) =~ tr/_/ /;
 	push @selectitems, $primary_key;
 	push @orderitems,  $primary_key;
 	foreach (@$loci) {
@@ -567,29 +567,57 @@ sub _print_profile_query_interface {
 	}
 	push @selectitems, qw	(date_entered datestamp);
 	$cleaned{'date_entered'} = 'date entered';
+	( $cleaned{"$primary_key"} = $primary_key ) =~ tr/_/ /;
+	return ( $primary_key, \@selectitems, \@orderitems, \%cleaned );
+}
+
+sub _print_scheme_fields {
+	my ( $self, $row, $max_rows, $scheme_id, $selectitems, $labels ) = @_;
+	my $q = $self->{'cgi'};
+	print "<span style=\"white-space:nowrap\">\n";
+	print $q->popup_menu( -name => "s$row", -values => $selectitems, -labels => $labels, -class => 'fieldlist' );
+	print $q->popup_menu( -name => "y$row", -values => [ "=", "contains", ">", "<", "NOT", "NOT contain" ] );
+	print $q->textfield( -name => "t$row", -class => 'value_entry' );
+	if ( $row == 1 ) {
+		my $next_row = $max_rows ? $max_rows + 1 : 2;
+		print
+"<a id=\"add_scheme_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;fields=scheme&amp;scheme_id=$scheme_id&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
+		print
+" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>Add more fields by clicked the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>"
+		  if $self->{'prefs'}->{'tooltips'};
+	}
+	print "</span>\n";
+}
+
+sub _print_profile_query_interface {
+	my ( $self, $scheme_id ) = @_;
+	my $system = $self->{'system'};
+	my $prefs  = $self->{'prefs'};
+	my $q      = $self->{'cgi'};
+	my ( $primary_key, $selectitems, $orderitems, $cleaned ) = $self->_get_profile_select_items($scheme_id);
+	if ( !$primary_key ) {
+		print
+"<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  Profile querying can not be done until this has been set.</p></div>\n";
+		return;
+	}
 	print "<div class=\"box\" id=\"queryform\"><div class=\"scrollable\">\n";
 	print $q->startform;
 	foreach (qw (db page scheme_id)) {
 		print $q->hidden($_);
 	}
+	my $scheme_fields = $self->_highest_entered_fields('scheme') || 1;
+	my $scheme_field_heading = $scheme_fields == 1 ? 'none' : 'inline';
 	print "<div style=\"white-space:nowrap\"><fieldset>\n<legend>Locus/scheme fields</legend>\n";
-	print "<label for=\"c0\">Combine searches with: </label>\n";
+	print "<span id=\"scheme_field_heading\" style=\"display:$scheme_field_heading\"><label for=\"c0\">Combine searches with: </label>\n";
 	print $q->popup_menu( -name => 'c0', -id => 'c0', -values => [ "AND", "OR" ] );
 	print
 " <a class=\"tooltip\" title=\"query modifier - Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.\">&nbsp;<i>i</i>&nbsp;</a>"
 	  if $self->{'prefs'}->{'tooltips'};
-	print "<ul>\n";
-	for ( my $i = 1 ; $i <= $prefs->{'combfields'} ; $i++ ) {
-		print "<li><span style=\"white-space:nowrap\">\n";
-		print $q->popup_menu( -name => "s$i", -values => [@selectitems], -labels => \%cleaned, -class => 'fieldlist' );
-		print $q->popup_menu( -name => "y$i", -values => [ "=", "contains", ">", "<", "NOT", "NOT contain" ] );
-		print $q->textfield( -name => "t$i", -class => 'value_entry' );
-		if ( $i == 1 ) {
-			print
-" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>The number of fields that can be combined can be set in the options page.\">&nbsp;<i>i</i>&nbsp;</a>"
-			  if $self->{'prefs'}->{'tooltips'};
-		}
-		print "</span></li>\n";
+	print "</span><ul id=\"scheme_fields\">\n";
+	for ( my $i = 1 ; $i <= $scheme_fields ; $i++ ) {
+		print "<li>";
+		$self->_print_scheme_fields( $i, $scheme_fields, $scheme_id, $selectitems, $cleaned );
+		print "</li>\n";
 	}
 	print "</ul>\n";
 	print "</fieldset>\n";
@@ -614,7 +642,7 @@ sub _print_profile_query_interface {
 		}
 	}
 	my $schemes;
-	if ($self->{'system'}->{'db_type'} eq 'isolates'){
+	if ( $self->{'system'}->{'db_type'} eq 'isolates' ) {
 		$schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
 	} else {
 		@$schemes = ($scheme_id);
@@ -651,7 +679,7 @@ sub _print_profile_query_interface {
 	print "<fieldset class=\"display\">\n";
 	print "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>\n";
 	$" = ' ';
-	print $q->popup_menu( -name => 'order', -id => 'order', -values => [@orderitems], -labels => \%cleaned );
+	print $q->popup_menu( -name => 'order', -id => 'order', -values => $orderitems, -labels => $cleaned );
 	print $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
 	print "</span></li>\n<li><span style=\"white-space:nowrap\">\n";
 	print "<label for=\"displayrecs\" class=\"display\">Display: </label>\n";
@@ -689,7 +717,7 @@ sub _print_profile_query_interface {
 	print $q->end_form;
 	print "</div></div>\n";
 }
-
+####END PROFILE INTERFACE#######################################################
 sub _run_isolate_query {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
@@ -701,7 +729,6 @@ sub _run_isolate_query {
 		$qry = "SELECT * FROM $system->{'view'} WHERE (";
 		my $andor       = $q->param('c0');
 		my $first_value = 1;
-#		for ( my $i = 1 ; $i <= $self->{'prefs'}->{'combfields'} ; $i++ ) {
 		for ( my $i = 1 ; $i <= MAX_ROWS ; $i++ ) {
 			if ( $q->param("t$i") ne '' ) {
 				my $field = $q->param("s$i");
@@ -768,7 +795,7 @@ sub _run_isolate_query {
 					push @errors, "$field is an integer field.";
 					next;
 				}
-				if (any {$field =~ /(.*) \($_\)$/} qw (id surname first_name affiliation)){
+				if ( any { $field =~ /(.*) \($_\)$/ } qw (id surname first_name affiliation) ) {
 					$qry .= $modifier . $self->search_users( $field, $operator, $text, $self->{'system'}->{'view'} );
 				} else {
 					if ( $operator eq 'NOT' ) {
@@ -946,7 +973,6 @@ sub _run_isolate_query {
 			}
 		}
 		$qry .= ')';
-		
 		foreach ( @{ $self->{'xmlHandler'}->get_field_list() } ) {
 			if ( $q->param( $_ . '_list' ) ne '' ) {
 				my $value = $q->param( $_ . '_list' );
@@ -1093,11 +1119,10 @@ sub _run_isolate_query {
 		my @lqry;
 		my @lqry_blank;
 		my %combo;
-#		for ( my $i = 1 ; $i <= $self->{'prefs'}->{'combfields'} ; $i++ ) {
 		for ( my $i = 1 ; $i <= MAX_ROWS ; $i++ ) {
 			if ( $q->param("lt$i") ne '' ) {
-				if ( $q->param("ls$i") =~ /^l_(.+)/ || $q->param("ls$i") =~ /^la_(.+)\|\|/ || $q->param("ls$i") =~ /^cn_(.+)/) {
-					my $locus      = $1;
+				if ( $q->param("ls$i") =~ /^l_(.+)/ || $q->param("ls$i") =~ /^la_(.+)\|\|/ || $q->param("ls$i") =~ /^cn_(.+)/ ) {
+					my $locus = $1;
 					$locus =~ s/'/\\'/g;
 					my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 					my $operator   = $q->param("ly$i");
@@ -1157,7 +1182,6 @@ sub _run_isolate_query {
 			}
 		}
 		my @sqry;
-#		for ( my $i = 1 ; $i <= $self->{'prefs'}->{'combfields'} ; $i++ ) {
 		for ( my $i = 1 ; $i <= MAX_ROWS ; $i++ ) {
 			if ( $q->param("lt$i") ne '' ) {
 				if ( $q->param("ls$i") =~ /^s_(\d+)_(.*)/ ) {
@@ -1274,7 +1298,7 @@ sub _run_isolate_query {
 			}
 		}
 		$qry .= " ORDER BY ";
-		if ( $q->param('order') =~ /^la_(.+)\|\|/ || $q->param('order') =~/^cn_(.+)/ ) {
+		if ( $q->param('order') =~ /^la_(.+)\|\|/ || $q->param('order') =~ /^cn_(.+)/ ) {
 			$qry .= "l_$1";
 		} else {
 			$qry .= $q->param('order') || 'id';
@@ -1291,7 +1315,6 @@ sub _run_isolate_query {
 	} elsif ( $qry !~ /\(\)/ ) {
 		my @hidden_attributes;
 		push @hidden_attributes, 'c0', 'c1';
-#		for ( my $i = 1 ; $i <= $self->{'prefs'}->{'combfields'} ; $i++ ) {
 		for ( my $i = 1 ; $i <= MAX_ROWS ; $i++ ) {
 			push @hidden_attributes, "s$i", "t$i", "y$i", "ls$i", "ly$i", "lt$i";
 		}
@@ -1300,10 +1323,9 @@ sub _run_isolate_query {
 			my $extatt = $extended->{$_};
 			if ( ref $extatt eq 'ARRAY' ) {
 				foreach my $extended_attribute (@$extatt) {
-					push @hidden_attributes,"$_\..$extended_attribute\_list";
+					push @hidden_attributes, "$_\..$extended_attribute\_list";
 				}
 			}
-			
 		}
 		push @hidden_attributes, 'publication_list';
 		push @hidden_attributes, 'linked_sequences';
@@ -1333,7 +1355,7 @@ sub _run_profile_query {
 		$qry = "SELECT * FROM scheme_$scheme_id WHERE (";
 		my $andor       = $q->param('c0');
 		my $first_value = 1;
-		for ( my $i = 1 ; $i <= $self->{'prefs'}->{'combfields'} ; $i++ ) {
+		for ( my $i = 1 ; $i <= MAX_ROWS ; $i++ ) {
 			if ( $q->param("t$i") ne '' ) {
 				my $field = $q->param("s$i");
 				my $is_locus;
@@ -1344,8 +1366,7 @@ sub _run_profile_query {
 						last;
 					}
 				}
-				(my $cleaned = $field) =~ s/'/_PRIME_/g;
-				
+				( my $cleaned = $field ) =~ s/'/_PRIME_/g;
 				if ($is_locus) {
 					$type = $self->{'datastore'}->get_locus_info($field)->{'allele_id_format'};
 				} elsif ( $self->{'datastore'}->is_scheme_field( $scheme_id, $field ) ) {
@@ -1394,7 +1415,7 @@ sub _run_profile_query {
 					push @errors, "$field is an integer field.";
 					next;
 				}
-				if (any {$field =~ /(.*) \($_\)$/} qw (id surname first_name affiliation)){
+				if ( any { $field =~ /(.*) \($_\)$/ } qw (id surname first_name affiliation) ) {
 					$qry .= $modifier . $self->search_users( $field, $operator, $text, "scheme\_$scheme_id" );
 				} else {
 					if ( $operator eq 'NOT' ) {
@@ -1476,7 +1497,7 @@ sub _run_profile_query {
 	} elsif ( $qry !~ /\(\)/ ) {
 		my @hidden_attributes;
 		push @hidden_attributes, 'c0', 'c1';
-		for ( my $i = 1 ; $i <= $self->{'prefs'}->{'combfields'} ; $i++ ) {
+		for ( my $i = 1 ; $i <= MAX_ROWS ; $i++ ) {
 			push @hidden_attributes, "s$i", "t$i", "y$i", "ls$i", "ly$i", "lt$i";
 		}
 		foreach ( @{ $self->{'xmlHandler'}->get_field_list() } ) {
