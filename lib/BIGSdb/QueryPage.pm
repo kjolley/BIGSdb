@@ -209,7 +209,7 @@ sub _print_loci_fields {
 				print
 	"<a id=\"add_loci\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;fields=loci&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
 				print
-	" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>The number of fields that can be combined can be set in the options page.\">&nbsp;<i>i</i>&nbsp;</a>"
+	" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>Add more fields by clicked the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>"
 				  if $self->{'prefs'}->{'tooltips'};
 			}
 		}
