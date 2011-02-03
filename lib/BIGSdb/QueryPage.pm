@@ -153,6 +153,12 @@ sub print_content {
 	if ( !defined $q->param('currentpage')
 		|| $q->param('First') )
 	{
+		if (!$q->param('no_js')){
+			my $scheme_clause = $system->{'dbtype'} eq 'sequences' ? "&amp;scheme_id=$scheme_id" : '';
+			print "<noscript><div class=\"id\" id=\"statusbad\"><p>The dynamic customisation of this interface requires that you enable Javascript in your
+		browser. Alternatively, you can use a <a href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=query$scheme_clause&amp;no_js=1\">non-Javascript 
+		version</a> that has 4 combinations of fields.</p></div></noscript>\n";
+		}
 		$system->{'dbtype'} eq 'isolates' ? $self->_print_isolate_query_interface : $self->_print_profile_query_interface($scheme_id);
 	}
 	if ( $q->param('submit') || defined $q->param('query') ) {
@@ -173,11 +179,13 @@ sub _print_provenance_fields {
 	print $q->textfield( -name => "t$row", -class => 'value_entry' );
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
-		print
-"<a id=\"add_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;fields=provenance&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
-		print
-" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>Add more fields by clicked the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>"
-		  if $self->{'prefs'}->{'tooltips'};
+		if (!$q->param('no_js')){
+			print
+	"<a id=\"add_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;fields=provenance&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
+			print
+	" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>Add more fields by clicked the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>"
+			  if $self->{'prefs'}->{'tooltips'};
+		}
 	}
 	print "</span>\n";
 }
@@ -197,11 +205,13 @@ sub _print_loci_fields {
 		print $q->textfield( -name => "lt$row", -class => 'allele_entry' );
 		if ( $row == 1 ) {
 			my $next_row = $max_rows ? $max_rows + 1 : 2;
-			print
-"<a id=\"add_loci\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;fields=loci&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
-			print
-" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>The number of fields that can be combined can be set in the options page.\">&nbsp;<i>i</i>&nbsp;</a>"
-			  if $self->{'prefs'}->{'tooltips'};
+			if (!$q->param('no_js')){
+				print
+	"<a id=\"add_loci\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;fields=loci&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
+				print
+	" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>The number of fields that can be combined can be set in the options page.\">&nbsp;<i>i</i>&nbsp;</a>"
+				  if $self->{'prefs'}->{'tooltips'};
+			}
 		}
 	}
 	print "</span>\n";
@@ -229,13 +239,18 @@ sub _print_isolate_query_interface {
 	print "<div class=\"box\" id=\"queryform\"><div class=\"scrollable\">\n";
 	print $q->startform();
 	$q->param( 'table', $self->{'system'}->{'view'} );
-	foreach (qw (db page table)) {
+	foreach (qw (db page table no_js)) {
 		print $q->hidden($_);
 	}
 
 	#Provenance/phenotype fields
 	print "<div style=\"white-space:nowrap\"><fieldset>\n<legend>Isolate provenance/phenotype fields</legend>\n";
-	my $prov_fields = $self->_highest_entered_fields('provenance') || 1;
+	my $prov_fields;
+	if ($q->param('no_js')){
+		$prov_fields = 4;
+	} else {
+		$prov_fields = $self->_highest_entered_fields('provenance') || 1;
+	}
 	my $display_field_heading = $prov_fields == 1 ? 'none' : 'inline';
 	print "<span id=\"prov_field_heading\" style=\"display:$display_field_heading\"><label for=\"c0\">Combine searches with: </label>\n";
 	print $q->popup_menu( -name => 'c0', -id => 'c0', -values => [ "AND", "OR" ] );
@@ -259,7 +274,12 @@ sub _print_isolate_query_interface {
 	my ( $locus_list, $locus_labels ) = $self->get_field_selection_list( { 'loci' => 1, 'scheme_fields' => 1, 'sort_labels' => 1 } );
 	print "<fieldset>\n";
 	print "<legend>Filter with locus or scheme fields</legend>\n";
-	my $locus_fields = $self->_highest_entered_fields('loci') || 1;
+	my $locus_fields;
+	if ($q->param('no_js')){
+		$locus_fields = 4;
+	} else {
+		$locus_fields = $self->_highest_entered_fields('loci') || 1;
+	}
 	my $loci_field_heading = $locus_fields == 1 ? 'none' : 'inline';
 	print "<span id=\"loci_field_heading\" style=\"display:$loci_field_heading\"><label for=\"c1\">Combine with: </label>\n";
 	if ( !@$locus_list ) {
@@ -580,11 +600,13 @@ sub _print_scheme_fields {
 	print $q->textfield( -name => "t$row", -class => 'value_entry' );
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
-		print
-"<a id=\"add_scheme_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;fields=scheme&amp;scheme_id=$scheme_id&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
-		print
-" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>Add more fields by clicked the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>"
-		  if $self->{'prefs'}->{'tooltips'};
+		if (!$q->param('no_js')){
+			print
+	"<a id=\"add_scheme_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;fields=scheme&amp;scheme_id=$scheme_id&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
+			print
+	" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>Add more fields by clicked the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>"
+			  if $self->{'prefs'}->{'tooltips'};
+		}
 	}
 	print "</span>\n";
 }
@@ -602,10 +624,15 @@ sub _print_profile_query_interface {
 	}
 	print "<div class=\"box\" id=\"queryform\"><div class=\"scrollable\">\n";
 	print $q->startform;
-	foreach (qw (db page scheme_id)) {
+	foreach (qw (db page scheme_id no_js)) {
 		print $q->hidden($_);
 	}
-	my $scheme_fields = $self->_highest_entered_fields('scheme') || 1;
+	my $scheme_fields;
+	if ($q->param('no_js')){
+		$scheme_fields = 4;
+	} else {
+		$scheme_fields = $self->_highest_entered_fields('scheme') || 1;
+	}
 	my $scheme_field_heading = $scheme_fields == 1 ? 'none' : 'inline';
 	print "<div style=\"white-space:nowrap\"><fieldset>\n<legend>Locus/scheme fields</legend>\n";
 	print "<span id=\"scheme_field_heading\" style=\"display:$scheme_field_heading\"><label for=\"c0\">Combine searches with: </label>\n";
@@ -1327,6 +1354,7 @@ sub _run_isolate_query {
 				}
 			}
 		}
+		push @hidden_attributes, 'no_js';
 		push @hidden_attributes, 'publication_list';
 		push @hidden_attributes, 'linked_sequences';
 		my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
@@ -1503,7 +1531,7 @@ sub _run_profile_query {
 		foreach ( @{ $self->{'xmlHandler'}->get_field_list() } ) {
 			push @hidden_attributes, $_ . '_list';
 		}
-		push @hidden_attributes, qw (publication_list scheme_id);
+		push @hidden_attributes, qw (publication_list scheme_id no_js);
 		$self->paged_display( 'profiles', $qry, '', \@hidden_attributes );
 		print "<p />\n";
 	} else {
