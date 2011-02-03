@@ -1354,9 +1354,7 @@ sub _run_isolate_query {
 				}
 			}
 		}
-		push @hidden_attributes, 'no_js';
-		push @hidden_attributes, 'publication_list';
-		push @hidden_attributes, 'linked_sequences';
+		push @hidden_attributes, qw(no_js publication_list linked_sequences);
 		my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 		foreach (@$schemes) {
 			push @hidden_attributes, "scheme_$_\_profile_status_list";
