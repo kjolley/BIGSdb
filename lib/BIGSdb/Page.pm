@@ -268,6 +268,8 @@ sub _print_help_panel {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	print "<div id=\"fieldvalueshelp\">";
+	print "<a id=\"toggle_tooltips\" href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=options&amp;toggle_tooltips=1\" class=\"smallbutton\" style=\"display:none\"> Tooltips on/off </a> ";
+	$"=' ';
 	if ($self->{'system'}->{'dbtype'} eq 'isolates' && $self->{'field_help'}){
 		#open new page unless already on field values help page
 		if ( $q->param('page') eq 'fieldValues' ) {

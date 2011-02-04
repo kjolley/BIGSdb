@@ -31,13 +31,29 @@ $(function () {
       $('.showhide').toggle();
       $('.hideshow').toggle();
     });	
+	
+	$('a#toggle_tooltips').show();
+	$('a#toggle_tooltips').click(function(event){		
+		event.preventDefault();
+	  	$(this).attr('href', function(){  		
+	  		$.ajax({
+	  			url : this.href,
+	  			success: function () {
+	  				$('.tooltip').toggle();
+	  			}
+	  		});
+	   	});
+	});
+	
+
 });
 		
 function getCookie(name) {
   var dc = document.cookie;
   var prefix = name + "=";
   var begin = dc.indexOf("; " + prefix);
-  if (begin == -1) {
+  if (begin == 
+	  1) {
     begin = dc.indexOf(prefix);
     if (begin != 0) return null;
   } else

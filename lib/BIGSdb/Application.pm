@@ -373,7 +373,7 @@ sub print_page {
 		$page_attributes{'system'} = $self->{'system'};
 	}
 	if ( $self->{'page'} eq 'options'
-		&& ( $self->{'cgi'}->param('set') || $self->{'cgi'}->param('reset') ) )
+		&& ( $self->{'cgi'}->param('set') || $self->{'cgi'}->param('reset')) )
 	{
 		$page = BIGSdb::OptionsPage->new(%page_attributes);
 		$page->initiate_prefs;
