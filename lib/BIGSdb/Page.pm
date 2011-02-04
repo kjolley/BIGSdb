@@ -209,7 +209,7 @@ sub print {
 		$self->_print_header();
 		$self->_print_login_details if $self->{'system'}->{'read_access'} ne 'public' || $self->{'curate'};
 		my $page = $q->param('page');
-		$self->_print_field_values_help if $self->{'system'}->{'dbtype'} eq 'isolates' && $self->{'field_help'} == 1;
+		$self->_print_help_panel;
 		$self->print_content();
 		$self->_print_footer();
 		print $q->end_html;
@@ -264,29 +264,30 @@ sub _print_login_details {
 	print "</div>\n";
 }
 
-sub _print_field_values_help {
+sub _print_help_panel {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	print "<div id=\"fieldvalueshelp\">";
-
-	#open new page unless already on field values help page
-	if ( $q->param('page') eq 'fieldValues' ) {
-		print $q->start_form;
-	} else {
-		print $q->start_form( -target => '_blank' );
+	if ($self->{'system'}->{'dbtype'} eq 'isolates' && $self->{'field_help'}){
+		#open new page unless already on field values help page
+		if ( $q->param('page') eq 'fieldValues' ) {
+			print $q->start_form (-style => 'display:inline');
+		} else {
+			print $q->start_form( -target => '_blank', -style => 'display:inline' );
+		}
+		print "<b>Field help: </b>";
+		my ( $values, $labels ) = $self->get_field_selection_list( { 'isolate_fields' => 1, 'loci' => 1, 'scheme_fields' => 1 } );
+		print $q->popup_menu( -name => 'field', -values => $values, -labels => $labels );
+		print $q->submit( -name => 'Go', -class => 'fieldvaluebutton' );
+		my $refer_page = $q->param('page');
+		$q->param( 'page', 'fieldValues' );
+		foreach (qw (db page)) {
+			print $q->hidden($_);
+		}
+		print $q->end_form;
+		$q->param( 'page', $refer_page );
 	}
-	print "<b>Field help: </b>";
-	my ( $values, $labels ) = $self->get_field_selection_list( { 'isolate_fields' => 1, 'loci' => 1, 'scheme_fields' => 1 } );
-	print $q->popup_menu( -name => 'field', -values => $values, -labels => $labels );
-	print $q->submit( -name => 'Go', -class => 'fieldvaluebutton' );
-	my $refer_page = $q->param('page');
-	$q->param( 'page', 'fieldValues' );
-	foreach (qw (db page)) {
-		print $q->hidden($_);
-	}
-	print $q->end_form;
-	print "</div>\n";
-	$q->param( 'page', $refer_page );
+	print "</div>\n";	
 }
 
 sub get_extended_attributes {
