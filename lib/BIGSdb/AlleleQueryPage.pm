@@ -21,9 +21,14 @@ use strict;
 use base qw(BIGSdb::QueryPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
+use constant MAX_ROWS => 10;
 
 sub initiate {
 	my ($self) = @_;
+	if ( $self->{'cgi'}->param('no_header') ) {
+		$self->{'type'} = 'no_header';
+		return;
+	}
 	$self->{'field_help'} = 0;
 	$self->{'jQuery'}     = 1;
 }
@@ -31,6 +36,7 @@ sub initiate {
 sub get_javascript {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
+	my $max_rows = MAX_ROWS;
 	my $buffer = << "END";
 \$(function () {
  \$("#locus").change(function(){
@@ -39,9 +45,37 @@ sub get_javascript {
  	var url = '$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=alleleQuery&locus=' + locus_name;
  	location.href=url;
   });
+  \$('a[rel=ajax]').click(function(){
+  	\$(this).attr('href', function(){
+   		return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1\'\)"));
+   	});
+  });
 });
+
+function loadContent(url) {
+	var row = parseInt(url.match(/row=(\\d+)/)[1]);
+	var new_row = row+1;
+	\$("ul#table_fields").append('<li id="fields' + row + '" />');
+	\$("li#fields"+row).html('<img src=\"/javascript/themes/default/throbber.gif\" /> Loading ...').load(url);
+	url = url.replace(/row=\\d+/,'row='+new_row);
+	\$("#add_table_fields").attr('href',url);
+	\$("span#table_field_heading").show();
+	if (new_row > $max_rows){
+		\$("#add_table_fields").hide();
+	}
+}
 END
 	return $buffer;
+}
+
+sub _ajax_content {
+	my ($self, $locus) = @_;
+	my $system = $self->{'system'};
+	my $q      = $self->{'cgi'};
+	my $row    = $q->param('row');
+	return if !BIGSdb::Utils::is_int($row) || $row > MAX_ROWS || $row < 2;
+	my ($select_items, $labels) = $self->_get_select_items($locus);
+	$self->_print_table_fields( $locus, $row, 0, $select_items, $labels );
 }
 
 sub print_content {
@@ -50,6 +84,10 @@ sub print_content {
 	my $q      = $self->{'cgi'};
 	my $locus  = $q->param('locus');
 	$locus =~ s/^cn_//;
+	if ( $q->param('no_header') ) {
+		$self->_ajax_content($locus);
+		return;
+	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	$locus =~ tr/_/ /;
 	print "<h1>Query $locus";
@@ -60,6 +98,13 @@ sub print_content {
 		|| $q->param('pagejump') eq '1'
 		|| $q->param('First') )
 	{
+		if (!$q->param('no_js')){
+			my $locus_clause = $locus ? "&amp;locus=$locus" : '';
+			print "<noscript><div class=\"id\" id=\"statusbad\"><p>The dynamic customisation of this interface requires that you enable Javascript in your
+		browser. Alternatively, you can use a <a href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=alleleQuery$locus_clause&amp;no_js=1\">non-Javascript 
+		version</a> that has 4 combinations of fields.</p></div></noscript>\n";
+		}
+		
 		$self->_print_query_interface();
 	}
 	if (   defined $q->param('query')
@@ -75,29 +120,25 @@ sub print_content {
 	}
 }
 
-sub _print_query_interface {
-	my ($self)     = @_;
-	my $system     = $self->{'system'};
-	my $prefs      = $self->{'prefs'};
-	my $q          = $self->{'cgi'};
-	my $locus      = $q->param('locus');
+sub _get_select_items {
+	my ($self,$locus) = @_;
 	my $attributes = $self->{'datastore'}->get_table_field_attributes('sequences');
-	my ( @selectitems, @orderby );
+	my ( @select_items, @order_by );
 	foreach (@$attributes) {
 		next if $_->{'name'} eq 'locus';
 		if ( $_->{'name'} eq 'sender' || $_->{'name'} eq 'curator' || $_->{'name'} eq 'user_id' ) {
-			push @selectitems, "$_->{'name'} (id)";
-			push @selectitems, "$_->{'name'} (surname)";
-			push @selectitems, "$_->{'name'} (first_name)";
-			push @selectitems, "$_->{'name'} (affiliation)";
+			push @select_items, "$_->{'name'} (id)";
+			push @select_items, "$_->{'name'} (surname)";
+			push @select_items, "$_->{'name'} (first_name)";
+			push @select_items, "$_->{'name'} (affiliation)";
 		} else {
-			push @selectitems, $_->{'name'};
+			push @select_items, $_->{'name'};
 		}
-		push @orderby, $_->{'name'};
+		push @order_by, $_->{'name'};
 	}
-	my %cleanedSelectItems;
-	foreach my $item (@selectitems) {
-		( $cleanedSelectItems{$item} = $item ) =~ tr/_/ /;
+	my %labels;
+	foreach my $item (@select_items) {
+		( $labels{$item} = $item ) =~ tr/_/ /;
 	}
 	if ($locus) {
 		my $sql =
@@ -110,11 +151,44 @@ sub _print_query_interface {
 		}
 		while ( my ( $field, $desc, $format, $length, $optlist ) = $sql->fetchrow_array ) {
 			my $item = "extatt_$field";
-			push @selectitems, $item;
-			( $cleanedSelectItems{$item} = $item ) =~ s/^extatt_//;
-			$cleanedSelectItems{$item} =~ tr/_/ /;
+			push @select_items, $item;
+			( $labels{$item} = $item ) =~ s/^extatt_//;
+			$labels{$item} =~ tr/_/ /;
 		}
+	}	
+	return (\@select_items, \%labels, \@order_by);
+}
+
+sub _print_table_fields {
+	#split so single row can be added by AJAX call
+	my ( $self, $locus, $row, $max_rows, $select_items, $labels ) = @_;
+	my $q = $self->{'cgi'};
+	print "<span style=\"white-space:nowrap\">\n";
+	print $q->popup_menu( -name => "s$row", -values => $select_items, -labels => $labels, -class => 'fieldlist' );
+	print $q->popup_menu( -name => "y$row", -values => [ "=", "contains", ">", "<", "NOT", "NOT contain" ] );
+	print $q->textfield( -name => "t$row", -class => 'value_entry' );
+	if ( $row == 1 ) {
+		my $next_row = $max_rows ? $max_rows + 1 : 2;
+		my $locus_clause = $locus ? "&amp;locus=$locus" : '';
+		print
+	"<a id=\"add_table_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleQuery$locus_clause&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";			
+		
+		print
+" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>Add more fields by clicking the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>"
+		  if $self->{'prefs'}->{'tooltips'};
 	}
+	print "</span></li>\n";
+}
+
+sub _print_query_interface {
+	my ($self)     = @_;
+	my $system     = $self->{'system'};
+	my $prefs      = $self->{'prefs'};
+	my $q          = $self->{'cgi'};
+	my $locus      = $q->param('locus');
+	
+	my ($select_items, $labels, $order_by) = $self->_get_select_items($locus);
+
 	print "<div class=\"box\" id=\"queryform\">\n";
 	my ($display_loci,$cleaned) = $self->{'datastore'}->get_locus_list;
 	unshift @$display_loci, '';
@@ -123,7 +197,7 @@ sub _print_query_interface {
 	print "<p><b>Locus: </b>";
 	print $q->popup_menu( -name => 'locus', -id => 'locus', -values => $display_loci, -labels => $cleaned );
 	print " <span class=\"comment\">Page will reload when changed</span></p>";
-	foreach (qw (db page)) {
+	foreach (qw (db page no_js)) {
 		print $q->hidden($_);
 	}
 	if ($q->param('locus')){
@@ -135,29 +209,28 @@ sub _print_query_interface {
 	}
 	print "<p>Please enter your search criteria below (or leave blank and submit to return all records).</p>";
 	print "<div style=\"white-space:nowrap\">";
+	my $table_fields;
+	if ($q->param('no_js')){
+		$table_fields = 4;
+	} else {
+		$table_fields = $self->_highest_entered_fields('table_fields') || 1;
+	}
 	print "<fieldset>\n<legend>Locus fields</legend>\n";
-	print "<label for=\"c0\">Combine searches with: </label>\n";
+	my $table_field_heading = $table_fields == 1 ? 'none' : 'inline';
+	print "<span id=\"table_field_heading\" style=\"display:$table_field_heading\"><label for=\"c0\">Combine searches with: </label>\n";
 	print $q->popup_menu( -name => 'c0', -id => 'c0', -values => [ "AND", "OR" ] );
-	my $combfields = $prefs->{'combfields_locus'};
-	print "<ul>\n";
+	print "</span>\n<ul id=\"table_fields\">\n";
 
-	for ( my $i = 1 ; $i <= $combfields ; $i++ ) {
-		print "<li><span style=\"white-space:nowrap\">\n";
-		print $q->popup_menu( -name => "s$i", -values => [@selectitems], -labels => \%cleanedSelectItems, -class => 'fieldlist' );
-		print $q->popup_menu( -name => "y$i", -values => [ "=", "contains", ">", "<", "NOT", "NOT contain" ] );
-		print $q->textfield( -name => "t$i", -class => 'value_entry' );
-		if ( $i == 1 ) {
-			print
-" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>The number of fields that can be combined can be set in the options page.\">&nbsp;<i>i</i>&nbsp;</a>"
-			  if $self->{'prefs'}->{'tooltips'};
-		}
-		print "</span></li>\n";
+	for ( my $i = 1 ; $i <= $table_fields ; $i++ ) {
+		print "<li>";
+		$self->_print_table_fields($locus, $i, $table_fields, $select_items, $labels);
+		print "</li>\n";
 	}
 	print "</ul>\n";
 	print "</fieldset>\n";
 	print "<fieldset class=\"display\">\n";
 	print "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>\n";
-	print $q->popup_menu( -name => 'order', -id => 'order', -values => [@orderby], -labels => \%cleanedSelectItems );
+	print $q->popup_menu( -name => 'order', -id => 'order', -values => $order_by, -labels => $labels );
 	print $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
 	print "</span></li>\n<li><span style=\"white-space:nowrap\">\n";
 
@@ -176,7 +249,7 @@ sub _print_query_interface {
 " <a class=\"tooltip\" title=\"Records per page - Analyses use the full query dataset, rather than just the page shown.\">&nbsp;<i>i</i>&nbsp;</a>"
 	  if $self->{'prefs'}->{'tooltips'};
 	print "</span></li>\n\n";
-	my $locus_clause = "&amp;locus=$locus" if $locus;
+	my $locus_clause = $locus ? "&amp;locus=$locus" : '';
 	print
 "</ul><span style=\"float:left\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleQuery$locus_clause\" class=\"resetbutton\">Reset</a></span><span style=\"float:right\">";
 	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
@@ -215,7 +288,6 @@ sub _run_query {
 	my $prefs  = $self->{'prefs'};
 	my ( $qry, $qry2 );
 	my @errors;
-	my $combfields = $prefs->{'combfields_locus'};
 	my $attributes = $self->{'datastore'}->get_table_field_attributes('sequences');
 	my $locus      = $q->param('locus');
 	if ($locus =~ /^cn_(.+)$/){
@@ -231,7 +303,7 @@ sub _run_query {
 		my $andor       = $q->param('c0');
 		my $first_value = 1;
 		my $extatt_sql  = $self->{'db'}->prepare("SELECT * FROM locus_extended_attributes WHERE locus=? AND field=?");
-		for ( my $i = 1 ; $i <= $combfields ; $i++ ) {
+		for ( my $i = 1 ; $i <= MAX_ROWS ; $i++ ) {
 			if ( $q->param("t$i") ne '' ) {
 				my $field    = $q->param("s$i");
 				my $operator = $q->param("y$i");
@@ -424,13 +496,13 @@ sub _run_query {
 	}
 	my @hidden_attributes;
 	push @hidden_attributes, 'c0';
-	for ( my $i = 1 ; $i <= $self->{'prefs'}->{'combfields'} ; $i++ ) {
+	for ( my $i = 1 ; $i <= MAX_ROWS ; $i++ ) {
 		push @hidden_attributes, "s$i", "t$i", "y$i";
 	}
 	foreach (@$attributes) {
 		push @hidden_attributes, $_->{'name'} . '_list';
 	}
-	push @hidden_attributes, 'locus';
+	push @hidden_attributes, qw(locus no_js);
 	if (@errors) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Problem with search criteria:</p>\n";
 		print "<p>@errors</p></div>\n";

@@ -106,7 +106,7 @@ sub set_options {
 		my $guid = $self->get_guid;
 		return if !$guid;
 		my $dbname = $self->{'system'}->{'db'};
-		foreach (qw (displayrecs combfields_locus combfields_sample alignwidth flanking )) {
+		foreach (qw (displayrecs alignwidth flanking )) {
 			$prefstore->set_general( $guid, $dbname, $_, $prefs->{$_} ) if BIGSdb::Utils::is_int( $prefs->{$_} ) && $prefs->{$_} >= 0;
 		}
 		$prefstore->set_general( $guid, $dbname, 'pagebar', $prefs->{'pagebar'} );
@@ -166,24 +166,6 @@ sub _print_general_tab {
 	print "<h2>General options</h2>\n";
 	print "<table style=\"width:95%\"><tr><td style=\"vertical-align:top; width:50%\">\n";
 	print "<table style=\"width:100%\"><tr><th>Interface</th></tr>\n";
-	if ($self->{'system'}->{'dbtype'} eq 'isolates'){
-
-	
-		print "<tr class=\"td1\" style=\"text-align:left\"><td>Use ";
-		print $q->popup_menu(
-			-name    => 'combfields_sample',
-			-values  => [qw (2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20)],
-			-default => $prefs->{'combfields_sample'}
-		);
-		print " field combinations for sample queries</td></tr>\n";
-	}
-	print "<tr class=\"td1\" style=\"text-align:left\"><td>Use ";
-		print $q->popup_menu(
-			-name    => 'combfields_locus',
-			-values  => [qw (2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20)],
-			-default => $prefs->{'combfields_locus'}
-		);
-	print " field combinations for table queries</td></tr>\n";
 	print "<tr class=\"td1\" style=\"text-align:left\"><td>Display \n";
 	print $q->popup_menu( -name => 'displayrecs', -values => [qw (10 25 50 100 200 500 all)], -default => $prefs->{'displayrecs'} );
 	print " records per page</td></tr>\n";

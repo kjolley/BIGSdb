@@ -54,7 +54,7 @@ sub get_javascript {
 function loadContent(url) {
 	var row = parseInt(url.match(/row=(\\d+)/)[1]);
 	var new_row = row+1;
-	var fields = url.match(/fields=([provenance|loci|scheme]+)/)[1];
+	var fields = url.match(/fields=([provenance|loci|scheme|table_fields]+)/)[1];
 	if (fields == 'provenance'){	
 		\$("ul#provenance").append('<li id="fields' + row + '" />');
 		\$("li#fields"+row).html('<img src=\"/javascript/themes/default/throbber.gif\" /> Loading ...').load(url);
@@ -81,7 +81,16 @@ function loadContent(url) {
 		\$("span#scheme_field_heading").show();
 		if (new_row > $max_rows){
 			\$("#add_scheme_fields").hide();
-		}	
+		}
+	} else if (fields == 'table_fields'){
+		\$("ul#table_fields").append('<li id="table_field' + row + '" />');
+		\$("li#table_field"+row).html('<img src=\"/javascript/themes/default/throbber.gif\" /> Loading ...').load(url);
+		url = url.replace(/row=\\d+/,'row='+new_row);
+		\$("#add_table_fields").attr('href',url);	
+		\$("span#table_field_heading").show();
+		if (new_row > $max_rows){
+			\$("#add_table_fields").hide();
+		}		
 	}
 }
 END
@@ -93,7 +102,7 @@ sub _ajax_content {
 	my $system = $self->{'system'};
 	my $q      = $self->{'cgi'};
 	my $row    = $q->param('row');
-	return if !BIGSdb::Utils::is_int($row) || $row > 20 || $row < 2;
+	return if !BIGSdb::Utils::is_int($row) || $row > MAX_ROWS || $row < 2;
 	if ( $system->{'dbtype'} eq 'isolates' ) {
 		if ( $q->param('fields') eq 'provenance' ) {
 			my ( $select_items, $labels ) = $self->_get_isolate_select_items;
@@ -539,7 +548,7 @@ sub _print_isolate_query_interface {
 
 sub _highest_entered_fields {
 	my ( $self, $type ) = @_;
-	my $param_name = ( $type eq 'provenance' || $type eq 'scheme' ) ? 't' : 'lt';
+	my $param_name = ( $type eq 'provenance' || $type eq 'scheme' || $type eq 'table_fields' ) ? 't' : 'lt';
 	my $q = $self->{'cgi'};
 	my $highest;
 	for ( my $i = 1 ; $i < MAX_ROWS ; $i++ ) {

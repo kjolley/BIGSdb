@@ -22,9 +22,14 @@ use base qw(BIGSdb::QueryPage);
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
+use constant MAX_ROWS => 20;
 
 sub initiate {
 	my ($self) = @_;
+	if ( $self->{'cgi'}->param('no_header') ) {
+		$self->{'type'} = 'no_header';
+		return;
+	}
 	$self->{'field_help'} = 0;
 	$self->{'jQuery'}     = 1;
 }
@@ -34,6 +39,10 @@ sub print_content {
 	my $system = $self->{'system'};
 	my $q      = $self->{'cgi'};
 	my $table  = $q->param('table');
+	if ( $q->param('no_header') ) {
+		$self->_ajax_content($table);
+		return;
+	}
 	if ( !$self->{'datastore'}->is_table($table) ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Table '$table' is not defined.</p></div>\n";
 		return;
@@ -46,6 +55,11 @@ sub print_content {
 		|| $q->param('pagejump') eq '1'
 		|| $q->param('First') )
 	{
+		if (!$q->param('no_js')){
+			print "<noscript><div class=\"id\" id=\"statusbad\"><p>The dynamic customisation of this interface requires that you enable Javascript in your
+		browser. Alternatively, you can use a <a href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$table&amp;no_js=1\">non-Javascript 
+		version</a> that has 4 combinations of fields.</p></div></noscript>\n";
+		}		
 		$self->_print_query_interface();
 	}
 	if (   defined $q->param('query')
@@ -64,41 +78,83 @@ sub get_title {
 	return "Query $record information - $desc";
 }
 
+sub _get_select_items {
+	my ($self,$table) = @_;
+	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
+	my ( @select_items, @order_by );
+	if ( $table eq 'allele_sequences' || $table eq 'experiment_sequences' ) {
+		push @select_items, 'isolate_id';
+		push @select_items, $self->{'system'}->{'labelfield'};
+	}
+	foreach (@$attributes) {
+		if ( $_->{'name'} eq 'sender' || $_->{'name'} eq 'curator' || $_->{'name'} eq 'user_id' ) {
+			push @select_items, "$_->{'name'} (id)";
+			push @select_items, "$_->{'name'} (surname)";
+			push @select_items, "$_->{'name'} (first_name)";
+			push @select_items, "$_->{'name'} (affiliation)";
+		} else {
+			push @select_items, $_->{'name'};
+		}
+		push @order_by, $_->{'name'};
+		if ( $_->{'name'} eq 'isolate_id' ) {
+			push @select_items, $self->{'system'}->{'labelfield'};
+		}
+	}
+	my %labels;
+	foreach my $item (@select_items) {
+		( $labels{$item} = $item ) =~ tr/_/ /;
+	}	
+	return (\@select_items,\%labels,\@order_by, $attributes);
+}
+
+sub _print_table_fields {
+	#split so single row can be added by AJAX call
+	my ( $self, $table, $row, $max_rows, $select_items, $labels ) = @_;
+	my $q = $self->{'cgi'};
+	print "<span style=\"white-space:nowrap\">\n";
+	print $q->popup_menu( -name => "s$row", -values => $select_items, -labels => $labels, -class => 'fieldlist' );
+	print $q->popup_menu( -name => "y$row", -values => [ "=", "contains", ">", "<", "NOT", "NOT contain" ] );
+	print $q->textfield( -name => "t$row", -class => 'value_entry' );
+	if ( $row == 1 ) {
+		my $next_row = $max_rows ? $max_rows + 1 : 2;
+		print
+	"<a id=\"add_table_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;fields=table_fields&amp;table=$table&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";			
+		print
+" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>Add more fields by clicking the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>"
+		  if $self->{'prefs'}->{'tooltips'};
+	}
+	print "</span>\n";	
+}
+
+sub _ajax_content {
+	my ($self, $table) = @_;
+	my $system = $self->{'system'};
+	my $q      = $self->{'cgi'};
+	my $row    = $q->param('row');
+	return if !BIGSdb::Utils::is_int($row) || $row > MAX_ROWS || $row < 2;
+	my ( $select_items, $labels ) = $self->_get_select_items($table);
+	$self->_print_table_fields( $table, $row, 0, $select_items, $labels );
+}
+
 sub _print_query_interface {
 	my ($self) = @_;
 	my $system = $self->{'system'};
 	my $prefs  = $self->{'prefs'};
 	my $q      = $self->{'cgi'};
 	my $table  = $q->param('table');
+
 	if ( !$self->{'datastore'}->is_table($table) ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Table '$table' is not defined.</p></div>\n";
 		return;
 	}
-	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
-	my ( @selectitems, @orderby );
-	if ( $table eq 'allele_sequences' || $table eq 'experiment_sequences' ) {
-		push @selectitems, 'isolate_id';
-		push @selectitems, $self->{'system'}->{'labelfield'};
-	}
-	foreach (@$attributes) {
-		if ( $_->{'name'} eq 'sender' || $_->{'name'} eq 'curator' || $_->{'name'} eq 'user_id' ) {
-			push @selectitems, "$_->{'name'} (id)";
-			push @selectitems, "$_->{'name'} (surname)";
-			push @selectitems, "$_->{'name'} (first_name)";
-			push @selectitems, "$_->{'name'} (affiliation)";
-		} else {
-			push @selectitems, $_->{'name'};
-		}
-		push @orderby, $_->{'name'};
-		if ( $_->{'name'} eq 'isolate_id' ) {
-			push @selectitems, $self->{'system'}->{'labelfield'};
-		}
-	}
-	my %cleanedSelectItems;
-	foreach my $item (@selectitems) {
-		( $cleanedSelectItems{$item} = $item ) =~ tr/_/ /;
-	}
+	my ($select_items, $labels, $order_by, $attributes) = $self->_get_select_items($table);
 	print "<div class=\"box\" id=\"queryform\"><div class=\"scrollable\">\n";
+	my $table_fields;
+	if ($q->param('no_js')){
+		$table_fields = 4;
+	} else {
+		$table_fields = $self->_highest_entered_fields('table_fields') || 1;
+	}
 	my $cleaned = $table;
 	$cleaned =~ tr/_/ /;
 	print "<p>Please enter your search criteria below (or leave blank and submit to return all records).";
@@ -107,32 +163,26 @@ sub _print_query_interface {
 	}
 	print "</p>\n";
 	print $q->startform();
-	foreach (qw (db page table)) {
+	foreach (qw (db page table no_js)) {
 		print $q->hidden($_);
 	}
 	print "<div style=\"white-space:nowrap\"><fieldset>\n<legend>Search criteria</legend>\n";
-	print "<label for=\"c0\">Combine searches with: </label>\n";
+	my $table_field_heading = $table_fields == 1 ? 'none' : 'inline';
+	print "<span id=\"table_field_heading\" style=\"display:$table_field_heading\"><label for=\"c0\">Combine searches with: </label>\n";
 	print $q->popup_menu( -name => 'c0', -id => 'c0', -values => [ "AND", "OR" ] );
-	my $combfields = $table eq 'samples' ? $prefs->{'combfields_sample'} : $prefs->{'combfields_locus'};
-	print "<ul>\n";
-	for ( my $i = 1 ; $i <= $combfields ; $i++ ) {
-		print "<li><span style=\"white-space:nowrap\">\n";
-		print $q->popup_menu( -name => "s$i", -values => [@selectitems], -labels => \%cleanedSelectItems, -class => 'fieldlist' );
-		print $q->popup_menu( -name => "y$i", -values => [ "=", "contains", ">", "<", "NOT", "NOT contain" ] );
-		print $q->textfield( -name => "t$i", -class => 'value_entry' );
-		if ( $i == 1 ) {
-			print
-" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>The number of fields that can be combined can be set in the options page.\">&nbsp;<i>i</i>&nbsp;</a>"
-			  if $self->{'prefs'}->{'tooltips'};
-		}
-		print "</span></li>\n";
+	print "</span>\n";
+	print "<ul id=\"table_fields\">\n";
+	for ( my $i = 1 ; $i <= $table_fields ; $i++ ) {
+		print "<li>";
+		$self->_print_table_fields($table, $i, $table_fields, $select_items, $labels);
+		print "</li>\n";
 	}
 	print "</ul>\n";
 	print "</fieldset>\n";
 	print "<fieldset class=\"display\">\n";
 	print "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>\n";
 	$" = ' ';
-	print $q->popup_menu( -name => 'order', -id => 'order', -values => [@orderby], -labels => \%cleanedSelectItems );
+	print $q->popup_menu( -name => 'order', -id => 'order', -values => $order_by, -labels => $labels );
 	print $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
 	print "</span></li>\n<li><span style=\"white-space:nowrap\">\n";
 	print "<label for=\"displayrecs\" class=\"display\">Display: </label>\n";
@@ -340,13 +390,12 @@ sub _run_query {
 	my $prefs  = $self->{'prefs'};
 	my ( $qry, $qry2 );
 	my @errors;
-	my $combfields = $table eq 'samples' ? $prefs->{'combfields_sample'} : $prefs->{'combfields_locus'};
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 
 	if ( !defined $q->param('query') ) {
 		my $andor       = $q->param('c0');
 		my $first_value = 1;
-		for ( my $i = 1 ; $i <= $combfields ; $i++ ) {
+		for ( my $i = 1 ; $i <= MAX_ROWS ; $i++ ) {
 			if ( $q->param("t$i") ne '' ) {
 				my $field    = $q->param("s$i");
 				my $operator = $q->param("y$i");
@@ -509,12 +558,13 @@ sub _run_query {
 	}
 	my @hidden_attributes;
 	push @hidden_attributes, 'c0';
-	for ( my $i = 1 ; $i <= $self->{'prefs'}->{'combfields'} ; $i++ ) {
+	for ( my $i = 1 ; $i <= MAX_ROWS ; $i++ ) {
 		push @hidden_attributes, "s$i", "t$i", "y$i";
 	}
 	foreach (@$attributes) {
 		push @hidden_attributes, $_->{'name'} . '_list';
 	}
+	push @hidden_attributes, 'no_js';
 	if (@errors) {
 		$" = '<br />';
 		print "<div class=\"box\" id=\"statusbad\"><p>Problem with search criteria:</p>\n";

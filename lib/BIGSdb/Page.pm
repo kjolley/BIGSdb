@@ -2042,7 +2042,7 @@ sub initiate_prefs {
 		&& $q->param('page') eq 'options'
 		&& $q->param('set') )
 	{
-		foreach (qw(displayrecs pagebar combfields_locus alignwidth flanking)) {
+		foreach (qw(displayrecs pagebar alignwidth flanking)) {
 			$self->{'prefs'}->{$_} = $q->param($_);
 		}
 
@@ -2073,7 +2073,6 @@ sub initiate_prefs {
 			$self->{'prefs'}->{'pagebar'}          = $general_prefs->{'pagebar'}          || 'top and bottom';
 			$self->{'prefs'}->{'alignwidth'}       = $general_prefs->{'alignwidth'}       || 100;
 			$self->{'prefs'}->{'flanking'}         = $general_prefs->{'flanking'}         || 100;
-			$self->{'prefs'}->{'combfields_locus'} = $general_prefs->{'combfields_locus'} || 2;
 
 			#default off
 			foreach (qw (hyperlink_loci )) {
@@ -2135,9 +2134,6 @@ sub _initiate_isolatedb_prefs {
 	if (   $params->{'page'} eq 'options'
 		&& $params->{'set'} )
 	{
-		foreach (qw(combfields_sample)) {
-			$self->{'prefs'}->{$_} = $q->param($_);
-		}
 
 		#Switches
 		foreach (
@@ -2192,7 +2188,6 @@ sub _initiate_isolatedb_prefs {
 			{
 				$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'off' ? 0 : 1;
 			}
-			$self->{'prefs'}->{'combfields_sample'} = $general_prefs->{'combfields_sample'} || 2;
 		}
 		if ( $self->{'pref_requirements'}->{'query_field'} ) {
 			foreach (qw (linked_sequences projects publications)) {
