@@ -109,8 +109,7 @@ sub run {
 		-default => 11
 	);
 	print
-" <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a>"
-	  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "</td></tr>\n";
 	print "<tr><td style=\"text-align:right\">Hits per isolate: </td><td style=\"text-align:left\">\n";
 	print $q->popup_menu( -name => 'hits', -values => [qw(1 2 3 4 5 6 7 8 9 10 20 30 40 50)], -default => 1 );
@@ -118,15 +117,13 @@ sub run {
 	print "<tr><td colspan=\"2\" style=\"text-align:left\">";
 	print $q->checkbox( -name => 'tblastx', label => 'Use TBLASTX' );
 	print
-" <a class=\"tooltip\" title=\"TBLASTX - Compares the six-frame translation of your nucleotide query against the six-frame translation of the sequences in the sequence bin.\">&nbsp;<i>i</i>&nbsp;</a>"
-	  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"TBLASTX - Compares the six-frame translation of your nucleotide query against the six-frame translation of the sequences in the sequence bin.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "</td></tr>\n";
 	print "<tr><th colspan=\"2\">Restrict included sequences by</th></tr>";
 	print "<tr><td style=\"text-align:right\">Sequence method: </td><td style=\"text-align:left\">";
 	print $q->popup_menu( -name => 'seq_method', -values => [ '', SEQ_METHODS ] );
 	print
-" <a class=\"tooltip\" title=\"Sequence method - Only include sequences generated from the selected method.\">&nbsp;<i>i</i>&nbsp;</a>"
-	  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"Sequence method - Only include sequences generated from the selected method.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "</td></tr>\n";
 	my @projects;
 	my $project_list = $self->{'datastore'}->run_list_query_hashref("SELECT id,short_description FROM projects ORDER BY short_description");
@@ -141,8 +138,7 @@ sub run {
 		print "<tr><td style=\"text-align:right\">Project: </td><td style=\"text-align:left\">";
 		print $q->popup_menu( -name => 'project', -values => \@projects, -labels => \%labels );
 		print
-" <a class=\"tooltip\" title=\"Projects - Filter isolate list to only include those belonging to a specific project.\">&nbsp;<i>i</i>&nbsp;</a>"
-		  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"Projects - Filter isolate list to only include those belonging to a specific project.\">&nbsp;<i>i</i>&nbsp;</a>";
 		print "</td></tr>\n";
 	}
 	my $experiment_list = $self->{'datastore'}->run_list_query_hashref("SELECT id,description FROM experiments ORDER BY description");
@@ -157,8 +153,7 @@ sub run {
 		print "<tr><td style=\"text-align:right\">Experiment: </td><td style=\"text-align:left\">";
 		print $q->popup_menu( -name => 'experiment', -values => \@experiments, -labels => \%labels );
 		print
-" <a class=\"tooltip\" title=\"Experiments - Only include sequences that have been linked to the specified experiment.\">&nbsp;<i>i</i>&nbsp;</a>"
-		  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"Experiments - Only include sequences that have been linked to the specified experiment.\">&nbsp;<i>i</i>&nbsp;</a>";
 		print "</td></tr>\n";
 	}
 	print "</table>\n</td><td style=\"vertical-align:top\">";
@@ -272,8 +267,7 @@ sub run {
 		print
 "<p style=\"margin-top:1em\">Download <a href=\"/tmp/$out_file\">FASTA</a> | <a href=\"/tmp/$out_file_flanking\">FASTA with flanking</a>";
 		print
-" <a class=\"tooltip\" title=\"Flanking sequence - You can change the amount of flanking sequence exported by selecting the appropriate length in the options page.\">&nbsp;<i>i</i>&nbsp;</a>"
-		  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"Flanking sequence - You can change the amount of flanking sequence exported by selecting the appropriate length in the options page.\">&nbsp;<i>i</i>&nbsp;</a>";
 		print "</p>\n";
 	} else {
 		print "<p>No matches found.</p>\n";

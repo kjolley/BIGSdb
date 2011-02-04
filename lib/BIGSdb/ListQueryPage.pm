@@ -155,8 +155,7 @@ sub _print_query_interface {
 	);
 	print " records per page&nbsp;";
 	print
-" <a class=\"tooltip\" title=\"Records per page - Analyses use the full query dataset, rather than just the page shown.\">&nbsp;<i>i</i>&nbsp;</a>"
-	  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"Records per page - Analyses use the full query dataset, rather than just the page shown.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "&nbsp;&nbsp;";
 	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
 	print "</td></tr>\n";

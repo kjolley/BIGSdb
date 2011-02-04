@@ -643,7 +643,7 @@ div #pluginoptions {
 	background:#a5a5b0;
 	float:right;
 	position:absolute;
-	top:40px;
+	top:4.5em;
 	right:5px;
 	z-index:3;
 	
@@ -682,7 +682,7 @@ div #fieldvalueshelp {
 div.floatmenu {
 	float:right;
 	position:absolute;
-	top:5px;
+	top:2.5em;
 	right:10px;
 	font-size:0.8em;
 	border:1px solid #d0d0d0;	

@@ -123,7 +123,15 @@ sub print {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	$" = ' ';
-	$self->initiate_prefs if $q->param('page') ne 'plugin';
+	if ($q->param('page') eq 'plugin'){
+		 #need to determine if tooltips should be displayed since this is set in the <HEAD>;
+		 if ($self->{'prefstore'}){
+		 	my $guid = $self->get_guid;
+			$self->{'prefs'}->{'tooltips'} = $self->{'prefstore'}->get_tooltips_pref($guid,$self->{'system'}->{'db'}) eq 'on' ? 1 : 0;
+		 }
+	} else {
+		$self->initiate_prefs 
+	}
 	if ( $self->{'type'} ne 'xhtml' ) {
 		my %atts;
 		if ( $self->{'type'} eq 'embl' ) {
@@ -194,17 +202,17 @@ sub print {
 		if ($self->{'refresh'}){
 			$http_equiv = "<meta http-equiv=\"refresh\" content=\"$self->{'refresh'}\" />";
 		} 
-		
+		my $tooltip_display = $self->{'prefs'}->{'tooltips'} ? 'inline' : 'none';
 		if (%shortcut_icon) {
 			print $q->start_html(
 				-title  => $title,
 				-meta   => {%meta_content},
-				-style  => { -src => $stylesheet },
+				-style  => { -src => $stylesheet ,-code => ".tooltip{display:$tooltip_display}"},
 				-head   => [CGI->Link( {%shortcut_icon} ), $http_equiv],
 				-script => \@javascript
 			);
 		} else {
-			print $q->start_html( -title => $title, -meta => {%meta_content}, -style => { -src => $stylesheet }, -script => \@javascript, -head => $http_equiv );
+			print $q->start_html( -title => $title, -meta => {%meta_content}, -style => { -src => $stylesheet,-code => ".tooltip{display:$tooltip_display}" }, -script => \@javascript, -head => $http_equiv );
 		}
 		$self->_print_header();
 		$self->_print_login_details if $self->{'system'}->{'read_access'} ne 'public' || $self->{'curate'};
@@ -220,7 +228,7 @@ sub get_stylesheet {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system   = $self->{'system'};
-	my $filename = 'bigsdb.css?v=20110111';
+	my $filename = 'bigsdb.css?v=20110204';
 	if ( !$system->{'db'} ) {
 		$stylesheet = "/$filename";
 	} elsif ( -e "$ENV{'DOCUMENT_ROOT'}$system->{'webroot'}/$system->{'db'}/$filename" ) {
@@ -268,8 +276,7 @@ sub _print_help_panel {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	print "<div id=\"fieldvalueshelp\">";
-	print "<a id=\"toggle_tooltips\" href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=options&amp;toggle_tooltips=1\" class=\"smallbutton\" style=\"display:none\"> Tooltips on/off </a> ";
-	$"=' ';
+	print "<a id=\"toggle_tooltips\" href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=options&amp;toggle_tooltips=1\" class=\"smallbutton\" style=\"display:none; margin-right:1em\"> Tooltips on/off </a> ";
 	if ($self->{'system'}->{'dbtype'} eq 'isolates' && $self->{'field_help'}){
 		#open new page unless already on field values help page
 		if ( $q->param('page') eq 'fieldValues' ) {
@@ -1662,8 +1669,7 @@ sub _print_isolate_table_header {
 	}
 	$fieldtype_header .= "<th colspan=\"$col_count\">Isolate fields";
 	$fieldtype_header .=
-" <a class=\"tooltip\" title=\"Isolate fields - You can select the isolate fields that are displayed here by going to the options page.\">&nbsp;<i>i</i>&nbsp;</a>"
-	  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"Isolate fields - You can select the isolate fields that are displayed here by going to the options page.\">&nbsp;<i>i</i>&nbsp;</a>";
 	$fieldtype_header .= "</th>";
 	my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
 	my $alias_sql  = $self->{'db'}->prepare("SELECT alias FROM locus_aliases WHERE locus=?");

@@ -139,8 +139,7 @@ sub print_content {
 		);
 		print " records per page&nbsp;";
 		print
-" <a class=\"tooltip\" title=\"Records per page - Analyses use the full query dataset, rather than just the page shown.\">&nbsp;<i>i</i>&nbsp;</a>"
-		  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"Records per page - Analyses use the full query dataset, rather than just the page shown.\">&nbsp;<i>i</i>&nbsp;</a>";
 		print "&nbsp;";
 		print "</td></tr>\n";
 		print "<tr><td style=\"text-align:right\" colspan=\"2\">\n";

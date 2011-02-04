@@ -116,8 +116,7 @@ sub print_content {
 	print "</td><td style=\"vertical-align:top\">\n";
 	print "<table><tr><td style=\"text-align:right\">Min % identity: </td><td>";
 	print $q->popup_menu( -name => 'identity', -values => [qw(50 55 60 65 70 75 80 85 90 91 92 93 94 95 96 97 98 99 100)], -default => 70 );
-	print " <a class=\"tooltip\" title=\"Minimum % identity - Match required for partial matching.\">&nbsp;<i>i</i>&nbsp;</a>"
-	  if $self->{'prefs'}->{'tooltips'};
+	print " <a class=\"tooltip\" title=\"Minimum % identity - Match required for partial matching.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "</td></tr><tr><td>\n";
 	print "</td></tr>\n<tr><td style=\"text-align:right\">Min % alignment: </td><td>";
 	print $q->popup_menu(
@@ -126,8 +125,7 @@ sub print_content {
 		-default => 50
 	);
 	print
-" <a class=\"tooltip\" title=\"Minimum % alignment - Percentage of allele sequence length required to be aligned for partial matching.\">&nbsp;<i>i</i>&nbsp;</a>"
-	  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"Minimum % alignment - Percentage of allele sequence length required to be aligned for partial matching.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "</td></tr><tr><td style=\"text-align:right\">BLASTN word size: </td><td>\n";
 	print $q->popup_menu(
 		-name    => 'word_size',
@@ -135,8 +133,7 @@ sub print_content {
 		-default => 15
 	);
 	print
-" <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a>"
-	  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a>";
 	 	print "</td></tr><tr><td style=\"text-align:right\">Return up to: </td><td>\n";
 	print $q->popup_menu(
 		-name    => 'partial_matches',
@@ -149,15 +146,13 @@ sub print_content {
 		-default => 200 );
 	print " new matches ";
 	print
-" <a class=\"tooltip\" title=\"Stop after matching - Limit the number of previously undesignated matches. You may wish to terminate the search after finding a set number of new matches.  You will be able to tag any sequences found and next time these won't be searched (by default) so this enables you to tag in batches.\">&nbsp;<i>i</i>&nbsp;</a>"
-	  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"Stop after matching - Limit the number of previously undesignated matches. You may wish to terminate the search after finding a set number of new matches.  You will be able to tag any sequences found and next time these won't be searched (by default) so this enables you to tag in batches.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "</td></tr><tr><td>\n";
 	print "</td></tr><tr><td style=\"text-align:right\">Stop after: </td><td>\n";
 	print $q->popup_menu( -name => 'limit_time', -values => [qw(1 2 5 10 15 30 60 120 180 240 300)], -default => 5 );
 	print " minute(s) ";
 	print
-" <a class=\"tooltip\" title=\"Stop after time - Searches against lots of loci or for multiple isolates may take a long time. You may wish to terminate the search after a set time.  You will be able to tag any sequences found and next time these won't be searched (by default) so this enables you to tag in batches.\">&nbsp;<i>i</i>&nbsp;</a>"
-	  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"Stop after time - Searches against lots of loci or for multiple isolates may take a long time. You may wish to terminate the search after a set time.  You will be able to tag any sequences found and next time these won't be searched (by default) so this enables you to tag in batches.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "</td></tr>\n";
 
 	if ($self->{'system'}->{'tblastx_tagging'} eq 'yes'){
@@ -169,8 +164,7 @@ sub print_content {
 	each comparison. Use with caution.<br /><br />Partial matches may be indicated even when an exact match 
 	is found if the matching allele contains a partial codon at one of the ends.  Identical matches will be indicated 
 	if the translated sequences match even if the nucleotide sequences don't. For this reason, allele designation 
-	tagging is disabled for TBLASTX matching.\">&nbsp;<i>i</i>&nbsp;</a>"
-		  if $self->{'prefs'}->{'tooltips'};
+	tagging is disabled for TBLASTX matching.\">&nbsp;<i>i</i>&nbsp;</a>";
 		print "</span></td></tr>\n";
 	}
 	print "<tr><td colspan=\"2\">";
@@ -178,8 +172,7 @@ sub print_content {
 	print
 	" <a class=\"tooltip\" title=\"Hunt for start/stop codons - If the aligned sequence is not an exact match to an
 	existing allele and is not a complete coding sequence with start and stop codons at the ends, selecting this 
-	option will hunt for these by walking in and out from the ends in complete codons for up to 6 amino acids.\">&nbsp;<i>i</i>&nbsp;</a>"
-		  if $self->{'prefs'}->{'tooltips'};
+	option will hunt for these by walking in and out from the ends in complete codons for up to 6 amino acids.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "</td></tr><tr><td colspan=\"2\">";
 	print $q->checkbox( -name => 'rescan_alleles', label => 'Rescan even if allele designations are already set' );
 	print "</td></tr>\n<tr><td colspan=\"2\">";
@@ -189,8 +182,7 @@ sub print_content {
 	print "<tr><td style=\"text-align:right\">Sequence method: </td><td>";
 	print $q->popup_menu( -name => 'seq_method', -values => [ '', SEQ_METHODS ] );
 	print
-" <a class=\"tooltip\" title=\"Sequence method - Only include sequences generated from the selected method.\">&nbsp;<i>i</i>&nbsp;</a>"
-	  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"Sequence method - Only include sequences generated from the selected method.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "</td></tr>\n";
 	$sql = $self->{'db'}->prepare("SELECT id,short_description FROM projects ORDER BY short_description");
 	my @projects;
@@ -208,8 +200,7 @@ sub print_content {
 		print "<tr><td style=\"text-align:right\">Project: </td><td>";
 		print $q->popup_menu( -name => 'project', -values => \@projects, -labels => \%project_labels );
 		print
-" <a class=\"tooltip\" title=\"Projects - Only include sequences whose isolate belong to the specified experiment.\">&nbsp;<i>i</i>&nbsp;</a>"
-		  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"Projects - Only include sequences whose isolate belong to the specified experiment.\">&nbsp;<i>i</i>&nbsp;</a>";
 		print "</td></tr>\n";
 	}
 	$sql = $self->{'db'}->prepare("SELECT id,description FROM experiments ORDER BY description");
@@ -228,8 +219,7 @@ sub print_content {
 		print "<tr><td style=\"text-align:right\">Experiment: </td><td>";
 		print $q->popup_menu( -name => 'experiment', -values => \@experiments, -labels => \%exp_labels );
 		print
-" <a class=\"tooltip\" title=\"Experiments - Only include sequences that have been linked to the specified experiment.\">&nbsp;<i>i</i>&nbsp;</a>"
-		  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"Experiments - Only include sequences that have been linked to the specified experiment.\">&nbsp;<i>i</i>&nbsp;</a>";
 		print "</td></tr>\n";
 	}
 	print "</table>\n";
@@ -426,8 +416,7 @@ sub print_content {
 <th>Start</th><th>End</th><th>Predicted start</th><th>Predicted end</th><th>Orientation</th><th>Designate allele</th><th>Tag sequence</th><th>Flag";
 		$header_buffer .=
 " <a class=\"tooltip\" title=\"Flag - Set a status flag for the sequence.  You need to also tag the sequence for
-		any flag to take effect.\">&nbsp;<i>i</i>&nbsp;</a>"
-			  if $self->{'prefs'}->{'tooltips'};
+		any flag to take effect.\">&nbsp;<i>i</i>&nbsp;</a>";
 		$header_buffer .= "</th></tr>\n";
 		print "<div class=\"box\" id=\"resultstable\">\n";
 		print $q->start_form;
@@ -589,8 +578,7 @@ sub print_content {
 		if ($new_seqs_found) {
 			print "<p><a href=\"/tmp/$file_prefix\_unique_sequences.txt\" target=\"_blank\">New unique sequences</a>\n";
 			print
-" <a class=\"tooltip\" title=\"Unique sequence - This is a list of new sequences (tab-delimited with locus name) of unique new sequences found in this search.  This can be used to facilitate rapid upload of new sequences to a sequence definition database for allele assignment.\">&nbsp;<i>i</i>&nbsp;</a>"
-			  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"Unique sequence - This is a list of new sequences (tab-delimited with locus name) of unique new sequences found in this search.  This can be used to facilitate rapid upload of new sequences to a sequence definition database for allele assignment.\">&nbsp;<i>i</i>&nbsp;</a>";
 			print "</p>\n";
 		}
 		if ($tag_button) {

@@ -120,8 +120,7 @@ sub _print_table_fields {
 		print
 	"<a id=\"add_table_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;fields=table_fields&amp;table=$table&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";			
 		print
-" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>Add more fields by clicking the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>"
-		  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>Add more fields by clicking the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>";
 	}
 	print "</span>\n";	
 }
@@ -198,8 +197,7 @@ sub _print_query_interface {
 	);
 	print " records per page&nbsp;";
 	print
-" <a class=\"tooltip\" title=\"Records per page - Analyses use the full query dataset, rather than just the page shown.\">&nbsp;<i>i</i>&nbsp;</a>"
-	  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"Records per page - Analyses use the full query dataset, rather than just the page shown.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "</span></li>\n\n";
 	my $page = $self->{'curate'} ? 'profileQuery' : 'query';
 	print
@@ -335,8 +333,7 @@ sub _print_query_interface {
 			-class  => 'filter'
 		);
 		$buffer .=
-" <a class=\"tooltip\" title=\"scheme filter - Click the checkbox and select a scheme to filter your search to only those belonging to the selected scheme.\">&nbsp;<i>i</i>&nbsp;</a>"
-		  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"scheme filter - Click the checkbox and select a scheme to filter your search to only those belonging to the selected scheme.\">&nbsp;<i>i</i>&nbsp;</a>";
 		push @filters, $buffer;
 	} elsif ( $table eq 'sequence_bin' ) {
 		my %labels;
@@ -364,8 +361,7 @@ sub _print_query_interface {
 				-class  => 'filter'
 			);
 			$buffer .=
-" <a class=\"tooltip\" title=\"experiment filter - Click the checkbox and select an experiment to filter your search to only those sequences linked to the selected experiment.\">&nbsp;<i>i</i>&nbsp;</a>"
-			  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"experiment filter - Click the checkbox and select an experiment to filter your search to only those sequences linked to the selected experiment.\">&nbsp;<i>i</i>&nbsp;</a>";
 			push @filters, $buffer;
 		}
 	}

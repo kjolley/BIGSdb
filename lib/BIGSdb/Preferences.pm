@@ -261,6 +261,23 @@ sub get_all_general_prefs {
 	return $values;
 }
 
+sub get_tooltips_pref {
+	my ( $self, $guid, $dbase ) = @_;
+	throw BIGSdb::DatabaseNoRecordException("No guid passed")
+	  if !$guid;
+	my $sql = $self->{'db'}->prepare( "SELECT value FROM general WHERE guid=? AND dbase=? AND attribute=?" );
+	my $value;
+	eval {
+		$sql->execute( $guid, $dbase, 'tooltips' );	
+		($value) = $sql->fetchrow_array;
+	};
+	if ($@) {
+		$logger->error("Can't execute @_");
+		throw BIGSdb::DatabaseNoRecordException("Can't execute tooltips pref query");
+	}
+	return $value;
+}
+
 sub get_all_field_prefs {
 	my ( $self, $guid, $dbase ) = @_;
 	throw BIGSdb::DatabaseNoRecordException("No guid passed")

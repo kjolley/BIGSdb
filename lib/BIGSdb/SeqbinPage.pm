@@ -116,8 +116,7 @@ HTML
 	if ( $self->{'curate'} && ( $self->{'permissions'}->{'modify_loci'} || $self->is_admin ) ) {
 		print "<th>Renumber";
 		print
-" <a class=\"tooltip\" title=\"Renumber - You can use the numbering of the sequence tags to automatically set the genome order position for each locus. This will be used to order the sequences when exporting FASTA or XMFA files.\">&nbsp;<i>i</i>&nbsp;</a>"
-		  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"Renumber - You can use the numbering of the sequence tags to automatically set the genome order position for each locus. This will be used to order the sequences when exporting FASTA or XMFA files.\">&nbsp;<i>i</i>&nbsp;</a>";
 		print "</th>\n";
 	}
 	print "</tr>\n";

@@ -115,11 +115,6 @@ sub get_plugin_categories {
 sub get_appropriate_plugin_names {
 	my ( $self, $section, $dbtype, $category ) = @_;
 	return if none {$section =~ /$_/} qw (postquery breakdown analysis export miscellaneous);
-#	return
-#	  if ( $section !~ /tools/
-#		&& $section !~ /postquery/
-#		&& $section !~ /stats/
-#		&& $section !~ /options/ );
 	my @plugins;
 	foreach ( sort { $self->{'attributes'}->{$a}->{'order'} <=> $self->{'attributes'}->{$b}->{'order'} } keys %{ $self->{'attributes'} } ) {
 		my $attr = $self->{'attributes'}->{$_};

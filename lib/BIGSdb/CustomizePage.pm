@@ -296,8 +296,7 @@ HTML
 		$cleaned =~ tr/_/ /;
 		print "$cleaned: ";
 		my $tooltip = $self->_get_tooltip( $_->{'name'} );
-		print " <a class=\"tooltip\" title=\"$tooltip\">&nbsp;<i>i</i>&nbsp;</a>"
-		  if $self->{'prefs'}->{'tooltips'};
+		print " <a class=\"tooltip\" title=\"$tooltip\">&nbsp;<i>i</i>&nbsp;</a>";
 		print "</td><td>";
 
 		if ( $_->{'type'} eq 'bool' ) {

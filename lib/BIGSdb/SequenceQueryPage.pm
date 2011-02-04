@@ -71,8 +71,7 @@ sub print_content {
 	not need to be trimmed. The nearest partial matches will be identified if an exact match is not found. You can query using either DNA or peptide 
 	sequences.";
 	print " <a class=\"tooltip\" title=\"Query sequence - Your query sequence is assumed
-to be DNA if it contains 90% or more G,A,T,C or N characters.\">&nbsp;<i>i</i>&nbsp;</a>"
-	  if $self->{'prefs'}->{'tooltips'};
+to be DNA if it contains 90% or more G,A,T,C or N characters.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "</p>\n";
 	print $q->start_form;
 	print "<table><tr><td style=\"text-align:right\">Please select locus/scheme: </td><td>";
@@ -409,8 +408,7 @@ sub _run_query {
 										my $data_type = $locus_info->{'data_type'} eq 'DNA' ? 'nucleotide' : 'residue';
 										print
 "<a class=\"tooltip\" title=\"differences - The information to the left of the arrow$plural shows the $data_type and position on the reference sequence
-		and the information to the right shows the corresponding $data_type and position on your query sequence.\">&nbsp;<i>i</i>&nbsp;</a>"
-										  if $self->{'prefs'}->{'tooltips'};
+		and the information to the right shows the corresponding $data_type and position on your query sequence.\">&nbsp;<i>i</i>&nbsp;</a>";
 										print "</p><p>\n";
 										foreach (@$diffs) {
 											if ( !$_->{'qbase'} ) {
@@ -437,8 +435,7 @@ sub _run_query {
 											  . " of your query sequence.";
 											print
 " <a class=\"tooltip\" title=\"start position - This may be approximate if there are gaps near the beginning of the alignment between your query and the 
-		reference sequence.\">&nbsp;<i>i</i>&nbsp;</a>"
-											  if $self->{'prefs'}->{'tooltips'};
+		reference sequence.\">&nbsp;<i>i</i>&nbsp;</a>";
 											print "</p>\n";
 										}
 									} else {

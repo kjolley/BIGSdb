@@ -204,8 +204,7 @@ sub _print_query_interface {
 			print "Project filter: </td><td style=\"text-align:left\">";
 			print $q->popup_menu( -name => 'project_list', -values => ['', @project_ids], -labels => \%labels, -class => 'filter' );
 			print
-" <a class=\"tooltip\" title=\"project filter - Click the checkbox and select a project to filter your search to only those isolates belonging to it.\">&nbsp;<i>i</i>&nbsp;</a>"
-			  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"project filter - Click the checkbox and select a project to filter your search to only those isolates belonging to it.\">&nbsp;<i>i</i>&nbsp;</a>";
 			print "</td></tr>\n";
 		}
 	}
@@ -258,8 +257,7 @@ sub _print_query_interface {
 	);
 	print " records per page";
 	print
-" <a class=\"tooltip\" title=\"Records per page - Analyses use the full query dataset, rather than just the page shown.\">&nbsp;<i>i</i>&nbsp;</a>"
-	  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"Records per page - Analyses use the full query dataset, rather than just the page shown.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "&nbsp;&nbsp;";
 	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
 	print "</td></tr>\n";

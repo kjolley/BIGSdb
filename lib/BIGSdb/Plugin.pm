@@ -374,8 +374,7 @@ sub print_field_export_form {
 			}
 			print "<h2>Composite fields ";
 			print
-" <a class=\"tooltip\" title=\"Composite fields - These are constructed from combinations of other fields (some of which may come from external databases).  Including composite fields will slow down the processing.\">&nbsp;<i>i</i>&nbsp;</a>"
-			  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"Composite fields - These are constructed from combinations of other fields (some of which may come from external databases).  Including composite fields will slow down the processing.\">&nbsp;<i>i</i>&nbsp;</a>";
 			print "</h2>\n";
 			$self->print_fields( $composites, 'c', 6, 0, \%labels, \@com_js, \@com_js2, $default_select );
 		}

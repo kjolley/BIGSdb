@@ -89,8 +89,7 @@ sub print_content {
 			print "<li>Scheme profile queries:";
 			print $q->start_form;
 			print "<table>";
-			if ( $self->{'prefs'}->{'tooltips'} ) {
-				print << "TOOLTIPS";
+			print << "TOOLTIPS";
 <tr><td />
 <td style="text-align:center"><a class="tooltip" title="Browse - Peruse all records.">&nbsp;<i>i</i>&nbsp;</a></td>
 <td style="text-align:center"><a class="tooltip" title="Search - Advanced searching.">&nbsp;<i>i</i>&nbsp;</a></td>
@@ -99,7 +98,6 @@ sub print_content {
 <td style="text-align:center"><a class="tooltip" title="Batch profile query - Look up multiple profiles copied from a spreadsheet.">&nbsp;<i>i</i>&nbsp;</a></td>
 </tr>				
 TOOLTIPS
-			}
 			print "<tr><td>";
 			print $q->popup_menu( -name => 'scheme_id', -values => \@scheme_ids, -labels => \%desc );
 			print $q->hidden('db');

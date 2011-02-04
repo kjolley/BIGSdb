@@ -34,9 +34,7 @@ sub _toggle_tooltips {
 	my $value = $prefs->{'tooltips'}  ? 'off' : 'on';
 	my $guid = $self->get_guid;
 	return if !$guid;
-	$logger->error($prefs->{'tooltips'});
 	$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, 'tooltips', $value );
-	$logger->error($value);
 }
 
 sub print_content {

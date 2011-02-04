@@ -193,8 +193,7 @@ sub _print_provenance_fields {
 			print
 	"<a id=\"add_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;fields=provenance&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
 			print
-	" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>Add more fields by clicking the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>"
-			  if $self->{'prefs'}->{'tooltips'};
+	" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>Add more fields by clicking the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
 	}
 	print "</span>\n";
@@ -220,8 +219,7 @@ sub _print_loci_fields {
 				print
 	"<a id=\"add_loci\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;fields=loci&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
 				print
-	" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>Add more fields by clicking the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>"
-				  if $self->{'prefs'}->{'tooltips'};
+	" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>Add more fields by clicking the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>";
 			}
 		}
 	}
@@ -266,8 +264,7 @@ sub _print_isolate_query_interface {
 	print "<span id=\"prov_field_heading\" style=\"display:$display_field_heading\"><label for=\"c0\">Combine searches with: </label>\n";
 	print $q->popup_menu( -name => 'c0', -id => 'c0', -values => [ "AND", "OR" ] );
 	print
-" <a class=\"tooltip\" title=\"query modifier - Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.\">&nbsp;<i>i</i>&nbsp;</a>"
-	  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"query modifier - Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "</span>\n";
 	print "<ul id=\"provenance\">\n";
 	my ( $select_items, $labels ) = $self->_get_isolate_select_items;
@@ -298,8 +295,7 @@ sub _print_isolate_query_interface {
 	} else {
 		print $q->popup_menu( -name => 'c1', -id => 'c1', -values => [ "AND", "OR" ], );
 		print
-" <a class=\"tooltip\" title=\"query modifier - Select 'AND' to filter the isolate query to match ALL allele or scheme search terms, 'OR' to match ANY of these terms.\">&nbsp;<i>i</i>&nbsp;</a>"
-		  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"query modifier - Select 'AND' to filter the isolate query to match ALL allele or scheme search terms, 'OR' to match ANY of these terms.\">&nbsp;<i>i</i>&nbsp;</a>";
 	}
 	print "</span>\n<ul id=\"loci\">\n";
 	for ( my $i = 1 ; $i <= $locus_fields ; $i++ ) {
@@ -376,8 +372,7 @@ sub _print_isolate_query_interface {
 			);
 			my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
 			$buffer .=
-" <a class=\"tooltip\" title=\"$field filter - Select $a_or_an $field to filter your search to only those isolates that match the selected $field.\">&nbsp;<i>i</i>&nbsp;</a>"
-			  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"$field filter - Select $a_or_an $field to filter your search to only those isolates that match the selected $field.\">&nbsp;<i>i</i>&nbsp;</a>";
 			push @filters, $buffer;
 		}
 		my $extatt = $extended->{$field};
@@ -399,8 +394,7 @@ sub _print_isolate_query_interface {
 					);
 					my $a_or_an = substr( $extended_attribute, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
 					$buffer .=
-" <a class=\"tooltip\" title=\"$field\..$extended_attribute filter - Select $a_or_an $extended_attribute to filter your search to only those isolates that match the selected $field.\">&nbsp;<i>i</i>&nbsp;</a>"
-					  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"$field\..$extended_attribute filter - Select $a_or_an $extended_attribute to filter your search to only those isolates that match the selected $field.\">&nbsp;<i>i</i>&nbsp;</a>";
 					push @filters, $buffer;
 				}
 			}
@@ -421,8 +415,7 @@ sub _print_isolate_query_interface {
 				-class  => 'filter'
 			);
 			$buffer .=
-" <a class=\"tooltip\" title=\"publication filter - Select a publication to filter your search to only those isolates that match the selected publication.\">&nbsp;<i>i</i>&nbsp;</a>"
-			  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"publication filter - Select a publication to filter your search to only those isolates that match the selected publication.\">&nbsp;<i>i</i>&nbsp;</a>";
 			push @filters, $buffer;
 		}
 	}
@@ -448,8 +441,7 @@ sub _print_isolate_query_interface {
 				-class  => 'filter'
 			);
 			$buffer .=
-" <a class=\"tooltip\" title=\"project filter - Select a project to filter your search to only those isolates belonging to it.\">&nbsp;<i>i</i>&nbsp;</a>"
-			  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"project filter - Select a project to filter your search to only those isolates belonging to it.\">&nbsp;<i>i</i>&nbsp;</a>";
 			push @filters, $buffer;
 		}
 	}
@@ -467,8 +459,7 @@ sub _print_isolate_query_interface {
 				-class  => 'filter'
 			);
 			$buffer .=
-" <a class=\"tooltip\" title=\"$scheme_info->{'description'} profile completion filter - Select whether the isolates should have complete, partial, or unstarted profiles.\">&nbsp;<i>i</i>&nbsp;</a>"
-			  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"$scheme_info->{'description'} profile completion filter - Select whether the isolates should have complete, partial, or unstarted profiles.\">&nbsp;<i>i</i>&nbsp;</a>";
 			push @filters, $buffer;
 		}
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($_);
@@ -487,8 +478,7 @@ sub _print_isolate_query_interface {
 				);
 				my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
 				$buffer .=
-" <a class=\"tooltip\" title=\"$cleaned ($scheme_info->{'description'}) filter - Select $a_or_an $cleaned to filter your search to only those isolates that match the selected $cleaned.\">&nbsp;<i>i</i>&nbsp;</a>"
-				  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"$cleaned ($scheme_info->{'description'}) filter - Select $a_or_an $cleaned to filter your search to only those isolates that match the selected $cleaned.\">&nbsp;<i>i</i>&nbsp;</a>";
 				push @filters, $buffer if @$values;
 			}
 		}
@@ -503,8 +493,7 @@ sub _print_isolate_query_interface {
 			-class  => 'filter'
 		);
 		$buffer .=
-" <a class=\"tooltip\" title=\"linked sequence filter - Filter by whether sequences have been linked with the isolate record.\">&nbsp;<i>i</i>&nbsp;</a>"
-		  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"linked sequence filter - Filter by whether sequences have been linked with the isolate record.\">&nbsp;<i>i</i>&nbsp;</a>";
 		push @filters, $buffer;
 	}
 	if (@filters) {
@@ -533,8 +522,7 @@ sub _print_isolate_query_interface {
 	);
 	print " records per page&nbsp;";
 	print
-" <a class=\"tooltip\" title=\"Records per page - Analyses use the full query dataset, rather than just the page shown.\">&nbsp;<i>i</i>&nbsp;</a>"
-	  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"Records per page - Analyses use the full query dataset, rather than just the page shown.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "</span></li>\n\n";
 	my $page = $self->{'curate'} ? 'isolateQuery' : 'query';
 	print
@@ -615,8 +603,7 @@ sub _print_scheme_fields {
 			print
 	"<a id=\"add_scheme_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;fields=scheme&amp;scheme_id=$scheme_id&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
 			print
-	" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>Add more fields by clicking the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>"
-			  if $self->{'prefs'}->{'tooltips'};
+	" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>Add more fields by clicking the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
 	}
 	print "</span>\n";
@@ -649,8 +636,7 @@ sub _print_profile_query_interface {
 	print "<span id=\"scheme_field_heading\" style=\"display:$scheme_field_heading\"><label for=\"c0\">Combine searches with: </label>\n";
 	print $q->popup_menu( -name => 'c0', -id => 'c0', -values => [ "AND", "OR" ] );
 	print
-" <a class=\"tooltip\" title=\"query modifier - Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.\">&nbsp;<i>i</i>&nbsp;</a>"
-	  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"query modifier - Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "</span><ul id=\"scheme_fields\">\n";
 	for ( my $i = 1 ; $i <= $scheme_fields ; $i++ ) {
 		print "<li>";
@@ -674,8 +660,7 @@ sub _print_profile_query_interface {
 				-class  => 'filter'
 			);
 			$buffer .=
-" <a class=\"tooltip\" title=\"publication filter - Select a publication to filter your search to only those isolates that match the selected publication.\">&nbsp;<i>i</i>&nbsp;</a>"
-			  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"publication filter - Select a publication to filter your search to only those isolates that match the selected publication.\">&nbsp;<i>i</i>&nbsp;</a>";
 			push @filters, $buffer;
 		}
 	}
@@ -708,8 +693,7 @@ sub _print_profile_query_interface {
 				  $q->popup_menu( -name => "$field\_list", -id => "$field\_list", -values => [ '', @$values ], -class => 'filter' );
 				my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
 				$buffer .=
-" <a class=\"tooltip\" title=\"$cleaned ($scheme_info->{'description'}) filter - Select $a_or_an $cleaned to filter your search to only those isolates that match the selected $cleaned.\">&nbsp;<i>i</i>&nbsp;</a>"
-				  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"$cleaned ($scheme_info->{'description'}) filter - Select $a_or_an $cleaned to filter your search to only those isolates that match the selected $cleaned.\">&nbsp;<i>i</i>&nbsp;</a>";
 				push @filters, $buffer;
 			}
 		}
@@ -733,8 +717,7 @@ sub _print_profile_query_interface {
 	);
 	print " records per page&nbsp;";
 	print
-" <a class=\"tooltip\" title=\"Records per page - Analyses use the full query dataset, rather than just the page shown.\">&nbsp;<i>i</i>&nbsp;</a>"
-	  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"Records per page - Analyses use the full query dataset, rather than just the page shown.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "</span></li>\n\n";
 	my $page = $self->{'curate'} ? 'profileQuery' : 'query';
 	print

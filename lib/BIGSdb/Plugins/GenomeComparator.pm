@@ -243,13 +243,11 @@ HTML
 		-onBlur    => 'enable_seqs()'
 	);
 	print
-" <a class=\"tooltip\" title=\"Reference genome - Use of a reference genome will override any locus or scheme settings.\">&nbsp;<i>i</i>&nbsp;</a>"
-	  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"Reference genome - Use of a reference genome will override any locus or scheme settings.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "</td><td style=\"vertical-align:top\">\n";
 	print "<table><tr><td style=\"text-align:right\">Min % identity: </td><td>";
 	print $q->popup_menu( -name => 'identity', -values => [qw(50 55 60 65 70 75 80 85 90 91 92 93 94 95 96 97 98 99 100)], -default => 70 );
-	print " <a class=\"tooltip\" title=\"Minimum % identity - Match required for partial matching.\">&nbsp;<i>i</i>&nbsp;</a>"
-	  if $self->{'prefs'}->{'tooltips'};
+	print " <a class=\"tooltip\" title=\"Minimum % identity - Match required for partial matching.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "</td></tr><tr><td>\n";
 	print "</td></tr>\n<tr><td style=\"text-align:right\">Min % alignment: </td><td>";
 	print $q->popup_menu(
@@ -258,26 +256,22 @@ HTML
 		-default => 50
 	);
 	print
-" <a class=\"tooltip\" title=\"Minimum % alignment - Percentage of allele sequence length required to be aligned for partial matching.\">&nbsp;<i>i</i>&nbsp;</a>"
-	  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"Minimum % alignment - Percentage of allele sequence length required to be aligned for partial matching.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "</td></tr><tr><td style=\"text-align:right\">BLASTN word size: </td><td>\n";
 	print $q->popup_menu( -name => 'word_size', -values => [qw(8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28)],
 		-default => 15 );
 	print
-" <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a>"
-	  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "</td></tr><tr><td colspan=\"2\">";
 	print $q->checkbox( -name => 'align', -label => 'Produce alignments' );
 	print
-" <a class=\"tooltip\" title=\"Alignments - Alignments will be produced in muscle for any loci that vary between isolates when analysing by reference genome. This may slow the analysis considerably.\">&nbsp;<i>i</i>&nbsp;</a>"
-	  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"Alignments - Alignments will be produced in muscle for any loci that vary between isolates when analysing by reference genome. This may slow the analysis considerably.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "</td></tr>\n";
 	print "<tr><th colspan=\"2\">Restrict included sequences by</th></tr>";
 	print "<tr><td style=\"text-align:right\">Sequence method: </td><td style=\"text-align:left\">";
 	print $q->popup_menu( -name => 'seq_method', -values => [ '', SEQ_METHODS ] );
 	print
-" <a class=\"tooltip\" title=\"Sequence method - Only include sequences generated from the selected method.\">&nbsp;<i>i</i>&nbsp;</a>"
-	  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"Sequence method - Only include sequences generated from the selected method.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "</td></tr>\n";
 	my $project_list = $self->{'datastore'}->run_list_query_hashref("SELECT id,short_description FROM projects ORDER BY short_description");	
 	my @projects;
@@ -291,8 +285,7 @@ HTML
 		print "<tr><td style=\"text-align:right\">Project: </td><td style=\"text-align:left\">";
 		print $q->popup_menu( -name => 'project', -values => \@projects, -labels => \%labels );
 		print
-" <a class=\"tooltip\" title=\"Projects - Filter isolate list to only include those belonging to a specific project.\">&nbsp;<i>i</i>&nbsp;</a>"
-		  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"Projects - Filter isolate list to only include those belonging to a specific project.\">&nbsp;<i>i</i>&nbsp;</a>";
 		print "</td></tr>\n";
 	}
 	my $experiment_list = $self->{'datastore'}->run_list_query_hashref("SELECT id,description FROM experiments ORDER BY description");	
@@ -307,8 +300,7 @@ HTML
 		print "<tr><td style=\"text-align:right\">Experiment: </td><td>";
 		print $q->popup_menu( -name => 'experiment', -values => \@experiments, -labels => \%labels );
 		print
-" <a class=\"tooltip\" title=\"Experiments - Only include sequences that have been linked to the specified experiment.\">&nbsp;<i>i</i>&nbsp;</a>"
-		  if $self->{'prefs'}->{'tooltips'};
+" <a class=\"tooltip\" title=\"Experiments - Only include sequences that have been linked to the specified experiment.\">&nbsp;<i>i</i>&nbsp;</a>";
 		print "</td></tr>\n";
 	}
 	print "</table>\n";
