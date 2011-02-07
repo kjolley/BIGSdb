@@ -28,13 +28,13 @@ sub initiate {
 	$self->{'noCache'} = 1;
 }
 
-sub _toggle_tooltips {
-	my ($self) = @_;
+sub _toggle_option {
+	my ($self, $field) = @_;
 	my $prefs = $self->{'prefs'};
-	my $value = $prefs->{'tooltips'}  ? 'off' : 'on';
+	my $value = $prefs->{$field}  ? 'off' : 'on';
 	my $guid = $self->get_guid;
 	return if !$guid;
-	$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, 'tooltips', $value );
+	$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, $field, $value );
 }
 
 sub print_content {
@@ -42,7 +42,7 @@ sub print_content {
 	my $q      = $self->{'cgi'};
 	if ($q->param('toggle_tooltips')){
 		#AJAX call - don't display
-		$self->_toggle_tooltips;
+		$self->_toggle_option('tooltips');
 		return;
 	}
 	my $system = $self->{'system'};

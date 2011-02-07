@@ -126,7 +126,7 @@ a#toggle_tooltips {
 	cursor:pointer;
 	text-decoration:none;
 	border:1px solid #c0c0c0;
-	font: 600 1em serif;
+	font: 300 1em serif;
 }
 
 a.update_tooltip,a.pending_tooltip,a.sequence_tooltip,a.sequence_tooltip_incomplete {

@@ -32,7 +32,7 @@ $(function () {
       $('.hideshow').toggle();
     });	
 	
-	$('a#toggle_tooltips').show();
+	$('a#toggle_tooltips,span#toggle').show();
 	$('a#toggle_tooltips').click(function(event){		
 		event.preventDefault();
 	  	$(this).attr('href', function(){  		
