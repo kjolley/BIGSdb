@@ -22,7 +22,7 @@ use base qw(BIGSdb::Page);
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any);
-my $logger = get_logger('BIGSdb.Plugin');
+my $logger = get_logger('BIGSdb.Plugins');
 
 sub initiate {
 	my ($self) = @_;

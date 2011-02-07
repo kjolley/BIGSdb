@@ -24,8 +24,9 @@ my $logger = get_logger('BIGSdb.Page');
 
 sub initiate {
 	my ($self) = @_;
-	$self->{'field_help'} = 1;
-	$self->{'jQuery'} = 1;
+	foreach (qw (field_help tooltips jQuery)){
+		$self->{$_} = 1;
+	}
 }
 
 sub set_pref_requirements {

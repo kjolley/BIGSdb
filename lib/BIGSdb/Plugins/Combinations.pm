@@ -39,6 +39,7 @@ sub get_attributes {
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
+		help		=> 'tooltips',
 		order       => 15
 	);
 	return \%att;

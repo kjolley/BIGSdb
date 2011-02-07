@@ -79,7 +79,7 @@ a.downloadbutton:hover {
 	background:#fa3030
 }
 
-#tooltip,a.tooltip,a.update_tooltip,a.pending_tooltip {
+#tooltip,#toggle_tooltips,a.tooltip,a.update_tooltip,a.pending_tooltip {
 	background:#fafad2;
 	color:black;
 	opacity:0.9
@@ -120,6 +120,13 @@ a.tooltip,a.update_tooltip,a.pending_tooltip,a.existing_tooltip,a.clashing_toolt
 a.sequence_tooltip,a.sequence_tooltip_incomplete,a.extract_tooltip,a.info_tooltip,a.cds {
 	cursor:pointer;
 	text-decoration:none;	
+}
+
+a#toggle_tooltips {
+	cursor:pointer;
+	text-decoration:none;
+	border:1px solid #c0c0c0;
+	font: 600 1em serif;
 }
 
 a.update_tooltip,a.pending_tooltip,a.sequence_tooltip,a.sequence_tooltip_incomplete {

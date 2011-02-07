@@ -43,6 +43,7 @@ sub get_attributes {
 		section     => 'analysis',
 		order       => 30,
 		requires    => 'muscle,offline_jobs',
+		help		=> 'tooltips',
 		system_flag => 'GenomeComparator'
 	);
 	return \%att;

@@ -42,6 +42,7 @@ sub get_attributes {
 		section     => 'export,postquery',
 		input       => 'query',
 		requires    => 'refdb',
+		help		=> 'tooltips',
 		order       => 15
 	);
 	return \%att;

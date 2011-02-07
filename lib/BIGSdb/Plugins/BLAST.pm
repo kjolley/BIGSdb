@@ -42,6 +42,7 @@ sub get_attributes {
 		dbtype      => 'isolates',
 		section     => 'analysis',
 		order       => 32,
+		help		=> 'tooltips',
 		system_flag => 'BLAST'
 	);
 	return \%att;

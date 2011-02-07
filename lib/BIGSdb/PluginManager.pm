@@ -67,9 +67,9 @@ sub initiate {
 	}
 }
 
-sub get_plugin_attribute_names {
-	return qw(name description menutext author affiliation email module version type section);
-}
+#sub get_plugin_attribute_names {
+#	return qw(name description menutext author affiliation email module version type section);
+#}
 
 sub get_plugin {
 	my ( $self, $plugin_name ) = @_;

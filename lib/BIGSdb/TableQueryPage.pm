@@ -30,8 +30,9 @@ sub initiate {
 		$self->{'type'} = 'no_header';
 		return;
 	}
-	$self->{'field_help'} = 0;
-	$self->{'jQuery'}     = 1;
+	foreach (qw (tooltips jQuery)){
+		$self->{$_} = 1;
+	}
 }
 
 sub print_content {

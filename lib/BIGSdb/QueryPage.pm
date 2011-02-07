@@ -30,8 +30,9 @@ sub initiate {
 		$self->{'type'} = 'no_header';
 		return;
 	}
-	$self->{'field_help'} = 1;
-	$self->{'jQuery'}     = 1;
+	foreach (qw (field_help tooltips jQuery)){
+		$self->{$_} = 1;
+	}
 }
 
 sub set_pref_requirements {

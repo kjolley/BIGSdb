@@ -276,7 +276,23 @@ sub _print_help_panel {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	print "<div id=\"fieldvalueshelp\">";
-	print "<a id=\"toggle_tooltips\" href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=options&amp;toggle_tooltips=1\" class=\"smallbutton\" style=\"display:none; margin-right:1em;padding: 0 0.5em 0 0.5em\"> Tooltips on/off </a> ";
+	if ($q->param('page') eq 'plugin'){
+		my $plugin_att = $self->{'pluginManager'}->get_plugin_attributes($q->param('name'));
+		if (ref $plugin_att eq 'HASH'){
+			foreach (qw (tooltips)){
+				if ($plugin_att->{'help'} =~ /$_/){
+					$self->{$_} = 1;
+				}				
+			}
+
+		}
+	}
+	if (any {$self->{$_}} qw (tooltips) ){
+		print "Toggle: ";
+		if ($self->{'tooltips'}){
+			print "<a id=\"toggle_tooltips\" href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=options&amp;toggle_tooltips=1\" style=\"display:none; margin-right:1em;\">&nbsp;<i>i</i>&nbsp;</a> ";
+		}
+	}
 	if ($self->{'system'}->{'dbtype'} eq 'isolates' && $self->{'field_help'}){
 		#open new page unless already on field values help page
 		if ( $q->param('page') eq 'fieldValues' ) {

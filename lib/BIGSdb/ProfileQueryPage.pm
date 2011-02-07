@@ -23,6 +23,13 @@ use Log::Log4perl qw(get_logger);
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
 
+sub initiate {
+	my ($self) = @_;
+	foreach (qw (tooltips jQuery)){
+		$self->{$_} = 1;
+	}
+}
+
 sub get_title {
 	my ($self) = @_;
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
