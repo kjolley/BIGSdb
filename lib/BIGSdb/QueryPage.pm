@@ -194,7 +194,7 @@ sub _print_provenance_fields {
 			print
 	"<a id=\"add_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;fields=provenance&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
 			print
-	" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>Add more fields by clicking the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>";
+	" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
 	}
 	print "</span>\n";
@@ -220,7 +220,7 @@ sub _print_loci_fields {
 				print
 	"<a id=\"add_loci\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;fields=loci&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
 				print
-	" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>Add more fields by clicking the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>";
+	" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
 			}
 		}
 	}
@@ -264,8 +264,6 @@ sub _print_isolate_query_interface {
 	my $display_field_heading = $prov_fields == 1 ? 'none' : 'inline';
 	print "<span id=\"prov_field_heading\" style=\"display:$display_field_heading\"><label for=\"c0\">Combine searches with: </label>\n";
 	print $q->popup_menu( -name => 'c0', -id => 'c0', -values => [ "AND", "OR" ] );
-	print
-" <a class=\"tooltip\" title=\"query modifier - Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "</span>\n";
 	print "<ul id=\"provenance\">\n";
 	my ( $select_items, $labels ) = $self->_get_isolate_select_items;
@@ -295,8 +293,6 @@ sub _print_isolate_query_interface {
 		print $q->popup_menu( -name => 'c1', -id => 'c1', -values => [ "AND", "OR" ], -disabled => 'disabled' );
 	} else {
 		print $q->popup_menu( -name => 'c1', -id => 'c1', -values => [ "AND", "OR" ], );
-		print
-" <a class=\"tooltip\" title=\"query modifier - Select 'AND' to filter the isolate query to match ALL allele or scheme search terms, 'OR' to match ANY of these terms.\">&nbsp;<i>i</i>&nbsp;</a>";
 	}
 	print "</span>\n<ul id=\"loci\">\n";
 	for ( my $i = 1 ; $i <= $locus_fields ; $i++ ) {
@@ -604,7 +600,7 @@ sub _print_scheme_fields {
 			print
 	"<a id=\"add_scheme_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;fields=scheme&amp;scheme_id=$scheme_id&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
 			print
-	" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>Add more fields by clicking the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>";
+	" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
 	}
 	print "</span>\n";
@@ -636,8 +632,6 @@ sub _print_profile_query_interface {
 	print "<div style=\"white-space:nowrap\"><fieldset>\n<legend>Locus/scheme fields</legend>\n";
 	print "<span id=\"scheme_field_heading\" style=\"display:$scheme_field_heading\"><label for=\"c0\">Combine searches with: </label>\n";
 	print $q->popup_menu( -name => 'c0', -id => 'c0', -values => [ "AND", "OR" ] );
-	print
-" <a class=\"tooltip\" title=\"query modifier - Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "</span><ul id=\"scheme_fields\">\n";
 	for ( my $i = 1 ; $i <= $scheme_fields ; $i++ ) {
 		print "<li>";
