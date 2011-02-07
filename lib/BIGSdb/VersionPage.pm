@@ -29,7 +29,7 @@ sub print_content {
 <div class="box" id="resultstable">
 <h2>Version $BIGSdb::main::VERSION</h2>\n
 <p>Written by Keith Jolley<br />\n
-Copyright &copy; University of Oxford, 2010.</p>\n
+Copyright &copy; University of Oxford, 2010-2011.</p>\n
 <p>
 BIGSdb is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
