@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::ListQueryPage;
 use strict;
+use List::MoreUtils qw(uniq);
 use base qw(BIGSdb::QueryPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -185,6 +186,7 @@ sub _run_profile_query {
 	}
 	my @list = split /\n/, $q->param('list');
 	my $tempqry;
+	@list = uniq @list;
 	foreach my $value (@list) {
 		$value =~ s/^\s*//;
 		$value =~ s/\s*$//;
@@ -255,6 +257,7 @@ sub _run_isolate_query {
 	}
 	my ( $datatype, $fieldtype, $scheme_id, $joined_table );
 	my @list = split /\n/, $q->param('list');
+	@list = uniq @list;
 	my $tempqry;
 	my $lqry;
 	my $extended_isolate_field;
