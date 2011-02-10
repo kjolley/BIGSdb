@@ -90,6 +90,7 @@ sub print_page {
 		'downloadSeqbin'     => 'DownloadSeqbinPage',
 		'linkToExperiment'   => 'CurateLinkToExperimentPage',
 		'alleleSequence'     => 'AlleleSequencePage',
+		'options'            => 'OptionsPage',
 	);
 	my %page_attributes = (
 		'system'           => $self->{'system'},

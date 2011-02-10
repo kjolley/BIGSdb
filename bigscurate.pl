@@ -93,6 +93,7 @@ use BIGSdb::TableQueryPage;
 use BIGSdb::DownloadSeqbinPage;
 use BIGSdb::AlleleSequencePage;
 use BIGSdb::OfflineJobManager;
+use BIGSdb::OptionsPage;
 
 my $r = shift;    #Apache request object (used for mod_perl)
 Log::Log4perl->init_once(CONFIG_DIR . '/logging.conf');

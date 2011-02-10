@@ -93,7 +93,7 @@ HTML
 	#These are admin functions, some of which some curators may be allowed to access.
 	my @tables = qw (loci);
 	if ($system->{'dbtype'} eq 'isolates'){
-		push @tables, qw(locus_aliases isolate_field_extended_attributes composite_fields);
+		push @tables, qw(locus_aliases pcr pcr_locus isolate_field_extended_attributes composite_fields);
 	} elsif ($system->{'dbtype'} eq 'sequences'){
 		push @tables, qw(locus_extended_attributes client_dbases client_dbase_loci client_dbase_schemes);
 	}
@@ -516,6 +516,32 @@ HTML
 HTML
 	}
 	return $buffer;
+}
+
+sub _print_pcr {
+	my ( $self, $td ) = @_;
+	my $buffer = <<"HTML";
+<tr class="td$td"><td>PCR reactions</td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=pcr">+</a></td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=pcr">++</a></td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=pcr">?</a></td>
+<td style="text-align:left" class="comment">Set up <i>in silico</i> PCR reactions.  These can be used to filter genomes for tagging to specific particular repetitive loci.</td></tr>
+HTML
+	return $buffer;
+
+}
+
+sub _print_pcr_locus {
+	my ( $self, $td ) = @_;
+	my $buffer = <<"HTML";
+<tr class="td$td"><td>PCR locus links</td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=pcr_locus">+</a></td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=pcr_locus">++</a></td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=pcr_locus">?</a></td>
+<td style="text-align:left" class="comment">Link a locus to an <i>in silico</i> PCR reaction</td></tr>
+HTML
+	return $buffer;
+
 }
 
 sub _print_locus_aliases {

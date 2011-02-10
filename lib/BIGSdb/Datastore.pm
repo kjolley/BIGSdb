@@ -635,6 +635,7 @@ sub get_locus_list {
 		}
 		$cleaned->{ $_->{'id'} } =~ tr/_/ /;
 	}
+
 	#dictionary sort
 	@$display_loci = map { $_->[0] }
 	  sort { $a->[1] cmp $b->[1] }
@@ -643,7 +644,6 @@ sub get_locus_list {
 		$d =~ s/[\W_]+//g;
 		[ $_, $d ]
 	  } @$display_loci;
-
 	return ( $display_loci, $cleaned );
 }
 
@@ -1341,6 +1341,12 @@ sub _get_loci_table_attributes {
 				  'reference_sequence - Used by the automated sequence comparison algorithms to identify sequences matching this locus.'
 			},
 			{
+				name => 'pcr_filter',
+				type => 'bool',
+				tooltip =>
+'pcr filter - Set to true to specify that sequences used for tagging are filtered to only include regions that are amplified by in silico PCR reaction.'
+			},
+			{
 				name     => 'dbase_name',
 				type     => 'text',
 				hide     => 'yes',
@@ -1352,26 +1358,26 @@ sub _get_loci_table_attributes {
 				type     => 'text',
 				hide     => 'yes',
 				comments => 'IP address of database host',
-				tooltip => 'dbase_host - Leave this blank if your database engine is running on the same machine as the webserver software.'
+				tooltip => 'dbase host - Leave this blank if your database engine is running on the same machine as the webserver software.'
 			},
 			{
 				name     => 'dbase_port',
 				type     => 'int',
 				hide     => 'yes',
 				comments => 'Network port accepting database connections',
-				tooltip  => 'dbase_port - This can be left blank unless the database engine is listening on a non-standard port.'
+				tooltip  => 'dbase port - This can be left blank unless the database engine is listening on a non-standard port.'
 			},
 			{
 				name    => 'dbase_user',
 				type    => 'text',
 				hide    => 'yes',
-				tooltip => 'dbase_user - Depending on configuration of the database engine you may be able to leave this blank.'
+				tooltip => 'dbase user - Depending on configuration of the database engine you may be able to leave this blank.'
 			},
 			{
 				name    => 'dbase_password',
 				type    => 'text',
 				hide    => 'yes',
-				tooltip => 'dbase_password - Depending on configuration of the database engine you may be able to leave this blank.'
+				tooltip => 'dbase password - Depending on configuration of the database engine you may be able to leave this blank.'
 			},
 			{
 				name     => 'dbase_table',
@@ -1391,7 +1397,7 @@ sub _get_loci_table_attributes {
 				hide     => 'yes',
 				comments => 'Secondary field that defines allele, e.g. \'locus\'',
 				tooltip =>
-'dbase_id2_field - Use where the sequence database table requires more than the id to define the allele. This could, for example, be something like \'locus\' where the database table holds the sequences for multiple loci and therefore has a \'locus\' field.  Leave blank if a secondary id field is not used.'
+'dbase id2 field - Use where the sequence database table requires more than the id to define the allele. This could, for example, be something like \'locus\' where the database table holds the sequences for multiple loci and therefore has a \'locus\' field.  Leave blank if a secondary id field is not used.'
 			},
 			{
 				name     => 'dbase_id2_value',
@@ -1399,7 +1405,7 @@ sub _get_loci_table_attributes {
 				hide     => 'yes',
 				comments => 'Secondary field value, e.g. locus name',
 				tooltip =>
-'dbase_id2_value - Set the value that the secondary id field must include to select this locus.  This will probably be the name of the locus.  Leave blank if a secondary id field is not used.'
+'dbase id2 value - Set the value that the secondary id field must include to select this locus.  This will probably be the name of the locus.  Leave blank if a secondary id field is not used.'
 			},
 			{
 				name     => 'dbase_seq_field',
@@ -1412,7 +1418,7 @@ sub _get_loci_table_attributes {
 				type    => 'text',
 				length  => 120,
 				hide    => 'yes',
-				tooltip => 'description_url - The URL used to hyperlink to locus information in the isolate information page.'
+				tooltip => 'description url - The URL used to hyperlink to locus information in the isolate information page.'
 			},
 			{
 				name   => 'url',
@@ -1461,6 +1467,31 @@ sub _get_loci_table_attributes {
 		{ name => 'date_entered', type => 'date', required => 'yes', hide           => 'yes' },
 		{ name => 'datestamp',    type => 'date', required => 'yes', hide           => 'yes' }
 	  );
+	return $attributes;
+}
+
+sub _get_pcr_table_attributes {
+	my $attributes = [
+		{ name => 'id',                   type => 'int',  required => 'yes', unique   => 'yes', primary_key => 'yes' },
+		{ name => 'primer1',              type => 'text', length   => '128', required => 'yes' },
+		{ name => 'primer2',              type => 'text', length   => '128', required => 'yes' },
+		{ name => 'min_length',           type => 'int' },
+		{ name => 'max_length',           type => 'int' },
+		{ name => 'max_primer1_mismatch', type => 'int' },
+		{ name => 'max_primer2_mismatch', type => 'int' },
+		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' }
+	];
+	return $attributes;
+}
+
+sub _get_pcr_locus_table_attributes {
+	my $attributes = [
+		{ name => 'pcr_id',    type => 'int',  required => 'yes', primary_key    => 'yes', foreign_key => 'pcr'},
+		{ name => 'locus',     type => 'text', required => 'yes', primary_key    => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
+		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' }
+	];
 	return $attributes;
 }
 
@@ -1827,9 +1858,8 @@ sub _get_scheme_members_table_attributes {
 		},
 		{ name => 'locus', type => 'text', required => 'yes', primary_key => 'yes', foreign_key => 'loci', dropdown_query => 'yes' }
 	];
-
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-			push @$attributes, { name => 'profile_name', type => 'text', required => 'no' } ;
+		push @$attributes, { name => 'profile_name', type => 'text', required => 'no' };
 	}
 	push @$attributes,
 	  (
@@ -1933,11 +1963,10 @@ sub _get_scheme_groups_table_attributes {
 			dropdown_query => 'yes',
 			tooltip        => 'name - Ensure this is short since it is used in table headings and drop-down lists.'
 		},
-		{ name           => 'description',type => 'text', length         => 256},
-		{ name => 'display_order', type => 'int'},
+		{ name => 'description',   type => 'text', length => 256 },
+		{ name => 'display_order', type => 'int' },
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' }
-		
 	];
 	return $attributes;
 }
@@ -1964,7 +1993,6 @@ sub _get_scheme_group_scheme_members_table_attributes {
 		},
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' }
-		
 	];
 	return $attributes;
 }
@@ -1991,7 +2019,6 @@ sub _get_scheme_group_group_members_table_attributes {
 		},
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' }
-		
 	];
 	return $attributes;
 }
@@ -2180,12 +2207,7 @@ sub _get_locus_curators_table_attributes {
 			labels         => '|$surname|, |$first_name| (|$user_name|)',
 			dropdown_query => 'yes'
 		},
-		{
-			name     => 'hide_public',
-			type     => 'bool',
-			comments => 'set to true to not list curator in lists',
-			default  => 'false'
-		},
+		{ name => 'hide_public', type => 'bool', comments => 'set to true to not list curator in lists', default => 'false' },
 	];
 	return $attributes;
 }
@@ -2385,8 +2407,8 @@ sub get_tables {
 		@tables =
 		  qw(users user_groups user_group_members allele_sequences sequence_bin accession refs allele_designations pending_allele_designations loci
 		  locus_aliases schemes scheme_members scheme_fields composite_fields composite_field_values isolate_aliases user_permissions isolate_user_acl
-		  isolate_usergroup_acl projects project_members samples experiments experiment_sequences isolate_field_extended_attributes 
-		  isolate_value_extended_attributes scheme_groups scheme_group_scheme_members scheme_group_group_members);
+		  isolate_usergroup_acl projects project_members samples experiments experiment_sequences isolate_field_extended_attributes
+		  isolate_value_extended_attributes scheme_groups scheme_group_scheme_members scheme_group_group_members pcr pcr_locus);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';
@@ -2400,6 +2422,7 @@ sub get_tables {
 }
 
 sub get_tables_with_curator {
+
 	#TODO update with all appropriate tables
 	my ($self) = @_;
 	my @tables;
@@ -2411,8 +2434,8 @@ sub get_tables_with_curator {
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		@tables = qw(users user_groups sequences profile_refs sequence_refs accession loci schemes 
-		scheme_members scheme_fields scheme_groups scheme_group_scheme_members scheme_group_group_members);
+		@tables = qw(users user_groups sequences profile_refs sequence_refs accession loci schemes
+		  scheme_members scheme_fields scheme_groups scheme_group_scheme_members scheme_group_group_members);
 	}
 	return @tables;
 }

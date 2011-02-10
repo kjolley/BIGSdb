@@ -1,0 +1,23 @@
+Upgrading BIGSdb versions
+-------------------------
+Occasionally a version upgrade may require a small change to the underlying
+database structure.  These changes will be noted here and a SQL script to 
+perform the change included.
+
+To run the script 'script.sql' against database 'dbase', as the postgres user
+type:
+
+psql -f script.sql dbase
+
+Version 1.2
+-----------
+This introduces the concept of defining an isolate database locus by its
+context.  Here we can filter the genome to products of an in silico PCR
+reaction.  Two new tables are created, one to describe the PCR conditions:
+primers sequences, allowed priming mismatches and min/max product length; the
+other links loci to any number of PCR reactions.  Finally a modification of
+the loci table sets a boolean flag to state whether tag scanning of the locus
+should be limited only to the seqbin regions amplified by the simulated PCR
+reactions. 
+
+Script: isolatedb_v1.2.sql

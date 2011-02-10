@@ -23,6 +23,13 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Page qw(DATABANKS);
 
+sub initiate {
+	my ($self) = @_;
+	foreach (qw (tooltips jQuery noCache)){
+		$self->{$_} = 1;
+	}
+}
+
 sub print_content {
 	my ($self)      = @_;
 	my $q           = $self->{'cgi'};

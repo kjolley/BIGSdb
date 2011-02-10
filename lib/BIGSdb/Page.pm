@@ -780,7 +780,7 @@ sub _print_record_table {
 		next if $table eq 'sequence_bin' && $_->{'name'} eq 'sequence';
 		next if $_->{'hide'} eq 'yes' || ( $_->{'public_hide'} eq 'yes' && !$self->{'curate'} ) || $_->{'main_display'} eq 'no';
 		push @display,    $_->{'name'};
-		push @qry_fields, "$table. $_->{'name'}";
+		push @qry_fields, "$table.$_->{'name'}";
 		my $cleaned = $_->{'name'};
 		$cleaned =~ tr/_/ /;
 		if (   $_->{'name'} eq 'isolate_display'
@@ -1059,7 +1059,8 @@ sub get_record_name {
 		'locus_descriptions'                => 'locus description',
 		'scheme_groups'                     => 'scheme group',
 		'scheme_group_scheme_members'		=> 'scheme group scheme member',
-		'scheme_group_group_members'		=> 'scheme group group member'
+		'scheme_group_group_members'		=> 'scheme group group member',
+		'pcr'								=> 'PCR reaction'
 	);
 	return $names{$table};
 }
