@@ -143,10 +143,10 @@ sub _print_interface {
 	print " minute(s) ";
 	print
 " <a class=\"tooltip\" title=\"Stop after time - Searches against lots of loci or for multiple isolates may take a long time. You may wish to terminate the search after a set time.  You will be able to tag any sequences found and next time these won't be searched (by default) so this enables you to tag in batches.\">&nbsp;<i>i</i>&nbsp;</a>";
-	print "</td></tr>\n";
+	print "</td></tr></table>\n";
 
 	if ( $self->{'system'}->{'tblastx_tagging'} eq 'yes' ) {
-		print "<tr><td colspan=\"2\" style=\"text-align:left\"><span class=\"warning\">";
+		print "<ul><li><span class=\"warning\">";
 		print $q->checkbox( -name => 'tblastx', -label => 'Use TBLASTX' );
 		print " <a class=\"tooltip\" title=\"TBLASTX - Compares the six-frame translation of your nucleotide query against 
 	the six-frame translation of the sequences in the sequence bin.  This can be VERY SLOW (a few minutes for 
@@ -154,19 +154,31 @@ sub _print_interface {
 	is found if the matching allele contains a partial codon at one of the ends.  Identical matches will be indicated 
 	if the translated sequences match even if the nucleotide sequences don't. For this reason, allele designation 
 	tagging is disabled for TBLASTX matching.\">&nbsp;<i>i</i>&nbsp;</a>";
-		print "</span></td></tr>\n";
+		print "</span></li>\n";
 	}
-	print "<tr><td colspan=\"2\">";
-	print $q->checkbox( -name => 'hunt', label => 'Hunt for nearby start and stop codons' );
+	print "<li>";
+	print $q->checkbox( -name => 'hunt', -label => 'Hunt for nearby start and stop codons' );
 	print " <a class=\"tooltip\" title=\"Hunt for start/stop codons - If the aligned sequence is not an exact match to an
 	existing allele and is not a complete coding sequence with start and stop codons at the ends, selecting this 
 	option will hunt for these by walking in and out from the ends in complete codons for up to 6 amino acids.\">&nbsp;<i>i</i>&nbsp;</a>";
-	print "</td></tr><tr><td colspan=\"2\">";
-	print $q->checkbox( -name => 'rescan_alleles', label => 'Rescan even if allele designations are already set' );
-	print "</td></tr>\n<tr><td colspan=\"2\">";
-	print $q->checkbox( -name => 'rescan_seqs', label => 'Rescan even if allele sequences are tagged' );
-	print "</td></tr></table>\n";
+	print "</li><li>\n";
+	print $q->checkbox( -name => 'rescan_alleles', -label => 'Rescan even if allele designations are already set' );
+	print "</li><li>\n";
+	print $q->checkbox( -name => 'rescan_seqs', -label => 'Rescan even if allele sequences are tagged' );
+	print "</li></ul>\n";
 	print "</fieldset>";
+	
+	print "<fieldset>\n<legend>Repetitive loci</legend>\n";
+	print "<ul><li>";
+	print $q->checkbox( -name => 'pcr_filter', -label => 'Filter by PCR', -checked => 'checked');
+	print " <a class=\"tooltip\" title=\"Filter by PCR - Loci can be defined by a simulated PCR reaction(s) so that only
+	regions of the genome predicted to be amplified will be recognised in the scan. De-selecting this option will ignore this filter and the
+	whole sequence bin will be scanned instead.  Partial matches will also be returned (up to the number set in the parameters) even if exact
+	matches are found.  De-selecting this option will be necessary if the gene in question is incomplete due to being located at the end
+	of a contig since it can not then be bounded by PCR primers.\">&nbsp;<i>i</i>&nbsp;</a>";
+	print "</li></ul>\n";
+	print "</fieldset>";
+	
 	print "<fieldset>\n<legend>Restrict included sequences by</legend>\n";
 	print "<table><tr><td style=\"text-align:right\">Sequence method: </td><td>";
 	print $q->popup_menu( -name => 'seq_method', -values => [ '', SEQ_METHODS ] );
@@ -177,7 +189,6 @@ sub _print_interface {
 	my @projects;
 	my %project_labels;
 	eval { $sql->execute; };
-
 	if ($@) {
 		$logger->error("Can't execute $@");
 	}
@@ -310,10 +321,10 @@ sub _scan {
 				|| ( !$q->param('rescan_seqs') && ref $allele_seq eq 'ARRAY' && scalar @$allele_seq > 0 ) );
 			my ( $exact_matches, $partial_matches ) = $self->_blast( $locus, $isolate_id, $file_prefix, $locus_prefix );
 			my $off_end;
+			my $i = 1;
 			my $new_designation;
 			if ( ref $exact_matches && @$exact_matches ) {
-				print $header_buffer if $first;
-				my $i = 1;
+				print $header_buffer if $first;				
 				my %new_matches;
 				foreach (@$exact_matches) {
 					my $match_key = "$_->{'seqbin_id'}\|$_->{'predicted_start'}";
@@ -326,9 +337,10 @@ sub _scan {
 					$i++;
 				}
 				$first = 0;
-			} elsif ( ref $partial_matches && @$partial_matches ) {
+			} 
+			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+			if ( ref $partial_matches && @$partial_matches && (!@$exact_matches || ($locus_info->{'pcr_filter'} && !$q->param('pcr_filter') ))) {
 				print $header_buffer if $first;
-				my $i = 1;
 				my %new_matches;
 				foreach (@$partial_matches) {
 					my $match_key = "$_->{'seqbin_id'}\|$_->{'predicted_start'}";
@@ -876,6 +888,7 @@ sub _simulate_PCR {
 sub _blast {
 	my ( $self, $locus, $isolate_id, $file_prefix, $locus_prefix ) = @_;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	my $q = $self->{'cgi'};
 	my $program;
 	if ( $locus_info->{'data_type'} eq 'DNA' ) {
 		$program = $self->{'cgi'}->param('tblastx') ? 'tblastx' : 'blastn';
@@ -983,7 +996,7 @@ sub _blast {
 	if ( $locus_info->{'pcr_filter'} ) {
 		if ( $self->{'config'}->{'ipcress_path'} ) {
 			$pcr_products = $self->_simulate_PCR( $temp_infile, $locus );
-			return if !@$pcr_products;
+			return if !@$pcr_products && $q->param('pcr_filter');
 		} else {
 			$logger->error("Ipcress path is not set in bigsdb.conf.  PCR simulation can not be done so whole genome will be used.");
 		}
@@ -996,10 +1009,13 @@ sub _blast {
 	( $elapsed = gettimeofday() - $start ) =~ s/(^\d{1,}\.\d{4}).*$/$1/;
 	$logger_benchmark->debug("Running BLAST : $elapsed seconds");
 	my ( $exact_matches, $partial_matches );
+	my $pcr_filter = !$q->param('pcr_filter') ? 0 : $locus_info->{'pcr_filter'};
+	
+	
 	if ( -e "$self->{'config'}->{'secure_tmp_dir'}/$outfile_url" ) {
-		$exact_matches = $self->_parse_blast_exact( $locus, $outfile_url, $locus_info->{'pcr_filter'}, $pcr_products );
-		$partial_matches = $self->_parse_blast_partial( $locus, $outfile_url, $locus_info->{'pcr_filter'}, $pcr_products )
-		  if !@$exact_matches;
+		$exact_matches = $self->_parse_blast_exact( $locus, $outfile_url, $pcr_filter, $pcr_products );
+		$partial_matches = $self->_parse_blast_partial( $locus, $outfile_url, $pcr_filter, $pcr_products )
+		  if !@$exact_matches || ($locus_info->{'pcr_filter'} && !$q->param('pcr_filter'));
 	} else {
 		$logger->debug("$self->{'config'}->{'secure_tmp_dir'}/$outfile_url does not exist");
 	}
