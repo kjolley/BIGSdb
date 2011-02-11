@@ -62,9 +62,7 @@ sub _print_interface {
 	  selecting the appropriate options.</p>\n";
 	my ( $loci, $locus_labels ) = $self->get_field_selection_list( { 'loci' => 1, 'all_loci' => 1, 'sort_labels' => 1 } );
 	print $q->start_form;
-	print
-"<table style=\"border-collapse:separate; border-spacing:1px\"><tr><th>Isolates</th><th>Loci</th><th>Schemes</th><th>Parameters</th></tr>\n";
-	print "<tr><td style=\"text-align:center\">\n";
+	print "<div class=\"scrollable\"><fieldset>\n<legend>Isolates</legend>\n";
 	print $q->scrolling_list(
 		-name     => 'isolate_id',
 		-id       => 'isolate_id',
@@ -74,17 +72,19 @@ sub _print_interface {
 		-multiple => 'true'
 	);
 	print
-"<br /><input type=\"button\" onclick='listbox_selectall(\"isolate_id\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
+"<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"isolate_id\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
 	print
-"<input type=\"button\" onclick='listbox_selectall(\"isolate_id\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
-	print "</td><td style=\"text-align:center\">\n";
+"<input type=\"button\" onclick='listbox_selectall(\"isolate_id\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
+	print "</fieldset>\n";
+	print "<fieldset>\n<legend>Loci</legend>\n";
 	print $q->scrolling_list( -name => 'locus', -id => 'locus', -values => $loci, -labels => $locus_labels, -size => 12,
 		-multiple => 'true' );
 	print
-"<br /><input type=\"button\" onclick='listbox_selectall(\"locus\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
+"<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"locus\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
 	print
-"<input type=\"button\" onclick='listbox_selectall(\"locus\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
-	print "</td><td style=\"text-align:center\">\n";
+"<input type=\"button\" onclick='listbox_selectall(\"locus\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
+	print "</fieldset>";
+	print "<fieldset>\n<legend>Schemes</legend>\n";
 	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
 	my %scheme_desc;
 
@@ -103,10 +103,11 @@ sub _print_interface {
 		-multiple => 'true'
 	);
 	print
-"<br /><input type=\"button\" onclick='listbox_selectall(\"scheme_id\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
+"<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"scheme_id\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
 	print
-"<input type=\"button\" onclick='listbox_selectall(\"scheme_id\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
-	print "</td><td style=\"vertical-align:top\">\n";
+"<input type=\"button\" onclick='listbox_selectall(\"scheme_id\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
+	print "</fieldset>";
+	print "<fieldset>\n<legend>Parameters</legend>\n";
 	print "<table><tr><td style=\"text-align:right\">Min % identity: </td><td>";
 	print $q->popup_menu( -name => 'identity', -values => [qw(50 55 60 65 70 75 80 85 90 91 92 93 94 95 96 97 98 99 100)], -default => 70 );
 	print " <a class=\"tooltip\" title=\"Minimum % identity - Match required for partial matching.\">&nbsp;<i>i</i>&nbsp;</a>";
@@ -164,9 +165,10 @@ sub _print_interface {
 	print $q->checkbox( -name => 'rescan_alleles', label => 'Rescan even if allele designations are already set' );
 	print "</td></tr>\n<tr><td colspan=\"2\">";
 	print $q->checkbox( -name => 'rescan_seqs', label => 'Rescan even if allele sequences are tagged' );
-	print "</td></tr>\n";
-	print "<tr><th colspan=\"2\">Restrict included sequences by</th></tr>";
-	print "<tr><td style=\"text-align:right\">Sequence method: </td><td>";
+	print "</td></tr></table>\n";
+	print "</fieldset>";
+	print "<fieldset>\n<legend>Restrict included sequences by</legend>\n";
+	print "<table><tr><td style=\"text-align:right\">Sequence method: </td><td>";
 	print $q->popup_menu( -name => 'seq_method', -values => [ '', SEQ_METHODS ] );
 	print
 " <a class=\"tooltip\" title=\"Sequence method - Only include sequences generated from the selected method.\">&nbsp;<i>i</i>&nbsp;</a>";
@@ -211,14 +213,12 @@ sub _print_interface {
 		print "</td></tr>\n";
 	}
 	print "</table>\n";
-	print "</td></tr>\n";
-	print "<tr><td>";
+	print "</fieldset></div>";
+	print "<table style=\"width:95%\"><tr><td style=\"text-align:left\">";
 	print
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan\" class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\" colspan=\"3\">";
 	print $q->submit( -name => 'scan', -label => 'Scan', -class => 'submit' );
-	print "</td></tr>";
-	print "</table>\n";
-
+	print "</td></tr></table>\n";
 	foreach (qw (page db)) {
 		print $q->hidden($_);
 	}
