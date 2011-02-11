@@ -1472,13 +1472,13 @@ sub _get_loci_table_attributes {
 
 sub _get_pcr_table_attributes {
 	my $attributes = [
-		{ name => 'id',                   type => 'int',  required => 'yes', unique   => 'yes', primary_key => 'yes' },
-		{ name => 'primer1',              type => 'text', length   => '128', required => 'yes' },
-		{ name => 'primer2',              type => 'text', length   => '128', required => 'yes' },
-		{ name => 'min_length',           type => 'int' },
-		{ name => 'max_length',           type => 'int' },
-		{ name => 'max_primer1_mismatch', type => 'int' },
-		{ name => 'max_primer2_mismatch', type => 'int' },
+		{ name => 'id',                  type => 'int',  required => 'yes', unique   => 'yes', primary_key => 'yes' },
+		{ name => 'description',         type => 'text', length   => '50',  required => 'yes' },
+		{ name => 'primer1',             type => 'text', length   => '128', required => 'yes' },
+		{ name => 'primer2',             type => 'text', length   => '128', required => 'yes' },
+		{ name => 'min_length',          type => 'int' },
+		{ name => 'max_length',          type => 'int' },
+		{ name => 'max_primer_mismatch', type => 'int' },
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' }
 	];
@@ -1487,7 +1487,15 @@ sub _get_pcr_table_attributes {
 
 sub _get_pcr_locus_table_attributes {
 	my $attributes = [
-		{ name => 'pcr_id',    type => 'int',  required => 'yes', primary_key    => 'yes', foreign_key => 'pcr'},
+		{
+			name           => 'pcr_id',
+			type           => 'int',
+			required       => 'yes',
+			primary_key    => 'yes',
+			foreign_key    => 'pcr',
+			dropdown_query => 'yes',
+			labels         => '|$id|) |$description|',
+		},
 		{ name => 'locus',     type => 'text', required => 'yes', primary_key    => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' }

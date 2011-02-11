@@ -1,11 +1,11 @@
 CREATE TABLE pcr (
 id int NOT NULL,
+description text NOT NULL,
 primer1 text NOT NULL,
 primer2 text NOT NULL,
 min_length int,
 max_length int,
-max_primer1_mismatch int,
-max_primer2_mismatch int,
+max_primer_mismatch int,
 curator int NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY (id),
