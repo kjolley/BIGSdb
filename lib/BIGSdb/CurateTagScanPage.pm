@@ -38,30 +38,16 @@ END
 
 sub initiate {
 	my ($self) = @_;
-	foreach (qw (tooltips jQuery noCache)){
+	foreach (qw (tooltips jQuery noCache)) {
 		$self->{$_} = 1;
 	}
 }
 
-sub print_content {
-	my ($self) = @_;
-	my $q      = $self->{'cgi'};
-	my $view   = $self->{'system'}->{'view'};
-	my $qry =
-"SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM sequence_bin LEFT JOIN $view ON $view.id=sequence_bin.isolate_id WHERE $view.id IS NOT NULL ORDER BY $view.id";
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute; };
-	if ($@) {
-		$logger->error("Can't execute $qry; $@");
-	}
-	my @ids;
-	my %labels;
-	while ( my ( $id, $isolate ) = $sql->fetchrow_array ) {
-		push @ids, $id;
-		$labels{$id} = "$id) $isolate";
-	}
+sub _print_interface {
+	my ( $self, $ids, $labels ) = @_;
+	my $q = $self->{'cgi'};
 	print "<h1>Sequence tag scan</h1>\n";
-	if ( !@ids ) {
+	if ( !@$ids ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>There are no sequences in the sequence bin.</p></div>\n";
 		return;
 	} elsif ( !$self->can_modify_table('allele_sequences') ) {
@@ -82,8 +68,8 @@ sub print_content {
 	print $q->scrolling_list(
 		-name     => 'isolate_id',
 		-id       => 'isolate_id',
-		-values   => \@ids,
-		-labels   => \%labels,
+		-values   => $ids,
+		-labels   => $labels,
 		-size     => 12,
 		-multiple => 'true'
 	);
@@ -185,7 +171,7 @@ sub print_content {
 	print
 " <a class=\"tooltip\" title=\"Sequence method - Only include sequences generated from the selected method.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "</td></tr>\n";
-	$sql = $self->{'db'}->prepare("SELECT id,short_description FROM projects ORDER BY short_description");
+	my $sql = $self->{'db'}->prepare("SELECT id,short_description FROM projects ORDER BY short_description");
 	my @projects;
 	my %project_labels;
 	eval { $sql->execute; };
@@ -229,7 +215,7 @@ sub print_content {
 	print "<tr><td>";
 	print
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan\" class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\" colspan=\"3\">";
-	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
+	print $q->submit( -name => 'scan', -label => 'Scan', -class => 'submit' );
 	print "</td></tr>";
 	print "</table>\n";
 
@@ -238,217 +224,78 @@ sub print_content {
 	}
 	print $q->end_form;
 	print "</div>\n";
-	$sql = $self->{'db'}->prepare("SELECT sender FROM sequence_bin WHERE id=?");
-	my $curator_id = $self->get_curator_id;
-	if ( $q->param('tag') ) {
-		my ( @updates, @allele_updates, @pending_allele_updates, @sequence_updates, $history );
-		my $pending_sql =
-		  $self->{'db'}
-		  ->prepare("SELECT COUNT(*) FROM pending_allele_designations WHERE isolate_id=? AND locus=? AND allele_id=? AND sender=?");
-		my $sequence_exists_sql = $self->{'db'}->prepare("SELECT COUNT(*) FROM allele_sequences WHERE seqbin_id=? AND locus=?");
-		my @params              = $q->param;
-		@ids = $q->param('isolate_id');
-		my @loci       = $q->param('locus');
-		my @scheme_ids = $q->param('scheme_id');
-		$self->_add_scheme_loci( \@loci );
-		@loci = uniq @loci;
+}
 
-		foreach my $isolate_id (@ids) {
-			next if !$self->is_allowed_to_view_isolate($isolate_id);
-			foreach (@loci) {
-				$_ =~ s/^cn_//;
-				$_ =~ s/^l_//;
-				my @ids;
-				my %used;
-				my $cleaned_locus = $_;
-				$cleaned_locus =~ s/'/\\'/g;
-				my $allele_id_to_set;
-				my %pending_allele_ids_to_set;
-
-				foreach my $id (@params) {
-					next if $id !~ /$_/;
-					next if $id !~ /\_$isolate_id\_/;
-					my $allele_test = "id_$isolate_id\_$_\_allele";
-					my $seq_test    = "id_$isolate_id\_$_\_sequence";
-					if ( $id =~ /\Q$allele_test\E\_(\d+)/ || $id =~ /\Q$seq_test\E\_(\d+)/ ) {
-						push @ids, $1 if !$used{$1};
-						$used{$1} = 1;
-					}
-				}
-				my $display_locus = $_;
-				if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-					$display_locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-				}
-				$display_locus =~ tr/_/ /;
-				foreach my $id (@ids) {
-					my $seqbin_id = $q->param("id_$isolate_id\_$_\_seqbin_id_$id");
-					if ( $q->param("id_$isolate_id\_$_\_allele_$id") && $q->param("id_$isolate_id\_$_\_allele_id_$id") ) {
-						my $allele_id = $q->param("id_$isolate_id\_$_\_allele_id_$id");
-						my $set_allele_id = $self->{'datastore'}->get_allele_id( $isolate_id, $_ );
-						eval { $sql->execute($seqbin_id); };
-						if ($@) {
-							$logger->error("Can't execute seqbin lookup $@");
-						}
-						my $seqbin_info = $sql->fetchrow_hashref;
-						my $sender      = $seqbin_info->{'sender'};
-						if ( $allele_id_to_set eq '' || !$pending_allele_ids_to_set{$allele_id} ) {
-							if ( !defined $set_allele_id && $allele_id_to_set eq '' ) {
-								push @updates,
-"INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp,comments) VALUES ($isolate_id,'$cleaned_locus','$allele_id',$sender,'confirmed','automatic',$curator_id,'today','today','Scanned from sequence bin')";
-								$allele_id_to_set = $allele_id;
-								push @allele_updates, ( $labels{$isolate_id} || $isolate_id ) . ": $display_locus:  $allele_id";
-								push @{ $history->{$isolate_id} }, "$_: new designation '$allele_id' (sequence bin scan)";
-							} elsif ( $set_allele_id ne $allele_id
-								&& $allele_id_to_set ne $allele_id
-								&& !$pending_allele_ids_to_set{$allele_id} )
-							{
-								eval { $pending_sql->execute( $isolate_id, $_, $allele_id, $sender ); };
-								if ($@) {
-									$logger->error("Can't execute pending allele check $@");
-								}
-								my ($exists) = $pending_sql->fetchrow_array;
-								if ( !$exists ) {
-									push @updates,
-"INSERT INTO pending_allele_designations (isolate_id,locus,allele_id,sender,method,curator,date_entered,datestamp,comments) VALUES ($isolate_id,'$cleaned_locus','$allele_id',$sender,'automatic',$curator_id,'today','today','Scanned from sequence bin')";
-									$pending_allele_ids_to_set{$allele_id} = 1;
-									push @pending_allele_updates,
-									    ( $labels{$isolate_id} || $isolate_id )
-									  . ": $display_locus:  $allele_id (conflicts with existing designation '"
-									  . ( $set_allele_id eq '' ? $allele_id_to_set : $set_allele_id ) . "').";
-									push @{ $history->{$isolate_id} }, "$_: new pending designation '$allele_id' (sequence bin scan)";
-								}
-							}
-						}
-					}
-					if ( $q->param("id_$isolate_id\_$_\_sequence_$id") ) {
-						eval { $sequence_exists_sql->execute( $seqbin_id, $_ ) };
-						if ($@) {
-							$logger->error("Can't execute allele sequence check $@");
-						}
-						my ($exists) = $sequence_exists_sql->fetchrow_array;
-						if ( !$exists ) {
-							my $start    = $q->param("id_$isolate_id\_$_\_start_$id");
-							my $end      = $q->param("id_$isolate_id\_$_\_end_$id");
-							my $reverse  = $q->param("id_$isolate_id\_$_\_reverse_$id") ? 'TRUE' : 'FALSE';
-							my $complete = $q->param("id_$isolate_id\_$_\_complete_$id") ? 'TRUE' : 'FALSE';
-							push @updates,
-"INSERT INTO allele_sequences (seqbin_id,locus,start_pos,end_pos,reverse,complete,curator,datestamp) VALUES ($seqbin_id,'$cleaned_locus',$start,$end,'$reverse','$complete',$curator_id,'today')";
-							push @sequence_updates,
-							  ( $labels{$isolate_id} || $isolate_id ) . ": $display_locus:  Seqbin id: $seqbin_id; $start-$end";
-							push @{ $history->{$isolate_id} },
-							  "$_: sequence tagged. Seqbin id: $seqbin_id; $start-$end (sequence bin scan)";
-							if ( $q->param("id_$isolate_id\_$_\_sequence_$id\_flag") ) {
-								my $flag = $q->param("id_$isolate_id\_$_\_sequence_$id\_flag");
-								push @updates,
-"INSERT INTO sequence_flags (seqbin_id,locus,start_pos,flag,datestamp,curator) VALUES ($seqbin_id,'$cleaned_locus',$start,'$flag','today',$curator_id)";
-							}
-						}
-					}
-				}
-			}
-		}
-		if (@updates) {
-			eval {
-				foreach (@updates)
-				{
-					$self->{'db'}->do($_);
-				}
-			};
-			if ($@) {
-				$" = ', ';
-				print
-"<div class=\"box\" id=\"statusbad\"><p>Database update failed - transaction cancelled - no records have been touched.</p>\n";
-				if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
-					print
-"<p>Data entry would have resulted in records with either duplicate ids or another unique field with duplicate values.</p>\n";
-					$logger->debug($@);
-				} else {
-					print "<p>Error message: $@</p>\n";
-				}
-				print "</div>\n";
-				$self->{'db'}->rollback;
-				return;
-			} else {
-				$self->{'db'}->commit;
-				print "<div class=\"box\" id=\"resultsheader\"><p>Database updated ok.</p>";
-				print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
-				print "<div class=\"box\" id=\"resultstable\">\n";
-				$" = "<br />\n";
-				if (@allele_updates) {
-					print "<h2>Allele designations set</h2>\n";
-					print "<p>@allele_updates</p>\n";
-				}
-				if (@pending_allele_updates) {
-					print "<h2>Pending allele designations set</h2>\n";
-					print "<p>@pending_allele_updates</p>\n";
-				}
-				if (@sequence_updates) {
-					print "<h2>Allele sequences set</h2>\n";
-					print "<p>@sequence_updates</p>\n";
-				}
-				if ( ref $history eq 'HASH' ) {
-					foreach ( keys %$history ) {
-						my @message = @{ $history->{$_} };
-						$" = '<br />';
-						$self->update_history( $_, "@message" );
-					}
-				}
-				print "</div>\n";
-			}
-		} else {
-			print "<div class=\"box\" id=\"resultsheader\"><p>No updates required.</p>\n";
-			print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
-		}
-	} elsif ( $q->param('submit') ) {
-		my $start_time = time;
-		my $time_limit = ( int( $q->param('limit_time') ) || 5 ) * 60;
-		my @loci       = $q->param('locus');
-		my @ids        = $q->param('isolate_id');
-		my @scheme_ids = $q->param('scheme_id');
-		if ( !@ids ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>You must select one or more isolates.</p></div>\n";
-			return;
-		}
-		if ( !@loci && !@scheme_ids ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci or schemes.</p></div>\n";
-			return;
-		}
-		$self->_add_scheme_loci( \@loci );
-		my $header_buffer =
+sub _scan {
+	my ( $self, $labels ) = @_;
+	my $q          = $self->{'cgi'};
+	my $start_time = time;
+	my $time_limit = ( int( $q->param('limit_time') ) || 5 ) * 60;
+	my @loci       = $q->param('locus');
+	my @ids        = $q->param('isolate_id');
+	my @scheme_ids = $q->param('scheme_id');
+	if ( !@ids ) {
+		print "<div class=\"box\" id=\"statusbad\"><p>You must select one or more isolates.</p></div>\n";
+		return;
+	}
+	if ( !@loci && !@scheme_ids ) {
+		print "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci or schemes.</p></div>\n";
+		return;
+	}
+	$self->_add_scheme_loci( \@loci );
+	my $header_buffer =
 "<div class=\"scrollable\">\n<table class=\"resultstable\"><tr><th>Isolate</th><th>Match</th><th>Locus</th><th>Allele</th><th>% identity</th><th>Alignment length</th><th>Allele length</th><th>E-value</th><th>Sequence bin id</th>
 <th>Start</th><th>End</th><th>Predicted start</th><th>Predicted end</th><th>Orientation</th><th>Designate allele</th><th>Tag sequence</th><th>Flag";
-		$header_buffer .= " <a class=\"tooltip\" title=\"Flag - Set a status flag for the sequence.  You need to also tag the sequence for
+	$header_buffer .= " <a class=\"tooltip\" title=\"Flag - Set a status flag for the sequence.  You need to also tag the sequence for
 		any flag to take effect.\">&nbsp;<i>i</i>&nbsp;</a>";
-		$header_buffer .= "</th></tr>\n";
-		print "<div class=\"box\" id=\"resultstable\">\n";
-		print $q->start_form;
-		my $tag_button = 1;
-		my ( @js, @js2, @js3, @js4 );
-		my $show_key;
-		my $buffer;
-		my $first = 1;
-		my $limit;
-		my $new_alleles;
+	$header_buffer .= "</th></tr>\n";
+	print "<div class=\"box\" id=\"resultstable\">\n";
+	print $q->start_form;
+	my $tag_button = 1;
+	my ( @js, @js2, @js3, @js4 );
+	my $show_key;
+	my $buffer;
+	my $first = 1;
+	my $limit;
+	my $new_alleles;
 
-		if ( BIGSdb::Utils::is_int( $q->param('limit_matches') ) ) {
-			$limit = $q->param('limit_matches');
-		} else {
-			$limit = 10;
+	if ( BIGSdb::Utils::is_int( $q->param('limit_matches') ) ) {
+		$limit = $q->param('limit_matches');
+	} else {
+		$limit = 10;
+	}
+	my $match = 0;
+	my ( %allele_designation_set, %allele_sequence_tagged );
+	my $td = 1;
+	my $out_of_time;
+	my $match_limit_reached;
+	my $file_prefix  = BIGSdb::Utils::get_random();
+	my $locus_prefix = BIGSdb::Utils::get_random();
+	my $seq_filename = $self->{'config'}->{'tmp_dir'} . "/$file_prefix\_unique_sequences.txt";
+	open( my $seqs_fh, '>', $seq_filename ) or $logger->error("Can't open $seq_filename for writing");
+	print $seqs_fh "locus\tallele_id\tstatus\tsequence\n";
+	my $new_seqs_found;
+	my $last_id_checked;
+
+	foreach my $isolate_id (@ids) {
+		if ( $match >= $limit ) {
+			$match_limit_reached = 1;
+			last;
 		}
-		my $match = 0;
-		my ( %allele_designation_set, %allele_sequence_tagged );
-		my $td = 1;
-		my $out_of_time;
-		my $match_limit_reached;
-		my $file_prefix  = BIGSdb::Utils::get_random();
-		my $locus_prefix = BIGSdb::Utils::get_random();
-		my $seq_filename = $self->{'config'}->{'tmp_dir'} . "/$file_prefix\_unique_sequences.txt";
-		open( my $seqs_fh, '>', $seq_filename ) or $logger->error("Can't open $seq_filename for writing");
-		print $seqs_fh "locus\tallele_id\tstatus\tsequence\n";
-		my $new_seqs_found;
-		my $last_id_checked;
-
-		foreach my $isolate_id (@ids) {
+		if ( time >= $start_time + $time_limit ) {
+			$out_of_time = 1;
+			last;
+		}
+		next if $isolate_id eq '' || $isolate_id eq 'all';
+		next if !$self->is_allowed_to_view_isolate($isolate_id);
+		$| = 1;
+		my %locus_checked;
+		foreach my $locus (@loci) {
+			if ( $locus =~ /^l_(.+)/ || $locus =~ /^cn_(.+)/ ) {
+				$locus = $1;
+			}
+			next if $locus_checked{$locus};    #prevent multiple checking when locus selected individually and as part of scheme.
+			$locus_checked{$locus} = 1;
 			if ( $match >= $limit ) {
 				$match_limit_reached = 1;
 				last;
@@ -457,149 +304,319 @@ sub print_content {
 				$out_of_time = 1;
 				last;
 			}
-			next if $isolate_id eq '' || $isolate_id eq 'all';
-			next if !$self->is_allowed_to_view_isolate($isolate_id);
-			$| = 1;
-			my %locus_checked;
-			foreach my $locus (@loci) {
-				if ( $locus =~ /^l_(.+)/ || $locus =~ /^cn_(.+)/ ) {
-					$locus = $1;
+			my $allele_seq = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
+			next
+			  if ( ( !$q->param('rescan_alleles') && defined $self->{'datastore'}->get_allele_id( $isolate_id, $locus ) )
+				|| ( !$q->param('rescan_seqs') && ref $allele_seq eq 'ARRAY' && scalar @$allele_seq > 0 ) );
+			my ( $exact_matches, $partial_matches ) = $self->_blast( $locus, $isolate_id, $file_prefix, $locus_prefix );
+			my $off_end;
+			my $new_designation;
+			if ( ref $exact_matches && @$exact_matches ) {
+				print $header_buffer if $first;
+				my $i = 1;
+				my %new_matches;
+				foreach (@$exact_matches) {
+					my $match_key = "$_->{'seqbin_id'}\|$_->{'predicted_start'}";
+					( $off_end, $new_designation ) =
+					  $self->_print_row( $isolate_id, $labels, $locus, $i, $_, $td, 1, \@js, \@js2, \@js3, \@js4,
+						$new_matches{$match_key} );
+					$new_matches{$match_key} = 1;
+					$show_key = 1 if $off_end;
+					$td = $td == 1 ? 2 : 1;
+					$i++;
 				}
-				next if $locus_checked{$locus};    #prevent multiple checking when locus selected individually and as part of scheme.
-				$locus_checked{$locus} = 1;
-				if ( $match >= $limit ) {
-					$match_limit_reached = 1;
-					last;
-				}
-				if ( time >= $start_time + $time_limit ) {
-					$out_of_time = 1;
-					last;
-				}
-				my $allele_seq = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
-				next
-				  if ( ( !$q->param('rescan_alleles') && defined $self->{'datastore'}->get_allele_id( $isolate_id, $locus ) )
-					|| ( !$q->param('rescan_seqs') && ref $allele_seq eq 'ARRAY' && scalar @$allele_seq > 0 ) );
-				my ( $exact_matches, $partial_matches ) = $self->_blast( $locus, $isolate_id, $file_prefix, $locus_prefix );
-				my $off_end;
-				my $new_designation;
-				if ( ref $exact_matches && @$exact_matches ) {
-					print $header_buffer if $first;
-					my $i = 1;
-					my %new_matches;
-					foreach (@$exact_matches) {
-						my $match_key = "$_->{'seqbin_id'}\|$_->{'predicted_start'}";
-						( $off_end, $new_designation ) =
-						  $self->_print_row( $isolate_id, \%labels, $locus, $i, $_, $td, 1, \@js, \@js2, \@js3, \@js4,
-							$new_matches{$match_key} );
-						$new_matches{$match_key} = 1;
-						$show_key = 1 if $off_end;
-						$td = $td == 1 ? 2 : 1;
-						$i++;
-					}
-					$first = 0;
-				} elsif ( ref $partial_matches && @$partial_matches ) {
-					print $header_buffer if $first;
-					my $i = 1;
-					my %new_matches;
-					foreach (@$partial_matches) {
-						my $match_key = "$_->{'seqbin_id'}\|$_->{'predicted_start'}";
-						( $off_end, $new_designation ) =
-						  $self->_print_row( $isolate_id, \%labels, $locus, $i, $_, $td, 0, \@js, \@js2, \@js3, \@js4,
-							$new_matches{$match_key} );
-						$new_matches{$match_key} = 1;
-						if ($off_end) {
-							$show_key = 1;
-						} else {
-							my $length = $_->{'predicted_end'} - $_->{'predicted_start'} + 1;
-							my $extract_seq_sql =
-							  $self->{'db'}
-							  ->prepare("SELECT substring(sequence from $_->{'predicted_start'} for $length) FROM sequence_bin WHERE id=?");
-							eval { $extract_seq_sql->execute( $_->{'seqbin_id'} ) };
-							if ($@) {
-								$logger->error("Can't execute $@");
-							}
-							my ($seq) = $extract_seq_sql->fetchrow_array;
-							$seq = BIGSdb::Utils::reverse_complement($seq) if $_->{'reverse'};
-							$new_seqs_found = 1;
-							my $new = 1;
-							foreach ( @{ $new_alleles->{$locus} } ) {
-								if ( $seq eq $_ ) {
-									$new = 0;
-								}
-							}
-							if ($new) {
-								push @{ $new_alleles->{$locus} }, $seq;
-								print $seqs_fh "$locus\t\ttrace not checked\t$seq\n";
+				$first = 0;
+			} elsif ( ref $partial_matches && @$partial_matches ) {
+				print $header_buffer if $first;
+				my $i = 1;
+				my %new_matches;
+				foreach (@$partial_matches) {
+					my $match_key = "$_->{'seqbin_id'}\|$_->{'predicted_start'}";
+					( $off_end, $new_designation ) =
+					  $self->_print_row( $isolate_id, $labels, $locus, $i, $_, $td, 0, \@js, \@js2, \@js3, \@js4,
+						$new_matches{$match_key} );
+					$new_matches{$match_key} = 1;
+					if ($off_end) {
+						$show_key = 1;
+					} else {
+						my $length = $_->{'predicted_end'} - $_->{'predicted_start'} + 1;
+						my $extract_seq_sql =
+						  $self->{'db'}
+						  ->prepare("SELECT substring(sequence from $_->{'predicted_start'} for $length) FROM sequence_bin WHERE id=?");
+						eval { $extract_seq_sql->execute( $_->{'seqbin_id'} ) };
+						if ($@) {
+							$logger->error("Can't execute $@");
+						}
+						my ($seq) = $extract_seq_sql->fetchrow_array;
+						$seq = BIGSdb::Utils::reverse_complement($seq) if $_->{'reverse'};
+						$new_seqs_found = 1;
+						my $new = 1;
+						foreach ( @{ $new_alleles->{$locus} } ) {
+							if ( $seq eq $_ ) {
+								$new = 0;
 							}
 						}
-						$td = $td == 1 ? 2 : 1;
-						$i++;
+						if ($new) {
+							push @{ $new_alleles->{$locus} }, $seq;
+							print $seqs_fh "$locus\t\ttrace not checked\t$seq\n";
+						}
 					}
-					$first = 0;
-				} else {
-					print " ";    #try to prevent time-out.
+					$td = $td == 1 ? 2 : 1;
+					$i++;
 				}
-				if ( $ENV{'MOD_PERL'} ) {
-					$self->{'mod_perl_request'}->rflush;
-					if ( $self->{'mod_perl_request'}->connection->aborted ) {
-
-						#clean up
-						system
-"rm -f $self->{'config'}->{'secure_tmp_dir'}/*$file_prefix* $self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*";
-						return;
-					}
-				}
-				$match++ if $new_designation;
+				$first = 0;
+			} else {
+				print " ";    #try to prevent time-out.
 			}
+			if ( $ENV{'MOD_PERL'} ) {
+				$self->{'mod_perl_request'}->rflush;
+				if ( $self->{'mod_perl_request'}->connection->aborted ) {
 
-			#delete isolate working files
-			system "rm -f $self->{'config'}->{'secure_tmp_dir'}/*$file_prefix*";
-			$last_id_checked = $isolate_id;
+					#clean up
+					system
+					  "rm -f $self->{'config'}->{'secure_tmp_dir'}/*$file_prefix* $self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*";
+					return;
+				}
+			}
+			$match++ if $new_designation;
 		}
-		close $seqs_fh;
 
-		#delete locus working files
-		system "rm -f $self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*";
-		if ($first) {
-			$tag_button = 0;
-		} else {
-			$buffer .= "</table></div>\n";
-			$buffer .= "<p>* Allele continues beyond end of contig</p>\n" if $show_key;
-		}
-		if ($tag_button) {
-			$" = ';';
-			print "<tr class=\"td\"><td colspan=\"14\" /><td>\n";
-			print "<input type=\"button\" value=\"All\" onclick='@js' class=\"smallbutton\" />"   if @js;
-			print "<input type=\"button\" value=\"None\" onclick='@js2' class=\"smallbutton\" />" if @js2;
-			print "</td><td>\n";
-			print "<input type=\"button\" value=\"All\" onclick='@js3' class=\"smallbutton\" />"  if @js3;
-			print "<input type=\"button\" value=\"None\" onclick='@js4' class=\"smallbutton\" />" if @js4;
-			print "</td></tr>\n";
-		}
-		print $buffer;
-		print "<p>Time limit reached (checked up to id-$last_id_checked).</p>"  if $out_of_time;
-		print "<p>Match limit reached (checked up to id-$last_id_checked).</p>" if $match_limit_reached;
-		if ($new_seqs_found) {
-			print "<p><a href=\"/tmp/$file_prefix\_unique_sequences.txt\" target=\"_blank\">New unique sequences</a>\n";
-			print
+		#delete isolate working files
+		system "rm -f $self->{'config'}->{'secure_tmp_dir'}/*$file_prefix*";
+		$last_id_checked = $isolate_id;
+	}
+	close $seqs_fh;
+
+	#delete locus working files
+	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*";
+	if ($first) {
+		$tag_button = 0;
+	} else {
+		$buffer .= "</table></div>\n";
+		$buffer .= "<p>* Allele continues beyond end of contig</p>\n" if $show_key;
+	}
+	if ($tag_button) {
+		$" = ';';
+		print "<tr class=\"td\"><td colspan=\"14\" /><td>\n";
+		print "<input type=\"button\" value=\"All\" onclick='@js' class=\"smallbutton\" />"   if @js;
+		print "<input type=\"button\" value=\"None\" onclick='@js2' class=\"smallbutton\" />" if @js2;
+		print "</td><td>\n";
+		print "<input type=\"button\" value=\"All\" onclick='@js3' class=\"smallbutton\" />"  if @js3;
+		print "<input type=\"button\" value=\"None\" onclick='@js4' class=\"smallbutton\" />" if @js4;
+		print "</td></tr>\n";
+	}
+	print $buffer;
+	print "<p>Time limit reached (checked up to id-$last_id_checked).</p>"  if $out_of_time;
+	print "<p>Match limit reached (checked up to id-$last_id_checked).</p>" if $match_limit_reached;
+	if ($new_seqs_found) {
+		print "<p><a href=\"/tmp/$file_prefix\_unique_sequences.txt\" target=\"_blank\">New unique sequences</a>\n";
+		print
 " <a class=\"tooltip\" title=\"Unique sequence - This is a list of new sequences (tab-delimited with locus name) of unique new sequences found in this search.  This can be used to facilitate rapid upload of new sequences to a sequence definition database for allele assignment.\">&nbsp;<i>i</i>&nbsp;</a>";
-			print "</p>\n";
+		print "</p>\n";
+	}
+	if ($tag_button) {
+		$" = ';';
+		print $q->submit( -name => 'tag', -label => 'Tag alleles/sequences', -class => 'submit' );
+		print "<noscript><p><span class=\"comment\"> Enable javascript for select buttons to work!</span></p></noscript>\n";
+		foreach (
+			qw (db page isolate_id rescan_alleles rescan_seqs locus scheme_id identity alignment limit_matches limit_time seq_method experiment project tblastx hunt)
+		  )
+		{
+			print $q->hidden($_);
 		}
-		if ($tag_button) {
-			$" = ';';
-			print $q->submit( -name => 'tag', -label => 'Tag alleles/sequences', -class => 'submit' );
-			print "<noscript><p><span class=\"comment\"> Enable javascript for select buttons to work!</span></p></noscript>\n";
-			foreach (
-				qw (db page isolate_id rescan_alleles rescan_seqs locus scheme_id identity alignment limit_matches limit_time seq_method experiment project tblastx hunt)
-			  )
-			{
-				print $q->hidden($_);
+	} else {
+		print "<p>No sequence or allele tags to update.</p>";
+	}
+	print $q->end_form;
+	print "</div>\n";
+}
+
+sub _tag {
+	my ( @updates, @allele_updates, @pending_allele_updates, @sequence_updates, $history );
+	my ( $self, $labels ) = @_;
+	my $q = $self->{'cgi'};
+	my $pending_sql =
+	  $self->{'db'}
+	  ->prepare("SELECT COUNT(*) FROM pending_allele_designations WHERE isolate_id=? AND locus=? AND allele_id=? AND sender=?");
+	my $sequence_exists_sql = $self->{'db'}->prepare("SELECT COUNT(*) FROM allele_sequences WHERE seqbin_id=? AND locus=?");
+	my @params              = $q->param;
+	my @ids                 = $q->param('isolate_id');
+	my @loci                = $q->param('locus');
+	my @scheme_ids          = $q->param('scheme_id');
+	$self->_add_scheme_loci( \@loci );
+	@loci = uniq @loci;
+	my $sql        = $self->{'db'}->prepare("SELECT sender FROM sequence_bin WHERE id=?");
+	my $curator_id = $self->get_curator_id;
+
+	foreach my $isolate_id (@ids) {
+		next if !$self->is_allowed_to_view_isolate($isolate_id);
+		foreach (@loci) {
+			$_ =~ s/^cn_//;
+			$_ =~ s/^l_//;
+			my @ids;
+			my %used;
+			my $cleaned_locus = $_;
+			$cleaned_locus =~ s/'/\\'/g;
+			my $allele_id_to_set;
+			my %pending_allele_ids_to_set;
+
+			foreach my $id (@params) {
+				next if $id !~ /$_/;
+				next if $id !~ /\_$isolate_id\_/;
+				my $allele_test = "id_$isolate_id\_$_\_allele";
+				my $seq_test    = "id_$isolate_id\_$_\_sequence";
+				if ( $id =~ /\Q$allele_test\E\_(\d+)/ || $id =~ /\Q$seq_test\E\_(\d+)/ ) {
+					push @ids, $1 if !$used{$1};
+					$used{$1} = 1;
+				}
 			}
-		} else {
-			print "<p>No sequence or allele tags to update.</p>";
+			my $display_locus = $_;
+			if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
+				$display_locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
+			}
+			$display_locus =~ tr/_/ /;
+			foreach my $id (@ids) {
+				my $seqbin_id = $q->param("id_$isolate_id\_$_\_seqbin_id_$id");
+				if ( $q->param("id_$isolate_id\_$_\_allele_$id") && $q->param("id_$isolate_id\_$_\_allele_id_$id") ) {
+					my $allele_id = $q->param("id_$isolate_id\_$_\_allele_id_$id");
+					my $set_allele_id = $self->{'datastore'}->get_allele_id( $isolate_id, $_ );
+					eval { $sql->execute($seqbin_id); };
+					if ($@) {
+						$logger->error("Can't execute seqbin lookup $@");
+					}
+					my $seqbin_info = $sql->fetchrow_hashref;
+					my $sender      = $seqbin_info->{'sender'};
+					if ( $allele_id_to_set eq '' || !$pending_allele_ids_to_set{$allele_id} ) {
+						if ( !defined $set_allele_id && $allele_id_to_set eq '' ) {
+							push @updates,
+"INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp,comments) VALUES ($isolate_id,'$cleaned_locus','$allele_id',$sender,'confirmed','automatic',$curator_id,'today','today','Scanned from sequence bin')";
+							$allele_id_to_set = $allele_id;
+							push @allele_updates, ( $labels->{$isolate_id} || $isolate_id ) . ": $display_locus:  $allele_id";
+							push @{ $history->{$isolate_id} }, "$_: new designation '$allele_id' (sequence bin scan)";
+						} elsif ( $set_allele_id ne $allele_id
+							&& $allele_id_to_set ne $allele_id
+							&& !$pending_allele_ids_to_set{$allele_id} )
+						{
+							eval { $pending_sql->execute( $isolate_id, $_, $allele_id, $sender ); };
+							if ($@) {
+								$logger->error("Can't execute pending allele check $@");
+							}
+							my ($exists) = $pending_sql->fetchrow_array;
+							if ( !$exists ) {
+								push @updates,
+"INSERT INTO pending_allele_designations (isolate_id,locus,allele_id,sender,method,curator,date_entered,datestamp,comments) VALUES ($isolate_id,'$cleaned_locus','$allele_id',$sender,'automatic',$curator_id,'today','today','Scanned from sequence bin')";
+								$pending_allele_ids_to_set{$allele_id} = 1;
+								push @pending_allele_updates,
+								    ( $labels->{$isolate_id} || $isolate_id )
+								  . ": $display_locus:  $allele_id (conflicts with existing designation '"
+								  . ( $set_allele_id eq '' ? $allele_id_to_set : $set_allele_id ) . "').";
+								push @{ $history->{$isolate_id} }, "$_: new pending designation '$allele_id' (sequence bin scan)";
+							}
+						}
+					}
+				}
+				if ( $q->param("id_$isolate_id\_$_\_sequence_$id") ) {
+					eval { $sequence_exists_sql->execute( $seqbin_id, $_ ) };
+					if ($@) {
+						$logger->error("Can't execute allele sequence check $@");
+					}
+					my ($exists) = $sequence_exists_sql->fetchrow_array;
+					if ( !$exists ) {
+						my $start    = $q->param("id_$isolate_id\_$_\_start_$id");
+						my $end      = $q->param("id_$isolate_id\_$_\_end_$id");
+						my $reverse  = $q->param("id_$isolate_id\_$_\_reverse_$id") ? 'TRUE' : 'FALSE';
+						my $complete = $q->param("id_$isolate_id\_$_\_complete_$id") ? 'TRUE' : 'FALSE';
+						push @updates,
+"INSERT INTO allele_sequences (seqbin_id,locus,start_pos,end_pos,reverse,complete,curator,datestamp) VALUES ($seqbin_id,'$cleaned_locus',$start,$end,'$reverse','$complete',$curator_id,'today')";
+						push @sequence_updates,
+						  ( $labels->{$isolate_id} || $isolate_id ) . ": $display_locus:  Seqbin id: $seqbin_id; $start-$end";
+						push @{ $history->{$isolate_id} }, "$_: sequence tagged. Seqbin id: $seqbin_id; $start-$end (sequence bin scan)";
+						if ( $q->param("id_$isolate_id\_$_\_sequence_$id\_flag") ) {
+							my $flag = $q->param("id_$isolate_id\_$_\_sequence_$id\_flag");
+							push @updates,
+"INSERT INTO sequence_flags (seqbin_id,locus,start_pos,flag,datestamp,curator) VALUES ($seqbin_id,'$cleaned_locus',$start,'$flag','today',$curator_id)";
+						}
+					}
+				}
+			}
 		}
-		print $q->end_form;
-		print "</div>\n";
+	}
+	if (@updates) {
+		eval {
+			foreach (@updates)
+			{
+				$self->{'db'}->do($_);
+			}
+		};
+		if ($@) {
+			$" = ', ';
+			print
+			  "<div class=\"box\" id=\"statusbad\"><p>Database update failed - transaction cancelled - no records have been touched.</p>\n";
+			if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
+				print
+"<p>Data entry would have resulted in records with either duplicate ids or another unique field with duplicate values.</p>\n";
+				$logger->debug($@);
+			} else {
+				print "<p>Error message: $@</p>\n";
+			}
+			print "</div>\n";
+			$self->{'db'}->rollback;
+			return;
+		} else {
+			$self->{'db'}->commit;
+			print "<div class=\"box\" id=\"resultsheader\"><p>Database updated ok.</p>";
+			print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
+			print "<div class=\"box\" id=\"resultstable\">\n";
+			$" = "<br />\n";
+			if (@allele_updates) {
+				print "<h2>Allele designations set</h2>\n";
+				print "<p>@allele_updates</p>\n";
+			}
+			if (@pending_allele_updates) {
+				print "<h2>Pending allele designations set</h2>\n";
+				print "<p>@pending_allele_updates</p>\n";
+			}
+			if (@sequence_updates) {
+				print "<h2>Allele sequences set</h2>\n";
+				print "<p>@sequence_updates</p>\n";
+			}
+			if ( ref $history eq 'HASH' ) {
+				foreach ( keys %$history ) {
+					my @message = @{ $history->{$_} };
+					$" = '<br />';
+					$self->update_history( $_, "@message" );
+				}
+			}
+			print "</div>\n";
+		}
+	} else {
+		print "<div class=\"box\" id=\"resultsheader\"><p>No updates required.</p>\n";
+		print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
+	}
+}
+
+sub print_content {
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $view   = $self->{'system'}->{'view'};
+	my $qry =
+"SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM sequence_bin LEFT JOIN $view ON $view.id=sequence_bin.isolate_id WHERE $view.id IS NOT NULL ORDER BY $view.id";
+	my $sql = $self->{'db'}->prepare($qry);
+	eval { $sql->execute; };
+	if ($@) {
+		$logger->error("Can't execute $qry; $@");
+	}
+	my @ids;
+	my %labels;
+	while ( my ( $id, $isolate ) = $sql->fetchrow_array ) {
+		push @ids, $id;
+		$labels{$id} = "$id) $isolate";
+	}
+	$self->_print_interface( \@ids, \%labels );
+	if ( $q->param('tag') ) {
+		$self->_tag( \%labels );
+	} elsif ( $q->param('scan') ) {
+		$self->_scan( \%labels );
 	}
 }
 
@@ -833,7 +850,7 @@ sub _simulate_PCR {
 	}
 	close $fh;
 	system(
-"$self->{'config'}->{'ipcress_path'} --input $reaction_file --sequence $fasta_file --mismatch $max_primer_mismatch  > $results_file 2> /dev/null"
+"$self->{'config'}->{'ipcress_path'} --input $reaction_file --sequence $fasta_file --mismatch $max_primer_mismatch --pretty false > $results_file 2> /dev/null"
 	);
 	my @pcr_products;
 	open( $fh, '<', $results_file );
@@ -852,6 +869,7 @@ sub _simulate_PCR {
 		}
 	}
 	close $fh;
+	unlink $reaction_file, $results_file;
 	return \@pcr_products;
 }
 
