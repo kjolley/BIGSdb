@@ -294,6 +294,9 @@ this sequence then make sure that the 'Override sequence similarity check' box i
 			if ($newdata{'id'} =~ /\./){
 				push @problems, "Locus names can not contain a period (.).  Try replacing with an underscore (_) - this will get hidden in the query interface.";				
 			}
+			if ($newdata{'id'} =~ /\s/){
+				push @problems, "Locus names can not contain spaces.  Try replacing with an underscore (_) - this will get hidden in the query interface.";				
+			}
 		}
 
 		#special case to ensure that a locus alias is not the same as the locus name

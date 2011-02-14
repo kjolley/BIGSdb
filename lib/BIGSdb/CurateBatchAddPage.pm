@@ -793,6 +793,10 @@ sub print_content {
 						$problems{$pk_combination} .=
 "Locus names can not contain a period (.).  Try replacing with an underscore (_) - this will get hidden in the query interface.";
 					}
+					if ( $data[ $fileheaderPos{'id'} ] =~ /\s/ ) {
+						$problems{$pk_combination} .=
+"Locus names can not contain spaces.  Try replacing with an underscore (_) - this will get hidden in the query interface.";
+					}
 					#check that user is allowed to access this sequence bin record (controlled by isolate ACL)
 				} elsif ( ( $self->{'system'}->{'read_access'} eq 'acl' || $self->{'system'}->{'write_access'} eq 'acl' )
 					&& $self->{'username'}
