@@ -384,7 +384,7 @@ sub create_record_table {
 			$buffer .= "<tr><td style=\"text-align:right\"> $field: " . ( $required ? '!' : '' ) . "</td><td style=\"text-align:left\">";
 			$length = 12 if !$length;
 			if ( $format eq 'boolean' ) {
-				$buffer .= $q->popup_menu( -name => $field, -values => [qw (true false)], -default => $newdata{$field} );
+				$buffer .= $q->popup_menu( -name => $field, -values => ['', qw (true false)], -default => $newdata{$field} );
 			} elsif ($optlist) {
 				my @options = split /\|/, $optlist;
 				unshift @options, '';
