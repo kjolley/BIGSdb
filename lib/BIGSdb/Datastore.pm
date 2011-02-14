@@ -1476,9 +1476,9 @@ sub _get_pcr_table_attributes {
 		{ name => 'description',         type => 'text', length   => '50',  required => 'yes' },
 		{ name => 'primer1',             type => 'text', length   => '128', required => 'yes' },
 		{ name => 'primer2',             type => 'text', length   => '128', required => 'yes' },
-		{ name => 'min_length',          type => 'int' },
-		{ name => 'max_length',          type => 'int' },
-		{ name => 'max_primer_mismatch', type => 'int' },
+		{ name => 'min_length',          type => 'int', comments => 'Minimum length of product to return'},
+		{ name => 'max_length',          type => 'int', comments => 'Maximum length of product to return' },
+		{ name => 'max_primer_mismatch', type => 'int', optlist => '0;1;2;3;4;5', comments => 'Maximum sequence mismatch per primer', tooltip => 'max primer mismatch - Do not set this too high or the reactions will run slowly.' },
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' }
 	];

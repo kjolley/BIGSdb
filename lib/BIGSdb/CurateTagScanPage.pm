@@ -68,7 +68,7 @@ sub _print_interface {
 		-id       => 'isolate_id',
 		-values   => $ids,
 		-labels   => $labels,
-		-size     => 12,
+		-size     => 10,
 		-multiple => 'true'
 	);
 	print
@@ -77,7 +77,7 @@ sub _print_interface {
 "<input type=\"button\" onclick='listbox_selectall(\"isolate_id\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
 	print "</fieldset>\n";
 	print "<fieldset>\n<legend>Loci</legend>\n";
-	print $q->scrolling_list( -name => 'locus', -id => 'locus', -values => $loci, -labels => $locus_labels, -size => 12,
+	print $q->scrolling_list( -name => 'locus', -id => 'locus', -values => $loci, -labels => $locus_labels, -size => 10,
 		-multiple => 'true' );
 	print
 "<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"locus\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
@@ -99,7 +99,7 @@ sub _print_interface {
 		-id       => 'scheme_id',
 		-values   => $schemes,
 		-labels   => \%scheme_desc,
-		-size     => 12,
+		-size     => 10,
 		-multiple => 'true'
 	);
 	print
@@ -108,45 +108,53 @@ sub _print_interface {
 "<input type=\"button\" onclick='listbox_selectall(\"scheme_id\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
 	print "</fieldset>";
 	print "<fieldset>\n<legend>Parameters</legend>\n";
-	print "<table><tr><td style=\"text-align:right\">Min % identity: </td><td>";
-	print $q->popup_menu( -name => 'identity', -values => [qw(50 55 60 65 70 75 80 85 90 91 92 93 94 95 96 97 98 99 100)], -default => 70 );
-	print " <a class=\"tooltip\" title=\"Minimum % identity - Match required for partial matching.\">&nbsp;<i>i</i>&nbsp;</a>";
-	print "</td></tr><tr><td>\n";
-	print "</td></tr>\n<tr><td style=\"text-align:right\">Min % alignment: </td><td>";
+	print "<ul><li><label for =\"identity\" class=\"parameter\">Min % identity:</label>";
+	print $q->popup_menu(
+		-name    => 'identity',
+		-id      => 'identity',
+		-values  => [qw(50 55 60 65 70 75 80 85 90 91 92 93 94 95 96 97 98 99 100)],
+		-default => 70
+	);
+	print " <a class=\"tooltip\" title=\"Minimum % identity - Match required for partial matching.\">&nbsp;<i>i</i>&nbsp;</a></li>";
+	print "<li><label for =\"alignment\" class=\"parameter\">Min % alignment:</label>";
 	print $q->popup_menu(
 		-name    => 'alignment',
+		-id      => 'alignment',
 		-values  => [qw(30 35 40 45 50 55 60 65 70 75 80 85 90 91 92 93 94 95 96 97 98 99 100)],
 		-default => 50
 	);
 	print
-" <a class=\"tooltip\" title=\"Minimum % alignment - Percentage of allele sequence length required to be aligned for partial matching.\">&nbsp;<i>i</i>&nbsp;</a>";
-	print "</td></tr><tr><td style=\"text-align:right\">BLASTN word size: </td><td>\n";
+" <a class=\"tooltip\" title=\"Minimum % alignment - Percentage of allele sequence length required to be aligned for partial matching.\">&nbsp;<i>i</i>&nbsp;</a></li>";
+	print "<li><label for =\"word_size\" class=\"parameter\">BLASTN word size:</label>\n";
 	print $q->popup_menu(
 		-name    => 'word_size',
+		-id      => 'word_size',
 		-values  => [qw(7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28)],
 		-default => 15
 	);
 	print
-" <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a>";
-	print "</td></tr><tr><td style=\"text-align:right\">Return up to: </td><td>\n";
-	print $q->popup_menu( -name => 'partial_matches', -values => [qw(1 2 3 4 5 6 7 8 9 10)], -default => 1 );
-	print " partial match(es) ";
-	print "</td></tr><tr><td style=\"text-align:right\">Stop after: </td><td>\n";
-	print $q->popup_menu( -name => 'limit_matches', -values => [qw(10 20 30 40 50 100 200 500 1000 2000 5000 10000 20000)],
-		-default => 200 );
+" <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a></li>";
+	print "<li><label for =\"partial_matches\" class=\"parameter\">Return up to:</label>\n";
+	print $q->popup_menu( -name => 'partial_matches', -id => 'partial_matches', -values => [qw(1 2 3 4 5 6 7 8 9 10)], -default => 1 );
+	print " partial match(es)</li>";
+	print "<li><label for =\"limit_matches\" class=\"parameter\">Stop after:</label>\n";
+	print $q->popup_menu(
+		-name    => 'limit_matches',
+		-id      => 'limit_matches',
+		-values  => [qw(10 20 30 40 50 100 200 500 1000 2000 5000 10000 20000)],
+		-default => 200
+	);
 	print " new matches ";
 	print
-" <a class=\"tooltip\" title=\"Stop after matching - Limit the number of previously undesignated matches. You may wish to terminate the search after finding a set number of new matches.  You will be able to tag any sequences found and next time these won't be searched (by default) so this enables you to tag in batches.\">&nbsp;<i>i</i>&nbsp;</a>";
-	print "</td></tr><tr><td>\n";
-	print "</td></tr><tr><td style=\"text-align:right\">Stop after: </td><td>\n";
-	print $q->popup_menu( -name => 'limit_time', -values => [qw(1 2 5 10 15 30 60 120 180 240 300)], -default => 5 );
+" <a class=\"tooltip\" title=\"Stop after matching - Limit the number of previously undesignated matches. You may wish to terminate the search after finding a set number of new matches.  You will be able to tag any sequences found and next time these won't be searched (by default) so this enables you to tag in batches.\">&nbsp;<i>i</i>&nbsp;</a></li>";
+	print "<li><label for =\"limit_time\" class=\"parameter\">Stop after:</label>\n";
+	print $q->popup_menu( -name => 'limit_time', -id => 'limit_time', -values => [qw(1 2 5 10 15 30 60 120 180 240 300)], -default => 5 );
 	print " minute(s) ";
 	print
-" <a class=\"tooltip\" title=\"Stop after time - Searches against lots of loci or for multiple isolates may take a long time. You may wish to terminate the search after a set time.  You will be able to tag any sequences found and next time these won't be searched (by default) so this enables you to tag in batches.\">&nbsp;<i>i</i>&nbsp;</a>";
-	print "</td></tr></table>\n";
+" <a class=\"tooltip\" title=\"Stop after time - Searches against lots of loci or for multiple isolates may take a long time. You may wish to terminate the search after a set time.  You will be able to tag any sequences found and next time these won't be searched (by default) so this enables you to tag in batches.\">&nbsp;<i>i</i>&nbsp;</a></li>";
 
 	if ( $self->{'system'}->{'tblastx_tagging'} eq 'yes' ) {
-		print "<ul><li><span class=\"warning\">";
+		print "<li><span class=\"warning\">";
 		print $q->checkbox( -name => 'tblastx', -label => 'Use TBLASTX' );
 		print " <a class=\"tooltip\" title=\"TBLASTX - Compares the six-frame translation of your nucleotide query against 
 	the six-frame translation of the sequences in the sequence bin.  This can be VERY SLOW (a few minutes for 
@@ -167,28 +175,35 @@ sub _print_interface {
 	print $q->checkbox( -name => 'rescan_seqs', -label => 'Rescan even if allele sequences are tagged' );
 	print "</li></ul>\n";
 	print "</fieldset>";
-	
-	print "<fieldset>\n<legend>Repetitive loci</legend>\n";
-	print "<ul><li>";
-	print $q->checkbox( -name => 'pcr_filter', -label => 'Filter by PCR', -checked => 'checked');
-	print " <a class=\"tooltip\" title=\"Filter by PCR - Loci can be defined by a simulated PCR reaction(s) so that only
-	regions of the genome predicted to be amplified will be recognised in the scan. De-selecting this option will ignore this filter and the
-	whole sequence bin will be scanned instead.  Partial matches will also be returned (up to the number set in the parameters) even if exact
-	matches are found.  De-selecting this option will be necessary if the gene in question is incomplete due to being located at the end
-	of a contig since it can not then be bounded by PCR primers.\">&nbsp;<i>i</i>&nbsp;</a>";
-	print "</li></ul>\n";
-	print "</fieldset>";
-	
+
+	#Only show repetitive loci fields if PCR locus links have been set
+	my $pcr_links = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM pcr_locus")->[0];
+	if ($pcr_links) {
+		print "<fieldset>\n<legend>Repetitive loci</legend>\n";
+		print "<ul><li>";
+		print $q->checkbox( -name => 'pcr_filter', -label => 'Filter by PCR', -checked => 'checked' );
+		print " <a class=\"tooltip\" title=\"Filter by PCR - Loci can be defined by a simulated PCR reaction(s) so that only
+		regions of the genome predicted to be amplified will be recognised in the scan. De-selecting this option will ignore this filter and the
+		whole sequence bin will be scanned instead.  Partial matches will also be returned (up to the number set in the parameters) even if exact
+		matches are found.  De-selecting this option will be necessary if the gene in question is incomplete due to being located at the end
+		of a contig since it can not then be bounded by PCR primers.\">&nbsp;<i>i</i>&nbsp;</a>";
+		print "</li>\n<li><label for=\"alter_pcr_mismatches\" class=\"parameter\">&Delta; Primer mismatch:</label>\n";
+		print $q->popup_menu( -name => 'alter_pcr_mismatches', -id => 'alter_pcr_mismatches', -values => [qw (-3 -2 -1 0 +1 +2 +3)], -default => 0);
+		print " <a class=\"tooltip\" title=\"Change primer mismatch - Each defined PCR reaction will have a parameter specifying the allowed
+		number of mismatches per primer. You can increase or decrease this value here, altering the stringency of the reaction.\">&nbsp;<i>i</i>&nbsp;</a>";
+		print "</li></ul>\n";
+		print "</fieldset>";
+	}
 	print "<fieldset>\n<legend>Restrict included sequences by</legend>\n";
-	print "<table><tr><td style=\"text-align:right\">Sequence method: </td><td>";
-	print $q->popup_menu( -name => 'seq_method', -values => [ '', SEQ_METHODS ] );
+	print "<ul><li><label for=\"seq_method\" class=\"parameter\">Sequence method:</label>";
+	print $q->popup_menu( -name => 'seq_method', -id => 'seq_method', -values => [ '', SEQ_METHODS ] );
 	print
-" <a class=\"tooltip\" title=\"Sequence method - Only include sequences generated from the selected method.\">&nbsp;<i>i</i>&nbsp;</a>";
-	print "</td></tr>\n";
+" <a class=\"tooltip\" title=\"Sequence method - Only include sequences generated from the selected method.\">&nbsp;<i>i</i>&nbsp;</a></li>";
 	my $sql = $self->{'db'}->prepare("SELECT id,short_description FROM projects ORDER BY short_description");
 	my @projects;
 	my %project_labels;
 	eval { $sql->execute; };
+
 	if ($@) {
 		$logger->error("Can't execute $@");
 	}
@@ -198,11 +213,10 @@ sub _print_interface {
 	}
 	if (@projects) {
 		unshift @projects, '';
-		print "<tr><td style=\"text-align:right\">Project: </td><td>";
-		print $q->popup_menu( -name => 'project', -values => \@projects, -labels => \%project_labels );
+		print "<li><label for=\"project\" class=\"parameter\">Project:</label>";
+		print $q->popup_menu( -name => 'project', -id => 'project', -values => \@projects, -labels => \%project_labels );
 		print
-" <a class=\"tooltip\" title=\"Projects - Only include sequences whose isolate belong to the specified experiment.\">&nbsp;<i>i</i>&nbsp;</a>";
-		print "</td></tr>\n";
+" <a class=\"tooltip\" title=\"Projects - Only include sequences whose isolate belong to the specified experiment.\">&nbsp;<i>i</i>&nbsp;</a></li>";
 	}
 	$sql = $self->{'db'}->prepare("SELECT id,description FROM experiments ORDER BY description");
 	my @experiments;
@@ -217,14 +231,13 @@ sub _print_interface {
 	}
 	if (@experiments) {
 		unshift @experiments, '';
-		print "<tr><td style=\"text-align:right\">Experiment: </td><td>";
-		print $q->popup_menu( -name => 'experiment', -values => \@experiments, -labels => \%exp_labels );
+		print "<li><label for=\"experiment\" class=\"parameter\">Experiment:</label>";
+		print $q->popup_menu( -name => 'experiment', -id => 'experiment', -values => \@experiments, -labels => \%exp_labels );
 		print
-" <a class=\"tooltip\" title=\"Experiments - Only include sequences that have been linked to the specified experiment.\">&nbsp;<i>i</i>&nbsp;</a>";
-		print "</td></tr>\n";
+" <a class=\"tooltip\" title=\"Experiments - Only include sequences that have been linked to the specified experiment.\">&nbsp;<i>i</i>&nbsp;</a></li>";
 	}
-	print "</table>\n";
-	print "</fieldset></div>";
+	print "</ul></fieldset>\n";
+	print "</div>";
 	print "<table style=\"width:95%\"><tr><td style=\"text-align:left\">";
 	print
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan\" class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\" colspan=\"3\">";
@@ -324,7 +337,7 @@ sub _scan {
 			my $i = 1;
 			my $new_designation;
 			if ( ref $exact_matches && @$exact_matches ) {
-				print $header_buffer if $first;				
+				print $header_buffer if $first;
 				my %new_matches;
 				foreach (@$exact_matches) {
 					my $match_key = "$_->{'seqbin_id'}\|$_->{'predicted_start'}";
@@ -337,9 +350,12 @@ sub _scan {
 					$i++;
 				}
 				$first = 0;
-			} 
+			}
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-			if ( ref $partial_matches && @$partial_matches && (!@$exact_matches || ($locus_info->{'pcr_filter'} && !$q->param('pcr_filter') ))) {
+			if (   ref $partial_matches
+				&& @$partial_matches
+				&& ( !@$exact_matches || ( $locus_info->{'pcr_filter'} && !$q->param('pcr_filter') ) ) )
+			{
 				print $header_buffer if $first;
 				my %new_matches;
 				foreach (@$partial_matches) {
@@ -431,7 +447,8 @@ sub _scan {
 		print $q->submit( -name => 'tag', -label => 'Tag alleles/sequences', -class => 'submit' );
 		print "<noscript><p><span class=\"comment\"> Enable javascript for select buttons to work!</span></p></noscript>\n";
 		foreach (
-			qw (db page isolate_id rescan_alleles rescan_seqs locus scheme_id identity alignment limit_matches limit_time seq_method experiment project tblastx hunt)
+			qw (db page isolate_id rescan_alleles rescan_seqs locus scheme_id identity alignment limit_matches limit_time seq_method
+			experiment project tblastx hunt pcr_filter)
 		  )
 		{
 			print $q->hidden($_);
@@ -839,6 +856,7 @@ sub _print_row {
 
 sub _simulate_PCR {
 	my ( $self, $fasta_file, $locus ) = @_;
+	my $q = $self->{'cgi'};
 	my $reactions =
 	  $self->{'datastore'}
 	  ->run_list_query_hashref( "SELECT pcr.* FROM pcr LEFT JOIN pcr_locus ON pcr.id = pcr_locus.pcr_id WHERE locus=?", $locus );
@@ -857,6 +875,11 @@ sub _simulate_PCR {
 		my $min_length = $_->{'min_length'} || 1;
 		my $max_length = $_->{'max_length'} || 50000;
 		$max_primer_mismatch = $_->{'max_primer_mismatch'} if $_->{'max_primer_mismatch'} > $max_primer_mismatch;
+		if ($q->param('alter_pcr_mismatches') && $q->param('alter_pcr_mismatches') =~ /([\-\+]\d)/){
+			my $delta = $1;
+			$max_primer_mismatch += $delta;
+			$max_primer_mismatch = 0 if $max_primer_mismatch < 0;
+		}
 		print $fh "$_->{'id'}\t$_->{'primer1'}\t$_->{'primer2'}\t$min_length\t$max_length\n";
 		$conditions->{ $_->{'id'} } = $_;
 	}
@@ -888,7 +911,7 @@ sub _simulate_PCR {
 sub _blast {
 	my ( $self, $locus, $isolate_id, $file_prefix, $locus_prefix ) = @_;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	my $q = $self->{'cgi'};
+	my $q          = $self->{'cgi'};
 	my $program;
 	if ( $locus_info->{'data_type'} eq 'DNA' ) {
 		$program = $self->{'cgi'}->param('tblastx') ? 'tblastx' : 'blastn';
@@ -1010,12 +1033,11 @@ sub _blast {
 	$logger_benchmark->debug("Running BLAST : $elapsed seconds");
 	my ( $exact_matches, $partial_matches );
 	my $pcr_filter = !$q->param('pcr_filter') ? 0 : $locus_info->{'pcr_filter'};
-	
-	
+
 	if ( -e "$self->{'config'}->{'secure_tmp_dir'}/$outfile_url" ) {
 		$exact_matches = $self->_parse_blast_exact( $locus, $outfile_url, $pcr_filter, $pcr_products );
 		$partial_matches = $self->_parse_blast_partial( $locus, $outfile_url, $pcr_filter, $pcr_products )
-		  if !@$exact_matches || ($locus_info->{'pcr_filter'} && !$q->param('pcr_filter'));
+		  if !@$exact_matches || ( $locus_info->{'pcr_filter'} && !$q->param('pcr_filter') );
 	} else {
 		$logger->debug("$self->{'config'}->{'secure_tmp_dir'}/$outfile_url does not exist");
 	}

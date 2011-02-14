@@ -736,7 +736,14 @@ fieldset li {
 fieldset label.filter {    
 	float:left;    
 	width:12em;    
-	margin-right:1em;    
+	margin-right:0.5em;    
+	text-align:right;  
+}
+
+fieldset label.parameter {    
+	float:left;    
+	width:10em;    
+	margin-right:0.5em;    
 	text-align:right;  
 }
 
@@ -749,7 +756,7 @@ fieldset.display {
 fieldset label.display {    
 	float:left;    
 	width:6em;    
-	margin-right:1em;    
+	margin-right:0.5em;    
 	text-align:right;  
 }
 
