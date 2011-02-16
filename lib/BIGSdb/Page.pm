@@ -1982,7 +1982,13 @@ sub can_modify_table {
 		}
 	} elsif ( $table eq 'allele_sequences' && $self->{'permissions'}->{'tag_sequences'} ) {
 		return 1;
-	} elsif ( ( $table eq 'profiles' || $table eq 'profile_fields' || $table eq 'profile_members' || $table eq 'profile_refs' ) ) {
+	} elsif ($table eq 'profile_refs'){
+		my $allowed =
+		  $self->{'datastore'}
+		  ->run_simple_query( "SELECT COUNT(*) FROM scheme_curators WHERE curator_id=?", $self->get_curator_id )
+		  ->[0];
+		return $allowed;	
+	} elsif ( ( $table eq 'profiles' || $table eq 'profile_fields' || $table eq 'profile_members') ) {
 		return 0 if !$scheme_id;
 		my $allowed =
 		  $self->{'datastore'}
