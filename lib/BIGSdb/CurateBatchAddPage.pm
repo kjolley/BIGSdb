@@ -907,11 +907,13 @@ field - if it is omitted, the next available id will be used automatically.</li>
 HTML
 		}
 		my $locus_attribute;
-		if ( $table eq 'sequences' && $locus ) {
-			$locus_attribute = "&amp;locus=$locus";
+		if ( $table eq 'sequences') {
+			$locus_attribute = "&amp;locus=$locus" if $locus;
+			print << "HTML";
+			<li>If the locus uses integer allele ids you can leave the allele_id field blank and the next available number will be used.</li>
+HTML
 		}
 		print << "HTML";
-<li>If the locus uses integer allele ids you can leave the allele_id field blank and the next available number will be used.</li>
 </ul>
 <ul>
 <li><a href="$script_name?db=$self->{'instance'}&amp;page=tableHeader&amp;table=$table$locus_attribute">Download tab-delimited 
