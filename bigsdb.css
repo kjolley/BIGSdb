@@ -726,7 +726,7 @@ fieldset {
 }
 
 fieldset ul { 
-	margin-top:0; 
+	margin:0; 
 	padding:0 0 0 0.5em;  
 	list-style:none;  
 }  

@@ -360,7 +360,7 @@ this sequence then make sure that the 'Override sequence similarity check' box i
 			my $first = 1;
 			foreach (@values) {
 				$valuestring .= ',' if !$first;
-				if ($_) {
+				if ($_ ne '') {
 					$valuestring .= "'$_'";
 				} else {
 					$valuestring .= "null";

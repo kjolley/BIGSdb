@@ -68,7 +68,7 @@ sub _print_interface {
 		-id       => 'isolate_id',
 		-values   => $ids,
 		-labels   => $labels,
-		-size     => 10,
+		-size     => 11,
 		-multiple => 'true'
 	);
 	print
@@ -77,7 +77,7 @@ sub _print_interface {
 "<input type=\"button\" onclick='listbox_selectall(\"isolate_id\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
 	print "</fieldset>\n";
 	print "<fieldset>\n<legend>Loci</legend>\n";
-	print $q->scrolling_list( -name => 'locus', -id => 'locus', -values => $loci, -labels => $locus_labels, -size => 10,
+	print $q->scrolling_list( -name => 'locus', -id => 'locus', -values => $loci, -labels => $locus_labels, -size => 11,
 		-multiple => 'true' );
 	print
 "<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"locus\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
@@ -99,7 +99,7 @@ sub _print_interface {
 		-id       => 'scheme_id',
 		-values   => $schemes,
 		-labels   => \%scheme_desc,
-		-size     => 10,
+		-size     => 11,
 		-multiple => 'true'
 	);
 	print

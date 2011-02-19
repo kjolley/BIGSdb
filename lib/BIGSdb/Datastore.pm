@@ -1472,13 +1472,19 @@ sub _get_loci_table_attributes {
 
 sub _get_pcr_table_attributes {
 	my $attributes = [
-		{ name => 'id',                  type => 'int',  required => 'yes', unique   => 'yes', primary_key => 'yes' },
-		{ name => 'description',         type => 'text', length   => '50',  required => 'yes' },
-		{ name => 'primer1',             type => 'text', length   => '128', required => 'yes' },
-		{ name => 'primer2',             type => 'text', length   => '128', required => 'yes' },
-		{ name => 'min_length',          type => 'int', comments => 'Minimum length of product to return'},
-		{ name => 'max_length',          type => 'int', comments => 'Maximum length of product to return' },
-		{ name => 'max_primer_mismatch', type => 'int', optlist => '0;1;2;3;4;5', comments => 'Maximum sequence mismatch per primer', tooltip => 'max primer mismatch - Do not set this too high or the reactions will run slowly.' },
+		{ name => 'id',          type => 'int',  required => 'yes', unique   => 'yes', primary_key => 'yes' },
+		{ name => 'description', type => 'text', length   => '50',  required => 'yes' },
+		{ name => 'primer1',     type => 'text', length   => '128', required => 'yes' },
+		{ name => 'primer2',     type => 'text', length   => '128', required => 'yes' },
+		{ name => 'min_length', type => 'int', comments => 'Minimum length of product to return' },
+		{ name => 'max_length', type => 'int', comments => 'Maximum length of product to return' },
+		{
+			name     => 'max_primer_mismatch',
+			type     => 'int',
+			optlist  => '0;1;2;3;4;5',
+			comments => 'Maximum sequence mismatch per primer',
+			tooltip  => 'max primer mismatch - Do not set this too high or the reactions will run slowly.'
+		},
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' }
 	];
@@ -1499,6 +1505,37 @@ sub _get_pcr_locus_table_attributes {
 		{ name => 'locus',     type => 'text', required => 'yes', primary_key    => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' }
+	];
+	return $attributes;
+}
+
+sub _get_probe_table_attributes {
+	my $attributes = [
+		{ name => 'id',          type => 'int',  required => 'yes',  unique         => 'yes', primary_key => 'yes' },
+		{ name => 'description', type => 'text', length   => '50',   required       => 'yes' },
+		{ name => 'sequence',    type => 'text', length   => '2048', required       => 'yes' },
+		{ name => 'curator',     type => 'int',  required => 'yes',  dropdown_query => 'yes' },
+		{ name => 'datestamp',   type => 'date', required => 'yes' }
+	];
+	return $attributes;
+}
+
+sub _get_probe_locus_table_attributes {
+	my $attributes = [
+		{
+			name           => 'probe_id',
+			type           => 'int',
+			required       => 'yes',
+			primary_key    => 'yes',
+			foreign_key    => 'probe',
+			dropdown_query => 'yes',
+			labels         => '|$id|) |$description|',
+		},
+		{ name => 'locus', type => 'text', required => 'yes', primary_key => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
+		{ name => 'max_distance', type => 'int',  required => 'yes', comments => 'Maximum distance of probe from end of locus' },
+		{ name => 'max_mismatch', type => 'int',  comments => 'Maximum sequence mismatch between the probe and template' },
+		{ name => 'curator',      type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp',    type => 'date', required => 'yes' }
 	];
 	return $attributes;
 }
@@ -2416,7 +2453,7 @@ sub get_tables {
 		  qw(users user_groups user_group_members allele_sequences sequence_bin accession refs allele_designations pending_allele_designations loci
 		  locus_aliases schemes scheme_members scheme_fields composite_fields composite_field_values isolate_aliases user_permissions isolate_user_acl
 		  isolate_usergroup_acl projects project_members samples experiments experiment_sequences isolate_field_extended_attributes
-		  isolate_value_extended_attributes scheme_groups scheme_group_scheme_members scheme_group_group_members pcr pcr_locus);
+		  isolate_value_extended_attributes scheme_groups scheme_group_scheme_members scheme_group_group_members pcr pcr_locus probe probe_locus);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';

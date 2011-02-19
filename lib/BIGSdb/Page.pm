@@ -1061,7 +1061,9 @@ sub get_record_name {
 		'scheme_group_scheme_members'		=> 'scheme group scheme member',
 		'scheme_group_group_members'		=> 'scheme group group member',
 		'pcr'								=> 'PCR reaction',
-		'pcr_locus'							=> 'PCR locus link'
+		'pcr_locus'							=> 'PCR locus link',
+		'probe'								=> 'nucleotide probe',
+		'probe_locus'					 	=> 'probe locus link'
 	);
 	return $names{$table};
 }

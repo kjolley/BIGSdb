@@ -93,7 +93,7 @@ HTML
 	#These are admin functions, some of which some curators may be allowed to access.
 	my @tables = qw (loci);
 	if ($system->{'dbtype'} eq 'isolates'){
-		push @tables, qw(locus_aliases pcr pcr_locus isolate_field_extended_attributes composite_fields);
+		push @tables, qw(locus_aliases pcr pcr_locus probe probe_locus isolate_field_extended_attributes composite_fields);
 	} elsif ($system->{'dbtype'} eq 'sequences'){
 		push @tables, qw(locus_extended_attributes client_dbases client_dbase_loci client_dbase_schemes);
 	}
@@ -300,7 +300,7 @@ sub _print_experiments {
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=experiments">+</a></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=experiments">++</a></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=experiments">?</a></td>
-<td class="comment" style="text-align:left">Set up experiments to which sequences in the bin can belong</td></tr>	
+<td class="comment" style="text-align:left">Set up experiments to which sequences in the bin can belong.</td></tr>	
 HTML
 	return $buffer;
 }
@@ -312,7 +312,7 @@ sub _print_experiment_sequences {
 <td />
 <td />
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=experiment_sequences">?</a></td>
-<td class="comment" style="text-align:left">Query/delete links associating sequences to experiments</td></tr>	
+<td class="comment" style="text-align:left">Query/delete links associating sequences to experiments.</td></tr>	
 HTML
 	return $buffer;
 }
@@ -525,7 +525,7 @@ sub _print_pcr {
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=pcr">+</a></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=pcr">++</a></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=pcr">?</a></td>
-<td style="text-align:left" class="comment">Set up <i>in silico</i> PCR reactions.  These can be used to filter genomes for tagging to specific particular repetitive loci.</td></tr>
+<td style="text-align:left" class="comment">Set up <i>in silico</i> PCR reactions.  These can be used to filter genomes for tagging to specific repetitive loci.</td></tr>
 HTML
 	return $buffer;
 
@@ -538,7 +538,33 @@ sub _print_pcr_locus {
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=pcr_locus">+</a></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=pcr_locus">++</a></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=pcr_locus">?</a></td>
-<td style="text-align:left" class="comment">Link a locus to an <i>in silico</i> PCR reaction</td></tr>
+<td style="text-align:left" class="comment">Link a locus to an <i>in silico</i> PCR reaction.</td></tr>
+HTML
+	return $buffer;
+
+}
+
+sub _print_probe {
+	my ( $self, $td ) = @_;
+	my $buffer = <<"HTML";
+<tr class="td$td"><td>Nucleotide probe definition</td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=probe">+</a></td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=probe">++</a></td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=probe">?</a></td>
+<td style="text-align:left" class="comment">Define nucleotide probes for <i>in silico</i> hybridization reaction to filter genomes for tagging to specific repetitive loci.</td></tr>
+HTML
+	return $buffer;
+
+}
+
+sub _print_probe_locus {
+	my ( $self, $td ) = @_;
+	my $buffer = <<"HTML";
+<tr class="td$td"><td>Probe locus links</td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=probe_locus">+</a></td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=probe_locus">++</a></td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=probe_locus">?</a></td>
+<td style="text-align:left" class="comment">Link a locus to an <i>in silico</i> hybridization reaction.</td></tr>
 HTML
 	return $buffer;
 
