@@ -176,22 +176,41 @@ sub _print_interface {
 	print "</li></ul>\n";
 	print "</fieldset>";
 
-	#Only show repetitive loci fields if PCR locus links have been set
-	my $pcr_links = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM pcr_locus")->[0];
-	if ($pcr_links) {
+	#Only show repetitive loci fields if PCR or probe locus links have been set
+	my $pcr_links   = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM pcr_locus")->[0];
+	my $probe_links = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM probe_locus")->[0];
+	if ( $pcr_links + $probe_links ) {
 		print "<fieldset>\n<legend>Repetitive loci</legend>\n";
-		print "<ul><li>";
-		print $q->checkbox( -name => 'pcr_filter', -label => 'Filter by PCR', -checked => 'checked' );
-		print " <a class=\"tooltip\" title=\"Filter by PCR - Loci can be defined by a simulated PCR reaction(s) so that only
-		regions of the genome predicted to be amplified will be recognised in the scan. De-selecting this option will ignore this filter and the
-		whole sequence bin will be scanned instead.  Partial matches will also be returned (up to the number set in the parameters) even if exact
-		matches are found.  De-selecting this option will be necessary if the gene in question is incomplete due to being located at the end
-		of a contig since it can not then be bounded by PCR primers.\">&nbsp;<i>i</i>&nbsp;</a>";
-		print "</li>\n<li><label for=\"alter_pcr_mismatches\" class=\"parameter\">&Delta; Primer mismatch:</label>\n";
-		print $q->popup_menu( -name => 'alter_pcr_mismatches', -id => 'alter_pcr_mismatches', -values => [qw (-3 -2 -1 0 +1 +2 +3)], -default => 0);
-		print " <a class=\"tooltip\" title=\"Change primer mismatch - Each defined PCR reaction will have a parameter specifying the allowed
-		number of mismatches per primer. You can increase or decrease this value here, altering the stringency of the reaction.\">&nbsp;<i>i</i>&nbsp;</a>";
-		print "</li></ul>\n";
+		print "<ul>";
+		if ($pcr_links) {
+			print "<li>";
+			print $q->checkbox( -name => 'pcr_filter', -label => 'Filter by PCR', -checked => 'checked' );
+			print " <a class=\"tooltip\" title=\"Filter by PCR - Loci can be defined by a simulated PCR reaction(s) so that only
+			regions of the genome predicted to be amplified will be recognised in the scan. De-selecting this option will ignore this filter and the
+			whole sequence bin will be scanned instead.  Partial matches will also be returned (up to the number set in the parameters) even if exact
+			matches are found.  De-selecting this option will be necessary if the gene in question is incomplete due to being located at the end
+			of a contig since it can not then be bounded by PCR primers.\">&nbsp;<i>i</i>&nbsp;</a>";
+			print "</li>\n<li><label for=\"alter_pcr_mismatches\" class=\"parameter\">&Delta; Primer mismatch:</label>\n";
+			print $q->popup_menu(
+				-name    => 'alter_pcr_mismatches',
+				-id      => 'alter_pcr_mismatches',
+				-values  => [qw (-3 -2 -1 0 +1 +2 +3)],
+				-default => 0
+			);
+			print
+			  " <a class=\"tooltip\" title=\"Change primer mismatch - Each defined PCR reaction will have a parameter specifying the allowed
+			number of mismatches per primer. You can increase or decrease this value here, altering the stringency of the reaction.\">&nbsp;<i>i</i>&nbsp;</a>";
+			print "</li>";
+		}
+		if ($probe_links) {
+			print "<li>";
+			print $q->checkbox( -name => 'probe_filter', -label => 'Filter by probe', -checked => 'checked' );
+			print " <a class=\"tooltip\" title=\"Filter by probe - Loci can be defined by a simulated hybridization reaction(s) so that only
+			regions of the genome predicted to be within a set distance of a hybridization sequence will be recognised in the scan. De-selecting this 
+			option will ignore this filter and the whole sequence bin will be scanned instead.  Partial matches will also be returned (up to the 
+			number set in the parameters) even if exact matches are found.\">&nbsp;<i>i</i>&nbsp;</a></li>\n";
+		}
+		print "</ul>\n";
 		print "</fieldset>";
 	}
 	print "<fieldset>\n<legend>Restrict included sequences by</legend>\n";
@@ -875,7 +894,7 @@ sub _simulate_PCR {
 		my $min_length = $_->{'min_length'} || 1;
 		my $max_length = $_->{'max_length'} || 50000;
 		$max_primer_mismatch = $_->{'max_primer_mismatch'} if $_->{'max_primer_mismatch'} > $max_primer_mismatch;
-		if ($q->param('alter_pcr_mismatches') && $q->param('alter_pcr_mismatches') =~ /([\-\+]\d)/){
+		if ( $q->param('alter_pcr_mismatches') && $q->param('alter_pcr_mismatches') =~ /([\-\+]\d)/ ) {
 			my $delta = $1;
 			$max_primer_mismatch += $delta;
 			$max_primer_mismatch = 0 if $max_primer_mismatch < 0;
@@ -906,6 +925,66 @@ sub _simulate_PCR {
 	close $fh;
 	unlink $reaction_file, $results_file;
 	return \@pcr_products;
+}
+
+sub _simulate_hybridization {
+	my ( $self, $fasta_file, $locus ) = @_;
+	my $q      = $self->{'cgi'};
+	my $probes = $self->{'datastore'}->run_list_query_hashref(
+"SELECT probes.id,probes.sequence,probe_locus.* FROM probes LEFT JOIN probe_locus ON probes.id = probe_locus.probe_id WHERE locus=?",
+		$locus
+	);
+	return if !@$probes;
+	system("$self->{'config'}->{'blast_path'}/formatdb -i $fasta_file -p F -o T");
+	my $file_prefix      = BIGSdb::Utils::get_random();
+	my $probe_fasta_file = "$self->{'config'}->{'secure_tmp_dir'}/$file_prefix\_probe.txt";
+	my $results_file     = "$self->{'config'}->{'secure_tmp_dir'}/$file_prefix\_results.txt";
+	open( my $fh, '>', $probe_fasta_file ) or $logger->error("Can't open temp file $probe_fasta_file for writing");
+	my %probe_info;
+
+	foreach (@$probes) {
+		$_->{'sequence'} =~ s/\s//g;
+		print $fh ">$_->{'id'}\n$_->{'sequence'}\n";
+		$_->{'max_mismatch'}  = 0                       if !$_->{'max_mismatch'};
+		$_->{'max_gaps'}      = 0                       if !$_->{'max_gaps'};
+		$_->{'min_alignment'} = length $_->{'sequence'} if !$_->{'min_alignment'};
+		$probe_info{ $_->{'id'} } = $_;
+	}
+	close $fh;
+	my $seq_count = scalar @$probes;
+	system(
+"$self->{'config'}->{'blast_path'}/blastall -B $seq_count -b 1000 -p blastn -d $fasta_file -i $probe_fasta_file -o $results_file -m8 -F F 2> /dev/null"
+	);
+	my @matches;
+	if ( -e $results_file ) {
+		open( $fh, '<', $results_file );
+		while (<$fh>) {
+			my @record = split /\t/, $_;
+			my $match;
+			$match->{'probe_id'}  = $record[0];
+			$match->{'seqbin_id'} = $record[1];
+			$match->{'alignment'} = $record[3];
+			next if $match->{'alignment'} < $probe_info{ $match->{'probe_id'} }->{'min_alignment'};
+			$match->{'mismatches'} = $record[4];
+			next if $match->{'mismatches'} > $probe_info{ $match->{'probe_id'} }->{'max_mismatch'};
+			$match->{'gaps'} = $record[5];
+			next if $match->{'gaps'} > $probe_info{ $match->{'probe_id'} }->{'gaps'};
+
+			if ( $record[8] < $record[9] ) {
+				$match->{'start'} = $record[8];
+				$match->{'end'}   = $record[9];
+			} else {
+				$match->{'start'} = $record[9];
+				$match->{'end'}   = $record[8];
+			}
+			$logger->debug("Seqbin: $match->{'seqbin_id'}; Start: $match->{'start'}; End: $match->{'end'}");
+			push @matches, $match;
+		}
+		close $fh;
+		unlink $results_file;
+	}
+	unlink $probe_fasta_file;
+	return \@matches;
 }
 
 sub _blast {
@@ -1015,14 +1094,18 @@ sub _blast {
 	}
 	( $elapsed = gettimeofday() - $start ) =~ s/(^\d{1,}\.\d{4}).*$/$1/;
 	$logger_benchmark->debug("Create query FASTA file : $elapsed seconds");
-	my $pcr_products;
-	if ( $locus_info->{'pcr_filter'} ) {
+	my ( $pcr_products, $probe_matches );
+	if ( $locus_info->{'pcr_filter'} && $q->param('pcr_filter') ) {
 		if ( $self->{'config'}->{'ipcress_path'} ) {
 			$pcr_products = $self->_simulate_PCR( $temp_infile, $locus );
-			return if !@$pcr_products && $q->param('pcr_filter');
+			return if !@$pcr_products;
 		} else {
 			$logger->error("Ipcress path is not set in bigsdb.conf.  PCR simulation can not be done so whole genome will be used.");
 		}
+	}
+	if ( $locus_info->{'probe_filter'} && $q->param('probe_filter') ) {
+		$probe_matches = $self->_simulate_hybridization( $temp_infile, $locus );
+		return if !@$probe_matches;
 	}
 	my $blastn_word_size = $1 if $self->{'cgi'}->param('word_size') =~ /(\d+)/;
 	my $word_size = $program eq 'blastn' ? ( $blastn_word_size || 15 ) : 0;
@@ -1031,13 +1114,14 @@ sub _blast {
 	);
 	( $elapsed = gettimeofday() - $start ) =~ s/(^\d{1,}\.\d{4}).*$/$1/;
 	$logger_benchmark->debug("Running BLAST : $elapsed seconds");
-	my ( $exact_matches, $partial_matches );
-	my $pcr_filter = !$q->param('pcr_filter') ? 0 : $locus_info->{'pcr_filter'};
+	my ( $exact_matches, $matched_regions, $partial_matches );
+	my $pcr_filter   = !$q->param('pcr_filter')   ? 0 : $locus_info->{'pcr_filter'};
+	my $probe_filter = !$q->param('probe_filter') ? 0 : $locus_info->{'probe_filter'};
 
 	if ( -e "$self->{'config'}->{'secure_tmp_dir'}/$outfile_url" ) {
-		$exact_matches = $self->_parse_blast_exact( $locus, $outfile_url, $pcr_filter, $pcr_products );
-		$partial_matches = $self->_parse_blast_partial( $locus, $outfile_url, $pcr_filter, $pcr_products )
-		  if !@$exact_matches || ( $locus_info->{'pcr_filter'} && !$q->param('pcr_filter') );
+		($exact_matches, $matched_regions) = $self->_parse_blast_exact( $locus, $outfile_url, $pcr_filter, $pcr_products, $probe_filter, $probe_matches );
+		$partial_matches = $self->_parse_blast_partial( $locus, $matched_regions, $outfile_url, $pcr_filter, $pcr_products, $probe_filter, $probe_matches )
+		  if !@$exact_matches || ( $locus_info->{'pcr_filter'} && !$q->param('pcr_filter') && $locus_info->{'probe_filter'} && !$q->param('probe_filter' ));
 	} else {
 		$logger->debug("$self->{'config'}->{'secure_tmp_dir'}/$outfile_url does not exist");
 	}
@@ -1050,13 +1134,14 @@ sub _blast {
 }
 
 sub _parse_blast_exact {
-	my ( $self, $locus, $blast_file, $pcr_filter, $pcr_products ) = @_;
+	my ( $self, $locus, $blast_file, $pcr_filter, $pcr_products, $probe_filter, $probe_matches ) = @_;
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 	open( my $blast_fh, '<', $full_path ) || ( $logger->error("Can't open BLAST output file $full_path. $!"), return \@; );
 	my @matches;
 	my $ref_seq_sql = $self->{'db'}->prepare("SELECT length(reference_sequence) FROM loci WHERE id=?");
 	my $lengths;
 	my $matched_already;
+	my $region_matched_already;
   LINE: while ( my $line = <$blast_fh> ) {
 		my $match;
 		next if !$line || $line =~ /^#/;
@@ -1114,6 +1199,9 @@ sub _parse_blast_exact {
 					}
 					next LINE if !$within_amplicon;
 				}
+				if ($probe_filter) {
+					next LINE if !$self->_probe_filter_match($locus,$match,$probe_matches);
+				}
 				$match->{'predicted_start'} = $match->{'start'};
 				$match->{'predicted_end'}   = $match->{'end'};
 				$match->{'reverse'}         = 1
@@ -1122,16 +1210,17 @@ sub _parse_blast_exact {
 				next if $matched_already->{ $match->{'allele'} }->{ $match->{'predicted_start'} };
 				push @matches, $match;
 				$matched_already->{ $match->{'allele'} }->{ $match->{'predicted_start'} } = 1;
+				$region_matched_already->{ $match->{'seqbin_id'} }->{ $match->{'predicted_start'} } = 1;
 			}
 		}
 	}
 	close $blast_fh;
-	return \@matches;
+	return \@matches,$region_matched_already ;
 }
 
 sub _parse_blast_partial {
 	my @matches;
-	my ( $self, $locus, $blast_file, $pcr_filter, $pcr_products ) = @_;
+	my ( $self, $locus, $exact_matched_regions, $blast_file, $pcr_filter, $pcr_products, $probe_filter, $probe_matches ) = @_;
 	my $identity  = $self->{'cgi'}->param('identity');
 	my $alignment = $self->{'cgi'}->param('alignment');
 	$identity  = 70 if !BIGSdb::Utils::is_int($identity);
@@ -1202,6 +1291,9 @@ sub _parse_blast_partial {
 				$match->{'predicted_start'} = $match->{'start'};
 				$match->{'predicted_end'}   = $match->{'end'};
 			}
+			#Don't handle exact matches - these are handled elsewhere.
+			next if $exact_matched_regions>{$match->{'seqbin_id'}}->{$match->{'predicted_start'}};
+			
 			$match->{'e-value'} = $record[10];
 			if ($pcr_filter) {
 				my $within_amplicon = 0;
@@ -1213,6 +1305,9 @@ sub _parse_blast_partial {
 					$within_amplicon = 1;
 				}
 				next LINE if !$within_amplicon;
+			}
+			if ($probe_filter) {
+				next LINE if !$self->_probe_filter_match($locus,$match,$probe_matches);
 			}
 
 			#check if match already found with same predicted start or end points
@@ -1245,6 +1340,34 @@ sub _parse_blast_partial {
 		pop @matches;
 	}
 	return \@matches;
+}
+
+sub _probe_filter_match {
+	my ( $self, $locus, $blast_match, $probe_matches ) = @_;
+	my $good_match = 0;
+	my %probe_info;
+	foreach (@$probe_matches) {
+		if ( !$probe_info{ $_->{'probe_id'} } ) {
+			$probe_info{ $_->{'probe_id'} } =
+			  $self->{'datastore'}
+			  ->run_simple_query_hashref( "SELECT * FROM probe_locus WHERE locus=? AND probe_id=?", $locus, $_->{'probe_id'} );
+		}
+		next if $blast_match->{'seqbin_id'} != $_->{'seqbin_id'};
+		my $probe_distance = -1;
+		if ( $blast_match->{'start'} > $_->{'end'} ) {
+			$probe_distance = $blast_match->{'start'} - $_->{'end'};
+		}
+		if ( $blast_match->{'end'} < $_->{'start'} ) {
+			my $end_distance = $_->{'start'} - $blast_match->{'end'};
+			if ( ( $end_distance < $probe_distance ) || ( $probe_distance == -1 ) ) {
+				$probe_distance = $end_distance;
+			}
+		}
+		next if ( $probe_distance > $probe_info{ $_->{'probe_id'} }->{'max_distance'} ) || $probe_distance == -1;
+		$logger->debug("Probe distance: $probe_distance");
+		return 1;
+	}
+	return 0;
 }
 
 sub _get_designation_tooltip {

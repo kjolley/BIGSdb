@@ -38,7 +38,7 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON pcr_locus TO apache;
 ALTER TABLE loci ADD pcr_filter bool;
 ALTER TABLE loci ADD probe_filter bool;
 
-CREATE TABLE probe (
+CREATE TABLE probes (
 id int NOT NULL,
 description text NOT NULL,
 sequence text NOT NULL,
@@ -50,17 +50,19 @@ ON DELETE NO ACTION
 ON UPDATE CASCADE
 );
 
-GRANT SELECT,UPDATE,INSERT,DELETE ON probe TO apache;
+GRANT SELECT,UPDATE,INSERT,DELETE ON probes TO apache;
 
 CREATE TABLE probe_locus (
 probe_id int NOT NULL,
 locus text NOT NULL,
 max_distance int NOT NULL,
+min_alignment int,
 max_mismatch int,
+max_gaps int,
 curator int NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY (probe_id,locus),
-CONSTRAINT prl_probe FOREIGN KEY (probe_id) REFERENCES probe
+CONSTRAINT prl_probe FOREIGN KEY (probe_id) REFERENCES probes
 ON DELETE CASCADE
 ON UPDATE CASCADE,
 CONSTRAINT prl_loci FOREIGN KEY (locus) REFERENCES loci

@@ -93,7 +93,7 @@ HTML
 	#These are admin functions, some of which some curators may be allowed to access.
 	my @tables = qw (loci);
 	if ($system->{'dbtype'} eq 'isolates'){
-		push @tables, qw(locus_aliases pcr pcr_locus probe probe_locus isolate_field_extended_attributes composite_fields);
+		push @tables, qw(locus_aliases pcr pcr_locus probes probe_locus isolate_field_extended_attributes composite_fields);
 	} elsif ($system->{'dbtype'} eq 'sequences'){
 		push @tables, qw(locus_extended_attributes client_dbases client_dbase_loci client_dbase_schemes);
 	}
@@ -544,13 +544,13 @@ HTML
 
 }
 
-sub _print_probe {
+sub _print_probes {
 	my ( $self, $td ) = @_;
 	my $buffer = <<"HTML";
-<tr class="td$td"><td>Nucleotide probe definition</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=probe">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=probe">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=probe">?</a></td>
+<tr class="td$td"><td>nucleotide probes</td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=probes">+</a></td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=probes">++</a></td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=probes">?</a></td>
 <td style="text-align:left" class="comment">Define nucleotide probes for <i>in silico</i> hybridization reaction to filter genomes for tagging to specific repetitive loci.</td></tr>
 HTML
 	return $buffer;
@@ -560,7 +560,7 @@ HTML
 sub _print_probe_locus {
 	my ( $self, $td ) = @_;
 	my $buffer = <<"HTML";
-<tr class="td$td"><td>Probe locus links</td>
+<tr class="td$td"><td>probe locus links</td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=probe_locus">+</a></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=probe_locus">++</a></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=probe_locus">?</a></td>

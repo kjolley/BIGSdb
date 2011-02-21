@@ -1347,6 +1347,12 @@ sub _get_loci_table_attributes {
 'pcr filter - Set to true to specify that sequences used for tagging are filtered to only include regions that are amplified by in silico PCR reaction.'
 			},
 			{
+				name => 'probe_filter',
+				type => 'bool',
+				tooltip =>
+'probe filter - Set to true to specify that sequences used for tagging are filtered to only include regions within a specified distance of a hybdridization probe.'
+			},
+			{
 				name     => 'dbase_name',
 				type     => 'text',
 				hide     => 'yes',
@@ -1474,8 +1480,8 @@ sub _get_pcr_table_attributes {
 	my $attributes = [
 		{ name => 'id',          type => 'int',  required => 'yes', unique   => 'yes', primary_key => 'yes' },
 		{ name => 'description', type => 'text', length   => '50',  required => 'yes' },
-		{ name => 'primer1',     type => 'text', length   => '128', required => 'yes' },
-		{ name => 'primer2',     type => 'text', length   => '128', required => 'yes' },
+		{ name => 'primer1', type => 'text', length => '128', required => 'yes', regex => '^[ACGTURYSWKMBDHVNacgturyswkmbdhvn ]+$' },
+		{ name => 'primer2', type => 'text', length => '128', required => 'yes', regex => '^[ACGTURYSWKMBDHVNacgturyswkmbdhvn ]+$' },
 		{ name => 'min_length', type => 'int', comments => 'Minimum length of product to return' },
 		{ name => 'max_length', type => 'int', comments => 'Maximum length of product to return' },
 		{
@@ -1509,13 +1515,13 @@ sub _get_pcr_locus_table_attributes {
 	return $attributes;
 }
 
-sub _get_probe_table_attributes {
+sub _get_probes_table_attributes {
 	my $attributes = [
-		{ name => 'id',          type => 'int',  required => 'yes',  unique         => 'yes', primary_key => 'yes' },
-		{ name => 'description', type => 'text', length   => '50',   required       => 'yes' },
-		{ name => 'sequence',    type => 'text', length   => '2048', required       => 'yes' },
-		{ name => 'curator',     type => 'int',  required => 'yes',  dropdown_query => 'yes' },
-		{ name => 'datestamp',   type => 'date', required => 'yes' }
+		{ name => 'id',          type => 'int',  required => 'yes', unique   => 'yes', primary_key => 'yes' },
+		{ name => 'description', type => 'text', length   => '50',  required => 'yes' },
+		{ name => 'sequence', type => 'text', length => '2048', required => 'yes', regex => '^[ACGTURYSWKMBDHVNacgturyswkmbdhvn ]+$' },
+		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' }
 	];
 	return $attributes;
 }
@@ -1527,13 +1533,15 @@ sub _get_probe_locus_table_attributes {
 			type           => 'int',
 			required       => 'yes',
 			primary_key    => 'yes',
-			foreign_key    => 'probe',
+			foreign_key    => 'probes',
 			dropdown_query => 'yes',
 			labels         => '|$id|) |$description|',
 		},
 		{ name => 'locus', type => 'text', required => 'yes', primary_key => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
-		{ name => 'max_distance', type => 'int',  required => 'yes', comments => 'Maximum distance of probe from end of locus' },
-		{ name => 'max_mismatch', type => 'int',  comments => 'Maximum sequence mismatch between the probe and template' },
+		{ name => 'max_distance', type => 'int', required => 'yes', comments => 'Maximum distance of probe from end of locus' },
+		{ name => 'min_alignment', type => 'int',  comments => 'Minimum length of alignment (default: length of probe)' },
+		{ name => 'max_mismatch', type => 'int',  comments => 'Maximum sequence mismatch (default: 0)' },
+		{ name => 'max_gaps',     type => 'int',  comments => 'Maximum gaps in alignment (default: 0)' },
 		{ name => 'curator',      type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp',    type => 'date', required => 'yes' }
 	];
@@ -2453,7 +2461,7 @@ sub get_tables {
 		  qw(users user_groups user_group_members allele_sequences sequence_bin accession refs allele_designations pending_allele_designations loci
 		  locus_aliases schemes scheme_members scheme_fields composite_fields composite_field_values isolate_aliases user_permissions isolate_user_acl
 		  isolate_usergroup_acl projects project_members samples experiments experiment_sequences isolate_field_extended_attributes
-		  isolate_value_extended_attributes scheme_groups scheme_group_scheme_members scheme_group_group_members pcr pcr_locus probe probe_locus);
+		  isolate_value_extended_attributes scheme_groups scheme_group_scheme_members scheme_group_group_members pcr pcr_locus probes probe_locus);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';
