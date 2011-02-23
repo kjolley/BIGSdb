@@ -1,3 +1,14 @@
+Important notes about upgrading
+-------------------------------
+
+Version 1.1: Offline job manager - set up new user account and cron job.
+Version 1.2: Change of isolate database structure.
+
+Details can be found below.
+
+
+Version 1.1
+-----------
 Version 1.1 introduces an offline job manager.  This is required to control
 analyses that take a long time for which it is inappropriate to require the
 browser remains connected.  When upgrading to version 1.1, you will need to
@@ -45,3 +56,11 @@ Add the following to /etc/crontab:
 
 sudo touch /var/log/bigsdb_jobs.log
 sudo chown bigsdb /var/log/bigsdb_jobs.log 
+
+Version 1.2
+-----------
+This version requires changes to the structure of isolate databases to 
+accommodate in silico PCR and hybridization reaction filtering. Please run the
+isolatedb_v1.2.sql script, found in the sql/upgrade directory, against your
+isolate databases.
+
