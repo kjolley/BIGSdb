@@ -13,11 +13,18 @@ Version 1.2
 -----------
 This introduces the concept of defining an isolate database locus by its
 context.  Here we can filter the genome to products of an in silico PCR
-reaction.  Two new tables are created, one to describe the PCR conditions:
-primers sequences, allowed priming mismatches and min/max product length; the
-other links loci to any number of PCR reactions.  Finally a modification of
-the loci table sets a boolean flag to state whether tag scanning of the locus
-should be limited only to the seqbin regions amplified by the simulated PCR
-reactions. 
+reaction or to regions within a defined distance of a matching probe.  Four
+new tables are created:
+
+pcr: describes the PCR conditions: primers sequences, allowed priming 
+  mismatches and min/max product length
+pcr_locus: links loci to any number of PCR reactions.  
+probes: describes a nucleotide probe
+probe_locus: links loci to a nucleotide probe and describes hybridization 
+  thresholds.
+Finally a modification of the loci table sets boolean flags to state whether
+tag scanning of the locus should be limited only to the seqbin regions 
+amplified by the simulated PCR reactions or to within the specified distance
+of the probe sequence. 
 
 Script: isolatedb_v1.2.sql

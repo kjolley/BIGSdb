@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -190,7 +190,7 @@ sub _print_interface {
 			whole sequence bin will be scanned instead.  Partial matches will also be returned (up to the number set in the parameters) even if exact
 			matches are found.  De-selecting this option will be necessary if the gene in question is incomplete due to being located at the end
 			of a contig since it can not then be bounded by PCR primers.\">&nbsp;<i>i</i>&nbsp;</a>";
-			print "</li>\n<li><label for=\"alter_pcr_mismatches\" class=\"parameter\">&Delta; Primer mismatch:</label>\n";
+			print "</li>\n<li><label for=\"alter_pcr_mismatches\" class=\"parameter\">&Delta; PCR mismatch:</label>\n";
 			print $q->popup_menu(
 				-name    => 'alter_pcr_mismatches',
 				-id      => 'alter_pcr_mismatches',
@@ -209,6 +209,17 @@ sub _print_interface {
 			regions of the genome predicted to be within a set distance of a hybridization sequence will be recognised in the scan. De-selecting this 
 			option will ignore this filter and the whole sequence bin will be scanned instead.  Partial matches will also be returned (up to the 
 			number set in the parameters) even if exact matches are found.\">&nbsp;<i>i</i>&nbsp;</a></li>\n";
+			print "<li><label for=\"alter_pcr_mismatches\" class=\"parameter\">&Delta; Probe mismatch:</label>\n";
+			print $q->popup_menu(
+				-name    => 'alter_probe_mismatches',
+				-id      => 'alter_probe_mismatches',
+				-values  => [qw (-3 -2 -1 0 +1 +2 +3)],
+				-default => 0
+			);
+			print
+" <a class=\"tooltip\" title=\"Change probe mismatch - Each hybridization reaction will have a parameter specifying the allowed
+			number of mismatches. You can increase or decrease this value here, altering the stringency of the reaction.\">&nbsp;<i>i</i>&nbsp;</a>";
+			print "</li>";
 		}
 		print "</ul>\n";
 		print "</fieldset>";
@@ -467,7 +478,7 @@ sub _scan {
 		print "<noscript><p><span class=\"comment\"> Enable javascript for select buttons to work!</span></p></noscript>\n";
 		foreach (
 			qw (db page isolate_id rescan_alleles rescan_seqs locus scheme_id identity alignment limit_matches limit_time seq_method
-			experiment project tblastx hunt pcr_filter)
+			experiment project tblastx hunt pcr_filter alter_pcr_mismatches probe_filter alter_probe_mismatches)
 		  )
 		{
 			print $q->hidden($_);
@@ -945,8 +956,13 @@ sub _simulate_hybridization {
 	foreach (@$probes) {
 		$_->{'sequence'} =~ s/\s//g;
 		print $fh ">$_->{'id'}\n$_->{'sequence'}\n";
-		$_->{'max_mismatch'}  = 0                       if !$_->{'max_mismatch'};
-		$_->{'max_gaps'}      = 0                       if !$_->{'max_gaps'};
+		$_->{'max_mismatch'} = 0 if !$_->{'max_mismatch'};
+		if ( $q->param('alter_probe_mismatches') && $q->param('alter_probe_mismatches') =~ /([\-\+]\d)/ ) {
+			my $delta = $1;
+			$_->{'max_mismatch'} += $delta;
+			$_->{'max_mismatch'} = 0 if $_->{'max_mismatch'} < 0;
+		}
+		$_->{'max_gaps'} = 0 if !$_->{'max_gaps'};
 		$_->{'min_alignment'} = length $_->{'sequence'} if !$_->{'min_alignment'};
 		$probe_info{ $_->{'id'} } = $_;
 	}
@@ -1119,9 +1135,12 @@ sub _blast {
 	my $probe_filter = !$q->param('probe_filter') ? 0 : $locus_info->{'probe_filter'};
 
 	if ( -e "$self->{'config'}->{'secure_tmp_dir'}/$outfile_url" ) {
-		($exact_matches, $matched_regions) = $self->_parse_blast_exact( $locus, $outfile_url, $pcr_filter, $pcr_products, $probe_filter, $probe_matches );
-		$partial_matches = $self->_parse_blast_partial( $locus, $matched_regions, $outfile_url, $pcr_filter, $pcr_products, $probe_filter, $probe_matches )
-		  if !@$exact_matches || ( $locus_info->{'pcr_filter'} && !$q->param('pcr_filter') && $locus_info->{'probe_filter'} && !$q->param('probe_filter' ));
+		( $exact_matches, $matched_regions ) =
+		  $self->_parse_blast_exact( $locus, $outfile_url, $pcr_filter, $pcr_products, $probe_filter, $probe_matches );
+		$partial_matches =
+		  $self->_parse_blast_partial( $locus, $matched_regions, $outfile_url, $pcr_filter, $pcr_products, $probe_filter, $probe_matches )
+		  if !@$exact_matches
+			  || ( $locus_info->{'pcr_filter'} && !$q->param('pcr_filter') && $locus_info->{'probe_filter'} && !$q->param('probe_filter') );
 	} else {
 		$logger->debug("$self->{'config'}->{'secure_tmp_dir'}/$outfile_url does not exist");
 	}
@@ -1200,7 +1219,7 @@ sub _parse_blast_exact {
 					next LINE if !$within_amplicon;
 				}
 				if ($probe_filter) {
-					next LINE if !$self->_probe_filter_match($locus,$match,$probe_matches);
+					next LINE if !$self->_probe_filter_match( $locus, $match, $probe_matches );
 				}
 				$match->{'predicted_start'} = $match->{'start'};
 				$match->{'predicted_end'}   = $match->{'end'};
@@ -1209,13 +1228,13 @@ sub _parse_blast_exact {
 				$match->{'e-value'} = $record[10];
 				next if $matched_already->{ $match->{'allele'} }->{ $match->{'predicted_start'} };
 				push @matches, $match;
-				$matched_already->{ $match->{'allele'} }->{ $match->{'predicted_start'} } = 1;
+				$matched_already->{ $match->{'allele'} }->{ $match->{'predicted_start'} }           = 1;
 				$region_matched_already->{ $match->{'seqbin_id'} }->{ $match->{'predicted_start'} } = 1;
 			}
 		}
 	}
 	close $blast_fh;
-	return \@matches,$region_matched_already ;
+	return \@matches, $region_matched_already;
 }
 
 sub _parse_blast_partial {
@@ -1291,9 +1310,9 @@ sub _parse_blast_partial {
 				$match->{'predicted_start'} = $match->{'start'};
 				$match->{'predicted_end'}   = $match->{'end'};
 			}
+
 			#Don't handle exact matches - these are handled elsewhere.
-			next if $exact_matched_regions>{$match->{'seqbin_id'}}->{$match->{'predicted_start'}};
-			
+			next if $exact_matched_regions > { $match->{'seqbin_id'} }->{ $match->{'predicted_start'} };
 			$match->{'e-value'} = $record[10];
 			if ($pcr_filter) {
 				my $within_amplicon = 0;
@@ -1307,7 +1326,7 @@ sub _parse_blast_partial {
 				next LINE if !$within_amplicon;
 			}
 			if ($probe_filter) {
-				next LINE if !$self->_probe_filter_match($locus,$match,$probe_matches);
+				next LINE if !$self->_probe_filter_match( $locus, $match, $probe_matches );
 			}
 
 			#check if match already found with same predicted start or end points
