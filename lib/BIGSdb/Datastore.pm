@@ -1266,6 +1266,12 @@ sub _get_user_permissions_table_attributes {
 				comments => 'allow user to add or modify secondary attribute values for isolate record fields.'
 			},
 			{
+				name     => 'modify_probes',
+				type     => 'bool',
+				required => 'no',
+				comments => 'allow user to define PCR or hybridization reactions to filter tag scanning.'
+			},			
+			{
 				name     => 'tag_sequences',
 				type     => 'bool',
 				required => 'no',

@@ -2031,6 +2031,8 @@ sub can_modify_table {
 		return 1;
 	} elsif ( $table eq 'isolate_value_extended_attributes' && $self->{'permissions'}->{'modify_value_attributes'} ) {
 		return 1;
+	} elsif ( (any {$table eq $_} qw (pcr pcr_locus probes probe_locus)) && $self->{'permissions'}->{'modify_probes'}){
+		return 1;
 	}
 	return 0;
 }

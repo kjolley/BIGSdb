@@ -74,3 +74,6 @@ ON UPDATE CASCADE
 );
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON probe_locus TO apache;
+
+ALTER TABLE user_permissions ADD modify_probes boolean;
+
