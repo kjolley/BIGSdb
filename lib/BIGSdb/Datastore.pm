@@ -455,7 +455,7 @@ sub get_scheme_fields {
 sub get_all_scheme_fields {
 	my ( $self ) = @_;
 	if ( !$self->{'sql'}->{'all_scheme_fields'} ) {
-		$self->{'sql'}->{'all_scheme_fields'} = $self->{'db'}->prepare("SELECT scheme_id,field FROM scheme_fields");
+		$self->{'sql'}->{'all_scheme_fields'} = $self->{'db'}->prepare("SELECT scheme_id,field FROM scheme_fields ORDER BY field_order");
 		$logger->info("Statement handle 'scheme_fields' prepared.");
 	}
 	eval { $self->{'sql'}->{'all_scheme_fields'}->execute; };
