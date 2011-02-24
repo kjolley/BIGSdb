@@ -646,6 +646,7 @@ sub get_loci {
 	#{ 'query_pref' => 1, 'seq_defined' => 1, 'do_not_order' => 1 }
 
 	my ($self, $options) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $defined_clause = $options->{'seq_defined'} ? 'WHERE dbase_name IS NOT NULL OR reference_sequence IS NOT NULL' : '';
 	my $qry;
 	if ($options->{'do_not_order'}){
