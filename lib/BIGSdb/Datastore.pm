@@ -634,16 +634,18 @@ sub get_scheme_group_info {
 }
 ##############LOCI#####################################################################
 sub get_loci {
+	#options passed as hashref:
+	#query_pref: only the loci for which the user has a query field preference selected will be returned
+	#seq_defined: only the loci for which a database or a reference sequence has been defined will be returned
+	#do_not_order: don't order
+	
+	#{ 'query_pref' => 1, 'seq_defined' => 1, 'do_not_order' => 1 }
 
-	#if $querypref flag is passed, only the loci for which the user has a query field preference selected will be returned
-	#if $seq_defined flag is passed, only the loci for which a database or a reference sequence has been defined will be returned
-	my ( $self, $query_pref, $seq_defined ) = @_;
-	my $defined_clause;
-	if ($seq_defined) {
-		$defined_clause = 'WHERE dbase_name IS NOT NULL OR reference_sequence IS NOT NULL';
-	}
+	my ($self, $options) = @_;
+	my $defined_clause = $options->{'seq_defined'} ? 'WHERE dbase_name IS NOT NULL OR reference_sequence IS NOT NULL' : '';
+	my $order_clause = $options->{'do_not_order'} ? '' : 'order by scheme_members.scheme_id,id';
 	my $qry =
-"SELECT id,scheme_id from loci left join scheme_members on loci.id = scheme_members.locus $defined_clause order by scheme_members.scheme_id,id";
+"SELECT id,scheme_id from loci left join scheme_members on loci.id = scheme_members.locus $defined_clause $order_clause";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute(); };
 	if ($@) {
@@ -652,7 +654,7 @@ sub get_loci {
 	my @query_loci;
 	my $array_ref = $sql->fetchall_arrayref;
 	foreach (@$array_ref) {
-		if ($query_pref) {
+		if ($options->{'query_pref'}) {
 			if ( $self->{'prefs'}->{'query_field_loci'}->{ $_->[0] }
 				&& ( $self->{'prefs'}->{'query_field_schemes'}->{ $_->[1] } or !$_->[1] ) )
 			{
@@ -735,7 +737,7 @@ sub get_locus {
 
 sub is_locus {
 	my ( $self, $id ) = @_;
-	my $loci = $self->get_loci();
+	my $loci = $self->get_loci({ 'do_not_order' => 1 });
 	return any { $_ eq $id } @$loci;
 }
 ##############ALLELES##################################################################

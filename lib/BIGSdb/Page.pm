@@ -381,7 +381,7 @@ sub get_field_selection_list {
 			$logger->error("Can't execute $@");
 		}
 		my $common_names = $cn_sql->fetchall_hashref('id');
-		my $loci = $options->{'all_loci'} ? $self->{'datastore'}->get_loci(0) : $self->{'datastore'}->get_loci(1);
+		my $loci = $options->{'all_loci'} ? $self->{'datastore'}->get_loci({ 'query_pref' => 0, 'seq_defined' => 0, 'do_not_order' => 1 }) : $self->{'datastore'}->get_loci({ 'query_pref' => 1, 'seq_defined' => 0, 'do_not_order' => 1 });
 		foreach (@$loci) {
 			push @locus_list, "l_$_";
 			$labels->{"l_$_"} = $_;

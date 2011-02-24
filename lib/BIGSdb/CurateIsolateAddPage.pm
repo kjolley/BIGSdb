@@ -31,7 +31,7 @@ sub print_content {
 		return;
 	}
 	my $q    = $self->{'cgi'};
-	my $loci = $self->{'datastore'}->get_loci(1);
+	my $loci = $self->{'datastore'}->get_loci({ 'query_pref' => 1 });
 	my %newdata;
 	foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list } ) {
 		if ( $q->param($field) ) {

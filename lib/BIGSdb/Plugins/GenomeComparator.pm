@@ -184,7 +184,7 @@ HTML
 	  multiple selections. In addition to selecting individual loci, you can choose to include all loci defined in schemes
 	  by selecting the appropriate scheme description. Alternatively, you can enter the accession number for an
 	  annotated reference genome and compare using the loci defined in that.</p>\n";
-	my $loci = $self->{'datastore'}->get_loci( 0, 1 );
+	my $loci = $self->{'datastore'}->get_loci( { 'query_pref' => 0, 'seq_defined' => 1 } );
 	my %cleaned;
 	foreach (@$loci) {
 		( $cleaned{$_} = $_ ) =~ tr/_/ /;

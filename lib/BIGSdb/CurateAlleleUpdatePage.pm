@@ -422,7 +422,7 @@ sub print_content {
 	print $isolate_record->get_isolate_summary( $id, 1 );
 	print "<h2>Update other loci:</h2>\n";
 	print $q->start_form;
-	my $loci = $self->{'datastore'}->get_loci(1);
+	my $loci = $self->{'datastore'}->get_loci({ 'query_pref' => 1 });
 	print "Locus: ";
 	print $q->popup_menu(-name=>'locus',-values=>$loci);
 	print $q->submit(-label=>'Add/update',-class=>'submit');

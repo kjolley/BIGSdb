@@ -24,6 +24,11 @@ use List::MoreUtils qw(uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
+sub set_pref_requirements {
+	my ($self) = @_;
+	$self->{'pref_requirements'} = { 'general' => 0, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 0 };
+}
+
 sub print_content {
 	my ($self)       = @_;
 	my $script_name  = $self->{'system'}->{'script_name'};

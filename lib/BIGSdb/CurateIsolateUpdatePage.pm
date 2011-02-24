@@ -385,7 +385,7 @@ sub print_content {
 		print $locus_summary;
 		print "<p />\n";
 		print $q->start_form;
-		my $loci = $self->{'datastore'}->get_loci(1);
+		my $loci = $self->{'datastore'}->get_loci({ 'query_pref' => 1 });
 		print "Locus: ";
 		print $q->popup_menu( -name => 'locus', -values => $loci );
 		print $q->submit( -label => 'Add/update', -class => 'submit' );
