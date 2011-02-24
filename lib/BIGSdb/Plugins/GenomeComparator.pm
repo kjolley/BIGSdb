@@ -43,7 +43,7 @@ sub get_attributes {
 		section     => 'analysis',
 		order       => 30,
 		requires    => 'muscle,offline_jobs',
-		help		=> 'tooltips',
+		help        => 'tooltips',
 		system_flag => 'GenomeComparator'
 	);
 	return \%att;
@@ -75,20 +75,26 @@ END
 
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
-	my @loci = split /\|\|/,$params->{'locus'};
-	my @ids = split /\|\|/,$params->{'isolate_id'};
-	my $filtered_ids = $self->_filter_ids_by_project(\@ids);
-	my @scheme_ids = split /\|\|/,$params->{'scheme_id'};
-	my $accession  = $params->{'accession'};
-
+	my @loci = split /\|\|/, $params->{'locus'};
+	my @ids  = split /\|\|/, $params->{'isolate_id'};
+	my $filtered_ids = $self->_filter_ids_by_project( \@ids );
+	my @scheme_ids   = split /\|\|/, $params->{'scheme_id'};
+	my $accession    = $params->{'accession'};
 	if ( !@$filtered_ids ) {
-		$self->{'jobManager'}->update_job_status($job_id,{'status' => 'failed',
-			'message_html' => "<p>You must include one or more isolates. Make sure your selected isolates haven't been filtered to none by selecting a project.</p>"});	
+		$self->{'jobManager'}->update_job_status(
+			$job_id,
+			{
+				'status' => 'failed',
+				'message_html' =>
+"<p>You must include one or more isolates. Make sure your selected isolates haven't been filtered to none by selecting a project.</p>"
+			}
+		);
 		return;
 	}
 	if ( !$accession && !@loci && !@scheme_ids ) {
-		$self->{'jobManager'}->update_job_status($job_id,{'status' => 'failed',
-			'message_html' => "<p>You must select one or more loci or schemes, or a genome accession number.</p>"});	
+		$self->{'jobManager'}->update_job_status( $job_id,
+			{ 'status' => 'failed', 'message_html' => "<p>You must select one or more loci or schemes, or a genome accession number.</p>" }
+		);
 		return;
 	}
 	if ($accession) {
@@ -99,8 +105,8 @@ sub run_job {
 			$seq_obj = $seq_db->get_Seq_by_acc($accession);
 		}
 		catch Bio::Root::Exception with {
-			$self->{'jobManager'}->update_job_status($job_id,{'status' => 'failed',
-			'message_html' => "<p><p>No data returned for accession number #$accession.</p></p>"});	
+			$self->{'jobManager'}->update_job_status( $job_id,
+				{ 'status' => 'failed', 'message_html' => "<p><p>No data returned for accession number #$accession.</p></p>" } );
 			my $err = shift;
 			$logger->debug($err);
 		};
@@ -115,27 +121,26 @@ sub run_job {
 sub run {
 	my ($self) = @_;
 	print "<h1>Genome Comparator</h1>\n";
-	my $q      = $self->{'cgi'};
-	
-	if ($q->param('submit')){
-		my @ids = $q->param('isolate_id');
-		my $filtered_ids = $self->_filter_ids_by_project(\@ids);
-		my $continue = 1;
+	my $q = $self->{'cgi'};
+	if ( $q->param('submit') ) {
+		my @ids          = $q->param('isolate_id');
+		my $filtered_ids = $self->_filter_ids_by_project( \@ids );
+		my $continue     = 1;
 		if ( !@$filtered_ids ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>You must include one or more isolates. Make sure your selected isolates haven't been filtered to none by selecting a project.</p></div>\n";
-			$continue = 0;
-		}
-		my @loci = $q->param('locus');
-		my @scheme_ids = $q->param('scheme_id');
-		my $accession  = $q->param('accession');	
-		if ( !$accession && !@loci && !@scheme_ids && $continue ) {			
 			print
-		  "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci or schemes, or a genome accession number.</p></div>\n";
+"<div class=\"box\" id=\"statusbad\"><p>You must include one or more isolates. Make sure your selected isolates haven't been filtered to none by selecting a project.</p></div>\n";
 			$continue = 0;
 		}
-		
-		if ($continue){
-		my $params    = $q->Vars;
+		my @loci       = $q->param('locus');
+		my @scheme_ids = $q->param('scheme_id');
+		my $accession  = $q->param('accession');
+		if ( !$accession && !@loci && !@scheme_ids && $continue ) {
+			print
+"<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci or schemes, or a genome accession number.</p></div>\n";
+			$continue = 0;
+		}
+		if ($continue) {
+			my $params = $q->Vars;
 			my $job_id = $self->{'jobManager'}->add_job(
 				{
 					'dbase_config' => $self->{'instance'},
@@ -156,10 +161,12 @@ HTML
 			return;
 		}
 	}
+	$self->_print_interface;
+}
 
-	
-	
-	
+sub _print_interface {
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
 	my $view   = $self->{'system'}->{'view'};
 	my $qry =
 "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM sequence_bin LEFT JOIN $view ON $view.id=sequence_bin.isolate_id ORDER BY $view.id";
@@ -174,7 +181,6 @@ HTML
 		push @ids, $id;
 		$labels{$id} = "$id) $isolate";
 	}
-	
 	if ( !@ids ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>There are no sequences in the sequence bin.</p></div>\n";
 		return;
@@ -190,31 +196,32 @@ HTML
 		( $cleaned{$_} = $_ ) =~ tr/_/ /;
 	}
 	print $q->start_form( -onMouseMove => 'enable_seqs()' );
-	print
-"<table style=\"border-collapse:separate; border-spacing:1px\"><tr><th>Isolates</th><th>Loci</th><th>Schemes</th><th>Reference genome</th><th>Parameters</th></tr>\n";
-	print "<tr><td style=\"text-align:center\">\n";
+	print "<div class=\"scrollable\">\n";
+	print "<fieldset>\n<legend>Isolates</legend>\n";
 	print $q->scrolling_list(
 		-name     => 'isolate_id',
 		-id       => 'isolate_id',
 		-values   => \@ids,
 		-labels   => \%labels,
-		-size     => 12,
+		-size     => 8,
 		-multiple => 'true'
 	);
 	print
-"<br /><input type=\"button\" onclick='listbox_selectall(\"isolate_id\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
+"<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"isolate_id\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
 	print
-"<input type=\"button\" onclick='listbox_selectall(\"isolate_id\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
-	print "</td><td style=\"text-align:center\">\n";
-	print $q->scrolling_list( -name => 'locus', -id => 'locus', -values => $loci, -labels => \%cleaned, -size => 12, -multiple => 'true' );
+"<input type=\"button\" onclick='listbox_selectall(\"isolate_id\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
+	print "</fieldset>\n";
+	print "<fieldset>\n<legend>Loci</legend>\n";
+	print $q->scrolling_list( -name => 'locus', -id => 'locus', -values => $loci, -labels => \%cleaned, -size => 8, -multiple => 'true' );
 	print
-"<br /><input type=\"button\" onclick='listbox_selectall(\"locus\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
+"<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"locus\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
 	print
-"<input type=\"button\" onclick='listbox_selectall(\"locus\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
-	print "</td><td style=\"text-align:center\">\n";
+"<input type=\"button\" onclick='listbox_selectall(\"locus\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
+	print "</fieldset>\n";
+
+	print "<fieldset>\n<legend>Schemes</legend>\n";
 	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
 	my %scheme_desc;
-
 	foreach (@$schemes) {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
 		$scheme_desc{$_} = $scheme_info->{'description'};
@@ -226,14 +233,16 @@ HTML
 		-id       => 'scheme_id',
 		-values   => $schemes,
 		-labels   => \%scheme_desc,
-		-size     => 12,
+		-size     => 8,
 		-multiple => 'true'
 	);
 	print
-"<br /><input type=\"button\" onclick='listbox_selectall(\"scheme_id\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
+"<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"scheme_id\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
 	print
-"<input type=\"button\" onclick='listbox_selectall(\"scheme_id\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
-	print "</td><td style=\"vertical-align:top\">\n";
+"<input type=\"button\" onclick='listbox_selectall(\"scheme_id\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
+	print "</fieldset>\n";
+
+	print "<fieldset>\n<legend>Reference genome</legend>\n";
 	print "<p>Enter accession number:</p>\n";
 	print $q->textfield(
 		-name      => 'accession',
@@ -245,41 +254,55 @@ HTML
 	);
 	print
 " <a class=\"tooltip\" title=\"Reference genome - Use of a reference genome will override any locus or scheme settings.\">&nbsp;<i>i</i>&nbsp;</a>";
-	print "</td><td style=\"vertical-align:top\">\n";
-	print "<table><tr><td style=\"text-align:right\">Min % identity: </td><td>";
-	print $q->popup_menu( -name => 'identity', -values => [qw(50 55 60 65 70 75 80 85 90 91 92 93 94 95 96 97 98 99 100)], -default => 70 );
-	print " <a class=\"tooltip\" title=\"Minimum % identity - Match required for partial matching.\">&nbsp;<i>i</i>&nbsp;</a>";
-	print "</td></tr><tr><td>\n";
-	print "</td></tr>\n<tr><td style=\"text-align:right\">Min % alignment: </td><td>";
+	print "</fieldset>\n";
+
+	print "<fieldset>\n<legend>Parameters</legend>\n";
+	print "<ul><li><label for =\"identity\" class=\"parameter\">Min % identity:</label>\n";
+	print $q->popup_menu(
+		-name    => 'identity',
+		-id      => 'identity',
+		-values  => [qw(50 55 60 65 70 75 80 85 90 91 92 93 94 95 96 97 98 99 100)],
+		-default => 70
+	);
+	print " <a class=\"tooltip\" title=\"Minimum % identity - Match required for partial matching.\">&nbsp;<i>i</i>&nbsp;</a></li>";
+	print "<li><label for=\"alignment\" class=\"parameter\">Min % alignment:</label>\n";
 	print $q->popup_menu(
 		-name    => 'alignment',
+		-id      => 'alignment',
 		-values  => [qw(30 35 40 45 50 55 60 65 70 75 80 85 90 91 92 93 94 95 96 97 98 99 100)],
 		-default => 50
 	);
 	print
-" <a class=\"tooltip\" title=\"Minimum % alignment - Percentage of allele sequence length required to be aligned for partial matching.\">&nbsp;<i>i</i>&nbsp;</a>";
-	print "</td></tr><tr><td style=\"text-align:right\">BLASTN word size: </td><td>\n";
-	print $q->popup_menu( -name => 'word_size', -values => [qw(8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28)],
-		-default => 15 );
+" <a class=\"tooltip\" title=\"Minimum % alignment - Percentage of allele sequence length required to be aligned for partial matching.\">&nbsp;<i>i</i>&nbsp;</a></li>";
+	print "<li><label for=\"word_size\" class=\"parameter\">BLASTN word size:</label>\n";
+	print $q->popup_menu(
+		-name    => 'word_size',
+		-id      => 'word_size',
+		-values  => [qw(8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28)],
+		-default => 15
+	);
 	print
-" <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a>";
-	print "</td></tr><tr><td colspan=\"2\">";
+" <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a></li>\n";
+	print "<li>";
 	print $q->checkbox( -name => 'align', -label => 'Produce alignments' );
 	print
-" <a class=\"tooltip\" title=\"Alignments - Alignments will be produced in muscle for any loci that vary between isolates when analysing by reference genome. This may slow the analysis considerably.\">&nbsp;<i>i</i>&nbsp;</a>";
-	print "</td></tr>\n";
-	print "<tr><th colspan=\"2\">Restrict included sequences by</th></tr>";
-	print "<tr><td style=\"text-align:right\">Sequence method: </td><td style=\"text-align:left\">";
+" <a class=\"tooltip\" title=\"Alignments - Alignments will be produced in muscle for any loci that vary between isolates when analysing by reference genome. This may slow the analysis considerably.\">&nbsp;<i>i</i>&nbsp;</a></li>\n";
+	print "</ul>\n";
+	print "</fieldset>\n";
+	
+	print "<fieldset>\n<legend>Restrict included sequences by</legend>\n";
+	print "<table><tr><td style=\"text-align:right\">Sequence method: </td><td style=\"text-align:left\">";
 	print $q->popup_menu( -name => 'seq_method', -values => [ '', SEQ_METHODS ] );
 	print
 " <a class=\"tooltip\" title=\"Sequence method - Only include sequences generated from the selected method.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "</td></tr>\n";
-	my $project_list = $self->{'datastore'}->run_list_query_hashref("SELECT id,short_description FROM projects ORDER BY short_description");	
+	my $project_list = $self->{'datastore'}->run_list_query_hashref("SELECT id,short_description FROM projects ORDER BY short_description");
 	my @projects;
 	undef %labels;
-	foreach (@$project_list){
-		push @projects,$_->{'id'};
-		$labels{$_->{'id'}} = $_->{'short_description'};
+
+	foreach (@$project_list) {
+		push @projects, $_->{'id'};
+		$labels{ $_->{'id'} } = $_->{'short_description'};
 	}
 	if (@projects) {
 		unshift @projects, '';
@@ -289,12 +312,12 @@ HTML
 " <a class=\"tooltip\" title=\"Projects - Filter isolate list to only include those belonging to a specific project.\">&nbsp;<i>i</i>&nbsp;</a>";
 		print "</td></tr>\n";
 	}
-	my $experiment_list = $self->{'datastore'}->run_list_query_hashref("SELECT id,description FROM experiments ORDER BY description");	
+	my $experiment_list = $self->{'datastore'}->run_list_query_hashref("SELECT id,description FROM experiments ORDER BY description");
 	my @experiments;
 	undef %labels;
-	foreach (@$experiment_list){
-		push @experiments,$_->{'id'};
-		$labels{$_->{'id'}} = $_->{'description'};
+	foreach (@$experiment_list) {
+		push @experiments, $_->{'id'};
+		$labels{ $_->{'id'} } = $_->{'description'};
 	}
 	if (@experiments) {
 		unshift @experiments, '';
@@ -305,38 +328,43 @@ HTML
 		print "</td></tr>\n";
 	}
 	print "</table>\n";
-	print "</td></tr>";
-	print "<tr><td>";
+	print "</fieldset>\n";
+	print "</div>\n";
+	print "<table style=\"width:95%\"><tr><td style=\"text-align:left\">";
 	print
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=GenomeComparator\" class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\" colspan=\"4\">";
 	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	print "</td></tr>";
-	print "</table>\n";
-
+	print "</td></tr></table>\n";
 	foreach (qw (page name db)) {
 		print $q->hidden($_);
 	}
 	print $q->end_form;
 	print "</div>\n";
-
 }
 
 sub _filter_ids_by_project {
-	my ($self, $ids) = @_;
+	my ( $self, $ids ) = @_;
 	my $project_id = $self->{'cgi'}->param('project');
 	return $ids if !$project_id;
-	my $ids_in_project = $self->{'datastore'}->run_list_query("SELECT isolate_id FROM project_members WHERE project_id = ?",$project_id);
+	my $ids_in_project = $self->{'datastore'}->run_list_query( "SELECT isolate_id FROM project_members WHERE project_id = ?", $project_id );
 	my @filtered_ids;
-	foreach my $id (@$ids){
-		push @filtered_ids,$id if any {$id eq $_} @$ids_in_project;
+	foreach my $id (@$ids) {
+		push @filtered_ids, $id if any { $id eq $_ } @$ids_in_project;
 	}
 	return \@filtered_ids;
 }
 
 sub _analyse_by_loci {
-	my ( $self, $job_id,$params, $loci, $ids ) = @_;
+	my ( $self, $job_id, $params, $loci, $ids ) = @_;
 	if ( @$ids < 2 ) {
-		$self->{'jobManager'}->update_job_status($job_id,{'status' => 'failed','message_html' => "<p>You must select at least two isolates for comparison against defined loci. Make sure your selected isolates haven't been filtered to less than two by selecting a project.</p>"});	
+		$self->{'jobManager'}->update_job_status(
+			$job_id,
+			{
+				'status' => 'failed',
+				'message_html' =>
+"<p>You must select at least two isolates for comparison against defined loci. Make sure your selected isolates haven't been filtered to less than two by selecting a project.</p>"
+			}
+		);
 		return;
 	}
 	my %isolate_FASTA;
@@ -419,20 +447,21 @@ sub _analyse_by_loci {
 		$td = $td == 1 ? 2 : 1;
 		system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$job_id\_fastafile*";
 		$progress++;
-		my $complete = int (100 * $progress / scalar @$loci); 
-		my $close_table = ($progress != scalar @$loci) ? '</table></div>' : '';
-		$self->{'jobManager'}->update_job_status($job_id,{'percent_complete' => $complete,'message_html' => "$html_buffer$close_table"});
+		my $complete = int( 100 * $progress / scalar @$loci );
+		my $close_table = ( $progress != scalar @$loci ) ? '</table></div>' : '';
+		$self->{'jobManager'}
+		  ->update_job_status( $job_id, { 'percent_complete' => $complete, 'message_html' => "$html_buffer$close_table" } );
 	}
 	$html_buffer .= "</table></div>\n";
-	$self->{'jobManager'}->update_job_status($job_id,{'message_html' => "$html_buffer"});
+	$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => "$html_buffer" } );
 	close $fh;
 	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$job_id\*";
-	$self->{'jobManager'}->update_job_output($job_id,{'filename' => "$job_id.txt", 'description' => 'Main output file'});
+	$self->{'jobManager'}->update_job_output( $job_id, { 'filename' => "$job_id.txt", 'description' => 'Main output file' } );
 }
 
 sub _add_scheme_loci {
 	my ( $self, $params, $loci ) = @_;
-	my @scheme_ids = split /\|\|/,$params->{'scheme_id'};
+	my @scheme_ids = split /\|\|/, $params->{'scheme_id'};
 	my %locus_selected;
 	foreach (@$loci) {
 		$locus_selected{$_} = 1;
@@ -479,7 +508,7 @@ sub _analyse_by_reference {
 		}
 	}
 	$html_buffer .= "</table>";
-	$self->{'jobManager'}->update_job_status($job_id,{'message_html' => $html_buffer});	
+	$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => $html_buffer } );
 	my %isolate_FASTA;
 	my $prefix = BIGSdb::Utils::get_random();
 	foreach (@$ids) {
@@ -494,11 +523,12 @@ sub _analyse_by_reference {
 	my $truncated_loci;
 	my $varying_loci;
 	my $progress = 0;
-	my $total = ($params->{'align'} && scalar @$ids > 1) ? (scalar @cds * 2) : scalar @cds;
+	my $total = ( $params->{'align'} && scalar @$ids > 1 ) ? ( scalar @cds * 2 ) : scalar @cds;
+
 	foreach my $cds (@cds) {
 		$progress++;
-		my $complete = int (100 * $progress / $total); 
-		$self->{'jobManager'}->update_job_status($job_id,{'percent_complete' => $complete});
+		my $complete = int( 100 * $progress / $total );
+		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } );
 		my @aliases;
 		my $locus;
 		my %seqs;
@@ -613,15 +643,16 @@ sub _analyse_by_reference {
 	print $fh "\n###\n\n";
 	$self->_print_exact_except_ref( \$html_buffer, $fh, $exact_except_ref );
 	print $fh "\n###\n\n";
-	$self->_print_truncated_loci( \$html_buffer, $fh, $truncated_loci );	
-#	$html_buffer.= "</div>";
-	$self->{'jobManager'}->update_job_status($job_id,{'message_html' => $html_buffer});	
+	$self->_print_truncated_loci( \$html_buffer, $fh, $truncated_loci );
+
+	#	$html_buffer.= "</div>";
+	$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => $html_buffer } );
 	close $fh;
 	close $align_fh;
 	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$prefix\*";
-	$self->{'jobManager'}->update_job_output($job_id,{'filename' => "$job_id.txt", 'description' => 'Main output file'});
-	if (@$ids > 1 && $params->{'align'}){
-		$self->{'jobManager'}->update_job_output($job_id,{'filename' => "$job_id\_align.txt", 'description' => 'Alignments'});
+	$self->{'jobManager'}->update_job_output( $job_id, { 'filename' => "$job_id.txt", 'description' => 'Main output file' } );
+	if ( @$ids > 1 && $params->{'align'} ) {
+		$self->{'jobManager'}->update_job_output( $job_id, { 'filename' => "$job_id\_align.txt", 'description' => 'Alignments' } );
 	}
 }
 
@@ -641,6 +672,7 @@ sub _print_variable_loci {
 	print $fh "Locus\tProduct\tReference genome";
 	my %names;
 	my $isolate;
+
 	foreach my $id (@$ids) {
 		my $isolate_ref = $self->{'datastore'}->run_simple_query( "SELECT isolate FROM isolates WHERE id=?", $id );
 		if ( ref $isolate_ref eq 'ARRAY' ) {
@@ -650,24 +682,25 @@ sub _print_variable_loci {
 		$$buffer_ref .= "<th>$id$isolate</th>";
 		print $fh "\t$id$isolate";
 	}
-	$$buffer_ref .="</tr>";
+	$$buffer_ref .= "</tr>";
 	print $fh "\n";
 	my $td = 1;
 	my $count;
-	my $temp = BIGSdb::Utils::get_random();
+	my $temp     = BIGSdb::Utils::get_random();
 	my $progress = 0;
-	my $total = 2 * (scalar keys %$loci); #need to show progress from 50 - 100%
+	my $total    = 2 * ( scalar keys %$loci );    #need to show progress from 50 - 100%
+
 	foreach ( sort keys %$loci ) {
 		$progress++;
-		my $complete = 50 + int (100 * $progress / $total); 
-		$self->{'jobManager'}->update_job_status($job_id,{'percent_complete' => $complete});
-		
+		my $complete = 50 + int( 100 * $progress / $total );
+		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } );
 		my $fasta_file = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$_.fasta";
 		my $muscle_out = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$_.muscle";
 		open( my $fasta_fh, '>', $fasta_file );
 		my %alleles;
 		my $allele        = 1;
 		my $cleaned_locus = $_;
+
 		if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
 			$cleaned_locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
 		}
@@ -767,7 +800,7 @@ sub _print_missing_in_all {
 }
 
 sub _print_truncated_loci {
-	my ( $self, $buffer_ref,$fh, $truncated ) = @_;
+	my ( $self, $buffer_ref, $fh, $truncated ) = @_;
 	my $q = $self->{'cgi'};
 	return if ref $truncated ne 'HASH';
 	$$buffer_ref .= "<h3>Loci that are truncated in some isolates</h3>";
@@ -985,7 +1018,8 @@ sub _create_reference_FASTA_file {
 
 sub _create_isolate_FASTA {
 	my ( $self, $isolate_id, $prefix ) = @_;
-	my $qry      = "SELECT id,sequence FROM sequence_bin LEFT JOIN experiment_sequences ON sequence_bin.id=seqbin_id LEFT JOIN project_members ON sequence_bin.isolate_id = project_members.isolate_id WHERE sequence_bin.isolate_id=?";
+	my $qry =
+"SELECT id,sequence FROM sequence_bin LEFT JOIN experiment_sequences ON sequence_bin.id=seqbin_id LEFT JOIN project_members ON sequence_bin.isolate_id = project_members.isolate_id WHERE sequence_bin.isolate_id=?";
 	my @criteria = ($isolate_id);
 	my $method   = $self->{'cgi'}->param('seq_method');
 	if ($method) {
@@ -1001,9 +1035,9 @@ sub _create_isolate_FASTA {
 		if ( !BIGSdb::Utils::is_int($project) ) {
 			$logger->error("Invalid project $project");
 			return;
-		}	
+		}
 		$qry .= " AND project_id=?";
-		push @criteria, $project;		
+		push @criteria, $project;
 	}
 	my $experiment = $self->{'cgi'}->param('experiment');
 	if ($experiment) {

@@ -42,7 +42,7 @@ sub get_attributes {
 		dbtype      => 'isolates',
 		section     => 'analysis',
 		order       => 32,
-		help		=> 'tooltips',
+		help        => 'tooltips',
 		system_flag => 'BLAST'
 	);
 	return \%att;
@@ -83,95 +83,7 @@ sub run {
 		print "<div class=\"box\" id=\"statusbad\"><p>There are no sequences in the sequence bin.</p></div>\n";
 		return;
 	}
-	print "<div class=\"box\" id=\"queryform\">\n";
-	print "<p>Please select the required isolate ids to BLAST against (use ctrl or shift to make 
-	  multiple selections) and paste in your query sequence.  Nucleotide or peptide sequences can be queried.</p>\n";
-	print $q->start_form;
-	print
-"<table style=\"border-collapse:separate; border-spacing:1px\"><tr><th>Isolates</th><th>Parameters</th><th>Paste sequence</th></tr>\n";
-	print "<tr><td style=\"text-align:center\">\n";
-	print $q->scrolling_list(
-		-name     => 'isolate_id',
-		-id       => 'isolate_id',
-		-values   => \@ids,
-		-labels   => \%labels,
-		-size     => 12,
-		-multiple => 'true'
-	);
-	print
-"<br /><input type=\"button\" onclick='listbox_selectall(\"isolate_id\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
-	print
-"<input type=\"button\" onclick='listbox_selectall(\"isolate_id\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
-	print "</td><td style=\"text-align:center; vertical-align:top\">\n";
-	print "<table><tr><td style=\"text-align:right\">BLASTN word size: </td><td style=\"text-align:left\">\n";
-	print $q->popup_menu(
-		-name    => 'word_size',
-		-values  => [qw(7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28)],
-		-default => 11
-	);
-	print
-" <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a>";
-	print "</td></tr>\n";
-	print "<tr><td style=\"text-align:right\">Hits per isolate: </td><td style=\"text-align:left\">\n";
-	print $q->popup_menu( -name => 'hits', -values => [qw(1 2 3 4 5 6 7 8 9 10 20 30 40 50)], -default => 1 );
-	print "</td></tr>\n";
-	print "<tr><td colspan=\"2\" style=\"text-align:left\">";
-	print $q->checkbox( -name => 'tblastx', label => 'Use TBLASTX' );
-	print
-" <a class=\"tooltip\" title=\"TBLASTX - Compares the six-frame translation of your nucleotide query against the six-frame translation of the sequences in the sequence bin.\">&nbsp;<i>i</i>&nbsp;</a>";
-	print "</td></tr>\n";
-	print "<tr><th colspan=\"2\">Restrict included sequences by</th></tr>";
-	print "<tr><td style=\"text-align:right\">Sequence method: </td><td style=\"text-align:left\">";
-	print $q->popup_menu( -name => 'seq_method', -values => [ '', SEQ_METHODS ] );
-	print
-" <a class=\"tooltip\" title=\"Sequence method - Only include sequences generated from the selected method.\">&nbsp;<i>i</i>&nbsp;</a>";
-	print "</td></tr>\n";
-	my @projects;
-	my $project_list = $self->{'datastore'}->run_list_query_hashref("SELECT id,short_description FROM projects ORDER BY short_description");
-	undef %labels;
-
-	foreach (@$project_list) {
-		push @projects, $_->{'id'};
-		$labels{ $_->{'id'} } = $_->{'short_description'};
-	}
-	if (@projects) {
-		unshift @projects, '';
-		print "<tr><td style=\"text-align:right\">Project: </td><td style=\"text-align:left\">";
-		print $q->popup_menu( -name => 'project', -values => \@projects, -labels => \%labels );
-		print
-" <a class=\"tooltip\" title=\"Projects - Filter isolate list to only include those belonging to a specific project.\">&nbsp;<i>i</i>&nbsp;</a>";
-		print "</td></tr>\n";
-	}
-	my $experiment_list = $self->{'datastore'}->run_list_query_hashref("SELECT id,description FROM experiments ORDER BY description");
-	my @experiments;
-	undef %labels;
-	foreach (@$experiment_list) {
-		push @experiments, $_->{'id'};
-		$labels{ $_->{'id'} } = $_->{'description'};
-	}
-	if (@experiments) {
-		unshift @experiments, '';
-		print "<tr><td style=\"text-align:right\">Experiment: </td><td style=\"text-align:left\">";
-		print $q->popup_menu( -name => 'experiment', -values => \@experiments, -labels => \%labels );
-		print
-" <a class=\"tooltip\" title=\"Experiments - Only include sequences that have been linked to the specified experiment.\">&nbsp;<i>i</i>&nbsp;</a>";
-		print "</td></tr>\n";
-	}
-	print "</table>\n</td><td style=\"vertical-align:top\">";
-	print $q->textarea( -name => 'sequence', -rows => '10', -cols => '70' );
-	print "</td></tr>\n";
-	print "<tr><td>";
-	print
-"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=BLAST\" class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\" colspan=\"3\">";
-	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	print "</td></tr>";
-	print "</table>\n";
-
-	foreach (qw (db page name)) {
-		print $q->hidden($_);
-	}
-	print $q->end_form;
-	print "</div>\n";
+	$self->_print_interface( \@ids, \%labels );
 	return if !( $q->param('submit') && $q->param('sequence') );
 	@ids = $q->param('isolate_id');
 	if ( !@ids ) {
@@ -275,6 +187,105 @@ sub run {
 	}
 	close $fh_output;
 	close $fh_output_flanking;
+	print "</div>\n";
+}
+
+sub _print_interface {
+	my ( $self, $ids, $labels ) = @_;
+	my $q = $self->{'cgi'};
+	print "<div class=\"box\" id=\"queryform\">\n";
+	print "<p>Please select the required isolate ids to BLAST against (use ctrl or shift to make 
+	  multiple selections) and paste in your query sequence.  Nucleotide or peptide sequences can be queried.</p>\n";
+	print $q->start_form;
+	print "<div class=\"scrollable\">\n";
+	print "<fieldset>\n<legend>Isolates</legend>\n";
+	print $q->scrolling_list(
+		-name     => 'isolate_id',
+		-id       => 'isolate_id',
+		-values   => $ids,
+		-labels   => $labels,
+		-size     => 8,
+		-multiple => 'true'
+	);
+	print
+"<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"isolate_id\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
+	print
+"<input type=\"button\" onclick='listbox_selectall(\"isolate_id\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
+	print "</fieldset>\n";
+	
+	print "<fieldset><legend>Paste sequence</legend>\n";
+	print $q->textarea( -name => 'sequence', -rows => '8', -cols => '70' );
+	print "</fieldset>\n";
+
+	print "<fieldset>\n<legend>Parameters</legend>\n";
+	print "<ul><li><label for=\"word_size\" class=\"parameter\">BLASTN word size:</label>\n";
+	print $q->popup_menu(
+		-name    => 'word_size',
+		-id      => 'word_size',
+		-values  => [qw(7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28)],
+		-default => 11
+	);
+	print
+" <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a></li>";
+	print "<li><label for=\"hits\" class=\"parameter\">Hits per isolate:</label>\n";
+	print $q->popup_menu( -name => 'hits', -id => 'hits', -values => [qw(1 2 3 4 5 6 7 8 9 10 20 30 40 50)], -default => 1 );
+	print "</li>\n";
+	print "<li>\n"; 
+	print $q->checkbox( -name => 'tblastx', label => 'Use TBLASTX' );
+	print
+" <a class=\"tooltip\" title=\"TBLASTX - Compares the six-frame translation of your nucleotide query against the six-frame translation of the sequences in the sequence bin.\">&nbsp;<i>i</i>&nbsp;</a></li>";
+	print "</ul>\n";
+	print "</fieldset>\n";
+	
+	print "<fieldset>\n<legend>Restrict included sequences by</legend>\n";
+	print "<ul><li>\n";
+	print "<label for=\"seq_method\" class=\"parameter\">Sequence method:</label>\n";
+	print $q->popup_menu( -name => 'seq_method', -id=> 'seq_method', -values => [ '', SEQ_METHODS ] );
+	print
+" <a class=\"tooltip\" title=\"Sequence method - Only include sequences generated from the selected method.\">&nbsp;<i>i</i>&nbsp;</a></li>";
+	my @projects;
+	my $project_list = $self->{'datastore'}->run_list_query_hashref("SELECT id,short_description FROM projects ORDER BY short_description");
+	my %labels;
+
+	foreach (@$project_list) {
+		push @projects, $_->{'id'};
+		$labels{ $_->{'id'} } = $_->{'short_description'};
+	}
+	if (@projects) {
+		unshift @projects, '';
+		print "<li><label for=\"project\" class=\"parameter\">Project:</label>\n";
+		print $q->popup_menu( -name => 'project', -id => 'project', -values => \@projects, -labels => \%labels );
+		print
+" <a class=\"tooltip\" title=\"Projects - Filter isolate list to only include those belonging to a specific project.\">&nbsp;<i>i</i>&nbsp;</a></li>";
+	}
+	my $experiment_list = $self->{'datastore'}->run_list_query_hashref("SELECT id,description FROM experiments ORDER BY description");
+	my @experiments;
+	undef %labels;
+	foreach (@$experiment_list) {
+		push @experiments, $_->{'id'};
+		$labels{ $_->{'id'} } = $_->{'description'};
+	}
+	if (@experiments) {
+		unshift @experiments, '';
+		print "<li><label for=\"experiment\" class=\"parameter\">Experiment:</label>\n";
+		print $q->popup_menu( -name => 'experiment', -id => 'experiment', -values => \@experiments, -labels => \%labels );
+		print
+" <a class=\"tooltip\" title=\"Experiments - Only include sequences that have been linked to the specified experiment.\">&nbsp;<i>i</i>&nbsp;</a></li>";
+	}
+	print "</ul>\n</fieldset>\n";
+
+	
+	print "<table style=\"width:95%\"><tr><td style=\"text-align:left\">";
+	print
+"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=BLAST\" class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\" colspan=\"3\">";
+	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
+	print "</td></tr></table>\n";
+
+	foreach (qw (db page name)) {
+		print $q->hidden($_);
+	}
+	print "</div>\n";
+	print $q->end_form;
 	print "</div>\n";
 }
 
