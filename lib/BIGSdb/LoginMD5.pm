@@ -298,6 +298,11 @@ function calcMD5(str) { return binl2hex(coreMD5( str2binl(str))) }
 END_OF_JAVASCRIPT
 }
 
+sub set_pref_requirements {
+	my ($self) = @_;
+	$self->{'pref_requirements'} = { 'general' => 0, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 0 };
+}
+
 sub print_content {
 	my ($self) = @_;
 	print "<h1>Please log in";

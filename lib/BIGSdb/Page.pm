@@ -22,7 +22,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use Error qw(:try);
 use Time::HiRes qw(gettimeofday);
-use List::MoreUtils qw(uniq any);
+use List::MoreUtils qw(uniq any none);
 use base 'Exporter';
 use constant SEQ_METHODS => qw(Sanger Solexa 454 SOLiD PacBio other unknown);
 use constant SEQ_FLAGS   => ( 'ambiguous read', 'apparent misassembly', 'downstream fusion', 'frameshift', 'internal stop codon', 'no start codon', 'truncated', 'upstream fusion' );
@@ -2324,33 +2324,33 @@ sub _initiate_isolatedb_prefs {
 			}
 			$i++;
 		}
-
-		#Do scheme prefs for all pages since there should only be a few
+		return if none {$self->{'pref_requirements'}->{$_}} qw (isolate_display main_display query_field analysis);
+	
 		my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 		my $scheme_values = $self->{'prefstore'}->get_all_scheme_prefs( $guid, $dbname );
+		my $scheme_field_default_prefs = $self->{'datastore'}->get_all_scheme_field_default_prefs;
+		my $scheme_info = $self->{'datastore'}->get_all_scheme_info;
+		my $scheme_fields = $self->{'datastore'}->get_all_scheme_fields;
 		foreach my $scheme_id (@$scheme_ids) {
-			my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 			foreach my $action (qw(isolate_display main_display query_field query_status analysis)) {
 				if ( defined $scheme_values->{$scheme_id}->{$action} ) {
 					$self->{'prefs'}->{"$action\_schemes"}->{$scheme_id} = $scheme_values->{$scheme_id}->{$action} ? 1 : 0;
 				} else {
-					$logger->debug("Setting default $action scheme_field option for scheme $scheme_id");
-					$self->{'prefs'}->{"$action\_schemes"}->{$scheme_id} = $scheme_info->{$action};
+					$self->{'prefs'}->{"$action\_schemes"}->{$scheme_id} = $scheme_info->{$scheme_id}->{$action};
 				}
 			}
-			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-			foreach (@$scheme_fields) {
-				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $_ );
-				foreach my $action (qw(isolate_display main_display query_field)) {
-					if ( defined $scheme_field_prefs->{$scheme_id}->{$_}->{$action} ) {
-						$self->{'prefs'}->{"$action\_scheme_fields"}->{$scheme_id}->{$_} =
-						  $scheme_field_prefs->{$scheme_id}->{$_}->{$action} ? 1 : 0;
-					} else {
-						$logger->debug("Setting default $action scheme_field option for scheme_field $scheme_id: $_");
-						$self->{'prefs'}->{"$action\_scheme_fields"}->{$scheme_id}->{$_} = $scheme_field_info->{$action};
+			if (ref $scheme_fields->{$scheme_id} eq 'ARRAY'){
+				foreach (@{$scheme_fields->{$scheme_id}}) {
+					foreach my $action (qw(isolate_display main_display query_field)) {
+						if ( defined $scheme_field_prefs->{$scheme_id}->{$_}->{$action} ) {
+							$self->{'prefs'}->{"$action\_scheme_fields"}->{$scheme_id}->{$_} =
+							  $scheme_field_prefs->{$scheme_id}->{$_}->{$action} ? 1 : 0;
+						} else {
+							$self->{'prefs'}->{"$action\_scheme_fields"}->{$scheme_id}->{$_} = $scheme_field_default_prefs->{$scheme_id}->{$_}->{$action};
+						}
 					}
 				}
-			}
+			} 
 			my $field = "scheme_$scheme_id\_profile_status";
 			if ( defined $field_prefs->{$field}->{'dropdown'} ) {
 				$self->{'prefs'}->{'dropdownfields'}->{$field} = $field_prefs->{$field}->{'dropdown'};

@@ -69,9 +69,8 @@ sub _get_group_scheme_tables {
 	my $schemes = $self->{'datastore'}->run_list_query("SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON schemes.id=scheme_id WHERE group_id=? ORDER BY display_order",$id);
 	my $buffer;
 	if (@$schemes){
-		foreach my $scheme_id(@$schemes){
-			my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
-			$scheme_info->{'description'} =~ s/&/\&amp;/g;
+		foreach my $scheme_id (@$schemes){
+			next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};	
 			if (!$self->{'scheme_shown'}->{$scheme_id}){
 				( $td, my $field_buffer ) = $self->_get_scheme_fields( $scheme_id, $isolate_id, $locus_info,$locus_alias,$allele_designations, $allele_sequences, $allele_sequence_flags, $td, $self->{'curate'} ) ;			
 				$buffer.= $field_buffer;
@@ -95,12 +94,12 @@ sub print_content {
 		if ($group_id == 0){
 			$scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) ORDER BY display_order");
 			foreach (@$scheme_ids){
+				next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$_};	
 				my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
 				($td,$table_buffer)=$self->_get_scheme_fields( $_, $isolate_id, $locus_info,$locus_alias,$allele_designations, $allele_sequences, $allele_sequence_flags, 1, $self->{'curate'} );
 				$buffer.=$table_buffer;
 			}		
-		} else {
-			
+		} else {		
 			($td,$table_buffer)=$self->_get_group_scheme_tables($group_id,$isolate_id,$locus_info,$locus_alias,$allele_designations,$allele_sequences,$allele_sequence_flags,$td);
 			$buffer.=$table_buffer;
 			($td,$table_buffer)=$self->_get_child_group_scheme_tables($group_id,$isolate_id,$locus_info,$locus_alias,$allele_designations,$allele_sequences,$allele_sequence_flags,$td,1);
@@ -117,6 +116,7 @@ sub print_content {
 		if ($scheme_id == -1){
 			my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
 			foreach (@$schemes,0){
+				next if $_ && !$self->{'prefs'}->{'isolate_display_schemes'}->{$_};	
 				( $td, my $table_buffer ) = $self->_get_scheme_fields( $_, $isolate_id, $locus_info,$locus_alias,$allele_designations, $allele_sequences, $allele_sequence_flags, 1, $self->{'curate'} );
 				$buffer.=$table_buffer;
 			}
@@ -545,6 +545,7 @@ sub _get_tree {
 		my $data_exists = 0;
 		my $temp_buffer.= "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$id&amp;group_id=0\" rel=\"ajax\">Other schemes</a><ul>" if @$groups_with_no_parent; 
 		foreach (@$schemes_not_in_group){
+			next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$_->{'id'}};
 			$_->{'description'} =~ s/&/\&amp;/g;
 			my $scheme_data_exists = $self->_scheme_data_present($_->{'id'},$id);
 			if ($scheme_data_exists){
@@ -593,6 +594,7 @@ sub _get_group_schemes {
 	my $schemes = $self->{'datastore'}->run_list_query("SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON schemes.id=scheme_id WHERE group_id=? ORDER BY display_order",$id);
 	if (@$schemes){
 		foreach (@$schemes){
+			next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$_};		
 			my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
 			$scheme_info->{'description'} =~ s/&/\&amp;/g;
 			my $scheme_data_exists = $self->_scheme_data_present($_,$isolate_id);

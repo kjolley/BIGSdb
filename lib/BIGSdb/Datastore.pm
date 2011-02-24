@@ -328,6 +328,18 @@ sub get_scheme_info {
 	return $self->{'sql'}->{'scheme_info'}->fetchrow_hashref();
 }
 
+sub get_all_scheme_info {
+	#No need to cache as only called once
+	my ( $self ) = @_;
+	my $sql = $self->{'db'}->prepare("SELECT * FROM schemes");
+	eval { $sql->execute; };
+	if ($@) {
+		$self->{'db'}->rollback();
+		$logger->error($@);
+	}
+	return $sql->fetchall_hashref('id');
+}
+
 sub get_scheme_loci {
 
 	#if $analyse_pref flag is passed, only the loci for which the user has a analysis preference selected
@@ -438,6 +450,22 @@ sub get_scheme_fields {
 	return \@fields;
 }
 
+sub get_all_scheme_fields {
+	#No need to cache since this will only be called once.
+	my ( $self ) = @_;
+	my $sql	 =  $self->{'db'}->prepare("SELECT scheme_id,field FROM scheme_fields");
+	eval { $sql->execute; };
+	if ($@) {
+		$self->{'db'}->rollback();
+		$logger->error($@);
+	}
+	my $fields;
+	while ( my ($scheme_id,$field) = $sql->fetchrow_array) {
+		push @{$fields->{$scheme_id}}, $field;
+	}
+	return $fields;	
+}
+
 sub get_scheme_field_info {
 	my ( $self, $id, $field ) = @_;
 	if ( !$self->{'sql'}->{'scheme_field_info'} ) {
@@ -450,6 +478,26 @@ sub get_scheme_field_info {
 		$logger->error("Can't execute 'scheme_field_info' query");
 	}
 	return $self->{'sql'}->{'scheme_field_info'}->fetchrow_hashref();
+}
+
+sub get_all_scheme_field_default_prefs {
+	#No need to cache since this will only be called once.
+	my ( $self ) = @_;
+	my $sql = $self->{'db'}->prepare("SELECT scheme_id,field,main_display,isolate_display,query_field,dropdown FROM scheme_fields");
+	eval { $sql->execute; };
+	if ($@) {
+		$self->{'db'}->rollback();
+		$logger->error($@);
+	}
+	my $prefs;
+	my $data_ref = $sql->fetchall_arrayref;
+	my @fields = qw(main_display isolate_display query_field dropdown);
+	foreach (@{$data_ref}){
+		for my $i (0 .. 3){
+			$prefs->{$_->[0]}->{$_->[1]}->{$fields[$i]} = $_->[$i+2];
+		}
+	}
+	return $prefs;
 }
 
 sub get_scheme {
