@@ -197,7 +197,7 @@ sub _print_interface {
 	}
 	print $q->start_form( -onMouseMove => 'enable_seqs()' );
 	print "<div class=\"scrollable\">\n";
-	print "<fieldset>\n<legend>Isolates</legend>\n";
+	print "<fieldset style=\"float:left\">\n<legend>Isolates</legend>\n";
 	print $q->scrolling_list(
 		-name     => 'isolate_id',
 		-id       => 'isolate_id',
@@ -211,7 +211,7 @@ sub _print_interface {
 	print
 "<input type=\"button\" onclick='listbox_selectall(\"isolate_id\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
 	print "</fieldset>\n";
-	print "<fieldset>\n<legend>Loci</legend>\n";
+	print "<fieldset style=\"float:left\">\n<legend>Loci</legend>\n";
 	print $q->scrolling_list( -name => 'locus', -id => 'locus', -values => $loci, -labels => \%cleaned, -size => 8, -multiple => 'true' );
 	print
 "<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"locus\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
@@ -219,7 +219,7 @@ sub _print_interface {
 "<input type=\"button\" onclick='listbox_selectall(\"locus\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
 	print "</fieldset>\n";
 
-	print "<fieldset>\n<legend>Schemes</legend>\n";
+	print "<fieldset style=\"float:left\">\n<legend>Schemes</legend>\n";
 	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
 	my %scheme_desc;
 	foreach (@$schemes) {
@@ -242,7 +242,7 @@ sub _print_interface {
 "<input type=\"button\" onclick='listbox_selectall(\"scheme_id\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
 	print "</fieldset>\n";
 
-	print "<fieldset>\n<legend>Reference genome</legend>\n";
+	print "<fieldset style=\"float:left\">\n<legend>Reference genome</legend>\n";
 	print "<p>Enter accession number:</p>\n";
 	print $q->textfield(
 		-name      => 'accession',
@@ -256,7 +256,7 @@ sub _print_interface {
 " <a class=\"tooltip\" title=\"Reference genome - Use of a reference genome will override any locus or scheme settings.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "</fieldset>\n";
 
-	print "<fieldset>\n<legend>Parameters</legend>\n";
+	print "<fieldset style=\"float:left\">\n<legend>Parameters</legend>\n";
 	print "<ul><li><label for =\"identity\" class=\"parameter\">Min % identity:</label>\n";
 	print $q->popup_menu(
 		-name    => 'identity',
@@ -290,7 +290,7 @@ sub _print_interface {
 	print "</ul>\n";
 	print "</fieldset>\n";
 	
-	print "<fieldset>\n<legend>Restrict included sequences by</legend>\n";
+	print "<fieldset style=\"float:left\">\n<legend>Restrict included sequences by</legend>\n";
 	print "<table><tr><td style=\"text-align:right\">Sequence method: </td><td style=\"text-align:left\">";
 	print $q->popup_menu( -name => 'seq_method', -values => [ '', SEQ_METHODS ] );
 	print

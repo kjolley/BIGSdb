@@ -198,7 +198,7 @@ sub _print_interface {
 	  multiple selections) and paste in your query sequence.  Nucleotide or peptide sequences can be queried.</p>\n";
 	print $q->start_form;
 	print "<div class=\"scrollable\">\n";
-	print "<fieldset>\n<legend>Isolates</legend>\n";
+	print "<fieldset style=\"float:left\">\n<legend>Isolates</legend>\n";
 	print $q->scrolling_list(
 		-name     => 'isolate_id',
 		-id       => 'isolate_id',
@@ -213,11 +213,11 @@ sub _print_interface {
 "<input type=\"button\" onclick='listbox_selectall(\"isolate_id\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
 	print "</fieldset>\n";
 	
-	print "<fieldset><legend>Paste sequence</legend>\n";
+	print "<fieldset style=\"float:left\"><legend>Paste sequence</legend>\n";
 	print $q->textarea( -name => 'sequence', -rows => '8', -cols => '70' );
 	print "</fieldset>\n";
 
-	print "<fieldset>\n<legend>Parameters</legend>\n";
+	print "<fieldset style=\"float:left\">\n<legend>Parameters</legend>\n";
 	print "<ul><li><label for=\"word_size\" class=\"parameter\">BLASTN word size:</label>\n";
 	print $q->popup_menu(
 		-name    => 'word_size',
@@ -237,7 +237,7 @@ sub _print_interface {
 	print "</ul>\n";
 	print "</fieldset>\n";
 	
-	print "<fieldset>\n<legend>Restrict included sequences by</legend>\n";
+	print "<fieldset style=\"float:left\">\n<legend>Restrict included sequences by</legend>\n";
 	print "<ul><li>\n";
 	print "<label for=\"seq_method\" class=\"parameter\">Sequence method:</label>\n";
 	print $q->popup_menu( -name => 'seq_method', -id=> 'seq_method', -values => [ '', SEQ_METHODS ] );
