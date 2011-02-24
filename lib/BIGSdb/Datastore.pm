@@ -329,15 +329,17 @@ sub get_scheme_info {
 }
 
 sub get_all_scheme_info {
-	#No need to cache as only called once
 	my ( $self ) = @_;
-	my $sql = $self->{'db'}->prepare("SELECT * FROM schemes");
-	eval { $sql->execute; };
+	if ( !$self->{'sql'}->{'all_scheme_info'} ) {
+		$self->{'sql'}->{'all_scheme_info'} = $self->{'db'}->prepare("SELECT * FROM schemes");
+		$logger->info("Statement handle 'all_scheme_info' prepared.");
+	}
+	eval { $self->{'sql'}->{'all_scheme_info'}->execute; };
 	if ($@) {
 		$self->{'db'}->rollback();
 		$logger->error($@);
 	}
-	return $sql->fetchall_hashref('id');
+	return $self->{'sql'}->{'all_scheme_info'}->fetchall_hashref('id');
 }
 
 sub get_scheme_loci {
@@ -451,16 +453,18 @@ sub get_scheme_fields {
 }
 
 sub get_all_scheme_fields {
-	#No need to cache since this will only be called once.
 	my ( $self ) = @_;
-	my $sql	 =  $self->{'db'}->prepare("SELECT scheme_id,field FROM scheme_fields");
-	eval { $sql->execute; };
+	if ( !$self->{'sql'}->{'all_scheme_fields'} ) {
+		$self->{'sql'}->{'all_scheme_fields'} = $self->{'db'}->prepare("SELECT scheme_id,field FROM scheme_fields");
+		$logger->info("Statement handle 'scheme_fields' prepared.");
+	}
+	eval { $self->{'sql'}->{'all_scheme_fields'}->execute; };
 	if ($@) {
 		$self->{'db'}->rollback();
 		$logger->error($@);
 	}
 	my $fields;
-	while ( my ($scheme_id,$field) = $sql->fetchrow_array) {
+	while ( my ($scheme_id,$field) = $self->{'sql'}->{'all_scheme_fields'}->fetchrow_array) {
 		push @{$fields->{$scheme_id}}, $field;
 	}
 	return $fields;	
@@ -643,9 +647,12 @@ sub get_loci {
 
 	my ($self, $options) = @_;
 	my $defined_clause = $options->{'seq_defined'} ? 'WHERE dbase_name IS NOT NULL OR reference_sequence IS NOT NULL' : '';
-	my $order_clause = $options->{'do_not_order'} ? '' : 'order by scheme_members.scheme_id,id';
-	my $qry =
-"SELECT id,scheme_id from loci left join scheme_members on loci.id = scheme_members.locus $defined_clause $order_clause";
+	my $qry;
+	if ($options->{'do_not_order'}){
+		$qry = "SELECT id FROM loci $defined_clause";
+	} else {
+		$qry = "SELECT id,scheme_id from loci left join scheme_members on loci.id = scheme_members.locus $defined_clause order by scheme_members.scheme_id,id";
+	}
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute(); };
 	if ($@) {
@@ -653,14 +660,16 @@ sub get_loci {
 	}
 	my @query_loci;
 	my $array_ref = $sql->fetchall_arrayref;
-	foreach (@$array_ref) {
-		if ($options->{'query_pref'}) {
+	if ($options->{'query_pref'}) {
+		foreach (@$array_ref) {
 			if ( $self->{'prefs'}->{'query_field_loci'}->{ $_->[0] }
 				&& ( $self->{'prefs'}->{'query_field_schemes'}->{ $_->[1] } or !$_->[1] ) )
 			{
 				push @query_loci, $_->[0];
 			}
-		} else {
+		}
+	} else {
+		foreach (@$array_ref) {
 			push @query_loci, $_->[0];
 		}
 	}

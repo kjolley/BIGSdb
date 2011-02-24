@@ -417,21 +417,22 @@ sub get_field_selection_list {
 		push @values, uniq @locus_list;
 	}
 	if ( $options->{'scheme_fields'} ) {
-		my $qry = "SELECT id, description FROM schemes ORDER BY display_order,id";
+		my $qry = "SELECT id, description FROM schemes";
+		$qry .= " ORDER BY display_order,id" if !$options->{'sort_labels'};
 		my $sql = $self->{'db'}->prepare($qry);
 		eval { $sql->execute(); };
 		if ($@) {
 			$logger->error("Can't execute: $qry");
 		}
+		my $scheme_fields = $self->{'datastore'}->get_all_scheme_fields;
+		my $scheme_info = $self->{'datastore'}->get_all_scheme_info;
 		while ( my ( $scheme_id, $desc ) = $sql->fetchrow_array() ) {
-			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-			my $scheme_db     = $self->{'datastore'}->get_scheme_info($scheme_id)->{'dbase_name'};
-
+			my $scheme_db = $scheme_info->{$scheme_id}->{'dbase_name'};
 			#No point using scheme fields if no scheme database is available.
 			if (   $self->{'prefs'}->{'query_field_schemes'}->{$scheme_id}
 				&& $scheme_db )
 			{
-				foreach my $field (@$scheme_fields) {
+				foreach my $field (@{$scheme_fields->{$scheme_id}}) {
 					if ( $self->{'prefs'}->{'query_field_scheme_fields'}->{$scheme_id}->{$field} ) {
 						( $labels->{"s_$scheme_id\_$field"} = "$field ($desc)" ) =~ tr/_/ /;
 						push @values, "s_$scheme_id\_$field";
