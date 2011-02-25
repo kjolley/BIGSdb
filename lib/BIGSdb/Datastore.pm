@@ -485,14 +485,16 @@ sub get_scheme_field_info {
 sub get_all_scheme_field_default_prefs {
 	my ( $self ) = @_;
 	if (!$self->{'scheme_field_default_prefs'}){
-		my $sql = $self->{'db'}->prepare("SELECT scheme_id,field,main_display,isolate_display,query_field,dropdown FROM scheme_fields");
+		my @fields = $self->{'system'}->{'dbtype'} eq 'isolates' ? qw(main_display isolate_display query_field dropdown) : 'dropdown';
+		$"=',';
+		my $sql = $self->{'db'}->prepare("SELECT scheme_id,field,@fields FROM scheme_fields");
 		eval { $sql->execute; };
 		if ($@) {
 			$self->{'db'}->rollback();
 			$logger->error($@);
 		}
 		my $data_ref = $sql->fetchall_arrayref;
-		my @fields = qw(main_display isolate_display query_field dropdown);
+		
 		foreach (@{$data_ref}){
 			for my $i (0 .. 3){
 				$self->{'scheme_field_default_prefs'}->{$_->[0]}->{$_->[1]}->{$fields[$i]} = $_->[$i+2];
