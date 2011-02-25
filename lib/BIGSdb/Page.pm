@@ -2149,21 +2149,19 @@ sub initiate_prefs {
 	#Set dropdown status for scheme fields
 	if ( $self->{'pref_requirements'}->{'query_field'} ) {
 		my $guid = $self->get_guid || 1;
-
-		#my $guid       = $q->cookie( -name => 'guid' ) || 1;
 		my $dbname     = $self->{'system'}->{'db'};
 		my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+		my $scheme_fields = $self->{'datastore'}->get_all_scheme_fields;
+		my $scheme_field_default_prefs = $self->{'datastore'}->get_all_scheme_field_default_prefs;
 		foreach my $scheme_id (@$scheme_ids) {
-			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-			foreach (@$scheme_fields) {
+			foreach (@{$scheme_fields->{$scheme_id}}) {
 				foreach my $action (qw(dropdown)) {
 					if ( defined $scheme_field_prefs->{$scheme_id}->{$_}->{$action} ) {
 						$self->{'prefs'}->{"$action\_scheme_fields"}->{$scheme_id}->{$_} =
 						  $scheme_field_prefs->{$scheme_id}->{$_}->{$action} ? 1 : 0;
 					} else {
-						$logger->debug("Setting default $action scheme_field option for scheme_field $scheme_id: $_");
 						$self->{'prefs'}->{"$action\_scheme_fields"}->{$scheme_id}->{$_} =
-						  $self->{'datastore'}->get_scheme_field_info( $scheme_id, $_ )->{$action};
+						  $scheme_field_default_prefs->{$scheme_id}->{$_}->{$action};
 					}
 				}
 			}

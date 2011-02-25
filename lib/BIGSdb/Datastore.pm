@@ -485,16 +485,17 @@ sub get_scheme_field_info {
 }
 
 sub get_all_scheme_field_default_prefs {
-	#No need to cache since this will only be called once.
 	my ( $self ) = @_;
-	my $sql = $self->{'db'}->prepare("SELECT scheme_id,field,main_display,isolate_display,query_field,dropdown FROM scheme_fields");
-	eval { $sql->execute; };
+	if ( !$self->{'sql'}->{'all_scheme_field_default_prefs'} ) {
+		$self->{'sql'}->{'all_scheme_field_default_prefs'} = $self->{'db'}->prepare("SELECT scheme_id,field,main_display,isolate_display,query_field,dropdown FROM scheme_fields");
+	}
+	eval { $self->{'sql'}->{'all_scheme_field_default_prefs'}->execute; };
 	if ($@) {
 		$self->{'db'}->rollback();
 		$logger->error($@);
 	}
 	my $prefs;
-	my $data_ref = $sql->fetchall_arrayref;
+	my $data_ref = $self->{'sql'}->{'all_scheme_field_default_prefs'}->fetchall_arrayref;
 	my @fields = qw(main_display isolate_display query_field dropdown);
 	foreach (@{$data_ref}){
 		for my $i (0 .. 3){
