@@ -330,16 +330,16 @@ sub get_scheme_info {
 
 sub get_all_scheme_info {
 	my ( $self ) = @_;
-	if ( !$self->{'sql'}->{'all_scheme_info'} ) {
-		$self->{'sql'}->{'all_scheme_info'} = $self->{'db'}->prepare("SELECT * FROM schemes");
-		$logger->info("Statement handle 'all_scheme_info' prepared.");
+	if ( !$self->{'all_scheme_info'} ) {
+		my $sql = $self->{'db'}->prepare("SELECT * FROM schemes");
+		eval { $sql->execute; };
+		if ($@) {
+			$self->{'db'}->rollback();
+			$logger->error($@);
+		}
+		$self->{'all_scheme_info'} = $sql->fetchall_hashref('id');
 	}
-	eval { $self->{'sql'}->{'all_scheme_info'}->execute; };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error($@);
-	}
-	return $self->{'sql'}->{'all_scheme_info'}->fetchall_hashref('id');
+	return $self->{'all_scheme_info'};
 }
 
 sub get_scheme_loci {
@@ -454,20 +454,18 @@ sub get_scheme_fields {
 
 sub get_all_scheme_fields {
 	my ( $self ) = @_;
-	if ( !$self->{'sql'}->{'all_scheme_fields'} ) {
-		$self->{'sql'}->{'all_scheme_fields'} = $self->{'db'}->prepare("SELECT scheme_id,field FROM scheme_fields ORDER BY field_order");
-		$logger->info("Statement handle 'scheme_fields' prepared.");
+	if ( !$self->{'all_scheme_fields'} ) {
+		my $sql = $self->{'db'}->prepare("SELECT scheme_id,field FROM scheme_fields ORDER BY field_order");
+		eval { $sql->execute; };
+		if ($@) {
+			$self->{'db'}->rollback();
+			$logger->error($@);
+		}
+		while ( my ($scheme_id,$field) = $sql->fetchrow_array) {
+			push @{$self->{'all_scheme_fields'}->{$scheme_id}}, $field;
+		}
 	}
-	eval { $self->{'sql'}->{'all_scheme_fields'}->execute; };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error($@);
-	}
-	my $fields;
-	while ( my ($scheme_id,$field) = $self->{'sql'}->{'all_scheme_fields'}->fetchrow_array) {
-		push @{$fields->{$scheme_id}}, $field;
-	}
-	return $fields;	
+	return $self->{'all_scheme_fields'};	
 }
 
 sub get_scheme_field_info {
@@ -486,23 +484,22 @@ sub get_scheme_field_info {
 
 sub get_all_scheme_field_default_prefs {
 	my ( $self ) = @_;
-	if ( !$self->{'sql'}->{'all_scheme_field_default_prefs'} ) {
-		$self->{'sql'}->{'all_scheme_field_default_prefs'} = $self->{'db'}->prepare("SELECT scheme_id,field,main_display,isolate_display,query_field,dropdown FROM scheme_fields");
-	}
-	eval { $self->{'sql'}->{'all_scheme_field_default_prefs'}->execute; };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error($@);
-	}
-	my $prefs;
-	my $data_ref = $self->{'sql'}->{'all_scheme_field_default_prefs'}->fetchall_arrayref;
-	my @fields = qw(main_display isolate_display query_field dropdown);
-	foreach (@{$data_ref}){
-		for my $i (0 .. 3){
-			$prefs->{$_->[0]}->{$_->[1]}->{$fields[$i]} = $_->[$i+2];
+	if (!$self->{'scheme_field_default_prefs'}){
+		my $sql = $self->{'db'}->prepare("SELECT scheme_id,field,main_display,isolate_display,query_field,dropdown FROM scheme_fields");
+		eval { $sql->execute; };
+		if ($@) {
+			$self->{'db'}->rollback();
+			$logger->error($@);
+		}
+		my $data_ref = $sql->fetchall_arrayref;
+		my @fields = qw(main_display isolate_display query_field dropdown);
+		foreach (@{$data_ref}){
+			for my $i (0 .. 3){
+				$self->{'scheme_field_default_prefs'}->{$_->[0]}->{$_->[1]}->{$fields[$i]} = $_->[$i+2];
+			}
 		}
 	}
-	return $prefs;
+	return $self->{'scheme_field_default_prefs'};
 }
 
 sub get_scheme {
