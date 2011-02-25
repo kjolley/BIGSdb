@@ -343,103 +343,115 @@ sub get_field_selection_list {
 		$logger->error("Invalid option hashref");
 		return;
 	}
-	my $labels;
 	my @values;
 	my $extended = $self->get_extended_attributes if $options->{'extended_attributes'};
 	if ( $options->{'isolate_fields'} ) {
-		my $fields     = $self->{'xmlHandler'}->get_field_list;
-		my $attributes = $self->{'xmlHandler'}->get_all_field_attributes;
-		foreach (@$fields) {
-			if (   ( $options->{'sender_attributes'} )
-				&& ( $_ eq 'sender' || $_ eq 'curator' || ( $attributes->{$_}->{'userfield'} eq 'yes' ) ) )
-			{
-				foreach my $user_attribute (qw (id surname first_name affiliation)) {
-					push @values, "f_$_ ($user_attribute)";
-					( $labels->{"f_$_ ($user_attribute)"} = "$_ ($user_attribute)" ) =~ tr/_/ /;
-				}
-			} else {
-				push @values, "f_$_";
-				( $labels->{"f_$_"} = $_ ) =~ tr/_/ /;
-				if ( $options->{'extended_attributes'} ) {
-					my $extatt = $extended->{$_};
-					if ( ref $extatt eq 'ARRAY' ) {
-						foreach my $extended_attribute (@$extatt) {
-							push @values, "e_$_||$extended_attribute";
-							$labels->{"e_$_||$extended_attribute"} = "$_..$extended_attribute";
+		if (!$self->{'cache'}->{'isolate_fields'}){
+			my @isolate_list;
+			my $fields     = $self->{'xmlHandler'}->get_field_list;
+			my $attributes = $self->{'xmlHandler'}->get_all_field_attributes;
+			foreach (@$fields) {
+				if (   ( $options->{'sender_attributes'} )
+					&& ( $_ eq 'sender' || $_ eq 'curator' || ( $attributes->{$_}->{'userfield'} eq 'yes' ) ) )
+				{
+					foreach my $user_attribute (qw (id surname first_name affiliation)) {
+						push @isolate_list, "f_$_ ($user_attribute)";
+						( $self->{'cache'}->{'labels'}->{"f_$_ ($user_attribute)"} = "$_ ($user_attribute)" ) =~ tr/_/ /;
+					}
+				} else {
+					push @isolate_list, "f_$_";
+					( $self->{'cache'}->{'labels'}->{"f_$_"} = $_ ) =~ tr/_/ /;
+					if ( $options->{'extended_attributes'} ) {
+						my $extatt = $extended->{$_};
+						if ( ref $extatt eq 'ARRAY' ) {
+							foreach my $extended_attribute (@$extatt) {
+								push @isolate_list, "e_$_||$extended_attribute";
+								$self->{'cache'}->{'labels'}->{"e_$_||$extended_attribute"} = "$_..$extended_attribute";
+							}
 						}
 					}
 				}
 			}
+			$self->{'cache'}->{'isolate_fields'} = \@isolate_list;
 		}
+		push @values, @{$self->{'cache'}->{'isolate_fields'}};
 	}
 	if ( $options->{'loci'} ) {
-		my @locus_list;
-		my $qry    = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
-		my $cn_sql = $self->{'db'}->prepare($qry);
-		eval { $cn_sql->execute; };
-		if ($@) {
-			$logger->error("Can't execute $@");
-		}
-		my $common_names = $cn_sql->fetchall_hashref('id');
-		my $loci = $options->{'all_loci'} ? $self->{'datastore'}->get_loci({ 'query_pref' => 0, 'seq_defined' => 0, 'do_not_order' => 1 }) : $self->{'datastore'}->get_loci({ 'query_pref' => 1, 'seq_defined' => 0, 'do_not_order' => 1 });
-		foreach (@$loci) {
-			push @locus_list, "l_$_";
-			$labels->{"l_$_"} = $_;
-			if ( $common_names->{$_}->{'common_name'} ) {
-				$labels->{"l_$_"} .= " ($common_names->{$_}->{'common_name'})";
-				push @locus_list, "cn_$_";
-				$labels->{"cn_$_"} = "$common_names->{$_}->{'common_name'} ($_)";
-				$labels->{"cn_$_"} =~ tr/_/ /;
-			}
-			$labels->{"l_$_"} =~ tr/_/ /;
-		}
-		if ( $self->{'prefs'}->{'locus_alias'} ) {
-			my $qry       = "SELECT locus,alias FROM locus_aliases";
-			my $alias_sql = $self->{'db'}->prepare($qry);
-			eval { $alias_sql->execute; };
+		if (!$self->{'cache'}->{'loci'}){
+			my @locus_list;
+			my $qry    = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
+			my $cn_sql = $self->{'db'}->prepare($qry);
+			eval { $cn_sql->execute; };
 			if ($@) {
 				$logger->error("Can't execute $@");
-			} else {
-				my $array_ref = $alias_sql->fetchall_arrayref;
-				foreach (@$array_ref) {
-					my ( $locus, $alias ) = @$_;
-
-					#if there is no label for the primary name it is because the locus
-					#should not be displayed
-					next if !$labels->{"l_$locus"};
-					$alias =~ tr/_/ /;
-					push @locus_list, "la_$locus||$alias";
-					$labels->{"la_$locus||$alias"} = "$alias [" . ( $labels->{"l_$locus"} ) . ']';
-				}
 			}
-		}
-		@locus_list = sort { lc( $labels->{$a} ) cmp lc( $labels->{$b} ) } @locus_list;
-		push @values, uniq @locus_list;
-	}
-	if ( $options->{'scheme_fields'} ) {
-		my $qry = "SELECT id, description FROM schemes";
-		$qry .= " ORDER BY display_order,id" if !$options->{'sort_labels'};
-		my $sql = $self->{'db'}->prepare($qry);
-		eval { $sql->execute(); };
-		if ($@) {
-			$logger->error("Can't execute: $qry");
-		}
-		my $scheme_fields = $self->{'datastore'}->get_all_scheme_fields;
-		my $scheme_info = $self->{'datastore'}->get_all_scheme_info;
-		while ( my ( $scheme_id, $desc ) = $sql->fetchrow_array() ) {
-			my $scheme_db = $scheme_info->{$scheme_id}->{'dbase_name'};
-			#No point using scheme fields if no scheme database is available.
-			if (   $self->{'prefs'}->{'query_field_schemes'}->{$scheme_id}
-				&& $scheme_db )
-			{
-				foreach my $field (@{$scheme_fields->{$scheme_id}}) {
-					if ( $self->{'prefs'}->{'query_field_scheme_fields'}->{$scheme_id}->{$field} ) {
-						( $labels->{"s_$scheme_id\_$field"} = "$field ($desc)" ) =~ tr/_/ /;
-						push @values, "s_$scheme_id\_$field";
+			my $common_names = $cn_sql->fetchall_hashref('id');
+			my $loci = $options->{'all_loci'} ? $self->{'datastore'}->get_loci({ 'query_pref' => 0, 'seq_defined' => 0, 'do_not_order' => 1 }) : $self->{'datastore'}->get_loci({ 'query_pref' => 1, 'seq_defined' => 0, 'do_not_order' => 1 });
+			foreach (@$loci) {
+				push @locus_list, "l_$_";
+				$self->{'cache'}->{'labels'}->{"l_$_"} = $_;
+				if ( $common_names->{$_}->{'common_name'} ) {
+					$self->{'cache'}->{'labels'}->{"l_$_"} .= " ($common_names->{$_}->{'common_name'})";
+					push @locus_list, "cn_$_";
+					$self->{'cache'}->{'labels'}->{"cn_$_"} = "$common_names->{$_}->{'common_name'} ($_)";
+					$self->{'cache'}->{'labels'}->{"cn_$_"} =~ tr/_/ /;
+				}
+				$self->{'cache'}->{'labels'}->{"l_$_"} =~ tr/_/ /;
+			}
+			if ( $self->{'prefs'}->{'locus_alias'} ) {
+				my $qry       = "SELECT locus,alias FROM locus_aliases";
+				my $alias_sql = $self->{'db'}->prepare($qry);
+				eval { $alias_sql->execute; };
+				if ($@) {
+					$logger->error("Can't execute $@");
+				} else {
+					my $array_ref = $alias_sql->fetchall_arrayref;
+					foreach (@$array_ref) {
+						my ( $locus, $alias ) = @$_;
+	
+						#if there is no label for the primary name it is because the locus
+						#should not be displayed
+						next if !$self->{'cache'}->{'labels'}->{"l_$locus"};
+						$alias =~ tr/_/ /;
+						push @locus_list, "la_$locus||$alias";
+						$self->{'cache'}->{'labels'}->{"la_$locus||$alias"} = "$alias [" . ( $self->{'cache'}->{'labels'}->{"l_$locus"} ) . ']';
 					}
 				}
 			}
+			@locus_list = sort { lc( $self->{'cache'}->{'labels'}->{$a} ) cmp lc( $self->{'cache'}->{'labels'}->{$b} ) } @locus_list;
+			@locus_list = uniq @locus_list;
+			$self->{'cache'}->{'loci'} = \@locus_list;
 		}
+		push @values, @{$self->{'cache'}->{'loci'}};
+	}
+	if ( $options->{'scheme_fields'} ) {
+		if (!$self->{'cache'}->{'scheme_fields'}){
+			my @scheme_field_list;
+			my $qry = "SELECT id, description FROM schemes ORDER BY display_order,id";
+			my $sql = $self->{'db'}->prepare($qry);
+			eval { $sql->execute(); };
+			if ($@) {
+				$logger->error("Can't execute: $qry");
+			}
+			my $scheme_fields = $self->{'datastore'}->get_all_scheme_fields;
+			my $scheme_info = $self->{'datastore'}->get_all_scheme_info;
+			while ( my ( $scheme_id, $desc ) = $sql->fetchrow_array() ) {
+				my $scheme_db = $scheme_info->{$scheme_id}->{'dbase_name'};
+				#No point using scheme fields if no scheme database is available.
+				if (   $self->{'prefs'}->{'query_field_schemes'}->{$scheme_id}
+					&& $scheme_db )
+				{
+					foreach my $field (@{$scheme_fields->{$scheme_id}}) {
+						if ( $self->{'prefs'}->{'query_field_scheme_fields'}->{$scheme_id}->{$field} ) {
+							( $self->{'cache'}->{'labels'}->{"s_$scheme_id\_$field"} = "$field ($desc)" ) =~ tr/_/ /;
+							push @scheme_field_list, "s_$scheme_id\_$field";
+						}
+					}
+				}
+			}
+			$self->{'cache'}->{'scheme_fields'} = \@scheme_field_list;
+		}
+		push @values, @{$self->{'cache'}->{'scheme_fields'}};
 	}
 	if ( $options->{'sort_labels'} ) {
 
@@ -447,12 +459,12 @@ sub get_field_selection_list {
 		@values = map { $_->[0] }
 		  sort { $a->[1] cmp $b->[1] }
 		  map {
-			my $d = lc( $labels->{$_} );
+			my $d = lc( $self->{'cache'}->{'labels'}->{$_} );
 			$d =~ s/[\W_]+//g;
 			[ $_, $d ]
 		  } uniq @values;
 	}
-	return \@values, $labels;
+	return \@values, $self->{'cache'}->{'labels'};
 }
 
 sub _print_footer {
