@@ -342,12 +342,29 @@ sub get_all_scheme_info {
 	return $self->{'all_scheme_info'};
 }
 
-sub get_scheme_loci {
+sub get_all_scheme_loci {
+	my ($self) = @_;
+	my $sql = $self->{'db'}->prepare("SELECT scheme_id,locus FROM scheme_members ORDER BY field_order,locus");
+	eval { $sql->execute; };
+	if ($@) {
+		$self->{'db'}->rollback;
+		$logger->error($@);
+	}
+	my $loci;
+	my $data = $sql->fetchall_arrayref;
+	foreach (@{$data}){
+		push @{$loci->{$_->[0]}}, $_->[1];
+	}
+	return $loci;	
+}
 
-	#if $analyse_pref flag is passed, only the loci for which the user has a analysis preference selected
-	#will be returned
-	#set $profile_name =1 to substitute profile field value in query
-	my ( $self, $id, $use_profile_name, $analyse_pref ) = @_;
+sub get_scheme_loci {
+	#options passed as hashref:
+	#analyse_pref: only the loci for which the user has a analysis preference selected will be returned
+	#profile_name: to substitute profile field value in query
+	#	({'profile_name' => 1, 'analyse_prefs' => 1})
+	my ($self, $id, $options) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my @field_names = 'locus';
 	push @field_names, 'profile_name' if $self->{'system'}->{'dbtype'} eq 'isolates';
 	if ( !$self->{'sql'}->{'scheme_loci'} ) {
@@ -363,18 +380,18 @@ sub get_scheme_loci {
 	}
 	my @loci;
 	while ( my ( $locus, $profile_name ) = $self->{'sql'}->{'scheme_loci'}->fetchrow_array() ) {
-		if ($analyse_pref) {
+		if ($options->{'analyse_pref'}) {
 			if (   $self->{'prefs'}->{'analysis_loci'}->{$locus}
 				&& $self->{'prefs'}->{'analysis_schemes'}->{$id} )
 			{
-				if ($use_profile_name) {
+				if ($options->{'profile_name'}) {
 					push @loci, $profile_name || $locus;
 				} else {
 					push @loci, $locus;
 				}
 			}
 		} else {
-			if ($use_profile_name) {
+			if ($options->{'profile_name'}) {
 				push @loci, $profile_name || $locus;
 			} else {
 				push @loci, $locus;
@@ -461,8 +478,9 @@ sub get_all_scheme_fields {
 			$self->{'db'}->rollback();
 			$logger->error($@);
 		}
-		while ( my ($scheme_id,$field) = $sql->fetchrow_array) {
-			push @{$self->{'all_scheme_fields'}->{$scheme_id}}, $field;
+		my $data = $sql->fetchall_arrayref;
+		foreach (@{$data}){
+			push @{$self->{'all_scheme_fields'}->{$_->[0]}}, $_->[1];
 		}
 	}
 	return $self->{'all_scheme_fields'};	
@@ -524,7 +542,7 @@ sub get_scheme {
 			};
 		}
 		$attributes->{'fields'} = $self->get_scheme_fields($id);
-		$attributes->{'loci'} = $self->get_scheme_loci( $id, 1 );
+		$attributes->{'loci'} = $self->get_scheme_loci( $id, ({'profile_name' => 1, 'analyse_prefs' => 0}) );
 		$attributes->{'primary_keys'} =
 		  $self->run_list_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key ORDER BY field_order", $id );
 		$self->{'scheme'}->{$id} = BIGSdb::Scheme->new(%$attributes);

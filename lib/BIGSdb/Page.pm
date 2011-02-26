@@ -1350,12 +1350,11 @@ sub _print_isolate_table {
 	}
 	my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
 	my $schemes;
-	my $scheme_loci;
 	my $scheme_fields = $self->{'datastore'}->get_all_scheme_fields;
 	my $scheme_field_info = $self->{'datastore'}->get_all_scheme_field_info;
+	my $scheme_loci = $self->{'datastore'}->get_all_scheme_loci;
 	foreach (@$scheme_ids) {
 		$schemes->{$_}       = $self->{'datastore'}->get_scheme($_);
-		$scheme_loci->{$_}   = $self->{'datastore'}->get_scheme_loci($_);
 	}
 	$scheme_loci->{0} = $self->{'datastore'}->get_loci_in_no_scheme;
 	my $field_attributes;
@@ -1498,7 +1497,7 @@ sub _print_isolate_table {
 							}
 						}
 					}
-					$self->_print_pending_tooltip( $id, $_ ) if $self->{'prefs'}->{'display_pending_main'};
+					$self->_print_pending_tooltip( $id, $_ ) if $self->{'prefs'}->{'display_pending_main'} && defined $alleles->{$_}->{'allele_id'};
 					my $action = exists $alleles->{$_}->{'allele_id'} ? 'update' : 'add';
 					print
 " <a href=\"$self->{'system'}->{'script_name'}?page=alleleUpdate&amp;db=$self->{'instance'}&amp;isolate_id=$id&amp;locus=$_\" class=\"update\">$action</a>"
@@ -1709,44 +1708,49 @@ sub _print_isolate_table_header {
 	}
 	my $common_names = $cn_sql->fetchall_hashref('id');
 	$" = '; ';
+	my $scheme_loci = $self->{'datastore'}->get_all_scheme_loci;
+	my $scheme_info = $self->{'datastore'}->get_all_scheme_info;
+	my $scheme_fields = $self->{'datastore'}->get_all_scheme_fields;
 	foreach my $scheme_id (@$scheme_ids) {
 		next if !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};
 		my @scheme_header;
-		my $scheme = $self->{'datastore'}->get_scheme_info($scheme_id);
-		my $loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
-		foreach (@$loci) {
-			if ( $self->{'prefs'}->{'main_display_loci'}->{$_} ) {
-				$_ =~ tr/_/ /;
-				my $locus_header = $_;
-				if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-					$_ =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-				}
-				my @aliases;
-				push @aliases, $common_names->{$_}->{'common_name'} if $common_names->{$_}->{'common_name'};
-				if ( $self->{'prefs'}->{'locus_alias'} ) {
-					eval { $alias_sql->execute($_); };
-					if ($@) {
-						$logger->error("Can't execute alias check $@");
-					} else {
-						while ( my ($alias) = $alias_sql->fetchrow_array ) {
-							push @aliases, $alias;
-						}
+		if (ref $scheme_loci->{$scheme_id} eq 'ARRAY'){
+			foreach (@{$scheme_loci->{$scheme_id}}) {
+				if ( $self->{'prefs'}->{'main_display_loci'}->{$_} ) {
+					$_ =~ tr/_/ /;
+					my $locus_header = $_;
+					if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
+						$_ =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
 					}
-					$" = ', ';
-					$locus_header .= " <span class=\"comment\">(@aliases)</span>" if @aliases;
+					my @aliases;
+					push @aliases, $common_names->{$_}->{'common_name'} if $common_names->{$_}->{'common_name'};
+					if ( $self->{'prefs'}->{'locus_alias'} ) {
+						eval { $alias_sql->execute($_); };
+						if ($@) {
+							$logger->error("Can't execute alias check $@");
+						} else {
+							while ( my ($alias) = $alias_sql->fetchrow_array ) {
+								push @aliases, $alias;
+							}
+						}
+						$" = ', ';
+						$locus_header .= " <span class=\"comment\">(@aliases)</span>" if @aliases;
+					}
+					push @scheme_header, $locus_header;
 				}
-				push @scheme_header, $locus_header;
 			}
 		}
-		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-		foreach (@$scheme_fields) {
-			if ( $self->{'prefs'}->{'main_display_scheme_fields'}->{$scheme_id}->{$_} ) {
-				$_ =~ tr/_/ /;
-				push @scheme_header, $_;
+		if (ref $scheme_fields->{$scheme_id} eq 'ARRAY'){
+			foreach (@{$scheme_fields->{$scheme_id}}) {
+				if ( $self->{'prefs'}->{'main_display_scheme_fields'}->{$scheme_id}->{$_} ) {
+					my $field = $_;
+					$field =~ tr/_/ /;
+					push @scheme_header, $field;
+				}
 			}
 		}
 		if ( scalar @scheme_header ) {
-			$fieldtype_header .= "<th colspan=\"" . scalar @scheme_header . "\">$scheme->{'description'}</th>";
+			$fieldtype_header .= "<th colspan=\"" . scalar @scheme_header . "\">$scheme_info->{$scheme_id}->{'description'}</th>";
 		}
 		$" = '</th><th>';
 		$header_buffer .= "<th>@scheme_header</th>" if @scheme_header;
