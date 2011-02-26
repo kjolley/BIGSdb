@@ -72,7 +72,9 @@ sub get_profile_by_primary_keys {
 }
 
 sub get_field_values_by_profile {
-	my ( $self, $profile ) = @_;
+	my ( $self, $profile, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	#Note that when returning a hashref that field names will always be lower-case!
 	if ( !$self->{'db'} ) {
 		$logger->debug("No connection to scheme database");
 		return;
@@ -99,7 +101,10 @@ sub get_field_values_by_profile {
 		throw BIGSdb::DatabaseConfigurationException("Scheme configuration error");
 		return \@;;
 	} else {
-		my @values = $self->{'sql'}->{'scheme_fields'}->fetchrow_array();
+		if ($options->{'return_hashref'}){
+			return $self->{'sql'}->{'scheme_fields'}->fetchrow_hashref;
+		}
+		my @values = $self->{'sql'}->{'scheme_fields'}->fetchrow_array;
 		return \@values;
 	}
 }

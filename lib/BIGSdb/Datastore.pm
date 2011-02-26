@@ -482,10 +482,10 @@ sub get_scheme_field_info {
 	return $self->{'sql'}->{'scheme_field_info'}->fetchrow_hashref();
 }
 
-sub get_all_scheme_field_default_prefs {
+sub get_all_scheme_field_info {
 	my ( $self ) = @_;
-	if (!$self->{'scheme_field_default_prefs'}){
-		my @fields = $self->{'system'}->{'dbtype'} eq 'isolates' ? qw(main_display isolate_display query_field dropdown) : 'dropdown';
+	if (!$self->{'all_scheme_field_info'}){
+		my @fields = $self->{'system'}->{'dbtype'} eq 'isolates' ? qw(main_display isolate_display query_field dropdown url) : 'dropdown';
 		$"=',';
 		my $sql = $self->{'db'}->prepare("SELECT scheme_id,field,@fields FROM scheme_fields");
 		eval { $sql->execute; };
@@ -496,12 +496,12 @@ sub get_all_scheme_field_default_prefs {
 		my $data_ref = $sql->fetchall_arrayref;
 		
 		foreach (@{$data_ref}){
-			for my $i (0 .. 3){
-				$self->{'scheme_field_default_prefs'}->{$_->[0]}->{$_->[1]}->{$fields[$i]} = $_->[$i+2];
+			for my $i (0 .. (scalar @fields-1)){
+				$self->{'all_scheme_field_info'}->{$_->[0]}->{$_->[1]}->{$fields[$i]} = $_->[$i+2];
 			}
 		}
 	}
-	return $self->{'scheme_field_default_prefs'};
+	return $self->{'all_scheme_field_info'};
 }
 
 sub get_scheme {

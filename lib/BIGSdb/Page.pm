@@ -1351,17 +1351,11 @@ sub _print_isolate_table {
 	my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
 	my $schemes;
 	my $scheme_loci;
-	my $scheme_fields;
-	my $scheme_field_info;
+	my $scheme_fields = $self->{'datastore'}->get_all_scheme_fields;
+	my $scheme_field_info = $self->{'datastore'}->get_all_scheme_field_info;
 	foreach (@$scheme_ids) {
 		$schemes->{$_}       = $self->{'datastore'}->get_scheme($_);
 		$scheme_loci->{$_}   = $self->{'datastore'}->get_scheme_loci($_);
-		$scheme_fields->{$_} = $self->{'datastore'}->get_scheme_fields($_);
-		my $i = 0;
-		foreach my $scheme_field ( @{ $scheme_fields->{$_} } ) {
-			$scheme_field_info->{$_}->[$i] = $self->{'datastore'}->get_scheme_field_info( $_, $scheme_field );
-			$i++;
-		}
 	}
 	$scheme_loci->{0} = $self->{'datastore'}->get_loci_in_no_scheme;
 	my $field_attributes;
@@ -1451,27 +1445,27 @@ sub _print_isolate_table {
 		}
 
 		#Print loci and scheme fields
+		my $alleles = $self->{'datastore'}->get_all_allele_designations( $id);
 		foreach my $scheme_id ( @$scheme_ids, 0 ) {
 			next
 			  if !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id} && $scheme_id;
 			my @profile;
 			foreach ( @{ $scheme_loci->{$scheme_id} } ) {
 				next if !$self->{'prefs'}->{'main_display_loci'}->{$_} && ( !$scheme_id || !@{ $scheme_fields->{$scheme_id} } );
-				my $allele = $self->{'datastore'}->get_allele_designation( $id, $_ );
 				if ( $self->{'prefs'}->{'main_display_loci'}->{$_} ) {
 					print "<td>";
 					print "<span class=\"provisional\">"
-					  if $allele->{'status'} eq 'provisional'
+					  if $alleles->{$_}->{'status'} eq 'provisional'
 						  && $self->{'prefs'}->{'mark_provisional_main'};
 					if ( $self->{'prefs'}->{'hyperlink_loci'} ) {
 						my $url = $url{$_};
-						$url =~ s/\[\?\]/$allele->{'allele_id'}/g;
-						print $url ? "<a href=\"$url\">$allele->{'allele_id'}</a>" : "$allele->{'allele_id'}";
+						$url =~ s/\[\?\]/$alleles->{$_}->{'allele_id'}/g;
+						print $url ? "<a href=\"$url\">$alleles->{$_}->{'allele_id'}</a>" : "$alleles->{$_}->{'allele_id'}";
 					} else {
-						print "$allele->{'allele_id'}";
+						print "$alleles->{$_}->{'allele_id'}";
 					}
 					print "</span>"
-					  if $allele->{'status'} eq 'provisional'
+					  if $alleles->{$_}->{'status'} eq 'provisional'
 						  && $self->{'prefs'}->{'mark_provisional_main'};
 					if ( $self->{'prefs'}->{'sequence_details_main'} && keys %{ $allele_sequences->{$_} } > 0 ) {
 						my @seqs;
@@ -1494,7 +1488,7 @@ sub _print_isolate_table {
 							$cleaned_locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
 						}
 						$cleaned_locus =~ tr/_/ /;
-						my $sequence_tooltip = $self->get_sequence_details_tooltip( $cleaned_locus, $allele, \@seqs, \@flags );
+						my $sequence_tooltip = $self->get_sequence_details_tooltip( $cleaned_locus, $alleles->{$_}, \@seqs, \@flags );
 						my $sequence_class = $complete ? 'sequence_tooltip' : 'sequence_tooltip_incomplete';
 						print
 "<span style=\"font-size:0.2em\"> </span><a class=\"$sequence_class\" title=\"$sequence_tooltip\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleSequence&amp;id=$data{'id'}&amp;locus=$_\">&nbsp;S&nbsp;</a>";
@@ -1505,39 +1499,39 @@ sub _print_isolate_table {
 						}
 					}
 					$self->_print_pending_tooltip( $id, $_ ) if $self->{'prefs'}->{'display_pending_main'};
-					my $action = exists $allele->{'allele_id'} ? 'update' : 'add';
+					my $action = exists $alleles->{$_}->{'allele_id'} ? 'update' : 'add';
 					print
 " <a href=\"$self->{'system'}->{'script_name'}?page=alleleUpdate&amp;db=$self->{'instance'}&amp;isolate_id=$id&amp;locus=$_\" class=\"update\">$action</a>"
 					  if $self->{'curate'};
 					print "</td>";
 				}
-				push @profile, $allele->{'allele_id'} if $scheme_id;
+				push @profile, $alleles->{$_}->{'allele_id'} if $scheme_id;
 			}
 			next if !$scheme_id;
 			my $values;
 			try {
-				$values = $schemes->{$scheme_id}->get_field_values_by_profile( \@profile );
+				$values = $schemes->{$scheme_id}->get_field_values_by_profile( \@profile, {'return_hashref' => 1} );
 			}
 			catch BIGSdb::DatabaseConfigurationException with {
 				$logger->warn("Scheme database is not configured correctly");
 			};
-			for ( my $i = 0 ; $i < scalar @{ $scheme_fields->{$scheme_id} } ; $i++ ) {
-				if ( $self->{'prefs'}->{'main_display_scheme_fields'}->{$scheme_id}->{ $scheme_fields->{$scheme_id}->[$i] } ) {
+			foreach (@{ $scheme_fields->{$scheme_id} }){
+				if ( $self->{'prefs'}->{'main_display_scheme_fields'}->{$scheme_id}->{ $_ } ) {
 					my $url;
 					if (   $self->{'prefs'}->{'hyperlink_loci'}
-						&& $scheme_field_info->{$scheme_id}->[$i]->{'url'} )
+						&& $scheme_field_info->{$scheme_id}->{$_}->{'url'} )
 					{
-						$url = $scheme_field_info->{$scheme_id}->[$i]->{'url'};
-						$url =~ s/\[\?\]/$values->[$i]/g;
+						$url = $scheme_field_info->{$scheme_id}->{$_}->{'url'};
+						$url =~ s/\[\?\]/$values->{lc($_)}/g;
 						$url =~ s/\&/\&amp;/g;
 					}
-					if ( $values->[$i] eq '-999' ) {
-						$values->[$i] = '';
+					if ( $values->{lc($_)} eq '-999' ) {
+						$values->{lc($_)} = '';
 					}
 					if ($url) {
-						print "<td><a href=\"$url\">$values->[$i]</a></td>";
+						print "<td><a href=\"$url\">$values->{lc($_)}</a></td>";
 					} else {
-						print "<td>$values->[$i]</td>";
+						print "<td>$values->{lc($_)}</td>";
 					}
 				}
 			}
@@ -2152,7 +2146,7 @@ sub initiate_prefs {
 		my $dbname     = $self->{'system'}->{'db'};
 		my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 		my $scheme_fields = $self->{'datastore'}->get_all_scheme_fields;
-		my $scheme_field_default_prefs = $self->{'datastore'}->get_all_scheme_field_default_prefs;
+		my $scheme_field_default_prefs = $self->{'datastore'}->get_all_scheme_field_info;
 		foreach my $scheme_id (@$scheme_ids) {
 			foreach (@{$scheme_fields->{$scheme_id}}) {
 				foreach my $action (qw(dropdown)) {
@@ -2339,7 +2333,7 @@ sub _initiate_isolatedb_prefs {
 	
 		my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 		my $scheme_values = $self->{'prefstore'}->get_all_scheme_prefs( $guid, $dbname );
-		my $scheme_field_default_prefs = $self->{'datastore'}->get_all_scheme_field_default_prefs;
+		my $scheme_field_default_prefs = $self->{'datastore'}->get_all_scheme_field_info;
 		my $scheme_info = $self->{'datastore'}->get_all_scheme_info;
 		my $scheme_fields = $self->{'datastore'}->get_all_scheme_fields;
 		foreach my $scheme_id (@$scheme_ids) {
