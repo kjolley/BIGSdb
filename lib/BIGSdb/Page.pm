@@ -25,8 +25,17 @@ use Time::HiRes qw(gettimeofday);
 use List::MoreUtils qw(uniq any none);
 use base 'Exporter';
 use constant SEQ_METHODS => qw(Sanger Solexa 454 SOLiD PacBio other unknown);
-use constant SEQ_FLAGS   => ( 'ambiguous read', 'apparent misassembly', 'downstream fusion', 'frameshift', 'internal stop codon', 'no start codon', 'truncated', 'upstream fusion' );
-use constant DATABANKS   => qw(Genbank);
+use constant SEQ_FLAGS   => (
+	'ambiguous read',
+	'apparent misassembly',
+	'downstream fusion',
+	'frameshift',
+	'internal stop codon',
+	'no start codon',
+	'truncated',
+	'upstream fusion'
+);
+use constant DATABANKS => qw(Genbank);
 our @EXPORT = qw(SEQ_METHODS SEQ_FLAGS DATABANKS);
 
 sub new {
@@ -116,28 +125,28 @@ tooltip = function(e){
 };
 END
 	return $buffer;
-
 }
 
 sub print {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	$" = ' ';
-	if ($q->param('page') eq 'plugin'){
-		 #need to determine if tooltips should be displayed since this is set in the <HEAD>;
-		 if ($self->{'prefstore'}){
-		 	my $guid = $self->get_guid;
-			$self->{'prefs'}->{'tooltips'} = $self->{'prefstore'}->get_tooltips_pref($guid,$self->{'system'}->{'db'}) eq 'on' ? 1 : 0;
-		 }
+	if ( $q->param('page') eq 'plugin' ) {
+
+		#need to determine if tooltips should be displayed since this is set in the <HEAD>;
+		if ( $self->{'prefstore'} ) {
+			my $guid = $self->get_guid;
+			$self->{'prefs'}->{'tooltips'} = $self->{'prefstore'}->get_tooltips_pref( $guid, $self->{'system'}->{'db'} ) eq 'on' ? 1 : 0;
+		}
 	} else {
-		$self->initiate_prefs 
+		$self->initiate_prefs;
 	}
 	if ( $self->{'type'} ne 'xhtml' ) {
 		my %atts;
 		if ( $self->{'type'} eq 'embl' ) {
 			$atts{'type'} = 'chemical/x-embl-dl-nucleotide';
 			$atts{'attachment'} = 'sequence' . ( $q->param('seqbin_id') ) . '.embl';
-		} elsif ($self->{'type'} eq 'no_header'){
+		} elsif ( $self->{'type'} eq 'no_header' ) {
 			$atts{'type'} = 'text/html';
 		} else {
 			$atts{'type'} = 'text/plain';
@@ -146,7 +155,6 @@ sub print {
 		print $q->header( \%atts );
 		$self->print_content();
 	} else {
-		
 		my $stylesheet = $self->get_stylesheet();
 		if ( !$q->cookie( -name => 'guid' ) && $self->{'prefstore'} ) {
 			my $guid = $self->{'prefstore'}->get_new_guid();
@@ -171,7 +179,7 @@ sub print {
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.tablesorter.js" } );
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.metadata.js" } );
 			}
-			if ( $self->{'jQuery.jstree'}){
+			if ( $self->{'jQuery.jstree'} ) {
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.jstree.js" } );
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.cookie.js" } );
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.hotkeys.js" } );
@@ -199,20 +207,26 @@ sub print {
 			}
 		}
 		my $http_equiv;
-		if ($self->{'refresh'}){
+		if ( $self->{'refresh'} ) {
 			$http_equiv = "<meta http-equiv=\"refresh\" content=\"$self->{'refresh'}\" />";
-		} 
+		}
 		my $tooltip_display = $self->{'prefs'}->{'tooltips'} ? 'inline' : 'none';
 		if (%shortcut_icon) {
 			print $q->start_html(
-				-title  => $title,
-				-meta   => {%meta_content},
-				-style  => { -src => $stylesheet ,-code => ".tooltip{display:$tooltip_display}"},
-				-head   => [CGI->Link( {%shortcut_icon} ), $http_equiv],
+				-title => $title,
+				-meta  => {%meta_content},
+				-style => { -src => $stylesheet, -code => ".tooltip{display:$tooltip_display}" },
+				-head   => [ CGI->Link( {%shortcut_icon} ), $http_equiv ],
 				-script => \@javascript
 			);
 		} else {
-			print $q->start_html( -title => $title, -meta => {%meta_content}, -style => { -src => $stylesheet,-code => ".tooltip{display:$tooltip_display}" }, -script => \@javascript, -head => $http_equiv );
+			print $q->start_html(
+				-title  => $title,
+				-meta   => {%meta_content},
+				-style  => { -src => $stylesheet, -code => ".tooltip{display:$tooltip_display}" },
+				-script => \@javascript,
+				-head   => $http_equiv
+			);
 		}
 		$self->_print_header();
 		$self->_print_login_details if $self->{'system'}->{'read_access'} ne 'public' || $self->{'curate'};
@@ -276,27 +290,28 @@ sub _print_help_panel {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	print "<div id=\"fieldvalueshelp\">";
-	if ($q->param('page') eq 'plugin'){
-		my $plugin_att = $self->{'pluginManager'}->get_plugin_attributes($q->param('name'));
-		if (ref $plugin_att eq 'HASH'){
-			foreach (qw (tooltips)){
-				if ($plugin_att->{'help'} =~ /$_/){
+	if ( $q->param('page') eq 'plugin' ) {
+		my $plugin_att = $self->{'pluginManager'}->get_plugin_attributes( $q->param('name') );
+		if ( ref $plugin_att eq 'HASH' ) {
+			foreach (qw (tooltips)) {
+				if ( $plugin_att->{'help'} =~ /$_/ ) {
 					$self->{$_} = 1;
-				}				
+				}
 			}
-
 		}
 	}
-	if (any {$self->{$_}} qw (tooltips) ){
+	if ( any { $self->{$_} } qw (tooltips) ) {
 		print "<span id=\"toggle\" style=\"display:none\">Toggle: </span>";
-		if ($self->{'tooltips'}){
-			print "<a id=\"toggle_tooltips\" href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=options&amp;toggle_tooltips=1\" style=\"display:none; margin-right:1em;\">&nbsp;<i>i</i>&nbsp;</a> ";
+		if ( $self->{'tooltips'} ) {
+			print
+"<a id=\"toggle_tooltips\" href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=options&amp;toggle_tooltips=1\" style=\"display:none; margin-right:1em;\">&nbsp;<i>i</i>&nbsp;</a> ";
 		}
 	}
-	if ($self->{'system'}->{'dbtype'} eq 'isolates' && $self->{'field_help'}){
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $self->{'field_help'} ) {
+
 		#open new page unless already on field values help page
 		if ( $q->param('page') eq 'fieldValues' ) {
-			print $q->start_form (-style => 'display:inline');
+			print $q->start_form( -style => 'display:inline' );
 		} else {
 			print $q->start_form( -target => '_blank', -style => 'display:inline' );
 		}
@@ -312,7 +327,7 @@ sub _print_help_panel {
 		print $q->end_form;
 		$q->param( 'page', $refer_page );
 	}
-	print "</div>\n";	
+	print "</div>\n";
 }
 
 sub get_extended_attributes {
@@ -346,7 +361,7 @@ sub get_field_selection_list {
 	my @values;
 	my $extended = $self->get_extended_attributes if $options->{'extended_attributes'};
 	if ( $options->{'isolate_fields'} ) {
-		if (!$self->{'cache'}->{'isolate_fields'}){
+		if ( !$self->{'cache'}->{'isolate_fields'} ) {
 			my @isolate_list;
 			my $fields     = $self->{'xmlHandler'}->get_field_list;
 			my $attributes = $self->{'xmlHandler'}->get_all_field_attributes;
@@ -374,10 +389,10 @@ sub get_field_selection_list {
 			}
 			$self->{'cache'}->{'isolate_fields'} = \@isolate_list;
 		}
-		push @values, @{$self->{'cache'}->{'isolate_fields'}};
+		push @values, @{ $self->{'cache'}->{'isolate_fields'} };
 	}
 	if ( $options->{'loci'} ) {
-		if (!$self->{'cache'}->{'loci'}){
+		if ( !$self->{'cache'}->{'loci'} ) {
 			my @locus_list;
 			my $qry    = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
 			my $cn_sql = $self->{'db'}->prepare($qry);
@@ -386,7 +401,10 @@ sub get_field_selection_list {
 				$logger->error("Can't execute $@");
 			}
 			my $common_names = $cn_sql->fetchall_hashref('id');
-			my $loci = $options->{'all_loci'} ? $self->{'datastore'}->get_loci({ 'query_pref' => 0, 'seq_defined' => 0, 'do_not_order' => 1 }) : $self->{'datastore'}->get_loci({ 'query_pref' => 1, 'seq_defined' => 0, 'do_not_order' => 1 });
+			my $loci =
+			    $options->{'all_loci'}
+			  ? $self->{'datastore'}->get_loci( { 'query_pref' => 0, 'seq_defined' => 0, 'do_not_order' => 1 } )
+			  : $self->{'datastore'}->get_loci( { 'query_pref' => 1, 'seq_defined' => 0, 'do_not_order' => 1 } );
 			foreach (@$loci) {
 				push @locus_list, "l_$_";
 				$self->{'cache'}->{'labels'}->{"l_$_"} = $_;
@@ -408,13 +426,14 @@ sub get_field_selection_list {
 					my $array_ref = $alias_sql->fetchall_arrayref;
 					foreach (@$array_ref) {
 						my ( $locus, $alias ) = @$_;
-	
+
 						#if there is no label for the primary name it is because the locus
 						#should not be displayed
 						next if !$self->{'cache'}->{'labels'}->{"l_$locus"};
 						$alias =~ tr/_/ /;
 						push @locus_list, "la_$locus||$alias";
-						$self->{'cache'}->{'labels'}->{"la_$locus||$alias"} = "$alias [" . ( $self->{'cache'}->{'labels'}->{"l_$locus"} ) . ']';
+						$self->{'cache'}->{'labels'}->{"la_$locus||$alias"} =
+						  "$alias [" . ( $self->{'cache'}->{'labels'}->{"l_$locus"} ) . ']';
 					}
 				}
 			}
@@ -422,10 +441,10 @@ sub get_field_selection_list {
 			@locus_list = uniq @locus_list;
 			$self->{'cache'}->{'loci'} = \@locus_list;
 		}
-		push @values, @{$self->{'cache'}->{'loci'}};
+		push @values, @{ $self->{'cache'}->{'loci'} };
 	}
 	if ( $options->{'scheme_fields'} ) {
-		if (!$self->{'cache'}->{'scheme_fields'}){
+		if ( !$self->{'cache'}->{'scheme_fields'} ) {
 			my @scheme_field_list;
 			my $qry = "SELECT id, description FROM schemes ORDER BY display_order,id";
 			my $sql = $self->{'db'}->prepare($qry);
@@ -434,14 +453,15 @@ sub get_field_selection_list {
 				$logger->error("Can't execute: $qry");
 			}
 			my $scheme_fields = $self->{'datastore'}->get_all_scheme_fields;
-			my $scheme_info = $self->{'datastore'}->get_all_scheme_info;
+			my $scheme_info   = $self->{'datastore'}->get_all_scheme_info;
 			while ( my ( $scheme_id, $desc ) = $sql->fetchrow_array() ) {
 				my $scheme_db = $scheme_info->{$scheme_id}->{'dbase_name'};
+
 				#No point using scheme fields if no scheme database is available.
 				if (   $self->{'prefs'}->{'query_field_schemes'}->{$scheme_id}
 					&& $scheme_db )
 				{
-					foreach my $field (@{$scheme_fields->{$scheme_id}}) {
+					foreach my $field ( @{ $scheme_fields->{$scheme_id} } ) {
 						if ( $self->{'prefs'}->{'query_field_scheme_fields'}->{$scheme_id}->{$field} ) {
 							( $self->{'cache'}->{'labels'}->{"s_$scheme_id\_$field"} = "$field ($desc)" ) =~ tr/_/ /;
 							push @scheme_field_list, "s_$scheme_id\_$field";
@@ -451,7 +471,7 @@ sub get_field_selection_list {
 			}
 			$self->{'cache'}->{'scheme_fields'} = \@scheme_field_list;
 		}
-		push @values, @{$self->{'cache'}->{'scheme_fields'}};
+		push @values, @{ $self->{'cache'}->{'scheme_fields'} };
 	}
 	if ( $options->{'sort_labels'} ) {
 
@@ -778,7 +798,7 @@ sub _print_record_table {
 		my $offset = ( $page - 1 ) * $pagesize;
 		$qry =~ s/;/ LIMIT $pagesize OFFSET $offset;/;
 	}
-	if (any {lc($qry) =~ /;\s*$_\s/} (qw (insert delete update alter create drop))){
+	if ( any { lc($qry) =~ /;\s*$_\s/ } (qw (insert delete update alter create drop)) ) {
 		$logger->warn("Malicious SQL injection attempt '$qry'");
 		return;
 	}
@@ -1071,12 +1091,12 @@ sub get_record_name {
 		'isolate_value_extended_attributes' => 'isolate field extended attribute value',
 		'locus_descriptions'                => 'locus description',
 		'scheme_groups'                     => 'scheme group',
-		'scheme_group_scheme_members'		=> 'scheme group scheme member',
-		'scheme_group_group_members'		=> 'scheme group group member',
-		'pcr'								=> 'PCR reaction',
-		'pcr_locus'							=> 'PCR locus link',
-		'probes'								=> 'nucleotide probe',
-		'probe_locus'					 	=> 'probe locus link'
+		'scheme_group_scheme_members'       => 'scheme group scheme member',
+		'scheme_group_group_members'        => 'scheme group group member',
+		'pcr'                               => 'PCR reaction',
+		'pcr_locus'                         => 'PCR locus link',
+		'probes'                            => 'nucleotide probe',
+		'probe_locus'                       => 'probe locus link'
 	);
 	return $names{$table};
 }
@@ -1129,7 +1149,7 @@ sub _print_profile_table {
 		my $offset = ( $page - 1 ) * $pagesize;
 		$qry_limit =~ s/;\s*$/ LIMIT $pagesize OFFSET $offset;/;
 	}
-	if (any {lc($qry) =~ /;\s*$_\s/} (qw (insert delete update alter create drop))){
+	if ( any { lc($qry) =~ /;\s*$_\s/ } (qw (insert delete update alter create drop)) ) {
 		$logger->warn("Malicious SQL injection attempt '$qry'");
 		return;
 	}
@@ -1293,7 +1313,7 @@ sub _print_isolate_table {
 		my $offset = ( $page - 1 ) * $pagesize;
 		$qry_limit =~ s/;\s*$/ LIMIT $pagesize OFFSET $offset;/;
 	}
-	if (any {lc($qry) =~ /;\s*$_\s/} (qw (insert delete update alter create drop))){
+	if ( any { lc($qry) =~ /;\s*$_\s/ } (qw (insert delete update alter create drop)) ) {
 		$logger->warn("Malicious SQL injection attempt '$qry'");
 		return;
 	}
@@ -1330,8 +1350,13 @@ sub _print_isolate_table {
 			$composites{ $data[1] }            = 1;
 		}
 	}
+	
+	my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
+	my $scheme_fields     = $self->{'datastore'}->get_all_scheme_fields;
+	my $scheme_field_info = $self->{'datastore'}->get_all_scheme_field_info;
+	my $scheme_loci       = $self->{'datastore'}->get_all_scheme_loci;
 	print "<div class=\"box\" id=\"resultstable\"><div class=\"scrollable\"><table class=\"resultstable\">\n";
-	$self->_print_isolate_table_header( \%composites, \%composite_display_pos );
+	$self->_print_isolate_table_header( \%composites, \%composite_display_pos, $scheme_ids, $scheme_fields, $scheme_loci );
 	my $td = 1;
 	$" = "=? AND ";
 	my %url;
@@ -1348,13 +1373,16 @@ sub _print_isolate_table {
 			}
 		}
 	}
-	my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
 	my $schemes;
-	my $scheme_fields = $self->{'datastore'}->get_all_scheme_fields;
-	my $scheme_field_info = $self->{'datastore'}->get_all_scheme_field_info;
-	my $scheme_loci = $self->{'datastore'}->get_all_scheme_loci;
 	foreach (@$scheme_ids) {
-		$schemes->{$_}       = $self->{'datastore'}->get_scheme($_);
+		if (   ref $scheme_fields->{$_} eq 'ARRAY'
+			&& @{ $scheme_fields->{$_} }
+			&& ref $scheme_loci->{$_} eq 'ARRAY'
+			&& @{ $scheme_loci->{$_} }
+			&& $self->{'prefs'}->{"main_display_schemes"}->{$_} )
+		{
+			$schemes->{$_} = $self->{'datastore'}->get_scheme($_);
+		}
 	}
 	$scheme_loci->{0} = $self->{'datastore'}->get_loci_in_no_scheme;
 	my $field_attributes;
@@ -1444,7 +1472,7 @@ sub _print_isolate_table {
 		}
 
 		#Print loci and scheme fields
-		my $alleles = $self->{'datastore'}->get_all_allele_designations( $id);
+		my $alleles = $self->{'datastore'}->get_all_allele_designations($id);
 		foreach my $scheme_id ( @$scheme_ids, 0 ) {
 			next
 			  if !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id} && $scheme_id;
@@ -1497,7 +1525,8 @@ sub _print_isolate_table {
 							}
 						}
 					}
-					$self->_print_pending_tooltip( $id, $_ ) if $self->{'prefs'}->{'display_pending_main'} && defined $alleles->{$_}->{'allele_id'};
+					$self->_print_pending_tooltip( $id, $_ )
+					  if $self->{'prefs'}->{'display_pending_main'} && defined $alleles->{$_}->{'allele_id'};
 					my $action = exists $alleles->{$_}->{'allele_id'} ? 'update' : 'add';
 					print
 " <a href=\"$self->{'system'}->{'script_name'}?page=alleleUpdate&amp;db=$self->{'instance'}&amp;isolate_id=$id&amp;locus=$_\" class=\"update\">$action</a>"
@@ -1506,31 +1535,40 @@ sub _print_isolate_table {
 				}
 				push @profile, $alleles->{$_}->{'allele_id'} if $scheme_id;
 			}
-			next if !$scheme_id;
+			next
+			  if !$scheme_id
+				  || !( ref $scheme_fields->{$scheme_id} eq 'ARRAY' && @{ $scheme_fields->{$scheme_id} } )
+				  || !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};
 			my $values;
-			try {
-				$values = $schemes->{$scheme_id}->get_field_values_by_profile( \@profile, {'return_hashref' => 1} );
+			if (@profile) {
+				try {
+					$values = $schemes->{$scheme_id}->get_field_values_by_profile( \@profile, { 'return_hashref' => 1 } );
+				}
+				catch BIGSdb::DatabaseConfigurationException with {
+					$logger->warn("Scheme database is not configured correctly");
+				};
 			}
-			catch BIGSdb::DatabaseConfigurationException with {
-				$logger->warn("Scheme database is not configured correctly");
-			};
-			foreach (@{ $scheme_fields->{$scheme_id} }){
-				if ( $self->{'prefs'}->{'main_display_scheme_fields'}->{$scheme_id}->{ $_ } ) {
-					my $url;
-					if (   $self->{'prefs'}->{'hyperlink_loci'}
-						&& $scheme_field_info->{$scheme_id}->{$_}->{'url'} )
-					{
-						$url = $scheme_field_info->{$scheme_id}->{$_}->{'url'};
-						$url =~ s/\[\?\]/$values->{lc($_)}/g;
-						$url =~ s/\&/\&amp;/g;
-					}
-					if ( $values->{lc($_)} eq '-999' ) {
-						$values->{lc($_)} = '';
-					}
-					if ($url) {
-						print "<td><a href=\"$url\">$values->{lc($_)}</a></td>";
+			foreach ( @{ $scheme_fields->{$scheme_id} } ) {
+				if ( $self->{'prefs'}->{'main_display_scheme_fields'}->{$scheme_id}->{$_} ) {
+					if ( ref $values eq 'HASH' ) {
+						my $url;
+						if (   $self->{'prefs'}->{'hyperlink_loci'}
+							&& $scheme_field_info->{$scheme_id}->{$_}->{'url'} )
+						{
+							$url = $scheme_field_info->{$scheme_id}->{$_}->{'url'};
+							$url =~ s/\[\?\]/$values->{lc($_)}/g;
+							$url =~ s/\&/\&amp;/g;
+						}
+						if ( $values->{ lc($_) } eq '-999' ) {
+							$values->{ lc($_) } = '';
+						}
+						if ($url) {
+							print "<td><a href=\"$url\">$values->{lc($_)}</a></td>";
+						} else {
+							print "<td>$values->{lc($_)}</td>";
+						}
 					} else {
-						print "<td>$values->{lc($_)}</td>";
+						print "<td />";
 					}
 				}
 			}
@@ -1641,14 +1679,14 @@ sub _create_join_sql_for_locus {
 	my ( $self, $locus ) = @_;
 	( my $clean_locus_name = $locus ) =~ s/'/_PRIME_/g;
 	$clean_locus_name =~ s/-/_/g;
-	( my $escaped_locus    = $locus ) =~ s/'/\\'/g;
+	( my $escaped_locus = $locus ) =~ s/'/\\'/g;
 	my $qry =
 " LEFT JOIN allele_designations AS l_$clean_locus_name ON l_$clean_locus_name\.isolate_id=$self->{'system'}->{'view'}.id AND l_$clean_locus_name.locus='$escaped_locus'";
 	return $qry;
 }
 
 sub _print_isolate_table_header {
-	my ( $self, $composites, $composite_display_pos ) = @_;
+	my ( $self, $composites, $composite_display_pos, $scheme_ids, $scheme_fields, $scheme_loci ) = @_;
 	my @selectitems   = $self->{'xmlHandler'}->get_select_items('userFieldIdsOnly');
 	my $header_buffer = "<tr>";
 	my $col_count;
@@ -1697,7 +1735,7 @@ sub _print_isolate_table_header {
 	$fieldtype_header .=
 " <a class=\"tooltip\" title=\"Isolate fields - You can select the isolate fields that are displayed here by going to the options page.\">&nbsp;<i>i</i>&nbsp;</a>";
 	$fieldtype_header .= "</th>";
-	my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
+#	my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
 	my $alias_sql  = $self->{'db'}->prepare("SELECT alias FROM locus_aliases WHERE locus=?");
 	my $qry        = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
 	my $cn_sql     = $self->{'db'}->prepare($qry);
@@ -1708,19 +1746,20 @@ sub _print_isolate_table_header {
 	}
 	my $common_names = $cn_sql->fetchall_hashref('id');
 	$" = '; ';
-	my $scheme_loci = $self->{'datastore'}->get_all_scheme_loci;
-	my $scheme_info = $self->{'datastore'}->get_all_scheme_info;
-	my $scheme_fields = $self->{'datastore'}->get_all_scheme_fields;
+#	my $scheme_loci   = $self->{'datastore'}->get_all_scheme_loci;
+	my $scheme_info   = $self->{'datastore'}->get_all_scheme_info;
+#	my $scheme_fields = $self->{'datastore'}->get_all_scheme_fields;
 	foreach my $scheme_id (@$scheme_ids) {
 		next if !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};
 		my @scheme_header;
-		if (ref $scheme_loci->{$scheme_id} eq 'ARRAY'){
-			foreach (@{$scheme_loci->{$scheme_id}}) {
+		if ( ref $scheme_loci->{$scheme_id} eq 'ARRAY' ) {
+			foreach ( @{ $scheme_loci->{$scheme_id} } ) {
 				if ( $self->{'prefs'}->{'main_display_loci'}->{$_} ) {
-					$_ =~ tr/_/ /;
-					my $locus_header = $_;
+					my $locus = $_;
+					$locus =~ tr/_/ /;
+					my $locus_header = $locus;
 					if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-						$_ =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
+						$locus_header =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
 					}
 					my @aliases;
 					push @aliases, $common_names->{$_}->{'common_name'} if $common_names->{$_}->{'common_name'};
@@ -1740,8 +1779,8 @@ sub _print_isolate_table_header {
 				}
 			}
 		}
-		if (ref $scheme_fields->{$scheme_id} eq 'ARRAY'){
-			foreach (@{$scheme_fields->{$scheme_id}}) {
+		if ( ref $scheme_fields->{$scheme_id} eq 'ARRAY' ) {
+			foreach ( @{ $scheme_fields->{$scheme_id} } ) {
 				if ( $self->{'prefs'}->{'main_display_scheme_fields'}->{$scheme_id}->{$_} ) {
 					my $field = $_;
 					$field =~ tr/_/ /;
@@ -1995,13 +2034,11 @@ sub can_modify_table {
 		}
 	} elsif ( $table eq 'allele_sequences' && $self->{'permissions'}->{'tag_sequences'} ) {
 		return 1;
-	} elsif ($table eq 'profile_refs'){
+	} elsif ( $table eq 'profile_refs' ) {
 		my $allowed =
-		  $self->{'datastore'}
-		  ->run_simple_query( "SELECT COUNT(*) FROM scheme_curators WHERE curator_id=?", $self->get_curator_id )
-		  ->[0];
-		return $allowed;	
-	} elsif ( ( $table eq 'profiles' || $table eq 'profile_fields' || $table eq 'profile_members') ) {
+		  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM scheme_curators WHERE curator_id=?", $self->get_curator_id )->[0];
+		return $allowed;
+	} elsif ( ( $table eq 'profiles' || $table eq 'profile_fields' || $table eq 'profile_members' ) ) {
 		return 0 if !$scheme_id;
 		my $allowed =
 		  $self->{'datastore'}
@@ -2042,7 +2079,16 @@ sub can_modify_table {
 		return 1;
 	} elsif ( $table eq 'isolate_value_extended_attributes' && $self->{'permissions'}->{'modify_value_attributes'} ) {
 		return 1;
-	} elsif ( (any {$table eq $_} qw (pcr pcr_locus probes probe_locus)) && $self->{'permissions'}->{'modify_probes'}){
+	} elsif (
+		(
+			any {
+				$table eq $_;
+			}
+			qw (pcr pcr_locus probes probe_locus)
+		)
+		&& $self->{'permissions'}->{'modify_probes'}
+	  )
+	{
 		return 1;
 	}
 	return 0;
@@ -2117,10 +2163,10 @@ sub initiate_prefs {
 		$scheme_field_prefs = $self->{'prefstore'}->get_all_scheme_field_prefs( $guid, $dbname );
 		if ( $self->{'pref_requirements'}->{'general'} ) {
 			$general_prefs = $self->{'prefstore'}->get_all_general_prefs( $guid, $dbname );
-			$self->{'prefs'}->{'displayrecs'}      = $general_prefs->{'displayrecs'}      || 25;
-			$self->{'prefs'}->{'pagebar'}          = $general_prefs->{'pagebar'}          || 'top and bottom';
-			$self->{'prefs'}->{'alignwidth'}       = $general_prefs->{'alignwidth'}       || 100;
-			$self->{'prefs'}->{'flanking'}         = $general_prefs->{'flanking'}         || 100;
+			$self->{'prefs'}->{'displayrecs'} = $general_prefs->{'displayrecs'} || 25;
+			$self->{'prefs'}->{'pagebar'}     = $general_prefs->{'pagebar'}     || 'top and bottom';
+			$self->{'prefs'}->{'alignwidth'}  = $general_prefs->{'alignwidth'}  || 100;
+			$self->{'prefs'}->{'flanking'}    = $general_prefs->{'flanking'}    || 100;
 
 			#default off
 			foreach (qw (hyperlink_loci )) {
@@ -2146,13 +2192,13 @@ sub initiate_prefs {
 
 	#Set dropdown status for scheme fields
 	if ( $self->{'pref_requirements'}->{'query_field'} ) {
-		my $guid = $self->get_guid || 1;
-		my $dbname     = $self->{'system'}->{'db'};
-		my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
-		my $scheme_fields = $self->{'datastore'}->get_all_scheme_fields;
+		my $guid                       = $self->get_guid || 1;
+		my $dbname                     = $self->{'system'}->{'db'};
+		my $scheme_ids                 = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+		my $scheme_fields              = $self->{'datastore'}->get_all_scheme_fields;
 		my $scheme_field_default_prefs = $self->{'datastore'}->get_all_scheme_field_info;
 		foreach my $scheme_id (@$scheme_ids) {
-			foreach (@{$scheme_fields->{$scheme_id}}) {
+			foreach ( @{ $scheme_fields->{$scheme_id} } ) {
 				foreach my $action (qw(dropdown)) {
 					if ( defined $scheme_field_prefs->{$scheme_id}->{$_}->{$action} ) {
 						$self->{'prefs'}->{"$action\_scheme_fields"}->{$scheme_id}->{$_} =
@@ -2333,14 +2379,14 @@ sub _initiate_isolatedb_prefs {
 			}
 			$i++;
 		}
-		return if none {$self->{'pref_requirements'}->{$_}} qw (isolate_display main_display query_field analysis);
-	
-		my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
-		my $scheme_values = $self->{'prefstore'}->get_all_scheme_prefs( $guid, $dbname );
+		return if none { $self->{'pref_requirements'}->{$_} } qw (isolate_display main_display query_field analysis);
+		my $scheme_ids                 = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+		my $scheme_values              = $self->{'prefstore'}->get_all_scheme_prefs( $guid, $dbname );
 		my $scheme_field_default_prefs = $self->{'datastore'}->get_all_scheme_field_info;
-		my $scheme_info = $self->{'datastore'}->get_all_scheme_info;
-		my $scheme_fields = $self->{'datastore'}->get_all_scheme_fields;
+		my $scheme_info                = $self->{'datastore'}->get_all_scheme_info;
+		my $scheme_fields              = $self->{'datastore'}->get_all_scheme_fields;
 		foreach my $scheme_id (@$scheme_ids) {
+
 			foreach my $action (qw(isolate_display main_display query_field query_status analysis)) {
 				if ( defined $scheme_values->{$scheme_id}->{$action} ) {
 					$self->{'prefs'}->{"$action\_schemes"}->{$scheme_id} = $scheme_values->{$scheme_id}->{$action} ? 1 : 0;
@@ -2348,18 +2394,19 @@ sub _initiate_isolatedb_prefs {
 					$self->{'prefs'}->{"$action\_schemes"}->{$scheme_id} = $scheme_info->{$scheme_id}->{$action};
 				}
 			}
-			if (ref $scheme_fields->{$scheme_id} eq 'ARRAY'){
-				foreach (@{$scheme_fields->{$scheme_id}}) {
+			if ( ref $scheme_fields->{$scheme_id} eq 'ARRAY' ) {
+				foreach ( @{ $scheme_fields->{$scheme_id} } ) {
 					foreach my $action (qw(isolate_display main_display query_field)) {
 						if ( defined $scheme_field_prefs->{$scheme_id}->{$_}->{$action} ) {
 							$self->{'prefs'}->{"$action\_scheme_fields"}->{$scheme_id}->{$_} =
 							  $scheme_field_prefs->{$scheme_id}->{$_}->{$action} ? 1 : 0;
 						} else {
-							$self->{'prefs'}->{"$action\_scheme_fields"}->{$scheme_id}->{$_} = $scheme_field_default_prefs->{$scheme_id}->{$_}->{$action};
+							$self->{'prefs'}->{"$action\_scheme_fields"}->{$scheme_id}->{$_} =
+							  $scheme_field_default_prefs->{$scheme_id}->{$_}->{$action};
 						}
 					}
 				}
-			} 
+			}
 			my $field = "scheme_$scheme_id\_profile_status";
 			if ( defined $field_prefs->{$field}->{'dropdown'} ) {
 				$self->{'prefs'}->{'dropdownfields'}->{$field} = $field_prefs->{$field}->{'dropdown'};
