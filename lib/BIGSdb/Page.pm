@@ -685,9 +685,10 @@ sub paged_display {
 		$bar_buffer .= $q->endform();
 	}
 	print "<div class=\"box\" id=\"resultsheader\">\n";
-	if ( $records > 1 ) {
+	if ( $records) {
 		print "<p>$message</p>" if $message;
-		print "<p>$records records returned";
+		my $plural = $records == 1 ? '' : 's';
+		print "<p>$records record$plural returned";
 		if ( $currentpage && $self->{'prefs'}->{'displayrecs'} ) {
 			if ( $records > $self->{'prefs'}->{'displayrecs'} ) {
 				my $first = ( ( $currentpage - 1 ) * $self->{'prefs'}->{'displayrecs'} ) + 1;
@@ -707,7 +708,7 @@ sub paged_display {
 			print ".";
 		}
 		if ( !$self->{'curate'} || $table eq $self->{'system'}->{'view'} ) {
-			print " Click the hyperlinks for detailed information.";
+			print " Click the hyperlink$plural for detailed information.";
 		}
 		print "</p>\n";
 		if ( $self->{'curate'} && $self->can_modify_table($table) ) {
@@ -748,15 +749,23 @@ sub paged_display {
 				print $q->end_form;
 				print "</td>";
 			}
+			if (any {$table eq $_} qw (schemes users user_groups user_group_members user_permissions projects project_members isolate_aliases 
+			accession experiments experiment_sequences allele_sequences samples loci locus_aliases pcr probes isolate_field_extended_attributes
+			isolate_value_extended_attributes scheme_fields scheme_members scheme_groups scheme_group_scheme_members scheme_group_group_members
+			locus_descriptions scheme_curators locus_curators sequences sequence_refs profile_refs locus_extended_attributes client_dbases
+			client_dbase_loci client_dbase_schemes)){
+				print "<td>";
+				print $q->start_form;
+				$q->param( 'page', 'exportConfig' );
+				foreach (qw (db page table query)) {
+					print $q->hidden($_);
+				}
+				print $q->submit( -name => 'Export configuration/data', -class => 'submit' );
+				print $q->end_form;
+				print "</td>";	
+			}		
 			print "</tr></table>\n";
 		}
-	} elsif ( $records == 1 ) {
-		print "<p>$message</p>" if $message;
-		print "<p>1 record returned.";
-		if ( !$self->{'curate'} || $table eq $self->{'system'}->{'view'} ) {
-			print " Click the hyperlink for detailed information.";
-		}
-		print "</p>\n";
 	} else {
 		$logger->debug("Query: $qry");
 		print "<p>No records found!</p>\n";
@@ -986,7 +995,9 @@ sub _print_record_table {
 				if ( $field eq 'isolate_id' ) {
 					print "<td>$data{'isolate_id'}) " . $self->get_isolate_name_from_id( $data{'isolate_id'} ) . "</td>";
 				} else {
-					print "<td>$data{lc($field)}</td>";
+					my $value = $data{lc($field)};
+					$value =~ s/\&/\&amp;/g;
+					print "<td>$value</td>";
 				}
 			}
 		}
@@ -1735,7 +1746,6 @@ sub _print_isolate_table_header {
 	$fieldtype_header .=
 " <a class=\"tooltip\" title=\"Isolate fields - You can select the isolate fields that are displayed here by going to the options page.\">&nbsp;<i>i</i>&nbsp;</a>";
 	$fieldtype_header .= "</th>";
-#	my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
 	my $alias_sql  = $self->{'db'}->prepare("SELECT alias FROM locus_aliases WHERE locus=?");
 	my $qry        = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
 	my $cn_sql     = $self->{'db'}->prepare($qry);
@@ -1746,9 +1756,7 @@ sub _print_isolate_table_header {
 	}
 	my $common_names = $cn_sql->fetchall_hashref('id');
 	$" = '; ';
-#	my $scheme_loci   = $self->{'datastore'}->get_all_scheme_loci;
 	my $scheme_info   = $self->{'datastore'}->get_all_scheme_info;
-#	my $scheme_fields = $self->{'datastore'}->get_all_scheme_fields;
 	foreach my $scheme_id (@$scheme_ids) {
 		next if !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};
 		my @scheme_header;

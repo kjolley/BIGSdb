@@ -91,6 +91,7 @@ sub print_page {
 		'linkToExperiment'   => 'CurateLinkToExperimentPage',
 		'alleleSequence'     => 'AlleleSequencePage',
 		'options'            => 'OptionsPage',
+		'exportConfig'		 => 'CurateExportConfig'
 	);
 	my %page_attributes = (
 		'system'           => $self->{'system'},
