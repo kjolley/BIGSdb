@@ -174,9 +174,9 @@ sub print_content {
 
 sub _get_update_history {
 	my ( $self, $isolate_id ) = @_;
-	my $history = $self->_get_history($isolate_id);
+	my ($history,$num_changes) = $self->_get_history($isolate_id);
 	my $buffer;
-	if ( scalar @$history ) {
+	if ( $num_changes ) {
 		$buffer .= "<table class=\"resultstable\"><tr><th>Timestamp</th><th>Curator</th><th>Action</th></tr>\n";
 		my $td = 1;
 		foreach (@$history) {
@@ -302,8 +302,7 @@ sub get_isolate_record {
 					}
 				}
 				if ( $field eq 'curator' ) {
-					my $history     = $self->_get_history($id);
-					my $num_changes = scalar @$history;
+					my ($history,$num_changes)     = $self->_get_history($id,20);
 					if ($num_changes) {
 						$buffer .= "</tr>\n";
 						$td = $td == 1 ? 2 : 1;
@@ -609,7 +608,7 @@ sub _get_group_schemes {
 sub _scheme_data_present {
 	my ($self,$scheme_id,$isolate_id) = @_;
 	if (!$self->{'sql'}->{'scheme_data_designations'}){
-		$self->{'sql'}->{'scheme_data_designations'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM allele_designations LEFT JOIN scheme_members ON allele_designations.locus=scheme_members.locus WHERE isolate_id=? AND scheme_id=?");
+		$self->{'sql'}->{'scheme_data_designations'} = $self->{'db'}->prepare("SELECT EXISTS(SELECT * FROM allele_designations LEFT JOIN scheme_members ON allele_designations.locus=scheme_members.locus WHERE isolate_id=? AND scheme_id=?)");
 	}
 	eval {
 		$self->{'sql'}->{'scheme_data_designations'}->execute($isolate_id,$scheme_id);
@@ -617,8 +616,10 @@ sub _scheme_data_present {
 	if ($@){
 		$logger->error("Can't execute $@");
 	}
+	my ($designations_present) = $self->{'sql'}->{'scheme_data_designations'}->fetchrow_array;
+	return 1 if $designations_present;
 	if (!$self->{'sql'}->{'scheme_data_sequences'}){
-		$self->{'sql'}->{'scheme_data_sequences'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM allele_sequences LEFT JOIN scheme_members ON allele_sequences.locus=scheme_members.locus LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id WHERE isolate_id=? AND scheme_id=?");
+		$self->{'sql'}->{'scheme_data_sequences'} = $self->{'db'}->prepare("SELECT EXISTS(SELECT * FROM allele_sequences WHERE seqbin_id IN (SELECT id FROM sequence_bin WHERE isolate_id=?) AND locus IN (SELECT locus FROM scheme_members WHERE scheme_id=?))");
 	}
 	eval {
 		$self->{'sql'}->{'scheme_data_sequences'}->execute($isolate_id,$scheme_id);
@@ -626,16 +627,18 @@ sub _scheme_data_present {
 	if ($@){
 		$logger->error("Can't execute $@");
 	}
-	my ($designations_present) = $self->{'sql'}->{'scheme_data_designations'}->fetchrow_array;
 	my ($sequences_present) = $self->{'sql'}->{'scheme_data_sequences'}->fetchrow_array;
-	return $designations_present+$sequences_present;
+	return 1 if $sequences_present;
+	return 0;
 }
 
 sub _data_not_in_scheme_present {
 	my ($self,$isolate_id) = @_;
-	my $designations = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM allele_designations WHERE isolate_id=? AND locus NOT IN (SELECT locus FROM scheme_members)",$isolate_id)->[0];
-	my $sequences = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id WHERE isolate_id=? AND locus NOT IN (SELECT locus FROM scheme_members)",$isolate_id)->[0];
-	return $designations+$sequences;
+	my $designations = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT * FROM allele_designations WHERE isolate_id=? AND locus NOT IN (SELECT locus FROM scheme_members))",$isolate_id)->[0];
+	return 1 if $designations;
+	my $sequences = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT * FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id WHERE isolate_id=? AND locus NOT IN (SELECT locus FROM scheme_members))",$isolate_id)->[0];
+	return 1 if $sequences;
+	return 0;
 }
 
 sub get_sample_summary {
@@ -1191,8 +1194,11 @@ sub get_title {
 }
 
 sub _get_history {
-	my ( $self, $isolate_id ) = @_;
-	my $qry = "SELECT timestamp,action,curator FROM history where isolate_id=? ORDER BY timestamp desc";
+	my ( $self, $isolate_id, $limit ) = @_;
+	my $limit_clause = $limit ? " LIMIT $limit" : '';
+	my $count;
+
+	my $qry = "SELECT timestamp,action,curator FROM history where isolate_id=? ORDER BY timestamp desc$limit_clause";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute($isolate_id); };
 	if ($@) {
@@ -1202,7 +1208,13 @@ sub _get_history {
 	while ( my $data = $sql->fetchrow_hashref ) {
 		push @history, $data;
 	}
-	return \@history;
+	if ($limit){
+		#need to count total
+		$count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM history WHERE isolate_id=?",$isolate_id)->[0];
+	} else {
+		$count = scalar @history;
+	}
+	return \@history,$count;
 }
 
 sub get_name {
