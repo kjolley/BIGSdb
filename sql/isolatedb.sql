@@ -97,6 +97,7 @@ ON DELETE NO ACTION
 ON UPDATE CASCADE
 );
 
+CREATE INDEX i_i1 ON isolates (datestamp);
 GRANT SELECT,UPDATE,INSERT,DELETE ON isolates TO apache;
 
 CREATE TABLE isolate_aliases (
@@ -465,6 +466,7 @@ ON UPDATE CASCADE
 );
 
 CREATE INDEX i_as1 ON allele_sequences (locus);
+CREATE INDEX i_as2 ON allele_sequences (datestamp);
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON allele_sequences TO apache;
 
@@ -512,6 +514,7 @@ ON UPDATE CASCADE
 CREATE INDEX i_ad1 ON allele_designations (isolate_id);
 CREATE INDEX i_ad2 ON allele_designations (locus);
 CREATE INDEX i_ad3 ON allele_designations (locus,allele_id);
+CREATE INDEX i_ad4 ON allele_designations (datestamp);
 GRANT SELECT,UPDATE,INSERT,DELETE ON allele_designations TO apache;
 
 CREATE TABLE pending_allele_designations (

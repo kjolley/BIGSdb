@@ -56,7 +56,7 @@ sub print_content {
 	  )->[0];
 	my $qry =
 	  $system->{'dbtype'} eq 'isolates'
-	  ? "SELECT DISTINCT schemes.id,schemes.description FROM schemes RIGHT JOIN scheme_members ON schemes.id=scheme_members.scheme_id ORDER BY schemes.id"
+	  ? "SELECT DISTINCT schemes.id,schemes.description FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_members) ORDER BY schemes.id"
 	  : "SELECT DISTINCT schemes.id,schemes.description FROM schemes RIGHT JOIN scheme_members ON schemes.id=scheme_members.scheme_id JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key ORDER BY schemes.id";
 	my $scheme_data = $self->{'datastore'}->run_list_query_hashref($qry);
 	my ( @scheme_ids, %desc );
@@ -115,7 +115,7 @@ TOOLTIPS
 			print "</li>\n";
 		}
 	}
-	my $loci_defined = $self->{'datastore'}->run_simple_query("SELECT COUNT(id) FROM loci")->[0];
+	my $loci_defined = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT id FROM loci)")->[0];
 	if ($loci_defined) {
 		if ( $system->{'dbtype'} eq 'isolates' ) {
 			print "<li>Search by combinations of loci (profiles) - including partial matching.<ul>";
@@ -209,15 +209,11 @@ Set general options</a>";
 	print "</ul>\n";
 	print "<img src=\"/images/icons/64x64/information.png\" alt=\"\" />\n";
 	print "<h2>General statistics</h2>\n<ul class=\"toplevel\">\n";
-	my $maxdate;
+	my $max_date;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $allele_count = $self->{'datastore'}->run_simple_query("SELECT COUNT (*) FROM sequences");
-		foreach (qw (sequences profiles profile_refs accession)) {
-			my $date = $self->{'datastore'}->run_simple_query("SELECT MAX(datestamp) FROM $_");
-			if ( $date->[0] && $date->[0] gt $maxdate ) {
-				$maxdate = $date->[0];
-			}
-		}
+		my $tables = [qw (sequences profiles profile_refs accession)];
+		$max_date = $self->_get_max_date($tables);
 		print "<li>Number of sequences: $allele_count->[0]</li>";
 		if ( $scheme_count_with_pk == 1 ) {
 			foreach (@$scheme_data) {
@@ -239,16 +235,12 @@ Set general options</a>";
 		}
 	} else {
 		my $isolate_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}")->[0];
-		foreach (qw (isolates isolate_aliases allele_designations pending_allele_designations allele_sequences refs loci)) {
-			my $date = $self->{'datastore'}->run_simple_query("SELECT MAX(datestamp) FROM $_");
-			if ( $date->[0] && $date->[0] gt $maxdate ) {
-				$maxdate = $date->[0];
-			}
-		}
+		my $tables = [qw (isolates isolate_aliases allele_designations pending_allele_designations allele_sequences refs loci)];
+		$max_date = $self->_get_max_date($tables);
 		print "<li>Isolates: $isolate_count ";
 		print "</li>";
 	}
-	print "<li>Last updated: $maxdate</li>" if $maxdate;
+	print "<li>Last updated: $max_date</li>" if $max_date;
 	print "</ul>";
 	print "</td></tr></table>\n";
 	print "</div></div>\n";
@@ -303,6 +295,14 @@ Set general options</a>";
 		print "</tr></table>\n";
 		print "</div>\n</div>\n";
 	}
+}
+
+sub _get_max_date {
+	my ($self, $tables) = @_;
+	$" = ' UNION SELECT MAX(datestamp) FROM ';
+	my $qry = "SELECT MAX(max_datestamp) FROM (SELECT MAX(datestamp) AS max_datestamp FROM @$tables) AS v";
+	my $max_date_ref = $self->{'datastore'}->run_simple_query($qry);
+	return $max_date_ref->[0] if ref $max_date_ref eq 'ARRAY';
 }
 
 sub get_title {
