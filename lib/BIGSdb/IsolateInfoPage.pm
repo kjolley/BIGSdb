@@ -320,6 +320,9 @@ sub get_isolate_record {
 							$action =~ s/:.*//;
 							$title .= "$time: $action<br />";
 						}
+						if ($num_changes > 20){
+							$title .= "more ...";
+						}
 						$buffer .= "<tr class=\"td$td\"><th>update history</th><td style=\"text-align:left\" colspan=\"5\">";
 						$buffer .= "<a title=\"$title\" class=\"pending_tooltip\">";
 						$buffer .= "$num_changes update$plural</a>";
