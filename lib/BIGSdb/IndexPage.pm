@@ -56,7 +56,7 @@ sub print_content {
 	  )->[0];
 	my $qry =
 	  $system->{'dbtype'} eq 'isolates'
-	  ? "SELECT DISTINCT schemes.id,schemes.description FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_members) ORDER BY schemes.id"
+	  ? "SELECT id,description FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_members) ORDER BY id"
 	  : "SELECT DISTINCT schemes.id,schemes.description FROM schemes RIGHT JOIN scheme_members ON schemes.id=scheme_members.scheme_id JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key ORDER BY schemes.id";
 	my $scheme_data = $self->{'datastore'}->run_list_query_hashref($qry);
 	my ( @scheme_ids, %desc );
@@ -235,7 +235,7 @@ Set general options</a>";
 		}
 	} else {
 		my $isolate_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}")->[0];
-		my $tables = [qw (isolates isolate_aliases allele_designations pending_allele_designations allele_sequences refs loci)];
+		my $tables = [qw (isolates isolate_aliases allele_designations pending_allele_designations allele_sequences refs)];
 		$max_date = $self->_get_max_date($tables);
 		print "<li>Isolates: $isolate_count ";
 		print "</li>";

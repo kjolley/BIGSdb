@@ -77,7 +77,7 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON probe_locus TO apache;
 
 ALTER TABLE user_permissions ADD modify_probes boolean;
 
-CREATE INDEX i_i1 ON isolates ( datestamp);
+CREATE INDEX i_i1 ON isolates (datestamp);
 CREATE INDEX i_ad4 ON allele_designations (datestamp);
 CREATE INDEX i_as2 ON allele_sequences (datestamp);
 

@@ -244,6 +244,7 @@ sub _print_interface {
 
 	print "<fieldset style=\"float:left\">\n<legend>Reference genome</legend>\n";
 	print "<p>Enter accession number:</p>\n";
+	$"=' ';
 	print $q->textfield(
 		-name      => 'accession',
 		-id        => 'accession',
