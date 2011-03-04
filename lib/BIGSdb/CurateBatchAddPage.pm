@@ -18,7 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::CurateBatchAddPage;
 use strict;
-use List::MoreUtils qw(any);
+use List::MoreUtils qw(any none);
 use base qw(BIGSdb::CurateAddPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -782,7 +782,7 @@ sub print_content {
 
 					#special case to ensure that a locus length is set is it is not marked as variable length
 				} elsif ( $table eq 'loci' ) {
-					if ( lc( $data[ $fileheaderPos{'length_varies'} ] ) ne 'true' && !$data[ $fileheaderPos{'length'} ] ) {
+					if ( (none {$data[ $fileheaderPos{'length_varies'} ] eq $_} qw (true TRUE 1)) && !$data[ $fileheaderPos{'length'} ] ) {
 						$problems{$pk_combination} .= "Locus set as non variable length but no length is set.";
 					}
 					if ( $data[ $fileheaderPos{'id'} ] =~ /^\d/ ) {
