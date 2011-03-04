@@ -102,15 +102,16 @@ sub print_content {
 sub _print_table_data {
 	my ($self, $table, $qry) = @_;
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
-	my @fields;
+	my (@header,@fields);
 	foreach (@$attributes){
-		push @fields,$_->{'name'};
+		push @header, $_->{'name'};
+		push @fields,"$table.$_->{'name'}";
 	}
 	$"="\t";
 	print "$table\n";
 	print  '-' x length $table;
 	print "\n";
-	print "@fields\n";
+	print "@header\n";
 	$"=',';
 	my $fields = "@fields";
 	$qry =~ s/\*/$fields/;
