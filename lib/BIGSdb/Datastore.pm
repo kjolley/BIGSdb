@@ -329,7 +329,10 @@ sub get_scheme_info {
 }
 
 sub get_all_scheme_info {
-	my ( $self ) = @_;
+
+	#NOTE: Data are returned in a cached reference that may be needed more than once.  If calling code needs to modify returned
+	#values then you MUST make a local copy.
+	my ($self) = @_;
 	if ( !$self->{'all_scheme_info'} ) {
 		my $sql = $self->{'db'}->prepare("SELECT * FROM schemes");
 		eval { $sql->execute; };
@@ -352,18 +355,19 @@ sub get_all_scheme_loci {
 	}
 	my $loci;
 	my $data = $sql->fetchall_arrayref;
-	foreach (@{$data}){
-		push @{$loci->{$_->[0]}}, $_->[1];
+	foreach ( @{$data} ) {
+		push @{ $loci->{ $_->[0] } }, $_->[1];
 	}
-	return $loci;	
+	return $loci;
 }
 
 sub get_scheme_loci {
+
 	#options passed as hashref:
 	#analyse_pref: only the loci for which the user has a analysis preference selected will be returned
 	#profile_name: to substitute profile field value in query
 	#	({'profile_name' => 1, 'analyse_prefs' => 1})
-	my ($self, $id, $options) = @_;
+	my ( $self, $id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my @field_names = 'locus';
 	push @field_names, 'profile_name' if $self->{'system'}->{'dbtype'} eq 'isolates';
@@ -380,18 +384,18 @@ sub get_scheme_loci {
 	}
 	my @loci;
 	while ( my ( $locus, $profile_name ) = $self->{'sql'}->{'scheme_loci'}->fetchrow_array() ) {
-		if ($options->{'analyse_pref'}) {
+		if ( $options->{'analyse_pref'} ) {
 			if (   $self->{'prefs'}->{'analysis_loci'}->{$locus}
 				&& $self->{'prefs'}->{'analysis_schemes'}->{$id} )
 			{
-				if ($options->{'profile_name'}) {
+				if ( $options->{'profile_name'} ) {
 					push @loci, $profile_name || $locus;
 				} else {
 					push @loci, $locus;
 				}
 			}
 		} else {
-			if ($options->{'profile_name'}) {
+			if ( $options->{'profile_name'} ) {
 				push @loci, $profile_name || $locus;
 			} else {
 				push @loci, $locus;
@@ -470,7 +474,10 @@ sub get_scheme_fields {
 }
 
 sub get_all_scheme_fields {
-	my ( $self ) = @_;
+
+	#NOTE: Data are returned in a cached reference that may be needed more than once.  If calling code needs to modify returned
+	#values then you MUST make a local copy.
+	my ($self) = @_;
 	if ( !$self->{'all_scheme_fields'} ) {
 		my $sql = $self->{'db'}->prepare("SELECT scheme_id,field FROM scheme_fields ORDER BY field_order");
 		eval { $sql->execute; };
@@ -479,11 +486,11 @@ sub get_all_scheme_fields {
 			$logger->error($@);
 		}
 		my $data = $sql->fetchall_arrayref;
-		foreach (@{$data}){
-			push @{$self->{'all_scheme_fields'}->{$_->[0]}}, $_->[1];
+		foreach ( @{$data} ) {
+			push @{ $self->{'all_scheme_fields'}->{ $_->[0] } }, $_->[1];
 		}
 	}
-	return $self->{'all_scheme_fields'};	
+	return $self->{'all_scheme_fields'};
 }
 
 sub get_scheme_field_info {
@@ -501,10 +508,13 @@ sub get_scheme_field_info {
 }
 
 sub get_all_scheme_field_info {
-	my ( $self ) = @_;
-	if (!$self->{'all_scheme_field_info'}){
+
+	#NOTE: Data are returned in a cached reference that may be needed more than once.  If calling code needs to modify returned
+	#values then you MUST make a local copy.
+	my ($self) = @_;
+	if ( !$self->{'all_scheme_field_info'} ) {
 		my @fields = $self->{'system'}->{'dbtype'} eq 'isolates' ? qw(main_display isolate_display query_field dropdown url) : 'dropdown';
-		$"=',';
+		$" = ',';
 		my $sql = $self->{'db'}->prepare("SELECT scheme_id,field,@fields FROM scheme_fields");
 		eval { $sql->execute; };
 		if ($@) {
@@ -512,10 +522,9 @@ sub get_all_scheme_field_info {
 			$logger->error($@);
 		}
 		my $data_ref = $sql->fetchall_arrayref;
-		
-		foreach (@{$data_ref}){
-			for my $i (0 .. (scalar @fields-1)){
-				$self->{'all_scheme_field_info'}->{$_->[0]}->{$_->[1]}->{$fields[$i]} = $_->[$i+2];
+		foreach ( @{$data_ref} ) {
+			for my $i ( 0 .. ( scalar @fields - 1 ) ) {
+				$self->{'all_scheme_field_info'}->{ $_->[0] }->{ $_->[1] }->{ $fields[$i] } = $_->[ $i + 2 ];
 			}
 		}
 	}
@@ -542,7 +551,7 @@ sub get_scheme {
 			};
 		}
 		$attributes->{'fields'} = $self->get_scheme_fields($id);
-		$attributes->{'loci'} = $self->get_scheme_loci( $id, ({'profile_name' => 1, 'analyse_prefs' => 0}) );
+		$attributes->{'loci'} = $self->get_scheme_loci( $id, ( { 'profile_name' => 1, 'analyse_prefs' => 0 } ) );
 		$attributes->{'primary_keys'} =
 		  $self->run_list_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key ORDER BY field_order", $id );
 		$self->{'scheme'}->{$id} = BIGSdb::Scheme->new(%$attributes);
@@ -656,21 +665,21 @@ sub get_scheme_group_info {
 }
 ##############LOCI#####################################################################
 sub get_loci {
+
 	#options passed as hashref:
 	#query_pref: only the loci for which the user has a query field preference selected will be returned
 	#seq_defined: only the loci for which a database or a reference sequence has been defined will be returned
 	#do_not_order: don't order
-	
 	#{ 'query_pref' => 1, 'seq_defined' => 1, 'do_not_order' => 1 }
-
-	my ($self, $options) = @_;
+	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $defined_clause = $options->{'seq_defined'} ? 'WHERE dbase_name IS NOT NULL OR reference_sequence IS NOT NULL' : '';
 	my $qry;
-	if ($options->{'do_not_order'}){
+	if ( $options->{'do_not_order'} ) {
 		$qry = "SELECT id FROM loci $defined_clause";
 	} else {
-		$qry = "SELECT id,scheme_id from loci left join scheme_members on loci.id = scheme_members.locus $defined_clause order by scheme_members.scheme_id,id";
+		$qry =
+"SELECT id,scheme_id from loci left join scheme_members on loci.id = scheme_members.locus $defined_clause order by scheme_members.scheme_id,id";
 	}
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute(); };
@@ -679,7 +688,7 @@ sub get_loci {
 	}
 	my @query_loci;
 	my $array_ref = $sql->fetchall_arrayref;
-	if ($options->{'query_pref'}) {
+	if ( $options->{'query_pref'} ) {
 		foreach (@$array_ref) {
 			if ( $self->{'prefs'}->{'query_field_loci'}->{ $_->[0] }
 				&& ( $self->{'prefs'}->{'query_field_schemes'}->{ $_->[1] } or !$_->[1] ) )
@@ -765,7 +774,7 @@ sub get_locus {
 
 sub is_locus {
 	my ( $self, $id ) = @_;
-	my $loci = $self->get_loci({ 'do_not_order' => 1 });
+	my $loci = $self->get_loci( { 'do_not_order' => 1 } );
 	return any { $_ eq $id } @$loci;
 }
 ##############ALLELES##################################################################
@@ -1348,7 +1357,7 @@ sub _get_user_permissions_table_attributes {
 				type     => 'bool',
 				required => 'no',
 				comments => 'allow user to define PCR or hybridization reactions to filter tag scanning.'
-			},			
+			},
 			{
 				name     => 'tag_sequences',
 				type     => 'bool',
@@ -1624,10 +1633,10 @@ sub _get_probe_locus_table_attributes {
 		{ name => 'locus', type => 'text', required => 'yes', primary_key => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
 		{ name => 'max_distance', type => 'int', required => 'yes', comments => 'Maximum distance of probe from end of locus' },
 		{ name => 'min_alignment', type => 'int',  comments => 'Minimum length of alignment (default: length of probe)' },
-		{ name => 'max_mismatch', type => 'int',  comments => 'Maximum sequence mismatch (default: 0)' },
-		{ name => 'max_gaps',     type => 'int',  comments => 'Maximum gaps in alignment (default: 0)' },
-		{ name => 'curator',      type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp',    type => 'date', required => 'yes' }
+		{ name => 'max_mismatch',  type => 'int',  comments => 'Maximum sequence mismatch (default: 0)' },
+		{ name => 'max_gaps',      type => 'int',  comments => 'Maximum gaps in alignment (default: 0)' },
+		{ name => 'curator',       type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp',     type => 'date', required => 'yes' }
 	];
 	return $attributes;
 }
