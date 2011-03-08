@@ -38,7 +38,7 @@ sub get_attributes {
 		buttontext  => 'Genome Camparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.1.0',
+		version     => '1.1.1',
 		dbtype      => 'isolates',
 		section     => 'analysis',
 		order       => 30,
