@@ -456,7 +456,7 @@ sub _analyse_by_loci {
 	$html_buffer .= "</table></div>\n";
 	$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => "$html_buffer" } );
 	close $fh;
-	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$job_id\*";
+#	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$job_id\*";
 	$self->{'jobManager'}->update_job_output( $job_id, { 'filename' => "$job_id.txt", 'description' => 'Main output file' } );
 }
 
@@ -899,7 +899,11 @@ sub _parse_blast_by_locus {
 		}
 		my $length       = $lengths{ $record[1] };
 		my $this_quality = $record[3] * $record[2];
-		if ( $this_quality > $quality && $record[3] > $alignment * 0.01 * $length && $record[2] >= $identity ) {
+		
+		if ( (!$match->{'exact'} && $record[2] == 100 && $record[3] == $length) 
+		|| ($this_quality > $quality && $record[3] > $alignment * 0.01 * $length && $record[2] >= $identity )) {
+			#Always score exact match higher than a longer partial match
+			next if $match->{'exact'} && !($record[2] == 100 && $record[3] == $length);
 			$quality              = $this_quality;
 			$match->{'seqbin_id'} = $record[0];
 			$match->{'allele'}    = $record[1];
@@ -908,17 +912,29 @@ sub _parse_blast_by_locus {
 			$match->{'alignment'} = $record[3];
 			$match->{'start'}     = $record[6];
 			$match->{'end'}       = $record[7];
-			$match->{'reverse'} = 1 if $record[8] > $record[9];
+			$match->{'reverse'}   = 1
+			  if ( ( $record[8] > $record[9] && $record[7] > $record[6] ) || ( $record[8] < $record[9] && $record[7] < $record[6] ) );
 			$match->{'exact'} = 1 if $match->{'identity'} == 100 && $match->{'alignment'} == $length;
 
-			if ( $length > $match->{'alignment'} ) {
+			if ( $length > $match->{'alignment'} ) {	
 				if ( $match->{'reverse'} ) {
-					$match->{'predicted_start'} = $match->{'start'} - $length + $record[8];
-					$match->{'predicted_end'}   = $match->{'end'} + $record[9] - 1;
+					if ( $record[8] < $record[9] ) {
+						$match->{'predicted_start'} = $match->{'start'} - $length + $record[9];
+						$match->{'predicted_end'}   = $match->{'end'} + $record[8] - 1;
+					} else {
+						$match->{'predicted_start'} = $match->{'start'} - $length + $record[8];
+						$match->{'predicted_end'}   = $match->{'end'} + $record[9] - 1;
+					}
 				} else {
-					$match->{'predicted_start'} = $match->{'start'} - $record[8] + 1;
-					$match->{'predicted_end'}   = $match->{'end'} + $length - $record[9];
+					if ( $record[8] < $record[9] ) {
+						$match->{'predicted_start'} = $match->{'start'} - $record[8] + 1;
+						$match->{'predicted_end'}   = $match->{'end'} + $length - $record[9];
+					} else {
+						$match->{'predicted_start'} = $match->{'start'} - $record[9] + 1;
+						$match->{'predicted_end'}   = $match->{'end'} + $length - $record[8];
+					}
 				}
+				
 			} else {
 				$match->{'predicted_start'} = $match->{'start'};
 				$match->{'predicted_end'}   = $match->{'end'};
