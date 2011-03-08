@@ -2,7 +2,7 @@ Important notes about upgrading
 -------------------------------
 
 Version 1.1: Offline job manager - set up new user account and cron job.
-Version 1.2: Change of isolate database structure.
+Version 1.2: Change of isolate database structure. New package 'exonerate' required.
 
 Details can be found below.
 
@@ -63,4 +63,10 @@ This version requires changes to the structure of isolate databases to
 accommodate in silico PCR and hybridization reaction filtering. Please run the
 isolatedb_v1.2.sql script, found in the sql/upgrade directory, against your
 isolate databases.
+
+PCR simulation requires installation of ipcress.  This is part of the exonerate
+package (http://www.ebi.ac.uk/~guy/exonerate/). A Debian/Ubuntu package for
+exonerate is available as part of the main distribution of the operating
+system.
+ 
 
