@@ -456,7 +456,7 @@ sub _analyse_by_loci {
 	$html_buffer .= "</table></div>\n";
 	$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => "$html_buffer" } );
 	close $fh;
-#	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$job_id\*";
+	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$job_id\*";
 	$self->{'jobManager'}->update_job_output( $job_id, { 'filename' => "$job_id.txt", 'description' => 'Main output file' } );
 }
 
