@@ -176,7 +176,7 @@ sub _print_table_fields {
 		print
 " <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>Add more fields by clicking the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>";
 	}
-	print "</span></li>\n";
+	print "</span>\n";
 }
 
 sub _print_query_interface {
@@ -468,7 +468,7 @@ sub _run_query {
 				}
 			}
 		}
-		$qry2 = "SELECT * FROM sequences WHERE locus='$locus' AND ($qry)";
+		$qry2 = "SELECT * FROM sequences WHERE locus='\Q$locus\E' AND ($qry)";
 		foreach (@$attributes) {
 			if ( $q->param( $_->{'name'} . '_list' ) ne '' ) {
 				my $value = $q->param( $_->{'name'} . '_list' );
