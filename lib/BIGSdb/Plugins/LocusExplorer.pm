@@ -123,6 +123,7 @@ sub run {
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	my $order      = $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST (allele_id AS integer)' : 'allele_id';
 	my $allele_ids = $self->{'datastore'}->run_list_query( "SELECT allele_id FROM sequences WHERE locus=? ORDER BY $order", $locus );
+	$"=' ';
 	print $q->scrolling_list(
 		-name     => 'allele_ids',
 		-id       => 'allele_ids',
