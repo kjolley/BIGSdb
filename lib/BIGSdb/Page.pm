@@ -361,35 +361,32 @@ sub get_field_selection_list {
 	my @values;
 	my $extended = $self->get_extended_attributes if $options->{'extended_attributes'};
 	if ( $options->{'isolate_fields'} ) {
-		if ( !$self->{'cache'}->{'isolate_fields'} ) {
-			my @isolate_list;
-			my $fields     = $self->{'xmlHandler'}->get_field_list;
-			my $attributes = $self->{'xmlHandler'}->get_all_field_attributes;
-			foreach (@$fields) {
-				if (   ( $options->{'sender_attributes'} )
-					&& ( $_ eq 'sender' || $_ eq 'curator' || ( $attributes->{$_}->{'userfield'} eq 'yes' ) ) )
-				{
-					foreach my $user_attribute (qw (id surname first_name affiliation)) {
-						push @isolate_list, "f_$_ ($user_attribute)";
-						( $self->{'cache'}->{'labels'}->{"f_$_ ($user_attribute)"} = "$_ ($user_attribute)" ) =~ tr/_/ /;
-					}
-				} else {
-					push @isolate_list, "f_$_";
-					( $self->{'cache'}->{'labels'}->{"f_$_"} = $_ ) =~ tr/_/ /;
-					if ( $options->{'extended_attributes'} ) {
-						my $extatt = $extended->{$_};
-						if ( ref $extatt eq 'ARRAY' ) {
-							foreach my $extended_attribute (@$extatt) {
-								push @isolate_list, "e_$_||$extended_attribute";
-								$self->{'cache'}->{'labels'}->{"e_$_||$extended_attribute"} = "$_..$extended_attribute";
-							}
+		my @isolate_list;
+		my $fields     = $self->{'xmlHandler'}->get_field_list;
+		my $attributes = $self->{'xmlHandler'}->get_all_field_attributes;
+		foreach (@$fields) {
+			if (   ( $options->{'sender_attributes'} )
+				&& ( $_ eq 'sender' || $_ eq 'curator' || ( $attributes->{$_}->{'userfield'} eq 'yes' ) ) )
+			{
+				foreach my $user_attribute (qw (id surname first_name affiliation)) {
+					push @isolate_list, "f_$_ ($user_attribute)";
+					( $self->{'cache'}->{'labels'}->{"f_$_ ($user_attribute)"} = "$_ ($user_attribute)" ) =~ tr/_/ /;
+				}
+			} else {
+				push @isolate_list, "f_$_";
+				( $self->{'cache'}->{'labels'}->{"f_$_"} = $_ ) =~ tr/_/ /;
+				if ( $options->{'extended_attributes'} ) {
+					my $extatt = $extended->{$_};
+					if ( ref $extatt eq 'ARRAY' ) {
+						foreach my $extended_attribute (@$extatt) {
+							push @isolate_list, "e_$_||$extended_attribute";
+							$self->{'cache'}->{'labels'}->{"e_$_||$extended_attribute"} = "$_..$extended_attribute";
 						}
 					}
 				}
 			}
-			$self->{'cache'}->{'isolate_fields'} = \@isolate_list;
 		}
-		push @values, @{ $self->{'cache'}->{'isolate_fields'} };
+		push @values, @isolate_list;
 	}
 	if ( $options->{'loci'} ) {
 		if ( !$self->{'cache'}->{'loci'} ) {
@@ -685,7 +682,7 @@ sub paged_display {
 		$bar_buffer .= $q->endform();
 	}
 	print "<div class=\"box\" id=\"resultsheader\">\n";
-	if ( $records) {
+	if ($records) {
 		print "<p>$message</p>" if $message;
 		my $plural = $records == 1 ? '' : 's';
 		print "<p>$records record$plural returned";
@@ -749,11 +746,15 @@ sub paged_display {
 				print $q->end_form;
 				print "</td>";
 			}
-			if (any {$table eq $_} qw (schemes users user_groups user_group_members user_permissions projects project_members isolate_aliases 
-			accession experiments experiment_sequences allele_sequences samples loci locus_aliases pcr probes isolate_field_extended_attributes
-			isolate_value_extended_attributes scheme_fields scheme_members scheme_groups scheme_group_scheme_members scheme_group_group_members
-			locus_descriptions scheme_curators locus_curators sequences sequence_refs profile_refs locus_extended_attributes client_dbases
-			client_dbase_loci client_dbase_schemes)){
+			if (
+				any { $table eq $_ }
+				qw (schemes users user_groups user_group_members user_permissions projects project_members isolate_aliases
+				accession experiments experiment_sequences allele_sequences samples loci locus_aliases pcr probes isolate_field_extended_attributes
+				isolate_value_extended_attributes scheme_fields scheme_members scheme_groups scheme_group_scheme_members scheme_group_group_members
+				locus_descriptions scheme_curators locus_curators sequences sequence_refs profile_refs locus_extended_attributes client_dbases
+				client_dbase_loci client_dbase_schemes)
+			  )
+			{
 				print "<td>";
 				print $q->start_form;
 				$q->param( 'page', 'exportConfig' );
@@ -762,8 +763,8 @@ sub paged_display {
 				}
 				print $q->submit( -name => 'Export configuration/data', -class => 'submit' );
 				print $q->end_form;
-				print "</td>";	
-			}		
+				print "</td>";
+			}
 			print "</tr></table>\n";
 		}
 	} else {
@@ -995,7 +996,7 @@ sub _print_record_table {
 				if ( $field eq 'isolate_id' ) {
 					print "<td>$data{'isolate_id'}) " . $self->get_isolate_name_from_id( $data{'isolate_id'} ) . "</td>";
 				} else {
-					my $value = $data{lc($field)};
+					my $value = $data{ lc($field) };
 					$value =~ s/\&/\&amp;/g;
 					print "<td>$value</td>";
 				}
@@ -1361,8 +1362,7 @@ sub _print_isolate_table {
 			$composites{ $data[1] }            = 1;
 		}
 	}
-	
-	my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
+	my $scheme_ids        = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
 	my $scheme_fields     = $self->{'datastore'}->get_all_scheme_fields;
 	my $scheme_field_info = $self->{'datastore'}->get_all_scheme_field_info;
 	my $scheme_loci       = $self->{'datastore'}->get_all_scheme_loci;
@@ -1371,6 +1371,7 @@ sub _print_isolate_table {
 	my $td = 1;
 	$" = "=? AND ";
 	my %url;
+
 	if ( $self->{'prefs'}->{'hyperlink_loci'} ) {
 		my $locus_info_sql = $self->{'db'}->prepare("SELECT id,url FROM loci");
 		eval { $locus_info_sql->execute; };
@@ -1746,9 +1747,9 @@ sub _print_isolate_table_header {
 	$fieldtype_header .=
 " <a class=\"tooltip\" title=\"Isolate fields - You can select the isolate fields that are displayed here by going to the options page.\">&nbsp;<i>i</i>&nbsp;</a>";
 	$fieldtype_header .= "</th>";
-	my $alias_sql  = $self->{'db'}->prepare("SELECT alias FROM locus_aliases WHERE locus=?");
-	my $qry        = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
-	my $cn_sql     = $self->{'db'}->prepare($qry);
+	my $alias_sql = $self->{'db'}->prepare("SELECT alias FROM locus_aliases WHERE locus=?");
+	my $qry       = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
+	my $cn_sql    = $self->{'db'}->prepare($qry);
 	eval { $cn_sql->execute; };
 
 	if ($@) {
@@ -1756,7 +1757,7 @@ sub _print_isolate_table_header {
 	}
 	my $common_names = $cn_sql->fetchall_hashref('id');
 	$" = '; ';
-	my $scheme_info   = $self->{'datastore'}->get_all_scheme_info;
+	my $scheme_info = $self->{'datastore'}->get_all_scheme_info;
 	foreach my $scheme_id (@$scheme_ids) {
 		next if !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};
 		my @scheme_header;
