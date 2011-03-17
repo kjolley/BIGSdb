@@ -35,7 +35,7 @@ sub get_attributes {
 		buttontext  => 'Schemes/alleles',
 		menutext    => 'Scheme and alleles',
 		module      => 'SchemeBreakdown',
-		version     => '1.0.2',
+		version     => '1.0.3',
 		section     => 'breakdown,postquery',
 		input       => 'query',
 		requires    => '',
@@ -355,7 +355,7 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 					  s/FROM $self->{'system'}->{'view'}/FROM $self->{'system'}->{'view'} LEFT JOIN refs ON refs.isolate_id=id/;
 				} 
 				if ( $qry =~ /WHERE (.*)$/ ) {
-					$scheme_query .= " AND $1";
+					$scheme_query .= " AND ($1)";
 				}
 				$scheme_query = "SET enable_nestloop = off; " . $scheme_query;
 				my $sql = $self->{'db'}->prepare($scheme_query);
