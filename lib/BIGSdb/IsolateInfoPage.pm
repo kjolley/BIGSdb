@@ -1190,6 +1190,7 @@ sub get_title {
 	return "Invalid isolate id" if !BIGSdb::Utils::is_int($isolate_id);
 	my @name  = $self->get_name($isolate_id);
 	my $title = "Isolate information: id-$isolate_id";
+	$"=' ';
 	$title .= " (@name)" if $name[1];
 	$title .= ' - ';
 	$title .= "$self->{'system'}->{'description'}";
