@@ -38,13 +38,14 @@ if ( !$ARGV[0] ) {
 
 #Read in database list from getrefs.conf
 if ( -e $conflist ) {
-	open( CONF, $conflist );
-	while ( my $line = <CONF> ) {
+	open( my $fh, '<', $conflist );
+	while ( my $line = <$fh> ) {
+		next if !$line || $line =~ /^#/;
 		my ( $dbase, $list ) = split /\s+/, $line;
 		$list =~ s/\n//g;
 		$tablelist{$dbase} = $list;
 	}
-	close CONF;
+	close $fh;
 } else {
 	print "Configuration file '$conflist' does not exist!\n";
 	exit(1);
