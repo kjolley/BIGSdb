@@ -558,7 +558,7 @@ sub paged_display {
 	my $continue = 1;
 	try {
 		foreach (@$schemes) {
-			if ( $qry =~ /temp_scheme_$_/ || $qry =~ /ORDER BY s_$_\_/ ) {
+			if ( $qry =~ /temp_scheme_$_\s/ || $qry =~ /ORDER BY s_$_\_/ ) {
 				if ( $self->{'datastore'}->create_temp_scheme_table($_) == -1 ) {
 					print
 "<div class=\"box\" id=\"statusbad\"><p>Can't copy data into temporary table - please check scheme configuration (more details will be in the log file).</p></div>\n";

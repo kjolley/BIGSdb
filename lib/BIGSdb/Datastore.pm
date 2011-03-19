@@ -569,6 +569,7 @@ sub create_temp_scheme_table {
 	my ( $self, $id ) = @_;
 	my $scheme_db = $self->get_scheme($id)->get_db();
 	if ( !$scheme_db ) {
+		$logger->error("No scheme database for scheme $id");
 		throw BIGSdb::DatabaseConnectionException("Database does not exist");
 	}
 

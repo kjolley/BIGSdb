@@ -132,7 +132,7 @@ sub create_temp_tables {
 	my $continue = 1;
 	try {
 		foreach (@$schemes) {
-			if ( $qry =~ /temp_scheme_$_/ || $qry =~ /ORDER BY s_$_\_/ ) {
+			if ( $qry =~ /temp_scheme_$_\s/ || $qry =~ /ORDER BY s_$_\_/ ) {
 				$self->{'datastore'}->create_temp_scheme_table($_);
 			}
 		}

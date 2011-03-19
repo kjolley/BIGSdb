@@ -61,7 +61,7 @@ sub print_content {
 	if ($table eq $self->{'system'}->{'view'}){
 		my $schemes  = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 		foreach (@$schemes) {
-			if ( $query =~ /temp_scheme_$_/  ) {
+			if ( $query =~ /temp_scheme_$_\s/  ) {
 				if ( $self->{'datastore'}->create_temp_scheme_table($_) == -1 ) {
 					print
 "<div class=\"box\" id=\"statusbad\"><p>Can't copy data into temporary table - please check scheme configuration (more details will be in the log file).</p></div>\n";
