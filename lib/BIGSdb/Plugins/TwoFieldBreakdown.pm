@@ -556,8 +556,8 @@ s/SELECT (.*?) FROM $self->{'system'}->{'view'}/SELECT $1 FROM $self->{'system'}
 	#due to poor estimation of the number of rows returned for particular subqueries.  On a test database
 	#switching the enable_nestloop setting to off speeded up the calculation from many minutes to a couple
 	#of seconds.
-	$$qry_ref = "SET enable_nestloop = off; " . $$qry_ref
-	  if ( $field_type{$field1} eq 'scheme_field' || $field_type{$field2} eq 'scheme_field' );
+#	$$qry_ref = "SET enable_nestloop = off; " . $$qry_ref
+#	  if ( $field_type{$field1} eq 'scheme_field' || $field_type{$field2} eq 'scheme_field' );
 	$logger->debug($$qry_ref);
 	my $sql = $self->{'db'}->prepare($$qry_ref);
 	eval { $sql->execute; };

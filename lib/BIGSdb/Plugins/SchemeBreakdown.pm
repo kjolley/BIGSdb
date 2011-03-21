@@ -192,7 +192,7 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 			$order = "COUNT($temp_fieldname) desc";
 		};
 		$field_query .= " ORDER BY $order";
-		$field_query = "SET enable_nestloop = off; " . $field_query;
+#		$field_query = "SET enable_nestloop = off; " . $field_query;
 		my $sql = $self->{'db'}->prepare($field_query);
 		eval { $sql->execute(); };
 		if ($@) {
@@ -357,7 +357,7 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 				if ( $qry =~ /WHERE (.*)$/ ) {
 					$scheme_query .= " AND ($1)";
 				}
-				$scheme_query = "SET enable_nestloop = off; " . $scheme_query;
+#				$scheme_query = "SET enable_nestloop = off; " . $scheme_query;
 				my $sql = $self->{'db'}->prepare($scheme_query);
 				$logger->debug($scheme_query);
 				
