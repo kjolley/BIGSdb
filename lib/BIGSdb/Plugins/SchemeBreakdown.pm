@@ -35,7 +35,7 @@ sub get_attributes {
 		buttontext  => 'Schemes/alleles',
 		menutext    => 'Scheme and alleles',
 		module      => 'SchemeBreakdown',
-		version     => '1.0.3',
+		version     => '1.0.4',
 		section     => 'breakdown,postquery',
 		input       => 'query',
 		requires    => '',
@@ -85,7 +85,6 @@ sub run {
 	my $qry_ref = $self->get_query($query_file);
 	return if ref $qry_ref ne 'SCALAR';
 	my $qry = $$qry_ref;
-	
 	$qry =~ s/ORDER BY.*$//g;
 	$logger->debug("Breakdown query: $qry");
 	return if !$self->create_temp_tables($qry_ref);
@@ -162,9 +161,9 @@ s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT \* FROM $self->{'system'}->{
 			}
 			if ( $field_query =~ /WHERE/ ) {
 				$field_query =~ s/WHERE (.*)$/WHERE \($1\)/;
-				$field_query .= " AND locus='$locus'";
+				$field_query .= " AND locus=E'$locus'";
 			} else {
-				$field_query .= " WHERE locus='$locus'";
+				$field_query .= " WHERE locus=E'$locus'";
 			}
 			$field_query =~
 s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}->{'view'} LEFT JOIN allele_designations ON isolate_id=id/;
@@ -410,9 +409,9 @@ s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT \* FROM $self->{'system'}->{
 				$locus_query =~ s/\*/COUNT (DISTINCT(allele_id))/;
 				if ( $locus_query =~ /WHERE/ ) {
 					$locus_query =~ s/WHERE (.*)$/WHERE \($1\)/;
-					$locus_query .= " AND locus='$cleaned_locus'";
+					$locus_query .= " AND locus=E'$cleaned_locus'";
 				} else {
-					$locus_query .= " WHERE locus='$cleaned_locus'";
+					$locus_query .= " WHERE locus=E'$cleaned_locus'";
 				}
 				$locus_query =~
 s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}->{'view'} LEFT JOIN allele_designations ON isolate_id=id/;
