@@ -622,7 +622,7 @@ sub _scheme_data_present {
 	my ($designations_present) = $self->{'sql'}->{'scheme_data_designations'}->fetchrow_array;
 	return 1 if $designations_present;
 	if (!$self->{'sql'}->{'scheme_data_sequences'}){
-		$self->{'sql'}->{'scheme_data_sequences'} = $self->{'db'}->prepare("SELECT EXISTS(SELECT * FROM allele_sequences WHERE seqbin_id IN (SELECT id FROM sequence_bin WHERE isolate_id=?) AND locus IN (SELECT locus FROM scheme_members WHERE scheme_id=?))");
+		$self->{'sql'}->{'scheme_data_sequences'} = $self->{'db'}->prepare("SELECT EXISTS(SELECT * FROM allele_sequences LEFT JOIN scheme_members ON allele_sequences.locus=scheme_members.locus LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id WHERE isolate_id=? AND scheme_id=?)");
 	}
 	eval {
 		$self->{'sql'}->{'scheme_data_sequences'}->execute($isolate_id,$scheme_id);
