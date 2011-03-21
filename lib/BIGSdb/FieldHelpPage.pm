@@ -89,7 +89,7 @@ sub _print_isolate_field {
 	  . "</td></tr>\n";
 	print "<tr class=\"td2\"><th style=\"text-align:right\">Required</th><td style=\"text-align:left\">"
 	  . (
-		$attributes{'required'} eq 'yes'
+		$attributes{'required'} ne 'no'
 		? "yes - this is a required field so all records must contain a value.</td></tr>\n"
 		: "no - this is an optional field so some records may not contain a value.</td></tr>\n"
 	  );
