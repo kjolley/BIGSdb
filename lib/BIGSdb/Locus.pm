@@ -57,7 +57,7 @@ sub get_allele_sequence {
 		if ( $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'} ) {
 			$self->{'dbase_id2_value'} =~ s/'/\\'/g if $self->{'dbase_id2_value'} !~ /\\'/; #only escape if not already escaped
 			$qry =
-"SELECT $self->{'dbase_seq_field'} FROM $self->{'dbase_table'} WHERE $self->{'dbase_id_field'}=? AND $self->{'dbase_id2_field'}='$self->{'dbase_id2_value'}'";
+"SELECT $self->{'dbase_seq_field'} FROM $self->{'dbase_table'} WHERE $self->{'dbase_id_field'}=? AND $self->{'dbase_id2_field'}=E'$self->{'dbase_id2_value'}'";
 		} else {
 			$qry = "SELECT $self->{'dbase_seq_field'} FROM $self->{'dbase_table'} WHERE $self->{'dbase_id_field'} = ?";
 		}
@@ -88,7 +88,7 @@ sub get_all_sequences {
 		if ( $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'} ) {
 			$self->{'dbase_id2_value'} =~ s/'/\\'/g if $self->{'dbase_id2_value'} !~ /\\'/; #only escape if not already escaped
 			$qry =
-"SELECT $self->{'dbase_id_field'},$self->{'dbase_seq_field'} FROM $self->{'dbase_table'} WHERE $self->{'dbase_id2_field'}='$self->{'dbase_id2_value'}'";
+"SELECT $self->{'dbase_id_field'},$self->{'dbase_seq_field'} FROM $self->{'dbase_table'} WHERE $self->{'dbase_id2_field'}=E'$self->{'dbase_id2_value'}'";
 		} else {
 			$qry = "SELECT $self->{'dbase_id_field'},$self->{'dbase_seq_field'} FROM $self->{'dbase_table'}";
 		}
