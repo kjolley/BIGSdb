@@ -349,7 +349,7 @@ sub _print_isolate_query_interface {
 						}
 					}
 				} else {
-					my $qry = "SELECT DISTINCT($field) FROM $system->{'view'}";
+					my $qry = "SELECT DISTINCT($field) FROM $system->{'view'} ORDER BY $field";
 					my $sql = $self->{'db'}->prepare($qry);
 					$sql->execute()
 					  or $logger->error("Can't execute query '$qry'");
