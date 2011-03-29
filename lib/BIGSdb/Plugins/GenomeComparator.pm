@@ -106,7 +106,7 @@ sub run_job {
 		}
 		catch Bio::Root::Exception with {
 			$self->{'jobManager'}->update_job_status( $job_id,
-				{ 'status' => 'failed', 'message_html' => "<p><p>No data returned for accession number #$accession.</p></p>" } );
+				{ 'status' => 'failed', 'message_html' => "<p /><p class=\"statusbad\">No data returned for accession number #$accession.</p>" } );
 			my $err = shift;
 			$logger->debug($err);
 		};
@@ -549,9 +549,17 @@ sub _analyse_by_reference {
 		my $seq = $cds->seq->seq;
 		$seqs{'ref'} = $seq;
 		my @tags;
-		foreach ( $cds->each_tag_value('product') ) {
-			push @tags, $_;
-		}
+		try {
+			foreach ( $cds->each_tag_value('product') ) {
+				push @tags, $_;
+			}
+		} catch Bio::Root::Exception with {
+			my $err = shift;
+			$logger->debug($err);
+			$html_buffer .= "\n<p /><p class=\"statusbad\">Error: There are no product tags defined in record with supplied accession number.</p>\n";
+			$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => $html_buffer } );
+		};
+		return if !@tags;
 		$" = '; ';
 		my $desc                 = "@tags";
 		my $length               = length $seq;
