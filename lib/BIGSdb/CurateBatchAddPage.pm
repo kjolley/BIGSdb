@@ -373,6 +373,7 @@ sub print_content {
 		my $qry                   = "SELECT COUNT(*) FROM $table WHERE @primary_keys=?";
 		my $primary_key_check_sql = $self->{'db'}->prepare($qry);
 		my %locus_format;
+		my %locus_regex;
 		my $first_record = 1;
 		my $header_row;
 		my $record_count;
@@ -720,6 +721,7 @@ sub print_content {
 							if ( !$locus_format{$_} ) {
 								my $locus_info = $self->{'datastore'}->get_locus_info($_);
 								$locus_format{$_} = $locus_info->{'allele_id_format'};
+								$locus_regex{$_} = $locus_info->{'allele_id_regex'};
 							}
 							if ($value) {
 								if ( $locus_format{$_} eq 'integer'
@@ -727,6 +729,9 @@ sub print_content {
 								{
 									$locusbuffer .= "<span><font color='red'>$_:&nbsp;$value</font></span><br />";
 									$problems{$pk_combination} .= "'$_' must be an integer<br />";
+								} elsif ($locus_regex{$_} && $value !~ /$locus_regex{$_}/){
+									$locusbuffer .= "<span><font color='red'>$_:&nbsp;$value</font></span><br />";
+									$problems{$pk_combination} .= "'$_' does not conform to specified format.<br />";
 								} else {
 									$locusbuffer .= "$_:&nbsp;$value<br />";
 								}
