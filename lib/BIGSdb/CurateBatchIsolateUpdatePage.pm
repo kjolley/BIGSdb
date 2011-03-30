@@ -225,7 +225,7 @@ sub print_content {
 						if ( $@ =~ /integer/ ) {
 							print
 "<div class=\"box\" id=\"statusbad\"><p>Your id field(s) contain text characters but the field can only contain integers.</p></div>\n";
-							$logger->error("Can't execute $@");
+							$logger->debug("Can't execute $@");
 							return;
 						}
 					}
