@@ -795,6 +795,15 @@ sub paged_display {
 	}
 }
 
+sub _clean_locus {
+	my ($self, $locus) = @_;
+	if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
+		$locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
+	}
+	$locus =~ tr/_/ /;
+	return $locus;
+}
+
 sub _print_record_table {
 	my ( $self, $table, $qryref, $page ) = @_;
 	my $pagesize = $self->{'prefs'}->{'displayrecs'};
@@ -1108,7 +1117,8 @@ sub get_record_name {
 		'pcr'                               => 'PCR reaction',
 		'pcr_locus'                         => 'PCR locus link',
 		'probes'                            => 'nucleotide probe',
-		'probe_locus'                       => 'probe locus link'
+		'probe_locus'                       => 'probe locus link',
+		'client_dbase_loci_fields'      	=> 'locus to client database isolate field definition'
 	);
 	return $names{$table};
 }
@@ -2056,13 +2066,11 @@ sub can_modify_table {
 		return $allowed;
 	} elsif (
 		(
-			   $table eq 'loci'
-			|| $table eq 'locus_aliases'
-			|| $table eq 'client_dbases'
-			|| $table eq 'client_dbase_loci'
-			|| $table eq 'client_dbase_schemes'
-			|| $table eq 'locus_extended_attributes'
-			|| $table eq 'locus_curators'
+			any {
+				$table eq $_;
+			}
+			qw (loci locus_aliases client_dbases client_dbase_loci client_dbase_schemes locus_client_display_fields
+			locus_extended_attributes locus_curators)
 		)
 		&& $self->{'permissions'}->{'modify_loci'}
 	  )

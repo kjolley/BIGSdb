@@ -20,7 +20,7 @@ package BIGSdb::CurateIndexPage;
 use strict;
 use base qw(BIGSdb::CuratePage);
 use Error qw(:try);
-use List::MoreUtils qw(uniq);
+use List::MoreUtils qw(uniq none);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -97,15 +97,20 @@ HTML
 	#Display links for updating database configuration tables.
 	#These are admin functions, some of which some curators may be allowed to access.
 	my @tables = qw (loci);
+	my @skip_table;
 	if ($system->{'dbtype'} eq 'isolates'){
 		push @tables, qw(locus_aliases pcr pcr_locus probes probe_locus isolate_field_extended_attributes composite_fields);
 	} elsif ($system->{'dbtype'} eq 'sequences'){
-		push @tables, qw(locus_extended_attributes client_dbases client_dbase_loci client_dbase_schemes);
+		push @tables, qw(locus_extended_attributes client_dbases client_dbase_loci client_dbase_schemes client_dbase_loci_fields);
+		my $client_db_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM client_dbases")->[0];
+		if (!$client_db_count){
+			push @skip_table,qw (client_dbase_loci client_dbase_schemes client_dbase_loci_fields);
+		}
 	}
 	push @tables, qw (schemes scheme_members scheme_fields scheme_groups scheme_group_scheme_members scheme_group_group_members);
-	foreach (@tables) {
-		if ( $self->can_modify_table($_) ) {
-			my $function = "_print_$_";
+	foreach my $table (@tables) {
+		if ( $self->can_modify_table($table) && (!@skip_table || none {$table eq $_} @skip_table)) {
+			my $function = "_print_$table";
 			$buffer .= $self->$function($td);
 			$td = $td == 1 ? 2 : 1;
 			$can_do_something = 1;
@@ -598,6 +603,18 @@ sub _print_client_dbases {
 backlinks and searches of these databases when you query sequences or profiles in this database.</td></tr>
 HTML
 	return $buffer;
+}
+
+sub _print_client_dbase_loci_fields {
+	my ( $self, $td ) = @_;
+	my $buffer = <<"HTML";
+<tr class="td$td"><td>client database fields linked to loci</td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=client_dbase_loci_fields">+</a></td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=client_dbase_loci_fields">++</a></td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=client_dbase_loci_fields">?</a></td>
+<td style="text-align:left" class="comment">Define fields in client database whose value can be displayed when isolate has matching allele.</td></tr>
+HTML
+	return $buffer;	
 }
 
 sub _print_locus_extended_attributes {

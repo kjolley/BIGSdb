@@ -1742,6 +1742,26 @@ sub _get_client_dbases_table_attributes {
 	return $attributes;
 }
 
+sub _get_client_dbase_loci_fields_table_attributes {
+	my $attributes = [
+			{
+			name           => 'client_dbase_id',
+			type           => 'int',
+			required       => 'yes',
+			primary_key    => 'yes',
+			foreign_key    => 'client_dbases',
+			labels         => '|$id|) |$name|',
+			dropdown_query => 'yes'
+		},
+		{ name => 'locus', type => 'text', required => 'yes', primary_key => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
+		{ name => 'isolate_field', type => 'text', length => 50, required => 'yes', primary_key => 'yes'},
+		{ name => 'allele_query', type => 'bool', default => 'true', comments => 'set to true to display field values when an allele query is done.'},
+		{ name => 'curator',     type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp',   type => 'date', required => 'yes' }
+	];
+	return $attributes;
+}
+
 sub _get_experiments_table_attributes {
 	my $attributes = [
 		{ name => 'id',          type => 'int',  length   => 10,    required       => 'yes', primary_key => 'yes' },
@@ -2563,7 +2583,7 @@ sub get_tables {
 		@tables =
 		  qw(users user_groups user_group_members sequences sequence_refs accession loci schemes scheme_members scheme_fields profiles
 		  profile_refs user_permissions client_dbases client_dbase_loci client_dbase_schemes locus_extended_attributes scheme_curators locus_curators
-		  locus_descriptions scheme_groups scheme_group_scheme_members scheme_group_group_members);
+		  locus_descriptions scheme_groups scheme_group_scheme_members scheme_group_group_members client_dbase_loci_fields);
 	}
 	return @tables;
 }
