@@ -334,6 +334,7 @@ sub _run_query {
 						if ( $locus && $locus !~ /SCHEME_(\d+)/ ) {
 							print
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$cleaned_match\">";
+							$cleaned_locus = $self->clean_locus($locus);
 							print "$cleaned_locus: ";
 							$field_values = $self->_get_client_dbase_fields( $locus, [$cleaned_match] );
 						} else {
@@ -426,7 +427,7 @@ sub _run_query {
 										$self->_cleanup_alignment( $outfile, $cleaned_file );
 										print
 "<p><a href=\"/tmp/$temp\_cleaned.txt\" id=\"alignment_link\" rel=\"ajax\">Show alignment</a></p>\n";
-										print "<pre><div id=\"alignment\"></div></pre>\n";
+										print "<pre><span id=\"alignment\"></span></pre>\n";
 									}
 									my $diffs = $self->_get_differences( $seq_ref, \$seq, $sstart, $qstart );
 									print "<h2>Differences</h2>\n";
