@@ -54,7 +54,7 @@ sub run {
 	$locus =~ s/^cn_//;
 	my $allele = $q->param('allele');
 	print "<h1>Find most similar alleles</h1>\n";
-	my ($display_loci,$cleaned) = $self->{'datastore'}->get_locus_list;
+	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list;
 	if ( !@$display_loci ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>No loci have been defined for this database.</p></div>\n";
 		return;
@@ -102,39 +102,41 @@ sub run {
 	}
 	my $cleanlocus = $self->clean_locus($locus);
 	my $seq_ref = $self->{'datastore'}->get_sequence( $locus, $allele );
-	my $blast_file = $self->run_blast( $locus, $seq_ref, $locus_info->{'data_type'}, $num_results+1, 0 );
+	my ( $blast_file, undef ) = $self->run_blast(
+		{ 'locus' => $locus, 'seq_ref' => $seq_ref, 'qry_type' => $locus_info->{'data_type'}, 'num_results' => $num_results + 1 } );
 	my $matches_ref = $self->_parse_blast_partial($blast_file);
 	print "<div class=\"box\" id=\"resultsheader\">\n";
 	print "<h2>$cleanlocus-$allele</h2>\n";
-	if (ref $matches_ref eq 'ARRAY' && scalar @$matches_ref > 0){
-		print "<table class=\"resultstable\"><tr><th>Allele</th><th>% Identity</th><th>Mismatches</th><th>Gaps</th><th>Alignment</th><th>Compare</th></tr>\n";
+	if ( ref $matches_ref eq 'ARRAY' && scalar @$matches_ref > 0 ) {
+		print
+"<table class=\"resultstable\"><tr><th>Allele</th><th>% Identity</th><th>Mismatches</th><th>Gaps</th><th>Alignment</th><th>Compare</th></tr>\n";
 		my $td = 1;
-		foreach (@$matches_ref){
+		foreach (@$matches_ref) {
 			next if $_->{'allele'} eq $allele;
 			print "<tr class=\"td$td\"><td>$cleanlocus: $_->{'allele'}</td>
 			<td>$_->{'identity'}</td>
 			<td>$_->{'mismatches'}</td>
 			<td>$_->{'gaps'}</td>
-			<td>$_->{'alignment'}/". (length $$seq_ref) ."</td>\n<td>";
+			<td>$_->{'alignment'}/" . ( length $$seq_ref ) . "</td>\n<td>";
 			print $q->start_form;
-			$q->param('allele1',$allele);
-			$q->param('allele2',$_->{'allele'});
-			$q->param('name','SequenceComparison');
-			$q->param('sent',1);
-			foreach (qw (db page name locus allele1 allele2 sent)){
+			$q->param( 'allele1', $allele );
+			$q->param( 'allele2', $_->{'allele'} );
+			$q->param( 'name',    'SequenceComparison' );
+			$q->param( 'sent',    1 );
+
+			foreach (qw (db page name locus allele1 allele2 sent)) {
 				print $q->hidden($_);
 			}
-			print $q->submit(-name=>"Compare $cleaned->{$locus}: $_->{'allele'}", -class=>'submit');
+			print $q->submit( -name => "Compare $cleaned->{$locus}: $_->{'allele'}", -class => 'submit' );
 			print $q->end_form;
 			print "</td></tr>\n";
 			$td = $td == 1 ? 2 : 1;
 		}
 		print "</table>\n";
-			
-		
 	} else {
 		print "<p>No similar alleles found.</p>\n";
 	}
+
 	#delete all working files
 	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 	print "</div>\n";
@@ -150,17 +152,16 @@ sub _parse_blast_partial {
 	my %allele_matched;
 	while ( my $line = <$blast_fh> ) {
 		next if !$line || $line =~ /^#/;
-		
 		my $match;
 		my @record = split /\s+/, $line;
-		next if $allele_matched{$record[1]}; #sometimes BLAST will display two alignments for a sequence
-		$match->{'allele'}    = $record[1];
-		$match->{'identity'}  = $record[2];
-		$match->{'alignment'} = $record[3];
+		next if $allele_matched{ $record[1] };    #sometimes BLAST will display two alignments for a sequence
+		$match->{'allele'}     = $record[1];
+		$match->{'identity'}   = $record[2];
+		$match->{'alignment'}  = $record[3];
 		$match->{'mismatches'} = $record[4];
-		$match->{'gaps'}      = $record[5];
-		push @matches,$match;
-		$allele_matched{$record[1]}=1;
+		$match->{'gaps'}       = $record[5];
+		push @matches, $match;
+		$allele_matched{ $record[1] } = 1;
 	}
 	close $blast_fh;
 	return \@matches;

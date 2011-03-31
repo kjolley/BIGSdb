@@ -562,7 +562,7 @@ sub sequence_similar_to_others {
 	#returns true if sequence is at least 70% identical over an alignment length of 90% or more.
 	my ( $self, $locus, $seq_ref ) = @_;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	my $blast_file = $self->run_blast( $locus, $seq_ref, $locus_info->{'data_type'}, 1 );
+	my ($blast_file,undef) = $self->run_blast( {'locus' =>$locus, 'seq_ref'=>$seq_ref, 'qry_type' => $locus_info->{'data_type'}, 'num_results' =>1 });
 	my $full_path  = "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 	my $length     = length $$seq_ref;
 	open( my $blast_fh, '<', $full_path ) || ( $logger->error("Can't open BLAST output file $full_path. $!"), return 0 );

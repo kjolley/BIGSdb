@@ -20,7 +20,7 @@ package BIGSdb::SequenceQueryPage;
 use strict;
 use base qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
-use List::MoreUtils qw(uniq);
+use List::MoreUtils qw(uniq any);
 use Error qw(:try);
 use IO::String;
 use Bio::SeqIO;
@@ -57,9 +57,9 @@ sub print_content {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $page   = $q->param('page');
-	my $locus = $q->param('locus');
-	$locus =~ s/%27/'/g; #Web-escaped locus
-	$q->param('locus',$locus);
+	my $locus  = $q->param('locus');
+	$locus =~ s/%27/'/g;    #Web-escaped locus
+	$q->param( 'locus', $locus );
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>This function is not available in isolate databases.</p></div>\n";
 		return;
@@ -76,10 +76,12 @@ to be DNA if it contains 90% or more G,A,T,C or N characters.\">&nbsp;<i>i</i>&n
 	print "</p>\n";
 	print $q->start_form;
 	print "<table><tr><td style=\"text-align:right\">Please select locus/scheme: </td><td>";
-	my ($display_loci,$cleaned) = $self->{'datastore'}->get_locus_list;
-	my $scheme_list = $self->{'datastore'}->run_list_query_hashref("SELECT id,description FROM schemes ORDER BY display_order desc,description desc");
-	foreach (@$scheme_list){
-		unshift @$display_loci,"SCHEME_$_->{'id'}";
+	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list;
+	my $scheme_list =
+	  $self->{'datastore'}->run_list_query_hashref("SELECT id,description FROM schemes ORDER BY display_order desc,description desc");
+
+	foreach (@$scheme_list) {
+		unshift @$display_loci, "SCHEME_$_->{'id'}";
 		$cleaned->{"SCHEME_$_->{'id'}"} = $_->{'description'};
 	}
 	unshift @$display_loci, 0;
@@ -87,8 +89,9 @@ to be DNA if it contains 90% or more G,A,T,C or N characters.\">&nbsp;<i>i</i>&n
 	print $q->popup_menu( -name => 'locus', -values => $display_loci, -labels => $cleaned );
 	print "</td><td>";
 	print "Order results by: ";
-	print $q->popup_menu ( -name => 'order', -values => [('locus','best match')]);
+	print $q->popup_menu( -name => 'order', -values => [ ( 'locus', 'best match' ) ] );
 	print "</td></tr>\n<tr><td style=\"text-align:right\">";
+
 	if ( $page eq 'sequenceQuery' ) {
 		print "Enter query sequence: ";
 	} else {
@@ -96,19 +99,17 @@ to be DNA if it contains 90% or more G,A,T,C or N characters.\">&nbsp;<i>i</i>&n
 	}
 	print "</td><td style=\"width:80%\" colspan=\"2\">";
 	my $sequence;
-	if ($q->param('sequence')){
+	if ( $q->param('sequence') ) {
 		$sequence = $q->param('sequence');
-		$q->param('sequence','');
+		$q->param( 'sequence', '' );
 	}
 	print $q->textarea( -name => 'sequence', -rows => '6', -cols => '70' );
 	print "</td></tr>\n<tr><td colspan=\"2\">";
-
 	print
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page\" class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\">";
 	print $q->submit( -name => 'Submit', -class => 'submit' );
 	print "</td></tr>\n";
 	print "</table>\n";
-
 	foreach (qw (db page)) {
 		print $q->hidden($_);
 	}
@@ -120,10 +121,11 @@ to be DNA if it contains 90% or more G,A,T,C or N characters.\">&nbsp;<i>i</i>&n
 }
 
 sub _run_query {
-	my ($self,$sequence) = @_;
-	my $q      = $self->{'cgi'};
-	my $page   = $q->param('page');
-	if ($sequence !~ /^>/){
+	my ( $self, $sequence ) = @_;
+	my $q    = $self->{'cgi'};
+	my $page = $q->param('page');
+	if ( $sequence !~ /^>/ ) {
+
 		#add identifier line if one missing since newer versions of BioPerl check
 		$sequence = ">\n$sequence";
 	}
@@ -131,8 +133,10 @@ sub _run_query {
 	my $seqin = Bio::SeqIO->new( -fh => $stringfh_in, -format => 'fasta' );
 	my $batchBuffer;
 	my $td = 1;
-	$|=1;
+	$| = 1;
 	my $first = 1;
+	my $job   = 0;
+
 	while ( my $seq_object = $seqin->next_seq ) {
 		if ( $ENV{'MOD_PERL'} ) {
 			$self->{'mod_perl_request'}->rflush;
@@ -145,13 +149,14 @@ sub _run_query {
 		$seq = uc($seq);
 		my $seq_type = BIGSdb::Utils::is_valid_DNA($seq) ? 'DNA' : 'peptide';
 		my $locus = $q->param('locus');
-		if ($locus =~ /^cn_(.+)$/){
+		if ( $locus =~ /^cn_(.+)$/ ) {
 			$locus = $1;
 		}
+
 		#Check for exact match first if locus selected
 		my $qry;
 		my $count;
-		if ($locus && $locus !~ /^SCHEME_\d+/) {
+		if ( $locus && $locus !~ /^SCHEME_\d+/ ) {
 			$count =
 			  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM sequences WHERE locus=? and sequence=?", $locus, $seq )->[0];
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
@@ -160,7 +165,7 @@ sub _run_query {
 		}
 		if ($count) {
 			my $sql = $self->{'db'}->prepare($qry);
-			eval { ($locus && $locus !~ /^SCHEME_\d+/) ? $sql->execute( $locus, $seq ) : $sql->execute($seq) };
+			eval { ( $locus && $locus !~ /^SCHEME_\d+/ ) ? $sql->execute( $locus, $seq ) : $sql->execute($seq) };
 			if ($@) {
 				$logger->error("Can't execute $qry $@");
 			}
@@ -168,12 +173,12 @@ sub _run_query {
 			my @allele_ids;
 			while ( my ( $locus, $allele_id ) = $sql->fetchrow_array ) {
 				my $cleaned = $self->clean_locus($locus);
-				push @allele_ids,$allele_id;
+				push @allele_ids, $allele_id;
 				push @alleles,
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id\">$cleaned: $allele_id</a>";
 			}
 			$" = ', ';
-			my $field_values = $self->_get_client_dbase_fields($locus,\@allele_ids);		
+			my $field_values = $self->_get_client_dbase_fields( $locus, \@allele_ids );
 			if ( $page eq 'sequenceQuery' ) {
 				print "<div class=\"box\" id=\"resultsheader\">";
 				print "<p>Exact match" . ( $count == 1 ? '' : 'es' ) . " found: \n";
@@ -187,14 +192,15 @@ sub _run_query {
 				  . "</td><td style=\"text-align:left\">Exact match"
 				  . ( $count == 1 ? '' : 'es' )
 				  . " found: @alleles";
-				  $batchBuffer .= " ($field_values)" if $field_values;
-				  $batchBuffer .= "</td></tr>\n";
+				$batchBuffer .= " ($field_values)" if $field_values;
+				$batchBuffer .= "</td></tr>\n";
 			}
 		} else {
 			my $qry_type = BIGSdb::Utils::sequence_type($seq);
 			( my $cleaned_locus = $locus ) =~ tr/_/ /;
-			my $locus_info    = $self->{'datastore'}->get_locus_info($locus);
-			my $blast_file    = $self->run_blast( $locus, \$seq, $qry_type, 50000 );
+			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+			( my $blast_file, $job ) = $self->run_blast(
+				{ 'locus' => $locus, 'seq_ref' => \$seq, 'qry_type' => $qry_type, 'num_results' => 50000, 'cache' => 1, 'job' => $job } );
 			my $exact_matches = $self->_parse_blast_exact( $locus, $blast_file );
 			if ( ref $exact_matches eq 'ARRAY' && @$exact_matches ) {
 				if ( $page eq 'sequenceQuery' ) {
@@ -212,41 +218,40 @@ sub _run_query {
 							was translated to align against your peptide query sequence.</p>\n";
 					}
 					print
-					  "<table class=\"resultstable\"><tr><th>Allele</th><th>Length</th><th>Start position</th><th>End position</th><th>Attributes</th></tr>\n";
-					if ((!$locus || $locus =~ /SCHEME_(\d+)/) && $q->param('order') eq 'locus'){
+"<table class=\"resultstable\"><tr><th>Allele</th><th>Length</th><th>Start position</th><th>End position</th><th>Attributes</th></tr>\n";
+					if ( ( !$locus || $locus =~ /SCHEME_(\d+)/ ) && $q->param('order') eq 'locus' ) {
 						my %locus_values;
-						foreach (@$exact_matches){
+						foreach (@$exact_matches) {
 							if ( $_->{'allele'} =~ /(.*):.*/ ) {
-								$locus_values{$_}= $1;
+								$locus_values{$_} = $1;
 							}
 						}
-						@$exact_matches = sort {$locus_values{$a} cmp $locus_values{$b}} @$exact_matches;
+						@$exact_matches = sort { $locus_values{$a} cmp $locus_values{$b} } @$exact_matches;
 					}
 					foreach (@$exact_matches) {
 						print "<tr class=\"td$td\"><td>";
 						my $allele;
 						my $field_values;
-						if ($locus && $locus !~ /SCHEME_(\d+)/) {
+						if ( $locus && $locus !~ /SCHEME_(\d+)/ ) {
 							my $cleaned = $self->clean_locus($locus);
 							print
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$_->{'allele'}\">";
 							$allele = "$cleaned: $_->{'allele'}";
-							$field_values = $self->_get_client_dbase_fields($locus,[$_->{'allele'}]);
+							$field_values = $self->_get_client_dbase_fields( $locus, [ $_->{'allele'} ] );
 						} else {
 							my ( $cleaned_locus, $locus, $allele_id );
 							if ( $_->{'allele'} =~ /(.*):(.*)/ ) {
-								$locus     = $1;
+								$locus = $1;
 								my $cleaned = $self->clean_locus($locus);
-								$allele_id = $2;
-								$allele = "$cleaned: $allele_id";
-								$field_values = $self->_get_client_dbase_fields($locus,[$allele_id]);
+								$allele_id    = $2;
+								$allele       = "$cleaned: $allele_id";
+								$field_values = $self->_get_client_dbase_fields( $locus, [$allele_id] );
 							}
 							print
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id\">"
-							  if $locus && $allele_id;						
+							  if $locus && $allele_id;
 						}
 						print "$allele</a></td><td>$_->{'length'}</td><td>$_->{'start'}</td><td>$_->{'end'}</td>";
-						
 						print "<td>$field_values</td></tr>\n";
 						$td = $td == 1 ? 2 : 1;
 					}
@@ -255,25 +260,25 @@ sub _run_query {
 				} else {
 					my $buffer = "Exact match" . ( scalar @$exact_matches == 1 ? '' : 'es' ) . " found: ";
 					my $first = 1;
-					if ((!$locus || $locus =~ /SCHEME_\d+/) && $q->param('order') eq 'locus'){
+					if ( ( !$locus || $locus =~ /SCHEME_\d+/ ) && $q->param('order') eq 'locus' ) {
 						my %locus_values;
-						foreach (@$exact_matches){
+						foreach (@$exact_matches) {
 							if ( $_->{'allele'} =~ /(.*):.*/ ) {
-								$locus_values{$_}= $1;
+								$locus_values{$_} = $1;
 							}
 						}
-						@$exact_matches = sort {$locus_values{$a} cmp $locus_values{$b}} @$exact_matches;
+						@$exact_matches = sort { $locus_values{$a} cmp $locus_values{$b} } @$exact_matches;
 					}
 					foreach (@$exact_matches) {
 						$buffer .= '; ' if !$first;
 						my $allele_id;
-						if ( (!$locus || $locus =~ /SCHEME_\d+/) && $_->{'allele'} =~ /(.*):(.*)/ ) {
+						if ( ( !$locus || $locus =~ /SCHEME_\d+/ ) && $_->{'allele'} =~ /(.*):(.*)/ ) {
 							$locus     = $1;
 							$allele_id = $2;
 						} else {
 							$allele_id = $_->{'allele'};
 						}
-						my $field_values = $self->_get_client_dbase_fields($locus,[$allele_id]);
+						my $field_values = $self->_get_client_dbase_fields( $locus, [$allele_id] );
 						my $cleaned_locus = $self->clean_locus($locus);
 						$buffer .=
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id\">$cleaned_locus: $allele_id</a>";
@@ -288,7 +293,17 @@ sub _run_query {
 				if ( $qry_type ne $locus_info->{'data_type'} && $locus && $locus !~ /SCHEME_(\d+)/ ) {
 					system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 					if ( $page eq 'sequenceQuery' ) {
-						$blast_file = $self->run_blast( $locus, \$seq, $qry_type, 5, 1 );
+						( $blast_file, $job ) = $self->run_blast(
+							{
+								'locus'       => $locus,
+								'seq_ref'     => \$seq,
+								'qry_type'    => $qry_type,
+								'num_results' => 5,
+								'alignment'   => 1,
+								'cache'       => 1,
+								'job'         => $job
+							}
+						);
 						print
 						  "<div class=\"box\" id=\"resultsheader\"><p>Your query is a $qry_type sequence whereas this locus is defined with 
 							$locus_info->{'data_type'} sequences.  There were no exact matches, but the BLAST results are shown below (a maximum of five
@@ -316,11 +331,11 @@ sub _run_query {
 						print "<div class=\"box\" id=\"resultsheader\"><p>Closest match: ";
 						my $cleaned_match = $partial_match->{'allele'};
 						my $field_values;
-						if ($locus && $locus !~ /SCHEME_(\d+)/) {
+						if ( $locus && $locus !~ /SCHEME_(\d+)/ ) {
 							print
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$cleaned_match\">";
 							print "$cleaned_locus: ";
-							$field_values = $self->_get_client_dbase_fields($locus,[$cleaned_match]);
+							$field_values = $self->_get_client_dbase_fields( $locus, [$cleaned_match] );
 						} else {
 							my ( $locus, $allele_id );
 							if ( $cleaned_match =~ /(.*):(.*)/ ) {
@@ -328,7 +343,7 @@ sub _run_query {
 								$allele_id = $2;
 								print
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id\">";
-								$field_values = $self->_get_client_dbase_fields($locus,[$allele_id]);
+								$field_values = $self->_get_client_dbase_fields( $locus, [$allele_id] );
 							}
 							$cleaned_match =~ s/:/: /;
 						}
@@ -338,7 +353,7 @@ sub _run_query {
 						print "</p>";
 						my $data_type;
 						my $seq_ref;
-						if ($locus && $locus !~ /SCHEME_(\d+)/) {
+						if ( $locus && $locus !~ /SCHEME_(\d+)/ ) {
 							$seq_ref = $self->{'datastore'}->get_sequence( $locus, $partial_match->{'allele'} );
 							$data_type = $locus_info->{'data_type'};
 						} else {
@@ -360,36 +375,39 @@ sub _run_query {
 							system(
 "$self->{'config'}->{'emboss_path'}/stretcher -aformat markx2 -awidth $self->{'prefs'}->{'alignwidth'} $seq1_infile $seq2_infile $outfile 2> /dev/null"
 							);
-							unlink $seq1_infile,$seq2_infile;
+							unlink $seq1_infile, $seq2_infile;
 							my $internal_gaps;
-							if (-e $outfile){
-								my ($gaps,$opening_gaps,$end_gaps);
+
+							if ( -e $outfile ) {
+								my ( $gaps, $opening_gaps, $end_gaps );
 								open my $fh, '<', $outfile;
 								my $first_line = 1;
-								while (<$fh>){
-									if ($_ =~ /^# Gaps:\s+(\d+)+\//){
+								while (<$fh>) {
+									if ( $_ =~ /^# Gaps:\s+(\d+)+\// ) {
 										$gaps = $1;
 									}
-									if ($_ =~ /^\s+Ref [^-]+$/){
+									if ( $_ =~ /^\s+Ref [^-]+$/ ) {
+
 										#Reset end gap count if line contains anything other than gaps
 										$end_gaps = 0;
 									}
-									if ($first_line && $_ =~ /^\s+Ref/){
-										if ($_ =~ /^\s+Ref (-*)/){
-											$opening_gaps += length $1;											
+									if ( $first_line && $_ =~ /^\s+Ref/ ) {
+										if ( $_ =~ /^\s+Ref (-*)/ ) {
+											$opening_gaps += length $1;
 										}
 									}
-									if ($_ =~ /^\s+Ref.+?(-*)\s*$/){										
+									if ( $_ =~ /^\s+Ref.+?(-*)\s*$/ ) {
 										$end_gaps += length $1;
-									}		
-									if ($_ =~ /^\s+Ref [^-]+$/){
+									}
+									if ( $_ =~ /^\s+Ref [^-]+$/ ) {
 										$first_line = 0;
-									}							
+									}
 								}
 								close $fh;
 								$logger->debug("Opening gaps: $opening_gaps; End gaps: $end_gaps");
 								$internal_gaps = $gaps - $opening_gaps - $end_gaps;
 							}
+
 							#Display nucleotide differences if both BLAST and stretcher report no gaps.
 							if ( !$internal_gaps && !$partial_match->{'gaps'} ) {
 								my $qstart = $partial_match->{'qstart'};
@@ -403,12 +421,13 @@ sub _run_query {
 									print "<p>The sequence is reverse-complemented with respect to the reference sequence.  
 								This will confuse the list of differences so try reversing it and query again.</p>\n";
 								} else {
-									if ( -e $outfile ) {										
+									if ( -e $outfile ) {
 										my $cleaned_file = "$self->{'config'}->{'tmp_dir'}/$temp\_cleaned.txt";
-										$self->_cleanup_alignment($outfile,$cleaned_file);
-										print "<p><a href=\"/tmp/$temp\_cleaned.txt\" id=\"alignment_link\" rel=\"ajax\">Show alignment</a></p>\n";
+										$self->_cleanup_alignment( $outfile, $cleaned_file );
+										print
+"<p><a href=\"/tmp/$temp\_cleaned.txt\" id=\"alignment_link\" rel=\"ajax\">Show alignment</a></p>\n";
 										print "<pre><div id=\"alignment\"></div></pre>\n";
- 									}
+									}
 									my $diffs = $self->_get_differences( $seq_ref, \$seq, $sstart, $qstart );
 									print "<h2>Differences</h2>\n";
 									if (@$diffs) {
@@ -463,9 +482,17 @@ sub _run_query {
 								system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$temp*";
 							}
 						} else {
-
-#	print "<p>An alignment can not be displayed because the query is a $qry_type sequence while the locus is defined by ". ($qry_type eq 'DNA' ? 'peptide' : 'DNA') .".</p>";
-							$blast_file = $self->run_blast( $locus, \$seq, $qry_type, 5, 1 );
+							( $blast_file, $job ) = $self->run_blast(
+								{
+									'locus'       => $locus,
+									'seq_ref'     => \$seq,
+									'qry_type'    => $qry_type,
+									'num_results' => 5,
+									'alignment'   => 1,
+									'cache'       => 1,
+									'job'         => $job
+								}
+							);
 							print "<p>Your query is a $qry_type sequence whereas this locus is defined with "
 							  . ( $qry_type eq 'DNA' ? 'peptide' : 'DNA' )
 							  . " sequences.  There were no exact matches, but the BLAST results are shown below (a maximum of five
@@ -481,7 +508,7 @@ sub _run_query {
 						my $cleaned_match = $partial_match->{'allele'};
 						my $buffer;
 						my $seq_ref;
-						if ($locus && $locus !~ /SCHEME_(\d+)/) {
+						if ( $locus && $locus !~ /SCHEME_(\d+)/ ) {
 							$seq_ref = $self->{'datastore'}->get_sequence( $locus, $partial_match->{'allele'} );
 						} else {
 							my ( $locus, $allele ) = split /:/, $partial_match->{'allele'};
@@ -527,28 +554,28 @@ sub _run_query {
 						}
 						my $allele;
 						my $field_values;
-						if ($locus && $locus !~ /SCHEME_(\d+)/) {
+						if ( $locus && $locus !~ /SCHEME_(\d+)/ ) {
 							$allele =
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$partial_match->{'allele'}\">$cleaned_locus: $partial_match->{'allele'}</a>";
-							$field_values = $self->_get_client_dbase_fields($locus,[$partial_match->{'allele'}]);
+							$field_values = $self->_get_client_dbase_fields( $locus, [ $partial_match->{'allele'} ] );
 						} else {
 							my ( $locus, $allele_id );
 							if ( $partial_match->{'allele'} =~ /(.*):(.*)/ ) {
-								$locus     = $1;
+								$locus = $1;
 								my $cleaned_locus = $self->clean_locus($locus);
 								$allele_id = $2;
 								$partial_match->{'allele'} =~ s/:/: /;
 								$allele =
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id\">$cleaned_locus: $allele_id</a>";
-								$field_values = $self->_get_client_dbase_fields($locus,[$allele_id]);
+								$field_values = $self->_get_client_dbase_fields( $locus, [$allele_id] );
 							}
 						}
 						$batchBuffer =
 						    "<tr class=\"td$td\"><td>"
 						  . ( $seq_object->id )
 						  . "</td><td style=\"text-align:left\">Partial match found: $allele";
-						  $batchBuffer .= " ($field_values)" if $field_values;
-						$batchBuffer .=": $buffer</td></tr>\n";
+						$batchBuffer .= " ($field_values)" if $field_values;
+						$batchBuffer .= ": $buffer</td></tr>\n";
 					}
 				}
 			}
@@ -557,16 +584,17 @@ sub _run_query {
 		last if ( $page eq 'sequenceQuery' );    #only go round again if this is a batch query
 		$td = $td == 1 ? 2 : 1;
 		if ( $page eq 'batchSequenceQuery' ) {
-			if ($first){
+			if ($first) {
 				print "<div class=\"box\" id=\"resultsheader\">\n";
-				print "<table class=\"resultstable\"><tr><th>Sequence</th><th>Results</th></tr>\n";	
-				$first = 0;		
+				print "<table class=\"resultstable\"><tr><th>Sequence</th><th>Results</th></tr>\n";
+				$first = 0;
 			}
 			if ($batchBuffer) {
 				print $batchBuffer;
 			}
 		}
 	}
+	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$job*";
 	if ( $page eq 'batchSequenceQuery' ) {
 		if ($batchBuffer) {
 			print "</table>\n";
@@ -589,7 +617,7 @@ sub _parse_blast_exact {
 		my @record = split /\s+/, $line;
 		if ( $record[2] == 100 ) {    #identity
 			my $seq_ref;
-			if ($locus && $locus !~ /SCHEME_(\d+)/) {
+			if ( $locus && $locus !~ /SCHEME_(\d+)/ ) {
 				$seq_ref = $self->{'datastore'}->get_sequence( $locus, $record[1] );
 			} else {
 				my ( $locus, $allele ) = split /:/, $record[1];
@@ -674,53 +702,53 @@ sub _get_differences {
 }
 
 sub _cleanup_alignment {
-	my ($self, $infile, $outfile) = @_;
-	open (my $in_fh, '<', $infile);
-	open (my $out_fh, '>', $outfile);
-	while (<$in_fh>){
+	my ( $self, $infile, $outfile ) = @_;
+	open( my $in_fh,  '<', $infile );
+	open( my $out_fh, '>', $outfile );
+	while (<$in_fh>) {
 		next if $_ =~ /^#/;
 		print $out_fh $_;
 	}
 	close $in_fh;
 	close $out_fh;
-	
 }
 
 sub _get_client_dbase_fields {
-	my ($self, $locus, $allele_ids_refs) = @_;
+	my ( $self, $locus, $allele_ids_refs ) = @_;
 	return [] if ref $allele_ids_refs ne 'ARRAY';
 	my $sql = $self->{'db'}->prepare("SELECT client_dbase_id,isolate_field FROM client_dbase_loci_fields WHERE allele_query AND locus = ?");
-	eval {
-		$sql->execute($locus);
-	};
-	if ($@){
+	eval { $sql->execute($locus); };
+	if ($@) {
 		$logger->error($@);
 	}
 	my $values;
-	while (my ($client_dbase_id,$field) = $sql->fetchrow_array){
-		my $client_db = $self->{'datastore'}->get_client_db($client_dbase_id)->get_db;
-		my $client_sql = $client_db->prepare("SELECT $field FROM isolates LEFT JOIN allele_designations ON isolates.id = allele_designations.isolate_id WHERE allele_designations.locus=? AND allele_designations.allele_id=?");
-		foreach (@$allele_ids_refs){
-			eval {
-				$client_sql->execute($locus,$_);
-			};
-			while (my ($value) = $client_sql->fetchrow_array){
-				push @{$values->{$field}}, $value;
+	while ( my ( $client_dbase_id, $field ) = $sql->fetchrow_array ) {
+		my $client_db  = $self->{'datastore'}->get_client_db($client_dbase_id)->get_db;
+		my $client_sql = $client_db->prepare(
+"SELECT $field FROM isolates LEFT JOIN allele_designations ON isolates.id = allele_designations.isolate_id WHERE allele_designations.locus=? AND allele_designations.allele_id=?"
+		);
+		foreach (@$allele_ids_refs) {
+			eval { $client_sql->execute( $locus, $_ ); };
+			while ( my ($value) = $client_sql->fetchrow_array ) {
+				if ( any { $field eq $_ } qw (species genus) ) {
+					$value = "<i>$value</i>";
+				}
+				push @{ $values->{$field} }, $value;
 			}
 		}
-		if (@{$values->{$field}}){
-			my @list = @{$values->{$field}};
+		if ( @{ $values->{$field} } ) {
+			my @list = @{ $values->{$field} };
 			@list = uniq sort @list;
-			 @{$values->{$field}} = @list;
+			@{ $values->{$field} } = @list;
 		}
 	}
-	my $buffer;	
-	if (keys %$values){
+	my $buffer;
+	if ( keys %$values ) {
 		my $first = 1;
-		foreach (sort keys %$values){
-			$buffer.= '; ' if !$first;
-			$"=',';
-			$buffer.= "$_: @{$values->{$_}}";
+		foreach ( sort keys %$values ) {
+			$buffer .= '; ' if !$first;
+			$" = ', ';
+			$buffer .= "$_: @{$values->{$_}}";
 			$first = 0;
 		}
 	}

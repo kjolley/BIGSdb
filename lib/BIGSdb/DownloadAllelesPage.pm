@@ -166,7 +166,8 @@ sub print_content {
 			$self->_print_scheme_table( 0, 'Other loci' );
 		} else {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
-			$self->_print_scheme_table( $scheme_id, $scheme_info->{'description'} );
+			my $desc = $scheme_id ? $scheme_info->{'description'} : 'Other loci';
+			$self->_print_scheme_table( $scheme_id, $desc );
 		}
 		return;
 	} elsif ($q->param('group_id') ne ''){

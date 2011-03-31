@@ -1874,101 +1874,116 @@ sub make_temp_file {
 }
 
 sub run_blast {
-	my ( $self, $locus, $seq_ref, $qry_type, $num_results, $alignment ) = @_;
-	my $locus_info     = $self->{'datastore'}->get_locus_info($locus);
-	my $temp           = &BIGSdb::Utils::get_random;
-	my $temp_infile    = "$self->{'config'}->{'secure_tmp_dir'}/$temp.txt";
-	my $temp_outfile   = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_outfile.txt";
-	my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_fastafile.txt";
-	my $outfile_url    = "$temp\_outfile.txt";
+	my ( $self, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	#Options are locus, seq_ref, qry_type, num_results, alignment, cache, job
+	#if parameter cache=1, the previously generated FASTA database will be used.
+	#The calling function should clean up the temporary files.
+	my $locus_info     = $self->{'datastore'}->get_locus_info($options->{'locus'});
+	my $already_generated = $options->{'job'} ? 1: 0;
+	$options->{'job'}  = &BIGSdb::Utils::get_random if !$options->{'job'};
+
+	my $temp_infile    = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'job'}.txt";
+	my $temp_outfile   = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'job'}\_outfile.txt";
+	my $outfile_url    = "$options->{'job'}\_outfile.txt";
 
 	#create fasta index
 	my @runs;
-	if ( $locus && $locus !~ /SCHEME_(\d+)/ ) {
-		@runs = ($locus);
+	if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
+		if ($options->{'locus'} =~ /^((?:(?!\.\.).)*)$/){	#untaint - check for directory traversal
+			$options->{'locus'} = $1;
+		}
+		@runs = ($options->{'locus'});
 	} else {
 		@runs = qw (DNA peptide);
 	}
+	my @files_to_delete;
 	foreach my $run (@runs) {
-		my ( $qry, $sql );
-		if ( $locus && $locus !~ /SCHEME_(\d+)/ ) {
-			$qry = "SELECT locus,allele_id,sequence from sequences WHERE locus=?";
-		} else {
-			if ( $locus =~ /SCHEME_(\d+)/ ) {
-				my $scheme_id = $1;
-				$qry =
-"SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id=$scheme_id) AND locus IN (SELECT id FROM loci WHERE data_type=?)";
+		my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'job'}\_$run\_fastafile.txt";
+		push @files_to_delete, $temp_fastafile;
+		if (!$already_generated){
+			my ( $qry, $sql );
+			if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
+				$qry = "SELECT locus,allele_id,sequence from sequences WHERE locus=?";
 			} else {
-				$qry = "SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT id FROM loci WHERE data_type=?)";
+				if ( $options->{'locus'} =~ /SCHEME_(\d+)/ ) {
+					my $scheme_id = $1;
+					$qry =
+	"SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id=$scheme_id) AND locus IN (SELECT id FROM loci WHERE data_type=?)";
+				} else {
+					$qry = "SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT id FROM loci WHERE data_type=?)";
+				}
 			}
-		}
-		$sql = $self->{'db'}->prepare($qry);
-		eval { $sql->execute($run); };
-		if ($@) {
-			$logger->error("Can't execute $qry $@");
-		}
-		open( my $fasta_fh, '>', $temp_fastafile );
-		my $seqs_ref = $sql->fetchall_arrayref;
-		foreach (@$seqs_ref) {
-			my ( $returned_locus, $id, $seq ) = @$_;
-			next if !length $seq;
-			print $fasta_fh ( $locus && $locus !~ /SCHEME_(\d+)/ ) ? ">$id\n$seq\n" : ">$returned_locus:$id\n$seq\n";
-		}
-		close $fasta_fh;
-		if ( $locus && $locus !~ /SCHEME_(\d+)/ ) {
-			if ( $locus_info->{'data_type'} eq 'DNA' ) {
-				system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p F -o T");
-			} else {
-				system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p T -o T");
+			$sql = $self->{'db'}->prepare($qry);
+			eval { $sql->execute($run); };
+			if ($@) {
+				$logger->error("Can't execute $qry $@");
 			}
-		} else {
-			if ( $run eq 'DNA' ) {
-				system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p F -o T");
+			
+			open( my $fasta_fh, '>', $temp_fastafile );
+			my $seqs_ref = $sql->fetchall_arrayref;
+			foreach (@$seqs_ref) {
+				my ( $returned_locus, $id, $seq ) = @$_;
+				next if !length $seq;
+				print $fasta_fh ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) ? ">$id\n$seq\n" : ">$returned_locus:$id\n$seq\n";
+			}
+			close $fasta_fh;
+			if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
+				if ( $locus_info->{'data_type'} eq 'DNA' ) {
+					system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p F -o T");
+				} else {
+					system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p T -o T");
+				}
 			} else {
-				system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p T -o T");
+				if ( $run eq 'DNA' ) {
+					system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p F -o T");
+				} else {
+					system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p T -o T");
+				}
 			}
 		}
 
 		#create query fasta file
 		open( my $infile_fh, '>', $temp_infile );
 		print $infile_fh ">Query\n";
-		print $infile_fh "$$seq_ref\n";
+		print $infile_fh "${$options->{'seq_ref'}}\n";
 		close $infile_fh;
 		my $program;
-		if ( $locus && $locus !~ /SCHEME_(\d+)/ ) {
-			if ( $qry_type eq 'DNA' ) {
+		if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
+			if ( $options->{'qry_type'} eq 'DNA' ) {
 				$program = $locus_info->{'data_type'} eq 'DNA' ? 'blastn' : 'blastx';
 			} else {
 				$program = $locus_info->{'data_type'} eq 'DNA' ? 'tblastn' : 'blastp';
 			}
 		} else {
 			if ( $run eq 'DNA' ) {
-				$program = $qry_type eq 'DNA' ? 'blastn' : 'tblastn';
+				$program = $options->{'qry_type'} eq 'DNA' ? 'blastn' : 'tblastn';
 			} else {
-				$program = $qry_type eq 'DNA' ? 'blastx' : 'blastp';
+				$program = $options->{'qry_type'} eq 'DNA' ? 'blastx' : 'blastp';
 			}
 		}
-		if ($alignment) {
+		if ($options->{'alignment'}) {
 			system(
-"$self->{'config'}->{'blast_path'}/blastall -v $num_results -b $num_results -p $program -d $temp_fastafile -i $temp_infile -o $temp_outfile -F F 2> /dev/null"
+"$self->{'config'}->{'blast_path'}/blastall -v $options->{'num_results'} -b $options->{'num_results'} -p $program -d $temp_fastafile -i $temp_infile -o $temp_outfile -F F 2> /dev/null"
 			);
 		} else {
 			system(
-"$self->{'config'}->{'blast_path'}/blastall -v $num_results -b $num_results -p $program -d $temp_fastafile -i $temp_infile -o $temp_outfile -m9 -F F 2> /dev/null"
+"$self->{'config'}->{'blast_path'}/blastall -v $options->{'num_results'} -b $options->{'num_results'} -p $program -d $temp_fastafile -i $temp_infile -o $temp_outfile -m9 -F F 2> /dev/null"
 			);
 		}
 		if ( $run eq 'DNA' ) {
 			system "mv $temp_outfile $temp_outfile\.1";
 		}
 	}
-	if ( !$locus || $locus =~ /SCHEME_(\d+)/ ) {
+	if ( !$options->{'locus'} || $options->{'locus'} =~ /SCHEME_(\d+)/ ) {
 		system "cat $temp_outfile\.1 >> $temp_outfile";
 		system "rm $temp_outfile\.1";
 	}
 
 	#delete all working files
-	system "rm -f $temp_fastafile* $temp_infile*";
-	return $outfile_url;
+	$"=' ';
+	system "rm -f $temp_infile @files_to_delete" if !$options->{'cache'};
+	return ($outfile_url,$options->{'job'});
 }
 
 sub is_admin {
