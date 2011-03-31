@@ -729,14 +729,20 @@ sub _get_client_dbase_fields {
 		);
 		foreach (@$allele_ids_refs) {
 			eval { $client_sql->execute( $locus, $_ ); };
-			while ( my ($value) = $client_sql->fetchrow_array ) {
-				if ( any { $field eq $_ } qw (species genus) ) {
-					$value = "<i>$value</i>";
+			if ($@){
+				$logger->error("Can't extract isolate field '$field' FROM client database, make sure the client_dbase_loci_fields table is correctly configured.  $@");
+				$client_db->rollback;
+			} else {
+				while ( my ($value) = $client_sql->fetchrow_array ) {
+					next if $value eq '';
+					if ( any { $field eq $_ } qw (species genus) ) {
+						$value = "<i>$value</i>";
+					}
+					push @{ $values->{$field} }, $value;
 				}
-				push @{ $values->{$field} }, $value;
 			}
 		}
-		if ( @{ $values->{$field} } ) {
+		if ( ref $values->{$field} eq 'ARRAY' && @{ $values->{$field} } ) {
 			my @list = @{ $values->{$field} };
 			@list = uniq sort @list;
 			@{ $values->{$field} } = @list;
