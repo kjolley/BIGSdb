@@ -91,12 +91,7 @@ sub run {
 	return if !$sent;
 	my @seq;
 
-
-	my $displaylocus = $locus;
-	if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-		$displaylocus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-	}
-	$displaylocus =~ tr/_/ /;
+	my $displaylocus = $self->clean_locus($locus);
 	my $allele1 = $q->param('allele1');
 	my $allele2 = $q->param('allele2');
 	if ( !$allele1 || !$allele2 ) {

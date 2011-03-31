@@ -126,11 +126,7 @@ sub print_content {
 					$newdata{'locus'}, $newdata{'sequence'} );
 				my $exists = $exist_ref->[0] if ref $exist_ref eq 'ARRAY';
 				if ($exists) {
-					my $cleaned_locus = $newdata{'locus'};
-					if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-						$cleaned_locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-					}
-					$cleaned_locus =~ tr/_/ /;				
+					my $cleaned_locus = $self->clean_locus($newdata{'locus'});			
 					push @problems, "Sequence already exists in the database ($cleaned_locus: $exists).<br />";
 				}
 			}

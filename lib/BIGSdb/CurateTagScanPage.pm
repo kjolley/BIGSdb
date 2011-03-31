@@ -529,11 +529,7 @@ sub _tag {
 					$used{$1} = 1;
 				}
 			}
-			my $display_locus = $_;
-			if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-				$display_locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-			}
-			$display_locus =~ tr/_/ /;
+			my $display_locus = $self->clean_locus($_);
 			foreach my $id (@ids) {
 				my $seqbin_id = $q->param("id_$isolate_id\_$_\_seqbin_id_$id");
 				if ( $q->param("id_$isolate_id\_$_\_allele_$id") && $q->param("id_$isolate_id\_$_\_allele_id_$id") ) {
@@ -786,11 +782,7 @@ sub _print_row {
 			$off_end = 1;
 		}
 	}
-	my $cleaned_locus = $locus;
-	if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-		$cleaned_locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-	}
-	$cleaned_locus =~ tr/_/ /;
+	my $cleaned_locus = $self->clean_locus($locus);
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	my $translate  = $locus_info->{'coding_sequence'} ? 1 : 0;
 	my $orf        = $locus_info->{'orf'} || 1;

@@ -201,11 +201,7 @@ sub _snp {
 		return;
 	}
 	print "<div class=\"box\" id=\"resultsheader\">\n";
-	my $cleaned = $locus;
-	if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-		$cleaned =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-	}
-	$cleaned =~ tr/_/ /;
+	my $cleaned = $self->clean_locus($locus);
 	print "<h2>$cleaned</h2>\n";
 	my $sql = $self->{'db'}->prepare("SELECT allele_id,sequence FROM sequences WHERE locus=?");
 	eval { $sql->execute($locus); };
@@ -361,11 +357,7 @@ sub _site_explorer {
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	print "<div class=\"box\" id=\"resultsheader\">\n";
-	my $cleaned = $locus;
-	if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-		$cleaned =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-	}
-	$cleaned =~ tr/_/ /;
+	my $cleaned = $self->clean_locus($locus);
 	print "<h2>$cleaned position $pos</h2>\n";
 	my %seq;
 	my $seqio_object = Bio::SeqIO->new( -file => "$self->{'config'}->{'secure_tmp_dir'}/$temp_file", -format => 'fasta' );
@@ -457,10 +449,7 @@ sub _codon {
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	my $orf = $locus_info->{'orf'} || 1;
 	print "<div class=\"box\" id=\"resultsheader\">\n";
-	my $cleaned = $locus;
-	if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-		$cleaned =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-	}
+	my $cleaned = $self->clean_locus($locus);
 	print "<h2>$cleaned</h2>\n";
 	print "<p>ORF used: $orf</p>\n";
 	my $sql = $self->{'db'}->prepare("SELECT allele_id,sequence FROM sequences WHERE locus=?");
@@ -566,7 +555,8 @@ sub _translate {
 	}
 	my $orf = $locus_info->{'orf'} || 1;
 	print "<div class=\"box\" id=\"resultsheader\">\n";
-	print "<h2>$locus</h2>";
+	my $cleaned = $self->clean_locus($locus);
+	print "<h2>$cleaned</h2>";
 	print "<p>ORF used: $orf</p>\n";
 	my $sql = $self->{'db'}->prepare("SELECT allele_id,sequence FROM sequences WHERE locus=?");
 	eval { $sql->execute($locus); };

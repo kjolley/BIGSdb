@@ -100,11 +100,7 @@ sub run {
 		print "<div class=\"box\" id=\"statusbad\"><p>Allele $locus-$allele does not exist.</p></div>\n";
 		return;
 	}
-	my $cleanlocus = $locus;
-	if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-		$cleanlocus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-	}
-	$cleanlocus =~ tr/_/ /;
+	my $cleanlocus = $self->clean_locus($locus);
 	my $seq_ref = $self->{'datastore'}->get_sequence( $locus, $allele );
 	my $blast_file = $self->run_blast( $locus, $seq_ref, $locus_info->{'data_type'}, $num_results+1, 0 );
 	my $matches_ref = $self->_parse_blast_partial($blast_file);

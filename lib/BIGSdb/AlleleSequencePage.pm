@@ -43,11 +43,7 @@ sub print_content {
 		return;
 	}
 	my @name = $self->get_name($isolate_id);
-	my $display_locus = $locus;
-	if ($self->{'system'}->{'locus_superscript_prefix'} eq 'yes'){
-		$display_locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-	}
-	$display_locus =~ tr/_/ /;
+	my $display_locus = $self->clean_locus($locus);
 	print "<h1>$display_locus allele sequence: id-$isolate_id";
 	print " (@name)" if $name[1];
 	print "</h1>\n";

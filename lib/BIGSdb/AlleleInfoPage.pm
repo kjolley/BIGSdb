@@ -35,12 +35,7 @@ sub print_content {
 		return;
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	my $cleaned_locus = $locus;
-	$cleaned_locus .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
-	if ($self->{'system'}->{'locus_superscript_prefix'} eq 'yes'){
-		$cleaned_locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-	}
-	$cleaned_locus =~ tr/_/ /;
+	my $cleaned_locus = $self->clean_locus($locus);
 	print "<h1>Allele information - $cleaned_locus: $allele_id</h1>\n";
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>This function is not available from an isolate database.</p></div>\n";

@@ -377,11 +377,7 @@ HTML
 	
 	if (scalar @$loci < 15){
 		foreach (@$loci) {
-			my $cleaned = $_;
-			if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-				$cleaned =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-			}
-			$cleaned =~ tr/_/ /;
+			my $cleaned = $self->clean_locus($_);		
 			$buffer .= <<"HTML";
 	<tr class="td$td"><td>$cleaned sequences</td>
 	<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=sequences&amp;locus_list=$_">+</a></td>

@@ -167,7 +167,7 @@ sub _run_query {
 			my @alleles;
 			my @allele_ids;
 			while ( my ( $locus, $allele_id ) = $sql->fetchrow_array ) {
-				my $cleaned = $self->_clean_locus($locus);
+				my $cleaned = $self->clean_locus($locus);
 				push @allele_ids,$allele_id;
 				push @alleles,
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id\">$cleaned: $allele_id</a>";
@@ -227,7 +227,7 @@ sub _run_query {
 						my $allele;
 						my $field_values;
 						if ($locus && $locus !~ /SCHEME_(\d+)/) {
-							my $cleaned = $self->_clean_locus($locus);
+							my $cleaned = $self->clean_locus($locus);
 							print
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$_->{'allele'}\">";
 							$allele = "$cleaned: $_->{'allele'}";
@@ -236,7 +236,7 @@ sub _run_query {
 							my ( $cleaned_locus, $locus, $allele_id );
 							if ( $_->{'allele'} =~ /(.*):(.*)/ ) {
 								$locus     = $1;
-								my $cleaned = $self->_clean_locus($locus);
+								my $cleaned = $self->clean_locus($locus);
 								$allele_id = $2;
 								$allele = "$cleaned: $allele_id";
 								$field_values = $self->_get_client_dbase_fields($locus,[$allele_id]);
@@ -274,7 +274,7 @@ sub _run_query {
 							$allele_id = $_->{'allele'};
 						}
 						my $field_values = $self->_get_client_dbase_fields($locus,[$allele_id]);
-						my $cleaned_locus = $self->_clean_locus($locus);
+						my $cleaned_locus = $self->clean_locus($locus);
 						$buffer .=
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id\">$cleaned_locus: $allele_id</a>";
 						$buffer .= " ($field_values)" if $field_values;
@@ -332,7 +332,7 @@ sub _run_query {
 							}
 							$cleaned_match =~ s/:/: /;
 						}
-						$cleaned_match = $self->_clean_locus($cleaned_match);
+						$cleaned_match = $self->clean_locus($cleaned_match);
 						print "$cleaned_match</a>";
 						print " ($field_values)" if $field_values;
 						print "</p>";
@@ -535,7 +535,7 @@ sub _run_query {
 							my ( $locus, $allele_id );
 							if ( $partial_match->{'allele'} =~ /(.*):(.*)/ ) {
 								$locus     = $1;
-								my $cleaned_locus = $self->_clean_locus($locus);
+								my $cleaned_locus = $self->clean_locus($locus);
 								$allele_id = $2;
 								$partial_match->{'allele'} =~ s/:/: /;
 								$allele =
@@ -569,9 +569,6 @@ sub _run_query {
 	}
 	if ( $page eq 'batchSequenceQuery' ) {
 		if ($batchBuffer) {
-#			print "<div class=\"box\" id=\"resultsheader\">\n";
-#			print "<table class=\"resultstable\"><tr><th>Sequence</th><th>Results</th></tr>\n";
-#			print $batchBuffer;
 			print "</table>\n";
 			print "</div>\n";
 		} else {

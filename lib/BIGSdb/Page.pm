@@ -507,11 +507,7 @@ sub print_file {
 		}
 		my $first = 1;
 		foreach (@$loci) {
-			my $cleaned = $_;
-			if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-				$cleaned =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-			}
-			$cleaned =~ tr/_/ /;
+			my $cleaned = $self->clean_locus($_);
 			if ( !$first ) {
 				$lociAdd .= ' | ';
 			}
@@ -795,7 +791,7 @@ sub paged_display {
 	}
 }
 
-sub _clean_locus {
+sub clean_locus {
 	my ($self, $locus) = @_;
 	if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
 		$locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
@@ -935,10 +931,7 @@ sub _print_record_table {
 				} else {
 					$value = $data{ lc($field) };
 				}
-				if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-					$value =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-				}
-				$value =~ tr/_/ /;
+				$value = $self->clean_locus($value);
 				if ( $table eq 'sequences' ) {
 					print
 					  "<td><a href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;@query_values\">$value</a></td>";
@@ -994,10 +987,7 @@ sub _print_record_table {
 				}
 			} else {
 				if ( $field eq 'locus' ) {
-					if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-						$data{ lc($field) } =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-					}
-					$data{ lc($field) } =~ tr/_/ /;
+					$data{ lc($field) } = $self->clean_locus($data{ lc($field) });
 				} elsif ( ( $table eq 'allele_sequences' || $table eq 'experiment_sequences' ) && $field eq 'seqbin_id' ) {
 					my ( $isolate_id, $isolate ) = $self->get_isolate_id_and_name_from_seqbin_id( $data{'seqbin_id'} );
 					print "<td>$isolate_id) $isolate</td>";
@@ -1210,12 +1200,8 @@ sub _print_profile_table {
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	foreach (@$loci) {
 		my $locus_info = $self->{'datastore'}->get_locus_info($_);
-		my $cleaned    = $_;
-		if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-			$cleaned =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-		}
+		my $cleaned = $self->clean_locus($_);
 		$cleaned .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
-		$cleaned =~ tr/_/ /;
 		print "<th>$cleaned</th>";
 	}
 	foreach (@$scheme_fields) {
@@ -1532,11 +1518,7 @@ sub _print_isolate_table {
 								}
 							}
 						}
-						( my $cleaned_locus = $_ );
-						if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-							$cleaned_locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-						}
-						$cleaned_locus =~ tr/_/ /;
+						my $cleaned_locus = $self->clean_locus($_);
 						my $sequence_tooltip = $self->get_sequence_details_tooltip( $cleaned_locus, $alleles->{$_}, \@seqs, \@flags );
 						my $sequence_class = $complete ? 'sequence_tooltip' : 'sequence_tooltip_incomplete';
 						print
@@ -1774,12 +1756,7 @@ sub _print_isolate_table_header {
 		if ( ref $scheme_loci->{$scheme_id} eq 'ARRAY' ) {
 			foreach ( @{ $scheme_loci->{$scheme_id} } ) {
 				if ( $self->{'prefs'}->{'main_display_loci'}->{$_} ) {
-					my $locus = $_;
-					$locus =~ tr/_/ /;
-					my $locus_header = $locus;
-					if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-						$locus_header =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-					}
+					my $locus_header = $self->clean_locus($_);
 					my @aliases;
 					push @aliases, $common_names->{$_}->{'common_name'} if $common_names->{$_}->{'common_name'};
 					if ( $self->{'prefs'}->{'locus_alias'} ) {
@@ -1824,19 +1801,14 @@ sub _print_isolate_table_header {
 					$logger->error("Can't execute alias check $@");
 				} else {
 					while ( my ($alias) = $alias_sql->fetchrow_array ) {
-						if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-							$alias =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-						}
+						$alias = $self->clean_locus($alias);
 						push @aliases, $alias;
 					}
 				}
 			}
-			if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-				$_ =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-			}
-			$_ =~ tr/_/ /;
+			my $cleaned_locus = $self->clean_locus($_);
 			$" = ', ';
-			push @locus_header, "$_" . ( @aliases ? " <span class=\"comment\">(@aliases)</span>" : '' );
+			push @locus_header, "$cleaned_locus" . ( @aliases ? " <span class=\"comment\">(@aliases)</span>" : '' );
 		}
 	}
 	if ( scalar @locus_header ) {

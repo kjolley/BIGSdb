@@ -246,11 +246,7 @@ sub _print_scheme_table {
 		print "<th>Curator(s)</th>\n" if $scheme_curators_exist;
 		print "</tr>\n";
 		foreach (@$loci) {
-			my $cleaned = $_;
-			if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-				$cleaned =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-			}
-			$cleaned =~tr/_/ /;
+			my $cleaned = $self->clean_locus($_);
 			my $locus_info = $self->{'datastore'}->get_locus_info($_);
 			eval { $count_sql->execute($_); };
 			if ($@) {

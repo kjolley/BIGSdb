@@ -42,11 +42,7 @@ sub print_content {
 		return;
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	my $cleaned_locus = $locus;
-	if ($self->{'system'}->{'locus_superscript_prefix'} eq 'yes'){
-		$cleaned_locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-	}
-	$cleaned_locus =~ tr/_/ /;
+	my $cleaned_locus = $self->clean_locus($locus);
 	print "<h1>Locus information - $cleaned_locus";
 	print " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
 	print "</h1>\n";	

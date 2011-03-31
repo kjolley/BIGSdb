@@ -41,11 +41,7 @@ sub print_content {
 		print "<div class=\"box\" id=\"statusbad\"><p>Start position must be an integer.</p></div>\n";
 		return;
 	}
-	my $cleaned_locus = $locus;
-	if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-		$cleaned_locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-	}
-	$cleaned_locus =~ tr/_/ /;
+	my $cleaned_locus = $self->clean_locus($locus);
 	my $seq_exists = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM sequence_bin WHERE id=?", $seqbin_id )->[0];
 	if ( !$seq_exists ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>There is no sequence with sequence bin id#$seqbin_id.</p></div>\n";

@@ -400,11 +400,7 @@ sub _analyse_by_loci {
 	my $progress = 0;
 	foreach my $locus (@$loci) {
 		my $locus_FASTA = $self->_create_locus_FASTA_db( $locus, $job_id );
-		my $cleaned_locus = $locus;
-		if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-			$cleaned_locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-		}
-		$cleaned_locus =~ tr/_/ /;
+		my $cleaned_locus = $self->clean_locus($locus);
 		$html_buffer .= "<tr class=\"td$td\"><td>$cleaned_locus</td>";
 		print $fh $locus;
 		my $new_allele = 1;
@@ -708,12 +704,7 @@ sub _print_variable_loci {
 		open( my $fasta_fh, '>', $fasta_file );
 		my %alleles;
 		my $allele        = 1;
-		my $cleaned_locus = $_;
-
-		if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-			$cleaned_locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-		}
-		$cleaned_locus =~ tr/_/ /;
+		my $cleaned_locus = $self->clean_locus($_);
 		$$buffer_ref .= "<tr class=\"td$td\"><td>$cleaned_locus</td><td>$loci->{$_}->{'desc'}</td><td>1</td>";
 		print $fh "$_\t$loci->{$_}->{'desc'}\t1";
 		$alleles{1} = $loci->{$_}->{'ref'};
@@ -831,11 +822,7 @@ sub _print_locus_table {
 	print $fh "\n";
 	my $td = 1;
 	foreach ( sort keys %$loci ) {
-		my $cleaned_locus = $_;
-		if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-			$cleaned_locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-		}
-		$cleaned_locus =~ tr/_/ /;
+		my $cleaned_locus = $self->clean_locus($_);
 		$$buffer_ref .= "<tr class=\"td$td\"><td>$cleaned_locus</td><td>$loci->{$_}->{'desc'}</td><td>$loci->{$_}->{'length'}</td>";
 		print $fh "$_\t$loci->{$_}->{'desc'}\t$loci->{$_}->{'length'}";
 		$$buffer_ref .= "</tr>";

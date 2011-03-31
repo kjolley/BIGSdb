@@ -151,13 +151,9 @@ sub _print_query_interface {
 	my (%label);
 	foreach (@$loci) {
 		push @display_loci, "l_$_";
-		my $cleaned_locus = $_;
-		if ($self->{'system'}->{'locus_superscript_prefix'} eq 'yes'){
-			$cleaned_locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-		}
+		my $cleaned_locus = $self->clean_locus($_);
 		my $locus_info = $self->{'datastore'}->get_locus_info($_);
 		$cleaned_locus .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
-		$cleaned_locus =~ tr/_/ /;
 		$label{"l_$_"} = $cleaned_locus;
 		if ( !$scheme_id && $self->{'prefs'}->{'locus_alias'} && $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 			eval { $alias_sql->execute($_); };

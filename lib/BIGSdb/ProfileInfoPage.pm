@@ -75,12 +75,8 @@ sub print_content {
 		my $td            = 2;
 		foreach ( @$loci ) {
 			my $locus_info = $self->{'datastore'}->get_locus_info($_);
-			my $cleaned = $_;
+			my $cleaned = $self->clean_locus($_);
 			$cleaned .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
-			if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-				$cleaned =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-			}
-			$cleaned =~ tr/_/ /;
 			print "<tr class=\"td$td\"><th>$cleaned</th>";
 			(my $cleaned2 = $_) =~ s/'/_PRIME_/g;
 			print "<td style=\"text-align:left\" colspan=\"5\"><a href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$_&amp;allele_id=$data->{lc($cleaned2)}\">$data->{lc($cleaned2)}</a></td></tr>\n";

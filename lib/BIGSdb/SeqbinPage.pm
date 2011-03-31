@@ -136,11 +136,7 @@ HTML
 "<tr class=\"td$td\"><td rowspan=\"$allele_count\" style=\"vertical-align:top\">$data->{'id'}</td><td rowspan=\"$allele_count\" style=\"vertical-align:top\">$data->{'method'}</td><td rowspan=\"$allele_count\" style=\"vertical-align:top\">$data->{'original_designation'}</td><td rowspan=\"$allele_count\" style=\"vertical-align:top\">$data->{'length'}</td><td rowspan=\"$allele_count\" style=\"vertical-align:top\">$data->{'comments'}</td>";
 			while ( my $allele_seq = $seq_sql->fetchrow_hashref ) {
 				print "<tr class=\"td$td\">" if !$first;
-				my $cleaned_locus = $allele_seq->{'locus'};
-				if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-					$cleaned_locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-				}
-				$cleaned_locus =~ tr/_/ /;
+				my $cleaned_locus = $self->clean_locus($allele_seq->{'locus'});
 				print "<td>$cleaned_locus "
 				  . ( $allele_seq->{'complete'} ? '' : '*' )
 				  . "</td><td>$allele_seq->{'start_pos'}</td><td>$allele_seq->{'end_pos'}</td>";
