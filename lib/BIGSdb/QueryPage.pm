@@ -203,6 +203,7 @@ sub _print_provenance_fields {
 sub _print_loci_fields {
 	my ( $self, $row, $max_rows, $locus_list, $locus_labels ) = @_;
 	my $loci_disabled = 1 if !@$locus_list;
+	unshift @$locus_list, '';
 	my $q = $self->{'cgi'};
 	print "<span style=\"white-space:nowrap\">\n";
 	if ($loci_disabled) {
