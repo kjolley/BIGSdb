@@ -20,7 +20,9 @@ $(function () {
 	    showBody: " - ", 
 	    fade: 250 
 	});
-	
+	$('div.content a.truncated').tooltip({ 
+	    track: false, 
+	});	
 	$("div.tab").cornerz({corners: "bl br tr"});
 	$("div.box").cornerz();
 	

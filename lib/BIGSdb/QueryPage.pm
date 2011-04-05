@@ -359,7 +359,8 @@ sub _print_isolate_query_interface {
 					}
 				}
 			}
-			my $buffer = "<label for=\"$field\_list\" class=\"filter\">$field: </label>\n";
+			my ($label, $title) = $self->_get_truncated_label("$field: ");
+			my $buffer = "<label for=\"$field\_list\" class=\"filter\" title=\"$title\">$label</label>\n";
 			$" = ' ';
 			$buffer .= $q->popup_menu(
 				-name   => $field . '_list',
@@ -448,7 +449,8 @@ sub _print_isolate_query_interface {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
 		my $field       = "scheme_$_\_profile_status";
 		if ( $prefs->{'dropdownfields'}->{$field} ) {
-			my $buffer = "<label for=\"$field\_list\" class=\"filter\">$scheme_info->{'description'} profiles: </label>\n";
+			my ($label, $title) = $self->_get_truncated_label("$scheme_info->{'description'} profiles: ");
+			my $buffer = "<label for=\"$field\_list\" class=\"filter\" title=\"$title\">$label</label>\n";
 			$" = ' ';
 			$buffer .= $q->popup_menu(
 				-name   => "$field\_list",
@@ -464,8 +466,9 @@ sub _print_isolate_query_interface {
 		foreach my $field (@$scheme_fields) {
 			if ( $self->{'prefs'}->{"dropdown\_scheme_fields"}->{$_}->{$field} ) {
 				( my $cleaned = $field ) =~ tr/_/ /;
+				my ($label, $title) = $self->_get_truncated_label("$cleaned ($scheme_info->{'description'}): ");
 				my $buffer =
-				  "<label for=\"scheme\_$_\_$field\_list\" class=\"filter\">$cleaned ($scheme_info->{'description'}): </label>\n";
+				  "<label for=\"scheme\_$_\_$field\_list\" class=\"filter\" title=\"$title\">$label</label>\n";
 				my $values = $self->{'datastore'}->get_scheme($_)->get_distinct_fields($field);
 				$" = ' ';
 				$buffer .= $q->popup_menu(
@@ -530,6 +533,17 @@ sub _print_isolate_query_interface {
 	print "</div>\n" if @filters;
 	print $q->end_form;
 	print "</div>\n</div>\n";
+}
+
+sub _get_truncated_label {
+	my ($self, $label) = @_;
+	my $title;
+	if (length $label > 25){
+		$title = $label;
+		$title =~ tr/\"//;
+		$label = "<a title=\"$title\" class=\"truncated\">" . substr ($label, 0, 20) . "&#133</a>";				
+	}
+	return ($label,$title);
 }
 
 sub _highest_entered_fields {
