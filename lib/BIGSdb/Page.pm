@@ -136,7 +136,11 @@ sub print {
 		#need to determine if tooltips should be displayed since this is set in the <HEAD>;
 		if ( $self->{'prefstore'} ) {
 			my $guid = $self->get_guid;
-			$self->{'prefs'}->{'tooltips'} = $self->{'prefstore'}->get_tooltips_pref( $guid, $self->{'system'}->{'db'} ) eq 'on' ? 1 : 0;
+			try {
+				$self->{'prefs'}->{'tooltips'} = $self->{'prefstore'}->get_tooltips_pref( $guid, $self->{'system'}->{'db'} ) eq 'on' ? 1 : 0;
+			} catch BIGSdb::DatabaseNoRecordException with {
+				$self->{'prefs'}->{'tooltips'} = 1;
+			}
 		}
 	} else {
 		$self->initiate_prefs;
