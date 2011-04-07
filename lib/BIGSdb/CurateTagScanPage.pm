@@ -22,7 +22,7 @@ use base qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use Time::HiRes qw(gettimeofday);
-use List::MoreUtils qw(uniq any);
+use List::MoreUtils qw(uniq any none);
 use Apache2::Connection ();
 use BIGSdb::Page qw(SEQ_METHODS SEQ_FLAGS);
 
@@ -330,8 +330,16 @@ sub _scan {
 	print $seqs_fh "locus\tallele_id\tstatus\tsequence\n";
 	my $new_seqs_found;
 	my $last_id_checked;
-
+	my @isolates_in_project;
+	my $project_id = $q->param('project');
+	if ($project_id && BIGSdb::Utils::is_int($project_id)){
+		my $list_ref = $self->{'datastore'}->run_list_query("SELECT isolate_id FROM project_members WHERE project_id=?",$project_id);
+		if (ref $list_ref eq 'ARRAY'){
+			@isolates_in_project = @$list_ref;
+		}
+	}
 	foreach my $isolate_id (@ids) {
+		next if $project_id && none {$isolate_id == $_} @isolates_in_project;
 		if ( $match >= $limit ) {
 			$match_limit_reached = 1;
 			last;
@@ -1052,7 +1060,7 @@ sub _blast {
 	my $seq_count;
 	if ( !-e $temp_infile ) {
 		my $qry =
-"SELECT DISTINCT sequence_bin.id,sequence FROM sequence_bin LEFT JOIN experiment_sequences ON sequence_bin.id=seqbin_id LEFT JOIN project_members ON sequence_bin.isolate_id = project_members.isolate_id WHERE sequence_bin.isolate_id=?";
+"SELECT DISTINCT sequence_bin.id,sequence FROM sequence_bin LEFT JOIN experiment_sequences ON sequence_bin.id=seqbin_id WHERE sequence_bin.isolate_id=?";
 		my @criteria = ($isolate_id);
 		my $method   = $self->{'cgi'}->param('seq_method');
 		if ($method) {
@@ -1062,15 +1070,6 @@ sub _blast {
 			}
 			$qry .= " AND method=?";
 			push @criteria, $method;
-		}
-		my $project = $self->{'cgi'}->param('project');
-		if ($project) {
-			if ( !BIGSdb::Utils::is_int($project) ) {
-				$logger->error("Invalid project $project");
-				return;
-			}
-			$qry .= " AND project_id=?";
-			push @criteria, $project;
 		}
 		my $experiment = $self->{'cgi'}->param('experiment');
 		if ($experiment) {
