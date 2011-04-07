@@ -69,4 +69,14 @@ package (http://www.ebi.ac.uk/~guy/exonerate/). A Debian/Ubuntu package for
 exonerate is available as part of the main distribution of the operating
 system.
  
+Version 1.3
+-----------
+There has been a change in the allele_sequence definitions in the isolate
+database so that the primary key now includes the stop position as well as 
+the start. Please run the isolatedb_v1.3.sql script, found in the sql/upgrade
+directory, against your isolate databases.
 
+There has also been a change in the seqdef database schema.  There is a new
+table 'client_dbase_loci_fields' that enables fields within a client isolate
+database to be returned following a sequence query, e.g. to identify a species
+from a specific allele sequence. 

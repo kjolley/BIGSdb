@@ -378,7 +378,7 @@ sub _scan {
 				print $header_buffer if $first;
 				my %new_matches;
 				foreach (@$exact_matches) {
-					my $match_key = "$_->{'seqbin_id'}\|$_->{'predicted_start'}";
+					my $match_key = "$_->{'seqbin_id'}\|$_->{'predicted_start'}|$_->{'predicted_end'}";
 					( $off_end, $new_designation ) =
 					  $self->_print_row( $isolate_id, $labels, $locus, $i, $_, $td, 1, \@js, \@js2, \@js3, \@js4,
 						$new_matches{$match_key} );
@@ -397,7 +397,7 @@ sub _scan {
 				print $header_buffer if $first;
 				my %new_matches;
 				foreach (@$partial_matches) {
-					my $match_key = "$_->{'seqbin_id'}\|$_->{'predicted_start'}";
+					my $match_key = "$_->{'seqbin_id'}\|$_->{'predicted_start'}|$_->{'predicted_end'}";
 					( $off_end, $new_designation ) =
 					  $self->_print_row( $isolate_id, $labels, $locus, $i, $_, $td, 0, \@js, \@js2, \@js3, \@js4,
 						$new_matches{$match_key} );
@@ -505,7 +505,7 @@ sub _tag {
 	my $pending_sql =
 	  $self->{'db'}
 	  ->prepare("SELECT COUNT(*) FROM pending_allele_designations WHERE isolate_id=? AND locus=? AND allele_id=? AND sender=?");
-	my $sequence_exists_sql = $self->{'db'}->prepare("SELECT COUNT(*) FROM allele_sequences WHERE seqbin_id=? AND locus=?");
+	my $sequence_exists_sql = $self->{'db'}->prepare("SELECT COUNT(*) FROM allele_sequences WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=?");
 	my @params              = $q->param;
 	my @ids                 = $q->param('isolate_id');
 	my @loci                = $q->param('locus');
@@ -579,14 +579,14 @@ sub _tag {
 					}
 				}
 				if ( $q->param("id_$isolate_id\_$_\_sequence_$id") ) {
-					eval { $sequence_exists_sql->execute( $seqbin_id, $_ ) };
+					my $start    = $q->param("id_$isolate_id\_$_\_start_$id");
+					my $end      = $q->param("id_$isolate_id\_$_\_end_$id");					
+					eval { $sequence_exists_sql->execute( $seqbin_id, $_, $start, $end  ) };
 					if ($@) {
 						$logger->error("Can't execute allele sequence check $@");
 					}
 					my ($exists) = $sequence_exists_sql->fetchrow_array;
 					if ( !$exists ) {
-						my $start    = $q->param("id_$isolate_id\_$_\_start_$id");
-						my $end      = $q->param("id_$isolate_id\_$_\_end_$id");
 						my $reverse  = $q->param("id_$isolate_id\_$_\_reverse_$id") ? 'TRUE' : 'FALSE';
 						my $complete = $q->param("id_$isolate_id\_$_\_complete_$id") ? 'TRUE' : 'FALSE';
 						push @updates,
@@ -841,7 +841,7 @@ sub _print_row {
 	print "</td><td>";
 	my $allele_sequence_exists =
 	  $self->{'datastore'}
-	  ->run_simple_query( "SELECT COUNT(*) FROM allele_sequences WHERE seqbin_id=? AND locus=?", $match->{'seqbin_id'}, $locus )->[0];
+	  ->run_simple_query( "SELECT COUNT(*) FROM allele_sequences WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=?", $match->{'seqbin_id'}, $locus, $match->{'predicted_start'}, $match->{'predicted_end'} )->[0];
 	if ( !$allele_sequence_exists ) {
 		print $q->checkbox(
 			-name    => "id_$isolate_id\_$locus\_sequence_$id",
@@ -864,8 +864,8 @@ sub _print_row {
 		print "</td><td>";
 		my $flags =
 		  $self->{'datastore'}
-		  ->run_list_query( "SELECT flag FROM sequence_flags WHERE seqbin_id=? AND locus=? AND start_pos=? ORDER BY flag",
-			$match->{'seqbin_id'}, $locus, $predicted_start );
+		  ->run_list_query( "SELECT flag FROM sequence_flags WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=? ORDER BY flag",
+			$match->{'seqbin_id'}, $locus, $predicted_start, $predicted_end );
 		foreach (@$flags) {
 			print " <a class=\"seqflag_tooltip\">$_</a>";
 		}

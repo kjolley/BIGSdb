@@ -453,7 +453,7 @@ start_pos int NOT NULL,
 end_pos int NOT NULL,
 reverse boolean NOT NULL,
 complete boolean NOT NULL,
-PRIMARY KEY (seqbin_id,locus,start_pos),
+PRIMARY KEY (seqbin_id,locus,start_pos,end_pos),
 CONSTRAINT as_loci FOREIGN KEY (locus) REFERENCES loci
 ON DELETE CASCADE
 ON UPDATE CASCADE,
@@ -474,11 +474,12 @@ CREATE TABLE sequence_flags (
 seqbin_id int NOT NULL,
 locus text NOT NULL,
 start_pos int NOT NULL,
+end_pos int NOT NULL,
 flag text NOT NULL,
 datestamp date NOT NULL,
 curator int NOT NULL,
-PRIMARY KEY (seqbin_id,locus,start_pos,flag),
-CONSTRAINT sf_fkeys FOREIGN KEY(seqbin_id,locus,start_pos) REFERENCES allele_sequences
+PRIMARY KEY (seqbin_id,locus,start_pos,end_pos,flag),
+CONSTRAINT sf_fkeys FOREIGN KEY(seqbin_id,locus,start_pos,end_pos) REFERENCES allele_sequences
 ON DELETE CASCADE
 ON UPDATE CASCADE
 );
