@@ -1513,12 +1513,14 @@ sub _print_isolate_table {
 						my $complete;
 						foreach my $seqbin_id ( keys %{ $allele_sequences->{$_} } ) {
 							foreach my $start ( keys %{ $allele_sequences->{$_}->{$seqbin_id} } ) {
-								push @seqs, $allele_sequences->{$_}->{$seqbin_id}->{$start};
-								$complete = 1 if $allele_sequences->{$_}->{$seqbin_id}->{$start}->{'complete'};
-								my @flag_list = keys %{ $allele_sequence_flags->{$_}->{$seqbin_id}->{$start} };
-								push @flags, \@flag_list;
-								foreach (@flag_list) {
-									$flags_used{$_} = 1;
+								foreach my $end (keys %{ $allele_sequences->{$_}->{$seqbin_id}->{$start} }){
+									push @seqs, $allele_sequences->{$_}->{$seqbin_id}->{$start}->{$end};
+									$complete = 1 if $allele_sequences->{$_}->{$seqbin_id}->{$start}->{$end}->{'complete'};
+									my @flag_list = keys %{ $allele_sequence_flags->{$_}->{$seqbin_id}->{$start}->{$end} };
+									push @flags, \@flag_list;
+									foreach (@flag_list) {
+										$flags_used{$_} = 1;
+									}
 								}
 							}
 						}

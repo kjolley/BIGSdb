@@ -597,7 +597,7 @@ sub _tag {
 						if ( $q->param("id_$isolate_id\_$_\_sequence_$id\_flag") ) {
 							my $flag = $q->param("id_$isolate_id\_$_\_sequence_$id\_flag");
 							push @updates,
-"INSERT INTO sequence_flags (seqbin_id,locus,start_pos,flag,datestamp,curator) VALUES ($seqbin_id,'$cleaned_locus',$start,'$flag','today',$curator_id)";
+"INSERT INTO sequence_flags (seqbin_id,locus,start_pos,end_pos,flag,datestamp,curator) VALUES ($seqbin_id,'$cleaned_locus',$start,$end,'$flag','today',$curator_id)";
 						}
 					}
 				}
@@ -621,6 +621,7 @@ sub _tag {
 				$logger->debug($@);
 			} else {
 				print "<p>Error message: $@</p>\n";
+				$logger->error($@);
 			}
 			print "</div>\n";
 			$self->{'db'}->rollback;

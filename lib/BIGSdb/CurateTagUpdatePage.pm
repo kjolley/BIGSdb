@@ -30,6 +30,7 @@ sub print_content {
 	my $seqbin_id  = $q->param('seqbin_id');
 	my $locus      = $q->param('locus');
 	my $orig_start = $q->param('start_pos');
+	my $orig_end   = $q->param('end_pos');
 	print "<h1>Update sequence tag</h1>\n";
 	if ( !defined $seqbin_id || !BIGSdb::Utils::is_int($seqbin_id) ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Seqbin_id must be an integer.</p></div>\n";
@@ -92,19 +93,19 @@ sub print_content {
 		}
 		my $existing_flags =
 		  $self->{'datastore'}
-		  ->run_list_query( "SELECT flag FROM sequence_flags WHERE seqbin_id=? AND locus=? AND start_pos=? ORDER BY flag",
-			$seqbin_id, $locus, $start );
+		  ->run_list_query( "SELECT flag FROM sequence_flags WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=? ORDER BY flag",
+			$seqbin_id, $locus, $start, $end );
 		my @new_flags = $q->param('flags');
 		foreach my $new_flag (@new_flags) {
 			if ( !@$existing_flags || none { $new_flag eq $_ } @$existing_flags ) {
 				push @actions,
-"INSERT INTO sequence_flags (seqbin_id,locus,start_pos,flag,datestamp,curator) VALUES ($seqbin_id,'$locus',$start,'$new_flag','now',$curator_id)";
+"INSERT INTO sequence_flags (seqbin_id,locus,start_pos,end_pos,flag,datestamp,curator) VALUES ($seqbin_id,'$locus',$start,$end,'$new_flag','now',$curator_id)";
 			}
 		}
 		foreach my $existing_flag (@$existing_flags) {
 			if ( !@new_flags || none { $existing_flag eq $_ } @new_flags ) {
 				push @actions,
-				  "DELETE FROM sequence_flags WHERE seqbin_id=$seqbin_id AND locus='$locus' AND start_pos=$start AND flag='$existing_flag'";
+				  "DELETE FROM sequence_flags WHERE seqbin_id=$seqbin_id AND locus='$locus' AND start_pos=$start AND end_pos=$end AND flag='$existing_flag'";
 			}
 		}
 		$" = '<br />';
@@ -167,8 +168,8 @@ sub print_content {
 	print "</td></tr></table>\n";
 	print "</td><td>";
 	my $flags =
-	  $self->{'datastore'}->run_list_query( "SELECT flag FROM sequence_flags WHERE seqbin_id=? AND locus=? AND start_pos=? ORDER BY flag",
-		$seqbin_id, $locus, $q->param('start_pos') );
+	  $self->{'datastore'}->run_list_query( "SELECT flag FROM sequence_flags WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=? ORDER BY flag",
+		$seqbin_id, $locus, $q->param('start_pos'), $q->param('end_pos') );
 	my $i = 1;
 	print "Flags: <br />";
 	print $q->scrolling_list( -name => 'flags', -id => 'flags', -values => [SEQ_FLAGS], -default => $flags, -size => 5,
@@ -179,7 +180,7 @@ sub print_content {
 	print "</td></tr>";
 	print "<tr><td>";
 	print
-"<a href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=tagUpdate&amp;seqbin_id=$seqbin_id&amp;locus=$locus&amp;start_pos=$orig_start\" class=\"resetbutton\">Reset</a>";
+"<a href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=tagUpdate&amp;seqbin_id=$seqbin_id&amp;locus=$locus&amp;start_pos=$orig_start&amp;end_pos=$orig_end\" class=\"resetbutton\">Reset</a>";
 	print "</td><td style=\"text-align:right\">";
 	print $q->submit( -name => 'Update display', -class => 'button' );
 	print "</td><td>";

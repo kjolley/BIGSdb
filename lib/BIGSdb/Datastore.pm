@@ -823,7 +823,7 @@ sub get_all_allele_sequences {
 		$self->{'db'}->rollback();
 		$logger->error("Can't execute 'all_allele_sequences' query, $@");
 	}
-	my $sequences = $self->{'sql'}->{'all_allele_sequences'}->fetchall_hashref( [qw(locus seqbin_id start_pos)] );
+	my $sequences = $self->{'sql'}->{'all_allele_sequences'}->fetchall_hashref( [qw(locus seqbin_id start_pos end_pos)] );
 	return $sequences;
 }
 
@@ -841,7 +841,7 @@ sub get_all_sequence_flags {
 		$self->{'db'}->rollback();
 		$logger->error("Can't execute 'all_sequence_flags' query, $@");
 	}
-	my $flags = $self->{'sql'}->{'all_sequence_flags'}->fetchall_hashref( [qw(locus seqbin_id start_pos flag)] );
+	my $flags = $self->{'sql'}->{'all_sequence_flags'}->fetchall_hashref( [qw(locus seqbin_id start_pos end_pos flag)] );
 	return $flags;
 }
 
