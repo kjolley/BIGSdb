@@ -841,7 +841,7 @@ sub _print_row {
 	print "</td><td>";
 	my $allele_sequence_exists =
 	  $self->{'datastore'}
-	  ->run_simple_query( "SELECT COUNT(*) FROM allele_sequences WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=?", $match->{'seqbin_id'}, $locus, $match->{'predicted_start'}, $match->{'predicted_end'} )->[0];
+	  ->run_simple_query( "SELECT COUNT(*) FROM allele_sequences WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=?", $match->{'seqbin_id'}, $locus, $predicted_start, $predicted_end )->[0];
 	if ( !$allele_sequence_exists ) {
 		print $q->checkbox(
 			-name    => "id_$isolate_id\_$locus\_sequence_$id",
