@@ -267,9 +267,10 @@ sub _print_scheme_table {
 			if ($desc_exists){
 				print " <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$_\" class=\"info_tooltip\">&nbsp;i&nbsp;</a>";
 			}
-			print "</td>";
+			print "</td><td>";
 			print
-"<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;locus=$_\" class=\"downloadbutton\">&darr;</a></td><td>$locus_info->{'data_type'}</td><td>$count</td>";
+"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;locus=$_\" class=\"downloadbutton\">&darr;</a>" if $count;
+			print "</td><td>$locus_info->{'data_type'}</td><td>$count</td>";
 			if ($locus_info->{'length_varies'}){
 				print "<td>Variable: ";
 				if ($locus_info->{'min_length'} || $locus_info->{'max_length'}){
