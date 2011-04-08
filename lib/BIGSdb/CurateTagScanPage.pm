@@ -804,7 +804,9 @@ sub _print_row {
 	  . ( $labels->{$isolate_id} || $isolate_id )
 	  . "</td><td$class>"
 	  . ( $exact ? 'exact' : 'partial' )
-	  . "</td><td$class>$cleaned_locus</td><td$class>$match->{'allele'}$tooltip</td>
+	  . "</td><td$class>$cleaned_locus";
+	  print " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
+	  print "</td><td$class>$match->{'allele'}$tooltip</td>
 <td>$match->{'identity'}</td><td>$match->{'alignment'}</td>
 <td>$match->{'length'}</td><td>$match->{'e-value'}</td><td>$match->{'seqbin_id'} </td>
 <td>$match->{'start'}</td><td>$match->{'end'} </td>
