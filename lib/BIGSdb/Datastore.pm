@@ -2303,7 +2303,7 @@ sub _get_allele_sequences_table_attributes {
 			primary_key => 'yes',
 			comments    => 'start position of locus within sequence'
 		},
-		{ name => 'end_pos', type => 'int', required => 'yes', comments => 'end position of locus within sequence' },
+		{ name => 'end_pos', type => 'int', required => 'yes', primary_key => 'yes', comments => 'end position of locus within sequence' },
 		{
 			name     => 'reverse',
 			type     => 'bool',

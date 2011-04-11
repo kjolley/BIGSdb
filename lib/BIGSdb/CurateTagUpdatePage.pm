@@ -62,17 +62,17 @@ sub print_content {
 		$complete = $q->param('new_complete');
 	} else {
 		$start = $q->param('start_pos');
+		$end = $q->param('end_pos');
 		$tag =
-		  $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM allele_sequences WHERE seqbin_id=? AND locus=? AND start_pos=?",
-			$seqbin_id, $locus, $q->param('start_pos') );
+		  $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM allele_sequences WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=?",
+			$seqbin_id, $locus, $start, $end );
 		if ( !ref $tag ) {
 			print "<div class=\"box\" id=\"statusbad\"><p>There is no tag set with the parameters passed.</p></div>\n";
 			return;
 		}
-		$q->param( 'new_start', $tag->{'start_pos'} );
-		$end = $tag->{'end_pos'};
+		$q->param( 'new_start', $tag->{'start_pos'} );	
 		$q->param( 'end_pos', $end );
-		$q->param( 'new_end', $end );
+		$q->param( 'new_end', $tag->{'end_pos'} );
 		$reverse = $tag->{'reverse'};
 		$q->param( 'new_reverse', $reverse );
 		$complete = $tag->{'complete'};
@@ -89,7 +89,7 @@ sub print_content {
 "INSERT INTO allele_sequences (seqbin_id,locus,start_pos,end_pos,reverse,complete,curator,datestamp) VALUES ($seqbin_id,'$locus',$start,$end,$reverse_flag,$complete_flag,$curator_id,'now')";
 		} else {
 			push @actions,
-"UPDATE allele_sequences SET start_pos=$start, end_pos=$end, reverse=$reverse_flag, complete=$complete_flag, curator=$curator_id, datestamp='today' WHERE seqbin_id='$seqbin_id' AND locus='$locus' AND start_pos=$start AND end_pos=$end";
+"UPDATE allele_sequences SET start_pos=$start, end_pos=$end, reverse=$reverse_flag, complete=$complete_flag, curator=$curator_id, datestamp='today' WHERE seqbin_id='$seqbin_id' AND locus='$locus' AND start_pos=$orig_start AND end_pos=$orig_end";
 		}
 		my $existing_flags =
 		  $self->{'datastore'}
@@ -119,9 +119,10 @@ sub print_content {
 			my $error = $@;
 			if ( $error =~ /duplicate/ ) {
 				print
-"<div class=\"box\" id=\"statusbad\"><p>Update failed - a tag already exists for this locus beginning at postion $start on sequence seqbin#$seqbin_id</p><p><a href=\""
+"<div class=\"box\" id=\"statusbad\"><p>Update failed - a tag already exists for this locus between postions $start and $end on sequence seqbin#$seqbin_id</p><p><a href=\""
 				  . $q->script_name
 				  . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
+				  $logger->error($error);
 			} else {
 				print
 "<div class=\"box\" id=\"statusbad\"><p>Update failed - transaction cancelled - no records have been touched.</p><p><a href=\""
@@ -142,7 +143,9 @@ sub print_content {
 				$self->update_history( $isolate_id_ref->[0], "$locus: sequenece tag updated. Seqbin id: $seqbin_id; $start-$end" );
 			}
 			$q->param('start_pos',$q->param('new_start'));
+			$q->param('end_pos',$q->param('new_end'));
 			$orig_start = $q->param('new_start');
+			$orig_end = $q->param('new_end');
 		}
 	}
 	print "<div class=\"box\" id=\"queryform\">\n";
