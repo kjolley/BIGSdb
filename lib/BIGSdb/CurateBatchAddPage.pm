@@ -580,6 +580,7 @@ sub print_content {
 									$continue = 0
 								} else {
 									$problems{$pk_combination} .= "Sequence contains non nucleotide (G|A|T|C) characters.<br />";
+									$special_problem = 1;
 								}
 							} elsif ( $locus_info->{'data_type'} eq 'DNA'
 								&& $self->{'datastore'}->sequences_exist($locus)
