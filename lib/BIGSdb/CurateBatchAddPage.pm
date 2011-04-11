@@ -551,7 +551,7 @@ sub print_content {
 							}
 							my ($exists) = $sql_sequence_exists->fetchrow_array;
 							if ($exists) {
-								if ( $q->param('complete_CDS') ) {
+								if ( $q->param('complete_CDS') || $q->param('ignore_existing')) {
 									$continue = 0;
 								} else {
 									$problems{$pk_combination} .= "Sequence already exists in the database ($locus: $exists).<br />";
@@ -576,7 +576,7 @@ sub print_content {
 						}
 						if ($continue) {
 							if ( $locus_info->{'data_type'} eq 'DNA' && !BIGSdb::Utils::is_valid_DNA($value) ) {
-								if ($q->param('complete_CDS')){
+								if ($q->param('complete_CDS') || $q->param('ignore_non_DNA')){
 									$continue = 0
 								} else {
 									$problems{$pk_combination} .= "Sequence contains non nucleotide (G|A|T|C) characters.<br />";
@@ -982,6 +982,10 @@ HTML
 		}
 		if ( $table eq 'sequences' ) {
 			print "<ul style=\"list-style-type:none\"><li>\n";
+			print $q->checkbox( -name => 'ignore_existing', -label => 'Ignore existing sequences',  -checked => 'checked' );
+			print "</li><li>\n";
+			print $q->checkbox( -name => 'ignore_non_DNA', -label => 'Ignore sequences containing non-nucleotide characters' );
+			print "</li><li>\n";
 			print $q->checkbox(
 				-name => 'complete_CDS',
 				-label =>
