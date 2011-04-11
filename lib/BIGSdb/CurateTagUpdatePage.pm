@@ -83,13 +83,13 @@ sub print_content {
 		my $reverse_flag  = $reverse  ? 'true' : 'false';
 		my $complete_flag = $complete ? 'true' : 'false';
 		my $curator_id    = $self->get_curator_id;
-		if ( $start != $q->param('start_pos') ) {
-			push @actions, "DELETE FROM allele_sequences WHERE seqbin_id=$seqbin_id AND locus='$locus' AND start_pos=$orig_start";
+		if ( $start != $q->param('start_pos') || $end != $q->param('end_pos') ) {
+			push @actions, "DELETE FROM allele_sequences WHERE seqbin_id=$seqbin_id AND locus='$locus' AND start_pos=$orig_start AND end_pos=$orig_end";
 			push @actions,
 "INSERT INTO allele_sequences (seqbin_id,locus,start_pos,end_pos,reverse,complete,curator,datestamp) VALUES ($seqbin_id,'$locus',$start,$end,$reverse_flag,$complete_flag,$curator_id,'now')";
 		} else {
 			push @actions,
-"UPDATE allele_sequences SET end_pos=$end, reverse=$reverse_flag, complete=$complete_flag, curator=$curator_id, datestamp='today' WHERE seqbin_id='$seqbin_id' AND locus='$locus' AND start_pos=$start";
+"UPDATE allele_sequences SET start_pos=$start, end_pos=$end, reverse=$reverse_flag, complete=$complete_flag, curator=$curator_id, datestamp='today' WHERE seqbin_id='$seqbin_id' AND locus='$locus' AND start_pos=$start AND end_pos=$end";
 		}
 		my $existing_flags =
 		  $self->{'datastore'}

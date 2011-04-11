@@ -6,5 +6,5 @@ ALTER TABLE sequence_flags DROP CONSTRAINT sf_fkeys;
 ALTER TABLE allele_sequences DROP CONSTRAINT allele_sequences_pkey;
 ALTER TABLE sequence_flags ADD PRIMARY KEY (seqbin_id,locus,start_pos,end_pos,flag);
 ALTER TABLE allele_sequences ADD PRIMARY KEY (seqbin_id,locus,start_pos,end_pos);
-ALTER TABLE sequence_flags ADD CONSTRAINT sf_fkeys FOREIGN KEY (seqbin_id,locus,start_pos,end_pos) REFERENCES allele_sequences;
+ALTER TABLE sequence_flags ADD CONSTRAINT sf_fkeys FOREIGN KEY (seqbin_id,locus,start_pos,end_pos) REFERENCES allele_sequences ON DELETE CASCADE ON UPDATE CASCADE;
 
