@@ -591,6 +591,7 @@ sub print_content {
 "Sequence is too dissimilar to existing alleles (less than 70% identical or an alignment of less than 90% its length). Similarity is determined
 	by the output of the best match from the BLAST algorithm - this may be conservative.  If you're sure that this sequence should be entered, please
 	 select the 'Override sequence similarity check' box.<br />";
+	 							$special_problem = 1;
 							}
 						}
 					}
