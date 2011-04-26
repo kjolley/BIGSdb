@@ -155,7 +155,7 @@ sub run {
 		print "</td><td>\n";
 		print "Calculate G+C content";
 		if ( $locus_info->{'coding_sequence'}){
-			print "and codon usage";
+			print " and codon usage";
 		}
 		print "</td></tr>\n";
 		if ( $locus_info->{'coding_sequence'} && (!$locus_info->{'length_varies'} || $self->{'config'}->{'muscle_path'} )) {
