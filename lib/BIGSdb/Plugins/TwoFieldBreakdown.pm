@@ -246,20 +246,20 @@ sub _breakdown {
 	}
 	my $temp1    = BIGSdb::Utils::get_random();
 	my $out_file = "$self->{'config'}->{'tmp_dir'}/$temp1.txt";
-	open( OUTFILE, '>', $out_file )
+	open( my $fh, '>', $out_file )
 	  or $logger->error("Can't open temp file $out_file for writing");
 	print "<div class=\"box\" id=\"resultstable\">\n";
 	print "<h2>Breakdown of $print_field1 by $print_field2:</h2>\n";
-	print OUTFILE "Breakdown of $print_field1 by $print_field2:\n";
+	print $fh "Breakdown of $print_field1 by $print_field2:\n";
 	print "<p>Selected options: Display $display. ";
-	print OUTFILE "Selected options: Display $display. ";
+	print $fh "Selected options: Display $display. ";
 
 	if ( $display ne 'values only' ) {
 		print "Calculate percentages by $calcpc.";
-		print OUTFILE "Calculate percentages by $calcpc.";
+		print $fh "Calculate percentages by $calcpc.";
 	}
 	print "</p>\n";
-	print OUTFILE "\n\n";
+	print $fh "\n\n";
 	print "<table><tr><td>\n";
 	print $q->startform;
 	foreach (qw (db page name function query_file field1 field2 display calcpc)) {
@@ -293,12 +293,12 @@ sub _breakdown {
 	print "<div class=\"scrollable\">\n";
 	print "<table class=\"tablesorter\" id=\"sortTable\">\n<thead>\n";
 	print "<tr><td /><td colspan=\"$numfield2\" class=\"header\">$print_field2</td></tr>\n";
-	print OUTFILE "$print_field1\t$print_field2\n";
+	print $fh "$print_field1\t$print_field2\n";
 	$" = "</th><th class=\"{sorter: 'digit'}\">";
 	print
 "<tr><th>$print_field1</th><th class=\"{sorter: 'digit'}\">@field2values</th><th class=\"{sorter: 'digit'}\">Total</th></tr></thead><tbody>\n";
 	$" = "\t";
-	print OUTFILE "\t@field2values\tTotal\n";
+	print $fh "\t@field2values\tTotal\n";
 	my $td = 1;
 	{
 		no warnings;    #might complain about numeric comparison with non-numeric data
@@ -319,17 +319,17 @@ sub _breakdown {
 				$total += $value;
 				if ( !$value ) {
 					print "<td></td>\n";
-					print OUTFILE "\t";
+					print $fh "\t";
 				} else {
 					if ( $q->param('display') eq 'values and percentages' ) {
 						print "<td>$value ($percentage%)</td>\n";
-						print OUTFILE "\t$value ($percentage%)";
+						print $fh "\t$value ($percentage%)";
 					} elsif ( $q->param('display') eq 'percentages only' ) {
 						print "<td>$percentage</td>\n";
-						print OUTFILE "\t$percentage";
+						print $fh "\t$percentage";
 					} else {
 						print "<td>$value</td>\n";
-						print OUTFILE "\t$value";
+						print $fh "\t$value";
 					}
 				}
 			}
@@ -341,19 +341,19 @@ sub _breakdown {
 			}
 			if ( $q->param('display') eq 'values and percentages' ) {
 				print "<td>$total ($percentage%)</td></tr>\n";
-				print OUTFILE "\t$total ($percentage%)\n";
+				print $fh "\t$total ($percentage%)\n";
 			} elsif ( $q->param('display') eq 'percentages only' ) {
 				print "<td>$percentage</td></tr>\n";
-				print OUTFILE "\t$percentage\n";
+				print $fh "\t$percentage\n";
 			} else {
 				print "<td>$total</td></tr>\n";
-				print OUTFILE "\t$total\n";
+				print $fh "\t$total\n";
 			}
 			$td = $td == 1 ? 2 : 1;    #row stripes
 		}
 	};
 	print "</tbody><tbody><tr class=\"total\"><td>Total</td>\n";
-	print OUTFILE "Total";
+	print $fh "Total";
 	foreach my $field2value (@field2values) {
 		my $percentage;
 		if ( $q->param('calcpc') eq 'column' ) {
@@ -363,27 +363,27 @@ sub _breakdown {
 		}
 		if ( $q->param('display') eq 'values and percentages' ) {
 			print "<td>$field2total{$field2value} ($percentage%)</td>";
-			print OUTFILE "\t$field2total{$field2value} ($percentage%)";
+			print $fh "\t$field2total{$field2value} ($percentage%)";
 		} elsif ( $q->param('display') eq 'percentages only' ) {
 			print "<td>$percentage</td>";
-			print OUTFILE "\t$percentage";
+			print $fh "\t$percentage";
 		} else {
 			print "<td>$field2total{$field2value}</td>";
-			print OUTFILE "\t$field2total{$field2value}";
+			print $fh "\t$field2total{$field2value}";
 		}
 	}
 	if ( $q->param('display') eq 'values and percentages' ) {
 		print "<td>$grandtotal (100%)</td></tr>\n";
-		print OUTFILE "\t$grandtotal (100%)\n";
+		print $fh "\t$grandtotal (100%)\n";
 	} elsif ( $q->param('display') eq 'percentages only' ) {
 		print "<td>100</td></tr>\n";
-		print OUTFILE "\t100\n";
+		print $fh "\t100\n";
 	} else {
 		print "<td>$grandtotal</td></tr>\n";
-		print OUTFILE "\t$grandtotal\n";
+		print $fh "\t$grandtotal\n";
 	}
 	print "</tbody></table></div>\n";
-	close OUTFILE;
+	close $fh;
 	print "<p><a href='/tmp/$temp1.txt'>Download as tab-delimited text.</a></p>\n";
 
 	#Chartdirector
@@ -455,7 +455,7 @@ sub _breakdown {
 				if ( !$i ) {
 					$chart->addTitle( "Values", "arial.ttf", 14 );
 					my $filename = "$temp1\_$field1\_$field2.png";
-					if ( $filename =~ /(.*\.png)/ ) {
+					if ( $filename =~ /(BIGSdb.*\.png)/ ) {
 						$filename = $1;    #untaint
 					}
 					$chart->makeChart("$self->{'config'}->{'tmp_dir'}\/$filename");
@@ -463,6 +463,9 @@ sub _breakdown {
 				} else {
 					$chart->addTitle( "Percentages", "arial.ttf", 14 );
 					my $filename = "$temp1\_$field1\_$field2\_pc.png";
+					if ( $filename =~ /(BIGSdb.*\.png)/ ) {
+						$filename = $1;    #untaint
+					}
 					$chart->makeChart("$self->{'config'}->{'tmp_dir'}\/$filename");
 					print "<img src=\"/tmp/$filename\" alt=\"$field1 vs $field2 percentage chart\" />";
 				}
