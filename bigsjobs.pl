@@ -91,7 +91,7 @@ $system->{'password'} = 'remote'    if !$system->{'password'};
 $system->{'view'}     = 'isolates'  if !$system->{'view'};
 $system->{'labelfield'} = 'isolate' if !$system->{'labelfield'};
 my $dataConnector = BIGSdb::Dataconnector->new();
-$dataConnector->initiate($system);
+$dataConnector->initiate($system,$config);
 my $db;
 $logger->info("Job: $job->{'id'}; Module: $job->{'module'}");
 
@@ -126,6 +126,19 @@ sub read_config_file {
 	{
 		$config->{$_} = $config->{_}->{$_};
 	}
+	
+	#read host maps if set
+	if (-e CONFIG_DIR . "/host_mapping.conf"){
+		open (my $fh, '<', CONFIG_DIR  . "/host_mapping.conf");
+		while (<$fh>){
+			next if $_ =~ /^\s+$/ || $_ =~ /^#/;
+			my ($host,$mapped) = split /\s+/,$_;
+			next if !$host || !$mapped;
+			$config->{'host_map'}->{$host} = $mapped;
+		}
+		close $fh;
+	}
+	
 	return $config;
 }
 

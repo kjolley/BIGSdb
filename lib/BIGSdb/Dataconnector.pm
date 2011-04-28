@@ -42,8 +42,9 @@ sub DESTROY {
 
 sub initiate {
 	#set system attributes (can't be done in constructor as this is called before configuration files are read)
-	my ($self,$system) = @_;
+	my ($self,$system,$config) = @_;
 	$self->{'system'} = $system;
+	$self->{'config'} = $config;
 }
 
 sub get_connection {
@@ -52,6 +53,7 @@ sub get_connection {
 	my $port     = $attributes->{'port'}     || $self->{'system'}->{'port'};
 	my $user     = $attributes->{'user'}     || $self->{'system'}->{'user'};
 	my $password = $attributes->{'password'} || $self->{'system'}->{'password'};
+	$host = $self->{'config'}->{'host_map'}->{$host} || $host;
 	throw BIGSdb::DatabaseConnectionException ("No database name passed") if !$attributes->{'dbase_name'};
 	if ( $attributes->{'dbase_name'} ) {
 		if ( !$self->{'db'}->{"$host|$attributes->{'dbase_name'}"} ) {

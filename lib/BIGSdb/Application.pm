@@ -44,7 +44,7 @@ sub new {
 	$self->{'curate'}           = $curate;
 	bless( $self, $class );
 	$self->_initiate( $config_dir, $dbase_config_dir );
-	$self->{'dataConnector'}->initiate( $self->{'system'} );
+	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
 	my $logger_benchmark = get_logger('BIGSdb.Application_Benchmark');
 
 	if ( !$self->{'error'} ) {
@@ -83,6 +83,7 @@ sub _initiate {
 	my $q = $self->{'cgi'};
 	Log::Log4perl::MDC->put( "ip", $q->remote_host );
 	$self->_read_config_file($config_dir);
+	$self->_read_host_mapping_file($config_dir);
 	my $logger = get_logger('BIGSdb.Application_Initiate');
 	$self->{'instance'} = $1 if $self->{'cgi'}->param('db') =~ /^([\w\d\-_]+)$/;
 	my $full_path = "$dbase_config_dir/$self->{'instance'}/config.xml";
@@ -239,6 +240,20 @@ sub _read_config_file {
 				$logger->error("Charts.pm not installed!");
 			}
 		}
+	}
+}
+
+sub _read_host_mapping_file {
+	my ( $self, $config_dir ) = @_;
+	if (-e "$config_dir/host_mapping.conf"){
+		open (my $fh, '<', "$config_dir/host_mapping.conf");
+		while (<$fh>){
+			next if $_ =~ /^\s+$/ || $_ =~ /^#/;
+			my ($host,$mapped) = split /\s+/,$_;
+			next if !$host || !$mapped;
+			$self->{'config'}->{'host_map'}->{$host} = $mapped;
+		}
+		close $fh;
 	}
 }
 
