@@ -70,6 +70,9 @@ sub print_content {
 	} elsif ($self->{'error'} eq 'noAuthenticationSet'){
 		print
 "<p>No authentication mechanism has been set in the database configuration!</p>";
+	} elsif ($self->{'error'} eq 'disableUpdates'){
+		print "<p>Database updates are currently disabled.</p>";
+		print "<p>$self->{'message'}</p>" if $self->{'message'};
 	} elsif ($self->{'error'} eq 'userNotAuthenticated'){
 		print "<p>You have been denied access by the server configuration.  Either your login details are
 		invalid or you are trying to connect from an unauthorized IP address.</p>";

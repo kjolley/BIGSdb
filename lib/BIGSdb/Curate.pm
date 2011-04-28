@@ -141,6 +141,10 @@ sub print_page {
 	} elsif ( !$self->{'prefstore'} ) {
 		$page_attributes{'error'} = 'noPrefs';
 		$page_attributes{'fatal'} = $self->{'fatal'}, $page = BIGSdb::ErrorPage->new(%page_attributes);
+	} elsif ( $self->{'system'}->{'disable_updates'} eq 'yes' || $self->{'config'}->{'disable_updates'} eq 'yes'){
+		$page_attributes{'error'} = 'disableUpdates';
+		$page_attributes{'message'} = $self->{'config'}->{'disable_update_message'} || $self->{'system'}->{'disable_update_message'};
+		$page_attributes{'fatal'} = $self->{'fatal'}, $page = BIGSdb::ErrorPage->new(%page_attributes);
 	} elsif ( $classes{ $self->{'page'} } ) {
 		if ( ref $auth_cookies_ref eq 'ARRAY' ) {
 			foreach (@$auth_cookies_ref) {
