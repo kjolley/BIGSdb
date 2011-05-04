@@ -67,9 +67,8 @@ sub print_content {
 		my $curator = $self->get_curator_id;
 		eval {
 			my $id;
-			foreach ( keys %$seq_ref )
-			{
-				$id = $self->next_id('sequence_bin',0,$id);
+			foreach ( keys %$seq_ref ) {
+				$id = $self->next_id( 'sequence_bin', 0, $id );
 				my ( $designation, $comments );
 				if ( $_ =~ /(\S*)\s+(.*)/ ) {
 					( $designation, $comments ) = ( $1, $2 );
@@ -151,9 +150,9 @@ sub print_content {
 			print "<div class=\"box\" id=\"resultstable\"><p>The following sequences will be entered.</p>\n";
 			print "<table><tr><td>";
 			print "<table class=\"resultstable\"><tr><th>Original designation</th><th>Sequence length</th><th>Comments</th></tr>\n";
-			my $td = 1;
+			my $td       = 1;
 			my $min_size = 0;
-			if ($q->param('size_filter') && BIGSdb::Utils::is_int($q->param('size'))){
+			if ( $q->param('size_filter') && BIGSdb::Utils::is_int( $q->param('size') ) ) {
 				$min_size = $q->param('size_filter') && $q->param('size');
 			}
 			foreach ( sort { $a cmp $b } keys %$seq_ref ) {
@@ -167,7 +166,6 @@ sub print_content {
 				} else {
 					$designation = $_;
 				}
-				
 				print "<tr class=\"td$td\"><td>$designation</td><td>$length</td><td>$comments</td></tr>\n";
 				$td = $td == 1 ? 2 : 1;
 			}
@@ -202,70 +200,77 @@ sub print_content {
 			print "</div>";
 		}
 	} else {
-		print
-"<div class=\"box\" id=\"queryform\"><p>This page allows you to upload sequence data for a specified isolate record in FASTA format.</p>\n";
-		print $q->start_form;
-		my $qry = "select id,user_name,first_name,surname from users WHERE id>0 order by surname";
-		my $sql = $self->{'db'}->prepare($qry);
-		eval { $sql->execute(); };
-		if ($@) {
-			$logger->error("Can't execute: $qry");
-		} else {
-			$logger->debug("Query: $qry");
-		}
-		my @users;
-		my %usernames;
-		while ( my ( $userid, $username, $firstname, $surname ) = $sql->fetchrow_array ) {
-			push @users, $userid;
-			$usernames{$userid} = "$surname, $firstname ($username)";
-		}
-		$qry = "SELECT id,$self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} ORDER BY id";
-		$sql = $self->{'db'}->prepare($qry);
-		eval { $sql->execute; };
-		if ($@) {
-			$logger->error("Can't execute $qry; $@");
-		}
-		my $id_arrayref = $sql->fetchall_arrayref;
-		print "<p>Please fill in the following fields - required fields are marked with an exclamation mark (!).</p>\n";
-		print "<table><tr><td>\n";
-		print "<table><tr>";
-		print "<td style=\"text-align:right\">isolate id: !</td><td>";
-		if ( scalar @$id_arrayref < 20000 ) {
-			my @ids = '';
-			my %labels;
-			foreach (@$id_arrayref) {
-				push @ids, $_->[0];
-				$labels{ $_->[0] } = "$_->[0]) $_->[1]";
-			}
-			print $q->popup_menu( -name => 'isolate_id', -values => \@ids, -labels => \%labels );
-		} else {
-			print $q->textfield( -name => 'isolate_id', -size => 12 );
-		}
-		print "</td></tr>\n<tr><td style=\"text-align:right\">sender: !</td><td>\n";
-		print $q->popup_menu( -name => 'sender', -values => [ '', @users ], -labels => \%usernames );
-		print "</td></tr>\n<tr><td style=\"text-align:right\">method: </td><td>";
-		print $q->popup_menu( -name => 'method', -values => [ '', SEQ_METHODS ] );
-		print "</td></tr></table>";
-		print "</td><td style=\"padding-left:2em; vertical-align:top\">\n";
-		print $q->checkbox(-name=>'size_filter', -label=> "Don't insert sequences shorter than ", -checked=>'checked');
-		print $q->popup_menu(-name=>'size', -values => [qw(25 50 100 250 500 1000)], -default=>250);
-		print " bps.";
-		print "</td></tr></table>\n";
-		print "<p />\n";
-		print "<p>Please paste in sequences in FASTA format:</p>\n";
-		foreach (qw (page db)) {
-			print $q->hidden($_);
-		}
-		print $q->textarea( -name => 'data', -rows => 20, -columns => 120 );
-		print "<table style=\"width:95%\"><tr><td>";
-		print $q->reset( -class => 'reset' );
-		print "</td><td style=\"text-align:right\">";
-		print $q->submit( -class => 'submit' );
-		print "</td></tr></table><p />\n";
-		print $q->end_form;
-		print "<p><a href=\"" . $q->script_name . "/?db=$self->{'instance'}\">Back</a></p>\n";
-		print "</div>\n";
+		$self->_print_interface;
 	}
+}
+
+sub _print_interface {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	print
+"<div class=\"box\" id=\"queryform\"><p>This page allows you to upload sequence data for a specified isolate record in FASTA format.</p>\n";
+	print $q->start_form;
+	my $qry = "select id,user_name,first_name,surname from users WHERE id>0 order by surname";
+	my $sql = $self->{'db'}->prepare($qry);
+	eval { $sql->execute(); };
+	if ($@) {
+		$logger->error("Can't execute: $qry");
+	} else {
+		$logger->debug("Query: $qry");
+	}
+	my @users;
+	my %usernames;
+	while ( my ( $userid, $username, $firstname, $surname ) = $sql->fetchrow_array ) {
+		push @users, $userid;
+		$usernames{$userid} = "$surname, $firstname ($username)";
+	}
+	$qry = "SELECT id,$self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} ORDER BY id";
+	$sql = $self->{'db'}->prepare($qry);
+	eval { $sql->execute; };
+	if ($@) {
+		$logger->error("Can't execute $qry; $@");
+	}
+	my $id_arrayref = $sql->fetchall_arrayref;
+	print "<p>Please fill in the following fields - required fields are marked with an exclamation mark (!).</p>\n";
+	print "<table><tr><td>\n";
+	print "<table><tr>";
+	print "<td style=\"text-align:right\">isolate id: !</td><td>";
+	if ( scalar @$id_arrayref < 20000 ) {
+		my @ids = '';
+		my %labels;
+		foreach (@$id_arrayref) {
+			push @ids, $_->[0];
+			$labels{ $_->[0] } = "$_->[0]) $_->[1]";
+		}
+		print $q->popup_menu( -name => 'isolate_id', -values => \@ids, -labels => \%labels );
+	} else {
+		print $q->textfield( -name => 'isolate_id', -size => 12 );
+	}
+	print "</td></tr>\n<tr><td style=\"text-align:right\">sender: !</td><td>\n";
+	print $q->popup_menu( -name => 'sender', -values => [ '', @users ], -labels => \%usernames );
+	print "</td></tr>\n<tr><td style=\"text-align:right\">method: </td><td>";
+	print $q->popup_menu( -name => 'method', -values => [ '', SEQ_METHODS ] );
+	print "</td></tr></table>";
+	print "</td><td style=\"padding-left:2em; vertical-align:top\">\n";
+	print $q->checkbox( -name => 'size_filter', -label => "Don't insert sequences shorter than ", -checked => 'checked' );
+	print $q->popup_menu( -name => 'size', -values => [qw(25 50 100 250 500 1000)], -default => 250 );
+	print " bps.";
+	print "</td></tr></table>\n";
+	print "<p />\n";
+	print "<p>Please paste in sequences in FASTA format:</p>\n";
+
+	foreach (qw (page db)) {
+		print $q->hidden($_);
+	}
+	print $q->textarea( -name => 'data', -rows => 20, -columns => 120 );
+	print "<table style=\"width:95%\"><tr><td>";
+	print $q->reset( -class => 'reset' );
+	print "</td><td style=\"text-align:right\">";
+	print $q->submit( -class => 'submit' );
+	print "</td></tr></table><p />\n";
+	print $q->end_form;
+	print "<p><a href=\"" . $q->script_name . "/?db=$self->{'instance'}\">Back</a></p>\n";
+	print "</div>\n";
 }
 
 sub get_title {
