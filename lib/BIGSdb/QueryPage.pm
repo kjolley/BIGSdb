@@ -754,11 +754,12 @@ sub _run_isolate_query {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $system = $self->{'system'};
+	my $view = $system->{'view'};
 	my $qry;
 	my @errors;
 	my $extended = $self->get_extended_attributes;
 	if ( !defined $q->param('query') ) {
-		$qry = "SELECT * FROM $system->{'view'} WHERE (";
+		$qry = "SELECT * FROM $view WHERE (";
 		my $andor       = $q->param('c0');
 		my $first_value = 1;
 		for ( my $i = 1 ; $i <= MAX_ROWS ; $i++ ) {
@@ -1011,7 +1012,7 @@ sub _run_isolate_query {
 				if ( $qry !~ /WHERE \(\)\s*$/ ) {
 					$qry .= " AND ";
 				} else {
-					$qry = "SELECT * FROM $system->{'view'} WHERE ";
+					$qry = "SELECT * FROM $view WHERE ";
 				}
 				$qry .= ( ( $value eq '<blank>' || $value eq 'null' ) ? "$_ is null" : "$_ = '$value'" );
 			}
@@ -1026,7 +1027,7 @@ sub _run_isolate_query {
 " AND ($_ IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$_' AND attribute='$extended_attribute' AND value='$value'))";
 						} else {
 							$qry =
-"SELECT * FROM $system->{'view'} WHERE ($_ IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$_' AND attribute='$extended_attribute' AND value='$value'))";
+"SELECT * FROM $view WHERE ($_ IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$_' AND attribute='$extended_attribute' AND value='$value'))";
 						}
 					}
 				}
@@ -1040,7 +1041,7 @@ sub _run_isolate_query {
 				if ( $qry !~ /WHERE \(\)\s*$/ ) {
 					$qry .= " AND (id IN ('@$ids'))";
 				} else {
-					$qry = "SELECT * FROM $system->{'view'} WHERE (id IN ('@$ids'))";
+					$qry = "SELECT * FROM $view WHERE (id IN ('@$ids'))";
 				}
 			}
 		}
@@ -1052,7 +1053,7 @@ sub _run_isolate_query {
 					$qry .= " AND (id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id'))";
 				} else {
 					$qry =
-"SELECT * FROM $system->{'view'} WHERE (id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id'))";
+"SELECT * FROM $view WHERE (id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id'))";
 				}
 			}
 		}
@@ -1064,7 +1065,7 @@ sub _run_isolate_query {
 			if ( $qry !~ /WHERE \(\)\s*$/ ) {
 				$qry .= " AND (id$not IN (SELECT isolate_id FROM sequence_bin))";
 			} else {
-				$qry = "SELECT * FROM $system->{'view'} WHERE (id$not IN (SELECT isolate_id FROM sequence_bin))";
+				$qry = "SELECT * FROM $view WHERE (id$not IN (SELECT isolate_id FROM sequence_bin))";
 			}
 		}
 		my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
@@ -1100,7 +1101,7 @@ sub _run_isolate_query {
 					if ( $qry !~ /WHERE \(\)\s*$/ ) {
 						$qry .= "AND $clause";
 					} else {
-						$qry = "SELECT * FROM $system->{'view'} WHERE $clause";
+						$qry = "SELECT * FROM $view WHERE $clause";
 					}
 				}
 			}
@@ -1112,7 +1113,7 @@ sub _run_isolate_query {
 					my $clause;
 					$field = "scheme_$scheme_id\.$field";
 					my $scheme_loci  = $self->{'datastore'}->get_scheme_loci($scheme_id);
-					my $joined_table = "SELECT id FROM $system->{'view'}";
+					my $joined_table = "SELECT $view.id FROM $view";
 					$" = ',';
 					foreach (@$scheme_loci) {
 						$joined_table .= " left join allele_designations AS $_ on $_.isolate_id = $self->{'system'}->{'view'}.id";
@@ -1135,6 +1136,7 @@ sub _run_isolate_query {
 					}
 					$joined_table .= " @temp";
 					my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+					
 					if ( $scheme_field_info->{'type'} eq 'integer' ) {
 						$clause = "(id IN ($joined_table AND CAST($field AS int) = '$value'))";
 					} else {
@@ -1143,7 +1145,7 @@ sub _run_isolate_query {
 					if ( $qry !~ /WHERE \(\)\s*$/ ) {
 						$qry .= "AND $clause";
 					} else {
-						$qry = "SELECT * FROM $system->{'view'} WHERE $clause";
+						$qry = "SELECT * FROM $view WHERE $clause";
 					}
 				}
 			}
@@ -1239,7 +1241,7 @@ sub _run_isolate_query {
 					}
 					$field = "scheme_$scheme_id\.$field";
 					my $scheme_loci  = $self->{'datastore'}->get_scheme_loci($scheme_id);
-					my $joined_table = "SELECT id FROM $system->{'view'}";
+					my $joined_table = "SELECT $view.id FROM $view";
 					$" = ',';
 					foreach (@$scheme_loci) {
 						$joined_table .= " left join allele_designations AS $_ on $_.isolate_id = $self->{'system'}->{'view'}.id";
@@ -1302,9 +1304,9 @@ sub _run_isolate_query {
 				$modify = "GROUP BY id HAVING count(id)=" . scalar @lqry;
 			}
 			my $lqry =
-"id IN (select distinct(id) FROM $system->{'view'} LEFT JOIN allele_designations ON $system->{'view'}.id=allele_designations.isolate_id WHERE @lqry $modify)";
+"id IN (select distinct(id) FROM $view LEFT JOIN allele_designations ON $view.id=allele_designations.isolate_id WHERE @lqry $modify)";
 			if ( $qry =~ /\(\)$/ ) {
-				$qry = "SELECT * FROM $system->{'view'} WHERE $brace$lqry";
+				$qry = "SELECT * FROM $view WHERE $brace$lqry";
 			} else {
 				$qry .= " AND $brace($lqry)";
 			}
@@ -1313,7 +1315,7 @@ sub _run_isolate_query {
 			$" = ' ' . $q->param('c1') . ' ';
 			my $modify = @lqry ? $q->param('c1') : 'AND';
 			if ( $qry =~ /\(\)$/ ) {
-				$qry = "SELECT * FROM $system->{'view'} WHERE $brace@lqry_blank";
+				$qry = "SELECT * FROM $view WHERE $brace@lqry_blank";
 			} else {
 				$qry .= " $modify $brace(@lqry_blank)";
 			}
@@ -1323,7 +1325,7 @@ sub _run_isolate_query {
 			$" = " $andor ";
 			my $sqry = "@sqry";
 			if ( $qry =~ /\(\)$/ ) {
-				$qry = "SELECT * FROM $system->{'view'} WHERE $sqry";
+				$qry = "SELECT * FROM $view WHERE $sqry";
 			} else {
 				$qry .= " $andor $sqry";
 				$qry .= ')' if ( @lqry or @lqry_blank );

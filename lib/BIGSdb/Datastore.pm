@@ -622,6 +622,9 @@ sub create_temp_scheme_table {
 	$" = "\t";
 	my $data = $scheme_sql->fetchall_arrayref;
 	foreach (@$data) {
+		foreach (@$_){
+			$_ = '\N' if $_ eq '';
+		}
 		eval { $self->{'db'}->pg_putcopydata("@$_\n"); };
 		if ($@) {
 			$logger->warn("Can't put data into temp table @$_");
