@@ -500,7 +500,8 @@ sub get_selected_fields {
 }
 
 sub print_sequence_export_form {
-	my ( $self, $pk, $list, $scheme_id, $default_select ) = @_;
+	my ( $self, $pk, $list, $scheme_id, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
 	print $q->start_form;
 	print "<table><tr><th>Select $pk" . "s</th>";
@@ -540,7 +541,7 @@ sub print_sequence_export_form {
 			-linebreak => 'true' );
 		print "<br />Peptide loci will only be retrieved from the sequence bin (as nucleotide sequences).";
 		print "<br /><br />\n";
-		print $q->checkbox(-name => 'translate', -label => 'Translate sequences');
+		print $q->checkbox(-name => 'translate', -label => 'Translate sequences') if $options->{'translate'};
 		print "</td>\n";
 	}
 	print "</tr>\n</table>\n";
@@ -584,7 +585,7 @@ sub print_sequence_export_form {
 				push @scheme_js2, "\$(\"#s_$_\_l_$cleaned_member\").attr(\"checked\",\"\")";
 				$labels->{"l_$member"} = "$member ($common_names->{$member}->{'common_name'})" if $common_names->{$member}->{'common_name'};
 			}
-			$self->print_fields( \@values, "s_$_", 10, 1, $labels, \@scheme_js, \@scheme_js2, $default_select );
+			$self->print_fields( \@values, "s_$_", 10, 1, $labels, \@scheme_js, \@scheme_js2, $options->{'default_select'} );
 		}
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -610,7 +611,7 @@ sub print_sequence_export_form {
 				push @scheme_js2, "\$(\"#l_$cleaned\").attr(\"checked\",\"\")";
 			}
 			my %labels;
-			$self->print_fields( $loci, 'l', 12, 0, \%labels, \@scheme_js, \@scheme_js2, $default_select );
+			$self->print_fields( $loci, 'l', 12, 0, \%labels, \@scheme_js, \@scheme_js2, $options->{'default_select'} );
 		}
 	}
 	$" = ';';

@@ -37,7 +37,7 @@ sub get_attributes {
 		buttontext  => 'Concatenate',
 		menutext    => 'Concatenate alleles',
 		module      => 'Concatenate',
-		version     => '1.0.0',
+		version     => '1.0.1',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		section     => 'export,postquery',
@@ -151,7 +151,8 @@ sequences can be included.  Please check the loci that you would like to include
 the remote database, it will be replaced with dashes. Please be aware that since alleles may have insertions or deletions,
 the sequences may need to be aligned.</p>
 HTML
-	$self->print_sequence_export_form( $pk, $list, $scheme_id, 1 );
+	my $options = {'default_select' => 1, 'translate' => 1};
+	$self->print_sequence_export_form( $pk, $list, $scheme_id, $options );
 	print "</div>\n";
 }
 
