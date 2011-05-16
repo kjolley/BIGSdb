@@ -673,8 +673,8 @@ sub _print_variable_loci {
 	$$buffer_ref .= "<p>Variable loci: " . ( scalar keys %$loci ) . "</p>";
 	print $fh "Variable loci: " . ( scalar keys %$loci ) . "\n\n";
 	$$buffer_ref .= "<div class=\"scrollable\">";
-	$$buffer_ref .= "<table class=\"resultstable\"><tr><th>Locus</th><th>Product</th><th>Reference genome</th>";
-	print $fh "Locus\tProduct\tReference genome";
+	$$buffer_ref .= "<table class=\"resultstable\"><tr><th>Locus</th><th>Product</th><th>Sequence length</th><th>Reference genome</th>";
+	print $fh "Locus\tProduct\tSequence length\tReference genome";
 	my %names;
 	my $isolate;
 
@@ -698,15 +698,16 @@ sub _print_variable_loci {
 	foreach ( sort keys %$loci ) {
 		$progress++;
 		my $complete = 50 + int( 100 * $progress / $total );
-		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } );
+		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } ) if $q->param('align');
 		my $fasta_file = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$_.fasta";
 		my $muscle_out = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$_.muscle";
 		open( my $fasta_fh, '>', $fasta_file );
 		my %alleles;
 		my $allele        = 1;
 		my $cleaned_locus = $self->clean_locus($_);
-		$$buffer_ref .= "<tr class=\"td$td\"><td>$cleaned_locus</td><td>$loci->{$_}->{'desc'}</td><td>1</td>";
-		print $fh "$_\t$loci->{$_}->{'desc'}\t1";
+		my $length = length ($loci->{$_}->{'ref'});
+		$$buffer_ref .= "<tr class=\"td$td\"><td>$cleaned_locus</td><td>$loci->{$_}->{'desc'}</td><td>$length</td><td>1</td>";
+		print $fh "$_\t$loci->{$_}->{'desc'}\t$length\t1";
 		$alleles{1} = $loci->{$_}->{'ref'};
 		print $fasta_fh ">ref\n";
 		print $fasta_fh "$loci->{$_}->{'ref'}\n";
@@ -751,7 +752,7 @@ sub _print_variable_loci {
 		}
 		unlink $fasta_file;
 	}
-	$$buffer_ref .= "</table>";
+	$$buffer_ref .= "</table></div>";
 }
 
 sub _print_exact_matches {
