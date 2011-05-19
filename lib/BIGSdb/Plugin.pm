@@ -118,9 +118,11 @@ sub get_query {
 			return;
 		}
 	}
-	my $view = $self->{'system'}->{'view'};
-	$qry =~ s/([\s\(])datestamp/$1$view.datestamp/g;
-	$qry =~ s/([\s\(])date_entered/$1$view.date_entered/g;
+	if ($self->{'system'}->{'dbtype'} eq 'isolates'){
+		my $view = $self->{'system'}->{'view'};
+		$qry =~ s/([\s\(])datestamp/$1$view.datestamp/g;
+		$qry =~ s/([\s\(])date_entered/$1$view.date_entered/g;
+	}
 	return \$qry;
 }
 
