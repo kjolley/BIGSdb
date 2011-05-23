@@ -506,18 +506,15 @@ sub print_sequence_export_form {
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
 	print $q->start_form;
-	print "<table><tr><th>Select $pk" . "s</th>";
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		print "<th>Include in identifier row</th><th>Options</th>";
-	}
-	print "</tr>\n";
+	print "<fieldset style=\"float:left\">\n<legend>Select $pk"."s</legend>\n";
 	$" = "\n";
 	print
-"<tr><td><p style=\"padding-right:2em\">Paste in list of ids to include, start a new line for each.  Leave blank to include all ids.</p>\n";
-	print $q->textarea( -name => 'list', -rows => 8, -columns => 12, -default => "@$list" );
-	print "</td>";
+"<p style=\"padding-right:2em\">Paste in list of ids to include, start a new<br />line for each.  Leave blank to include all ids.</p>\n";
+	print $q->textarea( -name => 'list', -rows => 6, -columns => 6, -default => "@$list" );
+	print "</fieldset>\n";
+	
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		print "<td style=\"vertical-align:top; padding-top:1em; padding-left:1em\">";
+		print "<fieldset style=\"float:left\">\n<legend>Include in identifier row</legend>";
 		my @fields;
 		my $labels;
 		foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list } ) {
@@ -533,20 +530,21 @@ sub print_sequence_export_form {
 			-size     => 10,
 			-multiple => 'true'
 		);
-		print "</td><td style=\"vertical-align:top; padding-left:1em\">";
-		print "If both allele designations and tagged sequences exist for a locus, choose how you want these handled:<br /><br />";
+		print "</fieldset>\n";
+		
+		print "<fieldset style=\"float:left\">\n<legend>Options</legend>";
+		print "If both allele designations and tagged sequences<br />exist for a locus, choose how you want these handled:<br /><br />";
 		my %labels = (
 			'seqbin'             => 'Use sequences tagged from the bin',
 			'allele_designation' => 'Use allele sequence retrieved from external database'
 		);
 		print $q->radio_group( -name => 'chooseseq', -values => [ 'seqbin', 'allele_designation' ], -labels => \%labels,
 			-linebreak => 'true' );
-		print "<br />Peptide loci will only be retrieved from the sequence bin (as nucleotide sequences).";
+		print "<br />Peptide loci will only be retrieved from the sequence<br />bin (as nucleotide sequences).";
 		print "<br /><br />\n";
 		print $q->checkbox(-name => 'translate', -label => 'Translate sequences') if $options->{'translate'};
-		print "</td>\n";
+		print "</fieldset>\n";
 	}
-	print "</tr>\n</table>\n";
 	my ( @js, @js2 );
 	my $schemes;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -561,7 +559,7 @@ sub print_sequence_export_form {
 		$logger->error("Can't execute $@");
 	}
 	my $common_names = $cn_sql->fetchall_hashref('id');
-
+	print "<div style=\"clear:both\">\n";
 	foreach (@$schemes) {
 		my ( @scheme_js, @scheme_js2 );
 		my $scheme_members = $self->{'datastore'}->get_scheme_loci($_);
@@ -621,6 +619,7 @@ sub print_sequence_export_form {
 	print "<input type=\"button\" value=\"Select none\" onclick='@js2' style=\"margin-top:1em\" class=\"button\" />\n";
 	print "<noscript><span class=\"comment\"> Enable javascript for select buttons to work!</span></noscript>\n";
 	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
+	print "</div>\n";
 	foreach (qw (db page name query_file scheme_id)) {
 		print $q->hidden($_);
 	}
