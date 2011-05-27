@@ -353,7 +353,7 @@ sub _scan {
 		$| = 1;
 		my %locus_checked;
 		foreach my $locus (@loci) {
-			if ( $locus =~ /^l_(.+)/ || $locus =~ /^cn_(.+)/ ) {
+			if ( $locus =~ /^l_(.+)/ || $locus =~ /^cn_(.+)/ || $locus =~ /^la_(.+)\|\|/ ) {
 				$locus = $1;
 			}
 			next if $locus_checked{$locus};    #prevent multiple checking when locus selected individually and as part of scheme.
@@ -520,6 +520,8 @@ sub _tag {
 		foreach (@loci) {
 			$_ =~ s/^cn_//;
 			$_ =~ s/^l_//;
+			$_ =~ s/^la_//;
+			$_ =~ s/\|\|.+//;
 			my @ids;
 			my %used;
 			my $cleaned_locus = $_;
