@@ -199,7 +199,7 @@ for which the correct ORF has been set (if they are not in reading frame 1).  Pa
 bin will not be analysed. Please check the loci that you 
 would like to include.</p>
 HTML
-	my $options = { 'default_select' => 1, 'translate' => 0, 'options_heading' => 'Sequence retrieval' };
+	my $options = { 'default_select' => 0, 'translate' => 0, 'options_heading' => 'Sequence retrieval' };
 	$self->print_sequence_export_form( 'id', $list, undef, $options );
 	print "</div>\n";
 }
