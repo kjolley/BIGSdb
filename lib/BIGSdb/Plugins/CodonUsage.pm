@@ -129,6 +129,7 @@ sub get_attributes {
 		section     => 'analysis,postquery',
 		input       => 'query',
 		requires    => 'offline_jobs',
+		system_flag => 'CodonUsage',
 		order       => 13
 	);
 	return \%att;
