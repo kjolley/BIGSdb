@@ -345,7 +345,7 @@ sub run_job {
 				}
 				close $fh_cusp;
 			}
-			unlink foreach qw ($cusp_file $temp_file);
+			unlink $cusp_file, $temp_file;
 		}
 		$progress++;
 		my $complete = int( 90 * $progress / scalar @selected_fields );    #go up to 90%
@@ -408,7 +408,9 @@ sub run_job {
 		my $complete = 95 + int( 5 * $progress / scalar @selected_fields );                        #go up to 100%
 		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } );
 	}
-	close foreach qw ($fh_rscu_by_isolate $fh_number_by_isolate $fh_rscu_by_locus $fh_number_by_locus);
+	foreach (qw ($fh_rscu_by_isolate $fh_number_by_isolate $fh_rscu_by_locus $fh_number_by_locus)){
+		close $_;
+	}
 	if (@problem_ids) {
 		$"            = ', ';
 		$message_html = "<p>The following ids could not be processed (they do not exist): @problem_ids.</p>\n";
@@ -424,7 +426,6 @@ sub run_job {
 			{ 'filename' => "$job_id\_rscu_by_locus.txt", 'description' => 'Relative synonymous codon usage (RSCU) by locus' } );
 		$self->{'jobManager'}->update_job_output( $job_id,
 			{ 'filename' => "$job_id\_number_by_locus.txt", 'description' => 'Absolute frequency of codon usage by locus' } );	
-
 	}
 	$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => $message_html } ) if $message_html;
 }
