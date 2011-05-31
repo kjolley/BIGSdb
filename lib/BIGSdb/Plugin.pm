@@ -46,6 +46,11 @@ sub get_option_list {
 	return \@;;
 }
 
+sub get_extra_form_elements {
+	#override in subclass
+	return '';
+}
+
 sub get_hidden_attributes {
 
 	#override in subclass
@@ -510,7 +515,7 @@ sub print_sequence_export_form {
 	$" = "\n";
 	print
 "<p style=\"padding-right:2em\">Paste in list of ids to include, start a new<br />line for each.  Leave blank to include all ids.</p>\n";
-	print $q->textarea( -name => 'list', -rows => 6, -columns => 6, -default => "@$list" );
+	print $q->textarea( -name => 'list', -rows => 5, -columns => 6, -default => "@$list" );
 	print "</fieldset>\n";
 	
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -531,8 +536,8 @@ sub print_sequence_export_form {
 			-multiple => 'true'
 		);
 		print "</fieldset>\n";
-		
-		print "<fieldset style=\"float:left\">\n<legend>Options</legend>";
+		my $options_heading = $options->{'options_heading'} || 'Options';
+		print "<fieldset style=\"float:left\">\n<legend>$options_heading</legend>";
 		print "If both allele designations and tagged sequences<br />exist for a locus, choose how you want these handled:<br /><br />";
 		my %labels = (
 			'seqbin'             => 'Use sequences tagged from the bin',
@@ -545,6 +550,7 @@ sub print_sequence_export_form {
 		print $q->checkbox(-name => 'translate', -label => 'Translate sequences') if $options->{'translate'};
 		print "</fieldset>\n";
 	}
+	print $self->get_extra_form_elements;
 	my ( @js, @js2 );
 	my $schemes;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
