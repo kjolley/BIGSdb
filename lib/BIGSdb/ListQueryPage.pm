@@ -307,7 +307,7 @@ sub _run_isolate_query {
 		$value =~ s/^\s*//;
 		$value =~ s/\s*$//;
 		$value =~ s/[\r\n]//g;
-		$value =~ s/'/\'/g;
+		$value =~ s/'/\\'/g;
 		next
 		  if ( ( lc($datatype) =~ /^int/ )
 			&& !BIGSdb::Utils::is_int($value) );
