@@ -40,6 +40,7 @@ sub get_attributes {
 		version     => '1.0.1',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
+		help        => 'tooltips',
 		section     => 'export,postquery',
 		input       => 'query',
 		requires    => '',

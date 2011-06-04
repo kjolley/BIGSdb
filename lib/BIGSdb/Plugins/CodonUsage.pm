@@ -128,6 +128,7 @@ sub get_attributes {
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
+		help        => 'tooltips',
 		requires    => 'offline_jobs',
 		system_flag => 'CodonUsage',
 		order       => 13
@@ -199,7 +200,7 @@ for which the correct ORF has been set (if they are not in reading frame 1).  Pa
 bin will not be analysed. Please check the loci that you 
 would like to include.</p>
 HTML
-	my $options = { 'default_select' => 0, 'translate' => 0, 'options_heading' => 'Sequence retrieval' };
+	my $options = { 'default_select' => 0, 'translate' => 0, 'options_heading' => 'Sequence retrieval', 'ignore_seqflags' => 1 };
 	$self->print_sequence_export_form( 'id', $list, undef, $options );
 	print "</div>\n";
 }
@@ -231,9 +232,13 @@ sub run_job {
 		$"           = ',';
 		$isolate_sql = $self->{'db'}->prepare("SELECT @includes FROM $self->{'system'}->{'view'} WHERE id=?");
 	}
+	my $ignore_seqflag;
+	if ($params->{'ignore_seqflags'}){
+		$ignore_seqflag = 'AND flag IS NULL';
+	}
 	my $seqbin_sql =
 	  $self->{'db'}->prepare(
-"SELECT substring(sequence from start_pos for end_pos-start_pos+1),reverse FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE isolate_id=? AND locus=? AND complete ORDER BY allele_sequences.datestamp LIMIT 1"
+"SELECT substring(sequence from allele_sequences.start_pos for allele_sequences.end_pos-allele_sequences.start_pos+1),reverse FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id LEFT JOIN sequence_flags ON allele_sequences.seqbin_id = sequence_flags.seqbin_id AND allele_sequences.locus = sequence_flags.locus AND allele_sequences.start_pos = sequence_flags.start_pos AND allele_sequences.end_pos = sequence_flags.end_pos WHERE isolate_id=? AND allele_sequences.locus=? AND complete $ignore_seqflag ORDER BY allele_sequences.datestamp LIMIT 1"
 	  );
 	my @problem_ids;
 	my $start = 1;

@@ -47,6 +47,7 @@ sub get_option_list {
 }
 
 sub get_extra_form_elements {
+
 	#override in subclass
 	return '';
 }
@@ -69,6 +70,7 @@ sub run {
 }
 
 sub run_job {
+
 	#used to run offline job
 	#override in subclass
 }
@@ -123,7 +125,7 @@ sub get_query {
 			return;
 		}
 	}
-	if ($self->{'system'}->{'dbtype'} eq 'isolates'){
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $view = $self->{'system'}->{'view'};
 		$qry =~ s/([\s\(])datestamp/$1$view.datestamp/g;
 		$qry =~ s/([\s\(])date_entered/$1$view.date_entered/g;
@@ -230,13 +232,14 @@ sub print_content {
 			print "<a id=\"toggle2\" class=\"hideshow\">Hide options</a></div>\n";
 			print "<div class=\"hideshow\">\n";
 			print "<div id=\"pluginoptions\"><table><tr><th>$att->{'name'} options</th></tr>\n";
-			my $td = 1;
+			my $td   = 1;
 			my $guid = $self->get_guid;
+
 			foreach (@$option_list) {
 				my $default;
 				try {
 					$default = $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, $plugin_name, $_->{'name'} );
-					if ($default eq 'true' || $default eq 'false'){
+					if ( $default eq 'true' || $default eq 'false' ) {
 						$default = $default eq 'true' ? 1 : 0;
 					}
 				}
@@ -338,22 +341,21 @@ sub print_field_export_form {
 	my @display_fields;
 	my $extended = $self->get_extended_attributes if $options->{'extended_attributes'};
 	my ( @js, @js2, @isolate_js, @isolate_js2 );
+
 	foreach (@$fields) {
 		push @display_fields, $_;
 		push @display_fields, 'aliases' if $_ eq $self->{'system'}->{'labelfield'};
-		if ($options->{'extended_attributes'}){
+		if ( $options->{'extended_attributes'} ) {
 			my $extatt = $extended->{$_};
-			if (ref $extatt eq 'ARRAY'){
-				foreach my $extended_attribute (@$extatt){
+			if ( ref $extatt eq 'ARRAY' ) {
+				foreach my $extended_attribute (@$extatt) {
 					push @display_fields, "$_\_\_\_$extended_attribute";
 				}
 			}
 		}
 	}
-	
-	push @isolate_js,@js;
-	push @isolate_js2,@js2;
-	
+	push @isolate_js,  @js;
+	push @isolate_js2, @js2;
 	foreach (@display_fields) {
 		push @js,          "\$(\"#f_$_\").attr(\"checked\",\"checked\")";
 		push @js2,         "\$(\"#f_$_\").attr(\"checked\",\"\")";
@@ -369,7 +371,7 @@ sub print_field_export_form {
 	print "<h2>Isolate fields</h2>\n";
 	my %labels;
 	$self->print_fields( \@display_fields, 'f', 6, 0, \%labels, \@isolate_js, \@isolate_js2, $default_select );
-	if ($options->{'include_composites'}) {
+	if ( $options->{'include_composites'} ) {
 		my $composites = $self->{'datastore'}->run_list_query("SELECT id FROM composite_fields ORDER BY id");
 		if (@$composites) {
 			my ( @com_js, @com_js2 );
@@ -386,14 +388,13 @@ sub print_field_export_form {
 			$self->print_fields( $composites, 'c', 6, 0, \%labels, \@com_js, \@com_js2, $default_select );
 		}
 	}
-	my $qry = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
+	my $qry    = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
 	my $cn_sql = $self->{'db'}->prepare($qry);
 	eval { $cn_sql->execute; };
 	if ($@) {
 		$logger->error("Can't execute $@");
 	}
 	my $common_names = $cn_sql->fetchall_hashref('id');
-
 	foreach (@$schemes) {
 		my $scheme_members = $self->{'datastore'}->get_scheme_loci($_);
 		my $scheme_fields  = $self->{'datastore'}->get_scheme_fields($_);
@@ -462,18 +463,17 @@ sub print_field_export_form {
 }
 
 sub get_selected_fields {
-	my ($self) = @_;
-	my $q      = $self->{'cgi'};
-	my $fields = $self->{'xmlHandler'}->get_field_list;
+	my ($self)   = @_;
+	my $q        = $self->{'cgi'};
+	my $fields   = $self->{'xmlHandler'}->get_field_list;
 	my $extended = $self->get_extended_attributes;
-	
 	my @display_fields;
 	foreach (@$fields) {
 		push @display_fields, $_;
 		push @display_fields, 'aliases' if $_ eq $self->{'system'}->{'labelfield'};
 		my $extatt = $extended->{$_};
-		if (ref $extatt eq 'ARRAY'){
-			foreach my $extended_attribute (@$extatt){
+		if ( ref $extatt eq 'ARRAY' ) {
+			foreach my $extended_attribute (@$extatt) {
 				push @display_fields, "$_\_\_\_$extended_attribute";
 			}
 		}
@@ -511,13 +511,13 @@ sub print_sequence_export_form {
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
 	print $q->start_form;
-	print "<fieldset style=\"float:left\">\n<legend>Select $pk"."s</legend>\n";
+	print "<fieldset style=\"float:left\">\n<legend>Select $pk" . "s</legend>\n";
 	$" = "\n";
 	print
 "<p style=\"padding-right:2em\">Paste in list of ids to include, start a new<br />line for each.  Leave blank to include all ids.</p>\n";
 	print $q->textarea( -name => 'list', -rows => 5, -columns => 6, -default => "@$list" );
 	print "</fieldset>\n";
-	
+
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		print "<fieldset style=\"float:left\">\n<legend>Include in identifier row</legend>";
 		my @fields;
@@ -538,16 +538,20 @@ sub print_sequence_export_form {
 		print "</fieldset>\n";
 		my $options_heading = $options->{'options_heading'} || 'Options';
 		print "<fieldset style=\"float:left\">\n<legend>$options_heading</legend>";
-		print "If both allele designations and tagged sequences<br />exist for a locus, choose how you want these handled:<br /><br />";
+		print "If both allele designations and tagged sequences<br />exist for a locus, choose how you want these handled: ";
+		print
+" <a class=\"tooltip\" title=\"Sequence retrieval - Peptide loci will only be retrieved from the sequence bin (as nucleotide sequences).\">&nbsp;<i>i</i>&nbsp;</a>";
+		print "<br /><br />";
 		my %labels = (
 			'seqbin'             => 'Use sequences tagged from the bin',
 			'allele_designation' => 'Use allele sequence retrieved from external database'
 		);
 		print $q->radio_group( -name => 'chooseseq', -values => [ 'seqbin', 'allele_designation' ], -labels => \%labels,
 			-linebreak => 'true' );
-		print "<br />Peptide loci will only be retrieved from the sequence<br />bin (as nucleotide sequences).";
-		print "<br /><br />\n";
-		print $q->checkbox(-name => 'translate', -label => 'Translate sequences') if $options->{'translate'};
+		print "<br />\n";
+		print $q->checkbox( -name => 'translate', -label => 'Translate sequences' ) if $options->{'translate'};
+		print $q->checkbox( -name => 'ignore_seqflags', -label => 'Do not include sequences with problem flagged', -checked => 'checked' )
+		  if $options->{'ignore_seqflags'};
 		print "</fieldset>\n";
 	}
 	print $self->get_extra_form_elements;
@@ -558,7 +562,7 @@ sub print_sequence_export_form {
 	} else {
 		push @$schemes, $scheme_id || 0;
 	}
-	my $qry = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
+	my $qry    = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
 	my $cn_sql = $self->{'db'}->prepare($qry);
 	eval { $cn_sql->execute; };
 	if ($@) {
@@ -598,7 +602,7 @@ sub print_sequence_export_form {
 		my $loci =
 		  $self->{'datastore'}->run_list_query(
 "SELECT id FROM loci WHERE id NOT IN (SELECT DISTINCT locus FROM scheme_members) AND (id IN (SELECT DISTINCT locus FROM allele_designations LEFT JOIN loci ON allele_designations.locus = loci.id AND loci.data_type = 'DNA' AND loci.dbase_name IS NOT NULL AND loci.dbase_id_field IS NOT NULL AND loci.dbase_seq_field IS NOT NULL) OR id IN (SELECT DISTINCT locus FROM allele_sequences)) ORDER BY id"
-		  );		
+		  );
 		if (@$loci) {
 			print "<h2>Loci not belonging to any scheme</h2>\n";
 			my ( @scheme_js, @scheme_js2 );

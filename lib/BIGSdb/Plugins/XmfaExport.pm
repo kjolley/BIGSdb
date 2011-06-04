@@ -45,6 +45,7 @@ sub get_attributes {
 		seqdb_type  => 'schemes',
 		section     => 'export,postquery',
 		input       => 'query',
+		help        => 'tooltips',
 		requires    => 'muscle,offline_jobs',
 		order       => 22
 	);
