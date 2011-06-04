@@ -24,7 +24,17 @@ use Error qw(:try);
 use Time::HiRes qw(gettimeofday);
 use List::MoreUtils qw(uniq any none);
 use base 'Exporter';
-use constant SEQ_METHODS => qw(Sanger Solexa 454 SOLiD PacBio other unknown);
+use constant SEQ_METHODS => (
+	'454',
+	'Illumina',
+	'Ion Torrent',
+	'PacBio',
+	'Sanger',
+	'Solexa',  #deprecated
+	'SOLiD',
+	'other',
+	'unknown'
+);
 use constant SEQ_FLAGS   => (
 	'ambiguous read',
 	'apparent misassembly',
