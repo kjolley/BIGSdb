@@ -632,6 +632,7 @@ sub get_link_button_to_ref {
 	}
 	$buffer .= $q->submit( -value => 'Display', -class => 'submit' );
 	$buffer .= $q->end_form;
+	$q->param( 'page', 'info' );
 	return $buffer;
 }
 
