@@ -43,71 +43,14 @@ sub get_javascript {
 	return $self->get_tree_javascript;
 }
 
-sub _print_child_groups {
-	my ($self, $id, $level) = @_;
-	my $child_groups = $self->{'datastore'}->run_list_query("SELECT id FROM scheme_groups LEFT JOIN scheme_group_group_members ON scheme_groups.id=group_id WHERE parent_group_id=? ORDER BY display_order",$id);
-	if (@$child_groups){
-		print "<ul>\n";
-		foreach (@$child_groups){
-			my $group_info = $self->{'datastore'}->get_scheme_group_info($_);
-			my $new_level = $level;
-			print "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;group_id=$_\" rel=\"ajax\">$group_info->{'name'}</a>\n";
-			last if $new_level == 10; #prevent runaway if child is set as the parent of a parental group
-			$self->_print_group_schemes($_);
-			$self->_print_child_groups($_,++$new_level);
-			print "</li>";
-			
-		}
-		print "</ul>\n";
-	}
-}
-
-sub _print_group_schemes {
-	my ($self, $id) = @_;
-	my $schemes = $self->{'datastore'}->run_list_query("SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON schemes.id=scheme_id WHERE group_id=? ORDER BY display_order",$id);
-	if (@$schemes){
-		print "<ul>\n";
-		foreach (@$schemes){
-			my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
-			$scheme_info->{'description'} =~ s/&/\&amp;/g;
-			print "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;scheme_id=$scheme_info->{'id'}\" rel=\"ajax\">$scheme_info->{'description'}</a></li>\n";
-		}
-		print "</ul>\n";
-	}
-}
-
 sub _print_tree {
 	my ($self) = @_;
-	my $groups_with_no_parent = $self->{'datastore'}->run_list_query("SELECT id FROM scheme_groups WHERE id NOT IN (SELECT group_id FROM scheme_group_group_members) ORDER BY display_order");
-	my $schemes_not_in_group = $self->{'datastore'}->run_list_query_hashref("SELECT id,description FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) ORDER BY display_order");
 	print "<p>Click within the tree to display details of loci belonging to schemes or groups of schemes - clicking a group folder will 
 	display the loci for all schemes within the group and any subgroups.  Click the nodes to expand/collapse.  <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles\">
 	See all download links on a single page</a>.</p>\n";
 	print "<noscript><p class=\"highlight\">Enable Javascript to enhance your viewing experience.</p></noscript>\n";
 	print "<div id=\"tree\" class=\"tree\">\n";
-	print "<ul>\n";
-	print "<li id=\"all_loci\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;scheme_id=-1\" rel=\"ajax\">All loci</a><ul>\n";
-	my $scheme_nodes;
-	foreach (@$groups_with_no_parent){
-		my $group_info = $self->{'datastore'}->get_scheme_group_info($_);
-		print "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;group_id=$_\" rel=\"ajax\">$group_info->{'name'}</a>\n";		
-		$self->_print_group_schemes($_);
-		$self->_print_child_groups($_,1);
-		print "</li>\n";
-	}
-	if (@$schemes_not_in_group){
-		print "<li><a href=\"javascript:loadContent('$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;group_id=0&amp;no_header=1')\">Other schemes</a><ul>" if @$groups_with_no_parent; 
-		foreach (@$schemes_not_in_group){
-			$_->{'description'} =~ s/&/\&amp;/g;
-			print "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;scheme_id=$_->{'id'}\" rel=\"ajax\">$_->{'description'}</a></li>\n";
-		}
-		print "</ul></li>"
-	}
-	print "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;scheme_id=0\" rel=\"ajax\">Loci not in schemes</a></li>\n";
-
-	print "</ul>\n";
-	print "</li></ul>\n";
-
+	print $self->get_tree(undef);
 	print "</div>\n";
 	print "<div id=\"scheme_table\"></div>\n";
 }

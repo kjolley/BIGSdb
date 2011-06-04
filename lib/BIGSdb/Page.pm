@@ -30,12 +30,12 @@ use constant SEQ_METHODS => (
 	'Ion Torrent',
 	'PacBio',
 	'Sanger',
-	'Solexa',  #deprecated
+	'Solexa',    #deprecated
 	'SOLiD',
 	'other',
 	'unknown'
 );
-use constant SEQ_FLAGS   => (
+use constant SEQ_FLAGS => (
 	'ambiguous read',
 	'apparent misassembly',
 	'downstream fusion',
@@ -147,8 +147,10 @@ sub print {
 		if ( $self->{'prefstore'} ) {
 			my $guid = $self->get_guid;
 			try {
-				$self->{'prefs'}->{'tooltips'} = $self->{'prefstore'}->get_tooltips_pref( $guid, $self->{'system'}->{'db'} ) eq 'on' ? 1 : 0;
-			} catch BIGSdb::DatabaseNoRecordException with {
+				$self->{'prefs'}->{'tooltips'} =
+				  $self->{'prefstore'}->get_tooltips_pref( $guid, $self->{'system'}->{'db'} ) eq 'on' ? 1 : 0;
+			}
+			catch BIGSdb::DatabaseNoRecordException with {
 				$self->{'prefs'}->{'tooltips'} = 1;
 			}
 		}
@@ -806,7 +808,7 @@ sub paged_display {
 }
 
 sub clean_locus {
-	my ($self, $locus) = @_;
+	my ( $self, $locus ) = @_;
 	if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
 		$locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
 	}
@@ -1001,7 +1003,7 @@ sub _print_record_table {
 				}
 			} else {
 				if ( $field eq 'locus' ) {
-					$data{ lc($field) } = $self->clean_locus($data{ lc($field) });
+					$data{ lc($field) } = $self->clean_locus( $data{ lc($field) } );
 				} elsif ( ( $table eq 'allele_sequences' || $table eq 'experiment_sequences' ) && $field eq 'seqbin_id' ) {
 					my ( $isolate_id, $isolate ) = $self->get_isolate_id_and_name_from_seqbin_id( $data{'seqbin_id'} );
 					print "<td>$isolate_id) $isolate</td>";
@@ -1122,7 +1124,7 @@ sub get_record_name {
 		'pcr_locus'                         => 'PCR locus link',
 		'probes'                            => 'nucleotide probe',
 		'probe_locus'                       => 'probe locus link',
-		'client_dbase_loci_fields'      	=> 'locus to client database isolate field definition'
+		'client_dbase_loci_fields'          => 'locus to client database isolate field definition'
 	);
 	return $names{$table};
 }
@@ -1214,7 +1216,7 @@ sub _print_profile_table {
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	foreach (@$loci) {
 		my $locus_info = $self->{'datastore'}->get_locus_info($_);
-		my $cleaned = $self->clean_locus($_);
+		my $cleaned    = $self->clean_locus($_);
 		$cleaned .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
 		print "<th>$cleaned</th>";
 	}
@@ -1523,7 +1525,7 @@ sub _print_isolate_table {
 						my $complete;
 						foreach my $seqbin_id ( keys %{ $allele_sequences->{$_} } ) {
 							foreach my $start ( keys %{ $allele_sequences->{$_}->{$seqbin_id} } ) {
-								foreach my $end (keys %{ $allele_sequences->{$_}->{$seqbin_id}->{$start} }){
+								foreach my $end ( keys %{ $allele_sequences->{$_}->{$seqbin_id}->{$start} } ) {
 									push @seqs, $allele_sequences->{$_}->{$seqbin_id}->{$start}->{$end};
 									$complete = 1 if $allele_sequences->{$_}->{$seqbin_id}->{$start}->{$end}->{'complete'};
 									my @flag_list = keys %{ $allele_sequence_flags->{$_}->{$seqbin_id}->{$start}->{$end} };
@@ -1534,9 +1536,9 @@ sub _print_isolate_table {
 								}
 							}
 						}
-						my $cleaned_locus = $self->clean_locus($_);
+						my $cleaned_locus    = $self->clean_locus($_);
 						my $sequence_tooltip = $self->get_sequence_details_tooltip( $cleaned_locus, $alleles->{$_}, \@seqs, \@flags );
-						my $sequence_class = $complete ? 'sequence_tooltip' : 'sequence_tooltip_incomplete';
+						my $sequence_class   = $complete ? 'sequence_tooltip' : 'sequence_tooltip_incomplete';
 						print
 "<span style=\"font-size:0.2em\"> </span><a class=\"$sequence_class\" title=\"$sequence_tooltip\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleSequence&amp;id=$data{'id'}&amp;locus=$_\">&nbsp;S&nbsp;</a>";
 						if ( keys %flags_used ) {
@@ -1892,24 +1894,24 @@ sub make_temp_file {
 sub run_blast {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
+
 	#Options are locus, seq_ref, qry_type, num_results, alignment, cache, job
 	#if parameter cache=1, the previously generated FASTA database will be used.
 	#The calling function should clean up the temporary files.
-	my $locus_info     = $self->{'datastore'}->get_locus_info($options->{'locus'});
-	my $already_generated = $options->{'job'} ? 1: 0;
-	$options->{'job'}  = &BIGSdb::Utils::get_random if !$options->{'job'};
-
-	my $temp_infile    = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'job'}.txt";
-	my $temp_outfile   = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'job'}\_outfile.txt";
-	my $outfile_url    = "$options->{'job'}\_outfile.txt";
+	my $locus_info = $self->{'datastore'}->get_locus_info( $options->{'locus'} );
+	my $already_generated = $options->{'job'} ? 1 : 0;
+	$options->{'job'} = &BIGSdb::Utils::get_random if !$options->{'job'};
+	my $temp_infile  = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'job'}.txt";
+	my $temp_outfile = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'job'}\_outfile.txt";
+	my $outfile_url  = "$options->{'job'}\_outfile.txt";
 
 	#create fasta index
 	my @runs;
 	if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
-		if ($options->{'locus'} =~ /^((?:(?!\.\.).)*)$/){	#untaint - check for directory traversal
+		if ( $options->{'locus'} =~ /^((?:(?!\.\.).)*)$/ ) {    #untaint - check for directory traversal
 			$options->{'locus'} = $1;
 		}
-		@runs = ($options->{'locus'});
+		@runs = ( $options->{'locus'} );
 	} else {
 		@runs = qw (DNA peptide);
 	}
@@ -1917,7 +1919,7 @@ sub run_blast {
 	foreach my $run (@runs) {
 		my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'job'}\_$run\_fastafile.txt";
 		push @files_to_delete, $temp_fastafile;
-		if (!$already_generated){
+		if ( !$already_generated ) {
 			my ( $qry, $sql );
 			if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
 				$qry = "SELECT locus,allele_id,sequence from sequences WHERE locus=?";
@@ -1925,7 +1927,7 @@ sub run_blast {
 				if ( $options->{'locus'} =~ /SCHEME_(\d+)/ ) {
 					my $scheme_id = $1;
 					$qry =
-	"SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id=$scheme_id) AND locus IN (SELECT id FROM loci WHERE data_type=?)";
+"SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id=$scheme_id) AND locus IN (SELECT id FROM loci WHERE data_type=?)";
 				} else {
 					$qry = "SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT id FROM loci WHERE data_type=?)";
 				}
@@ -1935,13 +1937,14 @@ sub run_blast {
 			if ($@) {
 				$logger->error("Can't execute $qry $@");
 			}
-			
 			open( my $fasta_fh, '>', $temp_fastafile );
 			my $seqs_ref = $sql->fetchall_arrayref;
 			foreach (@$seqs_ref) {
 				my ( $returned_locus, $id, $seq ) = @$_;
 				next if !length $seq;
-				print $fasta_fh ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) ? ">$id\n$seq\n" : ">$returned_locus:$id\n$seq\n";
+				print $fasta_fh ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ )
+				  ? ">$id\n$seq\n"
+				  : ">$returned_locus:$id\n$seq\n";
 			}
 			close $fasta_fh;
 			if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
@@ -1978,7 +1981,7 @@ sub run_blast {
 				$program = $options->{'qry_type'} eq 'DNA' ? 'blastx' : 'blastp';
 			}
 		}
-		if ($options->{'alignment'}) {
+		if ( $options->{'alignment'} ) {
 			system(
 "$self->{'config'}->{'blast_path'}/blastall -v $options->{'num_results'} -b $options->{'num_results'} -p $program -d $temp_fastafile -i $temp_infile -o $temp_outfile -F F 2> /dev/null"
 			);
@@ -1997,9 +2000,9 @@ sub run_blast {
 	}
 
 	#delete all working files
-	$"=' ';
+	$" = ' ';
 	system "rm -f $temp_infile @files_to_delete" if !$options->{'cache'};
-	return ($outfile_url,$options->{'job'});
+	return ( $outfile_url, $options->{'job'} );
 }
 
 sub is_admin {
@@ -2436,4 +2439,158 @@ sub _initiate_isolatedb_prefs {
 		}
 	}
 }
+###SCHEME GROUP TREE DRAWING#################
+sub get_tree {
+	my ( $self, $isolate_id ) = @_;
+	my $page = $self->{'cgi'}->param('page');
+	my $isolate_clause = $self->{'system'}->{'dbtype'} eq 'isolates' ? "&amp;id=$isolate_id" : '';
+	my $groups_with_no_parent =
+	  $self->{'datastore'}->run_list_query(
+		"SELECT id FROM scheme_groups WHERE id NOT IN (SELECT group_id FROM scheme_group_group_members) ORDER BY display_order");
+	my $schemes_not_in_group =
+	  $self->{'datastore'}->run_list_query_hashref(
+		"SELECT id,description FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) ORDER BY display_order");
+	my $buffer = "<ul>\n";
+	$buffer .=
+"<li id=\"all_loci\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;scheme_id=-1\" rel=\"ajax\">All loci</a><ul>\n";
+	my $scheme_nodes;
+	foreach (@$groups_with_no_parent) {
+		my $group_info          = $self->{'datastore'}->get_scheme_group_info($_);
+		my $group_scheme_buffer = $self->_get_group_schemes( $_, $isolate_id );
+		my $child_group_buffer  = $self->_get_child_groups( $_, $isolate_id, 1 );
+		if ( $group_scheme_buffer || $child_group_buffer ) {
+			$buffer .=
+"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;group_id=$_\" rel=\"ajax\">$group_info->{'name'}</a>\n";
+			$buffer .= $group_scheme_buffer;
+			$buffer .= $child_group_buffer;
+			$buffer .= "</li>\n";
+		}
+	}
+	if (@$schemes_not_in_group) {
+		my $data_exists = 0;
+		my $temp_buffer .=
+"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;group_id=0\" rel=\"ajax\">Other schemes</a><ul>"
+		  if @$groups_with_no_parent;
+		foreach (@$schemes_not_in_group) {
+			next if !$self->{'prefs'}->{'isolate_display_schemes'}->{ $_->{'id'} };
+			$_->{'description'} =~ s/&/\&amp;/g;
+			if ( $self->{'system'}->{'dbtype'} eq 'sequences' || $self->_scheme_data_present( $_->{'id'}, $isolate_id ) ) {
+				$data_exists = 1;
+				$temp_buffer .=
+"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;scheme_id=$_->{'id'}\" rel=\"ajax\">$_->{'description'}</a></li>\n";
+			}
+		}
+		$temp_buffer .= "</ul></li>";
+		$buffer .= $temp_buffer if $data_exists;
+	}
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' || $self->_data_not_in_scheme_present($isolate_id) ) {
+		$buffer .=
+"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;scheme_id=0\" rel=\"ajax\">Loci not in schemes</a></li>\n";
+	}
+	$buffer .= "</ul>\n";
+	$buffer .= "</li></ul>\n";
+}
+
+sub _get_group_schemes {
+	my ( $self, $group_id, $isolate_id ) = @_;
+	my $buffer;
+	my $schemes = $self->{'datastore'}->run_list_query(
+"SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON schemes.id=scheme_id WHERE group_id=? ORDER BY display_order",
+		$group_id
+	);
+	if (@$schemes) {
+		foreach (@$schemes) {
+			next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$_} && $self->{'system'}->{'dbtype'} eq 'isolates';
+			my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
+			my $scheme_data_exists;
+			$scheme_info->{'description'} =~ s/&/\&amp;/g;
+			my $page = $self->{'cgi'}->param('page');
+			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+				if ( $self->_scheme_data_present( $_, $isolate_id ) ) {
+					$buffer .=
+"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;id=$isolate_id&amp;scheme_id=$scheme_info->{'id'}\" rel=\"ajax\">$scheme_info->{'description'}</a></li>\n";
+				}
+			} else {
+				$buffer .=
+"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;scheme_id=$scheme_info->{'id'}\" rel=\"ajax\">$scheme_info->{'description'}</a></li>\n";
+			}
+		}
+	}
+	return "<ul>\n$buffer</ul>\n" if $buffer;
+}
+
+sub _get_child_groups {
+	my ( $self, $group_id, $isolate_id, $level ) = @_;
+	my $buffer;
+	my $child_groups = $self->{'datastore'}->run_list_query(
+"SELECT id FROM scheme_groups LEFT JOIN scheme_group_group_members ON scheme_groups.id=group_id WHERE parent_group_id=? ORDER BY display_order",
+		$group_id
+	);
+	if (@$child_groups) {
+		foreach (@$child_groups) {
+			my $group_info = $self->{'datastore'}->get_scheme_group_info($_);
+			my $new_level  = $level;
+			last if $new_level == 10;    #prevent runaway if child is set as the parent of a parental group
+			my $group_scheme_buffer = $self->_get_group_schemes( $_, $isolate_id );
+			my $child_group_buffer = $self->_get_child_groups( $_, $isolate_id, ++$new_level );
+			if ( $group_scheme_buffer || $child_group_buffer ) {
+				my $page = $self->{'cgi'}->param('page');
+				if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+					$buffer .=
+"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;id=$isolate_id&amp;group_id=$_\" rel=\"ajax\">$group_info->{'name'}</a>\n";
+				} else {
+					$buffer .=
+"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;group_id=$_\" rel=\"ajax\">$group_info->{'name'}</a>\n";
+				}
+				$buffer .= $group_scheme_buffer;
+				$buffer .= $child_group_buffer;
+				$buffer .= "</li>";
+			}
+		}
+	}
+	return "<ul>\n$buffer</ul>\n" if $buffer;
+}
+
+sub _scheme_data_present {
+	my ( $self, $scheme_id, $isolate_id ) = @_;
+	if ( !$self->{'sql'}->{'scheme_data_designations'} ) {
+		$self->{'sql'}->{'scheme_data_designations'} =
+		  $self->{'db'}->prepare(
+"SELECT EXISTS(SELECT * FROM allele_designations LEFT JOIN scheme_members ON allele_designations.locus=scheme_members.locus WHERE isolate_id=? AND scheme_id=?)"
+		  );
+	}
+	eval { $self->{'sql'}->{'scheme_data_designations'}->execute( $isolate_id, $scheme_id ); };
+	if ($@) {
+		$logger->error("Can't execute $@");
+	}
+	my ($designations_present) = $self->{'sql'}->{'scheme_data_designations'}->fetchrow_array;
+	return 1 if $designations_present;
+	if ( !$self->{'sql'}->{'scheme_data_sequences'} ) {
+		$self->{'sql'}->{'scheme_data_sequences'} =
+		  $self->{'db'}->prepare(
+"SELECT EXISTS(SELECT * FROM allele_sequences LEFT JOIN scheme_members ON allele_sequences.locus=scheme_members.locus LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id WHERE isolate_id=? AND scheme_id=?)"
+		  );
+	}
+	eval { $self->{'sql'}->{'scheme_data_sequences'}->execute( $isolate_id, $scheme_id ); };
+	if ($@) {
+		$logger->error("Can't execute $@");
+	}
+	my ($sequences_present) = $self->{'sql'}->{'scheme_data_sequences'}->fetchrow_array;
+	return $sequences_present ? 1 : 0;
+}
+
+sub _data_not_in_scheme_present {
+	my ( $self, $isolate_id ) = @_;
+	my $designations =
+	  $self->{'datastore'}->run_simple_query(
+		"SELECT EXISTS(SELECT * FROM allele_designations WHERE isolate_id=? AND locus NOT IN (SELECT locus FROM scheme_members))",
+		$isolate_id )->[0];
+	return 1 if $designations;
+	my $sequences = $self->{'datastore'}->run_simple_query(
+"SELECT EXISTS(SELECT * FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id WHERE isolate_id=? AND locus NOT IN (SELECT locus FROM scheme_members))",
+		$isolate_id
+	)->[0];
+	return $sequences ? 1 : 0;
+}
+###END GROUP TREE DRAWING####################
 1;

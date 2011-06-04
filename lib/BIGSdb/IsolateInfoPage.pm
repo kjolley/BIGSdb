@@ -456,6 +456,7 @@ sub get_isolate_record {
 				$buffer .=
 				  "<tr class=\"td$td\"><td style=\"text-align:left\" colspan=\"4\">$tagged allele sequence$plural tagged</td></tr>\n";
 				$td = $td == 1 ? 2 : 1;
+				$q->param( 'page', 'info' );
 			}
 		}
 	}
@@ -520,128 +521,15 @@ sub _get_scheme_attributes {
 }
 
 sub _get_tree {
-	my ($self, $id) = @_;
-	my $groups_with_no_parent = $self->{'datastore'}->run_list_query("SELECT id FROM scheme_groups WHERE id NOT IN (SELECT group_id FROM scheme_group_group_members) ORDER BY display_order");
-	my $schemes_not_in_group = $self->{'datastore'}->run_list_query_hashref("SELECT id,description FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) ORDER BY display_order");
-	my $buffer;
-	$buffer .="<table style=\"width:100%\">";
+	my ($self, $isolate_id) = @_;
+	my $buffer = "<table style=\"width:100%\">";
 	$buffer.= "<tr>\n";
 	$buffer.= "<td id=\"tree\" class=\"tree\">\n";
 	$buffer.= "<noscript><p class=\"highlight\">Enable Javascript to enhance your viewing experience.</p></noscript>\n";
-	
-	$buffer.= "<ul>\n";
-	$buffer.= "<li id=\"all_loci\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$id&amp;scheme_id=-1\" rel=\"ajax\">All loci</a><ul>\n";
-	my $scheme_nodes;
-	foreach (@$groups_with_no_parent){
-		my $group_info = $self->{'datastore'}->get_scheme_group_info($_);
-		my $group_scheme_buffer = $self->_get_group_schemes($_,$id);
-		my $child_group_buffer = $self->_get_child_groups($_,$id,1);
-		if ($group_scheme_buffer || $child_group_buffer){
-			$buffer.= "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$id&amp;group_id=$_\" rel=\"ajax\">$group_info->{'name'}</a>\n";		
-			$buffer .= $group_scheme_buffer;
-			$buffer .= $child_group_buffer;
-			$buffer.= "</li>\n";
-		}	
-	}
-	if (@$schemes_not_in_group){
-		my $data_exists = 0;
-		my $temp_buffer.= "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$id&amp;group_id=0\" rel=\"ajax\">Other schemes</a><ul>" if @$groups_with_no_parent; 
-		foreach (@$schemes_not_in_group){
-			next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$_->{'id'}};
-			$_->{'description'} =~ s/&/\&amp;/g;
-			my $scheme_data_exists = $self->_scheme_data_present($_->{'id'},$id);
-			if ($scheme_data_exists){
-				$data_exists = 1;
-				$temp_buffer.= "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$id&amp;scheme_id=$_->{'id'}\" rel=\"ajax\">$_->{'description'}</a></li>\n";
-			}
-		}
-		$temp_buffer.= "</ul></li>";
-		$buffer.=$temp_buffer if $data_exists;
-	}
-	if ($self->_data_not_in_scheme_present($id)){
-		$buffer.= "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$id&amp;scheme_id=0\" rel=\"ajax\">Loci not in schemes</a></li>\n";
-	}
-	$buffer.= "</ul>\n";
-	$buffer.= "</li></ul>\n";
+	$buffer .= $self->get_tree($isolate_id);
 	$buffer.="</td><td style=\"vertical-align:top;width:80%\" id=\"scheme_table\">\n";
 	$buffer.="</td></tr>\n";
 	$buffer.="</table>\n";
-}
-
-sub _get_child_groups {
-	my ($self, $id, $isolate_id,$level) = @_;
-	my $buffer;
-	my $child_groups = $self->{'datastore'}->run_list_query("SELECT id FROM scheme_groups LEFT JOIN scheme_group_group_members ON scheme_groups.id=group_id WHERE parent_group_id=? ORDER BY display_order",$id);
-	if (@$child_groups){
-		foreach (@$child_groups){
-			my $group_info = $self->{'datastore'}->get_scheme_group_info($_);
-			my $new_level = $level;
-			last if $new_level == 10; #prevent runaway if child is set as the parent of a parental group
-			my $group_scheme_buffer=$self->_get_group_schemes($_,$isolate_id);
-			my $child_group_buffer=$self->_get_child_groups($_,$isolate_id,++$new_level);
-			if ($group_scheme_buffer || $child_group_buffer){
-				$buffer.= "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$isolate_id&amp;group_id=$_\" rel=\"ajax\">$group_info->{'name'}</a>\n";
-				$buffer.= $group_scheme_buffer;
-				$buffer.= $child_group_buffer;
-				$buffer.= "</li>";
-			}
-		}
-	}
-	return "<ul>\n$buffer</ul>\n" if $buffer;
-}
-
-sub _get_group_schemes {
-	my ($self, $id, $isolate_id) = @_;
-	my $buffer;
-	my $schemes = $self->{'datastore'}->run_list_query("SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON schemes.id=scheme_id WHERE group_id=? ORDER BY display_order",$id);
-	if (@$schemes){
-		foreach (@$schemes){
-			next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$_};		
-			my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
-			$scheme_info->{'description'} =~ s/&/\&amp;/g;
-			my $scheme_data_exists = $self->_scheme_data_present($_,$isolate_id);
-			if ($scheme_data_exists){
-				$buffer.= "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$isolate_id&amp;scheme_id=$scheme_info->{'id'}\" rel=\"ajax\">$scheme_info->{'description'}</a></li>\n";
-			}
-		}
-	}
-	return "<ul>\n$buffer</ul>\n" if $buffer;
-}
-
-sub _scheme_data_present {
-	my ($self,$scheme_id,$isolate_id) = @_;
-	if (!$self->{'sql'}->{'scheme_data_designations'}){
-		$self->{'sql'}->{'scheme_data_designations'} = $self->{'db'}->prepare("SELECT EXISTS(SELECT * FROM allele_designations LEFT JOIN scheme_members ON allele_designations.locus=scheme_members.locus WHERE isolate_id=? AND scheme_id=?)");
-	}
-	eval {
-		$self->{'sql'}->{'scheme_data_designations'}->execute($isolate_id,$scheme_id);
-	};
-	if ($@){
-		$logger->error("Can't execute $@");
-	}
-	my ($designations_present) = $self->{'sql'}->{'scheme_data_designations'}->fetchrow_array;
-	return 1 if $designations_present;
-	if (!$self->{'sql'}->{'scheme_data_sequences'}){
-		$self->{'sql'}->{'scheme_data_sequences'} = $self->{'db'}->prepare("SELECT EXISTS(SELECT * FROM allele_sequences LEFT JOIN scheme_members ON allele_sequences.locus=scheme_members.locus LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id WHERE isolate_id=? AND scheme_id=?)");
-	}
-	eval {
-		$self->{'sql'}->{'scheme_data_sequences'}->execute($isolate_id,$scheme_id);
-	};
-	if ($@){
-		$logger->error("Can't execute $@");
-	}
-	my ($sequences_present) = $self->{'sql'}->{'scheme_data_sequences'}->fetchrow_array;
-	return 1 if $sequences_present;
-	return 0;
-}
-
-sub _data_not_in_scheme_present {
-	my ($self,$isolate_id) = @_;
-	my $designations = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT * FROM allele_designations WHERE isolate_id=? AND locus NOT IN (SELECT locus FROM scheme_members))",$isolate_id)->[0];
-	return 1 if $designations;
-	my $sequences = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT * FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id WHERE isolate_id=? AND locus NOT IN (SELECT locus FROM scheme_members))",$isolate_id)->[0];
-	return 1 if $sequences;
-	return 0;
 }
 
 sub get_sample_summary {
