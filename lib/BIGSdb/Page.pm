@@ -100,6 +100,14 @@ sub get_tree_javascript {
 	my ($self) = @_;
 	my $buffer = << "END";
 \$(function () {
+	\$('a[rel=ajax]').click(function(){
+  		\$(this).attr('href', function(){
+  			if (this.href.match(/javascript.loadContent/)){
+  				return;
+  			};
+    		return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1&no_header=1\'\)"));
+    	});
+  	});
 	\$("#tree").jstree({ 
 		"core" : {
 			"animation" : 200,
@@ -110,14 +118,7 @@ sub get_tree_javascript {
 		},
 		"plugins" : [ "themes", "html_data"]
 	});
-	\$('a[rel=ajax]').click(function(){
-  		\$(this).attr('href', function(){
-  			if (this.href.match(/javascript.loadContent/)){
-  				return;
-  			};
-    		return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1&no_header=1\'\)"));
-    	});
-  	});
+
 });
 
 function loadContent(url) {
@@ -2441,9 +2442,10 @@ sub _initiate_isolatedb_prefs {
 }
 ###SCHEME GROUP TREE DRAWING#################
 sub get_tree {
-	my ( $self, $isolate_id ) = @_;
+	my ( $self, $isolate_id, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $page = $self->{'cgi'}->param('page');
-	my $isolate_clause = $self->{'system'}->{'dbtype'} eq 'isolates' ? "&amp;id=$isolate_id" : '';
+	my $isolate_clause = defined $isolate_id ? "&amp;id=$isolate_id" : '';
 	my $groups_with_no_parent =
 	  $self->{'datastore'}->run_list_query(
 		"SELECT id FROM scheme_groups WHERE id NOT IN (SELECT group_id FROM scheme_group_group_members) ORDER BY display_order");
@@ -2454,13 +2456,18 @@ sub get_tree {
 	$buffer .=
 "<li id=\"all_loci\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;scheme_id=-1\" rel=\"ajax\">All loci</a><ul>\n";
 	my $scheme_nodes;
+
 	foreach (@$groups_with_no_parent) {
 		my $group_info          = $self->{'datastore'}->get_scheme_group_info($_);
-		my $group_scheme_buffer = $self->_get_group_schemes( $_, $isolate_id );
-		my $child_group_buffer  = $self->_get_child_groups( $_, $isolate_id, 1 );
+		my $group_scheme_buffer = $self->_get_group_schemes( $_, $isolate_id, $options );
+		my $child_group_buffer  = $self->_get_child_groups( $_, $isolate_id, 1, $options );
 		if ( $group_scheme_buffer || $child_group_buffer ) {
-			$buffer .=
+			if ( $options->{'no_link_out'} ) {
+				$buffer .= "<li><a>$group_info->{'name'}</a>\n";
+			} else {
+				$buffer .=
 "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;group_id=$_\" rel=\"ajax\">$group_info->{'name'}</a>\n";
+			}
 			$buffer .= $group_scheme_buffer;
 			$buffer .= $child_group_buffer;
 			$buffer .= "</li>\n";
@@ -2468,31 +2475,48 @@ sub get_tree {
 	}
 	if (@$schemes_not_in_group) {
 		my $data_exists = 0;
-		my $temp_buffer .=
-"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;group_id=0\" rel=\"ajax\">Other schemes</a><ul>"
-		  if @$groups_with_no_parent;
+		my $temp_buffer;
+		if (@$groups_with_no_parent) {
+			if ( $options->{'no_link_out'} ) {
+				$temp_buffer .= "<li><a>Other schemes</a><ul>";
+			} else {
+				$temp_buffer .=
+"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;group_id=0\" rel=\"ajax\">Other schemes</a><ul>";
+			}
+		}
 		foreach (@$schemes_not_in_group) {
 			next if !$self->{'prefs'}->{'isolate_display_schemes'}->{ $_->{'id'} };
 			$_->{'description'} =~ s/&/\&amp;/g;
-			if ( $self->{'system'}->{'dbtype'} eq 'sequences' || $self->_scheme_data_present( $_->{'id'}, $isolate_id ) ) {
+			if ( !defined $isolate_id || $self->_scheme_data_present( $_->{'id'}, $isolate_id ) ) {
 				$data_exists = 1;
-				$temp_buffer .=
+				if ( $options->{'no_link_out'} ) {
+					$temp_buffer .= "<li><a>$_->{'description'}</a></li>\n";
+				} else {
+					$temp_buffer .=
 "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;scheme_id=$_->{'id'}\" rel=\"ajax\">$_->{'description'}</a></li>\n";
+				}
 			}
 		}
 		$temp_buffer .= "</ul></li>";
 		$buffer .= $temp_buffer if $data_exists;
 	}
-	if ( $self->{'system'}->{'dbtype'} eq 'sequences' || $self->_data_not_in_scheme_present($isolate_id) ) {
-		$buffer .=
-"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;scheme_id=0\" rel=\"ajax\">Loci not in schemes</a></li>\n";
+	if ( !defined $isolate_id || $self->_data_not_in_scheme_present($isolate_id) ) {
+		if ( $options->{'no_link_out'} ) {
+			$buffer .= "<li><a>Loci not in schemes</a>\n";
+		} else {
+			$buffer .=
+"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;scheme_id=0\" rel=\"ajax\">Loci not in schemes</a>\n";
+		}
+		$buffer .= $self->_get_scheme_loci( 0, $isolate_id, $options ) if $options->{'list_loci'};
+		$buffer .= "</li>\n";
 	}
 	$buffer .= "</ul>\n";
 	$buffer .= "</li></ul>\n";
 }
 
 sub _get_group_schemes {
-	my ( $self, $group_id, $isolate_id ) = @_;
+	my ( $self, $group_id, $isolate_id, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $buffer;
 	my $schemes = $self->{'datastore'}->run_list_query(
 "SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON schemes.id=scheme_id WHERE group_id=? ORDER BY display_order",
@@ -2505,22 +2529,69 @@ sub _get_group_schemes {
 			my $scheme_data_exists;
 			$scheme_info->{'description'} =~ s/&/\&amp;/g;
 			my $page = $self->{'cgi'}->param('page');
-			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+			if ( defined $isolate_id ) {
 				if ( $self->_scheme_data_present( $_, $isolate_id ) ) {
-					$buffer .=
-"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;id=$isolate_id&amp;scheme_id=$scheme_info->{'id'}\" rel=\"ajax\">$scheme_info->{'description'}</a></li>\n";
+					if ( $options->{'no_link_out'} ) {
+						$buffer .= "<li><a>$scheme_info->{'description'}</a>";
+					} else {
+						$buffer .=
+"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;id=$isolate_id&amp;scheme_id=$scheme_info->{'id'}\" rel=\"ajax\">$scheme_info->{'description'}</a>";
+					}
+					$buffer .= $self->_get_scheme_loci( $scheme_info->{'id'}, $isolate_id, $options ) if $options->{'list_loci'};
+					$buffer .= "</li>\n";
 				}
 			} else {
-				$buffer .=
-"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;scheme_id=$scheme_info->{'id'}\" rel=\"ajax\">$scheme_info->{'description'}</a></li>\n";
+				if ( $options->{'no_link_out'} ) {
+					$buffer .= "<li><a>$scheme_info->{'description'}</a>";
+				} else {
+					$buffer .=
+"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;scheme_id=$scheme_info->{'id'}\" rel=\"ajax\">$scheme_info->{'description'}</a>";
+				}
+				$buffer .= $self->_get_scheme_loci( $scheme_info->{'id'}, $isolate_id, $options ) if $options->{'list_loci'};
+				$buffer .= "</li>\n";
 			}
 		}
 	}
 	return "<ul>\n$buffer</ul>\n" if $buffer;
 }
 
+sub _get_scheme_loci {
+	my ( $self, $scheme_id, $isolate_id, $options ) = @_;
+	my $analyse_prefs = $self->{'system'}->{'dbtype'} eq 'isolates' ? 1 : 0;
+	my $loci;
+	if ($scheme_id) {
+		$loci = $self->{'datastore'}->get_scheme_loci( $scheme_id, { 'profile_name' => 0, 'analyse_prefs' => $analyse_prefs } );
+	} else {
+		$loci = $self->{'datastore'}->get_loci_in_no_scheme($analyse_prefs);
+	}
+	my $qry    = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
+	my $cn_sql = $self->{'db'}->prepare($qry);
+	eval { $cn_sql->execute; };
+	if ($@) {
+		$logger->error("Can't execute $@");
+	}
+	my $common_names = $cn_sql->fetchall_hashref('id');
+	my $buffer;
+	foreach (@$loci) {
+		my $cleaned = $_;
+		$cleaned =~ s/'/__prime__/g;
+		$cleaned =~ s/\//__slash__/g;
+		$cleaned =~ s/,/__comma__/g;
+		$cleaned =~ s/ /__space__/g;
+		$cleaned =~ s/\(/_OPEN_/g;
+		$cleaned =~ s/\)/_CLOSE_/g;
+		$cleaned =~ s/\>/_GT_/g;
+		my $id = $scheme_id ? "s_$scheme_id\_l_$cleaned" : "l_$cleaned";
+		$buffer .= "<li id=\"$id\"><a>$_";
+		$buffer .= " ($common_names->{$_}->{'common_name'})" if $common_names->{$_}->{'common_name'};
+		$buffer .= "</a></li>\n";
+	}
+	return "<ul>\n$buffer</ul>\n" if $buffer;
+}
+
 sub _get_child_groups {
-	my ( $self, $group_id, $isolate_id, $level ) = @_;
+	my ( $self, $group_id, $isolate_id, $level, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $buffer;
 	my $child_groups = $self->{'datastore'}->run_list_query(
 "SELECT id FROM scheme_groups LEFT JOIN scheme_group_group_members ON scheme_groups.id=group_id WHERE parent_group_id=? ORDER BY display_order",
@@ -2531,16 +2602,24 @@ sub _get_child_groups {
 			my $group_info = $self->{'datastore'}->get_scheme_group_info($_);
 			my $new_level  = $level;
 			last if $new_level == 10;    #prevent runaway if child is set as the parent of a parental group
-			my $group_scheme_buffer = $self->_get_group_schemes( $_, $isolate_id );
-			my $child_group_buffer = $self->_get_child_groups( $_, $isolate_id, ++$new_level );
+			my $group_scheme_buffer = $self->_get_group_schemes( $_, $isolate_id, $options );
+			my $child_group_buffer = $self->_get_child_groups( $_, $isolate_id, ++$new_level, $options );
 			if ( $group_scheme_buffer || $child_group_buffer ) {
 				my $page = $self->{'cgi'}->param('page');
-				if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-					$buffer .=
+				if ( defined $isolate_id ) {
+					if ( $options->{'no_link_out'} ) {
+						$buffer .= "<li><a>$group_info->{'name'}</a>\n";
+					} else {
+						$buffer .=
 "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;id=$isolate_id&amp;group_id=$_\" rel=\"ajax\">$group_info->{'name'}</a>\n";
+					}
 				} else {
-					$buffer .=
+					if ( $options->{'no_link_out'} ) {
+						$buffer .= "<li><a>$group_info->{'name'}</a>\n";
+					} else {
+						$buffer .=
 "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;group_id=$_\" rel=\"ajax\">$group_info->{'name'}</a>\n";
+					}
 				}
 				$buffer .= $group_scheme_buffer;
 				$buffer .= $child_group_buffer;

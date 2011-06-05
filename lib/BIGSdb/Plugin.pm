@@ -31,6 +31,7 @@ sub initiate {
 	} else {
 		$self->{'jQuery'}           = 1;    #Use JQuery javascript library
 		$self->{'jQuery.tablesort'} = 1;
+		$self->{'jQuery.jstree'}    = 1;
 	}
 }
 
@@ -89,6 +90,21 @@ sub get_javascript {
 \$(document).ready(function() 
     { 
         \$("#sortTable").tablesorter({widgets:['zebra']}); 
+        \$("#tree").jstree({ 
+			"core" : {
+				"animation" : 200,
+				"initially_open" : ["all_loci"],
+				
+			},
+			"themes" : {
+				"theme" : "default"
+			},
+			"plugins" : [ "themes", "html_data", "checkbox"],
+			"checkbox" : {
+				"real_checkboxes" : true,
+				"real_checkboxes_names" : function (n) { return [(n[0].id || Math.ceil(Math.random() * 10000)), 1]; }
+			}
+		});
     } 
 ); 	
 JS
@@ -555,25 +571,20 @@ sub print_sequence_export_form {
 		print "</fieldset>\n";
 	}
 	print $self->get_extra_form_elements;
-	my ( @js, @js2 );
-	my $schemes;
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		$schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
+	if ( !$scheme_id ) {
+		$self->_print_tree;
 	} else {
-		push @$schemes, $scheme_id || 0;
-	}
-	my $qry    = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
-	my $cn_sql = $self->{'db'}->prepare($qry);
-	eval { $cn_sql->execute; };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
-	my $common_names = $cn_sql->fetchall_hashref('id');
-	print "<div style=\"clear:both\">\n";
-	foreach (@$schemes) {
+		my $qry    = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
+		my $cn_sql = $self->{'db'}->prepare($qry);
+		eval { $cn_sql->execute; };
+		if ($@) {
+			$logger->error("Can't execute $@");
+		}
+		my $common_names = $cn_sql->fetchall_hashref('id');
+		print "<div style=\"clear:both\">\n";
 		my ( @scheme_js, @scheme_js2 );
-		my $scheme_members = $self->{'datastore'}->get_scheme_loci($_);
-		my $scheme_info    = $self->{'datastore'}->get_scheme_info($_);
+		my $scheme_members = $self->{'datastore'}->get_scheme_loci($scheme_id);
+		my $scheme_info    = $self->{'datastore'}->get_scheme_info($scheme_id);
 		if (@$scheme_members) {
 			( my $heading = $scheme_info->{'description'} ) =~ s/\&/\&amp;/g;
 			print "<h2>$heading</h2>\n";
@@ -589,50 +600,29 @@ sub print_sequence_export_form {
 				$cleaned_member =~ s/\)/_CLOSE_/g;
 				$cleaned_member =~ s/\>/_GT_/g;
 				push @values,     "l_$member";
-				push @js,         "\$(\"#s_$_\_l_$cleaned_member\").attr(\"checked\",\"checked\")";
-				push @js2,        "\$(\"#s_$_\_l_$cleaned_member\").attr(\"checked\",\"\")";
-				push @scheme_js,  "\$(\"#s_$_\_l_$cleaned_member\").attr(\"checked\",\"checked\")";
-				push @scheme_js2, "\$(\"#s_$_\_l_$cleaned_member\").attr(\"checked\",\"\")";
+				push @scheme_js,  "\$(\"#s_$scheme_id\_l_$cleaned_member\").attr(\"checked\",\"checked\")";
+				push @scheme_js2, "\$(\"#s_$scheme_id\_l_$cleaned_member\").attr(\"checked\",\"\")";
 				$labels->{"l_$member"} = "$member ($common_names->{$member}->{'common_name'})" if $common_names->{$member}->{'common_name'};
 			}
-			$self->print_fields( \@values, "s_$_", 10, 1, $labels, \@scheme_js, \@scheme_js2, $options->{'default_select'} );
+			$self->print_fields( \@values, "s_$scheme_id", 10, 1, $labels, \@scheme_js, \@scheme_js2, $options->{'default_select'} );
 		}
 	}
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		my $loci =
-		  $self->{'datastore'}->run_list_query(
-"SELECT id FROM loci WHERE id NOT IN (SELECT DISTINCT locus FROM scheme_members) AND (id IN (SELECT DISTINCT locus FROM allele_designations LEFT JOIN loci ON allele_designations.locus = loci.id AND loci.data_type = 'DNA' AND loci.dbase_name IS NOT NULL AND loci.dbase_id_field IS NOT NULL AND loci.dbase_seq_field IS NOT NULL) OR id IN (SELECT DISTINCT locus FROM allele_sequences)) ORDER BY id"
-		  );
-		if (@$loci) {
-			print "<h2>Loci not belonging to any scheme</h2>\n";
-			my ( @scheme_js, @scheme_js2 );
-			foreach (@$loci) {
-				my $cleaned = $_;
-				$cleaned =~ s/'/__prime__/g;
-				$cleaned =~ s/\//__slash__/g;
-				$cleaned =~ s/,/__comma__/g;
-				$cleaned =~ s/ /__space__/g;
-				$cleaned =~ s/\(/_OPEN_/g;
-				$cleaned =~ s/\)/_CLOSE_/g;
-				$cleaned =~ s/\>/_GT_/g;
-				push @js,         "\$(\"#l_$cleaned\").attr(\"checked\",\"checked\")";
-				push @js2,        "\$(\"#l_$cleaned\").attr(\"checked\",\"\")";
-				push @scheme_js,  "\$(\"#l_$cleaned\").attr(\"checked\",\"checked\")";
-				push @scheme_js2, "\$(\"#l_$cleaned\").attr(\"checked\",\"\")";
-			}
-			my %labels;
-			$self->print_fields( $loci, 'l', 12, 0, \%labels, \@scheme_js, \@scheme_js2, $options->{'default_select'} );
-		}
-	}
-	$" = ';';
-	print "<input type=\"button\" value=\"Select all\" onclick='@js' style=\"margin-top:1em\" class=\"button\" />\n";
-	print "<input type=\"button\" value=\"Select none\" onclick='@js2' style=\"margin-top:1em\" class=\"button\" />\n";
-	print "<noscript><span class=\"comment\"> Enable javascript for select buttons to work!</span></noscript>\n";
 	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	print "</div>\n";
 	foreach (qw (db page name query_file scheme_id)) {
 		print $q->hidden($_);
 	}
 	print $q->end_form;
+}
+
+sub _print_tree {
+	my ($self) = @_;
+	print
+"<p style=\"clear:both\">Click within the tree to display details of loci belonging to schemes or groups of schemes - clicking a group folder will 
+	display the loci for all schemes within the group and any subgroups.</p>\n";
+	print "<noscript><p class=\"highlight\">Enable Javascript to enhance your viewing experience.</p></noscript>\n";
+	print "<div id=\"tree\" class=\"tree\">\n";
+	print $self->get_tree( undef, { 'no_link_out' => 1, 'list_loci' => 1 } );
+	print "</div>\n";
+	print "<div id=\"scheme_table\"></div>\n";
 }
 1;
