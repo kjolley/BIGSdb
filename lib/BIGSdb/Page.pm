@@ -197,7 +197,7 @@ sub print {
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.metadata.js" } );
 			}
 			if ( $self->{'jQuery.jstree'} ) {
-				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.jstree.js" } );
+				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.jstree.js?v20110605" } );
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.cookie.js" } );
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.hotkeys.js" } );
 			}
