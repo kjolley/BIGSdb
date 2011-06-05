@@ -2490,17 +2490,20 @@ sub get_tree {
 			if ( !defined $isolate_id || $self->_scheme_data_present( $_->{'id'}, $isolate_id ) ) {
 				$data_exists = 1;
 				if ( $options->{'no_link_out'} ) {
-					$temp_buffer .= "<li><a>$_->{'description'}</a></li>\n";
+					$temp_buffer .= "<li><a>$_->{'description'}</a>\n";
 				} else {
 					$temp_buffer .=
-"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;scheme_id=$_->{'id'}\" rel=\"ajax\">$_->{'description'}</a></li>\n";
+"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;scheme_id=$_->{'id'}\" rel=\"ajax\">$_->{'description'}</a>\n";
 				}
+				$temp_buffer .= $self->_get_scheme_loci( $_->{'id'}, $isolate_id, $options ) if $options->{'list_loci'};
+				$temp_buffer .= "</li>\n";
 			}
 		}
 		$temp_buffer .= "</ul></li>";
 		$buffer .= $temp_buffer if $data_exists;
 	}
-	if ( !defined $isolate_id || $self->_data_not_in_scheme_present($isolate_id) ) {
+	my $loci_not_in_schemes = $self->{'datastore'}->get_loci_in_no_scheme;
+	if ( @$loci_not_in_schemes && (!defined $isolate_id || $self->_data_not_in_scheme_present($isolate_id) )) {
 		if ( $options->{'no_link_out'} ) {
 			$buffer .= "<li><a>Loci not in schemes</a>\n";
 		} else {
