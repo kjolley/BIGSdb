@@ -25,8 +25,9 @@ my $logger = get_logger('BIGSdb.Page');
 
 sub initiate {
 	my ($self) = @_;
-	$self->{'jQuery'}  = 1;    #Use JQuery javascript library
-	$self->{'noCache'} = 1;
+	foreach (qw (jQuery tooltips noCache)){
+		$self->{$_} = 1;
+	}
 }
 
 sub print_content {
