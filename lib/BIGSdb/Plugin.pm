@@ -618,8 +618,10 @@ sub _print_tree {
 	my ($self) = @_;
 	print
 "<p style=\"clear:both\">Click within the tree to display details of loci belonging to schemes or groups of schemes - clicking a group folder will 
-	display the loci for all schemes within the group and any subgroups.</p>\n";
-	print "<noscript><p class=\"highlight\">Enable Javascript to enhance your viewing experience.</p></noscript>\n";
+	display the loci for all schemes within the group and any subgroups.</p><p>If the tree is slow to update, you can try modifying your locus and
+	scheme preferences by setting 'analysis' to false for any <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=schemes\">schemes</a>
+	 or <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=loci\">loci</a> for which you do not plan to use in analysis tools.</p>\n";
+	print "<noscript><p class=\"highlight\">Javascript needs to be enabled.</p></noscript>\n";
 	print "<div id=\"tree\" class=\"tree\">\n";
 	print $self->get_tree( undef, { 'no_link_out' => 1, 'list_loci' => 1, 'analyse_prefs' => 1 } );
 	print "</div>\n";

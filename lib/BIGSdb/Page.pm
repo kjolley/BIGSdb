@@ -321,7 +321,7 @@ sub _print_help_panel {
 		print "<span id=\"toggle\" style=\"display:none\">Toggle: </span>";
 		if ( $self->{'tooltips'} ) {
 			print
-"<a id=\"toggle_tooltips\" href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=options&amp;toggle_tooltips=1\" style=\"display:none; margin-right:1em;\">&nbsp;<i>i</i>&nbsp;</a> ";
+"<a id=\"toggle_tooltips\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=options&amp;toggle_tooltips=1\" style=\"display:none; margin-right:1em;\">&nbsp;<i>i</i>&nbsp;</a> ";
 		}
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $self->{'field_help'} ) {
