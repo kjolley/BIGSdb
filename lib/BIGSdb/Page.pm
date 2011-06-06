@@ -2505,7 +2505,7 @@ sub get_tree {
 				$temp_buffer .= "</li>\n";
 			}
 		}
-		$temp_buffer .= "</ul></li>";
+		$temp_buffer .= "</ul></li>" if @$groups_with_no_parent;
 		$buffer .= $temp_buffer if $data_exists;
 	}
 	my $loci_not_in_schemes = $self->{'datastore'}->get_loci_in_no_scheme;
