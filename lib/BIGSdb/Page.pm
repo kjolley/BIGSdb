@@ -189,7 +189,9 @@ sub print {
 		my $page_js = $self->get_javascript;
 		my @javascript;
 		if ( $self->{'jQuery'} ) {
-			foreach (qw (jquery.js jquery.tooltip.js cornerz.js bigsdb.js)) {
+			#Load jQuery library from Google CDN
+			push @javascript, ( { 'language' => 'Javascript', 'src' => "http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js" } );
+			foreach (qw (jquery.tooltip.js cornerz.js bigsdb.js)) {
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/$_" } );
 			}
 			if ( $self->{'jQuery.tablesort'} ) {
