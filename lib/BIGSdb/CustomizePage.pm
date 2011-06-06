@@ -182,6 +182,9 @@ HTML
 						}
 					} else {
 						$value = $data->{$field};
+						if ($table eq 'loci' && $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' && $field eq 'id' ) {
+							$value =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
+						}
 					}
 					print "<td>$value</td>";
 				}
