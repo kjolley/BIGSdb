@@ -2617,7 +2617,13 @@ sub _get_scheme_loci {
 		$cleaned =~ s/\)/_CLOSE_/g;
 		$cleaned =~ s/\>/_GT_/g;
 		my $id = $scheme_id ? "s_$scheme_id\_l_$cleaned" : "l_$cleaned";
-		$buffer .= "<li id=\"$id\"><a>$_";
+		my $locus = $_;
+		if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
+			$locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
+		}
+		$locus =~ tr/_/ /;
+		
+		$buffer .= "<li id=\"$id\"><a>$locus";
 		$buffer .= " ($common_names->{$_}->{'common_name'})" if $common_names->{$_}->{'common_name'};
 		$buffer .= "</a></li>\n";
 	}
