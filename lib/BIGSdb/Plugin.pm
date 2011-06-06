@@ -621,7 +621,7 @@ sub _print_tree {
 	display the loci for all schemes within the group and any subgroups.</p>\n";
 	print "<noscript><p class=\"highlight\">Enable Javascript to enhance your viewing experience.</p></noscript>\n";
 	print "<div id=\"tree\" class=\"tree\">\n";
-	print $self->get_tree( undef, { 'no_link_out' => 1, 'list_loci' => 1 } );
+	print $self->get_tree( undef, { 'no_link_out' => 1, 'list_loci' => 1, 'analyse_prefs' => 1 } );
 	print "</div>\n";
 	print "<div id=\"scheme_table\"></div>\n";
 }

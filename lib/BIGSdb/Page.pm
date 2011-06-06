@@ -2452,9 +2452,8 @@ sub get_tree {
 	my $schemes_not_in_group =
 	  $self->{'datastore'}->run_list_query_hashref(
 		"SELECT id,description FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) ORDER BY display_order");
-	my $buffer = "<ul>\n";
-	$buffer .=
-"<li id=\"all_loci\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;scheme_id=-1\" rel=\"ajax\">All loci</a><ul>\n";
+	my $buffer;
+
 	my $scheme_nodes;
 
 	foreach (@$groups_with_no_parent) {
@@ -2485,17 +2484,24 @@ sub get_tree {
 			}
 		}
 		foreach (@$schemes_not_in_group) {
-			next if !$self->{'prefs'}->{'isolate_display_schemes'}->{ $_->{'id'} };
+			next if $options->{'isolate_display'} && !$self->{'prefs'}->{'isolate_display_schemes'}->{ $_->{'id'} };
+			next if $options->{'analyse_prefs'} && !$self->{'prefs'}->{'analysis_schemes'}->{ $_->{'id'} };
 			$_->{'description'} =~ s/&/\&amp;/g;
 			if ( !defined $isolate_id || $self->_scheme_data_present( $_->{'id'}, $isolate_id ) ) {
-				$data_exists = 1;
+				my $scheme_loci_buffer;
+				if ($options->{'list_loci'}){
+					$scheme_loci_buffer = $self->_get_scheme_loci( $_->{'id'}, $isolate_id, $options );
+					$data_exists = 1 if $scheme_loci_buffer;
+				} else {
+					$data_exists = 1;
+				}
 				if ( $options->{'no_link_out'} ) {
 					$temp_buffer .= "<li><a>$_->{'description'}</a>\n";
 				} else {
 					$temp_buffer .=
 "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;scheme_id=$_->{'id'}\" rel=\"ajax\">$_->{'description'}</a>\n";
 				}
-				$temp_buffer .= $self->_get_scheme_loci( $_->{'id'}, $isolate_id, $options ) if $options->{'list_loci'};
+				$temp_buffer .= $scheme_loci_buffer;
 				$temp_buffer .= "</li>\n";
 			}
 		}
@@ -2504,17 +2510,38 @@ sub get_tree {
 	}
 	my $loci_not_in_schemes = $self->{'datastore'}->get_loci_in_no_scheme;
 	if ( @$loci_not_in_schemes && (!defined $isolate_id || $self->_data_not_in_scheme_present($isolate_id) )) {
-		if ( $options->{'no_link_out'} ) {
-			$buffer .= "<li><a>Loci not in schemes</a>\n";
-		} else {
-			$buffer .=
-"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;scheme_id=0\" rel=\"ajax\">Loci not in schemes</a>\n";
+		my $scheme_loci_buffer;
+		if ($options->{'list_loci'}){
+			$scheme_loci_buffer = $self->_get_scheme_loci( 0, $isolate_id, $options ) if $options->{'list_loci'};
 		}
-		$buffer .= $self->_get_scheme_loci( 0, $isolate_id, $options ) if $options->{'list_loci'};
-		$buffer .= "</li>\n";
+		if (!$options->{'list_loci'} || ($options->{'list_loci'} && $scheme_loci_buffer) ){
+			if ( $options->{'no_link_out'} ) {
+				$buffer .= "<li><a>Loci not in schemes</a>\n";
+			} else {
+				$buffer .=
+	"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;scheme_id=0\" rel=\"ajax\">Loci not in schemes</a>\n";
+			}
+			$buffer .= $scheme_loci_buffer;
+			$buffer .= "</li>\n";
+		}
 	}
-	$buffer .= "</ul>\n";
-	$buffer .= "</li></ul>\n";
+	
+	my $main_buffer;
+	if ($buffer){
+		$main_buffer = "<ul>\n";
+		if ( $options->{'no_link_out'} ) {
+			$main_buffer .= "<li id=\"all_loci\"><a>All loci</a><ul>\n";
+		} else {
+			$main_buffer .=
+"<li id=\"all_loci\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;scheme_id=-1\" rel=\"ajax\">All loci</a><ul>\n";
+		}
+		$main_buffer .= $buffer;
+		$main_buffer .= "</ul>\n";
+		$main_buffer .= "</li></ul>\n";
+	} else {
+		$main_buffer = "<ul><li><a>No loci available for analysis.</a></li></ul>\n";
+	}
+	return $main_buffer;
 }
 
 sub _get_group_schemes {
@@ -2527,9 +2554,14 @@ sub _get_group_schemes {
 	);
 	if (@$schemes) {
 		foreach (@$schemes) {
-			next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$_} && $self->{'system'}->{'dbtype'} eq 'isolates';
+			next if $options->{'isolate_display'} && !$self->{'prefs'}->{'isolate_display_schemes'}->{ $_ };
+			next if $options->{'analyse_prefs'} && !$self->{'prefs'}->{'analysis_schemes'}->{$_};
 			my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
-			my $scheme_data_exists;
+			my $scheme_loci_buffer;
+			if ($options->{'list_loci'}){
+				$scheme_loci_buffer = $self->_get_scheme_loci( $scheme_info->{'id'}, $isolate_id, $options );
+				next if !$scheme_loci_buffer;
+			}			
 			$scheme_info->{'description'} =~ s/&/\&amp;/g;
 			my $page = $self->{'cgi'}->param('page');
 			if ( defined $isolate_id ) {
@@ -2540,7 +2572,7 @@ sub _get_group_schemes {
 						$buffer .=
 "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;id=$isolate_id&amp;scheme_id=$scheme_info->{'id'}\" rel=\"ajax\">$scheme_info->{'description'}</a>";
 					}
-					$buffer .= $self->_get_scheme_loci( $scheme_info->{'id'}, $isolate_id, $options ) if $options->{'list_loci'};
+					$buffer .= $scheme_loci_buffer;
 					$buffer .= "</li>\n";
 				}
 			} else {
@@ -2550,7 +2582,7 @@ sub _get_group_schemes {
 					$buffer .=
 "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;scheme_id=$scheme_info->{'id'}\" rel=\"ajax\">$scheme_info->{'description'}</a>";
 				}
-				$buffer .= $self->_get_scheme_loci( $scheme_info->{'id'}, $isolate_id, $options ) if $options->{'list_loci'};
+				$buffer .= $scheme_loci_buffer;
 				$buffer .= "</li>\n";
 			}
 		}

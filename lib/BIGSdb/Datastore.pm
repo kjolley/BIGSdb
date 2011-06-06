@@ -384,7 +384,7 @@ sub get_scheme_loci {
 	}
 	my @loci;
 	while ( my ( $locus, $profile_name ) = $self->{'sql'}->{'scheme_loci'}->fetchrow_array() ) {
-		if ( $options->{'analyse_pref'} ) {
+		if ( $options->{'analyse_prefs'} ) {
 			if (   $self->{'prefs'}->{'analysis_loci'}->{$locus}
 				&& $self->{'prefs'}->{'analysis_schemes'}->{$id} )
 			{
