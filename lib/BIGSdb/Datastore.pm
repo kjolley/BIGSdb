@@ -366,7 +366,7 @@ sub get_scheme_loci {
 	#options passed as hashref:
 	#analyse_pref: only the loci for which the user has a analysis preference selected will be returned
 	#profile_name: to substitute profile field value in query
-	#	({'profile_name' => 1, 'analyse_prefs' => 1})
+	#	({'profile_name' => 1, 'analysis_pref' => 1})
 	my ( $self, $id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my @field_names = 'locus';
@@ -384,7 +384,7 @@ sub get_scheme_loci {
 	}
 	my @loci;
 	while ( my ( $locus, $profile_name ) = $self->{'sql'}->{'scheme_loci'}->fetchrow_array() ) {
-		if ( $options->{'analyse_prefs'} ) {
+		if ( $options->{'analysis_pref'} ) {
 			if (   $self->{'prefs'}->{'analysis_loci'}->{$locus}
 				&& $self->{'prefs'}->{'analysis_schemes'}->{$id} )
 			{
@@ -551,7 +551,7 @@ sub get_scheme {
 			};
 		}
 		$attributes->{'fields'} = $self->get_scheme_fields($id);
-		$attributes->{'loci'} = $self->get_scheme_loci( $id, ( { 'profile_name' => 1, 'analyse_prefs' => 0 } ) );
+		$attributes->{'loci'} = $self->get_scheme_loci( $id, ( { 'profile_name' => 1, 'analysis_pref' => 0 } ) );
 		$attributes->{'primary_keys'} =
 		  $self->run_list_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key ORDER BY field_order", $id );
 		$self->{'scheme'}->{$id} = BIGSdb::Scheme->new(%$attributes);
@@ -622,7 +622,7 @@ sub create_temp_scheme_table {
 	$" = "\t";
 	my $data = $scheme_sql->fetchall_arrayref;
 	foreach (@$data) {
-		foreach (@$_){
+		foreach (@$_) {
 			$_ = '\N' if $_ eq '';
 		}
 		eval { $self->{'db'}->pg_putcopydata("@$_\n"); };
@@ -672,12 +672,16 @@ sub get_loci {
 
 	#options passed as hashref:
 	#query_pref: only the loci for which the user has a query field preference selected will be returned
+	#analysis_pref: only the loci for which the user has an analysis preference selected will be returned
 	#seq_defined: only the loci for which a database or a reference sequence has been defined will be returned
 	#do_not_order: don't order
-	#{ 'query_pref' => 1, 'seq_defined' => 1, 'do_not_order' => 1 }
+	#{ 'query_pref' => 1, 'analysis_pref' => 1, 'seq_defined' => 1, 'do_not_order' => 1 }
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $defined_clause = $options->{'seq_defined'} ? 'WHERE dbase_name IS NOT NULL OR reference_sequence IS NOT NULL' : '';
+
+	#Need to sort if pref settings are to be checked as we need scheme information
+	$options->{'do_not_order'} = 0 if any { $options->{$_} } qw (query_pref analysis_pref);
 	my $qry;
 	if ( $options->{'do_not_order'} ) {
 		$qry = "SELECT id FROM loci $defined_clause";
@@ -692,18 +696,16 @@ sub get_loci {
 	}
 	my @query_loci;
 	my $array_ref = $sql->fetchall_arrayref;
-	if ( $options->{'query_pref'} ) {
-		foreach (@$array_ref) {
-			if ( $self->{'prefs'}->{'query_field_loci'}->{ $_->[0] }
-				&& ( $self->{'prefs'}->{'query_field_schemes'}->{ $_->[1] } or !$_->[1] ) )
-			{
-				push @query_loci, $_->[0];
-			}
-		}
-	} else {
-		foreach (@$array_ref) {
-			push @query_loci, $_->[0];
-		}
+	foreach (@$array_ref) {
+		next
+		  if $options->{'query_pref'}
+			  && (   !$self->{'prefs'}->{'query_field_loci'}->{ $_->[0] } || (!$self->{'prefs'}->{'query_field_schemes'}->{ $_->[1] }
+				  && $_->[1] ));
+		next
+		  if $options->{'analysis_pref'}
+			  && (   !$self->{'prefs'}->{'analysis_loci'}->{ $_->[0] } || (!$self->{'prefs'}->{'analysis_schemes'}->{ $_->[1] }
+				  && $_->[1] ));
+		push @query_loci, $_->[0];
 	}
 	return \@query_loci;
 }
@@ -1747,7 +1749,7 @@ sub _get_client_dbases_table_attributes {
 
 sub _get_client_dbase_loci_fields_table_attributes {
 	my $attributes = [
-			{
+		{
 			name           => 'client_dbase_id',
 			type           => 'int',
 			required       => 'yes',
@@ -1757,10 +1759,15 @@ sub _get_client_dbase_loci_fields_table_attributes {
 			dropdown_query => 'yes'
 		},
 		{ name => 'locus', type => 'text', required => 'yes', primary_key => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
-		{ name => 'isolate_field', type => 'text', length => 50, required => 'yes', primary_key => 'yes'},
-		{ name => 'allele_query', type => 'bool', default => 'true', comments => 'set to true to display field values when an allele query is done.'},
-		{ name => 'curator',     type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp',   type => 'date', required => 'yes' }
+		{ name => 'isolate_field', type => 'text', length => 50, required => 'yes', primary_key => 'yes' },
+		{
+			name     => 'allele_query',
+			type     => 'bool',
+			default  => 'true',
+			comments => 'set to true to display field values when an allele query is done.'
+		},
+		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' }
 	];
 	return $attributes;
 }

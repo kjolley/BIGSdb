@@ -2487,7 +2487,7 @@ sub get_tree {
 		}
 		foreach (@$schemes_not_in_group) {
 			next if $options->{'isolate_display'} && !$self->{'prefs'}->{'isolate_display_schemes'}->{ $_->{'id'} };
-			next if $options->{'analyse_prefs'} && !$self->{'prefs'}->{'analysis_schemes'}->{ $_->{'id'} };
+			next if $options->{'analysis_pref'} && !$self->{'prefs'}->{'analysis_schemes'}->{ $_->{'id'} };
 			$_->{'description'} =~ s/&/\&amp;/g;
 			if ( !defined $isolate_id || $self->_scheme_data_present( $_->{'id'}, $isolate_id ) ) {
 				my $scheme_loci_buffer;
@@ -2557,7 +2557,7 @@ sub _get_group_schemes {
 	if (@$schemes) {
 		foreach (@$schemes) {
 			next if $options->{'isolate_display'} && !$self->{'prefs'}->{'isolate_display_schemes'}->{ $_ };
-			next if $options->{'analyse_prefs'} && !$self->{'prefs'}->{'analysis_schemes'}->{$_};
+			next if $options->{'analysis_pref'} && !$self->{'prefs'}->{'analysis_schemes'}->{$_};
 			my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
 			my $scheme_loci_buffer;
 			if ($options->{'list_loci'}){
@@ -2594,12 +2594,12 @@ sub _get_group_schemes {
 
 sub _get_scheme_loci {
 	my ( $self, $scheme_id, $isolate_id, $options ) = @_;
-	my $analyse_prefs = $self->{'system'}->{'dbtype'} eq 'isolates' ? 1 : 0;
+	my $analysis_pref = $self->{'system'}->{'dbtype'} eq 'isolates' ? 1 : 0;
 	my $loci;
 	if ($scheme_id) {
-		$loci = $self->{'datastore'}->get_scheme_loci( $scheme_id, { 'profile_name' => 0, 'analyse_prefs' => $analyse_prefs } );
+		$loci = $self->{'datastore'}->get_scheme_loci( $scheme_id, { 'profile_name' => 0, 'analysis_pref' => $analysis_pref } );
 	} else {
-		$loci = $self->{'datastore'}->get_loci_in_no_scheme($analyse_prefs);
+		$loci = $self->{'datastore'}->get_loci_in_no_scheme($analysis_pref);
 	}
 	my $qry    = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
 	my $cn_sql = $self->{'db'}->prepare($qry);

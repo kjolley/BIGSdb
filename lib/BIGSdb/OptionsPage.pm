@@ -346,11 +346,11 @@ sub _print_display_tab {
 				-value   => 'checked',
 				-label   => $field
 			);
-			push @js,  "\$(\"#field_$field\").attr(\"checked\",\"checked\")";
-			push @js2, "\$(\"#field_$field\").attr(\"checked\",\"\")";
+			push @js,  "\$(\"#field_$field\").attr(\"checked\",true)";
+			push @js2, "\$(\"#field_$field\").attr(\"checked\",false)";
 			my %thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-			my $value = $thisfield{'maindisplay'} eq 'no' ? '' : 'checked';
-			push @js3, "\$(\"#field_$field\").attr(\"checked\",\"$value\")";
+			my $value = $thisfield{'maindisplay'} eq 'no' ? 'false' : 'true';
+			push @js3, "\$(\"#field_$field\").attr(\"checked\",$value)";
 			$i++;
 			if ( $i >= ( $field_count ) / 5 ) {
 				print "</td><td valign=\"top\">";
@@ -369,9 +369,9 @@ sub _print_display_tab {
 						-value   => 'checked',
 						-label   => "$field..$extended_attribute"
 					);
-					push @js,  "\$(\"#extended_$field\___$extended_attribute\").attr(\"checked\",\"checked\")";
-					push @js2, "\$(\"#extended_$field\___$extended_attribute\").attr(\"checked\",\"\")";
-					push @js3, "\$(\"#extended_$field\___$extended_attribute\").attr(\"checked\",\"\")";
+					push @js,  "\$(\"#extended_$field\___$extended_attribute\").attr(\"checked\",true)";
+					push @js2, "\$(\"#extended_$field\___$extended_attribute\").attr(\"checked\",false)";
+					push @js3, "\$(\"#extended_$field\___$extended_attribute\").attr(\"checked\",false)";
 					$i++;
 					if ( $i >= ( $field_count ) / 5 ) {
 						print "</td><td valign=\"top\">";
@@ -390,10 +390,10 @@ sub _print_display_tab {
 					-value   => 'checked',
 					-label   => 'aliases'
 				);
-				push @js,  "\$(\"#field_aliases\").attr(\"checked\",\"checked\")";
-				push @js2, "\$(\"#field_aliases\").attr(\"checked\",\"\")";
-				my $value = $self->{'system'}->{'maindisplay_aliases'} eq 'yes' ? 'checked' : '';
-				push @js3, "\$(\"#field_aliases\").attr(\"checked\",\"$value\")";
+				push @js,  "\$(\"#field_aliases\").attr(\"checked\",true)";
+				push @js2, "\$(\"#field_aliases\").attr(\"checked\",false)";
+				my $value = $self->{'system'}->{'maindisplay_aliases'} eq 'yes' ? 'true' : 'false';
+				push @js3, "\$(\"#field_aliases\").attr(\"checked\",$value)";
 				$i++;
 				if ( $i >= ( $field_count ) / 5 ) {
 					print "</td><td valign=\"top\">";
@@ -414,10 +414,10 @@ sub _print_display_tab {
 					-value   => 'checked',
 					-label   => $_
 				);
-				push @js,  "\$(\"#field_$_\").attr(\"checked\",\"checked\")";
-				push @js2, "\$(\"#field_$_\").attr(\"checked\",\"\")";
-				my $value = $composite_main_display{$_} ? 'checked' : '';
-				push @js3, "\$(\"#field_$_\").attr(\"checked\",\"$value\")";
+				push @js,  "\$(\"#field_$_\").attr(\"checked\",true)";
+				push @js2, "\$(\"#field_$_\").attr(\"checked\",false)";
+				my $value = $composite_main_display{$_} ? 'true' : 'false';
+				push @js3, "\$(\"#field_$_\").attr(\"checked\",$value)";
 				$i++;
 				if ( $i >= ( 1 + $field_count ) / 5 ) {
 					print "</td><td valign=\"top\">";
@@ -491,12 +491,12 @@ sub _print_query_tab {
 				-value   => 'checked',
 				-label   => $labels{$_} || $_
 			);
-			push @js,  "\$(\"#dropfield_$_\").attr(\"checked\",\"checked\")";
-			push @js2, "\$(\"#dropfield_$_\").attr(\"checked\",\"\")";
+			push @js,  "\$(\"#dropfield_$_\").attr(\"checked\",true)";
+			push @js2, "\$(\"#dropfield_$_\").attr(\"checked\",false)";
 			my %thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
-			my $value = $thisfield{'dropdown'} eq 'yes' ? 'checked' : '';
+			my $value = $thisfield{'dropdown'} eq 'yes' ? 'true' : 'false';
 			$value = 'checked' if $_ eq 'publications';
-			push @js3, "\$(\"#dropfield_$_\").attr(\"checked\",\"$value\")";
+			push @js3, "\$(\"#dropfield_$_\").attr(\"checked\",$value)";
 			$i++;
 
 			if ( $i >= $field_count / 6 ) {
@@ -517,9 +517,9 @@ sub _print_query_tab {
 					-value   => 'checked',
 					-label   => "$_\..$extended_attribute"
 				);
-				push @js,  "\$(\"#dropfield_e_$_\___$extended_attribute\").attr(\"checked\",\"checked\")";
-				push @js2, "\$(\"#dropfield_e_$_\___$extended_attribute\").attr(\"checked\",\"\")";
-				push @js3, "\$(\"#dropfield_e_$_\___$extended_attribute\").attr(\"checked\",\"\")";
+				push @js,  "\$(\"#dropfield_e_$_\___$extended_attribute\").attr(\"checked\",true)";
+				push @js2, "\$(\"#dropfield_e_$_\___$extended_attribute\").attr(\"checked\",false)";
+				push @js3, "\$(\"#dropfield_e_$_\___$extended_attribute\").attr(\"checked\",false)";
 				$i++;
 				if ( $i >= ( $field_count ) / 6 ) {
 					print "</td><td valign=\"top\">";

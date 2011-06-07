@@ -310,7 +310,7 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 		my ( $fields, $loci );
 		if ($scheme_id) {
 			$fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-			$loci = $self->{'datastore'}->get_scheme_loci( $scheme_id, ({'profile_name' => 0, 'analyse_prefs' => 1}) );
+			$loci = $self->{'datastore'}->get_scheme_loci( $scheme_id, ({'profile_name' => 0, 'analysis_pref' => 1}) );
 		} else {
 			$loci   = $self->{'datastore'}->get_loci_in_no_scheme(1);
 			$fields = \@;;

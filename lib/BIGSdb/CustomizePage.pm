@@ -134,8 +134,8 @@ HTML
 		$cleaned_id =~ s/'/__prime__/g;
 		$cleaned_id =~ s/\//__slash__/g;
 		print $q->checkbox( -name => $id, -id => $cleaned_id, -label => '', -checked => 'checked' );
-		push @js,  "\$(\"#$cleaned_id\").attr(\"checked\",\"checked\")";
-		push @js2, "\$(\"#$cleaned_id\").attr(\"checked\",\"\")";
+		push @js,  "\$(\"#$cleaned_id\").attr(\"checked\",true)";
+		push @js2, "\$(\"#$cleaned_id\").attr(\"checked\",false)";
 		print "</td>";
 		if ( $table eq 'loci' ) {
 			foreach my $field (@display) {
