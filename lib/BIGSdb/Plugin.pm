@@ -656,7 +656,6 @@ sub print_sequence_export_form {
 		print "<noscript><span class=\"comment\"> Enable javascript for select buttons to work!</span></noscript>\n";
 	}
 	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	print "</div>\n";
 	foreach (qw (db page name query_file scheme_id)) {
 		print $q->hidden($_);
 	}
@@ -672,6 +671,6 @@ sub _print_tree {
 	print "<noscript><p class=\"highlight\">Javascript needs to be enabled.</p></noscript>\n";
 	print "<div id=\"tree\" class=\"tree\">\n";
 	print $self->get_tree( undef, { 'no_link_out' => 1, 'list_loci' => 1, 'analysis_pref' => 1 } );
-	print "<div id=\"scheme_table\"></div>\n";
+	print "</div>\n";	
 }
 1;
