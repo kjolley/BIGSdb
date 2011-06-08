@@ -370,6 +370,21 @@ sub _print_query_interface {
 " <a class=\"tooltip\" title=\"experiment filter - Click the checkbox and select an experiment to filter your search to only those sequences linked to the selected experiment.\">&nbsp;<i>i</i>&nbsp;</a>";
 			push @filters, $buffer;
 		}
+	} elsif ($table eq 'locus_descriptions'){
+		
+		my %labels;
+		my $common_names = $self->{'datastore'}->run_list_query("SELECT DISTINCT common_name FROM loci ORDER BY common_name");
+		my $buffer = "<label for=\"common_name_list\" class=\"filter\">common name: </label>\n";
+		$"=' ';
+		$buffer .= $q->popup_menu(
+			-name   => 'common_name_list',
+			-id     => 'common_name_list',
+			-values => [ '', @$common_names],
+			-class  => 'filter'
+		);
+		$buffer .=
+" <a class=\"tooltip\" title=\"common names filter - Click the checkbox and select a name to filter your search to only those loci with the selected common name.\">&nbsp;<i>i</i>&nbsp;</a>";
+		push @filters, $buffer;
 	}
 	if (@filters) {
 		print "<fieldset>\n";
@@ -531,22 +546,29 @@ sub _run_query {
 			if ( BIGSdb::Utils::is_int($experiment) ) {
 				$qry2 =
 "SELECT * FROM sequence_bin LEFT JOIN experiment_sequences ON sequence_bin.id = experiment_sequences.seqbin_id WHERE experiment_id = $experiment";
+				$qry2 .= " AND ($qry)" if $qry;
 			} else {
 				$qry2 = "SELECT * FROM $table WHERE ($qry)";
 			}
+		} elsif ( $table eq 'locus_descriptions' && $q->param('common_name_list') ne ''){
+			my $common_name = $q->param('common_name_list');
+			$common_name =~ s/'/\\'/g;
+			$qry2 = "SELECT * FROM locus_descriptions LEFT JOIN loci ON loci.id = locus_descriptions.locus WHERE common_name = E'$common_name'";
+			$qry2 .= " AND ($qry)" if $qry;
 		} else {
 			$qry2 = "SELECT * FROM $table WHERE ($qry)";
 		}
 		foreach (@$attributes) {
 			if ( $q->param( $_->{'name'} . '_list' ) ne '' ) {
 				my $value = $q->param( $_->{'name'} . '_list' );
+				my $field = "$table." . $_->{'name'};
 				if ( $qry2 !~ /WHERE \(\)\s*$/ ) {
 					$qry2 .= " AND ";
 				} else {
 					$qry2 = "SELECT * FROM $table WHERE ";
 				}
 				$value =~ s/'/\\'/g;
-				$qry2 .= ( ( $value eq '<blank>' || $value eq 'null' ) ? "$_ is null" : "$_->{'name'} = '$value'" );
+				$qry2 .= ( ( $value eq '<blank>' || $value eq 'null' ) ? "$_ is null" : "$field = E'$value'" );
 			}
 		}
 		$qry2 .= " ORDER BY ";
@@ -594,6 +616,7 @@ s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bi
 				  || $qry =~ s/FROM $table/FROM $table WHERE isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})/;
 			}
 		}
+#		print "<p>$qry2</p>";
 		$self->paged_display( $table, $qry2, '', \@hidden_attributes );
 		print "<p />\n";
 	} else {
