@@ -1016,6 +1016,10 @@ sub _print_record_table {
 				} else {
 					my $value = $data{ lc($field) };
 					$value =~ s/\&/\&amp;/g;
+					if ($self->{'system'}->{'locus_superscript_prefix'} eq 'yes' && $table eq 'loci' && $field eq 'id'){
+						$value =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
+					}
+					$value =~ tr/_/ /;
 					print "<td>$value</td>";
 				}
 			}
