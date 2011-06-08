@@ -616,7 +616,6 @@ s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bi
 				  || $qry =~ s/FROM $table/FROM $table WHERE isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})/;
 			}
 		}
-#		print "<p>$qry2</p>";
 		$self->paged_display( $table, $qry2, '', \@hidden_attributes );
 		print "<p />\n";
 	} else {
