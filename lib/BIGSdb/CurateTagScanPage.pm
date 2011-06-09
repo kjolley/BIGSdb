@@ -517,11 +517,14 @@ sub _tag {
 
 	foreach my $isolate_id (@ids) {
 		next if !$self->is_allowed_to_view_isolate($isolate_id);
+		my %tested_locus;
 		foreach (@loci) {
 			$_ =~ s/^cn_//;
 			$_ =~ s/^l_//;
 			$_ =~ s/^la_//;
 			$_ =~ s/\|\|.+//;
+			next if $tested_locus{$_};
+			$tested_locus{$_} = 1;
 			my @ids;
 			my %used;
 			my $cleaned_locus = $_;
@@ -607,9 +610,11 @@ sub _tag {
 		}
 	}
 	if (@updates) {
+		my $query;
 		eval {
 			foreach (@updates)
 			{
+				$query = $_;
 				$self->{'db'}->do($_);
 			}
 		};
@@ -620,7 +625,7 @@ sub _tag {
 			if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
 				print
 "<p>Data entry would have resulted in records with either duplicate ids or another unique field with duplicate values.</p>\n";
-				$logger->debug($@);
+				$logger->debug("$@ $query");
 			} else {
 				print "<p>Error message: $@</p>\n";
 				$logger->error($@);
