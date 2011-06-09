@@ -309,7 +309,7 @@ sub _print_help_panel {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	print "<div id=\"fieldvalueshelp\">";
-	if ( $q->param('page') eq 'plugin' ) {
+	if ( $q->param('page') eq 'plugin' && defined $self->{'pluginManager'} ) {
 		my $plugin_att = $self->{'pluginManager'}->get_plugin_attributes( $q->param('name') );
 		if ( ref $plugin_att eq 'HASH' ) {
 			foreach (qw (tooltips)) {
