@@ -23,6 +23,7 @@ use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any);
 my $logger = get_logger('BIGSdb.Plugins');
+use constant MAX_TREE_NODES => 1000;
 
 sub initiate {
 	my ($self) = @_;
@@ -404,73 +405,79 @@ sub print_field_export_form {
 			$self->print_fields( $composites, 'c', 6, 0, \%labels, \@com_js, \@com_js2, $default_select );
 		}
 	}
-	my $qry    = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
-	my $cn_sql = $self->{'db'}->prepare($qry);
-	eval { $cn_sql->execute; };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
-	my $common_names = $cn_sql->fetchall_hashref('id');
-	foreach (@$schemes) {
-		my $scheme_members = $self->{'datastore'}->get_scheme_loci($_);
-		my $scheme_fields  = $self->{'datastore'}->get_scheme_fields($_);
-		my $scheme_info    = $self->{'datastore'}->get_scheme_info($_);
-		if ( @$scheme_members or @$scheme_fields ) {
-			( my $heading = $scheme_info->{'description'} ) =~ s/\&/\&amp;/g;
-			print "<h2>$heading</h2>\n";
-			my @values;
-			my $labels;
+	if ( @$loci <= MAX_TREE_NODES ) {
+		print "<h2>Schemes and loci</h2>\n";
+		$self->_print_tree(1);
+	} else {
+		my $qry    = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
+		my $cn_sql = $self->{'db'}->prepare($qry);
+		eval { $cn_sql->execute; };
+		if ($@) {
+			$logger->error("Can't execute $@");
+		}
+		my $common_names = $cn_sql->fetchall_hashref('id');
+		foreach (@$schemes) {
+			my $scheme_members = $self->{'datastore'}->get_scheme_loci($_);
+			my $scheme_fields  = $self->{'datastore'}->get_scheme_fields($_);
+			my $scheme_info    = $self->{'datastore'}->get_scheme_info($_);
+			if ( @$scheme_members or @$scheme_fields ) {
+				( my $heading = $scheme_info->{'description'} ) =~ s/\&/\&amp;/g;
+				print "<h2>$heading</h2>\n";
+				my @values;
+				my $labels;
+				my ( @scheme_js, @scheme_js2 );
+				foreach my $member (@$scheme_members) {
+					my $cleaned_member = $member;
+					$cleaned_member =~ s/'/__prime__/g;
+					$cleaned_member =~ s/\//__slash__/g;
+					$cleaned_member =~ s/,/__comma__/g;
+					$cleaned_member =~ s/ /__space__/g;
+					$cleaned_member =~ s/\(/_OPEN_/g;
+					$cleaned_member =~ s/\)/_CLOSE_/g;
+					$cleaned_member =~ s/\>/_GT_/g;
+					push @values,     "l_$member";
+					push @js,         "\$(\"#s_$_\_l_$cleaned_member\").attr(\"checked\",true)";
+					push @js2,        "\$(\"#s_$_\_l_$cleaned_member\").attr(\"checked\",false)";
+					push @scheme_js,  "\$(\"#s_$_\_l_$cleaned_member\").attr(\"checked\",true)";
+					push @scheme_js2, "\$(\"#s_$_\_l_$cleaned_member\").attr(\"checked\",false)";
+					$labels->{"l_$member"} = "$member ($common_names->{$member}->{'common_name'})"
+					  if $common_names->{$member}->{'common_name'};
+				}
+				foreach my $scheme_field (@$scheme_fields) {
+					push @values,     "f_$scheme_field";
+					push @js,         "\$(\"#s_$_\_f_$scheme_field\").attr(\"checked\",true)";
+					push @js2,        "\$(\"#s_$_\_f_$scheme_field\").attr(\"checked\",false)";
+					push @scheme_js,  "\$(\"#s_$_\_f_$scheme_field\").attr(\"checked\",true)";
+					push @scheme_js2, "\$(\"#s_$_\_f_$scheme_field\").attr(\"checked\",false)";
+				}
+				$self->print_fields( \@values, "s_$_", 10, 1, $labels, \@scheme_js, \@scheme_js2, $default_select );
+			}
+		}
+		if (@$loci) {
+			print "<h2>Loci not belonging to any scheme</h2>\n";
 			my ( @scheme_js, @scheme_js2 );
-			foreach my $member (@$scheme_members) {
-				my $cleaned_member = $member;
-				$cleaned_member =~ s/'/__prime__/g;
-				$cleaned_member =~ s/\//__slash__/g;
-				$cleaned_member =~ s/,/__comma__/g;
-				$cleaned_member =~ s/ /__space__/g;
-				$cleaned_member =~ s/\(/_OPEN_/g;
-				$cleaned_member =~ s/\)/_CLOSE_/g;
-				$cleaned_member =~ s/\>/_GT_/g;
-				push @values,     "l_$member";
-				push @js,         "\$(\"#s_$_\_l_$cleaned_member\").attr(\"checked\",true)";
-				push @js2,        "\$(\"#s_$_\_l_$cleaned_member\").attr(\"checked\",false)";
-				push @scheme_js,  "\$(\"#s_$_\_l_$cleaned_member\").attr(\"checked\",true)";
-				push @scheme_js2, "\$(\"#s_$_\_l_$cleaned_member\").attr(\"checked\",false)";
-				$labels->{"l_$member"} = "$member ($common_names->{$member}->{'common_name'})" if $common_names->{$member}->{'common_name'};
+			foreach (@$loci) {
+				my $cleaned = $_;
+				$cleaned =~ s/'/__prime__/g;
+				$cleaned =~ s/\//__slash__/g;
+				$cleaned =~ s/,/__comma__/g;
+				$cleaned =~ s/ /__space__/g;
+				$cleaned =~ s/\(/_OPEN_/g;
+				$cleaned =~ s/\)/_CLOSE_/g;
+				$cleaned =~ s/\>/_GT_/g;
+				push @js,         "\$(\"#l_$cleaned\").attr(\"checked\",true)";
+				push @js2,        "\$(\"#l_$cleaned\").attr(\"checked\",false)";
+				push @scheme_js,  "\$(\"#l_$cleaned\").attr(\"checked\",true)";
+				push @scheme_js2, "\$(\"#l_$cleaned\").attr(\"checked\",false)";
 			}
-			foreach my $scheme_field (@$scheme_fields) {
-				push @values,     "f_$scheme_field";
-				push @js,         "\$(\"#s_$_\_f_$scheme_field\").attr(\"checked\",true)";
-				push @js2,        "\$(\"#s_$_\_f_$scheme_field\").attr(\"checked\",false)";
-				push @scheme_js,  "\$(\"#s_$_\_f_$scheme_field\").attr(\"checked\",true)";
-				push @scheme_js2, "\$(\"#s_$_\_f_$scheme_field\").attr(\"checked\",false)";
-			}
-			$self->print_fields( \@values, "s_$_", 10, 1, $labels, \@scheme_js, \@scheme_js2, $default_select );
+			my %labels;
+			$self->print_fields( $loci, 'l', 12, 0, \%labels, \@scheme_js, \@scheme_js2, $default_select );
 		}
+		$" = ';';
+		print "<input type=\"button\" value=\"Select all\" onclick='@js' style=\"margin-top:1em\" class=\"button\" />\n";
+		print "<input type=\"button\" value=\"Select none\" onclick='@js2' style=\"margin-top:1em\" class=\"button\" />\n";
+		print "<noscript><span class=\"comment\"> Enable javascript for select buttons to work!</span></noscript>\n";
 	}
-	if (@$loci) {
-		print "<h2>Loci not belonging to any scheme</h2>\n";
-		my ( @scheme_js, @scheme_js2 );
-		foreach (@$loci) {
-			my $cleaned = $_;
-			$cleaned =~ s/'/__prime__/g;
-			$cleaned =~ s/\//__slash__/g;
-			$cleaned =~ s/,/__comma__/g;
-			$cleaned =~ s/ /__space__/g;
-			$cleaned =~ s/\(/_OPEN_/g;
-			$cleaned =~ s/\)/_CLOSE_/g;
-			$cleaned =~ s/\>/_GT_/g;
-			push @js,         "\$(\"#l_$cleaned\").attr(\"checked\",true)";
-			push @js2,        "\$(\"#l_$cleaned\").attr(\"checked\",false)";
-			push @scheme_js,  "\$(\"#l_$cleaned\").attr(\"checked\",true)";
-			push @scheme_js2, "\$(\"#l_$cleaned\").attr(\"checked\",false)";
-		}
-		my %labels;
-		$self->print_fields( $loci, 'l', 12, 0, \%labels, \@scheme_js, \@scheme_js2, $default_select );
-	}
-	$" = ';';
-	print "<input type=\"button\" value=\"Select all\" onclick='@js' style=\"margin-top:1em\" class=\"button\" />\n";
-	print "<input type=\"button\" value=\"Select none\" onclick='@js2' style=\"margin-top:1em\" class=\"button\" />\n";
-	print "<noscript><span class=\"comment\"> Enable javascript for select buttons to work!</span></noscript>\n";
 	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
 	foreach (qw (db page name query_file)) {
 		print $q->hidden($_);
@@ -572,7 +579,7 @@ sub print_sequence_export_form {
 	}
 	print $self->get_extra_form_elements;
 	my $loci = $self->{'datastore'}->get_loci( { 'analysis_pref' => 1 } );
-	if ( !$scheme_id && @$loci <= 1000 ) {
+	if ( !$scheme_id && @$loci <= MAX_TREE_NODES ) {
 
 		#There are currently performance issues with the hierarchical Javascript tree, so don't display it once
 		#the number of loci go over a certain threshold.
@@ -663,14 +670,16 @@ sub print_sequence_export_form {
 }
 
 sub _print_tree {
-	my ($self) = @_;
+	my ( $self, $include_scheme_fields ) = @_;
 	print "<p style=\"clear:both\">Click within the tree to select loci belonging to schemes or groups of schemes.</p>
 	<p>If the tree is slow to update, you can try modifying your locus and
 	scheme preferences by setting 'analysis' to false for any <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=schemes\">schemes</a>
 	 or <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=loci\">loci</a> for which you do not plan to use in analysis tools.</p>\n";
 	print "<noscript><p class=\"highlight\">Javascript needs to be enabled.</p></noscript>\n";
 	print "<div id=\"tree\" class=\"tree\">\n";
-	print $self->get_tree( undef, { 'no_link_out' => 1, 'list_loci' => 1, 'analysis_pref' => 1 } );
-	print "</div>\n";	
+	my $options = { 'no_link_out' => 1, 'list_loci' => 1, 'analysis_pref' => 1 };
+	$options->{'scheme_fields'} = 1 if $include_scheme_fields;
+	print $self->get_tree( undef, $options );
+	print "</div>\n";
 }
 1;

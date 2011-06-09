@@ -2599,9 +2599,12 @@ sub _get_group_schemes {
 sub _get_scheme_loci {
 	my ( $self, $scheme_id, $isolate_id, $options ) = @_;
 	my $analysis_pref = $self->{'system'}->{'dbtype'} eq 'isolates' ? 1 : 0;
-	my $loci;
+	my ($loci,$scheme_fields);
 	if ($scheme_id) {
 		$loci = $self->{'datastore'}->get_scheme_loci( $scheme_id, { 'profile_name' => 0, 'analysis_pref' => $analysis_pref } );
+		if ($options->{'scheme_fields'}){
+			$scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+		}
 	} else {
 		$loci = $self->{'datastore'}->get_loci_in_no_scheme($analysis_pref);
 	}
@@ -2632,6 +2635,19 @@ sub _get_scheme_loci {
 		$buffer .= "<li id=\"$id\"><a>$locus";
 		$buffer .= " ($common_names->{$_}->{'common_name'})" if $common_names->{$_}->{'common_name'};
 		$buffer .= "</a></li>\n";
+	}
+	foreach my $scheme_field (@$scheme_fields){		
+		my $cleaned = $scheme_field;
+		$cleaned =~ s/'/__prime__/g;
+		$cleaned =~ s/\//__slash__/g;
+		$cleaned =~ s/,/__comma__/g;
+		$cleaned =~ s/ /__space__/g;
+		$cleaned =~ s/\(/_OPEN_/g;
+		$cleaned =~ s/\)/_CLOSE_/g;
+		$cleaned =~ s/\>/_GT_/g;
+		my $id = "s_$scheme_id\_f_$cleaned";
+		$scheme_field =~ tr/_/ /;
+		$buffer .= "<li id=\"$id\"><a>$scheme_field</a></li>\n";
 	}
 	return "<ul>\n$buffer</ul>\n" if $buffer;
 }
