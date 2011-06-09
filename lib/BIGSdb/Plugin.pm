@@ -656,6 +656,7 @@ sub print_sequence_export_form {
 			}
 		}
 		$" = ';';
+		print "</div>\n";
 		if ( !$scheme_id ) {
 			print "<input type=\"button\" value=\"Select all\" onclick='@js' style=\"margin-top:1em\" class=\"button\" />\n";
 			print "<input type=\"button\" value=\"Select none\" onclick='@js2' style=\"margin-top:1em\" class=\"button\" />\n";

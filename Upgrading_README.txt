@@ -79,7 +79,8 @@ directory, against your isolate databases.
 There has also been a change in the seqdef database schema.  There is a new
 table 'client_dbase_loci_fields' that enables fields within a client isolate
 database to be returned following a sequence query, e.g. to identify a species
-from a specific allele sequence. 
+from a specific allele sequence.  Please run the seqdefdb_v1.3.sql script, 
+found in the sql/upgrade directory, against your seqdef databases.
 
 Locus selection for plugins now uses a hierarchical expandable tree.  Please
 ensure you update the jquery.jstree.js file in the javascript directory.
