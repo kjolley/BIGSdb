@@ -699,12 +699,15 @@ sub get_loci {
 	foreach (@$array_ref) {
 		next
 		  if $options->{'query_pref'}
-			  && (   !$self->{'prefs'}->{'query_field_loci'}->{ $_->[0] } || (!$self->{'prefs'}->{'query_field_schemes'}->{ $_->[1] }
-				  && $_->[1] ));
+			  && (
+				  !$self->{'prefs'}->{'query_field_loci'}->{ $_->[0] }
+				  || (  !$self->{'prefs'}->{'query_field_schemes'}->{ $_->[1] }
+					  && $_->[1] )
+			  );
 		next
 		  if $options->{'analysis_pref'}
-			  && (   !$self->{'prefs'}->{'analysis_loci'}->{ $_->[0] } || (!$self->{'prefs'}->{'analysis_schemes'}->{ $_->[1] }
-				  && $_->[1] ));
+			  && ( !$self->{'prefs'}->{'analysis_loci'}->{ $_->[0] }
+				  || ( !$self->{'prefs'}->{'analysis_schemes'}->{ $_->[1] } && $_->[1] ) );
 		push @query_loci, $_->[0];
 	}
 	return \@query_loci;
@@ -1133,6 +1136,100 @@ sub get_citation_hash {
 	$sqlr2->finish if $sqlr2;
 	$sqlr3->finish if $sqlr3;
 	return $citation_ref;
+}
+
+sub create_temp_ref_table {
+	my ( $self, $list, $qry_ref ) = @_;
+	my %att = (
+		'dbase_name' => $self->{'config'}->{'refdb'},
+		'host'       => $self->{'system'}->{'host'},
+		'port'       => $self->{'system'}->{'port'},
+		'user'       => $self->{'system'}->{'user'},
+		'password'   => $self->{'system'}->{'pass'}
+	);
+	my $dbr;
+	my $continue = 1;
+	try {
+		$dbr = $self->{'dataConnector'}->get_connection( \%att );
+	}
+	catch BIGSdb::DatabaseConnectionException with {
+		$continue = 0;
+		print "<div class=\"box\" id=\"statusbad\"><p>Can not connect to reference database!</p></div>\n";
+		$logger->error->("Can't connect to reference database");
+	};
+	return if !$continue;
+	my $create =
+"CREATE TEMP TABLE temp_refs (pmid int, year int, journal text, volume text, pages text, title text, abstract text, authors text, isolates int);";
+	eval { $self->{'db'}->do($create); };
+	if ($@) {
+		$logger->error("Can't create temporary reference table. $@");
+		return;
+	}
+	my $qry1 = "SELECT pmid,year,journal,volume,pages,title,abstract FROM refs WHERE pmid=?";
+	my $sql1 = $dbr->prepare($qry1);
+	my $qry2 = "SELECT author FROM refauthors WHERE pmid=? ORDER BY position";
+	my $sql2 = $dbr->prepare($qry2);
+	my $qry3 = "SELECT surname,initials FROM authors WHERE id=?";
+	my $sql3 = $dbr->prepare($qry3);
+	my ( $qry4, $isolates );
+
+	if ($qry_ref) {
+		my $isolate_qry = $$qry_ref;
+		$isolate_qry =~ s/\*/id/;
+		$qry4 = "SELECT COUNT(*) FROM refs WHERE isolate_id IN ($isolate_qry) AND refs.pubmed_id=?";
+	} else {
+		$qry4 = "SELECT COUNT(*) FROM refs WHERE refs.pubmed_id=?";
+	}
+	my $sql4 = $self->{'db'}->prepare($qry4);
+	foreach my $pmid (@$list) {
+		eval { $sql1->execute($pmid); };
+		if ($@) {
+			$logger->error("Can't execute $qry1, value:$pmid $@");
+			return;
+		}
+		my @refdata = $sql1->fetchrow_array;
+		eval {
+			$sql2->execute($pmid);
+			return;
+		};
+		if ($@) {
+			$logger->error("Can't execute $qry2, value:$pmid $@");
+			return;
+		}
+		my @authors;
+		while ( my ($author) = $sql2->fetchrow_array ) {
+			eval { $sql3->execute($author); };
+			if ($@) {
+				$logger->error("Can't execute $qry3, value:$author $@");
+				return;
+			}
+			my ( $surname, $initials ) = $sql3->fetchrow_array;
+			$surname =~ s/'/\\'/g;
+			push @authors, "$surname $initials";
+		}
+		$" = ', ';
+		my $author_string = "@authors";
+		eval { $sql4->execute($pmid); };
+		if ($@) {
+			$logger->error("Can't execute $qry4, value:$pmid $@");
+			return;
+		}
+		my ($isolates) = $sql4->fetchrow_array;
+		$" = "','";
+		eval {
+			if ( $refdata[0] )
+			{
+				$self->{'db'}->do("INSERT INTO temp_refs VALUES ('@refdata',E'$author_string',$isolates)");
+			} else {
+				$self->{'db'}->do("INSERT INTO temp_refs VALUES ($pmid,null,null,null,null,null,null,null,$isolates)");
+			}
+		};
+		if ($@) {
+			$logger->error("Can't insert into temp_refs, values:'@refdata','$author_string'  $@");
+			return;
+		}
+	}
+	return 1;
 }
 ##############SQL######################################################################
 sub run_simple_query {

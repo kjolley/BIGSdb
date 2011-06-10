@@ -501,6 +501,7 @@ sub _run_query {
 							print "<pre style=\"font-size:1.2em\">\n";
 							$self->print_file( "$self->{'config'}->{'secure_tmp_dir'}/$blast_file", 1 );
 							print "</pre>\n";
+							print "</div>\n";
 							system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 							return;
 						}

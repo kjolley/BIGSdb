@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -189,8 +189,10 @@ sub print {
 		my $page_js = $self->get_javascript;
 		my @javascript;
 		if ( $self->{'jQuery'} ) {
+
 			#Load jQuery library from Google CDN
-			push @javascript, ( { 'language' => 'Javascript', 'src' => "http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js" } );
+			push @javascript,
+			  ( { 'language' => 'Javascript', 'src' => "http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js" } );
 			foreach (qw (jquery.tooltip.js cornerz.js bigsdb.js)) {
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/$_" } );
 			}
@@ -799,6 +801,8 @@ sub paged_display {
 		$self->_print_isolate_table( \$qry, $currentpage, $q->param('curate'), $records );
 	} elsif ( $table eq 'profiles' ) {
 		$self->_print_profile_table( \$qry, $currentpage, $q->param('curate'), $records );
+	} elsif ( $table eq 'refs' ) {
+		$self->_print_publication_table( \$qry, $currentpage );
 	} else {
 		$self->_print_record_table( $table, \$qry, $currentpage );
 	}
@@ -1016,7 +1020,7 @@ sub _print_record_table {
 				} else {
 					my $value = $data{ lc($field) };
 					$value =~ s/\&/\&amp;/g;
-					if ($self->{'system'}->{'locus_superscript_prefix'} eq 'yes' && $table eq 'loci' && $field eq 'id'){
+					if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' && $table eq 'loci' && $field eq 'id' ) {
 						$value =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
 					}
 					$value =~ tr/_/ /;
@@ -1044,6 +1048,66 @@ sub _print_record_table {
 		print "<p class=\"comment\">* Default values are displayed for this field.  These may be overridden by user preference.</p>\n";
 	}
 	print "</div>\n";
+}
+
+sub _print_publication_table {
+
+	#This function requires that datastore->create_temp_ref_table has been
+	#run by the calling code.
+	my ( $self, $qryref, $page ) = @_;
+	my $q        = $self->{'cgi'};
+	my $pagesize = $self->{'prefs'}->{'displayrecs'};
+	my $qry      = $$qryref;
+	if ( $pagesize && $page ) {
+		my $offset = ( $page - 1 ) * $pagesize;
+		$qry =~ s/;/ LIMIT $pagesize OFFSET $offset;/;
+	}
+	if ( any { lc($qry) =~ /;\s*$_\s/ } (qw (insert delete update alter create drop)) ) {
+		$logger->warn("Malicious SQL injection attempt '$qry'");
+		return;
+	}
+	my $sql = $self->{'db'}->prepare($qry);
+	eval { $sql->execute; };
+	if ($@) {
+		$logger->error("Can't execute $qry $@");
+		return;
+	}
+	my $buffer;
+	my $td = 1;
+	while ( my $refdata = $sql->fetchrow_hashref ) {
+		my $author_filter = $q->param('author');
+		next if ( $author_filter && $author_filter ne 'All authors' && $refdata->{'authors'} !~ /$author_filter/ );
+		$buffer .=
+"<tr class=\"td$td\"><td><a href='http://www.ncbi.nlm.nih.gov/pubmed/$refdata->{'pmid'}'>$refdata->{'pmid'}</a></td><td>$refdata->{'year'}</td><td style=\"text-align:left\">";
+		if ( !$refdata->{'authors'} && !$refdata->{'title'} ) {
+			$buffer .= "No details available.</td>\n";
+		} else {
+			$buffer .= "$refdata->{'authors'} ";
+			$buffer .= "($refdata->{'year'}) " if $refdata->{'year'};
+			$buffer .= "$refdata->{'journal'} ";
+			$buffer .= "<b>$refdata->{'volume'}:</b> "
+			  if $refdata->{'volume'};
+			$buffer .= " $refdata->{'pages'}</td>\n";
+		}
+		$buffer .= "<td style=\"text-align:left\">$refdata->{'title'}</td>\n";
+		if ( $q->param('calling_page') ne 'browse' && !$q->param('all_records') ) {
+			$buffer .= "<td>$refdata->{'isolates'}</td>";
+		}
+		$buffer .= "<td>" . $self->get_link_button_to_ref( $refdata->{'pmid'} ) . "</td>\n";
+		$buffer .= "</tr>\n";
+		$td = $td == 1 ? 2 : 1;
+	}
+	if ($buffer) {
+		print "<div class=\"box\" id=\"resultstable\">\n";
+		print "<table class=\"resultstable\">\n<thead>\n";
+		print "<tr><th>PubMed id</th><th>Year</th><th>Citation</th><th>Title</th>";
+		print "<th>Isolates in query</th>" if $q->param('calling_page') ne 'browse' && !$q->param('all_records');
+		print "<th>Isolates in database</th></tr>\n</thead>\n<tbody>\n";
+		print "$buffer";
+		print "</tbody></table>\n</div>\n";
+	} else {
+		print "<div class=\"box\" id=\"resultsheader\"><p>No PubMed records have been linked to isolates.</p></div>\n";
+	}
 }
 
 sub get_isolate_name_from_id {
@@ -2459,7 +2523,6 @@ sub get_tree {
 	  $self->{'datastore'}->run_list_query_hashref(
 		"SELECT id,description FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) ORDER BY display_order");
 	my $buffer;
-
 	my $scheme_nodes;
 
 	foreach (@$groups_with_no_parent) {
@@ -2491,11 +2554,11 @@ sub get_tree {
 		}
 		foreach (@$schemes_not_in_group) {
 			next if $options->{'isolate_display'} && !$self->{'prefs'}->{'isolate_display_schemes'}->{ $_->{'id'} };
-			next if $options->{'analysis_pref'} && !$self->{'prefs'}->{'analysis_schemes'}->{ $_->{'id'} };
+			next if $options->{'analysis_pref'}   && !$self->{'prefs'}->{'analysis_schemes'}->{ $_->{'id'} };
 			$_->{'description'} =~ s/&/\&amp;/g;
 			if ( !defined $isolate_id || $self->_scheme_data_present( $_->{'id'}, $isolate_id ) ) {
 				my $scheme_loci_buffer;
-				if ($options->{'list_loci'}){
+				if ( $options->{'list_loci'} ) {
 					$scheme_loci_buffer = $self->_get_scheme_loci( $_->{'id'}, $isolate_id, $options );
 					$data_exists = 1 if $scheme_loci_buffer;
 				} else {
@@ -2515,25 +2578,24 @@ sub get_tree {
 		$buffer .= $temp_buffer if $data_exists;
 	}
 	my $loci_not_in_schemes = $self->{'datastore'}->get_loci_in_no_scheme;
-	if ( @$loci_not_in_schemes && (!defined $isolate_id || $self->_data_not_in_scheme_present($isolate_id) )) {
+	if ( @$loci_not_in_schemes && ( !defined $isolate_id || $self->_data_not_in_scheme_present($isolate_id) ) ) {
 		my $scheme_loci_buffer;
-		if ($options->{'list_loci'}){
+		if ( $options->{'list_loci'} ) {
 			$scheme_loci_buffer = $self->_get_scheme_loci( 0, $isolate_id, $options ) if $options->{'list_loci'};
 		}
-		if (!$options->{'list_loci'} || ($options->{'list_loci'} && $scheme_loci_buffer) ){
+		if ( !$options->{'list_loci'} || ( $options->{'list_loci'} && $scheme_loci_buffer ) ) {
 			if ( $options->{'no_link_out'} ) {
 				$buffer .= "<li><a>Loci not in schemes</a>\n";
 			} else {
 				$buffer .=
-	"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;scheme_id=0\" rel=\"ajax\">Loci not in schemes</a>\n";
+"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;scheme_id=0\" rel=\"ajax\">Loci not in schemes</a>\n";
 			}
 			$buffer .= $scheme_loci_buffer;
 			$buffer .= "</li>\n";
 		}
 	}
-	
 	my $main_buffer;
-	if ($buffer){
+	if ($buffer) {
 		$main_buffer = "<ul>\n";
 		if ( $options->{'no_link_out'} ) {
 			$main_buffer .= "<li id=\"all_loci\"><a>All loci</a><ul>\n";
@@ -2560,14 +2622,14 @@ sub _get_group_schemes {
 	);
 	if (@$schemes) {
 		foreach (@$schemes) {
-			next if $options->{'isolate_display'} && !$self->{'prefs'}->{'isolate_display_schemes'}->{ $_ };
-			next if $options->{'analysis_pref'} && !$self->{'prefs'}->{'analysis_schemes'}->{$_};
+			next if $options->{'isolate_display'} && !$self->{'prefs'}->{'isolate_display_schemes'}->{$_};
+			next if $options->{'analysis_pref'}   && !$self->{'prefs'}->{'analysis_schemes'}->{$_};
 			my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
 			my $scheme_loci_buffer;
-			if ($options->{'list_loci'}){
+			if ( $options->{'list_loci'} ) {
 				$scheme_loci_buffer = $self->_get_scheme_loci( $scheme_info->{'id'}, $isolate_id, $options );
 				next if !$scheme_loci_buffer;
-			}			
+			}
 			$scheme_info->{'description'} =~ s/&/\&amp;/g;
 			my $page = $self->{'cgi'}->param('page');
 			if ( defined $isolate_id ) {
@@ -2599,10 +2661,10 @@ sub _get_group_schemes {
 sub _get_scheme_loci {
 	my ( $self, $scheme_id, $isolate_id, $options ) = @_;
 	my $analysis_pref = $self->{'system'}->{'dbtype'} eq 'isolates' ? 1 : 0;
-	my ($loci,$scheme_fields);
+	my ( $loci, $scheme_fields );
 	if ($scheme_id) {
 		$loci = $self->{'datastore'}->get_scheme_loci( $scheme_id, { 'profile_name' => 0, 'analysis_pref' => $analysis_pref } );
-		if ($options->{'scheme_fields'}){
+		if ( $options->{'scheme_fields'} ) {
 			$scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 		}
 	} else {
@@ -2627,16 +2689,16 @@ sub _get_scheme_loci {
 		$cleaned =~ s/\>/_GT_/g;
 		my $id = $scheme_id ? "s_$scheme_id\_l_$cleaned" : "l_$cleaned";
 		my $locus = $_;
+
 		if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
 			$locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
 		}
 		$locus =~ tr/_/ /;
-		
 		$buffer .= "<li id=\"$id\"><a>$locus";
 		$buffer .= " ($common_names->{$_}->{'common_name'})" if $common_names->{$_}->{'common_name'};
 		$buffer .= "</a></li>\n";
 	}
-	foreach my $scheme_field (@$scheme_fields){		
+	foreach my $scheme_field (@$scheme_fields) {
 		my $cleaned = $scheme_field;
 		$cleaned =~ s/'/__prime__/g;
 		$cleaned =~ s/\//__slash__/g;

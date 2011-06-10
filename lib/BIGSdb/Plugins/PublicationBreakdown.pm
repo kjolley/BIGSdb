@@ -1,6 +1,6 @@
 #PublicationBreakdown.pm - PublicationBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,6 +21,7 @@ package BIGSdb::Plugins::PublicationBreakdown;
 use strict;
 use base qw(BIGSdb::Plugin);
 use base qw(BIGSdb::IsolateInfoPage);
+use List::MoreUtils qw(any uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
@@ -48,11 +49,11 @@ sub get_attributes {
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { 'general' => 0, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 0 };
+	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 0 };
 }
 
 sub run {
-	my ($self)   = @_;
+	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
 	print "<h1>Publication breakdown of dataset</h1>\n";
@@ -70,8 +71,9 @@ sub run {
 	return if !$self->create_temp_tables($qry_ref);
 	$qry =~ s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT id FROM $self->{'system'}->{'view'}/;
 	my $new_qry = "SELECT DISTINCT(refs.pubmed_id) FROM refs WHERE refs.isolate_id IN ($qry)";
-	my $sql = $self->{'db'}->prepare($new_qry);
+	my $sql     = $self->{'db'}->prepare($new_qry);
 	eval { $sql->execute(); };
+
 	if ($@) {
 		$logger->error("Can't execute $qry $@");
 		return;
@@ -80,193 +82,63 @@ sub run {
 	while ( my ($pmid) = $sql->fetchrow_array ) {
 		push @list, $pmid if $pmid;
 	}
-	my $order;
 	my $guid = $self->get_guid;
-#	my $guid = $q->cookie( -name => 'guid' );
-	try {
-		$order = $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'PublicationBreakdown', 'order' );
-		$order = 'pmid'          if $order eq 'PubMed id';
-		$order = 'isolates desc' if $order eq 'number of isolates';
-	  }
-	  catch BIGSdb::DatabaseNoRecordException with {
-		$order = 'isolates desc';
-	  };
-	$order .= ',pmid' if !$order eq 'pmid';
-	if ( $self->_create_temp_ref_table( \@list, \$isolate_qry ) ) {
-		my $authornames = $self->_get_author_list;
+	if ( $self->{'datastore'}->create_temp_ref_table( \@list, \$isolate_qry ) ) {
 		print "<div class=\"box\" id=\"queryform\">\n";
-		print "Filter by author: \n";
 		print $q->startform;
-		foreach (qw (db name query_file)) {
-			print $q->hidden($_);
+		$q->param( 'all_records', 1 ) if !$query_file;
+		print $q->hidden($_) foreach (qw (db name query_file page all_records));
+		print "<fieldset class=\"filter\"><legend>Filter query by</legend>\n";
+		my $author_list = $self->_get_author_list;
+		print "<ul><li><label for=\"author_list\" class=\"display\">Author:</label>\n";
+		print $q->popup_menu( -name => 'author_list', -id => 'author_list', -values => $author_list );
+		print "</li>\n<li><label for=\"year_list\" class=\"display\">Year:</label>\n";
+		my $year_list = $self->{'datastore'}->run_list_query("SELECT DISTINCT year FROM temp_refs ORDER BY year");
+		unshift @$year_list, 'All years';
+		print $q->popup_menu( -name => 'year_list', -id => 'year_list', -values => $year_list );
+		print "</li>\n</ul>\n</fieldset>\n";
+		print "<fieldset class=\"display\">\n";
+		print "<ul><li><label for=\"order\" class=\"display\">Order by: </label>\n";
+		my %labels = ( pmid => 'Pubmed id', first_author => 'first author', isolates => 'number of isolates' );
+		my @order_list = qw(pmid authors year title isolates);
+		print $q->popup_menu( -name => 'order', -id => 'order', -values => \@order_list, -labels => \%labels, -default => 'isolates' );
+		print $q->popup_menu(
+			-name    => 'direction',
+			-values  => [qw (asc desc)],
+			-labels  => { 'asc' => 'ascending', 'desc' => 'descending' },
+			-default => 'desc'
+		);
+		print "</li>\n<li><label for=\"displayrecs\" class=\"display\">Display: </label>\n";
+
+		if ( $q->param('displayrecs') ) {
+			$self->{'prefs'}->{'displayrecs'} = $q->param('displayrecs');
 		}
-		print $q->hidden('page');
-		print $q->popup_menu( -name => 'author', -values => $authornames );
-		print $q->submit(-class=>'submit');
+		print $q->popup_menu(
+			-name    => 'displayrecs',
+			-id      => 'displayrecs',
+			-values  => [ '10', '25', '50', '100', '200', '500', 'all' ],
+			-default => $self->{'prefs'}->{'displayrecs'}
+		);
+		print " records per page</li>\n</ul>\n";
+		print
+		  "<span style=\"float:right\"><input type=\"submit\" name=\"submit\" value=\"Submit\" class=\"submit\" /></span>\n</fieldset>\n";
 		print $q->endform;
 		print "</div>\n";
-		my $refquery = "SELECT * FROM temp_refs ORDER BY $order";
-		my $sql      = $self->{'db'}->prepare($refquery);
-		eval { $sql->execute; };
-
-		if ($@) {
-			$logger->error("Can't execute $refquery $@");
-			return;
-		}
-		my $buffer;
-		my $td = 1;
-		while ( my $refdata = $sql->fetchrow_hashref ) {
-			my $author_filter = $q->param('author');
-			next if ( $author_filter && $author_filter ne 'All authors' && $refdata->{'authors'} !~ /$author_filter/ );
-			$buffer .=
-"<tr class=\"td$td\"><td><a href='http://www.ncbi.nlm.nih.gov/entrez/query.fcgi?cmd=Retrieve&amp;db=PubMed&amp;list_uids=$refdata->{'pmid'}&amp;dopt=Abstract'>$refdata->{'pmid'}</a></td><td>$refdata->{'year'}</td><td style=\"text-align:left\">";
-			if ( !$refdata->{'authors'} && !$refdata->{'title'} ) {
-				$buffer .= "No details available.</td>\n";
-			} else {
-				$buffer .= "$refdata->{'authors'} ";
-				$buffer .= "($refdata->{'year'}) " if $refdata->{'year'};
-				$buffer .= "$refdata->{'journal'} ";
-				$buffer .= "<b>$refdata->{'volume'}:</b> "
-				  if $refdata->{'volume'};
-				$buffer .= " $refdata->{'pages'}</td>\n";
-			}
-			$buffer .= "<td style=\"text-align:left\">$refdata->{'title'}</td>\n";
-			if ( $query_file && $q->param('calling_page') ne 'browse' ) {
-				$buffer .= "<td>$refdata->{'isolates'}</td>";
-			}
-			$buffer .= "<td>" . $self->get_link_button_to_ref( $refdata->{'pmid'} ) . "</td>\n";
-			$buffer .= "</tr>\n";
-			$td = $td == 1 ? 2 : 1;
-		}
-		if ($buffer) {
-			print "<div class=\"box\" id=\"resultstable\">\n";
-			print "<table class=\"tablesorter\" id=\"sortTable\">\n<thead>\n";
-			print "<tr><th>PubMed id</th><th>Year</th><th>Citation</th><th>Title</th>";
-			print "<th>Isolates in query</th>" if $query_file && $q->param('calling_page') ne 'browse';
-			print "<th>Isolates in database</th><th class=\"{sorter: false}\">Display</th></tr>\n</thead>\n<tbody>\n";
-			print "$buffer";
-			print "</tbody></table>\n</div>\n";
-		} else {
-			print "<div class=\"box\" id=\"resultsheader\"><p>No PubMed records have been linked to isolates.</p></div>\n";
-		}
-	}
-}
-
-sub get_link_button_to_ref {
-	my ( $self, $ref ) = @_;
-	my $buffer;
-	my $qry =
-"SELECT COUNT(refs.isolate_id) FROM $self->{'system'}->{'view'} LEFT JOIN refs on refs.isolate_id=$self->{'system'}->{'view'}.id WHERE refs.pubmed_id=?";
-	my $count = $self->{'datastore'}->run_simple_query( $qry, $ref )->[0];
-	$buffer .= "$count</td><td>";
-	my $q = $self->{'cgi'};
-	$buffer .= $q->start_form;
-	$q->param( 'curate', 1 ) if $self->{'curate'};
-	$q->param( 'query',
-"SELECT * FROM $self->{'system'}->{'view'} LEFT JOIN refs on refs.isolate_id=$self->{'system'}->{'view'}.id WHERE refs.pubmed_id='$ref' ORDER BY $self->{'system'}->{'view'}.id;"
-	);
-	$q->param( 'pmid', $ref );
-	$q->param( 'page', 'pubquery' );
-
-	foreach (qw (db page query curate pmid)) {
-		$buffer .= $q->hidden($_);
-	}
-	$buffer .= $q->submit( -value => 'Display', -class => 'submit' );
-	$buffer .= $q->end_form;
-	return $buffer;
-}
-
-sub _create_temp_ref_table {
-	my ( $self, $list, $qry_ref ) = @_;
-	my %att = (
-		'dbase_name' => $self->{'config'}->{'refdb'},
-		'host'       => $self->{'system'}->{'host'},
-		'port'       => $self->{'system'}->{'port'},
-		'user'       => $self->{'system'}->{'user'},
-		'password'   => $self->{'system'}->{'pass'}
-	);
-	my $dbr;
-	my $continue = 1;
-	try {
-		$dbr = $self->{'dataConnector'}->get_connection( \%att );
-	  }
-	  catch BIGSdb::DatabaseConnectionException with {
-		$continue = 0;
-		print "<div class=\"box\" id=\"statusbad\"><p>Can not connect to reference database!</p></div>\n";
-		$logger->error->("Can't connect to reference database");
-	  };
-	return if !$continue;
-	my $create =
-"CREATE TEMP TABLE temp_refs (pmid int, year int, journal text, volume text, pages text, title text, abstract text, authors text, isolates int);";
-	eval { $self->{'db'}->do($create); };
-	if ($@) {
-		$logger->error("Can't create temporary reference table. $@");
+		my @filters;
+		my $author = ( any { $q->param('author_list') eq $_ } @$author_list ) ? $q->param('author_list') : 'All authors';
+		$author =~ s/'/\\'/g;
+		push @filters, "authors LIKE E'%$author%'" if $author ne 'All authors';
+		my $year = BIGSdb::Utils::is_int( $q->param('year_list') ) ? $q->param('year_list') : '';
+		push @filters, "year=$year" if $year;
+		$" = ' AND ';
+		my $filter_string = @filters ? " WHERE @filters" : '';
+		my $order = ( any { $q->param('order')     eq $_ } @order_list )  ? $q->param('order')     : 'isolates';
+		my $dir   = ( any { $q->param('direction') eq $_ } qw(desc asc) ) ? $q->param('direction') : 'desc';
+		my $refquery = "SELECT * FROM temp_refs$filter_string ORDER BY $order $dir;";
+		my @hidden_attributes = qw (name all_records author_list year_list query_file);
+		$self->paged_display( 'refs', $refquery, '', \@hidden_attributes );
 		return;
 	}
-	my $qry1 = "SELECT pmid,year,journal,volume,pages,title,abstract FROM refs WHERE pmid=?";
-	my $sql1 = $dbr->prepare($qry1);
-	my $qry2 = "SELECT author FROM refauthors WHERE pmid=? ORDER BY position";
-	my $sql2 = $dbr->prepare($qry2);
-	my $qry3 = "SELECT surname,initials FROM authors WHERE id=?";
-	my $sql3 = $dbr->prepare($qry3);
-	my ( $qry4, $isolates );
-
-	if ($qry_ref) {
-		my $isolate_qry = $$qry_ref;
-		$isolate_qry =~ s/\*/id/;
-		$qry4 = "SELECT COUNT(*) FROM refs WHERE isolate_id IN ($isolate_qry) AND refs.pubmed_id=?";
-	} else {
-		$qry4 = "SELECT COUNT(*) FROM refs WHERE refs.pubmed_id=?";
-	}
-	my $sql4 = $self->{'db'}->prepare($qry4);
-	foreach my $pmid (@$list) {
-		eval { $sql1->execute($pmid); };
-		if ($@) {
-			$logger->error("Can't execute $qry1, value:$pmid $@");
-			return;
-		}
-		my @refdata = $sql1->fetchrow_array;
-		eval {
-			$sql2->execute($pmid);
-			return;
-		};
-		if ($@) {
-			$logger->error("Can't execute $qry2, value:$pmid $@");
-			return;
-		}
-		my @authors;
-		while ( my ($author) = $sql2->fetchrow_array ) {
-			eval { $sql3->execute($author); };
-			if ($@) {
-				$logger->error("Can't execute $qry3, value:$author $@");
-				return;
-			}
-			my ( $surname, $initials ) = $sql3->fetchrow_array;
-			push @authors, "$surname $initials";
-		}
-		$" = ', ';
-		my $author_string = "@authors";
-		eval { $sql4->execute($pmid); };
-		if ($@) {
-			$logger->error("Can't execute $qry4, value:$pmid $@");
-			return;
-		}
-		my ($isolates) = $sql4->fetchrow_array;
-		$" = "','";
-		eval {
-			if ( $refdata[0] )
-			{
-				$self->{'db'}->do( "INSERT INTO temp_refs VALUES ('@refdata','$author_string',$isolates)" );
-			} else {
-				$self->{'db'}->do("INSERT INTO temp_refs VALUES ($pmid,null,null,null,null,null,null,null,$isolates)");
-			}
-		};
-		if ($@) {
-			$logger->error( "Can't insert into temp_refs, values:'@refdata','$author_string'  $@" );
-			return;
-		}
-	}
-	return 1;
 }
 
 sub _get_author_list {
@@ -276,18 +148,13 @@ sub _get_author_list {
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute; };
 	if ($@) {
-		$logger->error("Can't execute query '$qry' $@");
+		$logger->error("Can't execute $@");
 	}
 	while ( my ($authorstring) = $sql->fetchrow_array() ) {
 		push @authornames, split /, /, $authorstring;
 	}
-	my %templist = ();
-	@authornames = grep ( $templist{$_}++ == 0, @authornames );
-	%templist    = ();
-	@authornames = sort { lc($a) cmp lc($b) } @authornames;
+	@authornames = sort { lc($a) cmp lc($b) } uniq @authornames;
 	unshift @authornames, 'All authors';
 	return \@authornames;
 }
 1;
-
-
