@@ -37,7 +37,7 @@ sub get_attributes {
 		buttontext  => 'Publications',
 		menutext    => 'Publications',
 		module      => 'PublicationBreakdown',
-		version     => '1.0.0',
+		version     => '1.1.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',

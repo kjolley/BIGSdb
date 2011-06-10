@@ -224,7 +224,7 @@ sub _read_config_file {
 	$config = Config::Tiny->read("$config_dir/bigsdb.conf");
 	foreach (
 		qw ( prefs_db auth_db jobs_db max_load emboss_path tmp_dir secure_tmp_dir blast_path muscle_path mogrify_path
-		ipcress_path reference refdb chartdirector disable_updates disable_update_message)
+		ipcress_path reference refdb chartdirector disable_updates disable_update_message intranet)
 	  )
 	{
 		$self->{'config'}->{$_} = $config->{_}->{$_};

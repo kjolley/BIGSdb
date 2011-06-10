@@ -189,10 +189,14 @@ sub print {
 		my $page_js = $self->get_javascript;
 		my @javascript;
 		if ( $self->{'jQuery'} ) {
-
-			#Load jQuery library from Google CDN
-			push @javascript,
-			  ( { 'language' => 'Javascript', 'src' => "http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js" } );
+			if ($self->{'config'}->{'intranet'} eq 'yes'){
+				push @javascript,
+				  ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.js" } );				
+			} else {
+				#Load jQuery library from Google CDN
+				push @javascript,
+				  ( { 'language' => 'Javascript', 'src' => "http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js" } );
+			}
 			foreach (qw (jquery.tooltip.js cornerz.js bigsdb.js)) {
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/$_" } );
 			}
