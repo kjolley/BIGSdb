@@ -610,32 +610,6 @@ sub _get_samples {
 	return $buffer, $td;
 }
 
-sub get_link_button_to_ref {
-	my ( $self, $ref ) = @_;
-	my $buffer;
-	my $qry =
-"SELECT COUNT(refs.isolate_id) FROM $self->{'system'}->{'view'} LEFT JOIN refs on refs.isolate_id=$self->{'system'}->{'view'}.id WHERE pubmed_id=?";
-	my $count = $self->{'datastore'}->run_simple_query( $qry, $ref )->[0];
-	my $plural = $count == 1 ? '' : 's';
-	$buffer .= "$count isolate$plural";
-	my $q = $self->{'cgi'};
-	$buffer .= $q->start_form;
-	$q->param( 'curate', 1 ) if $self->{'curate'};
-	$q->param( 'query',
-"SELECT * FROM $self->{'system'}->{'view'} LEFT JOIN refs on refs.isolate_id=$self->{'system'}->{'view'}.id WHERE pubmed_id='$ref' ORDER BY $self->{'system'}->{'view'}.id;"
-	);
-	$q->param( 'pmid', $ref );
-	$q->param( 'page', 'pubquery' );
-
-	foreach (qw (db page query curate pmid)) {
-		$buffer .= $q->hidden($_);
-	}
-	$buffer .= $q->submit( -value => 'Display', -class => 'submit' );
-	$buffer .= $q->end_form;
-	$q->param( 'page', 'info' );
-	return $buffer;
-}
-
 sub _get_scheme_fields {
 	my ( $self, $id, $isolate_id, $locus_info, $locus_alias,$allele_designations, $allele_sequences, $allele_sequence_flags, $td, $summary_view ) = @_;
 	my $q = $self->{'cgi'};
@@ -899,7 +873,7 @@ sub _get_scheme_fields {
 		my @value_buffer;
 		my $i         = 0;
 		my $j         = 0;
-		my $max_cells = $q->param('no_header')? 10 : 20;
+		my $max_cells = $q->param('no_header')? 10 : 16;
 		foreach (@$loci) {
 			next
 			  if $self->{'prefs'}->{'isolate_display_loci'}->{$_} eq 'hide';

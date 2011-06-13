@@ -20,7 +20,6 @@
 package BIGSdb::Plugins::PublicationBreakdown;
 use strict;
 use base qw(BIGSdb::Plugin);
-use base qw(BIGSdb::IsolateInfoPage);
 use List::MoreUtils qw(any uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');

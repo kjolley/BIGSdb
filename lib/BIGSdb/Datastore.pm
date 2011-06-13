@@ -1169,8 +1169,13 @@ sub create_temp_ref_table {
 	my $sql1 = $dbr->prepare($qry1);
 	my $qry2 = "SELECT author FROM refauthors WHERE pmid=? ORDER BY position";
 	my $sql2 = $dbr->prepare($qry2);
-	my $qry3 = "SELECT surname,initials FROM authors WHERE id=?";
+	my $qry3 = "SELECT id,surname,initials FROM authors";
 	my $sql3 = $dbr->prepare($qry3);
+	eval { $sql3->execute;};
+	if (@$){
+		$logger->error($@);
+	}
+	my $all_authors = $sql3->fetchall_hashref('id');
 	my ( $qry4, $isolates );
 
 	if ($qry_ref) {
@@ -1181,38 +1186,31 @@ sub create_temp_ref_table {
 		$qry4 = "SELECT COUNT(*) FROM refs WHERE refs.pubmed_id=?";
 	}
 	my $sql4 = $self->{'db'}->prepare($qry4);
+	my %author_cache;
+	
 	foreach my $pmid (@$list) {
 		eval { $sql1->execute($pmid); };
 		if ($@) {
 			$logger->error("Can't execute $qry1, value:$pmid $@");
-			return;
 		}
 		my @refdata = $sql1->fetchrow_array;
 		eval {
 			$sql2->execute($pmid);
-			return;
 		};
 		if ($@) {
 			$logger->error("Can't execute $qry2, value:$pmid $@");
-			return;
 		}
 		my @authors;
-		while ( my ($author) = $sql2->fetchrow_array ) {
-			eval { $sql3->execute($author); };
-			if ($@) {
-				$logger->error("Can't execute $qry3, value:$author $@");
-				return;
-			}
-			my ( $surname, $initials ) = $sql3->fetchrow_array;
-			$surname =~ s/'/\\'/g;
-			push @authors, "$surname $initials";
+		my $author_arrayref = $sql2->fetchall_arrayref;
+		foreach (@$author_arrayref){
+			$all_authors->{$_->[0]}->{'surname'} =~ s/'/\\'/g;
+			push @authors, "$all_authors->{$_->[0]}->{'surname'} $all_authors->{$_->[0]}->{'initials'}";
 		}
 		$" = ', ';
 		my $author_string = "@authors";
 		eval { $sql4->execute($pmid); };
 		if ($@) {
 			$logger->error("Can't execute $qry4, value:$pmid $@");
-			return;
 		}
 		my ($isolates) = $sql4->fetchrow_array;
 		$" = "','";
@@ -1225,10 +1223,10 @@ sub create_temp_ref_table {
 			}
 		};
 		if ($@) {
-			$logger->error("Can't insert into temp_refs, values:'@refdata','$author_string'  $@");
-			return;
+			$logger->error($@);
 		}
 	}
+	$self->{'db'}->commit;
 	return 1;
 }
 ##############SQL######################################################################
