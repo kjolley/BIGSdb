@@ -104,6 +104,7 @@ sub run {
 		$list = \@;;
 	}
 	if ( $q->param('submit') ) {
+		$self->escape_params;
 		my @param_names = $q->param;
 		my @fields_selected;
 		foreach (@param_names) {

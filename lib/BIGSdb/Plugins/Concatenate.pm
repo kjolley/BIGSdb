@@ -161,6 +161,7 @@ sub _write_fasta {
 	my ( $self, $list, $fields, $filename, $pk ) = @_;
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
+	$self->escape_params;
 	open( my $fh, '>', $filename )
 	  or $logger->error("Can't open temp file $filename for writing");
 	my $isolate_sql;

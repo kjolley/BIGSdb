@@ -38,7 +38,6 @@ sub print_content {
 	my $filename  = $q->param('filename');
 	my $prefstore = $self->{'prefstore'};
 	my $guid = $self->get_guid;
-#	my $guid      = $q->cookie( -name => 'guid' );  
 	$prefstore->update_datestamp($guid) if $guid;
 	print "<h1>Customize $record display</h1>\n";
 
@@ -130,9 +129,7 @@ HTML
 		} elsif ( $table eq 'scheme_fields' ) {
 			$id = "field_$data->{'scheme_id'}_$data->{'field'}";
 		}
-		my $cleaned_id = $id;
-		$cleaned_id =~ s/'/__prime__/g;
-		$cleaned_id =~ s/\//__slash__/g;
+		my $cleaned_id = $self->clean_checkbox_id($id);
 		print $q->checkbox( -name => $id, -id => $cleaned_id, -label => '', -checked => 'checked' );
 		push @js,  "\$(\"#$cleaned_id\").attr(\"checked\",true)";
 		push @js2, "\$(\"#$cleaned_id\").attr(\"checked\",false)";

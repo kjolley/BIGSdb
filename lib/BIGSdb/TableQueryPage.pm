@@ -371,7 +371,6 @@ sub _print_query_interface {
 			push @filters, $buffer;
 		}
 	} elsif ($table eq 'locus_descriptions'){
-		
 		my %labels;
 		my $common_names = $self->{'datastore'}->run_list_query("SELECT DISTINCT common_name FROM loci ORDER BY common_name");
 		my $buffer = "<label for=\"common_name_list\" class=\"filter\">common name: </label>\n";
@@ -494,23 +493,23 @@ sub _run_query {
 						if ( $thisfield->{'type'} ne 'text' ) {
 							$qry .= $modifier . "CAST($field AS text) LIKE '\%$text\%'";
 						} else {
-							$qry .= $modifier . "upper($field) LIKE upper('\%$text\%')";
+							$qry .= $modifier . "upper($field) LIKE upper(E'\%$text\%')";
 						}
 					} elsif ( $operator eq "NOT contain" ) {
 						if ( $thisfield->{'type'} ne 'text' ) {
 							$qry .= $modifier . "NOT CAST($field AS text) LIKE '\%$text\%'";
 						} else {
-							$qry .= $modifier . "NOT upper($field) LIKE upper('\%$text\%')";
+							$qry .= $modifier . "NOT upper($field) LIKE upper(E'\%$text\%')";
 						}
 					} elsif ( $operator eq '=' ) {
 						if ( lc( $thisfield->{'type'} ) eq 'text' ) {
 							$qry .= $modifier
-							  . ( ( $text eq '<blank>' || $text eq 'null' ) ? "$field is null" : "upper($field) = upper('$text')" );
+							  . ( ( $text eq '<blank>' || $text eq 'null' ) ? "$field is null" : "upper($field) = upper(E'$text')" );
 						} else {
 							$qry .= $modifier . ( ( $text eq '<blank>' || $text eq 'null' ) ? "$field is null" : "$field = '$text'" );
 						}
 					} else {
-						$qry .= $modifier . "$field $operator '$text'";
+						$qry .= $modifier . "$field $operator E'$text'";
 					}
 				}
 			}

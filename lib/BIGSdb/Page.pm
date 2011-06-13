@@ -2547,6 +2547,43 @@ sub _initiate_isolatedb_prefs {
 		}
 	}
 }
+
+sub clean_checkbox_id {
+	my ( $self, $var ) = @_;
+	$var =~ s/'/__prime__/g;
+	$var =~ s/\//__slash__/g;
+	$var =~ s/,/__comma__/g;
+	$var =~ s/ /__space__/g;
+	$var =~ s/\(/_OPEN_/g;
+	$var =~ s/\)/_CLOSE_/g;
+	$var =~ s/\>/_GT_/g;
+	return $var;	
+}
+
+sub escape_params {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};		
+	my @param_names = $q->param;
+	my %escapes = (
+		'__prime__' => "'",
+		'__slash__' => "\\",
+		'__comma__' => ',',
+		'__space__' => ' ',
+		'_OPEN_' => "(",
+		'_CLOSE_' => ")",
+		'_GT_' => ">"
+	);
+	foreach my $param_name (@param_names){
+		my $key = $param_name;
+		if (any {$param_name =~ /$_/} keys %escapes){
+			foreach my $escape_string (keys %escapes){
+				$key =~ s/$escape_string/$escapes{$escape_string}/g;
+			}
+			$q->param($key,$q->param($param_name));
+		}
+	}
+}
+
 ###SCHEME GROUP TREE DRAWING#################
 sub get_tree {
 	my ( $self, $isolate_id, $options ) = @_;
@@ -2716,14 +2753,7 @@ sub _get_scheme_loci {
 	my $common_names = $cn_sql->fetchall_hashref('id');
 	my $buffer;
 	foreach (@$loci) {
-		my $cleaned = $_;
-		$cleaned =~ s/'/__prime__/g;
-		$cleaned =~ s/\//__slash__/g;
-		$cleaned =~ s/,/__comma__/g;
-		$cleaned =~ s/ /__space__/g;
-		$cleaned =~ s/\(/_OPEN_/g;
-		$cleaned =~ s/\)/_CLOSE_/g;
-		$cleaned =~ s/\>/_GT_/g;
+		my $cleaned = $self->clean_checkbox_id($_);
 		my $id = $scheme_id ? "s_$scheme_id\_l_$cleaned" : "l_$cleaned";
 		my $locus = $_;
 
@@ -2736,14 +2766,7 @@ sub _get_scheme_loci {
 		$buffer .= "</a></li>\n";
 	}
 	foreach my $scheme_field (@$scheme_fields) {
-		my $cleaned = $scheme_field;
-		$cleaned =~ s/'/__prime__/g;
-		$cleaned =~ s/\//__slash__/g;
-		$cleaned =~ s/,/__comma__/g;
-		$cleaned =~ s/ /__space__/g;
-		$cleaned =~ s/\(/_OPEN_/g;
-		$cleaned =~ s/\)/_CLOSE_/g;
-		$cleaned =~ s/\>/_GT_/g;
+		my $cleaned = $self->clean_checkbox_id($scheme_field);
 		my $id = "s_$scheme_id\_f_$cleaned";
 		$scheme_field =~ tr/_/ /;
 		$buffer .= "<li id=\"$id\"><a>$scheme_field</a></li>\n";

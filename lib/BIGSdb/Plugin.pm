@@ -323,7 +323,7 @@ sub print_fields {
 			$label =~ s/^[lf]_// if $trim_prefix;
 			$label =~ s/___/../;
 			$label =~ tr/_/ /;
-			my $id = $self->_clean_var("$prefix\_$field");
+			my $id = $self->clean_checkbox_id("$prefix\_$field");
 			print "<td style=\"padding-left:1em\">";
 			my $value = $prefix eq 'c' ? 0 : $default_select;
 			print $q->checkbox( -name => "$prefix\_$field", -id => $id, -checked => $value, -value => 'checked', -label => $label );
@@ -419,7 +419,7 @@ sub print_field_export_form {
 				my $labels;
 				my ( @scheme_js, @scheme_js2 );
 				foreach my $member (@$scheme_members) {
-					my $cleaned_member = $self->_clean_var($member);
+					my $cleaned_member = $self->clean_checkbox_id($member);
 					push @values,     "l_$member";
 					push @js,         "\$(\"#s_$_\_l_$cleaned_member\").attr(\"checked\",true)";
 					push @js2,        "\$(\"#s_$_\_l_$cleaned_member\").attr(\"checked\",false)";
@@ -442,7 +442,7 @@ sub print_field_export_form {
 			print "<h2>Loci not belonging to any scheme</h2>\n";
 			my ( @scheme_js, @scheme_js2 );
 			foreach (@$loci) {
-				my $cleaned = $self->_clean_var($_);
+				my $cleaned = $self->clean_checkbox_id($_);
 				push @js,         "\$(\"#l_$cleaned\").attr(\"checked\",true)";
 				push @js2,        "\$(\"#l_$cleaned\").attr(\"checked\",false)";
 				push @scheme_js,  "\$(\"#l_$cleaned\").attr(\"checked\",true)";
@@ -469,6 +469,8 @@ sub get_selected_fields {
 	my $fields   = $self->{'xmlHandler'}->get_field_list;
 	my $extended = $self->get_extended_attributes;
 	my @display_fields;
+	$self->escape_params;
+
 	foreach (@$fields) {
 		push @display_fields, $_;
 		push @display_fields, 'aliases' if $_ eq $self->{'system'}->{'labelfield'};
@@ -588,7 +590,7 @@ sub print_sequence_export_form {
 				my @values;
 				my $labels;
 				foreach my $member (@$scheme_members) {
-					my $cleaned_member = $self->_clean_var($member);
+					my $cleaned_member = $self->clean_checkbox_id($member);
 					push @values,     "l_$member";
 					push @js,         "\$(\"#s_$scheme_id\_l_$cleaned_member\").attr(\"checked\",true)";
 					push @js2,        "\$(\"#s_$scheme_id\_l_$cleaned_member\").attr(\"checked\",false)";
@@ -609,7 +611,7 @@ sub print_sequence_export_form {
 				print "<h2>Loci not belonging to any scheme</h2>\n";
 				my ( @scheme_js, @scheme_js2 );
 				foreach (@$loci) {
-					my $cleaned = $self->_clean_var($_);
+					my $cleaned = $self->clean_checkbox_id($_);
 					push @js,         "\$(\"#l_$cleaned\").attr(\"checked\",true)";
 					push @js2,        "\$(\"#l_$cleaned\").attr(\"checked\",false)";
 					push @scheme_js,  "\$(\"#l_$cleaned\").attr(\"checked\",true)";
@@ -648,15 +650,5 @@ sub _print_tree {
 	print "</div>\n";
 }
 
-sub _clean_var {
-	my ( $self, $var ) = @_;
-	$var =~ s/'/__prime__/g;
-	$var =~ s/\//__slash__/g;
-	$var =~ s/,/__comma__/g;
-	$var =~ s/ /__space__/g;
-	$var =~ s/\(/_OPEN_/g;
-	$var =~ s/\)/_CLOSE_/g;
-	$var =~ s/\>/_GT_/g;
-	return $var;	
-}
+
 1;

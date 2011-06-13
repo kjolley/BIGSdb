@@ -825,13 +825,8 @@ sub _print_row {
 		"SELECT COUNT(*) FROM pending_allele_designations WHERE isolate_id=? AND locus=? AND allele_id=? AND sender=? AND method=?",
 		$isolate_id, $locus, $match->{'allele'}, $sender, 'automatic' )->[0];
 	my $seq_disabled = 0;
-	$cleaned_locus = $locus;
+	$cleaned_locus = $self->clean_checkbox_id($locus);
 	$cleaned_locus =~ s/\\/\\\\/g;
-	$cleaned_locus =~ s/'/__prime__/g;
-	$cleaned_locus =~ s/,/__comma__/g;
-	$cleaned_locus =~ s/ /__space__/g;
-	$cleaned_locus =~ s/\(/_OPEN_/g;
-	$cleaned_locus =~ s/\)/_CLOSE_/g;
 	$exact = 0 if $warning;
 
 	if ( $exact && $match->{'allele'} ne $existing_allele && !$matching_pending && $match->{'allele'} ne 'ref' && !$q->param('tblastx') ) {
