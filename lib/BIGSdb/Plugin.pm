@@ -203,8 +203,6 @@ sub print_content {
 	my $cookies_disabled;
 	if ( @$option_list && $q->param('format') ne 'text' ) {
 		if ( $q->param('update_options') ) {
-
-			#			my $guid = $q->cookie( -name => 'guid' );
 			my $guid = $self->get_guid;
 			if ($guid) {
 				if ( $q->param('set') ) {
@@ -325,14 +323,7 @@ sub print_fields {
 			$label =~ s/^[lf]_// if $trim_prefix;
 			$label =~ s/___/../;
 			$label =~ tr/_/ /;
-			my $id = "$prefix\_$field";
-			$id =~ s/'/__prime__/g;
-			$id =~ s/\//__slash__/g;
-			$id =~ s/,/__comma__/g;
-			$id =~ s/ /__space__/g;
-			$id =~ s/\(/_OPEN_/g;
-			$id =~ s/\)/_CLOSE_/g;
-			$id =~ s/\>/_GT_/g;
+			my $id = $self->_clean_var("$prefix\_$field");
 			print "<td style=\"padding-left:1em\">";
 			my $value = $prefix eq 'c' ? 0 : $default_select;
 			print $q->checkbox( -name => "$prefix\_$field", -id => $id, -checked => $value, -value => 'checked', -label => $label );
@@ -405,7 +396,8 @@ sub print_field_export_form {
 			$self->print_fields( $composites, 'c', 6, 0, \%labels, \@com_js, \@com_js2, $default_select );
 		}
 	}
-	if ( @$loci <= MAX_TREE_NODES ) {
+	my $total_loci = $self->{'datastore'}->get_loci( { 'analysis_pref' => 1 } );
+	if ( @$total_loci <= MAX_TREE_NODES ) {
 		print "<h2>Schemes and loci</h2>\n";
 		$self->_print_tree(1);
 	} else {
@@ -427,14 +419,7 @@ sub print_field_export_form {
 				my $labels;
 				my ( @scheme_js, @scheme_js2 );
 				foreach my $member (@$scheme_members) {
-					my $cleaned_member = $member;
-					$cleaned_member =~ s/'/__prime__/g;
-					$cleaned_member =~ s/\//__slash__/g;
-					$cleaned_member =~ s/,/__comma__/g;
-					$cleaned_member =~ s/ /__space__/g;
-					$cleaned_member =~ s/\(/_OPEN_/g;
-					$cleaned_member =~ s/\)/_CLOSE_/g;
-					$cleaned_member =~ s/\>/_GT_/g;
+					my $cleaned_member = $self->_clean_var($member);
 					push @values,     "l_$member";
 					push @js,         "\$(\"#s_$_\_l_$cleaned_member\").attr(\"checked\",true)";
 					push @js2,        "\$(\"#s_$_\_l_$cleaned_member\").attr(\"checked\",false)";
@@ -457,14 +442,7 @@ sub print_field_export_form {
 			print "<h2>Loci not belonging to any scheme</h2>\n";
 			my ( @scheme_js, @scheme_js2 );
 			foreach (@$loci) {
-				my $cleaned = $_;
-				$cleaned =~ s/'/__prime__/g;
-				$cleaned =~ s/\//__slash__/g;
-				$cleaned =~ s/,/__comma__/g;
-				$cleaned =~ s/ /__space__/g;
-				$cleaned =~ s/\(/_OPEN_/g;
-				$cleaned =~ s/\)/_CLOSE_/g;
-				$cleaned =~ s/\>/_GT_/g;
+				my $cleaned = $self->_clean_var($_);
 				push @js,         "\$(\"#l_$cleaned\").attr(\"checked\",true)";
 				push @js2,        "\$(\"#l_$cleaned\").attr(\"checked\",false)";
 				push @scheme_js,  "\$(\"#l_$cleaned\").attr(\"checked\",true)";
@@ -610,14 +588,7 @@ sub print_sequence_export_form {
 				my @values;
 				my $labels;
 				foreach my $member (@$scheme_members) {
-					my $cleaned_member = $member;
-					$cleaned_member =~ s/'/__prime__/g;
-					$cleaned_member =~ s/\//__slash__/g;
-					$cleaned_member =~ s/,/__comma__/g;
-					$cleaned_member =~ s/ /__space__/g;
-					$cleaned_member =~ s/\(/_OPEN_/g;
-					$cleaned_member =~ s/\)/_CLOSE_/g;
-					$cleaned_member =~ s/\>/_GT_/g;
+					my $cleaned_member = $self->_clean_var($member);
 					push @values,     "l_$member";
 					push @js,         "\$(\"#s_$scheme_id\_l_$cleaned_member\").attr(\"checked\",true)";
 					push @js2,        "\$(\"#s_$scheme_id\_l_$cleaned_member\").attr(\"checked\",false)";
@@ -638,14 +609,7 @@ sub print_sequence_export_form {
 				print "<h2>Loci not belonging to any scheme</h2>\n";
 				my ( @scheme_js, @scheme_js2 );
 				foreach (@$loci) {
-					my $cleaned = $_;
-					$cleaned =~ s/'/__prime__/g;
-					$cleaned =~ s/\//__slash__/g;
-					$cleaned =~ s/,/__comma__/g;
-					$cleaned =~ s/ /__space__/g;
-					$cleaned =~ s/\(/_OPEN_/g;
-					$cleaned =~ s/\)/_CLOSE_/g;
-					$cleaned =~ s/\>/_GT_/g;
+					my $cleaned = $self->_clean_var($_);
 					push @js,         "\$(\"#l_$cleaned\").attr(\"checked\",true)";
 					push @js2,        "\$(\"#l_$cleaned\").attr(\"checked\",false)";
 					push @scheme_js,  "\$(\"#l_$cleaned\").attr(\"checked\",true)";
@@ -682,5 +646,17 @@ sub _print_tree {
 	$options->{'scheme_fields'} = 1 if $include_scheme_fields;
 	print $self->get_tree( undef, $options );
 	print "</div>\n";
+}
+
+sub _clean_var {
+	my ( $self, $var ) = @_;
+	$var =~ s/'/__prime__/g;
+	$var =~ s/\//__slash__/g;
+	$var =~ s/,/__comma__/g;
+	$var =~ s/ /__space__/g;
+	$var =~ s/\(/_OPEN_/g;
+	$var =~ s/\)/_CLOSE_/g;
+	$var =~ s/\>/_GT_/g;
+	return $var;	
 }
 1;

@@ -1186,7 +1186,6 @@ sub create_temp_ref_table {
 		$qry4 = "SELECT COUNT(*) FROM refs WHERE refs.pubmed_id=?";
 	}
 	my $sql4 = $self->{'db'}->prepare($qry4);
-	my %author_cache;
 	
 	foreach my $pmid (@$list) {
 		eval { $sql1->execute($pmid); };
@@ -1226,7 +1225,6 @@ sub create_temp_ref_table {
 			$logger->error($@);
 		}
 	}
-	$self->{'db'}->commit;
 	return 1;
 }
 ##############SQL######################################################################
