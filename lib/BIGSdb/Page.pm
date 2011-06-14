@@ -730,27 +730,28 @@ sub paged_display {
 		}
 		print "</p>\n";
 		if ( $self->{'curate'} && $self->can_modify_table($table) ) {
-			print "<table><tr><td>";
+			print "<fieldset><legend>Delete</legend>\n";
 			print $q->start_form;
 			$q->param( 'page', 'deleteAll' );
 			foreach (qw (db page table query)) {
 				print $q->hidden($_);
 			}
-			print $q->submit( -name => 'Delete ALL', -class => 'submit' );
 			if ($table eq 'allele_designations'){
-				print "<br />\n";
+				print "<ul><li>\n";
 				if ($self->can_modify_table('allele_sequences')){
 					print $q->checkbox(-name=>'delete_tags', -label => 'Delete corresponding sequence tags');
-					print "<br />\n";
+					print "</li>\n<li>\n";
 				}
 				print $q->checkbox(-name=>'delete_pending', -label => 'Delete corresponding pending designations');
+				print "</li></ul>\n";
 			}
+			print $q->submit( -name => 'Delete ALL', -class => 'submit' );
 			print $q->end_form;
-			print "</td>";
+			print "</fieldset>";
 			if ( $table eq 'sequence_bin' ) {
 				my $experiments = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM experiments")->[0];
 				if ($experiments) {
-					print "<td>";
+					print "<fieldset><legend>Experiments</legend>\n";
 					print $q->start_form;
 					$q->param( 'page', 'linkToExperiment' );
 					foreach (qw (db page query)) {
@@ -758,14 +759,14 @@ sub paged_display {
 					}
 					print $q->submit( -name => 'Link to experiment', -class => 'submit' );
 					print $q->end_form;
-					print "</td>";
+					print "</fieldset>";
 				}
 			}
 			if (   $self->{'system'}->{'read_access'} eq 'acl'
 				&& $table eq $self->{'system'}->{'view'}
 				&& $self->can_modify_table('isolate_user_acl') )
 			{
-				print "<td>";
+				print "<fieldset><legend>Access control</legend>\n";
 				print $q->start_form;
 				$q->param( 'page', 'isolateACL' );
 				foreach (qw (db page table query)) {
@@ -773,7 +774,7 @@ sub paged_display {
 				}
 				print $q->submit( -name => 'Modify access', -class => 'submit' );
 				print $q->end_form;
-				print "</td>";
+				print "</fieldset>";
 			}
 			if (
 				any { $table eq $_ }
@@ -784,7 +785,7 @@ sub paged_display {
 				client_dbase_loci client_dbase_schemes)
 			  )
 			{
-				print "<td>";
+				print "<fieldset><legend>Database configuration</legend>\n";
 				print $q->start_form;
 				$q->param( 'page', 'exportConfig' );
 				foreach (qw (db page table query)) {
@@ -792,9 +793,8 @@ sub paged_display {
 				}
 				print $q->submit( -name => 'Export configuration/data', -class => 'submit' );
 				print $q->end_form;
-				print "</td>";
+				print "</fieldset>\n";
 			}
-			print "</tr></table>\n";
 		}
 	} else {
 		$logger->debug("Query: $qry");
