@@ -947,7 +947,7 @@ sub promote_pending_allele_designation {
 
 	#Promote earliest pending designation if it exists
 	my $pending_designations_ref = $self->{'datastore'}->get_pending_allele_designations( $isolate_id, $locus );
-	return if scalar @$pending_designations_ref == 0;
+	return if !@$pending_designations_ref;
 	my $pending    = $pending_designations_ref->[0];
 	my $curator_id = $self->get_curator_id();
 	eval {
@@ -961,11 +961,32 @@ sub promote_pending_allele_designation {
 	if ($@) {
 		$logger->error("Can't execute $@");
 		$self->{'db'}->rollback;
-		return;
+	} else {
+		$self->{'db'}->commit;
+		$self->update_history( $pending->{'isolate_id'},
+			"$pending->{'locus'}: new designation '$pending->{'allele_id'}' (promoted from pending)" );
 	}
-	$self->{'db'}->commit;
-	$self->update_history( $pending->{'isolate_id'},
-		"$pending->{'locus'}: new designation '$pending->{'allele_id'}' (promoted from pending)" );
+}
+
+sub delete_pending_designations {
+	my ( $self, $isolate_id, $locus ) = @_;
+	my $pending_designations_ref = $self->{'datastore'}->get_pending_allele_designations( $isolate_id, $locus );
+	return if !@$pending_designations_ref;
+	my $rows;
+	eval {
+		$rows = $self->{'db'}->do("DELETE FROM pending_allele_designations WHERE isolate_id=? AND locus=?", undef, $isolate_id, $locus);
+	};
+	if ($@){
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;			
+		if ($rows){
+			my $plural = $rows == 1 ? '' : 's';
+			$self->update_history( $isolate_id, "$locus: $rows pending designation$plural deleted");
+		}
+	}
+
 }
 
 sub remove_profile_data {

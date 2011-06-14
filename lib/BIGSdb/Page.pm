@@ -737,6 +737,14 @@ sub paged_display {
 				print $q->hidden($_);
 			}
 			print $q->submit( -name => 'Delete ALL', -class => 'submit' );
+			if ($table eq 'allele_designations'){
+				print "<br />\n";
+				if ($self->can_modify_table('allele_sequences')){
+					print $q->checkbox(-name=>'delete_tags', -label => 'Delete corresponding sequence tags');
+					print "<br />\n";
+				}
+				print $q->checkbox(-name=>'delete_pending', -label => 'Delete corresponding pending designations');
+			}
 			print $q->end_form;
 			print "</td>";
 			if ( $table eq 'sequence_bin' ) {

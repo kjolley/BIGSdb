@@ -106,7 +106,7 @@ sub _print_isolate_field {
 "<tr class=\"td$td\"><th style=\"text-align:right\">Regular expression</th><td style=\"text-align:left\">Values are constrained to the following <a href=\"http://en.wikipedia.org/wiki/Regex\">regular expression</a>: /$attributes{'regex'}/</td></tr>\n";
 	}
 	print "</table>\n<p />\n";
-	my $used_list = $self->{'datastore'}->run_list_query("SELECT DISTINCT $field FROM $self->{'system'}->{'view'}");
+	my $used_list = $self->{'datastore'}->run_list_query("SELECT DISTINCT $field FROM $self->{'system'}->{'view'} ORDER BY $field");
 	my $cols = $attributes{'type'} eq 'int' ? 10 : 6;
 	my $used;
 	foreach (@$used_list) {

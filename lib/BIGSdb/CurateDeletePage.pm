@@ -179,6 +179,9 @@ sub print_content {
 				$label_value =~ s/[\|\$]//g;
 				$buffer .= "<td style=\"text-align:left\">$label_value</td></tr>\n";
 			}
+		} elsif ($_->{'name'} eq 'locus' && $self->{'system'}->{'locus_superscript_prefix'} eq 'yes'){
+			$value =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
+			$buffer .= "<td style=\"text-align:left\">$value</td></tr>\n";
 		} else {
 			$buffer .= "<td style=\"text-align:left\">$value</td></tr>\n";
 		}
@@ -215,10 +218,14 @@ sub print_content {
 	if ( $table eq 'profiles' ) {
 	}
 	$buffer .= "</table>\n";
-	if ($table eq 'allele_designations' && $self->can_modify_table('allele_sequences')){
-		$buffer.= "<br /><p>\n";
-		$buffer .= $q->checkbox(-name=>'delete_tags', -label => 'Also delete all sequence tags for this isolate/locus combination');
-		$buffer .= "</p>\n";
+	if ($table eq 'allele_designations' ){
+		$buffer.= "<div><fieldset>\n<legend>Options</legend>\n<ul>\n<li>\n";
+		if ($self->can_modify_table('allele_sequences')){
+			$buffer .= $q->checkbox(-name=>'delete_tags', -label => 'Also delete all sequence tags for this isolate/locus combination');
+			$buffer .= "</li>\n<li>\n";
+		}
+		$buffer .= $q->checkbox(-name=>'delete_pending', -label => 'Also delete all pending designations for this isolate/locus combination');
+		$buffer .= "</li>\n</ul>\n</fieldset>\n</div>\n";
 	}
 	$buffer .= $q->submit( -name => 'submit', -value => 'Delete!', -class => 'submit' );
 	$buffer .= "</div>\n";
@@ -384,7 +391,11 @@ sub print_content {
 				$self->update_history( $data->{'isolate_id'}, "$data->{'locus'}: designation '$data->{'allele_id'}' deleted$deltags" );
 
 				#check if pending designation exists as this needs to be promoted.
-				$self->promote_pending_allele_designation( $data->{'isolate_id'}, $data->{'locus'} );
+				if ($q->param('delete_pending')){
+					$self->delete_pending_designations($data->{'isolate_id'}, $data->{'locus'});
+				} else {
+					$self->promote_pending_allele_designation( $data->{'isolate_id'}, $data->{'locus'} );
+				}
 			} elsif ( $table eq 'pending_allele_designations' ) {
 				$self->update_history( $data->{'isolate_id'}, "$data->{'locus'}: pending designation '$data->{'allele_id'}' deleted" );
 			}
