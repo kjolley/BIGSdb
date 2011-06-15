@@ -100,9 +100,9 @@ sub print_content {
 	{
 		if (!$q->param('no_js')){
 			my $locus_clause = $locus ? "&amp;locus=$locus" : '';
-			print "<noscript><div class=\"id\" id=\"statusbad\"><p>The dynamic customisation of this interface requires that you enable Javascript in your
+			print "<noscript><p class=\"highlight\">The dynamic customisation of this interface requires that you enable Javascript in your
 		browser. Alternatively, you can use a <a href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=alleleQuery$locus_clause&amp;no_js=1\">non-Javascript 
-		version</a> that has 4 combinations of fields.</p></div></noscript>\n";
+		version</a> that has 4 combinations of fields.</p></noscript>\n";
 		}
 		
 		$self->_print_query_interface();

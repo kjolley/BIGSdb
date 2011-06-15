@@ -101,6 +101,10 @@ sub print_content {
 
 sub _print_table_data {
 	my ($self, $table, $qry) = @_;
+	if ( $table eq 'allele_sequences' && $self->{'cgi'}->param('query') =~ /sequence_flags/){
+		$self->{'db'}->do("SET enable_nestloop = off");
+		$qry =~ s/SELECT \*/SELECT DISTINCT \*/;
+	}
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my (@header,@fields);
 	foreach (@$attributes){

@@ -575,6 +575,9 @@ sub paged_display {
 	# it is better to not recalculate it.
 	my ( $self, $table, $qry, $message, $hidden_attributes, $count, $passed_qry ) = @_;
 	$passed_qry = $qry if !$passed_qry;    #query can get rewritten on route to this page - this enables the original query to be passed on
+	if ( $table eq 'allele_sequences' && $passed_qry =~ /sequence_flags/){
+		$self->{'db'}->do("SET enable_nestloop = off");
+	}
 	my $schemes  = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 	my $continue = 1;
 	try {
@@ -623,6 +626,9 @@ sub paged_display {
 		my $logger_benchmark = get_logger('BIGSdb.Application_Benchmark');
 		my $start            = gettimeofday();
 		my $qrycount         = $qry;
+		if ($table eq 'allele_sequences'){
+			$qrycount =~ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences.locus||allele_sequences.start_pos||allele_sequences.end_pos\)/;
+		}
 		$qrycount =~ s/SELECT \*/SELECT COUNT \(\*\)/;
 		$qrycount =~ s/ORDER BY.*//;
 		$records = $self->{'datastore'}->run_simple_query($qrycount)->[0];
@@ -730,24 +736,26 @@ sub paged_display {
 		}
 		print "</p>\n";
 		if ( $self->{'curate'} && $self->can_modify_table($table) ) {
-			print "<fieldset><legend>Delete</legend>\n";
-			print $q->start_form;
-			$q->param( 'page', 'deleteAll' );
-			foreach (qw (db page table query)) {
-				print $q->hidden($_);
-			}
-			if ($table eq 'allele_designations'){
-				print "<ul><li>\n";
-				if ($self->can_modify_table('allele_sequences')){
-					print $q->checkbox(-name=>'delete_tags', -label => 'Delete corresponding sequence tags');
-					print "</li>\n<li>\n";
+			if (!($table eq 'allele_sequences' && $passed_qry =~ /sequence_flags/)){
+				print "<fieldset><legend>Delete</legend>\n";
+				print $q->start_form;
+				$q->param( 'page', 'deleteAll' );
+				foreach (qw (db page table query)) {
+					print $q->hidden($_);
 				}
-				print $q->checkbox(-name=>'delete_pending', -label => 'Delete corresponding pending designations');
-				print "</li></ul>\n";
+				if ($table eq 'allele_designations'){
+					print "<ul><li>\n";
+					if ($self->can_modify_table('allele_sequences')){
+						print $q->checkbox(-name=>'delete_tags', -label => 'Delete corresponding sequence tags');
+						print "</li>\n<li>\n";
+					}
+					print $q->checkbox(-name=>'delete_pending', -label => 'Delete corresponding pending designations');
+					print "</li></ul>\n";
+				}
+				print $q->submit( -name => 'Delete ALL', -class => 'submit' );
+				print $q->end_form;
+				print "</fieldset>";
 			}
-			print $q->submit( -name => 'Delete ALL', -class => 'submit' );
-			print $q->end_form;
-			print "</fieldset>";
 			if ( $table eq 'sequence_bin' ) {
 				my $experiments = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM experiments")->[0];
 				if ($experiments) {
@@ -880,6 +888,9 @@ sub _print_record_table {
 		if ( $table eq 'experiment_sequences' && $_->{'name'} eq 'experiment_id' ) {
 			push @cleaned_headers, 'isolate id';
 		}
+		if ($table eq 'allele_sequences' && $_->{'name'} eq 'complete'){
+			push @cleaned_headers, 'flag';
+		}
 		$type{ $_->{'name'} }        = $_->{'type'};
 		$foreign_key{ $_->{'name'} } = $_->{'foreign_key'};
 		$labels{ $_->{'name'} }      = $_->{'labels'};
@@ -901,7 +912,7 @@ sub _print_record_table {
 	}
 	$" = ',';
 	my $fields = "@qry_fields";
-	$qry =~ s/\*/$fields/;
+	$qry =~ s/\*/DISTINCT $fields/;
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute(); };
 	if ($@) {
@@ -929,7 +940,7 @@ sub _print_record_table {
 	print "<th>@cleaned_headers</th></tr>\n";
 	my $td = 1;
 	my ( %foreign_key_sql, $fields_to_query );
-	while ( $sql->fetchrow_arrayref() ) {
+	while ( $sql->fetchrow_arrayref ) {
 		my @query_values;
 		my %primary_key;
 		$" = "&amp;";
@@ -981,6 +992,12 @@ sub _print_record_table {
 					my $value = $data{ lc($field) } ? 'true' : 'false';
 					print "<td>$value</td>";
 				}
+				if ($table eq 'allele_sequences' && $field eq 'complete'){
+					my $flags = $self->{'datastore'}->get_sequence_flag($data{ 'seqbin_id' }, $data{ 'locus' }, $data{ 'start_pos' }, $data{ 'end_pos' });
+					$"="</a> <a class=\"seqflag_tooltip\">";	
+					print @$flags ? "<td><a class=\"seqflag_tooltip\">@$flags</a></td>" : "<td />";
+					$"=' ';
+				}
 			} elsif ( $field =~ /sequence$/ && $field ne 'coding_sequence' ) {
 				if ( length( $data{ lc($field) } ) > 60 ) {
 					my $seq = BIGSdb::Utils::truncate_seq( \$data{ lc($field) }, 30 );
@@ -1021,21 +1038,20 @@ sub _print_record_table {
 					print "<td>$value</td>";
 				}
 			} else {
-				if ( $field eq 'locus' ) {
-					$data{ lc($field) } = $self->clean_locus( $data{ lc($field) } );
-				} elsif ( ( $table eq 'allele_sequences' || $table eq 'experiment_sequences' ) && $field eq 'seqbin_id' ) {
+				if ( ( $table eq 'allele_sequences' || $table eq 'experiment_sequences' ) && $field eq 'seqbin_id' ) {
 					my ( $isolate_id, $isolate ) = $self->get_isolate_id_and_name_from_seqbin_id( $data{'seqbin_id'} );
 					print "<td>$isolate_id) $isolate</td>";
-				}
+				} 
 				if ( $field eq 'isolate_id' ) {
 					print "<td>$data{'isolate_id'}) " . $self->get_isolate_name_from_id( $data{'isolate_id'} ) . "</td>";
 				} else {
 					my $value = $data{ lc($field) };
-					$value =~ s/\&/\&amp;/g;
-					if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' && $table eq 'loci' && $field eq 'id' ) {
-						$value =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
+					if ( $field eq 'locus' || ($table eq 'loci' && $field eq 'id') ) {
+						$value = $self->clean_locus( $value );
+					} else {
+						$value =~ s/\&/\&amp;/g;
+						$value =~ tr/_/ /;
 					}
-					$value =~ tr/_/ /;
 					print "<td>$value</td>";
 				}
 			}

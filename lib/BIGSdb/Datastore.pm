@@ -23,7 +23,7 @@ use Time::HiRes qw(gettimeofday);
 use List::MoreUtils qw(any);
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Datastore');
-use BIGSdb::Page qw(SEQ_METHODS DATABANKS);
+use BIGSdb::Page qw(SEQ_METHODS DATABANKS SEQ_FLAGS);
 use BIGSdb::Locus;
 use BIGSdb::Scheme;
 
@@ -74,10 +74,7 @@ sub get_user_info {
 		$logger->info("Statement handle 'user_info' prepared.");
 	}
 	eval { $self->{'sql'}->{'user_info'}->execute($id); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Can't execute 'user_info' query");
-	}
+	$logger->error($@) if $@;
 	return $self->{'sql'}->{'user_info'}->fetchrow_hashref();
 }
 
@@ -89,10 +86,7 @@ sub get_user_info_from_username {
 		$logger->info("Statement handle 'user_info_from_username' prepared.");
 	}
 	eval { $self->{'sql'}->{'user_info_from_username'}->execute($id); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Can't execute 'user_info_from_username' query");
-	}
+	$logger->error($@) if $@;
 	return $self->{'sql'}->{'user_info_from_username'}->fetchrow_hashref();
 }
 
@@ -104,7 +98,7 @@ sub get_permissions {
 	  $self->{'db'}
 	  ->prepare("SELECT user_permissions.* FROM user_permissions LEFT JOIN users ON user_permissions.user_id = users.id WHERE user_name=?");
 	eval { $sql->execute($username); };
-	$logger->error("Can't execute $@") if $@;
+	$logger->error($@) if $@;
 	return $sql->fetchrow_hashref;
 }
 
@@ -118,10 +112,7 @@ sub get_composite_value {
 		$logger->info("Statement handle 'composite_field_values' prepared.");
 	}
 	eval { $self->{'sql'}->{'composite_field_values'}->execute($composite_field); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Can't execute 'composite_field_values' query");
-	}
+	$logger->error($@) if $@;
 	my $allele_ids;
 	my %scheme_fields;
 	my %scheme_field_list;
@@ -240,10 +231,7 @@ sub get_samples {
 		$logger->info("Statement handle 'get_samples' prepared.");
 	}
 	eval { $self->{'sql'}->{'get_samples'}->execute($id); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Can't execute 'get_samples' query $@");
-	}
+	$logger->error($@) if $@;
 	return $self->{'sql'}->{'get_samples'}->fetchall_arrayref( {} );
 }
 
@@ -256,10 +244,7 @@ sub profile_exists {
 		$logger->info("Statement handle 'profile_exists' prepared.");
 	}
 	eval { $self->{'sql'}->{'profile_exists'}->execute( $scheme_id, $profile_id ); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Can't execute 'profile_exists' query $@");
-	}
+	$logger->error($@) if $@;
 	my ($exists) = $self->{'sql'}->{'profile_exists'}->fetchrow_array();
 	return $exists;
 }
@@ -271,10 +256,7 @@ sub get_client_db_info {
 		$logger->info("Statement handle 'client_db_info' prepared.");
 	}
 	eval { $self->{'sql'}->{'client_db_info'}->execute($id); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Can't execute 'scheme_info' query");
-	}
+	$logger->error($@) if $@;
 	return $self->{'sql'}->{'client_db_info'}->fetchrow_hashref();
 }
 
@@ -321,10 +303,7 @@ sub get_scheme_info {
 		$logger->info("Statement handle 'scheme_info' prepared.");
 	}
 	eval { $self->{'sql'}->{'scheme_info'}->execute($id); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Can't execute 'scheme_info' query");
-	}
+	$logger->error($@) if $@;
 	return $self->{'sql'}->{'scheme_info'}->fetchrow_hashref();
 }
 
@@ -336,10 +315,7 @@ sub get_all_scheme_info {
 	if ( !$self->{'all_scheme_info'} ) {
 		my $sql = $self->{'db'}->prepare("SELECT * FROM schemes");
 		eval { $sql->execute; };
-		if ($@) {
-			$self->{'db'}->rollback();
-			$logger->error($@);
-		}
+		$logger->error($@) if $@;
 		$self->{'all_scheme_info'} = $sql->fetchall_hashref('id');
 	}
 	return $self->{'all_scheme_info'};
@@ -349,10 +325,7 @@ sub get_all_scheme_loci {
 	my ($self) = @_;
 	my $sql = $self->{'db'}->prepare("SELECT scheme_id,locus FROM scheme_members ORDER BY field_order,locus");
 	eval { $sql->execute; };
-	if ($@) {
-		$self->{'db'}->rollback;
-		$logger->error($@);
-	}
+	$logger->error($@) if $@;
 	my $loci;
 	my $data = $sql->fetchall_arrayref;
 	foreach ( @{$data} ) {
@@ -378,10 +351,7 @@ sub get_scheme_loci {
 		$logger->info("Statement handle 'scheme_loci' prepared.");
 	}
 	eval { $self->{'sql'}->{'scheme_loci'}->execute($id); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Can't execute 'scheme_loci' query $@");
-	}
+	$logger->error($@) if $@;
 	my @loci;
 	while ( my ( $locus, $profile_name ) = $self->{'sql'}->{'scheme_loci'}->fetchrow_array() ) {
 		if ( $options->{'analysis_pref'} ) {
@@ -417,10 +387,7 @@ sub get_loci_in_no_scheme {
 		$logger->info("Statement handle 'no_scheme_loci' prepared.");
 	}
 	eval { $self->{'sql'}->{'no_scheme_loci'}->execute(); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Can't execute 'no_scheme_loci' query");
-	}
+	$logger->error($@) if $@;
 	my @loci;
 	while ( my ($locus) = $self->{'sql'}->{'no_scheme_loci'}->fetchrow_array() ) {
 		if ($analyse_pref) {
@@ -442,10 +409,7 @@ sub are_sequences_displayed_in_scheme {
 		$logger->info("Statement handle 'seq_display' prepared.");
 	}
 	eval { $self->{'sql'}->{'seq_display'}->execute($id); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Can't execute 'seq_display' query");
-	}
+	$logger->error($@) if $@;
 	my $value;
 	while ( my ($locus) = $self->{'sql'}->{'seq_display'}->fetchrow_array() ) {
 		$value++
@@ -462,10 +426,7 @@ sub get_scheme_fields {
 		$logger->info("Statement handle 'scheme_fields' prepared.");
 	}
 	eval { $self->{'sql'}->{'scheme_fields'}->execute($id); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Can't execute 'scheme_fields' query");
-	}
+	$logger->error($@) if $@;
 	my @fields;
 	while ( my ($field) = $self->{'sql'}->{'scheme_fields'}->fetchrow_array() ) {
 		push @fields, $field;
@@ -481,10 +442,7 @@ sub get_all_scheme_fields {
 	if ( !$self->{'all_scheme_fields'} ) {
 		my $sql = $self->{'db'}->prepare("SELECT scheme_id,field FROM scheme_fields ORDER BY field_order");
 		eval { $sql->execute; };
-		if ($@) {
-			$self->{'db'}->rollback();
-			$logger->error($@);
-		}
+		$logger->error($@) if $@;
 		my $data = $sql->fetchall_arrayref;
 		foreach ( @{$data} ) {
 			push @{ $self->{'all_scheme_fields'}->{ $_->[0] } }, $_->[1];
@@ -500,10 +458,7 @@ sub get_scheme_field_info {
 		$logger->info("Statement handle 'scheme_field_info' prepared.");
 	}
 	eval { $self->{'sql'}->{'scheme_field_info'}->execute( $id, $field ); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Can't execute 'scheme_field_info' query");
-	}
+	$logger->error($@) if $@;
 	return $self->{'sql'}->{'scheme_field_info'}->fetchrow_hashref();
 }
 
@@ -517,10 +472,7 @@ sub get_all_scheme_field_info {
 		$" = ',';
 		my $sql = $self->{'db'}->prepare("SELECT scheme_id,field,@fields FROM scheme_fields");
 		eval { $sql->execute; };
-		if ($@) {
-			$self->{'db'}->rollback();
-			$logger->error($@);
-		}
+		$logger->error($@) if $@;
 		my $data_ref = $sql->fetchall_arrayref;
 		foreach ( @{$data_ref} ) {
 			for my $i ( 0 .. ( scalar @fields - 1 ) ) {
@@ -661,10 +613,7 @@ sub get_scheme_group_info {
 		$logger->info("Statement handle 'scheme_group_info' prepared.");
 	}
 	eval { $self->{'sql'}->{'scheme_group_info'}->execute($locus); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Can't execute 'scheme_group_info' query");
-	}
+	$logger->error($@) if $@;
 	return $self->{'sql'}->{'scheme_group_info'}->fetchrow_hashref();
 }
 ##############LOCI#####################################################################
@@ -750,10 +699,7 @@ sub get_locus_info {
 		$logger->info("Statement handle 'locus_info' prepared.");
 	}
 	eval { $self->{'sql'}->{'locus_info'}->execute($locus); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Can't execute 'locus_info' query");
-	}
+	$logger->error($@) if $@;
 	return $self->{'sql'}->{'locus_info'}->fetchrow_hashref();
 }
 
@@ -794,10 +740,7 @@ sub get_allele_designation {
 		$logger->info("Statement handle 'allele_designation' prepared.");
 	}
 	eval { $self->{'sql'}->{'allele_designation'}->execute( $isolate_id, $locus ); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Can't execute 'allele_designation' query, $@");
-	}
+	$logger->error($@) if $@;
 	my $allele = $self->{'sql'}->{'allele_designation'}->fetchrow_hashref();
 	return $allele;
 }
@@ -809,10 +752,7 @@ sub get_all_allele_designations {
 		$logger->info("Statement handle 'all_allele_designation' prepared.");
 	}
 	eval { $self->{'sql'}->{'all_allele_designation'}->execute($isolate_id); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Can't execute 'all_allele_designation' query, $@");
-	}
+	$logger->error($@) if $@;
 	my $alleles = $self->{'sql'}->{'all_allele_designation'}->fetchall_hashref('locus');
 	return $alleles;
 }
@@ -827,10 +767,7 @@ sub get_all_allele_sequences {
 		$logger->info("Statement handle 'all_allele_sequences' prepared.");
 	}
 	eval { $self->{'sql'}->{'all_allele_sequences'}->execute($isolate_id); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Can't execute 'all_allele_sequences' query, $@");
-	}
+	$logger->error($@) if $@;
 	my $sequences = $self->{'sql'}->{'all_allele_sequences'}->fetchall_hashref( [qw(locus seqbin_id start_pos end_pos)] );
 	return $sequences;
 }
@@ -845,12 +782,25 @@ sub get_all_sequence_flags {
 		$logger->info("Statement handle 'all_sequence_flags' prepared.");
 	}
 	eval { $self->{'sql'}->{'all_sequence_flags'}->execute($isolate_id); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Can't execute 'all_sequence_flags' query, $@");
-	}
+	$logger->error($@) if $@;
 	my $flags = $self->{'sql'}->{'all_sequence_flags'}->fetchall_hashref( [qw(locus seqbin_id start_pos end_pos flag)] );
 	return $flags;
+}
+
+sub get_sequence_flag {
+	my ( $self, $seqbin_id, $locus, $start, $end ) = @_;
+	if ( !$self->{'sql'}->{'sequence_flag'} ) {
+		$self->{'sql'}->{'sequence_flag'} =
+		  $self->{'db'}->prepare(
+"SELECT sequence_flags.flag FROM sequence_flags WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=?");
+	}
+	eval { $self->{'sql'}->{'sequence_flag'}->execute($seqbin_id,$locus,$start,$end);};
+	$logger->error($@) if $@;
+	my @flags;
+	while (my ($flag) = $self->{'sql'}->{'sequence_flag'}->fetchrow_array){
+		push @flags, $flag;
+	}
+	return \@flags;
 }
 
 sub get_allele_id {
@@ -862,10 +812,7 @@ sub get_allele_id {
 		$logger->info("Statement handle 'allele_designation' prepared.");
 	}
 	eval { $self->{'sql'}->{'allele_id'}->execute( $isolate_id, $locus ); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Can't execute 'allele_id' query, $@");
-	}
+	$logger->error($@) if $@;
 	my ($allele_id) = $self->{'sql'}->{'allele_id'}->fetchrow_array();
 	return $allele_id;
 }
@@ -878,10 +825,7 @@ sub get_all_allele_ids {
 		$logger->info("Statement handle 'all_allele_ids' prepared.");
 	}
 	eval { $self->{'sql'}->{'all_allele_ids'}->execute($isolate_id); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Can't execute 'all_allele_ids' query");
-	}
+	$logger->error($@) if $@;
 	while ( my ( $locus, $allele_id ) = $self->{'sql'}->{'all_allele_ids'}->fetchrow_array() ) {
 		$allele_ids{$locus} = $allele_id;
 	}
@@ -896,10 +840,7 @@ sub get_pending_allele_designations {
 		$logger->info("Statement handle 'pending_allele_designation' prepared.");
 	}
 	eval { $self->{'sql'}->{'pending_allele_designation'}->execute( $isolate_id, $locus ); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Can't execute 'pending_allele_designation' query");
-	}
+	$logger->error($@) if $@;
 	my @designations;
 	while ( my $allele = $self->{'sql'}->{'pending_allele_designation'}->fetchrow_hashref() ) {
 		push @designations, $allele;
@@ -917,10 +858,7 @@ sub get_allele_sequence {
 		$logger->info("Statement handle 'allele_sequence' prepared.");
 	}
 	eval { $self->{'sql'}->{'allele_sequence'}->execute( $isolate_id, $locus ); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Can't execute 'allele_sequence' query");
-	}
+	$logger->error($@) if $@;
 	my @allele_sequences;
 	while ( my $allele_sequence = $self->{'sql'}->{'allele_sequence'}->fetchrow_hashref() ) {
 		push @allele_sequences, $allele_sequence;
@@ -937,10 +875,7 @@ sub sequences_exist {
 		$logger->info("Statement handle 'sequences_exist' prepared.");
 	}
 	eval { $self->{'sql'}->{'sequences_exist'}->execute($locus); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Can't execute 'sequences_exist' query");
-	}
+	$logger->error($@) if $@;
 	my ($exists) = $self->{'sql'}->{'sequences_exist'}->fetchrow_array();
 	return $exists;
 }
@@ -954,10 +889,7 @@ sub sequence_exists {
 		$logger->info("Statement handle 'sequence_exists' prepared.");
 	}
 	eval { $self->{'sql'}->{'sequence_exists'}->execute( $locus, $allele_id ); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Can't execute 'sequence_exists' query $@");
-	}
+	$logger->error($@) if $@;
 	my ($exists) = $self->{'sql'}->{'sequence_exists'}->fetchrow_array();
 	return $exists;
 }
@@ -970,10 +902,7 @@ sub get_profile_allele_designation {
 		$logger->info("Statement handle 'profile_allele_designation' prepared.");
 	}
 	eval { $self->{'sql'}->{'profile_allele_designation'}->execute( $scheme_id, $profile_id, $locus ); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Can't execute 'profile_allele_designation' query");
-	}
+	$logger->error($@) if $@;
 	my $allele = $self->{'sql'}->{'profile_allele_designation'}->fetchrow_hashref();
 	return $allele;
 }
@@ -987,10 +916,7 @@ sub get_sequence {
 		$logger->info("Statement handle 'sequence' prepared.");
 	}
 	eval { $self->{'sql'}->{'sequence'}->execute( $locus, $allele_id ); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Can't execute 'sequence' query");
-	}
+	$logger->error($@) if $@;
 	my ($seq) = $self->{'sql'}->{'sequence'}->fetchrow_array;
 	return \$seq;
 }
@@ -1004,10 +930,7 @@ sub is_allowed_to_modify_locus_sequences {
 		$logger->info("Statement handle 'allow_locus' prepared.");
 	}
 	eval { $self->{'sql'}->{'allow_locus'}->execute( $locus, $curator_id ); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Can't execute 'allow_locus' query");
-	}
+	$logger->error($@) if $@;
 	my ($allowed) = $self->{'sql'}->{'allow_locus'}->fetchrow_array;
 	return $allowed;
 }
@@ -1235,14 +1158,9 @@ sub run_simple_query {
 	$logger->debug("Query: $qry");
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute(@values); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$" = ', ';
-		$logger->error("Couldn't execute: $qry values: @values $@");
-	} else {
-		my $data = $sql->fetchrow_arrayref;
-		return $data;
-	}
+	$logger->error($@) if $@;
+	my $data = $sql->fetchrow_arrayref;
+	return $data;
 }
 
 sub run_simple_query_hashref {
@@ -1252,14 +1170,9 @@ sub run_simple_query_hashref {
 	$logger->debug("Query: $qry");
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute(@values); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$" = ', ';
-		$logger->error("Couldn't execute: $qry values: @values $@");
-	} else {
-		my $data = $sql->fetchrow_hashref;
-		return $data;
-	}
+	$logger->error($@) if $@;
+	my $data = $sql->fetchrow_hashref;
+	return $data;
 }
 
 sub run_list_query_hashref {
@@ -1269,10 +1182,7 @@ sub run_list_query_hashref {
 	$logger->debug("Query: $qry");
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute(@values); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Couldn't execute: $qry values: @values $@");
-	}
+	$logger->error($@) if $@;
 	my @list;
 	while ( my $data = $sql->fetchrow_hashref ) {
 		push @list, $data;
@@ -1287,10 +1197,7 @@ sub run_list_query {
 	$logger->debug("Query: $qry");
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute(@values); };
-	if ($@) {
-		$self->{'db'}->rollback();
-		$logger->error("Couldn't execute: $qry values: @values $@");
-	}
+	$logger->error($@) if $@;
 	my @list;
 	while ( ( my $data ) = $sql->fetchrow_array() ) {
 		if ( defined $data && $data ne '-999' && $data ne '0001-01-01' ) {
@@ -2413,6 +2320,33 @@ sub _get_allele_sequences_table_attributes {
 			required => 'yes',
 			comments => 'true if sequence is reverse complemented',
 			default  => 'false'
+		},
+		{ name => 'complete', type => 'bool', required => 'yes', comments => 'true if complete locus represented', default => 'true' },
+		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' },
+	];
+	return $attributes;
+}
+
+sub _get_sequence_flags_table_attributes {
+	my @flags = SEQ_FLAGS;
+	$" = ';';
+	my $attributes = [
+		{ name => 'seqbin_id', type => 'int',  required => 'yes', primary_key => 'yes', foreign_key => 'sequence_bin' },
+		{ name => 'locus',     type => 'text', required => 'yes', primary_key => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
+		{
+			name        => 'start_pos',
+			type        => 'int',
+			required    => 'yes',
+			primary_key => 'yes',
+			comments    => 'start position of locus within sequence'
+		},
+		{ name => 'end_pos', type => 'int', required => 'yes', primary_key => 'yes', comments => 'end position of locus within sequence' },
+		{
+			name     => 'flag',
+			type     => 'text',
+			required => 'yes',
+			optlist  => "@flags"
 		},
 		{ name => 'complete', type => 'bool', required => 'yes', comments => 'true if complete locus represented', default => 'true' },
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },

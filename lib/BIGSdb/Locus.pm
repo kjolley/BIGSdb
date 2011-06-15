@@ -64,9 +64,8 @@ sub get_allele_sequence {
 		$self->{'sql'}->{'sequence'} = $self->{'db'}->prepare($qry);
 		$logger->debug("Locus $self->{'id'} statement handle 'sequence' prepared ($qry).");
 	}
-	eval { $self->{'sql'}->{'sequence'}->execute($id); };
+	eval { $self->{'sql'}->{'sequence'}->execute($id); };	
 	if ($@) {
-		$self->{'db'}->rollback;
 		$logger->error(
 "Can't execute 'sequence' query handle. Check database attributes in the locus table for locus '$self->{'id'}'! Statement was '$self->{'sql'}->{sequence}->{Statement}'. id='$id'  $@ "
 			  . $self->{'db'}->errstr );
@@ -97,7 +96,6 @@ sub get_all_sequences {
 	}
 	eval { $self->{'sql'}->{'all_sequences'}->execute; };
 	if ($@) {
-		$self->{'db'}->rollback;
 		$logger->error(
 "Can't execute 'sequence' query handle. Check database attributes in the locus table for locus '$self->{'id'}'! Statement was '$self->{'sql'}->{sequence}->{Statement}'. "
 			  . $self->{'db'}->errstr );
@@ -130,7 +128,6 @@ sub get_all_sequence_lengths {
 	}
 	eval { $self->{'sql'}->{'all_sequence_lengths'}->execute; };
 	if ($@) {
-		$self->{'db'}->rollback;
 		$logger->error(
 "Can't execute 'all_sequence_lengths' query handle. Check database attributes in the locus table for locus '$self->{'id'}'! Statement was '$self->{'sql'}->{sequence}->{Statement}'. "
 			  . $self->{'db'}->errstr );

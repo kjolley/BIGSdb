@@ -243,7 +243,7 @@ sub run {
 	}
 	print "</p></div>\n";
 	print
-"<noscript><div class=\"box\" id=\"statusbad\"><p>Please enable Javascript to view breakdown charts in place.</p></div></noscript>\n";
+"<noscript><p class=\"highlight\">Please enable Javascript to view breakdown charts in place.</p></noscript>\n";
 	print "<h2 id=\"field\">$display_name</h2>\n";
 	print
 "<div class=\"box\" id=\"chart\"><img id=\"placeholder\" src=\"$src\" alt=\"breakdown chart\" /></div>\n";

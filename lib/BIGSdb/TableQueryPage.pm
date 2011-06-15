@@ -23,6 +23,7 @@ use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant MAX_ROWS => 20;
+use BIGSdb::Page qw(SEQ_FLAGS);
 
 sub initiate {
 	my ($self) = @_;
@@ -30,9 +31,7 @@ sub initiate {
 		$self->{'type'} = 'no_header';
 		return;
 	}
-	foreach (qw (tooltips jQuery)){
-		$self->{$_} = 1;
-	}
+	$self->{$_} = 1 foreach (qw (tooltips jQuery));
 }
 
 sub set_pref_requirements {
@@ -61,11 +60,12 @@ sub print_content {
 		|| $q->param('pagejump') eq '1'
 		|| $q->param('First') )
 	{
-		if (!$q->param('no_js')){
-			print "<noscript><div class=\"id\" id=\"statusbad\"><p>The dynamic customisation of this interface requires that you enable Javascript in your
+		if ( !$q->param('no_js') ) {
+			print
+"<noscript><p class=\"highlight\">The dynamic customisation of this interface requires that you enable Javascript in your
 		browser. Alternatively, you can use a <a href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$table&amp;no_js=1\">non-Javascript 
-		version</a> that has 4 combinations of fields.</p></div></noscript>\n";
-		}		
+		version</a> that has 4 combinations of fields.</p></noscript>\n";
+		}
 		$self->_print_query_interface();
 	}
 	if (   defined $q->param('query')
@@ -85,7 +85,7 @@ sub get_title {
 }
 
 sub _get_select_items {
-	my ($self,$table) = @_;
+	my ( $self, $table ) = @_;
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my ( @select_items, @order_by );
 	if ( $table eq 'allele_sequences' || $table eq 'experiment_sequences' ) {
@@ -94,10 +94,7 @@ sub _get_select_items {
 	}
 	foreach (@$attributes) {
 		if ( $_->{'name'} eq 'sender' || $_->{'name'} eq 'curator' || $_->{'name'} eq 'user_id' ) {
-			push @select_items, "$_->{'name'} (id)";
-			push @select_items, "$_->{'name'} (surname)";
-			push @select_items, "$_->{'name'} (first_name)";
-			push @select_items, "$_->{'name'} (affiliation)";
+			push @select_items, "$_->{'name'} (id)", "$_->{'name'} (surname)", "$_->{'name'} (first_name)", "$_->{'name'} (affiliation)";
 		} else {
 			push @select_items, $_->{'name'};
 		}
@@ -109,11 +106,12 @@ sub _get_select_items {
 	my %labels;
 	foreach my $item (@select_items) {
 		( $labels{$item} = $item ) =~ tr/_/ /;
-	}	
-	return (\@select_items,\%labels,\@order_by, $attributes);
+	}
+	return ( \@select_items, \%labels, \@order_by, $attributes );
 }
 
 sub _print_table_fields {
+
 	#split so single row can be added by AJAX call
 	my ( $self, $table, $row, $max_rows, $select_items, $labels ) = @_;
 	my $q = $self->{'cgi'};
@@ -124,15 +122,15 @@ sub _print_table_fields {
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		print
-	"<a id=\"add_table_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;fields=table_fields&amp;table=$table&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";			
+"<a id=\"add_table_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;fields=table_fields&amp;table=$table&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
 		print
 " <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>Add more fields by clicking the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>";
 	}
-	print "</span>\n";	
+	print "</span>\n";
 }
 
 sub _ajax_content {
-	my ($self, $table) = @_;
+	my ( $self, $table ) = @_;
 	my $system = $self->{'system'};
 	my $q      = $self->{'cgi'};
 	my $row    = $q->param('row');
@@ -147,19 +145,13 @@ sub _print_query_interface {
 	my $prefs  = $self->{'prefs'};
 	my $q      = $self->{'cgi'};
 	my $table  = $q->param('table');
-
 	if ( !$self->{'datastore'}->is_table($table) ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Table '$table' is not defined.</p></div>\n";
 		return;
 	}
-	my ($select_items, $labels, $order_by, $attributes) = $self->_get_select_items($table);
+	my ( $select_items, $labels, $order_by, $attributes ) = $self->_get_select_items($table);
 	print "<div class=\"box\" id=\"queryform\"><div class=\"scrollable\">\n";
-	my $table_fields;
-	if ($q->param('no_js')){
-		$table_fields = 4;
-	} else {
-		$table_fields = $self->_highest_entered_fields('table_fields') || 1;
-	}
+	my $table_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('table_fields') || 1 );
 	my $cleaned = $table;
 	$cleaned =~ tr/_/ /;
 	print "<p>Please enter your search criteria below (or leave blank and submit to return all records).";
@@ -167,19 +159,18 @@ sub _print_query_interface {
 		print " Matching $cleaned will be returned and you will then be able to update their display and query settings.";
 	}
 	print "</p>\n";
-	print $q->startform();
-	foreach (qw (db page table no_js)) {
-		print $q->hidden($_);
-	}
+	print $q->startform;
+	print $q->hidden($_) foreach qw (db page table no_js);
 	print "<div style=\"white-space:nowrap\"><fieldset>\n<legend>Search criteria</legend>\n";
 	my $table_field_heading = $table_fields == 1 ? 'none' : 'inline';
 	print "<span id=\"table_field_heading\" style=\"display:$table_field_heading\"><label for=\"c0\">Combine searches with: </label>\n";
 	print $q->popup_menu( -name => 'c0', -id => 'c0', -values => [ "AND", "OR" ] );
 	print "</span>\n";
 	print "<ul id=\"table_fields\">\n";
+
 	for ( my $i = 1 ; $i <= $table_fields ; $i++ ) {
 		print "<li>";
-		$self->_print_table_fields($table, $i, $table_fields, $select_items, $labels);
+		$self->_print_table_fields( $table, $i, $table_fields, $select_items, $labels );
 		print "</li>\n";
 	}
 	print "</ul>\n";
@@ -217,13 +208,9 @@ sub _print_query_interface {
 	my $qry = "SELECT id,first_name,surname FROM users WHERE id>0 ORDER BY surname ";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute(); };
+	$logger->error("$qry $@") if $@;
 
-	if ($@) {
-		$logger->error("Can't execute: $qry");
-	} else {
-		$logger->debug("Query: $qry");
-	}
-	while ( my @data = $sql->fetchrow_array() ) {
+	while ( my @data = $sql->fetchrow_array ) {
 		push @username, $data[0];
 		$labels{ $data[0] } = "$data[2], $data[1]";
 	}
@@ -370,19 +357,27 @@ sub _print_query_interface {
 " <a class=\"tooltip\" title=\"experiment filter - Click the checkbox and select an experiment to filter your search to only those sequences linked to the selected experiment.\">&nbsp;<i>i</i>&nbsp;</a>";
 			push @filters, $buffer;
 		}
-	} elsif ($table eq 'locus_descriptions'){
+	} elsif ( $table eq 'locus_descriptions' ) {
 		my %labels;
 		my $common_names = $self->{'datastore'}->run_list_query("SELECT DISTINCT common_name FROM loci ORDER BY common_name");
-		my $buffer = "<label for=\"common_name_list\" class=\"filter\">common name: </label>\n";
-		$"=' ';
+		my $buffer       = "<label for=\"common_name_list\" class=\"filter\">common name: </label>\n";
+		$" = ' ';
+		$buffer .=
+		  $q->popup_menu( -name => 'common_name_list', -id => 'common_name_list', -values => [ '', @$common_names ], -class => 'filter' );
+		$buffer .=
+" <a class=\"tooltip\" title=\"common names filter - Click the checkbox and select a name to filter your search to only those loci with the selected common name.\">&nbsp;<i>i</i>&nbsp;</a>";
+		push @filters, $buffer;
+	} elsif ( $table eq 'allele_sequences' ) {
+		my $buffer = "<label for=\"sequence_flag_list\" class=\"filter\">sequence flag: </label>\n";
+		$" = ' ';
 		$buffer .= $q->popup_menu(
-			-name   => 'common_name_list',
-			-id     => 'common_name_list',
-			-values => [ '', @$common_names],
+			-name   => 'sequence_flag_list',
+			-id     => 'sequence_flag_list',
+			-values => [ '', 'any flag', 'no flag', SEQ_FLAGS ],
 			-class  => 'filter'
 		);
 		$buffer .=
-" <a class=\"tooltip\" title=\"common names filter - Click the checkbox and select a name to filter your search to only those loci with the selected common name.\">&nbsp;<i>i</i>&nbsp;</a>";
+" <a class=\"tooltip\" title=\"sequence flag filter - Select the appropriate value to filter tags to only those flagged accordingly.\">&nbsp;<i>i</i>&nbsp;</a>";
 		push @filters, $buffer;
 	}
 	if (@filters) {
@@ -464,7 +459,7 @@ sub _run_query {
 					next;
 				}
 				if ( ( $table eq 'allele_sequences' || $table eq 'experiment_sequences' ) && $field eq 'isolate_id' ) {
-					$qry .= $modifier . $self->_search_by_isolate_id( $operator, $text );
+					$qry .= $modifier . $self->_search_by_isolate_id( $table, $operator, $text );
 				} elsif (
 					(
 						any {
@@ -476,7 +471,13 @@ sub _run_query {
 				  )
 				{
 					$qry .= $modifier . $self->_search_by_isolate( $table, $operator, $text );
-				} elsif (any {$field =~ /(.*) \($_\)$/} qw (id surname first_name affiliation)) {
+				} elsif (
+					any {
+						$field =~ /(.*) \($_\)$/;
+					}
+					qw (id surname first_name affiliation)
+				  )
+				{
 					$qry .= $modifier . $self->search_users( $field, $operator, $text, $table );
 				} else {
 					if ( $operator eq 'NOT' ) {
@@ -549,10 +550,22 @@ sub _run_query {
 			} else {
 				$qry2 = "SELECT * FROM $table WHERE ($qry)";
 			}
-		} elsif ( $table eq 'locus_descriptions' && $q->param('common_name_list') ne ''){
+		} elsif ( $table eq 'locus_descriptions' && $q->param('common_name_list') ne '' ) {
 			my $common_name = $q->param('common_name_list');
 			$common_name =~ s/'/\\'/g;
-			$qry2 = "SELECT * FROM locus_descriptions LEFT JOIN loci ON loci.id = locus_descriptions.locus WHERE common_name = E'$common_name'";
+			$qry2 =
+			  "SELECT * FROM locus_descriptions LEFT JOIN loci ON loci.id = locus_descriptions.locus WHERE common_name = E'$common_name'";
+			$qry2 .= " AND ($qry)" if $qry;
+		} elsif ( $table eq 'allele_sequences' && $q->param('sequence_flag_list') ne '') {
+			if ($q->param('sequence_flag_list') eq 'no flag'){
+				$qry2 = "SELECT * FROM allele_sequences LEFT JOIN sequence_flags ON sequence_flags.seqbin_id = allele_sequences.seqbin_id AND sequence_flags.locus = allele_sequences.locus AND sequence_flags.start_pos = allele_sequences.start_pos AND sequence_flags.end_pos = allele_sequences.end_pos";
+				$qry2 .= " WHERE flag IS NULL";
+			} else {
+				$qry2 = "SELECT * FROM allele_sequences INNER JOIN sequence_flags ON sequence_flags.seqbin_id = allele_sequences.seqbin_id AND sequence_flags.locus = allele_sequences.locus AND sequence_flags.start_pos = allele_sequences.start_pos AND sequence_flags.end_pos = allele_sequences.end_pos";
+				if (any {$q->param('sequence_flag_list') eq $_} SEQ_FLAGS){
+					$qry2 .= " AND flag = '" . $q->param('sequence_flag_list') . "'";
+				}
+			}
 			$qry2 .= " AND ($qry)" if $qry;
 		} else {
 			$qry2 = "SELECT * FROM $table WHERE ($qry)";
@@ -570,12 +583,12 @@ sub _run_query {
 				$qry2 .= ( ( $value eq '<blank>' || $value eq 'null' ) ? "$_ is null" : "$field = E'$value'" );
 			}
 		}
-		$qry2 .= " ORDER BY ";
+		$qry2 .= " ORDER BY $table.";
 		$qry2 .= $q->param('order');
 		my $dir = $q->param('direction') eq 'descending' ? 'desc' : 'asc';
 		my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
-		$" = ',';
-		$qry2 .= " $dir,@primary_keys;";
+		$" = ",$table.";
+		$qry2 .= " $dir,$table.@primary_keys;";
 	} else {
 		$qry2 = $q->param('query');
 	}
@@ -584,10 +597,8 @@ sub _run_query {
 	for ( my $i = 1 ; $i <= MAX_ROWS ; $i++ ) {
 		push @hidden_attributes, "s$i", "t$i", "y$i";
 	}
-	foreach (@$attributes) {
-		push @hidden_attributes, $_->{'name'} . '_list';
-	}
-	push @hidden_attributes, 'no_js';
+	push @hidden_attributes, $_->{'name'} . '_list' foreach (@$attributes);
+	push @hidden_attributes, qw (no_js sequence_flag_list common_name_list);
 	if (@errors) {
 		$" = '<br />';
 		print "<div class=\"box\" id=\"statusbad\"><p>Problem with search criteria:</p>\n";
@@ -618,12 +629,12 @@ s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bi
 		$self->paged_display( $table, $qry2, '', \@hidden_attributes );
 		print "<p />\n";
 	} else {
-		my $qry = "SELECT * FROM $table ORDER BY ";
+		my $qry = "SELECT * FROM $table ORDER BY $table.";
 		$qry .= $q->param('order');
 		my $dir = $q->param('direction') eq 'descending' ? 'desc' : 'asc';
 		my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
-		$" = ',';
-		$qry .= " $dir,@primary_keys;";
+		$" = ",$table.";
+		$qry .= " $dir,$table.@primary_keys;";
 		$self->paged_display( $table, $qry, '', \@hidden_attributes );
 		print "<p />\n";
 	}
@@ -634,23 +645,21 @@ sub print_results_header_insert {
 	return if $self->{'curate'};
 	my $q = $self->{'cgi'};
 	return if $q->param('table') eq 'samples';
-	print "<table><tr><td>";
 	my $record = $self->get_record_name( $q->param('table') );
+	print "<fieldset><legend>Customize</legend>\n";
 	print $q->start_form;
-	print $q->submit( -name => 'customize', -label => "Customize $record options", -class => 'submit' );
-	print $q->hidden('db');
-	print $q->hidden( 'filename', $filename );
-	print $q->hidden('table');
-	$q->param( 'page', 'customize' );
-	print $q->hidden('page');
+	print $q->submit( -name => 'customize', -label => "$record options", -class => 'submit' );
+	$q->param( 'page',     'customize' );
+	$q->param( 'filename', $filename );
+	print $q->hidden($_) foreach qw (db filename table page);
 	print $q->end_form;
-	print "</td></tr></table>\n";
+	print "</fieldset>\n";
 }
 
 sub _search_by_isolate_id {
-	my ( $self, $operator, $text ) = @_;
+	my ( $self, $table, $operator, $text ) = @_;
 	my $qry =
-"seqbin_id IN (SELECT sequence_bin.id FROM sequence_bin LEFT JOIN $self->{'system'}->{'view'} ON isolate_id = $self->{'system'}->{'view'}.id WHERE ";
+"$table.seqbin_id IN (SELECT sequence_bin.id FROM sequence_bin LEFT JOIN $self->{'system'}->{'view'} ON isolate_id = $self->{'system'}->{'view'}.id WHERE ";
 	if ( $operator eq 'NOT' ) {
 		$qry .= "NOT $self->{'system'}->{'view'}.id = $text";
 	} elsif ( $operator eq "contains" ) {
@@ -671,7 +680,7 @@ sub _search_by_isolate {
 	my $qry;
 	if ( $table eq 'allele_sequences' || $table eq 'experiment_sequences' ) {
 		$qry =
-"seqbin_id IN (SELECT sequence_bin.id FROM sequence_bin LEFT JOIN $self->{'system'}->{'view'} ON isolate_id = $self->{'system'}->{'view'}.id WHERE ";
+"$table.seqbin_id IN (SELECT sequence_bin.id FROM sequence_bin LEFT JOIN $self->{'system'}->{'view'} ON isolate_id = $self->{'system'}->{'view'}.id WHERE ";
 	} elsif ( $table eq 'sequence_bin' ) {
 		$qry =
 "id IN (SELECT sequence_bin.id FROM sequence_bin LEFT JOIN $self->{'system'}->{'view'} ON isolate_id = $self->{'system'}->{'view'}.id WHERE ";
