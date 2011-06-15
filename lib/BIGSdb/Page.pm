@@ -880,6 +880,9 @@ sub _print_record_table {
 		if ( $table eq 'experiment_sequences' && $_->{'name'} eq 'experiment_id' ) {
 			push @cleaned_headers, 'isolate id';
 		}
+		if ($table eq 'allele_sequences' && $_->{'name'} eq 'complete'){
+			push @cleaned_headers, 'flag';
+		}
 		$type{ $_->{'name'} }        = $_->{'type'};
 		$foreign_key{ $_->{'name'} } = $_->{'foreign_key'};
 		$labels{ $_->{'name'} }      = $_->{'labels'};
@@ -901,7 +904,7 @@ sub _print_record_table {
 	}
 	$" = ',';
 	my $fields = "@qry_fields";
-	$qry =~ s/\*/$fields/;
+	$qry =~ s/\*/DISTINCT $fields/;
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute(); };
 	if ($@) {
@@ -929,7 +932,7 @@ sub _print_record_table {
 	print "<th>@cleaned_headers</th></tr>\n";
 	my $td = 1;
 	my ( %foreign_key_sql, $fields_to_query );
-	while ( $sql->fetchrow_arrayref() ) {
+	while ( $sql->fetchrow_arrayref ) {
 		my @query_values;
 		my %primary_key;
 		$" = "&amp;";
@@ -981,6 +984,12 @@ sub _print_record_table {
 					my $value = $data{ lc($field) } ? 'true' : 'false';
 					print "<td>$value</td>";
 				}
+				if ($table eq 'allele_sequences' && $field eq 'complete'){
+					my $flags = $self->{'datastore'}->get_sequence_flag($data{ 'seqbin_id' }, $data{ 'locus' }, $data{ 'start_pos' }, $data{ 'end_pos' });
+					$"="</a> <a class=\"seqflag_tooltip\">";	
+					print @$flags ? "<td><a class=\"seqflag_tooltip\">@$flags</a></td>" : "<td />";
+					$"=' ';
+				}
 			} elsif ( $field =~ /sequence$/ && $field ne 'coding_sequence' ) {
 				if ( length( $data{ lc($field) } ) > 60 ) {
 					my $seq = BIGSdb::Utils::truncate_seq( \$data{ lc($field) }, 30 );
@@ -1021,21 +1030,20 @@ sub _print_record_table {
 					print "<td>$value</td>";
 				}
 			} else {
-				if ( $field eq 'locus' ) {
-					$data{ lc($field) } = $self->clean_locus( $data{ lc($field) } );
-				} elsif ( ( $table eq 'allele_sequences' || $table eq 'experiment_sequences' ) && $field eq 'seqbin_id' ) {
+				if ( ( $table eq 'allele_sequences' || $table eq 'experiment_sequences' ) && $field eq 'seqbin_id' ) {
 					my ( $isolate_id, $isolate ) = $self->get_isolate_id_and_name_from_seqbin_id( $data{'seqbin_id'} );
 					print "<td>$isolate_id) $isolate</td>";
-				}
+				} 
 				if ( $field eq 'isolate_id' ) {
 					print "<td>$data{'isolate_id'}) " . $self->get_isolate_name_from_id( $data{'isolate_id'} ) . "</td>";
 				} else {
 					my $value = $data{ lc($field) };
-					$value =~ s/\&/\&amp;/g;
-					if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' && $table eq 'loci' && $field eq 'id' ) {
-						$value =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
+					if ( $field eq 'locus' || ($table eq 'loci' && $field eq 'id') ) {
+						$value = $self->clean_locus( $value );
+					} else {
+						$value =~ s/\&/\&amp;/g;
+						$value =~ tr/_/ /;
 					}
-					$value =~ tr/_/ /;
 					print "<td>$value</td>";
 				}
 			}

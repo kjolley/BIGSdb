@@ -733,7 +733,6 @@ sub _get_client_dbase_fields {
 			eval { $client_sql->execute( $locus, $_ ); };
 			if ($@){
 				$logger->error("Can't extract isolate field '$field' FROM client database, make sure the client_dbase_loci_fields table is correctly configured.  $@");
-				$client_db->rollback;
 			} else {
 				while ( my ($value) = $client_sql->fetchrow_array ) {
 					next if $value eq '';
