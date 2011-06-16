@@ -910,9 +910,13 @@ sub _print_record_table {
 			}
 		}
 	}
-	$" = ',';
+	$"=',';
 	my $fields = "@qry_fields";
-	$qry =~ s/\*/DISTINCT $fields/;
+	if ($table eq 'allele_sequences' && $qry =~ /sequence_flags/){
+		$qry =~ s/\*/DISTINCT $fields/;
+	} else {
+		$qry =~ s/\*/$fields/;
+	}
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute(); };
 	if ($@) {
@@ -926,9 +930,7 @@ sub _print_record_table {
 	}
 	$sql->finish();
 	eval { $sql->execute(); };
-	if ($@) {
-		$logger->error("Can't execute: $qry");
-	}
+	$logger->error($@) if $@;
 	my %data = ();
 	$sql->bind_columns( map { \$data{$_} } @display );    #quicker binding hash to arrayref than to use hashref
 	$" = '</th><th>';
@@ -1061,9 +1063,7 @@ sub _print_record_table {
 			  $self->{'db'}->prepare("SELECT value FROM sequence_extended_attributes WHERE locus=? AND field=? AND allele_id=?");
 			foreach (@$extended_attributes) {
 				eval { $ext_sql->execute( $data{'locus'}, $_, $data{'allele_id'} ); };
-				if ($@) {
-					$logger->error("Can't execute $@");
-				}
+				$logger->error($@) if $@;
 				my ($value) = $ext_sql->fetchrow_array;
 				print "<td>$value</td>";
 			}
