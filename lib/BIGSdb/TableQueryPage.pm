@@ -505,7 +505,7 @@ sub _run_query {
 					} elsif ( $operator eq '=' ) {
 						if ( lc( $thisfield->{'type'} ) eq 'text' ) {
 							$qry .= $modifier
-							  . ( ( $text eq '<blank>' || $text eq 'null' ) ? "$table.$field is null" : "upper($field) = upper(E'$text')" );
+							  . ( ( $text eq '<blank>' || $text eq 'null' ) ? "$table.$field is null" : "upper($table.$field) = upper(E'$text')" );
 						} else {
 							$qry .= $modifier . ( ( $text eq '<blank>' || $text eq 'null' ) ? "$table.$field is null" : "$table.$field = '$text'" );
 						}
