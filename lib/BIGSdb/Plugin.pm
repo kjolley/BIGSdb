@@ -90,7 +90,7 @@ sub get_javascript {
 	$js .= <<"JS";
 \$(document).ready(function() 
     { 
-        \$("#sortTable").tablesorter({widgets:['zebra']}); 
+        \$("#sortTable").tablesorter({widgets:['zebra']});       
         \$("#tree").jstree({ 
 			"core" : {
 				"animation" : 200,
@@ -106,6 +106,14 @@ sub get_javascript {
 				"real_checkboxes_names" : function (n) { return [(n[0].id || Math.ceil(Math.random() * 10000)), 1]; }
 			}
 		});
+
+        // toggle: hide all elements with class onload
+        \$('.toggle').hide();
+        // capture clicks on the toggle links
+        \$('.toggleLink').click(function() {
+            \$(this).next('.toggle').toggle();
+            return false;
+        }); 
     } 
 ); 	
 JS
@@ -298,7 +306,7 @@ sub get_title {
 }
 
 sub print_fields {
-	my ( $self, $fields, $prefix, $num_columns, $trim_prefix, $labels, $scheme_js, $scheme_js2, $default_select ) = @_;
+	my ( $self, $fields, $prefix, $num_columns, $trim_prefix, $labels, $default_select, $toggle ) = @_;
 	my $q                 = $self->{'cgi'};
 	my $fields_per_column = BIGSdb::Utils::round_up( @$fields / $num_columns );
 	my @cols;
@@ -312,7 +320,8 @@ sub print_fields {
 			$i++;
 		}
 	}
-	print "<table>";
+	$toggle = $toggle ? "class=\"toggle\"" : "";
+	print "<table $toggle>";
 	my $row = 0;
 	do {
 		print "<tr>";
@@ -328,11 +337,6 @@ sub print_fields {
 			my $value = $prefix eq 'c' ? 0 : $default_select;
 			print $q->checkbox( -name => "$prefix\_$field", -id => $id, -checked => $value, -value => 'checked', -label => $label );
 			print "</td>\n";
-		}
-		if ( !$row && ref $scheme_js && ref $scheme_js2 ) {
-			$" = ';';
-			print "<td style=\"padding-left:2em\"><input type=\"button\" value=\"All\" onclick='@$scheme_js' class=\"smallbutton\" />\n";
-			print "<input type=\"button\" value=\"None\" onclick='@$scheme_js2' class=\"smallbutton\" /></td>\n";
 		}
 		print "</tr>\n";
 		$row++;
@@ -376,10 +380,13 @@ sub print_field_export_form {
 		print $q->popup_menu( -name => 'format', -values => $output_format_list );
 		print "</p>\n";
 	}
+	print "<div class='fieldsection'>";
 	print "<h2>Isolate fields</h2>\n";
 	my %labels;
-	$self->print_fields( \@display_fields, 'f', 6, 0, \%labels, \@isolate_js, \@isolate_js2, $default_select );
-	if ( $options->{'include_composites'} ) {
+	$self->_print_all_none_buttons( \@isolate_js, \@isolate_js2, 'smallbutton rightbutton' );
+	$self->print_fields( \@display_fields, 'f', 6, 0, \%labels, $default_select, 0 );
+	print "</div>";
+	if ($options->{'include_composites'}) {
 		my $composites = $self->{'datastore'}->run_list_query("SELECT id FROM composite_fields ORDER BY id");
 		if (@$composites) {
 			my ( @com_js, @com_js2 );
@@ -389,11 +396,14 @@ sub print_field_export_form {
 				push @com_js,  "\$(\"#c_$_\").attr(\"checked\",true)";
 				push @com_js2, "\$(\"#c_$_\").attr(\"checked\",false)";
 			}
+			print "<div class='fieldsection'>";
 			print "<h2>Composite fields ";
-			print
-" <a class=\"tooltip\" title=\"Composite fields - These are constructed from combinations of other fields (some of which may come from external databases).  Including composite fields will slow down the processing.\">&nbsp;<i>i</i>&nbsp;</a>";
+			print " <a class=\"tooltip\" title=\"Composite fields - These are constructed from combinations of other fields "
+				 ."(some of which may come from external databases).  Including composite fields will slow down the processing.\">&nbsp;<i>i</i>&nbsp;</a>";
 			print "</h2>\n";
-			$self->print_fields( $composites, 'c', 6, 0, \%labels, \@com_js, \@com_js2, $default_select );
+			$self->_print_all_none_buttons( \@com_js, \@com_js2, 'smallbutton rightbutton' );
+			$self->print_fields( $composites, 'c', 6, 0, \%labels, $default_select, 0 );
+			print "</div>";
 		}
 	}
 	my $total_loci = $self->{'datastore'}->get_loci( { 'analysis_pref' => 1 } );
@@ -414,6 +424,7 @@ sub print_field_export_form {
 			my $scheme_info    = $self->{'datastore'}->get_scheme_info($_);
 			if ( @$scheme_members or @$scheme_fields ) {
 				( my $heading = $scheme_info->{'description'} ) =~ s/\&/\&amp;/g;
+				print "<div class='fieldsection'>";
 				print "<h2>$heading</h2>\n";
 				my @values;
 				my $labels;
@@ -435,10 +446,14 @@ sub print_field_export_form {
 					push @scheme_js,  "\$(\"#s_$_\_f_$scheme_field\").attr(\"checked\",true)";
 					push @scheme_js2, "\$(\"#s_$_\_f_$scheme_field\").attr(\"checked\",false)";
 				}
-				$self->print_fields( \@values, "s_$_", 10, 1, $labels, \@scheme_js, \@scheme_js2, $default_select );
+				$self->_print_all_none_buttons( \@scheme_js, \@scheme_js2, 'smallbutton rightbutton' );
+				print "<input type=\"button\" value=\"Show/Hide List\" class=\"toggleLink smallbutton rightbutton\" />\n";
+				$self->print_fields( \@values, "s_$_", 10, 1, $labels, $default_select, 1 );
+				print "</div>";
 			}
 		}
 		if (@$loci) {
+			print "<div class='fieldsection'>";
 			print "<h2>Loci not belonging to any scheme</h2>\n";
 			my ( @scheme_js, @scheme_js2 );
 			foreach (@$loci) {
@@ -449,7 +464,10 @@ sub print_field_export_form {
 				push @scheme_js2, "\$(\"#l_$cleaned\").attr(\"checked\",false)";
 			}
 			my %labels;
-			$self->print_fields( $loci, 'l', 12, 0, \%labels, \@scheme_js, \@scheme_js2, $default_select );
+			$self->_print_all_none_buttons( \@scheme_js, \@scheme_js2, 'smallbutton rightbutton' );
+			print "<input type=\"button\" value=\"Show/Hide List\" class=\"toggleLink smallbutton rightbutton\" />\n";
+			$self->print_fields( $loci, 'l', 12, 0, \%labels, $default_select, 1 );
+			print "</div>";
 		}
 		$" = ';';
 		print "<input type=\"button\" value=\"Select all\" onclick='@js' style=\"margin-top:1em\" class=\"button\" />\n";
@@ -586,6 +604,7 @@ sub print_sequence_export_form {
 			my $scheme_info    = $self->{'datastore'}->get_scheme_info($scheme_id);
 			if (@$scheme_members) {
 				( my $heading = $scheme_info->{'description'} ) =~ s/\&/\&amp;/g;
+				print "<div class='fieldsection'>";
 				print "<h2>$heading</h2>\n";
 				my @values;
 				my $labels;
@@ -599,7 +618,10 @@ sub print_sequence_export_form {
 					$labels->{"l_$member"} = "$member ($common_names->{$member}->{'common_name'})"
 					  if $common_names->{$member}->{'common_name'};
 				}
-				$self->print_fields( \@values, "s_$scheme_id", 10, 1, $labels, \@scheme_js, \@scheme_js2, $options->{'default_select'} );
+				$self->_print_all_none_buttons( \@scheme_js, \@scheme_js2, 'smallbutton rightbutton' );
+				print "<input type=\"button\" value=\"Show/Hide List\" class=\"toggleLink smallbutton rightbutton\" />\n";
+				$self->print_fields( \@values, "s_$scheme_id", 10, 1, $labels, $options->{'default_select'}, 1 );
+				print "</div>";
 			}
 		}
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -608,6 +630,7 @@ sub print_sequence_export_form {
 "SELECT id FROM loci WHERE id NOT IN (SELECT DISTINCT locus FROM scheme_members) AND (id IN (SELECT DISTINCT locus FROM allele_designations LEFT JOIN loci ON allele_designations.locus = loci.id AND loci.data_type = 'DNA' AND loci.dbase_name IS NOT NULL AND loci.dbase_id_field IS NOT NULL AND loci.dbase_seq_field IS NOT NULL) OR id IN (SELECT DISTINCT locus FROM allele_sequences)) ORDER BY id"
 			  );
 			if (@$loci) {
+				print "<div class='fieldsection'>";
 				print "<h2>Loci not belonging to any scheme</h2>\n";
 				my ( @scheme_js, @scheme_js2 );
 				foreach (@$loci) {
@@ -618,7 +641,10 @@ sub print_sequence_export_form {
 					push @scheme_js2, "\$(\"#l_$cleaned\").attr(\"checked\",false)";
 				}
 				my %labels;
-				$self->print_fields( $loci, 'l', 12, 0, \%labels, \@scheme_js, \@scheme_js2, $options->{'default_select'} );
+				$self->_print_all_none_buttons( \@scheme_js, \@scheme_js2, 'smallbutton rightbutton' );
+				print "<input type=\"button\" value=\"Show/Hide List\" class=\"toggleLink smallbutton rightbutton\" />\n";
+				$self->print_fields( $loci, 'l', 12, 0, \%labels, $options->{'default_select'}, 1 );
+				print "</div>";
 			}
 		}
 		$" = ';';
@@ -650,5 +676,12 @@ sub _print_tree {
 	print "</div>\n";
 }
 
+sub _print_all_none_buttons {
+	my ( $self, $js1, $js2, $class, $prefix ) = @_;
+	if ( ref $js1 && ref $js2 ) {
+		print "<input type=\"button\" value=\"". $prefix ."None\" class=\"$class\" onclick='@$js2' />\n";
+		print "<input type=\"button\" value=\"". $prefix ."All\" class=\"$class\" onclick='@$js1' />\n";
+	}
+}
 
 1;

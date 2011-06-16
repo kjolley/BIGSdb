@@ -23,8 +23,8 @@ h2 {
 	font: 600 1.2em Arial,Helvetica,sans-serif; 
 	color: #606060;
 	border-bottom: dotted #8080b0 1px;
-
 }
+
 h3 {
 	font: 600 1.1em Arial,Helvetica,sans-serif;
 	color: #000080;
@@ -232,6 +232,11 @@ input.submit:hover {
 	border-bottom-color:#696
 }
 
+.fieldsection {
+	width:90%;
+	margin:0px;
+}
+
 .button,.smallbutton, .fieldvaluebutton {
 	background:#f0f0f0;
 	color:#333;
@@ -243,13 +248,18 @@ input.submit:hover {
 
 .button {
 	border:2px solid;
-	margin:2px
+	margin:5px
 }
 
 .smallbutton {
 	border:1px solid;
 	font-size:0.8em;
-	margin:1px;
+    margin:1px;
+}
+
+.rightbutton {
+	margin:-20px 5px 10px 0;
+	float:right;
 }
 
 .button:hover,.smallbutton:hover,.fieldvaluebutton:hover {
@@ -264,7 +274,7 @@ input.submit:hover {
 
 input.submit {
 	background:#eee;
-	margin:2px;
+	margin:12px;
 	padding: 0 5px 0 5px;
 	color:#333;
 	border:2px solid;
@@ -329,8 +339,10 @@ table.tablesorter {text-align:center}
 table.tablesorter tr.even td {background:#efefff;text-align:center}
 table.tablesorter tr.odd td {background:#efefef;text-align:center}
 table.tablesorter th.header { 
-    background-image: url(/images/tablesorter/bg.gif);     
-    background-repeat: no-repeat; 
+	background-image: url(/images/tablesorter/bg.gif);
+	background-repeat: no-repeat; 
+	padding:0px;
+	margin:0px;
     padding-right: 20px;
     background-position: center right; 
     cursor: pointer; 

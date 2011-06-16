@@ -148,7 +148,7 @@ can be included.  Please check the loci that you would like to include.  If a se
 the remote database, it will be replaced with 'N's. Output is limited to $limit records. Please be aware that it may take a long time 
 to generate the output file as the sequences are passed through muscle to align them.</p>
 HTML
-	my $options = {'default_select' => 1, 'translate' => 1};
+	my $options = {'default_select' => 0, 'translate' => 1};
 	$self->print_sequence_export_form( $pk, $list, $scheme_id, $options );
 	print "</div>\n";
 }
