@@ -482,35 +482,35 @@ sub _run_query {
 				} else {
 					if ( $operator eq 'NOT' ) {
 						if ( $text eq '<blank>' || $text eq 'null' ) {
-							$qry .= $modifier . "$field is not null";
+							$qry .= $modifier . "$table.$field is not null";
 						} else {
 							if ( $thisfield->{'type'} ne 'text' ) {
-								$qry .= $modifier . "NOT CAST($field AS text) = '$text'";
+								$qry .= $modifier . "NOT CAST($table.$field AS text) = '$text'";
 							} else {
-								$qry .= $modifier . "NOT upper($field) = upper('$text')";
+								$qry .= $modifier . "NOT upper($table.$field) = upper('$text')";
 							}
 						}
 					} elsif ( $operator eq "contains" ) {
 						if ( $thisfield->{'type'} ne 'text' ) {
-							$qry .= $modifier . "CAST($field AS text) LIKE '\%$text\%'";
+							$qry .= $modifier . "CAST($table.$field AS text) LIKE '\%$text\%'";
 						} else {
-							$qry .= $modifier . "upper($field) LIKE upper(E'\%$text\%')";
+							$qry .= $modifier . "upper($table.$field) LIKE upper(E'\%$text\%')";
 						}
 					} elsif ( $operator eq "NOT contain" ) {
 						if ( $thisfield->{'type'} ne 'text' ) {
-							$qry .= $modifier . "NOT CAST($field AS text) LIKE '\%$text\%'";
+							$qry .= $modifier . "NOT CAST($table.$field AS text) LIKE '\%$text\%'";
 						} else {
-							$qry .= $modifier . "NOT upper($field) LIKE upper(E'\%$text\%')";
+							$qry .= $modifier . "NOT upper($table.$field) LIKE upper(E'\%$text\%')";
 						}
 					} elsif ( $operator eq '=' ) {
 						if ( lc( $thisfield->{'type'} ) eq 'text' ) {
 							$qry .= $modifier
-							  . ( ( $text eq '<blank>' || $text eq 'null' ) ? "$field is null" : "upper($field) = upper(E'$text')" );
+							  . ( ( $text eq '<blank>' || $text eq 'null' ) ? "$table.$field is null" : "upper($field) = upper(E'$text')" );
 						} else {
-							$qry .= $modifier . ( ( $text eq '<blank>' || $text eq 'null' ) ? "$field is null" : "$field = '$text'" );
+							$qry .= $modifier . ( ( $text eq '<blank>' || $text eq 'null' ) ? "$table.$field is null" : "$table.$field = '$text'" );
 						}
 					} else {
-						$qry .= $modifier . "$field $operator E'$text'";
+						$qry .= $modifier . "$table.$field $operator E'$text'";
 					}
 				}
 			}
