@@ -1014,7 +1014,7 @@ sub _blast {
 	my $q          = $self->{'cgi'};
 	my $program;
 	if ( $locus_info->{'data_type'} eq 'DNA' ) {
-		$program = $self->{'cgi'}->param('tblastx') ? 'tblastx' : 'blastn';
+		$program = $q->param('tblastx') ? 'tblastx' : 'blastn';
 	} else {
 		$program = 'blastx';
 	}

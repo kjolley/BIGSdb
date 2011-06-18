@@ -601,8 +601,8 @@ sub paged_display {
 
 	#sort allele_id integers numerically
 	$qry =~
-	  s/ORDER BY (.+)allele_id(.*)/ORDER BY $1\(case when allele_id ~ '^[0-9]+\$' THEN lpad\(allele_id,10,'0'\) else allele_id end\)$2/;
-	$qry =~ s/ORDER BY allele_id(.*)/ORDER BY \(case when allele_id ~ '^[0-9]+\$' THEN lpad\(allele_id,10,'0'\) else allele_id end\)$1/;
+	  s/ORDER BY (.+),\s*\S+\.allele_id(.*)/ORDER BY $1,\(case when allele_id ~ '^[0-9]+\$' THEN lpad\(allele_id,10,'0'\) else allele_id end\)$2/;
+	$qry =~ s/ORDER BY \S+\.allele_id(.*)/ORDER BY \(case when allele_id ~ '^[0-9]+\$' THEN lpad\(allele_id,10,'0'\) else allele_id end\)$1/;
 	my $totalpages = 1;
 	my $bar_buffer;
 	if ( $q->param('displayrecs') ) {
