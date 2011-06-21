@@ -65,7 +65,7 @@ sub print_content {
 		open( my $tmp_fh, '<', $tmp_file );
 		my @records = <$tmp_fh>;
 		close $tmp_fh;
-		if ( $tmp_file =~ /^(.*\/.*\d{5}\.txt)$/ ) {
+		if ( $tmp_file =~ /^(.*\/BIGSdb_[0-9_]+\.txt)$/ ) {
 			$logger->info("Deleting temp file $tmp_file");
 			unlink $1;
 		} else {
