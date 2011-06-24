@@ -19,7 +19,7 @@
 package BIGSdb::QueryPage;
 use strict;
 use base qw(BIGSdb::Page);
-use List::MoreUtils qw(any);
+use List::MoreUtils qw(any none);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant MAX_ROWS => 20;
@@ -30,7 +30,7 @@ sub initiate {
 		$self->{'type'} = 'no_header';
 		return;
 	}
-	foreach (qw (field_help tooltips jQuery)){
+	foreach (qw (field_help tooltips jQuery)) {
 		$self->{$_} = 1;
 	}
 }
@@ -163,9 +163,10 @@ sub print_content {
 	if ( !defined $q->param('currentpage')
 		|| $q->param('First') )
 	{
-		if (!$q->param('no_js')){
+		if ( !$q->param('no_js') ) {
 			my $scheme_clause = $system->{'dbtype'} eq 'sequences' ? "&amp;scheme_id=$scheme_id" : '';
-			print "<noscript><div class=\"statusbad_no_resize\"><p>The dynamic customisation of this interface requires that you enable Javascript in your
+			print
+"<noscript><div class=\"statusbad_no_resize\"><p>The dynamic customisation of this interface requires that you enable Javascript in your
 		browser. Alternatively, you can use a <a href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=query$scheme_clause&amp;no_js=1\">non-Javascript 
 		version</a> that has 4 combinations of fields.</p></div></noscript>\n";
 		}
@@ -189,12 +190,12 @@ sub _print_provenance_fields {
 	print $q->textfield( -name => "t$row", -class => 'value_entry' );
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
-		if (!$q->param('no_js')){
+		if ( !$q->param('no_js') ) {
 			my $page = $self->{'curate'} ? 'isolateQuery' : 'query';
 			print
-	"<a id=\"add_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;fields=provenance&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
+"<a id=\"add_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;fields=provenance&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
 			print
-	" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
+" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
 	}
 	print "</span>\n";
@@ -216,12 +217,12 @@ sub _print_loci_fields {
 		print $q->textfield( -name => "lt$row", -class => 'allele_entry' );
 		if ( $row == 1 ) {
 			my $next_row = $max_rows ? $max_rows + 1 : 2;
-			if (!$q->param('no_js')){
+			if ( !$q->param('no_js') ) {
 				my $page = $self->{'curate'} ? 'isolateQuery' : 'query';
 				print
-	"<a id=\"add_loci\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;fields=loci&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
+"<a id=\"add_loci\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;fields=loci&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
 				print
-	" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
+" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
 			}
 		}
 	}
@@ -250,14 +251,12 @@ sub _print_isolate_query_interface {
 	print "<div class=\"box\" id=\"queryform\"><div class=\"scrollable\">\n";
 	print $q->startform();
 	$q->param( 'table', $self->{'system'}->{'view'} );
-	foreach (qw (db page table no_js)) {
-		print $q->hidden($_);
-	}
+	print $q->hidden($_) foreach qw (db page table no_js);
 
 	#Provenance/phenotype fields
 	print "<div style=\"white-space:nowrap\"><fieldset>\n<legend>Isolate provenance/phenotype fields</legend>\n";
 	my $prov_fields;
-	if ($q->param('no_js')){
+	if ( $q->param('no_js') ) {
 		$prov_fields = 4;
 	} else {
 		$prov_fields = $self->_highest_entered_fields('provenance') || 1;
@@ -283,7 +282,7 @@ sub _print_isolate_query_interface {
 	print "<fieldset>\n";
 	print "<legend>Filter with locus or scheme fields</legend>\n";
 	my $locus_fields;
-	if ($q->param('no_js')){
+	if ( $q->param('no_js') ) {
 		$locus_fields = 4;
 	} else {
 		$locus_fields = $self->_highest_entered_fields('loci') || 1;
@@ -312,67 +311,42 @@ sub _print_isolate_query_interface {
 		my @dropdownlist;
 		my %dropdownlabels;
 		if ( $prefs->{'dropdownfields'}->{$field} ) {
-			if ( $thisfield{'optlist'} ) {
-				@dropdownlist = $self->{'xmlHandler'}->get_field_option_list($field);
-				$dropdownlabels{$_} = $_ foreach (@dropdownlist);
-				if (   $thisfield{'required'}
-					&& $thisfield{'required'} eq 'no' )
-				{
-					push @dropdownlist, '<blank>';
-					$dropdownlabels{'<blank>'} = '<blank>';
-				}
+			if (   $field eq 'sender'
+				|| $field eq 'curator'
+				|| ( $thisfield{'userfield'} && $thisfield{'userfield'} eq 'yes' ) )
+			{
+				push @filters, $self->get_user_filter( $field, $self->{'system'}->{'view'} );
 			} else {
-				if (   $field eq 'sender'
-					|| $field eq 'curator'
-					|| ( $thisfield{'userfield'} && $thisfield{'userfield'} eq 'yes' ) )
-				{
-					my $qry = "SELECT DISTINCT($field) FROM $system->{'view'}";
-					my $sql = $self->{'db'}->prepare($qry);
-					$sql->execute()
-					  or $logger->error("Can't execute query '$qry'");
-					my @userids;
-					while ( my ($value) = $sql->fetchrow_array ) {
-						push @userids, $value;
-					}
-					if (@userids) {
-						$"   = ' OR id=';
-						$qry = "SELECT id,first_name,surname FROM users where id=@userids ORDER BY surname";
-						$sql = $self->{'db'}->prepare($qry);
-						$sql->execute()
-						  or $logger->error("Can't execute query '$qry'");
-						while ( my @userdata = $sql->fetchrow_array ) {
-							push @dropdownlist, $userdata[0];
-							if ( $userdata[2] eq 'applicable' ) {
-								$dropdownlabels{ $userdata[0] } = "not applicable";
-							} else {
-								$dropdownlabels{ $userdata[0] } = "$userdata[2], $userdata[1]";
-							}
-						}
+				if ( $thisfield{'optlist'} ) {
+					@dropdownlist = $self->{'xmlHandler'}->get_field_option_list($field);
+					$dropdownlabels{$_} = $_ foreach (@dropdownlist);
+					if (   $thisfield{'required'}
+						&& $thisfield{'required'} eq 'no' )
+					{
+						push @dropdownlist, '<blank>';
+						$dropdownlabels{'<blank>'} = '<blank>';
 					}
 				} else {
 					my $qry = "SELECT DISTINCT($field) FROM $system->{'view'} ORDER BY $field";
 					my $sql = $self->{'db'}->prepare($qry);
-					$sql->execute()
-					  or $logger->error("Can't execute query '$qry'");
+					eval { $sql->execute; };
+					$logger->error($@) if $@;
 					while ( my ($value) = $sql->fetchrow_array ) {
 						push @dropdownlist, $value;
 					}
 				}
+				my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
+				push @filters,
+				  $self->get_filter(
+					$field,
+					\@dropdownlist,
+					{
+						'labels' => \%dropdownlabels,
+						'tooltip' =>
+"$field filter - Select $a_or_an $field to filter your search to only those isolates that match the selected $field."
+					}
+				  );
 			}
-			my ($label, $title) = $self->_get_truncated_label("$field: ");
-			my $buffer = "<label for=\"$field\_list\" class=\"filter\" title=\"$title\">$label</label>\n";
-			$" = ' ';
-			$buffer .= $q->popup_menu(
-				-name   => $field . '_list',
-				-id     => $field . '_list',
-				-values => [ '', @dropdownlist ],
-				-labels => \%dropdownlabels,
-				-class  => 'filter'
-			);
-			my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
-			$buffer .=
-" <a class=\"tooltip\" title=\"$field filter - Select $a_or_an $field to filter your search to only those isolates that match the selected $field.\">&nbsp;<i>i</i>&nbsp;</a>";
-			push @filters, $buffer;
 		}
 		my $extatt = $extended->{$field};
 		if ( ref $extatt eq 'ARRAY' ) {
@@ -382,19 +356,16 @@ sub _print_isolate_query_interface {
 						"SELECT DISTINCT value FROM isolate_value_extended_attributes WHERE isolate_field=? AND attribute=? ORDER BY value",
 						$field, $extended_attribute
 					);
-					my $buffer =
-					  "<label for=\"$field\..$extended_attribute\_list\" class=\"filter\">$field\..$extended_attribute: </label>\n";
-					$" = ' ';
-					$buffer .= $q->popup_menu(
-						-name   => "$field\..$extended_attribute" . '_list',
-						-id     => "$field\..$extended_attribute" . '_list',
-						-values => [ '', @$values ],
-						-class  => 'filter'
-					);
 					my $a_or_an = substr( $extended_attribute, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
-					$buffer .=
-" <a class=\"tooltip\" title=\"$field\..$extended_attribute filter - Select $a_or_an $extended_attribute to filter your search to only those isolates that match the selected $field.\">&nbsp;<i>i</i>&nbsp;</a>";
-					push @filters, $buffer;
+					push @filters,
+					  $self->get_filter(
+						"$field\..$extended_attribute",
+						$values,
+						{
+							'tooltip' =>
+"$field\..$extended_attribute filter - Select $a_or_an $extended_attribute to filter your search to only those isolates that match the selected $field."
+						}
+					  );
 				}
 			}
 		}
@@ -404,44 +375,40 @@ sub _print_isolate_query_interface {
 		my $buffer;
 		if (@$pmid) {
 			my $labels = $self->{'datastore'}->get_citation_hash($pmid);
-			my $buffer = "<label for=\"publication_list\" class=\"filter\">Publication: </label>\n";
-			$" = ' ';
-			$buffer .= $q->popup_menu(
-				-name   => 'publication_list',
-				-id     => 'publication_list',
-				-values => [ '', sort { $labels->{$a} cmp $labels->{$b} } keys %$labels ],
-				-labels => $labels,
-				-class  => 'filter'
-			);
-			$buffer .=
-" <a class=\"tooltip\" title=\"publication filter - Select a publication to filter your search to only those isolates that match the selected publication.\">&nbsp;<i>i</i>&nbsp;</a>";
-			push @filters, $buffer;
+			my @values = sort { $labels->{$a} cmp $labels->{$b} } keys %$labels;
+			push @filters,
+			  $self->get_filter(
+				'publication',
+				\@values,
+				{
+					'labels' => $labels,
+					'text'   => 'Publication',
+					'tooltip' =>
+"publication filter - Select a publication to filter your search to only those isolates that match the selected publication."
+				}
+			  );
 		}
 	}
 	if ( $prefs->{'dropdownfields'}->{'projects'} ) {
 		my $sql = $self->{'db'}->prepare("SELECT id, short_description FROM projects ORDER BY short_description");
 		eval { $sql->execute; };
-		if ($@) {
-			$logger->error("Can't execute $@");
-		}
+		$logger->error($@) if $@;
 		my ( @project_ids, %labels );
 		while ( my ( $id, $desc ) = $sql->fetchrow_array ) {
 			push @project_ids, $id;
 			$labels{$id} = $desc;
 		}
 		if (@project_ids) {
-			my $buffer = "<label for=\"project_list\" class=\"filter\">Project: </label>\n";
-			$" = ' ';
-			$buffer .= $q->popup_menu(
-				-name   => 'project_list',
-				-id     => 'project_list',
-				-values => [ '', @project_ids ],
-				-labels => \%labels,
-				-class  => 'filter'
-			);
-			$buffer .=
-" <a class=\"tooltip\" title=\"project filter - Select a project to filter your search to only those isolates belonging to it.\">&nbsp;<i>i</i>&nbsp;</a>";
-			push @filters, $buffer;
+			push @filters,
+			  $self->get_filter(
+				'project',
+				\@project_ids,
+				{
+					'labels'  => \%labels,
+					'text'    => 'Project',
+					'tooltip' => 'project filter - Select a project to filter your search to only those isolates belonging to it.'
+				}
+			  );
 		}
 	}
 	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
@@ -449,60 +416,50 @@ sub _print_isolate_query_interface {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
 		my $field       = "scheme_$_\_profile_status";
 		if ( $prefs->{'dropdownfields'}->{$field} ) {
-			my ($label, $title) = $self->_get_truncated_label("$scheme_info->{'description'} profiles: ");
-			my $buffer = "<label for=\"$field\_list\" class=\"filter\" title=\"$title\">$label</label>\n";
-			$" = ' ';
-			$buffer .= $q->popup_menu(
-				-name   => "$field\_list",
-				-id     => "$field\_list",
-				-values => [ '', 'complete', 'incomplete', 'partial', 'not started' ],
-				-class  => 'filter'
-			);
-			$buffer .=
-" <a class=\"tooltip\" title=\"$scheme_info->{'description'} profile completion filter - Select whether the isolates should have complete, partial, or unstarted profiles.\">&nbsp;<i>i</i>&nbsp;</a>";
-			push @filters, $buffer;
+			push @filters,
+			  $self->get_filter(
+				$field,
+				[ 'complete', 'incomplete', 'partial', 'not started' ],
+				{
+					'text' => "$scheme_info->{'description'} profiles",
+					'tooltip' =>
+"$scheme_info->{'description'} profile completion filter - Select whether the isolates should have complete, partial, or unstarted profiles."
+				}
+			  );
 		}
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($_);
 		foreach my $field (@$scheme_fields) {
 			if ( $self->{'prefs'}->{"dropdown\_scheme_fields"}->{$_}->{$field} ) {
-				( my $cleaned = $field ) =~ tr/_/ /;
-				my ($label, $title) = $self->_get_truncated_label("$cleaned ($scheme_info->{'description'}): ");
-				my $buffer =
-				  "<label for=\"scheme\_$_\_$field\_list\" class=\"filter\" title=\"$title\">$label</label>\n";
 				my $values = $self->{'datastore'}->get_scheme($_)->get_distinct_fields($field);
-				$" = ' ';
-				$buffer .= $q->popup_menu(
-					-name   => "scheme\_$_\_$field\_list",
-					-id     => "scheme\_$_\_$field\_list",
-					-values => [ '', @$values ],
-					-class  => 'filter'
-				);
 				my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
-				$buffer .=
-" <a class=\"tooltip\" title=\"$cleaned ($scheme_info->{'description'}) filter - Select $a_or_an $cleaned to filter your search to only those isolates that match the selected $cleaned.\">&nbsp;<i>i</i>&nbsp;</a>";
-				push @filters, $buffer if @$values;
+				push @filters,
+				  $self->get_filter(
+					"scheme\_$_\_$field",
+					$values,
+					{
+						'text' => "$field ($scheme_info->{'description'})",
+						'tooltip' =>
+"$field ($scheme_info->{'description'}) filter - Select $a_or_an $field to filter your search to only those isolates that match the selected $field."
+					}
+				  ) if @$values;
 			}
 		}
 	}
 	if ( $prefs->{'dropdownfields'}->{'linked_sequences'} ) {
-		my $buffer = "<label for=\"linked_sequences\" class=\"filter\">Linked sequence: </label>\n";
-		$" = ' ';
-		$buffer .= $q->popup_menu(
-			-name   => 'linked_sequences',
-			-id     => "linked_sequences",
-			-values => [ '', 'with linked sequences', 'without linked sequences' ],
-			-class  => 'filter'
-		);
-		$buffer .=
-" <a class=\"tooltip\" title=\"linked sequence filter - Filter by whether sequences have been linked with the isolate record.\">&nbsp;<i>i</i>&nbsp;</a>";
-		push @filters, $buffer;
+		push @filters,
+		  $self->get_filter(
+			'linked_sequences',
+			[ 'with linked sequences', 'without linked sequences' ],
+			{
+				'text'    => 'Linked sequence',
+				'tooltip' => 'linked sequence filter - Filter by whether sequences have been linked with the isolate record.'
+			}
+		  );
 	}
 	if (@filters) {
 		print "<div style=\"white-space:nowrap\"><fieldset><legend>Filter query by</legend>\n";
 		print "<ul>\n";
-		foreach (@filters) {
-			print "<li><span style=\"white-space:nowrap\">$_</span></li>";
-		}
+		print "<li><span style=\"white-space:nowrap\">$_</span></li>" foreach (@filters);
 		print "</ul>\n</fieldset>";
 	}
 	print "<fieldset class=\"display\">\n";
@@ -533,17 +490,6 @@ sub _print_isolate_query_interface {
 	print "</div>\n" if @filters;
 	print $q->end_form;
 	print "</div>\n</div>\n";
-}
-
-sub _get_truncated_label {
-	my ($self, $label) = @_;
-	my $title;
-	if (length $label > 25){
-		$title = $label;
-		$title =~ tr/\"//;
-		$label = "<a title=\"$title\" class=\"truncated\">" . substr ($label, 0, 20) . "&#133</a>";				
-	}
-	return ($label,$title);
 }
 
 sub _highest_entered_fields {
@@ -590,11 +536,8 @@ sub _get_profile_select_items {
 		push @orderitems,  $_;
 	}
 	foreach (qw (sender curator)) {
-		push @selectitems, "$_ (id)";
-		push @selectitems, "$_ (surname)";
-		push @selectitems, "$_ (first_name)";
-		push @selectitems, "$_ (affiliation)";
-		push @orderitems,  $_;
+		push @selectitems, "$_ (id)", "$_ (surname)", "$_ (first_name)", "$_ (affiliation)";
+		push @orderitems, $_;
 	}
 	push @selectitems, qw	(date_entered datestamp);
 	$cleaned{'date_entered'} = 'date entered';
@@ -611,12 +554,12 @@ sub _print_scheme_fields {
 	print $q->textfield( -name => "t$row", -class => 'value_entry' );
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
-		if (!$q->param('no_js')){
+		if ( !$q->param('no_js') ) {
 			my $page = $self->{'curate'} ? 'profileQuery' : 'query';
 			print
-	"<a id=\"add_scheme_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;fields=scheme&amp;scheme_id=$scheme_id&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
+"<a id=\"add_scheme_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;fields=scheme&amp;scheme_id=$scheme_id&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
 			print
-	" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
+" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
 	}
 	print "</span>\n";
@@ -639,7 +582,7 @@ sub _print_profile_query_interface {
 		print $q->hidden($_);
 	}
 	my $scheme_fields;
-	if ($q->param('no_js')){
+	if ( $q->param('no_js') ) {
 		$scheme_fields = 4;
 	} else {
 		$scheme_fields = $self->_highest_entered_fields('scheme') || 1;
@@ -661,18 +604,18 @@ sub _print_profile_query_interface {
 		my $pmid = $self->{'datastore'}->run_list_query( "SELECT DISTINCT(pubmed_id) FROM profile_refs WHERE scheme_id=?", $scheme_id );
 		if (@$pmid) {
 			my $labels = $self->{'datastore'}->get_citation_hash($pmid);
-			my $buffer = "<label for=\"publication_list\" class=\"filter\">Publication: </label>\n";
-			$" = ' ';
-			$buffer .= $q->popup_menu(
-				-name   => 'publication_list',
-				-id     => 'publication_list',
-				-values => [ '', sort { $labels->{$a} cmp $labels->{$b} } keys %$labels ],
-				-labels => $labels,
-				-class  => 'filter'
-			);
-			$buffer .=
-" <a class=\"tooltip\" title=\"publication filter - Select a publication to filter your search to only those isolates that match the selected publication.\">&nbsp;<i>i</i>&nbsp;</a>";
-			push @filters, $buffer;
+			my @values = sort { $labels->{$a} cmp $labels->{$b} } keys %$labels;
+			push @filters,
+			  $self->get_filter(
+				'publication',
+				\@values,
+				{
+					'labels' => $labels,
+					'text'   => 'Publication',
+					'tooltip' =>
+"publication filter - Select a publication to filter your search to only those isolates that match the selected publication."
+				}
+			  );
 		}
 	}
 	my $schemes;
@@ -686,26 +629,22 @@ sub _print_profile_query_interface {
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($_);
 		foreach my $field (@$scheme_fields) {
 			if ( $self->{'prefs'}->{"dropdown\_scheme_fields"}->{$_}->{$field} ) {
-				( my $cleaned = $field ) =~ tr/_/ /;
-				my $buffer = "<label for=\"$field\_list\" class=\"filter\">$cleaned ($scheme_info->{'description'}): </label>\n";
 				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $_, $field );
-				my $value_clause;
-				if ( $scheme_field_info->{'type'} eq 'integer' ) {
-					$value_clause = 'CAST(value AS integer)';
-				} else {
-					$value_clause = 'value';
-				}
+				my $value_clause = $scheme_field_info->{'type'} eq 'integer' ? 'CAST(value AS integer)' : 'value';
 				my $values =
 				  $self->{'datastore'}->run_list_query(
 					"SELECT DISTINCT $value_clause FROM profile_fields WHERE scheme_id=? AND scheme_field=? ORDER BY $value_clause",
 					$_, $field );
-				$" = ' ';
-				$buffer .=
-				  $q->popup_menu( -name => "$field\_list", -id => "$field\_list", -values => [ '', @$values ], -class => 'filter' );
 				my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
-				$buffer .=
-" <a class=\"tooltip\" title=\"$cleaned ($scheme_info->{'description'}) filter - Select $a_or_an $cleaned to filter your search to only those isolates that match the selected $cleaned.\">&nbsp;<i>i</i>&nbsp;</a>";
-				push @filters, $buffer;
+				push @filters,
+				  $self->get_filter(
+					$field, $values,
+					{
+						'text' => "$field ($scheme_info->{'description'})",
+						'tooltip' =>
+"$field ($scheme_info->{'description'}) filter - Select $a_or_an $field to filter your search to only those profiles that match the selected $field."
+					}
+				  );
 			}
 		}
 	}
@@ -754,7 +693,7 @@ sub _run_isolate_query {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $system = $self->{'system'};
-	my $view = $system->{'view'};
+	my $view   = $system->{'view'};
 	my $qry;
 	my @errors;
 	my $extended = $self->get_extended_attributes;
@@ -1052,14 +991,13 @@ sub _run_isolate_query {
 				if ( $qry !~ /WHERE \(\)\s*$/ ) {
 					$qry .= " AND (id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id'))";
 				} else {
-					$qry =
-"SELECT * FROM $view WHERE (id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id'))";
+					$qry = "SELECT * FROM $view WHERE (id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id'))";
 				}
 			}
 		}
-		if ( $q->param('linked_sequences') ) {
+		if ( $q->param('linked_sequences_list') ) {
 			my $not;
-			if ( $q->param('linked_sequences') =~ /without/ ) {
+			if ( $q->param('linked_sequences_list') =~ /without/ ) {
 				$not = ' NOT';
 			}
 			if ( $qry !~ /WHERE \(\)\s*$/ ) {
@@ -1136,7 +1074,6 @@ sub _run_isolate_query {
 					}
 					$joined_table .= " @temp";
 					my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
-					
 					if ( $scheme_field_info->{'type'} eq 'integer' ) {
 						$clause = "(id IN ($joined_table AND CAST($field AS int) = '$value'))";
 					} else {
@@ -1361,7 +1298,7 @@ sub _run_isolate_query {
 				}
 			}
 		}
-		push @hidden_attributes, qw(no_js publication_list linked_sequences);
+		push @hidden_attributes, qw(no_js publication_list project_list linked_sequences_list);
 		my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 		foreach (@$schemes) {
 			push @hidden_attributes, "scheme_$_\_profile_status_list";

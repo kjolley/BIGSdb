@@ -189,10 +189,10 @@ sub print {
 		my $page_js = $self->get_javascript;
 		my @javascript;
 		if ( $self->{'jQuery'} ) {
-			if ($self->{'config'}->{'intranet'} eq 'yes'){
-				push @javascript,
-				  ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.js" } );				
+			if ( $self->{'config'}->{'intranet'} eq 'yes' ) {
+				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.js" } );
 			} else {
+
 				#Load jQuery library from Google CDN
 				push @javascript,
 				  ( { 'language' => 'Javascript', 'src' => "http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js" } );
@@ -568,6 +568,90 @@ s/\$lociAdd/<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&a
 	}
 }
 
+sub get_filter {
+	my ( $self, $name, $values, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $filter = $options->{'class'} || 'filter';
+	( my $text = $options->{'text'} || $name ) =~ tr/_/ /;
+	my ($label, $title) = $self->_get_truncated_label("$text: ");	
+	my $buffer = "<label for=\"$name\_list\" class=\"$filter\" title=\"$title\">$label</label>\n";
+	$" = ' ';
+	$buffer .= $self->{'cgi'}->popup_menu(
+		-name   => "$name\_list",
+		-id     => "$name\_list",
+		-values => [ '', @$values ],
+		-labels => $options->{'labels'},
+		-class  => $filter
+	);
+	$options->{'tooltip'} =~ tr/_/ /;
+	$buffer .= " <a class=\"tooltip\" title=\"$options->{'tooltip'}.\">&nbsp;<i>i</i>&nbsp;</a>" if $options->{'tooltip'};
+	return $buffer;
+}
+
+sub get_user_filter {
+	my ( $self, $field, $table ) = @_;
+	my $qry = "SELECT DISTINCT($field) FROM $table WHERE $field > 0";
+	my $sql = $self->{'db'}->prepare($qry);
+	eval { $sql->execute(); };
+	$logger->error($@) if $@;
+	my @userids;
+	while ( my ($value) = $sql->fetchrow_array ) {
+		push @userids, $value;
+	}
+	$qry = "SELECT id,first_name,surname FROM users where id=?";
+	$sql = $self->{'db'}->prepare($qry);
+	my ( @usernames, %labels );
+	foreach (@userids) {
+		eval { $sql->execute($_); };
+		$logger->error($@) if $@;
+		while ( my @data = $sql->fetchrow_array ) {
+			push @usernames, $data[0];
+			$labels{ $data[0] } = $data[2] eq 'applicable' ? 'not applicable' : "$data[2], $data[1]";
+		}
+	}
+	@usernames =
+	  sort { lc( $self->{'cache'}->{'username_labels'}->{$table}->{$a} ) cmp lc( $self->{'cache'}->{'username_labels'}->{$table}->{$b} ) }
+	  @usernames;
+	my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
+	return $self->get_filter( $field, \@usernames, { 'labels' => \%labels, 'tooltip' => "$field filter - Select $a_or_an $field to filter your search to only those records that match the selected $field" } );
+}
+
+sub get_scheme_filter {
+	my ($self) = @_;
+	if ( !$self->{'cache'}->{'schemes'} ) {
+		my $qry = "SELECT id,description FROM schemes ORDER BY display_order,id";
+		my $sql = $self->{'db'}->prepare($qry);
+		eval { $sql->execute(); };
+		$logger->error($@) if $@;
+		while ( my @data = $sql->fetchrow_array() ) {
+			push @{ $self->{'cache'}->{'schemes'} }, $data[0];
+			$self->{'cache'}->{'scheme_labels'}->{ $data[0] } = $data[1];
+		}
+		push @{ $self->{'cache'}->{'schemes'} }, 0;
+		$self->{'cache'}->{'scheme_labels'}->{0} = 'No scheme';
+	}
+	my $buffer = $self->get_filter(
+		'scheme',
+		$self->{'cache'}->{'schemes'},
+		{
+			'labels'  => $self->{'cache'}->{'scheme_labels'},
+			'tooltip' => 'scheme filter - Select a scheme to filter your search to only those belonging to the selected scheme.'
+		}
+	);
+	return $buffer;
+}
+
+sub _get_truncated_label {
+	my ($self, $label) = @_;
+	my $title;
+	if (length $label > 25){
+		$title = $label;
+		$title =~ tr/\"//;
+		$label = "<a title=\"$title\" class=\"truncated\">" . substr ($label, 0, 20) . "&#133</a>";				
+	}
+	return ($label,$title);
+}
+
 sub paged_display {
 
 	# $count is optional - if not provided it will be calculated, but this may not be the most
@@ -575,7 +659,7 @@ sub paged_display {
 	# it is better to not recalculate it.
 	my ( $self, $table, $qry, $message, $hidden_attributes, $count, $passed_qry ) = @_;
 	$passed_qry = $qry if !$passed_qry;    #query can get rewritten on route to this page - this enables the original query to be passed on
-	if ( $table eq 'allele_sequences' && $passed_qry =~ /sequence_flags/){
+	if ( $table eq 'allele_sequences' && $passed_qry =~ /sequence_flags/ ) {
 		$self->{'db'}->do("SET enable_nestloop = off");
 	}
 	my $schemes  = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
@@ -601,16 +685,13 @@ sub paged_display {
 
 	#sort allele_id integers numerically
 	$qry =~
-	  s/ORDER BY (.+),\s*\S+\.allele_id(.*)/ORDER BY $1,\(case when allele_id ~ '^[0-9]+\$' THEN lpad\(allele_id,10,'0'\) else allele_id end\)$2/;
-	$qry =~ s/ORDER BY \S+\.allele_id(.*)/ORDER BY \(case when allele_id ~ '^[0-9]+\$' THEN lpad\(allele_id,10,'0'\) else allele_id end\)$1/;
+s/ORDER BY (.+),\s*\S+\.allele_id(.*)/ORDER BY $1,\(case when allele_id ~ '^[0-9]+\$' THEN lpad\(allele_id,10,'0'\) else allele_id end\)$2/;
+	$qry =~
+	  s/ORDER BY \S+\.allele_id(.*)/ORDER BY \(case when allele_id ~ '^[0-9]+\$' THEN lpad\(allele_id,10,'0'\) else allele_id end\)$1/;
 	my $totalpages = 1;
 	my $bar_buffer;
 	if ( $q->param('displayrecs') ) {
-		if ( $q->param('displayrecs') eq 'all' ) {
-			$self->{'prefs'}->{'displayrecs'} = 0;
-		} else {
-			$self->{'prefs'}->{'displayrecs'} = $q->param('displayrecs');
-		}
+		$self->{'prefs'}->{'displayrecs'} = $q->param('displayrecs') eq 'all' ? 0 : $q->param('displayrecs');
 	}
 	my $currentpage = $q->param('currentpage') ? $q->param('currentpage') : 1;
 	if    ( $q->param('>') )        { $currentpage++ }
@@ -626,8 +707,9 @@ sub paged_display {
 		my $logger_benchmark = get_logger('BIGSdb.Application_Benchmark');
 		my $start            = gettimeofday();
 		my $qrycount         = $qry;
-		if ($table eq 'allele_sequences'){
-			$qrycount =~ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences.locus||allele_sequences.start_pos||allele_sequences.end_pos\)/;
+		if ( $table eq 'allele_sequences' ) {
+			$qrycount =~
+s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences.locus||allele_sequences.start_pos||allele_sequences.end_pos\)/;
 		}
 		$qrycount =~ s/SELECT \*/SELECT COUNT \(\*\)/;
 		$qrycount =~ s/ORDER BY.*//;
@@ -648,9 +730,7 @@ sub paged_display {
 	}
 	$bar_buffer .= $q->start_form;
 	$q->param( 'table', $table );
-	foreach (qw (query currentpage page db displayrecs order table direction sent)) {
-		$bar_buffer .= $q->hidden($_);
-	}
+	$bar_buffer .= $q->hidden($_) foreach qw (query currentpage page db displayrecs order table direction sent);
 	$bar_buffer .= $q->hidden( 'message', $message ) if $message;
 
 	#Make sure hidden_attributes don't duplicate the above
@@ -662,8 +742,7 @@ sub paged_display {
 		if ( $currentpage > 1 ) {
 			$bar_buffer .= "<td>";
 			$bar_buffer .= $q->submit( -name => 'First', -class => 'pagebar' );
-			$bar_buffer .= "</td>";
-			$bar_buffer .= "<td>";
+			$bar_buffer .= "</td><td>";
 			$bar_buffer .= $q->submit( -name => $currentpage == 2 ? 'First' : '<', -label => ' < ', -class => 'pagebar' );
 			$bar_buffer .= "</td>";
 		}
@@ -679,9 +758,8 @@ sub paged_display {
 			$bar_buffer .= "<td>";
 			for ( my $i = $first ; $i < $last + 1 ; $i++ ) {
 				if ( $i == $currentpage ) {
-					$bar_buffer .= "</td><th style=\"font-size: 84%; border: 1px solid black; padding-left: 5px; padding-right: 5px\">";
-					$bar_buffer .= "$i";
-					$bar_buffer .= "</th><td>";
+					$bar_buffer .=
+					  "</td><th style=\"font-size: 84%; border: 1px solid black; padding-left: 5px; padding-right: 5px\">$i</th><td>";
 				} else {
 					$bar_buffer .=
 					  $q->submit( -name => $i == 1 ? 'First' : 'pagejump', -value => $i, -label => " $i ", -class => 'pagebar' );
@@ -692,8 +770,7 @@ sub paged_display {
 		if ( $currentpage < $totalpages ) {
 			$bar_buffer .= "<td>";
 			$bar_buffer .= $q->submit( -name => '>', -label => ' > ', -class => 'pagebar' );
-			$bar_buffer .= "</td>";
-			$bar_buffer .= "<td>";
+			$bar_buffer .= "</td><td>";
 			my $lastpage;
 			if ( BIGSdb::Utils::is_int($totalpages) ) {
 				$lastpage = $totalpages;
@@ -720,11 +797,7 @@ sub paged_display {
 				if ( $last > $records ) {
 					$last = $records;
 				}
-				if ( $first == $last ) {
-					print " (record $first displayed).";
-				} else {
-					print " ($first - $last displayed).";
-				}
+				print $first == $last ? " (record $first displayed)." : " ($first - $last displayed).";
 			} else {
 				print ".";
 			}
@@ -736,20 +809,18 @@ sub paged_display {
 		}
 		print "</p>\n";
 		if ( $self->{'curate'} && $self->can_modify_table($table) ) {
-			if (!($table eq 'allele_sequences' && $passed_qry =~ /sequence_flags/)){
+			if ( !( $table eq 'allele_sequences' && $passed_qry =~ /sequence_flags/ ) ) {
 				print "<fieldset><legend>Delete</legend>\n";
 				print $q->start_form;
 				$q->param( 'page', 'deleteAll' );
-				foreach (qw (db page table query)) {
-					print $q->hidden($_);
-				}
-				if ($table eq 'allele_designations'){
+				print $q->hidden($_) foreach qw (db page table query);
+				if ( $table eq 'allele_designations' ) {
 					print "<ul><li>\n";
-					if ($self->can_modify_table('allele_sequences')){
-						print $q->checkbox(-name=>'delete_tags', -label => 'Delete corresponding sequence tags');
+					if ( $self->can_modify_table('allele_sequences') ) {
+						print $q->checkbox( -name => 'delete_tags', -label => 'Delete corresponding sequence tags' );
 						print "</li>\n<li>\n";
 					}
-					print $q->checkbox(-name=>'delete_pending', -label => 'Delete corresponding pending designations');
+					print $q->checkbox( -name => 'delete_pending', -label => 'Delete corresponding pending designations' );
 					print "</li></ul>\n";
 				}
 				print $q->submit( -name => 'Delete ALL', -class => 'submit' );
@@ -777,9 +848,7 @@ sub paged_display {
 				print "<fieldset><legend>Access control</legend>\n";
 				print $q->start_form;
 				$q->param( 'page', 'isolateACL' );
-				foreach (qw (db page table query)) {
-					print $q->hidden($_);
-				}
+				print $q->hidden($_) foreach qw (db page table query);
 				print $q->submit( -name => 'Modify access', -class => 'submit' );
 				print $q->end_form;
 				print "</fieldset>";
@@ -796,9 +865,7 @@ sub paged_display {
 				print "<fieldset><legend>Database configuration</legend>\n";
 				print $q->start_form;
 				$q->param( 'page', 'exportConfig' );
-				foreach (qw (db page table query)) {
-					print $q->hidden($_);
-				}
+				print $q->hidden($_) foreach qw (db page table query);
 				print $q->submit( -name => 'Export configuration/data', -class => 'submit' );
 				print $q->end_form;
 				print "</fieldset>\n";
@@ -888,7 +955,7 @@ sub _print_record_table {
 		if ( $table eq 'experiment_sequences' && $_->{'name'} eq 'experiment_id' ) {
 			push @cleaned_headers, 'isolate id';
 		}
-		if ($table eq 'allele_sequences' && $_->{'name'} eq 'complete'){
+		if ( $table eq 'allele_sequences' && $_->{'name'} eq 'complete' ) {
 			push @cleaned_headers, 'flag';
 		}
 		$type{ $_->{'name'} }        = $_->{'type'};
@@ -910,9 +977,9 @@ sub _print_record_table {
 			}
 		}
 	}
-	$"=',';
+	$" = ',';
 	my $fields = "@qry_fields";
-	if ($table eq 'allele_sequences' && $qry =~ /sequence_flags/){
+	if ( $table eq 'allele_sequences' && $qry =~ /sequence_flags/ ) {
 		$qry =~ s/\*/DISTINCT $fields/;
 	} else {
 		$qry =~ s/\*/$fields/;
@@ -936,6 +1003,7 @@ sub _print_record_table {
 	$" = '</th><th>';
 	print "<div class=\"box\" id=\"resultstable\"><div class=\"scrollable\"><table class=\"resultstable\">\n";
 	print "<tr>";
+
 	if ( $self->{'curate'} ) {
 		print "<th>Delete</th><th>Update</th>";
 	}
@@ -994,11 +1062,12 @@ sub _print_record_table {
 					my $value = $data{ lc($field) } ? 'true' : 'false';
 					print "<td>$value</td>";
 				}
-				if ($table eq 'allele_sequences' && $field eq 'complete'){
-					my $flags = $self->{'datastore'}->get_sequence_flag($data{ 'seqbin_id' }, $data{ 'locus' }, $data{ 'start_pos' }, $data{ 'end_pos' });
-					$"="</a> <a class=\"seqflag_tooltip\">";	
+				if ( $table eq 'allele_sequences' && $field eq 'complete' ) {
+					my $flags =
+					  $self->{'datastore'}->get_sequence_flag( $data{'seqbin_id'}, $data{'locus'}, $data{'start_pos'}, $data{'end_pos'} );
+					$" = "</a> <a class=\"seqflag_tooltip\">";
 					print @$flags ? "<td><a class=\"seqflag_tooltip\">@$flags</a></td>" : "<td />";
-					$"=' ';
+					$" = ' ';
 				}
 			} elsif ( $field =~ /sequence$/ && $field ne 'coding_sequence' ) {
 				if ( length( $data{ lc($field) } ) > 60 ) {
@@ -1043,13 +1112,13 @@ sub _print_record_table {
 				if ( ( $table eq 'allele_sequences' || $table eq 'experiment_sequences' ) && $field eq 'seqbin_id' ) {
 					my ( $isolate_id, $isolate ) = $self->get_isolate_id_and_name_from_seqbin_id( $data{'seqbin_id'} );
 					print "<td>$isolate_id) $isolate</td>";
-				} 
+				}
 				if ( $field eq 'isolate_id' ) {
 					print "<td>$data{'isolate_id'}) " . $self->get_isolate_name_from_id( $data{'isolate_id'} ) . "</td>";
 				} else {
 					my $value = $data{ lc($field) };
-					if ( $field eq 'locus' || ($table eq 'loci' && $field eq 'id') ) {
-						$value = $self->clean_locus( $value );
+					if ( $field eq 'locus' || ( $table eq 'loci' && $field eq 'id' ) ) {
+						$value = $self->clean_locus($value);
 					} else {
 						$value =~ s/\&/\&amp;/g;
 						$value =~ tr/_/ /;
@@ -1141,13 +1210,13 @@ sub _print_publication_table {
 sub get_link_button_to_ref {
 	my ( $self, $ref ) = @_;
 	my $buffer;
-	if (!$self->{'sql'}->{'link_ref'}){
+	if ( !$self->{'sql'}->{'link_ref'} ) {
 		my $qry =
 "SELECT COUNT(refs.isolate_id) FROM $self->{'system'}->{'view'} LEFT JOIN refs on refs.isolate_id=$self->{'system'}->{'view'}.id WHERE pubmed_id=?";
-		$self->{'sql'}->{'link_ref'} = $self->{'db'}->prepare($qry);		
+		$self->{'sql'}->{'link_ref'} = $self->{'db'}->prepare($qry);
 	}
-	eval { $self->{'sql'}->{'link_ref'}->execute($ref);};
-	if ($@){
+	eval { $self->{'sql'}->{'link_ref'}->execute($ref); };
+	if ($@) {
 		$logger->error("Can't execute $@");
 	}
 	my ($count) = $self->{'sql'}->{'link_ref'}->fetchrow_array;
@@ -1195,9 +1264,7 @@ sub get_isolate_id_and_name_from_seqbin_id {
 		  );
 	}
 	eval { $self->{'sql'}->{'isolate_id_as'}->execute($seqbin_id); };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	$logger->error($@) if $@;
 	my ( $isolate_id, $isolate ) = $self->{'sql'}->{'isolate_id_as'}->fetchrow_array;
 	return ( $isolate_id, $isolate );
 }
@@ -1296,9 +1363,7 @@ sub _print_profile_table {
 	my $qry       = $$qryref;
 	my $qry_limit = $qry;
 	my $scheme_id;
-	if ( $qry =~ /FROM scheme_(\d+)/ ) {
-		$scheme_id = $1;
-	} elsif ( $qry =~ /scheme_id='?(\d+)'?/ ) {
+	if ( $qry =~ /FROM scheme_(\d+)/ || $qry =~ /scheme_id='?(\d+)'?/ ) {
 		$scheme_id = $1;
 	}
 	if ( !$scheme_id ) {
@@ -1421,9 +1486,7 @@ sub _print_profile_table {
 						$plugin_buffer .= $q->start_form;
 						$q->param( 'page', 'plugin' );
 						$q->param( 'name', $att->{'module'} );
-						foreach (qw (db page name calling_page scheme_id)) {
-							$plugin_buffer .= $q->hidden($_);
-						}
+						$plugin_buffer .= $q->hidden($_) foreach qw (db page name calling_page scheme_id);
 						$plugin_buffer .= $q->hidden( 'query_file', $filename )
 						  if $att->{'input'} eq 'query';
 						$plugin_buffer .= $q->submit( -label => ( $att->{'buttontext'} || $att->{'menutext'} ), -class => 'pagebar' );
@@ -1496,10 +1559,10 @@ sub _print_isolate_table {
 	my ( %composites, %composite_display_pos );
 	$qry = "SELECT id,position_after FROM composite_fields";
 	$sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute(); };
+	eval { $sql->execute; };
 
 	if ($@) {
-		$logger->error("Can't execute $qry");
+		$logger->error("Can't execute $qry $@");
 	} else {
 		while ( my @data = $sql->fetchrow_array() ) {
 			$composite_display_pos{ $data[0] } = $data[1];
@@ -1519,9 +1582,7 @@ sub _print_isolate_table {
 	if ( $self->{'prefs'}->{'hyperlink_loci'} ) {
 		my $locus_info_sql = $self->{'db'}->prepare("SELECT id,url FROM loci");
 		eval { $locus_info_sql->execute; };
-		if ($@) {
-			$logger->error("Can't execute. $@");
-		}
+		$logger->error($@) if $@;
 		while ( my ( $locus, $url ) = $locus_info_sql->fetchrow_array ) {
 			if ( $self->{'prefs'}->{'main_display_loci'}->{$locus} ) {
 				( $url{$locus} ) = $url;
@@ -1542,9 +1603,7 @@ sub _print_isolate_table {
 	}
 	$scheme_loci->{0} = $self->{'datastore'}->get_loci_in_no_scheme;
 	my $field_attributes;
-	foreach (@$fields) {
-		$field_attributes->{$_} = $self->{'xmlHandler'}->get_field_attributes($_);
-	}
+	$field_attributes->{$_} = $self->{'xmlHandler'}->get_field_attributes($_) foreach (@$fields);
 	my $extended = $self->get_extended_attributes;
 	my $attribute_sql =
 	  $self->{'db'}->prepare("SELECT value FROM isolate_value_extended_attributes WHERE isolate_field=? AND attribute=? AND field_value=?");
@@ -1602,9 +1661,7 @@ sub _print_isolate_table {
 				foreach my $extended_attribute (@$extatt) {
 					if ( $self->{'prefs'}->{'maindisplayfields'}->{"$thisfieldname\..$extended_attribute"} ) {
 						eval { $attribute_sql->execute( $thisfieldname, $extended_attribute, $data{$thisfieldname} ); };
-						if ($@) {
-							$logger->error("Can't execute $@");
-						}
+						$logger->error($@) if $@;
 						my ($value) = $attribute_sql->fetchrow_array;
 						print "<td>$value</td>";
 					}
@@ -1762,9 +1819,7 @@ sub _print_isolate_table {
 						$plugin_buffer .= $q->start_form;
 						$q->param( 'page', 'plugin' );
 						$q->param( 'name', $att->{'module'} );
-						foreach (qw (db page name calling_page)) {
-							$plugin_buffer .= $q->hidden($_);
-						}
+						$plugin_buffer .= $q->hidden($_) foreach qw (db page name calling_page);
 						$plugin_buffer .= $q->hidden( 'query_file', $filename )
 						  if $att->{'input'} eq 'query';
 						$plugin_buffer .= $q->submit( -label => ( $att->{'buttontext'} || $att->{'menutext'} ), -class => 'pagebar' );
@@ -1893,13 +1948,11 @@ sub _print_isolate_table_header {
 	my $qry       = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
 	my $cn_sql    = $self->{'db'}->prepare($qry);
 	eval { $cn_sql->execute; };
-
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	$logger->error($@) if $@;
 	my $common_names = $cn_sql->fetchall_hashref('id');
 	$" = '; ';
 	my $scheme_info = $self->{'datastore'}->get_all_scheme_info;
+
 	foreach my $scheme_id (@$scheme_ids) {
 		next if !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};
 		my @scheme_header;
@@ -2066,9 +2119,7 @@ sub run_blast {
 			}
 			$sql = $self->{'db'}->prepare($qry);
 			eval { $sql->execute($run); };
-			if ($@) {
-				$logger->error("Can't execute $qry $@");
-			}
+			$logger->error($@) if $@;
 			open( my $fasta_fh, '>', $temp_fastafile );
 			my $seqs_ref = $sql->fetchall_arrayref;
 			foreach (@$seqs_ref) {
@@ -2170,10 +2221,12 @@ sub can_modify_table {
 		return 1;
 	} elsif (
 		(
-			$self->{'system'}->{'dbtype'} eq 'isolates' && ( $table eq 'sequence_bin'
-				|| $table eq 'accession'
-				|| $table eq 'experiments'
-				|| $table eq 'experiment_sequences' )
+			$self->{'system'}->{'dbtype'} eq 'isolates' && (
+				any {
+					$table eq $_;
+				}
+				qw (sequence_bin accession experiments experiment_sequences )
+			)
 		)
 		&& $self->{'permissions'}->{'modify_sequences'}
 	  )
@@ -2303,8 +2356,6 @@ sub initiate_prefs {
 	} else {
 		return if !$self->{'pref_requirements'}->{'general'} && !$self->{'pref_requirements'}->{'query_field'};
 		my $guid = $self->get_guid || 1;
-
-		#		my $guid = $q->cookie( -name => 'guid' ) || 1;
 		try {
 			$self->{'prefstore'}->update_datestamp($guid);
 		}
@@ -2333,7 +2384,7 @@ sub initiate_prefs {
 				$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'off' ? 0 : 1;
 			}
 		}
-		if ( $self->{'pref_requirements'}->{'query'} ) {
+		if ( $self->{'pref_requirements'}->{'query_field'} ) {
 			if ( defined $field_prefs->{'publications'}->{'dropdown'} ) {
 				$self->{'prefs'}->{'dropdownfields'}->{'publications'} = $field_prefs->{'publications'}->{'dropdown'} ? 1 : 0;
 			} else {
@@ -2509,9 +2560,7 @@ sub _initiate_isolatedb_prefs {
 		my $qry       = "SELECT id,isolate_display,main_display,query_field,analysis FROM loci";
 		my $locus_sql = $self->{'db'}->prepare($qry);
 		eval { $locus_sql->execute; };
-		if ($@) {
-			$logger->error("Can't execute $@");
-		}
+		$logger->error($@) if $@;
 		my $prefstore_values = $self->{'prefstore'}->get_all_locus_prefs( $guid, $dbname );
 		my $array_ref        = $locus_sql->fetchall_arrayref;
 		my $i                = 1;
@@ -2581,33 +2630,25 @@ sub clean_checkbox_id {
 	$var =~ s/\(/_OPEN_/g;
 	$var =~ s/\)/_CLOSE_/g;
 	$var =~ s/\>/_GT_/g;
-	return $var;	
+	return $var;
 }
 
 sub escape_params {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};		
+	my ($self)      = @_;
+	my $q           = $self->{'cgi'};
 	my @param_names = $q->param;
-	my %escapes = (
-		'__prime__' => "'",
-		'__slash__' => "\\",
-		'__comma__' => ',',
-		'__space__' => ' ',
-		'_OPEN_' => "(",
-		'_CLOSE_' => ")",
-		'_GT_' => ">"
-	);
-	foreach my $param_name (@param_names){
+	my %escapes =
+	  ( '__prime__' => "'", '__slash__' => "\\", '__comma__' => ',', '__space__' => ' ', '_OPEN_' => "(", '_CLOSE_' => ")", '_GT_' => ">" );
+	foreach my $param_name (@param_names) {
 		my $key = $param_name;
-		if (any {$param_name =~ /$_/} keys %escapes){
-			foreach my $escape_string (keys %escapes){
+		if ( any { $param_name =~ /$_/ } keys %escapes ) {
+			foreach my $escape_string ( keys %escapes ) {
 				$key =~ s/$escape_string/$escapes{$escape_string}/g;
 			}
-			$q->param($key,$q->param($param_name));
+			$q->param( $key, $q->param($param_name) );
 		}
 	}
 }
-
 ###SCHEME GROUP TREE DRAWING#################
 sub get_tree {
 	my ( $self, $isolate_id, $options ) = @_;
@@ -2771,27 +2812,20 @@ sub _get_scheme_loci {
 	my $qry    = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
 	my $cn_sql = $self->{'db'}->prepare($qry);
 	eval { $cn_sql->execute; };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	$logger->error($@) if $@;
 	my $common_names = $cn_sql->fetchall_hashref('id');
 	my $buffer;
 	foreach (@$loci) {
 		my $cleaned = $self->clean_checkbox_id($_);
-		my $id = $scheme_id ? "s_$scheme_id\_l_$cleaned" : "l_$cleaned";
-		my $locus = $_;
-
-		if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-			$locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-		}
-		$locus =~ tr/_/ /;
+		my $id      = $scheme_id ? "s_$scheme_id\_l_$cleaned" : "l_$cleaned";
+		my $locus   = $self->clean_locus($_);
 		$buffer .= "<li id=\"$id\"><a>$locus";
 		$buffer .= " ($common_names->{$_}->{'common_name'})" if $common_names->{$_}->{'common_name'};
 		$buffer .= "</a></li>\n";
 	}
 	foreach my $scheme_field (@$scheme_fields) {
 		my $cleaned = $self->clean_checkbox_id($scheme_field);
-		my $id = "s_$scheme_id\_f_$cleaned";
+		my $id      = "s_$scheme_id\_f_$cleaned";
 		$scheme_field =~ tr/_/ /;
 		$buffer .= "<li id=\"$id\"><a>$scheme_field</a></li>\n";
 	}
@@ -2860,9 +2894,7 @@ sub _scheme_data_present {
 		  );
 	}
 	eval { $self->{'sql'}->{'scheme_data_sequences'}->execute( $isolate_id, $scheme_id ); };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	$logger->error($@) if $@;
 	my ($sequences_present) = $self->{'sql'}->{'scheme_data_sequences'}->fetchrow_array;
 	return $sequences_present ? 1 : 0;
 }
