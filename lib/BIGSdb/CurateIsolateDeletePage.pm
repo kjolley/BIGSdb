@@ -30,8 +30,7 @@ sub get_javascript {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{'jQuery'} = 1; 
-	$self->{'jQuery.jstree'} = 1;
+	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree);
 }
 
 sub print_content {
@@ -56,12 +55,8 @@ sub print_content {
 		return;
 	}
 	eval { $sql->execute($id); };
-	if ($@) {
-		$logger->error("Can't execute: $qry  value: $id");
-	} else {
-		$logger->debug("Query: $qry  value: $id");
-	}
-	my ($data) = $sql->fetchrow_hashref();
+	$logger->error($@) if $@;
+	my ($data) = $sql->fetchrow_hashref;
 	if ( !$$data{'id'} ) {
 		print
 "<div class=\"box\" id=\"statusbad\"><p>No record with id = $id exists.</p></div>\n";
@@ -70,9 +65,7 @@ sub print_content {
 	$buffer .= "<div class=\"box\" id=\"resultstable\">\n";
 	$buffer .= "<p>You have selected to delete the following record:</p>";
 	$buffer .= $q->start_form;
-	foreach (qw (page db id)) {
-		$buffer .= $q->hidden($_);
-	}
+	$buffer .= $q->hidden($_) foreach qw (page db id);
 	$buffer .= $q->submit( -name => 'submit', -value => 'Delete!', -class=>'submit' );
 	$buffer .= $q->end_form;
 	$buffer .= "<p />\n";
@@ -96,9 +89,7 @@ sub print_content {
 	$buffer .= "<p />\n";
 	$buffer .= $q->start_form;
 	$q->param('page', 'isolateDelete'); #need to set as this may have changed if there is a seqbin display button
-	foreach (qw (page db id)) {
-		$buffer .= $q->hidden($_);
-	}
+	$buffer .= $q->hidden($_) foreach qw (page db id);
 	$buffer .= $q->submit( -name => 'submit', -value => 'Delete!', -class=>'submit' );
 	$buffer .= $q->end_form;
 	$buffer .= "</div>\n";
@@ -114,11 +105,11 @@ sub print_content {
 				print "<p>Failed SQL: $_</p>\n";
 				print "<p>Error message: $@</p></div>\n";
 				$logger->error("Delete failed: $_ $@");
-				$self->{'db'}->rollback();
+				$self->{'db'}->rollback;
 				return;
 			}
 		}
-		$self->{'db'}->commit()
+		$self->{'db'}->commit
 		  && print
 "<div class=\"box\" id=\"resultsheader\"><p>Isolate id:$$data{'id'} deleted!</p>";
 		print "<p><a href=\""
@@ -134,6 +125,7 @@ sub get_title {
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 	return "Delete isolate - $desc";
 }
+
 1;
 
 

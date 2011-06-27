@@ -2663,7 +2663,6 @@ sub get_tree {
 		"SELECT id,description FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) ORDER BY display_order");
 	my $buffer;
 	my $scheme_nodes;
-
 	foreach (@$groups_with_no_parent) {
 		my $group_info          = $self->{'datastore'}->get_scheme_group_info($_);
 		my $group_scheme_buffer = $self->_get_group_schemes( $_, $isolate_id, $options );
@@ -2882,9 +2881,7 @@ sub _scheme_data_present {
 		  );
 	}
 	eval { $self->{'sql'}->{'scheme_data_designations'}->execute( $isolate_id, $scheme_id ); };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	$logger->error($@) if $@;
 	my ($designations_present) = $self->{'sql'}->{'scheme_data_designations'}->fetchrow_array;
 	return 1 if $designations_present;
 	if ( !$self->{'sql'}->{'scheme_data_sequences'} ) {

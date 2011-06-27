@@ -526,7 +526,7 @@ sub _get_tree {
 	$buffer.= "<tr>\n";
 	$buffer.= "<td id=\"tree\" class=\"tree\">\n";
 	$buffer.= "<noscript><p class=\"highlight\">Enable Javascript to enhance your viewing experience.</p></noscript>\n";
-	$buffer .= $self->get_tree($isolate_id, {'isolate_display' => 1});
+	$buffer .= $self->get_tree($isolate_id, {'isolate_display' => $self->{'curate'} ? 0 : 1});
 	$buffer.="</td><td style=\"vertical-align:top;width:80%\" id=\"scheme_table\">\n";
 	$buffer.="</td></tr>\n";
 	$buffer.="</table>\n";
