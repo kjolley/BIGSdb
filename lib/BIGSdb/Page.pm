@@ -610,7 +610,7 @@ sub get_user_filter {
 		}
 	}
 	@usernames =
-	  sort { lc( $self->{'cache'}->{'username_labels'}->{$table}->{$a} ) cmp lc( $self->{'cache'}->{'username_labels'}->{$table}->{$b} ) }
+	  sort { lc( $labels{$a} ) cmp lc( $labels{$b} ) }
 	  @usernames;
 	my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
 	return $self->get_filter( $field, \@usernames, { 'labels' => \%labels, 'tooltip' => "$field filter - Select $a_or_an $field to filter your search to only those records that match the selected $field" } );
