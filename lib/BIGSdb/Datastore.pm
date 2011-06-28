@@ -1158,7 +1158,7 @@ sub run_simple_query {
 	$logger->debug("Query: $qry");
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute(@values); };
-	$logger->error($@) if $@;
+	$logger->error("$qry $@") if $@;
 	my $data = $sql->fetchrow_arrayref;
 	return $data;
 }

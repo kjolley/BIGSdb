@@ -103,6 +103,12 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 		} elsif ( $table eq 'sequence_bin' && $delete_qry =~ /JOIN experiment_sequences/ ) {
 			$delete_qry = "DELETE FROM sequence_bin WHERE id IN ($delete_qry)";
 			$delete_qry =~ s/SELECT \*/SELECT id/;
+		} elsif ($table eq 'allele_sequences' && ($delete_qry =~ /JOIN sequence_flags/ || $delete_qry =~ /JOIN sequence_bin/)){
+			$delete_qry =~ s/SELECT \*/SELECT allele_sequences.seqbin_id,allele_sequences.locus,allele_sequences.start_pos,allele_sequences.end_pos/;
+			$delete_qry = "DELETE FROM allele_sequences WHERE (seqbin_id,locus,start_pos,end_pos) IN ($delete_qry)";
+		} elsif ($table eq 'allele_designations' && ($delete_qry =~ /JOIN scheme_members/)){
+			$delete_qry =~ s/SELECT \*/SELECT allele_designations.isolate_id,allele_designations.locus,allele_designations.allele_id/;
+			$delete_qry = "DELETE FROM allele_designations WHERE (isolate_id,locus,allele_id) IN ($delete_qry)";
 		}
 		$delete_qry =~ s/^SELECT \*/DELETE/;
 		my $scheme_ids;
@@ -145,7 +151,7 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 
 			#Update isolate history if removing allele_designations, allele_sequences, aliases
 			my $check_qry = $query;
-			$check_qry =~ s/SELECT \*/SELECT isolate_id,locus,allele_id/;
+			$check_qry =~ s/SELECT \*/SELECT allele_designations.isolate_id,allele_designations.locus,allele_designations.allele_id/;
 			my $check_sql = $self->{'db'}->prepare($check_qry);
 			eval { $check_sql->execute; };
 			if ($@) {
@@ -246,7 +252,11 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bin.id WHERE isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})/;
 			}
 		}
-		$count_qry =~ s/SELECT \*/SELECT COUNT\(\*\)/;
+		if ($table eq 'allele_sequences'){
+			$count_qry =~ s/SELECT \*/SELECT COUNT(DISTINCT allele_sequences.seqbin_id||allele_sequences.locus||allele_sequences.start_pos||allele_sequences.end_pos)/;
+		} else {
+			$count_qry =~ s/SELECT \*/SELECT COUNT\(\*\)/;
+		}
 		$count_qry =~ s/ORDER BY.*//;
 		my ($count) = $self->{'datastore'}->run_simple_query($count_qry)->[0];
 		my $plural = $count == 1 ? '' : 's';

@@ -584,7 +584,7 @@ sub get_filter {
 		-class  => $filter
 	);
 	$options->{'tooltip'} =~ tr/_/ /;
-	$buffer .= " <a class=\"tooltip\" title=\"$options->{'tooltip'}.\">&nbsp;<i>i</i>&nbsp;</a>" if $options->{'tooltip'};
+	$buffer .= " <a class=\"tooltip\" title=\"$options->{'tooltip'}\">&nbsp;<i>i</i>&nbsp;</a>" if $options->{'tooltip'};
 	return $buffer;
 }
 
@@ -613,7 +613,7 @@ sub get_user_filter {
 	  sort { lc( $labels{$a} ) cmp lc( $labels{$b} ) }
 	  @usernames;
 	my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
-	return $self->get_filter( $field, \@usernames, { 'labels' => \%labels, 'tooltip' => "$field filter - Select $a_or_an $field to filter your search to only those records that match the selected $field" } );
+	return $self->get_filter( $field, \@usernames, { 'labels' => \%labels, 'tooltip' => "$field filter - Select $a_or_an $field to filter your search to only those records that match the selected $field." } );
 }
 
 sub get_scheme_filter {
@@ -631,9 +631,10 @@ sub get_scheme_filter {
 		$self->{'cache'}->{'scheme_labels'}->{0} = 'No scheme';
 	}
 	my $buffer = $self->get_filter(
-		'scheme',
+		'scheme_id',
 		$self->{'cache'}->{'schemes'},
 		{
+			'text'    => 'scheme',
 			'labels'  => $self->{'cache'}->{'scheme_labels'},
 			'tooltip' => 'scheme filter - Select a scheme to filter your search to only those belonging to the selected scheme.'
 		}
@@ -809,24 +810,22 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 		}
 		print "</p>\n";
 		if ( $self->{'curate'} && $self->can_modify_table($table) ) {
-			if ( !( $table eq 'allele_sequences' && $passed_qry =~ /sequence_flags/ ) ) {
-				print "<fieldset><legend>Delete</legend>\n";
-				print $q->start_form;
-				$q->param( 'page', 'deleteAll' );
-				print $q->hidden($_) foreach qw (db page table query);
-				if ( $table eq 'allele_designations' ) {
-					print "<ul><li>\n";
-					if ( $self->can_modify_table('allele_sequences') ) {
-						print $q->checkbox( -name => 'delete_tags', -label => 'Delete corresponding sequence tags' );
-						print "</li>\n<li>\n";
-					}
-					print $q->checkbox( -name => 'delete_pending', -label => 'Delete corresponding pending designations' );
-					print "</li></ul>\n";
+			print "<fieldset><legend>Delete</legend>\n";
+			print $q->start_form;
+			$q->param( 'page', 'deleteAll' );
+			print $q->hidden($_) foreach qw (db page table query);
+			if ( $table eq 'allele_designations' ) {
+				print "<ul><li>\n";
+				if ( $self->can_modify_table('allele_sequences') ) {
+					print $q->checkbox( -name => 'delete_tags', -label => 'Delete corresponding sequence tags' );
+					print "</li>\n<li>\n";
 				}
-				print $q->submit( -name => 'Delete ALL', -class => 'submit' );
-				print $q->end_form;
-				print "</fieldset>";
+				print $q->checkbox( -name => 'delete_pending', -label => 'Delete corresponding pending designations' );
+				print "</li></ul>\n";
 			}
+			print $q->submit( -name => 'Delete ALL', -class => 'submit' );
+			print $q->end_form;
+			print "</fieldset>";
 			if ( $table eq 'sequence_bin' ) {
 				my $experiments = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM experiments")->[0];
 				if ($experiments) {

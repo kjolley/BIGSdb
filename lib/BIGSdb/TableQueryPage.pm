@@ -266,7 +266,7 @@ sub _print_query_interface {
 			}
 		}
 	}
-	if ( $table eq 'loci' ) {
+	if ( $table eq 'loci' || $table eq 'allele_designations' ) {
 		push @filters, $self->get_scheme_filter;
 	} elsif ( $table eq 'sequence_bin' ) {
 		my %labels;
@@ -293,8 +293,20 @@ sub _print_query_interface {
 		push @filters,
 		  $self->get_filter(
 			'sequence_flag',
-			[ '', 'any flag', 'no flag', SEQ_FLAGS ],
+			[ 'any flag', 'no flag', SEQ_FLAGS ],
 			{ 'tooltip' => 'sequence flag filter - Select the appropriate value to filter tags to only those flagged accordingly.' }
+		  );
+		push @filters,
+		  $self->get_filter(
+			'duplicates',
+			[qw (1 2 5 10 25 50)],
+			{
+				'text' => 'tags per isolate/locus',
+				'labels' =>
+				  { 1 => 'no duplicates', 2 => '2 or more', 5 => '5 or more', 10 => '10 or more', 25 => '25 or more', 50 => '50 or more' },
+				'tooltip' =>
+				  'Duplicates filter - Filter search to only those loci that have been tagged a specified number of times per isolate.'
+			}
 		  );
 	}
 	if (@filters) {
@@ -329,6 +341,7 @@ sub _run_query {
 				$text =~ s/'/\\'/g;
 				my $thisfield;
 				foreach (@$attributes) {
+
 					if ( $_->{'name'} eq $field ) {
 						$thisfield = $_;
 						last;
@@ -416,11 +429,12 @@ sub _run_query {
 						}
 					} elsif ( $operator eq '=' ) {
 						if ( lc( $thisfield->{'type'} ) eq 'text' ) {
-							$qry .=
-							  $modifier
-							  . ( ( $text eq '<blank>' || $text eq 'null' )
+							$qry .= $modifier
+							  . (
+								( $text eq '<blank>' || $text eq 'null' )
 								? "$table.$field is null"
-								: "upper($table.$field) = upper(E'$text')" );
+								: "upper($table.$field) = upper(E'$text')"
+							  );
 						} else {
 							$qry .= $modifier
 							  . ( ( $text eq '<blank>' || $text eq 'null' ) ? "$table.$field is null" : "$table.$field = '$text'" );
@@ -431,26 +445,23 @@ sub _run_query {
 				}
 			}
 		}
-		if (
-			$q->param('scheme_list') ne ''
-			&& (   $table eq 'loci'
-				|| $table eq 'scheme_fields'
-				|| $table eq 'schemes'
-				|| $table eq 'scheme_members'
-				|| $table eq 'client_dbase_schemes' )
-		  )
+		if ( $q->param('scheme_id_list') ne ''
+			&& any { $table eq $_ } qw (loci scheme_fields schemes scheme_members client_dbase_schemes allele_designations) )
 		{
 			if ( $table eq 'loci' ) {
 				$qry2 = "SELECT * FROM loci LEFT JOIN scheme_members ON loci.id = scheme_members.locus WHERE scheme_id";
+			} elsif ( $table eq 'allele_designations' ) {
+				$qry2 =
+"SELECT * FROM allele_designations LEFT JOIN scheme_members ON allele_designations.locus = scheme_members.locus WHERE scheme_id";
 			} elsif ( $table eq 'schemes' ) {
 				$qry2 = "SELECT * FROM schemes WHERE id";
 			} else {
 				$qry2 = "SELECT * FROM $table WHERE scheme_id";
 			}
-			if ( $q->param('scheme_list') eq '0' ) {
+			if ( $q->param('scheme_id_list') eq '0' ) {
 				$qry2 .= " IS NULL";
 			} else {
-				$qry2 .= "='" . $q->param('scheme_list') . "'";
+				$qry2 .= "='" . $q->param('scheme_id_list') . "'";
 			}
 			if ($qry) {
 				$qry2 .= " AND ($qry)";
@@ -472,19 +483,8 @@ sub _run_query {
 			$qry2 =
 			  "SELECT * FROM locus_descriptions LEFT JOIN loci ON loci.id = locus_descriptions.locus WHERE common_name = E'$common_name'";
 			$qry2 .= " AND ($qry)" if $qry;
-		} elsif ( $table eq 'allele_sequences' && $q->param('sequence_flag_list') ne '' ) {
-			if ( $q->param('sequence_flag_list') eq 'no flag' ) {
-				$qry2 =
-"SELECT * FROM allele_sequences LEFT JOIN sequence_flags ON sequence_flags.seqbin_id = allele_sequences.seqbin_id AND sequence_flags.locus = allele_sequences.locus AND sequence_flags.start_pos = allele_sequences.start_pos AND sequence_flags.end_pos = allele_sequences.end_pos";
-				$qry2 .= " WHERE flag IS NULL";
-			} else {
-				$qry2 =
-"SELECT * FROM allele_sequences INNER JOIN sequence_flags ON sequence_flags.seqbin_id = allele_sequences.seqbin_id AND sequence_flags.locus = allele_sequences.locus AND sequence_flags.start_pos = allele_sequences.start_pos AND sequence_flags.end_pos = allele_sequences.end_pos";
-				if ( any { $q->param('sequence_flag_list') eq $_ } SEQ_FLAGS ) {
-					$qry2 .= " AND flag = '" . $q->param('sequence_flag_list') . "'";
-				}
-			}
-			$qry2 .= " AND ($qry)" if $qry;
+		} elsif ( $table eq 'allele_sequences' ) {
+			$qry2 = $self->_process_allele_sequences_filters($qry);
 		} else {
 			$qry2 = "SELECT * FROM $table WHERE ($qry)";
 		}
@@ -516,24 +516,17 @@ sub _run_query {
 		push @hidden_attributes, "s$i", "t$i", "y$i";
 	}
 	push @hidden_attributes, $_->{'name'} . '_list' foreach (@$attributes);
-	push @hidden_attributes, qw (no_js sequence_flag_list common_name_list);
+	push @hidden_attributes, qw (no_js sequence_flag_list duplicates_list common_name_list);
 	if (@errors) {
 		$" = '<br />';
 		print "<div class=\"box\" id=\"statusbad\"><p>Problem with search criteria:</p>\n";
 		print "<p>@errors</p></div>\n";
 	} elsif ( $qry2 !~ /\(\)/ ) {
-		if (
-			   ( $self->{'system'}->{'read_access'} eq 'acl' || $self->{'system'}->{'write_access'} eq 'acl' )
+		if (   ( $self->{'system'}->{'read_access'} eq 'acl' || $self->{'system'}->{'write_access'} eq 'acl' )
 			&& $self->{'username'}
 			&& !$self->is_admin
 			&& $self->{'system'}->{'dbtype'} eq 'isolates'
-			&& (   $table eq 'allele_designations'
-				|| $table eq 'sequence_bin'
-				|| $table eq 'isolate_aliases'
-				|| $table eq 'accession'
-				|| $table eq 'allele_sequences'
-				|| $table eq 'samples' )
-		  )
+			&& any { $table eq $_ } qw (allele_designations sequence_bin isolate_aliases accession allele_sequences samples) )
 		{
 			if ( $table eq 'accession' || $table eq 'allele_sequences' ) {
 				$qry2 =~ s/WHERE/AND/;
@@ -648,5 +641,42 @@ sub _search_by_isolate {
 	}
 	$qry .= ')';
 	return $qry;
+}
+
+sub _process_allele_sequences_filters {
+	my ( $self, $qry ) = @_;
+	my $q = $self->{'cgi'};
+	my $qry2;
+	if ( any { $q->param($_) ne '' } qw (sequence_flag_list duplicates_list) ) {
+		if ( $q->param('sequence_flag_list') ne '' ) {
+			if ( $q->param('sequence_flag_list') eq 'no flag' ) {
+				$qry2 =
+"SELECT * FROM allele_sequences LEFT JOIN sequence_flags ON sequence_flags.seqbin_id = allele_sequences.seqbin_id AND sequence_flags.locus = allele_sequences.locus AND sequence_flags.start_pos = allele_sequences.start_pos AND sequence_flags.end_pos = allele_sequences.end_pos";
+				$qry2 .= " AND flag IS NULL";
+			} else {
+				$qry2 =
+"SELECT * FROM allele_sequences INNER JOIN sequence_flags ON sequence_flags.seqbin_id = allele_sequences.seqbin_id AND sequence_flags.locus = allele_sequences.locus AND sequence_flags.start_pos = allele_sequences.start_pos AND sequence_flags.end_pos = allele_sequences.end_pos";
+				if ( any { $q->param('sequence_flag_list') eq $_ } SEQ_FLAGS ) {
+					$qry2 .= " AND flag = '" . $q->param('sequence_flag_list') . "'";
+				}
+			}
+		}
+		if ( $q->param('duplicates_list') ne '' ) {
+			my $match = BIGSdb::Utils::is_int( $q->param('duplicates_list') ) ? $q->param('duplicates_list') : 1;
+			my $not = $match == 1 ? 'NOT' : '';
+			$match = 2 if $match == 1;    #no dups == NOT 2 or more
+			my $dup_qry =
+" LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE (allele_sequences.locus,sequence_bin.isolate_id) $not IN (SELECT allele_sequences.locus,sequence_bin.isolate_id FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id GROUP BY allele_sequences.locus,sequence_bin.isolate_id HAVING count(*)>=$match)";
+			if ($qry2) {
+				$qry2 .= $dup_qry;
+			} else {
+				$qry2 = "SELECT * FROM allele_sequences$dup_qry";
+			}
+		}
+		$qry2 .= " AND ($qry)" if $qry;
+	} else {
+		$qry2 = "SELECT * FROM allele_sequences WHERE ($qry)";
+	}
+	return $qry2;
 }
 1;
