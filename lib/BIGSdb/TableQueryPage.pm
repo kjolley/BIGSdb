@@ -290,6 +290,7 @@ sub _print_query_interface {
 			{ 'tooltip' => 'common names filter - Select a name to filter your search to only those loci with the selected common name.' }
 		  );
 	} elsif ( $table eq 'allele_sequences' ) {
+		push @filters, $self->get_scheme_filter;
 		push @filters,
 		  $self->get_filter(
 			'sequence_flag',
@@ -461,7 +462,7 @@ sub _run_query {
 			if ( $q->param('scheme_id_list') eq '0' ) {
 				$qry2 .= " IS NULL";
 			} else {
-				$qry2 .= "='" . $q->param('scheme_id_list') . "'";
+				$qry2 .= "=" . $q->param('scheme_id_list');
 			}
 			if ($qry) {
 				$qry2 .= " AND ($qry)";
@@ -516,7 +517,7 @@ sub _run_query {
 		push @hidden_attributes, "s$i", "t$i", "y$i";
 	}
 	push @hidden_attributes, $_->{'name'} . '_list' foreach (@$attributes);
-	push @hidden_attributes, qw (no_js sequence_flag_list duplicates_list common_name_list);
+	push @hidden_attributes, qw (no_js sequence_flag_list duplicates_list common_name_list scheme_id_list);
 	if (@errors) {
 		$" = '<br />';
 		print "<div class=\"box\" id=\"statusbad\"><p>Problem with search criteria:</p>\n";
@@ -647,7 +648,7 @@ sub _process_allele_sequences_filters {
 	my ( $self, $qry ) = @_;
 	my $q = $self->{'cgi'};
 	my $qry2;
-	if ( any { $q->param($_) ne '' } qw (sequence_flag_list duplicates_list) ) {
+	if ( any { $q->param($_) ne '' } qw (sequence_flag_list duplicates_list scheme_id_list) ) {
 		if ( $q->param('sequence_flag_list') ne '' ) {
 			if ( $q->param('sequence_flag_list') eq 'no flag' ) {
 				$qry2 =
@@ -671,6 +672,21 @@ sub _process_allele_sequences_filters {
 				$qry2 .= $dup_qry;
 			} else {
 				$qry2 = "SELECT * FROM allele_sequences$dup_qry";
+			}
+		}
+		if ( $q->param('scheme_id_list') ne ''){
+			my $scheme_qry =
+"allele_sequences.locus IN (SELECT DISTINCT allele_sequences.locus FROM allele_sequences LEFT JOIN scheme_members ON allele_sequences.locus = scheme_members.locus WHERE scheme_id";
+			if ( $q->param('scheme_id_list') eq '0' ) {
+				$scheme_qry .= " IS NULL)";
+			} else {
+				$scheme_qry .= "=" . $q->param('scheme_id_list') . ")";
+			}
+			if ($qry2) {
+				$qry2 .= $q->param('duplicates_list') ne '' ? ' AND ' : ' WHERE ';
+				$qry2 .= "($scheme_qry)";
+			} else {
+				$qry2 = "SELECT * FROM allele_sequences WHERE ($scheme_qry)";
 			}
 		}
 		$qry2 .= " AND ($qry)" if $qry;
