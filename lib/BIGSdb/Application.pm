@@ -92,7 +92,7 @@ sub _initiate {
 	eval { $parser->parse( Source => { SystemId => $full_path } ); };
 
 	if ($@) {
-		$logger->fatal("Invalid XML description: $@");
+		$logger->fatal("Invalid XML description: $@") if $self->{'instance'} ne '';
 		$self->{'error'} = 'invalidXML';
 		return;
 	}
