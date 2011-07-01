@@ -1120,7 +1120,6 @@ sub _print_record_table {
 						$value = $self->clean_locus($value);
 					} else {
 						$value =~ s/\&/\&amp;/g;
-						$value =~ tr/_/ /;
 					}
 					print "<td>$value</td>";
 				}
