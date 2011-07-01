@@ -2653,7 +2653,7 @@ sub get_tree {
 	my ( $self, $isolate_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $page = $self->{'cgi'}->param('page');
-	$page = 'info' if $page eq 'isolateDelete';
+	$page = 'info' if any {$page eq $_} qw (isolateDelete isolateUpdate);
 	my $isolate_clause = defined $isolate_id ? "&amp;id=$isolate_id" : '';
 	my $groups_with_no_parent =
 	  $self->{'datastore'}->run_list_query(
@@ -2770,7 +2770,7 @@ sub _get_group_schemes {
 			}
 			$scheme_info->{'description'} =~ s/&/\&amp;/g;
 			my $page = $self->{'cgi'}->param('page');
-			$page = 'info' if $page eq 'isolateDelete';
+			$page = 'info' if any {$page eq $_} qw (isolateDelete isolateUpdate);
 			if ( defined $isolate_id ) {
 				if ( $self->_scheme_data_present( $_, $isolate_id ) ) {
 					if ( $options->{'no_link_out'} ) {
@@ -2849,7 +2849,7 @@ sub _get_child_groups {
 			my $child_group_buffer = $self->_get_child_groups( $_, $isolate_id, ++$new_level, $options );
 			if ( $group_scheme_buffer || $child_group_buffer ) {
 				my $page = $self->{'cgi'}->param('page');
-				$page = 'info' if $page eq 'isolateDelete';
+				$page = 'info' if any {$page eq $_} qw (isolateDelete isolateUpdate);
 				if ( defined $isolate_id ) {
 					if ( $options->{'no_link_out'} ) {
 						$buffer .= "<li><a>$group_info->{'name'}</a>\n";
