@@ -138,7 +138,7 @@ sub _print_interface {
 "<input type=\"button\" onclick='listbox_selectall(\"scheme_id\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
 	print "</fieldset>";
 	print "<fieldset>\n<legend>Parameters</legend>\n";
-	print "<input type=\"button\" class=\"smallbutton rightbutton\" value=\"Defaults\" onclick=\"use_defaults()\" />";
+	print "<input type=\"button\" class=\"smallbutton legendbutton\" value=\"Defaults\" onclick=\"use_defaults()\" />";
 	print "<ul><li><label for =\"identity\" class=\"parameter\">Min % identity:</label>";
 	print $q->popup_menu(
 		-name    => 'identity',
