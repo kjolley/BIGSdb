@@ -235,7 +235,7 @@ sub set_general {
 			$self->{'db'}->commit;
 		};
 		if ($@) {
-			$logger->error("Could not insert prefs values");
+			$logger->error("Could not insert prefs values $@");
 			throw BIGSdb::PrefstoreConfigurationException("Could not insert prefs values");
 		}
 	}
