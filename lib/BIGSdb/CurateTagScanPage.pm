@@ -144,7 +144,7 @@ sub _print_interface {
 		-name    => 'identity',
 		-id      => 'identity',
 		-values  => [qw(50 55 60 65 70 75 80 85 90 91 92 93 94 95 96 97 98 99 100)],
-		-default => $general_prefs->{'scan_identity'} || 70
+		-default => $general_prefs->{'scan_identity'} || $MIN_IDENTITY
 	);
 	print " <a class=\"tooltip\" title=\"Minimum % identity - Match required for partial matching.\">&nbsp;<i>i</i>&nbsp;</a></li>";
 	print "<li><label for =\"alignment\" class=\"parameter\">Min % alignment:</label>";
@@ -152,7 +152,7 @@ sub _print_interface {
 		-name    => 'alignment',
 		-id      => 'alignment',
 		-values  => [qw(30 35 40 45 50 55 60 65 70 75 80 85 90 91 92 93 94 95 96 97 98 99 100)],
-		-default => $general_prefs->{'scan_alignment'} || 50
+		-default => $general_prefs->{'scan_alignment'} || $MIN_ALIGNMENT
 	);
 	print
 " <a class=\"tooltip\" title=\"Minimum % alignment - Percentage of allele sequence length required to be aligned for partial matching.\">&nbsp;<i>i</i>&nbsp;</a></li>";
@@ -161,7 +161,7 @@ sub _print_interface {
 		-name    => 'word_size',
 		-id      => 'word_size',
 		-values  => [qw(7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28)],
-		-default => $general_prefs->{'scan_word_size'} || 15
+		-default => $general_prefs->{'scan_word_size'} || $WORD_SIZE
 	);
 	print
 " <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a></li>";
@@ -170,7 +170,7 @@ sub _print_interface {
 		-name    => 'partial_matches',
 		-id      => 'partial_matches',
 		-values  => [qw(1 2 3 4 5 6 7 8 9 10)],
-		-default => $general_prefs->{'scan_partial_matches'} || 1
+		-default => $general_prefs->{'scan_partial_matches'} || $PARTIAL_MATCHES
 	);
 	print " partial match(es)</li>";
 	print "<li><label for =\"limit_matches\" class=\"parameter\">Stop after:</label>\n";
@@ -178,7 +178,7 @@ sub _print_interface {
 		-name    => 'limit_matches',
 		-id      => 'limit_matches',
 		-values  => [qw(10 20 30 40 50 100 200 500 1000 2000 5000 10000 20000)],
-		-default => $general_prefs->{'scan_limit_matches'} || 200
+		-default => $general_prefs->{'scan_limit_matches'} || $LIMIT_MATCHES
 	);
 	print " new matches ";
 	print
@@ -188,7 +188,7 @@ sub _print_interface {
 		-name    => 'limit_time',
 		-id      => 'limit_time',
 		-values  => [qw(1 2 5 10 15 30 60 120 180 240 300)],
-		-default => $general_prefs->{'scan_limit_time'} || 5
+		-default => $general_prefs->{'scan_limit_time'} || $LIMIT_TIME
 	);
 	print " minute(s) ";
 	print
