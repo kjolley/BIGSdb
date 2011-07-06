@@ -250,7 +250,7 @@ sub _print_interface {
 			regions of the genome predicted to be within a set distance of a hybridization sequence will be recognised in the scan. De-selecting this 
 			option will ignore this filter and the whole sequence bin will be scanned instead.  Partial matches will also be returned (up to the 
 			number set in the parameters) even if exact matches are found.\">&nbsp;<i>i</i>&nbsp;</a></li>\n";
-			print "<li><label for=\"alter_pcr_mismatches\" class=\"parameter\">&Delta; Probe mismatch:</label>\n";
+			print "<li><label for=\"alter_probe_mismatches\" class=\"parameter\">&Delta; Probe mismatch:</label>\n";
 			print $q->popup_menu(
 				-name    => 'alter_probe_mismatches',
 				-id      => 'alter_probe_mismatches',
@@ -1005,7 +1005,6 @@ sub _simulate_hybridization {
 		$locus
 	);
 	return if !@$probes;
-	system("$self->{'config'}->{'blast_path'}/formatdb -i $fasta_file -p F -o T");
 	my $file_prefix      = BIGSdb::Utils::get_random();
 	my $probe_fasta_file = "$self->{'config'}->{'secure_tmp_dir'}/$file_prefix\_probe.txt";
 	my $results_file     = "$self->{'config'}->{'secure_tmp_dir'}/$file_prefix\_results.txt";
@@ -1025,11 +1024,18 @@ sub _simulate_hybridization {
 		$_->{'min_alignment'} = length $_->{'sequence'} if !$_->{'min_alignment'};
 		$probe_info{ $_->{'id'} } = $_;
 	}
-	close $fh;
-	my $seq_count = scalar @$probes;
-	system(
+	close $fh;	
+	if ($self->{'config'}->{'blast+_path'}){		
+		system("$self->{'config'}->{'blast+_path'}/makeblastdb -in $fasta_file -logfile /dev/null -parse_seqids -dbtype nucl");
+		my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
+		system("$self->{'config'}->{'blast+_path'}/blastn -task blastn -num_threads $blast_threads -max_target_seqs 1000 -parse_deflines -db $fasta_file -out $results_file -query $probe_fasta_file -outfmt 6 -dust no");
+	} else {
+		my $seq_count = scalar @$probes;
+		system("$self->{'config'}->{'blast_path'}/formatdb -i $fasta_file -p F -o T");
+		system(
 "$self->{'config'}->{'blast_path'}/blastall -B $seq_count -b 1000 -p blastn -d $fasta_file -i $probe_fasta_file -o $results_file -m8 -F F 2> /dev/null"
-	);
+		);
+	}
 	my @matches;
 	if ( -e $results_file ) {
 		open( $fh, '<', $results_file );
@@ -1104,10 +1110,15 @@ sub _blast {
 		close $fasta_fh;
 		( $elapsed = gettimeofday() - $start ) =~ s/(^\d{1,}\.\d{4}).*$/$1/;
 		$logger_benchmark->debug("Creating locus FASTA file : $elapsed seconds");
-		if ( $locus_info->{'data_type'} eq 'DNA' ) {
-			system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p F -o T");
+		if ($self->{'config'}->{'blast+_path'}){
+			my $dbtype = $locus_info->{'data_type'} eq 'DNA' ? 'nucl' : 'prot';
+			system("$self->{'config'}->{'blast+_path'}/makeblastdb -in $temp_fastafile -logfile /dev/null -parse_seqids -dbtype $dbtype");
 		} else {
-			system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p T -o T");
+			if ( $locus_info->{'data_type'} eq 'DNA' ) {
+				system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p F -o T");
+			} else {
+				system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p T -o T");
+			}
 		}
 		( $elapsed = gettimeofday() - $start ) =~ s/(^\d{1,}\.\d{4}).*$/$1/;
 		$logger_benchmark->debug("Formatting for FASTA : $elapsed seconds");
@@ -1174,10 +1185,16 @@ sub _blast {
 		return if !@$probe_matches;
 	}
 	my $blastn_word_size = $1 if $self->{'cgi'}->param('word_size') =~ /(\d+)/;
-	my $word_size = $program eq 'blastn' ? ( $blastn_word_size || 15 ) : 0;
-	system(
-"$self->{'config'}->{'blast_path'}/blastall -B $seq_count -b 10 -p $program -W $word_size -d $temp_fastafile -i $temp_infile -o $temp_outfile -m8 -F F 2> /dev/null"
-	);
+	my $word_size = $program eq 'blastn' ? ( $blastn_word_size || 15 ) : 3;
+	if ($self->{'config'}->{'blast+_path'}){
+		my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
+		my $filter = $program eq 'blastn' ? 'dust' : 'seg';
+		system("$self->{'config'}->{'blast+_path'}/$program -num_threads $blast_threads -max_target_seqs 10 -parse_deflines -word_size $word_size -db $temp_fastafile -query $temp_infile -out $temp_outfile -outfmt 6 -$filter no");
+	} else {
+		system(
+	"$self->{'config'}->{'blast_path'}/blastall -B $seq_count -b 10 -p $program -W $word_size -d $temp_fastafile -i $temp_infile -o $temp_outfile -m8 -F F 2> /dev/null"
+		);
+	}
 	( $elapsed = gettimeofday() - $start ) =~ s/(^\d{1,}\.\d{4}).*$/$1/;
 	$logger_benchmark->debug("Running BLAST : $elapsed seconds");
 	my ( $exact_matches, $matched_regions, $partial_matches );
