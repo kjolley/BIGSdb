@@ -121,7 +121,7 @@ sub read_config_file {
 	$config = Config::Tiny->read( CONFIG_DIR . "/bigsdb.conf" );
 	foreach (
 		qw ( prefs_db auth_db jobs_db max_load emboss_path tmp_dir secure_tmp_dir 
-		blast_path muscle_path mogrify_path reference refdb )
+		blast_path blast+_path blast_threads muscle_path mogrify_path reference refdb )
 	  )
 	{
 		$config->{$_} = $config->{_}->{$_};
