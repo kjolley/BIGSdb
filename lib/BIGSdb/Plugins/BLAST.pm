@@ -69,9 +69,7 @@ sub run {
 "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM sequence_bin LEFT JOIN $view ON $view.id=sequence_bin.isolate_id ORDER BY $view.id";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute; };
-	if ($@) {
-		$logger->error("Can't execute $qry; $@");
-	}
+	$logger->error($@) if $@;
 	my @ids;
 	my %labels;
 	while ( my ( $id, $isolate ) = $sql->fetchrow_array ) {
@@ -115,9 +113,7 @@ sub run {
 		print $header_buffer if $first;
 		$some_results = 1;
 		eval { $sql->execute($_); };
-		if ($@) {
-			$logger->error("Can't execute $@");
-		}
+		$logger->error($@) if $@;
 		my ($label)     = $sql->fetchrow_array;
 		my $rows        = @$matches;
 		my $first_match = 1;
@@ -137,9 +133,7 @@ sub run {
 				print "</td>";
 			}
 			print "<td style=\"font-size:2em\">" . ( $match->{'reverse'} ? '&larr;' : '&rarr;' ) . "</td>";
-			foreach my $attribute (qw(e_value bit_score)) {
-				print "<td>$match->{$attribute}</td>";
-			}
+			print "<td>$match->{$_}</td>" foreach qw(e_value bit_score); 
 			print "</tr>\n";
 			$first_match = 0;
 			my $flanking = $self->{'prefs'}->{'flanking'};
@@ -212,11 +206,9 @@ sub _print_interface {
 	print
 "<input type=\"button\" onclick='listbox_selectall(\"isolate_id\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
 	print "</fieldset>\n";
-	
 	print "<fieldset style=\"float:left\"><legend>Paste sequence</legend>\n";
 	print $q->textarea( -name => 'sequence', -rows => '8', -cols => '70' );
 	print "</fieldset>\n";
-
 	print "<fieldset style=\"float:left\">\n<legend>Parameters</legend>\n";
 	print "<ul><li><label for=\"word_size\" class=\"parameter\">BLASTN word size:</label>\n";
 	print $q->popup_menu(
@@ -229,18 +221,16 @@ sub _print_interface {
 " <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a></li>";
 	print "<li><label for=\"hits\" class=\"parameter\">Hits per isolate:</label>\n";
 	print $q->popup_menu( -name => 'hits', -id => 'hits', -values => [qw(1 2 3 4 5 6 7 8 9 10 20 30 40 50)], -default => 1 );
-	print "</li>\n";
-	print "<li>\n"; 
+	print "</li>\n<li>\n";
 	print $q->checkbox( -name => 'tblastx', label => 'Use TBLASTX' );
 	print
 " <a class=\"tooltip\" title=\"TBLASTX - Compares the six-frame translation of your nucleotide query against the six-frame translation of the sequences in the sequence bin.\">&nbsp;<i>i</i>&nbsp;</a></li>";
 	print "</ul>\n";
 	print "</fieldset>\n";
-	
 	print "<fieldset style=\"float:left\">\n<legend>Restrict included sequences by</legend>\n";
 	print "<ul><li>\n";
 	print "<label for=\"seq_method\" class=\"parameter\">Sequence method:</label>\n";
-	print $q->popup_menu( -name => 'seq_method', -id=> 'seq_method', -values => [ '', SEQ_METHODS ] );
+	print $q->popup_menu( -name => 'seq_method', -id => 'seq_method', -values => [ '', SEQ_METHODS ] );
 	print
 " <a class=\"tooltip\" title=\"Sequence method - Only include sequences generated from the selected method.\">&nbsp;<i>i</i>&nbsp;</a></li>";
 	my @projects;
@@ -273,17 +263,12 @@ sub _print_interface {
 " <a class=\"tooltip\" title=\"Experiments - Only include sequences that have been linked to the specified experiment.\">&nbsp;<i>i</i>&nbsp;</a></li>";
 	}
 	print "</ul>\n</fieldset>\n";
-
-	
 	print "<table style=\"width:95%\"><tr><td style=\"text-align:left\">";
 	print
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=BLAST\" class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\" colspan=\"3\">";
 	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
 	print "</td></tr></table>\n";
-
-	foreach (qw (db page name)) {
-		print $q->hidden($_);
-	}
+	print $q->hidden($_) foreach qw (db page name);
 	print "</div>\n";
 	print $q->end_form;
 	print "</div>\n";
@@ -343,23 +328,30 @@ sub _blast {
 	}
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute(@criteria); };
-	if ($@) {
-		$logger->error("Can't execute $qry $@");
-	}
+	$logger->error($@) if $@;
 	open( my $fastafile_fh, '>', $temp_fastafile ) or $logger->error("Can't open temp file $temp_fastafile for writing");
 	while ( my ( $id, $seq ) = $sql->fetchrow_array ) {
 		print $fastafile_fh ">$id\n$seq\n";
 	}
 	close $fastafile_fh;
 	return if -z $temp_fastafile;
-	system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p F -o T");
 	my $blastn_word_size = $1 if $self->{'cgi'}->param('word_size') =~ /(\d+)/;
 	my $hits             = $1 if $self->{'cgi'}->param('hits')      =~ /(\d+)/;
-	my $word_size = $program eq 'blastn' ? ( $blastn_word_size || 11 ) : 0;
+	my $word_size = $program eq 'blastn' ? ( $blastn_word_size || 11 ) : 3;
 	$hits = 1 if !$hits;
-	system(
+	if ( $self->{'config'}->{'blast+_path'} ) {
+		system("$self->{'config'}->{'blast+_path'}/makeblastdb -in $temp_fastafile -logfile /dev/null -parse_seqids -dbtype nucl");
+		my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
+		my $filter = $program eq 'blastn' ? 'dust' : 'seg';
+		system(
+"$self->{'config'}->{'blast+_path'}/$program -num_threads $blast_threads -max_target_seqs 10 -parse_deflines -word_size $word_size -db $temp_fastafile -query $temp_queryfile -out $temp_outfile -outfmt 6 -$filter no"
+		);
+	} else {
+		system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p F -o T");
+		system(
 "$self->{'config'}->{'blast_path'}/blastall -b $hits -p $program -W $word_size -d $temp_fastafile -i $temp_queryfile -o $temp_outfile -m8 -F F 2> /dev/null"
-	);
+		);
+	}
 	my $matches = $self->_parse_blast( $outfile_url, $hits );
 
 	#clean up

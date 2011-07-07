@@ -119,7 +119,7 @@ sub get_all_sequence_lengths {
 		my $qry;
 		if ( $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'} ) {
 			$qry =
-"SELECT $self->{'dbase_id_field'},length($self->{'dbase_seq_field'}) FROM $self->{'dbase_table'} WHERE $self->{'dbase_id2_field'}='$self->{'dbase_id2_value'}'";
+"SELECT $self->{'dbase_id_field'},length($self->{'dbase_seq_field'}) FROM $self->{'dbase_table'} WHERE $self->{'dbase_id2_field'}=E'$self->{'dbase_id2_value'}'";
 		} else {
 			$qry = "SELECT $self->{'dbase_id_field'},length($self->{'dbase_seq_field'}) FROM $self->{'dbase_table'}";
 		}
