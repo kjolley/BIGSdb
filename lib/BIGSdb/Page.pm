@@ -2128,17 +2128,21 @@ sub run_blast {
 				  : ">$returned_locus:$id\n$seq\n";
 			}
 			close $fasta_fh;
-			if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
-				if ( $locus_info->{'data_type'} eq 'DNA' ) {
-					system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p F -o T");
+			if ($self->{'config'}->{'blast+_path'}){
+				my $dbtype;
+				if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
+					$dbtype = $locus_info->{'data_type'} eq 'DNA' ? 'nucl' : 'prot';
 				} else {
-					system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p T -o T");
+					$dbtype = $run eq 'DNA' ? 'nucl' : 'prot';
 				}
+				system("$self->{'config'}->{'blast+_path'}/makeblastdb -in $temp_fastafile -logfile /dev/null -parse_seqids -dbtype $dbtype");
 			} else {
-				if ( $run eq 'DNA' ) {
-					system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p F -o T");
+				if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
+					my $p = $locus_info->{'data_type'} eq 'DNA' ? 'F' : 'T';
+					system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p $p -o T");
 				} else {
-					system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p T -o T");
+					my $p = $run eq 'DNA' ? 'F' : 'T';
+					system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p $p -o T");
 				}
 			}
 		}
@@ -2162,13 +2166,22 @@ sub run_blast {
 				$program = $options->{'qry_type'} eq 'DNA' ? 'blastx' : 'blastp';
 			}
 		}
+		my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
+		my $filter = $program eq 'blastn' ? 'dust' : 'seg';
+		my $word_size = $program eq 'blastn' ? 11 : 3;	
+		my ($old_format,$format);	
 		if ( $options->{'alignment'} ) {
-			system(
-"$self->{'config'}->{'blast_path'}/blastall -v $options->{'num_results'} -b $options->{'num_results'} -p $program -d $temp_fastafile -i $temp_infile -o $temp_outfile -F F 2> /dev/null"
-			);
+			$old_format = 2;
+			$format = 0;
+		} else {
+			$old_format = 9;
+			$format = 6;
+		}
+		if ($self->{'config'}->{'blast+_path'}){
+			system("$self->{'config'}->{'blast+_path'}/$program -num_threads $blast_threads -num_descriptions $options->{'num_results'} -num_alignments $options->{'num_results'} -parse_deflines -word_size $word_size -db $temp_fastafile -query $temp_infile -out $temp_outfile -outfmt $format -$filter no");				
 		} else {
 			system(
-"$self->{'config'}->{'blast_path'}/blastall -v $options->{'num_results'} -b $options->{'num_results'} -p $program -d $temp_fastafile -i $temp_infile -o $temp_outfile -m9 -F F 2> /dev/null"
+	"$self->{'config'}->{'blast_path'}/blastall -v $options->{'num_results'} -b $options->{'num_results'} -p $program -d $temp_fastafile -i $temp_infile -o $temp_outfile -F F $old_format > /dev/null"
 			);
 		}
 		if ( $run eq 'DNA' ) {
