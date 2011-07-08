@@ -2100,7 +2100,8 @@ sub run_blast {
 	}
 	my @files_to_delete;
 	foreach my $run (@runs) {
-		my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'job'}\_$run\_fastafile.txt";
+		(my $cleaned_run = $run) =~ s/'/_prime_/g;
+		my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'job'}\_$cleaned_run\_fastafile.txt";
 		push @files_to_delete, $temp_fastafile;
 		if ( !$already_generated ) {
 			my ( $qry, $sql );
