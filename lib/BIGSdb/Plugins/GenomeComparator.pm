@@ -627,7 +627,6 @@ sub _analyse_by_reference {
 			$varying_loci->{$locus}->{'start'} = $start;
 		}
 	}
-	print "</p>\n";
 	print $fh "\n###\n\n";
 	$self->_print_variable_loci( $job_id, \$html_buffer, $fh, $align_fh, $params, $ids, $varying_loci );
 	print $fh "\n###\n\n";
