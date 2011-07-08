@@ -304,13 +304,18 @@ sub _run_query {
 								'job'         => $job
 							}
 						);
-						print
-						  "<div class=\"box\" id=\"resultsheader\"><p>Your query is a $qry_type sequence whereas this locus is defined with 
+						print "<div class=\"box\" id=\"resultsheader\">\n";
+						if (-e "$self->{'config'}->{'secure_tmp_dir'}/$blast_file"){
+							print "<p>Your query is a $qry_type sequence whereas this locus is defined with 
 							$locus_info->{'data_type'} sequences.  There were no exact matches, but the BLAST results are shown below (a maximum of five
 							alignments are displayed).</p>";
-						print "<pre style=\"font-size:1.2em\">\n";
-						$self->print_file( "$self->{'config'}->{'secure_tmp_dir'}/$blast_file", 1 );
-						print "</pre>\n";
+							
+							print "<pre style=\"font-size:1.2em\">\n";
+							$self->print_file( "$self->{'config'}->{'secure_tmp_dir'}/$blast_file", 1 );
+							print "</pre>\n";							
+						} else {
+							print "<p>No results from BLAST.</p>\n";
+						}
 						print "</div>\n";
 						system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 						return;
@@ -494,13 +499,17 @@ sub _run_query {
 									'job'         => $job
 								}
 							);
-							print "<p>Your query is a $qry_type sequence whereas this locus is defined with "
-							  . ( $qry_type eq 'DNA' ? 'peptide' : 'DNA' )
-							  . " sequences.  There were no exact matches, but the BLAST results are shown below (a maximum of five
-							alignments are displayed).</p>";
-							print "<pre style=\"font-size:1.2em\">\n";
-							$self->print_file( "$self->{'config'}->{'secure_tmp_dir'}/$blast_file", 1 );
-							print "</pre>\n";
+							if (-e "$self->{'config'}->{'secure_tmp_dir'}/$blast_file"){
+								print "<p>Your query is a $qry_type sequence whereas this locus is defined with "
+								  . ( $qry_type eq 'DNA' ? 'peptide' : 'DNA' )
+								  . " sequences.  There were no exact matches, but the BLAST results are shown below (a maximum of five
+								alignments are displayed).</p>";
+								print "<pre style=\"font-size:1.2em\">\n";
+								$self->print_file( "$self->{'config'}->{'secure_tmp_dir'}/$blast_file", 1 );
+								print "</pre>\n";
+							} else {
+								print "<p>No results from BLAST.</p>\n";
+							}
 							print "</div>\n";
 							system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 							return;
