@@ -1014,8 +1014,9 @@ sub _run_isolate_query {
 					my $allele_clause;
 					my $first = 1;
 					foreach my $locus (@$scheme_loci) {
+						$locus =~ s/'/\\'/g;
 						$allele_clause .= ' OR ' if !$first;
-						$allele_clause .= "(locus='$locus' AND allele_id IS NOT NULL)";
+						$allele_clause .= "(locus=E'$locus' AND allele_id IS NOT NULL)";
 						$first = 0;
 					}
 					my $param = $q->param("scheme_$scheme_id\_profile_status_list");
