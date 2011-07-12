@@ -30,22 +30,20 @@ sub initiate {
 	if ( $self->{'cgi'}->param('format') eq 'text' ) {
 		$self->{'type'} = 'text';
 	} else {
-		$self->{'jQuery'}           = 1;    #Use JQuery javascript library
-		$self->{'jQuery.tablesort'} = 1;
-		$self->{'jQuery.jstree'}    = 1;
+		$self->{$_} = 1 foreach qw(jQuery jQuery.tablesort jQuery.jstree);
 	}
 }
 
 sub get_attributes {
 
 	#override in subclass
-	return \%;;
+	return \%;
 }
 
 sub get_option_list {
 
 	#override in subclass
-	return \@;;
+	return \@;
 }
 
 sub get_extra_form_elements {
@@ -57,7 +55,7 @@ sub get_extra_form_elements {
 sub get_hidden_attributes {
 
 	#override in subclass
-	return \@;;
+	return \@;
 }
 
 sub get_plugin_javascript {
@@ -244,12 +242,8 @@ sub print_content {
 			my $att = $self->{'pluginManager'}->get_plugin_attributes($plugin_name);
 			print $q->start_form;
 			$q->param( 'update_options', 1 );
-			foreach ( @{ $plugin->get_hidden_attributes() } ) {
-				print $q->hidden($_);
-			}
-			foreach (qw(page db name query_file update_options)) {
-				print $q->hidden($_);
-			}
+			print $q->hidden($_) foreach @{ $plugin->get_hidden_attributes() };
+			print $q->hidden($_) foreach qw(page db name query_file update_options);
 			print "<div id=\"hidefromnonJS\" class=\"hiddenbydefault\">\n";
 			print "<div class=\"floatmenu\"><a id=\"toggle1\" class=\"showhide\">Show options</a>\n";
 			print "<a id=\"toggle2\" class=\"hideshow\">Hide options</a></div>\n";
@@ -351,7 +345,7 @@ sub print_field_export_form {
 	my $loci    = $self->{'datastore'}->get_loci_in_no_scheme;
 	my $fields  = $self->{'xmlHandler'}->get_field_list;
 	my @display_fields;
-	my $extended = $self->get_extended_attributes if $options->{'extended_attributes'};
+	my $extended = $options->{'extended_attributes'} ? $self->get_extended_attributes : undef;
 	my ( @js, @js2, @isolate_js, @isolate_js2 );
 
 	foreach (@$fields) {
@@ -414,9 +408,7 @@ sub print_field_export_form {
 		my $qry    = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
 		my $cn_sql = $self->{'db'}->prepare($qry);
 		eval { $cn_sql->execute; };
-		if ($@) {
-			$logger->error("Can't execute $@");
-		}
+		$logger->error($@) if $@;
 		my $common_names = $cn_sql->fetchall_hashref('id');
 		foreach (@$schemes) {
 			my $scheme_members = $self->{'datastore'}->get_scheme_loci($_);
@@ -475,9 +467,7 @@ sub print_field_export_form {
 		print "<noscript><span class=\"comment\"> Enable javascript for select buttons to work!</span></noscript>\n";
 	}
 	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	foreach (qw (db page name query_file)) {
-		print $q->hidden($_);
-	}
+	print $q->hidden($_) foreach qw (db page name query_file);
 	print $q->end_form;
 }
 
@@ -593,9 +583,7 @@ sub print_sequence_export_form {
 		my $qry    = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
 		my $cn_sql = $self->{'db'}->prepare($qry);
 		eval { $cn_sql->execute; };
-		if ($@) {
-			$logger->error("Can't execute $@");
-		}
+		$logger->error($@) if $@;
 		my $common_names = $cn_sql->fetchall_hashref('id');
 		print "<div style=\"clear:both\">\n";
 		foreach my $scheme_id (@$schemes) {
@@ -618,9 +606,11 @@ sub print_sequence_export_form {
 					$labels->{"l_$member"} = "$member ($common_names->{$member}->{'common_name'})"
 					  if $common_names->{$member}->{'common_name'};
 				}
-				$self->_print_all_none_buttons( \@scheme_js, \@scheme_js2, 'smallbutton rightbutton' );
-				print "<input type=\"button\" value=\"Show/Hide List\" class=\"toggleLink smallbutton rightbutton\" />\n";
-				$self->print_fields( \@values, "s_$scheme_id", 10, 1, $labels, $options->{'default_select'}, 1 );
+				if (!$q->param('scheme_id')){
+					$self->_print_all_none_buttons( \@scheme_js, \@scheme_js2, 'smallbutton rightbutton' );
+					print "<input type=\"button\" value=\"Show/Hide List\" class=\"toggleLink smallbutton rightbutton\" />\n";
+				}
+				$self->print_fields( \@values, "s_$scheme_id", 10, 1, $labels, $options->{'default_select'}, $q->param('scheme_id') ? 0 : 1 );
 				print "</div>";
 			}
 		}
@@ -649,16 +639,12 @@ sub print_sequence_export_form {
 		}
 		$" = ';';
 		print "</div>\n";
-		if ( !$scheme_id ) {
-			print "<input type=\"button\" value=\"Select all\" onclick='@js' style=\"margin-top:1em\" class=\"button\" />\n";
-			print "<input type=\"button\" value=\"Select none\" onclick='@js2' style=\"margin-top:1em\" class=\"button\" />\n";
-		}
+		print "<input type=\"button\" value=\"Select all\" onclick='@js' style=\"margin-top:1em\" class=\"button\" />\n";
+		print "<input type=\"button\" value=\"Select none\" onclick='@js2' style=\"margin-top:1em\" class=\"button\" />\n";
 		print "<noscript><span class=\"comment\"> Enable javascript for select buttons to work!</span></noscript>\n";
 	}
 	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	foreach (qw (db page name query_file scheme_id)) {
-		print $q->hidden($_);
-	}
+	print $q->hidden($_) foreach qw (db page name query_file scheme_id);
 	print $q->end_form;
 }
 
