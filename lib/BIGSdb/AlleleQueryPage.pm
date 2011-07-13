@@ -469,14 +469,15 @@ sub _run_query {
 				}
 			}
 		}
-		$qry2 = "SELECT * FROM sequences WHERE locus='\Q$locus\E' AND ($qry)";
+		$locus =~ s/'/\\'/g;
+		$qry2 = "SELECT * FROM sequences WHERE locus=E'$locus' AND ($qry)";
 		foreach (@$attributes) {
 			if ( $q->param( $_->{'name'} . '_list' ) ne '' ) {
 				my $value = $q->param( $_->{'name'} . '_list' );
 				if ( $qry2 !~ /WHERE \(\)\s*$/ ) {
 					$qry2 .= " AND ";
 				} else {
-					$qry2 = "SELECT * FROM sequences WHERE locus='$locus' AND ";
+					$qry2 = "SELECT * FROM sequences WHERE locus=E'$locus' AND ";
 				}
 				$value =~ s/'/\\'/g;
 				$qry2 .= ( ( $value eq '<blank>' || $value eq 'null' ) ? "$_ is null" : "$_->{'name'} = '$value'" );
