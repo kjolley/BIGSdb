@@ -2099,6 +2099,7 @@ sub run_blast {
 		@runs = qw (DNA peptide);
 	}
 	my @files_to_delete;
+	my %seq_count;
 	foreach my $run (@runs) {
 		(my $cleaned_run = $run) =~ s/'/_prime_/g;
 		my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'job'}\_$cleaned_run\_fastafile.txt";
@@ -2127,66 +2128,71 @@ sub run_blast {
 				print $fasta_fh ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ )
 				  ? ">$id\n$seq\n"
 				  : ">$returned_locus:$id\n$seq\n";
+			 	$seq_count{$run}++;
 			}
 			close $fasta_fh;
-			if ($self->{'config'}->{'blast+_path'}){
-				my $dbtype;
-				if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
-					$dbtype = $locus_info->{'data_type'} eq 'DNA' ? 'nucl' : 'prot';
+			if ($seq_count{$run}){
+				if ($self->{'config'}->{'blast+_path'}){
+					my $dbtype;
+					if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
+						$dbtype = $locus_info->{'data_type'} eq 'DNA' ? 'nucl' : 'prot';
+					} else {
+						$dbtype = $run eq 'DNA' ? 'nucl' : 'prot';
+					}
+					system("$self->{'config'}->{'blast+_path'}/makeblastdb -in $temp_fastafile -logfile /dev/null -parse_seqids -dbtype $dbtype");
 				} else {
-					$dbtype = $run eq 'DNA' ? 'nucl' : 'prot';
+					my $p;
+					if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
+						$p = $locus_info->{'data_type'} eq 'DNA' ? 'F' : 'T';
+					} else {
+						$p = $run eq 'DNA' ? 'F' : 'T';				
+					}
+					system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p $p -o T");
 				}
-				system("$self->{'config'}->{'blast+_path'}/makeblastdb -in $temp_fastafile -logfile /dev/null -parse_seqids -dbtype $dbtype");
-			} else {
-				my $p;
-				if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
-					$p = $locus_info->{'data_type'} eq 'DNA' ? 'F' : 'T';
-				} else {
-					$p = $run eq 'DNA' ? 'F' : 'T';				
-				}
-				system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p $p -o T");
 			}
 		}
 
+		if ($seq_count{$run}){
 		#create query fasta file
-		open( my $infile_fh, '>', $temp_infile );
-		print $infile_fh ">Query\n";
-		print $infile_fh "${$options->{'seq_ref'}}\n";
-		close $infile_fh;
-		my $program;
-		if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
-			if ( $options->{'qry_type'} eq 'DNA' ) {
-				$program = $locus_info->{'data_type'} eq 'DNA' ? 'blastn' : 'blastx';
+			open( my $infile_fh, '>', $temp_infile );
+			print $infile_fh ">Query\n";
+			print $infile_fh "${$options->{'seq_ref'}}\n";
+			close $infile_fh;
+			my $program;
+			if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
+				if ( $options->{'qry_type'} eq 'DNA' ) {
+					$program = $locus_info->{'data_type'} eq 'DNA' ? 'blastn' : 'blastx';
+				} else {
+					$program = $locus_info->{'data_type'} eq 'DNA' ? 'tblastn' : 'blastp';
+				}
 			} else {
-				$program = $locus_info->{'data_type'} eq 'DNA' ? 'tblastn' : 'blastp';
+				if ( $run eq 'DNA' ) {
+					$program = $options->{'qry_type'} eq 'DNA' ? 'blastn' : 'tblastn';
+				} else {
+					$program = $options->{'qry_type'} eq 'DNA' ? 'blastx' : 'blastp';
+				}
 			}
-		} else {
+			my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
+			my $filter = $program eq 'blastn' ? 'dust' : 'seg';
+			my $word_size = $program eq 'blastn' ? 11 : 3;	
+			my ($old_format,$format);	
+			if ( $options->{'alignment'} ) {
+				$old_format = 2;
+				$format = 0;
+			} else {
+				$old_format = 9;
+				$format = 6;
+			}
+			if ($self->{'config'}->{'blast+_path'}){
+				system("$self->{'config'}->{'blast+_path'}/$program -num_threads $blast_threads -num_descriptions $options->{'num_results'} -num_alignments $options->{'num_results'} -parse_deflines -word_size $word_size -db $temp_fastafile -query $temp_infile -out $temp_outfile -outfmt $format -$filter no");				
+			} else {
+				system(
+		"$self->{'config'}->{'blast_path'}/blastall -v $options->{'num_results'} -b $options->{'num_results'} -p $program -d $temp_fastafile -i $temp_infile -o $temp_outfile -F F -m$old_format > /dev/null"
+				);
+			}
 			if ( $run eq 'DNA' ) {
-				$program = $options->{'qry_type'} eq 'DNA' ? 'blastn' : 'tblastn';
-			} else {
-				$program = $options->{'qry_type'} eq 'DNA' ? 'blastx' : 'blastp';
+				system "mv $temp_outfile $temp_outfile\.1";
 			}
-		}
-		my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
-		my $filter = $program eq 'blastn' ? 'dust' : 'seg';
-		my $word_size = $program eq 'blastn' ? 11 : 3;	
-		my ($old_format,$format);	
-		if ( $options->{'alignment'} ) {
-			$old_format = 2;
-			$format = 0;
-		} else {
-			$old_format = 9;
-			$format = 6;
-		}
-		if ($self->{'config'}->{'blast+_path'}){
-			system("$self->{'config'}->{'blast+_path'}/$program -num_threads $blast_threads -num_descriptions $options->{'num_results'} -num_alignments $options->{'num_results'} -parse_deflines -word_size $word_size -db $temp_fastafile -query $temp_infile -out $temp_outfile -outfmt $format -$filter no");				
-		} else {
-			system(
-	"$self->{'config'}->{'blast_path'}/blastall -v $options->{'num_results'} -b $options->{'num_results'} -p $program -d $temp_fastafile -i $temp_infile -o $temp_outfile -F F -m$old_format > /dev/null"
-			);
-		}
-		if ( $run eq 'DNA' ) {
-			system "mv $temp_outfile $temp_outfile\.1";
 		}
 	}
 	if ( !$options->{'locus'} || $options->{'locus'} =~ /SCHEME_(\d+)/ ) {
