@@ -2475,7 +2475,6 @@ sub _get_isolate_field_extended_attributes_table_attributes {
 		{ name => 'value_format', type => 'text', required => 'yes', optlist => 'integer;float;text;date', default => 'text' },
 		{ name => 'value_regex', type => 'text', tooltip => 'value regex - Regular expression that constrains values.' },
 		{ name => 'description', type => 'text', length  => 256 },
-		{ name => 'option_list', type => 'text', length  => 128, tooltip => 'option list - \'|\' separated list of allowed values.' },
 		{
 			name   => 'url',
 			type   => 'text',
