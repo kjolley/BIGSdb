@@ -1494,7 +1494,7 @@ sub _get_loci_table_attributes {
 				name     => 'dbase_id_field',
 				type     => 'text',
 				hide     => 'yes',
-				comments => 'Primary field in sequence database that defines allele, e.g. \'id\''
+				comments => 'Primary field in sequence database that defines allele, e.g. \'allele_id\''
 			},
 			{
 				name     => 'dbase_id2_field',
