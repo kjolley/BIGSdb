@@ -42,11 +42,14 @@ sub get_javascript {
  \$("#locus").change(function(){
  	var locus_name = \$("#locus").val();
  	locus_name = locus_name.replace("cn_","");
- 	var url = '$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=alleleQuery&locus=' + locus_name;
+  	var url = '$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=alleleQuery&locus=' + locus_name;
  	location.href=url;
   });
   \$('a[rel=ajax]').click(function(){
   	\$(this).attr('href', function(){
+  		if (this.href.match(/javascript.loadContent/)){
+  			return;
+  		};
    		return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1\'\)"));
    	});
   });
@@ -169,10 +172,8 @@ sub _print_table_fields {
 	print $q->textfield( -name => "t$row", -class => 'value_entry' );
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
-		my $locus_clause = $locus ? "&amp;locus=$locus" : '';
 		print
-	"<a id=\"add_table_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleQuery$locus_clause&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";			
-		
+	"<a id=\"add_table_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleQuery&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";	
 		print
 " <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>Add more fields by clicking the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>";
 	}
