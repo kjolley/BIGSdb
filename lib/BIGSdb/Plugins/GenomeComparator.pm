@@ -529,7 +529,7 @@ sub _analyse_by_reference {
 		}
 		$" = '|';
 		my $locus_name = $locus;
-		$locus_name .= "|@aliases" if @aliases;
+		$locus_name .= "|@aliases" if @aliases;	
 		my $seq = $cds->seq->seq;
 		$seqs{'ref'} = $seq;
 		my @tags;
@@ -566,12 +566,11 @@ sub _analyse_by_reference {
 			my $extracted_seq;
 			my $seqbin_length;
 			if ( ref $match eq 'HASH' ) {
+				$missing_in_all = 0;
 				if ( $match->{'identity'} == 100 && $match->{'alignment'} == $length ) {
-					$missing_in_all       = 0;
 					$exact_except_for_ref = 0;
 				} else {
-					$all_exact      = 0;
-					$missing_in_all = 0;
+					$all_exact = 0;					
 				}
 				eval { $seqbin_length_sql->execute( $match->{'seqbin_id'} ); };
 				$logger->error($@) if $@;
@@ -606,25 +605,25 @@ sub _analyse_by_reference {
 			$first = 0;
 		}
 		if ($all_exact) {
-			$exacts->{$locus}->{'length'} = length $seq;
-			$exacts->{$locus}->{'desc'}   = $desc;
-			$exacts->{$locus}->{'start'}  = $start;
+			$exacts->{$locus_name}->{'length'} = length $seq;
+			$exacts->{$locus_name}->{'desc'}   = $desc;
+			$exacts->{$locus_name}->{'start'}  = $start;
 		} elsif ($missing_in_all) {
-			$all_missing->{$locus}->{'length'} = length $seq;
-			$all_missing->{$locus}->{'desc'}   = $desc;
-			$all_missing->{$locus}->{'start'}  = $start;
+			$all_missing->{$locus_name}->{'length'} = length $seq;
+			$all_missing->{$locus_name}->{'desc'}   = $desc;
+			$all_missing->{$locus_name}->{'start'}  = $start;
 		} elsif ($exact_except_for_ref) {
-			$exact_except_ref->{$locus}->{'length'} = length $seq;
-			$exact_except_ref->{$locus}->{'desc'}   = $desc;
-			$exact_except_ref->{$locus}->{'start'}  = $start;
+			$exact_except_ref->{$locus_name}->{'length'} = length $seq;
+			$exact_except_ref->{$locus_name}->{'desc'}   = $desc;
+			$exact_except_ref->{$locus_name}->{'start'}  = $start;
 		} elsif ($truncated_locus) {
-			$truncated_loci->{$locus}->{'length'} = length $seq;
-			$truncated_loci->{$locus}->{'desc'}   = $desc;
-			$truncated_loci->{$locus}->{'start'}  = $start;
+			$truncated_loci->{$locus_name}->{'length'} = length $seq;
+			$truncated_loci->{$locus_name}->{'desc'}   = $desc;
+			$truncated_loci->{$locus_name}->{'start'}  = $start;
 		} else {
-			$varying_loci->{$locus}->{$_} = $seqs{$_} foreach ( keys %seqs );
-			$varying_loci->{$locus}->{'desc'}  = $desc;
-			$varying_loci->{$locus}->{'start'} = $start;
+			$varying_loci->{$locus_name}->{$_} = $seqs{$_} foreach ( keys %seqs );
+			$varying_loci->{$locus_name}->{'desc'}  = $desc;
+			$varying_loci->{$locus_name}->{'start'} = $start;
 		}
 	}
 	print $fh "\n###\n\n";
@@ -945,7 +944,7 @@ sub _parse_blast_ref {
 		next if !$line || $line =~ /^#/;
 		my @record = split /\s+/, $line;
 		my $this_quality = $record[3] * $record[2];
-		if ( $this_quality > $quality && $record[3] > $alignment * 0.01 * $ref_length && $record[2] > $identity ) {
+		if ( $this_quality > $quality && $record[3] >= $alignment * 0.01 * $ref_length && $record[2] > $identity ) {
 			$quality              = $this_quality;
 			$match->{'seqbin_id'} = $record[1];
 			$match->{'identity'}  = $record[2];
