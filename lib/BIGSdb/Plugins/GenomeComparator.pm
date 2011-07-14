@@ -38,7 +38,7 @@ sub get_attributes {
 		buttontext  => 'Genome Camparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.1.3',
+		version     => '1.1.4',
 		dbtype      => 'isolates',
 		section     => 'analysis',
 		order       => 30,
@@ -272,7 +272,7 @@ sub _print_interface {
 	print $q->popup_menu(
 		-name    => 'alignment',
 		-id      => 'alignment',
-		-values  => [qw(30 35 40 45 50 55 60 65 70 75 80 85 90 91 92 93 94 95 96 97 98 99 100)],
+		-values  => [qw(10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 90 91 92 93 94 95 96 97 98 99 100)],
 		-default => 50
 	);
 	print
