@@ -2099,7 +2099,6 @@ sub run_blast {
 		@runs = qw (DNA peptide);
 	}
 	my @files_to_delete;
-	my %seq_count;
 	foreach my $run (@runs) {
 		(my $cleaned_run = $run) =~ s/'/_prime_/g;
 		my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'job'}\_$cleaned_run\_fastafile.txt";
@@ -2128,10 +2127,10 @@ sub run_blast {
 				print $fasta_fh ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ )
 				  ? ">$id\n$seq\n"
 				  : ">$returned_locus:$id\n$seq\n";
-			 	$seq_count{$run}++;
+			 	$self->{'seq_count'}->{$run}++;
 			}
 			close $fasta_fh;
-			if ($seq_count{$run}){
+			if ($self->{'seq_count'}->{$run}){
 				if ($self->{'config'}->{'blast+_path'}){
 					my $dbtype;
 					if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
@@ -2151,8 +2150,7 @@ sub run_blast {
 				}
 			}
 		}
-
-		if ($seq_count{$run}){
+		if ($self->{'seq_count'}->{$run}){
 		#create query fasta file
 			open( my $infile_fh, '>', $temp_infile );
 			print $infile_fh ">Query\n";
