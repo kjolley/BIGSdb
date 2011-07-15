@@ -275,9 +275,7 @@ sub _print_interface {
 	my %project_labels;
 	eval { $sql->execute; };
 
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	$logger->error($@) if $@;
 	while ( my ( $id, $desc ) = $sql->fetchrow_array ) {
 		push @projects, $id;
 		$project_labels{$id} = $desc;
@@ -293,9 +291,7 @@ sub _print_interface {
 	my @experiments;
 	my %exp_labels;
 	eval { $sql->execute; };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	$logger->error($@) if $@;
 	while ( my ( $id, $desc ) = $sql->fetchrow_array ) {
 		push @experiments, $id;
 		$exp_labels{$id} = $desc;
@@ -462,9 +458,7 @@ sub _scan {
 						  $self->{'db'}
 						  ->prepare("SELECT substring(sequence from $_->{'predicted_start'} for $length) FROM sequence_bin WHERE id=?");
 						eval { $extract_seq_sql->execute( $_->{'seqbin_id'} ) };
-						if ($@) {
-							$logger->error("Can't execute $@");
-						}
+						$logger->error($@) if $@;
 						my ($seq) = $extract_seq_sql->fetchrow_array;
 						$seq = BIGSdb::Utils::reverse_complement($seq) if $_->{'reverse'};
 						$new_seqs_found = 1;
@@ -602,9 +596,7 @@ sub _tag {
 					my $allele_id = $q->param("id_$isolate_id\_$_\_allele_id_$id");
 					my $set_allele_id = $self->{'datastore'}->get_allele_id( $isolate_id, $_ );
 					eval { $sql->execute($seqbin_id); };
-					if ($@) {
-						$logger->error("Can't execute seqbin lookup $@");
-					}
+					$logger->error($@) if $@;
 					my $seqbin_info = $sql->fetchrow_hashref;
 					my $sender      = $seqbin_info->{'sender'};
 					if ( $allele_id_to_set eq '' || !$pending_allele_ids_to_set{$allele_id} ) {
@@ -619,9 +611,7 @@ sub _tag {
 							&& !$pending_allele_ids_to_set{$allele_id} )
 						{
 							eval { $pending_sql->execute( $isolate_id, $_, $allele_id, $sender ); };
-							if ($@) {
-								$logger->error("Can't execute pending allele check $@");
-							}
+							$logger->error($@) if $@;
 							my ($exists) = $pending_sql->fetchrow_array;
 							if ( !$exists ) {
 								push @updates,
@@ -640,9 +630,7 @@ sub _tag {
 					my $start = $q->param("id_$isolate_id\_$_\_start_$id");
 					my $end   = $q->param("id_$isolate_id\_$_\_end_$id");
 					eval { $sequence_exists_sql->execute( $seqbin_id, $_, $start, $end ) };
-					if ($@) {
-						$logger->error("Can't execute allele sequence check $@");
-					}
+					$logger->error($@) if $@;
 					my ($exists) = $sequence_exists_sql->fetchrow_array;
 					if ( !$exists ) {
 						my $reverse  = $q->param("id_$isolate_id\_$_\_reverse_$id")  ? 'TRUE' : 'FALSE';
@@ -727,9 +715,7 @@ sub print_content {
 "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM sequence_bin LEFT JOIN $view ON $view.id=sequence_bin.isolate_id WHERE $view.id IS NOT NULL ORDER BY $view.id";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute; };
-	if ($@) {
-		$logger->error("Can't execute $qry; $@");
-	}
+	$logger->error($@) if $@;
 	my @ids;
 	my %labels;
 	while ( my ( $id, $isolate ) = $sql->fetchrow_array ) {
@@ -1152,9 +1138,7 @@ sub _blast {
 		}
 		my $sql = $self->{'db'}->prepare($qry);
 		eval { $sql->execute(@criteria); };
-		if ($@) {
-			$logger->error("Can't execute $qry $@");
-		}
+		$logger->error($@) if $@;
 		open( my $infile_fh, '>', $temp_infile ) or $logger->error("Can't open temp file $temp_infile for writing");
 		while ( my ( $id, $seq ) = $sql->fetchrow_array ) {
 			$seq_count++;
@@ -1240,9 +1224,7 @@ sub _parse_blast_exact {
 						$ref_seq_sql->execute($locus);
 						( $lengths->{'ref'} ) = $ref_seq_sql->fetchrow_array;
 					};
-					if ($@) {
-						$logger->error("Can't execute ref_seq query $@");
-					}
+					$logger->error($@) if $@;
 				} else {
 					$lengths = $self->{'datastore'}->get_locus($locus)->get_all_sequence_lengths;
 				}
@@ -1324,9 +1306,7 @@ sub _parse_blast_partial {
 					$ref_seq_sql->execute($locus);
 					( $lengths{ $record[1] } ) = $ref_seq_sql->fetchrow_array;
 				};
-				if ($@) {
-					$logger->error("Can't execute ref_seq query $@");
-				}
+				$logger->error($@) if $@;
 			} else {
 				my $seq_ref = $self->{'datastore'}->get_locus($locus)->get_allele_sequence( $record[1] );
 				$lengths{ $record[1] } = length($$seq_ref);
@@ -1337,7 +1317,7 @@ sub _parse_blast_partial {
 			$record[3] *= 3;
 		}
 		my $quality = $record[3] * $record[2];    #simple metric of alignment length x percentage identity
-		if ( $record[3] > $alignment * 0.01 * $length && $record[2] > $identity ) {
+		if ( $record[3] >= $alignment * 0.01 * $length && $record[2] >= $identity ) {
 			my $match;
 			$match->{'quality'}   = $quality;
 			$match->{'seqbin_id'} = $record[0];
