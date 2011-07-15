@@ -944,7 +944,7 @@ sub _parse_blast_ref {
 		next if !$line || $line =~ /^#/;
 		my @record = split /\s+/, $line;
 		my $this_quality = $record[3] * $record[2];
-		if ( $this_quality > $quality && $record[3] >= $alignment * 0.01 * $ref_length && $record[2] > $identity ) {
+		if ( $this_quality > $quality && $record[3] >= $alignment * 0.01 * $ref_length && $record[2] >= $identity ) {
 			$quality              = $this_quality;
 			$match->{'seqbin_id'} = $record[1];
 			$match->{'identity'}  = $record[2];
