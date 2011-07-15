@@ -402,7 +402,7 @@ sub create_record_table {
 			$buffer .= "</td></tr>\n";
 		}
 		my $locus_info = $self->{'datastore'}->get_locus_info( $q->param('locus') );
-		if ( !$q->param('locus') || ( ref $locus_info eq 'HASH' && $locus_info->{'data_type'} ne 'peptide' ) ) {
+		if ( (!$q->param('locus') || ( ref $locus_info eq 'HASH' && $locus_info->{'data_type'} ne 'peptide' ) ) && $q->param('page') ne 'update') {
 			$buffer .= "<tr><td colspan=\"2\" style=\"padding-top:1em\">";
 			$buffer .= $q->checkbox( -name => 'ignore_similarity', -label => 'Override sequence similarity check' );
 			$buffer .= "</td></tr>";
