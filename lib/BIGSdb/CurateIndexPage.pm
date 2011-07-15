@@ -382,7 +382,7 @@ HTML
 	<tr class="td$td"><td>$cleaned sequences</td>
 	<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=sequences&amp;locus=$_">+</a></td>
 	<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=sequences&amp;locus=$_">++</a></td>
-	<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=sequences&amp;locus=$_">?</a></td>
+	<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=sequences&amp;locus_list=$_">?</a></td>
 	<td></td></tr>	
 HTML
 			$td = $td == 1 ? 2 : 1;
