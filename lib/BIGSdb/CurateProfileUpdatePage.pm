@@ -272,7 +272,7 @@ sub print_content {
 	print
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateUpdate&amp;id=$data->{'id'}\" class=\"resetbutton\">Reset</a>";
 	print "</td><td style=\"text-align:right\">";
-	print $q->submit( -name => 'Update' );
+	print $q->submit( -name => 'Update', -class => 'submit' );
 	print "</td></tr>\n";
 	print "</table>\n";
 	print $q->end_form;
