@@ -2625,20 +2625,22 @@ sub get_tables {
 }
 
 sub get_tables_with_curator {
-
-	#TODO update with all appropriate tables
 	my ($self) = @_;
 	my @tables;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		@tables =
 		  qw(users user_groups user_group_members allele_sequences sequence_bin refs allele_designations pending_allele_designations loci schemes scheme_members
-		  locus_aliases scheme_fields composite_fields composite_field_values isolate_aliases projects project_members samples experiments experiment_sequences isolate_field_extended_attributes);
+		  locus_aliases scheme_fields composite_fields composite_field_values isolate_aliases projects project_members experiments experiment_sequences
+		  isolate_field_extended_attributes isolate_value_extended_attributes scheme_groups scheme_group_scheme_members scheme_group_group_members pcr pcr_locus
+		  probes probe_locus accession sequence_flags);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		@tables = qw(users user_groups sequences profile_refs sequence_refs accession loci schemes
-		  scheme_members scheme_fields scheme_groups scheme_group_scheme_members scheme_group_group_members);
+		  scheme_members scheme_fields scheme_groups scheme_group_scheme_members scheme_group_group_members
+		  client_dbases client_dbase_loci client_dbase_schemes locus_links locus_descriptions locus_aliases
+		  locus_extended_attributes sequence_extended_attributes locus_refs );
 	}
 	return @tables;
 }

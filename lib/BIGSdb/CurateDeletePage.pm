@@ -239,13 +239,13 @@ sub print_content {
 			#Don't delete yourself
 			if ( $data->{'id'} == $self->get_curator_id() ) {
 				$nogo_buffer .=
-"<p>It's not a good idea to remove yourself as a curator!  If you really wish to do this, you'll need to do it from another curator account.</p>\n";
+"It's not a good idea to remove yourself as a curator!  If you really wish to do this, you'll need to do it from another curator account.<br />\n";
 				$proceed = 0;
 			}
 
 			#Don't delete curators or admins unless you are an admin yourself
 			elsif ( $data->{'status'} ne 'user' && !$self->is_admin() ) {
-				$nogo_buffer .= "<p>Only administrators can delete users with curator or admin status!</p>\n";
+				$nogo_buffer .= "Only administrators can delete users with curator or admin status!<br />\n";
 				$proceed = 0;
 			}
 			if ($proceed) {
@@ -261,10 +261,10 @@ sub print_content {
 					if ($num || $num_senders) {
 						my $plural = $num > 1 ? 's' : '';
 						$nogo_buffer .=
-						  "<p>User '$data->{'id'}' is the curator for $num record$plural in table '$table' - can not delete!</p>" if $num;
+						  "User '$data->{'id'}' is the curator for $num record$plural in table '$table' - can not delete!<br />" if $num;
 						$plural = $num_senders > 1 ? 's' : '';
 						$nogo_buffer .=
-						  "<p>User '$data->{'id'}' is the sender for $num_senders record$plural in table '$table' - can not delete!</p>" if $num_senders;
+						  "User '$data->{'id'}' is the sender for $num_senders record$plural in table '$table' - can not delete!<br />" if $num_senders;
 						$proceed = 0;
 					}
 				}
@@ -273,12 +273,12 @@ sub print_content {
 			#don't delete 'All users' group
 		} elsif ( $table eq 'user_groups' ) {
 			if ( defined $data->{'id'} && $data->{'id'} == 0 ) {
-				$nogo_buffer .= "<p>You can not delete the 'All users' group!</p>";
+				$nogo_buffer .= "You can not delete the 'All users' group!<br />";
 				$proceed = 0;
 			}
 		} elsif ( $table eq 'user_group_members' ) {
 			if ( defined $data->{'user_group'} && $data->{'user_group'} == 0 ) {
-				$nogo_buffer .= "<p>You can not remove members from the 'All users' group!</p>";
+				$nogo_buffer .= "You can not remove members from the 'All users' group!<br />";
 				$proceed = 0;
 			}
 		}
@@ -301,7 +301,7 @@ sub print_content {
 					my $plural = $num > 1 ? 's' : '';
 					$data->{'id'} =~ s/'/\\'/g;
 					$nogo_buffer .=
-					  "<p>$record_name '$data->{'id'}' is referenced by $num record$plural in table '$table_to_check' - can not delete!</p>";
+					  "$record_name '$data->{'id'}' is referenced by $num record$plural in table '$table_to_check' - can not delete!<br />";
 					$proceed = 0;
 				}
 			}
@@ -314,13 +314,13 @@ sub print_content {
 			if ($num) {
 				my $plural = $num > 1 ? 's' : '';
 				$nogo_buffer .=
-				  "<p>Sequence $data->{'locus'}-$data->{'allele_id'} is referenced by $num allelic profile$plural - can not delete!</p>";
+				  "Sequence $data->{'locus'}-$data->{'allele_id'} is referenced by $num allelic profile$plural - can not delete!<br />";
 				$proceed = 0;
 			}
 
 			#check isolate ACLs where appropriate
 		} elsif ( $proceed && $table eq 'allele_designations' && !$self->is_allowed_to_view_isolate( $data->{'isolate_id'} ) ) {
-			$nogo_buffer .= "<p>Your user account is not allowed to delete allele designations for this isolate.</p>\n";
+			$nogo_buffer .= "Your user account is not allowed to delete allele designations for this isolate.<br />\n";
 			$proceed = 0;
 		} elsif ( $proceed
 			&& ( $self->{'system'}->{'read_access'} eq 'acl' || $self->{'system'}->{'write_access'} eq 'acl' )
@@ -334,12 +334,12 @@ sub print_content {
 			if ( !$self->is_allowed_to_view_isolate($isolate_id) ) {
 				my $record_type = $self->get_record_name($table);
 				$nogo_buffer .=
-"<p>The $record_type you are trying to delete belongs to an isolate to which your user account is not allowed to access.</p>";
+"The $record_type you are trying to delete belongs to an isolate to which your user account is not allowed to access.<br />";
 				$proceed = 0;
 			}
 		}
 		if ( !$proceed ) {
-			print "<div class=\"box\" id=\"statusbad\">$nogo_buffer<p><a href=\""
+			print "<div class=\"box\" id=\"statusbad\"><p>$nogo_buffer</p><p><a href=\""
 			  . $q->script_name
 			  . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
 			return;
