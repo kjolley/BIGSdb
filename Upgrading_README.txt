@@ -2,7 +2,10 @@ Important notes about upgrading
 -------------------------------
 
 Version 1.1: Offline job manager - set up new user account and cron job.
-Version 1.2: Change of isolate database structure. New package 'exonerate' required.
+Version 1.2: Change of isolate database structure. New package 'exonerate'
+             required.
+Version 1.3: Change of isolate and seqdef database structures.  Ensure 
+             jstree.js is upgraded.
 
 Details can be found below.
 

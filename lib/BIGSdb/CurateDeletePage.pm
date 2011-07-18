@@ -19,6 +19,7 @@
 package BIGSdb::CurateDeletePage;
 use strict;
 use base qw(BIGSdb::CuratePage);
+use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -261,7 +262,8 @@ sub print_content {
 						my $plural = $num > 1 ? 's' : '';
 						$nogo_buffer .=
 						  "<p>User '$data->{'id'}' is the curator for $num record$plural in table '$table' - can not delete!</p>" if $num;
-						  $nogo_buffer .=
+						$plural = $num_senders > 1 ? 's' : '';
+						$nogo_buffer .=
 						  "<p>User '$data->{'id'}' is the sender for $num_senders record$plural in table '$table' - can not delete!</p>" if $num_senders;
 						$proceed = 0;
 					}
@@ -284,26 +286,22 @@ sub print_content {
 		#Check if record is a foreign key in another table
 		if ( $proceed && $table ne 'composite_fields' && $table ne 'schemes' ) {
 			my %tables_to_check = $self->_get_tables_which_reference_table($table);
-			foreach ( keys %tables_to_check ) {
-				next
-				  if $table eq 'loci'
-				  && ( $_ eq 'locus_aliases'
-				    || $_ eq 'locus_descriptions'
-					|| $_ eq 'allele_designations'
-					|| $_ eq 'pending_allele_designations'
-					|| $_ eq 'allele_sequences'
-					|| $_ eq 'locus_curators'
-					|| $_ eq 'client_dbase_loci' );           #cascade deletion of locus
-				next if $table eq 'users' && ( $_ eq 'user_permissions' || $_ eq 'user_group_members' );    #cascade deletion of user
-				next if $table eq 'sequence_bin' && $_ eq 'allele_sequences'; #cascade deletion of sequence bin records
+			foreach my $table_to_check( keys %tables_to_check ) {
+				#cascade deletion of locus
+				next if $table eq 'loci' && any {$table_to_check eq $_} qw (locus_aliases locus_descriptions
+				allele_designations pending_allele_designations allele_sequences locus_curators client_dbase_loci);	
+				#cascade deletion of user
+				next if $table eq 'users' && any {$table_to_check eq $_} qw ( user_permissions user_group_members); 
+				#cascade deletion of sequence bin records   
+				next if $table eq 'sequence_bin' && $table_to_check eq 'allele_sequences'; 
 				my $num =
-				  $self->{'datastore'}->run_simple_query( "SELECT count(*) FROM $_ WHERE $tables_to_check{$_} = ?", $data->{'id'} )->[0];
+				  $self->{'datastore'}->run_simple_query( "SELECT count(*) FROM $table_to_check WHERE $tables_to_check{$table_to_check} = ?", $data->{'id'} )->[0];
 				if ($num) {
 					my $record_name = $self->get_record_name($table);
 					my $plural = $num > 1 ? 's' : '';
 					$data->{'id'} =~ s/'/\\'/g;
 					$nogo_buffer .=
-					  "<p>$record_name '$data->{'id'}' is referenced by $num record$plural in table '$_' - can not delete!</p>";
+					  "<p>$record_name '$data->{'id'}' is referenced by $num record$plural in table '$table_to_check' - can not delete!</p>";
 					$proceed = 0;
 				}
 			}
@@ -364,10 +362,11 @@ sub print_content {
 				}
 			};
 			if ($@) {
-				$logger->error("Couldn't delete record: $qry $@");
+				my $err = $@;
+				$logger->error($err);
 				print "<div class=\"box\" id=\"statusbad\"><p>Delete failed - transaction cancelled - no records have been touched.</p>\n";
 				print "<p>Failed SQL: $qry</p>\n";
-				print "<p>Error message: $@</p></div>\n";
+				print "<p>Error message: $err</p></div>\n";
 				$self->{'db'}->rollback();
 				return;
 			}
@@ -423,9 +422,9 @@ sub _get_tables_which_reference_table {
 		{
 			my $attributes = $self->{'datastore'}->get_table_field_attributes($table2);
 			if (ref $attributes eq 'ARRAY'){
-				foreach (@$attributes) {
-					if ( $_->{'foreign_key'} eq $table ) {
-						$tables{$table2} = $_->{'name'};
+				foreach my $att(@$attributes) {
+					if ( $att->{'foreign_key'} eq $table || ($table eq 'users' && $att->{'name'} eq 'sender')) {
+						$tables{$table2} = $att->{'name'};
 					}
 				}
 			}

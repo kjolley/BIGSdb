@@ -52,13 +52,8 @@ sub create_record_table {
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my $qry        = "select id,user_name,first_name,surname from users where id>0 order by surname";
 	my $sql        = $self->{'db'}->prepare($qry);
-	eval { $sql->execute(); };
-
-	if ($@) {
-		$logger->error("Can't execute: $qry");
-	} else {
-		$logger->debug("Query: $qry");
-	}
+	eval { $sql->execute; };
+	$logger->error($@) if $@;
 	my @users;
 	my %usernames;
 	while ( my ( $user_id, $username, $firstname, $surname ) = $sql->fetchrow_array ) {
@@ -68,9 +63,7 @@ sub create_record_table {
 	$buffer .= $q->start_form();
 	$q->param( 'action', $update ? 'update' : 'add' );
 	$q->param( 'table', $table );
-	foreach (qw(page table db action )) {
-		$buffer .= $q->hidden($_);
-	}
+	$buffer .= $q->hidden($_) foreach qw(page table db action );
 	$buffer .= $q->hidden( 'locus', $newdata{'locus'} ) if $table eq 'allele_designations';
 	$buffer .= $q->hidden( 'sent', 1 );
 	$buffer .= "<div class=\"box\" id=\"queryform\">" if !$nodiv;
@@ -94,7 +87,8 @@ sub create_record_table {
 				if ( $_->{'tooltip'} ) {
 					$buffer .= "<a class=\"tooltip\" title=\"$_->{'tooltip'}\">&nbsp;<i>i</i>&nbsp;</a>";
 				}
-				$buffer .= " $_->{name}: ";
+				(my $cleaned_name = $_->{name}) =~ tr/_/ /;
+				$buffer .= " $cleaned_name: ";
 				$buffer .= '!' if $_->{'required'} eq 'yes';
 				$buffer .= "</td><td style=\"text-align:left\">";
 				if (   ( $update && $_->{'primary_key'} eq 'yes' )
@@ -421,7 +415,7 @@ sub create_record_table {
 			$desc{$id} = $desc;
 		}
 		if ( @ids > 1 ) {
-			$buffer .= "<tr><td style=\"text-align:right\"> experiment: </td><td style=\"text-align:left\">";
+			$buffer .= "<tr><td style=\"text-align:right\">link to experiment: </td><td style=\"text-align:left\">";
 			$buffer .= $q->popup_menu( -name => 'experiment', -values => \@ids, -default => $newdata{'experiment'}, -labels => \%desc );
 			$buffer .= "</td></tr>\n";
 		}

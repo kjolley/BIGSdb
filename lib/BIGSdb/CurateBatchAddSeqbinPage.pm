@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -56,12 +56,7 @@ sub _print_interface {
 	my $qry = "select id,user_name,first_name,surname from users WHERE id>0 order by surname";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute(); };
-
-	if ($@) {
-		$logger->error("Can't execute: $qry");
-	} else {
-		$logger->debug("Query: $qry");
-	}
+	$logger->error($@) if $@;
 	my @users;
 	my %usernames;
 	while ( my ( $userid, $username, $firstname, $surname ) = $sql->fetchrow_array ) {
@@ -71,14 +66,11 @@ sub _print_interface {
 	$qry = "SELECT id,$self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} ORDER BY id";
 	$sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute; };
-	if ($@) {
-		$logger->error("Can't execute $qry; $@");
-	}
+	$logger->error($@) if $@;
 	my $id_arrayref = $sql->fetchall_arrayref;
 	print "<p>Please fill in the following fields - required fields are marked with an exclamation mark (!).</p>\n";
-	print "<table><tr><td>\n";
-	print "<table><tr>";
-	print "<td style=\"text-align:right\">isolate id: !</td><td>";
+	print "<fieldset><legend>Attributes</legend>\n<ul>";
+	print "<li><label for=\"isolate_id\" class=\"parameter\">isolate id: !</label>\n";
 	my @ids = (0);
 	my %labels;
 	$labels{'0'} = 'Read identifier from FASTA';
@@ -88,25 +80,36 @@ sub _print_interface {
 		$labels{ $_->[0] } = "$_->[0]) $_->[1]";
 	}
 	print $q->popup_menu( -name => 'isolate_id', -id => 'isolate_id', -values => \@ids, -labels => \%labels );
-	print "</td></tr>\n<tr><td style=\"text-align:right\">identifier field: </td><td>\n";
+	print "</li><li><label for=\"identifier_field\" class=\"parameter\">identifier field: </label>\n";
 	my $fields = $self->{'xmlHandler'}->get_field_list;
 	print $q->popup_menu( -name => 'identifier_field', -id => 'identifier_field', -values => $fields );
-	print "</td></tr>\n<tr><td style=\"text-align:right\">sender: !</td><td>\n";
-	print $q->popup_menu( -name => 'sender', -values => [ '', @users ], -labels => \%usernames );
-	print "</td></tr>\n<tr><td style=\"text-align:right\">method: </td><td>";
-	print $q->popup_menu( -name => 'method', -values => [ '', SEQ_METHODS ] );
-	print "</td></tr></table>";
-	print "</td><td style=\"padding-left:2em; vertical-align:top\">\n";
+	print "</li><li><label for=\"sender\" class=\"parameter\">sender: !</label>\n";
+	print $q->popup_menu( -name => 'sender', -id => 'sender', -values => [ '', @users ], -labels => \%usernames );
+	print "</li><li><label for=\"method\" class=\"parameter\">method: </label>\n";
+	print $q->popup_menu( -name => 'method', -id => 'method', -values => [ '', SEQ_METHODS ] );
+	print "</li>\n</ul>\n</fieldset>\n<fieldset>\n<legend>Options</legend>\n";
+	print "<ul><li>";
 	print $q->checkbox( -name => 'size_filter', -label => "Don't insert sequences shorter than " );
 	print $q->popup_menu( -name => 'size', -values => [qw(25 50 100 250 500 1000)], -default => 250 );
-	print " bps.";
-	print "</td></tr></table>\n";
-	print "<p />\n";
-	print "<p>Please paste in sequences in FASTA format:</p>\n";
+	print " bps.</li>\n";
 
-	foreach (qw (page db)) {
-		print $q->hidden($_);
+	my @experiments = ('');
+	$qry = "SELECT id,description FROM experiments ORDER BY description";
+	$sql = $self->{'db'}->prepare($qry);
+	eval { $sql->execute(); };
+	$logger->error($@) if $@;
+	while ( my @data = $sql->fetchrow_array() ) {
+		push @experiments, $data[0];
+		$labels{ $data[0] } = $data[1];
 	}
+	if (@experiments){
+		print "<li><label for=\"experiment\" class=\"parameter\">Link to experiment: </label>\n";
+		print $q->popup_menu (-name => 'experiment', -id => 'experiment', -values => \@experiments, -labels => \%labels);
+		print "</li>\n";
+	}
+	print "</ul>\n</fieldset>\n";
+	print "<p>Please paste in sequences in FASTA format:</p>\n";
+	print $q->hidden($_) foreach qw (page db);
 	print $q->textarea( -name => 'data', -rows => 20, -columns => 120 );
 	print "<table style=\"width:95%\"><tr><td>";
 	print $q->reset( -class => 'reset' );
@@ -216,13 +219,9 @@ sub _check_data {
 		print $q->submit( -name => 'Upload', -class => 'submit' );
 		my $filename = $self->make_temp_file(@checked_buffer);
 		$q->param( 'checked_buffer', $filename );
-
-		foreach (qw (db page checked_buffer isolate_id sender method comments)) {
-			print $q->hidden($_);
-		}
+		print $q->hidden($_) foreach qw (db page checked_buffer isolate_id sender method comments experiment);
 		print $q->end_form;
-		print "</td></tr></table>\n";
-		print "</div>";
+		print "</td></tr></table>\n</div>\n";
 	} else {
 		print "<div class=\"box\" id=\"resultstable\">";
 		print "<p>The following sequences will be entered.  Any problems are highlighted.</p>\n";
@@ -254,9 +253,7 @@ sub _check_data {
 			if ( $id_field ne 'id' ) {
 				$identifier_field_html = "<td>$_</td>";
 				eval { $sql->execute($_); };
-				if ($@) {
-					$logger->error($@);
-				}
+				$logger->error($@) if $@;
 				my @ids;
 				while ( my ($id) = $sql->fetchrow_array ) {
 					push @ids, $id;
@@ -299,15 +296,12 @@ sub _check_data {
 			print $q->submit( -name => 'Upload', -class => 'submit' );
 			my $filename = $self->make_temp_file(@checked_buffer);
 			$q->param( 'checked_buffer', $filename );
-			foreach (qw (db page checked_buffer isolate_id identifier_field sender method comments)) {
-				print $q->hidden($_);
-			}
+			print $q->hidden($_) foreach qw (db page checked_buffer isolate_id identifier_field sender method comments);
 			print $q->end_form;
 		} else {
 			print "<p>Nothing to upload.</p>\n";
 		}
-		print "</td></tr></table>\n";
-		print "</div>";
+		print "</td></tr></table>\n</div>\n";
 	}
 }
 
@@ -342,6 +336,9 @@ sub _upload {
 	my $qry =
 "INSERT INTO sequence_bin (id,isolate_id,sequence,method,original_designation,comments,sender,curator,date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?,?)";
 	my $sql     = $self->{'db'}->prepare($qry);
+	$qry = "INSERT INTO experiment_sequences (experiment_id,seqbin_id,curator,datestamp) VALUES (?,?,?,?)";
+	my $sql_experiment = $self->{'db'}->prepare($qry);
+	my $experiment = BIGSdb::Utils::is_int($q->param('experiment')) ? $q->param('experiment') : undef;
 	my $curator = $self->get_curator_id;
 	eval {
 		my $id;
@@ -360,6 +357,7 @@ sub _upload {
 				'today',      'today'
 			);
 			$sql->execute(@values);
+			$sql_experiment->execute($experiment,$id,$curator,'today') if $experiment;
 		}
 	};
 	if ($@) {
