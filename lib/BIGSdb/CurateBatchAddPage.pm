@@ -289,7 +289,10 @@ sub print_content {
 			$self->update_history( $isolate_id, $action );
 		}
 		print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
-	} elsif ( $q->param('data') ) {
+	} elsif ( $q->param('data') || $q->param('query') ) {
+		if (!$q->param('data')){
+			$q->param('data', $self->_convert_query($q->param('table'), $q->param('query')))
+		}
 		my @checked_buffer;
 		my @fieldorder = $self->_get_fields_in_order($table);
 		my $extended_attributes;
@@ -1111,5 +1114,24 @@ sub _process_fields {
 		}
 	}
 	return @return_data;
+}
+
+sub _convert_query {
+	my ($self,$table,$qry) = @_;
+	return if !$self->{'datastore'}->is_table($table);
+	if ( any { lc($qry) =~ /;\s*$_\s/ } (qw (insert delete update alter create drop)) ) {
+		$logger->warn("Malicious SQL injection attempt '$qry'");
+		return;
+	}
+	my $data;
+	if ($table eq 'project_members'){
+		my $project_id = $self->{'cgi'}->param('project');
+		$data = "project_id\tisolate_id\n";
+		$qry =~ s/SELECT \*/SELECT id/;
+		$qry =~ s/ORDER BY .*/ORDER BY id/;
+		my $ids = $self->{'datastore'}->run_list_query($qry);
+		$data.= "$project_id\t$_\n" foreach (@$ids);
+	}
+	return $data;
 }
 1;

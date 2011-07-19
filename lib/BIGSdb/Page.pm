@@ -832,9 +832,7 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 					print "<fieldset><legend>Experiments</legend>\n";
 					print $q->start_form;
 					$q->param( 'page', 'linkToExperiment' );
-					foreach (qw (db page query)) {
-						print $q->hidden($_);
-					}
+					print $q->hidden($_) foreach qw (db page query);
 					print $q->submit( -name => 'Link to experiment', -class => 'submit' );
 					print $q->end_form;
 					print "</fieldset>";
@@ -866,6 +864,29 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 				$q->param( 'page', 'exportConfig' );
 				print $q->hidden($_) foreach qw (db page table query);
 				print $q->submit( -name => 'Export configuration/data', -class => 'submit' );
+				print $q->end_form;
+				print "</fieldset>\n";
+			}
+		}
+		if ( $self->{'curate'} && $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} && $self->can_modify_table('project_members') ){
+			my @projects;
+			my $project_qry = "SELECT id,short_description FROM projects ORDER BY short_description";
+			my $sql = $self->{'db'}->prepare($project_qry);
+			eval { $sql->execute; };
+			$logger->error($@) if $@;
+			my %labels;
+			while ( my @data = $sql->fetchrow_array ) {
+				push @projects, $data[0];
+				$labels{ $data[0] } = $data[1];
+			}
+			if (@projects){
+				print "<fieldset><legend>Projects</legend>\n";
+				print $q->start_form;
+				$q->param( 'page', 'batchAdd' );
+				$q->param( 'table', 'project_members');
+				print $q->hidden($_) foreach qw (db page table query);
+				print $q->popup_menu (-name => 'project', -values => \@projects, -labels => \%labels);
+				print $q->submit( -name => 'Link', -class => 'submit' );
 				print $q->end_form;
 				print "</fieldset>\n";
 			}
