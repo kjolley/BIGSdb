@@ -102,7 +102,7 @@ sub _print_interface {
 		push @experiments, $data[0];
 		$labels{ $data[0] } = $data[1];
 	}
-	if (@experiments){
+	if (@experiments > 1){
 		print "<li><label for=\"experiment\" class=\"parameter\">Link to experiment: </label>\n";
 		print $q->popup_menu (-name => 'experiment', -id => 'experiment', -values => \@experiments, -labels => \%labels);
 		print "</li>\n";
