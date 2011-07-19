@@ -71,18 +71,30 @@ sub _print_interface {
 	print "<p>Please fill in the following fields - required fields are marked with an exclamation mark (!).</p>\n";
 	print "<fieldset><legend>Attributes</legend>\n<ul>";
 	print "<li><label for=\"isolate_id\" class=\"parameter\">isolate id: !</label>\n";
-	my @ids = (0);
 	my %labels;
-	$labels{'0'} = 'Read identifier from FASTA';
-
-	foreach (@$id_arrayref) {
-		push @ids, $_->[0];
-		$labels{ $_->[0] } = "$_->[0]) $_->[1]";
+	if ($q->param('isolate_id')){
+		my $isolate_id = $q->param('isolate_id');
+		my $isolate_name;
+		if (BIGSdb::Utils::is_int($isolate_id)){
+			my $isolate_name_ref = $self->{'datastore'}->run_simple_query("SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?",$isolate_id);
+			$isolate_name = ref $isolate_name_ref eq 'ARRAY' ? $isolate_name_ref->[0] : 'Invalid isolate';
+		} else {
+			$isolate_name = 'Invalid isolate';
+		}
+		print "<span id=\"isolate_id\">$isolate_id) $isolate_name</span>\n";
+		print $q->hidden('isolate_id',$isolate_id);
+	} else {
+		my @ids = (0);
+		$labels{'0'} = 'Read identifier from FASTA';	
+		foreach (@$id_arrayref) {
+			push @ids, $_->[0];
+			$labels{ $_->[0] } = "$_->[0]) $_->[1]";
+		}
+		print $q->popup_menu( -name => 'isolate_id', -id => 'isolate_id', -values => \@ids, -labels => \%labels );
+		print "</li><li><label for=\"identifier_field\" class=\"parameter\">identifier field: </label>\n";
+		my $fields = $self->{'xmlHandler'}->get_field_list;
+		print $q->popup_menu( -name => 'identifier_field', -id => 'identifier_field', -values => $fields );
 	}
-	print $q->popup_menu( -name => 'isolate_id', -id => 'isolate_id', -values => \@ids, -labels => \%labels );
-	print "</li><li><label for=\"identifier_field\" class=\"parameter\">identifier field: </label>\n";
-	my $fields = $self->{'xmlHandler'}->get_field_list;
-	print $q->popup_menu( -name => 'identifier_field', -id => 'identifier_field', -values => $fields );
 	print "</li><li><label for=\"sender\" class=\"parameter\">sender: !</label>\n";
 	print $q->popup_menu( -name => 'sender', -id => 'sender', -values => [ '', @users ], -labels => \%usernames );
 	print "</li><li><label for=\"method\" class=\"parameter\">method: </label>\n";

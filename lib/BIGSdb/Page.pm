@@ -1629,6 +1629,11 @@ sub _print_isolate_table {
 						  . "?db=$self->{'instance'}&amp;page=isolateDelete&amp;id=$id\">Delete</a></td><td><a href=\""
 						  . $q->script_name
 						  . "?db=$self->{'instance'}&amp;page=isolateUpdate&amp;id=$id\">Update</a></td>";
+						if ($self->can_modify_table('sequence_bin')){
+							print "<td><a href=\""
+							  . $q->script_name
+							  . "?db=$self->{'instance'}&amp;page=batchAddSeqbin&amp;isolate_id=$id\">Upload</a></td>";	
+						}
 						if ( $self->{'system'}->{'read_access'} eq 'acl' && $self->{'permissions'}->{'modify_isolates_acl'} ) {
 							print "<td><a href=\""
 							  . $q->script_name
@@ -1934,6 +1939,9 @@ sub _print_isolate_table_header {
 	my $fieldtype_header = "<tr>";
 	if ( $self->{'curate'} ) {
 		$fieldtype_header .= "<th rowspan=\"2\">Delete</th><th rowspan=\"2\">Update</th>";
+		if ($self->can_modify_table('sequence_bin')){
+			$fieldtype_header .= "<th rowspan=\"2\">Sequence bin</th>";
+		}
 		if ( $self->{'system'}->{'read_access'} eq 'acl' && $self->{'permissions'}->{'modify_isolates_acl'} ) {
 			$fieldtype_header .= "<th rowspan=\"2\">Access control</th>";
 		}
