@@ -306,7 +306,7 @@ sub set_pref_requirements {
 sub print_content {
 	my ($self) = @_;
 	print "<h1>Please log in";
-	print " - $self->{'system'}->{'description'}" if $self->{'system'}->{'description'};
+	print " - $self->{'system'}->{'description'} database" if $self->{'system'}->{'description'};
 	print "</h1>";
 	if ( $self->{'authenticate_error'} ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>$self->{'authenticate_error'}</p></div>\n";

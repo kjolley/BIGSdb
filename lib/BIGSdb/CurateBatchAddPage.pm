@@ -267,17 +267,18 @@ sub print_content {
 					}
 				};
 				if ($@) {
+					my $err = $@;
 					print
 "<div class=\"box\" id=\"statusbad\"><p>Database update failed - transaction cancelled - no records have been touched.</p>\n";
-					if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
+					if ( $err =~ /duplicate/ && $err =~ /unique/ ) {
 						print
 "<p>Data entry would have resulted in records with either duplicate ids or another unique field with duplicate values.</p>\n";
 					} else {
-						print "<p>Error message: $@</p>\n";
+						print "<p>An error has occurred - more details will be available in the server log.</p>\n";
+						$logger->error($err);
 					}
 					print "</div>\n";
 					$self->{'db'}->rollback();
-					$logger->error("Can't insert: $@");
 					return;
 				}
 			}
