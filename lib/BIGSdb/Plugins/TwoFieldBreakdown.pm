@@ -77,14 +77,9 @@ sub run {
 	$qry =~ s/ORDER BY.*$//g;
 	$logger->debug("Breakdown query: $qry");
 	return if !$self->create_temp_tables($qry_ref);
-
 	if ( $q->param('function') eq 'breakdown' ) {
 		$self->_breakdown( \$qry );
-		return;
-	} elsif ( $q->param('function') eq 'freqcomb' ) {
-		$self->_freq_combinations( \$qry );
-		return;
-	}
+	} 
 }
 
 sub _print_interface {
@@ -262,16 +257,12 @@ sub _breakdown {
 	print $fh "\n\n";
 	print "<table><tr><td>\n";
 	print $q->startform;
-	foreach (qw (db page name function query_file field1 field2 display calcpc)) {
-		print $q->hidden($_);
-	}
+	print $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc);
 	print $q->submit( -name => 'reverse', -value => 'Reverse axes', -class => 'submit' );
 	print $q->endform;
 	print "</td><td>\n";
 	print $q->startform;
-	foreach (qw (db page name function query_file field1 field2 display calcpc)) {
-		print $q->hidden($_);
-	}
+	print $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc);
 	my %toggle =
 	  ( 'values only' => 'values and percentages', 'values and percentages' => 'percentages only', 'percentages only' => 'values only' );
 	print $q->submit( -name => 'toggledisplay', -label => ( 'Show ' . $toggle{ $q->param('display') } ), -class => 'submit' );
@@ -280,9 +271,7 @@ sub _breakdown {
 	if ( $q->param('display') ne 'values only' ) {
 		print "<td>";
 		print $q->startform;
-		foreach (qw (db page name function query_file field1 field2 display calcpc)) {
-			print $q->hidden($_);
-		}
+		print $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc);
 		my %toggle = ( 'dataset' => 'row', 'row' => 'column', 'column' => 'dataset' );
 		print $q->submit( -name => 'togglepc', -label => ( 'Calculate percentages by ' . $toggle{ $q->param('calcpc') } ),
 			-class => 'submit' );
@@ -305,7 +294,7 @@ sub _breakdown {
 		for my $field1value ( sort { $a <=> $b || $a cmp $b } keys %datahash ) {
 			my $total = 0;
 			print "<tr class=\"td$td\"><td>$field1value</td>\n";
-			print OUTFILE "$field1value";
+			print $fh "$field1value";
 			foreach my $field2value (@field2values) {
 				my $value = $datahash{$field1value}{$field2value} || 0;
 				my $percentage;
