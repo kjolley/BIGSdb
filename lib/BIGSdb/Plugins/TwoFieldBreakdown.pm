@@ -36,7 +36,7 @@ sub get_attributes {
 		buttontext  => 'Two Field',
 		menutext    => 'Two field',
 		module      => 'TwoFieldBreakdown',
-		version     => '1.0.0',
+		version     => '1.0.1',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -90,9 +90,7 @@ sub _print_interface {
 	print "<p>Here you can create a table breaking down one field by another, e.g. breakdown of serogroup by year.</p>\n";
 	print $q->startform;
 	$q->param( 'function', 'breakdown' );
-	foreach (qw (db page name function query_file)) {
-		print $q->hidden($_);
-	}
+	print $q->hidden($_) foreach qw (db page name function query_file);
 	my ( $headings, $labels ) =
 	  $self->get_field_selection_list( { 'isolate_fields' => 1, 'extended_attributes' => 1, 'loci' => 1, 'scheme_fields' => 1 } );
 	print "<table>";
@@ -379,8 +377,6 @@ sub _breakdown {
 	if ( scalar keys %datahash < 31 && scalar @field2values < 31 ) {
 		if ( $self->{'config'}->{'chartdirector'} ) {
 			my $guid = $self->get_guid;
-
-			#my $guid = $q->cookie( -name => 'guid' );
 			my %prefs;
 			foreach (qw (threeD transparent)) {
 				try {
@@ -480,7 +476,6 @@ sub _get_value_frequency_hashes {
 	( $clean{$field1} = $field1 ) =~ s/^[f|l]_//;
 	( $clean{$field2} = $field2 ) =~ s/^[f|l]_//;
 	foreach ( $field1, $field2 ) {
-
 		if ( $_ =~ /^la_(.+)\|\|/ || $_ =~ /^cn_(.+)/ ) {
 			$clean{$_} = $1;
 		}
