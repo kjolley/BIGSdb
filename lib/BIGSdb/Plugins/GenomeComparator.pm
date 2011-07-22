@@ -38,7 +38,7 @@ sub get_attributes {
 		buttontext  => 'Genome Camparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.1.4',
+		version     => '1.2.0',
 		dbtype      => 'isolates',
 		section     => 'analysis',
 		order       => 30,
@@ -264,7 +264,7 @@ sub _print_interface {
 	print $q->popup_menu(
 		-name    => 'identity',
 		-id      => 'identity',
-		-values  => [qw(50 55 60 65 70 75 80 85 90 91 92 93 94 95 96 97 98 99 100)],
+		-values  => [qw(30 35 40 45 50 55 60 65 70 75 80 85 90 91 92 93 94 95 96 97 98 99 100)],
 		-default => 70
 	);
 	print " <a class=\"tooltip\" title=\"Minimum % identity - Match required for partial matching.\">&nbsp;<i>i</i>&nbsp;</a></li>";
@@ -286,6 +286,13 @@ sub _print_interface {
 	);
 	print
 " <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a></li>\n";
+	print "<li><span class=\"warning\">";
+	print $q->checkbox( -name => 'tblastx', -id => 'tblastx', -label => 'Use TBLASTX' );
+	print " <a class=\"tooltip\" title=\"TBLASTX - Compares the six-frame translation of your nucleotide query against 
+	the six-frame translation of the sequences in the sequence bin (sequences will be classed as identical if they result
+	in the same translated sequence even if the nucleotide sequence is different).  This is SLOWER than BLASTN. Use with
+	caution.\">&nbsp;<i>i</i>&nbsp;</a>";
+	print "</span></li>\n";
 	print "<li>";
 	print $q->checkbox( -name => 'align', -label => 'Produce alignments' );
 	print
@@ -407,9 +414,9 @@ sub _analyse_by_loci {
 			$id = $1 if $id =~ /(\d*)/;    #avoid taint check
 			my $out_file = "$self->{'config'}->{'secure_tmp_dir'}/$job_id\_isolate_$id\_outfile.txt";
 			if ( $locus_info->{'data_type'} eq 'DNA' ) {
-				$self->_blast( $blastn_word_size, $locus_FASTA, $isolate_FASTA{$id}, $out_file );
+				$self->_blast( $blastn_word_size, $locus_FASTA, $isolate_FASTA{$id}, $out_file, 'blastn' );
 			} else {
-				$self->_blast( 3, $locus_FASTA, $isolate_FASTA{$id}, $out_file, 1 );
+				$self->_blast( 3, $locus_FASTA, $isolate_FASTA{$id}, $out_file, 'blastx' );
 			}
 			my $match = $self->_parse_blast_by_locus( $locus, $out_file, $params );
 			if ( ref $match ne 'HASH' ) {
@@ -505,11 +512,18 @@ sub _analyse_by_reference {
 	my $prefix = BIGSdb::Utils::get_random();
 	$isolate_FASTA{$_} = $self->_create_isolate_FASTA_db( $_, $prefix ) foreach (@$ids);
 	my %loci;
-	my $blastn_word_size = $params->{'word_size'} =~ /^(\d+)$/ ? $1 : 15;
+	my ( $word_size, $program );
+
+	if ( $params->{'tblastx'} ) {
+		$program   = 'tblastx';
+		$word_size = 3;
+	} else {
+		$program = 'blastn';
+		$word_size = $params->{'word_size'} =~ /^(\d+)$/ ? $1 : 15;
+	}
 	my ( $exacts, $exact_except_ref, $all_missing, $truncated_loci, $varying_loci );
 	my $progress = 0;
 	my $total = ( $params->{'align'} && scalar @$ids > 1 ) ? ( scalar @cds * 2 ) : scalar @cds;
-
 	foreach my $cds (@cds) {
 		$progress++;
 		my $complete = int( 100 * $progress / $total );
@@ -529,7 +543,7 @@ sub _analyse_by_reference {
 		}
 		$" = '|';
 		my $locus_name = $locus;
-		$locus_name .= "|@aliases" if @aliases;	
+		$locus_name .= "|@aliases" if @aliases;
 		my $seq = $cds->seq->seq;
 		$seqs{'ref'} = $seq;
 		my @tags;
@@ -546,8 +560,9 @@ sub _analyse_by_reference {
 		return if !@tags;
 		my $start = $cds->start;
 		$" = '; ';
-		my $desc                 = "@tags";
-		my $length               = length $seq;
+		my $desc   = "@tags";
+		my $length = length $seq;
+		$length = int( $length / 3 ) if $params->{'tblastx'};
 		my $ref_seq_file         = $self->_create_reference_FASTA_file( \$seq, $prefix );
 		my $seqbin_length_sql    = $self->{'db'}->prepare("SELECT length(sequence) FROM sequence_bin where id=?");
 		my $all_exact            = 1;
@@ -561,16 +576,16 @@ sub _analyse_by_reference {
 		foreach my $id (@$ids) {
 			$id = $1 if $id =~ /(\d*)/;    #avoid taint check
 			my $out_file = "$self->{'config'}->{'secure_tmp_dir'}/$prefix\_isolate_$id\_outfile.txt";
-			$self->_blast( $blastn_word_size, $isolate_FASTA{$id}, $ref_seq_file, $out_file );
+			$self->_blast( $word_size, $isolate_FASTA{$id}, $ref_seq_file, $out_file, $program );
 			my $match = $self->_parse_blast_ref( \$seq, $out_file, $params );
 			my $extracted_seq;
 			my $seqbin_length;
 			if ( ref $match eq 'HASH' ) {
 				$missing_in_all = 0;
-				if ( $match->{'identity'} == 100 && $match->{'alignment'} == $length ) {
+				if ( $match->{'identity'} == 100 && $match->{'alignment'} >= $length ) {
 					$exact_except_for_ref = 0;
 				} else {
-					$all_exact = 0;					
+					$all_exact = 0;
 				}
 				eval { $seqbin_length_sql->execute( $match->{'seqbin_id'} ); };
 				$logger->error($@) if $@;
@@ -641,7 +656,6 @@ sub _analyse_by_reference {
 	close $align_fh;
 	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$prefix\*";
 	$self->{'jobManager'}->update_job_output( $job_id, { 'filename' => "$job_id.txt", 'description' => 'Main output file' } );
-
 	if ( @$ids > 1 && $params->{'align'} ) {
 		$self->{'jobManager'}->update_job_output( $job_id, { 'filename' => "$job_id\_align.txt", 'description' => 'Alignments' } );
 	}
@@ -839,8 +853,7 @@ sub _extract_sequence {
 }
 
 sub _blast {
-	my ( $self, $word_size, $fasta_file, $in_file, $out_file, $blastx ) = @_;
-	my $program = $blastx ? 'blastx' : 'blastn';
+	my ( $self, $word_size, $fasta_file, $in_file, $out_file, $program ) = @_;
 	if ( $self->{'config'}->{'blast+_path'} ) {
 		my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
 		my $filter = $program eq 'blastn' ? 'dust' : 'seg';
@@ -940,20 +953,21 @@ sub _parse_blast_ref {
 	my $match;
 	my $quality;    #simple metric of alignment length x percentage identity
 	my $ref_length = length $$seq_ref;
+	my $required_alignment = $params->{'tblastx'} ? int( $ref_length / 3 ) : $ref_length;
 	while ( my $line = <$blast_fh> ) {
 		next if !$line || $line =~ /^#/;
 		my @record = split /\s+/, $line;
 		my $this_quality = $record[3] * $record[2];
-		if ( $this_quality > $quality && $record[3] >= $alignment * 0.01 * $ref_length && $record[2] >= $identity ) {
+		if ( $this_quality > $quality && $record[3] >= $alignment * 0.01 * $required_alignment && $record[2] >= $identity ) {
 			$quality              = $this_quality;
 			$match->{'seqbin_id'} = $record[1];
 			$match->{'identity'}  = $record[2];
 			$match->{'alignment'} = $record[3];
 			$match->{'start'}     = $record[8];
 			$match->{'end'}       = $record[9];
-			$match->{'reverse'} = 1 if ( $record[8] > $record[9] );
-			if ( $ref_length > $match->{'alignment'} ) {
-
+			$match->{'reverse'}   = 1
+			  if ( ( $record[8] > $record[9] && $record[7] > $record[6] ) || ( $record[8] < $record[9] && $record[7] < $record[6] ) );
+			if ( $required_alignment > $match->{'alignment'} ) {
 				if ( $match->{'reverse'} ) {
 					$match->{'predicted_start'} = $match->{'start'} - $ref_length + $record[6];
 					$match->{'predicted_end'}   = $match->{'end'} + $record[7] - 1;
