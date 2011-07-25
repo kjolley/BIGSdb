@@ -373,20 +373,16 @@ sub _site_explorer {
 		push @{ $allele{ uc( substr( $allele, $pos - 1, 1 ) ) } }, $seq{$allele};
 	}
 	my $td  = 1;
-	my $sql = $self->{'db'}->prepare("SELECT id,description FROM schemes LEFT JOIN scheme_members ON scheme_id=schemes.id WHERE locus=?");
+	my $sql = $self->{'db'}->prepare("SELECT id,description FROM schemes LEFT JOIN scheme_members ON scheme_id=schemes.id WHERE locus=? AND scheme_id IN (SELECT scheme_id FROM scheme_fields WHERE primary_key)");
 	eval { $sql->execute($locus); };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	$logger->error($@) if $@;
 	my ( @schemes, %desc );
 	while ( my ( $scheme_id, $desc ) = $sql->fetchrow_array ) {
 		push @schemes, $scheme_id;
 		$desc{$scheme_id} = $desc;
 	}
 	print "<table class=\"resultstable\"><tr><th>Base</th><th>Number of alleles</th><th>Percentage of alleles</th>";
-	foreach (@schemes) {
-		print "<th>$desc{$_} profiles</th>";
-	}
+	print "<th>$desc{$_} profiles</th>" foreach (@schemes);
 	print "</tr>\n";
 	foreach my $base ( sort { $site{$b} <=> $site{$a} } ( keys(%site) ) ) {
 		if ( $ENV{'MOD_PERL'} ) {
