@@ -71,7 +71,7 @@ END
 sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my ($display_loci,$cleaned) = $self->{'datastore'}->get_locus_list;
+	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list;
 	if ( !@$display_loci ) {
 		print "<h1>Locus Explorer</h1>\n";
 		print "<div class=\"box\" id=\"statusbad\"><p>No DNA loci have been defined for this database.</p></div>\n";
@@ -81,9 +81,9 @@ sub run {
 		$q->param( 'locus', $display_loci->[0] );
 	}
 	my $locus = $q->param('locus');
-	if ($locus =~ /^cn_(.+)/){
+	if ( $locus =~ /^cn_(.+)/ ) {
 		$locus = $1;
-		$q->param('locus',$locus);
+		$q->param( 'locus', $locus );
 	}
 	if ( $q->param('snp') ) {
 		$self->_snp           if $q->param('function') eq 'snp';
@@ -100,7 +100,6 @@ sub run {
 	}
 	my $coding_loci =
 	  $self->{'datastore'}->run_list_query( "SELECT id FROM loci WHERE data_type=? AND coding_sequence ORDER BY id", 'DNA' );
-	  
 	print "<h1>Locus Explorer</h1>\n";
 	print "<div class=\"box\" id=\"queryform\">\n";
 	print $q->start_form;
@@ -112,18 +111,19 @@ sub run {
 	print "<p><b>Locus: </b>";
 	print $q->popup_menu( -name => 'locus', -id => 'locus', -values => $display_loci, -labels => $cleaned );
 	print " <span class=\"comment\">Page will reload when changed</span></p>";
-	if ($q->param('locus')){
+	if ( $q->param('locus') ) {
 		my $locus = $q->param('locus');
-		my $desc_exists = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM locus_descriptions WHERE locus=?",$locus)->[0];
-		if ($desc_exists){
-			print "<ul><li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus\">Further information</a> is available for this locus.</li></ul>\n";
+		my $desc_exists = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM locus_descriptions WHERE locus=?", $locus )->[0];
+		if ($desc_exists) {
+			print
+"<ul><li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus\">Further information</a> is available for this locus.</li></ul>\n";
 		}
 	}
 	print "<fieldset>\n<legend>Select sequences</legend>\n";
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	my $order      = $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST (allele_id AS integer)' : 'allele_id';
 	my $allele_ids = $self->{'datastore'}->run_list_query( "SELECT allele_id FROM sequences WHERE locus=? ORDER BY $order", $locus );
-	$"=' ';
+	$" = ' ';
 	print $q->scrolling_list(
 		-name     => 'allele_ids',
 		-id       => 'allele_ids',
@@ -154,11 +154,11 @@ sub run {
 		print $q->submit( -name => 'codon', -label => 'Codon', -class => 'submit' );
 		print "</td><td>\n";
 		print "Calculate G+C content";
-		if ( $locus_info->{'coding_sequence'}){
+		if ( $locus_info->{'coding_sequence'} ) {
 			print " and codon usage";
 		}
 		print "</td></tr>\n";
-		if ( $locus_info->{'coding_sequence'} && (!$locus_info->{'length_varies'} || $self->{'config'}->{'muscle_path'} )) {
+		if ( $locus_info->{'coding_sequence'} && ( !$locus_info->{'length_varies'} || $self->{'config'}->{'muscle_path'} ) ) {
 			print "<tr><td style=\"text-align:right\">";
 			print $q->submit( -name => 'translate', -label => 'Translate', -class => 'submit' );
 			print "</td><td>Translate DNA to peptide sequences";
@@ -205,13 +205,12 @@ sub _snp {
 	print "<h2>$cleaned</h2>\n";
 	my $sql = $self->{'db'}->prepare("SELECT allele_id,sequence FROM sequences WHERE locus=?");
 	eval { $sql->execute($locus); };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	$logger->error($@) if $@;
 	my @seqs;
 	my $temp     = BIGSdb::Utils::get_random();
 	my $tempfile = "$self->{'config'}->{'secure_tmp_dir'}/$temp.txt";
-	open( my $fh, '>', "$tempfile" ) or $logger->error("could not open temp file $tempfile");
+	open( my $fh, '>', $tempfile ) or $logger->error("could not open temp file $tempfile");
+
 	while ( my ( $allele_id, $seq ) = $sql->fetchrow_array ) {
 		next if none { $_ eq $allele_id } @allele_ids;
 		push @seqs, $seq;
@@ -220,7 +219,7 @@ sub _snp {
 	close $fh;
 	my $seq_file;
 	my $muscle_file = "$self->{'config'}->{secure_tmp_dir}/$temp.muscle";
-	if ( $self->{'config'}->{'muscle_path'} && $locus_info->{'length_varies'} ) {
+	if ( $self->{'config'}->{'muscle_path'} && $locus_info->{'length_varies'} && @seqs > 1 ) {
 		print "<p>Please wait - aligning (do not refresh) ...</p>\n";
 		system( $self->{'config'}->{'muscle_path'}, '-in', $tempfile, '-fastaout', $muscle_file, '-quiet' );
 		my $seqio_object = Bio::SeqIO->new( -file => $muscle_file );
@@ -237,7 +236,9 @@ sub _snp {
 	my @linebuffer;
 	my $ps         = 0;
 	my $std_length = length( $seqs[0] );
+	my $freqs;
 	for ( my $i = 0 ; $i < $std_length ; $i++ ) {
+
 		if ( $i % $self->{'prefs'}->{'alignwidth'} == 0 ) {
 			my $length;
 			if ( ( $i + $self->{'prefs'}->{'alignwidth'} ) > $std_length ) {
@@ -246,6 +247,8 @@ sub _snp {
 				$length = $i + $self->{'prefs'}->{'alignwidth'};
 			}
 			foreach my $line (@linebuffer) {
+				( my $test = $line ) =~ tr/\&nbsp;//d;
+				next if $test eq '';
 				$pagebuffer .= "&nbsp;" x 7 . "$line<br />\n";
 			}
 			undef @linebuffer;
@@ -257,6 +260,7 @@ sub _snp {
 			my $base = substr( $_, $i, 1 );
 			$nuc{ uc($base) }++;
 		}
+		$freqs->{ $i + 1 } = \%nuc if keys %nuc > 1;
 		$ps++ if keys %nuc > 1;
 		my $linenumber = 0;
 		foreach my $base ( sort { $nuc{$b} <=> $nuc{$a} } ( keys(%nuc) ) ) {
@@ -269,11 +273,13 @@ sub _snp {
 			  . "\">$base</a>";
 			$linenumber++;
 		}
-		for ( my $j = $linenumber ; $j < 5 ; $j++ ) {
+		for ( my $j = $linenumber ; $j < 21 ; $j++ ) {
 			$linebuffer[$j] .= "&nbsp;";
 		}
 	}
 	foreach (@linebuffer) {
+		( my $test = $_ ) =~ tr/\&nbsp;//d;
+		next if $test eq '';
 		$pagebuffer .= "&nbsp;" x 7 . "$_<br />\n";
 	}
 	my $pluralps = $ps != 1        ? 's' : '';
@@ -293,8 +299,10 @@ page - change this if the display goes off the page.</p>
 <div class=\"seqmap\">
 $pagebuffer
 </div>
-</div>
+
 HTML
+	$self->_print_freq_table( $freqs, $locus_info );
+	print "</div>\n";
 }
 
 sub _get_seq_ruler {
@@ -372,8 +380,11 @@ sub _site_explorer {
 		$site{ uc( substr( $allele, $pos - 1, 1 ) ) }++;
 		push @{ $allele{ uc( substr( $allele, $pos - 1, 1 ) ) } }, $seq{$allele};
 	}
-	my $td  = 1;
-	my $sql = $self->{'db'}->prepare("SELECT id,description FROM schemes LEFT JOIN scheme_members ON scheme_id=schemes.id WHERE locus=? AND scheme_id IN (SELECT scheme_id FROM scheme_fields WHERE primary_key)");
+	my $td = 1;
+	my $sql =
+	  $self->{'db'}->prepare(
+"SELECT id,description FROM schemes LEFT JOIN scheme_members ON scheme_id=schemes.id WHERE locus=? AND scheme_id IN (SELECT scheme_id FROM scheme_fields WHERE primary_key)"
+	  );
 	eval { $sql->execute($locus); };
 	$logger->error($@) if $@;
 	my ( @schemes, %desc );
@@ -450,10 +461,9 @@ sub _codon {
 	print "<p>ORF used: $orf</p>\n";
 	my $sql = $self->{'db'}->prepare("SELECT allele_id,sequence FROM sequences WHERE locus=?");
 	eval { $sql->execute($locus); };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	$logger->error($@) if $@;
 	my @seqs;
+
 	while ( my ( $allele_id, $seq ) = $sql->fetchrow_array ) {
 		next if none { $_ eq $allele_id } @allele_ids;
 		push @seqs, $seq;
@@ -491,7 +501,7 @@ sub _codon {
 	}
 	print "</p>";
 	close $fh;
-	if (!$locus_info->{'coding_sequence'}){
+	if ( !$locus_info->{'coding_sequence'} ) {
 		print "</div>\n";
 		return;
 	}
@@ -556,6 +566,7 @@ sub _translate {
 	print "<p>ORF used: $orf</p>\n";
 	my $sql = $self->{'db'}->prepare("SELECT allele_id,sequence FROM sequences WHERE locus=?");
 	eval { $sql->execute($locus); };
+
 	if ($@) {
 		$logger->error("Can't execute $@");
 	}
@@ -600,5 +611,55 @@ sub _translate {
 	print "</div>\n";
 	unlink $outfile;
 	unlink $finalfile;
+}
+
+sub _print_freq_table {
+	my ( $self, $freqs, $locus_info ) = @_;
+	return if ref $freqs ne 'HASH';
+	my $temp     = BIGSdb::Utils::get_random();
+	my $filename = $self->{'config'}->{'tmp_dir'} . "/$temp.txt";
+	open( my $fh, '>', $filename ) or $logger->error("Can't open output file $filename");
+	my $heading = $locus_info->{'data_type'} eq 'DNA' ? 'Nucleotide' : 'Amino acid';
+	print "<h2>$heading frequencies</h2>\n";
+	print $fh "$heading frequencies\n";
+	print $fh '-' x length("$heading frequencies") . "\n";
+	my @chars = $locus_info->{'data_type'} eq 'DNA' ? qw(A C G T -) : qw (G A L M F W K Q E S P V I C Y H R N D T -);
+	my $cols = @chars * 2;
+	print "<div class=\"scrollable\">\n";
+	print
+"<table class=\"tablesorter\" id=\"sortTable\"><thead><tr><th rowspan=\"2\">Position</th><th colspan=\"$cols\" class=\"{sorter: false}\">$heading</th></tr>\n";
+	$" = '</th><th>';
+	print "<tr><th>@chars</th>";
+	$" = '</th><th>%';
+	print "<th>\%@chars</th></tr>\n</thead><tbody>\n";
+	$" = "\t";
+	print $fh "Position\t@chars";
+	$" = "\t\%";
+	print $fh "\t\%@chars\n";
+	my $td = 1;
+	my $total;
+	my $first = 1;
+
+	foreach ( sort { $a <=> $b } keys(%$freqs) ) {
+		print "<tr class=\"td$td\"><td>$_</td>";
+		print $fh $_;
+		foreach my $nuc (@chars) {
+			print "<td>$freqs->{$_}->{$nuc}</td>";
+			print $fh "\t$freqs->{$_}->{$nuc}";
+			$total += $freqs->{$_}->{$nuc} if $first;    #only calculate first time round
+		}
+		foreach my $nuc (@chars) {
+			my $percent = BIGSdb::Utils::decimal_place( 100 * $freqs->{$_}->{$nuc} / $total, 2 );
+			print $percent > 0     ? "<td>$percent</td>" : "<td />";
+			print $fh $percent > 0 ? "\t$percent"        : "\t";
+		}
+		print "</tr>\n";
+		print $fh "\n";
+		$td = $td == 1 ? 2 : 1;
+		$first = 0;
+	}
+	print "</tbody></table>\n</div>\n";
+	close $fh;
+	print "<p><a href=\"/tmp/$temp.txt\">Tab-delimited text format</a></p>";
 }
 1;

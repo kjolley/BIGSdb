@@ -201,7 +201,7 @@ sub print {
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/$_" } );
 			}
 			if ( $self->{'jQuery.tablesort'} ) {
-				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.tablesorter.js" } );
+				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.tablesorter.js?v20110725" } );
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.metadata.js" } );
 			}
 			if ( $self->{'jQuery.jstree'} ) {
