@@ -665,8 +665,18 @@ sub get_loci {
 sub get_locus_list {
 
 	#return sorted list of loci, with labels.  Includes common names.
-	my ($self) = @_;
-	my $loci = $self->run_list_query_hashref("SELECT id,common_name FROM loci");
+	#options passed as hashref:
+	#analysis_pref: only the loci for which the user has an analysis preference selected will be returned
+	my ($self,$options) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $qry = "SELECT id,common_name FROM loci";
+	my @option_clauses;
+	push @option_clauses, "analysis" if ($options->{'analysis_pref'});
+	if (@option_clauses){
+		$"=' AND ';
+		$qry .= " WHERE @option_clauses";
+	}
+	my $loci = $self->run_list_query_hashref($qry);
 	my $cleaned;
 	my $display_loci;
 	foreach (@$loci) {

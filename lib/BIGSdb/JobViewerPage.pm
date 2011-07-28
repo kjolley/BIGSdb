@@ -51,6 +51,7 @@ sub print_content {
 	(my $submit_time = $job->{'submit_time'}) =~ s/\.\d+$//; #remove fractions of second 
 	(my $start_time = $job->{'start_time'}) =~ s/\.\d+$//;
 	(my $stop_time = $job->{'stop_time'}) =~ s/\.\d+$//;
+	$job->{'percent_complete'} = 'indeterminate ' if $job->{'percent_complete'} == -1;
 	print << "HTML";
 <div class="box" id="resultstable">
 <h2>Status</h2>

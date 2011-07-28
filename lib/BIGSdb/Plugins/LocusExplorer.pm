@@ -1,6 +1,6 @@
 #LocusExplorer.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -22,7 +22,6 @@ use strict;
 use base qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use Error qw(:try);
 use List::MoreUtils qw(none);
 use Apache2::Connection ();
 use Bio::SeqIO;
@@ -38,7 +37,7 @@ sub get_attributes {
 		category         => 'Analysis',
 		menutext         => 'Locus Explorer',
 		module           => 'LocusExplorer',
-		version          => '1.0.0',
+		version          => '1.1.0',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => 'analysis',
@@ -74,7 +73,7 @@ sub run {
 	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list;
 	if ( !@$display_loci ) {
 		print "<h1>Locus Explorer</h1>\n";
-		print "<div class=\"box\" id=\"statusbad\"><p>No DNA loci have been defined for this database.</p></div>\n";
+		print "<div class=\"box\" id=\"statusbad\"><p>No loci have been defined for this database.</p></div>\n";
 		return;
 	}
 	if ( !$q->param('locus') ) {
@@ -104,9 +103,7 @@ sub run {
 	print "<div class=\"box\" id=\"queryform\">\n";
 	print $q->start_form;
 	$q->param( 'function', 'snp' );
-	foreach (qw (db page function name)) {
-		print $q->hidden($_);
-	}
+	print $q->hidden($_) foreach qw (db page function name);
 	print "<p>Please select locus for analysis:</p>\n";
 	print "<p><b>Locus: </b>";
 	print $q->popup_menu( -name => 'locus', -id => 'locus', -values => $display_loci, -labels => $cleaned );
@@ -231,20 +228,28 @@ sub _snp {
 	} else {
 		$seq_file = "$temp.txt";
 	}
-	my $seq_count = scalar @seqs;
+	my ($buffer,$freqs) = $self->get_snp_schematic($locus, \@seqs, $seq_file, $self->{'prefs'}->{'alignwidth'});
+	print $buffer;
+	($buffer, undef) = $self->get_freq_table( $freqs, $locus_info );
+	print $buffer;
+	print "</div>\n";
+}
+
+sub get_snp_schematic {
+	my ($self, $locus, $seqs, $seq_file, $align_width) = @_;
+	my $seq_count = scalar @$seqs;
 	my $pagebuffer;
 	my @linebuffer;
 	my $ps         = 0;
-	my $std_length = length( $seqs[0] );
+	my $std_length = length( $seqs->[0] );
 	my $freqs;
 	for ( my $i = 0 ; $i < $std_length ; $i++ ) {
-
-		if ( $i % $self->{'prefs'}->{'alignwidth'} == 0 ) {
+		if ( $i % $align_width == 0 ) {
 			my $length;
-			if ( ( $i + $self->{'prefs'}->{'alignwidth'} ) > $std_length ) {
+			if ( ( $i + $align_width ) > $std_length ) {
 				$length = $std_length;
 			} else {
-				$length = $i + $self->{'prefs'}->{'alignwidth'};
+				$length = $i + $align_width;
 			}
 			foreach my $line (@linebuffer) {
 				( my $test = $line ) =~ tr/\&nbsp;//d;
@@ -252,11 +257,11 @@ sub _snp {
 				$pagebuffer .= "&nbsp;" x 7 . "$line<br />\n";
 			}
 			undef @linebuffer;
-			$pagebuffer .= $self->_get_seq_ruler( $i + 1, $length, $self->{'prefs'}->{'alignwidth'} );
+			$pagebuffer .= $self->_get_seq_ruler( $i + 1, $length, $align_width );
 			$pagebuffer .= "<br />\n";
 		}
 		my %nuc;
-		foreach (@seqs) {
+		foreach (@$seqs) {
 			my $base = substr( $_, $i, 1 );
 			$nuc{ uc($base) }++;
 		}
@@ -265,12 +270,19 @@ sub _snp {
 		my $linenumber = 0;
 		foreach my $base ( sort { $nuc{$b} <=> $nuc{$a} } ( keys(%nuc) ) ) {
 			my $prop = $nuc{$base} / $seq_count;
+			if ($seq_file){
 			$linebuffer[$linenumber] .=
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=LocusExplorer&amp;snp=1&amp;function=siteExplorer&amp;file=$seq_file&amp;locus=$locus&amp;pos="
 			  . ( $i + 1 )
-			  . "\" class=\""
+			  . "\" class=\""	
 			  . $self->_get_prop_class($prop)
-			  . "\">$base</a>";
+			  . "\">$base</a>";			
+			} else {
+				$linebuffer[$linenumber] .= "<span class=\"" 
+				. $self->_get_prop_class($prop)
+				. "\">$base</span>";
+			}
+
 			$linenumber++;
 		}
 		for ( my $j = $linenumber ; $j < 21 ; $j++ ) {
@@ -284,7 +296,7 @@ sub _snp {
 	}
 	my $pluralps = $ps != 1        ? 's' : '';
 	my $plural   = $seq_count != 1 ? 's' : '';
-	print << "HTML";
+	my $buffer = << "HTML";
 <p>The colour codes represent the percentage of alleles that have
 a particular nucleotide at each position. Click anywhere within
 the sequence to drill down to allele and profile information. 
@@ -301,8 +313,7 @@ $pagebuffer
 </div>
 
 HTML
-	$self->_print_freq_table( $freqs, $locus_info );
-	print "</div>\n";
+	return ($buffer, $freqs);
 }
 
 sub _get_seq_ruler {
@@ -613,25 +624,26 @@ sub _translate {
 	unlink $finalfile;
 }
 
-sub _print_freq_table {
+sub get_freq_table {
 	my ( $self, $freqs, $locus_info ) = @_;
-	return if ref $freqs ne 'HASH';
+	my $buffer;
+	return $buffer if ref $freqs ne 'HASH';
 	my $temp     = BIGSdb::Utils::get_random();
 	my $filename = $self->{'config'}->{'tmp_dir'} . "/$temp.txt";
 	open( my $fh, '>', $filename ) or $logger->error("Can't open output file $filename");
 	my $heading = $locus_info->{'data_type'} eq 'DNA' ? 'Nucleotide' : 'Amino acid';
-	print "<h2>$heading frequencies</h2>\n";
+	$buffer .= "<h2>$heading frequencies</h2>\n";
 	print $fh "$heading frequencies\n";
 	print $fh '-' x length("$heading frequencies") . "\n";
 	my @chars = $locus_info->{'data_type'} eq 'DNA' ? qw(A C G T -) : qw (G A L M F W K Q E S P V I C Y H R N D T -);
 	my $cols = @chars * 2;
-	print "<div class=\"scrollable\">\n";
-	print
+	$buffer .=  "<div class=\"scrollable\">\n";
+	$buffer .= 
 "<table class=\"tablesorter\" id=\"sortTable\"><thead><tr><th rowspan=\"2\">Position</th><th colspan=\"$cols\" class=\"{sorter: false}\">$heading</th></tr>\n";
 	$" = '</th><th>';
-	print "<tr><th>@chars</th>";
+	$buffer .=  "<tr><th>@chars</th>";
 	$" = '</th><th>%';
-	print "<th>\%@chars</th></tr>\n</thead><tbody>\n";
+	$buffer .=  "<th>\%@chars</th></tr>\n</thead><tbody>\n";
 	$" = "\t";
 	print $fh "Position\t@chars";
 	$" = "\t\%";
@@ -641,25 +653,26 @@ sub _print_freq_table {
 	my $first = 1;
 
 	foreach ( sort { $a <=> $b } keys(%$freqs) ) {
-		print "<tr class=\"td$td\"><td>$_</td>";
+		$buffer .= "<tr class=\"td$td\"><td>$_</td>";
 		print $fh $_;
 		foreach my $nuc (@chars) {
-			print "<td>$freqs->{$_}->{$nuc}</td>";
+			$buffer .=  "<td>$freqs->{$_}->{$nuc}</td>";
 			print $fh "\t$freqs->{$_}->{$nuc}";
 			$total += $freqs->{$_}->{$nuc} if $first;    #only calculate first time round
 		}
 		foreach my $nuc (@chars) {
 			my $percent = BIGSdb::Utils::decimal_place( 100 * $freqs->{$_}->{$nuc} / $total, 2 );
-			print $percent > 0     ? "<td>$percent</td>" : "<td />";
+			$buffer .=  $percent > 0     ? "<td>$percent</td>" : "<td />";
 			print $fh $percent > 0 ? "\t$percent"        : "\t";
 		}
-		print "</tr>\n";
+		$buffer .=  "</tr>\n";
 		print $fh "\n";
 		$td = $td == 1 ? 2 : 1;
 		$first = 0;
 	}
-	print "</tbody></table>\n</div>\n";
+	$buffer .=  "</tbody></table>\n</div>\n";
 	close $fh;
-	print "<p><a href=\"/tmp/$temp.txt\">Tab-delimited text format</a></p>";
+	$buffer .=  "<p><a href=\"/tmp/$temp.txt\">Tab-delimited text format</a></p>";
+	return ($buffer, "$temp.txt");
 }
 1;
