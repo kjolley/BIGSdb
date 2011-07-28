@@ -144,6 +144,11 @@ sub get_appropriate_plugin_names {
 			&& (  !$self->{'system'}->{ $attr->{'system_flag'} }
 				|| $self->{'system'}->{ $attr->{'system_flag'} } eq 'no' )
 		  );
+		if ($self->{'system'}->{'dbtype'} eq 'isolates' && ($attr->{'max'} || $attr->{'min'})){
+			my $isolates = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}")->[0];
+			next if $isolates > $attr->{'max'};
+			next if $isolates < $attr->{'min'};
+		}
 		my $plugin_section = $attr->{'section'};
 		next if $plugin_section !~ /$section/;	
 		next if $attr->{'dbtype'} !~ /$dbtype/;	
