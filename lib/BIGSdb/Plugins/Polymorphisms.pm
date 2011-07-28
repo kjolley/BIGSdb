@@ -44,7 +44,8 @@ sub get_attributes {
 		requires    => 'muscle,offline_jobs',
 		input       => 'query',
 		help        => 'tooltips',
-		order       => 15
+		order       => 15,
+		max		    => MAX_SEQS
 	);
 	return \%att;
 }

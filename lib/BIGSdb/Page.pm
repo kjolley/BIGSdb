@@ -1815,7 +1815,7 @@ sub _print_isolate_table {
 	if ( !$self->{'curate'} ) {
 		my $plugin_categories = $self->{'pluginManager'}->get_plugin_categories( 'postquery', 'isolates' );
 		if (@$plugin_categories) {
-			print "<p />\n<h2>Analysis tools:</h2>\n<table>";
+			print "<p />\n<h2>Analysis tools:</h2>\n<div class=\"scrollable\">\n<table>";
 			my $query_temp_file_written = 0;
 			my ( $filename, $full_file_path );
 			do {
@@ -1852,14 +1852,14 @@ sub _print_isolate_table {
 					}
 					if ($plugin_buffer) {
 						$_ = 'Miscellaneous' if !$_;
-						$cat_buffer .= "<tr><td style=\"text-align:right\">$_: </td><td><table><tr>\n";
+						$cat_buffer .= "<tr><td style=\"text-align:right\">$_: </td><td>\n<table><tr>\n";
 						$cat_buffer .= $plugin_buffer;
 						$cat_buffer .= "</tr>\n";
 					}
 				}
 				print "$cat_buffer</table></td></tr>\n" if $cat_buffer;
 			}
-			print "</table>\n";
+			print "</table></div>\n";
 		}
 	}
 	print "</div>\n";
