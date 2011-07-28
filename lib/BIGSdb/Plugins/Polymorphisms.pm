@@ -40,7 +40,7 @@ sub get_attributes {
 		module      => 'Polymorphisms',
 		version     => '1.0.0',
 		dbtype      => 'isolates',
-		section     => 'analysis,postquery',
+		section     => 'breakdown,postquery',
 		requires    => 'muscle,offline_jobs',
 		input       => 'query',
 		help        => 'tooltips',

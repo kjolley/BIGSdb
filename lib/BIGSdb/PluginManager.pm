@@ -58,7 +58,7 @@ sub initiate {
 				'db'               => $self->{'db'},
 				'xmlHandler'       => $self->{'xmlHandler'},
 				'dataConnector'    => $self->{'dataConnector'},
-				'jobManager'	   => $self->{'jobManager'},
+				'jobManager'       => $self->{'jobManager'},
 				'mod_perl_request' => $self->{'mod_perl_request'}
 			);
 			$self->{'plugins'}->{$plugin_name}    = $plugin;
@@ -70,7 +70,6 @@ sub initiate {
 #sub get_plugin_attribute_names {
 #	return qw(name description menutext author affiliation email module version type section);
 #}
-
 sub get_plugin {
 	my ( $self, $plugin_name ) = @_;
 	if ( $self->{'plugins'}->{$plugin_name} ) {
@@ -114,7 +113,8 @@ sub get_plugin_categories {
 
 sub get_appropriate_plugin_names {
 	my ( $self, $section, $dbtype, $category ) = @_;
-	return if none {$section =~ /$_/} qw (postquery breakdown analysis export miscellaneous);
+	my $q = $self->{'cgi'};
+	return if none { $section =~ /$_/ } qw (postquery breakdown analysis export miscellaneous);
 	my @plugins;
 	foreach ( sort { $self->{'attributes'}->{$a}->{'order'} <=> $self->{'attributes'}->{$b}->{'order'} } keys %{ $self->{'attributes'} } ) {
 		my $attr = $self->{'attributes'}->{$_};
@@ -134,8 +134,8 @@ sub get_appropriate_plugin_names {
 			next
 			  if !$self->{'config'}->{'mogrify_path'}
 				  && $attr->{'requires'} =~ /mogrify/;
-		 	next
-		 	  if !$self->{'config'}->{'jobs_db'}
+			next
+			  if !$self->{'config'}->{'jobs_db'}
 				  && $attr->{'requires'} =~ /offline_jobs/;
 		}
 		next
@@ -144,23 +144,25 @@ sub get_appropriate_plugin_names {
 			&& (  !$self->{'system'}->{ $attr->{'system_flag'} }
 				|| $self->{'system'}->{ $attr->{'system_flag'} } eq 'no' )
 		  );
-		if ($self->{'system'}->{'dbtype'} eq 'isolates' && ($attr->{'max'} || $attr->{'min'})){
+		if (   $self->{'system'}->{'dbtype'} eq 'isolates'
+			&& ( !$q->param('page') || $q->param('page') eq 'index' )
+			&& ( $attr->{'max'} || $attr->{'min'} ) )
+		{
 			my $isolates = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}")->[0];
 			next if $isolates > $attr->{'max'};
 			next if $isolates < $attr->{'min'};
 		}
 		my $plugin_section = $attr->{'section'};
-		next if $plugin_section !~ /$section/;	
-		next if $attr->{'dbtype'} !~ /$dbtype/;	
-		if (  !$self->{'cgi'}->param('page')
-			|| $self->{'cgi'}->param('page') eq 'index'
-			|| $self->{'cgi'}->param('page') eq 'options'
-			|| $self->{'cgi'}->param('page') eq 'logout'
+		next if $plugin_section !~ /$section/;
+		next if $attr->{'dbtype'} !~ /$dbtype/;
+		if (  !$q->param('page')
+			|| $q->param('page') eq 'index'
+			|| $q->param('page') eq 'options'
+			|| $q->param('page') eq 'logout'
 			|| ( $category eq 'none' && !$attr->{'category'} )
 			|| $category eq $attr->{'category'} )
 		{
 			push @plugins, $_;
-			
 		}
 	}
 	return \@plugins;
