@@ -69,6 +69,7 @@ sub run {
 	my %options;
 	$options{'from_bin'}   = $q->param('chooseseq') eq 'seqbin' ? 1 : 0;
 	$options{'unique'}     = $q->param('unique');
+	$options{'exclude_incompletes'} = $q->param('exclude_incompletes');
 	$options{'count_only'} = 1;
 	my $seq_count = $self->_get_seqs( $locus, $ids, \%options );
 	if ( $seq_count <= 50 ) {
@@ -147,6 +148,7 @@ sub run_job {
 	my %options;
 	$options{'from_bin'} = $params->{'chooseseq'} eq 'seqbin' ? 1 : 0;
 	$options{'unique'} = $params->{'unique'};
+	$options{'exclude_incompletes'} = $params->{'exclude_incompletes'};
 	my $seqs = $self->_get_seqs( $locus, $ids, \%options );
 	if ( !@$seqs ) {
 		$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => "<p>No sequences retrieved for analysis.</p>" } );
@@ -289,10 +291,12 @@ sub _get_seqs {
 	#options: count_only - don't align, just count how many sequences would be included.
 	#         unique - only include one example of each allele.
 	#         from_bin - choose sequences from seqbin in preference to allele from external db.
+	#		  exclude_incompletes - don't include incomplete sequences.
 	$options = {} if ref $options ne 'HASH';
+	my $exclude_clause = $options->{'exclude_incompletes'} ? ' AND complete ' : '';
 	my $seqbin_sql =
 		  $self->{'db'}->prepare(
-"SELECT substring(sequence from start_pos for end_pos-start_pos+1),reverse FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE isolate_id=? AND locus=? ORDER BY complete desc,allele_sequences.datestamp LIMIT 1"
+"SELECT substring(sequence from start_pos for end_pos-start_pos+1),reverse FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE isolate_id=? AND locus=? $exclude_clause ORDER BY complete desc,allele_sequences.datestamp LIMIT 1"
 		  );
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
 	my $locus;
@@ -389,6 +393,8 @@ sub _print_interface {
 	print $q->radio_group( -name => 'chooseseq', -values => [ 'seqbin', 'allele_designation' ], -labels => \%labels, -linebreak => 'true' );
 	print "</li>\n<li style=\"margin-top:1em\">\n";
 	print $q->checkbox( -name => 'unique', -label => 'Analyse single example of each unique sequence', -checked => 'checked' );
+	print "</li>\n<li>\n";
+	print $q->checkbox( -name => 'exclude_incompletes', -label => 'Exclude incomplete sequences', -checked => 'checked');
 	print "</li></ul>\n";
 	print "</fieldset>\n";
 	print "<fieldset class=\"display\">\n";
