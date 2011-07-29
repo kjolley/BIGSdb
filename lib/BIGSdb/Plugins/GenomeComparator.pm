@@ -77,7 +77,7 @@ sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	my @loci = split /\|\|/, $params->{'locus'};
 	my @ids  = split /\|\|/, $params->{'isolate_id'};
-	my $filtered_ids = $self->_filter_ids_by_project( \@ids, $params->{'project'} );
+	my $filtered_ids = $self->_filter_ids_by_project( \@ids, $params->{'project_list'} );
 	my @scheme_ids = split /\|\|/, $params->{'scheme_id'};
 	my $accession = $params->{'accession'};
 	if ( !@$filtered_ids ) {
@@ -129,7 +129,7 @@ sub run {
 	my $q = $self->{'cgi'};
 	if ( $q->param('submit') ) {
 		my @ids          = $q->param('isolate_id');
-		my $filtered_ids = $self->_filter_ids_by_project( \@ids, $q->param('project') );
+		my $filtered_ids = $self->_filter_ids_by_project( \@ids, $q->param('project_list') );
 		my $continue     = 1;
 		if ( !@$filtered_ids ) {
 			print
@@ -300,43 +300,14 @@ sub _print_interface {
 	print "</ul>\n";
 	print "</fieldset>\n";
 	print "<fieldset style=\"float:left\">\n<legend>Restrict included sequences by</legend>\n";
-	print "<table><tr><td style=\"text-align:right\">Sequence method: </td><td style=\"text-align:left\">";
-	print $q->popup_menu( -name => 'seq_method', -values => [ '', SEQ_METHODS ] );
-	print
-" <a class=\"tooltip\" title=\"Sequence method - Only include sequences generated from the selected method.\">&nbsp;<i>i</i>&nbsp;</a>";
-	print "</td></tr>\n";
-	my $project_list = $self->{'datastore'}->run_list_query_hashref("SELECT id,short_description FROM projects ORDER BY short_description");
-	my @projects;
-	undef %labels;
-
-	foreach (@$project_list) {
-		push @projects, $_->{'id'};
-		$labels{ $_->{'id'} } = $_->{'short_description'};
-	}
-	if (@projects) {
-		unshift @projects, '';
-		print "<tr><td style=\"text-align:right\">Project: </td><td style=\"text-align:left\">";
-		print $q->popup_menu( -name => 'project', -values => \@projects, -labels => \%labels );
-		print
-" <a class=\"tooltip\" title=\"Projects - Filter isolate list to only include those belonging to a specific project.\">&nbsp;<i>i</i>&nbsp;</a>";
-		print "</td></tr>\n";
-	}
-	my $experiment_list = $self->{'datastore'}->run_list_query_hashref("SELECT id,description FROM experiments ORDER BY description");
-	my @experiments;
-	undef %labels;
-	foreach (@$experiment_list) {
-		push @experiments, $_->{'id'};
-		$labels{ $_->{'id'} } = $_->{'description'};
-	}
-	if (@experiments) {
-		unshift @experiments, '';
-		print "<tr><td style=\"text-align:right\">Experiment: </td><td>";
-		print $q->popup_menu( -name => 'experiment', -values => \@experiments, -labels => \%labels );
-		print
-" <a class=\"tooltip\" title=\"Experiments - Only include sequences that have been linked to the specified experiment.\">&nbsp;<i>i</i>&nbsp;</a>";
-		print "</td></tr>\n";
-	}
-	print "</table>\n";
+	print "<ul>\n";
+	my $buffer = $self->get_sequence_method_filter({'class' => 'parameter'});
+	print "<li>$buffer</li>" if $buffer;
+	$buffer = $self->get_project_filter({'class' => 'parameter'});
+	print "<li>$buffer</li>" if $buffer;
+	$buffer = $self->get_experiment_filter({'class' => 'parameter'});
+	print "<li>$buffer</li>" if $buffer;
+	print "</ul>\n";
 	print "</fieldset>\n";
 	print "</div>\n";
 	print "<table style=\"width:95%\"><tr><td style=\"text-align:left\">";
@@ -1039,7 +1010,7 @@ sub _create_isolate_FASTA {
 	my $qry =
 "SELECT DISTINCT id,sequence FROM sequence_bin LEFT JOIN experiment_sequences ON sequence_bin.id=seqbin_id LEFT JOIN project_members ON sequence_bin.isolate_id = project_members.isolate_id WHERE sequence_bin.isolate_id=?";
 	my @criteria = ($isolate_id);
-	my $method   = $params->{'seq_method'};
+	my $method   = $params->{'seq_method_list'};
 	if ($method) {
 		if ( !any { $_ eq $method } SEQ_METHODS ) {
 			$logger->error("Invalid method $method");
@@ -1057,7 +1028,7 @@ sub _create_isolate_FASTA {
 		$qry .= " AND project_id=?";
 		push @criteria, $project;
 	}
-	my $experiment = $params->{'experiment'};
+	my $experiment = $params->{'experiment_list'};
 	if ($experiment) {
 		if ( !BIGSdb::Utils::is_int($experiment) ) {
 			$logger->error("Invalid experiment $experiment");

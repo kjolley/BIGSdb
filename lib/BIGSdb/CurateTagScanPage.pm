@@ -266,43 +266,13 @@ sub _print_interface {
 		print "</fieldset>";
 	}
 	print "<fieldset>\n<legend>Restrict included sequences by</legend>\n";
-	print "<ul><li><label for=\"seq_method\" class=\"parameter\">Sequence method:</label>";
-	print $q->popup_menu( -name => 'seq_method', -id => 'seq_method', -values => [ '', SEQ_METHODS ] );
-	print
-" <a class=\"tooltip\" title=\"Sequence method - Only include sequences generated from the selected method.\">&nbsp;<i>i</i>&nbsp;</a></li>";
-	my $sql = $self->{'db'}->prepare("SELECT id,short_description FROM projects ORDER BY short_description");
-	my @projects;
-	my %project_labels;
-	eval { $sql->execute; };
-
-	$logger->error($@) if $@;
-	while ( my ( $id, $desc ) = $sql->fetchrow_array ) {
-		push @projects, $id;
-		$project_labels{$id} = $desc;
-	}
-	if (@projects) {
-		unshift @projects, '';
-		print "<li><label for=\"project\" class=\"parameter\">Project:</label>";
-		print $q->popup_menu( -name => 'project', -id => 'project', -values => \@projects, -labels => \%project_labels );
-		print
-" <a class=\"tooltip\" title=\"Projects - Only include sequences whose isolate belong to the specified experiment.\">&nbsp;<i>i</i>&nbsp;</a></li>";
-	}
-	$sql = $self->{'db'}->prepare("SELECT id,description FROM experiments ORDER BY description");
-	my @experiments;
-	my %exp_labels;
-	eval { $sql->execute; };
-	$logger->error($@) if $@;
-	while ( my ( $id, $desc ) = $sql->fetchrow_array ) {
-		push @experiments, $id;
-		$exp_labels{$id} = $desc;
-	}
-	if (@experiments) {
-		unshift @experiments, '';
-		print "<li><label for=\"experiment\" class=\"parameter\">Experiment:</label>";
-		print $q->popup_menu( -name => 'experiment', -id => 'experiment', -values => \@experiments, -labels => \%exp_labels );
-		print
-" <a class=\"tooltip\" title=\"Experiments - Only include sequences that have been linked to the specified experiment.\">&nbsp;<i>i</i>&nbsp;</a></li>";
-	}
+	print "<ul>\n";
+	my $buffer = $self->get_sequence_method_filter({'class' => 'parameter'});
+	print "<li>$buffer</li>" if $buffer;
+	$buffer = $self->get_project_filter({'class' => 'parameter'});
+	print "<li>$buffer</li>" if $buffer;
+	$buffer = $self->get_experiment_filter({'class' => 'parameter'});
+	print "<li>$buffer</li>" if $buffer;
 	print "</ul></fieldset>\n";
 	print "</div>";
 	print "<table style=\"width:95%\"><tr><td style=\"text-align:left\">";
@@ -378,7 +348,7 @@ sub _scan {
 	my $new_seqs_found;
 	my $last_id_checked;
 	my @isolates_in_project;
-	my $project_id = $q->param('project');
+	my $project_id = $q->param('project_list');
 
 	if ( $project_id && BIGSdb::Utils::is_int($project_id) ) {
 		my $list_ref = $self->{'datastore'}->run_list_query( "SELECT isolate_id FROM project_members WHERE project_id=?", $project_id );
@@ -1118,7 +1088,7 @@ sub _blast {
 		my $qry =
 "SELECT DISTINCT sequence_bin.id,sequence FROM sequence_bin LEFT JOIN experiment_sequences ON sequence_bin.id=seqbin_id WHERE sequence_bin.isolate_id=?";
 		my @criteria = ($isolate_id);
-		my $method   = $self->{'cgi'}->param('seq_method');
+		my $method   = $self->{'cgi'}->param('seq_method_list');
 		if ($method) {
 			if ( !any { $_ eq $method } SEQ_METHODS ) {
 				$logger->error("Invalid method $method");
@@ -1127,7 +1097,7 @@ sub _blast {
 			$qry .= " AND method=?";
 			push @criteria, $method;
 		}
-		my $experiment = $self->{'cgi'}->param('experiment');
+		my $experiment = $self->{'cgi'}->param('experiment_list');
 		if ($experiment) {
 			if ( !BIGSdb::Utils::is_int($experiment) ) {
 				$logger->error("Invalid experiment $experiment");

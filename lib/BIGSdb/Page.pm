@@ -573,8 +573,9 @@ sub get_filter {
 	$options = {} if ref $options ne 'HASH';
 	my $filter = $options->{'class'} || 'filter';
 	( my $text = $options->{'text'} || $name ) =~ tr/_/ /;
-	my ($label, $title) = $self->_get_truncated_label("$text: ");	
-	my $buffer = "<label for=\"$name\_list\" class=\"$filter\" title=\"$title\">$label</label>\n";
+	my ( $label, $title ) = $self->_get_truncated_label("$text: ");
+	my $title_attribute = $title ? "title=\"$title\"" : '';
+	my $buffer = "<label for=\"$name\_list\" class=\"$filter\"$title_attribute>$label</label>\n";
 	$" = ' ';
 	$buffer .= $self->{'cgi'}->popup_menu(
 		-name   => "$name\_list",
@@ -610,10 +611,17 @@ sub get_user_filter {
 		}
 	}
 	@usernames =
-	  sort { lc( $labels{$a} ) cmp lc( $labels{$b} ) }
-	  @usernames;
+	  sort { lc( $labels{$a} ) cmp lc( $labels{$b} ) } @usernames;
 	my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
-	return $self->get_filter( $field, \@usernames, { 'labels' => \%labels, 'tooltip' => "$field filter - Select $a_or_an $field to filter your search to only those records that match the selected $field." } );
+	return $self->get_filter(
+		$field,
+		\@usernames,
+		{
+			'labels' => \%labels,
+			'tooltip' =>
+			  "$field filter - Select $a_or_an $field to filter your search to only those records that match the selected $field."
+		}
+	);
 }
 
 sub get_scheme_filter {
@@ -642,15 +650,82 @@ sub get_scheme_filter {
 	return $buffer;
 }
 
+sub get_project_filter {
+	my ($self, $options) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $sql = $self->{'db'}->prepare("SELECT id, short_description FROM projects ORDER BY short_description");
+	eval { $sql->execute; };
+	$logger->error($@) if $@;
+	my ( @project_ids, %labels );
+	while ( my ( $id, $desc ) = $sql->fetchrow_array ) {
+		push @project_ids, $id;
+		$labels{$id} = $desc;
+	}
+	
+	if (@project_ids) {
+		my $class = $options->{'class'} || 'filter';
+		return $self->get_filter(
+			'project',
+			\@project_ids,
+			{
+				'labels'  => \%labels,
+				'text'    => 'Project',
+				'tooltip' => 'project filter - Select a project to filter your query to only those isolates belonging to it.',
+				'class'	  => $class
+			}
+		);
+	}
+}
+
+sub get_experiment_filter {
+	my ($self, $options) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $experiment_list = $self->{'datastore'}->run_list_query_hashref("SELECT id,description FROM experiments ORDER BY description");
+	my @experiments;
+	my %labels;
+	foreach (@$experiment_list) {
+		push @experiments, $_->{'id'};
+		$labels{ $_->{'id'} } = $_->{'description'};
+	}
+	if (@experiments) {
+		my $class = $options->{'class'} || 'filter';
+			return $self->get_filter(
+			'experiment',
+			\@experiments,
+			{
+				'labels'  => \%labels,
+				'text'    => 'Experiment',
+				'tooltip' => 'experiments filter - Only include sequences that have been linked to the specified experiment.',
+				'class'	  => $class
+			}
+		);
+	}
+}
+
+sub get_sequence_method_filter {
+	my ($self, $options) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $class = $options->{'class'} || 'filter';
+	return $self->get_filter(
+			'seq_method',
+			[ SEQ_METHODS],
+			{
+				'text'    => 'Sequence method',
+				'tooltip' => 'sequence method filter - Only include sequences generated from the selected method.',
+				'class'	  => $class
+			}
+		);
+}
+
 sub _get_truncated_label {
-	my ($self, $label) = @_;
+	my ( $self, $label ) = @_;
 	my $title;
-	if (length $label > 25){
+	if ( length $label > 25 ) {
 		$title = $label;
 		$title =~ tr/\"//;
-		$label = "<a title=\"$title\" class=\"truncated\">" . substr ($label, 0, 20) . "&#133</a>";				
+		$label = "<a title=\"$title\" class=\"truncated\">" . substr( $label, 0, 20 ) . "&#133</a>";
 	}
-	return ($label,$title);
+	return ( $label, $title );
 }
 
 sub paged_display {
@@ -868,10 +943,14 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 				print "</fieldset>\n";
 			}
 		}
-		if ( $self->{'curate'} && $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} && $self->can_modify_table('project_members') ){
+		if (   $self->{'curate'}
+			&& $self->{'system'}->{'dbtype'} eq 'isolates'
+			&& $table eq $self->{'system'}->{'view'}
+			&& $self->can_modify_table('project_members') )
+		{
 			my @projects;
 			my $project_qry = "SELECT id,short_description FROM projects ORDER BY short_description";
-			my $sql = $self->{'db'}->prepare($project_qry);
+			my $sql         = $self->{'db'}->prepare($project_qry);
 			eval { $sql->execute; };
 			$logger->error($@) if $@;
 			my %labels;
@@ -879,13 +958,13 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 				push @projects, $data[0];
 				$labels{ $data[0] } = $data[1];
 			}
-			if (@projects){
+			if (@projects) {
 				print "<fieldset><legend>Projects</legend>\n";
 				print $q->start_form;
-				$q->param( 'page', 'batchAdd' );
-				$q->param( 'table', 'project_members');
+				$q->param( 'page',  'batchAdd' );
+				$q->param( 'table', 'project_members' );
 				print $q->hidden($_) foreach qw (db page table query);
-				print $q->popup_menu (-name => 'project', -values => \@projects, -labels => \%labels);
+				print $q->popup_menu( -name => 'project', -values => \@projects, -labels => \%labels );
 				print $q->submit( -name => 'Link', -class => 'submit' );
 				print $q->end_form;
 				print "</fieldset>\n";
@@ -1650,10 +1729,10 @@ sub _print_isolate_table {
 						  . "?db=$self->{'instance'}&amp;page=isolateDelete&amp;id=$id\">Delete</a></td><td><a href=\""
 						  . $q->script_name
 						  . "?db=$self->{'instance'}&amp;page=isolateUpdate&amp;id=$id\">Update</a></td>";
-						if ($self->can_modify_table('sequence_bin')){
+						if ( $self->can_modify_table('sequence_bin') ) {
 							print "<td><a href=\""
 							  . $q->script_name
-							  . "?db=$self->{'instance'}&amp;page=batchAddSeqbin&amp;isolate_id=$id\">Upload</a></td>";	
+							  . "?db=$self->{'instance'}&amp;page=batchAddSeqbin&amp;isolate_id=$id\">Upload</a></td>";
 						}
 						if ( $self->{'system'}->{'read_access'} eq 'acl' && $self->{'permissions'}->{'modify_isolates_acl'} ) {
 							print "<td><a href=\""
@@ -1960,7 +2039,7 @@ sub _print_isolate_table_header {
 	my $fieldtype_header = "<tr>";
 	if ( $self->{'curate'} ) {
 		$fieldtype_header .= "<th rowspan=\"2\">Delete</th><th rowspan=\"2\">Update</th>";
-		if ($self->can_modify_table('sequence_bin')){
+		if ( $self->can_modify_table('sequence_bin') ) {
 			$fieldtype_header .= "<th rowspan=\"2\">Sequence bin</th>";
 		}
 		if ( $self->{'system'}->{'read_access'} eq 'acl' && $self->{'permissions'}->{'modify_isolates_acl'} ) {
@@ -2129,7 +2208,7 @@ sub run_blast {
 	}
 	my @files_to_delete;
 	foreach my $run (@runs) {
-		(my $cleaned_run = $run) =~ s/'/_prime_/g;
+		( my $cleaned_run = $run ) =~ s/'/_prime_/g;
 		my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'job'}\_$cleaned_run\_fastafile.txt";
 		push @files_to_delete, $temp_fastafile;
 		if ( !$already_generated ) {
@@ -2156,31 +2235,34 @@ sub run_blast {
 				print $fasta_fh ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ )
 				  ? ">$id\n$seq\n"
 				  : ">$returned_locus:$id\n$seq\n";
-			 	$self->{'seq_count'}->{$run}++;
+				$self->{'seq_count'}->{$run}++;
 			}
 			close $fasta_fh;
-			if ($self->{'seq_count'}->{$run}){
-				if ($self->{'config'}->{'blast+_path'}){
+			if ( $self->{'seq_count'}->{$run} ) {
+				if ( $self->{'config'}->{'blast+_path'} ) {
 					my $dbtype;
 					if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
 						$dbtype = $locus_info->{'data_type'} eq 'DNA' ? 'nucl' : 'prot';
 					} else {
 						$dbtype = $run eq 'DNA' ? 'nucl' : 'prot';
 					}
-					system("$self->{'config'}->{'blast+_path'}/makeblastdb -in $temp_fastafile -logfile /dev/null -parse_seqids -dbtype $dbtype");
+					system(
+"$self->{'config'}->{'blast+_path'}/makeblastdb -in $temp_fastafile -logfile /dev/null -parse_seqids -dbtype $dbtype"
+					);
 				} else {
 					my $p;
 					if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
 						$p = $locus_info->{'data_type'} eq 'DNA' ? 'F' : 'T';
 					} else {
-						$p = $run eq 'DNA' ? 'F' : 'T';				
+						$p = $run eq 'DNA' ? 'F' : 'T';
 					}
 					system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p $p -o T");
 				}
 			}
 		}
-		if ($self->{'seq_count'}->{$run}){
-		#create query fasta file
+		if ( $self->{'seq_count'}->{$run} ) {
+
+			#create query fasta file
 			open( my $infile_fh, '>', $temp_infile );
 			print $infile_fh ">Query\n";
 			print $infile_fh "${$options->{'seq_ref'}}\n";
@@ -2200,21 +2282,23 @@ sub run_blast {
 				}
 			}
 			my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
-			my $filter = $program eq 'blastn' ? 'dust' : 'seg';
-			my $word_size = $program eq 'blastn' ? 11 : 3;	
-			my ($old_format,$format);	
+			my $filter    = $program eq 'blastn' ? 'dust' : 'seg';
+			my $word_size = $program eq 'blastn' ? 11     : 3;
+			my ( $old_format, $format );
 			if ( $options->{'alignment'} ) {
 				$old_format = 2;
-				$format = 0;
+				$format     = 0;
 			} else {
 				$old_format = 9;
-				$format = 6;
+				$format     = 6;
 			}
-			if ($self->{'config'}->{'blast+_path'}){
-				system("$self->{'config'}->{'blast+_path'}/$program -num_threads $blast_threads -num_descriptions $options->{'num_results'} -num_alignments $options->{'num_results'} -parse_deflines -word_size $word_size -db $temp_fastafile -query $temp_infile -out $temp_outfile -outfmt $format -$filter no");				
+			if ( $self->{'config'}->{'blast+_path'} ) {
+				system(
+"$self->{'config'}->{'blast+_path'}/$program -num_threads $blast_threads -num_descriptions $options->{'num_results'} -num_alignments $options->{'num_results'} -parse_deflines -word_size $word_size -db $temp_fastafile -query $temp_infile -out $temp_outfile -outfmt $format -$filter no"
+				);
 			} else {
 				system(
-		"$self->{'config'}->{'blast_path'}/blastall -v $options->{'num_results'} -b $options->{'num_results'} -p $program -d $temp_fastafile -i $temp_infile -o $temp_outfile -F F -m$old_format > /dev/null"
+"$self->{'config'}->{'blast_path'}/blastall -v $options->{'num_results'} -b $options->{'num_results'} -p $program -d $temp_fastafile -i $temp_infile -o $temp_outfile -F F -m$old_format > /dev/null"
 				);
 			}
 			if ( $run eq 'DNA' ) {
@@ -2610,6 +2694,7 @@ sub _initiate_isolatedb_prefs {
 		my $array_ref        = $locus_sql->fetchall_arrayref;
 		my $i                = 1;
 		foreach my $action (qw (isolate_display main_display query_field analysis)) {
+
 			if ( !$self->{'pref_requirements'}->{$action} ) {
 				$i++;
 				next;
@@ -2699,7 +2784,7 @@ sub get_tree {
 	my ( $self, $isolate_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $page = $self->{'cgi'}->param('page');
-	$page = 'info' if any {$page eq $_} qw (isolateDelete isolateUpdate alleleUpdate);
+	$page = 'info' if any { $page eq $_ } qw (isolateDelete isolateUpdate alleleUpdate);
 	my $isolate_clause = defined $isolate_id ? "&amp;id=$isolate_id" : '';
 	my $groups_with_no_parent =
 	  $self->{'datastore'}->run_list_query(
@@ -2709,6 +2794,7 @@ sub get_tree {
 		"SELECT id,description FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) ORDER BY display_order");
 	my $buffer;
 	my $scheme_nodes;
+
 	foreach (@$groups_with_no_parent) {
 		my $group_info          = $self->{'datastore'}->get_scheme_group_info($_);
 		my $group_scheme_buffer = $self->_get_group_schemes( $_, $isolate_id, $options );
@@ -2816,7 +2902,7 @@ sub _get_group_schemes {
 			}
 			$scheme_info->{'description'} =~ s/&/\&amp;/g;
 			my $page = $self->{'cgi'}->param('page');
-			$page = 'info' if any {$page eq $_} qw (isolateDelete isolateUpdate alleleUpdate);
+			$page = 'info' if any { $page eq $_ } qw (isolateDelete isolateUpdate alleleUpdate);
 			if ( defined $isolate_id ) {
 				if ( $self->_scheme_data_present( $_, $isolate_id ) ) {
 					if ( $options->{'no_link_out'} ) {
@@ -2895,7 +2981,7 @@ sub _get_child_groups {
 			my $child_group_buffer = $self->_get_child_groups( $_, $isolate_id, ++$new_level, $options );
 			if ( $group_scheme_buffer || $child_group_buffer ) {
 				my $page = $self->{'cgi'}->param('page');
-				$page = 'info' if any {$page eq $_} qw (isolateDelete isolateUpdate alleleUpdate);
+				$page = 'info' if any { $page eq $_ } qw (isolateDelete isolateUpdate alleleUpdate);
 				if ( defined $isolate_id ) {
 					if ( $options->{'no_link_out'} ) {
 						$buffer .= "<li><a>$group_info->{'name'}</a>\n";

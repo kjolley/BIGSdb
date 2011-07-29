@@ -390,26 +390,8 @@ sub _print_isolate_query_interface {
 		}
 	}
 	if ( $prefs->{'dropdownfields'}->{'projects'} ) {
-		my $sql = $self->{'db'}->prepare("SELECT id, short_description FROM projects ORDER BY short_description");
-		eval { $sql->execute; };
-		$logger->error($@) if $@;
-		my ( @project_ids, %labels );
-		while ( my ( $id, $desc ) = $sql->fetchrow_array ) {
-			push @project_ids, $id;
-			$labels{$id} = $desc;
-		}
-		if (@project_ids) {
-			push @filters,
-			  $self->get_filter(
-				'project',
-				\@project_ids,
-				{
-					'labels'  => \%labels,
-					'text'    => 'Project',
-					'tooltip' => 'project filter - Select a project to filter your search to only those isolates belonging to it.'
-				}
-			  );
-		}
+		my $buffer = $self->get_project_filter;
+		push @filters, $buffer if $buffer;
 	}
 	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
 	foreach (@$schemes) {
