@@ -325,7 +325,7 @@ sub _get_seqs {
 		eval { $seqbin_sql->execute( $id, $locus_name ); };
 		$logger->error($@) if $@;
 		( $seqbin_seq, $reverse ) = $seqbin_sql->fetchrow_array;
-		if ( $reverse && !$options->{'count_only'}) {    
+		if ( $reverse ) {   
 			$seqbin_seq = BIGSdb::Utils::reverse_complement($seqbin_seq);
 		}
 		my $seq;
