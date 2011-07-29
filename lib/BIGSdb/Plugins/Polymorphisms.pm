@@ -66,11 +66,17 @@ sub run {
 		return;
 	}
 	my $ids = $self->_get_ids($query_file);
-	if ( @$ids <= 50 ) {
-		my $seqs = $self->_get_seqs( $locus, $ids, $q->param('chooseseq') eq 'seqbin' ? 1 : 0, $q->param('unique') );
-		if (!@$seqs){
+	my %options;
+	$options{'from_bin'}   = $q->param('chooseseq') eq 'seqbin' ? 1 : 0;
+	$options{'unique'}     = $q->param('unique');
+	$options{'count_only'} = 1;
+	my $seq_count = $self->_get_seqs( $locus, $ids, \%options );
+	if ( $seq_count <= 50 ) {
+		$options{'count_only'} = 0;
+		my $seqs = $self->_get_seqs( $locus, $ids, \%options );
+		if ( !@$seqs ) {
 			print "<div class=\"box\" id=\"statusbad\"><p>There are no $locus alleles in your selection.</p></div>\n";
-			return;			
+			return;
 		}
 		print "<div class=\"box\" id=\"resultsheader\">\n";
 		my ( $buffer, $freqs ) = $self->get_snp_schematic( $locus, $seqs, undef, $self->{'prefs'}->{'alignwidth'} );
@@ -79,16 +85,17 @@ sub run {
 		( $buffer, undef ) = $self->get_freq_table( $freqs, $locus_info );
 		print $buffer;
 		print "</div>\n";
-	} elsif (@$ids <= MAX_SEQS) {
+	} elsif ( $seq_count <= MAX_SEQS ) {
+
 		#Make sure query file is accessible to job host (the web server and job host may not be the same machine)
 		#These machines should share the tmp_dir but not the secure_tmp_dir, so copy this over to the tmp_dir.
-		if (!-e "$self->{'config'}->{'tmp_dir'}/$query_file"){
-			if ($query_file =~ /^(BIGSdb[\d_]*\.txt)$/){
-				$query_file = $1; #untaint
+		if ( !-e "$self->{'config'}->{'tmp_dir'}/$query_file" ) {
+			if ( $query_file =~ /^(BIGSdb[\d_]*\.txt)$/ ) {
+				$query_file = $1;    #untaint
 			}
-			system ('cp', "$self->{'config'}->{'secure_tmp_dir'}/$query_file", "$self->{'config'}->{'tmp_dir'}/$query_file")
+			system( 'cp', "$self->{'config'}->{'secure_tmp_dir'}/$query_file", "$self->{'config'}->{'tmp_dir'}/$query_file" );
 		}
-		my $params    = $q->Vars;
+		my $params = $q->Vars;
 		$params->{'alignwidth'} = $self->{'prefs'}->{'alignwidth'};
 		my $job_id = $self->{'jobManager'}->add_job(
 			{
@@ -111,7 +118,7 @@ Follow the progress of this job and view the output.</a></p>
 HTML
 		return;
 	} else {
-		my $max = MAX_SEQS;
+		my $max      = MAX_SEQS;
 		my $num_seqs = @$ids;
 		print "<div class=\"box\" id=\"statusbad\"><p>This analysis relies are being able to produce an alignment 
 		of your sequences.  This is a potentially processor- and memory-intensive operation for large numbers of
@@ -122,44 +129,47 @@ HTML
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	my $query_file = $params->{'query_file'};
+
 	#Make sure query file is accessible to job host (the web server and job host may not be the same machine)
 	#These machines should share the tmp_dir but not the secure_tmp_dir, so copy this from the tmp_dir.
-	if (!-e "$self->{'config'}->{'secure_tmp_dir'}/$query_file"){
-		if ($query_file =~ /^(BIGSdb[\d_]*\.txt)$/){
-			$query_file = $1; #untaint
+	if ( !-e "$self->{'config'}->{'secure_tmp_dir'}/$query_file" ) {
+		if ( $query_file =~ /^(BIGSdb[\d_]*\.txt)$/ ) {
+			$query_file = $1;    #untaint
 		}
-		system ('cp', "$self->{'config'}->{'tmp_dir'}/$query_file", "$self->{'config'}->{'secure_tmp_dir'}/$query_file")
+		system( 'cp', "$self->{'config'}->{'tmp_dir'}/$query_file", "$self->{'config'}->{'secure_tmp_dir'}/$query_file" );
 	}
 	my $locus = $params->{'locus'};
 	if ( $locus =~ /^cn_(.+)/ ) {
 		$locus = $1;
 	}
-	$self->{'jobManager'}->update_job_status($job_id,{'percent_complete' => -1}); #indeterminate length of time
+	$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => -1 } );    #indeterminate length of time
 	my $ids = $self->_get_ids($query_file);
-	my $seqs = $self->_get_seqs( $locus, $ids, $params->{'chooseseq'} eq 'seqbin' ? 1 : 0, $params->{'unique'} );
-	if (!@$seqs){
-		$self->{'jobManager'}->update_job_status($job_id,{'message_html' => "<p>No sequences retrieved for analysis.</p>"});
+	my %options;
+	$options{'from_bin'} = $params->{'chooseseq'} eq 'seqbin' ? 1 : 0;
+	$options{'unique'} = $params->{'unique'};
+	my $seqs = $self->_get_seqs( $locus, $ids, \%options );
+	if ( !@$seqs ) {
+		$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => "<p>No sequences retrieved for analysis.</p>" } );
 		return;
 	}
-	my $temp        = BIGSdb::Utils::get_random();
-	my $html_file   = "$self->{'config'}->{tmp_dir}/$temp.html";
-	my $text_file   = "$self->{'config'}->{tmp_dir}/$temp.txt";
+	my $temp      = BIGSdb::Utils::get_random();
+	my $html_file = "$self->{'config'}->{tmp_dir}/$temp.html";
+	my $text_file = "$self->{'config'}->{tmp_dir}/$temp.txt";
 	my ( $buffer, $freqs ) = $self->get_snp_schematic( $locus, $seqs, undef, $params->{'alignwidth'} );
-	open (my $html_fh, '>', $html_file);
+	open( my $html_fh, '>', $html_file );
 	print $html_fh $self->_get_html_header($locus);
 	print $html_fh $buffer;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	( $buffer, undef ) = $self->get_freq_table( $freqs, $locus_info );
 	print $html_fh $buffer;
 	print $html_fh "</div>\n</body>\n</html>\n";
-	$self->{'jobManager'}->update_job_output($job_id,{'filename' => "$temp.html", 'description' => 'Locus schematic (HTML format)'});
+	$self->{'jobManager'}->update_job_output( $job_id, { 'filename' => "$temp.html", 'description' => 'Locus schematic (HTML format)' } );
 }
-
 sub get_plugin_javascript { }
 
 sub _get_html_header {
 	my ($self) = @_;
-	my $buffer = << "HEADER";	
+	my $buffer = << "HEADER";
 <!DOCTYPE html
 	PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
 	 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -274,11 +284,16 @@ sub _get_ids {
 }
 
 sub _get_seqs {
-	my ( $self, $locus_name, $isolate_ids, $from_bin, $unique ) = @_;
+	my ( $self, $locus_name, $isolate_ids, $options ) = @_;
+
+	#options: count_only - don't align, just count how many sequences would be included.
+	#         unique - only include one example of each allele.
+	#         from_bin - choose sequences from seqbin in preference to allele from external db.
+	$options = {} if ref $options ne 'HASH';
 	my $seqbin_sql =
-	  $self->{'db'}->prepare(
+		  $self->{'db'}->prepare(
 "SELECT substring(sequence from start_pos for end_pos-start_pos+1),reverse FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE isolate_id=? AND locus=? ORDER BY complete desc,allele_sequences.datestamp LIMIT 1"
-	  );
+		  );
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
 	my $locus;
 	try {
@@ -306,36 +321,36 @@ sub _get_seqs {
 			};
 		}
 		my $seqbin_seq;
+		my $reverse;
 		eval { $seqbin_sql->execute( $id, $locus_name ); };
 		$logger->error($@) if $@;
-		my $reverse;
 		( $seqbin_seq, $reverse ) = $seqbin_sql->fetchrow_array;
-		if ($reverse) {
+		if ( $reverse && !$options->{'count_only'}) {    
 			$seqbin_seq = BIGSdb::Utils::reverse_complement($seqbin_seq);
 		}
 		my $seq;
 		if ( ref $allele_seq && $$allele_seq && $seqbin_seq ) {
-			$seq = $from_bin ? $seqbin_seq : $$allele_seq;
+			$seq = $options->{'from_bin'} ? $seqbin_seq : $$allele_seq;
 		} elsif ( ref $allele_seq && $$allele_seq && !$seqbin_seq ) {
 			$seq = $$allele_seq;
 		} elsif ($seqbin_seq) {
 			$seq = $seqbin_seq;
 		}
-		
-		if ($seq){
+		if ( $seq && !$used{$seq} ) {
 			$i++;
 			print $fh ">seq$i\n$seq\n" if !$used{$seq};
-			$used{$seq} = 1 if $unique;
-		}		
+			$used{$seq} = 1 if $options->{'unique'};
+		}
 	}
 	close $fh;
-	my $muscle_file = "$self->{'config'}->{secure_tmp_dir}/$temp.muscle"; 
-	if ($i > 1){
+	return $i if $options->{'count_only'};
+	my $muscle_file = "$self->{'config'}->{secure_tmp_dir}/$temp.muscle";
+	if ( $i > 1 ) {
 		system( $self->{'config'}->{'muscle_path'}, '-in', $tempfile, '-fastaout', $muscle_file, '-quiet' );
 	}
 	my $output_file = $i > 1 ? $muscle_file : $tempfile;
 	my @seqs;
-	if (-e $output_file){
+	if ( -e $output_file ) {
 		my $seqio_object = Bio::SeqIO->new( -file => $output_file, -format => 'Fasta' );
 		while ( my $seq_object = $seqio_object->next_seq ) {
 			push @seqs, $seq_object->seq;
@@ -355,9 +370,9 @@ sub _print_interface {
 	}
 	print "<div class=\"box\" id=\"queryform\">\n";
 	print "<p>This tool will analyse the polymorphic sites in the selected locus for the current isolate dataset.</p>\n";
-	print "<p>If more than 50 isolates have been selected, the job will be run by the offline job manager which may 
+	print "<p>If more than 50 sequences have been selected, the job will be run by the offline job manager which may 
 	take a few minutes (or longer depending on the queue).  This is because sequences may have gaps in them and 
-	consequently need to be aligned.</p>\n";
+	consequently need to be aligned which is a processor- and memory- intensive operation.</p>\n";
 	print "<div class=\"scrollable\">\n";
 	print $q->start_form;
 	print "<fieldset style=\"float:left\">\n<legend>Loci</legend>\n";
@@ -373,7 +388,7 @@ sub _print_interface {
 	  ( 'seqbin' => 'Use sequences tagged from the bin', 'allele_designation' => 'Use allele sequence retrieved from external database' );
 	print $q->radio_group( -name => 'chooseseq', -values => [ 'seqbin', 'allele_designation' ], -labels => \%labels, -linebreak => 'true' );
 	print "</li>\n<li style=\"margin-top:1em\">\n";
-	print $q->checkbox( -name => 'unique', -label => 'Analyse single example of each unique sequence', -checked => 'checked');
+	print $q->checkbox( -name => 'unique', -label => 'Analyse single example of each unique sequence', -checked => 'checked' );
 	print "</li></ul>\n";
 	print "</fieldset>\n";
 	print "<fieldset class=\"display\">\n";
