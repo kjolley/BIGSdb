@@ -156,10 +156,10 @@ sub run_job {
 	}
 	my $temp      = BIGSdb::Utils::get_random();
 	my $html_file = "$self->{'config'}->{tmp_dir}/$temp.html";
-	my $text_file = "$self->{'config'}->{tmp_dir}/$temp.txt";
 	my ( $buffer, $freqs ) = $self->get_snp_schematic( $locus, $seqs, undef, $params->{'alignwidth'} );
 	open( my $html_fh, '>', $html_file );
-	print $html_fh $self->_get_html_header($locus);
+	print $html_fh $self->get_html_header($locus);
+	print $html_fh "<h1>Polymorphic site analysis</h1>\n<div class=\"box\" id=\"resultsheader\">\n";
 	print $html_fh $buffer;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	( $buffer, undef ) = $self->get_freq_table( $freqs, $locus_info );
@@ -168,110 +168,6 @@ sub run_job {
 	$self->{'jobManager'}->update_job_output( $job_id, { 'filename' => "$temp.html", 'description' => 'Locus schematic (HTML format)' } );
 }
 sub get_plugin_javascript { }
-
-sub _get_html_header {
-	my ($self) = @_;
-	my $buffer = << "HEADER";
-<!DOCTYPE html
-	PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-	 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en-US">
-<head>
-<title>Polymorphic site analysis</title>
-<style type="text/css">
-body {
-	font:0.9em/110% Arial,Helvetica,sans-serif;
-	background:#fff;
-	color:#000;
-	margin-left:3px;
-	margin-right:3px;
-}
-
-h1 {
-	font: italic 600 1.5em/110% Arial,Helvetica,sans-serif;
-	text-align: left;
-	line-height: 110%;
-	color: #606080;
-	border-top: solid #a0a0d0 3px;
-	border-bottom: dotted #8080b0 1px;
-	background: #f0f0f0;
-}
-
-th {background:#404090; color:#fff}
-.td1 {background:#efefff}
-.td2 {background:#efefef}
-.A,.G,.T,.C {font-weight:600}
-.A {color:green}
-.G {color:black}
-.T {color:red}
-.C {color:blue}
-
-div.seqmap {font-family: Courier New, monospace}
-
-.pc10,.pc20,.pc30,.pc40,.pc50,.pc60,.pc70,.pc80,.pc90,.pc100 {font-weight:bold}
-a.pc10:hover,a.pc20:hover,a.pc30:hover,a.pc40:hover,a.pc50:hover,a.pc60:hover,a.pc70:hover,a.pc80:hover,a.pc90:hover,a.pc100:hover {
-	color:red;
-	text-decoration:none
-}
-.pc10 {
-	background-color:#ff99ff;
-	color:navy
-}
-
-.pc20 {
-	background-color:#cc66ff;
-	color:white
-}
-
-.pc30 {
-	background-color:#9900cc;
-	color:white
-}
-
-.pc40 {
-	background-color:#0066cc;
-	color:white
-}
-
-.pc50 {
-	background-color:#3399ff;
-	color:white
-}
-
-.pc60 {
-	background-color:#33ffff;
-	color:navy
-}
-
-.pc70 {
-	background-color:#66cc00;
-	color:white
-}
-
-.pc80 {
-	background-color:#339900;
-	color:white
-}
-
-.pc90 {
-	background-color:#006600;
-	color:white
-}
-
-.pc100 {
-	background-color:#000000;
-	color:white
-}
-
-</style>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-</head>
-<body>
-<h1>Polymorphic site analysis</h1>
-<div class="box" id="resultsheader">
-HEADER
-	return $buffer;
-}
 
 sub _get_ids {
 	my ( $self, $query_file ) = @_;
@@ -287,7 +183,6 @@ sub _get_ids {
 
 sub _get_seqs {
 	my ( $self, $locus_name, $isolate_ids, $options ) = @_;
-
 	#options: count_only - don't align, just count how many sequences would be included.
 	#         unique - only include one example of each allele.
 	#         from_bin - choose sequences from seqbin in preference to allele from external db.
@@ -402,7 +297,6 @@ sub _print_interface {
 	print "</fieldset>\n";
 	print $q->hidden($_) foreach (qw (page name db query_file));
 	print $q->end_form;
-	print "</div>\n";
-	print "</div>\n";
+	print "</div>\n</div>\n";
 }
 1;
