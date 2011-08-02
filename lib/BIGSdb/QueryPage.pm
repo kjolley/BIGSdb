@@ -170,10 +170,18 @@ sub print_content {
 		browser. Alternatively, you can use a <a href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=query$scheme_clause&amp;no_js=1\">non-Javascript 
 		version</a> that has 4 combinations of fields.</p></div></noscript>\n";
 		}
-		$system->{'dbtype'} eq 'isolates' ? $self->_print_isolate_query_interface : $self->_print_profile_query_interface($scheme_id);
+		if ($system->{'dbtype'} eq 'isolates'){
+			$self->_print_isolate_query_interface;
+		} else {
+			$self->_print_profile_query_interface($scheme_id);
+		}
 	}
 	if ( $q->param('submit') || defined $q->param('query') ) {
-		$system->{'dbtype'} eq 'isolates' ? $self->_run_isolate_query() : $self->_run_profile_query($scheme_id);
+		if ($system->{'dbtype'} eq 'isolates'){
+			$self->_run_isolate_query;
+		} else {
+			$self->_run_profile_query($scheme_id);
+		}
 	} else {
 		print "<p />\n";
 	}

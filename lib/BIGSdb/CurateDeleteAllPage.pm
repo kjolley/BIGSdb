@@ -223,7 +223,11 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 						}
 					}
 				}
-				$commit ? $self->{'db'}->commit : $self->{'db'}->rollback;
+				if ($commit){
+					$self->{'db'}->commit;
+				} else {
+					$self->{'db'}->rollback;
+				}
 			}
 			print "<div class=\"box\" id=\"resultsheader\"><p>Records deleted.</p>";
 			print "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Return to index</a></p></div>\n";

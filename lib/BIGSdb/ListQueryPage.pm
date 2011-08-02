@@ -73,12 +73,20 @@ sub print_content {
 	if ( !defined $q->param('currentpage')
 		|| $q->param('First') )
 	{
-		$self->{'system'}->{'dbtype'} eq 'isolates' ? $self->_print_query_interface() : $self->_print_query_interface($scheme_id);
+		if ($self->{'system'}->{'dbtype'} eq 'isolates'){
+			$self->_print_query_interface;
+		} else {
+			$self->_print_query_interface($scheme_id);
+		}
 	}
 	if ( defined $q->param('query')
 		or ( $q->param('attribute') && $q->param('list') ) )
 	{
-		$self->{'system'}->{'dbtype'} eq 'isolates' ? $self->_run_isolate_query() : $self->_run_profile_query( $scheme_id, $primary_key );
+		if ($self->{'system'}->{'dbtype'} eq 'isolates'){
+			$self->_run_isolate_query;
+		} else {
+			$self->_run_profile_query( $scheme_id, $primary_key );
+		}
 	} else {
 		print "<p />\n";
 	}

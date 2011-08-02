@@ -424,9 +424,7 @@ sub get_field_selection_list {
 			}
 			my $common_names = $cn_sql->fetchall_hashref('id');
 			my $loci =
-			    $options->{'all_loci'}
-			  ? $self->{'datastore'}->get_loci( { 'query_pref' => 0, 'seq_defined' => 0, 'do_not_order' => 1 } )
-			  : $self->{'datastore'}->get_loci( { 'query_pref' => 1, 'seq_defined' => 0, 'do_not_order' => 1 } );
+			  $self->{'datastore'}->get_loci( { 'query_pref' => $options->{'all_loci'} ? 0 : 1, 'seq_defined' => 0, 'do_not_order' => 1 } );
 			foreach (@$loci) {
 				push @locus_list, "l_$_";
 				$self->{'cache'}->{'labels'}->{"l_$_"} = $_;
@@ -651,7 +649,7 @@ sub get_scheme_filter {
 }
 
 sub get_project_filter {
-	my ($self, $options) = @_;
+	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $sql = $self->{'db'}->prepare("SELECT id, short_description FROM projects ORDER BY short_description");
 	eval { $sql->execute; };
@@ -661,7 +659,6 @@ sub get_project_filter {
 		push @project_ids, $id;
 		$labels{$id} = $desc;
 	}
-	
 	if (@project_ids) {
 		my $class = $options->{'class'} || 'filter';
 		return $self->get_filter(
@@ -671,14 +668,14 @@ sub get_project_filter {
 				'labels'  => \%labels,
 				'text'    => 'Project',
 				'tooltip' => 'project filter - Select a project to filter your query to only those isolates belonging to it.',
-				'class'	  => $class
+				'class'   => $class
 			}
 		);
 	}
 }
 
 sub get_experiment_filter {
-	my ($self, $options) = @_;
+	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $experiment_list = $self->{'datastore'}->run_list_query_hashref("SELECT id,description FROM experiments ORDER BY description");
 	my @experiments;
@@ -689,32 +686,32 @@ sub get_experiment_filter {
 	}
 	if (@experiments) {
 		my $class = $options->{'class'} || 'filter';
-			return $self->get_filter(
+		return $self->get_filter(
 			'experiment',
 			\@experiments,
 			{
 				'labels'  => \%labels,
 				'text'    => 'Experiment',
 				'tooltip' => 'experiments filter - Only include sequences that have been linked to the specified experiment.',
-				'class'	  => $class
+				'class'   => $class
 			}
 		);
 	}
 }
 
 sub get_sequence_method_filter {
-	my ($self, $options) = @_;
+	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $class = $options->{'class'} || 'filter';
 	return $self->get_filter(
-			'seq_method',
-			[ SEQ_METHODS],
-			{
-				'text'    => 'Sequence method',
-				'tooltip' => 'sequence method filter - Only include sequences generated from the selected method.',
-				'class'	  => $class
-			}
-		);
+		'seq_method',
+		[SEQ_METHODS],
+		{
+			'text'    => 'Sequence method',
+			'tooltip' => 'sequence method filter - Only include sequences generated from the selected method.',
+			'class'   => $class
+		}
+	);
 }
 
 sub _get_truncated_label {
