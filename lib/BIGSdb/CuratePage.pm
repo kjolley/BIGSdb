@@ -995,7 +995,7 @@ sub drop_scheme_view {
 
 	#Change needs to be committed outside of subroutine (to allow drop as part of transaction)
 	my ( $self, $scheme_id ) = @_;
-	my $qry = "DROP VIEW scheme_$scheme_id";
+	my $qry = "DROP VIEW IF EXISTS scheme_$scheme_id";
 	$self->{'db'}->do($qry);
 }
 
