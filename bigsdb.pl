@@ -20,7 +20,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::main;
 use strict;
-use version; our $VERSION = qv('1.3.1');
+use version; our $VERSION = qv('1.3.2');
 
 ###########Local configuration################################
 use constant {
