@@ -11,6 +11,7 @@
  locus_superscript_prefix="yes"
  authentication="builtin"
  read_access="public"
+ disable_seq_downloads="no"
 >
 </system>
 </db>

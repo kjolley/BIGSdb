@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -105,12 +105,9 @@ TOOLTIPS
 			my %labels =
 			  ( 'browse' => 'Browse', 'query' => 'Search', 'listQuery' => 'List', 'profiles' => 'Profiles', 'batchProfiles' => 'Batch' );
 			foreach (qw (browse query listQuery profiles batchProfiles)) {
-				print "<td>";
-				print "<button type=\"submit\" name=\"page\" value=\"$_\" class=\"smallbutton\">$labels{$_}</button>\n";
-				print "</td>\n";
+				print "<td><button type=\"submit\" name=\"page\" value=\"$_\" class=\"smallbutton\">$labels{$_}</button></td>\n";
 			}
-			print "</tr>\n";
-			print "</table>";
+			print "</tr>\n</table>\n";
 			print $q->end_form;
 			print "</li>\n";
 		}
@@ -166,38 +163,47 @@ TOOLTIPS
 	}
 	print "</ul>";
 	if ( $system->{'dbtype'} eq 'sequences' ) {
-		print "<img src=\"/images/icons/64x64/download.png\" alt=\"\" />\n";
-		print "<h2>Downloads</h2>\n";
+		my ($seq_download_buffer, $scheme_buffer);
 		my $group_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM scheme_groups")->[0];
-		print "<ul class=\"toplevel\"><li><a href=\"$scriptName?page=downloadAlleles&amp;db=$instance"
-		  . ( $group_count ? '&amp;tree=1' : '' )
-		  . "\">Allele sequences</a></li>\n";
-		my $buffer;
+		if ($self->{'system'}->{'disable_seq_downloads'} ne 'yes' || $self->is_admin){	
+			$seq_download_buffer = "<li><a href=\"$scriptName?page=downloadAlleles&amp;db=$instance"
+			  . ( $group_count ? '&amp;tree=1' : '' )
+			  . "\">Allele sequences</a></li>\n";
+		}
 		my $first = 1;
 		my $i     = 0;
 		if ( $scheme_count_with_pk > 1 ) {
-			$buffer .= "<li>";
-			$buffer .= $q->start_form;
-			$buffer .= $q->popup_menu( -name => 'scheme_id', -values => \@scheme_ids, -labels => \%desc );
-			$buffer .= $q->hidden('db');
-			$buffer .=
+			$scheme_buffer .= "<li>";
+			$scheme_buffer .= $q->start_form;
+			$scheme_buffer .= $q->popup_menu( -name => 'scheme_id', -values => \@scheme_ids, -labels => \%desc );
+			$scheme_buffer .= $q->hidden('db');
+			$scheme_buffer .=
 			  " <button type=\"submit\" name=\"page\" value=\"downloadProfiles\" class=\"smallbutton\">Download profiles</button>\n";
-			$buffer .= $q->end_form;
+			$scheme_buffer .= $q->end_form;
+			$scheme_buffer .= "</li>";
 		} elsif ( $scheme_count_with_pk == 1 ) {
-			$buffer .=
-"<li><a href=\"$scriptName?page=downloadProfiles&amp;db=$instance&amp;scheme_id=$scheme_data->[0]->{'id'}\">$scheme_data->[0]->{'description'} profiles</a>";
+			$scheme_buffer .=
+"<li><a href=\"$scriptName?page=downloadProfiles&amp;db=$instance&amp;scheme_id=$scheme_data->[0]->{'id'}\">$scheme_data->[0]->{'description'} profiles</a></li>";
 		}
-		$buffer .= "</li>" if $buffer;
-		print $buffer;
-		print "</ul>\n";
+		if ($seq_download_buffer || $scheme_buffer){
+			print << "DOWNLOADS";
+<img src="/images/icons/64x64/download.png" alt="" />
+<h2>Downloads</h2>
+<ul class="toplevel">
+$seq_download_buffer
+$scheme_buffer
+</ul>	
+DOWNLOADS
+		}
 	}
-	print "</td><td style=\"vertical-align:top;padding-left:1em\">";
-	print "<img src=\"/images/icons/64x64/preferences.png\" alt=\"\" />\n";
-	print "
+	print << "OPTIONS";
+</td><td style="vertical-align:top;padding-left:1em">
+<img src="/images/icons/64x64/preferences.png" alt="" />
 <h2>Option settings</h2>
-<ul class=\"toplevel\">
-<li><a href=\"$scriptName?page=options&amp;db=$instance\">
-Set general options</a>";
+<ul class="toplevel">
+<li><a href="$scriptName?page=options&amp;db=$instance">
+Set general options</a>
+OPTIONS
 	print " - including isolate table field handling" if $self->{'system'}->{'dbtype'} eq 'isolates';
 	print "</li>\n";
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -237,8 +243,7 @@ Set general options</a>";
 		my $isolate_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}")->[0];
 		my $tables = [qw (isolates isolate_aliases allele_designations pending_allele_designations allele_sequences refs)];
 		$max_date = $self->_get_max_date($tables);
-		print "<li>Isolates: $isolate_count ";
-		print "</li>";
+		print "<li>Isolates: $isolate_count</li>";
 	}
 	print "<li>Last updated: $max_date</li>" if $max_date;
 	print "</ul>";

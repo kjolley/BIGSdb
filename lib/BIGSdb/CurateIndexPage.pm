@@ -76,7 +76,7 @@ sub print_content {
 				my ( $temp_buffer, $returned_td ) = $self->$function($td);
 				$buffer .= $temp_buffer;
 				$td = $returned_td || ($td == 1 ? 2 : 1);
-				$can_do_something = 1;
+				$can_do_something = 1 if $temp_buffer;
 			}
 		}
 	}
