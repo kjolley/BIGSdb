@@ -32,7 +32,7 @@ sub initiate {
 	$self->{'jQuery'} = 1;
 	if ($self->{'system'}->{'dbtype'} eq 'sequences'){
 		my $scheme_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM scheme_fields WHERE primary_key")->[0];
-		$self->{'tooltips'} > 1 if $scheme_count;
+		$self->{'tooltips'} = 1 if $scheme_count > 1;
 	}
 }
 
