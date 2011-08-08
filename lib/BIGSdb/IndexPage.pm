@@ -24,7 +24,16 @@ my $logger = get_logger('BIGSdb.Page');
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { 'general' => 0, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 0 };
+	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 0 };
+}
+
+sub initiate {
+	my ($self) = @_;
+	$self->{'jQuery'} = 1;
+	if ($self->{'system'}->{'dbtype'} eq 'sequences'){
+		my $scheme_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM scheme_fields WHERE primary_key")->[0];
+		$self->{'tooltips'} > 1 if $scheme_count;
+	}
 }
 
 sub print_content {

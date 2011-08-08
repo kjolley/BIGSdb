@@ -957,6 +957,8 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 			}
 			if (@projects) {
 				print "<fieldset><legend>Projects</legend>\n";
+				unshift @projects, '';
+				$labels{''} = "Select project...";
 				print $q->start_form;
 				$q->param( 'page',  'batchAdd' );
 				$q->param( 'table', 'project_members' );
