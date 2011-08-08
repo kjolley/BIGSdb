@@ -30,7 +30,7 @@ sub set_pref_requirements {
 sub initiate {
 	my ($self) = @_;
 	$self->{'jQuery'} = 1;
-	if ($self->{'system'}->{'dbtype'} eq 'sequences'){
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $scheme_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM scheme_fields WHERE primary_key")->[0];
 		$self->{'tooltips'} = 1 if $scheme_count > 1;
 	}
@@ -52,13 +52,14 @@ sub print_content {
 		$self->print_file($bannerfile);
 		print "</p></div>\n";
 	}
-	print "<div class=\"box\" id=\"index\">\n";
-	print "<div class=\"scrollable\">\n";
-	print "<table><tr><td style=\"vertical-align:top\">";
-
-	print "<img src=\"/images/icons/64x64/search.png\" alt=\"\" />\n";
-	print "<h2>Query database</h2>\n";
-	print "<ul class=\"toplevel\">\n";
+	print << "HTML";
+<div class="box" id="index">
+<div class="scrollable">
+<div style="float:left;margin-right:1em">
+<img src="/images/icons/64x64/search.png" alt="" />
+<h2>Query database</h2>
+<ul class="toplevel">
+HTML
 	my $scheme_count_with_pk =
 	  $self->{'datastore'}->run_simple_query(
 "SELECT COUNT (DISTINCT schemes.id) FROM schemes RIGHT JOIN scheme_members ON schemes.id=scheme_members.scheme_id JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key"
@@ -69,7 +70,6 @@ sub print_content {
 	  : "SELECT DISTINCT schemes.id,schemes.description FROM schemes RIGHT JOIN scheme_members ON schemes.id=scheme_members.scheme_id JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key ORDER BY schemes.id";
 	my $scheme_data = $self->{'datastore'}->run_list_query_hashref($qry);
 	my ( @scheme_ids, %desc );
-
 	foreach (@$scheme_data) {
 		push @scheme_ids, $_->{'id'};
 		$desc{ $_->{'id'} } = $_->{'description'};
@@ -113,6 +113,7 @@ TOOLTIPS
 			print "</td>\n";
 			my %labels =
 			  ( 'browse' => 'Browse', 'query' => 'Search', 'listQuery' => 'List', 'profiles' => 'Profiles', 'batchProfiles' => 'Batch' );
+
 			foreach (qw (browse query listQuery profiles batchProfiles)) {
 				print "<td><button type=\"submit\" name=\"page\" value=\"$_\" class=\"smallbutton\">$labels{$_}</button></td>\n";
 			}
@@ -172,10 +173,11 @@ TOOLTIPS
 	}
 	print "</ul>";
 	if ( $system->{'dbtype'} eq 'sequences' ) {
-		my ($seq_download_buffer, $scheme_buffer);
+		my ( $seq_download_buffer, $scheme_buffer );
 		my $group_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM scheme_groups")->[0];
-		if ($self->{'system'}->{'disable_seq_downloads'} ne 'yes' || $self->is_admin){	
-			$seq_download_buffer = "<li><a href=\"$scriptName?page=downloadAlleles&amp;db=$instance"
+		if ( $self->{'system'}->{'disable_seq_downloads'} ne 'yes' || $self->is_admin ) {
+			$seq_download_buffer =
+			    "<li><a href=\"$scriptName?page=downloadAlleles&amp;db=$instance"
 			  . ( $group_count ? '&amp;tree=1' : '' )
 			  . "\">Allele sequences</a></li>\n";
 		}
@@ -194,8 +196,9 @@ TOOLTIPS
 			$scheme_buffer .=
 "<li><a href=\"$scriptName?page=downloadProfiles&amp;db=$instance&amp;scheme_id=$scheme_data->[0]->{'id'}\">$scheme_data->[0]->{'description'} profiles</a></li>";
 		}
-		if ($seq_download_buffer || $scheme_buffer){
+		if ( $seq_download_buffer || $scheme_buffer ) {
 			print << "DOWNLOADS";
+</div><div style="float:left; margin-right:1em">
 <img src="/images/icons/64x64/download.png" alt="" />
 <h2>Downloads</h2>
 <ul class="toplevel">
@@ -206,7 +209,7 @@ DOWNLOADS
 		}
 	}
 	print << "OPTIONS";
-</td><td style="vertical-align:top;padding-left:1em">
+</div><div style="float:left; margin-right:1em">
 <img src="/images/icons/64x64/preferences.png" alt="" />
 <h2>Option settings</h2>
 <ul class="toplevel">
@@ -222,12 +225,13 @@ OPTIONS
 <a href=\"$scriptName?page=tableQuery&amp;table=scheme_fields&amp;db=$instance\">scheme fields</a>.</li>";
 	}
 	print "</ul>\n";
+	print "</div><div style=\"float:left; margin-right:1em\">\n";
 	print "<img src=\"/images/icons/64x64/information.png\" alt=\"\" />\n";
 	print "<h2>General statistics</h2>\n<ul class=\"toplevel\">\n";
 	my $max_date;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $allele_count = $self->{'datastore'}->run_simple_query("SELECT COUNT (*) FROM sequences");
-		my $tables = [qw (sequences profiles profile_refs accession)];
+		my $tables       = [qw (sequences profiles profile_refs accession)];
 		$max_date = $self->_get_max_date($tables);
 		print "<li>Number of sequences: $allele_count->[0]</li>";
 		if ( $scheme_count_with_pk == 1 ) {
@@ -250,25 +254,23 @@ OPTIONS
 		}
 	} else {
 		my $isolate_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}")->[0];
-		my $tables = [qw (isolates isolate_aliases allele_designations pending_allele_designations allele_sequences refs)];
+		my $tables        = [qw (isolates isolate_aliases allele_designations pending_allele_designations allele_sequences refs)];
 		$max_date = $self->_get_max_date($tables);
 		print "<li>Isolates: $isolate_count</li>";
 	}
 	print "<li>Last updated: $max_date</li>" if $max_date;
-	print "</ul>";
-	print "</td></tr></table>\n";
-	print "</div></div>\n";
+	print "</ul>\n</div>\n</div>\n</div>\n";
 	my $plugins = $self->{'pluginManager'}->get_appropriate_plugin_names( 'breakdown|export|analysis|miscellaneous', $system->{'dbtype'} );
 	if (@$plugins) {
-		print "<div class=\"box\" id=\"plugins\"><div class=\"scrollable\">\n<table><tr>";
+		print "<div class=\"box\" id=\"plugins\"><div class=\"scrollable\">\n";
 		my $active_plugin;
 		foreach (qw (breakdown export analysis miscellaneous)) {
 			$q->param( 'page', 'index' );
 			$plugins = $self->{'pluginManager'}->get_appropriate_plugin_names( $_, $system->{'dbtype'} );
 			next if !@$plugins;
-			my $buffer = "<td style=\"vertical-align:top\">\n";
-			$buffer.= "<img src=\"/images/icons/64x64/$_.png\" alt=\"\" />\n";
-			$buffer.= "<h2>" . ucfirst($_) . "</h2>\n<ul class=\"toplevel\">\n";
+			my $buffer = "<div style=\"float:left; margin-right:1em\">\n";
+			$buffer .= "<img src=\"/images/icons/64x64/$_.png\" alt=\"\" />\n";
+			$buffer .= "<h2>" . ucfirst($_) . "</h2>\n<ul class=\"toplevel\">\n";
 			foreach (@$plugins) {
 				my $att      = $self->{'pluginManager'}->get_plugin_attributes($_);
 				my $menuitem = $att->{'menutext'};
@@ -281,9 +283,7 @@ OPTIONS
 						$temp_buffer .= $q->start_form;
 						$temp_buffer .= $q->popup_menu( -name => 'scheme_id', -values => \@scheme_ids, -labels => \%desc );
 						$q->param( 'page', 'plugin' );
-						foreach (qw (db page)) {
-							$temp_buffer .= $q->hidden($_);
-						}
+						$temp_buffer .= $q->hidden($_) foreach qw (db page);
 						$temp_buffer .=
 						  " <button type=\"submit\" name=\"name\" value=\"$att->{'module'}\" class=\"smallbutton\">$menuitem</button>\n";
 						$temp_buffer .= $q->end_form;
@@ -292,29 +292,27 @@ OPTIONS
 					} elsif ( $scheme_count_with_pk == 1 ) {
 						$temp_buffer .=
 "<li><a href=\"$scriptName?page=plugin&amp;name=$att->{'module'}&amp;db=$instance&amp;scheme_id=$scheme_data->[0]->{'id'}\">$menuitem</a></li>";
-						$active_plugin=1
+						$active_plugin = 1;
 					}
-					$buffer.= $temp_buffer;
+					$buffer .= $temp_buffer;
 				} else {
-					$buffer.= "<li><a href=\"$scriptName?db=$instance&amp;page=plugin&amp;name=$att->{'module'}\">$menuitem</a>";
-					$buffer.= " - $att->{'menu_description'}" if $att->{'menu_description'};
-					$buffer.= "</li>\n";
-					$active_plugin=1
+					$buffer .= "<li><a href=\"$scriptName?db=$instance&amp;page=plugin&amp;name=$att->{'module'}\">$menuitem</a>";
+					$buffer .= " - $att->{'menu_description'}" if $att->{'menu_description'};
+					$buffer .= "</li>\n";
+					$active_plugin = 1;
 				}
 			}
-			$buffer.= "</ul>\n";
-			$buffer.= "</td>\n";
+			$buffer .= "</ul>\n</div>\n";
 			print $buffer if $active_plugin;
 		}
-		print "</tr></table>\n";
 		print "</div>\n</div>\n";
 	}
 }
 
 sub _get_max_date {
-	my ($self, $tables) = @_;
+	my ( $self, $tables ) = @_;
 	$" = ' UNION SELECT MAX(datestamp) FROM ';
-	my $qry = "SELECT MAX(max_datestamp) FROM (SELECT MAX(datestamp) AS max_datestamp FROM @$tables) AS v";
+	my $qry          = "SELECT MAX(max_datestamp) FROM (SELECT MAX(datestamp) AS max_datestamp FROM @$tables) AS v";
 	my $max_date_ref = $self->{'datastore'}->run_simple_query($qry);
 	return $max_date_ref->[0] if ref $max_date_ref eq 'ARRAY';
 }
