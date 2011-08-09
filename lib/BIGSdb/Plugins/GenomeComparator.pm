@@ -38,7 +38,7 @@ sub get_attributes {
 		buttontext  => 'Genome Camparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.2.0',
+		version     => '1.2.1',
 		dbtype      => 'isolates',
 		section     => 'analysis',
 		order       => 30,
@@ -63,9 +63,13 @@ function enable_seqs(){
 	if (accession_element.value.length){
 		document.getElementById('locus').disabled=true;
 		document.getElementById('scheme_id').disabled=true;
+		document.getElementById('tblastx').disabled=false;
+		document.getElementById('align').disabled=false;
 	} else {
 		document.getElementById('locus').disabled=false;
 		document.getElementById('scheme_id').disabled=false;
+		document.getElementById('tblastx').disabled=true;
+		document.getElementById('align').disabled=true;
 	}
 }
 	
@@ -288,15 +292,15 @@ sub _print_interface {
 " <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a></li>\n";
 	print "<li><span class=\"warning\">";
 	print $q->checkbox( -name => 'tblastx', -id => 'tblastx', -label => 'Use TBLASTX' );
-	print " <a class=\"tooltip\" title=\"TBLASTX - Compares the six-frame translation of your nucleotide query against 
+	print " <a class=\"tooltip\" title=\"TBLASTX (analysis by reference genome only) - Compares the six-frame translation of your nucleotide query against 
 	the six-frame translation of the sequences in the sequence bin (sequences will be classed as identical if they result
 	in the same translated sequence even if the nucleotide sequence is different).  This is SLOWER than BLASTN. Use with
 	caution.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "</span></li>\n";
 	print "<li>";
-	print $q->checkbox( -name => 'align', -label => 'Produce alignments' );
+	print $q->checkbox( -name => 'align', -id => 'align', -label => 'Produce alignments' );
 	print
-" <a class=\"tooltip\" title=\"Alignments - Alignments will be produced in muscle for any loci that vary between isolates when analysing by reference genome. This may slow the analysis considerably.\">&nbsp;<i>i</i>&nbsp;</a></li>\n";
+" <a class=\"tooltip\" title=\"Alignments (analysis by reference genome only) - Alignments will be produced in muscle for any loci that vary between isolates. This may slow the analysis considerably.\">&nbsp;<i>i</i>&nbsp;</a></li>\n";
 	print "</ul>\n";
 	print "</fieldset>\n";
 	print "<fieldset style=\"float:left\">\n<legend>Restrict included sequences by</legend>\n";
@@ -407,10 +411,14 @@ sub _analyse_by_loci {
 					}
 				}
 				if ( !$found ) {
-					$new{$new_allele} = $seq;
-					$html_buffer .= "<td>new#$new_allele</td>";
-					print $fh "\tnew#$new_allele";
-					$new_allele++;
+					if ($seq eq ''){
+						$html_buffer .= "<td>X</td>";
+					} else {
+						$new{$new_allele} = $seq;
+						$html_buffer .= "<td>new#$new_allele</td>";
+						print $fh "\tnew#$new_allele";
+						$new_allele++;
+					}
 				}
 			}
 		}
@@ -808,6 +816,7 @@ sub _extract_sequence {
 	my ( $self, $match ) = @_;
 	my $start  = $match->{'predicted_start'};
 	my $end    = $match->{'predicted_end'};
+	return if !defined $start || !defined $end;
 	my $length = abs( $end - $start ) + 1;
 	if ( $end < $start ) {
 		$start = $end;
