@@ -209,6 +209,9 @@ sub print {
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.cookie.js" } );
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.hotkeys.js" } );
 			}
+			if ( $self->{'jQuery.coolfieldset'} ) {
+				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.coolfieldset.js" } );
+			}
 			push @javascript, { 'language' => 'Javascript', 'code' => $page_js } if $page_js;
 		}
 
@@ -267,7 +270,7 @@ sub get_stylesheet {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system   = $self->{'system'};
-	my $filename = 'bigsdb.css?v=20110701';
+	my $filename = 'bigsdb.css?v=20110810';
 	if ( !$system->{'db'} ) {
 		$stylesheet = "/$filename";
 	} elsif ( -e "$ENV{'DOCUMENT_ROOT'}$system->{'webroot'}/$system->{'db'}/$filename" ) {

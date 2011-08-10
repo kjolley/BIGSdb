@@ -806,3 +806,21 @@ td.tree {
 	overflow:auto;	
 }
 
+.coolfieldset, .coolfieldset.expanded{
+	min-width:15em
+}
+
+.coolfieldset.collapsed{}
+
+.coolfieldset legend{
+	padding-left:13px;
+	cursor:pointer;
+}
+
+.coolfieldset legend, .coolfieldset.expanded legend{
+	background: transparent url(/images/coolfieldset/expanded.gif) no-repeat center left;
+}
+
+.coolfieldset.collapsed legend{
+	background: transparent url(/images/coolfieldset/collapsed.gif) no-repeat center left;
+}

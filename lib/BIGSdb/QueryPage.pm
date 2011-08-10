@@ -30,7 +30,7 @@ sub initiate {
 		$self->{'type'} = 'no_header';
 		return;
 	}
-	foreach (qw (field_help tooltips jQuery)) {
+	foreach (qw (field_help tooltips jQuery jQuery.coolfieldset)) {
 		$self->{$_} = 1;
 	}
 }
@@ -43,6 +43,9 @@ sub set_pref_requirements {
 sub get_javascript {
 	my ($self)   = @_;
 	my $max_rows = MAX_ROWS;
+	my $locus_collapse = $self->_highest_entered_fields('loci') ? 'false' : 'true';
+	my $tag_collapse = $self->_highest_entered_fields('tags') ? 'false' : 'true';
+	my $filter_collapse = $self->_filters_selected ? 'false': 'true';
 	my $buffer   = << "END";
 \$(function () {
 	\$('a[rel=ajax]').click(function(){
@@ -50,12 +53,15 @@ sub get_javascript {
     		return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1\'\)"));
     	});
   	});
+  	\$('#locus_fieldset').coolfieldset({speed:"fast", collapsed:$locus_collapse});
+   	\$('#tag_fieldset').coolfieldset({speed:"fast", collapsed:$tag_collapse});
+  	\$('#filter_fieldset').coolfieldset({speed:"fast", collapsed:$filter_collapse});
 });
 
 function loadContent(url) {
 	var row = parseInt(url.match(/row=(\\d+)/)[1]);
 	var new_row = row+1;
-	var fields = url.match(/fields=([provenance|loci|scheme|table_fields]+)/)[1];
+	var fields = url.match(/fields=([provenance|loci|scheme|table_fields|tags]+)/)[1];
 	if (fields == 'provenance'){	
 		\$("ul#provenance").append('<li id="fields' + row + '" />');
 		\$("li#fields"+row).html('<img src=\"/javascript/themes/default/throbber.gif\" /> Loading ...').load(url);
@@ -91,7 +97,16 @@ function loadContent(url) {
 		\$("span#table_field_heading").show();
 		if (new_row > $max_rows){
 			\$("#add_table_fields").hide();
-		}		
+		}
+	} else if (fields == 'tags'){
+		\$("ul#tags").append('<li id="tag' + row + '" />');
+		\$("li#tag"+row).html('<img src=\"/javascript/themes/default/throbber.gif\" /> Loading ...').load(url);
+		url = url.replace(/row=\\d+/,'row='+new_row);
+		\$("#add_tags").attr('href',url);	
+		\$("span#locus_tags_heading").show();
+		if (new_row > $max_rows){
+			\$("#add_tags").hide();
+		}				
 	}
 }
 END
@@ -112,6 +127,10 @@ sub _ajax_content {
 			my ( $locus_list, $locus_labels ) =
 			  $self->get_field_selection_list( { 'loci' => 1, 'scheme_fields' => 1, 'sort_labels' => 1 } );
 			$self->_print_loci_fields( $row, 0, $locus_list, $locus_labels );
+		} elsif ( $q->param('fields') eq 'tags' ) {
+			my ( $locus_list, $locus_labels ) =
+			  $self->get_field_selection_list( { 'loci' => 1, 'scheme_fields' => 0, 'sort_labels' => 1 } );
+			$self->_print_locus_tag_fields( $row, 0, $locus_list, $locus_labels );
 		}
 	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
 		if ( $q->param('fields') eq 'scheme' ) {
@@ -170,14 +189,14 @@ sub print_content {
 		browser. Alternatively, you can use a <a href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=query$scheme_clause&amp;no_js=1\">non-Javascript 
 		version</a> that has 4 combinations of fields.</p></div></noscript>\n";
 		}
-		if ($system->{'dbtype'} eq 'isolates'){
+		if ( $system->{'dbtype'} eq 'isolates' ) {
 			$self->_print_isolate_query_interface;
 		} else {
 			$self->_print_profile_query_interface($scheme_id);
 		}
 	}
 	if ( $q->param('submit') || defined $q->param('query') ) {
-		if ($system->{'dbtype'} eq 'isolates'){
+		if ( $system->{'dbtype'} eq 'isolates' ) {
 			$self->_run_isolate_query;
 		} else {
 			$self->_run_profile_query($scheme_id);
@@ -211,27 +230,45 @@ sub _print_provenance_fields {
 
 sub _print_loci_fields {
 	my ( $self, $row, $max_rows, $locus_list, $locus_labels ) = @_;
-	my $loci_disabled = 1 if !@$locus_list;
 	unshift @$locus_list, '';
 	my $q = $self->{'cgi'};
 	print "<span style=\"white-space:nowrap\">\n";
-	if ($loci_disabled) {
-		print $q->popup_menu( -name => "ls$row", -values => ['No loci available'], -disabled => 'disabled' );
-		print $q->popup_menu( -name => "ly$row", -values => [ "=", "contains", ">", "<", "NOT", "NOT contain" ], -disabled => 'disabled' );
-		print $q->textfield( -name => "lt$row", -class => 'value_entry', -disabled => 'disabled' );
-	} else {
-		print $q->popup_menu( -name => "ls$row", -values => $locus_list, -labels => $locus_labels, -class => 'fieldlist' );
-		print $q->popup_menu( -name => "ly$row", -values => [ "=", "contains", ">", "<", "NOT", "NOT contain" ] );
-		print $q->textfield( -name => "lt$row", -class => 'allele_entry' );
-		if ( $row == 1 ) {
-			my $next_row = $max_rows ? $max_rows + 1 : 2;
-			if ( !$q->param('no_js') ) {
-				my $page = $self->{'curate'} ? 'isolateQuery' : 'query';
-				print
+	print $q->popup_menu( -name => "ls$row", -values => $locus_list, -labels => $locus_labels, -class => 'fieldlist' );
+	print $q->popup_menu( -name => "ly$row", -values => [ "=", "contains", ">", "<", "NOT", "NOT contain" ] );
+	print $q->textfield( -name => "lt$row", -class => 'value_entry' );
+	if ( $row == 1 ) {
+		my $next_row = $max_rows ? $max_rows + 1 : 2;
+		if ( !$q->param('no_js') ) {
+			my $page = $self->{'curate'} ? 'isolateQuery' : 'query';
+			print
 "<a id=\"add_loci\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;fields=loci&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
-				print
+			print
 " <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
-			}
+		}
+	}
+	print "</span>\n";
+}
+
+sub _print_locus_tag_fields {
+	my ( $self, $row, $max_rows, $locus_list, $locus_labels ) = @_;
+	unshift @$locus_list, '';
+	my $q = $self->{'cgi'};
+	print "<span style=\"white-space:nowrap\">\n";
+	print $q->popup_menu( -name => "ts$row", -values => $locus_list, -labels => $locus_labels, -class => 'fieldlist' );
+
+	#	print $q->popup_menu( -name => "ty$row", -values => [ "=", "contains", ">", "<", "NOT", "NOT contain" ] );
+	print ' is ';
+	my @values = qw (tagged complete incomplete);
+	unshift @values, '';
+	print $q->popup_menu( -name => "tt$row", -values => \@values );
+	if ( $row == 1 ) {
+		my $next_row = $max_rows ? $max_rows + 1 : 2;
+		if ( !$q->param('no_js') ) {
+			my $page = $self->{'curate'} ? 'isolateQuery' : 'query';
+			print
+"<a id=\"add_tags\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;fields=tags&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
+			print
+" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
 	}
 	print "</span>\n";
@@ -257,61 +294,55 @@ sub _print_isolate_query_interface {
 	my $prefs  = $self->{'prefs'};
 	my $q      = $self->{'cgi'};
 	print "<div class=\"box\" id=\"queryform\"><div class=\"scrollable\">\n";
-	print $q->startform();
+	print $q->startform;
 	$q->param( 'table', $self->{'system'}->{'view'} );
 	print $q->hidden($_) foreach qw (db page table no_js);
+	print "<div style=\"white-space:nowrap\">\n";
+	$self->_print_isolate_fields_fieldset;
+	$self->_print_isolate_display_fieldset;
+	print "<div style=\"clear:both\"></div>";
+	$self->_print_isolate_locus_fieldset;
+	$self->_print_isolate_tag_fieldset;
+	$self->_print_isolate_filter_fieldset;
+	my $page = $self->{'curate'} ? 'isolateQuery' : 'query';
+	print
+"<div style=\"clear:both\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page\" class=\"resetbutton\">Reset</a><span style=\"float:right\">";
+	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
+	print "</span></div>";
+	print "</div>\n";
+	print $q->end_form;
+	print "</div>\n</div>\n";
+}
 
-	#Provenance/phenotype fields
-	print "<div style=\"white-space:nowrap\"><fieldset>\n<legend>Isolate provenance/phenotype fields</legend>\n";
-	my $prov_fields;
-	if ( $q->param('no_js') ) {
-		$prov_fields = 4;
-	} else {
-		$prov_fields = $self->_highest_entered_fields('provenance') || 1;
-	}
+sub _print_isolate_fields_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	print "<fieldset style=\"float:left\">\n<legend>Isolate provenance/phenotype fields</legend>\n";
+	my $prov_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('provenance') || 1 );
 	my $display_field_heading = $prov_fields == 1 ? 'none' : 'inline';
-	print "<span id=\"prov_field_heading\" style=\"display:$display_field_heading\"><label for=\"c0\">Combine searches with: </label>\n";
-	print $q->popup_menu( -name => 'c0', -id => 'c0', -values => [ "AND", "OR" ] );
-	print "</span>\n";
-	print "<ul id=\"provenance\">\n";
+	print "<span id=\"prov_field_heading\" style=\"display:$display_field_heading\"><label for=\"c0\">Combine with: </label>\n";
+	print $q->popup_menu( -name => 'c0', -id => 'c0', -values => [ qw (AND OR) ] );
+	print "</span>\n<ul id=\"provenance\">\n";
 	my ( $select_items, $labels ) = $self->_get_isolate_select_items;
-	my $i;
-
-	for ( $i = 1 ; $i <= $prov_fields ; $i++ ) {
+	for ( 1 .. $prov_fields ) {
 		print "<li>\n";
-		$self->_print_provenance_fields( $i, $prov_fields, $select_items, $labels );
+		$self->_print_provenance_fields( $_, $prov_fields, $select_items, $labels );
 		print "</li>\n";
 	}
-	print "</ul>\n";
-	print "</fieldset>\n";
+	print "</ul>\n</fieldset>\n";
+}
 
-	#Loci/scheme fields
-	my ( $locus_list, $locus_labels ) = $self->get_field_selection_list( { 'loci' => 1, 'scheme_fields' => 1, 'sort_labels' => 1 } );
-	print "<fieldset>\n";
-	print "<legend>Filter with locus or scheme fields</legend>\n";
-	my $locus_fields;
-	if ( $q->param('no_js') ) {
-		$locus_fields = 4;
-	} else {
-		$locus_fields = $self->_highest_entered_fields('loci') || 1;
-	}
-	my $loci_field_heading = $locus_fields == 1 ? 'none' : 'inline';
-	print "<span id=\"loci_field_heading\" style=\"display:$loci_field_heading\"><label for=\"c1\">Combine with: </label>\n";
-	if ( !@$locus_list ) {
-		print $q->popup_menu( -name => 'c1', -id => 'c1', -values => [ "AND", "OR" ], -disabled => 'disabled' );
-	} else {
-		print $q->popup_menu( -name => 'c1', -id => 'c1', -values => [ "AND", "OR" ], );
-	}
-	print "</span>\n<ul id=\"loci\">\n";
-	for ( my $i = 1 ; $i <= $locus_fields ; $i++ ) {
-		print "<li>\n";
-		$self->_print_loci_fields( $i, $locus_fields, $locus_list, $locus_labels );
-		print "</li>\n";
-	}
-	print "</ul>\n";
-	print "</fieldset></div>\n";
+sub _filters_selected {
+	my ($self) = @_;
+	return $self->_print_isolate_filter_fieldset({'selected' => 1});
+}
 
-	#Filters
+sub _print_isolate_filter_fieldset {
+	#option 'selected' will return '1' if any filter is selected
+	my ($self, $options) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $prefs  = $self->{'prefs'};
+	my $q      = $self->{'cgi'};
 	my @filters;
 	my $extended = $self->get_extended_attributes;
 	foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list() } ) {
@@ -324,6 +355,7 @@ sub _print_isolate_query_interface {
 				|| ( $thisfield{'userfield'} && $thisfield{'userfield'} eq 'yes' ) )
 			{
 				push @filters, $self->get_user_filter( $field, $self->{'system'}->{'view'} );
+				return 1 if $options->{'selected'} && $q->param("$field\_list");
 			} else {
 				if ( $thisfield{'optlist'} ) {
 					@dropdownlist = $self->{'xmlHandler'}->get_field_option_list($field);
@@ -335,7 +367,7 @@ sub _print_isolate_query_interface {
 						$dropdownlabels{'<blank>'} = '<blank>';
 					}
 				} else {
-					my $qry = "SELECT DISTINCT($field) FROM $system->{'view'} ORDER BY $field";
+					my $qry = "SELECT DISTINCT($field) FROM $self->{'system'}->{'view'} ORDER BY $field";
 					my $sql = $self->{'db'}->prepare($qry);
 					eval { $sql->execute; };
 					$logger->error($@) if $@;
@@ -354,6 +386,7 @@ sub _print_isolate_query_interface {
 "$field filter - Select $a_or_an $field to filter your search to only those isolates that match the selected $field."
 					}
 				  );
+				return 1 if $options->{'selected'} && $q->param("$field\_list");
 			}
 		}
 		my $extatt = $extended->{$field};
@@ -374,6 +407,7 @@ sub _print_isolate_query_interface {
 "$field\..$extended_attribute filter - Select $a_or_an $extended_attribute to filter your search to only those isolates that match the selected $field."
 						}
 					  );
+					return 1 if $options->{'selected'} && $q->param("$field\..$extended_attribute\_list");
 				}
 			}
 		}
@@ -395,11 +429,13 @@ sub _print_isolate_query_interface {
 "publication filter - Select a publication to filter your search to only those isolates that match the selected publication."
 				}
 			  );
+			  return 1 if $options->{'selected'} && $q->param('publication_list');
 		}
 	}
 	if ( $prefs->{'dropdownfields'}->{'projects'} ) {
 		my $buffer = $self->get_project_filter;
 		push @filters, $buffer if $buffer;
+		return 1 if $options->{'selected'} && $q->param('project_list');
 	}
 	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
 	foreach (@$schemes) {
@@ -416,6 +452,7 @@ sub _print_isolate_query_interface {
 "$scheme_info->{'description'} profile completion filter - Select whether the isolates should have complete, partial, or unstarted profiles."
 				}
 			  );
+			return 1 if $options->{'selected'} && $q->param("$field\_list");
 		}
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($_);
 		foreach my $field (@$scheme_fields) {
@@ -432,6 +469,7 @@ sub _print_isolate_query_interface {
 "$field ($scheme_info->{'description'}) filter - Select $a_or_an $field to filter your search to only those isolates that match the selected $field."
 					}
 				  ) if @$values;
+				return 1 if $options->{'selected'} && $q->param("scheme\_$_\_$field\_list");
 			}
 		}
 	}
@@ -445,52 +483,97 @@ sub _print_isolate_query_interface {
 				'tooltip' => 'linked sequence filter - Filter by whether sequences have been linked with the isolate record.'
 			}
 		  );
+		 return 1 if $options->{'selected'} && $q->param("linked_sequences_list");
 	}
+	return 0 if $options->{'selected'};
 	if (@filters) {
-		print "<div style=\"white-space:nowrap\"><fieldset><legend>Filter query by</legend>\n";
-		print "<ul>\n";
+		print "<fieldset id=\"filter_fieldset\" style=\"float:left\" class=\"coolfieldset\"><legend>Filters</legend>\n";
+		print "<div><ul>\n";
 		print "<li><span style=\"white-space:nowrap\">$_</span></li>" foreach (@filters);
-		print "</ul>\n</fieldset>";
+		print "</ul></div>\n</fieldset>";
 	}
-	print "<fieldset class=\"display\">\n";
-	( my $order_list, $labels ) = $self->get_field_selection_list( { 'isolate_fields' => 1, 'loci' => 1, 'scheme_fields' => 1 } );
+}
+
+sub _print_isolate_locus_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my ( $locus_list, $locus_labels ) = $self->get_field_selection_list( { 'loci' => 1, 'scheme_fields' => 1, 'sort_labels' => 1 } );
+	if (@$locus_list) {
+		print "<fieldset id=\"locus_fieldset\" style=\"float:left\" class=\"coolfieldset\">\n";
+		print "<legend>Allele designations/scheme fields</legend><div>\n";
+		my $locus_fields = $q->param('no_js') ? 4 : ($self->_highest_entered_fields('loci') || 1);
+		my $loci_field_heading = $locus_fields == 1 ? 'none' : 'inline';
+		print "<span id=\"loci_field_heading\" style=\"display:$loci_field_heading\"><label for=\"c1\">Combine with: </label>\n";
+		print $q->popup_menu( -name => 'c1', -id => 'c1', -values => [ qw (AND OR) ], );
+		print "</span>\n<ul id=\"loci\">\n";
+		for ( 1 .. $locus_fields ) {
+			print "<li>\n";
+			$self->_print_loci_fields( $_, $locus_fields, $locus_list, $locus_labels );
+			print "</li>\n";
+		}
+		print "</ul>\n</div></fieldset>\n";
+	}
+}
+
+sub _print_isolate_tag_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	next if !$self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM allele_sequences")->[0];
+	my ( $locus_list, $locus_labels ) = $self->get_field_selection_list( { 'loci' => 1, 'scheme_fields' => 0, 'sort_labels' => 1 } );
+	if (@$locus_list) {
+		print "<fieldset id=\"tag_fieldset\" style=\"float:left\" class=\"coolfieldset\">\n";
+		print "<legend>Tagged sequences</legend><div>\n";
+		my $locus_tag_fields = $q->param('no_js') ? 4 : ($self->_highest_entered_fields('tags') || 1);
+		my $locus_tags_heading = $locus_tag_fields == 1 ? 'none' : 'inline';
+		print "<span id=\"locus_tags_heading\" style=\"display:$locus_tags_heading\"><label for=\"c1\">Combine with: </label>\n";
+		print $q->popup_menu( -name => 'c2', -id => 'c2', -values => [ qw (AND OR) ], );
+		print "</span>\n<ul id=\"tags\">\n";
+		for ( 1 .. $locus_tag_fields ) {
+			print "<li>\n";
+			$self->_print_locus_tag_fields( $_, $locus_tag_fields, $locus_list, $locus_labels );
+			print "</li>\n";
+		}
+		print "</ul></div>\n</fieldset>\n";
+	}
+}
+
+sub _print_isolate_display_fieldset {
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $prefs  = $self->{'prefs'};
+	print "<fieldset id=\"display_fieldset\" style=\"float:left\"><legend>Display/sort options</legend>\n";
+	my ( $order_list, $labels ) = $self->get_field_selection_list( { 'isolate_fields' => 1, 'loci' => 1, 'scheme_fields' => 1 } );
 	print "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>\n";
 	print $q->popup_menu( -name => 'order', -id => 'order', -values => $order_list, -labels => $labels );
 	print $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
 	print "</span></li>\n<li><span style=\"white-space:nowrap\">\n";
-	if ( $q->param('displayrecs') ) {
-		$prefs->{'displayrecs'} = $q->param('displayrecs');
-	}
 	print "<label for=\"displayrecs\" class=\"display\">Display: </label>\n";
 	print $q->popup_menu(
 		-name    => 'displayrecs',
 		-id      => 'displayrecs',
 		-values  => [ '10', '25', '50', '100', '200', '500', 'all' ],
-		-default => $prefs->{'displayrecs'}
+		-default => $q->param('displayrecs') || $prefs->{'displayrecs'}
 	);
 	print " records per page&nbsp;";
 	print
 " <a class=\"tooltip\" title=\"Records per page - Analyses use the full query dataset, rather than just the page shown.\">&nbsp;<i>i</i>&nbsp;</a>";
-	print "</span></li>\n\n";
-	my $page = $self->{'curate'} ? 'isolateQuery' : 'query';
-	print
-"</ul><span style=\"float:left\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page\" class=\"resetbutton\">Reset</a></span><span style=\"float:right\">";
-	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	print "</span></fieldset>\n";
-	print "</div>\n" if @filters;
-	print $q->end_form;
-	print "</div>\n</div>\n";
+	print "</span></li>\n</ul>\n</fieldset>\n";
 }
 
 sub _highest_entered_fields {
 	my ( $self, $type ) = @_;
-	my $param_name = ( $type eq 'provenance' || $type eq 'scheme' || $type eq 'table_fields' ) ? 't' : 'lt';
+	my $param_name;
+	if ( any { $type eq $_ } qw (provenance scheme table_fields) ) {
+		$param_name = 't';
+	} elsif ( $type eq 'loci' ) {
+		$param_name = 'lt';
+	} elsif ( $type eq 'tags' ) {
+		$param_name = 'tt';
+	}
 	my $q = $self->{'cgi'};
 	my $highest;
-	for ( my $i = 1 ; $i < MAX_ROWS ; $i++ ) {
-		if ( defined $q->param("$param_name$i") ) {
-			$highest = $i;
-		}
+	for ( 1 .. MAX_ROWS ) {
+		$highest = $_ if $q->param("$param_name$_") ne ''; 
 	}
 	return $highest;
 }
@@ -1276,9 +1359,9 @@ sub _run_isolate_query {
 		print "<p>@errors</p></div>\n";
 	} elsif ( $qry !~ /\(\)/ ) {
 		my @hidden_attributes;
-		push @hidden_attributes, 'c0', 'c1';
-		for ( my $i = 1 ; $i <= MAX_ROWS ; $i++ ) {
-			push @hidden_attributes, "s$i", "t$i", "y$i", "ls$i", "ly$i", "lt$i";
+		push @hidden_attributes, qw (c0 c1 c2);
+		for ( 1 .. MAX_ROWS ) {
+			push @hidden_attributes, "s$_", "t$_", "y$_", "ls$_", "ly$_", "lt$_", "ts$_", "tt$_";
 		}
 		foreach ( @{ $self->{'xmlHandler'}->get_field_list() } ) {
 			push @hidden_attributes, "$_\_list";
