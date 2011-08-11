@@ -362,10 +362,8 @@ sub get_extended_attributes {
 	my ($self) = @_;
 	my $extended;
 	my $sql = $self->{'db'}->prepare("SELECT isolate_field,attribute FROM isolate_field_extended_attributes ORDER BY field_order");
-	eval { $sql->execute; };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	eval { $sql->execute };
+	$logger->error($@) if $@;
 	while ( my ( $field, $attribute ) = $sql->fetchrow_array ) {
 		push @{ $extended->{$field} }, $attribute;
 	}

@@ -41,12 +41,12 @@ sub set_pref_requirements {
 }
 
 sub get_javascript {
-	my ($self)   = @_;
+	my ($self) = @_;
 	my $max_rows = MAX_ROWS;
-	my $locus_collapse = $self->_highest_entered_fields('loci') ? 'false' : 'true';
-	my $tag_collapse = $self->_highest_entered_fields('tags') ? 'false' : 'true';
-	my $filter_collapse = $self->_filters_selected ? 'false': 'true';
-	my $buffer   = << "END";
+	my $locus_collapse  = $self->_highest_entered_fields('loci') ? 'false' : 'true';
+	my $tag_collapse    = $self->_highest_entered_fields('tags') ? 'false' : 'true';
+	my $filter_collapse = $self->_filters_selected               ? 'false' : 'true';
+	my $buffer          = << "END";
 \$(function () {
 	\$('a[rel=ajax]').click(function(){
   		\$(this).attr('href', function(){
@@ -255,12 +255,11 @@ sub _print_locus_tag_fields {
 	my $q = $self->{'cgi'};
 	print "<span style=\"white-space:nowrap\">\n";
 	print $q->popup_menu( -name => "ts$row", -values => $locus_list, -labels => $locus_labels, -class => 'fieldlist' );
-
-	#	print $q->popup_menu( -name => "ty$row", -values => [ "=", "contains", ">", "<", "NOT", "NOT contain" ] );
 	print ' is ';
-	my @values = qw (tagged complete incomplete);
+	my @values = qw(untagged tagged complete incomplete);
 	unshift @values, '';
 	print $q->popup_menu( -name => "tt$row", -values => \@values );
+
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		if ( !$q->param('no_js') ) {
@@ -268,7 +267,7 @@ sub _print_locus_tag_fields {
 			print
 "<a id=\"add_tags\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;fields=tags&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
 			print
-" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
+" <a class=\"tooltip\" title=\"Number of fields - Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
 	}
 	print "</span>\n";
@@ -321,9 +320,10 @@ sub _print_isolate_fields_fieldset {
 	my $prov_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('provenance') || 1 );
 	my $display_field_heading = $prov_fields == 1 ? 'none' : 'inline';
 	print "<span id=\"prov_field_heading\" style=\"display:$display_field_heading\"><label for=\"c0\">Combine with: </label>\n";
-	print $q->popup_menu( -name => 'c0', -id => 'c0', -values => [ qw (AND OR) ] );
+	print $q->popup_menu( -name => 'c0', -id => 'c0', -values => [qw (AND OR)] );
 	print "</span>\n<ul id=\"provenance\">\n";
 	my ( $select_items, $labels ) = $self->_get_isolate_select_items;
+
 	for ( 1 .. $prov_fields ) {
 		print "<li>\n";
 		$self->_print_provenance_fields( $_, $prov_fields, $select_items, $labels );
@@ -334,15 +334,18 @@ sub _print_isolate_fields_fieldset {
 
 sub _filters_selected {
 	my ($self) = @_;
-	return $self->_print_isolate_filter_fieldset({'selected' => 1});
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		return $self->_print_isolate_filter_fieldset( { 'selected' => 1 } );
+	}
 }
 
 sub _print_isolate_filter_fieldset {
+
 	#option 'selected' will return '1' if any filter is selected
-	my ($self, $options) = @_;
+	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $prefs  = $self->{'prefs'};
-	my $q      = $self->{'cgi'};
+	my $prefs = $self->{'prefs'};
+	my $q     = $self->{'cgi'};
 	my @filters;
 	my $extended = $self->get_extended_attributes;
 	foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list() } ) {
@@ -429,7 +432,7 @@ sub _print_isolate_filter_fieldset {
 "publication filter - Select a publication to filter your search to only those isolates that match the selected publication."
 				}
 			  );
-			  return 1 if $options->{'selected'} && $q->param('publication_list');
+			return 1 if $options->{'selected'} && $q->param('publication_list');
 		}
 	}
 	if ( $prefs->{'dropdownfields'}->{'projects'} ) {
@@ -483,7 +486,7 @@ sub _print_isolate_filter_fieldset {
 				'tooltip' => 'linked sequence filter - Filter by whether sequences have been linked with the isolate record.'
 			}
 		  );
-		 return 1 if $options->{'selected'} && $q->param("linked_sequences_list");
+		return 1 if $options->{'selected'} && $q->param("linked_sequences_list");
 	}
 	return 0 if $options->{'selected'};
 	if (@filters) {
@@ -501,10 +504,10 @@ sub _print_isolate_locus_fieldset {
 	if (@$locus_list) {
 		print "<fieldset id=\"locus_fieldset\" style=\"float:left\" class=\"coolfieldset\">\n";
 		print "<legend>Allele designations/scheme fields</legend><div>\n";
-		my $locus_fields = $q->param('no_js') ? 4 : ($self->_highest_entered_fields('loci') || 1);
+		my $locus_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('loci') || 1 );
 		my $loci_field_heading = $locus_fields == 1 ? 'none' : 'inline';
 		print "<span id=\"loci_field_heading\" style=\"display:$loci_field_heading\"><label for=\"c1\">Combine with: </label>\n";
-		print $q->popup_menu( -name => 'c1', -id => 'c1', -values => [ qw (AND OR) ], );
+		print $q->popup_menu( -name => 'c1', -id => 'c1', -values => [qw (AND OR)], );
 		print "</span>\n<ul id=\"loci\">\n";
 		for ( 1 .. $locus_fields ) {
 			print "<li>\n";
@@ -523,10 +526,10 @@ sub _print_isolate_tag_fieldset {
 	if (@$locus_list) {
 		print "<fieldset id=\"tag_fieldset\" style=\"float:left\" class=\"coolfieldset\">\n";
 		print "<legend>Tagged sequences</legend><div>\n";
-		my $locus_tag_fields = $q->param('no_js') ? 4 : ($self->_highest_entered_fields('tags') || 1);
+		my $locus_tag_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('tags') || 1 );
 		my $locus_tags_heading = $locus_tag_fields == 1 ? 'none' : 'inline';
 		print "<span id=\"locus_tags_heading\" style=\"display:$locus_tags_heading\"><label for=\"c1\">Combine with: </label>\n";
-		print $q->popup_menu( -name => 'c2', -id => 'c2', -values => [ qw (AND OR) ], );
+		print $q->popup_menu( -name => 'c2', -id => 'c2', -values => [qw (AND OR)], );
 		print "</span>\n<ul id=\"tags\">\n";
 		for ( 1 .. $locus_tag_fields ) {
 			print "<li>\n";
@@ -549,9 +552,9 @@ sub _print_isolate_display_fieldset {
 	print "</span></li>\n<li><span style=\"white-space:nowrap\">\n";
 	print "<label for=\"displayrecs\" class=\"display\">Display: </label>\n";
 	print $q->popup_menu(
-		-name    => 'displayrecs',
-		-id      => 'displayrecs',
-		-values  => [ '10', '25', '50', '100', '200', '500', 'all' ],
+		-name   => 'displayrecs',
+		-id     => 'displayrecs',
+		-values => [ '10', '25', '50', '100', '200', '500', 'all' ],
 		-default => $q->param('displayrecs') || $prefs->{'displayrecs'}
 	);
 	print " records per page&nbsp;";
@@ -573,7 +576,7 @@ sub _highest_entered_fields {
 	my $q = $self->{'cgi'};
 	my $highest;
 	for ( 1 .. MAX_ROWS ) {
-		$highest = $_ if $q->param("$param_name$_") ne ''; 
+		$highest = $_ if $q->param("$param_name$_") ne '';
 	}
 	return $highest;
 }
@@ -771,577 +774,10 @@ sub _run_isolate_query {
 	my @errors;
 	my $extended = $self->get_extended_attributes;
 	if ( !defined $q->param('query') ) {
-		$qry = "SELECT * FROM $view WHERE (";
-		my $andor       = $q->param('c0');
-		my $first_value = 1;
-		for ( my $i = 1 ; $i <= MAX_ROWS ; $i++ ) {
-			if ( $q->param("t$i") ne '' ) {
-				my $field = $q->param("s$i");
-				$field =~ s/^f_//;
-				my @groupedfields;
-				for ( my $x = 1 ; $x < 11 ; $x++ ) {
-					if ( $system->{"fieldgroup$x"} ) {
-						my @grouped = ( split /:/, $system->{"fieldgroup$x"} );
-						if ( $field eq $grouped[0] ) {
-							@groupedfields = split /,/, $grouped[1];
-						}
-					}
-				}
-				my %thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-				my $extended_isolate_field;
-				if ( $field =~ /^e_(.*)\|\|(.*)/ ) {
-					$extended_isolate_field = $1;
-					$field                  = $2;
-					my $att_info =
-					  $self->{'datastore'}
-					  ->run_simple_query_hashref( "SELECT * FROM isolate_field_extended_attributes WHERE isolate_field=? AND attribute=?",
-						$extended_isolate_field, $field );
-					$thisfield{'type'} = $att_info->{'value_format'};
-					$thisfield{'type'} = 'int' if $thisfield{'type'} eq 'integer';
-				}
-				my $operator = $q->param("y$i");
-				my $text     = $q->param("t$i");
-				$text =~ s/^\s*//;
-				$text =~ s/\s*$//;
-				$text =~ s/'/\\'/g;
-				if (   $text ne '<blank>'
-					&& $text ne 'null'
-					&& ( lc( $thisfield{'type'} ) eq 'int' )
-					&& !BIGSdb::Utils::is_int($text) )
-				{
-					push @errors, "$field is an integer field.";
-					next;
-				} elsif ( $text ne '<blank>'
-					&& $text ne 'null'
-					&& ( lc( $thisfield{'type'} ) eq 'float' )
-					&& !BIGSdb::Utils::is_float($text) )
-				{
-					push @errors, "$field is a floating point number field.";
-					next;
-				} elsif ( $text ne '<blank>'
-					&& $text ne 'null'
-					&& lc( $thisfield{'type'} ) eq 'date'
-					&& !BIGSdb::Utils::is_date($text) )
-				{
-					push @errors, "$field is a date field - should be in yyyy-mm-dd format (or 'today' / 'yesterday').";
-					next;
-				} elsif ( !$self->is_valid_operator($operator) ) {
-					push @errors, "$operator is not a valid operator.";
-					next;
-				}
-				my $modifier = '';
-				if ( $i > 1 && !$first_value ) {
-					$modifier = " $andor ";
-				}
-				$first_value = 0;
-				if ( $field =~ /(.*) \(id\)$/
-					&& !BIGSdb::Utils::is_int($text) )
-				{
-					push @errors, "$field is an integer field.";
-					next;
-				}
-				if ( any { $field =~ /(.*) \($_\)$/ } qw (id surname first_name affiliation) ) {
-					$qry .= $modifier . $self->search_users( $field, $operator, $text, $self->{'system'}->{'view'} );
-				} else {
-					if ( $operator eq 'NOT' ) {
-						if ( scalar @groupedfields ) {
-							$qry .= "$modifier (";
-							for ( my $x = 0 ; $x < scalar @groupedfields ; $x++ ) {
-								my %thisfield = $self->{'xmlHandler'}->get_field_attributes( $groupedfields[$x] );
-								if ( $text eq '<blank>' || $text eq 'null' ) {
-									$qry .= ' OR ' if $x != 0;
-									$qry .= "($groupedfields[$x] IS NOT NULL)";
-								} else {
-									$qry .= ' AND ' if $x != 0;
-									if ( $thisfield{'type'} eq 'int' ) {
-										$qry .= "(NOT CAST($groupedfields[$x] AS text) = '$text' OR $groupedfields[$x] IS NULL)";
-									} else {
-										$qry .= "(NOT upper($groupedfields[$x]) = upper('$text') OR $groupedfields[$x] IS NULL)";
-									}
-								}
-							}
-							$qry .= ')';
-						} elsif ($extended_isolate_field) {
-							$qry .= $modifier
-							  . (
-								( $text eq '<blank>' || $text eq 'null' )
-								? "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field')"
-								: "$extended_isolate_field NOT IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value)=upper('$text'))"
-							  );
-						} elsif ( $field eq $self->{'system'}->{'labelfield'} ) {
-							$qry .= $modifier
-							  . "(NOT upper($field) = upper('$text') AND id NOT IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper('$text')))";
-						} else {
-							if ( $thisfield{'type'} eq 'int' ) {
-								$qry .= $modifier
-								  . (
-									( $text eq '<blank>' || $text eq 'null' )
-									? "$field is not null"
-									: "NOT ($field = '$text' OR $field IS NULL)"
-								  );
-							} else {
-								$qry .= $modifier
-								  . (
-									( $text eq '<blank>' || $text eq 'null' )
-									? "$field is not null"
-									: "(NOT upper($field) = upper('$text') OR $field IS NULL)"
-								  );
-							}
-						}
-					} elsif ( $operator eq "contains" ) {
-						if ( scalar @groupedfields ) {
-							$qry .= "$modifier (";
-							for ( my $x = 0 ; $x < scalar @groupedfields ; $x++ ) {
-								my %thisfield = $self->{'xmlHandler'}->get_field_attributes( $groupedfields[$x] );
-								$qry .= ' OR ' if $x != 0;
-								if ( $thisfield{'type'} eq 'int' ) {
-									$qry .= "CAST($groupedfields[$x] AS text) LIKE '\%$text\%'";
-								} else {
-									$qry .= "upper($groupedfields[$x]) LIKE upper('\%$text\%')";
-								}
-							}
-							$qry .= ')';
-						} elsif ($extended_isolate_field) {
-							$qry .= $modifier
-							  . "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) LIKE upper('\%$text\%'))";
-						} elsif ( $field eq $self->{'system'}->{'labelfield'} ) {
-							$qry .= $modifier
-							  . "(upper($field) LIKE upper('\%$text\%') OR id IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) LIKE upper('\%$text\%')))";
-						} else {
-							if ( $thisfield{'type'} eq 'int' ) {
-								$qry .= $modifier . "CAST($field AS text) LIKE '\%$text\%'";
-							} else {
-								$qry .= $modifier . "upper($field) LIKE upper('\%$text\%')";
-							}
-						}
-					} elsif ( $operator eq "NOT contain" ) {
-						if ( scalar @groupedfields ) {
-							$qry .= "$modifier (";
-							for ( my $x = 0 ; $x < scalar @groupedfields ; $x++ ) {
-								my %thisfield = $self->{'xmlHandler'}->get_field_attributes( $groupedfields[$x] );
-								$qry .= ' AND ' if $x != 0;
-								if ( $thisfield{'type'} eq 'int' ) {
-									$qry .= "(NOT CAST($groupedfields[$x] AS text) LIKE '\%$text\%' OR $groupedfields[$x] IS NULL)";
-								} else {
-									$qry .= "(NOT upper($groupedfields[$x]) LIKE upper('\%$text\%') OR $groupedfields[$x] IS NULL)";
-								}
-							}
-							$qry .= ')';
-						} elsif ($extended_isolate_field) {
-							$qry .= $modifier
-							  . "$extended_isolate_field NOT IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) LIKE upper('\%$text\%'))";
-						} elsif ( $field eq $self->{'system'}->{'labelfield'} ) {
-							$qry .= $modifier
-							  . "(NOT upper($field) LIKE upper('\%$text\%') AND id NOT IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) LIKE upper('\%$text\%')))";
-						} else {
-							if ( $thisfield{'type'} eq 'int' ) {
-								$qry .= $modifier . "(NOT CAST($field AS text) LIKE '\%$text\%' OR $field IS NULL)";
-							} else {
-								$qry .= $modifier . "(NOT upper($field) LIKE upper('\%$text\%') OR $field IS NULL)";
-							}
-						}
-					} elsif ( $operator eq '=' ) {
-						if ( scalar @groupedfields ) {
-							$qry .= "$modifier (";
-							for ( my $x = 0 ; $x < scalar @groupedfields ; $x++ ) {
-								my %thisfield = $self->{'xmlHandler'}->get_field_attributes( $groupedfields[$x] );
-								$qry .= ' OR ' if $x != 0;
-								if ( $thisfield{'type'} eq 'int' ) {
-									$qry .=
-									  ( $text eq '<blank>' || $text eq 'null' )
-									  ? "$groupedfields[$x] IS NULL"
-									  : "CAST($groupedfields[$x] AS text) = '$text'";
-								} else {
-									$qry .=
-									  ( $text eq '<blank>' || $text eq 'null' )
-									  ? "$groupedfields[$x] IS NULL"
-									  : "upper($groupedfields[$x]) = upper('$text')";
-								}
-							}
-							$qry .= ')';
-						} elsif ($extended_isolate_field) {
-							$qry .= $modifier
-							  . (
-								( $text eq '<blank>' || $text eq 'null' )
-								? "$extended_isolate_field NOT IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field')"
-								: "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) = upper('$text'))"
-							  );
-						} elsif ( $field eq $self->{'system'}->{'labelfield'} ) {
-							$qry .= $modifier
-							  . "(upper($field) = upper('$text') OR id IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper('$text')))";
-						} elsif ( lc( $thisfield{'type'} ) eq 'text' ) {
-							$qry .= $modifier
-							  . ( ( $text eq '<blank>' || $text eq 'null' ) ? "$field is null" : "upper($field) = upper('$text')" );
-						} else {
-							$qry .= $modifier . ( ( $text eq '<blank>' || $text eq 'null' ) ? "$field is null" : "$field = '$text'" );
-						}
-					} else {
-						if ( scalar @groupedfields ) {
-							$qry .= "$modifier (";
-							for ( my $x = 0 ; $x < scalar @groupedfields ; $x++ ) {
-								my %thisfield = $self->{'xmlHandler'}->get_field_attributes( $groupedfields[$x] );
-								if ( $thisfield{'type'} eq 'int'
-									&& !BIGSdb::Utils::is_int($text) )
-								{
-									push @errors, "$groupedfields[$x] is an integer field.";
-									next;
-								} elsif ( $thisfield{'type'} eq 'float'
-									&& !BIGSdb::Utils::is_float($text) )
-								{
-									push @errors, "$groupedfields[$x] is a floating point number field.";
-									next;
-								}
-								$qry .= ' OR ' if $x != 0;
-								%thisfield = $self->{'xmlHandler'}->get_field_attributes( $groupedfields[$x] );
-								if ( $thisfield{'type'} eq 'int' ) {
-									$qry .= "(CAST($groupedfields[$x] AS text) $operator '$text' AND $groupedfields[$x] is not null)";
-								} else {
-									$qry .= "($groupedfields[$x] $operator '$text' AND $groupedfields[$x] is not null)";
-								}
-							}
-							$qry .= ')';
-						} elsif ($extended_isolate_field) {
-							$qry .= $modifier
-							  . "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND value $operator '$text')";
-						} elsif ( $field eq $self->{'system'}->{'labelfield'} ) {
-							$qry .= $modifier
-							  . "($field $operator '$text' OR id IN (SELECT isolate_id FROM isolate_aliases WHERE alias $operator '$text'))";
-						} else {
-							if ( $text eq 'null' ) {
-								push @errors, "$operator is not a valid operator for comparing null values.";
-								next;
-							}
-							$qry .= $modifier . "$field $operator '$text'";
-						}
-					}
-				}
-			}
-		}
-		$qry .= ')';
-		foreach ( @{ $self->{'xmlHandler'}->get_field_list() } ) {
-			if ( $q->param( $_ . '_list' ) ne '' ) {
-				my $value = $q->param( $_ . '_list' );
-				if ( $qry !~ /WHERE \(\)\s*$/ ) {
-					$qry .= " AND ";
-				} else {
-					$qry = "SELECT * FROM $view WHERE ";
-				}
-				$qry .= ( ( $value eq '<blank>' || $value eq 'null' ) ? "$_ is null" : "$_ = '$value'" );
-			}
-			my $extatt = $extended->{$_};
-			if ( ref $extatt eq 'ARRAY' ) {
-				foreach my $extended_attribute (@$extatt) {
-					if ( $q->param("$_\..$extended_attribute\_list") ne '' ) {
-						my $value = $q->param("$_\..$extended_attribute\_list");
-						$value =~ s/'/\\'/g;
-						if ( $qry !~ /WHERE \(\)\s*$/ ) {
-							$qry .=
-" AND ($_ IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$_' AND attribute='$extended_attribute' AND value='$value'))";
-						} else {
-							$qry =
-"SELECT * FROM $view WHERE ($_ IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$_' AND attribute='$extended_attribute' AND value='$value'))";
-						}
-					}
-				}
-			}
-		}
-		if ( $q->param('publication_list') ne '' ) {
-			my $pmid = $q->param('publication_list');
-			my $ids = $self->{'datastore'}->run_list_query( "SELECT isolate_id FROM refs WHERE pubmed_id=?", $pmid );
-			if ($pmid) {
-				$" = "','";
-				if ( $qry !~ /WHERE \(\)\s*$/ ) {
-					$qry .= " AND (id IN ('@$ids'))";
-				} else {
-					$qry = "SELECT * FROM $view WHERE (id IN ('@$ids'))";
-				}
-			}
-		}
-		if ( $q->param('project_list') ne '' ) {
-			my $project_id = $q->param('project_list');
-			if ($project_id) {
-				$" = "','";
-				if ( $qry !~ /WHERE \(\)\s*$/ ) {
-					$qry .= " AND (id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id'))";
-				} else {
-					$qry = "SELECT * FROM $view WHERE (id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id'))";
-				}
-			}
-		}
-		if ( $q->param('linked_sequences_list') ) {
-			my $not;
-			if ( $q->param('linked_sequences_list') =~ /without/ ) {
-				$not = ' NOT';
-			}
-			if ( $qry !~ /WHERE \(\)\s*$/ ) {
-				$qry .= " AND (id$not IN (SELECT isolate_id FROM sequence_bin))";
-			} else {
-				$qry = "SELECT * FROM $view WHERE (id$not IN (SELECT isolate_id FROM sequence_bin))";
-			}
-		}
-		my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
-		foreach my $scheme_id (@$schemes) {
-			if ( $q->param("scheme_$scheme_id\_profile_status_list") ne '' ) {
-				my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-				if (@$scheme_loci) {
-					my $allele_clause;
-					my $first = 1;
-					foreach my $locus (@$scheme_loci) {
-						$locus =~ s/'/\\'/g;
-						$allele_clause .= ' OR ' if !$first;
-						$allele_clause .= "(locus=E'$locus' AND allele_id IS NOT NULL)";
-						$first = 0;
-					}
-					my $param = $q->param("scheme_$scheme_id\_profile_status_list");
-					my $clause;
-					if ( $param eq 'complete' ) {
-						$clause =
-"(id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING COUNT(isolate_id)= "
-						  . scalar @$scheme_loci . '))';
-					} elsif ( $param eq 'partial' ) {
-						$clause =
-"(id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING COUNT(isolate_id)< "
-						  . scalar @$scheme_loci . '))';
-					} elsif ( $param eq 'incomplete' ) {
-						$clause =
-"(id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING COUNT(isolate_id)< "
-						  . scalar @$scheme_loci
-						  . ") OR id NOT IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id )) ";
-					} else {
-						$clause = "(id NOT IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id ))";
-					}
-					if ( $qry !~ /WHERE \(\)\s*$/ ) {
-						$qry .= "AND $clause";
-					} else {
-						$qry = "SELECT * FROM $view WHERE $clause";
-					}
-				}
-			}
-			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-			foreach my $field (@$scheme_fields) {
-				if ( $q->param("scheme_$scheme_id\_$field\_list") ne '' ) {
-					my $value = $q->param("scheme_$scheme_id\_$field\_list");
-					$value =~ s/'/\\'/g;
-					my $clause;
-					$field = "scheme_$scheme_id\.$field";
-					my $scheme_loci  = $self->{'datastore'}->get_scheme_loci($scheme_id);
-					my $joined_table = "SELECT $view.id FROM $view";
-					$" = ',';
-					foreach (@$scheme_loci) {
-						$joined_table .= " left join allele_designations AS $_ on $_.isolate_id = $self->{'system'}->{'view'}.id";
-					}
-					$joined_table .= " left join temp_scheme_$scheme_id AS scheme_$scheme_id ON ";
-					my @temp;
-					foreach (@$scheme_loci) {
-						my $locus_info = $self->{'datastore'}->get_locus_info($_);
-						if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-							push @temp, " CAST($_.allele_id AS int)=scheme_$scheme_id\.$_";
-						} else {
-							push @temp, " $_.allele_id=scheme_$scheme_id\.$_";
-						}
-					}
-					$" = ' AND ';
-					$joined_table .= " @temp WHERE";
-					undef @temp;
-					foreach (@$scheme_loci) {
-						push @temp, "$_.locus='$_'";
-					}
-					$joined_table .= " @temp";
-					my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
-					if ( $scheme_field_info->{'type'} eq 'integer' ) {
-						$clause = "(id IN ($joined_table AND CAST($field AS int) = '$value'))";
-					} else {
-						$clause = "(id IN ($joined_table AND $field = '$value'))";
-					}
-					if ( $qry !~ /WHERE \(\)\s*$/ ) {
-						$qry .= "AND $clause";
-					} else {
-						$qry = "SELECT * FROM $view WHERE $clause";
-					}
-				}
-			}
-		}
-		my @lqry;
-		my @lqry_blank;
-		my %combo;
-		for ( my $i = 1 ; $i <= MAX_ROWS ; $i++ ) {
-			if ( $q->param("lt$i") ne '' ) {
-				if ( $q->param("ls$i") =~ /^l_(.+)/ || $q->param("ls$i") =~ /^la_(.+)\|\|/ || $q->param("ls$i") =~ /^cn_(.+)/ ) {
-					my $locus = $1;
-					$locus =~ s/'/\\'/g;
-					my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-					my $operator   = $q->param("ly$i");
-					my $text       = $q->param("lt$i");
-					if ( $combo{"$locus\_$operator\_$text"} ) {
-						next;    #prevent duplicates
-					}
-					$combo{"$locus\_$operator\_$text"} = 1;
-					$text =~ s/^\s*//;
-					$text =~ s/\s*$//;
-					$text =~ s/'/\\'/g;
-					if (   $text ne '<blank>'
-						&& $text ne 'null'
-						&& ( $locus_info->{'allele_id_format'} eq 'integer' )
-						&& !BIGSdb::Utils::is_int($text) )
-					{
-						push @errors, "$locus is an integer field.";
-						next;
-					} elsif ( !$self->is_valid_operator($operator) ) {
-						push @errors, "$operator is not a valid operator.";
-						next;
-					}
-					if ( $operator eq 'NOT' ) {
-						push @lqry,
-						  (
-							( $text eq '<blank>' || $text eq 'null' )
-							? "(EXISTS (SELECT 1 WHERE allele_designations.locus='$locus'))"
-							: "(allele_designations.locus='$locus' AND NOT upper(allele_designations.allele_id) = upper('$text'))"
-						  );
-					} elsif ( $operator eq "contains" ) {
-						push @lqry, "(allele_designations.locus='$locus' AND upper(allele_designations.allele_id) LIKE upper('\%$text\%'))";
-					} elsif ( $operator eq "NOT contain" ) {
-						push @lqry,
-						  "(allele_designations.locus='$locus' AND NOT upper(allele_designations.allele_id) LIKE upper('\%$text\%'))";
-					} elsif ( $operator eq '=' ) {
-						if ( $text eq '<blank>' || $text eq 'null' ) {
-							push @lqry_blank, "(id NOT IN (SELECT isolate_id FROM allele_designations WHERE locus='$locus'))";
-						} else {
-							push @lqry,
-							  $locus_info->{'allele_id_format'} eq 'text'
-							  ? "(allele_designations.locus='$locus' AND upper(allele_designations.allele_id) = upper('$text'))"
-							  : "(allele_designations.locus='$locus' AND allele_designations.allele_id = '$text')";
-						}
-					} else {
-						if ( $text eq 'null' ) {
-							push @errors, "$operator is not a valid operator for comparing null values.";
-							next;
-						}
-						if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-							push @lqry,
-							  "(allele_designations.locus='$locus' AND CAST(allele_designations.allele_id AS int) $operator '$text')";
-						} else {
-							push @lqry, "(allele_designations.locus='$locus' AND allele_designations.allele_id $operator '$text')";
-						}
-					}
-				}
-			}
-		}
-		my @sqry;
-		for ( my $i = 1 ; $i <= MAX_ROWS ; $i++ ) {
-			if ( $q->param("lt$i") ne '' ) {
-				if ( $q->param("ls$i") =~ /^s_(\d+)_(.*)/ ) {
-					my $scheme_id         = $1;
-					my $field             = $2;
-					my $operator          = $q->param("ly$i");
-					my $text              = $q->param("lt$i");
-					my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
-					$text =~ s/^\s*//;
-					$text =~ s/\s*$//;
-					$text =~ s/'/\\'/g;
-
-					if (   $text ne '<blank>'
-						&& $text ne 'null'
-						&& ( $scheme_field_info->{'type'} eq 'integer' )
-						&& !BIGSdb::Utils::is_int($text) )
-					{
-						push @errors, "$field is an integer field.";
-						next;
-					} elsif ( !$self->is_valid_operator($operator) ) {
-						push @errors, "$operator is not a valid operator.";
-						next;
-					}
-					$field = "scheme_$scheme_id\.$field";
-					my $scheme_loci  = $self->{'datastore'}->get_scheme_loci($scheme_id);
-					my $joined_table = "SELECT $view.id FROM $view";
-					$" = ',';
-					foreach (@$scheme_loci) {
-						$joined_table .= " left join allele_designations AS $_ on $_.isolate_id = $self->{'system'}->{'view'}.id";
-					}
-					$joined_table .= " left join temp_scheme_$scheme_id AS scheme_$scheme_id ON ";
-					my @temp;
-					foreach (@$scheme_loci) {
-						my $locus_info = $self->{'datastore'}->get_locus_info($_);
-						if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-							push @temp, " CAST($_.allele_id AS int)=scheme_$scheme_id\.$_";
-						} else {
-							push @temp, " $_.allele_id=scheme_$scheme_id\.$_";
-						}
-					}
-					$" = ' AND ';
-					$joined_table .= " @temp WHERE";
-					undef @temp;
-					foreach (@$scheme_loci) {
-						push @temp, "$_.locus='$_'";
-					}
-					$joined_table .= " @temp";
-					$" = ',';
-					if ( $operator eq 'NOT' ) {
-						push @sqry, ( $text eq '<blank>' || $text eq 'null' )
-						  ? "(id NOT IN ($joined_table AND $field is null))"
-						  : "(id NOT IN ($joined_table AND $field='$text'))";
-					} elsif ( $operator eq "contains" ) {
-						push @sqry,
-						  $scheme_field_info->{'type'} eq 'integer'
-						  ? "(id IN ($joined_table AND CAST($field AS text) ~* '$text'))"
-						  : "(id IN ($joined_table AND $field ~* '$text'))";
-					} elsif ( $operator eq "NOT contain" ) {
-						push @sqry,
-						  $scheme_field_info->{'type'} eq 'integer'
-						  ? "(id IN ($joined_table AND CAST($field AS text) !~* '$text'))"
-						  : "(id IN ($joined_table AND $field !~* '$text'))";
-					} elsif ( $operator eq '=' ) {
-						if ( $text eq '<blank>' || $text eq 'null' ) {
-							push @lqry_blank, "(id IN ($joined_table AND $field is null))";
-						} else {
-							push @sqry, $scheme_field_info->{'type'} eq 'text'
-							  ? "(id IN ($joined_table AND upper($field)=upper('$text')))"
-							  : "(id IN ($joined_table AND $field='$text'))";
-						}
-					} else {
-						if ( $scheme_field_info->{'type'} eq 'integer' ) {
-							push @sqry, "(id IN ($joined_table AND CAST($field AS int) $operator '$text'))";
-						} else {
-							push @sqry, "(id IN ($joined_table AND $field $operator '$text'))";
-						}
-					}
-				}
-			}
-		}
-		my $brace = @sqry ? '(' : '';
-		if (@lqry) {
-			$" = ' OR ';
-			my $modify;
-			if ( $q->param('c1') eq 'AND' ) {
-				$modify = "GROUP BY id HAVING count(id)=" . scalar @lqry;
-			}
-			my $lqry =
-"id IN (select distinct(id) FROM $view LEFT JOIN allele_designations ON $view.id=allele_designations.isolate_id WHERE @lqry $modify)";
-			if ( $qry =~ /\(\)$/ ) {
-				$qry = "SELECT * FROM $view WHERE $brace$lqry";
-			} else {
-				$qry .= " AND $brace($lqry)";
-			}
-		}
-		if (@lqry_blank) {
-			$" = ' ' . $q->param('c1') . ' ';
-			my $modify = @lqry ? $q->param('c1') : 'AND';
-			if ( $qry =~ /\(\)$/ ) {
-				$qry = "SELECT * FROM $view WHERE $brace@lqry_blank";
-			} else {
-				$qry .= " $modify $brace(@lqry_blank)";
-			}
-		}
-		if (@sqry) {
-			my $andor = $q->param('c1');
-			$" = " $andor ";
-			my $sqry = "@sqry";
-			if ( $qry =~ /\(\)$/ ) {
-				$qry = "SELECT * FROM $view WHERE $sqry";
-			} else {
-				$qry .= " $andor $sqry";
-				$qry .= ')' if ( @lqry or @lqry_blank );
-			}
-		}
+		$qry = $self->_generate_isolate_query_for_provenance_fields( \@errors );
+		$qry = $self->_modify_isolate_query_for_filters( $qry, $extended );
+		$qry = $self->_modify_isolate_query_for_designations( $qry, \@errors );
+		$qry = $self->_modify_isolate_query_for_tags ( $qry, \@errors );
 		$qry .= " ORDER BY ";
 		if ( $q->param('order') =~ /^la_(.+)\|\|/ || $q->param('order') =~ /^cn_(.+)/ ) {
 			$qry .= "l_$1";
@@ -1386,6 +822,634 @@ sub _run_isolate_query {
 		print
 "<div class=\"box\" id=\"statusbad\">Invalid search performed.  Try to <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=browse\">browse all records</a>.</div>\n";
 	}
+}
+
+sub _generate_isolate_query_for_provenance_fields {
+	my ( $self, $errors_ref ) = @_;
+	my $q    = $self->{'cgi'};
+	my $view = $self->{'system'}->{'view'};
+	my $qry = "SELECT * FROM $view WHERE (";
+	my $andor       = $q->param('c0');
+	my $first_value = 1;
+	foreach my $i ( 1 .. MAX_ROWS ) {
+		if ( $q->param("t$i") ne '' ) {
+			my $field = $q->param("s$i");
+			$field =~ s/^f_//;
+			my @groupedfields;
+			for ( 1 .. 10 ) {
+				if ( $self->{'system'}->{"fieldgroup$_"} ) {
+					my @grouped = ( split /:/, $self->{'system'}->{"fieldgroup$_"} );
+					if ( $field eq $grouped[0] ) {
+						@groupedfields = split /,/, $grouped[1];
+					}
+				}
+			}
+			my %thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+			my $extended_isolate_field;
+			if ( $field =~ /^e_(.*)\|\|(.*)/ ) {
+				$extended_isolate_field = $1;
+				$field                  = $2;
+				my $att_info =
+				  $self->{'datastore'}
+				  ->run_simple_query_hashref( "SELECT * FROM isolate_field_extended_attributes WHERE isolate_field=? AND attribute=?",
+					$extended_isolate_field, $field );
+				$thisfield{'type'} = $att_info->{'value_format'};
+				$thisfield{'type'} = 'int' if $thisfield{'type'} eq 'integer';
+			}
+			my $operator = $q->param("y$i");
+			my $text     = $q->param("t$i");
+			$text =~ s/^\s*//;
+			$text =~ s/\s*$//;
+			$text =~ s/'/\\'/g;
+			if (   $text ne '<blank>'
+				&& $text ne 'null'
+				&& ( lc( $thisfield{'type'} ) eq 'int' )
+				&& !BIGSdb::Utils::is_int($text) )
+			{
+				push @$errors_ref, "$field is an integer field.";
+				next;
+			} elsif ( $text ne '<blank>'
+				&& $text ne 'null'
+				&& ( lc( $thisfield{'type'} ) eq 'float' )
+				&& !BIGSdb::Utils::is_float($text) )
+			{
+				push @$errors_ref, "$field is a floating point number field.";
+				next;
+			} elsif ( $text ne '<blank>'
+				&& $text ne 'null'
+				&& lc( $thisfield{'type'} ) eq 'date'
+				&& !BIGSdb::Utils::is_date($text) )
+			{
+				push @$errors_ref, "$field is a date field - should be in yyyy-mm-dd format (or 'today' / 'yesterday').";
+				next;
+			} elsif ( !$self->is_valid_operator($operator) ) {
+				push @$errors_ref, "$operator is not a valid operator.";
+				next;
+			}
+			my $modifier = '';
+			if ( $i > 1 && !$first_value ) {
+				$modifier = " $andor ";
+			}
+			$first_value = 0;
+			if ( $field =~ /(.*) \(id\)$/
+				&& !BIGSdb::Utils::is_int($text) )
+			{
+				push @$errors_ref, "$field is an integer field.";
+				next;
+			}
+			if ( any { $field =~ /(.*) \($_\)$/ } qw (id surname first_name affiliation) ) {
+				$qry .= $modifier . $self->search_users( $field, $operator, $text, $self->{'system'}->{'view'} );
+			} else {
+				if ( $operator eq 'NOT' ) {
+					if ( scalar @groupedfields ) {
+						$qry .= "$modifier (";
+						for ( my $x = 0 ; $x < scalar @groupedfields ; $x++ ) {
+							my %thisfield = $self->{'xmlHandler'}->get_field_attributes( $groupedfields[$x] );
+							if ( $text eq '<blank>' || $text eq 'null' ) {
+								$qry .= ' OR ' if $x != 0;
+								$qry .= "($groupedfields[$x] IS NOT NULL)";
+							} else {
+								$qry .= ' AND ' if $x != 0;
+								if ( $thisfield{'type'} eq 'int' ) {
+									$qry .= "(NOT CAST($groupedfields[$x] AS text) = '$text' OR $groupedfields[$x] IS NULL)";
+								} else {
+									$qry .= "(NOT upper($groupedfields[$x]) = upper('$text') OR $groupedfields[$x] IS NULL)";
+								}
+							}
+						}
+						$qry .= ')';
+					} elsif ($extended_isolate_field) {
+						$qry .= $modifier
+						  . (
+							( $text eq '<blank>' || $text eq 'null' )
+							? "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field')"
+							: "$extended_isolate_field NOT IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value)=upper('$text'))"
+						  );
+					} elsif ( $field eq $self->{'system'}->{'labelfield'} ) {
+						$qry .= $modifier
+						  . "(NOT upper($field) = upper('$text') AND id NOT IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper('$text')))";
+					} else {
+						if ( $thisfield{'type'} eq 'int' ) {
+							$qry .= $modifier
+							  . (
+								( $text eq '<blank>' || $text eq 'null' )
+								? "$field is not null"
+								: "NOT ($field = '$text' OR $field IS NULL)"
+							  );
+						} else {
+							$qry .= $modifier
+							  . (
+								( $text eq '<blank>' || $text eq 'null' )
+								? "$field is not null"
+								: "(NOT upper($field) = upper('$text') OR $field IS NULL)"
+							  );
+						}
+					}
+				} elsif ( $operator eq "contains" ) {
+					if ( scalar @groupedfields ) {
+						$qry .= "$modifier (";
+						for ( my $x = 0 ; $x < scalar @groupedfields ; $x++ ) {
+							my %thisfield = $self->{'xmlHandler'}->get_field_attributes( $groupedfields[$x] );
+							$qry .= ' OR ' if $x != 0;
+							if ( $thisfield{'type'} eq 'int' ) {
+								$qry .= "CAST($groupedfields[$x] AS text) LIKE '\%$text\%'";
+							} else {
+								$qry .= "upper($groupedfields[$x]) LIKE upper('\%$text\%')";
+							}
+						}
+						$qry .= ')';
+					} elsif ($extended_isolate_field) {
+						$qry .= $modifier
+						  . "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) LIKE upper('\%$text\%'))";
+					} elsif ( $field eq $self->{'system'}->{'labelfield'} ) {
+						$qry .= $modifier
+						  . "(upper($field) LIKE upper('\%$text\%') OR id IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) LIKE upper('\%$text\%')))";
+					} else {
+						if ( $thisfield{'type'} eq 'int' ) {
+							$qry .= $modifier . "CAST($field AS text) LIKE '\%$text\%'";
+						} else {
+							$qry .= $modifier . "upper($field) LIKE upper('\%$text\%')";
+						}
+					}
+				} elsif ( $operator eq "NOT contain" ) {
+					if ( scalar @groupedfields ) {
+						$qry .= "$modifier (";
+						for ( my $x = 0 ; $x < scalar @groupedfields ; $x++ ) {
+							my %thisfield = $self->{'xmlHandler'}->get_field_attributes( $groupedfields[$x] );
+							$qry .= ' AND ' if $x != 0;
+							if ( $thisfield{'type'} eq 'int' ) {
+								$qry .= "(NOT CAST($groupedfields[$x] AS text) LIKE '\%$text\%' OR $groupedfields[$x] IS NULL)";
+							} else {
+								$qry .= "(NOT upper($groupedfields[$x]) LIKE upper('\%$text\%') OR $groupedfields[$x] IS NULL)";
+							}
+						}
+						$qry .= ')';
+					} elsif ($extended_isolate_field) {
+						$qry .= $modifier
+						  . "$extended_isolate_field NOT IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) LIKE upper('\%$text\%'))";
+					} elsif ( $field eq $self->{'system'}->{'labelfield'} ) {
+						$qry .= $modifier
+						  . "(NOT upper($field) LIKE upper('\%$text\%') AND id NOT IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) LIKE upper('\%$text\%')))";
+					} else {
+						if ( $thisfield{'type'} eq 'int' ) {
+							$qry .= $modifier . "(NOT CAST($field AS text) LIKE '\%$text\%' OR $field IS NULL)";
+						} else {
+							$qry .= $modifier . "(NOT upper($field) LIKE upper('\%$text\%') OR $field IS NULL)";
+						}
+					}
+				} elsif ( $operator eq '=' ) {
+					if ( scalar @groupedfields ) {
+						$qry .= "$modifier (";
+						for ( my $x = 0 ; $x < scalar @groupedfields ; $x++ ) {
+							my %thisfield = $self->{'xmlHandler'}->get_field_attributes( $groupedfields[$x] );
+							$qry .= ' OR ' if $x != 0;
+							if ( $thisfield{'type'} eq 'int' ) {
+								$qry .=
+								  ( $text eq '<blank>' || $text eq 'null' )
+								  ? "$groupedfields[$x] IS NULL"
+								  : "CAST($groupedfields[$x] AS text) = '$text'";
+							} else {
+								$qry .=
+								  ( $text eq '<blank>' || $text eq 'null' )
+								  ? "$groupedfields[$x] IS NULL"
+								  : "upper($groupedfields[$x]) = upper('$text')";
+							}
+						}
+						$qry .= ')';
+					} elsif ($extended_isolate_field) {
+						$qry .= $modifier
+						  . (
+							( $text eq '<blank>' || $text eq 'null' )
+							? "$extended_isolate_field NOT IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field')"
+							: "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) = upper('$text'))"
+						  );
+					} elsif ( $field eq $self->{'system'}->{'labelfield'} ) {
+						$qry .= $modifier
+						  . "(upper($field) = upper('$text') OR id IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper('$text')))";
+					} elsif ( lc( $thisfield{'type'} ) eq 'text' ) {
+						$qry .=
+						  $modifier . ( ( $text eq '<blank>' || $text eq 'null' ) ? "$field is null" : "upper($field) = upper('$text')" );
+					} else {
+						$qry .= $modifier . ( ( $text eq '<blank>' || $text eq 'null' ) ? "$field is null" : "$field = '$text'" );
+					}
+				} else {
+					if ( scalar @groupedfields ) {
+						$qry .= "$modifier (";
+						for ( my $x = 0 ; $x < scalar @groupedfields ; $x++ ) {
+							my %thisfield = $self->{'xmlHandler'}->get_field_attributes( $groupedfields[$x] );
+							if ( $thisfield{'type'} eq 'int'
+								&& !BIGSdb::Utils::is_int($text) )
+							{
+								push @$errors_ref, "$groupedfields[$x] is an integer field.";
+								next;
+							} elsif ( $thisfield{'type'} eq 'float'
+								&& !BIGSdb::Utils::is_float($text) )
+							{
+								push @$errors_ref, "$groupedfields[$x] is a floating point number field.";
+								next;
+							}
+							$qry .= ' OR ' if $x != 0;
+							%thisfield = $self->{'xmlHandler'}->get_field_attributes( $groupedfields[$x] );
+							if ( $thisfield{'type'} eq 'int' ) {
+								$qry .= "(CAST($groupedfields[$x] AS text) $operator '$text' AND $groupedfields[$x] is not null)";
+							} else {
+								$qry .= "($groupedfields[$x] $operator '$text' AND $groupedfields[$x] is not null)";
+							}
+						}
+						$qry .= ')';
+					} elsif ($extended_isolate_field) {
+						$qry .= $modifier
+						  . "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND value $operator '$text')";
+					} elsif ( $field eq $self->{'system'}->{'labelfield'} ) {
+						$qry .= $modifier
+						  . "($field $operator '$text' OR id IN (SELECT isolate_id FROM isolate_aliases WHERE alias $operator '$text'))";
+					} else {
+						if ( $text eq 'null' ) {
+							push @$errors_ref, "$operator is not a valid operator for comparing null values.";
+							next;
+						}
+						$qry .= $modifier . "$field $operator '$text'";
+					}
+				}
+			}
+		}
+	}
+	$qry .= ')';
+	return $qry;
+}
+
+sub _modify_isolate_query_for_filters {
+	my ( $self, $qry, $extended ) = @_;
+
+	#extended: extended attriutes hashref;
+	my $q    = $self->{'cgi'};
+	my $view = $self->{'system'}->{'view'};
+	foreach ( @{ $self->{'xmlHandler'}->get_field_list() } ) {
+		if ( $q->param( $_ . '_list' ) ne '' ) {
+			my $value = $q->param( $_ . '_list' );
+			if ( $qry !~ /WHERE \(\)\s*$/ ) {
+				$qry .= " AND ";
+			} else {
+				$qry = "SELECT * FROM $view WHERE ";
+			}
+			$qry .= ( ( $value eq '<blank>' || $value eq 'null' ) ? "$_ is null" : "$_ = '$value'" );
+		}
+		my $extatt = $extended->{$_};
+		if ( ref $extatt eq 'ARRAY' ) {
+			foreach my $extended_attribute (@$extatt) {
+				if ( $q->param("$_\..$extended_attribute\_list") ne '' ) {
+					my $value = $q->param("$_\..$extended_attribute\_list");
+					$value =~ s/'/\\'/g;
+					if ( $qry !~ /WHERE \(\)\s*$/ ) {
+						$qry .=
+" AND ($_ IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$_' AND attribute='$extended_attribute' AND value='$value'))";
+					} else {
+						$qry =
+"SELECT * FROM $view WHERE ($_ IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$_' AND attribute='$extended_attribute' AND value='$value'))";
+					}
+				}
+			}
+		}
+	}
+	if ( $q->param('publication_list') ne '' ) {
+		my $pmid = $q->param('publication_list');
+		my $ids = $self->{'datastore'}->run_list_query( "SELECT isolate_id FROM refs WHERE pubmed_id=?", $pmid );
+		if ($pmid) {
+			$" = "','";
+			if ( $qry !~ /WHERE \(\)\s*$/ ) {
+				$qry .= " AND (id IN ('@$ids'))";
+			} else {
+				$qry = "SELECT * FROM $view WHERE (id IN ('@$ids'))";
+			}
+		}
+	}
+	if ( $q->param('project_list') ne '' ) {
+		my $project_id = $q->param('project_list');
+		if ($project_id) {
+			$" = "','";
+			if ( $qry !~ /WHERE \(\)\s*$/ ) {
+				$qry .= " AND (id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id'))";
+			} else {
+				$qry = "SELECT * FROM $view WHERE (id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id'))";
+			}
+		}
+	}
+	if ( $q->param('linked_sequences_list') ) {
+		my $not;
+		if ( $q->param('linked_sequences_list') =~ /without/ ) {
+			$not = ' NOT';
+		}
+		if ( $qry !~ /WHERE \(\)\s*$/ ) {
+			$qry .= " AND (id$not IN (SELECT isolate_id FROM sequence_bin))";
+		} else {
+			$qry = "SELECT * FROM $view WHERE (id$not IN (SELECT isolate_id FROM sequence_bin))";
+		}
+	}
+	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+	foreach my $scheme_id (@$schemes) {
+		if ( $q->param("scheme_$scheme_id\_profile_status_list") ne '' ) {
+			my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+			if (@$scheme_loci) {
+				my $allele_clause;
+				my $first = 1;
+				foreach my $locus (@$scheme_loci) {
+					$locus =~ s/'/\\'/g;
+					$allele_clause .= ' OR ' if !$first;
+					$allele_clause .= "(locus=E'$locus' AND allele_id IS NOT NULL)";
+					$first = 0;
+				}
+				my $param = $q->param("scheme_$scheme_id\_profile_status_list");
+				my $clause;
+				if ( $param eq 'complete' ) {
+					$clause =
+"(id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING COUNT(isolate_id)= "
+					  . scalar @$scheme_loci . '))';
+				} elsif ( $param eq 'partial' ) {
+					$clause =
+"(id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING COUNT(isolate_id)< "
+					  . scalar @$scheme_loci . '))';
+				} elsif ( $param eq 'incomplete' ) {
+					$clause =
+"(id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING COUNT(isolate_id)< "
+					  . scalar @$scheme_loci
+					  . ") OR id NOT IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id )) ";
+				} else {
+					$clause = "(id NOT IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id ))";
+				}
+				if ( $qry !~ /WHERE \(\)\s*$/ ) {
+					$qry .= "AND $clause";
+				} else {
+					$qry = "SELECT * FROM $view WHERE $clause";
+				}
+			}
+		}
+		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+		foreach my $field (@$scheme_fields) {
+			if ( $q->param("scheme_$scheme_id\_$field\_list") ne '' ) {
+				my $value = $q->param("scheme_$scheme_id\_$field\_list");
+				$value =~ s/'/\\'/g;
+				my $clause;
+				$field = "scheme_$scheme_id\.$field";
+				my $scheme_loci  = $self->{'datastore'}->get_scheme_loci($scheme_id);
+				my $joined_table = "SELECT $view.id FROM $view";
+				$" = ',';
+				foreach (@$scheme_loci) {
+					$joined_table .= " left join allele_designations AS $_ on $_.isolate_id = $self->{'system'}->{'view'}.id";
+				}
+				$joined_table .= " left join temp_scheme_$scheme_id AS scheme_$scheme_id ON ";
+				my @temp;
+				foreach (@$scheme_loci) {
+					my $locus_info = $self->{'datastore'}->get_locus_info($_);
+					if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
+						push @temp, " CAST($_.allele_id AS int)=scheme_$scheme_id\.$_";
+					} else {
+						push @temp, " $_.allele_id=scheme_$scheme_id\.$_";
+					}
+				}
+				$" = ' AND ';
+				$joined_table .= " @temp WHERE";
+				undef @temp;
+				foreach (@$scheme_loci) {
+					push @temp, "$_.locus='$_'";
+				}
+				$joined_table .= " @temp";
+				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+				if ( $scheme_field_info->{'type'} eq 'integer' ) {
+					$clause = "(id IN ($joined_table AND CAST($field AS int) = '$value'))";
+				} else {
+					$clause = "(id IN ($joined_table AND $field = '$value'))";
+				}
+				if ( $qry !~ /WHERE \(\)\s*$/ ) {
+					$qry .= "AND $clause";
+				} else {
+					$qry = "SELECT * FROM $view WHERE $clause";
+				}
+			}
+		}
+	}
+	return $qry;
+}
+
+sub _modify_isolate_query_for_designations {
+	my ( $self, $qry, $errors_ref ) = @_;
+	my $q    = $self->{'cgi'};
+	my $view = $self->{'system'}->{'view'};
+	my ( @lqry, @lqry_blank, %combo );
+	foreach my $i ( 1 .. MAX_ROWS ) {
+		if ( $q->param("lt$i") ne '' ) {
+			if ( $q->param("ls$i") =~ /^l_(.+)/ || $q->param("ls$i") =~ /^la_(.+)\|\|/ || $q->param("ls$i") =~ /^cn_(.+)/ ) {
+				my $locus = $1;
+				$locus =~ s/'/\\'/g;
+				my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+				my $operator   = $q->param("ly$i");
+				my $text       = $q->param("lt$i");
+				next if $combo{"$locus\_$operator\_$text"};    #prevent duplicates
+				$combo{"$locus\_$operator\_$text"} = 1;
+				$text =~ s/^\s*//;
+				$text =~ s/\s*$//;
+				$text =~ s/'/\\'/g;
+
+				if (   $text ne '<blank>'
+					&& $text ne 'null'
+					&& ( $locus_info->{'allele_id_format'} eq 'integer' )
+					&& !BIGSdb::Utils::is_int($text) )
+				{
+					push @$errors_ref, "$locus is an integer field.";
+					next;
+				} elsif ( !$self->is_valid_operator($operator) ) {
+					push @$errors_ref, "$operator is not a valid operator.";
+					next;
+				}
+				if ( $operator eq 'NOT' ) {
+					push @lqry,
+					  (
+						( $text eq '<blank>' || $text eq 'null' )
+						? "(EXISTS (SELECT 1 WHERE allele_designations.locus='$locus'))"
+						: "(allele_designations.locus='$locus' AND NOT upper(allele_designations.allele_id) = upper('$text'))"
+					  );
+				} elsif ( $operator eq "contains" ) {
+					push @lqry, "(allele_designations.locus='$locus' AND upper(allele_designations.allele_id) LIKE upper('\%$text\%'))";
+				} elsif ( $operator eq "NOT contain" ) {
+					push @lqry, "(allele_designations.locus='$locus' AND NOT upper(allele_designations.allele_id) LIKE upper('\%$text\%'))";
+				} elsif ( $operator eq '=' ) {
+					if ( $text eq '<blank>' || $text eq 'null' ) {
+						push @lqry_blank, "(id NOT IN (SELECT isolate_id FROM allele_designations WHERE locus='$locus'))";
+					} else {
+						push @lqry,
+						  $locus_info->{'allele_id_format'} eq 'text'
+						  ? "(allele_designations.locus='$locus' AND upper(allele_designations.allele_id) = upper('$text'))"
+						  : "(allele_designations.locus='$locus' AND allele_designations.allele_id = '$text')";
+					}
+				} else {
+					if ( $text eq 'null' ) {
+						push @$errors_ref, "$operator is not a valid operator for comparing null values.";
+						next;
+					}
+					if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
+						push @lqry, "(allele_designations.locus='$locus' AND CAST(allele_designations.allele_id AS int) $operator '$text')";
+					} else {
+						push @lqry, "(allele_designations.locus='$locus' AND allele_designations.allele_id $operator '$text')";
+					}
+				}
+			}
+		}
+	}
+	my @sqry;
+	foreach my $i ( 1 .. MAX_ROWS ) {
+		if ( $q->param("lt$i") ne '' ) {
+			if ( $q->param("ls$i") =~ /^s_(\d+)_(.*)/ ) {
+				my ( $scheme_id, $field ) = ( $1, $2 );
+				my $operator          = $q->param("ly$i");
+				my $text              = $q->param("lt$i");
+				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+				$text =~ s/^\s*//;
+				$text =~ s/\s*$//;
+				$text =~ s/'/\\'/g;
+				if (   $text ne '<blank>'
+					&& $text ne 'null'
+					&& ( $scheme_field_info->{'type'} eq 'integer' )
+					&& !BIGSdb::Utils::is_int($text) )
+				{
+					push @$errors_ref, "$field is an integer field.";
+					next;
+				} elsif ( !$self->is_valid_operator($operator) ) {
+					push @$errors_ref, "$operator is not a valid operator.";
+					next;
+				}
+				$field = "scheme_$scheme_id\.$field";
+				my $scheme_loci  = $self->{'datastore'}->get_scheme_loci($scheme_id);
+				my $joined_table = "SELECT $view.id FROM $view";
+				$" = ',';
+				foreach (@$scheme_loci) {
+					$joined_table .= " left join allele_designations AS $_ on $_.isolate_id = $self->{'system'}->{'view'}.id";
+				}
+				$joined_table .= " left join temp_scheme_$scheme_id AS scheme_$scheme_id ON ";
+				my @temp;
+				foreach (@$scheme_loci) {
+					my $locus_info = $self->{'datastore'}->get_locus_info($_);
+					if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
+						push @temp, " CAST($_.allele_id AS int)=scheme_$scheme_id\.$_";
+					} else {
+						push @temp, " $_.allele_id=scheme_$scheme_id\.$_";
+					}
+				}
+				$" = ' AND ';
+				$joined_table .= " @temp WHERE";
+				undef @temp;
+				foreach (@$scheme_loci) {
+					push @temp, "$_.locus='$_'";
+				}
+				$joined_table .= " @temp";
+				$" = ',';
+				if ( $operator eq 'NOT' ) {
+					push @sqry, ( $text eq '<blank>' || $text eq 'null' )
+					  ? "(id NOT IN ($joined_table AND $field is null))"
+					  : "(id NOT IN ($joined_table AND $field='$text'))";
+				} elsif ( $operator eq "contains" ) {
+					push @sqry, $scheme_field_info->{'type'} eq 'integer'
+					  ? "(id IN ($joined_table AND CAST($field AS text) ~* '$text'))"
+					  : "(id IN ($joined_table AND $field ~* '$text'))";
+				} elsif ( $operator eq "NOT contain" ) {
+					push @sqry, $scheme_field_info->{'type'} eq 'integer'
+					  ? "(id IN ($joined_table AND CAST($field AS text) !~* '$text'))"
+					  : "(id IN ($joined_table AND $field !~* '$text'))";
+				} elsif ( $operator eq '=' ) {
+					if ( $text eq '<blank>' || $text eq 'null' ) {
+						push @lqry_blank, "(id IN ($joined_table AND $field is null))";
+					} else {
+						push @sqry, $scheme_field_info->{'type'} eq 'text'
+						  ? "(id IN ($joined_table AND upper($field)=upper('$text')))"
+						  : "(id IN ($joined_table AND $field='$text'))";
+					}
+				} else {
+					if ( $scheme_field_info->{'type'} eq 'integer' ) {
+						push @sqry, "(id IN ($joined_table AND CAST($field AS int) $operator '$text'))";
+					} else {
+						push @sqry, "(id IN ($joined_table AND $field $operator '$text'))";
+					}
+				}
+			}
+		}
+	}
+	my $brace = @sqry ? '(' : '';
+	if (@lqry) {
+		$" = ' OR ';
+		my $modify;
+		if ( $q->param('c1') eq 'AND' ) {
+			$modify = "GROUP BY id HAVING count(id)=" . scalar @lqry;
+		}
+		my $lqry =
+"id IN (select distinct(id) FROM $view LEFT JOIN allele_designations ON $view.id=allele_designations.isolate_id WHERE @lqry $modify)";
+		if ( $qry =~ /\(\)$/ ) {
+			$qry = "SELECT * FROM $view WHERE $brace$lqry";
+		} else {
+			$qry .= " AND $brace($lqry)";
+		}
+	}
+	if (@lqry_blank) {
+		$" = ' ' . $q->param('c1') . ' ';
+		my $modify = @lqry ? $q->param('c1') : 'AND';
+		if ( $qry =~ /\(\)$/ ) {
+			$qry = "SELECT * FROM $view WHERE $brace@lqry_blank";
+		} else {
+			$qry .= " $modify $brace(@lqry_blank)";
+		}
+	}
+	if (@sqry) {
+		my $andor = $q->param('c1');
+		$" = " $andor ";
+		my $sqry = "@sqry";
+		if ( $qry =~ /\(\)$/ ) {
+			$qry = "SELECT * FROM $view WHERE $sqry";
+		} else {
+			$qry .= " $andor $sqry";
+			$qry .= ')' if ( @lqry or @lqry_blank );
+		}
+	}
+	return $qry;
+}
+
+sub _modify_isolate_query_for_tags {
+	my ($self, $qry, $errors_ref) = @_;
+	my $q = $self->{'cgi'};
+	my $view = $self->{'system'}->{'view'};
+	my @tag_queries;
+	foreach my $i ( 1 .. MAX_ROWS ) {
+		if ( $q->param("ts$i") ne '' && $q->param("tt$i") ne '') {
+			my $action = $q->param("tt$i");
+			my $locus;
+			if ( $q->param("ts$i") =~ /^l_(.+)/ || $q->param("ts$i") =~ /^la_(.+)\|\|/ || $q->param("ts$i") =~ /^cn_(.+)/ ) {
+				$locus = $1;
+			}
+			if (!$self->{'datastore'}->is_locus($locus)){
+				push @$errors_ref, "'$locus' is an invalid locus.";
+				next;
+			}
+			$locus =~ s/'/\\'/g;
+			my $temp_qry;
+			my $joined_table = "allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id";
+			if ($action eq 'untagged'){
+				$temp_qry = "id NOT IN (SELECT isolate_id FROM $joined_table WHERE locus=E'$locus')";
+			} elsif ($action eq 'tagged'){
+				$temp_qry = "id IN (SELECT isolate_id FROM $joined_table WHERE locus=E'$locus')";
+			} elsif ($action eq 'complete'){
+				$temp_qry = "id IN (SELECT isolate_id FROM $joined_table WHERE locus=E'$locus' AND complete)";
+			} elsif ($action eq 'incomplete'){
+				$temp_qry = "id IN (SELECT isolate_id FROM $joined_table WHERE locus=E'$locus' AND NOT complete)";
+			}
+			push @tag_queries, $temp_qry if $temp_qry;
+		}	
+	}
+	if (@tag_queries) {
+		my $andor = (any {$q->param('c2') eq $_} qw (AND OR)) ? $q->param('c2') : '';
+		$"=" $andor ";
+		if ( $qry !~ /WHERE \(\)\s*$/ ) {
+			$qry .= " AND (@tag_queries)";
+		} else {
+			$qry = "SELECT * FROM $view WHERE (@tag_queries)";
+		}
+	}
+	return $qry;
 }
 
 sub _run_profile_query {
