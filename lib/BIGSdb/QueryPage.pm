@@ -23,6 +23,7 @@ use List::MoreUtils qw(any none);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant MAX_ROWS => 20;
+use BIGSdb::Page qw(SEQ_FLAGS);
 
 sub initiate {
 	my ($self) = @_;
@@ -251,12 +252,14 @@ sub _print_loci_fields {
 
 sub _print_locus_tag_fields {
 	my ( $self, $row, $max_rows, $locus_list, $locus_labels ) = @_;
+	unshift @$locus_list, 'any locus';
 	unshift @$locus_list, '';
 	my $q = $self->{'cgi'};
 	print "<span style=\"white-space:nowrap\">\n";
 	print $q->popup_menu( -name => "ts$row", -values => $locus_list, -labels => $locus_labels, -class => 'fieldlist' );
 	print ' is ';
 	my @values = qw(untagged tagged complete incomplete);
+	push @values, "flagged: $_" foreach ('any', 'none', SEQ_FLAGS);
 	unshift @values, '';
 	print $q->popup_menu( -name => "tt$row", -values => \@values );
 
@@ -1418,24 +1421,39 @@ sub _modify_isolate_query_for_tags {
 		if ( $q->param("ts$i") ne '' && $q->param("tt$i") ne '') {
 			my $action = $q->param("tt$i");
 			my $locus;
-			if ( $q->param("ts$i") =~ /^l_(.+)/ || $q->param("ts$i") =~ /^la_(.+)\|\|/ || $q->param("ts$i") =~ /^cn_(.+)/ ) {
-				$locus = $1;
-			}
-			if (!$self->{'datastore'}->is_locus($locus)){
-				push @$errors_ref, "'$locus' is an invalid locus.";
-				next;
+			if ($q->param("ts$i") ne 'any locus'){
+				if ( $q->param("ts$i") =~ /^l_(.+)/ || $q->param("ts$i") =~ /^la_(.+)\|\|/ || $q->param("ts$i") =~ /^cn_(.+)/ ) {
+					$locus = $1;
+				}
+				if (!$self->{'datastore'}->is_locus($locus)){
+					push @$errors_ref, "'$locus' is an invalid locus.";
+					next;
+				}
+			} else {
+				$locus = 'any locus';
 			}
 			$locus =~ s/'/\\'/g;
 			my $temp_qry;
-			my $joined_table = "allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id";
+			my $seq_joined_table = "allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id";
+			my $locus_clause = $locus eq 'any locus' ? 'locus IS NOT NULL' : "locus=E'$locus'";
 			if ($action eq 'untagged'){
-				$temp_qry = "id NOT IN (SELECT isolate_id FROM $joined_table WHERE locus=E'$locus')";
+				$temp_qry = "id NOT IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause)";
 			} elsif ($action eq 'tagged'){
-				$temp_qry = "id IN (SELECT isolate_id FROM $joined_table WHERE locus=E'$locus')";
+				$temp_qry = "id IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause)";
 			} elsif ($action eq 'complete'){
-				$temp_qry = "id IN (SELECT isolate_id FROM $joined_table WHERE locus=E'$locus' AND complete)";
+				$temp_qry = "id IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause AND complete)";
 			} elsif ($action eq 'incomplete'){
-				$temp_qry = "id IN (SELECT isolate_id FROM $joined_table WHERE locus=E'$locus' AND NOT complete)";
+				$temp_qry = "id IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause AND NOT complete)";
+			} elsif ($action =~ /^flagged: ([\w\s]+)$/){
+				my $flag = $1;
+				my $flag_joined_table = "sequence_flags LEFT JOIN sequence_bin ON sequence_flags.seqbin_id = sequence_bin.id";
+				if ($flag eq 'any'){
+					$temp_qry = "id IN (SELECT isolate_id FROM $flag_joined_table WHERE $locus_clause)";
+				} elsif ($flag eq 'none'){
+					$temp_qry = "id IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause) AND id NOT IN (SELECT isolate_id FROM $flag_joined_table WHERE $locus_clause)";
+				} else {
+					$temp_qry = "id IN (SELECT isolate_id FROM $flag_joined_table WHERE $locus_clause AND flag='$flag')";
+				}
 			}
 			push @tag_queries, $temp_qry if $temp_qry;
 		}	
