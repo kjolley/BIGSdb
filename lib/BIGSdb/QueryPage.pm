@@ -524,7 +524,7 @@ sub _print_isolate_locus_fieldset {
 sub _print_isolate_tag_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	next if !$self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM allele_sequences")->[0];
+	return if !$self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM allele_sequences")->[0];
 	my ( $locus_list, $locus_labels ) = $self->get_field_selection_list( { 'loci' => 1, 'scheme_fields' => 0, 'sort_labels' => 1 } );
 	if (@$locus_list) {
 		print "<fieldset id=\"tag_fieldset\" style=\"float:left\" class=\"coolfieldset\">\n";
