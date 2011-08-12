@@ -292,7 +292,7 @@ sub _update_profile_history {
 	$action =~ s/'/\\'/g;
 	eval {
 		$self->{'db'}->do(
-"INSERT INTO profile_history (scheme_id,profile_id,timestamp,action,curator) VALUES ($scheme_id,'$profile_id','now','$action',$curator_id)"
+"INSERT INTO profile_history (scheme_id,profile_id,timestamp,action,curator) VALUES ($scheme_id,'$profile_id','now',E'$action',$curator_id)"
 		);
 	};
 	if ($@) {
