@@ -123,13 +123,13 @@ sub get_distinct_fields {
 	}
 	my $sql = $self->{'db'}->prepare($qry);
 	$logger->debug( "Scheme#$self->{'id'} ($self->{'description'}) statement handle 'distinct_fields' prepared." );
-	eval { $sql->execute; };
+	eval { $sql->execute };
 	if ($@){
 		$logger->warn(
 "Can't execute query handle. Check database attributes in the scheme_fields table for scheme#$self->{'id'} ($self->{'description'})! Statement was '$self->{'sql'}->{scheme_fields}->{Statement}'. "
 			  . $self->{'db'}->errstr );
 		throw BIGSdb::DatabaseConfigurationException("Scheme configuration error");
-		return \@;;
+		return \@;
 	} else {
 		while (my ($value) = $sql->fetchrow_array){
 			push @values,$value;

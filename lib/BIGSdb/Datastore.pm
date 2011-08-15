@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::Datastore;
 use strict;
+use warnings;
 use Log::Log4perl qw(get_logger);
 use Time::HiRes qw(gettimeofday);
 use List::MoreUtils qw(any);
@@ -118,8 +119,11 @@ sub get_composite_value {
 	my %scheme_field_list;
 	while ( my ( $field, $empty_value, $regex ) = $self->{'sql'}->{'composite_field_values'}->fetchrow_array() ) {
 		if (
-			$regex =~ /[^\w\d\-\.\\\/\(\)\+\* \$]/    #reject regex containing any character not in list
-			|| $regex =~ /\$\D/                       #allow only $1, $2 etc. variables
+			defined $regex
+			&& (
+				$regex =~ /[^\w\d\-\.\\\/\(\)\+\* \$]/    #reject regex containing any character not in list
+				|| $regex =~ /\$\D/                       #allow only $1, $2 etc. variables
+			)                                             
 		  )
 		{
 			$logger->warn(
@@ -140,8 +144,8 @@ sub get_composite_value {
 			if ( ref $allele_ids ne 'HASH' ) {
 				$allele_ids = $self->get_all_allele_ids($isolate_id);
 			}
-			my $allele = $allele_ids->{$locus};
-			$allele = '&Delta;' if $allele =~ /^del/i;
+			my $allele = $allele_ids->{$locus} ;
+			$allele = '&Delta;' if defined $allele && $allele =~ /^del/i;
 			if ($regex) {
 				my $expression = "\$allele =~ $regex";
 				eval "$expression";
@@ -457,9 +461,9 @@ sub get_scheme_field_info {
 		$self->{'sql'}->{'scheme_field_info'} = $self->{'db'}->prepare("SELECT * FROM scheme_fields WHERE scheme_id=? AND field=?");
 		$logger->info("Statement handle 'scheme_field_info' prepared.");
 	}
-	eval { $self->{'sql'}->{'scheme_field_info'}->execute( $id, $field ); };
+	eval { $self->{'sql'}->{'scheme_field_info'}->execute( $id, $field ) };
 	$logger->error($@) if $@;
-	return $self->{'sql'}->{'scheme_field_info'}->fetchrow_hashref();
+	return $self->{'sql'}->{'scheme_field_info'}->fetchrow_hashref;
 }
 
 sub get_all_scheme_field_info {
@@ -586,7 +590,7 @@ sub create_temp_scheme_table {
 	if ($@) {
 		$logger->error("Can't put data into temp table: $@");
 		$self->{'db'}->rollback;
-		return -1;
+		throw BIGSdb::DatabaseConnectionException("Can't put data into temp table");
 	}
 	$" = ',';
 	eval { $self->{'db'}->do("CREATE INDEX i_$id ON temp_scheme_$id (@$loci)"); };
@@ -639,24 +643,19 @@ sub get_loci {
 "SELECT id,scheme_id from loci left join scheme_members on loci.id = scheme_members.locus $defined_clause order by scheme_members.scheme_id,id";
 	}
 	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute(); };
-	if ($@) {
-		$logger->error("Can't execute $qry $@");
-	}
+	eval { $sql->execute };
+	$logger->error($@) if $@;
 	my @query_loci;
 	my $array_ref = $sql->fetchall_arrayref;
 	foreach (@$array_ref) {
 		next
 		  if $options->{'query_pref'}
-			  && (
-				  !$self->{'prefs'}->{'query_field_loci'}->{ $_->[0] }
-				  || (  !$self->{'prefs'}->{'query_field_schemes'}->{ $_->[1] }
-					  && $_->[1] )
-			  );
+			  && ( !$self->{'prefs'}->{'query_field_loci'}->{ $_->[0] }
+				  || ( defined $_->[1] && !$self->{'prefs'}->{'query_field_schemes'}->{ $_->[1] } ) );
 		next
 		  if $options->{'analysis_pref'}
 			  && ( !$self->{'prefs'}->{'analysis_loci'}->{ $_->[0] }
-				  || ( !$self->{'prefs'}->{'analysis_schemes'}->{ $_->[1] } && $_->[1] ) );
+				  || ( defined $_->[1] && !$self->{'prefs'}->{'analysis_schemes'}->{ $_->[1] } ) );
 		push @query_loci, $_->[0];
 	}
 	return \@query_loci;
@@ -667,13 +666,13 @@ sub get_locus_list {
 	#return sorted list of loci, with labels.  Includes common names.
 	#options passed as hashref:
 	#analysis_pref: only the loci for which the user has an analysis preference selected will be returned
-	my ($self,$options) = @_;
+	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $qry = "SELECT id,common_name FROM loci";
 	my @option_clauses;
-	push @option_clauses, "analysis" if ($options->{'analysis_pref'});
-	if (@option_clauses){
-		$"=' AND ';
+	push @option_clauses, "analysis" if ( $options->{'analysis_pref'} );
+	if (@option_clauses) {
+		$" = ' AND ';
 		$qry .= " WHERE @option_clauses";
 	}
 	my $loci = $self->run_list_query_hashref($qry);
@@ -708,9 +707,9 @@ sub get_locus_info {
 		$self->{'sql'}->{'locus_info'} = $self->{'db'}->prepare("SELECT * FROM loci WHERE id=?");
 		$logger->info("Statement handle 'locus_info' prepared.");
 	}
-	eval { $self->{'sql'}->{'locus_info'}->execute($locus); };
+	eval { $self->{'sql'}->{'locus_info'}->execute($locus) };
 	$logger->error($@) if $@;
-	return $self->{'sql'}->{'locus_info'}->fetchrow_hashref();
+	return $self->{'sql'}->{'locus_info'}->fetchrow_hashref;
 }
 
 sub get_locus {
@@ -801,13 +800,13 @@ sub get_sequence_flag {
 	my ( $self, $seqbin_id, $locus, $start, $end ) = @_;
 	if ( !$self->{'sql'}->{'sequence_flag'} ) {
 		$self->{'sql'}->{'sequence_flag'} =
-		  $self->{'db'}->prepare(
-"SELECT sequence_flags.flag FROM sequence_flags WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=?");
+		  $self->{'db'}
+		  ->prepare("SELECT sequence_flags.flag FROM sequence_flags WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=?");
 	}
-	eval { $self->{'sql'}->{'sequence_flag'}->execute($seqbin_id,$locus,$start,$end);};
+	eval { $self->{'sql'}->{'sequence_flag'}->execute( $seqbin_id, $locus, $start, $end ); };
 	$logger->error($@) if $@;
 	my @flags;
-	while (my ($flag) = $self->{'sql'}->{'sequence_flag'}->fetchrow_array){
+	while ( my ($flag) = $self->{'sql'}->{'sequence_flag'}->fetchrow_array ) {
 		push @flags, $flag;
 	}
 	return \@flags;
@@ -1104,13 +1103,13 @@ sub create_temp_ref_table {
 	my $sql2 = $dbr->prepare($qry2);
 	my $qry3 = "SELECT id,surname,initials FROM authors";
 	my $sql3 = $dbr->prepare($qry3);
-	eval { $sql3->execute;};
-	if (@$){
+	eval { $sql3->execute; };
+
+	if (@$) {
 		$logger->error($@);
 	}
 	my $all_authors = $sql3->fetchall_hashref('id');
 	my ( $qry4, $isolates );
-
 	if ($qry_ref) {
 		my $isolate_qry = $$qry_ref;
 		$isolate_qry =~ s/\*/id/;
@@ -1119,23 +1118,20 @@ sub create_temp_ref_table {
 		$qry4 = "SELECT COUNT(*) FROM refs WHERE refs.pubmed_id=?";
 	}
 	my $sql4 = $self->{'db'}->prepare($qry4);
-	
 	foreach my $pmid (@$list) {
 		eval { $sql1->execute($pmid); };
 		if ($@) {
 			$logger->error("Can't execute $qry1, value:$pmid $@");
 		}
 		my @refdata = $sql1->fetchrow_array;
-		eval {
-			$sql2->execute($pmid);
-		};
+		eval { $sql2->execute($pmid); };
 		if ($@) {
 			$logger->error("Can't execute $qry2, value:$pmid $@");
 		}
 		my @authors;
 		my $author_arrayref = $sql2->fetchall_arrayref;
-		foreach (@$author_arrayref){
-			$all_authors->{$_->[0]}->{'surname'} =~ s/'/\\'/g;
+		foreach (@$author_arrayref) {
+			$all_authors->{ $_->[0] }->{'surname'} =~ s/'/\\'/g;
 			push @authors, "$all_authors->{$_->[0]}->{'surname'} $all_authors->{$_->[0]}->{'initials'}";
 		}
 		$" = ', ';
@@ -1243,8 +1239,14 @@ sub get_table_field_attributes {
 
 	#Returns array ref of attributes for a specific table provided by table-specific helper functions.
 	my ( $self, $table ) = @_;
-	my $function = "_get_$table\_table_attributes";
-	return $self->$function();
+	my $function   = "_get_$table\_table_attributes";
+	my $attributes = $self->$function();
+	foreach my $att (@$attributes) {
+		foreach (qw(tooltip optlist required default hide public_hide main_display)) {
+			$att->{$_} = '' if !defined( $att->{$_} );
+		}
+	}
+	return $attributes;
 }
 
 sub _get_isolate_aliases_table_attributes {
@@ -2352,12 +2354,7 @@ sub _get_sequence_flags_table_attributes {
 			comments    => 'start position of locus within sequence'
 		},
 		{ name => 'end_pos', type => 'int', required => 'yes', primary_key => 'yes', comments => 'end position of locus within sequence' },
-		{
-			name     => 'flag',
-			type     => 'text',
-			required => 'yes',
-			optlist  => "@flags"
-		},
+		{ name => 'flag',     type => 'text', required => 'yes', optlist  => "@flags" },
 		{ name => 'complete', type => 'bool', required => 'yes', comments => 'true if complete locus represented', default => 'true' },
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' },
@@ -2661,9 +2658,7 @@ sub get_primary_keys {
 	my @keys;
 	my $attributes = $self->get_table_field_attributes($table);
 	foreach (@$attributes) {
-		if ( $_->{'primary_key'} eq 'yes' ) {
-			push @keys, $_->{'name'};
-		}
+		push @keys, $_->{'name'} if $_->{'primary_key'};
 	}
 	return @keys;
 }

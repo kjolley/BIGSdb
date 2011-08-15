@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::ProfileQueryPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
@@ -324,13 +325,14 @@ sub _run_query {
 		my ( @lqry, @lqry_blank );
 		foreach my $locus (@loci) {
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+			$values{$locus} = defined $values{$locus} ? $values{$locus} : '';
 			$values{$locus} =~ s/^\s*//;
 			$values{$locus} =~ s/\s*$//;
 			$values{$locus} =~ s/'/\\'/g;
 			(my $cleaned_locus = $locus) =~ s/'/\\'/g;
-			if (   $values{$_} ne ''
+			if ( $values{$locus} ne ''
 				&& ( $locus_info->{'allele_id_format'} eq 'integer' )
-				&& !BIGSdb::Utils::is_int( $values{$_} ) )
+				&& !BIGSdb::Utils::is_int( $values{$locus} ) )
 			{
 				push @errors, "$locus is an integer field.";
 				next;

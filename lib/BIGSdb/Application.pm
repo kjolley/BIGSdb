@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2010, University of Oxford
+#(c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::Application;
 use strict;
+use warnings;
 use Time::HiRes qw(gettimeofday);
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
@@ -46,16 +47,23 @@ sub new {
 	$self->_initiate( $config_dir, $dbase_config_dir );
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
 	my $logger_benchmark = get_logger('BIGSdb.Application_Benchmark');
+	my $q                = $self->{'cgi'};
 
 	if ( !$self->{'error'} ) {
 		$self->db_connect();
 		if ( $self->{'db'} ) {
 			$self->_setup_datastore();
 			$self->_setup_prefstore();
+			if ( !$self->{'system'}->{'authentication'} ) {
+				my $logger = get_logger('BIGSdb.Application_Authentication');
+				$logger->logdie(
+"No authentication attribute set - set to either 'apache' or 'builtin' in the system tag of the XML database description."
+				);
+			}
 			$self->_initiate_authdb if $self->{'system'}->{'authentication'} eq 'builtin';
 			$self->_initiate_jobmanager( $config_dir, $plugin_dir, $dbase_config_dir )
-			  if ( $self->{'cgi'}->param('page') eq 'plugin'
-				|| $self->{'cgi'}->param('page') eq 'job' )
+			  if ( $q->param('page') eq 'plugin'
+				|| $q->param('page') eq 'job' )
 			  && $self->{'config'}->{'jobs_db'};
 			$self->_initiate_plugins($plugin_dir);
 		}
@@ -75,7 +83,7 @@ sub DESTROY {
 	my $end     = gettimeofday();
 	my $elapsed = $end - $self->{'start_time'};
 	$elapsed =~ s/(^\d{1,}\.\d{4}).*$/$1/;
-	$logger->info("Total Time to process $self->{'page'} page: $elapsed seconds");
+	$logger->info("Total Time to process $self->{'page'} page: $elapsed seconds") if $self->{'page'};
 }
 
 sub _initiate {
@@ -110,22 +118,24 @@ sub _initiate {
 			$self->{'error'} = 'invalidScriptPath';
 		}
 	}
-	$self->{'error'}                   = 'noAuthenticationSet' if !$self->{'system'}->{'authentication'};
-	$self->{'system'}->{'read_access'} = 'public'              if !$self->{'system'}->{'read_access'};      #everyone can view by default
+	$self->{'error'} = 'noAuthenticationSet' if !$self->{'system'}->{'authentication'};
 	$self->{'system'}->{'script_name'} = $self->{'script_name'};
-	$ENV{'PATH'} = '/bin:/usr/bin';                                                                         #so we don't foul taint check
-	delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};                                                               # Make %ENV safer
-	$self->{'page'} = $q->param('page') || 'index';
-	$self->{'system'}->{'host'} = 'localhost' if !$self->{'system'}->{'host'};
-	$self->{'system'}->{'port'} = 5432        if !$self->{'system'}->{'port'};
-	$self->{'system'}->{'user'} = 'apache'    if !$self->{'system'}->{'user'};
-	$self->{'system'}->{'password'} = 'remote'
-	  if !$self->{'system'}->{'password'};
+	$ENV{'PATH'} = '/bin:/usr/bin';    #so we don't foul taint check
+	delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};    # Make %ENV safer
+	$q->param( 'page', 'index' ) if !defined $q->param('page');
+	$self->{'page'} = $q->param('page');
+	$self->{'system'}->{'read_access'} ||= 'public';      #everyone can view by default
+	$self->{'system'}->{'host'}        ||= 'localhost';
+	$self->{'system'}->{'port'}        ||= 5432;
+	$self->{'system'}->{'user'}        ||= 'apache';
+	$self->{'system'}->{'password'}    ||= 'remote';
+	$self->{'system'}->{'privacy'}     ||= 'yes';
 	$self->{'system'}->{'privacy'} = $self->{'system'}->{'privacy'} eq 'no' ? 0 : 1;
+	$self->{'system'}->{'locus_superscript_prefix'} ||= 'no';
 
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		$self->{'system'}->{'view'}       = 'isolates' if !$self->{'system'}->{'view'};
-		$self->{'system'}->{'labelfield'} = 'isolate'  if !$self->{'system'}->{'labelfield'};
+		$self->{'system'}->{'view'}       ||= 'isolates';
+		$self->{'system'}->{'labelfield'} ||= 'isolate';
 		if ( !$self->{'xmlHandler'}->is_field( $self->{'system'}->{'labelfield'} ) ) {
 			$logger->error(
 "The defined labelfield '$self->{'system'}->{'labelfield'}' does not exist in the database.  Please set the labelfield attribute in the system tag of the database XML file."
@@ -223,13 +233,14 @@ sub _read_config_file {
 	my $config = Config::Tiny->new();
 	$config = Config::Tiny->read("$config_dir/bigsdb.conf");
 	foreach (
-		qw ( prefs_db auth_db jobs_db max_load emboss_path tmp_dir secure_tmp_dir blast_path blast+_path blast_threads 
-		muscle_path	mogrify_path ipcress_path reference refdb chartdirector disable_updates disable_update_message 
+		qw ( prefs_db auth_db jobs_db max_load emboss_path tmp_dir secure_tmp_dir blast_path blast+_path blast_threads
+		muscle_path	mogrify_path ipcress_path reference refdb chartdirector disable_updates disable_update_message
 		intranet)
 	  )
 	{
 		$self->{'config'}->{$_} = $config->{_}->{$_};
 	}
+	$self->{'config'}->{'intranet'} ||= 'no';
 	if ( $self->{'config'}->{'chartdirector'} ) {
 		eval "use perlchartdir;";
 		if ($@) {
@@ -246,11 +257,11 @@ sub _read_config_file {
 
 sub _read_host_mapping_file {
 	my ( $self, $config_dir ) = @_;
-	if (-e "$config_dir/host_mapping.conf"){
-		open (my $fh, '<', "$config_dir/host_mapping.conf");
-		while (<$fh>){
+	if ( -e "$config_dir/host_mapping.conf" ) {
+		open( my $fh, '<', "$config_dir/host_mapping.conf" );
+		while (<$fh>) {
 			next if $_ =~ /^\s+$/ || $_ =~ /^#/;
-			my ($host,$mapped) = split /\s+/,$_;
+			my ( $host, $mapped ) = split /\s+/, $_;
 			next if !$host || !$mapped;
 			$self->{'config'}->{'host_map'}->{$host} = $mapped;
 		}
@@ -353,7 +364,7 @@ sub print_page {
 		'extractedSequence'  => 'ExtractedSequencePage',
 		'alleleQuery'        => 'AlleleQueryPage',
 		'locusInfo'          => 'LocusInfoPage',
-		'job'				 => 'JobViewerPage'
+		'job'                => 'JobViewerPage'
 	);
 	my $page;
 	my %page_attributes = (
@@ -371,6 +382,7 @@ sub print_page {
 		'pluginManager'    => $self->{'pluginManager'},
 		'mod_perl_request' => $self->{'mod_perl_request'},
 		'jobManager'       => $self->{'jobManager'},
+		'curate'           => 0
 	);
 	my $continue = 1;
 	my $auth_cookies_ref;
@@ -389,7 +401,7 @@ sub print_page {
 		$page_attributes{'system'} = $self->{'system'};
 	}
 	if ( $self->{'page'} eq 'options'
-		&& ( $self->{'cgi'}->param('set') || $self->{'cgi'}->param('reset')) )
+		&& ( $self->{'cgi'}->param('set') || $self->{'cgi'}->param('reset') ) )
 	{
 		$page = BIGSdb::OptionsPage->new(%page_attributes);
 		$page->initiate_prefs;

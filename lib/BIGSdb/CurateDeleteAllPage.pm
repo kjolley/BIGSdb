@@ -20,6 +20,7 @@ package BIGSdb::CurateDeleteAllPage;
 use strict;
 use base qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
+use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
 
 sub print_content {
@@ -62,11 +63,13 @@ sub print_content {
 		my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 		foreach (@$schemes) {
 			if ( $query =~ /temp_scheme_$_\s/ ) {
-				if ( $self->{'datastore'}->create_temp_scheme_table($_) == -1 ) {
+				try {
+					$self->{'datastore'}->create_temp_scheme_table($_);
+				} catch BIGSdb::DatabaseConnectionException with {
 					print
-"<div class=\"box\" id=\"statusbad\"><p>Can't copy data into temporary table - please check scheme configuration (more details will be in the log file).</p></div>\n";
-					return;
-				}
+"<div class=\"box\" id=\"statusbad\"><p>Can't copy data into temporary table - please check scheme configuration (more details will be in the log file).</p></div>\n";					
+					$logger->error("Can't copy data to temporary table.");
+				};
 			}
 		}
 	}

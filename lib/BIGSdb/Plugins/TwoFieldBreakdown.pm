@@ -1,6 +1,6 @@
 #FieldBreakdown.pm - TwoFieldBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -600,7 +600,11 @@ sub _modify_qry_f_s {
 
 	#field1 is an isolate field, field2 is a scheme field
 	my ( $self, $qry_ref, $clean_ref, $scheme_id_ref, $field1, $field2, $switch ) = @_;
-	$self->{'datastore'}->create_temp_scheme_table( $scheme_id_ref->{$field2} );
+	try {
+		$self->{'datastore'}->create_temp_scheme_table( $scheme_id_ref->{$field2} );
+	} catch BIGSdb::DatabaseConnectionException with {
+		$logger->error("Can't copy data to temporary table.");
+	};
 	my $scheme_sql_ref = $self->_get_scheme_fields_sql( $scheme_id_ref->{$field2} );
 	$$qry_ref =~ s/WHERE/AND/;
 	foreach ( $field1, $field2 ) {
@@ -629,8 +633,12 @@ sub _modify_qry_s_s {
 
 	#both fields are scheme fields
 	my ( $self, $qry_ref, $clean_ref, $scheme_id_ref, $field1, $field2 ) = @_;
-	$self->{'datastore'}->create_temp_scheme_table( $scheme_id_ref->{$field1} );
-	$self->{'datastore'}->create_temp_scheme_table( $scheme_id_ref->{$field2} );
+	try {
+		$self->{'datastore'}->create_temp_scheme_table( $scheme_id_ref->{$field1} );
+		$self->{'datastore'}->create_temp_scheme_table( $scheme_id_ref->{$field2} );
+	} catch BIGSdb::DatabaseConnectionException with {
+		$logger->error("Can't copy data to temporary table.");
+	};
 	my $scheme_loci = $self->{'datastore'}->get_scheme_loci( $scheme_id_ref->{$field1} );
 	my $scheme_sql = $self->_join_table( $scheme_id_ref->{$field1}, $scheme_loci );
 	if ( $scheme_id_ref->{$field1} != $scheme_id_ref->{$field2} ) {

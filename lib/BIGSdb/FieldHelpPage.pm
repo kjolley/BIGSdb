@@ -21,6 +21,7 @@ use strict;
 use base qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
+use Error qw(:try);
 
 sub initiate {
 	my ($self) = @_;
@@ -192,10 +193,13 @@ sub _print_scheme_field {
 "<tr class=\"td1\"><th style=\"text-align:right\">Description</th><td style=\"text-align:left\">$info->{'description'}</td></tr>\n";
 	}
 	print "</table><p />\n";
-	if ( $self->{'datastore'}->create_temp_scheme_table($scheme_id) == -1 ) {
-		print "<p>Can't copy data into temporary table - please check scheme configuration (more details will be in the log file).</p>\n";
-		return;
-	}
+	try {
+		$self->{'datastore'}->create_temp_scheme_table($scheme_id);
+	} catch BIGSdb::DatabaseConnectionException with {
+		print
+"<p class=\"statusbad\">Can't copy data into temporary table - please check scheme configuration (more details will be in the log file).</p>\n";					
+		$logger->error("Can't copy data to temporary table.");
+	};	
 	print
 "<p>The field has a list of allowable values retrieved from an external database (values present in this database are <span class=\"highlightvalue\">highlighted</span>):</p>";
 	my $cols = $info->{'type'} eq 'integer' ? 10 : 6;

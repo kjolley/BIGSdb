@@ -31,7 +31,7 @@ sub initiate {
 		$self->{'type'} = 'no_header';
 		return;
 	}
-	$self->{$_} = 1 foreach (qw (tooltips jQuery));
+	$self->{$_} = 1 foreach (qw (tooltips jQuery jQuery.coolfieldset));
 }
 
 sub set_pref_requirements {

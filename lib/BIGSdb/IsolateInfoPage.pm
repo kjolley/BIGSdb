@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::IsolateInfoPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
@@ -31,13 +32,12 @@ sub set_pref_requirements {
 
 sub initiate {
 	my ($self) = @_;
-	if ($self->{'cgi'}->param('no_header') ){
-		$self->{'type'} = 'no_header';
+	if ( $self->{'cgi'}->param('no_header') ) {
+		$self->{'type'}    = 'no_header';
 		$self->{'noCache'} = 1;
 		return;
 	}
-	$self->{'jQuery'} = 1;    #Use JQuery javascript library
-	$self->{'jQuery.jstree'} = 1;
+	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree);
 }
 
 sub get_javascript {
@@ -46,87 +46,119 @@ sub get_javascript {
 }
 
 sub _get_child_group_scheme_tables {
-	my ($self, $id, $isolate_id,$locus_info,$locus_alias,$allele_designations,$allele_sequences,$allele_sequence_flags, $td,$level) = @_;
-	my $child_groups = $self->{'datastore'}->run_list_query("SELECT id FROM scheme_groups LEFT JOIN scheme_group_group_members ON scheme_groups.id=group_id WHERE parent_group_id=? ORDER BY display_order",$id);
+	my ( $self, $id, $isolate_id, $locus_info, $locus_alias, $allele_designations, $allele_sequences, $allele_sequence_flags, $td, $level )
+	  = @_;
+	my $child_groups = $self->{'datastore'}->run_list_query(
+"SELECT id FROM scheme_groups LEFT JOIN scheme_group_group_members ON scheme_groups.id=group_id WHERE parent_group_id=? ORDER BY display_order",
+		$id
+	);
 	my $buffer;
-	if (@$child_groups){
-		foreach (@$child_groups){
+	if (@$child_groups) {
+		foreach (@$child_groups) {
 			my $group_info = $self->{'datastore'}->get_scheme_group_info($_);
-			my $new_level = $level;
-			last if $new_level == 10; #prevent runaway if child is set as the parent of a parental group
+			my $new_level  = $level;
+			last if $new_level == 10;    #prevent runaway if child is set as the parent of a parental group
 			my $field_buffer;
-			($td,$field_buffer)=$self->_get_group_scheme_tables($_, $isolate_id,$locus_info,$locus_alias,$allele_designations,$allele_sequences,$allele_sequence_flags, $td);
-			$buffer.=$field_buffer;
-			($td,$field_buffer)=$self->_get_child_group_scheme_tables($_, $isolate_id,$locus_info,$locus_alias,$allele_designations,$allele_sequences,$allele_sequence_flags, $td,++$new_level);
-			$buffer.=$field_buffer;			
+			( $td, $field_buffer ) =
+			  $self->_get_group_scheme_tables( $_, $isolate_id, $locus_info, $locus_alias, $allele_designations, $allele_sequences,
+				$allele_sequence_flags, $td );
+			$buffer .= $field_buffer;
+			( $td, $field_buffer ) = $self->_get_child_group_scheme_tables(
+				$_,                $isolate_id,            $locus_info, $locus_alias, $allele_designations,
+				$allele_sequences, $allele_sequence_flags, $td,         ++$new_level
+			);
+			$buffer .= $field_buffer;
 		}
 	}
-	return ($td,$buffer);
+	return ( $td, $buffer );
 }
 
 sub _get_group_scheme_tables {
-	my ($self, $id, $isolate_id,$locus_info,$locus_alias,$allele_designations,$allele_sequences,$allele_sequence_flags, $td) = @_;
-	my $schemes = $self->{'datastore'}->run_list_query("SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON schemes.id=scheme_id WHERE group_id=? ORDER BY display_order",$id);
+	my ( $self, $id, $isolate_id, $locus_info, $locus_alias, $allele_designations, $allele_sequences, $allele_sequence_flags, $td ) = @_;
+	my $schemes = $self->{'datastore'}->run_list_query(
+"SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON schemes.id=scheme_id WHERE group_id=? ORDER BY display_order",
+		$id
+	);
 	my $buffer;
-	if (@$schemes){
-		foreach my $scheme_id (@$schemes){
-			next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};	
-			if (!$self->{'scheme_shown'}->{$scheme_id}){
-				( $td, my $field_buffer ) = $self->_get_scheme_fields( $scheme_id, $isolate_id, $locus_info,$locus_alias,$allele_designations, $allele_sequences, $allele_sequence_flags, $td, $self->{'curate'} ) ;			
-				$buffer.= $field_buffer;
-				$self->{'scheme_shown'}->{$scheme_id}=1;
-			}	
+	if (@$schemes) {
+		foreach my $scheme_id (@$schemes) {
+			next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};
+			if ( !$self->{'scheme_shown'}->{$scheme_id} ) {
+				( $td, my $field_buffer ) = $self->_get_scheme_fields(
+					$scheme_id,        $isolate_id,            $locus_info, $locus_alias, $allele_designations,
+					$allele_sequences, $allele_sequence_flags, $td,         $self->{'curate'}
+				);
+				$buffer .= $field_buffer if $field_buffer;
+				$self->{'scheme_shown'}->{$scheme_id} = 1;
+			}
 		}
-	}	
-	return ($td,$buffer);	
+	}
+	return ( $td, $buffer );
 }
 
 sub print_content {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
 	my $isolate_id = $q->param('id');
-	if (defined $q->param('group_id')){
-		my ($locus_info,$locus_alias,$allele_designations,$allele_sequences,$allele_sequence_flags) = $self->_get_scheme_attributes($isolate_id);
+	if ( defined $q->param('group_id') ) {
+		my ( $locus_info, $locus_alias, $allele_designations, $allele_sequences, $allele_sequence_flags ) =
+		  $self->_get_scheme_attributes($isolate_id);
 		my $group_id = $q->param('group_id');
 		my $scheme_ids;
-		my $td =1 ;
-		my ($table_buffer,$buffer);
-		if ($group_id == 0){
-			$scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) ORDER BY display_order");
-			foreach (@$scheme_ids){
-				next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$_};	
+		my $td = 1;
+		my ( $table_buffer, $buffer );
+		if ( $group_id == 0 ) {
+			$scheme_ids =
+			  $self->{'datastore'}->run_list_query(
+				"SELECT id FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) ORDER BY display_order");
+			foreach (@$scheme_ids) {
+				next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$_};
 				my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
-				($td,$table_buffer)=$self->_get_scheme_fields( $_, $isolate_id, $locus_info,$locus_alias,$allele_designations, $allele_sequences, $allele_sequence_flags, 1, $self->{'curate'} );
-				$buffer.=$table_buffer;
-			}		
-		} else {		
-			($td,$table_buffer)=$self->_get_group_scheme_tables($group_id,$isolate_id,$locus_info,$locus_alias,$allele_designations,$allele_sequences,$allele_sequence_flags,$td);
-			$buffer.=$table_buffer;
-			($td,$table_buffer)=$self->_get_child_group_scheme_tables($group_id,$isolate_id,$locus_info,$locus_alias,$allele_designations,$allele_sequences,$allele_sequence_flags,$td,1);
-			$buffer.=$table_buffer;
+				( $td, $table_buffer ) = $self->_get_scheme_fields(
+					$_,                $isolate_id,            $locus_info, $locus_alias, $allele_designations,
+					$allele_sequences, $allele_sequence_flags, 1,           $self->{'curate'}
+				);
+				$buffer .= $table_buffer if $table_buffer;
+			}
+		} else {
+			( $td, $table_buffer ) =
+			  $self->_get_group_scheme_tables( $group_id, $isolate_id, $locus_info, $locus_alias, $allele_designations, $allele_sequences,
+				$allele_sequence_flags, $td );
+			$buffer .= $table_buffer;
+			( $td, $table_buffer ) = $self->_get_child_group_scheme_tables(
+				$group_id,         $isolate_id,            $locus_info, $locus_alias, $allele_designations,
+				$allele_sequences, $allele_sequence_flags, $td,         1
+			);
+			$buffer .= $table_buffer if $table_buffer;
 		}
-		if ($buffer){
+		if ($buffer) {
 			print "<table style=\"width:100%\">\n$buffer</table>\n";
 		}
 		return;
-	} elsif (defined $q->param('scheme_id')){
+	} elsif ( defined $q->param('scheme_id') ) {
 		my $scheme_id = $q->param('scheme_id');
-		my ($locus_info,$locus_alias,$allele_designations,$allele_sequences,$allele_sequence_flags) = $self->_get_scheme_attributes($isolate_id);
-		my ($td,$buffer);
-		if ($scheme_id == -1){
+		my ( $locus_info, $locus_alias, $allele_designations, $allele_sequences, $allele_sequence_flags ) =
+		  $self->_get_scheme_attributes($isolate_id);
+		my ( $td, $buffer );
+		if ( $scheme_id == -1 ) {
 			my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
-			foreach (@$schemes,0){
-				next if $_ && !$self->{'prefs'}->{'isolate_display_schemes'}->{$_};	
-				( $td, my $table_buffer ) = $self->_get_scheme_fields( $_, $isolate_id, $locus_info,$locus_alias,$allele_designations, $allele_sequences, $allele_sequence_flags, 1, $self->{'curate'} );
-				$buffer.=$table_buffer;
+			foreach ( @$schemes, 0 ) {
+				next if $_ && !$self->{'prefs'}->{'isolate_display_schemes'}->{$_};
+				( $td, my $table_buffer ) = $self->_get_scheme_fields(
+					$_,                $isolate_id,            $locus_info, $locus_alias, $allele_designations,
+					$allele_sequences, $allele_sequence_flags, 1,           $self->{'curate'}
+				);
+				$buffer .= $table_buffer if $table_buffer;
 			}
 		} else {
-			( $td, $buffer ) = $self->_get_scheme_fields( $scheme_id, $isolate_id, $locus_info,$locus_alias,$allele_designations, $allele_sequences, $allele_sequence_flags, 1, $self->{'curate'} );
+			( $td, $buffer ) = $self->_get_scheme_fields(
+				$scheme_id,        $isolate_id,            $locus_info, $locus_alias, $allele_designations,
+				$allele_sequences, $allele_sequence_flags, 1,           $self->{'curate'}
+			);
 		}
-		if ($buffer){
+		if ($buffer) {
 			print "<table style=\"width:100%\">\n$buffer</table>\n";
 		}
-	
 		return;
 	}
 	if ( !BIGSdb::Utils::is_int($isolate_id) ) {
@@ -164,7 +196,7 @@ sub print_content {
 	if ( $self->{'cgi'}->param('history') ) {
 		print "<h2>Update history</h2>\n";
 		print
-"<p><a href=\"$self->{'script_name'}?page=info&amp;db=$self->{'instance'}&amp;id=$isolate_id\">Back to isolate information</a></p>\n";
+"<p><a href=\"$self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'}&amp;id=$isolate_id\">Back to isolate information</a></p>\n";
 		print $self->_get_update_history($isolate_id);
 	} else {
 		print $self->get_isolate_record($isolate_id);
@@ -173,10 +205,10 @@ sub print_content {
 }
 
 sub _get_update_history {
-	my ( $self, $isolate_id ) = @_;
-	my ($history,$num_changes) = $self->_get_history($isolate_id);
+	my ( $self,    $isolate_id )  = @_;
+	my ( $history, $num_changes ) = $self->_get_history($isolate_id);
 	my $buffer;
-	if ( $num_changes ) {
+	if ($num_changes) {
 		$buffer .= "<table class=\"resultstable\"><tr><th>Timestamp</th><th>Curator</th><th>Action</th></tr>\n";
 		my $td = 1;
 		foreach (@$history) {
@@ -206,6 +238,7 @@ sub get_loci_summary {
 
 sub get_isolate_record {
 	my ( $self, $id, $summary_view ) = @_;
+	$summary_view ||= 0;
 	my $sql;
 	my $buffer;
 	my $q      = $self->{'cgi'};
@@ -244,8 +277,9 @@ sub get_isolate_record {
 	$buffer .= "<div class=\"scrollable\"><table class=\"resultstable\">\n";
 	my $field_list = $self->{'xmlHandler'}->get_field_list;
 	my $field_with_extended_attributes;
-	if (!$summary_view){
-		$field_with_extended_attributes = $self->{'datastore'}->run_list_query("SELECT DISTINCT isolate_field FROM isolate_field_extended_attributes");
+	if ( !$summary_view ) {
+		$field_with_extended_attributes =
+		  $self->{'datastore'}->run_list_query("SELECT DISTINCT isolate_field FROM isolate_field_extended_attributes");
 	}
 	if ( $summary_view != 2 ) {
 		foreach my $field (@$field_list) {
@@ -253,7 +287,7 @@ sub get_isolate_record {
 			$displayfield =~ tr/_/ /;
 			my %thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 			my $web;
-			if ( $data{$field} eq '' ) {
+			if ( !defined $data{$field} ) {
 				next;
 
 				#Do not print row
@@ -265,12 +299,12 @@ sub get_isolate_record {
 				if ( ( lc($url) =~ /http:\/\/(.*?)\/+/ ) ) {
 					$domain = $1;
 				}
-					$web = "<a href=\"$url\">$data{$field}</a>";
-					if ( $domain && $domain ne $q->virtual_host ) {
-						$web .= " <span class=\"link\"><span style=\"font-size:1.2em\">&rarr;</span> $domain</span>";
-					}
-			} 
-			if ( ( $field eq 'curator' )
+				$web = "<a href=\"$url\">$data{$field}</a>";
+				if ( $domain && $domain ne $q->virtual_host ) {
+					$web .= " <span class=\"link\"><span style=\"font-size:1.2em\">&rarr;</span> $domain</span>";
+				}
+			}
+			if (   ( $field eq 'curator' )
 				|| ( $field eq 'sender' )
 				|| ( $thisfield{'userfield'} && $thisfield{'userfield'} eq 'yes' ) )
 			{
@@ -302,7 +336,7 @@ sub get_isolate_record {
 					}
 				}
 				if ( $field eq 'curator' ) {
-					my ($history,$num_changes)     = $self->_get_history($id,20);
+					my ( $history, $num_changes ) = $self->_get_history( $id, 20 );
 					if ($num_changes) {
 						$buffer .= "</tr>\n";
 						$td = $td == 1 ? 2 : 1;
@@ -320,7 +354,7 @@ sub get_isolate_record {
 							$action =~ s/:.*//;
 							$title .= "$time: $action<br />";
 						}
-						if ($num_changes > 20){
+						if ( $num_changes > 20 ) {
 							$title .= "more ...";
 						}
 						$buffer .= "<tr class=\"td$td\"><th>update history</th><td style=\"text-align:left\" colspan=\"5\">";
@@ -328,44 +362,53 @@ sub get_isolate_record {
 						$buffer .= "$num_changes update$plural</a>";
 						my $refer_page = $q->param('page');
 						$buffer .=
-" <a href=\"$self->{'script_name'}?page=info&amp;db=$self->{'instance'}&amp;id=$id&amp;history=1&amp;refer=$refer_page\">show details</a></td>";
+" <a href=\"$self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'}&amp;id=$id&amp;history=1&amp;refer=$refer_page\">show details</a></td>";
 					}
 				}
-			} elsif (any {$field eq $_} @$field_with_extended_attributes){	
-				my $sql_attord = $self->{'db'}->prepare("SELECT attribute,field_order FROM isolate_field_extended_attributes WHERE isolate_field=?");
-				eval {
-					$sql_attord->execute($field);
-				};
-				if ($@){
+			} elsif (
+				any {
+					$field eq $_;
+				}
+				@$field_with_extended_attributes
+			  )
+			{
+				my $sql_attord =
+				  $self->{'db'}->prepare("SELECT attribute,field_order FROM isolate_field_extended_attributes WHERE isolate_field=?");
+				eval { $sql_attord->execute($field); };
+				if ($@) {
 					$logger->error("Can't execute $@");
 				}
 				my %order;
-				while (my ($att,$order) = $sql_attord->fetchrow_array){
+				while ( my ( $att, $order ) = $sql_attord->fetchrow_array ) {
 					$order{$att} = $order;
 				}
-				my $sql_att = $self->{'db'}->prepare("SELECT attribute,value FROM isolate_value_extended_attributes WHERE isolate_field=? AND field_value=?");
-				eval {
-					$sql_att->execute($field,$data{$field});
-				};
-				if ($@){
+				my $sql_att =
+				  $self->{'db'}
+				  ->prepare("SELECT attribute,value FROM isolate_value_extended_attributes WHERE isolate_field=? AND field_value=?");
+				eval { $sql_att->execute( $field, $data{$field} ); };
+				if ($@) {
 					$logger->error("Can't execute $@");
 				}
 				my %attributes;
-				while (my ($attribute,$value) = $sql_att->fetchrow_array){
+				while ( my ( $attribute, $value ) = $sql_att->fetchrow_array ) {
 					$attributes{$attribute} = $value;
 				}
-				if (keys %attributes){
+				if ( keys %attributes ) {
 					my $rows = keys %attributes || 1;
-					$buffer .= "<tr class=\"td$td\"><th rowspan=\"$rows\">$displayfield</th><td style=\"text-align:left\" rowspan=\"$rows\">";
+					$buffer .=
+					  "<tr class=\"td$td\"><th rowspan=\"$rows\">$displayfield</th><td style=\"text-align:left\" rowspan=\"$rows\">";
 					$buffer .= $web || $data{$field};
 					$buffer .= "</td>";
 					my $first = 1;
-					foreach (sort {$order{$a} <=> $order{$b}} keys (%attributes)){
-						$buffer .="</tr>\n<tr class=\"td$td\">" if !$first;
-						my $url_ref = $self->{'datastore'}->run_simple_query("SELECT url FROM isolate_field_extended_attributes WHERE isolate_field=? AND attribute=?",$field,$_);
+					foreach ( sort { $order{$a} <=> $order{$b} } keys(%attributes) ) {
+						$buffer .= "</tr>\n<tr class=\"td$td\">" if !$first;
+						my $url_ref =
+						  $self->{'datastore'}
+						  ->run_simple_query( "SELECT url FROM isolate_field_extended_attributes WHERE isolate_field=? AND attribute=?",
+							$field, $_ );
 						my $att_web;
-						if (ref $url_ref eq 'ARRAY'){
-							my $url = $url_ref->[0];
+						if ( ref $url_ref eq 'ARRAY' ) {
+							my $url = $url_ref->[0] || '';
 							$url =~ s/\[\?\]/$attributes{$_}/;
 							$url =~ s/\&/\&amp;/g;
 							my $domain;
@@ -417,7 +460,7 @@ sub get_isolate_record {
 		}
 		if ( !$summary_view ) {
 			( my $sample_buffer, $td ) = $self->_get_samples( $id, $td, 1 );
-			$buffer .= $sample_buffer;
+			$buffer .= $sample_buffer if $sample_buffer;
 			my $refs =
 			  $self->{'datastore'}->run_list_query( "SELECT refs.pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id", $data{'id'} );
 			foreach my $ref (@$refs) {
@@ -426,12 +469,14 @@ sub get_isolate_record {
 			}
 			my $seqbin_count = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM sequence_bin WHERE isolate_id=?", $id )->[0];
 			if ($seqbin_count) {
-				my $length_data =
-				  $self->{'datastore'}->run_simple_query( "SELECT SUM(length(sequence)), CEIL(AVG(length(sequence))), MAX(length (sequence)) FROM sequence_bin WHERE isolate_id=?", $id );
+				my $length_data = $self->{'datastore'}->run_simple_query(
+"SELECT SUM(length(sequence)), CEIL(AVG(length(sequence))), MAX(length (sequence)) FROM sequence_bin WHERE isolate_id=?",
+					$id
+				);
 				my $plural = $seqbin_count == 1 ? '' : 's';
 				$buffer .= "<tr class=\"td$td\"><th rowspan=\"2\">sequence bin</th><td style=\"text-align:left\" colspan=\"4\">
 				$seqbin_count sequence$plural (";
-				if ($seqbin_count > 1){
+				if ( $seqbin_count > 1 ) {
 					$buffer .= "total length: $length_data->[0] bp; max: $length_data->[2] bp; mean: $length_data->[1] bp)";
 				} else {
 					$buffer .= "$length_data->[0] bp)";
@@ -441,7 +486,6 @@ sub get_isolate_record {
 				$q->param( 'curate', 1 ) if $self->{'curate'};
 				$q->param( 'page', 'seqbin' );
 				$q->param( 'isolate_id', $id );
-
 				foreach (qw (db page curate isolate_id)) {
 					$buffer .= $q->hidden($_);
 				}
@@ -460,22 +504,21 @@ sub get_isolate_record {
 			}
 		}
 	}
-	my ($locus_info,$locus_alias,$allele_designations,$allele_sequences,$allele_sequence_flags) = $self->_get_scheme_attributes($id);
+	my ( $locus_info, $locus_alias, $allele_designations, $allele_sequences, $allele_sequence_flags ) = $self->_get_scheme_attributes($id);
 
 	#Print loci and scheme information
-	if (!%$allele_designations && !%$allele_sequences){
-		$buffer.="</table></div>\n";
+	if ( !%$allele_designations && !%$allele_sequences ) {
+		$buffer .= "</table></div>\n";
 		return $buffer;
 	}
 	my $scheme_group_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM scheme_groups")->[0];
-	if ($scheme_group_count){
-		$buffer.="<tr><th style=\"vertical-align:top;padding-top:1em\">Schemes and loci</th><td colspan=\"5\">";
+	if ($scheme_group_count) {
+		$buffer .= "<tr><th style=\"vertical-align:top;padding-top:1em\">Schemes and loci</th><td colspan=\"5\">";
 		$buffer .= $self->_get_tree($id);
 		$buffer .= "</td></tr>";
-		$buffer.="</table></div>\n";
+		$buffer .= "</table></div>\n";
 		return $buffer;
 	}
-
 	my $scheme_sql = $self->{'db'}->prepare("SELECT * FROM schemes ORDER BY display_order,id");
 	eval { $scheme_sql->execute(); };
 	if ($@) {
@@ -483,53 +526,58 @@ sub get_isolate_record {
 	} else {
 		$logger->debug("Query: $qry");
 	}
-	
 	while ( my $scheme = $scheme_sql->fetchrow_hashref() ) {
 		if ( $self->{'prefs'}->{'isolate_display_schemes'}->{ $scheme->{'id'} } ) {
-			( $td, my $field_buffer ) = $self->_get_scheme_fields( $scheme->{'id'}, $data{'id'}, $locus_info,$locus_alias,$allele_designations, $allele_sequences, $allele_sequence_flags, $td, $summary_view );
+			( $td, my $field_buffer ) = $self->_get_scheme_fields(
+				$scheme->{'id'},   $data{'id'},            $locus_info, $locus_alias, $allele_designations,
+				$allele_sequences, $allele_sequence_flags, $td,         $summary_view
+			);
 			$buffer .= $field_buffer;
 		}
 	}
 
 	#Loci not belonging to a scheme
-	( $td, my $field_buffer ) = $self->_get_scheme_fields( 0, $data{'id'}, $locus_info, $locus_alias,$allele_designations, $allele_sequences, $allele_sequence_flags, $td, $summary_view );
+	( $td, my $field_buffer ) =
+	  $self->_get_scheme_fields( 0, $data{'id'}, $locus_info, $locus_alias, $allele_designations, $allele_sequences, $allele_sequence_flags,
+		$td, $summary_view );
 	$buffer .= $field_buffer;
 	$buffer .= "</table></div>";
 	return $buffer;
 }
 
 sub _get_scheme_attributes {
-	my ($self,$isolate_id) = @_;
+	my ( $self, $isolate_id ) = @_;
+
 	#Extract all locus_info, allele_designations and allele_sequences using fetchall_hashref - quicker than
 	#making a separate call for each locus.
 	my $locus_info_sql = $self->{'db'}->prepare("SELECT id,common_name,url,description_url FROM loci");
-	eval { $locus_info_sql->execute; };    
+	eval { $locus_info_sql->execute; };
 	if ($@) {
 		$logger->error("Can't execute $@");
 	}
-	my $locus_info = $locus_info_sql->fetchall_hashref('id');
+	my $locus_info      = $locus_info_sql->fetchall_hashref('id');
 	my $locus_alias_sql = $self->{'db'}->prepare("SELECT locus,alias FROM locus_aliases WHERE use_alias");
-	eval { $locus_alias_sql->execute; };   
+	eval { $locus_alias_sql->execute; };
 	if ($@) {
 		$logger->error("Can't execute $@");
 	}
-	my $locus_alias = $locus_alias_sql->fetchall_hashref([qw(locus alias)]);
-	my $allele_designations = $self->{'datastore'}->get_all_allele_designations($isolate_id);
-	my $allele_sequences = $self->{'datastore'}->get_all_allele_sequences($isolate_id);
-	my $allele_sequence_flags = $self->{'datastore'}->get_all_sequence_flags($isolate_id);	
-	return ($locus_info,$locus_alias,$allele_designations,$allele_sequences,$allele_sequence_flags);
+	my $locus_alias           = $locus_alias_sql->fetchall_hashref( [qw(locus alias)] );
+	my $allele_designations   = $self->{'datastore'}->get_all_allele_designations($isolate_id);
+	my $allele_sequences      = $self->{'datastore'}->get_all_allele_sequences($isolate_id);
+	my $allele_sequence_flags = $self->{'datastore'}->get_all_sequence_flags($isolate_id);
+	return ( $locus_info, $locus_alias, $allele_designations, $allele_sequences, $allele_sequence_flags );
 }
 
 sub _get_tree {
-	my ($self, $isolate_id) = @_;
+	my ( $self, $isolate_id ) = @_;
 	my $buffer = "<table style=\"width:100%\">";
-	$buffer.= "<tr>\n";
-	$buffer.= "<td id=\"tree\" class=\"tree\">\n";
-	$buffer.= "<noscript><p class=\"highlight\">Enable Javascript to enhance your viewing experience.</p></noscript>\n";
-	$buffer .= $self->get_tree($isolate_id, {'isolate_display' => $self->{'curate'} ? 0 : 1});
-	$buffer.="</td><td style=\"vertical-align:top;width:80%\" id=\"scheme_table\">\n";
-	$buffer.="</td></tr>\n";
-	$buffer.="</table>\n";
+	$buffer .= "<tr>\n";
+	$buffer .= "<td id=\"tree\" class=\"tree\">\n";
+	$buffer .= "<noscript><p class=\"highlight\">Enable Javascript to enhance your viewing experience.</p></noscript>\n";
+	$buffer .= $self->get_tree( $isolate_id, { 'isolate_display' => $self->{'curate'} ? 0 : 1 } );
+	$buffer .= "</td><td style=\"vertical-align:top;width:80%\" id=\"scheme_table\">\n";
+	$buffer .= "</td></tr>\n";
+	$buffer .= "</table>\n";
 }
 
 sub get_sample_summary {
@@ -552,7 +600,7 @@ sub _get_samples {
 	foreach (@$sample_fields) {
 		next if $_ eq 'isolate_id';
 		my %attributes = $self->{'xmlHandler'}->get_sample_field_attributes($_);
-		next if $attributes{'maindisplay'} eq 'no';
+		next if defined $attributes{'maindisplay'} && $attributes{'maindisplay'} eq 'no';
 		push @selected_fields, $_;
 		( my $clean = $_ ) =~ tr/_/ /;
 		push @clean_fields, $clean;
@@ -574,18 +622,19 @@ sub _get_samples {
 "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=delete&amp;table=samples&amp;isolate_id=$id&amp;sample_id=$sample->{'sample_id'}\">Delete</a></td>
 				<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=update&amp;table=samples&amp;isolate_id=$id&amp;sample_id=$sample->{'sample_id'}\">Update</a></td>";
 			}
-			foreach (@selected_fields) {
-				if ( $_ eq 'sample_id' && $self->{'prefs'}->{'sample_details'} ) {
-					my $info = "Sample $sample->{$_} - ";
+			foreach my $field (@selected_fields) {
+				$sample->{$field} = defined $sample->{$field} ? $sample->{$field} : '';
+				if ( $field eq 'sample_id' && $self->{'prefs'}->{'sample_details'} ) {
+					my $info = "Sample $sample->{$field} - ";
 					foreach (@$sample_fields) {
 						next if $_ eq 'sample_id' || $_ eq 'isolate_id';
 						( my $clean = $_ ) =~ tr/_/ /;
-						$info .= "$clean: $sample->{$_}&nbsp;<br />";    #nbsp added to stop Firefox truncating text
+						$info .= "$clean: $sample->{$_}&nbsp;<br />" if defined $sample->{$_};    #nbsp added to stop Firefox truncating text
 					}
 					$row .=
-"<td>$sample->{$_}<span style=\"font-size:0.5em\"> </span><a class=\"update_tooltip\" title=\"$info\">&nbsp;...&nbsp;</a></td>";
+"<td>$sample->{$field}<span style=\"font-size:0.5em\"> </span><a class=\"update_tooltip\" title=\"$info\">&nbsp;...&nbsp;</a></td>";
 				} else {
-					$row .= "<td>$sample->{$_}</td>";
+					$row .= "<td>$sample->{$field}</td>";
 				}
 			}
 			$row .= "</tr>";
@@ -611,18 +660,21 @@ sub _get_samples {
 }
 
 sub _get_scheme_fields {
-	my ( $self, $id, $isolate_id, $locus_info, $locus_alias,$allele_designations, $allele_sequences, $allele_sequence_flags, $td, $summary_view ) = @_;
+	my (
+		$self,                $id,               $isolate_id,            $locus_info, $locus_alias,
+		$allele_designations, $allele_sequences, $allele_sequence_flags, $td,         $summary_view
+	) = @_;
 	my $q = $self->{'cgi'};
 	my $display_on_own_line;
 	my $scheme_fields;
-	my $scheme_fields_count;
+	my $scheme_fields_count = 0;
 	my $buffer;
 	my ( $loci, @profile, $info_ref );
-	my $locus_display_count;
+	my $locus_display_count = 0;
 
 	if ($id) {
-		$scheme_fields          = $self->{'datastore'}->get_scheme_fields($id);
-		$loci                   = $self->{'datastore'}->get_scheme_loci($id);
+		$scheme_fields = $self->{'datastore'}->get_scheme_fields($id);
+		$loci          = $self->{'datastore'}->get_scheme_loci($id);
 		my $to_display;
 		$display_on_own_line = $self->{'datastore'}->are_sequences_displayed_in_scheme($id);
 		$display_on_own_line = 1
@@ -635,8 +687,8 @@ sub _get_scheme_fields {
 "SELECT COUNT(isolate_id) FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id LEFT JOIN scheme_members ON allele_sequences.locus=scheme_members.locus WHERE isolate_id=? AND scheme_id=?",
 			$isolate_id, $id
 		)->[0];
-
 		foreach (@$loci) {
+
 			if ( $self->{'prefs'}->{'isolate_display_loci'}->{$_} ne 'hide' ) {
 				$locus_display_count++;
 			}
@@ -645,7 +697,7 @@ sub _get_scheme_fields {
 		$display_on_own_line = 0 if !$locus_display_count;
 		$info_ref = $self->{'datastore'}->get_scheme_info($id);
 		foreach (@$scheme_fields) {
-			if ( $self->{'prefs'}->{'isolate_display_scheme_fields'}->{$id}->{$_} ) {			
+			if ( $self->{'prefs'}->{'isolate_display_scheme_fields'}->{$id}->{$_} ) {
 				$scheme_fields_count++;
 			}
 		}
@@ -671,12 +723,11 @@ sub _get_scheme_fields {
 	}
 	return $td if !( $locus_display_count + $scheme_fields_count ) && !$display_on_own_line;
 	my $hidden_locus_count = 0;
-
 	my %locus_aliases;
 	foreach (@$loci) {
 		my $aliases;
-		foreach my $alias (sort keys %{$locus_alias->{$_}}){
-			if ($self->{'system'}->{'locus_superscript_prefix'} eq 'yes'){
+		foreach my $alias ( sort keys %{ $locus_alias->{$_} } ) {
+			if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
 				$alias =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
 			}
 			push @$aliases, $alias;
@@ -689,20 +740,22 @@ sub _get_scheme_fields {
 	  if ( ( $hidden_locus_count == scalar @$loci && !$scheme_fields_count )
 		|| ( !keys %$allele_designations && !keys %$allele_sequences ) );
 	my $rowspan = $display_on_own_line ? ( $locus_display_count + $scheme_fields_count ) : 1;
-	$buffer .= ( $display_on_own_line ? "<tr class=\"td$td\"><th rowspan=\"$rowspan\" style=\"vertical-align:top;padding-top:1em\">" : "<tr class=\"td$td\"><th>" )
+	$buffer .=
+	  ( $display_on_own_line
+		? "<tr class=\"td$td\"><th rowspan=\"$rowspan\" style=\"vertical-align:top;padding-top:1em\">"
+		: "<tr class=\"td$td\"><th>" )
 	  . "$info_ref->{'description'}</th>";
 	my ( %url, %locus_value );
 	foreach (@$loci) {
 		my $cleaned_name;
 		my $display_locus_name = $_;
-		if ($self->{'system'}->{'locus_superscript_prefix'} eq 'yes'){
+		if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
 			$display_locus_name =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
 		}
 		$display_locus_name =~ tr/_/ /;
 		$locus_value{$_} .= "<span class=\"provisional\">"
 		  if $allele_designations->{$_}->{'status'} eq 'provisional'
 			  && $self->{'prefs'}->{'mark_provisional'};
-
 		$cleaned_name = $display_locus_name;
 		$cleaned_name =~ s/_/&nbsp;/g;
 		my $tooltip_name = $cleaned_name;
@@ -712,7 +765,7 @@ sub _get_scheme_fields {
 		}
 		push @profile, $allele_designations->{$_}->{'allele_id'};
 		my $url;
-		if ( $locus_info->{$_}->{'url'} && $allele_designations->{$_}->{'allele_id'} ne 'deleted') {
+		if ( $locus_info->{$_}->{'url'} && $allele_designations->{$_}->{'allele_id'} ne 'deleted' ) {
 			$url{$_} = $locus_info->{$_}->{'url'};
 			$url{$_} =~ s/\[\?\]/$allele_designations->{$_}->{'allele_id'}/g;
 			$url{$_} =~ s/\&/\&amp;/g;
@@ -733,30 +786,32 @@ sub _get_scheme_fields {
 			my @flags;
 			my %flags_used;
 			my $complete;
-			foreach my $seqbin_id (keys %{$allele_sequences->{$_}}){
-				foreach my $start (keys %{$allele_sequences->{$_}->{$seqbin_id}}){
-					foreach my $end (keys %{$allele_sequences->{$_}->{$seqbin_id}->{$start}}){
-						push @seqs,$allele_sequences->{$_}->{$seqbin_id}->{$start}->{$end};
+			foreach my $seqbin_id ( keys %{ $allele_sequences->{$_} } ) {
+				foreach my $start ( keys %{ $allele_sequences->{$_}->{$seqbin_id} } ) {
+					foreach my $end ( keys %{ $allele_sequences->{$_}->{$seqbin_id}->{$start} } ) {
+						push @seqs, $allele_sequences->{$_}->{$seqbin_id}->{$start}->{$end};
 						$complete = 1 if $allele_sequences->{$_}->{$seqbin_id}->{$start}->{$end}->{'complete'};
-						my @flag_list = keys %{$allele_sequence_flags->{$_}->{$seqbin_id}->{$start}->{$end}};
-						push @flags,\@flag_list;	
-						foreach (@flag_list){
+						my @flag_list = keys %{ $allele_sequence_flags->{$_}->{$seqbin_id}->{$start}->{$end} };
+						push @flags, \@flag_list;
+						foreach (@flag_list) {
 							$flags_used{$_} = 1;
-						}	
-					}			
+						}
+					}
 				}
 			}
 			my $sequence_tooltip = $self->get_sequence_details_tooltip( $tooltip_name, $allele_designations->{$_}, \@seqs, \@flags );
 			my $sequence_class = $complete ? 'sequence_tooltip' : 'sequence_tooltip_incomplete';
 			$locus_value{$_} .=
 "<span style=\"font-size:0.2em\"> </span><a class=\"$sequence_class\" title=\"$sequence_tooltip\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleSequence&amp;id=$isolate_id&amp;locus=$_\">&nbsp;S&nbsp;</a>";
-			if (keys %flags_used){
-				foreach my $flag(sort keys %flags_used){
+			if ( keys %flags_used ) {
+				foreach my $flag ( sort keys %flags_used ) {
 					$locus_value{$_} .= "<a class=\"seqflag_tooltip\">$flag</a>";
 				}
 			}
 		}
-		$locus_value{$_} .= $self->_get_pending_designation_tooltip( $isolate_id, $_ ) if $allele_designations->{$_}->{'allele_id'};
+		if ( $allele_designations->{$_}->{'allele_id'} ) {
+			$locus_value{$_} .= $self->_get_pending_designation_tooltip( $isolate_id, $_ ) || '';
+		}
 		my $action = $allele_designations->{$_}->{'allele_id'} ? 'update' : 'add';
 		$locus_value{$_} .=
 " <a href=\"$self->{'system'}->{'script_name'}?page=alleleUpdate&amp;db=$self->{'instance'}&amp;isolate_id=$isolate_id&amp;locus=$_\" class=\"update\">$action</a>"
@@ -811,17 +866,17 @@ sub _get_scheme_fields {
 			push @other_display_names, $locus_info->{$_}->{'common_name'} if $locus_info->{$_}->{'common_name'};
 			$buffer .= "<tr class=\"td$td\">" if !$first;
 			my $cleaned = $_;
-			if ($self->{'system'}->{'locus_superscript_prefix'} eq 'yes'){
+			if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
 				$cleaned =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
 			}
 			$cleaned =~ tr/_/ /;
 			$buffer .= "<td>$cleaned";
 			if ( $self->{'prefs'}->{'locus_alias'} && $locus_aliases{$_} ) {
-				push @other_display_names, @{$locus_aliases{$_}};
+				push @other_display_names, @{ $locus_aliases{$_} };
 			}
 			$" = '; ';
 			$buffer .= "<br /><span class=\"comment\">(@other_display_names)</span>" if @other_display_names;
-			if ($locus_info->{$_}->{'description_url'}){
+			if ( $locus_info->{$_}->{'description_url'} ) {
 				$locus_info->{$_}->{'description_url'} =~ s/\&/\&amp;/g;
 				$buffer .= " <a href=\"$locus_info->{$_}->{'description_url'}\" class=\"info_tooltip\">&nbsp;<i>i</i>&nbsp;</a>";
 			}
@@ -873,13 +928,13 @@ sub _get_scheme_fields {
 		my @value_buffer;
 		my $i         = 0;
 		my $j         = 0;
-		my $max_cells = $q->param('no_header')? 10 : 16;
+		my $max_cells = $q->param('no_header') ? 10 : 16;
 		foreach (@$loci) {
 			next
 			  if $self->{'prefs'}->{'isolate_display_loci'}->{$_} eq 'hide';
 			$header_buffer[$j] .= "<tr class=\"td$td\">" if !$i;
 			my $cleaned = $_;
-			if ($self->{'system'}->{'locus_superscript_prefix'} eq 'yes'){
+			if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
 				$cleaned =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
 			}
 			$cleaned =~ tr/_/ /;
@@ -888,20 +943,21 @@ sub _get_scheme_fields {
 			if ($id) {
 				$header_buffer[$j] .= "<th>$cleaned";
 				if ( $self->{'prefs'}->{'locus_alias'} && $locus_aliases{$_} ) {
-					push @other_display_names, @{$locus_aliases{$_}};
+					push @other_display_names, @{ $locus_aliases{$_} };
 				}
-				if (@other_display_names){
+				if (@other_display_names) {
 					$" = '; ';
 					$header_buffer[$j] .= "<br /><span class=\"comment\">(@other_display_names)</span>";
 				}
-				if ($locus_info->{$_}->{'description_url'}){
+				if ( $locus_info->{$_}->{'description_url'} ) {
 					$locus_info->{$_}->{'description_url'} =~ s/\&/\&amp;/g;
-					$header_buffer[$j] .= " <a href=\"$locus_info->{$_}->{'description_url'}\" class=\"info_tooltip\">&nbsp;<i>i</i>&nbsp;</a>";
+					$header_buffer[$j] .=
+					  " <a href=\"$locus_info->{$_}->{'description_url'}\" class=\"info_tooltip\">&nbsp;<i>i</i>&nbsp;</a>";
 				}
 				$header_buffer[$j] .= '</th>';
 			} else {
 				$header_buffer[$j] .= "<th>$cleaned";
-				if (@other_display_names){
+				if (@other_display_names) {
 					$" = '; ';
 					$header_buffer[$j] .= "<br /><span class=\"comment\">(@other_display_names)</span>";
 				}
@@ -916,7 +972,7 @@ sub _get_scheme_fields {
 		}
 		if ( defined $scheme_fields && scalar @$scheme_fields && $scheme_fields_count ) {
 			foreach (@$scheme_fields) {
-				if ( $self->{'prefs'}->{'isolate_display_scheme_fields'}->{$id}->{$_}) {
+				if ( $self->{'prefs'}->{'isolate_display_scheme_fields'}->{$id}->{$_} ) {
 					$header_buffer[$j] .= "<tr class=\"td$td\">" if !$i;
 					my $cleaned = $_;
 					$cleaned =~ tr/_/ /;
@@ -947,7 +1003,7 @@ sub _get_scheme_fields {
 		}
 		my $x = 0;
 		foreach (@$scheme_fields) {
-			if ( $self->{'prefs'}->{'isolate_display_scheme_fields'}->{$id}->{$_}) {
+			if ( $self->{'prefs'}->{'isolate_display_scheme_fields'}->{$id}->{$_} ) {
 				$value_buffer[$j] .= "<tr class=\"td$td\">" if !$i;
 				$value_buffer[$j] .= "<td>$field_values[$x]</td>";
 				$x++;
@@ -1055,7 +1111,7 @@ sub get_title {
 	return "Invalid isolate id" if !BIGSdb::Utils::is_int($isolate_id);
 	my @name  = $self->get_name($isolate_id);
 	my $title = "Isolate information: id-$isolate_id";
-	$"=' ';
+	$" = ' ';
 	$title .= " (@name)" if $name[1];
 	$title .= ' - ';
 	$title .= "$self->{'system'}->{'description'}";
@@ -1066,7 +1122,6 @@ sub _get_history {
 	my ( $self, $isolate_id, $limit ) = @_;
 	my $limit_clause = $limit ? " LIMIT $limit" : '';
 	my $count;
-
 	my $qry = "SELECT timestamp,action,curator FROM history where isolate_id=? ORDER BY timestamp desc$limit_clause";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute($isolate_id); };
@@ -1077,13 +1132,14 @@ sub _get_history {
 	while ( my $data = $sql->fetchrow_hashref ) {
 		push @history, $data;
 	}
-	if ($limit){
+	if ($limit) {
+
 		#need to count total
-		$count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM history WHERE isolate_id=?",$isolate_id)->[0];
+		$count = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM history WHERE isolate_id=?", $isolate_id )->[0];
 	} else {
 		$count = scalar @history;
 	}
-	return \@history,$count;
+	return \@history, $count;
 }
 
 sub get_name {
@@ -1091,7 +1147,7 @@ sub get_name {
 	my ( $name_ref, $field );
 	my $field_list = $self->{'xmlHandler'}->get_field_list;
 	foreach (@$field_list) {
-		if (   $_ eq $self->{'system'}->{'labelfield'})	{
+		if ( $_ eq $self->{'system'}->{'labelfield'} ) {
 			$name_ref = $self->{'datastore'}->run_simple_query( "SELECT $_ FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id );
 			$field = $_;
 			return ( $field, $name_ref->[0] );

@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::Page;
 use strict;
+use warnings;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use Error qw(:try);
@@ -257,8 +258,7 @@ sub print {
 			);
 		}
 		$self->_print_header();
-		$self->_print_login_details if $self->{'system'}->{'read_access'} ne 'public' || $self->{'curate'};
-		my $page = $q->param('page');
+		$self->_print_login_details if (defined $self->{'system'}->{'read_access'} && $self->{'system'}->{'read_access'} ne 'public') || $self->{'curate'};
 		$self->_print_help_panel;
 		$self->print_content();
 		$self->_print_footer();
@@ -320,7 +320,7 @@ sub _print_help_panel {
 	print "<div id=\"fieldvalueshelp\">";
 	if ( $q->param('page') eq 'plugin' && defined $self->{'pluginManager'} ) {
 		my $plugin_att = $self->{'pluginManager'}->get_plugin_attributes( $q->param('name') );
-		if ( ref $plugin_att eq 'HASH' ) {
+		if ( ref $plugin_att eq 'HASH' && defined $plugin_att->{'help'} ) {
 			foreach (qw (tooltips)) {
 				if ( $plugin_att->{'help'} =~ /$_/ ) {
 					$self->{$_} = 1;
@@ -335,7 +335,7 @@ sub _print_help_panel {
 "<a id=\"toggle_tooltips\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=options&amp;toggle_tooltips=1\" style=\"display:none; margin-right:1em;\">&nbsp;<i>i</i>&nbsp;</a> ";
 		}
 	}
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $self->{'field_help'} ) {
+	if ( defined $self->{'system'}->{'dbtype'} && $self->{'system'}->{'dbtype'} eq 'isolates' && $self->{'field_help'} ) {
 
 		#open new page unless already on field values help page
 		if ( $q->param('page') eq 'fieldValues' ) {
@@ -385,14 +385,18 @@ sub get_field_selection_list {
 		return;
 	}
 	my @values;
-	my $extended = $self->get_extended_attributes if $options->{'extended_attributes'};
+	my $extended = $options->{'extended_attributes'} ? $self->get_extended_attributes : undef;
 	if ( $options->{'isolate_fields'} ) {
 		my @isolate_list;
 		my $fields     = $self->{'xmlHandler'}->get_field_list;
 		my $attributes = $self->{'xmlHandler'}->get_all_field_attributes;
 		foreach (@$fields) {
-			if (   ( $options->{'sender_attributes'} )
-				&& ( $_ eq 'sender' || $_ eq 'curator' || ( $attributes->{$_}->{'userfield'} eq 'yes' ) ) )
+			if (
+				( $options->{'sender_attributes'} )
+				&& (   $_ eq 'sender'
+					|| $_ eq 'curator'
+					|| ( $attributes->{$_}->{'userfield'} && $attributes->{$_}->{'userfield'} eq 'yes' ) )
+			  )
 			{
 				foreach my $user_attribute (qw (id surname first_name affiliation)) {
 					push @isolate_list, "f_$_ ($user_attribute)";
@@ -583,7 +587,7 @@ sub get_filter {
 		-labels => $options->{'labels'},
 		-class  => $filter
 	);
-	$options->{'tooltip'} =~ tr/_/ /;
+	$options->{'tooltip'} =~ tr/_/ / if $options->{'tooltip'};
 	$buffer .= " <a class=\"tooltip\" title=\"$options->{'tooltip'}\">&nbsp;<i>i</i>&nbsp;</a>" if $options->{'tooltip'};
 	return $buffer;
 }
@@ -741,16 +745,13 @@ sub paged_display {
 	try {
 		foreach (@$schemes) {
 			if ( $qry =~ /temp_scheme_$_\s/ || $qry =~ /ORDER BY s_$_\_/ ) {
-				if ( $self->{'datastore'}->create_temp_scheme_table($_) == -1 ) {
-					print
-"<div class=\"box\" id=\"statusbad\"><p>Can't copy data into temporary table - please check scheme configuration (more details will be in the log file).</p></div>\n";
-					$continue = 0;
-				}
+				$self->{'datastore'}->create_temp_scheme_table($_);
 			}
 		}
 	}
 	catch BIGSdb::DatabaseConnectionException with {
 		print "<div class=\"box\" id=\"statusbad\"><p>Can not connect to remote database.  The query can not be performed.</p></div>\n";
+		$logger->error("Can't create temporary table");
 		$continue = 0;
 	};
 	return if !$continue;
@@ -808,9 +809,7 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 	$bar_buffer .= $q->hidden( 'message', $message ) if $message;
 
 	#Make sure hidden_attributes don't duplicate the above
-	foreach (@$hidden_attributes) {
-		$bar_buffer .= $q->hidden($_) . "\n" if $q->param($_) ne '';
-	}
+	$bar_buffer .= $q->hidden($_) foreach @$hidden_attributes;
 	if ( $currentpage > 1 || $currentpage < $totalpages ) {
 		$bar_buffer .= "<table>\n<tr><td>Page:</td>\n";
 		if ( $currentpage > 1 ) {
@@ -983,7 +982,7 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 	}
 	print "</div>\n";
 	return if !$records;
-	if ( $table eq $self->{'system'}->{'view'} ) {
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
 		$self->_print_isolate_table( \$qry, $currentpage, $q->param('curate'), $records );
 	} elsif ( $table eq 'profiles' ) {
 		$self->_print_profile_table( \$qry, $currentpage, $q->param('curate'), $records );
@@ -1013,7 +1012,7 @@ sub _print_record_table {
 	my ( $self, $table, $qryref, $page ) = @_;
 	my $pagesize = $self->{'prefs'}->{'displayrecs'};
 	my $q        = $self->{'cgi'};
-	if ( $table eq $self->{'system'}->{'view'} ) {
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
 		$logger->error("Record table should not be called for isolates");
 		return;
 	}
@@ -1114,7 +1113,7 @@ sub _print_record_table {
 		my %primary_key;
 		$" = "&amp;";
 		foreach (@$attributes) {
-			if ( $_->{'primary_key'} eq 'yes' ) {
+			if ( $_->{'primary_key'} && $_->{'primary_key'} eq 'yes' ) {
 				$primary_key{ $_->{'name'} } = 1;
 				my $value = $data{ $_->{'name'} };
 				$value =~ s/ /\%20/g;
@@ -1136,6 +1135,7 @@ sub _print_record_table {
 			}
 		}
 		foreach my $field (@display) {
+			$data{ lc($field) } = '' if !defined $data{ lc($field) };
 			if ( $field eq 'url' ) {
 				$data{'url'} =~ s/\&/\&amp;/g;
 			}
@@ -1149,10 +1149,10 @@ sub _print_record_table {
 				$value = $self->clean_locus($value);
 				if ( $table eq 'sequences' ) {
 					print
-					  "<td><a href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;@query_values\">$value</a></td>";
+					  "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;@query_values\">$value</a></td>";
 				} else {
 					print
-"<td><a href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=recordInfo&amp;table=$table&amp;@query_values\">$value</a></td>";
+"<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=recordInfo&amp;table=$table&amp;@query_values\">$value</a></td>";
 				}
 			} elsif ( $type{$field} eq 'bool' ) {
 				if ( $data{ lc($field) } eq '' ) {
@@ -1192,10 +1192,8 @@ sub _print_record_table {
 					my $qry = "select @fields_to_query from $foreign_key{$field} WHERE id=?";
 					$foreign_key_sql{$field} = $self->{'db'}->prepare($qry) or die;
 				}
-				eval { $foreign_key_sql{$field}->execute( $data{ lc($field) } ); };
-				if ($@) {
-					$logger->error("Can't execute: $@ value:$data{lc($field)}");
-				}
+				eval { $foreign_key_sql{$field}->execute( $data{ lc($field) } ) };
+				$logger->error($@) if $@;
 				while ( my @labels = $foreign_key_sql{$field}->fetchrow_array() ) {
 					my $value = $labels{$field};
 					my $i     = 0;
@@ -1232,7 +1230,7 @@ sub _print_record_table {
 				eval { $ext_sql->execute( $data{'locus'}, $_, $data{'allele_id'} ); };
 				$logger->error($@) if $@;
 				my ($value) = $ext_sql->fetchrow_array;
-				print "<td>$value</td>";
+				print defined $value ? "<td>$value</td>" : '<td />';
 			}
 		}
 		print "</tr>\n";
@@ -1345,10 +1343,8 @@ sub get_isolate_name_from_id {
 		  $self->{'db'}
 		  ->prepare("SELECT $self->{'system'}->{'view'}.$self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?");
 	}
-	eval { $self->{'sql'}->{'isolate_id'}->execute($isolate_id); };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	eval { $self->{'sql'}->{'isolate_id'}->execute($isolate_id) };
+	$logger->error($@) if $@;
 	my ($isolate) = $self->{'sql'}->{'isolate_id'}->fetchrow_array;
 	return $isolate;
 }
@@ -1547,7 +1543,7 @@ sub _print_profile_table {
 		}
 		foreach (@$scheme_fields) {
 			next if $_ eq $primary_key;
-			print "<td>$data->{lc($_)}</td>";
+			print defined $data->{lc($_)} ? "<td>$data->{lc($_)}</td>" : '<td />';
 		}
 		print "</tr>\n";
 		$td = $td == 1 ? 2 : 1;
@@ -1715,7 +1711,8 @@ sub _print_isolate_table {
 		my $id;
 		print "<tr class=\"td$td\">";
 		foreach my $thisfieldname (@$fields) {
-			$data{$thisfieldname} =~ s/\n/ /g;
+			$data{$thisfieldname} = '' if !defined $data{$thisfieldname};
+			$data{$thisfieldname} =~ tr/\n/ /;
 			if (   $self->{'prefs'}->{'maindisplayfields'}->{$thisfieldname}
 				|| $thisfieldname eq 'id' )
 			{
@@ -1796,6 +1793,7 @@ sub _print_isolate_table {
 			foreach ( @{ $scheme_loci->{$scheme_id} } ) {
 				next if !$self->{'prefs'}->{'main_display_loci'}->{$_} && ( !$scheme_id || !@{ $scheme_fields->{$scheme_id} } );
 				if ( $self->{'prefs'}->{'main_display_loci'}->{$_} ) {
+					$alleles->{$_}->{'status'} ||= 'confirmed';
 					print "<td>";
 					print "<span class=\"provisional\">"
 					  if $alleles->{$_}->{'status'} eq 'provisional'
@@ -1805,7 +1803,7 @@ sub _print_isolate_table {
 						$url =~ s/\[\?\]/$alleles->{$_}->{'allele_id'}/g;
 						print $url ? "<a href=\"$url\">$alleles->{$_}->{'allele_id'}</a>" : "$alleles->{$_}->{'allele_id'}";
 					} else {
-						print "$alleles->{$_}->{'allele_id'}";
+						print defined $alleles->{$_}->{'allele_id'} ? $alleles->{$_}->{'allele_id'} : '';
 					}
 					print "</span>"
 					  if $alleles->{$_}->{'status'} eq 'provisional'
@@ -1865,6 +1863,7 @@ sub _print_isolate_table {
 			foreach ( @{ $scheme_fields->{$scheme_id} } ) {
 				if ( $self->{'prefs'}->{'main_display_scheme_fields'}->{$scheme_id}->{$_} ) {
 					if ( ref $values eq 'HASH' ) {
+						$values->{ lc($_) } = '' if !defined $values->{ lc($_) };
 						my $url;
 						if (   $self->{'prefs'}->{'hyperlink_loci'}
 							&& $scheme_field_info->{$scheme_id}->{$_}->{'url'} )
@@ -1877,9 +1876,9 @@ sub _print_isolate_table {
 							$values->{ lc($_) } = '';
 						}
 						if ($url) {
-							print "<td><a href=\"$url\">$values->{lc($_)}</a></td>";
+							print $values->{ lc($_) } ? "<td><a href=\"$url\">$values->{lc($_)}</a></td>" : '<td />';
 						} else {
-							print "<td>$values->{lc($_)}</td>";
+							print $values->{ lc($_) } ? "<td>$values->{lc($_)}</td>" : '<td />';
 						}
 					} else {
 						print "<td />";
@@ -2150,7 +2149,7 @@ sub get_update_details_tooltip {
 
 sub get_sequence_details_tooltip {
 	my ( $self, $locus, $allele_ref, $alleleseq_ref, $flags_ref ) = @_;
-	my $buffer = "$locus:$allele_ref->{'allele_id'} - ";
+	my $buffer = defined $allele_ref->{'allele_id'} ? "$locus:$allele_ref->{'allele_id'} - " : "$locus - ";
 	my $i      = 0;
 	$" = '; ';
 	foreach (@$alleleseq_ref) {
@@ -2481,7 +2480,8 @@ sub initiate_prefs {
 		foreach (qw (hyperlink_loci traceview tooltips)) {
 			$self->{'prefs'}->{$_} = ( $q->param($_) && $q->param($_) eq 'on' ) ? 1 : 0;
 		}
-		$self->{'prefs'}->{'dropdownfields'}->{'publications'} = $q->param("dropfield_publications") eq 'checked' ? 1 : 0;
+		$self->{'prefs'}->{'dropdownfields'}->{'publications'} =
+		  ( defined $q->param("dropfield_publications") && $q->param("dropfield_publications") eq 'checked' ) ? 1 : 0;
 	} else {
 		return if !$self->{'pref_requirements'}->{'general'} && !$self->{'pref_requirements'}->{'query_field'};
 		my $guid = $self->get_guid || 1;
@@ -2505,11 +2505,13 @@ sub initiate_prefs {
 
 			#default off
 			foreach (qw (hyperlink_loci )) {
+				$general_prefs->{$_} ||= 'off';
 				$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'on' ? 1 : 0;
 			}
 
 			#default on
 			foreach (qw (tooltips traceview)) {
+				$general_prefs->{$_} ||= 'on';
 				$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'off' ? 0 : 1;
 			}
 		}
@@ -2568,35 +2570,35 @@ sub _initiate_isolatedb_prefs {
 			display_pending display_pending_main locus_alias scheme_members_alias sample_details undesignated_alleles)
 		  )
 		{
-			$self->{'prefs'}->{$_} = ( $params->{$_} && $params->{$_} eq 'on' ) ? 1 : 0;
+			$self->{'prefs'}->{$_} = $params->{$_} ? 1 : 0;
 		}
 		foreach (@$field_list) {
 			if ( $_ ne 'id' ) {
-				$self->{'prefs'}->{'maindisplayfields'}->{$_} = $params->{"field_$_"}     eq 'checked' ? 1 : 0;
-				$self->{'prefs'}->{'dropdownfields'}->{$_}    = $params->{"dropfield_$_"} eq 'checked' ? 1 : 0;
+				$self->{'prefs'}->{'maindisplayfields'}->{$_} = $params->{"field_$_"}  ? 1 : 0;			   
+				$self->{'prefs'}->{'dropdownfields'}->{$_} = $params->{"dropfield_$_"} ? 1 : 0;
 				my $extatt = $extended->{$_};
 				if ( ref $extatt eq 'ARRAY' ) {
 					foreach my $extended_attribute (@$extatt) {
 						$self->{'prefs'}->{'maindisplayfields'}->{"$_\..$extended_attribute"} =
-						  $params->{"extended_$_\..$extended_attribute"} eq 'checked' ? 1 : 0;
+						  $params->{"extended_$_\..$extended_attribute"} ? 1 : 0;
 						$self->{'prefs'}->{'dropdownfields'}->{"$_\..$extended_attribute"} =
-						  $params->{"dropfield_e_$_\..$extended_attribute"} eq 'checked' ? 1 : 0;
+						  $params->{"dropfield_e_$_\..$extended_attribute"} ? 1 : 0;
 					}
 				}
 			}
 		}
-		$self->{'prefs'}->{'maindisplayfields'}->{'aliases'} = $params->{"field_aliases"} eq 'checked' ? 1 : 0;
+		$self->{'prefs'}->{'maindisplayfields'}->{'aliases'} = $params->{"field_aliases"} ? 1 : 0;
 		my $composites = $self->{'datastore'}->run_list_query("SELECT id FROM composite_fields");
 		foreach (@$composites) {
-			$self->{'prefs'}->{'maindisplayfields'}->{$_} = $params->{"field_$_"} eq 'checked' ? 1 : 0;
+			$self->{'prefs'}->{'maindisplayfields'}->{$_} = $params->{"field_$_"} ? 1 : 0;
 		}
 		my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 		foreach (@$schemes) {
 			my $field = "scheme_$_\_profile_status";
-			$self->{'prefs'}->{'dropdownfields'}->{$field} = $params->{"dropfield_$field"} eq 'checked' ? 1 : 0;
+			$self->{'prefs'}->{'dropdownfields'}->{$field} = $params->{"dropfield_$field"} ? 1 : 0;
 		}
-		$self->{'prefs'}->{'dropdownfields'}->{'projects'}         = $q->param("dropfield_projects")         eq 'checked' ? 1 : 0;
-		$self->{'prefs'}->{'dropdownfields'}->{'linked_sequences'} = $q->param("dropfield_linked_sequences") eq 'checked' ? 1 : 0;
+		$self->{'prefs'}->{'dropdownfields'}->{'projects'} = $params->{"dropfield_projects"} ? 1 : 0;
+		$self->{'prefs'}->{'dropdownfields'}->{'linked_sequences'} = $params->{"dropfield_linked_sequences"} ? 1 : 0;
 	} else {
 		my $guid             = $self->get_guid || 1;
 		my $dbname           = $self->{'system'}->{'db'};
@@ -2605,6 +2607,7 @@ sub _initiate_isolatedb_prefs {
 
 			#default off
 			foreach (qw (update_details undesignated_alleles scheme_members_alias sequence_details_main)) {
+				$general_prefs->{$_} ||= 'off';
 				$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'on' ? 1 : 0;
 			}
 
@@ -2613,6 +2616,7 @@ sub _initiate_isolatedb_prefs {
 				qw (sequence_details sample_details mark_provisional mark_provisional_main display_pending display_pending_main locus_alias)
 			  )
 			{
+				$general_prefs->{$_} ||= 'on';
 				$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'off' ? 0 : 1;
 			}
 		}
@@ -2621,6 +2625,7 @@ sub _initiate_isolatedb_prefs {
 				if ( defined $field_prefs->{$_}->{'dropdown'} ) {
 					$self->{'prefs'}->{'dropdownfields'}->{$_} = $field_prefs->{$_}->{'dropdown'} ? 1 : 0;
 				} else {
+					$self->{'system'}->{$_} ||= 'no';
 					$self->{'prefs'}->{'dropdownfields'}->{$_} = $self->{'system'}->{$_} eq 'yes' ? 1 : 0;
 				}
 			}
@@ -2629,6 +2634,7 @@ sub _initiate_isolatedb_prefs {
 				if ( defined $field_prefs->{$_}->{'dropdown'} ) {
 					$self->{'prefs'}->{'dropdownfields'}->{$_} = $field_prefs->{$_}->{'dropdown'};
 				} else {
+					$field_attributes->{$_}->{'dropdown'} ||= 'no';
 					$self->{'prefs'}->{'dropdownfields'}->{$_} = $field_attributes->{$_}->{'dropdown'} eq 'yes' ? 1 : 0;
 				}
 				my $extatt = $extended->{$_};
@@ -2648,6 +2654,7 @@ sub _initiate_isolatedb_prefs {
 			if ( defined $field_prefs->{'aliases'}->{'maindisplay'} ) {
 				$self->{'prefs'}->{'maindisplayfields'}->{'aliases'} = $field_prefs->{'aliases'}->{'maindisplay'};
 			} else {
+				$self->{'system'}->{'maindisplay_aliases'} ||= 'no';
 				$self->{'prefs'}->{'maindisplayfields'}->{'aliases'} = $self->{'system'}->{'maindisplay_aliases'} eq 'yes' ? 1 : 0;
 			}
 			foreach (@$field_list) {
@@ -2655,6 +2662,7 @@ sub _initiate_isolatedb_prefs {
 				if ( defined $field_prefs->{$_}->{'maindisplay'} ) {
 					$self->{'prefs'}->{'maindisplayfields'}->{$_} = $field_prefs->{$_}->{'maindisplay'};
 				} else {
+					$field_attributes->{$_}->{'maindisplay'} ||= 'yes';
 					$self->{'prefs'}->{'maindisplayfields'}->{$_} = $field_attributes->{$_}->{'maindisplay'} eq 'no' ? 0 : 1;
 				}
 				my $extatt = $extended->{$_};
@@ -2701,7 +2709,7 @@ sub _initiate_isolatedb_prefs {
 			}
 			my $term = "$action\_loci";
 			foreach (@$array_ref) {
-				if ( exists $prefstore_values->{ $_->[0] }->{$action} ) {
+				if ( defined $prefstore_values->{ $_->[0] }->{$action} ) {
 					if ( $action eq 'isolate_display' ) {
 						$self->{'prefs'}->{$term}->{ $_->[0] } = $prefstore_values->{ $_->[0] }->{$action};
 					} else {
@@ -2806,8 +2814,8 @@ sub get_tree {
 				$buffer .=
 "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;group_id=$_\" rel=\"ajax\">$group_info->{'name'}</a>\n";
 			}
-			$buffer .= $group_scheme_buffer;
-			$buffer .= $child_group_buffer;
+			$buffer .= $group_scheme_buffer if $group_scheme_buffer;
+			$buffer .= $child_group_buffer if $child_group_buffer;
 			$buffer .= "</li>\n";
 		}
 	}
@@ -2840,7 +2848,7 @@ sub get_tree {
 					$temp_buffer .=
 "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;scheme_id=$_->{'id'}\" rel=\"ajax\">$_->{'description'}</a>\n";
 				}
-				$temp_buffer .= $scheme_loci_buffer;
+				$temp_buffer .= $scheme_loci_buffer if $scheme_loci_buffer;
 				$temp_buffer .= "</li>\n";
 			}
 		}
@@ -2860,7 +2868,7 @@ sub get_tree {
 				$buffer .=
 "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;scheme_id=0\" rel=\"ajax\">Loci not in schemes</a>\n";
 			}
-			$buffer .= $scheme_loci_buffer;
+			$buffer .= $scheme_loci_buffer if $scheme_loci_buffer;
 			$buffer .= "</li>\n";
 		}
 	}
@@ -2911,7 +2919,7 @@ sub _get_group_schemes {
 						$buffer .=
 "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;id=$isolate_id&amp;scheme_id=$scheme_info->{'id'}\" rel=\"ajax\">$scheme_info->{'description'}</a>";
 					}
-					$buffer .= $scheme_loci_buffer;
+					$buffer .= $scheme_loci_buffer if $scheme_loci_buffer;
 					$buffer .= "</li>\n";
 				}
 			} else {
@@ -2921,7 +2929,7 @@ sub _get_group_schemes {
 					$buffer .=
 "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;scheme_id=$scheme_info->{'id'}\" rel=\"ajax\">$scheme_info->{'description'}</a>";
 				}
-				$buffer .= $scheme_loci_buffer;
+				$buffer .= $scheme_loci_buffer if $scheme_loci_buffer;
 				$buffer .= "</li>\n";
 			}
 		}

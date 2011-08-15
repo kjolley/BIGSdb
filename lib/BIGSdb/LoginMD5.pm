@@ -358,9 +358,9 @@ sub login_from_cookie {
 	throw BIGSdb::AuthenticationException("No valid session") if $self->{'logged_out'};
 	my %Cookies = $self->_get_cookies( $passString, $userCookieName );
 	foreach ( keys %Cookies ) {
-		$logger->debug("cookie $_ = $Cookies{$_}");
+		$logger->debug("cookie $_ = $Cookies{$_}") if defined $Cookies{$_};
 	}
-	my $savedPasswordHash = $self->_get_password_hash( $Cookies{$userCookieName} );
+	my $savedPasswordHash = $self->_get_password_hash( $Cookies{$userCookieName} ) || '';
 	my $saved_IP_address  = $self->_get_IP_address( $Cookies{$userCookieName} );
 	my $cookieString      = Digest::MD5::md5_hex( $self->{'ip_addr'} . $savedPasswordHash . $uniqueString );
 	##############################################################
@@ -381,6 +381,7 @@ sub login_from_cookie {
 		# good cookie, allow access
 		return $Cookies{$userCookieName};
 	}
+	$Cookies{$passString} ||= '';
 	$logger->debug("Cookie not validated. cookie:$Cookies{$passString} string:$cookieString");
 	throw BIGSdb::AuthenticationException("No valid session");
 }
@@ -391,7 +392,7 @@ sub _MD5_login {
 	$self->{'$sessionID'} = Digest::MD5::md5_hex( $self->{'ip_addr'} . $randomNumber . $uniqueString );
 	my $current_time = time();
 	$self->_create_session( $self->{'$sessionID'}, $current_time );
-	if ( $self->{'vars'}->{Submit} eq 'Log in' ) {
+	if ( $self->{'vars'}->{'Submit'} ) {
 		my $log_buffer;
 		foreach my $key ( keys %{ $self->{'vars'} } ) {
 			$log_buffer .= ' | ' . $key . "=" . $self->{'vars'}->{$key} if $key ne 'password_field' && $key ne 'Submit';

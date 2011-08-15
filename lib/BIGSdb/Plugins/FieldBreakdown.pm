@@ -1,6 +1,6 @@
 #FieldBreakdown.pm - FieldBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::Plugins::FieldBreakdown;
 use strict;
+use warnings;
 use base qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -35,7 +36,7 @@ sub get_attributes {
 		buttontext  => 'Fields',
 		menutext    => 'Single field',
 		module      => 'FieldBreakdown',
-		version     => '1.0.0',
+		version     => '1.0.1',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -87,6 +88,7 @@ sub get_plugin_javascript {
 	my ($self)   = @_;
 	my $q           = $self->{'cgi'};
 	my $query_file  = $q->param('query_file');
+	my $query_clause = defined $query_file ? "&amp;query_file=$query_file" : '';
 	my $script_name = $self->{'system'}->{'script_name'};
 	my $links       = my $js = << "END";
 \$(function () {
@@ -101,7 +103,7 @@ sub get_plugin_javascript {
 		\$("#field").empty();
 		\$("#field").append(display);
 		\$("#links").empty();
-		\$("#links").append("<p><a href='$script_name?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;function=summary_table&amp;query_file=$query_file&amp;field=" + field + "&amp;format=html'>Display table</a> | <a href='$script_name?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;function=summary_table&amp;query_file=$query_file&amp;field=" + field + "&amp;format=text'>Tab-delimited text</a></p>");
+		\$("#links").append("<p><a href='$script_name?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;function=summary_table$query_clause&amp;field=" + field + "&amp;format=html'>Display table</a> | <a href='$script_name?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;function=summary_table$query_clause&amp;field=" + field + "&amp;format=text'>Tab-delimited text</a></p>");
 	});		
 });
 END
@@ -131,7 +133,7 @@ sub run {
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
 	my $format     = $q->param('format');
-	if ( $q->param('function') ne 'summary_table' ) {
+	if ( !(defined $q->param('function') && $q->param('function') eq 'summary_table' )) {
 		print "<h1>Field breakdown of dataset</h1>\n";
 		print
 "<script type=\"text/javascript\">\n//<![CDATA[\ndocument.write('<p id=\"hideonload\"><b>Please wait for charts to be generated ...</b></p>')\n//]]>\n</script>\n";
@@ -147,7 +149,7 @@ sub run {
 	
 	$self->{'extended'} = $self->get_extended_attributes;
 
-	if ( $q->param('function') eq 'summary_table' ) {
+	if ( defined $q->param('function') && $q->param('function') eq 'summary_table' ) {
 		$self->_summary_table($qry);
 		return;
 	}
@@ -247,8 +249,9 @@ sub run {
 	print "<h2 id=\"field\">$display_name</h2>\n";
 	print
 "<div class=\"box\" id=\"chart\"><img id=\"placeholder\" src=\"$src\" alt=\"breakdown chart\" /></div>\n";
+	my $query_clause = defined $query_file ? "&amp;query_file=$query_file" : '';
 	print
-"<p id=\"links\"><a href='$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;function=summary_table&amp;query_file=$query_file&amp;field=$name&amp;format=html'>Display table</a> | <a href='$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;function=summary_table&amp;query_file=$query_file&amp;field=$name&amp;format=text'>Tab-delimited text</a></p>\n";
+"<p id=\"links\"><a href='$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;function=summary_table$query_clause&amp;field=$name&amp;format=html'>Display table</a> | <a href='$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;function=summary_table$query_clause&amp;field=$name&amp;format=text'>Tab-delimited text</a></p>\n";
 }
 
 sub _create_chartdirector_chart {
@@ -489,8 +492,9 @@ sub _get_value_frequency_hash {
 		@field_list = @$fields;
 	}
 		
-	while ( $sql->fetchrow_arrayref() ) {
+	while ( $sql->fetchrow_arrayref ) {
 		foreach my $field (@field_list) {
+			$data{$field} = defined $data{$field} ? $data{$field} : '';
 			if (   $data{$field} eq '-999'
 				|| $data{$field} eq '0001-01-01'
 				|| $data{$field} eq '' )
@@ -532,7 +536,7 @@ sub _get_value_frequency_hash {
 						$sql_extended->execute($field,$extended_attribute,$_)
 					};
 					my ($value) = $sql_extended->fetchrow_array;
-					$value = 'No value/unassigned' if $value eq '';
+					$value = 'No value/unassigned' if !defined $value || $value eq '';
 					$value_frequency->{"$field..$extended_attribute"}->{$value} += $value_frequency->{$field}->{$_};
 				}
 			}

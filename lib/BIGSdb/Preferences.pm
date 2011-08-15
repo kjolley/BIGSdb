@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::Preferences;
 use strict;
+use warnings;
 use Log::Log4perl qw(get_logger);
 use Data::UUID;
 my $logger = get_logger('BIGSdb.Prefs');
@@ -250,12 +251,12 @@ sub get_all_general_prefs {
 	my $values;
 	eval {
 		$sql->execute( $guid, $dbase );	
-		while (my ($attribute,$value) = $sql->fetchrow_array()){
+		while (my ($attribute,$value) = $sql->fetchrow_array){
 			$values->{$attribute}=$value;
 		}
 	};
 	if ($@) {
-		$logger->error("Can't execute get_all_general attribute query");
+		$logger->error($@);
 		throw BIGSdb::DatabaseNoRecordException("Can't execute get_all_general attribute query");
 	}
 	return $values;
@@ -272,9 +273,10 @@ sub get_tooltips_pref {
 		($value) = $sql->fetchrow_array;
 	};
 	if ($@) {
-		$logger->error("Can't execute @_");
+		$logger->error($@);
 		throw BIGSdb::DatabaseNoRecordException("Can't execute tooltips pref query");
 	}
+	$value ||= 0;
 	return $value;
 }
 
@@ -538,15 +540,14 @@ sub get_plugin_attribute {
 	my $value;
 	eval {
 		$self->{'sql'}->{'get_plugin_attribute'}->execute( $guid, $dbase, $plugin, $attribute );
-		($value) = $self->{'sql'}->{'get_plugin_attribute'}->fetchrow_array();
+		($value) = $self->{'sql'}->{'get_plugin_attribute'}->fetchrow_array;
 	};
 	if ($@) {
 		$logger->error("Can't execute get scheme field attribute query $@");
 		throw BIGSdb::PrefstoreConfigurationException("Can't execute get scheme field attribute query");
 	}
 	throw BIGSdb::DatabaseNoRecordException("No value for plugin $plugin attribute $attribute")
-	  if !$value
-		  && $value ne '0';    #Need to differentiate between false values and missing data
+	  if !defined $value;
 	$logger->debug("Returning $plugin $attribute => $value");
 	return $value;
 }

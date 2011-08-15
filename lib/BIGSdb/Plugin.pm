@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::Plugin;
 use strict;
+use warnings;
 use base qw(BIGSdb::Page);
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
@@ -27,7 +28,9 @@ use constant MAX_TREE_NODES => 1000;
 
 sub initiate {
 	my ($self) = @_;
-	if ( $self->{'cgi'}->param('format') eq 'text' ) {
+	my $q = $self->{'cgi'};
+	$q->param('format', 'html') if !defined $q->param('format');
+	if ( $q->param('format') eq 'text' ) {
 		$self->{'type'} = 'text';
 	} else {
 		$self->{$_} = 1 foreach qw(jQuery jQuery.tablesort jQuery.jstree);
@@ -175,6 +178,7 @@ sub create_temp_tables {
 		} else {
 			print "Can not connect to remote database.  The query can not be performed.\n";
 		}
+		$logger->error("Can't connect to remote database.");
 		$continue = 0;
 	};
 	return $continue;
@@ -663,10 +667,10 @@ sub _print_tree {
 }
 
 sub _print_all_none_buttons {
-	my ( $self, $js1, $js2, $class, $prefix ) = @_;
+	my ( $self, $js1, $js2, $class ) = @_;
 	if ( ref $js1 && ref $js2 ) {
-		print "<input type=\"button\" value=\"". $prefix ."None\" class=\"$class\" onclick='@$js2' />\n";
-		print "<input type=\"button\" value=\"". $prefix ."All\" class=\"$class\" onclick='@$js1' />\n";
+		print "<input type=\"button\" value=\"None\" class=\"$class\" onclick='@$js2' />\n";
+		print "<input type=\"button\" value=\"All\" class=\"$class\" onclick='@$js1' />\n";
 	}
 }
 

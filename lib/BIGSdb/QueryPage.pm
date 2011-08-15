@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::QueryPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::Page);
 use List::MoreUtils qw(any none);
 use Log::Log4perl qw(get_logger);
@@ -187,7 +188,7 @@ sub print_content {
 			my $scheme_clause = $system->{'dbtype'} eq 'sequences' ? "&amp;scheme_id=$scheme_id" : '';
 			print
 "<noscript><div class=\"statusbad_no_resize\"><p>The dynamic customisation of this interface requires that you enable Javascript in your
-		browser. Alternatively, you can use a <a href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=query$scheme_clause&amp;no_js=1\">non-Javascript 
+		browser. Alternatively, you can use a <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query$scheme_clause&amp;no_js=1\">non-Javascript 
 		version</a> that has 4 combinations of fields.</p></div></noscript>\n";
 		}
 		if ( $system->{'dbtype'} eq 'isolates' ) {
@@ -259,7 +260,7 @@ sub _print_locus_tag_fields {
 	print $q->popup_menu( -name => "ts$row", -values => $locus_list, -labels => $locus_labels, -class => 'fieldlist' );
 	print ' is ';
 	my @values = qw(untagged tagged complete incomplete);
-	push @values, "flagged: $_" foreach ('any', 'none', SEQ_FLAGS);
+	push @values, "flagged: $_" foreach ( 'any', 'none', SEQ_FLAGS );
 	unshift @values, '';
 	print $q->popup_menu( -name => "tt$row", -values => \@values );
 
@@ -464,6 +465,10 @@ sub _print_isolate_filter_fieldset {
 		foreach my $field (@$scheme_fields) {
 			if ( $self->{'prefs'}->{"dropdown\_scheme_fields"}->{$_}->{$field} ) {
 				my $values = $self->{'datastore'}->get_scheme($_)->get_distinct_fields($field);
+				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info($_,$field);
+				if ($scheme_field_info->{'type'} eq 'integer'){
+					@$values = sort {$a <=> $b} @$values;
+				}
 				my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
 				push @filters,
 				  $self->get_filter(
@@ -579,7 +584,7 @@ sub _highest_entered_fields {
 	my $q = $self->{'cgi'};
 	my $highest;
 	for ( 1 .. MAX_ROWS ) {
-		$highest = $_ if $q->param("$param_name$_") ne '';
+		$highest = $_ if defined $q->param("$param_name$_") && $q->param("$param_name$_") ne '';
 	}
 	return $highest;
 }
@@ -660,20 +665,20 @@ sub _print_profile_query_interface {
 	foreach (qw (db page scheme_id no_js)) {
 		print $q->hidden($_);
 	}
-	my $scheme_fields;
+	my $scheme_field_count;
 	if ( $q->param('no_js') ) {
-		$scheme_fields = 4;
+		$scheme_field_count = 4;
 	} else {
-		$scheme_fields = $self->_highest_entered_fields('scheme') || 1;
+		$scheme_field_count = $self->_highest_entered_fields('scheme') || 1;
 	}
-	my $scheme_field_heading = $scheme_fields == 1 ? 'none' : 'inline';
+	my $scheme_field_heading = $scheme_field_count == 1 ? 'none' : 'inline';
 	print "<div style=\"white-space:nowrap\"><fieldset>\n<legend>Locus/scheme fields</legend>\n";
 	print "<span id=\"scheme_field_heading\" style=\"display:$scheme_field_heading\"><label for=\"c0\">Combine searches with: </label>\n";
 	print $q->popup_menu( -name => 'c0', -id => 'c0', -values => [ "AND", "OR" ] );
 	print "</span><ul id=\"scheme_fields\">\n";
-	for ( my $i = 1 ; $i <= $scheme_fields ; $i++ ) {
+	for ( my $i = 1 ; $i <= $scheme_field_count ; $i++ ) {
 		print "<li>";
-		$self->_print_scheme_fields( $i, $scheme_fields, $scheme_id, $selectitems, $cleaned );
+		$self->_print_scheme_fields( $i, $scheme_field_count, $scheme_id, $selectitems, $cleaned );
 		print "</li>\n";
 	}
 	print "</ul>\n";
@@ -697,34 +702,26 @@ sub _print_profile_query_interface {
 			  );
 		}
 	}
-	my $schemes;
-	if ( $self->{'system'}->{'db_type'} eq 'isolates' ) {
-		$schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
-	} else {
-		@$schemes = ($scheme_id);
-	}
-	foreach (@$schemes) {
-		my $scheme_info   = $self->{'datastore'}->get_scheme_info($_);
-		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($_);
-		foreach my $field (@$scheme_fields) {
-			if ( $self->{'prefs'}->{"dropdown\_scheme_fields"}->{$_}->{$field} ) {
-				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $_, $field );
-				my $value_clause = $scheme_field_info->{'type'} eq 'integer' ? 'CAST(value AS integer)' : 'value';
-				my $values =
-				  $self->{'datastore'}->run_list_query(
-					"SELECT DISTINCT $value_clause FROM profile_fields WHERE scheme_id=? AND scheme_field=? ORDER BY $value_clause",
-					$_, $field );
-				my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
-				push @filters,
-				  $self->get_filter(
-					$field, $values,
-					{
-						'text' => "$field ($scheme_info->{'description'})",
-						'tooltip' =>
+	my $scheme_info   = $self->{'datastore'}->get_scheme_info($scheme_id);
+	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+	foreach my $field (@$scheme_fields) {
+		if ( $self->{'prefs'}->{"dropdown\_scheme_fields"}->{$scheme_id}->{$field} ) {
+			my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+			my $value_clause = $scheme_field_info->{'type'} eq 'integer' ? 'CAST(value AS integer)' : 'value';
+			my $values =
+			  $self->{'datastore'}->run_list_query(
+				"SELECT DISTINCT $value_clause FROM profile_fields WHERE scheme_id=? AND scheme_field=? ORDER BY $value_clause",
+				$scheme_id, $field );
+			my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
+			push @filters,
+			  $self->get_filter(
+				$field, $values,
+				{
+					'text' => "$field ($scheme_info->{'description'})",
+					'tooltip' =>
 "$field ($scheme_info->{'description'}) filter - Select $a_or_an $field to filter your search to only those profiles that match the selected $field."
-					}
-				  );
-			}
+				}
+			  );
 		}
 	}
 	print "<fieldset class=\"display\">\n";
@@ -780,7 +777,7 @@ sub _run_isolate_query {
 		$qry = $self->_generate_isolate_query_for_provenance_fields( \@errors );
 		$qry = $self->_modify_isolate_query_for_filters( $qry, $extended );
 		$qry = $self->_modify_isolate_query_for_designations( $qry, \@errors );
-		$qry = $self->_modify_isolate_query_for_tags ( $qry, \@errors );
+		$qry = $self->_modify_isolate_query_for_tags( $qry, \@errors );
 		$qry .= " ORDER BY ";
 		if ( $q->param('order') =~ /^la_(.+)\|\|/ || $q->param('order') =~ /^cn_(.+)/ ) {
 			$qry .= "l_$1";
@@ -829,13 +826,13 @@ sub _run_isolate_query {
 
 sub _generate_isolate_query_for_provenance_fields {
 	my ( $self, $errors_ref ) = @_;
-	my $q    = $self->{'cgi'};
-	my $view = $self->{'system'}->{'view'};
-	my $qry = "SELECT * FROM $view WHERE (";
+	my $q           = $self->{'cgi'};
+	my $view        = $self->{'system'}->{'view'};
+	my $qry         = "SELECT * FROM $view WHERE (";
 	my $andor       = $q->param('c0');
 	my $first_value = 1;
 	foreach my $i ( 1 .. MAX_ROWS ) {
-		if ( $q->param("t$i") ne '' ) {
+		if ( defined $q->param("t$i") && $q->param("t$i") ne '' ) {
 			my $field = $q->param("s$i");
 			$field =~ s/^f_//;
 			my @groupedfields;
@@ -1088,8 +1085,8 @@ sub _modify_isolate_query_for_filters {
 	my $q    = $self->{'cgi'};
 	my $view = $self->{'system'}->{'view'};
 	foreach ( @{ $self->{'xmlHandler'}->get_field_list() } ) {
-		if ( $q->param( $_ . '_list' ) ne '' ) {
-			my $value = $q->param( $_ . '_list' );
+		if ( defined $q->param("$_\_list") && $q->param("$_\_list") ne '' ) {
+			my $value = $q->param("$_\_list");
 			if ( $qry !~ /WHERE \(\)\s*$/ ) {
 				$qry .= " AND ";
 			} else {
@@ -1100,7 +1097,7 @@ sub _modify_isolate_query_for_filters {
 		my $extatt = $extended->{$_};
 		if ( ref $extatt eq 'ARRAY' ) {
 			foreach my $extended_attribute (@$extatt) {
-				if ( $q->param("$_\..$extended_attribute\_list") ne '' ) {
+				if ( defined $q->param("$_\..$extended_attribute\_list") && $q->param("$_\..$extended_attribute\_list") ne '' ) {
 					my $value = $q->param("$_\..$extended_attribute\_list");
 					$value =~ s/'/\\'/g;
 					if ( $qry !~ /WHERE \(\)\s*$/ ) {
@@ -1150,7 +1147,7 @@ sub _modify_isolate_query_for_filters {
 	}
 	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 	foreach my $scheme_id (@$schemes) {
-		if ( $q->param("scheme_$scheme_id\_profile_status_list") ne '' ) {
+		if ( defined $q->param("scheme_$scheme_id\_profile_status_list") && $q->param("scheme_$scheme_id\_profile_status_list") ne '' ) {
 			my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 			if (@$scheme_loci) {
 				my $allele_clause;
@@ -1188,10 +1185,11 @@ sub _modify_isolate_query_for_filters {
 		}
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 		foreach my $field (@$scheme_fields) {
-			if ( $q->param("scheme_$scheme_id\_$field\_list") ne '' ) {
+			if ( defined $q->param("scheme_$scheme_id\_$field\_list") && $q->param("scheme_$scheme_id\_$field\_list") ne '' ) {
 				my $value = $q->param("scheme_$scheme_id\_$field\_list");
 				$value =~ s/'/\\'/g;
 				my $clause;
+				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 				$field = "scheme_$scheme_id\.$field";
 				my $scheme_loci  = $self->{'datastore'}->get_scheme_loci($scheme_id);
 				my $joined_table = "SELECT $view.id FROM $view";
@@ -1215,8 +1213,7 @@ sub _modify_isolate_query_for_filters {
 				foreach (@$scheme_loci) {
 					push @temp, "$_.locus='$_'";
 				}
-				$joined_table .= " @temp";
-				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+				$joined_table .= " @temp";				
 				if ( $scheme_field_info->{'type'} eq 'integer' ) {
 					$clause = "(id IN ($joined_table AND CAST($field AS int) = '$value'))";
 				} else {
@@ -1239,7 +1236,7 @@ sub _modify_isolate_query_for_designations {
 	my $view = $self->{'system'}->{'view'};
 	my ( @lqry, @lqry_blank, %combo );
 	foreach my $i ( 1 .. MAX_ROWS ) {
-		if ( $q->param("lt$i") ne '' ) {
+		if ( defined $q->param("lt$i") && $q->param("lt$i") ne '' ) {
 			if ( $q->param("ls$i") =~ /^l_(.+)/ || $q->param("ls$i") =~ /^la_(.+)\|\|/ || $q->param("ls$i") =~ /^cn_(.+)/ ) {
 				my $locus = $1;
 				$locus =~ s/'/\\'/g;
@@ -1299,7 +1296,7 @@ sub _modify_isolate_query_for_designations {
 	}
 	my @sqry;
 	foreach my $i ( 1 .. MAX_ROWS ) {
-		if ( $q->param("lt$i") ne '' ) {
+		if ( defined $q->param("lt$i") && $q->param("lt$i") ne '' ) {
 			if ( $q->param("ls$i") =~ /^s_(\d+)_(.*)/ ) {
 				my ( $scheme_id, $field ) = ( $1, $2 );
 				my $operator          = $q->param("ly$i");
@@ -1413,19 +1410,19 @@ sub _modify_isolate_query_for_designations {
 }
 
 sub _modify_isolate_query_for_tags {
-	my ($self, $qry, $errors_ref) = @_;
-	my $q = $self->{'cgi'};
+	my ( $self, $qry, $errors_ref ) = @_;
+	my $q    = $self->{'cgi'};
 	my $view = $self->{'system'}->{'view'};
 	my @tag_queries;
 	foreach my $i ( 1 .. MAX_ROWS ) {
-		if ( $q->param("ts$i") ne '' && $q->param("tt$i") ne '') {
+		if ( defined $q->param("ts$i") && $q->param("ts$i") ne '' && defined $q->param("tt$i") && $q->param("tt$i") ne '' ) {
 			my $action = $q->param("tt$i");
 			my $locus;
-			if ($q->param("ts$i") ne 'any locus'){
+			if ( $q->param("ts$i") ne 'any locus' ) {
 				if ( $q->param("ts$i") =~ /^l_(.+)/ || $q->param("ts$i") =~ /^la_(.+)\|\|/ || $q->param("ts$i") =~ /^cn_(.+)/ ) {
 					$locus = $1;
 				}
-				if (!$self->{'datastore'}->is_locus($locus)){
+				if ( !$self->{'datastore'}->is_locus($locus) ) {
 					push @$errors_ref, "'$locus' is an invalid locus.";
 					next;
 				}
@@ -1436,31 +1433,32 @@ sub _modify_isolate_query_for_tags {
 			my $temp_qry;
 			my $seq_joined_table = "allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id";
 			my $locus_clause = $locus eq 'any locus' ? 'locus IS NOT NULL' : "locus=E'$locus'";
-			if ($action eq 'untagged'){
+			if ( $action eq 'untagged' ) {
 				$temp_qry = "id NOT IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause)";
-			} elsif ($action eq 'tagged'){
+			} elsif ( $action eq 'tagged' ) {
 				$temp_qry = "id IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause)";
-			} elsif ($action eq 'complete'){
+			} elsif ( $action eq 'complete' ) {
 				$temp_qry = "id IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause AND complete)";
-			} elsif ($action eq 'incomplete'){
+			} elsif ( $action eq 'incomplete' ) {
 				$temp_qry = "id IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause AND NOT complete)";
-			} elsif ($action =~ /^flagged: ([\w\s]+)$/){
-				my $flag = $1;
+			} elsif ( $action =~ /^flagged: ([\w\s]+)$/ ) {
+				my $flag              = $1;
 				my $flag_joined_table = "sequence_flags LEFT JOIN sequence_bin ON sequence_flags.seqbin_id = sequence_bin.id";
-				if ($flag eq 'any'){
+				if ( $flag eq 'any' ) {
 					$temp_qry = "id IN (SELECT isolate_id FROM $flag_joined_table WHERE $locus_clause)";
-				} elsif ($flag eq 'none'){
-					$temp_qry = "id IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause) AND id NOT IN (SELECT isolate_id FROM $flag_joined_table WHERE $locus_clause)";
+				} elsif ( $flag eq 'none' ) {
+					$temp_qry =
+"id IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause) AND id NOT IN (SELECT isolate_id FROM $flag_joined_table WHERE $locus_clause)";
 				} else {
 					$temp_qry = "id IN (SELECT isolate_id FROM $flag_joined_table WHERE $locus_clause AND flag='$flag')";
 				}
 			}
 			push @tag_queries, $temp_qry if $temp_qry;
-		}	
+		}
 	}
 	if (@tag_queries) {
-		my $andor = (any {$q->param('c2') eq $_} qw (AND OR)) ? $q->param('c2') : '';
-		$"=" $andor ";
+		my $andor = ( any { $q->param('c2') eq $_ } qw (AND OR) ) ? $q->param('c2') : '';
+		$" = " $andor ";
 		if ( $qry !~ /WHERE \(\)\s*$/ ) {
 			$qry .= " AND (@tag_queries)";
 		} else {
@@ -1482,7 +1480,7 @@ sub _run_profile_query {
 		my $andor       = $q->param('c0');
 		my $first_value = 1;
 		for ( my $i = 1 ; $i <= MAX_ROWS ; $i++ ) {
-			if ( $q->param("t$i") ne '' ) {
+			if ( defined $q->param("t$i") && $q->param("t$i") ne '' ) {
 				my $field = $q->param("s$i");
 				my $is_locus;
 				my $type;
@@ -1575,7 +1573,7 @@ sub _run_profile_query {
 		$qry .= ')';
 		my $primary_key =
 		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )->[0];
-		if ( $q->param('publication_list') ne '' ) {
+		if ( defined $q->param('publication_list') && $q->param('publication_list') ne '' ) {
 			my $pmid = $q->param('publication_list');
 			my $ids =
 			  $self->{'datastore'}
@@ -1591,7 +1589,7 @@ sub _run_profile_query {
 		}
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 		foreach (@$scheme_fields) {
-			if ( $q->param("$_\_list") ne '' ) {
+			if ( defined $q->param("$_\_list") && $q->param("$_\_list") ne '' ) {
 				my $value = $q->param("$_\_list");
 				$value =~ s/'/\\'/g;
 				if ( $qry !~ /WHERE \(\)\s*$/ ) {
@@ -1602,7 +1600,7 @@ sub _run_profile_query {
 			}
 		}
 		my $order = $q->param('order') || $primary_key;
-		my $dir = $q->param('direction') eq 'descending' ? 'desc' : 'asc';
+		my $dir = ( defined $q->param('direction') && $q->param('direction') eq 'descending' ) ? 'desc' : 'asc';
 		my $pk_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
 		my $profile_id_field = $pk_field_info->{'type'} eq 'integer' ? "lpad($primary_key,20,'0')" : $primary_key;
 		if ( $self->{'datastore'}->is_locus($order) ) {

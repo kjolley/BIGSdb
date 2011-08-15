@@ -118,7 +118,7 @@ sub barchart {
 	}
 	my $y_offset = $max_label_length * 5;
 	$y_offset += 10 if $prefs->{'x-title'};
-	my $x_offset = 10 if $prefs->{'y-title'};
+	my $x_offset = $prefs->{'y-title'} ? 10: 0 ;
 	my ($chart,$layer);
 	if ( $size eq 'small' ) {
 		$chart = new XYChart( 780, 350 );

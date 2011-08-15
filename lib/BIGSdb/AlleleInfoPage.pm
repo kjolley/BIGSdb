@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::AlleleInfoPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
@@ -46,10 +47,8 @@ sub print_content {
 		return;
 	}
 	my $sql = $self->{'db'}->prepare("SELECT * FROM sequences WHERE locus=? AND allele_id=?");
-	eval { $sql->execute( $locus, $allele_id ); };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	eval { $sql->execute( $locus, $allele_id ) };
+	$logger->($@) if $@;
 	my $seq_ref = $sql->fetchrow_hashref;
 	if ( !$seq_ref->{'allele_id'} ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>This sequence does not exist.</p></div>\n";
@@ -59,13 +58,10 @@ sub print_content {
 	my $seq          = BIGSdb::Utils::split_line( $seq_ref->{'sequence'} );
 	my $sender_info  = $self->{'datastore'}->get_user_info( $seq_ref->{'sender'} );
 	$sender_info->{'affiliation'} =~ s/\&/\&amp;/g;
-	my $sender_email = "<a href=\"mailto:$sender_info->{'email'}\">$sender_info->{'email'}</a>" if !$self->{'system'}->{'privacy'};
+	my $sender_email = !$self->{'system'}->{'privacy'} ? "<a href=\"mailto:$sender_info->{'email'}\">$sender_info->{'email'}</a>" : '';
 	my $curator_info = $self->{'datastore'}->get_user_info( $seq_ref->{'curator'} );
 	my $desc_exists = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM locus_descriptions WHERE locus=?",$locus)->[0];
-	my $desc_link;
-	if ($desc_exists){
-		$desc_link = "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus\" class=\"info_tooltip\">&nbsp;i&nbsp;</a>";
-	}
+	my $desc_link = $desc_exists ? "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus\" class=\"info_tooltip\">&nbsp;i&nbsp;</a>" : '';
 	print << "HTML";
 <div class="box" id="resultstable">
 <table class="resultstable">
@@ -106,26 +102,22 @@ HTML
 	}
 	my $qry = "SELECT databank, databank_id FROM accession WHERE locus=? and allele_id=? ORDER BY databank,databank_id";
 	$sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute( $locus, $allele_id ); };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	eval { $sql->execute( $locus, $allele_id ) };
+	$logger->error($@) if $@;
 	while ( my $accession = $sql->fetchrow_hashref ) {
 		print "<tr class=\"td$td\"><th>$accession->{'databank'} #</th><td style=\"text-align:left\" colspan=\"3\">";
 		if ( $accession->{'databank'} eq 'Genbank' ) {
-			print "<a href=\"http://www.ncbi.nlm.nih.gov/nuccore/$accession->{'databank_id'}\">";
+			print "<a href=\"http://www.ncbi.nlm.nih.gov/nuccore/$accession->{'databank_id'}\">$accession->{'databank_id'}</a>";
+		} else {
+			print "$accession->{'databank_id'}";
 		}
-		print "$accession->{'databank_id'}";
-		print "</a>" if $accession->{'databank'} eq 'Genbank';
 		print "</td></tr>\n";
 		$td = $td == 1 ? 2 : 1;
 	}
 	$qry = "SELECT pubmed_id FROM sequence_refs WHERE locus=? and allele_id=? ORDER BY pubmed_id";
 	$sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute( $locus, $allele_id ); };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	eval { $sql->execute( $locus, $allele_id ) };
+	$logger->error($@) if $@;
 	while ( my ($pmid) = $sql->fetchrow_array ) {
 		print $self->_get_reference( $pmid, $td );
 		$td = $td == 1 ? 2 : 1;
