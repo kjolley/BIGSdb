@@ -19,16 +19,17 @@
 
 package BIGSdb::VersionPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::Page);
 
 sub print_content {
 	print <<"HTML";
 
-<h1>Bacterial Isolate Genome Sequence Database (BIGSdb)</h1>\n
+<h1>Bacterial Isolate Genome Sequence Database (BIGSdb)</h1>
 <div class="box" id="resultstable">
-<h2>Version $BIGSdb::main::VERSION</h2>\n
-<p>Written by Keith Jolley<br />\n
-Copyright &copy; University of Oxford, 2010-2011.</p>\n
+<h2>Version $BIGSdb::main::VERSION</h2>
+<p>Written by Keith Jolley<br />
+Copyright &copy; University of Oxford, 2010-2011.</p>
 <p>
 BIGSdb is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -44,7 +45,7 @@ GNU General Public License for more details.</p>
 can be found at <a href="http://www.gnu.org/licenses/gpl.html">http://www.gnu.org/licenses/gpl.html</a>.</p>
 
 <p>Details of this software and the latest version can be downloaded from 
-<a href=\"http://pubmlst.org/software/database/bigsdb/\">
+<a href="http://pubmlst.org/software/database/bigsdb/">
 http://pubmlst.org/software/database/bigsdb/</a>.</p>
 </div>
 HTML

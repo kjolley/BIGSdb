@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::CurateDeleteAllPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
@@ -75,7 +76,7 @@ sub print_content {
 	}
 	if ( $q->param('deleteAll') ) {
 		my $delete_qry = $query;
-		if (   ( $self->{'system'}->{'read_access'} eq 'acl' || $self->{'system'}->{'write_access'} eq 'acl' )
+		if (   ( $self->{'system'}->{'read_access'} eq 'acl' || ( $self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl' ))
 			&& $self->{'username'}
 			&& !$self->is_admin )
 		{
@@ -116,7 +117,10 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 		$delete_qry =~ s/^SELECT \*/DELETE/;
 		my $scheme_ids;
 		my $profiles_affected;
-		my $schemes_affected = 1 if $table eq 'loci' && $delete_qry =~ /JOIN scheme_members/ && $delete_qry !~ /scheme_id is null/;
+		my $schemes_affected;
+		if ($table eq 'loci' && $delete_qry =~ /JOIN scheme_members/ && $delete_qry !~ /scheme_id is null/){
+			$schemes_affected = 1;
+		}
 		my @allele_designations;
 		my @history;
 		if ( ( $table eq 'scheme_members' || $table eq 'scheme_fields' ) && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
@@ -137,9 +141,7 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 			$seq_qry =~ s/ORDER BY.*//;
 			my $seq_sql = $self->{'db'}->prepare($seq_qry);
 			eval { $seq_sql->execute };
-			if ($@) {
-				$logger->error("Can't execute $@");
-			}
+			$logger->error($@) if $@;
 			my @alleles;
 			while ( my ( $locus, $allele_id ) = $seq_sql->fetchrow_array ) {
 				$locus =~ s/'/\\'/g;
@@ -156,10 +158,8 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 			my $check_qry = $query;
 			$check_qry =~ s/SELECT \*/SELECT allele_designations.isolate_id,allele_designations.locus,allele_designations.allele_id/;
 			my $check_sql = $self->{'db'}->prepare($check_qry);
-			eval { $check_sql->execute; };
-			if ($@) {
-				$logger->error("Can't execute $check_qry $@");
-			}
+			eval { $check_sql->execute };
+			$logger->error($@) if $@;
 			while ( my ( $isolate_id, $locus, $allele_id ) = $check_sql->fetchrow_array ) {
 				push @history,             "$isolate_id|$locus: designation '$allele_id' deleted";
 				push @allele_designations, "$isolate_id|$locus";
@@ -246,7 +246,7 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 			will have to be reloaded.</p></div>\n";
 		}
 		my $count_qry = $query;
-		if (   ( $self->{'system'}->{'read_access'} eq 'acl' || $self->{'system'}->{'write_access'} eq 'acl' )
+		if (   ( $self->{'system'}->{'read_access'} eq 'acl' || ($self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl' ))
 			&& $self->{'username'}
 			&& !$self->is_admin )
 		{
@@ -271,10 +271,7 @@ s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bi
 		print "<p>If you proceed, you will delete $count $record_name record$plural.  Please confirm that this is your intention.</p>\n";
 		print $q->start_form;
 		$q->param( 'deleteAll', 1 );
-
-		foreach (qw (page db query deleteAll table delete_pending delete_tags)) {
-			print $q->hidden($_);
-		}
+		print $q->hidden($_) foreach qw (page db query deleteAll table delete_pending delete_tags);
 		print $q->submit( -label => 'Confirm deletion!', -class => 'submit' );
 		print $q->end_form;
 		$self->print_warning_sign;

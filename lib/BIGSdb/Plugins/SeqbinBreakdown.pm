@@ -1,6 +1,6 @@
 #SeqbinBreakdown.pm - SeqbinBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::Plugins::SeqbinBreakdown;
 use strict;
+use warnings;
 use base qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 use POSIX qw(ceil);
@@ -37,7 +38,7 @@ sub get_attributes {
 		buttontext  => 'Sequence bin',
 		menutext    => 'Sequence bin',
 		module      => 'SeqbinBreakdown',
-		version     => '1.0.0',
+		version     => '1.0.1',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -53,16 +54,9 @@ sub set_pref_requirements {
 }
 
 sub get_option_list {
-	my @methods = ('all', SEQ_METHODS);
-	$"=';';
-	my @list = (
-		{
-			name        => 'method',
-			description => 'Filter by sequencing method',
-			optlist     => "@methods",
-			default     => 'all'
-		},
-	);
+	my @methods = ( 'all', SEQ_METHODS );
+	$" = ';';
+	my @list = ( { name => 'method', description => 'Filter by sequencing method', optlist => "@methods", default => 'all' }, );
 	return \@list;
 }
 
@@ -82,40 +76,36 @@ sub run {
 	return if !$self->create_temp_tables($qry_ref);
 	my $view = $self->{'system'}->{'view'};
 	$qry =~ s/SELECT ($view\.\*|\*)/SELECT id/;
-	
 	my %prefs;
 	my $guid = $self->get_guid;
 	try {
-		$prefs{'method'} =
-		  $self->{'prefstore'}
-		  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'},
-			'SeqbinBreakdown', 'method' );
-	  }
-	  catch BIGSdb::DatabaseNoRecordException with {
+		$prefs{'method'} = $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'SeqbinBreakdown', 'method' );
+	}
+	catch BIGSdb::DatabaseNoRecordException with {
 		$prefs{'method'} = 'all';
-	  };
+	};
 	my $method_clause;
-	if ($prefs{'method'} ne 'all'){
+	if ( $prefs{'method'} ne 'all' ) {
 		$method_clause = " AND method='$prefs{'method'}'";
 	}
-	
-	my $seqbin_count = $self->{'datastore'}->run_list_query("SELECT COUNT(*) FROM sequence_bin WHERE isolate_id IN ($qry)$method_clause")->[0];
-	if (!$seqbin_count){
-		print "<div class=\"box\" id=\"statusbad\"><p>There are no sequences stored for any of the selected isolates generated with the sequence method (set in options).</p></div>\n";
+	my $seqbin_count =
+	  $self->{'datastore'}->run_list_query("SELECT COUNT(*) FROM sequence_bin WHERE isolate_id IN ($qry)$method_clause")->[0];
+	if ( !$seqbin_count ) {
+		print
+"<div class=\"box\" id=\"statusbad\"><p>There are no sequences stored for any of the selected isolates generated with the sequence method (set in options).</p></div>\n";
 		return;
 	}
-	
 	$qry .= " ORDER BY id";
 	my $ids = $self->{'datastore'}->run_list_query($qry);
 	my $sql =
 	  $self->{'db'}->prepare(
 "SELECT COUNT(sequence), SUM(length(sequence)),MIN(length(sequence)),MAX(length(sequence)), CEIL(AVG(length(sequence))), CEIL(STDDEV_SAMP(length(sequence))) FROM sequence_bin WHERE isolate_id=?$method_clause"
 	  );
-	my $sql_name = $self->{'db'}->prepare("SELECT $self->{'system'}->{'labelfield'} FROM $view WHERE id=?");
-	my $labelfield = ucfirst($self->{'system'}->{'labelfield'});
-	my $temp = BIGSdb::Utils::get_random();
+	my $sql_name   = $self->{'db'}->prepare("SELECT $self->{'system'}->{'labelfield'} FROM $view WHERE id=?");
+	my $labelfield = ucfirst( $self->{'system'}->{'labelfield'} );
+	my $temp       = BIGSdb::Utils::get_random();
 	open( my $fh, '>', "$self->{'config'}->{'tmp_dir'}/$temp.txt" )
-	  			or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$temp.txt for writing");
+	  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$temp.txt for writing");
 	print << "HTML"
 <div class="box" id="resultstable">
 <table class="tablesorter" id="sortTable">
@@ -127,69 +117,62 @@ HTML
 	  ;
 	print $fh "Isolate id\t$labelfield\tContigs\tTotal length\tMin\tMax\tMean\tStdDev\n";
 	my $td = 1;
-	$|=1;
+	$| = 1;
 	my ($data);
+
 	foreach (@$ids) {
 		eval {
 			$sql->execute($_);
 			$sql_name->execute($_);
 		};
-		if ($@){
-			$logger->error("Can't execute $@");
+		if ($@) {
+			$logger->error($@);
 			return;
 		}
-		my ($contigs,$sum,$min,$max,$mean,$stddev) = $sql->fetchrow_array;
+		my ( $contigs, $sum, $min, $max, $mean, $stddev ) = $sql->fetchrow_array;
 		if ( $ENV{'MOD_PERL'} ) {
 			$self->{'mod_perl_request'}->rflush;
 			return if $self->{'mod_perl_request'}->connection->aborted;
 		}
 		next if !$contigs;
 		my ($isolate) = $sql_name->fetchrow_array;
-		print "<tr class=\"td$td\"><td>$_</td><td>$isolate</td><td>$contigs</td><td>$sum</td><td>$min</td><td>$max</td><td>$mean</td><td>$stddev</td><td><a href=\"$self->{'system'}->{'scriptname'}?page=seqbin&amp;db=$self->{'instance'}&amp;isolate_id=$_\" class=\"extract_tooltip\" target=\"_blank\">Display &rarr;</a></td></tr>\n";
+		print
+"<tr class=\"td$td\"><td>$_</td><td>$isolate</td><td>$contigs</td><td>$sum</td><td>$min</td><td>$max</td><td>$mean</td><td>$stddev</td><td><a href=\"$self->{'system'}->{'scriptname'}?page=seqbin&amp;db=$self->{'instance'}&amp;isolate_id=$_\" class=\"extract_tooltip\" target=\"_blank\">Display &rarr;</a></td></tr>\n";
 		print $fh "$_\t$isolate\t$contigs\t$sum\t$min\t$max\t$mean\t$stddev\n";
-		push @{$data->{'contigs'}},$contigs;
-		push @{$data->{'sum'}},$sum;
-		push @{$data->{'mean'}},$mean;
+		push @{ $data->{'contigs'} }, $contigs;
+		push @{ $data->{'sum'} },     $sum;
+		push @{ $data->{'mean'} },    $mean;
 		$td = $td == 1 ? 2 : 1;
-		
 	}
 	print "</tbody></table>\n";
 	close $fh;
 	print "<p><a href=\"/tmp/$temp.txt\">Download in tab-delimited text format</a></p>\n";
-	my %title = (
-		'contigs' => 'Number of contigs',
-		'sum' => 'Total length',
-		'mean' => 'Mean contig length'
-	);
-	if ($self->{'config'}->{'chartdirector'}){
+	my %title = ( 'contigs' => 'Number of contigs', 'sum' => 'Total length', 'mean' => 'Mean contig length' );
+	if ( $self->{'config'}->{'chartdirector'} ) {
 		print "<div><p>Click on the following charts to enlarge</p>\n";
-		foreach (qw (contigs sum mean)){
-			my $stats = BIGSdb::Utils::stats($data->{$_});
-
+		foreach (qw (contigs sum mean)) {
+			my $stats = BIGSdb::Utils::stats( $data->{$_} );
 			my $bins =
-			  ceil( ( 3.5 * $stats->{'std'} ) / $stats->{'count'} ** 0.33 )
+			  ceil( ( 3.5 * $stats->{'std'} ) / $stats->{'count'}**0.33 )
 			  ;    #Scott's choice [Scott DW (1979). On optimal and data-based histograms. Biometrika 66(3):605–610]
-			$bins = 100 if $bins> 100;
-			$bins = 1 if !$bins;
+			$bins = 100 if $bins > 100;
+			$bins = 1   if !$bins;
 			my $width = ( $stats->{'max'} - $stats->{'min'} ) / $bins;
-			
 			my $round_to_nearest;
-			if ($width < 50){
+			if ( $width < 50 ) {
 				$round_to_nearest = 5;
-			} elsif ($width < 100){
+			} elsif ( $width < 100 ) {
 				$round_to_nearest = 10;
-			} elsif ($width < 500){
+			} elsif ( $width < 500 ) {
 				$round_to_nearest = 50;
-			} elsif ($width < 1000){
+			} elsif ( $width < 1000 ) {
 				$round_to_nearest = 100;
-			} elsif ($width < 5000) {
+			} elsif ( $width < 5000 ) {
 				$round_to_nearest = 500;
 			} else {
 				$round_to_nearest = 1000;
-			}	
+			}
 			$width = int( $width - ( $width % $round_to_nearest ) ) || $round_to_nearest;
-			
-			
 			my ( $histogram, $min, $max ) = BIGSdb::Utils::histogram( $width, $data->{$_} );
 			my ( @labels, @values );
 			for ( my $i = $min ; $i <= $max ; $i++ ) {
@@ -197,19 +180,18 @@ HTML
 				push @values, $histogram->{$i};
 			}
 			my %prefs = ( 'offset_label' => 1, 'x-title' => $title{$_}, 'y-title' => 'Frequency' );
-			
 			BIGSdb::Charts::barchart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$temp\_histogram_$_.png", 'large', \%prefs );
 			print "<h2>$title{$_}</h2>\n";
-			
-			print "Overall mean: ". BIGSdb::Utils::decimal_place($stats->{'mean'},1) ."; &sigma;: ". BIGSdb::Utils::decimal_place($stats->{'std'},1)."<br />";	
-			
-			print "<a href=\"/tmp/$temp\_histogram_$_.png\" target=\"_blank\"><img src=\"/tmp/$temp\_histogram_$_.png\" alt=\"$_ histogram\" style=\"width:300px; border:0\" /></a>\n";
-			
+			print "Overall mean: "
+			  . BIGSdb::Utils::decimal_place( $stats->{'mean'}, 1 )
+			  . "; &sigma;: "
+			  . BIGSdb::Utils::decimal_place( $stats->{'std'}, 1 )
+			  . "<br />";
+			print
+"<a href=\"/tmp/$temp\_histogram_$_.png\" target=\"_blank\"><img src=\"/tmp/$temp\_histogram_$_.png\" alt=\"$_ histogram\" style=\"width:300px; border:0\" /></a>\n";
 		}
 		print "</div>\n";
 	}
 	print "</div>\n";
 }
-
-
 1;

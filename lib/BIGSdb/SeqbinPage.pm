@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::SeqbinPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::IsolateInfoPage);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
@@ -65,7 +66,7 @@ HTML
 		print "<li>Length: $length</li>\n</ul>\n";
 	}
 	print
-"<ul><li><a href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=downloadSeqbin&amp;isolate_id=$isolate_id\">Download sequences (FASTA format)</a></li></ul>\n";
+"<ul><li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadSeqbin&amp;isolate_id=$isolate_id\">Download sequences (FASTA format)</a></li></ul>\n";
 	print "</td><td style=\"vertical-align:top;padding-left:2em\">\n";
 	if ( $count > 1 ) {
 		print "<h2>Contig size distribution</h2>\n";
@@ -80,7 +81,7 @@ HTML
 		}
 		close $fh_output;
 		my $bins =
-		  ceil( ( 3.5 * $data->[4] ) / $count ** 0.33 )
+		  ceil( ( 3.5 * $data->[4] ) / $count**0.33 )
 		  ;    #Scott's choice [Scott DW (1979). On optimal and data-based histograms. Biometrika 66(3):605–610]
 		my $width = ( $data->[2] - $data->[1] ) / $bins;
 
@@ -107,10 +108,8 @@ HTML
 	my $qry =
 "SELECT id,length(sequence) AS length,original_designation,method,comments,sender,curator,date_entered,datestamp FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) desc";
 	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute($isolate_id); };
-	if ($@) {
-		$logger->error("Can't execute $qry $@");
-	}
+	eval { $sql->execute($isolate_id) };
+	$logger->error($@) if $@;
 	print
 "<table class=\"resultstable\"><tr><th>Sequence</th><th>Sequencing method</th><th>Original designation</th><th>Length</th><th>Comments</th><th>Locus</th><th>Start</th><th>End</th><th>Direction</th><th>EMBL format</th>";
 	if ( $self->{'curate'} && ( $self->{'permissions'}->{'modify_loci'} || $self->is_admin ) ) {
@@ -124,19 +123,25 @@ HTML
 	$qry = "SELECT * FROM allele_sequences WHERE seqbin_id = ? ORDER BY start_pos";
 	my $seq_sql = $self->{'db'}->prepare($qry);
 	while ( my $data = $sql->fetchrow_hashref ) {
-		eval { $seq_sql->execute( $data->{'id'} ); };
-		if ($@) {
-			$logger->error("Can't execute $qry $@");
-		}
+		eval { $seq_sql->execute( $data->{'id'} ) };
+		$logger->error($@) if $@;
 		my $allele_count =
 		  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM allele_sequences WHERE seqbin_id=?", $data->{'id'} )->[0];
 		my $first = 1;
 		if ($allele_count) {
-			print
-"<tr class=\"td$td\"><td rowspan=\"$allele_count\" style=\"vertical-align:top\">$data->{'id'}</td><td rowspan=\"$allele_count\" style=\"vertical-align:top\">$data->{'method'}</td><td rowspan=\"$allele_count\" style=\"vertical-align:top\">$data->{'original_designation'}</td><td rowspan=\"$allele_count\" style=\"vertical-align:top\">$data->{'length'}</td><td rowspan=\"$allele_count\" style=\"vertical-align:top\">$data->{'comments'}</td>";
+			print "<tr class=\"td$td\">";
+			my $open_td = "<td rowspan=\"$allele_count\" style=\"vertical-align:top\">";
+			print "$open_td$data->{'id'}</td>";
+			print "$open_td$data->{'method'}</td>";
+			$data->{'original_designation'} ||= '';
+			print "$open_td$data->{'original_designation'}</td>";
+			print "$open_td$data->{'length'}</td>";
+			$data->{'comments'} ||= '';
+			print "$open_td$data->{'comments'}</td>";
+
 			while ( my $allele_seq = $seq_sql->fetchrow_hashref ) {
 				print "<tr class=\"td$td\">" if !$first;
-				my $cleaned_locus = $self->clean_locus($allele_seq->{'locus'});
+				my $cleaned_locus = $self->clean_locus( $allele_seq->{'locus'} );
 				print "<td>$cleaned_locus "
 				  . ( $allele_seq->{'complete'} ? '' : '*' )
 				  . "</td><td>$allele_seq->{'start_pos'}</td><td>$allele_seq->{'end_pos'}</td>";
@@ -146,20 +151,17 @@ HTML
 					print $q->start_form;
 					$q->param( 'page',      'embl' );
 					$q->param( 'seqbin_id', $data->{'id'} );
-					foreach (qw (page db seqbin_id)) {
-						print $q->hidden($_);
-					}
+					print $q->hidden($_) foreach qw (page db seqbin_id);
 					print $q->submit( -name => 'EMBL', -class => 'smallbutton' );
 					print $q->end_form;
 					print "</td>";
+
 					if ( $self->{'curate'} && ( $self->{'permissions'}->{'modify_loci'} || $self->is_admin ) ) {
 						print "<td rowspan=\"$allele_count\" style=\"vertical-align:top\">";
 						print $q->start_form;
 						$q->param( 'page',      'renumber' );
 						$q->param( 'seqbin_id', $data->{'id'} );
-						foreach (qw (page db seqbin_id)) {
-							print $q->hidden($_);
-						}
+						print $q->hidden($_) foreach qw (page db seqbin_id);
 						print $q->submit( -name => 'Renumber', -class => 'smallbutton' );
 						print $q->end_form;
 						print "</td>";
@@ -169,8 +171,12 @@ HTML
 				$first = 0;
 			}
 		} else {
-			print
-"<tr class=\"td$td\"><td>$data->{'id'}</td><td>$data->{'method'}</td><td>$data->{'original_designation'}</td><td>$data->{'length'}</td><td>$data->{'comments'}</td><td /><td /><td /><td /><td />";
+			print "<tr class=\"td$td\"><td>$data->{'id'}</td>";
+			print defined $data->{'method'} ? "<td>$data->{'method'}</td>" : '<td />';
+			print defined $data->{'original_designation'} ? "<td>$data->{'original_designation'}</td>" : '<td />';
+			print "<td>$data->{'length'}</td>";
+			print defined $data->{'comments'} ? "<td>$data->{'comments'}</td>" : '<td />';
+			print "<td /><td /><td /><td /><td />";
 			print "<td />" if $self->{'curate'};
 			print "</tr>\n";
 		}

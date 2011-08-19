@@ -19,6 +19,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::Plugins::LocusExplorer;
 use strict;
+use warnings;
 use base qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -200,9 +201,9 @@ sub run_job {
 		$locus = $1;
 	}
 	$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => -1 } );    #indeterminate length of time
-	if ($params->{'snp'}){
+	if ( $params->{'snp'} ) {
 		my @allele_ids = split /\|\|/, $params->{'allele_ids'};
-		my ($seqs, undef) = $self->_get_seqs( $params->{'locus'}, \@allele_ids  );
+		my ( $seqs, undef ) = $self->_get_seqs( $params->{'locus'}, \@allele_ids );
 		if ( !@$seqs ) {
 			$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => "<p>No sequences retrieved for analysis.</p>" } );
 			return;
@@ -218,7 +219,8 @@ sub run_job {
 		( $buffer, undef ) = $self->get_freq_table( $freqs, $locus_info );
 		print $html_fh $buffer;
 		print $html_fh "</div>\n</body>\n</html>\n";
-		$self->{'jobManager'}->update_job_output( $job_id, { 'filename' => "$temp.html", 'description' => 'Locus schematic (HTML format)' } );
+		$self->{'jobManager'}
+		  ->update_job_output( $job_id, { 'filename' => "$temp.html", 'description' => 'Locus schematic (HTML format)' } );
 	}
 }
 
@@ -270,11 +272,11 @@ sub _print_interface {
 		print $q->submit( -name => 'snp', -label => 'Polymorphic sites', -class => 'submit' );
 		print "</td><td>Display polymorphic site frequencies and sequence schematic</td></tr>\n";
 	}
-	if ( $self->{'config'}->{'emboss_path'} && $locus_info->{'data_type'} eq 'DNA') {
+	if ( $self->{'config'}->{'emboss_path'} && $locus_info->{'data_type'} eq 'DNA' ) {
 		print "<tr><td style=\"text-align:right\">\n";
 		print $q->submit( -name => 'codon', -label => 'Codon', -class => 'submit' );
 		print "</td><td>\nCalculate G+C content";
-		print " and codon usage" if  $locus_info->{'coding_sequence'};
+		print " and codon usage" if $locus_info->{'coding_sequence'};
 		print "</td></tr>\n";
 		if ( $locus_info->{'coding_sequence'} && ( !$locus_info->{'length_varies'} || $self->{'config'}->{'muscle_path'} ) ) {
 			print "<tr><td style=\"text-align:right\">";
@@ -291,17 +293,19 @@ sub _print_interface {
 
 sub _get_seqs {
 	my ( $self, $locus, $allele_ids, $options ) = @_;
+
 	#options: count_only - don't align, just count how many sequences would be included.
 	$options = {} if ref $options ne 'HASH';
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	my $sql        = $self->{'db'}->prepare("SELECT allele_id,sequence FROM sequences WHERE locus=?");
-	eval { $sql->execute($locus); };
+	eval { $sql->execute($locus) };
 	$logger->error($@) if $@;
 	my @seqs;
 	my $temp     = BIGSdb::Utils::get_random();
 	my $tempfile = "$self->{'config'}->{'secure_tmp_dir'}/$temp.txt";
 	open( my $fh, '>', $tempfile ) or $logger->error("could not open temp file $tempfile");
 	my $i = 0;
+
 	while ( my ( $allele_id, $seq ) = $sql->fetchrow_array ) {
 		next if none { $_ eq $allele_id } @$allele_ids;
 		push @seqs, $seq;
@@ -347,12 +351,12 @@ sub _snp {
 		print "<div class=\"box\" id=\"statusbad\"><p>No sequences selected.</p></div>\n";
 		return;
 	}
-	my $seq_count = $self->_get_seqs( $locus, \@allele_ids, {'count_only' => 1}  );
+	my $seq_count = $self->_get_seqs( $locus, \@allele_ids, { 'count_only' => 1 } );
 	if ( $seq_count <= 50 || !$locus_info->{'length_varies'} ) {
 		print "<div class=\"box\" id=\"resultsheader\">\n";
 		my $cleaned = $self->clean_locus($locus);
 		print "<h2>$cleaned</h2>\n";
-		my ( $seqs, $seq_file ) = $self->_get_seqs( $locus, \@allele_ids, {'print_status'} => 1 );
+		my ( $seqs, $seq_file ) = $self->_get_seqs( $locus, \@allele_ids, {'print_status' => 1} );
 		my ( $buffer, $freqs ) = $self->get_snp_schematic( $locus, $seqs, $seq_file, $self->{'prefs'}->{'alignwidth'} );
 		print $buffer;
 		( $buffer, undef ) = $self->get_freq_table( $freqs, $locus_info );
@@ -375,7 +379,7 @@ sub _snp {
 <p>Please be aware that this job may take a long time depending on the number of sequences to align
 and how busy the server is.  Alignment of hundreds of sequences can take many hours!</p>
 <p>Since alignment is offloaded to a third-party application, the progress report will not be accurate.</p>
-<p><a href="$self->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">
+<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">
 Follow the progress of this job and view the output.</a></p> 	
 <p>Please note that the % complete value will only update after the alignment of each locus.</p>
 </div>	
@@ -544,7 +548,7 @@ sub _site_explorer {
 	  $self->{'db'}->prepare(
 "SELECT id,description FROM schemes LEFT JOIN scheme_members ON scheme_id=schemes.id WHERE locus=? AND scheme_id IN (SELECT scheme_id FROM scheme_fields WHERE primary_key)"
 	  );
-	eval { $sql->execute($locus); };
+	eval { $sql->execute($locus) };
 	$logger->error($@) if $@;
 	my ( @schemes, %desc );
 	while ( my ( $scheme_id, $desc ) = $sql->fetchrow_array ) {
@@ -619,7 +623,7 @@ sub _codon {
 	print "<h2>$cleaned</h2>\n";
 	print "<p>ORF used: $orf</p>\n";
 	my $sql = $self->{'db'}->prepare("SELECT allele_id,sequence FROM sequences WHERE locus=?");
-	eval { $sql->execute($locus); };
+	eval { $sql->execute($locus) };
 	$logger->error($@) if $@;
 	my @seqs;
 
@@ -724,11 +728,8 @@ sub _translate {
 	print "<h2>$cleaned</h2>";
 	print "<p>ORF used: $orf</p>\n";
 	my $sql = $self->{'db'}->prepare("SELECT allele_id,sequence FROM sequences WHERE locus=?");
-	eval { $sql->execute($locus); };
-
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	eval { $sql->execute($locus) };
+	$logger->error($@) if $@;
 	my %seqs_hash;
 	while ( my ( $allele_id, $seq ) = $sql->fetchrow_array ) {
 		next if none { $_ eq $allele_id } @allele_ids;
@@ -804,11 +805,13 @@ sub get_freq_table {
 		$buffer .= "<tr class=\"td$td\"><td>$_</td>";
 		print $fh $_;
 		foreach my $nuc (@chars) {
+			$freqs->{$_}->{$nuc} ||= 0;
 			$buffer .= "<td>$freqs->{$_}->{$nuc}</td>";
 			print $fh "\t$freqs->{$_}->{$nuc}";
 			$total += $freqs->{$_}->{$nuc} if $first;    #only calculate first time round
 		}
 		foreach my $nuc (@chars) {
+			$freqs->{$_}->{$nuc} ||= 0;
 			my $percent = BIGSdb::Utils::decimal_place( 100 * $freqs->{$_}->{$nuc} / $total, 2 );
 			$buffer .= $percent > 0 ? "<td>$percent</td>" : "<td />";
 			print $fh $percent > 0 ? "\t$percent" : "\t";

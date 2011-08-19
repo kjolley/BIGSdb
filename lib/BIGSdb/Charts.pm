@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -17,15 +17,16 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
-
 package BIGSdb::Charts;
 use strict;
+use warnings;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Charts');
 
 sub piechart {
+
 	#size = 'small' or 'large'
-	my ( $labels, $data, $filename, $num_labels, $size, $prefs  ) = @_;
+	my ( $labels, $data, $filename, $num_labels, $size, $prefs ) = @_;
 	$prefs->{'style'} = 'pie' if !$prefs->{'style'} || $prefs->{'style'} ne 'doughnut';
 
 	#if there are more than $num_labels headings, display the top ones and group the rest
@@ -47,34 +48,30 @@ sub piechart {
 			push @grouped_labels, "all others ($num_others values)";
 			$explode = scalar @grouped_labels - 1;
 			push @grouped_data, $allothers;
-		}
-		else {
+		} else {
 			@grouped_labels = @$labels;
 			@grouped_data   = @$data;
 		}
-	}
-	else {
+	} else {
 		@grouped_labels = @$labels;
 		@grouped_data   = @$data;
 	}
 	my $chart;
 	if ( $size eq 'small' ) {
 		$chart = new PieChart( 780, 350 );
-		if ($prefs->{'style'} eq 'doughnut'){
-			$chart->setDonutSize(390,120,100,20);			
+		if ( $prefs->{'style'} eq 'doughnut' ) {
+			$chart->setDonutSize( 390, 120, 100, 20 );
 		} else {
 			$chart->setPieSize( 390, 120, 100 );
 		}
-	}
-	else {
+	} else {
 		$chart = new PieChart( 920, 500 );
-		if ($prefs->{'style'} eq 'doughnut'){
-			$chart->setDonutSize(450,200,170,50);			
+		if ( $prefs->{'style'} eq 'doughnut' ) {
+			$chart->setDonutSize( 450, 200, 170, 50 );
 		} else {
 			$chart->setPieSize( 450, 200, 170 );
 		}
 	}
-
 	$chart->setLabelFormat("{label} ({value} - {percent}%)");
 	{
 		no warnings 'once';
@@ -95,41 +92,40 @@ sub piechart {
 }
 
 sub barchart {
-	my ( $labels, $data, $filename, $size, $prefs  ) = @_;
-	my $max_label_length = &find_length_of_largest_label($labels);
-	my $preferred=10;
-	my $values = scalar @$labels;
+	my ( $labels, $data, $filename, $size, $prefs ) = @_;
+	my $max_label_length = _find_length_of_largest_label($labels);
+	my $preferred        = 10;
+	my $values           = scalar @$labels;
 	my $display_labels;
-	if ($values > 50){
-		my $pruning_factor = int($values / 50);
+	if ( $values > 50 ) {
+		my $pruning_factor = int( $values / 50 );
+
 		#prune labels
-		my $i=0;
-		foreach (@$labels){
-			if ($i < $pruning_factor){
-				push @$display_labels,'';
+		my $i = 0;
+		foreach (@$labels) {
+			if ( $i < $pruning_factor ) {
+				push @$display_labels, '';
 			} else {
-				push @$display_labels,$_;
+				push @$display_labels, $_;
 			}
 			$i++;
-			$i=0 if $i > $pruning_factor;
+			$i = 0 if $i > $pruning_factor;
 		}
 	} else {
 		$display_labels = $labels;
 	}
 	my $y_offset = $max_label_length * 5;
 	$y_offset += 10 if $prefs->{'x-title'};
-	my $x_offset = $prefs->{'y-title'} ? 10: 0 ;
-	my ($chart,$layer);
+	my $x_offset = $prefs->{'y-title'} ? 10 : 0;
+	my ( $chart, $layer );
 	if ( $size eq 'small' ) {
 		$chart = new XYChart( 780, 350 );
-		$chart->setPlotArea( 30 + $x_offset, 20 , 710, 300 - $y_offset );
-		$layer = 	$chart->addBarLayer( $data,
-		$chart->gradientColor( 0, 0, 0, 350, 0xf0f0f0, 0x404080  ) );
+		$chart->setPlotArea( 30 + $x_offset, 20, 710, 300 - $y_offset );
+		$layer = $chart->addBarLayer( $data, $chart->gradientColor( 0, 0, 0, 350, 0xf0f0f0, 0x404080 ) );
 	} else {
 		$chart = new XYChart( 920, 500 );
-		$chart->setPlotArea( 30 + $x_offset, 20 , 800, 450 - $y_offset );
-		$layer = 	$chart->addBarLayer( $data,
-		$chart->gradientColor( 0, 0, 0, 500, 0xf0f0f0, 0x404080  ) );
+		$chart->setPlotArea( 30 + $x_offset, 20, 800, 450 - $y_offset );
+		$layer = $chart->addBarLayer( $data, $chart->gradientColor( 0, 0, 0, 500, 0xf0f0f0, 0x404080 ) );
 	}
 	$chart->setBackground(0x00FFFFFF);
 	$chart->setTransparentColor(0x00FFFFFF);
@@ -141,30 +137,29 @@ sub barchart {
 	$layer->setBorderColor( -1, 1 );
 	my $angle = $max_label_length > 12 ? 90 : 45;
 	$chart->xAxis()->setLabels($display_labels)->setFontAngle($angle);
-	if ($prefs->{'offset_label'}){
-		$chart->xAxis->setTickOffset(-0.5);	
+	if ( $prefs->{'offset_label'} ) {
+		$chart->xAxis->setTickOffset(-0.5);
 		$chart->xAxis->setLabelOffset(-0.5);
 	}
-	$chart->yAxis()->setAutoScale(0.1,0.1,1);
-	$chart->yAxis()->setMinTickInc(1);# if ($config{'mintick'});
-	if ($prefs->{'x-title'}){
-		$chart->xAxis->setTitle($prefs->{'x-title'});
+	$chart->yAxis()->setAutoScale( 0.1, 0.1, 1 );
+	$chart->yAxis()->setMinTickInc(1);    # if ($config{'mintick'});
+	if ( $prefs->{'x-title'} ) {
+		$chart->xAxis->setTitle( $prefs->{'x-title'} );
 	}
-	if ($prefs->{'y-title'}){
-		$chart->yAxis->setTitle($prefs->{'y-title'});
+	if ( $prefs->{'y-title'} ) {
+		$chart->yAxis->setTitle( $prefs->{'y-title'} );
 	}
 	$chart->makeChart($filename);
 }
 
-sub find_length_of_largest_label {
+sub _find_length_of_largest_label {
 	my ($label_ref) = @_;
 	my $max = 0;
-	foreach (@$label_ref){
-		if (length $_ > $max){
+	foreach (@$label_ref) {
+		if ( length $_ > $max ) {
 			$max = length $_;
 		}
 	}
 	return $max;
-} 
-
+}
 1;

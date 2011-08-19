@@ -19,6 +19,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::Plugins::Polymorphisms;
 use strict;
+use warnings;
 use base qw(BIGSdb::Plugins::LocusExplorer);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -45,7 +46,7 @@ sub get_attributes {
 		input       => 'query',
 		help        => 'tooltips',
 		order       => 15,
-		max		    => MAX_SEQS
+		max         => MAX_SEQS
 	);
 	return \%att;
 }
@@ -55,7 +56,7 @@ sub run {
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
 	print "<h1>Polymorphic site analysis</h1>\n";
-	my $locus = $q->param('locus');
+	my $locus = $q->param('locus') || '';
 	if ( $locus =~ /^cn_(.+)/ ) {
 		$locus = $1;
 		$q->param( 'locus', $locus );
@@ -67,11 +68,12 @@ sub run {
 	}
 	my $ids = $self->_get_ids($query_file);
 	my %options;
-	$options{'from_bin'}   = $q->param('chooseseq') eq 'seqbin' ? 1 : 0;
-	$options{'unique'}     = $q->param('unique');
+	$options{'from_bin'}            = $q->param('chooseseq') eq 'seqbin' ? 1 : 0;
+	$options{'unique'}              = $q->param('unique');
 	$options{'exclude_incompletes'} = $q->param('exclude_incompletes');
-	$options{'count_only'} = 1;
+	$options{'count_only'}          = 1;
 	my $seq_count = $self->_get_seqs( $locus, $ids, \%options );
+
 	if ( $seq_count <= 50 ) {
 		$options{'count_only'} = 0;
 		my $seqs = $self->_get_seqs( $locus, $ids, \%options );
@@ -112,7 +114,7 @@ sub run {
 <p>Please be aware that this job may take a long time depending on the number of sequences to align
 and how busy the server is.  Alignment of hundreds of sequences can take many hours!</p>
 <p>Since alignment is offloaded to a third-party application, the progress report will not be accurate.</p>
-<p><a href="$self->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">
+<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">
 Follow the progress of this job and view the output.</a></p> 	
 <p>Please note that the % complete value will only update after the alignment of each locus.</p>
 </div>	
@@ -146,10 +148,11 @@ sub run_job {
 	$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => -1 } );    #indeterminate length of time
 	my $ids = $self->_get_ids($query_file);
 	my %options;
-	$options{'from_bin'} = $params->{'chooseseq'} eq 'seqbin' ? 1 : 0;
-	$options{'unique'} = $params->{'unique'};
+	$options{'from_bin'}            = $params->{'chooseseq'} eq 'seqbin' ? 1 : 0;
+	$options{'unique'}              = $params->{'unique'};
 	$options{'exclude_incompletes'} = $params->{'exclude_incompletes'};
 	my $seqs = $self->_get_seqs( $locus, $ids, \%options );
+
 	if ( !@$seqs ) {
 		$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => "<p>No sequences retrieved for analysis.</p>" } );
 		return;
@@ -183,6 +186,7 @@ sub _get_ids {
 
 sub _get_seqs {
 	my ( $self, $locus_name, $isolate_ids, $options ) = @_;
+
 	#options: count_only - don't align, just count how many sequences would be included.
 	#         unique - only include one example of each allele.
 	#         from_bin - choose sequences from seqbin in preference to allele from external db.
@@ -190,9 +194,9 @@ sub _get_seqs {
 	$options = {} if ref $options ne 'HASH';
 	my $exclude_clause = $options->{'exclude_incompletes'} ? ' AND complete ' : '';
 	my $seqbin_sql =
-		  $self->{'db'}->prepare(
+	  $self->{'db'}->prepare(
 "SELECT substring(sequence from start_pos for end_pos-start_pos+1),reverse FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE isolate_id=? AND locus=? $exclude_clause ORDER BY complete desc,allele_sequences.datestamp LIMIT 1"
-		  );
+	  );
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
 	my $locus;
 	try {
@@ -224,7 +228,7 @@ sub _get_seqs {
 		eval { $seqbin_sql->execute( $id, $locus_name ); };
 		$logger->error($@) if $@;
 		( $seqbin_seq, $reverse ) = $seqbin_sql->fetchrow_array;
-		if ( $reverse ) {   
+		if ($reverse) {
 			$seqbin_seq = BIGSdb::Utils::reverse_complement($seqbin_seq);
 		}
 		my $seq;
@@ -289,7 +293,7 @@ sub _print_interface {
 	print "</li>\n<li style=\"margin-top:1em\">\n";
 	print $q->checkbox( -name => 'unique', -label => 'Analyse single example of each unique sequence', -checked => 'checked' );
 	print "</li>\n<li>\n";
-	print $q->checkbox( -name => 'exclude_incompletes', -label => 'Exclude incomplete sequences', -checked => 'checked');
+	print $q->checkbox( -name => 'exclude_incompletes', -label => 'Exclude incomplete sequences', -checked => 'checked' );
 	print "</li></ul>\n";
 	print "</fieldset>\n";
 	print "<fieldset class=\"display\">\n";

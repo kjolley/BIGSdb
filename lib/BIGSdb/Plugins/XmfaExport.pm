@@ -19,6 +19,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::Plugins::XmfaExport;
 use strict;
+use warnings;
 use base qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -40,7 +41,7 @@ sub get_attributes {
 		buttontext  => 'XMFA',
 		menutext    => 'XMFA export',
 		module      => 'XmfaExport',
-		version     => '1.1.1',
+		version     => '1.1.2',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		section     => 'export,postquery',
@@ -61,7 +62,7 @@ sub run {
 	my $list;
 	my $qry_ref;
 	my $pk;
-	
+
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$pk = 'id';
 	} else {
@@ -97,7 +98,7 @@ sub run {
 		return if ref $qry_ref ne 'SCALAR';
 		my $view = $self->{'system'}->{'view'};
 		return if !$self->create_temp_tables($qry_ref);
-		$$qry_ref =~ s/SELECT ($view\.\*|\*)/SELECT $pk/;
+		$$qry_ref =~ s/SELECT ($view\.\*|\*)/SELECT $pk/ if defined $view;
 		$self->rewrite_query_ref_order_by($qry_ref) if $self->{'system'}->{'dbtype'} eq 'isolates';
 		$list = $self->{'datastore'}->run_list_query($$qry_ref);
 	} else {
@@ -113,9 +114,9 @@ sub run {
 		if ( !@fields_selected ) {
 			print "<div class=\"box\" id=\"statusbad\"><p>No fields have been selected!</p></div>\n";
 		} else {
-			my $params    = $q->Vars;
+			my $params = $q->Vars;
 			$params->{'pk'} = $pk;
-			(my $list = $q->param('list')) =~ s/[\r\n]+/\|\|/g;
+			( my $list = $q->param('list') ) =~ s/[\r\n]+/\|\|/g;
 			$params->{'list'} = $list;
 			my $job_id = $self->{'jobManager'}->add_job(
 				{
@@ -130,7 +131,7 @@ sub run {
 <p>This analysis has been submitted to the job queue.</p>
 <p>Please be aware that this job may take a long time depending on the number of sequences to align
 and how busy the server is.  Alignment of hundreds of sequences can take many hours!</p>
-<p><a href="$self->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">
+<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">
 Follow the progress of this job and view the output.</a></p> 	
 <p>Please note that the % complete value will only update after the alignment of each locus.</p>
 </div>	
@@ -138,7 +139,6 @@ HTML
 			return;
 		}
 	}
-
 	my $limit = $self->{'system'}->{'XMFA_limit'} || 200;
 	print <<"HTML";
 <div class="box" id="queryform">
@@ -148,7 +148,7 @@ can be included.  Please check the loci that you would like to include.  If a se
 the remote database, it will be replaced with 'N's. Output is limited to $limit records. Please be aware that it may take a long time 
 to generate the output file as the sequences are passed through muscle to align them.</p>
 HTML
-	my $options = {'default_select' => 0, 'translate' => 1};
+	my $options = { 'default_select' => 0, 'translate' => 1 };
 	$self->print_sequence_export_form( $pk, $list, $scheme_id, $options );
 	print "</div>\n";
 }
@@ -156,17 +156,17 @@ HTML
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	my $scheme_id = $params->{'scheme_id'};
-	my $pk = $params->{'pk'};
-	my $filename = "$self->{'config'}->{'tmp_dir'}/$job_id\.txt";
+	my $pk        = $params->{'pk'};
+	my $filename  = "$self->{'config'}->{'tmp_dir'}/$job_id\.txt";
 	open( my $fh, '>', $filename )
 	  or $logger->error("Can't open output file $filename for writing");
 	my $isolate_sql;
 	if ( $params->{'includes'} ) {
-		my @includes = split/\|\|/,$params->{'includes'};
+		my @includes = split /\|\|/, $params->{'includes'};
 		$"           = ',';
 		$isolate_sql = $self->{'db'}->prepare("SELECT @includes FROM $self->{'system'}->{'view'} WHERE id=?");
 	}
-	my $profile_sql = $self->{'db'}->prepare("SELECT $pk FROM scheme_$scheme_id WHERE $pk=?");
+	
 	my $length_sql  = $self->{'db'}->prepare("SELECT length FROM loci WHERE id=?");
 	my $seqbin_sql =
 	  $self->{'db'}->prepare(
@@ -193,11 +193,11 @@ sub run_job {
 			$picked{$locus} = 1;
 		}
 	}
-	my @list = split/\|\|/,$params->{'list'};
+	my @list = split /\|\|/, $params->{'list'};
 	if ( !@list ) {
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 			my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
-			@list = @{$self->{'datastore'}->run_list_query($qry)};
+			@list = @{ $self->{'datastore'}->run_list_query($qry) };
 		} else {
 			my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $pk );
 			my $qry;
@@ -206,10 +206,9 @@ sub run_job {
 			} else {
 				$qry = "SELECT $pk FROM scheme_$scheme_id ORDER BY $pk";
 			}
-			@list = @{$self->{'datastore'}->run_list_query($qry)};
+			@list = @{ $self->{'datastore'}->run_list_query($qry) };
 		}
-	}	
-	
+	}
 	my $progress = 0;
 	foreach my $locus_name (@selected_fields) {
 		my $locus;
@@ -225,10 +224,8 @@ sub run_job {
 		my $temp_file   = "$self->{'config'}->{secure_tmp_dir}/$temp.txt";
 		my $muscle_file = "$self->{'config'}->{secure_tmp_dir}/$temp.muscle";
 		open( my $fh_muscle, '>', "$temp_file" ) or $logger->error("could not open temp file $temp_file");
-		my $count;
+		my $count = 0;
 		my $limit = $self->{'system'}->{'XMFA_limit'} || 200;
-		
-		
 		foreach my $id (@list) {
 			last if $count == $limit;
 			$count++;
@@ -236,10 +233,8 @@ sub run_job {
 				my @includes;
 				next if !BIGSdb::Utils::is_int($id);
 				if ( $params->{'includes'} ) {
-					eval { $isolate_sql->execute($id); };
-					if ($@) {
-						$logger->error("Can't execute $@");
-					}
+					eval { $isolate_sql->execute($id) };
+					$logger->error($@) if $@;
 					@includes = $isolate_sql->fetchrow_array;
 					foreach (@includes) {
 						$_ =~ tr/ /_/;
@@ -266,9 +261,9 @@ sub run_job {
 					};
 				}
 				my $seqbin_seq;
-				eval { $seqbin_sql->execute( $id, $locus_name ); };
+				eval { $seqbin_sql->execute( $id, $locus_name ) };
 				if ($@) {
-					$logger->error("Can't execute, $@");
+					$logger->error($@);
 				} else {
 					my $reverse;
 					( $seqbin_seq, $reverse ) = $seqbin_sql->fetchrow_array;
@@ -284,10 +279,8 @@ sub run_job {
 				} elsif ($seqbin_seq) {
 					$seq = $seqbin_seq;
 				} else {
-					eval { $length_sql->execute($locus_name); };
-					if ($@) {
-						$logger->error("Can't execute $@");
-					}
+					eval { $length_sql->execute($locus_name) };
+					$logger->error($@) if $@;
 					my ($length) = $length_sql->fetchrow_array;
 					if ($length) {
 						$seq .= 'N' x $length;
@@ -300,7 +293,7 @@ sub run_job {
 							foreach ( values %$seqs ) {
 								$length_freqs{ length $_ }++;
 							}
-							my $max_freqs;
+							my $max_freqs = 0;
 							foreach ( keys %length_freqs ) {
 								if ( $length_freqs{$_} > $max_freqs ) {
 									$max_freqs     = $length_freqs{$_};
@@ -325,10 +318,9 @@ sub run_job {
 					print $fh_muscle "$seq\n";
 				}
 			} else {
-				eval { $profile_sql->execute($id); };
-				if ($@) {
-					$logger->error("Can't execute $@");
-				}
+				my $profile_sql = $self->{'db'}->prepare("SELECT $pk FROM scheme_$scheme_id WHERE $pk=?");
+				eval { $profile_sql->execute($id) };
+				$logger->error($@) if $@;
 				my ($profile_id) = $profile_sql->fetchrow_array;
 				if ($profile_id) {
 					my $allele_id = $self->{'datastore'}->get_profile_allele_designation( $scheme_id, $id, $locus_name )->{'allele_id'};
@@ -359,21 +351,20 @@ sub run_job {
 		unlink $muscle_file;
 		unlink $temp_file;
 		$progress++;
-		my $complete = int (100 * $progress / scalar @selected_fields); 
-		$self->{'jobManager'}->update_job_status($job_id,{'percent_complete' => $complete});		
+		my $complete = int( 100 * $progress / scalar @selected_fields );
+		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } );
 	}
 	close $fh;
 	my $message_html;
-	if (@problem_ids){
-		$"=', ';
+	if (@problem_ids) {
+		$"            = ', ';
 		$message_html = "<p>The following ids could not be processed (they do not exist): @problem_ids.</p>\n";
 	}
 	if ($no_output) {
-		 $message_html .= "<p>No output generated.  Please ensure that your sequences have been defined for these isolates.</p>\n";
+		$message_html .= "<p>No output generated.  Please ensure that your sequences have been defined for these isolates.</p>\n";
 	} else {
-		$self->{'jobManager'}->update_job_output($job_id,{'filename' => "$job_id.txt", 'description' => 'XMFA output file'});
+		$self->{'jobManager'}->update_job_output( $job_id, { 'filename' => "$job_id.txt", 'description' => 'XMFA output file' } );
 	}
-	$self->{'jobManager'}->update_job_status($job_id,{'message_html' => $message_html}) if $message_html;
+	$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => $message_html } ) if $message_html;
 }
-
 1;

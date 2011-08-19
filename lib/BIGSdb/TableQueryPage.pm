@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::TableQueryPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::QueryPage);
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
@@ -62,7 +63,7 @@ sub print_content {
 	{
 		if ( !$q->param('no_js') ) {
 			print "<noscript><p class=\"highlight\">The dynamic customisation of this interface requires that you enable Javascript in your
-		browser. Alternatively, you can use a <a href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$table&amp;no_js=1\">non-Javascript 
+		browser. Alternatively, you can use a <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$table&amp;no_js=1\">non-Javascript 
 		version</a> that has 4 combinations of fields.</p></noscript>\n";
 		}
 		$self->_print_query_interface();
@@ -205,10 +206,10 @@ sub _print_query_interface {
 	my %labels;
 
 	foreach (@$attributes) {
-		if ( $_->{'optlist'} || $_->{'type'} eq 'bool' || $_->{'dropdown_query'} eq 'yes' ) {
+		if ( $_->{'optlist'} || $_->{'type'} eq 'bool' || ( $_->{'dropdown_query'} && $_->{'dropdown_query'} eq 'yes' ) ) {
 			( my $tooltip = $_->{'tooltip'} ) =~ tr/_/ /;
 			$tooltip =~ s/ - / filter - Select a value to filter your search to only those with the selected attribute. /;
-			if ( $_->{'dropdown_query'} eq 'yes' ) {
+			if ( ( $_->{'dropdown_query'} && $_->{'dropdown_query'} eq 'yes' ) ) {
 				if ( $_->{'name'} eq 'sender' || $_->{'name'} eq 'curator' ) {
 					push @filters, $self->get_user_filter( $_->{'name'}, $table );
 				} else {
@@ -332,8 +333,8 @@ sub _run_query {
 	if ( !defined $q->param('query') ) {
 		my $andor       = $q->param('c0');
 		my $first_value = 1;
-		for ( my $i = 1 ; $i <= MAX_ROWS ; $i++ ) {
-			if ( $q->param("t$i") ne '' ) {
+		foreach my $i ( 1 .. MAX_ROWS ) {
+			if ( defined $q->param("t$i") && $q->param("t$i") ne '' ) {
 				my $field    = $q->param("s$i");
 				my $operator = $q->param("y$i");
 				my $text     = $q->param("t$i");
@@ -446,7 +447,7 @@ sub _run_query {
 				}
 			}
 		}
-		if ( $q->param('scheme_id_list') ne ''
+		if ( defined $q->param('scheme_id_list') && $q->param('scheme_id_list') ne ''
 			&& any { $table eq $_ } qw (loci scheme_fields schemes scheme_members client_dbase_schemes allele_designations) )
 		{
 			if ( $table eq 'loci' ) {
@@ -467,7 +468,8 @@ sub _run_query {
 			if ($qry) {
 				$qry2 .= " AND ($qry)";
 			}
-		} elsif ( $q->param('experiment_list') ne ''
+		} elsif ( $q->param('experiment_list')
+			&& $q->param('experiment_list') ne ''
 			&& ( $table eq 'sequence_bin' ) )
 		{
 			my $experiment = $q->param('experiment_list');
@@ -487,11 +489,13 @@ sub _run_query {
 		} elsif ( $table eq 'allele_sequences' ) {
 			$qry2 = $self->_process_allele_sequences_filters($qry);
 		} else {
+			$qry ||= '';
 			$qry2 = "SELECT * FROM $table WHERE ($qry)";
 		}
 		foreach (@$attributes) {
-			if ( $q->param( $_->{'name'} . '_list' ) ne '' ) {
-				my $value = $q->param( $_->{'name'} . '_list' );
+			my $param = $_->{'name'} . '_list';
+			if ( defined $q->param($param) && $q->param($param) ne '' ) {
+				my $value = $q->param($param);
 				my $field = "$table." . $_->{'name'};
 				if ( $qry2 !~ /WHERE \(\)\s*$/ ) {
 					$qry2 .= " AND ";
@@ -523,11 +527,16 @@ sub _run_query {
 		print "<div class=\"box\" id=\"statusbad\"><p>Problem with search criteria:</p>\n";
 		print "<p>@errors</p></div>\n";
 	} elsif ( $qry2 !~ /\(\)/ ) {
-		if (   ( $self->{'system'}->{'read_access'} eq 'acl' || $self->{'system'}->{'write_access'} eq 'acl' )
+		if (
+			(
+				$self->{'system'}->{'read_access'} eq 'acl'
+				|| ( $self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl' )
+			)
 			&& $self->{'username'}
 			&& !$self->is_admin
 			&& $self->{'system'}->{'dbtype'} eq 'isolates'
-			&& any { $table eq $_ } qw (allele_designations sequence_bin isolate_aliases accession allele_sequences samples) )
+			&& any { $table eq $_ } qw (allele_designations sequence_bin isolate_aliases accession allele_sequences samples)
+		  )
 		{
 			if ( $table eq 'accession' || $table eq 'allele_sequences' ) {
 				$qry2 =~ s/WHERE/AND/;
@@ -674,7 +683,7 @@ sub _process_allele_sequences_filters {
 				$qry2 = "SELECT * FROM allele_sequences$dup_qry";
 			}
 		}
-		if ( $q->param('scheme_id_list') ne ''){
+		if ( $q->param('scheme_id_list') ne '' ) {
 			my $scheme_qry =
 "allele_sequences.locus IN (SELECT DISTINCT allele_sequences.locus FROM allele_sequences LEFT JOIN scheme_members ON allele_sequences.locus = scheme_members.locus WHERE scheme_id";
 			if ( $q->param('scheme_id_list') eq '0' ) {

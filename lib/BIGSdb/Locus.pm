@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -16,9 +16,9 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
-
 package BIGSdb::Locus;
 use strict;
+use warnings;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Locus');
 
@@ -26,7 +26,7 @@ sub new {
 	my $class = shift;
 	my $self  = {@_};
 	$self->{'sql'} = {};
-	if (!$self->{'id'}){
+	if ( !$self->{'id'} ) {
 		throw BIGSdb::DataException("Invalid locus");
 	}
 	$self->{'dbase_id_field'}  = 'id'       if !$self->{'dbase_id_field'};
@@ -55,7 +55,7 @@ sub get_allele_sequence {
 	if ( !$self->{'sql'}->{'sequence'} ) {
 		my $qry;
 		if ( $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'} ) {
-			$self->{'dbase_id2_value'} =~ s/'/\\'/g if $self->{'dbase_id2_value'} !~ /\\'/; #only escape if not already escaped
+			$self->{'dbase_id2_value'} =~ s/'/\\'/g if $self->{'dbase_id2_value'} !~ /\\'/;    #only escape if not already escaped
 			$qry =
 "SELECT $self->{'dbase_seq_field'} FROM $self->{'dbase_table'} WHERE $self->{'dbase_id_field'}=? AND $self->{'dbase_id2_field'}=E'$self->{'dbase_id2_value'}'";
 		} else {
@@ -64,7 +64,7 @@ sub get_allele_sequence {
 		$self->{'sql'}->{'sequence'} = $self->{'db'}->prepare($qry);
 		$logger->debug("Locus $self->{'id'} statement handle 'sequence' prepared ($qry).");
 	}
-	eval { $self->{'sql'}->{'sequence'}->execute($id); };	
+	eval { $self->{'sql'}->{'sequence'}->execute($id); };
 	if ($@) {
 		$logger->error(
 "Can't execute 'sequence' query handle. Check database attributes in the locus table for locus '$self->{'id'}'! Statement was '$self->{'sql'}->{sequence}->{Statement}'. id='$id'  $@ "
@@ -85,7 +85,7 @@ sub get_all_sequences {
 	if ( !$self->{'sql'}->{'all_sequences'} ) {
 		my $qry;
 		if ( $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'} ) {
-			$self->{'dbase_id2_value'} =~ s/'/\\'/g if $self->{'dbase_id2_value'} !~ /\\'/; #only escape if not already escaped
+			$self->{'dbase_id2_value'} =~ s/'/\\'/g if $self->{'dbase_id2_value'} !~ /\\'/;    #only escape if not already escaped
 			$qry =
 "SELECT $self->{'dbase_id_field'},$self->{'dbase_seq_field'} FROM $self->{'dbase_table'} WHERE $self->{'dbase_id2_field'}=E'$self->{'dbase_id2_value'}'";
 		} else {
@@ -141,5 +141,3 @@ sub get_all_sequence_lengths {
 	return \%lengths;
 }
 1;
-
-

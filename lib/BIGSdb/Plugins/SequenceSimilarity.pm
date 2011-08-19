@@ -1,7 +1,7 @@
 #SequenceSimilarity.pm - Plugin for BIGSdb
 #This requires the SequenceComparison plugin
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,6 +20,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::Plugins::SequenceSimilarity;
 use strict;
+use warnings;
 use base qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -37,7 +38,7 @@ sub get_attributes {
 		category         => 'Analysis',
 		menutext         => 'Sequence similarity',
 		module           => 'SequenceSimilarity',
-		version          => '1.0.0',
+		version          => '1.0.1',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => 'analysis',
@@ -49,8 +50,8 @@ sub get_attributes {
 
 sub run {
 	my ($self) = @_;
-	my $q      = $self->{'cgi'};
-	my $locus  = $q->param('locus');
+	my $q = $self->{'cgi'};
+	my $locus = $q->param('locus') || '';
 	$locus =~ s/^cn_//;
 	my $allele = $q->param('allele');
 	print "<h1>Find most similar alleles</h1>\n";
@@ -62,13 +63,11 @@ sub run {
 	print "<div class=\"box\" id=\"queryform\">\n";
 	print "<p>This page allows you to find the most similar sequences to a selected allele using BLAST.</p>\n";
 	my $num_results =
-	  ( $q->param('num_results') =~ /(\d+)/ )
+	  ( defined $q->param('num_results') && $q->param('num_results') =~ /(\d+)/ )
 	  ? $1
 	  : 10;
 	print $q->start_form;
-	foreach (qw (db page name)) {
-		print $q->hidden($_);
-	}
+	print $q->hidden($_) foreach qw (db page name);
 	print "<table>";
 	print "<tr><td style=\"text-align:right\">Select locus: </td><td>";
 	print $q->popup_menu( -name => 'locus', -values => $display_loci, -labels => $cleaned );
@@ -123,10 +122,7 @@ sub run {
 			$q->param( 'allele2', $_->{'allele'} );
 			$q->param( 'name',    'SequenceComparison' );
 			$q->param( 'sent',    1 );
-
-			foreach (qw (db page name locus allele1 allele2 sent)) {
-				print $q->hidden($_);
-			}
+			print $q->hidden($_) foreach qw (db page name locus allele1 allele2 sent);
 			print $q->submit( -name => "Compare $cleaned->{$locus}: $_->{'allele'}", -class => 'submit' );
 			print $q->end_form;
 			print "</td></tr>\n";

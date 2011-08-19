@@ -257,11 +257,12 @@ sub print {
 				-head   => $http_equiv
 			);
 		}
-		$self->_print_header();
-		$self->_print_login_details if (defined $self->{'system'}->{'read_access'} && $self->{'system'}->{'read_access'} ne 'public') || $self->{'curate'};
+		$self->_print_header;
+		$self->_print_login_details
+		  if ( defined $self->{'system'}->{'read_access'} && $self->{'system'}->{'read_access'} ne 'public' ) || $self->{'curate'};
 		$self->_print_help_panel;
-		$self->print_content();
-		$self->_print_footer();
+		$self->print_content;
+		$self->_print_footer;
 		print $q->end_html;
 	}
 }
@@ -349,9 +350,7 @@ sub _print_help_panel {
 		print $q->submit( -name => 'Go', -class => 'fieldvaluebutton' );
 		my $refer_page = $q->param('page');
 		$q->param( 'page', 'fieldValues' );
-		foreach (qw (db page)) {
-			print $q->hidden($_);
-		}
+		print $q->hidden($_) foreach qw (db page);
 		print $q->end_form;
 		$q->param( 'page', $refer_page );
 	}
@@ -423,10 +422,8 @@ sub get_field_selection_list {
 			my @locus_list;
 			my $qry    = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
 			my $cn_sql = $self->{'db'}->prepare($qry);
-			eval { $cn_sql->execute; };
-			if ($@) {
-				$logger->error("Can't execute $@");
-			}
+			eval { $cn_sql->execute };
+			$logger->error($@) if $@;
 			my $common_names = $cn_sql->fetchall_hashref('id');
 			my $loci =
 			  $self->{'datastore'}->get_loci( { 'query_pref' => $options->{'all_loci'} ? 0 : 1, 'seq_defined' => 0, 'do_not_order' => 1 } );
@@ -444,9 +441,9 @@ sub get_field_selection_list {
 			if ( $self->{'prefs'}->{'locus_alias'} ) {
 				my $qry       = "SELECT locus,alias FROM locus_aliases";
 				my $alias_sql = $self->{'db'}->prepare($qry);
-				eval { $alias_sql->execute; };
+				eval { $alias_sql->execute };
 				if ($@) {
-					$logger->error("Can't execute $@");
+					$logger->error($@);
 				} else {
 					my $array_ref = $alias_sql->fetchall_arrayref;
 					foreach (@$array_ref) {
@@ -473,13 +470,11 @@ sub get_field_selection_list {
 			my @scheme_field_list;
 			my $qry = "SELECT id, description FROM schemes ORDER BY display_order,id";
 			my $sql = $self->{'db'}->prepare($qry);
-			eval { $sql->execute(); };
-			if ($@) {
-				$logger->error("Can't execute: $qry");
-			}
+			eval { $sql->execute };
+			$logger->error($@) if $@;
 			my $scheme_fields = $self->{'datastore'}->get_all_scheme_fields;
 			my $scheme_info   = $self->{'datastore'}->get_all_scheme_info;
-			while ( my ( $scheme_id, $desc ) = $sql->fetchrow_array() ) {
+			while ( my ( $scheme_id, $desc ) = $sql->fetchrow_array ) {
 				my $scheme_db = $scheme_info->{$scheme_id}->{'dbase_name'};
 
 				#No point using scheme fields if no scheme database is available.
@@ -596,7 +591,7 @@ sub get_user_filter {
 	my ( $self, $field, $table ) = @_;
 	my $qry = "SELECT DISTINCT($field) FROM $table WHERE $field > 0";
 	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute(); };
+	eval { $sql->execute };
 	$logger->error($@) if $@;
 	my @userids;
 	while ( my ($value) = $sql->fetchrow_array ) {
@@ -606,7 +601,7 @@ sub get_user_filter {
 	$sql = $self->{'db'}->prepare($qry);
 	my ( @usernames, %labels );
 	foreach (@userids) {
-		eval { $sql->execute($_); };
+		eval { $sql->execute($_) };
 		$logger->error($@) if $@;
 		while ( my @data = $sql->fetchrow_array ) {
 			push @usernames, $data[0];
@@ -632,7 +627,7 @@ sub get_scheme_filter {
 	if ( !$self->{'cache'}->{'schemes'} ) {
 		my $qry = "SELECT id,description FROM schemes ORDER BY display_order,id";
 		my $sql = $self->{'db'}->prepare($qry);
-		eval { $sql->execute(); };
+		eval { $sql->execute };
 		$logger->error($@) if $@;
 		while ( my @data = $sql->fetchrow_array() ) {
 			push @{ $self->{'cache'}->{'schemes'} }, $data[0];
@@ -877,7 +872,7 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 		} else {
 			print ".";
 		}
-		if ( !$self->{'curate'} || $table eq $self->{'system'}->{'view'} ) {
+		if ( !$self->{'curate'} || ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) ) {
 			print " Click the hyperlink$plural for detailed information.";
 		}
 		print "</p>\n";
@@ -948,7 +943,7 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 			my @projects;
 			my $project_qry = "SELECT id,short_description FROM projects ORDER BY short_description";
 			my $sql         = $self->{'db'}->prepare($project_qry);
-			eval { $sql->execute; };
+			eval { $sql->execute };
 			$logger->error($@) if $@;
 			my %labels;
 			while ( my @data = $sql->fetchrow_array ) {
@@ -974,7 +969,7 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 		print "<p>No records found!</p>\n";
 	}
 	my $filename = $self->make_temp_file($qry);
-	$self->print_results_header_insert($filename);
+	$self->print_results_header_insert($filename) if $records;
 	if ( $self->{'prefs'}->{'pagebar'} =~ /top/
 		&& ( $currentpage > 1 || $currentpage < $totalpages ) )
 	{
@@ -1083,7 +1078,7 @@ sub _print_record_table {
 		$qry =~ s/\*/$fields/;
 	}
 	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute(); };
+	eval { $sql->execute };
 	if ($@) {
 		$logger->error("Can't execute: $qry $@");
 	} else {
@@ -1149,7 +1144,7 @@ sub _print_record_table {
 				$value = $self->clean_locus($value);
 				if ( $table eq 'sequences' ) {
 					print
-					  "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;@query_values\">$value</a></td>";
+"<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;@query_values\">$value</a></td>";
 				} else {
 					print
 "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=recordInfo&amp;table=$table&amp;@query_values\">$value</a></td>";
@@ -1260,7 +1255,7 @@ sub _print_publication_table {
 		return;
 	}
 	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute; };
+	eval { $sql->execute };
 	if ($@) {
 		$logger->error("Can't execute $qry $@");
 		return;
@@ -1283,7 +1278,7 @@ sub _print_publication_table {
 			$buffer .= " $refdata->{'pages'}</td>\n";
 		}
 		$buffer .= "<td style=\"text-align:left\">$refdata->{'title'}</td>\n";
-		if ( $q->param('calling_page') ne 'browse' && !$q->param('all_records') ) {
+		if ( defined $q->param('calling_page') && $q->param('calling_page') ne 'browse' && !$q->param('all_records') ) {
 			$buffer .= "<td>$refdata->{'isolates'}</td>";
 		}
 		$buffer .= "<td>" . $self->get_link_button_to_ref( $refdata->{'pmid'} ) . "</td>\n";
@@ -1294,7 +1289,8 @@ sub _print_publication_table {
 		print "<div class=\"box\" id=\"resultstable\">\n";
 		print "<table class=\"resultstable\">\n<thead>\n";
 		print "<tr><th>PubMed id</th><th>Year</th><th>Citation</th><th>Title</th>";
-		print "<th>Isolates in query</th>" if $q->param('calling_page') ne 'browse' && !$q->param('all_records');
+		print "<th>Isolates in query</th>"
+		  if defined $q->param('calling_page') && $q->param('calling_page') ne 'browse' && !$q->param('all_records');
 		print "<th>Isolates in database</th></tr>\n</thead>\n<tbody>\n";
 		print "$buffer";
 		print "</tbody></table>\n</div>\n";
@@ -1311,10 +1307,8 @@ sub get_link_button_to_ref {
 "SELECT COUNT(refs.isolate_id) FROM $self->{'system'}->{'view'} LEFT JOIN refs on refs.isolate_id=$self->{'system'}->{'view'}.id WHERE pubmed_id=?";
 		$self->{'sql'}->{'link_ref'} = $self->{'db'}->prepare($qry);
 	}
-	eval { $self->{'sql'}->{'link_ref'}->execute($ref); };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	eval { $self->{'sql'}->{'link_ref'}->execute($ref) };
+	$logger->error($@) if $@;
 	my ($count) = $self->{'sql'}->{'link_ref'}->fetchrow_array;
 	my $plural = $count == 1 ? '' : 's';
 	$buffer .= "$count isolate$plural";
@@ -1326,10 +1320,7 @@ sub get_link_button_to_ref {
 	);
 	$q->param( 'pmid', $ref );
 	$q->param( 'page', 'pubquery' );
-
-	foreach (qw (db page query curate pmid)) {
-		$buffer .= $q->hidden($_);
-	}
+	$buffer .= $q->hidden($_) foreach qw(db page query curate pmid);
 	$buffer .= $q->submit( -value => 'Display', -class => 'submit' );
 	$buffer .= $q->end_form;
 	$q->param( 'page', 'info' );
@@ -1357,7 +1348,7 @@ sub get_isolate_id_and_name_from_seqbin_id {
 "SELECT $self->{'system'}->{'view'}.id,$self->{'system'}->{'view'}.$self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} LEFT JOIN sequence_bin ON $self->{'system'}->{'view'}.id = isolate_id WHERE sequence_bin.id=?"
 		  );
 	}
-	eval { $self->{'sql'}->{'isolate_id_as'}->execute($seqbin_id); };
+	eval { $self->{'sql'}->{'isolate_id_as'}->execute($seqbin_id) };
 	$logger->error($@) if $@;
 	my ( $isolate_id, $isolate ) = $self->{'sql'}->{'isolate_id_as'}->fetchrow_array;
 	return ( $isolate_id, $isolate );
@@ -1370,6 +1361,7 @@ sub print_results_header_insert {
 
 sub get_record_name {
 	my ( $self, $table ) = @_;
+	$table ||= '';
 	my %names = (
 		'users'                             => 'user',
 		'user_groups'                       => 'user group',
@@ -1478,7 +1470,7 @@ sub _print_profile_table {
 	$logger->debug("Limit qry: $qry_limit");
 	my $logger_benchmark = get_logger('BIGSdb.Application_Benchmark');
 	my $start            = gettimeofday();
-	eval { $limit_sql->execute(); };
+	eval { $limit_sql->execute };
 
 	if ($@) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Invalid search performed</p></div>\n";
@@ -1543,7 +1535,7 @@ sub _print_profile_table {
 		}
 		foreach (@$scheme_fields) {
 			next if $_ eq $primary_key;
-			print defined $data->{lc($_)} ? "<td>$data->{lc($_)}</td>" : '<td />';
+			print defined $data->{ lc($_) } ? "<td>$data->{lc($_)}</td>" : '<td />';
 		}
 		print "</tr>\n";
 		$td = $td == 1 ? 2 : 1;
@@ -1637,7 +1629,7 @@ sub _print_isolate_table {
 	$logger->debug("Limit qry: $qry_limit");
 	my $logger_benchmark = get_logger('BIGSdb.Application_Benchmark');
 	my $start            = gettimeofday();
-	eval { $limit_sql->execute(); };
+	eval { $limit_sql->execute };
 
 	if ($@) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Invalid search performed</p></div>\n";
@@ -1653,7 +1645,7 @@ sub _print_isolate_table {
 	my ( %composites, %composite_display_pos );
 	$qry = "SELECT id,position_after FROM composite_fields";
 	$sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute; };
+	eval { $sql->execute };
 
 	if ($@) {
 		$logger->error("Can't execute $qry $@");
@@ -1675,7 +1667,7 @@ sub _print_isolate_table {
 
 	if ( $self->{'prefs'}->{'hyperlink_loci'} ) {
 		my $locus_info_sql = $self->{'db'}->prepare("SELECT id,url FROM loci");
-		eval { $locus_info_sql->execute; };
+		eval { $locus_info_sql->execute };
 		$logger->error($@) if $@;
 		while ( my ( $locus, $url ) = $locus_info_sql->fetchrow_array ) {
 			if ( $self->{'prefs'}->{'main_display_loci'}->{$locus} ) {
@@ -1760,7 +1752,7 @@ sub _print_isolate_table {
 			if ( ref $extatt eq 'ARRAY' ) {
 				foreach my $extended_attribute (@$extatt) {
 					if ( $self->{'prefs'}->{'maindisplayfields'}->{"$thisfieldname\..$extended_attribute"} ) {
-						eval { $attribute_sql->execute( $thisfieldname, $extended_attribute, $data{$thisfieldname} ); };
+						eval { $attribute_sql->execute( $thisfieldname, $extended_attribute, $data{$thisfieldname} ) };
 						$logger->error($@) if $@;
 						my ($value) = $attribute_sql->fetchrow_array;
 						print "<td>$value</td>";
@@ -2052,7 +2044,7 @@ sub _print_isolate_table_header {
 	my $alias_sql = $self->{'db'}->prepare("SELECT alias FROM locus_aliases WHERE locus=?");
 	my $qry       = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
 	my $cn_sql    = $self->{'db'}->prepare($qry);
-	eval { $cn_sql->execute; };
+	eval { $cn_sql->execute };
 	$logger->error($@) if $@;
 	my $common_names = $cn_sql->fetchall_hashref('id');
 	$" = '; ';
@@ -2137,7 +2129,7 @@ sub get_update_details_tooltip {
 	my $curator = $self->{'datastore'}->get_user_info( $allele_ref->{'curator'} );
 	$buffer = "$locus:$allele_ref->{'allele_id'} - ";
 	$buffer .= "sender: $sender->{'first_name'} $sender->{'surname'}<br />";
-	$buffer .= "status: $allele_ref->{'status'}<br />";
+	$buffer .= "status: $allele_ref->{'status'}<br />" if $allele_ref->{'status'};
 	$buffer .= "method: $allele_ref->{'method'}<br />";
 	$buffer .= "curator: $curator->{'first_name'} $curator->{'surname'}<br />";
 	$buffer .= "first entered: $allele_ref->{'date_entered'}<br />";
@@ -2150,7 +2142,7 @@ sub get_update_details_tooltip {
 sub get_sequence_details_tooltip {
 	my ( $self, $locus, $allele_ref, $alleleseq_ref, $flags_ref ) = @_;
 	my $buffer = defined $allele_ref->{'allele_id'} ? "$locus:$allele_ref->{'allele_id'} - " : "$locus - ";
-	my $i      = 0;
+	my $i = 0;
 	$" = '; ';
 	foreach (@$alleleseq_ref) {
 		$buffer .= '<br />' if $i;
@@ -2306,8 +2298,8 @@ sub run_blast {
 		}
 	}
 	if ( !$options->{'locus'} || $options->{'locus'} =~ /SCHEME_(\d+)/ ) {
-		system "cat $temp_outfile\.1 >> $temp_outfile";
-		system "rm $temp_outfile\.1";
+		system "cat $temp_outfile\.1 >> $temp_outfile" if -e "$temp_outfile\.1";
+		system "rm $temp_outfile\.1"                   if -e "$temp_outfile\.1";
 	}
 
 	#delete all working files
@@ -2324,7 +2316,6 @@ sub is_admin {
 		return 0 if ref $status ne 'ARRAY';
 		return 1 if $status->[0] eq 'admin';
 	}
-	$logger->debug("User $self->{'username'} is not an admin");
 	return 0;
 }
 
@@ -2337,8 +2328,15 @@ sub can_modify_table {
 		return 1;
 	} elsif ( ( $table eq 'user_groups' || $table eq 'user_group_members' ) && $self->{'permissions'}->{'modify_usergroups'} ) {
 		return 1;
-	} elsif ( ( $table eq 'isolates' || $table eq $self->{'system'}->{'view'} || $table eq 'isolate_aliases' || $table eq 'refs' )
-		&& $self->{'permissions'}->{'modify_isolates'} )
+	} elsif (
+		$self->{'system'}->{'dbtype'} eq 'isolates' && (
+			any {
+				$table eq $_;
+			}
+			qw(isolates isolate_aliases refs)
+		)
+		&& $self->{'permissions'}->{'modify_isolates'}
+	  )
 	{
 		return 1;
 	} elsif ( ( $table eq 'isolate_user_acl' || $table eq 'isolate_usergroup_acl' ) && $self->{'permissions'}->{'modify_isolates_acl'} ) {
@@ -2574,8 +2572,8 @@ sub _initiate_isolatedb_prefs {
 		}
 		foreach (@$field_list) {
 			if ( $_ ne 'id' ) {
-				$self->{'prefs'}->{'maindisplayfields'}->{$_} = $params->{"field_$_"}  ? 1 : 0;			   
-				$self->{'prefs'}->{'dropdownfields'}->{$_} = $params->{"dropfield_$_"} ? 1 : 0;
+				$self->{'prefs'}->{'maindisplayfields'}->{$_} = $params->{"field_$_"}     ? 1 : 0;
+				$self->{'prefs'}->{'dropdownfields'}->{$_}    = $params->{"dropfield_$_"} ? 1 : 0;
 				my $extatt = $extended->{$_};
 				if ( ref $extatt eq 'ARRAY' ) {
 					foreach my $extended_attribute (@$extatt) {
@@ -2597,7 +2595,7 @@ sub _initiate_isolatedb_prefs {
 			my $field = "scheme_$_\_profile_status";
 			$self->{'prefs'}->{'dropdownfields'}->{$field} = $params->{"dropfield_$field"} ? 1 : 0;
 		}
-		$self->{'prefs'}->{'dropdownfields'}->{'projects'} = $params->{"dropfield_projects"} ? 1 : 0;
+		$self->{'prefs'}->{'dropdownfields'}->{'projects'}         = $params->{"dropfield_projects"}         ? 1 : 0;
 		$self->{'prefs'}->{'dropdownfields'}->{'linked_sequences'} = $params->{"dropfield_linked_sequences"} ? 1 : 0;
 	} else {
 		my $guid             = $self->get_guid || 1;
@@ -2696,7 +2694,7 @@ sub _initiate_isolatedb_prefs {
 		#Define locus defaults
 		my $qry       = "SELECT id,isolate_display,main_display,query_field,analysis FROM loci";
 		my $locus_sql = $self->{'db'}->prepare($qry);
-		eval { $locus_sql->execute; };
+		eval { $locus_sql->execute };
 		$logger->error($@) if $@;
 		my $prefstore_values = $self->{'prefstore'}->get_all_locus_prefs( $guid, $dbname );
 		my $array_ref        = $locus_sql->fetchall_arrayref;
@@ -2815,7 +2813,7 @@ sub get_tree {
 "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;group_id=$_\" rel=\"ajax\">$group_info->{'name'}</a>\n";
 			}
 			$buffer .= $group_scheme_buffer if $group_scheme_buffer;
-			$buffer .= $child_group_buffer if $child_group_buffer;
+			$buffer .= $child_group_buffer  if $child_group_buffer;
 			$buffer .= "</li>\n";
 		}
 	}
@@ -2951,7 +2949,7 @@ sub _get_scheme_loci {
 	}
 	my $qry    = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
 	my $cn_sql = $self->{'db'}->prepare($qry);
-	eval { $cn_sql->execute; };
+	eval { $cn_sql->execute };
 	$logger->error($@) if $@;
 	my $common_names = $cn_sql->fetchall_hashref('id');
 	my $buffer;
@@ -3022,7 +3020,7 @@ sub _scheme_data_present {
 "SELECT EXISTS(SELECT * FROM allele_designations LEFT JOIN scheme_members ON allele_designations.locus=scheme_members.locus WHERE isolate_id=? AND scheme_id=?)"
 		  );
 	}
-	eval { $self->{'sql'}->{'scheme_data_designations'}->execute( $isolate_id, $scheme_id ); };
+	eval { $self->{'sql'}->{'scheme_data_designations'}->execute( $isolate_id, $scheme_id ) };
 	$logger->error($@) if $@;
 	my ($designations_present) = $self->{'sql'}->{'scheme_data_designations'}->fetchrow_array;
 	return 1 if $designations_present;
@@ -3032,7 +3030,7 @@ sub _scheme_data_present {
 "SELECT EXISTS(SELECT * FROM allele_sequences LEFT JOIN scheme_members ON allele_sequences.locus=scheme_members.locus LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id WHERE isolate_id=? AND scheme_id=?)"
 		  );
 	}
-	eval { $self->{'sql'}->{'scheme_data_sequences'}->execute( $isolate_id, $scheme_id ); };
+	eval { $self->{'sql'}->{'scheme_data_sequences'}->execute( $isolate_id, $scheme_id ) };
 	$logger->error($@) if $@;
 	my ($sequences_present) = $self->{'sql'}->{'scheme_data_sequences'}->fetchrow_array;
 	return $sequences_present ? 1 : 0;

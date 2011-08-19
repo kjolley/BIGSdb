@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::CurateDatabankScanPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
@@ -41,9 +42,7 @@ sub print_content {
 	print $q->submit( -label => 'Submit', -class => 'submit' );
 	print "</td></tr>\n</table>\n";
 
-	foreach (qw(db page)) {
-		print $q->hidden($_);
-	}
+	print $q->hidden($_) foreach qw(db page);
 	print $q->end_form;
 	print "</div>\n";
 	if ( $accession ) {
@@ -96,7 +95,7 @@ sub print_content {
 			my @aliases;
 			my $locus;
 			foreach (qw (gene gene_synonym locus_tag old_locus_tag)){
-				my @values =  $cds->get_tag_values($_) if $cds->has_tag($_);
+				my @values =  $cds->has_tag($_) ? $cds->get_tag_values($_): ();
 				foreach my $value (@values) {
 					if ($locus){
 						push @aliases, $value;

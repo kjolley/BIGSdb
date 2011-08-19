@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::ConfigCheckPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -34,19 +35,23 @@ sub print_content {
 	print "<h2>Helper applications</h2>\n";
 	print
 "<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Program</th><th>Path</th><th>Installed</th><th>Executable</th></tr>\n";
-	my %helpers = (
-		'EMBOSS sixpack'   => $self->{'config'}->{'emboss_path'} . '/sixpack',
-		'EMBOSS stretcher' => $self->{'config'}->{'emboss_path'} . '/stretcher',
-		'BLAST blastall'   => $self->{'config'}->{'blast_path'} . '/blastall',
-		'blastn'		   => $self->{'config'}->{'blast+_path'} . '/blastn',
-		'blastp'		   => $self->{'config'}->{'blast+_path'} . '/blastp',
-		'blastx'		   => $self->{'config'}->{'blast+_path'} . '/blastx',
-		'tblastx'		   => $self->{'config'}->{'blast+_path'} . '/tblastx',
-		'makeblastdb'	   => $self->{'config'}->{'blast+_path'} . '/makeblastdb',
-		'MUSCLE'		   => $self->{'config'}->{'muscle_path'},
-		'ipcress'          => $self->{'config'}->{'ipcress_path'},
-		'mogrify'		   => $self->{'config'}->{'mogrify_path'},
-	);
+	my %helpers;
+	{
+		no warnings 'uninitialized';
+		%helpers = (
+			'EMBOSS sixpack'   => $self->{'config'}->{'emboss_path'} . '/sixpack',
+			'EMBOSS stretcher' => $self->{'config'}->{'emboss_path'} . '/stretcher',
+			'BLAST blastall'   => $self->{'config'}->{'blast_path'} . '/blastall',
+			'blastn'           => $self->{'config'}->{'blast+_path'} . '/blastn',
+			'blastp'           => $self->{'config'}->{'blast+_path'} . '/blastp',
+			'blastx'           => $self->{'config'}->{'blast+_path'} . '/blastx',
+			'tblastx'          => $self->{'config'}->{'blast+_path'} . '/tblastx',
+			'makeblastdb'      => $self->{'config'}->{'blast+_path'} . '/makeblastdb',
+			'MUSCLE'           => $self->{'config'}->{'muscle_path'},
+			'ipcress'          => $self->{'config'}->{'ipcress_path'},
+			'mogrify'          => $self->{'config'}->{'mogrify_path'},
+		);
+	}
 	my $td = 1;
 	foreach ( sort { $a cmp $b } keys %helpers ) {
 		print "<tr class=\"td$td\"><td>$_</td><td>$helpers{$_}</td><td>"
@@ -67,16 +72,15 @@ sub print_content {
 			my $locus_info = $self->{'datastore'}->get_locus_info($_);
 			next if !$locus_info->{'dbase_name'};
 			$buffer .= "<tr class=\"td$td\"><td>$_</td><td>$locus_info->{'dbase_name'}</td>
-			<td>" . ( $locus_info->{'dbase_host'} || 'localhost' ) . "</td>
-			<td>" . ( $locus_info->{'dbase_port'} || 5432 ) . "</td>
-			<td>$locus_info->{'dbase_table'}</td>
-			<td>$locus_info->{'dbase_id_field'}</td>
-			<td>$locus_info->{'dbase_id2_field'}</td>
-			<td>$locus_info->{'dbase_id2_value'}</td>
-			<td>$locus_info->{'dbase_seq_field'}</td><td>";
+			<td>" . ( $locus_info->{'dbase_host'}      || 'localhost' ) . "</td>
+			<td>" . ( $locus_info->{'dbase_port'}      || 5432 ) . "</td>
+			<td>" . ( $locus_info->{'dbase_table'}     || '' ) . "</td>
+			<td>" . ( $locus_info->{'dbase_id_field'}  || '' ) . "</td>
+			<td>" . ( $locus_info->{'dbase_id2_field'} || '' ) . "</td>
+			<td>" . ( $locus_info->{'dbase_id2_value'} || '' ) . "</td>
+			<td>" . ( $locus_info->{'dbase_seq_field'} || '' ) . "</td><td>";
 			eval {
-				no warnings;
-				$self->{'datastore'}->get_locus($_)->{'db'};
+				undef = $self->{'datastore'}->get_locus($_)->{'db'};
 			};
 			if ($@) {
 				$buffer .= '<span class="statusbad">X</span>';
@@ -86,7 +90,7 @@ sub print_content {
 			$buffer .= "</td><td>";
 			my $seq;
 			eval { $seq = $self->{'datastore'}->get_locus($_)->get_allele_sequence('1'); };
-			if ( $@ || ( ref $seq eq 'SCALAR' && $$seq =~ /^\(/ ) ) {
+			if ( $@ || ( ref $seq eq 'SCALAR' && defined $$seq && $$seq =~ /^\(/ ) ) {
 
 				#seq can contain opening brace if sequence_field = table by mistake
 				$logger->debug("$_; $@");
@@ -122,10 +126,10 @@ sub print_content {
 		foreach (@$schemes) {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
 			$scheme_info->{'description'} =~ s/&/&amp;/g;
-			$buffer .= "<tr class=\"td$td\"><td>$scheme_info->{'description'}</td><td>$scheme_info->{'dbase_name'}</td>
-			<td>" . ( $scheme_info->{'dbase_host'} || 'localhost' ) . "</td>
-			<td>" . ( $scheme_info->{'dbase_port'} || 5432 ) . "</td>
-			<td>$scheme_info->{'dbase_table'}</td><td>";
+			$buffer .= "<tr class=\"td$td\"><td>$scheme_info->{'description'}</td><td>" . ( $scheme_info->{'dbase_name'} || '' ) . "</td>
+			<td>" . ( $scheme_info->{'dbase_host'}  || 'localhost' ) . "</td>
+			<td>" . ( $scheme_info->{'dbase_port'}  || 5432 ) . "</td>
+			<td>" . ( $scheme_info->{'dbase_table'} || '' ) . "</td><td>";
 			if ( $self->{'datastore'}->get_scheme($_)->get_db ) {
 				$buffer .= '<span class="statusgood">ok</span>';
 			} else {

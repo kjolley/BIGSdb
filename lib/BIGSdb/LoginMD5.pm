@@ -22,7 +22,7 @@
 # Neil Winton <N.Winton@axion.bt.co.uk> and is maintained by
 # Gisle Aas <gisle@ActiveState.com>
 #
-# Modified extensively by Keith Jolley for use in BIGSdb, 2009
+# Modified extensively by Keith Jolley for use in BIGSdb, 2009-2011
 # Uses DBI rather than DB_FILE
 # IP address set in sub initiate rather than at head of file as
 # this wasn't being seen after the first mod_perl iteration.
@@ -47,6 +47,7 @@
 package BIGSdb::LoginMD5;
 use Digest::MD5;
 use strict;
+use warnings;
 use Log::Log4perl qw(get_logger);
 use base qw(BIGSdb::Page);
 use List::MoreUtils qw(any);
@@ -323,8 +324,7 @@ sub get_title {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{'jQuery'}  = 1;    #Use JQuery javascript library
-	$self->{'noCache'} = 1;
+	$self->{$_} = 1 foreach qw(jQuery noCache);
 
 	# Cookies reference and verify a matching IP address
 	my $ip_addr = $ENV{'REMOTE_ADDR'};
@@ -400,7 +400,7 @@ sub _MD5_login {
 		$logger->info($log_buffer);
 		if ( my $session = $self->_check_password() ) {
 			$logger->info("User $self->{'vars'}->{'user'} logged in successfully");
-			return ( $self->{'vars'}->{user}, $session );    # return user name and session
+			return ( $self->{'vars'}->{'user'}, $session );    # return user name and session
 		}
 	}
 
@@ -411,19 +411,19 @@ sub _MD5_login {
 ####################  END OF MAIN PROGRAM  #######################
 sub _check_password {
 	my ($self) = @_;
-	if ( !$self->{'vars'}->{user} )     { $self->_error_exit("The name field was missing."); }
-	if ( !$self->{'vars'}->{password} ) { $self->_error_exit("The password field was missing."); }
-	my $savedPasswordHash = $self->_get_password_hash( $self->{'vars'}->{user} );
-	my $hashedPassSession = Digest::MD5::md5_hex( $savedPasswordHash . $self->{'vars'}->{session} );
-	$logger->debug("using session ID = $self->{'vars'}->{session}");
-	$logger->debug("Saved password hash for $self->{'vars'}->{user} = $savedPasswordHash");
-	$logger->debug("Submitted password hash for $self->{'vars'}->{user} = $self->{'vars'}->{password}");
+	if ( !$self->{'vars'}->{'user'} )     { $self->_error_exit("The name field was missing."); }
+	if ( !$self->{'vars'}->{'password'} ) { $self->_error_exit("The password field was missing."); }
+	my $savedPasswordHash = $self->_get_password_hash( $self->{'vars'}->{'user'} ) || '';
+	my $hashedPassSession = Digest::MD5::md5_hex( $savedPasswordHash . $self->{'vars'}->{'session'} );
+	$logger->debug("using session ID = $self->{'vars'}->{'session'}");
+	$logger->debug("Saved password hash for $self->{'vars'}->{'user'} = $savedPasswordHash");
+	$logger->debug("Submitted password hash for $self->{'vars'}->{'user'} = $self->{'vars'}->{'password'}");
 	$logger->debug("hashed stored pass + session string = $hashedPassSession");
-	$logger->debug("hashed submitted pass + session string = $self->{'vars'}->{hash}");
+	$logger->debug("hashed submitted pass + session string = $self->{'vars'}->{'hash'}");
 
 	# Compare the calculated hash based on the saved password to
 	# the hash returned by the CGI form submission: they must match
-	if ( $hashedPassSession ne $self->{'vars'}->{hash} ) {
+	if ( $hashedPassSession ne $self->{'vars'}->{'hash'} ) {
 		$self->_error_exit("Invalid username or password entered.  Please try again.");
 	} else {
 		return $savedPasswordHash;
@@ -455,9 +455,6 @@ sub _print_entry_form {
 	$q->param( 'hash',     '' );
 	$q->param( 'password', '' );
 
-#	foreach (qw (session db page hash password table name)) {
-#		print $q->hidden($_);
-#	}
 	#Pass all parameters in case page has timed out from an internal page
 	my @params = $q->param;
 	foreach my $param (@params){
@@ -482,10 +479,8 @@ sub _get_password_hash {
 	my ( $self, $name ) = @_;
 	return if !$name;
 	my $sql = $self->{'auth_db'}->prepare("SELECT password FROM users WHERE dbase=? AND name=?");
-	eval { $sql->execute( $self->{'system'}->{'db'}, $name ); };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	eval { $sql->execute( $self->{'system'}->{'db'}, $name ) };
+	$logger->error($@) if $@;
 	my ($password) = $sql->fetchrow_array;
 	return $password;
 }
@@ -496,10 +491,8 @@ sub _set_password_hash {
 
 	#check if named record already exists
 	my $sql = $self->{'auth_db'}->prepare("SELECT COUNT(*) FROM users WHERE dbase=? AND name=?");
-	eval { $sql->execute( $self->{'system'}->{'db'}, $name ); };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	eval { $sql->execute( $self->{'system'}->{'db'}, $name ) };
+	$logger->error($@) if $@;
 	my ($exists) = $sql->fetchrow_array;
 	if ( !$exists ) {
 		$sql = $self->{'auth_db'}->prepare("INSERT INTO users (password,dbase,name) VALUES (?,?,?)");
@@ -508,7 +501,7 @@ sub _set_password_hash {
 	}
 	eval { $sql->execute( $hash, $self->{'system'}->{'db'}, $name ); };
 	if ($@) {
-		$logger->error("Can't execute $@");
+		$logger->error($@);
 		$self->{'auth_db'}->rollback;
 		return 0;
 	} else {
@@ -521,10 +514,8 @@ sub _get_IP_address {
 	my ( $self, $name ) = @_;
 	return if !$name;
 	my $sql = $self->{'auth_db'}->prepare("SELECT ip_address FROM users WHERE dbase=? AND name=?");
-	eval { $sql->execute( $self->{'system'}->{'db'}, $name ); };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	eval { $sql->execute( $self->{'system'}->{'db'}, $name ) };
+	$logger->error($@) if $@;
 	my ($ip_address) = $sql->fetchrow_array;
 	return $ip_address;
 }
@@ -534,7 +525,7 @@ sub _set_current_user_IP_address {
 	my $sql = $self->{'auth_db'}->prepare("UPDATE users SET ip_address=? WHERE dbase=? AND name=?");
 	eval { $sql->execute( $ip_address, $self->{'system'}->{'db'}, $userName ); };
 	if ($@) {
-		$logger->error("Can't execute $@");
+		$logger->error($@);
 		$self->{'auth_db'}->rollback;
 	} else {
 		$logger->debug("Set IP address for $userName: $ip_address");
@@ -545,16 +536,14 @@ sub _set_current_user_IP_address {
 sub _create_session {
 	my ( $self, $session, $time ) = @_;
 	my $sql = $self->{'auth_db'}->prepare("SELECT COUNT(*) FROM sessions WHERE dbase=? AND session=?");
-	eval { $sql->execute( $self->{'system'}->{'db'}, $session ); };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	eval { $sql->execute( $self->{'system'}->{'db'}, $session ) };
+	$logger->error($@) if $@;
 	my ($exists) = $sql->fetchrow_array;
 	return if $exists;
 	$sql = $self->{'auth_db'}->prepare("INSERT INTO sessions (dbase,session,start_time) VALUES (?,?,?)");
-	eval { $sql->execute( $self->{'system'}->{'db'}, $session, $time ); };
+	eval { $sql->execute( $self->{'system'}->{'db'}, $session, $time ) };
 	if ($@) {
-		$logger->error("Can't execute $@");
+		$logger->error($@);
 		$self->{'auth_db'}->rollback;
 	} else {
 		$logger->debug("Session created: $session");
@@ -566,10 +555,8 @@ sub _get_session_start_time {
 	my ( $self, $session ) = @_;
 	return if !$session;
 	my $sql = $self->{'auth_db'}->prepare("SELECT start_time FROM sessions WHERE dbase=? AND session=?");
-	eval { $sql->execute( $self->{'system'}->{'db'}, $session ); };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	eval { $sql->execute( $self->{'system'}->{'db'}, $session ) };
+	$logger->error($@) if $@;
 	my ($start_time) = $sql->fetchrow_array;
 	return $start_time;
 }
@@ -579,7 +566,7 @@ sub _clean_session_database {
 	my $sql = $self->{'auth_db'}->prepare("DELETE FROM sessions WHERE dbase=? AND start_time<?");
 	eval { $sql->execute( $self->{'system'}->{'db'}, ( time - $screen_timeout ) ); };
 	if ($@) {
-		$logger->error("Can't execute $@");
+		$logger->error($@);
 		$self->{'auth_db'}->rollback;
 	} else {
 		$logger->debug("Session database cleaned");

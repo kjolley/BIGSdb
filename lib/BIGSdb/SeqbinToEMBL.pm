@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -16,12 +16,12 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
-
 package BIGSdb::SeqbinToEMBL;
 use IO::String;
 use Bio::SeqIO;
 use Bio::SeqFeature::Generic;
 use strict;
+use warnings;
 use base qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
@@ -33,15 +33,15 @@ sub initiate {
 }
 
 sub print_content {
-	my ($self)   = @_;
-	my $q         = $self->{'cgi'};
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
 	my $seqbin_id;
-	if ($q->param('seqbin_id')=~/^(\d*)$/){
-		$seqbin_id = $1; #untaint
+	if ( $q->param('seqbin_id') =~ /^(\d*)$/ ) {
+		$seqbin_id = $1;    #untaint
 	} else {
 		print "Invalid sequence bin id.\n";
 		return;
-	}	
+	}
 	my $seq =
 	  $self->{'datastore'}
 	  ->run_simple_query( "SELECT isolate_id,sequence,method,comments,sender,curator,date_entered,datestamp FROM sequence_bin WHERE id=?",
@@ -55,26 +55,26 @@ sub print_content {
 	$seq_object->desc( $seq->[3] );
 	my $qry = "SELECT * FROM allele_sequences WHERE seqbin_id=?";
 	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute($seqbin_id); };
-	if ($@) {
-		$logger->error("Can't execute $qry $@");
-	}
+	eval { $sql->execute($seqbin_id) };
+	$logger->error($@) if $@;
 	while ( my $allele_sequence = $sql->fetchrow_hashref ) {
 		my $locus_info = $self->{'datastore'}->get_locus_info( $allele_sequence->{'locus'} );
 		my $frame;
-		if ($locus_info->{'orf'} == 2 || $locus_info->{'orf'} == 5){
-			$frame = 2;
-		} elsif ($locus_info->{'orf'} == 3 || $locus_info->{'orf'} == 6){
-			$frame = 3;
-		} else {
+		#BIGSdb stored ORF as 1-6.  BioPerl expects 0-2.
+		$locus_info->{'orf'} ||= 0;
+		if ( $locus_info->{'orf'} == 2 || $locus_info->{'orf'} == 5 ) {
 			$frame = 1;
+		} elsif ( $locus_info->{'orf'} == 3 || $locus_info->{'orf'} == 6 ) {
+			$frame = 2;
+		} else {
+			$frame = 0;
 		}
-		my $feature    = new Bio::SeqFeature::Generic(
+		my $feature = new Bio::SeqFeature::Generic(
 			-start       => $allele_sequence->{'start_pos'},
 			-end         => $allele_sequence->{'end_pos'},
 			-primary_tag => 'CDS',
 			-strand      => ( $allele_sequence->{'reverse'} ? -1 : 1 ),
-			-frame 		 => $frame,
+			-frame       => $frame,
 			-tag         => { gene => $allele_sequence->{'locus'}, product => $locus_info->{'description'} }
 		);
 		$seq_object->add_SeqFeature($feature);
@@ -86,5 +86,3 @@ sub print_content {
 	print $str;
 }
 1;
-
-

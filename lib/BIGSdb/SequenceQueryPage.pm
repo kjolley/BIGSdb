@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::SequenceQueryPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(uniq any);
@@ -58,7 +59,7 @@ sub print_content {
 	my $q      = $self->{'cgi'};
 	my $page   = $q->param('page');
 	my $locus  = $q->param('locus');
-	$locus =~ s/%27/'/g;    #Web-escaped locus
+	$locus =~ s/%27/'/g if $locus;    #Web-escaped locus
 	$q->param( 'locus', $locus );
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>This function is not available in isolate databases.</p></div>\n";
@@ -110,9 +111,7 @@ to be DNA if it contains 90% or more G,A,T,C or N characters.\">&nbsp;<i>i</i>&n
 	print $q->submit( -name => 'Submit', -class => 'submit' );
 	print "</td></tr>\n";
 	print "</table>\n";
-	foreach (qw (db page)) {
-		print $q->hidden($_);
-	}
+	print $q->hidden($_) foreach qw (db page);
 	print $q->end_form;
 	print "</div>\n";
 	if ( $q->param('Submit') && $sequence ) {
@@ -165,10 +164,14 @@ sub _run_query {
 		}
 		if ($count) {
 			my $sql = $self->{'db'}->prepare($qry);
-			eval { ( $locus && $locus !~ /^SCHEME_\d+/ ) ? $sql->execute( $locus, $seq ) : $sql->execute($seq) };
-			if ($@) {
-				$logger->error("Can't execute $qry $@");
-			}
+			eval { 
+				if ( $locus && $locus !~ /^SCHEME_\d+/ ){
+					$sql->execute( $locus, $seq );
+				} else {
+					$sql->execute($seq);
+				}
+			};
+			$logger->error($@) if $@;
 			my @alleles;
 			my @allele_ids;
 			while ( my ( $locus, $allele_id ) = $sql->fetchrow_array ) {
@@ -210,10 +213,10 @@ sub _run_query {
 					  . ( scalar @$exact_matches > 1 ? 'es' : '' )
 					  . " found using BLAST.</p></div>";
 					print "<div class=\"box\" id=\"resultstable\">\n";
-					if ( $locus_info->{'data_type'} eq 'peptide' && $seq_type eq 'DNA' ) {
+					if ( defined $locus_info->{'data_type'} && $locus_info->{'data_type'} eq 'peptide' && $seq_type eq 'DNA' ) {
 						print
 "<p>Please note that as this is a peptide locus, the length corresponds to the peptide translated from your query sequence.</p>\n";
-					} elsif ( $locus_info->{'data_type'} eq 'DNA' && $seq_type eq 'peptide' ) {
+					} elsif ( defined $locus_info->{'data_type'} && $locus_info->{'data_type'} eq 'DNA' && $seq_type eq 'peptide' ) {
 						print "<p>Please note that as this is a DNA locus, the length corresponds to the matching nucleotide sequence that 
 							was translated to align against your peptide query sequence.</p>\n";
 					}
@@ -252,7 +255,8 @@ sub _run_query {
 							  if $locus && $allele_id;
 						}
 						print "$allele</a></td><td>$_->{'length'}</td><td>$_->{'start'}</td><td>$_->{'end'}</td>";
-						print "<td>$field_values</td></tr>\n";
+						print defined $field_values ? "<td>$field_values</td>" : '<td />';
+						print "</tr>\n";
 						$td = $td == 1 ? 2 : 1;
 					}
 					print "</table>\n";
@@ -290,7 +294,7 @@ sub _run_query {
 					  "<tr class=\"td$td\"><td>" . ( $seq_object->id ) . "</td><td style=\"text-align:left\">$buffer</td></tr>\n";
 				}
 			} else {
-				if ( $qry_type ne $locus_info->{'data_type'} && $locus && $locus !~ /SCHEME_(\d+)/ ) {
+				if ( defined $locus_info->{'data_type'} && $qry_type ne $locus_info->{'data_type'} && $locus && $locus !~ /SCHEME_(\d+)/ ) {
 					system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 					if ( $page eq 'sequenceQuery' ) {
 						( $blast_file, $job ) = $self->run_blast(
@@ -439,7 +443,12 @@ sub _run_query {
 									if (@$diffs) {
 										my $plural = scalar @$diffs > 1 ? 's' : '';
 										print "<p>" . scalar @$diffs . " difference$plural found. ";
-										my $data_type = $locus_info->{'data_type'} eq 'DNA' ? 'nucleotide' : 'residue';
+										my $data_type;
+										if (defined $locus_info->{'data_type'}){
+											$data_type = $locus_info->{'data_type'} eq 'DNA' ? 'nucleotide' : 'residue';
+										} else {
+											$data_type = 'identity';
+										}
 										print
 "<a class=\"tooltip\" title=\"differences - The information to the left of the arrow$plural shows the $data_type and position on the reference sequence
 		and the information to the right shows the corresponding $data_type and position on your query sequence.\">&nbsp;<i>i</i>&nbsp;</a>";
@@ -540,7 +549,6 @@ sub _run_query {
 								if (@$diffs) {
 									my $plural = scalar @$diffs > 1 ? 's' : '';
 									$buffer .= ( scalar @$diffs ) . " difference$plural found. ";
-									my $data_type = $locus_info->{'data_type'} eq 'DNA' ? 'nucleotide' : 'residue';
 									my $first = 1;
 									foreach (@$diffs) {
 										$buffer .= '; ' if !$first;
@@ -670,6 +678,7 @@ sub _parse_blast_partial {
 	return if !-e $full_path;
 	open( my $blast_fh, '<', $full_path ) || ( $logger->error("Can't open BLAST output file $full_path. $!"), return \$; );
 	my %best_match;
+	$best_match{'bit_score'} = 0;
 	my %match;
 	while ( my $line = <$blast_fh> ) {
 		next if !$line || $line =~ /^#/;

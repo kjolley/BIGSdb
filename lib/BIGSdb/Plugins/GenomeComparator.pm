@@ -19,6 +19,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::Plugins::GenomeComparator;
 use strict;
+use warnings;
 use base qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -79,10 +80,10 @@ END
 
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
-	my @loci = split /\|\|/, $params->{'locus'};
+	my @loci = split /\|\|/, $params->{'locus'} || '';
 	my @ids  = split /\|\|/, $params->{'isolate_id'};
 	my $filtered_ids = $self->_filter_ids_by_project( \@ids, $params->{'project_list'} );
-	my @scheme_ids = split /\|\|/, $params->{'scheme_id'};
+	my @scheme_ids = split /\|\|/, $params->{'scheme_id'} || '';
 	my $accession = $params->{'accession'};
 	if ( !@$filtered_ids ) {
 		$self->{'jobManager'}->update_job_status(
@@ -163,7 +164,7 @@ sub run {
 <p>This analysis has been submitted to the job queue.</p>
 <p>Please be aware that this job may take a long time depending on the number of comparisons
 and how busy the server is.</p>
-<p><a href="$self->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">
+<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">
 Follow the progress of this job and view the output.</a></p> 	
 </div>	
 HTML
@@ -180,7 +181,7 @@ sub _print_interface {
 	my $qry =
 "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM sequence_bin LEFT JOIN $view ON $view.id=sequence_bin.isolate_id ORDER BY $view.id";
 	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute; };
+	eval { $sql->execute };
 	$logger->error($@) if $@;
 	my @ids;
 	my %labels;
@@ -292,7 +293,8 @@ sub _print_interface {
 " <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a></li>\n";
 	print "<li><span class=\"warning\">";
 	print $q->checkbox( -name => 'tblastx', -id => 'tblastx', -label => 'Use TBLASTX' );
-	print " <a class=\"tooltip\" title=\"TBLASTX (analysis by reference genome only) - Compares the six-frame translation of your nucleotide query against 
+	print
+" <a class=\"tooltip\" title=\"TBLASTX (analysis by reference genome only) - Compares the six-frame translation of your nucleotide query against 
 	the six-frame translation of the sequences in the sequence bin (sequences will be classed as identical if they result
 	in the same translated sequence even if the nucleotide sequence is different).  This is SLOWER than BLASTN. Use with
 	caution.\">&nbsp;<i>i</i>&nbsp;</a>";
@@ -305,11 +307,11 @@ sub _print_interface {
 	print "</fieldset>\n";
 	print "<fieldset style=\"float:left\">\n<legend>Restrict included sequences by</legend>\n";
 	print "<ul>\n";
-	my $buffer = $self->get_sequence_method_filter({'class' => 'parameter'});
+	my $buffer = $self->get_sequence_method_filter( { 'class' => 'parameter' } );
 	print "<li>$buffer</li>" if $buffer;
-	$buffer = $self->get_project_filter({'class' => 'parameter'});
+	$buffer = $self->get_project_filter( { 'class' => 'parameter' } );
 	print "<li>$buffer</li>" if $buffer;
-	$buffer = $self->get_experiment_filter({'class' => 'parameter'});
+	$buffer = $self->get_experiment_filter( { 'class' => 'parameter' } );
 	print "<li>$buffer</li>" if $buffer;
 	print "</ul>\n";
 	print "</fieldset>\n";
@@ -319,7 +321,7 @@ sub _print_interface {
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=GenomeComparator\" class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\" colspan=\"4\">";
 	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
 	print "</td></tr></table>\n";
-	print $q->hidden($_) foreach (qw (page name db));
+	print $q->hidden($_) foreach qw (page name db);
 	print $q->end_form;
 	print "</div>\n";
 }
@@ -411,7 +413,7 @@ sub _analyse_by_loci {
 					}
 				}
 				if ( !$found ) {
-					if ($seq eq ''){
+					if ( $seq eq '' ) {
 						$html_buffer .= "<td>X</td>";
 					} else {
 						$new{$new_allele} = $seq;
@@ -441,7 +443,7 @@ sub _analyse_by_loci {
 
 sub _add_scheme_loci {
 	my ( $self, $params, $loci ) = @_;
-	my @scheme_ids = split /\|\|/, $params->{'scheme_id'};
+	my @scheme_ids = split /\|\|/, $params->{'scheme_id'} || '';
 	my %locus_selected;
 	$locus_selected{$_} = 1 foreach (@$loci);
 	foreach (@scheme_ids) {
@@ -550,7 +552,7 @@ sub _analyse_by_reference {
 		my $truncated_locus      = 0;
 		my $first                = 1;
 		my $first_seq;
-		my $previous_seq;
+		my $previous_seq = '';
 
 		foreach my $id (@$ids) {
 			$id = $1 if $id =~ /(\d*)/;    #avoid taint check
@@ -635,6 +637,7 @@ sub _analyse_by_reference {
 	close $align_fh;
 	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$prefix\*";
 	$self->{'jobManager'}->update_job_output( $job_id, { 'filename' => "$job_id.txt", 'description' => 'Main output file' } );
+
 	if ( @$ids > 1 && $params->{'align'} ) {
 		$self->{'jobManager'}->update_job_output( $job_id, { 'filename' => "$job_id\_align.txt", 'description' => 'Alignments' } );
 	}
@@ -814,8 +817,8 @@ sub _print_locus_table {
 
 sub _extract_sequence {
 	my ( $self, $match ) = @_;
-	my $start  = $match->{'predicted_start'};
-	my $end    = $match->{'predicted_end'};
+	my $start = $match->{'predicted_start'};
+	my $end   = $match->{'predicted_end'};
 	return if !defined $start || !defined $end;
 	my $length = abs( $end - $start ) + 1;
 	if ( $end < $start ) {
@@ -856,7 +859,7 @@ sub _parse_blast_by_locus {
 	my $full_path = "$blast_file";
 	open( my $blast_fh, '<', $full_path ) || ( $logger->error("Can't open BLAST output file $full_path. $!"), return \$; );
 	my $match;
-	my $quality;    #simple metric of alignment length x percentage identity
+	my $quality = 0;    #simple metric of alignment length x percentage identity
 	my $ref_seq_sql = $self->{'db'}->prepare("SELECT length(reference_sequence) FROM loci WHERE id=?");
 	my %lengths;
 
@@ -931,7 +934,7 @@ sub _parse_blast_ref {
 	my $alignment = BIGSdb::Utils::is_int( $params->{'alignment'} ) ? $params->{'alignment'} : 50;
 	open( my $blast_fh, '<', $blast_file ) || ( $logger->error("Can't open BLAST output file $blast_file. $!"), return \$; );
 	my $match;
-	my $quality;    #simple metric of alignment length x percentage identity
+	my $quality = 0;    #simple metric of alignment length x percentage identity
 	my $ref_length = length $$seq_ref;
 	my $required_alignment = $params->{'tblastx'} ? int( $ref_length / 3 ) : $ref_length;
 	while ( my $line = <$blast_fh> ) {
@@ -948,6 +951,7 @@ sub _parse_blast_ref {
 			$match->{'reverse'}   = 1
 			  if ( ( $record[8] > $record[9] && $record[7] > $record[6] ) || ( $record[8] < $record[9] && $record[7] < $record[6] ) );
 			if ( $required_alignment > $match->{'alignment'} ) {
+
 				if ( $match->{'reverse'} ) {
 					$match->{'predicted_start'} = $match->{'start'} - $ref_length + $record[6];
 					$match->{'predicted_end'}   = $match->{'end'} + $record[7] - 1;

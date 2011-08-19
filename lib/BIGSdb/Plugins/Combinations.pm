@@ -1,6 +1,6 @@
 #Combinations.pm - Unique combinations plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::Plugins::Combinations;
 use strict;
+use warnings;
 use base qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -35,11 +36,11 @@ sub get_attributes {
 		buttontext  => 'Combinations',
 		menutext    => 'Unique combinations',
 		module      => 'Combinations',
-		version     => '1.0.0',
+		version     => '1.0.1',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
-		help		=> 'tooltips',
+		help        => 'tooltips',
 		order       => 15
 	);
 	return \%att;
@@ -66,11 +67,8 @@ sub run {
 			$$qry_ref =~ s/SELECT ($view\.\*|\*)/SELECT $field_string/;
 			$self->rewrite_query_ref_order_by($qry_ref);
 			my $sql = $self->{'db'}->prepare($$qry_ref);
-			eval { $sql->execute; };
-
-			if ($@) {
-				$logger->error("Can't execute $$qry_ref");
-			}
+			eval { $sql->execute };
+			$logger->error($@) if $@;
 			$| = 1;
 			my @header;
 			my %schemes;
@@ -103,7 +101,9 @@ sub run {
 			my $i         = 1;
 			my $j         = 0;
 			my $alias_sql = $self->{'db'}->prepare("SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias");
-			my $attribute_sql = $self->{'db'}->prepare("SELECT value FROM isolate_value_extended_attributes WHERE isolate_field=? AND attribute=? AND field_value=?");
+			my $attribute_sql =
+			  $self->{'db'}
+			  ->prepare("SELECT value FROM isolate_value_extended_attributes WHERE isolate_field=? AND attribute=? AND field_value=?");
 			my %combs;
 			print "<div class=\"box\" id=\"resultstable\">\n";
 			print "<p class=\"comment\">Calculating... ";
@@ -126,27 +126,20 @@ sub run {
 					if ( $_ =~ /^f_(.*)/ ) {
 						my $field = $1;
 						if ( $field eq 'aliases' ) {
-							eval { $alias_sql->execute( $data{'id'} ); };
-							if ($@) {
-								$logger->error("Can't execute alias query $@");
-							}
+							eval { $alias_sql->execute( $data{'id'} ) };
+							$logger->error($@) if $@;
 							my @aliases;
 							while ( my ($alias) = $alias_sql->fetchrow_array ) {
 								push @aliases, $alias;
 							}
 							$" = '; ';
 							$key .= "@aliases" ne '' ? "@aliases" : '-';
-						} elsif ($field =~ /(.*)___(.*)/){
-							my ($isolate_field,$attribute) = ($1,$2);
-							eval {
-								$attribute_sql->execute($isolate_field,$attribute,$data{$isolate_field});
-							};
-							if ($@){
-								$logger->error("Can't execute $@");
-							}
+						} elsif ( $field =~ /(.*)___(.*)/ ) {
+							my ( $isolate_field, $attribute ) = ( $1, $2 );
+							eval { $attribute_sql->execute( $isolate_field, $attribute, $data{$isolate_field} ) };
+							$logger->error($@) if $@;
 							my ($value) = $attribute_sql->fetchrow_array;
 							$key .= $value ne '' ? $value : '-';
-							
 						} else {
 							$key .= $data{$field} ne '' ? $data{$field} : '-';
 						}
@@ -158,8 +151,8 @@ sub run {
 						}
 						my $value = $scheme_field_values->{$1}->[ $scheme_field_pos->{$1}->{$2} ];
 						undef $value
-						  if $value eq '-999';    #old null code from mlstdbNet databases
-						$key .= $value ne '' ? $value : '-';
+						  if defined $value && $value eq '-999';    #old null code from mlstdbNet databases
+						$key .= ( defined $value && $value ne '' ) ? $value : '-';
 					} elsif ( $_ =~ /^c_(.*)/ ) {
 						my $value = $self->{'datastore'}->get_composite_value( $data{'id'}, $1, \%data );
 						$key .= $value;
@@ -175,17 +168,17 @@ sub run {
 				$j = 0 if $j == 10;
 			}
 			print "</p>";
-			my $filename = BIGSdb::Utils::get_random().'.txt';
+			my $filename  = BIGSdb::Utils::get_random() . '.txt';
 			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
 			open( my $fh, '>', $full_path )
-	  			or $logger->error("Can't open temp file $filename for writing");
+			  or $logger->error("Can't open temp file $filename for writing");
 			print "<table class=\"tablesorter\" id=\"sortTable\">\n<thead>\n";
 			$" = '</th><th>';
 			print "<tr><th>@header</th><th>Frequency</th><th>Percentage</th></tr></thead>\n<tbody>\n";
 			$" = "\t";
 			print $fh "@header\tFrequency\tPercentage\n";
 			my $td = 1;
-			
+
 			foreach ( sort { $combs{$b} <=> $combs{$a} } keys %combs ) {
 				my @values = split /_\|_/, $_;
 				my $pc = BIGSdb::Utils::decimal_place( 100 * $combs{$_} / $total, 2 );
@@ -206,10 +199,7 @@ sub run {
 <div class="box" id="queryform">
 <p>Here you can determine the frequencies of unique field combinations in the dataset.  Please select your combination of fields.</p>
 HTML
-	$self->print_field_export_form( 0, 0, {
-			'include_composites' => 1,
-			'extended_attributes' => 1
-	} );
+	$self->print_field_export_form( 0, 0, { 'include_composites' => 1, 'extended_attributes' => 1 } );
 	print "</div>\n";
 }
 1;

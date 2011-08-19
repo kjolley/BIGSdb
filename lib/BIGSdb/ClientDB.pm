@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,7 @@
 
 package BIGSdb::ClientDB;
 use strict;
+use warnings;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.ClientDB');
 
@@ -51,9 +52,7 @@ sub count_isolates_with_allele {
 	eval {	
 		$self->{'sql'}->{'isolate_allele_count'}->execute($locus,$allele_id);
 	};
-	if ($@){
-		$logger->error("Can't execute $@");
-	}
+	$logger->error($@) if $@;
 	my ($count) = $self->{'sql'}->{'isolate_allele_count'}->fetchrow_array;
 	return $count;
 }
@@ -70,11 +69,9 @@ sub count_matching_profiles {
 	}
 	my $qry = "SELECT COUNT(distinct isolate_id) FROM allele_designations WHERE isolate_id IN (SELECT isolate_id FROM allele_designations WHERE $temp GROUP BY isolate_id HAVING COUNT(isolate_id) = $locus_count)";
 	my $sql = $self->{'db'}->prepare($qry);
-	eval {
-		$sql->execute;
-	};
+	eval { $sql->execute };
 	if ($@){
-		$logger->error("Can't execute $@");
+		$logger->error($@);
 		return 0;
 	}
 	my ($count) = $sql->fetchrow_array;

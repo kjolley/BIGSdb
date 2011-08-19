@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::AlleleSequencePage;
 use strict;
+use warnings;
 use base qw(BIGSdb::IsolateInfoPage BIGSdb::ExtractedSequencePage);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
@@ -51,11 +52,8 @@ sub print_content {
 	my $qry      =
 "SELECT seqbin_id,start_pos,end_pos,reverse,complete,method FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE isolate_id=? AND locus=? ORDER BY complete desc,allele_sequences.datestamp";
 	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute( $isolate_id, $locus ); };
-
-	if ($@) {
-		$logger->error("Can't execute $qry $@");
-	}
+	eval { $sql->execute( $isolate_id, $locus ) };
+	$logger->error($@) if $@;
 	my $buffer;
 	my $td = 1;
 	while ( my ( $seqbin_id, $start_pos, $end_pos, $reverse, $complete, $method ) = $sql->fetchrow_array ) {

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::CuratePage;
 use strict;
+use warnings;
 use base qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -25,8 +26,7 @@ use BIGSdb::Page qw(SEQ_FLAGS DATABANKS);
 
 sub initiate {
 	my ($self) = @_;
-	$self->{'jQuery'}  = 1;    #Use JQuery javascript library
-	$self->{'noCache'} = 1;
+	$self->{$_} = 1 foreach qw (jQuery noCache);
 }
 sub get_title     { return "Curator's interface - BIGSdb" }
 sub print_content { }
@@ -52,15 +52,16 @@ sub create_record_table {
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my $qry        = "select id,user_name,first_name,surname from users where id>0 order by surname";
 	my $sql        = $self->{'db'}->prepare($qry);
-	eval { $sql->execute; };
+	eval { $sql->execute };
 	$logger->error($@) if $@;
 	my @users;
 	my %usernames;
+
 	while ( my ( $user_id, $username, $firstname, $surname ) = $sql->fetchrow_array ) {
 		push @users, $user_id;
 		$usernames{$user_id} = "$surname, $firstname ($username)";
 	}
-	$buffer .= $q->start_form();
+	$buffer .= $q->start_form;
 	$q->param( 'action', $update ? 'update' : 'add' );
 	$q->param( 'table', $table );
 	$buffer .= $q->hidden($_) foreach qw(page table db action );
@@ -69,6 +70,7 @@ sub create_record_table {
 	$buffer .= "<div class=\"box\" id=\"queryform\">" if !$nodiv;
 	$buffer .= "<p>Please fill in the fields below - required fields are marked with an exclamation mark (!).</p>\n";
 	$buffer .= "<table>\n";
+
 	if ( scalar @$attributes > 15 ) {
 		$buffer .= "<tr><td colspan=\"2\" style=\"text-align:right\">";
 		if ( !$q->param('submit') ) {
@@ -82,20 +84,22 @@ sub create_record_table {
 			if (   ( $_->{'required'} eq 'yes' && $required )
 				|| ( ( !$_->{'required'} || $_->{'required'} eq 'no' ) && !$required ) )
 			{
-				my $length = $_->{'length'} || ($_->{'type'} eq 'int' ? 15 : 50);
+				my $length = $_->{'length'} || ( $_->{'type'} eq 'int' ? 15 : 50 );
 				$buffer .= "<tr><td style=\"text-align:right\">";
 				if ( $_->{'tooltip'} ) {
 					$buffer .= "<a class=\"tooltip\" title=\"$_->{'tooltip'}\">&nbsp;<i>i</i>&nbsp;</a>";
 				}
-				(my $cleaned_name = $_->{name}) =~ tr/_/ /;
+				( my $cleaned_name = $_->{name} ) =~ tr/_/ /;
 				$buffer .= " $cleaned_name: ";
 				$buffer .= '!' if $_->{'required'} eq 'yes';
 				$buffer .= "</td><td style=\"text-align:left\">";
-				if (   ( $update && $_->{'primary_key'} eq 'yes' )
+				if (   ( $update && $_->{'primary_key'} )
 					|| ( $newdata_readonly && $newdata{ $_->{'name'} } ) )
 				{
 					my $desc;
-					if ( $_->{'labels'} ) {
+					if ( $_->{'name'} eq 'locus' ) {
+						$desc = $self->clean_locus( $newdata{ $_->{'name'} } );
+					} elsif ( $_->{'labels'} ) {
 						my @fields_to_query;
 						my @values = split /\|/, $_->{'labels'};
 						foreach (@values) {
@@ -106,13 +110,9 @@ sub create_record_table {
 						$" = ',';
 						my $qry = "select id,@fields_to_query from $_->{'foreign_key'} WHERE id=?";
 						my $sql = $self->{'db'}->prepare($qry);
-						eval { $sql->execute( $newdata{ $_->{'name'} } ); };
-						if ($@) {
-							$logger->error("Can't execute: $qry value: $newdata{ $_->{'name'} }");
-						} else {
-							$logger->debug("Query: $qry");
-						}
-						while ( my ( $id, @labels ) = $sql->fetchrow_array() ) {
+						eval { $sql->execute( $newdata{ $_->{'name'} } ) };
+						$logger->error($@) if $@;
+						while ( my ( $id, @labels ) = $sql->fetchrow_array ) {
 							my $temp = $_->{'labels'};
 							my $i    = 0;
 							foreach (@fields_to_query) {
@@ -180,7 +180,8 @@ sub create_record_table {
 						-labels  => \%labels,
 						-default => $newdata{ $_->{'name'} }
 					);
-				} elsif ( $_->{'dropdown_query'} eq 'yes'
+				} elsif ( $_->{'dropdown_query'}
+					&& $_->{'dropdown_query'} eq 'yes'
 					&& $_->{'foreign_key'} )
 				{
 					my @fields_to_query;
@@ -195,12 +196,8 @@ sub create_record_table {
 						$" = ',';
 						my $qry = "select id,@fields_to_query from $_->{'foreign_key'}";
 						my $sql = $self->{'db'}->prepare($qry);
-						eval { $sql->execute(); };
-						if ($@) {
-							$logger->error("Can't execute: $qry");
-						} else {
-							$logger->debug("Query: $qry");
-						}
+						eval { $sql->execute };
+						$logger->error($@) if $@;
 						while ( my ( $id, @labels ) = $sql->fetchrow_array() ) {
 							my $temp = $_->{'labels'};
 							my $i    = 0;
@@ -238,7 +235,7 @@ sub create_record_table {
 					if ( $q->param('page') eq 'update' or $q->param('page') eq 'alleleUpdate' ) {
 						$buffer .= "<b>" . $newdata{ $_->{'name'} } . "</b>\n";
 					} else {
-						$buffer .= "<b>" . $self->get_datestamp() . "</b>\n";
+						$buffer .= "<b>" . $self->get_datestamp . "</b>\n";
 					}
 				} elsif ( $_->{'name'} eq 'curator' ) {
 					$buffer .= "<b>" . $self->get_curator_name . ' (' . $self->{'username'} . ")</b>\n";
@@ -323,62 +320,53 @@ sub create_record_table {
 			  $q->textarea( -name => "databank_$databank", -rows => 2, -cols => 12, -style => 'width:10em', -default => "@default" );
 			$buffer .= "</td></tr>\n";
 		}
-	} elsif ($table eq 'locus_descriptions'){
+	} elsif ( $table eq 'locus_descriptions' ) {
 		my @default_aliases;
 		if ( $q->param('page') eq 'update' && $q->param('locus') ) {
 			my $alias_list =
-			  $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias",
-				$q->param('locus') );
+			  $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias", $q->param('locus') );
 			@default_aliases = @$alias_list;
 		}
 		$buffer .= "<tr><td style=\"text-align:right\">aliases: </td><td>";
 		$" = "\n";
 		$buffer .= $q->textarea( -name => 'aliases', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@default_aliases" );
-		$buffer .= "</td></tr>\n";	
+		$buffer .= "</td></tr>\n";
 		my @default_pubmed;
 		if ( $q->param('page') eq 'update' && $q->param('locus') ) {
 			my $pubmed_list =
-			  $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM locus_refs WHERE locus=? ORDER BY pubmed_id",
-				$q->param('locus'));
+			  $self->{'datastore'}
+			  ->run_list_query( "SELECT pubmed_id FROM locus_refs WHERE locus=? ORDER BY pubmed_id", $q->param('locus') );
 			@default_pubmed = @$pubmed_list;
 		}
 		$buffer .= "<tr><td style=\"text-align:right\">PubMed ids: </td><td>";
 		$buffer .= $q->textarea( -name => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@default_pubmed" );
-		$buffer .= "</td></tr>\n";	
+		$buffer .= "</td></tr>\n";
 		my @default_links;
 		if ( $q->param('page') eq 'update' && $q->param('locus') ) {
 			my $sql = $self->{'db'}->prepare("SELECT url,description FROM locus_links WHERE locus=? ORDER BY link_order");
-			eval {
-				$sql->execute($q->param('locus'));
-			};
-			if ($@){
-				$logger->error("Can't execute $@");
-			}
-			while (my ($url,$desc) = $sql->fetchrow_array){
-				push @default_links,"$url|$desc";
+			eval { $sql->execute( $q->param('locus') ) };
+			$logger->error($@) if $@;
+			while ( my ( $url, $desc ) = $sql->fetchrow_array ) {
+				push @default_links, "$url|$desc";
 			}
 		}
 		$buffer .= "<tr><td style=\"text-align:right\">links: <br /><span class=\"comment\">(Format: URL|description)</span></td><td>";
 		$buffer .= $q->textarea( -name => 'links', -rows => 3, -cols => 12, -default => "@default_links" );
-		$buffer .= "</td></tr>\n";	
+		$buffer .= "</td></tr>\n";
 	}
 	if ( $table eq 'sequences' && $q->param('locus') ) {
 		my $sql =
 		  $self->{'db'}->prepare(
 "SELECT field,description,value_format,required,length,option_list FROM locus_extended_attributes WHERE locus=? ORDER BY field_order"
 		  );
-		eval {
-			my ($locus) = $q->param('locus');
-			$sql->execute($locus);
-		};
-		if ($@) {
-			$logger->error("Can't execute $@");
-		}
+		my $locus = $q->param('locus');
+		eval { $sql->execute($locus) };
+		$logger->error($@) if $@;
 		while ( my ( $field, $desc, $format, $required, $length, $optlist ) = $sql->fetchrow_array ) {
 			$buffer .= "<tr><td style=\"text-align:right\"> $field: " . ( $required ? '!' : '' ) . "</td><td style=\"text-align:left\">";
 			$length = 12 if !$length;
 			if ( $format eq 'boolean' ) {
-				$buffer .= $q->popup_menu( -name => $field, -values => ['', qw (true false)], -default => $newdata{$field} );
+				$buffer .= $q->popup_menu( -name => $field, -values => [ '', qw (true false) ], -default => $newdata{$field} );
 			} elsif ($optlist) {
 				my @options = split /\|/, $optlist;
 				unshift @options, '';
@@ -396,17 +384,17 @@ sub create_record_table {
 			$buffer .= "</td></tr>\n";
 		}
 		my $locus_info = $self->{'datastore'}->get_locus_info( $q->param('locus') );
-		if ( (!$q->param('locus') || ( ref $locus_info eq 'HASH' && $locus_info->{'data_type'} ne 'peptide' ) ) && $q->param('page') ne 'update') {
+		if ( ( !$q->param('locus') || ( ref $locus_info eq 'HASH' && $locus_info->{'data_type'} ne 'peptide' ) )
+			&& $q->param('page') ne 'update' )
+		{
 			$buffer .= "<tr><td colspan=\"2\" style=\"padding-top:1em\">";
 			$buffer .= $q->checkbox( -name => 'ignore_similarity', -label => 'Override sequence similarity check' );
 			$buffer .= "</td></tr>";
 		}
 	} elsif ( $table eq 'sequence_bin' ) {
 		my $sql = $self->{'db'}->prepare("SELECT id,description FROM experiments ORDER BY description");
-		eval { $sql->execute; };
-		if ($@) {
-			$logger->error("Can't execute $@");
-		}
+		eval { $sql->execute };
+		$logger->error($@) if $@;
 		my @ids = (0);
 		my %desc;
 		$desc{0} = '';
@@ -421,15 +409,13 @@ sub create_record_table {
 		}
 	}
 	$buffer .= "<tr><td>";
-	my $page = $q->param('page');
-	my $extra_field;
+	my $page        = $q->param('page');
+	my $extra_field = '';
 	if ( $update || $table eq 'pending_allele_designations' ) {
-
-		#		$attributes = $self->{'datastore'}->get_table_field_attributes($table);
 		my @extra;
 		foreach (@$attributes) {
 			if ( $_->{'primary_key'} ) {
-				push @extra, "$_->{'name'}=$newdata{$_->{'name'}}";
+				push @extra, "$_->{'name'}=$newdata{$_->{'name'}}" if defined $newdata{ $_->{'name'} };
 			}
 		}
 		$" = "&amp;";
@@ -450,6 +436,7 @@ sub create_record_table {
 
 sub check_record {
 	my ( $self, $table, $newdataref, $update, $allowed_valuesref ) = @_;
+
 	#TODO prevent scheme group belonging to a child
 	my $record_name = $self->get_record_name($table);
 	my %newdata     = %{$newdataref};
@@ -458,10 +445,10 @@ sub check_record {
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my @primary_key_query;
 	foreach (@$attributes) {
-		next if $_->{'user_update'} eq 'no';
+		next if $_->{'user_update'} && $_->{'user_update'} eq 'no';
 		my $original_data = $newdata{ $_->{'name'} };
-		$newdata{ $_->{'name'} }            =~ s/'/\\'/g;
-		$$allowed_valuesref{ $_->{'name'} } =~ s/'/\\'/g;
+		$newdata{ $_->{'name'} }            =~ s/'/\\'/g if defined $newdata{ $_->{'name'} };
+		$$allowed_valuesref{ $_->{'name'} } =~ s/'/\\'/g if defined $$allowed_valuesref{ $_->{'name'} };
 		if ( $_->{'name'} =~ /sequence$/ ) {
 			$newdata{ $_->{'name'} } = uc( $newdata{ $_->{'name'} } );
 			$newdata{ $_->{'name'} } =~ s/\s//g;
@@ -483,12 +470,13 @@ sub check_record {
 			&& !BIGSdb::Utils::is_date( $newdata{ $_->{'name'} } ) )
 		{
 			push @problems, "$newdata{$_->{name}} must be in date format (yyyy-mm-dd or 'today').\n";
-		} elsif ( $newdata{ $_->{'name'} } ne ''
+		} elsif ( defined $newdata{ $_->{'name'} }
+			&& $newdata{ $_->{'name'} } ne ''
 			&& $_->{'regex'}
 			&& $newdata{ $_->{'name'} } !~ /$_->{'regex'}/ )
 		{
 			push @problems, "Field '$_->{name}' does not conform to specified format.\n";
-		} elsif ( $_->{'unique'} eq 'yes' ) {
+		} elsif ( $_->{'unique'} ) {
 			my $retval =
 			  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM $table WHERE $_->{name} = ?", $newdata{ $_->{'name'} } );
 			if (   ( $update && $retval->[0] && $newdata{ $_->{'name'} } ne $$allowed_valuesref{ $_->{'name'} } )
@@ -557,7 +545,6 @@ sub check_record {
 		} elsif ( $table eq 'users' && $_->{'name'} eq 'status' ) {
 
 			#special case to check that changing user status is allowed
-			#			my $username = $q->remote_user();
 			my ($status) = @{ $self->{'datastore'}->run_simple_query( "SELECT status FROM users WHERE user_name=?", $self->{'username'} ) };
 			my ( $user_status, $user_username );
 			if ($update) {
@@ -614,7 +601,7 @@ sub check_record {
 				}
 				push @problems, $message;
 			}
-		} 
+		}
 		if ( $_->{'primary_key'} ) {
 			push @primary_key_query, "$_->{name} = '$newdata{$_->{name}}'";
 		}
@@ -665,6 +652,7 @@ sub is_field_bad {
 sub _is_field_bad_isolates {
 	my ( $self, $fieldname, $value, $flag ) = @_;
 	my $q = $self->{'cgi'};
+	$value = '' if !defined $value; 
 	$value =~ s/<blank>//;
 	$value =~ s/null//;
 	my %thisfield = $self->{'xmlHandler'}->get_field_attributes($fieldname);
@@ -687,12 +675,8 @@ sub _is_field_bad_isolates {
 	if ( $fieldname eq 'sender' or $fieldname eq 'sequenced_by' ) {
 		my $qry = "SELECT DISTINCT id FROM users";
 		my $sql = $self->{'db'}->prepare($qry);
-		eval { $sql->execute(); };
-		if ($@) {
-			$logger->error("Can't execute: $qry");
-		} else {
-			$logger->debug("Query: $qry");
-		}
+		eval { $sql->execute };
+		$logger->error($@) if $@;
 		while ( my ($senderid) = $sql->fetchrow_array ) {
 			if ( $value == $senderid ) {
 				return 0;
@@ -727,7 +711,7 @@ sub _is_field_bad_isolates {
 	if ( $fieldname eq 'datestamp' && ( $value ne $self->get_datestamp ) ) {
 		return "must be today\'s date in yyyy-mm-dd format (" . $self->get_datestamp . ") or use 'today'";
 	}
-	if ( $flag eq 'insert' ) {
+	if ( $flag && $flag eq 'insert' ) {
 
 		#Make sure the date_entered is today
 		if ( $fieldname eq 'date_entered'
@@ -741,7 +725,7 @@ sub _is_field_bad_isolates {
 	if ( $thisfield{'type'} eq 'date' && $value !~ /^\d\d\d\d-\d\d-\d\d$/ ) {
 		return "must be a date in yyyy-mm-dd format";
 	}
-	if ( $flag eq 'insert'
+	if ( $flag && $flag eq 'insert'
 		&& ( $fieldname eq 'id' ) )
 	{
 
@@ -749,12 +733,8 @@ sub _is_field_bad_isolates {
 		my $qry;
 		$qry = "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE id=?";
 		my $sql = $self->{'db'}->prepare($qry);
-		eval { $sql->execute($value); };
-		if ($@) {
-			$logger->error("Can't execute: $qry");
-		} else {
-			$logger->debug("Query: $qry");
-		}
+		eval { $sql->execute($value) };
+		$logger->error($@) if $@;
 		my ($exists) = $sql->fetchrow_array;
 		if ($exists) {
 			return "$value is already in database";
@@ -787,8 +767,6 @@ sub _is_field_bad_other {
 	my $q          = $self->{'cgi'};
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my $thisfield;
-
-	#	$value =~ s/'/\\'/g;
 	foreach (@$attributes) {
 		if ( $_->{'name'} eq $fieldname ) {
 			$thisfield = $_;
@@ -813,12 +791,8 @@ sub _is_field_bad_other {
 	if ( $fieldname eq 'sender' or $fieldname eq 'sequenced_by' ) {
 		my $qry = "SELECT DISTINCT id FROM users";
 		my $sql = $self->{'db'}->prepare($qry) or die 'cannot prepare';
-		eval { $sql->execute(); };
-		if ($@) {
-			$logger->error("Can't execute: $qry");
-		} else {
-			$logger->debug("Query: $qry");
-		}
+		eval { $sql->execute };
+		$logger->error($@) if $@;
 		while ( my ($senderid) = $sql->fetchrow_array ) {
 			if ( $value == $senderid ) {
 				return 0;
@@ -863,18 +837,14 @@ sub _is_field_bad_other {
 		}
 	}
 	if ( $flag eq 'insert'
-		&& ( $thisfield->{'unique'} eq 'yes' ) )
+		&& ( $thisfield->{'unique'} ) )
 	{
 
 		#Make sure unique field values have not been used previously
 		my $qry = "SELECT DISTINCT $thisfield->{'name'} FROM $table";
 		my $sql = $self->{'db'}->prepare($qry) or die 'cannot prepare';
-		eval { $sql->execute; };
-		if ($@) {
-			$logger->error("Can't execute: $qry");
-		} else {
-			$logger->debug("Query: $qry");
-		}
+		eval { $sql->execute };
+		$logger->error($@) if $@;
 		while ( my ($id) = $sql->fetchrow_array ) {
 			if ( $value eq $id ) {
 				if ( $thisfield->{'name'} =~ /sequence/ ) {
@@ -908,12 +878,8 @@ sub _is_field_bad_other {
 	if ( $thisfield->{'foreign_key'} ) {
 		my $qry = "SELECT COUNT(*) FROM $thisfield->{'foreign_key'} WHERE id=?";
 		my $sql = $self->{'db'}->prepare($qry) or die 'cannot prepare';
-		eval { $sql->execute($value); };
-		if ($@) {
-			$logger->error("Can't execute: $qry value:$value");
-		} else {
-			$logger->debug("Query: $qry  value:$value");
-		}
+		eval { $sql->execute($value) };
+		$logger->error($@) if $@;
 		my ($exists) = $sql->fetchrow_array();
 		if ( !$exists ) {
 			return "value '$value' does not exist in $thisfield->{foreign_key} table";
@@ -925,9 +891,9 @@ sub _is_field_bad_other {
 sub update_history {
 	my ( $self, $isolate_id, $action ) = @_;
 	return if !$action || !$isolate_id;
-	my $curator_id = $self->get_curator_id();
+	my $curator_id = $self->get_curator_id;
 	my $sql        = $self->{'db'}->prepare("INSERT INTO history (isolate_id,timestamp,action,curator) VALUES (?,?,?,?)");
-	eval { $sql->execute( $isolate_id, 'now', $action, $curator_id ); };
+	eval { $sql->execute( $isolate_id, 'now', $action, $curator_id ) };
 	if ($@) {
 		$logger->error("Can't update history for isolate $isolate_id '$action' $@");
 		$self->{'db'}->rollback;
@@ -953,7 +919,7 @@ sub promote_pending_allele_designation {
 		);
 	};
 	if ($@) {
-		$logger->error("Can't execute $@");
+		$logger->error($@);
 		$self->{'db'}->rollback;
 	} else {
 		$self->{'db'}->commit;
@@ -968,19 +934,18 @@ sub delete_pending_designations {
 	return if !@$pending_designations_ref;
 	my $rows;
 	eval {
-		$rows = $self->{'db'}->do("DELETE FROM pending_allele_designations WHERE isolate_id=? AND locus=?", undef, $isolate_id, $locus);
+		$rows = $self->{'db'}->do( "DELETE FROM pending_allele_designations WHERE isolate_id=? AND locus=?", undef, $isolate_id, $locus );
 	};
-	if ($@){
+	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
 	} else {
-		$self->{'db'}->commit;			
-		if ($rows){
+		$self->{'db'}->commit;
+		if ($rows) {
 			my $plural = $rows == 1 ? '' : 's';
-			$self->update_history( $isolate_id, "$locus: $rows pending designation$plural deleted");
+			$self->update_history( $isolate_id, "$locus: $rows pending designation$plural deleted" );
 		}
 	}
-
 }
 
 sub remove_profile_data {
@@ -988,7 +953,8 @@ sub remove_profile_data {
 	#Change needs to be committed outside of subroutine (to allow deletion as part of transaction)
 	my ( $self, $scheme_id ) = @_;
 	my $qry = "DELETE FROM profiles WHERE scheme_id = $scheme_id";
-	$self->{'db'}->do($qry);
+	eval { $self->{'db'}->do($qry) };
+	$logger->error($@) if $@;
 }
 
 sub drop_scheme_view {
@@ -996,7 +962,8 @@ sub drop_scheme_view {
 	#Change needs to be committed outside of subroutine (to allow drop as part of transaction)
 	my ( $self, $scheme_id ) = @_;
 	my $qry = "DROP VIEW IF EXISTS scheme_$scheme_id";
-	$self->{'db'}->do($qry);
+	eval { $self->{'db'}->do($qry) };
+	$logger->error($@) if $@;
 }
 
 sub create_scheme_view {
@@ -1025,15 +992,15 @@ sub create_scheme_view {
 		$qry .= ",$_.value AS $_" if $_ ne $pk;
 	}
 	foreach (@$loci) {
-		(my $cleaned = $_) =~ s/'/_PRIME_/g;
+		( my $cleaned = $_ ) =~ s/'/_PRIME_/g;
 		$qry .= ",$cleaned.allele_id AS $cleaned";
 	}
 	$qry .= " FROM profiles";
 	foreach (@$loci) {
-		(my $cleaned = $_) =~ s/'/_PRIME_/g;
-		(my $cleaned2 = $_) =~ s/'/\\'/g;
+		( my $cleaned  = $_ ) =~ s/'/_PRIME_/g;
+		( my $cleaned2 = $_ ) =~ s/'/\\'/g;
 		$qry .=
-		  " INNER JOIN profile_members AS $cleaned ON profiles.profile_id=$cleaned.profile_id AND $cleaned.locus='$cleaned2' AND profiles.scheme_id=$cleaned.scheme_id";
+" INNER JOIN profile_members AS $cleaned ON profiles.profile_id=$cleaned.profile_id AND $cleaned.locus='$cleaned2' AND profiles.scheme_id=$cleaned.scheme_id";
 	}
 	foreach (@$scheme_fields) {
 		next if $_ eq $pk;
@@ -1042,7 +1009,10 @@ sub create_scheme_view {
 	}
 	$qry .= " WHERE profiles.scheme_id = $scheme_id";
 	$" = ',';
-	$self->{'db'}->do($qry);
-	$self->{'db'}->do("GRANT SELECT ON scheme_$scheme_id TO $self->{'system'}->{'user'}");
+	eval {
+		$self->{'db'}->do($qry);
+		$self->{'db'}->do("GRANT SELECT ON scheme_$scheme_id TO $self->{'system'}->{'user'}");
+	};
+	$logger->error($@) if $@;
 }
 1;

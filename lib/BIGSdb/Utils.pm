@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,8 +20,9 @@
 #
 #is_float function (c) 2002-2008, David Wheeler
 package BIGSdb::Utils;
-use POSIX qw(ceil);
 use strict;
+use warnings;
+use POSIX qw(ceil);
 
 sub reverse_complement {
 	my ($seq) = @_;
@@ -74,6 +75,7 @@ sub chop_seq {
 
 	#chop sequence so that it is in a particular open reading frame
 	my ( $seq, $orf ) = @_;
+	return '' if !defined $seq;
 	my $returnseq;
 	if ( $orf > 3 ) {
 		$orf = $orf - 3;
@@ -90,6 +92,7 @@ sub chop_seq {
 
 sub split_line {
 	my $string = shift;
+	return if !defined $string;
 	my $seq;
 	my $pos = 1;
 	for ( my $i = 0 ; $i < length($string) ; $i++ ) {
@@ -104,18 +107,21 @@ sub split_line {
 }
 
 sub break_line {
+
+	#Pass string either as a scalar or as a reference to a scalar.  It will be returned the same way.
 	my ( $string, $length ) = @_;
+	my $orig_string = ref $string eq 'SCALAR' ? $$string : $string;
 	my $seq;
 	my $pos = 1;
-	for ( my $i = 0 ; $i < length($string) ; $i++ ) {
-		$seq .= substr $string, $i, 1;
+	for ( my $i = 0 ; $i < length($orig_string) ; $i++ ) {
+		$seq .= substr $orig_string, $i, 1;
 		if ( $pos == $length ) {
-			$seq .= "\n" if $i != length($string) - 1;
+			$seq .= "\n" if $i != length($orig_string) - 1;
 			$pos = 0;
 		}
 		$pos++;
 	}
-	return $seq;
+	return ref $string eq 'SCALAR' ? \$seq : $seq;
 }
 
 sub decimal_place {
@@ -146,7 +152,7 @@ sub is_bool {
 
 sub is_int {
 	my ($N) = shift;
-	return 0 if ( $N eq "" );
+	return 0 if ( !defined $N || $N eq '' );
 	my ($sign) = '^\s* [-+]? \s*';
 	my ($int)  = '\d+ \s* $ ';
 	return 1 if ( $N =~ /$sign $int/x );
@@ -208,7 +214,7 @@ sub histogram {
 	foreach (@$list) {
 		$histogram{ ceil( ( $_ + 1 ) / $width ) - 1 }++;
 	}
-	my ( $max, $min );
+	my ( $max, $min ) = (0, 0);
 	foreach ( keys %histogram ) {
 		$max = $_ if $_ > $max;
 		$min = $_ if $_ < $min || !defined($min);
@@ -217,23 +223,24 @@ sub histogram {
 }
 
 sub stats {
+
 	#Return simple stats for values in array ref
 	my ($list_ref) = @_;
 	return if ref $list_ref ne 'ARRAY';
 	my $stats;
 	$stats->{'count'} = @$list_ref;
-	$stats->{'min'}  = $list_ref->[0];
+	$stats->{'min'}   = $list_ref->[0];
 	$stats->{'max'}   = $list_ref->[0];
 	foreach (@$list_ref) {
-		$stats->{'sum'}  += $_;
+		$stats->{'sum'} += $_;
 		$stats->{'max'} = $_ if $stats->{'max'} < $_;
 		$stats->{'min'} = $_ if $stats->{'min'} > $_;
 	}
 	$stats->{'mean'} = $stats->{'sum'} / $stats->{'count'};
 	foreach (@$list_ref) {
-		$stats->{'sum2'} += ($_ - $stats->{'mean'}) ** 2;
-	}	
-	$stats->{'std'} = sqrt( $stats->{'sum2'}  /  (($stats->{'count'} -1) || 1 )) ;
+		$stats->{'sum2'} += ( $_ - $stats->{'mean'} )**2;
+	}
+	$stats->{'std'} = sqrt( $stats->{'sum2'} / ( ( $stats->{'count'} - 1 ) || 1 ) );
 	return $stats;
 }
 1;

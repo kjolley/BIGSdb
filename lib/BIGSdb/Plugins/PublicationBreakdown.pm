@@ -19,6 +19,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::Plugins::PublicationBreakdown;
 use strict;
+use warnings;
 use base qw(BIGSdb::Plugin);
 use List::MoreUtils qw(any uniq);
 use Log::Log4perl qw(get_logger);
@@ -71,12 +72,8 @@ sub run {
 	$qry =~ s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT id FROM $self->{'system'}->{'view'}/;
 	my $new_qry = "SELECT DISTINCT(refs.pubmed_id) FROM refs WHERE refs.isolate_id IN ($qry)";
 	my $sql     = $self->{'db'}->prepare($new_qry);
-	eval { $sql->execute(); };
-
-	if ($@) {
-		$logger->error("Can't execute $qry $@");
-		return;
-	}
+	eval { $sql->execute };
+	$logger->error($@) if $@;
 	my @list;
 	while ( my ($pmid) = $sql->fetchrow_array ) {
 		push @list, $pmid if $pmid;
@@ -86,7 +83,7 @@ sub run {
 		print "<div class=\"box\" id=\"queryform\">\n";
 		print $q->startform;
 		$q->param( 'all_records', 1 ) if !$query_file;
-		print $q->hidden($_) foreach (qw (db name query_file page all_records));
+		print $q->hidden($_) foreach qw (db name query_file page all_records);
 		print "<fieldset class=\"filter\"><legend>Filter query by</legend>\n";
 		my $author_list = $self->_get_author_list;
 		print "<ul><li><label for=\"author_list\" class=\"display\">Author:</label>\n";
@@ -115,7 +112,7 @@ sub run {
 		print $q->popup_menu(
 			-name    => 'displayrecs',
 			-id      => 'displayrecs',
-			-values  => [ '10', '25', '50', '100', '200', '500', 'all' ],
+			-values  => [ qw (10 25 50 100 200 500 all) ],
 			-default => $self->{'prefs'}->{'displayrecs'}
 		);
 		print " records per page</li>\n</ul>\n";
@@ -124,16 +121,19 @@ sub run {
 		print $q->endform;
 		print "</div>\n";
 		my @filters;
-		my $author = ( any { $q->param('author_list') eq $_ } @$author_list ) ? $q->param('author_list') : 'All authors';
+		my $author =
+		  ( any { defined $q->param('author_list') && $q->param('author_list') eq $_ } @$author_list )
+		  ? $q->param('author_list')
+		  : 'All authors';
 		$author =~ s/'/\\'/g;
 		push @filters, "authors LIKE E'%$author%'" if $author ne 'All authors';
 		my $year = BIGSdb::Utils::is_int( $q->param('year_list') ) ? $q->param('year_list') : '';
 		push @filters, "year=$year" if $year;
 		$" = ' AND ';
 		my $filter_string = @filters ? " WHERE @filters" : '';
-		my $order = ( any { $q->param('order')     eq $_ } @order_list )  ? $q->param('order')     : 'isolates';
-		my $dir   = ( any { $q->param('direction') eq $_ } qw(desc asc) ) ? $q->param('direction') : 'desc';
-		my $refquery = "SELECT * FROM temp_refs$filter_string ORDER BY $order $dir;";
+		my $order = ( any { defined $q->param('order') && $q->param('order') eq $_ } @order_list ) ? $q->param('order') : 'isolates';
+		my $dir = ( any { defined $q->param('direction') && $q->param('direction') eq $_ } qw(desc asc) ) ? $q->param('direction') : 'desc';
+		my $refquery          = "SELECT * FROM temp_refs$filter_string ORDER BY $order $dir;";
 		my @hidden_attributes = qw (name all_records author_list year_list query_file);
 		$self->paged_display( 'refs', $refquery, '', \@hidden_attributes );
 		return;
@@ -145,10 +145,8 @@ sub _get_author_list {
 	my @authornames;
 	my $qry = "SELECT authors FROM temp_refs";
 	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute; };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	eval { $sql->execute };
+	$logger->error($@) if $@;
 	while ( my ($authorstring) = $sql->fetchrow_array() ) {
 		push @authornames, split /, /, $authorstring;
 	}

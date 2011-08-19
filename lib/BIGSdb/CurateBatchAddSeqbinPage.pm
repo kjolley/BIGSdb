@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::CurateBatchAddSeqbinPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::CurateAddPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -55,37 +56,41 @@ sub _print_interface {
 	print $q->start_form( -onMouseMove => 'enable_identifier_field()' );
 	my $qry = "select id,user_name,first_name,surname from users WHERE id>0 order by surname";
 	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute(); };
+	eval { $sql->execute };
 	$logger->error($@) if $@;
 	my @users;
 	my %usernames;
+
 	while ( my ( $userid, $username, $firstname, $surname ) = $sql->fetchrow_array ) {
 		push @users, $userid;
 		$usernames{$userid} = "$surname, $firstname ($username)";
 	}
 	$qry = "SELECT id,$self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} ORDER BY id";
 	$sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute; };
+	eval { $sql->execute };
 	$logger->error($@) if $@;
 	my $id_arrayref = $sql->fetchall_arrayref;
 	print "<p>Please fill in the following fields - required fields are marked with an exclamation mark (!).</p>\n";
 	print "<fieldset><legend>Attributes</legend>\n<ul>";
 	print "<li><label for=\"isolate_id\" class=\"parameter\">isolate id: !</label>\n";
 	my %labels;
-	if ($q->param('isolate_id')){
+
+	if ( $q->param('isolate_id') ) {
 		my $isolate_id = $q->param('isolate_id');
 		my $isolate_name;
-		if (BIGSdb::Utils::is_int($isolate_id)){
-			my $isolate_name_ref = $self->{'datastore'}->run_simple_query("SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?",$isolate_id);
+		if ( BIGSdb::Utils::is_int($isolate_id) ) {
+			my $isolate_name_ref =
+			  $self->{'datastore'}
+			  ->run_simple_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id );
 			$isolate_name = ref $isolate_name_ref eq 'ARRAY' ? $isolate_name_ref->[0] : 'Invalid isolate';
 		} else {
 			$isolate_name = 'Invalid isolate';
 		}
 		print "<span id=\"isolate_id\">$isolate_id) $isolate_name</span>\n";
-		print $q->hidden('isolate_id',$isolate_id);
+		print $q->hidden( 'isolate_id', $isolate_id );
 	} else {
 		my @ids = (0);
-		$labels{'0'} = 'Read identifier from FASTA';	
+		$labels{'0'} = 'Read identifier from FASTA';
 		foreach (@$id_arrayref) {
 			push @ids, $_->[0];
 			$labels{ $_->[0] } = "$_->[0]) $_->[1]";
@@ -104,19 +109,19 @@ sub _print_interface {
 	print $q->checkbox( -name => 'size_filter', -label => "Don't insert sequences shorter than " );
 	print $q->popup_menu( -name => 'size', -values => [qw(25 50 100 250 500 1000)], -default => 250 );
 	print " bps.</li>\n";
-
 	my @experiments = ('');
 	$qry = "SELECT id,description FROM experiments ORDER BY description";
 	$sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute(); };
+	eval { $sql->execute };
 	$logger->error($@) if $@;
-	while ( my @data = $sql->fetchrow_array() ) {
+
+	while ( my @data = $sql->fetchrow_array ) {
 		push @experiments, $data[0];
 		$labels{ $data[0] } = $data[1];
 	}
-	if (@experiments > 1){
+	if ( @experiments > 1 ) {
 		print "<li><label for=\"experiment\" class=\"parameter\">Link to experiment: </label>\n";
-		print $q->popup_menu (-name => 'experiment', -id => 'experiment', -values => \@experiments, -labels => \%labels);
+		print $q->popup_menu( -name => 'experiment', -id => 'experiment', -values => \@experiments, -labels => \%labels );
 		print "</li>\n";
 	}
 	print "</ul>\n</fieldset>\n";
@@ -146,11 +151,14 @@ sub _check_data {
 	{
 		print "<div class=\"box\" id=\"statusbad\"><p>Isolate id must be an integer and exist in the isolate table.</p></div>\n";
 		$continue = 0;
-	} elsif ( $q->param('isolate_id')
-		&& ( $self->{'system'}->{'read_access'} eq 'acl' || $self->{'system'}->{'write_access'} eq 'acl' )
+	} elsif (
+		$q->param('isolate_id')
+		&& ( $self->{'system'}->{'read_access'} eq 'acl'
+			|| ( $self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl' ) )
 		&& $self->{'username'}
 		&& !$self->is_admin
-		&& !$self->is_allowed_to_view_isolate( $q->param('isolate_id') ) )
+		&& !$self->is_allowed_to_view_isolate( $q->param('isolate_id') )
+	  )
 	{
 		print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to modify this isolate record.</p></div>\n";
 		$continue = 0;
@@ -187,14 +195,12 @@ sub _check_data {
 	}
 	my @checked_buffer;
 	if ( $q->param('isolate_id') ) {
-		print "<div class=\"box\" id=\"resultstable\"><p>The following sequences will be entered.</p>\n";
-		print "<table><tr><td>";
-		print "<table class=\"resultstable\"><tr><th>Original designation</th><th>Sequence length</th><th>Comments</th></tr>\n";
 		my $td       = 1;
 		my $min_size = 0;
 		if ( $q->param('size_filter') && BIGSdb::Utils::is_int( $q->param('size') ) ) {
 			$min_size = $q->param('size_filter') && $q->param('size');
 		}
+		my $buffer;
 		foreach ( sort { $a cmp $b } keys %$seq_ref ) {
 			my $length = length( $seq_ref->{$_} );
 			next if $length < $min_size;
@@ -206,34 +212,49 @@ sub _check_data {
 			} else {
 				$designation = $_;
 			}
-			print "<tr class=\"td$td\"><td>$designation</td><td>$length</td><td>$comments</td></tr>\n";
+			$buffer .= "<tr class=\"td$td\"><td>$designation</td>";
+			$buffer .= "<td>$length</td>";
+			$buffer .= defined $comments ? "<td>$comments</td>" : '<td />';
+			$buffer .= "</tr>\n";
 			$td = $td == 1 ? 2 : 1;
 		}
-		print "</table>\n";
-		print "</td><td style=\"padding-left:2em; vertical-align:top\">\n";
-		my $num;
-		my ( $min, $max, $mean, $total );
-		foreach ( values %$seq_ref ) {
-			my $length = length $_;
-			next if $length < $min_size;
-			$min = $length if !$min || $length < $min;
-			$max = $length if $length > $max;
-			$total += $length;
-			$num++;
+		if ($buffer) {
+			print "<div class=\"box\" id=\"resultstable\"><p>The following sequences will be entered.</p>\n";
+			print "<table><tr><td>";
+			print "<table class=\"resultstable\"><tr><th>Original designation</th><th>Sequence length</th><th>Comments</th></tr>\n";
+			print $buffer if $buffer;
+			print "</table>\n";
+			print "</td><td style=\"padding-left:2em; vertical-align:top\">\n";
+			my $num;
+			my $min = 0;
+			my $max = 0;
+			my ( $mean, $total );
+
+			foreach ( values %$seq_ref ) {
+				my $length = length $_;
+				next if $length < $min_size;
+				$min = $length if !$min || $length < $min;
+				$max = $length if $length > $max;
+				$total += $length;
+				$num++;
+			}
+			$mean = int $total / $num if $num;
+			print "<ul><li>Number of contigs: $num</li>\n";
+			print "<li>Minimum length: $min</li>\n";
+			print "<li>Maximum length: $max</li>\n";
+			print "<li>Total length: $total</li>\n";
+			print "<li>Mean length: $mean</li></ul>\n";
+			print $q->start_form;
+			print $q->submit( -name => 'Upload', -class => 'submit' );
+			my $filename = $self->make_temp_file(@checked_buffer);
+			$q->param( 'checked_buffer', $filename );
+			print $q->hidden($_) foreach qw (db page checked_buffer isolate_id sender method comments experiment);
+			print $q->end_form;
+			print "</td></tr></table>\n";
+		} else {
+			print "<div class=\"box\" id=\"statusbad\"><p>No valid sequences to upload.</p></div>\n";
 		}
-		$mean = int $total / $num if $num;
-		print "<ul><li>Number of contigs: $num</li>\n";
-		print "<li>Minimum length: $min</li>\n";
-		print "<li>Maximum length: $max</li>\n";
-		print "<li>Total length: $total</li>\n";
-		print "<li>Mean length: $mean</li></ul>\n";
-		print $q->start_form;
-		print $q->submit( -name => 'Upload', -class => 'submit' );
-		my $filename = $self->make_temp_file(@checked_buffer);
-		$q->param( 'checked_buffer', $filename );
-		print $q->hidden($_) foreach qw (db page checked_buffer isolate_id sender method comments experiment);
-		print $q->end_form;
-		print "</td></tr></table>\n</div>\n";
+		print "</div>\n";
 	} else {
 		print "<div class=\"box\" id=\"resultstable\">";
 		print "<p>The following sequences will be entered.  Any problems are highlighted.</p>\n";
@@ -264,7 +285,7 @@ sub _check_data {
 			my $id_error;
 			if ( $id_field ne 'id' ) {
 				$identifier_field_html = "<td>$_</td>";
-				eval { $sql->execute($_); };
+				eval { $sql->execute($_) };
 				$logger->error($@) if $@;
 				my @ids;
 				while ( my ($id) = $sql->fetchrow_array ) {
@@ -347,11 +368,11 @@ sub _upload {
 	}
 	my $qry =
 "INSERT INTO sequence_bin (id,isolate_id,sequence,method,original_designation,comments,sender,curator,date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?,?)";
-	my $sql     = $self->{'db'}->prepare($qry);
+	my $sql = $self->{'db'}->prepare($qry);
 	$qry = "INSERT INTO experiment_sequences (experiment_id,seqbin_id,curator,datestamp) VALUES (?,?,?,?)";
 	my $sql_experiment = $self->{'db'}->prepare($qry);
-	my $experiment = BIGSdb::Utils::is_int($q->param('experiment')) ? $q->param('experiment') : undef;
-	my $curator = $self->get_curator_id;
+	my $experiment     = BIGSdb::Utils::is_int( $q->param('experiment') ) ? $q->param('experiment') : undef;
+	my $curator        = $self->get_curator_id;
 	eval {
 		my $id;
 		foreach ( keys %$seq_ref ) {
@@ -369,7 +390,7 @@ sub _upload {
 				'today',      'today'
 			);
 			$sql->execute(@values);
-			$sql_experiment->execute($experiment,$id,$curator,'today') if $experiment;
+			$sql_experiment->execute( $experiment, $id, $curator, 'today' ) if $experiment;
 		}
 	};
 	if ($@) {

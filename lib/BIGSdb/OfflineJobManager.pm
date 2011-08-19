@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::OfflineJobManager;
 use strict;
+use warnings;
 use base qw(BIGSdb::Application);
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);

@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::FieldHelpPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -25,14 +26,12 @@ use Error qw(:try);
 
 sub initiate {
 	my ($self) = @_;
-	$self->{'field_help'}       = 1;
-	$self->{'jQuery'}           = 1;
-	$self->{'jQuery.tablesort'} = 1;
+	$self->{$_} = 1 foreach qw(field_help jQuery jQuery.tablesort);
 }
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { 'general' => 0, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 0 };
+	$self->{'pref_requirements'} = { 'general' => 0, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 1 };
 }
 
 sub get_javascript {
@@ -57,7 +56,10 @@ sub print_content {
 		$field      = $2;
 	} elsif ( $field =~ /^la_(.*)\|\|(.+)$/ ) {
 		$field_type = 'l';
-		$field      = "$1";
+		$field      = $1;
+	} elsif ( $field =~ /^cn_(.*)$/ ) {
+		$field_type = 'l';
+		$field      = $1;
 	} elsif ( $field =~ /^s_(\d+)_(.*)$/ ) {
 		$field_type = 'sf';
 		$scheme_id  = $1;
@@ -110,10 +112,8 @@ sub _print_isolate_field {
 	my $used_list = $self->{'datastore'}->run_list_query("SELECT DISTINCT $field FROM $self->{'system'}->{'view'} ORDER BY $field");
 	my $cols = $attributes{'type'} eq 'int' ? 10 : 6;
 	my $used;
-	foreach (@$used_list) {
-		$used->{$_} = 1;
-	}
-	if ( $field eq 'sender' || $field eq 'curator' || $attributes{'userfield'} eq 'yes' ) {
+	$used->{$_} = 1 foreach @$used_list;
+	if ( $field eq 'sender' || $field eq 'curator' || ( $attributes{'userfield'} && $attributes{'userfield'} eq 'yes' ) ) {
 		print "<p>The integer stored in this field is the key to the following users";
 		my $filter = $field eq 'curator' ? "WHERE status = 'curator' or status = 'admin' AND id>0" : 'WHERE id>0';
 		my $qry = "SELECT id, user_name, surname, first_name, affiliation FROM users $filter ORDER BY id";
@@ -121,17 +121,12 @@ sub _print_isolate_field {
 		print ". Values present in the database are <span class=\"highlightvalue\">highlighted</span>.\n";
 		print "</p>\n";
 		my $sql = $self->{'db'}->prepare($qry);
-		eval { $sql->execute(); };
-
-		if ($@) {
-			$logger->error("Can't execute: $qry");
-		} else {
-			$logger->debug("Query: $qry");
-		}
+		eval { $sql->execute };
+		$logger->error($@) if $@;
 		print "<table class=\"tablesorter\" id=\"sortTable\">\n";
 		print
 "<thead><tr><th>id</th><th>username</th><th>surname</th><th>first name</th><th>affiliation / collaboration</th></tr></thead><tbody>\n";
-		while ( my @data = $sql->fetchrow_array() ) {
+		while ( my @data = $sql->fetchrow_array ) {
 			foreach (@data) {
 				$_ =~ s/\&/\&amp;/g;
 			}
@@ -140,7 +135,7 @@ sub _print_isolate_field {
 			  . "</td><td>$data[1]</td><td>$data[2]</td><td>$data[3]</td><td align='left'>$data[4]</td></tr>\n";
 		}
 		print "</tbody></table>\n";
-	} elsif ( $attributes{'optlist'} eq 'yes' ) {
+	} elsif ( $attributes{'optlist'} && $attributes{'optlist'} eq 'yes' ) {
 		print
 "<p>The field has a constrained list of allowable values (values present in the database are <span class=\"highlightvalue\">highlighted</span>):</p>";
 		my @options = $self->{'xmlHandler'}->get_field_option_list($field);
@@ -195,15 +190,17 @@ sub _print_scheme_field {
 	print "</table><p />\n";
 	try {
 		$self->{'datastore'}->create_temp_scheme_table($scheme_id);
-	} catch BIGSdb::DatabaseConnectionException with {
+	}
+	catch BIGSdb::DatabaseConnectionException with {
 		print
-"<p class=\"statusbad\">Can't copy data into temporary table - please check scheme configuration (more details will be in the log file).</p>\n";					
+"<p class=\"statusbad\">Can't copy data into temporary table - please check scheme configuration (more details will be in the log file).</p>\n";
 		$logger->error("Can't copy data to temporary table.");
-	};	
+	};
 	print
 "<p>The field has a list of allowable values retrieved from an external database (values present in this database are <span class=\"highlightvalue\">highlighted</span>):</p>";
 	my $cols = $info->{'type'} eq 'integer' ? 10 : 6;
-	my $list = $self->{'datastore'}->run_list_query("SELECT DISTINCT $field FROM temp_scheme_$scheme_id WHERE $field IS NOT NULL ORDER BY $field");
+	my $list =
+	  $self->{'datastore'}->run_list_query("SELECT DISTINCT $field FROM temp_scheme_$scheme_id WHERE $field IS NOT NULL ORDER BY $field");
 	my $scheme_loci  = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $joined_table = "SELECT DISTINCT scheme_$scheme_id.$field FROM $self->{'system'}->{'view'}";
 	$" = ',';
@@ -214,7 +211,7 @@ sub _print_scheme_field {
 	my @temp;
 	foreach (@$scheme_loci) {
 		my $locus_info = $self->{'datastore'}->get_locus_info($_);
-		if ($locus_info->{'allele_id_format'} eq 'integer'){
+		if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
 			push @temp, " CAST($_.allele_id AS int)=scheme_$scheme_id\.$_";
 		} else {
 			push @temp, " $_.allele_id=scheme_$scheme_id\.$_";
@@ -229,9 +226,7 @@ sub _print_scheme_field {
 	$joined_table .= " @temp";
 	my $used_list = $self->{'datastore'}->run_list_query($joined_table);
 	my $used;
-	foreach (@$used_list){
-		$used->{$_}=1;
-	}
+	$used->{$_} = 1 foreach @$used_list;
 	$self->_print_list( $list, $cols, $used );
 	print "</div>\n";
 }
@@ -253,6 +248,11 @@ sub _print_locus {
 "<tr class=\"td2\"><th style=\"text-align:right\">Allele id format</th><td style=\"text-align:left\">$locus_info->{'allele_id_format'}</td></tr>\n";
 	my $td = 1;
 
+	if ( $locus_info->{'common_name'} ) {
+		print
+"<tr class=\"td$td\"><th style=\"text-align:right\">Common name</th><td style=\"text-align:left\">$locus_info->{'common_name'}</td></tr>\n";
+		$td = $td == 1 ? 2 : 1;
+	}
 	if ( $locus_info->{'allele_id_regex'} ) {
 		print
 "<tr class=\"td$td\"><th style=\"text-align:right\">Allele id regular expression</th><td style=\"text-align:left\">$locus_info->{'allele_id_regex'}</td></tr>\n";

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -16,15 +16,15 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
-
 package BIGSdb::PubQueryPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
 sub print_content {
-	my ($self)   = @_;
+	my ($self)    = @_;
 	my $system    = $self->{'system'};
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
@@ -49,7 +49,8 @@ sub print_content {
 		}
 	} else {
 		my $ref_count =
-		  $self->{'datastore'}->run_simple_query( "SELECT COUNT (DISTINCT pubmed_id) FROM profile_refs WHERE scheme_id=?", $scheme_id )->[0];
+		  $self->{'datastore'}->run_simple_query( "SELECT COUNT (DISTINCT pubmed_id) FROM profile_refs WHERE scheme_id=?", $scheme_id )
+		  ->[0];
 		if ( !$ref_count ) {
 			print "<div class=\"box\" id=\"statusbad\"><p>No profiles have been linked to PubMed records.</p></div>\n";
 			return;
@@ -66,9 +67,11 @@ sub print_content {
 	my $sql  = $dbr->prepare("SELECT year,journal,volume,pages,title,abstract FROM refs WHERE pmid=?");
 	my $sql2 = $dbr->prepare("SELECT surname,initials FROM authors WHERE id=?");
 	my $sql3 = $dbr->prepare("SELECT author FROM refauthors WHERE pmid=? ORDER BY position");
-	$sql->execute($pmid) or $logger->error("Can't execute query");
-	my ( $year, $journal, $volume, $pages, $title, $abstract ) = $sql->fetchrow_array();
-	$sql3->execute($pmid) or $logger->error("Can't execute query");
+	eval { $sql->execute($pmid) };
+	$logger->error($@) if $@;
+	my ( $year, $journal, $volume, $pages, $title, $abstract ) = $sql->fetchrow_array;
+	eval { $sql3->execute($pmid) };
+	$logger->error($@) if $@;
 	my @authors;
 
 	while ( my ($authorid) = $sql3->fetchrow_array ) {
@@ -76,22 +79,16 @@ sub print_content {
 	}
 	my $temp;
 	foreach my $author (@authors) {
-		$sql2->execute($author) or $logger->error("Can't execute query");
-		my ( $surname, $initials ) = $sql2->fetchrow_array();
+		eval { $sql2->execute($author) };
+		$logger->error($@) if $@;
+		my ( $surname, $initials ) = $sql2->fetchrow_array;
 		$temp .= "$surname $initials, ";
 	}
 	$temp =~ s/, $//;
-	if ( !$abstract ) {
-		$abstract = "No abstract available";
-	}
-	print "<p>\n";
-	print "$temp\n";
-	if ($year) {
-		print " ($year)\n";
-	}
-	if ( $journal && $volume && $pages ) {
-		print " <i>$journal</i> <b>$volume:</b>$pages<br />\n";
-	}
+	$abstract = "No abstract available" if !$abstract; 
+	print "<p>\n$temp\n";
+	print " ($year)\n" if $year;
+	print " <i>$journal</i> <b>$volume:</b>$pages<br />\n" if $journal && $volume && $pages; 	
 	if ($title) {
 		print "<b>$title</b><br />\n";
 		print "$abstract</p>\n";
@@ -112,5 +109,3 @@ sub get_title {
 	return "Publication query - $desc";
 }
 1;
-
-

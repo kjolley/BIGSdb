@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::RecordInfoPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -56,7 +57,7 @@ sub print_content {
 	$" = '=? AND ';
 	my $qry = "SELECT * FROM $table WHERE @primary_keys=?";
 	$" = ' ';
-	my $data = $self->{'datastore'}->run_simple_query_hashref($qry,@values);
+	my $data = $self->{'datastore'}->run_simple_query_hashref( $qry, @values );
 	if ( !$data ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Record does not exist.</p></div>\n";
 		return;
@@ -67,7 +68,7 @@ sub print_content {
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my $td         = 1;
 	foreach (@$attributes) {
-		(my $cleaned_name = $_->{name}) =~ tr/_/ /;
+		( my $cleaned_name = $_->{name} ) =~ tr/_/ /;
 		print "<tr class=\"td$td\"><th style=\"text-align:right\">$cleaned_name&nbsp;</th>";
 		my $value;
 		if ( $_->{'type'} eq 'bool' ) {
@@ -75,9 +76,9 @@ sub print_content {
 		} else {
 			$value = $data->{ $_->{'name'} };
 		}
-		if ( $_->{'name'} eq 'url' ) {
+		if ( defined $value && $_->{'name'} eq 'url' ) {
 			$value =~ s/\&/\&amp;/g;
-		} elsif ( $_->{'name'} eq 'dbase_password' ) {
+		} elsif ( defined $value && $_->{'name'} eq 'dbase_password' ) {
 			$value =~ s/./\*/g;
 		} elsif ( $_->{'name'} eq 'scheme_id' ) {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info($value);
@@ -87,12 +88,14 @@ sub print_content {
 		}
 		if ( $_->{'name'} =~ /sequence$/ ) {
 			$value = BIGSdb::Utils::split_line($value);
-			print "<td style=\"text-align:left\" class=\"seq\">$value</td></tr>";
+			print defined $value ? "<td style=\"text-align:left\" class=\"seq\">$value</td>" : '<td />';
+			print '</tr>';
 		} elsif ( $_->{'name'} eq 'curator' or $_->{'name'} eq 'sender' ) {
 			my $user = $self->{'datastore'}->get_user_info($value);
 			print "<td style=\"text-align:left\">$user->{'first_name'} $user->{'surname'}</td></tr>";
 		} else {
-			print "<td style=\"text-align:left\">$value</td></tr>";
+			print defined $value ? "<td style=\"text-align:left\">$value</td>" : '<td />';
+			print '</tr>';
 		}
 		$td = $td == 1 ? 2 : 1;
 		if ( $_->{'name'} eq 'isolate_id' ) {

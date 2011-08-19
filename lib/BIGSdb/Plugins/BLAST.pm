@@ -1,6 +1,6 @@
 #BLAST.pm - BLAST plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::Plugins::BLAST;
 use strict;
+use warnings;
 use base qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -38,7 +39,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.0.0',
+		version     => '1.0.1',
 		dbtype      => 'isolates',
 		section     => 'analysis',
 		order       => 32,
@@ -68,7 +69,7 @@ sub run {
 	my $qry =
 "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM sequence_bin LEFT JOIN $view ON $view.id=sequence_bin.isolate_id ORDER BY $view.id";
 	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute; };
+	eval { $sql->execute };
 	$logger->error($@) if $@;
 	my @ids;
 	my %labels;
@@ -127,8 +128,9 @@ sub run {
 			foreach my $attribute (qw(identity alignment mismatches gaps seqbin_id start end)) {
 				print "<td>$match->{$attribute}";
 				if ( $attribute eq 'end' ) {
+					$match->{'reverse'} ||= 0;
 					print
-" <a target=\"_blank\" class=\"extract_tooltip\" href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=extractedSequence&amp;translate=1&amp;no_highlight=1&amp;seqbin_id=$match->{'seqbin_id'}&amp;start=$match->{'start'}&amp;end=$match->{'end'}&amp;reverse=$match->{'reverse'}\">extract&nbsp;&rarr;</a>";
+" <a target=\"_blank\" class=\"extract_tooltip\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=extractedSequence&amp;translate=1&amp;no_highlight=1&amp;seqbin_id=$match->{'seqbin_id'}&amp;start=$match->{'start'}&amp;end=$match->{'end'}&amp;reverse=$match->{'reverse'}\">extract&nbsp;&rarr;</a>";
 				}
 				print "</td>";
 			}
@@ -308,10 +310,9 @@ sub _blast {
 	}
 	close $fastafile_fh;
 	return if -z $temp_fastafile;
-	my $blastn_word_size = $1 if $self->{'cgi'}->param('word_size') =~ /(\d+)/;
-	my $hits             = $1 if $self->{'cgi'}->param('hits')      =~ /(\d+)/;
-	my $word_size = $program eq 'blastn' ? ( $blastn_word_size || 11 ) : 3;
-	$hits = 1 if !$hits;
+	my $blastn_word_size = $self->{'cgi'}->param('word_size') =~ /(\d+)/ ? $1 : 11;
+	my $hits             = $self->{'cgi'}->param('hits')      =~ /(\d+)/ ? $1 : 1;
+	my $word_size = $program eq 'blastn' ? ( $blastn_word_size ) : 3;
 	if ( $self->{'config'}->{'blast+_path'} ) {
 		system("$self->{'config'}->{'blast+_path'}/makeblastdb -in $temp_fastafile -logfile /dev/null -parse_seqids -dbtype nucl");
 		my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;

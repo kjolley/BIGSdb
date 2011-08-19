@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::CurateBatchIsolateUpdatePage;
 use strict;
+use warnings;
 use base qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -57,70 +58,58 @@ sub print_content {
 				my $qry;
 				my $is_locus = $self->{'datastore'}->is_locus( $field[$i] );
 				if ($is_locus) {
-					my $id_qry = "SELECT id FROM $self->{'system'}->{'view'} WHERE id IN (SELECT id FROM $self->{'system'}->{'view'}) AND $idfield1='$id[$i]'";
+					my $id_qry =
+"SELECT id FROM $self->{'system'}->{'view'} WHERE id IN (SELECT id FROM $self->{'system'}->{'view'}) AND $idfield1='$id[$i]'";
 					$id_qry .= " AND $idfield2='$id2[$i]'" if $idfield2 ne '<none>';
 					my $sql_id = $self->{'db'}->prepare($id_qry);
-					eval { $sql_id->execute; };
-					if ($@) {
-						$logger->error("Can't execute $@");
-					}
-					( $isolate_id ) = $sql_id->fetchrow_array;
-					
-					
+					eval { $sql_id->execute };
+					$logger->error($@) if $@;
+					($isolate_id) = $sql_id->fetchrow_array;
+
 					#if existing designation set, demote it to pending
 					my $existing_ref = $self->{'datastore'}->get_allele_designation( $isolate_id, $field[$i] );
-					
 					if ( ref $existing_ref eq 'HASH' ) {
 						$old_value = $existing_ref->{'allele_id'};
+
 						#make sure existing pending designation with same allele_id, sender and method doesn't exit
-						my $pending_designations = $self->{'datastore'}->get_pending_allele_designations($isolate_id,$field[$i]);
+						my $pending_designations = $self->{'datastore'}->get_pending_allele_designations( $isolate_id, $field[$i] );
 						my $exists;
-						foreach (@$pending_designations){
-							if ($_->{'allele_id'} eq $existing_ref->{'allele_id'} 
-							&& $_->{'sender'} eq $existing_ref->{'sender'}
-							&& $_->{'method'} eq 'manual'){
+						foreach (@$pending_designations) {
+							if (   $_->{'allele_id'} eq $existing_ref->{'allele_id'}
+								&& $_->{'sender'} eq $existing_ref->{'sender'}
+								&& $_->{'method'} eq 'manual' )
+							{
 								$exists = 1;
 							}
 						}
-						if (!$exists){
+						if ( !$exists ) {
 							my $pending_sql =
 							  $self->{'db'}->prepare(
-	"INSERT INTO pending_allele_designations (isolate_id,locus,allele_id,sender,method,curator,date_entered,datestamp,comments) VALUES (?,?,?,?,?,?,?,?,?)"
+"INSERT INTO pending_allele_designations (isolate_id,locus,allele_id,sender,method,curator,date_entered,datestamp,comments) VALUES (?,?,?,?,?,?,?,?,?)"
 							  );
 							eval {
 								$pending_sql->execute(
-									$isolate_id, $field[$i],
-									$existing_ref->{'allele_id'},
-									$existing_ref->{'sender'},
-									'manual',
-									$existing_ref->{'curator'},
-									$existing_ref->{'date_entered'},
-									$existing_ref->{'datestamp'},
-									$existing_ref->{'comments'}
+									$isolate_id,                     $field[$i],                   $existing_ref->{'allele_id'},
+									$existing_ref->{'sender'},       'manual',                     $existing_ref->{'curator'},
+									$existing_ref->{'date_entered'}, $existing_ref->{'datestamp'}, $existing_ref->{'comments'}
 								);
 							};
-							if ($@) {
-								$logger->error("Can't execute $@");
-							}
+							$logger->error($@) if $@;
 						}
-						
 						my $delete_sql = $self->{'db'}->prepare("DELETE FROM allele_designations WHERE isolate_id=? and locus=?");
-						eval { $delete_sql->execute( $isolate_id, $field[$i] ); };
-						if ($@) {
-							$logger->error("Can't execute $@");
-						}
-						
+						eval { $delete_sql->execute( $isolate_id, $field[$i] ) };
+						$logger->error($@) if $@;
 					}
-
 					my $isolate_ref =
-						  $self->{'datastore'}
-						  ->run_simple_query( "SELECT sender FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id ) ;
+					  $self->{'datastore'}->run_simple_query( "SELECT sender FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id );
 					$qry =
 "INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp) VALUES ($isolate_id,'$field[$i]','$value[$i]',$isolate_ref->[0],'confirmed','manual',$curator_id,'now','now')";
+
 					#delete from pending if it matches the new designation
-					$qry .= ";DELETE FROM pending_allele_designations WHERE isolate_id=$isolate_id AND locus='$field[$i]' AND allele_id='$value[$i]' AND sender=$isolate_ref->[0] AND method='manual'";
+					$qry .=
+";DELETE FROM pending_allele_designations WHERE isolate_id=$isolate_id AND locus='$field[$i]' AND allele_id='$value[$i]' AND sender=$isolate_ref->[0] AND method='manual'";
 				} else {
-					if ($value[$i] eq ''){
+					if ( $value[$i] eq '' ) {
 						$qry =
 "UPDATE isolates SET $field[$i]=null,datestamp='now',curator=$curator_id WHERE id IN (SELECT id FROM $self->{'system'}->{'view'}) AND $idfield1='$id[$i]'";
 					} else {
@@ -131,10 +120,8 @@ sub print_content {
 					my $id_qry = $qry;
 					$id_qry =~ s/UPDATE isolates .* WHERE/SELECT id,$field[$i] FROM isolates WHERE/;
 					my $sql_id = $self->{'db'}->prepare($id_qry);
-					eval { $sql_id->execute; };
-					if ($@) {
-						$logger->error("Can't execute $@");
-					}
+					eval { $sql_id->execute };
+					$logger->error($@) if $@;
 					( $isolate_id, $old_value ) = $sql_id->fetchrow_array;
 				}
 				$tablebuffer .= "<tr class=\"td$td\"><td>$idfield1='$id[$i]'";
@@ -142,13 +129,13 @@ sub print_content {
 				  if $idfield2 ne '<none>';
 				my $displayvalue = $value[$i];
 				$tablebuffer .= "</td><td>$field[$i]</td><td>$displayvalue</td>";
-					eval { $self->{'db'}->do($qry); };
-				if ( $@ ) {
+				eval { $self->{'db'}->do($qry) };
+				if ($@) {
 					$logger->debug("$qry; $@");
 					$tablebuffer .= "<td class=\"statusbad\">can't update!</td></tr>\n";
-					$self->{'db'}->rollback();
+					$self->{'db'}->rollback;
 				} else {
-					$self->{'db'}->commit();
+					$self->{'db'}->commit;
 					$tablebuffer .= "<td class=\"statusgood\">done!</td></tr>\n";
 					$value[$i] =~ s/\'\'/'/g;
 					$self->update_history( $isolate_id, "$field[$i]: '$old_value' -> '$value[$i]'" );
@@ -178,10 +165,7 @@ sub print_content {
 		my $idfield2 = $q->param('idfield2');
 		$buffer .=
 "<p>The following changes will be made to the database.  Please check that this is what you intend and then press 'Submit'.  If you do not wish to make these changes, press your browser's back button.</p>\n";
-		my $extraheader;
-		if ( $idfield2 ne '<none>' ) {
-			$extraheader = "<th>$idfield2</th>";
-		}
+		my $extraheader = $idfield2 ne '<none>' ? "<th>$idfield2</th>" : '';
 		$buffer .=
 "<table class=\"resultstable\"><tr><th>Transaction</th><th>$idfield1</th>$extraheader<th>Field</th><th>New value</th><th>Value currently in database</th><th>Action</th></tr>\n";
 		my $i = 0;
@@ -199,13 +183,15 @@ sub print_content {
 			} else {
 				( $id[$i], $id2[$i], $field[$i], $value[$i] ) = split /\t/, $row;
 			}
-			$id[$i]    =~ s/%20/ /g;
+			$id[$i] =~ s/%20/ /g;
+			$id2[$i] ||= '';
 			$id2[$i]   =~ s/%20/ /g;
 			$value[$i] =~ s/\s*$//g;
 			my $displayvalue = $value[$i];
 			$value[$i] =~ s/\'/\'\'/g;
 			my $badField = 0;
 			my $is_locus = $self->{'datastore'}->is_locus( $field[$i] );
+
 			if ( !( $self->{'xmlHandler'}->is_field( $field[$i] ) || $is_locus ) ) {
 				$badField = 1;
 			}
@@ -220,12 +206,12 @@ sub print_content {
 
 					#check if allowed to edit
 					my $error;
-					eval { $sql_id->execute(@args); };
+					eval { $sql_id->execute(@args) };
 					if ($@) {
 						if ( $@ =~ /integer/ ) {
 							print
 "<div class=\"box\" id=\"statusbad\"><p>Your id field(s) contain text characters but the field can only contain integers.</p></div>\n";
-							$logger->debug("Can't execute $@");
+							$logger->debug($@);
 							return;
 						}
 					}
@@ -269,10 +255,8 @@ sub print_content {
 						my @args;
 						push @args, $id[$i];
 						push @args, $id2[$i] if $idfield2 ne '<none>';
-						eval { $sql2->execute(@args); };
-						if ($@) {
-							$logger->error("Can't execute $@");
-						}
+						eval { $sql2->execute(@args) };
+						$logger->error($@) if $@;
 						$oldvalue = $sql2->fetchrow_array();
 						if (   $oldvalue eq ''
 							|| $q->param('overwrite') )
@@ -307,11 +291,7 @@ sub print_content {
 					$buffer .=
 "<tr class=\"td$td\"><td>$i</td><td>$id[$i]</td><td>$field[$i]</td><td>$displayvalue</td><td>$oldvalue</td><td>$action</td></tr>\n";
 				}
-				if ( $td == 1 ) {
-					$td = 2;
-				} else {
-					$td = 1;
-				}
+				$td = $td == 1 ? 2 : 1;
 			}
 			$value[$i] =~ s/<blank>//;
 			$i++;
@@ -320,9 +300,7 @@ sub print_content {
 		print "</table>";
 		print "<p />\n";
 		print $q->start_form;
-		foreach (qw (db page)) {
-			print $q->hidden($_);
-		}
+		print $q->hidden($_) foreach qw (db page);
 		print $q->hidden( 'update', 1 );
 		$" = ',';
 		print $q->hidden( -name => 'idfield1',  -default => $idfield1 );
@@ -353,9 +331,7 @@ combination of fields, i.e. only one isolate has the value(s) used.  Usually the
 HTML
 		my $fields = $self->{'xmlHandler'}->get_field_list;
 		print $q->start_form;
-		foreach (qw (db page)) {
-			print $q->hidden($_);
-		}
+		print $q->hidden($_) foreach qw (db page);
 		print "<table><tr><td style=\"text-align:right\">Primary selection field: </td><td>";
 		print $q->popup_menu( -name => 'idfield1', -values => $fields );
 		print "</td></tr>\n<tr><td>Secondary selection field (optional): </td><td>";

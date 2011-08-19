@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -26,9 +26,7 @@ my $logger = get_logger('BIGSdb.Page');
 
 sub initiate {
 	my ($self) = @_;
-	foreach (qw (tooltips jQuery)){
-		$self->{$_} = 1;
-	}
+	$self->{$_} = 1 foreach qw (tooltips jQuery);
 }
 
 sub get_title {
@@ -45,8 +43,12 @@ sub print_content {
 	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
 		$scheme_id = -1;
 	}
-	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id) if $scheme_id > 0;
-	$scheme_info->{'description'} =~ s/\&/\&amp;/g;
+	my $scheme_info = $scheme_id > 0 ? $self->{'datastore'}->get_scheme_info($scheme_id) : undef;
+	if (defined $scheme_info->{'description'}){
+		$scheme_info->{'description'} =~ s/\&/\&amp;/g;
+	} else {
+		$scheme_info->{'description'} = '';
+	}
 	print "<h1>Search $system->{'description'} database by combinations of $scheme_info->{'description'} loci</h1>\n";
 	if ( ( !$scheme_info->{'id'} && $scheme_id ) || ( $self->{'system'}->{'dbtype'} eq 'sequences' && !$scheme_id ) ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Invalid scheme selected.</p></div>\n";
@@ -111,7 +113,7 @@ sub _print_query_interface {
 				}
 				my $qry = "SELECT @cleaned_loci FROM scheme_$scheme_id WHERE $primary_keys->[0]=?";
 				my $sql = $self->{'db'}->prepare($qry);
-				eval { $sql->execute(@values); };
+				eval { $sql->execute(@values) };
 				if ($@) {
 					$logger->error("Can't retrieve loci from scheme view $@");
 				} else {
@@ -194,10 +196,8 @@ sub _print_query_interface {
 	
 	if ($self->{'system'}->{'dbtype'} eq 'isolates' && $self->{'prefs'}->{'dropdownfields'}->{'projects'} ) {
 		my $sql = $self->{'db'}->prepare("SELECT id, short_description FROM projects ORDER BY short_description");
-		eval { $sql->execute; };
-		if ($@) {
-			$logger->error("Can't execute $@");
-		}
+		eval { $sql->execute };
+		$logger->error($@) if $@;
 		my ( @project_ids, %labels );
 		while ( my ( $id, $desc ) = $sql->fetchrow_array ) {
 			push @project_ids, $id;
@@ -267,9 +267,7 @@ sub _print_query_interface {
 	print "</td></tr>\n";
 	print "</table>\n";
 
-	foreach (qw (db page scheme_id)) {
-		print $q->hidden($_);
-	}
+	print $q->hidden($_) foreach qw (db page scheme_id);
 	print $q->hidden( 'sent', 1 );
 	if ( $primary_keys && @$primary_keys ) {
 		print "</td><td style=\"padding-left:2em; vertical-align:top\">";
@@ -373,7 +371,7 @@ sub _run_query {
 				my $qry;
 				if ($self->{'system'}->{'dbtype'} eq 'isolates'){
 					$qry = "SELECT COUNT(id) FROM $system->{'view'} LEFT JOIN allele_designations ON $system->{'view'}.id=isolate_id WHERE (@lqry)"; 
-					if ( $qry && $self->{'system'}->{'dbtype'} eq 'isolates' && $q->param('project_list') ne '') {
+					if ( $qry && $self->{'system'}->{'dbtype'} eq 'isolates' && $q->param('project_list') && $q->param('project_list') ne '') {
 						my $project_id = $q->param('project_list');
 						if ($project_id) {
 							$" = "','";
@@ -385,10 +383,8 @@ sub _run_query {
 					$qry = "SELECT COUNT(profiles.profile_id) FROM profiles LEFT JOIN profile_members ON profiles.profile_id=profile_members.profile_id AND profiles.scheme_id=profile_members.scheme_id AND profile_members.scheme_id=$scheme_id WHERE @lqry GROUP BY profiles.profile_id ORDER BY COUNT(profiles.profile_id) desc LIMIT 1";
 				}
 				my $match_sql = $self->{'db'}->prepare($qry);
-				eval { $match_sql->execute; };
-				if ($@) {
-					$logger->error("Can't execute $qry $@");
-				}
+				eval { $match_sql->execute };
+				$logger->error($@) if $@;
 				my $count = 0;
 				while ( my ($match_count) = $match_sql->fetchrow_array ) {
 					$count = $match_count if $match_count > $count;
@@ -415,7 +411,7 @@ sub _run_query {
 			}
 		}
 		
-		if ( $qry && $self->{'system'}->{'dbtype'} eq 'isolates' && $q->param('project_list') ne '' ) {
+		if ( $qry && $self->{'system'}->{'dbtype'} eq 'isolates' && $q->param('project_list') && $q->param('project_list') ne '' ) {
 			my $project_id = $q->param('project_list');
 			if ($project_id) {
 				$" = "','";

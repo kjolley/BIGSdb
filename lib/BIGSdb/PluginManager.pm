@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::PluginManager;
 use strict;
+use warnings;
 use List::MoreUtils qw(any none);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -28,7 +29,7 @@ sub new {
 	$self->{'plugins'}    = {};
 	$self->{'attributes'} = {};
 	bless( $self, $class );
-	$self->initiate();
+	$self->initiate;
 	return $self;
 }
 
@@ -41,7 +42,7 @@ sub initiate {
 	}
 	close PLUGINDIR;
 	foreach (@plugins) {
-		my $plugin_name = $_ if ~/^(.*)$/;    #untaint
+		my $plugin_name = ~/^(.*)$/ ? $1 : undef;    #untaint
 		$plugin_name = "$plugin_name";
 		eval "use BIGSdb::Plugins::$plugin_name";
 		if ($@) {
@@ -67,9 +68,6 @@ sub initiate {
 	}
 }
 
-#sub get_plugin_attribute_names {
-#	return qw(name description menutext author affiliation email module version type section);
-#}
 sub get_plugin {
 	my ( $self, $plugin_name ) = @_;
 	if ( $self->{'plugins'}->{$plugin_name} ) {
@@ -149,8 +147,8 @@ sub get_appropriate_plugin_names {
 			&& ( $attr->{'max'} || $attr->{'min'} ) )
 		{
 			my $isolates = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}")->[0];
-			next if $isolates > $attr->{'max'};
-			next if $isolates < $attr->{'min'};
+			next if $attr->{'max'} && $isolates > $attr->{'max'};
+			next if $attr->{'min'} && $isolates < $attr->{'min'};
 		}
 		my $plugin_section = $attr->{'section'};
 		next if $plugin_section !~ /$section/;

@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::IndexPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -147,7 +148,7 @@ TOOLTIPS
 					$i++;
 				}
 				$buffer .= "</li>" if $buffer;
-				print $buffer;
+				print $buffer if $buffer;
 			}
 			print "<li><a href=\"$scriptName?page=profiles&amp;scheme_id=0&amp;db=$instance\">All loci</a></li>\n";
 			print "</ul>\n</li>\n";
@@ -173,9 +174,11 @@ TOOLTIPS
 	}
 	print "</ul>";
 	if ( $system->{'dbtype'} eq 'sequences' ) {
-		my ( $seq_download_buffer, $scheme_buffer );
-		my $group_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM scheme_groups")->[0];
-		if ( $self->{'system'}->{'disable_seq_downloads'} ne 'yes' || $self->is_admin ) {
+		my $seq_download_buffer = '';
+		my $scheme_buffer       = '';
+		my $group_count         = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM scheme_groups")->[0];
+		if ( !( $self->{'system'}->{'disable_seq_downloads'} && $self->{'system'}->{'disable_seq_downloads'} eq 'yes' ) || $self->is_admin )
+		{
 			$seq_download_buffer =
 			    "<li><a href=\"$scriptName?page=downloadAlleles&amp;db=$instance"
 			  . ( $group_count ? '&amp;tree=1' : '' )
@@ -254,8 +257,8 @@ OPTIONS
 		}
 	} else {
 		my $isolate_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}")->[0];
-		my $tables        = [qw (isolates isolate_aliases allele_designations pending_allele_designations allele_sequences refs)];
-		$max_date = $self->_get_max_date($tables);
+		my @tables        = qw (isolates isolate_aliases allele_designations pending_allele_designations allele_sequences refs);
+		$max_date = $self->_get_max_date(\@tables);
 		print "<li>Isolates: $isolate_count</li>";
 	}
 	print "<li>Last updated: $max_date</li>" if $max_date;
@@ -294,7 +297,7 @@ OPTIONS
 "<li><a href=\"$scriptName?page=plugin&amp;name=$att->{'module'}&amp;db=$instance&amp;scheme_id=$scheme_data->[0]->{'id'}\">$menuitem</a></li>";
 						$active_plugin = 1;
 					}
-					$buffer .= $temp_buffer;
+					$buffer .= $temp_buffer if $temp_buffer;
 				} else {
 					$buffer .= "<li><a href=\"$scriptName?db=$instance&amp;page=plugin&amp;name=$att->{'module'}\">$menuitem</a>";
 					$buffer .= " - $att->{'menu_description'}" if $att->{'menu_description'};

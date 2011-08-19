@@ -19,6 +19,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::Plugins::CodonUsage;
 use strict;
+use warnings;
 use base qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -124,7 +125,7 @@ sub get_attributes {
 		buttontext  => 'Codons',
 		menutext    => 'Codon usage',
 		module      => 'CodonUsage',
-		version     => '1.0.0',
+		version     => '1.0.1',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -222,10 +223,10 @@ sub get_extra_form_elements {
 
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
-	my $rscu_by_isolate = "$self->{'config'}->{'tmp_dir'}/$job_id\_rscu_by_isolate.txt";
+	my $rscu_by_isolate   = "$self->{'config'}->{'tmp_dir'}/$job_id\_rscu_by_isolate.txt";
 	my $number_by_isolate = "$self->{'config'}->{'tmp_dir'}/$job_id\_number_by_isolate.txt";
-	my $rscu_by_locus   = "$self->{'config'}->{'tmp_dir'}/$job_id\_rscu_by_locus.txt";
-	my $number_by_locus = "$self->{'config'}->{'tmp_dir'}/$job_id\_number_by_locus.txt";
+	my $rscu_by_locus     = "$self->{'config'}->{'tmp_dir'}/$job_id\_rscu_by_locus.txt";
+	my $number_by_locus   = "$self->{'config'}->{'tmp_dir'}/$job_id\_number_by_locus.txt";
 	my $isolate_sql;
 	if ( $params->{'includes'} ) {
 		my @includes = split /\|\|/, $params->{'includes'};
@@ -233,7 +234,7 @@ sub run_job {
 		$isolate_sql = $self->{'db'}->prepare("SELECT @includes FROM $self->{'system'}->{'view'} WHERE id=?");
 	}
 	my $ignore_seqflag;
-	if ($params->{'ignore_seqflags'}){
+	if ( $params->{'ignore_seqflags'} ) {
 		$ignore_seqflag = 'AND flag IS NULL';
 	}
 	my $seqbin_sql =
@@ -249,10 +250,8 @@ sub run_job {
 	my $locus_qry =
 "SELECT id,scheme_id from loci left join scheme_members on loci.id = scheme_members.locus order by genome_position,scheme_members.scheme_id,id";
 	my $locus_sql = $self->{'db'}->prepare($locus_qry);
-	eval { $locus_sql->execute; };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	eval { $locus_sql->execute };
+	$logger->error($@) if $@;
 	my @selected_fields;
 	my %picked;
 	while ( my ( $locus, $scheme_id ) = $locus_sql->fetchrow_array ) {
@@ -288,10 +287,8 @@ sub run_job {
 			my @includes;
 			next if !BIGSdb::Utils::is_int($id);
 			if ( $params->{'includes'} ) {
-				eval { $isolate_sql->execute($id); };
-				if ($@) {
-					$logger->error("Can't execute $@");
-				}
+				eval { $isolate_sql->execute($id) };
+				$logger->error($@) if $@;
 				@includes = $isolate_sql->fetchrow_array;
 				foreach (@includes) {
 					$_ =~ tr/ /_/;
@@ -316,9 +313,9 @@ sub run_job {
 				};
 			}
 			my $seqbin_seq;
-			eval { $seqbin_sql->execute( $id, $locus_name ); };
+			eval { $seqbin_sql->execute( $id, $locus_name ) };			
 			if ($@) {
-				$logger->error("Can't execute, $@");
+				$logger->error($@) if $@;
 			} else {
 				my $reverse;
 				( $seqbin_seq, $reverse ) = $seqbin_sql->fetchrow_array;
@@ -334,20 +331,22 @@ sub run_job {
 			} elsif ($seqbin_seq) {
 				$seq = $seqbin_seq;
 			} else {
+				#no sequence
 			}
 			$seq = BIGSdb::Utils::chop_seq( $seq, $locus_info->{'orf'} || 1 );
 			print $fh_cusp_in "$seq\n";
 			close $fh_cusp_in;
-			system( "$self->{'config'}->{'emboss_path'}/cusp", '-sequence', $temp_file, '-outfile', $cusp_file, '-warning', 'false' );
+			system("$self->{'config'}->{'emboss_path'}/cusp -sequence $temp_file -outfile $cusp_file -warning false 2>/dev/null");
 			if ( -e $cusp_file ) {
 				open( my $fh_cusp, '<', $cusp_file );
 				while (<$fh_cusp>) {
 					next if $_ =~ /^#/ || $_ eq '';
 					my ( $codon, $aa, undef, undef, $number ) = split /\s+/, $_;
+					$number ||= 0;
 					$locus_codon_count->{$locus_name}->{$codon} += $number;
-					$locus_aa_count->{$locus_name}->{$aa} += $number;
-					$total_codon_count->{$id}->{$codon}    += $number;
-					$total_aa_count->{$id}->{$aa}          += $number;
+					$locus_aa_count->{$locus_name}->{$aa}       += $number;
+					$total_codon_count->{$id}->{$codon}         += $number;
+					$total_aa_count->{$id}->{$aa}               += $number;
 				}
 				close $fh_cusp;
 			}
@@ -370,18 +369,22 @@ sub run_job {
 	open( my $fh_rscu_by_locus, '>', $rscu_by_locus )
 	  or $logger->error("Can't open output file $rscu_by_locus for writing");
 	open( my $fh_number_by_locus, '>', $number_by_locus )
-	  or $logger->error("Can't open output file $number_by_isolate for writing");	  
+	  or $logger->error("Can't open output file $number_by_isolate for writing");
 	print $fh_rscu_by_isolate "Isolate\t@codons\n";
 	print $fh_number_by_isolate "Isolate\t@codons\n";
 	$progress = 0;
+
 	foreach my $id (@list) {
 		$no_output = 0;
+		$includes{$id} ||= '';
 		print $fh_rscu_by_isolate "$id$includes{$id}";
 		print $fh_number_by_isolate "$id$includes{$id}";
 		foreach my $codon (@codons) {
-			my $aa       = $translate{$codon};
+			$total_codon_count->{$id}->{$codon} ||= 0;
+			my $aa = $translate{$codon};
+			$total_aa_count->{$id}->{$aa} ||= 0;
 			my $expected = $total_aa_count->{$id}->{$aa} / $codons_per_aa{$aa};
-			my $rscu     = $expected ? ( $total_codon_count->{$id}->{$codon} / $expected ) : 1;    #test for divide by zero
+			my $rscu = $expected ? ( $total_codon_count->{$id}->{$codon} / $expected ) : 1;    #test for divide by zero
 			$rscu = BIGSdb::Utils::decimal_place( $rscu, 3 );
 			print $fh_rscu_by_isolate "\t$rscu";
 			print $fh_number_by_isolate "\t$total_codon_count->{$id}->{$codon}";
@@ -389,21 +392,21 @@ sub run_job {
 		print $fh_rscu_by_isolate "\n";
 		print $fh_number_by_isolate "\n";
 		$progress++;
-		my $complete = 90 + int( 5 * $progress / scalar @list );                        #go up to 95%
+		my $complete = 90 + int( 5 * $progress / scalar @list );    #go up to 95%
 		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } );
 	}
 	$" = "\t";
 	print $fh_rscu_by_locus "Locus\t@codons\n";
 	print $fh_number_by_locus "Locus\t@codons\n";
 	$progress = 0;
-	foreach my $locus (@selected_fields){
+	foreach my $locus (@selected_fields) {
 		$no_output = 0;
 		print $fh_rscu_by_locus "$locus";
 		print $fh_number_by_locus "$locus";
 		foreach my $codon (@codons) {
 			my $aa       = $translate{$codon};
 			my $expected = $locus_aa_count->{$locus}->{$aa} / $codons_per_aa{$aa};
-			my $rscu     = $expected ? ( $locus_codon_count->{$locus}->{$codon} / $expected ) : 1;   
+			my $rscu     = $expected ? ( $locus_codon_count->{$locus}->{$codon} / $expected ) : 1;
 			$rscu = BIGSdb::Utils::decimal_place( $rscu, 3 );
 			print $fh_rscu_by_locus "\t$rscu";
 			print $fh_number_by_locus "\t$locus_codon_count->{$locus}->{$codon}";
@@ -411,10 +414,10 @@ sub run_job {
 		print $fh_rscu_by_locus "\n";
 		print $fh_number_by_locus "\n";
 		$progress++;
-		my $complete = 95 + int( 5 * $progress / scalar @selected_fields );                        #go up to 100%
+		my $complete = 95 + int( 5 * $progress / scalar @selected_fields );    #go up to 100%
 		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } );
 	}
-	foreach (qw ($fh_rscu_by_isolate $fh_number_by_isolate $fh_rscu_by_locus $fh_number_by_locus)){
+	foreach (qw ($fh_rscu_by_isolate $fh_number_by_isolate $fh_rscu_by_locus $fh_number_by_locus)) {
 		close $_;
 	}
 	if (@problem_ids) {
@@ -431,7 +434,7 @@ sub run_job {
 		$self->{'jobManager'}->update_job_output( $job_id,
 			{ 'filename' => "$job_id\_rscu_by_locus.txt", 'description' => 'Relative synonymous codon usage (RSCU) by locus' } );
 		$self->{'jobManager'}->update_job_output( $job_id,
-			{ 'filename' => "$job_id\_number_by_locus.txt", 'description' => 'Absolute frequency of codon usage by locus' } );	
+			{ 'filename' => "$job_id\_number_by_locus.txt", 'description' => 'Absolute frequency of codon usage by locus' } );
 	}
 	$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => $message_html } ) if $message_html;
 }

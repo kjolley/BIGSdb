@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::CurateBatchAddPage;
 use strict;
+use warnings;
 use List::MoreUtils qw(any none);
 use base qw(BIGSdb::CurateAddPage);
 use Log::Log4perl qw(get_logger);
@@ -26,9 +27,9 @@ my $logger = get_logger('BIGSdb.Page');
 sub print_content {
 	my ($self)        = @_;
 	my $q             = $self->{'cgi'};
-	my $table         = $q->param('table');
+	my $table         = $q->param('table') || '';
 	my $cleaned_table = $table;
-	my $loci          = $self->{'datastore'}->get_loci();
+	my $loci          = $self->{'datastore'}->get_loci;
 	my $locus         = $q->param('locus');
 	$cleaned_table =~ tr/_/ /;
 	if ( !$self->{'datastore'}->is_table($table) ) {
@@ -69,10 +70,10 @@ sub print_content {
 		removal of all data from it. This is done to ensure data integrity.  This does not affect allele designations, but any profiles
 		will have to be reloaded.</p></div>\n";
 	}
-	my $script_name = $q->script_name;
+	my $script_name = $self->{'system'}->{'script_name'};
 	my $integer_id;
 	my $sender_field;
-	if ( $table eq $self->{'system'}->{'view'} ) {
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
 		$integer_id   = 1;
 		$sender_field = 1;
 	} else {
@@ -164,8 +165,8 @@ sub print_content {
 					}
 				}
 				if ( ( $table eq 'loci' || $table eq $self->{'system'}->{'view'} ) && $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-					@extras     = split /;/, $data[ $fieldorder{'aliases'} ];
-					@ref_extras = split /;/, $data[ $fieldorder{'references'} ];
+					@extras     = split /;/, $data[ $fieldorder{'aliases'} ]    if defined $fieldorder{'aliases'};
+					@ref_extras = split /;/, $data[ $fieldorder{'references'} ] if defined $fieldorder{'references'};
 				}
 				my @inserts;
 				my $qry;
@@ -177,7 +178,7 @@ sub print_content {
 					  "$data[$fieldorder{'id'}]|$data[$fieldorder{'locus'}]: new designation '$data[$fieldorder{'allele_id'}]'";
 				}
 				$logger->debug("INSERT: $qry");
-				my $curator = $self->get_curator_id();
+				my $curator = $self->get_curator_id;
 				if ( $table eq $self->{'system'}->{'view'} ) {
 
 					#Set read ACL for 'All users' group
@@ -278,12 +279,12 @@ sub print_content {
 						$logger->error($err);
 					}
 					print "</div>\n";
-					$self->{'db'}->rollback();
+					$self->{'db'}->rollback;
 					return;
 				}
 			}
 		}
-		$self->{'db'}->commit()
+		$self->{'db'}->commit
 		  && print "<div class=\"box\" id=\"resultsheader\"><p>Database updated ok</p>";
 		foreach (@history) {
 			my ( $isolate_id, $action ) = split /\|/, $_;
@@ -291,8 +292,8 @@ sub print_content {
 		}
 		print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
 	} elsif ( $q->param('data') || $q->param('query') ) {
-		if (!$q->param('data')){
-			$q->param('data', $self->_convert_query($q->param('table'), $q->param('query')))
+		if ( !$q->param('data') ) {
+			$q->param( 'data', $self->_convert_query( $q->param('table'), $q->param('query') ) );
 		}
 		my @checked_buffer;
 		my @fieldorder = $self->_get_fields_in_order($table);
@@ -300,15 +301,13 @@ sub print_content {
 		my $required_extended_exist;
 		my %last_id;
 		if ( $self->{'system'}->{'dbtype'} eq 'sequences' && $table eq 'sequences' ) {
-			if ($locus){
+			if ($locus) {
 				my $sql =
 				  $self->{'db'}->prepare(
-	"SELECT field,value_format,value_regex,required,option_list FROM locus_extended_attributes WHERE locus=? ORDER BY field_order"
+"SELECT field,value_format,value_regex,required,option_list FROM locus_extended_attributes WHERE locus=? ORDER BY field_order"
 				  );
-				eval { $sql->execute($locus); };
-				if ($@) {
-					$logger->error("Can't execute $@");
-				}
+				eval { $sql->execute($locus) };
+				$logger->error($@) if $@;
 				while ( my ( $field, $format, $regex, $required, $optlist ) = $sql->fetchrow_array ) {
 					push @fieldorder, $field;
 					$extended_attributes->{$field}->{'format'}      = $format;
@@ -317,11 +316,12 @@ sub print_content {
 					$extended_attributes->{$field}->{'option_list'} = $optlist;
 				}
 			} else {
-				$required_extended_exist = $self->{'datastore'}->run_list_query("SELECT DISTINCT locus FROM locus_extended_attributes WHERE required");
+				$required_extended_exist =
+				  $self->{'datastore'}->run_list_query("SELECT DISTINCT locus FROM locus_extended_attributes WHERE required");
 			}
 		}
 		my ( $firstname, $surname, $userid );
-		my $sender_message;
+		my $sender_message = '';
 		if ($sender_field) {
 			my $sender = $q->param('sender');
 			if ( !$sender ) {
@@ -356,7 +356,7 @@ sub print_content {
 		my $id_is_int;
 		my %unique_field;
 		my %unique_values;
-		if ( $table eq $self->{'system'}->{'view'} ) {
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
 			$id        = $self->next_id($table);
 			$id_is_int = 1;
 		} else {
@@ -366,7 +366,7 @@ sub print_content {
 					$id        = $self->next_id($table);
 					$id_is_int = 1;
 				}
-				if ( $_->{'unique'} eq 'yes' ) {
+				if ( $_->{'unique'} && $_->{'unique'} eq 'yes' ) {
 					$unique_field{ $_->{'name'} } = 1;
 				}
 			}
@@ -403,7 +403,7 @@ sub print_content {
 					} while ( $self->_is_id_used( $table, $id ) );
 				}
 				foreach (@primary_keys) {
-					if ( $fileheaderPos{$_} eq '' ) {
+					if ( !defined $fileheaderPos{$_} ) {
 						if ( $_ eq 'id' && $id ) {
 							$pk_combination .= "id: " . BIGSdb::Utils::pad_length( $id, 10 );
 						} else {
@@ -433,7 +433,7 @@ sub print_content {
 						$value = $id;
 					}
 					if ( $field eq 'datestamp' || $field eq 'date_entered' ) {
-						$value = $self->get_datestamp();
+						$value = $self->get_datestamp;
 						$header_row .= "$field\t" if $first_record && defined $fileheaderPos{$field};
 					} elsif ( $field eq 'sender' ) {
 						if ( defined $fileheaderPos{$field} ) {
@@ -447,8 +447,8 @@ sub print_content {
 						if ( defined $fileheaderPos{$field} ) {
 							$header_row .= "$field\t" if $first_record;
 						}
-						$value = $self->get_curator_id();
-					} elsif ( $extended_attributes->{$field}->{'format'} eq 'boolean' ) {
+						$value = $self->get_curator_id;
+					} elsif ( $extended_attributes->{$field}->{'format'} && $extended_attributes->{$field}->{'format'} eq 'boolean' ) {
 						if ( defined $fileheaderPos{$field} ) {
 							$header_row .= "$field\t" if $first_record;
 							$value = $data[ $fileheaderPos{$field} ];
@@ -483,8 +483,10 @@ sub print_content {
 					}
 					if ( $table eq 'sequences' && $field eq 'allele_id' ) {
 						$locus = $q->param('locus') ? $q->param('locus') : $data[ $fileheaderPos{'locus'} ];
-						if ($data[ $fileheaderPos{'locus'}] && any {$_ eq $data[ $fileheaderPos{'locus'}]} @$required_extended_exist){
-							$problems{$pk_combination} .= "Locus $locus has required extended attributes - please use specific batch upload form for this locus.<br />";
+						if ( $data[ $fileheaderPos{'locus'} ] && any { $_ eq $data[ $fileheaderPos{'locus'} ] } @$required_extended_exist )
+						{
+							$problems{$pk_combination} .=
+							  "Locus $locus has required extended attributes - please use specific batch upload form for this locus.<br />";
 							$special_problem = 1;
 						}
 						$locus = $q->param('locus') ? $q->param('locus') : $data[ $fileheaderPos{'locus'} ];
@@ -498,7 +500,7 @@ sub print_content {
 							my $exists;
 							do {
 								$value++;
-								eval { $sql_allele_id_exists->execute( $locus, $value ); };
+								eval { $sql_allele_id_exists->execute( $locus, $value ) };
 								if ($@) {
 									$logger->error("Can't execute allele id exists check. values $locus,$value $@");
 									last;
@@ -549,13 +551,13 @@ sub print_content {
 						} else {
 							$value = uc($value);
 							$value =~ s/[\W]//g;
-							eval { $sql_sequence_exists->execute( $locus, $value ); };
+							eval { $sql_sequence_exists->execute( $locus, $value ) };
 							if ($@) {
 								$logger->error("Can't execute sequence exists check. values $locus,$value $@");
 							}
 							my ($exists) = $sql_sequence_exists->fetchrow_array;
 							if ($exists) {
-								if ( $q->param('complete_CDS') || $q->param('ignore_existing')) {
+								if ( $q->param('complete_CDS') || $q->param('ignore_existing') ) {
 									$continue = 0;
 								} else {
 									$problems{$pk_combination} .= "Sequence already exists in the database ($locus: $exists).<br />";
@@ -563,15 +565,15 @@ sub print_content {
 							}
 							if ( $q->param('complete_CDS') ) {
 								my $first_codon = substr( $value, 0, 3 );
-								$continue = 0 if $first_codon ne 'ATG' && $first_codon ne 'GTG' && $first_codon ne 'TTG';
+								$continue = 0 if none {$first_codon eq $_} qw (ATG GTG TTG);
 								my $end_codon = substr( $value, -3 );
-								$continue = 0 if $end_codon ne 'TAA' && $end_codon ne 'TGA' && $end_codon ne 'TAG';
+								$continue = 0 if none {$end_codon eq $_} qw (TAA TGA TAG);
 								my $multiple_of_3 = ( length($value) / 3 ) == int( length($value) / 3 ) ? 1 : 0;
 								$continue = 0 if !$multiple_of_3;
 								my $internal_stop;
 								for ( my $pos = 0 ; $pos < length($value) - 3 ; $pos += 3 ) {
 									my $codon = substr( $value, $pos, 3 );
-									if ( $codon eq 'TAA' || $codon eq 'TGA' || $codon eq 'TAG' ) {
+									if ( any {$codon eq $_} qw (TAA TGA TAG)) {
 										$internal_stop = 1;
 									}
 								}
@@ -580,8 +582,8 @@ sub print_content {
 						}
 						if ($continue) {
 							if ( $locus_info->{'data_type'} eq 'DNA' && !BIGSdb::Utils::is_valid_DNA($value) ) {
-								if ($q->param('complete_CDS') || $q->param('ignore_non_DNA')){
-									$continue = 0
+								if ( $q->param('complete_CDS') || $q->param('ignore_non_DNA') ) {
+									$continue = 0;
 								} else {
 									$problems{$pk_combination} .= "Sequence contains non nucleotide (G|A|T|C) characters.<br />";
 									$special_problem = 1;
@@ -595,7 +597,7 @@ sub print_content {
 "Sequence is too dissimilar to existing alleles (less than 70% identical or an alignment of less than 90% its length). Similarity is determined
 	by the output of the best match from the BLAST algorithm - this may be conservative.  If you're sure that this sequence should be entered, please
 	 select the 'Override sequence similarity check' box.<br />";
-	 							$special_problem = 1;
+								$special_problem = 1;
 							}
 						}
 					}
@@ -610,9 +612,7 @@ sub print_content {
 							  $self->{'datastore'}->run_simple_query( "SELECT allele_id_format,allele_id_regex FROM loci WHERE id=?",
 								$data[ $fileheaderPos{'locus'} ] );
 						};
-						if ($@) {
-							$logger->error($@);
-						}
+						$logger->error($@) if $@;
 						if ( $format->[0] eq 'integer'
 							&& !BIGSdb::Utils::is_int($value) )
 						{
@@ -648,14 +648,14 @@ sub print_content {
 								$" = ', ';
 								$problems{$pk_combination} .= "Field '$field' value is not on the allowed list (@optlist).<br />";
 								$special_problem = 1;
-							} elsif ( $extended_attributes->{$field}->{'format'} eq 'integer'
+							} elsif ( $extended_attributes->{$field}->{'format'} && $extended_attributes->{$field}->{'format'} eq 'integer'
 								&& ( defined $fileheaderPos{$field} && $data[ $fileheaderPos{$field} ] ne '' )
 								&& !BIGSdb::Utils::is_int( $data[ $fileheaderPos{$field} ] ) )
 							{
 								$problems{$pk_combination} .= "Field '$field' must be an integer.<br />";
 								$special_problem = 1;
 							} elsif (
-								$extended_attributes->{$field}->{'format'} eq 'boolean'
+								$extended_attributes->{$field}->{'format'} && $extended_attributes->{$field}->{'format'} eq 'boolean'
 								&& (   defined $fileheaderPos{$field}
 									&& lc( $data[ $fileheaderPos{$field} ] ) ne 'false'
 									&& lc( $data[ $fileheaderPos{$field} ] ) ne 'true' )
@@ -681,9 +681,11 @@ sub print_content {
 							  if $problems{$pk_combination} !~ /$problem_text/;
 							$special_problem = 1;
 						}
-					} elsif ($table eq 'scheme_group_group_members' &&$field eq 'group_id' && $data[ $fileheaderPos{'parent_group_id'} ] == $data[ $fileheaderPos{'group_id'} ]){
-						$problems{$pk_combination} .=
-"A scheme group can't be a member of itself.";
+					} elsif ( $table eq 'scheme_group_group_members'
+						&& $field eq 'group_id'
+						&& $data[ $fileheaderPos{'parent_group_id'} ] == $data[ $fileheaderPos{'group_id'} ] )
+					{
+						$problems{$pk_combination} .= "A scheme group can't be a member of itself.";
 						$special_problem = 1;
 					}
 					my $display_value = $value;
@@ -691,7 +693,7 @@ sub print_content {
 						if ( $field =~ /sequence/ && $field ne 'coding_sequence' ) {
 							$display_value = "<span class=\"seq\">" . ( BIGSdb::Utils::truncate_seq( \$value, 40 ) ) . "</span>";
 						}
-						$rowbuffer .= "<td>$display_value</td>";
+						$rowbuffer .= defined $display_value ? "<td>$display_value</td>" : '<td />';
 					} else {
 						if ( $field =~ /sequence/ && $field ne 'coding_sequence' ) {
 							$display_value = "<span class=\"seq\">" . ( BIGSdb::Utils::truncate_seq( \$value, 40 ) ) . "</span>";
@@ -700,7 +702,7 @@ sub print_content {
 						if ($problem) {
 							my $problem_text = "$fieldorder[$i] $problem<br />";
 							$problems{$pk_combination} .= $problem_text
-							  if $problems{$pk_combination} !~ /$problem_text/;
+							  if !defined $problems{$pk_combination} || $problems{$pk_combination} !~ /$problem_text/;
 						}
 					}
 					$i++;
@@ -708,10 +710,10 @@ sub print_content {
 					  if defined $fileheaderPos{$field}
 						  or ( $field eq 'id' );
 				}
-				if (!$continue){
+				if ( !$continue ) {
 					undef $header_row if $first_record;
 					next;
-				};
+				}
 				$tablebuffer .= "<tr class=\"td$td\">$rowbuffer";
 				if ( $table eq $self->{'system'}->{'view'} ) {
 					my %is_locus;
@@ -722,12 +724,11 @@ sub print_content {
 					foreach (@fileheaderFields) {
 						if ( $is_locus{$_} ) {
 							$header_row .= "$_\t" if $first_record;
-							my $value = $data[ $fileheaderPos{$_} ]
-							  if defined $fileheaderPos{$_};
+							my $value = defined $fileheaderPos{$_} ? $data[ $fileheaderPos{$_} ] : undef;
 							if ( !$locus_format{$_} ) {
 								my $locus_info = $self->{'datastore'}->get_locus_info($_);
 								$locus_format{$_} = $locus_info->{'allele_id_format'};
-								$locus_regex{$_} = $locus_info->{'allele_id_regex'};
+								$locus_regex{$_}  = $locus_info->{'allele_id_regex'};
 							}
 							if ($value) {
 								if ( $locus_format{$_} eq 'integer'
@@ -735,7 +736,7 @@ sub print_content {
 								{
 									$locusbuffer .= "<span><font color='red'>$_:&nbsp;$value</font></span><br />";
 									$problems{$pk_combination} .= "'$_' must be an integer<br />";
-								} elsif ($locus_regex{$_} && $value !~ /$locus_regex{$_}/){
+								} elsif ( $locus_regex{$_} && $value !~ /$locus_regex{$_}/ ) {
 									$locusbuffer .= "<span><font color='red'>$_:&nbsp;$value</font></span><br />";
 									$problems{$pk_combination} .= "'$_' does not conform to specified format.<br />";
 								} else {
@@ -748,7 +749,7 @@ sub print_content {
 							$i++;
 						}
 					}
-					$tablebuffer .= "<td>$locusbuffer</td>";
+					$tablebuffer .= defined $locusbuffer ? "<td>$locusbuffer</td>" : '<td />';
 				}
 				$tablebuffer .= "</tr>\n";
 				if ( $primary_key_combination{$pk_combination} && $pk_combination !~ /\:\s*$/ ) {
@@ -777,7 +778,7 @@ sub print_content {
 "<div class=\"box\" id=\"statusbad\"><p>Your pasted data does not appear to contain the primary key field$plural (@primary_keys) required for this table.</p></div>\n";
 						return;
 					}
-					my ($exists) = $primary_key_check_sql->fetchrow_array();
+					my ($exists) = $primary_key_check_sql->fetchrow_array;
 					if ($exists) {
 						my $problem_text = "primary key already exists in the database<br />";
 						$problems{$pk_combination} .= $problem_text
@@ -793,7 +794,9 @@ sub print_content {
 
 					#special case to ensure that a locus length is set is it is not marked as variable length
 				} elsif ( $table eq 'loci' ) {
-					if ( (none {$data[ $fileheaderPos{'length_varies'} ] eq $_} qw (true TRUE 1)) && !$data[ $fileheaderPos{'length'} ] ) {
+					if ( ( none { $data[ $fileheaderPos{'length_varies'} ] eq $_ } qw (true TRUE 1) )
+						&& !$data[ $fileheaderPos{'length'} ] )
+					{
 						$problems{$pk_combination} .= "Locus set as non variable length but no length is set.";
 					}
 					if ( $data[ $fileheaderPos{'id'} ] =~ /^\d/ ) {
@@ -808,12 +811,18 @@ sub print_content {
 						$problems{$pk_combination} .=
 "Locus names can not contain spaces.  Try replacing with an underscore (_) - this will get hidden in the query interface.";
 					}
+
 					#check that user is allowed to access this sequence bin record (controlled by isolate ACL)
-				} elsif ( ( $self->{'system'}->{'read_access'} eq 'acl' || $self->{'system'}->{'write_access'} eq 'acl' )
+				} elsif (
+					(
+						$self->{'system'}->{'read_access'} eq 'acl'
+						|| ( $self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl' )
+					)
 					&& $self->{'username'}
 					&& !$self->is_admin
 					&& $table eq 'accession'
-					&& $self->{'system'}->{'dbtype'} eq 'isolates' )
+					&& $self->{'system'}->{'dbtype'} eq 'isolates'
+				  )
 				{
 					my $isolate_id_ref =
 					  $self->{'datastore'}
@@ -824,11 +833,16 @@ sub print_content {
 					}
 
 					#check that user is allowed to access this isolate record
-				} elsif ( ( $self->{'system'}->{'read_access'} eq 'acl' || $self->{'system'}->{'write_access'} eq 'acl' )
+				} elsif (
+					(
+						$self->{'system'}->{'read_access'} eq 'acl'
+						|| ( $self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl' )
+					)
 					&& $self->{'username'}
 					&& !$self->is_admin
 					&& ( $table eq 'allele_designations' || $table eq 'sequence_bin' || $table eq 'isolate_aliases' )
-					&& !$self->is_allowed_to_view_isolate( $data[ $fileheaderPos{'isolate_id'} ] ) )
+					&& !$self->is_allowed_to_view_isolate( $data[ $fileheaderPos{'isolate_id'} ] )
+				  )
 				{
 					$problems{$pk_combination} .= "Your user account is not allowed to modify data for this isolate.";
 
@@ -876,9 +890,7 @@ sub print_content {
 "<div class=\"box\" id=\"resultsheader\"><h2>Import status</h2>$sender_message<p>No obvious problems identified so far.</p>\n";
 			my $filename = $self->make_temp_file(@checked_buffer);
 			print $q->start_form;
-			foreach (qw (page table db sender locus)) {
-				print $q->hidden($_);
-			}
+			print $q->hidden($_) foreach qw (page table db sender locus);
 			print $q->hidden( 'checked_buffer', $filename );
 			print $q->submit( -name => 'Import data', -class => 'submit' );
 			print $q->endform;
@@ -917,8 +929,8 @@ HTML
 field - if it is omitted, the next available id will be used automatically.</li>
 HTML
 		}
-		my $locus_attribute;
-		if ( $table eq 'sequences') {
+		my $locus_attribute = '';
+		if ( $table eq 'sequences' ) {
 			$locus_attribute = "&amp;locus=$locus" if $locus;
 			print << "HTML";
 			<li>If the locus uses integer allele ids you can leave the allele_id field blank and the next available number will be used.</li>
@@ -937,25 +949,23 @@ HTML
 				print
 				  " Please note, some loci have extended attributes which may be required.  For affected loci please use the batch insert
 				page specific to that locus: ";
-				if (@$loci_with_extended > 10){
+				if ( @$loci_with_extended > 10 ) {
 					print $q->start_form;
-					foreach (qw (page db table)){
-						print $q->hidden($_);
-					}
+					print $q->hidden($_) foreach qw (page db table);
 					print "Reload page specific for locus: ";
 					my @values = @$loci_with_extended;
 					my %labels;
 					unshift @values, '';
 					$labels{''} = 'Select ...';
-					print $q->popup_menu(-name => 'locus', -values => \@values, -labels => \%labels);
-					print $q->submit (-name => 'Reload', -class => 'submit');
+					print $q->popup_menu( -name => 'locus', -values => \@values, -labels => \%labels );
+					print $q->submit( -name => 'Reload', -class => 'submit' );
 					print $q->end_form;
 				} else {
 					my $first = 1;
 					foreach (@$loci_with_extended) {
 						print ' | ' if !$first;
 						print
-	"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=sequences&amp;locus=$_\">$_</a>";
+"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=sequences&amp;locus=$_\">$_</a>";
 						$first = 0;
 					}
 				}
@@ -966,12 +976,8 @@ HTML
 		if ($sender_field) {
 			my $qry = "select id,user_name,first_name,surname from users WHERE id>0 order by surname";
 			my $sql = $self->{'db'}->prepare($qry);
-			eval { $sql->execute(); };
-			if ($@) {
-				$logger->error("Can't execute: $qry");
-			} else {
-				$logger->debug("Query: $qry");
-			}
+			eval { $sql->execute };
+			$logger->error($@) if $@;
 			my @users;
 			my %usernames;
 			$usernames{''} = 'Select sender ...';
@@ -988,7 +994,7 @@ HTML
 		}
 		if ( $table eq 'sequences' ) {
 			print "<ul style=\"list-style-type:none\"><li>\n";
-			print $q->checkbox( -name => 'ignore_existing', -label => 'Ignore existing sequences',  -checked => 'checked' );
+			print $q->checkbox( -name => 'ignore_existing', -label => 'Ignore existing sequences', -checked => 'checked' );
 			print "</li><li>\n";
 			print $q->checkbox( -name => 'ignore_non_DNA', -label => 'Ignore sequences containing non-nucleotide characters' );
 			print "</li><li>\n";
@@ -1002,9 +1008,7 @@ HTML
 			print "</li></ul>\n";
 		}
 		print "<p>Please paste in tab-delimited text (<strong>include a field header line</strong>).</p>\n";
-		foreach (qw (page db table locus)) {
-			print $q->hidden($_);
-		}
+		print $q->hidden($_) foreach qw (page db table locus);
 		print $q->textarea( -name => 'data', -rows => 20, -columns => 120 );
 		print "<table style=\"width:95%\"><tr><td>";
 		print $q->reset( -class => 'reset' );
@@ -1021,7 +1025,7 @@ sub get_title {
 	my ($self) = @_;
 	my $desc  = $self->{'system'}->{'description'} || 'BIGSdb';
 	my $table = $self->{'cgi'}->param('table');
-	my $type  = $self->get_record_name($table);
+	my $type  = $self->get_record_name($table) || '';
 	return "Batch add new $type records - $desc";
 }
 
@@ -1030,7 +1034,7 @@ sub _get_fields_in_order {
 	#Return list of fields in order
 	my ( $self, $table ) = @_;
 	my @fieldnums;
-	if ( $table eq $self->{'system'}->{'view'} ) {
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
 		foreach ( @{ $self->{'xmlHandler'}->get_field_list() } ) {
 			push @fieldnums, $_;
 			if ( $_ eq $self->{'system'}->{'labelfield'} ) {
@@ -1053,7 +1057,7 @@ sub _get_fields_in_order {
 sub _get_field_table_header {
 	my ( $self, $table ) = @_;
 	my @headers;
-	if ( $table eq $self->{'system'}->{'view'} ) {
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
 		foreach ( @{ $self->{'xmlHandler'}->get_field_list } ) {
 			push @headers, $_;
 			if ( $_ eq $self->{'system'}->{'labelfield'} ) {
@@ -1089,12 +1093,8 @@ sub _is_id_used {
 	if ( !$self->{'sql'}->{'id_used'} ) {
 		$self->{'sql'}->{'id_used'} = $self->{'db'}->prepare($qry);
 	}
-	eval { $self->{'sql'}->{'id_used'}->execute($id); };
-	if ($@) {
-		$logger->error("Can't execute: $qry value:$id");
-	} else {
-		$logger->debug("Query: $qry value:$id");
-	}
+	eval { $self->{'sql'}->{'id_used'}->execute($id) };
+	$logger->error($@) if $@;
 	my ($used) = $self->{'sql'}->{'id_used'}->fetchrow_array;
 	return $used;
 }
@@ -1118,20 +1118,20 @@ sub _process_fields {
 }
 
 sub _convert_query {
-	my ($self,$table,$qry) = @_;
+	my ( $self, $table, $qry ) = @_;
 	return if !$self->{'datastore'}->is_table($table);
 	if ( any { lc($qry) =~ /;\s*$_\s/ } (qw (insert delete update alter create drop)) ) {
 		$logger->warn("Malicious SQL injection attempt '$qry'");
 		return;
 	}
 	my $data;
-	if ($table eq 'project_members'){
+	if ( $table eq 'project_members' ) {
 		my $project_id = $self->{'cgi'}->param('project');
 		$data = "project_id\tisolate_id\n";
 		$qry =~ s/SELECT \*/SELECT id/;
 		$qry =~ s/ORDER BY .*/ORDER BY id/;
 		my $ids = $self->{'datastore'}->run_list_query($qry);
-		$data.= "$project_id\t$_\n" foreach (@$ids);
+		$data .= "$project_id\t$_\n" foreach (@$ids);
 	}
 	return $data;
 }

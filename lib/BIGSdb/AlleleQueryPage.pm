@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::AlleleQueryPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::QueryPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -85,7 +86,7 @@ sub print_content {
 	my ($self) = @_;
 	my $system = $self->{'system'};
 	my $q      = $self->{'cgi'};
-	my $locus  = $q->param('locus');
+	my $locus  = $q->param('locus') || '';
 	$locus =~ s/^cn_//;
 	if ( $q->param('no_header') ) {
 		$self->_ajax_content($locus);
@@ -98,16 +99,15 @@ sub print_content {
 	print " sequences - $system->{'description'} database</h1>\n";
 	my $qry;
 	if (   !defined $q->param('currentpage')
-		|| $q->param('pagejump') eq '1'
+		|| (defined $q->param('pagejump') && $q->param('pagejump') eq '1')
 		|| $q->param('First') )
 	{
 		if (!$q->param('no_js')){
 			my $locus_clause = $locus ? "&amp;locus=$locus" : '';
 			print "<noscript><p class=\"highlight\">The dynamic customisation of this interface requires that you enable Javascript in your
-		browser. Alternatively, you can use a <a href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=alleleQuery$locus_clause&amp;no_js=1\">non-Javascript 
+		browser. Alternatively, you can use a <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleQuery$locus_clause&amp;no_js=1\">non-Javascript 
 		version</a> that has 4 combinations of fields.</p></noscript>\n";
-		}
-		
+		}		
 		$self->_print_query_interface();
 	}
 	if (   defined $q->param('query')
@@ -148,10 +148,8 @@ sub _get_select_items {
 		  $self->{'db'}->prepare(
 "SELECT field,description,value_format,required,length,option_list FROM locus_extended_attributes WHERE locus=? ORDER BY field_order"
 		  );
-		eval { $sql->execute($locus); };
-		if ($@) {
-			$logger->error("Can't execute $@");
-		}
+		eval { $sql->execute($locus) };
+		$logger->error($@) if $@;
 		while ( my ( $field, $desc, $format, $length, $optlist ) = $sql->fetchrow_array ) {
 			my $item = "extatt_$field";
 			push @select_items, $item;
@@ -192,14 +190,12 @@ sub _print_query_interface {
 	print "<div class=\"box\" id=\"queryform\">\n";
 	my ($display_loci,$cleaned) = $self->{'datastore'}->get_locus_list;
 	unshift @$display_loci, '';
-	print $q->startform();
+	print $q->startform;
 	$cleaned->{''} = 'Please select ...';
 	print "<p><b>Locus: </b>";
 	print $q->popup_menu( -name => 'locus', -id => 'locus', -values => $display_loci, -labels => $cleaned );
 	print " <span class=\"comment\">Page will reload when changed</span></p>";
-	foreach (qw (db page no_js)) {
-		print $q->hidden($_);
-	}
+	print $q->hidden($_) foreach qw (db page no_js);
 	if ($q->param('locus')){
 		my $locus = $q->param('locus');
 		my $desc_exists = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM locus_descriptions WHERE locus=?",$locus)->[0];
@@ -209,19 +205,14 @@ sub _print_query_interface {
 	}
 	print "<p>Please enter your search criteria below (or leave blank and submit to return all records).</p>";
 	print "<div style=\"white-space:nowrap\">";
-	my $table_fields;
-	if ($q->param('no_js')){
-		$table_fields = 4;
-	} else {
-		$table_fields = $self->_highest_entered_fields('table_fields') || 1;
-	}
+	my $table_fields = $q->param('no_js') ? 4 : ($self->_highest_entered_fields('table_fields') || 1);
 	print "<fieldset>\n<legend>Locus fields</legend>\n";
 	my $table_field_heading = $table_fields == 1 ? 'none' : 'inline';
 	print "<span id=\"table_field_heading\" style=\"display:$table_field_heading\"><label for=\"c0\">Combine searches with: </label>\n";
 	print $q->popup_menu( -name => 'c0', -id => 'c0', -values => [ "AND", "OR" ] );
 	print "</span>\n<ul id=\"table_fields\">\n";
 
-	for ( my $i = 1 ; $i <= $table_fields ; $i++ ) {
+	foreach my $i ( 1 .. $table_fields ) {
 		print "<li>";
 		$self->_print_table_fields($locus, $i, $table_fields, $select_items, $labels);
 		print "</li>\n";
@@ -234,14 +225,12 @@ sub _print_query_interface {
 	print $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
 	print "</span></li>\n<li><span style=\"white-space:nowrap\">\n";
 
-	if ( $q->param('displayrecs') ) {
-		$prefs->{'displayrecs'} = $q->param('displayrecs');
-	}
+	$prefs->{'displayrecs'} = $q->param('displayrecs') if $q->param('displayrecs');
 	print "<label for=\"displayrecs\" class=\"display\">Display: </label>\n";
 	print $q->popup_menu(
 		-name    => 'displayrecs',
 		-id      => 'displayrecs',
-		-values  => [ '10', '25', '50', '100', '200', '500', 'all' ],
+		-values  => [ qw (10 25 50 100 200 500 all) ],
 		-default => $prefs->{'displayrecs'}
 	);
 	print " records per page&nbsp;";
@@ -252,23 +241,7 @@ sub _print_query_interface {
 	print
 "</ul><span style=\"float:left\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleQuery$locus_clause\" class=\"resetbutton\">Reset</a></span><span style=\"float:right\">";
 	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	print "</span></fieldset>\n";
-	print "</div>\n";
-	my %labels;
-	my @username;
-	my $qry = "SELECT id,first_name,surname FROM users WHERE id>0 ORDER BY surname ";
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute(); };
-
-	if ($@) {
-		$logger->error("Can't execute: $qry");
-	} else {
-		$logger->debug("Query: $qry");
-	}
-	while ( my @data = $sql->fetchrow_array() ) {
-		push @username, $data[0];
-		$labels{ $data[0] } = "$data[2], $data[1]";
-	}
+	print "</span></fieldset>\n</div>\n";
 	print "<div style=\"white-space:nowrap\"><fieldset><legend>Filter query by</legend>\n";
 	print "<ul>\n";
 	print "<li><span style=\"white-space:nowrap\">";
@@ -302,8 +275,8 @@ sub _run_query {
 		my $andor       = $q->param('c0');
 		my $first_value = 1;
 		my $extatt_sql  = $self->{'db'}->prepare("SELECT * FROM locus_extended_attributes WHERE locus=? AND field=?");
-		for ( my $i = 1 ; $i <= MAX_ROWS ; $i++ ) {
-			if ( $q->param("t$i") ne '' ) {
+		foreach my $i ( 1 .. MAX_ROWS ) {
+			if ( defined $q->param("t$i") && $q->param("t$i") ne '' ) {
 				my $field    = $q->param("s$i");
 				my $operator = $q->param("y$i");
 				my $text     = $q->param("t$i");
@@ -315,9 +288,7 @@ sub _run_query {
 					#search by extended attribute
 					$field = $1;
 					eval { $extatt_sql->execute( $locus, $field ); };
-					if ($@) {
-						$logger->error("Can't execute $@");
-					}
+					$logger->error($@) if $@;
 					my $thisfield = $extatt_sql->fetchrow_hashref;
 					if (   $text ne '<blank>'
 						&& $text ne 'null'
@@ -472,8 +443,9 @@ sub _run_query {
 		$locus =~ s/'/\\'/g;
 		$qry2 = "SELECT * FROM sequences WHERE locus=E'$locus' AND ($qry)";
 		foreach (@$attributes) {
-			if ( $q->param( $_->{'name'} . '_list' ) ne '' ) {
-				my $value = $q->param( $_->{'name'} . '_list' );
+			my $param = $_->{'name'} . '_list';
+			if ( defined $q->param( $param ) && $q->param( $param ) ne '' ) {
+				my $value = $q->param( $param );
 				if ( $qry2 !~ /WHERE \(\)\s*$/ ) {
 					$qry2 .= " AND ";
 				} else {
@@ -496,7 +468,7 @@ sub _run_query {
 	}
 	my @hidden_attributes;
 	push @hidden_attributes, 'c0';
-	for ( my $i = 1 ; $i <= MAX_ROWS ; $i++ ) {
+	foreach my $i ( 1 .. MAX_ROWS ) {
 		push @hidden_attributes, "s$i", "t$i", "y$i";
 	}
 	foreach (@$attributes) {

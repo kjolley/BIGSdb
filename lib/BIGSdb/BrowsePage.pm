@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2010, University of Oxford
+#(c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,15 +18,14 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::BrowsePage;
 use strict;
+use warnings;
 use base qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
 sub initiate {
 	my ($self) = @_;
-	foreach (qw (field_help tooltips jQuery)){
-		$self->{$_} = 1;
-	}
+	$self->{$_} = 1 foreach qw (field_help tooltips jQuery);
 }
 
 sub set_pref_requirements {
@@ -83,9 +82,7 @@ sub print_content {
 		print "<table><tr><td>\n";
 		print $q->startform;
 		print $q->hidden( 'sent', 1 );
-		foreach (qw (db page sent scheme_id)) {
-			print $q->hidden($_);
-		}
+		print $q->hidden($_) foreach qw (db page sent scheme_id);
 		print "<table style=\"border-spacing:0\">\n";
 		print "<tr><td style=\"text-align:right\">Order by: </td><td>\n";
 		my $labels;
@@ -130,9 +127,7 @@ sub print_content {
 		print $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
 		print "</td></tr>\n";
 		print "<tr><td style=\"text-align:right\">Display </td><td>\n";
-		if ( $q->param('displayrecs') ) {
-			$prefs->{'displayrecs'} = $q->param('displayrecs');
-		}
+		$prefs->{'displayrecs'} = $q->param('displayrecs') if $q->param('displayrecs');
 		print $q->popup_menu(
 			-name    => 'displayrecs',
 			-values  => [ '10', '25', '50', '100', '200', '500', 'all' ],

@@ -19,6 +19,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::Plugins::TwoFieldBreakdown;
 use strict;
+use warnings;
 use base qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -36,7 +37,7 @@ sub get_attributes {
 		buttontext  => 'Two Field',
 		menutext    => 'Two field',
 		module      => 'TwoFieldBreakdown',
-		version     => '1.0.1',
+		version     => '1.0.2',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -77,9 +78,10 @@ sub run {
 	$qry =~ s/ORDER BY.*$//g;
 	$logger->debug("Breakdown query: $qry");
 	return if !$self->create_temp_tables($qry_ref);
+
 	if ( $q->param('function') eq 'breakdown' ) {
 		$self->_breakdown( \$qry );
-	} 
+	}
 }
 
 sub _print_interface {
@@ -266,6 +268,7 @@ sub _breakdown {
 	print $q->submit( -name => 'toggledisplay', -label => ( 'Show ' . $toggle{ $q->param('display') } ), -class => 'submit' );
 	print $q->endform;
 	print "</td>\n";
+
 	if ( $q->param('display') ne 'values only' ) {
 		print "<td>";
 		print $q->startform;
@@ -397,10 +400,10 @@ sub _breakdown {
 				$chart->xAxis()->setLabels( \@field2values )->setFontAngle(60);
 				my $layer;
 				if ( !$i ) {
-					no warnings;
+					no warnings 'once';
 					$layer = $chart->addBarLayer2( $perlchartdir::Stack, 0 );
 				} else {
-					no warnings;
+					no warnings 'once';
 					$layer = $chart->addBarLayer2( $perlchartdir::Percentage, 0 );
 				}
 				$layer->set3D if $prefs{'threeD'};
@@ -476,6 +479,7 @@ sub _get_value_frequency_hashes {
 	( $clean{$field1} = $field1 ) =~ s/^[f|l]_//;
 	( $clean{$field2} = $field2 ) =~ s/^[f|l]_//;
 	foreach ( $field1, $field2 ) {
+
 		if ( $_ =~ /^la_(.+)\|\|/ || $_ =~ /^cn_(.+)/ ) {
 			$clean{$_} = $1;
 		}
@@ -543,17 +547,18 @@ s/SELECT (.*?) FROM $self->{'system'}->{'view'}/SELECT $1 FROM $self->{'system'}
 	#due to poor estimation of the number of rows returned for particular subqueries.  On a test database
 	#switching the enable_nestloop setting to off speeded up the calculation from many minutes to a couple
 	#of seconds.
-#	$$qry_ref = "SET enable_nestloop = off; " . $$qry_ref
-#	  if ( $field_type{$field1} eq 'scheme_field' || $field_type{$field2} eq 'scheme_field' );
+	#
+	#Disabled now as more recent PostgreSQL versions don't seem to have the problem.
+	#
+	#	$$qry_ref = "SET enable_nestloop = off; " . $$qry_ref
+	#	  if ( $field_type{$field1} eq 'scheme_field' || $field_type{$field2} eq 'scheme_field' );
 	$logger->debug($$qry_ref);
 	my $sql = $self->{'db'}->prepare($$qry_ref);
-	eval { $sql->execute; };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	eval { $sql->execute };
+	$logger->error($@) if $@;
 	while ( my ( $value1, $value2 ) = $sql->fetchrow_array ) {
 		foreach ( $value1, $value2 ) {
-			$_ = 'No value' if $_ eq '';
+			$_ = 'No value' if !defined $_ || $_ eq '';
 		}
 		$datahash->{$value1}->{$value2}++;
 		$grandtotal++;
@@ -574,7 +579,8 @@ sub _recalculate_for_attributes {
 			my $sql =
 			  $self->{'db'}
 			  ->prepare("SELECT field_value,value FROM isolate_value_extended_attributes WHERE isolate_field=? AND attribute=?");
-			eval { $sql->execute( $field[$_], $attribute[$_] ); };
+			eval { $sql->execute( $field[$_], $attribute[$_] ) };
+			$logger->error($@) if $@;
 			while ( my ( $field_value, $attribute_value ) = $sql->fetchrow_array ) {
 				$lookup->[$_]->{$field_value} = $attribute_value;
 			}
@@ -602,7 +608,8 @@ sub _modify_qry_f_s {
 	my ( $self, $qry_ref, $clean_ref, $scheme_id_ref, $field1, $field2, $switch ) = @_;
 	try {
 		$self->{'datastore'}->create_temp_scheme_table( $scheme_id_ref->{$field2} );
-	} catch BIGSdb::DatabaseConnectionException with {
+	}
+	catch BIGSdb::DatabaseConnectionException with {
 		$logger->error("Can't copy data to temporary table.");
 	};
 	my $scheme_sql_ref = $self->_get_scheme_fields_sql( $scheme_id_ref->{$field2} );
@@ -636,7 +643,8 @@ sub _modify_qry_s_s {
 	try {
 		$self->{'datastore'}->create_temp_scheme_table( $scheme_id_ref->{$field1} );
 		$self->{'datastore'}->create_temp_scheme_table( $scheme_id_ref->{$field2} );
-	} catch BIGSdb::DatabaseConnectionException with {
+	}
+	catch BIGSdb::DatabaseConnectionException with {
 		$logger->error("Can't copy data to temporary table.");
 	};
 	my $scheme_loci = $self->{'datastore'}->get_scheme_loci( $scheme_id_ref->{$field1} );

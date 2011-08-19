@@ -16,17 +16,16 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
-
 package BIGSdb::JobViewerPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
 sub initiate {
 	my ($self) = @_;
-	$self->{'jQuery'}  = 1;
-	$self->{'noCache'} = 1;
+	$self->{$_} = 1 foreach qw(jQuery noCache);
 	$self->{'refresh'} = 60;
 }
 
@@ -35,22 +34,22 @@ sub print_content {
 	my $q = $self->{'cgi'};
 	print "<h1>Job status viewer</h1>";
 	my $id = $q->param('id');
-	if ($id !~ /BIGSdb_\d+/){
+	if ( $id !~ /BIGSdb_\d+/ ) {
 		print "<div class=\"box\" id=\"statusbad\">\n";
 		print "<p>The submitted job id is invalid.</p>\n";
 		print "</div>";
 		return;
 	}
-	my ($job,$params,$output) = $self->{'jobManager'}->get_job($id);
-	if (ref $job ne 'HASH' || !$job->{'id'}){
+	my ( $job, $params, $output ) = $self->{'jobManager'}->get_job($id);
+	if ( ref $job ne 'HASH' || !$job->{'id'} ) {
 		print "<div class=\"box\" id=\"statusbad\">\n";
 		print "<p>The submitted job does not exist.</p>\n";
 		print "</div>\n";
 		return;
 	}
-	(my $submit_time = $job->{'submit_time'}) =~ s/\.\d+$//; #remove fractions of second 
-	(my $start_time = $job->{'start_time'}) =~ s/\.\d+$//;
-	(my $stop_time = $job->{'stop_time'}) =~ s/\.\d+$//;
+	( my $submit_time = $job->{'submit_time'} ) =~ s/\.\d+$//;    #remove fractions of second
+	( my $start_time = $job->{'start_time'} ? $job->{'start_time'} : '' ) =~ s/\.\d+$//;
+	( my $stop_time  = $job->{'stop_time'}  ? $job->{'stop_time'}  : '' ) =~ s/\.\d+$//;
 	$job->{'percent_complete'} = 'indeterminate ' if $job->{'percent_complete'} == -1;
 	print << "HTML";
 <div class="box" id="resultstable">
@@ -65,22 +64,23 @@ sub print_content {
 </table>
 <h2>Output</h2>
 HTML
-	if (!($job->{'message_html'} || ref $output eq 'HASH')){
+	if ( !( $job->{'message_html'} || ref $output eq 'HASH' ) ) {
 		print "<p>No output yet.</p>\n";
 	} else {
-		print "$job->{'message_html'}";
+		print "$job->{'message_html'}" if $job->{'message_html'};
 		my @buffer;
-		if (ref $output eq 'HASH'){
-			foreach (sort keys (%$output)){
+		if ( ref $output eq 'HASH' ) {
+			foreach ( sort keys(%$output) ) {
 				push @buffer, "<li><a href=\"/tmp/$output->{$_}\">$_</a></li>\n";
 			}
 		}
-		if (@buffer){
-			$"="\n";
+		if (@buffer) {
+			$" = "\n";
 			print "<ul>\n@buffer</ul>\n";
 		}
 	}
-	print "<p>This page will reload in $self->{'refresh'} seconds.  You can refresh it any time, or bookmark it and close your browser if you wish.</p>\n";
+	print
+"<p>This page will reload in $self->{'refresh'} seconds.  You can refresh it any time, or bookmark it and close your browser if you wish.</p>\n";
 	print "<p>Please note that job results will not be stored on the server indefinitely.</p>\n";
 	print "</div>\n";
 }

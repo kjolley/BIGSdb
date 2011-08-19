@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::Curate;
 use strict;
+use warnings;
 use base qw(BIGSdb::Application);
 use Time::HiRes qw(gettimeofday);
 use Log::Log4perl qw(get_logger);
@@ -73,7 +74,7 @@ sub print_page {
 		'profileUpdate'      => 'CurateProfileUpdatePage',
 		'profileBatchAdd'    => 'CurateProfileBatchAddPage',
 		'tagScan'            => 'CurateTagScanPage',
-		'tagUpdate'			 => 'CurateTagUpdatePage',
+		'tagUpdate'          => 'CurateTagUpdatePage',
 		'databankScan'       => 'CurateDatabankScanPage',
 		'renumber'           => 'CurateRenumber',
 		'seqbin'             => 'SeqbinPage',
@@ -82,7 +83,7 @@ sub print_page {
 		'changePassword'     => 'ChangePasswordPage',
 		'setPassword'        => 'ChangePasswordPage',
 		'profileInfo'        => 'ProfileInfoPage',
-		'alleleInfo'		 => 'AlleleInfoPage',
+		'alleleInfo'         => 'AlleleInfoPage',
 		'isolateACL'         => 'CurateIsolateACLPage',
 		'fieldValues'        => 'FieldHelpPage',
 		'tableQuery'         => 'TableQueryPage',
@@ -91,7 +92,7 @@ sub print_page {
 		'linkToExperiment'   => 'CurateLinkToExperimentPage',
 		'alleleSequence'     => 'AlleleSequencePage',
 		'options'            => 'OptionsPage',
-		'exportConfig'		 => 'CurateExportConfig'
+		'exportConfig'       => 'CurateExportConfig'
 	);
 	my %page_attributes = (
 		'system'           => $self->{'system'},
@@ -120,7 +121,9 @@ sub print_page {
 		( $continue, $auth_cookies_ref ) = $self->authenticate( \%page_attributes );
 	}
 	return if !$continue;
-	if ( $self->{'system'}->{'read_access'} eq 'acl' || $self->{'system'}->{'write_access'} eq 'acl' ) {
+	if ( $self->{'system'}->{'read_access'} eq 'acl'
+		|| ( defined $self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl' ) )
+	{
 		$self->initiate_view( \%page_attributes );    #replace current view with one containing only isolates viewable by user
 		$page_attributes{'system'} = $self->{'system'};
 	}
@@ -133,7 +136,7 @@ sub print_page {
 	if ( $user_status ne 'admin' && $user_status ne 'curator' ) {
 		$page_attributes{'error'} = 'invalidCurator';
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
-		$page->print();
+		$page->print;
 		return;
 	} elsif ( !$self->{'db'} ) {
 		$page_attributes{'error'} = 'noConnect';
@@ -141,10 +144,12 @@ sub print_page {
 	} elsif ( !$self->{'prefstore'} ) {
 		$page_attributes{'error'} = 'noPrefs';
 		$page_attributes{'fatal'} = $self->{'fatal'}, $page = BIGSdb::ErrorPage->new(%page_attributes);
-	} elsif ( $self->{'system'}->{'disable_updates'} eq 'yes' || $self->{'config'}->{'disable_updates'} eq 'yes'){
-		$page_attributes{'error'} = 'disableUpdates';
+	} elsif ( ( $self->{'system'}->{'disable_updates'} && $self->{'system'}->{'disable_updates'} eq 'yes' )
+		|| ( $self->{'config'}->{'disable_updates'} && $self->{'config'}->{'disable_updates'} eq 'yes' ) )
+	{
+		$page_attributes{'error'}   = 'disableUpdates';
 		$page_attributes{'message'} = $self->{'config'}->{'disable_update_message'} || $self->{'system'}->{'disable_update_message'};
-		$page_attributes{'fatal'} = $self->{'fatal'}, $page = BIGSdb::ErrorPage->new(%page_attributes);
+		$page_attributes{'fatal'}   = $self->{'fatal'}, $page = BIGSdb::ErrorPage->new(%page_attributes);
 	} elsif ( $classes{ $self->{'page'} } ) {
 		if ( ref $auth_cookies_ref eq 'ARRAY' ) {
 			foreach (@$auth_cookies_ref) {
@@ -156,6 +161,6 @@ sub print_page {
 		$page_attributes{'error'} = 'unknown';
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
 	}
-	$page->print();
+	$page->print;
 }
 1;

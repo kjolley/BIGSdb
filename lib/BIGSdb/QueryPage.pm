@@ -32,9 +32,7 @@ sub initiate {
 		$self->{'type'} = 'no_header';
 		return;
 	}
-	foreach (qw (field_help tooltips jQuery jQuery.coolfieldset)) {
-		$self->{$_} = 1;
-	}
+	$self->{$_} = 1 foreach qw (field_help tooltips jQuery jQuery.coolfieldset);
 }
 
 sub set_pref_requirements {
@@ -465,9 +463,9 @@ sub _print_isolate_filter_fieldset {
 		foreach my $field (@$scheme_fields) {
 			if ( $self->{'prefs'}->{"dropdown\_scheme_fields"}->{$_}->{$field} ) {
 				my $values = $self->{'datastore'}->get_scheme($_)->get_distinct_fields($field);
-				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info($_,$field);
-				if ($scheme_field_info->{'type'} eq 'integer'){
-					@$values = sort {$a <=> $b} @$values;
+				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $_, $field );
+				if ( $scheme_field_info->{'type'} eq 'integer' ) {
+					@$values = sort { $a <=> $b } @$values;
 				}
 				my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
 				push @filters,
@@ -662,21 +660,16 @@ sub _print_profile_query_interface {
 	}
 	print "<div class=\"box\" id=\"queryform\"><div class=\"scrollable\">\n";
 	print $q->startform;
-	foreach (qw (db page scheme_id no_js)) {
-		print $q->hidden($_);
-	}
-	my $scheme_field_count;
-	if ( $q->param('no_js') ) {
-		$scheme_field_count = 4;
-	} else {
-		$scheme_field_count = $self->_highest_entered_fields('scheme') || 1;
-	}
+	print $q->hidden($_) foreach qw (db page scheme_id no_js);
+	my $scheme_field_count = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('scheme') || 1 );
 	my $scheme_field_heading = $scheme_field_count == 1 ? 'none' : 'inline';
-	print "<div style=\"white-space:nowrap\"><fieldset>\n<legend>Locus/scheme fields</legend>\n";
+	print "<div style=\"white-space:nowrap\">";
+	print "<fieldset style=\"float:left\">\n<legend>Locus/scheme fields</legend>\n";
 	print "<span id=\"scheme_field_heading\" style=\"display:$scheme_field_heading\"><label for=\"c0\">Combine searches with: </label>\n";
 	print $q->popup_menu( -name => 'c0', -id => 'c0', -values => [ "AND", "OR" ] );
 	print "</span><ul id=\"scheme_fields\">\n";
-	for ( my $i = 1 ; $i <= $scheme_field_count ; $i++ ) {
+
+	foreach my $i ( 1 .. $scheme_field_count ) {
 		print "<li>";
 		$self->_print_scheme_fields( $i, $scheme_field_count, $scheme_id, $selectitems, $cleaned );
 		print "</li>\n";
@@ -724,7 +717,7 @@ sub _print_profile_query_interface {
 			  );
 		}
 	}
-	print "<fieldset class=\"display\">\n";
+	print "<fieldset id=\"display_fieldset\" style=\"float:left\"><legend>Display/sort options</legend>\n";
 	print "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>\n";
 	$" = ' ';
 	print $q->popup_menu( -name => 'order', -id => 'order', -values => $orderitems, -labels => $cleaned );
@@ -744,16 +737,12 @@ sub _print_profile_query_interface {
 	print " records per page&nbsp;";
 	print
 " <a class=\"tooltip\" title=\"Records per page - Analyses use the full query dataset, rather than just the page shown.\">&nbsp;<i>i</i>&nbsp;</a>";
-	print "</span></li>\n\n";
-	my $page = $self->{'curate'} ? 'profileQuery' : 'query';
-	print
-"</ul><span style=\"float:left\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;scheme_id=$scheme_id\" class=\"resetbutton\">Reset</a></span><span style=\"float:right\">";
-	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	print "</span></fieldset>\n";
+	print "</span></li>\n</ul>\n";
+	print "</fieldset>\n";
 	print "</div>\n";
-
+	print "<div style=\"clear:both\"></div>";
 	if (@filters) {
-		print "<fieldset>\n";
+		print "<fieldset style=\"float:left\">\n";
 		print "<legend>Filter query by</legend>\n";
 		print "<ul>\n";
 		foreach (@filters) {
@@ -761,6 +750,11 @@ sub _print_profile_query_interface {
 		}
 		print "</ul>\n</fieldset>";
 	}
+	my $page = $self->{'curate'} ? 'profileQuery' : 'query';
+	print
+"<div style=\"clear:both\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;scheme_id=$scheme_id\" class=\"resetbutton\">Reset</a><span style=\"float:right\">";
+	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
+	print "</span></div>\n";
 	print $q->end_form;
 	print "</div></div>\n";
 }
@@ -779,12 +773,12 @@ sub _run_isolate_query {
 		$qry = $self->_modify_isolate_query_for_designations( $qry, \@errors );
 		$qry = $self->_modify_isolate_query_for_tags( $qry, \@errors );
 		$qry .= " ORDER BY ";
-		if ( $q->param('order') =~ /^la_(.+)\|\|/ || $q->param('order') =~ /^cn_(.+)/ ) {
+		if ( defined $q->param('order') && ( $q->param('order') =~ /^la_(.+)\|\|/ || $q->param('order') =~ /^cn_(.+)/ ) ) {
 			$qry .= "l_$1";
 		} else {
 			$qry .= $q->param('order') || 'id';
 		}
-		my $dir = $q->param('direction') eq 'descending' ? 'desc' : 'asc';
+		my $dir = ( defined $q->param('direction') && $q->param('direction') eq 'descending' ) ? 'desc' : 'asc';
 		$qry .= " $dir,$self->{'system'}->{'view'}.id;";
 	} else {
 		$qry = $q->param('query');
@@ -900,6 +894,7 @@ sub _generate_isolate_query_for_provenance_fields {
 			if ( any { $field =~ /(.*) \($_\)$/ } qw (id surname first_name affiliation) ) {
 				$qry .= $modifier . $self->search_users( $field, $operator, $text, $self->{'system'}->{'view'} );
 			} else {
+				$field = $self->{'system'}->{'view'}. '.' . $field;
 				if ( $operator eq 'NOT' ) {
 					if ( scalar @groupedfields ) {
 						$qry .= "$modifier (";
@@ -1111,7 +1106,7 @@ sub _modify_isolate_query_for_filters {
 			}
 		}
 	}
-	if ( $q->param('publication_list') ne '' ) {
+	if ( defined $q->param('publication_list') && $q->param('publication_list') ne '' ) {
 		my $pmid = $q->param('publication_list');
 		my $ids = $self->{'datastore'}->run_list_query( "SELECT isolate_id FROM refs WHERE pubmed_id=?", $pmid );
 		if ($pmid) {
@@ -1123,7 +1118,7 @@ sub _modify_isolate_query_for_filters {
 			}
 		}
 	}
-	if ( $q->param('project_list') ne '' ) {
+	if ( defined $q->param('project_list') && $q->param('project_list') ne '' ) {
 		my $project_id = $q->param('project_list');
 		if ($project_id) {
 			$" = "','";
@@ -1194,6 +1189,7 @@ sub _modify_isolate_query_for_filters {
 				my $scheme_loci  = $self->{'datastore'}->get_scheme_loci($scheme_id);
 				my $joined_table = "SELECT $view.id FROM $view";
 				$" = ',';
+
 				foreach (@$scheme_loci) {
 					$joined_table .= " left join allele_designations AS $_ on $_.isolate_id = $self->{'system'}->{'view'}.id";
 				}
@@ -1213,7 +1209,7 @@ sub _modify_isolate_query_for_filters {
 				foreach (@$scheme_loci) {
 					push @temp, "$_.locus='$_'";
 				}
-				$joined_table .= " @temp";				
+				$joined_table .= " @temp";
 				if ( $scheme_field_info->{'type'} eq 'integer' ) {
 					$clause = "(id IN ($joined_table AND CAST($field AS int) = '$value'))";
 				} else {
@@ -1238,11 +1234,11 @@ sub _modify_isolate_query_for_designations {
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		if ( defined $q->param("lt$i") && $q->param("lt$i") ne '' ) {
 			if ( $q->param("ls$i") =~ /^l_(.+)/ || $q->param("ls$i") =~ /^la_(.+)\|\|/ || $q->param("ls$i") =~ /^cn_(.+)/ ) {
-				my $locus = $1;
-				$locus =~ s/'/\\'/g;
+				my $locus      = $1;
 				my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-				my $operator   = $q->param("ly$i");
-				my $text       = $q->param("lt$i");
+				$locus =~ s/'/\\'/g;
+				my $operator = $q->param("ly$i");
+				my $text     = $q->param("lt$i");
 				next if $combo{"$locus\_$operator\_$text"};    #prevent duplicates
 				$combo{"$locus\_$operator\_$text"} = 1;
 				$text =~ s/^\s*//;
@@ -1264,21 +1260,22 @@ sub _modify_isolate_query_for_designations {
 					push @lqry,
 					  (
 						( $text eq '<blank>' || $text eq 'null' )
-						? "(EXISTS (SELECT 1 WHERE allele_designations.locus='$locus'))"
-						: "(allele_designations.locus='$locus' AND NOT upper(allele_designations.allele_id) = upper('$text'))"
+						? "(EXISTS (SELECT 1 WHERE allele_designations.locus=E'$locus'))"
+						: "(allele_designations.locus=E'$locus' AND NOT upper(allele_designations.allele_id) = upper(E'$text'))"
 					  );
 				} elsif ( $operator eq "contains" ) {
-					push @lqry, "(allele_designations.locus='$locus' AND upper(allele_designations.allele_id) LIKE upper('\%$text\%'))";
+					push @lqry, "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) LIKE upper(E'\%$text\%'))";
 				} elsif ( $operator eq "NOT contain" ) {
-					push @lqry, "(allele_designations.locus='$locus' AND NOT upper(allele_designations.allele_id) LIKE upper('\%$text\%'))";
+					push @lqry,
+					  "(allele_designations.locus=E'$locus' AND NOT upper(allele_designations.allele_id) LIKE upper(E'\%$text\%'))";
 				} elsif ( $operator eq '=' ) {
 					if ( $text eq '<blank>' || $text eq 'null' ) {
-						push @lqry_blank, "(id NOT IN (SELECT isolate_id FROM allele_designations WHERE locus='$locus'))";
+						push @lqry_blank, "(id NOT IN (SELECT isolate_id FROM allele_designations WHERE locus=E'$locus'))";
 					} else {
 						push @lqry,
 						  $locus_info->{'allele_id_format'} eq 'text'
-						  ? "(allele_designations.locus='$locus' AND upper(allele_designations.allele_id) = upper('$text'))"
-						  : "(allele_designations.locus='$locus' AND allele_designations.allele_id = '$text')";
+						  ? "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) = upper(E'$text'))"
+						  : "(allele_designations.locus=E'$locus' AND allele_designations.allele_id = E'$text')";
 					}
 				} else {
 					if ( $text eq 'null' ) {
@@ -1286,9 +1283,10 @@ sub _modify_isolate_query_for_designations {
 						next;
 					}
 					if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-						push @lqry, "(allele_designations.locus='$locus' AND CAST(allele_designations.allele_id AS int) $operator '$text')";
+						push @lqry,
+						  "(allele_designations.locus=E'$locus' AND CAST(allele_designations.allele_id AS int) $operator E'$text')";
 					} else {
-						push @lqry, "(allele_designations.locus='$locus' AND allele_designations.allele_id $operator '$text')";
+						push @lqry, "(allele_designations.locus=E'$locus' AND allele_designations.allele_id $operator E'$text')";
 					}
 				}
 			}
@@ -1374,8 +1372,8 @@ sub _modify_isolate_query_for_designations {
 	my $brace = @sqry ? '(' : '';
 	if (@lqry) {
 		$" = ' OR ';
-		my $modify;
-		if ( $q->param('c1') eq 'AND' ) {
+		my $modify = '';
+		if ( defined $q->param('c1') && $q->param('c1') eq 'AND' ) {
 			$modify = "GROUP BY id HAVING count(id)=" . scalar @lqry;
 		}
 		my $lqry =
@@ -1396,7 +1394,7 @@ sub _modify_isolate_query_for_designations {
 		}
 	}
 	if (@sqry) {
-		my $andor = $q->param('c1');
+		my $andor = $q->param('c1') || '';
 		$" = " $andor ";
 		my $sqry = "@sqry";
 		if ( $qry =~ /\(\)$/ ) {
@@ -1621,7 +1619,7 @@ sub _run_profile_query {
 	} elsif ( $qry !~ /\(\)/ ) {
 		my @hidden_attributes;
 		push @hidden_attributes, 'c0', 'c1';
-		for ( my $i = 1 ; $i <= MAX_ROWS ; $i++ ) {
+		foreach my $i ( 1 .. MAX_ROWS ) {
 			push @hidden_attributes, "s$i", "t$i", "y$i", "ls$i", "ly$i", "lt$i";
 		}
 		foreach ( @{ $self->{'xmlHandler'}->get_field_list() } ) {

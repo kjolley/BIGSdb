@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::DownloadAllelesPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::Page);
 use List::MoreUtils qw(none any);
 use Log::Log4perl qw(get_logger);
@@ -99,7 +100,7 @@ sub print_content {
 			print "This function is not available for isolate databases.\n";
 			return;
 		}
-		if ( $self->{'system'}->{'disable_seq_downloads'} eq 'yes' && !$self->is_admin ) {
+		if ( $self->{'system'}->{'disable_seq_downloads'} && $self->{'system'}->{'disable_seq_downloads'} eq 'yes' && !$self->is_admin ) {
 			print "Allele sequence downloads are disabled for this database.\n";
 			return;
 		}
@@ -112,8 +113,12 @@ sub print_content {
 		}
 		return;
 	}
-	if ( $q->param('scheme_id') ne '' ) {
+	if ( defined $q->param('scheme_id') ) {
 		my $scheme_id = $q->param('scheme_id');
+		if ( !BIGSdb::Utils::is_int($scheme_id) ) {
+			$logger->warn("Invalid scheme selected - $scheme_id");
+			return;
+		}
 		if ( $scheme_id == -1 ) {
 			my $schemes = $self->{'datastore'}->run_list_query_hashref("SELECT id,description FROM schemes ORDER BY display_order,id");
 			foreach (@$schemes) {
@@ -126,8 +131,12 @@ sub print_content {
 			$self->_print_scheme_table( $scheme_id, $desc );
 		}
 		return;
-	} elsif ( $q->param('group_id') ne '' ) {
+	} elsif ( $q->param('group_id') ) {
 		my $group_id = $q->param('group_id');
+		if ( !BIGSdb::Utils::is_int($group_id) ) {
+			$logger->warn("Invalid group selected - $group_id");
+			return;
+		}
 		my $scheme_ids;
 		if ( $group_id == 0 ) {
 			$scheme_ids =
@@ -149,7 +158,8 @@ sub print_content {
 		print "<div class=\"box\" id=\"statusbad\"><p>This function is not available for isolate databases.</p></div>\n";
 		return;
 	}
-	if ( $self->{'system'}->{'disable_seq_downloads'} eq 'yes' && !$self->is_admin ) {
+	if ( defined $self->{'system'}->{'disable_seq_downloads'} && $self->{'system'}->{'disable_seq_downloads'} eq 'yes' && !$self->is_admin )
+	{
 		print "<div class=\"box\" id=\"statusbad\"><p>Allele sequence downloads are disabled for this database.</p></div>\n";
 		return;
 	}
@@ -235,6 +245,7 @@ sub _print_scheme_table {
 			$logger->($@) if $@;
 			my ($desc_exists) = $desc_sql->fetchrow_array;
 			print "($locus_info->{'common_name'})" if $locus_info->{'common_name'};
+
 			if ($desc_exists) {
 				print
 " <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$_\" class=\"info_tooltip\">&nbsp;i&nbsp;</a>";

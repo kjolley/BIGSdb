@@ -1,6 +1,6 @@
 #SchemeBreakdown.pm - SchemeBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::Plugins::SchemeBreakdown;
 use strict;
+use warnings;
 use base qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -35,7 +36,7 @@ sub get_attributes {
 		buttontext  => 'Schemes/alleles',
 		menutext    => 'Scheme and alleles',
 		module      => 'SchemeBreakdown',
-		version     => '1.0.4',
+		version     => '1.0.5',
 		section     => 'breakdown,postquery',
 		input       => 'query',
 		requires    => '',
@@ -66,7 +67,7 @@ sub get_hidden_attributes {
 }
 
 sub run {
-	my ($self)   = @_;
+	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
 	my $format     = $q->param('format');
@@ -77,7 +78,7 @@ sub run {
 		print "<h1>Scheme field and allele breakdown of dataset</h1>\n";
 	}
 	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
-	my $loci = $self->{'datastore'}->run_list_query("SELECT id FROM loci ORDER BY id");
+	my $loci    = $self->{'datastore'}->run_list_query("SELECT id FROM loci ORDER BY id");
 	if ( !scalar @$loci ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>No loci are defined for this database.</p></div>\n";
 		return;
@@ -88,18 +89,17 @@ sub run {
 	$qry =~ s/ORDER BY.*$//g;
 	$logger->debug("Breakdown query: $qry");
 	return if !$self->create_temp_tables($qry_ref);
-		my $locus_info_sql = $self->{'db'}->prepare("SELECT id,common_name FROM loci WHERE common_name IS NOT NULL");
-	eval { $locus_info_sql->execute; };    
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	my $locus_info_sql = $self->{'db'}->prepare("SELECT id,common_name FROM loci WHERE common_name IS NOT NULL");
+	eval { $locus_info_sql->execute };
+	$logger->error($@) if $@;
 	my $locus_info = $locus_info_sql->fetchall_hashref('id');
 	if ( $q->param('field_breakdown') ) {
 		my $field_query = $qry;
 		my $field_type  = 'text';
+		my $scheme_id;
 		if ( $q->param('type') eq 'field' ) {
 			if ( $q->param('field') =~ /^(\d+)_(.*)$/ ) {
-				my $scheme_id = $1;
+				$scheme_id = $1;
 				$field = $2;
 				if ( !$self->{'datastore'}->is_scheme_field( $scheme_id, $field ) ) {
 					print "<div class=\"box\" id=\"statusbad\"><p>Invalid field passed for analysis!</p></div>\n";
@@ -125,11 +125,11 @@ sub run {
 				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 				$field_type = $scheme_field_info->{'type'};
 				if ( $field_type eq 'integer' ) {
-					$field_query =~ s/\*/DISTINCT(CAST($field AS int)),COUNT($field)/;
+					$field_query =~ s/\*/DISTINCT(CAST(scheme_$scheme_id\.$field AS int)),COUNT(scheme_$scheme_id\.$field)/;
 				} else {
-					$field_query =~ s/\*/DISTINCT($field),COUNT($field)/;
+					$field_query =~ s/\*/DISTINCT(scheme_$scheme_id\.$field),COUNT(scheme_$scheme_id\.$field)/;
 				}
-				if ( $qry =~ /SELECT \* FROM refs/ || $qry =~ /SELECT \* FROM $self->{'system'}->{'view'} LEFT JOIN refs/) {
+				if ( $qry =~ /SELECT \* FROM refs/ || $qry =~ /SELECT \* FROM $self->{'system'}->{'view'} LEFT JOIN refs/ ) {
 					$field_query =~
 					  s/FROM $self->{'system'}->{'view'}/FROM $self->{'system'}->{'view'} LEFT JOIN refs ON refs.isolate_id=id/;
 				}
@@ -175,7 +175,12 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 		}
 		my $order;
 		my $guid = $self->get_guid;
-		my $temp_fieldname = $q->param('type') eq 'locus' ? 'allele_id' : $field;
+		my $temp_fieldname;
+		if ($q->param('type') eq 'locus'){
+			$temp_fieldname = 'allele_id';
+		} else {
+			$temp_fieldname = defined $scheme_id ? "scheme_$scheme_id\.$field" : $field;
+		} 
 		try {
 			$order = $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'SchemeBreakdown', 'order' );
 			if ( $order eq 'frequency' ) {
@@ -191,39 +196,35 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 			$order = "COUNT($temp_fieldname) desc";
 		};
 		$field_query .= " ORDER BY $order";
-#		$field_query = "SET enable_nestloop = off; " . $field_query;
+
+		#		$field_query = "SET enable_nestloop = off; " . $field_query;
 		my $sql = $self->{'db'}->prepare($field_query);
-		eval { $sql->execute(); };
-		if ($@) {
-			$logger->error("Can't execute $field_query $@");
-		}
+		eval { $sql->execute };
+		$logger->error($@) if $@;
 		my $heading = $q->param('type') eq 'field' ? $field : $q->param('field');
-		my $html_heading;
+		my $html_heading = '';
 		if ( $q->param('type') eq 'locus' ) {
 			my $locus = $q->param('field');
 			my @other_display_names;
 			push @other_display_names, $locus_info->{$locus}->{'common_name'} if $locus_info->{$locus}->{'common_name'};
 			$" = '; ';
-			my $aliases =
-			  $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias", $locus );
-			 push @other_display_names, @$aliases if @$aliases;
+			my $aliases = $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias", $locus );
+			push @other_display_names, @$aliases if @$aliases;
 			$html_heading .= " <span class=\"comment\">(@other_display_names)</span>" if @other_display_names;
 		}
-		$heading =~ tr/_/ /;
+		
 		my $td = 1;
-		if ( $format ne 'text' ) {
-			print "<div class=\"box\" id=\"resultstable\"><div class=\"scrollable\">";
-			print "<table><tr><td style=\"vertical-align:top\">\n";
-		}
 		$qry =~ s/\*/COUNT(\*)/;
 		my $total = $self->{'datastore'}->run_simple_query($qry)->[0];
 		if ( $format eq 'text' ) {
 			print "Total: $total isolates\n\n";
 			print "$heading\tFrequency\tPercentage\n";
 		} else {
+			print "<div class=\"box\" id=\"resultstable\"><div class=\"scrollable\">";
+			print "<table><tr><td style=\"vertical-align:top\">\n";	
 			print "<p>Total: $total isolates</p>\n";
-			
 			print "<table class=\"tablesorter\" id=\"sortTable\">\n";
+			$heading = $self->clean_locus($heading) if $q->param('type') eq 'locus';
 			print "<thead><tr><th>$heading$html_heading</th><th>Frequency</th><th>Percentage</th></tr></thead>\n";
 		}
 		my ( @labels, @values );
@@ -234,16 +235,16 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 					print "$allele_id\t$count\t$percentage\n";
 				} else {
 					print "<tr class=\"td$td\"><td>";
-					if ($allele_id eq ''){
+					if ( $allele_id eq '' ) {
 						print 'No value';
 					} else {
 						my $url;
-						if ($q->param('type') eq 'locus'){
-							$url = $self->{'datastore'}->get_locus_info($q->param('field'))->{'url'};
+						if ( $q->param('type') eq 'locus' ) {
+							$url = $self->{'datastore'}->get_locus_info( $q->param('field') )->{'url'};
 							$url =~ s/\&/\&amp;/g;
 							$url =~ s/\[\?\]/$allele_id/;
 						}
-						if ($url){
+						if ($url) {
 							print "<a href=\"$url\">$allele_id</a>";
 						} else {
 							print $allele_id;
@@ -252,20 +253,18 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 					print "</td><td>$count</td><td>$percentage</td></tr>\n";
 					$td = $td == 1 ? 2 : 1;
 				}
-				push @labels, ($allele_id ne '') ? $allele_id : 'No value';
+				push @labels, ( $allele_id ne '' ) ? $allele_id : 'No value';
 				push @values, $count;
 			}
 		}
 		if ( $format ne 'text' ) {
 			print "</table>\n";
 			print "</td><td style=\"vertical-align:top; padding-left:2em\">\n";
-			my $query_file_att = "&amp;query_file=" . $q->param('query_file') if $q->param('query_file');
+			my $query_file_att = $q->param('query_file') ? ("&amp;query_file=" . $q->param('query_file')) : undef;
 			print $q->start_form;
 			print $q->submit( -name => 'field_breakdown', -label => 'Tab-delimited text', -class => 'smallbutton' );
 			$q->param( 'format', 'text' );
-			foreach (qw (query_file field type page name db format)) {
-				print $q->hidden($_);
-			}
+			print $q->hidden($_) foreach qw (query_file field type page name db format);
 			print $q->end_form;
 			if ( $self->{'config'}->{'chartdirector'} ) {
 				my %prefs;
@@ -286,11 +285,11 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 					$prefs{'style'} = 'doughnut';
 				};
 				my $temp = BIGSdb::Utils::get_random();
-				BIGSdb::Charts::piechart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$temp\_$field\_pie.png",
+				BIGSdb::Charts::piechart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$temp\_pie.png",
 					24, 'small', \%prefs );
-				print "<img src=\"/tmp/$temp\_$field\_pie.png\" alt=\"pie chart\" />\n";
-				BIGSdb::Charts::barchart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$temp\_$field\_bar.png", 'small', \%prefs );
-				print "<img src=\"/tmp/$temp\_$field\_bar.png\" alt=\"bar chart\" />\n";
+				print "<img src=\"/tmp/$temp\_pie.png\" alt=\"pie chart\" />\n";
+				BIGSdb::Charts::barchart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$temp\_bar.png", 'small', \%prefs );
+				print "<img src=\"/tmp/$temp\_bar.png\" alt=\"bar chart\" />\n";
 			}
 			print "</td></tr></table>\n";
 			print "</div></div>\n";
@@ -302,7 +301,7 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 	print "<tr><th>Field name</th><th>Unique values</th><th>Analyse</th><th>Locus</th><th>Unique alleles</th><th>Analyse</th></tr>\n";
 	my $td = 1;
 	$| = 1;
-	my $alias_sql  = $self->{'db'}->prepare("SELECT alias FROM locus_aliases WHERE locus=?");
+	my $alias_sql = $self->{'db'}->prepare("SELECT alias FROM locus_aliases WHERE locus=?");
 	foreach my $scheme_id ( @$schemes, 0 ) {
 		next
 		  if !$self->{'prefs'}->{'analysis_schemes'}->{$scheme_id}
@@ -310,14 +309,13 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 		my ( $fields, $loci );
 		if ($scheme_id) {
 			$fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-			$loci = $self->{'datastore'}->get_scheme_loci( $scheme_id, ({'profile_name' => 0, 'analysis_pref' => 1}) );
+			$loci = $self->{'datastore'}->get_scheme_loci( $scheme_id, ( { 'profile_name' => 0, 'analysis_pref' => 1 } ) );
 		} else {
 			$loci   = $self->{'datastore'}->get_loci_in_no_scheme(1);
 			$fields = \@;;
 		}
 		next if !@$loci && !@$fields;
-		my $rows = ( scalar @$fields >= scalar @$loci ? scalar @$fields : scalar @$loci )
-		  || 1;
+		my $rows = ( @$fields >= @$loci ? @$fields : @$loci ) || 1;
 		my $scheme_info;
 		if ($scheme_id) {
 			$scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
@@ -339,31 +337,29 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 			};
 			return if !$continue;
 		}
-		print "<tr class=\"td$td\"><td rowspan=\"$rows\">$scheme_info->{'description'}</td>";
+		(my $desc = $scheme_info->{'description'}) =~ s/&/&amp;/g;
+		print "<tr class=\"td$td\"><td rowspan=\"$rows\">$desc</td>";
 		for ( my $i = 0 ; $i < $rows ; $i++ ) {
 			print "<tr class=\"td$td\">" if $i;
-			my $display = $fields->[$i];
+			my $display = $fields->[$i] || '';
 			$display =~ tr/_/ /;
 			print "<td>$display</td>";
 			if ( $scheme_info->{'dbase_name'} && @$fields && $fields->[$i] ) {
 				my $scheme_query = $$scheme_fields_qry;
-				
-				$scheme_query =~ s/\*/COUNT (DISTINCT($fields->[$i]))/;
-				if ( $qry =~ /SELECT \* FROM refs/ || $qry =~ /SELECT \* FROM $self->{'system'}->{'view'} LEFT JOIN refs/) {
+				$scheme_query =~ s/\*/COUNT (DISTINCT(scheme_$scheme_id\.$fields->[$i]))/;
+				if ( $qry =~ /SELECT \* FROM refs/ || $qry =~ /SELECT \* FROM $self->{'system'}->{'view'} LEFT JOIN refs/ ) {
 					$scheme_query =~
 					  s/FROM $self->{'system'}->{'view'}/FROM $self->{'system'}->{'view'} LEFT JOIN refs ON refs.isolate_id=id/;
-				} 
+				}
 				if ( $qry =~ /WHERE (.*)$/ ) {
 					$scheme_query .= " AND ($1)";
 				}
-#				$scheme_query = "SET enable_nestloop = off; " . $scheme_query;
+
+				#				$scheme_query = "SET enable_nestloop = off; " . $scheme_query;
 				my $sql = $self->{'db'}->prepare($scheme_query);
 				$logger->debug($scheme_query);
-				
-				eval { $sql->execute; };
-				if ($@) {
-					$logger->error("Can't execute $scheme_query $@");
-				}
+				eval { $sql->execute };
+				$logger->error($@) if $@;
 				my ($value) = $sql->fetchrow_array;
 				print "<td>$value</td><td>";
 				if ($value) {
@@ -372,38 +368,37 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 					print $q->hidden( 'field',           "$scheme_id\_$fields->[$i]" );
 					print $q->hidden( 'type',            'field' );
 					print $q->hidden( 'field_breakdown', 1 );
-					foreach (qw (page name db query_file)) {
-						print $q->hidden($_);
-					}
+					print $q->hidden($_) foreach qw (page name db query_file);
 					print $q->end_form;
 				}
 				print "</td>";
 			} else {
 				print "<td /><td />";
 			}
-			$display = $loci->[$i];
+			$display = $self->clean_locus($loci->[$i]);
 			my @other_display_names;
-			push @other_display_names, $locus_info->{$loci->[$i]}->{'common_name'} if $locus_info->{$loci->[$i]}->{'common_name'};
-			if ( $self->{'prefs'}->{'locus_alias'} ) {
-				eval { $alias_sql->execute( $loci->[$i] ); };
-				if ($@) {
-					$logger->error("Can't execute alias check $@");
-				} else {
-					while ( my ($alias) = $alias_sql->fetchrow_array ) {
-						push @other_display_names, $alias;
+			if (defined $loci->[$i]){
+				push @other_display_names, $locus_info->{ $loci->[$i] }->{'common_name'} if $locus_info->{ $loci->[$i] }->{'common_name'};
+				if ( $self->{'prefs'}->{'locus_alias'} ) {
+					eval { $alias_sql->execute( $loci->[$i] ) };
+					if ($@) {
+						$logger->error($@);
+					} else {
+						while ( my ($alias) = $alias_sql->fetchrow_array ) {
+							push @other_display_names, $alias;
+						}
 					}
 				}
-				
 			}
-			$display .= " <span class=\"comment\">(@other_display_names)</span>" if @other_display_names;
-			$display =~ tr/_/ /;
-			print "<td>$display</td>";
+			if (@other_display_names){
+				$display .= " <span class=\"comment\">(@other_display_names)</span>";
+				$display =~ tr/_/ /;
+			}
+			print defined $display ? "<td>$display</td>" : '<td />';
 			if ( $loci->[$i] ) {
 				my $cleaned_locus = $loci->[$i];
 				$cleaned_locus =~ s/'/\\'/g;
-				
 				my $locus_query = $qry;
-				
 				$locus_query =~
 s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT \* FROM $self->{'system'}->{'view'} LEFT JOIN allele_designations ON isolate_id=id/;
 				$locus_query =~ s/\*/COUNT (DISTINCT(allele_id))/;
@@ -416,10 +411,8 @@ s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT \* FROM $self->{'system'}->{
 				$locus_query =~
 s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}->{'view'} LEFT JOIN allele_designations ON isolate_id=id/;
 				my $sql = $self->{'db'}->prepare($locus_query);
-				eval { $sql->execute(); };
-				if ($@) {
-					$logger->error("Can't execute $locus_query $@");
-				}
+				eval { $sql->execute };
+				$logger->error($@) if $@;
 				my ($value) = $sql->fetchrow_array;
 				print "<td>$value</td><td>";
 				if ($value) {
@@ -428,9 +421,7 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 					print $q->hidden( 'field',           $loci->[$i] );
 					print $q->hidden( 'type',            'locus' );
 					print $q->hidden( 'field_breakdown', 1 );
-					foreach (qw (page name db query_file)) {
-						print $q->hidden($_);
-					}
+					print $q->hidden($_) foreach qw (page name db query_file);
 					print $q->end_form;
 				}
 				print "</td>";
@@ -440,6 +431,10 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 			print "</tr>\n";
 		}
 		$td = $td == 1 ? 2 : 1;
+		if ( $ENV{'MOD_PERL'} ) {
+			$self->{'mod_perl_request'}->rflush;
+			return if $self->{'mod_perl_request'}->connection->aborted;
+		}
 	}
 	print "</table>\n";
 	print "</div>\n";
@@ -459,8 +454,7 @@ sub _get_scheme_fields_sql {
 	my @temp;
 	foreach (@$scheme_loci) {
 		my $locus_info = $self->{'datastore'}->get_locus_info($_);
-		push @temp,
-		  $locus_info->{'allele_id_format'} eq 'integer'
+		push @temp, $locus_info->{'allele_id_format'} eq 'integer'
 		  ? " CAST($_.allele_id AS int)=scheme_$scheme_id\.$_"
 		  : " $_.allele_id=scheme_$scheme_id\.$_";
 	}

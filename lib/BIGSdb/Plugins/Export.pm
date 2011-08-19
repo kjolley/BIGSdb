@@ -1,6 +1,6 @@
 #Export.pm - Export plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::Plugins::Export;
 use strict;
+use warnings;
 use base qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -42,7 +43,7 @@ sub get_attributes {
 		section     => 'export,postquery',
 		input       => 'query',
 		requires    => 'refdb',
-		help		=> 'tooltips',
+		help        => 'tooltips',
 		order       => 15
 	);
 	return \%att;
@@ -50,9 +51,9 @@ sub get_attributes {
 
 sub get_option_list {
 	my @list = (
-		{ name => 'alleles', description => 'Export allele numbers',            default => '1' },
-		{ name => 'molwt',   description => 'Export protein molecular weights', default => '0' },
-		{ name => 'met', description => 'GTG/TTG at start codes for methionine', default => '1'}
+		{ name => 'alleles', description => 'Export allele numbers',                 default => '1' },
+		{ name => 'molwt',   description => 'Export protein molecular weights',      default => '0' },
+		{ name => 'met',     description => 'GTG/TTG at start codes for methionine', default => '1' }
 	);
 	return \@list;
 }
@@ -172,10 +173,8 @@ sub _write_tab_text {
 	}
 	print $fh "\n";
 	my $sql = $self->{'db'}->prepare($$qry_ref);
-	eval { $sql->execute; };
-	if ($@) {
-		$logger->error("Can't execute $$qry_ref");
-	}
+	eval { $sql->execute };
+	$logger->error($@) if $@;
 	my %data           = ();
 	my $fields_to_bind = $self->{'xmlHandler'}->get_field_list;
 	$sql->bind_columns( map { \$data{$_} } @$fields_to_bind );    #quicker binding hash to arrayref than to use hashref
@@ -200,10 +199,8 @@ sub _write_tab_text {
 			if ( $_ =~ /^f_(.*)/ ) {
 				my $field = $1;
 				if ( $field eq 'aliases' ) {
-					eval { $alias_sql->execute( $data{'id'} ); };
-					if ($@) {
-						$logger->error("Can't execute alias query $@");
-					}
+					eval { $alias_sql->execute( $data{'id'} ) };
+					$logger->error($@) if $@;
 					my @aliases;
 					while ( my ($alias) = $alias_sql->fetchrow_array ) {
 						push @aliases, $alias;
@@ -212,25 +209,23 @@ sub _write_tab_text {
 					print $fh "@aliases";
 				} elsif ( $field =~ /(.*)___(.*)/ ) {
 					my ( $isolate_field, $attribute ) = ( $1, $2 );
-					eval { $attribute_sql->execute( $isolate_field, $attribute, $data{$isolate_field} ); };
-					if ($@) {
-						$logger->error("Can't execute $@");
-					}
+					eval { $attribute_sql->execute( $isolate_field, $attribute, $data{$isolate_field} ) };
+					$logger->error($@) if $@;
 					my ($value) = $attribute_sql->fetchrow_array;
 					print $fh $value;
 				} else {
-					print $fh $data{$field};
+					print $fh $data{$field} if defined $data{$field};
 				}
 			} elsif ( $_ =~ /^(s_\d+_l_|l_)(.*)/ ) {
 				my $locus            = $2;
 				my $locus_value_used = 0;
 				if ( $prefs{'alleles'} ) {
-					print $fh $allele_ids->{$locus};
+					print $fh $allele_ids->{$locus} if defined $allele_ids->{$locus};
 					$locus_value_used = 1;
 				}
 				if ( $prefs{'molwt'} ) {
 					print $fh "\t" if $locus_value_used;
-					print $fh $self->_get_molwt( $locus, $allele_ids->{$locus} ,$prefs{'met'});
+					print $fh $self->_get_molwt( $locus, $allele_ids->{$locus}, $prefs{'met'} );
 				}
 			} elsif ( $_ =~ /^s_(\d+)_f_(.*)/ ) {
 				if ( ref $scheme_field_values->{$1} ne 'ARRAY' ) {
@@ -238,8 +233,8 @@ sub _write_tab_text {
 				}
 				my $value = $scheme_field_values->{$1}->[ $scheme_field_pos->{$1}->{$2} ];
 				undef $value
-				  if $value eq '-999';    #old null code from mlstdbNet databases
-				print $fh $value;
+				  if defined $value && $value eq '-999';    #old null code from mlstdbNet databases
+				print $fh $value if defined $value;
 			} elsif ( $_ =~ /^c_(.*)/ ) {
 				my $value = $self->{'datastore'}->get_composite_value( $data{'id'}, $1, \%data );
 				print $fh $value;
@@ -272,7 +267,7 @@ sub _get_molwt {
 			#do nothing
 		};
 		my $seq = BIGSdb::Utils::chop_seq( $$seq_ref, $locus_info->{'orf'} || 1 );
-		if ($met){
+		if ($met) {
 			$seq =~ s/^(TTG|GTG)/ATG/;
 		}
 		$peptide = Bio::Perl::translate_as_string($seq) if $seq;
@@ -280,13 +275,9 @@ sub _get_molwt {
 		$peptide = ${ $locus->get_allele_sequence($allele) };
 	}
 	return if !$peptide;
-	my $seqobj = Bio::PrimarySeq->new ( -seq => $peptide,
-				   -id  => $allele,
-				   -alphabet => 'protein',
-				   );
-	
-	my $seq_stats  = Bio::Tools::SeqStats->new($seqobj);
-  	my $weight = $seq_stats->get_mol_wt;
+	my $seqobj    = Bio::PrimarySeq->new( -seq => $peptide, -id => $allele, -alphabet => 'protein', );
+	my $seq_stats = Bio::Tools::SeqStats->new($seqobj);
+	my $weight    = $seq_stats->get_mol_wt;
 	return $weight->[0];
 }
 1;

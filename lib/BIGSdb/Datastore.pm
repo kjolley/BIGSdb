@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -165,7 +165,7 @@ sub get_composite_value {
 					my $field_value;
 					if ( ref $scheme_fields{$scheme_id} eq 'ARRAY' ) {
 						undef $scheme_fields{$scheme_id}->[$i]
-						  if $scheme_fields{$scheme_id}->[$i] eq
+						  if defined $scheme_fields{$scheme_id}->[$i] && $scheme_fields{$scheme_id}->[$i] eq
 							  '-999';    #Needed because old style profile databases may use '-999' to denote null values
 						$field_value = $scheme_fields{$scheme_id}->[$i];
 					} else {
@@ -173,11 +173,12 @@ sub get_composite_value {
 						last;
 					}
 					if ($regex) {
+						$field_value = defined $field_value ? $field_value : '';
 						my $expression = "\$field_value =~ $regex";
 						eval "$expression";
 					}
 					$value .=
-					    $scheme_fields{$scheme_id}->[$i] ne ''
+					  defined $scheme_fields{$scheme_id}->[$i] && $scheme_fields{$scheme_id}->[$i] ne ''
 					  ? $field_value
 					  : $empty_value;
 					last;
@@ -579,7 +580,7 @@ sub create_temp_scheme_table {
 	my $data = $scheme_sql->fetchall_arrayref;
 	foreach (@$data) {
 		foreach (@$_) {
-			$_ = '\N' if $_ eq '';
+			$_ = '\N' if !defined $_ || $_ eq '';
 		}
 		eval { $self->{'db'}->pg_putcopydata("@$_\n"); };
 		if ($@) {
@@ -997,14 +998,10 @@ sub get_citation_hash {
 	my $sqlr3 = $dbr->prepare("SELECT author FROM refauthors WHERE pmid=? ORDER BY position");
 
 	foreach (@$pmid_ref) {
-		eval { $sqlr->execute($_); };
-		if ($@) {
-			$logger->error("Can't execute $@");
-		}
+		eval { $sqlr->execute($_) };
+		$logger->error($@) if $@;
 		eval { $sqlr3->execute($_); };
-		if ($@) {
-			$logger->error("Can't execute $@");
-		}
+		$logger->error($@) if $@;
 		my ( $year, $journal, $title, $volume, $pages ) = $sqlr->fetchrow_array();
 		my @authors;
 		while ( my ($authorid) = $sqlr3->fetchrow_array() ) {
@@ -1013,10 +1010,8 @@ sub get_citation_hash {
 		my ( $author, @author_list );
 		if ( $options->{'all_authors'} ) {
 			foreach (@authors) {
-				eval { $sqlr2->execute($_); };
-				if ($@) {
-					$logger->error("Can't execute query");
-				}
+				eval { $sqlr2->execute($_) };
+				$logger->error($@) if $@;
 				my ( $surname, $initials ) = $sqlr2->fetchrow_array;
 				$author = "$surname $initials";
 				push @author_list, $author;
@@ -1024,12 +1019,10 @@ sub get_citation_hash {
 			$"      = ', ';
 			$author = "@author_list";
 		} else {
-			eval { $sqlr2->execute( $authors[0] ); };
-			if ($@) {
-				$logger->error("Can't execute query");
-			}
-			my ( $surname, $initials ) = $sqlr2->fetchrow_array();
-			$author .= $surname;
+			eval { $sqlr2->execute( $authors[0] ) };
+			$logger->error($@) if $@;
+			my ( $surname, undef ) = $sqlr2->fetchrow_array();
+			$author .= ($surname || 'Unknown');
 			if ( scalar @authors > 1 ) {
 				$author .= ' et al.';
 			}
@@ -2583,7 +2576,7 @@ sub _get_samples_table_attributes {
 	foreach (@$fields) {
 		my %field_attributes = $self->{'xmlHandler'}->get_sample_field_attributes($_);
 		my @optlist;
-		if ( $field_attributes{'optlist'} eq 'yes' ) {
+		if ( $field_attributes{'optlist'} && $field_attributes{'optlist'} eq 'yes' ) {
 			@optlist = $self->{'xmlHandler'}->get_field_option_list($_);
 		}
 		$" = ';';
@@ -2606,6 +2599,7 @@ sub _get_samples_table_attributes {
 
 sub is_table {
 	my ( $self, $qry ) = @_;
+	$qry ||= '';
 	my @tables = $self->get_tables();
 	return any { $_ eq $qry } @tables;
 }
@@ -2654,7 +2648,7 @@ sub get_tables_with_curator {
 
 sub get_primary_keys {
 	my ( $self, $table ) = @_;
-	return 'id' if $table eq $self->{'system'}->{'view'};
+	return 'id' if $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'};
 	my @keys;
 	my $attributes = $self->get_table_field_attributes($table);
 	foreach (@$attributes) {

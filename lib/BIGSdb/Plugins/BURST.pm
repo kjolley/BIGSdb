@@ -1,6 +1,6 @@
 #BURST.pm - BURST plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,6 +21,7 @@
 #BURST code is adapted from original C++ version by Man-Suen Chan.
 package BIGSdb::Plugins::BURST;
 use strict;
+use warnings;
 use base qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -61,9 +62,7 @@ sub run {
 	my $qry_ref;
 	my $pk;
 
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		$pk = 'id';
-	} else {
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		if ( !$scheme_id ) {
 			print "<div class=\"box\" id=\"statusbad\"><p>No scheme id passed.</p></div>\n";
 			return;
@@ -91,8 +90,9 @@ sub run {
 		return if ref $qry_ref ne 'SCALAR';
 		my $view = $self->{'system'}->{'view'};
 		return if !$self->create_temp_tables($qry_ref);
-		$$qry_ref =~ s/SELECT ($view\.\*|\*)/SELECT $pk/;
-		$self->rewrite_query_ref_order_by($qry_ref) if $self->{'system'}->{'dbtype'} eq 'isolates';
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+			$self->rewrite_query_ref_order_by($qry_ref);
+		}
 		$list = $self->{'datastore'}->run_list_query($$qry_ref);
 	} else {
 		print "<div class=\"box\" id=\"statusbad\">\n";
@@ -121,19 +121,15 @@ image format that can be manipulated and scaled in drawing packages, including t
 available <a href="http://www.inkscape.org">Inkscape</a>. </p>
 HTML
 	print $q->start_form;
-	foreach (qw (db page name query_file)) {
-		print $q->hidden($_);
-	}
+	print $q->hidden($_) foreach qw (db page name query_file);
 	my $locus_count;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $sql =
 		  $self->{'db'}->prepare(
 "SELECT id,description FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_members) AND id IN (SELECT scheme_id FROM scheme_fields WHERE primary_key) ORDER BY description"
 		  );
-		eval { $sql->execute; };
-		if ($@) {
-			$logger->error("Can't execute $@");
-		}
+		eval { $sql->execute };
+		$logger->error($@) if $@;
 		my @schemes;
 		my %desc;
 		while ( my ( $id, $desc ) = $sql->fetchrow_array ) {
@@ -183,12 +179,11 @@ sub _run_burst {
 		print "<div class=\"box\" id=\"statusbad\"><p>$error</p></div>\n";
 		return;
 	}
-	if (!$num_profiles){
+	if ( !$num_profiles ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>No complete profiles were returned for the selected scheme.</p></div>\n";
 		return;
 	}
-	$self->_recursive_search( $loci,$num_profiles, $profiles_ref, $matrix_ref, $profile_freq_ref );
-	
+	$self->_recursive_search( $loci, $num_profiles, $profiles_ref, $matrix_ref, $profile_freq_ref );
 }
 
 sub _get_profile_array {
@@ -197,7 +192,7 @@ sub _get_profile_array {
 	my %st_frequency;
 	my $num_profiles;
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	foreach (@$loci){
+	foreach (@$loci) {
 		$_ =~ s/'/_PRIME_/g;
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
@@ -228,6 +223,8 @@ sub _get_profile_array {
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 		my $i             = 0;
 		my $field_pos;
+		my $pk =
+		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key", $scheme_id )->[0];
 		foreach ($scheme_fields) {
 			if ( $scheme_fields->[$i] eq $pk ) {
 				$field_pos = $i;
@@ -261,22 +258,15 @@ sub _get_profile_array {
 		}
 		@profiles = sort { @{$a}[0] <=> @{$b}[0] } @profiles;
 	}
-#	$" = "\t";
-#	print "<pre>\n";
-#	foreach my $profile (@profiles) {
-#		print "@$profile\t$st_frequency{$profile->[0]}<br >";
-#	}
-#	print "</pre>\n";
-#	print "<p>Num profiles: $num_profiles</p>";
+
 	return ( $loci, \@profiles, \%st_frequency, $num_profiles );
 }
 
 sub _generate_distance_matrix {
-	my ( $self,$loci,$num_profiles, $profiles_ref ) = @_;
+	my ( $self, $loci, $num_profiles, $profiles_ref ) = @_;
 	my @profiles = @{$profiles_ref};
 	my @matrix;
 	my $error;
-
 	for ( my $i = 0 ; $i < $num_profiles ; $i++ ) {
 		for ( my $j = 0 ; $j < $num_profiles ; $j++ ) {
 			my $same = 0;
@@ -287,8 +277,7 @@ sub _generate_distance_matrix {
 				$matrix[$i][$j] = $same;
 				if ( $same == @$loci ) {
 					if ( $profiles[$i][0] != $profiles[$j][0] ) {
-						$error =
-"STs $profiles[$i][0] and $profiles[$j][0] have the same profile.";
+						$error = "STs $profiles[$i][0] and $profiles[$j][0] have the same profile.";
 						last;
 					}
 				}
@@ -299,14 +288,14 @@ sub _generate_distance_matrix {
 }
 
 sub _recursive_search {
-	my ( $self,$loci,$num_profiles, $profiles_ref, $matrix_ref, $profile_freq_ref ) = @_;
+	my ( $self, $loci, $num_profiles, $profiles_ref, $matrix_ref, $profile_freq_ref ) = @_;
 	my @profiles = @{$profiles_ref};
 	my @matrix   = @{$matrix_ref};
 	my %st_freq  = %$profile_freq_ref;
-
 	my @result;
-	my $grpdef = $self->{'cgi'}->param('grpdef') if $self->{'cgi'}->param('grpdef');
-	if ($grpdef =~ /n\-(\d+)/){
+	
+	my $grpdef = $self->{'cgi'}->param('grpdef') || 'n-2';
+	if ( $grpdef =~ /n\-(\d+)/ ) {
 		$grpdef = @$loci - $1;
 	}
 	if (   !BIGSdb::Utils::is_int($grpdef)
@@ -318,14 +307,12 @@ sub _recursive_search {
 	}
 	my $g = 0;
 	my @grp;
-
 	for ( my $search = 0 ; $search < $num_profiles ; $search++ ) {
-		if ( $grp[$search] == 0 ) {
+		if ( !defined $grp[$search] || $grp[$search] == 0 ) {
 			$g++;
 			$self->_dfs( $num_profiles, $search, $matrix_ref, \@grp, $grpdef, $g );
 		}
 	}
-
 	my $ng = $g + 1;
 
 	#calculate group details
@@ -333,20 +320,18 @@ sub _recursive_search {
 	print "<div class=\"box\" id=\"resultstable\">\n";
 	print "<h2>Groups:</h2>\n";
 	print "<strong>Group definition: $grpdef or more matches</strong>\n";
-	if ($self->{'config'}->{'mogrify_path'}){
+	if ( $self->{'config'}->{'mogrify_path'} ) {
 		print "<p>Groups with central STs will be displayed as an image.</p>\n";
 	}
-#	print "<table class=\"resultstable\">\n";
 	my $td = 1;
 	my @groupSize;
-
 	for ( my $group = 0 ; $group < $ng ; $group++ ) {
 		my $thisGroupSize = 0;
 		my $maxslv        = 0;
 		my $noancestor    = 0;
 		my $ancestor      = 0;
-
 		for ( my $i = 0 ; $i < $num_profiles ; $i++ ) {
+			$grp[$i] ||= 0;
 			for ( my $j = 0 ; $j < $num_profiles ; $j++ ) {
 				if ( ( $grp[$i] == $group ) && ( $grp[$j] == $group ) ) {
 					if ( $matrix[$i][$j] == @$loci ) {
@@ -362,7 +347,7 @@ sub _recursive_search {
 					}
 				}
 			}
-			if ( ( $grp[$i] == $group ) && ( $result[0][$i] > $maxslv ) ) {
+			if ( ( $grp[$i] == $group ) && ( defined $result[0][$i] && $result[0][$i] > $maxslv ) ) {
 				$maxslv = $result[0][$i];
 
 				#maxdlv=result[1][$i];
@@ -372,21 +357,21 @@ sub _recursive_search {
 				$thisGroupSize++;
 				$groupSize[$i] = $thisGroupSize;
 			}
-
 		}
 		my @grpDisMat;
 		my @st;
 		my $at = 0;
-
 		if ( $thisGroupSize > 1 ) {
 			$h++;
+			print "<div class=\"scrollable\" style=\"margin-bottom:1em\">\n";
 			print "<table class=\"resultstable\"><tr><th colspan=\"5\">group: $h</th></tr>\n";
-			print
-"<tr><th>ST</th><th>Frequency</th><th>SLV</th><th>DLV</th><th>SAT</th></tr>\n";
+			print "<tr><th>ST</th><th>Frequency</th><th>SLV</th><th>DLV</th><th>SAT</th></tr>\n";
 			if ( $maxslv < 2 ) {
 				$noancestor = 1;
 			} else {
 				for ( my $i = 1 ; $i < $num_profiles + 1 ; $i++ ) {
+					$grp[$i] ||= 0;
+					$result[0][$i] ||= 0;
 
 					#check for equal slv
 					if (   ( $grp[$i] == $group )
@@ -394,6 +379,10 @@ sub _recursive_search {
 						&& ( $i != $ancestor ) )
 					{
 						for ( my $j = 0 ; $j < $num_profiles ; $j++ ) {
+							$grp[$j]       ||= 0;
+							$result[0][$j] ||= 0;
+							$result[1][$j] ||= 0;
+							$result[1][$i] ||= 0;
 							if (   ( $grp[$j] == $group )
 								&& ( $result[0][$j] == $maxslv )
 								&& ( $result[1][$j] > $result[1][$i] ) )
@@ -404,7 +393,8 @@ sub _recursive_search {
 								&& ( $result[0][$j] == $maxslv )
 								&& ( $result[1][$j] == $result[1][$i] ) )
 							{
-
+								$st_freq{$i} ||= 0;
+								$st_freq{$j} ||= 0;
 								if ( $st_freq{$j} > $st_freq{$i} ) {
 									$ancestor = $j;
 								} elsif ( $st_freq{$j} == $st_freq{$i} ) {
@@ -432,20 +422,20 @@ sub _recursive_search {
 					if ($noancestor) {
 						$anc = ' ';
 					}
-					print
-					  "<tr class=\"td$td\"><td>$profiles[$i][0]$anc</td><td>";
-					print
-"$st_freq{$profiles[$i][0]}</td><td>$result[0][$i]</td><td>$result[1][$i]";
-					print "</td><td>$result[2][$i]</td></tr>\n";
+					print "<tr class=\"td$td\">";
+					print "<td>$profiles[$i][0]$anc</td>";
+					print "<td>$st_freq{$profiles[$i][0]}</td>";
+					print defined $result[0][$i] ? "<td>$result[0][$i]</td>" : '<td />';
+					print defined $result[1][$i] ? "<td>$result[1][$i]</td>" : '<td />';
+					print defined $result[2][$i] ? "<td>$result[2][$i]</td>" : '<td />';
+					print "</tr>\n";
 					$td = $td == 1 ? 2 : 1;    #row stripes
 					$st[$stCount] = $profiles[$i][0];
-
 					my $stCount2 = 0;
+
 					for ( my $j = 0 ; $j < $i ; $j++ ) {
 						if ( $grp[$j] == $group ) {
-
-							$grpDisMat[$stCount][$stCount2] =
-							  ( @$loci - $matrix[$i][$j] );
+							$grpDisMat[$stCount][$stCount2] = ( @$loci - $matrix[$i][$j] );
 							$st[$stCount] = $profiles[$i][0];
 							$stCount2++;
 						}
@@ -453,13 +443,11 @@ sub _recursive_search {
 					$stCount++;
 				}
 			}
-
 			if ($noancestor) {
 				$at = 0;
 			} else {
 				$at = $profiles[$ancestor][0];
 			}
-
 		}
 		if ( $thisGroupSize > 2 && !$noancestor ) {
 
@@ -472,42 +460,40 @@ sub _recursive_search {
 						$grpDisMat[$i][$j] = $grpDisMat[$j][$i];
 					}
 				}
-
 			}
 			if ( $self->{'config'}->{'mogrify_path'} ) {
 				my $imageFile = $self->_create_group_graphic( \@st, \@grpDisMat, $at );
 				print
 "<tr class=\"td2\"><td colspan=\"5\" style=\"border:1px dashed black\"><img src=\"/tmp/$imageFile.png\" alt=\"BURST group\" /></td></tr>\n";
-				print
-"<tr class=\"td1\"><td colspan=\"5\"><a href=\"/tmp/$imageFile.svg\">SVG file</a> (right click to save)</td></tr>\n";
+				print "<tr class=\"td1\"><td colspan=\"5\"><a href=\"/tmp/$imageFile.svg\">SVG file</a> (right click to save)</td></tr>\n";
 			}
-			
-		}	
-		print "</table><p />\n" if ( $thisGroupSize > 1 );
+		}
+		print "</table></div>\n" if ( $thisGroupSize > 1 );
 	}
 
 	# print singles
 	print "<h2>Singletons:</h2>\n";
+	print "<div class=\"scrollable\">\n";
 	my $buffer = "<table class=\"resultstable\"><tr><th>ST</th><th>Frequency</th></tr>";
 	$td = 1;
 	my $count;
 	for ( my $i = 0 ; $i < $num_profiles ; $i++ ) {
 		if ( $groupSize[$i] == 1 ) {
-			$buffer.= "<tr class=\"td$td\"><td>$profiles[$i][0]</td><td>";
-			$buffer.= "$st_freq{$profiles[$i][0]}</td></tr>\n";
+			$buffer .= "<tr class=\"td$td\"><td>$profiles[$i][0]</td><td>";
+			$buffer .= "$st_freq{$profiles[$i][0]}</td></tr>\n";
 			$td = $td == 1 ? 2 : 1;    #row stripes
 			$count++;
 		}
 	}
-	$buffer.= "</table>";
+	$buffer .= "</table></div>";
 	print $count ? $buffer : "<p>None</p>\n";
 	print "</div>\n";
 }
 
 sub _dfs {
-	my ( $self,$profile_count, $x, $matrix_ref, $grp_ref, $grpdef, $g ) = @_;
+	my ( $self, $profile_count, $x, $matrix_ref, $grp_ref, $grpdef, $g ) = @_;
 	for ( my $y = 0 ; $y < $profile_count ; $y++ ) {
-		if (   ( $$grp_ref[$y] == 0 )
+		if (   ( !defined $$grp_ref[$y] || $$grp_ref[$y] == 0 )
 			&& ( $$matrix_ref[$x][$y] > ( $grpdef - 1 ) ) )
 		{
 			$$grp_ref[$y] = $g;
@@ -517,19 +503,17 @@ sub _dfs {
 }
 
 sub _create_group_graphic {
-	my ( $self,$st_ref, $grpDisMat_ref, $at ) = @_;
-	my $q = $self->{'cgi'};
+	my ( $self, $st_ref, $grpDisMat_ref, $at ) = @_;
+	my $q       = $self->{'cgi'};
 	my $temp    = BIGSdb::Utils::get_random();
 	my $scale   = 5;
 	my @disMat  = @$grpDisMat_ref;
 	my @st      = @$st_ref;
 	my $num_sts = scalar @disMat;
 	my @assigned;
-
 	my @posntaken;
-
 	my $filename = "$temp\_$at";
-	open( FILE, '>',"$self->{'config'}->{'tmp_dir'}/$filename.svg" );
+	open( my $fh, '>', "$self->{'config'}->{'tmp_dir'}/$filename.svg" );
 	my @sts = @$st_ref;
 	my @atPosn;
 	my @radius;
@@ -548,6 +532,7 @@ sub _create_group_graphic {
 	}
 	$atList[0] = $atRow;
 	for ( my $j = 0 ; $j < $num_sts ; $j++ ) {
+		$assigned[$j] ||= 0;
 		if ( $disMat[$atRow][$j] == 1 && ( $assigned[$j] == 0 ) ) {
 			$assigned[$j] = -1;
 		} else {
@@ -574,7 +559,7 @@ sub _create_group_graphic {
 				$maxslv = $SLVs;
 			}
 		}
-		my $i = $atList[$a];
+		my $i = $atList[$a] || 0;
 		for ( my $j = 0 ; $j < $num_sts ; $j++ ) {
 			if ( $disMat[$i][$j] == 1 && ( $assigned[$j] == -9 ) ) {
 				$assigned[$j] = -1;    #temp assignment;
@@ -594,23 +579,21 @@ sub _create_group_graphic {
 		$width  = 11 * $unit;
 		$height = 11 * $unit;
 	} elsif ( $noAT == 1 ) {    # you can get three
-		    #ATs in a diagonal with a group defined as an SLV of a SLV.
-		    #We can only make the canvas medium sized therefore when there
-		    #is one auxiliary AT.
+		                        #ATs in a diagonal with a group defined as an SLV of a SLV.
+		                        #We can only make the canvas medium sized therefore when there
+		                        #is one auxiliary AT.
 		$width  = 21 * $unit;
 		$height = 21 * $unit;
 	} else {
 		$width  = 29 * $unit;
 		$height = 29 * $unit;
 	}
-
-	print FILE <<"SVG";
+	print $fh <<"SVG";
 <?xml version="1.0" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
 "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 <svg width="$width" height="$height" version="1.1" xmlns="http://www.w3.org/2000/svg">
 SVG
-
 	my @posnX;
 	my @posnY;
 
@@ -633,19 +616,17 @@ SVG
 	$posnY[7] = $posnY[0] + 10 * $unit;
 	$posnX[8] = $posnX[0] - 10 * $unit;
 	$posnY[8] = $posnY[0] - 10 * $unit;
-
 	for ( my $i = 0 ; $i < $num_sts ; $i++ ) {
+
 		if ( $assigned[$i] == -1 ) {
 			$assigned[$i] = -9;    #unassign temp assignments
 		}
 	}
-
 	my $count = 0;
 
 	#connected directly to centre
 	$atPosn[0]    = 0;
 	$posntaken[0] = 1;
-
 	my @conncentre;
 	my @angleValue;
 	for ( my $a = 1 ; $a < $noAT + 1 ; $a++ ) {
@@ -659,12 +640,10 @@ SVG
 			my $x2 = $posnX[ $atPosn[$a] ];
 			my $y2 = $posnY[ $atPosn[$a] ];
 			( $x1, $y1, $x2, $y2 ) = $self->_offset_line( $x1, $y1, $x2, $y2, $unit );
-			print FILE
-"<line x1=\"$x1\" y1=\"$y1\" x2=\"$x2\" y2=\"$y2\" stroke=\"black\" opacity=\"0.2\" stroke-width=\"1\"/>";
+			print $fh "<line x1=\"$x1\" y1=\"$y1\" x2=\"$x2\" y2=\"$y2\" stroke=\"black\" opacity=\"0.2\" stroke-width=\"1\"/>";
 		} else {
 			$conncentre[$a] = 0;
 		}
-
 	}
 
 	#connect to inner circle
@@ -680,19 +659,15 @@ SVG
 					my $y1 = $posnY[ $atPosn[$k] ];
 					my $x2 = $posnX[ $atPosn[$a] ];
 					my $y2 = $posnY[ $atPosn[$a] ];
-					( $x1, $y1, $x2, $y2 ) =
-					  $self->_offset_line( $x1, $y1, $x2, $y2, $unit );
-					print FILE
-"<line x1=\"$x1\" y1=\"$y1\" x2=\"$x2\" y2=\"$y2\" stroke=\"black\" stroke-width=\"1\"/>";
-					print FILE
-"<circle stroke=\"black\" fill=\"none\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
+					( $x1, $y1, $x2, $y2 ) = $self->_offset_line( $x1, $y1, $x2, $y2, $unit );
+					print $fh "<line x1=\"$x1\" y1=\"$y1\" x2=\"$x2\" y2=\"$y2\" stroke=\"black\" stroke-width=\"1\"/>";
+					print $fh "<circle stroke=\"black\" fill=\"none\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
 					  . ( $unit / 2 ) . "\"/>";
 				}
 			}
 		}
 	}
 
-	#
 	for ( my $a = 1 ; $a < $noAT + 1 ; $a++ ) {
 		my $k;
 		if ( $atPosn[$a] == 0 ) {    #unpositioned
@@ -710,39 +685,33 @@ SVG
 
 		#Draw SLV ring
 		if ( $q->param('shade') ) {
-			print FILE
-"<circle stroke=\"black\" fill=\"black\" fill-opacity=\"0.1\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
+			print $fh
+			  "<circle stroke=\"black\" fill=\"black\" fill-opacity=\"0.1\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
 			  . ( $unit / 2 )
 			  . "\"/>\n";
-
 		} else {
-			print FILE
-"<circle stroke=\"black\" fill=\"none\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
+			print $fh "<circle stroke=\"black\" fill=\"none\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
 			  . ( $unit / 2 )
 			  . "\"/>\n";
 		}
 		if ( $q->param('shade') ) {
-			print FILE
+			print $fh
 "<circle stroke=\"red\" stroke-width=\"$unit\" stroke-opacity=\"0.1\" fill=\"none\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
 			  . ($unit)
 			  . "\"/>\n";
 		}
-		print FILE
-"<circle stroke=\"red\" fill=\"none\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
+		print $fh "<circle stroke=\"red\" fill=\"none\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
 		  . ( 1.5 * $unit )
 		  . "\"/>\n";
-
 		my $x = $posnX[ $atPosn[$a] ] - length( $st[ $atList[$a] ] ) * 2;
 		my $y = $posnY[ $atPosn[$a] ] + 4;
-		print FILE
-		  "<text x=\"$x\" y=\"$y\" font-size=\"9\">$st[$atList[$a]]</text>\n";
+		print $fh "<text x=\"$x\" y=\"$y\" font-size=\"9\">$st[$atList[$a]]</text>\n";
 	}
 	for ( my $distance = 1 ; $distance < 3 ; $distance++ ) {
 
 		# Draw SLV and DLV ring STs
 		for ( my $a = 0 ; $a < $noAT + 1 ; $a++ ) {
 
-			#
 			my $circle = 0;
 			for ( my $j = 0 ; $j < $num_sts ; $j++ ) {
 				if ( $disMat[ $atList[$a] ][$j] == $distance
@@ -755,13 +724,12 @@ SVG
 
 				#draw outer circle if there are DLVs
 				if ( $q->param('shade') ) {
-					print FILE
+					print $fh
 "<circle stroke=\"blue\" stroke-width=\"$unit\" stroke-opacity=\"0.1\" fill=\"none\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
 					  . ( 2 * $unit )
 					  . "\"/>\n";
 				}
-				print FILE
-"<circle stroke=\"blue\" fill=\"none\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
+				print $fh "<circle stroke=\"blue\" fill=\"none\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
 				  . ( 2.5 * $unit )
 				  . "\"/>\n";
 				$angleOffset += 2 * PI * 10 / 360;
@@ -774,14 +742,8 @@ SVG
 						&& ( $assigned[$j] == -9 ) )
 					{
 						$k++;
-						my $x =
-						  int( $posnX[ $atPosn[$a] ] +
-							  cos( $angle * $k + $angleOffset ) * $unit *
-							  $distance );
-						my $y =
-						  int( $posnY[ $atPosn[$a] ] +
-							  sin( $angle * $k + $angleOffset ) * $unit *
-							  $distance );
+						my $x = int( $posnX[ $atPosn[$a] ] + cos( $angle * $k + $angleOffset ) * $unit * $distance );
+						my $y = int( $posnY[ $atPosn[$a] ] + sin( $angle * $k + $angleOffset ) * $unit * $distance );
 						if ( $q->param('hide') ) {
 							my $colour;
 							if ( $distance == 1 ) {
@@ -791,13 +753,11 @@ SVG
 							} else {
 								$colour = 'black';
 							}
-							print FILE
-"<circle fill=\"$colour\" stroke=\"$colour\" cx=\"$x\" cy=\"$y\" r=\"2\" \/>";
+							print $fh "<circle fill=\"$colour\" stroke=\"$colour\" cx=\"$x\" cy=\"$y\" r=\"2\" \/>";
 						} else {
 							$x -= length( $st[$j] ) * 2;
 							$y += 4;
-							print FILE
-"<text x=\"$x\" y=\"$y\" font-size=\"9\">$st[$j]</text>\n";
+							print $fh "<text x=\"$x\" y=\"$y\" font-size=\"9\">$st[$j]</text>\n";
 						}
 						$assigned[$j]   = $atList[$a];
 						$radius[$j]     = $distance;
@@ -805,11 +765,8 @@ SVG
 					}
 				}
 			}
-
-			#
 		}
 	}
-
 	for ( my $a = 0 ; $a < $noAT + 1 ; $a++ ) {
 
 		# spokes
@@ -831,13 +788,10 @@ SVG
 			} else {
 				$anchor    = 3;
 				$satellite = 2;
-
 			}
 			my @thisgo;
 			my $distance;
-
 			for ( my $k = 0 ; $k < $num_sts ; $k++ ) {
-
 				my $textOffset = 0;
 				my $xOffset    = 0;
 				my $yOffset    = 0;
@@ -847,59 +801,44 @@ SVG
 							&& ( $assigned[$j] == -9 )
 							&& ( $assigned[$k] == $atList[$a] ) )
 						{
-							if ( $disMat[$j][$k] == $satellite && !$thisgo[$j] )
-							{
+							if ( $disMat[$j][$k] == $satellite && !$thisgo[$j] ) {
 
 								#prevent proliferation of satellites
 								my $colour;
-								if ( $satellite == 2 ) {    #DLVs only
+								if ( $satellite == 2 ) {          #DLVs only
 									$colour   = 'blue';
 									$distance = 2;
 								} else {
 									$colour   = 'red';
 									$distance = 1;
-									$xOffset  =
-									  1;   # offset ensures that red line is not
-									$yOffset = 2;    # obscured by blue line
+									$xOffset  = 1;                # offset ensures that red line is not
+									$yOffset  = 2;                # obscured by blue line
 								}
-								my $posXAnchor =
-								  int( $posnX[ $atPosn[$a] ] + $xOffset +
-									  cos( $angleValue[$k] ) * $unit *
-									  $radius[$k] );
-								my $posYAnchor =
-								  int( $posnY[ $atPosn[$a] ] + $yOffset +
-									  sin( $angleValue[$k] ) * $unit *
-									  $radius[$k] );
+								my $posXAnchor = int( $posnX[ $atPosn[$a] ] + $xOffset + cos( $angleValue[$k] ) * $unit * $radius[$k] );
+								my $posYAnchor = int( $posnY[ $atPosn[$a] ] + $yOffset + sin( $angleValue[$k] ) * $unit * $radius[$k] );
 								my $posX =
-								  int( $posnX[ $atPosn[$a] ] + $xOffset +
-									  cos( $angleValue[$k] ) * $unit *
-									  ( $distance + $radius[$k] ) );
+								  int( $posnX[ $atPosn[$a] ] + $xOffset + cos( $angleValue[$k] ) * $unit * ( $distance + $radius[$k] ) );
 								my $posX_text = $posX;
 								if ( $posX < $posXAnchor ) {
 									$posX_text -= length( $st[$j] ) * 5;
 								}
 								my $posY =
-								  int( $posnY[ $atPosn[$a] ] + $yOffset +
-									  sin( $angleValue[$k] ) * $unit *
-									  ( $distance + $radius[$k] ) );
+								  int( $posnY[ $atPosn[$a] ] + $yOffset + sin( $angleValue[$k] ) * $unit * ( $distance + $radius[$k] ) );
 								my $posY_text = $posY;
 								if ( $posYAnchor < $posY ) {
 									$posY_text += 4;
 								}
-								print FILE
+								print $fh
 "<line x1=\"$posXAnchor\" y1=\"$posYAnchor\" x2=\"$posX\" y2=\"$posY\" stroke=\"$colour\" opacity=\"0.2\" stroke-width=\"1\"/>\n";
 								if ( $q->param('hide') ) {
 									$posX -= $xOffset;
-									print FILE
-"<circle fill=\"black\" stroke=\"black\" cx=\"$posX\" cy=\"$posY\" r=\"2\" \/>";
-
+									print $fh "<circle fill=\"black\" stroke=\"black\" cx=\"$posX\" cy=\"$posY\" r=\"2\" \/>";
 								} else {
 									if ( $textOffset == 0 ) {
-										print FILE
-"<text x=\"$posX_text\" y=\"$posY_text\" font-size=\"9\">$st[$j]</text>\n";
+										print $fh "<text x=\"$posX_text\" y=\"$posY_text\" font-size=\"9\">$st[$j]</text>\n";
 										$textOffset += 8;
 									} else {
-										print FILE "<text x=\"$posX_text\" y=\""
+										print $fh "<text x=\"$posX_text\" y=\""
 										  . ( $posY_text + $textOffset )
 										  . "\" font-size=\"9\">$st[$j]</text>\n";
 									}
@@ -915,9 +854,8 @@ SVG
 			}
 		}
 	}
-
-	print FILE "</svg>\n";
-	close FILE;
+	print $fh "</svg>\n";
+	close $fh;
 	system(
 "$self->{'config'}->{'mogrify_path'} -format png $self->{'config'}->{'tmp_dir'}/$filename.svg $self->{'config'}->{'tmp_dir'}/$filename.png"
 	);
@@ -925,8 +863,8 @@ SVG
 }
 
 sub _offset_line {
-	my ( $self,$x1, $y1, $x2, $y2, $unit ) = @_;
-	my $line_offset = int(sin( 0.25 * PI ) * ( $unit / 2 ));
+	my ( $self, $x1, $y1, $x2, $y2, $unit ) = @_;
+	my $line_offset = int( sin( 0.25 * PI ) * ( $unit / 2 ) );
 	if ( $x2 > $x1 ) {
 		$x2 = $x2 - $line_offset;
 		$x1 = $x1 + $line_offset;

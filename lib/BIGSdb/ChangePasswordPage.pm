@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::ChangePasswordPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::LoginMD5);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -66,16 +67,12 @@ sub print_content {
 				print "<div class=\"box\" id=\"statusbad\"><p>The password was not re-typed the same as the first time.</p></div>\n";
 			} else {
 				my $username = $q->param('page') eq 'changePassword' ? $self->{'username'} : $q->param('user');
-				if ($self->_set_password_hash($username,$q->param('new_password1'))){
-					
+				if ($self->_set_password_hash($username,$q->param('new_password1'))){					
 					print "<div class=\"box\" id=\"resultsheader\"><p>". ($q->param('page') eq 'changePassword' ? "Password updated ok." : "Password set for user '$username'.")."</p>\n";
 				} else {
 					print "<div class=\"box\" id=\"resultsheader\"><p>Password not updated.  Please check with the system administrator.</p>\n";
-				}
-				
-				print "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Return to index</a></p>\n";
-				print "</div>\n";
-				
+				}				
+				print "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Return to index</a></p>\n</div>\n";
 				return;
 			}
 		}
@@ -98,12 +95,8 @@ sub print_content {
 		print $q->password_field(-name=>'existing');
 	} else {
 		my $sql = $self->{'db'}->prepare("SELECT user_name, first_name, surname FROM users WHERE id>0 ORDER BY surname");
-		eval {
-			$sql->execute;
-		};
-		if ($@){
-			$logger->error("Can't execute $@");
-		}
+		eval { $sql->execute };
+		$logger->error($@) if $@;
 		my (@users,%labels);
 		while (my ($username,$first_name,$surname) = $sql->fetchrow_array){
 			push @users,$username;
@@ -121,14 +114,10 @@ sub print_content {
 	print $q->submit(-class=>'submit', -label=>'Set password');
 	print "</td></tr>\n";
 	print "</table>\n";
-	foreach (qw (existing_password new_password1 new_password2 new_length)){
-		$q->param($_,'');
-	}
+	$q->param($_,'') foreach qw (existing_password new_password1 new_password2 new_length);
 	$q->param('user',$self->{'username'}) if $q->param('page') eq 'changePassword';
 	$q->param('sent',1);
-	foreach (qw (db page existing_password new_password1 new_password2 new_length user sent)){
-		print $q->hidden($_);
-	}
+	print $q->hidden($_) foreach qw (db page existing_password new_password1 new_password2 new_length user sent);
 	print $q->end_form;
 	print "</div>\n";
 }

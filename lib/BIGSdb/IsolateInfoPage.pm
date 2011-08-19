@@ -532,7 +532,7 @@ sub get_isolate_record {
 				$scheme->{'id'},   $data{'id'},            $locus_info, $locus_alias, $allele_designations,
 				$allele_sequences, $allele_sequence_flags, $td,         $summary_view
 			);
-			$buffer .= $field_buffer;
+			$buffer .= $field_buffer if $field_buffer;
 		}
 	}
 
@@ -540,7 +540,7 @@ sub get_isolate_record {
 	( $td, my $field_buffer ) =
 	  $self->_get_scheme_fields( 0, $data{'id'}, $locus_info, $locus_alias, $allele_designations, $allele_sequences, $allele_sequence_flags,
 		$td, $summary_view );
-	$buffer .= $field_buffer;
+	$buffer .= $field_buffer if $field_buffer;
 	$buffer .= "</table></div>";
 	return $buffer;
 }
@@ -551,16 +551,12 @@ sub _get_scheme_attributes {
 	#Extract all locus_info, allele_designations and allele_sequences using fetchall_hashref - quicker than
 	#making a separate call for each locus.
 	my $locus_info_sql = $self->{'db'}->prepare("SELECT id,common_name,url,description_url FROM loci");
-	eval { $locus_info_sql->execute; };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	eval { $locus_info_sql->execute };
+	$logger->error($@) if $@;
 	my $locus_info      = $locus_info_sql->fetchall_hashref('id');
 	my $locus_alias_sql = $self->{'db'}->prepare("SELECT locus,alias FROM locus_aliases WHERE use_alias");
-	eval { $locus_alias_sql->execute; };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	eval { $locus_alias_sql->execute };
+	$logger->error($@) if $@;
 	my $locus_alias           = $locus_alias_sql->fetchall_hashref( [qw(locus alias)] );
 	my $allele_designations   = $self->{'datastore'}->get_all_allele_designations($isolate_id);
 	my $allele_sequences      = $self->{'datastore'}->get_all_allele_sequences($isolate_id);
@@ -754,7 +750,7 @@ sub _get_scheme_fields {
 		}
 		$display_locus_name =~ tr/_/ /;
 		$locus_value{$_} .= "<span class=\"provisional\">"
-		  if $allele_designations->{$_}->{'status'} eq 'provisional'
+		  if ($allele_designations->{$_}->{'status'} && $allele_designations->{$_}->{'status'} eq 'provisional')
 			  && $self->{'prefs'}->{'mark_provisional'};
 		$cleaned_name = $display_locus_name;
 		$cleaned_name =~ s/_/&nbsp;/g;
@@ -764,22 +760,24 @@ sub _get_scheme_fields {
 			$cleaned_name .= "<br /><span class=\"comment\">(@{$locus_aliases{$_}})</span>";
 		}
 		push @profile, $allele_designations->{$_}->{'allele_id'};
-		my $url;
-		if ( $locus_info->{$_}->{'url'} && $allele_designations->{$_}->{'allele_id'} ne 'deleted' ) {
-			$url{$_} = $locus_info->{$_}->{'url'};
-			$url{$_} =~ s/\[\?\]/$allele_designations->{$_}->{'allele_id'}/g;
-			$url{$_} =~ s/\&/\&amp;/g;
-			$locus_value{$_} .= "<a href=\"$url{$_}\">$allele_designations->{$_}->{'allele_id'}</a>";
-		} else {
-			$locus_value{$_} .= "$allele_designations->{$_}->{'allele_id'}";
-		}
-		$locus_value{$_} .= "</span>"
-		  if $allele_designations->{$_}->{'status'} eq 'provisional'
-			  && $self->{'prefs'}->{'mark_provisional'};
-		if ( $self->{'prefs'}->{'update_details'} && $allele_designations->{$_}->{'allele_id'} ) {
-			my $update_tooltip = $self->get_update_details_tooltip( $tooltip_name, $allele_designations->{$_} );
-			$locus_value{$_} .=
-			  "<span style=\"font-size:0.5em\"> </span><a class=\"update_tooltip\" title=\"$update_tooltip\">&nbsp;...&nbsp;</a>";
+		if ( defined $allele_designations->{$_}->{'allele_id'}){
+			my $url;
+			if ( $locus_info->{$_}->{'url'} && $allele_designations->{$_}->{'allele_id'} ne 'deleted' ) {
+				$url{$_} = $locus_info->{$_}->{'url'};
+				$url{$_} =~ s/\[\?\]/$allele_designations->{$_}->{'allele_id'}/g;
+				$url{$_} =~ s/\&/\&amp;/g;
+				$locus_value{$_} .= "<a href=\"$url{$_}\">$allele_designations->{$_}->{'allele_id'}</a>";
+			} else {
+				$locus_value{$_} .= "$allele_designations->{$_}->{'allele_id'}";
+			}
+			$locus_value{$_} .= "</span>"
+			  if $allele_designations->{$_}->{'status'} eq 'provisional'
+				  && $self->{'prefs'}->{'mark_provisional'};
+			if ( $self->{'prefs'}->{'update_details'} && $allele_designations->{$_}->{'allele_id'} ) {
+				my $update_tooltip = $self->get_update_details_tooltip( $tooltip_name, $allele_designations->{$_} );
+				$locus_value{$_} .=
+				  "<span style=\"font-size:0.5em\"> </span><a class=\"update_tooltip\" title=\"$update_tooltip\">&nbsp;...&nbsp;</a>";
+			}
 		}
 		if ( $self->{'prefs'}->{'sequence_details'} && keys %{ $allele_sequences->{$_} } > 0 ) {
 			my @seqs;
@@ -817,7 +815,7 @@ sub _get_scheme_fields {
 " <a href=\"$self->{'system'}->{'script_name'}?page=alleleUpdate&amp;db=$self->{'instance'}&amp;isolate_id=$isolate_id&amp;locus=$_\" class=\"update\">$action</a>"
 		  if $self->{'curate'};
 	}
-	my @field_values;
+	my %field_values;
 	if ( defined $scheme_fields && scalar @$scheme_fields ) {
 		if ($scheme_fields_count) {
 			my $scheme;
@@ -828,31 +826,30 @@ sub _get_scheme_fields {
 			my $scheme_field_values;
 			my $no_url;
 			try {
-				$scheme_field_values = $scheme->get_field_values_by_profile( \@profile );
+				$scheme_field_values = $scheme->get_field_values_by_profile( \@profile, { 'return_hashref' => 1 } );
 			}
 			catch BIGSdb::DatabaseException with {
 				my $ex = shift;
-				push @$scheme_field_values, $ex->{-text};
 				$no_url = 1;
 			};
-			my $i = 0;
-			if ( $scheme_field_values && @$scheme_field_values ) {
-				foreach (@$scheme_field_values) {
-					$_ = 'Not defined' if $_ eq '-999' || $_ eq '';
-					my $att = $self->{'datastore'}->get_scheme_field_info( $id, $scheme_fields->[$i] );
-					if ( $att->{'url'} && !$no_url ) {
+			if ( defined $scheme_field_values && ref $scheme_field_values eq 'HASH' ) {
+				foreach (@$scheme_fields) {	
+					my $value = $scheme_field_values->{lc($_)};
+					$value = defined $value ? $value : '';
+					$value = 'Not defined' if $value eq '-999' || $value eq '';
+					my $att = $self->{'datastore'}->get_scheme_field_info( $id, $_ );
+					if ( $att->{'url'} && !$no_url && $value ne '' ) {
 						my $url = $att->{'url'};
-						$url =~ s/\[\?\]/$_/g;
+						$url =~ s/\[\?\]/$value/g;
 						$url =~ s/\&/\&amp;/g;
-						push @field_values, "<a href=\"$url\">$_</a>";
+						$field_values{$_} = "<a href=\"$url\">$value</a>";
 					} else {
-						push @field_values, $_;
+						$field_values{$_} = $value;
 					}
-					$i++;
 				}
 			} else {
 				foreach (@$scheme_fields) {
-					push @field_values, 'Not defined';
+					$field_values{$_} = 'Not defined';
 				}
 			}
 		}
@@ -880,7 +877,8 @@ sub _get_scheme_fields {
 				$locus_info->{$_}->{'description_url'} =~ s/\&/\&amp;/g;
 				$buffer .= " <a href=\"$locus_info->{$_}->{'description_url'}\" class=\"info_tooltip\">&nbsp;<i>i</i>&nbsp;</a>";
 			}
-			$buffer .= "</td><td>$locus_value{$_}</td>";
+			$buffer .= '</td>';
+			$buffer .= defined $locus_value{$_} ? "<td>$locus_value{$_}</td>" : '<td />';
 			my $display_seq =
 			  (      $self->{'prefs'}->{'isolate_display_loci'}->{$_} eq 'sequence'
 				  && $allele_designations->{$_}->{'allele_id'}
@@ -901,7 +899,7 @@ sub _get_scheme_fields {
 					my $ex = shift;
 					$sequence = $ex->{-text};
 				};
-				$buffer .= "<td colspan=\"3\" style=\"text-align:left\" class=\"seq\">$sequence</td>";
+				$buffer .= defined $sequence ? "<td colspan=\"3\" style=\"text-align:left\" class=\"seq\">$sequence</td>" : "<td colspan=\"3\" />";
 			} else {
 				$buffer .= "<td colspan=\"3\" />";
 			}
@@ -909,16 +907,14 @@ sub _get_scheme_fields {
 			$first = 0;
 			$td = $td == 1 ? 2 : 1;
 		}
-		my $i = 0;
 		foreach (@$scheme_fields) {
 			next if !$self->{'prefs'}->{'isolate_display_scheme_fields'}->{$id}->{$_};
 			$buffer .= "<tr class=\"td$td\">" if !$first;
 			( my $cleaned = $_ ) =~ tr/_/ /;
-			$buffer .= "<td>$cleaned</td><td>$field_values[$i]</td>";
+			$buffer .= "<td>$cleaned</td><td>$field_values{$_}</td>";
 			$buffer .= "<td colspan=\"3\" />";
 			$buffer .= "</tr>";
 			$first = 0;
-			$i++;
 			$td = $td == 1 ? 2 : 1;
 		}
 	} else {
@@ -993,7 +989,7 @@ sub _get_scheme_fields {
 			next
 			  if $self->{'prefs'}->{'isolate_display_loci'}->{$_} eq 'hide';
 			$value_buffer[$j] .= "<tr class=\"td$td\">" if !$i;
-			$value_buffer[$j] .= "<td>$locus_value{$_}</td>";
+			$value_buffer[$j] .= defined $locus_value{$_} ? "<td>$locus_value{$_}</td>" : '<td />';
 			$i++;
 			if ( $i >= $max_cells ) {
 				$value_buffer[$j] .= "</tr>\n";
@@ -1001,12 +997,10 @@ sub _get_scheme_fields {
 				$i = 0;
 			}
 		}
-		my $x = 0;
 		foreach (@$scheme_fields) {
 			if ( $self->{'prefs'}->{'isolate_display_scheme_fields'}->{$id}->{$_} ) {
 				$value_buffer[$j] .= "<tr class=\"td$td\">" if !$i;
-				$value_buffer[$j] .= "<td>$field_values[$x]</td>";
-				$x++;
+				$value_buffer[$j] .= "<td>$field_values{$_}</td>";
 				$i++;
 				if ( $i >= $max_cells ) {
 					$value_buffer[$j] .= "</tr>\n";

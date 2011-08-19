@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::ListQueryPage;
 use strict;
+use warnings;
 use List::MoreUtils qw(uniq);
 use base qw(BIGSdb::QueryPage);
 use Log::Log4perl qw(get_logger);
@@ -35,7 +36,7 @@ sub get_title {
 }
 
 sub print_content {
-	my ($self)   = @_;
+	my ($self)    = @_;
 	my $system    = $self->{'system'};
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
@@ -73,7 +74,7 @@ sub print_content {
 	if ( !defined $q->param('currentpage')
 		|| $q->param('First') )
 	{
-		if ($self->{'system'}->{'dbtype'} eq 'isolates'){
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 			$self->_print_query_interface;
 		} else {
 			$self->_print_query_interface($scheme_id);
@@ -82,7 +83,7 @@ sub print_content {
 	if ( defined $q->param('query')
 		or ( $q->param('attribute') && $q->param('list') ) )
 	{
-		if ($self->{'system'}->{'dbtype'} eq 'isolates'){
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 			$self->_run_isolate_query;
 		} else {
 			$self->_run_profile_query( $scheme_id, $primary_key );
@@ -94,66 +95,56 @@ sub print_content {
 
 sub _print_query_interface {
 	my ( $self, $scheme_id ) = @_;
-	my $q             = $self->{'cgi'};
-	my ($field_list, $order_list, $labels, $order_labels);
+	my $q = $self->{'cgi'};
+	my ( $field_list, $order_list, $labels, $order_labels );
 	my @grouped_fields;
-	if ($self->{'system'}->{'dbtype'} eq 'isolates'){
-		($order_list, $order_labels ) = $self->get_field_selection_list({
-		 'isolate_fields' => 1, 
-		 'loci' => 1,
-		 'scheme_fields' => 1,
-		 'sender_attributes' => 0,
-		});
-		( $field_list, $labels ) = $self->get_field_selection_list({
-		 'isolate_fields' => 1, 
-		 'loci' => 1,
-		 'scheme_fields' => 1,
-		 'sender_attributes' => 1,
-		 'extended_attributes' => 1 
-		});
-
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		( $order_list, $order_labels ) =
+		  $self->get_field_selection_list( { 'isolate_fields' => 1, 'loci' => 1, 'scheme_fields' => 1, 'sender_attributes' => 0, } );
+		( $field_list, $labels ) = $self->get_field_selection_list(
+			{ 'isolate_fields' => 1, 'loci' => 1, 'scheme_fields' => 1, 'sender_attributes' => 1, 'extended_attributes' => 1 } );
 		my $grouped = $self->{'xmlHandler'}->get_grouped_fields;
-		foreach ( @$grouped ) {
+		foreach (@$grouped) {
 			push @grouped_fields, "f_$_";
 			( $labels->{"f_$_"} = $_ ) =~ tr/_/ /;
 		}
-	} elsif ($self->{'system'}->{'dbtype'} eq 'sequences'){
+	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-		foreach (@$fields){
-			push @$field_list,"s_$scheme_id\_$_";
-			($labels->{"s_$scheme_id\_$_"} = $_) =~ tr/_/ /;
+		foreach (@$fields) {
+			push @$field_list, "s_$scheme_id\_$_";
+			( $labels->{"s_$scheme_id\_$_"} = $_ ) =~ tr/_/ /;
 		}
 		my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-		foreach (@$loci){
+		foreach (@$loci) {
 			my $locus_info = $self->{'datastore'}->get_locus_info($_);
-			push @$field_list,"l_$_";
+			push @$field_list, "l_$_";
 			$labels->{"l_$_"} = $_;
 			$labels->{"l_$_"} .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
 			$labels->{"l_$_"} =~ tr/_/ /;
 		}
-		$order_list = $field_list;
+		$order_list   = $field_list;
 		$order_labels = $labels;
 	}
 	print "<div class=\"box\" id=\"queryform\">\n";
 	print $q->start_form;
 	print "<table><tr><td>Please select attribute: ";
-	my @select_items = (@grouped_fields,@$field_list);
+	my @select_items = ( @grouped_fields, @$field_list );
 	print $q->popup_menu( -name => 'attribute', -values => \@select_items, -labels => $labels );
 	print "</td></tr>\n<tr><td>Enter your list of attribute values below (one per line):</td></tr>\n<tr><td>";
 	print $q->textarea( -name => 'list', -rows => 10, -cols => 40 );
 	print "</td></tr>\n";
-	if ($self->{'system'}->{'dbtype'} eq 'isolates'){
+
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		print
-		  "<tr><td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=listQuery\" class=\"resetbutton\">Reset</a>";
+"<tr><td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=listQuery\" class=\"resetbutton\">Reset</a>";
 	} else {
 		print
-		  "<tr><td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=listQuery&amp;scheme_id=$scheme_id\" class=\"resetbutton\">Reset</a>";
+"<tr><td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=listQuery&amp;scheme_id=$scheme_id\" class=\"resetbutton\">Reset</a>";
 	}
 	print "&nbsp;&nbsp;Order by: ";
 	print $q->popup_menu( -name => 'order', -values => $order_list, -labels => $order_labels );
 	print $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
 	print "&nbsp;&nbsp;Display ";
-
 	if ( $q->param('displayrecs') ) {
 		$self->{'prefs'}->{'displayrecs'} = $q->param('displayrecs');
 	}
@@ -170,9 +161,7 @@ sub _print_query_interface {
 	print "</td></tr>\n";
 	print "</table>\n";
 
-	foreach (qw (page db scheme_id)) {
-		print $q->hidden($_);
-	}
+	print $q->hidden($_) foreach qw (page db scheme_id);
 	print $q->end_form;
 	print "</div>\n";
 }
@@ -215,7 +204,7 @@ sub _run_profile_query {
 				$tempqry .= " OR ";
 			}
 			if ( $fieldtype eq 'scheme_field' || $fieldtype eq 'locus' ) {
-				(my $cleaned = $field) =~ s/'/_PRIME_/g;
+				( my $cleaned = $field ) =~ s/'/_PRIME_/g;
 				$tempqry .=
 				  $datatype eq 'text'
 				  ? "upper($cleaned)=upper('$value')"
@@ -231,7 +220,7 @@ sub _run_profile_query {
 	$qry .= " ORDER BY ";
 	if ( $q->param('order') =~ /^la_(.*)\|\|/ || $q->param('order') =~ /^l_(.*)/ ) {
 		my $locus = $1;
-		(my $cleaned = $locus) =~ s/'/_PRIME_/;
+		( my $cleaned = $locus ) =~ s/'/_PRIME_/;
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
 			$qry .= "CAST($cleaned AS int)";
@@ -251,9 +240,9 @@ sub _run_profile_query {
 }
 
 sub _run_isolate_query {
-	my ($self)   = @_;
-	my $q     = $self->{'cgi'};
-	my $field = $q->param('attribute');
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $field  = $q->param('attribute');
 	my @groupedfields;
 	for ( my $x = 1 ; $x < 11 ; $x++ ) {
 		if ( $self->{'system'}->{"fieldgroup$x"} ) {
@@ -274,9 +263,9 @@ sub _run_isolate_query {
 		my %thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 		$datatype  = $thisfield{'type'};
 		$fieldtype = 'isolate';
-	} elsif ( $field =~ /^l_(.+)$/ || $field =~ /^la_(.+)\|\|/ || $field =~ /^cn_(.+)/) {
-		$field     = $1;		
-		$datatype  = $self->{'datastore'}->get_locus_info($field)->{'allele_id_format'};
+	} elsif ( $field =~ /^l_(.+)$/ || $field =~ /^la_(.+)\|\|/ || $field =~ /^cn_(.+)/ ) {
+		$field    = $1;
+		$datatype = $self->{'datastore'}->get_locus_info($field)->{'allele_id_format'};
 		$field =~ s/\'/\\'/g;
 		$fieldtype = 'locus';
 	} elsif ( $field =~ /^s_(\d+)\_(.*)$/ ) {
@@ -307,9 +296,9 @@ sub _run_isolate_query {
 			push @temp, "$_.locus='$_'";
 		}
 		$joined_table .= " @temp";
-	} elsif ($field =~ /^e_(.*)\|\|(.*)/){
+	} elsif ( $field =~ /^e_(.*)\|\|(.*)/ ) {
 		$extended_isolate_field = $1;
-		$field = $2;
+		$field                  = $2;
 	}
 	foreach my $value (@list) {
 		$value =~ s/^\s*//;
@@ -339,17 +328,17 @@ sub _run_isolate_query {
 					$tempqry .= $self->search_users( $field, '=', $value, $self->{'system'}->{'view'} );
 				} elsif ( scalar @groupedfields ) {
 					$tempqry .= " (";
-					my $first=1;
+					my $first = 1;
 					for ( my $x = 0 ; $x < scalar @groupedfields ; $x++ ) {
 						my %thisfield = $self->{'xmlHandler'}->get_field_attributes( $groupedfields[$x] );
 						next if $thisfield{'type'} eq 'int' && !BIGSdb::Utils::is_int($value);
-						$tempqry .= ' OR ' if !$first;						
+						$tempqry .= ' OR ' if !$first;
 						if ( $thisfield{'type'} eq 'int' ) {
 							$tempqry .= "$groupedfields[$x] = '$value'";
 						} else {
 							$tempqry .= "upper($groupedfields[$x]) = upper('$value')";
 						}
-						$first =0 ;
+						$first = 0;
 					}
 					$tempqry .= ')';
 				} elsif ( $field eq $self->{'system'}->{'labelfield'} ) {
@@ -370,9 +359,9 @@ sub _run_isolate_query {
 				  $datatype eq 'text'
 				  ? "upper($field)=upper('$value')"
 				  : "$field='$value'";
-			} elsif ($extended_isolate_field){
-				$tempqry .= 
-				"$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) = upper('$value'))";														
+			} elsif ($extended_isolate_field) {
+				$tempqry .=
+"$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) = upper('$value'))";
 			}
 		}
 	}

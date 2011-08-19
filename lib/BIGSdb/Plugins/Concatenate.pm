@@ -1,6 +1,6 @@
 #Concatenate.pm - Concatenate plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::Plugins::Concatenate;
 use strict;
+use warnings;
 use base qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -170,7 +171,6 @@ sub _write_fasta {
 		$"           = ',';
 		$isolate_sql = $self->{'db'}->prepare("SELECT @includes FROM $self->{'system'}->{'view'} WHERE id=?");
 	}
-	my $profile_sql = $self->{'db'}->prepare("SELECT $pk FROM scheme_$scheme_id WHERE $pk=?");
 	my $length_sql  = $self->{'db'}->prepare("SELECT length FROM loci WHERE id=?");
 	my $seqbin_sql =
 	  $self->{'db'}->prepare(
@@ -185,10 +185,8 @@ sub _write_fasta {
 	my $locus_qry =
 "SELECT id,scheme_id from loci left join scheme_members on loci.id = scheme_members.locus order by genome_position,scheme_members.scheme_id,id";
 	my $locus_sql = $self->{'db'}->prepare($locus_qry);
-	eval { $locus_sql->execute; };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	eval { $locus_sql->execute };
+	$logger->error($@) if $@;
 	my @selected_fields;
 	while ( my ( $locus, $scheme_id ) = $locus_sql->fetchrow_array ) {
 		if ( ( $scheme_id && $q->param("s_$scheme_id\_l_$locus") ) || ( !$scheme_id && $q->param("l_$locus") ) ) {
@@ -207,10 +205,8 @@ sub _write_fasta {
 			next if !BIGSdb::Utils::is_int($id);
 			my @includes;
 			if ( $q->param('includes') ) {
-				eval { $isolate_sql->execute($id); };
-				if ($@) {
-					$logger->error("Can't execute $@");
-				}
+				eval { $isolate_sql->execute($id) };
+				$logger->error($@) if $@;
 				@includes = $isolate_sql->fetchrow_array;
 				foreach (@includes) {
 					$_ =~ tr/ /_/;
@@ -226,10 +222,9 @@ sub _write_fasta {
 				next;
 			}
 		} else {
-			eval { $profile_sql->execute($id); };
-			if ($@) {
-				$logger->error("Can't execute $@");
-			}
+			my $profile_sql = $self->{'db'}->prepare("SELECT $pk FROM scheme_$scheme_id WHERE $pk=?");
+			eval { $profile_sql->execute($id) };
+			$logger->error($@) if $@;
 			my ($profile_id) = $profile_sql->fetchrow_array;
 			if ($profile_id) {
 				print $fh ">$profile_id\n";
@@ -298,7 +293,7 @@ sub _write_fasta {
 								foreach ( values %$seqs ) {
 									$length_freqs{ length $_ }++;
 								}
-								my $max_freqs;
+								my $max_freqs = 0;
 								foreach ( keys %length_freqs ) {
 									if ( $length_freqs{$_} > $max_freqs ) {
 										$max_freqs = $length_freqs{$_};

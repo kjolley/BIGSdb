@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::BatchProfileQueryPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
@@ -31,7 +32,7 @@ sub get_title {
 
 sub initiate {
 	my ($self) = @_;
-	if ( $self->{'cgi'}->param('function') eq 'examples' ) {
+	if ( $self->{'cgi'}->param('function') && $self->{'cgi'}->param('function') eq 'examples' ) {
 		$self->{'type'} = 'text';
 	} else {
 		$self->{'jQuery'} = 1;
@@ -41,7 +42,7 @@ sub initiate {
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	if ( $q->param('function') eq 'examples' ) {
+	if ( $q->param('function') && $q->param('function') eq 'examples' ) {
 		$self->_print_examples;
 		return;
 	}
@@ -54,7 +55,7 @@ sub print_content {
 		print "<div class=\"box\" id=\"statusbad\"><p>This function is only available for sequence definition databases.</p></div>\n";
 		return;
 	}
-	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id) if $scheme_id > 0;
+	my $scheme_info = $scheme_id > 0 ? $self->{'datastore'}->get_scheme_info($scheme_id) : undef;
 	if ( ( !$scheme_info->{'id'} || !$scheme_id ) ) {
 		print "<h1>Batch profile query</h1>\n";
 		print "<div class=\"box\" id=\"statusbad\"><p>Invalid scheme selected.</p></div>\n";
@@ -119,12 +120,8 @@ sub print_content {
 				while (@profile > @$loci){
 					pop @profile;
 				}			
-				eval {
-					$sql->execute(@profile);
-				};
-				if ($@){
-					$logger->error("Can't execute $@");
-				}
+				eval { $sql->execute(@profile) };
+				$logger->error($@) if $@;
 				@field_data = $sql->fetchrow_array;
 			} else {
 				$incomplete =1 ;
@@ -132,7 +129,7 @@ sub print_content {
 			my $i=0;
 			foreach (@$scheme_fields){
 				if (exists $field_data[$i]){
-					print "<td>$field_data[$i]</td>";
+					print defined $field_data[$i] ? "<td>$field_data[$i]</td>" : '<td />';
 				} else {
 					print "<td class=\"statusbad\" style=\"font-size:2em\">-</td>";
 				}
@@ -152,10 +149,7 @@ sub print_content {
 		
 	print "<div class=\"box\" id=\"queryform\">\n";
 	print $q->start_form;
-	foreach (qw (db page scheme_id)) {
-		print $q->hidden($_);
-	}
-	
+	print $q->hidden($_) foreach qw (db page scheme_id);	
 	
 	print <<"HTML";
 <p>Enter allelic profiles below in tab (or space) delimited text format 
@@ -171,8 +165,7 @@ HTML
 	print $q->reset( -class => 'reset' );
 	print $q->submit( -label => 'Submit query', -class => 'submit' );
 	print $q->endform;
-	print "<p />";
-	print "</div>";
+	print "<p />\n</div>";
 }
 
 sub _print_examples {
@@ -189,7 +182,7 @@ sub _print_examples {
 		print "This function is only available for sequence definition databases.\n";
 		return;
 	}
-	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id) if $scheme_id > 0;
+	my $scheme_info = $scheme_id > 0 ? $self->{'datastore'}->get_scheme_info($scheme_id) : undef;
 	if ( ( !$scheme_info->{'id'} || !$scheme_id ) ) {
 		print "Invalid scheme selected.\n";
 		return;
@@ -203,10 +196,8 @@ sub _print_examples {
 		$_ =~ s/'/_PRIME_/g;
 	}
 	my $sql = $self->{'db'}->prepare("SELECT @cleaned_loci FROM scheme_$scheme_id ORDER BY random() LIMIT 15");
-	eval { $sql->execute; };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	eval { $sql->execute };
+	$logger->error($@) if $@;
 	$" = "\t";
 	my $i = 1;
 	while ( my @profile = $sql->fetchrow_array ) {
