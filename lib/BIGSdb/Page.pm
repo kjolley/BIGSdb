@@ -143,7 +143,7 @@ sub print {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	$" = ' ';
-	if ( $q->param('page') eq 'plugin' ) {
+	if ( $q->param('page') && $q->param('page') eq 'plugin' ) {
 
 		#need to determine if tooltips should be displayed since this is set in the <HEAD>;
 		if ( $self->{'prefstore'} ) {
@@ -319,7 +319,7 @@ sub _print_help_panel {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	print "<div id=\"fieldvalueshelp\">";
-	if ( $q->param('page') eq 'plugin' && defined $self->{'pluginManager'} ) {
+	if ( $q->param('page') && $q->param('page') eq 'plugin' && defined $self->{'pluginManager'} ) {
 		my $plugin_att = $self->{'pluginManager'}->get_plugin_attributes( $q->param('name') );
 		if ( ref $plugin_att eq 'HASH' && defined $plugin_att->{'help'} ) {
 			foreach (qw (tooltips)) {
@@ -996,7 +996,8 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 
 sub clean_locus {
 	my ( $self, $locus ) = @_;
-	if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
+	return if !defined $locus;
+	if ( $self->{'system'}->{'locus_superscript_prefix'} && $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
 		$locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
 	}
 	$locus =~ tr/_/ /;

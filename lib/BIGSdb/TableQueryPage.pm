@@ -44,7 +44,7 @@ sub print_content {
 	my ($self) = @_;
 	my $system = $self->{'system'};
 	my $q      = $self->{'cgi'};
-	my $table  = $q->param('table');
+	my $table  = $q->param('table') || '';
 	if ( $q->param('no_header') ) {
 		$self->_ajax_content($table);
 		return;
@@ -80,7 +80,7 @@ sub print_content {
 sub get_title {
 	my ($self) = @_;
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	my $record = $self->get_record_name( $self->{'cgi'}->param('table') );
+	my $record = $self->get_record_name( $self->{'cgi'}->param('table') ) || 'record';
 	return "Query $record information - $desc";
 }
 
@@ -343,34 +343,36 @@ sub _run_query {
 				$text =~ s/'/\\'/g;
 				my $thisfield;
 				foreach (@$attributes) {
-
 					if ( $_->{'name'} eq $field ) {
 						$thisfield = $_;
 						last;
 					}
 				}
-				if (   $text ne '<blank>'
-					&& $text ne 'null'
-					&& ( $thisfield->{'type'} eq 'int' )
-					&& !BIGSdb::Utils::is_int($text) )
-				{
-					push @errors, "$field is an integer field.";
-					next;
-				} elsif ( $text ne '<blank>'
-					&& $text ne 'null'
-					&& lc( $thisfield->{'type'} ) eq 'bool'
-					&& !BIGSdb::Utils::is_bool($text) )
-				{
-					push @errors, "$field is a boolean field - should be in either true/false or 1/0.";
-					next;
-				} elsif ( $text ne '<blank>'
-					&& $text ne 'null'
-					&& lc( $thisfield->{'type'} ) eq 'date'
-					&& !BIGSdb::Utils::is_date($text) )
-				{
-					push @errors, "$field is a date field - should be in yyyy-mm-dd format (or 'today' / 'yesterday').";
-					next;
-				} elsif ( !$self->is_valid_operator($operator) ) {
+				if ($thisfield->{'type'}){ #field may not actually exist in table (e.g. isolate_id in allele_sequences)
+					if (   $text ne '<blank>'
+						&& $text ne 'null'
+						&& ( $thisfield->{'type'} eq 'int' )
+						&& !BIGSdb::Utils::is_int($text) )
+					{
+						push @errors, "$field is an integer field.";
+						next;
+					} elsif ( $text ne '<blank>'
+						&& $text ne 'null'
+						&& lc( $thisfield->{'type'} ) eq 'bool'
+						&& !BIGSdb::Utils::is_bool($text) )
+					{
+						push @errors, "$field is a boolean field - should be in either true/false or 1/0.";
+						next;
+					} elsif ( $text ne '<blank>'
+						&& $text ne 'null'
+						&& lc( $thisfield->{'type'} ) eq 'date'
+						&& !BIGSdb::Utils::is_date($text) )
+					{
+						push @errors, "$field is a date field - should be in yyyy-mm-dd format (or 'today' / 'yesterday').";
+						next;
+					}
+				}
+				if ( !$self->is_valid_operator($operator) ) {
 					push @errors, "$operator is not a valid operator.";
 					next;
 				}
@@ -700,6 +702,7 @@ sub _process_allele_sequences_filters {
 		}
 		$qry2 .= " AND ($qry)" if $qry;
 	} else {
+		$qry ||= '';
 		$qry2 = "SELECT * FROM allele_sequences WHERE ($qry)";
 	}
 	return $qry2;

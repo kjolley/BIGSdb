@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::CurateLinkToExperimentPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -80,12 +81,8 @@ sub print_content {
 	print "<p>" . @$ids ." sequence" . (@$ids == 1 ? '' : 's') . " selected.</p>\n";
 	print "<p>Please select the experiment to link these sequences to:</p>";
 	my $sql = $self->{'db'}->prepare("SELECT id,description FROM experiments ORDER BY description");
-	eval {
-		$sql->execute;
-	};
-	if ($@){
-		$logger->error("Can't execute $@");
-	}
+	eval { $sql->execute };
+	$logger->error($@) if $@;
 	my @ids = (0);
 	my %desc = (0 => '');
 	while (my ($id,$desc) = $sql->fetchrow_array){
@@ -95,9 +92,7 @@ sub print_content {
 	print $q->start_form;
 	print $q->popup_menu(-name=>'experiment', -values=>\@ids, -labels=>\%desc );
 	print $q->submit(-name=>'Link',-class=>'button');
-	foreach (qw (db page query)){
-		print $q->hidden($_);
-	}
+	print $q->hidden($_) foreach qw (db page query);
 	print $q->end_form;
 	print "</div>\n";
 }

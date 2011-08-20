@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,7 @@
 
 package BIGSdb::CurateIsolateDeletePage;
 use strict;
+use warnings;
 use base qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -54,7 +55,7 @@ sub print_content {
 		print "<div class=\"box\" id=\"statusbad\"><p>No id passed.</p></div>\n";
 		return;
 	}
-	eval { $sql->execute($id); };
+	eval { $sql->execute($id) };
 	$logger->error($@) if $@;
 	my ($data) = $sql->fetchrow_hashref;
 	if ( !$$data{'id'} ) {
@@ -98,7 +99,7 @@ sub print_content {
 		push @qry,
 		  "DELETE FROM isolates WHERE id = '$$data{'id'}'";
 		foreach (@qry) {
-			eval { $self->{'db'}->do($_); };
+			eval { $self->{'db'}->do($_) };
 			if ($@) {
 				print
 "<div class=\"box\" id=\"statusbad\"><p>Delete failed - transaction cancelled - no records have been touched.</p>\n";

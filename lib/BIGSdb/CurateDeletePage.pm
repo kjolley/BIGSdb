@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::CurateDeletePage;
 use strict;
+use warnings;
 use base qw(BIGSdb::CuratePage);
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
@@ -26,7 +27,7 @@ my $logger = get_logger('BIGSdb.Page');
 sub print_content {
 	my ($self)      = @_;
 	my $q           = $self->{'cgi'};
-	my $table       = $q->param('table');
+	my $table       = $q->param('table') || '';
 	my $record_name = $self->get_record_name($table);
 	if ( !$self->{'datastore'}->is_table($table) ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Table $table does not exist!</p></div>\n";
@@ -43,21 +44,31 @@ sub print_content {
 "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to delete records from the $table table.</p></div>\n";
 		}
 		return;
-	} elsif ( ( $self->{'system'}->{'read_access'} eq 'acl' || $self->{'system'}->{'write_access'} eq 'acl' )
+	} elsif (
+		(
+			$self->{'system'}->{'read_access'} eq 'acl'
+			|| ( $self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl' )
+		)
 		&& $self->{'username'}
 		&& !$self->is_admin
 		&& $q->param('isolate_id')
-		&& !$self->is_allowed_to_view_isolate( $q->param('isolate_id') ) )
+		&& !$self->is_allowed_to_view_isolate( $q->param('isolate_id') )
+	  )
 	{
 		print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to modify this isolate.</p></div>\n";
 		return;
-	} elsif (($table eq 'sequence_refs' || $table eq 'accession') && $q->param('locus')){
+	} elsif ( ( $table eq 'sequence_refs' || $table eq 'accession' ) && $q->param('locus') ) {
 		my $locus = $q->param('locus');
-		if (!$self->is_admin){
-			my $allowed = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM locus_curators WHERE locus=? AND curator_id=?",$locus,$self->get_curator_id)->[0];
-			if (!$allowed){
-				print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to delete ". ($table eq 'sequence_refs' ? 'references' : 'accession numbers') ." for this locus.</p></div>\n";
-				return;					
+		if ( !$self->is_admin ) {
+			my $allowed =
+			  $self->{'datastore'}
+			  ->run_simple_query( "SELECT COUNT(*) FROM locus_curators WHERE locus=? AND curator_id=?", $locus, $self->get_curator_id )
+			  ->[0];
+			if ( !$allowed ) {
+				print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to delete "
+				  . ( $table eq 'sequence_refs' ? 'references' : 'accession numbers' )
+				  . " for this locus.</p></div>\n";
+				return;
 			}
 		}
 	}
@@ -73,7 +84,7 @@ sub print_content {
 	my @query_values;
 	my %primary_keys;
 	foreach (@$attributes) {
-		if ( $_->{'primary_key'} eq 'yes' ) {
+		if ( $_->{'primary_key'} ) {
 			my $value = $q->param( $_->{'name'} );
 			$value =~ s/'/\\'/g;
 			push @query_values, "$_->{'name'} = '$value'";
@@ -90,12 +101,8 @@ sub print_content {
 	$" = ' AND ';
 	my $qry = "SELECT * FROM $table WHERE @query_values";
 	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute(); };
-	if ($@) {
-		$logger->error("Can't execute: $qry");
-	} else {
-		$logger->debug("Query: $qry");
-	}
+	eval { $sql->execute };
+	$logger->error($@) if $@;
 	my $data = $sql->fetchrow_hashref();
 	$buffer .= $q->start_form;
 	$buffer .= "<div class=\"box\" id=\"resultstable\">\n";
@@ -104,12 +111,10 @@ sub print_content {
 		$buffer .= "<p />";
 		$buffer .= $q->submit( -name => 'submit', -value => 'Delete!', -class => 'submit' );
 	}
-	$buffer .= $q->hidden('page');
-	$buffer .= $q->hidden('db');
+	$buffer .= $q->hidden($_) foreach qw(page db table);
 	$buffer .= $q->hidden( 'sent', 1 );
-	$buffer .= $q->hidden('table');
 	foreach (@$attributes) {
-		if ( $_->{'primary_key'} eq 'yes' ) {
+		if ( $_->{'primary_key'} ) {
 			$buffer .= $q->hidden( $_->{'name'}, $data->{ $_->{'name'} } );
 		}
 	}
@@ -144,17 +149,17 @@ sub print_content {
 			if ( $value_length > 5000 ) {
 				$value = BIGSdb::Utils::truncate_seq( \$value, 30 );
 				$buffer .=
-"<td style=\"text-align:left\"><span class=\"seq\">$value</span><br />Sequence is $value_length characters (too long to display)</td></tr>\n";
+"<td style=\"text-align:left\"><span class=\"seq\">$value</span><br />Sequence is $value_length characters (too long to display)</td>\n";
 			} else {
 				$value = BIGSdb::Utils::split_line($value);
-				$buffer .= "<td style=\"text-align:left\" class=\"seq\">$value</td></tr>\n";
+				$buffer .= "<td style=\"text-align:left\" class=\"seq\">$value</td>\n";
 			}
 		} elsif ( $_->{'name'} eq 'curator' or $_->{'name'} eq 'sender' ) {
 			my $user = $self->{'datastore'}->get_user_info($value);
-			$buffer .= "<td style=\"text-align:left\">$user->{'first_name'} $user->{'surname'}</td></tr>\n";
+			$buffer .= "<td style=\"text-align:left\">$user->{'first_name'} $user->{'surname'}</td>\n";
 		} elsif ( $_->{'name'} eq 'scheme_id' ) {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info($value);
-			$buffer .= "<td style=\"text-align:left\">$value) $scheme_info->{'description'}</td></tr>\n";
+			$buffer .= "<td style=\"text-align:left\">$value) $scheme_info->{'description'}</td>\n";
 		} elsif ( $_->{'foreign_key'} && $_->{'labels'} ) {
 			my @fields_to_query;
 			my @values = split /\|/, $_->{'labels'};
@@ -166,10 +171,8 @@ sub print_content {
 			$" = ',';
 			my $qry = "select @fields_to_query from $_->{'foreign_key'} WHERE id=?";
 			my $foreign_key_sql = $self->{'db'}->prepare($qry) or die;
-			eval { $foreign_key_sql->execute($value); };
-			if ($@) {
-				$logger->error("Can't execute: $@ value:$value");
-			}
+			eval { $foreign_key_sql->execute($value) };
+			$logger->error($@) if $@;
 			while ( my @labels = $foreign_key_sql->fetchrow_array() ) {
 				my $label_value = $_->{'labels'};
 				my $i           = 0;
@@ -178,14 +181,15 @@ sub print_content {
 					$i++;
 				}
 				$label_value =~ s/[\|\$]//g;
-				$buffer .= "<td style=\"text-align:left\">$label_value</td></tr>\n";
+				$buffer .= "<td style=\"text-align:left\">$label_value</td>\n";
 			}
-		} elsif ($_->{'name'} eq 'locus' && $self->{'system'}->{'locus_superscript_prefix'} eq 'yes'){
-			$value =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-			$buffer .= "<td style=\"text-align:left\">$value</td></tr>\n";
+		} elsif ( $_->{'name'} eq 'locus' ) {
+			$value = $self->clean_locus($value);
+			$buffer .= "<td style=\"text-align:left\">$value</td>\n";
 		} else {
-			$buffer .= "<td style=\"text-align:left\">$value</td></tr>\n";
+			$buffer .= defined $value ? "<td style=\"text-align:left\">$value</td>\n" : '<td />';
 		}
+		$buffer .= "</tr>\n";
 		$td = $td == 1 ? 2 : 1;
 		if ( $table eq 'profiles' && $_->{'name'} eq 'profile_id' ) {
 			my $scheme_id = $q->param('scheme_id');
@@ -207,7 +211,7 @@ sub print_content {
 				  $self->{'datastore'}
 				  ->run_simple_query( "SELECT value FROM profile_fields WHERE scheme_id=? AND scheme_field=? AND profile_id=?",
 					$scheme_id, $field, $data->{ $_->{'name'} } );
-				if (ref $value_ref eq 'ARRAY'){
+				if ( ref $value_ref eq 'ARRAY' ) {
 					$buffer .= "<td style=\"text-align:left\">$value_ref->[0]</td></tr>\n";
 				} else {
 					$buffer .= "<td /></tr>\n";
@@ -219,25 +223,26 @@ sub print_content {
 	if ( $table eq 'profiles' ) {
 	}
 	$buffer .= "</table>\n";
-	if ($table eq 'allele_designations' ){
-		$buffer.= "<div><fieldset>\n<legend>Options</legend>\n<ul>\n<li>\n";
-		if ($self->can_modify_table('allele_sequences')){
-			$buffer .= $q->checkbox(-name=>'delete_tags', -label => 'Also delete all sequence tags for this isolate/locus combination');
+	if ( $table eq 'allele_designations' ) {
+		$buffer .= "<div><fieldset>\n<legend>Options</legend>\n<ul>\n<li>\n";
+		if ( $self->can_modify_table('allele_sequences') ) {
+			$buffer .= $q->checkbox( -name => 'delete_tags', -label => 'Also delete all sequence tags for this isolate/locus combination' );
 			$buffer .= "</li>\n<li>\n";
 		}
-		$buffer .= $q->checkbox(-name=>'delete_pending', -label => 'Also delete all pending designations for this isolate/locus combination');
+		$buffer .=
+		  $q->checkbox( -name => 'delete_pending', -label => 'Also delete all pending designations for this isolate/locus combination' );
 		$buffer .= "</li>\n</ul>\n</fieldset>\n</div>\n";
 	}
 	$buffer .= $q->submit( -name => 'submit', -value => 'Delete!', -class => 'submit' );
 	$buffer .= "</div>\n";
-	$buffer .= $q->end_form();
+	$buffer .= $q->end_form;
 	if ( $q->param('sent') ) {
 		my $proceed = 1;
 		my $nogo_buffer;
 		if ( $table eq 'users' ) {
 
 			#Don't delete yourself
-			if ( $data->{'id'} == $self->get_curator_id() ) {
+			if ( $data->{'id'} == $self->get_curator_id ) {
 				$nogo_buffer .=
 "It's not a good idea to remove yourself as a curator!  If you really wish to do this, you'll need to do it from another curator account.<br />\n";
 				$proceed = 0;
@@ -252,19 +257,21 @@ sub print_content {
 				my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
 				foreach my $table ( $self->{'datastore'}->get_tables_with_curator() ) {
 					next if !@$sample_fields && $table eq 'samples';
-					
-					my $num =$self->{'datastore'}->run_simple_query( "SELECT count(*) FROM $table WHERE curator = ?", $data->{'id'} )->[0];
+					my $num = $self->{'datastore'}->run_simple_query( "SELECT count(*) FROM $table WHERE curator = ?", $data->{'id'} )->[0];
 					my $num_senders;
 					if ( $table eq $self->{'system'}->{'view'} ) {
-						$num_senders =$self->{'datastore'}->run_simple_query( "SELECT count(*) FROM $table WHERE sender = ?", $data->{'id'} )->[0];
-					} 
-					if ($num || $num_senders) {
+						$num_senders =
+						  $self->{'datastore'}->run_simple_query( "SELECT count(*) FROM $table WHERE sender = ?", $data->{'id'} )->[0];
+					}
+					if ( $num || $num_senders ) {
 						my $plural = $num > 1 ? 's' : '';
 						$nogo_buffer .=
-						  "User '$data->{'id'}' is the curator for $num record$plural in table '$table' - can not delete!<br />" if $num;
+						  "User '$data->{'id'}' is the curator for $num record$plural in table '$table' - can not delete!<br />"
+						  if $num;
 						$plural = $num_senders > 1 ? 's' : '';
 						$nogo_buffer .=
-						  "User '$data->{'id'}' is the sender for $num_senders record$plural in table '$table' - can not delete!<br />" if $num_senders;
+						  "User '$data->{'id'}' is the sender for $num_senders record$plural in table '$table' - can not delete!<br />"
+						  if $num_senders;
 						$proceed = 0;
 					}
 				}
@@ -286,16 +293,21 @@ sub print_content {
 		#Check if record is a foreign key in another table
 		if ( $proceed && $table ne 'composite_fields' && $table ne 'schemes' ) {
 			my %tables_to_check = $self->_get_tables_which_reference_table($table);
-			foreach my $table_to_check( keys %tables_to_check ) {
+			foreach my $table_to_check ( keys %tables_to_check ) {
+
 				#cascade deletion of locus
-				next if $table eq 'loci' && any {$table_to_check eq $_} qw (locus_aliases locus_descriptions
-				allele_designations pending_allele_designations allele_sequences locus_curators client_dbase_loci);	
+				next if $table eq 'loci' && any { $table_to_check eq $_ } qw (locus_aliases locus_descriptions
+					  allele_designations pending_allele_designations allele_sequences locus_curators client_dbase_loci);
+
 				#cascade deletion of user
-				next if $table eq 'users' && any {$table_to_check eq $_} qw ( user_permissions user_group_members); 
-				#cascade deletion of sequence bin records   
-				next if $table eq 'sequence_bin' && $table_to_check eq 'allele_sequences'; 
+				next if $table eq 'users' && any { $table_to_check eq $_ } qw ( user_permissions user_group_members);
+
+				#cascade deletion of sequence bin records
+				next if $table eq 'sequence_bin' && $table_to_check eq 'allele_sequences';
 				my $num =
-				  $self->{'datastore'}->run_simple_query( "SELECT count(*) FROM $table_to_check WHERE $tables_to_check{$table_to_check} = ?", $data->{'id'} )->[0];
+				  $self->{'datastore'}
+				  ->run_simple_query( "SELECT count(*) FROM $table_to_check WHERE $tables_to_check{$table_to_check} = ?", $data->{'id'} )
+				  ->[0];
 				if ($num) {
 					my $record_name = $self->get_record_name($table);
 					my $plural = $num > 1 ? 's' : '';
@@ -322,12 +334,15 @@ sub print_content {
 		} elsif ( $proceed && $table eq 'allele_designations' && !$self->is_allowed_to_view_isolate( $data->{'isolate_id'} ) ) {
 			$nogo_buffer .= "Your user account is not allowed to delete allele designations for this isolate.<br />\n";
 			$proceed = 0;
-		} elsif ( $proceed
-			&& ( $self->{'system'}->{'read_access'} eq 'acl' || $self->{'system'}->{'write_access'} eq 'acl' )
+		} elsif (
+			$proceed
+			&& ( $self->{'system'}->{'read_access'} eq 'acl'
+				|| ( $self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl' ) )
 			&& $self->{'username'}
 			&& !$self->is_admin
 			&& ( $table eq 'accession' || $table eq 'allele_sequences' )
-			&& $self->{'system'}->{'dbtype'} eq 'isolates' )
+			&& $self->{'system'}->{'dbtype'} eq 'isolates'
+		  )
 		{
 			my $isolate_id =
 			  $self->{'datastore'}->run_simple_query( "SELECT isolate_id FROM sequence_bin WHERE id=?", $data->{'seqbin_id'} )->[0];
@@ -348,8 +363,9 @@ sub print_content {
 		if ( $q->param('submit') && $proceed ) {
 			$" = ' AND ';
 			my $qry = "DELETE FROM $table WHERE @query_values";
-			if ($table eq 'allele_designations' && $self->can_modify_table('allele_sequences') && $q->param('delete_tags')){
-				$qry .=  ";DELETE FROM allele_sequences WHERE seqbin_id IN (SELECT id FROM sequence_bin WHERE $query_values[0]) AND $query_values[1]";
+			if ( $table eq 'allele_designations' && $self->can_modify_table('allele_sequences') && $q->param('delete_tags') ) {
+				$qry .=
+";DELETE FROM allele_sequences WHERE seqbin_id IN (SELECT id FROM sequence_bin WHERE $query_values[0]) AND $query_values[1]";
 			}
 			eval {
 				$self->{'db'}->do($qry);
@@ -367,31 +383,32 @@ sub print_content {
 				print "<div class=\"box\" id=\"statusbad\"><p>Delete failed - transaction cancelled - no records have been touched.</p>\n";
 				print "<p>Failed SQL: $qry</p>\n";
 				print "<p>Error message: $err</p></div>\n";
-				$self->{'db'}->rollback();
+				$self->{'db'}->rollback;
 				return;
 			}
-			$self->{'db'}->commit()
+			$self->{'db'}->commit
 			  && print "<div class=\"box\" id=\"resultsheader\"><p>$record_name deleted!</p>";
 			if ( $table eq 'composite_fields' ) {
 				print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}&amp;page=compositeQuery\">Query another</a>";
-			} elsif ( $table eq 'profiles'){
+			} elsif ( $table eq 'profiles' ) {
 				my $scheme_id = $q->param('scheme_id');
-				print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}&amp;page=profileQuery&amp;scheme_id=$scheme_id\">Query another</a>";
+				print "<p><a href=\""
+				  . $q->script_name
+				  . "?db=$self->{'instance'}&amp;page=profileQuery&amp;scheme_id=$scheme_id\">Query another</a>";
 			} else {
-				print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$table\">Query another</a>";
+				print "<p><a href=\""
+				  . $q->script_name
+				  . "?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$table\">Query another</a>";
 			}
 			print " | <a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
 			$logger->debug("Deleted record: $qry");
 			if ( $table eq 'allele_designations' ) {
-				my $deltags;
-				if ($q->param('delete_tags')){
-					$deltags = "<br />$data->{'locus'}: sequence tag(s) deleted"
-				}
+				my $deltags = $q->param('delete_tags') ? "<br />$data->{'locus'}: sequence tag(s) deleted" : '';
 				$self->update_history( $data->{'isolate_id'}, "$data->{'locus'}: designation '$data->{'allele_id'}' deleted$deltags" );
 
 				#check if pending designation exists as this needs to be promoted.
-				if ($q->param('delete_pending')){
-					$self->delete_pending_designations($data->{'isolate_id'}, $data->{'locus'});
+				if ( $q->param('delete_pending') ) {
+					$self->delete_pending_designations( $data->{'isolate_id'}, $data->{'locus'} );
 				} else {
 					$self->promote_pending_allele_designation( $data->{'isolate_id'}, $data->{'locus'} );
 				}
@@ -408,22 +425,24 @@ sub get_title {
 	my ($self) = @_;
 	my $desc  = $self->{'system'}->{'description'} || 'BIGSdb';
 	my $table = $self->{'cgi'}->param('table');
-	my $type  = $self->get_record_name($table);
+	my $type  = $self->get_record_name($table) || 'record';
 	return "Delete $type - $desc";
 }
 
 sub _get_tables_which_reference_table {
 	my ( $self, $table ) = @_;
 	my %tables;
-	foreach my $table2 ( $self->{'datastore'}->get_tables() ) {
+	foreach my $table2 ( $self->{'datastore'}->get_tables ) {
 		if (   $table2 ne $self->{'system'}->{'view'}
 			&& $table2 ne 'isolates'
 			&& $table2 ne $table )
 		{
 			my $attributes = $self->{'datastore'}->get_table_field_attributes($table2);
-			if (ref $attributes eq 'ARRAY'){
-				foreach my $att(@$attributes) {
-					if ( $att->{'foreign_key'} eq $table || ($table eq 'users' && $att->{'name'} eq 'sender')) {
+			if ( ref $attributes eq 'ARRAY' ) {
+				foreach my $att (@$attributes) {
+					if (   ( $att->{'foreign_key'} && $att->{'foreign_key'} eq $table )
+						|| ( $table eq 'users' && $att->{'name'} eq 'sender' ) )
+					{
 						$tables{$table2} = $att->{'name'};
 					}
 				}

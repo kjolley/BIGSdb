@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::CurateIndexPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::CuratePage);
 use Error qw(:try);
 use List::MoreUtils qw(uniq none);
@@ -34,7 +35,7 @@ sub print_content {
 	my $script_name  = $self->{'system'}->{'script_name'};
 	my $instance     = $self->{'instance'};
 	my $system       = $self->{'system'};
-	my $curator_name = $self->get_curator_name();
+	my $curator_name = $self->get_curator_name;
 	print "<h1>Database curator's interface - $system->{'description'}</h1>\n";
 	my $td = 1;
 	my $buffer;
@@ -51,17 +52,26 @@ sub print_content {
 	}
 	if ( $system->{'dbtype'} eq 'isolates' ) {
 		my @tables = qw (isolates);
-		if (($self->{'system'}->{'read_access'} eq 'acl' ||$self->{'system'}->{'write_access'} eq 'acl')){
+		if (
+			(
+				$self->{'system'}->{'read_access'} eq 'acl'
+				|| ( $self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl' )
+			)
+		  )
+		{
 			push @tables, qw(isolate_user_acl isolate_usergroup_acl);
 		}
-		push @tables, qw (isolate_value_extended_attributes projects project_members isolate_aliases refs allele_designations sequence_bin accession experiments experiment_sequences allele_sequences samples);
+		push @tables, qw (isolate_value_extended_attributes projects project_members isolate_aliases refs
+		  allele_designations sequence_bin accession experiments experiment_sequences allele_sequences samples);
 		foreach (@tables) {
 			if ( $self->can_modify_table($_) ) {
-				my $function = "_print_$_";
+				my $function  = "_print_$_";
 				my $exception = 0;
 				try {
-					$buffer .= $self->$function($td);
-				} catch BIGSdb::DataException with {
+					my $temp_value = $self->$function($td);
+					$buffer .= $temp_value if $temp_value;
+				}
+				catch BIGSdb::DataException with {
 					$exception = 1;
 				};
 				next if $exception;
@@ -70,12 +80,16 @@ sub print_content {
 			}
 		}
 	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
-		foreach (qw (locus_descriptions scheme_curators locus_curators sequences accession sequence_refs profiles profile_refs)) {
-			if ( $self->can_modify_table($_) || $_ eq 'profiles') { #profile permissions handled by ACL
+		foreach (
+			qw (locus_descriptions scheme_curators locus_curators sequences accession
+			sequence_refs profiles profile_refs)
+		  )
+		{
+			if ( $self->can_modify_table($_) || $_ eq 'profiles' ) {    #profile permissions handled by ACL
 				my $function = "_print_$_";
 				my ( $temp_buffer, $returned_td ) = $self->$function($td);
-				$buffer .= $temp_buffer;
-				$td = $returned_td || ($td == 1 ? 2 : 1);
+				$buffer .= $temp_buffer if $temp_buffer;
+				$td = $returned_td || ( $td == 1 ? 2 : 1 );
 				$can_do_something = 1 if $temp_buffer;
 			}
 		}
@@ -98,18 +112,18 @@ HTML
 	#These are admin functions, some of which some curators may be allowed to access.
 	my @tables = qw (loci);
 	my @skip_table;
-	if ($system->{'dbtype'} eq 'isolates'){
+	if ( $system->{'dbtype'} eq 'isolates' ) {
 		push @tables, qw(locus_aliases pcr pcr_locus probes probe_locus isolate_field_extended_attributes composite_fields);
-	} elsif ($system->{'dbtype'} eq 'sequences'){
+	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
 		push @tables, qw(locus_extended_attributes client_dbases client_dbase_loci client_dbase_schemes client_dbase_loci_fields);
 		my $client_db_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM client_dbases")->[0];
-		if (!$client_db_count){
-			push @skip_table,qw (client_dbase_loci client_dbase_schemes client_dbase_loci_fields);
+		if ( !$client_db_count ) {
+			push @skip_table, qw (client_dbase_loci client_dbase_schemes client_dbase_loci_fields);
 		}
 	}
 	push @tables, qw (schemes scheme_members scheme_fields scheme_groups scheme_group_scheme_members scheme_group_group_members);
 	foreach my $table (@tables) {
-		if ( $self->can_modify_table($table) && (!@skip_table || none {$table eq $_} @skip_table)) {
+		if ( $self->can_modify_table($table) && ( !@skip_table || none { $table eq $_ } @skip_table ) ) {
 			my $function = "_print_$table";
 			$buffer .= $self->$function($td);
 			$td = $td == 1 ? 2 : 1;
@@ -244,7 +258,7 @@ HTML
 sub _print_isolate_value_extended_attributes {
 	my ( $self, $td ) = @_;
 	my $count_att = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM isolate_field_extended_attributes")->[0];
-	throw BIGSdb::DataException ("No extended attributes") if !$count_att;
+	throw BIGSdb::DataException("No extended attributes") if !$count_att;
 	my $buffer = <<"HTML";
 <tr class="td$td"><td>isolate field extended attribute values</td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=isolate_value_extended_attributes">+</a></td>
@@ -330,7 +344,7 @@ HTML
 sub _print_samples {
 	my ( $self, $td ) = @_;
 	my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
-	return	if !@$sample_fields;
+	return if !@$sample_fields;
 	my $buffer = <<"HTML";
 <tr class="td$td"><td>sample storage records</td>
 <td />
@@ -362,22 +376,19 @@ sub _print_sequences {
 <td></td></tr>	
 HTML
 	my $loci;
-	if ($self->is_admin){
-		$loci = $self->{'datastore'}->get_loci();
+	if ( $self->is_admin ) {
+		$loci = $self->{'datastore'}->get_loci;
 	} else {
 		my $qry =
-	"SELECT locus_curators.locus from locus_curators LEFT JOIN loci ON locus=id LEFT JOIN scheme_members on loci.id = scheme_members.locus WHERE locus_curators.curator_id=? ORDER BY scheme_members.scheme_id,locus_curators.locus";
-	
-		$loci = $self->{'datastore'}->run_list_query("$qry",$self->get_curator_id);
+"SELECT locus_curators.locus from locus_curators LEFT JOIN loci ON locus=id LEFT JOIN scheme_members on loci.id = scheme_members.locus WHERE locus_curators.curator_id=? ORDER BY scheme_members.scheme_id,locus_curators.locus";
+		$loci = $self->{'datastore'}->run_list_query( "$qry", $self->get_curator_id );
 		@$loci = uniq @$loci;
 	}
-	return ('',$td) if !@$loci;
-	
+	return ( '', $td ) if !@$loci;
 	$td = $td == 1 ? 2 : 1;
-	
-	if (scalar @$loci < 15){
+	if ( scalar @$loci < 15 ) {
 		foreach (@$loci) {
-			my $cleaned = $self->clean_locus($_);		
+			my $cleaned = $self->clean_locus($_);
 			$buffer .= <<"HTML";
 	<tr class="td$td"><td>$cleaned sequences</td>
 	<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=sequences&amp;locus=$_">+</a></td>
@@ -393,8 +404,9 @@ HTML
 
 sub _print_locus_descriptions {
 	my ( $self, $td ) = @_;
-	if (!$self->is_admin){
-		my $allowed = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM locus_curators WHERE curator_id=?",$self->get_curator_id)->[0];
+	if ( !$self->is_admin ) {
+		my $allowed =
+		  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM locus_curators WHERE curator_id=?", $self->get_curator_id )->[0];
 		return if !$allowed;
 	}
 	my $buffer = <<"HTML";
@@ -422,16 +434,20 @@ HTML
 sub _print_profiles {
 	my ( $self, $td ) = @_;
 	my $schemes;
-	if ($self->is_admin){
-		$schemes = $self->{'datastore'}->run_list_query("SELECT DISTINCT id FROM schemes RIGHT JOIN scheme_members ON schemes.id=scheme_members.scheme_id JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key ORDER BY id");
+	if ( $self->is_admin ) {
+		$schemes =
+		  $self->{'datastore'}->run_list_query(
+"SELECT DISTINCT id FROM schemes RIGHT JOIN scheme_members ON schemes.id=scheme_members.scheme_id JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key ORDER BY id"
+		  );
 	} else {
-		$schemes = $self->{'datastore'}->run_list_query("SELECT scheme_id FROM scheme_curators WHERE curator_id=? ORDER BY scheme_id",$self->get_curator_id);
+		$schemes =
+		  $self->{'datastore'}
+		  ->run_list_query( "SELECT scheme_id FROM scheme_curators WHERE curator_id=? ORDER BY scheme_id", $self->get_curator_id );
 	}
 	my $buffer;
 	foreach (@$schemes) {
-		
 		my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
-		(my $clean_desc = $scheme_info->{'description'}) =~ s/\&/\&amp;/g;
+		( my $clean_desc = $scheme_info->{'description'} ) =~ s/\&/\&amp;/g;
 		$buffer .= <<"HTML";
 <tr class="td$td"><td>$clean_desc profiles</td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileAdd&amp;scheme_id=$_">+</a></td>
@@ -441,7 +457,6 @@ sub _print_profiles {
 <td></td></tr>
 HTML
 		$td = $td == 1 ? 2 : 1;
-
 	}
 	return ( $buffer, $td );
 }
@@ -534,7 +549,6 @@ sub _print_pcr {
 <td style="text-align:left" class="comment">Set up <i>in silico</i> PCR reactions.  These can be used to filter genomes for tagging to specific repetitive loci.</td></tr>
 HTML
 	return $buffer;
-
 }
 
 sub _print_pcr_locus {
@@ -547,7 +561,6 @@ sub _print_pcr_locus {
 <td style="text-align:left" class="comment">Link a locus to an <i>in silico</i> PCR reaction.</td></tr>
 HTML
 	return $buffer;
-
 }
 
 sub _print_probes {
@@ -560,7 +573,6 @@ sub _print_probes {
 <td style="text-align:left" class="comment">Define nucleotide probes for <i>in silico</i> hybridization reaction to filter genomes for tagging to specific repetitive loci.</td></tr>
 HTML
 	return $buffer;
-
 }
 
 sub _print_probe_locus {
@@ -573,7 +585,6 @@ sub _print_probe_locus {
 <td style="text-align:left" class="comment">Link a locus to an <i>in silico</i> hybridization reaction.</td></tr>
 HTML
 	return $buffer;
-
 }
 
 sub _print_locus_aliases {
@@ -610,7 +621,7 @@ sub _print_client_dbase_loci_fields {
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=client_dbase_loci_fields">?</a></td>
 <td style="text-align:left" class="comment">Define fields in client database whose value can be displayed when isolate has matching allele.</td></tr>
 HTML
-	return $buffer;	
+	return $buffer;
 }
 
 sub _print_locus_extended_attributes {

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,14 +19,14 @@
 
 package BIGSdb::CurateRenumber;
 use strict;
+use warnings;
 use base qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
 sub initiate {
 	my ($self) = @_;
-	$self->{'jQuery'} = 1;
-	$self->{'jQuery.tablesort'}     = 1;
+	$self->{$_} = 1 foreach qw (jQuery jQuery.tablesort);
 }
 
 sub get_javascript {
@@ -64,12 +64,8 @@ sub print_content {
 
 	print "<p>You have selected to renumber the genome positions set in the locus table based on the tagged sequences in sequence id#$seqbin_id.</p>";
 	my $sql = $self->{'db'}->prepare("SELECT locus,start_pos FROM allele_sequences WHERE seqbin_id=? ORDER BY start_pos");
-	eval {
-		$sql->execute($seqbin_id);
-	};
-	if ($@){
-		$logger->error("Can't execute $@");
-	}
+	eval { $sql->execute($seqbin_id) };
+	$logger->error($@) if $@;
 	if ($q->param('renumber')){
 		if ($q->param('blank')){
 			eval {
@@ -84,11 +80,9 @@ sub print_content {
 		}
 		my $update_sql = $self->{'db'}->prepare("UPDATE loci SET genome_position=?,datestamp='today' WHERE id=?");
 		while (my ($locus,$pos) = $sql->fetchrow_array){
-			eval {
-				$update_sql->execute($pos,$locus);
-			};
+			eval { $update_sql->execute($pos,$locus) };
 			if ($@){
-				$logger->error("Can't update genome positions");
+				$logger->error("Can't update genome positions $@");
 				$self->{'db'}->rollback;
 				print "<p class=\"statusbad\">Can't update genome positions</p>\n";
 				return;
@@ -104,9 +98,7 @@ sub print_content {
 	print "<p>\n";
 	print $q->submit(-name=>'renumber', -label=>'Renumber', -class=>'submit');
 	print "</p>\n";
-	foreach (qw (db page seqbin_id)){
-		print $q->hidden($_);
-	}
+	print $q->hidden($_) foreach qw (db page seqbin_id);
 	print $q->end_form;
 	print "<p>The following designations will be made:</p>";
 
@@ -115,18 +107,15 @@ sub print_content {
 	my $td = 1;
 	my $existing_sql = $self->{'db'}->prepare("SELECT genome_position FROM loci WHERE id=?");
 	while (my ($locus,$pos) = $sql->fetchrow_array){
-		eval {
-			$existing_sql->execute($locus);
-		};
-		if ($@){
-			$logger->error("Can't execute $@");
-		}
+		eval { $existing_sql->execute($locus) };
+		$logger->error($@) if $@;
 		my ($existing) = $existing_sql->fetchrow_array;
-		print "<tr class=\"td$td\"><td>$locus</td><td>$existing</td><td>$pos</td></tr>\n";
+		print "<tr class=\"td$td\"><td>$locus</td>";
+		print defined $existing ? "<td>$existing</td>" : '<td />';
+		print "<td>$pos</td></tr>\n";
 		$td = $td == 1 ? 2 : 1;
 	}
 	print "</tbody></table>\n";
-	
 	print "</div>\n";
 }
 

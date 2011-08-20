@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::CurateUpdatePage;
 use strict;
+use warnings;
 use base qw(BIGSdb::CuratePage);
 use List::MoreUtils qw(none);
 use BIGSdb::Page qw(DATABANKS);
@@ -51,7 +52,7 @@ sub print_content {
 			  "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update this record.</p></div>\n";
 		}
 		return;
-	} elsif ( ( $self->{'system'}->{'read_access'} eq 'acl' || $self->{'system'}->{'write_access'} eq 'acl' )
+	} elsif ( ( $self->{'system'}->{'read_access'} eq 'acl' || ($self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl') )
 		&& $self->{'username'}
 		&& !$self->is_admin
 		&& $q->param('isolate_id')
@@ -77,10 +78,10 @@ sub print_content {
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my @query_values;
 	foreach (@$attributes) {
-		my $value = $q->param( $_->{'name'} );
+		my $value = defined $q->param( $_->{'name'} ) ? $q->param( $_->{'name'} ) : '';
 		$value =~ s/'/\\'/g;
-		if ( $_->{'primary_key'} eq 'yes' ) {
-			push @query_values, "$_->{name} = '$value'";
+		if ( $_->{'primary_key'} ) {
+			push @query_values, "$_->{name} = E'$value'";
 		}
 	}
 	if ( !@query_values ) {
@@ -112,7 +113,7 @@ sub print_content {
 	my $buffer = $self->create_record_table( $table, $data, 1 );
 	my %newdata;
 	foreach (@$attributes) {
-		if ( $q->param( $_->{'name'} ) ne '' ) {
+		if ( defined $q->param( $_->{'name'} ) && $q->param( $_->{'name'} ) ne '' ) {
 			$newdata{ $_->{'name'} } = $q->param( $_->{'name'} );
 		}
 	}
@@ -432,7 +433,7 @@ HTML
 			my (@values);
 			my %new_value;
 			foreach (@$attributes) {
-				next if $_->{'user_update'} eq 'no';
+				next if $_->{'user_update'} && $_->{'user_update'} eq 'no';
 				$newdata{ $_->{'name'} } =~ s/\\/\\\\/g;
 				$newdata{ $_->{'name'} } =~ s/'/\\'/g;
 				if ( $_->{'name'} =~ /sequence$/ ) {

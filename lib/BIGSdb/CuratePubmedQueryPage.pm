@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,7 @@
 
 package BIGSdb::CuratePubmedQueryPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -27,8 +28,6 @@ sub print_content {
 	my ($self) = @_;
 	my $q    = $self->{'cgi'};
 	print "<h1>PubMed link query/update</h1>\n";
-		
-	
 	if ( $q->param('pubmed') ) {
 		if ( $q->param('selected') ) {
 			if ( !$self->can_modify_table('refs') ) {
@@ -49,12 +48,8 @@ sub print_content {
 			my $count;
 
 			foreach my $id (@ids) {
-				eval { $sql->execute( $id, $pubmed ); };
-				if ($@) {
-					$logger->error("Can't execute: $qry values: $id,$pubmed");
-				} else {
-					$logger->debug("Query: $qry values: $id,$pubmed");
-				}
+				eval { $sql->execute( $id, $pubmed ) };
+				$logger->error($@) if $@;
 				my ($set) = $sql->fetchrow_array;
 				if ( !$q->param("id-$id") && $set ) {
 					$buffer .=
@@ -102,12 +97,8 @@ sub print_content {
 			my $qry =
 "SELECT isolate_id FROM refs RIGHT JOIN $self->{'system'}->{'view'} ON isolate_id=id WHERE isolate_id IS NOT NULL AND pubmed_id=? ORDER BY isolate_id";
 			my $sql = $self->{'db'}->prepare($qry);
-			eval { $sql->execute($pubmed); };
-			if ($@) {
-				$logger->error("Can't execute: $qry value:$pubmed $@");
-			} else {
-				$logger->debug("Query: $qry value:$pubmed");
-			}
+			eval { $sql->execute($pubmed) };
+			$logger->error($@) if $@;
 			my @ids;
 			while ( my ($id) = $sql->fetchrow_array ) {
 				push @ids, $id;
@@ -146,9 +137,7 @@ sub print_content {
 			print $q->start_form;
 			print $q->submit( -name => 'Select All', -class=>'button' );
 			print $q->submit( -name => 'Select None', -class=>'button' );
-			print $q->hidden('page');
-			print $q->hidden('db');
-			print $q->hidden('pubmed');
+			print $q->hidden($_) foreach qw (page db pubmed);
 			print $q->end_form;
 			print "<p />\n";
 			print $q->start_form;
@@ -164,12 +153,8 @@ sub print_content {
 			$qry  = "SELECT first_name,surname FROM users WHERE id=?";
 			my $sql2 = $self->{'db'}->prepare($qry);
 			foreach my $id (@ids) {
-				eval { $sql->execute($id); };
-				if ($@) {
-					$logger->error("Can't execute: value:$id");
-				} else {
-					$logger->debug("Query: value:$id");
-				}
+				eval { $sql->execute($id) };
+				$logger->error($@) if $@;
 				my @data = $sql->fetchrow_array;
 				foreach ( my $i = 0 ; $i < scalar @data ; $i++ ) {
 					if (   $headings[$i] eq 'sender'
@@ -178,7 +163,10 @@ sub print_content {
 						$data[$i] = $self->get_sender_fullname( $data[$i] );
 					}
 				}
-				print "<tr class=\"td$td\"><td>@data</td><td>";
+				{
+					no warnings 'uninitialized';
+					print "<tr class=\"td$td\"><td>@data</td><td>";
+				}
 				print $q->checkbox(
 					-name    => "id-$id",
 					-label   => '',
@@ -189,9 +177,7 @@ sub print_content {
 			}
 			print "</table><p />\n";
 			print $q->submit(-name=>'Update records',-class=>'submit');
-			print $q->hidden('page');
-			print $q->hidden('db');
-			print $q->hidden('pubmed');
+			print $q->hidden($_) foreach qw (page db pubmed);
 			$" = ',';
 			print $q->hidden( 'ids',      "@ids" );
 			print $q->hidden( 'selected', 1 );
@@ -218,12 +204,8 @@ sub print_content {
 			my $count;
 
 			foreach my $pmid (@pmids) {
-				eval { $sql->execute( $id, $pmid ); };
-				if ($@) {
-					$logger->error("Can't execute: $qry values:$id,$pmid");
-				} else {
-					$logger->debug("Query: $qry values:$id,$pmid");
-				}
+				eval { $sql->execute( $id, $pmid ) };
+				$logger->error($@) if $@;
 				my ($set) = $sql->fetchrow_array;
 				if ( !$q->param("pmid-$pmid") && $set ) {
 					$buffer .=
@@ -278,12 +260,8 @@ sub print_content {
 			
 			my $qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?";
 			my $sql = $self->{'db'}->prepare($qry);
-			eval { $sql->execute($id); };
-			if ($@) {
-				$logger->error("Can't execute: $qry value:$id");
-			} else {
-				$logger->debug("Query: $qry value:$id");
-			}
+			eval { $sql->execute($id) };
+			$logger->error($@) if $@;
 			print $q->start_form;
 			print "<table class=\"resultstable\">\n";
 			my $data = $sql->fetchrow_hashref;
@@ -304,12 +282,8 @@ sub print_content {
 			$qry =
 "SELECT pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id";
 			$sql = $self->{'db'}->prepare($qry);
-			eval { $sql->execute($id); };
-			if ($@) {
-				$logger->error("Can't execute: $qry value:$id");
-			} else {
-				$logger->debug("Query: $qry value:$id");
-			}
+			eval { $sql->execute($id) };
+			$logger->error($@) if $@;
 			my @pmids;
 			while ( my ($pmid) = $sql->fetchrow_array ) {
 				push @pmids, $pmid;
@@ -324,12 +298,10 @@ sub print_content {
 				}
 			}
 			print "</table>\n";
-			print $q->hidden('page');
-			print $q->hidden('db');
+			print $q->hidden($_) foreach qw (page db id);
 			$" = ',';
 			print $q->hidden( 'pmids',    "@pmids" );
 			print $q->hidden( 'selected', 1 );
-			print $q->hidden('id');
 			print "<p />\n";
 			print $q->submit(-name=>'Update',-class=>'submit');
 			print $q->end_form;
@@ -344,8 +316,7 @@ sub print_content {
 		print "</td><td>\n";
 		print $q->submit(-name=>'Retrieve',-class=>'submit');
 		print "</td></tr></table>\n";
-		print $q->hidden('page');
-		print $q->hidden('db');
+		print $q->hidden($_) foreach qw (page db);
 		print $q->end_form;
 		print "<h2>Links by isolate id</h2>\n";
 		print "<p>Please enter isolate id.</p>\n";
@@ -355,8 +326,7 @@ sub print_content {
 		print "</td><td>\n";
 		print $q->submit(-name=>'Retrieve',-class=>'submit');
 		print "</td></tr></table>\n";
-		print $q->hidden('page');
-		print $q->hidden('db');
+		print $q->hidden($_) foreach qw (page db);
 		print $q->end_form;
 	}
 	print "</div>";
@@ -365,8 +335,6 @@ sub print_content {
 sub get_title {
 	my ($self)   = @_;
 	my $desc  = $self->{'system'}->{'description'} || 'BIGSdb';
-	my $table = $self->{'cgi'}->param('table');
-	my $type  = $self->get_record_name($table);
 	return "Update or delete PubMed links - $desc";
 }
 
@@ -376,13 +344,9 @@ sub _get_user_info {
 	my $qry =
 	  "SELECT first_name,surname,affiliation,email FROM users WHERE id=?;";
 	$sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute($userid); };
-	if ($@) {
-		$logger->error("Can't execute: $qry value:$userid");
-	} else {
-		$logger->debug("Query: $qry value:$userid");
-	}
-	return $sql->fetchrow_array();
+	eval { $sql->execute($userid) };
+	$logger->error($@) if $@;
+	return $sql->fetchrow_array;
 }
 
 sub _print_maintable_reference {
@@ -405,30 +369,24 @@ sub _print_maintable_reference {
 			  );
 			my $sqlr2 =
 			  $dbr->prepare("SELECT surname,initials FROM authors WHERE id=?");
-			eval { $sqlr->execute($pmid); };
-			if ($@) {
-				$logger->error("Can't execute: value:$pmid");
-			}
+			eval { $sqlr->execute($pmid) };
+			$logger->error($@) if $@;
 			my $sqlr3 =
 			  $dbr->prepare(
 				"SELECT author FROM refauthors WHERE pmid=? ORDER BY position"
 			  );
-			eval { $sqlr3->execute($pmid); };
-			if ($@) {
-				$logger->error("Can't execute: value: $pmid");
-			}
+			eval { $sqlr3->execute($pmid) };
+			$logger->error($@) if $@;
 			my @authors;
 			while ( my ($authorid) = $sqlr3->fetchrow_array ) {
 				push @authors, $authorid;
 			}
 			my ( $year, $journal, $volume, $pages, $title ) =
-			  $sqlr->fetchrow_array();
+			  $sqlr->fetchrow_array;
 			undef my $temp;
 			foreach my $author (@authors) {
-				eval { $sqlr2->execute($author); };
-				if ($@) {
-					$logger->error("Can't execute: value:$author");
-				}
+				eval { $sqlr2->execute($author) };
+				$logger->error($@) if $@;
 				my ( $surname, $initials ) = $sqlr2->fetchrow_array();
 				$temp .= "$surname $initials, ";
 			}

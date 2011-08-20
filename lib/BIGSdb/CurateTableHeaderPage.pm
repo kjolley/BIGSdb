@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::CurateTableHeaderPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -30,7 +31,7 @@ sub initiate {
 sub print_content {
 	my ($self) = @_;
 	my @headers;
-	my $table = $self->{'cgi'}->param('table');
+	my $table = $self->{'cgi'}->param('table') || '';
 	if ( !$self->{'datastore'}->is_table($table) ) {
 		print "Table $table does not exist!\n";
 		return;

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,7 @@
 
 package BIGSdb::CurateProfileAddPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::CurateAddPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -33,6 +34,7 @@ sub print_content {
 	my ($self)   = @_;
 	my $scheme_id = $self->{'cgi'}->param('scheme_id');
 	if ( !$self->{'datastore'}->scheme_exists($scheme_id) ) {
+		print "<h1>Add new profile</h1>\n";
 		print "<div class=\"box\" id=\"statusbad\"><p>Invalid scheme passed.</p></div>\n";
 		return;
 	}  elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -116,10 +118,8 @@ sub print_content {
 			$qry .= "(@locus_temp)";
 			$qry .= ' GROUP BY profiles.profile_id having count(*)=' . scalar @locus_temp;
 			my $sql = $self->{'db'}->prepare($qry);
-			eval { $sql->execute; };
-			if ($@) {
-				$logger->error("Can't execute $qry $@");
-			}
+			eval { $sql->execute };
+			$logger->error($@) if $@;
 			my ($value) = $sql->fetchrow_array;
 			if ($value) {
 				print "<div class=\"box\" id=\"statusbad\"><p>This allelic profile has already been defined as $primary_key-$value.</p></div>\n";
@@ -159,9 +159,7 @@ sub print_content {
 					push @inserts, $qry;
 				}
 				$" = ';';
-				eval { 
-					$self->{'db'}->do("@inserts");	
-				 };
+				eval { $self->{'db'}->do("@inserts") };
 				if ($@) {
 					print "<div class=\"box\" id=\"statusbad\"><p>Insert failed - transaction cancelled - no records have been touched.</p>\n";
 					if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
@@ -173,10 +171,10 @@ sub print_content {
 						print "<p>Error message: $@</p>\n";
 					}
 					print "</div>\n";
-					$self->{'db'}->rollback();
+					$self->{'db'}->rollback;
 				} else {
 					$added = 1;
-					$self->{'db'}->commit()
+					$self->{'db'}->commit
 					  && print "<div class=\"box\" id=\"resultsheader\"><p>$primary_key-$newdata{\"field:$primary_key\"} added!</p>";
 					print "<p><a href=\""
 					  . $q->script_name
@@ -191,12 +189,8 @@ sub print_content {
 	print "<div class=\"box\" id=\"queryform\"><p>Please fill in the fields below - required fields are marked with an exclamation mark (!).</p>\n";
 	my $qry = "select id,user_name,first_name,surname from users where id>0 order by surname";
 	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute(); };
-	if ($@) {
-		$logger->error("Can't execute: $qry");
-	} else {
-		$logger->debug("Query: $qry");
-	}
+	eval { $sql->execute };
+	$logger->error($@) if $@;
 	my @users;
 	my %usernames;
 	while ( my ( $userid, $username, $firstname, $surname ) = $sql->fetchrow_array ) {
@@ -205,9 +199,7 @@ sub print_content {
 	}
 	print $q->start_form;
 	$q->param( 'sent', 1 );
-	foreach (qw (page db sent scheme_id)) {
-		print $q->hidden($_);
-	}
+	print $q->hidden($_) foreach qw (page db sent scheme_id);
 	print "<table>\n";
 	print "<tr><td style=\"text-align: right\">$primary_key: !</td><td style=\"white-space: nowrap\">";
 	print $q->textfield(
@@ -236,14 +228,14 @@ sub print_content {
 		print "</td></tr>\n";
 	}
 	print "<tr><td style=\"text-align:right\">curator: </td><td style=\"white-space: nowrap\"><b>"
-	  . $self->get_curator_name() . ' ('
+	  . $self->get_curator_name . ' ('
 	  . $self->{'username'}
 	  . ")</b></td></tr>\n";
 	print "<tr><td style=\"text-align:right\">date_entered: </td><td style=\"white-space: nowrap\"><b>"
-	  . $self->get_datestamp()
+	  . $self->get_datestamp
 	  . "</b></td></tr>\n";
 	print "<tr><td style=\"text-align:right\">datestamp: </td><td style=\"white-space: nowrap\"><b>"
-	  . $self->get_datestamp()
+	  . $self->get_datestamp
 	  . "</b></td></tr>\n";
 	print "<tr><td>";
 	print

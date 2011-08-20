@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::CurateProfileBatchAddPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::CurateProfileAddPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -27,6 +28,7 @@ sub print_content {
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
 	if ( !$self->{'datastore'}->scheme_exists($scheme_id) ) {
+		print "<h1>batch insert profiles</h1>\n";
 		print "<div class=\"box\" id=\"statusbad\"><p>Invalid scheme passed.</p></div>\n";
 		return;
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -62,16 +64,18 @@ sub print_content {
 	if ( $q->param('checked_buffer') ) {
 		my $dir      = $self->{'config'}->{'secure_tmp_dir'};
 		my $tmp_file = $dir . '/' . $q->param('checked_buffer');
-		open( my $tmp_fh, '<', $tmp_file );
-		my @records = <$tmp_fh>;
-		close $tmp_fh;
+		my @records;
+		if ( open( my $tmp_fh, '<', $tmp_file ) ) {
+			@records = <$tmp_fh>;
+			close $tmp_fh;
+		}
 		if ( $tmp_file =~ /^(.*\/BIGSdb_[0-9_]+\.txt)$/ ) {
 			$logger->info("Deleting temp file $tmp_file");
 			unlink $1;
 		} else {
 			$logger->error("Can't delete temp file $tmp_file");
 		}
-		my $headerline = shift @records;
+		my $headerline = shift @records || '';
 		$headerline =~ s/[\r\n]//g;
 		my @fieldorder = split /\t/, $headerline;
 		my %fieldorder;
@@ -91,7 +95,7 @@ sub print_content {
 					if ( $_ eq 'date_entered' || $_ eq 'datestamp' ) {
 						push @value_list, "'today'";
 					} elsif ( $_ eq 'curator' ) {
-						push @value_list, $self->get_curator_id();
+						push @value_list, $self->get_curator_id;
 					} elsif ( defined $fieldorder{$_}
 						&& $data[ $fieldorder{$_} ] ne 'null' )
 					{
@@ -117,8 +121,7 @@ sub print_content {
 				$qry =
 "INSERT INTO profiles (scheme_id,profile_id,@fields_to_include) VALUES ($scheme_id,'$data[$fieldorder{$primary_key}]',@value_list)";
 				push @inserts, $qry;
-				$logger->debug("INSERT: $qry");
-				my $curator = $self->get_curator_id();
+				my $curator = $self->get_curator_id;
 
 				foreach (@$loci) {
 					$data[ $fieldorder{$_} ] =~ s/^\s*//g;
@@ -134,16 +137,17 @@ sub print_content {
 					}
 				}
 				foreach (@$scheme_fields) {
-					$data[ $fieldorder{$_} ] =~ s/^\s*//g;
-					$data[ $fieldorder{$_} ] =~ s/\s*$//g;
+					my $value = $data[ $fieldorder{$_} ];
+					$value = defined $value ? $value : '';
+					$value =~ s/^\s*//g;
+					$value =~ s/\s*$//g;
 					if (   defined $fieldorder{$_}
-						&& $data[ $fieldorder{$_} ] ne 'null'
-						&& $data[ $fieldorder{$_} ] ne '' )
+						&& $value ne 'null'
+						&& $value ne '' )
 					{
 						$qry =
-"INSERT INTO profile_fields (scheme_id,scheme_field,profile_id,value,curator,datestamp) VALUES ($scheme_id,'$_','$data[$fieldorder{$primary_key}]','$data[$fieldorder{$_}]','$curator','today')";
+"INSERT INTO profile_fields (scheme_id,scheme_field,profile_id,value,curator,datestamp) VALUES ($scheme_id,'$_','$data[$fieldorder{$primary_key}]','$value','$curator','today')";
 						push @inserts, $qry;
-						$logger->debug("INSERT: $qry");
 					}
 				}
 				$" = ';';
@@ -158,13 +162,13 @@ sub print_content {
 						print "<p>Error message: $@</p>\n";
 					}
 					print "</div>\n";
-					$self->{'db'}->rollback();
+					$self->{'db'}->rollback;
 					$logger->error("Can't insert: $@");
 					return;
 				}
 			}
 		}
-		$self->{'db'}->commit()
+		$self->{'db'}->commit
 		  && print "<div class=\"box\" id=\"resultsheader\"><p>Database updated ok</p>";
 		print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
 	} elsif ( $q->param('data') ) {
@@ -219,7 +223,6 @@ sub print_content {
 		}
 		my $pk;
 
-		#		my $pk_is_int;
 		$pk = $self->next_id( 'profiles', $scheme_id );
 		my $qry                   = "SELECT profile_id FROM profiles WHERE scheme_id=? AND profile_id=?";
 		my $primary_key_check_sql = $self->{'db'}->prepare($qry);
@@ -251,7 +254,7 @@ sub print_content {
 			if ( $integer_pk && !$first_record && !$pk_included ) {
 				do {
 					$pk++;
-				} while ( $self->_is_pk_used( $scheme_id,$pk ) );
+				} while ( $self->_is_pk_used( $scheme_id, $pk ) );
 			} elsif ($pk_included) {
 				$pk = $data[ $fileheaderPos{$primary_key} ];
 			}
@@ -276,19 +279,19 @@ sub print_content {
 							$problems{$pk} .= "Sender must be an integer.<br />";
 							$problem = 1;
 						} else {
-							my $sender_exists = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM users WHERE id=?",$value)->[0];
-							if (!$sender_exists){
+							my $sender_exists =
+							  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM users WHERE id=?", $value )->[0];
+							if ( !$sender_exists ) {
 								$problems{$pk} .= "Sender '$value' does not exist.<br />";
-								$problem = 1;							
+								$problem = 1;
 							}
 						}
-						
 					} else {
 						$value = $q->param('sender')
 						  if $q->param('sender') != -1;
 					}
 				} elsif ( $field eq 'curator' ) {
-					$value = $self->get_curator_id();
+					$value = $self->get_curator_id;
 				} else {
 					if ( defined $fileheaderPos{$field} ) {
 						$header_row .= "$field\t" if $first_record;
@@ -319,6 +322,7 @@ sub print_content {
 						$problem = 1;
 					}
 				}
+				$value = defined $value ? $value : '';
 				my $display_value = $value;
 				if ( !$problem ) {
 					$tablebuffer .= "<td>$display_value</td>";
@@ -331,20 +335,16 @@ sub print_content {
 			}
 
 			#check if profile exists
-			eval { $profile_check_sql->execute(@profile); };
-			if ($@) {
-				$logger->error("Can't execute $qry $@");
-			}
+			eval { $profile_check_sql->execute(@profile) };
+			$logger->error($@) if $@;
 			my ($exists) = $profile_check_sql->fetchrow_array;
 			if ($exists) {
 				$problems{$pk} .= "The profile for $primary_key-$pk already exists in the database ($primary_key-$exists).<br />";
 			}
 
 			#check if primary key already exists
-			eval { $primary_key_check_sql->execute( $scheme_id, $pk ); };
-			if ($@) {
-				$logger->error("Can't execute primary key check. $@");
-			}
+			eval { $primary_key_check_sql->execute( $scheme_id, $pk ) };
+			$logger->error($@) if $@;
 			($exists) = $primary_key_check_sql->fetchrow_array;
 			if ($exists) {
 				$problems{$pk} .= "The primary key '$primary_key-$pk' already exists in the database.<br />";
@@ -385,9 +385,7 @@ sub print_content {
 "<div class=\"box\" id=\"resultsheader\"><h2>Import status</h2>$sender_message<p>No obvious problems identified so far.</p>\n";
 			my $filename = $self->make_temp_file(@checked_buffer);
 			print $q->start_form;
-			foreach (qw (data page table db sender scheme_id)) {
-				print $q->hidden($_);
-			}
+			print $q->hidden($_) foreach qw (data page table db sender scheme_id);
 			print $q->hidden( 'checked_buffer', $filename );
 			print $q->submit( -name => 'Import data', -class => 'submit' );
 			print $q->endform;
@@ -417,19 +415,15 @@ HTML
 		print << "HTML";
 </ul>
 <ul>
-<li><a href="$self->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;table=profiles&amp;scheme=$scheme_id">Download tab-delimited 
+<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;table=profiles&amp;scheme=$scheme_id">Download tab-delimited 
 header for your spreadsheet</a> - use Paste special &rarr; text to paste the data.</li>
 </ul>
 HTML
 		print $q->start_form;
 		my $qry = "select id,user_name,first_name,surname from users WHERE id> 0 order by surname";
 		my $sql = $self->{'db'}->prepare($qry);
-		eval { $sql->execute(); };
-		if ($@) {
-			$logger->error("Can't execute: $qry");
-		} else {
-			$logger->debug("Query: $qry");
-		}
+		eval { $sql->execute };
+		$logger->error($@) if $@;
 		my @users;
 		my %usernames;
 		$usernames{''} = 'Select sender ...';
@@ -443,9 +437,7 @@ HTML
 		print $q->popup_menu( -name => 'sender', -values => [ '', -1, @users ], -labels => \%usernames );
 		print "</td><td class=\"comment\">Value will be overridden if you include a sender field in your pasted data.</td></tr></table>\n";
 		print "<p>Please paste in tab-delimited text (<strong>include a field header line</strong>).</p>\n";
-		foreach (qw (page db scheme_id)) {
-			print $q->hidden($_);
-		}
+		print $q->hidden($_) foreach qw (page db scheme_id);
 		print $q->textarea( -name => 'data', -rows => 20, -columns => 120 );
 		print "<table style=\"width:95%\"><tr><td>";
 		print $q->reset( -class => 'reset' );
@@ -453,31 +445,33 @@ HTML
 		print $q->submit( -class => 'submit' );
 		print "</td></tr></table><p />\n";
 		print $q->end_form;
-		print "<p><a href=\"$self->{'script_name'}?db=$self->{'instance'}\">Back</a></p>\n";
+		print "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back</a></p>\n";
 		print "</div>\n";
 	}
 }
 
 sub get_title {
-	my $self  = shift;
-	my $desc  = $self->{'system'}->{'description'} || 'BIGSdb';
-	my $table = $self->{'cgi'}->param('table');
-	my $type  = $self->get_record_name($table);
-	return "Batch add new $type records - $desc";
+	my $self        = shift;
+	my $desc        = $self->{'system'}->{'description'} || 'BIGSdb';
+	my $table       = $self->{'cgi'}->param('table');
+	my $scheme_id   = $self->{'cgi'}->param('scheme_id');
+	my $scheme_desc = '';
+	if ( $scheme_id && BIGSdb::Utils::is_int($scheme_id) ) {
+		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+		$scheme_desc = $scheme_info->{'description'} || '';
+	}
+	my $type = $self->get_record_name($table);
+	return "Batch add new $scheme_desc profiles - $desc";
 }
 
 sub _is_pk_used {
 
 	#TODO this could be improved by storing query handle
-	my ( $self, $scheme_id, $profile_id) = @_;
+	my ( $self, $scheme_id, $profile_id ) = @_;
 	my $qry = "SELECT count(*) FROM profiles WHERE scheme_id=? AND profile_id=?";
 	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute($scheme_id,$profile_id); };
-	if ($@) {
-		$logger->error("Can't execute: $qry values:$scheme_id, $profile_id");
-	} else {
-		$logger->debug("Query: $qry values:$scheme_id, $profile_id");
-	}
+	eval { $sql->execute( $scheme_id, $profile_id ) };
+	$logger->error($@) if $@;
 	my ($used) = $sql->fetchrow_array;
 	return $used;
 }

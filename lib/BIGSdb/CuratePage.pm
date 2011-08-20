@@ -131,7 +131,7 @@ sub create_record_table {
 					}
 					$buffer .= '</b>';
 					$buffer .= $q->hidden( $name, $newdata{ $_->{'name'} } );
-				} elsif ( $q->param('page') eq 'update' && $_->{'user_update'} eq 'no' ) {
+				} elsif ( $q->param('page') eq 'update' && $_->{'user_update'} && $_->{'user_update'} eq 'no' ) {
 					if ( $_->{'name'} eq 'sequence' ) {
 						my $data_length = length( $newdata{ $_->{'name'} } );
 						if ( $data_length > 5000 ) {
@@ -611,10 +611,8 @@ sub check_record {
 		push @problems, "Please fill in all required fields. The following fields are missing: @missing";
 	} elsif ( @primary_key_query && !@problems ) {    #only run query if there are no other problems
 		$" = ' AND ';
-		my $retval = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM $table WHERE @primary_key_query");
-		if (   ( $update && $retval->[0] && $newdata{ $_->{'name'} } ne $$allowed_valuesref{ $_->{'name'} } )
-			|| ( $retval->[0] && !$update ) )
-		{
+		my $retval = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM $table WHERE @primary_key_query")->[0];
+		if ( $retval && !$update ){
 			my $article = $record_name =~ /^[aeio]/ ? 'An' : 'A';
 			push @problems, "$article $record_name already exists with a primary key of @primary_key_query.";
 		}

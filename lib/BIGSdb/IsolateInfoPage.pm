@@ -579,7 +579,7 @@ sub _get_tree {
 sub get_sample_summary {
 	my ( $self, $id ) = @_;
 	my ($sample_buffer) = $self->_get_samples( $id, 1 );
-	my $buffer;
+	my $buffer = '';
 	if ($sample_buffer) {
 		$buffer = "<table class=\"resultstable\">\n";
 		$buffer .= $sample_buffer;

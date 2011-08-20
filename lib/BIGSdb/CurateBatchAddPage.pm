@@ -193,15 +193,17 @@ sub print_content {
 					%templist = ();
 					foreach (@locus_list) {
 						next if !$fieldorder{$_};
-						$data[ $fieldorder{$_} ] =~ s/^\s*//g;
-						$data[ $fieldorder{$_} ] =~ s/\s*$//g;
+						my $value = $data[ $fieldorder{$_} ];
+						$value = defined $value ? $value : '';
+						$value =~ s/^\s*//g;
+						$value =~ s/\s*$//g;
 						if (   defined $fieldorder{$_}
-							&& $data[ $fieldorder{$_} ] ne 'null'
-							&& $data[ $fieldorder{$_} ] ne '' )
+							&& $value ne 'null'
+							&& $value ne '' )
 						{
 							( my $cleaned_locus = $_ ) =~ s/'/\\'/g;
 							$qry =
-"INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp) VALUES ('$id','$cleaned_locus','$data[$fieldorder{$_}]','$sender','confirmed','manual','$curator','today','today')";
+"INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp) VALUES ('$id',E'$cleaned_locus','$value','$sender','confirmed','manual','$curator','today','today')";
 							push @inserts, $qry;
 							$logger->debug("INSERT: $qry");
 						}
@@ -706,6 +708,7 @@ sub print_content {
 						}
 					}
 					$i++;
+					$value = defined $value ? $value : '';
 					$checked_record .= "$value\t"
 					  if defined $fileheaderPos{$field}
 						  or ( $field eq 'id' );

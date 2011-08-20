@@ -2601,7 +2601,8 @@ sub is_table {
 	my ( $self, $qry ) = @_;
 	$qry ||= '';
 	my @tables = $self->get_tables();
-	return any { $_ eq $qry } @tables;
+	return 1 if any { $_ eq $qry } @tables;
+	return 0;
 }
 
 sub get_tables {

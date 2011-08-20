@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::CurateIsolateACLPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::CuratePage);
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
@@ -55,7 +56,7 @@ sub print_content {
 		if ($isolate_id) {
 			if ( $self->is_allowed_to_view_isolate($isolate_id) ) {
 				my $isolate_name =
-				  $self->{'datastore'}->run_simple_query( "SELECT isolate FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id )->[0];
+				  $self->{'datastore'}->run_simple_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id )->[0];
 				print " - isolate $isolate_id: $isolate_name";
 			} else {
 				print
@@ -75,17 +76,15 @@ sub _print_selector_list {
 	  ? "SELECT id,description FROM user_groups WHERE id NOT IN (SELECT user_group_id FROM isolate_usergroup_acl WHERE isolate_id=?) ORDER BY description"
 	  : "SELECT id,first_name,surname,affiliation FROM users WHERE id NOT IN (SELECT user_id FROM isolate_user_acl WHERE isolate_id=?) AND id>0  ORDER BY surname,first_name";
 	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute($isolate_id); };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	eval { $sql->execute($isolate_id) };
+	$logger->error($@) if $@;
 	my @list;
 	my %labels;
 	$" = ' ';
 	while ( my @data = $sql->fetchrow_array ) {
 		my $id = shift @data;
 		push @list, $id;
-		my $affiliation = pop @data if $data[2];
+		my $affiliation = defined $data[2] ? pop @data: '';
 		if ( length $affiliation > 50 ) {
 			$affiliation = ( substr $affiliation, 0, 25 ) . ' ... ' . ( substr $affiliation, -25 );
 		}
@@ -150,10 +149,7 @@ sub _print_interface {
 	print "</td><td>Select name(s):<br />";
 	$self->_print_selector_list( 'User', $isolate_id );
 	print "</td></tr></table>\n";
-
-	foreach (qw (db page id query)) {
-		print $q->hidden($_);
-	}
+	print $q->hidden($_) foreach qw (db page id query);
 	print $q->end_form;
 }
 
@@ -168,11 +164,8 @@ sub _print_access_table {
 	  ? "SELECT read,write,user_groups.id,description FROM user_groups LEFT JOIN isolate_usergroup_acl ON user_groups.id=user_group_id WHERE isolate_id=? ORDER BY description"
 	  : "SELECT read,write,users.id,first_name,surname FROM users LEFT JOIN isolate_user_acl ON users.id=user_id WHERE id>0 AND isolate_id=? ORDER BY surname,first_name";
 	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute($isolate_id); };
-
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	eval { $sql->execute($isolate_id) };
+	$logger->error($@) if $@;
 	my $td = 1;
 	my $count;
 	$" = ' ';
@@ -220,17 +213,15 @@ sub _replicate_user_acls {
 	my $sql_delete = $self->{'db'}->prepare("DELETE FROM isolate_user_acl WHERE isolate_id=?");
 	my $sql_insert = $self->{'db'}->prepare("INSERT INTO isolate_user_acl (isolate_id,user_id,read,write) VALUES (?,?,?,?)");
 	foreach my $isolate_id (@$ids_ref) {
-		eval { $sql_delete->execute($isolate_id); };
+		eval { $sql_delete->execute($isolate_id) };
 		if ($@) {
 			$self->{'db'}->rollback;
 			$logger->error("Can't delete $@");
 			return;
 		}
 	}
-	eval { $sql->execute($isolate_id); };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	eval { $sql->execute($isolate_id) };
+	$logger->error($@) if $@;
 	while ( my ( $user_id, $read, $write ) = $sql->fetchrow_array ) {
 		foreach my $isolate_id (@$ids_ref) {
 			eval { $sql_insert->execute( $isolate_id, $user_id, $read, $write ); };
@@ -251,17 +242,15 @@ sub _replicate_usergroup_acls {
 	my $sql_delete = $self->{'db'}->prepare("DELETE FROM isolate_usergroup_acl WHERE isolate_id=?");
 	my $sql_insert = $self->{'db'}->prepare("INSERT INTO isolate_usergroup_acl (isolate_id,user_group_id,read,write) VALUES (?,?,?,?)");
 	foreach my $isolate_id (@$ids_ref) {
-		eval { $sql_delete->execute($isolate_id); };
+		eval { $sql_delete->execute($isolate_id) };
 		if ($@) {
 			$self->{'db'}->rollback;
 			$logger->error("Can't delete $@");
 			return;
 		}
 	}
-	eval { $sql->execute($isolate_id); };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	eval { $sql->execute($isolate_id) };
+	$logger->error($@) if $@;
 	while ( my ( $user_id, $read, $write ) = $sql->fetchrow_array ) {
 		foreach my $isolate_id (@$ids_ref) {
 			eval { $sql_insert->execute( $isolate_id, $user_id, $read, $write ); };
@@ -282,10 +271,8 @@ sub _add_names {
 	my $qry       = "INSERT INTO isolate_user_acl (isolate_id,user_id,read,write) VALUES (?,?,true,false)";
 	my $sql       = $self->{'db'}->prepare($qry);
 	foreach (@user_list) {
-		eval { $sql->execute( $isolate_id, $_ ); };
-		if ($@) {
-			$logger->error("Can't execute $@");
-		}
+		eval { $sql->execute( $isolate_id, $_ ) };
+		$logger->error($@) if $@;
 	}
 	$self->{'db'}->commit;
 }
@@ -297,10 +284,8 @@ sub _add_group {
 	my $qry        = "INSERT INTO isolate_usergroup_acl (isolate_id,user_group_id,read,write) VALUES ($isolate_id,?,true,false)";
 	my $sql        = $self->{'db'}->prepare($qry);
 	foreach (@group_list) {
-		eval { $sql->execute($_); };
-		if ($@) {
-			$logger->error("Can't execute $@");
-		}
+		eval { $sql->execute($_) };
+		$logger->error($@) if $@;
 	}
 	$self->{'db'}->commit;
 }
@@ -319,10 +304,8 @@ sub _delete_names {
 						overridden to prevent you being locked out. Your access can be removed from another curator or admin account.</p></div>\n";
 				next;
 			}
-			eval { $sql->execute( $isolate_id, $1 ); };
-			if ($@) {
-				$logger->error("Can't execute $@");
-			}
+			eval { $sql->execute( $isolate_id, $1 ) };
+			$logger->error($@) if $@;
 		}
 	}
 	$self->{'db'}->commit;
@@ -337,10 +320,8 @@ sub _delete_group {
 	my $sql        = $self->{'db'}->prepare($qry);
 	foreach ( keys %$params ) {
 		if ( $_ =~ /Group_select_(\d+)/ ) {
-			eval { $sql->execute( $isolate_id, $1 ); };
-			if ($@) {
-				$logger->error("Can't execute $@");
-			}
+			eval { $sql->execute( $isolate_id, $1 ) };
+			$logger->error($@) if $@;
 		}
 	}
 	$self->{'db'}->commit;
@@ -365,10 +346,8 @@ sub _user_update {
 			$read  = 'true';
 			$write = 'true';
 		}
-		eval { $sql->execute( $read, $write, $isolate_id, $_ ); };
-		if ($@) {
-			$logger->error("Can't execute $@");
-		}
+		eval { $sql->execute( $read, $write, $isolate_id, $_ ) };
+		$logger->error($@) if $@;
 	}
 	$self->{'db'}->commit;
 }
@@ -383,10 +362,8 @@ sub _group_update {
 	foreach (@$groups) {
 		my $read  = $q->param("Group_read_$_")  ? 'true' : 'false';
 		my $write = $q->param("Group_write_$_") ? 'true' : 'false';
-		eval { $sql->execute( $read, $write, $isolate_id, $_ ); };
-		if ($@) {
-			$logger->error("Can't execute $@");
-		}
+		eval { $sql->execute( $read, $write, $isolate_id, $_ ) };
+		$logger->error($@) if $@;
 	}
 	$self->{'db'}->commit;
 }
@@ -418,7 +395,7 @@ sub _batch_update {
 		$self->_replicate_usergroup_acls( $isolate_id, $ids_ref );
 	}
 	my $isolate_name_ref =
-	  $self->{'datastore'}->run_simple_query( "SELECT isolate FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id );
+	  $self->{'datastore'}->run_simple_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id );
 	if ( ref $isolate_name_ref eq 'ARRAY' ) {
 		my $isolate_name = $isolate_name_ref->[0];
 		print "<div class=\"box\" id=\"resultstable\">\n";

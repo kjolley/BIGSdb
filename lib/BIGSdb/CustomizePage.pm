@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,15 +19,15 @@
 
 package BIGSdb::CustomizePage;
 use strict;
+use warnings;
 use base qw(BIGSdb::Page);
+use List::MoreUtils qw(none any);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
 sub initiate {
 	my ($self) = @_;
-	foreach (qw (jQuery tooltips noCache)){
-		$self->{$_} = 1;
-	}
+	$self->{$_} = 1 foreach qw (jQuery tooltips noCache);
 }
 
 sub print_content {
@@ -57,7 +57,7 @@ HTML
 		return;
 	}
 	if ( !$table
-		or ( $table ne 'loci' && $table ne 'scheme_fields' && $table ne 'schemes' ) )
+		or ( none {$table eq $_} qw (loci scheme_fields schemes) ) )
 	{
 		print "<div class=\"box\" id=\"statusbad\"><p>Table '$table' is not a valid table customization.</p></div>\n";
 		return;
@@ -65,9 +65,10 @@ HTML
 	my $file = $self->{'config'}->{'secure_tmp_dir'} . '/' . $filename;
 	my $qry;
 	if ( -e $file ) {
-		open( my $fh, '<', $file );
-		$qry = <$fh>;
-		close $fh;
+		if (open( my $fh, '<', $file )){
+			$qry = <$fh>;
+			close $fh;
+		}
 	} else {
 		print "<div class=\"box\" id=\"statusbad\"><p>Can't open query.</p></div>\n";
 		$logger->error("Can't open query file $file");
@@ -77,7 +78,7 @@ HTML
 	my %type;
 	foreach (@$attributes) {
 		next if $_->{'hide'} eq 'yes';
-		if (   $_->{'primary_key'} eq 'yes'
+		if (   $_->{'primary_key'} 
 			or $_->{'name'} =~ /display/
 			or $_->{'name'} eq 'description'
 			or $_->{'name'} eq 'query_field'
@@ -92,22 +93,16 @@ HTML
 		}
 	}
 	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute(); };
-	if ($@) {
-		$logger->error("Can't execute: $qry");
-	} else {
-		$logger->debug("Query: $qry");
-	}
+	eval { $sql->execute };
+	$logger->error($@) if $@;
 	my @retval = $sql->fetchrow_array;
 	if ( !@retval ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>No matches found!</p></div>\n";
 		return;
 	}
 	$sql->finish();
-	eval { $sql->execute(); };
-	if ($@) {
-		$logger->error("Can't execute: $qry");
-	}
+	eval { $sql->execute };
+	$logger->error($@) if $@;
 	print $q->start_form;
 	$" = '</th><th>';
 	print "<div class=\"box\" id=\"resultstable\">";
@@ -121,7 +116,7 @@ HTML
 	my $updated     = 0;
 	my $not_default = 0;
 
-	while ( my $data = $sql->fetchrow_hashref() ) {
+	while ( my $data = $sql->fetchrow_hashref ) {
 		print "<tr class=\"td$td\"><td>";
 		my $id;
 		if ( $table eq 'loci' || $table eq 'schemes' ) {
@@ -205,11 +200,7 @@ HTML
 					print "<td>$value</td>";
 				} else {
 					my $value;
-					if (   $field eq 'isolate_display'
-						|| $field eq 'main_display'
-						|| $field eq 'query_field'
-						|| $field eq 'dropdown' )
-					{
+					if (   any {$field eq $_} qw (isolate_display main_display query_field dropdown) ){
 						$value =
 						  $self->{'prefs'}->{"$field\_scheme_fields"}->{ $data->{'scheme_id'} }->{ $data->{'field'} }
 						  ? 'true'
@@ -227,7 +218,7 @@ HTML
 					} else {
 						$value = $data->{$field};
 					}
-					print "<td>$value</td>";
+					print defined $value ? "<td>$value</td>" : '<td />';
 				}
 			}
 		} elsif ( $table eq 'schemes' ) {
@@ -248,10 +239,7 @@ HTML
 					print "<td>$value</td>";
 				} else {
 					my $value;
-					if (   $field eq 'isolate_display'
-						|| $field eq 'main_display'
-						|| $field eq 'query_field'
-						|| $field eq 'analysis' )
+					if (   any {$field eq $_} qw (isolate_display main_display query_field analysis) )
 					{
 						$value =
 						  $self->{'prefs'}->{"$field\_schemes"}->{ $data->{'id'} }
@@ -267,7 +255,7 @@ HTML
 					} else {
 						$value = $data->{$field};
 					}
-					print "<td>$value</td>";
+					print defined $value ? "<td>$value</td>" : '<td />';
 				}
 			}
 		}
@@ -313,9 +301,7 @@ HTML
 	}
 	print "</table>\n";
 	print "</div>\n";
-	foreach (qw (db page filename table)) {
-		print $q->hidden($_);
-	}
+	print $q->hidden($_) foreach qw (db page filename table);
 	print $q->hidden( 'set', 1 );
 	print $q->end_form;
 }

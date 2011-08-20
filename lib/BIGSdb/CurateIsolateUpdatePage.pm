@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::CurateIsolateUpdatePage;
 use strict;
+use warnings;
 use base qw(BIGSdb::CuratePage);
 use List::MoreUtils qw(none);
 use Log::Log4perl qw(get_logger);
@@ -30,13 +31,12 @@ sub get_javascript {
 
 sub initiate {
 	my ($self) = @_;
-	if ($self->{'cgi'}->param('no_header') ){
-		$self->{'type'} = 'no_header';
+	if ( $self->{'cgi'}->param('no_header') ) {
+		$self->{'type'}    = 'no_header';
 		$self->{'noCache'} = 1;
 		return;
 	}
-	$self->{'jQuery'} = 1;    #Use JQuery javascript library
-	$self->{'jQuery.jstree'} = 1;
+	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree);
 }
 
 sub print_content {
@@ -55,12 +55,8 @@ sub print_content {
 		print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update isolate records.</p></div>\n";
 		return;
 	}
-	eval { $sql->execute( $q->param('id') ); };
-	if ($@) {
-		$logger->error( "Can't execute: $qry  value:" . $q->param('id') );
-	} else {
-		$logger->debug( "Query: $qry value:" . $q->param('id') );
-	}
+	eval { $sql->execute( $q->param('id') ) };
+	$logger->error($@) if $@;
 	my $data = $sql->fetchrow_hashref();
 	if ( !$$data{'id'} ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>No record with id = " . $q->param('id') . " exists.</p></div>\n";
@@ -82,9 +78,9 @@ sub print_content {
 					|| ( !$required_field && !$required ) )
 				{
 					if ( $field eq 'curator' ) {
-						$newdata{$field} = $self->get_curator_id();
+						$newdata{$field} = $self->get_curator_id;
 					} elsif ( $field eq 'datestamp' ) {
-						$newdata{$field} = $self->get_datestamp();
+						$newdata{$field} = $self->get_datestamp;
 					} else {
 						$newdata{$field} = $q->param($field);
 					}
@@ -108,6 +104,7 @@ sub print_content {
 			$"   = ',';
 			my @updated_field;
 			foreach ( @{ $self->{'xmlHandler'}->get_field_list } ) {
+				$newdata{$_} = defined $newdata{$_} ? $newdata{$_} : '';
 				$newdata{$_} =~ s/'/\\'/g;
 				$newdata{$_} =~ s/\r//g;
 				$newdata{$_} =~ s/\n/ /g;
@@ -117,82 +114,80 @@ sub print_content {
 					$qry .= "$_=null,";
 				}
 				$newdata{$_} =~ s/\\'/'/g;
+				$data->{ lc($_) } = defined $data->{ lc($_) } ? $data->{ lc($_) } : '';
 				if ( $_ ne 'datestamp' && $_ ne 'curator' && $data->{ lc($_) } ne $newdata{$_} ) {
 					push @updated_field, "$_: '$data->{lc($_)}' -> '$newdata{$_}'";
 				}
 			}
 			$qry =~ s/,$//;
 			$qry .= " WHERE id='$data->{'id'}'";
-			
 			my @alias_update;
-			my $existing_aliases = $self->{'datastore'}->run_list_query("SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY isolate_id",$data->{'id'});
-			my @new_aliases = split/\r?\n/,$q->param('aliases');
-			foreach my $new (@new_aliases){	
+			my $existing_aliases =
+			  $self->{'datastore'}
+			  ->run_list_query( "SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY isolate_id", $data->{'id'} );
+			my @new_aliases = split /\r?\n/, $q->param('aliases');
+			foreach my $new (@new_aliases) {
 				chomp $new;
-				next if $new eq '';		
-				if (!@$existing_aliases || none {$new eq $_} @$existing_aliases){
-					(my $clean_new = $new) =~ s/'/\\'/g;
-					push @alias_update,"INSERT INTO isolate_aliases (isolate_id,alias,curator,datestamp) VALUES ($data->{'id'},'$clean_new',$newdata{'curator'},'today')";
+				next if $new eq '';
+				if ( !@$existing_aliases || none { $new eq $_ } @$existing_aliases ) {
+					( my $clean_new = $new ) =~ s/'/\\'/g;
+					push @alias_update,
+"INSERT INTO isolate_aliases (isolate_id,alias,curator,datestamp) VALUES ($data->{'id'},'$clean_new',$newdata{'curator'},'today')";
 					push @updated_field, "new alias: '$new'";
 				}
 			}
 			foreach my $existing (@$existing_aliases) {
 				if ( !@new_aliases || none { $existing eq $_ } @new_aliases ) {
-					(my $clean_existing = $existing) =~ s/'/\\'/g;
-					push @alias_update,
-					  "DELETE FROM isolate_aliases WHERE isolate_id=$data->{'id'} AND alias='$clean_existing'";
-					push @updated_field, "deleted alias: '$existing'";			
+					( my $clean_existing = $existing ) =~ s/'/\\'/g;
+					push @alias_update,  "DELETE FROM isolate_aliases WHERE isolate_id=$data->{'id'} AND alias='$clean_existing'";
+					push @updated_field, "deleted alias: '$existing'";
 				}
 			}
-
 			my @pubmed_update;
-			my $existing_pubmeds = $self->{'datastore'}->run_list_query("SELECT pubmed_id FROM refs WHERE isolate_id=?",$data->{'id'});
-			my @new_pubmeds = split/\r?\n/,$q->param('pubmed');
-			foreach my $new (@new_pubmeds){	
+			my $existing_pubmeds = $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM refs WHERE isolate_id=?", $data->{'id'} );
+			my @new_pubmeds = split /\r?\n/, $q->param('pubmed');
+			foreach my $new (@new_pubmeds) {
 				chomp $new;
-				next if $new eq '';		
-				if (!@$existing_pubmeds || none {$new eq $_} @$existing_pubmeds){
-					(my $clean_new = $new) =~ s/'/\\'/g;
-					if (!BIGSdb::Utils::is_int($clean_new)){
-						print
-"<div class=\"box\" id=\"statusbad\"><p>PubMed ids must be integers.</p></div>\n";
-						$update=0;
+				next if $new eq '';
+				if ( !@$existing_pubmeds || none { $new eq $_ } @$existing_pubmeds ) {
+					( my $clean_new = $new ) =~ s/'/\\'/g;
+					if ( !BIGSdb::Utils::is_int($clean_new) ) {
+						print "<div class=\"box\" id=\"statusbad\"><p>PubMed ids must be integers.</p></div>\n";
+						$update = 0;
 					}
-					push @pubmed_update,"INSERT INTO refs (isolate_id,pubmed_id,curator,datestamp) VALUES ($data->{'id'},'$clean_new',$newdata{'curator'},'today')";
+					push @pubmed_update,
+"INSERT INTO refs (isolate_id,pubmed_id,curator,datestamp) VALUES ($data->{'id'},'$clean_new',$newdata{'curator'},'today')";
 					push @updated_field, "new reference: 'Pubmed#$new'";
 				}
 			}
 			foreach my $existing (@$existing_pubmeds) {
 				if ( !@new_pubmeds || none { $existing eq $_ } @new_pubmeds ) {
-					(my $clean_existing = $existing) =~ s/'/\\'/g;
-					push @pubmed_update,
-					  "DELETE FROM refs WHERE isolate_id=$data->{'id'} AND pubmed_id='$clean_existing'";
-					push @updated_field, "deleted reference: 'Pubmed#$existing'";			
+					( my $clean_existing = $existing ) =~ s/'/\\'/g;
+					push @pubmed_update, "DELETE FROM refs WHERE isolate_id=$data->{'id'} AND pubmed_id='$clean_existing'";
+					push @updated_field, "deleted reference: 'Pubmed#$existing'";
 				}
 			}
-
-			
-			$"="<br />";
-			if ($update){
+			$" = "<br />";
+			if ($update) {
 				if (@updated_field) {
-					eval { 
+					eval {
 						$self->{'db'}->do($qry);
-						foreach (@alias_update,@pubmed_update){
+						foreach ( @alias_update, @pubmed_update ) {
 							$self->{'db'}->do($_);
 						}
 					};
 					if ($@) {
 						print
-						  "<div class=\"box\" id=\"statusbad\"><p>Update failed - transaction cancelled - no records have been touched.</p>\n";
+"<div class=\"box\" id=\"statusbad\"><p>Update failed - transaction cancelled - no records have been touched.</p>\n";
 						if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
 							print
-	"<p>Data update would have resulted in records with either duplicate ids or another unique field with duplicate values.</p>\n";
-						} 
+"<p>Data update would have resulted in records with either duplicate ids or another unique field with duplicate values.</p>\n";
+						}
 						print "</div>\n";
-						$self->{'db'}->rollback();
+						$self->{'db'}->rollback;
 						$logger->error("Can't update: $@");
 					} else {
-						$self->{'db'}->commit()
+						$self->{'db'}->commit
 						  && print "<div class=\"box\" id=\"resultsheader\"><p>Updated!</p>";
 						print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
 						$logger->debug("Update: $qry");
@@ -210,12 +205,8 @@ sub print_content {
 	}
 	$qry = "select id,user_name,first_name,surname from users WHERE id>0 order by surname";
 	$sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute(); };
-	if ($@) {
-		$logger->error("Can't execute: $qry");
-	} else {
-		$logger->debug("Query: $qry");
-	}
+	eval { $sql->execute };
+	$logger->error($@) if $@;
 	my @users;
 	my %usernames;
 	while ( my ( $userid, $username, $firstname, $surname ) = $sql->fetchrow_array ) {
@@ -233,8 +224,7 @@ sub print_content {
 		}
 		print "<table><tr><td>";
 		print $q->start_form;
-		print $q->hidden('page');
-		print $q->hidden('db');
+		print $q->hidden($_) foreach qw(page db);
 		print $q->hidden( 'sent', 1 );
 		print "<table>\n";
 		print "<tr><td colspan=\"2\" style=\"text-align:right\">";
@@ -274,7 +264,7 @@ sub print_content {
 						print "<b>$$data{'id'}</b>\n";
 						print $q->hidden( 'id', $$data{'id'} );
 					} elsif ( lc($field) eq 'curator' ) {
-						print '<b>' . $self->get_curator_name() . ' (' . $self->{'username'} . ")</b>\n";
+						print '<b>' . $self->get_curator_name . ' (' . $self->{'username'} . ")</b>\n";
 					} elsif ( lc($field) eq 'date_entered' ) {
 						print '<b>' . $$data{ lc($field) } . "</b>\n";
 						print $q->hidden( 'date_entered', $$data{ lc($field) } );
@@ -294,8 +284,8 @@ sub print_content {
 							-default => $$data{ lc($field) }
 						);
 					} else {
-						if ( $thisfield{'length'} > 60 ) {
-							print $q->textarea( -name => $field, -rows => '3', -cols => '60', -default => $$data{ lc($field) } );
+						if ( $thisfield{'length'} && $thisfield{'length'} > 60 ) {
+							print $q->textarea( -name => $field, -rows => 3, -cols => 60, -default => $$data{ lc($field) } );
 						} else {
 							print $q->textfield( -name => $field, -size => $thisfield{'length'}, -default => $$data{ lc($field) } );
 						}
@@ -311,14 +301,16 @@ sub print_content {
 			}
 		}
 		print "<tr><td style=\"text-align:right\">aliases: </td><td>";
-		my $aliases = $self->{'datastore'}->run_list_query("SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias",$q->param('id'));
-		$"="\n";
-		print $q->textarea(-name =>'aliases',-rows=>2, -cols=>12,  -style => 'width:10em', -default=>"@$aliases");
+		my $aliases =
+		  $self->{'datastore'}->run_list_query( "SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias", $q->param('id') );
+		$" = "\n";
+		print $q->textarea( -name => 'aliases', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@$aliases" );
 		print "</td></tr>\n";
 		print "<tr><td style=\"text-align:right\">PubMed ids: </td><td>";
-		my $pubmed = $self->{'datastore'}->run_list_query("SELECT pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id",$q->param('id'));
-		$"="\n";
-		print $q->textarea(-name =>'pubmed',-rows=>2, -cols=>12,  -style => 'width:10em', -default=>"@$pubmed");
+		my $pubmed =
+		  $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id", $q->param('id') );
+		$" = "\n";
+		print $q->textarea( -name => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@$pubmed" );
 		print "</td></tr>\n";
 		print "<tr><td>";
 		print
@@ -334,7 +326,6 @@ sub print_content {
 	if ( $self->can_modify_table('samples') ) {
 		my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
 		if (@$sample_fields) {
-			
 			print "<div class=\"box\" id=\"samples\">\n";
 			print "<h2>Samples:</h2>\n";
 			my $isolate_record = BIGSdb::IsolateInfoPage->new(
@@ -353,7 +344,8 @@ sub print_content {
 				)
 			);
 			print $isolate_record->get_sample_summary( $data->{'id'} );
-			print "<p /><p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=samples&amp;isolate_id=$data->{'id'}\" class=\"button\">&nbsp;Add new sample&nbsp;</a></p>\n";
+			print
+"<p /><p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=samples&amp;isolate_id=$data->{'id'}\" class=\"button\">&nbsp;Add new sample&nbsp;</a></p>\n";
 			print "</div>\n";
 		}
 	}
@@ -361,7 +353,6 @@ sub print_content {
 		print "</td><td style=\"vertical-align:top; padding-left:1em\">\n"
 		  if $self->can_modify_table('isolates') || $self->can_modify_table('samples');
 		print "<div class=\"box\" id=\"alleles\">\n";
-		
 		print "<h2>Loci:</h2>\n";
 		print
 "<p>Allele designations are handled separately from isolate fields due to the potential complexity of multiple loci with set and pending designations.</p>\n";
@@ -381,19 +372,17 @@ sub print_content {
 			)
 		);
 		my $locus_summary = $isolate_record->get_loci_summary( $data->{'id'} );
-		$locus_summary =~s /<table class=\"resultstable\">\s*<\/table>//;
+		$locus_summary =~ s /<table class=\"resultstable\">\s*<\/table>//;
 		print $locus_summary;
 		print "<p />\n";
 		print $q->start_form;
-		my $loci = $self->{'datastore'}->get_loci({ 'query_pref' => 1 });
+		my $loci = $self->{'datastore'}->get_loci( { 'query_pref' => 1 } );
 		print "Locus: ";
 		print $q->popup_menu( -name => 'locus', -values => $loci );
 		print $q->submit( -label => 'Add/update', -class => 'submit' );
-		$q->param( 'page', 'alleleUpdate' );
-		$q->param( 'isolate_id',$q->param('id'));
-		foreach (qw(db page isolate_id)) {
-			print $q->hidden($_);
-		}
+		$q->param( 'page',       'alleleUpdate' );
+		$q->param( 'isolate_id', $q->param('id') );
+		print $q->hidden($_) foreach qw(db page isolate_id);
 		print $q->end_form;
 		print "</div>\n";
 	}

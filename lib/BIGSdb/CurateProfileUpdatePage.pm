@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -16,16 +16,16 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
-
 package BIGSdb::CurateProfileUpdatePage;
 use strict;
+use warnings;
 use base qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
 sub print_content {
 	my ($self) = @_;
-	my $q    = $self->{'cgi'};
+	my $q = $self->{'cgi'};
 	print "<h1>Update profile</h1>\n";
 	my ( $scheme_id, $profile_id ) = ( $q->param('scheme_id'), $q->param('profile_id') );
 	if ( !$scheme_id ) {
@@ -44,12 +44,8 @@ sub print_content {
 	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 	my $qry         = "SELECT * FROM profiles WHERE scheme_id=? AND profile_id=?";
 	my $sql         = $self->{'db'}->prepare($qry);
-	eval { $sql->execute( $scheme_id, $profile_id ); };
-	if ($@) {
-		$logger->error("Can't execute: $qry  values: $scheme_id,$profile_id");
-	} else {
-		$logger->debug("Query: $qry values:$scheme_id,$profile_id");
-	}
+	eval { $sql->execute( $scheme_id, $profile_id ) };
+	$logger->error($@) if $@;
 	my $data = $sql->fetchrow_hashref();
 	if ( !$$data{'profile_id'} ) {
 		print
@@ -62,7 +58,7 @@ sub print_content {
 	my $allele_sql    = $self->{'db'}->prepare($allele_qry);
 	my $allele_data;
 	foreach (@$loci) {
-		eval { $allele_sql->execute( $scheme_id, $_, $profile_id ); };
+		eval { $allele_sql->execute( $scheme_id, $_, $profile_id ) };
 		if ($@) {
 			$logger->error("Can't execute allele check");
 		} else {
@@ -73,7 +69,7 @@ sub print_content {
 	my $field_sql = $self->{'db'}->prepare($field_qry);
 	my $field_data;
 	foreach (@$scheme_fields) {
-		eval { $field_sql->execute( $scheme_id, $_, $profile_id ); };
+		eval { $field_sql->execute( $scheme_id, $_, $profile_id ) };
 		if ($@) {
 			$logger->error("Can't execute field check");
 		} else {
@@ -83,7 +79,7 @@ sub print_content {
 	my $primary_key;
 	eval {
 		$primary_key =
-	  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )->[0];
+		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )->[0];
 	};
 	if ( !$primary_key ) {
 		print
@@ -120,6 +116,7 @@ sub print_content {
 			if ( $field_info->{'type'} eq 'integer' && !BIGSdb::Utils::is_int( $newdata{"field:$_"} ) ) {
 				push @bad_field_buffer, "Field '$_' must be an integer.";
 			}
+			$field_data->{$_} = defined $field_data->{$_} ? $field_data->{$_} : '';
 			if ( $field_data->{$_} ne $newdata{"field:$_"} ) {
 				$field_changed{$_} = 1;
 			}
@@ -129,7 +126,8 @@ sub print_content {
 			$field_changed{'sender'} = 1;
 		}
 		if (@bad_field_buffer) {
-			print "<div class=\"box\" id=\"statusbad\"><p>There are problems with your record submission.  Please address the following:</p>\n";
+			print
+			  "<div class=\"box\" id=\"statusbad\"><p>There are problems with your record submission.  Please address the following:</p>\n";
 			$" = '<br />';
 			print "<p>@bad_field_buffer</p></div>\n";
 		} elsif ( !%locus_changed && !%field_changed ) {
@@ -162,10 +160,11 @@ sub print_content {
 					}
 					push @updated_field, "$_: '$data->{$_}' -> '$newdata{\"field:$_\"}'";
 				} else {
-					if (defined $field_data->{$_}){			
+					if ( defined $field_data->{$_} ) {
 						my $sql_update =
 						  $self->{'db'}->prepare(
-							"UPDATE profile_fields SET value=?,datestamp=?,curator=? WHERE scheme_id=? AND scheme_field=? AND profile_id=?");
+							"UPDATE profile_fields SET value=?,datestamp=?,curator=? WHERE scheme_id=? AND scheme_field=? AND profile_id=?"
+						  );
 						eval { $sql_update->execute( $newdata{"field:$_"}, 'today', $curator_id, $scheme_id, $_, $profile_id ); };
 						if ($@) {
 							$logger->error("Can't update field $_ for scheme:$scheme_id profile:'$profile_id'.");
@@ -176,22 +175,19 @@ sub print_content {
 						my $sql_update =
 						  $self->{'db'}->prepare(
 							"INSERT INTO profile_fields (scheme_id,scheme_field,profile_id,value,curator,datestamp) VALUES (?,?,?,?,?,?)");
-						eval { $sql_update->execute( $scheme_id, $_,$profile_id, $newdata{"field:$_"},  $curator_id, 'today'); };
+						eval { $sql_update->execute( $scheme_id, $_, $profile_id, $newdata{"field:$_"}, $curator_id, 'today' ); };
 						if ($@) {
 							$logger->error("Can't add field $_ for scheme:$scheme_id profile:'$profile_id'. $@");
 							$self->{'db'}->rollback;
 							$success = 0;
-						}						
+						}
 					}
 					push @updated_field, "$_: '$field_data->{$_}' -> '$newdata{\"field:$_\"}'";
 				}
-				
 			}
-			if (keys %locus_changed || keys %field_changed){
+			if ( keys %locus_changed || keys %field_changed ) {
 				my $sql_update = $self->{'db'}->prepare("UPDATE profiles SET datestamp=?,curator=? WHERE scheme_id=? AND profile_id=?");
-				eval {
-					$sql_update->execute('today',$curator_id,$scheme_id,$profile_id);
-				};
+				eval { $sql_update->execute( 'today', $curator_id, $scheme_id, $profile_id ); };
 				if ($@) {
 					$logger->error("Can't update datestamp for scheme:$scheme_id profile:'$profile_id'.");
 					$self->{'db'}->rollback;
@@ -225,12 +221,8 @@ sub print_content {
 	}
 	$qry = "select id,user_name,first_name,surname from users WHERE id>0 order by surname";
 	$sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute(); };
-	if ($@) {
-		$logger->error("Can't execute: $qry");
-	} else {
-		$logger->debug("Query: $qry");
-	}
+	eval { $sql->execute };
+	$logger->error($@) if $@;
 	my @users;
 	my %usernames;
 	while ( my ( $userid, $username, $firstname, $surname ) = $sql->fetchrow_array ) {
@@ -239,9 +231,7 @@ sub print_content {
 	}
 	print $q->start_form;
 	$q->param( 'sent', 1 );
-	foreach (qw (page db sent scheme_id profile_id)) {
-		print $q->hidden($_);
-	}
+	print $q->hidden($_) foreach qw (page db sent scheme_id profile_id);
 	print "<table>\n";
 	print "<tr><td style=\"text-align:right\">$primary_key: !</td><td><b>$profile_id</b></td></tr>";
 	foreach (@$loci) {
@@ -270,7 +260,7 @@ sub print_content {
 	print "<tr><td style=\"text-align:right\">datestamp: !</td><td><b>" . $self->get_datestamp . "</b></td></tr>\n";
 	print "<tr><td>";
 	print
-"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateUpdate&amp;id=$data->{'id'}\" class=\"resetbutton\">Reset</a>";
+"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileUpdate&amp;scheme_id=$scheme_id&amp;profile_id=$data->{'profile_id'}\" class=\"resetbutton\">Reset</a>";
 	print "</td><td style=\"text-align:right\">";
 	print $q->submit( -name => 'Update', -class => 'submit' );
 	print "</td></tr>\n";
@@ -288,7 +278,7 @@ sub get_title {
 sub _update_profile_history {
 	my ( $self, $scheme_id, $profile_id, $action ) = @_;
 	return if !$action || !$scheme_id || !$profile_id;
-	my $curator_id = $self->get_curator_id();
+	my $curator_id = $self->get_curator_id;
 	$action =~ s/'/\\'/g;
 	eval {
 		$self->{'db'}->do(
@@ -303,5 +293,3 @@ sub _update_profile_history {
 	}
 }
 1;
-
-

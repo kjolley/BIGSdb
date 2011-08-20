@@ -93,7 +93,8 @@ sub _initiate {
 	$self->_read_config_file($config_dir);
 	$self->_read_host_mapping_file($config_dir);
 	my $logger = get_logger('BIGSdb.Application_Initiate');
-	$self->{'instance'} = $1 if $self->{'cgi'}->param('db') =~ /^([\w\d\-_]+)$/;
+	my $db = $self->{'cgi'}->param('db') || '';
+	$self->{'instance'} = $db =~ /^([\w\d\-_]+)$/ ? $1 : '';
 	my $full_path = "$dbase_config_dir/$self->{'instance'}/config.xml";
 	$self->{'xmlHandler'} = BIGSdb::Parser->new();
 	my $parser = XML::Parser::PerlSAX->new( Handler => $self->{'xmlHandler'} );

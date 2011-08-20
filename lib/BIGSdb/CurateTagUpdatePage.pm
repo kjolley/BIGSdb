@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2011, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::CurateTagUpdatePage;
 use strict;
+use warnings;
 use base qw(BIGSdb::CuratePage BIGSdb::ExtractedSequencePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -48,10 +49,21 @@ sub print_content {
 		print "<div class=\"box\" id=\"statusbad\"><p>There is no sequence with sequence bin id#$seqbin_id.</p></div>\n";
 		return;
 	}
-	if ( $q->param('new_start') > $q->param('new_end') ) {
-		print
-"<div class=\"box\" id=\"statusbad\"><p>The end position must be greater than the start.  Resetting to initial values.</p></div>\n";
-		$q->param( 'Update display', 0 );
+	if ( $q->param('Update display') || $q->param('Submit') ) {
+		if ( !defined $q->param('new_start') || !BIGSdb::Utils::is_int( $q->param('new_start') ) ) {
+			print "<div class=\"box\" id=\"statusbad\"><p>The start position must be an integer.  Resetting to initial values.</p></div>\n";
+			$q->param( 'Update display', 0 );
+			$q->param( 'Submit', 0 );
+		} elsif ( !defined $q->param('new_end') || !BIGSdb::Utils::is_int( $q->param('new_end') ) ) {
+			print "<div class=\"box\" id=\"statusbad\"><p>The end position must be an integer.  Resetting to initial values.</p></div>\n";
+			$q->param( 'Update display', 0 );
+			$q->param( 'Submit', 0 );
+		} elsif ( $q->param('new_start') && $q->param('new_start') && $q->param('new_start') > $q->param('new_end') ) {
+			print
+	"<div class=\"box\" id=\"statusbad\"><p>The end position must be greater than the start.  Resetting to initial values.</p></div>\n";
+			$q->param( 'Update display', 0 );
+			$q->param( 'Submit', 0 );
+		}
 	}
 	my $tag;
 	my ( $start, $end, $reverse, $complete );
@@ -62,17 +74,18 @@ sub print_content {
 		$complete = $q->param('new_complete');
 	} else {
 		$start = $q->param('start_pos');
-		$end = $q->param('end_pos');
+		$end   = $q->param('end_pos');
 		$tag =
-		  $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM allele_sequences WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=?",
+		  $self->{'datastore'}
+		  ->run_simple_query_hashref( "SELECT * FROM allele_sequences WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=?",
 			$seqbin_id, $locus, $start, $end );
 		if ( !ref $tag ) {
 			print "<div class=\"box\" id=\"statusbad\"><p>There is no tag set with the parameters passed.</p></div>\n";
 			return;
 		}
-		$q->param( 'new_start', $tag->{'start_pos'} );	
-		$q->param( 'end_pos', $end );
-		$q->param( 'new_end', $tag->{'end_pos'} );
+		$q->param( 'new_start', $tag->{'start_pos'} );
+		$q->param( 'end_pos',   $end );
+		$q->param( 'new_end',   $tag->{'end_pos'} );
 		$reverse = $tag->{'reverse'};
 		$q->param( 'new_reverse', $reverse );
 		$complete = $tag->{'complete'};
@@ -84,7 +97,8 @@ sub print_content {
 		my $complete_flag = $complete ? 'true' : 'false';
 		my $curator_id    = $self->get_curator_id;
 		if ( $start != $q->param('start_pos') || $end != $q->param('end_pos') ) {
-			push @actions, "DELETE FROM allele_sequences WHERE seqbin_id=$seqbin_id AND locus='$locus' AND start_pos=$orig_start AND end_pos=$orig_end";
+			push @actions,
+			  "DELETE FROM allele_sequences WHERE seqbin_id=$seqbin_id AND locus='$locus' AND start_pos=$orig_start AND end_pos=$orig_end";
 			push @actions,
 "INSERT INTO allele_sequences (seqbin_id,locus,start_pos,end_pos,reverse,complete,curator,datestamp) VALUES ($seqbin_id,'$locus',$start,$end,$reverse_flag,$complete_flag,$curator_id,'now')";
 		} else {
@@ -105,13 +119,12 @@ sub print_content {
 		foreach my $existing_flag (@$existing_flags) {
 			if ( !@new_flags || none { $existing_flag eq $_ } @new_flags ) {
 				push @actions,
-				  "DELETE FROM sequence_flags WHERE seqbin_id=$seqbin_id AND locus='$locus' AND start_pos=$start AND end_pos=$end AND flag='$existing_flag'";
+"DELETE FROM sequence_flags WHERE seqbin_id=$seqbin_id AND locus='$locus' AND start_pos=$start AND end_pos=$end AND flag='$existing_flag'";
 			}
 		}
 		$" = '<br />';
 		eval {
-			foreach my $qry (@actions)
-			{
+			foreach my $qry (@actions){
 				$self->{'db'}->do($qry);
 			}
 		};
@@ -122,7 +135,7 @@ sub print_content {
 "<div class=\"box\" id=\"statusbad\"><p>Update failed - a tag already exists for this locus between postions $start and $end on sequence seqbin#$seqbin_id</p><p><a href=\""
 				  . $q->script_name
 				  . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
-				  $logger->error($error);
+				$logger->error($error);
 			} else {
 				print
 "<div class=\"box\" id=\"statusbad\"><p>Update failed - transaction cancelled - no records have been touched.</p><p><a href=\""
@@ -130,10 +143,9 @@ sub print_content {
 				  . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
 				$logger->error($error);
 			}
-			
-			$self->{'db'}->rollback();
+			$self->{'db'}->rollback;
 		} else {
-			$self->{'db'}->commit();
+			$self->{'db'}->commit;
 			print "<div class=\"box\" id=\"resultsheader\"><p>Sequence tag updated!</p><p><a href=\""
 			  . $q->script_name
 			  . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
@@ -142,10 +154,10 @@ sub print_content {
 			if ( ref $isolate_id_ref eq 'ARRAY' ) {
 				$self->update_history( $isolate_id_ref->[0], "$locus: sequenece tag updated. Seqbin id: $seqbin_id; $start-$end" );
 			}
-			$q->param('start_pos',$q->param('new_start'));
-			$q->param('end_pos',$q->param('new_end'));
+			$q->param( 'start_pos', $q->param('new_start') );
+			$q->param( 'end_pos',   $q->param('new_end') );
 			$orig_start = $q->param('new_start');
-			$orig_end = $q->param('new_end');
+			$orig_end   = $q->param('new_end');
 		}
 	}
 	print "<div class=\"box\" id=\"queryform\">\n";
@@ -170,9 +182,11 @@ sub print_content {
 	print $q->checkbox( -name => 'new_complete', -label => 'Complete', -value => 1, -checked => $complete );
 	print "</td></tr></table>\n";
 	print "</td><td>";
-	my $flags =
-	  $self->{'datastore'}->run_list_query( "SELECT flag FROM sequence_flags WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=? ORDER BY flag",
-		$seqbin_id, $locus, $q->param('start_pos'), $q->param('end_pos') );
+	my $flags = $self->{'datastore'}->run_list_query(
+		"SELECT flag FROM sequence_flags WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=? ORDER BY flag",
+		$seqbin_id, $locus, $q->param('start_pos'),
+		$q->param('end_pos')
+	);
 	my $i = 1;
 	print "Flags: <br />";
 	print $q->scrolling_list( -name => 'flags', -id => 'flags', -values => [SEQ_FLAGS], -default => $flags, -size => 5,
@@ -183,17 +197,14 @@ sub print_content {
 	print "</td></tr>";
 	print "<tr><td>";
 	print
-"<a href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=tagUpdate&amp;seqbin_id=$seqbin_id&amp;locus=$locus&amp;start_pos=$orig_start&amp;end_pos=$orig_end\" class=\"resetbutton\">Reset</a>";
+"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagUpdate&amp;seqbin_id=$seqbin_id&amp;locus=$locus&amp;start_pos=$orig_start&amp;end_pos=$orig_end\" class=\"resetbutton\">Reset</a>";
 	print "</td><td style=\"text-align:right\">";
 	print $q->submit( -name => 'Update display', -class => 'button' );
 	print "</td><td>";
 	print $q->submit( -name => 'Submit', -class => 'submit' );
 	print "</td></tr>\n";
 	print "</table>\n";
-
-	foreach (qw(db page seqbin_id locus start_pos end_pos reverse)) {
-		print $q->hidden($_);
-	}
+	print $q->hidden($_) foreach qw(db page seqbin_id locus start_pos end_pos reverse);
 	print $q->end_form;
 	print "</div>\n";
 	print "<div class=\"box\" id=\"sequence\">\n";
@@ -201,17 +212,21 @@ sub print_content {
 	my $length = abs( $end - $start + 1 );
 	print "<p class=\"seq\" style=\"text-align:left\">";
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	my $translate = $locus_info->{'coding_sequence'} ? 1 : 0;
-	my $orf = $locus_info->{'orf'} || 1;
-	my $display = $self->display_sequence( $seqbin_id, $reverse, $start, $end, $translate, $orf );
+	my $translate  = $locus_info->{'coding_sequence'} ? 1 : 0;
+	my $orf        = $locus_info->{'orf'} || 1;
+	my $display    = $self->display_sequence( $seqbin_id, $reverse, $start, $end, $translate, $orf );
 	print $display->{'seq'};
-	
 	print "</p>\n";
-	if ($translate){
-		my @stops = @{$display->{'internal_stop'}};
-		if (@stops){
-			$"=', ';
-			print "<span class=\"highlight\">Internal stop codon" . (@stops == 1 ? '' : 's') . " at position". (@stops == 1 ? '' : 's') . ": @stops (numbering includes upstream flanking sequence).</span>\n";
+
+	if ($translate) {
+		my @stops = @{ $display->{'internal_stop'} };
+		if (@stops) {
+			$" = ', ';
+			print "<span class=\"highlight\">Internal stop codon"
+			  . ( @stops == 1 ? '' : 's' )
+			  . " at position"
+			  . ( @stops == 1 ? '' : 's' )
+			  . ": @stops (numbering includes upstream flanking sequence).</span>\n";
 		}
 		print "<pre class=\"sixpack\">\n";
 		print $display->{'sixpack'};

@@ -18,6 +18,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::CurateTagScanPage;
 use strict;
+use warnings;
 use base qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -198,7 +199,7 @@ sub _print_interface {
 			-name    => 'tblastx',
 			-id      => 'tblastx',
 			-label   => 'Use TBLASTX',
-			-checked => $general_prefs->{'scan_tblastx'} eq 'on' ? 'checked' : ''
+			-checked => ( $general_prefs->{'scan_tblastx'} && $general_prefs->{'scan_tblastx'} eq 'on' ) ? 'checked' : ''
 		);
 		print " <a class=\"tooltip\" title=\"TBLASTX - Compares the six-frame translation of your nucleotide query against 
 	the six-frame translation of the sequences in the sequence bin.  This can be VERY SLOW (a few minutes for 
@@ -213,7 +214,7 @@ sub _print_interface {
 		-name    => 'hunt',
 		-id      => 'hunt',
 		-label   => 'Hunt for nearby start and stop codons',
-		-checked => $general_prefs->{'scan_hunt'} eq 'on' ? 'checked' : ''
+		-checked => ( $general_prefs->{'scan_hunt'} && $general_prefs->{'scan_hunt'} eq 'on' ) ? 'checked' : ''
 	);
 	print " <a class=\"tooltip\" title=\"Hunt for start/stop codons - If the aligned sequence is not an exact match to an
 	existing allele and is not a complete coding sequence with start and stop codons at the ends, selecting this 
@@ -223,14 +224,14 @@ sub _print_interface {
 		-name    => 'rescan_alleles',
 		-id      => 'rescan_alleles',
 		-label   => 'Rescan even if allele designations are already set',
-		-checked => $general_prefs->{'scan_rescan_alleles'} eq 'on' ? 'checked' : ''
+		-checked => ( $general_prefs->{'scan_rescan_alleles'} && $general_prefs->{'scan_rescan_alleles'} eq 'on' ) ? 'checked' : ''
 	);
 	print "</li><li>\n";
 	print $q->checkbox(
 		-name    => 'rescan_seqs',
 		-id      => 'rescan_seqs',
 		-label   => 'Rescan even if allele sequences are tagged',
-		-checked => $general_prefs->{'scan_rescan_seqs'} eq 'on' ? 'checked' : ''
+		-checked => ( $general_prefs->{'scan_rescan_seqs'} && $general_prefs->{'scan_rescan_seqs'} eq 'on' ) ? 'checked' : ''
 	);
 	print "</li></ul>\n";
 	print "</fieldset>";
@@ -280,8 +281,7 @@ sub _print_interface {
 			number of mismatches. You can increase or decrease this value here, altering the stringency of the reaction.\">&nbsp;<i>i</i>&nbsp;</a>";
 			print "</li>";
 		}
-		print "</ul>\n";
-		print "</fieldset>";
+		print "</ul>\n</fieldset>\n";
 	}
 	print "<fieldset>\n<legend>Restrict included sequences by</legend>\n";
 	print "<ul>\n";
@@ -325,7 +325,7 @@ sub _scan {
 	if ($guid) {
 		my $dbname = $self->{'system'}->{'db'};
 		foreach (qw (identity alignment word_size partial_matches limit_matches limit_time tblastx hunt rescan_alleles rescan_seqs)) {
-			my $value = $q->param($_) ne '' ? $q->param($_) : 'off';
+			my $value = ( defined $q->param($_) && $q->param($_) ne '' ) ? $q->param($_) : 'off';
 			$self->{'prefstore'}->set_general( $guid, $dbname, "scan_$_", $value );
 		}
 	}
@@ -498,7 +498,7 @@ sub _scan {
 		print "<input type=\"button\" value=\"None\" onclick='@js4' class=\"smallbutton\" />" if @js4;
 		print "</td></tr>\n";
 	}
-	print $buffer;
+	print $buffer if $buffer;
 	print "<p>Time limit reached (checked up to id-$last_id_checked).</p>"  if $out_of_time;
 	print "<p>Match limit reached (checked up to id-$last_id_checked).</p>" if $match_limit_reached;
 	if ($new_seqs_found) {
@@ -576,22 +576,23 @@ sub _tag {
 				if ( $q->param("id_$isolate_id\_$_\_allele_$id") && $q->param("id_$isolate_id\_$_\_allele_id_$id") ) {
 					my $allele_id = $q->param("id_$isolate_id\_$_\_allele_id_$id");
 					my $set_allele_id = $self->{'datastore'}->get_allele_id( $isolate_id, $_ );
-					eval { $sql->execute($seqbin_id); };
+					eval { $sql->execute($seqbin_id) };
 					$logger->error($@) if $@;
 					my $seqbin_info = $sql->fetchrow_hashref;
 					my $sender      = $seqbin_info->{'sender'};
-					if ( $allele_id_to_set eq '' || !$pending_allele_ids_to_set{$allele_id} ) {
-						if ( !defined $set_allele_id && $allele_id_to_set eq '' ) {
+					if ( !defined $allele_id_to_set || !$pending_allele_ids_to_set{$allele_id} ) {
+						if ( !defined $set_allele_id && !defined $allele_id_to_set ) {
 							push @updates,
 "INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp,comments) VALUES ($isolate_id,'$cleaned_locus','$allele_id',$sender,'confirmed','automatic',$curator_id,'today','today','Scanned from sequence bin')";
 							$allele_id_to_set = $allele_id;
 							push @allele_updates, ( $labels->{$isolate_id} || $isolate_id ) . ": $display_locus:  $allele_id";
 							push @{ $history->{$isolate_id} }, "$_: new designation '$allele_id' (sequence bin scan)";
-						} elsif ( $set_allele_id ne $allele_id
+						} elsif ( defined $set_allele_id
+							&& $set_allele_id    ne $allele_id
 							&& $allele_id_to_set ne $allele_id
 							&& !$pending_allele_ids_to_set{$allele_id} )
 						{
-							eval { $pending_sql->execute( $isolate_id, $_, $allele_id, $sender ); };
+							eval { $pending_sql->execute( $isolate_id, $_, $allele_id, $sender ) };
 							$logger->error($@) if $@;
 							my ($exists) = $pending_sql->fetchrow_array;
 							if ( !$exists ) {
@@ -742,7 +743,7 @@ sub _print_row {
 	my $tooltip;
 	my $new_designation = 0;
 	my $existing_allele = $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
-	if ( $match->{'allele'} eq $existing_allele ) {
+	if ( defined $existing_allele && $match->{'allele'} eq $existing_allele ) {
 		$tooltip = $self->_get_designation_tooltip( $isolate_id, $locus, 'existing' );
 	} elsif ( $match->{'allele'} && defined $existing_allele && $existing_allele ne $match->{'allele'} ) {
 		$tooltip = $self->_get_designation_tooltip( $isolate_id, $locus, 'clashing' );
@@ -753,7 +754,8 @@ sub _print_row {
 	my $hunt_for_start_end = ( !$exact && $q->param('hunt') ) ? 1 : 0;
 	my $original_start     = $match->{'predicted_start'};
 	my $original_end       = $match->{'predicted_end'};
-	my ( $predicted_start, $predicted_end, $complete_tooltip );
+	my ( $predicted_start, $predicted_end );
+	my $complete_tooltip = '';
 	my ( $complete_gene, $status );
 
 	#Hunt for nearby start and stop codons.  Walk in from each end by 3 bases, then out by 3 bases, then in by 6 etc.
@@ -833,14 +835,21 @@ sub _print_row {
 	  . ( $exact ? 'exact' : 'partial' )
 	  . "</td><td$class>$cleaned_locus";
 	print " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
-	print "</td><td$class>$match->{'allele'}$tooltip</td>"
-	  . "<td>$match->{'identity'}</td><td>$match->{'alignment'}</td>"
-	  . "<td>$match->{'length'}</td><td>$match->{'e-value'}</td><td>$match->{'seqbin_id'} </td>"
-	  . "<td>$match->{'start'}</td><td>$match->{'end'} </td>"
-	  . "<td>$match->{'predicted_start'}</td>"
-	  . "<td>$match->{'predicted_end'} <a target=\"_blank\" class=\"extract_tooltip\" href=\"$self->{'script_name'}?db=$self->{'instance'}&amp;page=extractedSequence&amp;seqbin_id=$match->{'seqbin_id'}&amp;start=$predicted_start&amp;end=$predicted_end&amp;reverse=$match->{'reverse'}&amp;translate=$translate&amp;orf=$orf\">extract&nbsp;&rarr;</a>$complete_tooltip</td><td style=\"font-size:2em\">"
-	  . ( $match->{'reverse'} ? '&larr;' : '&rarr;' )
-	  . "</td><td>";
+	print "</td>";
+	$tooltip ||= '';
+	print "<td$class>$match->{'allele'}$tooltip</td>";
+	print "<td>$match->{'identity'}</td>";
+	print "<td>$match->{'alignment'}</td>";
+	print "<td>$match->{'length'}</td>";
+	print "<td>$match->{'e-value'}</td>";
+	print "<td>$match->{'seqbin_id'} </td>";
+	print "<td>$match->{'start'}</td>";
+	print "<td>$match->{'end'} </td>";
+	print "<td>$match->{'predicted_start'}</td>";
+	$match->{'reverse'} ||= 0;
+	print
+"<td>$match->{'predicted_end'} <a target=\"_blank\" class=\"extract_tooltip\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=extractedSequence&amp;seqbin_id=$match->{'seqbin_id'}&amp;start=$predicted_start&amp;end=$predicted_end&amp;reverse=$match->{'reverse'}&amp;translate=$translate&amp;orf=$orf\">extract&nbsp;&rarr;</a>$complete_tooltip</td>";
+	print "<td style=\"font-size:2em\">" . ( $match->{'reverse'} ? '&larr;' : '&rarr;' ) . "</td><td>";
 	my $sender = $self->{'datastore'}->run_simple_query( "SELECT sender FROM sequence_bin WHERE id=?", $match->{'seqbin_id'} )->[0];
 	my $matching_pending =
 	  $self->{'datastore'}->run_simple_query(
@@ -851,7 +860,12 @@ sub _print_row {
 	$cleaned_locus =~ s/\\/\\\\/g;
 	$exact = 0 if $warning;
 
-	if ( $exact && $match->{'allele'} ne $existing_allele && !$matching_pending && $match->{'allele'} ne 'ref' && !$q->param('tblastx') ) {
+	if (   $exact
+		&& ( !defined $existing_allele || $match->{'allele'} ne $existing_allele )
+		&& !$matching_pending
+		&& $match->{'allele'} ne 'ref'
+		&& !$q->param('tblastx') )
+	{
 		print $q->checkbox(
 			-name    => "id_$isolate_id\_$locus\_allele_$id",
 			-id      => "id_$isolate_id\_$cleaned_locus\_allele_$id",
@@ -1153,8 +1167,8 @@ sub _blast {
 		$probe_matches = $self->_simulate_hybridization( $temp_infile, $locus );
 		return if !@$probe_matches;
 	}
-	my $blastn_word_size = $1 if $self->{'cgi'}->param('word_size') =~ /(\d+)/;
-	my $word_size = $program eq 'blastn' ? ( $blastn_word_size || 15 ) : 3;
+	my $blastn_word_size = $self->{'cgi'}->param('word_size') =~ /(\d+)/ ? $1 : 15;
+	my $word_size = $program eq 'blastn' ? $blastn_word_size : 3;
 	if ( $self->{'config'}->{'blast+_path'} ) {
 		my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
 		my $filter = $program eq 'blastn' ? 'dust' : 'seg';
@@ -1345,7 +1359,7 @@ sub _parse_blast_partial {
 			}
 
 			#Don't handle exact matches - these are handled elsewhere.
-			next if $exact_matched_regions > { $match->{'seqbin_id'} }->{ $match->{'predicted_start'} };
+			next if $exact_matched_regions->{ $match->{'seqbin_id'} }->{ $match->{'predicted_start'} };
 			$match->{'e-value'} = $record[10];
 			if ($pcr_filter) {
 				my $within_amplicon = 0;
