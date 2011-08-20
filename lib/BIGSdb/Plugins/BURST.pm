@@ -200,10 +200,8 @@ sub _get_profile_array {
 		my $sql = $self->{'db'}->prepare("SELECT $pk,@$loci FROM scheme_$scheme_id WHERE $pk=?");
 		my $i   = 0;
 		foreach (@$list) {
-			eval { $sql->execute($_); };
-			if ($@) {
-				$logger->error("Can't execute $@");
-			}
+			eval { $sql->execute($_) };
+			$logger->error($@) if $@;
 			my @profile = $sql->fetchrow_array;
 			my $j       = 0;
 			if ( $st_frequency{ $profile[0] } ) {

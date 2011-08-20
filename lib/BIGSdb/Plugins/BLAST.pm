@@ -73,6 +73,7 @@ sub run {
 	$logger->error($@) if $@;
 	my @ids;
 	my %labels;
+
 	while ( my ( $id, $isolate ) = $sql->fetchrow_array ) {
 		push @ids, $id;
 		$labels{$id} = "$id) $isolate";
@@ -103,21 +104,18 @@ sub run {
 	my $temp              = BIGSdb::Utils::get_random();
 	my $out_file          = "$temp.txt";
 	my $out_file_flanking = "$temp\_flanking.txt";
-	open( my $fh_output, '>', "$self->{'config'}->{'tmp_dir'}/$out_file" )
-	  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$out_file for writing");
-	open( my $fh_output_flanking, '>', "$self->{'config'}->{'tmp_dir'}/$out_file_flanking" )
-	  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$out_file_flanking for writing");
 
 	foreach (@ids) {
 		my $matches = $self->_blast( $_, \$seq );
 		next if ref $matches ne 'ARRAY' || !@$matches;
 		print $header_buffer if $first;
 		$some_results = 1;
-		eval { $sql->execute($_); };
+		eval { $sql->execute($_) };
 		$logger->error($@) if $@;
 		my ($label)     = $sql->fetchrow_array;
 		my $rows        = @$matches;
 		my $first_match = 1;
+		my $flanking = defined $q->param('flanking') ? $q->param('flanking') : $self->{'prefs'}->{'flanking'};
 		foreach my $match (@$matches) {
 			if ($first_match) {
 				print
@@ -130,15 +128,14 @@ sub run {
 				if ( $attribute eq 'end' ) {
 					$match->{'reverse'} ||= 0;
 					print
-" <a target=\"_blank\" class=\"extract_tooltip\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=extractedSequence&amp;translate=1&amp;no_highlight=1&amp;seqbin_id=$match->{'seqbin_id'}&amp;start=$match->{'start'}&amp;end=$match->{'end'}&amp;reverse=$match->{'reverse'}\">extract&nbsp;&rarr;</a>";
+" <a target=\"_blank\" class=\"extract_tooltip\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=extractedSequence&amp;translate=1&amp;no_highlight=1&amp;seqbin_id=$match->{'seqbin_id'}&amp;start=$match->{'start'}&amp;end=$match->{'end'}&amp;reverse=$match->{'reverse'}&amp;flanking=$flanking\">extract&nbsp;&rarr;</a>";
 				}
 				print "</td>";
 			}
 			print "<td style=\"font-size:2em\">" . ( $match->{'reverse'} ? '&larr;' : '&rarr;' ) . "</td>";
-			print "<td>$match->{$_}</td>" foreach qw(e_value bit_score); 
+			print "<td>$match->{$_}</td>" foreach qw(e_value bit_score);
 			print "</tr>\n";
 			$first_match = 0;
-			my $flanking = $self->{'prefs'}->{'flanking'};
 			my $start    = $match->{'start'};
 			my $end      = $match->{'end'};
 			my $length   = abs( $end - $start + 1 );
@@ -148,19 +145,24 @@ sub run {
 			$seq_ref->{'seq'}        = BIGSdb::Utils::reverse_complement( $seq_ref->{'seq'} )        if $match->{'reverse'};
 			$seq_ref->{'upstream'}   = BIGSdb::Utils::reverse_complement( $seq_ref->{'upstream'} )   if $match->{'reverse'};
 			$seq_ref->{'downstream'} = BIGSdb::Utils::reverse_complement( $seq_ref->{'downstream'} ) if $match->{'reverse'};
-			print $fh_output ">$_|$label|$match->{'seqbin_id'}|$start\n";
-			print $fh_output_flanking ">$_|$label|$match->{'seqbin_id'}|$start\n";
-			print $fh_output BIGSdb::Utils::break_line( $seq_ref->{'seq'}, 60 ) . "\n";
+			my $fasta_id = ">$_|$label|$match->{'seqbin_id'}|$start\n";
+			my $seq_with_flanking;
 
 			if ( $match->{'reverse'} ) {
-				print $fh_output_flanking BIGSdb::Utils::break_line( $seq_ref->{'downstream'} . $seq_ref->{'seq'} . $seq_ref->{'upstream'},
-					60 )
-				  . "\n";
+				$seq_with_flanking = BIGSdb::Utils::break_line( $seq_ref->{'downstream'} . $seq_ref->{'seq'} . $seq_ref->{'upstream'}, 60 );
 			} else {
-				print $fh_output_flanking BIGSdb::Utils::break_line( $seq_ref->{'upstream'} . $seq_ref->{'seq'} . $seq_ref->{'downstream'},
-					60 )
-				  . "\n";
+				$seq_with_flanking = BIGSdb::Utils::break_line( $seq_ref->{'upstream'} . $seq_ref->{'seq'} . $seq_ref->{'downstream'}, 60 );
 			}
+			open( my $fh_output, '>>', "$self->{'config'}->{'tmp_dir'}/$out_file" )
+			  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$out_file for writing");
+			open( my $fh_output_flanking, '>>', "$self->{'config'}->{'tmp_dir'}/$out_file_flanking" )
+			  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$out_file_flanking for writing");
+			print $fh_output $fasta_id;
+			print $fh_output_flanking $fasta_id;
+			print $fh_output BIGSdb::Utils::break_line( $seq_ref->{'seq'}, 60 ) . "\n";
+			print $fh_output_flanking $seq_with_flanking . "\n";
+			close $fh_output;
+			close $fh_output_flanking;
 		}
 		$td = $td == 1 ? 2 : 1;
 		$first = 0;
@@ -181,9 +183,8 @@ sub run {
 	} else {
 		print "<p>No matches found.</p>\n";
 	}
-	close $fh_output;
-	close $fh_output_flanking;
 	print "</div>\n";
+	return;
 }
 
 sub _print_interface {
@@ -223,6 +224,11 @@ sub _print_interface {
 " <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a></li>";
 	print "<li><label for=\"hits\" class=\"parameter\">Hits per isolate:</label>\n";
 	print $q->popup_menu( -name => 'hits', -id => 'hits', -values => [qw(1 2 3 4 5 6 7 8 9 10 20 30 40 50)], -default => 1 );
+	print "</li><li><label for=\"flanking\" class=\"parameter\">Flanking length (bp):</label>\n";
+	print $q->popup_menu( -name => 'flanking', -id => 'flanking', -values => [qw (0 20 50 100 200 500 1000 2000 5000)], -default => $self->{'prefs'}->{'flanking'} );
+	print
+" <a class=\"tooltip\" title=\"Flanking length - This is the length of flanking sequence (if present) that will be output in the secondary FASTA file.  The default value can be changed in the options page.\">&nbsp;<i>i</i>&nbsp;</a>";
+
 	print "</li>\n<li>\n";
 	print $q->checkbox( -name => 'tblastx', label => 'Use TBLASTX' );
 	print
@@ -231,11 +237,11 @@ sub _print_interface {
 	print "</fieldset>\n";
 	print "<fieldset style=\"float:left\">\n<legend>Restrict included sequences by</legend>\n";
 	print "<ul>\n";
-	my $buffer = $self->get_sequence_method_filter({'class' => 'parameter'});
+	my $buffer = $self->get_sequence_method_filter( { 'class' => 'parameter' } );
 	print "<li>$buffer</li>" if $buffer;
-	$buffer = $self->get_project_filter({'class' => 'parameter'});
+	$buffer = $self->get_project_filter( { 'class' => 'parameter' } );
 	print "<li>$buffer</li>" if $buffer;
-	$buffer = $self->get_experiment_filter({'class' => 'parameter'});
+	$buffer = $self->get_experiment_filter( { 'class' => 'parameter' } );
 	print "<li>$buffer</li>" if $buffer;
 	print "</ul>\n</fieldset>\n";
 	print "<table style=\"width:95%\"><tr><td style=\"text-align:left\">";
@@ -247,6 +253,7 @@ sub _print_interface {
 	print "</div>\n";
 	print $q->end_form;
 	print "</div>\n";
+	return;
 }
 
 sub _blast {
@@ -312,7 +319,7 @@ sub _blast {
 	return if -z $temp_fastafile;
 	my $blastn_word_size = $self->{'cgi'}->param('word_size') =~ /(\d+)/ ? $1 : 11;
 	my $hits             = $self->{'cgi'}->param('hits')      =~ /(\d+)/ ? $1 : 1;
-	my $word_size = $program eq 'blastn' ? ( $blastn_word_size ) : 3;
+	my $word_size = $program eq 'blastn' ? ($blastn_word_size) : 3;
 	if ( $self->{'config'}->{'blast+_path'} ) {
 		system("$self->{'config'}->{'blast+_path'}/makeblastdb -in $temp_fastafile -logfile /dev/null -parse_seqids -dbtype nucl");
 		my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
@@ -336,35 +343,42 @@ sub _blast {
 sub _parse_blast {
 	my ( $self, $blast_file, $hits ) = @_;
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
-	open( my $blast_fh, '<', $full_path ) || ( $logger->error("Can't open BLAST output file $full_path. $!"), return \$; );
 	my @matches;
 	my $rows;
+	open( my $blast_fh, '<', $full_path ) || ( $logger->error("Can't open BLAST output file $full_path. $!"), return \$; );
 	while ( my $line = <$blast_fh> ) {
 		next if !$line || $line =~ /^#/;
-		my @record = split /\s+/, $line;
-		my $match;
-		$match->{'seqbin_id'}  = $record[1];
-		$match->{'identity'}   = $record[2];
-		$match->{'alignment'}  = $record[3];
-		$match->{'mismatches'} = $record[4];
-		$match->{'gaps'}       = $record[5];
-		$match->{'reverse'}    = 1
-		  if ( ( $record[8] > $record[9] && $record[7] > $record[6] ) || ( $record[8] < $record[9] && $record[7] < $record[6] ) );
-
-		if ( $record[8] < $record[9] ) {
-			$match->{'start'} = $record[8];
-			$match->{'end'}   = $record[9];
-		} else {
-			$match->{'start'} = $record[9];
-			$match->{'end'}   = $record[8];
-		}
-		$match->{'e_value'}   = $record[10];
-		$match->{'bit_score'} = $record[11];
+		my $match = $self->_extract_match_from_blast_result_line($line);
 		push @matches, $match;
 		$rows++;
 		last if $rows == $hits;
 	}
 	close $blast_fh;
 	return \@matches;
+}
+
+sub _extract_match_from_blast_result_line {
+	my ( $self, $line ) = @_;
+	return if !$line || $line =~ /^#/;
+	my @record = split /\s+/, $line;
+	my $match;
+	$match->{'seqbin_id'}  = $record[1];
+	$match->{'identity'}   = $record[2];
+	$match->{'alignment'}  = $record[3];
+	$match->{'mismatches'} = $record[4];
+	$match->{'gaps'}       = $record[5];
+	$match->{'reverse'}    = 1
+	  if ( ( $record[8] > $record[9] && $record[7] > $record[6] ) || ( $record[8] < $record[9] && $record[7] < $record[6] ) );
+
+	if ( $record[8] < $record[9] ) {
+		$match->{'start'} = $record[8];
+		$match->{'end'}   = $record[9];
+	} else {
+		$match->{'start'} = $record[9];
+		$match->{'end'}   = $record[8];
+	}
+	$match->{'e_value'}   = $record[10];
+	$match->{'bit_score'} = $record[11];
+	return $match;
 }
 1;

@@ -49,7 +49,7 @@ sub print_content {
 		return;
 	}
 	print "<h1>Extracted sequence: Seqbin id#:$seqbin_id ($start-$end)</h1>\n";
-	my $flanking   = $self->{'prefs'}->{'flanking'};
+#	my $flanking   = $q->param('flanking') || $self->{'prefs'}->{'flanking'};
 	my $length     = abs( $end - $start + 1 );
 	my $method_ref = $self->{'datastore'}->run_simple_query( "SELECT method FROM sequence_bin WHERE id=?", $seqbin_id );
 	$logger->error("No method") if ref $method_ref ne 'ARRAY';
@@ -90,7 +90,8 @@ sub display_sequence {
 	$start = 1 if $start < 1;
 	my $contig_length = $self->{'datastore'}->run_simple_query( "SELECT length(sequence) FROM sequence_bin WHERE id=?", $seqbin_id )->[0];
 	$end = $contig_length if $end > $contig_length;
-	my $flanking = $self->{'prefs'}->{'flanking'};
+	my $flanking = $self->{'cgi'}->param('flanking') || $self->{'prefs'}->{'flanking'};
+	$flanking = (BIGSdb::Utils::is_int($flanking) && $flanking >= 0) ? $flanking : 100;
 	my $length   = abs( $end - $start + 1 );
 	my $qry =
 "SELECT substring(sequence from $start for $length) AS seq,substring(sequence from ($start-$flanking) for $flanking) AS upstream,substring(sequence from ($end+1) for $flanking) AS downstream FROM sequence_bin WHERE id=?";
