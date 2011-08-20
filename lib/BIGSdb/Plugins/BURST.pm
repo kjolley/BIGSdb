@@ -39,7 +39,7 @@ sub get_attributes {
 		buttontext  => 'BURST',
 		menutext    => 'BURST',
 		module      => 'BURST',
-		version     => '1.0.0',
+		version     => '1.0.1',
 		dbtype      => 'isolates,sequences',
 		section     => 'postquery',
 		order       => 10,
@@ -169,6 +169,7 @@ HTML
 	print $q->submit( -name => 'Submit', -class => 'submit' );
 	print $q->end_form;
 	print "</div>\n";
+	return;
 }
 
 sub _run_burst {
@@ -184,6 +185,7 @@ sub _run_burst {
 		return;
 	}
 	$self->_recursive_search( $loci, $num_profiles, $profiles_ref, $matrix_ref, $profile_freq_ref );
+	return;
 }
 
 sub _get_profile_array {
@@ -196,7 +198,7 @@ sub _get_profile_array {
 		$_ =~ s/'/_PRIME_/g;
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		$" = ',';
+		local $" = ',';
 		my $sql = $self->{'db'}->prepare("SELECT $pk,@$loci FROM scheme_$scheme_id WHERE $pk=?");
 		my $i   = 0;
 		foreach (@$list) {
@@ -486,6 +488,7 @@ sub _recursive_search {
 	$buffer .= "</table></div>";
 	print $count ? $buffer : "<p>None</p>\n";
 	print "</div>\n";
+	return;
 }
 
 sub _dfs {
@@ -498,6 +501,7 @@ sub _dfs {
 			$self->_dfs( $profile_count, $y, $matrix_ref, $grp_ref, $grpdef, $g );
 		}
 	}
+	return;
 }
 
 sub _create_group_graphic {
@@ -511,7 +515,6 @@ sub _create_group_graphic {
 	my @assigned;
 	my @posntaken;
 	my $filename = "$temp\_$at";
-	open( my $fh, '>', "$self->{'config'}->{'tmp_dir'}/$filename.svg" );
 	my @sts = @$st_ref;
 	my @atPosn;
 	my @radius;
@@ -519,7 +522,6 @@ sub _create_group_graphic {
 	my $atRow;
 	my $noAT = 0;
 	my $unit;
-	my $font_size;
 
 	#work out data row associated with AT
 	for ( my $i = 0 ; $i < $num_sts ; $i++ ) {
@@ -586,7 +588,8 @@ sub _create_group_graphic {
 		$width  = 29 * $unit;
 		$height = 29 * $unit;
 	}
-	print $fh <<"SVG";
+	
+	my $buffer = <<"SVG";
 <?xml version="1.0" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
 "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
@@ -638,7 +641,7 @@ SVG
 			my $x2 = $posnX[ $atPosn[$a] ];
 			my $y2 = $posnY[ $atPosn[$a] ];
 			( $x1, $y1, $x2, $y2 ) = $self->_offset_line( $x1, $y1, $x2, $y2, $unit );
-			print $fh "<line x1=\"$x1\" y1=\"$y1\" x2=\"$x2\" y2=\"$y2\" stroke=\"black\" opacity=\"0.2\" stroke-width=\"1\"/>";
+			$buffer.= "<line x1=\"$x1\" y1=\"$y1\" x2=\"$x2\" y2=\"$y2\" stroke=\"black\" opacity=\"0.2\" stroke-width=\"1\"/>";
 		} else {
 			$conncentre[$a] = 0;
 		}
@@ -658,8 +661,8 @@ SVG
 					my $x2 = $posnX[ $atPosn[$a] ];
 					my $y2 = $posnY[ $atPosn[$a] ];
 					( $x1, $y1, $x2, $y2 ) = $self->_offset_line( $x1, $y1, $x2, $y2, $unit );
-					print $fh "<line x1=\"$x1\" y1=\"$y1\" x2=\"$x2\" y2=\"$y2\" stroke=\"black\" stroke-width=\"1\"/>";
-					print $fh "<circle stroke=\"black\" fill=\"none\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
+					$buffer.= "<line x1=\"$x1\" y1=\"$y1\" x2=\"$x2\" y2=\"$y2\" stroke=\"black\" stroke-width=\"1\"/>";
+					$buffer.= "<circle stroke=\"black\" fill=\"none\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
 					  . ( $unit / 2 ) . "\"/>";
 				}
 			}
@@ -683,27 +686,27 @@ SVG
 
 		#Draw SLV ring
 		if ( $q->param('shade') ) {
-			print $fh
+			$buffer.=
 			  "<circle stroke=\"black\" fill=\"black\" fill-opacity=\"0.1\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
 			  . ( $unit / 2 )
 			  . "\"/>\n";
 		} else {
-			print $fh "<circle stroke=\"black\" fill=\"none\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
+			$buffer.= "<circle stroke=\"black\" fill=\"none\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
 			  . ( $unit / 2 )
 			  . "\"/>\n";
 		}
 		if ( $q->param('shade') ) {
-			print $fh
+			$buffer.=
 "<circle stroke=\"red\" stroke-width=\"$unit\" stroke-opacity=\"0.1\" fill=\"none\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
 			  . ($unit)
 			  . "\"/>\n";
 		}
-		print $fh "<circle stroke=\"red\" fill=\"none\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
+		$buffer.= "<circle stroke=\"red\" fill=\"none\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
 		  . ( 1.5 * $unit )
 		  . "\"/>\n";
 		my $x = $posnX[ $atPosn[$a] ] - length( $st[ $atList[$a] ] ) * 2;
 		my $y = $posnY[ $atPosn[$a] ] + 4;
-		print $fh "<text x=\"$x\" y=\"$y\" font-size=\"9\">$st[$atList[$a]]</text>\n";
+		$buffer.= "<text x=\"$x\" y=\"$y\" font-size=\"9\">$st[$atList[$a]]</text>\n";
 	}
 	for ( my $distance = 1 ; $distance < 3 ; $distance++ ) {
 
@@ -722,12 +725,12 @@ SVG
 
 				#draw outer circle if there are DLVs
 				if ( $q->param('shade') ) {
-					print $fh
+					$buffer.=
 "<circle stroke=\"blue\" stroke-width=\"$unit\" stroke-opacity=\"0.1\" fill=\"none\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
 					  . ( 2 * $unit )
 					  . "\"/>\n";
 				}
-				print $fh "<circle stroke=\"blue\" fill=\"none\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
+				$buffer.= "<circle stroke=\"blue\" fill=\"none\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
 				  . ( 2.5 * $unit )
 				  . "\"/>\n";
 				$angleOffset += 2 * PI * 10 / 360;
@@ -751,11 +754,11 @@ SVG
 							} else {
 								$colour = 'black';
 							}
-							print $fh "<circle fill=\"$colour\" stroke=\"$colour\" cx=\"$x\" cy=\"$y\" r=\"2\" \/>";
+							$buffer.= "<circle fill=\"$colour\" stroke=\"$colour\" cx=\"$x\" cy=\"$y\" r=\"2\" \/>";
 						} else {
 							$x -= length( $st[$j] ) * 2;
 							$y += 4;
-							print $fh "<text x=\"$x\" y=\"$y\" font-size=\"9\">$st[$j]</text>\n";
+							$buffer.= "<text x=\"$x\" y=\"$y\" font-size=\"9\">$st[$j]</text>\n";
 						}
 						$assigned[$j]   = $atList[$a];
 						$radius[$j]     = $distance;
@@ -826,17 +829,17 @@ SVG
 								if ( $posYAnchor < $posY ) {
 									$posY_text += 4;
 								}
-								print $fh
+								$buffer.=
 "<line x1=\"$posXAnchor\" y1=\"$posYAnchor\" x2=\"$posX\" y2=\"$posY\" stroke=\"$colour\" opacity=\"0.2\" stroke-width=\"1\"/>\n";
 								if ( $q->param('hide') ) {
 									$posX -= $xOffset;
-									print $fh "<circle fill=\"black\" stroke=\"black\" cx=\"$posX\" cy=\"$posY\" r=\"2\" \/>";
+									$buffer.= "<circle fill=\"black\" stroke=\"black\" cx=\"$posX\" cy=\"$posY\" r=\"2\" \/>";
 								} else {
 									if ( $textOffset == 0 ) {
-										print $fh "<text x=\"$posX_text\" y=\"$posY_text\" font-size=\"9\">$st[$j]</text>\n";
+										$buffer.= "<text x=\"$posX_text\" y=\"$posY_text\" font-size=\"9\">$st[$j]</text>\n";
 										$textOffset += 8;
 									} else {
-										print $fh "<text x=\"$posX_text\" y=\""
+										$buffer.= "<text x=\"$posX_text\" y=\""
 										  . ( $posY_text + $textOffset )
 										  . "\" font-size=\"9\">$st[$j]</text>\n";
 									}
@@ -852,7 +855,9 @@ SVG
 			}
 		}
 	}
-	print $fh "</svg>\n";
+	$buffer.= "</svg>\n";
+	open( my $fh, '>', "$self->{'config'}->{'tmp_dir'}/$filename.svg" );
+	print $fh $buffer;
 	close $fh;
 	system(
 "$self->{'config'}->{'mogrify_path'} -format png $self->{'config'}->{'tmp_dir'}/$filename.svg $self->{'config'}->{'tmp_dir'}/$filename.png"
