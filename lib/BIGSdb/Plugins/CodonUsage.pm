@@ -185,7 +185,7 @@ sub run {
 <p>This analysis has been submitted to the job queue.</p>
 <p>Please be aware that this job may take some time depending on the number of sequences to analyse
 and how busy the server is.</p>
-<p><a href="$self->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">
+<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">
 Follow the progress of this job and view the output.</a></p> 	
 </div>	
 HTML
@@ -204,6 +204,7 @@ HTML
 	my $options = { 'default_select' => 0, 'translate' => 0, 'options_heading' => 'Sequence retrieval', 'ignore_seqflags' => 1 };
 	$self->print_sequence_export_form( 'id', $list, undef, $options );
 	print "</div>\n";
+	return;
 }
 
 sub get_extra_form_elements {
@@ -230,7 +231,7 @@ sub run_job {
 	my $isolate_sql;
 	if ( $params->{'includes'} ) {
 		my @includes = split /\|\|/, $params->{'includes'};
-		$"           = ',';
+		local $" = ',';
 		$isolate_sql = $self->{'db'}->prepare("SELECT @includes FROM $self->{'system'}->{'view'} WHERE id=?");
 	}
 	my $ignore_seqflag;
@@ -241,7 +242,6 @@ sub run_job {
 	  $self->{'db'}->prepare(
 "SELECT substring(sequence from allele_sequences.start_pos for allele_sequences.end_pos-allele_sequences.start_pos+1),reverse FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id LEFT JOIN sequence_flags ON allele_sequences.seqbin_id = sequence_flags.seqbin_id AND allele_sequences.locus = sequence_flags.locus AND allele_sequences.start_pos = sequence_flags.start_pos AND allele_sequences.end_pos = sequence_flags.end_pos WHERE isolate_id=? AND allele_sequences.locus=? AND complete $ignore_seqflag ORDER BY allele_sequences.datestamp LIMIT 1"
 	  );
-	my @problem_ids;
 	my $start = 1;
 	my $end;
 	my $no_output = 1;
@@ -268,6 +268,7 @@ sub run_job {
 	my $progress = 0;
 	my ( $locus_codon_count, $locus_aa_count, $total_codon_count, $total_aa_count, $rscu );
 	my %includes;
+	my %bad_ids;
 	foreach my $locus_name (@selected_fields) {
 		my $locus;
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
@@ -281,25 +282,28 @@ sub run_job {
 		my $temp      = BIGSdb::Utils::get_random();
 		my $temp_file = "$self->{'config'}->{secure_tmp_dir}/$temp.txt";
 		my $cusp_file = "$self->{'config'}->{secure_tmp_dir}/$temp.cusp";
-		$" = '|';
+		local $" = '|';
 		foreach my $id (@list) {
-			open( my $fh_cusp_in, '>', "$temp_file" ) or $logger->error("could not open temp file $temp_file");
 			my @includes;
-			next if !BIGSdb::Utils::is_int($id);
+			my $buffer;
+			next if $bad_ids{$id};
+			if (   !BIGSdb::Utils::is_int($id)
+				|| !$self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE id=?", $id )->[0] )
+			{
+				$bad_ids{$id} = 1;
+				next;
+			}
 			if ( $params->{'includes'} ) {
 				eval { $isolate_sql->execute($id) };
 				$logger->error($@) if $@;
 				@includes = $isolate_sql->fetchrow_array;
 				foreach (@includes) {
-					$_ =~ tr/ /_/;
+					tr/ /_/ if defined;
 				}
-				$includes{$id} = "|@includes";
-			}
-			if ($id) {
-				print $fh_cusp_in ">$id\n";
-			} else {
-				push @problem_ids, $id;
-				next;
+				{
+					no warnings 'uninitialized';
+					$includes{$id} = "|@includes";
+				}
 			}
 			my $allele_id = $self->{'datastore'}->get_allele_id( $id, $locus_name );
 			my $allele_seq;
@@ -313,7 +317,7 @@ sub run_job {
 				};
 			}
 			my $seqbin_seq;
-			eval { $seqbin_sql->execute( $id, $locus_name ) };			
+			eval { $seqbin_sql->execute( $id, $locus_name ) };
 			if ($@) {
 				$logger->error($@) if $@;
 			} else {
@@ -331,14 +335,16 @@ sub run_job {
 			} elsif ($seqbin_seq) {
 				$seq = $seqbin_seq;
 			} else {
+
 				#no sequence
 			}
 			$seq = BIGSdb::Utils::chop_seq( $seq, $locus_info->{'orf'} || 1 );
-			print $fh_cusp_in "$seq\n";
+			open( my $fh_cusp_in, '>', "$temp_file" ) or $logger->error("could not open temp file $temp_file");
+			print $fh_cusp_in ">$id\n$seq\n";
 			close $fh_cusp_in;
 			system("$self->{'config'}->{'emboss_path'}/cusp -sequence $temp_file -outfile $cusp_file -warning false 2>/dev/null");
 			if ( -e $cusp_file ) {
-				open( my $fh_cusp, '<', $cusp_file );
+				open( my $fh_cusp, '<', $cusp_file ); 
 				while (<$fh_cusp>) {
 					next if $_ =~ /^#/ || $_ eq '';
 					my ( $codon, $aa, undef, undef, $number ) = split /\s+/, $_;
@@ -357,7 +363,7 @@ sub run_job {
 		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } );
 	}
 	my $message_html;
-	$" = "\t";
+	local $" = "\t";
 	my @codons = $self->_get_codons;
 	if ( $params->{'codonorder'} eq 'alphabetical' ) {
 		@codons = sort @codons;
@@ -375,6 +381,7 @@ sub run_job {
 	$progress = 0;
 
 	foreach my $id (@list) {
+		next if $bad_ids{$id};
 		$no_output = 0;
 		$includes{$id} ||= '';
 		print $fh_rscu_by_isolate "$id$includes{$id}";
@@ -395,7 +402,7 @@ sub run_job {
 		my $complete = 90 + int( 5 * $progress / scalar @list );    #go up to 95%
 		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } );
 	}
-	$" = "\t";
+	local $" = "\t";
 	print $fh_rscu_by_locus "Locus\t@codons\n";
 	print $fh_number_by_locus "Locus\t@codons\n";
 	$progress = 0;
@@ -420,9 +427,10 @@ sub run_job {
 	foreach (qw ($fh_rscu_by_isolate $fh_number_by_isolate $fh_rscu_by_locus $fh_number_by_locus)) {
 		close $_;
 	}
-	if (@problem_ids) {
-		$"            = ', ';
-		$message_html = "<p>The following ids could not be processed (they do not exist): @problem_ids.</p>\n";
+	if ( keys %bad_ids ) {
+		local $" = ', ';
+		my @bad_ids = sort keys %bad_ids;
+		$message_html = "<p>The following ids could not be processed (they do not exist): @bad_ids</p>\n";
 	}
 	if ($no_output) {
 		$message_html .= "<p>No output generated.  Please ensure that your sequences have been defined for these isolates.</p>\n";
@@ -437,6 +445,7 @@ sub run_job {
 			{ 'filename' => "$job_id\_number_by_locus.txt", 'description' => 'Absolute frequency of codon usage by locus' } );
 	}
 	$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => $message_html } ) if $message_html;
+	return;
 }
 
 sub _get_codons {
