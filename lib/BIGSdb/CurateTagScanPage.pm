@@ -1396,10 +1396,7 @@ sub _parse_blast_partial {
 	close $blast_fh;
 
 	#Only return the number of matches selected by 'partial_matches' parameter
-	@matches = sort {
-		{ $matches[$a] }
-		->{'quality'} <=> { $matches[$b] }->{'quality'}
-	} @matches;
+	@matches = sort {$b->{'quality'} <=> $a->{'quality'}} @matches;
 	my $partial_matches = $self->{'cgi'}->param('partial_matches');
 	$partial_matches = 1 if !BIGSdb::Utils::is_int($partial_matches) || $partial_matches < 1;
 	while ( @matches > $partial_matches ) {
