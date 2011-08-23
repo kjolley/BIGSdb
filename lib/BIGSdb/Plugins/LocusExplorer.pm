@@ -360,7 +360,7 @@ sub _snp {
 		my ( $buffer, $freqs ) = $self->get_snp_schematic( $locus, $seqs, $seq_file, $self->{'prefs'}->{'alignwidth'} );
 		print $buffer;
 		( $buffer, undef ) = $self->get_freq_table( $freqs, $locus_info );
-		print $buffer;
+		print $buffer if $buffer;
 		print "</div>\n";
 	} else {
 		my $params = $q->Vars;

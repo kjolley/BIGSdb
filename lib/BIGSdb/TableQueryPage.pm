@@ -58,7 +58,7 @@ sub print_content {
 	print "<h1>Query $cleaned for $system->{'description'} database</h1>\n";
 	my $qry;
 	if (   !defined $q->param('currentpage')
-		|| $q->param('pagejump') eq '1'
+		|| (defined $q->param('pagejump') && $q->param('pagejump') eq '1')
 		|| $q->param('First') )
 	{
 		if ( !$q->param('no_js') ) {

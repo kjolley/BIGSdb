@@ -52,6 +52,7 @@ function loadContent(url) {
 }
 
 END
+	return $buffer;
 }
 
 sub print_content {
@@ -117,6 +118,7 @@ to be DNA if it contains 90% or more G,A,T,C or N characters.\">&nbsp;<i>i</i>&n
 	if ( $q->param('Submit') && $sequence ) {
 		$self->_run_query($sequence);
 	}
+	return;
 }
 
 sub _run_query {
@@ -128,11 +130,11 @@ sub _run_query {
 		#add identifier line if one missing since newer versions of BioPerl check
 		$sequence = ">\n$sequence";
 	}
-	my $stringfh_in = new IO::String($sequence);
+	my $stringfh_in = IO::String->new($sequence);
 	my $seqin = Bio::SeqIO->new( -fh => $stringfh_in, -format => 'fasta' );
 	my $batchBuffer;
 	my $td = 1;
-	$| = 1;
+	local $| = 1;
 	my $first = 1;
 	my $job   = 0;
 
@@ -180,7 +182,7 @@ sub _run_query {
 				push @alleles,
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id\">$cleaned: $allele_id</a>";
 			}
-			$" = ', ';
+			local $" = ', ';
 			my $field_values = $self->_get_client_dbase_fields( $locus, \@allele_ids );
 			if ( $page eq 'sequenceQuery' ) {
 				print "<div class=\"box\" id=\"resultsheader\">";
@@ -189,10 +191,9 @@ sub _run_query {
 				print " ($field_values)" if $field_values;
 				print "</p>\n</div>\n";
 			} else {
+				my $id = defined $seq_object->id  ? $seq_object->id : '';
 				$batchBuffer =
-				    "<tr class=\"td$td\"><td>"
-				  . ( $seq_object->id )
-				  . "</td><td style=\"text-align:left\">Exact match"
+				    "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">Exact match"
 				  . ( $count == 1 ? '' : 'es' )
 				  . " found: @alleles";
 				$batchBuffer .= " ($field_values)" if $field_values;
@@ -290,8 +291,9 @@ sub _run_query {
 						undef $locus if !$q->param('locus') || $q->param('locus') =~ /SCHEME_\d+/;
 						$first = 0;
 					}
+					my $id = defined $seq_object->id ? $seq_object->id : '';
 					$batchBuffer =
-					  "<tr class=\"td$td\"><td>" . ( $seq_object->id ) . "</td><td style=\"text-align:left\">$buffer</td></tr>\n";
+					  "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">$buffer</td></tr>\n";
 				}
 			} else {
 				if ( defined $locus_info->{'data_type'} && $qry_type ne $locus_info->{'data_type'} && $locus && $locus !~ /SCHEME_(\d+)/ ) {
@@ -330,10 +332,9 @@ sub _run_query {
 					if ( $page eq 'sequenceQuery' ) {
 						print "<div class=\"box\" id=\"statusbad\"><p>No matches found.</p></div>\n";
 					} else {
+						my $id = defined $seq_object->id ? $seq_object->id : '';
 						$batchBuffer =
-						    "<tr class=\"td$td\"><td>"
-						  . ( $seq_object->id )
-						  . "</td><td style=\"text-align:left\">No matches found.</td></tr>\n";
+						    "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">No matches found.</td></tr>\n";
 					}
 				} else {
 					if ( $page eq 'sequenceQuery' ) {
@@ -547,8 +548,8 @@ sub _run_query {
 							} else {
 								my $diffs = $self->_get_differences( $seq_ref, \$seq, $sstart, $qstart );
 								if (@$diffs) {
-									my $plural = scalar @$diffs > 1 ? 's' : '';
-									$buffer .= ( scalar @$diffs ) . " difference$plural found. ";
+									my $plural = @$diffs > 1 ? 's' : '';
+									$buffer .= ( @$diffs ) . " difference$plural found. ";
 									my $first = 1;
 									foreach (@$diffs) {
 										$buffer .= '; ' if !$first;
@@ -560,7 +561,6 @@ sub _run_query {
 										}
 										$first = 0;
 									}
-									$plural = scalar @$diffs > 1 ? 's' : '';
 								} else {
 									$buffer .= "Your query sequence only starts at position $sstart of sequence ";
 									$buffer .= "$locus: " if $locus && $locus !~ /SCHEME_\d+/;
@@ -589,10 +589,9 @@ sub _run_query {
 								$field_values = $self->_get_client_dbase_fields( $locus, [$allele_id] );
 							}
 						}
+						my $id = defined $seq_object->id ?  $seq_object->id : '';
 						$batchBuffer =
-						    "<tr class=\"td$td\"><td>"
-						  . ( $seq_object->id )
-						  . "</td><td style=\"text-align:left\">Partial match found: $allele";
+						    "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">Partial match found: $allele";
 						$batchBuffer .= " ($field_values)" if $field_values;
 						$batchBuffer .= ": $buffer</td></tr>\n";
 					}
@@ -622,6 +621,7 @@ sub _run_query {
 			print "<div class=\"box\" id=\"statusbad\"><p>No matches found</p></div>\n";
 		}
 	}
+	return;
 }
 
 sub _parse_blast_exact {
@@ -707,6 +707,9 @@ sub _get_differences {
 	my ( $self, $seq1_ref, $seq2_ref, $sstart, $qstart ) = @_;
 	my $qpos = $qstart - 1;
 	my @diffs;
+	if (!$$seq1_ref || !$$seq2_ref){
+		$logger->error("Instance: $self->{'instance'}; seq1: $$seq1_ref; seq2: $$seq2_ref; sstart: $sstart; qstart: $qstart");
+	}
 	for ( my $spos = $sstart - 1 ; $spos < length $$seq1_ref ; $spos++ ) {
 		if ( substr( $$seq1_ref, $spos, 1 ) ne substr( $$seq2_ref, $qpos, 1 ) ) {
 			my $diff;
@@ -731,16 +734,15 @@ sub _cleanup_alignment {
 	}
 	close $in_fh;
 	close $out_fh;
+	return;
 }
 
 sub _get_client_dbase_fields {
 	my ( $self, $locus, $allele_ids_refs ) = @_;
 	return [] if ref $allele_ids_refs ne 'ARRAY';
 	my $sql = $self->{'db'}->prepare("SELECT client_dbase_id,isolate_field FROM client_dbase_loci_fields WHERE allele_query AND locus = ?");
-	eval { $sql->execute($locus); };
-	if ($@) {
-		$logger->error($@);
-	}
+	eval { $sql->execute($locus) };
+	$logger->error($@) if $@;
 	my $values;
 	while ( my ( $client_dbase_id, $field ) = $sql->fetchrow_array ) {
 		my $client_db  = $self->{'datastore'}->get_client_db($client_dbase_id)->get_db;
@@ -748,12 +750,12 @@ sub _get_client_dbase_fields {
 "SELECT $field FROM isolates LEFT JOIN allele_designations ON isolates.id = allele_designations.isolate_id WHERE allele_designations.locus=? AND allele_designations.allele_id=?"
 		);
 		foreach (@$allele_ids_refs) {
-			eval { $client_sql->execute( $locus, $_ ); };
+			eval { $client_sql->execute( $locus, $_ ) };
 			if ($@){
 				$logger->error("Can't extract isolate field '$field' FROM client database, make sure the client_dbase_loci_fields table is correctly configured.  $@");
 			} else {
 				while ( my ($value) = $client_sql->fetchrow_array ) {
-					next if $value eq '';
+					next if !defined $value || $value eq '';
 					if ( any { $field eq $_ } qw (species genus) ) {
 						$value = "<i>$value</i>";
 					}
@@ -772,7 +774,7 @@ sub _get_client_dbase_fields {
 		my $first = 1;
 		foreach ( sort keys %$values ) {
 			$buffer .= '; ' if !$first;
-			$" = ', ';
+			local $" = ', ';
 			$buffer .= "$_: @{$values->{$_}}";
 			$first = 0;
 		}

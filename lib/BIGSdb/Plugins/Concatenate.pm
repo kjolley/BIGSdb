@@ -92,11 +92,13 @@ sub run {
 		}
 	} elsif ($query_file) {
 		my $qry_ref = $self->get_query($query_file);
-		return if ref $qry_ref ne 'SCALAR';
-		my $view = $self->{'system'}->{'view'};
+		return if ref $qry_ref ne 'SCALAR';		
 		return if !$self->create_temp_tables($qry_ref);
-		$$qry_ref =~ s/SELECT ($view\.\*|\*)/SELECT $pk/;
-		$self->rewrite_query_ref_order_by($qry_ref) if $self->{'system'}->{'dbtype'} eq 'isolates';
+		if ($self->{'system'}->{'dbtype'} eq 'isolates'){
+			my $view = $self->{'system'}->{'view'};
+			$$qry_ref =~ s/SELECT ($view\.\*|\*)/SELECT $pk/;
+			$self->rewrite_query_ref_order_by($qry_ref) if $self->{'system'}->{'dbtype'} eq 'isolates';
+		}
 		$list = $self->{'datastore'}->run_list_query($$qry_ref);
 	} else {
 		$list = \@;;
@@ -132,14 +134,13 @@ sub run {
 			print "<p>Output file being generated ...";
 			my $filename  = ( BIGSdb::Utils::get_random() ) . '.txt';
 			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
-			$| = 1;
 			my $problem_ids = $self->_write_fasta( $list, \@fields_selected, $full_path, $pk );
 			print " done</p>";
 			print "<p><a href=\"/tmp/$filename\">Output file</a> (right-click to save)</p>\n";
 			print "</div>\n";
 
 			if (@$problem_ids) {
-				$" = '; ';
+				local $" = '; ';
 				print
 "<div class=\"box\" id=\"statusbad\"><p>The following ids could not be processed (they do not exist): @$problem_ids.</p></div>\n";
 			}
@@ -156,6 +157,7 @@ HTML
 	my $options = {'default_select' => 0, 'translate' => 1};
 	$self->print_sequence_export_form( $pk, $list, $scheme_id, $options );
 	print "</div>\n";
+	return;
 }
 
 sub _write_fasta {
@@ -163,12 +165,13 @@ sub _write_fasta {
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
 	$self->escape_params;
+	local $| = 1;
 	open( my $fh, '>', $filename )
 	  or $logger->error("Can't open temp file $filename for writing");
 	my $isolate_sql;
 	if ( $q->param('includes') ) {
 		my @includes = $q->param('includes');
-		$"           = ',';
+		local $"           = ',';
 		$isolate_sql = $self->{'db'}->prepare("SELECT @includes FROM $self->{'system'}->{'view'} WHERE id=?");
 	}
 	my $length_sql  = $self->{'db'}->prepare("SELECT length FROM loci WHERE id=?");
@@ -209,13 +212,16 @@ sub _write_fasta {
 				$logger->error($@) if $@;
 				@includes = $isolate_sql->fetchrow_array;
 				foreach (@includes) {
-					$_ =~ tr/ /_/;
+					tr/ /_/ if defined;
 				}
 			}
 			if ($id) {
 				print $fh ">$id";
-				$" = '|';
-				print $fh "|@includes" if $q->param('includes');
+				local $" = '|';
+				{
+					no warnings 'uninitialized';
+					print $fh "|@includes" if $q->param('includes');
+				}
 				print $fh "\n";
 			} else {
 				push @problem_ids, $id;

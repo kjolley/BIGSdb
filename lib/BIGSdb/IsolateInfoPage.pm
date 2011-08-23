@@ -166,16 +166,17 @@ sub print_content {
 		print "<div class=\"box\" id=\"statusbad\"><p>Isolate id must be an integer.</p></div>\n";
 		return;
 	}
+	$self->{'system'}->{'view'} ||= 'isolate'; #in case we're called from a seqdef database
 	my $qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?";
 	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute($isolate_id); };
+	eval { $sql->execute($isolate_id) };
 	if ($@) {
 		print "<h1>Isolate information: id-$isolate_id</h1>";
 		print "<div class=\"box\" id=\"statusbad\"><p>Invalid search performed.</p></div>\n";
 		$logger->debug("Can't execute $qry: $@\n");
 		return;
 	}
-	my $data = $sql->fetchrow_hashref();
+	my $data = $sql->fetchrow_hashref;
 	if ( !$data ) {
 		print "<h1>Isolate information: id-$isolate_id</h1>";
 		print "<div class=\"box\" id=\"statusbad\"><p>The database contains no record of this isolate.</p></div>";

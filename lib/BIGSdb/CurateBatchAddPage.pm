@@ -108,7 +108,7 @@ sub print_content {
 			$fieldorder{ $fieldorder[$i] } = $i;
 		}
 		my @fields_to_include;
-		if ( $table eq $self->{'system'}->{'view'} ) {
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
 			foreach ( @{ $self->{'xmlHandler'}->get_field_list } ) {
 				push @fields_to_include, $_;
 			}
@@ -164,7 +164,7 @@ sub print_content {
 						$schemes{ $data[ $fieldorder{'scheme_id'} ] } = 1;
 					}
 				}
-				if ( ( $table eq 'loci' || $table eq $self->{'system'}->{'view'} ) && $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+				if ( $self->{'system'}->{'dbtype'} eq 'isolates' && ( $table eq 'loci' || $table eq $self->{'system'}->{'view'} ) ) {
 					@extras     = split /;/, $data[ $fieldorder{'aliases'} ]    if defined $fieldorder{'aliases'};
 					@ref_extras = split /;/, $data[ $fieldorder{'references'} ] if defined $fieldorder{'references'};
 				}
@@ -179,7 +179,7 @@ sub print_content {
 				}
 				$logger->debug("INSERT: $qry");
 				my $curator = $self->get_curator_id;
-				if ( $table eq $self->{'system'}->{'view'} ) {
+				if (  $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
 
 					#Set read ACL for 'All users' group
 					push @inserts, "INSERT INTO isolate_usergroup_acl (isolate_id,user_group_id,read,write) VALUES ($id,0,true,false)";
@@ -718,7 +718,7 @@ sub print_content {
 					next;
 				}
 				$tablebuffer .= "<tr class=\"td$td\">$rowbuffer";
-				if ( $table eq $self->{'system'}->{'view'} ) {
+				if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
 					my %is_locus;
 					foreach ( @{ $self->{'datastore'}->get_loci() } ) {
 						$is_locus{$_} = 1;
@@ -913,7 +913,7 @@ copied from a spreadsheet.</p>
 <li>Field header names must be included and fields
 can be in any order. Optional fields can be omitted if you wish.</li>
 HTML
-		if ( $table eq $self->{'system'}->{'view'} ) {
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
 			print << "HTML";
 <li>Enter aliases (alternative names) for your isolates as a semi-colon (;) separated list.</li>	
 <li>Enter references for your isolates as a semi-colon (;) separated list of PubMed ids (non integer ids will be ignored).</li>				  

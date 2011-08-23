@@ -86,7 +86,7 @@ sub run {
 		print $buffer;
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		( $buffer, undef ) = $self->get_freq_table( $freqs, $locus_info );
-		print $buffer;
+		print $buffer if $buffer;
 		print "</div>\n";
 	} elsif ( $seq_count <= MAX_SEQS ) {
 

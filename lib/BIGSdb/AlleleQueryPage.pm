@@ -364,6 +364,7 @@ sub _run_query {
 							last;
 						}
 					}
+					$thisfield->{'type'} ||= 'text'; # sender/curator surname, firstname, affiliation
 					if (   $text ne '<blank>'
 						&& $text ne 'null'
 						&& ( $thisfield->{'type'} eq 'int' )
@@ -441,6 +442,7 @@ sub _run_query {
 			}
 		}
 		$locus =~ s/'/\\'/g;
+		$qry ||= '';
 		$qry2 = "SELECT * FROM sequences WHERE locus=E'$locus' AND ($qry)";
 		foreach (@$attributes) {
 			my $param = $_->{'name'} . '_list';

@@ -433,8 +433,8 @@ sub _get_tables_which_reference_table {
 	my ( $self, $table ) = @_;
 	my %tables;
 	foreach my $table2 ( $self->{'datastore'}->get_tables ) {
-		if (   $table2 ne $self->{'system'}->{'view'}
-			&& $table2 ne 'isolates'
+		if (   !($self->{'system'}->{'dbtype'} eq 'isolates' && ($table2 eq $self->{'system'}->{'view'}
+			|| $table2 eq 'isolates'))
 			&& $table2 ne $table )
 		{
 			my $attributes = $self->{'datastore'}->get_table_field_attributes($table2);
