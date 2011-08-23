@@ -206,10 +206,10 @@ HTML
 							  )
 							{
 								$insert =
-"UPDATE sequence_extended_attributes SET value='$cleaned_value',datestamp='now',curator=$newdata{'curator'} WHERE locus='$cleaned_locus' AND field='$cleaned_field' AND allele_id='$newdata{'allele_id'}'";
+"UPDATE sequence_extended_attributes SET value='$cleaned_value',datestamp='now',curator=$newdata{'curator'} WHERE locus=E'$cleaned_locus' AND field='$cleaned_field' AND allele_id='$newdata{'allele_id'}'";
 							} else {
 								$insert =
-"INSERT INTO sequence_extended_attributes(locus,field,allele_id,value,datestamp,curator) VALUES ('$cleaned_locus','$cleaned_field','$newdata{'allele_id'}','$cleaned_value','now',$newdata{'curator'})";
+"INSERT INTO sequence_extended_attributes(locus,field,allele_id,value,datestamp,curator) VALUES (E'$cleaned_locus','$cleaned_field','$newdata{'allele_id'}','$cleaned_value','now',$newdata{'curator'})";
 							}
 							push @extra_inserts, $insert;
 						}
@@ -240,13 +240,13 @@ HTML
 							return;
 						}
 						push @extra_inserts,
-"INSERT INTO sequence_refs (locus,allele_id,pubmed_id,curator,datestamp) VALUES ('$cleaned_locus','$newdata{'allele_id'}',$new,$newdata{'curator'},'today')";
+"INSERT INTO sequence_refs (locus,allele_id,pubmed_id,curator,datestamp) VALUES (E'$cleaned_locus','$newdata{'allele_id'}',$new,$newdata{'curator'},'today')";
 					}
 				}
 				foreach my $existing (@$existing_pubmeds) {
 					if ( !@new_pubmeds || none { $existing eq $_ } @new_pubmeds ) {
 						push @extra_inserts,
-"DELETE FROM sequence_refs WHERE locus='$cleaned_locus' AND allele_id='$newdata{'allele_id'}' AND pubmed_id='$existing'";
+"DELETE FROM sequence_refs WHERE locus=E'$cleaned_locus' AND allele_id='$newdata{'allele_id'}' AND pubmed_id='$existing'";
 					}
 				}
 				my @databanks = DATABANKS;
@@ -270,7 +270,7 @@ HTML
 						(my $clean_existing = $existing) =~ s/'/\\'/g;
 						if ( !@new_accessions || none { $clean_existing eq $_ } @new_accessions ) {
 							push @extra_inserts,
-"DELETE FROM accession WHERE locus='$cleaned_locus' AND allele_id='$newdata{'allele_id'}' AND databank='$databank' AND databank_id='$clean_existing'";
+"DELETE FROM accession WHERE locus=E'$cleaned_locus' AND allele_id='$newdata{'allele_id'}' AND databank='$databank' AND databank_id='$clean_existing'";
 						}
 					}
 				}
@@ -285,7 +285,7 @@ HTML
 					next if $new eq '';
 					if ( !@$existing_aliases || none { $new eq $_ } @$existing_aliases ) {
 							push @extra_inserts,
-"INSERT INTO locus_aliases (locus,alias,curator,datestamp) VALUES ('$cleaned_locus','$new',$newdata{'curator'},'today')";
+"INSERT INTO locus_aliases (locus,alias,curator,datestamp) VALUES (E'$cleaned_locus','$new',$newdata{'curator'},'today')";
 					}
 				}
 				foreach my $existing (@$existing_aliases) {

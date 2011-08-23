@@ -36,6 +36,7 @@ sub initiate {
 		return;
 	}
 	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree);
+	return;
 }
 
 sub print_content {
@@ -123,7 +124,7 @@ sub print_content {
 		  : $self->get_datestamp;
 		@problems = $self->check_record( $table, \%newdata, 1, $data );
 		if (@problems) {
-			$" = "<br />\n";
+			local $" = "<br />\n";
 			if ( $table eq 'allele_designations' ) {
 				$right_buffer .= "<div class=\"statusbad_no_resize\"><p>@problems</p></div>\n";
 			} else {
@@ -142,8 +143,8 @@ sub print_content {
 					$newdata{ $_->{'name'} } =~ s/\s//g;
 				}
 				if ( defined $newdata{ $_->{'name'} } && $newdata{ $_->{'name'} } ne '' ) {
-					push @values,     "$_->{'name'} = '$newdata{ $_->{'name'}}'";
-					push @add_values, "'$newdata{ $_->{'name'}}'";
+					push @values,     "$_->{'name'} = E'$newdata{ $_->{'name'}}'";
+					push @add_values, "E'$newdata{ $_->{'name'}}'";
 				} else {
 					push @values,     "$_->{'name'} = null";
 					push @add_values, 'null';
@@ -156,22 +157,22 @@ sub print_content {
 					push @updated_field, "$locus $_->{'name'}: $allele->{lc($_->{'name'})} -> $newdata{ $_->{'name'}}";
 				}
 			}
-			$" = ',';
+			local $" = ',';
 			if ( $q->param('action') eq 'update' ) {
 				my $qry = "UPDATE $table SET @values WHERE ";
-				$" = ' AND ';
+				local $" = ' AND ';
 				$qry .= "@query_values";
-				eval { $self->{'db'}->do($qry); };
+				eval { $self->{'db'}->do($qry) };
 				if ($@) {
 					$right_buffer .=
 					  "<div class=\"statusbad_no_resize\"><p>Update failed - transaction cancelled - no records have been touched.</p>\n";
 					$right_buffer .= "<p>Failed SQL: $qry</p>\n";
 					$right_buffer .= "<p>Error message: $@</p></div>\n";
-					$self->{'db'}->rollback();
+					$self->{'db'}->rollback;
 				} else {
-					$self->{'db'}->commit();
+					$self->{'db'}->commit;
 					$right_buffer .= "<div class=\"statusgood_no_resize\"><p>allele designation updated!</p></div>";
-					$" = '<br />';
+					local $" = '<br />';
 					$self->update_history( $id, "@updated_field" );
 				}
 			} elsif ( $q->param('action') eq 'add' ) {
@@ -203,7 +204,7 @@ sub print_content {
 					}
 				}
 				if ($proceed) {
-					$" = ',';
+					local $" = ',';
 					my $qry = "INSERT INTO $table (@fields) VALUES (@add_values)";
 					my $results_buffer;
 					eval { $self->{'db'}->do($qry) };
@@ -264,17 +265,19 @@ sub print_content {
 "<div class=\"statusbad_no_resize\"><p>Can't swap designations as it would result in two identical pending designations (same allele, sender and method).  In order to proceed, please delete the pending designation that matches the existing designation that you are demoting.</p></div>\n";
 				} else {
 					eval {
-						$self->{'db'}->do( "DELETE FROM allele_designations WHERE isolate_id='$id' AND locus='$locus'" );
+						(my $cleaned_locus = $locus) =~ s/'/\\'/g;
+						$self->{'db'}->do( "DELETE FROM allele_designations WHERE isolate_id='$id' AND locus=E'$cleaned_locus'" );
 						$to_be_promoted->{'comments'} ||= '';
 						$to_be_demoted->{'comments'} ||= '';
+						
 						$self->{'db'}->do(
-"INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp,comments) VALUES ('$id','$locus','$to_be_promoted->{'allele_id'}','$to_be_promoted->{'sender'}','provisional','$to_be_promoted->{'method'}',$curator_id,'$to_be_promoted->{'date_entered'}','today','$to_be_promoted->{'comments'}')"
+"INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp,comments) VALUES ('$id',E'$cleaned_locus','$to_be_promoted->{'allele_id'}','$to_be_promoted->{'sender'}','provisional','$to_be_promoted->{'method'}',$curator_id,'$to_be_promoted->{'date_entered'}','today','$to_be_promoted->{'comments'}')"
 						);
 						$self->{'db'}->do(
-"DELETE FROM pending_allele_designations WHERE isolate_id='$id' AND locus='$locus' AND allele_id='$to_be_promoted->{'allele_id'}' AND sender='$to_be_promoted->{'sender'}' AND method='$to_be_promoted->{'method'}'"
+"DELETE FROM pending_allele_designations WHERE isolate_id='$id' AND locus=E'$cleaned_locus' AND allele_id='$to_be_promoted->{'allele_id'}' AND sender='$to_be_promoted->{'sender'}' AND method='$to_be_promoted->{'method'}'"
 						);
 						$self->{'db'}->do(
-"INSERT INTO pending_allele_designations (isolate_id,locus,allele_id,sender,method,curator,date_entered,datestamp,comments) VALUES ('$id','$locus','$to_be_demoted->{'allele_id'}','$to_be_demoted->{'sender'}','$to_be_demoted->{'method'}',$curator_id,'$to_be_demoted->{'date_entered'}','today','$to_be_demoted->{'comments'}')"
+"INSERT INTO pending_allele_designations (isolate_id,locus,allele_id,sender,method,curator,date_entered,datestamp,comments) VALUES ('$id',E'$cleaned_locus','$to_be_demoted->{'allele_id'}','$to_be_demoted->{'sender'}','$to_be_demoted->{'method'}',$curator_id,'$to_be_demoted->{'date_entered'}','today','$to_be_demoted->{'comments'}')"
 						);
 					};
 					if ($@) {
@@ -289,8 +292,9 @@ sub print_content {
 				}
 			} elsif ( $q->param("$pk\_delete") ) {
 				eval {
+					(my $cleaned_locus = $locus) =~ s/'/\\'/g;
 					$self->{'db'}->do(
-"DELETE FROM pending_allele_designations WHERE isolate_id='$id' AND locus='$locus' AND allele_id='$allele->{'allele_id'}' AND sender='$allele->{'sender'}' AND method='$allele->{'method'}'"
+"DELETE FROM pending_allele_designations WHERE isolate_id='$id' AND locus=E'$cleaned_locus' AND allele_id='$allele->{'allele_id'}' AND sender='$allele->{'sender'}' AND method='$allele->{'method'}'"
 					);
 				};
 				if ($@) {
@@ -393,6 +397,7 @@ sub print_content {
 	print $right_buffer;
 	print "</td></tr></table>\n";
 	print "</div>\n";
+	return;
 }
 
 sub _get_allele_designation_form {

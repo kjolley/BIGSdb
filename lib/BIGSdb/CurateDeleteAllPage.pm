@@ -60,7 +60,7 @@ sub print_content {
 		print "<div class=\"box\" id=\"statusbad\"><p>Only administrators can batch delete from the $table table.</p></div>\n";
 		return;
 	}
-	if ( $table eq $self->{'system'}->{'view'} ) {
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
 		my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 		foreach (@$schemes) {
 			if ( $query =~ /temp_scheme_$_\s/ ) {

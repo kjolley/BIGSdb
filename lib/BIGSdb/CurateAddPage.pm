@@ -374,13 +374,13 @@ this sequence then make sure that the 'Override sequence similarity check' box i
 			foreach (@values) {
 				$valuestring .= ',' if !$first;
 				if ( $_ ne '' ) {
-					$valuestring .= "'$_'";
+					$valuestring .= "E'$_'";
 				} else {
 					$valuestring .= "null";
 				}
 				$first = 0;
 			}
-			$" = ',';
+			local $" = ',';
 			my $qry = "INSERT INTO $table (@table_fields) VALUES ($valuestring)";
 			if ( $table eq 'users' ) {
 				$qry .=
@@ -544,7 +544,7 @@ sub _next_id_profiles {
 	my $test = 0;
 	my $next = 0;
 	my $id   = 0;
-	while ( my @data = $self->{'sql'}->{'next_id_profiles'}->fetchrow_array() ) {
+	while ( my @data = $self->{'sql'}->{'next_id_profiles'}->fetchrow_array ) {
 		if ( $data[0] != 0 ) {
 			$test++;
 			$id = $data[0];

@@ -27,7 +27,9 @@ use BIGSdb::Page qw(SEQ_FLAGS DATABANKS);
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (jQuery noCache);
+	return;
 }
+
 sub get_title     { return "Curator's interface - BIGSdb" }
 sub print_content { }
 
@@ -107,7 +109,7 @@ sub create_record_table {
 								push @fields_to_query, $1;
 							}
 						}
-						$" = ',';
+						local $" = ',';
 						my $qry = "select id,@fields_to_query from $_->{'foreign_key'} WHERE id=?";
 						my $sql = $self->{'db'}->prepare($qry);
 						eval { $sql->execute( $newdata{ $_->{'name'} } ) };
@@ -193,7 +195,7 @@ sub create_record_table {
 								push @fields_to_query, $1;
 							}
 						}
-						$" = ',';
+						local $" = ',';
 						my $qry = "select id,@fields_to_query from $_->{'foreign_key'}";
 						my $sql = $self->{'db'}->prepare($qry);
 						eval { $sql->execute };
@@ -211,7 +213,7 @@ sub create_record_table {
 					} else {
 						push @fields_to_query, 'id';
 					}
-					$" = ',';
+					local $" = ',';
 					my @values;
 					if ( $_->{'foreign_key'} eq 'users' ) {
 						@values = @{ $self->{'datastore'}->run_list_query("SELECT id FROM users WHERE id>0 ORDER BY @fields_to_query") };
@@ -307,7 +309,7 @@ sub create_record_table {
 			}
 		}
 		$buffer .= "<tr><td style=\"text-align:right\">PubMed ids: </td><td>";
-		$" = "\n";
+		local $" = "\n";
 		$buffer .= $q->textarea( -name => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@default_pubmed" );
 		$buffer .= "</td></tr>\n";
 		foreach my $databank (@databanks) {
@@ -328,7 +330,7 @@ sub create_record_table {
 			@default_aliases = @$alias_list;
 		}
 		$buffer .= "<tr><td style=\"text-align:right\">aliases: </td><td>";
-		$" = "\n";
+		local $" = "\n";
 		$buffer .= $q->textarea( -name => 'aliases', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@default_aliases" );
 		$buffer .= "</td></tr>\n";
 		my @default_pubmed;
@@ -418,7 +420,7 @@ sub create_record_table {
 				push @extra, "$_->{'name'}=$newdata{$_->{'name'}}" if defined $newdata{ $_->{'name'} };
 			}
 		}
-		$" = "&amp;";
+		local $" = "&amp;";
 		$extra_field = "&amp;@extra" if @extra;
 	}
 	$buffer .=
@@ -484,7 +486,7 @@ sub check_record {
 			{
 				if ( $_->{'name'} =~ /sequence/ ) {
 					my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
-					$" = ', ';
+					local $" = ', ';
 					my $values =
 					  $self->{'datastore'}
 					  ->run_simple_query( "SELECT @primary_keys FROM $table WHERE $_->{'name'}=?", $newdata{ $_->{'name'} } );
@@ -510,7 +512,7 @@ sub check_record {
 
 			#special case to check for allele id format and regex which is defined in loci table
 			my $format =
-			  $self->{'datastore'}->run_simple_query( "SELECT allele_id_format,allele_id_regex FROM loci WHERE id=?", $newdata{'locus'} );
+			  $self->{'datastore'}->run_simple_query( "SELECT allele_id_format,allele_id_regex FROM loci WHERE id=E'$newdata{'locus'}'" );
 			if ( $format->[0] eq 'integer'
 				&& !BIGSdb::Utils::is_int( $newdata{ $_->{'name'} } ) )
 			{
@@ -596,21 +598,21 @@ sub check_record {
 					$newdata{'attribute'} );
 				my $message = "Attribute $newdata{'attribute'} has not been defined for the $newdata{'isolate_field'} field.\n";
 				if (@$fields) {
-					$" = ', ';
+					local $" = ', ';
 					$message .= "  Fields with this attribute defined are: @$fields.";
 				}
 				push @problems, $message;
 			}
 		}
 		if ( $_->{'primary_key'} ) {
-			push @primary_key_query, "$_->{name} = '$newdata{$_->{name}}'";
+			push @primary_key_query, "$_->{name} = E'$newdata{$_->{name}}'";
 		}
 	}
 	if (@missing) {
-		$" = ', ';
+		local $" = ', ';
 		push @problems, "Please fill in all required fields. The following fields are missing: @missing";
 	} elsif ( @primary_key_query && !@problems ) {    #only run query if there are no other problems
-		$" = ' AND ';
+		local $" = ' AND ';
 		my $retval = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM $table WHERE @primary_key_query")->[0];
 		if ( $retval && !$update ){
 			my $article = $record_name =~ /^[aeio]/ ? 'An' : 'A';
@@ -898,6 +900,7 @@ sub update_history {
 	} else {
 		$self->{'db'}->commit;
 	}
+	return;
 }
 
 sub promote_pending_allele_designation {
@@ -908,12 +911,13 @@ sub promote_pending_allele_designation {
 	return if !@$pending_designations_ref;
 	my $pending    = $pending_designations_ref->[0];
 	my $curator_id = $self->get_curator_id();
+	$locus =~ s/'/\\'/g;
 	eval {
 		$self->{'db'}->do(
-"INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp,comments) VALUES ($pending->{'isolate_id'},'$pending->{'locus'}','$pending->{'allele_id'}',$pending->{'sender'},'provisional','$pending->{'method'}',$curator_id,'$pending->{'date_entered'}','now','$pending->{'comments'}')"
+"INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp,comments) VALUES ($pending->{'isolate_id'},E'$pending->{'locus'}','$pending->{'allele_id'}',$pending->{'sender'},'provisional','$pending->{'method'}',$curator_id,'$pending->{'date_entered'}','now','$pending->{'comments'}')"
 		);
 		$self->{'db'}->do(
-"DELETE FROM pending_allele_designations WHERE isolate_id=$isolate_id AND locus='$locus' AND allele_id='$pending->{'allele_id'}' AND sender=$pending->{'sender'} AND method='$pending->{'method'}'"
+"DELETE FROM pending_allele_designations WHERE isolate_id=$isolate_id AND locus=E'$locus' AND allele_id='$pending->{'allele_id'}' AND sender=$pending->{'sender'} AND method='$pending->{'method'}'"
 		);
 	};
 	if ($@) {
@@ -924,6 +928,7 @@ sub promote_pending_allele_designation {
 		$self->update_history( $pending->{'isolate_id'},
 			"$pending->{'locus'}: new designation '$pending->{'allele_id'}' (promoted from pending)" );
 	}
+	return;
 }
 
 sub delete_pending_designations {
@@ -944,6 +949,7 @@ sub delete_pending_designations {
 			$self->update_history( $isolate_id, "$locus: $rows pending designation$plural deleted" );
 		}
 	}
+	return;
 }
 
 sub remove_profile_data {
@@ -953,6 +959,7 @@ sub remove_profile_data {
 	my $qry = "DELETE FROM profiles WHERE scheme_id = $scheme_id";
 	eval { $self->{'db'}->do($qry) };
 	$logger->error($@) if $@;
+	return;
 }
 
 sub drop_scheme_view {
@@ -962,6 +969,7 @@ sub drop_scheme_view {
 	my $qry = "DROP VIEW IF EXISTS scheme_$scheme_id";
 	eval { $self->{'db'}->do($qry) };
 	$logger->error($@) if $@;
+	return;
 }
 
 sub create_scheme_view {
@@ -1006,11 +1014,11 @@ sub create_scheme_view {
 " LEFT JOIN profile_fields AS $_ ON profiles.profile_id=$_.profile_id AND $_.scheme_field='$_' AND profiles.scheme_id=$_.scheme_id";
 	}
 	$qry .= " WHERE profiles.scheme_id = $scheme_id";
-	$" = ',';
 	eval {
 		$self->{'db'}->do($qry);
 		$self->{'db'}->do("GRANT SELECT ON scheme_$scheme_id TO $self->{'system'}->{'user'}");
 	};
 	$logger->error($@) if $@;
+	return;
 }
 1;

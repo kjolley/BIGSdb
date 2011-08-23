@@ -36,7 +36,7 @@ sub print_content {
 		print "Table $table does not exist!\n";
 		return;
 	}
-	if ( $table eq $self->{'system'}->{'view'} ) {
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
 		foreach ( @{ $self->{'xmlHandler'}->get_field_list } ) {
 			push @headers, $_
 			  if $_ ne 'id'

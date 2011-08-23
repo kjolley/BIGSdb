@@ -117,12 +117,11 @@ sub print_content {
 				}
 				my @inserts;
 				my $qry;
-				$" = ',';
+				local $" = ',';
 				$qry =
 "INSERT INTO profiles (scheme_id,profile_id,@fields_to_include) VALUES ($scheme_id,'$data[$fieldorder{$primary_key}]',@value_list)";
 				push @inserts, $qry;
 				my $curator = $self->get_curator_id;
-
 				foreach (@$loci) {
 					$data[ $fieldorder{$_} ] =~ s/^\s*//g;
 					$data[ $fieldorder{$_} ] =~ s/\s*$//g;
@@ -137,7 +136,7 @@ sub print_content {
 					}
 				}
 				foreach (@$scheme_fields) {
-					my $value = $data[ $fieldorder{$_} ];
+					my $value = defined $fieldorder{$_} ? $data[ $fieldorder{$_} ] : '';
 					$value = defined $value ? $value : '';
 					$value =~ s/^\s*//g;
 					$value =~ s/\s*$//g;
@@ -150,7 +149,7 @@ sub print_content {
 						push @inserts, $qry;
 					}
 				}
-				$" = ';';
+				local $" = ';';
 				eval { $self->{'db'}->do("@inserts"); };
 				if ($@) {
 					print
@@ -178,7 +177,7 @@ sub print_content {
 		my %is_locus;
 		my %pks_so_far;
 		my %profiles_so_far;
-		$" = '</th><th>';
+		local $" = '</th><th>';
 		my $table_buffer = "<table class=\"resultstable\"><tr><th>$primary_key</th><th>@$loci</th>";
 
 		foreach (@$scheme_fields) {
@@ -205,7 +204,7 @@ sub print_content {
 		my %problems;
 		my $tablebuffer;
 		$tablebuffer .= "<table class=\"resultstable\"><tr>";
-		$" = "</th><th>";
+		local $" = "</th><th>";
 		$tablebuffer .= "<th>@fieldorder</th></tr>";
 		my @records   = split /\n/, $q->param('data');
 		my $td        = 1;
@@ -222,7 +221,6 @@ sub print_content {
 			$pk_included = 1 if $_ eq $primary_key;
 		}
 		my $pk;
-
 		$pk = $self->next_id( 'profiles', $scheme_id );
 		my $qry                   = "SELECT profile_id FROM profiles WHERE scheme_id=? AND profile_id=?";
 		my $primary_key_check_sql = $self->{'db'}->prepare($qry);
@@ -241,7 +239,7 @@ sub print_content {
 		foreach (@$loci) {
 			push @locus_temp, "(locus='$_' AND allele_id=?)";
 		}
-		$" = ' OR ';
+		local $" = ' OR ';
 		$qry .= "(@locus_temp)";
 		$qry .= ' GROUP BY profiles.profile_id having count(*)=' . scalar @locus_temp;
 		my $profile_check_sql = $self->{'db'}->prepare($qry);
@@ -355,9 +353,9 @@ sub print_content {
 			if ( $profiles_so_far{"@profile"} ) {
 				$problems{$pk} .= "The profile '@profile' has been included more than once in this submission.<br />";
 			}
-			$"                           = ',';
+			local $" = ',';
 			$profiles_so_far{"@profile"} = 1;
-			$pks_so_far{$pk}             = 1;
+			$pks_so_far{$pk} = 1;
 			$tablebuffer .= "</tr>\n";
 			$td = $td == 1 ? 2 : 1;    #row stripes
 			push @checked_buffer, $header_row if $first_record;
@@ -427,6 +425,7 @@ HTML
 		my @users;
 		my %usernames;
 		$usernames{''} = 'Select sender ...';
+
 		while ( my ( $userid, $username, $firstname, $surname ) = $sql->fetchrow_array ) {
 			push @users, $userid;
 			$usernames{$userid} = "$surname, $firstname ($username)";
@@ -448,6 +447,7 @@ HTML
 		print "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back</a></p>\n";
 		print "</div>\n";
 	}
+	return;
 }
 
 sub get_title {
