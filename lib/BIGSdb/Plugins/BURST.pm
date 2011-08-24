@@ -330,6 +330,13 @@ sub _recursive_search {
 		my $maxslv        = 0;
 		my $noancestor    = 0;
 		my $ancestor      = 0;
+		local $| = 1;
+		if ( $ENV{'MOD_PERL'} ) {
+			$self->{'mod_perl_request'}->rflush;
+			if ( $self->{'mod_perl_request'}->connection->aborted ) {
+				return;
+			}
+		}
 		for ( my $i = 0 ; $i < $num_profiles ; $i++ ) {
 			$grp[$i] ||= 0;
 			for ( my $j = 0 ; $j < $num_profiles ; $j++ ) {
@@ -498,7 +505,10 @@ sub _dfs {
 			&& ( $$matrix_ref[$x][$y] > ( $grpdef - 1 ) ) )
 		{
 			$$grp_ref[$y] = $g;
-			$self->_dfs( $profile_count, $y, $matrix_ref, $grp_ref, $grpdef, $g );
+			{
+				no warnings 'recursion';
+				$self->_dfs( $profile_count, $y, $matrix_ref, $grp_ref, $grpdef, $g );
+			}
 		}
 	}
 	return;
