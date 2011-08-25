@@ -554,8 +554,11 @@ sub _run_query {
 									foreach (@$diffs) {
 										$buffer .= '; ' if !$first;
 										if ( $qry_type eq 'DNA' ) {
-											$buffer .=
-"<sup>$_->{'spos'}</sup><span class=\"$_->{'sbase'}\">$_->{'sbase'}</span> &rarr; <sup>$_->{'qpos'}</sup><span class=\"$_->{'qbase'}\">$_->{'qbase'}</span>\n";
+											$buffer .=  "<sup>$_->{'spos'}</sup>";
+											$buffer .= "<span class=\"$_->{'sbase'}\">$_->{'sbase'}</span>";
+											$buffer .= " &rarr; ";
+											$buffer .= defined $_->{'qpos'} ? "<sup>$_->{'qpos'}</sup>" : '';
+											$buffer .= "<span class=\"$_->{'qbase'}\">$_->{'qbase'}</span>\n";
 										} else {
 											$buffer .= "<sup>$_->{'spos'}</sup>$_->{'sbase'} &rarr; <sup>$_->{'qpos'}</sup>$_->{'qbase'}\n";
 										}
@@ -707,16 +710,25 @@ sub _get_differences {
 	my ( $self, $seq1_ref, $seq2_ref, $sstart, $qstart ) = @_;
 	my $qpos = $qstart - 1;
 	my @diffs;
-	if (!$$seq1_ref || !$$seq2_ref){
-		$logger->error("Instance: $self->{'instance'}; seq1: $$seq1_ref; seq2: $$seq2_ref; sstart: $sstart; qstart: $qstart");
+	if ($sstart > $qstart){
+		foreach my $spos ( $qstart .. $sstart - 1 ){
+			my $diff;
+			$diff->{'spos'}  = $spos;
+			$diff->{'sbase'} = substr( $$seq1_ref, $spos, 1 );
+			$diff->{'qbase'} = 'missing';
+			push @diffs, $diff;
+		}
 	}
 	for ( my $spos = $sstart - 1 ; $spos < length $$seq1_ref ; $spos++ ) {
-		if ( substr( $$seq1_ref, $spos, 1 ) ne substr( $$seq2_ref, $qpos, 1 ) ) {
-			my $diff;
-			$diff->{'spos'}  = $spos + 1;
-			$diff->{'qpos'}  = $qpos + 1;
-			$diff->{'sbase'} = substr( $$seq1_ref, $spos, 1 );
+		my $diff;
+		$diff->{'spos'}  = $spos + 1;
+		$diff->{'sbase'} = substr( $$seq1_ref, $spos, 1 );	
+		if ( $qpos < length $$seq2_ref && substr( $$seq1_ref, $spos, 1 ) ne substr( $$seq2_ref, $qpos, 1 ) ) {
+			$diff->{'qpos'}  = $qpos + 1;						
 			$diff->{'qbase'} = substr( $$seq2_ref, $qpos, 1 );
+			push @diffs, $diff;
+		} elsif ($qpos >= length $$seq2_ref) {
+			$diff->{'qbase'} = 'missing';
 			push @diffs, $diff;
 		}
 		$qpos++;

@@ -1130,7 +1130,7 @@ sub _modify_isolate_query_for_filters {
 		}
 	}
 	if ( $q->param('linked_sequences_list') ) {
-		my $not;
+		my $not = '';
 		if ( $q->param('linked_sequences_list') =~ /without/ ) {
 			$not = ' NOT';
 		}

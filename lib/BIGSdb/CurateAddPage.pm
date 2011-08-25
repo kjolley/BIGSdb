@@ -524,7 +524,6 @@ sub next_id {
 		return;
 	}
 	my ($next) = $self->{'sql'}->{'next_id'}->{$table}->fetchrow_array;
-	$logger->debug("Next id: $next");
 	$next = 1 if !$next;
 	return $next;
 }

@@ -133,7 +133,7 @@ sub print_page {
 		  $self->{'datastore'}->run_simple_query( "SELECT status FROM users WHERE user_name=?", $page_attributes{'username'} )->[0];
 	};
 	$logger->error($@) if $@;
-	if ( $user_status ne 'admin' && $user_status ne 'curator' ) {
+	if ( !defined $user_status || ($user_status ne 'admin' && $user_status ne 'curator' )) {
 		$page_attributes{'error'} = 'invalidCurator';
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
 		$page->print;

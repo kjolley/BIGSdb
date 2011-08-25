@@ -207,7 +207,7 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 			my $locus = $q->param('field');
 			my @other_display_names;
 			push @other_display_names, $locus_info->{$locus}->{'common_name'} if $locus_info->{$locus}->{'common_name'};
-			$" = '; ';
+			local $" = '; ';
 			my $aliases = $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias", $locus );
 			push @other_display_names, @$aliases if @$aliases;
 			$html_heading .= " <span class=\"comment\">(@other_display_names)</span>" if @other_display_names;
@@ -240,15 +240,11 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 					} else {
 						my $url;
 						if ( $q->param('type') eq 'locus' ) {
-							$url = $self->{'datastore'}->get_locus_info( $q->param('field') )->{'url'};
+							$url = $self->{'datastore'}->get_locus_info( $q->param('field') )->{'url'} || '';
 							$url =~ s/\&/\&amp;/g;
 							$url =~ s/\[\?\]/$allele_id/;
 						}
-						if ($url) {
-							print "<a href=\"$url\">$allele_id</a>";
-						} else {
-							print $allele_id;
-						}
+						print $url ? "<a href=\"$url\">$allele_id</a>" : $allele_id;
 					}
 					print "</td><td>$count</td><td>$percentage</td></tr>\n";
 					$td = $td == 1 ? 2 : 1;
@@ -300,7 +296,7 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 	print "<tr><th rowspan=\"2\">Scheme</th><th colspan=\"3\">Fields</th><th colspan=\"3\">Alleles</th></tr>\n";
 	print "<tr><th>Field name</th><th>Unique values</th><th>Analyse</th><th>Locus</th><th>Unique alleles</th><th>Analyse</th></tr>\n";
 	my $td = 1;
-	$| = 1;
+	local $| = 1;
 	my $alias_sql = $self->{'db'}->prepare("SELECT alias FROM locus_aliases WHERE locus=?");
 	foreach my $scheme_id ( @$schemes, 0 ) {
 		next
@@ -438,15 +434,14 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 	}
 	print "</table>\n";
 	print "</div>\n";
+	return;
 }
 
 sub _get_scheme_fields_sql {
 	my ( $self, $scheme_id ) = @_;
 	my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-	$" = ',';
 	my $joined_table = "SELECT * FROM $self->{'system'}->{'view'}";
-	$" = ',';
 	foreach (@$scheme_loci) {
 		$joined_table .= " left join allele_designations AS $_ on $_.isolate_id = $self->{'system'}->{'view'}.id";
 	}
@@ -458,7 +453,7 @@ sub _get_scheme_fields_sql {
 		  ? " CAST($_.allele_id AS int)=scheme_$scheme_id\.$_"
 		  : " $_.allele_id=scheme_$scheme_id\.$_";
 	}
-	$" = ' AND ';
+	local $" = ' AND ';
 	$joined_table .= " @temp WHERE";
 	undef @temp;
 	foreach (@$scheme_loci) {

@@ -244,7 +244,7 @@ sub create_record_table {
 				} elsif ( $_->{'type'} eq 'bool' ) {
 					my $default;
 					if (   $q->param('page') eq 'update'
-						&& $newdata{ $_->{'name'} } ne '' )
+						&& defined $newdata{ $_->{'name'} } && $newdata{ $_->{'name'} } ne '' )
 					{
 						$default = $newdata{ $_->{'name'} } ? 'true' : 'false';
 					} else {
@@ -774,8 +774,8 @@ sub _is_field_bad_other {
 	}
 
 	#If field is null make sure it's not a required field
-	if ( $value eq '' ) {
-		if ( $thisfield->{'required'} ne 'yes' ) {
+	if ( !defined $value || $value eq '' ) {
+		if ( !$thisfield->{'required'} || $thisfield->{'required'} ne 'yes' ) {
 			return 0;
 		} else {
 			return 'is a required field and cannot be left blank';

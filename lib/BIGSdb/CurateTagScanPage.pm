@@ -776,11 +776,11 @@ sub _print_row {
 					$match->{'predicted_start'} = $original_start + $_;
 				}
 			}
-			if ( $match->{'predicted_start'} < 1 ) {
+			if ( BIGSdb::Utils::is_int($match->{'predicted_start'}) && $match->{'predicted_start'} < 1 ) {
 				$match->{'predicted_start'} = '1*';
 				$off_end = 1;
 			}
-			if ( $match->{'predicted_end'} > $seqbin_length ) {
+			if ( BIGSdb::Utils::is_int($match->{'predicted_end'}) && $match->{'predicted_end'} > $seqbin_length ) {
 				$match->{'predicted_end'} = "$seqbin_length\*";
 				$off_end = 1;
 			}

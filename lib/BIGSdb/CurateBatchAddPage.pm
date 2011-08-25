@@ -139,6 +139,7 @@ sub print_content {
 					} elsif ( $_ eq 'curator' ) {
 						push @value_list, $self->get_curator_id();
 					} elsif ( defined $fieldorder{$_}
+						&& defined $data[ $fieldorder{$_} ]
 						&& $data[ $fieldorder{$_} ] ne 'null'
 						&& $data[ $fieldorder{$_} ] ne '' )
 					{
@@ -485,7 +486,7 @@ sub print_content {
 					}
 					if ( $table eq 'sequences' && $field eq 'allele_id' ) {
 						$locus = $q->param('locus') ? $q->param('locus') : $data[ $fileheaderPos{'locus'} ];
-						if ( $data[ $fileheaderPos{'locus'} ] && any { $_ eq $data[ $fileheaderPos{'locus'} ] } @$required_extended_exist )
+						if ( defined $fileheaderPos{'locus'} && $data[ $fileheaderPos{'locus'} ] && any { $_ eq $data[ $fileheaderPos{'locus'} ] } @$required_extended_exist )
 						{
 							$problems{$pk_combination} .=
 							  "Locus $locus has required extended attributes - please use specific batch upload form for this locus.<br />";
@@ -665,7 +666,7 @@ sub print_content {
 							{
 								$problems{$pk_combination} .= "Field '$field' must be boolean (either true or false).<br />";
 								$special_problem = 1;
-							} elsif ( $data[ $fileheaderPos{$field} ] ne ''
+							} elsif ( defined $fileheaderPos{$field} && $data[ $fileheaderPos{$field} ] ne ''
 								&& $extended_attributes->{$field}->{'regex'}
 								&& $data[ $fileheaderPos{$field} ] !~ /$extended_attributes->{$field}->{'regex'}/ )
 							{
@@ -700,7 +701,7 @@ sub print_content {
 						if ( $field =~ /sequence/ && $field ne 'coding_sequence' ) {
 							$display_value = "<span class=\"seq\">" . ( BIGSdb::Utils::truncate_seq( \$value, 40 ) ) . "</span>";
 						}
-						$rowbuffer .= "<td><font color='red'>$display_value</font></td>";
+						$rowbuffer .= defined $display_value ? "<td><font color='red'>$display_value</font></td>" : '<td />';
 						if ($problem) {
 							my $problem_text = "$fieldorder[$i] $problem<br />";
 							$problems{$pk_combination} .= $problem_text

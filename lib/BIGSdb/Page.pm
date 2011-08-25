@@ -89,6 +89,12 @@ sub get_guid {
 	#GUID for preference storage, otherwise use a random GUID which is stored as a browser cookie.
 	my ($self) = @_;
 	if ( $self->{'system'}->{'read_access'} ne 'public' ) {
+		if (!defined $self->{'username'}){
+			$logger->error("No logged in user; Database $self->{'system'}->{'db'}");
+		}
+		if (!defined $self->{'system'}->{'db'}){
+			$logger->error("No database defined.");
+		}
 		return "$self->{'system'}->{'db'}\|$self->{'username'}";
 	} elsif ( $self->{'cgi'}->cookie( -name => 'guid' ) ) {
 		return $self->{'cgi'}->cookie( -name => 'guid' );
@@ -175,7 +181,7 @@ sub print {
 	} else {
 		my $stylesheet = $self->get_stylesheet();
 		if ( !$q->cookie( -name => 'guid' ) && $self->{'prefstore'} ) {
-			my $guid = $self->{'prefstore'}->get_new_guid();
+			my $guid = $self->{'prefstore'}->get_new_guid;
 			push @{ $self->{'cookies'} }, $q->cookie( -name => 'guid', -value => $guid, -expires => '+10y' );
 			$self->{'setOptions'} = 1;
 		}
@@ -185,7 +191,7 @@ sub print {
 			$header_options{'expires'} = '+1h';
 		}
 		print $q->header(%header_options);
-		my $title = $self->get_title();
+		my $title = $self->get_title;
 		$" = ' ';    #needed to reset when running under mod_perl
 		my $page_js = $self->get_javascript;
 		my @javascript;

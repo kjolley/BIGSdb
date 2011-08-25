@@ -434,6 +434,7 @@ HTML
 			my %new_value;
 			foreach (@$attributes) {
 				next if $_->{'user_update'} && $_->{'user_update'} eq 'no';
+				$newdata{ $_->{'name'} } = defined $newdata{ $_->{'name'} } ? $newdata{ $_->{'name'} } : '';
 				$newdata{ $_->{'name'} } =~ s/\\/\\\\/g;
 				$newdata{ $_->{'name'} } =~ s/'/\\'/g;
 				if ( $_->{'name'} =~ /sequence$/ ) {
@@ -447,9 +448,9 @@ HTML
 					push @values, "$_->{'name'} = null";
 				}
 			}
-			$" = ',';
+			local $" = ',';
 			my $qry = "UPDATE $table SET @values WHERE ";
-			$" = ' AND ';
+			local $" = ' AND ';
 			$qry .= "@query_values";
 			eval {
 				$self->{'db'}->do($qry);
