@@ -186,7 +186,7 @@ sub print_content {
 		print "<div class=\"box\" id=\"statusbad\"><p>Your user account does not have permission to view this record.</p></div>";
 		return;
 	}
-	if ( $data->{ $self->{'system'}->{'labelfield'} } ne '' ) {
+	if ( defined $data->{ $self->{'system'}->{'labelfield'} } && $data->{ $self->{'system'}->{'labelfield'} } ne '' ) {
 		my $identifier = $self->{'system'}->{'labelfield'};
 		$identifier =~ tr/_/ /;
 		print "<h1>Full information on $identifier $data->{lc($self->{'system'}->{'labelfield'})}</h1>";

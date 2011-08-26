@@ -115,6 +115,7 @@ to be DNA if it contains 90% or more G,A,T,C or N characters.\">&nbsp;<i>i</i>&n
 	print $q->hidden($_) foreach qw (db page);
 	print $q->end_form;
 	print "</div>\n";
+
 	if ( $q->param('Submit') && $sequence ) {
 		$self->_run_query($sequence);
 	}
@@ -166,8 +167,9 @@ sub _run_query {
 		}
 		if ($count) {
 			my $sql = $self->{'db'}->prepare($qry);
-			eval { 
-				if ( $locus && $locus !~ /^SCHEME_\d+/ ){
+			eval {
+				if ( $locus && $locus !~ /^SCHEME_\d+/ )
+				{
 					$sql->execute( $locus, $seq );
 				} else {
 					$sql->execute($seq);
@@ -191,7 +193,7 @@ sub _run_query {
 				print " ($field_values)" if $field_values;
 				print "</p>\n</div>\n";
 			} else {
-				my $id = defined $seq_object->id  ? $seq_object->id : '';
+				my $id = defined $seq_object->id ? $seq_object->id : '';
 				$batchBuffer =
 				    "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">Exact match"
 				  . ( $count == 1 ? '' : 'es' )
@@ -292,8 +294,7 @@ sub _run_query {
 						$first = 0;
 					}
 					my $id = defined $seq_object->id ? $seq_object->id : '';
-					$batchBuffer =
-					  "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">$buffer</td></tr>\n";
+					$batchBuffer = "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">$buffer</td></tr>\n";
 				}
 			} else {
 				if ( defined $locus_info->{'data_type'} && $qry_type ne $locus_info->{'data_type'} && $locus && $locus !~ /SCHEME_(\d+)/ ) {
@@ -311,14 +312,13 @@ sub _run_query {
 							}
 						);
 						print "<div class=\"box\" id=\"resultsheader\">\n";
-						if (-e "$self->{'config'}->{'secure_tmp_dir'}/$blast_file"){
+						if ( -e "$self->{'config'}->{'secure_tmp_dir'}/$blast_file" ) {
 							print "<p>Your query is a $qry_type sequence whereas this locus is defined with 
 							$locus_info->{'data_type'} sequences.  There were no exact matches, but the BLAST results are shown below (a maximum of five
 							alignments are displayed).</p>";
-							
 							print "<pre style=\"font-size:1.2em\">\n";
 							$self->print_file( "$self->{'config'}->{'secure_tmp_dir'}/$blast_file", 1 );
-							print "</pre>\n";							
+							print "</pre>\n";
 						} else {
 							print "<p>No results from BLAST.</p>\n";
 						}
@@ -333,8 +333,7 @@ sub _run_query {
 						print "<div class=\"box\" id=\"statusbad\"><p>No matches found.</p></div>\n";
 					} else {
 						my $id = defined $seq_object->id ? $seq_object->id : '';
-						$batchBuffer =
-						    "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">No matches found.</td></tr>\n";
+						$batchBuffer = "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">No matches found.</td></tr>\n";
 					}
 				} else {
 					if ( $page eq 'sequenceQuery' ) {
@@ -445,7 +444,7 @@ sub _run_query {
 										my $plural = scalar @$diffs > 1 ? 's' : '';
 										print "<p>" . scalar @$diffs . " difference$plural found. ";
 										my $data_type;
-										if (defined $locus_info->{'data_type'}){
+										if ( defined $locus_info->{'data_type'} ) {
 											$data_type = $locus_info->{'data_type'} eq 'DNA' ? 'nucleotide' : 'residue';
 										} else {
 											$data_type = 'identity';
@@ -459,13 +458,7 @@ sub _run_query {
 												print "Truncated at position $_->{'spos'} on reference sequence.";
 												last;
 											}
-											if ( $qry_type eq 'DNA' ) {
-												print
-"<sup>$_->{'spos'}</sup><span class=\"$_->{'sbase'}\">$_->{'sbase'}</span> &rarr; <sup>$_->{'qpos'}</sup><span class=\"$_->{'qbase'}\">$_->{'qbase'}</span><br />\n";
-											} else {
-												print
-"<sup>$_->{'spos'}</sup>$_->{'sbase'} &rarr; <sup>$_->{'qpos'}</sup>$_->{'qbase'}<br />\n";
-											}
+											print $self->_format_difference( $_, $qry_type ) . '<br />';
 										}
 										print "</p>\n";
 										$plural = scalar @$diffs > 1 ? 's' : '';
@@ -509,7 +502,7 @@ sub _run_query {
 									'job'         => $job
 								}
 							);
-							if (-e "$self->{'config'}->{'secure_tmp_dir'}/$blast_file"){
+							if ( -e "$self->{'config'}->{'secure_tmp_dir'}/$blast_file" ) {
 								print "<p>Your query is a $qry_type sequence whereas this locus is defined with "
 								  . ( $qry_type eq 'DNA' ? 'peptide' : 'DNA' )
 								  . " sequences.  There were no exact matches, but the BLAST results are shown below (a maximum of five
@@ -549,19 +542,11 @@ sub _run_query {
 								my $diffs = $self->_get_differences( $seq_ref, \$seq, $sstart, $qstart );
 								if (@$diffs) {
 									my $plural = @$diffs > 1 ? 's' : '';
-									$buffer .= ( @$diffs ) . " difference$plural found. ";
+									$buffer .= (@$diffs) . " difference$plural found. ";
 									my $first = 1;
 									foreach (@$diffs) {
 										$buffer .= '; ' if !$first;
-										if ( $qry_type eq 'DNA' ) {
-											$buffer .=  "<sup>$_->{'spos'}</sup>";
-											$buffer .= "<span class=\"$_->{'sbase'}\">$_->{'sbase'}</span>";
-											$buffer .= " &rarr; ";
-											$buffer .= defined $_->{'qpos'} ? "<sup>$_->{'qpos'}</sup>" : '';
-											$buffer .= "<span class=\"$_->{'qbase'}\">$_->{'qbase'}</span>\n";
-										} else {
-											$buffer .= "<sup>$_->{'spos'}</sup>$_->{'sbase'} &rarr; <sup>$_->{'qpos'}</sup>$_->{'qbase'}\n";
-										}
+										$buffer .= $self->_format_difference($_, $qry_type);
 										$first = 0;
 									}
 								} else {
@@ -592,9 +577,8 @@ sub _run_query {
 								$field_values = $self->_get_client_dbase_fields( $locus, [$allele_id] );
 							}
 						}
-						my $id = defined $seq_object->id ?  $seq_object->id : '';
-						$batchBuffer =
-						    "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">Partial match found: $allele";
+						my $id = defined $seq_object->id ? $seq_object->id : '';
+						$batchBuffer = "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">Partial match found: $allele";
 						$batchBuffer .= " ($field_values)" if $field_values;
 						$batchBuffer .= ": $buffer</td></tr>\n";
 					}
@@ -625,6 +609,25 @@ sub _run_query {
 		}
 	}
 	return;
+}
+
+sub _format_difference {
+	my ( $self, $diff, $qry_type ) = @_;
+	my $buffer;
+	if ( $qry_type eq 'DNA' ) {
+		$buffer .= "<sup>$_->{'spos'}</sup>";
+		$buffer .= "<span class=\"$_->{'sbase'}\">$_->{'sbase'}</span>";
+		$buffer .= " &rarr; ";
+		$buffer .= defined $_->{'qpos'} ? "<sup>$_->{'qpos'}</sup>" : '';
+		$buffer .= "<span class=\"$_->{'qbase'}\">$_->{'qbase'}</span>";
+	} else {
+		$buffer .= "<sup>$_->{'spos'}</sup>";
+		$buffer .= $_->{'sbase'};
+		$buffer .= " &rarr; ";
+		$buffer .= defined $_->{'qpos'} ? "<sup>$_->{'qpos'}</sup>" : '';
+		$buffer .= "$_->{'qbase'}";
+	}
+	return $buffer;
 }
 
 sub _parse_blast_exact {
@@ -683,6 +686,7 @@ sub _parse_blast_partial {
 	my %best_match;
 	$best_match{'bit_score'} = 0;
 	my %match;
+
 	while ( my $line = <$blast_fh> ) {
 		next if !$line || $line =~ /^#/;
 		my @record = split /\s+/, $line;
@@ -695,7 +699,6 @@ sub _parse_blast_partial {
 		$match{'sstart'}    = $record[8];
 		$match{'send'}      = $record[9];
 		$match{'bit_score'} = $record[11];
-
 		if ( $match{'bit_score'} > $best_match{'bit_score'} ) {
 			%best_match = %match;
 		}
@@ -710,8 +713,8 @@ sub _get_differences {
 	my ( $self, $seq1_ref, $seq2_ref, $sstart, $qstart ) = @_;
 	my $qpos = $qstart - 1;
 	my @diffs;
-	if ($sstart > $qstart){
-		foreach my $spos ( $qstart .. $sstart - 1 ){
+	if ( $sstart > $qstart ) {
+		foreach my $spos ( $qstart .. $sstart - 1 ) {
 			my $diff;
 			$diff->{'spos'}  = $spos;
 			$diff->{'sbase'} = substr( $$seq1_ref, $spos, 1 );
@@ -721,13 +724,13 @@ sub _get_differences {
 	}
 	for ( my $spos = $sstart - 1 ; $spos < length $$seq1_ref ; $spos++ ) {
 		my $diff;
-		$diff->{'spos'}  = $spos + 1;
-		$diff->{'sbase'} = substr( $$seq1_ref, $spos, 1 );	
+		$diff->{'spos'} = $spos + 1;
+		$diff->{'sbase'} = substr( $$seq1_ref, $spos, 1 );
 		if ( $qpos < length $$seq2_ref && substr( $$seq1_ref, $spos, 1 ) ne substr( $$seq2_ref, $qpos, 1 ) ) {
-			$diff->{'qpos'}  = $qpos + 1;						
+			$diff->{'qpos'} = $qpos + 1;
 			$diff->{'qbase'} = substr( $$seq2_ref, $qpos, 1 );
 			push @diffs, $diff;
-		} elsif ($qpos >= length $$seq2_ref) {
+		} elsif ( $qpos >= length $$seq2_ref ) {
 			$diff->{'qbase'} = 'missing';
 			push @diffs, $diff;
 		}
@@ -763,8 +766,10 @@ sub _get_client_dbase_fields {
 		);
 		foreach (@$allele_ids_refs) {
 			eval { $client_sql->execute( $locus, $_ ) };
-			if ($@){
-				$logger->error("Can't extract isolate field '$field' FROM client database, make sure the client_dbase_loci_fields table is correctly configured.  $@");
+			if ($@) {
+				$logger->error(
+"Can't extract isolate field '$field' FROM client database, make sure the client_dbase_loci_fields table is correctly configured.  $@"
+				);
 			} else {
 				while ( my ($value) = $client_sql->fetchrow_array ) {
 					next if !defined $value || $value eq '';

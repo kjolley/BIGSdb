@@ -138,6 +138,7 @@ sub print_content {
 					$self->{'db'}->commit;
 					$tablebuffer .= "<td class=\"statusgood\">done!</td></tr>\n";
 					$value[$i] =~ s/\'\'/'/g;
+					$old_value ||= '';
 					$self->update_history( $isolate_id, "$field[$i]: '$old_value' -> '$value[$i]'" );
 				}
 				$td = $td == 1 ? 2 : 1;

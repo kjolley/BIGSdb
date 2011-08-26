@@ -85,10 +85,10 @@ sub print_content {
 		print "Can't retrieve data.\n";
 		return;
 	}
-	$" = "\t";
+	local $" = "\t";
 	{
 		no warnings 'uninitialized';
-		while ( my @data = $sql->fetchrow_array() ) {
+		while ( my @data = $sql->fetchrow_array ) {
 			print "@data\n";
 		}
 	}
