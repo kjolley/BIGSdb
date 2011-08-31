@@ -991,7 +991,12 @@ sub get_citation_hash {
 		'user'       => $self->{'system'}->{'user'},
 		'password'   => $self->{'system'}->{'pass'}
 	);
-	my $dbr = $self->{'dataConnector'}->get_connection( \%att );
+	my $dbr;
+	try {
+		$dbr = $self->{'dataConnector'}->get_connection( \%att );
+	} catch BIGSdb::DatabaseConnectionException with {
+		$logger->error("Can't connect to reference database");
+	};
 	return $citation_ref if !$self->{'config'}->{'refdb'} || !$dbr;
 	my $sqlr  = $dbr->prepare("SELECT year,journal,title,volume,pages FROM refs WHERE pmid=?");
 	my $sqlr2 = $dbr->prepare("SELECT surname,initials FROM authors WHERE id=?");
@@ -1003,6 +1008,10 @@ sub get_citation_hash {
 		eval { $sqlr3->execute($_) };
 		$logger->error($@) if $@;
 		my ( $year, $journal, $title, $volume, $pages ) = $sqlr->fetchrow_array;
+		if ( !defined $year && !defined $journal){
+			$citation_ref->{$_} .= $options->{'state_if_unavailable'} ? 'No details available.' : "Pubmed id#$_";
+			next;
+		}
 		my @authors;
 		while ( my ($authorid) = $sqlr3->fetchrow_array ) {
 			push @authors, $authorid;
@@ -1047,13 +1056,17 @@ sub get_citation_hash {
 		if ($author) {
 			$citation_ref->{$_} = $citation;
 		} else {
-			$citation_ref->{$_} .= "Pubmed id#";
-			if ( $options->{'link_pubmed'} ) {
-				$citation_ref->{$_} .= "<a href=\"http://www.ncbi.nlm.nih.gov/pubmed/$_\">";
-			}
-			$citation_ref->{$_} .= $_;
-			if ( $options->{'link_pubmed'} ) {
-				$citation_ref->{$_} .= "</a>";
+			if ($options->{'state_if_unavailable'}){
+				$citation_ref->{$_} .= 'No details available.';
+			} else {
+				$citation_ref->{$_} .= "Pubmed id#";
+				if ( $options->{'link_pubmed'} ) {
+					$citation_ref->{$_} .= "<a href=\"http://www.ncbi.nlm.nih.gov/pubmed/$_\">";
+				}
+				$citation_ref->{$_} .= $_;
+				if ( $options->{'link_pubmed'} ) {
+					$citation_ref->{$_} .= "</a>";
+				}
 			}
 		}
 	}

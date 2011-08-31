@@ -620,7 +620,7 @@ sub check_record {
 		my $retval = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM $table WHERE @primary_key_query")->[0];
 		if ( $retval && !$update ){
 			my $article = $record_name =~ /^[aeio]/ ? 'An' : 'A';
-			push @problems, "$article $record_name already exists with a primary key of @primary_key_query.";
+			push @problems, "$article $record_name already exists with this primary key.";
 		}
 	}
 	return @problems;

@@ -19,6 +19,7 @@
 package BIGSdb::PubQueryPage;
 use strict;
 use warnings;
+use Error qw(:try);
 use base qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -35,12 +36,17 @@ sub print_content {
 		'user'       => $system->{'user'},
 		'password'   => $system->{'pass'}
 	);
-	my $dbr = $self->{'dataConnector'}->get_connection( \%att );
-	if ( !$dbr ) {
-		print "<p>No connection to reference database</p>\n";
-		return;
-	}
 	print "<h1>Publications cited in the $system->{'description'} database</h1>\n";
+	my $dbr;
+	my $continue = 1;
+	try {
+		$dbr = $self->{'dataConnector'}->get_connection( \%att );
+	} catch BIGSdb::DatabaseConnectionException with {
+		print "<div class=\"box\" id=\"statusbad\"><p>No connection to reference database</p></div>\n";
+		$continue = 0;
+	};
+	return if !$continue;
+	
 	if ( $system->{'dbtype'} eq 'isolates' ) {
 		my $ref_count = $self->{'datastore'}->run_simple_query("SELECT COUNT (DISTINCT pubmed_id) FROM refs")->[0];
 		if ( !$ref_count ) {
@@ -84,9 +90,10 @@ sub print_content {
 		my ( $surname, $initials ) = $sql2->fetchrow_array;
 		$temp .= "$surname $initials, ";
 	}
-	$temp =~ s/, $//;
+	$temp =~ s/, $// if $temp;
 	$abstract = "No abstract available" if !$abstract; 
-	print "<p>\n$temp\n";
+	print "<p>\n";
+	print "$temp\n" if $temp;
 	print " ($year)\n" if $year;
 	print " <i>$journal</i> <b>$volume:</b>$pages<br />\n" if $journal && $volume && $pages; 	
 	if ($title) {

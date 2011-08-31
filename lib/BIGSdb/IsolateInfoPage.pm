@@ -28,6 +28,7 @@ my $logger = get_logger('BIGSdb.Page');
 sub set_pref_requirements {
 	my ($self) = @_;
 	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 0, 'isolate_display' => 1, 'analysis' => 0, 'query_field' => 0 };
+	return;
 }
 
 sub initiate {
@@ -38,6 +39,7 @@ sub initiate {
 		return;
 	}
 	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree);
+	return;
 }
 
 sub get_javascript {
@@ -203,6 +205,7 @@ sub print_content {
 		print $self->get_isolate_record($isolate_id);
 	}
 	print "</div>\n";
+	return;
 }
 
 sub _get_update_history {
@@ -229,12 +232,12 @@ sub _get_update_history {
 
 sub get_isolate_summary {
 	my ( $self, $id ) = @_;
-	$self->get_isolate_record( $id, 1 );
+	return $self->get_isolate_record( $id, 1 );
 }
 
 sub get_loci_summary {
 	my ( $self, $id ) = @_;
-	$self->get_isolate_record( $id, 2 );
+	return $self->get_isolate_record( $id, 2 );
 }
 
 sub get_isolate_record {
@@ -245,7 +248,7 @@ sub get_isolate_record {
 	my $q      = $self->{'cgi'};
 	my $fields = $self->{'xmlHandler'}->get_field_list();
 	my $view   = $self->{'system'}->{'view'};
-	$" = ",$view.";
+	local $" = ",$view.";
 	my $field_string = "$view.@$fields";
 	my $qry          = "SELECT $field_string FROM $view WHERE id=?";
 	$sql = $self->{'db'}->prepare($qry);
@@ -317,8 +320,8 @@ sub get_isolate_record {
 					$buffer .= "<td style=\"text-align:left\" colspan=\"2\">$userdata->{affiliation}</td>";
 					if (
 						$field eq 'curator'
-						or ( ( $field eq 'sender' || ( $thisfield{'userfield'} && $thisfield{'userfield'} eq 'yes' ) )
-							and !$self->{'system'}->{'privacy'} )
+						|| ( ( $field eq 'sender' || ( $thisfield{'userfield'} && $thisfield{'userfield'} eq 'yes' ) )
+							&& !$self->{'system'}->{'privacy'} )
 					  )
 					{
 						if (   $userdata->{'email'} eq ''
@@ -442,8 +445,8 @@ sub get_isolate_record {
 				my $aliases =
 				  $self->{'datastore'}->run_list_query( "SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias", $id );
 				if (@$aliases) {
-					$" = '; ';
-					my $plural = scalar @$aliases > 1 ? 'es' : '';
+					local $" = '; ';
+					my $plural = @$aliases > 1 ? 'es' : '';
 					$buffer .= "<tr class=\"td$td\"><th>alias$plural</th><td style=\"text-align:left\" colspan=\"5\">@$aliases</td></tr>\n";
 					$td = $td == 1 ? 2 : 1;
 				}
@@ -487,9 +490,7 @@ sub get_isolate_record {
 				$q->param( 'curate', 1 ) if $self->{'curate'};
 				$q->param( 'page', 'seqbin' );
 				$q->param( 'isolate_id', $id );
-				foreach (qw (db page curate isolate_id)) {
-					$buffer .= $q->hidden($_);
-				}
+				$buffer .= $q->hidden($_) foreach qw (db page curate isolate_id);
 				$buffer .= $q->submit( -value => 'Display', -class => 'submit' );
 				$buffer .= $q->end_form;
 				$buffer .= "</td></tr>\n";
@@ -521,13 +522,9 @@ sub get_isolate_record {
 		return $buffer;
 	}
 	my $scheme_sql = $self->{'db'}->prepare("SELECT * FROM schemes ORDER BY display_order,id");
-	eval { $scheme_sql->execute(); };
-	if ($@) {
-		$logger->error("Can't execute: $qry");
-	} else {
-		$logger->debug("Query: $qry");
-	}
-	while ( my $scheme = $scheme_sql->fetchrow_hashref() ) {
+	eval { $scheme_sql->execute };
+	$logger->error($@) if $@;
+	while ( my $scheme = $scheme_sql->fetchrow_hashref ) {
 		if ( $self->{'prefs'}->{'isolate_display_schemes'}->{ $scheme->{'id'} } ) {
 			( $td, my $field_buffer ) = $self->_get_scheme_fields(
 				$scheme->{'id'},   $data{'id'},            $locus_info, $locus_alias, $allele_designations,
@@ -575,6 +572,7 @@ sub _get_tree {
 	$buffer .= "</td><td style=\"vertical-align:top;width:80%\" id=\"scheme_table\">\n";
 	$buffer .= "</td></tr>\n";
 	$buffer .= "</table>\n";
+	return $buffer;
 }
 
 sub get_sample_summary {
@@ -605,7 +603,6 @@ sub _get_samples {
 	if (@selected_fields) {
 		my $samples = $self->{'datastore'}->get_samples($id);
 		my @sample_rows;
-		$" = '</td><td>';
 		foreach my $sample (@$samples) {
 			foreach (@$sample_fields) {
 				if ( $_ eq 'sender' || $_ eq 'curator' ) {
@@ -640,7 +637,7 @@ sub _get_samples {
 		}
 		if (@sample_rows) {
 			my $rows = scalar @sample_rows + 1;
-			$" = '</th><th>';
+			local $" = '</th><th>';
 			$buffer .= "<tr>";
 			$buffer .= "<th>samples</th>" if $include_side_header;
 			$buffer .= "<td colspan=\"5\"><table style=\"width:100%\"><tr>";
@@ -648,7 +645,7 @@ sub _get_samples {
 				$buffer .= "<th>Delete</th><th>Update</th>";
 			}
 			$buffer .= "<th>@clean_fields</th></tr>";
-			$" = "\n";
+			local $" = "\n";
 			$buffer .= "@sample_rows";
 			$buffer .= "</table></td></tr>\n";
 		}
@@ -757,7 +754,7 @@ sub _get_scheme_fields {
 		$cleaned_name =~ s/_/&nbsp;/g;
 		my $tooltip_name = $cleaned_name;
 		if ( $self->{'prefs'}->{'locus_alias'} && $locus_aliases{$_} ) {
-			$" = '; ';
+			local $" = '; ';
 			$cleaned_name .= "<br /><span class=\"comment\">(@{$locus_aliases{$_}})</span>";
 		}
 		push @profile, $allele_designations->{$_}->{'allele_id'};
@@ -872,7 +869,7 @@ sub _get_scheme_fields {
 			if ( $self->{'prefs'}->{'locus_alias'} && $locus_aliases{$_} ) {
 				push @other_display_names, @{ $locus_aliases{$_} };
 			}
-			$" = '; ';
+			local $" = '; ';
 			$buffer .= "<br /><span class=\"comment\">(@other_display_names)</span>" if @other_display_names;
 			if ( $locus_info->{$_}->{'description_url'} ) {
 				$locus_info->{$_}->{'description_url'} =~ s/\&/\&amp;/g;
@@ -943,7 +940,7 @@ sub _get_scheme_fields {
 					push @other_display_names, @{ $locus_aliases{$_} };
 				}
 				if (@other_display_names) {
-					$" = '; ';
+					local $" = '; ';
 					$header_buffer[$j] .= "<br /><span class=\"comment\">(@other_display_names)</span>";
 				}
 				if ( $locus_info->{$_}->{'description_url'} ) {
@@ -955,7 +952,7 @@ sub _get_scheme_fields {
 			} else {
 				$header_buffer[$j] .= "<th>$cleaned";
 				if (@other_display_names) {
-					$" = '; ';
+					local $" = '; ';
 					$header_buffer[$j] .= "<br /><span class=\"comment\">(@other_display_names)</span>";
 				}
 				$header_buffer[$j] .= "</th>";
@@ -1011,7 +1008,6 @@ sub _get_scheme_fields {
 			}
 		}
 		$value_buffer[$j] .= "</tr>\n" if $i;
-		$" = '';
 		for ( my $row = 0 ; $row < @header_buffer ; $row++ ) {
 			$buffer .= "$header_buffer[$row]";
 			$buffer .= "$value_buffer[$row]";
@@ -1042,61 +1038,13 @@ sub _get_pending_designation_tooltip {
 }
 
 sub get_main_table_reference {
-	my ( $self, $fieldname, $pmid, $td ) = @_;
-	my $buffer;
-	if ( $self->{'config'}->{'refdb'} ) {
-		my %att = (
-			dbase_name => $self->{'config'}->{'refdb'},
-			host       => $self->{'system'}->{'host'},
-			port       => $self->{'system'}->{'port'},
-			user       => $self->{'system'}->{'user'},
-			password   => $self->{'system'}->{'pass'}
-		);
-		my $dbr = $self->{'datastore'}->get_data_connector->get_connection( \%att );
-		if ($dbr) {
-			my $sqlr  = $dbr->prepare("SELECT year,journal,volume,pages,title FROM refs WHERE pmid=?");
-			my $sqlr2 = $dbr->prepare("SELECT surname,initials FROM authors WHERE id=?");
-			$sqlr->execute($pmid) or $logger->error("Can't execute query");
-			my $sqlr3 = $dbr->prepare("SELECT author FROM refauthors WHERE pmid=? ORDER BY position");
-			$sqlr3->execute($pmid) or $logger->error("Can't execute query");
-			my @authors;
-			while ( my ($authorid) = $sqlr3->fetchrow_array ) {
-				push @authors, $authorid;
-			}
-			my ( $year, $journal, $volume, $pages, $title ) = $sqlr->fetchrow_array();
-			undef my $temp;
-			foreach (@authors) {
-				$sqlr2->execute($_) or $logger->error("Can't execute query");
-				my ( $surname, $initials ) = $sqlr2->fetchrow_array();
-				$temp .= "$surname $initials, ";
-			}
-			$temp =~ s/, $// if $temp;
-			if ($title) {
-				$buffer .=
-"<tr class=\"td$td\"><th>$fieldname</th><td align=\"left\"><a href='http://www.ncbi.nlm.nih.gov/entrez/query.fcgi?cmd=Retrieve&amp;db=PubMed&amp;list_uids=$pmid&amp;dopt=Abstract'>$pmid</a></td><td colspan=\"3\" style=\"text-align:left; width:75%\">$temp ($year) <i>$journal</i> <b>$volume:</b>$pages<br />$title</td><td>";
-				$buffer .= $self->get_link_button_to_ref($pmid);
-				$buffer .= "</td></tr>\n";
-			} else {
-				$buffer .=
-"<tr class=\"td$td\"><th>$fieldname</th><td align=\"left\"><a href='http://www.ncbi.nlm.nih.gov/entrez/query.fcgi?cmd=Retrieve&amp;db=PubMed&amp;list_uids=$pmid&amp;dopt=Abstract'>$pmid</a></td><td colspan=\"3\" style=\"text-align:left; width:75%\">No details available.</td><td>";
-				$buffer .= $self->get_link_button_to_ref($pmid);
-				$buffer .= "</td></tr>\n";
-			}
-			$sqlr->finish;
-			$sqlr2->finish;
-		} else {
-			$logger->error("No connection to reference database '$self->{'config'}->{'refdb'}' - check configuration.\n");
-			$buffer .=
-"<tr class=\"td$td\"><th>$fieldname</th><td align=\"left\"><a href='http://www.ncbi.nlm.nih.gov/entrez/query.fcgi?cmd=Retrieve&amp;db=PubMed&amp;list_uids=$pmid&amp;dopt=Abstract'>$pmid</a></td><td colspan=\"3\" style=\"text-align:left; width:75%\">No details available.</td><td>";
-			$buffer .= $self->get_link_button_to_ref($pmid);
-			$buffer .= "</td></tr>\n";
-		}
-	} else {
-		$buffer .=
-"<tr class=\"td$td\"><th>$fieldname</th><td align=\"left\"><a href='http://www.ncbi.nlm.nih.gov/entrez/query.fcgi?cmd=Retrieve&amp;db=PubMed&amp;list_uids=$pmid&amp;dopt=Abstract'>$pmid</a></td><td colspan=\"3\" style=\"text-align:left; width:75%\">No details available.</td><td>";
-		$buffer .= $self->get_link_button_to_ref($pmid);
-		$buffer .= "</td></tr>\n";
-	}
+	my ( $self, $fieldname, $pmid, $td ) = @_;	
+	my $citation_ref = $self->{'datastore'}->get_citation_hash([$pmid], {'formatted' => 1, 'all_authors' => 1, 'state_if_unavailable' => 1});
+	my $buffer = "<tr class=\"td$td\"><th>$fieldname</th>"
+	."<td align=\"left\"><a href=\"http://www.ncbi.nlm.nih.gov/pubmed/$pmid\">$pmid</a></td>"
+	. "<td colspan=\"3\" style=\"text-align:left; width:75%\">$citation_ref->{$pmid}</td><td>";
+	$buffer .= $self->get_link_button_to_ref($pmid);
+	$buffer .= "</td></tr>\n";
 	return $buffer;
 }
 
@@ -1106,7 +1054,7 @@ sub get_title {
 	return "Invalid isolate id" if !BIGSdb::Utils::is_int($isolate_id);
 	my @name  = $self->get_name($isolate_id);
 	my $title = "Isolate information: id-$isolate_id";
-	$" = ' ';
+	local $" = ' ';
 	$title .= " (@name)" if $name[1];
 	$title .= ' - ';
 	$title .= "$self->{'system'}->{'description'}";
@@ -1139,14 +1087,7 @@ sub _get_history {
 
 sub get_name {
 	my ( $self, $isolate_id ) = @_;
-	my ( $name_ref, $field );
-	my $field_list = $self->{'xmlHandler'}->get_field_list;
-	foreach (@$field_list) {
-		if ( $_ eq $self->{'system'}->{'labelfield'} ) {
-			$name_ref = $self->{'datastore'}->run_simple_query( "SELECT $_ FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id );
-			$field = $_;
-			return ( $field, $name_ref->[0] );
-		}
-	}
+	my $name = $self->{'datastore'}->run_simple_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id )->[0];
+	return ( $self->{'system'}->{'labelfield'}, $name );
 }
 1;
