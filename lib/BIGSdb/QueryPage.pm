@@ -895,6 +895,7 @@ sub _generate_isolate_query_for_provenance_fields {
 				$qry .= $modifier . $self->search_users( $field, $operator, $text, $self->{'system'}->{'view'} );
 			} else {
 				$field = $self->{'system'}->{'view'}. '.' . $field;
+				my $labelfield = $self->{'system'}->{'view'} . '.' . $self->{'system'}->{'labelfield'};
 				if ( $operator eq 'NOT' ) {
 					if ( scalar @groupedfields ) {
 						$qry .= "$modifier (";
@@ -920,7 +921,7 @@ sub _generate_isolate_query_for_provenance_fields {
 							? "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field')"
 							: "$extended_isolate_field NOT IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value)=upper('$text'))"
 						  );
-					} elsif ( $field eq $self->{'system'}->{'labelfield'} ) {
+					} elsif ( $field eq $labelfield ) {
 						$qry .= $modifier
 						  . "(NOT upper($field) = upper('$text') AND id NOT IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper('$text')))";
 					} else {
@@ -956,7 +957,7 @@ sub _generate_isolate_query_for_provenance_fields {
 					} elsif ($extended_isolate_field) {
 						$qry .= $modifier
 						  . "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) LIKE upper('\%$text\%'))";
-					} elsif ( $field eq $self->{'system'}->{'labelfield'} ) {
+					} elsif ( $field eq $labelfield ) {
 						$qry .= $modifier
 						  . "(upper($field) LIKE upper('\%$text\%') OR id IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) LIKE upper('\%$text\%')))";
 					} else {
@@ -982,7 +983,7 @@ sub _generate_isolate_query_for_provenance_fields {
 					} elsif ($extended_isolate_field) {
 						$qry .= $modifier
 						  . "$extended_isolate_field NOT IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) LIKE upper('\%$text\%'))";
-					} elsif ( $field eq $self->{'system'}->{'labelfield'} ) {
+					} elsif ( $field eq $labelfield ) {
 						$qry .= $modifier
 						  . "(NOT upper($field) LIKE upper('\%$text\%') AND id NOT IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) LIKE upper('\%$text\%')))";
 					} else {
@@ -1018,7 +1019,7 @@ sub _generate_isolate_query_for_provenance_fields {
 							? "$extended_isolate_field NOT IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field')"
 							: "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) = upper('$text'))"
 						  );
-					} elsif ( $field eq $self->{'system'}->{'labelfield'} ) {
+					} elsif ( $field eq $labelfield ) {
 						$qry .= $modifier
 						  . "(upper($field) = upper('$text') OR id IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper('$text')))";
 					} elsif ( lc( $thisfield{'type'} ) eq 'text' ) {
@@ -1055,7 +1056,7 @@ sub _generate_isolate_query_for_provenance_fields {
 					} elsif ($extended_isolate_field) {
 						$qry .= $modifier
 						  . "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND value $operator '$text')";
-					} elsif ( $field eq $self->{'system'}->{'labelfield'} ) {
+					} elsif ( $field eq $labelfield ) {
 						$qry .= $modifier
 						  . "($field $operator '$text' OR id IN (SELECT isolate_id FROM isolate_aliases WHERE alias $operator '$text'))";
 					} else {
