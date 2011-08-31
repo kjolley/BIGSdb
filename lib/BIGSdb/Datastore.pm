@@ -739,6 +739,7 @@ sub get_locus {
 
 sub is_locus {
 	my ( $self, $id ) = @_;
+	$id ||= '';
 	my $loci = $self->get_loci( { 'do_not_order' => 1 } );
 	return any { $_ eq $id } @$loci;
 }

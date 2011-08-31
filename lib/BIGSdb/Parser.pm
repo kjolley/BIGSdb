@@ -64,6 +64,7 @@ sub get_sample_field_attributes {
 
 sub is_field {
 	my ( $self, $field ) = @_;
+	$field ||= '';
 	return any {$_ eq $field} @fields;
 }
 

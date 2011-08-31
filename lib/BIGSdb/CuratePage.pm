@@ -660,6 +660,7 @@ sub _is_field_bad_isolates {
 	$value =~ s/<blank>//;
 	$value =~ s/null//;
 	my %thisfield = $self->{'xmlHandler'}->get_field_attributes($fieldname);
+	$thisfield{'type'} ||= 'text';
 
 	#If field is null make sure it's not a required field
 	if ( $value eq '' ) {

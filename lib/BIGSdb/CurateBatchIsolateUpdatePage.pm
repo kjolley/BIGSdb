@@ -187,9 +187,9 @@ sub print_content {
 			$id[$i] =~ s/%20/ /g;
 			$id2[$i] ||= '';
 			$id2[$i]   =~ s/%20/ /g;
-			$value[$i] =~ s/\s*$//g;
+			$value[$i] =~ s/\s*$//g if defined $value[$i];
 			my $displayvalue = $value[$i];
-			$value[$i] =~ s/\'/\'\'/g;
+			$value[$i] =~ s/\'/\'\'/g if defined $value[$i];
 			my $badField = 0;
 			my $is_locus = $self->{'datastore'}->is_locus( $field[$i] );
 
@@ -223,7 +223,7 @@ sub print_content {
 						}
 					}
 					if (@not_allowed) {
-						$" = ', ';
+						local $" = ', ';
 						print
 "<div class=\"box\" id=\"statusbad\"><p>You are not allowed to edit the following isolate records: @not_allowed.</p></div>\n";
 						return;
@@ -294,7 +294,7 @@ sub print_content {
 				}
 				$td = $td == 1 ? 2 : 1;
 			}
-			$value[$i] =~ s/<blank>//;
+			$value[$i] =~ s/<blank>// if defined $value[$i];
 			$i++;
 		}
 		print $buffer;
@@ -303,7 +303,7 @@ sub print_content {
 		print $q->start_form;
 		print $q->hidden($_) foreach qw (db page);
 		print $q->hidden( 'update', 1 );
-		$" = ',';
+		local $" = ',';
 		print $q->hidden( -name => 'idfield1',  -default => $idfield1 );
 		print $q->hidden( -name => 'idfield2',  -default => $idfield2 );
 		print $q->hidden( -name => 'id',        -default => [@id] );
@@ -352,6 +352,7 @@ HTML
 		print "<p /><p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p>\n";
 		print "</div>\n";
 	}
+	return;
 }
 
 sub get_title {
