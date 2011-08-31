@@ -29,13 +29,13 @@ sub new {
 	my $self = {};
 	$self->{'system'}           = {};
 	$self->{'config'}           = {};
-	$self->{'cgi'}              = new CGI;
+	$self->{'cgi'}              = CGI->new;
 	$self->{'instance'}         = undef;
 	$self->{'xmlHandler'}       = undef;
 	$self->{'page'}             = undef;
 	$self->{'invalidXML'}       = 0;
 	$self->{'invalidDbType'}    = 0;
-	$self->{'dataConnector'}    = new BIGSdb::Dataconnector;
+	$self->{'dataConnector'}    = BIGSdb::Dataconnector->new;
 	$self->{'datastore'}        = undef;
 	$self->{'pluginManager'}    = undef;
 	$self->{'db'}               = undef;
@@ -50,10 +50,10 @@ sub new {
 	my $q                = $self->{'cgi'};
 
 	if ( !$self->{'error'} ) {
-		$self->db_connect();
+		$self->db_connect;
 		if ( $self->{'db'} ) {
-			$self->_setup_datastore();
-			$self->_setup_prefstore();
+			$self->_setup_datastore;
+			$self->_setup_prefstore;
 			if ( !$self->{'system'}->{'authentication'} ) {
 				my $logger = get_logger('BIGSdb.Application_Authentication');
 				$logger->logdie(
@@ -71,7 +71,7 @@ sub new {
 	( my $elapsed = gettimeofday() - $self->{'start_time'} ) =~ s/(^\d{1,}\.\d{4}).*$/$1/;
 	$logger_benchmark->debug("Time to initiate : $elapsed seconds");
 	$self->print_page($dbase_config_dir);
-	$self->_db_disconnect();
+	$self->_db_disconnect;
 	return $self;
 }
 
@@ -84,6 +84,7 @@ sub DESTROY {
 	my $elapsed = $end - $self->{'start_time'};
 	$elapsed =~ s/(^\d{1,}\.\d{4}).*$/$1/;
 	$logger->info("Total Time to process $self->{'page'} page: $elapsed seconds") if $self->{'page'};
+	return;
 }
 
 sub _initiate {
@@ -121,7 +122,7 @@ sub _initiate {
 	}
 	$self->{'error'} = 'noAuthenticationSet' if !$self->{'system'}->{'authentication'};
 	$self->{'system'}->{'script_name'} = $self->{'script_name'};
-	$ENV{'PATH'} = '/bin:/usr/bin';    #so we don't foul taint check
+	$ENV{'PATH'} = '/bin:/usr/bin';    ## no critic (RequireLocalizedPunctuationVars) #so we don't foul taint check
 	delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};    # Make %ENV safer
 	$q->param( 'page', 'index' ) if !defined $q->param('page');
 	$self->{'page'} = $q->param('page');
@@ -143,6 +144,7 @@ sub _initiate {
 			);
 		}
 	}
+	return;
 }
 
 sub _initiate_authdb {
@@ -163,8 +165,8 @@ sub _initiate_authdb {
 	catch BIGSdb::DatabaseConnectionException with {
 		$logger->error("Can not connect to authentication database '$self->{'config'}->{'auth_db'}'");
 		$self->{'error'} = 'noAuth';
-		return;
 	};
+	return;
 }
 
 sub initiate_view {
@@ -189,7 +191,7 @@ ON user_group_members.user_group=isolate_usergroup_acl.user_group_id LEFT JOIN u
 ON user_group_members.user_id=users.id WHERE users.user_name ='$username' AND read$write_clause)
 SQL
 	if ($username) {
-		eval { $self->{'db'}->do("CREATE TEMP VIEW tmp_userview AS $view_clause"); };
+		eval { $self->{'db'}->do("CREATE TEMP VIEW tmp_userview AS $view_clause") };
 		if ($@) {
 			$logger->error("Can't create user view $@");
 			$self->{'db'}->rollback;
@@ -197,6 +199,7 @@ SQL
 			$self->{'system'}->{'view'} = 'tmp_userview';
 		}
 	}
+	return;
 }
 
 sub _initiate_plugins {
@@ -215,6 +218,7 @@ sub _initiate_plugins {
 		'jobManager'       => $self->{'jobManager'},
 		'pluginDir'        => $plugin_dir
 	);
+	return;
 }
 
 sub _initiate_jobmanager {
@@ -226,6 +230,7 @@ sub _initiate_jobmanager {
 		$self->{'system'}->{'user'},
 		$self->{'system'}->{'password'},
 	);
+	return;
 }
 
 sub _read_config_file {
@@ -254,6 +259,7 @@ sub _read_config_file {
 			}
 		}
 	}
+	return;
 }
 
 sub _read_host_mapping_file {
@@ -261,13 +267,14 @@ sub _read_host_mapping_file {
 	if ( -e "$config_dir/host_mapping.conf" ) {
 		open( my $fh, '<', "$config_dir/host_mapping.conf" );
 		while (<$fh>) {
-			next if $_ =~ /^\s+$/ || $_ =~ /^#/;
+			next if /^\s+$/ || /^#/;
 			my ( $host, $mapped ) = split /\s+/, $_;
 			next if !$host || !$mapped;
 			$self->{'config'}->{'host_map'}->{$host} = $mapped;
 		}
 		close $fh;
 	}
+	return;
 }
 
 sub _setup_prefstore {
@@ -287,9 +294,9 @@ sub _setup_prefstore {
 	catch BIGSdb::DatabaseConnectionException with {
 		my $logger = get_logger('BIGSdb.Prefs');
 		$logger->fatal("Can not connect to preferences database '$self->{'config'}->{'prefs_db'}'");
-		return;
 	};
 	$self->{'prefstore'} = BIGSdb::Preferences->new( ( 'db' => $pref_db ) );
+	return;
 }
 
 sub _setup_datastore {
@@ -303,6 +310,7 @@ sub _setup_datastore {
 			'xmlHandler'    => $self->{'xmlHandler'}
 		)
 	);
+	return;
 }
 
 sub db_connect {
@@ -320,8 +328,8 @@ sub db_connect {
 	catch BIGSdb::DatabaseConnectionException with {
 		my $logger = get_logger('BIGSdb.Application_Initiate');
 		$logger->error("Can not connect to database '$self->{'system'}->{'db'}'");
-		return;
 	};
+	return;
 }
 
 sub _db_disconnect {
@@ -329,6 +337,7 @@ sub _db_disconnect {
 	$self->{'prefstore'}->finish_statement_handles if $self->{'prefstore'};
 	undef $self->{'prefstore'};
 	undef $self->{'datastore'};
+	return;
 }
 
 sub print_page {
@@ -431,7 +440,8 @@ sub print_page {
 		$page_attributes{'error'} = 'unknown';
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
 	}
-	$page->print();
+	$page->print;
+	return;
 }
 
 sub authenticate {

@@ -44,6 +44,7 @@ sub get_attributes {
 sub set_pref_requirements {
 	my ($self) = @_;
 	$self->{'pref_requirements'} = { 'general' => 0, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 0 };
+	return;
 }
 
 sub run {
@@ -55,6 +56,7 @@ sub run {
 	print "<tr><th>field name</th><th>comments</th><th>data type</th><th class=\"{sorter: false}\">allowed values</th><th>required</th></tr></thead>\n<tbody>";
 	$self->_print_fields;
 	print "</tbody></table>\n</div>\n";
+	return;
 }
 
 sub _print_fields {
@@ -71,7 +73,7 @@ sub _print_fields {
 				print "$_<br />\n";
 			}
 		} elsif ( $_ eq 'sender'
-			or $_ eq 'sequenced_by' || ( $thisfield{'userfield'} && $thisfield{'userfield'} eq 'yes' ) )
+			|| $_ eq 'sequenced_by' || ( $thisfield{'userfield'} && $thisfield{'userfield'} eq 'yes' ) )
 		{
 			print "<a href=\""
 			  . $q->script_name
@@ -92,5 +94,6 @@ sub _print_fields {
 		}
 		$td = $td == 1 ? 2 : 1;
 	}
+	return;
 }
 1;

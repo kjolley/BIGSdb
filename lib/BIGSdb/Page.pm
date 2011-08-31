@@ -830,7 +830,7 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 				$last = $totalpages;
 			}
 			$bar_buffer .= "<td>";
-			for ( my $i = $first ; $i < $last + 1 ; $i++ ) {
+			for ( my $i = $first ; $i < $last + 1 ; $i++ ) { #don't use range operator as $last may not be an integer.
 				if ( $i == $currentpage ) {
 					$bar_buffer .=
 					  "</td><th style=\"font-size: 84%; border: 1px solid black; padding-left: 5px; padding-right: 5px\">$i</th><td>";
@@ -857,7 +857,7 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 			$bar_buffer .= "</td>";
 		}
 		$bar_buffer .= "</tr></table>\n";
-		$bar_buffer .= $q->endform();
+		$bar_buffer .= $q->endform;
 	}
 	print "<div class=\"box\" id=\"resultsheader\">\n";
 	if ($records) {

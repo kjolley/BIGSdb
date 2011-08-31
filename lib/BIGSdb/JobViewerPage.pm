@@ -27,6 +27,7 @@ sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw(jQuery noCache);
 	$self->{'refresh'} = 60;
+	return;
 }
 
 sub print_content {
@@ -75,7 +76,7 @@ HTML
 			}
 		}
 		if (@buffer) {
-			$" = "\n";
+			local $" = "\n";
 			print "<ul>\n@buffer</ul>\n";
 		}
 	}
@@ -83,6 +84,7 @@ HTML
 "<p>This page will reload in $self->{'refresh'} seconds.  You can refresh it any time, or bookmark it and close your browser if you wish.</p>\n";
 	print "<p>Please note that job results will not be stored on the server indefinitely.</p>\n";
 	print "</div>\n";
+	return;
 }
 
 sub get_title {

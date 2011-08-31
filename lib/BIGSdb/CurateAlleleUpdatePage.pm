@@ -233,7 +233,7 @@ sub print_content {
 		my $sql = $self->{'db'}->prepare($qry);
 		eval { $sql->execute( $id, $locus ) };
 		$logger->error($@) if $@;
-		while ( my $allele = $sql->fetchrow_hashref() ) {
+		while ( my $allele = $sql->fetchrow_hashref ) {
 			my $pk = "$allele->{'allele_id'}\_$allele->{'sender'}\_$allele->{'method'}";
 			if ( $q->param("$pk\_promote") ) {
 				my $to_be_promoted = $allele;
@@ -241,10 +241,10 @@ sub print_content {
 				my $sql            = $self->{'db'}->prepare($qry);
 				eval { $sql->execute( $id, $locus ) };
 				$logger->error($@) if $@;
-				my $to_be_demoted = $sql->fetchrow_hashref();
+				my $to_be_demoted = $sql->fetchrow_hashref;
 
 				#Swap designation with pending
-				my $curator_id = $self->get_curator_id();
+				my $curator_id = $self->get_curator_id;
 				my $pad_exists = $self->{'datastore'}->run_simple_query(
 "SELECT COUNT(*) FROM pending_allele_designations WHERE isolate_id=? AND locus=? AND allele_id=? AND sender=? AND method=?",
 					$id, $locus,

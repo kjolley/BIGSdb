@@ -100,7 +100,7 @@ sub print_content {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
 	my $isolate_id = $q->param('id');
-	if ( defined $q->param('group_id') ) {
+	if ( defined $q->param('group_id') && BIGSdb::Utils::is_int($q->param('group_id'))) {
 		my ( $locus_info, $locus_alias, $allele_designations, $allele_sequences, $allele_sequence_flags ) =
 		  $self->_get_scheme_attributes($isolate_id);
 		my $group_id = $q->param('group_id');
@@ -513,7 +513,7 @@ sub get_isolate_record {
 		return $buffer;
 	}
 	my $scheme_group_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM scheme_groups")->[0];
-	if ($scheme_group_count) {
+	if ($scheme_group_count || $self->{'curate'}) {
 		$buffer .= "<tr><th style=\"vertical-align:top;padding-top:1em\">Schemes and loci</th><td colspan=\"5\">";
 		$buffer .= $self->_get_tree($id);
 		$buffer .= "</td></tr>";

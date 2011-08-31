@@ -26,6 +26,7 @@ my $logger = get_logger('BIGSdb.Page');
 sub set_pref_requirements {
 	my ($self) = @_;
 	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 0 };
+	return;
 }
 
 sub initiate {
@@ -35,6 +36,7 @@ sub initiate {
 		my $scheme_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM scheme_fields WHERE primary_key")->[0];
 		$self->{'tooltips'} = 1 if $scheme_count > 1;
 	}
+	return;
 }
 
 sub print_content {
@@ -258,7 +260,7 @@ OPTIONS
 	} else {
 		my $isolate_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}")->[0];
 		my @tables        = qw (isolates isolate_aliases allele_designations pending_allele_designations allele_sequences refs);
-		$max_date = $self->_get_max_date(\@tables);
+		$max_date = $self->_get_max_date( \@tables );
 		print "<li>Isolates: $isolate_count</li>";
 	}
 	print "<li>Last updated: $max_date</li>" if $max_date;
@@ -310,14 +312,15 @@ OPTIONS
 		}
 		print "</div>\n</div>\n";
 	}
+	return;
 }
 
 sub _get_max_date {
 	my ( $self, $tables ) = @_;
-	$" = ' UNION SELECT MAX(datestamp) FROM ';
+	local $" = ' UNION SELECT MAX(datestamp) FROM ';
 	my $qry          = "SELECT MAX(max_datestamp) FROM (SELECT MAX(datestamp) AS max_datestamp FROM @$tables) AS v";
 	my $max_date_ref = $self->{'datastore'}->run_simple_query($qry);
-	return $max_date_ref->[0] if ref $max_date_ref eq 'ARRAY';
+	return ref $max_date_ref eq 'ARRAY' ? $max_date_ref->[0] : undef;
 }
 
 sub get_title {

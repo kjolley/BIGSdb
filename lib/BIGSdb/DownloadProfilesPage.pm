@@ -76,6 +76,7 @@ sub print_content {
 		push @fields, $_;
 	}
 	print "\n";
+	local $" = ',';
 	my $sql =
 	  $self->{'db'}->prepare( "SELECT @fields FROM scheme_$scheme_id ORDER BY "
 		  . ( $pk_info->{'type'} eq 'integer' ? "CAST($primary_key AS int)" : $primary_key ) );

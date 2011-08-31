@@ -47,8 +47,12 @@ sub get_curator_name {
 }
 
 sub create_record_table {
-	my ( $self, $table, $newdataref, $update, $nodiv, $prepend_table_name, $newdata_readonly ) = @_;
-	my %newdata = %{$newdataref};
+	my ( $self, $table, $newdata_ref, $update, $nodiv, $prepend_table_name, $newdata_readonly ) = @_;
+	if (ref $newdata_ref ne 'HASH'){
+		print "<div class=\"box\" id=\"statusbad\"><p>Record doesn't exist.</p></div>\n";
+		return '';
+	}
+	my %newdata = %{$newdata_ref};
 	my $q       = $self->{'cgi'};
 	my $buffer;
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
@@ -455,7 +459,7 @@ sub check_record {
 			$newdata{ $_->{'name'} } = uc( $newdata{ $_->{'name'} } );
 			$newdata{ $_->{'name'} } =~ s/\s//g;
 		}
-		if ( $_->{'required'} eq 'yes' && $newdata{ $_->{'name'} } eq '' ) {
+		if ( $_->{'required'} eq 'yes' && (!defined $newdata{ $_->{'name'} } || $newdata{ $_->{'name'} } eq '' )) {
 			push @missing, $_->{'name'};
 		} elsif ( $newdata{ $_->{'name'} }
 			&& $_->{'type'} eq 'int'
@@ -549,9 +553,9 @@ sub check_record {
 			#special case to check that changing user status is allowed
 			my ($status) = @{ $self->{'datastore'}->run_simple_query( "SELECT status FROM users WHERE user_name=?", $self->{'username'} ) };
 			my ( $user_status, $user_username );
-			if ($update) {
-				( $user_status, $user_username ) =
-				  @{ $self->{'datastore'}->run_simple_query( "SELECT status,user_name FROM users WHERE id=?", $newdata{'id'} ) };
+			if ($update ) {
+				my $user_ref = $self->{'datastore'}->run_simple_query( "SELECT status,user_name FROM users WHERE id=?", $newdata{'id'} );
+				( $user_status, $user_username ) = @$user_ref if ref $user_ref eq 'ARRAY';
 			}
 			if (   $status ne 'admin'
 				&& !$self->{'permissions'}->{'set_user_permissions'}

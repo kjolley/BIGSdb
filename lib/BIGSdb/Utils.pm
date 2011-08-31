@@ -49,7 +49,7 @@ sub is_valid_DNA {
 
 sub sequence_type {
 	my ($seq) = @_;
-	my $agtc_count;
+	my $agtc_count = 0;
 	foreach ( my $i = 0 ; $i < length $seq ; $i++ ) {
 		if ( uc( substr( $seq, $i, 1 ) ) =~ /^G|A|T|C|N$/ ) {
 			$agtc_count++;

@@ -1477,7 +1477,7 @@ sub _run_profile_query {
 		$qry = "SELECT * FROM scheme_$scheme_id WHERE (";
 		my $andor       = $q->param('c0');
 		my $first_value = 1;
-		for ( my $i = 1 ; $i <= MAX_ROWS ; $i++ ) {
+		foreach my $i ( 1 .. MAX_ROWS ) {
 			if ( defined $q->param("t$i") && $q->param("t$i") ne '' ) {
 				my $field = $q->param("s$i");
 				my $is_locus;

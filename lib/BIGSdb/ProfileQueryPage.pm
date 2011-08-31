@@ -111,6 +111,7 @@ sub _print_query_interface {
 				foreach (@cleaned_loci){
 					$_ =~ s/'/_PRIME_/g;
 				}
+				local $" = ',';
 				my $qry = "SELECT @cleaned_loci FROM scheme_$scheme_id WHERE $primary_keys->[0]=?";
 				my $sql = $self->{'db'}->prepare($qry);
 				eval { $sql->execute(@values) };

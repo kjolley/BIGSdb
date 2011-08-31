@@ -78,7 +78,8 @@ sub print_content {
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my @query_values;
 	foreach (@$attributes) {
-		my $value = defined $q->param( $_->{'name'} ) ? $q->param( $_->{'name'} ) : '';
+		my $value = $q->param( $_->{'name'} );
+		next if !defined $value;
 		$value =~ s/'/\\'/g;
 		if ( $_->{'primary_key'} ) {
 			push @query_values, "$_->{name} = E'$value'";
@@ -88,12 +89,12 @@ sub print_content {
 		print "<div class=\"box\" id=\"statusbad\"><p>No identifying attributes sent.</p>\n";
 		return;
 	}
-	$" = ' AND ';
+	local $" = ' AND ';
 	my $qry = "SELECT * FROM $table WHERE @query_values";
 	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute(); };
+	eval { $sql->execute };
 	if ($@) {
-		$logger->error("Can't execute: $qry");
+		$logger->error($@);
 		print "<div class=\"box\" id=\"statusbad\"><p>No identifying attributes sent.</p>\n";
 		return;
 	} else {
@@ -102,10 +103,8 @@ sub print_content {
 	my $data = $sql->fetchrow_hashref();
 	if ( $table eq 'sequences' ) {
 		my $sql = $self->{'db'}->prepare("SELECT field,value FROM sequence_extended_attributes WHERE locus=? AND allele_id=?");
-		eval { $sql->execute( $data->{'locus'}, $data->{'allele_id'} ); };
-		if ($@) {
-			$logger->error("Can't execute $@");
-		}
+		eval { $sql->execute( $data->{'locus'}, $data->{'allele_id'} ) };
+		$logger->error($@) if $@;
 		while ( my ( $field, $value ) = $sql->fetchrow_array ) {
 			$data->{$field} = $value;
 		}
@@ -125,7 +124,7 @@ sub print_content {
 	if ( $q->param('sent') ) {
 		@problems = $self->check_record( $table, \%newdata, 1, $data );
 		if (@problems) {
-			$" = "<br />\n";
+			local $" = "<br />\n";
 			print "<div class=\"box\" id=\"statusbad\"><p>@problems</p></div>\n";
 		} else {
 			if (   $table eq 'users'
@@ -216,7 +215,7 @@ HTML
 					}
 				}
 				if (@missing_field) {
-					$" = ', ';
+					local $" = ', ';
 					print <<"HTML";
 <div class="box" id="statusbad"><p>Please fill in all extended attribute fields.  The following extended attribute fields are missing: @missing_field.</p>
 <p><a href="$self->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>

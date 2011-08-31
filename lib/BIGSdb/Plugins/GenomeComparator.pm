@@ -455,6 +455,7 @@ sub _add_scheme_loci {
 			}
 		}
 	}
+	return;
 }
 
 sub _analyse_by_reference {

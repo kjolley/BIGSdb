@@ -669,6 +669,7 @@ sub _print_tree {
 sub _print_all_none_buttons {
 	my ( $self, $js1, $js2, $class ) = @_;
 	if ( ref $js1 && ref $js2 ) {
+		local $" = ',';
 		print "<input type=\"button\" value=\"None\" class=\"$class\" onclick='@$js2' />\n";
 		print "<input type=\"button\" value=\"All\" class=\"$class\" onclick='@$js1' />\n";
 	}

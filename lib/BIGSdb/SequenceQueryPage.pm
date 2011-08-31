@@ -441,8 +441,8 @@ sub _run_query {
 									my $diffs = $self->_get_differences( $seq_ref, \$seq, $sstart, $qstart );
 									print "<h2>Differences</h2>\n";
 									if (@$diffs) {
-										my $plural = scalar @$diffs > 1 ? 's' : '';
-										print "<p>" . scalar @$diffs . " difference$plural found. ";
+										my $plural = @$diffs > 1 ? 's' : '';
+										print "<p>" . @$diffs . " difference$plural found. ";
 										my $data_type;
 										if ( defined $locus_info->{'data_type'} ) {
 											$data_type = $locus_info->{'data_type'} eq 'DNA' ? 'nucleotide' : 'residue';
@@ -461,7 +461,6 @@ sub _run_query {
 											print $self->_format_difference( $_, $qry_type ) . '<br />';
 										}
 										print "</p>\n";
-										$plural = scalar @$diffs > 1 ? 's' : '';
 										if ( $sstart > 1 ) {
 											print "<p>Your query sequence only starts at position $sstart of sequence ";
 											print "$locus: " if $locus && $locus !~ /SCHEME_\d+/;

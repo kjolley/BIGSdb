@@ -98,7 +98,7 @@ sub print_content {
 		print "<div class=\"box\" id=\"statusbad\"><p>Insufficient identifying attributes sent.</p></div>\n";
 		return;
 	}
-	$" = ' AND ';
+	local $" = ' AND ';
 	my $qry = "SELECT * FROM $table WHERE @query_values";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
@@ -156,6 +156,8 @@ sub print_content {
 			}
 		} elsif ( $_->{'name'} eq 'curator' or $_->{'name'} eq 'sender' ) {
 			my $user = $self->{'datastore'}->get_user_info($value);
+			$user->{'first_name'} ||= '';
+			$user->{'surname'} ||= '';
 			$buffer .= "<td style=\"text-align:left\">$user->{'first_name'} $user->{'surname'}</td>\n";
 		} elsif ( $_->{'name'} eq 'scheme_id' ) {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info($value);
@@ -168,7 +170,7 @@ sub print_content {
 					push @fields_to_query, $1;
 				}
 			}
-			$" = ',';
+			local $" = ',';
 			my $qry = "select @fields_to_query from $_->{'foreign_key'} WHERE id=?";
 			my $foreign_key_sql = $self->{'db'}->prepare($qry) or die;
 			eval { $foreign_key_sql->execute($value) };
@@ -185,7 +187,7 @@ sub print_content {
 			}
 		} elsif ( $_->{'name'} eq 'locus' ) {
 			$value = $self->clean_locus($value);
-			$buffer .= "<td style=\"text-align:left\">$value</td>\n";
+			$buffer .= defined $value ? "<td style=\"text-align:left\">$value</td>\n" : '<td />';
 		} else {
 			$buffer .= defined $value ? "<td style=\"text-align:left\">$value</td>\n" : '<td />';
 		}
@@ -242,36 +244,40 @@ sub print_content {
 		if ( $table eq 'users' ) {
 
 			#Don't delete yourself
-			if ( $data->{'id'} == $self->get_curator_id ) {
+			if ( defined $data->{'id'} && $data->{'id'} == $self->get_curator_id ) {
 				$nogo_buffer .=
 "It's not a good idea to remove yourself as a curator!  If you really wish to do this, you'll need to do it from another curator account.<br />\n";
 				$proceed = 0;
 			}
 
 			#Don't delete curators or admins unless you are an admin yourself
-			elsif ( $data->{'status'} ne 'user' && !$self->is_admin() ) {
+			elsif ( defined $data->{'status'} && $data->{'status'} ne 'user' && !$self->is_admin ) {
 				$nogo_buffer .= "Only administrators can delete users with curator or admin status!<br />\n";
 				$proceed = 0;
 			}
 			if ($proceed) {
 				my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
-				foreach my $table ( $self->{'datastore'}->get_tables_with_curator() ) {
+				foreach my $table ( $self->{'datastore'}->get_tables_with_curator ) {
 					next if !@$sample_fields && $table eq 'samples';
 					my $num = $self->{'datastore'}->run_simple_query( "SELECT count(*) FROM $table WHERE curator = ?", $data->{'id'} )->[0];
 					my $num_senders;
-					if ( $table eq $self->{'system'}->{'view'} ) {
+					if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
 						$num_senders =
 						  $self->{'datastore'}->run_simple_query( "SELECT count(*) FROM $table WHERE sender = ?", $data->{'id'} )->[0];
 					}
 					if ( $num || $num_senders ) {
-						my $plural = $num > 1 ? 's' : '';
-						$nogo_buffer .=
-						  "User '$data->{'id'}' is the curator for $num record$plural in table '$table' - can not delete!<br />"
-						  if $num;
-						$plural = $num_senders > 1 ? 's' : '';
-						$nogo_buffer .=
-						  "User '$data->{'id'}' is the sender for $num_senders record$plural in table '$table' - can not delete!<br />"
-						  if $num_senders;
+						if ($num){
+							my $plural = $num > 1 ? 's' : '';
+							$nogo_buffer .=
+							  "User '$data->{'id'}' is the curator for $num record$plural in table '$table' - can not delete!<br />"
+							  if $num;
+						}
+						if ($num_senders){
+							my $plural = $num_senders > 1 ? 's' : '';
+							$nogo_buffer .=
+							  "User '$data->{'id'}' is the sender for $num_senders record$plural in table '$table' - can not delete!<br />"
+							  if $num_senders;
+						}
 						$proceed = 0;
 					}
 				}
@@ -361,7 +367,7 @@ sub print_content {
 		}
 		$buffer .= "</p>\n";
 		if ( $q->param('submit') && $proceed ) {
-			$" = ' AND ';
+			local $" = ' AND ';
 			my $qry = "DELETE FROM $table WHERE @query_values";
 			if ( $table eq 'allele_designations' && $self->can_modify_table('allele_sequences') && $q->param('delete_tags') ) {
 				$qry .=
@@ -419,6 +425,7 @@ sub print_content {
 		}
 	}
 	print $buffer;
+	return;
 }
 
 sub get_title {

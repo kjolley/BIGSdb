@@ -33,11 +33,13 @@ sub initiate {
 		return;
 	}
 	$self->{$_} = 1 foreach (qw (tooltips jQuery jQuery.coolfieldset));
+	return;
 }
 
 sub set_pref_requirements {
 	my ($self) = @_;
 	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 0 };
+	return;
 }
 
 sub print_content {
@@ -75,6 +77,7 @@ sub print_content {
 	} else {
 		print "<p />\n";
 	}
+	return;
 }
 
 sub get_title {
@@ -127,6 +130,7 @@ sub _print_table_fields {
 " <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>Add more fields by clicking the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>";
 	}
 	print "</span>\n";
+	return;
 }
 
 sub _ajax_content {
@@ -137,6 +141,7 @@ sub _ajax_content {
 	return if !BIGSdb::Utils::is_int($row) || $row > MAX_ROWS || $row < 2;
 	my ( $select_items, $labels ) = $self->_get_select_items($table);
 	$self->_print_table_fields( $table, $row, 0, $select_items, $labels );
+	return;
 }
 
 sub _print_query_interface {
@@ -168,7 +173,7 @@ sub _print_query_interface {
 	print "</span>\n";
 	print "<ul id=\"table_fields\">\n";
 
-	for ( my $i = 1 ; $i <= $table_fields ; $i++ ) {
+	foreach my $i ( 1 .. $table_fields ) {
 		print "<li>";
 		$self->_print_table_fields( $table, $i, $table_fields, $select_items, $labels );
 		print "</li>\n";
@@ -177,7 +182,6 @@ sub _print_query_interface {
 	print "</fieldset>\n";
 	print "<fieldset class=\"display\">\n";
 	print "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>\n";
-	$" = ' ';
 	print $q->popup_menu( -name => 'order', -id => 'order', -values => $order_by, -labels => $labels );
 	print $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
 	print "</span></li>\n<li><span style=\"white-space:nowrap\">\n";
@@ -222,7 +226,7 @@ sub _print_query_interface {
 							foreach (@values) {
 								push @fields_to_query, $1 if $_ =~ /\$(.*)/;
 							}
-							$" = ',';
+							local $" = ',';
 							my $qry = "select id,@fields_to_query from $_->{'foreign_key'} ORDER BY @fields_to_query";
 							my $sql = $self->{'db'}->prepare($qry) or die;
 							eval { $sql->execute; };
@@ -240,7 +244,7 @@ sub _print_query_interface {
 						} else {
 							push @fields_to_query, 'id';
 						}
-						$" = ',';
+						local $" = ',';
 						if ( $_->{'foreign_key'} eq 'users' ) {
 							@values =
 							  @{ $self->{'datastore'}->run_list_query("SELECT id FROM users WHERE id>0 ORDER BY @fields_to_query") };
@@ -318,6 +322,7 @@ sub _print_query_interface {
 	}
 	print $q->endform;
 	print "</div></div>\n";
+	return;
 }
 
 sub _run_query {
@@ -512,20 +517,20 @@ sub _run_query {
 		$qry2 .= $q->param('order');
 		my $dir = $q->param('direction') eq 'descending' ? 'desc' : 'asc';
 		my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
-		$" = ",$table.";
+		local $" = ",$table.";
 		$qry2 .= " $dir,$table.@primary_keys;";
 	} else {
 		$qry2 = $q->param('query');
 	}
 	my @hidden_attributes;
 	push @hidden_attributes, 'c0';
-	for ( my $i = 1 ; $i <= MAX_ROWS ; $i++ ) {
+	foreach my $i ( 1 .. MAX_ROWS ) {
 		push @hidden_attributes, "s$i", "t$i", "y$i";
 	}
 	push @hidden_attributes, $_->{'name'} . '_list' foreach (@$attributes);
 	push @hidden_attributes, qw (no_js sequence_flag_list duplicates_list common_name_list scheme_id_list);
 	if (@errors) {
-		$" = '<br />';
+		local $" = '<br />';
 		print "<div class=\"box\" id=\"statusbad\"><p>Problem with search criteria:</p>\n";
 		print "<p>@errors</p></div>\n";
 	} elsif ( $qry2 !~ /\(\)/ ) {
@@ -556,11 +561,12 @@ s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bi
 		$qry .= $q->param('order');
 		my $dir = $q->param('direction') eq 'descending' ? 'desc' : 'asc';
 		my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
-		$" = ",$table.";
+		local $" = ",$table.";
 		$qry .= " $dir,$table.@primary_keys;";
 		$self->paged_display( $table, $qry, '', \@hidden_attributes );
 		print "<p />\n";
 	}
+	return;
 }
 
 sub print_results_header_insert {
@@ -577,6 +583,7 @@ sub print_results_header_insert {
 	print $q->hidden($_) foreach qw (db filename table page);
 	print $q->end_form;
 	print "</fieldset>\n";
+	return;
 }
 
 sub _search_by_isolate_id {

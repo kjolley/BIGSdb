@@ -89,7 +89,7 @@ HTML
 		$width = int( $width - ( $width % 500 ) ) || 500;
 		my ( $histogram, $min, $max ) = BIGSdb::Utils::histogram( $width, $lengths );
 		my ( @labels, @values );
-		for ( my $i = $min ; $i <= $max ; $i++ ) {
+		foreach my $i ( $min .. $max ) {
 			push @labels, $i * $width;
 			push @values, $histogram->{$i};
 		}

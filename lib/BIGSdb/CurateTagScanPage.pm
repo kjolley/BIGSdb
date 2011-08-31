@@ -65,6 +65,7 @@ END
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (tooltips jQuery noCache);
+	return;
 }
 
 sub _print_interface {
@@ -301,6 +302,7 @@ sub _print_interface {
 	print $q->hidden($_) foreach qw (page db);
 	print $q->end_form;
 	print "</div>\n";
+	return;
 }
 
 sub _scan {
@@ -366,6 +368,7 @@ sub _scan {
 			@isolates_in_project = @$list_ref;
 		}
 	}
+	local $| = 1;
 	foreach my $isolate_id (@ids) {
 		next if $project_id && none { $isolate_id == $_ } @isolates_in_project;
 		if ( $match >= $limit ) {
@@ -378,7 +381,7 @@ sub _scan {
 		}
 		next if $isolate_id eq '' || $isolate_id eq 'all';
 		next if !$self->is_allowed_to_view_isolate($isolate_id);
-		$| = 1;
+		
 		my %locus_checked;
 		foreach my $locus (@loci) {
 			if ( $locus =~ /^l_(.+)/ || $locus =~ /^cn_(.+)/ || $locus =~ /^la_(.+)\|\|/ ) {
@@ -489,7 +492,7 @@ sub _scan {
 		$buffer .= "<p>* Allele continues beyond end of contig</p>\n" if $show_key;
 	}
 	if ($tag_button) {
-		$" = ';';
+		local $" = ';';
 		print "<tr class=\"td\"><td colspan=\"14\" /><td>\n";
 		print "<input type=\"button\" value=\"All\" onclick='@js' class=\"smallbutton\" />"   if @js;
 		print "<input type=\"button\" value=\"None\" onclick='@js2' class=\"smallbutton\" />" if @js2;
@@ -508,7 +511,6 @@ sub _scan {
 		print "</p>\n";
 	}
 	if ($tag_button) {
-		$" = ';';
 		print $q->submit( -name => 'tag', -label => 'Tag alleles/sequences', -class => 'submit' );
 		print "<noscript><p><span class=\"comment\"> Enable javascript for select buttons to work!</span></p></noscript>\n";
 		foreach (
@@ -523,11 +525,12 @@ sub _scan {
 	}
 	print $q->end_form;
 	print "</div>\n";
+	return;
 }
 
 sub _tag {
-	my ( @updates, @allele_updates, @pending_allele_updates, @sequence_updates, $history );
 	my ( $self, $labels ) = @_;
+	my ( @updates, @allele_updates, @pending_allele_updates, @sequence_updates, $history );
 	my $q = $self->{'cgi'};
 	my $pending_sql =
 	  $self->{'db'}
@@ -589,7 +592,7 @@ sub _tag {
 							push @{ $history->{$isolate_id} }, "$_: new designation '$allele_id' (sequence bin scan)";
 						} elsif ( defined $set_allele_id
 							&& $set_allele_id    ne $allele_id
-							&& $allele_id_to_set ne $allele_id
+							&& (!defined $allele_id_to_set || $allele_id_to_set ne $allele_id)
 							&& !$pending_allele_ids_to_set{$allele_id} )
 						{
 							eval { $pending_sql->execute( $isolate_id, $_, $allele_id, $sender ) };
@@ -643,7 +646,6 @@ sub _tag {
 		};
 		if ($@) {
 			my $err = $@;
-			$" = ', ';
 			print
 			  "<div class=\"box\" id=\"statusbad\"><p>Database update failed - transaction cancelled - no records have been touched.</p>\n";
 			if ( $err =~ /duplicate/ && $err =~ /unique/ ) {
@@ -662,7 +664,7 @@ sub _tag {
 			print "<div class=\"box\" id=\"resultsheader\"><p>Database updated ok.</p>";
 			print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
 			print "<div class=\"box\" id=\"resultstable\">\n";
-			$" = "<br />\n";
+			local $" = "<br />\n";
 			if (@allele_updates) {
 				print "<h2>Allele designations set</h2>\n";
 				print "<p>@allele_updates</p>\n";
@@ -678,7 +680,7 @@ sub _tag {
 			if ( ref $history eq 'HASH' ) {
 				foreach ( keys %$history ) {
 					my @message = @{ $history->{$_} };
-					$" = '<br />';
+					local $" = '<br />';
 					$self->update_history( $_, "@message" );
 				}
 			}
@@ -688,6 +690,7 @@ sub _tag {
 		print "<div class=\"box\" id=\"resultsheader\"><p>No updates required.</p>\n";
 		print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
 	}
+	return;
 }
 
 sub print_content {
@@ -712,6 +715,7 @@ sub print_content {
 	} elsif ( $q->param('scan') ) {
 		$self->_scan( \%labels );
 	}
+	return;
 }
 
 sub get_title {
@@ -721,19 +725,20 @@ sub get_title {
 }
 
 sub _add_scheme_loci {
-	my ( $self, $loci ) = @_;
+	my ( $self, $loci_ref ) = @_;
 	my @scheme_ids = $self->{'cgi'}->param('scheme_id');
 	my %locus_selected;
-	$locus_selected{$_} = 1 foreach @$loci;
+	$locus_selected{$_} = 1 foreach @$loci_ref;
 	foreach (@scheme_ids) {
 		my $scheme_loci = $_ ? $self->{'datastore'}->get_scheme_loci($_) : $self->{'datastore'}->get_loci_in_no_scheme;
 		foreach my $locus (@$scheme_loci) {
 			if ( !$locus_selected{$locus} ) {
-				push @$loci, "l_$locus";
+				push @$loci_ref, "l_$locus";
 				$locus_selected{$locus} = 1;
 			}
 		}
 	}
+	return;
 }
 
 sub _print_row {
@@ -1287,8 +1292,8 @@ sub _parse_blast_exact {
 }
 
 sub _parse_blast_partial {
-	my @matches;
 	my ( $self, $locus, $exact_matched_regions, $blast_file, $pcr_filter, $pcr_products, $probe_filter, $probe_matches ) = @_;
+	my @matches;
 	my $identity  = $self->{'cgi'}->param('identity');
 	my $alignment = $self->{'cgi'}->param('alignment');
 	$identity  = 70 if !BIGSdb::Utils::is_int($identity);

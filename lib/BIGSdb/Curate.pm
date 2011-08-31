@@ -41,8 +41,8 @@ sub db_connect {
 	catch BIGSdb::DatabaseConnectionException with {
 		my $logger = get_logger('BIGSdb.Application_Initiate');
 		$logger->fatal("Can not connect to database '$self->{'system'}->{'db'}'");
-		return;
 	};
+	return;
 }
 
 sub print_page {
@@ -115,7 +115,7 @@ sub print_page {
 	if ( $self->{'error'} ) {
 		$page_attributes{'error'} = $self->{'error'};
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
-		$page->print();
+		$page->print;
 		return;
 	} else {
 		( $continue, $auth_cookies_ref ) = $self->authenticate( \%page_attributes );
@@ -143,13 +143,15 @@ sub print_page {
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
 	} elsif ( !$self->{'prefstore'} ) {
 		$page_attributes{'error'} = 'noPrefs';
-		$page_attributes{'fatal'} = $self->{'fatal'}, $page = BIGSdb::ErrorPage->new(%page_attributes);
+		$page_attributes{'fatal'} = $self->{'fatal'};
+		$page = BIGSdb::ErrorPage->new(%page_attributes);
 	} elsif ( ( $self->{'system'}->{'disable_updates'} && $self->{'system'}->{'disable_updates'} eq 'yes' )
 		|| ( $self->{'config'}->{'disable_updates'} && $self->{'config'}->{'disable_updates'} eq 'yes' ) )
 	{
 		$page_attributes{'error'}   = 'disableUpdates';
 		$page_attributes{'message'} = $self->{'config'}->{'disable_update_message'} || $self->{'system'}->{'disable_update_message'};
-		$page_attributes{'fatal'}   = $self->{'fatal'}, $page = BIGSdb::ErrorPage->new(%page_attributes);
+		$page_attributes{'fatal'}   = $self->{'fatal'};
+		$page = BIGSdb::ErrorPage->new(%page_attributes);
 	} elsif ( $classes{ $self->{'page'} } ) {
 		if ( ref $auth_cookies_ref eq 'ARRAY' ) {
 			foreach (@$auth_cookies_ref) {
@@ -162,5 +164,6 @@ sub print_page {
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
 	}
 	$page->print;
+	return;
 }
 1;

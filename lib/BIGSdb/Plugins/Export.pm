@@ -79,11 +79,10 @@ sub run {
 			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
 			return if !$self->create_temp_tables($qry_ref);
 			my $fields = $self->{'xmlHandler'}->get_field_list;
-			$" = ",$view.";
+			local $" = ",$view.";
 			my $field_string = "$view.@$fields";
 			$$qry_ref =~ s/SELECT ($view\.\*|\*)/SELECT $field_string/;
 			$self->rewrite_query_ref_order_by($qry_ref);
-			$| = 1;
 			$self->_write_tab_text( $qry_ref, $selected_fields, $full_path );
 			print " done</p>";
 			print "<p><a href=\"/tmp/$filename\">Output file</a> (right-click to save)</p>\n";
@@ -106,6 +105,7 @@ HTML
 	}
 	$self->print_field_export_form( 1, [], { 'include_composites' => 1, 'extended_attributes' => 1 } );
 	print "</div>\n";
+	return;
 }
 
 sub _write_tab_text {
@@ -183,7 +183,7 @@ sub _write_tab_text {
 	my $alias_sql = $self->{'db'}->prepare("SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias");
 	my $attribute_sql =
 	  $self->{'db'}->prepare("SELECT value FROM isolate_value_extended_attributes WHERE isolate_field=? AND attribute=? AND field_value=?");
-
+	local $| = 1;
 	while ( $sql->fetchrow_arrayref ) {
 		print "." if !$i;
 		print " " if !$j;
@@ -205,14 +205,14 @@ sub _write_tab_text {
 					while ( my ($alias) = $alias_sql->fetchrow_array ) {
 						push @aliases, $alias;
 					}
-					$" = '; ';
+					local $" = '; ';
 					print $fh "@aliases";
 				} elsif ( $field =~ /(.*)___(.*)/ ) {
 					my ( $isolate_field, $attribute ) = ( $1, $2 );
 					eval { $attribute_sql->execute( $isolate_field, $attribute, $data{$isolate_field} ) };
 					$logger->error($@) if $@;
 					my ($value) = $attribute_sql->fetchrow_array;
-					print $fh $value;
+					print $fh $value if defined $value;
 				} else {
 					print $fh $data{$field} if defined $data{$field};
 				}
@@ -250,6 +250,7 @@ sub _write_tab_text {
 		$j = 0 if $j == 10;
 	}
 	close $fh;
+	return;
 }
 
 sub _get_molwt {

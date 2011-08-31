@@ -84,10 +84,7 @@ sub run {
 	catch BIGSdb::DatabaseNoRecordException with {
 		$prefs{'method'} = 'all';
 	};
-	my $method_clause;
-	if ( $prefs{'method'} ne 'all' ) {
-		$method_clause = " AND method='$prefs{'method'}'";
-	}
+	my $method_clause = $prefs{'method'} ne 'all' ? " AND method='$prefs{'method'}'" : '';
 	my $seqbin_count =
 	  $self->{'datastore'}->run_list_query("SELECT COUNT(*) FROM sequence_bin WHERE isolate_id IN ($qry)$method_clause")->[0];
 	if ( !$seqbin_count ) {
@@ -136,9 +133,13 @@ HTML
 		}
 		next if !$contigs;
 		my ($isolate) = $sql_name->fetchrow_array;
-		print
-"<tr class=\"td$td\"><td>$_</td><td>$isolate</td><td>$contigs</td><td>$sum</td><td>$min</td><td>$max</td><td>$mean</td><td>$stddev</td><td><a href=\"$self->{'system'}->{'scriptname'}?page=seqbin&amp;db=$self->{'instance'}&amp;isolate_id=$_\" class=\"extract_tooltip\" target=\"_blank\">Display &rarr;</a></td></tr>\n";
-		print $fh "$_\t$isolate\t$contigs\t$sum\t$min\t$max\t$mean\t$stddev\n";
+		print "<tr class=\"td$td\"><td>$_</td>";
+		print "<td>$isolate</td><td>$contigs</td><td>$sum</td><td>$min</td><td>$max</td><td>$mean</td>";
+		print defined $stddev ? "<td>$stddev</td>" : '<td />';
+		print "<td><a href=\"$self->{'system'}->{'script_name'}?page=seqbin&amp;db=$self->{'instance'}&amp;isolate_id=$_\" class=\"extract_tooltip\" target=\"_blank\">Display &rarr;</a></td></tr>\n";
+		print $fh "$_\t$isolate\t$contigs\t$sum\t$min\t$max\t$mean\t";
+		print $fh $stddev if defined $stddev;
+		print $fh "\n";
 		push @{ $data->{'contigs'} }, $contigs;
 		push @{ $data->{'sum'} },     $sum;
 		push @{ $data->{'mean'} },    $mean;
@@ -175,7 +176,7 @@ HTML
 			$width = int( $width - ( $width % $round_to_nearest ) ) || $round_to_nearest;
 			my ( $histogram, $min, $max ) = BIGSdb::Utils::histogram( $width, $data->{$_} );
 			my ( @labels, @values );
-			for ( my $i = $min ; $i <= $max ; $i++ ) {
+			foreach my $i ( $min .. $max ) {
 				push @labels, $i * $width;
 				push @values, $histogram->{$i};
 			}

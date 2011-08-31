@@ -29,8 +29,8 @@ use BIGSdb::Locus;
 use BIGSdb::Scheme;
 
 sub new {
-	my $class = shift;
-	my $self  = {@_};
+	my ($class, @atr) = @_;
+	my $self  = {@atr};
 	$self->{'sql'}    = {};
 	$self->{'scheme'} = {};
 	$self->{'locus'}  = {};
@@ -43,6 +43,7 @@ sub new {
 sub update_prefs {
 	my ( $self, $prefs ) = @_;
 	$self->{'prefs'} = $prefs;
+	return;
 }
 
 sub DESTROY {
@@ -60,6 +61,7 @@ sub DESTROY {
 		$logger->info("locus $_ destroyed.");
 	}
 	$logger->info("Datastore destroyed.");
+	return;
 }
 
 sub get_data_connector {
@@ -74,9 +76,9 @@ sub get_user_info {
 		$self->{'sql'}->{'user_info'} = $self->{'db'}->prepare("SELECT first_name,surname,affiliation,email FROM users WHERE id=?");
 		$logger->info("Statement handle 'user_info' prepared.");
 	}
-	eval { $self->{'sql'}->{'user_info'}->execute($id); };
+	eval { $self->{'sql'}->{'user_info'}->execute($id) };
 	$logger->error($@) if $@;
-	return $self->{'sql'}->{'user_info'}->fetchrow_hashref();
+	return $self->{'sql'}->{'user_info'}->fetchrow_hashref;
 }
 
 sub get_user_info_from_username {
@@ -86,9 +88,9 @@ sub get_user_info_from_username {
 		  $self->{'db'}->prepare("SELECT first_name,surname,affiliation,email FROM users WHERE user_name=?");
 		$logger->info("Statement handle 'user_info_from_username' prepared.");
 	}
-	eval { $self->{'sql'}->{'user_info_from_username'}->execute($id); };
+	eval { $self->{'sql'}->{'user_info_from_username'}->execute($id) };
 	$logger->error($@) if $@;
-	return $self->{'sql'}->{'user_info_from_username'}->fetchrow_hashref();
+	return $self->{'sql'}->{'user_info_from_username'}->fetchrow_hashref;
 }
 
 sub get_permissions {
@@ -112,18 +114,18 @@ sub get_composite_value {
 		  ->prepare("SELECT field,empty_value,regex FROM composite_field_values WHERE composite_field_id=? ORDER BY field_order");
 		$logger->info("Statement handle 'composite_field_values' prepared.");
 	}
-	eval { $self->{'sql'}->{'composite_field_values'}->execute($composite_field); };
+	eval { $self->{'sql'}->{'composite_field_values'}->execute($composite_field) };
 	$logger->error($@) if $@;
 	my $allele_ids;
 	my %scheme_fields;
 	my %scheme_field_list;
-	while ( my ( $field, $empty_value, $regex ) = $self->{'sql'}->{'composite_field_values'}->fetchrow_array() ) {
+	while ( my ( $field, $empty_value, $regex ) = $self->{'sql'}->{'composite_field_values'}->fetchrow_array ) {
 		if (
 			defined $regex
 			&& (
 				$regex =~ /[^\w\d\-\.\\\/\(\)\+\* \$]/    #reject regex containing any character not in list
 				|| $regex =~ /\$\D/                       #allow only $1, $2 etc. variables
-			)                                             
+			)
 		  )
 		{
 			$logger->warn(
@@ -144,7 +146,7 @@ sub get_composite_value {
 			if ( ref $allele_ids ne 'HASH' ) {
 				$allele_ids = $self->get_all_allele_ids($isolate_id);
 			}
-			my $allele = $allele_ids->{$locus} ;
+			my $allele = $allele_ids->{$locus};
 			$allele = '&Delta;' if defined $allele && $allele =~ /^del/i;
 			if ($regex) {
 				my $expression = "\$allele =~ $regex";
@@ -165,7 +167,8 @@ sub get_composite_value {
 					my $field_value;
 					if ( ref $scheme_fields{$scheme_id} eq 'ARRAY' ) {
 						undef $scheme_fields{$scheme_id}->[$i]
-						  if defined $scheme_fields{$scheme_id}->[$i] && $scheme_fields{$scheme_id}->[$i] eq
+						  if defined $scheme_fields{$scheme_id}->[$i]
+							  && $scheme_fields{$scheme_id}->[$i] eq
 							  '-999';    #Needed because old style profile databases may use '-999' to denote null values
 						$field_value = $scheme_fields{$scheme_id}->[$i];
 					} else {
@@ -199,14 +202,14 @@ sub get_scheme_field_values {
 	my $value;
 	my $scheme_fields = $self->get_scheme_fields($scheme_id);
 	my $scheme_loci   = $self->get_scheme_loci($scheme_id);
-	$" = "','";
 	my @profile;
 	my $allele_ids = $self->get_all_allele_ids($isolate_id);
 	foreach (@$scheme_loci) {
 		push @profile, $allele_ids->{$_};
 	}
+	my $values;
 	try {
-		my $values = $self->get_scheme($scheme_id)->get_field_values_by_profile( \@profile );
+		$values = $self->get_scheme($scheme_id)->get_field_values_by_profile( \@profile );
 		if ($field) {
 			for ( my $i = 0 ; $i < scalar @$scheme_fields ; $i++ ) {
 				if ( $field eq $scheme_fields->[$i] ) {
@@ -214,12 +217,12 @@ sub get_scheme_field_values {
 				}
 			}
 			return [];
-		}
-		return $values;
+		}		
 	}
 	catch BIGSdb::DatabaseConfigurationException with {
 		$logger->warn("Can't retrieve scheme_field values for scheme $scheme_id - scheme configuration error.");
 	};
+	return $values;
 }
 
 sub get_samples {
@@ -231,11 +234,11 @@ sub get_samples {
 		if ( !@$fields ) {
 			return \%;;
 		}
-		$" = ',';
+		local $" = ',';
 		$self->{'sql'}->{'get_samples'} = $self->{'db'}->prepare("SELECT @$fields FROM samples WHERE isolate_id=? ORDER BY sample_id");
 		$logger->info("Statement handle 'get_samples' prepared.");
 	}
-	eval { $self->{'sql'}->{'get_samples'}->execute($id); };
+	eval { $self->{'sql'}->{'get_samples'}->execute($id) };
 	$logger->error($@) if $@;
 	return $self->{'sql'}->{'get_samples'}->fetchall_arrayref( {} );
 }
@@ -248,9 +251,9 @@ sub profile_exists {
 		$self->{'sql'}->{'profile_exists'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM profiles WHERE scheme_id=? AND profile_id=?");
 		$logger->info("Statement handle 'profile_exists' prepared.");
 	}
-	eval { $self->{'sql'}->{'profile_exists'}->execute( $scheme_id, $profile_id ); };
+	eval { $self->{'sql'}->{'profile_exists'}->execute( $scheme_id, $profile_id ) };
 	$logger->error($@) if $@;
-	my ($exists) = $self->{'sql'}->{'profile_exists'}->fetchrow_array();
+	my ($exists) = $self->{'sql'}->{'profile_exists'}->fetchrow_array;
 	return $exists;
 }
 ##############ISOLATE CLIENT DATABASE ACCESS FROM SEQUENCE DATABASE####################
@@ -260,9 +263,9 @@ sub get_client_db_info {
 		$self->{'sql'}->{'client_db_info'} = $self->{'db'}->prepare("SELECT * FROM client_dbases WHERE id=?");
 		$logger->info("Statement handle 'client_db_info' prepared.");
 	}
-	eval { $self->{'sql'}->{'client_db_info'}->execute($id); };
+	eval { $self->{'sql'}->{'client_db_info'}->execute($id) };
 	$logger->error($@) if $@;
-	return $self->{'sql'}->{'client_db_info'}->fetchrow_hashref();
+	return $self->{'sql'}->{'client_db_info'}->fetchrow_hashref;
 }
 
 sub get_client_db {
@@ -296,8 +299,8 @@ sub scheme_exists {
 		$self->{'sql'}->{'scheme_exists'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM schemes WHERE id=?");
 		$logger->info("Statement handle 'scheme_exists' prepared.");
 	}
-	eval { $self->{'sql'}->{'scheme_exists'}->execute($id); };
-	my ($exists) = $self->{'sql'}->{'scheme_exists'}->fetchrow_array();
+	eval { $self->{'sql'}->{'scheme_exists'}->execute($id) };
+	my ($exists) = $self->{'sql'}->{'scheme_exists'}->fetchrow_array;
 	return $exists;
 }
 
@@ -307,9 +310,9 @@ sub get_scheme_info {
 		$self->{'sql'}->{'scheme_info'} = $self->{'db'}->prepare("SELECT * FROM schemes WHERE id=?");
 		$logger->info("Statement handle 'scheme_info' prepared.");
 	}
-	eval { $self->{'sql'}->{'scheme_info'}->execute($id); };
+	eval { $self->{'sql'}->{'scheme_info'}->execute($id) };
 	$logger->error($@) if $@;
-	return $self->{'sql'}->{'scheme_info'}->fetchrow_hashref();
+	return $self->{'sql'}->{'scheme_info'}->fetchrow_hashref;
 }
 
 sub get_all_scheme_info {
@@ -319,7 +322,7 @@ sub get_all_scheme_info {
 	my ($self) = @_;
 	if ( !$self->{'all_scheme_info'} ) {
 		my $sql = $self->{'db'}->prepare("SELECT * FROM schemes");
-		eval { $sql->execute; };
+		eval { $sql->execute };
 		$logger->error($@) if $@;
 		$self->{'all_scheme_info'} = $sql->fetchall_hashref('id');
 	}
@@ -329,7 +332,7 @@ sub get_all_scheme_info {
 sub get_all_scheme_loci {
 	my ($self) = @_;
 	my $sql = $self->{'db'}->prepare("SELECT scheme_id,locus FROM scheme_members ORDER BY field_order,locus");
-	eval { $sql->execute; };
+	eval { $sql->execute };
 	$logger->error($@) if $@;
 	my $loci;
 	my $data = $sql->fetchall_arrayref;
@@ -350,15 +353,15 @@ sub get_scheme_loci {
 	my @field_names = 'locus';
 	push @field_names, 'profile_name' if $self->{'system'}->{'dbtype'} eq 'isolates';
 	if ( !$self->{'sql'}->{'scheme_loci'} ) {
-		$" = ',';
+		local $" = ',';
 		$self->{'sql'}->{'scheme_loci'} =
 		  $self->{'db'}->prepare("SELECT @field_names FROM scheme_members WHERE scheme_id=? ORDER BY field_order,locus");
 		$logger->info("Statement handle 'scheme_loci' prepared.");
 	}
-	eval { $self->{'sql'}->{'scheme_loci'}->execute($id); };
+	eval { $self->{'sql'}->{'scheme_loci'}->execute($id) };
 	$logger->error($@) if $@;
 	my @loci;
-	while ( my ( $locus, $profile_name ) = $self->{'sql'}->{'scheme_loci'}->fetchrow_array() ) {
+	while ( my ( $locus, $profile_name ) = $self->{'sql'}->{'scheme_loci'}->fetchrow_array ) {
 		if ( $options->{'analysis_pref'} ) {
 			if (   $self->{'prefs'}->{'analysis_loci'}->{$locus}
 				&& $self->{'prefs'}->{'analysis_schemes'}->{$id} )
@@ -391,10 +394,10 @@ sub get_loci_in_no_scheme {
 		  ->prepare("SELECT id FROM loci LEFT JOIN scheme_members ON loci.id = scheme_members.locus where scheme_id is null ORDER BY id");
 		$logger->info("Statement handle 'no_scheme_loci' prepared.");
 	}
-	eval { $self->{'sql'}->{'no_scheme_loci'}->execute(); };
+	eval { $self->{'sql'}->{'no_scheme_loci'}->execute };
 	$logger->error($@) if $@;
 	my @loci;
-	while ( my ($locus) = $self->{'sql'}->{'no_scheme_loci'}->fetchrow_array() ) {
+	while ( my ($locus) = $self->{'sql'}->{'no_scheme_loci'}->fetchrow_array ) {
 		if ($analyse_pref) {
 			if ( $self->{'prefs'}->{'analysis_loci'}->{$locus} ) {
 				push @loci, $locus;
@@ -413,10 +416,10 @@ sub are_sequences_displayed_in_scheme {
 		  $self->{'db'}->prepare("SELECT id FROM loci LEFT JOIN scheme_members ON scheme_members.locus = loci.id WHERE scheme_id=?");
 		$logger->info("Statement handle 'seq_display' prepared.");
 	}
-	eval { $self->{'sql'}->{'seq_display'}->execute($id); };
+	eval { $self->{'sql'}->{'seq_display'}->execute($id) };
 	$logger->error($@) if $@;
 	my $value;
-	while ( my ($locus) = $self->{'sql'}->{'seq_display'}->fetchrow_array() ) {
+	while ( my ($locus) = $self->{'sql'}->{'seq_display'}->fetchrow_array ) {
 		$value++
 		  if $self->{'prefs'}->{'isolate_display_loci'}->{$locus} eq 'sequence';
 	}
@@ -430,10 +433,10 @@ sub get_scheme_fields {
 		  $self->{'db'}->prepare("SELECT field FROM scheme_fields WHERE scheme_id=? ORDER BY field_order");
 		$logger->info("Statement handle 'scheme_fields' prepared.");
 	}
-	eval { $self->{'sql'}->{'scheme_fields'}->execute($id); };
+	eval { $self->{'sql'}->{'scheme_fields'}->execute($id) };
 	$logger->error($@) if $@;
 	my @fields;
-	while ( my ($field) = $self->{'sql'}->{'scheme_fields'}->fetchrow_array() ) {
+	while ( my ($field) = $self->{'sql'}->{'scheme_fields'}->fetchrow_array ) {
 		push @fields, $field;
 	}
 	return \@fields;
@@ -474,7 +477,7 @@ sub get_all_scheme_field_info {
 	my ($self) = @_;
 	if ( !$self->{'all_scheme_field_info'} ) {
 		my @fields = $self->{'system'}->{'dbtype'} eq 'isolates' ? qw(main_display isolate_display query_field dropdown url) : 'dropdown';
-		$" = ',';
+		local $" = ',';
 		my $sql = $self->{'db'}->prepare("SELECT scheme_id,field,@fields FROM scheme_fields");
 		eval { $sql->execute; };
 		$logger->error($@) if $@;
@@ -550,33 +553,30 @@ sub create_temp_scheme_table {
 	my @query_loci;
 	foreach (@$loci) {
 		my $type = $self->get_locus_info($_)->{'allele_id_format'};
-		eval { $sql->execute( $_, $id ); };
-		if ($@) {
-			$logger->error("Can't execute $qry value: $_");
-		}
+		eval { $sql->execute( $_, $id ) };
+		$logger->error($@) if $@;
 		my ($profile_name) = $sql->fetchrow_array;
 		push @table_fields, "$_ $type";
 		push @query_loci, $profile_name || $_;
 	}
-	$" = ',';
+	local $" = ',';
 	$create .= "@table_fields";
 	$create .= ")";
 	$self->{'db'}->do($create);
 	my $table = $self->get_scheme_info($id)->{'dbase_table'};
 	$qry = "SELECT @$fields,@query_loci FROM $table";
 	my $scheme_sql = $scheme_db->prepare($qry);
-	eval { $scheme_sql->execute(); };
-
+	eval { $scheme_sql->execute };
 	if ($@) {
-		$logger->warn("Can't execute $qry $@");
+		$logger->error($@);
 		return;
 	}
-	$" = ",";
+	local $" = ",";
 	eval { $self->{'db'}->do("COPY temp_scheme_$id(@$fields,@$loci) FROM STDIN"); };
 	if ($@) {
 		$logger->error("Can't start copying data into temp table");
 	}
-	$" = "\t";
+	local $" = "\t";
 	my $data = $scheme_sql->fetchall_arrayref;
 	foreach (@$data) {
 		foreach (@$_) {
@@ -593,7 +593,7 @@ sub create_temp_scheme_table {
 		$self->{'db'}->rollback;
 		throw BIGSdb::DatabaseConnectionException("Can't put data into temp table");
 	}
-	$" = ',';
+	local $" = ',';
 	eval { $self->{'db'}->do("CREATE INDEX i_$id ON temp_scheme_$id (@$loci)"); };
 	if ($@) {
 		$logger->warn("Can't create index");
@@ -673,7 +673,7 @@ sub get_locus_list {
 	my @option_clauses;
 	push @option_clauses, "analysis" if ( $options->{'analysis_pref'} );
 	if (@option_clauses) {
-		$" = ' AND ';
+		local $" = ' AND ';
 		$qry .= " WHERE @option_clauses";
 	}
 	my $loci = $self->run_list_query_hashref($qry);
@@ -834,9 +834,9 @@ sub get_all_allele_ids {
 		$self->{'sql'}->{'all_allele_ids'} = $self->{'db'}->prepare("SELECT locus,allele_id FROM allele_designations WHERE isolate_id=?");
 		$logger->info("Statement handle 'all_allele_ids' prepared.");
 	}
-	eval { $self->{'sql'}->{'all_allele_ids'}->execute($isolate_id); };
+	eval { $self->{'sql'}->{'all_allele_ids'}->execute($isolate_id) };
 	$logger->error($@) if $@;
-	while ( my ( $locus, $allele_id ) = $self->{'sql'}->{'all_allele_ids'}->fetchrow_array() ) {
+	while ( my ( $locus, $allele_id ) = $self->{'sql'}->{'all_allele_ids'}->fetchrow_array ) {
 		$allele_ids{$locus} = $allele_id;
 	}
 	return \%allele_ids;
@@ -1000,11 +1000,11 @@ sub get_citation_hash {
 	foreach (@$pmid_ref) {
 		eval { $sqlr->execute($_) };
 		$logger->error($@) if $@;
-		eval { $sqlr3->execute($_); };
+		eval { $sqlr3->execute($_) };
 		$logger->error($@) if $@;
-		my ( $year, $journal, $title, $volume, $pages ) = $sqlr->fetchrow_array();
+		my ( $year, $journal, $title, $volume, $pages ) = $sqlr->fetchrow_array;
 		my @authors;
-		while ( my ($authorid) = $sqlr3->fetchrow_array() ) {
+		while ( my ($authorid) = $sqlr3->fetchrow_array ) {
 			push @authors, $authorid;
 		}
 		my ( $author, @author_list );
@@ -1016,13 +1016,13 @@ sub get_citation_hash {
 				$author = "$surname $initials";
 				push @author_list, $author;
 			}
-			$"      = ', ';
+			local $"      = ', ';
 			$author = "@author_list";
 		} else {
 			eval { $sqlr2->execute( $authors[0] ) };
 			$logger->error($@) if $@;
-			my ( $surname, undef ) = $sqlr2->fetchrow_array();
-			$author .= ($surname || 'Unknown');
+			my ( $surname, undef ) = $sqlr2->fetchrow_array;
+			$author .= ( $surname || 'Unknown' );
 			if ( scalar @authors > 1 ) {
 				$author .= ' et al.';
 			}
@@ -1127,14 +1127,12 @@ sub create_temp_ref_table {
 			$all_authors->{ $_->[0] }->{'surname'} =~ s/'/\\'/g;
 			push @authors, "$all_authors->{$_->[0]}->{'surname'} $all_authors->{$_->[0]}->{'initials'}";
 		}
-		$" = ', ';
+		local $" = ', ';
 		my $author_string = "@authors";
-		eval { $sql4->execute($pmid); };
-		if ($@) {
-			$logger->error("Can't execute $qry4, value:$pmid $@");
-		}
+		eval { $sql4->execute($pmid) };
+		$logger->error($@) if $@;
 		my ($isolates) = $sql4->fetchrow_array;
-		$" = "','";
+		local $" = "','";
 		eval {
 			if ( $refdata[0] )
 			{
@@ -2296,7 +2294,7 @@ sub _get_accession_table_attributes {
 		push @$attributes,
 		  ( { name => 'seqbin_id', type => 'int', required => 'yes', primary_key => 'yes', foreign_key => 'sequence_bin' } );
 	}
-	$" = ';';
+	local $" = ';';
 	push @$attributes,
 	  (
 		{ name => 'databank',    type => 'text', required => 'yes', primary_key    => 'yes', optlist => "@databanks" },
@@ -2335,7 +2333,7 @@ sub _get_allele_sequences_table_attributes {
 
 sub _get_sequence_flags_table_attributes {
 	my @flags = SEQ_FLAGS;
-	$" = ';';
+	local $" = ';';
 	my $attributes = [
 		{ name => 'seqbin_id', type => 'int',  required => 'yes', primary_key => 'yes', foreign_key => 'sequence_bin' },
 		{ name => 'locus',     type => 'text', required => 'yes', primary_key => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
@@ -2417,9 +2415,9 @@ sub _get_locus_curators_table_attributes {
 }
 
 sub _get_sequence_bin_table_attributes {
-	my @methods = SEQ_METHODS;
 	my ($self) = @_;
-	$" = ';';
+	my @methods = SEQ_METHODS;
+	local $" = ';';
 	my $attributes = [
 		{ name => 'id', type => 'int', required => 'yes', primary_key => 'yes' },
 		{
@@ -2468,7 +2466,7 @@ sub _get_isolate_field_extended_attributes_table_attributes {
 		next if any { $field eq $_ } qw (id date_entered datestamp sender curator comments);
 		push @select_fields, $field;
 	}
-	$" = ';';
+	local $" = ';';
 	my $attributes = [
 		{ name => 'isolate_field', type => 'text', required => 'yes', primary_key => 'yes', optlist => "@select_fields" },
 		{ name => 'attribute',     type => 'text', required => 'yes', primary_key => 'yes' },
@@ -2500,7 +2498,7 @@ sub _get_isolate_value_extended_attributes_table_attributes {
 		push @select_fields, $field;
 	}
 	my $attributes = $self->run_list_query("SELECT DISTINCT attribute FROM isolate_field_extended_attributes ORDER BY attribute");
-	$"          = ';';
+	local $" = ';';
 	$attributes = [
 		{ name => 'isolate_field', type => 'text', required => 'yes', primary_key => 'yes', optlist => "@select_fields" },
 		{ name => 'attribute',     type => 'text', required => 'yes', primary_key => 'yes', optlist => "@$attributes" },
@@ -2579,7 +2577,7 @@ sub _get_samples_table_attributes {
 		if ( $field_attributes{'optlist'} && $field_attributes{'optlist'} eq 'yes' ) {
 			@optlist = $self->{'xmlHandler'}->get_field_option_list($_);
 		}
-		$" = ';';
+		local $" = ';';
 		push @$attributes,
 		  (
 			{

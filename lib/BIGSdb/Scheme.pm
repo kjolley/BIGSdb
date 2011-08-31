@@ -100,7 +100,7 @@ sub get_field_values_by_profile {
 "Can't execute 'scheme_fields' query handle. Check database attributes in the scheme_fields table for scheme#$self->{'id'} ($self->{'description'})! Statement was '$self->{'sql'}->{scheme_fields}->{Statement}'. "
 			  . $self->{'db'}->errstr );
 		throw BIGSdb::DatabaseConfigurationException("Scheme configuration error");
-		return \@;;
+		return \@;
 	} else {
 		if ($options->{'return_hashref'}){
 			return $self->{'sql'}->{'scheme_fields'}->fetchrow_hashref;
