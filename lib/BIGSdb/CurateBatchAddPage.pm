@@ -70,19 +70,17 @@ sub print_content {
 		removal of all data from it. This is done to ensure data integrity.  This does not affect allele designations, but any profiles
 		will have to be reloaded.</p></div>\n";
 	}
-	my $script_name = $self->{'system'}->{'script_name'};
-	my $integer_id;
-	my $sender_field;
+	my ( $uses_integer_id, $uses_sender_field );
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
-		$integer_id   = 1;
-		$sender_field = 1;
+		$uses_integer_id   = 1;
+		$uses_sender_field = 1;
 	} else {
 		my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 		foreach (@$attributes) {
 			if ( $_->{'name'} eq 'id' && $_->{'type'} eq 'int' ) {
-				$integer_id = 1;
+				$uses_integer_id = 1;
 			} elsif ( $_->{'name'} eq 'sender' ) {
-				$sender_field = 1;
+				$uses_sender_field = 1;
 			}
 		}
 	}
@@ -171,7 +169,7 @@ sub print_content {
 				}
 				my @inserts;
 				my $qry;
-				local $"   = ',';
+				local $" = ',';
 				$qry = "INSERT INTO $table (@fields_to_include) VALUES (@value_list)";
 				push @inserts, $qry;
 				if ( $table eq 'allele_designations' ) {
@@ -190,7 +188,6 @@ sub print_content {
 
 					#Remove duplicate loci which may occur if they belong to more than one scheme.
 					my @locus_list = uniq @$loci;
-
 					foreach (@locus_list) {
 						next if !$fieldorder{$_};
 						my $value = $data[ $fieldorder{$_} ];
@@ -324,7 +321,7 @@ sub print_content {
 		}
 		my ( $firstname, $surname, $userid );
 		my $sender_message = '';
-		if ($sender_field) {
+		if ($uses_sender_field) {
 			my $sender = $q->param('sender');
 			if ( !$sender ) {
 				print "<div class=\"box\" id=\"statusbad\"><p>Please go back and select the sender for this submission.</p></div>\n";
@@ -818,7 +815,7 @@ sub print_content {
 					if ($exists) {
 						my $problem_text = "primary key already exists in the database<br />";
 						$problems{$pk_combination} .= $problem_text
-						  if $problems{$pk_combination} !~ /$problem_text/;
+						  if !defined $problems{$pk_combination} || $problems{$pk_combination} !~ /$problem_text/;
 					}
 				}
 
@@ -937,8 +934,18 @@ sub print_content {
 		print $tablebuffer;
 		print "</div><p />";
 	} else {
-		my $record_name = $self->get_record_name($table);
-		print << "HTML";
+		$self->_print_interface(
+			{ 'table' => $table, 'uses_integer_id' => $uses_integer_id, 'has_sender_field' => $uses_sender_field, 'locus' => $locus } );
+	}
+	return;
+}
+
+sub _print_interface {
+	my ( $self, $arg_ref ) = @_;
+	my $table       = $arg_ref->{'table'};
+	my $record_name = $self->get_record_name($table);
+	my $q           = $self->{'cgi'};
+	print << "HTML";
 <div class="box" id="queryform">
 <p>This page allows you to upload $record_name data as tab-delimited text or 
 copied from a spreadsheet.</p>
@@ -946,115 +953,134 @@ copied from a spreadsheet.</p>
 <li>Field header names must be included and fields
 can be in any order. Optional fields can be omitted if you wish.</li>
 HTML
-		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
-			print << "HTML";
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
+		print << "HTML";
 <li>Enter aliases (alternative names) for your isolates as a semi-colon (;) separated list.</li>	
-<li>Enter references for your isolates as a semi-colon (;) separated list of PubMed ids (non integer ids will be ignored).</li>				  
-<li>You can also upload allele fields along with the other isolate data - simply create a new column with the locus name. These will be
+<li>Enter references for your isolates as a semi-colon (;) separated list of PubMed ids 
+(non integer ids will be ignored).</li>				  
+<li>You can also upload allele fields along with the other isolate data - simply create a 
+new column with the locus name. These will be
 added with a confirmed status and method set as 'manual'.</li>	
 HTML
-		}
-		if ( $table eq 'loci' && $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-			print << "HTML";
+	}
+	if ( $table eq 'loci' && $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		print << "HTML";
 <li>Enter aliases (alternative names) for your locus as a semi-colon (;) separated list.</li>			
 HTML
-		}
-		if ($integer_id) {
-			print << "HTML";
+	}
+	if ( $arg_ref->{'uses_integer_id'} ) {
+		print << "HTML";
 <li>You can choose whether or not to include an id number 
 field - if it is omitted, the next available id will be used automatically.</li>
 HTML
-		}
-		my $locus_attribute = '';
-		if ( $table eq 'sequences' ) {
-			$locus_attribute = "&amp;locus=$locus" if $locus;
-			print << "HTML";
+	}
+	my $locus_attribute = '';
+	if ( $table eq 'sequences' ) {
+		$locus_attribute = "&amp;locus=$arg_ref->{'locus'}" if $arg_ref->{'locus'};
+		print << "HTML";
 			<li>If the locus uses integer allele ids you can leave the allele_id field blank and the next available number will be used.</li>
 HTML
-		}
-		print << "HTML";
+	}
+	print << "HTML";
 </ul>
 <ul>
-<li><a href="$script_name?db=$self->{'instance'}&amp;page=tableHeader&amp;table=$table$locus_attribute">Download tab-delimited 
-header for your spreadsheet</a> - use Paste special &rarr; text to paste the data.
+<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;table=$table$locus_attribute">Download tab-delimited 
+header for your spreadsheet</a> - use Paste special &rarr; text to paste the data.</li>
 HTML
-		if ( $table eq 'sequences' && !$q->param('locus') ) {
-			my $loci_with_extended =
-			  $self->{'datastore'}->run_list_query("SELECT DISTINCT locus FROM locus_extended_attributes ORDER BY locus");
-			if ( ref $loci_with_extended eq 'ARRAY' ) {
-				print
-				  " Please note, some loci have extended attributes which may be required.  For affected loci please use the batch insert
-				page specific to that locus: ";
-				if ( @$loci_with_extended > 10 ) {
-					print $q->start_form;
-					print $q->hidden($_) foreach qw (page db table);
-					print "Reload page specific for locus: ";
-					my @values = @$loci_with_extended;
-					my %labels;
-					unshift @values, '';
-					$labels{''} = 'Select ...';
-					print $q->popup_menu( -name => 'locus', -values => \@values, -labels => \%labels );
-					print $q->submit( -name => 'Reload', -class => 'submit' );
-					print $q->end_form;
-				} else {
-					my $first = 1;
-					foreach (@$loci_with_extended) {
-						print ' | ' if !$first;
-						print
-"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=sequences&amp;locus=$_\">$_</a>";
-						$first = 0;
-					}
-				}
-			}
-		}
-		print "</li>\n</ul>\n";
-		print $q->start_form;
-		if ($sender_field) {
-			my $qry = "select id,user_name,first_name,surname from users WHERE id>0 order by surname";
-			my $sql = $self->{'db'}->prepare($qry);
-			eval { $sql->execute };
-			$logger->error($@) if $@;
-			my @users;
-			my %usernames;
-			$usernames{''} = 'Select sender ...';
-			while ( my ( $userid, $username, $firstname, $surname ) = $sql->fetchrow_array ) {
-				push @users, $userid;
-				$usernames{$userid} = "$surname, $firstname ($username)";
-			}
-			print "<p>Please select the sender from the list below:</p>\n";
-			$usernames{-1} = 'Override with sender field';
-			print "<table><tr><td>\n";
-			print $q->popup_menu( -name => 'sender', -values => [ '', -1, @users ], -labels => \%usernames );
-			print
-			  "</td><td class=\"comment\">Value will be overridden if you include a sender field in your pasted data.</td></tr></table>\n";
-		}
-		if ( $table eq 'sequences' ) {
-			print "<ul style=\"list-style-type:none\"><li>\n";
-			print $q->checkbox( -name => 'ignore_existing', -label => 'Ignore existing sequences', -checked => 'checked' );
-			print "</li><li>\n";
-			print $q->checkbox( -name => 'ignore_non_DNA', -label => 'Ignore sequences containing non-nucleotide characters' );
-			print "</li><li>\n";
-			print $q->checkbox(
-				-name => 'complete_CDS',
-				-label =>
-'Silently reject all sequences that are not complete reading frames - these must have a start and in-frame stop codon at the ends and no internal stop codons.  Existing sequences are also ignored.'
-			);
-			print "</li><li>\n";
-			print $q->checkbox( -name => 'ignore_similarity', -label => 'Override sequence similarity check' );
-			print "</li></ul>\n";
-		}
-		print "<p>Please paste in tab-delimited text (<strong>include a field header line</strong>).</p>\n";
-		print $q->hidden($_) foreach qw (page db table locus);
-		print $q->textarea( -name => 'data', -rows => 20, -columns => 120 );
-		print "<table style=\"width:95%\"><tr><td>";
-		print $q->reset( -class => 'reset' );
-		print "</td><td style=\"text-align:right\">";
-		print $q->submit( -class => 'submit' );
-		print "</td></tr></table><p />\n";
-		print $q->end_form;
-		print "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back</a></p>\n";
-		print "</div>\n";
+	if ( $table eq 'sequences' && !$q->param('locus') ) {
+		$self->_print_interface_locus_selection;
 	}
+	print "</ul>\n";
+	print $q->start_form;
+	if ( $arg_ref->{'has_sender_field'} ) {
+		$self->_print_interface_sender_field;
+	}
+	if ( $table eq 'sequences' ) {
+		$self->_print_interface_sequence_switches;
+	}
+	print "<p>Please paste in tab-delimited text (<strong>include a field header line</strong>).</p>\n";
+	print $q->hidden($_) foreach qw (page db table locus);
+	print $q->textarea( -name => 'data', -rows => 20, -columns => 120 );
+	print "<table style=\"width:95%\"><tr><td>";
+	print $q->reset( -class => 'reset' );
+	print "</td><td style=\"text-align:right\">";
+	print $q->submit( -class => 'submit' );
+	print "</td></tr></table><p />\n";
+	print $q->end_form;
+	print "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back</a></p>\n";
+	print "</div>\n";
+	return;
+}
+
+sub _print_interface_sender_field {
+	my ($self) = @_;
+	my $qry    = "select id,user_name,first_name,surname from users WHERE id>0 order by surname";
+	my $sql    = $self->{'db'}->prepare($qry);
+	eval { $sql->execute };
+	$logger->error($@) if $@;
+	my @users;
+	my %usernames;
+	$usernames{''} = 'Select sender ...';
+
+	while ( my ( $userid, $username, $firstname, $surname ) = $sql->fetchrow_array ) {
+		push @users, $userid;
+		$usernames{$userid} = "$surname, $firstname ($username)";
+	}
+	print "<p>Please select the sender from the list below:</p>\n";
+	$usernames{-1} = 'Override with sender field';
+	print $self->{'cgi'}->popup_menu( -name => 'sender', -values => [ '', -1, @users ], -labels => \%usernames );
+	print "<span class=\"comment\"> Value will be overridden if you include a sender field in your pasted data.</span>\n";
+	return;
+}
+
+sub _print_interface_locus_selection {
+	my ($self)             = @_;
+	my $q                  = $self->{'cgi'};
+	my $loci_with_extended = $self->{'datastore'}->run_list_query("SELECT DISTINCT locus FROM locus_extended_attributes ORDER BY locus");
+	if ( ref $loci_with_extended eq 'ARRAY' ) {
+		print "<li>Please note, some loci have extended attributes which may be required.  For affected loci please use the batch insert
+				page specific to that locus: ";
+		if ( @$loci_with_extended > 10 ) {
+			print $q->start_form;
+			print $q->hidden($_) foreach qw (page db table);
+			print "Reload page specific for locus: ";
+			my @values = @$loci_with_extended;
+			my %labels;
+			unshift @values, '';
+			$labels{''} = 'Select ...';
+			print $q->popup_menu( -name => 'locus', -values => \@values, -labels => \%labels );
+			print $q->submit( -name => 'Reload', -class => 'submit' );
+			print $q->end_form;
+		} else {
+			my $first = 1;
+			foreach (@$loci_with_extended) {
+				print ' | ' if !$first;
+				print
+"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=sequences&amp;locus=$_\">$_</a>";
+				$first = 0;
+			}
+		}
+		print "</li>\n";
+	}
+	return;
+}
+
+sub _print_interface_sequence_switches {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	print "<ul style=\"list-style-type:none\"><li>\n";
+	print $q->checkbox( -name => 'ignore_existing', -label => 'Ignore existing sequences', -checked => 'checked' );
+	print "</li><li>\n";
+	print $q->checkbox( -name => 'ignore_non_DNA', -label => 'Ignore sequences containing non-nucleotide characters' );
+	print "</li><li>\n";
+	print $q->checkbox(
+		-name => 'complete_CDS',
+		-label =>
+'Silently reject all sequences that are not complete reading frames - these must have a start and in-frame stop codon at the ends and no internal stop codons.  Existing sequences are also ignored.'
+	);
+	print "</li><li>\n";
+	print $q->checkbox( -name => 'ignore_similarity', -label => 'Override sequence similarity check' );
+	print "</li></ul>\n";
 	return;
 }
 
