@@ -297,11 +297,11 @@ sub _check_data {
 	$headerRow =~ s/\r//g;
 	my @fileheaderFields = split /\t/, $headerRow;
 	my %fileheaderPos;
-	my $i = 0;
+	my $pos = 0;
 
 	foreach (@fileheaderFields) {
-		$fileheaderPos{$_} = $i;
-		$i++;
+		$fileheaderPos{$_} = $pos;
+		$pos++;
 	}
 	my $id;
 	my %unique_field;
@@ -333,76 +333,46 @@ sub _check_data {
 	foreach my $record (@records) {
 		$record =~ s/\r//g;
 		next if $record =~ /^\s*$/;
-		my @pk_values;
 		my @profile;
 		my $checked_record;
 		if ($record) {
 			my @data = split /\t/, $record;
-			my $pk_combination;
-			$i = 0;
+			my $first = 1;
 			if ( $arg_ref->{'uses_integer_id'} && !$first_record ) {
 				do {
 					$id++;
 				} while ( $self->_is_id_used( $table, $id ) );
 			}
-			foreach (@primary_keys) {
-				if ( !defined $fileheaderPos{$_} ) {
-					if ( $_ eq 'id' && $id ) {
-						$pk_combination .= "id: " . BIGSdb::Utils::pad_length( $id, 10 );
-					} else {
-						if ( $table eq 'sequences' && $locus && $_ eq 'locus' ) {
-							push @pk_values, $locus;
-							$pk_combination .= "$_: " . BIGSdb::Utils::pad_length( $locus, 10 );
-						} else {
-							$pk_combination .= 'undef';
-						}
-					}
-				} else {
-					$pk_combination .= '; ' if $i;
-					$pk_combination .= "$_: " . BIGSdb::Utils::pad_length( $data[ $fileheaderPos{$_} ], 10 );
-					push @pk_values, $data[ $fileheaderPos{$_} ];
+			my ( $pk_combination, $pk_values_ref ) = $self->_get_primary_key_values(
+				{
+					'primary_keys'    => \@primary_keys,
+					'file_header_pos' => \%fileheaderPos,
+					'id'              => $id,
+					'locus'           => $locus,
+					'table'           => $table,
+					'first'           => \$first,
+					'data'            => \@data,
+					'record_count'    => \$record_count
 				}
-				$i++;
-				$record_count++;
-			}
-			$i = 0;
+			);
+
+			#			$i = 0;
 			my $rowbuffer;
 			my $continue = 1;
+
+			#Check individual values for correctness
 			foreach my $field (@fieldorder) {
-				my $value;
-				if ( $field eq 'id' ) {
-					$header_row .= "id\t"
-					  if $first_record && !defined $fileheaderPos{'id'};
-					$value = $id;
-				}
-				if ( $field eq 'datestamp' || $field eq 'date_entered' ) {
-					$value = $self->get_datestamp;
-					$header_row .= "$field\t" if $first_record && defined $fileheaderPos{$field};
-				} elsif ( $field eq 'sender' ) {
-					if ( defined $fileheaderPos{$field} ) {
-						$value = $data[ $fileheaderPos{$field} ];
-						$header_row .= "$field\t" if $first_record;
-					} else {
-						$value = $q->param('sender')
-						  if $q->param('sender') != -1;
+				my $value = $self->_extract_value(
+					{
+						'field'               => $field,
+						'data'                => \@data,
+						'header_row'          => \$header_row,
+						'first_record'        => $first_record,
+						'id'                  => $id,
+						'file_header_pos'     => \%fileheaderPos,
+						'extended_attributes' => $extended_attributes
 					}
-				} elsif ( $field eq 'curator' ) {
-					if ( defined $fileheaderPos{$field} ) {
-						$header_row .= "$field\t" if $first_record;
-					}
-					$value = $self->get_curator_id;
-				} elsif ( $extended_attributes->{$field}->{'format'} && $extended_attributes->{$field}->{'format'} eq 'boolean' ) {
-					if ( defined $fileheaderPos{$field} ) {
-						$header_row .= "$field\t" if $first_record;
-						$value = $data[ $fileheaderPos{$field} ];
-						$value = lc($value);
-					}
-				} else {
-					if ( defined $fileheaderPos{$field} ) {
-						$header_row .= "$field\t" if $first_record;
-						$value = $data[ $fileheaderPos{$field} ];
-					}
-				}
+				);
 				my $special_problem;
 				my %args = (
 					'locus'                   => $locus,
@@ -429,7 +399,7 @@ sub _check_data {
 				#special case to prevent a new user with curator or admin status unless user is admin themselves
 				if ( $table eq 'users' && $field eq 'status' ) {
 					if ( defined $value && $value ne 'user' && !$self->is_admin() ) {
-						my $problem_text = "only a user with admin status can add a user with a status other than 'user'<br />";
+						my $problem_text = "Only a user with admin status can add a user with a status other than 'user'<br />";
 						$problems{$pk_combination} .= $problem_text
 						  if !defined $problems{$pk_combination} || $problems{$pk_combination} !~ /$problem_text/;
 						$special_problem = 1;
@@ -442,7 +412,7 @@ sub _check_data {
 					$special_problem = 1;
 				}
 				my $display_value = $value;
-				if ( !( ( my $problem .= $self->is_field_bad( $table, $fieldorder[$i], $value, 'insert' ) ) || $special_problem ) ) {
+				if ( !( ( my $problem .= $self->is_field_bad( $table, $field, $value, 'insert' ) ) || $special_problem ) ) {
 					if ( $field =~ /sequence/ && $field ne 'coding_sequence' ) {
 						$display_value = "<span class=\"seq\">" . ( BIGSdb::Utils::truncate_seq( \$value, 40 ) ) . "</span>";
 					}
@@ -453,12 +423,13 @@ sub _check_data {
 					}
 					$rowbuffer .= defined $display_value ? "<td><font color='red'>$display_value</font></td>" : '<td />';
 					if ($problem) {
-						my $problem_text = "$fieldorder[$i] $problem<br />";
+						my $problem_text = "$field $problem<br />";
 						$problems{$pk_combination} .= $problem_text
 						  if !defined $problems{$pk_combination} || $problems{$pk_combination} !~ /$problem_text/;
 					}
 				}
-				$i++;
+
+				#				$i++;
 				$value = defined $value ? $value : '';
 				$checked_record .= "$value\t"
 				  if defined $fileheaderPos{$field}
@@ -500,27 +471,28 @@ sub _check_data {
 						} else {
 							$checked_record .= "\t";
 						}
-						$i++;
+
+						#						$i++;
 					}
 				}
 				$tablebuffer .= defined $locusbuffer ? "<td>$locusbuffer</td>" : '<td />';
 			}
 			$tablebuffer .= "</tr>\n";
 			if ( $primary_key_combination{$pk_combination} && $pk_combination !~ /\:\s*$/ ) {
-				my $problem_text = "primary key submitted more than once in this batch<br />";
+				my $problem_text = "Primary key submitted more than once in this batch<br />";
 				$problems{$pk_combination} .= $problem_text
 				  if $problems{$pk_combination} !~ /$problem_text/;
 			}
 			$primary_key_combination{$pk_combination}++;
 
 			#Check if primary key already in database
-			if (@pk_values) {
-				eval { $primary_key_check_sql->execute(@pk_values); };
+			if (@$pk_values_ref) {
+				eval { $primary_key_check_sql->execute(@$pk_values_ref); };
 				if ($@) {
 					my $message = $@;
 					local $" = ', ';
 					$logger->debug(
-						"Can't execute primary key check (incorrect data pasted): primary keys: @primary_keys values: @pk_values $message"
+"Can't execute primary key check (incorrect data pasted): primary keys: @primary_keys values: @$pk_values_ref $message"
 					);
 					my $plural = scalar @primary_keys > 1 ? 's' : '';
 					if ( $message =~ /invalid input/ ) {
@@ -534,7 +506,7 @@ sub _check_data {
 				}
 				my ($exists) = $primary_key_check_sql->fetchrow_array;
 				if ($exists) {
-					my $problem_text = "primary key already exists in the database<br />";
+					my $problem_text = "Primary key already exists in the database.<br />";
 					$problems{$pk_combination} .= $problem_text
 					  if !defined $problems{$pk_combination} || $problems{$pk_combination} !~ /$problem_text/;
 				}
@@ -542,8 +514,8 @@ sub _check_data {
 
 			#special case to check that sequence exists when adding accession or PubMed number
 			if ( $self->{'system'}->{'dbtype'} eq 'sequences' && ( $table eq 'accession' || $table eq 'sequence_refs' ) ) {
-				if ( !$self->{'datastore'}->sequence_exists(@pk_values) ) {
-					$problems{$pk_combination} .= "Sequence $pk_values[0]-$pk_values[1] does not exist.";
+				if ( !$self->{'datastore'}->sequence_exists(@$pk_values_ref) ) {
+					$problems{$pk_combination} .= "Sequence $pk_values_ref->[0]-$pk_values_ref->[1] does not exist.";
 				}
 
 				#special case to ensure that a locus length is set is it is not marked as variable length
@@ -654,6 +626,82 @@ sub _check_data {
 	return;
 }
 
+sub _extract_value {
+	# Also determines header row if this is the first row
+	my ( $self, $arg_ref ) = @_;
+	my $q               = $self->{'cgi'};
+	my $field           = $arg_ref->{'field'};
+	my $first_record    = $arg_ref->{'first_record'};
+	my @data            = @{ $arg_ref->{'data'} };
+	my %file_header_pos = %{ $arg_ref->{'file_header_pos'} };
+	my $value;
+	if ( $field eq 'id' ) {
+		${ $arg_ref->{'header_row'} } .= "id\t"
+		  if $first_record && !defined $file_header_pos{'id'};
+		$value = $arg_ref->{'id'};
+	}
+	if ( $field eq 'datestamp' || $field eq 'date_entered' ) {
+		$value = $self->get_datestamp;
+		${ $arg_ref->{'header_row'} } .= "$field\t" if $first_record && defined $file_header_pos{$field};
+	} elsif ( $field eq 'sender' ) {
+		if ( defined $file_header_pos{$field} ) {
+			$value = $data[ $file_header_pos{$field} ];
+			${ $arg_ref->{'header_row'} } .= "$field\t" if $first_record;
+		} else {
+			$value = $q->param('sender')
+			  if $q->param('sender') != -1;
+		}
+	} elsif ( $field eq 'curator' ) {
+		if ( defined $file_header_pos{$field} ) {
+			${ $arg_ref->{'header_row'} } .= "$field\t" if $first_record;
+		}
+		$value = $self->get_curator_id;
+	} elsif ( $arg_ref->{'extended_attributes'}->{$field}->{'format'}
+		&& $arg_ref->{'extended_attributes'}->{$field}->{'format'} eq 'boolean' )
+	{
+		if ( defined $file_header_pos{$field} ) {
+			${ $arg_ref->{'header_row'} } .= "$field\t" if $first_record;
+			$value = $data[ $file_header_pos{$field} ];
+			$value = lc($value);
+		}
+	} else {
+		if ( defined $file_header_pos{$field} ) {
+			${ $arg_ref->{'header_row'} } .= "$field\t" if $first_record;
+			$value = $data[ $file_header_pos{$field} ];
+		}
+	}
+	return $value;
+}
+
+sub _get_primary_key_values {
+	my ( $self, $arg_ref ) = @_;
+	my @data            = @{ $arg_ref->{'data'} };
+	my %file_header_pos = %{ $arg_ref->{'file_header_pos'} };
+	my $pk_combination;
+	my @pk_values;
+	foreach ( @{ $arg_ref->{'primary_keys'} } ) {
+		if ( !defined $file_header_pos{$_} ) {
+			if ( $_ eq 'id' && $arg_ref->{'id'} ) {
+				$pk_combination .= "id: " . BIGSdb::Utils::pad_length( $arg_ref->{'id'}, 10 );
+			} else {
+				if ( $arg_ref->{'table'} eq 'sequences' && $arg_ref->{'locus'} && $_ eq 'locus' ) {
+					push @pk_values, $arg_ref->{'locus'};
+					$pk_combination .= "$_: " . BIGSdb::Utils::pad_length( $arg_ref->{'locus'}, 10 );
+				} else {
+					$pk_combination .= 'undef';
+				}
+			}
+		} else {
+			$pk_combination .= '; ' if !${ $arg_ref->{'first'} };
+			$pk_combination .= "$_: " . BIGSdb::Utils::pad_length( $data[ $file_header_pos{$_} ], 10 );
+			push @pk_values, $data[ $file_header_pos{$_} ];
+		}
+		${ $arg_ref->{'first'} } = 0;
+		${ $arg_ref->{'record_count'} }++;
+	}
+	return ( $pk_combination, \@pk_values );
+}
+
 sub _check_data_duplicates {
 
 	#check if unique value exists twice in submission
@@ -677,7 +725,7 @@ sub _check_data_allele_designations {
 
 	#special case to check for allele id format and regex which is defined in loci table
 	my ( $self, $arg_ref ) = @_;
-	my $field = $arg_ref->{'field'};
+	my $field           = $arg_ref->{'field'};
 	my $pk_combination  = $arg_ref->{'pk_combination'};
 	my @data            = @{ $arg_ref->{'data'} };
 	my %file_header_pos = %{ $arg_ref->{'file_header_pos'} };
@@ -686,18 +734,20 @@ sub _check_data_allele_designations {
 		eval {
 			$format =
 			  $self->{'datastore'}
-			  ->run_simple_query( "SELECT allele_id_format,allele_id_regex FROM loci WHERE id=?", $data[ $file_header_pos{'locus'} ]);
+			  ->run_simple_query( "SELECT allele_id_format,allele_id_regex FROM loci WHERE id=?", $data[ $file_header_pos{'locus'} ] );
 		};
 		$logger->error($@) if $@;
-		if ( $format->[0] eq 'integer'
-			&& !BIGSdb::Utils::is_int(${ $arg_ref->{'value'} }) )
+		if (   defined $format->[0]
+			&& $format->[0] eq 'integer'
+			&& !BIGSdb::Utils::is_int( ${ $arg_ref->{'value'} } ) )
 		{
 			my $problem_text = "$field must be an integer.<br />";
 			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text
 			  if !defined $arg_ref->{'problems'}->{$pk_combination} || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/;
 			${ $arg_ref->{'special_problem'} } = 1;
 		} elsif ( $format->[1] && ${ $arg_ref->{'value'} } !~ /$format->[1]/ ) {
-			$arg_ref->{'problems'}->{$pk_combination} .= "$field value is invalid - it must match the regular expression /$format->[1]/.<br />";
+			$arg_ref->{'problems'}->{$pk_combination} .=
+			  "$field value is invalid - it must match the regular expression /$format->[1]/.<br />";
 			${ $arg_ref->{'special_problem'} } = 1;
 		}
 	}
