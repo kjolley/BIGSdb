@@ -305,7 +305,7 @@ sub _check_data {
 	}
 	my $id;
 	my %unique_field;
-	my %unique_values;
+
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
 		$id = $self->next_id($table);
 	} else {
@@ -404,22 +404,7 @@ sub _check_data {
 						$value = $data[ $fileheaderPos{$field} ];
 					}
 				}
-
-				#check if unique value exists twice in submission
 				my $special_problem;
-				if ( $unique_field{ $fieldorder[$i] } ) {
-					if ( $unique_values{$field}{$value} ) {
-						my $display_value = $value;
-						if ( $field eq 'sequence' ) {
-							$display_value = "<span class=\"seq\">" . ( BIGSdb::Utils::truncate_seq( \$display_value, 40 ) ) . "</span>";
-						}
-						my $problem_text = "unique field '$field' already has a value of '$display_value' set within this submission<br />";
-						$problems{$pk_combination} .= $problem_text
-						  if $problems{$pk_combination} !~ /$problem_text/;
-						$special_problem = 1;
-					}
-					$unique_values{ $fieldorder[$i] }{$value}++;
-				}
 				my %args = (
 					'locus'                   => $locus,
 					'field'                   => $field,
@@ -432,8 +417,11 @@ sub _check_data {
 					'special_problem'         => \$special_problem,
 					'continue'                => \$continue,
 					'last_id'                 => \%last_id,
-					'extended_attributes'     => $extended_attributes
+					'extended_attributes'     => $extended_attributes,
+					'unique_field'            => \%unique_field
 				);
+
+				$self->_check_data_duplicates( \%args );
 				if ( $table eq 'sequences' ) {
 					$self->_check_data_sequences( \%args );
 				}
@@ -689,6 +677,25 @@ sub _check_data {
 	return;
 }
 
+sub _check_data_duplicates {
+
+	#check if unique value exists twice in submission
+	my ( $self, $arg_ref ) = @_;
+	my $field          = $arg_ref->{'field'};
+	my $value          = ${ $arg_ref->{'value'} };
+	my $pk_combination = $arg_ref->{'pk_combination'};
+	if ( $arg_ref->{'unique_field'}->{$field} ) {
+		if ( $self->{'unique_values'}->{$field}->{$value} ) {
+			my $problem_text = "unique field '$field' already has a value of '$value' set within this submission<br />";
+			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text
+			  if !defined $arg_ref->{'problems'}->{$pk_combination} || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/;
+			${ $arg_ref->{'special_problem'} } = 1;
+		}
+		$self->{'unique_values'}->{$field}->{$value}++;
+	}
+	return;
+}
+
 sub _check_data_sequences {
 	my ( $self, $arg_ref ) = @_;
 	my $locus           = $arg_ref->{'locus'};
@@ -696,8 +703,7 @@ sub _check_data_sequences {
 	my $pk_combination  = $arg_ref->{'pk_combination'};
 	my %file_header_pos = %{ $arg_ref->{'file_header_pos'} };
 	my @data            = @{ $arg_ref->{'data'} };
-
-	my $q = $self->{'cgi'};
+	my $q               = $self->{'cgi'};
 	if ( !$self->{'sql'}->{'sequence_exists'} ) {
 		$self->{'sql'}->{'sequence_exists'} = $self->{'db'}->prepare("SELECT allele_id FROM sequences WHERE locus=? AND sequence=?");
 	}
@@ -764,7 +770,7 @@ sub _check_data_sequences {
 		}
 	}
 
-	#special case to check for sequence length in sequences table, and that sequence doesn't already exist 
+	#special case to check for sequence length in sequences table, and that sequence doesn't already exist
 	#and is similar to existing.
 	if ( $field eq 'sequence' ) {
 		if ( $q->param('locus') ) {
@@ -867,10 +873,12 @@ sub _check_data_sequences {
 				$options{$_} = 1;
 			}
 		}
-		if ( $arg_ref->{'extended_attributes'}->{$field}->{'required'}
+		if (
+			$arg_ref->{'extended_attributes'}->{$field}->{'required'}
 			&& (   !defined $file_header_pos{$field}
 				|| !defined $data[ $file_header_pos{$field} ]
-				|| $data[ $file_header_pos{$field} ] eq '' ) )
+				|| $data[ $file_header_pos{$field} ] eq '' )
+		  )
 		{
 			$arg_ref->{'problems'}->{$pk_combination} .= "'$field' is a required field and cannot be left blank.<br />";
 		} elsif ( $arg_ref->{'extended_attributes'}->{$field}->{'option_list'}
