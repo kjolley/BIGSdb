@@ -305,7 +305,6 @@ sub _check_data {
 	}
 	my $id;
 	my %unique_field;
-
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
 		$id = $self->next_id($table);
 	} else {
@@ -420,33 +419,11 @@ sub _check_data {
 					'extended_attributes'     => $extended_attributes,
 					'unique_field'            => \%unique_field
 				);
-
 				$self->_check_data_duplicates( \%args );
 				if ( $table eq 'sequences' ) {
 					$self->_check_data_sequences( \%args );
-				}
-
-				#special case to check for allele id format and regex which is defined in loci table
-				if ( ( $table eq 'allele_designations' )
-					&& $field eq 'allele_id' )
-				{
-					my $format;
-					eval {
-						$format = $self->{'datastore'}->run_simple_query( "SELECT allele_id_format,allele_id_regex FROM loci WHERE id=?",
-							$data[ $fileheaderPos{'locus'} ] );
-					};
-					$logger->error($@) if $@;
-					if ( $format->[0] eq 'integer'
-						&& !BIGSdb::Utils::is_int($value) )
-					{
-						my $problem_text = "$field must be an integer<br />";
-						$problems{$pk_combination} .= $problem_text
-						  if $problems{$pk_combination} !~ /$problem_text/;
-						$special_problem = 1;
-					} elsif ( $format->[1] && $value !~ /$format->[1]/ ) {
-						$problems{$pk_combination} .= "$_->{'name'} value is invalid - it must match the regular expression /$format->[1]/";
-						$special_problem = 1;
-					}
+				} elsif ( $table eq 'allele_designations' ) {
+					$self->_check_data_allele_designations( \%args );
 				}
 
 				#special case to prevent a new user with curator or admin status unless user is admin themselves
@@ -692,6 +669,37 @@ sub _check_data_duplicates {
 			${ $arg_ref->{'special_problem'} } = 1;
 		}
 		$self->{'unique_values'}->{$field}->{$value}++;
+	}
+	return;
+}
+
+sub _check_data_allele_designations {
+
+	#special case to check for allele id format and regex which is defined in loci table
+	my ( $self, $arg_ref ) = @_;
+	my $field = $arg_ref->{'field'};
+	my $pk_combination  = $arg_ref->{'pk_combination'};
+	my @data            = @{ $arg_ref->{'data'} };
+	my %file_header_pos = %{ $arg_ref->{'file_header_pos'} };
+	if ( $field eq 'allele_id' ) {
+		my $format;
+		eval {
+			$format =
+			  $self->{'datastore'}
+			  ->run_simple_query( "SELECT allele_id_format,allele_id_regex FROM loci WHERE id=?", $data[ $file_header_pos{'locus'} ]);
+		};
+		$logger->error($@) if $@;
+		if ( $format->[0] eq 'integer'
+			&& !BIGSdb::Utils::is_int(${ $arg_ref->{'value'} }) )
+		{
+			my $problem_text = "$field must be an integer.<br />";
+			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text
+			  if !defined $arg_ref->{'problems'}->{$pk_combination} || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/;
+			${ $arg_ref->{'special_problem'} } = 1;
+		} elsif ( $format->[1] && ${ $arg_ref->{'value'} } !~ /$format->[1]/ ) {
+			$arg_ref->{'problems'}->{$pk_combination} .= "$field value is invalid - it must match the regular expression /$format->[1]/.<br />";
+			${ $arg_ref->{'special_problem'} } = 1;
+		}
 	}
 	return;
 }
