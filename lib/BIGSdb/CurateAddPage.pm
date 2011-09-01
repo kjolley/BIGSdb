@@ -589,6 +589,9 @@ sub sequence_similar_to_others {
 		last;
 	}
 	close $blast_fh;
-	return 1 if $identity >= 70 && $alignment >= 0.9 * $length;
+	if (defined $identity && $identity >= 70 && $alignment >= 0.9 * $length){
+		return 1;
+	}
+	return;
 }
 1;

@@ -86,7 +86,8 @@ sub print_content {
 	if ( $q->param('checked_buffer') ) {
 		$self->_upload_data( { 'table' => $table, 'locus' => $locus } );
 	} elsif ( $q->param('data') || $q->param('query') ) {
-		$self->_check_data( { 'table' => $table, 'locus' => $locus, 'has_sender_field' => $has_sender_field } );
+		$self->_check_data(
+			{ 'table' => $table, 'uses_integer_id' => $uses_integer_id, 'locus' => $locus, 'has_sender_field' => $has_sender_field } );
 	} else {
 		$self->_print_interface(
 			{ 'table' => $table, 'uses_integer_id' => $uses_integer_id, 'has_sender_field' => $has_sender_field, 'locus' => $locus } );
@@ -303,18 +304,15 @@ sub _check_data {
 		$i++;
 	}
 	my $id;
-	my $id_is_int;
 	my %unique_field;
 	my %unique_values;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
-		$id        = $self->next_id($table);
-		$id_is_int = 1;
+		$id = $self->next_id($table);
 	} else {
 		my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 		foreach (@$attributes) {
 			if ( $_->{'name'} eq 'id' && $_->{'type'} eq 'int' ) {
-				$id        = $self->next_id($table);
-				$id_is_int = 1;
+				$id = $self->next_id($table);
 			}
 			if ( $_->{'unique'} && $_->{'unique'} eq 'yes' ) {
 				$unique_field{ $_->{'name'} } = 1;
@@ -333,10 +331,6 @@ sub _check_data {
 	my $record_count;
 	my ( $sql_sequence_exists, $sql_allele_id_exists );
 
-	if ( $table eq 'sequences' ) {
-		$sql_sequence_exists  = $self->{'db'}->prepare("SELECT allele_id FROM sequences WHERE locus=? AND sequence=?");
-		$sql_allele_id_exists = $self->{'db'}->prepare("SELECT COUNT(*) FROM sequences WHERE locus=? AND allele_id=?");
-	}
 	foreach my $record (@records) {
 		$record =~ s/\r//g;
 		next if $record =~ /^\s*$/;
@@ -347,7 +341,7 @@ sub _check_data {
 			my @data = split /\t/, $record;
 			my $pk_combination;
 			$i = 0;
-			if ( $id_is_int && !$first_record ) {
+			if ( $arg_ref->{'uses_integer_id'} && !$first_record ) {
 				do {
 					$id++;
 				} while ( $self->_is_id_used( $table, $id ) );
@@ -426,157 +420,22 @@ sub _check_data {
 					}
 					$unique_values{ $fieldorder[$i] }{$value}++;
 				}
-				if ( $table eq 'sequences' && $field eq 'locus' && $q->param('locus') ) {
-					$value = $q->param('locus');
-				}
-				if ( $table eq 'sequences' && $field eq 'allele_id' ) {
-					if ( $q->param('locus') ) {
-						$locus = $q->param('locus');
-					} else {
-						$locus =
-						  ( defined $fileheaderPos{'locus'} && defined $data[ $fileheaderPos{'locus'} ] )
-						  ? $data[ $fileheaderPos{'locus'} ]
-						  : undef;
-					}
-
-					#						$locus = $q->param('locus') ? $q->param('locus') : $data[ $fileheaderPos{'locus'} ];
-					if (   defined $fileheaderPos{'locus'}
-						&& $data[ $fileheaderPos{'locus'} ]
-						&& any { $_ eq $data[ $fileheaderPos{'locus'} ] } @$required_extended_exist )
-					{
-						$problems{$pk_combination} .=
-						  "Locus $locus has required extended attributes - please use specific batch upload form for this locus.<br />";
-						$special_problem = 1;
-					}
-					my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-					if (
-						   defined $locus_info->{'allele_id_format'}
-						&& $locus_info->{'allele_id_format'} eq 'integer'
-						&& (   !defined $fileheaderPos{'allele_id'}
-							|| !defined $data[ $fileheaderPos{'allele_id'} ]
-							|| $data[ $fileheaderPos{'allele_id'} ] eq '' )
-					  )
-					{
-						if ( $last_id{$locus} ) {
-							$value = $last_id{$locus};
-						} else {
-							$value = $self->{'datastore'}->get_next_allele_id($locus) - 1;
-						}
-						my $exists;
-						do {
-							$value++;
-							eval { $sql_allele_id_exists->execute( $locus, $value ) };
-							if ($@) {
-								$logger->error("Can't execute allele id exists check. values $locus,$value $@");
-								last;
-							}
-							($exists) = $sql_allele_id_exists->fetchrow_array;
-						} while $exists;
-						$last_id{$locus} = $value;
-					} elsif ( defined $fileheaderPos{'allele_id'}
-						&& !BIGSdb::Utils::is_int( $data[ $fileheaderPos{'allele_id'} ] )
-						&& defined $locus_info->{'allele_id_format'}
-						&& $locus_info->{'allele_id_format'} eq 'integer' )
-					{
-						$problems{$pk_combination} .= "Allele id must be an integer.<br />";
-						$special_problem = 1;
-					}
-					my $regex = $locus_info->{'allele_id_regex'};
-					if ( $regex && $data[ $fileheaderPos{'allele_id'} ] !~ /$regex/ ) {
-						$problems{$pk_combination} .= "Allele id value is invalid - it must match the regular expression /$regex/<br />";
-						$special_problem = 1;
-					}
-				}
-
-		   #special case to check for sequence length in sequences table, and that sequence doesn't already exist and is similar to existing
-				if ( $table eq 'sequences' && $field eq 'sequence' ) {
-					if ( $q->param('locus') ) {
-						$locus = $q->param('locus');
-					} else {
-						$locus =
-						  ( defined $fileheaderPos{'locus'} && defined $data[ $fileheaderPos{'locus'} ] )
-						  ? $data[ $fileheaderPos{'locus'} ]
-						  : undef;
-					}
-					my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-					my $length     = length($value);
-					my $units      = ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' ) ? 'bp' : 'residues';
-					if ( !$locus_info->{'length_varies'} && defined $locus_info->{'length'} && $locus_info->{'length'} != $length ) {
-						my $problem_text =
-"Sequence is $length $units long but this locus is set as a standard length of $locus_info->{'length'} $units.<br />";
-						$problems{$pk_combination} .= $problem_text
-						  if !defined $problems{$pk_combination} || $problems{$pk_combination} !~ /$problem_text/;
-						$special_problem = 1;
-					} elsif ( $locus_info->{'min_length'} && $length < $locus_info->{'min_length'} ) {
-						my $problem_text =
-"Sequence is $length $units long but this locus is set with a minimum length of $locus_info->{'min_length'} $units.<br />";
-						$problems{$pk_combination} .= $problem_text;
-						$special_problem = 1;
-					} elsif ( $locus_info->{'max_length'} && $length > $locus_info->{'max_length'} ) {
-						my $problem_text =
-"Sequence is $length $units long but this locus is set with a maximum length of $locus_info->{'max_length'} $units.<br />";
-						$problems{$pk_combination} .= $problem_text;
-						$special_problem = 1;
-					} elsif ( defined $fileheaderPos{'allele_id'}
-						&& defined $data[ $fileheaderPos{'allele_id'} ]
-						&& $data[ $fileheaderPos{'allele_id'} ] =~ /\s/ )
-					{
-						$problems{$pk_combination} .= "Allele id must not contain spaces - try substituting with underscores (_).<br />";
-						$special_problem = 1;
-					} else {
-						$value = uc($value);
-						$value =~ s/[\W]//g;
-						eval { $sql_sequence_exists->execute( $locus, $value ) };
-						if ($@) {
-							$logger->error("Can't execute sequence exists check. values $locus,$value $@");
-						}
-						my ($exists) = $sql_sequence_exists->fetchrow_array;
-						if ($exists) {
-							if ( $q->param('complete_CDS') || $q->param('ignore_existing') ) {
-								$continue = 0;
-							} else {
-								$problems{$pk_combination} .= "Sequence already exists in the database ($locus: $exists).<br />";
-							}
-						}
-						if ( $q->param('complete_CDS') ) {
-							my $first_codon = substr( $value, 0, 3 );
-							$continue = 0 if none { $first_codon eq $_ } qw (ATG GTG TTG);
-							my $end_codon = substr( $value, -3 );
-							$continue = 0 if none { $end_codon eq $_ } qw (TAA TGA TAG);
-							my $multiple_of_3 = ( length($value) / 3 ) == int( length($value) / 3 ) ? 1 : 0;
-							$continue = 0 if !$multiple_of_3;
-							my $internal_stop;
-							for ( my $pos = 0 ; $pos < length($value) - 3 ; $pos += 3 ) {
-								my $codon = substr( $value, $pos, 3 );
-								if ( any { $codon eq $_ } qw (TAA TGA TAG) ) {
-									$internal_stop = 1;
-								}
-							}
-							$continue = 0 if $internal_stop;
-						}
-					}
-					if ($continue) {
-						if ( ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' )
-							&& !BIGSdb::Utils::is_valid_DNA($value) )
-						{
-							if ( $q->param('complete_CDS') || $q->param('ignore_non_DNA') ) {
-								$continue = 0;
-							} else {
-								$problems{$pk_combination} .= "Sequence contains non nucleotide (G|A|T|C) characters.<br />";
-								$special_problem = 1;
-							}
-						} elsif ( ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' )
-							&& $self->{'datastore'}->sequences_exist($locus)
-							&& !$q->param('ignore_similarity')
-							&& !$self->sequence_similar_to_others( $locus, \$value ) )
-						{
-							$problems{$pk_combination} .=
-"Sequence is too dissimilar to existing alleles (less than 70% identical or an alignment of less than 90% its length). Similarity is determined
-	by the output of the best match from the BLAST algorithm - this may be conservative.  If you're sure that this sequence should be entered, please
-	 select the 'Override sequence similarity check' box.<br />";
-							$special_problem = 1;
-						}
-					}
+				my %args = (
+					'locus'                   => $locus,
+					'field'                   => $field,
+					'value'                   => \$value,
+					'file_header_pos'         => \%fileheaderPos,
+					'data'                    => \@data,
+					'required_extended_exist' => $required_extended_exist,
+					'pk_combination'          => $pk_combination,
+					'problems'                => \%problems,
+					'special_problem'         => \$special_problem,
+					'continue'                => \$continue,
+					'last_id'                 => \%last_id,
+					'extended_attributes'     => $extended_attributes
+				);
+				if ( $table eq 'sequences' ) {
+					$self->_check_data_sequences( \%args );
 				}
 
 				#special case to check for allele id format and regex which is defined in loci table
@@ -599,55 +458,6 @@ sub _check_data {
 					} elsif ( $format->[1] && $value !~ /$format->[1]/ ) {
 						$problems{$pk_combination} .= "$_->{'name'} value is invalid - it must match the regular expression /$format->[1]/";
 						$special_problem = 1;
-					}
-				}
-				if ( $self->{'system'}->{'dbtype'} eq 'sequences' && $table eq 'sequences' ) {
-
-					#check extended attributes if they exist
-					if ( $extended_attributes->{$field} ) {
-						my @optlist;
-						my %options;
-						if ( $extended_attributes->{$field}->{'option_list'} ) {
-							@optlist = split /\|/, $extended_attributes->{$field}->{'option_list'};
-							foreach (@optlist) {
-								$options{$_} = 1;
-							}
-						}
-						if ( $extended_attributes->{$field}->{'required'} && $data[ $fileheaderPos{$field} ] eq '' ) {
-							$problems{$pk_combination} .= "'$field' is a required field and cannot be left blank.<br />";
-						} elsif ( $extended_attributes->{$field}->{'option_list'}
-							&& defined $fileheaderPos{$field}
-							&& $data[ $fileheaderPos{$field} ] ne ''
-							&& !$options{ $data[ $fileheaderPos{$field} ] } )
-						{
-							local $" = ', ';
-							$problems{$pk_combination} .= "Field '$field' value is not on the allowed list (@optlist).<br />";
-							$special_problem = 1;
-						} elsif ( $extended_attributes->{$field}->{'format'}
-							&& $extended_attributes->{$field}->{'format'} eq 'integer'
-							&& ( defined $fileheaderPos{$field} && $data[ $fileheaderPos{$field} ] ne '' )
-							&& !BIGSdb::Utils::is_int( $data[ $fileheaderPos{$field} ] ) )
-						{
-							$problems{$pk_combination} .= "Field '$field' must be an integer.<br />";
-							$special_problem = 1;
-						} elsif (
-							$extended_attributes->{$field}->{'format'}
-							&& $extended_attributes->{$field}->{'format'} eq 'boolean'
-							&& (   defined $fileheaderPos{$field}
-								&& lc( $data[ $fileheaderPos{$field} ] ) ne 'false'
-								&& lc( $data[ $fileheaderPos{$field} ] ) ne 'true' )
-						  )
-						{
-							$problems{$pk_combination} .= "Field '$field' must be boolean (either true or false).<br />";
-							$special_problem = 1;
-						} elsif ( defined $fileheaderPos{$field}
-							&& $data[ $fileheaderPos{$field} ] ne ''
-							&& $extended_attributes->{$field}->{'regex'}
-							&& $data[ $fileheaderPos{$field} ] !~ /$extended_attributes->{$field}->{'regex'}/ )
-						{
-							$problems{$pk_combination} .= "Field '$field' does not conform to specified format.<br />\n";
-							$special_problem = 1;
-						}
 					}
 				}
 
@@ -879,6 +689,228 @@ sub _check_data {
 	return;
 }
 
+sub _check_data_sequences {
+	my ( $self, $arg_ref ) = @_;
+	my $locus           = $arg_ref->{'locus'};
+	my $field           = $arg_ref->{'field'};
+	my $pk_combination  = $arg_ref->{'pk_combination'};
+	my %file_header_pos = %{ $arg_ref->{'file_header_pos'} };
+	my @data            = @{ $arg_ref->{'data'} };
+
+	my $q = $self->{'cgi'};
+	if ( !$self->{'sql'}->{'sequence_exists'} ) {
+		$self->{'sql'}->{'sequence_exists'} = $self->{'db'}->prepare("SELECT allele_id FROM sequences WHERE locus=? AND sequence=?");
+	}
+	if ( !$self->{'sql'}->{'allele_id_exists'} ) {
+		$self->{'sql'}->{'allele_id_exists'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM sequences WHERE locus=? AND allele_id=?");
+	}
+	if ( $field eq 'locus' && $q->param('locus') ) {
+		${ $arg_ref->{'value'} } = $q->param('locus');
+	}
+	if ( $field eq 'allele_id' ) {
+		if ( $q->param('locus') ) {
+			$locus = $q->param('locus');
+		} else {
+			$locus =
+			  ( defined $file_header_pos{'locus'} && defined $data[ $file_header_pos{'locus'} ] )
+			  ? $data[ $file_header_pos{'locus'} ]
+			  : undef;
+		}
+		if (   defined $file_header_pos{'locus'}
+			&& $data[ $file_header_pos{'locus'} ]
+			&& any { $_ eq $data[ $file_header_pos{'locus'} ] } @{ $arg_ref->{'required_extended_exist'} } )
+		{
+			$arg_ref->{'problems'}->{$pk_combination} .=
+			  "Locus $locus has required extended attributes - please use specific batch upload form for this locus.<br />";
+			${ $arg_ref->{'special_problem'} } = 1;
+		}
+		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+		if (
+			   defined $locus_info->{'allele_id_format'}
+			&& $locus_info->{'allele_id_format'} eq 'integer'
+			&& (   !defined $file_header_pos{'allele_id'}
+				|| !defined $data[ $file_header_pos{'allele_id'} ]
+				|| $data[ $file_header_pos{'allele_id'} ] eq '' )
+		  )
+		{
+			if ( $arg_ref->{'last_id'}->{$locus} ) {
+				${ $arg_ref->{'value'} } = $arg_ref->{'last_id'}->{$locus};
+			} else {
+				${ $arg_ref->{'value'} } = $self->{'datastore'}->get_next_allele_id($locus) - 1;
+			}
+			my $exists;
+			do {
+				${ $arg_ref->{'value'} }++;
+				eval { $self->{'sql'}->{'allele_id_exists'}->execute( $locus, ${ $arg_ref->{'value'} } ) };
+				if ($@) {
+					$logger->error("Can't execute allele id exists check. values $locus,${$arg_ref->{'value'}} $@");
+					last;
+				}
+				($exists) = $self->{'sql'}->{'allele_id_exists'}->fetchrow_array;
+			} while $exists;
+			$arg_ref->{'last_id'}->{$locus} = ${ $arg_ref->{'value'} };
+		} elsif ( defined $file_header_pos{'allele_id'}
+			&& !BIGSdb::Utils::is_int( $data[ $file_header_pos{'allele_id'} ] )
+			&& defined $locus_info->{'allele_id_format'}
+			&& $locus_info->{'allele_id_format'} eq 'integer' )
+		{
+			$arg_ref->{'problems'}->{$pk_combination} .= "Allele id must be an integer.<br />";
+			${ $arg_ref->{'special_problem'} } = 1;
+		}
+		my $regex = $locus_info->{'allele_id_regex'};
+		if ( $regex && $data[ $file_header_pos{'allele_id'} ] !~ /$regex/ ) {
+			$arg_ref->{'problems'}->{$pk_combination} .= "Allele id value is invalid - it must match the regular expression /$regex/<br />";
+			${ $arg_ref->{'special_problem'} } = 1;
+		}
+	}
+
+	#special case to check for sequence length in sequences table, and that sequence doesn't already exist 
+	#and is similar to existing.
+	if ( $field eq 'sequence' ) {
+		if ( $q->param('locus') ) {
+			$locus = $q->param('locus');
+		} else {
+			$locus =
+			  ( defined $file_header_pos{'locus'} && defined $data[ $file_header_pos{'locus'} ] )
+			  ? $data[ $file_header_pos{'locus'} ]
+			  : undef;
+		}
+		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+		my $length     = length( ${ $arg_ref->{'value'} } );
+		my $units      = ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' ) ? 'bp' : 'residues';
+		if ( !$locus_info->{'length_varies'} && defined $locus_info->{'length'} && $locus_info->{'length'} != $length ) {
+			my $problem_text =
+			  "Sequence is $length $units long but this locus is set as a standard length of $locus_info->{'length'} $units.<br />";
+			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text
+			  if !defined $arg_ref->{'problems'}->{$pk_combination} || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/;
+			${ $arg_ref->{'special_problem'} } = 1;
+		} elsif ( $locus_info->{'min_length'} && $length < $locus_info->{'min_length'} ) {
+			my $problem_text =
+			  "Sequence is $length $units long but this locus is set with a minimum length of $locus_info->{'min_length'} $units.<br />";
+			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
+			${ $arg_ref->{'special_problem'} } = 1;
+		} elsif ( $locus_info->{'max_length'} && $length > $locus_info->{'max_length'} ) {
+			my $problem_text =
+			  "Sequence is $length $units long but this locus is set with a maximum length of $locus_info->{'max_length'} $units.<br />";
+			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
+			${ $arg_ref->{'special_problem'} } = 1;
+		} elsif ( defined $file_header_pos{'allele_id'}
+			&& defined $data[ $file_header_pos{'allele_id'} ]
+			&& $data[ $file_header_pos{'allele_id'} ] =~ /\s/ )
+		{
+			$arg_ref->{'problems'}->{$pk_combination} .= "Allele id must not contain spaces - try substituting with underscores (_).<br />";
+			${ $arg_ref->{'special_problem'} } = 1;
+		} else {
+			${ $arg_ref->{'value'} } = uc( ${ $arg_ref->{'value'} } );
+			${ $arg_ref->{'value'} } =~ s/[\W]//g;
+			eval { $self->{'sql'}->{'sequence_exists'}->execute( $locus, ${ $arg_ref->{'value'} } ) };
+			if ($@) {
+				$logger->error("Can't execute sequence exists check. values $locus,${$arg_ref->{'value'}} $@");
+			}
+			my ($exists) = $self->{'sql'}->{'sequence_exists'}->fetchrow_array;
+			if ($exists) {
+				if ( $q->param('complete_CDS') || $q->param('ignore_existing') ) {
+					${ $arg_ref->{'continue'} } = 0;
+				} else {
+					$arg_ref->{'problems'}->{$pk_combination} .= "Sequence already exists in the database ($locus: $exists).<br />";
+					${ $arg_ref->{'special_problem'} } = 1;
+				}
+			}
+			if ( $q->param('complete_CDS') ) {
+				my $first_codon = substr( ${ $arg_ref->{'value'} }, 0, 3 );
+				${ $arg_ref->{'continue'} } = 0 if none { $first_codon eq $_ } qw (ATG GTG TTG);
+				my $end_codon = substr( ${ $arg_ref->{'value'} }, -3 );
+				${ $arg_ref->{'continue'} } = 0 if none { $end_codon eq $_ } qw (TAA TGA TAG);
+				my $multiple_of_3 = ( length( ${ $arg_ref->{'value'} } ) / 3 ) == int( length( ${ $arg_ref->{'value'} } ) / 3 ) ? 1 : 0;
+				${ $arg_ref->{'continue'} } = 0 if !$multiple_of_3;
+				my $internal_stop;
+				for ( my $pos = 0 ; $pos < length( ${ $arg_ref->{'value'} } ) - 3 ; $pos += 3 ) {
+					my $codon = substr( ${ $arg_ref->{'value'} }, $pos, 3 );
+					if ( any { $codon eq $_ } qw (TAA TGA TAG) ) {
+						$internal_stop = 1;
+					}
+				}
+				${ $arg_ref->{'continue'} } = 0 if $internal_stop;
+			}
+		}
+		if ( ${ $arg_ref->{'continue'} } ) {
+			if ( ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' )
+				&& !BIGSdb::Utils::is_valid_DNA( ${ $arg_ref->{'value'} } ) )
+			{
+				if ( $q->param('complete_CDS') || $q->param('ignore_non_DNA') ) {
+					${ $arg_ref->{'continue'} } = 0;
+				} else {
+					$arg_ref->{'problems'}->{$pk_combination} .= "Sequence contains non nucleotide (G|A|T|C) characters.<br />";
+					${ $arg_ref->{'special_problem'} } = 1;
+				}
+			} elsif ( ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' )
+				&& $self->{'datastore'}->sequences_exist($locus)
+				&& !$q->param('ignore_similarity')
+				&& !$self->sequence_similar_to_others( $locus, $arg_ref->{'value'} ) )
+			{
+				$arg_ref->{'problems'}->{$pk_combination} .=
+"Sequence is too dissimilar to existing alleles (less than 70% identical or an alignment of less than 90% its length). Similarity is determined
+	by the output of the best match from the BLAST algorithm - this may be conservative.  If you're sure that this sequence should be entered, please
+	 select the 'Override sequence similarity check' box.<br />";
+				${ $arg_ref->{'special_problem'} } = 1;
+			}
+		}
+	}
+
+	#check extended attributes if they exist
+	if ( $arg_ref->{'extended_attributes'}->{$field} ) {
+		my @optlist;
+		my %options;
+		if ( $arg_ref->{'extended_attributes'}->{$field}->{'option_list'} ) {
+			@optlist = split /\|/, $arg_ref->{'extended_attributes'}->{$field}->{'option_list'};
+			foreach (@optlist) {
+				$options{$_} = 1;
+			}
+		}
+		if ( $arg_ref->{'extended_attributes'}->{$field}->{'required'}
+			&& (   !defined $file_header_pos{$field}
+				|| !defined $data[ $file_header_pos{$field} ]
+				|| $data[ $file_header_pos{$field} ] eq '' ) )
+		{
+			$arg_ref->{'problems'}->{$pk_combination} .= "'$field' is a required field and cannot be left blank.<br />";
+		} elsif ( $arg_ref->{'extended_attributes'}->{$field}->{'option_list'}
+			&& defined $file_header_pos{$field}
+			&& $data[ $file_header_pos{$field} ] ne ''
+			&& !$options{ $data[ $file_header_pos{$field} ] } )
+		{
+			local $" = ', ';
+			$arg_ref->{'problems'}->{$pk_combination} .= "Field '$field' value is not on the allowed list (@optlist).<br />";
+			${ $arg_ref->{'special_problem'} } = 1;
+		} elsif ( $arg_ref->{'extended_attributes'}->{$field}->{'format'}
+			&& $arg_ref->{'extended_attributes'}->{$field}->{'format'} eq 'integer'
+			&& ( defined $file_header_pos{$field} && defined $data[ $file_header_pos{$field} ] && $data[ $file_header_pos{$field} ] ne '' )
+			&& !BIGSdb::Utils::is_int( $data[ $file_header_pos{$field} ] ) )
+		{
+			$arg_ref->{'problems'}->{$pk_combination} .= "Field '$field' must be an integer.<br />";
+			${ $arg_ref->{'special_problem'} } = 1;
+		} elsif (
+			$arg_ref->{'extended_attributes'}->{$field}->{'format'}
+			&& $arg_ref->{'extended_attributes'}->{$field}->{'format'} eq 'boolean'
+			&& (   defined $file_header_pos{$field}
+				&& lc( $data[ $file_header_pos{$field} ] ) ne 'false'
+				&& lc( $data[ $file_header_pos{$field} ] ) ne 'true' )
+		  )
+		{
+			$arg_ref->{'problems'}->{$pk_combination} .= "Field '$field' must be boolean (either true or false).<br />";
+			${ $arg_ref->{'special_problem'} } = 1;
+		} elsif ( defined $file_header_pos{$field}
+			&& defined $data[ $file_header_pos{$field} ]
+			&& $data[ $file_header_pos{$field} ] ne ''
+			&& $arg_ref->{'extended_attributes'}->{$field}->{'regex'}
+			&& $data[ $file_header_pos{$field} ] !~ /$arg_ref->{'extended_attributes'}->{$field}->{'regex'}/ )
+		{
+			$arg_ref->{'problems'}->{$pk_combination} .= "Field '$field' does not conform to specified format.<br />\n";
+			${ $arg_ref->{'special_problem'} } = 1;
+		}
+	}
+	return;
+}
+
 sub _upload_data {
 	my ( $self, $arg_ref ) = @_;
 	my $table    = $arg_ref->{'table'};
@@ -899,8 +931,11 @@ sub _upload_data {
 		$logger->error("Can't delete temp file $tmp_file");
 	}
 	my $headerline = shift @records;
-	$headerline =~ s/[\r\n]//g;
-	my @fieldorder = split /\t/, $headerline;
+	my @fieldorder;
+	if ( defined $headerline ) {
+		$headerline =~ s/[\r\n]//g;
+		@fieldorder = split /\t/, $headerline;
+	}
 	my %fieldorder;
 	my $extended_attributes;
 	for ( my $i = 0 ; $i < @fieldorder ; $i++ ) {

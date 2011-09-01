@@ -777,7 +777,8 @@ sub _is_field_bad_other {
 			$thisfield = $_;
 		}
 	}
-
+	$thisfield->{'type'} ||= 'text';
+	
 	#If field is null make sure it's not a required field
 	if ( !defined $value || $value eq '' ) {
 		if ( !$thisfield->{'required'} || $thisfield->{'required'} ne 'yes' ) {
