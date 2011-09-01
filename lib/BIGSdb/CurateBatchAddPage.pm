@@ -394,17 +394,10 @@ sub _check_data {
 					$self->_check_data_sequences( \%args );
 				} elsif ( $table eq 'allele_designations' ) {
 					$self->_check_data_allele_designations( \%args );
+				} elsif ( $table eq 'users' ) {
+					$self->_check_data_users( \%args );
 				}
-
-				#special case to prevent a new user with curator or admin status unless user is admin themselves
-				if ( $table eq 'users' && $field eq 'status' ) {
-					if ( defined $value && $value ne 'user' && !$self->is_admin() ) {
-						my $problem_text = "Only a user with admin status can add a user with a status other than 'user'<br />";
-						$problems{$pk_combination} .= $problem_text
-						  if !defined $problems{$pk_combination} || $problems{$pk_combination} !~ /$problem_text/;
-						$special_problem = 1;
-					}
-				} elsif ( $table eq 'scheme_group_group_members'
+				if (   $table eq 'scheme_group_group_members'
 					&& $field eq 'group_id'
 					&& $data[ $fileheaderPos{'parent_group_id'} ] == $data[ $fileheaderPos{'group_id'} ] )
 				{
@@ -627,6 +620,7 @@ sub _check_data {
 }
 
 sub _extract_value {
+
 	# Also determines header row if this is the first row
 	my ( $self, $arg_ref ) = @_;
 	my $q               = $self->{'cgi'};
@@ -635,6 +629,7 @@ sub _extract_value {
 	my @data            = @{ $arg_ref->{'data'} };
 	my %file_header_pos = %{ $arg_ref->{'file_header_pos'} };
 	my $value;
+
 	if ( $field eq 'id' ) {
 		${ $arg_ref->{'header_row'} } .= "id\t"
 		  if $first_record && !defined $file_header_pos{'id'};
@@ -700,6 +695,24 @@ sub _get_primary_key_values {
 		${ $arg_ref->{'record_count'} }++;
 	}
 	return ( $pk_combination, \@pk_values );
+}
+
+sub _check_data_users {
+
+	#special case to prevent a new user with curator or admin status unless user is admin themselves
+	my ( $self, $arg_ref ) = @_;
+	my $field          = $arg_ref->{'field'};
+	my $value          = ${ $arg_ref->{'value'} };
+	my $pk_combination = $arg_ref->{'pk_combination'};
+	if ( $field eq 'status' ) {
+		if ( defined $value && $value ne 'user' && !$self->is_admin() ) {
+			my $problem_text = "Only a user with admin status can add a user with a status other than 'user'<br />";
+			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text
+			  if !defined $arg_ref->{'problems'}->{$pk_combination} || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/;
+			${ $arg_ref->{'special_problem'} } = 1;
+		}
+	}
+	return;
 }
 
 sub _check_data_duplicates {
