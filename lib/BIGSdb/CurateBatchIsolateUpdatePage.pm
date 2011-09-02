@@ -259,11 +259,11 @@ sub print_content {
 						eval { $sql2->execute(@args) };
 						$logger->error($@) if $@;
 						$oldvalue = $sql2->fetchrow_array();
-						if (   $oldvalue eq ''
+						if (   !defined $oldvalue || $oldvalue eq ''
 							|| $q->param('overwrite') )
 						{
 							$oldvalue = "-"
-							  if $oldvalue eq '';
+							  if !defined $oldvalue || $oldvalue eq '';
 							my $problem = $self->is_field_bad( $self->{'system'}->{'view'}, $field[$i], $value[$i], 'update' );
 							if ($problem) {
 								$action = "<span class=\"statusbad\">no action - $problem</span>";

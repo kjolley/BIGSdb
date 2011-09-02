@@ -1155,9 +1155,7 @@ sub create_temp_ref_table {
 				$self->{'db'}->do("INSERT INTO temp_refs VALUES ($pmid,null,null,null,null,null,null,null,$isolates)");
 			}
 		};
-		if ($@) {
-			$logger->error($@);
-		}
+		$logger->error($@) if $@;
 	}
 	return 1;
 }
