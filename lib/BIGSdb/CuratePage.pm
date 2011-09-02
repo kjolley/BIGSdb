@@ -667,7 +667,7 @@ sub _is_field_bad_isolates {
 		if ( $fieldname eq 'aliases' || $fieldname eq 'references' || $thisfield{'required'} eq 'no' ) {
 			return 0;
 		} else {
-			return 'is a required field and cannot be left blank';
+			return 'is a required field and cannot be left blank.';
 		}
 	}
 
@@ -757,7 +757,7 @@ sub _is_field_bad_isolates {
 		if ( $thisfield{'required'} && $thisfield{'required'} eq 'no' ) {
 			return 0 if ( $value eq '' );
 		}
-		return "'$value' is not on the list of allowed values for this field";
+		return "'$value' is not on the list of allowed values for this field.";
 	}
 
 	#Make sure field is not too long
@@ -784,7 +784,7 @@ sub _is_field_bad_other {
 		if ( !$thisfield->{'required'} || $thisfield->{'required'} ne 'yes' ) {
 			return 0;
 		} else {
-			return 'is a required field and cannot be left blank';
+			return 'is a required field and cannot be left blank.';
 		}
 	}
 
@@ -872,7 +872,7 @@ sub _is_field_bad_other {
 		if ( $thisfield->{'required'} && $thisfield->{'required'} eq 'no' ) {
 			return 0 if ( $value eq '' );
 		}
-		return "'$value' is not on the list of allowed values for this field";
+		return "'$value' is not on the list of allowed values for this field.";
 	}
 
 	#Make sure field is not too long

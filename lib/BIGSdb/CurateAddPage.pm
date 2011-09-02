@@ -166,7 +166,7 @@ this sequence then make sure that the 'Override sequence similarity check' box i
 					push @missing_field, $field;
 				} elsif ( $option_list && $newdata{$field} ne '' && !$options{ $newdata{$field} } ) {
 					$" = ', ';
-					push @problems, "$field value is not on the allowed list (@optlist)<br />";
+					push @problems, "$field value is not on the allowed list (@optlist).<br />";
 				} elsif ( $format eq 'integer' && $newdata{$field} ne '' && !BIGSdb::Utils::is_int( $newdata{$field} ) ) {
 					push @problems, "$field must be an integer.<br />";
 				} elsif ( $newdata{$field} ne '' && $regex && $newdata{$field} !~ /$regex/ ) {

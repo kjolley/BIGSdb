@@ -142,16 +142,17 @@ sub print_content {
 			$value = $data->{ $_->{'name'} };
 		}
 		if ( $_->{'name'} eq 'url' ) {
-			$value =~ s/\&/\&amp;/g;
+			$value =~ s/\&/\&amp;/g if defined $value;
 		}
 		if ( $_->{'name'} =~ /sequence$/ && $_->{'name'} ne 'coding_sequence' ) {
+			$value ||= '';
 			my $value_length = length($value);
 			if ( $value_length > 5000 ) {
 				$value = BIGSdb::Utils::truncate_seq( \$value, 30 );
 				$buffer .=
 "<td style=\"text-align:left\"><span class=\"seq\">$value</span><br />Sequence is $value_length characters (too long to display)</td>\n";
 			} else {
-				$value = BIGSdb::Utils::split_line($value);
+				$value = BIGSdb::Utils::split_line($value) || '';
 				$buffer .= "<td style=\"text-align:left\" class=\"seq\">$value</td>\n";
 			}
 		} elsif ( $_->{'name'} eq 'curator' or $_->{'name'} eq 'sender' ) {

@@ -291,16 +291,16 @@ sub _check_data {
 	$tablebuffer .= "<div class=\"scrollable\"><table class=\"resultstable\"><tr>";
 	$tablebuffer .= $self->_get_field_table_header($table);
 	$tablebuffer .= "</tr>";
-	my @records   = split /\n/, $q->param('data');
-	my $td        = 1;
-	my $headerRow = shift @records;
-	$headerRow =~ s/\r//g;
-	my @fileheaderFields = split /\t/, $headerRow;
-	my %fileheaderPos;
+	my @records = split /\n/, $q->param('data');
+	my $td      = 1;
+	my $header  = shift @records;
+	$header =~ s/\r//g;
+	my @file_header_fields = split /\t/, $header;
+	my %file_header_pos;
 	my $pos = 0;
 
-	foreach (@fileheaderFields) {
-		$fileheaderPos{$_} = $pos;
+	foreach (@file_header_fields) {
+		$file_header_pos{$_} = $pos;
 		$pos++;
 	}
 	my $id;
@@ -319,10 +319,6 @@ sub _check_data {
 		}
 	}
 	my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
-	my %primary_key_combination;
-	local $" = '=? AND ';
-	my $qry                   = "SELECT COUNT(*) FROM $table WHERE @primary_keys=?";
-	my $primary_key_check_sql = $self->{'db'}->prepare($qry);
 	my %locus_format;
 	my %locus_regex;
 	my $first_record = 1;
@@ -346,7 +342,7 @@ sub _check_data {
 			my ( $pk_combination, $pk_values_ref ) = $self->_get_primary_key_values(
 				{
 					'primary_keys'    => \@primary_keys,
-					'file_header_pos' => \%fileheaderPos,
+					'file_header_pos' => \%file_header_pos,
 					'id'              => $id,
 					'locus'           => $locus,
 					'table'           => $table,
@@ -355,13 +351,11 @@ sub _check_data {
 					'record_count'    => \$record_count
 				}
 			);
-
-			#			$i = 0;
 			my $rowbuffer;
 			my $continue = 1;
-
-			#Check individual values for correctness
 			foreach my $field (@fieldorder) {
+
+				#Check individual values for correctness.
 				my $value = $self->_extract_value(
 					{
 						'field'               => $field,
@@ -369,7 +363,7 @@ sub _check_data {
 						'header_row'          => \$header_row,
 						'first_record'        => $first_record,
 						'id'                  => $id,
-						'file_header_pos'     => \%fileheaderPos,
+						'file_header_pos'     => \%file_header_pos,
 						'extended_attributes' => $extended_attributes
 					}
 				);
@@ -378,7 +372,7 @@ sub _check_data {
 					'locus'                   => $locus,
 					'field'                   => $field,
 					'value'                   => \$value,
-					'file_header_pos'         => \%fileheaderPos,
+					'file_header_pos'         => \%file_header_pos,
 					'data'                    => \@data,
 					'required_extended_exist' => $required_extended_exist,
 					'pk_combination'          => $pk_combination,
@@ -396,24 +390,21 @@ sub _check_data {
 					$self->_check_data_allele_designations( \%args );
 				} elsif ( $table eq 'users' ) {
 					$self->_check_data_users( \%args );
+				} elsif ( $table eq 'scheme_group_group_members' ) {
+					$self->_check_data_scheme_group_group_members( \%args );
 				}
-				if (   $table eq 'scheme_group_group_members'
-					&& $field eq 'group_id'
-					&& $data[ $fileheaderPos{'parent_group_id'} ] == $data[ $fileheaderPos{'group_id'} ] )
-				{
-					$problems{$pk_combination} .= "A scheme group can't be a member of itself.";
-					$special_problem = 1;
+
+				#Display field - highlight in red if invalid.
+				my $display_value;
+				if ( $field =~ /sequence/ && $field ne 'coding_sequence' ) {
+					$value ||= '';
+					$display_value = "<span class=\"seq\">" . ( BIGSdb::Utils::truncate_seq( \$value, 40 ) ) . "</span>";
+				} else {
+					$display_value = $value;
 				}
-				my $display_value = $value;
 				if ( !( ( my $problem .= $self->is_field_bad( $table, $field, $value, 'insert' ) ) || $special_problem ) ) {
-					if ( $field =~ /sequence/ && $field ne 'coding_sequence' ) {
-						$display_value = "<span class=\"seq\">" . ( BIGSdb::Utils::truncate_seq( \$value, 40 ) ) . "</span>";
-					}
 					$rowbuffer .= defined $display_value ? "<td>$display_value</td>" : '<td />';
 				} else {
-					if ( $field =~ /sequence/ && $field ne 'coding_sequence' ) {
-						$display_value = "<span class=\"seq\">" . ( BIGSdb::Utils::truncate_seq( \$value, 40 ) ) . "</span>";
-					}
 					$rowbuffer .= defined $display_value ? "<td><font color='red'>$display_value</font></td>" : '<td />';
 					if ($problem) {
 						my $problem_text = "$field $problem<br />";
@@ -421,11 +412,9 @@ sub _check_data {
 						  if !defined $problems{$pk_combination} || $problems{$pk_combination} !~ /$problem_text/;
 					}
 				}
-
-				#				$i++;
 				$value = defined $value ? $value : '';
 				$checked_record .= "$value\t"
-				  if defined $fileheaderPos{$field}
+				  if defined $file_header_pos{$field}
 					  or ( $field eq 'id' );
 			}
 			if ( !$continue ) {
@@ -433,103 +422,38 @@ sub _check_data {
 				next;
 			}
 			$tablebuffer .= "<tr class=\"td$td\">$rowbuffer";
+			my %args = (
+				'file_header_fields' => \@file_header_fields,
+				'header_row'         => \$header_row,
+				'first_record'       => $first_record,
+				'file_header_pos'    => \%file_header_pos,
+				'data'               => \@data,
+				'locus_format'       => \%locus_format,
+				'locus_regex'        => \%locus_regex,
+				'primary_keys'       => \@primary_keys,
+				'pk_combination'     => $pk_combination,
+				'pk_values'          => $pk_values_ref,
+				'problems'           => \%problems,
+				'checked_record'     => \$checked_record,
+				'table'              => $table
+			);
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
-				my %is_locus;
-				foreach ( @{ $self->{'datastore'}->get_loci() } ) {
-					$is_locus{$_} = 1;
-				}
-				my $locusbuffer;
-				foreach (@fileheaderFields) {
-					if ( $is_locus{$_} ) {
-						$header_row .= "$_\t" if $first_record;
-						my $value = defined $fileheaderPos{$_} ? $data[ $fileheaderPos{$_} ] : undef;
-						if ( !$locus_format{$_} ) {
-							my $locus_info = $self->{'datastore'}->get_locus_info($_);
-							$locus_format{$_} = $locus_info->{'allele_id_format'};
-							$locus_regex{$_}  = $locus_info->{'allele_id_regex'};
-						}
-						if ($value) {
-							if ( $locus_format{$_} eq 'integer'
-								&& !BIGSdb::Utils::is_int($value) )
-							{
-								$locusbuffer .= "<span><font color='red'>$_:&nbsp;$value</font></span><br />";
-								$problems{$pk_combination} .= "'$_' must be an integer<br />";
-							} elsif ( $locus_regex{$_} && $value !~ /$locus_regex{$_}/ ) {
-								$locusbuffer .= "<span><font color='red'>$_:&nbsp;$value</font></span><br />";
-								$problems{$pk_combination} .= "'$_' does not conform to specified format.<br />";
-							} else {
-								$locusbuffer .= "$_:&nbsp;$value<br />";
-							}
-							$checked_record .= "$value\t";
-						} else {
-							$checked_record .= "\t";
-						}
 
-						#						$i++;
-					}
-				}
-				$tablebuffer .= defined $locusbuffer ? "<td>$locusbuffer</td>" : '<td />';
+				#Check for locus values that can also be uploaded with an isolate record.
+				$tablebuffer .= $self->_check_data_isolate_record_locus_fields( \%args );
 			}
 			$tablebuffer .= "</tr>\n";
-			if ( $primary_key_combination{$pk_combination} && $pk_combination !~ /\:\s*$/ ) {
-				my $problem_text = "Primary key submitted more than once in this batch<br />";
-				$problems{$pk_combination} .= $problem_text
-				  if $problems{$pk_combination} !~ /$problem_text/;
-			}
-			$primary_key_combination{$pk_combination}++;
 
-			#Check if primary key already in database
-			if (@$pk_values_ref) {
-				eval { $primary_key_check_sql->execute(@$pk_values_ref); };
-				if ($@) {
-					my $message = $@;
-					local $" = ', ';
-					$logger->debug(
-"Can't execute primary key check (incorrect data pasted): primary keys: @primary_keys values: @$pk_values_ref $message"
-					);
-					my $plural = scalar @primary_keys > 1 ? 's' : '';
-					if ( $message =~ /invalid input/ ) {
-						print
-"<div class=\"box\" id=\"statusbad\"><p>Your pasted data has invalid primary key field$plural (@primary_keys) data.</p></div>\n";
-						return;
-					}
-					print
-"<div class=\"box\" id=\"statusbad\"><p>Your pasted data does not appear to contain the primary key field$plural (@primary_keys) required for this table.</p></div>\n";
-					return;
-				}
-				my ($exists) = $primary_key_check_sql->fetchrow_array;
-				if ($exists) {
-					my $problem_text = "Primary key already exists in the database.<br />";
-					$problems{$pk_combination} .= $problem_text
-					  if !defined $problems{$pk_combination} || $problems{$pk_combination} !~ /$problem_text/;
-				}
-			}
-
-			#special case to check that sequence exists when adding accession or PubMed number
+			#Check for various invalid combinations of fields
+			$self->_check_data_primary_key( \%args );
 			if ( $self->{'system'}->{'dbtype'} eq 'sequences' && ( $table eq 'accession' || $table eq 'sequence_refs' ) ) {
+
+				#check that sequence exists when adding accession or PubMed number
 				if ( !$self->{'datastore'}->sequence_exists(@$pk_values_ref) ) {
 					$problems{$pk_combination} .= "Sequence $pk_values_ref->[0]-$pk_values_ref->[1] does not exist.";
 				}
-
-				#special case to ensure that a locus length is set is it is not marked as variable length
 			} elsif ( $table eq 'loci' ) {
-				if ( ( none { $data[ $fileheaderPos{'length_varies'} ] eq $_ } qw (true TRUE 1) )
-					&& !$data[ $fileheaderPos{'length'} ] )
-				{
-					$problems{$pk_combination} .= "Locus set as non variable length but no length is set.";
-				}
-				if ( $data[ $fileheaderPos{'id'} ] =~ /^\d/ ) {
-					$problems{$pk_combination} .=
-"Locus names can not start with a digit.  Try prepending an underscore (_) which will get hidden in the query interface.";
-				}
-				if ( $data[ $fileheaderPos{'id'} ] =~ /\./ ) {
-					$problems{$pk_combination} .=
-"Locus names can not contain a period (.).  Try replacing with an underscore (_) - this will get hidden in the query interface.";
-				}
-				if ( $data[ $fileheaderPos{'id'} ] =~ /\s/ ) {
-					$problems{$pk_combination} .=
-"Locus names can not contain spaces.  Try replacing with an underscore (_) - this will get hidden in the query interface.";
-				}
+				$self->_check_data_loci( \%args );
 
 				#check that user is allowed to access this sequence bin record (controlled by isolate ACL)
 			} elsif (
@@ -545,7 +469,7 @@ sub _check_data {
 			{
 				my $isolate_id_ref =
 				  $self->{'datastore'}
-				  ->run_simple_query( "SELECT isolate_id FROM sequence_bin WHERE id=?", $data[ $fileheaderPos{'seqbin_id'} ] );
+				  ->run_simple_query( "SELECT isolate_id FROM sequence_bin WHERE id=?", $data[ $file_header_pos{'seqbin_id'} ] );
 				if ( ref $isolate_id_ref eq 'ARRAY' && !$self->is_allowed_to_view_isolate( $isolate_id_ref->[0] ) ) {
 					$problems{$pk_combination} .=
 "The sequence you are trying to add an accession to belongs to an isolate to which your user account is not allowed to access.";
@@ -560,7 +484,7 @@ sub _check_data {
 				&& $self->{'username'}
 				&& !$self->is_admin
 				&& ( $table eq 'allele_designations' || $table eq 'sequence_bin' || $table eq 'isolate_aliases' )
-				&& !$self->is_allowed_to_view_isolate( $data[ $fileheaderPos{'isolate_id'} ] )
+				&& !$self->is_allowed_to_view_isolate( $data[ $file_header_pos{'isolate_id'} ] )
 			  )
 			{
 				$problems{$pk_combination} .= "Your user account is not allowed to modify data for this isolate.";
@@ -571,12 +495,15 @@ sub _check_data {
 				&& $self->{'system'}->{'dbtype'} eq 'sequences'
 				&& !$self->is_admin )
 			{
-				if ( !$self->{'datastore'}
-					->is_allowed_to_modify_locus_sequences( ( $locus ? $locus : $data[ $fileheaderPos{'locus'} ] ), $self->get_curator_id )
+				if (
+					!$self->{'datastore'}->is_allowed_to_modify_locus_sequences(
+						( $locus ? $locus : $data[ $file_header_pos{'locus'} ] ),
+						$self->get_curator_id
+					)
 				  )
 				{
 					$problems{$pk_combination} .= "Your user account is not allowed to add or modify sequences for locus "
-					  . ( $locus || $data[ $fileheaderPos{'locus'} ] ) . ".";
+					  . ( $locus || $data[ $file_header_pos{'locus'} ] ) . ".";
 				}
 			}
 		}
@@ -697,6 +624,46 @@ sub _get_primary_key_values {
 	return ( $pk_combination, \@pk_values );
 }
 
+sub _check_data_isolate_record_locus_fields {
+	my ( $self, $arg_ref ) = @_;
+	my $first_record    = $arg_ref->{'first_record'};
+	my %file_header_pos = %{ $arg_ref->{'file_header_pos'} };
+	my @data            = @{ $arg_ref->{'data'} };
+	my $pk_combination  = $arg_ref->{'pk_combination'};
+	my %is_locus;
+	$is_locus{$_} = 1 foreach @{ $self->{'datastore'}->get_loci };
+	my $locusbuffer;
+
+	foreach ( @{ $arg_ref->{'file_header_fields'} } ) {
+		if ( $is_locus{$_} ) {
+			${ $arg_ref->{'header_row'} } .= "$_\t" if $first_record;
+			my $value = defined $file_header_pos{$_} ? $data[ $file_header_pos{$_} ] : undef;
+			if ( !$arg_ref->{'locus_format'}->{$_} ) {
+				my $locus_info = $self->{'datastore'}->get_locus_info($_);
+				$arg_ref->{'locus_format'}->{$_} = $locus_info->{'allele_id_format'};
+				$arg_ref->{'locus_regex'}->{$_}  = $locus_info->{'allele_id_regex'};
+			}
+			if ( defined $value ) {
+				if ( $arg_ref->{'locus_format'}->{$_} eq 'integer'
+					&& !BIGSdb::Utils::is_int($value) )
+				{
+					$locusbuffer .= "<span><font color='red'>$_:&nbsp;$value</font></span><br />";
+					$arg_ref->{'problems'}->{$pk_combination} .= "'$_' must be an integer<br />";
+				} elsif ( $arg_ref->{'locus_regex'}->{$_} && $value !~ /$arg_ref->{'locus_regex'}->{$_}/ ) {
+					$locusbuffer .= "<span><font color='red'>$_:&nbsp;$value</font></span><br />";
+					$arg_ref->{'problems'}->{$pk_combination} .= "'$_' does not conform to specified format.<br />";
+				} else {
+					$locusbuffer .= "$_:&nbsp;$value<br />";
+				}
+				${ $arg_ref->{'checked_record'} } .= "$value\t";
+			} else {
+				${ $arg_ref->{'checked_record'} } .= "\t";
+			}
+		}
+	}
+	return defined $locusbuffer ? "<td>$locusbuffer</td>" : '<td />';
+}
+
 sub _check_data_users {
 
 	#special case to prevent a new user with curator or admin status unless user is admin themselves
@@ -711,6 +678,78 @@ sub _check_data_users {
 			  if !defined $arg_ref->{'problems'}->{$pk_combination} || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/;
 			${ $arg_ref->{'special_problem'} } = 1;
 		}
+	}
+	return;
+}
+
+sub _check_data_primary_key {
+	my ( $self, $arg_ref ) = @_;
+	my $pk_combination = $arg_ref->{'pk_combination'};
+	my @primary_keys   = @{ $arg_ref->{'primary_keys'} };
+	if ( !$self->{'sql'}->{'primary_key_check'} ) {
+		local $" = '=? AND ';
+		my $qry = "SELECT COUNT(*) FROM $arg_ref->{'table'} WHERE @primary_keys=?";
+		$self->{'sql'}->{'primary_key_check'} = $self->{'db'}->prepare($qry);
+	}
+	if ( $self->{'primary_key_combination'}->{$pk_combination} && $pk_combination !~ /\:\s*$/ ) {
+		my $problem_text = "Primary key submitted more than once in this batch<br />";
+		$arg_ref->{'problems'}->{$pk_combination} .= $problem_text
+		  if !defined $arg_ref->{'problems'}->{$pk_combination} || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/;
+	}
+	$self->{'primary_key_combination'}->{$pk_combination}++;
+
+	#Check if primary key already in database
+	if ( @{ $arg_ref->{'pk_values'} } ) {
+		eval { $self->{'sql'}->{'primary_key_check'}->execute( @{ $arg_ref->{'pk_values'} } ) };
+		if ($@) {
+			my $message = $@;
+			local $" = ', ';
+			$logger->debug(
+"Can't execute primary key check (incorrect data pasted): primary keys: @primary_keys values: @{$arg_ref->{'pk_values'}} $message"
+			);
+			my $plural = scalar @primary_keys > 1 ? 's' : '';
+			if ( $message =~ /invalid input/ ) {
+				print
+"<div class=\"box\" id=\"statusbad\"><p>Your pasted data has invalid primary key field$plural (@primary_keys) data.</p></div>\n";
+				return;
+			}
+			print
+"<div class=\"box\" id=\"statusbad\"><p>Your pasted data does not appear to contain the primary key field$plural (@primary_keys) required for this table.</p></div>\n";
+			return;
+		}
+		my ($exists) = $self->{'sql'}->{'primary_key_check'}->fetchrow_array;
+		if ($exists) {
+			my $problem_text = "Primary key already exists in the database.<br />";
+			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text
+			  if !defined $arg_ref->{'problems'}->{$pk_combination} || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/;
+		}
+	}
+	return;
+}
+
+sub _check_data_loci {
+
+	#special case to ensure that a locus length is set if it is not marked as variable length
+	my ( $self, $arg_ref ) = @_;
+	my @data            = @{ $arg_ref->{'data'} };
+	my %file_header_pos = %{ $arg_ref->{'file_header_pos'} };
+	my $pk_combination  = $arg_ref->{'pk_combination'};
+	if ( ( none { $data[ $file_header_pos{'length_varies'} ] eq $_ } qw (true TRUE 1) )
+		&& !$data[ $file_header_pos{'length'} ] )
+	{
+		$arg_ref->{'problems'}->{$pk_combination} .= "Locus set as non variable length but no length is set.";
+	}
+	if ( $data[ $file_header_pos{'id'} ] =~ /^\d/ ) {
+		$arg_ref->{'problems'}->{$pk_combination} .=
+		  "Locus names can not start with a digit.  Try prepending an underscore (_) which will get hidden in the query interface.";
+	}
+	if ( $data[ $file_header_pos{'id'} ] =~ /\./ ) {
+		$arg_ref->{'problems'}->{$pk_combination} .=
+		  "Locus names can not contain a period (.).  Try replacing with an underscore (_) - this will get hidden in the query interface.";
+	}
+	if ( $data[ $file_header_pos{'id'} ] =~ /\s/ ) {
+		$arg_ref->{'problems'}->{$pk_combination} .=
+		  "Locus names can not contain spaces.  Try replacing with an underscore (_) - this will get hidden in the query interface.";
 	}
 	return;
 }
@@ -763,6 +802,21 @@ sub _check_data_allele_designations {
 			  "$field value is invalid - it must match the regular expression /$format->[1]/.<br />";
 			${ $arg_ref->{'special_problem'} } = 1;
 		}
+	}
+	return;
+}
+
+sub _check_data_scheme_group_group_members {
+	my ( $self, $arg_ref ) = @_;
+	my $field           = $arg_ref->{'field'};
+	my $pk_combination  = $arg_ref->{'pk_combination'};
+	my @data            = @{ $arg_ref->{'data'} };
+	my %file_header_pos = %{ $arg_ref->{'file_header_pos'} };
+	if (   $field eq 'group_id'
+		&& $data[ $file_header_pos{'parent_group_id'} ] == $data[ $file_header_pos{'group_id'} ] )
+	{
+		$arg_ref->{'problems'}->{$pk_combination} .= "A scheme group can't be a member of itself.";
+		${ $arg_ref->{'special_problem'} } = 1;
 	}
 	return;
 }
