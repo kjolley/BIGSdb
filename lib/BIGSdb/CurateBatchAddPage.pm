@@ -355,13 +355,16 @@ sub _check_data {
 			my $continue = 1;
 			foreach my $field (@fieldorder) {
 
+				#Prepare checked header
+				if ( $first_record && ( defined $file_header_pos{$field} || $field eq 'id' ) ) {
+					$header_row .= "$field\t";
+				}
+
 				#Check individual values for correctness.
 				my $value = $self->_extract_value(
 					{
 						'field'               => $field,
 						'data'                => \@data,
-						'header_row'          => \$header_row,
-						'first_record'        => $first_record,
 						'id'                  => $id,
 						'file_header_pos'     => \%file_header_pos,
 						'extended_attributes' => $extended_attributes
@@ -547,48 +550,35 @@ sub _check_data {
 }
 
 sub _extract_value {
-
-	# Also determines header row if this is the first row
 	my ( $self, $arg_ref ) = @_;
 	my $q               = $self->{'cgi'};
 	my $field           = $arg_ref->{'field'};
-	my $first_record    = $arg_ref->{'first_record'};
 	my @data            = @{ $arg_ref->{'data'} };
 	my %file_header_pos = %{ $arg_ref->{'file_header_pos'} };
 	my $value;
-
 	if ( $field eq 'id' ) {
-		${ $arg_ref->{'header_row'} } .= "id\t"
-		  if $first_record && !defined $file_header_pos{'id'};
 		$value = $arg_ref->{'id'};
 	}
 	if ( $field eq 'datestamp' || $field eq 'date_entered' ) {
 		$value = $self->get_datestamp;
-		${ $arg_ref->{'header_row'} } .= "$field\t" if $first_record && defined $file_header_pos{$field};
 	} elsif ( $field eq 'sender' ) {
 		if ( defined $file_header_pos{$field} ) {
 			$value = $data[ $file_header_pos{$field} ];
-			${ $arg_ref->{'header_row'} } .= "$field\t" if $first_record;
 		} else {
 			$value = $q->param('sender')
 			  if $q->param('sender') != -1;
 		}
 	} elsif ( $field eq 'curator' ) {
-		if ( defined $file_header_pos{$field} ) {
-			${ $arg_ref->{'header_row'} } .= "$field\t" if $first_record;
-		}
 		$value = $self->get_curator_id;
 	} elsif ( $arg_ref->{'extended_attributes'}->{$field}->{'format'}
 		&& $arg_ref->{'extended_attributes'}->{$field}->{'format'} eq 'boolean' )
 	{
 		if ( defined $file_header_pos{$field} ) {
-			${ $arg_ref->{'header_row'} } .= "$field\t" if $first_record;
 			$value = $data[ $file_header_pos{$field} ];
 			$value = lc($value);
 		}
 	} else {
 		if ( defined $file_header_pos{$field} ) {
-			${ $arg_ref->{'header_row'} } .= "$field\t" if $first_record;
 			$value = $data[ $file_header_pos{$field} ];
 		}
 	}
@@ -692,7 +682,7 @@ sub _check_data_primary_key {
 		$self->{'sql'}->{'primary_key_check'} = $self->{'db'}->prepare($qry);
 	}
 	if ( $self->{'primary_key_combination'}->{$pk_combination} && $pk_combination !~ /\:\s*$/ ) {
-		my $problem_text = "Primary key submitted more than once in this batch<br />";
+		my $problem_text = "Primary key submitted more than once in this batch.<br />";
 		$arg_ref->{'problems'}->{$pk_combination} .= $problem_text
 		  if !defined $arg_ref->{'problems'}->{$pk_combination} || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/;
 	}
@@ -734,22 +724,28 @@ sub _check_data_loci {
 	my @data            = @{ $arg_ref->{'data'} };
 	my %file_header_pos = %{ $arg_ref->{'file_header_pos'} };
 	my $pk_combination  = $arg_ref->{'pk_combination'};
-	if ( ( none { $data[ $file_header_pos{'length_varies'} ] eq $_ } qw (true TRUE 1) )
-		&& !$data[ $file_header_pos{'length'} ] )
+	if (
+		(
+			   defined $file_header_pos{'length_varies'}
+			&& defined $data[ $file_header_pos{'length_varies'} ]
+			&& none { $data[ $file_header_pos{'length_varies'} ] eq $_ } qw (true TRUE 1)
+		)
+		&& !$data[ $file_header_pos{'length'} ]
+	  )
 	{
-		$arg_ref->{'problems'}->{$pk_combination} .= "Locus set as non variable length but no length is set.";
+		$arg_ref->{'problems'}->{$pk_combination} .= "Locus set as non variable length but no length is set.<br />";
 	}
 	if ( $data[ $file_header_pos{'id'} ] =~ /^\d/ ) {
 		$arg_ref->{'problems'}->{$pk_combination} .=
-		  "Locus names can not start with a digit.  Try prepending an underscore (_) which will get hidden in the query interface.";
+		  "Locus names can not start with a digit.  Try prepending an underscore (_) which will get hidden in the query interface.<br />";
 	}
 	if ( $data[ $file_header_pos{'id'} ] =~ /\./ ) {
 		$arg_ref->{'problems'}->{$pk_combination} .=
-		  "Locus names can not contain a period (.).  Try replacing with an underscore (_) - this will get hidden in the query interface.";
+"Locus names can not contain a period (.).  Try replacing with an underscore (_) - this will get hidden in the query interface.<br />";
 	}
 	if ( $data[ $file_header_pos{'id'} ] =~ /\s/ ) {
 		$arg_ref->{'problems'}->{$pk_combination} .=
-		  "Locus names can not contain spaces.  Try replacing with an underscore (_) - this will get hidden in the query interface.";
+		  "Locus names can not contain spaces.  Try replacing with an underscore (_) - this will get hidden in the query interface.<br />";
 	}
 	return;
 }
@@ -763,7 +759,7 @@ sub _check_data_duplicates {
 	my $pk_combination = $arg_ref->{'pk_combination'};
 	if ( $arg_ref->{'unique_field'}->{$field} ) {
 		if ( $self->{'unique_values'}->{$field}->{$value} ) {
-			my $problem_text = "unique field '$field' already has a value of '$value' set within this submission<br />";
+			my $problem_text = "unique field '$field' already has a value of '$value' set within this submission.<br />";
 			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text
 			  if !defined $arg_ref->{'problems'}->{$pk_combination} || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/;
 			${ $arg_ref->{'special_problem'} } = 1;
