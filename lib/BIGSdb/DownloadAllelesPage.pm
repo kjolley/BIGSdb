@@ -340,7 +340,9 @@ sub _print_sequences {
 	}
 	while ( my ( $id, $sequence ) = $sql->fetchrow_array ) {
 		print ">$cleaned $id\n";
-		print BIGSdb::Utils::break_line( $sequence, 60 ) . "\n";
+		my $cleaned_seq = BIGSdb::Utils::break_line( $sequence, 60 ) || '';
+		print "$cleaned_seq\n";
 	}
+	return;
 }
 1;
