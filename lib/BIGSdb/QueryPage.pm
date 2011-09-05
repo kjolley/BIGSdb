@@ -741,6 +741,7 @@ sub _print_profile_query_interface {
 	print "</fieldset>\n";
 	print "</div>\n";
 	print "<div style=\"clear:both\"></div>";
+
 	if (@filters) {
 		print "<fieldset style=\"float:left\">\n";
 		print "<legend>Filter query by</legend>\n";
@@ -894,7 +895,7 @@ sub _generate_isolate_query_for_provenance_fields {
 			if ( any { $field =~ /(.*) \($_\)$/ } qw (id surname first_name affiliation) ) {
 				$qry .= $modifier . $self->search_users( $field, $operator, $text, $self->{'system'}->{'view'} );
 			} else {
-				$field = $self->{'system'}->{'view'}. '.' . $field;
+				$field = $self->{'system'}->{'view'} . '.' . $field;
 				my $labelfield = $self->{'system'}->{'view'} . '.' . $self->{'system'}->{'labelfield'};
 				if ( $operator eq 'NOT' ) {
 					if ( scalar @groupedfields ) {
@@ -1504,20 +1505,23 @@ sub _run_profile_query {
 				$text =~ s/'/\\'/g;
 				if (   $text ne '<blank>'
 					&& $text ne 'null'
-					&& ( $type eq 'integer' )
+					&& defined $type
+					&& $type eq 'integer'
 					&& !BIGSdb::Utils::is_int($text) )
 				{
 					push @errors, "$field is an integer field.";
 					next;
 				} elsif ( $text ne '<blank>'
 					&& $text ne 'null'
-					&& ( $type eq 'float' )
+					&& defined $type
+					&& $type eq 'float'
 					&& !BIGSdb::Utils::is_float($text) )
 				{
 					push @errors, "$field is a floating point number field.";
 					next;
 				} elsif ( $text ne '<blank>'
 					&& $text ne 'null'
+					&& defined $type
 					&& $type eq 'date'
 					&& !BIGSdb::Utils::is_date($text) )
 				{

@@ -127,7 +127,7 @@ sub print_content {
 				$tablebuffer .= "<tr class=\"td$td\"><td>$idfield1='$id[$i]'";
 				$tablebuffer .= " AND $idfield2='$id2[$i]'"
 				  if $idfield2 ne '<none>';
-				my $displayvalue = $value[$i];
+				(my $displayvalue = $value[$i]) =~ s/\'\'/\'/g;
 				$tablebuffer .= "</td><td>$field[$i]</td><td>$displayvalue</td>";
 				eval { $self->{'db'}->do($qry) };
 				if ($@) {
