@@ -960,7 +960,7 @@ sub _generate_isolate_query_for_provenance_fields {
 						  . "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) LIKE upper('\%$text\%'))";
 					} elsif ( $field eq $labelfield ) {
 						$qry .= $modifier
-						  . "(upper($field) LIKE upper('\%$text\%') OR id IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) LIKE upper('\%$text\%')))";
+						  . "(upper($field) LIKE upper('\%$text\%') OR $view.id IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) LIKE upper('\%$text\%')))";
 					} else {
 						if ( $thisfield{'type'} eq 'int' ) {
 							$qry .= $modifier . "CAST($field AS text) LIKE '\%$text\%'";
@@ -1022,7 +1022,7 @@ sub _generate_isolate_query_for_provenance_fields {
 						  );
 					} elsif ( $field eq $labelfield ) {
 						$qry .= $modifier
-						  . "(upper($field) = upper('$text') OR id IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper('$text')))";
+						  . "(upper($field) = upper('$text') OR $view.id IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper('$text')))";
 					} elsif ( lc( $thisfield{'type'} ) eq 'text' ) {
 						$qry .=
 						  $modifier . ( ( $text eq '<blank>' || $text eq 'null' ) ? "$field is null" : "upper($field) = upper('$text')" );
@@ -1059,7 +1059,7 @@ sub _generate_isolate_query_for_provenance_fields {
 						  . "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND value $operator '$text')";
 					} elsif ( $field eq $labelfield ) {
 						$qry .= $modifier
-						  . "($field $operator '$text' OR id IN (SELECT isolate_id FROM isolate_aliases WHERE alias $operator '$text'))";
+						  . "($field $operator '$text' OR $view.id IN (SELECT isolate_id FROM isolate_aliases WHERE alias $operator '$text'))";
 					} else {
 						if ( $text eq 'null' ) {
 							push @$errors_ref, "$operator is not a valid operator for comparing null values.";
@@ -1114,9 +1114,9 @@ sub _modify_isolate_query_for_filters {
 		if ($pmid) {
 			$" = "','";
 			if ( $qry !~ /WHERE \(\)\s*$/ ) {
-				$qry .= " AND (id IN ('@$ids'))";
+				$qry .= " AND ($view.id IN ('@$ids'))";
 			} else {
-				$qry = "SELECT * FROM $view WHERE (id IN ('@$ids'))";
+				$qry = "SELECT * FROM $view WHERE ($view.id IN ('@$ids'))";
 			}
 		}
 	}
@@ -1125,9 +1125,9 @@ sub _modify_isolate_query_for_filters {
 		if ($project_id) {
 			$" = "','";
 			if ( $qry !~ /WHERE \(\)\s*$/ ) {
-				$qry .= " AND (id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id'))";
+				$qry .= " AND ($view.id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id'))";
 			} else {
-				$qry = "SELECT * FROM $view WHERE (id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id'))";
+				$qry = "SELECT * FROM $view WHERE ($view.id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id'))";
 			}
 		}
 	}
@@ -1159,15 +1159,15 @@ sub _modify_isolate_query_for_filters {
 				my $clause;
 				if ( $param eq 'complete' ) {
 					$clause =
-"(id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING COUNT(isolate_id)= "
+"($view.id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING COUNT(isolate_id)= "
 					  . scalar @$scheme_loci . '))';
 				} elsif ( $param eq 'partial' ) {
 					$clause =
-"(id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING COUNT(isolate_id)< "
+"($view.id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING COUNT(isolate_id)< "
 					  . scalar @$scheme_loci . '))';
 				} elsif ( $param eq 'incomplete' ) {
 					$clause =
-"(id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING COUNT(isolate_id)< "
+"($view.id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING COUNT(isolate_id)< "
 					  . scalar @$scheme_loci
 					  . ") OR id NOT IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id )) ";
 				} else {
@@ -1213,9 +1213,9 @@ sub _modify_isolate_query_for_filters {
 				}
 				$joined_table .= " @temp";
 				if ( $scheme_field_info->{'type'} eq 'integer' ) {
-					$clause = "(id IN ($joined_table AND CAST($field AS int) = '$value'))";
+					$clause = "($view.id IN ($joined_table AND CAST($field AS int) = '$value'))";
 				} else {
-					$clause = "(id IN ($joined_table AND $field = '$value'))";
+					$clause = "($view.id IN ($joined_table AND $field = '$value'))";
 				}
 				if ( $qry !~ /WHERE \(\)\s*$/ ) {
 					$qry .= "AND $clause";
@@ -1343,29 +1343,29 @@ sub _modify_isolate_query_for_designations {
 				$" = ',';
 				if ( $operator eq 'NOT' ) {
 					push @sqry, ( $text eq '<blank>' || $text eq 'null' )
-					  ? "(id NOT IN ($joined_table AND $field is null))"
-					  : "(id NOT IN ($joined_table AND $field='$text'))";
+					  ? "($view.id NOT IN ($joined_table AND $field is null))"
+					  : "($view.id NOT IN ($joined_table AND $field='$text'))";
 				} elsif ( $operator eq "contains" ) {
 					push @sqry, $scheme_field_info->{'type'} eq 'integer'
-					  ? "(id IN ($joined_table AND CAST($field AS text) ~* '$text'))"
-					  : "(id IN ($joined_table AND $field ~* '$text'))";
+					  ? "($view.id IN ($joined_table AND CAST($field AS text) ~* '$text'))"
+					  : "($view.id IN ($joined_table AND $field ~* '$text'))";
 				} elsif ( $operator eq "NOT contain" ) {
 					push @sqry, $scheme_field_info->{'type'} eq 'integer'
-					  ? "(id IN ($joined_table AND CAST($field AS text) !~* '$text'))"
-					  : "(id IN ($joined_table AND $field !~* '$text'))";
+					  ? "($view.id IN ($joined_table AND CAST($field AS text) !~* '$text'))"
+					  : "($view.id IN ($joined_table AND $field !~* '$text'))";
 				} elsif ( $operator eq '=' ) {
 					if ( $text eq '<blank>' || $text eq 'null' ) {
-						push @lqry_blank, "(id IN ($joined_table AND $field is null))";
+						push @lqry_blank, "($view.id IN ($joined_table AND $field is null))";
 					} else {
 						push @sqry, $scheme_field_info->{'type'} eq 'text'
-						  ? "(id IN ($joined_table AND upper($field)=upper('$text')))"
-						  : "(id IN ($joined_table AND $field='$text'))";
+						  ? "($view.id IN ($joined_table AND upper($field)=upper('$text')))"
+						  : "($view.id IN ($joined_table AND $field='$text'))";
 					}
 				} else {
 					if ( $scheme_field_info->{'type'} eq 'integer' ) {
-						push @sqry, "(id IN ($joined_table AND CAST($field AS int) $operator '$text'))";
+						push @sqry, "($view.id IN ($joined_table AND CAST($field AS int) $operator '$text'))";
 					} else {
-						push @sqry, "(id IN ($joined_table AND $field $operator '$text'))";
+						push @sqry, "($view.id IN ($joined_table AND $field $operator '$text'))";
 					}
 				}
 			}
@@ -1379,7 +1379,7 @@ sub _modify_isolate_query_for_designations {
 			$modify = "GROUP BY id HAVING count(id)=" . scalar @lqry;
 		}
 		my $lqry =
-"id IN (select distinct(id) FROM $view LEFT JOIN allele_designations ON $view.id=allele_designations.isolate_id WHERE @lqry $modify)";
+"$view.id IN (select distinct($view.id) FROM $view LEFT JOIN allele_designations ON $view.id=allele_designations.isolate_id WHERE @lqry $modify)";
 		if ( $qry =~ /\(\)$/ ) {
 			$qry = "SELECT * FROM $view WHERE $brace$lqry";
 		} else {
@@ -1434,23 +1434,23 @@ sub _modify_isolate_query_for_tags {
 			my $seq_joined_table = "allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id";
 			my $locus_clause = $locus eq 'any locus' ? 'locus IS NOT NULL' : "locus=E'$locus'";
 			if ( $action eq 'untagged' ) {
-				$temp_qry = "id NOT IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause)";
+				$temp_qry = "$view.id NOT IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause)";
 			} elsif ( $action eq 'tagged' ) {
-				$temp_qry = "id IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause)";
+				$temp_qry = "$view.id IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause)";
 			} elsif ( $action eq 'complete' ) {
-				$temp_qry = "id IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause AND complete)";
+				$temp_qry = "$view.id IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause AND complete)";
 			} elsif ( $action eq 'incomplete' ) {
-				$temp_qry = "id IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause AND NOT complete)";
+				$temp_qry = "$view.id IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause AND NOT complete)";
 			} elsif ( $action =~ /^flagged: ([\w\s]+)$/ ) {
 				my $flag              = $1;
 				my $flag_joined_table = "sequence_flags LEFT JOIN sequence_bin ON sequence_flags.seqbin_id = sequence_bin.id";
 				if ( $flag eq 'any' ) {
-					$temp_qry = "id IN (SELECT isolate_id FROM $flag_joined_table WHERE $locus_clause)";
+					$temp_qry = "$view.id IN (SELECT isolate_id FROM $flag_joined_table WHERE $locus_clause)";
 				} elsif ( $flag eq 'none' ) {
 					$temp_qry =
-"id IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause) AND id NOT IN (SELECT isolate_id FROM $flag_joined_table WHERE $locus_clause)";
+"$view.id IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause) AND id NOT IN (SELECT isolate_id FROM $flag_joined_table WHERE $locus_clause)";
 				} else {
-					$temp_qry = "id IN (SELECT isolate_id FROM $flag_joined_table WHERE $locus_clause AND flag='$flag')";
+					$temp_qry = "$view.id IN (SELECT isolate_id FROM $flag_joined_table WHERE $locus_clause AND flag='$flag')";
 				}
 			}
 			push @tag_queries, $temp_qry if $temp_qry;

@@ -613,9 +613,9 @@ sub _search_by_isolate {
 "$table.seqbin_id IN (SELECT sequence_bin.id FROM sequence_bin LEFT JOIN $self->{'system'}->{'view'} ON isolate_id = $self->{'system'}->{'view'}.id WHERE ";
 	} elsif ( $table eq 'sequence_bin' ) {
 		$qry =
-"id IN (SELECT sequence_bin.id FROM sequence_bin LEFT JOIN $self->{'system'}->{'view'} ON isolate_id = $self->{'system'}->{'view'}.id WHERE ";
+"sequence_bin.id IN (SELECT sequence_bin.id FROM sequence_bin LEFT JOIN $self->{'system'}->{'view'} ON isolate_id = $self->{'system'}->{'view'}.id WHERE ";
 	} elsif ( $table eq 'allele_designations' || $table eq 'project_members' || $table eq 'isolate_aliases' || $table eq 'samples' ) {
-		$qry = "isolate_id IN (SELECT id FROM $self->{'system'}->{'view'} WHERE ";
+		$qry = "$table.isolate_id IN (SELECT id FROM $self->{'system'}->{'view'} WHERE ";
 	} else {
 		$logger->error("Invalid table $table");
 		return;

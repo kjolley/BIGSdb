@@ -358,7 +358,7 @@ sub _run_query {
 			my $lqry;
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 				$lqry =
-"(select distinct(id) FROM $system->{'view'} LEFT JOIN allele_designations ON $system->{'view'}.id=allele_designations.isolate_id WHERE @lqry";
+"(select distinct($system->{'view'}.id) FROM $system->{'view'} LEFT JOIN allele_designations ON $system->{'view'}.id=allele_designations.isolate_id WHERE @lqry";
 			} else {
 				my $primary_key =
 				  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )

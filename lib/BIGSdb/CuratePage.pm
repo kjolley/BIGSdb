@@ -500,7 +500,7 @@ sub check_record {
 					}
 					push @problems, "This sequence already exists in the database as '@key'.";
 				} else {
-					my $article = $record_name =~ /^[aeiou]/ ? 'An' : 'A';
+					my $article = $record_name =~ /^[aeio]/ ? 'An' : 'A';
 					push @problems,
 "$article $record_name already exists with $_->{'name'} = '$newdata{$_->{'name'}}', please choose a different $_->{'name'}.";
 				}
@@ -559,7 +559,7 @@ sub check_record {
 			}
 			if (   $status ne 'admin'
 				&& !$self->{'permissions'}->{'set_user_permissions'}
-				&& $newdata{'status'} ne $user_status
+				&& defined $user_status && $newdata{'status'} ne $user_status
 				&& $update )
 			{
 				push @problems, "You must have either admin rights or specific permission to change the status of a user.\n";
@@ -585,7 +585,7 @@ sub check_record {
 				push @problems, "You must have admin rights to create a user with admin status.\n";
 			}
 			if (   $status ne 'admin'
-				&& $newdata{'user_name'} ne $user_username
+				&& defined $user_username && $newdata{'user_name'} ne $user_username
 				&& $update )
 			{
 				push @problems, "You must have admin rights to change the username of a user.\n";
