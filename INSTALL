@@ -28,11 +28,15 @@ i.e. accessible from http://your_website/images.
 paths of helper applications and database names in the bigsdb.conf file
 and modify for your system.
 
-8) Create PostgreSQL database users called apache and remote - these 
-should not have any special priveleges.  Use the createuser command to do 
+8) Create a PostgreSQL database user called apache - this should 
+not have any special priveleges.  Use the createuser command to do 
 this, e.g.
 
 createuser apache
+
+From the psql command line, set the apache user password
+psql
+ALTER ROLE apache WITH PASSWORD 'remote';
 
 9) Create PostgreSQL databases called bigsdb_auth, bigsdb_prefs and refs
 using the scripts in the sql directory.  Create the database using the
@@ -115,6 +119,10 @@ database using the jobs.sql SQL file, e.g.
 createuser bigsdb [no need for special priveleges]
 createdb bigsdb_jobs
 psql -f jobs.sql bigsdb_jobs
+
+From the psql command line, set the bigsdb user password
+psql
+ALTER ROLE bigsdb WITH PASSWORD 'bigsdb';
 
 3) Set up the jobs parameters in the /etc/bigsdb/bigsdb.conf file, e.g.
 

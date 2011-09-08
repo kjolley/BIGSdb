@@ -299,6 +299,7 @@ sub _run_isolate_query {
 	} elsif ( $field =~ /^e_(.*)\|\|(.*)/ ) {
 		$extended_isolate_field = $1;
 		$field                  = $2;
+		$fieldtype 				= 'extended_isolate';
 	}
 	foreach my $value (@list) {
 		$value =~ s/^\s*//;
@@ -359,7 +360,7 @@ sub _run_isolate_query {
 				  $datatype eq 'text'
 				  ? "upper($field)=upper('$value')"
 				  : "$field='$value'";
-			} elsif ($extended_isolate_field) {
+			} elsif ($fieldtype eq 'extended_isolate') {
 				$tempqry .=
 "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) = upper('$value'))";
 			}

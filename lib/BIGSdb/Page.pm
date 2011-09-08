@@ -1762,7 +1762,7 @@ sub _print_isolate_table {
 						eval { $attribute_sql->execute( $thisfieldname, $extended_attribute, $data{$thisfieldname} ) };
 						$logger->error($@) if $@;
 						my ($value) = $attribute_sql->fetchrow_array;
-						print "<td>$value</td>";
+						print defined $value ? "<td>$value</td>" : '<td />';
 					}
 				}
 			}

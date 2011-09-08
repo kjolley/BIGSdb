@@ -895,7 +895,7 @@ sub _generate_isolate_query_for_provenance_fields {
 			if ( any { $field =~ /(.*) \($_\)$/ } qw (id surname first_name affiliation) ) {
 				$qry .= $modifier . $self->search_users( $field, $operator, $text, $self->{'system'}->{'view'} );
 			} else {
-				$field = $self->{'system'}->{'view'} . '.' . $field;
+				$field = $self->{'system'}->{'view'} . '.' . $field if !$extended_isolate_field;
 				my $labelfield = $self->{'system'}->{'view'} . '.' . $self->{'system'}->{'labelfield'};
 				if ( $operator eq 'NOT' ) {
 					if ( scalar @groupedfields ) {

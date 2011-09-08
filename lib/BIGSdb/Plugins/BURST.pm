@@ -192,7 +192,7 @@ sub _get_profile_array {
 	my ( $self, $scheme_id, $pk, $list ) = @_;
 	my @profiles;
 	my %st_frequency;
-	my $num_profiles;
+	my $num_profiles = 0;
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	foreach (@$loci) {
 		$_ =~ s/'/_PRIME_/g;
@@ -257,8 +257,7 @@ sub _get_profile_array {
 			}
 		}
 		@profiles = sort { @{$a}[0] <=> @{$b}[0] } @profiles;
-	}
-
+	}	
 	return ( $loci, \@profiles, \%st_frequency, $num_profiles );
 }
 
