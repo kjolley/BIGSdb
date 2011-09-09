@@ -297,7 +297,7 @@ sub get_isolate_record {
 				#Do not print row
 			} elsif ( $thisfield{'web'} ) {
 				my $url = $thisfield{'web'};
-				$url =~ s/\[\\\?\]/$data{$field}/;
+				$url =~ s/\[\\*\?\]/$data{$field}/;
 				$url =~ s/\&/\&amp;/g;
 				my $domain;
 				if ( ( lc($url) =~ /http:\/\/(.*?)\/+/ ) ) {

@@ -1771,7 +1771,7 @@ sub _print_isolate_table {
 					next if $composite_display_pos{$_} ne $thisfieldname;
 					if ( $self->{'prefs'}->{'maindisplayfields'}->{$_} ) {
 						my $value = $self->{'datastore'}->get_composite_value( $id, $_, \%data );
-						print "<td>$value</td>";
+						print defined $value ? "<td>$value</td>" : '<td />';
 					}
 				}
 			}
@@ -1875,9 +1875,9 @@ sub _print_isolate_table {
 							$values->{ lc($_) } = '';
 						}
 						if ($url) {
-							print $values->{ lc($_) } ? "<td><a href=\"$url\">$values->{lc($_)}</a></td>" : '<td />';
+							print defined $values->{ lc($_) } ? "<td><a href=\"$url\">$values->{lc($_)}</a></td>" : '<td />';
 						} else {
-							print $values->{ lc($_) } ? "<td>$values->{lc($_)}</td>" : '<td />';
+							print defined $values->{ lc($_) } ? "<td>$values->{lc($_)}</td>" : '<td />';
 						}
 					} else {
 						print "<td />";

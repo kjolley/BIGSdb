@@ -21,7 +21,7 @@
 package BIGSdb::main;
 use strict;
 use warnings;
-use version; our $VERSION = qv('1.3.2');
+use version; our $VERSION = qv('1.3.3');
 
 ###########Local configuration################################
 use constant {
