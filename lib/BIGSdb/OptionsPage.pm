@@ -345,7 +345,7 @@ sub _print_display_tab {
 			push @js,  "\$(\"#field_$field\").attr(\"checked\",true)";
 			push @js2, "\$(\"#field_$field\").attr(\"checked\",false)";
 			my %thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-			my $value = $thisfield{'maindisplay'} eq 'no' ? 'false' : 'true';
+			my $value = $thisfield{'maindisplay'} && $thisfield{'maindisplay'} eq 'no' ? 'false' : 'true';
 			push @js3, "\$(\"#field_$field\").attr(\"checked\",$value)";
 			$i++;
 			if ( $i >= ($field_count) / 5 ) {
@@ -388,7 +388,7 @@ sub _print_display_tab {
 				);
 				push @js,  "\$(\"#field_aliases\").attr(\"checked\",true)";
 				push @js2, "\$(\"#field_aliases\").attr(\"checked\",false)";
-				my $value = $self->{'system'}->{'maindisplay_aliases'} eq 'yes' ? 'true' : 'false';
+				my $value = $self->{'system'}->{'maindisplay_aliases'} && $self->{'system'}->{'maindisplay_aliases'} eq 'yes' ? 'true' : 'false';
 				push @js3, "\$(\"#field_aliases\").attr(\"checked\",$value)";
 				$i++;
 				if ( $i >= ($field_count) / 5 ) {

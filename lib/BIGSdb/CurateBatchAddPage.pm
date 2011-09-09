@@ -1049,9 +1049,12 @@ sub _upload_data {
 	my $dir      = $self->{'config'}->{'secure_tmp_dir'};
 	my $tmp_file = $dir . '/' . $q->param('checked_buffer');
 	my %schemes;
-	open( my $tmp_fh, '<', $tmp_file );
-	my @records = <$tmp_fh>;
-	close $tmp_fh;
+	my @records;
+	if (-e $tmp_file){
+		open( my $tmp_fh, '<', $tmp_file ) or $logger->error("Can't open $tmp_file");
+		@records = <$tmp_fh>;
+		close $tmp_fh;
+	}
 
 	if ( $tmp_file =~ /^(.*\/BIGSdb_[0-9_]+\.txt)$/ ) {
 		$logger->info("Deleting temp file $tmp_file");
