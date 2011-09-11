@@ -886,7 +886,7 @@ sub _is_field_bad_other {
 		my $sql = $self->{'db'}->prepare($qry) or die 'cannot prepare';
 		eval { $sql->execute($value) };
 		$logger->error($@) if $@;
-		my ($exists) = $sql->fetchrow_array();
+		my ($exists) = $sql->fetchrow_array;
 		if ( !$exists ) {
 			return "value '$value' does not exist in $thisfield->{foreign_key} table";
 		}

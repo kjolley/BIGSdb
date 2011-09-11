@@ -1141,7 +1141,7 @@ sub _upload_data {
 			$qry = "INSERT INTO $table (@fields_to_include) VALUES (@value_list)";
 			push @inserts, $qry;
 			if ( $table eq 'allele_designations' ) {
-				push @history, "$data[$fieldorder{'id'}]|$data[$fieldorder{'locus'}]: new designation '$data[$fieldorder{'allele_id'}]'";
+				push @history, "$data[$fieldorder{'isolate_id'}]|$data[$fieldorder{'locus'}]: new designation '$data[$fieldorder{'allele_id'}]'";
 			}
 			$logger->debug("INSERT: $qry");
 			my $curator = $self->get_curator_id;
