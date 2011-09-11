@@ -175,6 +175,7 @@ sub print_content {
 		my @fieldorder = ( $primary_key, @$loci );
 		my %is_field;
 		my %is_locus;
+		my $scheme_field_info;
 		my %pks_so_far;
 		my %profiles_so_far;
 		local $" = '</th><th>';
@@ -182,6 +183,8 @@ sub print_content {
 
 		foreach (@$scheme_fields) {
 			$is_field{$_} = 1;
+			$scheme_field_info->{$_} = $self->{'datastore'}->get_scheme_field_info($scheme_id, $_);
+			
 			if ( $_ ne $primary_key ) {
 				push @fieldorder, $_;
 				$table_buffer .= "<th>$_</th>";
@@ -230,6 +233,7 @@ sub print_content {
 			$locus_format{$_} = $locus_info->{'allele_id_format'};
 			$is_locus{$_}     = 1;
 		}
+
 		my $first_record = 1;
 		my $header_row;
 		my $record_count;
@@ -317,6 +321,14 @@ sub print_content {
 					#check allele exists
 					elsif ( !$self->{'datastore'}->sequence_exists( $field, $value ) ) {
 						$problems{$pk} .= "Sequence $field $value does not exist.<br />";
+						$problem = 1;
+					}
+				} elsif ($is_field{$field} && defined $value){
+					if ( $scheme_field_info->{$field}->{'primary_key'} && $value eq ''){
+						$problems{$pk} .= "Field $field is required and must not be left blank.<br />";
+						$problem = 1;
+					} elsif ( $scheme_field_info->{$field}->{'type'} eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
+						$problems{$pk} .= "Field $field must be an integer.<br />";
 						$problem = 1;
 					}
 				}
