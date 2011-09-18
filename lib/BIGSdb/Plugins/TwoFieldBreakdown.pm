@@ -587,8 +587,8 @@ sub _recalculate_for_attributes {
 		}
 		foreach my $value1 ( keys %$datahash_ref ) {
 			foreach my $value2 ( keys %{ $datahash_ref->{$value1} } ) {
-				$lookup->[0]->{$value1} = 'No value' if $lookup->[0]->{$value1} eq '';
-				$lookup->[1]->{$value2} = 'No value' if $lookup->[1]->{$value2} eq '';
+				$lookup->[0]->{$value1} = 'No value' if !defined $lookup->[0]->{$value1} || $lookup->[0]->{$value1} eq '';
+				$lookup->[1]->{$value2} = 'No value' if !defined $lookup->[1]->{$value2} || $lookup->[1]->{$value2} eq '';
 				if ( $attribute[0] && $attribute[1] ) {
 					$new_hash->{ $lookup->[0]->{$value1} }->{ $lookup->[1]->{$value2} } += $datahash_ref->{$value1}->{$value2};
 				} elsif ( $attribute[0] ) {

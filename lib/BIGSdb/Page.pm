@@ -90,10 +90,9 @@ sub get_guid {
 	my ($self) = @_;
 	if ( $self->{'system'}->{'read_access'} ne 'public' ) {
 		if (!defined $self->{'username'}){
-			$logger->error("No logged in user; Database $self->{'system'}->{'db'}");
-		}
-		if (!defined $self->{'system'}->{'db'}){
-			$logger->error("No database defined.");
+			#This can happen if a not logged in user tries to access a plugin.
+			$logger->debug("No logged in user; Database $self->{'system'}->{'db'}");
+			$self->{'username'} = '';
 		}
 		return "$self->{'system'}->{'db'}\|$self->{'username'}";
 	} elsif ( $self->{'cgi'}->cookie( -name => 'guid' ) ) {

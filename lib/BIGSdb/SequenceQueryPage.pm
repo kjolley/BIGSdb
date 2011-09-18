@@ -147,7 +147,7 @@ sub _run_query {
 			}
 		}
 		my $seq = $seq_object->seq;
-		$seq =~ s/\s//g;
+		$seq =~ s/\s//g if $seq;
 		$seq = uc($seq);
 		my $seq_type = BIGSdb::Utils::is_valid_DNA($seq) ? 'DNA' : 'peptide';
 		my $locus = $q->param('locus');

@@ -366,7 +366,10 @@ sub print_content {
 				$problems{$pk} .= "The profile '@profile' has been included more than once in this submission.<br />";
 			}
 			local $" = ',';
-			$profiles_so_far{"@profile"} = 1;
+			{
+				no warnings 'uninitialized';
+				$profiles_so_far{"@profile"} = 1;
+			}
 			$pks_so_far{$pk} = 1;
 			$tablebuffer .= "</tr>\n";
 			$td = $td == 1 ? 2 : 1;    #row stripes

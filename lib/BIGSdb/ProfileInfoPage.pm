@@ -193,7 +193,7 @@ sub print_content {
 						$q->param( $_, $params{$_} );
 						push @action_params, "$_=$params{$_}";
 					}
-					$" = '&';
+					local $" = '&';
 					print $q->start_form( -action => "$client_info->{'url'}?@action_params", -method => 'post' );
 					print $q->hidden($_) foreach qw (db page ls1 ly1 lt1 order submit);
 					print $q->submit( -label => 'Display', -class => 'submit' );
@@ -206,6 +206,7 @@ sub print_content {
 		print "</table>\n";
 	}
 	print "</div>\n";
+	return;
 }
 
 sub _get_history {
@@ -213,9 +214,7 @@ sub _get_history {
 	my $qry = "SELECT timestamp,action,curator FROM profile_history where scheme_id=? AND profile_id=? ORDER BY timestamp desc";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute( $scheme_id, $profile_id ) };
-	if ($@) {
-		$logger->error("Can't execute $qry values:$scheme_id,$profile_id $@");
-	}
+	$logger->error($@) if $@;
 	my @history;
 	while ( my $data = $sql->fetchrow_hashref ) {
 		push @history, $data;
@@ -259,9 +258,9 @@ sub get_title {
 			  $self->{'datastore'}->run_list_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )->[0];
 		};
 	}
-	my $title = "Profle information";
+	my $title = "Profile information";
 	$title .= ": $primary_key-$profile_id" if $primary_key;
-	$title .= " ($scheme_info->{'description'})";
+	$title .= " ($scheme_info->{'description'})" if defined $scheme_info;
 	$title .= ' - ';
 	$title .= "$self->{'system'}->{'description'}";
 	return $title;
