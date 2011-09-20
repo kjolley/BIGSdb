@@ -633,7 +633,7 @@ sub _check_data_isolate_record_locus_fields {
 				$arg_ref->{'locus_format'}->{$_} = $locus_info->{'allele_id_format'};
 				$arg_ref->{'locus_regex'}->{$_}  = $locus_info->{'allele_id_regex'};
 			}
-			if ( defined $value ) {
+			if ( defined $value && $value ne '') {
 				if ( $arg_ref->{'locus_format'}->{$_} eq 'integer'
 					&& !BIGSdb::Utils::is_int($value) )
 				{
