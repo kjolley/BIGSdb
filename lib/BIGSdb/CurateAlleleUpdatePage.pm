@@ -73,7 +73,7 @@ sub print_content {
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute($id) };
 	$logger->error($@) if $@;
-	my $data = $sql->fetchrow_hashref();
+	my $data = $sql->fetchrow_hashref;
 	if ( !$data->{'id'} ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>No record with id = $id exists.</p></div>\n";
 		return;
@@ -117,7 +117,7 @@ sub print_content {
 			}
 		}
 		$newdata{'datestamp'} = $self->get_datestamp;
-		$newdata{'curator'}   = $self->get_curator_id();
+		$newdata{'curator'}   = $self->get_curator_id;
 		$newdata{'date_entered'} =
 		    $q->param('action') eq 'update'
 		  ? $data->{'date_entered'}
@@ -366,7 +366,7 @@ sub print_content {
 		$right_buffer .= $self->_get_new_pending_designation_form( $id, $locus );
 	}
 	print "<div class=\"box\" id=\"resultstable\">\n";
-	print "<table><tr><td style=\"vertical-align:top\">\n";
+	print "<div class=\"scrollable\"><table><tr><td style=\"vertical-align:top\">\n";
 	print "<h2>Isolate summary:</h2>\n";
 	my $isolate_record = BIGSdb::IsolateInfoPage->new(
 		(
@@ -395,7 +395,7 @@ sub print_content {
 	print $q->end_form;
 	print "</td><td style=\"vertical-align:top; padding-left:2em\">";
 	print $right_buffer;
-	print "</td></tr></table>\n";
+	print "</td></tr></table>\n</div>\n";
 	print "</div>\n";
 	return;
 }
