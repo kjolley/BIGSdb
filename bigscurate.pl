@@ -83,6 +83,7 @@ use BIGSdb::CurateDatabankScanPage;
 use BIGSdb::CurateRenumber;
 use BIGSdb::PluginManager;
 use BIGSdb::ConfigCheckPage;
+use BIGSdb::ConfigRepairPage;
 use BIGSdb::LoginMD5;
 use BIGSdb::ChangePasswordPage;
 use BIGSdb::ProfileInfoPage;

@@ -137,9 +137,13 @@ HTML
 		$can_do_something = 1;
 	}
 	if ( $self->{'permissions'}->{'modify_loci'} || $self->{'permissions'}->{'modify_schemes'} || $self->is_admin ) {
-		$list_buffer .=
-		  "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configCheck\">Configuration check</a> - 
-		checks database connectivity for loci and schemes and that required helper applications are properly installed.</li>";
+		$list_buffer .= "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configCheck\">"
+		. "Configuration check</a> - checks database connectivity for loci and schemes and that required helper "
+		. "applications are properly installed.</li>\n";
+		if ($self->{'system'}->{'dbtype'} eq 'sequences'){
+			$list_buffer .= "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configRepair\">"
+			. "Configuration repair</a> - Rebuild scheme tables</li>\n"
+		}
 		$can_do_something = 1;
 	}
 	if ( $buffer || $list_buffer ) {

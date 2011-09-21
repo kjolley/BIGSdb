@@ -80,6 +80,7 @@ sub print_page {
 		'seqbin'             => 'SeqbinPage',
 		'embl'               => 'SeqbinToEMBL',
 		'configCheck'        => 'ConfigCheckPage',
+		'configRepair'		 => 'ConfigRepairPage',
 		'changePassword'     => 'ChangePasswordPage',
 		'setPassword'        => 'ChangePasswordPage',
 		'profileInfo'        => 'ProfileInfoPage',
