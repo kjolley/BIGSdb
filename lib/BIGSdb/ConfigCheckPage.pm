@@ -41,13 +41,12 @@ sub print_content {
 		%helpers = (
 			'EMBOSS sixpack'   => $self->{'config'}->{'emboss_path'} . '/sixpack',
 			'EMBOSS stretcher' => $self->{'config'}->{'emboss_path'} . '/stretcher',
-			'BLAST blastall'   => $self->{'config'}->{'blast_path'} . '/blastall',
 			'blastn'           => $self->{'config'}->{'blast+_path'} . '/blastn',
 			'blastp'           => $self->{'config'}->{'blast+_path'} . '/blastp',
 			'blastx'           => $self->{'config'}->{'blast+_path'} . '/blastx',
 			'tblastx'          => $self->{'config'}->{'blast+_path'} . '/tblastx',
 			'makeblastdb'      => $self->{'config'}->{'blast+_path'} . '/makeblastdb',
-			'MUSCLE'           => $self->{'config'}->{'muscle_path'},
+			'muscle'           => $self->{'config'}->{'muscle_path'},
 			'ipcress'          => $self->{'config'}->{'ipcress_path'},
 			'mogrify'          => $self->{'config'}->{'mogrify_path'},
 		);
@@ -62,16 +61,25 @@ sub print_content {
 		$td = $td == 1 ? 2 : 1;
 	}
 	print "</table></div>\n";
-	$| = 1;
+	local $| = 1;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		print "<h2>Locus databases</h2>\n";
-		my $loci = $self->{'datastore'}->get_loci;
-		my $buffer;
+		my $loci = $self->{'datastore'}->run_list_query("SELECT id FROM loci WHERE dbase_name IS NOT null ORDER BY id");
 		$td = 1;
-		foreach (@$loci) {
-			my $locus_info = $self->{'datastore'}->get_locus_info($_);
-			next if !$locus_info->{'dbase_name'};
-			$buffer .= "<tr class=\"td$td\"><td>$_</td><td>$locus_info->{'dbase_name'}</td>
+		if (@$loci) {
+			print "<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Locus</th><th>Database</th><th>Host</th><th>Port</th>
+			<th>Table</th><th>Primary id field</th><th>Secondary id field</th><th>Secondary id field value</th>
+			<th>Sequence field</th><th>Database accessible</th><th>Sequence query</th><th>Sequences assigned</th></tr>\n";
+			foreach (@$loci) {
+				if ( $ENV{'MOD_PERL'} ) {
+					$self->{'mod_perl_request'}->rflush;
+					if ( $self->{'mod_perl_request'}->connection->aborted ) {
+						return;
+					}
+				}
+				my $locus_info = $self->{'datastore'}->get_locus_info($_);
+				next if !$locus_info->{'dbase_name'};
+				print "<tr class=\"td$td\"><td>$_</td><td>$locus_info->{'dbase_name'}</td>
 			<td>" . ( $locus_info->{'dbase_host'}      || 'localhost' ) . "</td>
 			<td>" . ( $locus_info->{'dbase_port'}      || 5432 ) . "</td>
 			<td>" . ( $locus_info->{'dbase_table'}     || '' ) . "</td>
@@ -79,82 +87,74 @@ sub print_content {
 			<td>" . ( $locus_info->{'dbase_id2_field'} || '' ) . "</td>
 			<td>" . ( $locus_info->{'dbase_id2_value'} || '' ) . "</td>
 			<td>" . ( $locus_info->{'dbase_seq_field'} || '' ) . "</td><td>";
-			eval {
-				my $locus_db = $self->{'datastore'}->get_locus($_)->{'db'};
-			};
-			if ($@) {
-				$buffer .= '<span class="statusbad">X</span>';
-			} else {
-				$buffer .= '<span class="statusgood">ok</span>';
-			}
-			$buffer .= "</td><td>";
-			my $seq;
-			eval { $seq = $self->{'datastore'}->get_locus($_)->get_allele_sequence('1'); };
-			if ( $@ || ( ref $seq eq 'SCALAR' && defined $$seq && $$seq =~ /^\(/ ) ) {
+				eval { my $locus_db = $self->{'datastore'}->get_locus($_)->{'db'}; };
 
-				#seq can contain opening brace if sequence_field = table by mistake
-				$logger->debug("$_; $@");
-				$buffer .= '<span class="statusbad">X</span>';
-			} else {
-				$buffer .= '<span class="statusgood">ok</span>';
+				if ($@) {
+					print '<span class="statusbad">X</span>';
+				} else {
+					print '<span class="statusgood">ok</span>';
+				}
+				print "</td><td>";
+				my $seq;
+				eval { $seq = $self->{'datastore'}->get_locus($_)->get_allele_sequence('1'); };
+				if ( $@ || ( ref $seq eq 'SCALAR' && defined $$seq && $$seq =~ /^\(/ ) ) {
+
+					#seq can contain opening brace if sequence_field = table by mistake
+					$logger->debug("$_; $@");
+					print '<span class="statusbad">X</span>';
+				} else {
+					print '<span class="statusgood">ok</span>';
+				}
+				print "</td><td>";
+				my $seqs;
+				eval { $seqs = $self->{'datastore'}->get_locus($_)->get_all_sequences; };
+				if ( $@ || ( ref $seqs eq 'HASH' && scalar keys %$seqs == 0 ) ) {
+					$logger->debug("$_; $@");
+					print '<span class="statusbad">X</span>';
+				} else {
+					print '<span class="statusgood">' . scalar keys(%$seqs) . '</span>';
+				}
+				print "</td></tr>\n";
+				$td = $td == 1 ? 2 : 1;
 			}
-			$buffer .= "</td><td>";
-			my $seqs;
-			eval { $seqs = $self->{'datastore'}->get_locus($_)->get_all_sequences; };
-			if ( $@ || ( ref $seqs eq 'HASH' && scalar keys %$seqs == 0 ) ) {
-				$logger->debug("$_; $@");
-				$buffer .= '<span class="statusbad">X</span>';
-			} else {
-				$buffer .= '<span class="statusgood">' . scalar keys(%$seqs) . '</span>';
-			}
-			$buffer .= "</td></tr>\n";
-			$td = $td == 1 ? 2 : 1;
-		}
-		if ($buffer) {
-			print "<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Locus</th><th>Database</th><th>Host</th><th>Port</th>
-			<th>Table</th><th>Primary id field</th><th>Secondary id field</th><th>Secondary id field value</th>
-			<th>Sequence field</th><th>Database accessible</th><th>Sequence query</th><th>Sequences assigned</th></tr>\n";
-			print $buffer;
 			print "</table></div>\n";
 		} else {
 			print "<p>No loci with databases defined.</p>\n";
 		}
 		print "<h2>Scheme databases</h2>";
 		my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes WHERE dbase_name IS NOT NULL ORDER BY id");
-		undef $buffer;
 		$td = 1;
-		foreach (@$schemes) {
-			my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
-			$scheme_info->{'description'} =~ s/&/&amp;/g;
-			$buffer .= "<tr class=\"td$td\"><td>$scheme_info->{'description'}</td><td>" . ( $scheme_info->{'dbase_name'} || '' ) . "</td>
-			<td>" . ( $scheme_info->{'dbase_host'}  || 'localhost' ) . "</td>
-			<td>" . ( $scheme_info->{'dbase_port'}  || 5432 ) . "</td>
-			<td>" . ( $scheme_info->{'dbase_table'} || '' ) . "</td><td>";
-			if ( $self->{'datastore'}->get_scheme($_)->get_db ) {
-				$buffer .= '<span class="statusgood">ok</span>';
-			} else {
-				$buffer .= '<span class="statusbad">X</span>';
-			}
-			$buffer .= "</td><td>";
-			my $loci = $self->{'datastore'}->get_scheme_loci($_);
-			my @values;
-			foreach (@$loci) {
-				push @values, '1';
-			}
-			eval { $self->{'datastore'}->get_scheme($_)->get_field_values_by_profile( \@values ); };
-			if ($@) {
-				$buffer .= '<span class="statusbad">X</span>';
-			} else {
-				$buffer .= '<span class="statusgood">ok</span>';
-			}
-			$buffer .= "</td></tr>\n";
-			$td = $td == 1 ? 2 : 1;
-		}
-		if ($buffer) {
+		if (@$schemes) {
 			print
 "<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Scheme description</th><th>Database</th><th>Host</th><th>Port</th>
 			<th>Table</th><th>Database accessible</th><th>Profile query</th></tr>\n";
-			print $buffer;
+			foreach (@$schemes) {
+				my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
+				$scheme_info->{'description'} =~ s/&/&amp;/g;
+				print "<tr class=\"td$td\"><td>$scheme_info->{'description'}</td><td>" . ( $scheme_info->{'dbase_name'} || '' ) . "</td>
+			<td>" . ( $scheme_info->{'dbase_host'}  || 'localhost' ) . "</td>
+			<td>" . ( $scheme_info->{'dbase_port'}  || 5432 ) . "</td>
+			<td>" . ( $scheme_info->{'dbase_table'} || '' ) . "</td><td>";
+				if ( $self->{'datastore'}->get_scheme($_)->get_db ) {
+					print '<span class="statusgood">ok</span>';
+				} else {
+					print '<span class="statusbad">X</span>';
+				}
+				print "</td><td>";
+				my $loci = $self->{'datastore'}->get_scheme_loci($_);
+				my @values;
+				foreach (@$loci) {
+					push @values, '1';
+				}
+				eval { $self->{'datastore'}->get_scheme($_)->get_field_values_by_profile( \@values ); };
+				if ($@) {
+					print '<span class="statusbad">X</span>';
+				} else {
+					print '<span class="statusgood">ok</span>';
+				}
+				print "</td></tr>\n";
+				$td = $td == 1 ? 2 : 1;
+			}
 			print "</table></div>\n";
 		} else {
 			print "<p>No schemes with databases defined.</p>\n";
@@ -191,6 +191,7 @@ sub print_content {
 		}
 	}
 	print "</div>\n";
+	return;
 }
 
 sub get_title {
