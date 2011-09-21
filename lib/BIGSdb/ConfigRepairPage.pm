@@ -70,7 +70,10 @@ sub print_content {
 
 sub _rebuild {
 	my ($self, $scheme_id) = @_;
-	eval { $self->create_scheme_view($scheme_id) };
+	eval { 
+		$self->drop_scheme_view($scheme_id);
+		$self->create_scheme_view($scheme_id);
+	};
 	if ($@){
 		print "<div class=\"box\" id=\"statusbad\"><p>Scheme rebuild failed.</p></div>\n";
 		$self->{'db'}->rollback;
