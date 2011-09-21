@@ -281,6 +281,7 @@ sub _check_data {
 			} else {
 				$designation = $_;
 			}
+			$comments ||= '';
 			my $identifier_field_html;
 			my $id_error;
 			if ( $id_field ne 'id' ) {
