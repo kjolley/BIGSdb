@@ -20,7 +20,6 @@ package BIGSdb::Datastore;
 use strict;
 use warnings;
 use Log::Log4perl qw(get_logger);
-use Time::HiRes qw(gettimeofday);
 use List::MoreUtils qw(any);
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Datastore');
@@ -539,7 +538,6 @@ sub create_temp_scheme_table {
 		$logger->debug("Table already exists");
 		return;
 	}
-	my $start  = gettimeofday();
 	my $fields = $self->get_scheme_fields($id);
 	my $loci   = $self->get_scheme_loci($id);
 	my $create = "CREATE TEMP TABLE temp_scheme_$id (";
@@ -603,11 +601,6 @@ sub create_temp_scheme_table {
 		$self->{'db'}->do("UPDATE temp_scheme_$id SET $_ = null WHERE $_='-999'")
 		  ;    #Needed as old style profiles database stored null values as '-999'.
 	}
-	my $end     = gettimeofday();
-	my $elapsed = $end - $start;
-	$elapsed =~ s/(^\d{1,}\.\d{4}).*$/$1/;
-	my $logger_benchmark = get_logger('BIGSdb.Application_Benchmark');
-	$logger_benchmark->debug("Time to create temp table for scheme $id: $elapsed seconds");
 	return "temp_scheme_$id";
 }
 

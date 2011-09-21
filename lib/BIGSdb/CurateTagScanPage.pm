@@ -22,7 +22,6 @@ use warnings;
 use base qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use Time::HiRes qw(gettimeofday);
 use List::MoreUtils qw(uniq any none);
 use Apache2::Connection ();
 use BIGSdb::Page qw(SEQ_METHODS SEQ_FLAGS);
@@ -1077,9 +1076,6 @@ sub _blast {
 	$temp_fastafile =~ s/\\/\\\\/g;
 	$temp_fastafile =~ s/'/__prime__/g;
 	my $outfile_url      = "$file_prefix\_outfile.txt";
-	my $logger_benchmark = get_logger('BIGSdb.Application_Benchmark');
-	my $start            = gettimeofday();
-	my $elapsed;
 
 	#create fasta index
 	#only need to create this once for each locus (per run), so check if file exists first
@@ -1098,8 +1094,6 @@ sub _blast {
 			print $fasta_fh ">ref\n$locus_info->{'reference_sequence'}\n";
 		}
 		close $fasta_fh;
-		( $elapsed = gettimeofday() - $start ) =~ s/(^\d{1,}\.\d{4}).*$/$1/;
-		$logger_benchmark->debug("Creating locus FASTA file : $elapsed seconds");
 		if ( $self->{'config'}->{'blast+_path'} ) {
 			my $dbtype = $locus_info->{'data_type'} eq 'DNA' ? 'nucl' : 'prot';
 			system("$self->{'config'}->{'blast+_path'}/makeblastdb -in $temp_fastafile -logfile /dev/null -parse_seqids -dbtype $dbtype");
@@ -1110,8 +1104,6 @@ sub _blast {
 				system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p T -o T");
 			}
 		}
-		( $elapsed = gettimeofday() - $start ) =~ s/(^\d{1,}\.\d{4}).*$/$1/;
-		$logger_benchmark->debug("Formatting for FASTA : $elapsed seconds");
 	}
 
 	#create query fasta file
@@ -1157,8 +1149,6 @@ sub _blast {
 		$seq_count = $1 if <$seqcount_fh> =~ /(\d+)/;
 		close $seqcount_fh;
 	}
-	( $elapsed = gettimeofday() - $start ) =~ s/(^\d{1,}\.\d{4}).*$/$1/;
-	$logger_benchmark->debug("Create query FASTA file : $elapsed seconds");
 	my ( $pcr_products, $probe_matches );
 	if ( $locus_info->{'pcr_filter'} && $q->param('pcr_filter') ) {
 		if ( $self->{'config'}->{'ipcress_path'} ) {
@@ -1185,8 +1175,6 @@ sub _blast {
 "$self->{'config'}->{'blast_path'}/blastall -B $seq_count -b 10 -p $program -W $word_size -d $temp_fastafile -i $temp_infile -o $temp_outfile -m8 -F F 2> /dev/null"
 		);
 	}
-	( $elapsed = gettimeofday() - $start ) =~ s/(^\d{1,}\.\d{4}).*$/$1/;
-	$logger_benchmark->debug("Running BLAST : $elapsed seconds");
 	my ( $exact_matches, $matched_regions, $partial_matches );
 	my $pcr_filter   = !$q->param('pcr_filter')   ? 0 : $locus_info->{'pcr_filter'};
 	my $probe_filter = !$q->param('probe_filter') ? 0 : $locus_info->{'probe_filter'};
@@ -1200,8 +1188,6 @@ sub _blast {
 	} else {
 		$logger->debug("$self->{'config'}->{'secure_tmp_dir'}/$outfile_url does not exist");
 	}
-	( $elapsed = gettimeofday() - $start ) =~ s/(^\d{1,}\.\d{4}).*$/$1/;
-	$logger_benchmark->debug("Parsing BLAST results : $elapsed seconds");
 
 	#Calling function should delete working files.  This is not done here as they can be re-used
 	#if multiple loci are being scanned for the same isolate.

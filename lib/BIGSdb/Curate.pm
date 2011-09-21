@@ -20,7 +20,6 @@ package BIGSdb::Curate;
 use strict;
 use warnings;
 use base qw(BIGSdb::Application);
-use Time::HiRes qw(gettimeofday);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');

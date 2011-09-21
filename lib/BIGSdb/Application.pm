@@ -19,7 +19,6 @@
 package BIGSdb::Application;
 use strict;
 use warnings;
-use Time::HiRes qw(gettimeofday);
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 use Config::Tiny;
@@ -41,13 +40,11 @@ sub new {
 	$self->{'db'}               = undef;
 	$self->{'mod_perl_request'} = $r;
 	$self->{'fatal'}            = undef;
-	$self->{'start_time'}       = gettimeofday();
 	$self->{'curate'}           = $curate;
 	bless( $self, $class );
 	$self->_initiate( $config_dir, $dbase_config_dir );
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
-	my $logger_benchmark = get_logger('BIGSdb.Application_Benchmark');
-	my $q                = $self->{'cgi'};
+	my $q = $self->{'cgi'};
 
 	if ( !$self->{'error'} ) {
 		$self->db_connect;
@@ -68,23 +65,9 @@ sub new {
 			$self->_initiate_plugins($plugin_dir);
 		}
 	}
-	( my $elapsed = gettimeofday() - $self->{'start_time'} ) =~ s/(^\d{1,}\.\d{4}).*$/$1/;
-	$logger_benchmark->debug("Time to initiate : $elapsed seconds");
 	$self->print_page($dbase_config_dir);
 	$self->_db_disconnect;
 	return $self;
-}
-
-sub DESTROY {
-	my ($self) = @_;
-	return
-	  if !$self->{'start_time'};    #DESTROY can be called twice (By Object::Destroyer then by GC)
-	my $logger  = get_logger('BIGSdb.Application_Benchmark');
-	my $end     = gettimeofday();
-	my $elapsed = $end - $self->{'start_time'};
-	$elapsed =~ s/(^\d{1,}\.\d{4}).*$/$1/;
-	$logger->info("Total Time to process $self->{'page'} page: $elapsed seconds") if $self->{'page'};
-	return;
 }
 
 sub _initiate {

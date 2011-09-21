@@ -22,7 +22,6 @@ use warnings;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use Error qw(:try);
-use Time::HiRes qw(gettimeofday);
 use List::MoreUtils qw(uniq any none);
 use base 'Exporter';
 use constant SEQ_METHODS => (
@@ -779,8 +778,6 @@ s/ORDER BY (.+),\s*\S+\.allele_id(.*)/ORDER BY $1,\(case when allele_id ~ '^[0-9
 	if ($count) {
 		$records = $count;
 	} else {
-		my $logger_benchmark = get_logger('BIGSdb.Application_Benchmark');
-		my $start            = gettimeofday();
 		my $qrycount         = $qry;
 		if ( $table eq 'allele_sequences' ) {
 			$qrycount =~
@@ -789,10 +786,6 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 		$qrycount =~ s/SELECT \*/SELECT COUNT \(\*\)/;
 		$qrycount =~ s/ORDER BY.*//;
 		$records = $self->{'datastore'}->run_simple_query($qrycount)->[0];
-		my $end     = gettimeofday();
-		my $elapsed = $end - $start;
-		$elapsed =~ s/(^\d{1,}\.\d{4}).*$/$1/;
-		$logger_benchmark->debug("Time to execute count query : $elapsed seconds");
 	}
 	$q->param( 'query',       $passed_qry );
 	$q->param( 'currentpage', $currentpage );
@@ -1474,8 +1467,6 @@ sub _print_profile_table {
 	my ( $sql, $limit_sql );
 	$limit_sql = $self->{'db'}->prepare($qry_limit);
 	$logger->debug("Limit qry: $qry_limit");
-	my $logger_benchmark = get_logger('BIGSdb.Application_Benchmark');
-	my $start            = gettimeofday();
 	eval { $limit_sql->execute };
 
 	if ($@) {
@@ -1483,10 +1474,6 @@ sub _print_profile_table {
 		$logger->warn("Can't execute query $qry_limit  $@");
 		return;
 	}
-	my $end     = gettimeofday();
-	my $elapsed = $end - $start;
-	$elapsed =~ s/(^\d{1,}\.\d{4}).*$/$1/;
-	$logger_benchmark->debug("Time to execute page query : $elapsed seconds");
 	my $primary_key;
 	eval {
 		$primary_key =
@@ -1633,8 +1620,6 @@ sub _print_isolate_table {
 	$self->rewrite_query_ref_order_by( \$qry_limit );
 	$limit_sql = $self->{'db'}->prepare($qry_limit);
 	$logger->debug("Limit qry: $qry_limit");
-	my $logger_benchmark = get_logger('BIGSdb.Application_Benchmark');
-	my $start            = gettimeofday();
 	eval { $limit_sql->execute };
 
 	if ($@) {
@@ -1644,10 +1629,6 @@ sub _print_isolate_table {
 	}
 	my %data = ();
 	$limit_sql->bind_columns( map { \$data{$_} } @$fields );    #quicker binding hash to arrayref than to use hashref
-	my $end     = gettimeofday();
-	my $elapsed = $end - $start;
-	$elapsed =~ s/(^\d{1,}\.\d{4}).*$/$1/;
-	$logger_benchmark->debug("Time to execute page query : $elapsed seconds");
 	my ( %composites, %composite_display_pos );
 	$qry = "SELECT id,position_after FROM composite_fields";
 	$sql = $self->{'db'}->prepare($qry);
