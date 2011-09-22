@@ -1608,6 +1608,29 @@ sub is_allowed_to_view_isolate {
 	return $allowed_to_view;
 }
 
+sub _is_scheme_data_present {
+	my ($self, $qry, $scheme_id) = @_;
+	return $self->{'cache'}->{$qry}->{$scheme_id} if defined $self->{'cache'}->{$qry}->{$scheme_id};
+	if (!$self->{'cache'}->{$qry}->{'ids'}){
+		$qry =~ s/\*/id/;
+		$self->{'cache'}->{$qry}->{'ids'} = $self->{'datastore'}->run_list_query($qry);
+	}
+	my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	
+	foreach my $isolate_id (@{$self->{'cache'}->{$qry}->{'ids'}}){
+		my $allele_designations = $self->{'datastore'}->get_all_allele_ids($isolate_id);
+		my $allele_seqs = $self->{'datastore'}->get_all_allele_sequences($isolate_id);
+		foreach (@$scheme_loci){
+			if ($allele_designations->{$_} || $allele_seqs->{$_}){
+				$self->{'cache'}->{$qry}->{$scheme_id} = 1;
+				return 1;
+			}
+		}
+	}
+	$self->{'cache'}->{$qry}->{$scheme_id} = 0;
+	return 0;
+}
+
 sub _print_isolate_table {
 	my ( $self, $qryref, $page, $records ) = @_;
 	my $pagesize  = $self->{'prefs'}->{'displayrecs'};
@@ -1615,7 +1638,7 @@ sub _print_isolate_table {
 	my $q         = $self->{'cgi'};
 	my $qry       = $$qryref;
 	my $qry_limit = $qry;
-	my $fields    = $self->{'xmlHandler'}->get_field_list();
+	my $fields    = $self->{'xmlHandler'}->get_field_list;
 	my $view      = $self->{'system'}->{'view'};
 	local $" = ",$view.";
 	my $field_string = "$view.@$fields";
@@ -1634,6 +1657,7 @@ sub _print_isolate_table {
 	$self->rewrite_query_ref_order_by( \$qry_limit );
 	$limit_sql = $self->{'db'}->prepare($qry_limit);
 	$logger->debug("Limit qry: $qry_limit");
+	
 	eval { $limit_sql->execute };
 	if ($@) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Invalid search performed</p></div>\n";
@@ -1649,7 +1673,7 @@ sub _print_isolate_table {
 	if ($@) {
 		$logger->error("Can't execute $qry $@");
 	} else {
-		while ( my @data = $sql->fetchrow_array() ) {
+		while ( my @data = $sql->fetchrow_array ) {
 			$composite_display_pos{ $data[0] } = $data[1];
 			$composites{ $data[1] }            = 1;
 		}
@@ -1659,7 +1683,7 @@ sub _print_isolate_table {
 	my $scheme_field_info = $self->{'datastore'}->get_all_scheme_field_info;
 	my $scheme_loci       = $self->{'datastore'}->get_all_scheme_loci;
 	print "<div class=\"box\" id=\"resultstable\"><div class=\"scrollable\"><table class=\"resultstable\">\n";
-	$self->_print_isolate_table_header( \%composites, \%composite_display_pos, $scheme_ids, $scheme_fields, $scheme_loci );
+	$self->_print_isolate_table_header( \%composites, \%composite_display_pos, $scheme_ids, $scheme_fields, $scheme_loci, $qry_limit );
 	my $td = 1;
 	local $" = "=? AND ";
 	my %url;
@@ -1780,6 +1804,7 @@ sub _print_isolate_table {
 		foreach my $scheme_id ( @$scheme_ids, 0 ) {
 			next
 			  if !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id} && $scheme_id;
+			next if !$self->_is_scheme_data_present($qry_limit,$scheme_id) && $scheme_id;
 			my @profile;
 			foreach ( @{ $scheme_loci->{$scheme_id} } ) {
 				next if !$self->{'prefs'}->{'main_display_loci'}->{$_} && ( !$scheme_id || !@{ $scheme_fields->{$scheme_id} } );
@@ -1990,7 +2015,7 @@ sub _create_join_sql_for_locus {
 }
 
 sub _print_isolate_table_header {
-	my ( $self, $composites, $composite_display_pos, $scheme_ids, $scheme_fields, $scheme_loci ) = @_;
+	my ( $self, $composites, $composite_display_pos, $scheme_ids, $scheme_fields, $scheme_loci, $limit_qry ) = @_;
 	my @selectitems   = $self->{'xmlHandler'}->get_select_items('userFieldIdsOnly');
 	my $header_buffer = "<tr>";
 	my $col_count;
@@ -2053,6 +2078,7 @@ sub _print_isolate_table_header {
 
 	foreach my $scheme_id (@$scheme_ids) {
 		next if !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};
+		next if !$self->_is_scheme_data_present($limit_qry,$scheme_id);
 		my @scheme_header;
 		if ( ref $scheme_loci->{$scheme_id} eq 'ARRAY' ) {
 			foreach ( @{ $scheme_loci->{$scheme_id} } ) {
@@ -2061,7 +2087,7 @@ sub _print_isolate_table_header {
 					my @aliases;
 					push @aliases, $common_names->{$_}->{'common_name'} if $common_names->{$_}->{'common_name'};
 					if ( $self->{'prefs'}->{'locus_alias'} ) {
-						eval { $alias_sql->execute($_); };
+						eval { $alias_sql->execute($_) };
 						if ($@) {
 							$logger->error("Can't execute alias check $@");
 						} else {

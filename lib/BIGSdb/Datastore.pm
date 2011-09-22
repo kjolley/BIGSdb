@@ -745,7 +745,7 @@ sub get_allele_designation {
 	}
 	eval { $self->{'sql'}->{'allele_designation'}->execute( $isolate_id, $locus ); };
 	$logger->error($@) if $@;
-	my $allele = $self->{'sql'}->{'allele_designation'}->fetchrow_hashref();
+	my $allele = $self->{'sql'}->{'allele_designation'}->fetchrow_hashref;
 	return $allele;
 }
 
@@ -1198,10 +1198,10 @@ sub run_list_query {
 	my ( $self, $qry, @values ) = @_;
 	$logger->debug("Query: $qry");
 	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute(@values); };
+	eval { $sql->execute(@values) };
 	$logger->error($@) if $@;
 	my @list;
-	while ( ( my $data ) = $sql->fetchrow_array() ) {
+	while ( ( my $data ) = $sql->fetchrow_array ) {
 		if ( defined $data && $data ne '-999' && $data ne '0001-01-01' ) {
 			push @list, $data;
 		}
