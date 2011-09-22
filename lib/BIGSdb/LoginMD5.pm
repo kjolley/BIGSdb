@@ -405,7 +405,7 @@ sub _MD5_login {
 	}
 
 	# This sessionID will be valid for only $screen_timeout seconds
-	$self->print;
+	$self->print_page_content;
 	throw BIGSdb::AuthenticationException;
 }
 ####################  END OF MAIN PROGRAM  #######################
@@ -469,7 +469,7 @@ sub _error_exit {
 	my ( $self, $msg ) = @_;
 	$self->{'cgi'}->param( 'password', '' );
 	$self->{'authenticate_error'} = $msg;
-	$self->print;
+	$self->print_page_content;
 	throw BIGSdb::AuthenticationException($msg);
 }
 #############################################################################

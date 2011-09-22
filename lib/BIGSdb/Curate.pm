@@ -115,7 +115,7 @@ sub print_page {
 	if ( $self->{'error'} ) {
 		$page_attributes{'error'} = $self->{'error'};
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
-		$page->print;
+		$page->print_page_content;
 		return;
 	} else {
 		( $continue, $auth_cookies_ref ) = $self->authenticate( \%page_attributes );
@@ -136,7 +136,7 @@ sub print_page {
 	if ( !defined $user_status || ($user_status ne 'admin' && $user_status ne 'curator' )) {
 		$page_attributes{'error'} = 'invalidCurator';
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
-		$page->print;
+		$page->print_page_content;
 		return;
 	} elsif ( !$self->{'db'} ) {
 		$page_attributes{'error'} = 'noConnect';
@@ -163,7 +163,7 @@ sub print_page {
 		$page_attributes{'error'} = 'unknown';
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
 	}
-	$page->print;
+	$page->print_page_content;
 	return;
 }
 1;

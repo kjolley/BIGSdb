@@ -46,11 +46,11 @@ use constant SEQ_FLAGS => (
 	'upstream fusion'
 );
 use constant DATABANKS => qw(Genbank);
-our @EXPORT = qw(SEQ_METHODS SEQ_FLAGS DATABANKS);
+our @EXPORT_OK = qw(SEQ_METHODS SEQ_FLAGS DATABANKS);
 
 sub new {
-	my $class = shift;
-	my $self  = {@_};
+	my $class = shift; 
+	my $self  = {@_}; 
 	$self->{'prefs'} = {};
 	$logger->logdie("No CGI object passed")     if !$self->{'cgi'};
 	$logger->logdie("No system hashref passed") if !$self->{'system'};
@@ -64,16 +64,19 @@ sub new {
 sub set_cookie_attributes {
 	my ( $self, $cookies ) = @_;
 	$self->{'cookies'} = $cookies;
+	return;
 }
 
 sub initiate {
 	my ($self) = @_;
 	$self->{'jQuery'} = 1;    #Use JQuery javascript library
+	return;
 }
 
 sub set_pref_requirements {
 	my ($self) = @_;
 	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 1, 'isolate_display' => 1, 'analysis' => 1, 'query_field' => 1 };
+	return;
 }
 
 sub get_javascript {
@@ -88,7 +91,8 @@ sub get_guid {
 	#GUID for preference storage, otherwise use a random GUID which is stored as a browser cookie.
 	my ($self) = @_;
 	if ( $self->{'system'}->{'read_access'} ne 'public' ) {
-		if (!defined $self->{'username'}){
+		if ( !defined $self->{'username'} ) {
+
 			#This can happen if a not logged in user tries to access a plugin.
 			$logger->debug("No logged in user; Database $self->{'system'}->{'db'}");
 			$self->{'username'} = '';
@@ -143,10 +147,10 @@ END
 	return $buffer;
 }
 
-sub print {
+sub print_page_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	$" = ' ';
+	$" = ' ';    ##no critic #ensure reset when running under mod_perl
 	if ( $q->param('page') && $q->param('page') eq 'plugin' ) {
 
 		#need to determine if tooltips should be displayed since this is set in the <HEAD>;
@@ -175,7 +179,7 @@ sub print {
 		}
 		$atts{'expires'} = '+1h' if !$self->{'noCache'};
 		print $q->header( \%atts );
-		$self->print_content();
+		$self->print_content;
 	} else {
 		my $stylesheet = $self->get_stylesheet();
 		if ( !$q->cookie( -name => 'guid' ) && $self->{'prefstore'} ) {
@@ -190,7 +194,7 @@ sub print {
 		}
 		print $q->header(%header_options);
 		my $title = $self->get_title;
-		$" = ' ';    #needed to reset when running under mod_perl
+		
 		my $page_js = $self->get_javascript;
 		my @javascript;
 		if ( $self->{'jQuery'} ) {
@@ -269,6 +273,7 @@ sub print {
 		$self->_print_footer;
 		print $q->end_html;
 	}
+	return;
 }
 
 sub get_stylesheet {
@@ -294,6 +299,7 @@ sub _print_header {
 	my $filename = $self->{'curate'} ? 'curate_header.html' : 'header.html';
 	my $header_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/$filename";
 	$self->print_file($header_file) if ( -e $header_file );
+	return;
 }
 
 sub _print_login_details {
@@ -317,6 +323,7 @@ sub _print_login_details {
 		}
 	}
 	print "</div>\n";
+	return;
 }
 
 sub _print_help_panel {
@@ -359,6 +366,7 @@ sub _print_help_panel {
 		$q->param( 'page', $refer_page );
 	}
 	print "</div>\n";
+	return;
 }
 
 sub get_extended_attributes {
@@ -517,6 +525,7 @@ sub _print_footer {
 	my $filename = $self->{'curate'} ? 'curate_footer.html' : 'footer.html';
 	my $footer_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/$filename";
 	$self->print_file($footer_file) if ( -e $footer_file );
+	return;
 }
 
 sub print_file {
@@ -568,6 +577,7 @@ s/\$lociAdd/<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&a
 	} else {
 		$logger->warn("File $file does not exist.");
 	}
+	return;
 }
 
 sub get_filter {
@@ -578,7 +588,7 @@ sub get_filter {
 	my ( $label, $title ) = $self->_get_truncated_label("$text: ");
 	my $title_attribute = $title ? "title=\"$title\"" : '';
 	my $buffer = "<label for=\"$name\_list\" class=\"$filter\"$title_attribute>$label</label>\n";
-	$" = ' ';
+#	$" = ' ';
 	$buffer .= $self->{'cgi'}->popup_menu(
 		-name   => "$name\_list",
 		-id     => "$name\_list",
@@ -778,7 +788,7 @@ s/ORDER BY (.+),\s*\S+\.allele_id(.*)/ORDER BY $1,\(case when allele_id ~ '^[0-9
 	if ($count) {
 		$records = $count;
 	} else {
-		my $qrycount         = $qry;
+		my $qrycount = $qry;
 		if ( $table eq 'allele_sequences' ) {
 			$qrycount =~
 s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences.locus||allele_sequences.start_pos||allele_sequences.end_pos\)/;
@@ -822,7 +832,7 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 				$last = $totalpages;
 			}
 			$bar_buffer .= "<td>";
-			for ( my $i = $first ; $i < $last + 1 ; $i++ ) { #don't use range operator as $last may not be an integer.
+			for ( my $i = $first ; $i < $last + 1 ; $i++ ) {    #don't use range operator as $last may not be an integer.
 				if ( $i == $currentpage ) {
 					$bar_buffer .=
 					  "</td><th style=\"font-size: 84%; border: 1px solid black; padding-left: 5px; padding-right: 5px\">$i</th><td>";
@@ -990,6 +1000,7 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 	{
 		print "<div class=\"box\" id=\"resultsfooter\">$bar_buffer</div>\n";
 	}
+	return;
 }
 
 sub clean_locus {
@@ -1069,7 +1080,7 @@ sub _print_record_table {
 			}
 		}
 	}
-	$" = ',';
+	local $" = ',';
 	my $fields = "@qry_fields";
 	if ( $table eq 'allele_sequences' && $qry =~ /sequence_flags/ ) {
 		$qry =~ s/\*/DISTINCT $fields/;
@@ -1092,7 +1103,7 @@ sub _print_record_table {
 	$logger->error($@) if $@;
 	my %data = ();
 	$sql->bind_columns( map { \$data{$_} } @display );    #quicker binding hash to arrayref than to use hashref
-	$" = '</th><th>';
+	local $" = '</th><th>';
 	print "<div class=\"box\" id=\"resultstable\"><div class=\"scrollable\"><table class=\"resultstable\">\n";
 	print "<tr>";
 
@@ -1105,7 +1116,7 @@ sub _print_record_table {
 	while ( $sql->fetchrow_arrayref ) {
 		my @query_values;
 		my %primary_key;
-		$" = "&amp;";
+		local $" = "&amp;";
 		foreach (@$attributes) {
 			if ( $_->{'primary_key'} && $_->{'primary_key'} eq 'yes' ) {
 				$primary_key{ $_->{'name'} } = 1;
@@ -1158,9 +1169,9 @@ sub _print_record_table {
 				if ( $table eq 'allele_sequences' && $field eq 'complete' ) {
 					my $flags =
 					  $self->{'datastore'}->get_sequence_flag( $data{'seqbin_id'}, $data{'locus'}, $data{'start_pos'}, $data{'end_pos'} );
-					$" = "</a> <a class=\"seqflag_tooltip\">";
+					local $" = "</a> <a class=\"seqflag_tooltip\">";
 					print @$flags ? "<td><a class=\"seqflag_tooltip\">@$flags</a></td>" : "<td />";
-					$" = ' ';
+#					$" = ' ';
 				}
 			} elsif ( $field =~ /sequence$/ && $field ne 'coding_sequence' ) {
 				if ( length( $data{ lc($field) } ) > 60 ) {
@@ -1182,7 +1193,7 @@ sub _print_record_table {
 						}
 					}
 					$fields_to_query->{$field} = \@fields_to_query;
-					$" = ',';
+					local $" = ',';
 					my $qry = "select @fields_to_query from $foreign_key{$field} WHERE id=?";
 					$foreign_key_sql{$field} = $self->{'db'}->prepare($qry) or die;
 				}
@@ -1235,6 +1246,7 @@ sub _print_record_table {
 		print "<p class=\"comment\">* Default values are displayed for this field.  These may be overridden by user preference.</p>\n";
 	}
 	print "</div>\n";
+	return;
 }
 
 sub _print_publication_table {
@@ -1296,6 +1308,7 @@ sub _print_publication_table {
 	} else {
 		print "<div class=\"box\" id=\"resultsheader\"><p>No PubMed records have been linked to isolates.</p></div>\n";
 	}
+	return;
 }
 
 sub get_link_button_to_ref {
@@ -1438,6 +1451,7 @@ s/FROM $view/FROM $view LEFT JOIN allele_designations AS ordering ON ordering.is
 	} elsif ( $$qry_ref =~ /ORDER BY f_/ ) {
 		$$qry_ref =~ s/ORDER BY f_/ORDER BY $view\./;
 	}
+	return;
 }
 
 sub _print_profile_table {
@@ -1468,7 +1482,6 @@ sub _print_profile_table {
 	$limit_sql = $self->{'db'}->prepare($qry_limit);
 	$logger->debug("Limit qry: $qry_limit");
 	eval { $limit_sql->execute };
-
 	if ($@) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Invalid search performed</p></div>\n";
 		$logger->warn("Can't execute query $qry_limit  $@");
@@ -1479,7 +1492,6 @@ sub _print_profile_table {
 		$primary_key =
 		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )->[0];
 	};
-
 	if ( !$primary_key ) {
 		print
 "<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  Profile browsing can not be done until this has been set.</p></div>\n";
@@ -1551,7 +1563,7 @@ sub _print_profile_table {
 					my $plugin_buffer;
 					if ( !$query_temp_file_written ) {
 						open( my $fh, '>', $full_file_path );
-						$" = "\n";
+						local $" = "\n";
 						print $fh $$qryref;
 						close $fh;
 						$query_temp_file_written = 1;
@@ -1586,12 +1598,14 @@ sub _print_profile_table {
 	}
 	print "</div>\n";
 	$sql->finish if $sql;
+	return;
 }
 
 sub is_allowed_to_view_isolate {
 	my ( $self, $isolate_id ) = @_;
 	my $allowed_to_view =
 	  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id )->[0];
+	return $allowed_to_view;
 }
 
 sub _print_isolate_table {
@@ -1603,7 +1617,7 @@ sub _print_isolate_table {
 	my $qry_limit = $qry;
 	my $fields    = $self->{'xmlHandler'}->get_field_list();
 	my $view      = $self->{'system'}->{'view'};
-	$" = ",$view.";
+	local $" = ",$view.";
 	my $field_string = "$view.@$fields";
 	$qry_limit =~ s/SELECT ($view\.\*|\*)/SELECT $field_string/;
 
@@ -1621,7 +1635,6 @@ sub _print_isolate_table {
 	$limit_sql = $self->{'db'}->prepare($qry_limit);
 	$logger->debug("Limit qry: $qry_limit");
 	eval { $limit_sql->execute };
-
 	if ($@) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Invalid search performed</p></div>\n";
 		$logger->warn("Can't execute query $qry_limit  $@");
@@ -1633,7 +1646,6 @@ sub _print_isolate_table {
 	$qry = "SELECT id,position_after FROM composite_fields";
 	$sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
-
 	if ($@) {
 		$logger->error("Can't execute $qry $@");
 	} else {
@@ -1649,7 +1661,7 @@ sub _print_isolate_table {
 	print "<div class=\"box\" id=\"resultstable\"><div class=\"scrollable\"><table class=\"resultstable\">\n";
 	$self->_print_isolate_table_header( \%composites, \%composite_display_pos, $scheme_ids, $scheme_fields, $scheme_loci );
 	my $td = 1;
-	$" = "=? AND ";
+	local $" = "=? AND ";
 	my %url;
 
 	if ( $self->{'prefs'}->{'hyperlink_loci'} ) {
@@ -1680,7 +1692,7 @@ sub _print_isolate_table {
 	my $extended = $self->get_extended_attributes;
 	my $attribute_sql =
 	  $self->{'db'}->prepare("SELECT value FROM isolate_value_extended_attributes WHERE isolate_field=? AND attribute=? AND field_value=?");
-	while ( $limit_sql->fetchrow_arrayref() ) {
+	while ( $limit_sql->fetchrow_arrayref ) {
 		my ( $allele_sequences, $allele_sequence_flags );
 		if ( $self->{'prefs'}->{'sequence_details_main'} ) {
 			$allele_sequences      = $self->{'datastore'}->get_all_allele_sequences( $data{'id'} );
@@ -1758,7 +1770,7 @@ sub _print_isolate_table {
 			if ( $thisfieldname eq $self->{'system'}->{'labelfield'} && $self->{'prefs'}->{'maindisplayfields'}->{'aliases'} ) {
 				my $aliases =
 				  $self->{'datastore'}->run_list_query( "SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias", $id );
-				$" = '; ';
+				local $" = '; ';
 				print "<td>@$aliases</td>";
 			}
 		}
@@ -1886,7 +1898,7 @@ sub _print_isolate_table {
 					my $plugin_buffer;
 					if ( !$query_temp_file_written ) {
 						open( my $fh, '>', $full_file_path );
-						$" = "\n";
+						local $" = "\n";
 						print $fh $$qryref;
 						close $fh;
 						$query_temp_file_written = 1;
@@ -1921,6 +1933,7 @@ sub _print_isolate_table {
 	}
 	print "</div>\n";
 	$sql->finish if $sql;
+	return;
 }
 
 sub _print_pending_tooltip {
@@ -1937,6 +1950,7 @@ sub _print_pending_tooltip {
 		}
 		print " <a class=\"pending_tooltip\" title=\"$pending_buffer\">pending</a>";
 	}
+	return;
 }
 
 sub _create_join_sql_for_scheme {
@@ -2034,7 +2048,7 @@ sub _print_isolate_table_header {
 	eval { $cn_sql->execute };
 	$logger->error($@) if $@;
 	my $common_names = $cn_sql->fetchall_hashref('id');
-	$" = '; ';
+	local $" = '; ';
 	my $scheme_info = $self->{'datastore'}->get_all_scheme_info;
 
 	foreach my $scheme_id (@$scheme_ids) {
@@ -2055,7 +2069,7 @@ sub _print_isolate_table_header {
 								push @aliases, $alias;
 							}
 						}
-						$" = ', ';
+						local $" = ', ';
 						$locus_header .= " <span class=\"comment\">(@aliases)</span>" if @aliases;
 					}
 					push @scheme_header, $locus_header;
@@ -2074,7 +2088,7 @@ sub _print_isolate_table_header {
 		if ( scalar @scheme_header ) {
 			$fieldtype_header .= "<th colspan=\"" . scalar @scheme_header . "\">$scheme_info->{$scheme_id}->{'description'}</th>";
 		}
-		$" = '</th><th>';
+		local $" = '</th><th>';
 		$header_buffer .= "<th>@scheme_header</th>" if @scheme_header;
 	}
 	my @locus_header;
@@ -2094,19 +2108,20 @@ sub _print_isolate_table_header {
 				}
 			}
 			my $cleaned_locus = $self->clean_locus($_);
-			$" = ', ';
+			local $" = ', ';
 			push @locus_header, "$cleaned_locus" . ( @aliases ? " <span class=\"comment\">(@aliases)</span>" : '' );
 		}
 	}
 	if ( scalar @locus_header ) {
 		$fieldtype_header .= "<th colspan=\"" . scalar @locus_header . "\">Loci</th>";
 	}
-	$" = '</th><th>';
+	local $" = '</th><th>';
 	$header_buffer .= "<th>@locus_header</th>" if @locus_header;
 	$fieldtype_header .= "</tr>\n";
 	$header_buffer    .= "</tr>\n";
 	print $fieldtype_header;
 	print $header_buffer;
+	return;
 }
 
 sub get_update_details_tooltip {
@@ -2130,7 +2145,7 @@ sub get_sequence_details_tooltip {
 	my ( $self, $locus, $allele_ref, $alleleseq_ref, $flags_ref ) = @_;
 	my $buffer = defined $allele_ref->{'allele_id'} ? "$locus:$allele_ref->{'allele_id'} - " : "$locus - ";
 	my $i = 0;
-	$" = '; ';
+	local $" = '; ';
 	foreach (@$alleleseq_ref) {
 		$buffer .= '<br />' if $i;
 		$buffer .= "Seqbin id:$_->{'seqbin_id'}:  
@@ -2154,7 +2169,7 @@ sub make_temp_file {
 		$full_file_path = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
 	} until ( !-e $full_file_path );
 	open( my $fh, '>', $full_file_path );
-	$" = "\n";
+	local $" = "\n";
 	print $fh "@list";
 	close $fh;
 	return $filename;
@@ -2290,7 +2305,7 @@ sub run_blast {
 	}
 
 	#delete all working files
-	$" = ' ';
+	local $" = ' ';
 	system "rm -f $temp_infile @files_to_delete" if !$options->{'cache'};
 	return ( $outfile_url, $options->{'job'} );
 }
@@ -2427,6 +2442,7 @@ sub print_warning_sign {
 			print "<div style=\"text-align:center\"><img src=\"/images/warning_sign.gif\" alt=\"Access Denied!\" /></div>\n";
 		}
 	}
+	return;
 }
 
 sub get_curator_id {
@@ -2534,6 +2550,7 @@ sub initiate_prefs {
 		}
 	}
 	$self->{'datastore'}->update_prefs( $self->{'prefs'} );
+	return;
 }
 
 sub _initiate_isolatedb_prefs {
@@ -2742,6 +2759,7 @@ sub _initiate_isolatedb_prefs {
 			}
 		}
 	}
+	return;
 }
 
 sub clean_checkbox_id {
@@ -2771,6 +2789,7 @@ sub escape_params {
 			$q->param( $key, $q->param($param_name) );
 		}
 	}
+	return;
 }
 ###SCHEME GROUP TREE DRAWING#################
 sub get_tree {
@@ -2920,6 +2939,7 @@ sub _get_group_schemes {
 		}
 	}
 	return "<ul>\n$buffer</ul>\n" if $buffer;
+	return;
 }
 
 sub _get_scheme_loci {
@@ -2955,6 +2975,7 @@ sub _get_scheme_loci {
 		$buffer .= "<li id=\"$id\"><a>$scheme_field</a></li>\n";
 	}
 	return "<ul>\n$buffer</ul>\n" if $buffer;
+	return;
 }
 
 sub _get_child_groups {
@@ -2997,6 +3018,7 @@ sub _get_child_groups {
 		}
 	}
 	return "<ul>\n$buffer</ul>\n" if $buffer;
+	return;
 }
 
 sub _scheme_data_present {

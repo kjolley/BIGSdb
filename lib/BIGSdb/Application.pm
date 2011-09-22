@@ -383,7 +383,7 @@ sub print_page {
 	if ( $self->{'error'} ) {
 		$page_attributes{'error'} = $self->{'error'};
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
-		$page->print();
+		$page->print_page_content;
 		return;
 	} elsif ( $self->{'system'}->{'read_access'} ne 'public' ) {
 		( $continue, $auth_cookies_ref ) = $self->authenticate( \%page_attributes );
@@ -423,7 +423,7 @@ sub print_page {
 		$page_attributes{'error'} = 'unknown';
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
 	}
-	$page->print;
+	$page->print_page_content;
 	return;
 }
 
@@ -437,7 +437,7 @@ sub authenticate {
 		} else {
 			$page_attributes->{'error'} = 'userNotAuthenticated';
 			my $page = BIGSdb::ErrorPage->new(%$page_attributes);
-			$page->print();
+			$page->print_page_content;
 			$authenticated = 0;
 		}
 	} else {    #use built-in authentication
@@ -464,7 +464,7 @@ sub authenticate {
 			catch BIGSdb::CannotOpenFileException with {
 				$page_attributes->{'error'} = 'userAuthenticationFiles';
 				$page = BIGSdb::ErrorPage->new(%$page_attributes);
-				$page->print();
+				$page->print_page_content;
 			}
 			catch BIGSdb::AuthenticationException with {
 
@@ -478,7 +478,7 @@ sub authenticate {
 		if ( $page_attributes->{'permissions'}->{'disable_access'} ) {
 			$page_attributes->{'error'} = 'accessDisabled';
 			my $page = BIGSdb::ErrorPage->new(%$page_attributes);
-			$page->print();
+			$page->print_page_content;
 			$authenticated = 0;
 		}
 	}
