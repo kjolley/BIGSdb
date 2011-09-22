@@ -1804,7 +1804,7 @@ sub _print_isolate_table {
 		foreach my $scheme_id ( @$scheme_ids, 0 ) {
 			next
 			  if !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id} && $scheme_id;
-			next if !$self->_is_scheme_data_present($qry_limit,$scheme_id) && $scheme_id;
+			next if $self->{'system'}->{'hide_unused_schemes'} && $self->{'system'}->{'hide_unused_schemes'} eq 'yes' && !$self->_is_scheme_data_present($qry_limit,$scheme_id) && $scheme_id;
 			my @profile;
 			foreach ( @{ $scheme_loci->{$scheme_id} } ) {
 				next if !$self->{'prefs'}->{'main_display_loci'}->{$_} && ( !$scheme_id || !@{ $scheme_fields->{$scheme_id} } );
@@ -2078,7 +2078,7 @@ sub _print_isolate_table_header {
 
 	foreach my $scheme_id (@$scheme_ids) {
 		next if !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};
-		next if !$self->_is_scheme_data_present($limit_qry,$scheme_id);
+		next if $self->{'system'}->{'hide_unused_schemes'} && $self->{'system'}->{'hide_unused_schemes'} eq 'yes' && !$self->_is_scheme_data_present($limit_qry,$scheme_id);
 		my @scheme_header;
 		if ( ref $scheme_loci->{$scheme_id} eq 'ARRAY' ) {
 			foreach ( @{ $scheme_loci->{$scheme_id} } ) {
