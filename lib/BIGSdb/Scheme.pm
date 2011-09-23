@@ -87,14 +87,14 @@ sub get_field_values_by_profile {
 	my $fields = $self->{'fields'};
 	my $loci   = $self->{'loci'};
 	if ( !$self->{'sql'}->{'scheme_fields'} ) {
-		$" = ',';
+		local $" = ',';
 		my $qry = "SELECT @$fields FROM $self->{'dbase_table'} WHERE ";
-		$" = '=? AND ';
+		local $" = '=? AND ';
 		$qry .= "@$loci=?";
 		$self->{'sql'}->{'scheme_fields'} = $self->{'db'}->prepare($qry);
 		$logger->debug( "Scheme#$self->{'id'} ($self->{'description'}) statement handle 'scheme_fields' prepared. $qry" );
 	}
-	eval { $self->{'sql'}->{'scheme_fields'}->execute(@$profile); };
+	eval { $self->{'sql'}->{'scheme_fields'}->execute(@$profile) };
 	if ($@) {
 		$logger->warn(
 "Can't execute 'scheme_fields' query handle. Check database attributes in the scheme_fields table for scheme#$self->{'id'} ($self->{'description'})! Statement was '$self->{'sql'}->{scheme_fields}->{Statement}'. "

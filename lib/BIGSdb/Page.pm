@@ -48,7 +48,7 @@ use constant SEQ_FLAGS => (
 use constant DATABANKS => qw(Genbank);
 our @EXPORT_OK = qw(SEQ_METHODS SEQ_FLAGS DATABANKS);
 
-sub new {
+sub new { ## no critic
 	my $class = shift; 
 	my $self  = {@_}; 
 	$self->{'prefs'} = {};
@@ -1805,7 +1805,7 @@ sub _print_isolate_table {
 			next
 			  if !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id} && $scheme_id;
 			next if $self->{'system'}->{'hide_unused_schemes'} && $self->{'system'}->{'hide_unused_schemes'} eq 'yes' && !$self->_is_scheme_data_present($qry_limit,$scheme_id) && $scheme_id;
-			my @profile;
+			my (@profile, $incomplete);
 			foreach ( @{ $scheme_loci->{$scheme_id} } ) {
 				next if !$self->{'prefs'}->{'main_display_loci'}->{$_} && ( !$scheme_id || !@{ $scheme_fields->{$scheme_id} } );
 				if ( $self->{'prefs'}->{'main_display_loci'}->{$_} ) {
@@ -1861,14 +1861,17 @@ sub _print_isolate_table {
 					  if $self->{'curate'};
 					print "</td>";
 				}
-				push @profile, $alleles->{$_}->{'allele_id'} if $scheme_id;
+				if ($scheme_id){
+					push @profile, $alleles->{$_}->{'allele_id'};
+					$incomplete = 1 if !defined $alleles->{$_}->{'allele_id'};
+				}
 			}
 			next
 			  if !$scheme_id
 				  || !( ref $scheme_fields->{$scheme_id} eq 'ARRAY' && @{ $scheme_fields->{$scheme_id} } )
 				  || !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};
 			my $values;
-			if (@profile) {
+			if (!$incomplete && @profile) {
 				try {
 					$values = $schemes->{$scheme_id}->get_field_values_by_profile( \@profile, { 'return_hashref' => 1 } );
 				}

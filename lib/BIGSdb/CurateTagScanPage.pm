@@ -193,7 +193,7 @@ sub _print_interface {
 	print
 " <a class=\"tooltip\" title=\"Stop after time - Searches against lots of loci or for multiple isolates may take a long time. You may wish to terminate the search after a set time.  You will be able to tag any sequences found and next time these won't be searched (by default) so this enables you to tag in batches.\">&nbsp;<i>i</i>&nbsp;</a></li>";
 
-	if ( $self->{'system'}->{'tblastx_tagging'} eq 'yes' ) {
+	if ( $self->{'system'}->{'tblastx_tagging'} && $self->{'system'}->{'tblastx_tagging'} eq 'yes' ) {
 		print "<li><span class=\"warning\">";
 		print $q->checkbox(
 			-name    => 'tblastx',

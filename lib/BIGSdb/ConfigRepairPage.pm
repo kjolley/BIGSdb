@@ -45,7 +45,7 @@ sub print_content {
 	my $scheme_ids =
 	  $self->{'datastore'}
 	  ->run_list_query_hashref( "SELECT id,description FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_fields WHERE primary_key) "
-		  . "AND id IN (SELECT scheme_id FROM scheme_members)" );
+		  . "AND id IN (SELECT scheme_id FROM scheme_members) ORDER BY id" );
 	if (!@$scheme_ids){
 		print "<p class=\"statusbad\">No schemes with a primary key and locus members have been defined.</p>\n"; 
 	} else {

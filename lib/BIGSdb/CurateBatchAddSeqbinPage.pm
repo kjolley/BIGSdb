@@ -344,10 +344,13 @@ sub _upload {
 	my $q        = $self->{'cgi'};
 	my $dir      = $self->{'config'}->{'secure_tmp_dir'};
 	my $tmp_file = $dir . '/' . $q->param('checked_buffer');
-	open( my $file_fh, '<', $tmp_file );
-	my @data = <$file_fh>;
-	close $file_fh;
-	$" = "\n";
+	my @data;
+	if (-e $tmp_file){
+		open( my $file_fh, '<', $tmp_file ) or $logger->error("Can't open $tmp_file");
+		@data = <$file_fh>;
+		close $file_fh;
+	}
+	local $" = "\n";
 	my $seq_ref;
 	my $continue = 1;
 	try {
@@ -395,7 +398,7 @@ sub _upload {
 		}
 	};
 	if ($@) {
-		$" = ', ';
+		local $" = ', ';
 		print "<div class=\"box\" id=\"statusbad\"><p>Database update failed - transaction cancelled - no records have been touched.</p>\n";
 		if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
 			print
@@ -411,6 +414,7 @@ sub _upload {
 		print "<div class=\"box\" id=\"resultsheader\"><p>Database updated ok</p>";
 		print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
 	}
+	return;
 }
 
 sub get_javascript {
