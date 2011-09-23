@@ -23,7 +23,7 @@ use warnings;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Scheme');
 
-sub new {
+sub new { ## no critic
 	my $class = shift;
 	my $self  = {@_};
 	$self->{'sql'} = {};
@@ -36,11 +36,12 @@ sub DESTROY {
 	my ($self) = @_;
 	foreach ( keys %{ $self->{'sql'} } ) {
 		if ( $self->{'sql'}->{$_} ) {
-			$self->{'sql'}->{$_}->finish();
+			$self->{'sql'}->{$_}->finish;
 			$logger->debug( "Scheme#$self->{'id'} ($self->{'description'}) statement handle '$_' finished." );
 		}
 	}
 	$logger->info("Scheme#$self->{'id'} ($self->{'description'}) destroyed.");
+	return;
 }
 
 sub get_profile_by_primary_keys {
@@ -51,9 +52,9 @@ sub get_profile_by_primary_keys {
 	}
 	if ( !$self->{'sql'}->{'scheme_profiles'} ) {
 		my $loci = $self->{'loci'};
-		$" = ',';
+		local $" = ',';
 		my $qry = "SELECT @$loci FROM $self->{'dbase_table'} WHERE ";
-		$" = '=? AND ';
+		local $" = '=? AND ';
 		my $primary_keys = $self->{'primary_keys'};
 		$qry .= "@$primary_keys=?";
 		$self->{'sql'}->{'scheme_profiles'} = $self->{'db'}->prepare($qry);
@@ -142,6 +143,7 @@ sub get_distinct_fields {
 sub get_db {
 	my ($self) = @_;
 	return $self->{'db'} if $self->{'db'};
+	return;
 }
 1;
 
