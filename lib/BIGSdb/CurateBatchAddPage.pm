@@ -293,8 +293,12 @@ sub _check_data {
 	$tablebuffer .= "</tr>";
 	my @records = split /\n/, $q->param('data');
 	my $td      = 1;
-	my $header  = shift @records;
-	$header =~ s/\r//g;
+	my $header;
+	while ($header = shift @records) { #ignore blank lines before header
+		$header =~ s/\r//g;
+		last if $header ne '';
+	};
+	
 	my @file_header_fields = split /\t/, $header;
 	my %file_header_pos;
 	my $pos = 0;
