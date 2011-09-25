@@ -423,6 +423,8 @@ sub _print_isolate_filter_fieldset {
 		if (@$pmid) {
 			my $labels = $self->{'datastore'}->get_citation_hash($pmid);
 			my @values = sort { $labels->{$a} cmp $labels->{$b} } keys %$labels;
+			unshift @values, 'not linked to any publication';
+			unshift @values, 'linked to any publication';
 			push @filters,
 			  $self->get_filter(
 				'publication',
@@ -501,6 +503,7 @@ sub _print_isolate_filter_fieldset {
 		print "<li><span style=\"white-space:nowrap\">$_</span></li>" foreach (@filters);
 		print "</ul></div>\n</fieldset>";
 	}
+	return;
 }
 
 sub _print_isolate_locus_fieldset {
@@ -1078,7 +1081,7 @@ sub _generate_isolate_query_for_provenance_fields {
 sub _modify_isolate_query_for_filters {
 	my ( $self, $qry, $extended ) = @_;
 
-	#extended: extended attriutes hashref;
+	#extended: extended attributes hashref;
 	my $q    = $self->{'cgi'};
 	my $view = $self->{'system'}->{'view'};
 	foreach ( @{ $self->{'xmlHandler'}->get_field_list() } ) {
@@ -1110,20 +1113,27 @@ sub _modify_isolate_query_for_filters {
 	}
 	if ( defined $q->param('publication_list') && $q->param('publication_list') ne '' ) {
 		my $pmid = $q->param('publication_list');
-		my $ids = $self->{'datastore'}->run_list_query( "SELECT isolate_id FROM refs WHERE pubmed_id=?", $pmid );
+		my $ref_qry;
+		if ($pmid eq 'linked to any publication'){
+			$ref_qry = "$view.id IN (SELECT isolate_id FROM refs)";
+		} elsif ($pmid eq 'not linked to any publication'){
+			$ref_qry = "$view.id NOT IN (SELECT isolate_id FROM refs)";
+		} elsif (BIGSdb::Utils::is_int($pmid)){
+			$ref_qry = "$view.id IN (SELECT isolate_id FROM refs WHERE pubmed_id=$pmid)";
+		} else {
+			undef $pmid;
+		}
 		if ($pmid) {
-			$" = "','";
 			if ( $qry !~ /WHERE \(\)\s*$/ ) {
-				$qry .= " AND ($view.id IN ('@$ids'))";
+				$qry .= " AND ($ref_qry)";
 			} else {
-				$qry = "SELECT * FROM $view WHERE ($view.id IN ('@$ids'))";
+				$qry = "SELECT * FROM $view WHERE ($ref_qry)";
 			}
 		}
 	}
 	if ( defined $q->param('project_list') && $q->param('project_list') ne '' ) {
 		my $project_id = $q->param('project_list');
 		if ($project_id) {
-			$" = "','";
 			if ( $qry !~ /WHERE \(\)\s*$/ ) {
 				$qry .= " AND ($view.id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id'))";
 			} else {
