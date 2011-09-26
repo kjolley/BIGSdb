@@ -26,7 +26,7 @@ my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 use Apache2::Connection ();
 use List::MoreUtils qw(any);
-use BIGSdb::Page 'SEQ_METHODS';
+use BIGSdb::Page qw(SEQ_METHODS FLANKING);
 
 sub get_attributes {
 	my %att = (
@@ -225,7 +225,7 @@ sub _print_interface {
 	print "<li><label for=\"hits\" class=\"parameter\">Hits per isolate:</label>\n";
 	print $q->popup_menu( -name => 'hits', -id => 'hits', -values => [qw(1 2 3 4 5 6 7 8 9 10 20 30 40 50)], -default => 1 );
 	print "</li><li><label for=\"flanking\" class=\"parameter\">Flanking length (bp):</label>\n";
-	print $q->popup_menu( -name => 'flanking', -id => 'flanking', -values => [qw (0 20 50 100 200 500 1000 2000 5000)], -default => $self->{'prefs'}->{'flanking'} );
+	print $q->popup_menu( -name => 'flanking', -id => 'flanking', -values => [ FLANKING ], -default => $self->{'prefs'}->{'flanking'} );
 	print
 " <a class=\"tooltip\" title=\"Flanking length - This is the length of flanking sequence (if present) that will be output in the secondary FASTA file.  The default value can be changed in the options page.\">&nbsp;<i>i</i>&nbsp;</a>";
 

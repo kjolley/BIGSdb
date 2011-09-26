@@ -46,7 +46,8 @@ use constant SEQ_FLAGS => (
 	'upstream fusion'
 );
 use constant DATABANKS => qw(Genbank);
-our @EXPORT_OK = qw(SEQ_METHODS SEQ_FLAGS DATABANKS);
+use constant FLANKING => qw(0 20 50 100 200 500 1000 2000 5000);
+our @EXPORT_OK = qw(SEQ_METHODS SEQ_FLAGS DATABANKS FLANKING);
 
 sub new { ## no critic
 	my $class = shift; 

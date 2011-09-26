@@ -23,6 +23,7 @@ use base qw(BIGSdb::Page);
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any);
+use BIGSdb::Page qw(FLANKING);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_TREE_NODES => 1000;
 
@@ -527,7 +528,7 @@ sub print_sequence_export_form {
 	my $q = $self->{'cgi'};
 	print $q->start_form;
 	print "<fieldset style=\"float:left\">\n<legend>Select $pk" . "s</legend>\n";
-	$" = "\n";
+	local $" = "\n";
 	print
 "<p style=\"padding-right:2em\">Paste in list of ids to include, start a new<br />line for each.  Leave blank to include all ids.</p>\n";
 	print $q->textarea( -name => 'list', -rows => 5, -columns => 6, -default => "@$list" );
@@ -564,9 +565,22 @@ sub print_sequence_export_form {
 		print $q->radio_group( -name => 'chooseseq', -values => [ 'seqbin', 'allele_designation' ], -labels => \%labels,
 			-linebreak => 'true' );
 		print "<br />\n";
-		print $q->checkbox( -name => 'translate', -label => 'Translate sequences' ) if $options->{'translate'};
-		print $q->checkbox( -name => 'ignore_seqflags', -label => 'Do not include sequences with problem flagged', -checked => 'checked' )
-		  if $options->{'ignore_seqflags'};
+		if ($options->{'translate'}){
+			print $q->checkbox( -name => 'translate', -label => 'Translate sequences' );
+			print "<br />\n";
+		}
+		if ($options->{'ignore_seqflags'}){
+			print $q->checkbox( -name => 'ignore_seqflags', -label => 'Do not include sequences with problem flagged', -checked => 'checked' );
+		  	print "<br />\n";
+		  }
+		if ($options->{'flanking'}){
+			print "Include ";
+			print $q->popup_menu( -name => 'flanking', -values => [FLANKING], -default => 0);
+			print " bp flanking sequence";
+			print
+" <a class=\"tooltip\" title=\"Flanking sequence - This can only be included if you select to retrieve sequences from the sequence bin rather than from an external database.\">&nbsp;<i>i</i>&nbsp;</a>";
+			
+		}
 		print "</fieldset>\n";
 	}
 	print $self->get_extra_form_elements;
@@ -641,7 +655,7 @@ sub print_sequence_export_form {
 				print "</div>";
 			}
 		}
-		$" = ';';
+		local $" = ';';
 		print "</div>\n";
 		print "<input type=\"button\" value=\"Select all\" onclick='@js' style=\"margin-top:1em\" class=\"button\" />\n";
 		print "<input type=\"button\" value=\"Select none\" onclick='@js2' style=\"margin-top:1em\" class=\"button\" />\n";
@@ -650,6 +664,7 @@ sub print_sequence_export_form {
 	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
 	print $q->hidden($_) foreach qw (db page name query_file scheme_id);
 	print $q->end_form;
+	return;
 }
 
 sub _print_tree {

@@ -41,7 +41,7 @@ sub get_attributes {
 		buttontext  => 'XMFA',
 		menutext    => 'XMFA export',
 		module      => 'XmfaExport',
-		version     => '1.1.2',
+		version     => '1.1.3',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		section     => 'export,postquery',
@@ -148,9 +148,10 @@ can be included.  Please check the loci that you would like to include.  If a se
 the remote database, it will be replaced with 'N's. Output is limited to $limit records. Please be aware that it may take a long time 
 to generate the output file as the sequences are passed through muscle to align them.</p>
 HTML
-	my $options = { 'default_select' => 0, 'translate' => 1 };
+	my $options = { 'default_select' => 0, 'translate' => 1, 'flanking' => 1};
 	$self->print_sequence_export_form( $pk, $list, $scheme_id, $options );
 	print "</div>\n";
+	return;
 }
 
 sub run_job {
@@ -163,14 +164,20 @@ sub run_job {
 	my $isolate_sql;
 	if ( $params->{'includes'} ) {
 		my @includes = split /\|\|/, $params->{'includes'};
-		$"           = ',';
+		local $"     = ',';
 		$isolate_sql = $self->{'db'}->prepare("SELECT @includes FROM $self->{'system'}->{'view'} WHERE id=?");
 	}
 	
 	my $length_sql  = $self->{'db'}->prepare("SELECT length FROM loci WHERE id=?");
+	my $substring_query;
+	if ($params->{'flanking'} && BIGSdb::Utils::is_int($params->{'flanking'})){
+		$substring_query  = "substring(sequence from start_pos-$params->{'flanking'} for end_pos-start_pos+1+2*$params->{'flanking'})";
+	} else {
+		$substring_query  = "substring(sequence from start_pos for end_pos-start_pos+1)";
+	}
 	my $seqbin_sql =
 	  $self->{'db'}->prepare(
-"SELECT substring(sequence from start_pos for end_pos-start_pos+1),reverse FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE isolate_id=? AND locus=? ORDER BY complete desc,allele_sequences.datestamp LIMIT 1"
+"SELECT $substring_query,reverse FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE isolate_id=? AND locus=? ORDER BY complete desc,allele_sequences.datestamp LIMIT 1"
 	  );
 	my @problem_ids;
 	my $start = 1;
@@ -181,10 +188,8 @@ sub run_job {
 	my $locus_qry =
 "SELECT id,scheme_id from loci left join scheme_members on loci.id = scheme_members.locus order by genome_position,scheme_members.scheme_id,id";
 	my $locus_sql = $self->{'db'}->prepare($locus_qry);
-	eval { $locus_sql->execute; };
-	if ($@) {
-		$logger->error("Can't execute $@");
-	}
+	eval { $locus_sql->execute };
+	$logger->error($@) if $@;
 	my @selected_fields;
 	my %picked;
 	while ( my ( $locus, $scheme_id ) = $locus_sql->fetchrow_array ) {
@@ -242,7 +247,7 @@ sub run_job {
 				}
 				if ($id) {
 					print $fh_muscle ">$id";
-					$" = '|';
+					local $" = '|';
 					print $fh_muscle "|@includes" if $params->{'includes'};
 					print $fh_muscle "\n";
 				} else {
@@ -357,7 +362,7 @@ sub run_job {
 	close $fh;
 	my $message_html;
 	if (@problem_ids) {
-		$"            = ', ';
+		local $"      = ', ';
 		$message_html = "<p>The following ids could not be processed (they do not exist): @problem_ids.</p>\n";
 	}
 	if ($no_output) {
@@ -366,5 +371,6 @@ sub run_job {
 		$self->{'jobManager'}->update_job_output( $job_id, { 'filename' => "$job_id.txt", 'description' => 'XMFA output file' } );
 	}
 	$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => $message_html } ) if $message_html;
+	return;
 }
 1;

@@ -22,6 +22,7 @@ use warnings;
 use base qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
+use BIGSdb::Page qw(FLANKING);
 
 sub initiate {
 	my ($self) = @_;
@@ -211,7 +212,7 @@ sub _print_general_tab {
 	print "</td></tr>\n";
 	print "<tr><th>Sequence bin display</th></tr>\n";
 	print "<tr class=\"td1\" style=\"text-align:left\"><td>Display \n";
-	print $q->popup_menu( -name => 'flanking', -values => [qw (0 20 50 100 200 500 1000 2000 5000)], -default => $prefs->{'flanking'} );
+	print $q->popup_menu( -name => 'flanking', -values => [ FLANKING ], -default => $prefs->{'flanking'} );
 	print " nucleotides of flanking sequence (where available)</td></tr>\n";
 	print "</table>\n";
 	print "</td><td style=\"vertical-align:top\">\n";
