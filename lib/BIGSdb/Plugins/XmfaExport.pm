@@ -171,6 +171,10 @@ sub run_job {
 	my $length_sql  = $self->{'db'}->prepare("SELECT length FROM loci WHERE id=?");
 	my $substring_query;
 	if ($params->{'flanking'} && BIGSdb::Utils::is_int($params->{'flanking'})){
+		#round up to the nearest multiple of 3 if translating sequences to keep in reading frame
+		if ($params->{'translate'}){
+			$params->{'flanking'} = BIGSdb::Utils::round_to_nearest($params->{'flanking'},3);
+		}
 		$substring_query  = "substring(sequence from start_pos-$params->{'flanking'} for end_pos-start_pos+1+2*$params->{'flanking'})";
 	} else {
 		$substring_query  = "substring(sequence from start_pos for end_pos-start_pos+1)";

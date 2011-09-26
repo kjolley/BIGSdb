@@ -243,4 +243,9 @@ sub stats {
 	$stats->{'std'} = sqrt( $stats->{'sum2'} / ( ( $stats->{'count'} - 1 ) || 1 ) );
 	return $stats;
 }
+
+sub round_to_nearest {
+	my ($number, $nearest) = @_;
+	return ceil(int($number)/$nearest)*$nearest;  
+}
 1;
