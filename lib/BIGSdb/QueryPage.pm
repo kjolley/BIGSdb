@@ -33,11 +33,13 @@ sub initiate {
 		return;
 	}
 	$self->{$_} = 1 foreach qw (field_help tooltips jQuery jQuery.coolfieldset);
+	return;
 }
 
 sub set_pref_requirements {
 	my ($self) = @_;
 	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 1, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 1 };
+	return;
 }
 
 sub get_javascript {
@@ -139,6 +141,7 @@ sub _ajax_content {
 			$self->_print_scheme_fields( $row, 0, $scheme_id, $select_items, $cleaned );
 		}
 	}
+	return;
 }
 
 sub print_content {
@@ -204,6 +207,7 @@ sub print_content {
 	} else {
 		print "<p />\n";
 	}
+	return;
 }
 ####START ISOLATE INTERFACE#####################################################
 sub _print_provenance_fields {
@@ -226,6 +230,7 @@ sub _print_provenance_fields {
 		}
 	}
 	print "</span>\n";
+	return;
 }
 
 sub _print_loci_fields {
@@ -247,6 +252,7 @@ sub _print_loci_fields {
 		}
 	}
 	print "</span>\n";
+	return;
 }
 
 sub _print_locus_tag_fields {
@@ -273,6 +279,7 @@ sub _print_locus_tag_fields {
 		}
 	}
 	print "</span>\n";
+	return;
 }
 
 sub _get_isolate_select_items {
@@ -313,6 +320,7 @@ sub _print_isolate_query_interface {
 	print "</div>\n";
 	print $q->end_form;
 	print "</div>\n</div>\n";
+	return;
 }
 
 sub _print_isolate_fields_fieldset {
@@ -332,6 +340,7 @@ sub _print_isolate_fields_fieldset {
 		print "</li>\n";
 	}
 	print "</ul>\n</fieldset>\n";
+	return;
 }
 
 sub _filters_selected {
@@ -525,6 +534,7 @@ sub _print_isolate_locus_fieldset {
 		}
 		print "</ul>\n</div></fieldset>\n";
 	}
+	return;
 }
 
 sub _print_isolate_tag_fieldset {
@@ -547,6 +557,7 @@ sub _print_isolate_tag_fieldset {
 		}
 		print "</ul></div>\n</fieldset>\n";
 	}
+	return;
 }
 
 sub _print_isolate_display_fieldset {
@@ -570,6 +581,7 @@ sub _print_isolate_display_fieldset {
 	print
 " <a class=\"tooltip\" title=\"Records per page - Analyses use the full query dataset, rather than just the page shown.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "</span></li>\n</ul>\n</fieldset>\n";
+	return;
 }
 
 sub _highest_entered_fields {
@@ -648,6 +660,7 @@ sub _print_scheme_fields {
 		}
 	}
 	print "</span>\n";
+	return;
 }
 
 sub _print_profile_query_interface {
@@ -722,7 +735,6 @@ sub _print_profile_query_interface {
 	}
 	print "<fieldset id=\"display_fieldset\" style=\"float:left\"><legend>Display/sort options</legend>\n";
 	print "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>\n";
-	$" = ' ';
 	print $q->popup_menu( -name => 'order', -id => 'order', -values => $orderitems, -labels => $cleaned );
 	print $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
 	print "</span></li>\n<li><span style=\"white-space:nowrap\">\n";
@@ -761,6 +773,7 @@ sub _print_profile_query_interface {
 	print "</span></div>\n";
 	print $q->end_form;
 	print "</div></div>\n";
+	return;
 }
 ####END PROFILE INTERFACE#######################################################
 sub _run_isolate_query {
@@ -788,7 +801,7 @@ sub _run_isolate_query {
 		$qry = $q->param('query');
 	}
 	if (@errors) {
-		$" = '<br />';
+		local $" = '<br />';
 		print "<div class=\"box\" id=\"statusbad\"><p>Problem with search criteria:</p>\n";
 		print "<p>@errors</p></div>\n";
 	} elsif ( $qry !~ /\(\)/ ) {
@@ -820,6 +833,7 @@ sub _run_isolate_query {
 		print
 "<div class=\"box\" id=\"statusbad\">Invalid search performed.  Try to <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=browse\">browse all records</a>.</div>\n";
 	}
+	return;
 }
 
 sub _generate_isolate_query_for_provenance_fields {
@@ -1143,8 +1157,6 @@ sub _modify_isolate_query_for_filters {
 		} else {
 			undef $project_id;
 		}
-		
-		
 		if ($project_id) {
 			if ( $qry !~ /WHERE \(\)\s*$/ ) {
 				$qry .= " AND ($project_qry)";
@@ -1212,8 +1224,6 @@ sub _modify_isolate_query_for_filters {
 				$field = "scheme_$scheme_id\.$field";
 				my $scheme_loci  = $self->{'datastore'}->get_scheme_loci($scheme_id);
 				my $joined_table = "SELECT $view.id FROM $view";
-				$" = ',';
-
 				foreach (@$scheme_loci) {
 					$joined_table .= " left join allele_designations AS $_ on $_.isolate_id = $self->{'system'}->{'view'}.id";
 				}
@@ -1227,7 +1237,7 @@ sub _modify_isolate_query_for_filters {
 						push @temp, " $_.allele_id=scheme_$scheme_id\.$_";
 					}
 				}
-				$" = ' AND ';
+				local $" = ' AND ';
 				$joined_table .= " @temp WHERE";
 				undef @temp;
 				foreach (@$scheme_loci) {
@@ -1341,7 +1351,6 @@ sub _modify_isolate_query_for_designations {
 				$field = "scheme_$scheme_id\.$field";
 				my $scheme_loci  = $self->{'datastore'}->get_scheme_loci($scheme_id);
 				my $joined_table = "SELECT $view.id FROM $view";
-				$" = ',';
 				foreach (@$scheme_loci) {
 					$joined_table .= " left join allele_designations AS $_ on $_.isolate_id = $self->{'system'}->{'view'}.id";
 				}
@@ -1355,14 +1364,13 @@ sub _modify_isolate_query_for_designations {
 						push @temp, " $_.allele_id=scheme_$scheme_id\.$_";
 					}
 				}
-				$" = ' AND ';
+				local $" = ' AND ';
 				$joined_table .= " @temp WHERE";
 				undef @temp;
 				foreach (@$scheme_loci) {
 					push @temp, "$_.locus='$_'";
 				}
 				$joined_table .= " @temp";
-				$" = ',';
 				if ( $operator eq 'NOT' ) {
 					push @sqry, ( $text eq '<blank>' || $text eq 'null' )
 					  ? "($view.id NOT IN ($joined_table AND $field is null))"
@@ -1395,7 +1403,7 @@ sub _modify_isolate_query_for_designations {
 	}
 	my $brace = @sqry ? '(' : '';
 	if (@lqry) {
-		$" = ' OR ';
+		local $" = ' OR ';
 		my $modify = '';
 		if ( defined $q->param('c1') && $q->param('c1') eq 'AND' ) {
 			$modify = "GROUP BY id HAVING count(id)=" . scalar @lqry;
@@ -1409,7 +1417,7 @@ sub _modify_isolate_query_for_designations {
 		}
 	}
 	if (@lqry_blank) {
-		$" = ' ' . $q->param('c1') . ' ';
+		local $" = ' ' . $q->param('c1') . ' ';
 		my $modify = @lqry ? $q->param('c1') : 'AND';
 		if ( $qry =~ /\(\)$/ ) {
 			$qry = "SELECT * FROM $view WHERE $brace@lqry_blank";
@@ -1419,7 +1427,7 @@ sub _modify_isolate_query_for_designations {
 	}
 	if (@sqry) {
 		my $andor = $q->param('c1') || '';
-		$" = " $andor ";
+		local $" = " $andor ";
 		my $sqry = "@sqry";
 		if ( $qry =~ /\(\)$/ ) {
 			$qry = "SELECT * FROM $view WHERE $sqry";
@@ -1480,7 +1488,7 @@ sub _modify_isolate_query_for_tags {
 	}
 	if (@tag_queries) {
 		my $andor = ( any { $q->param('c2') eq $_ } qw (AND OR) ) ? $q->param('c2') : '';
-		$" = " $andor ";
+		local $" = " $andor ";
 		if ( $qry !~ /WHERE \(\)\s*$/ ) {
 			$qry .= " AND (@tag_queries)";
 		} else {
@@ -1604,7 +1612,7 @@ sub _run_profile_query {
 			  $self->{'datastore'}
 			  ->run_list_query( "SELECT profile_id FROM profile_refs WHERE scheme_id=? AND pubmed_id=?", $scheme_id, $pmid );
 			if ($pmid) {
-				$" = "','";
+				local $" = "','";
 				if ( $qry !~ /WHERE \(\)\s*$/ ) {
 					$qry .= " AND ($primary_key IN ('@$ids'))";
 				} else {
@@ -1640,7 +1648,7 @@ sub _run_profile_query {
 		$qry = $q->param('query');
 	}
 	if (@errors) {
-		$" = '<br />';
+		local $" = '<br />';
 		print "<div class=\"box\" id=\"statusbad\"><p>Problem with search criteria:</p>\n";
 		print "<p>@errors</p></div>\n";
 	} elsif ( $qry !~ /\(\)/ ) {
@@ -1659,17 +1667,13 @@ sub _run_profile_query {
 		print
 "<div class=\"box\" id=\"statusbad\">Invalid search performed. Try to <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=browse&amp;scheme_id=$scheme_id\">browse all records</a>.</div>\n";
 	}
+	return;
 }
 
 sub is_valid_operator {
 	my ( $self, $value ) = @_;
-	return 1
-	  if $value eq '='
-		  || $value eq 'contains'
-		  || $value eq '>'
-		  || $value eq '<'
-		  || $value eq 'NOT'
-		  || $value eq 'NOT contain';
+	return 1 if any { $value eq $_} (qw (= contains > < NOT), 'NOT contain');
+	return;
 }
 
 sub get_title {
@@ -1703,7 +1707,7 @@ sub search_users {
 	}
 	my $ids = $self->{'datastore'}->run_list_query($qry);
 	if (@$ids) {
-		$" = "' OR $field = '";
+		local $" = "' OR $field = '";
 		return "($table.$field = '@$ids')";
 	} else {
 		return "($table.$field = '0')";
