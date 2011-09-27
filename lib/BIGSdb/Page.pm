@@ -674,6 +674,10 @@ sub get_project_filter {
 		push @project_ids, $id;
 		$labels{$id} = $desc;
 	}
+	if (@project_ids && $options->{'any'}){
+		unshift @project_ids, 'not belonging to any project';
+		unshift @project_ids, 'belonging to any project';
+	}
 	if (@project_ids) {
 		my $class = $options->{'class'} || 'filter';
 		return $self->get_filter(

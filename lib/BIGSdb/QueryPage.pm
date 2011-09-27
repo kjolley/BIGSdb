@@ -374,7 +374,7 @@ sub _print_isolate_filter_fieldset {
 				} else {
 					my $qry = "SELECT DISTINCT($field) FROM $self->{'system'}->{'view'} ORDER BY $field";
 					my $sql = $self->{'db'}->prepare($qry);
-					eval { $sql->execute; };
+					eval { $sql->execute };
 					$logger->error($@) if $@;
 					while ( my ($value) = $sql->fetchrow_array ) {
 						push @dropdownlist, $value;
@@ -440,7 +440,7 @@ sub _print_isolate_filter_fieldset {
 		}
 	}
 	if ( $prefs->{'dropdownfields'}->{'projects'} ) {
-		my $buffer = $self->get_project_filter;
+		my $buffer = $self->get_project_filter({'any' => 1});
 		push @filters, $buffer if $buffer;
 		return 1 if $options->{'selected'} && $q->param('project_list');
 	}
@@ -1133,11 +1133,23 @@ sub _modify_isolate_query_for_filters {
 	}
 	if ( defined $q->param('project_list') && $q->param('project_list') ne '' ) {
 		my $project_id = $q->param('project_list');
+		my $project_qry;
+		if ($project_id eq 'belonging to any project'){
+			$project_qry = "$view.id IN (SELECT isolate_id FROM project_members)";
+		} elsif ($project_id eq 'not belonging to any project'){
+			$project_qry = "$view.id NOT IN (SELECT isolate_id FROM project_members)";
+		} elsif (BIGSdb::Utils::is_int($project_id)){
+			$project_qry = "$view.id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id')";
+		} else {
+			undef $project_id;
+		}
+		
+		
 		if ($project_id) {
 			if ( $qry !~ /WHERE \(\)\s*$/ ) {
-				$qry .= " AND ($view.id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id'))";
+				$qry .= " AND ($project_qry)";
 			} else {
-				$qry = "SELECT * FROM $view WHERE ($view.id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id'))";
+				$qry = "SELECT * FROM $view WHERE ($project_qry)";
 			}
 		}
 	}
