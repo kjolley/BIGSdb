@@ -2515,8 +2515,6 @@ sub initiate_prefs {
 		foreach (qw (hyperlink_loci traceview tooltips)) {
 			$self->{'prefs'}->{$_} = ( $q->param($_) && $q->param($_) eq 'on' ) ? 1 : 0;
 		}
-		$self->{'prefs'}->{'dropdownfields'}->{'publications'} =
-		  ( defined $q->param("dropfield_publications") && $q->param("dropfield_publications") eq 'checked' ) ? 1 : 0;
 	} else {
 		return if !$self->{'pref_requirements'}->{'general'} && !$self->{'pref_requirements'}->{'query_field'};
 		my $guid = $self->get_guid || 1;
@@ -2548,13 +2546,6 @@ sub initiate_prefs {
 			foreach (qw (tooltips traceview)) {
 				$general_prefs->{$_} ||= 'on';
 				$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'off' ? 0 : 1;
-			}
-		}
-		if ( $self->{'pref_requirements'}->{'query_field'} ) {
-			if ( defined $field_prefs->{'publications'}->{'dropdown'} ) {
-				$self->{'prefs'}->{'dropdownfields'}->{'publications'} = $field_prefs->{'publications'}->{'dropdown'} ? 1 : 0;
-			} else {
-				$self->{'prefs'}->{'dropdownfields'}->{'publications'} = 1;
 			}
 		}
 	}
@@ -2657,7 +2648,7 @@ sub _initiate_isolatedb_prefs {
 			}
 		}
 		if ( $self->{'pref_requirements'}->{'query_field'} ) {
-			foreach (qw (linked_sequences projects publications)) {
+			foreach (qw (linked_sequences projects)) {
 				if ( defined $field_prefs->{$_}->{'dropdown'} ) {
 					$self->{'prefs'}->{'dropdownfields'}->{$_} = $field_prefs->{$_}->{'dropdown'} ? 1 : 0;
 				} else {

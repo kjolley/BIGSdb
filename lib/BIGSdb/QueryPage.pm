@@ -417,7 +417,7 @@ sub _print_isolate_filter_fieldset {
 			}
 		}
 	}
-	if ( $prefs->{'dropdownfields'}->{'publications'} && $self->{'config'}->{'refdb'} ) {
+	if ( $self->{'config'}->{'refdb'} ) {
 		my $pmid = $self->{'datastore'}->run_list_query("SELECT DISTINCT(pubmed_id) FROM refs");
 		my $buffer;
 		if (@$pmid) {
@@ -680,7 +680,7 @@ sub _print_profile_query_interface {
 	print "</ul>\n";
 	print "</fieldset>\n";
 	my @filters;
-	if ( $prefs->{'dropdownfields'}->{'publications'} && $self->{'config'}->{'refdb'} ) {
+	if ( $self->{'config'}->{'refdb'} ) {
 		my $pmid = $self->{'datastore'}->run_list_query( "SELECT DISTINCT(pubmed_id) FROM profile_refs WHERE scheme_id=?", $scheme_id );
 		if (@$pmid) {
 			my $labels = $self->{'datastore'}->get_citation_hash($pmid);
@@ -1161,7 +1161,7 @@ sub _modify_isolate_query_for_filters {
 		if ( $qry !~ /WHERE \(\)\s*$/ ) {
 			$qry .= " AND (id$not IN (SELECT isolate_id FROM sequence_bin))";
 		} else {
-			$qry = "SELECT * FROM $view WHERE (id$not IN (SELECT isolate_id FROM sequence_bin))";
+			$qry = "SELECT * FROM $view WHERE ($view.id$not IN (SELECT isolate_id FROM sequence_bin))";
 		}
 	}
 	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");

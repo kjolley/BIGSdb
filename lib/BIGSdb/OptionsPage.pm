@@ -27,6 +27,7 @@ use BIGSdb::Page qw(FLANKING);
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw(jQuery noCache);
+	return;
 }
 
 sub _toggle_option {
@@ -36,6 +37,7 @@ sub _toggle_option {
 	my $guid  = $self->get_guid;
 	return if !$guid;
 	$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, $field, $value );
+	return;
 }
 
 sub print_content {
@@ -74,23 +76,26 @@ your browser.</p></div>
 HTML
 	print $q->start_form;
 	print $q->hidden('db');
+	print "<div class=\"tabs\">\n";
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		print "<script type=\"text/javascript\">if (!location.hash){var l=getCookie('optionsTab');if (l){location.hash='#'+getCookie('optionsTab')};}</script>\n";
+	}
 	print <<"HTML";
-<div class="tabs">
-<script type="text/javascript">if (!location.hash){var l=getCookie('optionsTab');if (l){location.hash='#'+getCookie('optionsTab')};}</script>
 <ul class="tabNavigation">
 
 <li><a href="#_general" id="general" onclick="document.cookie='optionsTab=general; path=/'">General</a></li>
 HTML
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		print "<li><a href=\"#_display\" id=\"display\" onclick=\"document.cookie='optionsTab=display; path=/'\">Display</a></li>\n";
+		print "<li><a href=\"#_query\" id=\"query\" onclick=\"document.cookie='optionsTab=query; path=/'\">Query</a></li>\n";
 	}
-	print "<li><a href=\"#_query\" id=\"query\" onclick=\"document.cookie='optionsTab=query; path=/'\">Query</a></li>\n";
+	
 	print "</ul>\n";
-	$self->_print_general_tab();
+	$self->_print_general_tab;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		$self->_print_display_tab();
+		$self->_print_display_tab;
+		$self->_print_query_tab;
 	}
-	$self->_print_query_tab();
 	print "</div>\n";
 	print "<p />\n";
 	print "<table style=\"width:95%\"><tr><td style=\"text-align:left\">\n";
@@ -103,6 +108,7 @@ HTML
 	print "</td></tr>";
 	print "<tr><td class=\"comment\">Will reset ALL options (including locus and scheme field display)</td><td></td></tr></table>\n";
 	print $q->end_form;
+	return;
 }
 
 sub get_title {
@@ -163,8 +169,6 @@ sub set_options {
 				$prefstore->set_field( $guid, $dbname, $field, 'dropdown', $prefs->{'dropdownfields'}->{$field} ? 'true' : 'false' );
 			}
 		}
-		$prefstore->set_field( $guid, $dbname, 'publications', 'dropdown',
-			$prefs->{'dropdownfields'}->{'publications'} ? 'true' : 'false' );
 		$prefstore->set_field( $guid, $dbname, 'projects', 'dropdown', $prefs->{'dropdownfields'}->{'projects'} ? 'true' : 'false' );
 		$prefstore->set_field( $guid, $dbname, 'linked_sequences', 'dropdown',
 			$prefs->{'dropdownfields'}->{'linked_sequences'} ? 'true' : 'false' );
@@ -173,6 +177,7 @@ sub set_options {
 		my $guid = $self->get_guid;
 		$prefstore->delete_guid($guid) if $guid;
 	}
+	return;
 }
 
 sub _print_general_tab {
@@ -296,6 +301,7 @@ sub _print_general_tab {
 	}
 	print "</td></tr>\n";
 	print "</table></div>\n";
+	return;
 }
 
 sub _print_display_tab {
@@ -431,12 +437,13 @@ sub _print_display_tab {
 	print "</td></tr>\n";
 	print "</table>\n";
 	print "</td></tr></table>\n";
-	$" = ';';
+	local $" = ';';
 	print "<input type=\"button\" value=\"Select all\" onclick='@js' class=\"button\" />\n";
 	print "<input type=\"button\" value=\"Select none\" onclick='@js2' class=\"button\" />\n";
 	print "<input type=\"button\" value=\"Select default\" onclick='@js3' class=\"button\" />\n";
 	print "<noscript><span class=\"comment\"> Enable javascript for select buttons to work!</span></noscript>\n";
 	print "</div>\n";
+	return;
 }
 
 sub _print_query_tab {
@@ -455,7 +462,6 @@ sub _print_query_tab {
 	my $fields      = $self->{'xmlHandler'}->get_field_list();
 	my @checkfields = @$fields;
 	my %labels;
-	push @checkfields, 'publications';
 
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
@@ -491,7 +497,6 @@ sub _print_query_tab {
 			push @js2, "\$(\"#dropfield_$_\").attr(\"checked\",false)";
 			my %thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
 			my $value = ($thisfield{'dropdown'} && $thisfield{'dropdown'} eq 'yes') ? 'true' : 'false';
-			$value = 'checked' if $_ eq 'publications';
 			push @js3, "\$(\"#dropfield_$_\").attr(\"checked\",$value)";
 			$i++;
 
@@ -529,11 +534,12 @@ sub _print_query_tab {
 	}
 	print "</td></tr></table>\n";
 	print "</td></tr></table>\n";
-	$" = ';';
+	local $" = ';';
 	print "<input type=\"button\" value=\"Select all\" onclick='@js' class=\"button\" />\n";
 	print "<input type=\"button\" value=\"Select none\" onclick='@js2' class=\"button\" />\n";
 	print "<input type=\"button\" value=\"Select default\" onclick='@js3' class=\"button\" />\n";
 	print "<noscript><span class=\"comment\"> Enable javascript for select buttons to work!</span></noscript>\n";
 	print "</div>\n";
+	return;
 }
 1;
