@@ -103,7 +103,7 @@ sub print_content {
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
 	$logger->error($@) if $@;
-	my $data = $sql->fetchrow_hashref();
+	my $data = $sql->fetchrow_hashref;
 	$buffer .= $q->start_form;
 	$buffer .= "<div class=\"box\" id=\"resultstable\">\n";
 	$buffer .= "<p>You have chosen to delete the following record:</p>\n";
@@ -421,6 +421,8 @@ sub print_content {
 				}
 			} elsif ( $table eq 'pending_allele_designations' ) {
 				$self->update_history( $data->{'isolate_id'}, "$data->{'locus'}: pending designation '$data->{'allele_id'}' deleted" );
+			} elsif ( $table eq 'sequences'){
+				$self->_mark_cache_stale;
 			}
 			return;
 		}

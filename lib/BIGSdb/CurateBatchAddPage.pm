@@ -1222,8 +1222,8 @@ sub _upload_data {
 				$qry = "INSERT INTO user_group_members (user_id,user_group,curator,datestamp) VALUES ($id,0,$curator,'today')";
 				push @inserts, $qry;
 				$logger->debug("INSERT: $qry");
-			} elsif ( $table eq 'sequences' && $locus ) {
-				if ( ref $extended_attributes eq 'ARRAY' ) {
+			} elsif ( $table eq 'sequences' ) {
+				if ( $locus && ref $extended_attributes eq 'ARRAY' ) {
 					my @values;
 					foreach (@$extended_attributes) {
 						if ( defined $fieldorder{$_} && $data[ $fieldorder{$_} ] ne '' && $data[ $fieldorder{$_} ] ne 'null' ) {
@@ -1234,7 +1234,8 @@ sub _upload_data {
 						}
 					}
 				}
-			}
+				$self->_mark_cache_stale;
+			} 
 			local $" = ';';
 			eval {
 				$self->{'db'}->do("@inserts");

@@ -19,6 +19,7 @@
 package BIGSdb::Page;
 use strict;
 use warnings;
+use File::Path;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use Error qw(:try);
@@ -2236,8 +2237,24 @@ sub run_blast {
 	my @files_to_delete;
 	foreach my $run (@runs) {
 		( my $cleaned_run = $run ) =~ s/'/_prime_/g;
-		my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'job'}\_$cleaned_run\_fastafile.txt";
-		push @files_to_delete, $temp_fastafile;
+		my $temp_fastafile;
+		if ( !$options->{'locus'} ){
+			#Create file and BLAST db of all sequences in a cache directory so can be reused.
+			$temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'instance'}/$cleaned_run\_fastafile.txt";
+			my $stale_flag_file = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'instance'}/stale";
+			if (-e $temp_fastafile && !-e $stale_flag_file){
+				$already_generated = 1;
+			} else {
+				eval { 
+					mkpath ("$self->{'config'}->{'secure_tmp_dir'}/$self->{'instance'}");
+					unlink $stale_flag_file;
+				};
+				$logger->error($@) if $@;
+			}
+		} else {
+			$temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'job'}\_$cleaned_run\_fastafile.txt";
+			push @files_to_delete, $temp_fastafile ;
+		}
 		if ( !$already_generated ) {
 			my ( $qry, $sql );
 			if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
@@ -2252,7 +2269,7 @@ sub run_blast {
 				}
 			}
 			$sql = $self->{'db'}->prepare($qry);
-			eval { $sql->execute($run); };
+			eval { $sql->execute($run) };
 			$logger->error($@) if $@;
 			open( my $fasta_fh, '>', $temp_fastafile );
 			my $seqs_ref = $sql->fetchall_arrayref;
@@ -2262,10 +2279,9 @@ sub run_blast {
 				print $fasta_fh ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ )
 				  ? ">$id\n$seq\n"
 				  : ">$returned_locus:$id\n$seq\n";
-				$self->{'seq_count'}->{$run}++;
 			}
 			close $fasta_fh;
-			if ( $self->{'seq_count'}->{$run} ) {
+			if ( ! -z $temp_fastafile){
 				if ( $self->{'config'}->{'blast+_path'} ) {
 					my $dbtype;
 					if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
@@ -2287,7 +2303,8 @@ sub run_blast {
 				}
 			}
 		}
-		if ( $self->{'seq_count'}->{$run} ) {
+		
+		if ( ! -z $temp_fastafile){
 
 			#create query fasta file
 			open( my $infile_fh, '>', $temp_infile );
@@ -2342,6 +2359,14 @@ sub run_blast {
 	local $" = ' ';
 	system "rm -f $temp_infile @files_to_delete" if !$options->{'cache'};
 	return ( $outfile_url, $options->{'job'} );
+}
+
+sub _mark_cache_stale {
+	my ($self) = @_;
+	my $stale_flag_file = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'instance'}/stale";
+	system ("touch $stale_flag_file"); 
+	$logger->error("Can't mark BLAST db stale.") if $?;
+	return;
 }
 
 sub is_admin {
