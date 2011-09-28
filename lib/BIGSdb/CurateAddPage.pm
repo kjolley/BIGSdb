@@ -400,7 +400,7 @@ this sequence then make sure that the 'Override sequence similarity check' box i
 					$self->drop_scheme_view( $newdata{'scheme_id'} );
 					$self->create_scheme_view( $newdata{'scheme_id'} );
 				} elsif ($table eq 'sequences'){
-					$self->_mark_cache_stale;
+					$self->mark_cache_stale;
 				}
 			};
 			if ($@) {

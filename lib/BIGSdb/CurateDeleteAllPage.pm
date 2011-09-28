@@ -188,7 +188,7 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 					$self->drop_scheme_view($_);
 				}
 			} elsif ($table eq 'sequences'){
-				$self->_mark_cache_stale;
+				$self->mark_cache_stale;
 			}
 		};
 		if ($@) {

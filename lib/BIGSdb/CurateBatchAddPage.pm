@@ -1234,7 +1234,7 @@ sub _upload_data {
 						}
 					}
 				}
-				$self->_mark_cache_stale;
+				$self->mark_cache_stale;
 			} 
 			local $" = ';';
 			eval {

@@ -2361,7 +2361,7 @@ sub run_blast {
 	return ( $outfile_url, $options->{'job'} );
 }
 
-sub _mark_cache_stale {
+sub mark_cache_stale {
 	my ($self) = @_;
 	my $stale_flag_file = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'instance'}/stale";
 	system ("touch $stale_flag_file"); 

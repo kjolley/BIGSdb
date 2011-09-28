@@ -422,7 +422,7 @@ sub print_content {
 			} elsif ( $table eq 'pending_allele_designations' ) {
 				$self->update_history( $data->{'isolate_id'}, "$data->{'locus'}: pending designation '$data->{'allele_id'}' deleted" );
 			} elsif ( $table eq 'sequences'){
-				$self->_mark_cache_stale;
+				$self->mark_cache_stale;
 			}
 			return;
 		}
