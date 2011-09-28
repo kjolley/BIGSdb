@@ -513,8 +513,8 @@ sub _scan {
 		print $q->submit( -name => 'tag', -label => 'Tag alleles/sequences', -class => 'submit' );
 		print "<noscript><p><span class=\"comment\"> Enable javascript for select buttons to work!</span></p></noscript>\n";
 		foreach (
-			qw (db page isolate_id rescan_alleles rescan_seqs locus scheme_id identity alignment limit_matches limit_time seq_method
-			experiment project tblastx hunt pcr_filter alter_pcr_mismatches probe_filter alter_probe_mismatches)
+			qw (db page isolate_id rescan_alleles rescan_seqs locus scheme_id identity alignment limit_matches limit_time seq_method_list
+			experiment_list project_list tblastx hunt pcr_filter alter_pcr_mismatches probe_filter alter_probe_mismatches)
 		  )
 		{
 			print $q->hidden($_);

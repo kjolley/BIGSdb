@@ -22,6 +22,7 @@ use warnings;
 use List::MoreUtils qw(any none uniq);
 use base qw(BIGSdb::CurateAddPage);
 use Log::Log4perl qw(get_logger);
+use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
 
 sub print_content {
@@ -452,7 +453,14 @@ sub _check_data {
 			$tablebuffer .= "</tr>\n";
 
 			#Check for various invalid combinations of fields
-			$self->_check_data_primary_key( \%args );
+			if ($table ne 'sequences'){
+				try {
+					$self->_check_data_primary_key( \%args );
+				} catch BIGSdb::DataException with {
+					$continue = 0;
+				};
+				last if !$continue;
+			}
 			if ( $self->{'system'}->{'dbtype'} eq 'sequences' && ( $table eq 'accession' || $table eq 'sequence_refs' ) ) {
 
 				#check that sequence exists when adding accession or PubMed number
@@ -516,7 +524,7 @@ sub _check_data {
 		}
 		$td = $td == 1 ? 2 : 1;    #row stripes
 		push @checked_buffer, $header_row if $first_record;
-		$checked_record =~ s/\t$//;
+		$checked_record =~ s/\t$// if defined $checked_record;
 		push @checked_buffer, $checked_record;
 		$first_record = 0;
 	}
@@ -604,7 +612,8 @@ sub _get_primary_key_values {
 					push @pk_values, $arg_ref->{'locus'};
 					$pk_combination .= "$_: " . BIGSdb::Utils::pad_length( $arg_ref->{'locus'}, 10 );
 				} else {
-					$pk_combination .= 'undef';
+					$pk_combination .= '; ' if $pk_combination;
+					$pk_combination .= "$_: undef";
 				}
 			}
 		} else {
@@ -704,12 +713,12 @@ sub _check_data_primary_key {
 			my $plural = scalar @primary_keys > 1 ? 's' : '';
 			if ( $message =~ /invalid input/ ) {
 				print
-"<div class=\"box\" id=\"statusbad\"><p>Your pasted data has invalid primary key field$plural (@primary_keys) data.</p></div>\n";
-				return;
+"<div class=\"box statusbad\"><p>Your pasted data has invalid primary key field$plural (@primary_keys) data.</p></div>\n";
+				throw BIGSdb::DataException("Invalid primary key");
 			}
 			print
-"<div class=\"box\" id=\"statusbad\"><p>Your pasted data does not appear to contain the primary key field$plural (@primary_keys) required for this table.</p></div>\n";
-			return;
+"<div class=\"box statusbad\"><p>Your pasted data does not appear to contain the primary key field$plural (@primary_keys) required for this table.</p></div>\n";
+			throw BIGSdb::DataException("no primary key field$plural (@primary_keys)");
 		}
 		my ($exists) = $self->{'sql'}->{'primary_key_check'}->fetchrow_array;
 		if ($exists) {
@@ -907,7 +916,7 @@ sub _check_data_sequences {
 			  : undef;
 		}
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-		my $length     = length( ${ $arg_ref->{'value'} } );
+		my $length     = defined ${ $arg_ref->{'value'}} ? length( ${ $arg_ref->{'value'} } ) : 0;
 		my $units      = ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' ) ? 'bp' : 'residues';
 		if ( !$locus_info->{'length_varies'} && defined $locus_info->{'length'} && $locus_info->{'length'} != $length ) {
 			my $problem_text =
