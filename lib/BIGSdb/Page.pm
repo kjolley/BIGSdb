@@ -1282,6 +1282,7 @@ sub _print_publication_table {
 	while ( my $refdata = $sql->fetchrow_hashref ) {
 		my $author_filter = $q->param('author');
 		next if ( $author_filter && $author_filter ne 'All authors' && $refdata->{'authors'} !~ /$author_filter/ );
+		$refdata->{'year'} ||= '';
 		$buffer .=
 "<tr class=\"td$td\"><td><a href='http://www.ncbi.nlm.nih.gov/pubmed/$refdata->{'pmid'}'>$refdata->{'pmid'}</a></td><td>$refdata->{'year'}</td><td style=\"text-align:left\">";
 		if ( !$refdata->{'authors'} && !$refdata->{'title'} ) {
@@ -1293,8 +1294,8 @@ sub _print_publication_table {
 			$buffer .= "<b>$refdata->{'volume'}:</b> "
 			  if $refdata->{'volume'};
 			$buffer .= " $refdata->{'pages'}</td>\n";
-		}
-		$buffer .= "<td style=\"text-align:left\">$refdata->{'title'}</td>\n";
+		}		
+		$buffer .= defined $refdata->{'title'} ? "<td style=\"text-align:left\">$refdata->{'title'}</td>" : '<td />';
 		if ( defined $q->param('calling_page') && $q->param('calling_page') ne 'browse' && !$q->param('all_records') ) {
 			$buffer .= "<td>$refdata->{'isolates'}</td>";
 		}

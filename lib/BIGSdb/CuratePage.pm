@@ -451,7 +451,7 @@ sub check_record {
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my @primary_key_query;
 	foreach (@$attributes) {
-		next if $_->{'user_update'} && $_->{'user_update'} eq 'no';
+		next if $update && $_->{'user_update'} && $_->{'user_update'} eq 'no';
 		my $original_data = $newdata{ $_->{'name'} };
 		$newdata{ $_->{'name'} }            =~ s/'/\\'/g if defined $newdata{ $_->{'name'} };
 		$$allowed_valuesref{ $_->{'name'} } =~ s/'/\\'/g if defined $$allowed_valuesref{ $_->{'name'} };

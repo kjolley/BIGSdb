@@ -618,7 +618,7 @@ sub _get_primary_key_values {
 			}
 		} else {
 			$pk_combination .= '; ' if !${ $arg_ref->{'first'} };
-			$pk_combination .= "$_: " . BIGSdb::Utils::pad_length( $data[ $file_header_pos{$_} ], 10 );
+			$pk_combination .= "$_: " . (defined $data[ $file_header_pos{$_} ] ? BIGSdb::Utils::pad_length( $data[ $file_header_pos{$_} ], 10 ) : 'undef');
 			push @pk_values, $data[ $file_header_pos{$_} ];
 		}
 		${ $arg_ref->{'first'} } = 0;

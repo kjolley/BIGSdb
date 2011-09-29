@@ -50,6 +50,7 @@ sub get_attributes {
 sub set_pref_requirements {
 	my ($self) = @_;
 	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 0 };
+	return;
 }
 
 sub run {
@@ -129,7 +130,7 @@ sub run {
 		push @filters, "authors LIKE E'%$author%'" if $author ne 'All authors';
 		my $year = BIGSdb::Utils::is_int( $q->param('year_list') ) ? $q->param('year_list') : '';
 		push @filters, "year=$year" if $year;
-		$" = ' AND ';
+		local $" = ' AND ';
 		my $filter_string = @filters ? " WHERE @filters" : '';
 		my $order = ( any { defined $q->param('order') && $q->param('order') eq $_ } @order_list ) ? $q->param('order') : 'isolates';
 		my $dir = ( any { defined $q->param('direction') && $q->param('direction') eq $_ } qw(desc asc) ) ? $q->param('direction') : 'desc';
@@ -147,8 +148,8 @@ sub _get_author_list {
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
 	$logger->error($@) if $@;
-	while ( my ($authorstring) = $sql->fetchrow_array() ) {
-		push @authornames, split /, /, $authorstring;
+	while ( my ($authorstring) = $sql->fetchrow_array ) {
+		push @authornames, split /, /, $authorstring if defined $authorstring;
 	}
 	@authornames = sort { lc($a) cmp lc($b) } uniq @authornames;
 	unshift @authornames, 'All authors';

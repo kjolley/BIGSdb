@@ -246,6 +246,7 @@ sub profile_exists {
 
 	#used for profile/sequence definitions databases
 	my ( $self, $scheme_id, $profile_id ) = @_;
+	return if !BIGSdb::Utils::is_int($scheme_id);
 	if ( !$self->{'sql'}->{'profile_exists'} ) {
 		$self->{'sql'}->{'profile_exists'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM profiles WHERE scheme_id=? AND profile_id=?");
 		$logger->info("Statement handle 'profile_exists' prepared.");

@@ -27,6 +27,7 @@ use BIGSdb::Page qw(DATABANKS);
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (tooltips jQuery noCache);
+	return;
 }
 
 sub print_content {
@@ -111,8 +112,11 @@ sub print_content {
 			$newdata{'sequence'} =~ s/[\W]//g;
 			my $locus_info = $self->{'datastore'}->get_locus_info( $newdata{'locus'} );
 			my $length     = length( $newdata{'sequence'} );
-			my $units      = $locus_info->{'data_type'} eq 'DNA' ? 'bp' : 'residues';
-			if ( !$locus_info->{'length_varies'} && $locus_info->{'length'} != $length ) {
+			my $units      = $locus_info->{'data_type'} && $locus_info->{'data_type'} eq 'DNA' ? 'bp' : 'residues';
+			if ( !$length ){
+				push @problems,
+				"Sequence is a required field and can not be left blank.<br />";
+			} elsif ( !$locus_info->{'length_varies'} && defined $locus_info->{'length'} && $locus_info->{'length'} != $length ) {
 				push @problems,
 				  "Sequence is $length $units long but this locus is set as a standard length of $locus_info->{'length'} $units.<br />";
 			} elsif ( $locus_info->{'min_length'} && $length < $locus_info->{'min_length'} ) {
@@ -134,9 +138,9 @@ sub print_content {
 					push @problems, "Sequence already exists in the database ($cleaned_locus: $exists).<br />";
 				}
 			}
-			if ( $locus_info->{'data_type'} eq 'DNA' && !BIGSdb::Utils::is_valid_DNA( $newdata{'sequence'} ) ) {
+			if ( $locus_info->{'data_type'} && $locus_info->{'data_type'} eq 'DNA' && !BIGSdb::Utils::is_valid_DNA( $newdata{'sequence'} ) ) {
 				push @problems, "Sequence contains non nucleotide (G|A|T|C) characters.<br />";
-			} elsif ( $locus_info->{'data_type'} eq 'DNA'
+			} elsif (  !@problems && $locus_info->{'data_type'} && $locus_info->{'data_type'} eq 'DNA'
 				&& !$q->param('ignore_similarity')
 				&& $self->{'datastore'}->sequences_exist( $newdata{'locus'} )
 				&& !$self->sequence_similar_to_others( $newdata{'locus'}, \$newdata{'sequence'} ) )
@@ -165,7 +169,7 @@ this sequence then make sure that the 'Override sequence similarity check' box i
 				if ( $required && $newdata{$field} eq '' ) {
 					push @missing_field, $field;
 				} elsif ( $option_list && $newdata{$field} ne '' && !$options{ $newdata{$field} } ) {
-					$" = ', ';
+					local $" = ', ';
 					push @problems, "$field value is not on the allowed list (@optlist).<br />";
 				} elsif ( $format eq 'integer' && $newdata{$field} ne '' && !BIGSdb::Utils::is_int( $newdata{$field} ) ) {
 					push @problems, "$field must be an integer.<br />";
@@ -182,7 +186,7 @@ this sequence then make sure that the 'Override sequence similarity check' box i
 				}
 			}
 			if (@missing_field) {
-				$" = ', ';
+				local $" = ', ';
 				push @problems,
 				  "Please fill in all extended attribute fields.  The following extended attribute fields are missing: @missing_field";
 			}
@@ -256,7 +260,7 @@ this sequence then make sure that the 'Override sequence similarity check' box i
 		}
 		if ( $table eq 'sequences' ) {
 			my $locus_info = $self->{'datastore'}->get_locus_info( $newdata{'locus'} );
-			if ( !BIGSdb::Utils::is_int( $newdata{'allele_id'} ) && $locus_info->{'allele_id_format'} eq 'integer' ) {
+			if ( defined $newdata{'allele_id'} && $newdata{'allele_id'} ne '' && !BIGSdb::Utils::is_int( $newdata{'allele_id'} ) && $locus_info->{'allele_id_format'} eq 'integer' ) {
 				push @problems, "The allele id must be an integer for this locus.<br />";
 			} elsif ( $locus_info->{'allele_id_regex'} ) {
 				my $regex = $locus_info->{'allele_id_regex'};
@@ -355,7 +359,7 @@ this sequence then make sure that the 'Override sequence similarity check' box i
 			push @problems, "Your user account is not allowed to modify this isolate.\n";
 		}
 		if (@problems) {
-			$" = "<br />\n";
+			local $" = "<br />\n";
 			print "<div class=\"box\" id=\"statusbad\"><p>@problems</p></div>\n";
 		} else {
 			my ( @table_fields, @values );
@@ -388,10 +392,8 @@ this sequence then make sure that the 'Override sequence similarity check' box i
 			}
 			eval {
 				$db->do($qry);
-				if (@extra_inserts) {
-					foreach (@extra_inserts) {
-						$db->do($_);
-					}
+				foreach (@extra_inserts) {
+					$db->do($_);
 				}
 				if ( $table eq 'schemes' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 					$self->create_scheme_view( $newdata{'id'} );
@@ -442,6 +444,7 @@ this sequence then make sure that the 'Override sequence similarity check' box i
 		}
 	}
 	print $buffer;
+	return;
 }
 
 sub get_javascript {
