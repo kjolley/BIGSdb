@@ -1109,7 +1109,7 @@ sub _blast {
 	#create query fasta file
 	#only need to create this once for each isolate (per run), so check if file exists first
 	#this should then be deleted by the calling function!
-	my $seq_count;
+	my $seq_count = 0;
 	if ( !-e $temp_infile ) {
 		my $qry =
 "SELECT DISTINCT sequence_bin.id,sequence FROM sequence_bin LEFT JOIN experiment_sequences ON sequence_bin.id=seqbin_id WHERE sequence_bin.isolate_id=?";
