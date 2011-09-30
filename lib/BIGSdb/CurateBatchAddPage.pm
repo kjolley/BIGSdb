@@ -752,10 +752,9 @@ sub _check_data_loci {
 		$arg_ref->{'problems'}->{$pk_combination} .=
 		  "Locus names can not start with a digit.  Try prepending an underscore (_) which will get hidden in the query interface.<br />";
 	}
-	my @patterns = ( qr/\./, qr/\s/, qr/\-/, qr/\:/, qr/\;/);
-	if ( $data[ $file_header_pos{'id'} ] ~~ @patterns ) {
+	if ( $data[ $file_header_pos{'id'} ] =~ /[^\w_']/ ) {
 		$arg_ref->{'problems'}->{$pk_combination} .=
-"Locus names can not contain periods (.), spaces, hyphens (-), colons (:) or semi-colons (;).  Try replacing with an underscore (_) - this will get hidden in the query interface.";
+"Locus names can only contain alphanumeric, underscore (_) and prime (') characters (no spaces or other symbols).<br />";
 	}
 	return;
 }

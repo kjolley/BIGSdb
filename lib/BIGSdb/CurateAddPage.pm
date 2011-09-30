@@ -301,10 +301,9 @@ this sequence then make sure that the 'Override sequence similarity check' box i
 				push @problems,
 				  "Locus names can not start with a digit.  Try prepending an underscore (_) which will get hidden in the query interface.";
 			}
-			my @patterns = ( qr/\./, qr/\s/, qr/\-/, qr/\:/, qr/\;/);
-			if ( $newdata{'id'} ~~ @patterns ) {
+			if ( $newdata{'id'} =~ /[^\w_']/ ) {
 				push @problems,
-"Locus names can not contain periods (.), spaces, hyphens (-), colons (:) or semi-colons (;).  Try replacing with an underscore (_) - this will get hidden in the query interface.";
+"Locus names can only contain alphanumeric, underscore (_) and prime (') characters (no spaces or other symbols).";
 			}
 
 		}

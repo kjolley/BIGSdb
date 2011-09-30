@@ -304,8 +304,9 @@ sub _check_data {
 			}
 			if ( $attributes{'type'} eq 'int' && !BIGSdb::Utils::is_int($_) ) {
 				$status = 'BIGSdb id must be an integer';
-				print
-"<tr class=\"td$td\"><td class=\"statusbad\">$designation</td>$identifier_field_html<td>$length</td><td>$comments</td><td class=\"statusbad\">$status</td></tr>\n";
+				print "<tr class=\"td$td\"><td class=\"statusbad\">$designation</td>";
+				print $identifier_field_html if $identifier_field_html;
+				print "<td>$length</td><td>$comments</td><td class=\"statusbad\">$status</td></tr>\n";
 			} elsif ( $length < $min_size ) {
 				$status = 'Sequence too short - will be ignored';
 				print
@@ -317,8 +318,9 @@ sub _check_data {
 				push @checked_buffer, ">$designation";
 				push @checked_buffer, $seq_ref->{$_};
 				$status = 'Will upload';
-				print
-"<tr class=\"td$td\"><td>$designation</td>$identifier_field_html<td>$length</td><td>$comments</td><td class=\"statusgood\">$status</td></tr>\n";
+				print "<tr class=\"td$td\"><td>$designation</td>";
+				print $identifier_field_html if $identifier_field_html;
+				print "<td>$length</td><td>$comments</td><td class=\"statusgood\">$status</td></tr>\n";
 				$allow_upload = 1;
 			}
 			$td = $td == 1 ? 2 : 1;

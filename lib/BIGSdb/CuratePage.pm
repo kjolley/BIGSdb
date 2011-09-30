@@ -1012,12 +1012,12 @@ sub create_scheme_view {
 		( my $cleaned  = $_ ) =~ s/'/_PRIME_/g;
 		( my $cleaned2 = $_ ) =~ s/'/\\'/g;
 		$qry .=
-" INNER JOIN profile_members AS $cleaned ON profiles.profile_id=$cleaned.profile_id AND $cleaned.locus='$cleaned2' AND profiles.scheme_id=$cleaned.scheme_id";
+" INNER JOIN profile_members AS $cleaned ON profiles.profile_id=$cleaned.profile_id AND $cleaned.locus=E'$cleaned2' AND profiles.scheme_id=$cleaned.scheme_id";
 	}
 	foreach (@$scheme_fields) {
 		next if $_ eq $pk;
 		$qry .=
-" LEFT JOIN profile_fields AS $_ ON profiles.profile_id=$_.profile_id AND $_.scheme_field='$_' AND profiles.scheme_id=$_.scheme_id";
+" LEFT JOIN profile_fields AS $_ ON profiles.profile_id=$_.profile_id AND $_.scheme_field=E'$_' AND profiles.scheme_id=$_.scheme_id";
 	}
 	$qry .= " WHERE profiles.scheme_id = $scheme_id";
 	eval {
