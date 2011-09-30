@@ -30,6 +30,7 @@ my $logger = get_logger('BIGSdb.Page');
 sub initiate {
 	my ($self) = @_;
 	$self->{'type'} = 'embl';
+	return;
 }
 
 sub print_content {
@@ -46,11 +47,11 @@ sub print_content {
 	  $self->{'datastore'}
 	  ->run_simple_query( "SELECT isolate_id,sequence,method,comments,sender,curator,date_entered,datestamp FROM sequence_bin WHERE id=?",
 		$seqbin_id );
-	my $stringfh_in = new IO::String( ">seqbin#$seqbin_id\n" . $seq->[1] . "\n" );
+	my $stringfh_in = IO::String->new( ">seqbin#$seqbin_id\n" . $seq->[1] . "\n" );
 	my $seqin       = Bio::SeqIO->new( -fh => $stringfh_in, -format => 'fasta' );
 	my $seq_object  = $seqin->next_seq;
 	my $accessions  = $self->{'datastore'}->run_list_query( "SELECT databank_id FROM accession WHERE seqbin_id=?", $seqbin_id );
-	$" = '; ';
+	local $" = '; ';
 	$seq_object->accession_number("@$accessions") if @$accessions;
 	$seq_object->desc( $seq->[3] );
 	my $qry = "SELECT * FROM allele_sequences WHERE seqbin_id=?";
@@ -69,7 +70,9 @@ sub print_content {
 		} else {
 			$frame = 0;
 		}
-		my $feature = new Bio::SeqFeature::Generic(
+		$allele_sequence->{'start_pos'} = 1 if $allele_sequence->{'start_pos'} < 1;
+		$allele_sequence->{'locus'} = $allele_sequence->{'locus'} . " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
+		my $feature = Bio::SeqFeature::Generic->new(
 			-start       => $allele_sequence->{'start_pos'},
 			-end         => $allele_sequence->{'end_pos'},
 			-primary_tag => 'CDS',
@@ -84,5 +87,6 @@ sub print_content {
 	my $seq_out = Bio::SeqIO->new( -fh => $stringfh_out, -format => 'embl' );
 	$seq_out->write_seq($seq_object);
 	print $str;
+	return;
 }
 1;
