@@ -83,6 +83,7 @@ HTML
 		my $bins =
 		  ceil( ( 3.5 * $data->[4] ) / $count**0.33 )
 		  ;    #Scott's choice [Scott DW (1979). On optimal and data-based histograms. Biometrika 66(3):605–610]
+		$bins = 1 if !$bins;
 		my $width = ( $data->[2] - $data->[1] ) / $bins;
 
 		#round width to nearest 500
