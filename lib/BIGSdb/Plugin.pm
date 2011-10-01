@@ -87,7 +87,8 @@ sub get_javascript {
 		$js = $self->{'pluginManager'}->get_plugin($plugin_name)->get_plugin_javascript;
 	}
 	catch BIGSdb::InvalidPluginException with {
-		$logger->error("Plugin $plugin_name does not exist");
+		my $message = $plugin_name ? "Plugin $plugin_name does not exist." : 'Plugin name not called.';
+		$logger->warn($message);
 	};
 	$js .= <<"JS";
 \$(document).ready(function() 
@@ -190,7 +191,9 @@ sub print_content {
 	my $q           = $self->{'cgi'};
 	my $plugin_name = $q->param('name');
 	if ( !$self->{'pluginManager'}->is_plugin($plugin_name) ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>This is not a valid plugin.</p></div>";
+		my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
+		print "<h1>$desc</h1>";
+		print "<div class=\"box\" id=\"statusbad\"><p>Invalid (or no) plugin called.</p></div>";
 		return;
 	}
 	my $plugin;
@@ -290,7 +293,8 @@ sub print_content {
 		}
 	}
 	$plugin->initiate_prefs;
-	$plugin->run();
+	$plugin->run;
+	return;
 }
 
 sub get_title {

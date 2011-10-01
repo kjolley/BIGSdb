@@ -70,14 +70,15 @@ sub initiate {
 
 sub get_plugin {
 	my ( $self, $plugin_name ) = @_;
-	if ( $self->{'plugins'}->{$plugin_name} ) {
+	if ( $plugin_name && $self->{'plugins'}->{$plugin_name} ) {
 		return $self->{'plugins'}->{$plugin_name};
 	}
-	throw BIGSdb::InvalidPluginException("Plugin '$plugin_name' does not exist!");
+	throw BIGSdb::InvalidPluginException('Plugin does not exist');	 
 }
 
 sub get_plugin_attributes {
 	my ( $self, $plugin_name ) = @_;
+	return if !$plugin_name;
 	my $att = $self->{'attributes'}->{$plugin_name};
 	return $att;
 }
@@ -168,6 +169,7 @@ sub get_appropriate_plugin_names {
 
 sub is_plugin {
 	my ( $self, $name ) = @_;
+	return if !$name;
 	return any { $_ eq $name } keys %{ $self->{'attributes'} };
 }
 1;
