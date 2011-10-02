@@ -821,22 +821,14 @@ sub _get_scheme_fields {
 				$scheme = $self->{'datastore'}->get_scheme($id);
 			}
 			catch BIGSdb::DatabaseConnectionException with {};
-			my $scheme_field_values;
-			my $no_url;
-			try {
-				$scheme_field_values = $scheme->get_field_values_by_profile( \@profile, { 'return_hashref' => 1 } );
-			}
-			catch BIGSdb::DatabaseException with {
-				my $ex = shift;
-				$no_url = 1;
-			};
+			my $scheme_field_values = $self->get_field_values_by_profile($id, \@profile);
 			if ( defined $scheme_field_values && ref $scheme_field_values eq 'HASH' ) {
 				foreach (@$scheme_fields) {	
 					my $value = $scheme_field_values->{lc($_)};
 					$value = defined $value ? $value : '';
 					$value = 'Not defined' if $value eq '-999' || $value eq '';
 					my $att = $self->{'datastore'}->get_scheme_field_info( $id, $_ );
-					if ( $att->{'url'} && !$no_url && $value ne '' ) {
+					if ( $att->{'url'} && $value ne '' ) {
 						my $url = $att->{'url'};
 						$url =~ s/\[\?\]/$value/g;
 						$url =~ s/\&/\&amp;/g;

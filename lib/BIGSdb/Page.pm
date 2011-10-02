@@ -1684,16 +1684,12 @@ sub _print_isolate_table {
 			$composites{ $data[1] }            = 1;
 		}
 	}
-	my $scheme_ids        = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
-	my $scheme_fields     = $self->{'datastore'}->get_all_scheme_fields;
-	my $scheme_field_info = $self->{'datastore'}->get_all_scheme_field_info;
-	my $scheme_loci       = $self->{'datastore'}->get_all_scheme_loci;
+	my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
 	print "<div class=\"box\" id=\"resultstable\"><div class=\"scrollable\"><table class=\"resultstable\">\n";
-	$self->_print_isolate_table_header( \%composites, \%composite_display_pos, $scheme_ids, $scheme_fields, $scheme_loci, $qry_limit );
+	$self->_print_isolate_table_header( \%composites, \%composite_display_pos, $scheme_ids, $qry_limit );
 	my $td = 1;
 	local $" = "=? AND ";
 	my %url;
-
 	if ( $self->{'prefs'}->{'hyperlink_loci'} ) {
 		my $locus_info_sql = $self->{'db'}->prepare("SELECT id,url FROM loci");
 		eval { $locus_info_sql->execute };
@@ -1705,18 +1701,6 @@ sub _print_isolate_table {
 			}
 		}
 	}
-	my $schemes;
-	foreach (@$scheme_ids) {
-		if (   ref $scheme_fields->{$_} eq 'ARRAY'
-			&& @{ $scheme_fields->{$_} }
-			&& ref $scheme_loci->{$_} eq 'ARRAY'
-			&& @{ $scheme_loci->{$_} }
-			&& $self->{'prefs'}->{"main_display_schemes"}->{$_} )
-		{
-			$schemes->{$_} = $self->{'datastore'}->get_scheme($_);
-		}
-	}
-	$scheme_loci->{0} = $self->{'datastore'}->get_loci_in_no_scheme;
 	my $field_attributes;
 	$field_attributes->{$_} = $self->{'xmlHandler'}->get_field_attributes($_) foreach (@$fields);
 	my $extended = $self->get_extended_attributes;
@@ -1807,6 +1791,7 @@ sub _print_isolate_table {
 
 		#Print loci and scheme fields
 		my $alleles = $self->{'datastore'}->get_all_allele_designations($id);
+		$self->{'scheme_loci'}->{0} = $self->{'datastore'}->get_loci_in_no_scheme;
 		foreach my $scheme_id ( @$scheme_ids, 0 ) {
 			next
 			  if !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id} && $scheme_id;
@@ -1815,9 +1800,12 @@ sub _print_isolate_table {
 				  && $self->{'system'}->{'hide_unused_schemes'} eq 'yes'
 				  && !$self->_is_scheme_data_present( $qry_limit, $scheme_id )
 				  && $scheme_id;
+			if ( !$self->{'scheme_fields'}->{$scheme_id} ) {
+				$self->{'scheme_fields'}->{$scheme_id} = $self->{'datastore'}->get_scheme_fields($scheme_id);
+			}
 			my ( @profile, $incomplete );
-			foreach ( @{ $scheme_loci->{$scheme_id} } ) {
-				next if !$self->{'prefs'}->{'main_display_loci'}->{$_} && ( !$scheme_id || !@{ $scheme_fields->{$scheme_id} } );
+			foreach ( @{ $self->{'scheme_loci'}->{$scheme_id} } ) {
+				next if !$self->{'prefs'}->{'main_display_loci'}->{$_} && ( !$scheme_id || !@{ $self->{'scheme_fields'}->{$scheme_id} } );
 				if ( $self->{'prefs'}->{'main_display_loci'}->{$_} ) {
 					$alleles->{$_}->{'status'} ||= 'confirmed';
 					print "<td>";
@@ -1825,9 +1813,11 @@ sub _print_isolate_table {
 					  if $alleles->{$_}->{'status'} eq 'provisional'
 						  && $self->{'prefs'}->{'mark_provisional_main'};
 					if ( $self->{'prefs'}->{'hyperlink_loci'} ) {
-						my $url = $url{$_};
-						$url =~ s/\[\?\]/$alleles->{$_}->{'allele_id'}/g;
-						print $url ? "<a href=\"$url\">$alleles->{$_}->{'allele_id'}</a>" : "$alleles->{$_}->{'allele_id'}";
+						if ( defined $alleles->{$_}->{'allele_id'} ) {
+							my $url = $url{$_};
+							$url =~ s/\[\?\]/$alleles->{$_}->{'allele_id'}/g;
+							print "<a href=\"$url\">$alleles->{$_}->{'allele_id'}</a>";
+						}
 					} else {
 						print defined $alleles->{$_}->{'allele_id'} ? $alleles->{$_}->{'allele_id'} : '';
 					}
@@ -1878,62 +1868,25 @@ sub _print_isolate_table {
 			}
 			next
 			  if !$scheme_id
-				  || !( ref $scheme_fields->{$scheme_id} eq 'ARRAY' && @{ $scheme_fields->{$scheme_id} } )
+				  || !@{ $self->{'scheme_fields'}->{$scheme_id} }
 				  || !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};
 			my $values;
 			if ( !$incomplete && @profile ) {
-				if ( $self->{'system'}->{'use_temp_scheme_table'} && $self->{'system'}->{'use_temp_scheme_table'} eq 'yes' ) {
-
-					#Import all profiles from seqdef database into indexed scheme table.  Under some circumstances
-					#this can be considerably quicker than querying the seqdef scheme view (a few ms compared to
-					#>10s if the seqdef database contains multiple schemes with an uneven distribution of a large
-					#number of profiles so that the Postgres query planner picks a sequential rather than index scan).
-					#
-					#This scheme table can also be generated periodically using the update_scheme_cache.pl
-					#script to create a persistent cache.  This is particularly useful for large schemes (>10000
-					#profiles) but data will only be as fresh as the cache so ensure that the update script
-					#is run periodically.
-					if ( !$self->{'scheme_cache'}->{$scheme_id} ) {
-						try {
-							$self->{'datastore'}->create_temp_scheme_table($scheme_id);
-							$self->{'scheme_cache'}->{$scheme_id} = 1;
-						}
-						catch BIGSdb::DatabaseConnectionException with {
-							$logger->error("Can't create temporary table");
-						};
-					}
-					if ( !$self->{'sql'}->{'field_values'}->{$scheme_id} ) {
-						my @placeholders;
-						push @placeholders, '?' foreach @{ $scheme_loci->{$scheme_id} };
-						local $" = ',';
-						$self->{'sql'}->{'field_values'}->{$scheme_id} =
-						  $self->{'db'}->prepare(
-"SELECT @{ $scheme_fields->{$scheme_id} } FROM temp_scheme_$scheme_id WHERE (@{ $scheme_loci->{$scheme_id} }) = (@placeholders)"
-						  );
-					}
-					eval {
-						$self->{'sql'}->{'field_values'}->{$scheme_id}->execute(@profile);
-						$values = $self->{'sql'}->{'field_values'}->{$scheme_id}->fetchrow_hashref;
-					};
-					$logger->error($@) if $@;
-				} else {
-					try {
-						$values = $schemes->{$scheme_id}->get_field_values_by_profile( \@profile, { 'return_hashref' => 1 } );
-					}
-					catch BIGSdb::DatabaseConfigurationException with {
-						$logger->warn("Scheme database is not configured correctly");
-					};
-				}
+				$values = $self->get_field_values_by_profile( $scheme_id, \@profile );
 			}
-			foreach ( @{ $scheme_fields->{$scheme_id} } ) {
+			foreach ( @{ $self->{'scheme_fields'}->{$scheme_id} } ) {
 				if ( $self->{'prefs'}->{'main_display_scheme_fields'}->{$scheme_id}->{$_} ) {
 					if ( ref $values eq 'HASH' ) {
 						$values->{ lc($_) } = '' if !defined $values->{ lc($_) };
+						if ( !$self->{'scheme_fields_info'}->{$scheme_id}->{$_} ) {
+							$self->{'scheme_fields_info'}->{$scheme_id}->{$_} =
+							  $self->{'datastore'}->get_scheme_field_info( $scheme_id, $_ );
+						}
 						my $url;
 						if (   $self->{'prefs'}->{'hyperlink_loci'}
-							&& $scheme_field_info->{$scheme_id}->{$_}->{'url'} )
+							&& $self->{'scheme_fields_info'}->{$scheme_id}->{$_}->{'url'} )
 						{
-							$url = $scheme_field_info->{$scheme_id}->{$_}->{'url'};
+							$url = $self->{'scheme_fields_info'}->{$scheme_id}->{$_}->{'url'};
 							$url =~ s/\[\?\]/$values->{lc($_)}/g;
 							$url =~ s/\&/\&amp;/g;
 						}
@@ -1956,58 +1909,123 @@ sub _print_isolate_table {
 	}
 	print "</table></div>\n";
 	if ( !$self->{'curate'} ) {
-		my $plugin_categories = $self->{'pluginManager'}->get_plugin_categories( 'postquery', 'isolates' );
-		if (@$plugin_categories) {
-			print "<p />\n<h2>Analysis tools:</h2>\n<div class=\"scrollable\">\n<table>";
-			my $query_temp_file_written = 0;
-			my ( $filename, $full_file_path );
-			do {
-				$filename       = BIGSdb::Utils::get_random() . '.txt';
-				$full_file_path = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
-			} until ( !-e $full_file_path );
-			foreach (@$plugin_categories) {
-				my $cat_buffer;
-				my $plugin_names = $self->{'pluginManager'}->get_appropriate_plugin_names( 'postquery', 'isolates', $_ || 'none' );
-				if (@$plugin_names) {
-					my $plugin_buffer;
-					if ( !$query_temp_file_written ) {
-						open( my $fh, '>', $full_file_path );
-						local $" = "\n";
-						print $fh $$qryref;
-						close $fh;
-						$query_temp_file_written = 1;
-					}
-					$q->param( 'calling_page', $q->param('page') );
-					foreach (@$plugin_names) {
-						my $att = $self->{'pluginManager'}->get_plugin_attributes($_);
-						next if $att->{'min'} && $att->{'min'} > $records;
-						next if $att->{'max'} && $att->{'max'} < $records;
-						$plugin_buffer .= '<td>';
-						$plugin_buffer .= $q->start_form;
-						$q->param( 'page', 'plugin' );
-						$q->param( 'name', $att->{'module'} );
-						$plugin_buffer .= $q->hidden($_) foreach qw (db page name calling_page);
-						$plugin_buffer .= $q->hidden( 'query_file', $filename )
-						  if $att->{'input'} eq 'query';
-						$plugin_buffer .= $q->submit( -label => ( $att->{'buttontext'} || $att->{'menutext'} ), -class => 'pagebar' );
-						$plugin_buffer .= $q->end_form;
-						$plugin_buffer .= '</td>';
-					}
-					if ($plugin_buffer) {
-						$_ = 'Miscellaneous' if !$_;
-						$cat_buffer .= "<tr><td style=\"text-align:right\">$_: </td><td>\n<table><tr>\n";
-						$cat_buffer .= $plugin_buffer;
-						$cat_buffer .= "</tr>\n";
-					}
-				}
-				print "$cat_buffer</table></td></tr>\n" if $cat_buffer;
-			}
-			print "</table></div>\n";
-		}
+		$self->_print_plugin_buttons( $qryref, $records );
 	}
 	print "</div>\n";
 	$sql->finish if $sql;
 	return;
+}
+
+sub get_field_values_by_profile {
+	my ( $self, $scheme_id, $profile_ref ) = @_;
+	my $values;
+	if ( !$self->{'scheme_fields'}->{$scheme_id} ) {
+		$self->{'scheme_fields'}->{$scheme_id} = $self->{'datastore'}->get_scheme_fields($scheme_id);
+	}
+	return if ref $self->{'scheme_fields'}->{$scheme_id} ne 'ARRAY' || !@{ $self->{'scheme_fields'}->{$scheme_id} };
+	if ( !$self->{'scheme_loci'}->{$scheme_id} ) {
+		$self->{'scheme_loci'}->{$scheme_id} = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	}
+	return if ref $self->{'scheme_loci'}->{$scheme_id} ne 'ARRAY' || !@{ $self->{'scheme_loci'}->{$scheme_id} };
+	if ( $self->{'system'}->{'use_temp_scheme_table'} && $self->{'system'}->{'use_temp_scheme_table'} eq 'yes' ) {
+
+		#Import all profiles from seqdef database into indexed scheme table.  Under some circumstances
+		#this can be considerably quicker than querying the seqdef scheme view (a few ms compared to
+		#>10s if the seqdef database contains multiple schemes with an uneven distribution of a large
+		#number of profiles so that the Postgres query planner picks a sequential rather than index scan).
+		#
+		#This scheme table can also be generated periodically using the update_scheme_cache.pl
+		#script to create a persistent cache.  This is particularly useful for large schemes (>10000
+		#profiles) but data will only be as fresh as the cache so ensure that the update script
+		#is run periodically.
+		if ( !$self->{'scheme_cache'}->{$scheme_id} ) {
+			try {
+				$self->{'datastore'}->create_temp_scheme_table($scheme_id);
+				$self->{'scheme_cache'}->{$scheme_id} = 1;
+			}
+			catch BIGSdb::DatabaseConnectionException with {
+				$logger->error("Can't create temporary table");
+			};
+		}
+		if ( !$self->{'sql'}->{'field_values'}->{$scheme_id} ) {
+			my @placeholders;
+			push @placeholders, '?' foreach @{ $self->{'scheme_loci'}->{$scheme_id} };
+			local $" = ',';
+			$self->{'sql'}->{'field_values'}->{$scheme_id} =
+			  $self->{'db'}->prepare(
+"SELECT @{ $self->{'scheme_fields'}->{$scheme_id} } FROM temp_scheme_$scheme_id WHERE (@{ $self->{'scheme_loci'}->{$scheme_id} }) = (@placeholders)"
+			  );
+		}
+		eval {
+			$self->{'sql'}->{'field_values'}->{$scheme_id}->execute(@$profile_ref);
+			$values = $self->{'sql'}->{'field_values'}->{$scheme_id}->fetchrow_hashref;
+		};
+		$logger->error($@) if $@;
+	} else {
+		if ( !$self->{'scheme'}->{$scheme_id} ) {
+			$self->{'scheme'}->{$scheme_id} = $self->{'datastore'}->get_scheme($scheme_id);
+		}
+		try {
+			$values = $self->{'scheme'}->{$scheme_id}->get_field_values_by_profile( $profile_ref, { 'return_hashref' => 1 } );
+		}
+		catch BIGSdb::DatabaseConfigurationException with {
+			$logger->warn("Scheme database is not configured correctly");
+		};
+	}
+	return $values;
+}
+
+sub _print_plugin_buttons {
+	my ( $self, $qry_ref, $records ) = @_;
+	my $q = $self->{'cgi'};
+	my $plugin_categories = $self->{'pluginManager'}->get_plugin_categories( 'postquery', 'isolates' );
+	if (@$plugin_categories) {
+		print "<p />\n<h2>Analysis tools:</h2>\n<div class=\"scrollable\">\n<table>";
+		my $query_temp_file_written = 0;
+		my ( $filename, $full_file_path );
+		do {
+			$filename       = BIGSdb::Utils::get_random() . '.txt';
+			$full_file_path = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
+		} until ( !-e $full_file_path );
+		foreach (@$plugin_categories) {
+			my $cat_buffer;
+			my $plugin_names = $self->{'pluginManager'}->get_appropriate_plugin_names( 'postquery', 'isolates', $_ || 'none' );
+			if (@$plugin_names) {
+				my $plugin_buffer;
+				if ( !$query_temp_file_written ) {
+					open( my $fh, '>', $full_file_path );
+					local $" = "\n";
+					print $fh $$qry_ref;
+					close $fh;
+					$query_temp_file_written = 1;
+				}
+				$q->param( 'calling_page', $q->param('page') );
+				foreach (@$plugin_names) {
+					my $att = $self->{'pluginManager'}->get_plugin_attributes($_);
+					next if $att->{'min'} && $att->{'min'} > $records;
+					next if $att->{'max'} && $att->{'max'} < $records;
+					$plugin_buffer .= '<td>';
+					$plugin_buffer .= $q->start_form;
+					$q->param( 'page', 'plugin' );
+					$q->param( 'name', $att->{'module'} );
+					$plugin_buffer .= $q->hidden($_) foreach qw (db page name calling_page);
+					$plugin_buffer .= $q->hidden( 'query_file', $filename )
+					  if $att->{'input'} eq 'query';
+					$plugin_buffer .= $q->submit( -label => ( $att->{'buttontext'} || $att->{'menutext'} ), -class => 'pagebar' );
+					$plugin_buffer .= $q->end_form;
+					$plugin_buffer .= '</td>';
+				}
+				if ($plugin_buffer) {
+					$_ = 'Miscellaneous' if !$_;
+					$cat_buffer .= "<tr><td style=\"text-align:right\">$_: </td><td>\n<table><tr>\n";
+					$cat_buffer .= $plugin_buffer;
+					$cat_buffer .= "</tr>\n";
+				}
+			}
+			print "$cat_buffer</table></td></tr>\n" if $cat_buffer;
+		}
+		print "</table></div>\n";
+	}
 }
 
 sub _print_pending_tooltip {
@@ -2064,7 +2082,7 @@ sub _create_join_sql_for_locus {
 }
 
 sub _print_isolate_table_header {
-	my ( $self, $composites, $composite_display_pos, $scheme_ids, $scheme_fields, $scheme_loci, $limit_qry ) = @_;
+	my ( $self, $composites, $composite_display_pos, $scheme_ids, $limit_qry ) = @_;
 	my @selectitems   = $self->{'xmlHandler'}->get_select_items('userFieldIdsOnly');
 	my $header_buffer = "<tr>";
 	my $col_count;
@@ -2131,31 +2149,35 @@ sub _print_isolate_table_header {
 		  if $self->{'system'}->{'hide_unused_schemes'}
 			  && $self->{'system'}->{'hide_unused_schemes'} eq 'yes'
 			  && !$self->_is_scheme_data_present( $limit_qry, $scheme_id );
+		if ( !$self->{'scheme_loci'}->{$scheme_id} ) {
+			$self->{'scheme_loci'}->{$scheme_id} = $self->{'datastore'}->get_scheme_loci($scheme_id);
+		}
 		my @scheme_header;
-		if ( ref $scheme_loci->{$scheme_id} eq 'ARRAY' ) {
-			foreach ( @{ $scheme_loci->{$scheme_id} } ) {
-				if ( $self->{'prefs'}->{'main_display_loci'}->{$_} ) {
-					my $locus_header = $self->clean_locus($_);
-					my @aliases;
-					push @aliases, $common_names->{$_}->{'common_name'} if $common_names->{$_}->{'common_name'};
-					if ( $self->{'prefs'}->{'locus_alias'} ) {
-						eval { $alias_sql->execute($_) };
-						if ($@) {
-							$logger->error("Can't execute alias check $@");
-						} else {
-							while ( my ($alias) = $alias_sql->fetchrow_array ) {
-								push @aliases, $alias;
-							}
+		foreach ( @{ $self->{'scheme_loci'}->{$scheme_id} } ) {
+			if ( $self->{'prefs'}->{'main_display_loci'}->{$_} ) {
+				my $locus_header = $self->clean_locus($_);
+				my @aliases;
+				push @aliases, $common_names->{$_}->{'common_name'} if $common_names->{$_}->{'common_name'};
+				if ( $self->{'prefs'}->{'locus_alias'} ) {
+					eval { $alias_sql->execute($_) };
+					if ($@) {
+						$logger->error("Can't execute alias check $@");
+					} else {
+						while ( my ($alias) = $alias_sql->fetchrow_array ) {
+							push @aliases, $alias;
 						}
-						local $" = ', ';
-						$locus_header .= " <span class=\"comment\">(@aliases)</span>" if @aliases;
 					}
-					push @scheme_header, $locus_header;
+					local $" = ', ';
+					$locus_header .= " <span class=\"comment\">(@aliases)</span>" if @aliases;
 				}
+				push @scheme_header, $locus_header;
 			}
 		}
-		if ( ref $scheme_fields->{$scheme_id} eq 'ARRAY' ) {
-			foreach ( @{ $scheme_fields->{$scheme_id} } ) {
+		if ( !$self->{'scheme_fields'}->{$scheme_id} ) {
+			$self->{'scheme_fields'}->{$scheme_id} = $self->{'datastore'}->get_scheme_fields($scheme_id);
+		}
+		if ( ref $self->{'scheme_fields'}->{$scheme_id} eq 'ARRAY' ) {
+			foreach ( @{ $self->{'scheme_fields'}->{$scheme_id} } ) {
 				if ( $self->{'prefs'}->{'main_display_scheme_fields'}->{$scheme_id}->{$_} ) {
 					my $field = $_;
 					$field =~ tr/_/ /;
