@@ -42,7 +42,7 @@ sub initiate {
 	}
 	close PLUGINDIR;
 	foreach (@plugins) {
-		my $plugin_name = ~/^(.*)$/ ? $1 : undef;    #untaint
+		my $plugin_name = ~/^(\w*)$/ ? $1 : undef;    #untaint
 		$plugin_name = "$plugin_name";
 		eval "use BIGSdb::Plugins::$plugin_name";
 		if ($@) {
@@ -63,9 +63,10 @@ sub initiate {
 				'mod_perl_request' => $self->{'mod_perl_request'}
 			);
 			$self->{'plugins'}->{$plugin_name}    = $plugin;
-			$self->{'attributes'}->{$plugin_name} = $plugin->get_attributes();
+			$self->{'attributes'}->{$plugin_name} = $plugin->get_attributes;
 		}
 	}
+	return;
 }
 
 sub get_plugin {
@@ -73,7 +74,7 @@ sub get_plugin {
 	if ( $plugin_name && $self->{'plugins'}->{$plugin_name} ) {
 		return $self->{'plugins'}->{$plugin_name};
 	}
-	throw BIGSdb::InvalidPluginException('Plugin does not exist');	 
+	throw BIGSdb::InvalidPluginException('Plugin does not exist');
 }
 
 sub get_plugin_attributes {
