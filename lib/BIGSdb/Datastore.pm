@@ -28,8 +28,8 @@ use BIGSdb::Locus;
 use BIGSdb::Scheme;
 
 sub new {
-	my ($class, @atr) = @_;
-	my $self  = {@atr};
+	my ( $class, @atr ) = @_;
+	my $self = {@atr};
 	$self->{'sql'}    = {};
 	$self->{'scheme'} = {};
 	$self->{'locus'}  = {};
@@ -116,8 +116,7 @@ sub get_composite_value {
 	eval { $self->{'sql'}->{'composite_field_values'}->execute($composite_field) };
 	$logger->error($@) if $@;
 	my $allele_ids;
-	my %scheme_fields;
-	my %scheme_field_list;
+	my $scheme_fields;
 	while ( my ( $field, $empty_value, $regex ) = $self->{'sql'}->{'composite_field_values'}->fetchrow_array ) {
 		if (
 			defined $regex
@@ -155,37 +154,30 @@ sub get_composite_value {
 		} elsif ( $field =~ /^s_(\d+)_(.+)/ ) {
 			my $scheme_id    = $1;
 			my $scheme_field = $2;
-			if ( ref $scheme_fields{$scheme_id} ne 'ARRAY' ) {
-				$scheme_fields{$scheme_id} = $self->get_scheme_field_values( $isolate_id, $scheme_id );
+			if ( ref $scheme_fields->{$scheme_id} ne 'HASH' ) {
+				$scheme_fields->{$scheme_id} = $self->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id );
 			}
-			if ( ref $scheme_field_list{$scheme_id} ne 'ARRAY' ) {
-				$scheme_field_list{$scheme_id} = $self->get_scheme_fields($scheme_id);
+			my $field_value;
+			$scheme_field = lc($scheme_field);    # hashref keys returned as lower case from db.
+			if ( ref $scheme_fields->{$scheme_id} eq 'HASH' ) {
+				undef $scheme_fields->{$scheme_id}->{$scheme_field}
+				  if defined $scheme_fields->{$scheme_id}->{$scheme_field}
+					  && $scheme_fields->{$scheme_id}->{$scheme_field} eq
+					  '-999';                     #Needed because old style profile databases may use '-999' to denote null values
+				$field_value = $scheme_fields->{$scheme_id}->{$scheme_field};
+			} else {
+				$value .= "<span class=\"statusbad\">SCHEME_CONFIG_ERROR</span>";
+				last;
 			}
-			for ( my $i = 0 ; $i < scalar @{ $scheme_field_list{$scheme_id} } ; $i++ ) {
-				if ( $scheme_field eq $scheme_field_list{$scheme_id}->[$i] ) {
-					my $field_value;
-					if ( ref $scheme_fields{$scheme_id} eq 'ARRAY' ) {
-						undef $scheme_fields{$scheme_id}->[$i]
-						  if defined $scheme_fields{$scheme_id}->[$i]
-							  && $scheme_fields{$scheme_id}->[$i] eq
-							  '-999';    #Needed because old style profile databases may use '-999' to denote null values
-						$field_value = $scheme_fields{$scheme_id}->[$i];
-					} else {
-						$value .= "<span class=\"statusbad\">SCHEME_CONFIG_ERROR</span>";
-						last;
-					}
-					if ($regex) {
-						$field_value = defined $field_value ? $field_value : '';
-						my $expression = "\$field_value =~ $regex";
-						eval "$expression";
-					}
-					$value .=
-					  defined $scheme_fields{$scheme_id}->[$i] && $scheme_fields{$scheme_id}->[$i] ne ''
-					  ? $field_value
-					  : $empty_value;
-					last;
-				}
+			if ($regex) {
+				$field_value = defined $field_value ? $field_value : '';
+				my $expression = "\$field_value =~ $regex";
+				eval "$expression";
 			}
+			$value .=
+			  defined $scheme_fields->{$scheme_id}->{$scheme_field} && $scheme_fields->{$scheme_id}->{$scheme_field} ne ''
+			  ? $field_value
+			  : $empty_value;
 		} elsif ( $field =~ /^t_(.+)/ ) {
 			my $text = $1;
 			$value .= $text;
@@ -194,7 +186,83 @@ sub get_composite_value {
 	return $value;
 }
 
+sub get_scheme_field_values_by_profile {
+	my ( $self, $scheme_id, $profile_ref ) = @_;
+	my $values;
+	if ( !$self->{'cache'}->{'scheme_fields'}->{$scheme_id} ) {
+		$self->{'cache'}->{'scheme_fields'}->{$scheme_id} = $self->get_scheme_fields($scheme_id);
+	}
+	return if ref $self->{'cache'}->{'scheme_fields'}->{$scheme_id} ne 'ARRAY' || !@{ $self->{'cache'}->{'scheme_fields'}->{$scheme_id} };
+	if ( !$self->{'cache'}->{'scheme_loci'}->{$scheme_id} ) {
+		$self->{'cache'}->{'scheme_loci'}->{$scheme_id} = $self->get_scheme_loci($scheme_id);
+	}
+	return if ref $self->{'cache'}->{'scheme_loci'}->{$scheme_id} ne 'ARRAY' || !@{ $self->{'cache'}->{'scheme_loci'}->{$scheme_id} };
+	if ( $self->{'system'}->{'use_temp_scheme_table'} && $self->{'system'}->{'use_temp_scheme_table'} eq 'yes' ) {
+
+		#Import all profiles from seqdef database into indexed scheme table.  Under some circumstances
+		#this can be considerably quicker than querying the seqdef scheme view (a few ms compared to
+		#>10s if the seqdef database contains multiple schemes with an uneven distribution of a large
+		#number of profiles so that the Postgres query planner picks a sequential rather than index scan).
+		#
+		#This scheme table can also be generated periodically using the update_scheme_cache.pl
+		#script to create a persistent cache.  This is particularly useful for large schemes (>10000
+		#profiles) but data will only be as fresh as the cache so ensure that the update script
+		#is run periodically.
+		if ( !$self->{'cache'}->{'scheme_cache'}->{$scheme_id} ) {
+			try {
+				$self->create_temp_scheme_table($scheme_id);
+				$self->{'cache'}->{'scheme_cache'}->{$scheme_id} = 1;
+			}
+			catch BIGSdb::DatabaseConnectionException with {
+				$logger->error("Can't create temporary table");
+			};
+		}
+		if ( !$self->{'sql'}->{"field_values_$scheme_id"} ) {
+			my @placeholders;
+			push @placeholders, '?' foreach @{ $self->{'cache'}->{'scheme_loci'}->{$scheme_id} };
+			local $" = ',';
+			$self->{'sql'}->{"field_values_$scheme_id"} =
+			  $self->{'db'}->prepare(
+"SELECT @{ $self->{'cache'}->{'scheme_fields'}->{$scheme_id} } FROM temp_scheme_$scheme_id WHERE (@{ $self->{'cache'}->{'scheme_loci'}->{$scheme_id} }) = (@placeholders)"
+			  );
+		}
+		eval {
+			$self->{'sql'}->{"field_values_$scheme_id"}->execute(@$profile_ref);
+			$values = $self->{'sql'}->{"field_values_$scheme_id"}->fetchrow_hashref;
+		};
+		$logger->error($@) if $@;
+	} else {
+		if ( !$self->{'scheme'}->{$scheme_id} ) {
+			$self->{'scheme'}->{$scheme_id} = $self->get_scheme($scheme_id);
+		}
+		try {
+			$values = $self->{'scheme'}->{$scheme_id}->get_field_values_by_profile( $profile_ref, { 'return_hashref' => 1 } );
+		}
+		catch BIGSdb::DatabaseConfigurationException with {
+			$logger->warn("Scheme database is not configured correctly");
+		};
+	}
+	return $values;
+}
+
+sub get_scheme_field_values_by_isolate_id {
+
+	#Returns a hashref of field values
+	my ( $self, $isolate_id, $scheme_id ) = @_;
+	my $scheme_fields = $self->get_scheme_fields($scheme_id);
+	my $scheme_loci   = $self->get_scheme_loci($scheme_id);
+	my @profile;
+	my $allele_ids = $self->get_all_allele_ids($isolate_id);
+	push @profile, $allele_ids->{$_} foreach @$scheme_loci;
+	return $self->get_scheme_field_values_by_profile( $scheme_id, \@profile );
+}
+
 sub get_scheme_field_values {
+
+	#Deprecated 2011-10-02
+	my $msg = "Datastore::get_scheme_field_values is deprecated, use Datastore::get_scheme_field_values_by_isolate_id";
+	warnings::warnif( "deprecated", $msg );
+	$logger->warn("$msg. See apache error log for calling function.");
 
 	#if $field is included, only return that field, otherwise return a reference to an array of all scheme fields
 	my ( $self, $isolate_id, $scheme_id, $field ) = @_;
@@ -216,7 +284,7 @@ sub get_scheme_field_values {
 				}
 			}
 			return [];
-		}		
+		}
 	}
 	catch BIGSdb::DatabaseConfigurationException with {
 		$logger->warn("Can't retrieve scheme_field values for scheme $scheme_id - scheme configuration error.");
@@ -566,6 +634,7 @@ sub create_temp_scheme_table {
 	$qry = "SELECT @$fields,@query_loci FROM $table";
 	my $scheme_sql = $scheme_db->prepare($qry);
 	eval { $scheme_sql->execute };
+
 	if ($@) {
 		$logger->error($@);
 		return;
@@ -989,21 +1058,21 @@ sub get_citation_hash {
 	my $dbr;
 	try {
 		$dbr = $self->{'dataConnector'}->get_connection( \%att );
-	} catch BIGSdb::DatabaseConnectionException with {
+	}
+	catch BIGSdb::DatabaseConnectionException with {
 		$logger->error("Can't connect to reference database");
 	};
 	return $citation_ref if !$self->{'config'}->{'refdb'} || !$dbr;
 	my $sqlr  = $dbr->prepare("SELECT year,journal,title,volume,pages FROM refs WHERE pmid=?");
 	my $sqlr2 = $dbr->prepare("SELECT surname,initials FROM authors WHERE id=?");
 	my $sqlr3 = $dbr->prepare("SELECT author FROM refauthors WHERE pmid=? ORDER BY position");
-
 	foreach (@$pmid_ref) {
 		eval { $sqlr->execute($_) };
 		$logger->error($@) if $@;
 		eval { $sqlr3->execute($_) };
 		$logger->error($@) if $@;
 		my ( $year, $journal, $title, $volume, $pages ) = $sqlr->fetchrow_array;
-		if ( !defined $year && !defined $journal){
+		if ( !defined $year && !defined $journal ) {
 			$citation_ref->{$_} .= $options->{'state_if_unavailable'} ? 'No details available.' : "Pubmed id#$_";
 			next;
 		}
@@ -1020,7 +1089,7 @@ sub get_citation_hash {
 				$author = "$surname $initials";
 				push @author_list, $author;
 			}
-			local $"      = ', ';
+			local $" = ', ';
 			$author = "@author_list";
 		} else {
 			eval { $sqlr2->execute( $authors[0] ) };
@@ -1051,7 +1120,7 @@ sub get_citation_hash {
 		if ($author) {
 			$citation_ref->{$_} = $citation;
 		} else {
-			if ($options->{'state_if_unavailable'}){
+			if ( $options->{'state_if_unavailable'} ) {
 				$citation_ref->{$_} .= 'No details available.';
 			} else {
 				$citation_ref->{$_} .= "Pubmed id#";

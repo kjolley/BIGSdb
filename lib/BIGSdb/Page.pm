@@ -1872,7 +1872,7 @@ sub _print_isolate_table {
 				  || !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};
 			my $values;
 			if ( !$incomplete && @profile ) {
-				$values = $self->get_field_values_by_profile( $scheme_id, \@profile );
+				$values = $self->{'datastore'}->get_scheme_field_values_by_profile( $scheme_id, \@profile );
 			}
 			foreach ( @{ $self->{'scheme_fields'}->{$scheme_id} } ) {
 				if ( $self->{'prefs'}->{'main_display_scheme_fields'}->{$scheme_id}->{$_} ) {
@@ -1914,65 +1914,6 @@ sub _print_isolate_table {
 	print "</div>\n";
 	$sql->finish if $sql;
 	return;
-}
-
-sub get_field_values_by_profile {
-	my ( $self, $scheme_id, $profile_ref ) = @_;
-	my $values;
-	if ( !$self->{'scheme_fields'}->{$scheme_id} ) {
-		$self->{'scheme_fields'}->{$scheme_id} = $self->{'datastore'}->get_scheme_fields($scheme_id);
-	}
-	return if ref $self->{'scheme_fields'}->{$scheme_id} ne 'ARRAY' || !@{ $self->{'scheme_fields'}->{$scheme_id} };
-	if ( !$self->{'scheme_loci'}->{$scheme_id} ) {
-		$self->{'scheme_loci'}->{$scheme_id} = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	}
-	return if ref $self->{'scheme_loci'}->{$scheme_id} ne 'ARRAY' || !@{ $self->{'scheme_loci'}->{$scheme_id} };
-	if ( $self->{'system'}->{'use_temp_scheme_table'} && $self->{'system'}->{'use_temp_scheme_table'} eq 'yes' ) {
-
-		#Import all profiles from seqdef database into indexed scheme table.  Under some circumstances
-		#this can be considerably quicker than querying the seqdef scheme view (a few ms compared to
-		#>10s if the seqdef database contains multiple schemes with an uneven distribution of a large
-		#number of profiles so that the Postgres query planner picks a sequential rather than index scan).
-		#
-		#This scheme table can also be generated periodically using the update_scheme_cache.pl
-		#script to create a persistent cache.  This is particularly useful for large schemes (>10000
-		#profiles) but data will only be as fresh as the cache so ensure that the update script
-		#is run periodically.
-		if ( !$self->{'scheme_cache'}->{$scheme_id} ) {
-			try {
-				$self->{'datastore'}->create_temp_scheme_table($scheme_id);
-				$self->{'scheme_cache'}->{$scheme_id} = 1;
-			}
-			catch BIGSdb::DatabaseConnectionException with {
-				$logger->error("Can't create temporary table");
-			};
-		}
-		if ( !$self->{'sql'}->{'field_values'}->{$scheme_id} ) {
-			my @placeholders;
-			push @placeholders, '?' foreach @{ $self->{'scheme_loci'}->{$scheme_id} };
-			local $" = ',';
-			$self->{'sql'}->{'field_values'}->{$scheme_id} =
-			  $self->{'db'}->prepare(
-"SELECT @{ $self->{'scheme_fields'}->{$scheme_id} } FROM temp_scheme_$scheme_id WHERE (@{ $self->{'scheme_loci'}->{$scheme_id} }) = (@placeholders)"
-			  );
-		}
-		eval {
-			$self->{'sql'}->{'field_values'}->{$scheme_id}->execute(@$profile_ref);
-			$values = $self->{'sql'}->{'field_values'}->{$scheme_id}->fetchrow_hashref;
-		};
-		$logger->error($@) if $@;
-	} else {
-		if ( !$self->{'scheme'}->{$scheme_id} ) {
-			$self->{'scheme'}->{$scheme_id} = $self->{'datastore'}->get_scheme($scheme_id);
-		}
-		try {
-			$values = $self->{'scheme'}->{$scheme_id}->get_field_values_by_profile( $profile_ref, { 'return_hashref' => 1 } );
-		}
-		catch BIGSdb::DatabaseConfigurationException with {
-			$logger->warn("Scheme database is not configured correctly");
-		};
-	}
-	return $values;
 }
 
 sub _print_plugin_buttons {

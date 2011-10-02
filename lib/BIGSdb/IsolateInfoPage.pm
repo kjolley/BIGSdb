@@ -821,7 +821,7 @@ sub _get_scheme_fields {
 				$scheme = $self->{'datastore'}->get_scheme($id);
 			}
 			catch BIGSdb::DatabaseConnectionException with {};
-			my $scheme_field_values = $self->get_field_values_by_profile($id, \@profile);
+			my $scheme_field_values = $self->{'datastore'}->get_scheme_field_values_by_profile($id, \@profile);
 			if ( defined $scheme_field_values && ref $scheme_field_values eq 'HASH' ) {
 				foreach (@$scheme_fields) {	
 					my $value = $scheme_field_values->{lc($_)};

@@ -146,10 +146,12 @@ sub run {
 					} elsif ( $_ =~ /^(s_\d+_l_|l_)(.*)/ ) {
 						$key .= (defined $allele_ids->{$2} && $allele_ids->{$2} ne '') ? $allele_ids->{$2} : '-';
 					} elsif ( $_ =~ /^s_(\d+)_f_(.*)/ ) {
-						if ( ref $scheme_field_values->{$1} ne 'ARRAY' ) {
-							$scheme_field_values->{$1} = $self->{'datastore'}->get_scheme_field_values( $data{'id'}, $1 );
+						my $scheme_id = $1;
+						my $scheme_field = lc($2);
+						if ( ref $scheme_field_values->{$scheme_id} ne 'HASH' ) {
+							$scheme_field_values->{$scheme_id} = $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $data{'id'}, $scheme_id );
 						}
-						my $value = $scheme_field_values->{$1}->[ $scheme_field_pos->{$1}->{$2} ];
+						my $value = $scheme_field_values->{$scheme_id}->{$scheme_field};
 						undef $value
 						  if defined $value && $value eq '-999';    #old null code from mlstdbNet databases
 						$key .= ( defined $value && $value ne '' ) ? $value : '-';
