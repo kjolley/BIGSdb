@@ -47,12 +47,12 @@ use constant SEQ_FLAGS => (
 	'upstream fusion'
 );
 use constant DATABANKS => qw(Genbank);
-use constant FLANKING => qw(0 20 50 100 200 500 1000 2000 5000);
+use constant FLANKING  => qw(0 20 50 100 200 500 1000 2000 5000);
 our @EXPORT_OK = qw(SEQ_METHODS SEQ_FLAGS DATABANKS FLANKING);
 
-sub new { ## no critic
-	my $class = shift; 
-	my $self  = {@_}; 
+sub new {    ## no critic
+	my $class = shift;
+	my $self  = {@_};
 	$self->{'prefs'} = {};
 	$logger->logdie("No CGI object passed")     if !$self->{'cgi'};
 	$logger->logdie("No system hashref passed") if !$self->{'system'};
@@ -195,8 +195,7 @@ sub print_page_content {
 			$header_options{'expires'} = '+1h';
 		}
 		print $q->header(%header_options);
-		my $title = $self->get_title;
-		
+		my $title   = $self->get_title;
 		my $page_js = $self->get_javascript;
 		my @javascript;
 		if ( $self->{'jQuery'} ) {
@@ -590,7 +589,8 @@ sub get_filter {
 	my ( $label, $title ) = $self->_get_truncated_label("$text: ");
 	my $title_attribute = $title ? "title=\"$title\"" : '';
 	my $buffer = "<label for=\"$name\_list\" class=\"$filter\"$title_attribute>$label</label>\n";
-#	$" = ' ';
+
+	#	$" = ' ';
 	$buffer .= $self->{'cgi'}->popup_menu(
 		-name   => "$name\_list",
 		-id     => "$name\_list",
@@ -675,7 +675,7 @@ sub get_project_filter {
 		push @project_ids, $id;
 		$labels{$id} = $desc;
 	}
-	if (@project_ids && $options->{'any'}){
+	if ( @project_ids && $options->{'any'} ) {
 		unshift @project_ids, 'not belonging to any project';
 		unshift @project_ids, 'belonging to any project';
 	}
@@ -1177,7 +1177,8 @@ sub _print_record_table {
 					  $self->{'datastore'}->get_sequence_flag( $data{'seqbin_id'}, $data{'locus'}, $data{'start_pos'}, $data{'end_pos'} );
 					local $" = "</a> <a class=\"seqflag_tooltip\">";
 					print @$flags ? "<td><a class=\"seqflag_tooltip\">@$flags</a></td>" : "<td />";
-#					$" = ' ';
+
+					#					$" = ' ';
 				}
 			} elsif ( $field =~ /sequence$/ && $field ne 'coding_sequence' ) {
 				if ( length( $data{ lc($field) } ) > 60 ) {
@@ -1294,7 +1295,7 @@ sub _print_publication_table {
 			$buffer .= "<b>$refdata->{'volume'}:</b> "
 			  if $refdata->{'volume'};
 			$buffer .= " $refdata->{'pages'}</td>\n";
-		}		
+		}
 		$buffer .= defined $refdata->{'title'} ? "<td style=\"text-align:left\">$refdata->{'title'}</td>" : '<td />';
 		if ( defined $q->param('calling_page') && $q->param('calling_page') ne 'browse' && !$q->param('all_records') ) {
 			$buffer .= "<td>$refdata->{'isolates'}</td>";
@@ -1616,19 +1617,18 @@ sub is_allowed_to_view_isolate {
 }
 
 sub _is_scheme_data_present {
-	my ($self, $qry, $scheme_id) = @_;
+	my ( $self, $qry, $scheme_id ) = @_;
 	return $self->{'cache'}->{$qry}->{$scheme_id} if defined $self->{'cache'}->{$qry}->{$scheme_id};
-	if (!$self->{'cache'}->{$qry}->{'ids'}){
+	if ( !$self->{'cache'}->{$qry}->{'ids'} ) {
 		$qry =~ s/\*/id/;
 		$self->{'cache'}->{$qry}->{'ids'} = $self->{'datastore'}->run_list_query($qry);
 	}
 	my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	
-	foreach my $isolate_id (@{$self->{'cache'}->{$qry}->{'ids'}}){
+	foreach my $isolate_id ( @{ $self->{'cache'}->{$qry}->{'ids'} } ) {
 		my $allele_designations = $self->{'datastore'}->get_all_allele_ids($isolate_id);
-		my $allele_seqs = $self->{'datastore'}->get_all_allele_sequences($isolate_id);
-		foreach (@$scheme_loci){
-			if ($allele_designations->{$_} || $allele_seqs->{$_}){
+		my $allele_seqs         = $self->{'datastore'}->get_all_allele_sequences($isolate_id);
+		foreach (@$scheme_loci) {
+			if ( $allele_designations->{$_} || $allele_seqs->{$_} ) {
 				$self->{'cache'}->{$qry}->{$scheme_id} = 1;
 				return 1;
 			}
@@ -1664,7 +1664,6 @@ sub _print_isolate_table {
 	$self->rewrite_query_ref_order_by( \$qry_limit );
 	$limit_sql = $self->{'db'}->prepare($qry_limit);
 	$logger->debug("Limit qry: $qry_limit");
-	
 	eval { $limit_sql->execute };
 	if ($@) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Invalid search performed</p></div>\n";
@@ -1811,8 +1810,12 @@ sub _print_isolate_table {
 		foreach my $scheme_id ( @$scheme_ids, 0 ) {
 			next
 			  if !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id} && $scheme_id;
-			next if $self->{'system'}->{'hide_unused_schemes'} && $self->{'system'}->{'hide_unused_schemes'} eq 'yes' && !$self->_is_scheme_data_present($qry_limit,$scheme_id) && $scheme_id;
-			my (@profile, $incomplete);
+			next
+			  if $self->{'system'}->{'hide_unused_schemes'}
+				  && $self->{'system'}->{'hide_unused_schemes'} eq 'yes'
+				  && !$self->_is_scheme_data_present( $qry_limit, $scheme_id )
+				  && $scheme_id;
+			my ( @profile, $incomplete );
 			foreach ( @{ $scheme_loci->{$scheme_id} } ) {
 				next if !$self->{'prefs'}->{'main_display_loci'}->{$_} && ( !$scheme_id || !@{ $scheme_fields->{$scheme_id} } );
 				if ( $self->{'prefs'}->{'main_display_loci'}->{$_} ) {
@@ -1868,7 +1871,7 @@ sub _print_isolate_table {
 					  if $self->{'curate'};
 					print "</td>";
 				}
-				if ($scheme_id){
+				if ($scheme_id) {
 					push @profile, $alleles->{$_}->{'allele_id'};
 					$incomplete = 1 if !defined $alleles->{$_}->{'allele_id'};
 				}
@@ -1878,13 +1881,49 @@ sub _print_isolate_table {
 				  || !( ref $scheme_fields->{$scheme_id} eq 'ARRAY' && @{ $scheme_fields->{$scheme_id} } )
 				  || !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};
 			my $values;
-			if (!$incomplete && @profile) {
-				try {
-					$values = $schemes->{$scheme_id}->get_field_values_by_profile( \@profile, { 'return_hashref' => 1 } );
+			if ( !$incomplete && @profile ) {
+				if ( $self->{'system'}->{'use_temp_scheme_table'} && $self->{'system'}->{'use_temp_scheme_table'} eq 'yes' ) {
+
+					#Import all profiles from seqdef database into indexed scheme table.  Under some circumstances
+					#this can be considerably quicker than querying the seqdef scheme view (a few ms compared to
+					#>10s if the seqdef database contains multiple schemes with an uneven distribution of a large
+					#number of profiles so that the Postgres query planner picks a sequential rather than index scan).
+					#
+					#This scheme table can also be generated periodically using the update_scheme_cache.pl
+					#script to create a persistent cache.  This is particularly useful for large schemes (>10000
+					#profiles) but data will only be as fresh as the cache so ensure that the update script
+					#is run periodically.
+					if ( !$self->{'scheme_cache'}->{$scheme_id} ) {
+						try {
+							$self->{'datastore'}->create_temp_scheme_table($scheme_id);
+							$self->{'scheme_cache'}->{$scheme_id} = 1;
+						}
+						catch BIGSdb::DatabaseConnectionException with {
+							$logger->error("Can't create temporary table");
+						};
+					}
+					if ( !$self->{'sql'}->{'field_values'}->{$scheme_id} ) {
+						my @placeholders;
+						push @placeholders, '?' foreach @{ $scheme_loci->{$scheme_id} };
+						local $" = ',';
+						$self->{'sql'}->{'field_values'}->{$scheme_id} =
+						  $self->{'db'}->prepare(
+"SELECT @{ $scheme_fields->{$scheme_id} } FROM temp_scheme_$scheme_id WHERE (@{ $scheme_loci->{$scheme_id} }) = (@placeholders)"
+						  );
+					}
+					eval {
+						$self->{'sql'}->{'field_values'}->{$scheme_id}->execute(@profile);
+						$values = $self->{'sql'}->{'field_values'}->{$scheme_id}->fetchrow_hashref;
+					};
+					$logger->error($@) if $@;
+				} else {
+					try {
+						$values = $schemes->{$scheme_id}->get_field_values_by_profile( \@profile, { 'return_hashref' => 1 } );
+					}
+					catch BIGSdb::DatabaseConfigurationException with {
+						$logger->warn("Scheme database is not configured correctly");
+					};
 				}
-				catch BIGSdb::DatabaseConfigurationException with {
-					$logger->warn("Scheme database is not configured correctly");
-				};
 			}
 			foreach ( @{ $scheme_fields->{$scheme_id} } ) {
 				if ( $self->{'prefs'}->{'main_display_scheme_fields'}->{$scheme_id}->{$_} ) {
@@ -2088,7 +2127,10 @@ sub _print_isolate_table_header {
 
 	foreach my $scheme_id (@$scheme_ids) {
 		next if !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};
-		next if $self->{'system'}->{'hide_unused_schemes'} && $self->{'system'}->{'hide_unused_schemes'} eq 'yes' && !$self->_is_scheme_data_present($limit_qry,$scheme_id);
+		next
+		  if $self->{'system'}->{'hide_unused_schemes'}
+			  && $self->{'system'}->{'hide_unused_schemes'} eq 'yes'
+			  && !$self->_is_scheme_data_present( $limit_qry, $scheme_id );
 		my @scheme_header;
 		if ( ref $scheme_loci->{$scheme_id} eq 'ARRAY' ) {
 			foreach ( @{ $scheme_loci->{$scheme_id} } ) {
@@ -2239,22 +2281,23 @@ sub run_blast {
 	foreach my $run (@runs) {
 		( my $cleaned_run = $run ) =~ s/'/_prime_/g;
 		my $temp_fastafile;
-		if ( !$options->{'locus'} ){
+		if ( !$options->{'locus'} ) {
+
 			#Create file and BLAST db of all sequences in a cache directory so can be reused.
 			$temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'instance'}/$cleaned_run\_fastafile.txt";
 			my $stale_flag_file = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'instance'}/stale";
-			if (-e $temp_fastafile && !-e $stale_flag_file){
+			if ( -e $temp_fastafile && !-e $stale_flag_file ) {
 				$already_generated = 1;
 			} else {
-				eval { 
-					mkpath ("$self->{'config'}->{'secure_tmp_dir'}/$self->{'instance'}");
+				eval {
+					mkpath("$self->{'config'}->{'secure_tmp_dir'}/$self->{'instance'}");
 					unlink $stale_flag_file;
 				};
 				$logger->error($@) if $@;
 			}
 		} else {
 			$temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'job'}\_$cleaned_run\_fastafile.txt";
-			push @files_to_delete, $temp_fastafile ;
+			push @files_to_delete, $temp_fastafile;
 		}
 		if ( !$already_generated ) {
 			my ( $qry, $sql );
@@ -2282,7 +2325,7 @@ sub run_blast {
 				  : ">$returned_locus:$id\n$seq\n";
 			}
 			close $fasta_fh;
-			if ( ! -z $temp_fastafile){
+			if ( !-z $temp_fastafile ) {
 				if ( $self->{'config'}->{'blast+_path'} ) {
 					my $dbtype;
 					if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
@@ -2304,8 +2347,7 @@ sub run_blast {
 				}
 			}
 		}
-		
-		if ( ! -z $temp_fastafile){
+		if ( !-z $temp_fastafile ) {
 
 			#create query fasta file
 			open( my $infile_fh, '>', $temp_infile );
@@ -2365,7 +2407,7 @@ sub run_blast {
 sub mark_cache_stale {
 	my ($self) = @_;
 	my $stale_flag_file = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'instance'}/stale";
-	system ("touch $stale_flag_file"); 
+	system("touch $stale_flag_file");
 	$logger->error("Can't mark BLAST db stale.") if $?;
 	return;
 }

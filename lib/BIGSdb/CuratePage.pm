@@ -980,7 +980,7 @@ sub drop_scheme_view {
 
 sub create_scheme_view {
 
-	#Used for profiles database.  An indexed table is created from the normalized data stored
+	#Used for profiles database.  A scheme view is created from the normalized data stored
 	#in profiles, profile_members and profile_fields.  Searching by profile from the normalized
 	#tables was too slow.
 	#Needs to be committed outside of subroutine (to allow creation as part of transaction)
