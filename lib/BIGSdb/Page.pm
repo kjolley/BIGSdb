@@ -1526,7 +1526,7 @@ sub _print_profile_table {
 	my $td = 1;
 
 	#Run limited page query for display
-	while ( my $data = $limit_sql->fetchrow_hashref() ) {
+	while ( my $data = $limit_sql->fetchrow_hashref ) {
 		my $pk_value     = $data->{ lc($primary_key) };
 		my $profcomplete = 1;
 		print "<tr class=\"td$td\">";
@@ -1555,54 +1555,7 @@ sub _print_profile_table {
 	}
 	print "</table></div>\n<p />\n";
 	if ( !$self->{'curate'} ) {
-		my $plugin_categories = $self->{'pluginManager'}->get_plugin_categories( 'postquery', 'sequences' );
-		if (@$plugin_categories) {
-			print "<h2>Analysis tools:</h2>\n<table>";
-			my $query_temp_file_written = 0;
-			my ( $filename, $full_file_path );
-			do {
-				$filename       = BIGSdb::Utils::get_random() . '.txt';
-				$full_file_path = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
-			} until ( !-e $full_file_path );
-			foreach (@$plugin_categories) {
-				my $cat_buffer;
-				my $plugin_names = $self->{'pluginManager'}->get_appropriate_plugin_names( 'postquery', 'sequences', $_ || 'none' );
-				if (@$plugin_names) {
-					my $plugin_buffer;
-					if ( !$query_temp_file_written ) {
-						open( my $fh, '>', $full_file_path );
-						local $" = "\n";
-						print $fh $$qryref;
-						close $fh;
-						$query_temp_file_written = 1;
-					}
-					$q->param( 'calling_page', $q->param('page') );
-					foreach (@$plugin_names) {
-						my $att = $self->{'pluginManager'}->get_plugin_attributes($_);
-						next if $att->{'min'} && $att->{'min'} > $records;
-						next if $att->{'max'} && $att->{'max'} < $records;
-						$plugin_buffer .= '<td>';
-						$plugin_buffer .= $q->start_form;
-						$q->param( 'page', 'plugin' );
-						$q->param( 'name', $att->{'module'} );
-						$plugin_buffer .= $q->hidden($_) foreach qw (db page name calling_page scheme_id);
-						$plugin_buffer .= $q->hidden( 'query_file', $filename )
-						  if $att->{'input'} eq 'query';
-						$plugin_buffer .= $q->submit( -label => ( $att->{'buttontext'} || $att->{'menutext'} ), -class => 'pagebar' );
-						$plugin_buffer .= $q->end_form;
-						$plugin_buffer .= '</td>';
-					}
-					if ($plugin_buffer) {
-						$_ = 'Miscellaneous' if !$_;
-						$cat_buffer .= "<tr><td style=\"text-align:right\">$_: </td><td><table><tr>\n";
-						$cat_buffer .= $plugin_buffer;
-						$cat_buffer .= "</tr>\n";
-					}
-				}
-				print "$cat_buffer</table></td></tr>\n" if $cat_buffer;
-			}
-			print "</table>\n";
-		}
+		$self->_print_plugin_buttons( $qryref, $records );
 	}
 	print "</div>\n";
 	$sql->finish if $sql;
@@ -1930,7 +1883,7 @@ sub _print_plugin_buttons {
 		} until ( !-e $full_file_path );
 		foreach (@$plugin_categories) {
 			my $cat_buffer;
-			my $plugin_names = $self->{'pluginManager'}->get_appropriate_plugin_names( 'postquery', 'isolates', $_ || 'none' );
+			my $plugin_names = $self->{'pluginManager'}->get_appropriate_plugin_names( 'postquery', $self->{'system'}->{'dbtype'}, $_ || 'none' );
 			if (@$plugin_names) {
 				my $plugin_buffer;
 				if ( !$query_temp_file_written ) {
@@ -1949,7 +1902,7 @@ sub _print_plugin_buttons {
 					$plugin_buffer .= $q->start_form;
 					$q->param( 'page', 'plugin' );
 					$q->param( 'name', $att->{'module'} );
-					$plugin_buffer .= $q->hidden($_) foreach qw (db page name calling_page);
+					$plugin_buffer .= $q->hidden($_) foreach qw (db page name calling_page scheme_id);
 					$plugin_buffer .= $q->hidden( 'query_file', $filename )
 					  if $att->{'input'} eq 'query';
 					$plugin_buffer .= $q->submit( -label => ( $att->{'buttontext'} || $att->{'menutext'} ), -class => 'pagebar' );
