@@ -165,10 +165,7 @@ sub get_composite_value {
 					  && $scheme_fields->{$scheme_id}->{$scheme_field} eq
 					  '-999';                     #Needed because old style profile databases may use '-999' to denote null values
 				$field_value = $scheme_fields->{$scheme_id}->{$scheme_field};
-			} else {
-				$value .= "<span class=\"statusbad\">SCHEME_CONFIG_ERROR</span>";
-				last;
-			}
+			} 
 			if ($regex) {
 				$field_value = defined $field_value ? $field_value : '';
 				my $expression = "\$field_value =~ $regex";
@@ -239,7 +236,7 @@ sub get_scheme_field_values_by_profile {
 			$values = $self->{'scheme'}->{$scheme_id}->get_field_values_by_profile( $profile_ref, { 'return_hashref' => 1 } );
 		}
 		catch BIGSdb::DatabaseConfigurationException with {
-			$logger->warn("Scheme database is not configured correctly");
+			$logger->warn("Scheme database $scheme_id is not configured correctly");
 		};
 	}
 	return $values;
