@@ -92,11 +92,8 @@ sub print_content {
 		$self->_ajax_content($locus);
 		return;
 	}
-	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	$locus =~ tr/_/ /;
-	print "<h1>Query $locus";
-	print " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
-	print " sequences - $system->{'description'} database</h1>\n";
+	my $cleaned_locus = $self->clean_locus($locus);
+	print "<h1>Query $cleaned_locus sequences - $system->{'description'} database</h1>\n";
 	my $qry;
 	if (   !defined $q->param('currentpage')
 		|| (defined $q->param('pagejump') && $q->param('pagejump') eq '1')

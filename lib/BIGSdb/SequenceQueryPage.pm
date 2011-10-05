@@ -203,7 +203,7 @@ sub _run_query {
 			}
 		} else {
 			my $qry_type = BIGSdb::Utils::sequence_type($seq);
-			( my $cleaned_locus = $locus ) =~ tr/_/ /;
+			my $cleaned_locus = $self->clean_locus($locus);
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 			( my $blast_file, $job ) = $self->run_blast(
 				{ 'locus' => $locus, 'seq_ref' => \$seq, 'qry_type' => $qry_type, 'num_results' => 50000, 'cache' => 1, 'job' => $job } );
@@ -214,7 +214,7 @@ sub _run_query {
 					print scalar @$exact_matches
 					  . " exact match"
 					  . ( scalar @$exact_matches > 1 ? 'es' : '' )
-					  . " found using BLAST.</p></div>";
+					  . " found.</p></div>";
 					print "<div class=\"box\" id=\"resultstable\">\n";
 					if ( defined $locus_info->{'data_type'} && $locus_info->{'data_type'} eq 'peptide' && $seq_type eq 'DNA' ) {
 						print
@@ -286,7 +286,7 @@ sub _run_query {
 							$allele_id = $_->{'allele'};
 						}
 						my $field_values = $self->_get_client_dbase_fields( $locus, [$allele_id] );
-						my $cleaned_locus = $self->clean_locus($locus);
+						$cleaned_locus = $self->clean_locus($locus);
 						$buffer .=
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id\">$cleaned_locus: $allele_id</a>";
 						$buffer .= " ($field_values)" if $field_values;
@@ -350,14 +350,14 @@ sub _run_query {
 							my ( $locus, $allele_id );
 							if ( $cleaned_match =~ /(.*):(.*)/ ) {
 								$locus     = $1;
+								$cleaned_locus = $self->clean_locus($locus);
 								$allele_id = $2;
+								$cleaned_match = "$cleaned_locus: $allele_id";
 								print
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id\">";
 								$field_values = $self->_get_client_dbase_fields( $locus, [$allele_id] );
 							}
-							$cleaned_match =~ s/:/: /;
 						}
-						$cleaned_match = $self->clean_locus($cleaned_match);
 						print "$cleaned_match</a>";
 						print " ($field_values)" if $field_values;
 						print "</p>";
@@ -568,7 +568,7 @@ sub _run_query {
 							my ( $locus, $allele_id );
 							if ( $partial_match->{'allele'} =~ /(.*):(.*)/ ) {
 								$locus = $1;
-								my $cleaned_locus = $self->clean_locus($locus);
+								$cleaned_locus = $self->clean_locus($locus);
 								$allele_id = $2;
 								$partial_match->{'allele'} =~ s/:/: /;
 								$allele =

@@ -37,6 +37,7 @@ sub initiate {
 	} else {
 		$self->{'jQuery'} = 1;
 	}
+	return;
 }
 
 sub print_content {
@@ -61,54 +62,43 @@ sub print_content {
 		print "<div class=\"box\" id=\"statusbad\"><p>Invalid scheme selected.</p></div>\n";
 		return;
 	}
-
-	$" = ', ';
 	my $loci =
 	  $self->{'datastore'}->run_list_query( "SELECT locus FROM scheme_members WHERE scheme_id=? ORDER BY field_order", $scheme_id );
 	my @cleaned_loci;
-	foreach (@$loci){
-		my $cleaned = $_;
-		my $locus_info = $self->{'datastore'}->get_locus_info($_);
-		$cleaned .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
-		$cleaned =~ tr/_/ /;
-		push @cleaned_loci,$cleaned;
-	}
+	push @cleaned_loci, $self->clean_locus($_) foreach @$loci;
 	print "<h1>Batch profile query - $scheme_info->{'description'}</h1>\n";
 	if ( $q->param('profiles') ) {
 		my $profiles = $q->param('profiles');
-		my @rows     = split /\n/, $profiles;
-		$"='</th><th>';
-		print 
-"<div class=\"box\" id=\"resultstable\"><table class=\"resultstable\"><tr><th>Isolate</th><th>@cleaned_loci</th>\n";
+		my @rows = split /\n/, $profiles;
+		local $" = '</th><th>';
+		print "<div class=\"box\" id=\"resultstable\"><table class=\"resultstable\"><tr><th>Isolate</th><th>@cleaned_loci</th>\n";
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-		foreach (@$scheme_fields){
+		foreach (@$scheme_fields) {
 			my $cleaned = $_;
 			$cleaned =~ tr/_/ /;
 			print "<th>$cleaned</th>\n";
 		}
-		$"=',';
-		my $qry = "SELECT @$scheme_fields FROM scheme_$scheme_id WHERE ";
-		$"='=? AND ';
-		my @cleaned_loci = @$loci;
-		foreach (@cleaned_loci){
-			$_ =~ s/'/_PRIME_/g;
-		}
-		$qry .= "@cleaned_loci=?";
+		local $" = ',';
+		my $qry             = "SELECT @$scheme_fields FROM scheme_$scheme_id WHERE ";
+		my @cleaned_loci_db = @$loci;
+		$_ =~ s/'/_PRIME_/g foreach @cleaned_loci_db;
+		local $" = '=? AND ';
+		$qry .= "@cleaned_loci_db=?";
 		my $sql = $self->{'db'}->prepare($qry);
 		print "</tr>\n";
 		my $td = 1;
-		$"='</td><td>';
-		$| = 1;
-		foreach (@rows){
-			my @profile = split/\t/;
+		local $| = 1;
+
+		foreach (@rows) {
+			my @profile = split /\t/;
 			my $isolate = shift @profile;
-			foreach (@profile){
-				$_=~s/^\s+//g;
-				$_=~s/\s+$//g;
+			foreach (@profile) {
+				$_ =~ s/^\s+//g;
+				$_ =~ s/\s+$//g;
 			}
 			print "<tr class=\"td$td\"><td>$isolate</td>";
-			for (my $i = 0; $i< @$loci; $i++){
-				if ( $profile[$i]){
+			for ( my $i = 0 ; $i < @$loci ; $i++ ) {
+				if ( $profile[$i] ) {
 					print "<td>$profile[$i]</td>";
 				} else {
 					print "<td class=\"statusbad\" style=\"font-size:2em\">-</td>";
@@ -116,19 +106,19 @@ sub print_content {
 			}
 			my $incomplete;
 			my @field_data;
-			if (@profile >= @$loci){
-				while (@profile > @$loci){
+			if ( @profile >= @$loci ) {
+				while ( @profile > @$loci ) {
 					pop @profile;
-				}			
+				}
 				eval { $sql->execute(@profile) };
 				$logger->error($@) if $@;
 				@field_data = $sql->fetchrow_array;
 			} else {
-				$incomplete =1 ;
+				$incomplete = 1;
 			}
-			my $i=0;
-			foreach (@$scheme_fields){
-				if (exists $field_data[$i]){
+			my $i = 0;
+			foreach (@$scheme_fields) {
+				if ( exists $field_data[$i] ) {
 					print defined $field_data[$i] ? "<td>$field_data[$i]</td>" : '<td />';
 				} else {
 					print "<td class=\"statusbad\" style=\"font-size:2em\">-</td>";
@@ -145,18 +135,16 @@ sub print_content {
 		print "</table>\n</div>\n";
 		return;
 	}
-	
-		
 	print "<div class=\"box\" id=\"queryform\">\n";
 	print $q->start_form;
-	print $q->hidden($_) foreach qw (db page scheme_id);	
-	
+	print $q->hidden($_) foreach qw (db page scheme_id);
+	local $" = ', ';
 	print <<"HTML";
 <p>Enter allelic profiles below in tab (or space) delimited text format 
 using copy and paste (for example directly from a spreadsheet).  
 Columns can be separated by any amount of whitespace.  The first column 
 should be an isolate identifier and the remaining columns should comprise 
-the allele numbers (order: @cleaned_loci), click here for 
+the allele numbers (order: @cleaned_loci). Click here for 
 <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchProfiles&amp;function=examples&amp;scheme_id=$scheme_id">example data</a>.  
 Non-numerical characters will be stripped out of the query.</p>
 HTML
@@ -166,6 +154,7 @@ HTML
 	print $q->submit( -label => 'Submit query', -class => 'submit' );
 	print $q->endform;
 	print "<p />\n</div>";
+	return;
 }
 
 sub _print_examples {
@@ -190,19 +179,19 @@ sub _print_examples {
 	my @ids;
 	my $loci =
 	  $self->{'datastore'}->run_list_query( "SELECT locus FROM scheme_members WHERE scheme_id=? ORDER BY field_order", $scheme_id );
-	$"   = ',';
 	my @cleaned_loci = @$loci;
-	foreach (@cleaned_loci){
-		$_ =~ s/'/_PRIME_/g;
-	}
+	$_ =~ s/'/_PRIME_/g foreach @cleaned_loci;
+	local $" = ',';
 	my $sql = $self->{'db'}->prepare("SELECT @cleaned_loci FROM scheme_$scheme_id ORDER BY random() LIMIT 15");
 	eval { $sql->execute };
 	$logger->error($@) if $@;
-	$" = "\t";
+	local $" = "\t";
 	my $i = 1;
+
 	while ( my @profile = $sql->fetchrow_array ) {
 		print "isolate_$i\t@profile\n";
 		$i++;
 	}
+	return;
 }
 1;

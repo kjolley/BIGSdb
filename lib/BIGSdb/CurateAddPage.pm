@@ -450,7 +450,7 @@ this sequence then make sure that the 'Override sequence similarity check' box i
 		}
 	}
 	print $buffer;
-	$self->_print_copy_locus_record_form if $table eq 'loci';
+	$self->_print_copy_locus_record_form if $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'loci';
 	return;
 }
 

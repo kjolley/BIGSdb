@@ -244,8 +244,6 @@ sub _print_scheme_table {
 			eval { $desc_sql->execute($_) };
 			$logger->($@) if $@;
 			my ($desc_exists) = $desc_sql->fetchrow_array;
-			print "($locus_info->{'common_name'})" if $locus_info->{'common_name'};
-
 			if ($desc_exists) {
 				print
 " <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$_\" class=\"info_tooltip\">&nbsp;i&nbsp;</a>";

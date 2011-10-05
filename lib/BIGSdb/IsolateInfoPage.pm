@@ -849,15 +849,10 @@ sub _get_scheme_fields {
 		foreach (@$loci) {
 			next
 			  if $self->{'prefs'}->{'isolate_display_loci'}->{$_} eq 'hide';
-			my @other_display_names;
-			push @other_display_names, $locus_info->{$_}->{'common_name'} if $locus_info->{$_}->{'common_name'};
 			$buffer .= "<tr class=\"td$td\">" if !$first;
-			my $cleaned = $_;
-			if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-				$cleaned =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-			}
-			$cleaned =~ tr/_/ /;
+			my $cleaned = $self->clean_locus($_);
 			$buffer .= "<td>$cleaned";
+			my @other_display_names;
 			if ( $self->{'prefs'}->{'locus_alias'} && $locus_aliases{$_} ) {
 				push @other_display_names, @{ $locus_aliases{$_} };
 			}
@@ -919,13 +914,8 @@ sub _get_scheme_fields {
 			next
 			  if $self->{'prefs'}->{'isolate_display_loci'}->{$_} eq 'hide';
 			$header_buffer[$j] .= "<tr class=\"td$td\">" if !$i;
-			my $cleaned = $_;
-			if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-				$cleaned =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-			}
-			$cleaned =~ tr/_/ /;
+			my $cleaned = $self->clean_locus($_);
 			my @other_display_names;
-			push @other_display_names, $locus_info->{$_}->{'common_name'} if $locus_info->{$_}->{'common_name'};
 			if ($id) {
 				$header_buffer[$j] .= "<th>$cleaned";
 				if ( $self->{'prefs'}->{'locus_alias'} && $locus_aliases{$_} ) {

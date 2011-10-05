@@ -1013,10 +1013,12 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 sub clean_locus {
 	my ( $self, $locus ) = @_;
 	return if !defined $locus;
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( $self->{'system'}->{'locus_superscript_prefix'} && $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
 		$locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
 	}
 	$locus =~ tr/_/ /;
+	$locus .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};	
 	return $locus;
 }
 
@@ -1512,9 +1514,7 @@ sub _print_profile_table {
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	foreach (@$loci) {
-		my $locus_info = $self->{'datastore'}->get_locus_info($_);
 		my $cleaned    = $self->clean_locus($_);
-		$cleaned .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
 		print "<th>$cleaned</th>";
 	}
 	foreach (@$scheme_fields) {
@@ -2030,11 +2030,7 @@ sub _print_isolate_table_header {
 " <a class=\"tooltip\" title=\"Isolate fields - You can select the isolate fields that are displayed here by going to the options page.\">&nbsp;<i>i</i>&nbsp;</a>";
 	$fieldtype_header .= "</th>";
 	my $alias_sql = $self->{'db'}->prepare("SELECT alias FROM locus_aliases WHERE locus=?");
-	my $qry       = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
-	my $cn_sql    = $self->{'db'}->prepare($qry);
-	eval { $cn_sql->execute };
 	$logger->error($@) if $@;
-	my $common_names = $cn_sql->fetchall_hashref('id');
 	local $" = '; ';
 	my $scheme_info = $self->{'datastore'}->get_all_scheme_info;
 
@@ -2052,7 +2048,6 @@ sub _print_isolate_table_header {
 			if ( $self->{'prefs'}->{'main_display_loci'}->{$_} ) {
 				my $locus_header = $self->clean_locus($_);
 				my @aliases;
-				push @aliases, $common_names->{$_}->{'common_name'} if $common_names->{$_}->{'common_name'};
 				if ( $self->{'prefs'}->{'locus_alias'} ) {
 					eval { $alias_sql->execute($_) };
 					if ($@) {
@@ -2323,9 +2318,12 @@ sub run_blast {
 
 sub mark_cache_stale {
 	my ($self) = @_;
-	my $stale_flag_file = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'instance'}/stale";
-	system("touch $stale_flag_file");
-	$logger->error("Can't mark BLAST db stale.") if $?;
+	my $dir = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'instance'}";
+	if (-d $dir){
+		my $stale_flag_file = "$dir/stale";
+		system("touch $stale_flag_file");
+		$logger->error("Can't mark BLAST db stale.") if $?;
+	}
 	return;
 }
 
@@ -2975,7 +2973,6 @@ sub _get_scheme_loci {
 		my $id      = $scheme_id ? "s_$scheme_id\_l_$cleaned" : "l_$cleaned";
 		my $locus   = $self->clean_locus($_);
 		$buffer .= "<li id=\"$id\"><a>$locus";
-		$buffer .= " ($common_names->{$_}->{'common_name'})" if $common_names->{$_}->{'common_name'};
 		$buffer .= "</a></li>\n";
 	}
 	foreach my $scheme_field (@$scheme_fields) {

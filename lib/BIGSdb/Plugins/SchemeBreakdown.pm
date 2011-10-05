@@ -89,10 +89,6 @@ sub run {
 	$qry =~ s/ORDER BY.*$//g;
 	$logger->debug("Breakdown query: $qry");
 	return if !$self->create_temp_tables($qry_ref);
-	my $locus_info_sql = $self->{'db'}->prepare("SELECT id,common_name FROM loci WHERE common_name IS NOT NULL");
-	eval { $locus_info_sql->execute };
-	$logger->error($@) if $@;
-	my $locus_info = $locus_info_sql->fetchall_hashref('id');
 	if ( $q->param('field_breakdown') ) {
 		my $field_query = $qry;
 		my $field_type  = 'text';
@@ -206,7 +202,6 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 		if ( $q->param('type') eq 'locus' ) {
 			my $locus = $q->param('field');
 			my @other_display_names;
-			push @other_display_names, $locus_info->{$locus}->{'common_name'} if $locus_info->{$locus}->{'common_name'};
 			local $" = '; ';
 			my $aliases = $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias", $locus );
 			push @other_display_names, @$aliases if @$aliases;
@@ -374,7 +369,6 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 			$display = $self->clean_locus($loci->[$i]);
 			my @other_display_names;
 			if (defined $loci->[$i]){
-				push @other_display_names, $locus_info->{ $loci->[$i] }->{'common_name'} if $locus_info->{ $loci->[$i] }->{'common_name'};
 				if ( $self->{'prefs'}->{'locus_alias'} ) {
 					eval { $alias_sql->execute( $loci->[$i] ) };
 					if ($@) {
@@ -387,6 +381,7 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 				}
 			}
 			if (@other_display_names){
+				local $" = ', ';
 				$display .= " <span class=\"comment\">(@other_display_names)</span>";
 				$display =~ tr/_/ /;
 			}

@@ -157,8 +157,6 @@ sub _print_query_interface {
 	foreach (@$loci) {
 		push @display_loci, "l_$_";
 		my $cleaned_locus = $self->clean_locus($_);
-		my $locus_info = $self->{'datastore'}->get_locus_info($_);
-		$cleaned_locus .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
 		$label{"l_$_"} = $cleaned_locus;
 		if ( !$scheme_id && $self->{'prefs'}->{'locus_alias'} && $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 			eval { $alias_sql->execute($_); };

@@ -44,9 +44,7 @@ sub print_content {
 	}
 	my $locus_info    = $self->{'datastore'}->get_locus_info($locus);
 	my $cleaned_locus = $self->clean_locus($locus);
-	print "<h1>Locus information - $cleaned_locus";
-	print " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
-	print "</h1>\n";
+	print "<h1>Locus information - $cleaned_locus</h1>\n";
 	my $desc = $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM locus_descriptions WHERE locus=?", $locus );
 	if ( ref $desc ne 'HASH' ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>No description is available for this locus.</p></div>\n";

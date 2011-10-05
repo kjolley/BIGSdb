@@ -837,7 +837,6 @@ sub _print_row {
 	  . "</td><td$class>"
 	  . ( $exact ? 'exact' : 'partial' )
 	  . "</td><td$class>$cleaned_locus";
-	print " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
 	print "</td>";
 	$tooltip ||= '';
 	print "<td$class>$match->{'allele'}$tooltip</td>";

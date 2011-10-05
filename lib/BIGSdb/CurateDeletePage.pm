@@ -87,7 +87,7 @@ sub print_content {
 		if ( $_->{'primary_key'} ) {
 			my $value = $q->param( $_->{'name'} );
 			$value =~ s/'/\\'/g;
-			push @query_values, "$_->{'name'} = '$value'";
+			push @query_values, "$_->{'name'} = E'$value'";
 			$primary_keys{ $_->{'name'} } = 1 if defined $q->param( $_->{'name'} );
 			if ( $_->{'type'} eq 'int' && !BIGSdb::Utils::is_int( $q->param( $_->{'name'} ) ) ) {
 				print "<div class=\"box\" id=\"statusbad\"><p>Field $_->{'name'} must be an integer.</p></div>\n";

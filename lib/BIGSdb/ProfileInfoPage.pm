@@ -75,9 +75,7 @@ sub print_content {
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 		my $td            = 2;
 		foreach (@$loci) {
-			my $locus_info = $self->{'datastore'}->get_locus_info($_);
 			my $cleaned    = $self->clean_locus($_);
-			$cleaned .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
 			print "<tr class=\"td$td\"><th>$cleaned</th>";
 			( my $cleaned2 = $_ ) =~ s/'/_PRIME_/g;
 			print
