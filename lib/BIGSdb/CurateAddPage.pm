@@ -22,6 +22,7 @@ use warnings;
 use base qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
+use List::MoreUtils qw(any);
 use BIGSdb::Page qw(DATABANKS);
 
 sub initiate {
@@ -98,6 +99,9 @@ sub print_content {
 			$newdata{ $_->{'name'} } = $_->{'default'};
 		}
 	}
+	if ( $table eq 'loci' && $q->param('Copy') ) {
+		$self->_copy_locus_config( \%newdata );
+	}
 	$buffer .= $self->create_record_table( $table, \%newdata );
 	$newdata{'datestamp'} = $newdata{'date_entered'} = $self->get_datestamp;
 	$newdata{'curator'} = $self->get_curator_id;
@@ -113,9 +117,8 @@ sub print_content {
 			my $locus_info = $self->{'datastore'}->get_locus_info( $newdata{'locus'} );
 			my $length     = length( $newdata{'sequence'} );
 			my $units      = $locus_info->{'data_type'} && $locus_info->{'data_type'} eq 'DNA' ? 'bp' : 'residues';
-			if ( !$length ){
-				push @problems,
-				"Sequence is a required field and can not be left blank.<br />";
+			if ( !$length ) {
+				push @problems, "Sequence is a required field and can not be left blank.<br />";
 			} elsif ( !$locus_info->{'length_varies'} && defined $locus_info->{'length'} && $locus_info->{'length'} != $length ) {
 				push @problems,
 				  "Sequence is $length $units long but this locus is set as a standard length of $locus_info->{'length'} $units.<br />";
@@ -138,9 +141,12 @@ sub print_content {
 					push @problems, "Sequence already exists in the database ($cleaned_locus: $exists).<br />";
 				}
 			}
-			if ( $locus_info->{'data_type'} && $locus_info->{'data_type'} eq 'DNA' && !BIGSdb::Utils::is_valid_DNA( $newdata{'sequence'} ) ) {
+			if ( $locus_info->{'data_type'} && $locus_info->{'data_type'} eq 'DNA' && !BIGSdb::Utils::is_valid_DNA( $newdata{'sequence'} ) )
+			{
 				push @problems, "Sequence contains non nucleotide (G|A|T|C) characters.<br />";
-			} elsif (  !@problems && $locus_info->{'data_type'} && $locus_info->{'data_type'} eq 'DNA'
+			} elsif ( !@problems
+				&& $locus_info->{'data_type'}
+				&& $locus_info->{'data_type'} eq 'DNA'
 				&& !$q->param('ignore_similarity')
 				&& $self->{'datastore'}->sequences_exist( $newdata{'locus'} )
 				&& !$self->sequence_similar_to_others( $newdata{'locus'}, \$newdata{'sequence'} ) )
@@ -260,7 +266,11 @@ this sequence then make sure that the 'Override sequence similarity check' box i
 		}
 		if ( $table eq 'sequences' ) {
 			my $locus_info = $self->{'datastore'}->get_locus_info( $newdata{'locus'} );
-			if ( defined $newdata{'allele_id'} && $newdata{'allele_id'} ne '' && !BIGSdb::Utils::is_int( $newdata{'allele_id'} ) && $locus_info->{'allele_id_format'} eq 'integer' ) {
+			if (   defined $newdata{'allele_id'}
+				&& $newdata{'allele_id'} ne ''
+				&& !BIGSdb::Utils::is_int( $newdata{'allele_id'} )
+				&& $locus_info->{'allele_id_format'} eq 'integer' )
+			{
 				push @problems, "The allele id must be an integer for this locus.<br />";
 			} elsif ( $locus_info->{'allele_id_regex'} ) {
 				my $regex = $locus_info->{'allele_id_regex'};
@@ -303,9 +313,8 @@ this sequence then make sure that the 'Override sequence similarity check' box i
 			}
 			if ( $newdata{'id'} =~ /[^\w_']/ ) {
 				push @problems,
-"Locus names can only contain alphanumeric, underscore (_) and prime (') characters (no spaces or other symbols).";
+				  "Locus names can only contain alphanumeric, underscore (_) and prime (') characters (no spaces or other symbols).";
 			}
-
 		}
 
 		#special case to ensure that a locus alias is not the same as the locus name
@@ -398,7 +407,7 @@ this sequence then make sure that the 'Override sequence similarity check' box i
 					$self->remove_profile_data( $newdata{'scheme_id'} );
 					$self->drop_scheme_view( $newdata{'scheme_id'} );
 					$self->create_scheme_view( $newdata{'scheme_id'} );
-				} elsif ($table eq 'sequences'){
+				} elsif ( $table eq 'sequences' ) {
 					$self->mark_cache_stale;
 				}
 			};
@@ -441,6 +450,7 @@ this sequence then make sure that the 'Override sequence similarity check' box i
 		}
 	}
 	print $buffer;
+	$self->_print_copy_locus_record_form if $table eq 'loci';
 	return;
 }
 
@@ -478,6 +488,7 @@ sub _next_sample_id {
 	my $next = 0;
 	my $id   = 0;
 	while ( my ($sample_id) = $sql->fetchrow_array ) {
+
 		if ( $sample_id != 0 ) {
 			$test++;
 			$id = $sample_id;
@@ -591,8 +602,47 @@ sub sequence_similar_to_others {
 		last;
 	}
 	close $blast_fh;
-	if (defined $identity && $identity >= 70 && $alignment >= 0.9 * $length){
+	if ( defined $identity && $identity >= 70 && $alignment >= 0.9 * $length ) {
 		return 1;
+	}
+	return;
+}
+
+sub _print_copy_locus_record_form {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my ( $locus_list, $locus_labels ) = $self->get_field_selection_list( { 'loci' => 1, 'sort_labels' => 1 } );
+	return if !@$locus_list;
+	print "<div class=\"floatmenu\"><a id=\"toggle1\" class=\"showhide\">Show tools</a>\n";
+	print "<a id=\"toggle2\" class=\"hideshow\">Hide tools</a></div>\n";
+	print "<div class=\"hideshow\">";
+	print "<div id=\"curatetools\">\n";
+	print $q->start_form;
+	print "Copy configuration from ";
+	print $q->popup_menu( -name => 'locus', values => $locus_list, labels => $locus_labels );
+	print $q->submit( -name => 'Copy', -class => 'submit' );
+	print $q->hidden($_) foreach qw(db page table);
+	print $q->end_form;
+	print "<p class=\"comment\">All parameters will be copied except id, common name, reference sequence, "
+	  . "genome<br />position and length. The copied locus id will be substituted for 'LOCUS' in fields that "
+	  . "include it.</p>";
+	print "</div></div>";
+	return;
+}
+
+sub _copy_locus_config {
+	my ( $self, $newdata_ref ) = @_;
+	my $q        = $self->{'cgi'};
+	my @patterns = ( qr/^l_(.+)/, qr/^la_(.+)\|\|/, qr/^cn_(.+)/ );
+	my $locus    = $q->param('locus') ~~ @patterns ? $1 : undef;
+	return if !defined $locus;
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	foreach my $field ( keys %$locus_info ) {
+		next if any { $field eq $_ } qw (id reference_sequence genome_position length common_name);
+		my $value = $locus_info->{$field};
+		$value =~ s/$locus/LOCUS/
+		  if any { $field eq $_ } qw(dbase_table dbase_id_field dbase_id2_field dbase_id2_value description_url url);		
+		$newdata_ref->{$field} = $value;
 	}
 	return;
 }

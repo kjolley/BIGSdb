@@ -668,7 +668,7 @@ div #banner {
 	display:none	
 }
 
-div #pluginoptions {
+div #pluginoptions, div #curatetools {
 	background:#a5a5b0;
 	float:right;
 	position:absolute;
@@ -681,6 +681,8 @@ div #pluginoptions {
 	margin-bottom: 0.5em;
 	border: 1px solid #666;
 }
+
+div #curatetools { background: #e5e5f0}
 
 div.pluginoptions table {
 	padding:0.1em;
