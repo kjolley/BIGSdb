@@ -48,7 +48,8 @@ use constant SEQ_FLAGS => (
 );
 use constant DATABANKS => qw(Genbank);
 use constant FLANKING  => qw(0 20 50 100 200 500 1000 2000 5000);
-our @EXPORT_OK = qw(SEQ_METHODS SEQ_FLAGS DATABANKS FLANKING);
+use constant LOCUS_PATTERNS => ( qr/^l_(.+)/, qr/^la_(.+)\|\|/, qr/^cn_(.+)/ );
+our @EXPORT_OK = qw(SEQ_METHODS SEQ_FLAGS DATABANKS FLANKING LOCUS_PATTERNS);
 
 sub new {    ## no critic
 	my $class = shift;

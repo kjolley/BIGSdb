@@ -23,6 +23,7 @@ use List::MoreUtils qw(uniq);
 use base qw(BIGSdb::QueryPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
+use BIGSdb::Page qw(LOCUS_PATTERNS);
 
 sub set_pref_requirements {
 	my ($self) = @_;
@@ -258,12 +259,13 @@ sub _run_isolate_query {
 	my $tempqry;
 	my $lqry;
 	my $extended_isolate_field;
+	my @locus_patterns = LOCUS_PATTERNS;
 	if ( $field =~ /^f_(.*)$/ ) {
 		$field = $1;
 		my %thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 		$datatype  = $thisfield{'type'};
 		$fieldtype = 'isolate';
-	} elsif ( $field =~ /^l_(.+)$/ || $field =~ /^la_(.+)\|\|/ || $field =~ /^cn_(.+)/ ) {
+	} elsif ( $field ~~ @locus_patterns ) {
 		$field    = $1;
 		$datatype = $self->{'datastore'}->get_locus_info($field)->{'allele_id_format'};
 		$field =~ s/\'/\\'/g;
@@ -380,7 +382,7 @@ sub _run_isolate_query {
 		$qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE $self->{'system'}->{'view'}.id IN ($joined_table AND ($tempqry))";
 	}
 	$qry .= " ORDER BY ";
-	if ( $q->param('order') =~ /^la_(.+)\|\|/ || $q->param('order') =~ /^cn_(.+)/ ) {
+	if ( $q->param('order') ~~ @locus_patterns ) {
 		$qry .= "l_$1";
 	} else {
 		$qry .= $q->param('order');

@@ -23,6 +23,7 @@ use base qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
+use BIGSdb::Page qw(LOCUS_PATTERNS);
 
 sub initiate {
 	my ($self) = @_;
@@ -305,14 +306,15 @@ sub _run_query {
 		my @params = $q->param;
 		my @loci;
 		my %values;
+		my @patterns = LOCUS_PATTERNS;
 		foreach (@params) {
-			if ( $_ =~ /^l_(.+)/ || $_ =~ /^la_(.+)\|\|/ || $_ =~ /^cn_(.+)/ ) {
+			if ( $_ ~~ @patterns ) {
 				if ( $q->param($_) ne '') {
 					push @loci, $1;
 					if ( $values{$1} && $q->param($_) && $values{$1} ne $q->param($_) ) {
 						my $aliases =
 						  $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias", $1 );
-						$" = ', ';
+						local $" = ', ';
 						push @errors,
 "Locus $1 has been defined with more than one value (due to an alias for this locus also being used). The following alias(es) exist for this locus: @$aliases";
 						next;
@@ -350,7 +352,7 @@ sub _run_query {
 			}
 		}
 		if (@lqry) {
-			$" = ' OR ';
+			local $" = ' OR ';
 			my $matches = $q->param('matches');
 			if ( $matches == scalar @loci ) {
 				$matches = scalar @lqry;
@@ -375,7 +377,7 @@ sub _run_query {
 					if ( $qry && $self->{'system'}->{'dbtype'} eq 'isolates' && $q->param('project_list') && $q->param('project_list') ne '') {
 						my $project_id = $q->param('project_list');
 						if ($project_id) {
-							$" = "','";
+							local $" = "','";
 							$qry .= " AND id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id')";
 						}
 					}					
@@ -415,7 +417,7 @@ sub _run_query {
 		if ( $qry && $self->{'system'}->{'dbtype'} eq 'isolates' && $q->param('project_list') && $q->param('project_list') ne '' ) {
 			my $project_id = $q->param('project_list');
 			if ($project_id) {
-				$" = "','";
+				local $" = "','";
 				$qry .= " AND id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id')";
 			}
 		}
@@ -454,7 +456,7 @@ sub _run_query {
 		$qry = $q->param('query');
 	}
 	if (@errors) {
-		$" = '<br />';
+		local $" = '<br />';
 		print "<div class=\"box\" id=\"statusbad\"><p>Problem with search criteria:</p>\n";
 		print "<p>@errors</p></div>\n";
 	} elsif ( $qry !~ /^ ORDER BY/ ) {
@@ -473,5 +475,6 @@ sub _run_query {
 	} else {
 		print "<div class=\"box\" id=\"statusbad\">Invalid search performed.</div>\n";
 	}
+	return;
 }
 1;

@@ -24,7 +24,7 @@ use List::MoreUtils qw(any none);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant MAX_ROWS => 20;
-use BIGSdb::Page qw(SEQ_FLAGS);
+use BIGSdb::Page qw(SEQ_FLAGS LOCUS_PATTERNS);
 
 sub initiate {
 	my ($self) = @_;
@@ -1265,9 +1265,10 @@ sub _modify_isolate_query_for_designations {
 	my $q    = $self->{'cgi'};
 	my $view = $self->{'system'}->{'view'};
 	my ( @lqry, @lqry_blank, %combo );
+	my @locus_patterns = LOCUS_PATTERNS;
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		if ( defined $q->param("lt$i") && $q->param("lt$i") ne '' ) {
-			if ( $q->param("ls$i") =~ /^l_(.+)/ || $q->param("ls$i") =~ /^la_(.+)\|\|/ || $q->param("ls$i") =~ /^cn_(.+)/ ) {
+			if ( $q->param("ls$i") ~~ @locus_patterns ) {
 				my $locus      = $1;
 				my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 				$locus =~ s/'/\\'/g;
@@ -1444,12 +1445,13 @@ sub _modify_isolate_query_for_tags {
 	my $q    = $self->{'cgi'};
 	my $view = $self->{'system'}->{'view'};
 	my @tag_queries;
+	my @locus_patterns = LOCUS_PATTERNS;
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		if ( defined $q->param("ts$i") && $q->param("ts$i") ne '' && defined $q->param("tt$i") && $q->param("tt$i") ne '' ) {
 			my $action = $q->param("tt$i");
 			my $locus;
 			if ( $q->param("ts$i") ne 'any locus' ) {
-				if ( $q->param("ts$i") =~ /^l_(.+)/ || $q->param("ts$i") =~ /^la_(.+)\|\|/ || $q->param("ts$i") =~ /^cn_(.+)/ ) {
+				if ( $q->param("ts$i") ~~ @locus_patterns ) {
 					$locus = $1;
 				}
 				if ( !$self->{'datastore'}->is_locus($locus) ) {

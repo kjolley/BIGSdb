@@ -23,7 +23,7 @@ use base qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(any);
-use BIGSdb::Page qw(DATABANKS);
+use BIGSdb::Page qw(DATABANKS LOCUS_PATTERNS);
 
 sub initiate {
 	my ($self) = @_;
@@ -633,13 +633,13 @@ sub _print_copy_locus_record_form {
 sub _copy_locus_config {
 	my ( $self, $newdata_ref ) = @_;
 	my $q        = $self->{'cgi'};
-	my @patterns = ( qr/^l_(.+)/, qr/^la_(.+)\|\|/, qr/^cn_(.+)/ );
+	my @patterns = LOCUS_PATTERNS;
 	my $locus    = $q->param('locus') ~~ @patterns ? $1 : undef;
 	return if !defined $locus;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	foreach my $field ( keys %$locus_info ) {
 		next if any { $field eq $_ } qw (id reference_sequence genome_position length common_name);
-		my $value = $locus_info->{$field};
+		my $value = $locus_info->{$field} || '';
 		$value =~ s/$locus/LOCUS/
 		  if any { $field eq $_ } qw(dbase_table dbase_id_field dbase_id2_field dbase_id2_value description_url url);		
 		$newdata_ref->{$field} = $value;

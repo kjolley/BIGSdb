@@ -24,7 +24,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(uniq any none);
 use Apache2::Connection ();
-use BIGSdb::Page qw(SEQ_METHODS SEQ_FLAGS);
+use BIGSdb::Page qw(SEQ_METHODS SEQ_FLAGS LOCUS_PATTERNS);
 ###DEFAUT SCAN PARAMETERS#############
 my $MIN_IDENTITY    = 70;
 my $MIN_ALIGNMENT   = 50;
@@ -382,10 +382,9 @@ sub _scan {
 		next if !$self->is_allowed_to_view_isolate($isolate_id);
 		
 		my %locus_checked;
+		my @patterns = LOCUS_PATTERNS;
 		foreach my $locus (@loci) {
-			if ( $locus =~ /^l_(.+)/ || $locus =~ /^cn_(.+)/ || $locus =~ /^la_(.+)\|\|/ ) {
-				$locus = $1;
-			}
+			$locus    = $locus ~~ @patterns ? $1 : undef;
 			next if $locus_checked{$locus};    #prevent multiple checking when locus selected individually and as part of scheme.
 			$locus_checked{$locus} = 1;
 			if ( $match >= $limit ) {
