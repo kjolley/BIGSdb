@@ -1450,7 +1450,7 @@ sub rewrite_query_ref_order_by {
 		( my $cleaned_locus = $locus ) =~ s/'/\\'/g;
 		$$qry_ref =~ s/(SELECT .* FROM $view)/$1 $locus_join/;
 		$$qry_ref =~
-s/FROM $view/FROM $view LEFT JOIN allele_designations AS ordering ON ordering.isolate_id=$view.id AND ordering.locus='$cleaned_locus'/;
+s/FROM $view/FROM $view LEFT JOIN allele_designations AS ordering ON ordering.isolate_id=$view.id AND ordering.locus=E'$cleaned_locus'/;
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
 			$$qry_ref =~ s/ORDER BY l_\S+\s/ORDER BY CAST(ordering.allele_id AS int) /;
@@ -1948,7 +1948,7 @@ sub _create_join_sql_for_scheme {
 		my $scheme_field = $2;
 		my $loci         = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		foreach (@$loci) {
-			$qry .= " LEFT JOIN allele_designations AS l_$_ ON l_$_\.isolate_id=$self->{'system'}->{'view'}.id AND l_$_.locus='$_'";
+			$qry .= " LEFT JOIN allele_designations AS l_$_ ON l_$_\.isolate_id=$self->{'system'}->{'view'}.id AND l_$_.locus=E'$_'";
 		}
 		$qry .= " LEFT JOIN temp_scheme_$scheme_id AS ordering ON";
 		my $first = 1;
@@ -1972,7 +1972,7 @@ sub _create_join_sql_for_locus {
 	$clean_locus_name =~ s/-/_/g;
 	( my $escaped_locus = $locus ) =~ s/'/\\'/g;
 	my $qry =
-" LEFT JOIN allele_designations AS l_$clean_locus_name ON l_$clean_locus_name\.isolate_id=$self->{'system'}->{'view'}.id AND l_$clean_locus_name.locus='$escaped_locus'";
+" LEFT JOIN allele_designations AS l_$clean_locus_name ON l_$clean_locus_name\.isolate_id=$self->{'system'}->{'view'}.id AND l_$clean_locus_name.locus=E'$escaped_locus'";
 	return $qry;
 }
 

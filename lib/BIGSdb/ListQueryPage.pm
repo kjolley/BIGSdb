@@ -295,7 +295,7 @@ sub _run_isolate_query {
 		$joined_table .= " @temp WHERE";
 		undef @temp;
 		foreach (@$scheme_loci) {
-			push @temp, "$_.locus='$_'";
+			push @temp, "$_.locus=E'$_'";
 		}
 		$joined_table .= " @temp";
 	} elsif ( $field =~ /^e_(.*)\|\|(.*)/ ) {
@@ -355,8 +355,8 @@ sub _run_isolate_query {
 			} elsif ( $fieldtype eq 'locus' ) {
 				$tempqry .=
 				  $datatype eq 'text'
-				  ? "(allele_designations.locus='$field' AND upper(allele_designations.allele_id) = upper('$value'))"
-				  : "(allele_designations.locus='$field' AND allele_designations.allele_id = '$value')";
+				  ? "(allele_designations.locus=E'$field' AND upper(allele_designations.allele_id) = upper('$value'))"
+				  : "(allele_designations.locus=E'$field' AND allele_designations.allele_id = '$value')";
 			} elsif ( $fieldtype eq 'scheme_field' ) {
 				$tempqry .=
 				  $datatype eq 'text'
