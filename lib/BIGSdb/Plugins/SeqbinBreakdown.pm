@@ -38,7 +38,7 @@ sub get_attributes {
 		buttontext  => 'Sequence bin',
 		menutext    => 'Sequence bin',
 		module      => 'SeqbinBreakdown',
-		version     => '1.0.1',
+		version     => '1.0.2',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -51,11 +51,12 @@ sub get_attributes {
 sub set_pref_requirements {
 	my ($self) = @_;
 	$self->{'pref_requirements'} = { 'general' => 0, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 0 };
+	return;
 }
 
 sub get_option_list {
 	my @methods = ( 'all', SEQ_METHODS );
-	$" = ';';
+	local $" = ';';
 	my @list = ( { name => 'method', description => 'Filter by sequencing method', optlist => "@methods", default => 'all' }, );
 	return \@list;
 }
@@ -98,9 +99,10 @@ sub run {
 	  $self->{'db'}->prepare(
 "SELECT COUNT(sequence), SUM(length(sequence)),MIN(length(sequence)),MAX(length(sequence)), CEIL(AVG(length(sequence))), CEIL(STDDEV_SAMP(length(sequence))) FROM sequence_bin WHERE isolate_id=?$method_clause"
 	  );
-	my $sql_name   = $self->{'db'}->prepare("SELECT $self->{'system'}->{'labelfield'} FROM $view WHERE id=?");
-	my $labelfield = ucfirst( $self->{'system'}->{'labelfield'} );
-	my $temp       = BIGSdb::Utils::get_random();
+	my $sql_name           = $self->{'db'}->prepare("SELECT $self->{'system'}->{'labelfield'} FROM $view WHERE id=?");
+	my $sql_contig_lengths = $self->{'db'}->prepare("SELECT length(sequence) FROM sequence_bin WHERE isolate_id=?$method_clause");
+	my $labelfield         = ucfirst( $self->{'system'}->{'labelfield'} );
+	my $temp               = BIGSdb::Utils::get_random();
 	open( my $fh, '>', "$self->{'config'}->{'tmp_dir'}/$temp.txt" )
 	  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$temp.txt for writing");
 	print << "HTML"
@@ -114,19 +116,23 @@ HTML
 	  ;
 	print $fh "Isolate id\t$labelfield\tContigs\tTotal length\tMin\tMax\tMean\tStdDev\n";
 	my $td = 1;
-	$| = 1;
+	local $| = 1;
 	my ($data);
 
 	foreach (@$ids) {
 		eval {
 			$sql->execute($_);
 			$sql_name->execute($_);
+			$sql_contig_lengths->execute($_);
 		};
 		if ($@) {
 			$logger->error($@);
 			return;
 		}
 		my ( $contigs, $sum, $min, $max, $mean, $stddev ) = $sql->fetchrow_array;
+		while ( my ($length) = $sql_contig_lengths->fetchrow_array ) {
+			push @{ $data->{'lengths'} }, $length;
+		}
 		if ( $ENV{'MOD_PERL'} ) {
 			$self->{'mod_perl_request'}->rflush;
 			return if $self->{'mod_perl_request'}->connection->aborted;
@@ -136,7 +142,8 @@ HTML
 		print "<tr class=\"td$td\"><td>$_</td>";
 		print "<td>$isolate</td><td>$contigs</td><td>$sum</td><td>$min</td><td>$max</td><td>$mean</td>";
 		print defined $stddev ? "<td>$stddev</td>" : '<td />';
-		print "<td><a href=\"$self->{'system'}->{'script_name'}?page=seqbin&amp;db=$self->{'instance'}&amp;isolate_id=$_\" class=\"extract_tooltip\" target=\"_blank\">Display &rarr;</a></td></tr>\n";
+		print
+"<td><a href=\"$self->{'system'}->{'script_name'}?page=seqbin&amp;db=$self->{'instance'}&amp;isolate_id=$_\" class=\"extract_tooltip\" target=\"_blank\">Display &rarr;</a></td></tr>\n";
 		print $fh "$_\t$isolate\t$contigs\t$sum\t$min\t$max\t$mean\t";
 		print $fh $stddev if defined $stddev;
 		print $fh "\n";
@@ -148,10 +155,11 @@ HTML
 	print "</tbody></table>\n";
 	close $fh;
 	print "<p><a href=\"/tmp/$temp.txt\">Download in tab-delimited text format</a></p>\n";
-	my %title = ( 'contigs' => 'Number of contigs', 'sum' => 'Total length', 'mean' => 'Mean contig length' );
+	my %title =
+	  ( 'contigs' => 'Number of contigs', 'sum' => 'Total length', 'mean' => 'Mean contig length', 'lengths' => 'Contig lengths' );
 	if ( $self->{'config'}->{'chartdirector'} ) {
 		print "<div><p>Click on the following charts to enlarge</p>\n";
-		foreach (qw (contigs sum mean)) {
+		foreach (qw (contigs sum mean lengths)) {
 			my $stats = BIGSdb::Utils::stats( $data->{$_} );
 			my $bins =
 			  ceil( ( 3.5 * $stats->{'std'} ) / $stats->{'count'}**0.33 )
@@ -190,9 +198,23 @@ HTML
 			  . "<br />";
 			print
 "<a href=\"/tmp/$temp\_histogram_$_.png\" target=\"_blank\"><img src=\"/tmp/$temp\_histogram_$_.png\" alt=\"$_ histogram\" style=\"width:300px; border:0\" /></a>\n";
+			if ($_ eq 'lengths'){
+				my $filename = BIGSdb::Utils::get_random() . '.txt';
+				my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
+				if (open (my $fh, '>', $full_path)){  
+					foreach my $length (sort {$a <=> $b} @{ $data->{'lengths'} }){
+						print $fh "$length\n";
+					}
+					close $fh;
+					print "<p><a href=\"/tmp/$filename\">Download lengths</a></p>\n" if -e $full_path && !-z $full_path;
+				} else {
+					$logger->error("Can't open $full_path for writing");
+				}
+			}
 		}
 		print "</div>\n";
 	}
 	print "</div>\n";
+	return;
 }
 1;
