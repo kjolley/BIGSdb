@@ -58,14 +58,14 @@ sub piechart {
 	}
 	my $chart;
 	if ( $size eq 'small' ) {
-		$chart = new PieChart( 780, 350 );
+		$chart = PieChart->new( 780, 350 );
 		if ( $prefs->{'style'} eq 'doughnut' ) {
 			$chart->setDonutSize( 390, 120, 100, 20 );
 		} else {
 			$chart->setPieSize( 390, 120, 100 );
 		}
 	} else {
-		$chart = new PieChart( 920, 500 );
+		$chart = PieChart->new( 920, 500 );
 		if ( $prefs->{'style'} eq 'doughnut' ) {
 			$chart->setDonutSize( 450, 200, 170, 50 );
 		} else {
@@ -89,6 +89,7 @@ sub piechart {
 	$chart->setExplode($explode) if $explode;
 	$chart->setData( \@grouped_data, \@grouped_labels );
 	$chart->makeChart($filename);
+	return;
 }
 
 sub barchart {
@@ -116,14 +117,14 @@ sub barchart {
 	}
 	my $y_offset = $max_label_length * 5;
 	$y_offset += 10 if $prefs->{'x-title'};
-	my $x_offset = $prefs->{'y-title'} ? 10 : 0;
+	my $x_offset = $prefs->{'y-title'} ? 20 : 0;
 	my ( $chart, $layer );
 	if ( $size eq 'small' ) {
-		$chart = new XYChart( 780, 350 );
+		$chart = XYChart->new( 780, 350 );
 		$chart->setPlotArea( 30 + $x_offset, 20, 710, 300 - $y_offset );
 		$layer = $chart->addBarLayer( $data, $chart->gradientColor( 0, 0, 0, 350, 0xf0f0f0, 0x404080 ) );
 	} else {
-		$chart = new XYChart( 920, 500 );
+		$chart = XYChart->new( 920, 500 );
 		$chart->setPlotArea( 30 + $x_offset, 20, 800, 450 - $y_offset );
 		$layer = $chart->addBarLayer( $data, $chart->gradientColor( 0, 0, 0, 500, 0xf0f0f0, 0x404080 ) );
 	}
@@ -150,6 +151,7 @@ sub barchart {
 		$chart->yAxis->setTitle( $prefs->{'y-title'} );
 	}
 	$chart->makeChart($filename);
+	return;
 }
 
 sub _find_length_of_largest_label {
