@@ -587,9 +587,7 @@ sub get_filter {
 	( my $text = $options->{'text'} || $name ) =~ tr/_/ /;
 	my ( $label, $title ) = $self->_get_truncated_label("$text: ");
 	my $title_attribute = $title ? "title=\"$title\"" : '';
-	my $buffer = "<label for=\"$name\_list\" class=\"$filter\"$title_attribute>$label</label>\n";
-
-	#	$" = ' ';
+	my $buffer = "<label for=\"$name\_list\" class=\"$filter\" $title_attribute>$label</label>\n";
 	$buffer .= $self->{'cgi'}->popup_menu(
 		-name   => "$name\_list",
 		-id     => "$name\_list",
@@ -739,7 +737,7 @@ sub _get_truncated_label {
 	if ( length $label > 25 ) {
 		$title = $label;
 		$title =~ tr/\"//;
-		$label = "<a title=\"$title\" class=\"truncated\">" . substr( $label, 0, 20 ) . "&#133</a>";
+		$label = substr( $label, 0, 20 ) . "&#133";
 	}
 	return ( $label, $title );
 }
