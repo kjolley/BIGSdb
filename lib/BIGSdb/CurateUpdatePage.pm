@@ -20,16 +20,15 @@ package BIGSdb::CurateUpdatePage;
 use strict;
 use warnings;
 use base qw(BIGSdb::CuratePage);
-use List::MoreUtils qw(none);
+use List::MoreUtils qw(any none);
 use BIGSdb::Page qw(DATABANKS);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
 sub initiate {
 	my ($self) = @_;
-	foreach (qw (tooltips jQuery noCache)){
-		$self->{$_} = 1;
-	}
+	$self->{$_} = 1 foreach qw (tooltips jQuery noCache);
+	return;
 }
 
 sub print_content {
@@ -48,15 +47,19 @@ sub print_content {
 			print
 "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update $locus sequences in the database.</p></div>\n";
 		} else {
-			print
-			  "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update this record.</p></div>\n";
+			print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update this record.</p></div>\n";
 		}
 		return;
-	} elsif ( ( $self->{'system'}->{'read_access'} eq 'acl' || ($self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl') )
+	} elsif (
+		(
+			$self->{'system'}->{'read_access'} eq 'acl'
+			|| ( $self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl' )
+		)
 		&& $self->{'username'}
 		&& !$self->is_admin
 		&& $q->param('isolate_id')
-		&& !$self->is_allowed_to_view_isolate( $q->param('isolate_id') ) )
+		&& !$self->is_allowed_to_view_isolate( $q->param('isolate_id') )
+	  )
 	{
 		print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to modify data for this isolate.</p></div>\n";
 		return;
@@ -68,12 +71,10 @@ sub print_content {
 		print "<div class=\"box\" id=\"statusbad\"><p>Sequence tags cannot be updated using this function.</p></div>\n";
 		return;
 	}
-	if ( ( $table eq 'scheme_fields' || $table eq 'scheme_members' ) && $self->{'system'}->{'dbtype'} eq 'sequences' && !$q->param('sent') )
-	{
-		print
-		  "<div class=\"box\" id=\"warning\"><p>Please be aware that any modifications to the structure of this scheme will result in the
-		removal of all data from it. This is done to ensure data integrity.  This does not affect allele designations, but any profiles
-		will have to be reloaded.</p></div>\n";
+	if ( $table eq 'scheme_fields' && $self->{'system'}->{'dbtype'} eq 'sequences' && !$q->param('sent') ) {
+		print "<div class=\"box\" id=\"warning\"><p>Please be aware that any changes to the structure of a scheme will "
+		  . " result in all data being removed from it.  This will happen if you modify the type or change whether "
+		  . " the field is a primary key.  All other changes are ok.</p></div>\n";
 	}
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my @query_values;
@@ -100,7 +101,7 @@ sub print_content {
 	} else {
 		$logger->debug("Query: $qry");
 	}
-	my $data = $sql->fetchrow_hashref();
+	my $data = $sql->fetchrow_hashref;
 	if ( $table eq 'sequences' ) {
 		my $sql = $self->{'db'}->prepare("SELECT field,value FROM sequence_extended_attributes WHERE locus=? AND allele_id=?");
 		eval { $sql->execute( $data->{'locus'}, $data->{'allele_id'} ) };
@@ -258,45 +259,40 @@ HTML
 					foreach my $new (@new_accessions) {
 						chomp $new;
 						next if $new eq '';
-						(my $clean_new = $new) =~ s/'/\\'/g;
+						( my $clean_new = $new ) =~ s/'/\\'/g;
 						if ( !@$existing_accessions || none { $clean_new eq $_ } @$existing_accessions ) {
-							
 							push @extra_inserts,
 "INSERT INTO accession (locus,allele_id,databank,databank_id,curator,datestamp) VALUES ('$cleaned_locus','$newdata{'allele_id'}','$databank','$clean_new',$newdata{'curator'},'today')";
 						}
 					}
 					foreach my $existing (@$existing_accessions) {
-						(my $clean_existing = $existing) =~ s/'/\\'/g;
+						( my $clean_existing = $existing ) =~ s/'/\\'/g;
 						if ( !@new_accessions || none { $clean_existing eq $_ } @new_accessions ) {
 							push @extra_inserts,
 "DELETE FROM accession WHERE locus=E'$cleaned_locus' AND allele_id='$newdata{'allele_id'}' AND databank='$databank' AND databank_id='$clean_existing'";
 						}
 					}
 				}
-			} elsif ($table eq 'locus_descriptions'){
+			} elsif ( $table eq 'locus_descriptions' ) {
 				( my $cleaned_locus = $newdata{'locus'} ) =~ s/'/\\'/g;
 				my $existing_aliases =
-				  $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=?",
-					$newdata{'locus'} );
+				  $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=?", $newdata{'locus'} );
 				my @new_aliases = split /\r?\n/, $q->param('aliases');
 				foreach my $new (@new_aliases) {
 					chomp $new;
 					next if $new eq '';
 					if ( !@$existing_aliases || none { $new eq $_ } @$existing_aliases ) {
-							push @extra_inserts,
+						push @extra_inserts,
 "INSERT INTO locus_aliases (locus,alias,curator,datestamp) VALUES (E'$cleaned_locus','$new',$newdata{'curator'},'today')";
 					}
 				}
 				foreach my $existing (@$existing_aliases) {
 					if ( !@new_aliases || none { $existing eq $_ } @new_aliases ) {
-							push @extra_inserts,
-"DELETE FROM locus_aliases WHERE locus='$cleaned_locus' AND alias='$existing'";
+						push @extra_inserts, "DELETE FROM locus_aliases WHERE locus='$cleaned_locus' AND alias='$existing'";
 					}
 				}
 				my $existing_pubmeds =
-				  $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM locus_refs WHERE locus=?",
-					$newdata{'locus'} );
-				$"=';';
+				  $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM locus_refs WHERE locus=?", $newdata{'locus'} );
 				my @new_pubmeds = split /\r?\n/, $q->param('pubmed');
 				foreach my $new (@new_pubmeds) {
 					chomp $new;
@@ -315,55 +311,51 @@ HTML
 				}
 				foreach my $existing (@$existing_pubmeds) {
 					if ( !@new_pubmeds || none { $existing eq $_ } @new_pubmeds ) {
-							push @extra_inserts,
-"DELETE FROM locus_refs WHERE locus='$cleaned_locus' AND pubmed_id='$existing'";
+						push @extra_inserts, "DELETE FROM locus_refs WHERE locus='$cleaned_locus' AND pubmed_id='$existing'";
 					}
 				}
 				my @new_links;
-				my $i=1;
-				foreach (split/\r?\n/,$q->param('links')){
+				my $i = 1;
+				foreach ( split /\r?\n/, $q->param('links') ) {
 					next if $_ eq '';
-					push @new_links,"$i|$_";
+					push @new_links, "$i|$_";
 					$i++;
 				}
 				my @existing_links;
 				my $sql = $self->{'db'}->prepare("SELECT link_order,url,description FROM locus_links WHERE locus=? ORDER BY link_order");
-				eval {
-					$sql->execute($q->param('locus'));
-				};
-				if ($@){
+				eval { $sql->execute( $q->param('locus') ); };
+				if ($@) {
 					$logger->error("Can't execute $@");
 				}
-				while (my ($order,$url,$desc) = $sql->fetchrow_array){
-					push @existing_links,"$order|$url|$desc";
+				while ( my ( $order, $url, $desc ) = $sql->fetchrow_array ) {
+					push @existing_links, "$order|$url|$desc";
 				}
 				foreach my $existing (@existing_links) {
 					if ( !@new_links || none { $existing eq $_ } @new_links ) {
-						if ($existing =~ /^\d+\|(.+?)\|.+$/){
+						if ( $existing =~ /^\d+\|(.+?)\|.+$/ ) {
 							my $url = $1;
 							$url =~ s/'/\\'/g;
-								push @extra_inserts,
-"DELETE FROM locus_links WHERE locus='$cleaned_locus' AND url='$url'";
+							push @extra_inserts, "DELETE FROM locus_links WHERE locus='$cleaned_locus' AND url='$url'";
 						}
 					}
 				}
-				
-				foreach my $new (@new_links){	
+				foreach my $new (@new_links) {
 					chomp $new;
-					next if $new eq '';	
-					if ( !@existing_links || none { $new eq $_ } @existing_links ) {	
-						if ($new !~ /^(.+?)\|(.+)\|(.+)$/){
+					next if $new eq '';
+					if ( !@existing_links || none { $new eq $_ } @existing_links ) {
+						if ( $new !~ /^(.+?)\|(.+)\|(.+)$/ ) {
 							print <<"HTML";
 	<div class="box" id="statusbad"><p>Links must have an associated description separated from the URL by a '|'.</p>
 	<p><a href="$self->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
 HTML
 							return;
 						} else {
-							my ($field_order,$url,$desc) = ($1,$2,$3);
-							$url =~ s/'/\\'/g;
+							my ( $field_order, $url, $desc ) = ( $1, $2, $3 );
+							$url  =~ s/'/\\'/g;
 							$desc =~ s/'/\\'/g;
-							push @extra_inserts,"INSERT INTO locus_links (locus,url,description,link_order,curator,datestamp) VALUES ('$cleaned_locus','$url','$desc',$field_order,$newdata{'curator'},'today')";
-						}						
+							push @extra_inserts,
+"INSERT INTO locus_links (locus,url,description,link_order,curator,datestamp) VALUES ('$cleaned_locus','$url','$desc',$field_order,$newdata{'curator'},'today')";
+						}
 					}
 				}
 			}    #special case to check that changing a locus allele_id_format to integer is allowed with currently existing data
@@ -431,20 +423,31 @@ HTML
 			}
 			my (@values);
 			my %new_value;
-			foreach (@$attributes) {
-				next if $_->{'user_update'} && $_->{'user_update'} eq 'no';
-				$newdata{ $_->{'name'} } = defined $newdata{ $_->{'name'} } ? $newdata{ $_->{'name'} } : '';
-				$newdata{ $_->{'name'} } =~ s/\\/\\\\/g;
-				$newdata{ $_->{'name'} } =~ s/'/\\'/g;
-				if ( $_->{'name'} =~ /sequence$/ ) {
-					$newdata{ $_->{'name'} } = uc( $newdata{ $_->{'name'} } );
-					$newdata{ $_->{'name'} } =~ s/\s//g;
+			my $scheme_structure_changed = 0;
+			foreach my $att (@$attributes) {
+				next if $att->{'user_update'} && $att->{'user_update'} eq 'no';
+				if ( $self->{'system'}->{'dbtype'} eq 'sequences' && $table eq 'scheme_fields' && any { $att->{'name'} eq $_ }
+					qw(type primary_key) )
+				{
+					if (   ( $newdata{ $att->{'name'} } eq 'true' && !$data->{ $att->{'name'} } )
+						|| ( $newdata{ $att->{'name'} } eq 'false' && $data->{ $att->{'name'} } )
+						|| ( $att->{'type'} ne 'bool' && $newdata{ $att->{'name'} } ne $data->{ $att->{'name'} } ) )
+					{
+						$scheme_structure_changed = 1;
+					}
 				}
-				if ( $newdata{ $_->{'name'} } ne '' ) {
-					push @values, "$_->{'name'} = '$newdata{ $_->{'name'}}'";
-					$new_value{ $_->{'name'} } = $newdata{ $_->{'name'} };
+				$newdata{ $att->{'name'} } = defined $newdata{ $att->{'name'} } ? $newdata{ $att->{'name'} } : '';
+				$newdata{ $att->{'name'} } =~ s/\\/\\\\/g;
+				$newdata{ $att->{'name'} } =~ s/'/\\'/g;
+				if ( $att->{'name'} =~ /sequence$/ ) {
+					$newdata{ $att->{'name'} } = uc( $newdata{ $att->{'name'} } );
+					$newdata{ $att->{'name'} } =~ s/\s//g;
+				}
+				if ( $newdata{ $att->{'name'} } ne '' ) {
+					push @values, "$att->{'name'} = '$newdata{ $att->{'name'}}'";
+					$new_value{ $att->{'name'} } = $newdata{ $att->{'name'} };
 				} else {
-					push @values, "$_->{'name'} = null";
+					push @values, "$att->{'name'} = null";
 				}
 			}
 			local $" = ',';
@@ -454,9 +457,9 @@ HTML
 			eval {
 				$self->{'db'}->do($qry);
 				foreach (@extra_inserts) {
-					$self->{'db'}->do($_);					
+					$self->{'db'}->do($_);
 				}
-				if ( ( $table eq 'scheme_members' || $table eq 'scheme_fields' ) && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+				if ( $table eq 'scheme_fields' && $self->{'system'}->{'dbtype'} eq 'sequences' && $scheme_structure_changed ) {
 					$self->remove_profile_data( $data->{'scheme_id'} );
 					$self->drop_scheme_view( $data->{'scheme_id'} );
 					$self->create_scheme_view( $data->{'scheme_id'} );
@@ -487,6 +490,7 @@ HTML
 		}
 	}
 	print $buffer;
+	return;
 }
 
 sub get_title {

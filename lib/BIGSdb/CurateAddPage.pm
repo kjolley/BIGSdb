@@ -403,7 +403,7 @@ this sequence then make sure that the 'Override sequence similarity check' box i
 				}
 				if ( $table eq 'schemes' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 					$self->create_scheme_view( $newdata{'id'} );
-				} elsif ( ( $table eq 'scheme_members' || $table eq 'scheme_fields' ) && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+				} elsif ( ( any {$table eq $_} qw (scheme_members scheme_fields) ) && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 					$self->remove_profile_data( $newdata{'scheme_id'} );
 					$self->drop_scheme_view( $newdata{'scheme_id'} );
 					$self->create_scheme_view( $newdata{'scheme_id'} );
