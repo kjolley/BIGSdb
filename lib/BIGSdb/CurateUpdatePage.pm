@@ -473,9 +473,9 @@ HTML
 				} else {
 					print "<p>Error message: $@</p></div>\n";
 				}
-				$self->{'db'}->rollback();
+				$self->{'db'}->rollback;
 			} else {
-				$self->{'db'}->commit()
+				$self->{'db'}->commit
 				  && print "<div class=\"box\" id=\"resultsheader\"><p>$record_name updated!</p>";
 				print "<p><a href=\""
 				  . $q->script_name

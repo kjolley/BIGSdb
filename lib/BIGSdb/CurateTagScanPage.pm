@@ -380,12 +380,11 @@ sub _scan {
 		}
 		next if $isolate_id eq '' || $isolate_id eq 'all';
 		next if !$self->is_allowed_to_view_isolate($isolate_id);
-		
 		my %locus_checked;
 		my @patterns = LOCUS_PATTERNS;
 		foreach my $locus_id (@loci) {
-			my $locus    = $locus_id ~~ @patterns ? $1 : undef;
-			if (!defined $locus){
+			my $locus = $locus_id ~~ @patterns ? $1 : undef;
+			if ( !defined $locus ) {
 				$logger->error("Locus name not extracted: Input was '$locus_id'");
 				next;
 			}
@@ -503,7 +502,7 @@ sub _scan {
 		print "<input type=\"button\" value=\"None\" onclick='@js4' class=\"smallbutton\" />" if @js4;
 		print "</td></tr>\n";
 	}
-	print $buffer if $buffer;
+	print $buffer                                                           if $buffer;
 	print "<p>Time limit reached (checked up to id-$last_id_checked).</p>"  if $out_of_time;
 	print "<p>Match limit reached (checked up to id-$last_id_checked).</p>" if $match_limit_reached;
 	if ($new_seqs_found) {
@@ -593,8 +592,8 @@ sub _tag {
 							push @allele_updates, ( $labels->{$isolate_id} || $isolate_id ) . ": $display_locus:  $allele_id";
 							push @{ $history->{$isolate_id} }, "$_: new designation '$allele_id' (sequence bin scan)";
 						} elsif ( defined $set_allele_id
-							&& $set_allele_id    ne $allele_id
-							&& (!defined $allele_id_to_set || $allele_id_to_set ne $allele_id)
+							&& $set_allele_id ne $allele_id
+							&& ( !defined $allele_id_to_set || $allele_id_to_set ne $allele_id )
 							&& !$pending_allele_ids_to_set{$allele_id} )
 						{
 							eval { $pending_sql->execute( $isolate_id, $_, $allele_id, $sender ) };
@@ -783,11 +782,11 @@ sub _print_row {
 					$match->{'predicted_start'} = $original_start + $_;
 				}
 			}
-			if ( BIGSdb::Utils::is_int($match->{'predicted_start'}) && $match->{'predicted_start'} < 1 ) {
+			if ( BIGSdb::Utils::is_int( $match->{'predicted_start'} ) && $match->{'predicted_start'} < 1 ) {
 				$match->{'predicted_start'} = '1*';
 				$off_end = 1;
 			}
-			if ( BIGSdb::Utils::is_int($match->{'predicted_end'}) && $match->{'predicted_end'} > $seqbin_length ) {
+			if ( BIGSdb::Utils::is_int( $match->{'predicted_end'} ) && $match->{'predicted_end'} > $seqbin_length ) {
 				$match->{'predicted_end'} = "$seqbin_length\*";
 				$off_end = 1;
 			}
@@ -1077,7 +1076,7 @@ sub _blast {
 	my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$locus_prefix\_fastafile_$clean_locus.txt";
 	$temp_fastafile =~ s/\\/\\\\/g;
 	$temp_fastafile =~ s/'/__prime__/g;
-	my $outfile_url      = "$file_prefix\_outfile.txt";
+	my $outfile_url = "$file_prefix\_outfile.txt";
 
 	#create fasta index
 	#only need to create this once for each locus (per run), so check if file exists first
@@ -1164,36 +1163,44 @@ sub _blast {
 		$probe_matches = $self->_simulate_hybridization( $temp_infile, $locus );
 		return if !@$probe_matches;
 	}
-	my $blastn_word_size = $self->{'cgi'}->param('word_size') =~ /(\d+)/ ? $1 : 15;
-	my $word_size = $program eq 'blastn' ? $blastn_word_size : 3;
-	if ( $self->{'config'}->{'blast+_path'} ) {
-		my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
-		my $filter = $program eq 'blastn' ? 'dust' : 'seg';
-		system(
+	if ( -e $temp_fastafile && !-z $temp_fastafile ) {
+		my $blastn_word_size = $self->{'cgi'}->param('word_size') =~ /(\d+)/ ? $1 : 15;
+		my $word_size = $program eq 'blastn' ? $blastn_word_size : 3;
+		if ( $self->{'config'}->{'blast+_path'} ) {
+			my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
+			my $filter = $program eq 'blastn' ? 'dust' : 'seg';
+			system(
 "$self->{'config'}->{'blast+_path'}/$program -num_threads $blast_threads -max_target_seqs 10 -parse_deflines -word_size $word_size -db $temp_fastafile -query $temp_infile -out $temp_outfile -outfmt 6 -$filter no"
-		);
-	} else {
-		system(
+			);
+		} else {
+			system(
 "$self->{'config'}->{'blast_path'}/blastall -B $seq_count -b 10 -p $program -W $word_size -d $temp_fastafile -i $temp_infile -o $temp_outfile -m8 -F F 2> /dev/null"
-		);
-	}
-	my ( $exact_matches, $matched_regions, $partial_matches );
-	my $pcr_filter   = !$q->param('pcr_filter')   ? 0 : $locus_info->{'pcr_filter'};
-	my $probe_filter = !$q->param('probe_filter') ? 0 : $locus_info->{'probe_filter'};
-	if ( -e "$self->{'config'}->{'secure_tmp_dir'}/$outfile_url" ) {
-		( $exact_matches, $matched_regions ) =
-		  $self->_parse_blast_exact( $locus, $outfile_url, $pcr_filter, $pcr_products, $probe_filter, $probe_matches );
-		$partial_matches =
-		  $self->_parse_blast_partial( $locus, $matched_regions, $outfile_url, $pcr_filter, $pcr_products, $probe_filter, $probe_matches )
-		  if !@$exact_matches
-			  || ( $locus_info->{'pcr_filter'} && !$q->param('pcr_filter') && $locus_info->{'probe_filter'} && !$q->param('probe_filter') );
-	} else {
-		$logger->debug("$self->{'config'}->{'secure_tmp_dir'}/$outfile_url does not exist");
+			);
+		}
+		my ( $exact_matches, $matched_regions, $partial_matches );
+		my $pcr_filter   = !$q->param('pcr_filter')   ? 0 : $locus_info->{'pcr_filter'};
+		my $probe_filter = !$q->param('probe_filter') ? 0 : $locus_info->{'probe_filter'};
+		if ( -e "$self->{'config'}->{'secure_tmp_dir'}/$outfile_url" ) {
+			( $exact_matches, $matched_regions ) =
+			  $self->_parse_blast_exact( $locus, $outfile_url, $pcr_filter, $pcr_products, $probe_filter, $probe_matches );
+			$partial_matches =
+			  $self->_parse_blast_partial( $locus, $matched_regions, $outfile_url, $pcr_filter, $pcr_products, $probe_filter,
+				$probe_matches )
+			  if !@$exact_matches
+				  || (   $locus_info->{'pcr_filter'}
+					  && !$q->param('pcr_filter')
+					  && $locus_info->{'probe_filter'}
+					  && !$q->param('probe_filter') );
+		} else {
+			$logger->debug("$self->{'config'}->{'secure_tmp_dir'}/$outfile_url does not exist");
+		}
+		return ( $exact_matches, $partial_matches );
 	}
 
 	#Calling function should delete working files.  This is not done here as they can be re-used
 	#if multiple loci are being scanned for the same isolate.
-	return ( $exact_matches, $partial_matches );
+	
+	return;
 }
 
 sub _parse_blast_exact {
@@ -1389,7 +1396,7 @@ sub _parse_blast_partial {
 	close $blast_fh;
 
 	#Only return the number of matches selected by 'partial_matches' parameter
-	@matches = sort {$b->{'quality'} <=> $a->{'quality'}} @matches;
+	@matches = sort { $b->{'quality'} <=> $a->{'quality'} } @matches;
 	my $partial_matches = $self->{'cgi'}->param('partial_matches');
 	$partial_matches = 1 if !BIGSdb::Utils::is_int($partial_matches) || $partial_matches < 1;
 	while ( @matches > $partial_matches ) {
