@@ -748,7 +748,6 @@ sub get_locus_list {
 			$cleaned->{"cn_$_->{'id'}"} = "$_->{'common_name'} ($_->{'id'})";
 			$cleaned->{"cn_$_->{'id'}"} =~ tr/_/ /;
 		}
-		$cleaned->{ $_->{'id'} } =~ tr/_/ /;
 	}
 
 	#dictionary sort

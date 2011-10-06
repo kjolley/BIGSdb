@@ -209,8 +209,7 @@ sub print_content {
 	);
 	print "</td></tr>\n";
 	foreach (@$loci) {
-		my $cleaned = $_;
-		$cleaned =~ tr/_/ /;
+		my $cleaned = $self->clean_locus($_);
 		print "<tr><td style=\"text-align:right\">$cleaned: !</td><td style=\"white-space: nowrap\">";
 		print $q->textfield( -name => "locus:$_", -size => 10, -default => $newdata{$_}, );
 		print "</td></tr>\n";

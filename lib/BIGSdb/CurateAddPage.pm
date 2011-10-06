@@ -425,8 +425,7 @@ this sequence then make sure that the 'Override sequence similarity check' box i
 			} else {
 				$db->commit;
 				if ( $table eq 'sequences' ) {
-					$newdata{'locus'} =~ s/\\//g;
-					( my $cleaned_locus = $newdata{'locus'} ) =~ tr/_/ /;
+					my $cleaned_locus = $self->clean_locus($newdata{'locus'});
 					print "<div class=\"box\" id=\"resultsheader\"><p>Sequence $cleaned_locus: $newdata{'allele_id'} added!</p>";
 				} else {
 					print "<div class=\"box\" id=\"resultsheader\"><p>$record_name added!</p>";

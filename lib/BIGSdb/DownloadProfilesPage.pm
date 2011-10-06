@@ -65,7 +65,6 @@ sub print_content {
 		my $locus_info   = $self->{'datastore'}->get_locus_info($_);
 		my $header_value = $_;
 		$header_value .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
-		$header_value =~ tr/_/ /;
 		print $header_value;
 		( my $cleaned = $_ ) =~ s/'/_PRIME_/g;
 		push @fields, $cleaned;

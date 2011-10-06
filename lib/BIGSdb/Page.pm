@@ -448,9 +448,7 @@ sub get_field_selection_list {
 					$self->{'cache'}->{'labels'}->{"l_$_"} .= " ($common_names->{$_}->{'common_name'})";
 					push @locus_list, "cn_$_";
 					$self->{'cache'}->{'labels'}->{"cn_$_"} = "$common_names->{$_}->{'common_name'} ($_)";
-					$self->{'cache'}->{'labels'}->{"cn_$_"} =~ tr/_/ /;
 				}
-				$self->{'cache'}->{'labels'}->{"l_$_"} =~ tr/_/ /;
 			}
 			if ( $self->{'prefs'}->{'locus_alias'} ) {
 				my $qry       = "SELECT locus,alias FROM locus_aliases";
@@ -1015,9 +1013,8 @@ sub clean_locus {
 	return if !defined $locus;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( $self->{'system'}->{'locus_superscript_prefix'} && $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-		$locus =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
+		$locus =~ s/^([A-Za-z]{1,3})_/<sup>$1<\/sup>/;
 	}
-	$locus =~ tr/_/ /;
 	$locus .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};	
 	return $locus;
 }

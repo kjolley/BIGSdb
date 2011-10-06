@@ -297,8 +297,7 @@ sub print_content {
 
 	if ( scalar @$loci <= 100 ) {
 		foreach (@$loci) {
-			my $cleaned = $_;
-			$cleaned =~ tr/_/ /;
+			my $cleaned = $self->clean_locus($_);
 			$locus_buffer .= "<tr><td style=\"text-align:right\">$cleaned: </td><td style=\"white-space: nowrap\">";
 			$locus_buffer .= $q->textfield( -name => "locus:$_", -size => 10, -default => $newdata{$_}, -tabindex => $tabindex );
 			$locus_buffer .= $q->popup_menu(

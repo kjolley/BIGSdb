@@ -121,7 +121,6 @@ sub _print_query_interface {
 			push @$field_list, "l_$_";
 			$labels->{"l_$_"} = $_;
 			$labels->{"l_$_"} .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
-			$labels->{"l_$_"} =~ tr/_/ /;
 		}
 		$order_list   = $field_list;
 		$order_labels = $labels;

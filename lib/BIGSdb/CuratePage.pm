@@ -103,7 +103,7 @@ sub create_record_table {
 					|| ( $newdata_readonly && $newdata{ $_->{'name'} } ) )
 				{
 					my $desc;
-					if ( $_->{'name'} eq 'locus' ) {
+					if ( $_->{'name'} eq 'locus' || ($table eq 'loci' && $_->{'name'} eq 'id')) {
 						$desc = $self->clean_locus( $newdata{ $_->{'name'} } );
 					} elsif ( $_->{'labels'} ) {
 						my @fields_to_query;
@@ -223,10 +223,6 @@ sub create_record_table {
 						@values = @{ $self->{'datastore'}->run_list_query("SELECT id FROM users WHERE id>0 ORDER BY @fields_to_query") };
 					} else {
 						@values = @{ $self->{'datastore'}->run_list_query("SELECT id FROM $_->{'foreign_key'} ORDER BY @fields_to_query") };
-					}
-					foreach (@values) {
-						$desc{$_} = $_ if !$desc{$_};
-						$desc{$_} =~ tr/_/ /;
 					}
 					$buffer .= $q->popup_menu(
 						-name    => $name,

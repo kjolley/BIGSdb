@@ -79,7 +79,8 @@ sub print_content {
 				}
 				my $locus_info = $self->{'datastore'}->get_locus_info($_);
 				next if !$locus_info->{'dbase_name'};
-				print "<tr class=\"td$td\"><td>$_</td><td>$locus_info->{'dbase_name'}</td>
+				my $cleaned = $self->clean_locus($_);
+				print "<tr class=\"td$td\"><td>$cleaned</td><td>$locus_info->{'dbase_name'}</td>
 			<td>" . ( $locus_info->{'dbase_host'}      || 'localhost' ) . "</td>
 			<td>" . ( $locus_info->{'dbase_port'}      || 5432 ) . "</td>
 			<td>" . ( $locus_info->{'dbase_table'}     || '' ) . "</td>

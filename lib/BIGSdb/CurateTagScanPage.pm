@@ -383,8 +383,12 @@ sub _scan {
 		
 		my %locus_checked;
 		my @patterns = LOCUS_PATTERNS;
-		foreach my $locus (@loci) {
-			$locus    = $locus ~~ @patterns ? $1 : undef;
+		foreach my $locus_id (@loci) {
+			my $locus    = $locus_id ~~ @patterns ? $1 : undef;
+			if (!defined $locus){
+				$logger->error("Locus name not extracted: Input was '$locus_id'");
+				next;
+			}
 			next if $locus_checked{$locus};    #prevent multiple checking when locus selected individually and as part of scheme.
 			$locus_checked{$locus} = 1;
 			if ( $match >= $limit ) {

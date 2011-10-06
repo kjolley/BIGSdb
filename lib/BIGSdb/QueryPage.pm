@@ -621,7 +621,6 @@ sub _get_profile_select_items {
 		my $locus_info = $self->{'datastore'}->get_locus_info($_);
 		$cleaned{$_} = $_;
 		$cleaned{$_} .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
-		$cleaned{$_} =~ tr/_/ /;
 		push @selectitems, $_;
 		push @orderitems,  $_;
 	}

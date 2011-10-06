@@ -252,11 +252,6 @@ sub _print_query_interface {
 							@values =
 							  @{ $self->{'datastore'}->run_list_query("SELECT id FROM $_->{foreign_key} ORDER BY @fields_to_query") };
 							next if !@values;
-							foreach (@values) {
-								if ( !defined $desc{$_} ) {
-									( $desc{$_} = $_ ) =~ tr/_/ /;
-								}
-							}
 						}
 					} else {
 						@values = @{ $self->{'datastore'}->run_list_query("SELECT distinct($_->{name}) FROM $table ORDER BY $_->{name}") };
