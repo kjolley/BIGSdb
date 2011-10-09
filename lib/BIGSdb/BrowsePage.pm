@@ -151,7 +151,7 @@ sub print_content {
 		} else {
 			$order .= $q->param('order');
 		}
-		my $dir = $q->param('direction') eq 'descending' ? 'desc' : 'asc';
+		my $dir = $q->param('direction') && $q->param('direction') eq 'descending' ? 'desc' : 'asc';
 		if ( $system->{'dbtype'} eq 'isolates' ) {
 			my $qry = "SELECT * FROM $system->{'view'} ORDER BY $order $dir,$self->{'system'}->{'view'}.id;";
 			$self->paged_display( $self->{'system'}->{'view'}, $qry );

@@ -185,6 +185,7 @@ sub get_composite_value {
 
 sub get_scheme_field_values_by_profile {
 	my ( $self, $scheme_id, $profile_ref ) = @_;
+	return if ref $profile_ref ne 'ARRAY' || any { !defined $_} @$profile_ref;
 	my $values;
 	if ( !$self->{'cache'}->{'scheme_fields'}->{$scheme_id} ) {
 		$self->{'cache'}->{'scheme_fields'}->{$scheme_id} = $self->get_scheme_fields($scheme_id);
@@ -232,12 +233,18 @@ sub get_scheme_field_values_by_profile {
 		if ( !$self->{'scheme'}->{$scheme_id} ) {
 			$self->{'scheme'}->{$scheme_id} = $self->get_scheme($scheme_id);
 		}
-		try {
-			$values = $self->{'scheme'}->{$scheme_id}->get_field_values_by_profile( $profile_ref, { 'return_hashref' => 1 } );
+		local $" = ',';
+		if (!defined $self->{'cache'}->{$scheme_id}->{'field_values_by_profile'}->{"@$profile_ref"}){
+			try {
+				$values = $self->{'scheme'}->{$scheme_id}->get_field_values_by_profile( $profile_ref, { 'return_hashref' => 1 } );				
+				$self->{'cache'}->{$scheme_id}->{'field_values_by_profile'}->{"@$profile_ref"} = $values;
+			}
+			catch BIGSdb::DatabaseConfigurationException with {
+				$logger->warn("Scheme database $scheme_id is not configured correctly");
+			};
+		} else {
+			$values = $self->{'cache'}->{$scheme_id}->{'field_values_by_profile'}->{"@$profile_ref"};
 		}
-		catch BIGSdb::DatabaseConfigurationException with {
-			$logger->warn("Scheme database $scheme_id is not configured correctly");
-		};
 	}
 	return $values;
 }

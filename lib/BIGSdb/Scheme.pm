@@ -60,7 +60,7 @@ sub get_profile_by_primary_keys {
 		$self->{'sql'}->{'scheme_profiles'} = $self->{'db'}->prepare($qry);
 		$logger->debug( "Scheme#$self->{'id'} ($self->{'description'}) statement handle 'scheme_profiles' prepared." );
 	}
-	eval { $self->{'sql'}->{'scheme_profiles'}->execute(@$values); };
+	eval { $self->{'sql'}->{'scheme_profiles'}->execute(@$values) };
 	if ($@) {
 		$logger->warn(
 "Can't execute 'scheme_profiles' query handle. Check database attributes in the scheme_fields and scheme_members tables for scheme#$self->{'id'} ($self->{'description'})! Statement was '$self->{'sql'}->{scheme_fields}->{Statement}'. $@"
@@ -68,7 +68,7 @@ sub get_profile_by_primary_keys {
 		throw BIGSdb::DatabaseConfigurationException("Scheme configuration error");
 		return;
 	} else {
-		my @profile = $self->{'sql'}->{'scheme_profiles'}->fetchrow_array();
+		my @profile = $self->{'sql'}->{'scheme_profiles'}->fetchrow_array;
 		return \@profile;
 	}
 }
@@ -87,11 +87,11 @@ sub get_field_values_by_profile {
 	}
 	my $fields = $self->{'fields'};
 	my $loci   = $self->{'loci'};
-	if ( !$self->{'sql'}->{'scheme_fields'} ) {
+	if ( !$self->{'sql'}->{'scheme_fields'} ) {		
+		my @placeholders;
+		push @placeholders, '?' foreach (@$loci);
 		local $" = ',';
-		my $qry = "SELECT @$fields FROM $self->{'dbase_table'} WHERE ";
-		local $" = '=? AND ';
-		$qry .= "@$loci=?";
+		my $qry = "SELECT @$fields FROM $self->{'dbase_table'} WHERE (@$loci) = (@placeholders)";
 		$self->{'sql'}->{'scheme_fields'} = $self->{'db'}->prepare($qry);
 		$logger->debug( "Scheme#$self->{'id'} ($self->{'description'}) statement handle 'scheme_fields' prepared. $qry" );
 	}
@@ -101,7 +101,6 @@ sub get_field_values_by_profile {
 "Can't execute 'scheme_fields' query handle. Check database attributes in the scheme_fields table for scheme#$self->{'id'} ($self->{'description'})! Statement was '$self->{'sql'}->{scheme_fields}->{Statement}'. "
 			  . $self->{'db'}->errstr );
 		throw BIGSdb::DatabaseConfigurationException("Scheme configuration error");
-		return \@;
 	} else {
 		if ($options->{'return_hashref'}){
 			return $self->{'sql'}->{'scheme_fields'}->fetchrow_hashref;

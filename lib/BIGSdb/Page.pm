@@ -46,8 +46,8 @@ use constant SEQ_FLAGS => (
 	'truncated',
 	'upstream fusion'
 );
-use constant DATABANKS => qw(Genbank);
-use constant FLANKING  => qw(0 20 50 100 200 500 1000 2000 5000);
+use constant DATABANKS      => qw(Genbank);
+use constant FLANKING       => qw(0 20 50 100 200 500 1000 2000 5000);
 use constant LOCUS_PATTERNS => ( qr/^l_(.+)/, qr/^la_(.+)\|\|/, qr/^cn_(.+)/ );
 our @EXPORT_OK = qw(SEQ_METHODS SEQ_FLAGS DATABANKS FLANKING LOCUS_PATTERNS);
 
@@ -1013,7 +1013,7 @@ sub clean_locus {
 	if ( $self->{'system'}->{'locus_superscript_prefix'} && $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
 		$locus =~ s/^([A-Za-z]{1,3})_/<sup>$1<\/sup>/;
 	}
-	$locus .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};	
+	$locus .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
 	return $locus;
 }
 
@@ -1509,7 +1509,7 @@ sub _print_profile_table {
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	foreach (@$loci) {
-		my $cleaned    = $self->clean_locus($_);
+		my $cleaned = $self->clean_locus($_);
 		print "<th>$cleaned</th>";
 	}
 	foreach (@$scheme_fields) {
@@ -1574,8 +1574,20 @@ sub _is_scheme_data_present {
 	}
 	my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	foreach my $isolate_id ( @{ $self->{'cache'}->{$qry}->{'ids'} } ) {
-		my $allele_designations = $self->{'datastore'}->get_all_allele_ids($isolate_id);
-		my $allele_seqs         = $self->{'datastore'}->get_all_allele_sequences($isolate_id);
+
+		#use Datastore::get_all_allele_designations rather than Datastore::get_all_allele_ids
+		#because even though the latter is faster, the former will need to be called to display
+		#the data in the table and the results can be cached.
+		if ( !$self->{'designations_retrieved'}->{$isolate_id} ) {
+			$self->{'designations'}->{$isolate_id}           = $self->{'datastore'}->get_all_allele_designations($isolate_id);
+			$self->{'designations_retrieved'}->{$isolate_id} = 1;
+		}
+		my $allele_designations = $self->{'designations'}->{$isolate_id};
+		if ( !$self->{'sequences_retrieved'}->{$isolate_id} ) {
+			$self->{'allele_sequences'}->{$isolate_id}    = $self->{'datastore'}->get_all_allele_sequences($isolate_id);
+			$self->{'sequences_retrieved'}->{$isolate_id} = 1;
+		}
+		my $allele_seqs = $self->{'allele_sequences'}->{$isolate_id};
 		foreach (@$scheme_loci) {
 			if ( $allele_designations->{$_} || $allele_seqs->{$_} ) {
 				$self->{'cache'}->{$qry}->{$scheme_id} = 1;
@@ -1638,29 +1650,13 @@ sub _print_isolate_table {
 	$self->_print_isolate_table_header( \%composites, \%composite_display_pos, $scheme_ids, $qry_limit );
 	my $td = 1;
 	local $" = "=? AND ";
-	my %url;
-	if ( $self->{'prefs'}->{'hyperlink_loci'} ) {
-		my $locus_info_sql = $self->{'db'}->prepare("SELECT id,url FROM loci");
-		eval { $locus_info_sql->execute };
-		$logger->error($@) if $@;
-		while ( my ( $locus, $url ) = $locus_info_sql->fetchrow_array ) {
-			if ( $self->{'prefs'}->{'main_display_loci'}->{$locus} ) {
-				( $url{$locus} ) = $url;
-				$url{$locus} =~ s/\&/\&amp;/g;
-			}
-		}
-	}
 	my $field_attributes;
 	$field_attributes->{$_} = $self->{'xmlHandler'}->get_field_attributes($_) foreach (@$fields);
 	my $extended = $self->get_extended_attributes;
 	my $attribute_sql =
 	  $self->{'db'}->prepare("SELECT value FROM isolate_value_extended_attributes WHERE isolate_field=? AND attribute=? AND field_value=?");
+
 	while ( $limit_sql->fetchrow_arrayref ) {
-		my ( $allele_sequences, $allele_sequence_flags );
-		if ( $self->{'prefs'}->{'sequence_details_main'} ) {
-			$allele_sequences      = $self->{'datastore'}->get_all_allele_sequences( $data{'id'} );
-			$allele_sequence_flags = $self->{'datastore'}->get_all_sequence_flags( $data{'id'} );
-		}
 		my $profcomplete = 1;
 		my $id;
 		print "<tr class=\"td$td\">";
@@ -1739,7 +1735,6 @@ sub _print_isolate_table {
 		}
 
 		#Print loci and scheme fields
-		my $alleles = $self->{'datastore'}->get_all_allele_designations($id);
 		$self->{'scheme_loci'}->{0} = $self->{'datastore'}->get_loci_in_no_scheme;
 		foreach my $scheme_id ( @$scheme_ids, 0 ) {
 			next
@@ -1749,112 +1744,15 @@ sub _print_isolate_table {
 				  && $self->{'system'}->{'hide_unused_schemes'} eq 'yes'
 				  && !$self->_is_scheme_data_present( $qry_limit, $scheme_id )
 				  && $scheme_id;
-			if ( !$self->{'scheme_fields'}->{$scheme_id} ) {
-				$self->{'scheme_fields'}->{$scheme_id} = $self->{'datastore'}->get_scheme_fields($scheme_id);
-			}
-			my ( @profile, $incomplete );
-			foreach ( @{ $self->{'scheme_loci'}->{$scheme_id} } ) {
-				next if !$self->{'prefs'}->{'main_display_loci'}->{$_} && ( !$scheme_id || !@{ $self->{'scheme_fields'}->{$scheme_id} } );
-				if ( $self->{'prefs'}->{'main_display_loci'}->{$_} ) {
-					$alleles->{$_}->{'status'} ||= 'confirmed';
-					print "<td>";
-					print "<span class=\"provisional\">"
-					  if $alleles->{$_}->{'status'} eq 'provisional'
-						  && $self->{'prefs'}->{'mark_provisional_main'};
-					if ( $self->{'prefs'}->{'hyperlink_loci'} ) {
-						if ( defined $alleles->{$_}->{'allele_id'} ) {
-							my $url = $url{$_};
-							$url =~ s/\[\?\]/$alleles->{$_}->{'allele_id'}/g;
-							print "<a href=\"$url\">$alleles->{$_}->{'allele_id'}</a>";
-						}
-					} else {
-						print defined $alleles->{$_}->{'allele_id'} ? $alleles->{$_}->{'allele_id'} : '';
-					}
-					print "</span>"
-					  if $alleles->{$_}->{'status'} eq 'provisional'
-						  && $self->{'prefs'}->{'mark_provisional_main'};
-					if ( $self->{'prefs'}->{'sequence_details_main'} && keys %{ $allele_sequences->{$_} } > 0 ) {
-						my @seqs;
-						my @flags;
-						my %flags_used;
-						my $complete;
-						foreach my $seqbin_id ( keys %{ $allele_sequences->{$_} } ) {
-							foreach my $start ( keys %{ $allele_sequences->{$_}->{$seqbin_id} } ) {
-								foreach my $end ( keys %{ $allele_sequences->{$_}->{$seqbin_id}->{$start} } ) {
-									push @seqs, $allele_sequences->{$_}->{$seqbin_id}->{$start}->{$end};
-									$complete = 1 if $allele_sequences->{$_}->{$seqbin_id}->{$start}->{$end}->{'complete'};
-									my @flag_list = keys %{ $allele_sequence_flags->{$_}->{$seqbin_id}->{$start}->{$end} };
-									push @flags, \@flag_list;
-									foreach (@flag_list) {
-										$flags_used{$_} = 1;
-									}
-								}
-							}
-						}
-						my $cleaned_locus    = $self->clean_locus($_);
-						my $sequence_tooltip = $self->get_sequence_details_tooltip( $cleaned_locus, $alleles->{$_}, \@seqs, \@flags );
-						my $sequence_class   = $complete ? 'sequence_tooltip' : 'sequence_tooltip_incomplete';
-						print
-"<span style=\"font-size:0.2em\"> </span><a class=\"$sequence_class\" title=\"$sequence_tooltip\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleSequence&amp;id=$data{'id'}&amp;locus=$_\">&nbsp;S&nbsp;</a>";
-						if ( keys %flags_used ) {
-							foreach my $flag ( sort keys %flags_used ) {
-								print "<a class=\"seqflag_tooltip\">$flag</a>";
-							}
-						}
-					}
-					$self->_print_pending_tooltip( $id, $_ )
-					  if $self->{'prefs'}->{'display_pending_main'} && defined $alleles->{$_}->{'allele_id'};
-					my $action = exists $alleles->{$_}->{'allele_id'} ? 'update' : 'add';
-					print
-" <a href=\"$self->{'system'}->{'script_name'}?page=alleleUpdate&amp;db=$self->{'instance'}&amp;isolate_id=$id&amp;locus=$_\" class=\"update\">$action</a>"
-					  if $self->{'curate'};
-					print "</td>";
-				}
-				if ($scheme_id) {
-					push @profile, $alleles->{$_}->{'allele_id'};
-					$incomplete = 1 if !defined $alleles->{$_}->{'allele_id'};
-				}
-			}
-			next
-			  if !$scheme_id
-				  || !@{ $self->{'scheme_fields'}->{$scheme_id} }
-				  || !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};
-			my $values;
-			if ( !$incomplete && @profile ) {
-				$values = $self->{'datastore'}->get_scheme_field_values_by_profile( $scheme_id, \@profile );
-			}
-			foreach ( @{ $self->{'scheme_fields'}->{$scheme_id} } ) {
-				if ( $self->{'prefs'}->{'main_display_scheme_fields'}->{$scheme_id}->{$_} ) {
-					if ( ref $values eq 'HASH' ) {
-						$values->{ lc($_) } = '' if !defined $values->{ lc($_) };
-						if ( !$self->{'scheme_fields_info'}->{$scheme_id}->{$_} ) {
-							$self->{'scheme_fields_info'}->{$scheme_id}->{$_} =
-							  $self->{'datastore'}->get_scheme_field_info( $scheme_id, $_ );
-						}
-						my $url;
-						if (   $self->{'prefs'}->{'hyperlink_loci'}
-							&& $self->{'scheme_fields_info'}->{$scheme_id}->{$_}->{'url'} )
-						{
-							$url = $self->{'scheme_fields_info'}->{$scheme_id}->{$_}->{'url'};
-							$url =~ s/\[\?\]/$values->{lc($_)}/g;
-							$url =~ s/\&/\&amp;/g;
-						}
-						if ( $values->{ lc($_) } eq '-999' ) {
-							$values->{ lc($_) } = '';
-						}
-						if ($url) {
-							print defined $values->{ lc($_) } ? "<td><a href=\"$url\">$values->{lc($_)}</a></td>" : '<td />';
-						} else {
-							print defined $values->{ lc($_) } ? "<td>$values->{lc($_)}</td>" : '<td />';
-						}
-					} else {
-						print "<td />";
-					}
-				}
-			}
+			$self->_print_isolate_table_scheme( $id, $scheme_id );
 		}
 		print "</tr>\n";
 		$td = $td == 1 ? 2 : 1;
+
+		#Free up memory
+		undef $self->{'allele_sequences'}->{$id};
+		undef $self->{'designations'}->{$id};
+		undef $self->{'allele_sequence_flags'}->{$id};
 	}
 	print "</table></div>\n";
 	if ( !$self->{'curate'} ) {
@@ -1862,6 +1760,151 @@ sub _print_isolate_table {
 	}
 	print "</div>\n";
 	$sql->finish if $sql;
+	return;
+}
+
+sub _initiate_urls_for_loci {
+	my ($self) = @_;
+	my $locus_info_sql = $self->{'db'}->prepare("SELECT id,url FROM loci");
+	eval { $locus_info_sql->execute };
+	$logger->error($@) if $@;
+	while ( my ( $locus, $url ) = $locus_info_sql->fetchrow_array ) {
+		( $self->{'url'}->{$locus} ) = $url;
+		$self->{'url'}->{$locus} =~ s/\&/\&amp;/g if $url;
+	}
+	$self->{'urls_defined'} = 1;
+	return;
+}
+
+sub _print_isolate_table_scheme {
+	my ( $self, $isolate_id, $scheme_id ) = @_;
+	if ( !$self->{'scheme_fields'}->{$scheme_id} ) {
+		$self->{'scheme_fields'}->{$scheme_id} = $self->{'datastore'}->get_scheme_fields($scheme_id);
+	}
+	my ( @profile, $incomplete );
+	if ( !$self->{'urls_defined'} && $self->{'prefs'}->{'hyperlink_loci'} ) {
+		$self->_initiate_urls_for_loci;
+	}
+	if ( !$self->{'sequences_retrieved'}->{$isolate_id} && $self->{'prefs'}->{'sequence_details_main'} ) {
+		$self->{'allele_sequences'}->{$isolate_id}    = $self->{'datastore'}->get_all_allele_sequences($isolate_id);
+		$self->{'sequences_retrieved'}->{$isolate_id} = 1;
+	}
+	my $allele_sequences = $self->{'allele_sequences'}->{$isolate_id};
+	if ( !$self->{'sequence_flags_retrieved'}->{$isolate_id} && $self->{'prefs'}->{'sequence_details_main'} ) {
+		$self->{'allele_sequence_flags'}->{$isolate_id}    = $self->{'datastore'}->get_all_sequence_flags($isolate_id);
+		$self->{'sequence_flags_retrieved'}->{$isolate_id} = 1;
+	}
+	my $allele_sequence_flags = $self->{'allele_sequence_flags'}->{$isolate_id};
+	if ( !$self->{'designations_retrieved'}->{$isolate_id} ) {
+		$self->{'designations'}->{$isolate_id}           = $self->{'datastore'}->get_all_allele_designations($isolate_id);
+		$self->{'designations_retrieved'}->{$isolate_id} = 1;
+	}
+	my $allele_designations = $self->{'designations'}->{$isolate_id};
+	my $provisional_profile;
+	foreach ( @{ $self->{'scheme_loci'}->{$scheme_id} } ) {
+		$allele_designations->{$_}->{'status'} ||= 'confirmed';
+		$provisional_profile = 1 if $allele_designations->{$_}->{'status'} eq 'provisional';
+		next if !$self->{'prefs'}->{'main_display_loci'}->{$_} && ( !$scheme_id || !@{ $self->{'scheme_fields'}->{$scheme_id} } );
+		if ( $self->{'prefs'}->{'main_display_loci'}->{$_} ) {
+			print "<td>";
+			print "<span class=\"provisional\">"
+			  if $allele_designations->{$_}->{'status'} eq 'provisional'
+				  && $self->{'prefs'}->{'mark_provisional_main'};
+			if (   defined $allele_designations->{$_}->{'allele_id'}
+				&& defined $self->{'url'}->{$_}
+				&& $self->{'url'}->{$_} ne ''
+				&& $self->{'prefs'}->{'main_display_loci'}->{$_}
+				&& $self->{'prefs'}->{'hyperlink_loci'} )
+			{
+				my $url = $self->{'url'}->{$_};
+				$url =~ s/\[\?\]/$allele_designations->{$_}->{'allele_id'}/g;
+				print "<a href=\"$url\">$allele_designations->{$_}->{'allele_id'}</a>";
+			} else {
+				print defined $allele_designations->{$_}->{'allele_id'} ? $allele_designations->{$_}->{'allele_id'} : '';
+			}
+			print "</span>"
+			  if $allele_designations->{$_}->{'status'} eq 'provisional'
+				  && $self->{'prefs'}->{'mark_provisional_main'};
+			if ( $self->{'prefs'}->{'sequence_details_main'} && keys %{ $allele_sequences->{$_} } > 0 ) {
+				my @seqs;
+				my @flags;
+				my %flags_used;
+				my $complete;
+				foreach my $seqbin_id ( keys %{ $allele_sequences->{$_} } ) {
+					foreach my $start ( keys %{ $allele_sequences->{$_}->{$seqbin_id} } ) {
+						foreach my $end ( keys %{ $allele_sequences->{$_}->{$seqbin_id}->{$start} } ) {
+							push @seqs, $allele_sequences->{$_}->{$seqbin_id}->{$start}->{$end};
+							$complete = 1 if $allele_sequences->{$_}->{$seqbin_id}->{$start}->{$end}->{'complete'};
+							my @flag_list = keys %{ $allele_sequence_flags->{$_}->{$seqbin_id}->{$start}->{$end} };
+							push @flags, \@flag_list;
+							foreach (@flag_list) {
+								$flags_used{$_} = 1;
+							}
+						}
+					}
+				}
+				my $cleaned_locus    = $self->clean_locus($_);
+				my $sequence_tooltip = $self->get_sequence_details_tooltip( $cleaned_locus, $allele_designations->{$_}, \@seqs, \@flags );
+				my $sequence_class   = $complete ? 'sequence_tooltip' : 'sequence_tooltip_incomplete';
+				print
+"<span style=\"font-size:0.2em\"> </span><a class=\"$sequence_class\" title=\"$sequence_tooltip\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleSequence&amp;id=$isolate_id&amp;locus=$_\">&nbsp;S&nbsp;</a>";
+				if ( keys %flags_used ) {
+					foreach my $flag ( sort keys %flags_used ) {
+						print "<a class=\"seqflag_tooltip\">$flag</a>";
+					}
+				}
+			}
+			$self->_print_pending_tooltip( $isolate_id, $_ )
+			  if $self->{'prefs'}->{'display_pending_main'} && defined $allele_designations->{$_}->{'allele_id'};
+			my $action = exists $allele_designations->{$_}->{'allele_id'} ? 'update' : 'add';
+			print
+" <a href=\"$self->{'system'}->{'script_name'}?page=alleleUpdate&amp;db=$self->{'instance'}&amp;isolate_id=$isolate_id&amp;locus=$_\" class=\"update\">$action</a>"
+			  if $self->{'curate'};
+			print "</td>";
+		}
+		if ($scheme_id) {
+			push @profile, $allele_designations->{$_}->{'allele_id'};
+			$incomplete = 1 if !defined $allele_designations->{$_}->{'allele_id'};
+		}
+	}
+	return
+	  if !$scheme_id
+		  || !@{ $self->{'scheme_fields'}->{$scheme_id} }
+		  || !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};
+	my $values;
+	if ( !$incomplete && @profile ) {
+		$values = $self->{'datastore'}->get_scheme_field_values_by_profile( $scheme_id, \@profile );
+	}
+	foreach ( @{ $self->{'scheme_fields'}->{$scheme_id} } ) {
+		if ( $self->{'prefs'}->{'main_display_scheme_fields'}->{$scheme_id}->{$_} ) {
+			if ( ref $values eq 'HASH' ) {
+				$values->{ lc($_) } = '' if !defined $values->{ lc($_) };
+				if ( !$self->{'scheme_fields_info'}->{$scheme_id}->{$_} ) {
+					$self->{'scheme_fields_info'}->{$scheme_id}->{$_} = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $_ );
+				}
+				my $url;
+				if (   $self->{'prefs'}->{'hyperlink_loci'}
+					&& $self->{'scheme_fields_info'}->{$scheme_id}->{$_}->{'url'} )
+				{
+					$url = $self->{'scheme_fields_info'}->{$scheme_id}->{$_}->{'url'};
+					$url =~ s/\[\?\]/$values->{lc($_)}/g;
+					$url =~ s/\&/\&amp;/g;
+				}
+				if ( $values->{ lc($_) } eq '-999' ) {
+					$values->{ lc($_) } = '';
+				}
+				if ( defined $values->{ lc($_) } && $values->{ lc($_) } ne '' ) {
+					print $provisional_profile ? "<td><span class=\"provisional\">"       : '<td>';
+					print $url                 ? "<a href=\"$url\">$values->{lc($_)}</a>" : $values->{ lc($_) };
+					print $provisional_profile ? '</span></td>'                           : '</td>';
+				} else {
+					print '<td />';
+				}
+			} else {
+				print "<td />";
+			}
+		}
+	}
 	return;
 }
 
@@ -1879,7 +1922,8 @@ sub _print_plugin_buttons {
 		} until ( !-e $full_file_path );
 		foreach (@$plugin_categories) {
 			my $cat_buffer;
-			my $plugin_names = $self->{'pluginManager'}->get_appropriate_plugin_names( 'postquery', $self->{'system'}->{'dbtype'}, $_ || 'none' );
+			my $plugin_names =
+			  $self->{'pluginManager'}->get_appropriate_plugin_names( 'postquery', $self->{'system'}->{'dbtype'}, $_ || 'none' );
 			if (@$plugin_names) {
 				my $plugin_buffer;
 				if ( !$query_temp_file_written ) {
@@ -1916,6 +1960,7 @@ sub _print_plugin_buttons {
 		}
 		print "</table></div>\n";
 	}
+	return;
 }
 
 sub _print_pending_tooltip {
@@ -2314,7 +2359,7 @@ sub run_blast {
 sub mark_cache_stale {
 	my ($self) = @_;
 	my $dir = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'instance'}";
-	if (-d $dir){
+	if ( -d $dir ) {
 		my $stale_flag_file = "$dir/stale";
 		system("touch $stale_flag_file");
 		$logger->error("Can't mark BLAST db stale.") if $?;
