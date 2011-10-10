@@ -165,7 +165,7 @@ sub get_composite_value {
 					  && $scheme_fields->{$scheme_id}->{$scheme_field} eq
 					  '-999';                     #Needed because old style profile databases may use '-999' to denote null values
 				$field_value = $scheme_fields->{$scheme_id}->{$scheme_field};
-			} 
+			}
 			if ($regex) {
 				$field_value = defined $field_value ? $field_value : '';
 				my $expression = "\$field_value =~ $regex";
@@ -185,7 +185,7 @@ sub get_composite_value {
 
 sub get_scheme_field_values_by_profile {
 	my ( $self, $scheme_id, $profile_ref ) = @_;
-	return if ref $profile_ref ne 'ARRAY' || any { !defined $_} @$profile_ref;
+	return if ref $profile_ref ne 'ARRAY' || any { !defined $_ } @$profile_ref;
 	my $values;
 	if ( !$self->{'cache'}->{'scheme_fields'}->{$scheme_id} ) {
 		$self->{'cache'}->{'scheme_fields'}->{$scheme_id} = $self->get_scheme_fields($scheme_id);
@@ -234,9 +234,9 @@ sub get_scheme_field_values_by_profile {
 			$self->{'scheme'}->{$scheme_id} = $self->get_scheme($scheme_id);
 		}
 		local $" = ',';
-		if (!defined $self->{'cache'}->{$scheme_id}->{'field_values_by_profile'}->{"@$profile_ref"}){
+		if ( !defined $self->{'cache'}->{$scheme_id}->{'field_values_by_profile'}->{"@$profile_ref"} ) {
 			try {
-				$values = $self->{'scheme'}->{$scheme_id}->get_field_values_by_profile( $profile_ref, { 'return_hashref' => 1 } );				
+				$values = $self->{'scheme'}->{$scheme_id}->get_field_values_by_profile( $profile_ref, { 'return_hashref' => 1 } );
 				$self->{'cache'}->{$scheme_id}->{'field_values_by_profile'}->{"@$profile_ref"} = $values;
 			}
 			catch BIGSdb::DatabaseConfigurationException with {
@@ -1109,13 +1109,9 @@ sub get_citation_hash {
 			no warnings 'uninitialized';
 			if ( $options->{'formatted'} ) {
 				$citation = "$author ($year). $title ";
-				if ( $options->{'link_pubmed'} ) {
-					$citation .= "<a href=\"http://www.ncbi.nlm.nih.gov/pubmed/$_\">";
-				}
+				$citation .= "<a href=\"http://www.ncbi.nlm.nih.gov/pubmed/$_\">" if $options->{'link_pubmed'};
 				$citation .= "<i>$journal</i> <b>$volume</b>$pages";
-				if ( $options->{'link_pubmed'} ) {
-					$citation .= "</a>";
-				}
+				$citation .= "</a>" if $options->{'link_pubmed'};
 			} else {
 				$citation = "$author $year $journal $volume$pages";
 			}
@@ -1127,13 +1123,7 @@ sub get_citation_hash {
 				$citation_ref->{$_} .= 'No details available.';
 			} else {
 				$citation_ref->{$_} .= "Pubmed id#";
-				if ( $options->{'link_pubmed'} ) {
-					$citation_ref->{$_} .= "<a href=\"http://www.ncbi.nlm.nih.gov/pubmed/$_\">";
-				}
-				$citation_ref->{$_} .= $_;
-				if ( $options->{'link_pubmed'} ) {
-					$citation_ref->{$_} .= "</a>";
-				}
+				$citation_ref->{$_} .= $options->{'link_pubmed'} ? "<a href=\"http://www.ncbi.nlm.nih.gov/pubmed/$_\">$_</a>" : $_;
 			}
 		}
 	}
