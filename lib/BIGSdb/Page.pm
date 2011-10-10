@@ -1013,6 +1013,7 @@ sub clean_locus {
 	if ( $self->{'system'}->{'locus_superscript_prefix'} && $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
 		$locus =~ s/^([A-Za-z]{1,3})_/<sup>$1<\/sup>/;
 	}
+	$locus =~ s/^_//; #locus names can't begin with a digit, so people can use an underscore, but this looks untidy in the interface.
 	$locus .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
 	return $locus;
 }
