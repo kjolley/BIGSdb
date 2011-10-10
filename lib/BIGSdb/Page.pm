@@ -1804,7 +1804,7 @@ sub _print_isolate_table_scheme {
 	my $provisional_profile;
 	foreach ( @{ $self->{'scheme_loci'}->{$scheme_id} } ) {
 		$allele_designations->{$_}->{'status'} ||= 'confirmed';
-		$provisional_profile = 1 if $allele_designations->{$_}->{'status'} eq 'provisional';
+		$provisional_profile = 1 if $self->{'prefs'}->{'mark_provisional_main'} && $allele_designations->{$_}->{'status'} eq 'provisional';
 		next if !$self->{'prefs'}->{'main_display_loci'}->{$_} && ( !$scheme_id || !@{ $self->{'scheme_fields'}->{$scheme_id} } );
 		if ( $self->{'prefs'}->{'main_display_loci'}->{$_} ) {
 			print "<td>";

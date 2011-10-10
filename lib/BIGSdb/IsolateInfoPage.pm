@@ -102,7 +102,7 @@ sub print_content {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
 	my $isolate_id = $q->param('id');
-	if ( defined $q->param('group_id') && BIGSdb::Utils::is_int($q->param('group_id'))) {
+	if ( defined $q->param('group_id') && BIGSdb::Utils::is_int( $q->param('group_id') ) ) {
 		my ( $locus_info, $locus_alias, $allele_designations, $allele_sequences, $allele_sequence_flags ) =
 		  $self->_get_scheme_attributes($isolate_id);
 		my $group_id = $q->param('group_id');
@@ -168,7 +168,7 @@ sub print_content {
 		print "<div class=\"box\" id=\"statusbad\"><p>Isolate id must be an integer.</p></div>\n";
 		return;
 	}
-	$self->{'system'}->{'view'} ||= 'isolate'; #in case we're called from a seqdef database
+	$self->{'system'}->{'view'} ||= 'isolate';    #in case we're called from a seqdef database
 	my $qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute($isolate_id) };
@@ -514,7 +514,7 @@ sub get_isolate_record {
 		return $buffer;
 	}
 	my $scheme_group_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM scheme_groups")->[0];
-	if ($scheme_group_count || $self->{'curate'}) {
+	if ( $scheme_group_count || $self->{'curate'} ) {
 		$buffer .= "<tr><th style=\"vertical-align:top;padding-top:1em\">Schemes and loci</th><td colspan=\"5\">";
 		$buffer .= $self->_get_tree($id);
 		$buffer .= "</td></tr>";
@@ -623,7 +623,7 @@ sub _get_samples {
 					foreach (@$sample_fields) {
 						next if $_ eq 'sample_id' || $_ eq 'isolate_id';
 						( my $clean = $_ ) =~ tr/_/ /;
-						$info .= "$clean: $sample->{$_}&nbsp;<br />" if defined $sample->{$_};    #nbsp added to stop Firefox truncating text
+						$info .= "$clean: $sample->{$_}&nbsp;<br />" if defined $sample->{$_};   #nbsp added to stop Firefox truncating text
 					}
 					$row .=
 "<td>$sample->{$field}<span style=\"font-size:0.5em\"> </span><a class=\"update_tooltip\" title=\"$info\">&nbsp;...&nbsp;</a></td>";
@@ -734,13 +734,16 @@ sub _get_scheme_fields {
 	  if ( ( $hidden_locus_count == scalar @$loci && !$scheme_fields_count )
 		|| ( !keys %$allele_designations && !keys %$allele_sequences ) );
 	my $rowspan = $display_on_own_line ? ( $locus_display_count + $scheme_fields_count ) : 1;
-	$buffer .=
-	  ( $display_on_own_line
+	$buffer .= (
+		$display_on_own_line
 		? "<tr class=\"td$td\"><th rowspan=\"$rowspan\" style=\"vertical-align:top;padding-top:1em\">"
-		: "<tr class=\"td$td\"><th>" )
-	  . "$info_ref->{'description'}</th>";
+		: "<tr class=\"td$td\"><th>"
+	) . "$info_ref->{'description'}</th>";
 	my ( %url, %locus_value );
+	my $provisional_profile;
 	foreach (@$loci) {
+		$allele_designations->{$_}->{'status'} ||= 'confirmed';
+		$provisional_profile = 1 if $self->{'prefs'}->{'mark_provisional'} && $allele_designations->{$_}->{'status'} eq 'provisional';
 		my $cleaned_name;
 		my $display_locus_name = $_;
 		if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
@@ -748,8 +751,8 @@ sub _get_scheme_fields {
 		}
 		$display_locus_name =~ tr/_/ /;
 		$locus_value{$_} .= "<span class=\"provisional\">"
-		  if ($allele_designations->{$_}->{'status'} && $allele_designations->{$_}->{'status'} eq 'provisional')
-			  && $self->{'prefs'}->{'mark_provisional'};
+		  if ( $allele_designations->{$_}->{'status'} && $allele_designations->{$_}->{'status'} eq 'provisional' )
+		  && $self->{'prefs'}->{'mark_provisional'};
 		$cleaned_name = $display_locus_name;
 		$cleaned_name =~ s/_/&nbsp;/g;
 		my $tooltip_name = $cleaned_name;
@@ -758,7 +761,7 @@ sub _get_scheme_fields {
 			$cleaned_name .= "<br /><span class=\"comment\">(@{$locus_aliases{$_}})</span>";
 		}
 		push @profile, $allele_designations->{$_}->{'allele_id'};
-		if ( defined $allele_designations->{$_}->{'allele_id'}){
+		if ( defined $allele_designations->{$_}->{'allele_id'} ) {
 			my $url;
 			if ( $locus_info->{$_}->{'url'} && $allele_designations->{$_}->{'allele_id'} ne 'deleted' ) {
 				$url{$_} = $locus_info->{$_}->{'url'};
@@ -789,9 +792,7 @@ sub _get_scheme_fields {
 						$complete = 1 if $allele_sequences->{$_}->{$seqbin_id}->{$start}->{$end}->{'complete'};
 						my @flag_list = keys %{ $allele_sequence_flags->{$_}->{$seqbin_id}->{$start}->{$end} };
 						push @flags, \@flag_list;
-						foreach (@flag_list) {
-							$flags_used{$_} = 1;
-						}
+						$flags_used{$_} = 1 foreach @flag_list;
 					}
 				}
 			}
@@ -821,10 +822,10 @@ sub _get_scheme_fields {
 				$scheme = $self->{'datastore'}->get_scheme($id);
 			}
 			catch BIGSdb::DatabaseConnectionException with {};
-			my $scheme_field_values = $self->{'datastore'}->get_scheme_field_values_by_profile($id, \@profile);
+			my $scheme_field_values = $self->{'datastore'}->get_scheme_field_values_by_profile( $id, \@profile );
 			if ( defined $scheme_field_values && ref $scheme_field_values eq 'HASH' ) {
-				foreach (@$scheme_fields) {	
-					my $value = $scheme_field_values->{lc($_)};
+				foreach (@$scheme_fields) {
+					my $value = $scheme_field_values->{ lc($_) };
 					$value = defined $value ? $value : '';
 					$value = 'Not defined' if $value eq '-999' || $value eq '';
 					my $att = $self->{'datastore'}->get_scheme_field_info( $id, $_ );
@@ -838,9 +839,7 @@ sub _get_scheme_fields {
 					}
 				}
 			} else {
-				foreach (@$scheme_fields) {
-					$field_values{$_} = 'Not defined';
-				}
+				$field_values{$_} = 'Not defined' foreach @$scheme_fields;
 			}
 		}
 	}
@@ -884,7 +883,8 @@ sub _get_scheme_fields {
 					my $ex = shift;
 					$sequence = $ex->{-text};
 				};
-				$buffer .= defined $sequence ? "<td colspan=\"3\" style=\"text-align:left\" class=\"seq\">$sequence</td>" : "<td colspan=\"3\" />";
+				$buffer .=
+				  defined $sequence ? "<td colspan=\"3\" style=\"text-align:left\" class=\"seq\">$sequence</td>" : "<td colspan=\"3\" />";
 			} else {
 				$buffer .= "<td colspan=\"3\" />";
 			}
@@ -896,7 +896,10 @@ sub _get_scheme_fields {
 			next if !$self->{'prefs'}->{'isolate_display_scheme_fields'}->{$id}->{$_};
 			$buffer .= "<tr class=\"td$td\">" if !$first;
 			( my $cleaned = $_ ) =~ tr/_/ /;
-			$buffer .= "<td>$cleaned</td><td>$field_values{$_}</td>";
+			$buffer .= "<td>$cleaned</td>";
+			$buffer .= $provisional_profile ? "<td><span class=\"provisional\">" : '<td>';
+			$buffer .= $field_values{$_};
+			$buffer .= $provisional_profile ? '</span></td>'                     : '</td>';
 			$buffer .= "<td colspan=\"3\" />";
 			$buffer .= "</tr>";
 			$first = 0;
@@ -980,7 +983,9 @@ sub _get_scheme_fields {
 		foreach (@$scheme_fields) {
 			if ( $self->{'prefs'}->{'isolate_display_scheme_fields'}->{$id}->{$_} ) {
 				$value_buffer[$j] .= "<tr class=\"td$td\">" if !$i;
-				$value_buffer[$j] .= "<td>$field_values{$_}</td>";
+				$value_buffer[$j] .= $provisional_profile ? "<td><span class=\"provisional\">" : '<td>';
+				$value_buffer[$j] .= $field_values{$_};
+				$value_buffer[$j] .= $provisional_profile ? '</span></td>'                     : '</td>';
 				$i++;
 				if ( $i >= $max_cells ) {
 					$value_buffer[$j] .= "</tr>\n";
@@ -1020,11 +1025,13 @@ sub _get_pending_designation_tooltip {
 }
 
 sub get_main_table_reference {
-	my ( $self, $fieldname, $pmid, $td ) = @_;	
-	my $citation_ref = $self->{'datastore'}->get_citation_hash([$pmid], {'formatted' => 1, 'all_authors' => 1, 'state_if_unavailable' => 1});
-	my $buffer = "<tr class=\"td$td\"><th>$fieldname</th>"
-	."<td align=\"left\"><a href=\"http://www.ncbi.nlm.nih.gov/pubmed/$pmid\">$pmid</a></td>"
-	. "<td colspan=\"3\" style=\"text-align:left; width:75%\">$citation_ref->{$pmid}</td><td>";
+	my ( $self, $fieldname, $pmid, $td ) = @_;
+	my $citation_ref =
+	  $self->{'datastore'}->get_citation_hash( [$pmid], { 'formatted' => 1, 'all_authors' => 1, 'state_if_unavailable' => 1 } );
+	my $buffer =
+	    "<tr class=\"td$td\"><th>$fieldname</th>"
+	  . "<td align=\"left\"><a href=\"http://www.ncbi.nlm.nih.gov/pubmed/$pmid\">$pmid</a></td>"
+	  . "<td colspan=\"3\" style=\"text-align:left; width:75%\">$citation_ref->{$pmid}</td><td>";
 	$buffer .= $self->get_link_button_to_ref($pmid);
 	$buffer .= "</td></tr>\n";
 	return $buffer;
@@ -1069,7 +1076,9 @@ sub _get_history {
 
 sub get_name {
 	my ( $self, $isolate_id ) = @_;
-	my $name = $self->{'datastore'}->run_simple_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id )->[0];
+	my $name =
+	  $self->{'datastore'}
+	  ->run_simple_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id )->[0];
 	return ( $self->{'system'}->{'labelfield'}, $name );
 }
 1;
