@@ -52,6 +52,10 @@ sub _initiate_db {
 	$self->{'system'}->{'port'}     ||= 5432;
 	$self->{'system'}->{'user'}     ||= 'apache';
 	$self->{'system'}->{'password'} ||= 'remote';
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		$self->{'system'}->{'view'}       ||= 'isolates';
+		$self->{'system'}->{'labelfield'} ||= 'isolate';
+	}
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
 	$self->db_connect;
 	$self->setup_datastore;
