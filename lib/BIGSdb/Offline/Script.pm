@@ -27,7 +27,9 @@ use Log::Log4perl qw(get_logger);
 use BIGSdb::Dataconnector;
 use BIGSdb::Datastore;
 use BIGSdb::BIGSException;
+use BIGSdb::Parser;
 $ENV{'PATH'} = '/bin:/usr/bin';    ##no critic #so we don't foul taint check
+delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};    # Make %ENV safer
 
 sub new {
 	my ($class, $options) = @_;
@@ -35,13 +37,13 @@ sub new {
 	$self->{'system'}           = {};
 	$self->{'config'}           = {};
 	$self->{'cgi'}              = CGI->new;
-	$self->{'instance'}         = undef;
 	$self->{'xmlHandler'}       = undef;
 	$self->{'invalidXML'}       = 0;
 	$self->{'dataConnector'}    = BIGSdb::Dataconnector->new;
 	$self->{'datastore'}        = undef;
 	$self->{'pluginManager'}    = undef;
 	$self->{'db'}               = undef;
+	$self->{'instance'}         = $options->{'instance'};
 	$self->{'logger'}           = $options->{'logger'};
 	$self->{'config_dir'}       = $options->{'config_dir'};
 	$self->{'lib_dir'}          = $options->{'lib_dir'};
@@ -55,16 +57,46 @@ sub new {
 		Log::Log4perl->init_once( "$self->{'config_dir'}/script_logging.conf" );
 		$self->{'logger'}  = get_logger('BIGSdb.Script');
 	}
-	$self->read_config_file($options->{'config_dir'});
-	$self->read_host_mapping_file($options->{'config_dir'});
-	$self->initiate;
-	
 	$self->go;
 	return $self;
 }
 
 sub initiate {
-	#override in subclass
+	my ( $self ) = @_;
+	my $q = $self->{'cgi'};
+	
+	my $full_path = "$self->{'dbase_config_dir'}/$self->{'instance'}/config.xml";
+	$self->{'xmlHandler'} = BIGSdb::Parser->new();
+	my $parser = XML::Parser::PerlSAX->new( Handler => $self->{'xmlHandler'} );
+	eval { $parser->parse( Source => { SystemId => $full_path } ); };
+
+	if ($@) {
+		$self->{'logger'}->fatal("Invalid XML description: $@") if $self->{'instance'} ne '';
+		return;
+	}
+	$self->{'system'} = $self->{'xmlHandler'}->get_system_hash;
+	if ( $self->{'system'}->{'dbtype'} ne 'sequences' && $self->{'system'}->{'dbtype'} ne 'isolates' ) {
+		$self->{'error'} = 'invalidDbType';
+	}
+	$self->{'system'}->{'read_access'} ||= 'public';      #everyone can view by default
+	$self->{'system'}->{'host'}        ||= 'localhost';
+	$self->{'system'}->{'port'}        ||= 5432;
+	$self->{'system'}->{'user'}        ||= 'apache';
+	$self->{'system'}->{'password'}    ||= 'remote';
+	$self->{'system'}->{'locus_superscript_prefix'} ||= 'no';
+
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		$self->{'system'}->{'view'}       ||= 'isolates';
+		$self->{'system'}->{'labelfield'} ||= 'isolate';
+		if ( !$self->{'xmlHandler'}->is_field( $self->{'system'}->{'labelfield'} ) ) {
+			$self->{'logger'}->error(
+"The defined labelfield '$self->{'system'}->{'labelfield'}' does not exist in the database.  Please set the labelfield attribute in the system tag of the database XML file."
+			);
+		}
+	}
+	$self->db_connect;	
+	$self->setup_datastore if $self->{'db'};
+	return;
 }
 
 sub get_load_average {
@@ -85,6 +117,9 @@ sub go {
 		exit;
 	};
 	return if $load_average > $max_load;
+	$self->read_config_file($self->{'config_dir'});
+	$self->read_host_mapping_file($self->{'config_dir'});
+	$self->initiate;
 	$self->run_script;
 	return;
 }
