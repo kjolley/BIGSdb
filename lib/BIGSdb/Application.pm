@@ -49,7 +49,7 @@ sub new {
 	if ( !$self->{'error'} ) {
 		$self->db_connect;
 		if ( $self->{'db'} ) {
-			$self->_setup_datastore;
+			$self->setup_datastore;
 			$self->_setup_prefstore;
 			if ( !$self->{'system'}->{'authentication'} ) {
 				my $logger = get_logger('BIGSdb.Application_Authentication');
@@ -62,7 +62,7 @@ sub new {
 			  if ( $q->param('page') eq 'plugin'
 				|| $q->param('page') eq 'job' )
 			  && $self->{'config'}->{'jobs_db'};
-			$self->_initiate_plugins($plugin_dir);
+			$self->initiate_plugins($plugin_dir);
 		}
 	}
 	$self->print_page($dbase_config_dir);
@@ -74,8 +74,8 @@ sub _initiate {
 	my ( $self, $config_dir, $dbase_config_dir ) = @_;
 	my $q = $self->{'cgi'};
 	Log::Log4perl::MDC->put( "ip", $q->remote_host );
-	$self->_read_config_file($config_dir);
-	$self->_read_host_mapping_file($config_dir);
+	$self->read_config_file($config_dir);
+	$self->read_host_mapping_file($config_dir);
 	my $logger = get_logger('BIGSdb.Application_Initiate');
 	my $db = $self->{'cgi'}->param('db') || '';
 	$self->{'instance'} = $db =~ /^([\w\d\-_]+)$/ ? $1 : '';
@@ -185,7 +185,7 @@ SQL
 	return;
 }
 
-sub _initiate_plugins {
+sub initiate_plugins {
 	my ( $self, $plugin_dir ) = @_;
 	$self->{'pluginManager'} = BIGSdb::PluginManager->new(
 		'system'           => $self->{'system'},
@@ -216,7 +216,7 @@ sub _initiate_jobmanager {
 	return;
 }
 
-sub _read_config_file {
+sub read_config_file {
 	my ( $self, $config_dir ) = @_;
 	my $logger = get_logger('BIGSdb.Application_Initiate');
 	my $config = Config::Tiny->new();
@@ -245,7 +245,7 @@ sub _read_config_file {
 	return;
 }
 
-sub _read_host_mapping_file {
+sub read_host_mapping_file {
 	my ( $self, $config_dir ) = @_;
 	if ( -e "$config_dir/host_mapping.conf" ) {
 		open( my $fh, '<', "$config_dir/host_mapping.conf" );
@@ -282,7 +282,7 @@ sub _setup_prefstore {
 	return;
 }
 
-sub _setup_datastore {
+sub setup_datastore {
 	my ($self) = @_;
 	$self->{'datastore'} = BIGSdb::Datastore->new(
 		(

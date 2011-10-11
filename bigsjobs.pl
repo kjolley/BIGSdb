@@ -18,7 +18,8 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
-
+#
+#
 #This script should be run frequently (perhaps every minute) as
 #a CRON job.  If the load average of the server is too high (as
 #defined in bigsdb.conf) or there is no job to process, the script
@@ -26,6 +27,7 @@
 #filenames, so either rename the script to 'bigsjobs' or create
 #a symlink and call that from CRON.
 use strict;
+use warnings;
 ###########Local configuration################################
 use constant {
 	CONFIG_DIR       => '/etc/bigsdb',
@@ -37,139 +39,20 @@ use constant {
 	PASSWORD         => 'bigsdb'
 };
 #######End Local configuration################################
-use DBI;
-use CGI;
-use Log::Log4perl qw(get_logger);
 use lib (LIB_DIR);
-use Config::Tiny;
-use Error qw(:try);
-use BIGSdb::Parser;
-use BIGSdb::Datastore;
-use BIGSdb::OfflineJobManager;
-use BIGSdb::PluginManager;
-use BIGSdb::Dataconnector;
-use BIGSdb::BIGSException;
+use Log::Log4perl qw(get_logger);
+use BIGSdb::Offline::RunJobs;
 Log::Log4perl->init_once( CONFIG_DIR . '/job_logging.conf' );
-my $logger     = get_logger('BIGSdb.Job');
-$ENV{'PATH'} = '/bin:/usr/bin';    #so we don't foul taint check
-my $config = read_config_file();
-
-my $load_average; 
-my $max_load = $config->{'max_load'} || 8;
-
-try {
-	$load_average = get_load_average();
-} catch BIGSdb::DataException with {
-	$logger->fatal("Can't determine load average ... aborting!");
-	exit;
-};
-
-exit if $load_average > $max_load;
-
-my $cgi = new CGI;                 #Plugins expect a CGI object even though we're not using one
-my $job_manager = BIGSdb::OfflineJobManager->new( CONFIG_DIR, LIB_DIR, DBASE_CONFIG_DIR, HOST, PORT, USER, PASSWORD );
-my $job_id      = $job_manager->get_next_job_id;
-exit if !$job_id;
-my ( $job, $params ) = $job_manager->get_job($job_id);
-
-my $instance   = $job->{'dbase_config'};
-my $full_path  = DBASE_CONFIG_DIR . "/$instance/config.xml";
-my $xmlHandler = BIGSdb::Parser->new();
-my $parser     = XML::Parser::PerlSAX->new( Handler => $xmlHandler );
-eval { $parser->parse( Source => { SystemId => $full_path } ); };
-
-if ($@) {
-	$logger->fatal("Invalid XML description: $@");
-	return;
-}
-
-my $system = $xmlHandler->get_system_hash;
-$system->{'host'}     = 'localhost' if !$system->{'host'};
-$system->{'port'}     = 5432        if !$system->{'port'};
-$system->{'user'}     = 'apache'    if !$system->{'user'};
-$system->{'password'} = 'remote'    if !$system->{'password'};
-$system->{'view'}     = 'isolates'  if !$system->{'view'};
-$system->{'labelfield'} = 'isolate' if !$system->{'labelfield'};
-my $dataConnector = BIGSdb::Dataconnector->new();
-$dataConnector->initiate($system,$config);
-my $db;
-$logger->info("Job: $job->{'id'}; Module: $job->{'module'}");
-
-db_connect($system);
-my $datastore = BIGSdb::Datastore->new(
-	( 'db' => $db, 'dataConnector' => $dataConnector, 'system' => $system, 'config' => $config, 'xmlHandler' => $xmlHandler ) );
-my $plugin_manager = BIGSdb::PluginManager->new(
-	'system'        => $system,
-	'cgi'           => $cgi,
-	'instance'      => $instance,
-	'config'        => $config,
-	'datastore'     => $datastore,
-	'db'            => $db,
-	'xmlHandler'    => $xmlHandler,
-	'dataConnector' => $dataConnector,
-	'jobManager'    => $job_manager,
-	'pluginDir'     => LIB_DIR
-);
-my $plugin = $plugin_manager->get_plugin( $job->{'module'} );
-$job_manager->update_job_status( $job_id, { 'status' => 'started', 'start_time' => 'now' } );
-$plugin->run_job( $job_id, $params );
-$job_manager->update_job_status( $job_id, { 'status' => 'finished', 'stop_time' => 'now', 'percent_complete' => 100 } );
-undef $dataConnector;
-
-sub read_config_file {
-	my $config = Config::Tiny->new();
-	$config = Config::Tiny->read( CONFIG_DIR . "/bigsdb.conf" );
-	foreach (
-		qw ( prefs_db auth_db jobs_db max_load emboss_path tmp_dir secure_tmp_dir 
-		blast_path blast+_path blast_threads muscle_path mogrify_path reference refdb )
-	  )
+my $logger = get_logger('BIGSdb.Job');
+BIGSdb::Offline::RunJobs->new(
 	{
-		$config->{$_} = $config->{_}->{$_};
+		config_dir       => CONFIG_DIR,
+		lib_dir          => LIB_DIR,
+		dbase_config_dir => DBASE_CONFIG_DIR,
+		host             => HOST,
+		port             => PORT,
+		user             => USER,
+		password         => PASSWORD,
+		logger           => $logger
 	}
-	
-	#read host maps if set
-	if (-e CONFIG_DIR . "/host_mapping.conf"){
-		open (my $fh, '<', CONFIG_DIR  . "/host_mapping.conf");
-		while (<$fh>){
-			next if $_ =~ /^\s+$/ || $_ =~ /^#/;
-			my ($host,$mapped) = split /\s+/,$_;
-			next if !$host || !$mapped;
-			$config->{'host_map'}->{$host} = $mapped;
-		}
-		close $fh;
-	}
-	
-	return $config;
-}
-
-sub db_connect {
-	my ($system) = @_;
-	my %att = (
-		'dbase_name' => $system->{'db'},
-		'host'       => $system->{'host'},
-		'port'       => $system->{'port'},
-		'user'       => $system->{'user'},
-		'password'   => $system->{'password'}
-	);
-	try {
-		$db = $dataConnector->get_connection( \%att );
-	}
-	catch BIGSdb::DatabaseConnectionException with {
-		my $logger = get_logger('BIGSdb.Application_Initiate');
-		$logger->error("Can not connect to database '$system->{'db'}'");
-		return;
-	};
-}
-
-sub get_load_average {
-	my $uptime = `uptime`;
-	my $load;
-	if ( $uptime =~ /load average:\s+([\d\.]+)/ ) {
-		$load = $1;
-	} else {
-		throw BIGSdb::DataException("Can't determine load average");
-	}
-	return $load;
-}
-
-
+);

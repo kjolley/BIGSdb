@@ -44,7 +44,7 @@ sub new {
 
 sub _initiate {
 	my ( $self, $config_dir, $dbase_config_dir ) = @_;
-	$self->_read_config_file($config_dir);
+	$self->read_config_file($config_dir);
 }
 
 sub _db_connect {
