@@ -92,7 +92,7 @@ sub run {
 
 		#Make sure query file is accessible to job host (the web server and job host may not be the same machine)
 		#These machines should share the tmp_dir but not the secure_tmp_dir, so copy this over to the tmp_dir.
-		if ( !-e "$self->{'config'}->{'tmp_dir'}/$query_file" ) {
+		if ( defined $query_file && !-e "$self->{'config'}->{'tmp_dir'}/$query_file" ) {
 			if ( $query_file =~ /^(BIGSdb[\d_]*\.txt)$/ ) {
 				$query_file = $1;    #untaint
 			}
