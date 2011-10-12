@@ -1708,7 +1708,7 @@ sub search_users {
 	}
 	my $ids = $self->{'datastore'}->run_list_query($qry);
 	if (@$ids) {
-		local $" = "' OR $field = '";
+		local $" = "' OR $table.$field = '";
 		return "($table.$field = '@$ids')";
 	} else {
 		return "($table.$field = '0')";
