@@ -613,7 +613,7 @@ sub create_temp_scheme_table {
 	}
 	my $fields = $self->get_scheme_fields($id);
 	my $loci   = $self->get_scheme_loci($id);
-	my $create = "CREATE TEMP TABLE temp_scheme_$id (";
+	my $create = "SET TRANSACTION READ WRITE; CREATE TEMP TABLE temp_scheme_$id (";
 	my @table_fields;
 	foreach (@$fields) {
 		my $type = $self->get_scheme_field_info( $id, $_ )->{'type'};
@@ -916,10 +916,10 @@ sub get_pending_allele_designations {
 		  $self->{'db'}->prepare("SELECT * FROM pending_allele_designations WHERE isolate_id=? AND locus=? ORDER BY datestamp");
 		$logger->info("Statement handle 'pending_allele_designation' prepared.");
 	}
-	eval { $self->{'sql'}->{'pending_allele_designation'}->execute( $isolate_id, $locus ); };
+	eval { $self->{'sql'}->{'pending_allele_designation'}->execute( $isolate_id, $locus ) };
 	$logger->error($@) if $@;
 	my @designations;
-	while ( my $allele = $self->{'sql'}->{'pending_allele_designation'}->fetchrow_hashref() ) {
+	while ( my $allele = $self->{'sql'}->{'pending_allele_designation'}->fetchrow_hashref ) {
 		push @designations, $allele;
 	}
 	return \@designations;
@@ -1154,7 +1154,7 @@ sub create_temp_ref_table {
 	};
 	return if !$continue;
 	my $create =
-"CREATE TEMP TABLE temp_refs (pmid int, year int, journal text, volume text, pages text, title text, abstract text, authors text, isolates int);";
+"SET TRANSACTION READ WRITE; CREATE TEMP TABLE temp_refs (pmid int, year int, journal text, volume text, pages text, title text, abstract text, authors text, isolates int);";
 	eval { $self->{'db'}->do($create); };
 	if ($@) {
 		$logger->error("Can't create temporary reference table. $@");
@@ -1167,10 +1167,7 @@ sub create_temp_ref_table {
 	my $qry3 = "SELECT id,surname,initials FROM authors";
 	my $sql3 = $dbr->prepare($qry3);
 	eval { $sql3->execute; };
-
-	if (@$) {
-		$logger->error($@);
-	}
+	$logger->error($@) if $@;
 	my $all_authors = $sql3->fetchall_hashref('id');
 	my ( $qry4, $isolates );
 	if ($qry_ref) {

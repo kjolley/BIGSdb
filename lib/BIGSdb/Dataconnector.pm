@@ -63,6 +63,7 @@ sub get_connection {
 					$user, $password, { 'AutoCommit' => 0, 'RaiseError' => 1, 'PrintError' => 0 } );
 				if ( !$attributes->{'writable'} ) {
 					$db->do("SET session CHARACTERISTICS AS TRANSACTION READ ONLY");
+					$db->commit;
 				}
 				$self->{'db'}->{"$host|$attributes->{'dbase_name'}"} = $db;
 			};

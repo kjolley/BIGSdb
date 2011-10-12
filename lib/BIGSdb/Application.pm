@@ -160,12 +160,8 @@ sub initiate_view {
 	my $username   = $attributes->{'username'};
 	my $status_ref = $self->{'datastore'}->run_simple_query( "SELECT status FROM users WHERE user_name=?", $username );
 	return if ref $status_ref ne 'ARRAY' || $status_ref->[0] eq 'admin';
-	my $write_clause;
-	if ( $attributes->{'curate'} ) {
-
-		#You need to be able to read and write to a record to view it in the curator's interface
-		$write_clause = " AND write=true";
-	}
+	#You need to be able to read and write to a record to view it in the curator's interface
+	my $write_clause = $attributes->{'curate'} ? ' AND write=true' : '';
 	my $view_clause = << "SQL";
 SELECT * FROM $self->{'system'}->{'view'} WHERE id IN (SELECT isolate_id FROM isolate_user_acl 
 LEFT JOIN users ON isolate_user_acl.user_id = users.id WHERE user_name='$username' AND read$write_clause) OR 
@@ -174,7 +170,7 @@ ON user_group_members.user_group=isolate_usergroup_acl.user_group_id LEFT JOIN u
 ON user_group_members.user_id=users.id WHERE users.user_name ='$username' AND read$write_clause)
 SQL
 	if ($username) {
-		eval { $self->{'db'}->do("CREATE TEMP VIEW tmp_userview AS $view_clause") };
+		eval { $self->{'db'}->do("SET TRANSACTION READ WRITE; CREATE TEMP VIEW tmp_userview AS $view_clause") };
 		if ($@) {
 			$logger->error("Can't create user view $@");
 			$self->{'db'}->rollback;
