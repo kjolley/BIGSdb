@@ -58,7 +58,7 @@ sub new {
 				);
 			}
 			$self->_initiate_authdb if $self->{'system'}->{'authentication'} eq 'builtin';
-			$self->_initiate_jobmanager( $config_dir, $plugin_dir, $dbase_config_dir )
+			$self->_initiate_jobmanager( $config_dir, $dbase_config_dir )
 			  if ( $q->param('page') eq 'plugin'
 				|| $q->param('page') eq 'job' )
 			  && $self->{'config'}->{'jobs_db'};
@@ -205,13 +205,16 @@ sub initiate_plugins {
 }
 
 sub _initiate_jobmanager {
-	my ( $self, $config_dir, $plugin_dir, $dbase_config_dir, ) = @_;
+	my ( $self, $config_dir, $dbase_config_dir, ) = @_;
 	$self->{'jobManager'} = BIGSdb::OfflineJobManager->new(
-		$config_dir, $plugin_dir, $dbase_config_dir,
-		$self->{'system'}->{'host'},
-		$self->{'system'}->{'port'},
-		$self->{'system'}->{'user'},
-		$self->{'system'}->{'password'},
+		{
+			config_dir       => $config_dir,
+			dbase_config_dir => $dbase_config_dir,
+			host             => $self->{'system'}->{'host'},
+			port             => $self->{'system'}->{'port'},
+			user             => $self->{'system'}->{'user'},
+			password         => $self->{'system'}->{'password'},
+		}
 	);
 	return;
 }

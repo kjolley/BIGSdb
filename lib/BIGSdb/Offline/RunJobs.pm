@@ -27,12 +27,14 @@ use BIGSdb::Parser;
 sub initiate {
 	my ($self) = @_;
 	$self->{'jobManager'} = BIGSdb::OfflineJobManager->new(
-		$self->{'config_dir'}, $self->{'lib_dir'},
-		$self->{'dbase_config_dir'},
-		$self->{'host'}     || 'localhost',
-		$self->{'port'}     || 5432,
-		$self->{'user'}     || 'apache',
-		$self->{'password'} || 'remote'
+		{
+			config_dir       => $self->{'config_dir'},
+			dbase_config_dir => $self->{'dbase_config_dir'},
+			host             => $self->{'host'} || 'localhost',
+			port             => $self->{'port'} || 5432,
+			user             => $self->{'user'} || 'apache',
+			password         => $self->{'password'} || 'remote'
+		}
 	);
 	return;
 }

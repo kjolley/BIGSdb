@@ -27,17 +27,17 @@ my $logger = get_logger('BIGSdb.Job');
 sub new {
 
 	#The job manager uses its own Dataconnector since it may be called by a stand-alone script.
-	my ( $class, $config_dir, $plugin_dir, $dbase_config_dir, $host, $port, $user, $password ) = @_;
+	my ( $class, $options ) = @_;
 	my $self = {};
 	$self->{'system'}        = {};
-	$self->{'host'}          = $host;
-	$self->{'port'}          = $port;
-	$self->{'user'}          = $user;
-	$self->{'password'}      = $password;
+	$self->{'host'}          = $options->{'host'};
+	$self->{'port'}          = $options->{'port'};
+	$self->{'user'}          = $options->{'user'};
+	$self->{'password'}      = $options->{'password'};
 	$self->{'xmlHandler'}    = undef;
-	$self->{'dataConnector'} = new BIGSdb::Dataconnector;
+	$self->{'dataConnector'} = BIGSdb::Dataconnector->new;
 	bless( $self, $class );
-	$self->_initiate( $config_dir, $dbase_config_dir );
+	$self->_initiate( $options->{'config_dir'}, $options->{'$dbase_config_dir'} );
 	$self->_db_connect;
 	return $self;
 }
