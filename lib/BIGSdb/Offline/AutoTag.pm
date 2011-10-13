@@ -37,8 +37,13 @@ sub run_script {
 	die
 "Database user '$self->{'username'}' not set.  Enter a user '$self->{'username'}' with id $tag_user_id in the database to represent the auto tagger.\n"
 	  if !$user_ok;
-	my $isolates = $self->get_isolates_with_linked_seqs( $self->{'options'}->{'m'} );
-	@$isolates = shuffle(@$isolates) if $self->{'options'}->{'r'};
+	my $isolates = $self->get_isolates_with_linked_seqs;
+	if ($self->{'options'}->{'r'}){
+		@$isolates = shuffle(@$isolates);
+	} elsif ($self->{'options'}->{'o'}) {
+		my $tag_date = $self->_get_last_tagged_date($isolates);
+		@$isolates = sort {$tag_date->{$a} cmp $tag_date->{$b}} @$isolates; 
+	}
 	die "No isolates selected.\n" if !@$isolates;
 	my $loci = $self->get_loci_with_ref_db;
 	die "No valid loci selected.\n" if !@$loci;
@@ -51,6 +56,7 @@ sub run_script {
 			my $size = $self->_get_size_of_seqbin($isolate_id);
 			next if $size < $self->{'options'}->{'m'};
 		}
+		$self->{'logger'}->info("Checking isolate $isolate_id");
 		undef $self->{'history'};
 		foreach my $locus (@$loci) {
 			next if defined $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
@@ -192,5 +198,18 @@ sub _get_size_of_seqbin {
 	$self->{'logger'}->error($@) if $@;
 	my ($size) = $self->{'sql'}->{'seqbin_size'}->fetchrow_array;
 	return $size;
+}
+
+sub _get_last_tagged_date {
+	my ($self, $isolates) = @_;
+	my $sql = $self->{'db'}->prepare("SELECT MAX(datestamp) FROM allele_designations WHERE isolate_id=?");
+	my %tag_date;
+	foreach (@$isolates){
+		eval { $sql->execute($_)};
+		$self->{'logger'}->error($@) if $@;
+		my ($date) = $sql->fetchrow_array || '0000-00-00';
+		$tag_date{$_} = $date;
+	}	
+	return \%tag_date;
 }
 1;

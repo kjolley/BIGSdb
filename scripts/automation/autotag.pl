@@ -38,7 +38,7 @@ use Getopt::Std;
 use BIGSdb::Offline::AutoTag;
 
 my %opts;
-getopts( 'd:i:l:m:p:s:t:hqr', \%opts );
+getopts( 'd:i:l:m:p:s:t:hoqr', \%opts );
 
 if ($opts{'h'}){
 	show_help();
@@ -80,6 +80,8 @@ Options
 -l <list>  Loci - comma-separated list of loci to scan (ignored if -s used).
 -m <size>  Minimum size of seqbin (bp) - limit search to isolates with at 
            least this much sequence.
+-o         Order so that isolates last tagged the longest time ago get
+           scanned first (ignored if -r used).
 -p <list>  Projects - comma-separated list of project isolates to scan.
 -q         Quiet - only error messages displayed.
 -r         Random - shuffle order of isolate ids to scan
