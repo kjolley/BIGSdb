@@ -38,7 +38,7 @@ use Getopt::Std;
 use BIGSdb::Offline::AutoTag;
 
 my %opts;
-getopts( 'd:i:l:m:p:s:t:hq', \%opts );
+getopts( 'd:i:l:m:p:s:t:hqr', \%opts );
 
 if ($opts{'h'}){
 	show_help();
@@ -73,15 +73,18 @@ Usage autotag.pl -d <database configuration>
 
 Options
 -------
--d      Database configuration name.
--h      This help page.
--i      Isolates - comma-separated list of isolate ids to scan (ignored if -p used).
--l      Loci - comma-separated list of loci to scan (ignored if -s used).
--m      Minimum size of seqbin (bp) - limit search to isolates with at least this much sequence.
--p      Projects - comma-separated list of project isolates to scan.
--q      Quiet - only error messages displayed.
--s      Schemes - comma-separated list of scheme loci to scan.
--t      Time limit - Stop after t minutes.
+-d <name>  Database configuration name.
+-h         This help page.
+-i <list>  Isolates - comma-separated list of isolate ids to scan (ignored if
+           -p used).
+-l <list>  Loci - comma-separated list of loci to scan (ignored if -s used).
+-m <size>  Minimum size of seqbin (bp) - limit search to isolates with at 
+           least this much sequence.
+-p <list>  Projects - comma-separated list of project isolates to scan.
+-q         Quiet - only error messages displayed.
+-r         Random - shuffle order of isolate ids to scan
+-s <list>  Schemes - comma-separated list of scheme loci to scan.
+-t <mins>  Time limit - Stop after t minutes.
 HELP
 	return;
 }

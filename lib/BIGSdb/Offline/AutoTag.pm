@@ -19,6 +19,7 @@
 package BIGSdb::Offline::AutoTag;
 use strict;
 use warnings;
+use List::Util qw(shuffle);
 use List::MoreUtils qw(none);
 use base qw(BIGSdb::Offline::Script BIGSdb::CurateTagScanPage);
 use BIGSdb::Utils;
@@ -37,6 +38,7 @@ sub run_script {
 "Database user '$self->{'username'}' not set.  Enter a user '$self->{'username'}' with id $tag_user_id in the database to represent the auto tagger.\n"
 	  if !$user_ok;
 	my $isolates = $self->get_isolates_with_linked_seqs( $self->{'options'}->{'m'} );
+	@$isolates = shuffle(@$isolates) if $self->{'options'}->{'r'};
 	die "No isolates selected.\n" if !@$isolates;
 	my $loci = $self->get_loci_with_ref_db;
 	die "No valid loci selected.\n" if !@$loci;
