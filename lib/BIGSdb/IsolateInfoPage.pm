@@ -1076,9 +1076,12 @@ sub _get_history {
 
 sub get_name {
 	my ( $self, $isolate_id ) = @_;
-	my $name =
+	my $name_ref =
 	  $self->{'datastore'}
-	  ->run_simple_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id )->[0];
-	return ( $self->{'system'}->{'labelfield'}, $name );
+	  ->run_simple_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id );
+	if (ref $name_ref eq 'ARRAY'){
+		return ( $self->{'system'}->{'labelfield'}, $name_ref->[0] );
+	}
+	return;
 }
 1;
