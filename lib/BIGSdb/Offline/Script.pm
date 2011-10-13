@@ -24,15 +24,16 @@ use CGI;
 use DBI;
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
+use List::MoreUtils qw(any uniq);
 use BIGSdb::Dataconnector;
 use BIGSdb::Datastore;
 use BIGSdb::BIGSException;
 use BIGSdb::Parser;
-$ENV{'PATH'} = '/bin:/usr/bin';    ##no critic #so we don't foul taint check
+$ENV{'PATH'} = '/bin:/usr/bin';              ##no critic #so we don't foul taint check
 delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};    # Make %ENV safer
 
 sub new {
-	my ($class, $options) = @_;
+	my ( $class, $options ) = @_;
 	my $self = {};
 	$self->{'system'}           = {};
 	$self->{'config'}           = {};
@@ -43,6 +44,7 @@ sub new {
 	$self->{'datastore'}        = undef;
 	$self->{'pluginManager'}    = undef;
 	$self->{'db'}               = undef;
+	$self->{'options'}          = $options->{'options'};
 	$self->{'instance'}         = $options->{'instance'};
 	$self->{'logger'}           = $options->{'logger'};
 	$self->{'config_dir'}       = $options->{'config_dir'};
@@ -52,24 +54,24 @@ sub new {
 	$self->{'port'}             = $options->{'port'};
 	$self->{'user'}             = $options->{'user'};
 	$self->{'password'}         = $options->{'password'};
+	$self->{'writable'}         = $options->{'writable'};
 	bless( $self, $class );
-	if (!defined $self->{'logger'} ){
-		Log::Log4perl->init_once( "$self->{'config_dir'}/script_logging.conf" );
-		$self->{'logger'}  = get_logger('BIGSdb.Script');
+
+	if ( !defined $self->{'logger'} ) {
+		Log::Log4perl->init_once("$self->{'config_dir'}/script_logging.conf");
+		$self->{'logger'} = get_logger('BIGSdb.Script');
 	}
-	$self->go;
+	$self->_go;
 	return $self;
 }
 
 sub initiate {
-	my ( $self ) = @_;
-	my $q = $self->{'cgi'};
-	
+	my ($self)    = @_;
+	my $q         = $self->{'cgi'};
 	my $full_path = "$self->{'dbase_config_dir'}/$self->{'instance'}/config.xml";
 	$self->{'xmlHandler'} = BIGSdb::Parser->new();
 	my $parser = XML::Parser::PerlSAX->new( Handler => $self->{'xmlHandler'} );
 	eval { $parser->parse( Source => { SystemId => $full_path } ); };
-
 	if ($@) {
 		$self->{'logger'}->fatal("Invalid XML description: $@") if $self->{'instance'} ne '';
 		return;
@@ -78,13 +80,11 @@ sub initiate {
 	if ( $self->{'system'}->{'dbtype'} ne 'sequences' && $self->{'system'}->{'dbtype'} ne 'isolates' ) {
 		$self->{'error'} = 'invalidDbType';
 	}
-	$self->{'system'}->{'read_access'} ||= 'public';      #everyone can view by default
-	$self->{'system'}->{'host'}        ||= 'localhost';
-	$self->{'system'}->{'port'}        ||= 5432;
-	$self->{'system'}->{'user'}        ||= 'apache';
-	$self->{'system'}->{'password'}    ||= 'remote';
+	$self->{'system'}->{'host'}     = $self->{'host'}     || 'localhost';
+	$self->{'system'}->{'port'}     = $self->{'port'}     || 5432;
+	$self->{'system'}->{'user'}     = $self->{'user'}     || 'apache';
+	$self->{'system'}->{'password'} = $self->{'password'} || 'remote';
 	$self->{'system'}->{'locus_superscript_prefix'} ||= 'no';
-
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$self->{'system'}->{'view'}       ||= 'isolates';
 		$self->{'system'}->{'labelfield'} ||= 'isolate';
@@ -94,7 +94,12 @@ sub initiate {
 			);
 		}
 	}
-	$self->db_connect;	
+	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
+	$self->db_connect;
+	if ($self->{'writable'}){
+		$self->{'db'}->do("SET session CHARACTERISTICS AS TRANSACTION READ WRITE");
+		$self->{'db'}->commit;
+	}
 	$self->setup_datastore if $self->{'db'};
 	return;
 }
@@ -105,7 +110,7 @@ sub get_load_average {
 	throw BIGSdb::DataException("Can't determine load average");
 }
 
-sub go {
+sub _go {
 	my ($self) = @_;
 	my $load_average;
 	my $max_load = $self->{'config'}->{'max_load'} || 8;
@@ -117,8 +122,8 @@ sub go {
 		exit;
 	};
 	return if $load_average > $max_load;
-	$self->read_config_file($self->{'config_dir'});
-	$self->read_host_mapping_file($self->{'config_dir'});
+	$self->read_config_file( $self->{'config_dir'} );
+	$self->read_host_mapping_file( $self->{'config_dir'} );
 	$self->initiate;
 	$self->run_script;
 	return;
@@ -130,5 +135,55 @@ sub run_script {
 	my ($self) = @_;
 	$self->{'logger'}->fatal("run_script should be overridden in your subclass.");
 	return;
+}
+
+sub get_isolates_with_linked_seqs {
+
+	#options set in $self->{'options}
+	#$self->{'options}->{'p'}: comma-separated list of projects
+	#$self->{'options}->{'i'}: comma-separated list of isolate ids (ignored if 'p' used)
+	my ($self) = @_;
+	my $qry;
+	local $" = ',';
+	if ( $self->{'options'}->{'p'} ) {
+		my @projects = split /,/, $self->{'options'}->{'p'};
+		die "Invalid project list.\n" if any { !BIGSdb::Utils::is_int($_) } @projects;
+		$qry =
+"SELECT DISTINCT isolate_id FROM sequence_bin WHERE isolate_id IN (SELECT isolate_id FROM project_members WHERE project_id IN (@projects))";
+	} elsif ( $self->{'options'}->{'i'} ) {
+		my @ids = split /,/, $self->{'options'}->{'i'};
+		die "Invalid isolate id list.\n" if any { !BIGSdb::Utils::is_int($_) } @ids;
+		$qry = "SELECT DISTINCT isolate_id FROM sequence_bin WHERE isolate_id IN (@ids)";
+	} else {
+		$qry = "SELECT DISTINCT isolate_id FROM sequence_bin";
+	}
+	$qry .= " ORDER BY isolate_id";
+	return $self->{'datastore'}->run_list_query($qry);
+}
+
+sub get_loci_with_ref_db {
+
+	#options set in $self->{'options}
+	#$self->{'options}->{'s'}: comma-separated list of schemes
+	#$self->{'options}->{'l'}: comma-separated list of loci (ignored if 's' used)
+	my ($self) = @_;
+	my $qry;
+	my $ref_db_loci_qry = "SELECT id FROM loci WHERE dbase_name IS NOT NULL AND dbase_table IS NOT NULL";
+	if ( $self->{'options'}->{'s'} ) {
+		my @schemes = split /,/, $self->{'options'}->{'s'};
+		die "Invalid scheme list.\n" if any { !BIGSdb::Utils::is_int($_) } @schemes;
+		local $" = ',';
+		$qry = "SELECT locus FROM scheme_members WHERE scheme_id IN (@schemes) AND locus IN ($ref_db_loci_qry) "
+		  . "ORDER BY scheme_id,field_order";
+	} elsif ( $self->{'options'}->{'l'} ) {
+		my @loci = split /,/, $self->{'options'}->{'l'};
+		local $" = "','";
+		$qry = "$ref_db_loci_qry AND id IN ('@loci')";
+	} else {
+		$qry = "$ref_db_loci_qry ORDER BY id";
+	}
+	my $loci = $self->{'datastore'}->run_list_query($qry);
+	@$loci = uniq @$loci;
+	return $loci;
 }
 1;

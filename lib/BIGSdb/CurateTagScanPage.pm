@@ -1164,7 +1164,7 @@ sub _blast {
 		return if !@$probe_matches;
 	}
 	if ( -e $temp_fastafile && !-z $temp_fastafile ) {
-		my $blastn_word_size = $self->{'cgi'}->param('word_size') =~ /(\d+)/ ? $1 : 15;
+		my $blastn_word_size = (defined $self->{'cgi'}->param('word_size') && $self->{'cgi'}->param('word_size') =~ /(\d+)/) ? $1 : 15;
 		my $word_size = $program eq 'blastn' ? $blastn_word_size : 3;
 		if ( $self->{'config'}->{'blast+_path'} ) {
 			my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;

@@ -115,7 +115,7 @@ sub _print_isolate_field {
 	$used->{$_} = 1 foreach @$used_list;
 	if ( $field eq 'sender' || $field eq 'curator' || ( $attributes{'userfield'} && $attributes{'userfield'} eq 'yes' ) ) {
 		print "<p>The integer stored in this field is the key to the following users";
-		my $filter = $field eq 'curator' ? "WHERE status = 'curator' or status = 'admin' AND id>0" : 'WHERE id>0';
+		my $filter = $field eq 'curator' ? "WHERE (status = 'curator' or status = 'admin') AND id>0" : 'WHERE id>0';
 		my $qry = "SELECT id, user_name, surname, first_name, affiliation FROM users $filter ORDER BY id";
 		print " (only curators or administrators shown)" if $field eq 'curator';
 		print ". Values present in the database are <span class=\"highlightvalue\">highlighted</span>.\n";
