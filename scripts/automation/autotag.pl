@@ -38,7 +38,7 @@ use Getopt::Std;
 use BIGSdb::Offline::AutoTag;
 
 my %opts;
-getopts( 'd:i:l:m:p:s:t:x:y:hoqr', \%opts );
+getopts( 'd:i:I:l:m:p:s:t:x:y:hoqr', \%opts );
 
 if ($opts{'h'}){
 	show_help();
@@ -77,6 +77,7 @@ Options
 -h         This help page.
 -i <list>  Isolates - comma-separated list of isolate ids to scan (ignored if
            -p used).
+-I <list>  Exclude isolates - comma-separated list of isolate ids to ignore.
 -l <list>  Loci - comma-separated list of loci to scan (ignored if -s used).
 -m <size>  Minimum size of seqbin (bp) - limit search to isolates with at 
            least this much sequence.
