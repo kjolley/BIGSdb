@@ -167,7 +167,6 @@ sub print_content {
 					push @updated_field, "deleted reference: 'Pubmed#$existing'";
 				}
 			}
-			$" = "<br />";
 			if ($update) {
 				if (@updated_field) {
 					eval {
@@ -182,16 +181,20 @@ sub print_content {
 						if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
 							print
 "<p>Data update would have resulted in records with either duplicate ids or another unique field with duplicate values.</p>\n";
+						} elsif ( $@ =~ /datestyle/){
+							print
+"<p>Date fields must be entered in yyyy-mm-dd format.</p>\n";
+						} else {
+							$logger->error("Can't update: $@");
 						}
 						print "</div>\n";
-						$self->{'db'}->rollback;
-						$logger->error("Can't update: $@");
+						$self->{'db'}->rollback;					
 					} else {
 						$self->{'db'}->commit
 						  && print "<div class=\"box\" id=\"resultsheader\"><p>Updated!</p>";
 						print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
 						$logger->debug("Update: $qry");
-						$" = '<br />';
+						local $" = '<br />';
 						$self->update_history( $data->{'id'}, "@updated_field" );
 						return;
 					}
