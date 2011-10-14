@@ -33,7 +33,6 @@ use constant {
 };
 #######End Local configuration################################
 use lib (LIB_DIR);
-use Log::Log4perl qw(get_logger);
 use Getopt::Std;
 use BIGSdb::Offline::AutoTag;
 

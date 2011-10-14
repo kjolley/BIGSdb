@@ -44,10 +44,8 @@ sub run_script {
 	if ( $self->{'options'}->{'I'} ) {
 		@exclude_isolates = split /,/, $self->{'options'}->{'I'};
 	}
-	my $isolates_excluded_by_project;
 	if ( $self->{'options'}->{'P'} ) {
-		$isolates_excluded_by_project = $self->_get_isolates_excluded_by_project;
-		push @exclude_isolates, @$isolates_excluded_by_project;
+		push @exclude_isolates, @{$self->_get_isolates_excluded_by_project};
 		@exclude_isolates = uniq(@exclude_isolates);
 	}
 	if ( $self->{'options'}->{'r'} ) {
