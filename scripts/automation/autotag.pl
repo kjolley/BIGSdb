@@ -38,7 +38,7 @@ use Getopt::Std;
 use BIGSdb::Offline::AutoTag;
 
 my %opts;
-getopts( 'd:i:l:m:p:s:t:hoqr', \%opts );
+getopts( 'd:i:l:m:p:s:t:x:y:hoqr', \%opts );
 
 if ($opts{'h'}){
 	show_help();
@@ -87,6 +87,8 @@ Options
 -r         Random - shuffle order of isolate ids to scan
 -s <list>  Schemes - comma-separated list of scheme loci to scan.
 -t <mins>  Time limit - Stop after t minutes.
+-x <id>    Minimum isolate id
+-y <id>    Maximum isolate id
 HELP
 	return;
 }

@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use List::Util qw(shuffle);
 use List::MoreUtils qw(none);
+use POSIX qw(strftime);
 use base qw(BIGSdb::Offline::Script BIGSdb::CurateTagScanPage);
 use BIGSdb::Utils;
 use constant TAG_USER     => -1;             #User id for tagger (there needs to be a record in the users table)
@@ -38,11 +39,11 @@ sub run_script {
 "Database user '$self->{'username'}' not set.  Enter a user '$self->{'username'}' with id $tag_user_id in the database to represent the auto tagger.\n"
 	  if !$user_ok;
 	my $isolates = $self->get_isolates_with_linked_seqs;
-	if ($self->{'options'}->{'r'}){
+	if ( $self->{'options'}->{'r'} ) {
 		@$isolates = shuffle(@$isolates);
-	} elsif ($self->{'options'}->{'o'}) {
+	} elsif ( $self->{'options'}->{'o'} ) {
 		my $tag_date = $self->_get_last_tagged_date($isolates);
-		@$isolates = sort {$tag_date->{$a} cmp $tag_date->{$b}} @$isolates; 
+		@$isolates = sort { $tag_date->{$a} cmp $tag_date->{$b} } @$isolates;
 	}
 	die "No isolates selected.\n" if !@$isolates;
 	my $loci = $self->get_loci_with_ref_db;
@@ -50,11 +51,21 @@ sub run_script {
 	$self->{'start_time'} = time;
 	my $file_prefix  = BIGSdb::Utils::get_random();
 	my $locus_prefix = BIGSdb::Utils::get_random();
+	$self->{'logger'}->info( "Autotagger start: " . strftime( '%d-%b-%Y %H:%M', localtime ) );
 
 	foreach my $isolate_id (@$isolates) {
 		if ( $self->{'options'}->{'m'} && BIGSdb::Utils::is_int( $self->{'options'}->{'m'} ) ) {
 			my $size = $self->_get_size_of_seqbin($isolate_id);
 			next if $size < $self->{'options'}->{'m'};
+		}
+		if (
+			( $self->{'options'}->{'x'} && BIGSdb::Utils::is_int( $self->{'options'}->{'x'} ) && $self->{'options'}->{'x'} > $isolate_id )
+			|| (   $self->{'options'}->{'y'}
+				&& BIGSdb::Utils::is_int( $self->{'options'}->{'y'} )
+				&& $self->{'options'}->{'y'} < $isolate_id )
+		  )
+		{
+			next;
 		}
 		$self->{'logger'}->info("Checking isolate $isolate_id");
 		undef $self->{'history'};
@@ -98,6 +109,7 @@ sub run_script {
 	if ( $self->_is_time_up && !$self->{'options'}->{'q'} ) {
 		print "Time limit reached ($self->{'options'}->{'t'} minute" . ( $self->{'options'}->{'t'} == 1 ? '' : 's' ) . ")\n";
 	}
+	$self->{'logger'}->info( "Autotagger stop: " . strftime( '%d-%b-%Y %H:%M', localtime ) );
 	return;
 }
 
@@ -201,15 +213,15 @@ sub _get_size_of_seqbin {
 }
 
 sub _get_last_tagged_date {
-	my ($self, $isolates) = @_;
+	my ( $self, $isolates ) = @_;
 	my $sql = $self->{'db'}->prepare("SELECT MAX(datestamp) FROM allele_designations WHERE isolate_id=?");
 	my %tag_date;
-	foreach (@$isolates){
-		eval { $sql->execute($_)};
+	foreach (@$isolates) {
+		eval { $sql->execute($_) };
 		$self->{'logger'}->error($@) if $@;
 		my ($date) = $sql->fetchrow_array || '0000-00-00';
 		$tag_date{$_} = $date;
-	}	
+	}
 	return \%tag_date;
 }
 1;
