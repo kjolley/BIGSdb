@@ -38,7 +38,7 @@ use Getopt::Std;
 use BIGSdb::Offline::AutoTag;
 
 my %opts;
-getopts( 'd:i:I:l:m:p:s:t:x:y:hoqr', \%opts );
+getopts( 'd:i:I:l:m:p:P:s:t:x:y:hoqr', \%opts );
 
 if ($opts{'h'}){
 	show_help();
@@ -84,6 +84,8 @@ Options
 -o         Order so that isolates last tagged the longest time ago get
            scanned first (ignored if -r used).
 -p <list>  Projects - comma-separated list of project isolates to scan.
+-P <list>  Exclude projects - comma-separated list of projects whose isolates
+           will be excluded.
 -q         Quiet - only error messages displayed.
 -r         Random - shuffle order of isolate ids to scan
 -s <list>  Schemes - comma-separated list of scheme loci to scan.

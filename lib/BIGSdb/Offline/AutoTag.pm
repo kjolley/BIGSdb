@@ -20,7 +20,7 @@ package BIGSdb::Offline::AutoTag;
 use strict;
 use warnings;
 use List::Util qw(shuffle);
-use List::MoreUtils qw(none any);
+use List::MoreUtils qw(none any uniq);
 use POSIX qw(strftime);
 use base qw(BIGSdb::Offline::Script BIGSdb::CurateTagScanPage);
 use BIGSdb::Utils;
@@ -39,7 +39,17 @@ sub run_script {
 "Database user '$self->{'username'}' not set.  Enter a user '$self->{'username'}' with id $tag_user_id in the database to represent the auto tagger.\n"
 	  if !$user_ok;
 	my $isolates = $self->get_isolates_with_linked_seqs;
-	my @exclude_isolates = split /,/, $self->{'options'}->{'I'} if $self->{'options'}->{'I'};
+	my @exclude_isolates;
+
+	if ( $self->{'options'}->{'I'} ) {
+		@exclude_isolates = split /,/, $self->{'options'}->{'I'};
+	}
+	my $isolates_excluded_by_project;
+	if ( $self->{'options'}->{'P'} ) {
+		$isolates_excluded_by_project = $self->_get_isolates_excluded_by_project;
+		push @exclude_isolates, @$isolates_excluded_by_project;
+		@exclude_isolates = uniq(@exclude_isolates);
+	}
 	if ( $self->{'options'}->{'r'} ) {
 		@$isolates = shuffle(@$isolates);
 	} elsif ( $self->{'options'}->{'o'} ) {
@@ -68,7 +78,7 @@ sub run_script {
 		{
 			next;
 		}
-		next if any { BIGSdb::Utils::is_int($_) && $isolate_id == $_} @exclude_isolates;
+		next if any { BIGSdb::Utils::is_int($_) && $isolate_id == $_ } @exclude_isolates;
 		$self->{'logger'}->info("Checking isolate $isolate_id");
 		undef $self->{'history'};
 		foreach my $locus (@$loci) {
@@ -225,5 +235,18 @@ sub _get_last_tagged_date {
 		$tag_date{$_} = $date;
 	}
 	return \%tag_date;
+}
+
+sub _get_isolates_excluded_by_project {
+	my ($self) = @_;
+	my @projects = split /,/, $self->{'options'}->{'P'};
+	my @isolates;
+	foreach (@projects) {
+		next if !BIGSdb::Utils::is_int($_);
+		my $list_ref = $self->get_project_isolates($_);
+		push @isolates, @$list_ref;
+	}
+	@isolates = uniq(@isolates);
+	return \@isolates;
 }
 1;

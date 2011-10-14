@@ -96,7 +96,7 @@ sub initiate {
 	}
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
 	$self->db_connect;
-	if ($self->{'writable'}){
+	if ( $self->{'writable'} ) {
 		$self->{'db'}->do("SET session CHARACTERISTICS AS TRANSACTION READ WRITE");
 		$self->{'db'}->commit;
 	}
@@ -185,5 +185,11 @@ sub get_loci_with_ref_db {
 	my $loci = $self->{'datastore'}->run_list_query($qry);
 	@$loci = uniq @$loci;
 	return $loci;
+}
+
+sub get_project_isolates {
+	my ( $self, $project_id ) = @_;
+	return if !BIGSdb::Utils::is_int($project_id);
+	return $self->{'datastore'}->run_list_query( "SELECT isolate_id FROM project_members WHERE project_id=?", $project_id );
 }
 1;
