@@ -1465,7 +1465,7 @@ sub _modify_isolate_query_for_tags {
 			my $seq_joined_table = "allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id";
 			my $locus_clause = $locus eq 'any locus' ? 'locus IS NOT NULL' : "locus=E'$locus'";
 			if ( $action eq 'untagged' ) {
-				$temp_qry = "$view.id NOT IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause)";
+				$temp_qry = "$view.id NOT IN (SELECT DISTINCT isolate_id FROM $seq_joined_table WHERE $locus_clause)";
 			} elsif ( $action eq 'tagged' ) {
 				$temp_qry = "$view.id IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause)";
 			} elsif ( $action eq 'complete' ) {
