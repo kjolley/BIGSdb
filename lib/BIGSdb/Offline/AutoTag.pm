@@ -83,7 +83,7 @@ sub run_script {
 			next if defined $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
 			my $allele_seq = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
 			next if ref $allele_seq eq 'ARRAY' && @$allele_seq;
-			my ( $exact_matches, undef ) = $self->_blast( $locus, $isolate_id, $file_prefix, $locus_prefix );
+			my ( $exact_matches, undef ) = $self->blast( $locus, $isolate_id, $file_prefix, $locus_prefix );
 			if ( ref $exact_matches && @$exact_matches ) {
 				print "Isolate: $isolate_id; Locus: $locus; " if !$self->{'options'}->{'q'};
 				foreach (@$exact_matches) {

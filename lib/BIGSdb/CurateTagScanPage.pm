@@ -402,7 +402,7 @@ sub _scan {
 			next
 			  if ( ( !$q->param('rescan_alleles') && defined $self->{'datastore'}->get_allele_id( $isolate_id, $locus ) )
 				|| ( !$q->param('rescan_seqs') && ref $allele_seq eq 'ARRAY' && scalar @$allele_seq > 0 ) );
-			my ( $exact_matches, $partial_matches ) = $self->_blast( $locus, $isolate_id, $file_prefix, $locus_prefix );
+			my ( $exact_matches, $partial_matches ) = $self->blast( $locus, $isolate_id, $file_prefix, $locus_prefix );
 			my $off_end;
 			my $i = 1;
 			my $new_designation;
@@ -1058,7 +1058,7 @@ sub _simulate_hybridization {
 	return \@matches;
 }
 
-sub _blast {
+sub blast {
 	my ( $self, $locus, $isolate_id, $file_prefix, $locus_prefix ) = @_;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	my $q          = $self->{'cgi'};
