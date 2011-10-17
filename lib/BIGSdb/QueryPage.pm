@@ -1658,7 +1658,7 @@ sub _run_profile_query {
 		foreach my $i ( 1 .. MAX_ROWS ) {
 			push @hidden_attributes, "s$i", "t$i", "y$i", "ls$i", "ly$i", "lt$i";
 		}
-		foreach ( @{ $self->{'xmlHandler'}->get_field_list() } ) {
+		foreach ( @{ $self->{'xmlHandler'}->get_field_list } ) {
 			push @hidden_attributes, $_ . '_list';
 		}
 		push @hidden_attributes, qw (publication_list scheme_id no_js);

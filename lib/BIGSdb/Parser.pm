@@ -33,31 +33,37 @@ use warnings;
 use XML::Parser::PerlSAX;
 use List::MoreUtils qw(any);
 
-my ( $_in_system, $_in_field, $_in_sample, $_in_optlist, $fieldname, $samplename );
-my (@fields, @sample_fields);
-my ( %system,     %these );
-my ( %attributes, %sample_attributes, %options );
+sub get_system_hash { 
+	my ($self) = @_;
+	return $self->{'system'};
+}
 
-sub get_system_hash { return \%system }
-sub get_field_list  { return \@fields }
-sub get_sample_field_list { return \@sample_fields}
+sub get_field_list  { 
+	my ($self) = @_;
+	return $self->{'fields'} 
+}
+sub get_sample_field_list { 
+	my ($self) = @_;
+	return $self->{'sample_fields'};
+}
 
 sub get_all_field_attributes {
-	return \%attributes;
+	my ($self) = @_;
+	return $self->{'attributes'};
 }
 
 sub get_field_attributes {
 	my ( $self, $name ) = @_;
-	if ( $attributes{$name} ) {
-		return %{ $attributes{$name} };
+	if ( $self->{'attributes'}->{$name} ) {
+		return %{ $self->{'attributes'}->{$name} };
 	}
 	return %;
 }
 
 sub get_sample_field_attributes {
 	my ( $self, $name ) = @_;
-	if ( $sample_attributes{$name} ) {
-		return %{ $sample_attributes{$name} };
+	if ( $self->{'sample_attributes'}->{$name} ) {
+		return %{ $self->{'sample_attributes'}->{$name} };
 	}
 	return %;
 }
@@ -65,25 +71,15 @@ sub get_sample_field_attributes {
 sub is_field {
 	my ( $self, $field ) = @_;
 	$field ||= '';
-	return any {$_ eq $field} @fields;
+	return any {$_ eq $field} @{$self->{'fields'}};
 }
 
 sub get_field_option_list {
 	my ( $self, $name ) = @_;
-	if ( $options{$name} ) {
-		return @{ $options{$name} };
+	if ( $self->{'options'}->{$name} ) {
+		return @{ $self->{'options'}->{$name} };
 	}
 	return @;
-}
-
-sub get_order_by {
-	my ($self) = @_;
-	my @orderby;
-	foreach (@fields) {
-		my %thisfield = %{ $attributes{$_} };
-		push @orderby, $_;
-	}
-	return \@orderby;
 }
 
 sub get_select_items {
@@ -91,20 +87,20 @@ sub get_select_items {
 	my @selectitems;
 	if ( $args =~ /includeGroupedFields/ ) {
 		for ( my $i = 1 ; $i < 11 ; $i++ ) {
-			if ( $system{"fieldgroup$i"} ) {
-				my $group = ( split /:/, $system{"fieldgroup$i"} )[0];
+			if ( $self->{'system'}->{"fieldgroup$i"} ) {
+				my $group = ( split /:/, $self->{'system'}->{"fieldgroup$i"} )[0];
 				push @selectitems, $group;
 			}
 		}
 	}
-	foreach (@fields) {
-		my %thisfield = %{ $attributes{$_} };
+	foreach (@{$self->{'fields'}}) {
+		my $thisfield = $self->{'attributes'}->{$_};
 		$_ = 'ST' if $_ eq 'st';
 		if (
 			( $args !~ /userFieldIdsOnly/ )
 			&& (   $_ eq 'sender'
 				|| $_ eq 'curator'
-				|| ( $thisfield{'userfield'} && $thisfield{'userfield'} eq 'yes' ) )
+				|| ( $thisfield->{'userfield'} && $thisfield->{'userfield'} eq 'yes' ) )
 		  )
 		{
 			push @selectitems, "$_ (id)";
@@ -122,70 +118,73 @@ sub get_grouped_fields {
 	my ($self) = @_;
 	my @list;
 	for ( my $i = 1 ; $i < 11 ; $i++ ) {
-		if ( $system{"fieldgroup$i"} ) {
-			my $group = ( split /:/, $system{"fieldgroup$i"} )[0];
+		if ( $self->{'system'}->{"fieldgroup$i"} ) {
+			my $group = ( split /:/, $self->{'system'}->{"fieldgroup$i"} )[0];
 			push @list, $group;
 		}
 	}
 	return \@list;
 }
 
-sub new {
-	my ($class) = @_;
-	return bless {}, $class;
+sub new { ##no critic
+	my $class = shift;
+	my $self  = {@_};
+	bless( $self, $class );
+	$self->{'fields'} = [];
+	$self->{'system'} = {};
+	$self->{'sample_fields'} = [];
+	return $self;
 }
 
 sub characters {
 	my ( $self, $element ) = @_;
 	chomp( $element->{'Data'} );
 	$element->{'Data'} =~ s/^\s*//;
-	if ($_in_system) {
-		undef @fields;    #needed under mod_perl to prevent list growing with each invocation
-		undef @sample_fields;
-	} elsif ($_in_field) {
-		$fieldname = $element->{'Data'};
-		push @fields, $fieldname;
-		%{ $attributes{$fieldname} } = %these;
-		$_in_field = 0;
-	} elsif ( $_in_optlist ) {
-		push @{ $options{$fieldname} }, $element->{'Data'} if $element->{'Data'} ne '';
-	} elsif ( $_in_sample) {
-		$fieldname = $element->{'Data'};
-		push @sample_fields, $fieldname;
-		%{ $sample_attributes{$fieldname} } = %these;
-		$_in_sample = 0;
+	if ($self->{'_in_system'}) {
+	} elsif ($self->{'_in_field'}) {
+		$self->{'field_name'} = $element->{'Data'};
+		push @{$self->{'fields'}}, $self->{'field_name'};
+		$self->{'attributes'}->{$self->{'field_name'}} = $self->{'these'};
+		$self->{'_in_field'} = 0;
+	} elsif ( $self->{'_in_optlist'} ) {
+		push @{ $self->{'options'}->{$self->{'field_name'}} }, $element->{'Data'} if $element->{'Data'} ne '';
+	} elsif ( $self->{'_in_sample'}) {
+		$self->{'field_name'} = $element->{'Data'};
+		push @{$self->{'sample_fields'}}, $self->{'field_name'};
+		$self->{'sample_attributes'}->{$self->{'field_name'}}  = $self->{'these'};
+		$self->{'_in_sample'} = 0;
 	}
+	return;
 }
 
 sub start_element {
 	my ( $self, $element ) = @_;
 	if ( $element->{'Name'} eq 'system' ) {
-		$_in_system = 1;
-		%system     = %{ $element->{'Attributes'} };
+		$self->{'_in_system'} = 1;
+		$self->{'system'}     = $element->{'Attributes'} ;
 	} elsif ( $element->{'Name'} eq 'field' ) {
-		$_in_field = 1;
-		%these     = %{ $element->{'Attributes'} };
+		$self->{'_in_field'} = 1;
+		$self->{'these'}     = $element->{'Attributes'};
 	} elsif ( $element->{'Name'} eq 'optlist' ) {
-		$_in_optlist = 1;
-		undef @{ $options{$fieldname} };
-
-		#needed under mod_perl to prevent list growing with each invocation
+		$self->{'_in_optlist'} = 1;
 	} elsif ( $element->{'Name'} eq 'sample' ) {
-		$_in_sample = 1;
-		%these     = %{ $element->{'Attributes'} };
+		$self->{'_in_sample'} = 1;
+		$self->{'these'}     = $element->{'Attributes'} ;
 	}
+	return;
 }
 
 sub end_element {
 	my ( $self, $element ) = @_;
 	if ($element->{'Name'} eq 'system'){
-		$_in_system  = 0;
+		$self->{'_in_system'}  = 0;
 	} elsif ($element->{'Name'} eq 'field'){
-		$_in_field   = 0;
+		$self->{'_in_field'}   = 0;
 	} elsif ($element->{'Name'} eq 'optlist'){
-		$_in_optlist = 0
+		$self->{'_in_optlist'} = 0
 	} elsif ($element->{'Name'} eq 'sample'){
-		$_in_sample = 0
+		$self->{'_in_sample'} = 0
 	}
+	return;
 }
 1;
