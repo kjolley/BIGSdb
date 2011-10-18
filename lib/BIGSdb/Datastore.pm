@@ -1111,7 +1111,7 @@ sub get_citation_hash {
 				$citation = "$author ($year). $title ";
 				$citation .= "<a href=\"http://www.ncbi.nlm.nih.gov/pubmed/$_\">" if $options->{'link_pubmed'};
 				$citation .= "<i>$journal</i> <b>$volume</b>$pages";
-				$citation .= "</a>" if $options->{'link_pubmed'};
+				$citation .= "</a>"                                               if $options->{'link_pubmed'};
 			} else {
 				$citation = "$author $year $journal $volume$pages";
 			}
@@ -1170,6 +1170,7 @@ sub create_temp_ref_table {
 	$logger->error($@) if $@;
 	my $all_authors = $sql3->fetchall_hashref('id');
 	my ( $qry4, $isolates );
+
 	if ($qry_ref) {
 		my $isolate_qry = $$qry_ref;
 		$isolate_qry =~ s/\*/id/;
@@ -1716,10 +1717,38 @@ sub _get_probe_locus_table_attributes {
 }
 
 sub _get_locus_aliases_table_attributes {
+	my ($self) = @_;
+	my $attributes = [
+		{ name => 'locus', type => 'text', required => 'yes', primary_key => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
+		{ name => 'alias', type => 'text', required => 'yes', primary_key => 'yes' }
+	];
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		push @$attributes, ( { name => 'use_alias', type => 'bool', required => 'yes', default => 'true' } );
+	}
+	push @$attributes,
+	  (
+		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' }
+	  );
+	return $attributes;
+}
+
+sub _get_locus_links_table_attributes {
+	my $attributes = [
+		{ name => 'locus',       type => 'text', required => 'yes', primary_key => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
+		{ name => 'url',         type => 'text', required => 'yes', primary_key => 'yes' },
+		{ name => 'description', type => 'text', length   => 256 },
+		{ name => 'link_order',  type => 'int',  length   => 4 },
+		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' }
+	];
+	return $attributes;
+}
+
+sub _get_locus_refs_table_attributes {
 	my $attributes = [
 		{ name => 'locus',     type => 'text', required => 'yes', primary_key => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
-		{ name => 'alias',     type => 'text', required => 'yes', primary_key => 'yes' },
-		{ name => 'use_alias', type => 'bool', required => 'yes', default     => 'true' },
+		{ name => 'pubmed_id', type => 'int',  required => 'yes', primary_key => 'yes' },
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' }
 	];
@@ -1757,6 +1786,18 @@ sub _get_locus_descriptions_table_attributes {
 		{ name => 'description', type => 'text', length   => 2048 },
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' }
+	];
+	return $attributes;
+}
+
+sub _get_sequence_extended_attributes_table_attributes {
+	my $attributes = [
+		{ name => 'locus',     type => 'text', required => 'yes', primary_key => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
+		{ name => 'field',     type => 'text', required => 'yes', primary_key => 'yes' },
+		{ name => 'allele_id', type => 'text', required => 'yes', primary_key => 'yes' },
+		{ name => 'value',     type => 'text', required => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' },
+		{ name => 'curator', type => 'int', required => 'yes', dropdown_query => 'yes' }
 	];
 	return $attributes;
 }

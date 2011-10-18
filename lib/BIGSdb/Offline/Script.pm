@@ -69,7 +69,7 @@ sub initiate {
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
 	my $full_path = "$self->{'dbase_config_dir'}/$self->{'instance'}/config.xml";
-	$self->{'xmlHandler'} = BIGSdb::Parser->new();
+	$self->{'xmlHandler'} = BIGSdb::Parser->new;
 	my $parser = XML::Parser::PerlSAX->new( Handler => $self->{'xmlHandler'} );
 	eval { $parser->parse( Source => { SystemId => $full_path } ); };
 	if ($@) {
@@ -77,9 +77,6 @@ sub initiate {
 		return;
 	}
 	$self->{'system'} = $self->{'xmlHandler'}->get_system_hash;
-	if ( $self->{'system'}->{'dbtype'} ne 'sequences' && $self->{'system'}->{'dbtype'} ne 'isolates' ) {
-		$self->{'error'} = 'invalidDbType';
-	}
 	$self->{'system'}->{'host'}     = $self->{'host'}     || 'localhost';
 	$self->{'system'}->{'port'}     = $self->{'port'}     || 5432;
 	$self->{'system'}->{'user'}     = $self->{'user'}     || 'apache';
@@ -192,4 +189,5 @@ sub get_project_isolates {
 	return if !BIGSdb::Utils::is_int($project_id);
 	return $self->{'datastore'}->run_list_query( "SELECT isolate_id FROM project_members WHERE project_id=?", $project_id );
 }
+
 1;

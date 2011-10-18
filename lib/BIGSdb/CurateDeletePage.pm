@@ -304,7 +304,8 @@ sub print_content {
 
 				#cascade deletion of locus
 				next if $table eq 'loci' && any { $table_to_check eq $_ } qw (locus_aliases locus_descriptions
-					  allele_designations pending_allele_designations allele_sequences locus_curators client_dbase_loci);
+					  allele_designations pending_allele_designations allele_sequences locus_curators 
+					  client_dbase_loci locus_extended_attributes);
 
 				#cascade deletion of user
 				next if $table eq 'users' && any { $table_to_check eq $_ } qw ( user_permissions user_group_members);
