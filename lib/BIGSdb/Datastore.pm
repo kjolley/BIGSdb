@@ -2716,7 +2716,7 @@ sub get_tables {
 		@tables =
 		  qw(users user_groups user_group_members allele_sequences sequence_bin accession refs allele_designations pending_allele_designations loci
 		  locus_aliases schemes scheme_members scheme_fields composite_fields composite_field_values isolate_aliases user_permissions isolate_user_acl
-		  isolate_usergroup_acl projects project_members experiments experiment_sequences isolate_field_extended_attributes samples
+		  isolate_usergroup_acl projects project_members experiments experiment_sequences isolate_field_extended_attributes 
 		  isolate_value_extended_attributes scheme_groups scheme_group_scheme_members scheme_group_group_members pcr pcr_locus probes probe_locus);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}

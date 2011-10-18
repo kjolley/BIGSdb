@@ -51,7 +51,7 @@ sub print_content {
 		$self->_ajax_content($table);
 		return;
 	}
-	if ( !$self->{'datastore'}->is_table($table) ) {
+	if ( !$self->{'datastore'}->is_table($table) && !($table eq 'samples' && @{$self->{'xmlHandler'}->get_sample_field_list})) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Table '$table' is not defined.</p></div>\n";
 		return;
 	}
@@ -150,10 +150,6 @@ sub _print_query_interface {
 	my $prefs  = $self->{'prefs'};
 	my $q      = $self->{'cgi'};
 	my $table  = $q->param('table');
-	if ( !$self->{'datastore'}->is_table($table) ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Table '$table' is not defined.</p></div>\n";
-		return;
-	}
 	my ( $select_items, $labels, $order_by, $attributes ) = $self->_get_select_items($table);
 	print "<div class=\"box\" id=\"queryform\"><div class=\"scrollable\">\n";
 	my $table_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('table_fields') || 1 );

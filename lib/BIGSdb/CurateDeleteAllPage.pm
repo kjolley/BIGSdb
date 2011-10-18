@@ -42,7 +42,7 @@ sub print_content {
 			$query = "SELECT \* FROM profiles WHERE scheme_id=$scheme_id AND profile_id IN ($query)";
 		}
 	}
-	if ( !$self->{'datastore'}->is_table($table) ) {
+	if ( !$self->{'datastore'}->is_table($table) && !($table eq 'samples' && @{$self->{'xmlHandler'}->get_sample_field_list})) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Table $table does not exist!</p></div>\n";
 		return;
 	} elsif ( !$query ) {

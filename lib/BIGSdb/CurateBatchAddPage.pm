@@ -32,7 +32,7 @@ sub print_content {
 	my $cleaned_table = $table;
 	my $locus         = $q->param('locus');
 	$cleaned_table =~ tr/_/ /;
-	if ( !$self->{'datastore'}->is_table($table) ) {
+	if ( !$self->{'datastore'}->is_table($table) && !($table eq 'samples' && @{$self->{'xmlHandler'}->get_sample_field_list})) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Table $table does not exist!</p></div>\n";
 		return;
 	}

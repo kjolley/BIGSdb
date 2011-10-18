@@ -33,7 +33,7 @@ sub print_content {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $table  = $q->param('table');
-	if ( !$self->{'datastore'}->is_table($table) ) {
+	if ( !$self->{'datastore'}->is_table($table) && !($table eq 'samples' && @{$self->{'xmlHandler'}->get_sample_field_list})) {
 		print "Table '$table' is not defined.\n";
 		return;
 	}
