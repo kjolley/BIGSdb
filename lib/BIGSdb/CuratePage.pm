@@ -29,7 +29,6 @@ sub initiate {
 	$self->{$_} = 1 foreach qw (jQuery noCache);
 	return;
 }
-
 sub get_title     { return "Curator's interface - BIGSdb" }
 sub print_content { }
 
@@ -48,7 +47,7 @@ sub get_curator_name {
 
 sub create_record_table {
 	my ( $self, $table, $newdata_ref, $update, $nodiv, $prepend_table_name, $newdata_readonly ) = @_;
-	if (ref $newdata_ref ne 'HASH'){
+	if ( ref $newdata_ref ne 'HASH' ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Record doesn't exist.</p></div>\n";
 		return '';
 	}
@@ -103,7 +102,7 @@ sub create_record_table {
 					|| ( $newdata_readonly && $newdata{ $_->{'name'} } ) )
 				{
 					my $desc;
-					if ( $_->{'name'} eq 'locus' || ($table eq 'loci' && $_->{'name'} eq 'id')) {
+					if ( $_->{'name'} eq 'locus' || ( $table eq 'loci' && $_->{'name'} eq 'id' ) ) {
 						$desc = $self->clean_locus( $newdata{ $_->{'name'} } );
 					} elsif ( $_->{'labels'} ) {
 						my @fields_to_query;
@@ -244,7 +243,8 @@ sub create_record_table {
 				} elsif ( $_->{'type'} eq 'bool' ) {
 					my $default;
 					if (   $q->param('page') eq 'update'
-						&& defined $newdata{ $_->{'name'} } && $newdata{ $_->{'name'} } ne '' )
+						&& defined $newdata{ $_->{'name'} }
+						&& $newdata{ $_->{'name'} } ne '' )
 					{
 						$default = $newdata{ $_->{'name'} } ? 'true' : 'false';
 					} else {
@@ -455,7 +455,7 @@ sub check_record {
 			$newdata{ $_->{'name'} } = uc( $newdata{ $_->{'name'} } );
 			$newdata{ $_->{'name'} } =~ s/\s//g;
 		}
-		if ( $_->{'required'} eq 'yes' && (!defined $newdata{ $_->{'name'} } || $newdata{ $_->{'name'} } eq '' )) {
+		if ( $_->{'required'} eq 'yes' && ( !defined $newdata{ $_->{'name'} } || $newdata{ $_->{'name'} } eq '' ) ) {
 			push @missing, $_->{'name'};
 		} elsif ( $newdata{ $_->{'name'} }
 			&& $_->{'type'} eq 'int'
@@ -512,7 +512,7 @@ sub check_record {
 
 			#special case to check for allele id format and regex which is defined in loci table
 			my $format =
-			  $self->{'datastore'}->run_simple_query( "SELECT allele_id_format,allele_id_regex FROM loci WHERE id=E'$newdata{'locus'}'" );
+			  $self->{'datastore'}->run_simple_query("SELECT allele_id_format,allele_id_regex FROM loci WHERE id=E'$newdata{'locus'}'");
 			if ( $format->[0] eq 'integer'
 				&& !BIGSdb::Utils::is_int( $newdata{ $_->{'name'} } ) )
 			{
@@ -549,13 +549,14 @@ sub check_record {
 			#special case to check that changing user status is allowed
 			my ($status) = @{ $self->{'datastore'}->run_simple_query( "SELECT status FROM users WHERE user_name=?", $self->{'username'} ) };
 			my ( $user_status, $user_username );
-			if ($update ) {
+			if ($update) {
 				my $user_ref = $self->{'datastore'}->run_simple_query( "SELECT status,user_name FROM users WHERE id=?", $newdata{'id'} );
 				( $user_status, $user_username ) = @$user_ref if ref $user_ref eq 'ARRAY';
 			}
 			if (   $status ne 'admin'
 				&& !$self->{'permissions'}->{'set_user_permissions'}
-				&& defined $user_status && $newdata{'status'} ne $user_status
+				&& defined $user_status
+				&& $newdata{'status'} ne $user_status
 				&& $update )
 			{
 				push @problems, "You must have either admin rights or specific permission to change the status of a user.\n";
@@ -581,7 +582,8 @@ sub check_record {
 				push @problems, "You must have admin rights to create a user with admin status.\n";
 			}
 			if (   $status ne 'admin'
-				&& defined $user_username && $newdata{'user_name'} ne $user_username
+				&& defined $user_username
+				&& $newdata{'user_name'} ne $user_username
 				&& $update )
 			{
 				push @problems, "You must have admin rights to change the username of a user.\n";
@@ -614,7 +616,7 @@ sub check_record {
 	} elsif ( @primary_key_query && !@problems ) {    #only run query if there are no other problems
 		local $" = ' AND ';
 		my $retval = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM $table WHERE @primary_key_query")->[0];
-		if ( $retval && !$update ){
+		if ( $retval && !$update ) {
 			my $article = $record_name =~ /^[aeio]/ ? 'An' : 'A';
 			push @problems, "$article $record_name already exists with this primary key.";
 		}
@@ -642,7 +644,7 @@ sub get_sender_fullname {
 
 sub is_field_bad {
 	my ( $self, $table, $fieldname, $value, $flag ) = @_;
-	if (  $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
 		return $self->_is_field_bad_isolates( $fieldname, $value, $flag );
 	} else {
 		return $self->_is_field_bad_other( $table, $fieldname, $value, $flag );
@@ -652,7 +654,7 @@ sub is_field_bad {
 sub _is_field_bad_isolates {
 	my ( $self, $fieldname, $value, $flag ) = @_;
 	my $q = $self->{'cgi'};
-	$value = '' if !defined $value; 
+	$value = '' if !defined $value;
 	$value =~ s/<blank>//;
 	$value =~ s/null//;
 	my %thisfield = $self->{'xmlHandler'}->get_field_attributes($fieldname);
@@ -660,7 +662,10 @@ sub _is_field_bad_isolates {
 
 	#If field is null make sure it's not a required field
 	if ( $value eq '' ) {
-		if ( $fieldname eq 'aliases' || $fieldname eq 'references' || $thisfield{'required'} eq 'no' ) {
+		if (   $fieldname eq 'aliases'
+			|| $fieldname eq 'references'
+			|| ( $thisfield{'required'} && $thisfield{'required'} eq 'no' ) )
+		{
 			return 0;
 		} else {
 			return 'is a required field and cannot be left blank.';
@@ -726,7 +731,8 @@ sub _is_field_bad_isolates {
 	if ( $thisfield{'type'} eq 'date' && $value !~ /^\d\d\d\d-\d\d-\d\d$/ ) {
 		return "must be a date in yyyy-mm-dd format";
 	}
-	if ( $flag && $flag eq 'insert'
+	if (   $flag
+		&& $flag eq 'insert'
 		&& ( $fieldname eq 'id' ) )
 	{
 
@@ -774,7 +780,7 @@ sub _is_field_bad_other {
 		}
 	}
 	$thisfield->{'type'} ||= 'text';
-	
+
 	#If field is null make sure it's not a required field
 	if ( !defined $value || $value eq '' ) {
 		if ( !$thisfield->{'required'} || $thisfield->{'required'} ne 'yes' ) {
