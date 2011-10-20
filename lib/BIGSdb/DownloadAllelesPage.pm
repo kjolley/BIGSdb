@@ -405,7 +405,8 @@ sub _print_alphabetical_list {
 	my ($self) = @_;
 	my @locus_patterns = LOCUS_PATTERNS;
 	foreach my $letter ( 0 .. 9, 'A' .. 'Z' ) {
-		my ( $main, $common, $aliases ) = $self->_get_loci_by_letter($letter);
+		my $qry_letter = $letter =~ /\d/ ? '\\\_' . $letter : $letter;
+		my ( $main, $common, $aliases ) = $self->_get_loci_by_letter($qry_letter);
 		if ( @$main || @$common || @$aliases ) {
 			my %names;
 			$names{"l_$_"}                            = $self->clean_locus($_)             foreach @$main;
@@ -413,15 +414,15 @@ sub _print_alphabetical_list {
 			$names{"la_$_->{'locus'}||$_->{'alias'}"} = "$_->{'alias'} [$_->{'locus'}]"    foreach @$aliases;
 			my $descs_exist =
 			  $self->{'datastore'}->run_simple_query( "SELECT 1 WHERE EXISTS(SELECT locus FROM locus_descriptions "
-				  . "WHERE locus IN (SELECT id FROM loci WHERE UPPER(id) LIKE '$letter%' OR upper(common_name) LIKE '$letter%') "
-				  . "OR locus IN (SELECT locus FROM locus_aliases WHERE UPPER(alias) LIKE '$letter%'))" );
+				  . "WHERE locus IN (SELECT id FROM loci WHERE UPPER(id) LIKE E'$qry_letter%' OR upper(common_name) LIKE E'$qry_letter%') "
+				  . "OR locus IN (SELECT locus FROM locus_aliases WHERE UPPER(alias) LIKE E'$qry_letter%'))" );
 			my $aliases_exist =
 			  $self->{'datastore'}
-			  ->run_simple_query( "SELECT 1 WHERE EXISTS(SELECT locus FROM locus_aliases " . "WHERE alias LIKE '$letter%')" );
+			  ->run_simple_query( "SELECT 1 WHERE EXISTS(SELECT locus FROM locus_aliases " . "WHERE alias LIKE E'$qry_letter%')" );
 			my $curators_exist =
 			  $self->{'datastore'}->run_simple_query( "SELECT 1 WHERE EXISTS(SELECT locus FROM locus_curators "
-				  . "WHERE (locus IN (SELECT id FROM loci WHERE UPPER(id) LIKE '$letter%' OR upper(common_name) LIKE '$letter%') "
-				  . "OR locus IN (SELECT locus FROM locus_aliases WHERE UPPER(alias) LIKE '$letter%')) AND NOT hide_public)" );
+				  . "WHERE (locus IN (SELECT id FROM loci WHERE UPPER(id) LIKE E'$qry_letter%' OR upper(common_name) LIKE E'$qry_letter%') "
+				  . "OR locus IN (SELECT locus FROM locus_aliases WHERE UPPER(alias) LIKE E'$qry_letter%')) AND NOT hide_public)" );
 			print "<h2>$letter</h2>\n";
 			print "<table class=\"resultstable\">";
 			$self->_print_table_header_row(
@@ -442,10 +443,9 @@ sub _print_alphabetical_list {
 
 sub _get_loci_by_letter {
 	my ( $self, $letter ) = @_;
-	$letter = "_$letter" if $letter =~ /\d/;
-	my $main    = $self->{'datastore'}->run_list_query("SELECT id FROM loci WHERE UPPER(id) LIKE '$letter%'");
-	my $common  = $self->{'datastore'}->run_list_query_hashref("SELECT id,common_name FROM loci WHERE UPPER(common_name) LIKE '$letter%'");
-	my $aliases = $self->{'datastore'}->run_list_query_hashref("SELECT locus,alias FROM locus_aliases WHERE UPPER(alias) LIKE '$letter%'");
+	my $main    = $self->{'datastore'}->run_list_query("SELECT id FROM loci WHERE UPPER(id) LIKE E'$letter%'");
+	my $common  = $self->{'datastore'}->run_list_query_hashref("SELECT id,common_name FROM loci WHERE UPPER(common_name) LIKE E'$letter%'");
+	my $aliases = $self->{'datastore'}->run_list_query_hashref("SELECT locus,alias FROM locus_aliases WHERE UPPER(alias) LIKE E'$letter%'");
 	return ( $main, $common, $aliases );
 }
 1;
