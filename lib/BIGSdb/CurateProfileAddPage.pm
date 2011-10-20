@@ -263,7 +263,7 @@ sub _is_scheme_field_bad {
 sub _is_locus_field_bad {
 	my ( $self, $scheme_id, $locus, $value ) = @_;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	if ( !$value ) {
+	if ( !defined $value || $value eq '') {
 		return "Locus '$_' requires a value.";
 	} elsif ( $locus_info->{'allele_id_format'} eq 'integer'
 		&& !BIGSdb::Utils::is_int($value) )
