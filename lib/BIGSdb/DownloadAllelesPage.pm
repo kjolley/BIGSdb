@@ -23,6 +23,7 @@ use base qw(BIGSdb::Page);
 use List::MoreUtils qw(none any);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
+use BIGSdb::Page qw(LOCUS_PATTERNS);
 
 sub initiate {
 	my ($self) = @_;
@@ -35,6 +36,7 @@ sub initiate {
 		return;
 	}
 	$self->{$_} = 1 foreach qw (jQuery jQuery.jstree);
+	return;
 }
 
 sub get_javascript {
@@ -47,9 +49,7 @@ sub _print_tree {
 	print << "HTML";
 <p>Click within the tree to display details of loci belonging to schemes or groups of schemes - 
 clicking a group folder will display the loci for all schemes within the group and any subgroups. 
-Click the nodes to expand/collapse.  
-<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles">
-See all download links on a single page</a>.</p>
+Click the nodes to expand/collapse.</p>
 <noscript>
 <p class="highlight">Enable Javascript to enhance your viewing experience.</p>
 </noscript>
@@ -57,6 +57,7 @@ See all download links on a single page</a>.</p>
 HTML
 	print $self->get_tree(undef);
 	print "</div>\n<div id=\"scheme_table\"></div>\n";
+	return;
 }
 
 sub _print_child_group_scheme_tables {
@@ -74,6 +75,7 @@ sub _print_child_group_scheme_tables {
 			$self->_print_child_group_scheme_tables( $_, ++$new_level, $scheme_shown );
 		}
 	}
+	return;
 }
 
 sub _print_group_scheme_tables {
@@ -90,6 +92,7 @@ sub _print_group_scheme_tables {
 			$scheme_shown->{$_} = 1;
 		}
 	}
+	return;
 }
 
 sub print_content {
@@ -131,7 +134,7 @@ sub print_content {
 			$self->_print_scheme_table( $scheme_id, $desc );
 		}
 		return;
-	} elsif ( $q->param('group_id') ) {
+	} elsif ( defined $q->param('group_id') ) {
 		my $group_id = $q->param('group_id');
 		if ( !BIGSdb::Utils::is_int($group_id) ) {
 			$logger->warn("Invalid group selected - $group_id");
@@ -163,40 +166,56 @@ sub print_content {
 		print "<div class=\"box\" id=\"statusbad\"><p>Allele sequence downloads are disabled for this database.</p></div>\n";
 		return;
 	}
-	my $all_loci = $self->{'datastore'}->get_loci();
+	my $all_loci = $self->{'datastore'}->get_loci;
 	if ( !@$all_loci ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>No loci have been defined for this database.</p></div>\n";
 		return;
 	}
 	print "<div class=\"box\" id=\"resultstable\">\n";
 	if ( $q->param('tree') ) {
+		print "<p>Loci by scheme | "
+		  . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;list=1\">"
+		  . "Alphabetical list</a>"
+		  . " | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles\">"
+		  . "All loci by scheme</a></p>\n";
 		$self->_print_tree;
-		print "</div>\n";
-		return;
+	} elsif ( $q->param('list') ) {
+		print "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;tree=1\">"
+		  . "Loci by scheme</a>"
+		  . " | Alphabetical list"
+		  . " | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles\">"
+		  . "All loci by scheme</a></p>\n";
+		$self->_print_alphabetical_list;
+	} else {
+		print "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;tree=1\">"
+		  . "Loci by scheme</a>"
+		  . " | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;list=1\">"
+		  . "Alphabetical list</a>"
+		  . " | All loci by scheme</p>\n";
+		$self->_print_all_loci_by_scheme;
 	}
-	my $qry = "SELECT id,description FROM schemes ORDER BY display_order,id";
-	my $sql = $self->{'db'}->prepare($qry);
+	print "</div>\n";
+	return;
+}
+
+sub _print_all_loci_by_scheme {
+	my ($self) = @_;
+	my $qry    = "SELECT id,description FROM schemes ORDER BY display_order,id";
+	my $sql    = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
 	$logger->error($@) if $@;
 	while ( my ( $scheme_id, $desc ) = $sql->fetchrow_array() ) {
 		$self->_print_scheme_table( $scheme_id, $desc );
 	}
 	$self->_print_scheme_table( 0, 'Other loci' );
-	print "</div>\n";
+	return;
 }
 
 sub _print_scheme_table {
 	my ( $self, $scheme_id, $desc ) = @_;
-	my $loci      = $scheme_id ? $self->{'datastore'}->get_scheme_loci($scheme_id) : $self->{'datastore'}->get_loci_in_no_scheme();
-	my $count_sql = $self->{'db'}->prepare("SELECT COUNT(*) FROM sequences WHERE locus=?");
-	my $td        = 1;
-	my $desc_sql  = $self->{'db'}->prepare("SELECT COUNT(*) FROM locus_descriptions WHERE locus=?");
-	my $name_sql  = $self->{'db'}->prepare("SELECT full_name,product FROM locus_descriptions WHERE locus=?");
-	my $alias_sql = $self->{'db'}->prepare("SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias");
-	my $curator_sql =
-	  $self->{'db'}->prepare("SELECT curator_id FROM locus_curators WHERE locus=? AND (hide_public IS NULL OR NOT hide_public)");
+	my $loci = $scheme_id ? $self->{'datastore'}->get_scheme_loci($scheme_id) : $self->{'datastore'}->get_loci_in_no_scheme();
+	my $td = 1;
 	my ( $scheme_descs_exist, $scheme_aliases_exist, $scheme_curators_exist );
-
 	if ($scheme_id) {
 		$scheme_descs_exist = $self->{'datastore'}->run_simple_query(
 "SELECT COUNT(*) FROM locus_descriptions LEFT JOIN scheme_members ON locus_descriptions.locus=scheme_members.locus WHERE scheme_id=?",
@@ -227,94 +246,25 @@ sub _print_scheme_table {
 	if (@$loci) {
 		$desc =~ s/\&/\&amp;/g;
 		print "<h2>$desc</h2>\n";
-		print "<table class=\"resultstable\"><tr><th>Locus</th><th>Download</th>
-			<th>Type</th><th>Alleles</th><th>Length</th>";
-		print "<th>Full name/product</th>" if $scheme_descs_exist;
-		print "<th>Aliases</th>\n"         if $scheme_aliases_exist;
-		print "<th>Curator(s)</th>\n"      if $scheme_curators_exist;
-		print "</tr>\n";
-
+		print "<table class=\"resultstable\">";
+		$self->_print_table_header_row(
+			{ descs_exist => $scheme_descs_exist, aliases_exist => $scheme_aliases_exist, curators_exist => $scheme_curators_exist } );
 		foreach (@$loci) {
-			my $cleaned    = $self->clean_locus($_);
-			my $locus_info = $self->{'datastore'}->get_locus_info($_);
-			eval { $count_sql->execute($_) };
-			$logger->($@) if $@;
-			my ($count) = $count_sql->fetchrow_array;
-			print "<tr class=\"td$td\"><td>$cleaned ";
-			eval { $desc_sql->execute($_) };
-			$logger->($@) if $@;
-			my ($desc_exists) = $desc_sql->fetchrow_array;
-			if ($desc_exists) {
-				print
-" <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$_\" class=\"info_tooltip\">&nbsp;i&nbsp;</a>";
-			}
-			print "</td><td>";
-			print
-"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;locus=$_\" class=\"downloadbutton\">&darr;</a>"
-			  if $count;
-			print "</td><td>$locus_info->{'data_type'}</td><td>$count</td>";
-			if ( $locus_info->{'length_varies'} ) {
-				print "<td>Variable: ";
-				if ( $locus_info->{'min_length'} || $locus_info->{'max_length'} ) {
-					print "(";
-					print "$locus_info->{'min_length'} min" if $locus_info->{'min_length'};
-					print "; "                              if $locus_info->{'min_length'} && $locus_info->{'max_length'};
-					print "$locus_info->{'max_length'} max" if $locus_info->{'max_length'};
-					print ")";
-				} else {
-					print "No limits set";
+			$self->_print_locus_row(
+				$_,
+				$self->clean_locus($_),
+				{
+					td             => $td,
+					descs_exist    => $scheme_descs_exist,
+					aliases_exist  => $scheme_aliases_exist,
+					curators_exist => $scheme_curators_exist
 				}
-				print "</td>\n";
-			} else {
-				print "<td>Fixed: $locus_info->{'length'} " . ( $locus_info->{'data_type'} eq 'DNA' ? 'bp' : 'aa' ) . "</td>\n";
-			}
-			if ($scheme_descs_exist) {
-				eval { $name_sql->execute($_) };
-				$logger->($@) if $@;
-				my ( $name, $product ) = $name_sql->fetchrow_array;
-				my @names_product;
-				push @names_product, $name    if $name;
-				push @names_product, $product if $product;
-				$" = ' / ';
-				print "<td>@names_product</td>";
-			}
-			if ($scheme_aliases_exist) {
-				eval { $alias_sql->execute($_) };
-				$logger->($@) if $@;
-				my @aliases;
-				while ( my ($alias) = $alias_sql->fetchrow_array ) {
-					push @aliases, $alias;
-				}
-				$" = '; ';
-				print "<td>@aliases</td>\n";
-			}
-			if ($scheme_curators_exist) {
-				eval { $curator_sql->execute($_) };
-				$logger->($@) if $@;
-				my @curators;
-				my $info;
-				while ( my ($curator) = $curator_sql->fetchrow_array ) {
-					push @curators, $curator;
-					$info->{$curator} = $self->{'datastore'}->get_user_info($curator);
-				}
-				@curators = sort { $info->{$a}->{'surname'} cmp $info->{$b}->{'surname'} } @curators;
-				my $first = 1;
-				print "<td>";
-				foreach my $curator (@curators) {
-					print ', ' if !$first;
-					my $first_initial = $info->{$curator}->{'first_name'} ? substr( $info->{$curator}->{'first_name'}, 0, 1 ) . '. ' : '';
-					print "<a href=\"mailto:$info->{$curator}->{'email'}\">" if $info->{$curator}->{'email'};
-					print "$first_initial$info->{$curator}->{'surname'}";
-					print "</a>" if $info->{$curator}->{'email'};
-					$first = 0;
-				}
-				print "</td>";
-			}
-			print "</tr>\n";
+			);
 			$td = $td == 1 ? 2 : 1;
 		}
 		print "</table>\n";
 	}
+	return;
 }
 
 sub get_title {
@@ -342,5 +292,160 @@ sub _print_sequences {
 		print "$cleaned_seq\n";
 	}
 	return;
+}
+
+sub _print_table_header_row {
+	my ( $self, $options ) = @_;
+	print "<tr><th>Locus</th><th>Download</th><th>Type</th><th>Alleles</th><th>Length</th>";
+	print "<th>Full name/product</th>" if $options->{'descs_exist'};
+	print "<th>Aliases</th>\n"         if $options->{'aliases_exist'};
+	print "<th>Curator(s)</th>\n"      if $options->{'curators_exist'};
+	print "</tr>\n";
+	return;
+}
+
+sub _print_locus_row {
+	my ( $self, $locus, $display_name, $options ) = @_;
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	if ( !$self->{'sql'}->{'count'} ) {
+		$self->{'sql'}->{'count'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM sequences WHERE locus=?");
+	}
+	if ( !$self->{'sql'}->{'desc'} ) {
+		$self->{'sql'}->{'desc'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM locus_descriptions WHERE locus=?");
+	}
+	if ( !$self->{'sql'}->{'name'} ) {
+		$self->{'sql'}->{'name'} = $self->{'db'}->prepare("SELECT full_name,product FROM locus_descriptions WHERE locus=?");
+	}
+	if ( !$self->{'sql'}->{'alias'} ) {
+		$self->{'sql'}->{'alias'} = $self->{'db'}->prepare("SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias");
+	}
+	if ( !$self->{'sql'}->{'curator'} ) {
+		$self->{'sql'}->{'curator'} =
+		  $self->{'db'}->prepare("SELECT curator_id FROM locus_curators WHERE locus=? AND (hide_public IS NULL OR NOT hide_public)");
+	}
+	eval { $self->{'sql'}->{'count'}->execute($locus) };
+	$logger->($@) if $@;
+	my ($count) = $self->{'sql'}->{'count'}->fetchrow_array;
+	print "<tr class=\"td$options->{'td'}\"><td>$display_name ";
+	eval { $self->{'sql'}->{'desc'}->execute($locus) };
+	$logger->($@) if $@;
+	my ($desc_exists) = $self->{'sql'}->{'desc'}->fetchrow_array;
+
+	if ($desc_exists) {
+		print
+" <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus\" class=\"info_tooltip\">&nbsp;i&nbsp;</a>";
+	}
+	print "</td><td>";
+	print
+"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;locus=$locus\" class=\"downloadbutton\">&darr;</a>"
+	  if $count;
+	print "</td><td>$locus_info->{'data_type'}</td><td>$count</td>";
+	if ( $locus_info->{'length_varies'} ) {
+		print "<td>Variable: ";
+		if ( $locus_info->{'min_length'} || $locus_info->{'max_length'} ) {
+			print "(";
+			print "$locus_info->{'min_length'} min" if $locus_info->{'min_length'};
+			print "; "                              if $locus_info->{'min_length'} && $locus_info->{'max_length'};
+			print "$locus_info->{'max_length'} max" if $locus_info->{'max_length'};
+			print ")";
+		} else {
+			print "No limits set";
+		}
+		print "</td>\n";
+	} else {
+		print "<td>Fixed: $locus_info->{'length'} " . ( $locus_info->{'data_type'} eq 'DNA' ? 'bp' : 'aa' ) . "</td>\n";
+	}
+	if ( $options->{'descs_exist'} ) {
+		eval { $self->{'sql'}->{'name'}->execute($locus) };
+		$logger->($@) if $@;
+		my ( $name, $product ) = $self->{'sql'}->{'name'}->fetchrow_array;
+		my @names_product;
+		push @names_product, $name    if $name;
+		push @names_product, $product if $product;
+		local $" = ' / ';
+		print "<td>@names_product</td>";
+	}
+	if ( $options->{'aliases_exist'} ) {
+		eval { $self->{'sql'}->{'alias'}->execute($locus) };
+		$logger->($@) if $@;
+		my @aliases;
+		while ( my ($alias) = $self->{'sql'}->{'alias'}->fetchrow_array ) {
+			push @aliases, $alias if $display_name !~ /$alias/;
+		}
+		local $" = '; ';
+		print "<td>@aliases</td>\n";
+	}
+	if ( $options->{'curators_exist'} ) {
+		eval { $self->{'sql'}->{'curator'}->execute($locus) };
+		$logger->($@) if $@;
+		my @curators;
+		my $info;
+		while ( my ($curator) = $self->{'sql'}->{'curator'}->fetchrow_array ) {
+			push @curators, $curator;
+			$info->{$curator} = $self->{'datastore'}->get_user_info($curator);
+		}
+		@curators = sort { $info->{$a}->{'surname'} cmp $info->{$b}->{'surname'} } @curators;
+		my $first = 1;
+		print "<td>";
+		foreach my $curator (@curators) {
+			print ', ' if !$first;
+			my $first_initial = $info->{$curator}->{'first_name'} ? substr( $info->{$curator}->{'first_name'}, 0, 1 ) . '. ' : '';
+			print "<a href=\"mailto:$info->{$curator}->{'email'}\">" if $info->{$curator}->{'email'};
+			print "$first_initial$info->{$curator}->{'surname'}";
+			print "</a>" if $info->{$curator}->{'email'};
+			$first = 0;
+		}
+		print "</td>";
+	}
+	print "</tr>\n";
+	return;
+}
+
+sub _print_alphabetical_list {
+	my ($self) = @_;
+	my @locus_patterns = LOCUS_PATTERNS;
+	foreach my $letter ( 0 .. 9, 'A' .. 'Z' ) {
+		my ( $main, $common, $aliases ) = $self->_get_loci_by_letter($letter);
+		if ( @$main || @$common || @$aliases ) {
+			my %names;
+			$names{"l_$_"}                            = $self->clean_locus($_)             foreach @$main;
+			$names{"cn_$_->{'id'}"}                   = "$_->{'common_name'} [$_->{'id'}]" foreach @$common;
+			$names{"la_$_->{'locus'}||$_->{'alias'}"} = "$_->{'alias'} [$_->{'locus'}]"    foreach @$aliases;
+			my $descs_exist =
+			  $self->{'datastore'}->run_simple_query( "SELECT 1 WHERE EXISTS(SELECT locus FROM locus_descriptions "
+				  . "WHERE locus IN (SELECT id FROM loci WHERE UPPER(id) LIKE '$letter%' OR upper(common_name) LIKE '$letter%') "
+				  . "OR locus IN (SELECT locus FROM locus_aliases WHERE UPPER(alias) LIKE '$letter%'))" );
+			my $aliases_exist =
+			  $self->{'datastore'}
+			  ->run_simple_query( "SELECT 1 WHERE EXISTS(SELECT locus FROM locus_aliases " . "WHERE alias LIKE '$letter%')" );
+			my $curators_exist =
+			  $self->{'datastore'}->run_simple_query( "SELECT 1 WHERE EXISTS(SELECT locus FROM locus_curators "
+				  . "WHERE (locus IN (SELECT id FROM loci WHERE UPPER(id) LIKE '$letter%' OR upper(common_name) LIKE '$letter%') "
+				  . "OR locus IN (SELECT locus FROM locus_aliases WHERE UPPER(alias) LIKE '$letter%')) AND NOT hide_public)" );
+			print "<h2>$letter</h2>\n";
+			print "<table class=\"resultstable\">";
+			$self->_print_table_header_row(
+				{ descs_exist => $descs_exist, aliases_exist => $aliases_exist, curators_exist => $curators_exist } );
+			my $td = 1;
+
+			foreach my $locus ( sort { $names{$a} cmp $names{$b} } keys %names ) {
+				my $locus_name = $locus ~~ @locus_patterns ? $1 : undef;
+				$self->_print_locus_row( $locus_name, $names{$locus},
+					{ td => $td, descs_exist => $descs_exist, aliases_exist => $aliases_exist, curators_exist => $curators_exist, } );
+				$td = $td == 1 ? 2 : 1;
+			}
+			print "</table>\n";
+		}
+	}
+	return;
+}
+
+sub _get_loci_by_letter {
+	my ( $self, $letter ) = @_;
+	$letter = "_$letter" if $letter =~ /\d/;
+	my $main    = $self->{'datastore'}->run_list_query("SELECT id FROM loci WHERE UPPER(id) LIKE '$letter%'");
+	my $common  = $self->{'datastore'}->run_list_query_hashref("SELECT id,common_name FROM loci WHERE UPPER(common_name) LIKE '$letter%'");
+	my $aliases = $self->{'datastore'}->run_list_query_hashref("SELECT locus,alias FROM locus_aliases WHERE UPPER(alias) LIKE '$letter%'");
+	return ( $main, $common, $aliases );
 }
 1;
