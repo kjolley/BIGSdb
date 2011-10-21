@@ -564,7 +564,7 @@ sub _get_scheme_attributes {
 
 sub _get_tree {
 	my ( $self, $isolate_id ) = @_;
-	my $buffer = "<table style=\"width:100%\">";
+	my $buffer = "<table style=\"width:100%;border-spacing:0\">";
 	$buffer .= "<tr>\n";
 	$buffer .= "<td id=\"tree\" class=\"tree\">\n";
 	$buffer .= "<noscript><p class=\"highlight\">Enable Javascript to enhance your viewing experience.</p></noscript>\n";
