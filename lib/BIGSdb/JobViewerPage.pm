@@ -35,7 +35,7 @@ sub print_content {
 	my $q = $self->{'cgi'};
 	print "<h1>Job status viewer</h1>";
 	my $id = $q->param('id');
-	if ( $id !~ /BIGSdb_\d+/ ) {
+	if ( !defined $id || $id !~ /BIGSdb_\d+/ ) {
 		print "<div class=\"box\" id=\"statusbad\">\n";
 		print "<p>The submitted job id is invalid.</p>\n";
 		print "</div>";
