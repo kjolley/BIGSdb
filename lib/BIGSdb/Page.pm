@@ -949,6 +949,18 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 		if (   $self->{'curate'}
 			&& $self->{'system'}->{'dbtype'} eq 'isolates'
 			&& $table eq $self->{'system'}->{'view'}
+			&& $self->can_modify_table('allele_sequences')){
+				print "<fieldset style=\"text-align:center\"><legend>Tag scanning</legend>\n";
+				print $q->start_form;
+				$q->param( 'page', 'tagScan' );
+				print $q->hidden($_) foreach qw (db page table query);
+				print $q->submit( -name => 'Scan', -class => 'submit' );
+				print $q->end_form;
+				print "</fieldset>\n";	
+		}
+		if (   $self->{'curate'}
+			&& $self->{'system'}->{'dbtype'} eq 'isolates'
+			&& $table eq $self->{'system'}->{'view'}
 			&& $self->can_modify_table('project_members') )
 		{
 			my @projects;

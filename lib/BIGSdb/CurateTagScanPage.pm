@@ -24,6 +24,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(uniq any none);
 use Apache2::Connection ();
+use Error qw(:try);
 use BIGSdb::Page qw(SEQ_METHODS SEQ_FLAGS LOCUS_PATTERNS);
 ###DEFAUT SCAN PARAMETERS#############
 my $MIN_IDENTITY    = 70;
@@ -90,6 +91,10 @@ sub _print_interface {
 	if ($guid) {
 		$general_prefs = $self->{'prefstore'}->get_all_general_prefs( $guid, $self->{'system'}->{'db'} );
 	}
+	
+	my $selected_ids = $q->param('query') ? $self->_get_ids($q->param('query')) : [];
+
+	
 	print $q->start_form;
 	print "<div class=\"scrollable\"><fieldset>\n<legend>Isolates</legend>\n";
 	print $q->scrolling_list(
@@ -98,7 +103,8 @@ sub _print_interface {
 		-values   => $ids,
 		-labels   => $labels,
 		-size     => 11,
-		-multiple => 'true'
+		-multiple => 'true',
+		-default  => $selected_ids
 	);
 	print
 "<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"isolate_id\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
@@ -1493,4 +1499,35 @@ sub _is_complete_gene {
 	}
 	return ( 0, $status );
 }
+
+sub _create_temp_tables {
+	my ( $self, $qry_ref ) = @_;
+	my $qry      = $$qry_ref;
+	my $schemes  = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+	my $continue = 1;
+	try {
+		foreach (@$schemes) {
+			if ( $qry =~ /temp_scheme_$_\s/ || $qry =~ /ORDER BY s_$_\_/ ) {
+				$self->{'datastore'}->create_temp_scheme_table($_);
+			}
+		}
+	}
+	catch BIGSdb::DatabaseConnectionException with {
+		$logger->error("Can't connect to remote database.");
+		$continue = 0;
+	};
+	return $continue;
+}
+
+sub _get_ids {
+	my ( $self, $qry) = @_;
+	$qry =~ s/ORDER BY.*$//g;
+	return if !$self->_create_temp_tables(\$qry);
+	$qry =~ s/SELECT \*/SELECT id/;
+	my $ids = $self->{'datastore'}->run_list_query($qry);
+	return $ids;
+}
+
+
+
 1;
