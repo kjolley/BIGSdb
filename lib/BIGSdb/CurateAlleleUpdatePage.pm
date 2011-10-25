@@ -135,7 +135,7 @@ sub print_content {
 			my $allele = $self->{'datastore'}->get_allele_designation( $id, $locus );
 			foreach (@$attributes) {
 				push @fields, $_->{'name'};
-				$newdata{ $_->{'name'} } ||= '';
+				$newdata{ $_->{'name'} } = '' if !defined $newdata{ $_->{'name'} };
 				$newdata{ $_->{'name'} } =~ s/\\/\\\\/g;
 				$newdata{ $_->{'name'} } =~ s/'/\\'/g;
 				if ( $_->{'name'} =~ /sequence$/ ) {

@@ -74,6 +74,7 @@ sub create_record_table {
 	$buffer .= $q->hidden( 'sent', 1 );
 	$buffer .= "<div class=\"box\" id=\"queryform\">" if !$nodiv;
 	$buffer .= "<p>Please fill in the fields below - required fields are marked with an exclamation mark (!).</p>\n";
+	$buffer .= "<div class=\"scrollable\">" if !$nodiv;
 	$buffer .= "<table>\n";
 
 	if ( scalar @$attributes > 15 ) {
@@ -431,7 +432,7 @@ sub create_record_table {
 	}
 	$buffer .= "</td></tr>\n";
 	$buffer .= "</table>\n";
-	$buffer .= "</div>\n" if !$nodiv;
+	$buffer .= "</div>\n</div>\n" if !$nodiv;
 	$buffer .= $q->end_form;
 	return $buffer;
 }

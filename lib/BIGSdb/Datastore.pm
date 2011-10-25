@@ -2704,7 +2704,7 @@ sub _get_samples_table_attributes {
 sub is_table {
 	my ( $self, $qry ) = @_;
 	$qry ||= '';
-	my @tables = $self->get_tables();
+	my @tables = $self->get_tables;
 	return 1 if any { $_ eq $qry } @tables;
 	return 0;
 }

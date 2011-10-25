@@ -198,7 +198,7 @@ sub print_content {
 			}
 			$update[$i] = 0;
 			my ( $oldvalue, $action );
-			if ( $i && $value[$i] ) {
+			if ( $i && defined $value[$i] && $value[$i] ne '' ) {
 				if ( !$badField ) {
 					my $count;
 					my @args;
