@@ -307,14 +307,6 @@ this sequence then make sure that the 'Override sequence similarity check' box i
 				push @problems,
 				  "Locus set as non variable length but no length is set. Either set 'length_varies' to false, or enter a length.";
 			}
-			if ( $newdata{'id'} =~ /^\d/ ) {
-				push @problems,
-				  "Locus names can not start with a digit.  Try prepending an underscore (_) which will get hidden in the query interface.";
-			}
-			if ( $newdata{'id'} =~ /[^\w_']/ ) {
-				push @problems,
-				  "Locus names can only contain alphanumeric, underscore (_) and prime (') characters (no spaces or other symbols).";
-			}
 		}
 
 		#special case to ensure that a locus alias is not the same as the locus name
