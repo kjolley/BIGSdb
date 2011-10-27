@@ -1454,16 +1454,7 @@ sub _get_user_permissions_table_attributes {
 sub _get_loci_table_attributes {
 	my ($self) = @_;
 	my $attributes = [
-		{
-			name        => 'id',
-			type        => 'text',
-			required    => 'yes',
-			unique      => 'yes',
-			primary_key => 'yes',
-			regex => '^[a-zA-Z][\w_\\\\\']*$',
-			tooltip =>
-'Locus names - Locus names can only contain alphanumeric, underscore (_) and prime (\') characters (no spaces or other symbols). They also can not start with a digit.";'
-		},
+		{ name => 'id', type => 'text', required => 'yes', unique => 'yes', primary_key => 'yes' },
 		{ name => 'common_name', type => 'text', tooltip  => 'common name - Name that the locus is commonly known as.' },
 		{ name => 'data_type',   type => 'text', required => 'yes', optlist => 'DNA;peptide', default => 'DNA' },
 		{
@@ -2725,7 +2716,7 @@ sub get_tables {
 		@tables =
 		  qw(users user_groups user_group_members allele_sequences sequence_bin accession refs allele_designations pending_allele_designations loci
 		  locus_aliases schemes scheme_members scheme_fields composite_fields composite_field_values isolate_aliases user_permissions isolate_user_acl
-		  isolate_usergroup_acl projects project_members experiments experiment_sequences isolate_field_extended_attributes
+		  isolate_usergroup_acl projects project_members experiments experiment_sequences isolate_field_extended_attributes 
 		  isolate_value_extended_attributes scheme_groups scheme_group_scheme_members scheme_group_group_members pcr pcr_locus probes probe_locus);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}

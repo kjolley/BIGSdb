@@ -748,6 +748,14 @@ sub _check_data_loci {
 	{
 		$arg_ref->{'problems'}->{$pk_combination} .= "Locus set as non variable length but no length is set.<br />";
 	}
+	if ( $data[ $file_header_pos{'id'} ] =~ /^\d/ ) {
+		$arg_ref->{'problems'}->{$pk_combination} .=
+		  "Locus names can not start with a digit.  Try prepending an underscore (_) which will get hidden in the query interface.<br />";
+	}
+	if ( $data[ $file_header_pos{'id'} ] =~ /[^\w_']/ ) {
+		$arg_ref->{'problems'}->{$pk_combination} .=
+"Locus names can only contain alphanumeric, underscore (_) and prime (') characters (no spaces or other symbols).<br />";
+	}
 	return;
 }
 
