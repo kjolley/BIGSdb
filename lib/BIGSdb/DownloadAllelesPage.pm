@@ -116,6 +116,7 @@ sub print_content {
 		}
 		return;
 	}
+	local $| = 1;
 	if ( defined $q->param('scheme_id') ) {
 		my $scheme_id = $q->param('scheme_id');
 		if ( !BIGSdb::Utils::is_int($scheme_id) ) {
@@ -204,7 +205,11 @@ sub _print_all_loci_by_scheme {
 	my $sql    = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
 	$logger->error($@) if $@;
-	while ( my ( $scheme_id, $desc ) = $sql->fetchrow_array() ) {
+	while ( my ( $scheme_id, $desc ) = $sql->fetchrow_array ) {
+		if ( $ENV{'MOD_PERL'} ) {
+			return if $self->{'mod_perl_request'}->connection->aborted;
+			$self->{'mod_perl_request'}->rflush;			
+		}
 		$self->_print_scheme_table( $scheme_id, $desc );
 	}
 	$self->_print_scheme_table( 0, 'Other loci' );
@@ -405,6 +410,10 @@ sub _print_alphabetical_list {
 	my ($self) = @_;
 	my @locus_patterns = LOCUS_PATTERNS;
 	foreach my $letter ( 0 .. 9, 'A' .. 'Z' ) {
+		if ( $ENV{'MOD_PERL'} ) {
+			return if $self->{'mod_perl_request'}->connection->aborted;
+			$self->{'mod_perl_request'}->rflush;
+		}
 		my $qry_letter = $letter =~ /\d/ ? '\\\_' . $letter : $letter;
 		my ( $main, $common, $aliases ) = $self->_get_loci_by_letter($qry_letter);
 		if ( @$main || @$common || @$aliases ) {
