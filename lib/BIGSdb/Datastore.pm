@@ -2168,7 +2168,7 @@ sub _get_scheme_fields_table_attributes {
 			labels         => '|$id|) |$description|',
 			dropdown_query => 'yes'
 		},
-		{ name => 'field', type => 'text', required => 'yes', primary_key => 'yes', regex => '^[a-zA-Z][\w\-_]*$' },
+		{ name => 'field', type => 'text', required => 'yes', primary_key => 'yes', regex => '^[a-zA-Z][\w_]*$' },
 		{ name => 'type',  type => 'text', required => 'yes', optlist     => 'text;integer;date' },
 		{
 			name     => 'primary_key',
