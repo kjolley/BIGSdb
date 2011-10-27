@@ -46,7 +46,7 @@ sub print_content {
 	my $sql         = $self->{'db'}->prepare($qry);
 	eval { $sql->execute( $scheme_id, $profile_id ) };
 	$logger->error($@) if $@;
-	my $data = $sql->fetchrow_hashref();
+	my $data = $sql->fetchrow_hashref;
 	if ( !$$data{'profile_id'} ) {
 		print
 "<div class=\"box\" id=\"statusbad\"><p>No profile from scheme $scheme_id ($scheme_info->{'description'}) with profile_id = '$profile_id' exists.</p></div>\n";
@@ -128,7 +128,7 @@ sub print_content {
 		if (@bad_field_buffer) {
 			print
 			  "<div class=\"box\" id=\"statusbad\"><p>There are problems with your record submission.  Please address the following:</p>\n";
-			$" = '<br />';
+			local $" = '<br />';
 			print "<p>@bad_field_buffer</p></div>\n";
 		} elsif ( !%locus_changed && !%field_changed ) {
 			print "<div class=\"box\" id=\"statusbad\"><p>No fields were changed.</p></div>\n";
@@ -160,7 +160,7 @@ sub print_content {
 					}
 					push @updated_field, "$_: '$data->{$_}' -> '$newdata{\"field:$_\"}'";
 				} else {
-					if ( defined $field_data->{$_} ) {
+					if ( defined $field_data->{$_} && $field_data->{$_} ne '') {
 						my $sql_update =
 						  $self->{'db'}->prepare(
 							"UPDATE profile_fields SET value=?,datestamp=?,curator=? WHERE scheme_id=? AND scheme_field=? AND profile_id=?"
@@ -195,11 +195,11 @@ sub print_content {
 				}
 			}
 			if ($success) {
-				$self->{'db'}->commit();
+				$self->{'db'}->commit;
 				print "<div class=\"box\" id=\"resultsheader\"><p>Updated!</p>";
 				print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
 				$logger->info("Updated profile scheme_id:$scheme_id profile_id:$profile_id");
-				$" = '<br />';
+				local $" = '<br />';
 				$self->_update_profile_history( $scheme_id, $profile_id, "@updated_field" );
 				return;
 			} else {
@@ -267,6 +267,7 @@ sub print_content {
 	print "</table>\n";
 	print $q->end_form;
 	print "</div>\n";
+	return;
 }
 
 sub get_title {
@@ -291,5 +292,6 @@ sub _update_profile_history {
 	} else {
 		$self->{'db'}->commit;
 	}
+	return;
 }
 1;
