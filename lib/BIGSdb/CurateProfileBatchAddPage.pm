@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use base qw(BIGSdb::CurateProfileAddPage);
 use Log::Log4perl qw(get_logger);
+use List::MoreUtils qw(none);
 my $logger = get_logger('BIGSdb.Page');
 
 sub print_content {
@@ -362,12 +363,12 @@ sub print_content {
 			if ( $pks_so_far{$pk} ) {
 				$problems{$pk} .= "This primary key has been included more than once in this submission.<br />";
 			}
-			if ( $profiles_so_far{"@profile"} ) {
-				$problems{$pk} .= "The profile '@profile' has been included more than once in this submission.<br />";
-			}
-			local $" = ',';
 			{
 				no warnings 'uninitialized';
+				local $" = ',';
+				if ( $profiles_so_far{"@profile"} && none {$_ eq ''} @profile) {
+					$problems{$pk} .= "The profile '@profile' has been included more than once in this submission.<br />";
+				}
 				$profiles_so_far{"@profile"} = 1;
 			}
 			$pks_so_far{$pk} = 1;

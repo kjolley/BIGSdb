@@ -257,7 +257,7 @@ sub get_title {
 		};
 	}
 	my $title = "Profile information";
-	$title .= ": $primary_key-$profile_id" if $primary_key;
+	$title .= ": $primary_key-$profile_id" if $primary_key && defined $profile_id;
 	$title .= " ($scheme_info->{'description'})" if defined $scheme_info;
 	$title .= ' - ';
 	$title .= "$self->{'system'}->{'description'}";
