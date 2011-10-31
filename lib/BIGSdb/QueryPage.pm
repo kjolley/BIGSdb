@@ -1263,8 +1263,9 @@ sub _modify_isolate_query_for_designations {
 	my ( $self, $qry, $errors_ref ) = @_;
 	my $q    = $self->{'cgi'};
 	my $view = $self->{'system'}->{'view'};
-	my ( @lqry, @lqry_blank, %combo );
+	my ( %lqry, @lqry_blank, %combo );
 	my @locus_patterns = LOCUS_PATTERNS;
+	my $andor = defined $q->param('c1') && $q->param('c1') eq 'AND' ? ' AND ' : ' OR ';
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		if ( defined $q->param("lt$i") && $q->param("lt$i") ne '' ) {
 			if ( $q->param("ls$i") ~~ @locus_patterns ) {
@@ -1291,22 +1292,26 @@ sub _modify_isolate_query_for_designations {
 					next;
 				}
 				if ( $operator eq 'NOT' ) {
-					push @lqry,
+					$lqry{$locus} .= $andor if $lqry{$locus};
+					$lqry{$locus} .=
 					  (
 						( $text eq '<blank>' || $text eq 'null' )
 						? "(EXISTS (SELECT 1 WHERE allele_designations.locus=E'$locus'))"
 						: "(allele_designations.locus=E'$locus' AND NOT upper(allele_designations.allele_id) = upper(E'$text'))"
 					  );
 				} elsif ( $operator eq "contains" ) {
-					push @lqry, "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) LIKE upper(E'\%$text\%'))";
+					$lqry{$locus} .= $andor if $lqry{$locus};
+					$lqry{$locus} .= "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) LIKE upper(E'\%$text\%'))";
 				} elsif ( $operator eq "NOT contain" ) {
-					push @lqry,
+					$lqry{$locus} .= $andor if $lqry{$locus};
+					$lqry{$locus} .=
 					  "(allele_designations.locus=E'$locus' AND NOT upper(allele_designations.allele_id) LIKE upper(E'\%$text\%'))";
 				} elsif ( $operator eq '=' ) {
 					if ( $text eq '<blank>' || $text eq 'null' ) {
 						push @lqry_blank, "(id NOT IN (SELECT isolate_id FROM allele_designations WHERE locus=E'$locus'))";
 					} else {
-						push @lqry,
+						$lqry{$locus} .= $andor if $lqry{$locus};
+						$lqry{$locus} .=
 						  $locus_info->{'allele_id_format'} eq 'text'
 						  ? "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) = upper(E'$text'))"
 						  : "(allele_designations.locus=E'$locus' AND allele_designations.allele_id = E'$text')";
@@ -1316,11 +1321,12 @@ sub _modify_isolate_query_for_designations {
 						push @$errors_ref, "$operator is not a valid operator for comparing null values.";
 						next;
 					}
+					$lqry{$locus} .= $andor if $lqry{$locus};
 					if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-						push @lqry,
+						$lqry{$locus} .=
 						  "(allele_designations.locus=E'$locus' AND CAST(allele_designations.allele_id AS int) $operator E'$text')";
 					} else {
-						push @lqry, "(allele_designations.locus=E'$locus' AND allele_designations.allele_id $operator E'$text')";
+						$lqry{$locus} .= "(allele_designations.locus=E'$locus' AND allele_designations.allele_id $operator E'$text')";
 					}
 				}
 			}
@@ -1402,12 +1408,13 @@ sub _modify_isolate_query_for_designations {
 		}
 	}
 	my $brace = @sqry ? '(' : '';
-	if (@lqry) {
+	if (keys %lqry) {
 		local $" = ' OR ';
 		my $modify = '';
 		if ( defined $q->param('c1') && $q->param('c1') eq 'AND' ) {
-			$modify = "GROUP BY id HAVING count(id)=" . scalar @lqry;
+			$modify = "GROUP BY id HAVING count(id)=" . scalar keys %lqry;
 		}
+		my @lqry = values %lqry;
 		my $lqry =
 "$view.id IN (select distinct($view.id) FROM $view LEFT JOIN allele_designations ON $view.id=allele_designations.isolate_id WHERE @lqry $modify)";
 		if ( $qry =~ /\(\)$/ ) {
@@ -1418,7 +1425,7 @@ sub _modify_isolate_query_for_designations {
 	}
 	if (@lqry_blank) {
 		local $" = ' ' . $q->param('c1') . ' ';
-		my $modify = @lqry ? $q->param('c1') : 'AND';
+		my $modify = scalar keys %lqry ? $q->param('c1') : 'AND';
 		if ( $qry =~ /\(\)$/ ) {
 			$qry = "SELECT * FROM $view WHERE $brace@lqry_blank";
 		} else {
@@ -1433,7 +1440,7 @@ sub _modify_isolate_query_for_designations {
 			$qry = "SELECT * FROM $view WHERE $sqry";
 		} else {
 			$qry .= " $andor $sqry";
-			$qry .= ')' if ( @lqry or @lqry_blank );
+			$qry .= ')' if ( scalar keys %lqry or @lqry_blank );
 		}
 	}
 	return $qry;
