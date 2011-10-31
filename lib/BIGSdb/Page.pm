@@ -638,11 +638,11 @@ sub get_user_filter {
 sub get_scheme_filter {
 	my ($self) = @_;
 	if ( !$self->{'cache'}->{'schemes'} ) {
-		my $qry = "SELECT id,description FROM schemes ORDER BY display_order,id";
+		my $qry = "SELECT id,description FROM schemes ORDER BY UPPER(description),id";
 		my $sql = $self->{'db'}->prepare($qry);
 		eval { $sql->execute };
 		$logger->error($@) if $@;
-		while ( my @data = $sql->fetchrow_array() ) {
+		while ( my @data = $sql->fetchrow_array ) {
 			push @{ $self->{'cache'}->{'schemes'} }, $data[0];
 			$self->{'cache'}->{'scheme_labels'}->{ $data[0] } = $data[1];
 		}
@@ -665,7 +665,7 @@ sub get_project_filter {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $sql = $self->{'db'}->prepare("SELECT id, short_description FROM projects ORDER BY short_description");
-	eval { $sql->execute; };
+	eval { $sql->execute };
 	$logger->error($@) if $@;
 	my ( @project_ids, %labels );
 	while ( my ( $id, $desc ) = $sql->fetchrow_array ) {
