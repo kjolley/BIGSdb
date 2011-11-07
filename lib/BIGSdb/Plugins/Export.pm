@@ -38,7 +38,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.0.0',
+		version     => '1.1.0',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		input       => 'query',
@@ -50,10 +50,18 @@ sub get_attributes {
 }
 
 sub get_option_list {
+	my ($self) = @_;
 	my @list = (
-		{ name => 'alleles', description => 'Export allele numbers',                 default => '1' },
-		{ name => 'molwt',   description => 'Export protein molecular weights',      default => '0' },
-		{ name => 'met',     description => 'GTG/TTG at start codes for methionine', default => '1' }
+		{ name => 'alleles', description => 'Export allele numbers',                 default => 1 },
+		{ name => 'molwt',   description => 'Export protein molecular weights',      default => 0 },
+		{ name => 'met',     description => 'GTG/TTG at start codes for methionine', default => 1 },
+		{ name => 'oneline', description => 'Use one row per field',                 default => 0 },
+		{
+			name        => 'labelfield',
+			description => "Include $self->{'system'}->{'labelfield'} field in row (used only with 'one row' option)",
+			default     => 0
+		},
+		{ name => 'info', description => "Export full allele designation record (used only with 'one row' option)", default => 0 }
 	);
 	return \@list;
 }
@@ -112,8 +120,8 @@ sub _write_tab_text {
 	my ( $self, $qry_ref, $fields, $filename ) = @_;
 	my $guid = $self->get_guid;
 	my %prefs;
-	my %default_prefs = ( 'alleles' => 1, 'molwt' => 0, 'met' => 1 );
-	foreach (qw (alleles molwt met)) {
+	my %default_prefs = ( alleles => 1, molwt => 0, met => 1, oneline => 0, labelfield => 0, info => 0 );
+	foreach (qw (alleles molwt met oneline labelfield info)) {
 		try {
 			$prefs{$_} = $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'Export', $_ );
 			$prefs{$_} = $prefs{$_} eq 'true' ? 1 : 0;
@@ -124,52 +132,55 @@ sub _write_tab_text {
 	}
 	open( my $fh, '>', $filename )
 	  or $logger->error("Can't open temp file $filename for writing");
-	my $first = 1;
-	my %schemes;
-	foreach (@$fields) {
-		my $field = $_;
-		if ( $field =~ /^s_(\d+)_f/ ) {
-			my $scheme_info = $self->{'datastore'}->get_scheme_info($1);
-			$field .= " ($scheme_info->{'description'})"
-			  if $scheme_info->{'description'};
-			$schemes{$1} = 1;
-		}
-		my $is_locus;
-		if ( $field =~ /(s_\d+_l_|l_)/ ) {
-			$is_locus = 1;
-		}
-		$field =~ s/^(s_\d+_l|s_\d+_f|f|l|c)_//g;    #strip off prefix for header row
-		$field =~ s/___/../;
-		$field =~ tr/_/ /;
-		if ($is_locus) {
-			if ( $prefs{'alleles'} ) {
+	if ( $prefs{'oneline'} ) {
+		print $fh "id\t";
+		print $fh $self->{'system'}->{'labelfield'} . "\t" if $prefs{'labelfield'};
+		print $fh "Field\tValue";
+		print $fh "\tCurator\tDatestamp\tComments" if $prefs{'info'};
+	} else {
+		my $first = 1;
+		my %schemes;
+		foreach (@$fields) {
+			my $field = $_;
+			if ( $field =~ /^s_(\d+)_f/ ) {
+				my $scheme_info = $self->{'datastore'}->get_scheme_info($1);
+				$field .= " ($scheme_info->{'description'})"
+				  if $scheme_info->{'description'};
+				$schemes{$1} = 1;
+			}
+			my $is_locus = $field =~ /^(s_\d+_l_|l_)/ ? 1 : 0;
+			$field =~ s/^(s_\d+_l|s_\d+_f|f|l|c)_//g;    #strip off prefix for header row
+			$field =~ s/___/../;
+			if ($is_locus) {
+				if ( $prefs{'alleles'} ) {
+					print $fh "\t" if !$first;
+					print $fh $field;
+					$first = 0;
+				}
+				if ( $prefs{'molwt'} ) {
+					print $fh "\t" if !$first;
+					print $fh "$field Mwt";
+					$first = 0;
+				}
+			} else {
 				print $fh "\t" if !$first;
 				print $fh $field;
 				$first = 0;
 			}
-			if ( $prefs{'molwt'} ) {
-				print $fh "\t" if !$first;
-				print $fh "$field Mwt";
-				$first = 0;
+		}
+		my $scheme_field_pos;
+		foreach my $scheme_id ( keys %schemes ) {
+			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+			my $i             = 0;
+			foreach (@$scheme_fields) {
+				$scheme_field_pos->{$scheme_id}->{$_} = $i;
+				$i++;
 			}
-		} else {
-			print $fh "\t" if !$first;
-			print $fh $field;
-			$first = 0;
 		}
-	}
-	my $scheme_field_pos;
-	foreach my $scheme_id ( keys %schemes ) {
-		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-		my $i             = 0;
-		foreach (@$scheme_fields) {
-			$scheme_field_pos->{$scheme_id}->{$_} = $i;
-			$i++;
+		if ($first) {
+			print $fh "Make sure you select an option for locus export (see options in the top-right corner).\n";
+			return;
 		}
-	}
-	if ($first) {
-		print $fh "Make sure you select an option for locus export (see options in the top-right corner).\n";
-		return;
 	}
 	print $fh "\n";
 	my $sql = $self->{'db'}->prepare($$qry_ref);
@@ -183,7 +194,9 @@ sub _write_tab_text {
 	my $alias_sql = $self->{'db'}->prepare("SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias");
 	my $attribute_sql =
 	  $self->{'db'}->prepare("SELECT value FROM isolate_value_extended_attributes WHERE isolate_field=? AND attribute=? AND field_value=?");
+	my $allele_sql = $self->{'db'}->prepare("SELECT allele_designations.datestamp AS des_datestamp,first_name,surname FROM allele_designations LEFT JOIN users ON allele_designations.curator = users.id WHERE isolate_id=? AND locus=?");
 	local $| = 1;
+
 	while ( $sql->fetchrow_arrayref ) {
 		print "." if !$i;
 		print " " if !$j;
@@ -194,8 +207,12 @@ sub _write_tab_text {
 		my $first      = 1;
 		my $allele_ids = $self->{'datastore'}->get_all_allele_ids( $data{'id'} );
 		my $scheme_field_values;
+
 		foreach (@$fields) {
-			print $fh "\t" if !$first;
+			if ( $prefs{'oneline'} ) {
+				print $fh "$data{'id'}\t";
+				print $fh "$data{$self->{'system'}->{'labelfield'}}\t" if $prefs{'labelfield'};				
+			}
 			if ( $_ =~ /^f_(.*)/ ) {
 				my $field = $1;
 				if ( $field eq 'aliases' ) {
@@ -206,44 +223,106 @@ sub _write_tab_text {
 						push @aliases, $alias;
 					}
 					local $" = '; ';
-					print $fh "@aliases";
+					if ( $prefs{'oneline'} ) {
+						print $fh "aliases\t@aliases\n";
+					} else {
+						print $fh "\t" if !$first;
+						print $fh "@aliases";
+					}
 				} elsif ( $field =~ /(.*)___(.*)/ ) {
 					my ( $isolate_field, $attribute ) = ( $1, $2 );
 					eval { $attribute_sql->execute( $isolate_field, $attribute, $data{$isolate_field} ) };
 					$logger->error($@) if $@;
 					my ($value) = $attribute_sql->fetchrow_array;
-					print $fh $value if defined $value;
+					if ( $prefs{'oneline'} ) {
+						print $fh "$isolate_field..$attribute\t";
+						print $fh $value if defined $value;
+						print $fh "\n";
+					} else {
+						print $fh "\t"   if !$first;
+						print $fh $value if defined $value;
+					}
 				} else {
-					print $fh $data{$field} if defined $data{$field};
+					if ( $prefs{'oneline'} ) {
+						print $fh "$field\t";
+						print $fh "$data{$field}" if defined $data{$field};
+						print $fh "\n";
+					} else {
+						print $fh "\t" if !$first;
+						print $fh $data{$field} if defined $data{$field};
+					}
 				}
 			} elsif ( $_ =~ /^(s_\d+_l_|l_)(.*)/ ) {
-				my $locus            = $2;
-				my $locus_value_used = 0;
+				my $locus = $2;
 				if ( $prefs{'alleles'} ) {
-					print $fh $allele_ids->{$locus} if defined $allele_ids->{$locus};
-					$locus_value_used = 1;
+					if ( $prefs{'oneline'} ) {
+						print $fh "$locus\t";
+						print $fh $allele_ids->{$locus} if defined $allele_ids->{$locus};
+						if ($prefs{'info'}){
+							eval { $allele_sql->execute($data{'id'},$locus)};
+							$logger->error($@) if $@;
+							my $allele_info = $allele_sql->fetchrow_hashref;
+							if (defined $allele_info){
+								print $fh "\t$allele_info->{'first_name'} $allele_info->{'surname'}\t";
+								print $fh "$allele_info->{'des_datestamp'}\t";
+								print $fh $allele_info->{'comments'} if defined $allele_info->{'comments'};
+							}
+						}
+						print $fh "\n";						
+					} else {
+						print $fh "\t" if !$first;
+						print $fh $allele_ids->{$locus} if defined $allele_ids->{$locus};
+					}
 				}
 				if ( $prefs{'molwt'} ) {
-					print $fh "\t" if $locus_value_used;
-					print $fh $self->_get_molwt( $locus, $allele_ids->{$locus}, $prefs{'met'} );
+					if ( $prefs{'oneline'} ) {
+						if ($prefs{'alleles'}){
+							print $fh "$data{'id'}\t";
+							print $fh "$data{$self->{'system'}->{'labelfield'}}\t" if $prefs{'labelfield'};			
+						}
+						print $fh "$locus MolWt\t";
+						print $fh $self->_get_molwt( $locus, $allele_ids->{$locus}, $prefs{'met'} );
+						print $fh "\n";
+					} else {
+						print $fh "\t" if !$first;
+						print $fh $self->_get_molwt( $locus, $allele_ids->{$locus}, $prefs{'met'} );
+					}
 				}
 			} elsif ( $_ =~ /^s_(\d+)_f_(.*)/ ) {
-				my $scheme_id = $1;
-				my $scheme_field = lc($2);
+				my $scheme_id    = $1;
+				my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+				my $display_scheme_field = $2;
+				my $scheme_field = lc($display_scheme_field);
 				if ( ref $scheme_field_values->{$1} ne 'HASH' ) {
-					$scheme_field_values->{$scheme_id} = $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $data{'id'}, $scheme_id );
+					$scheme_field_values->{$scheme_id} =
+					  $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $data{'id'}, $scheme_id );
 				}
 				my $value = $scheme_field_values->{$scheme_id}->{$scheme_field};
 				undef $value
 				  if defined $value && $value eq '-999';    #old null code from mlstdbNet databases
-				print $fh $value if defined $value;
+				if ( $prefs{'oneline'} ) {
+					print $fh "$display_scheme_field ($scheme_info->{'description'})\t";
+					print $fh $value if defined $value;
+					print $fh "\n";
+				} else {
+					print $fh "\t"   if !$first;
+					print $fh $value if defined $value;
+				}
 			} elsif ( $_ =~ /^c_(.*)/ ) {
-				my $value = $self->{'datastore'}->get_composite_value( $data{'id'}, $1, \%data );
-				print $fh $value;
+				my $composite_field = $1;
+				my $value = $self->{'datastore'}->get_composite_value( $data{'id'}, $composite_field, \%data );
+				if ( $prefs{'oneline'} ) {
+					print $fh "$composite_field\t";
+					print $fh $value if defined $value;
+					print $fh "\n";
+				} else {
+					print $fh "\t" if !$first;
+					print $fh $value;
+				}
 			}
 			$first = 0;
 		}
-		print $fh "\n";
+		print $fh "\n" if !$prefs{'oneline'};
 		$i++;
 		if ( $i == 50 ) {
 			$i = 0;
