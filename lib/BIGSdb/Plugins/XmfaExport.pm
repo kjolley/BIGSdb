@@ -41,7 +41,7 @@ sub get_attributes {
 		buttontext  => 'XMFA',
 		menutext    => 'XMFA export',
 		module      => 'XmfaExport',
-		version     => '1.1.3',
+		version     => '1.2.0',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		section     => 'export,postquery',
@@ -148,7 +148,7 @@ can be included.  Please check the loci that you would like to include.  If a se
 the remote database, it will be replaced with 'N's. Output is limited to $limit records. Please be aware that it may take a long time 
 to generate the output file as the sequences are passed through muscle to align them.</p>
 HTML
-	my $options = { 'default_select' => 0, 'translate' => 1, 'flanking' => 1};
+	my $options = { default_select => 0, translate => 1, flanking => 1, ignore_seqflags => 1};
 	$self->print_sequence_export_form( $pk, $list, $scheme_id, $options );
 	print "</div>\n";
 	return;
@@ -175,13 +175,15 @@ sub run_job {
 		if ($params->{'translate'}){
 			$params->{'flanking'} = BIGSdb::Utils::round_to_nearest($params->{'flanking'},3);
 		}
-		$substring_query  = "substring(sequence from start_pos-$params->{'flanking'} for end_pos-start_pos+1+2*$params->{'flanking'})";
+		$substring_query  = "substring(sequence from allele_sequences.start_pos-$params->{'flanking'} for allele_sequences.end_pos-allele_sequences.start_pos+1+2*$params->{'flanking'})";
 	} else {
-		$substring_query  = "substring(sequence from start_pos for end_pos-start_pos+1)";
+		$substring_query  = "substring(sequence from allele_sequences.start_pos for allele_sequences.end_pos-allele_sequences.start_pos+1)";
 	}
+	
+	my $ignore_seqflag = $params->{'ignore_seqflags'} ? 'AND flag IS NULL AND complete' : '';
 	my $seqbin_sql =
 	  $self->{'db'}->prepare(
-"SELECT $substring_query,reverse FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE isolate_id=? AND locus=? ORDER BY complete desc,allele_sequences.datestamp LIMIT 1"
+"SELECT $substring_query,reverse FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id LEFT JOIN sequence_flags ON allele_sequences.seqbin_id = sequence_flags.seqbin_id AND allele_sequences.locus = sequence_flags.locus AND allele_sequences.start_pos = sequence_flags.start_pos AND allele_sequences.end_pos = sequence_flags.end_pos WHERE isolate_id=? AND allele_sequences.locus=? $ignore_seqflag ORDER BY complete,allele_sequences.datestamp LIMIT 1"
 	  );
 	my @problem_ids;
 	my $start = 1;
