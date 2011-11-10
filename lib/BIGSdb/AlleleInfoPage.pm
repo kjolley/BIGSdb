@@ -37,7 +37,7 @@ sub print_content {
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	my $cleaned_locus = $self->clean_locus($locus);
-	print "<h1>Allele information" . (defined $allele_id ? " - $cleaned_locus: $allele_id</h1>\n" : '') . "</h1>\n";
+	print "<h1>Allele information" . (defined $allele_id ? " - $cleaned_locus: $allele_id\n" : '') . "</h1>\n";
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>This function is not available from an isolate database.</p></div>\n";
 		return;
