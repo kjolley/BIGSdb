@@ -840,7 +840,7 @@ sub _generate_isolate_query_for_provenance_fields {
 	my $q           = $self->{'cgi'};
 	my $view        = $self->{'system'}->{'view'};
 	my $qry         = "SELECT * FROM $view WHERE (";
-	my $andor       = $q->param('c0');
+	my $andor       = $q->param('c0') || 'AND';
 	my $first_value = 1;
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		if ( defined $q->param("t$i") && $q->param("t$i") ne '' ) {
