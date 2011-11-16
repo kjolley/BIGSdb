@@ -359,7 +359,7 @@ sub _print_isolate_filter_fieldset {
 	my $q     = $self->{'cgi'};
 	my @filters;
 	my $extended = $self->get_extended_attributes;
-	foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list() } ) {
+	foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list } ) {
 		my %thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 		my @dropdownlist;
 		my %dropdownlabels;
@@ -461,7 +461,7 @@ sub _print_isolate_filter_fieldset {
 			push @filters,
 			  $self->get_filter(
 				$field,
-				[ 'complete', 'incomplete', 'partial', 'not started' ],
+				[ 'complete', 'incomplete', 'partial', 'started', 'not started' ],
 				{
 					'text' => "$scheme_info->{'description'} profiles",
 					'tooltip' =>
@@ -1198,6 +1198,9 @@ sub _modify_isolate_query_for_filters {
 					$clause =
 "($view.id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING COUNT(isolate_id)< "
 					  . scalar @$scheme_loci . '))';
+				} elsif ( $param eq 'started'){
+					$clause =
+"($view.id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING COUNT(isolate_id)>1))";					
 				} elsif ( $param eq 'incomplete' ) {
 					$clause =
 "($view.id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING COUNT(isolate_id)< "
