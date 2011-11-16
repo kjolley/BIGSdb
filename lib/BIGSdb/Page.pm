@@ -1158,9 +1158,6 @@ sub _print_record_table {
 		}
 		foreach my $field (@display) {
 			$data{ lc($field) } = '' if !defined $data{ lc($field) };
-			if ( $field eq 'url' ) {
-				$data{'url'} =~ s/\&/\&amp;/g;
-			}
 			if ( $primary_key{$field} && !$self->{'curate'} ) {
 				my $value;
 				if ( $field eq 'isolate_id' ) {
