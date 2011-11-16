@@ -1198,9 +1198,9 @@ sub _modify_isolate_query_for_filters {
 					$clause =
 "($view.id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING COUNT(isolate_id)< "
 					  . scalar @$scheme_loci . '))';
-				} elsif ( $param eq 'started'){
+				} elsif ( $param eq 'started' ){
 					$clause =
-"($view.id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING COUNT(isolate_id)>1))";					
+"($view.id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING COUNT(isolate_id)>0))";					
 				} elsif ( $param eq 'incomplete' ) {
 					$clause =
 "($view.id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING COUNT(isolate_id)< "
