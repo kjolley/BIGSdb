@@ -36,7 +36,7 @@ sub get_attributes {
 		buttontext  => 'Schemes/alleles',
 		menutext    => 'Scheme and alleles',
 		module      => 'SchemeBreakdown',
-		version     => '1.0.5',
+		version     => '1.0.6',
 		section     => 'breakdown,postquery',
 		input       => 'query',
 		requires    => '',
@@ -73,7 +73,7 @@ sub run {
 	my $format     = $q->param('format');
 	my $field;
 	if ( $format eq 'text' ) {
-		print "Scheme field and allele breakdown of dataset\n\n";
+		print "Scheme field and allele breakdown of dataset\n\n" if !$q->param('download');
 	} else {
 		print "<h1>Scheme field and allele breakdown of dataset</h1>\n";
 	}
@@ -89,14 +89,14 @@ sub run {
 	$qry =~ s/ORDER BY.*$//g;
 	$logger->debug("Breakdown query: $qry");
 	return if !$self->create_temp_tables($qry_ref);
-	if ( $q->param('field_breakdown') ) {
+	if ( $q->param('field_breakdown') || $q->param('download') ) {
 		my $field_query = $qry;
 		my $field_type  = 'text';
 		my $scheme_id;
 		if ( $q->param('type') eq 'field' ) {
 			if ( $q->param('field') =~ /^(\d+)_(.*)$/ ) {
 				$scheme_id = $1;
-				$field = $2;
+				$field     = $2;
 				if ( !$self->{'datastore'}->is_scheme_field( $scheme_id, $field ) ) {
 					print "<div class=\"box\" id=\"statusbad\"><p>Invalid field passed for analysis!</p></div>\n";
 					$logger->error( "Invalid field passed for analysis. Field is set as '" . $q->param('field') . "'." );
@@ -172,11 +172,11 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 		my $order;
 		my $guid = $self->get_guid;
 		my $temp_fieldname;
-		if ($q->param('type') eq 'locus'){
+		if ( $q->param('type') eq 'locus' ) {
 			$temp_fieldname = 'allele_id';
 		} else {
 			$temp_fieldname = defined $scheme_id ? "scheme_$scheme_id\.$field" : $field;
-		} 
+		}
 		try {
 			$order = $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'SchemeBreakdown', 'order' );
 			if ( $order eq 'frequency' ) {
@@ -192,7 +192,10 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 			$order = "COUNT($temp_fieldname) desc";
 		};
 		$field_query .= " ORDER BY $order";
-
+		if ($q->param('download')){
+			$self->_download_alleles($q->param('field'), \$field_query);
+			return;
+		}
 		#		$field_query = "SET enable_nestloop = off; " . $field_query;
 		my $sql = $self->{'db'}->prepare($field_query);
 		eval { $sql->execute };
@@ -207,7 +210,6 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 			push @other_display_names, @$aliases if @$aliases;
 			$html_heading .= " <span class=\"comment\">(@other_display_names)</span>" if @other_display_names;
 		}
-		
 		my $td = 1;
 		$qry =~ s/\*/COUNT(\*)/;
 		my $total = $self->{'datastore'}->run_simple_query($qry)->[0];
@@ -216,7 +218,7 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 			print "$heading\tFrequency\tPercentage\n";
 		} else {
 			print "<div class=\"box\" id=\"resultstable\"><div class=\"scrollable\">";
-			print "<table><tr><td style=\"vertical-align:top\">\n";	
+			print "<table><tr><td style=\"vertical-align:top\">\n";
 			print "<p>Total: $total isolates</p>\n";
 			print "<table class=\"tablesorter\" id=\"sortTable\">\n";
 			$heading = $self->clean_locus($heading) if $q->param('type') eq 'locus';
@@ -251,12 +253,13 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 		if ( $format ne 'text' ) {
 			print "</table>\n";
 			print "</td><td style=\"vertical-align:top; padding-left:2em\">\n";
-			my $query_file_att = $q->param('query_file') ? ("&amp;query_file=" . $q->param('query_file')) : undef;
+			my $query_file_att = $q->param('query_file') ? ( "&amp;query_file=" . $q->param('query_file') ) : undef;
 			print $q->start_form;
 			print $q->submit( -name => 'field_breakdown', -label => 'Tab-delimited text', -class => 'smallbutton' );
 			$q->param( 'format', 'text' );
 			print $q->hidden($_) foreach qw (query_file field type page name db format);
 			print $q->end_form;
+
 			if ( $self->{'config'}->{'chartdirector'} ) {
 				my %prefs;
 				foreach (qw (threeD transparent )) {
@@ -276,8 +279,7 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 					$prefs{'style'} = 'doughnut';
 				};
 				my $temp = BIGSdb::Utils::get_random();
-				BIGSdb::Charts::piechart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$temp\_pie.png",
-					24, 'small', \%prefs );
+				BIGSdb::Charts::piechart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$temp\_pie.png", 24, 'small', \%prefs );
 				print "<img src=\"/tmp/$temp\_pie.png\" alt=\"pie chart\" />\n";
 				BIGSdb::Charts::barchart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$temp\_bar.png", 'small', \%prefs );
 				print "<img src=\"/tmp/$temp\_bar.png\" alt=\"bar chart\" />\n";
@@ -288,8 +290,9 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 		return;
 	}
 	print "<div class=\"box\" id=\"resultstable\">\n<table class=\"resultstable\">\n";
-	print "<tr><th rowspan=\"2\">Scheme</th><th colspan=\"3\">Fields</th><th colspan=\"3\">Alleles</th></tr>\n";
-	print "<tr><th>Field name</th><th>Unique values</th><th>Analyse</th><th>Locus</th><th>Unique alleles</th><th>Analyse</th></tr>\n";
+	print "<tr><th rowspan=\"2\">Scheme</th><th colspan=\"3\">Fields</th><th colspan=\"4\">Alleles</th></tr>\n";
+	print
+"<tr><th>Field name</th><th>Unique values</th><th>Analyse</th><th>Locus</th><th>Unique alleles</th><th>Analyse</th><th>Download</th></tr>\n";
 	my $td = 1;
 	local $| = 1;
 	my $alias_sql = $self->{'db'}->prepare("SELECT alias FROM locus_aliases WHERE locus=?");
@@ -328,7 +331,7 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 			};
 			return if !$continue;
 		}
-		(my $desc = $scheme_info->{'description'}) =~ s/&/&amp;/g;
+		( my $desc = $scheme_info->{'description'} ) =~ s/&/&amp;/g;
 		print "<tr class=\"td$td\"><td rowspan=\"$rows\">$desc</td>";
 		for ( my $i = 0 ; $i < $rows ; $i++ ) {
 			print "<tr class=\"td$td\">" if $i;
@@ -366,9 +369,9 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 			} else {
 				print "<td /><td />";
 			}
-			$display = $self->clean_locus($loci->[$i]);
+			$display = $self->clean_locus( $loci->[$i] );
 			my @other_display_names;
-			if (defined $loci->[$i]){
+			if ( defined $loci->[$i] ) {
 				if ( $self->{'prefs'}->{'locus_alias'} ) {
 					eval { $alias_sql->execute( $loci->[$i] ) };
 					if ($@) {
@@ -380,7 +383,7 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 					}
 				}
 			}
-			if (@other_display_names){
+			if (@other_display_names) {
 				local $" = ', ';
 				$display .= " <span class=\"comment\">(@other_display_names)</span>";
 				$display =~ tr/_/ /;
@@ -405,17 +408,27 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 				eval { $sql->execute };
 				$logger->error($@) if $@;
 				my ($value) = $sql->fetchrow_array;
-				print "<td>$value</td><td>";
+				print "<td>$value</td>";
 				if ($value) {
+					print "<td>";
 					print $q->start_form;
 					print $q->submit( -label => 'Breakdown', -class => 'smallbutton' );
-					print $q->hidden( 'field',           $loci->[$i] );
-					print $q->hidden( 'type',            'locus' );
+					$q->param( 'field', $loci->[$i] );
+					$q->param( 'type',  'locus' );
 					print $q->hidden( 'field_breakdown', 1 );
-					print $q->hidden($_) foreach qw (page name db query_file);
+					print $q->hidden($_) foreach qw (page name db query_file field type);
 					print $q->end_form;
+					print "</td><td>";
+					print $q->start_form;
+					print $q->submit( -label => 'Download', -class => 'smallbutton' );
+					print $q->hidden( 'download', 1 );
+					$q->param('format', 'text');
+					print $q->hidden($_) foreach qw (page name db query_file field type format);
+					print $q->end_form;
+					print "</td>";
+				} else {
+					print "<td /><td />";
 				}
-				print "</td>";
 			} else {
 				print "<td /><td />\n";
 			}
@@ -432,11 +445,29 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 	return;
 }
 
+sub _download_alleles {
+	my ($self, $locus_name, $query_ref) = @_;
+	my $allele_ids = $self->{'datastore'}->run_list_query_hashref($$query_ref);
+	my $locus = $self->{'datastore'}->get_locus($locus_name);
+	foreach (@$allele_ids){
+		print ">$_->{'allele_id'}\n";
+		my $seq_ref = $locus->get_allele_sequence($_->{'allele_id'});
+		if (ref $seq_ref eq 'SCALAR' && defined $$seq_ref){
+			$seq_ref = BIGSdb::Utils::break_line($seq_ref,60);
+			print "$$seq_ref\n";
+		} else {
+			print "Can't extract sequence\n";
+		}
+		
+	}
+	return;
+}
+
 sub _get_scheme_fields_sql {
 	my ( $self, $scheme_id ) = @_;
 	my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-	my $joined_table = "SELECT * FROM $self->{'system'}->{'view'}";
+	my $joined_table  = "SELECT * FROM $self->{'system'}->{'view'}";
 	foreach (@$scheme_loci) {
 		$joined_table .= " left join allele_designations AS $_ on $_.isolate_id = $self->{'system'}->{'view'}.id";
 	}

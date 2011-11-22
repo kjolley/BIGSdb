@@ -40,11 +40,12 @@ sub DESTROY {
 	my ($self) = @_;
 	foreach ( keys %{ $self->{'sql'} } ) {
 		if ( $self->{'sql'}->{$_} ) {
-			$self->{'sql'}->{$_}->finish();
+			$self->{'sql'}->{$_}->finish;
 			$logger->debug("Locus $self->{'id'} statement handle '$_' finished.");
 		}
 	}
 	$logger->info("Locus $self->{'id'} destroyed.");
+	return;
 }
 
 sub get_allele_sequence {
@@ -64,14 +65,14 @@ sub get_allele_sequence {
 		$self->{'sql'}->{'sequence'} = $self->{'db'}->prepare($qry);
 		$logger->debug("Locus $self->{'id'} statement handle 'sequence' prepared ($qry).");
 	}
-	eval { $self->{'sql'}->{'sequence'}->execute($id); };
+	eval { $self->{'sql'}->{'sequence'}->execute($id) };
 	if ($@) {
 		$logger->error(
 "Can't execute 'sequence' query handle. Check database attributes in the locus table for locus '$self->{'id'}'! Statement was '$self->{'sql'}->{sequence}->{Statement}'. id='$id'  $@ "
 			  . $self->{'db'}->errstr );
 		throw BIGSdb::DatabaseConfigurationException("Locus configuration error");
 	} else {
-		my ($sequence) = $self->{'sql'}->{'sequence'}->fetchrow_array();
+		my ($sequence) = $self->{'sql'}->{'sequence'}->fetchrow_array;
 		return \$sequence;
 	}
 }
@@ -94,7 +95,7 @@ sub get_all_sequences {
 		$self->{'sql'}->{'all_sequences'} = $self->{'db'}->prepare($qry);
 		$logger->debug("Locus $self->{'id'} statement handle 'all_sequences' prepared ($qry).");
 	}
-	eval { $self->{'sql'}->{'all_sequences'}->execute; };
+	eval { $self->{'sql'}->{'all_sequences'}->execute };
 	if ($@) {
 		$logger->error(
 "Can't execute 'sequence' query handle. Check database attributes in the locus table for locus '$self->{'id'}'! Statement was '$self->{'sql'}->{sequence}->{Statement}'. "
@@ -126,7 +127,7 @@ sub get_all_sequence_lengths {
 		$self->{'sql'}->{'all_sequence_lengths'} = $self->{'db'}->prepare($qry);
 		$logger->debug("Locus $self->{'id'} statement handle 'all_sequences' prepared ($qry).");
 	}
-	eval { $self->{'sql'}->{'all_sequence_lengths'}->execute; };
+	eval { $self->{'sql'}->{'all_sequence_lengths'}->execute };
 	if ($@) {
 		$logger->error(
 "Can't execute 'all_sequence_lengths' query handle. Check database attributes in the locus table for locus '$self->{'id'}'! Statement was '$self->{'sql'}->{sequence}->{Statement}'. "
