@@ -572,7 +572,8 @@ sub check_record {
 			if (   $status ne 'admin'
 				&& $self->{'permissions'}->{'set_user_permissions'}
 				&& $newdata{'status'} eq 'admin'
-				&& $user_status ne 'admin' )
+				&& $user_status ne 'admin'
+				&& $update )
 			{
 				push @problems, "You must have admin rights to upgrade a user to admin status.\n";
 			}
