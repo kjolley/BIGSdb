@@ -32,7 +32,7 @@ use BIGSdb::Utils;
 
 sub get_attributes {
 	my %att = (
-		name        => 'XmfaExport',
+		name        => 'Xmfa Export',
 		author      => 'Keith Jolley',
 		affiliation => 'University of Oxford, UK',
 		email       => 'keith.jolley@zoo.ox.ac.uk',
@@ -45,6 +45,7 @@ sub get_attributes {
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		section     => 'export,postquery',
+		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/xmfa.shtml',
 		input       => 'query',
 		help        => 'tooltips',
 		requires    => 'muscle,offline_jobs',

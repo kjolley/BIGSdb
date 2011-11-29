@@ -116,7 +116,7 @@ my %translate = (
 
 sub get_attributes {
 	my %att = (
-		name        => 'CodonUsage',
+		name        => 'Codon Usage',
 		author      => 'Keith Jolley',
 		affiliation => 'University of Oxford, UK',
 		email       => 'keith.jolley@zoo.ox.ac.uk',

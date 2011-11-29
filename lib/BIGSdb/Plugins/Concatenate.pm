@@ -43,6 +43,7 @@ sub get_attributes {
 		seqdb_type  => 'schemes',
 		help        => 'tooltips',
 		section     => 'export,postquery',
+		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/concatenated.shtml',
 		input       => 'query',
 		requires    => '',
 		order       => 20

@@ -173,4 +173,9 @@ sub is_plugin {
 	return if !$name;
 	return any { $_ eq $name } keys %{ $self->{'attributes'} };
 }
+
+sub get_installed_plugins {
+	my ( $self ) = @_;
+	return $self->{'attributes'};
+}
 1;

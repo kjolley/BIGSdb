@@ -29,7 +29,7 @@ use Bio::SeqIO;
 
 sub get_attributes {
 	my %att = (
-		name             => 'LocusExplorer',
+		name             => 'Locus Explorer',
 		author           => 'Keith Jolley',
 		affiliation      => 'University of Oxford, UK',
 		email            => 'keith.jolley@zoo.ox.ac.uk',

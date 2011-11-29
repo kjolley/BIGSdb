@@ -30,7 +30,7 @@ use BIGSdb::Page 'SEQ_METHODS';
 
 sub get_attributes {
 	my %att = (
-		name        => 'GenomeComparator',
+		name        => 'Genome Comparator',
 		author      => 'Keith Jolley',
 		affiliation => 'University of Oxford, UK',
 		email       => 'keith.jolley@zoo.ox.ac.uk',

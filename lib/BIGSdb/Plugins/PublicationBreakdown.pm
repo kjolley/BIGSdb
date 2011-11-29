@@ -40,6 +40,7 @@ sub get_attributes {
 		version     => '1.1.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
+		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/publications.shtml',
 		input       => 'query',
 		requires    => 'refdb',
 		order       => 30,

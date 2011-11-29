@@ -23,6 +23,7 @@ use warnings;
 use base qw(BIGSdb::Page);
 
 sub print_content {
+	my ($self) = @_;
 	print <<"HTML";
 
 <h1>Bacterial Isolate Genome Sequence Database (BIGSdb)</h1>
@@ -47,12 +48,96 @@ can be found at <a href="http://www.gnu.org/licenses/gpl.html">http://www.gnu.or
 <p>Details of this software and the latest version can be downloaded from 
 <a href="http://pubmlst.org/software/database/bigsdb/">
 http://pubmlst.org/software/database/bigsdb/</a>.</p>
-</div>
 HTML
+	$self->_print_plugins;
+	print "</div>\n";
+	return;
 }
 
 sub get_title {
 	return "BIGSdb Version $BIGSdb::main::VERSION";
 }
+
+sub _print_plugins {
+	my ($self) = @_;
+	print "<h2>Installed plugins</h2>\n";
+	my $plugins = $self->{'pluginManager'}->get_installed_plugins;
+	if (!keys %{$plugins}){
+		print "<p>No plugins installed</p>\n";
+		return;
+	}
+	print "<p>Plugins may be disabled by the system administrator for specific databases where either they're not appropriate"
+	. " or if they may take up too many resources on a public database.</p>\n";
+	my ($enabled_buffer, $disabled_buffer, %disabled_reason);
+	my $dbtype = $self->{'system'}->{'dbtype'};
+	my $etd = 1;
+	my $dtd = 1;
+	foreach (sort {$a cmp $b} keys %{$plugins}){
+		my $attr = $plugins->{$_};
+		if ( $attr->{'requires'} ) {
+			$disabled_reason{$_} = 'Chartdirector not installed.'
+			  if !$self->{'config'}->{'chartdirector'}
+				  && $attr->{'requires'} =~ /chartdirector/;
+			$disabled_reason{$_} = 'Reference database not configured.'
+			  if !$self->{'config'}->{'refdb'}
+				  && $attr->{'requires'} =~ /refdb/;
+			$disabled_reason{$_} = 'EMBOSS not installed.'
+			  if !$self->{'config'}->{'emboss_path'}
+				  && $attr->{'requires'} =~ /emboss/;
+			$disabled_reason{$_} = 'MUSCLE not installed.'
+			  if !$self->{'config'}->{'muscle_path'}
+				  && $attr->{'requires'} =~ /muscle/;
+			$disabled_reason{$_} = 'ImageMagick mogrify not installed.'
+			  if !$self->{'config'}->{'mogrify_path'}
+				  && $attr->{'requires'} =~ /mogrify/;
+			$disabled_reason{$_} = 'Offline job manager not running.'
+			  if !$self->{'config'}->{'jobs_db'}
+				  && $attr->{'requires'} =~ /offline_jobs/;
+		}
+		$disabled_reason{$_} = 'Not specifically enabled for this database.'
+		  if (
+			$attr->{'system_flag'}
+			&& (  !$self->{'system'}->{ $attr->{'system_flag'} }
+				|| $self->{'system'}->{ $attr->{'system_flag'} } eq 'no' )
+		  );
+		$disabled_reason{$_} = 'Only for ' . ($dbtype eq 'isolates' ? 'seqdef' : 'isolate') . ' databases.'
+			if $attr->{'dbtype'} !~ /$dbtype/;
+		my $comments = '';
+		if (defined $attr->{'min'} && defined $attr->{'max'}){
+			$comments .= "Limited to queries with between $attr->{'min'} and $attr->{'max'} results.";
+		} elsif (defined $attr->{'min'}){
+			$comments .= "Limited to queries with at least $attr->{'min'} results.";
+		} elsif (defined $attr->{'max'}){
+			$comments .= "Limited to queries with fewer than $attr->{'max'} results.";
+		}
+		my $author = defined $attr->{'email'} && $attr->{'email'} ne '' ? "<a href=\"mailto:$attr->{'email'}\">$attr->{'author'}</a>" : $attr->{'author'};
+		$author .=  " ($attr->{'affiliation'})" if $attr->{'affiliation'};
+		my $name = defined $attr->{'url'} ? "<a href=\"$attr->{'url'}\">$attr->{'name'}</a>" : $attr->{'name'};
+		my $row_buffer = "<td>$name</td><td>$author</td><td>$attr->{'description'}</td><td>$attr->{'version'}</td>";
+		if ($disabled_reason{$_}){
+			$disabled_buffer .= "<tr class=\"td$dtd\">$row_buffer<td>$disabled_reason{$_}</td></tr>";
+			$dtd = $dtd == 1 ? 2 : 1;
+		} else {
+			$enabled_buffer .= "<tr class=\"td$etd\">$row_buffer<td>$comments</td></tr>";
+			$etd = $etd == 1 ? 2 : 1;
+		}
+	}
+	if ($enabled_buffer || $disabled_buffer){
+		print "<table class=\"resultstable\">";
+		if ($enabled_buffer){
+			print "<tr><th colspan=\"5\">Enabled plugins</th></tr>\n";	
+			print "<tr><th>Name</th><th>Author</th><th>Description</th><th>Version</th><th>Comments</th></tr>\n";
+			print $enabled_buffer;
+		}
+		if ($disabled_buffer){
+			print "<tr><th colspan=\"5\">Disabled plugins</th></tr>\n";	
+			print "<tr><th>Name</th><th>Author</th><th>Description</th><th>Version</th><th>Disabled because</th></tr>\n";
+			print $disabled_buffer;			
+		}
+		print "</table>\n";
+	} 
+	return;
+}
+
 
 1;

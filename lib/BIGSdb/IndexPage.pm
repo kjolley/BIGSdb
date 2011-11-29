@@ -232,7 +232,7 @@ OPTIONS
 	print "</ul>\n";
 	print "</div><div style=\"float:left; margin-right:1em\">\n";
 	print "<img src=\"/images/icons/64x64/information.png\" alt=\"\" />\n";
-	print "<h2>General statistics</h2>\n<ul class=\"toplevel\">\n";
+	print "<h2>General information</h2>\n<ul class=\"toplevel\">\n";
 	my $max_date;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $allele_count = $self->{'datastore'}->run_simple_query("SELECT COUNT (*) FROM sequences");
@@ -264,6 +264,7 @@ OPTIONS
 		print "<li>Isolates: $isolate_count</li>";
 	}
 	print "<li>Last updated: $max_date</li>" if $max_date;
+	print "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=version\">About BIGSdb</a></li>\n";
 	print "</ul>\n</div>\n</div>\n</div>\n";
 	my $plugins = $self->{'pluginManager'}->get_appropriate_plugin_names( 'breakdown|export|analysis|miscellaneous', $system->{'dbtype'} );
 	if (@$plugins) {

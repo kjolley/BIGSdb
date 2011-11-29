@@ -41,6 +41,7 @@ sub get_attributes {
 		version     => '1.1.0',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
+		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/export_isolates.shtml',
 		input       => 'query',
 		requires    => 'refdb',
 		help        => 'tooltips',

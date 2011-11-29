@@ -38,6 +38,7 @@ sub get_attributes {
 		module      => 'SchemeBreakdown',
 		version     => '1.0.6',
 		section     => 'breakdown,postquery',
+		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/scheme_breakdown.shtml',
 		input       => 'query',
 		requires    => '',
 		order       => 20,

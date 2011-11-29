@@ -40,6 +40,7 @@ sub get_attributes {
 		version     => '1.0.2',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
+		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/two_field_breakdown.shtml',
 		input       => 'query',
 		requires    => 'chartdirector',
 		order       => 12

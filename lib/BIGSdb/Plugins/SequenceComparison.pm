@@ -28,7 +28,7 @@ use Apache2::Connection ();
 
 sub get_attributes {
 	my %att = (
-		name             => 'SequenceComparison',
+		name             => 'Sequence Comparison',
 		author           => 'Keith Jolley',
 		affiliation      => 'University of Oxford, UK',
 		email            => 'keith.jolley@zoo.ox.ac.uk',

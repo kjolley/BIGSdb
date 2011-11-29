@@ -30,7 +30,7 @@ use constant IMAGE_WIDTH => 1200;
 
 sub get_attributes {
 	my %att = (
-		name        => 'TagStatus',
+		name        => 'Tag Status',
 		author      => 'Keith Jolley',
 		affiliation => 'University of Oxford, UK',
 		email       => 'keith.jolley@zoo.ox.ac.uk',
