@@ -39,7 +39,7 @@ sub get_attributes {
 		version     => '1.0.1',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
-		url		    => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/field_breakdown.shtml',
+		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/field_breakdown.shtml',
 		input       => 'query',
 		requires    => 'chartdirector',
 		order       => 10
