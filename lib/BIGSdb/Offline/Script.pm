@@ -110,6 +110,7 @@ sub get_load_average {
 sub _go {
 	my ($self) = @_;
 	my $load_average;
+	$self->read_config_file( $self->{'config_dir'} );
 	my $max_load = $self->{'config'}->{'max_load'} || 8;
 	try {
 		$load_average = $self->get_load_average;
@@ -118,8 +119,10 @@ sub _go {
 		$self->{'logger'}->fatal("Can't determine load average ... aborting!");
 		exit;
 	};
-	return if $load_average > $max_load;
-	$self->read_config_file( $self->{'config_dir'} );
+	if ($load_average > $max_load){
+		$self->{'logger'}->info("Load average = $load_average. Threshold is set at $max_load. Aborting.");
+		return;
+	}
 	$self->read_host_mapping_file( $self->{'config_dir'} );
 	$self->initiate;
 	$self->run_script;
