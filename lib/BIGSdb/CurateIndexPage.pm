@@ -457,7 +457,8 @@ sub _print_profiles {
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileAdd&amp;scheme_id=$_">+</a></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileBatchAdd&amp;scheme_id=$_">++</a></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileQuery&amp;scheme_id=$_">query</a> | 
-<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=browse&amp;scheme_id=$_">browse</a></td>
+<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=browse&amp;scheme_id=$_">browse</a> |
+<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=listQuery&amp;scheme_id=$_">list</a></td>
 <td></td></tr>
 HTML
 		$td = $td == 1 ? 2 : 1;
