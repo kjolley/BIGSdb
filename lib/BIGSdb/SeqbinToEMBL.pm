@@ -54,7 +54,6 @@ sub print_content {
 		my $stringfh_in = IO::String->new( ">$seqbin_id\n" . $seq->[1] . "\n" );
 		my $seqin       = Bio::SeqIO->new( -fh => $stringfh_in, -format => 'fasta' );
 		my $seq_object  = $seqin->next_seq;
-		$logger->error($seq_object->display_id);
 		my $accessions  = $self->{'datastore'}->run_list_query( "SELECT databank_id FROM accession WHERE seqbin_id=?", $seqbin_id );
 		unshift @$accessions, $seqbin_id;
 		local $" = '; ';
