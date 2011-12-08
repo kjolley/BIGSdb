@@ -36,57 +36,66 @@ sub initiate {
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my $seqbin_id;
-	if ( $q->param('seqbin_id') =~ /^(\d*)$/ ) {
-		$seqbin_id = $1;    #untaint
+	my $isolate_id;
+	my $seqbin_ids = [];
+	if ( defined $q->param('seqbin_id') && $q->param('seqbin_id') =~ /^(\d+)$/ ) {
+		push @$seqbin_ids, $1;
+	} elsif ( defined $q->param('isolate_id') && $q->param('isolate_id') =~ /^(\d+)$/ ) {
+		$isolate_id = $1;
+		$seqbin_ids = $self->{'datastore'}->run_list_query( "SELECT id FROM sequence_bin WHERE isolate_id=?", $isolate_id );
 	} else {
-		print "Invalid sequence bin id.\n";
+		print "Invalid isolate or sequence bin id.\n";
 		return;
 	}
-	my $seq =
-	  $self->{'datastore'}
-	  ->run_simple_query( "SELECT isolate_id,sequence,method,comments,sender,curator,date_entered,datestamp FROM sequence_bin WHERE id=?",
-		$seqbin_id );
-	my $stringfh_in = IO::String->new( ">seqbin#$seqbin_id\n" . $seq->[1] . "\n" );
-	my $seqin       = Bio::SeqIO->new( -fh => $stringfh_in, -format => 'fasta' );
-	my $seq_object  = $seqin->next_seq;
-	my $accessions  = $self->{'datastore'}->run_list_query( "SELECT databank_id FROM accession WHERE seqbin_id=?", $seqbin_id );
-	local $" = '; ';
-	$seq_object->accession_number("@$accessions") if @$accessions;
-	$seq_object->desc( $seq->[3] );
-	my $qry = "SELECT * FROM allele_sequences WHERE seqbin_id=?";
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute($seqbin_id) };
-	$logger->error($@) if $@;
-	while ( my $allele_sequence = $sql->fetchrow_hashref ) {
-		my $locus_info = $self->{'datastore'}->get_locus_info( $allele_sequence->{'locus'} );
-		my $frame;
-		#BIGSdb stored ORF as 1-6.  BioPerl expects 0-2.
-		$locus_info->{'orf'} ||= 0;
-		if ( $locus_info->{'orf'} == 2 || $locus_info->{'orf'} == 5 ) {
-			$frame = 1;
-		} elsif ( $locus_info->{'orf'} == 3 || $locus_info->{'orf'} == 6 ) {
-			$frame = 2;
-		} else {
-			$frame = 0;
+	foreach my $seqbin_id (@$seqbin_ids) {
+		my $seq =
+		  $self->{'datastore'}->run_simple_query(
+			"SELECT isolate_id,sequence,method,comments,sender,curator,date_entered,datestamp FROM sequence_bin WHERE id=?", $seqbin_id );
+		my $stringfh_in = IO::String->new( ">$seqbin_id\n" . $seq->[1] . "\n" );
+		my $seqin       = Bio::SeqIO->new( -fh => $stringfh_in, -format => 'fasta' );
+		my $seq_object  = $seqin->next_seq;
+		$logger->error($seq_object->display_id);
+		my $accessions  = $self->{'datastore'}->run_list_query( "SELECT databank_id FROM accession WHERE seqbin_id=?", $seqbin_id );
+		unshift @$accessions, $seqbin_id;
+		local $" = '; ';
+		$seq_object->accession_number("@$accessions") if @$accessions;
+		$seq_object->desc( $seq->[3] );
+		my $qry = "SELECT * FROM allele_sequences WHERE seqbin_id=?";
+		my $sql = $self->{'db'}->prepare($qry);
+		eval { $sql->execute($seqbin_id) };
+		$logger->error($@) if $@;
+
+		while ( my $allele_sequence = $sql->fetchrow_hashref ) {
+			my $locus_info = $self->{'datastore'}->get_locus_info( $allele_sequence->{'locus'} );
+			my $frame;
+
+			#BIGSdb stored ORF as 1-6.  BioPerl expects 0-2.
+			$locus_info->{'orf'} ||= 0;
+			if ( $locus_info->{'orf'} == 2 || $locus_info->{'orf'} == 5 ) {
+				$frame = 1;
+			} elsif ( $locus_info->{'orf'} == 3 || $locus_info->{'orf'} == 6 ) {
+				$frame = 2;
+			} else {
+				$frame = 0;
+			}
+			$allele_sequence->{'start_pos'} = 1 if $allele_sequence->{'start_pos'} < 1;
+			$allele_sequence->{'locus'} = $allele_sequence->{'locus'} . " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
+			my $feature = Bio::SeqFeature::Generic->new(
+				-start       => $allele_sequence->{'start_pos'},
+				-end         => $allele_sequence->{'end_pos'},
+				-primary_tag => 'CDS',
+				-strand      => ( $allele_sequence->{'reverse'} ? -1 : 1 ),
+				-frame       => $frame,
+				-tag         => { gene => $allele_sequence->{'locus'}, product => $locus_info->{'description'} }
+			);
+			$seq_object->add_SeqFeature($feature);
 		}
-		$allele_sequence->{'start_pos'} = 1 if $allele_sequence->{'start_pos'} < 1;
-		$allele_sequence->{'locus'} = $allele_sequence->{'locus'} . " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
-		my $feature = Bio::SeqFeature::Generic->new(
-			-start       => $allele_sequence->{'start_pos'},
-			-end         => $allele_sequence->{'end_pos'},
-			-primary_tag => 'CDS',
-			-strand      => ( $allele_sequence->{'reverse'} ? -1 : 1 ),
-			-frame       => $frame,
-			-tag         => { gene => $allele_sequence->{'locus'}, product => $locus_info->{'description'} }
-		);
-		$seq_object->add_SeqFeature($feature);
+		my $str;
+		my $stringfh_out = IO::String->new( \$str );
+		my $seq_out = Bio::SeqIO->new( -fh => $stringfh_out, -format => 'embl' );
+		$seq_out->write_seq($seq_object);
+		print $str;
 	}
-	my $str;
-	my $stringfh_out = IO::String->new( \$str );
-	my $seq_out = Bio::SeqIO->new( -fh => $stringfh_out, -format => 'embl' );
-	$seq_out->write_seq($seq_object);
-	print $str;
 	return;
 }
 1;

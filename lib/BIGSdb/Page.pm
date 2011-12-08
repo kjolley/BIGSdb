@@ -174,7 +174,8 @@ sub print_page_content {
 		my %atts;
 		if ( $self->{'type'} eq 'embl' ) {
 			$atts{'type'} = 'chemical/x-embl-dl-nucleotide';
-			$atts{'attachment'} = 'sequence' . ( $q->param('seqbin_id') ) . '.embl';
+			my $id = $q->param('seqbin_id') || $q->param('isolate_id') || '';
+			$atts{'attachment'} = "sequence$id.embl";
 		} elsif ( $self->{'type'} eq 'no_header' ) {
 			$atts{'type'} = 'text/html';
 		} else {

@@ -35,7 +35,7 @@ sub print_content {
 		return;
 	}
 	my @name = $self->get_name($isolate_id);
-	$" = ' ';
+	local $" = ' ';
 	if (@name) {
 		print "<h1>Sequence bin for @name</h1>";
 	} else {
@@ -66,7 +66,10 @@ HTML
 		print "<li>Length: $length</li>\n</ul>\n";
 	}
 	print
-"<ul><li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadSeqbin&amp;isolate_id=$isolate_id\">Download sequences (FASTA format)</a></li></ul>\n";
+"<ul><li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadSeqbin&amp;isolate_id=$isolate_id\">Download sequences (FASTA format)</a></li>\n";
+print
+"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=embl&amp;isolate_id=$isolate_id\">Download sequences with annotations (EMBL format)</a></li></ul>\n";
+
 	print "</td><td style=\"vertical-align:top;padding-left:2em\">\n";
 	if ( $count > 1 ) {
 		print "<h2>Contig size distribution</h2>\n";
@@ -111,6 +114,7 @@ HTML
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute($isolate_id) };
 	$logger->error($@) if $@;
+	print "<div class=\"scrollable\">\n";
 	print
 "<table class=\"resultstable\"><tr><th>Sequence</th><th>Sequencing method</th><th>Original designation</th><th>Length</th><th>Comments</th><th>Locus</th><th>Start</th><th>End</th><th>Direction</th><th>EMBL format</th>";
 	if ( $self->{'curate'} && ( $self->{'permissions'}->{'modify_loci'} || $self->is_admin ) ) {
@@ -183,8 +187,9 @@ HTML
 		}
 		$td = $td == 1 ? 2 : 1;
 	}
-	print "</table>\n";
+	print "</table></div>\n";
 	print " </div>\n ";
+	return;
 }
 
 sub get_title {
@@ -194,7 +199,7 @@ sub get_title {
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 	if ($isolate_id) {
 		my @name = $self->get_name($isolate_id);
-		$" = ' ';
+		local $" = ' ';
 		return "Sequence bin: id-$isolate_id (@name)" if $name[1];
 	}
 	return "Sequence bin - $desc";
