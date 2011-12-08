@@ -62,6 +62,10 @@ sub print_content {
 		return;
 	}
 	my $data = $sql->fetchrow_hashref;
+	if (!defined $data){
+		print "<div class=\"box statusbad\"><p>This profile does not exist!</p></div>\n";
+		return;
+	}
 	print "<div class=\"box\" id=\"resultstable\">\n";
 	if ( $q->param('history') ) {
 		print "<h2>Update history</h2>\n";
