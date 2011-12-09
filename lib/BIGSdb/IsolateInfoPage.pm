@@ -170,7 +170,11 @@ sub print_content {
 		print "<div class=\"box\" id=\"statusbad\"><p>Isolate id must be an integer.</p></div>\n";
 		return;
 	}
-	$self->{'system'}->{'view'} ||= 'isolate';    #in case we're called from a seqdef database
+	if ($self->{'system'}->{'dbtype'} ne 'isolates'){
+		print "<h1>Isolate information</h1>\n";
+		print "<div class=\"box\" id=\"statusbad\"><p>This function can only be called for isolate databases.</p></div>\n";
+		return;
+	}
 	my $qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute($isolate_id) };
@@ -1043,6 +1047,7 @@ sub _get_history {
 
 sub get_name {
 	my ( $self, $isolate_id ) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'isolates';
 	my $name_ref =
 	  $self->{'datastore'}
 	  ->run_simple_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id );
