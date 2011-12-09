@@ -2641,13 +2641,19 @@ sub _get_projects_table_attributes {
 			name           => 'short_description',
 			type           => 'text',
 			required       => 'yes',
-			length         => 30,
+			length         => 40,
 			dropdown_query => 'yes',
 			tooltip        => 'description - Ensure this is short since it is used in table headings and drop-down lists.'
 		},
-		{ name => 'full_description', type => 'text', length   => 256 },
-		{ name => 'curator',          type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp',        type => 'date', required => 'yes' },
+		{
+			name   => 'full_description',
+			type   => 'text',
+			length => 512,
+			tooltip =>
+"full description - This text will appear on the record pages of isolates belonging to the project.  You can use HTML markup here.  If you don't enter anything here then the project will not be listed on the isolate record page."
+		},
+		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' },
 	];
 	return $attributes;
 }
@@ -2716,7 +2722,7 @@ sub get_tables {
 		@tables =
 		  qw(users user_groups user_group_members allele_sequences sequence_bin accession refs allele_designations pending_allele_designations loci
 		  locus_aliases schemes scheme_members scheme_fields composite_fields composite_field_values isolate_aliases user_permissions isolate_user_acl
-		  isolate_usergroup_acl projects project_members experiments experiment_sequences isolate_field_extended_attributes 
+		  isolate_usergroup_acl projects project_members experiments experiment_sequences isolate_field_extended_attributes
 		  isolate_value_extended_attributes scheme_groups scheme_group_scheme_members scheme_group_group_members pcr pcr_locus probes probe_locus);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}

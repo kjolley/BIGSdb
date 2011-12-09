@@ -24,6 +24,8 @@ use Log::Log4perl qw(get_logger);
 use Error qw(:try);
 use List::MoreUtils qw(any);
 my $logger = get_logger('BIGSdb.Page');
+use constant ISOLATE_SUMMARY => 1;
+use constant LOCUS_SUMMARY   => 2;
 
 sub set_pref_requirements {
 	my ($self) = @_;
@@ -195,13 +197,15 @@ sub print_content {
 	} else {
 		print "<h1>Full information on id $data->{'id'}</h1>";
 	}
-	print "<div class=\"box\" id=\"resultstable\">\n";
 	if ( $self->{'cgi'}->param('history') ) {
+		print "<div class=\"box\" id=\"resultstable\">\n";
 		print "<h2>Update history</h2>\n";
 		print
 "<p><a href=\"$self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'}&amp;id=$isolate_id\">Back to isolate information</a></p>\n";
 		print $self->_get_update_history($isolate_id);
 	} else {
+		$self->_print_projects($isolate_id);
+		print "<div class=\"box\" id=\"resultstable\">\n";
 		print $self->get_isolate_record($isolate_id);
 	}
 	print "</div>\n";
@@ -232,12 +236,12 @@ sub _get_update_history {
 
 sub get_isolate_summary {
 	my ( $self, $id ) = @_;
-	return $self->get_isolate_record( $id, 1 );
+	return $self->get_isolate_record( $id, ISOLATE_SUMMARY );
 }
 
 sub get_loci_summary {
 	my ( $self, $id ) = @_;
-	return $self->get_isolate_record( $id, 2 );
+	return $self->get_isolate_record( $id, LOCUS_SUMMARY );
 }
 
 sub get_isolate_record {
@@ -246,13 +250,13 @@ sub get_isolate_record {
 	my $sql;
 	my $buffer;
 	my $q      = $self->{'cgi'};
-	my $fields = $self->{'xmlHandler'}->get_field_list();
+	my $fields = $self->{'xmlHandler'}->get_field_list;
 	my $view   = $self->{'system'}->{'view'};
 	local $" = ",$view.";
 	my $field_string = "$view.@$fields";
 	my $qry          = "SELECT $field_string FROM $view WHERE id=?";
 	$sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute($id); };
+	eval { $sql->execute($id) };
 
 	if ($@) {
 		$logger->error("Can't execute $qry; value: $id");
@@ -260,250 +264,19 @@ sub get_isolate_record {
 	}
 	my %data = ();
 	$sql->bind_columns( map { \$data{$_} } @$fields );    #quicker binding hash to arrayref than to use hashref
-	$sql->fetchrow_arrayref();
+	$sql->fetchrow_arrayref;
 	if ( !%data ) {
 		$logger->error("Record $id does not exist");
 		throw BIGSdb::DatabaseNoRecordException("Record $id does not exist");
 	}
-	my ( %composites, %composite_display_pos );
-	$qry = "SELECT id,position_after FROM composite_fields";
-	$sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute(); };
-	if ($@) {
-		$logger->error("Can't execute $qry");
-	} else {
-		while ( my @data = $sql->fetchrow_array() ) {
-			$composite_display_pos{ $data[0] } = $data[1];
-			$composites{ $data[1] }            = 1;
-		}
-	}
 	my $td = 1;
 	$buffer .= "<div class=\"scrollable\"><table class=\"resultstable\">\n";
-	my $field_list = $self->{'xmlHandler'}->get_field_list;
-	my $field_with_extended_attributes;
-	if ( !$summary_view ) {
-		$field_with_extended_attributes =
-		  $self->{'datastore'}->run_list_query("SELECT DISTINCT isolate_field FROM isolate_field_extended_attributes");
-	}
-	if ( $summary_view != 2 ) {
-		foreach my $field (@$field_list) {
-			my $displayfield = $field;
-			$displayfield =~ tr/_/ /;
-			my %thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-			my $web;
-			if ( !defined $data{$field} ) {
-				next;
-
-				#Do not print row
-			} elsif ( $thisfield{'web'} ) {
-				my $url = $thisfield{'web'};
-				$url =~ s/\[\\*\?\]/$data{$field}/;
-				$url =~ s/\&/\&amp;/g;
-				my $domain;
-				if ( ( lc($url) =~ /http:\/\/(.*?)\/+/ ) ) {
-					$domain = $1;
-				}
-				$web = "<a href=\"$url\">$data{$field}</a>";
-				if ( $domain && $domain ne $q->virtual_host ) {
-					$web .= " <span class=\"link\"><span style=\"font-size:1.2em\">&rarr;</span> $domain</span>";
-				}
-			}
-			if (   ( $field eq 'curator' )
-				|| ( $field eq 'sender' )
-				|| ( $thisfield{'userfield'} && $thisfield{'userfield'} eq 'yes' ) )
-			{
-				my $userdata = $self->{'datastore'}->get_user_info( $data{$field} );
-				my $colspan = $summary_view ? 5 : 2;
-				$buffer .= "<tr class=\"td$td\"><th>$displayfield</th><td align=\"left\" colspan=\"$colspan\">";
-				$buffer .= "$userdata->{first_name} $userdata->{surname}</td>";
-				if ( !$summary_view ) {
-					$buffer .= "<td style=\"text-align:left\" colspan=\"2\">$userdata->{affiliation}</td>";
-					if (
-						$field eq 'curator'
-						|| ( ( $field eq 'sender' || ( $thisfield{'userfield'} && $thisfield{'userfield'} eq 'yes' ) )
-							&& !$self->{'system'}->{'privacy'} )
-					  )
-					{
-						if (   $userdata->{'email'} eq ''
-							or $userdata->{'email'} eq '-' )
-						{
-							$buffer .= "<td style=\"text-align:left\">No E-mail address available</td></tr>\n";
-						} else {
-							$buffer .=
-							  "<td style=\"text-align:left\"><a href=\"mailto:$userdata->{'email'}\">$userdata->{'email'}</a></td>";
-						}
-					}
-					if ( ( $field eq 'sender' || ( $thisfield{'userfield'} && $thisfield{'userfield'} eq 'yes' ) )
-						&& $self->{'system'}->{'privacy'} )
-					{
-						$buffer .= "<td></td>";
-					}
-				}
-				if ( $field eq 'curator' ) {
-					my ( $history, $num_changes ) = $self->_get_history( $id, 20 );
-					if ($num_changes) {
-						$buffer .= "</tr>\n";
-						$td = $td == 1 ? 2 : 1;
-						my $plural = $num_changes == 1 ? '' : 's';
-						my $title;
-						$title = "Update history - ";
-						foreach (@$history) {
-							my $time = $_->{'timestamp'};
-							$time =~ s/ \d\d:\d\d:\d\d\.\d+//;
-							my $action = $_->{'action'};
-							if ( $action =~ /<br \/>/ ) {
-								$action = 'multiple updates';
-							}
-							$action =~ s/[\r\n]//g;
-							$action =~ s/:.*//;
-							$title .= "$time: $action<br />";
-						}
-						if ( $num_changes > 20 ) {
-							$title .= "more ...";
-						}
-						$buffer .= "<tr class=\"td$td\"><th>update history</th><td style=\"text-align:left\" colspan=\"5\">";
-						$buffer .= "<a title=\"$title\" class=\"pending_tooltip\">";
-						$buffer .= "$num_changes update$plural</a>";
-						my $refer_page = $q->param('page');
-						$buffer .=
-" <a href=\"$self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'}&amp;id=$id&amp;history=1&amp;refer=$refer_page\">show details</a></td>";
-					}
-				}
-			} elsif (
-				any {
-					$field eq $_;
-				}
-				@$field_with_extended_attributes
-			  )
-			{
-				my $sql_attord =
-				  $self->{'db'}->prepare("SELECT attribute,field_order FROM isolate_field_extended_attributes WHERE isolate_field=?");
-				eval { $sql_attord->execute($field); };
-				if ($@) {
-					$logger->error("Can't execute $@");
-				}
-				my %order;
-				while ( my ( $att, $order ) = $sql_attord->fetchrow_array ) {
-					$order{$att} = $order;
-				}
-				my $sql_att =
-				  $self->{'db'}
-				  ->prepare("SELECT attribute,value FROM isolate_value_extended_attributes WHERE isolate_field=? AND field_value=?");
-				eval { $sql_att->execute( $field, $data{$field} ); };
-				if ($@) {
-					$logger->error("Can't execute $@");
-				}
-				my %attributes;
-				while ( my ( $attribute, $value ) = $sql_att->fetchrow_array ) {
-					$attributes{$attribute} = $value;
-				}
-				if ( keys %attributes ) {
-					my $rows = keys %attributes || 1;
-					$buffer .=
-					  "<tr class=\"td$td\"><th rowspan=\"$rows\">$displayfield</th><td style=\"text-align:left\" rowspan=\"$rows\">";
-					$buffer .= $web || $data{$field};
-					$buffer .= "</td>";
-					my $first = 1;
-					foreach ( sort { $order{$a} <=> $order{$b} } keys(%attributes) ) {
-						$buffer .= "</tr>\n<tr class=\"td$td\">" if !$first;
-						my $url_ref =
-						  $self->{'datastore'}
-						  ->run_simple_query( "SELECT url FROM isolate_field_extended_attributes WHERE isolate_field=? AND attribute=?",
-							$field, $_ );
-						my $att_web;
-						if ( ref $url_ref eq 'ARRAY' ) {
-							my $url = $url_ref->[0] || '';
-							$url =~ s/\[\?\]/$attributes{$_}/;
-							$url =~ s/\&/\&amp;/g;
-							my $domain;
-							if ( ( lc($url) =~ /http:\/\/(.*?)\/+/ ) ) {
-								$domain = $1;
-							}
-							$att_web = "<a href=\"$url\">$attributes{$_}</a>" if $url;
-							if ( $domain && $domain ne $q->virtual_host ) {
-								$att_web .= " <span class=\"link\"><span style=\"font-size:1.2em\">&rarr;</span> $domain</span>";
-							}
-						}
-						$buffer .= "<th>$_</th><td colspan=\"3\" style=\"text-align:left\">";
-						$buffer .= $att_web || $attributes{$_};
-						$buffer .= "</td>";
-						$first = 0;
-					}
-				} else {
-					$buffer .= "<tr class=\"td$td\"><th>$displayfield</th><td style=\"text-align:left\" colspan=\"5\">";
-					$buffer .= $web || $data{$field};
-					$buffer .= "</td>";
-				}
-			} else {
-				$buffer .= "<tr class=\"td$td\"><th>$displayfield</th><td style=\"text-align:left\" colspan=\"5\">";
-				$buffer .= $web || $data{$field};
-				$buffer .= "</td>";
-			}
-			$buffer .= "</tr>\n";
-			$td = $td == 1 ? 2 : 1;    #row stripes
-			if ( $field eq $self->{'system'}->{'labelfield'} ) {
-				my $aliases =
-				  $self->{'datastore'}->run_list_query( "SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias", $id );
-				if (@$aliases) {
-					local $" = '; ';
-					my $plural = @$aliases > 1 ? 'es' : '';
-					$buffer .= "<tr class=\"td$td\"><th>alias$plural</th><td style=\"text-align:left\" colspan=\"5\">@$aliases</td></tr>\n";
-					$td = $td == 1 ? 2 : 1;
-				}
-			}
-			if ( $composites{$field} ) {
-				foreach ( keys %composite_display_pos ) {
-					next if $composite_display_pos{$_} ne $field;
-					$displayfield = $_;
-					$displayfield =~ tr/_/ /;
-					my $value = $self->{'datastore'}->get_composite_value( $id, $_, \%data );
-					$buffer .= "<tr class=\"td$td\"><th>$displayfield</th><td style=\"text-align:left\" colspan=\"5\">$value</td></tr>\n";
-					$td = $td == 1 ? 2 : 1;    #row stripes
-				}
-			}
-		}
+	if ( $summary_view != LOCUS_SUMMARY ) {
+		$buffer .= $self->_get_provenance_fields( $id, \%data, \$td, $summary_view );
 		if ( !$summary_view ) {
-			( my $sample_buffer, $td ) = $self->_get_samples( $id, $td, 1 );
-			$buffer .= $sample_buffer if $sample_buffer;
-			my $refs =
-			  $self->{'datastore'}->run_list_query( "SELECT refs.pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id", $data{'id'} );
-			foreach my $ref (@$refs) {
-				$buffer .= $self->get_main_table_reference( 'reference', $ref, $td );
-				$td = $td == 1 ? 2 : 1;
-			}
-			my $seqbin_count = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM sequence_bin WHERE isolate_id=?", $id )->[0];
-			if ($seqbin_count) {
-				my $length_data = $self->{'datastore'}->run_simple_query(
-"SELECT SUM(length(sequence)), CEIL(AVG(length(sequence))), MAX(length (sequence)) FROM sequence_bin WHERE isolate_id=?",
-					$id
-				);
-				my $plural = $seqbin_count == 1 ? '' : 's';
-				$buffer .= "<tr class=\"td$td\"><th rowspan=\"2\">sequence bin</th><td style=\"text-align:left\" colspan=\"4\">
-				$seqbin_count sequence$plural (";
-				if ( $seqbin_count > 1 ) {
-					$buffer .= "total length: $length_data->[0] bp; max: $length_data->[2] bp; mean: $length_data->[1] bp)";
-				} else {
-					$buffer .= "$length_data->[0] bp)";
-				}
-				$buffer .= "</td><td rowspan=\"2\">\n";
-				$buffer .= $q->start_form;
-				$q->param( 'curate', 1 ) if $self->{'curate'};
-				$q->param( 'page', 'seqbin' );
-				$q->param( 'isolate_id', $id );
-				$buffer .= $q->hidden($_) foreach qw (db page curate isolate_id);
-				$buffer .= $q->submit( -value => 'Display', -class => 'submit' );
-				$buffer .= $q->end_form;
-				$buffer .= "</td></tr>\n";
-				my $tagged = $self->{'datastore'}->run_simple_query(
-"SELECT COUNT(*) FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE sequence_bin.isolate_id=?",
-					$id
-				)->[0];
-				$plural = $tagged == 1 ? '' : 's';
-				$buffer .=
-				  "<tr class=\"td$td\"><td style=\"text-align:left\" colspan=\"4\">$tagged allele sequence$plural tagged</td></tr>\n";
-				$td = $td == 1 ? 2 : 1;
-				$q->param( 'page', 'info' );
-			}
+			$buffer .= $self->_get_samples( $id, \$td, 1 );
+			$buffer .= $self->_get_ref_links( $id, \$td );
+			$buffer .= $self->_get_seqbin_link( $id, \$td );
 		}
 	}
 	my ( $locus_info, $locus_alias, $allele_designations, $allele_sequences, $allele_sequence_flags ) = $self->_get_scheme_attributes($id);
@@ -543,6 +316,199 @@ sub get_isolate_record {
 	return $buffer;
 }
 
+sub _get_provenance_fields {
+	my ( $self, $isolate_id, $data, $td_ref, $summary_view ) = @_;
+	my $buffer;
+	my $q          = $self->{'cgi'};
+	my $field_list = $self->{'xmlHandler'}->get_field_list;
+	my ( %composites, %composite_display_pos );
+	my $composite_data = $self->{'datastore'}->run_list_query_hashref("SELECT id,position_after FROM composite_fields");
+	foreach (@$composite_data) {
+		$composite_display_pos{ $_->{'id'} }  = $_->{'position_after'};
+		$composites{ $_->{'position_after'} } = 1;
+	}
+	my $field_with_extended_attributes;
+	if ( !$summary_view ) {
+		$field_with_extended_attributes =
+		  $self->{'datastore'}->run_list_query("SELECT DISTINCT isolate_field FROM isolate_field_extended_attributes");
+	}
+	foreach my $field (@$field_list) {
+		my $displayfield = $field;
+		$displayfield =~ tr/_/ /;
+		my %thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+		my $web;
+		if ( !defined $data->{$field} ) {
+			next;
+
+			#Do not print row
+		} elsif ( $thisfield{'web'} ) {
+			my $url = $thisfield{'web'};
+			$url =~ s/\[\\*\?\]/$data->{$field}/;
+			$url =~ s/\&/\&amp;/g;
+			my $domain;
+			if ( ( lc($url) =~ /http:\/\/(.*?)\/+/ ) ) {
+				$domain = $1;
+			}
+			$web = "<a href=\"$url\">$data->{$field}</a>";
+			if ( $domain && $domain ne $q->virtual_host ) {
+				$web .= " <span class=\"link\"><span style=\"font-size:1.2em\">&rarr;</span> $domain</span>";
+			}
+		}
+		if (   ( $field eq 'curator' )
+			|| ( $field eq 'sender' )
+			|| ( $thisfield{'userfield'} && $thisfield{'userfield'} eq 'yes' ) )
+		{
+			my $userdata = $self->{'datastore'}->get_user_info( $data->{$field} );
+			my $colspan = $summary_view ? 5 : 2;
+			$buffer .= "<tr class=\"td$$td_ref\"><th>$displayfield</th><td align=\"left\" colspan=\"$colspan\">";
+			$buffer .= "$userdata->{first_name} $userdata->{surname}</td>";
+			if ( !$summary_view ) {
+				$buffer .= "<td style=\"text-align:left\" colspan=\"2\">$userdata->{affiliation}</td>";
+				if (
+					$field eq 'curator'
+					|| ( ( $field eq 'sender' || ( $thisfield{'userfield'} && $thisfield{'userfield'} eq 'yes' ) )
+						&& !$self->{'system'}->{'privacy'} )
+				  )
+				{
+					if (   $userdata->{'email'} eq ''
+						or $userdata->{'email'} eq '-' )
+					{
+						$buffer .= "<td style=\"text-align:left\">No E-mail address available</td></tr>\n";
+					} else {
+						$buffer .= "<td style=\"text-align:left\"><a href=\"mailto:$userdata->{'email'}\">$userdata->{'email'}</a></td>";
+					}
+				}
+				if ( ( $field eq 'sender' || ( $thisfield{'userfield'} && $thisfield{'userfield'} eq 'yes' ) )
+					&& $self->{'system'}->{'privacy'} )
+				{
+					$buffer .= "<td></td>";
+				}
+			}
+			if ( $field eq 'curator' ) {
+				my ( $history, $num_changes ) = $self->_get_history( $isolate_id, 20 );
+				if ($num_changes) {
+					$buffer .= "</tr>\n";
+					$$td_ref = $$td_ref == 1 ? 2 : 1;
+					my $plural = $num_changes == 1 ? '' : 's';
+					my $title;
+					$title = "Update history - ";
+					foreach (@$history) {
+						my $time = $_->{'timestamp'};
+						$time =~ s/ \d\d:\d\d:\d\d\.\d+//;
+						my $action = $_->{'action'};
+						if ( $action =~ /<br \/>/ ) {
+							$action = 'multiple updates';
+						}
+						$action =~ s/[\r\n]//g;
+						$action =~ s/:.*//;
+						$title .= "$time: $action<br />";
+					}
+					if ( $num_changes > 20 ) {
+						$title .= "more ...";
+					}
+					$buffer .= "<tr class=\"td$$td_ref\"><th>update history</th><td style=\"text-align:left\" colspan=\"5\">";
+					$buffer .= "<a title=\"$title\" class=\"pending_tooltip\">";
+					$buffer .= "$num_changes update$plural</a>";
+					my $refer_page = $q->param('page');
+					$buffer .=
+" <a href=\"$self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'}&amp;id=$isolate_id&amp;history=1&amp;refer=$refer_page\">show details</a></td>";
+				}
+			}
+		} elsif (
+			any {
+				$field eq $_;
+			}
+			@$field_with_extended_attributes
+		  )
+		{
+			my $sql_attord =
+			  $self->{'db'}->prepare("SELECT attribute,field_order FROM isolate_field_extended_attributes WHERE isolate_field=?");
+			eval { $sql_attord->execute($field) };
+			if ($@) {
+				$logger->error("Can't execute $@");
+			}
+			my %order;
+			while ( my ( $att, $order ) = $sql_attord->fetchrow_array ) {
+				$order{$att} = $order;
+			}
+			my $sql_att =
+			  $self->{'db'}
+			  ->prepare("SELECT attribute,value FROM isolate_value_extended_attributes WHERE isolate_field=? AND field_value=?");
+			eval { $sql_att->execute( $field, $data->{$field} ) };
+			$logger->error($@) if $@;
+			my %attributes;
+			while ( my ( $attribute, $value ) = $sql_att->fetchrow_array ) {
+				$attributes{$attribute} = $value;
+			}
+			if ( keys %attributes ) {
+				my $rows = keys %attributes || 1;
+				$buffer .=
+				  "<tr class=\"td$$td_ref\"><th rowspan=\"$rows\">$displayfield</th><td style=\"text-align:left\" rowspan=\"$rows\">";
+				$buffer .= $web || $data->{$field};
+				$buffer .= "</td>";
+				my $first = 1;
+				foreach ( sort { $order{$a} <=> $order{$b} } keys(%attributes) ) {
+					$buffer .= "</tr>\n<tr class=\"td$$td_ref\">" if !$first;
+					my $url_ref =
+					  $self->{'datastore'}
+					  ->run_simple_query( "SELECT url FROM isolate_field_extended_attributes WHERE isolate_field=? AND attribute=?",
+						$field, $_ );
+					my $att_web;
+					if ( ref $url_ref eq 'ARRAY' ) {
+						my $url = $url_ref->[0] || '';
+						$url =~ s/\[\?\]/$attributes{$_}/;
+						$url =~ s/\&/\&amp;/g;
+						my $domain;
+						if ( ( lc($url) =~ /http:\/\/(.*?)\/+/ ) ) {
+							$domain = $1;
+						}
+						$att_web = "<a href=\"$url\">$attributes{$_}</a>" if $url;
+						if ( $domain && $domain ne $q->virtual_host ) {
+							$att_web .= " <span class=\"link\"><span style=\"font-size:1.2em\">&rarr;</span> $domain</span>";
+						}
+					}
+					$buffer .= "<th>$_</th><td colspan=\"3\" style=\"text-align:left\">";
+					$buffer .= $att_web || $attributes{$_};
+					$buffer .= "</td>";
+					$first = 0;
+				}
+			} else {
+				$buffer .= "<tr class=\"td$$td_ref\"><th>$displayfield</th><td style=\"text-align:left\" colspan=\"5\">";
+				$buffer .= $web || $data->{$field};
+				$buffer .= "</td>";
+			}
+		} else {
+			$buffer .= "<tr class=\"td$$td_ref\"><th>$displayfield</th><td style=\"text-align:left\" colspan=\"5\">";
+			$buffer .= $web || $data->{$field};
+			$buffer .= "</td>";
+		}
+		$buffer .= "</tr>\n";
+		$$td_ref = $$td_ref == 1 ? 2 : 1;    #row stripes
+		if ( $field eq $self->{'system'}->{'labelfield'} ) {
+			my $aliases =
+			  $self->{'datastore'}->run_list_query( "SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias", $isolate_id );
+			if (@$aliases) {
+				local $" = '; ';
+				my $plural = @$aliases > 1 ? 'es' : '';
+				$buffer .=
+				  "<tr class=\"td$$td_ref\"><th>alias$plural</th><td style=\"text-align:left\" colspan=\"5\">@$aliases</td></tr>\n";
+				$$td_ref = $$td_ref == 1 ? 2 : 1;
+			}
+		}
+		if ( $composites{$field} ) {
+			foreach ( keys %composite_display_pos ) {
+				next if $composite_display_pos{$_} ne $field;
+				$displayfield = $_;
+				$displayfield =~ tr/_/ /;
+				my $value = $self->{'datastore'}->get_composite_value( $isolate_id, $_, $data );
+				$buffer .= "<tr class=\"td$$td_ref\"><th>$displayfield</th><td style=\"text-align:left\" colspan=\"5\">$value</td></tr>\n";
+				$$td_ref = $$td_ref == 1 ? 2 : 1;
+			}
+		}
+	}
+	return $buffer;
+}
+
 sub _get_scheme_attributes {
 	my ( $self, $isolate_id ) = @_;
 
@@ -577,7 +543,8 @@ sub _get_tree {
 
 sub get_sample_summary {
 	my ( $self, $id ) = @_;
-	my ($sample_buffer) = $self->_get_samples( $id, 1 );
+	my $td = 1;
+	my ($sample_buffer) = $self->_get_samples( $id, \$td );
 	my $buffer = '';
 	if ($sample_buffer) {
 		$buffer = "<table class=\"resultstable\">\n";
@@ -588,8 +555,8 @@ sub get_sample_summary {
 }
 
 sub _get_samples {
-	my ( $self, $id, $td, $include_side_header ) = @_;
-	my $buffer;
+	my ( $self, $id, $td_ref, $include_side_header ) = @_;
+	my $buffer = '';
 	my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
 	my ( @selected_fields, @clean_fields );
 	foreach (@$sample_fields) {
@@ -610,7 +577,7 @@ sub _get_samples {
 					$sample->{$_} = "$user_info->{'first_name'} $user_info->{'surname'}";
 				}
 			}
-			my $row = "<tr class=\"td$td\">";
+			my $row = "<tr class=\"td$$td_ref\">";
 			if ( $self->{'curate'} ) {
 				$row .=
 "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=delete&amp;table=samples&amp;isolate_id=$id&amp;sample_id=$sample->{'sample_id'}\">Delete</a></td>
@@ -633,7 +600,7 @@ sub _get_samples {
 			}
 			$row .= "</tr>";
 			push @sample_rows, $row;
-			$td = $td == 1 ? 2 : 1;
+			$$td_ref = $$td_ref == 1 ? 2 : 1;
 		}
 		if (@sample_rows) {
 			my $rows = scalar @sample_rows + 1;
@@ -650,7 +617,7 @@ sub _get_samples {
 			$buffer .= "</table></td></tr>\n";
 		}
 	}
-	return $buffer, $td;
+	return $buffer;
 }
 
 sub _get_scheme_fields {
@@ -899,7 +866,7 @@ sub _get_scheme_fields {
 			$buffer .= "<td>$cleaned</td>";
 			$buffer .= $provisional_profile ? "<td><span class=\"provisional\">" : '<td>';
 			$buffer .= $field_values{$_};
-			$buffer .= $provisional_profile ? '</span></td>'                     : '</td>';
+			$buffer .= $provisional_profile ? '</span></td>' : '</td>';
 			$buffer .= "<td colspan=\"3\" />";
 			$buffer .= "</tr>";
 			$first = 0;
@@ -1079,8 +1046,79 @@ sub get_name {
 	my $name_ref =
 	  $self->{'datastore'}
 	  ->run_simple_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id );
-	if (ref $name_ref eq 'ARRAY'){
+	if ( ref $name_ref eq 'ARRAY' ) {
 		return ( $self->{'system'}->{'labelfield'}, $name_ref->[0] );
+	}
+	return;
+}
+
+sub _get_ref_links {
+	my ( $self, $isolate_id, $td_ref ) = @_;
+	my $buffer = '';
+	my $refs = $self->{'datastore'}->run_list_query( "SELECT refs.pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id", $isolate_id );
+	foreach my $ref (@$refs) {
+		$buffer .= $self->get_main_table_reference( 'reference', $ref, $$td_ref );
+		$$td_ref = $$td_ref == 1 ? 2 : 1;
+	}
+	return $buffer;
+}
+
+sub _get_seqbin_link {
+	my ( $self, $isolate_id, $td_ref ) = @_;
+	my $seqbin_count = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM sequence_bin WHERE isolate_id=?", $isolate_id )->[0];
+	my $buffer = '';
+	my $q = $self->{'cgi'};
+	if ($seqbin_count) {
+		my $length_data =
+		  $self->{'datastore'}->run_simple_query(
+			"SELECT SUM(length(sequence)), CEIL(AVG(length(sequence))), MAX(length (sequence)) FROM sequence_bin WHERE isolate_id=?",
+			$isolate_id );
+		my $plural = $seqbin_count == 1 ? '' : 's';
+		$buffer .= "<tr class=\"td$$td_ref\"><th rowspan=\"2\">sequence bin</th><td style=\"text-align:left\" colspan=\"4\">
+				$seqbin_count sequence$plural (";
+		if ( $seqbin_count > 1 ) {
+			$buffer .= "total length: $length_data->[0] bp; max: $length_data->[2] bp; mean: $length_data->[1] bp)";
+		} else {
+			$buffer .= "$length_data->[0] bp)";
+		}
+		$buffer .= "</td><td rowspan=\"2\">\n";
+		$buffer .= $q->start_form;
+		$q->param( 'curate', 1 ) if $self->{'curate'};
+		$q->param( 'page', 'seqbin' );
+		$q->param( 'isolate_id', $isolate_id );
+		$buffer .= $q->hidden($_) foreach qw (db page curate isolate_id);
+		$buffer .= $q->submit( -value => 'Display', -class => 'submit' );
+		$buffer .= $q->end_form;
+		$buffer .= "</td></tr>\n";
+		my $tagged = $self->{'datastore'}->run_simple_query(
+"SELECT COUNT(*) FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE sequence_bin.isolate_id=?",
+			$isolate_id
+		)->[0];
+		$plural = $tagged == 1 ? '' : 's';
+		$buffer .= "<tr class=\"td$$td_ref\"><td style=\"text-align:left\" colspan=\"4\">$tagged allele sequence$plural tagged</td></tr>\n";
+		$$td_ref = $$td_ref == 1 ? 2 : 1;
+		$q->param( 'page', 'info' );
+	}
+	return $buffer;
+}
+
+sub _print_projects {
+	my ( $self, $isolate_id ) = @_;
+	my $projects = $self->{'datastore'}->run_list_query_hashref(
+"SELECT * FROM projects WHERE full_description IS NOT NULL AND id IN (SELECT project_id FROM project_members WHERE isolate_id=?) ORDER BY id",
+		$isolate_id
+	);
+	if (@$projects){
+		print "<div class=\"box\" id=\"resultsheader\">\n";
+		my $plural = @$projects == 1 ? '' : 's';
+		print "<p>This isolate is a member of the following project$plural:</p>\n";
+		print "<table>\n";
+		my $td = 1;
+		foreach (@$projects){
+			print "<tr class=\"td$td\"><th style=\"text-align:right;padding-right:1em\">$_->{'short_description'}</th><td style=\"padding-left:1em\">$_->{'full_description'}</td></tr>\n";
+			$td = $td == 1 ? 2 : 1;
+		}
+		print "</table>\n</div>\n";
 	}
 	return;
 }
