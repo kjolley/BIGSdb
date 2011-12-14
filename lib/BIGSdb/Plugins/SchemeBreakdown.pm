@@ -36,7 +36,7 @@ sub get_attributes {
 		buttontext  => 'Schemes/alleles',
 		menutext    => 'Scheme and alleles',
 		module      => 'SchemeBreakdown',
-		version     => '1.0.6',
+		version     => '1.0.7',
 		section     => 'breakdown,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/scheme_breakdown.shtml',
 		input       => 'query',
@@ -193,10 +193,11 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 			$order = "COUNT($temp_fieldname) desc";
 		};
 		$field_query .= " ORDER BY $order";
-		if ($q->param('download')){
-			$self->_download_alleles($q->param('field'), \$field_query);
+		if ( $q->param('download') ) {
+			$self->_download_alleles( $q->param('field'), \$field_query );
 			return;
 		}
+
 		#		$field_query = "SET enable_nestloop = off; " . $field_query;
 		my $sql = $self->{'db'}->prepare($field_query);
 		eval { $sql->execute };
@@ -360,10 +361,10 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 				if ($value) {
 					print $q->start_form;
 					print $q->submit( -label => 'Breakdown', -class => 'smallbutton' );
-					print $q->hidden( 'field',           "$scheme_id\_$fields->[$i]" );
-					print $q->hidden( 'type',            'field' );
+					$q->param( 'field', "$scheme_id\_$fields->[$i]" );
+					$q->param( 'type',  'field' );
 					print $q->hidden( 'field_breakdown', 1 );
-					print $q->hidden($_) foreach qw (page name db query_file);
+					print $q->hidden($_) foreach qw (page name db query_file type field);
 					print $q->end_form;
 				}
 				print "</td>";
@@ -423,7 +424,7 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 					print $q->start_form;
 					print $q->submit( -label => 'Download', -class => 'smallbutton' );
 					print $q->hidden( 'download', 1 );
-					$q->param('format', 'text');
+					$q->param( 'format', 'text' );
 					print $q->hidden($_) foreach qw (page name db query_file field type format);
 					print $q->end_form;
 					print "</td>";
@@ -447,19 +448,18 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 }
 
 sub _download_alleles {
-	my ($self, $locus_name, $query_ref) = @_;
+	my ( $self, $locus_name, $query_ref ) = @_;
 	my $allele_ids = $self->{'datastore'}->run_list_query_hashref($$query_ref);
-	my $locus = $self->{'datastore'}->get_locus($locus_name);
-	foreach (@$allele_ids){
+	my $locus      = $self->{'datastore'}->get_locus($locus_name);
+	foreach (@$allele_ids) {
 		print ">$_->{'allele_id'}\n";
-		my $seq_ref = $locus->get_allele_sequence($_->{'allele_id'});
-		if (ref $seq_ref eq 'SCALAR' && defined $$seq_ref){
-			$seq_ref = BIGSdb::Utils::break_line($seq_ref,60);
+		my $seq_ref = $locus->get_allele_sequence( $_->{'allele_id'} );
+		if ( ref $seq_ref eq 'SCALAR' && defined $$seq_ref ) {
+			$seq_ref = BIGSdb::Utils::break_line( $seq_ref, 60 );
 			print "$$seq_ref\n";
 		} else {
 			print "Can't extract sequence\n";
 		}
-		
 	}
 	return;
 }
