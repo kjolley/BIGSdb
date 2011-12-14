@@ -118,6 +118,7 @@ sub get_composite_value {
 	my $allele_ids;
 	my $scheme_fields;
 	while ( my ( $field, $empty_value, $regex ) = $self->{'sql'}->{'composite_field_values'}->fetchrow_array ) {
+		$empty_value = '' if !defined $empty_value;
 		if (
 			defined $regex
 			&& (

@@ -32,7 +32,8 @@ sub get_title {
 sub print_content {
 	my ($self) = @_;
 	print "<h1>Update or delete composite field</h1>\n";
-	my $buffer = $self->_create_query_table();
+	my $buffer = $self->_create_query_table;
+	return;
 }
 
 sub _create_query_table {
@@ -72,13 +73,13 @@ sub _create_query_table {
 		while ( my $field_value = $sql2->fetchrow_hashref ) {
 			if ( $field_value->{'field'} =~ /^f_(.+)/ ) {
 				$value   .= "<span class=\"field\">[$1]</span>";
-				$missing .= "<span class=\"field\">$field_value->{'empty_value'}</span>";
+				$missing .= "<span class=\"field\">$field_value->{'empty_value'}</span>" if defined $field_value->{'empty_value'};
 			} elsif ( $field_value->{'field'} =~ /^l_(.+)/ ) {
 				$value   .= "<span class=\"locus\">[$1]</span>";
-				$missing .= "<span class=\"locus\">$field_value->{'empty_value'}</span>";
+				$missing .= "<span class=\"locus\">$field_value->{'empty_value'}</span>" if defined $field_value->{'empty_value'};
 			} elsif ( $field_value->{'field'} =~ /^s_(\d+)_(.+)/ ) {
 				$value   .= "<span class=\"scheme\">[scheme $1:$2]</span>";
-				$missing .= "<span class=\"scheme\">$field_value->{'empty_value'}</span>";
+				$missing .= "<span class=\"scheme\">$field_value->{'empty_value'}</span>" if defined $field_value->{'empty_value'};
 			} elsif ( $field_value->{'field'} =~ /^t_(.+)/ ) {
 				$value   .= "<span class=\"text\">$1</span>";
 				$missing .= "<span class=\"text\">$1</span>";
@@ -90,5 +91,6 @@ sub _create_query_table {
 	}
 	print "</table>\n";
 	print "</div>\n";
+	return;
 }
 1;
