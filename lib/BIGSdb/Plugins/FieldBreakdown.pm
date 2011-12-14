@@ -36,7 +36,7 @@ sub get_attributes {
 		buttontext  => 'Fields',
 		menutext    => 'Single field',
 		module      => 'FieldBreakdown',
-		version     => '1.0.1',
+		version     => '1.0.2',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/field_breakdown.shtml',
@@ -50,6 +50,7 @@ sub get_attributes {
 sub set_pref_requirements {
 	my ($self) = @_;
 	$self->{'pref_requirements'} = { 'general' => 0, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 0 };
+	return;
 }
 
 sub get_option_list {
@@ -97,7 +98,6 @@ sub _use_composites {
 	my ($self) = @_;
 	my $use;
 	my $guid = $self->get_guid;
-
 	try {
 		$use = $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'FieldBreakdown', 'breakdown_composites' );
 		$use = $use eq 'true' ? 1 : 0;
@@ -132,7 +132,7 @@ sub run {
 		$self->_summary_table($qry);
 		return;
 	}
-	$| = 1;
+	local $| = 1;
 	my %noshow;
 	if ( $self->{'system'}->{'noshow'} ) {
 		foreach ( split /,/, $self->{'system'}->{'noshow'} ) {
@@ -219,6 +219,7 @@ sub run {
 	my $query_clause = defined $query_file ? "&amp;query_file=$query_file" : '';
 	print
 "<p id=\"links\"><a href='$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;function=summary_table$query_clause&amp;field=$name&amp;format=html'>Display table</a> | <a href='$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;function=summary_table$query_clause&amp;field=$name&amp;format=text'>Tab-delimited text</a></p>\n";
+	return;
 }
 
 sub _create_chartdirector_chart {
@@ -275,6 +276,7 @@ sub _create_chartdirector_chart {
 		}
 		BIGSdb::Charts::piechart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$temp\_$field.png", 24, $size, \%prefs );
 	}
+	return;
 }
 
 sub _is_composite_field {
@@ -381,6 +383,7 @@ sub _summary_table {
 	if ( $format eq 'html' ) {
 		print "</tbody></table></div>";
 	}
+	return;
 }
 
 sub _get_value_frequency_hash {
@@ -390,9 +393,9 @@ sub _get_value_frequency_hash {
 	my $qry = $$qryref;
 	my $value_frequency;
 	my $num_records;
-	my $fields = $self->{'xmlHandler'}->get_field_list();
+	my $fields = $self->{'xmlHandler'}->get_field_list;
 	my $view   = $self->{'system'}->{'view'};
-	$" = ",$view.";
+	local $" = ",$view.";
 	my $field_string = "$view.@$fields";
 	$qry =~ s/SELECT ($view\.\*|\*)/SELECT $field_string/;
 	my $sql = $self->{'db'}->prepare($qry);
@@ -402,6 +405,7 @@ sub _get_value_frequency_hash {
 	$sql->bind_columns( map { \$data{$_} } @$fields );    #quicker binding hash to arrayref than to use hashref
 	my $use_composites = $self->_use_composites;
 	my $field_is_composite;
+
 	if ( $use_composites && $query_field ) {
 		$field_is_composite = $self->_is_composite_field($query_field);
 	}
@@ -419,19 +423,21 @@ sub _get_value_frequency_hash {
 	}
 	while ( $sql->fetchrow_arrayref ) {
 		foreach my $field (@field_list) {
-			$data{$field} = defined $data{$field} ? $data{$field} : '';
-			if (   $data{$field} eq '-999'
-				|| $data{$field} eq '0001-01-01'
-				|| $data{$field} eq '' )
-			{
-				$value = 'No value/unassigned';
-			} else {
-				$value = $data{$field};
-				if ( $format eq 'text' ) {
-					$value =~ s/&Delta;/deleted/g;
+			if ( !$field_is_composite ) {
+				$data{$field} = defined $data{$field} ? $data{$field} : '';
+				if (   $data{$field} eq '-999'
+					|| $data{$field} eq '0001-01-01'
+					|| $data{$field} eq '' )
+				{
+					$value = 'No value/unassigned';
+				} else {
+					$value = $data{$field};
+					if ( $format eq 'text' ) {
+						$value =~ s/&Delta;/deleted/g;
+					}
 				}
+				$value_frequency->{$field}->{$value}++;
 			}
-			$value_frequency->{$field}->{$value}++;
 		}
 		if ( $use_composites && !( !$field_is_composite && $query_field ) ) {
 			foreach (@$composite_fields) {
