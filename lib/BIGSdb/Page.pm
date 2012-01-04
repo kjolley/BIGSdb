@@ -3069,8 +3069,8 @@ sub _get_child_groups {
 "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;group_id=$_\" rel=\"ajax\">$group_info->{'name'}</a>\n";
 					}
 				}
-				$buffer .= $group_scheme_buffer;
-				$buffer .= $child_group_buffer;
+				$buffer .= $group_scheme_buffer if $group_scheme_buffer;
+				$buffer .= $child_group_buffer if $child_group_buffer;
 				$buffer .= "</li>";
 			}
 		}
