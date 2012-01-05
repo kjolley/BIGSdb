@@ -312,6 +312,10 @@ sub print_content {
 
 				#cascade deletion of sequence bin records
 				next if $table eq 'sequence_bin' && $table_to_check eq 'allele_sequences';
+				
+				#cascade deletion of scheme group
+				next if $table eq 'scheme_groups' && any { $table_to_check eq $_ } qw ( scheme_group_group_members scheme_group_scheme_members );
+				
 				my $num =
 				  $self->{'datastore'}
 				  ->run_simple_query( "SELECT count(*) FROM $table_to_check WHERE $tables_to_check{$table_to_check} = ?", $data->{'id'} )
