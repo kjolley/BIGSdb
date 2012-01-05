@@ -2140,7 +2140,7 @@ sub _get_scheme_members_table_attributes {
 			required       => 'yes',
 			primary_key    => 'yes',
 			foreign_key    => 'schemes',
-			labels         => '|$id|) |$description|',
+			labels         => '|$description|',
 			dropdown_query => 'yes'
 		},
 		{ name => 'locus', type => 'text', required => 'yes', primary_key => 'yes', foreign_key => 'loci', dropdown_query => 'yes' }
@@ -2266,7 +2266,7 @@ sub _get_scheme_group_scheme_members_table_attributes {
 			required       => 'yes',
 			primary_key    => 'yes',
 			foreign_key    => 'scheme_groups',
-			labels         => '|$id|) |$name|',
+			labels         => '|$name|',
 			dropdown_query => 'yes'
 		},
 		{
@@ -2275,7 +2275,7 @@ sub _get_scheme_group_scheme_members_table_attributes {
 			required       => 'yes',
 			primary_key    => 'yes',
 			foreign_key    => 'schemes',
-			labels         => '|$id|) |$description|',
+			labels         => '|$description|',
 			dropdown_query => 'yes'
 		},
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
@@ -2292,7 +2292,7 @@ sub _get_scheme_group_group_members_table_attributes {
 			required       => 'yes',
 			primary_key    => 'yes',
 			foreign_key    => 'scheme_groups',
-			labels         => '|$id|) |$name|',
+			labels         => '|$name|',
 			dropdown_query => 'yes'
 		},
 		{
@@ -2301,7 +2301,7 @@ sub _get_scheme_group_group_members_table_attributes {
 			required       => 'yes',
 			primary_key    => 'yes',
 			foreign_key    => 'scheme_groups',
-			labels         => '|$id|) |$name|',
+			labels         => '|$name|',
 			dropdown_query => 'yes'
 		},
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },

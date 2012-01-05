@@ -235,7 +235,7 @@ sub _print_interface {
 "<input type=\"button\" onclick='listbox_selectall(\"locus\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
 	print "</fieldset>\n";
 	print "<fieldset style=\"float:left\">\n<legend>Schemes</legend>\n";
-	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
+	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,description");
 	my %scheme_desc;
 
 	foreach (@$schemes) {

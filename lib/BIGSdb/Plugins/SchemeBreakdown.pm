@@ -1,6 +1,6 @@
 #SchemeBreakdown.pm - SchemeBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2011, University of Oxford
+#Copyright (c) 2010-2012, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -78,7 +78,7 @@ sub run {
 	} else {
 		print "<h1>Scheme field and allele breakdown of dataset</h1>\n";
 	}
-	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
+	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,description");
 	my $loci    = $self->{'datastore'}->run_list_query("SELECT id FROM loci ORDER BY id");
 	if ( !scalar @$loci ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>No loci are defined for this database.</p></div>\n";
