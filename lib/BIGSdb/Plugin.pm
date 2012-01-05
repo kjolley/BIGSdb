@@ -694,4 +694,17 @@ sub _print_all_none_buttons {
 	}
 }
 
+sub get_ids_from_query {
+	my ( $self, $qry_ref ) = @_;
+	return if ref $qry_ref ne 'SCALAR';
+	my $qry = $$qry_ref;
+	$qry =~ s/ORDER BY.*$//g;
+	return if !$self->create_temp_tables($qry_ref);
+	my $view = $self->{'system'}->{'view'};
+	$qry =~ s/SELECT ($view\.\*|\*)/SELECT id/;
+	$qry .= " ORDER BY id";
+	my $ids = $self->{'datastore'}->run_list_query($qry);
+	return $ids;
+}
+
 1;

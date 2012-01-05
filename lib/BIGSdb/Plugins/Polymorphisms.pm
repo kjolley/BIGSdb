@@ -39,7 +39,7 @@ sub get_attributes {
 		category    => 'Breakdown',
 		menutext    => 'Polymorphic sites',
 		module      => 'Polymorphisms',
-		version     => '1.0.0',
+		version     => '1.0.1',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		requires    => 'muscle,offline_jobs',
@@ -66,7 +66,8 @@ sub run {
 		$self->_print_interface;
 		return;
 	}
-	my $ids = $self->_get_ids($query_file);
+	my $qry_ref = $self->get_query($query_file);
+	my $ids     = $self->get_ids_from_query($qry_ref);
 	my %options;
 	$options{'from_bin'}            = $q->param('chooseseq') eq 'seqbin' ? 1 : 0;
 	$options{'unique'}              = $q->param('unique');
@@ -127,6 +128,7 @@ HTML
 		of your sequences.  This is a potentially processor- and memory-intensive operation for large numbers of
 		sequences and is consequently limited to $max records.  You have $num_seqs records in your analysis.</p></div>\n";
 	}
+	return;
 }
 
 sub run_job {
@@ -146,7 +148,8 @@ sub run_job {
 		$locus = $1;
 	}
 	$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => -1 } );    #indeterminate length of time
-	my $ids = $self->_get_ids($query_file);
+	my $qry_ref = $self->get_query($query_file);
+	my $ids     = $self->get_ids_from_query($qry_ref);
 	my %options;
 	$options{'from_bin'}            = $params->{'chooseseq'} eq 'seqbin' ? 1 : 0;
 	$options{'unique'}              = $params->{'unique'};
@@ -169,20 +172,10 @@ sub run_job {
 	print $html_fh $buffer;
 	print $html_fh "</div>\n</body>\n</html>\n";
 	$self->{'jobManager'}->update_job_output( $job_id, { 'filename' => "$temp.html", 'description' => 'Locus schematic (HTML format)' } );
+	return;
 }
-sub get_plugin_javascript { }
 
-sub _get_ids {
-	my ( $self, $query_file ) = @_;
-	my $qry_ref = $self->get_query($query_file);
-	return if ref $qry_ref ne 'SCALAR';
-	my $qry = $$qry_ref;
-	$qry =~ s/ORDER BY.*$//g;
-	return if !$self->create_temp_tables($qry_ref);
-	$qry =~ s/SELECT \*/SELECT id/;
-	my $ids = $self->{'datastore'}->run_list_query($qry);
-	return $ids;
-}
+sub get_plugin_javascript { }
 
 sub _get_seqs {
 	my ( $self, $locus_name, $isolate_ids, $options ) = @_;
@@ -302,5 +295,6 @@ sub _print_interface {
 	print $q->hidden($_) foreach (qw (page name db query_file));
 	print $q->end_form;
 	print "</div>\n</div>\n";
+	return;
 }
 1;

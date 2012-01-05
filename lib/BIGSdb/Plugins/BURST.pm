@@ -35,7 +35,7 @@ sub get_attributes {
 		affiliation => 'University of Oxford, UK',
 		email       => 'keith.jolley@zoo.ox.ac.uk',
 		description => 'Perform BURST cluster analysis on query results query results',
-		category    => 'Cluster',
+		category    => 'Analysis',
 		buttontext  => 'BURST',
 		menutext    => 'BURST',
 		module      => 'BURST',

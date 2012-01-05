@@ -39,7 +39,7 @@ sub get_attributes {
 		buttontext  => 'Tag status',
 		menutext    => 'Tag status',
 		module      => 'TagStatus',
-		version     => '1.0.0',
+		version     => '1.0.1',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		requires    => 'mogrify',
@@ -56,7 +56,7 @@ sub run {
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
 	my $qry_ref    = $self->get_query($query_file);
-	my $ids        = $self->_get_ids($qry_ref);
+	my $ids        = $self->get_ids_from_query($qry_ref);
 	if ( ref $ids ne 'ARRAY' || !@$ids ) {
 		print "<div class=\"box statusbad\"><p>No isolates to analyse.</p></div>\n";
 		return;
@@ -213,18 +213,6 @@ sub _print_schematic {
 	}
 	print "</table>\n</div></div>\n";
 	return;
-}
-
-sub _get_ids {
-	my ( $self, $qry_ref ) = @_;
-	my $qry = $$qry_ref;
-	$qry =~ s/ORDER BY.*$//g;
-	return if !$self->create_temp_tables($qry_ref);
-	my $view = $self->{'system'}->{'view'};
-	$qry =~ s/SELECT ($view\.\*|\*)/SELECT id/;
-	$qry .= " ORDER BY id";
-	my $ids = $self->{'datastore'}->run_list_query($qry);
-	return $ids;
 }
 
 sub _make_svg {

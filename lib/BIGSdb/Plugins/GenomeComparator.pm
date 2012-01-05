@@ -35,15 +35,16 @@ sub get_attributes {
 		affiliation => 'University of Oxford, UK',
 		email       => 'keith.jolley@zoo.ox.ac.uk',
 		description => 'Compare genomes at defined loci or against loci defined in a reference genome',
-		category    => 'Genome',
+		category    => 'Analysis',
 		buttontext  => 'Genome Camparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.2.1',
+		version     => '1.2.2',
 		dbtype      => 'isolates',
-		section     => 'analysis',
+		section     => 'analysis,postquery',
 		order       => 30,
 		requires    => 'muscle,offline_jobs',
+		input       => 'query',
 		help        => 'tooltips',
 		system_flag => 'GenomeComparator'
 	);
@@ -81,7 +82,7 @@ END
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	my @loci = split /\|\|/, $params->{'locus'} || '';
-	my @ids  = split /\|\|/, $params->{'isolate_id'};
+	my @ids = split /\|\|/, $params->{'isolate_id'};
 	my $filtered_ids = $self->_filter_ids_by_project( \@ids, $params->{'project_list'} );
 	my @scheme_ids = split /\|\|/, $params->{'scheme_id'} || '';
 	my $accession = $params->{'accession'};
@@ -103,7 +104,7 @@ sub run_job {
 		return;
 	}
 	if ($accession) {
-		my $seq_db = new Bio::DB::GenBank;
+		my $seq_db = Bio::DB::GenBank->new;
 		$seq_db->verbose(2);    #convert warn to exception
 		my $seq_obj;
 		try {
@@ -126,6 +127,7 @@ sub run_job {
 		$self->_add_scheme_loci( $params, \@loci );
 		$self->_analyse_by_loci( $job_id, $params, \@loci, $filtered_ids );
 	}
+	return;
 }
 
 sub run {
@@ -172,12 +174,16 @@ HTML
 		}
 	}
 	$self->_print_interface;
+	return;
 }
 
 sub _print_interface {
-	my ($self) = @_;
-	my $q      = $self->{'cgi'};
-	my $view   = $self->{'system'}->{'view'};
+	my ($self)       = @_;
+	my $q            = $self->{'cgi'};
+	my $view         = $self->{'system'}->{'view'};
+	my $query_file   = $q->param('query_file');
+	my $qry_ref      = $self->get_query($query_file);
+	my $selected_ids = $self->get_ids_from_query($qry_ref);
 	my $qry =
 "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM sequence_bin LEFT JOIN $view ON $view.id=sequence_bin.isolate_id ORDER BY $view.id";
 	my $sql = $self->{'db'}->prepare($qry);
@@ -213,7 +219,8 @@ sub _print_interface {
 		-values   => \@ids,
 		-labels   => \%labels,
 		-size     => 8,
-		-multiple => 'true'
+		-multiple => 'true',
+		-default  => $selected_ids
 	);
 	print
 "<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"isolate_id\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
@@ -252,7 +259,6 @@ sub _print_interface {
 	print "</fieldset>\n";
 	print "<fieldset style=\"float:left\">\n<legend>Reference genome</legend>\n";
 	print "<p>Enter accession number:</p>\n";
-	$" = ' ';
 	print $q->textfield(
 		-name      => 'accession',
 		-id        => 'accession',
@@ -324,6 +330,7 @@ sub _print_interface {
 	print $q->hidden($_) foreach qw (page name db);
 	print $q->end_form;
 	print "</div>\n";
+	return;
 }
 
 sub _filter_ids_by_project {
@@ -439,6 +446,7 @@ sub _analyse_by_loci {
 	close $fh;
 	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$job_id\*";
 	$self->{'jobManager'}->update_job_output( $job_id, { 'filename' => "$job_id.txt", 'description' => 'Main output file' } );
+	return;
 }
 
 sub _add_scheme_loci {
@@ -523,7 +531,7 @@ sub _analyse_by_reference {
 				}
 			}
 		}
-		$" = '|';
+		local $" = '|';
 		my $locus_name = $locus;
 		$locus_name .= "|@aliases" if @aliases;
 		my $seq = $cds->seq->seq;
@@ -541,7 +549,7 @@ sub _analyse_by_reference {
 		};
 		return if !@tags;
 		my $start = $cds->start;
-		$" = '; ';
+		local $" = '; ';
 		my $desc   = "@tags";
 		my $length = length $seq;
 		$length = int( $length / 3 ) if $params->{'tblastx'};
@@ -642,6 +650,7 @@ sub _analyse_by_reference {
 	if ( @$ids > 1 && $params->{'align'} ) {
 		$self->{'jobManager'}->update_job_output( $job_id, { 'filename' => "$job_id\_align.txt", 'description' => 'Alignments' } );
 	}
+	return;
 }
 
 sub _print_variable_loci {
@@ -741,6 +750,7 @@ sub _print_variable_loci {
 		unlink $fasta_file;
 	}
 	$$buffer_ref .= "</table></div>";
+	return;
 }
 
 sub _print_exact_matches {
@@ -760,6 +770,7 @@ sub _print_exact_matches {
 	$$buffer_ref .= "<p>Matches: " . ( scalar keys %$exacts ) . "</p>";
 	print $fh "Matches: " . ( scalar keys %$exacts ) . "\n\n";
 	$self->_print_locus_table( $buffer_ref, $fh, $exacts );
+	return;
 }
 
 sub _print_exact_except_ref {
@@ -771,6 +782,7 @@ sub _print_exact_except_ref {
 	$$buffer_ref .= "<p>Matches: " . ( scalar keys %$exacts ) . "</p>";
 	print $fh "Matches: " . ( scalar keys %$exacts ) . "\n\n";
 	$self->_print_locus_table( $buffer_ref, $fh, $exacts );
+	return;
 }
 
 sub _print_missing_in_all {
@@ -782,6 +794,7 @@ sub _print_missing_in_all {
 	$$buffer_ref .= "<p>Missing loci: " . ( scalar keys %$missing ) . "</p>";
 	print $fh "Missing loci: " . ( scalar keys %$missing ) . "\n\n";
 	$self->_print_locus_table( $buffer_ref, $fh, $missing );
+	return;
 }
 
 sub _print_truncated_loci {
@@ -795,6 +808,7 @@ sub _print_truncated_loci {
 	$$buffer_ref .= "<p>These loci are incomplete and located at the ends of contigs in at least one isolate.</p>";
 	print $fh "These loci are incomplete and located at the ends of contigs in at least one isolate.\n\n";
 	$self->_print_locus_table( $buffer_ref, $fh, $truncated );
+	return;
 }
 
 sub _print_locus_table {
@@ -814,6 +828,7 @@ sub _print_locus_table {
 	}
 	$$buffer_ref .= "</table>\n";
 	$$buffer_ref .= "</div>\n";
+	return;
 }
 
 sub _extract_sequence {
@@ -849,6 +864,7 @@ sub _blast {
 "$self->{'config'}->{'blast_path'}/blastall -b 10 -p $program -W $word_size -d $fasta_file -i $in_file -o $out_file -m8 -F F 2> /dev/null"
 		);
 	}
+	return;
 }
 
 sub _parse_blast_by_locus {
@@ -935,9 +951,10 @@ sub _parse_blast_ref {
 	my $alignment = BIGSdb::Utils::is_int( $params->{'alignment'} ) ? $params->{'alignment'} : 50;
 	open( my $blast_fh, '<', $blast_file ) || ( $logger->error("Can't open BLAST output file $blast_file. $!"), return \$; );
 	my $match;
-	my $quality = 0;    #simple metric of alignment length x percentage identity
+	my $quality    = 0;                  #simple metric of alignment length x percentage identity
 	my $ref_length = length $$seq_ref;
 	my $required_alignment = $params->{'tblastx'} ? int( $ref_length / 3 ) : $ref_length;
+
 	while ( my $line = <$blast_fh> ) {
 		next if !$line || $line =~ /^#/;
 		my @record = split /\s+/, $line;
