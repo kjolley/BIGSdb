@@ -481,7 +481,7 @@ sub get_field_selection_list {
 	if ( $options->{'scheme_fields'} ) {
 		if ( !$self->{'cache'}->{'scheme_fields'} ) {
 			my @scheme_field_list;
-			my $qry = "SELECT id, description FROM schemes ORDER BY display_order,id";
+			my $qry = "SELECT id, description FROM schemes ORDER BY display_order,description";
 			my $sql = $self->{'db'}->prepare($qry);
 			eval { $sql->execute };
 			$logger->error($@) if $@;
@@ -1656,7 +1656,7 @@ sub _print_isolate_table {
 			$composites{ $data[1] }            = 1;
 		}
 	}
-	my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
+	my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,description");
 	print "<div class=\"box\" id=\"resultstable\"><div class=\"scrollable\"><table class=\"resultstable\">\n";
 	$self->_print_isolate_table_header( \%composites, \%composite_display_pos, $scheme_ids, $qry_limit );
 	my $td = 1;
@@ -2859,10 +2859,10 @@ sub get_tree {
 	my $isolate_clause = defined $isolate_id ? "&amp;id=$isolate_id" : '';
 	my $groups_with_no_parent =
 	  $self->{'datastore'}->run_list_query(
-		"SELECT id FROM scheme_groups WHERE id NOT IN (SELECT group_id FROM scheme_group_group_members) ORDER BY display_order");
+		"SELECT id FROM scheme_groups WHERE id NOT IN (SELECT group_id FROM scheme_group_group_members) ORDER BY display_order,name");
 	my $schemes_not_in_group =
 	  $self->{'datastore'}->run_list_query_hashref(
-		"SELECT id,description FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) ORDER BY display_order");
+		"SELECT id,description FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) ORDER BY display_order,description");
 	my $buffer;
 	my $scheme_nodes;
 
@@ -2958,7 +2958,7 @@ sub _get_group_schemes {
 	$options = {} if ref $options ne 'HASH';
 	my $buffer;
 	my $schemes = $self->{'datastore'}->run_list_query(
-"SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON schemes.id=scheme_id WHERE group_id=? ORDER BY display_order",
+"SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON schemes.id=scheme_id WHERE group_id=? ORDER BY display_order,description",
 		$group_id
 	);
 	if (@$schemes) {
@@ -3041,7 +3041,7 @@ sub _get_child_groups {
 	$options = {} if ref $options ne 'HASH';
 	my $buffer;
 	my $child_groups = $self->{'datastore'}->run_list_query(
-"SELECT id FROM scheme_groups LEFT JOIN scheme_group_group_members ON scheme_groups.id=group_id WHERE parent_group_id=? ORDER BY display_order",
+"SELECT id FROM scheme_groups LEFT JOIN scheme_group_group_members ON scheme_groups.id=group_id WHERE parent_group_id=? ORDER BY display_order,name",
 		$group_id
 	);
 	if (@$child_groups) {
