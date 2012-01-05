@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2011, University of Oxford
+#Copyright (c) 2010-2012, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -36,6 +36,7 @@ sub initiate {
 	} else {
 		$self->{$_} = 1 foreach qw(jQuery jQuery.tablesort jQuery.jstree);
 	}
+	return;
 }
 
 sub get_attributes {
@@ -345,6 +346,7 @@ sub print_fields {
 		$row++;
 	} while ( $cols[0][$row] );
 	print "</table>";
+	return;
 }
 
 sub print_field_export_form {
@@ -470,7 +472,7 @@ sub print_field_export_form {
 			$self->print_fields( $loci, 'l', 12, 0, \%labels, $default_select, 1 );
 			print "</div>";
 		}
-		$" = ';';
+		local $" = ';';
 		print "<input type=\"button\" value=\"Select all\" onclick='@js' style=\"margin-top:1em\" class=\"button\" />\n";
 		print "<input type=\"button\" value=\"Select none\" onclick='@js2' style=\"margin-top:1em\" class=\"button\" />\n";
 		print "<noscript><span class=\"comment\"> Enable javascript for select buttons to work!</span></noscript>\n";
@@ -478,6 +480,7 @@ sub print_field_export_form {
 	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
 	print $q->hidden($_) foreach qw (db page name query_file);
 	print $q->end_form;
+	return;
 }
 
 sub get_selected_fields {
@@ -683,6 +686,7 @@ sub _print_tree {
 	$options->{'scheme_fields'} = 1 if $include_scheme_fields;
 	print $self->get_tree( undef, $options );
 	print "</div>\n";
+	return;
 }
 
 sub _print_all_none_buttons {
@@ -692,6 +696,7 @@ sub _print_all_none_buttons {
 		print "<input type=\"button\" value=\"None\" class=\"$class\" onclick='@$js2' />\n";
 		print "<input type=\"button\" value=\"All\" class=\"$class\" onclick='@$js1' />\n";
 	}
+	return;
 }
 
 sub get_ids_from_query {
