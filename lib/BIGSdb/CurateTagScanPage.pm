@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2011, University of Oxford
+#Copyright (c) 2010-2012, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -39,6 +39,7 @@ my $RESCAN_ALLELES  = 'off';
 my $RESCAN_SEQS     = 'off';
 
 sub get_javascript {
+	my ($self) = @_;
 	my %check_values = ( 'on' => 'true', 'off' => 'false' );
 	my $buffer = << "END";
 function listbox_selectall(listID, isSelect) {
@@ -59,12 +60,13 @@ function use_defaults() {
 }
 	
 END
+	$buffer.= $self->get_tree_javascript({checkboxes => 1, check_schemes => 1});
 	return $buffer;
 }
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (tooltips jQuery noCache);
+	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.jstree noCache);
 	return;
 }
 
@@ -120,28 +122,11 @@ sub _print_interface {
 "<input type=\"button\" onclick='listbox_selectall(\"locus\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
 	print "</fieldset>";
 	print "<fieldset>\n<legend>Schemes</legend>\n";
-	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY UPPER(description),id");
-	my %scheme_desc;
-
-	foreach (@$schemes) {
-		my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
-		$scheme_desc{$_} = $scheme_info->{'description'};
-	}
-	push @$schemes, 0;
-	$scheme_desc{0} = 'No scheme';
-	print $q->scrolling_list(
-		-name     => 'scheme_id',
-		-id       => 'scheme_id',
-		-values   => $schemes,
-		-labels   => \%scheme_desc,
-		-size     => 11,
-		-multiple => 'true'
-	);
-	print
-"<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"scheme_id\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
-	print
-"<input type=\"button\" onclick='listbox_selectall(\"scheme_id\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
-	print "</fieldset>";
+	print "<noscript><p class=\"highlight\">Enable Javascript to select schemes.</p></noscript>\n";
+	print "<div id=\"tree\" class=\"tree\" style=\"height:180px; width:20em\">\n";
+	print $self->get_tree( undef, { no_link_out => 1, select_schemes => 1 } );
+	print "</div>\n";	
+	print "</fieldset>\n";
 	print "<fieldset>\n<legend>Parameters</legend>\n";
 	print "<input type=\"button\" class=\"smallbutton legendbutton\" value=\"Defaults\" onclick=\"use_defaults()\" />";
 	print "<ul><li><label for =\"identity\" class=\"parameter\">Min % identity:</label>";
@@ -317,12 +302,13 @@ sub _scan {
 	my $time_limit = ( int( $q->param('limit_time') ) || 5 ) * 60;
 	my @loci       = $q->param('locus');
 	my @ids        = $q->param('isolate_id');
-	my @scheme_ids = $q->param('scheme_id');
+	my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+	push @$scheme_ids, 0;
 	if ( !@ids ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>You must select one or more isolates.</p></div>\n";
 		return;
 	}
-	if ( !@loci && !@scheme_ids ) {
+	if ( !@loci && none {$q->param("s_$_")} @$scheme_ids ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci or schemes.</p></div>\n";
 		return;
 	}
@@ -521,12 +507,13 @@ sub _scan {
 		print $q->submit( -name => 'tag', -label => 'Tag alleles/sequences', -class => 'submit' );
 		print "<noscript><p><span class=\"comment\"> Enable javascript for select buttons to work!</span></p></noscript>\n";
 		foreach (
-			qw (db page isolate_id rescan_alleles rescan_seqs locus scheme_id identity alignment limit_matches limit_time seq_method_list
+			qw (db page isolate_id rescan_alleles rescan_seqs locus identity alignment limit_matches limit_time seq_method_list
 			experiment_list project_list tblastx hunt pcr_filter alter_pcr_mismatches probe_filter alter_probe_mismatches)
 		  )
 		{
 			print $q->hidden($_);
 		}
+		print $q->hidden("s_$_") foreach @$scheme_ids;
 	} else {
 		print "<p>No sequence or allele tags to update.</p>";
 	}
@@ -733,10 +720,13 @@ sub get_title {
 
 sub _add_scheme_loci {
 	my ( $self, $loci_ref ) = @_;
-	my @scheme_ids = $self->{'cgi'}->param('scheme_id');
+	my $q = $self->{'cgi'};
+	my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY id");
+	push @$scheme_ids, 0; #loci not belonging to a scheme.
 	my %locus_selected;
 	$locus_selected{$_} = 1 foreach @$loci_ref;
-	foreach (@scheme_ids) {
+	foreach (@$scheme_ids) {
+		next if !$q->param("s_$_");
 		my $scheme_loci = $_ ? $self->{'datastore'}->get_scheme_loci($_) : $self->{'datastore'}->get_loci_in_no_scheme;
 		foreach my $locus (@$scheme_loci) {
 			if ( !$locus_selected{$locus} ) {

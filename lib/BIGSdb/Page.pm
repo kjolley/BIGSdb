@@ -109,7 +109,37 @@ sub get_guid {
 }
 
 sub get_tree_javascript {
-	my ($self) = @_;
+	my ($self, $options) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $q = $self->{'cgi'};
+	my $plugin_js;
+	if ($options->{'checkboxes'}){
+		$plugin_js = <<"JS";
+		"plugins" : [ "themes", "html_data", "checkbox"],
+		"checkbox" : {
+			"real_checkboxes" : true,
+			"real_checkboxes_names" : function (n) { return [(n[0].id || Math.ceil(Math.random() * 10000)), 1]; }
+		}
+JS
+	} else {
+		$plugin_js = <<"JS";
+		"plugins" : [ "themes", "html_data"]
+JS
+	}
+	my $check_schemes_js = '';
+	if ($options->{'check_schemes'}){
+		my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+		push @$scheme_ids, 0;
+		foreach (@$scheme_ids){
+			if ($q->param("s_$_")){
+				$check_schemes_js .= <<"JS";
+\$("#tree").bind("loaded.jstree", function (event, data) {
+  		\$("#tree").jstree("check_node", \$("#s_$_"));
+	});			
+JS
+			}
+		}
+	}
 	my $buffer = << "END";
 \$(function () {
 	\$('a[rel=ajax]').click(function(){
@@ -120,6 +150,7 @@ sub get_tree_javascript {
     		return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1&no_header=1\'\)"));
     	});
   	});
+	$check_schemes_js
 	\$("#tree").jstree({ 
 		"core" : {
 			"animation" : 200,
@@ -128,8 +159,8 @@ sub get_tree_javascript {
 		"themes" : {
 			"theme" : "default"
 		},
-		"plugins" : [ "themes", "html_data"]
-	});
+$plugin_js		
+	});	
 
 });
 
@@ -146,6 +177,7 @@ tooltip = function(e){
 	    fade: 250 
 	});
 };
+
 END
 	return $buffer;
 }
@@ -2854,6 +2886,7 @@ sub escape_params {
 sub get_tree {
 	my ( $self, $isolate_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
+	my $q = $self->{'cgi'};
 	my $page = $self->{'cgi'}->param('page');
 	$page = 'info' if any { $page eq $_ } qw (isolateDelete isolateUpdate alleleUpdate);
 	my $isolate_clause = defined $isolate_id ? "&amp;id=$isolate_id" : '';
@@ -2906,7 +2939,8 @@ sub get_tree {
 					$data_exists = 1;
 				}
 				if ( $options->{'no_link_out'} ) {
-					$temp_buffer .= "<li><a>$_->{'description'}</a>\n";
+					my $id = $options->{'select_schemes'} ? " id=\"s_$_->{'id'}\"" : '';
+					$temp_buffer .= "<li$id><a>$_->{'description'}</a>\n";
 				} else {
 					$temp_buffer .=
 "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;scheme_id=$_->{'id'}\" rel=\"ajax\">$_->{'description'}</a>\n";
@@ -2926,7 +2960,8 @@ sub get_tree {
 		}
 		if ( !$options->{'list_loci'} || ( $options->{'list_loci'} && $scheme_loci_buffer ) ) {
 			if ( $options->{'no_link_out'} ) {
-				$buffer .= "<li><a>Loci not in schemes</a>\n";
+				my $id = $options->{'select_schemes'} ? " id=\"s_0\"" : '';
+				$buffer .= "<li$id><a>Loci not in schemes</a>\n";
 			} else {
 				$buffer .=
 "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;scheme_id=0\" rel=\"ajax\">Loci not in schemes</a>\n";
@@ -2956,6 +2991,7 @@ sub get_tree {
 sub _get_group_schemes {
 	my ( $self, $group_id, $isolate_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
+	my $q = $self->{'cgi'};
 	my $buffer;
 	my $schemes = $self->{'datastore'}->run_list_query(
 "SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON schemes.id=scheme_id WHERE group_id=? ORDER BY display_order,description",
@@ -2987,7 +3023,8 @@ sub _get_group_schemes {
 				}
 			} else {
 				if ( $options->{'no_link_out'} ) {
-					$buffer .= "<li><a>$scheme_info->{'description'}</a>";
+					my $id = $options->{'select_schemes'} ? " id=\"s_$_\"" : '';
+					$buffer .= "<li$id><a>$scheme_info->{'description'}</a>";
 				} else {
 					$buffer .=
 "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;scheme_id=$scheme_info->{'id'}\" rel=\"ajax\">$scheme_info->{'description'}</a>";

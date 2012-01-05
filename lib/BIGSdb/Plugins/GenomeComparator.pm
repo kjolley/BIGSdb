@@ -183,7 +183,7 @@ sub _print_interface {
 	my $view         = $self->{'system'}->{'view'};
 	my $query_file   = $q->param('query_file');
 	my $qry_ref      = $self->get_query($query_file);
-	my $selected_ids = $self->get_ids_from_query($qry_ref);
+	my $selected_ids = defined $query_file ? $self->get_ids_from_query($qry_ref) : [];
 	my $qry =
 "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM sequence_bin LEFT JOIN $view ON $view.id=sequence_bin.isolate_id ORDER BY $view.id";
 	my $sql = $self->{'db'}->prepare($qry);
