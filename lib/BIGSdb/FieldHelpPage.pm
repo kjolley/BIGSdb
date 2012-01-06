@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2011, University of Oxford
+#Copyright (c) 2010-2012, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -27,11 +27,13 @@ use Error qw(:try);
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw(field_help jQuery jQuery.tablesort);
+	return;
 }
 
 sub set_pref_requirements {
 	my ($self) = @_;
 	$self->{'pref_requirements'} = { 'general' => 0, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 1 };
+	return;
 }
 
 sub get_javascript {
@@ -65,6 +67,10 @@ sub print_content {
 		$scheme_id  = $1;
 		$field      = $2;
 	}
+	if ( !defined $field_type){
+		print "<div class=\"box\" id=\"statusbad\"><p>Invalid field selected.</p></div>\n";
+		return;
+	}
 	if ( $field_type eq 'f' ) {
 		$self->_print_isolate_field($field);
 	} elsif ( $field_type eq 'l' ) {
@@ -72,6 +78,7 @@ sub print_content {
 	} elsif ( $field_type eq 'sf' ) {
 		$self->_print_scheme_field( $scheme_id, $field );
 	}
+	return;
 }
 
 sub _print_isolate_field {
@@ -145,6 +152,7 @@ sub _print_isolate_field {
 		$self->_print_list( $used_list, $cols );
 	}
 	print "</div>\n";
+	return;
 }
 
 sub _print_list {
@@ -163,6 +171,7 @@ sub _print_list {
 		}
 	}
 	print "</td></tr></table>\n";
+	return;
 }
 
 sub _print_scheme_field {
@@ -203,7 +212,6 @@ sub _print_scheme_field {
 	  $self->{'datastore'}->run_list_query("SELECT DISTINCT $field FROM temp_scheme_$scheme_id WHERE $field IS NOT NULL ORDER BY $field");
 	my $scheme_loci  = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $joined_table = "SELECT DISTINCT scheme_$scheme_id.$field FROM $self->{'system'}->{'view'}";
-	$" = ',';
 	foreach (@$scheme_loci) {
 		$joined_table .= " left join allele_designations AS $_ on $_.isolate_id = $self->{'system'}->{'view'}.id";
 	}
@@ -217,7 +225,7 @@ sub _print_scheme_field {
 			push @temp, " $_.allele_id=scheme_$scheme_id\.$_";
 		}
 	}
-	$" = ' AND ';
+	local $" = ' AND ';
 	$joined_table .= " @temp WHERE";
 	undef @temp;
 	foreach (@$scheme_loci) {
@@ -229,6 +237,7 @@ sub _print_scheme_field {
 	$used->{$_} = 1 foreach @$used_list;
 	$self->_print_list( $list, $cols, $used );
 	print "</div>\n";
+	return;
 }
 
 sub _print_locus {
@@ -290,6 +299,7 @@ sub _print_locus {
 		print "<p>There are no values for this locus in the database.</p>";
 	}
 	print "</div>\n";
+	return;
 }
 
 sub get_title {
