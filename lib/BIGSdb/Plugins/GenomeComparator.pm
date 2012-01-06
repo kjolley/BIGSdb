@@ -25,7 +25,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 use Apache2::Connection ();
-use List::MoreUtils qw(uniq any);
+use List::MoreUtils qw(uniq any none);
 use BIGSdb::Page 'SEQ_METHODS';
 
 sub get_attributes {
@@ -43,7 +43,7 @@ sub get_attributes {
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		order       => 30,
-		requires    => 'muscle,offline_jobs',
+		requires    => 'muscle,offline_jobs,js_tree',
 		input       => 'query',
 		help        => 'tooltips',
 		system_flag => 'GenomeComparator'
@@ -52,6 +52,7 @@ sub get_attributes {
 }
 
 sub get_plugin_javascript {
+	my ($self) = @_;
 	my $buffer = << "END";
 function listbox_selectall(listID, isSelect) {
 	var listbox = document.getElementById(listID);
@@ -61,20 +62,23 @@ function listbox_selectall(listID, isSelect) {
 }
 
 function enable_seqs(){
-	var accession_element = document.getElementById('accession');
-	if (accession_element.value.length){
-		document.getElementById('locus').disabled=true;
-		document.getElementById('scheme_id').disabled=true;
-		document.getElementById('tblastx').disabled=false;
-		document.getElementById('align').disabled=false;
+	if (\$("#accession").val()){
+		\$("#scheme_fieldset").hide(500);
+		\$("#locus_fieldset").hide(500);
+		\$("#tblastx").attr("disabled", false);
+		\$("#align").attr("disabled", false);
 	} else {
-		document.getElementById('locus').disabled=false;
-		document.getElementById('scheme_id').disabled=false;
-		document.getElementById('tblastx').disabled=true;
-		document.getElementById('align').disabled=true;
+		\$("#scheme_fieldset").show(500);
+		\$("#locus_fieldset").show(500);
+		\$("#tblastx").attr("disabled", true);
+		\$("#align").attr("disabled", true);
 	}
 }
-	
+
+\$(function () {
+	enable_seqs();
+});
+
 END
 	return $buffer;
 }
@@ -144,13 +148,24 @@ sub run {
 			$continue = 0;
 		}
 		my @loci       = $q->param('locus');
-		my @scheme_ids = $q->param('scheme_id');
+		my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+		push @$scheme_ids, 0;
+
 		my $accession  = $q->param('accession');
-		if ( !$accession && !@loci && !@scheme_ids && $continue ) {
+		if ( !$accession && !@loci && none {$q->param("s_$_")} @$scheme_ids && $continue ) {
 			print
 "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci or schemes, or a genome accession number.</p></div>\n";
 			$continue = 0;
 		}
+		my @selected_schemes;
+		foreach (@$scheme_ids){
+			next if !$q->param("s_$_");
+			push @selected_schemes, $_; 
+			$q->delete("s_$_");
+		}
+		local $" = '||';
+		my $scheme_string = "@selected_schemes";
+		$q->param('scheme_id', $scheme_string);
 		if ($continue) {
 			my $params = $q->Vars;
 			my $job_id = $self->{'jobManager'}->add_job(
@@ -227,36 +242,44 @@ sub _print_interface {
 	print
 "<input type=\"button\" onclick='listbox_selectall(\"isolate_id\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
 	print "</fieldset>\n";
-	print "<fieldset style=\"float:left\">\n<legend>Loci</legend>\n";
+	print "<fieldset id=\"locus_fieldset\" style=\"float:left\">\n<legend>Loci</legend>\n";
 	print $q->scrolling_list( -name => 'locus', -id => 'locus', -values => $loci, -labels => \%cleaned, -size => 8, -multiple => 'true' );
 	print
 "<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"locus\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
 	print
 "<input type=\"button\" onclick='listbox_selectall(\"locus\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
 	print "</fieldset>\n";
-	print "<fieldset style=\"float:left\">\n<legend>Schemes</legend>\n";
-	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,description");
-	my %scheme_desc;
-
-	foreach (@$schemes) {
-		my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
-		$scheme_desc{$_} = $scheme_info->{'description'};
-	}
-	push @$schemes, 0;
-	$scheme_desc{0} = 'No scheme';
-	print $q->scrolling_list(
-		-name     => 'scheme_id',
-		-id       => 'scheme_id',
-		-values   => $schemes,
-		-labels   => \%scheme_desc,
-		-size     => 8,
-		-multiple => 'true'
-	);
-	print
-"<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"scheme_id\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
-	print
-"<input type=\"button\" onclick='listbox_selectall(\"scheme_id\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
+#	print "<fieldset style=\"float:left\">\n<legend>Schemes</legend>\n";
+#	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,description");
+#	my %scheme_desc;
+#
+#	foreach (@$schemes) {
+#		my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
+#		$scheme_desc{$_} = $scheme_info->{'description'};
+#	}
+#	push @$schemes, 0;
+#	$scheme_desc{0} = 'No scheme';
+#	print $q->scrolling_list(
+#		-name     => 'scheme_id',
+#		-id       => 'scheme_id',
+#		-values   => $schemes,
+#		-labels   => \%scheme_desc,
+#		-size     => 8,
+#		-multiple => 'true'
+#	);
+#	print
+#"<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"scheme_id\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
+#	print
+#"<input type=\"button\" onclick='listbox_selectall(\"scheme_id\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
+#	print "</fieldset>\n";
+	
+	print "<fieldset id=\"scheme_fieldset\" style=\"float:left\">\n<legend>Schemes</legend>\n";
+	print "<noscript><p class=\"highlight\">Enable Javascript to select schemes.</p></noscript>\n";
+	print "<div id=\"tree\" class=\"tree\" style=\"height:150px; width:20em\">\n";
+	print $self->get_tree( undef, { no_link_out => 1, select_schemes => 1 } );
+	print "</div>\n";	
 	print "</fieldset>\n";
+	
 	print "<fieldset style=\"float:left\">\n<legend>Reference genome</legend>\n";
 	print "<p>Enter accession number:</p>\n";
 	print $q->textfield(

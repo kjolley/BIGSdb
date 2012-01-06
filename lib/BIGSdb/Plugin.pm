@@ -91,27 +91,13 @@ sub get_javascript {
 		my $message = $plugin_name ? "Plugin $plugin_name does not exist." : 'Plugin name not called.';
 		$logger->warn($message);
 	};
+	my $tree_js = $self->{'pluginManager'}->get_plugin($plugin_name)->get_attributes->{'requires'} =~ /js_tree/ ? $self->get_tree_javascript({checkboxes => 1, check_schemes => 1}) : '';
 	$js .= <<"JS";
 \$(document).ready(function() 
     { 
         \$("#sortTable").tablesorter({widgets:['zebra']});       
-        \$("#tree").jstree({ 
-			"core" : {
-				"animation" : 200,
-				"initially_open" : ["all_loci"],
-				
-			},
-			"themes" : {
-				"theme" : "default"
-			},
-			"plugins" : [ "themes", "html_data", "checkbox"],
-			"checkbox" : {
-				"real_checkboxes" : true,
-				"real_checkboxes_names" : function (n) { return [(n[0].id || Math.ceil(Math.random() * 10000)), 1]; }
-			}
-		});
-
-        // toggle: hide all elements with class onload
+ 
+         // toggle: hide all elements with class onload
         \$('.toggle').hide();
         // capture clicks on the toggle links
         \$('.toggleLink').click(function() {
@@ -120,6 +106,7 @@ sub get_javascript {
         }); 
     } 
 ); 	
+$tree_js
 JS
 	return $js;
 }

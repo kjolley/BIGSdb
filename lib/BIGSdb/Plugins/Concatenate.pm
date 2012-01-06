@@ -38,14 +38,14 @@ sub get_attributes {
 		buttontext  => 'Concatenate',
 		menutext    => 'Concatenate alleles',
 		module      => 'Concatenate',
-		version     => '1.0.1',
+		version     => '1.0.2',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		help        => 'tooltips',
 		section     => 'export,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/concatenated.shtml',
 		input       => 'query',
-		requires    => '',
+		requires    => 'js_tree',
 		order       => 20
 	);
 	return \%att;
