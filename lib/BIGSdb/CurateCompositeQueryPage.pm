@@ -32,7 +32,7 @@ sub get_title {
 sub print_content {
 	my ($self) = @_;
 	print "<h1>Update or delete composite field</h1>\n";
-	my $buffer = $self->_create_query_table;
+	$self->_create_query_table;
 	return;
 }
 
