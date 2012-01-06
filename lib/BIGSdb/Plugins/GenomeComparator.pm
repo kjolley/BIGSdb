@@ -249,30 +249,6 @@ sub _print_interface {
 	print
 "<input type=\"button\" onclick='listbox_selectall(\"locus\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
 	print "</fieldset>\n";
-#	print "<fieldset style=\"float:left\">\n<legend>Schemes</legend>\n";
-#	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,description");
-#	my %scheme_desc;
-#
-#	foreach (@$schemes) {
-#		my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
-#		$scheme_desc{$_} = $scheme_info->{'description'};
-#	}
-#	push @$schemes, 0;
-#	$scheme_desc{0} = 'No scheme';
-#	print $q->scrolling_list(
-#		-name     => 'scheme_id',
-#		-id       => 'scheme_id',
-#		-values   => $schemes,
-#		-labels   => \%scheme_desc,
-#		-size     => 8,
-#		-multiple => 'true'
-#	);
-#	print
-#"<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"scheme_id\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
-#	print
-#"<input type=\"button\" onclick='listbox_selectall(\"scheme_id\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
-#	print "</fieldset>\n";
-	
 	print "<fieldset id=\"scheme_fieldset\" style=\"float:left\">\n<legend>Schemes</legend>\n";
 	print "<noscript><p class=\"highlight\">Enable Javascript to select schemes.</p></noscript>\n";
 	print "<div id=\"tree\" class=\"tree\" style=\"height:150px; width:20em\">\n";

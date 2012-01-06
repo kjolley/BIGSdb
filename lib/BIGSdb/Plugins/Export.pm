@@ -43,7 +43,7 @@ sub get_attributes {
 		section     => 'export,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/export_isolates.shtml',
 		input       => 'query',
-		requires    => 'refdb',
+		requires    => 'refdb,js_tree',
 		help        => 'tooltips',
 		order       => 15
 	);
