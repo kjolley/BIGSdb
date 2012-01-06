@@ -88,7 +88,7 @@ sub run_job {
 	my @loci = split /\|\|/, $params->{'locus'} || '';
 	my @ids = split /\|\|/, $params->{'isolate_id'};
 	my $filtered_ids = $self->_filter_ids_by_project( \@ids, $params->{'project_list'} );
-	my @scheme_ids = split /\|\|/, $params->{'scheme_id'} || '';
+	my @scheme_ids = split /\|\|/, (defined $params->{'scheme_id'} ? $params->{'scheme_id'} : '');
 	my $accession = $params->{'accession'};
 	if ( !@$filtered_ids ) {
 		$self->{'jobManager'}->update_job_status(
@@ -152,7 +152,7 @@ sub run {
 		push @$scheme_ids, 0;
 
 		my $accession  = $q->param('accession');
-		if ( !$accession && !@loci && none {$q->param("s_$_")} @$scheme_ids && $continue ) {
+		if ( !$accession && !@loci && (none {$q->param("s_$_")} @$scheme_ids) && $continue ) {
 			print
 "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci or schemes, or a genome accession number.</p></div>\n";
 			$continue = 0;
@@ -419,7 +419,7 @@ sub _analyse_by_loci {
 					}
 				}
 				if ( !$found ) {
-					if ( $seq eq '' ) {
+					if ( !defined $seq || $seq eq '' ) {
 						$html_buffer .= "<td>X</td>";
 					} else {
 						$new{$new_allele} = $seq;
@@ -450,7 +450,7 @@ sub _analyse_by_loci {
 
 sub _add_scheme_loci {
 	my ( $self, $params, $loci ) = @_;
-	my @scheme_ids = split /\|\|/, $params->{'scheme_id'} || '';
+	my @scheme_ids = split /\|\|/, (defined $params->{'scheme_id'} ? $params->{'scheme_id'} : '');
 	my %locus_selected;
 	$locus_selected{$_} = 1 foreach (@$loci);
 	foreach (@scheme_ids) {
