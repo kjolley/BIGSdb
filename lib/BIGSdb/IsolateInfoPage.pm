@@ -878,7 +878,7 @@ sub _get_scheme_fields {
 		}
 	} else {
 		$buffer .= "<td colspan=\"5\">";
-		$buffer .= "<table class=\"profile\">";
+		$buffer .= "<table class=\"profile\" style=\"width:100%\">";
 		my @header_buffer;
 		my @value_buffer;
 		my $i         = 0;
