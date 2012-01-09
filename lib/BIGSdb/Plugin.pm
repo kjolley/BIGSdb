@@ -83,15 +83,16 @@ sub run_job {
 sub get_javascript {
 	my ($self) = @_;
 	my $plugin_name = $self->{'cgi'}->param('name');
-	my $js;
+	my ($js, $tree_js);
 	try {
 		$js = $self->{'pluginManager'}->get_plugin($plugin_name)->get_plugin_javascript;
+		$tree_js = $self->{'pluginManager'}->get_plugin($plugin_name)->get_attributes->{'requires'} =~ /js_tree/ ? $self->get_tree_javascript({checkboxes => 1, check_schemes => 1}) : '';
 	}
 	catch BIGSdb::InvalidPluginException with {
 		my $message = $plugin_name ? "Plugin $plugin_name does not exist." : 'Plugin name not called.';
+		$tree_js = '';
 		$logger->warn($message);
 	};
-	my $tree_js = $self->{'pluginManager'}->get_plugin($plugin_name)->get_attributes->{'requires'} =~ /js_tree/ ? $self->get_tree_javascript({checkboxes => 1, check_schemes => 1}) : '';
 	$js .= <<"JS";
 \$(document).ready(function() 
     { 
