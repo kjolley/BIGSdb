@@ -86,7 +86,12 @@ sub get_javascript {
 	my ($js, $tree_js);
 	try {
 		$js = $self->{'pluginManager'}->get_plugin($plugin_name)->get_plugin_javascript;
-		$tree_js = $self->{'pluginManager'}->get_plugin($plugin_name)->get_attributes->{'requires'} =~ /js_tree/ ? $self->get_tree_javascript({checkboxes => 1, check_schemes => 1}) : '';
+		my $requires = $self->{'pluginManager'}->get_plugin($plugin_name)->get_attributes->{'requires'};
+		if ($requires){
+			$tree_js = $requires =~ /js_tree/ ? $self->get_tree_javascript({checkboxes => 1, check_schemes => 1}) : '';
+		} else {
+			$tree_js = '';
+		}
 	}
 	catch BIGSdb::InvalidPluginException with {
 		my $message = $plugin_name ? "Plugin $plugin_name does not exist." : 'Plugin name not called.';
