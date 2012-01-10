@@ -21,6 +21,7 @@
 
 use strict;
 use warnings;
+use 5.010;
 
 ###########Local configuration###############################################
 use constant {
