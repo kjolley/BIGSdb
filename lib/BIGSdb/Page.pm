@@ -697,7 +697,7 @@ sub get_scheme_filter {
 sub get_project_filter {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $sql = $self->{'db'}->prepare("SELECT id, short_description FROM projects ORDER BY short_description");
+	my $sql = $self->{'db'}->prepare("SELECT id, short_description FROM projects ORDER BY UPPER(short_description)");
 	eval { $sql->execute };
 	$logger->error($@) if $@;
 	my ( @project_ids, %labels );
