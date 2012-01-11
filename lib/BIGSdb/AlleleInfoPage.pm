@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010, University of Oxford
+#Copyright (c) 2010-2012, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -191,7 +191,7 @@ HTML
 				$q->param( $_, $params{$_} );
 				push @action_params, "$_=$params{$_}";
 			}
-			$" = '&';
+			local $" = '&';
 			print $q->start_form( -action => "$client->{'url'}?@action_params", -method => 'post' );
 			foreach (qw (db page ls1 ly1 lt1 order submit)) {
 				print $q->hidden($_);
@@ -203,6 +203,7 @@ HTML
 		$td = $td == 1 ? 2 : 1;
 	}
 	print "</table>\n</div>\n";
+	return;
 }
 
 sub _get_reference {
