@@ -568,14 +568,14 @@ sub print_file {
 	my $loci;
 	if ( $self->{'curate'} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		if ( $self->is_admin ) {
-			$loci = $self->{'datastore'}->get_loci();
+			$loci = $self->{'datastore'}->get_loci;
 		} else {
 			my $qry =
 "SELECT locus_curators.locus from locus_curators LEFT JOIN loci ON locus=id LEFT JOIN scheme_members on loci.id = scheme_members.locus WHERE locus_curators.curator_id=? ORDER BY scheme_members.scheme_id,locus_curators.locus";
 			$loci = $self->{'datastore'}->run_list_query( $qry, $self->get_curator_id );
 		}
 		my $first = 1;
-		foreach (@$loci) {
+		foreach (uniq @$loci) {
 			my $cleaned = $self->clean_locus($_);
 			if ( !$first ) {
 				$lociAdd .= ' | ';
