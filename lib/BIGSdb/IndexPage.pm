@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2011, University of Oxford
+#Copyright (c) 2010-2012, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -69,8 +69,8 @@ HTML
 	  )->[0];
 	my $qry =
 	  $system->{'dbtype'} eq 'isolates'
-	  ? "SELECT id,description FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_members) ORDER BY id"
-	  : "SELECT DISTINCT schemes.id,schemes.description FROM schemes RIGHT JOIN scheme_members ON schemes.id=scheme_members.scheme_id JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key ORDER BY schemes.id";
+	  ? "SELECT id,description FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_members) ORDER BY display_order,description"
+	  : "SELECT DISTINCT schemes.id,schemes.description,schemes.display_order FROM schemes RIGHT JOIN scheme_members ON schemes.id=scheme_members.scheme_id JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key ORDER BY schemes.display_order,schemes.description";
 	my $scheme_data = $self->{'datastore'}->run_list_query_hashref($qry);
 	my ( @scheme_ids, %desc );
 	foreach (@$scheme_data) {

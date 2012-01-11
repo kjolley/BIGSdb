@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2011, University of Oxford
+#Copyright (c) 2010-2012, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,6 +20,7 @@ package BIGSdb::CurateIsolateAddPage;
 use strict;
 use warnings;
 use base qw(BIGSdb::CurateAddPage);
+use List::MoreUtils qw(uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -32,6 +33,7 @@ sub print_content {
 	}
 	my $q = $self->{'cgi'};
 	my $loci = $self->{'datastore'}->get_loci( { 'query_pref' => 1 } );
+	@$loci = uniq @$loci;
 	my %newdata;
 	foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list } ) {
 		if ( $q->param($field) ) {
@@ -90,7 +92,7 @@ sub print_content {
 		if (@bad_field_buffer) {
 			print
 			  "<div class=\"box\" id=\"statusbad\"><p>There are problems with your record submission.  Please address the following:</p>\n";
-			$" = '<br />';
+			local $" = '<br />';
 			print "<p>@bad_field_buffer</p></div>\n";
 			$insert = 0;
 		}
@@ -108,7 +110,7 @@ sub print_content {
 				my @inserts;
 				my $qry;
 				$qry = "INSERT INTO isolates ";
-				$"   = ',';
+				local $"   = ',';
 				$qry .= "(@fields_with_values";
 				$qry .= ') VALUES (';
 				foreach (@fields_with_values) {
@@ -157,7 +159,7 @@ sub print_content {
 "INSERT INTO refs (isolate_id,pubmed_id,curator,datestamp) VALUES ($newdata{'id'},'$clean_new',$newdata{'curator'},'today')";
 				}
 				if ($insert) {
-					$" = ';';
+					local $" = ';';
 					eval { $self->{'db'}->do("@inserts"); };
 					if ($@) {
 						print
@@ -340,6 +342,7 @@ sub print_content {
 	print "</td></tr></table>\n";
 	print $q->end_form;
 	print "</div>\n";
+	return;
 }
 
 sub get_title {

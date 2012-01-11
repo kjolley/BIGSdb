@@ -1,6 +1,6 @@
 #BLAST.pm - BLAST plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2011, University of Oxford
+#Copyright (c) 2010-2012, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,6 +20,7 @@
 package BIGSdb::Plugins::BLAST;
 use strict;
 use warnings;
+use 5.010;
 use base qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -115,7 +116,7 @@ sub run {
 		my ($label)     = $sql->fetchrow_array;
 		my $rows        = @$matches;
 		my $first_match = 1;
-		my $flanking = defined $q->param('flanking') ? $q->param('flanking') : $self->{'prefs'}->{'flanking'};
+		my $flanking = $q->param('flanking') // $self->{'prefs'}->{'flanking'};
 		foreach my $match (@$matches) {
 			if ($first_match) {
 				print
