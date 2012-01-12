@@ -1702,17 +1702,13 @@ sub search_users {
 	$suffix =~ s/[\(\)\s]//g;
 	my $qry = "SELECT id FROM users WHERE ";
 	if ( $operator eq 'NOT' ) {
-		$qry .= "NOT upper($suffix) = upper('$text')";
+		$qry .= $suffix ne 'id' ? "NOT upper($suffix) = upper('$text')" : "NOT $suffix = '$text'";
 	} elsif ( $operator eq "contains" ) {
-		$qry .= "upper($suffix) LIKE upper('\%$text\%')";
+		$qry .= $suffix ne 'id' ? "upper($suffix) LIKE upper('\%$text\%')" : "CAST($suffix AS text) LIKE upper('\%$text\%')";
 	} elsif ( $operator eq "NOT contain" ) {
-		$qry .= "NOT upper($suffix) LIKE upper('\%$text\%')";
+		$qry .= $suffix ne 'id' ? "NOT upper($suffix) LIKE upper('\%$text\%')" : "NOT CAST($suffix AS text) LIKE ('\%$text\%')" ;
 	} elsif ( $operator eq '=' ) {
-		if ( $suffix ne 'id' ) {
-			$qry .= "upper($suffix) = upper('$text')";
-		} else {
-			$qry .= "$suffix $operator '$text'";
-		}
+		$qry .= $suffix ne 'id' ? "upper($suffix) = upper('$text')" : "$suffix $operator '$text'";
 	} else {
 		$qry .= "$suffix $operator '$text'";
 	}
