@@ -66,12 +66,12 @@ sub _get_child_group_scheme_tables {
 			( $td, $field_buffer ) =
 			  $self->_get_group_scheme_tables( $_, $isolate_id, $locus_info, $locus_alias, $allele_designations, $allele_sequences,
 				$allele_sequence_flags, $td );
-			$buffer .= $field_buffer;
+			$buffer .= $field_buffer if $field_buffer;
 			( $td, $field_buffer ) = $self->_get_child_group_scheme_tables(
 				$_,                $isolate_id,            $locus_info, $locus_alias, $allele_designations,
 				$allele_sequences, $allele_sequence_flags, $td,         ++$new_level
 			);
-			$buffer .= $field_buffer;
+			$buffer .= $field_buffer if $field_buffer;
 		}
 	}
 	return ( $td, $buffer );
@@ -128,7 +128,7 @@ sub print_content {
 			( $td, $table_buffer ) =
 			  $self->_get_group_scheme_tables( $group_id, $isolate_id, $locus_info, $locus_alias, $allele_designations, $allele_sequences,
 				$allele_sequence_flags, $td );
-			$buffer .= $table_buffer;
+			$buffer .= $table_buffer if $table_buffer;
 			( $td, $table_buffer ) = $self->_get_child_group_scheme_tables(
 				$group_id,         $isolate_id,            $locus_info, $locus_alias, $allele_designations,
 				$allele_sequences, $allele_sequence_flags, $td,         1
