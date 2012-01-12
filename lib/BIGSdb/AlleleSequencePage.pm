@@ -59,7 +59,7 @@ sub print_content {
 	while ( my ( $seqbin_id, $start_pos, $end_pos, $reverse, $complete, $method ) = $sql->fetchrow_array ) {
 		$buffer .= "<tr><th colspan=\"3\">sequence bin id#$seqbin_id";
 		if ($self->{'curate'}){
-			$buffer .= "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagUpdate&amp;seqbin_id=$seqbin_id&amp;locus=$locus&amp;start_pos=$start_pos\" class=\"smallbutton\">Update</a>\n";
+			$buffer .= "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagUpdate&amp;seqbin_id=$seqbin_id&amp;locus=$locus&amp;start_pos=$start_pos&amp;end_pos=$end_pos\" class=\"smallbutton\">Update</a>\n";
 		}
 		$buffer .= "</th></tr>\n";
 		$buffer .=
