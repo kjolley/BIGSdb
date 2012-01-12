@@ -950,6 +950,7 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 				}
 			}
 			if (   $self->{'system'}->{'read_access'} eq 'acl'
+				&& $self->{'system'}->{'dbtype'} eq 'isolates'
 				&& $table eq $self->{'system'}->{'view'}
 				&& $self->can_modify_table('isolate_user_acl') )
 			{
