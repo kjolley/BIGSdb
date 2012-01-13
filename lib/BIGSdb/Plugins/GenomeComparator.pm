@@ -208,6 +208,7 @@ sub _print_interface {
 	my %labels;
 
 	while ( my ( $id, $isolate ) = $sql->fetchrow_array ) {
+		next if !defined $id;
 		push @ids, $id;
 		$labels{$id} = "$id) $isolate";
 	}
