@@ -373,7 +373,7 @@ sub _run_isolate_query {
 	}
 	my $qry;
 	if ( $fieldtype eq 'isolate' || $extended_isolate_field ) {
-		$qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE $tempqry";
+		$qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE ($tempqry)";
 	} elsif ( $fieldtype eq 'locus' ) {
 		$qry =
 "SELECT * FROM $self->{'system'}->{'view'} WHERE id IN (select distinct($self->{'system'}->{'view'}.id) FROM $self->{'system'}->{'view'} LEFT JOIN allele_designations ON $self->{'system'}->{'view'}.id=allele_designations.isolate_id WHERE $tempqry)";
