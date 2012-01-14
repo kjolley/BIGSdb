@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2011, University of Oxford
+#Copyright (c) 2010-2012, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,7 @@
 package BIGSdb::ListQueryPage;
 use strict;
 use warnings;
+use 5.010;
 use List::MoreUtils qw(uniq);
 use base qw(BIGSdb::QueryPage);
 use Log::Log4perl qw(get_logger);
@@ -28,6 +29,7 @@ use BIGSdb::Page qw(LOCUS_PATTERNS);
 sub set_pref_requirements {
 	my ($self) = @_;
 	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 1, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 1 };
+	return;
 }
 
 sub get_title {
@@ -92,6 +94,7 @@ sub print_content {
 	} else {
 		print "<p />\n";
 	}
+	return;
 }
 
 sub _print_query_interface {
@@ -160,10 +163,10 @@ sub _print_query_interface {
 	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
 	print "</td></tr>\n";
 	print "</table>\n";
-
 	print $q->hidden($_) foreach qw (page db scheme_id);
 	print $q->end_form;
 	print "</div>\n";
+	return;
 }
 
 sub _run_profile_query {
@@ -237,6 +240,7 @@ sub _run_profile_query {
 	$qry .= " $dir,$profile_id_field;";
 	my @hidden_attributes = qw(list attribute scheme_id);
 	$self->paged_display( 'profiles', $qry, '', \@hidden_attributes );
+	return;
 }
 
 sub _run_isolate_query {
@@ -259,6 +263,7 @@ sub _run_isolate_query {
 	my $lqry;
 	my $extended_isolate_field;
 	my @locus_patterns = LOCUS_PATTERNS;
+
 	if ( $field =~ /^f_(.*)$/ ) {
 		$field = $1;
 		my %thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
@@ -276,7 +281,6 @@ sub _run_isolate_query {
 		$fieldtype = 'scheme_field';
 		my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		$joined_table = "SELECT id FROM $self->{'system'}->{'view'}";
-		$"            = ',';
 		foreach (@$scheme_loci) {
 			$joined_table .= " left join allele_designations AS $_ on $_.isolate_id = $self->{'system'}->{'view'}.id";
 		}
@@ -290,7 +294,7 @@ sub _run_isolate_query {
 				push @temp, " $_.allele_id=scheme_$scheme_id\.$_";
 			}
 		}
-		$" = ' AND ';
+		local $" = ' AND ';
 		$joined_table .= " @temp WHERE";
 		undef @temp;
 		foreach (@$scheme_loci) {
@@ -300,7 +304,7 @@ sub _run_isolate_query {
 	} elsif ( $field =~ /^e_(.*)\|\|(.*)/ ) {
 		$extended_isolate_field = $1;
 		$field                  = $2;
-		$fieldtype 				= 'extended_isolate';
+		$fieldtype              = 'extended_isolate';
 	}
 	foreach my $value (@list) {
 		$value =~ s/^\s*//;
@@ -361,7 +365,7 @@ sub _run_isolate_query {
 				  $datatype eq 'text'
 				  ? "upper($field)=upper('$value')"
 				  : "$field='$value'";
-			} elsif ($fieldtype eq 'extended_isolate') {
+			} elsif ( $fieldtype eq 'extended_isolate' ) {
 				$tempqry .=
 "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) = upper('$value'))";
 			}
@@ -390,5 +394,6 @@ sub _run_isolate_query {
 	$qry .= " $dir,$self->{'system'}->{'view'}.id;";
 	my @hidden_attributes = qw(list attribute);
 	$self->paged_display( $self->{'system'}->{'view'}, $qry, '', \@hidden_attributes );
+	return;
 }
 1;
