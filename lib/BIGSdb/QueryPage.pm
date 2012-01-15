@@ -1693,10 +1693,8 @@ sub is_valid_operator {
 sub get_title {
 	my ($self) = @_;
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	if ( $self->{'curate'} ) {
-		return "Isolate query/update - $desc";
-	}
-	return "Search database - $desc";
+	my $db_type = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'Isolate' : 'Profile';
+	return $self->{'curate'} ? "$db_type query/update - $desc" : "Search database - $desc";
 }
 
 sub search_users {
