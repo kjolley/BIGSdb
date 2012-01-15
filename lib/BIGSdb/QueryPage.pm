@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2011, University of Oxford
+#Copyright (c) 2010-2012, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -227,7 +227,7 @@ sub _print_provenance_fields {
 			print
 "<a id=\"add_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;fields=provenance&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
 			print
-" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
+" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term 'null'. <p /><h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
 	}
 	print "</span>\n";
@@ -249,7 +249,7 @@ sub _print_loci_fields {
 			print
 "<a id=\"add_loci\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;fields=loci&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
 			print
-" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
+" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term 'null'. <p /><h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
 	}
 	print "</span>\n";
@@ -656,7 +656,7 @@ sub _print_scheme_fields {
 			print
 "<a id=\"add_scheme_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;fields=scheme&amp;scheme_id=$scheme_id&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
 			print
-" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
+" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term 'null'. <p /><h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
 	}
 	print "</span>\n";
@@ -872,22 +872,19 @@ sub _generate_isolate_query_for_provenance_fields {
 			$text =~ s/^\s*//;
 			$text =~ s/\s*$//;
 			$text =~ s/'/\\'/g;
-			if (   $text ne '<blank>'
-				&& $text ne 'null'
+			if ( $text ne 'null'
 				&& ( lc( $thisfield{'type'} ) eq 'int' )
 				&& !BIGSdb::Utils::is_int($text) )
 			{
 				push @$errors_ref, "$field is an integer field.";
 				next;
-			} elsif ( $text ne '<blank>'
-				&& $text ne 'null'
+			} elsif ( $text ne 'null'
 				&& ( lc( $thisfield{'type'} ) eq 'float' )
 				&& !BIGSdb::Utils::is_float($text) )
 			{
 				push @$errors_ref, "$field is a floating point number field.";
 				next;
-			} elsif ( $text ne '<blank>'
-				&& $text ne 'null'
+			} elsif ( $text ne 'null'
 				&& lc( $thisfield{'type'} ) eq 'date'
 				&& !BIGSdb::Utils::is_date($text) )
 			{
@@ -918,7 +915,7 @@ sub _generate_isolate_query_for_provenance_fields {
 						$qry .= "$modifier (";
 						for ( my $x = 0 ; $x < scalar @groupedfields ; $x++ ) {
 							my %thisfield = $self->{'xmlHandler'}->get_field_attributes( $groupedfields[$x] );
-							if ( $text eq '<blank>' || $text eq 'null' ) {
+							if ( $text eq 'null' ) {
 								$qry .= ' OR ' if $x != 0;
 								$qry .= "($groupedfields[$x] IS NOT NULL)";
 							} else {
@@ -934,7 +931,7 @@ sub _generate_isolate_query_for_provenance_fields {
 					} elsif ($extended_isolate_field) {
 						$qry .= $modifier
 						  . (
-							( $text eq '<blank>' || $text eq 'null' )
+							( $text eq 'null' )
 							? "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field')"
 							: "$extended_isolate_field NOT IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value)=upper('$text'))"
 						  );
@@ -945,14 +942,14 @@ sub _generate_isolate_query_for_provenance_fields {
 						if ( $thisfield{'type'} eq 'int' ) {
 							$qry .= $modifier
 							  . (
-								( $text eq '<blank>' || $text eq 'null' )
+								( $text eq 'null' )
 								? "$field is not null"
 								: "NOT ($field = '$text' OR $field IS NULL)"
 							  );
 						} else {
 							$qry .= $modifier
 							  . (
-								( $text eq '<blank>' || $text eq 'null' )
+								( $text eq 'null' )
 								? "$field is not null"
 								: "(NOT upper($field) = upper('$text') OR $field IS NULL)"
 							  );
@@ -1018,12 +1015,12 @@ sub _generate_isolate_query_for_provenance_fields {
 							$qry .= ' OR ' if $x != 0;
 							if ( $thisfield{'type'} eq 'int' ) {
 								$qry .=
-								  ( $text eq '<blank>' || $text eq 'null' )
+								  ( $text eq 'null' )
 								  ? "$groupedfields[$x] IS NULL"
 								  : "CAST($groupedfields[$x] AS text) = '$text'";
 							} else {
 								$qry .=
-								  ( $text eq '<blank>' || $text eq 'null' )
+								  ( $text eq 'null' )
 								  ? "$groupedfields[$x] IS NULL"
 								  : "upper($groupedfields[$x]) = upper('$text')";
 							}
@@ -1032,7 +1029,7 @@ sub _generate_isolate_query_for_provenance_fields {
 					} elsif ($extended_isolate_field) {
 						$qry .= $modifier
 						  . (
-							( $text eq '<blank>' || $text eq 'null' )
+							( $text eq 'null' )
 							? "$extended_isolate_field NOT IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field')"
 							: "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) = upper('$text'))"
 						  );
@@ -1041,9 +1038,9 @@ sub _generate_isolate_query_for_provenance_fields {
 						  . "(upper($field) = upper('$text') OR $view.id IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper('$text')))";
 					} elsif ( lc( $thisfield{'type'} ) eq 'text' ) {
 						$qry .=
-						  $modifier . ( ( $text eq '<blank>' || $text eq 'null' ) ? "$field is null" : "upper($field) = upper('$text')" );
+						  $modifier . ( $text eq 'null' ? "$field is null" : "upper($field) = upper('$text')" );
 					} else {
-						$qry .= $modifier . ( ( $text eq '<blank>' || $text eq 'null' ) ? "$field is null" : "$field = '$text'" );
+						$qry .= $modifier . ( $text eq 'null' ? "$field is null" : "$field = '$text'" );
 					}
 				} else {
 					if ( scalar @groupedfields ) {
@@ -1283,8 +1280,7 @@ sub _modify_isolate_query_for_designations {
 				$text =~ s/\s*$//;
 				$text =~ s/'/\\'/g;
 
-				if (   $text ne '<blank>'
-					&& $text ne 'null'
+				if ( $text ne 'null'
 					&& ( $locus_info->{'allele_id_format'} eq 'integer' )
 					&& !BIGSdb::Utils::is_int($text) )
 				{
@@ -1297,7 +1293,7 @@ sub _modify_isolate_query_for_designations {
 				if ( $operator eq 'NOT' ) {
 					$lqry{$locus} .= $andor if $lqry{$locus};
 					$lqry{$locus} .= (
-						( $text eq '<blank>' || $text eq 'null' )
+						( $text eq 'null' )
 						? "(EXISTS (SELECT 1 WHERE allele_designations.locus=E'$locus'))"
 						: "(allele_designations.locus=E'$locus' AND NOT upper(allele_designations.allele_id) = upper(E'$text'))"
 					);
@@ -1310,7 +1306,7 @@ sub _modify_isolate_query_for_designations {
 					$lqry{$locus} .=
 					  "(allele_designations.locus=E'$locus' AND NOT upper(allele_designations.allele_id) LIKE upper(E'\%$text\%'))";
 				} elsif ( $operator eq '=' ) {
-					if ( $text eq '<blank>' || $text eq 'null' ) {
+					if ( $text eq 'null' ) {
 						push @lqry_blank, "(id NOT IN (SELECT isolate_id FROM allele_designations WHERE locus=E'$locus'))";
 					} else {
 						$lqry{$locus} .= $andor if $lqry{$locus};
@@ -1346,8 +1342,7 @@ sub _modify_isolate_query_for_designations {
 				$text =~ s/^\s*//;
 				$text =~ s/\s*$//;
 				$text =~ s/'/\\'/g;
-				if (   $text ne '<blank>'
-					&& $text ne 'null'
+				if ( $text ne 'null'
 					&& ( $scheme_field_info->{'type'} eq 'integer' )
 					&& !BIGSdb::Utils::is_int($text) )
 				{
@@ -1381,7 +1376,7 @@ sub _modify_isolate_query_for_designations {
 				}
 				$joined_table .= " @temp";
 				if ( $operator eq 'NOT' ) {
-					push @sqry, ( $text eq '<blank>' || $text eq 'null' )
+					push @sqry, ( $text eq 'null' )
 					  ? "($view.id NOT IN ($joined_table AND $field is null))"
 					  : "($view.id NOT IN ($joined_table AND $field='$text'))";
 				} elsif ( $operator eq "contains" ) {
@@ -1395,7 +1390,7 @@ sub _modify_isolate_query_for_designations {
 					  ? "($view.id IN ($joined_table AND CAST($field AS text) !~* '$text'))"
 					  : "($view.id IN ($joined_table AND $field !~* '$text'))";
 				} elsif ( $operator eq '=' ) {
-					if ( $text eq '<blank>' || $text eq 'null' ) {
+					if ( $text eq 'null' ) {
 						push @lqry_blank, "($view.id IN ($joined_table AND $field is null))";
 					} else {
 						push @sqry,
@@ -1547,24 +1542,21 @@ sub _run_profile_query {
 				$text =~ s/^\s*//;
 				$text =~ s/\s*$//;
 				$text =~ s/'/\\'/g;
-				if (   $text ne '<blank>'
-					&& $text ne 'null'
+				if ( $text ne 'null'
 					&& defined $type
 					&& $type eq 'integer'
 					&& !BIGSdb::Utils::is_int($text) )
 				{
 					push @errors, "$field is an integer field.";
 					next;
-				} elsif ( $text ne '<blank>'
-					&& $text ne 'null'
+				} elsif ( $text ne 'null'
 					&& defined $type
 					&& $type eq 'float'
 					&& !BIGSdb::Utils::is_float($text) )
 				{
 					push @errors, "$field is a floating point number field.";
 					next;
-				} elsif ( $text ne '<blank>'
-					&& $text ne 'null'
+				} elsif ( $text ne 'null'
 					&& defined $type
 					&& $type eq 'date'
 					&& !BIGSdb::Utils::is_date($text) )
@@ -1592,7 +1584,7 @@ sub _run_profile_query {
 					if ( $operator eq 'NOT' ) {
 						$qry .= $modifier
 						  . (
-							( $text eq '<blank>' || $text eq 'null' )
+							( $text eq 'null' )
 							? "$cleaned is not null"
 							: "(NOT upper($cleaned) = upper('$text') OR $cleaned IS NULL)"
 						  );
@@ -1603,9 +1595,9 @@ sub _run_profile_query {
 					} elsif ( $operator eq '=' ) {
 						if ( $type eq 'text' ) {
 							$qry .= $modifier
-							  . ( ( $text eq '<blank>' || $text eq 'null' ) ? "$cleaned is null" : "upper($field) = upper('$text')" );
+							  . ( $text eq 'null' ? "$cleaned is null" : "upper($field) = upper('$text')" );
 						} else {
-							$qry .= $modifier . ( ( $text eq '<blank>' || $text eq 'null' ) ? "$cleaned is null" : "$cleaned = '$text'" );
+							$qry .= $modifier . ( $text eq 'null' ? "$cleaned is null" : "$cleaned = '$text'" );
 						}
 					} else {
 						if ( $type eq 'integer' ) {
@@ -1686,8 +1678,7 @@ sub _run_profile_query {
 
 sub is_valid_operator {
 	my ( $self, $value ) = @_;
-	return 1 if any { $value eq $_ } ( qw (= contains > < NOT), 'NOT contain' );
-	return;
+	return (any { $value eq $_ } ( qw (= contains > < NOT), 'NOT contain' )) ? 1 : 0;
 }
 
 sub get_title {
