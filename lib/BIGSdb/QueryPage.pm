@@ -19,6 +19,7 @@
 package BIGSdb::QueryPage;
 use strict;
 use warnings;
+use 5.010;
 use base qw(BIGSdb::Page);
 use List::MoreUtils qw(any none);
 use Log::Log4perl qw(get_logger);
@@ -449,7 +450,7 @@ sub _print_isolate_filter_fieldset {
 		}
 	}
 	if ( $prefs->{'dropdownfields'}->{'projects'} ) {
-		my $buffer = $self->get_project_filter({'any' => 1});
+		my $buffer = $self->get_project_filter( { 'any' => 1 } );
 		push @filters, $buffer if $buffer;
 		return 1 if $options->{'selected'} && $q->param('project_list');
 	}
@@ -738,7 +739,6 @@ sub _print_profile_query_interface {
 	print $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
 	print "</span></li>\n<li><span style=\"white-space:nowrap\">\n";
 	print "<label for=\"displayrecs\" class=\"display\">Display: </label>\n";
-
 	if ( $q->param('displayrecs') ) {
 		$prefs->{'displayrecs'} = $q->param('displayrecs');
 	}
@@ -1127,11 +1127,11 @@ sub _modify_isolate_query_for_filters {
 	if ( defined $q->param('publication_list') && $q->param('publication_list') ne '' ) {
 		my $pmid = $q->param('publication_list');
 		my $ref_qry;
-		if ($pmid eq 'linked to any publication'){
+		if ( $pmid eq 'linked to any publication' ) {
 			$ref_qry = "$view.id IN (SELECT isolate_id FROM refs)";
-		} elsif ($pmid eq 'not linked to any publication'){
+		} elsif ( $pmid eq 'not linked to any publication' ) {
 			$ref_qry = "$view.id NOT IN (SELECT isolate_id FROM refs)";
-		} elsif (BIGSdb::Utils::is_int($pmid)){
+		} elsif ( BIGSdb::Utils::is_int($pmid) ) {
 			$ref_qry = "$view.id IN (SELECT isolate_id FROM refs WHERE pubmed_id=$pmid)";
 		} else {
 			undef $pmid;
@@ -1147,11 +1147,11 @@ sub _modify_isolate_query_for_filters {
 	if ( defined $q->param('project_list') && $q->param('project_list') ne '' ) {
 		my $project_id = $q->param('project_list');
 		my $project_qry;
-		if ($project_id eq 'belonging to any project'){
+		if ( $project_id eq 'belonging to any project' ) {
 			$project_qry = "$view.id IN (SELECT isolate_id FROM project_members)";
-		} elsif ($project_id eq 'not belonging to any project'){
+		} elsif ( $project_id eq 'not belonging to any project' ) {
 			$project_qry = "$view.id NOT IN (SELECT isolate_id FROM project_members)";
-		} elsif (BIGSdb::Utils::is_int($project_id)){
+		} elsif ( BIGSdb::Utils::is_int($project_id) ) {
 			$project_qry = "$view.id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id')";
 		} else {
 			undef $project_id;
@@ -1198,9 +1198,9 @@ sub _modify_isolate_query_for_filters {
 					$clause =
 "($view.id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING COUNT(isolate_id)< "
 					  . scalar @$scheme_loci . '))';
-				} elsif ( $param eq 'started' ){
+				} elsif ( $param eq 'started' ) {
 					$clause =
-"($view.id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING COUNT(isolate_id)>0))";					
+"($view.id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING COUNT(isolate_id)>0))";
 				} elsif ( $param eq 'incomplete' ) {
 					$clause =
 "($view.id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING COUNT(isolate_id)< "
@@ -1296,15 +1296,15 @@ sub _modify_isolate_query_for_designations {
 				}
 				if ( $operator eq 'NOT' ) {
 					$lqry{$locus} .= $andor if $lqry{$locus};
-					$lqry{$locus} .=
-					  (
+					$lqry{$locus} .= (
 						( $text eq '<blank>' || $text eq 'null' )
 						? "(EXISTS (SELECT 1 WHERE allele_designations.locus=E'$locus'))"
 						: "(allele_designations.locus=E'$locus' AND NOT upper(allele_designations.allele_id) = upper(E'$text'))"
-					  );
+					);
 				} elsif ( $operator eq "contains" ) {
 					$lqry{$locus} .= $andor if $lqry{$locus};
-					$lqry{$locus} .= "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) LIKE upper(E'\%$text\%'))";
+					$lqry{$locus} .=
+					  "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) LIKE upper(E'\%$text\%'))";
 				} elsif ( $operator eq "NOT contain" ) {
 					$lqry{$locus} .= $andor if $lqry{$locus};
 					$lqry{$locus} .=
@@ -1385,18 +1385,21 @@ sub _modify_isolate_query_for_designations {
 					  ? "($view.id NOT IN ($joined_table AND $field is null))"
 					  : "($view.id NOT IN ($joined_table AND $field='$text'))";
 				} elsif ( $operator eq "contains" ) {
-					push @sqry, $scheme_field_info->{'type'} eq 'integer'
+					push @sqry,
+					  $scheme_field_info->{'type'} eq 'integer'
 					  ? "($view.id IN ($joined_table AND CAST($field AS text) ~* '$text'))"
 					  : "($view.id IN ($joined_table AND $field ~* '$text'))";
 				} elsif ( $operator eq "NOT contain" ) {
-					push @sqry, $scheme_field_info->{'type'} eq 'integer'
+					push @sqry,
+					  $scheme_field_info->{'type'} eq 'integer'
 					  ? "($view.id IN ($joined_table AND CAST($field AS text) !~* '$text'))"
 					  : "($view.id IN ($joined_table AND $field !~* '$text'))";
 				} elsif ( $operator eq '=' ) {
 					if ( $text eq '<blank>' || $text eq 'null' ) {
 						push @lqry_blank, "($view.id IN ($joined_table AND $field is null))";
 					} else {
-						push @sqry, $scheme_field_info->{'type'} eq 'text'
+						push @sqry,
+						  $scheme_field_info->{'type'} eq 'text'
 						  ? "($view.id IN ($joined_table AND upper($field)=upper('$text')))"
 						  : "($view.id IN ($joined_table AND $field='$text'))";
 					}
@@ -1411,7 +1414,7 @@ sub _modify_isolate_query_for_designations {
 		}
 	}
 	my $brace = @sqry ? '(' : '';
-	if (keys %lqry) {
+	if ( keys %lqry ) {
 		local $" = ' OR ';
 		my $modify = '';
 		if ( defined $q->param('c1') && $q->param('c1') eq 'AND' ) {
@@ -1683,7 +1686,7 @@ sub _run_profile_query {
 
 sub is_valid_operator {
 	my ( $self, $value ) = @_;
-	return 1 if any { $value eq $_} (qw (= contains > < NOT), 'NOT contain');
+	return 1 if any { $value eq $_ } ( qw (= contains > < NOT), 'NOT contain' );
 	return;
 }
 
@@ -1700,24 +1703,19 @@ sub search_users {
 	my ( $self, $name, $operator, $text, $table ) = @_;
 	my ( $field, $suffix ) = split / /, $name;
 	$suffix =~ s/[\(\)\s]//g;
-	my $qry = "SELECT id FROM users WHERE ";
-	if ( $operator eq 'NOT' ) {
-		$qry .= $suffix ne 'id' ? "NOT upper($suffix) = upper('$text')" : "NOT $suffix = '$text'";
-	} elsif ( $operator eq "contains" ) {
-		$qry .= $suffix ne 'id' ? "upper($suffix) LIKE upper('\%$text\%')" : "CAST($suffix AS text) LIKE upper('\%$text\%')";
-	} elsif ( $operator eq "NOT contain" ) {
-		$qry .= $suffix ne 'id' ? "NOT upper($suffix) LIKE upper('\%$text\%')" : "NOT CAST($suffix AS text) LIKE ('\%$text\%')" ;
-	} elsif ( $operator eq '=' ) {
-		$qry .= $suffix ne 'id' ? "upper($suffix) = upper('$text')" : "$suffix $operator '$text'";
-	} else {
-		$qry .= "$suffix $operator '$text'";
+	my $qry      = "SELECT id FROM users WHERE ";
+	my $equals   = $suffix ne 'id' ? "upper($suffix) = upper('$text')" : "$suffix = '$text'";
+	my $contains = $suffix ne 'id' ? "upper($suffix) LIKE upper('\%$text\%')" : "CAST($suffix AS text) LIKE ('\%$text\%')";
+	given ($operator) {
+		when ('NOT')         { $qry .= "NOT $equals" }
+		when ('contains')    { $qry .= $contains }
+		when ('NOT contain') { $qry .= "NOT $contains" }
+		when ('=')           { $qry .= $equals }
+		default              { $qry .= "$suffix $operator '$text'" }
 	}
 	my $ids = $self->{'datastore'}->run_list_query($qry);
-	if (@$ids) {
-		local $" = "' OR $table.$field = '";
-		return "($table.$field = '@$ids')";
-	} else {
-		return "($table.$field = '0')";
-	}
+	$ids = [0] if !@$ids;
+	local $" = "' OR $table.$field = '";
+	return "($table.$field = '@$ids')";
 }
 1;
