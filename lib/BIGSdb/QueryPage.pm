@@ -872,33 +872,12 @@ sub _generate_isolate_query_for_provenance_fields {
 			$text =~ s/^\s*//;
 			$text =~ s/\s*$//;
 			$text =~ s/'/\\'/g;
-			if ( $text ne 'null'
-				&& ( lc( $thisfield{'type'} ) eq 'int' )
-				&& !BIGSdb::Utils::is_int($text) )
-			{
-				push @$errors_ref, "$field is an integer field.";
-				next;
-			} elsif ( $text ne 'null'
-				&& ( lc( $thisfield{'type'} ) eq 'float' )
-				&& !BIGSdb::Utils::is_float($text) )
-			{
-				push @$errors_ref, "$field is a floating point number field.";
-				next;
-			} elsif ( $text ne 'null'
-				&& lc( $thisfield{'type'} ) eq 'date'
-				&& !BIGSdb::Utils::is_date($text) )
-			{
-				push @$errors_ref, "$field is a date field - should be in yyyy-mm-dd format (or 'today' / 'yesterday').";
-				next;
-			} elsif ( !$self->is_valid_operator($operator) ) {
-				push @$errors_ref, "$operator is not a valid operator.";
-				next;
-			}
-			my $modifier = '';
-			if ( $i > 1 && !$first_value ) {
-				$modifier = " $andor ";
-			}
+			next
+			  if $self->_check_format( { field => $field, text => $text, type => lc( $thisfield{'type'} ), operator => $operator },
+				$errors_ref );
+			my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
 			$first_value = 0;
+
 			if ( $field =~ /(.*) \(id\)$/
 				&& !BIGSdb::Utils::is_int($text) )
 			{
@@ -940,19 +919,10 @@ sub _generate_isolate_query_for_provenance_fields {
 						  . "(NOT upper($field) = upper('$text') AND id NOT IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper('$text')))";
 					} else {
 						if ( $thisfield{'type'} eq 'int' ) {
-							$qry .= $modifier
-							  . (
-								( $text eq 'null' )
-								? "$field is not null"
-								: "NOT ($field = '$text' OR $field IS NULL)"
-							  );
+							$qry .= $modifier . ( ( $text eq 'null' ) ? "$field is not null" : "NOT ($field = '$text' OR $field IS NULL)" );
 						} else {
 							$qry .= $modifier
-							  . (
-								( $text eq 'null' )
-								? "$field is not null"
-								: "(NOT upper($field) = upper('$text') OR $field IS NULL)"
-							  );
+							  . ( ( $text eq 'null' ) ? "$field is not null" : "(NOT upper($field) = upper('$text') OR $field IS NULL)" );
 						}
 					}
 				} elsif ( $operator eq "contains" ) {
@@ -1037,8 +1007,7 @@ sub _generate_isolate_query_for_provenance_fields {
 						$qry .= $modifier
 						  . "(upper($field) = upper('$text') OR $view.id IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper('$text')))";
 					} elsif ( lc( $thisfield{'type'} ) eq 'text' ) {
-						$qry .=
-						  $modifier . ( $text eq 'null' ? "$field is null" : "upper($field) = upper('$text')" );
+						$qry .= $modifier . ( $text eq 'null' ? "$field is null" : "upper($field) = upper('$text')" );
 					} else {
 						$qry .= $modifier . ( $text eq 'null' ? "$field is null" : "$field = '$text'" );
 					}
@@ -1280,7 +1249,7 @@ sub _modify_isolate_query_for_designations {
 				$text =~ s/\s*$//;
 				$text =~ s/'/\\'/g;
 
-				if ( $text ne 'null'
+				if (   $text ne 'null'
 					&& ( $locus_info->{'allele_id_format'} eq 'integer' )
 					&& !BIGSdb::Utils::is_int($text) )
 				{
@@ -1342,7 +1311,7 @@ sub _modify_isolate_query_for_designations {
 				$text =~ s/^\s*//;
 				$text =~ s/\s*$//;
 				$text =~ s/'/\\'/g;
-				if ( $text ne 'null'
+				if (   $text ne 'null'
 					&& ( $scheme_field_info->{'type'} eq 'integer' )
 					&& !BIGSdb::Utils::is_int($text) )
 				{
@@ -1542,69 +1511,30 @@ sub _run_profile_query {
 				$text =~ s/^\s*//;
 				$text =~ s/\s*$//;
 				$text =~ s/'/\\'/g;
-				if ( $text ne 'null'
-					&& defined $type
-					&& $type eq 'integer'
-					&& !BIGSdb::Utils::is_int($text) )
-				{
-					push @errors, "$field is an integer field.";
-					next;
-				} elsif ( $text ne 'null'
-					&& defined $type
-					&& $type eq 'float'
-					&& !BIGSdb::Utils::is_float($text) )
-				{
-					push @errors, "$field is a floating point number field.";
-					next;
-				} elsif ( $text ne 'null'
-					&& defined $type
-					&& $type eq 'date'
-					&& !BIGSdb::Utils::is_date($text) )
-				{
-					push @errors, "$field is a date field - should be in yyyy-mm-dd format (or 'today' / 'yesterday').";
-					next;
-				} elsif ( !$self->is_valid_operator($operator) ) {
-					push @errors, "$operator is not a valid operator.";
-					next;
-				}
-				my $modifier = '';
-				if ( $i > 1 && !$first_value ) {
-					$modifier = " $andor ";
-				}
+				next if $self->_check_format( { field => $field, text => $text, type => $type, operator => $operator }, \@errors );
+				my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
 				$first_value = 0;
+
 				if ( $field =~ /(.*) \(id\)$/
 					&& !BIGSdb::Utils::is_int($text) )
 				{
 					push @errors, "$field is an integer field.";
 					next;
 				}
+				$qry .= $modifier;
 				if ( any { $field =~ /(.*) \($_\)$/ } qw (id surname first_name affiliation) ) {
-					$qry .= $modifier . $self->search_users( $field, $operator, $text, "scheme\_$scheme_id" );
+					$qry .= $self->search_users( $field, $operator, $text, "scheme\_$scheme_id" );
 				} else {
-					if ( $operator eq 'NOT' ) {
-						$qry .= $modifier
-						  . (
-							( $text eq 'null' )
-							? "$cleaned is not null"
-							: "(NOT upper($cleaned) = upper('$text') OR $cleaned IS NULL)"
-						  );
-					} elsif ( $operator eq "contains" ) {
-						$qry .= $modifier . "upper($cleaned) LIKE upper('\%$text\%')";
-					} elsif ( $operator eq "NOT contain" ) {
-						$qry .= $modifier . "(NOT upper($cleaned) LIKE upper('\%$text\%') OR $cleaned IS NULL)";
-					} elsif ( $operator eq '=' ) {
-						if ( $type eq 'text' ) {
-							$qry .= $modifier
-							  . ( $text eq 'null' ? "$cleaned is null" : "upper($field) = upper('$text')" );
-						} else {
-							$qry .= $modifier . ( $text eq 'null' ? "$cleaned is null" : "$cleaned = '$text'" );
-						}
-					} else {
-						if ( $type eq 'integer' ) {
-							$qry .= $modifier . "CAST($cleaned AS int) $operator '$text'";
-						} else {
-							$qry .= $modifier . "$cleaned $operator '$text'";
-						}
+					my $equals =
+					  $text eq 'null'
+					  ? "$cleaned is null"
+					  : ( $type eq 'text' ? "upper($cleaned) = upper('$text')" : "$cleaned = '$text'" );
+					given ($operator) {
+						when ('NOT') { $qry .= $text eq 'null' ? "(not $equals)" : "((NOT $equals) OR $cleaned IS NULL)" }
+						when ('contains')    { $qry .= "(upper($cleaned) LIKE upper('\%$text\%'))" }
+						when ('NOT contain') { $qry .= "(NOT upper($cleaned) LIKE upper('\%$text\%') OR $cleaned IS NULL)" }
+						when ('=')           { $qry .= "($equals)" }
+						default { $qry .= ( $type eq 'integer' ? "(CAST($cleaned AS int)" : "($cleaned" ) . " $operator '$text')" }
 					}
 				}
 			}
@@ -1678,7 +1608,7 @@ sub _run_profile_query {
 
 sub is_valid_operator {
 	my ( $self, $value ) = @_;
-	return (any { $value eq $_ } ( qw (= contains > < NOT), 'NOT contain' )) ? 1 : 0;
+	return ( any { $value eq $_ } ( qw (= contains > < NOT), 'NOT contain' ) ) ? 1 : 0;
 }
 
 sub get_title {
@@ -1706,5 +1636,45 @@ sub search_users {
 	$ids = [0] if !@$ids;
 	local $" = "' OR $table.$field = '";
 	return "($table.$field = '@$ids')";
+}
+
+sub _check_format {
+
+	#returns 1 if error
+	my ( $self, $data, $error_ref ) = @_;
+	if (   $data->{'text'} ne 'null'
+		&& defined $data->{'type'}
+		&& $data->{'type'} =~ /int/
+		&& !BIGSdb::Utils::is_int( $data->{'text'} ) )
+	{
+		push @$error_ref, "$data->{'field'} is an integer field.";
+		return 1;
+	} elsif ( $data->{'text'} ne 'null'
+		&& defined $data->{'type'}
+		&& $data->{'type'} eq 'float'
+		&& !BIGSdb::Utils::is_float( $data->{'text'} ) )
+	{
+		push @$error_ref, "$data->{'field'} is a floating point number field.";
+		return 1;
+	} elsif ( $data->{'text'} ne 'null'
+		&& defined $data->{'type'}
+		&& $data->{'type'} eq 'date'
+		&& !BIGSdb::Utils::is_date( $data->{'text'} ) )
+	{
+		push @$error_ref, "$data->{'field'} is a date field - should be in yyyy-mm-dd format (or 'today' / 'yesterday').";
+		return 1;
+	} elsif ( ( $data->{'operator'} eq 'contains' || $data->{'operator'} eq 'NOT contain' )
+		&& defined $data->{'type'}
+		&& $data->{'type'} eq 'date'
+		&& ( $data->{'text'} eq 'today' || $data->{'text'} eq 'yesterday' ) )
+	{
+		push @$error_ref,
+		  "Searching a date field by either 'today' or 'yesterday' can not be done for 'contains' or 'NOT contain' operators.";
+		return 1;
+	} elsif ( !$self->is_valid_operator( $data->{'operator'} ) ) {
+		push @$error_ref, "$data->{'operator'} is not a valid operator.";
+		return 1;
+	}
+	return;
 }
 1;
