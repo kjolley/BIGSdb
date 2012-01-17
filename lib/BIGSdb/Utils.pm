@@ -23,6 +23,7 @@ package BIGSdb::Utils;
 use strict;
 use warnings;
 use POSIX qw(ceil);
+use Time::Local;
 
 sub reverse_complement {
 	my ($seq) = @_;
@@ -133,10 +134,12 @@ sub is_date {
 
 	#returns true if string is an acceptable date format
 	my ($qry) = @_;
-	return 1
-	  if ( $qry eq 'today'
-		|| $qry eq 'yesterday'
-		|| $qry =~ /^\d\d\d\d-\d\d-\d\d$/ );
+	return 1 if $qry eq 'today' || $qry eq 'yesterday';
+	if ( $qry =~ /^(\d{4})-(\d{2})-(\d{2})$/ ){
+		my ($y, $m, $d) = ($1, $2, $3);
+		eval { timelocal 0, 0, 0, $d, $m-1, $y-1900 };
+		return $@ ? 0 : 1;
+	}
 	return 0;
 }
 
