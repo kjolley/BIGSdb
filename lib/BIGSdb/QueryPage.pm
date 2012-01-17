@@ -918,7 +918,7 @@ sub _generate_isolate_query_for_provenance_fields {
 						$qry .= $modifier
 						  . "(NOT upper($field) = upper('$text') AND id NOT IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper('$text')))";
 					} else {
-						if ( $thisfield{'type'} eq 'int' ) {
+						if ( $thisfield{'type'} eq 'int' || $thisfield{'type'} eq 'date' ) {
 							$qry .= $modifier . ( ( $text eq 'null' ) ? "$field is not null" : "NOT ($field = '$text' OR $field IS NULL)" );
 						} else {
 							$qry .= $modifier
