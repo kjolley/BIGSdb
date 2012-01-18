@@ -869,13 +869,12 @@ sub _generate_isolate_query_for_provenance_fields {
 			}
 			my $operator = $q->param("y$i");
 			my $text     = $q->param("t$i");
-			$self->_process_value(\$text);
+			$self->_process_value( \$text );
 			next
 			  if $self->_check_format( { field => $field, text => $text, type => lc( $thisfield{'type'} ), operator => $operator },
 				$errors_ref );
 			my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
 			$first_value = 0;
-
 			if ( $field =~ /(.*) \(id\)$/
 				&& !BIGSdb::Utils::is_int($text) )
 			{
@@ -917,7 +916,8 @@ sub _generate_isolate_query_for_provenance_fields {
 						  . "(NOT upper($field) = upper(E'$text') AND id NOT IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper(E'$text')))";
 					} else {
 						if ( $thisfield{'type'} eq 'int' || $thisfield{'type'} eq 'date' ) {
-							$qry .= $modifier . ( ( $text eq 'null' ) ? "$field is not null" : "NOT ($field = E'$text' OR $field IS NULL)" );
+							$qry .=
+							  $modifier . ( ( $text eq 'null' ) ? "$field is not null" : "NOT ($field = E'$text' OR $field IS NULL)" );
 						} else {
 							$qry .= $modifier
 							  . ( ( $text eq 'null' ) ? "$field is not null" : "(NOT upper($field) = upper(E'$text') OR $field IS NULL)" );
@@ -1506,11 +1506,10 @@ sub _run_profile_query {
 				}
 				my $operator = $q->param("y$i");
 				my $text     = $q->param("t$i");
-				$self->_process_value(\$text);
+				$self->_process_value( \$text );
 				next if $self->_check_format( { field => $field, text => $text, type => $type, operator => $operator }, \@errors );
 				my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
 				$first_value = 0;
-
 				if ( $field =~ /(.*) \(id\)$/
 					&& !BIGSdb::Utils::is_int($text) )
 				{
@@ -1638,44 +1637,29 @@ sub _check_format {
 
 	#returns 1 if error
 	my ( $self, $data, $error_ref ) = @_;
-	if (   $data->{'text'} ne 'null'
-		&& defined $data->{'type'}
-		&& $data->{'type'} =~ /int/
-		&& !BIGSdb::Utils::is_int( $data->{'text'} ) )
-	{
-		push @$error_ref, "$data->{'field'} is an integer field.";
-		return 1;
-	} elsif ( $data->{'text'} ne 'null'
-		&& defined $data->{'type'}
-		&& $data->{'type'} eq 'float'
-		&& !BIGSdb::Utils::is_float( $data->{'text'} ) )
-	{
-		push @$error_ref, "$data->{'field'} is a floating point number field.";
-		return 1;
-	} elsif ( $data->{'text'} ne 'null'
-		&& defined $data->{'type'}
-		&& $data->{'type'} eq 'date'
-		&& !BIGSdb::Utils::is_date( $data->{'text'} ) )
-	{
-		push @$error_ref, "$data->{'field'} is a date field - should be in yyyy-mm-dd format (or 'today' / 'yesterday').";
-		return 1;
-	} elsif ( ( $data->{'operator'} eq 'contains' || $data->{'operator'} eq 'NOT contain' )
-		&& defined $data->{'type'}
-		&& $data->{'type'} eq 'date'
-		&& ( $data->{'text'} eq 'today' || $data->{'text'} eq 'yesterday' ) )
-	{
-		push @$error_ref,
-		  "Searching a date field by either 'today' or 'yesterday' can not be done for 'contains' or 'NOT contain' operators.";
-		return 1;
-	} elsif ( !$self->is_valid_operator( $data->{'operator'} ) ) {
-		push @$error_ref, "$data->{'operator'} is not a valid operator.";
-		return 1;
+	my $error;
+	if ( $data->{'text'} ne 'null' && defined $data->{'type'} ) {
+		if ( $data->{'type'} =~ /int/ && !BIGSdb::Utils::is_int( $data->{'text'} ) ) {
+			$error = "$data->{'field'} is an integer field.";
+		} elsif ( $data->{'type'} eq 'float' && !BIGSdb::Utils::is_float( $data->{'text'} ) ) {
+			$error = "$data->{'field'} is a floating point number field.";
+		} elsif ( $data->{'type'} eq 'date' && !BIGSdb::Utils::is_date( $data->{'text'} ) ) {
+			$error = "$data->{'field'} is a date field - should be in yyyy-mm-dd format (or 'today' / 'yesterday').";
+		} elsif ( $data->{'type'} eq 'date'
+			&& ( $data->{'operator'} eq 'contains' || $data->{'operator'} eq 'NOT contain' ) )
+		{
+			$error = "Searching a date field can not be done for 'contains' or 'NOT contain' operators.";
+		}
 	}
-	return;
+	if ( !$error && !$self->is_valid_operator( $data->{'operator'} ) ) {
+		$error = "$data->{'operator'} is not a valid operator.";
+	}
+	push @$error_ref, $error if $error;
+	return $error ? 1 : 0;
 }
 
 sub _process_value {
-	my ($self, $value_ref) = @_;
+	my ( $self, $value_ref ) = @_;
 	$$value_ref =~ s/^\s*//;
 	$$value_ref =~ s/\s*$//;
 	$$value_ref =~ s/'/\\'/g;
