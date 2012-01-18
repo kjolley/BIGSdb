@@ -247,15 +247,7 @@ sub _run_isolate_query {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $field  = $q->param('attribute');
-	my @groupedfields;
-	for ( my $x = 1 ; $x < 11 ; $x++ ) {
-		if ( $self->{'system'}->{"fieldgroup$x"} ) {
-			my @grouped = ( split /:/, $self->{'system'}->{"fieldgroup$x"} );
-			if ( $field eq "f_$grouped[0]" ) {
-				@groupedfields = split /,/, $grouped[1];
-			}
-		}
-	}
+	my @groupedfields = $self->get_grouped_fields( $field, { strip_prefix => 1 } );
 	my ( $datatype, $fieldtype, $scheme_id, $joined_table );
 	my @list = split /\n/, $q->param('list');
 	@list = uniq @list;

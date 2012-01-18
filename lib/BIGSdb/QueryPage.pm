@@ -835,6 +835,20 @@ sub _run_isolate_query {
 	return;
 }
 
+sub get_grouped_fields {
+	my ( $self, $field, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	$field =~ s/^f_// if $options->{'strip_prefix'};
+	my @groupedfields;
+	for ( 1 .. 10 ) {
+		if ( $self->{'system'}->{"fieldgroup$_"} ) {
+			my @grouped = ( split /:/, $self->{'system'}->{"fieldgroup$_"} );
+			@groupedfields = split /,/, $grouped[1] if $field eq $grouped[0];
+		}
+	}
+	return @groupedfields;
+}
+
 sub _generate_isolate_query_for_provenance_fields {
 	my ( $self, $errors_ref ) = @_;
 	my $q           = $self->{'cgi'};
@@ -846,16 +860,8 @@ sub _generate_isolate_query_for_provenance_fields {
 		if ( defined $q->param("t$i") && $q->param("t$i") ne '' ) {
 			my $field = $q->param("s$i");
 			$field =~ s/^f_//;
-			my @groupedfields;
-			for ( 1 .. 10 ) {
-				if ( $self->{'system'}->{"fieldgroup$_"} ) {
-					my @grouped = ( split /:/, $self->{'system'}->{"fieldgroup$_"} );
-					if ( $field eq $grouped[0] ) {
-						@groupedfields = split /,/, $grouped[1];
-					}
-				}
-			}
-			my %thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+			my @groupedfields = $self->get_grouped_fields($field);
+			my %thisfield     = $self->{'xmlHandler'}->get_field_attributes($field);
 			my $extended_isolate_field;
 			if ( $field =~ /^e_(.*)\|\|(.*)/ ) {
 				$extended_isolate_field = $1;
