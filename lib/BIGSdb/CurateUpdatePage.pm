@@ -136,7 +136,7 @@ sub print_content {
 <div class="box" id="statusbad"><p>It's not a good idea to remove curator status from yourself 
 as you will lock yourself out!  If you really wish to do this, you'll need to do 
 it from another curator account.</p>
-<p><a href="$self->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
+<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
 HTML
 				return;
 			} elsif ( $table eq 'users'
@@ -148,7 +148,7 @@ HTML
 <div class="box" id="statusbad"><p>It's not a good idea to remove admin status from yourself 
 as you will lock yourself out!  If you really wish to do this, you'll need to do 
 it from another admin account.</p>
-<p><a href="$self->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
+<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
 HTML
 				return;
 			}    #special case to check that only one primary key field is set for a scheme field
@@ -163,7 +163,7 @@ HTML
 				if ( $primary_key && $primary_key ne $newdata{'field'} ) {
 					print <<"HTML";
 <div class="box" id="statusbad"><p>This scheme already has a primary key field set ($primary_key).</p>
-<p><a href="$self->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
+<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
 HTML
 					return;
 				}
@@ -184,13 +184,13 @@ HTML
 					} elsif ( $format eq 'integer' && $newdata{$field} ne '' && !BIGSdb::Utils::is_int( $newdata{$field} ) ) {
 						print <<"HTML";
 <div class="box" id="statusbad"><p>$field must be an integer.</p>
-<p><a href="$self->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
+<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
 HTML
 						return;
 					} elsif ( $newdata{$field} ne '' && $regex && $newdata{$field} !~ /$regex/ ) {
 						print <<"HTML";
 <div class="box" id="statusbad"><p>Field '$field' does not conform to specified format.</p>
-<p><a href="$self->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
+<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
 HTML
 						return;
 					} else {
@@ -219,7 +219,7 @@ HTML
 					local $" = ', ';
 					print <<"HTML";
 <div class="box" id="statusbad"><p>Please fill in all extended attribute fields.  The following extended attribute fields are missing: @missing_field.</p>
-<p><a href="$self->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
+<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
 HTML
 					return;
 				}
@@ -235,7 +235,7 @@ HTML
 						if ( !BIGSdb::Utils::is_int($new) ) {
 							print <<"HTML";
 <div class="box" id="statusbad"><p>PubMed ids must be integers.</p>
-<p><a href="$self->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
+<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
 HTML
 							return;
 						}
@@ -301,7 +301,7 @@ HTML
 						if ( !BIGSdb::Utils::is_int($new) ) {
 							print <<"HTML";
 <div class="box" id="statusbad"><p>PubMed ids must be integers.</p>
-<p><a href="$self->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
+<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
 HTML
 							return;
 						}
@@ -346,7 +346,7 @@ HTML
 						if ( $new !~ /^(.+?)\|(.+)\|(.+)$/ ) {
 							print <<"HTML";
 	<div class="box" id="statusbad"><p>Links must have an associated description separated from the URL by a '|'.</p>
-	<p><a href="$self->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
+	<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
 HTML
 							return;
 						} else {
@@ -374,7 +374,7 @@ HTML
 					print <<"HTML";
 <div class="box" id="statusbad"><p>The sequence table already contains data with non-integer allele ids.  You will need to remove
 these before you can change the allele_id_format to 'integer'.</p>
-<p><a href="$self->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
+<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
 HTML
 					return;
 
@@ -382,7 +382,7 @@ HTML
 				} elsif ( $newdata{'length_varies'} ne 'true' && !$newdata{'length'} ) {
 					print <<"HTML";
 <div class="box" id="statusbad"><p>Locus set as non variable length but no length is set.</p>
-<p><a href="$self->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
+<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
 HTML
 					return;
 				}
@@ -391,7 +391,7 @@ HTML
 			} elsif ( $table eq 'allele_sequences' && $newdata{'end_pos'} < $newdata{'start_pos'} ) {
 				print <<"HTML";
 <div class="box" id="statusbad"><p>Sequence end position must be greater than the start position - set reverse = 'true' if sequence is reverse complemented.</p>
-<p><a href="$self->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
+<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
 HTML
 				return;
 			} elsif ( ( $table eq 'allele_designations' || $table eq 'sequence_bin' )
@@ -400,7 +400,7 @@ HTML
 				my $record_type = $self->get_record_name($table);
 				print <<"HTML";
 <div class="box" id="statusbad"><p>Your user account is not allowed to update $record_type for isolate $newdata{'isolate_id'}.</p>
-<p><a href="$self->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
+<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
 HTML
 				return;
 			} elsif ( $self->{'system'}->{'read_access'} eq 'acl'
@@ -416,7 +416,7 @@ HTML
 					print <<"HTML";
 <div class="box" id="statusbad"><p>The $record_type you are trying to update belongs to an isolate to which your user account
 is not allowed to access.</p>
-<p><a href="$self->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
+<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
 HTML
 					return;
 				}
