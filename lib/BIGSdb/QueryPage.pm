@@ -869,9 +869,7 @@ sub _generate_isolate_query_for_provenance_fields {
 			}
 			my $operator = $q->param("y$i");
 			my $text     = $q->param("t$i");
-			$text =~ s/^\s*//;
-			$text =~ s/\s*$//;
-			$text =~ s/'/\\'/g;
+			$self->_process_value(\$text);
 			next
 			  if $self->_check_format( { field => $field, text => $text, type => lc( $thisfield{'type'} ), operator => $operator },
 				$errors_ref );
@@ -900,9 +898,9 @@ sub _generate_isolate_query_for_provenance_fields {
 							} else {
 								$qry .= ' AND ' if $x != 0;
 								if ( $thisfield{'type'} eq 'int' ) {
-									$qry .= "(NOT CAST($groupedfields[$x] AS text) = '$text' OR $groupedfields[$x] IS NULL)";
+									$qry .= "(NOT CAST($groupedfields[$x] AS text) = E'$text' OR $groupedfields[$x] IS NULL)";
 								} else {
-									$qry .= "(NOT upper($groupedfields[$x]) = upper('$text') OR $groupedfields[$x] IS NULL)";
+									$qry .= "(NOT upper($groupedfields[$x]) = upper(E'$text') OR $groupedfields[$x] IS NULL)";
 								}
 							}
 						}
@@ -912,17 +910,17 @@ sub _generate_isolate_query_for_provenance_fields {
 						  . (
 							( $text eq 'null' )
 							? "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field')"
-							: "$extended_isolate_field NOT IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value)=upper('$text'))"
+							: "$extended_isolate_field NOT IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value)=upper(E'$text'))"
 						  );
 					} elsif ( $field eq $labelfield ) {
 						$qry .= $modifier
-						  . "(NOT upper($field) = upper('$text') AND id NOT IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper('$text')))";
+						  . "(NOT upper($field) = upper(E'$text') AND id NOT IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper(E'$text')))";
 					} else {
 						if ( $thisfield{'type'} eq 'int' || $thisfield{'type'} eq 'date' ) {
-							$qry .= $modifier . ( ( $text eq 'null' ) ? "$field is not null" : "NOT ($field = '$text' OR $field IS NULL)" );
+							$qry .= $modifier . ( ( $text eq 'null' ) ? "$field is not null" : "NOT ($field = E'$text' OR $field IS NULL)" );
 						} else {
 							$qry .= $modifier
-							  . ( ( $text eq 'null' ) ? "$field is not null" : "(NOT upper($field) = upper('$text') OR $field IS NULL)" );
+							  . ( ( $text eq 'null' ) ? "$field is not null" : "(NOT upper($field) = upper(E'$text') OR $field IS NULL)" );
 						}
 					}
 				} elsif ( $operator eq "contains" ) {
@@ -932,23 +930,23 @@ sub _generate_isolate_query_for_provenance_fields {
 							my %thisfield = $self->{'xmlHandler'}->get_field_attributes( $groupedfields[$x] );
 							$qry .= ' OR ' if $x != 0;
 							if ( $thisfield{'type'} eq 'int' ) {
-								$qry .= "CAST($groupedfields[$x] AS text) LIKE '\%$text\%'";
+								$qry .= "CAST($groupedfields[$x] AS text) LIKE E'\%$text\%'";
 							} else {
-								$qry .= "upper($groupedfields[$x]) LIKE upper('\%$text\%')";
+								$qry .= "upper($groupedfields[$x]) LIKE upper(E'\%$text\%')";
 							}
 						}
 						$qry .= ')';
 					} elsif ($extended_isolate_field) {
 						$qry .= $modifier
-						  . "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) LIKE upper('\%$text\%'))";
+						  . "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) LIKE upper(E'\%$text\%'))";
 					} elsif ( $field eq $labelfield ) {
 						$qry .= $modifier
-						  . "(upper($field) LIKE upper('\%$text\%') OR $view.id IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) LIKE upper('\%$text\%')))";
+						  . "(upper($field) LIKE upper('\%$text\%') OR $view.id IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) LIKE upper(E'\%$text\%')))";
 					} else {
 						if ( $thisfield{'type'} eq 'int' ) {
-							$qry .= $modifier . "CAST($field AS text) LIKE '\%$text\%'";
+							$qry .= $modifier . "CAST($field AS text) LIKE E'\%$text\%'";
 						} else {
-							$qry .= $modifier . "upper($field) LIKE upper('\%$text\%')";
+							$qry .= $modifier . "upper($field) LIKE upper(E'\%$text\%')";
 						}
 					}
 				} elsif ( $operator eq "NOT contain" ) {
@@ -958,23 +956,23 @@ sub _generate_isolate_query_for_provenance_fields {
 							my %thisfield = $self->{'xmlHandler'}->get_field_attributes( $groupedfields[$x] );
 							$qry .= ' AND ' if $x != 0;
 							if ( $thisfield{'type'} eq 'int' ) {
-								$qry .= "(NOT CAST($groupedfields[$x] AS text) LIKE '\%$text\%' OR $groupedfields[$x] IS NULL)";
+								$qry .= "(NOT CAST($groupedfields[$x] AS text) LIKE E'\%$text\%' OR $groupedfields[$x] IS NULL)";
 							} else {
-								$qry .= "(NOT upper($groupedfields[$x]) LIKE upper('\%$text\%') OR $groupedfields[$x] IS NULL)";
+								$qry .= "(NOT upper($groupedfields[$x]) LIKE upper(E'\%$text\%') OR $groupedfields[$x] IS NULL)";
 							}
 						}
 						$qry .= ')';
 					} elsif ($extended_isolate_field) {
 						$qry .= $modifier
-						  . "$extended_isolate_field NOT IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) LIKE upper('\%$text\%'))";
+						  . "$extended_isolate_field NOT IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) LIKE upper(E'\%$text\%'))";
 					} elsif ( $field eq $labelfield ) {
 						$qry .= $modifier
-						  . "(NOT upper($field) LIKE upper('\%$text\%') AND id NOT IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) LIKE upper('\%$text\%')))";
+						  . "(NOT upper($field) LIKE upper(E'\%$text\%') AND id NOT IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) LIKE upper(E'\%$text\%')))";
 					} else {
 						if ( $thisfield{'type'} eq 'int' ) {
-							$qry .= $modifier . "(NOT CAST($field AS text) LIKE '\%$text\%' OR $field IS NULL)";
+							$qry .= $modifier . "(NOT CAST($field AS text) LIKE E'\%$text\%' OR $field IS NULL)";
 						} else {
-							$qry .= $modifier . "(NOT upper($field) LIKE upper('\%$text\%') OR $field IS NULL)";
+							$qry .= $modifier . "(NOT upper($field) LIKE upper(E'\%$text\%') OR $field IS NULL)";
 						}
 					}
 				} elsif ( $operator eq '=' ) {
@@ -987,12 +985,12 @@ sub _generate_isolate_query_for_provenance_fields {
 								$qry .=
 								  ( $text eq 'null' )
 								  ? "$groupedfields[$x] IS NULL"
-								  : "CAST($groupedfields[$x] AS text) = '$text'";
+								  : "CAST($groupedfields[$x] AS text) = E'$text'";
 							} else {
 								$qry .=
 								  ( $text eq 'null' )
 								  ? "$groupedfields[$x] IS NULL"
-								  : "upper($groupedfields[$x]) = upper('$text')";
+								  : "upper($groupedfields[$x]) = upper(E'$text')";
 							}
 						}
 						$qry .= ')';
@@ -1001,15 +999,15 @@ sub _generate_isolate_query_for_provenance_fields {
 						  . (
 							( $text eq 'null' )
 							? "$extended_isolate_field NOT IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field')"
-							: "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) = upper('$text'))"
+							: "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) = upper(E'$text'))"
 						  );
 					} elsif ( $field eq $labelfield ) {
 						$qry .= $modifier
-						  . "(upper($field) = upper('$text') OR $view.id IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper('$text')))";
+						  . "(upper($field) = upper(E'$text') OR $view.id IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper(E'$text')))";
 					} elsif ( lc( $thisfield{'type'} ) eq 'text' ) {
-						$qry .= $modifier . ( $text eq 'null' ? "$field is null" : "upper($field) = upper('$text')" );
+						$qry .= $modifier . ( $text eq 'null' ? "$field is null" : "upper($field) = upper(E'$text')" );
 					} else {
-						$qry .= $modifier . ( $text eq 'null' ? "$field is null" : "$field = '$text'" );
+						$qry .= $modifier . ( $text eq 'null' ? "$field is null" : "$field = E'$text'" );
 					}
 				} else {
 					if ( scalar @groupedfields ) {
@@ -1030,24 +1028,24 @@ sub _generate_isolate_query_for_provenance_fields {
 							$qry .= ' OR ' if $x != 0;
 							%thisfield = $self->{'xmlHandler'}->get_field_attributes( $groupedfields[$x] );
 							if ( $thisfield{'type'} eq 'int' ) {
-								$qry .= "(CAST($groupedfields[$x] AS text) $operator '$text' AND $groupedfields[$x] is not null)";
+								$qry .= "(CAST($groupedfields[$x] AS text) $operator E'$text' AND $groupedfields[$x] is not null)";
 							} else {
-								$qry .= "($groupedfields[$x] $operator '$text' AND $groupedfields[$x] is not null)";
+								$qry .= "($groupedfields[$x] $operator E'$text' AND $groupedfields[$x] is not null)";
 							}
 						}
 						$qry .= ')';
 					} elsif ($extended_isolate_field) {
 						$qry .= $modifier
-						  . "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND value $operator '$text')";
+						  . "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND value $operator E'$text')";
 					} elsif ( $field eq $labelfield ) {
 						$qry .= $modifier
-						  . "($field $operator '$text' OR $view.id IN (SELECT isolate_id FROM isolate_aliases WHERE alias $operator '$text'))";
+						  . "($field $operator '$text' OR $view.id IN (SELECT isolate_id FROM isolate_aliases WHERE alias $operator E'$text'))";
 					} else {
 						if ( $text eq 'null' ) {
 							push @$errors_ref, "$operator is not a valid operator for comparing null values.";
 							next;
 						}
-						$qry .= $modifier . "$field $operator '$text'";
+						$qry .= $modifier . "$field $operator E'$text'";
 					}
 				}
 			}
@@ -1508,9 +1506,7 @@ sub _run_profile_query {
 				}
 				my $operator = $q->param("y$i");
 				my $text     = $q->param("t$i");
-				$text =~ s/^\s*//;
-				$text =~ s/\s*$//;
-				$text =~ s/'/\\'/g;
+				$self->_process_value(\$text);
 				next if $self->_check_format( { field => $field, text => $text, type => $type, operator => $operator }, \@errors );
 				my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
 				$first_value = 0;
@@ -1675,6 +1671,14 @@ sub _check_format {
 		push @$error_ref, "$data->{'operator'} is not a valid operator.";
 		return 1;
 	}
+	return;
+}
+
+sub _process_value {
+	my ($self, $value_ref) = @_;
+	$$value_ref =~ s/^\s*//;
+	$$value_ref =~ s/\s*$//;
+	$$value_ref =~ s/'/\\'/g;
 	return;
 }
 1;
