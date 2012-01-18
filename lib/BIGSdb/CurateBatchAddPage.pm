@@ -41,8 +41,7 @@ sub print_content {
 			print "<div class=\"box\" id=\"statusbad\"><p>Locus $locus does not exist!</p></div>\n";
 			return;
 		}
-		my $cleaned_locus = $locus;
-		$cleaned_locus =~ tr/_/ /;
+		my $cleaned_locus = $self->clean_locus($locus);
 		print "<h1>Batch insert $cleaned_locus sequences</h1>\n";
 	} else {
 		print "<h1>Batch insert $cleaned_table</h1>\n";
