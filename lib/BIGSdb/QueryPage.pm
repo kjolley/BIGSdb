@@ -894,7 +894,7 @@ sub _grouped_field_query {
 		foreach (@$groupedfields) {
 			my %thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
 			$buffer .= ' OR ' if $_ ne $groupedfields->[0];
-			if ( $thisfield{'type'} eq 'int' || $thisfield{'type'} eq 'date' ) {
+			if ( $thisfield{'type'} ne 'text' ) {
 				$buffer .= $text eq 'null' ? "$view.$_ IS NULL" : "CAST($view.$_ AS text) = E'$text'";
 			} else {
 				$buffer .= $text eq 'null' ? "$view.$_ IS NULL" : "upper($view.$_) = upper(E'$text')";
@@ -1243,10 +1243,7 @@ sub _modify_isolate_query_for_designations {
 				my $text     = $q->param("lt$i");
 				next if $combo{"$locus\_$operator\_$text"};    #prevent duplicates
 				$combo{"$locus\_$operator\_$text"} = 1;
-				$text =~ s/^\s*//;
-				$text =~ s/\s*$//;
-				$text =~ s/'/\\'/g;
-
+				$self->_process_value(\$text);
 				if (   $text ne 'null'
 					&& ( $locus_info->{'allele_id_format'} eq 'integer' )
 					&& !BIGSdb::Utils::is_int($text) )
@@ -1306,9 +1303,7 @@ sub _modify_isolate_query_for_designations {
 				my $operator          = $q->param("ly$i");
 				my $text              = $q->param("lt$i");
 				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
-				$text =~ s/^\s*//;
-				$text =~ s/\s*$//;
-				$text =~ s/'/\\'/g;
+				$self->_process_value(\$text);
 				if (   $text ne 'null'
 					&& ( $scheme_field_info->{'type'} eq 'integer' )
 					&& !BIGSdb::Utils::is_int($text) )
