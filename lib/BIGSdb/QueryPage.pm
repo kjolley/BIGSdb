@@ -849,6 +849,76 @@ sub get_grouped_fields {
 	return @groupedfields;
 }
 
+sub _grouped_field_query {
+	my ( $self, $groupedfields, $data, $errors_ref ) = @_;
+	my $text     = $data->{'text'};
+	my $operator = $data->{'operator'};
+	my $view = $self->{'system'}->{'view'};
+	my $buffer   = "$data->{'modifier'} (";
+	if ( $operator eq 'NOT' ) {
+		foreach (@$groupedfields) {
+			my %thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
+			if ( $text eq 'null' ) {
+				$buffer .= ' OR ' if $_ ne $groupedfields->[0];
+				$buffer .= "($view.$_ IS NOT NULL)";
+			} else {
+				$buffer .= ' AND ' if $_ ne $groupedfields->[0];
+				if ( $thisfield{'type'} ne 'text' ) {
+					$buffer .= "(NOT CAST($view.$_ AS text) = E'$text' OR $view.$_ IS NULL)";
+				} else {
+					$buffer .= "(NOT upper($view.$_) = upper(E'$text') OR $view.$_ IS NULL)";
+				}
+			}
+		}
+	} elsif ( $operator eq "contains" ) {
+		foreach (@$groupedfields) {
+			my %thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
+			$buffer .= ' OR ' if $_ ne $groupedfields->[0];
+			if ( $thisfield{'type'} ne 'text' ) {
+				$buffer .= "CAST($view.$_ AS text) LIKE E'\%$text\%'";
+			} else {
+				$buffer .= "upper($view.$_) LIKE upper(E'\%$text\%')";
+			}
+		}
+	} elsif ( $operator eq "NOT contain" ) {
+		foreach (@$groupedfields) {
+			my %thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
+			$buffer .= ' AND ' if $_ ne $groupedfields->[0];
+			if ( $thisfield{'type'} ne 'text' ) {
+				$buffer .= "(NOT CAST($view.$_ AS text) LIKE E'\%$text\%' OR $view.$_ IS NULL)";
+			} else {
+				$buffer .= "(NOT upper($view.$_) LIKE upper(E'\%$text\%') OR $view.$_ IS NULL)";
+			}
+		}
+	} elsif ( $operator eq '=' ) {
+		foreach (@$groupedfields) {
+			my %thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
+			$buffer .= ' OR ' if $_ ne $groupedfields->[0];
+			if ( $thisfield{'type'} eq 'int' || $thisfield{'type'} eq 'date' ) {
+				$buffer .= $text eq 'null' ? "$view.$_ IS NULL" : "CAST($view.$_ AS text) = E'$text'";
+			} else {
+				$buffer .= $text eq 'null' ? "$view.$_ IS NULL" : "upper($view.$_) = upper(E'$text')";
+			}
+		}
+	} else {
+		foreach (@$groupedfields) {
+			my %thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
+			return
+			  if $self->_check_format( { field => $_, text => $text, type => $thisfield{'type'}, operator => $data->{'operator'} },
+				$errors_ref );
+			$buffer .= ' OR ' if $_ ne $groupedfields->[0];
+			%thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
+			if ( $thisfield{'type'} ne 'text' ) {
+				$buffer .= "(CAST($view.$_ AS text) $operator E'$text' AND $view.$_ is not null)";
+			} else {
+				$buffer .= "($view.$_ $operator E'$text' AND $view.$_ is not null)";
+			}
+		}
+	}
+	$buffer .= ')';
+	return $buffer;
+}
+
 sub _generate_isolate_query_for_provenance_fields {
 	my ( $self, $errors_ref ) = @_;
 	my $q           = $self->{'cgi'};
@@ -890,27 +960,17 @@ sub _generate_isolate_query_for_provenance_fields {
 			if ( any { $field =~ /(.*) \($_\)$/ } qw (id surname first_name affiliation) ) {
 				$qry .= $modifier . $self->search_users( $field, $operator, $text, $self->{'system'}->{'view'} );
 			} else {
+				if (@groupedfields) {
+					$qry .=
+					  $self->_grouped_field_query( \@groupedfields, { text => $text, operator => $operator, modifier => $modifier },
+						$errors_ref );
+					next;
+				}
 				$field = $self->{'system'}->{'view'} . '.' . $field if !$extended_isolate_field;
 				my $labelfield = $self->{'system'}->{'view'} . '.' . $self->{'system'}->{'labelfield'};
+				
 				if ( $operator eq 'NOT' ) {
-					if ( @groupedfields ) {
-						$qry .= "$modifier (";
-						foreach ( @groupedfields ) {
-							my %thisfield = $self->{'xmlHandler'}->get_field_attributes( $_ );
-							if ( $text eq 'null' ) {
-								$qry .= ' OR ' if $_ ne $groupedfields[0];
-								$qry .= "($_ IS NOT NULL)";
-							} else {
-								$qry .= ' AND ' if $_ ne $groupedfields[0];
-								if ( $thisfield{'type'} ne 'text' ) {
-									$qry .= "(NOT CAST($_ AS text) = E'$text' OR $_ IS NULL)";
-								} else {
-									$qry .= "(NOT upper($_) = upper(E'$text') OR $_ IS NULL)";
-								}
-							}
-						}
-						$qry .= ')';
-					} elsif ($extended_isolate_field) {
+					if ($extended_isolate_field) {
 						$qry .= $modifier
 						  . (
 							( $text eq 'null' )
@@ -930,19 +990,7 @@ sub _generate_isolate_query_for_provenance_fields {
 						}
 					}
 				} elsif ( $operator eq "contains" ) {
-					if ( @groupedfields ) {
-						$qry .= "$modifier (";
-						foreach ( @groupedfields ) {
-							my %thisfield = $self->{'xmlHandler'}->get_field_attributes( $_ );
-							$qry .= ' OR ' if $_ ne $groupedfields[0];
-							if ( $thisfield{'type'} ne 'text' ) {
-								$qry .= "CAST($_ AS text) LIKE E'\%$text\%'";
-							} else {
-								$qry .= "upper($_) LIKE upper(E'\%$text\%')";
-							}
-						}
-						$qry .= ')';
-					} elsif ($extended_isolate_field) {
+					if ($extended_isolate_field) {
 						$qry .= $modifier
 						  . "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) LIKE upper(E'\%$text\%'))";
 					} elsif ( $field eq $labelfield ) {
@@ -956,19 +1004,7 @@ sub _generate_isolate_query_for_provenance_fields {
 						}
 					}
 				} elsif ( $operator eq "NOT contain" ) {
-					if ( @groupedfields ) {
-						$qry .= "$modifier (";
-						foreach ( @groupedfields ) {
-							my %thisfield = $self->{'xmlHandler'}->get_field_attributes( $_ );
-							$qry .= ' AND ' if $_ ne $groupedfields[0];
-							if ( $thisfield{'type'} ne 'text' ) {
-								$qry .= "(NOT CAST($_ AS text) LIKE E'\%$text\%' OR $_ IS NULL)";
-							} else {
-								$qry .= "(NOT upper($_) LIKE upper(E'\%$text\%') OR $_ IS NULL)";
-							}
-						}
-						$qry .= ')';
-					} elsif ($extended_isolate_field) {
+					if ($extended_isolate_field) {
 						$qry .= $modifier
 						  . "$extended_isolate_field NOT IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) LIKE upper(E'\%$text\%'))";
 					} elsif ( $field eq $labelfield ) {
@@ -982,19 +1018,7 @@ sub _generate_isolate_query_for_provenance_fields {
 						}
 					}
 				} elsif ( $operator eq '=' ) {
-					if (@groupedfields) {
-						$qry .= "$modifier (";
-						foreach (@groupedfields) {
-							my %thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
-							$qry .= ' OR ' if $_ ne $groupedfields[0];
-							if ( $thisfield{'type'} eq 'int' || $thisfield{'type'} eq 'date' ) {
-								$qry .= $text eq 'null' ? "$_ IS NULL" : "CAST($_ AS text) = E'$text'";
-							} else {
-								$qry .= $text eq 'null' ? "$_ IS NULL" : "upper($_) = upper(E'$text')";
-							}
-						}
-						$qry .= ')';
-					} elsif ($extended_isolate_field) {
+					if ($extended_isolate_field) {
 						$qry .= $modifier
 						  . (
 							( $text eq 'null' )
@@ -1010,21 +1034,7 @@ sub _generate_isolate_query_for_provenance_fields {
 						$qry .= $modifier . ( $text eq 'null' ? "$field is null" : "$field = E'$text'" );
 					}
 				} else {
-					if ( @groupedfields ) {
-						$qry .= "$modifier (";
-						foreach ( @groupedfields ) {
-							my %thisfield = $self->{'xmlHandler'}->get_field_attributes( $_ );
-							next if $self->_check_format( { field => $_, text => $text, type => $thisfield{'type'}, operator => $operator }, $errors_ref );
-							$qry .= ' OR ' if $_ ne $groupedfields[0];
-							%thisfield = $self->{'xmlHandler'}->get_field_attributes( $_ );
-							if ( $thisfield{'type'} ne 'text' ) {
-								$qry .= "(CAST($_ AS text) $operator E'$text' AND $_ is not null)";
-							} else {
-								$qry .= "($_ $operator E'$text' AND $_ is not null)";
-							}
-						}
-						$qry .= ')';
-					} elsif ($extended_isolate_field) {
+					if ($extended_isolate_field) {
 						$qry .= $modifier
 						  . "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND value $operator E'$text')";
 					} elsif ( $field eq $labelfield ) {

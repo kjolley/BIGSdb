@@ -219,7 +219,7 @@ sub print_content {
 sub _get_update_history {
 	my ( $self,    $isolate_id )  = @_;
 	my ( $history, $num_changes ) = $self->_get_history($isolate_id);
-	my $buffer;
+	my $buffer = '';
 	if ($num_changes) {
 		$buffer .= "<table class=\"resultstable\"><tr><th>Timestamp</th><th>Curator</th><th>Action</th></tr>\n";
 		my $td = 1;
