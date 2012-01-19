@@ -2667,7 +2667,7 @@ sub _get_project_members_table_attributes {
 			required       => 'yes',
 			primary_key    => 'yes',
 			foreign_key    => 'projects',
-			labels         => '|$id|) |$short_description|',
+			labels         => '|$short_description|',
 			dropdown_query => 'yes'
 		},
 		{ name => 'isolate_id', type => 'int',  required => 'yes', primary_key    => 'yes', foreign_key => 'isolates' },
