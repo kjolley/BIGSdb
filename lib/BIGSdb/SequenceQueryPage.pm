@@ -162,57 +162,7 @@ sub _run_query {
 		my $exact_matches = $self->_parse_blast_exact( $locus, $blast_file );
 		if ( ref $exact_matches eq 'ARRAY' && @$exact_matches ) {
 			if ( $page eq 'sequenceQuery' ) {
-				print "<div class=\"box\" id=\"resultsheader\"><p>\n";
-				print scalar @$exact_matches . " exact match" . ( scalar @$exact_matches > 1 ? 'es' : '' ) . " found.</p></div>";
-				print "<div class=\"box\" id=\"resultstable\">\n";
-				if ( defined $locus_info->{'data_type'} && $locus_info->{'data_type'} eq 'peptide' && $seq_type eq 'DNA' ) {
-					print
-"<p>Please note that as this is a peptide locus, the length corresponds to the peptide translated from your query sequence.</p>\n";
-				} elsif ( defined $locus_info->{'data_type'} && $locus_info->{'data_type'} eq 'DNA' && $seq_type eq 'peptide' ) {
-					print "<p>Please note that as this is a DNA locus, the length corresponds to the matching nucleotide sequence that 
-							was translated to align against your peptide query sequence.</p>\n";
-				}
-				print
-"<table class=\"resultstable\"><tr><th>Allele</th><th>Length</th><th>Start position</th><th>End position</th><th>Attributes</th></tr>\n";
-				if ( ( !$locus || $locus =~ /SCHEME_(\d+)/ ) && $q->param('order') eq 'locus' ) {
-					my %locus_values;
-					foreach (@$exact_matches) {
-						if ( $_->{'allele'} =~ /(.*):.*/ ) {
-							$locus_values{$_} = $1;
-						}
-					}
-					@$exact_matches = sort { $locus_values{$a} cmp $locus_values{$b} } @$exact_matches;
-				}
-				foreach (@$exact_matches) {
-					print "<tr class=\"td$td\"><td>";
-					my $allele;
-					my $field_values;
-					if ( $locus && $locus !~ /SCHEME_(\d+)/ ) {
-						my $cleaned = $self->clean_locus($locus);
-						print
-"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$_->{'allele'}\">";
-						$allele = "$cleaned: $_->{'allele'}";
-						$field_values = $self->_get_client_dbase_fields( $locus, [ $_->{'allele'} ] );
-					} else {
-						my ( $cleaned_locus, $locus, $allele_id );
-						if ( $_->{'allele'} =~ /(.*):(.*)/ ) {
-							$locus = $1;
-							my $cleaned = $self->clean_locus($locus);
-							$allele_id    = $2;
-							$allele       = "$cleaned: $allele_id";
-							$field_values = $self->_get_client_dbase_fields( $locus, [$allele_id] );
-						}
-						print
-"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id\">"
-						  if $locus && $allele_id;
-					}
-					print "$allele</a></td><td>$_->{'length'}</td><td>$_->{'start'}</td><td>$_->{'end'}</td>";
-					print defined $field_values ? "<td>$field_values</td>" : '<td />';
-					print "</tr>\n";
-					$td = $td == 1 ? 2 : 1;
-				}
-				print "</table>\n";
-				print "</div>\n";
+				$self->_output_single_query_exact( $exact_matches, { locus => $locus, locus_info => $locus_info, seq_type => $seq_type } );
 			} else {
 				my $buffer = "Exact match" . ( scalar @$exact_matches == 1 ? '' : 'es' ) . " found: ";
 				my $first = 1;
@@ -555,6 +505,66 @@ sub _run_query {
 			print "<div class=\"box\" id=\"statusbad\"><p>No matches found</p></div>\n";
 		}
 	}
+	return;
+}
+
+sub _output_single_query_exact {
+	my ( $self, $exact_matches, $data ) = @_;
+	my $data_type = $data->{'locus_info'}->{'data_type'};
+	my $seq_type  = $data->{'seq_type'};
+	my $locus     = $data->{'locus'};
+	my $q         = $self->{'cgi'};
+	print "<div class=\"box\" id=\"resultsheader\"><p>\n";
+	print @$exact_matches . " exact match" . ( @$exact_matches > 1 ? 'es' : '' ) . " found.</p></div>";
+	print "<div class=\"box\" id=\"resultstable\">\n";
+
+	if ( defined $data_type && $data_type eq 'peptide' && $seq_type eq 'DNA' ) {
+		print
+"<p>Please note that as this is a peptide locus, the length corresponds to the peptide translated from your query sequence.</p>\n";
+	} elsif ( defined $data_type && $data_type eq 'DNA' && $seq_type eq 'peptide' ) {
+		print "<p>Please note that as this is a DNA locus, the length corresponds to the matching nucleotide sequence that "
+		  . "was translated to align against your peptide query sequence.</p>\n";
+	}
+	print
+"<table class=\"resultstable\"><tr><th>Allele</th><th>Length</th><th>Start position</th><th>End position</th><th>Attributes</th></tr>\n";
+	if ( ( !$locus || $locus =~ /SCHEME_(\d+)/ ) && $q->param('order') eq 'locus' ) {
+		my %locus_values;
+		foreach (@$exact_matches) {
+			if ( $_->{'allele'} =~ /(.*):.*/ ) {
+				$locus_values{$_} = $1;
+			}
+		}
+		@$exact_matches = sort { $locus_values{$a} cmp $locus_values{$b} } @$exact_matches;
+	}
+	my $td = 1;
+	foreach (@$exact_matches) {
+		print "<tr class=\"td$td\"><td>";
+		my $allele;
+		my $field_values;
+		if ( $locus && $locus !~ /SCHEME_(\d+)/ ) {    #single locus selected
+			my $cleaned = $self->clean_locus($locus);
+			print
+"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$_->{'allele'}\">";
+			$allele = "$cleaned: $_->{'allele'}";
+			$field_values = $self->_get_client_dbase_fields( $locus, [ $_->{'allele'} ] );
+		} else {                                       #either all loci or a scheme selected
+			my ( $locus, $allele_id );
+			if ( $_->{'allele'} =~ /(.*):(.*)/ ) {
+				( $locus, $allele_id ) = ( $1, $2 );
+				my $cleaned = $self->clean_locus($locus);
+				$allele = "$cleaned: $allele_id";
+				$field_values = $self->_get_client_dbase_fields( $locus, [$allele_id] );
+			}
+			print
+"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id\">"
+			  if $locus && $allele_id;
+		}
+		print "$allele</a></td><td>$_->{'length'}</td><td>$_->{'start'}</td><td>$_->{'end'}</td>";
+		print defined $field_values ? "<td>$field_values</td>" : '<td />';
+		print "</tr>\n";
+		$td = $td == 1 ? 2 : 1;
+	}
+	print "</table>\n</div>\n";
 	return;
 }
 
