@@ -35,16 +35,19 @@ sub reverse_complement {
 sub is_valid_DNA {
 
 	# checks if a valid DNA sequence
-	my ( $seq, $diploid ) = @_;
-	$seq = uc($seq);
-	$seq =~ s/[-. \s]//g;
+	my ( $seq, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $check_seq = ref $seq eq 'SCALAR' ? uc($$seq) : uc($seq);
+	$check_seq =~ s/[\-\.\s]//g;
 
 	#check it's a sequence - allow codes for two bases to
 	#accommodate diploid sequence types
-	if ($diploid) {
-		return $seq =~ /[^ACGTRYWSMK]/ ? 0 : 1;
+	if ($options->{'allow_ambiguous'}) {
+		return $check_seq =~ /[^ACGTRYWSMKVHDBXN]/ ? 0 : 1;
+	} elsif ($options->{'diploid'}) {
+		return $check_seq =~ /[^ACGTRYWSMK]/ ? 0 : 1;
 	} else {
-		return $seq =~ /[^ACGT]/ ? 0 : 1;
+		return $check_seq =~ /[^ACGT]/ ? 0 : 1;
 	}
 }
 

@@ -257,6 +257,7 @@ this sequence then make sure that the 'Override sequence similarity check' box i
 				$i++;
 			}
 		} elsif ( $table eq 'sequence_bin' ) {
+			$newdata{'sequence'} =~ s/[\W]//g;
 			if ( $q->param('experiment') ) {
 				my $experiment = $q->param('experiment');
 				my $insert =
@@ -280,8 +281,8 @@ this sequence then make sure that the 'Override sequence similarity check' box i
 			}
 
 			#Make sure sequence bin data marked as DNA is valid
-		} elsif ( $table eq 'sequence_bin' && !BIGSdb::Utils::is_valid_DNA( $newdata{'sequence'} ) ) {
-			push @problems, "Sequence contains non nucleotide (G|A|T|C) characters.<br />";
+		} elsif ( $table eq 'sequence_bin' && !BIGSdb::Utils::is_valid_DNA( \$newdata{'sequence'}, {allow_ambiguous => 1} ) ) {
+			push @problems, "Sequence contains non nucleotide (G|A|T|C + ambiguity code R|Y|W|S|M|K|V|H|D|B|X|N) characters.<br />";
 
 			#special case to check that start_pos is less than end_pos for allele_sequence
 		} elsif ( $table eq 'allele_sequences' && $newdata{'end_pos'} < $newdata{'start_pos'} ) {
