@@ -36,7 +36,7 @@ sub get_attributes {
 		email       => 'keith.jolley@zoo.ox.ac.uk',
 		description => 'Compare genomes at defined loci or against loci defined in a reference genome',
 		category    => 'Analysis',
-		buttontext  => 'Genome Camparator',
+		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
 		version     => '1.2.2',
