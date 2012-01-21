@@ -75,8 +75,7 @@ sub print_content {
 	not need to be trimmed. The nearest partial matches will be identified if an exact match is not found. You can query using either DNA or peptide 
 	sequences.";
 	print " <a class=\"tooltip\" title=\"Query sequence - Your query sequence is assumed
-to be DNA if it contains 90% or more G,A,T,C or N characters.\">&nbsp;<i>i</i>&nbsp;</a>";
-	print "</p>\n";
+to be DNA if it contains 90% or more G,A,T,C or N characters.\">&nbsp;<i>i</i>&nbsp;</a></p>\n";
 	print $q->start_form;
 	print "<table><tr><td style=\"text-align:right\">Please select locus/scheme: </td><td>";
 	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list;
@@ -94,14 +93,10 @@ to be DNA if it contains 90% or more G,A,T,C or N characters.\">&nbsp;<i>i</i>&n
 	print "Order results by: ";
 	print $q->popup_menu( -name => 'order', -values => [ ( 'locus', 'best match' ) ] );
 	print "</td></tr>\n<tr><td style=\"text-align:right\">";
-
-	if ( $page eq 'sequenceQuery' ) {
-		print "Enter query sequence: ";
-	} else {
-		print "Enter query sequences<br />(FASTA format): ";
-	}
+	print $page eq 'sequenceQuery' ? 'Enter query sequence: ' : 'Enter query sequences<br />(FASTA format): ';
 	print "</td><td style=\"width:80%\" colspan=\"2\">";
 	my $sequence;
+
 	if ( $q->param('sequence') ) {
 		$sequence = $q->param('sequence');
 		$q->param( 'sequence', '' );
@@ -111,8 +106,7 @@ to be DNA if it contains 90% or more G,A,T,C or N characters.\">&nbsp;<i>i</i>&n
 	print
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page\" class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\">";
 	print $q->submit( -name => 'Submit', -class => 'submit' );
-	print "</td></tr>\n";
-	print "</table>\n";
+	print "</td></tr>\n</table>\n";
 	print $q->hidden($_) foreach qw (db page);
 	print $q->end_form;
 	print "</div>\n";
@@ -160,49 +154,30 @@ sub _run_query {
 		( my $blast_file, $job ) = $self->run_blast(
 			{ 'locus' => $locus, 'seq_ref' => \$seq, 'qry_type' => $qry_type, 'num_results' => 50000, 'cache' => 1, 'job' => $job } );
 		my $exact_matches = $self->_parse_blast_exact( $locus, $blast_file );
+		my $data_ref = {
+			locus                   => $locus,
+			locus_info              => $locus_info,
+			seq_type                => $seq_type,
+			qry_type                => $qry_type,
+			distinct_locus_selected => $distinct_locus_selected,
+			td                      => $td,
+			seq_ref                 => \$seq,
+			id                      => $seq_object->id // ''
+		};
 
 		if ( ref $exact_matches eq 'ARRAY' && @$exact_matches ) {
-			my $data_ref = {
-				locus                   => $locus,
-				locus_info              => $locus_info,
-				seq_type                => $seq_type,
-				distinct_locus_selected => $distinct_locus_selected,
-				td                      => $td,
-				id                      => $seq_object->id // ''
-			};
 			if ( $page eq 'sequenceQuery' ) {
 				$self->_output_single_query_exact( $exact_matches, $data_ref );
 			} else {
 				$batchBuffer = $self->_output_batch_query_exact( $exact_matches, $data_ref );
 			}
 		} else {
-			if ( defined $locus_info->{'data_type'} && $qry_type ne $locus_info->{'data_type'} && $locus && $locus !~ /SCHEME_(\d+)/ ) {
+			if ( defined $locus_info->{'data_type'} && $qry_type ne $locus_info->{'data_type'} && $distinct_locus_selected ) {
 				system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 				if ( $page eq 'sequenceQuery' ) {
-					( $blast_file, $job ) = $self->run_blast(
-						{
-							'locus'       => $locus,
-							'seq_ref'     => \$seq,
-							'qry_type'    => $qry_type,
-							'num_results' => 5,
-							'alignment'   => 1,
-							'cache'       => 1,
-							'job'         => $job
-						}
-					);
-					print "<div class=\"box\" id=\"resultsheader\">\n";
-					if ( -e "$self->{'config'}->{'secure_tmp_dir'}/$blast_file" ) {
-						print "<p>Your query is a $qry_type sequence whereas this locus is defined with 
-							$locus_info->{'data_type'} sequences.  There were no exact matches, but the BLAST results are shown below (a maximum of five
-							alignments are displayed).</p>";
-						print "<pre style=\"font-size:1.2em\">\n";
-						$self->print_file( "$self->{'config'}->{'secure_tmp_dir'}/$blast_file", 1 );
-						print "</pre>\n";
-					} else {
-						print "<p>No results from BLAST.</p>\n";
-					}
-					print "</div>\n";
-					system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$blast_file";
+					$self->_output_single_query_mismatched_locus($data_ref);
+					$blast_file =~ s/_outfile.txt//;
+					system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$blast_file*";
 					return;
 				}
 			}
@@ -584,6 +559,32 @@ sub _output_batch_query_exact {
 		$first = 0;
 	}
 	return "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">$buffer</td></tr>\n";
+}
+
+sub _output_single_query_mismatched_locus {
+	my ( $self, $data ) = @_;
+	my ( $blast_file, undef ) = $self->run_blast(
+		{
+			'locus'       => $data->{'locus'},
+			'seq_ref'     => $data->{'seq_ref'},
+			'qry_type'    => $data->{'qry_type'},
+			'num_results' => 5,
+			'alignment'   => 1,
+		}
+	);
+	print "<div class=\"box\" id=\"resultsheader\">\n";
+	if ( -e "$self->{'config'}->{'secure_tmp_dir'}/$blast_file" ) {
+		print "<p>Your query is a $data->{'qry_type'} sequence whereas this locus is defined with $data->{'locus_info'}->{'data_type'} "
+		  . "sequences.  There were no exact matches, but the BLAST results are shown below (a maximum of five alignments are displayed).</p>";
+		print "<pre style=\"font-size:1.4em; padding: 1em; border:1px black dashed\">\n";
+		$self->print_file( "$self->{'config'}->{'secure_tmp_dir'}/$blast_file", 1 );
+		print "</pre>\n";
+	} else {
+		print "<p>No results from BLAST.</p>\n";
+	}
+	$blast_file =~ s/outfile.txt//;
+	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$blast_file*";
+	return;
 }
 
 sub _format_difference {
