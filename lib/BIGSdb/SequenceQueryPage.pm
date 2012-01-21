@@ -19,6 +19,7 @@
 package BIGSdb::SequenceQueryPage;
 use strict;
 use warnings;
+use 5.010;
 use base qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(uniq any);
@@ -138,62 +139,41 @@ sub _run_query {
 	local $| = 1;
 	my $first = 1;
 	my $job   = 0;
+	my $locus = $q->param('locus');
 
+	if ( $locus =~ /^cn_(.+)$/ ) {
+		$locus = $1;
+	}
+	my $distinct_locus_selected = ( $locus && $locus !~ /SCHEME_(\d+)/ ) ? 1 : 0;
+	my $cleaned_locus           = $self->clean_locus($locus);
+	my $locus_info              = $self->{'datastore'}->get_locus_info($locus);
 	while ( my $seq_object = $seqin->next_seq ) {
 		if ( $ENV{'MOD_PERL'} ) {
 			$self->{'mod_perl_request'}->rflush;
-			if ( $self->{'mod_perl_request'}->connection->aborted ) {
-				return;
-			}
+			return if $self->{'mod_perl_request'}->connection->aborted;
 		}
 		my $seq = $seq_object->seq;
 		$seq =~ s/\s//g if $seq;
 		$seq = uc($seq);
 		my $seq_type = BIGSdb::Utils::is_valid_DNA($seq) ? 'DNA' : 'peptide';
-		my $locus = $q->param('locus');
-		if ( $locus =~ /^cn_(.+)$/ ) {
-			$locus = $1;
-		}
-		my $qry_type      = BIGSdb::Utils::sequence_type($seq);
-		my $cleaned_locus = $self->clean_locus($locus);
-		my $locus_info    = $self->{'datastore'}->get_locus_info($locus);
+		my $qry_type = BIGSdb::Utils::sequence_type($seq);
 		( my $blast_file, $job ) = $self->run_blast(
 			{ 'locus' => $locus, 'seq_ref' => \$seq, 'qry_type' => $qry_type, 'num_results' => 50000, 'cache' => 1, 'job' => $job } );
 		my $exact_matches = $self->_parse_blast_exact( $locus, $blast_file );
+
 		if ( ref $exact_matches eq 'ARRAY' && @$exact_matches ) {
+			my $data_ref = {
+				locus                   => $locus,
+				locus_info              => $locus_info,
+				seq_type                => $seq_type,
+				distinct_locus_selected => $distinct_locus_selected,
+				td                      => $td,
+				id                      => $seq_object->id // ''
+			};
 			if ( $page eq 'sequenceQuery' ) {
-				$self->_output_single_query_exact( $exact_matches, { locus => $locus, locus_info => $locus_info, seq_type => $seq_type } );
+				$self->_output_single_query_exact( $exact_matches, $data_ref );
 			} else {
-				my $buffer = "Exact match" . ( scalar @$exact_matches == 1 ? '' : 'es' ) . " found: ";
-				my $first = 1;
-				if ( ( !$locus || $locus =~ /SCHEME_\d+/ ) && $q->param('order') eq 'locus' ) {
-					my %locus_values;
-					foreach (@$exact_matches) {
-						if ( $_->{'allele'} =~ /(.*):.*/ ) {
-							$locus_values{$_} = $1;
-						}
-					}
-					@$exact_matches = sort { $locus_values{$a} cmp $locus_values{$b} } @$exact_matches;
-				}
-				foreach (@$exact_matches) {
-					$buffer .= '; ' if !$first;
-					my $allele_id;
-					if ( ( !$locus || $locus =~ /SCHEME_\d+/ ) && $_->{'allele'} =~ /(.*):(.*)/ ) {
-						$locus     = $1;
-						$allele_id = $2;
-					} else {
-						$allele_id = $_->{'allele'};
-					}
-					my $field_values = $self->_get_client_dbase_fields( $locus, [$allele_id] );
-					$cleaned_locus = $self->clean_locus($locus);
-					$buffer .=
-"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id\">$cleaned_locus: $allele_id</a>";
-					$buffer .= " ($field_values)" if $field_values;
-					undef $locus if !$q->param('locus') || $q->param('locus') =~ /SCHEME_\d+/;
-					$first = 0;
-				}
-				my $id = defined $seq_object->id ? $seq_object->id : '';
-				$batchBuffer = "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">$buffer</td></tr>\n";
+				$batchBuffer = $self->_output_batch_query_exact( $exact_matches, $data_ref );
 			}
 		} else {
 			if ( defined $locus_info->{'data_type'} && $qry_type ne $locus_info->{'data_type'} && $locus && $locus !~ /SCHEME_(\d+)/ ) {
@@ -510,10 +490,11 @@ sub _run_query {
 
 sub _output_single_query_exact {
 	my ( $self, $exact_matches, $data ) = @_;
-	my $data_type = $data->{'locus_info'}->{'data_type'};
-	my $seq_type  = $data->{'seq_type'};
-	my $locus     = $data->{'locus'};
-	my $q         = $self->{'cgi'};
+	my $data_type               = $data->{'locus_info'}->{'data_type'};
+	my $seq_type                = $data->{'seq_type'};
+	my $locus                   = $data->{'locus'};
+	my $distinct_locus_selected = $data->{'distinct_locus_selected'};
+	my $q                       = $self->{'cgi'};
 	print "<div class=\"box\" id=\"resultsheader\"><p>\n";
 	print @$exact_matches . " exact match" . ( @$exact_matches > 1 ? 'es' : '' ) . " found.</p></div>";
 	print "<div class=\"box\" id=\"resultstable\">\n";
@@ -527,7 +508,7 @@ sub _output_single_query_exact {
 	}
 	print
 "<table class=\"resultstable\"><tr><th>Allele</th><th>Length</th><th>Start position</th><th>End position</th><th>Attributes</th></tr>\n";
-	if ( ( !$locus || $locus =~ /SCHEME_(\d+)/ ) && $q->param('order') eq 'locus' ) {
+	if ( !$distinct_locus_selected && $q->param('order') eq 'locus' ) {
 		my %locus_values;
 		foreach (@$exact_matches) {
 			if ( $_->{'allele'} =~ /(.*):.*/ ) {
@@ -541,13 +522,13 @@ sub _output_single_query_exact {
 		print "<tr class=\"td$td\"><td>";
 		my $allele;
 		my $field_values;
-		if ( $locus && $locus !~ /SCHEME_(\d+)/ ) {    #single locus selected
+		if ($distinct_locus_selected) {
 			my $cleaned = $self->clean_locus($locus);
 			print
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$_->{'allele'}\">";
 			$allele = "$cleaned: $_->{'allele'}";
 			$field_values = $self->_get_client_dbase_fields( $locus, [ $_->{'allele'} ] );
-		} else {                                       #either all loci or a scheme selected
+		} else {    #either all loci or a scheme selected
 			my ( $locus, $allele_id );
 			if ( $_->{'allele'} =~ /(.*):(.*)/ ) {
 				( $locus, $allele_id ) = ( $1, $2 );
@@ -566,6 +547,43 @@ sub _output_single_query_exact {
 	}
 	print "</table>\n</div>\n";
 	return;
+}
+
+sub _output_batch_query_exact {
+	my ( $self, $exact_matches, $data ) = @_;
+	my $locus                   = $data->{'locus'};
+	my $distinct_locus_selected = $data->{'distinct_locus_selected'};
+	my $td                      = $data->{'td'};
+	my $id                      = $data->{'id'};
+	my $q                       = $self->{'cgi'};
+	my $buffer                  = "Exact match" . ( @$exact_matches == 1 ? '' : 'es' ) . " found: ";
+	if ( !$distinct_locus_selected && $q->param('order') eq 'locus' ) {
+		my %locus_values;
+		foreach (@$exact_matches) {
+			if ( $_->{'allele'} =~ /(.*):.*/ ) {
+				$locus_values{$_} = $1;
+			}
+		}
+		@$exact_matches = sort { $locus_values{$a} cmp $locus_values{$b} } @$exact_matches;
+	}
+	my $first = 1;
+	foreach (@$exact_matches) {
+		$buffer .= '; ' if !$first;
+		my $allele_id;
+		if ( !$distinct_locus_selected && $_->{'allele'} =~ /(.*):(.*)/ ) {
+			( $locus, $allele_id ) = ( $1, $2 );
+		} else {
+			$allele_id = $_->{'allele'};
+		}
+		my $field_values = $self->_get_client_dbase_fields( $locus, [$allele_id] );
+		my $cleaned_locus = $self->clean_locus($locus);
+		$buffer .=
+"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id\">$cleaned_locus: $allele_id</a>";
+		$buffer .= " ($field_values)" if $field_values;
+		undef $locus if !$distinct_locus_selected;
+		$first = 0;
+	}
+	return "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">$buffer</td></tr>\n";
 }
 
 sub _format_difference {
