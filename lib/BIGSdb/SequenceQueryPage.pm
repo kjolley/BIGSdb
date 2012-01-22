@@ -121,6 +121,7 @@ sub _run_query {
 	my ( $self, $sequence ) = @_;
 	my $q    = $self->{'cgi'};
 	my $page = $q->param('page');
+	$self->_remove_all_identifier_lines(\$sequence) if $page eq 'sequenceQuery'; #Allows BLAST of multiple contigs
 	if ( $sequence !~ /^>/ ) {
 
 		#add identifier line if one missing since newer versions of BioPerl check
@@ -597,6 +598,12 @@ sub _output_batch_query_nonexact {
 	$batch_buffer .= " ($field_values)" if $field_values;
 	$batch_buffer .= ": $buffer</td></tr>\n";
 	return $batch_buffer;
+}
+
+sub _remove_all_identifier_lines {
+	my ($self, $seq_ref) = @_;
+	$$seq_ref =~ s/>.+\n//g;
+	return;
 }
 
 sub _format_difference {
