@@ -42,9 +42,9 @@ sub is_valid_DNA {
 
 	#check it's a sequence - allow codes for two bases to
 	#accommodate diploid sequence types
-	if ($options->{'allow_ambiguous'}) {
+	if ( $options->{'allow_ambiguous'} ) {
 		return $check_seq =~ /[^ACGTRYWSMKVHDBXN]/ ? 0 : 1;
-	} elsif ($options->{'diploid'}) {
+	} elsif ( $options->{'diploid'} ) {
 		return $check_seq =~ /[^ACGTRYWSMK]/ ? 0 : 1;
 	} else {
 		return $check_seq =~ /[^ACGT]/ ? 0 : 1;
@@ -53,14 +53,9 @@ sub is_valid_DNA {
 
 sub sequence_type {
 	my ($seq) = @_;
-	my $agtc_count = 0;
-	foreach ( my $i = 0 ; $i < length $seq ; $i++ ) {
-		if ( uc( substr( $seq, $i, 1 ) ) =~ /^G|A|T|C|N$/ ) {
-			$agtc_count++;
-		}
-	}
+	my $AGTC_count = $seq =~ tr/[G|A|T|C|g|a|t|c|N|n]//;
 	return 'DNA' if !length $seq;
-	return ( $agtc_count / length $seq ) >= 0.9 ? 'DNA' : 'peptide';
+	return ( $AGTC_count / length $seq ) >= 0.9 ? 'DNA' : 'peptide';
 }
 
 sub truncate_seq {
@@ -138,9 +133,9 @@ sub is_date {
 	#returns true if string is an acceptable date format
 	my ($qry) = @_;
 	return 1 if $qry eq 'today' || $qry eq 'yesterday';
-	if ( $qry =~ /^(\d{4})-(\d{2})-(\d{2})$/ ){
-		my ($y, $m, $d) = ($1, $2, $3);
-		eval { timelocal 0, 0, 0, $d, $m-1, $y-1900 };
+	if ( $qry =~ /^(\d{4})-(\d{2})-(\d{2})$/ ) {
+		my ( $y, $m, $d ) = ( $1, $2, $3 );
+		eval { timelocal 0, 0, 0, $d, $m - 1, $y - 1900 };
 		return $@ ? 0 : 1;
 	}
 	return 0;
@@ -220,7 +215,7 @@ sub histogram {
 	foreach (@$list) {
 		$histogram{ ceil( ( $_ + 1 ) / $width ) - 1 }++;
 	}
-	my ( $max, $min ) = (0, 0);
+	my ( $max, $min ) = ( 0, 0 );
 	foreach ( keys %histogram ) {
 		$max = $_ if $_ > $max;
 		$min = $_ if $_ < $min || !defined($min);
@@ -251,7 +246,17 @@ sub stats {
 }
 
 sub round_to_nearest {
-	my ($number, $nearest) = @_;
-	return ceil(int($number)/$nearest)*$nearest;  
+	my ( $number, $nearest ) = @_;
+	return ceil( int($number) / $nearest ) * $nearest;
+}
+
+sub append {
+	my ( $source_file, $destination_file ) = @_;
+	open( my $fh1, '<', $source_file );
+	open( my $fh, '>>', $destination_file );
+	print $fh $_ while <$fh1>;
+	close $fh;
+	close $fh1;
+	return;
 }
 1;

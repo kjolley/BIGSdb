@@ -2390,8 +2390,9 @@ sub run_blast {
 		}
 	}
 	if ( !$options->{'locus'} || $options->{'locus'} =~ /SCHEME_(\d+)/ ) {
-		system "cat $temp_outfile\.1 >> $temp_outfile" if -e "$temp_outfile\.1";
-		system "rm $temp_outfile\.1"                   if -e "$temp_outfile\.1";
+		my $outfile1 = "$temp_outfile\.1";
+		BIGSdb::Utils::append($outfile1, $temp_outfile) if -e $outfile1;
+		unlink $outfile1 if -e $outfile1;
 	}
 
 	#delete all working files
