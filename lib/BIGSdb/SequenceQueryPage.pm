@@ -22,7 +22,7 @@ use warnings;
 use 5.010;
 use base qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
-use List::MoreUtils qw(uniq any);
+use List::MoreUtils qw(uniq any none);
 use Error qw(:try);
 use IO::String;
 use Bio::SeqIO;
@@ -121,7 +121,7 @@ sub _run_query {
 	my ( $self, $sequence ) = @_;
 	my $q    = $self->{'cgi'};
 	my $page = $q->param('page');
-	$self->_remove_all_identifier_lines(\$sequence) if $page eq 'sequenceQuery'; #Allows BLAST of multiple contigs
+	$self->_remove_all_identifier_lines( \$sequence ) if $page eq 'sequenceQuery';    #Allows BLAST of multiple contigs
 	if ( $sequence !~ /^>/ ) {
 
 		#add identifier line if one missing since newer versions of BioPerl check
@@ -232,6 +232,7 @@ sub _output_single_query_exact {
 	my $locus                   = $data->{'locus'};
 	my $distinct_locus_selected = $data->{'distinct_locus_selected'};
 	my $q                       = $self->{'cgi'};
+	my %designations;
 	print "<div class=\"box\" id=\"resultsheader\"><p>\n";
 	print @$exact_matches . " exact match" . ( @$exact_matches > 1 ? 'es' : '' ) . " found.</p></div>";
 	print "<div class=\"box\" id=\"resultstable\">\n";
@@ -269,6 +270,7 @@ sub _output_single_query_exact {
 			my ( $locus, $allele_id );
 			if ( $_->{'allele'} =~ /(.*):(.*)/ ) {
 				( $locus, $allele_id ) = ( $1, $2 );
+				$designations{$locus} = $allele_id;
 				my $cleaned = $self->clean_locus($locus);
 				$allele = "$cleaned: $allele_id";
 				$field_values = $self->_get_client_dbase_fields( $locus, [$allele_id] );
@@ -282,7 +284,50 @@ sub _output_single_query_exact {
 		print "</tr>\n";
 		$td = $td == 1 ? 2 : 1;
 	}
-	print "</table>\n</div>\n";
+	print "</table>\n";
+	$self->_output_scheme_fields( $locus, \%designations );
+	print "</div>\n";
+	return;
+}
+
+sub _output_scheme_fields {
+	my ( $self, $locus, $designations ) = @_;
+	if ( $locus =~ /SCHEME_(\d+)/ ) {    #Check for scheme fields
+		my $scheme_id     = $1;
+		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+		my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
+		if ( @$scheme_fields && @$scheme_loci ) {
+			my ( @profile, @placeholders );
+			foreach (@$scheme_loci) {
+				push @profile,      $designations->{$_};
+				push @placeholders, '?';
+			}
+			if ( none { !defined $_ } @profile ) {
+				local $" = ',';
+				my $values =
+				  $self->{'datastore'}
+				  ->run_simple_query_hashref( "SELECT @$scheme_fields FROM scheme_$scheme_id WHERE (@$scheme_loci) = (@placeholders)",
+					@profile );
+				my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+				print "<h2>$scheme_info->{'description'}</h2>\n<table>\n";
+				my $pks =
+				  $self->{'datastore'}->run_list_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id );
+				my $td = 1;
+				foreach my $field (@$scheme_fields) {
+					my $value = $values->{ lc($field) } // 'Not defined';
+					my $primary_key = ( any { $field eq $_ } @$pks ) ? 1 : 0;
+					$field =~ tr/_/ /;
+					print "<tr class=\"td$td\"><th>$field</th><td>";
+					print $primary_key && $value ne 'Not defined'
+					  ? "<a href=\"$self->{'system'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;scheme_id=$scheme_id&amp;profile_id=$value\">$value</a>"
+					  : $value;
+					print "</td></tr>\n";
+					$td = $td == 1 ? 2 : 1;
+				}
+				print "</table>\n";
+			}
+		}
+	}
 	return;
 }
 
@@ -601,7 +646,7 @@ sub _output_batch_query_nonexact {
 }
 
 sub _remove_all_identifier_lines {
-	my ($self, $seq_ref) = @_;
+	my ( $self, $seq_ref ) = @_;
 	$$seq_ref =~ s/>.+\n//g;
 	return;
 }
