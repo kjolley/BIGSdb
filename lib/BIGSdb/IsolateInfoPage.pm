@@ -139,7 +139,7 @@ sub print_content {
 			print "<table style=\"width:100%\">\n$buffer</table>\n";
 		}
 		return;
-	} elsif ( defined $q->param('scheme_id') ) {
+	} elsif ( defined $q->param('scheme_id') && BIGSdb::Utils::is_int($q->param('scheme_id'))) {
 		my $scheme_id = $q->param('scheme_id');
 		my ( $locus_info, $locus_alias, $allele_designations, $allele_sequences, $allele_sequence_flags ) =
 		  $self->_get_scheme_attributes($isolate_id);
