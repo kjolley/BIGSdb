@@ -40,7 +40,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.0.1',
+		version     => '1.0.2',
 		dbtype      => 'isolates',
 		section     => 'analysis',
 		order       => 32,
@@ -259,6 +259,7 @@ sub _print_interface {
 
 sub _blast {
 	my ( $self, $isolate_id, $seq_ref ) = @_;
+	$$seq_ref =~ s/>.+\n//g; #Remove BLAST identifier lines if present
 	my $seq_type = BIGSdb::Utils::sequence_type($$seq_ref);
 	$$seq_ref =~ s/\s//g;
 	my $program;
@@ -382,4 +383,5 @@ sub _extract_match_from_blast_result_line {
 	$match->{'bit_score'} = $record[11];
 	return $match;
 }
+
 1;
