@@ -71,13 +71,13 @@ sub print_content {
 	print "<div class=\"box\" id=\"queryform\">\n";
 	print "<p>Please paste in your sequence"
 	  . ( $page eq 'batchSequenceQuery' ? 's' : '' )
-	  . " to query against the database.  Query sequences will be checked first for an exact match against the chosen (or all) loci - they do
-	not need to be trimmed. The nearest partial matches will be identified if an exact match is not found. You can query using either DNA or peptide 
-	sequences.";
-	print " <a class=\"tooltip\" title=\"Query sequence - Your query sequence is assumed
-to be DNA if it contains 90% or more G,A,T,C or N characters.\">&nbsp;<i>i</i>&nbsp;</a></p>\n";
+	  . " to query against the database.  Query sequences will be checked first for an exact match against the chosen "
+	  . "(or all) loci - they do not need to be trimmed. The nearest partial matches will be identified if an exact "
+	  . "match is not found. You can query using either DNA or peptide sequences.";
+	print " <a class=\"tooltip\" title=\"Query sequence - Your query sequence is assumed to be DNA if it contains "
+	  . "90% or more G,A,T,C or N characters.\">&nbsp;<i>i</i>&nbsp;</a></p>\n";
 	print $q->start_form;
-	print "<table><tr><td style=\"text-align:right\">Please select locus/scheme: </td><td>";
+	print "<div class=\"scrollable\"><fieldset><legend>Please select locus/scheme</legend>\n";
 	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list;
 	my $scheme_list =
 	  $self->{'datastore'}->run_list_query_hashref("SELECT id,description FROM schemes ORDER BY display_order desc,description desc");
@@ -89,31 +89,27 @@ to be DNA if it contains 90% or more G,A,T,C or N characters.\">&nbsp;<i>i</i>&n
 	unshift @$display_loci, 0;
 	$cleaned->{0} = 'All loci';
 	print $q->popup_menu( -name => 'locus', -values => $display_loci, -labels => $cleaned );
-	print "</td><td>";
-	print "Order results by: ";
+	print "</fieldset>\n<fieldset><legend>Order results by</legend>\n";
 	print $q->popup_menu( -name => 'order', -values => [ ( 'locus', 'best match' ) ] );
-	print "</td></tr>\n<tr><td style=\"text-align:right\">";
-	print $page eq 'sequenceQuery' ? 'Enter query sequence: ' : 'Enter query sequences<br />(FASTA format): ';
-	print "</td><td style=\"width:80%\" colspan=\"2\">";
+	print "</fieldset>\n<fieldset><legend>"
+	  . ( $page eq 'sequenceQuery' ? 'Enter query sequence' : 'Enter query sequences (FASTA format)' )
+	  . "</legend>";
 	my $sequence;
 
 	if ( $q->param('sequence') ) {
 		$sequence = $q->param('sequence');
 		$q->param( 'sequence', '' );
 	}
-	print $q->textarea( -name => 'sequence', -rows => '6', -cols => '70' );
-	print "</td></tr>\n<tr><td colspan=\"2\">";
+	print $q->textarea( -name => 'sequence', -rows => 6, -cols => 70 );
 	print
-"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page\" class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\">";
+"</fieldset>\n<div style=\"clear:both\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page\" class=\"resetbutton\">"
+	  . "Reset</a><span style=\"float:right\">";
 	print $q->submit( -name => 'Submit', -class => 'submit' );
-	print "</td></tr>\n</table>\n";
+	print "</span></div></div>";
 	print $q->hidden($_) foreach qw (db page);
 	print $q->end_form;
 	print "</div>\n";
-
-	if ( $q->param('Submit') && $sequence ) {
-		$self->_run_query($sequence);
-	}
+	$self->_run_query($sequence) if $q->param('Submit') && $sequence;
 	return;
 }
 
@@ -129,7 +125,7 @@ sub _run_query {
 	}
 	my $stringfh_in = IO::String->new($sequence);
 	my $seqin = Bio::SeqIO->new( -fh => $stringfh_in, -format => 'fasta' );
-	my $batchBuffer;
+	my $batch_buffer;
 	my $td = 1;
 	local $| = 1;
 	my $first = 1;
@@ -171,7 +167,7 @@ sub _run_query {
 			if ( $page eq 'sequenceQuery' ) {
 				$self->_output_single_query_exact( $exact_matches, $data_ref );
 			} else {
-				$batchBuffer = $self->_output_batch_query_exact( $exact_matches, $data_ref );
+				$batch_buffer = $self->_output_batch_query_exact( $exact_matches, $data_ref );
 			}
 		} else {
 			if ( defined $locus_info->{'data_type'} && $qry_type ne $locus_info->{'data_type'} && $distinct_locus_selected ) {
@@ -189,13 +185,13 @@ sub _run_query {
 					print "<div class=\"box\" id=\"statusbad\"><p>No matches found.</p></div>\n";
 				} else {
 					my $id = defined $seq_object->id ? $seq_object->id : '';
-					$batchBuffer = "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">No matches found.</td></tr>\n";
+					$batch_buffer = "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">No matches found.</td></tr>\n";
 				}
 			} else {
 				if ( $page eq 'sequenceQuery' ) {
 					$self->_output_single_query_nonexact( $partial_match, $data_ref );
 				} else {
-					$batchBuffer = $self->_output_batch_query_nonexact( $partial_match, $data_ref );
+					$batch_buffer = $self->_output_batch_query_nonexact( $partial_match, $data_ref );
 				}
 			}
 		}
@@ -208,20 +204,11 @@ sub _run_query {
 				print "<table class=\"resultstable\"><tr><th>Sequence</th><th>Results</th></tr>\n";
 				$first = 0;
 			}
-			if ($batchBuffer) {
-				print $batchBuffer;
-			}
+			print $batch_buffer if $batch_buffer;
 		}
 	}
 	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$job*";
-	if ( $page eq 'batchSequenceQuery' ) {
-		if ($batchBuffer) {
-			print "</table>\n";
-			print "</div>\n";
-		} else {
-			print "<div class=\"box\" id=\"statusbad\"><p>No matches found</p></div>\n";
-		}
-	}
+	print "</table>\n</div>\n" if $page eq 'batchSequenceQuery' && $batch_buffer;
 	return;
 }
 
@@ -238,14 +225,14 @@ sub _output_single_query_exact {
 	print "<div class=\"box\" id=\"resultstable\">\n";
 
 	if ( defined $data_type && $data_type eq 'peptide' && $seq_type eq 'DNA' ) {
-		print
-"<p>Please note that as this is a peptide locus, the length corresponds to the peptide translated from your query sequence.</p>\n";
+		print "<p>Please note that as this is a peptide locus, the length corresponds to the peptide translated from your "
+		  . "query sequence.</p>\n";
 	} elsif ( defined $data_type && $data_type eq 'DNA' && $seq_type eq 'peptide' ) {
 		print "<p>Please note that as this is a DNA locus, the length corresponds to the matching nucleotide sequence that "
 		  . "was translated to align against your peptide query sequence.</p>\n";
 	}
 	print
-"<table class=\"resultstable\"><tr><th>Allele</th><th>Length</th><th>Start position</th><th>End position</th><th>Attributes</th></tr>\n";
+"<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Allele</th><th>Length</th><th>Start position</th><th>End position</th><th>Linked data values</th></tr>\n";
 	if ( !$distinct_locus_selected && $q->param('order') eq 'locus' ) {
 		my %locus_values;
 		foreach (@$exact_matches) {
@@ -280,11 +267,11 @@ sub _output_single_query_exact {
 			  if $locus && $allele_id;
 		}
 		print "$allele</a></td><td>$_->{'length'}</td><td>$_->{'start'}</td><td>$_->{'end'}</td>";
-		print defined $field_values ? "<td>$field_values</td>" : '<td />';
+		print defined $field_values ? "<td style=\"text-align:left\">$field_values</td>" : '<td />';
 		print "</tr>\n";
 		$td = $td == 1 ? 2 : 1;
 	}
-	print "</table>\n";
+	print "</table></div>\n";
 	$self->_output_scheme_fields( $locus, \%designations );
 	print "</div>\n";
 	return;
@@ -621,9 +608,7 @@ sub _output_batch_query_nonexact {
 	} else {
 		$buffer .= "There are insertions/deletions between these sequences.  Try single sequence query to get more details.";
 	}
-	my $allele;
-	my $field_values;
-	my $cleaned_locus;
+	my ( $allele, $field_values, $cleaned_locus );
 	if ($distinct_locus_selected) {
 		$cleaned_locus = $self->clean_locus($locus);
 		$allele =
@@ -799,9 +784,11 @@ sub _get_client_dbase_fields {
 	eval { $sql->execute($locus) };
 	$logger->error($@) if $@;
 	my $values;
+	my %db_desc;
 	while ( my ( $client_dbase_id, $field ) = $sql->fetchrow_array ) {
-		my $client_db  = $self->{'datastore'}->get_client_db($client_dbase_id)->get_db;
-		my $client_sql = $client_db->prepare(
+		my $client_db      = $self->{'datastore'}->get_client_db($client_dbase_id)->get_db;
+		my $client_db_desc = $self->{'datastore'}->get_client_db_info($client_dbase_id)->{'name'};
+		my $client_sql     = $client_db->prepare(
 "SELECT $field FROM isolates LEFT JOIN allele_designations ON isolates.id = allele_designations.isolate_id WHERE allele_designations.locus=? AND allele_designations.allele_id=?"
 		);
 		foreach (@$allele_ids_refs) {
@@ -817,6 +804,7 @@ sub _get_client_dbase_fields {
 						$value = "<i>$value</i>";
 					}
 					push @{ $values->{$field} }, $value;
+					$db_desc{$client_db_desc} = 1;
 				}
 			}
 		}
@@ -828,10 +816,13 @@ sub _get_client_dbase_fields {
 	}
 	my $buffer;
 	if ( keys %$values ) {
+		my @dbs = sort keys %db_desc;
+		local $" = "</span> <span class=\"link\">";
+		$buffer .= "<span class=\"link\">@dbs</span> ";
 		my $first = 1;
 		foreach ( sort keys %$values ) {
-			$buffer .= '; ' if !$first;
 			local $" = ', ';
+			$buffer .= '; ' if !$first;
 			$buffer .= "$_: @{$values->{$_}}";
 			$first = 0;
 		}
