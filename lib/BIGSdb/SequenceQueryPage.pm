@@ -92,8 +92,11 @@ sub print_content {
 	print "</fieldset>\n<fieldset><legend>Order results by</legend>\n";
 	print $q->popup_menu( -name => 'order', -values => [ ( 'locus', 'best match' ) ] );
 	print "</fieldset>\n<fieldset><legend>"
-	  . ( $page eq 'sequenceQuery' ? 'Enter query sequence' : 'Enter query sequences (FASTA format)' )
-	  . "</legend>";
+	  . (
+		$page eq 'sequenceQuery'
+		? 'Enter query sequence (single or multiple contigs up to whole genome in size)'
+		: 'Enter query sequences (FASTA format)'
+	  ) . "</legend>";
 	my $sequence;
 
 	if ( $q->param('sequence') ) {
@@ -135,9 +138,13 @@ sub _run_query {
 	if ( $locus =~ /^cn_(.+)$/ ) {
 		$locus = $1;
 	}
-	my $distinct_locus_selected = ( $locus && $locus !~ /SCHEME_(\d+)/ ) ? 1 : 0;
+	my $distinct_locus_selected = ( $locus && $locus !~ /SCHEME_\d+/ ) ? 1 : 0;
 	my $cleaned_locus           = $self->clean_locus($locus);
 	my $locus_info              = $self->{'datastore'}->get_locus_info($locus);
+	my $linked_data =
+	    $distinct_locus_selected
+	  ? $self->{'datastore'}->run_simple_query( "SELECT EXISTS (SELECT * FROM client_dbase_loci_fields WHERE locus=?)", $locus )->[0]
+	  : $self->{'datastore'}->run_simple_query("SELECT EXISTS (SELECT * FROM client_dbase_loci_fields)")->[0];
 	while ( my $seq_object = $seqin->next_seq ) {
 		if ( $ENV{'MOD_PERL'} ) {
 			$self->{'mod_perl_request'}->rflush;
@@ -160,7 +167,8 @@ sub _run_query {
 			td                      => $td,
 			seq_ref                 => \$seq,
 			id                      => $seq_object->id // '',
-			job                     => $job
+			job                     => $job,
+			linked_data             => $linked_data
 		};
 
 		if ( ref $exact_matches eq 'ARRAY' && @$exact_matches ) {
@@ -231,8 +239,10 @@ sub _output_single_query_exact {
 		print "<p>Please note that as this is a DNA locus, the length corresponds to the matching nucleotide sequence that "
 		  . "was translated to align against your peptide query sequence.</p>\n";
 	}
-	print
-"<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Allele</th><th>Length</th><th>Start position</th><th>End position</th><th>Linked data values</th></tr>\n";
+	print "<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Allele</th><th>Length</th><th>Start position</th>"
+	  . "<th>End position</th>"
+	  . ( $data->{'linked_data'} ? '<th>Linked data values</th>' : '' )
+	  . "</tr>\n";
 	if ( !$distinct_locus_selected && $q->param('order') eq 'locus' ) {
 		my %locus_values;
 		foreach (@$exact_matches) {
@@ -267,7 +277,7 @@ sub _output_single_query_exact {
 			  if $locus && $allele_id;
 		}
 		print "$allele</a></td><td>$_->{'length'}</td><td>$_->{'start'}</td><td>$_->{'end'}</td>";
-		print defined $field_values ? "<td style=\"text-align:left\">$field_values</td>" : '<td />';
+		print defined $field_values ? "<td style=\"text-align:left\">$field_values</td>" : '<td />' if $data->{'linked_data'};
 		print "</tr>\n";
 		$td = $td == 1 ? 2 : 1;
 	}
@@ -433,9 +443,15 @@ sub _output_single_query_nonexact {
 		open( my $seq2_fh, '>', $seq1_infile );
 		print $seq2_fh ">Query\n$$seq_ref\n";
 		close $seq2_fh;
-		system(
-"$self->{'config'}->{'emboss_path'}/stretcher -aformat markx2 -awidth $self->{'prefs'}->{'alignwidth'} $seq1_infile $seq2_infile $outfile 2> /dev/null"
+		my $start = $partial_match->{'qstart'} =~ /(\d+)/ ? $1 : undef; #untaint
+		my $end   = $partial_match->{'qend'}   =~ /(\d+)/ ? $1 : undef;
+		my $reverse = $partial_match->{'reverse'} ? 1 : 0;
+		my @args = (
+			'-aformat', 'markx2', '-awidth', $self->{'prefs'}->{'alignwidth'},
+			'-asequence', $seq1_infile, '-bsequence', $seq2_infile, '-sbegin1', $start, '-send1', $end, '-sreverse1', $reverse, '-outfile',
+			$outfile
 		);
+		system("$self->{'config'}->{'emboss_path'}/stretcher @args 2>/dev/null");
 		unlink $seq1_infile, $seq2_infile;
 		my $internal_gaps;
 
@@ -478,16 +494,12 @@ sub _output_single_query_nonexact {
 				$sstart--;
 				$qstart--;
 			}
-			if ( $sstart > $ssend ) {
+			if ($reverse) {
 				print "<p>The sequence is reverse-complemented with respect to the reference sequence. "
-				  . "This will confuse the list of differences so try reversing it and query again.</p>\n";
+				  . "The list of differences is disabled but you can use the alignment or try reversing it and querying again.</p>\n";
+				$self->_print_alignment($outfile, $temp);				
 			} else {
-				if ( -e $outfile ) {
-					my $cleaned_file = "$self->{'config'}->{'tmp_dir'}/$temp\_cleaned.txt";
-					$self->_cleanup_alignment( $outfile, $cleaned_file );
-					print "<p><a href=\"/tmp/$temp\_cleaned.txt\" id=\"alignment_link\" rel=\"ajax\">Show alignment</a></p>\n";
-					print "<pre><span id=\"alignment\"></span></pre>\n";
-				}
+				$self->_print_alignment($outfile, $temp);
 				my $diffs = $self->_get_differences( $allele_seq_ref, $seq_ref, $sstart, $qstart );
 				print "<h2>Differences</h2>\n";
 				if (@$diffs) {
@@ -524,7 +536,7 @@ sub _output_single_query_nonexact {
 					}
 				} else {
 					print "<p>Your query sequence only starts at position $sstart of sequence ";
-					print "$locus: " if $locus && $locus !~ /SCHEME_\d+/;
+					print "$locus: " if $distinct_locus_selected;
 					print "$partial_match->{'allele'}.</p>\n";
 				}
 			}
@@ -563,6 +575,17 @@ sub _output_single_query_nonexact {
 		system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 	}
 	print "</div>\n";
+	return;
+}
+
+sub _print_alignment {
+	my ( $self, $outfile, $outfile_prefix ) = @_;
+	if ( -e $outfile ) {
+		my $cleaned_file = "$self->{'config'}->{'tmp_dir'}/$outfile_prefix\_cleaned.txt";
+		$self->_cleanup_alignment( $outfile, $cleaned_file );
+		print "<p><a href=\"/tmp/$outfile_prefix\_cleaned.txt\" id=\"alignment_link\" rel=\"ajax\">Show alignment</a></p>\n";
+		print "<pre style=\"font-size:1.2em\"><span id=\"alignment\"></span></pre>\n";
+	}
 	return;
 }
 
@@ -720,9 +743,10 @@ sub _parse_blast_partial {
 		$match{'alignment'} = $record[3];
 		$match{'gaps'}      = $record[5];
 		$match{'qstart'}    = $record[6];
-		$match{'send'}      = $record[7];
+		$match{'qend'}      = $record[7];
 		$match{'sstart'}    = $record[8];
 		$match{'send'}      = $record[9];
+		$match{'reverse'}   = 1 if ( $record[8] > $record[9] || $record[7] < $record[6] );
 		$match{'bit_score'} = $record[11];
 		if ( $match{'bit_score'} > $best_match{'bit_score'} ) {
 			%best_match = %match;
