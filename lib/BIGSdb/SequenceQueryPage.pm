@@ -453,40 +453,17 @@ sub _output_single_query_nonexact {
 		);
 		system("$self->{'config'}->{'emboss_path'}/stretcher @args 2>/dev/null");
 		unlink $seq1_infile, $seq2_infile;
-		my $internal_gaps;
-
-		if ( -e $outfile ) {
-			my ( $gaps, $opening_gaps, $end_gaps );
+		my $gaps;
+		if ( -e $outfile ) {	
 			open my $fh, '<', $outfile;
-			my $first_line = 1;
 			while (<$fh>) {
-				if ( $_ =~ /^# Gaps:\s+(\d+)+\// ) {
-					$gaps = $1;
-				}
-				if ( $_ =~ /^\s+Ref [^-]+$/ ) {
-
-					#Reset end gap count if line contains anything other than gaps
-					$end_gaps = 0;
-				}
-				if ( $first_line && $_ =~ /^\s+Ref/ ) {
-					if ( $_ =~ /^\s+Ref (-*)/ ) {
-						$opening_gaps += length $1;
-					}
-				}
-				if ( $_ =~ /^\s+Ref.+?(-*)\s*$/ ) {
-					$end_gaps += length $1;
-				}
-				if ( $_ =~ /^\s+Ref [^-]+$/ ) {
-					$first_line = 0;
-				}
+				$gaps = $1 if $_ =~ /^# Gaps:\s+(\d+)+\//;
 			}
 			close $fh;
-			$logger->debug("Opening gaps: $opening_gaps; End gaps: $end_gaps");
-			$internal_gaps = $gaps - $opening_gaps - $end_gaps;
 		}
 
 		#Display nucleotide differences if both BLAST and stretcher report no gaps.
-		if ( !$internal_gaps && !$partial_match->{'gaps'} ) {
+		if ( !$gaps && !$partial_match->{'gaps'} ) {
 			my $qstart = $partial_match->{'qstart'};
 			my $sstart = $partial_match->{'sstart'};
 			my $ssend  = $partial_match->{'send'};
