@@ -141,10 +141,7 @@ sub _run_query {
 	my $distinct_locus_selected = ( $locus && $locus !~ /SCHEME_\d+/ ) ? 1 : 0;
 	my $cleaned_locus           = $self->clean_locus($locus);
 	my $locus_info              = $self->{'datastore'}->get_locus_info($locus);
-	my $linked_data =
-	    $distinct_locus_selected
-	  ? $self->{'datastore'}->run_simple_query( "SELECT EXISTS (SELECT * FROM client_dbase_loci_fields WHERE locus=?)", $locus )->[0]
-	  : $self->{'datastore'}->run_simple_query("SELECT EXISTS (SELECT * FROM client_dbase_loci_fields)")->[0];
+	my $linked_data             = $self->_linked_data_defined($locus);
 	while ( my $seq_object = $seqin->next_seq ) {
 		if ( $ENV{'MOD_PERL'} ) {
 			$self->{'mod_perl_request'}->rflush;
@@ -399,7 +396,6 @@ sub _output_single_query_nonexact {
 	my $seq_ref                 = $data->{'seq_ref'};
 	print "<div class=\"box\" id=\"resultsheader\"><p>Closest match: ";
 	my $cleaned_match = $partial_match->{'allele'};
-	my $field_values;
 	my $cleaned_locus;
 
 	if ($distinct_locus_selected) {
@@ -407,7 +403,6 @@ sub _output_single_query_nonexact {
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$cleaned_match\">";
 		$cleaned_locus = $self->clean_locus($locus);
 		print "$cleaned_locus: ";
-		$field_values = $self->_get_client_dbase_fields( $locus, [$cleaned_match] );
 	} else {
 		my ( $locus, $allele_id );
 		if ( $cleaned_match =~ /(.*):(.*)/ ) {
@@ -416,14 +411,10 @@ sub _output_single_query_nonexact {
 			$cleaned_match = "$cleaned_locus: $allele_id";
 			print
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id\">";
-			$field_values = $self->_get_client_dbase_fields( $locus, [$allele_id] );
 		}
 	}
-	print "$cleaned_match</a>";
-	print " ($field_values)" if $field_values;
-	print "</p>";
-	my $data_type;
-	my $allele_seq_ref;
+	print "$cleaned_match</a></p>";
+	my ($data_type, $allele_seq_ref);
 	if ($distinct_locus_selected) {
 		$allele_seq_ref = $self->{'datastore'}->get_sequence( $locus, $partial_match->{'allele'} );
 		$data_type = $data->{'locus_info'}->{'data_type'};
@@ -443,7 +434,7 @@ sub _output_single_query_nonexact {
 		open( my $seq2_fh, '>', $seq1_infile );
 		print $seq2_fh ">Query\n$$seq_ref\n";
 		close $seq2_fh;
-		my $start = $partial_match->{'qstart'} =~ /(\d+)/ ? $1 : undef; #untaint
+		my $start = $partial_match->{'qstart'} =~ /(\d+)/ ? $1 : undef;    #untaint
 		my $end   = $partial_match->{'qend'}   =~ /(\d+)/ ? $1 : undef;
 		my $reverse = $partial_match->{'reverse'} ? 1 : 0;
 		my @args = (
@@ -454,7 +445,8 @@ sub _output_single_query_nonexact {
 		system("$self->{'config'}->{'emboss_path'}/stretcher @args 2>/dev/null");
 		unlink $seq1_infile, $seq2_infile;
 		my $gaps;
-		if ( -e $outfile ) {	
+
+		if ( -e $outfile ) {
 			open my $fh, '<', $outfile;
 			while (<$fh>) {
 				$gaps = $1 if $_ =~ /^# Gaps:\s+(\d+)+\//;
@@ -474,9 +466,9 @@ sub _output_single_query_nonexact {
 			if ($reverse) {
 				print "<p>The sequence is reverse-complemented with respect to the reference sequence. "
 				  . "The list of differences is disabled but you can use the alignment or try reversing it and querying again.</p>\n";
-				$self->_print_alignment($outfile, $temp);				
+				$self->_print_alignment( $outfile, $temp );
 			} else {
-				$self->_print_alignment($outfile, $temp);
+				$self->_print_alignment( $outfile, $temp );
 				my $diffs = $self->_get_differences( $allele_seq_ref, $seq_ref, $sstart, $qstart );
 				print "<h2>Differences</h2>\n";
 				if (@$diffs) {
@@ -608,12 +600,11 @@ sub _output_batch_query_nonexact {
 	} else {
 		$buffer .= "There are insertions/deletions between these sequences.  Try single sequence query to get more details.";
 	}
-	my ( $allele, $field_values, $cleaned_locus );
+	my ( $allele, $cleaned_locus );
 	if ($distinct_locus_selected) {
 		$cleaned_locus = $self->clean_locus($locus);
 		$allele =
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$partial_match->{'allele'}\">$cleaned_locus: $partial_match->{'allele'}</a>";
-		$field_values = $self->_get_client_dbase_fields( $locus, [ $partial_match->{'allele'} ] );
 	} else {
 		if ( $partial_match->{'allele'} =~ /(.*):(.*)/ ) {
 			my ( $locus, $allele_id ) = ( $1, $2 );
@@ -621,12 +612,9 @@ sub _output_batch_query_nonexact {
 			$partial_match->{'allele'} =~ s/:/: /;
 			$allele =
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id\">$cleaned_locus: $allele_id</a>";
-			$field_values = $self->_get_client_dbase_fields( $locus, [$allele_id] );
 		}
 	}
-	$batch_buffer = "<tr class=\"td$data->{'td'}\"><td>$data->{'id'}</td><td style=\"text-align:left\">Partial match found: $allele";
-	$batch_buffer .= " ($field_values)" if $field_values;
-	$batch_buffer .= ": $buffer</td></tr>\n";
+	$batch_buffer = "<tr class=\"td$data->{'td'}\"><td>$data->{'id'}</td><td style=\"text-align:left\">Partial match found: $allele: $buffer</td></tr>\n";
 	return $batch_buffer;
 }
 
@@ -829,5 +817,22 @@ sub _get_client_dbase_fields {
 		}
 	}
 	return $buffer;
+}
+
+sub _linked_data_defined {
+	my ( $self, $locus ) = @_;    #Locus is value defined in drop-down box - may be a scheme or 0 for all loci.
+	my $qry;
+	given ($locus) {
+		when ('0') { $qry = "SELECT EXISTS (SELECT * FROM client_dbase_loci_fields)" }
+		when (/SCHEME_(\d+)/) {
+			$qry = "SELECT EXISTS (SELECT * FROM client_dbase_loci_fields WHERE locus IN "
+			  . "(SELECT locus FROM scheme_members WHERE scheme_id=$1))"
+		}
+		default {
+			$locus =~ s/'/\\'/g;
+			$qry = "SELECT EXISTS (SELECT * FROM client_dbase_loci_fields WHERE locus=E'$locus')";
+		}
+	}
+	return $self->{'datastore'}->run_simple_query($qry)->[0];
 }
 1;
