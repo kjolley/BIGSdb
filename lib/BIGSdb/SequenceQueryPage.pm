@@ -141,7 +141,6 @@ sub _run_query {
 	my $distinct_locus_selected = ( $locus && $locus !~ /SCHEME_\d+/ ) ? 1 : 0;
 	my $cleaned_locus           = $self->clean_locus($locus);
 	my $locus_info              = $self->{'datastore'}->get_locus_info($locus);
-	my $linked_data             = $self->_linked_data_defined($locus);
 	while ( my $seq_object = $seqin->next_seq ) {
 		if ( $ENV{'MOD_PERL'} ) {
 			$self->{'mod_perl_request'}->rflush;
@@ -165,7 +164,8 @@ sub _run_query {
 			seq_ref                 => \$seq,
 			id                      => $seq_object->id // '',
 			job                     => $job,
-			linked_data             => $linked_data
+			linked_data             => $self->_data_linked_to_locus( $locus, 'client_dbase_loci_fields' ),
+			extended_attributes     => $self->_data_linked_to_locus( $locus, 'locus_extended_attributes' ),
 		};
 
 		if ( ref $exact_matches eq 'ARRAY' && @$exact_matches ) {
@@ -238,7 +238,8 @@ sub _output_single_query_exact {
 	}
 	print "<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Allele</th><th>Length</th><th>Start position</th>"
 	  . "<th>End position</th>"
-	  . ( $data->{'linked_data'} ? '<th>Linked data values</th>' : '' )
+	  . ( $data->{'linked_data'}         ? '<th>Linked data values</th>' : '' )
+	  . ( $data->{'extended_attributes'} ? '<th>Attributes</th>'         : '' )
 	  . "</tr>\n";
 	if ( !$distinct_locus_selected && $q->param('order') eq 'locus' ) {
 		my %locus_values;
@@ -253,21 +254,23 @@ sub _output_single_query_exact {
 	foreach (@$exact_matches) {
 		print "<tr class=\"td$td\"><td>";
 		my $allele;
-		my $field_values;
+		my ( $field_values, $attributes );
 		if ($distinct_locus_selected) {
 			my $cleaned = $self->clean_locus($locus);
 			print
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$_->{'allele'}\">";
-			$allele = "$cleaned: $_->{'allele'}";
+			$allele       = "$cleaned: $_->{'allele'}";
 			$field_values = $self->_get_client_dbase_fields( $locus, [ $_->{'allele'} ] );
+			$attributes   = $self->_get_allele_attributes( $locus, [ $_->{'allele'} ] );
 		} else {    #either all loci or a scheme selected
 			my ( $locus, $allele_id );
 			if ( $_->{'allele'} =~ /(.*):(.*)/ ) {
 				( $locus, $allele_id ) = ( $1, $2 );
 				$designations{$locus} = $allele_id;
 				my $cleaned = $self->clean_locus($locus);
-				$allele = "$cleaned: $allele_id";
+				$allele       = "$cleaned: $allele_id";
 				$field_values = $self->_get_client_dbase_fields( $locus, [$allele_id] );
+				$attributes   = $self->_get_allele_attributes( $locus, [$allele_id] );
 			}
 			print
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id\">"
@@ -275,6 +278,8 @@ sub _output_single_query_exact {
 		}
 		print "$allele</a></td><td>$_->{'length'}</td><td>$_->{'start'}</td><td>$_->{'end'}</td>";
 		print defined $field_values ? "<td style=\"text-align:left\">$field_values</td>" : '<td />' if $data->{'linked_data'};
+		print defined $attributes ? "<td style=\"text-align:left\">$attributes</td>" : '<td />' if $data->{'extended_attributes'};
+		
 		print "</tr>\n";
 		$td = $td == 1 ? 2 : 1;
 	}
@@ -351,11 +356,9 @@ sub _output_batch_query_exact {
 		} else {
 			$allele_id = $_->{'allele'};
 		}
-		my $field_values = $self->_get_client_dbase_fields( $locus, [$allele_id] );
 		my $cleaned_locus = $self->clean_locus($locus);
 		$buffer .=
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id\">$cleaned_locus: $allele_id</a>";
-		$buffer .= " ($field_values)" if $field_values;
 		undef $locus if !$distinct_locus_selected;
 		$first = 0;
 	}
@@ -414,7 +417,7 @@ sub _output_single_query_nonexact {
 		}
 	}
 	print "$cleaned_match</a></p>";
-	my ($data_type, $allele_seq_ref);
+	my ( $data_type, $allele_seq_ref );
 	if ($distinct_locus_selected) {
 		$allele_seq_ref = $self->{'datastore'}->get_sequence( $locus, $partial_match->{'allele'} );
 		$data_type = $data->{'locus_info'}->{'data_type'};
@@ -614,7 +617,8 @@ sub _output_batch_query_nonexact {
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id\">$cleaned_locus: $allele_id</a>";
 		}
 	}
-	$batch_buffer = "<tr class=\"td$data->{'td'}\"><td>$data->{'id'}</td><td style=\"text-align:left\">Partial match found: $allele: $buffer</td></tr>\n";
+	$batch_buffer =
+	  "<tr class=\"td$data->{'td'}\"><td>$data->{'id'}</td><td style=\"text-align:left\">Partial match found: $allele: $buffer</td></tr>\n";
 	return $batch_buffer;
 }
 
@@ -808,29 +812,62 @@ sub _get_client_dbase_fields {
 		my @dbs = sort keys %db_desc;
 		local $" = "</span> <span class=\"link\">";
 		$buffer .= "<span class=\"link\">@dbs</span> ";
+		$buffer .= $self->_format_list_values($values);
+	}
+	return $buffer;
+}
+
+sub _get_allele_attributes {
+	my ( $self, $locus, $allele_ids_refs ) = @_;
+	return [] if ref $allele_ids_refs ne 'ARRAY';
+	my $fields = $self->{'datastore'}->run_list_query( "SELECT field FROM locus_extended_attributes WHERE locus=?", $locus );
+	my $sql = $self->{'db'}->prepare("SELECT value FROM sequence_extended_attributes WHERE locus=? AND field=? AND allele_id=?");
+	my $values;
+	return if !@$fields;
+	foreach my $field (@$fields) {
+		foreach (@$allele_ids_refs) {
+			eval { $sql->execute( $locus, $field, $_ ) };
+			$logger->error($@) if $@;
+			while ( my ($value) = $sql->fetchrow_array ) {
+				next if !defined $value || $value eq '';
+				push @{ $values->{$field} }, $value;
+			}
+		}
+		if ( ref $values->{$field} eq 'ARRAY' && @{ $values->{$field} } ) {
+			my @list = @{ $values->{$field} };
+			@list = uniq sort @list;
+			@{ $values->{$field} } = @list;
+		}
+	}
+	return $self->_format_list_values($values);
+}
+
+sub _format_list_values {
+	my ($self, $hash_ref) = @_;
+	my $buffer = '';
+	if ( keys %$hash_ref ) {
 		my $first = 1;
-		foreach ( sort keys %$values ) {
+		foreach ( sort keys %$hash_ref ) {
 			local $" = ', ';
 			$buffer .= '; ' if !$first;
-			$buffer .= "$_: @{$values->{$_}}";
+			$buffer .= "$_: @{$hash_ref->{$_}}";
 			$first = 0;
 		}
 	}
 	return $buffer;
 }
 
-sub _linked_data_defined {
-	my ( $self, $locus ) = @_;    #Locus is value defined in drop-down box - may be a scheme or 0 for all loci.
+sub _data_linked_to_locus {
+	my ( $self, $locus, $table ) = @_;    #Locus is value defined in drop-down box - may be a scheme or 0 for all loci.
 	my $qry;
 	given ($locus) {
-		when ('0') { $qry = "SELECT EXISTS (SELECT * FROM client_dbase_loci_fields)" }
+		when ('0') { $qry = "SELECT EXISTS (SELECT * FROM $table)" }
 		when (/SCHEME_(\d+)/) {
-			$qry = "SELECT EXISTS (SELECT * FROM client_dbase_loci_fields WHERE locus IN "
-			  . "(SELECT locus FROM scheme_members WHERE scheme_id=$1))"
+			$qry = "SELECT EXISTS (SELECT * FROM $table WHERE locus IN " . "(SELECT locus FROM scheme_members WHERE scheme_id=$1))"
 		}
 		default {
 			$locus =~ s/'/\\'/g;
-			$qry = "SELECT EXISTS (SELECT * FROM client_dbase_loci_fields WHERE locus=E'$locus')";
+			$qry = "SELECT EXISTS (SELECT * FROM $table WHERE locus=E'$locus')";
 		}
 	}
 	return $self->{'datastore'}->run_simple_query($qry)->[0];
