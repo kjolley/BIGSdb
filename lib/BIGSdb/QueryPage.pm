@@ -449,11 +449,9 @@ sub _print_isolate_filter_fieldset {
 			return 1 if $options->{'selected'} && $q->param('publication_list');
 		}
 	}
-	if ( $prefs->{'dropdownfields'}->{'projects'} ) {
-		my $buffer = $self->get_project_filter( { 'any' => 1 } );
-		push @filters, $buffer if $buffer;
-		return 1 if $options->{'selected'} && $q->param('project_list');
-	}
+	my $buffer = $self->get_project_filter( { 'any' => 1 } );
+	push @filters, $buffer if $buffer;
+	return 1 if $options->{'selected'} && $q->param('project_list');
 	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
 	foreach (@$schemes) {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
@@ -494,7 +492,8 @@ sub _print_isolate_filter_fieldset {
 			}
 		}
 	}
-	if ( $prefs->{'dropdownfields'}->{'linked_sequences'} ) {
+	my $linked_seqs = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT id FROM sequence_bin)")->[0];
+	if ( $linked_seqs ) {
 		push @filters,
 		  $self->get_filter(
 			'linked_sequences',

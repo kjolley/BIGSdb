@@ -621,10 +621,11 @@ sub get_filter {
 	my ( $label, $title ) = $self->_get_truncated_label("$text: ");
 	my $title_attribute = $title ? "title=\"$title\"" : '';
 	my $buffer = "<label for=\"$name\_list\" class=\"$filter\" $title_attribute>$label</label>\n";
+	unshift @$values, '' if !$options->{'noblank'};
 	$buffer .= $self->{'cgi'}->popup_menu(
 		-name   => "$name\_list",
 		-id     => "$name\_list",
-		-values => [ '', @$values ],
+		-values => $values,
 		-labels => $options->{'labels'},
 		-class  => $filter
 	);
@@ -2692,8 +2693,6 @@ sub _initiate_isolatedb_prefs {
 			my $field = "scheme_$_\_profile_status";
 			$self->{'prefs'}->{'dropdownfields'}->{$field} = $params->{"dropfield_$field"} ? 1 : 0;
 		}
-		$self->{'prefs'}->{'dropdownfields'}->{'projects'}         = $params->{"dropfield_projects"}         ? 1 : 0;
-		$self->{'prefs'}->{'dropdownfields'}->{'linked_sequences'} = $params->{"dropfield_linked_sequences"} ? 1 : 0;
 	} else {
 		my $guid             = $self->get_guid || 1;
 		my $dbname           = $self->{'system'}->{'db'};
@@ -2716,14 +2715,6 @@ sub _initiate_isolatedb_prefs {
 			}
 		}
 		if ( $self->{'pref_requirements'}->{'query_field'} ) {
-			foreach (qw (linked_sequences projects)) {
-				if ( defined $field_prefs->{$_}->{'dropdown'} ) {
-					$self->{'prefs'}->{'dropdownfields'}->{$_} = $field_prefs->{$_}->{'dropdown'} ? 1 : 0;
-				} else {
-					$self->{'system'}->{$_} ||= 'no';
-					$self->{'prefs'}->{'dropdownfields'}->{$_} = $self->{'system'}->{$_} eq 'yes' ? 1 : 0;
-				}
-			}
 			foreach (@$field_list) {
 				next if $_ eq 'id';
 				if ( defined $field_prefs->{$_}->{'dropdown'} ) {

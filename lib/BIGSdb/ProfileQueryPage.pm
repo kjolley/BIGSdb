@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2011, University of Oxford
+#Copyright (c) 2010-2012, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,7 @@
 package BIGSdb::ProfileQueryPage;
 use strict;
 use warnings;
+use 5.010;
 use base qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
@@ -28,6 +29,7 @@ use BIGSdb::Page qw(LOCUS_PATTERNS);
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (tooltips jQuery);
+	return;
 }
 
 sub get_title {
@@ -41,15 +43,9 @@ sub print_content {
 	my $system    = $self->{'system'};
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
-	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
-		$scheme_id = -1;
-	}
+	$scheme_id = -1 if !BIGSdb::Utils::is_int($scheme_id);
 	my $scheme_info = $scheme_id > 0 ? $self->{'datastore'}->get_scheme_info($scheme_id) : undef;
-	if (defined $scheme_info->{'description'}){
-		$scheme_info->{'description'} =~ s/\&/\&amp;/g;
-	} else {
-		$scheme_info->{'description'} = '';
-	}
+	($scheme_info->{'description'} //= '') =~ s/\&/\&amp;/g;
 	print "<h1>Search $system->{'description'} database by combinations of $scheme_info->{'description'} loci</h1>\n";
 	if ( ( !$scheme_info->{'id'} && $scheme_id ) || ( $self->{'system'}->{'dbtype'} eq 'sequences' && !$scheme_id ) ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Invalid scheme selected.</p></div>\n";
@@ -68,13 +64,13 @@ sub print_content {
 	} else {
 		print "<p />\n";
 	}
+	return;
 }
 
 sub _print_query_interface {
 	my ( $self, $scheme_id ) = @_;
 	my $q = $self->{'cgi'};
 	print "<div class=\"box\" id=\"queryform\">\n";
-	print "<p>Please enter your allelic profile below.  Blank loci will be ignored.</p>\n";
 	my $primary_keys;
 	if ($scheme_id) {
 		$primary_keys =
@@ -128,9 +124,9 @@ sub _print_query_interface {
 			}
 		}
 	}
-	print $q->start_form;
-	print "<table><tr><td style=\"vertical-align:top\">" if $primary_keys && @$primary_keys;	
 	print "<div class=\"scrollable\">\n";
+	print $q->start_form;
+	print "<fieldset id=\"profile_fieldset\" style=\"float:left\"><legend>Please enter your allelic profile below.  Blank loci will be ignored.</legend>\n";
 	print "<table class=\"queryform\">";
 	my $i = 0;
 	my ( $header_row, $form_row );
@@ -183,50 +179,50 @@ sub _print_query_interface {
 		my $class = $all_integers ? 'int_entry' : 'allele_entry';
 		$header_row .= "<th class=\"$class\">$label{$_}</th>";
 		$form_row   .= "<td>";		
-		$" = ' ';
 		$form_row .= $q->textfield( -name => "$_", -class => $class, -style => 'text-align:center' );
 		$form_row .= "</td>\n";
 		$i++;
 	}
 	print "<tr>$header_row</tr>\n";
 	print "<tr>$form_row</tr>\n";
-	print "</table></div>\n";
-	print "<table>\n";
-	
-	
-	if ($self->{'system'}->{'dbtype'} eq 'isolates' && $self->{'prefs'}->{'dropdownfields'}->{'projects'} ) {
-		my $sql = $self->{'db'}->prepare("SELECT id, short_description FROM projects ORDER BY short_description");
-		eval { $sql->execute };
-		$logger->error($@) if $@;
-		my ( @project_ids, %labels );
-		while ( my ( $id, $desc ) = $sql->fetchrow_array ) {
-			push @project_ids, $id;
-			$labels{$id} = $desc;
+	print "</table>\n";
+	print "</fieldset>\n";
+	if ( $primary_keys && @$primary_keys ) {
+		print "<fieldset id=\"autofill_fieldset\" style=\"float:left\"><legend>Autofill profile by searching remote database</legend>\n<ul>\n";
+		my $first = 1;
+		foreach (@$primary_keys) {
+			print "<li><label for=\"$_\" class=\"display\">$_: </label>\n";
+			print $q->textfield( -name => $_, -id => $_, -class => "allele_entry" );
+			print $q->submit( -name => 'Autofill', -class => 'submit' ) if $first;
+			$first = 0;
+			print "</li>";
 		}
-		if (@project_ids) {
-			print "<tr><td style=\"text-align:right;padding-left:1em\">";
-			print "Project filter: </td><td style=\"text-align:left\">";
-			print $q->popup_menu( -name => 'project_list', -values => ['', @project_ids], -labels => \%labels, -class => 'filter' );
-			print
-" <a class=\"tooltip\" title=\"project filter - Click the checkbox and select a project to filter your search to only those isolates belonging to it.\">&nbsp;<i>i</i>&nbsp;</a>";
-			print "</td></tr>\n";
+		print "</ul></fieldset>\n";
+	}	
+		print "<div style=\"clear:both\">\n";
+	
+	if ($self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		my $buffer = $self->get_project_filter({class=>'display'});
+		if ($buffer){
+			print "<fieldset>\n<legend>Restrict included sequences by</legend>\n";
+			print "<ul><li>$buffer</li></ul></fieldset>\n";
 		}
 	}
-	
-	
-	print "<tr><td style=\"text-align:right\">Type of search: </td><td>\n";
+	print "<fieldset id=\"options_fieldset\" style=\"float:left\"><legend>Options</legend>\n";
 	my ( @values, %labels );
 	push @values, 0;
 
-	for ( my $i = scalar @$loci ; $i > 0 ; $i-- ) {
+	foreach my $i ( reverse 1 .. @$loci ) {
 		push @values, $i;
 		$labels{$i} = "$i or more matches";
 	}
 	$labels{0} = 'Exact or nearest match';
 	$labels{ scalar @$loci } = 'Exact match only';
-	print $q->popup_menu( -name => 'matches', -values => [@values], -labels => \%labels );
-	print "</td></tr>\n";
-	print "<tr><td style=\"text-align:right\">Order by: </td><td>\n";
+	print $self->get_filter('matches', \@values, {labels => \%labels, text=>'Search', noblank=>1,class=>'display'});
+	print "</fieldset>\n";
+	print "<fieldset id=\"display_fieldset\" style=\"float:left\"><legend>Display/sort options</legend>\n";
+	print "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>\n";
+
 	my ($order_by,$dropdown_labels);
 	if ($self->{'system'}->{'dbtype'} eq 'isolates'){
 		($order_by,$dropdown_labels) = $self->get_field_selection_list( {
@@ -248,14 +244,13 @@ sub _print_query_interface {
 			$dropdown_labels->{"f_$item"} =~ tr/_/ /;
 		}
 	}
-	print $q->popup_menu( -name => 'order', -values => $order_by, -labels => $dropdown_labels );
+	print $q->popup_menu( -name => 'order', -id => 'order', -values => $order_by, -labels => $dropdown_labels );
 	print $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
-	print "</td></tr>\n";
-	print
-"<tr><td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profiles&amp;scheme_id=$scheme_id\" class=\"resetbutton\">Reset</a>";
-	print "&nbsp;&nbsp;Display: </td><td>\n";
+	print "</span></li>\n<li><span style=\"white-space:nowrap\">\n";
+	print "<label for=\"displayrecs\" class=\"display\">Display: </label>\n";
 	print $q->popup_menu(
 		-name    => 'displayrecs',
+		-id => 'displayrecs',
 		-values  => [ '10', '25', '50', '100', '200', '500', 'all' ],
 		-default => $self->{'prefs'}->{'displayrecs'}
 	);
@@ -263,33 +258,22 @@ sub _print_query_interface {
 	print
 " <a class=\"tooltip\" title=\"Records per page - Analyses use the full query dataset, rather than just the page shown.\">&nbsp;<i>i</i>&nbsp;</a>";
 	print "&nbsp;&nbsp;";
+	print "</span></li></ul></fieldset>\n";
+	print
+"</div>\n<div style=\"clear:both\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profiles&amp;scheme_id=$scheme_id\" class=\"resetbutton\">Reset</a><span style=\"float:right\">";
 	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	print "</td></tr>\n";
-	print "</table>\n";
+	print "</span></div>";
 
 	print $q->hidden($_) foreach qw (db page scheme_id);
 	print $q->hidden( 'sent', 1 );
-	if ( $primary_keys && @$primary_keys ) {
-		print "</td><td style=\"padding-left:2em; vertical-align:top\">";
-		print "<p>Autofill profile by searching remote database.</p>\n";
-		print "<table>\n";
-		my $first = 1;
-		foreach (@$primary_keys) {
-			print "<tr><td style=\"text-align:right\">$_: </td><td>";
-			print $q->textfield( -name => $_, -class => "allele_entry" );
-			print $q->submit( -name => 'Autofill', -class => 'submit' ) if $first;
-			$first = 0;
-			print "</td></tr>";
-		}
-		print "</table>\n";
-		print "</td></tr></table>";
-	}
+
 	print $q->end_form;
-	print "</div>\n";
+	print "</div></div>\n";
 	if (@errors) {
-		$" = '<br />';
+		local $" = '<br />';
 		print "<div class=\"box\" id=\"statusbad\"><p>Problem with search criteria:</p><p>@errors</p></div>\n";
 	}
+	return;
 }
 
 sub _run_query {
@@ -351,7 +335,7 @@ sub _run_query {
 		}
 		if (@lqry) {
 			local $" = ' OR ';
-			my $matches = $q->param('matches');
+			my $matches = $q->param('matches_list');
 			if ( $matches == scalar @loci ) {
 				$matches = scalar @lqry;
 			}

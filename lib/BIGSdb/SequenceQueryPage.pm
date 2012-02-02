@@ -91,7 +91,9 @@ sub print_content {
 	print $q->popup_menu( -name => 'locus', -values => $display_loci, -labels => $cleaned );
 	print "</fieldset>\n<fieldset><legend>Order results by</legend>\n";
 	print $q->popup_menu( -name => 'order', -values => [ ( 'locus', 'best match' ) ] );
-	print "</fieldset>\n<fieldset><legend>"
+	print "</fieldset>\n";
+	print "<div style=\"clear:both\">\n";
+	print "<fieldset><legend>"
 	  . (
 		$page eq 'sequenceQuery'
 		? 'Enter query sequence (single or multiple contigs up to whole genome in size)'
@@ -105,7 +107,7 @@ sub print_content {
 	}
 	print $q->textarea( -name => 'sequence', -rows => 6, -cols => 70 );
 	print
-"</fieldset>\n<div style=\"clear:both\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page\" class=\"resetbutton\">"
+"</fieldset></div>\n<div style=\"clear:both\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page\" class=\"resetbutton\">"
 	  . "Reset</a><span style=\"float:right\">";
 	print $q->submit( -name => 'Submit', -class => 'submit' );
 	print "</span></div></div>";

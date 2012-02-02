@@ -169,9 +169,6 @@ sub set_options {
 				$prefstore->set_field( $guid, $dbname, $field, 'dropdown', $prefs->{'dropdownfields'}->{$field} ? 'true' : 'false' );
 			}
 		}
-		$prefstore->set_field( $guid, $dbname, 'projects', 'dropdown', $prefs->{'dropdownfields'}->{'projects'} ? 'true' : 'false' );
-		$prefstore->set_field( $guid, $dbname, 'linked_sequences', 'dropdown',
-			$prefs->{'dropdownfields'}->{'linked_sequences'} ? 'true' : 'false' );
 		$prefstore->update_datestamp($guid);
 	} elsif ( $q->param('reset') ) {
 		my $guid = $self->get_guid;
@@ -471,8 +468,6 @@ sub _print_query_tab {
 			push @checkfields, $field;
 			$labels{$field} = "$scheme_info->{'description'} profile completion";
 		}
-		push @checkfields, 'projects';
-		push @checkfields, 'linked_sequences';
 	}
 	my ( @js, @js2, @js3 );
 	my $field_count = @checkfields;

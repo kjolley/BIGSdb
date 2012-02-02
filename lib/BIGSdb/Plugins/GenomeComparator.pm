@@ -232,8 +232,6 @@ sub _upload_ref_file {
 	print $fh $buffer while ( read( $fh2, $buffer, $buffer_size ) );
 	close $fh;
 	return "$temp\_ref$format";
-
-	#Test for valid format with no sequence data (just annotations)
 }
 
 sub _print_interface {
