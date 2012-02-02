@@ -20,13 +20,16 @@
 package BIGSdb::Plugins::GenomeComparator;
 use strict;
 use warnings;
+use 5.010;
 use base qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 use Apache2::Connection ();
+use Bio::SeqIO;
 use List::MoreUtils qw(uniq any none);
 use BIGSdb::Page 'SEQ_METHODS';
+use constant MAX_UPLOAD_SIZE => 32768;
 
 sub get_attributes {
 	my %att = (
@@ -39,7 +42,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.2.2',
+		version     => '1.3.0',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		order       => 30,
@@ -62,7 +65,7 @@ function listbox_selectall(listID, isSelect) {
 }
 
 function enable_seqs(){
-	if (\$("#accession").val()){
+	if (\$("#accession").val() || \$("#ref_upload").val()){
 		\$("#scheme_fieldset").hide(500);
 		\$("#locus_fieldset").hide(500);
 		\$("#tblastx").attr("disabled", false);
@@ -85,46 +88,68 @@ END
 
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
-	my @loci = split /\|\|/, $params->{'locus'} || '';
+	my @loci = split /\|\|/, $params->{'locus'} // '';
 	my @ids = split /\|\|/, $params->{'isolate_id'};
 	my $filtered_ids = $self->_filter_ids_by_project( \@ids, $params->{'project_list'} );
-	my @scheme_ids = split /\|\|/, (defined $params->{'scheme_id'} ? $params->{'scheme_id'} : '');
-	my $accession = $params->{'accession'};
+	my @scheme_ids = split /\|\|/, ( defined $params->{'scheme_id'} ? $params->{'scheme_id'} : '' );
+	my $accession  = $params->{'accession'};
+	my $ref_upload = $params->{'ref_upload'};
 	if ( !@$filtered_ids ) {
 		$self->{'jobManager'}->update_job_status(
 			$job_id,
 			{
-				'status' => 'failed',
-				'message_html' =>
-"<p>You must include one or more isolates. Make sure your selected isolates haven't been filtered to none by selecting a project.</p>"
+				'status'       => 'failed',
+				'message_html' => "<p class=\"statusbad\">You must include one or more isolates. Make "
+				  . "sure your selected isolates haven't been filtered to none by selecting a project.</p>"
 			}
 		);
 		return;
 	}
-	if ( !$accession && !@loci && !@scheme_ids ) {
-		$self->{'jobManager'}->update_job_status( $job_id,
-			{ 'status' => 'failed', 'message_html' => "<p>You must select one or more loci or schemes, or a genome accession number.</p>" }
+	if ( !$accession && !$ref_upload && !@loci && !@scheme_ids ) {
+		$self->{'jobManager'}->update_job_status(
+			$job_id,
+			{
+				'status'       => 'failed',
+				'message_html' => "<p class=\"statusbad\">You must either select one or more loci or schemes, "
+				  . "provide a genome accession number, or upload an annotated genome.</p>"
+			}
 		);
 		return;
 	}
-	if ($accession) {
+	if ( $accession || $ref_upload ) {
 		my $seq_db = Bio::DB::GenBank->new;
 		$seq_db->verbose(2);    #convert warn to exception
 		my $seq_obj;
-		try {
-			$seq_obj = $seq_db->get_Seq_by_acc($accession);
+		if ($accession) {
+			try {
+				$seq_obj = $seq_db->get_Seq_by_acc($accession);
+			}
+			catch Bio::Root::Exception with {
+				$self->{'jobManager'}->update_job_status(
+					$job_id,
+					{
+						'status'       => 'failed',
+						'message_html' => "<p class=\"statusbad\">No data returned for accession number #$accession.</p>"
+					}
+				);
+				my $err = shift;
+				$logger->debug($err);
+			};
+		} else {
+			try {
+				my $seqio_object = Bio::SeqIO->new( -file => "$self->{'config'}->{'tmp_dir'}/$ref_upload", -format => 'genbank' );
+				$seq_obj = $seqio_object->next_seq;
+			}
+			catch Bio::Root::Exception with {
+				my $err = shift;
+				$logger->debug($err);
+			};
+			if ( !$seq_obj ) {
+				$self->{'jobManager'}->update_job_status( $job_id,
+					{ 'status' => 'failed', 'message_html' => "<p class=\"statusbad\">Invalid data in uploaded reference file.</p>" } );
+			}
+			unlink "$self->{'config'}->{'tmp_dir'}/$ref_upload";
 		}
-		catch Bio::Root::Exception with {
-			$self->{'jobManager'}->update_job_status(
-				$job_id,
-				{
-					'status'       => 'failed',
-					'message_html' => "<p /><p class=\"statusbad\">No data returned for accession number #$accession.</p>"
-				}
-			);
-			my $err = shift;
-			$logger->debug($err);
-		};
 		return if !$seq_obj;
 		$self->_analyse_by_reference( $job_id, $params, $accession, $seq_obj, $filtered_ids );
 	} else {
@@ -140,6 +165,7 @@ sub run {
 	my $q = $self->{'cgi'};
 	if ( $q->param('submit') ) {
 		my @ids          = $q->param('isolate_id');
+		my $ref_upload   = $q->param('ref_upload') ? $self->_upload_ref_file : undef;
 		my $filtered_ids = $self->_filter_ids_by_project( \@ids, $q->param('project_list') );
 		my $continue     = 1;
 		if ( !@$filtered_ids ) {
@@ -150,22 +176,22 @@ sub run {
 		my @loci       = $q->param('locus');
 		my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 		push @$scheme_ids, 0;
-
-		my $accession  = $q->param('accession');
-		if ( !$accession && !@loci && (none {$q->param("s_$_")} @$scheme_ids) && $continue ) {
+		my $accession = $q->param('accession');
+		if ( !$accession && !$ref_upload && !@loci && ( none { $q->param("s_$_") } @$scheme_ids ) && $continue ) {
 			print
-"<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci or schemes, or a genome accession number.</p></div>\n";
+"<div class=\"box\" id=\"statusbad\"><p>You must either select one or more loci or schemes, provide a genome accession number, or upload an annotated genome.</p></div>\n";
 			$continue = 0;
 		}
 		my @selected_schemes;
-		foreach (@$scheme_ids){
+		foreach (@$scheme_ids) {
 			next if !$q->param("s_$_");
-			push @selected_schemes, $_; 
+			push @selected_schemes, $_;
 			$q->delete("s_$_");
 		}
 		local $" = '||';
 		my $scheme_string = "@selected_schemes";
-		$q->param('scheme_id', $scheme_string);
+		$q->param( 'scheme_id', $scheme_string );
+		$q->param( 'ref_upload', $ref_upload ) if $ref_upload;
 		if ($continue) {
 			my $params = $q->Vars;
 			my $job_id = $self->{'jobManager'}->add_job(
@@ -192,12 +218,30 @@ HTML
 	return;
 }
 
+sub _upload_ref_file {
+	my ($self) = @_;
+	my $temp = BIGSdb::Utils::get_random();
+	my $format = $self->{'cgi'}->param('ref_upload') =~ /.+(\.\w+)$/ ? "$1" : '';
+	my $filename = "$self->{'config'}->{'tmp_dir'}/$temp\_ref$format";
+	my $buffer;
+	my $buffer_size = MAX_UPLOAD_SIZE;
+	open( my $fh, '>', $filename ) || $logger->error("Could not open $filename for writing.");
+	my $fh2 = $self->{'cgi'}->upload('ref_upload');
+	binmode $fh2;
+	binmode $fh;
+	print $fh $buffer while ( read( $fh2, $buffer, $buffer_size ) );
+	close $fh;
+	return "$temp\_ref$format";
+
+	#Test for valid format with no sequence data (just annotations)
+}
+
 sub _print_interface {
-	my ($self)       = @_;
-	my $q            = $self->{'cgi'};
-	my $view         = $self->{'system'}->{'view'};
-	my $query_file   = $q->param('query_file');
-	my $qry_ref      = $self->get_query($query_file);
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
+	my $view       = $self->{'system'}->{'view'};
+	my $query_file = $q->param('query_file');
+	my $qry_ref    = $self->get_query($query_file);
 	my $selected_ids = defined $query_file ? $self->get_ids_from_query($qry_ref) : [];
 	my $qry =
 "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM sequence_bin LEFT JOIN $view ON $view.id=sequence_bin.isolate_id ORDER BY $view.id";
@@ -216,16 +260,14 @@ sub _print_interface {
 		print "<div class=\"box\" id=\"statusbad\"><p>There are no sequences in the sequence bin.</p></div>\n";
 		return;
 	}
-	print "<div class=\"box\" id=\"queryform\">\n";
-	print "<p>Please select the required isolate ids and loci for comparison - use ctrl or shift to make 
-	  multiple selections. In addition to selecting individual loci, you can choose to include all loci defined in schemes
-	  by selecting the appropriate scheme description. Alternatively, you can enter the accession number for an
-	  annotated reference genome and compare using the loci defined in that.</p>\n";
+	print <<"HTML";
+<div class="box" id="queryform">
+<p>Please select the required isolate ids and loci for comparison - use ctrl or shift to make multiple 
+selections. In addition to selecting individual loci, you can choose to include all loci defined in schemes 
+by selecting the appropriate scheme description. Alternatively, you can enter the accession number for an 
+annotated reference genome and compare using the loci defined in that.</p>
+HTML
 	my $loci = $self->{'datastore'}->get_loci( { 'query_pref' => 0, 'seq_defined' => 1 } );
-	my %cleaned;
-	foreach (@$loci) {
-		( $cleaned{$_} = $_ ) =~ tr/_/ /;
-	}
 	print $q->start_form( -onMouseMove => 'enable_seqs()' );
 	print "<div class=\"scrollable\">\n";
 	print "<fieldset style=\"float:left\">\n<legend>Isolates</legend>\n";
@@ -238,27 +280,25 @@ sub _print_interface {
 		-multiple => 'true',
 		-default  => $selected_ids
 	);
-	print
-"<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"isolate_id\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
-	print
-"<input type=\"button\" onclick='listbox_selectall(\"isolate_id\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
-	print "</fieldset>\n";
-	print "<fieldset id=\"locus_fieldset\" style=\"float:left\">\n<legend>Loci</legend>\n";
-	print $q->scrolling_list( -name => 'locus', -id => 'locus', -values => $loci, -labels => \%cleaned, -size => 8, -multiple => 'true' );
-	print
-"<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"locus\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
-	print
-"<input type=\"button\" onclick='listbox_selectall(\"locus\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
-	print "</fieldset>\n";
-	print "<fieldset id=\"scheme_fieldset\" style=\"float:left\">\n<legend>Schemes</legend>\n";
-	print "<noscript><p class=\"highlight\">Enable Javascript to select schemes.</p></noscript>\n";
-	print "<div id=\"tree\" class=\"tree\" style=\"height:150px; width:20em\">\n";
+	print <<"HTML";
+<div style="text-align:center"><input type="button" onclick='listbox_selectall("isolate_id",true)' value="All" style="margin-top:1em" class="smallbutton" />
+<input type="button" onclick='listbox_selectall("isolate_id",false)' value="None" style="margin-top:1em" class="smallbutton" /></div>
+</fieldset>
+<fieldset id="locus_fieldset" style="float:left">\n<legend>Loci</legend>
+HTML
+	print $q->scrolling_list( -name => 'locus', -id => 'locus', -values => $loci, -size => 8, -multiple => 'true' );
+	print <<"HTML";
+<div style="text-align:center"><input type="button" onclick='listbox_selectall("locus",true)' value="All" style="margin-top:1em" class="smallbutton" />
+<input type="button" onclick='listbox_selectall("locus",false)' value="None" style="margin-top:1em" class="smallbutton" /></div>
+</fieldset>
+<fieldset id="scheme_fieldset" style="float:left"><legend>Schemes</legend>
+<noscript><p class="highlight">Enable Javascript to select schemes.</p></noscript>
+<div id="tree" class="tree" style="height:150px; width:20em">
+HTML
 	print $self->get_tree( undef, { no_link_out => 1, select_schemes => 1 } );
-	print "</div>\n";	
-	print "</fieldset>\n";
-	
+	print "</div>\n</fieldset>\n";
 	print "<fieldset style=\"float:left\">\n<legend>Reference genome</legend>\n";
-	print "<p>Enter accession number:</p>\n";
+	print "Enter accession number:<br />\n";
 	print $q->textfield(
 		-name      => 'accession',
 		-id        => 'accession',
@@ -267,10 +307,12 @@ sub _print_interface {
 		-onKeyUp   => 'enable_seqs()',
 		-onBlur    => 'enable_seqs()'
 	);
-	print
-" <a class=\"tooltip\" title=\"Reference genome - Use of a reference genome will override any locus or scheme settings.\">&nbsp;<i>i</i>&nbsp;</a>";
-	print "</fieldset>\n";
-	print "<fieldset style=\"float:left\">\n<legend>Parameters</legend>\n";
+	print " <a class=\"tooltip\" title=\"Reference genome - Use of a reference genome will override any locus "
+	  . "or scheme settings.\">&nbsp;<i>i</i>&nbsp;</a><br />or upload Genbank/EMBL file:<br />";
+	print $q->filefield( -name => 'ref_upload', -id => 'ref_upload', -size => 10, -maxlength => 512, -onChange => 'enable_seqs()', );
+	print " <a class=\"tooltip\" title=\"Reference upload - File format is recognised by the extension in the "
+	  . "name.  Make sure your file has a standard extension, e.g. .gb, .embl.\">&nbsp;<i>i</i>&nbsp;</a>";
+	print "</fieldset>\n<fieldset style=\"float:left\">\n<legend>Parameters</legend>\n";
 	print "<ul><li><label for =\"identity\" class=\"parameter\">Min % identity:</label>\n";
 	print $q->popup_menu(
 		-name    => 'identity',
@@ -299,32 +341,29 @@ sub _print_interface {
 " <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a></li>\n";
 	print "<li><span class=\"warning\">";
 	print $q->checkbox( -name => 'tblastx', -id => 'tblastx', -label => 'Use TBLASTX' );
-	print
-" <a class=\"tooltip\" title=\"TBLASTX (analysis by reference genome only) - Compares the six-frame translation of your nucleotide query against 
-	the six-frame translation of the sequences in the sequence bin (sequences will be classed as identical if they result
-	in the same translated sequence even if the nucleotide sequence is different).  This is SLOWER than BLASTN. Use with
-	caution.\">&nbsp;<i>i</i>&nbsp;</a>";
-	print "</span></li>\n";
-	print "<li>";
+	print <<"HTML";
+ <a class="tooltip" title="TBLASTX (analysis by reference genome only) - Compares the six-frame translation of your nucleotide 
+query against the six-frame translation of the sequences in the sequence bin (sequences will be classed as identical if they 
+result in the same translated sequence even if the nucleotide sequence is different).  This is SLOWER than BLASTN. Use with
+caution.">&nbsp;<i>i</i>&nbsp;</a></span></li><li>
+HTML
 	print $q->checkbox( -name => 'align', -id => 'align', -label => 'Produce alignments' );
-	print
-" <a class=\"tooltip\" title=\"Alignments (analysis by reference genome only) - Alignments will be produced in muscle for any loci that vary between isolates. This may slow the analysis considerably.\">&nbsp;<i>i</i>&nbsp;</a></li>\n";
-	print "</ul>\n";
-	print "</fieldset>\n";
-	print "<fieldset style=\"float:left\">\n<legend>Restrict included sequences by</legend>\n";
-	print "<ul>\n";
+	print <<"HTML";
+ <a class=\"tooltip\" title=\"Alignments (analysis by reference genome only) - Alignments will be produced in muscle for 
+any loci that vary between isolates. This may slow the analysis considerably.">&nbsp;<i>i</i>&nbsp;</a></li></ul></fieldset>
+<fieldset style="float:left"><legend>Restrict included sequences by</legend><ul>
+HTML
 	my $buffer = $self->get_sequence_method_filter( { 'class' => 'parameter' } );
 	print "<li>$buffer</li>" if $buffer;
 	$buffer = $self->get_project_filter( { 'class' => 'parameter' } );
 	print "<li>$buffer</li>" if $buffer;
 	$buffer = $self->get_experiment_filter( { 'class' => 'parameter' } );
 	print "<li>$buffer</li>" if $buffer;
-	print "</ul>\n";
-	print "</fieldset>\n";
-	print "</div>\n";
+	print "</ul>\n</fieldset>\n</div>\n";
 	print "<table style=\"width:95%\"><tr><td style=\"text-align:left\">";
 	print
-"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=GenomeComparator\" class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\" colspan=\"4\">";
+"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=GenomeComparator\" class=\"resetbutton\">"
+	  . "Reset</a></td><td style=\"text-align:right\" colspan=\"4\">";
 	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
 	print "</td></tr></table>\n";
 	print $q->hidden($_) foreach qw (page name db);
@@ -451,7 +490,7 @@ sub _analyse_by_loci {
 
 sub _add_scheme_loci {
 	my ( $self, $params, $loci ) = @_;
-	my @scheme_ids = split /\|\|/, (defined $params->{'scheme_id'} ? $params->{'scheme_id'} : '');
+	my @scheme_ids = split /\|\|/, ( defined $params->{'scheme_id'} ? $params->{'scheme_id'} : '' );
 	my %locus_selected;
 	$locus_selected{$_} = 1 foreach (@$loci);
 	foreach (@scheme_ids) {
@@ -512,8 +551,9 @@ sub _analyse_by_reference {
 		$word_size = $params->{'word_size'} =~ /^(\d+)$/ ? $1 : 15;
 	}
 	my ( $exacts, $exact_except_ref, $all_missing, $truncated_loci, $varying_loci );
-	my $progress = 0;
-	my $total = ( $params->{'align'} && scalar @$ids > 1 ) ? ( scalar @cds * 2 ) : scalar @cds;
+	my $progress   = 0;
+	my $total      = ( $params->{'align'} && scalar @$ids > 1 ) ? ( scalar @cds * 2 ) : scalar @cds;
+	my $seqs_total = 0;
 	foreach my $cds (@cds) {
 		$progress++;
 		my $complete = int( 100 * $progress / $total );
@@ -535,6 +575,8 @@ sub _analyse_by_reference {
 		my $locus_name = $locus;
 		$locus_name .= "|@aliases" if @aliases;
 		my $seq = $cds->seq->seq;
+		next if !$seq;
+		$seqs_total++;
 		$seqs{'ref'} = $seq;
 		my @tags;
 		try {
@@ -641,6 +683,7 @@ sub _analyse_by_reference {
 	$self->_print_exact_except_ref( \$html_buffer, $fh, $exact_except_ref );
 	print $fh "\n###\n\n";
 	$self->_print_truncated_loci( \$html_buffer, $fh, $truncated_loci );
+	$html_buffer .= "<p class=\"statusbad\">No sequences were extracted from reference file.</p>\n" if !$seqs_total;
 	$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => $html_buffer } );
 	close $fh;
 	close $align_fh;
