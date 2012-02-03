@@ -304,7 +304,7 @@ sub print_content {
 				if ( $is_locus{$field} ) {
 					push @profile, $value;
 					my $locus_info = $self->{'datastore'}->get_locus_info($field);
-					if ( !$value ) {
+					if ( !defined $value ) {
 						$problems{$pk} .= "Locus $field requires a value.<br />";
 						$problem = 1;
 					} elsif ( $locus_format{$field} eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
