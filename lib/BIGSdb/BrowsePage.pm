@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2010-2011, University of Oxford
+#(c) 2010-2012, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -26,11 +26,13 @@ my $logger = get_logger('BIGSdb.Page');
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (field_help tooltips jQuery);
+	return;
 }
 
 sub set_pref_requirements {
 	my ($self) = @_;
 	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 1, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 1 };
+	return;
 }
 
 sub print_content {
@@ -44,7 +46,6 @@ sub print_content {
 	my $primary_key;
 
 	if ( $system->{'dbtype'} eq 'sequences' ) {
-		
 		$scheme_id = $q->param('scheme_id');
 		if ( !$scheme_id ) {
 			print "<div class=\"box\" id=\"statusbad\"><p>No scheme id passed.</p></div>\n";
@@ -78,21 +79,17 @@ sub print_content {
 		|| $q->param('First') )
 	{
 		print "<div class=\"box\" id=\"queryform\">\n";
-		print "<p>Please enter your browse criteria below:</p>\n";
-		print "<table><tr><td>\n";
 		print $q->startform;
+		print "<div class=\"scrollable\">\n";
+		print "<fieldset id=\"browse_fieldset\" style=\"float:left\"><legend>Please enter your browse criteria below.</legend>\n";
 		print $q->hidden( 'sent', 1 );
 		print $q->hidden($_) foreach qw (db page sent scheme_id);
-		print "<table style=\"border-spacing:0\">\n";
-		print "<tr><td style=\"text-align:right\">Order by: </td><td>\n";
+		print "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>\n";
 		my $labels;
 		my $order_by;
+
 		if ( $system->{'dbtype'} eq 'isolates' ) {
-			( $order_by, $labels ) = $self->get_field_selection_list( {
-			'isolate_fields' => 1,
-			'loci' => 1,
-			'scheme_fields' => 1 
-			});
+			( $order_by, $labels ) = $self->get_field_selection_list( { 'isolate_fields' => 1, 'loci' => 1, 'scheme_fields' => 1 } );
 		} elsif ( $system->{'dbtype'} eq 'sequences' ) {
 			if ($primary_key) {
 				push @$order_by, $primary_key;
@@ -121,28 +118,16 @@ sub print_content {
 			$labels->{'date_entered'} = 'date entered';
 			$labels->{'profile_id'}   = $primary_key;
 		}
-		print $q->popup_menu( -name => 'order', -values => $order_by, -labels => $labels );
-		print "</td></tr>";
-		print "<tr><td style=\"text-align:right\">Direction </td><td>\n";
-		print $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
-		print "</td></tr>\n";
-		print "<tr><td style=\"text-align:right\">Display </td><td>\n";
-		$prefs->{'displayrecs'} = $q->param('displayrecs') if $q->param('displayrecs');
-		print $q->popup_menu(
-			-name    => 'displayrecs',
-			-values  => [ '10', '25', '50', '100', '200', '500', 'all' ],
-			-default => $prefs->{'displayrecs'}
-		);
-		print " records per page&nbsp;";
-		print
-" <a class=\"tooltip\" title=\"Records per page - Analyses use the full query dataset, rather than just the page shown.\">&nbsp;<i>i</i>&nbsp;</a>";
-		print "&nbsp;";
-		print "</td></tr>\n";
-		print "<tr><td style=\"text-align:right\" colspan=\"2\">\n";
+		print $q->popup_menu( -name => 'order', -id => 'order', -values => $order_by, -labels => $labels );
+		print "</span></li><li><span style=\"white-space:nowrap\">\n<label for=\"direction\" class=\"display\">Direction: </label>\n";
+		print $q->popup_menu( -name => 'direction', -id => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
+		print "</span></li><li>";
+		print $self->get_number_records_control;
+		print "</li><li><span style=\"float:right\">";
 		print $q->submit( -name => 'Browse all records', -class => 'submit' );
-		print "</td></tr></table>\n";
+		print "</span></li></ul></fieldset></div>\n";
 		print $q->endform;
-		print "</td></tr></table></div>\n";
+		print "</div>\n";
 	}
 	if ( defined $q->param('sent') || defined $q->param('currentpage') ) {
 		my $order;
@@ -171,6 +156,7 @@ sub print_content {
 		}
 	}
 	print "<p />\n";
+	return;
 }
 
 sub get_title {
