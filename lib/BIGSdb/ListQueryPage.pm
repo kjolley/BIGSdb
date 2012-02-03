@@ -91,8 +91,6 @@ sub print_content {
 		} else {
 			$self->_run_profile_query( $scheme_id, $primary_key );
 		}
-	} else {
-		print "<p />\n";
 	}
 	return;
 }
@@ -128,44 +126,33 @@ sub _print_query_interface {
 		$order_list   = $field_list;
 		$order_labels = $labels;
 	}
-	print "<div class=\"box\" id=\"queryform\">\n";
+	print "<div class=\"box\" id=\"queryform\">\n<div class=\"scrollable\">";
 	print $q->start_form;
-	print "<table><tr><td>Please select attribute: ";
+	print "<fieldset id=\"attribute_fieldset\" style=\"float:left\"><legend>Please select attribute</legend>\n";
 	my @select_items = ( @grouped_fields, @$field_list );
 	print $q->popup_menu( -name => 'attribute', -values => \@select_items, -labels => $labels );
-	print "</td></tr>\n<tr><td>Enter your list of attribute values below (one per line):</td></tr>\n<tr><td>";
-	print $q->textarea( -name => 'list', -rows => 10, -cols => 40 );
-	print "</td></tr>\n";
-
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		print
-"<tr><td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=listQuery\" class=\"resetbutton\">Reset</a>";
-	} else {
-		print
-"<tr><td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=listQuery&amp;scheme_id=$scheme_id\" class=\"resetbutton\">Reset</a>";
-	}
-	print "&nbsp;&nbsp;Order by: ";
-	print $q->popup_menu( -name => 'order', -values => $order_list, -labels => $order_labels );
+	print "</fieldset><div style=\"clear:both\"></div>\n";
+	print "<fieldset id=\"list_fieldset\" style=\"float:left\"><legend>Enter your list of attribute values below "
+	  . "(one per line)</legend>\n";
+	print $q->textarea( -name => 'list', -rows => 8, -cols => 40 );
+	print "</fieldset>\n";
+	print "<fieldset id=\"display_fieldset\" style=\"float:left\"><legend>Display/sort options</legend>\n";
+	print "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>\n";
+	print $q->popup_menu( -name => 'order', -id => 'order', -values => $order_list, -labels => $order_labels );
 	print $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
-	print "&nbsp;&nbsp;Display ";
-	if ( $q->param('displayrecs') ) {
-		$self->{'prefs'}->{'displayrecs'} = $q->param('displayrecs');
-	}
-	print $q->popup_menu(
-		-name    => 'displayrecs',
-		-values  => [ '10', '25', '50', '100', '200', '500', 'all' ],
-		-default => $self->{'prefs'}->{'displayrecs'}
-	);
-	print " records per page&nbsp;";
-	print
-" <a class=\"tooltip\" title=\"Records per page - Analyses use the full query dataset, rather than just the page shown.\">&nbsp;<i>i</i>&nbsp;</a>";
-	print "&nbsp;&nbsp;";
+	print "</span></li>\n<li>";
+	print $self->get_number_records_control;
+	print "</li></ul></fieldset>\n";
+	print "<div style=\"clear:both\">";
+	my $scheme_clause = $self->{'system'}->{'dbtype'} eq 'isolates' ? '' : "&amp;scheme_id=$scheme_id";
+	print "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=listQuery$scheme_clause\" "
+	  . "class=\"resetbutton\">Reset</a>";
+	print "<span style=\"float:right\">";
 	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	print "</td></tr>\n";
-	print "</table>\n";
+	print "</span></div>";
 	print $q->hidden($_) foreach qw (page db scheme_id);
 	print $q->end_form;
-	print "</div>\n";
+	print "</div></div>\n";
 	return;
 }
 
