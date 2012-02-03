@@ -240,19 +240,9 @@ sub _print_query_interface {
 	}
 	print $q->popup_menu( -name => 'order', -id => 'order', -values => $order_by, -labels => $dropdown_labels );
 	print $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
-	print "</span></li>\n<li><span style=\"white-space:nowrap\">\n";
-	print "<label for=\"displayrecs\" class=\"display\">Display: </label>\n";
-	print $q->popup_menu(
-		-name    => 'displayrecs',
-		-id      => 'displayrecs',
-		-values  => [ '10', '25', '50', '100', '200', '500', 'all' ],
-		-default => $self->{'prefs'}->{'displayrecs'}
-	);
-	print " records per page";
-	print
-" <a class=\"tooltip\" title=\"Records per page - Analyses use the full query dataset, rather than just the page shown.\">&nbsp;<i>i</i>&nbsp;</a>";
-	print "&nbsp;&nbsp;";
-	print "</span></li></ul></fieldset>\n";
+	print "</span></li>\n<li>";
+	print $self->get_number_records_control;
+	print "</li></ul></fieldset>\n";
 	print
 "</div>\n<div style=\"clear:both\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profiles&amp;scheme_id=$scheme_id\" class=\"resetbutton\">Reset</a><span style=\"float:right\">";
 	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );

@@ -669,6 +669,23 @@ sub get_user_filter {
 	);
 }
 
+sub get_number_records_control {
+	my ($self) = @_;
+	if ( $self->{'cgi'}->param('displayrecs') ) {
+		$self->{'prefs'}->{'displayrecs'} = $self->{'cgi'}->param('displayrecs');
+	}
+	my $buffer = "<span style=\"white-space:nowrap\"><label for=\"displayrecs\" class=\"display\">Display: </label>\n"
+	. $self->{'cgi'}->popup_menu(
+		-name    => 'displayrecs',
+		-id      => 'displayrecs',
+		-values  => [ '10', '25', '50', '100', '200', '500', 'all' ],
+		-default => $self->{'cgi'}->param('displayrecs') || $self->{'prefs'}->{'displayrecs'}
+	)
+	. " records per page <a class=\"tooltip\" title=\"Records per page - Analyses use the full query dataset, rather "
+	. "than just the page shown.\">&nbsp;<i>i</i>&nbsp;</a>&nbsp;&nbsp;</span>";
+	return $buffer;
+}
+
 sub get_scheme_filter {
 	my ($self) = @_;
 	if ( !$self->{'cache'}->{'schemes'} ) {
