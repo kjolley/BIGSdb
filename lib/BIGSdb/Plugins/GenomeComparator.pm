@@ -137,7 +137,7 @@ sub run_job {
 			};
 		} else {
 			try {
-				my $seqio_object = Bio::SeqIO->new( -file => "$self->{'config'}->{'tmp_dir'}/$ref_upload", -format => 'genbank' );
+				my $seqio_object = Bio::SeqIO->new( -file => "$self->{'config'}->{'tmp_dir'}/$ref_upload" );
 				$seq_obj = $seqio_object->next_seq;
 			}
 			catch Bio::Root::Exception with {
