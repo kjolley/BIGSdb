@@ -108,79 +108,7 @@ sub get_guid {
 	}
 }
 
-sub get_tree_javascript {
-	my ($self, $options) = @_;
-	$options = {} if ref $options ne 'HASH';
-	my $q = $self->{'cgi'};
-	my $plugin_js;
-	if ($options->{'checkboxes'}){
-		$plugin_js = <<"JS";
-		"plugins" : [ "themes", "html_data", "checkbox"],
-		"checkbox" : {
-			"real_checkboxes" : true,
-			"real_checkboxes_names" : function (n) { return [(n[0].id || Math.ceil(Math.random() * 10000)), 1]; }
-		}
-JS
-	} else {
-		$plugin_js = <<"JS";
-		"plugins" : [ "themes", "html_data"]
-JS
-	}
-	my $check_schemes_js = '';
-	if ($options->{'check_schemes'}){
-		my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
-		push @$scheme_ids, 0;
-		foreach (@$scheme_ids){
-			if ($q->param("s_$_")){
-				$check_schemes_js .= <<"JS";
-\$("#tree").bind("loaded.jstree", function (event, data) {
-  		\$("#tree").jstree("check_node", \$("#s_$_"));
-	});			
-JS
-			}
-		}
-	}
-	my $buffer = << "END";
-\$(function () {
-	\$('a[rel=ajax]').click(function(){
-  		\$(this).attr('href', function(){
-  			if (this.href.match(/javascript.loadContent/)){
-  				return;
-  			};
-    		return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1&no_header=1\'\)"));
-    	});
-  	});
-	$check_schemes_js
-	\$("#tree").jstree({ 
-		"core" : {
-			"animation" : 200,
-			"initially_open" : ["all_loci"]
-		},
-		"themes" : {
-			"theme" : "default"
-		},
-$plugin_js		
-	});	
 
-});
-
-function loadContent(url) {
-	\$("#scheme_table").html('<img src=\"/javascript/themes/default/throbber.gif\" /> Loading ...').load(url,tooltip);
-}
-
-tooltip = function(e){
-	\$('div.content a').tooltip({ 
-	    track: true, 
-	    delay: 0, 
-	    showURL: false, 
-	    showBody: " - ", 
-	    fade: 250 
-	});
-};
-
-END
-	return $buffer;
-}
 
 sub print_banner {
 	my ($self) = @_;
@@ -236,13 +164,12 @@ sub print_page_content {
 		}
 		$q->charset('UTF-8');
 		my %header_options = ( -cookie => $self->{'cookies'} );
-		if ( !$self->{'noCache'} ) {
-			$header_options{'expires'} = '+1h';
-		}
+		$header_options{'expires'} = '+1h' if !$self->{'noCache'};
 		print $q->header(%header_options);
 		my $title   = $self->get_title;
 		my $page_js = $self->get_javascript;
 		my @javascript;
+
 		if ( $self->{'jQuery'} ) {
 			if ( $self->{'config'}->{'intranet'} eq 'yes' ) {
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.js" } );
@@ -378,29 +305,20 @@ sub _print_help_panel {
 	print "<div id=\"fieldvalueshelp\">";
 	if ( $q->param('page') && $q->param('page') eq 'plugin' && defined $self->{'pluginManager'} ) {
 		my $plugin_att = $self->{'pluginManager'}->get_plugin_attributes( $q->param('name') );
-		if ( ref $plugin_att eq 'HASH' && defined $plugin_att->{'help'} ) {
-			foreach (qw (tooltips)) {
-				if ( $plugin_att->{'help'} =~ /$_/ ) {
-					$self->{$_} = 1;
-				}
-			}
+		if ( ref $plugin_att eq 'HASH' && defined $plugin_att->{'help'} && $plugin_att->{'help'} =~ /tooltips/ ) {
+			$self->{'tooltips'} = 1;
 		}
 	}
-	if ( any { $self->{$_} } qw (tooltips) ) {
-		print "<span id=\"toggle\" style=\"display:none\">Toggle: </span>";
-		if ( $self->{'tooltips'} ) {
-			print
-"<a id=\"toggle_tooltips\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=options&amp;toggle_tooltips=1\" style=\"display:none; margin-right:1em;\">&nbsp;<i>i</i>&nbsp;</a> ";
-		}
+	if ( $self->{'tooltips'} ) {
+		print "<span id=\"toggle\" style=\"display:none\">Toggle: </span>"
+		  . "<a id=\"toggle_tooltips\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=options&amp;toggle_tooltips=1\" style=\"display:none; margin-right:1em;\">&nbsp;<i>i</i>&nbsp;</a> ";
 	}
 	if ( defined $self->{'system'}->{'dbtype'} && $self->{'system'}->{'dbtype'} eq 'isolates' && $self->{'field_help'} ) {
 
 		#open new page unless already on field values help page
-		if ( $q->param('page') eq 'fieldValues' ) {
-			print $q->start_form( -style => 'display:inline' );
-		} else {
-			print $q->start_form( -target => '_blank', -style => 'display:inline' );
-		}
+		print $q->param('page') eq 'fieldValues'
+		  ? $q->start_form( -style => 'display:inline' )
+		  : $q->start_form( -target => '_blank', -style => 'display:inline' );
 		print "<b>Field help: </b>";
 		my ( $values, $labels ) = $self->get_field_selection_list( { 'isolate_fields' => 1, 'loci' => 1, 'scheme_fields' => 1 } );
 		print $q->popup_menu( -name => 'field', -values => $values, -labels => $labels );
@@ -586,15 +504,10 @@ sub print_file {
 			$loci = $self->{'datastore'}->run_list_query( $qry, $self->get_curator_id );
 		}
 		my $first = 1;
-		foreach (uniq @$loci) {
+		foreach ( uniq @$loci ) {
 			my $cleaned = $self->clean_locus($_);
-			if ( !$first ) {
-				$lociAdd .= ' | ';
-			}
-			$lociAdd .=
-			    "<a href=\""
-			  . $self->{'system'}->{'script_name'}
-			  . "?db=$self->{'instance'}&amp;page=add&amp;table=sequences&amp;locus=$_\">$cleaned</a>";
+			$lociAdd .= ' | ' if !$first;
+			$lociAdd .= "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=sequences&amp;locus=$_\">$cleaned</a>";
 			$first = 0;
 		}
 	}
@@ -633,13 +546,9 @@ sub get_filter {
 	my $title_attribute = $title ? "title=\"$title\"" : '';
 	my $buffer = "<label for=\"$name\_list\" class=\"$filter\" $title_attribute>$label</label>\n";
 	unshift @$values, '' if !$options->{'noblank'};
-	$buffer .= $self->{'cgi'}->popup_menu(
-		-name   => "$name\_list",
-		-id     => "$name\_list",
-		-values => $values,
-		-labels => $options->{'labels'},
-		-class  => $filter
-	);
+	$buffer .=
+	  $self->{'cgi'}
+	  ->popup_menu( -name => "$name\_list", -id => "$name\_list", -values => $values, -labels => $options->{'labels'}, -class => $filter );
 	$options->{'tooltip'} =~ tr/_/ / if $options->{'tooltip'};
 	$buffer .= " <a class=\"tooltip\" title=\"$options->{'tooltip'}\">&nbsp;<i>i</i>&nbsp;</a>" if $options->{'tooltip'};
 	return $buffer;
@@ -686,14 +595,14 @@ sub get_number_records_control {
 		$self->{'prefs'}->{'displayrecs'} = $self->{'cgi'}->param('displayrecs');
 	}
 	my $buffer = "<span style=\"white-space:nowrap\"><label for=\"displayrecs\" class=\"display\">Display: </label>\n"
-	. $self->{'cgi'}->popup_menu(
-		-name    => 'displayrecs',
-		-id      => 'displayrecs',
-		-values  => [ '10', '25', '50', '100', '200', '500', 'all' ],
+	  . $self->{'cgi'}->popup_menu(
+		-name   => 'displayrecs',
+		-id     => 'displayrecs',
+		-values => [ '10', '25', '50', '100', '200', '500', 'all' ],
 		-default => $self->{'cgi'}->param('displayrecs') || $self->{'prefs'}->{'displayrecs'}
-	)
-	. " records per page <a class=\"tooltip\" title=\"Records per page - Analyses use the full query dataset, rather "
-	. "than just the page shown.\">&nbsp;<i>i</i>&nbsp;</a>&nbsp;&nbsp;</span>";
+	  )
+	  . " records per page <a class=\"tooltip\" title=\"Records per page - Analyses use the full query dataset, rather "
+	  . "than just the page shown.\">&nbsp;<i>i</i>&nbsp;</a>&nbsp;&nbsp;</span>";
 	return $buffer;
 }
 
@@ -1012,14 +921,15 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 		if (   $self->{'curate'}
 			&& $self->{'system'}->{'dbtype'} eq 'isolates'
 			&& $table eq $self->{'system'}->{'view'}
-			&& $self->can_modify_table('allele_sequences')){
-				print "<fieldset style=\"text-align:center\"><legend>Tag scanning</legend>\n";
-				print $q->start_form;
-				$q->param( 'page', 'tagScan' );
-				print $q->hidden($_) foreach qw (db page table query);
-				print $q->submit( -name => 'Scan', -class => 'submit' );
-				print $q->end_form;
-				print "</fieldset>\n";	
+			&& $self->can_modify_table('allele_sequences') )
+		{
+			print "<fieldset style=\"text-align:center\"><legend>Tag scanning</legend>\n";
+			print $q->start_form;
+			$q->param( 'page', 'tagScan' );
+			print $q->hidden($_) foreach qw (db page table query);
+			print $q->submit( -name => 'Scan', -class => 'submit' );
+			print $q->end_form;
+			print "</fieldset>\n";
 		}
 		if (   $self->{'curate'}
 			&& $self->{'system'}->{'dbtype'} eq 'isolates'
@@ -1088,7 +998,7 @@ sub clean_locus {
 	if ( $self->{'system'}->{'locus_superscript_prefix'} && $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
 		$locus =~ s/^([A-Za-z]{1,3})_/<sup>$1<\/sup>/;
 	}
-	$locus =~ s/^_//; #locus names can't begin with a digit, so people can use an underscore, but this looks untidy in the interface.
+	$locus =~ s/^_//;    #locus names can't begin with a digit, so people can use an underscore, but this looks untidy in the interface.
 	$locus .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
 	return $locus;
 }
@@ -2420,7 +2330,7 @@ sub run_blast {
 	}
 	if ( !$options->{'locus'} || $options->{'locus'} =~ /SCHEME_(\d+)/ ) {
 		my $outfile1 = "$temp_outfile\.1";
-		BIGSdb::Utils::append($outfile1, $temp_outfile) if -e $outfile1;
+		BIGSdb::Utils::append( $outfile1, $temp_outfile ) if -e $outfile1;
 		unlink $outfile1 if -e $outfile1;
 	}
 
@@ -2903,276 +2813,5 @@ sub escape_params {
 	}
 	return;
 }
-###SCHEME GROUP TREE DRAWING#################
-sub get_tree {
-	my ( $self, $isolate_id, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
-	my $q = $self->{'cgi'};
-	my $page = $self->{'cgi'}->param('page');
-	$page = 'info' if any { $page eq $_ } qw (isolateDelete isolateUpdate alleleUpdate);
-	my $isolate_clause = defined $isolate_id ? "&amp;id=$isolate_id" : '';
-	my $groups_with_no_parent =
-	  $self->{'datastore'}->run_list_query(
-		"SELECT id FROM scheme_groups WHERE id NOT IN (SELECT group_id FROM scheme_group_group_members) ORDER BY display_order,name");
-	my $schemes_not_in_group =
-	  $self->{'datastore'}->run_list_query_hashref(
-		"SELECT id,description FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) ORDER BY display_order,description");
-	my $buffer;
-	my $scheme_nodes;
 
-	foreach (@$groups_with_no_parent) {
-		my $group_info          = $self->{'datastore'}->get_scheme_group_info($_);
-		my $group_scheme_buffer = $self->_get_group_schemes( $_, $isolate_id, $options );
-		my $child_group_buffer  = $self->_get_child_groups( $_, $isolate_id, 1, $options );
-		if ( $group_scheme_buffer || $child_group_buffer ) {
-			if ( $options->{'no_link_out'} ) {
-				$buffer .= "<li><a>$group_info->{'name'}</a>\n";
-			} else {
-				$buffer .=
-"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;group_id=$_\" rel=\"ajax\">$group_info->{'name'}</a>\n";
-			}
-			$buffer .= $group_scheme_buffer if $group_scheme_buffer;
-			$buffer .= $child_group_buffer  if $child_group_buffer;
-			$buffer .= "</li>\n";
-		}
-	}
-	if (@$schemes_not_in_group) {
-		my $data_exists = 0;
-		my $temp_buffer;
-		if (@$groups_with_no_parent) {
-			if ( $options->{'no_link_out'} ) {
-				$temp_buffer .= "<li><a>Other schemes</a><ul>";
-			} else {
-				$temp_buffer .=
-"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;group_id=0\" rel=\"ajax\">Other schemes</a><ul>";
-			}
-		}
-		foreach (@$schemes_not_in_group) {
-			next if $options->{'isolate_display'} && !$self->{'prefs'}->{'isolate_display_schemes'}->{ $_->{'id'} };
-			next if $options->{'analysis_pref'}   && !$self->{'prefs'}->{'analysis_schemes'}->{ $_->{'id'} };
-			$_->{'description'} =~ s/&/\&amp;/g;
-			if ( !defined $isolate_id || $self->_scheme_data_present( $_->{'id'}, $isolate_id ) ) {
-				my $scheme_loci_buffer;
-				if ( $options->{'list_loci'} ) {
-					$scheme_loci_buffer = $self->_get_scheme_loci( $_->{'id'}, $isolate_id, $options );
-					$data_exists = 1 if $scheme_loci_buffer;
-				} else {
-					$data_exists = 1;
-				}
-				if ( $options->{'no_link_out'} ) {
-					my $id = $options->{'select_schemes'} ? " id=\"s_$_->{'id'}\"" : '';
-					$temp_buffer .= "<li$id><a>$_->{'description'}</a>\n";
-				} else {
-					$temp_buffer .=
-"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;scheme_id=$_->{'id'}\" rel=\"ajax\">$_->{'description'}</a>\n";
-				}
-				$temp_buffer .= $scheme_loci_buffer if $scheme_loci_buffer;
-				$temp_buffer .= "</li>\n";
-			}
-		}
-		$temp_buffer .= "</ul></li>" if @$groups_with_no_parent;
-		$buffer .= $temp_buffer if $data_exists;
-	}
-	my $loci_not_in_schemes = $self->{'datastore'}->get_loci_in_no_scheme;
-	if ( @$loci_not_in_schemes && ( !defined $isolate_id || $self->_data_not_in_scheme_present($isolate_id) ) ) {
-		my $scheme_loci_buffer;
-		if ( $options->{'list_loci'} ) {
-			$scheme_loci_buffer = $self->_get_scheme_loci( 0, $isolate_id, $options ) if $options->{'list_loci'};
-		}
-		if ( !$options->{'list_loci'} || ( $options->{'list_loci'} && $scheme_loci_buffer ) ) {
-			if ( $options->{'no_link_out'} ) {
-				my $id = $options->{'select_schemes'} ? " id=\"s_0\"" : '';
-				$buffer .= "<li$id><a>Loci not in schemes</a>\n";
-			} else {
-				$buffer .=
-"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;scheme_id=0\" rel=\"ajax\">Loci not in schemes</a>\n";
-			}
-			$buffer .= $scheme_loci_buffer if $scheme_loci_buffer;
-			$buffer .= "</li>\n";
-		}
-	}
-	my $main_buffer;
-	if ($buffer) {
-		$main_buffer = "<ul>\n";
-		if ( $options->{'no_link_out'} ) {
-			$main_buffer .= "<li id=\"all_loci\"><a>All loci</a><ul>\n";
-		} else {
-			$main_buffer .=
-"<li id=\"all_loci\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;scheme_id=-1\" rel=\"ajax\">All loci</a><ul>\n";
-		}
-		$main_buffer .= $buffer;
-		$main_buffer .= "</ul>\n";
-		$main_buffer .= "</li></ul>\n";
-	} else {
-		$main_buffer = "<ul><li><a>No loci available for analysis.</a></li></ul>\n";
-	}
-	return $main_buffer;
-}
-
-sub _get_group_schemes {
-	my ( $self, $group_id, $isolate_id, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
-	my $q = $self->{'cgi'};
-	my $buffer;
-	my $schemes = $self->{'datastore'}->run_list_query(
-"SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON schemes.id=scheme_id WHERE group_id=? ORDER BY display_order,description",
-		$group_id
-	);
-	if (@$schemes) {
-		foreach (@$schemes) {
-			next if $options->{'isolate_display'} && !$self->{'prefs'}->{'isolate_display_schemes'}->{$_};
-			next if $options->{'analysis_pref'}   && !$self->{'prefs'}->{'analysis_schemes'}->{$_};
-			my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
-			my $scheme_loci_buffer;
-			if ( $options->{'list_loci'} ) {
-				$scheme_loci_buffer = $self->_get_scheme_loci( $scheme_info->{'id'}, $isolate_id, $options );
-				next if !$scheme_loci_buffer;
-			}
-			$scheme_info->{'description'} =~ s/&/\&amp;/g;
-			my $page = $self->{'cgi'}->param('page');
-			$page = 'info' if any { $page eq $_ } qw (isolateDelete isolateUpdate alleleUpdate);
-			if ( defined $isolate_id ) {
-				if ( $self->_scheme_data_present( $_, $isolate_id ) ) {
-					if ( $options->{'no_link_out'} ) {
-						$buffer .= "<li><a>$scheme_info->{'description'}</a>";
-					} else {
-						$buffer .=
-"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;id=$isolate_id&amp;scheme_id=$scheme_info->{'id'}\" rel=\"ajax\">$scheme_info->{'description'}</a>";
-					}
-					$buffer .= $scheme_loci_buffer if $scheme_loci_buffer;
-					$buffer .= "</li>\n";
-				}
-			} else {
-				if ( $options->{'no_link_out'} ) {
-					my $id = $options->{'select_schemes'} ? " id=\"s_$_\"" : '';
-					$buffer .= "<li$id><a>$scheme_info->{'description'}</a>";
-				} else {
-					$buffer .=
-"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;scheme_id=$scheme_info->{'id'}\" rel=\"ajax\">$scheme_info->{'description'}</a>";
-				}
-				$buffer .= $scheme_loci_buffer if $scheme_loci_buffer;
-				$buffer .= "</li>\n";
-			}
-		}
-	}
-	return "<ul>\n$buffer</ul>\n" if $buffer;
-	return;
-}
-
-sub _get_scheme_loci {
-	my ( $self, $scheme_id, $isolate_id, $options ) = @_;
-	my $analysis_pref = $self->{'system'}->{'dbtype'} eq 'isolates' ? 1 : 0;
-	my ( $loci, $scheme_fields );
-	if ($scheme_id) {
-		$loci = $self->{'datastore'}->get_scheme_loci( $scheme_id, { 'profile_name' => 0, 'analysis_pref' => $analysis_pref } );
-		if ( $options->{'scheme_fields'} ) {
-			$scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-		}
-	} else {
-		$loci = $self->{'datastore'}->get_loci_in_no_scheme($analysis_pref);
-	}
-	my $qry    = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
-	my $cn_sql = $self->{'db'}->prepare($qry);
-	eval { $cn_sql->execute };
-	$logger->error($@) if $@;
-	my $common_names = $cn_sql->fetchall_hashref('id');
-	my $buffer;
-	foreach (@$loci) {
-		my $cleaned = $self->clean_checkbox_id($_);
-		my $id      = $scheme_id ? "s_$scheme_id\_l_$cleaned" : "l_$cleaned";
-		my $locus   = $self->clean_locus($_);
-		$buffer .= "<li id=\"$id\"><a>$locus";
-		$buffer .= "</a></li>\n";
-	}
-	foreach my $scheme_field (@$scheme_fields) {
-		my $cleaned = $self->clean_checkbox_id($scheme_field);
-		my $id      = "s_$scheme_id\_f_$cleaned";
-		$scheme_field =~ tr/_/ /;
-		$buffer .= "<li id=\"$id\"><a>$scheme_field</a></li>\n";
-	}
-	return "<ul>\n$buffer</ul>\n" if $buffer;
-	return;
-}
-
-sub _get_child_groups {
-	my ( $self, $group_id, $isolate_id, $level, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
-	my $buffer;
-	my $child_groups = $self->{'datastore'}->run_list_query(
-"SELECT id FROM scheme_groups LEFT JOIN scheme_group_group_members ON scheme_groups.id=group_id WHERE parent_group_id=? ORDER BY display_order,name",
-		$group_id
-	);
-	if (@$child_groups) {
-		foreach (@$child_groups) {
-			my $group_info = $self->{'datastore'}->get_scheme_group_info($_);
-			my $new_level  = $level;
-			last if $new_level == 10;    #prevent runaway if child is set as the parent of a parental group
-			my $group_scheme_buffer = $self->_get_group_schemes( $_, $isolate_id, $options );
-			my $child_group_buffer = $self->_get_child_groups( $_, $isolate_id, ++$new_level, $options );
-			if ( $group_scheme_buffer || $child_group_buffer ) {
-				my $page = $self->{'cgi'}->param('page');
-				$page = 'info' if any { $page eq $_ } qw (isolateDelete isolateUpdate alleleUpdate);
-				if ( defined $isolate_id ) {
-					if ( $options->{'no_link_out'} ) {
-						$buffer .= "<li><a>$group_info->{'name'}</a>\n";
-					} else {
-						$buffer .=
-"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;id=$isolate_id&amp;group_id=$_\" rel=\"ajax\">$group_info->{'name'}</a>\n";
-					}
-				} else {
-					if ( $options->{'no_link_out'} ) {
-						$buffer .= "<li><a>$group_info->{'name'}</a>\n";
-					} else {
-						$buffer .=
-"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;group_id=$_\" rel=\"ajax\">$group_info->{'name'}</a>\n";
-					}
-				}
-				$buffer .= $group_scheme_buffer if $group_scheme_buffer;
-				$buffer .= $child_group_buffer if $child_group_buffer;
-				$buffer .= "</li>";
-			}
-		}
-	}
-	return "<ul>\n$buffer</ul>\n" if $buffer;
-	return;
-}
-
-sub _scheme_data_present {
-	my ( $self, $scheme_id, $isolate_id ) = @_;
-	if ( !$self->{'sql'}->{'scheme_data_designations'} ) {
-		$self->{'sql'}->{'scheme_data_designations'} =
-		  $self->{'db'}->prepare(
-"SELECT EXISTS(SELECT * FROM allele_designations LEFT JOIN scheme_members ON allele_designations.locus=scheme_members.locus WHERE isolate_id=? AND scheme_id=?)"
-		  );
-	}
-	eval { $self->{'sql'}->{'scheme_data_designations'}->execute( $isolate_id, $scheme_id ) };
-	$logger->error($@) if $@;
-	my ($designations_present) = $self->{'sql'}->{'scheme_data_designations'}->fetchrow_array;
-	return 1 if $designations_present;
-	if ( !$self->{'sql'}->{'scheme_data_sequences'} ) {
-		$self->{'sql'}->{'scheme_data_sequences'} =
-		  $self->{'db'}->prepare(
-"SELECT EXISTS(SELECT * FROM allele_sequences LEFT JOIN scheme_members ON allele_sequences.locus=scheme_members.locus LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id WHERE isolate_id=? AND scheme_id=?)"
-		  );
-	}
-	eval { $self->{'sql'}->{'scheme_data_sequences'}->execute( $isolate_id, $scheme_id ) };
-	$logger->error($@) if $@;
-	my ($sequences_present) = $self->{'sql'}->{'scheme_data_sequences'}->fetchrow_array;
-	return $sequences_present ? 1 : 0;
-}
-
-sub _data_not_in_scheme_present {
-	my ( $self, $isolate_id ) = @_;
-	my $designations =
-	  $self->{'datastore'}->run_simple_query(
-		"SELECT EXISTS(SELECT * FROM allele_designations WHERE isolate_id=? AND locus NOT IN (SELECT locus FROM scheme_members))",
-		$isolate_id )->[0];
-	return 1 if $designations;
-	my $sequences = $self->{'datastore'}->run_simple_query(
-"SELECT EXISTS(SELECT * FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id WHERE isolate_id=? AND locus NOT IN (SELECT locus FROM scheme_members))",
-		$isolate_id
-	)->[0];
-	return $sequences ? 1 : 0;
-}
-###END GROUP TREE DRAWING####################
 1;
