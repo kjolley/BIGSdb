@@ -302,6 +302,7 @@ END_OF_JAVASCRIPT
 sub set_pref_requirements {
 	my ($self) = @_;
 	$self->{'pref_requirements'} = { 'general' => 0, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 0 };
+	return;
 }
 
 sub print_content {
@@ -309,17 +310,18 @@ sub print_content {
 	print "<h1>Please log in";
 	print " - $self->{'system'}->{'description'} database" if $self->{'system'}->{'description'};
 	print "</h1>";
+	$self->print_banner;
 	if ( $self->{'authenticate_error'} ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>$self->{'authenticate_error'}</p></div>\n";
 	}
 	$self->_print_entry_form;
+	return;
 }
 
 sub get_title {
 	my ($self) = @_;
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 	return "Log in - $desc";
-	return $desc;
 }
 
 sub initiate {
@@ -332,6 +334,7 @@ sub initiate {
 
 	#don't use last part of IP address - due to problems with load-balancing proxies
 	$self->{'ip_addr'} = $ip_addr;
+	return;
 }
 
 sub secure_login {
@@ -428,41 +431,45 @@ sub _check_password {
 	} else {
 		return $savedPasswordHash;
 	}
+	return;
 }
 
 sub _print_entry_form {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	print "<div class=\"box\" id=\"queryform\">\n";
-	print "<p>Please enter your log-in details.  The first three parts of your IP address are used along with 
-	your username to set up your session.  If you have a session opened on a different computer, where the first
-	three parts of the IP address vary, it will be closed when you log in here. </p>\n";
-	print
-"<noscript><p class=\"highlight\">Please note that Javascript must be enabled in order to login.  Passwords are encrypted using Javascript prior
-	to transmitting to the server.</p></noscript>\n";
-	print $q->start_form( -onSubmit =>
-"password.value=password_field.value; password_field.value=''; password.value=calcMD5(password.value+user.value); hash.value=calcMD5(password.value+session.value); return true"
-	);
-	print "<table><tr><td style=\"text-align:right\">Username: </td><td>\n";
-	print $q->textfield( -name => 'user', -size => '20' );
-	print "</td></tr>\n";
-	print "<tr><td style=\"text-align:right\">Password: </td><td>\n";
-	print $q->password_field( -name => 'password_field', -size => '20' );
-	print "</td></tr><tr><td /><td style=\"text-align:right\">";
+	my $reg_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/registration.html";
+	$self->print_file($reg_file) if -e $reg_file;
+	print <<"HTML";
+<p>Please enter your log-in details.  Part of your IP address is used along with your username to set up your session. 
+If you have a session opened on a different computer, where the first three parts of the IP address vary, it will be 
+closed when you log in here. </p>
+<noscript><p class="highlight">Please note that Javascript must be enabled in order to login.  Passwords are encrypted 
+using Javascript prior to transmitting to the server.</p></noscript>
+HTML
+	print $q->start_form( -onSubmit => "password.value=password_field.value; password_field.value=''; "
+		  . "password.value=calcMD5(password.value+user.value); hash.value=calcMD5(password.value+session.value); return true" );
+	print "<fieldset><legend>Log in details</legend>\n";
+	print "<ul><li><label for=\"user\" class=\"display\">Username: </label>\n";
+	print $q->textfield( -name => 'user', -id => 'user', -size => 20, -maxlength => 20, -style => 'width:12em' );
+	print "</li><li><label for=\"password_field\" class=\"display\">Password: </label>\n";
+	print $q->password_field( -name => 'password_field', -id => 'password_field', -size => 20, -maxlength => 20, -style => 'width:12em' );
+	print "</li><li><span style=\"float:right\">";
 	print $q->submit( -name => 'Submit', value => 'Log in', -label => 'Log in', -class => 'submit' );
-	print "</td></tr></table>\n";
+	print "</span></li></ul></fieldset>\n";
 	$q->param( 'session',  $self->{'$sessionID'} );
 	$q->param( 'hash',     '' );
 	$q->param( 'password', '' );
 
 	#Pass all parameters in case page has timed out from an internal page
 	my @params = $q->param;
-	foreach my $param (@params){
-		next if any {$param eq $_} qw(password_field user Submit);
+	foreach my $param (@params) {
+		next if any { $param eq $_ } qw(password_field user Submit);
 		print $q->hidden($param);
-	} 
+	}
 	print $q->end_form;
 	print "</div>\n";
+	return;
 }
 
 sub _error_exit {
@@ -531,6 +538,7 @@ sub _set_current_user_IP_address {
 		$logger->debug("Set IP address for $userName: $ip_address");
 		$self->{'auth_db'}->commit;
 	}
+	return;
 }
 
 sub _create_session {
@@ -542,6 +550,7 @@ sub _create_session {
 	return if $exists;
 	$sql = $self->{'auth_db'}->prepare("INSERT INTO sessions (dbase,session,start_time) VALUES (?,?,?)");
 	eval { $sql->execute( $self->{'system'}->{'db'}, $session, $time ) };
+
 	if ($@) {
 		$logger->error($@);
 		$self->{'auth_db'}->rollback;
@@ -549,6 +558,7 @@ sub _create_session {
 		$logger->debug("Session created: $session");
 		$self->{'auth_db'}->commit;
 	}
+	return;
 }
 
 sub _get_session_start_time {
@@ -572,6 +582,7 @@ sub _clean_session_database {
 		$logger->debug("Session database cleaned");
 		$self->{'auth_db'}->commit;
 	}
+	return;
 }
 #############################################################################
 # Cookies Code
@@ -606,7 +617,7 @@ sub _clear_cookies {
 sub _set_cookies {
 	my ( $self, $cookieRef, $expires ) = @_;
 	my @Cookie_objects;
-	my $query = new CGI;
+	my $query = CGI->new;
 	while ( my ( $cookie, $value ) = _shift2($cookieRef) ) {
 		push( @Cookie_objects, $self->_make_cookie( $query, $cookie, $value, $expires ) );
 	}

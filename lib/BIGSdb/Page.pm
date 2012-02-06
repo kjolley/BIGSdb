@@ -182,6 +182,17 @@ END
 	return $buffer;
 }
 
+sub print_banner {
+	my ($self) = @_;
+	my $bannerfile = "$self->{'dbase_config_dir'}/$self->{'instance'}/banner.html";
+	if ( -e $bannerfile ) {
+		print "<div class=\"box\" id=\"banner\">\n";
+		$self->print_file($bannerfile);
+		print "</div>\n";
+	}
+	return;
+}
+
 sub print_page_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};

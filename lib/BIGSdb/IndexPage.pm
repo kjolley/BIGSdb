@@ -48,13 +48,7 @@ sub print_content {
 	my $q          = $self->{'cgi'};
 	print "<h1>Welcome to the $desc database</h1>";
 
-	#Check if banner file exists, if so print it
-	my $bannerfile = "$self->{'dbase_config_dir'}/$self->{'instance'}/banner.html";
-	if ( -e $bannerfile ) {
-		print "<div class=\"box\" id=\"banner\"><p>\n";
-		$self->print_file($bannerfile);
-		print "</p></div>\n";
-	}
+	$self->print_banner;
 	print << "HTML";
 <div class="box" id="index">
 <div class="scrollable">
