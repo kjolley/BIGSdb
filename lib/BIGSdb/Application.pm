@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2010-2011, University of Oxford
+#(c) 2010-2012, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,43 @@
 package BIGSdb::Application;
 use strict;
 use warnings;
+use BIGSdb::AlleleInfoPage;
+use BIGSdb::AlleleQueryPage;
+use BIGSdb::AlleleSequencePage;
+use BIGSdb::BatchProfileQueryPage;
+use BIGSdb::BIGSException;
+use BIGSdb::BrowsePage;
+use BIGSdb::ChangePasswordPage;
+use BIGSdb::CustomizePage;
+use BIGSdb::Dataconnector;
+use BIGSdb::Datastore;
+use BIGSdb::DownloadAllelesPage;
+use BIGSdb::DownloadProfilesPage;
+use BIGSdb::DownloadSeqbinPage;
+use BIGSdb::ErrorPage;
+use BIGSdb::FieldHelpPage;
+use BIGSdb::IndexPage;
+use BIGSdb::IsolateInfoPage;
+use BIGSdb::JobViewerPage;
+use BIGSdb::ListQueryPage;
+use BIGSdb::LocusInfoPage;
+use BIGSdb::LoginMD5;
+use BIGSdb::OptionsPage;
+use BIGSdb::Parser;
+use BIGSdb::PluginManager;
+use BIGSdb::Preferences;
+use BIGSdb::ProfileInfoPage;
+use BIGSdb::ProfileQueryPage;
+use BIGSdb::PubQueryPage;
+use BIGSdb::QueryPage;
+use BIGSdb::RecordInfoPage;
+use BIGSdb::SeqbinPage;
+use BIGSdb::SeqbinToEMBL;
+use BIGSdb::SequenceQueryPage;
+use BIGSdb::TableQueryPage;
+use BIGSdb::VersionPage;
+use CGI;
+use DBI;
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 use Config::Tiny;

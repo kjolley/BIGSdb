@@ -32,55 +32,10 @@ use constant {
 };
 #######End Local configuration################################
 
-use CGI;
-use DBI;
 use Log::Log4perl qw(get_logger);               #Also need Log::Dispatch::File
-use Error qw(:try);
 use lib (LIB_DIR);
 use BIGSdb::Application;
-use BIGSdb::Parser;
-use BIGSdb::Utils;
-use BIGSdb::Dataconnector;
-use BIGSdb::Datastore;
-use BIGSdb::Preferences;
-use BIGSdb::Scheme;
-use BIGSdb::Locus;
-use BIGSdb::Page;
-use BIGSdb::IndexPage;
-use BIGSdb::ErrorPage;
-use BIGSdb::BrowsePage;
-use BIGSdb::IsolateInfoPage;
-use BIGSdb::ProfileInfoPage;
-use BIGSdb::VersionPage;
-use BIGSdb::QueryPage;
-use BIGSdb::TableQueryPage;
-use BIGSdb::OptionsPage;
-use BIGSdb::PubQueryPage;
-use BIGSdb::ProfileQueryPage;
-use BIGSdb::BatchProfileQueryPage;
-use BIGSdb::DownloadAllelesPage;
-use BIGSdb::DownloadProfilesPage;
-use BIGSdb::DownloadSeqbinPage;
-use BIGSdb::SeqbinPage;
-use BIGSdb::ListQueryPage;
-use BIGSdb::SequenceQueryPage;
-use BIGSdb::CustomizePage;
-use BIGSdb::RecordInfoPage;
-use BIGSdb::BIGSException;
-use BIGSdb::PluginManager;
-use BIGSdb::Plugin;
-use BIGSdb::SeqbinToEMBL;
-use BIGSdb::AlleleSequencePage;
-use BIGSdb::LoginMD5;
-use BIGSdb::ChangePasswordPage;
-use BIGSdb::AlleleInfoPage;
-use BIGSdb::ClientDB;
-use BIGSdb::FieldHelpPage;
-use BIGSdb::ExtractedSequencePage;
-use BIGSdb::AlleleQueryPage;
-use BIGSdb::LocusInfoPage;
 use BIGSdb::OfflineJobManager;
-use BIGSdb::JobViewerPage;
 
 my $r = shift;    #Apache request object (used for mod_perl)
 Log::Log4perl->init_once( CONFIG_DIR . '/logging.conf' );

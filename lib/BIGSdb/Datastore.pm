@@ -24,6 +24,7 @@ use List::MoreUtils qw(any);
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Datastore');
 use BIGSdb::Page qw(SEQ_METHODS DATABANKS SEQ_FLAGS);
+use BIGSdb::ClientDB;
 use BIGSdb::Locus;
 use BIGSdb::Scheme;
 

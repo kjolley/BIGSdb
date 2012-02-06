@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2011, University of Oxford
+#Copyright (c) 2010-2012, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,6 +20,36 @@ package BIGSdb::Curate;
 use strict;
 use warnings;
 use base qw(BIGSdb::Application);
+use BIGSdb::ConfigCheckPage;
+use BIGSdb::ConfigRepairPage;
+use BIGSdb::CurateAddPage;
+use BIGSdb::CurateAlleleUpdatePage;
+use BIGSdb::CurateBatchAddPage;
+use BIGSdb::CurateBatchAddSeqbinPage;
+use BIGSdb::CurateBatchIsolateUpdatePage;
+use BIGSdb::CurateCompositeQueryPage;
+use BIGSdb::CurateCompositeUpdatePage;
+use BIGSdb::CurateDatabankScanPage;
+use BIGSdb::CurateDeleteAllPage;
+use BIGSdb::CurateDeletePage;
+use BIGSdb::CurateExportConfig;
+use BIGSdb::CurateIndexPage;
+use BIGSdb::CurateIsolateACLPage;
+use BIGSdb::CurateIsolateAddPage;
+use BIGSdb::CurateIsolateDeletePage;
+use BIGSdb::CurateIsolateUpdatePage;
+use BIGSdb::CurateLinkToExperimentPage;
+use BIGSdb::CuratePage;
+use BIGSdb::CurateProfileAddPage;
+use BIGSdb::CurateProfileBatchAddPage;
+use BIGSdb::CurateProfileUpdatePage;
+use BIGSdb::CuratePubmedQueryPage;
+use BIGSdb::CurateRenumber;
+use BIGSdb::CurateTableHeaderPage;
+use BIGSdb::CurateTagScanPage;
+use BIGSdb::CurateTagUpdatePage;
+use BIGSdb::CurateUpdatePage;
+
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
