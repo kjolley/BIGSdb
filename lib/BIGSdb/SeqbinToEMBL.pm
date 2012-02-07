@@ -47,6 +47,14 @@ sub print_content {
 		print "Invalid isolate or sequence bin id.\n";
 		return;
 	}
+	$self->write_embl($seqbin_ids);
+	return;
+}
+
+sub write_embl {
+	my ( $self, $seqbin_ids, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $buffer;
 	foreach my $seqbin_id (@$seqbin_ids) {
 		my $seq =
 		  $self->{'datastore'}->run_simple_query(
@@ -93,8 +101,12 @@ sub print_content {
 		my $stringfh_out = IO::String->new( \$str );
 		my $seq_out = Bio::SeqIO->new( -fh => $stringfh_out, -format => 'embl' );
 		$seq_out->write_seq($seq_object);
-		print $str;
+		if ($options->{'get_buffer'}){
+			$buffer .= $str;
+		} else {
+			print $str;
+		}
 	}
-	return;
+	return $options->{'get_buffer'} ? $buffer: undef;
 }
 1;

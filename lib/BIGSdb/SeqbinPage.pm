@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2011, University of Oxford
+#Copyright (c) 2010-2012, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,6 +20,7 @@ package BIGSdb::SeqbinPage;
 use strict;
 use warnings;
 use base qw(BIGSdb::IsolateInfoPage);
+use BIGSdb::SeqbinToEMBL;
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
@@ -67,9 +68,8 @@ HTML
 	}
 	print
 "<ul><li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadSeqbin&amp;isolate_id=$isolate_id\">Download sequences (FASTA format)</a></li>\n";
-print
+	print
 "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=embl&amp;isolate_id=$isolate_id\">Download sequences with annotations (EMBL format)</a></li></ul>\n";
-
 	print "</td><td style=\"vertical-align:top;padding-left:2em\">\n";
 	if ( $count > 1 ) {
 		print "<h2>Contig size distribution</h2>\n";
@@ -115,8 +115,9 @@ print
 	eval { $sql->execute($isolate_id) };
 	$logger->error($@) if $@;
 	print "<div class=\"scrollable\">\n";
-	print
-"<table class=\"resultstable\"><tr><th>Sequence</th><th>Sequencing method</th><th>Original designation</th><th>Length</th><th>Comments</th><th>Locus</th><th>Start</th><th>End</th><th>Direction</th><th>EMBL format</th>";
+	print "<table class=\"resultstable\"><tr><th>Sequence</th><th>Sequencing method</th><th>Original designation</th><th>Length</th>"
+	  . "<th>Comments</th><th>Locus</th><th>Start</th><th>End</th><th>Direction</th><th>EMBL format</th><th>Artemis</th>";
+
 	if ( $self->{'curate'} && ( $self->{'permissions'}->{'modify_loci'} || $self->is_admin ) ) {
 		print "<th>Renumber";
 		print
@@ -159,6 +160,11 @@ print
 					print $q->hidden($_) foreach qw (page db seqbin_id);
 					print $q->submit( -name => 'EMBL', -class => 'smallbutton' );
 					print $q->end_form;
+					print "</td><td rowspan=\"$allele_count\" style=\"vertical-align:top\">";
+					my $jnlp = $self->_make_artemis_jnlp( $data->{'id'} );
+					print $q->start_form( -method => 'get', -action => "/tmp/$jnlp" );
+					print $q->submit( -name => 'Artemis', -class => 'smallbutton' );
+					print $q->end_form;
 					print "</td>";
 
 					if ( $self->{'curate'} && ( $self->{'permissions'}->{'modify_loci'} || $self->is_admin ) ) {
@@ -181,15 +187,69 @@ print
 			print defined $data->{'original_designation'} ? "<td>$data->{'original_designation'}</td>" : '<td />';
 			print "<td>$data->{'length'}</td>";
 			print defined $data->{'comments'} ? "<td>$data->{'comments'}</td>" : '<td />';
-			print "<td /><td /><td /><td /><td />";
+			print "<td /><td /><td /><td /><td /><td />";
 			print "<td />" if $self->{'curate'};
 			print "</tr>\n";
 		}
 		$td = $td == 1 ? 2 : 1;
 	}
 	print "</table></div>\n";
-	print " </div>\n ";
+	print "</div>\n ";
 	return;
+}
+
+sub _make_artemis_jnlp {
+	my ( $self, $seqbin_id ) = @_;
+	my $temp          = BIGSdb::Utils::get_random();
+	my $jnlp_filename = "$temp\_$seqbin_id.jnlp";
+	my $embl_filename = "$temp\_$seqbin_id.embl";
+	open( my $fh_embl, '>', "$self->{'config'}->{'tmp_dir'}/$embl_filename" );
+	my %page_attributes = (
+		'system'    => $self->{'system'},
+		'cgi'       => $self->{'cgi'},
+		'instance'  => $self->{'instance'},
+		'datastore' => $self->{'datastore'},
+		'db'        => $self->{'db'},
+	);
+	my $seqbin_to_embl = BIGSdb::SeqbinToEMBL->new(%page_attributes);
+	print $fh_embl $seqbin_to_embl->write_embl( [$seqbin_id], { 'get_buffer' => 1 } );
+	close $fh_embl;
+	my $url = "http://" . $self->{'cgi'}->virtual_host . "/tmp/$embl_filename";
+	open( my $fh, '>', "$self->{'config'}->{'tmp_dir'}/$jnlp_filename" )
+	  || $logger->error("Can't open $self->{'config'}->{'tmp_dir'}/$jnlp_filename for writing.");
+	print $fh <<"JNLP";
+<?xml version="1.0" encoding="UTF-8"?>
+<jnlp
+        spec="1.0+"
+        codebase="http://www.sanger.ac.uk/resources/software/artemis/java/"
+        href="artemis.jnlp">
+         <information>
+           <title>Artemis</title>
+           <vendor>Sanger Institute</vendor> 
+           <homepage href="http://www.sanger.ac.uk/resources/software/artemis/"/>
+           <description>Artemis</description>
+           <description kind="short">DNA sequence viewer and annotation tool.
+           </description>
+           <offline-allowed/>
+         </information>
+         <security>
+           <all-permissions/>
+         </security>
+         <resources>
+           <j2se version="1.5+" initial-heap-size="32m" max-heap-size="400m"/>
+           <jar href="sartemis.jar"/>
+           <property name="com.apple.mrj.application.apple.menu.about.name" value="Artemis" />
+           <property name="artemis.environment" value="UNIX" />
+           <property name="j2ssh" value="" />
+           <property name="apple.laf.useScreenMenuBar" value="true" />
+         </resources>
+         <application-desc main-class="uk.ac.sanger.artemis.components.ArtemisMain">
+           <argument>$url</argument>
+         </application-desc>
+</jnlp>
+JNLP
+	close $fh;
+	return $jnlp_filename;
 }
 
 sub get_title {
