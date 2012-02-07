@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2011, University of Oxford
+#Copyright (c) 2010-2012, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -26,6 +26,7 @@ my $logger = get_logger('BIGSdb.Page');
 sub initiate {
 	my ($self) = @_;
 	$self->{'type'} = 'text';
+	return;
 }
 
 sub print_content {
@@ -38,7 +39,7 @@ sub print_content {
 		print "Isolate id must be an integer.\n";
 		return;
 	}
-	$| = 1;
+	local $| = 1;
 	my $sql = $self->{'db'}->prepare("SELECT id,original_designation,sequence FROM sequence_bin WHERE isolate_id=? ORDER BY id");
 	eval { $sql->execute($isolate_id) };
 	if ($@) {
@@ -62,6 +63,7 @@ sub print_content {
 	if ($no_seqs) {
 		print "No sequences deposited for isolate id#$isolate_id.\n";
 	}
+	return;
 }
 
 1;
