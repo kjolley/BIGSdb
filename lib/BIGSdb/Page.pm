@@ -108,8 +108,6 @@ sub get_guid {
 	}
 }
 
-
-
 sub print_banner {
 	my ($self) = @_;
 	my $bannerfile = "$self->{'dbase_config_dir'}/$self->{'instance'}/banner.html";
@@ -507,7 +505,8 @@ sub print_file {
 		foreach ( uniq @$loci ) {
 			my $cleaned = $self->clean_locus($_);
 			$lociAdd .= ' | ' if !$first;
-			$lociAdd .= "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=sequences&amp;locus=$_\">$cleaned</a>";
+			$lociAdd .=
+"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=sequences&amp;locus=$_\">$cleaned</a>";
 			$first = 0;
 		}
 	}
@@ -1024,36 +1023,24 @@ sub _print_record_table {
 	my ( @qry_fields, @display,     @cleaned_headers );
 	my ( %type,       %foreign_key, %labels );
 	my $user_variable_fields = 0;
-	if ( $table eq 'allele_sequences' ) {
-		push @cleaned_headers, 'isolate id';
-	}
-	foreach (@$attributes) {
-		next if $table eq 'sequence_bin' && $_->{'name'} eq 'sequence';
-		next if $_->{'hide'} eq 'yes' || ( $_->{'public_hide'} eq 'yes' && !$self->{'curate'} ) || $_->{'main_display'} eq 'no';
-		push @display,    $_->{'name'};
-		push @qry_fields, "$table.$_->{'name'}";
-		my $cleaned = $_->{'name'};
+	push @cleaned_headers, 'isolate id' if $table eq 'allele_sequences';
+	foreach my $attr (@$attributes) {
+		next if $table eq 'sequence_bin' && $attr->{'name'} eq 'sequence';
+		next if $attr->{'hide'} eq 'yes' || ( $attr->{'public_hide'} eq 'yes' && !$self->{'curate'} ) || $attr->{'main_display'} eq 'no';
+		push @display,    $attr->{'name'};
+		push @qry_fields, "$table.$attr->{'name'}";
+		my $cleaned = $attr->{'name'};
 		$cleaned =~ tr/_/ /;
-		if (   $_->{'name'} eq 'isolate_display'
-			or $_->{'name'} eq 'main_display'
-			or $_->{'name'} eq 'query_field'
-			or $_->{'name'} eq 'query_status'
-			or $_->{'name'} eq 'dropdown'
-			or $_->{'name'} eq 'analysis' )
-		{
+		if ( any { $attr->{'name'} eq $_ } qw (isolate_display main_display query_field query_status dropdown analysis) ) {
 			$cleaned .= '*';
 			$user_variable_fields = 1;
 		}
 		push @cleaned_headers, $cleaned;
-		if ( $table eq 'experiment_sequences' && $_->{'name'} eq 'experiment_id' ) {
-			push @cleaned_headers, 'isolate id';
-		}
-		if ( $table eq 'allele_sequences' && $_->{'name'} eq 'complete' ) {
-			push @cleaned_headers, 'flag';
-		}
-		$type{ $_->{'name'} }        = $_->{'type'};
-		$foreign_key{ $_->{'name'} } = $_->{'foreign_key'};
-		$labels{ $_->{'name'} }      = $_->{'labels'};
+		push @cleaned_headers, 'isolate id' if $table eq 'experiment_sequences' && $attr->{'name'} eq 'experiment_id';
+		push @cleaned_headers, 'flag' if $table eq 'allele_sequences' && $attr->{'name'} eq 'complete';
+		$type{ $attr->{'name'} }        = $attr->{'type'};
+		$foreign_key{ $attr->{'name'} } = $attr->{'foreign_key'};
+		$labels{ $attr->{'name'} }      = $attr->{'labels'};
 	}
 	my $extended_attributes;
 	if ( $q->param('page') eq 'alleleQuery' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
@@ -1079,17 +1066,11 @@ sub _print_record_table {
 	}
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
-	if ($@) {
-		$logger->error("Can't execute: $qry $@");
-	} else {
-		$logger->debug("Query: $qry");
-	}
+	$logger->error("Can't execute: $qry $@") if $@;
 	my @retval = $sql->fetchrow_array;
-	if ( !@retval ) {
-		return;
-	}
-	$sql->finish();
-	eval { $sql->execute(); };
+	return if !@retval;
+	$sql->finish;
+	eval { $sql->execute };
 	$logger->error($@) if $@;
 	my %data = ();
 	$sql->bind_columns( map { \$data{$_} } @display );    #quicker binding hash to arrayref than to use hashref
@@ -2519,7 +2500,7 @@ sub initiate_prefs {
 		}
 
 		#Switches
-		foreach (qw (hyperlink_loci traceview tooltips)) {
+		foreach (qw (hyperlink_loci tooltips)) {
 			$self->{'prefs'}->{$_} = ( $q->param($_) && $q->param($_) eq 'on' ) ? 1 : 0;
 		}
 	} else {
@@ -2550,7 +2531,7 @@ sub initiate_prefs {
 			}
 
 			#default on
-			foreach (qw (tooltips traceview)) {
+			foreach (qw (tooltips)) {
 				$general_prefs->{$_} ||= 'on';
 				$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'off' ? 0 : 1;
 			}
@@ -2589,7 +2570,7 @@ sub _initiate_isolatedb_prefs {
 	my ( $self, $general_prefs, $field_prefs, $scheme_field_prefs ) = @_;
 	my $q          = $self->{'cgi'};
 	my $logger     = get_logger('BIGSdb.Application_Initiate');
-	my $field_list = $self->{'xmlHandler'}->get_field_list();
+	my $field_list = $self->{'xmlHandler'}->get_field_list;
 	my $params     = $q->Vars;
 	my $extended   = $self->get_extended_attributes;
 
@@ -2703,7 +2684,7 @@ sub _initiate_isolatedb_prefs {
 			}
 			my $qry = "SELECT id,main_display FROM composite_fields";
 			my $sql = $self->{'db'}->prepare($qry);
-			eval { $sql->execute(); };
+			eval { $sql->execute };
 			if ($@) {
 				$logger->error("Can't execute $qry");
 				return;
@@ -2794,24 +2775,6 @@ sub clean_checkbox_id {
 	$var =~ s/\)/_CLOSE_/g;
 	$var =~ s/\>/_GT_/g;
 	return $var;
-}
-
-sub escape_params {
-	my ($self)      = @_;
-	my $q           = $self->{'cgi'};
-	my @param_names = $q->param;
-	my %escapes =
-	  ( '__prime__' => "'", '__slash__' => "\\", '__comma__' => ',', '__space__' => ' ', '_OPEN_' => "(", '_CLOSE_' => ")", '_GT_' => ">" );
-	foreach my $param_name (@param_names) {
-		my $key = $param_name;
-		if ( any { $param_name =~ /$_/ } keys %escapes ) {
-			foreach my $escape_string ( keys %escapes ) {
-				$key =~ s/$escape_string/$escapes{$escape_string}/g;
-			}
-			$q->param( $key, $q->param($param_name) );
-		}
-	}
-	return;
 }
 
 1;

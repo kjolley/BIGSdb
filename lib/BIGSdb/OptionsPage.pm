@@ -132,7 +132,7 @@ sub set_options {
 			$prefstore->set_general( $guid, $dbname, $_, $prefs->{$_} ) if BIGSdb::Utils::is_int( $prefs->{$_} ) && $prefs->{$_} >= 0;
 		}
 		$prefstore->set_general( $guid, $dbname, 'pagebar', $prefs->{'pagebar'} );
-		foreach (qw (traceview hyperlink_loci tooltips)) {
+		foreach (qw (hyperlink_loci tooltips)) {
 			$prefstore->set_general( $guid, $dbname, $_, $prefs->{$_} ? 'on' : 'off' );
 		}
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -206,12 +206,6 @@ sub _print_general_tab {
 	print "</td></tr>\n";
 	print "</table>\n";
 	print "<table style=\"width:100%\">";
-	print "<tr><th>Java</th></tr>\n";
-	print
-	  "<tr class=\"td1\" style=\"text-align:left\"><td>Switch off if you don't have a Java plugin or to speed up page display.</td></tr>\n";
-	print "<tr class=\"td1\" style=\"text-align:left\"><td>\n";
-	print $q->checkbox( -name => 'traceview', -checked => $prefs->{'traceview'}, -label => 'Enable trace viewing (where available)' );
-	print "</td></tr>\n";
 	print "<tr><th>Sequence bin display</th></tr>\n";
 	print "<tr class=\"td1\" style=\"text-align:left\"><td>Display \n";
 	print $q->popup_menu( -name => 'flanking', -values => [ FLANKING ], -default => $prefs->{'flanking'} );

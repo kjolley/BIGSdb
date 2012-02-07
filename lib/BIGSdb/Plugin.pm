@@ -705,4 +705,22 @@ sub get_ids_from_query {
 	return $ids;
 }
 
+sub escape_params {
+	my ($self)      = @_;
+	my $q           = $self->{'cgi'};
+	my @param_names = $q->param;
+	my %escapes =
+	  ( '__prime__' => "'", '__slash__' => "\\", '__comma__' => ',', '__space__' => ' ', '_OPEN_' => "(", '_CLOSE_' => ")", '_GT_' => ">" );
+	foreach my $param_name (@param_names) {
+		my $key = $param_name;
+		if ( any { $param_name =~ /$_/ } keys %escapes ) {
+			foreach my $escape_string ( keys %escapes ) {
+				$key =~ s/$escape_string/$escapes{$escape_string}/g;
+			}
+			$q->param( $key, $q->param($param_name) );
+		}
+	}
+	return;
+}
+
 1;
