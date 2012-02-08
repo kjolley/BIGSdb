@@ -70,11 +70,13 @@ function enable_seqs(){
 		\$("#locus_fieldset").hide(500);
 		\$("#tblastx").attr("disabled", false);
 		\$("#align").attr("disabled", false);
+		\$("#use_tagged").attr("disabled", true);
 	} else {
 		\$("#scheme_fieldset").show(500);
 		\$("#locus_fieldset").show(500);
 		\$("#tblastx").attr("disabled", true);
 		\$("#align").attr("disabled", true);
+		\$("#use_tagged").attr("disabled", false);
 	}
 }
 
@@ -169,8 +171,8 @@ sub run {
 		my $filtered_ids = $self->_filter_ids_by_project( \@ids, $q->param('project_list') );
 		my $continue     = 1;
 		if ( !@$filtered_ids ) {
-			print
-"<div class=\"box\" id=\"statusbad\"><p>You must include one or more isolates. Make sure your selected isolates haven't been filtered to none by selecting a project.</p></div>\n";
+			print "<div class=\"box\" id=\"statusbad\"><p>You must include one or more isolates. Make sure your "
+			  . "selected isolates haven't been filtered to none by selecting a project.</p></div>\n";
 			$continue = 0;
 		}
 		my @loci       = $q->param('locus');
@@ -178,8 +180,8 @@ sub run {
 		push @$scheme_ids, 0;
 		my $accession = $q->param('accession');
 		if ( !$accession && !$ref_upload && !@loci && ( none { $q->param("s_$_") } @$scheme_ids ) && $continue ) {
-			print
-"<div class=\"box\" id=\"statusbad\"><p>You must either select one or more loci or schemes, provide a genome accession number, or upload an annotated genome.</p></div>\n";
+			print "<div class=\"box\" id=\"statusbad\"><p>You must either select one or more loci or schemes, provide "
+			. "a genome accession number, or upload an annotated genome.</p></div>\n";
 			$continue = 0;
 		}
 		my @selected_schemes;
@@ -310,7 +312,7 @@ HTML
 	print $q->filefield( -name => 'ref_upload', -id => 'ref_upload', -size => 10, -maxlength => 512, -onChange => 'enable_seqs()', );
 	print " <a class=\"tooltip\" title=\"Reference upload - File format is recognised by the extension in the "
 	  . "name.  Make sure your file has a standard extension, e.g. .gb, .embl.\">&nbsp;<i>i</i>&nbsp;</a>";
-	print "</fieldset>\n<fieldset style=\"float:left\">\n<legend>Parameters</legend>\n";
+	print "</fieldset>\n<fieldset style=\"float:left\">\n<legend>Parameters / options</legend>\n";
 	print "<ul><li><label for =\"identity\" class=\"parameter\">Min % identity:</label>\n";
 	print $q->popup_menu(
 		-name    => 'identity',
@@ -348,8 +350,11 @@ HTML
 	print $q->checkbox( -name => 'align', -id => 'align', -label => 'Produce alignments' );
 	print <<"HTML";
  <a class=\"tooltip\" title=\"Alignments (analysis by reference genome only) - Alignments will be produced in muscle for 
-any loci that vary between isolates. This may slow the analysis considerably.">&nbsp;<i>i</i>&nbsp;</a></li></ul></fieldset>
-<fieldset style="float:left"><legend>Restrict included sequences by</legend><ul>
+any loci that vary between isolates. This may slow the analysis considerably.">&nbsp;<i>i</i>&nbsp;</a></li><li>
+HTML
+	print $q->checkbox( -name => 'use_tagged', -id => 'use_tagged', -label => 'Use tagged designations if available', -checked => 'true' );
+	print <<"HTML";
+</li></ul></fieldset><fieldset style="float:left"><legend>Restrict included sequences by</legend><ul>
 HTML
 	my $buffer = $self->get_sequence_method_filter( { 'class' => 'parameter' } );
 	print "<li>$buffer</li>" if $buffer;
@@ -434,12 +439,22 @@ sub _analyse_by_loci {
 		foreach my $id (@$ids) {
 			$id = $1 if $id =~ /(\d*)/;    #avoid taint check
 			my $out_file = "$self->{'config'}->{'secure_tmp_dir'}/$job_id\_isolate_$id\_outfile.txt";
-			if ( $locus_info->{'data_type'} eq 'DNA' ) {
-				$self->_blast( $blastn_word_size, $locus_FASTA, $isolate_FASTA{$id}, $out_file, 'blastn' );
-			} else {
-				$self->_blast( 3, $locus_FASTA, $isolate_FASTA{$id}, $out_file, 'blastx' );
+			my $match;
+			if ($params->{'use_tagged'}){
+				my $allele_id = $self->{'datastore'}->get_allele_id($id,$locus);
+				if (defined $allele_id){
+					$match->{'exact'} = 1;
+					$match->{'allele'} = $allele_id;
+				}
 			}
-			my $match = $self->_parse_blast_by_locus( $locus, $out_file, $params );
+			if (!$match->{'exact'}){
+				if ( $locus_info->{'data_type'} eq 'DNA' ) {
+					$self->_blast( $blastn_word_size, $locus_FASTA, $isolate_FASTA{$id}, $out_file, 'blastn' );
+				} else {
+					$self->_blast( 3, $locus_FASTA, $isolate_FASTA{$id}, $out_file, 'blastx' );
+				}
+				$match = $self->_parse_blast_by_locus( $locus, $out_file, $params );
+			}
 			if ( ref $match ne 'HASH' ) {
 				$html_buffer .= "<td>X</td>";
 				print $fh "\tX";
