@@ -26,6 +26,12 @@ use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
 use POSIX qw(ceil);
 
+sub initiate {
+	my ($self) = @_;
+	$self->{$_} = 1 foreach qw (tooltips jQuery);
+	return;
+}
+
 sub print_content {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
@@ -47,18 +53,26 @@ sub print_content {
 	print "<table><tr><td style=\"vertical-align:top\">";
 	print "<h2>Contig summary statistics</h2>\n";
 	print "<ul>\n<li>Number of contigs: $count</li>\n";
-	my $data;
+	my ( $data, $lengths );
 	if ( $count > 1 ) {
 		$data = $self->{'datastore'}->run_simple_query(
-"SELECT SUM(length(sequence)),MIN(length(sequence)),MAX(length(sequence)), CEIL(AVG(length(sequence))), CEIL(STDDEV_SAMP(length(sequence))) FROM sequence_bin WHERE isolate_id=?",
+			"SELECT SUM(length(sequence)),MIN(length(sequence)),MAX(length(sequence)),CEIL(AVG(length(sequence))), "
+			  . "CEIL(STDDEV_SAMP(length(sequence))) FROM sequence_bin WHERE isolate_id=?",
 			$isolate_id
 		);
+		$lengths =
+		  $self->{'datastore'}
+		  ->run_list_query( "SELECT length(sequence) FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) desc", $isolate_id );
+		my $n_stats = $self->_get_N_stats($data->[0], $lengths);
 		print <<"HTML"
 	<li>Total length: $data->[0]</li>
 	<li>Minimum length: $data->[1]</li>
 	<li>Maximum length: $data->[2]</li>
 	<li>Mean length: $data->[3]</li>
 	<li>&sigma; length: $data->[4]</li>
+	<li>N50: $n_stats->{'N50'}</li>
+	<li>N90: $n_stats->{'N90'}</li>
+	<li>N95: $n_stats->{'N95'}</li>
 	</ul>
 HTML
 	} else {
@@ -73,9 +87,6 @@ HTML
 	print "</td><td style=\"vertical-align:top;padding-left:2em\">\n";
 	if ( $count > 1 ) {
 		print "<h2>Contig size distribution</h2>\n";
-		my $lengths =
-		  $self->{'datastore'}
-		  ->run_list_query( "SELECT length(sequence) FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) desc", $isolate_id );
 		my $temp = BIGSdb::Utils::get_random();
 		open( my $fh_output, '>', "$self->{'config'}->{'tmp_dir'}/$temp.txt" )
 		  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$temp.txt for writing");
@@ -282,5 +293,21 @@ sub get_title {
 		return "Sequence bin: id-$isolate_id (@name)" if $name[1];
 	}
 	return "Sequence bin - $desc";
+}
+
+sub _get_N_stats {
+	my ( $self, $total_length, $contig_length_arrayref) = @_;
+	my $n50_target = 0.5 * $total_length;
+	my $n90_target = 0.1 * $total_length;
+	my $n95_target = 0.05 * $total_length;
+	my $stats;
+	my $running_total = $total_length;
+	foreach my $length (@$contig_length_arrayref){
+		$running_total -= $length;
+		$stats->{'N50'} = $length if !defined $stats->{'N50'} && $running_total <= $n50_target;
+		$stats->{'N90'} = $length if !defined $stats->{'N90'} && $running_total <= $n90_target;
+		$stats->{'N95'} = $length if !defined $stats->{'N95'} && $running_total <= $n95_target;
+	}
+	return $stats;
 }
 1;
