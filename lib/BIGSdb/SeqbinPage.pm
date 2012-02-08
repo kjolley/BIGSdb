@@ -50,7 +50,7 @@ sub print_content {
 	}
 	my $count = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM sequence_bin WHERE isolate_id=?", $isolate_id )->[0];
 	print "<div class=\"box\" id=\"resultsheader\">\n";
-	print "<table><tr><td style=\"vertical-align:top\">";
+	print "<div style=\"float:left\">\n";
 	print "<h2>Contig summary statistics</h2>\n";
 	print "<ul>\n<li>Number of contigs: $count</li>\n";
 	my ( $data, $lengths );
@@ -84,8 +84,9 @@ HTML
 "<ul><li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadSeqbin&amp;isolate_id=$isolate_id\">Download sequences (FASTA format)</a></li>\n";
 	print
 "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=embl&amp;isolate_id=$isolate_id\">Download sequences with annotations (EMBL format)</a></li></ul>\n";
-	print "</td><td style=\"vertical-align:top;padding-left:2em\">\n";
+	print "</div>\n";
 	if ( $count > 1 ) {
+		print "<div style=\"float:left;padding-left:2em\">\n";
 		print "<h2>Contig size distribution</h2>\n";
 		my $temp = BIGSdb::Utils::get_random();
 		open( my $fh_output, '>', "$self->{'config'}->{'tmp_dir'}/$temp.txt" )
@@ -117,8 +118,9 @@ HTML
 		print "<li><a href=\"/tmp/$temp\_histogram.png\">Enlarge chart</a></li>\n" if $self->{'config'}->{'chartdirector'};
 		print "<li><a href=\"/tmp/$temp.txt\">Download lengths</a></li>\n";
 		print "</ul>\n";
+		print "</div>\n";
 	}
-	print "</td></tr></table>\n";
+	print "<div style=\"clear:both\"></div>\n";
 	print "</div><div class=\"box\" id=\"resultstable\">\n";
 	my $qry =
 "SELECT id,length(sequence) AS length,original_designation,method,comments,sender,curator,date_entered,datestamp FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) desc";
