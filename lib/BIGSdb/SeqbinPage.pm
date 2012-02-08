@@ -116,18 +116,20 @@ HTML
 	$logger->error($@) if $@;
 	print "<div class=\"scrollable\">\n";
 	print "<table class=\"resultstable\"><tr><th>Sequence</th><th>Sequencing method</th><th>Original designation</th><th>Length</th>"
-	  . "<th>Comments</th><th>Locus</th><th>Start</th><th>End</th><th>Direction</th><th>EMBL format</th><th>Artemis</th>";
+	  . "<th>Comments</th><th>Locus</th><th>Start</th><th>End</th><th>Direction</th><th>EMBL format</th><th>Artemis <a class=\"tooltip\" title=\"Artemis "
+	  . " - This will launch Artemis using Java WebStart.  The contig annotations should open within Artemis but this may depend on your operating system "
+	  . " and version of Java.  If the annotations do not open within Artemis, download the EMBL file locally and load manually in to Artemis.\">&nbsp;<i>i</i>&nbsp;</a></th>";
 
 	if ( $self->{'curate'} && ( $self->{'permissions'}->{'modify_loci'} || $self->is_admin ) ) {
-		print "<th>Renumber";
-		print
-" <a class=\"tooltip\" title=\"Renumber - You can use the numbering of the sequence tags to automatically set the genome order position for each locus. This will be used to order the sequences when exporting FASTA or XMFA files.\">&nbsp;<i>i</i>&nbsp;</a>";
-		print "</th>\n";
+		print "<th>Renumber <a class=\"tooltip\" title=\"Renumber - You can use the numbering of the sequence tags to automatically "
+		  . "set the genome order position for each locus. This will be used to order the sequences when exporting FASTA or XMFA files."
+		  . "\">&nbsp;<i>i</i>&nbsp;</a></th>\n";
 	}
 	print "</tr>\n";
 	my $td = 1;
 	$qry = "SELECT * FROM allele_sequences WHERE seqbin_id = ? ORDER BY start_pos";
 	my $seq_sql = $self->{'db'}->prepare($qry);
+	local $" = 1;
 	while ( my $data = $sql->fetchrow_hashref ) {
 		eval { $seq_sql->execute( $data->{'id'} ) };
 		$logger->error($@) if $@;
@@ -192,9 +194,12 @@ HTML
 			print "</tr>\n";
 		}
 		$td = $td == 1 ? 2 : 1;
+		if ( $ENV{'MOD_PERL'} ) {
+			$self->{'mod_perl_request'}->rflush;
+			return if $self->{'mod_perl_request'}->connection->aborted;
+		}
 	}
-	print "</table></div>\n";
-	print "</div>\n ";
+	print "</table></div>\n</div>\n";
 	return;
 }
 
@@ -202,19 +207,33 @@ sub _make_artemis_jnlp {
 	my ( $self, $seqbin_id ) = @_;
 	my $temp          = BIGSdb::Utils::get_random();
 	my $jnlp_filename = "$temp\_$seqbin_id.jnlp";
-	my $embl_filename = "$temp\_$seqbin_id.embl";
-	open( my $fh_embl, '>', "$self->{'config'}->{'tmp_dir'}/$embl_filename" );
-	my %page_attributes = (
-		'system'    => $self->{'system'},
-		'cgi'       => $self->{'cgi'},
-		'instance'  => $self->{'instance'},
-		'datastore' => $self->{'datastore'},
-		'db'        => $self->{'db'},
-	);
-	my $seqbin_to_embl = BIGSdb::SeqbinToEMBL->new(%page_attributes);
-	print $fh_embl $seqbin_to_embl->write_embl( [$seqbin_id], { 'get_buffer' => 1 } );
-	close $fh_embl;
-	my $url = "http://" . $self->{'cgi'}->virtual_host . "/tmp/$embl_filename";
+
+	# if access is not public or access is via curation interface then
+	# EMBL files will need to be created and placed in a public location
+	# for Artemis to be able to load them.  Public access databases can
+	# create the EMBL file on demand, which is quicker and prevents cluttering
+	# the temporary directory.
+	my $url;
+	if ( $self->{'system'}->{'read_access'} ne 'public' || $self->{'curate'} ) {
+		my $embl_filename = "$temp\_$seqbin_id.embl";
+		open( my $fh_embl, '>', "$self->{'config'}->{'tmp_dir'}/$embl_filename" );
+		my %page_attributes = (
+			'system'    => $self->{'system'},
+			'cgi'       => $self->{'cgi'},
+			'instance'  => $self->{'instance'},
+			'datastore' => $self->{'datastore'},
+			'db'        => $self->{'db'},
+		);
+		my $seqbin_to_embl = BIGSdb::SeqbinToEMBL->new(%page_attributes);
+		print $fh_embl $seqbin_to_embl->write_embl( [$seqbin_id], { 'get_buffer' => 1 } );
+		close $fh_embl;
+		$url = "http://" . $self->{'cgi'}->virtual_host . "/tmp/$embl_filename";
+	} else {
+		$url =
+		    'http://'
+		  . $self->{'cgi'}->virtual_host
+		  . "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=embl&seqbin_id=$seqbin_id";
+	}
 	open( my $fh, '>', "$self->{'config'}->{'tmp_dir'}/$jnlp_filename" )
 	  || $logger->error("Can't open $self->{'config'}->{'tmp_dir'}/$jnlp_filename for writing.");
 	print $fh <<"JNLP";
