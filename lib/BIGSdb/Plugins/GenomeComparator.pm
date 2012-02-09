@@ -812,7 +812,6 @@ sub _print_variable_loci {
 	$$buffer_ref .=
 "<table class=\"resultstable\"><tr><th>Locus</th><th>Product</th><th>Sequence length</th><th>Genome position</th><th>Reference genome</th>";
 	print $fh "Locus\tProduct\tSequence length\tGenome position\tReference genome";
-	my %names;
 	my $isolate;
 
 	foreach my $id (@$ids) {
@@ -820,7 +819,6 @@ sub _print_variable_loci {
 		  $self->{'datastore'}
 		  ->run_simple_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?", $id );
 		if ( ref $isolate_ref eq 'ARRAY' ) {
-			$names{$id} = $isolate_ref->[0];
 			$isolate = ' (' . ( $isolate_ref->[0] ) . ')' if ref $isolate_ref eq 'ARRAY';
 		}
 		$$buffer_ref .= "<th>$id$isolate</th>";
@@ -859,7 +857,7 @@ sub _print_variable_loci {
 			if ( !$loci->{$_}->{$id} ) {
 				$this_allele = 'X';
 			} else {
-				print $fasta_fh ">$names{$id}\n";
+				print $fasta_fh ">$id\n";
 				print $fasta_fh "$loci->{$_}->{$id}\n";
 				my $i;
 				for ( $i = 1 ; $i <= $allele ; $i++ ) {
