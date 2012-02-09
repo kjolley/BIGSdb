@@ -428,6 +428,7 @@ sub _analyse_by_loci {
 	my $td = 1;
 	@$loci = uniq @$loci;
 	my $progress = 0;
+	my $values;
 	foreach my $locus (@$loci) {
 		my $locus_FASTA = $self->_create_locus_FASTA_db( $locus, $job_id );
 		my $cleaned_locus = $self->clean_locus($locus);
@@ -457,15 +458,18 @@ sub _analyse_by_loci {
 			}
 			if ( ref $match ne 'HASH' ) {
 				$html_buffer .= "<td>X</td>";
+				$values->{$id}->{$locus} = 'X';
 				print $fh "\tX";
 			} elsif ( $match->{'exact'} ) {
 				$html_buffer .= "<td>$match->{'allele'}</td>";
+				$values->{$id}->{$locus} = $match->{'allele'};
 				print $fh "\t$match->{'allele'}";
 			} else {
 				my $seq = $self->_extract_sequence($match);
 				my $found;
 				foreach ( keys %new ) {
 					if ( $seq eq $new{$_} ) {
+						$values->{$id}->{$locus} = "new#$_";
 						$html_buffer .= "<td>new#$_</td>\n";
 						print $fh "\tnew#$_";
 						$found = 1;
@@ -473,9 +477,12 @@ sub _analyse_by_loci {
 				}
 				if ( !$found ) {
 					if ( !defined $seq || $seq eq '' ) {
-						$html_buffer .= "<td>X</td>";
+						$values->{$id}->{$locus} = 'X';
+						$html_buffer .= "<td>X</td>";	
+						print $fh "\tX";					
 					} else {
 						$new{$new_allele} = $seq;
+						$values->{$id}->{$locus} = "new#$new_allele";
 						$html_buffer .= "<td>new#$new_allele</td>";
 						print $fh "\tnew#$new_allele";
 						$new_allele++;
@@ -491,14 +498,80 @@ sub _analyse_by_loci {
 		my $complete = int( 100 * $progress / scalar @$loci );
 		my $close_table = ( $progress != scalar @$loci ) ? '</table></div>' : '';
 		$self->{'jobManager'}
-		  ->update_job_status( $job_id, { 'percent_complete' => $complete, 'message_html' => "$html_buffer$close_table" } );
+		  ->update_job_status( $job_id, { percent_complete => $complete, message_html => "$html_buffer$close_table" } );
 	}
 	$html_buffer .= "</table></div>\n";
-	$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => "$html_buffer" } );
+	$self->{'jobManager'}->update_job_status( $job_id, { message_html => "$html_buffer" } );
 	close $fh;
 	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$job_id\*";
-	$self->{'jobManager'}->update_job_output( $job_id, { 'filename' => "$job_id.txt", 'description' => 'Main output file' } );
+	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => 'Main output file' } );
+	my $dismat = $self->_generate_distance_matrix($values);
+	my $nexus_file = $self->_make_nexus_file($job_id, $dismat);
+	$self->{'jobManager'}->update_job_output( $job_id, { filename => $nexus_file, description => 'Distance matrix (Nexus format)' } );	
 	return;
+}
+
+sub _generate_distance_matrix {
+	my ($self, $values) = @_;
+	my @ids = sort {$a <=> $b} keys %$values;
+	my $dismat;
+	foreach my $i (0 .. @ids - 1){
+		foreach my $j (0 .. $i){
+			$dismat->{$ids[$i]}->{$ids[$j]} = 0;
+			foreach my $locus (keys %{$values->{$ids[$i]}}){				
+				if ($values->{$ids[$i]}->{$locus} ne $values->{$ids[$j]}->{$locus}){
+					$dismat->{$ids[$i]}->{$ids[$j]}++;
+				}
+			}
+		}
+	}
+	return $dismat;
+}
+
+sub _make_nexus_file {
+	my ($self, $job_id, $dismat) = @_;
+	open( my $fh, '>', "$self->{'config'}->{'tmp_dir'}/$job_id.nex" );
+	my $timestamp = scalar localtime;
+	my @ids = sort {$a <=> $b} keys %$dismat;
+	my %labels;
+	my $sql = $self->{'db'}->prepare("SELECT id, $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?");
+	foreach (@ids){
+		eval { $sql->execute($_) };
+		$logger->error($@) if $@;
+		my ($id, $name) = $sql->fetchrow_array;
+		$labels{$id} = "$id|$name";
+	}
+	my $num_taxa = @ids;
+	print $fh <<"NEXUS";
+#NEXUS
+[Distance matrix calculated by BIGSdb Genome Comparator ($timestamp)]
+[Jolley & Maiden 2010 BMC Bioinformatics 11:595]
+
+BEGIN taxa;
+   DIMENSIONS ntax = $num_taxa;	
+
+END;
+
+BEGIN distances;
+   DIMENSIONS ntax = $num_taxa;
+   FORMAT
+      triangle=LOWER
+      diagonal
+      labels
+      missing=?
+   ;
+MATRIX
+NEXUS
+	foreach my $i (0 .. @ids - 1){
+		print $fh $labels{$ids[$i]};
+		foreach my $j (0 .. $i){
+			print $fh "\t" . $dismat->{$ids[$i]}->{$ids[$j]};
+		}
+		print $fh "\n";
+	}
+	print $fh "   ;\nEND;\n";
+	close $fh;
+	return "$job_id.nex";
 }
 
 sub _add_scheme_loci {
@@ -549,7 +622,7 @@ sub _analyse_by_reference {
 		}
 	}
 	$html_buffer .= "</table>";
-	$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => $html_buffer } );
+	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
 	my %isolate_FASTA;
 	my $prefix = BIGSdb::Utils::get_random();
 	$isolate_FASTA{$_} = $self->_create_isolate_FASTA_db( $_, $prefix ) foreach (@$ids);
@@ -570,7 +643,7 @@ sub _analyse_by_reference {
 	foreach my $cds (@cds) {
 		$progress++;
 		my $complete = int( 100 * $progress / $total );
-		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } );
+		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete } );
 		my @aliases;
 		my $locus;
 		my %seqs;
@@ -600,7 +673,7 @@ sub _analyse_by_reference {
 			$logger->debug($err);
 			$html_buffer .=
 			  "\n<p /><p class=\"statusbad\">Error: There are no product tags defined in record with supplied accession number.</p>\n";
-			$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => $html_buffer } );
+			$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
 		};
 		return if !@tags;
 		my $start = $cds->start;
@@ -697,14 +770,14 @@ sub _analyse_by_reference {
 	print $fh "\n###\n\n";
 	$self->_print_truncated_loci( \$html_buffer, $fh, $truncated_loci );
 	$html_buffer .= "<p class=\"statusbad\">No sequences were extracted from reference file.</p>\n" if !$seqs_total;
-	$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => $html_buffer } );
+	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
 	close $fh;
 	close $align_fh;
 	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$prefix\*";
-	$self->{'jobManager'}->update_job_output( $job_id, { 'filename' => "$job_id.txt", 'description' => 'Main output file' } );
+	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => 'Main output file' } );
 
 	if ( @$ids > 1 && $params->{'align'} ) {
-		$self->{'jobManager'}->update_job_output( $job_id, { 'filename' => "$job_id\_align.txt", 'description' => 'Alignments' } );
+		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align.txt", description => 'Alignments' } );
 	}
 	return;
 }
