@@ -534,12 +534,16 @@ sub _make_nexus_file {
 	my $timestamp = scalar localtime;
 	my @ids = sort {$a <=> $b} keys %$dismat;
 	my %labels;
-	my $sql = $self->{'db'}->prepare("SELECT id, $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?");
+	my $sql = $self->{'db'}->prepare("SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?");
 	foreach (@ids){
-		eval { $sql->execute($_) };
-		$logger->error($@) if $@;
-		my ($id, $name) = $sql->fetchrow_array;
-		$labels{$id} = "$id|$name";
+		if ($_ == 0){
+			$labels{$_} = "ref";
+		} else {
+			eval { $sql->execute($_) };
+			$logger->error($@) if $@;
+			my ($name) = $sql->fetchrow_array;
+			$labels{$_} = "$_|$name";
+		}
 	}
 	my $num_taxa = @ids;
 	print $fh <<"NEXUS";
@@ -760,13 +764,21 @@ sub _analyse_by_reference {
 		}
 	}
 	print $fh "\n###\n\n";
-	$self->_print_variable_loci( $job_id, \$html_buffer, $fh, $align_fh, $params, $ids, $varying_loci );
+	my $values = $self->_print_variable_loci( $job_id, \$html_buffer, $fh, $align_fh, $params, $ids, $varying_loci );
 	print $fh "\n###\n\n";
 	$self->_print_missing_in_all( \$html_buffer, $fh, $all_missing );
+	foreach my $locus (keys %$all_missing){
+		$values->{'0'}->{$locus} = 1;
+		$values->{$_}->{$locus} = 'X' foreach @$ids;
+	}
 	print $fh "\n###\n\n";
 	$self->_print_exact_matches( \$html_buffer, $fh, $exacts, $params );
 	print $fh "\n###\n\n";
 	$self->_print_exact_except_ref( \$html_buffer, $fh, $exact_except_ref );
+	foreach my $locus (keys %$exact_except_ref){
+		$values->{'0'}->{$locus} = 1;
+		$values->{$_}->{$locus} = 2 foreach @$ids;
+	}
 	print $fh "\n###\n\n";
 	$self->_print_truncated_loci( \$html_buffer, $fh, $truncated_loci );
 	$html_buffer .= "<p class=\"statusbad\">No sequences were extracted from reference file.</p>\n" if !$seqs_total;
@@ -775,6 +787,9 @@ sub _analyse_by_reference {
 	close $align_fh;
 	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$prefix\*";
 	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => 'Main output file' } );
+	my $dismat = $self->_generate_distance_matrix($values);
+	my $nexus_file = $self->_make_nexus_file($job_id, $dismat);
+	$self->{'jobManager'}->update_job_output( $job_id, { filename => $nexus_file, description => 'Distance matrix (Nexus format)' } );	
 
 	if ( @$ids > 1 && $params->{'align'} ) {
 		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align.txt", description => 'Alignments' } );
@@ -785,6 +800,7 @@ sub _analyse_by_reference {
 sub _print_variable_loci {
 	my ( $self, $job_id, $buffer_ref, $fh, $fh_align, $params, $ids, $loci ) = @_;
 	return if ref $loci ne 'HASH';
+	my $values;
 	$$buffer_ref .= "<h3>Loci with sequence differences between isolates:</h3>";
 	print $fh "Loci with sequence differences between isolates\n";
 	print $fh "-----------------------------------------------\n\n";
@@ -830,6 +846,7 @@ sub _print_variable_loci {
 		my $cleaned_locus = $self->clean_locus($_);
 		my $length        = length( $loci->{$_}->{'ref'} );
 		my $start         = $loci->{$_}->{'start'};
+		$values->{'0'}->{$_} = 1;
 		$$buffer_ref .=
 		  "<tr class=\"td$td\"><td>$cleaned_locus</td><td>$loci->{$_}->{'desc'}</td><td>$length</td><td>$start</td><td>1</td>";
 		print $fh "$_\t$loci->{$_}->{'desc'}\t$length\t$start\t1";
@@ -858,6 +875,7 @@ sub _print_variable_loci {
 			}
 			$$buffer_ref .= "<td>$this_allele</td>";
 			print $fh "\t$this_allele";
+			$values->{$id}->{$_} = $this_allele;
 		}
 		$$buffer_ref .= "</tr>";
 		print $fh "\n";
@@ -879,7 +897,7 @@ sub _print_variable_loci {
 		unlink $fasta_file;
 	}
 	$$buffer_ref .= "</table></div>";
-	return;
+	return $values;
 }
 
 sub _print_exact_matches {
@@ -934,7 +952,8 @@ sub _print_truncated_loci {
 	print $fh "----------------------------------------\n\n";
 	$$buffer_ref .= "<p>Truncated: " . ( scalar keys %$truncated ) . "</p>";
 	print $fh "Truncated: " . ( scalar keys %$truncated ) . "\n\n";
-	$$buffer_ref .= "<p>These loci are incomplete and located at the ends of contigs in at least one isolate.</p>";
+	$$buffer_ref .= "<p>These loci are incomplete and located at the ends of contigs in at least one isolate. "
+	. "They have been excluded from the distance matrix calculation.</p>";
 	print $fh "These loci are incomplete and located at the ends of contigs in at least one isolate.\n\n";
 	$self->_print_locus_table( $buffer_ref, $fh, $truncated );
 	return;
