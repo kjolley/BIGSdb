@@ -20,7 +20,7 @@ package BIGSdb::TableQueryPage;
 use strict;
 use warnings;
 use base qw(BIGSdb::QueryPage);
-use List::MoreUtils qw(any);
+use List::MoreUtils qw(any uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant MAX_ROWS => 20;
@@ -237,7 +237,9 @@ sub _print_query_interface {
 							next if !@values;
 						}
 					} else {
-						@values = @{ $self->{'datastore'}->run_list_query("SELECT distinct($_->{name}) FROM $table ORDER BY $_->{name}") };
+						my $order_by = $_->{'type'} eq 'text' ? "lower($_->{'name'})" : $_->{'name'};
+						@values = @{ $self->{'datastore'}->run_list_query("SELECT $_->{name} FROM $table ORDER BY $order_by") };
+						@values = uniq @values;
 					}
 					push @filters, $self->get_filter( $_->{'name'}, \@values, { 'labels' => \%desc } );
 				}
@@ -256,9 +258,9 @@ sub _print_query_interface {
 		my @experiments;
 		my $qry = "SELECT id,description FROM experiments ORDER BY description";
 		my $sql = $self->{'db'}->prepare($qry);
-		eval { $sql->execute(); };
+		eval { $sql->execute };
 		$logger->error($@) if $@;
-		while ( my @data = $sql->fetchrow_array() ) {
+		while ( my @data = $sql->fetchrow_array ) {
 			push @experiments, $data[0];
 			$labels{ $data[0] } = $data[1];
 		}
