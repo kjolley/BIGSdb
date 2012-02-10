@@ -72,7 +72,15 @@ HTML
 		my @buffer;
 		if ( ref $output eq 'HASH' ) {
 			foreach ( sort keys(%$output) ) {
-				push @buffer, "<li><a href=\"/tmp/$output->{$_}\">$_</a></li>\n";
+				my ( $link_text, $comments ) = split /\|/, $_;
+				my $text = "<li><a href=\"/tmp/$output->{$_}\">$link_text</a>";
+				$text .= " - $comments" if $comments;
+				$text .=
+"<br /><a href=\"/tmp/$output->{$_}\"><img src=\"/tmp/$output->{$_}\" alt=\"\" style=\"max-height:200px;border:1px dashed black\" /></a>"
+				  if $output->{$_} =~ /\.png$/;
+				$text .= " (click to enlarge)" if $output->{$_} =~ /\.png$/;
+				$text .= "</li>\n";
+				push @buffer, $text;
 			}
 		}
 		if (@buffer) {

@@ -181,7 +181,7 @@ sub run {
 		my $accession = $q->param('accession');
 		if ( !$accession && !$ref_upload && !@loci && ( none { $q->param("s_$_") } @$scheme_ids ) && $continue ) {
 			print "<div class=\"box\" id=\"statusbad\"><p>You must either select one or more loci or schemes, provide "
-			. "a genome accession number, or upload an annotated genome.</p></div>\n";
+			  . "a genome accession number, or upload an annotated genome.</p></div>\n";
 			$continue = 0;
 		}
 		my @selected_schemes;
@@ -394,7 +394,8 @@ sub _analyse_by_loci {
 			{
 				'status' => 'failed',
 				'message_html' =>
-"<p>You must select at least two isolates for comparison against defined loci. Make sure your selected isolates haven't been filtered to less than two by selecting a project.</p>"
+				  "<p class=\"statusbad\">You must select at least two isolates for comparison against defined loci. Make sure "
+				  . "your selected isolates haven't been filtered to fewer than two by selecting a project.</p>"
 			}
 		);
 		return;
@@ -441,14 +442,14 @@ sub _analyse_by_loci {
 			$id = $1 if $id =~ /(\d*)/;    #avoid taint check
 			my $out_file = "$self->{'config'}->{'secure_tmp_dir'}/$job_id\_isolate_$id\_outfile.txt";
 			my $match;
-			if ($params->{'use_tagged'}){
-				my $allele_id = $self->{'datastore'}->get_allele_id($id,$locus);
-				if (defined $allele_id){
-					$match->{'exact'} = 1;
+			if ( $params->{'use_tagged'} ) {
+				my $allele_id = $self->{'datastore'}->get_allele_id( $id, $locus );
+				if ( defined $allele_id ) {
+					$match->{'exact'}  = 1;
 					$match->{'allele'} = $allele_id;
 				}
 			}
-			if (!$match->{'exact'}){
+			if ( !$match->{'exact'} ) {
 				if ( $locus_info->{'data_type'} eq 'DNA' ) {
 					$self->_blast( $blastn_word_size, $locus_FASTA, $isolate_FASTA{$id}, $out_file, 'blastn' );
 				} else {
@@ -478,8 +479,8 @@ sub _analyse_by_loci {
 				if ( !$found ) {
 					if ( !defined $seq || $seq eq '' ) {
 						$values->{$id}->{$locus} = 'X';
-						$html_buffer .= "<td>X</td>";	
-						print $fh "\tX";					
+						$html_buffer .= "<td>X</td>";
+						print $fh "\tX";
 					} else {
 						$new{$new_allele} = $seq;
 						$values->{$id}->{$locus} = "new#$new_allele";
@@ -497,30 +498,46 @@ sub _analyse_by_loci {
 		$progress++;
 		my $complete = int( 100 * $progress / scalar @$loci );
 		my $close_table = ( $progress != scalar @$loci ) ? '</table></div>' : '';
-		$self->{'jobManager'}
-		  ->update_job_status( $job_id, { percent_complete => $complete, message_html => "$html_buffer$close_table" } );
+		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete, message_html => "$html_buffer$close_table" } );
 	}
 	$html_buffer .= "</table></div>\n";
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => "$html_buffer" } );
 	close $fh;
 	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$job_id\*";
 	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => 'Main output file' } );
+	$self->_generate_splits( $job_id, $values );
+	return;
+}
+
+sub _generate_splits {
+	my ( $self, $job_id, $values ) = @_;
 	my $dismat = $self->_generate_distance_matrix($values);
-	my $nexus_file = $self->_make_nexus_file($job_id, $dismat);
-	$self->{'jobManager'}->update_job_output( $job_id, { filename => $nexus_file, description => 'Distance matrix (Nexus format)' } );	
+	my $nexus_file = $self->_make_nexus_file( $job_id, $dismat );
+	$self->{'jobManager'}->update_job_output(
+		$job_id,
+		{
+			filename    => $nexus_file,
+			description => 'Distance matrix (Nexus format)|Suitable for loading in to <a href="http://www.splitstree.org">SplitsTree</a>'
+		}
+	);
+	my $splits_img = "$job_id.png";
+	$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file", "$self->{'config'}->{'tmp_dir'}/$splits_img" );
+	if ( -e "$self->{'config'}->{'tmp_dir'}/$splits_img" ) {
+		$self->{'jobManager'}->update_job_output( $job_id, { filename => $splits_img, description => 'Splits graph|Distances between taxa are calculated as the number of loci with different allele sequences' } );
+	}
 	return;
 }
 
 sub _generate_distance_matrix {
-	my ($self, $values) = @_;
-	my @ids = sort {$a <=> $b} keys %$values;
+	my ( $self, $values ) = @_;
+	my @ids = sort { $a <=> $b } keys %$values;
 	my $dismat;
-	foreach my $i (0 .. @ids - 1){
-		foreach my $j (0 .. $i){
-			$dismat->{$ids[$i]}->{$ids[$j]} = 0;
-			foreach my $locus (keys %{$values->{$ids[$i]}}){				
-				if ($values->{$ids[$i]}->{$locus} ne $values->{$ids[$j]}->{$locus}){
-					$dismat->{$ids[$i]}->{$ids[$j]}++;
+	foreach my $i ( 0 .. @ids - 1 ) {
+		foreach my $j ( 0 .. $i ) {
+			$dismat->{ $ids[$i] }->{ $ids[$j] } = 0;
+			foreach my $locus ( keys %{ $values->{ $ids[$i] } } ) {
+				if ( $values->{ $ids[$i] }->{$locus} ne $values->{ $ids[$j] }->{$locus} ) {
+					$dismat->{ $ids[$i] }->{ $ids[$j] }++;
 				}
 			}
 		}
@@ -528,20 +545,30 @@ sub _generate_distance_matrix {
 	return $dismat;
 }
 
+sub _run_splitstree {
+	my ( $self, $nexus_file, $output_file ) = @_;
+	if ( $self->{'config'}->{'splitstree_path'} && -x $self->{'config'}->{'splitstree_path'} ) {
+		system "$self->{'config'}->{'splitstree_path'} +g false -S true "
+		  . "-x \"EXECUTE FILE=$nexus_file;EXPORTGRAPHICS format=PNG file=$output_file REPLACE=yes;QUIT\"";
+	}
+	return;
+}
+
 sub _make_nexus_file {
-	my ($self, $job_id, $dismat) = @_;
+	my ( $self, $job_id, $dismat ) = @_;
 	open( my $fh, '>', "$self->{'config'}->{'tmp_dir'}/$job_id.nex" );
 	my $timestamp = scalar localtime;
-	my @ids = sort {$a <=> $b} keys %$dismat;
+	my @ids = sort { $a <=> $b } keys %$dismat;
 	my %labels;
 	my $sql = $self->{'db'}->prepare("SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?");
-	foreach (@ids){
-		if ($_ == 0){
+	foreach (@ids) {
+		if ( $_ == 0 ) {
 			$labels{$_} = "ref";
 		} else {
 			eval { $sql->execute($_) };
 			$logger->error($@) if $@;
 			my ($name) = $sql->fetchrow_array;
+			$name =~ tr/ /_/;
 			$labels{$_} = "$_|$name";
 		}
 	}
@@ -566,10 +593,10 @@ BEGIN distances;
    ;
 MATRIX
 NEXUS
-	foreach my $i (0 .. @ids - 1){
-		print $fh $labels{$ids[$i]};
-		foreach my $j (0 .. $i){
-			print $fh "\t" . $dismat->{$ids[$i]}->{$ids[$j]};
+	foreach my $i ( 0 .. @ids - 1 ) {
+		print $fh $labels{ $ids[$i] };
+		foreach my $j ( 0 .. $i ) {
+			print $fh "\t" . $dismat->{ $ids[$i] }->{ $ids[$j] };
 		}
 		print $fh "\n";
 	}
@@ -767,7 +794,7 @@ sub _analyse_by_reference {
 	my $values = $self->_print_variable_loci( $job_id, \$html_buffer, $fh, $align_fh, $params, $ids, $varying_loci );
 	print $fh "\n###\n\n";
 	$self->_print_missing_in_all( \$html_buffer, $fh, $all_missing );
-	foreach my $locus (keys %$all_missing){
+	foreach my $locus ( keys %$all_missing ) {
 		$values->{'0'}->{$locus} = 1;
 		$values->{$_}->{$locus} = 'X' foreach @$ids;
 	}
@@ -775,7 +802,7 @@ sub _analyse_by_reference {
 	$self->_print_exact_matches( \$html_buffer, $fh, $exacts, $params );
 	print $fh "\n###\n\n";
 	$self->_print_exact_except_ref( \$html_buffer, $fh, $exact_except_ref );
-	foreach my $locus (keys %$exact_except_ref){
+	foreach my $locus ( keys %$exact_except_ref ) {
 		$values->{'0'}->{$locus} = 1;
 		$values->{$_}->{$locus} = 2 foreach @$ids;
 	}
@@ -787,9 +814,7 @@ sub _analyse_by_reference {
 	close $align_fh;
 	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$prefix\*";
 	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => 'Main output file' } );
-	my $dismat = $self->_generate_distance_matrix($values);
-	my $nexus_file = $self->_make_nexus_file($job_id, $dismat);
-	$self->{'jobManager'}->update_job_output( $job_id, { filename => $nexus_file, description => 'Distance matrix (Nexus format)' } );	
+	$self->_generate_splits( $job_id, $values );
 
 	if ( @$ids > 1 && $params->{'align'} ) {
 		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align.txt", description => 'Alignments' } );
@@ -951,7 +976,7 @@ sub _print_truncated_loci {
 	$$buffer_ref .= "<p>Truncated: " . ( scalar keys %$truncated ) . "</p>";
 	print $fh "Truncated: " . ( scalar keys %$truncated ) . "\n\n";
 	$$buffer_ref .= "<p>These loci are incomplete and located at the ends of contigs in at least one isolate. "
-	. "They have been excluded from the distance matrix calculation.</p>";
+	  . "They have been excluded from the distance matrix calculation.</p>";
 	print $fh "These loci are incomplete and located at the ends of contigs in at least one isolate.\n\n";
 	$self->_print_locus_table( $buffer_ref, $fh, $truncated );
 	return;
