@@ -19,7 +19,7 @@
 package BIGSdb::CurateTableHeaderPage;
 use strict;
 use warnings;
-use base qw(BIGSdb::Page);
+use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 

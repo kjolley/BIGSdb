@@ -19,7 +19,7 @@
 package BIGSdb::ChangePasswordPage;
 use strict;
 use warnings;
-use base qw(BIGSdb::LoginMD5);
+use parent qw(BIGSdb::LoginMD5);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 

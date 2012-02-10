@@ -20,7 +20,7 @@ package BIGSdb::PubQueryPage;
 use strict;
 use warnings;
 use Error qw(:try);
-use base qw(BIGSdb::Page);
+use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 

@@ -19,7 +19,7 @@
 package BIGSdb::CurateTagUpdatePage;
 use strict;
 use warnings;
-use base qw(BIGSdb::CuratePage BIGSdb::ExtractedSequencePage);
+use parent qw(BIGSdb::CuratePage BIGSdb::ExtractedSequencePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Page qw(SEQ_FLAGS);

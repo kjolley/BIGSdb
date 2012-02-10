@@ -19,7 +19,7 @@
 package BIGSdb::CurateIsolateACLPage;
 use strict;
 use warnings;
-use base qw(BIGSdb::CuratePage);
+use parent qw(BIGSdb::CuratePage);
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');

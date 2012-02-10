@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2011, University of Oxford
+#Copyright (c) 2010-2012, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 package BIGSdb::AlleleSequencePage;
 use strict;
 use warnings;
-use base qw(BIGSdb::IsolateInfoPage BIGSdb::ExtractedSequencePage);
+use parent qw(BIGSdb::IsolateInfoPage BIGSdb::ExtractedSequencePage);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
@@ -80,7 +80,7 @@ sub print_content {
 			$buffer .= "<tr class=\"td1\"><th>translation</th><td colspan=\"2\" style=\"text-align:left\">";
 			my @stops = @{$display->{'internal_stop'}};
 			if (@stops){
-				$"=', ';
+				local $"=', ';
 				$buffer .= "<span class=\"highlight\">Internal stop codon" . (@stops == 1 ? '' : 's') . " at position". (@stops == 1 ? '' : 's') . ": @stops (numbering includes upstream flanking sequence).</span>\n";
 			}
 			$buffer .= "<pre class=\"sixpack\">\n";
@@ -98,6 +98,7 @@ sub print_content {
 	} else {
 		print "<div class=\"box\" id=\"statusbad\"><p>This isolate does not have a sequence defined for locus $display_locus.</p></div>\n";
 	}
+	return;
 }
 
 sub get_title {

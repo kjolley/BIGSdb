@@ -19,7 +19,7 @@
 package BIGSdb::CurateProfileBatchAddPage;
 use strict;
 use warnings;
-use base qw(BIGSdb::CurateProfileAddPage);
+use parent qw(BIGSdb::CurateProfileAddPage);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(none);
 my $logger = get_logger('BIGSdb.Page');

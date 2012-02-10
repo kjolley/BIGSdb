@@ -20,7 +20,7 @@ package BIGSdb::CurateBatchAddPage;
 use strict;
 use warnings;
 use List::MoreUtils qw(any none uniq);
-use base qw(BIGSdb::CurateAddPage);
+use parent qw(BIGSdb::CurateAddPage);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');

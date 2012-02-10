@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use List::MoreUtils qw(uniq);
-use base qw(BIGSdb::QueryPage);
+use parent qw(BIGSdb::QueryPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Page qw(LOCUS_PATTERNS);

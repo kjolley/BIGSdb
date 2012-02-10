@@ -20,7 +20,7 @@
 package BIGSdb::Plugins::SeqbinBreakdown;
 use strict;
 use warnings;
-use base qw(BIGSdb::Plugin);
+use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 use POSIX qw(ceil);
 my $logger = get_logger('BIGSdb.Plugins');

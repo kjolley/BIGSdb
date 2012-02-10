@@ -20,7 +20,7 @@
 package BIGSdb::CurateIsolateDeletePage;
 use strict;
 use warnings;
-use base qw(BIGSdb::CuratePage BIGSdb::TreeViewPage);
+use parent qw(BIGSdb::CuratePage BIGSdb::TreeViewPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 

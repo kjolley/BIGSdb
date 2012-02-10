@@ -20,7 +20,7 @@
 package BIGSdb::VersionPage;
 use strict;
 use warnings;
-use base qw(BIGSdb::Page);
+use parent qw(BIGSdb::Page);
 
 sub print_content {
 	my ($self) = @_;

@@ -19,7 +19,7 @@
 package BIGSdb::DownloadAllelesPage;
 use strict;
 use warnings;
-use base qw(BIGSdb::TreeViewPage);
+use parent qw(BIGSdb::TreeViewPage);
 use List::MoreUtils qw(none any);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');

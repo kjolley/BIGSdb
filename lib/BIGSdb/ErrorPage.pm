@@ -19,7 +19,7 @@
 package BIGSdb::ErrorPage;
 use strict;
 use warnings;
-use base qw(BIGSdb::Page);
+use parent qw(BIGSdb::Page);
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
 

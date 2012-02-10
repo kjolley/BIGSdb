@@ -19,7 +19,7 @@
 package BIGSdb::SeqbinPage;
 use strict;
 use warnings;
-use base qw(BIGSdb::IsolateInfoPage);
+use parent qw(BIGSdb::IsolateInfoPage);
 use BIGSdb::SeqbinToEMBL;
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);

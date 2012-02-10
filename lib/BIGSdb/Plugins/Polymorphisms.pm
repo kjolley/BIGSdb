@@ -20,7 +20,7 @@
 package BIGSdb::Plugins::Polymorphisms;
 use strict;
 use warnings;
-use base qw(BIGSdb::Plugins::LocusExplorer);
+use parent qw(BIGSdb::Plugins::LocusExplorer);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);

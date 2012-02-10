@@ -23,7 +23,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use Error qw(:try);
 use List::MoreUtils qw(uniq any none);
-use base 'Exporter';
+use parent 'Exporter';
 use constant SEQ_METHODS => (
 	'454',
 	'Illumina',

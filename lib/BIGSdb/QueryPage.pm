@@ -20,7 +20,7 @@ package BIGSdb::QueryPage;
 use strict;
 use warnings;
 use 5.010;
-use base qw(BIGSdb::Page);
+use parent qw(BIGSdb::Page);
 use List::MoreUtils qw(any none);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');

@@ -20,7 +20,7 @@ package BIGSdb::SequenceQueryPage;
 use strict;
 use warnings;
 use 5.010;
-use base qw(BIGSdb::BlastPage);
+use parent qw(BIGSdb::BlastPage);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(uniq any none);
 use Error qw(:try);

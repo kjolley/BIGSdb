@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2010-2011, University of Oxford
+#(c) 2010-2012, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,7 @@
 package BIGSdb::BIGSException;
 use strict;
 use warnings;
-use base qw(Error);
+use parent qw(Error);
 use overload ( '""' => 'stringify' );
 no warnings 'redefine';
 
@@ -29,61 +29,61 @@ sub new {
 	my @args = ();
 	local $Error::Depth = $Error::Depth + 1;
 	local $Error::Debug = 1;                   # Enables storing of stacktrace
-	$self->SUPER::new( -text => $text, @args );
+	return $self->SUPER::new( -text => $text, @args );
 }
 1;
 
 #Database exceptions
 package BIGSdb::DatabaseException;
-use base qw(BIGSdb::BIGSException);
+use parent qw(BIGSdb::BIGSException);
 1;
 
 package BIGSdb::DatabaseConnectionException;
-use base qw(BIGSdb::DatabaseException);
+use parent -norequire, qw(BIGSdb::DatabaseException);
 1;
 
 package BIGSdb::DatabaseConfigurationException;
-use base qw(BIGSdb::DatabaseException);
+use parent -norequire, qw(BIGSdb::DatabaseException);
 1;
 
 package BIGSdb::DatabaseNoRecordException;
-use base qw(BIGSdb::DatabaseException);
+use parent -norequire, qw(BIGSdb::DatabaseException);
 1;
 
 package BIGSdb::PrefstoreConfigurationException;
-use base qw(BIGSdb::DatabaseException);
+use parent -norequire, qw(BIGSdb::DatabaseException);
 1;
 
 #File exceptions
 package BIGSdb::FileException;
-use base qw(BIGSdb::BIGSException);
+use parent qw(BIGSdb::BIGSException);
 1;
 
 package BIGSdb::FileDoesNotExistException;
-use base qw(BIGSdb::FileException);
+use parent -norequire, qw(BIGSdb::FileException);
 1;
 
 package BIGSdb::CannotOpenFileException;
-use base qw(BIGSdb::FileException);
+use parent -norequire, qw(BIGSdb::FileException);
 1;
 
 #Data exceptions
 package BIGSdb::DataException;
-use base qw(BIGSdb::BIGSException);
+use parent qw(BIGSdb::BIGSException);
 1;
 
 #Authentication exceptions
 package BIGSdb::AuthenticationException;
-use base qw(BIGSdb::BIGSException);
+use parent qw(BIGSdb::BIGSException);
 1;
 
 #Plugins
 package BIGSdb::PluginException;
-use base qw(BIGSdb::BIGSException);
+use parent qw(BIGSdb::BIGSException);
 1;
 
 package BIGSdb::InvalidPluginException;
-use base qw(BIGSdb::PluginException);
+use parent -norequire, qw(BIGSdb::PluginException);
 
 1;
 

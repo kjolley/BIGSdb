@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011, University of Oxford
+#Copyright (c) 2011-2012, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -22,7 +22,7 @@ use warnings;
 use List::Util qw(shuffle);
 use List::MoreUtils qw(none any uniq);
 use POSIX qw(strftime);
-use base qw(BIGSdb::Offline::Script BIGSdb::CurateTagScanPage);
+use parent qw(BIGSdb::Offline::Script BIGSdb::CurateTagScanPage);
 use BIGSdb::Utils;
 use constant TAG_USER     => -1;             #User id for tagger (there needs to be a record in the users table)
 use constant TAG_USERNAME => 'autotagger';

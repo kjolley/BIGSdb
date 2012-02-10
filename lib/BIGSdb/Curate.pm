@@ -19,7 +19,7 @@
 package BIGSdb::Curate;
 use strict;
 use warnings;
-use base qw(BIGSdb::Application);
+use parent qw(BIGSdb::Application);
 use BIGSdb::ConfigCheckPage;
 use BIGSdb::ConfigRepairPage;
 use BIGSdb::CurateAddPage;

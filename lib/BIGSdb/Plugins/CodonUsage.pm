@@ -1,6 +1,6 @@
 #CodonUsage.pm - Codon usage plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2011, University of Oxford
+#Copyright (c) 2011-2012, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,7 @@
 package BIGSdb::Plugins::CodonUsage;
 use strict;
 use warnings;
-use base qw(BIGSdb::Plugin);
+use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);

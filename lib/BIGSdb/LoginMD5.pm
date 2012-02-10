@@ -49,7 +49,7 @@ use Digest::MD5;
 use strict;
 use warnings;
 use Log::Log4perl qw(get_logger);
-use base qw(BIGSdb::Page);
+use parent qw(BIGSdb::Page);
 use List::MoreUtils qw(any);
 my $logger       = get_logger('BIGSdb.Application_Authentication');
 my $uniqueString = 'bigsdbJolley';

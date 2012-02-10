@@ -19,7 +19,7 @@
 package BIGSdb::CurateUpdatePage;
 use strict;
 use warnings;
-use base qw(BIGSdb::CuratePage);
+use parent qw(BIGSdb::CuratePage);
 use List::MoreUtils qw(any none);
 use BIGSdb::Page qw(DATABANKS);
 use Log::Log4perl qw(get_logger);

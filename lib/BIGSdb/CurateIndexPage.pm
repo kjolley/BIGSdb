@@ -19,7 +19,7 @@
 package BIGSdb::CurateIndexPage;
 use strict;
 use warnings;
-use base qw(BIGSdb::CuratePage);
+use parent qw(BIGSdb::CuratePage);
 use Error qw(:try);
 use List::MoreUtils qw(uniq none);
 use Log::Log4perl qw(get_logger);

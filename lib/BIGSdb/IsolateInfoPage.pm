@@ -19,7 +19,7 @@
 package BIGSdb::IsolateInfoPage;
 use strict;
 use warnings;
-use base qw(BIGSdb::TreeViewPage);
+use parent qw(BIGSdb::TreeViewPage);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
 use List::MoreUtils qw(any);
