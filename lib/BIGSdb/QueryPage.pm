@@ -921,7 +921,7 @@ sub _generate_isolate_query_for_provenance_fields {
 			}
 			my $operator = $q->param("y$i");
 			my $text     = $q->param("t$i");
-			$self->_process_value( \$text );
+			$self->process_value( \$text );
 			next
 			  if $self->_check_format( { field => $field, text => $text, type => lc( $thisfield{'type'} ), operator => $operator },
 				$errors_ref );
@@ -1219,7 +1219,7 @@ sub _modify_isolate_query_for_designations {
 				my $text     = $q->param("lt$i");
 				next if $combo{"$locus\_$operator\_$text"};    #prevent duplicates
 				$combo{"$locus\_$operator\_$text"} = 1;
-				$self->_process_value(\$text);
+				$self->process_value(\$text);
 				if (   $text ne 'null'
 					&& ( $locus_info->{'allele_id_format'} eq 'integer' )
 					&& !BIGSdb::Utils::is_int($text) )
@@ -1279,7 +1279,7 @@ sub _modify_isolate_query_for_designations {
 				my $operator          = $q->param("ly$i");
 				my $text              = $q->param("lt$i");
 				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
-				$self->_process_value(\$text);
+				$self->process_value(\$text);
 				if (   $text ne 'null'
 					&& ( $scheme_field_info->{'type'} eq 'integer' )
 					&& !BIGSdb::Utils::is_int($text) )
@@ -1477,7 +1477,7 @@ sub _run_profile_query {
 				}
 				my $operator = $q->param("y$i");
 				my $text     = $q->param("t$i");
-				$self->_process_value( \$text );
+				$self->process_value( \$text );
 				next if $self->_check_format( { field => $field, text => $text, type => $type, operator => $operator }, \@errors );
 				my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
 				$first_value = 0;
@@ -1629,7 +1629,7 @@ sub _check_format {
 	return $error ? 1 : 0;
 }
 
-sub _process_value {
+sub process_value {
 	my ( $self, $value_ref ) = @_;
 	$$value_ref =~ s/^\s*//;
 	$$value_ref =~ s/\s*$//;

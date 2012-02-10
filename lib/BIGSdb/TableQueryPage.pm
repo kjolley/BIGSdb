@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2011, University of Oxford
+#Copyright (c) 2010-2012, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 package BIGSdb::TableQueryPage;
 use strict;
 use warnings;
-use base qw(BIGSdb::QueryPage);
+use parent qw(BIGSdb::QueryPage);
 use List::MoreUtils qw(any uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -233,12 +233,12 @@ sub _print_query_interface {
 							  @{ $self->{'datastore'}->run_list_query("SELECT id FROM users WHERE id>0 ORDER BY @fields_to_query") };
 						} else {
 							@values =
-							  @{ $self->{'datastore'}->run_list_query("SELECT id FROM $_->{foreign_key} ORDER BY @fields_to_query") };
+							  @{ $self->{'datastore'}->run_list_query("SELECT id FROM $_->{'foreign_key'} ORDER BY @fields_to_query") };
 							next if !@values;
 						}
 					} else {
 						my $order_by = $_->{'type'} eq 'text' ? "lower($_->{'name'})" : $_->{'name'};
-						@values = @{ $self->{'datastore'}->run_list_query("SELECT $_->{name} FROM $table ORDER BY $order_by") };
+						@values = @{ $self->{'datastore'}->run_list_query("SELECT $_->{'name'} FROM $table ORDER BY $order_by") };
 						@values = uniq @values;
 					}
 					push @filters, $self->get_filter( $_->{'name'}, \@values, { 'labels' => \%desc } );

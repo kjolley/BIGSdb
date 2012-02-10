@@ -19,7 +19,7 @@
 package BIGSdb::AlleleInfoPage;
 use strict;
 use warnings;
-use base qw(BIGSdb::Page);
+use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
