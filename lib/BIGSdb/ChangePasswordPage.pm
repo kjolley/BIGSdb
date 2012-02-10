@@ -98,7 +98,7 @@ sub print_content {
 		print "<tr><td style=\"text-align:right\">Existing password: </td><td>\n";
 		print $q->password_field(-name=>'existing');
 	} else {
-		my $sql = $self->{'db'}->prepare("SELECT user_name, first_name, surname FROM users WHERE id>0 ORDER BY surname");
+		my $sql = $self->{'db'}->prepare("SELECT user_name, first_name, surname FROM users WHERE id>0 ORDER BY lower(surname)");
 		eval { $sql->execute };
 		$logger->error($@) if $@;
 		my (@users,%labels);
