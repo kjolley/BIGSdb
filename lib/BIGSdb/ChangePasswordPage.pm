@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2011, University of Oxford
+#Copyright (c) 2010-2012, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -32,6 +32,7 @@ sub get_title {
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
+	my $continue = 1;
 	print $q->param('page') eq 'changePassword' ? "<h1>Change password</h1>\n" : "<h1>Set user password</h1>\n";
 	if ($self->{'system'}->{'authentication'} ne 'builtin'){
 		print "<div class=\"box\" id=\"statusbad\"><p>This database uses external means of authentication and the password can not be changed 
@@ -40,8 +41,11 @@ sub print_content {
 	} elsif ($q->param('page') eq 'setPassword' && !$self->{'permissions'}->{'set_user_passwords'} && !$self->is_admin){
 		print "<div class=\"box\" id=\"statusbad\"><p>You are not allowed to change other users' passwords.</p></div>\n";
 		return;
+	} elsif ($q->param('sent') && $q->param('page') eq 'setPassword' && !$q->param('user')){
+		print "<div class=\"box\" id=\"statusbad\"><p>Please select a user.</p></div>\n";
+		$continue = 0;
 	}
-	if ($q->param('sent') && $q->param('existing_password')){
+	if ($continue && $q->param('sent') && $q->param('existing_password')){
 		my $further_checks = 1;
 		if ($q->param('page') eq 'changePassword'){
 			#make sure user is only attempting to change their own password (user parameter is passed as a hidden 
@@ -98,6 +102,7 @@ sub print_content {
 		eval { $sql->execute };
 		$logger->error($@) if $@;
 		my (@users,%labels);
+		push @users, '';
 		while (my ($username,$first_name,$surname) = $sql->fetchrow_array){
 			push @users,$username;
 			$labels{$username}= "$surname, $first_name ($username)";
@@ -120,6 +125,7 @@ sub print_content {
 	print $q->hidden($_) foreach qw (db page existing_password new_password1 new_password2 new_length user sent);
 	print $q->end_form;
 	print "</div>\n";
+	return;
 }
 
 1;
