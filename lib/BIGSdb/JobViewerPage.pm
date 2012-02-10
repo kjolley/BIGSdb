@@ -26,6 +26,10 @@ my $logger = get_logger('BIGSdb.Page');
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw(jQuery noCache);
+	my $id = $self->{'cgi'}->param('id');
+	return if !defined $id;
+	my ( $job, undef, undef ) = $self->{'jobManager'}->get_job($id);
+	return if $job->{'status'} && $job->{'status'} eq 'finished';
 	$self->{'refresh'} = 60;
 	return;
 }
@@ -88,11 +92,9 @@ HTML
 			print "<ul>\n@buffer</ul>\n";
 		}
 	}
-	print << "FOOTER";
-</div><div class="box" id="resultsfooter"><p>This page will reload in $self->{'refresh'} seconds.  
-You can refresh it any time, or bookmark it and close your browser if you wish.</p>
-<p>Please note that job results will not be stored on the server indefinitely.</p></div>
-FOOTER
+	print "</div><div class=\"box\" id=\"resultsfooter\">";
+	print "<p>This page will reload in $self->{'refresh'} seconds. You can refresh it any time, or bookmark it and close your browser if you wish.</p>" if $self->{'refresh'};
+	print "<p>Please note that job results will not be stored on the server indefinitely.</p></div>";
 	return;
 }
 
