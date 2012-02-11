@@ -30,6 +30,7 @@ use Bio::SeqIO;
 use List::MoreUtils qw(uniq any none);
 use BIGSdb::Page 'SEQ_METHODS';
 use constant MAX_UPLOAD_SIZE => 32768;
+use constant MAX_SPLITS_TAXA => 200;
 
 sub get_attributes {
 	my %att = (
@@ -520,6 +521,7 @@ sub _generate_splits {
 			description => 'Distance matrix (Nexus format)|Suitable for loading in to <a href="http://www.splitstree.org">SplitsTree</a>'
 		}
 	);
+	return if keys %$values > MAX_SPLITS_TAXA;
 	my $splits_img = "$job_id.png";
 	$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file", "$self->{'config'}->{'tmp_dir'}/$splits_img" );
 	if ( -e "$self->{'config'}->{'tmp_dir'}/$splits_img" ) {
