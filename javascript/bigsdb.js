@@ -1,18 +1,6 @@
 
 
 $(function () {
-	var tabContainers = $('div.tab');
-	var l=location.hash;
-	if (!l){l = ':first'};
-	tabContainers.hide().filter(l).show();
-	$('div.tabs ul.tabNavigation a').click(function () {
-		tabContainers.hide();
-		tabContainers.filter(this.hash).show();
-		$('div.tabs ul.tabNavigation a').removeClass('selected');
-		$(this).addClass('selected');
-		return false;
-	}).filter(l).click();	
-	
 	$('div.content a').tooltip({ 
 	    track: true, 
 	    delay: 0, 
@@ -23,7 +11,6 @@ $(function () {
 	$('div.content a.truncated').tooltip({ 
 	    track: false, 
 	});	
-	$("div.tab").cornerz({corners: "bl br tr"});
 	$("div.box").cornerz();
 	
 	$("#hidefromnonJS").removeClass("hiddenbydefault");

@@ -373,6 +373,13 @@ div.content {
 	padding:10px 5px
 }
 
+div.options { float:left;padding-right:2em }
+div.options h2{ 
+	border-bottom:none; 
+	font-size:1em; 
+	color: navy;
+}
+
 div.menu {
 	background:#efefff;
 	position:relative;
@@ -478,69 +485,12 @@ a.pc10:hover,a.pc20:hover,a.pc30:hover,a.pc40:hover,a.pc50:hover,a.pc60:hover,a.
 	color:white
 }
 
-
-ul.tabNavigation {
-	list-style:none;
-	margin:0;
-	padding:10px 0 0 0
-}
-
-ul.tabNavigation li {
-	display:inline;
-	
-}
-
-ul.tabNavigation li a {
-	padding:3px 20px;
-	background-color:#bbb;
-	font-weight:600;
-	color:#404090;
-	text-decoration:none;
-	border-left:1px solid #ccc;
-	border-right:1px solid #ccc;
-	border-top:1px solid #ccc;
-	position:relative;
-	z-index:2
-}
-
-ul.tabNavigation li a:hover {
-	background:#909090;
-	color:#fff;
-}
-
-ul.tabNavigation a.selected, ul.tabNavigation a.selected:hover {
-	background-color:#d5d5e0;
-	color:black;
-	padding-top:7px;
-	padding-bottom:1px;
-	border-bottom:3px solid #d5d5e0;
-	cursor:default;
-	position:relative;
-	z-index:2
-}
-
-ul.tabNavigation li a:focus {outline:0}
-
 div.box {
 	padding:10px;
 	font-size:0.8em;
 	margin-bottom: 0.5em;
 	border: 1px solid #ccc
 }
-
-div.tabs>div {
-	padding:5px;
-	margin-top:3px;	
-	padding:10px;
-	font-size:0.8em;
-	margin-bottom:0.5em;
-	border: 1px solid #ccc;
-	background-color:#d5d5e0;
-	position:relative;
-	z-index: 1
-}
-
-div.tabs>div h2 {margin-top:0}
 
 div #queryform {
 	background:#e0e0e0;
@@ -821,3 +771,6 @@ td.tree {
 .coolfieldset.collapsed legend{
 	background: transparent url(/images/coolfieldset/collapsed.gif) no-repeat center left;
 }
+
+.widetable.collapsed { display: inline }
+.widetable.expanded { display: block }
