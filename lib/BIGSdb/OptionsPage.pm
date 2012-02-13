@@ -23,7 +23,8 @@ use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Page qw(FLANKING);
-use constant COLUMNS => 4;
+use constant DISPLAY_COLUMNS => 4;
+use constant QUERY_FILTER_COLUMNS => 3;
 
 sub initiate {
 	my ($self) = @_;
@@ -341,13 +342,11 @@ sub _print_isolate_table_fields_options {
 	print "<fieldset id=\"isolate_display_fieldset\" class=\"coolfieldset widetable\">\n";
 	print "<legend>Display options (click to expand)</legend><div>\n";
 	$self->_print_form_buttons;
-	my $width = int( 100 / ( $self->{'system'}->{'maxcols'} || COLUMNS ) );
-	print "<div style=\"float:left; width:$width%\">";
-	print "<ul>\n";
 	my $i      = 0;
 	my $cols   = 1;
 	my $fields = $self->{'xmlHandler'}->get_field_list;
 	my ( @js, @js2, @js3, %composites, %composite_display_pos, %composite_main_display );
+
 	my $qry = "SELECT id,position_after,main_display FROM composite_fields";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
@@ -361,14 +360,25 @@ sub _print_isolate_table_fields_options {
 			$composites{ $data[1] }             = 1;
 		}
 	}
-	my $field_count = scalar @$fields + scalar keys %composite_display_pos;
-	if ( ref $self->{'extended'} eq 'HASH' ) {
-		foreach ( keys %{ $self->{'extended'} } ) {
-			foreach ( @{ $self->{'extended'}->{$_} } ) {
-				$field_count++;
+	my @field_names;
+	foreach my $field (@$fields){
+		next if $field eq 'id';
+		push @field_names, $field;
+		if (ref $self->{'extended'} eq 'HASH' && ref $self->{'extended'}->{$field} eq 'ARRAY'){
+			push @field_names, "$field..$_" foreach (@{ $self->{'extended'}->{$field} });
+		}
+		push @field_names, 'aliases' if $field eq $self->{'system'}->{'labelfield'};
+		if ( $composites{$field} ) {
+			foreach ( keys %composite_display_pos ) {
+				next if $composite_display_pos{$_} ne $field;
+				push @field_names, $_;
 			}
 		}
 	}
+	my $rel_widths = $self->_determine_column_widths(\@field_names, undef , DISPLAY_COLUMNS);
+	print "<div style=\"float:left; width:$rel_widths->{0}%\">";
+	print "<ul>\n";
+	
 	foreach my $field (@$fields) {
 		if ( $field ne 'id' ) {
 			print "<li>";
@@ -386,7 +396,7 @@ sub _print_isolate_table_fields_options {
 			my $value = $thisfield{'maindisplay'} && $thisfield{'maindisplay'} eq 'no' ? 'false' : 'true';
 			push @js3, "\$(\"#field_$field\").attr(\"checked\",$value)";
 			$i++;
-			$self->_check_new_column( $field_count, \$i, \$cols );
+			$self->_check_new_column( scalar @field_names, \$i, \$cols,$rel_widths,  DISPLAY_COLUMNS);
 			my $extatt = $self->{'extended'}->{$field};
 
 			if ( ref $extatt eq 'ARRAY' ) {
@@ -404,7 +414,7 @@ sub _print_isolate_table_fields_options {
 					push @js2, "\$(\"#extended_$field\___$extended_attribute\").attr(\"checked\",false)";
 					push @js3, "\$(\"#extended_$field\___$extended_attribute\").attr(\"checked\",false)";
 					$i++;
-					$self->_check_new_column( $field_count, \$i, \$cols );
+					$self->_check_new_column( scalar @field_names, \$i, \$cols,$rel_widths,  DISPLAY_COLUMNS );
 				}
 			}
 			if ( $field eq $self->{'system'}->{'labelfield'} ) {
@@ -423,7 +433,7 @@ sub _print_isolate_table_fields_options {
 				  $self->{'system'}->{'maindisplay_aliases'} && $self->{'system'}->{'maindisplay_aliases'} eq 'yes' ? 'true' : 'false';
 				push @js3, "\$(\"#field_aliases\").attr(\"checked\",$value)";
 				$i++;
-				$self->_check_new_column( $field_count, \$i, \$cols );
+				$self->_check_new_column( scalar @field_names, \$i, \$cols,$rel_widths,  DISPLAY_COLUMNS );
 			}
 		}
 		if ( $composites{$field} ) {
@@ -443,7 +453,7 @@ sub _print_isolate_table_fields_options {
 				my $value = $composite_main_display{$_} ? 'true' : 'false';
 				push @js3, "\$(\"#field_$_\").attr(\"checked\",$value)";
 				$i++;
-				$self->_check_new_column( $field_count, \$i, \$cols );
+				$self->_check_new_column( scalar @field_names, \$i, \$cols,$rel_widths,  DISPLAY_COLUMNS );
 			}
 		}
 	}
@@ -472,12 +482,9 @@ sub _print_isolate_query_fields_options {
 	print "<fieldset id=\"isolate_query_fieldset\" class=\"coolfieldset widetable\">\n";
 	print "<legend>Query filters (click to expand)</legend><div>\n";
 	$self->_print_form_buttons;
-	my $width = int( 100 / ( $self->{'system'}->{'maxcols'} || COLUMNS ) );
-	print "<div style=\"float:left; width:$width%\">";
-	print "<ul>\n";
 	my $i           = 0;
 	my $cols        = 1;
-	my $fields      = $self->{'xmlHandler'}->get_field_list();
+	my $fields      = $self->{'xmlHandler'}->get_field_list;
 	my @checkfields = @$fields;
 	my %labels;
 
@@ -491,14 +498,20 @@ sub _print_isolate_query_fields_options {
 		}
 	}
 	my ( @js, @js2, @js3 );
-	my $field_count = @checkfields;
-	if ( ref $self->{'extended'} eq 'HASH' ) {
-		foreach ( keys %{ $self->{'extended'} } ) {
-			foreach ( @{ $self->{'extended'}->{$_} } ) {
-				$field_count++;
+	my @field_names;
+	foreach (@checkfields){
+		next if $_ eq 'id';
+		push @field_names, $_;
+		if (ref $self->{'extended'} eq 'HASH' && ref $self->{'extended'}->{$_}  eq 'ARRAY'){
+			foreach my $ext_att( @{ $self->{'extended'}->{$_} }){
+				push @field_names,"$_..$ext_att";
 			}
 		}
 	}
+	my $rel_widths = $self->_determine_column_widths(\@field_names, \%labels, QUERY_FILTER_COLUMNS);
+	print "<div style=\"float:left; width:$rel_widths->{0}%\">";
+	print "<ul>\n";
+	
 	foreach (@checkfields) {
 		my %thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
 		if ( $_ ne 'id' ) {
@@ -517,7 +530,7 @@ sub _print_isolate_query_fields_options {
 			my $value = ( $thisfield{'dropdown'} && $thisfield{'dropdown'} eq 'yes' ) ? 'true' : 'false';
 			push @js3, "\$(\"#dropfield_$_\").attr(\"checked\",$value)";
 			$i++;
-			$self->_check_new_column( $field_count, \$i, \$cols );
+			$self->_check_new_column( scalar @field_names, \$i, \$cols, $rel_widths, QUERY_FILTER_COLUMNS );
 		}
 		my $extatt = $self->{'extended'}->{$_};
 		if ( ref $extatt eq 'ARRAY' ) {
@@ -535,7 +548,7 @@ sub _print_isolate_query_fields_options {
 				push @js2, "\$(\"#dropfield_e_$_\___$extended_attribute\").attr(\"checked\",false)";
 				push @js3, "\$(\"#dropfield_e_$_\___$extended_attribute\").attr(\"checked\",false)";
 				$i++;
-				$self->_check_new_column( $field_count, \$i, \$cols );
+				$self->_check_new_column( scalar @field_names, \$i, \$cols, $rel_widths, QUERY_FILTER_COLUMNS );
 			}
 		}
 	}
@@ -552,13 +565,43 @@ sub _print_isolate_query_fields_options {
 }
 
 sub _check_new_column {
-	my ( $self, $field_count, $count_ref, $cols_ref ) = @_;
-	my $width = int( 100 / ( $self->{'system'}->{'maxcols'} || COLUMNS ) );
-	if ( $$count_ref >= ($field_count) / ( $self->{'system'}->{'maxcols'} || COLUMNS ) ) {
-		print "</ul></div>\n<div style=\"float:left; width:$width%\; position: relative;\"><ul>\n";
+	my ( $self, $field_count, $count_ref, $cols_ref, $rel_widths, $cols ) = @_;
+	return if !$rel_widths->{$$cols_ref};
+	if ( $$count_ref >= ($field_count / ( $self->{'system'}->{'maxcols'} || $cols  ))) {
+		print "</ul></div>\n<div style=\"float:left; width:$rel_widths->{$$cols_ref}%\; position: relative;\"><ul>\n";
 		$$count_ref = 0;
-		$cols_ref++;
+		$$cols_ref++;
 	}
 	return;
+}
+
+sub _determine_column_widths {
+	my ($self, $names_ref, $labels_ref, $columns) = @_;
+	my $max_per_column = int(@$names_ref / $columns);
+	$max_per_column++ if @$names_ref % $columns;
+	my %max_width;
+	my $i = 0;
+	my $col = 0;
+	my $max_length = 0;
+	my $width_of_all_cols = 0;
+	my $overall_count = 0;
+	foreach (@$names_ref){
+		my $length = length($labels_ref->{$_} || $_);
+		$max_length = $length if $length > $max_length;
+		$i++;
+		$overall_count++;
+		if ($i == $max_per_column || $overall_count == @$names_ref){
+			$max_width{$col} = $max_length;
+			$width_of_all_cols+=$max_length;
+			$i = 0;
+			$max_length = 0;
+			$col++;
+		}
+	}
+	my %relative_width;
+	foreach (keys %max_width){
+		$relative_width{$_} = int(100 * $max_width{$_} / $width_of_all_cols);
+	}
+	return \%relative_width;
 }
 1;
