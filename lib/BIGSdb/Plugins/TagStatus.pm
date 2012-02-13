@@ -21,11 +21,12 @@ package BIGSdb::Plugins::TagStatus;
 use strict;
 use warnings;
 use parent qw(BIGSdb::Plugin);
+use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 use Apache2::Connection ();
-use constant COLOURS     => qw(eee c22 22c c4c);    #none; designations only; tags only; both
+use constant COLOURS     => qw(eee c22 22c c4c 000);    #none; designations only; tags only; both; flags
 use constant IMAGE_WIDTH => 1200;
 
 sub get_attributes {
@@ -39,12 +40,13 @@ sub get_attributes {
 		buttontext  => 'Tag status',
 		menutext    => 'Tag status',
 		module      => 'TagStatus',
-		version     => '1.0.1',
+		version     => '1.0.2',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		requires    => 'mogrify',
 		system_flag => 'TagStatus',
 		input       => 'query',
+		help        => 'tooltips',
 		order       => 95,
 		max         => 1000
 	);
@@ -80,10 +82,14 @@ sub _breakdown_isolate {
 	}
 	print "<h1>Tag status: Isolate id#$id ($isolate->{$self->{'system'}->{'labelfield'}})</h1>\n";
 	print "<div class=\"box\" id=\"resultstable\">\n";
-	my $allele_ids = $self->{'datastore'}->get_all_allele_ids($id);
-	my $tags       = $self->{'datastore'}->get_all_allele_sequences($id);
-	my $schemes    = $self->{'datastore'}->run_list_query_hashref("SELECT id,description FROM schemes ORDER BY description");
-	print "<table class=\"resultstable\">\n<tr><th>Scheme</th><th>Locus</th><th>Allele designation</th><th>Sequence tag</th></tr>\n";
+	my $allele_ids   = $self->{'datastore'}->get_all_allele_ids($id);
+	my $tags         = $self->{'datastore'}->get_all_allele_sequences($id);
+	my $flags        = $self->{'datastore'}->get_all_sequence_flags($id);
+	my @flagged_loci = keys %{$flags};
+	my $schemes      = $self->{'datastore'}->run_list_query_hashref("SELECT id,description FROM schemes ORDER BY description");
+	print "<table class=\"resultstable\">\n<tr>";
+	print "<th>$_</th>" foreach ( 'Scheme', 'Locus', 'Allele designation', 'Sequence tag' );
+	print "</tr>\n";
 	my $td       = 1;
 	my $tagged   = "background:#aaf; color:white";
 	my $untagged = "background:red";
@@ -98,8 +104,9 @@ sub _breakdown_isolate {
 			my $cleaned = $self->clean_locus($locus);
 			print "<td>$cleaned</td>";
 			print defined $allele_ids->{$locus} ? "<td style=\"$tagged\">$allele_ids->{$locus}</td>" : "<td style=\"$untagged\" />";
-			print defined $tags->{$locus} ? "<td style=\"$tagged\"></td>" : "<td style=\"$untagged\" />";
-			print "</tr>\n";
+			print defined $tags->{$locus} ? "<td style=\"$tagged\">" : "<td style=\"$untagged\">";
+			$self->_get_flags( $id, $locus ) if any { $locus eq $_ } @flagged_loci;
+			print "</td></tr>\n";
 			$first = 0;
 		}
 		$td = $td == 1 ? 2 : 1;
@@ -112,13 +119,29 @@ sub _breakdown_isolate {
 		my $cleaned = $self->clean_locus($locus);
 		print "<td>$cleaned</td>";
 		print defined $allele_ids->{$locus} ? "<td style=\"$tagged\">$allele_ids->{$locus}</td>" : "<td style=\"$untagged\" />";
-		print defined $tags->{$locus} ? "<td style=\"$tagged\"></td>" : "<td style=\"$untagged\" />";
-		print "</tr>\n";
+		print defined $tags->{$locus} ? "<td style=\"$tagged\">" : "<td style=\"$untagged\">";
+		$self->_get_flags( $id, $locus ) if any { $locus eq $_ } @flagged_loci;
+		print "</td></tr>\n";
 		$first = 0;
 	}
 	print "</table>\n";
 	print "<div class=\"scrollable\">\n";
 	print "</div>\n</div>\n";
+	return;
+}
+
+sub _get_flags {
+	my ( $self, $isolate_id, $locus ) = @_;
+	if ( !$self->{'sql'}->{'flag'} ) {
+		$self->{'sql'}->{'flag'} =
+		  $self->{'db'}->prepare( "SELECT flag FROM sequence_flags LEFT JOIN "
+			  . "sequence_bin ON seqbin_id = sequence_bin.id WHERE isolate_id=? AND locus=? ORDER BY flag" );
+	}
+	eval { $self->{'sql'}->{'flag'}->execute( $isolate_id, $locus ) };
+	$logger->error($@) if $@;
+	while ( my ($flag) = $self->{'sql'}->{'flag'}->fetchrow_array ) {
+		print "<a class=\"seqflag_tooltip\">$flag</a>";
+	}
 	return;
 }
 
@@ -159,12 +182,15 @@ sub _print_schematic {
 	}
 	print "<div class=\"box\" id=\"resultstable\">\n";
 	print "<p>Bars represent loci by schemes arranged in alphabetical order.  If a locus appears in more than one scheme "
-	. "it will appear more than once in this graphic.  Click on the id hyperlink for a detailed breakdown for an isolate.</p>\n";
+	  . "it will appear more than once in this graphic.  Click on the id hyperlink for a detailed breakdown for an isolate.</p>\n";
 	my @colours = COLOURS;
 	print "<h2>Key</h2>\n";
 	print "<p><span style=\"color: #$colours[1]; font-weight:600\">Allele designated only</span> | "
 	  . "<span style=\"color: #$colours[2]; font-weight:600\">Sequence tagged only</span> | "
-	  . "<span style=\"color: #$colours[3]; font-weight:600\">Allele designated + sequence tagged</span></p>";
+	  . "<span style=\"color: #$colours[3]; font-weight:600\">Allele designated + sequence tagged</span> | "
+	  . "<span style=\"color: #$colours[4]; font-weight:600\">Flagged</span> "
+	  . "<a class=\"tooltip\" title=\"Flags - Sequences may be flagged to indicate problems, e.g. ambiguous reads, internal stop "
+	  . "codons etc.\">&nbsp;<i>i</i>&nbsp;</a></p>";
 	print "<map id=\"schemes\" name=\"schemes\">\n@image_map</map>\n";
 	print "<div class=\"scrollable\">\n";
 	print "<table class=\"resultstable\"><tr><th>Id</th><th>Isolate</th><th>Designation status</th></tr>\n";
@@ -184,6 +210,7 @@ sub _print_schematic {
 		my ($isolate)  = $isolate_sql->fetchrow_array;
 		my $allele_ids = $self->{'datastore'}->get_all_allele_ids($id);
 		my $tags       = $self->{'datastore'}->get_all_allele_sequences($id);
+		my $flags      = $self->{'datastore'}->get_all_sequence_flags($id);
 		my $url        = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=TagStatus&amp;isolate_id=$id";
 		print "<tr class=\"td$td\"><td><a href=\"$url\">$id</a></td><td>$isolate</td>";
 
@@ -192,12 +219,14 @@ sub _print_schematic {
 			foreach my $locus (@loci) {
 				my $value = defined $allele_ids->{$locus} ? 1 : 0;
 				$value += defined $tags->{$locus} ? 2 : 0;
+				$value = defined $flags->{$locus} ? 4 : $value;
 				push @designations, $value;
 			}
 		}
 		foreach my $locus (@$no_scheme_loci) {
 			my $value = defined $allele_ids->{$locus} ? 1 : 0;
 			$value += defined $tags->{$locus} ? 2 : 0;
+			$value = defined $flags->{$locus} ? 4 : $value;
 			push @designations, $value;
 		}
 		my $designation_filename = "$self->{'config'}->{'tmp_dir'}/$prefix\_$id\_designation.svg";
