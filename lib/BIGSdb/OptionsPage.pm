@@ -526,8 +526,14 @@ sub _print_isolate_query_fields_options {
 			print "</li>\n";
 			push @js,  "\$(\"#dropfield_$_\").attr(\"checked\",true)";
 			push @js2, "\$(\"#dropfield_$_\").attr(\"checked\",false)";
-			my %thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
-			my $value = ( $thisfield{'dropdown'} && $thisfield{'dropdown'} eq 'yes' ) ? 'true' : 'false';
+			my $value;
+			if ($_ =~ /^scheme_(\d+)_profile_status/){
+				my $scheme_info = $self->{'datastore'}->get_scheme_info($1);
+				$value = $scheme_info->{'query_status'} ? 'true' : 'false';
+			} else {
+				my %thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
+				$value = ( $thisfield{'dropdown'} && $thisfield{'dropdown'} eq 'yes' ) ? 'true' : 'false';				
+			}
 			push @js3, "\$(\"#dropfield_$_\").attr(\"checked\",$value)";
 			$i++;
 			$self->_check_new_column( scalar @field_names, \$i, \$cols, $rel_widths, QUERY_FILTER_COLUMNS );
