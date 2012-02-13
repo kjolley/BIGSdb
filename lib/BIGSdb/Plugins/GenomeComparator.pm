@@ -518,15 +518,34 @@ sub _generate_splits {
 		$job_id,
 		{
 			filename    => $nexus_file,
-			description => 'Distance matrix (Nexus format)|Suitable for loading in to <a href="http://www.splitstree.org">SplitsTree</a>'
+			description => 'Distance matrix (Nexus format)|Suitable for loading in to <a href="http://www.splitstree.org">SplitsTree</a>. '
+			. 'Distances between taxa are calculated as the number of loci with different allele sequences'
 		}
 	);
 	return if keys %$values > MAX_SPLITS_TAXA;
 	my $splits_img = "$job_id.png";
-	$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file", "$self->{'config'}->{'tmp_dir'}/$splits_img" );
+	$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file", "$self->{'config'}->{'tmp_dir'}/$splits_img", 'PNG' );
 	if ( -e "$self->{'config'}->{'tmp_dir'}/$splits_img" ) {
-		$self->{'jobManager'}->update_job_output( $job_id, { filename => $splits_img, description => 'Splits graph|Distances between taxa are calculated as the number of loci with different allele sequences' } );
+		$self->{'jobManager'}->update_job_output(
+			$job_id,
+			{
+				filename    => $splits_img,
+				description => 'Splits graph (PNG format)'
+			}
+		);
 	}
+	$splits_img = "$job_id.svg";
+	$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file", "$self->{'config'}->{'tmp_dir'}/$splits_img", 'SVG' );
+	if ( -e "$self->{'config'}->{'tmp_dir'}/$splits_img" ) {
+		$self->{'jobManager'}->update_job_output(
+			$job_id,
+			{
+				filename    => $splits_img,
+				description => 'Splits graph (SVG format)|This can be edited in <a href="http://inkscape.org">Inkscape</a> or other '
+				. 'vector graphics editors'
+			}
+		);
+	}	
 	return;
 }
 
@@ -548,10 +567,10 @@ sub _generate_distance_matrix {
 }
 
 sub _run_splitstree {
-	my ( $self, $nexus_file, $output_file ) = @_;
+	my ( $self, $nexus_file, $output_file, $format ) = @_;
 	if ( $self->{'config'}->{'splitstree_path'} && -x $self->{'config'}->{'splitstree_path'} ) {
 		system "$self->{'config'}->{'splitstree_path'} +g false -S true "
-		  . "-x \"EXECUTE FILE=$nexus_file;EXPORTGRAPHICS format=PNG file=$output_file REPLACE=yes;QUIT\"";
+		  . "-x \"EXECUTE FILE=$nexus_file;EXPORTGRAPHICS format=$format file=$output_file REPLACE=yes;QUIT\"";
 	}
 	return;
 }
