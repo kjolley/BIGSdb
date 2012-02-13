@@ -380,6 +380,8 @@ div.options h2{
 	color: navy;
 }
 
+div.reset { background:#d5d5e0;}
+
 div.menu {
 	background:#efefff;
 	position:relative;
@@ -492,7 +494,7 @@ div.box {
 	border: 1px solid #ccc
 }
 
-div #queryform {
+div.queryform, div#queryform {
 	background:#e0e0e0;
 }
 

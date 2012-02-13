@@ -73,21 +73,24 @@ try refreshing the page (Shift + Refresh) as some pages are cached by
 your browser.</p></div>
 
 HTML
-	print "<div class=\"box\" id=\"queryform\">\n";
 	print $q->start_form;
 	$q->param( 'page', 'options' );
 	print $q->hidden($_) foreach qw(page db);
+	print "<div class=\"box queryform\">\n";
+	
 	$self->_print_main_options;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$self->_print_isolate_table_fields_options;
 		$self->_print_isolate_query_fields_options;
 	}
+	print "</div>\n";
+	print "<div class=\"box reset\">\n";
 	print "<h2>Reset</h2>\n";
 	print "<p>Click the reset button to remove all user settings for this database - "
 	  . "this includes locus and scheme field preferences.</p>\n";
 	print $q->submit( -name => 'reset', -label => 'Reset all to defaults', -class => 'button' );
-	print $q->end_form;
 	print "</div>\n";
+	print $q->end_form;
 	return;
 }
 
