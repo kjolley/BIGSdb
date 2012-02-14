@@ -332,7 +332,7 @@ sub _print_isolate_table_fields_options {
 	my $q      = $self->{'cgi'};
 	my $prefs  = $self->{'prefs'};
 	print "<h2 style=\"border:0\">Isolate provenance field display</h2>\n";
-	print "<p>The isolate provenance fields that are displayed in the main results table can be selected in the following section. "
+	print "<p>Select the isolate provenance fields that you wish to be displayed in the main results table following a query. "
 	 . "Settings for displaying locus and scheme data can be made by performing a <a href=\"$self->{'system'}->{'script_name'}?db="
 	 . "$self->{'instance'}&amp;page=tableQuery&amp;table=loci\">locus</a>, <a href=\"$self->{'system'}->{'script_name'}?db="
 	 . "$self->{'instance'}&amp;page=tableQuery&amp;table=schemes\">scheme</a> or <a href=\"$self->{'system'}->{'script_name'}?db="
@@ -476,8 +476,8 @@ sub _print_isolate_query_fields_options {
 	my $q      = $self->{'cgi'};
 	my $prefs  = $self->{'prefs'};
 	print "<h2 style=\"border:0\">Isolate field dropdown query filters</h2>\n";
-	print "<p>The isolate provenance field value lists that are displayed within the filters list of the query interface "
-	  . "in the main results table can be selected in the following section.</p>\n";
+	print "<p>Select the fields for which you would like dropdown lists containing known values "
+	 . "on which to filter query results.  These will be available in the filters section of the query interface.</p>\n";
 	print "<div class=\"scrollable\">\n";
 	print "<fieldset id=\"isolate_query_fieldset\" class=\"coolfieldset widetable\">\n";
 	print "<legend>Query filters (click to expand)</legend><div>\n";
