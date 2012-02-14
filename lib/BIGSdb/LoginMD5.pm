@@ -22,7 +22,7 @@
 # Neil Winton <N.Winton@axion.bt.co.uk> and is maintained by
 # Gisle Aas <gisle@ActiveState.com>
 #
-# Modified extensively by Keith Jolley for use in BIGSdb, 2009-2011
+# Modified extensively by Keith Jolley for use in BIGSdb, 2009-2012
 # Uses DBI rather than DB_FILE
 # IP address set in sub initiate rather than at head of file as
 # this wasn't being seen after the first mod_perl iteration.
