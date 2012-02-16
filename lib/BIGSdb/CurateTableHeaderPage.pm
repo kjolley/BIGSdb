@@ -26,13 +26,14 @@ my $logger = get_logger('BIGSdb.Page');
 sub initiate {
 	my ($self) = @_;
 	$self->{'type'} = 'text';
+	return;
 }
 
 sub print_content {
 	my ($self) = @_;
 	my @headers;
 	my $table = $self->{'cgi'}->param('table') || '';
-	if ( !$self->{'datastore'}->is_table($table) ) {
+	if ( !$self->{'datastore'}->is_table($table) && !@{$self->{'xmlHandler'}->get_sample_field_list}) {
 		print "Table $table does not exist!\n";
 		return;
 	}
@@ -91,7 +92,8 @@ sub print_content {
 			}
 		}
 	}
-	$" = "\t";
+	local $" = "\t";
 	print "@headers";
+	return;
 }
 1;    
