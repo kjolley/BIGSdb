@@ -125,8 +125,7 @@ sub _print_isolate_field {
 		my $filter = $field eq 'curator' ? "WHERE (status = 'curator' or status = 'admin') AND id>0" : 'WHERE id>0';
 		my $qry = "SELECT id, user_name, surname, first_name, affiliation FROM users $filter ORDER BY id";
 		print " (only curators or administrators shown)" if $field eq 'curator';
-		print ". Values present in the database are <span class=\"highlightvalue\">highlighted</span>.\n";
-		print "</p>\n";
+		print ". Only users linked to an isolate record are shown.</p>\n";
 		my $sql = $self->{'db'}->prepare($qry);
 		eval { $sql->execute };
 		$logger->error($@) if $@;
@@ -134,12 +133,11 @@ sub _print_isolate_field {
 		print
 "<thead><tr><th>id</th><th>username</th><th>surname</th><th>first name</th><th>affiliation / collaboration</th></tr></thead><tbody>\n";
 		while ( my @data = $sql->fetchrow_array ) {
+			next if !$used->{$data[0]};
 			foreach (@data) {
 				$_ =~ s/\&/\&amp;/g;
 			}
-			print "<tr><td>"
-			  . ( $used->{ $data[0] } ? "<span class=\"highlightvalue\">$data[0]</span>" : "$data[0]" )
-			  . "</td><td>$data[1]</td><td>$data[2]</td><td>$data[3]</td><td align='left'>$data[4]</td></tr>\n";
+			print "<tr><td>$data[0]</td><td>$data[1]</td><td>$data[2]</td><td>$data[3]</td><td align='left'>$data[4]</td></tr>\n";
 		}
 		print "</tbody></table>\n";
 	} elsif ( $attributes{'optlist'} && $attributes{'optlist'} eq 'yes' ) {
