@@ -2,7 +2,7 @@
 #
 #bigsdb_getrefs.pl
 #Written by Keith Jolley
-#Copyright (c) 2003, 2009 University of Oxford
+#Copyright (c) 2003, 2009, 2012 University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #Find out which references are cited in the databases
@@ -22,11 +22,27 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
+
+#Databases are defined in a conf file with each database on a single
+#line separated by white space and then a comma-separated list of tables
+#that can contain reference information.
+#e.g. the getrefs.conf file for an isolate and seqdef database looks like:
+#
+#pubmlst_bigsdb_neisseria_isolates               refs
+#pubmlst_bigsdb_neisseria_seqdef                 profile_refs,sequence_refs,locus_refs
+#
+#
+#Run the script from CRON as bigsdb_getrefs.pl <conf file>
+
+use strict;
+use warnings;
+use 5.010;
 use DBI;
 use LWP::Simple;
 use XML::Parser;
 use Bio::Biblio::IO;
-use strict;
+use List::MoreUtils qw(uniq);
+
 my %tablelist;
 my @refs;
 my $conflist = $ARGV[0];
@@ -69,10 +85,8 @@ foreach my $dbase ( keys %tablelist ) {
 	}
 }
 
-#remove duplicates from list of refs
-my %templist = ();
-@refs = grep ( $templist{$_}++ == 0, @refs );
-%templist = ();
+@refs = uniq @refs;
+
 my $db = DBI->connect( 'DBI:Pg:dbname=refs', 'postgres' ) or die "couldn't open template db" . DBI->errstr;
 
 #Here we query website and extract reference data
@@ -81,7 +95,7 @@ foreach my $refid (@refs) {
 	#Check whether the reference is already in the database
 	my $retval = ( runquery("SELECT pmid FROM refs WHERE pmid=$refid;") );
 	if ( !$retval ) {
-		my $url = "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=PubMed&id=$refid&report=medline&mode=xml";
+		my $url = "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=PubMed&id=$refid&report=medline&retmode=xml";
 		if ( my $citationxml = get $url) {
 			if ( $citationxml !~ /\*\*\* No Documents Found \*\*\*/ ) {
 				my $io = Bio::Biblio::IO->new( '-data' => $citationxml, '-format' => 'pubmedxml' );
@@ -121,13 +135,14 @@ foreach my $refid (@refs) {
 					$year = 0;
 				}
 				my $abstract = $bibref->abstract;
+				$abstract //= '';
 				$abstract =~ s/\'//g;
 				$title    =~ s/\'//g;
 				$journal  =~ s/\'//g;
 				my $qry  = "SELECT pmid FROM refs WHERE pmid='$pmid';";
 				my $indb = runquery($qry);
 				if ( !$indb ) {
-					$" = ';';
+					local $" = '; ';
 					print "pmid : $pmid\n";
 					print "authors: @authors\n";
 					print "@authorlist\n";
@@ -173,8 +188,8 @@ sub getauthors {
 sub runquery {
 	my ($qry) = @_;
 	my $sql = $db->prepare($qry) or die "couldn't prepare" . $db->errstr;
-	$sql->execute();
-	return $sql->fetchrow_array();
+	$sql->execute;
+	return $sql->fetchrow_array;
 }
 
 
