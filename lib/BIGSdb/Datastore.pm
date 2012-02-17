@@ -1156,7 +1156,7 @@ sub create_temp_ref_table {
 	};
 	return if !$continue;
 	my $create =
-"SET TRANSACTION READ WRITE; CREATE TEMP TABLE temp_refs (pmid int, year int, journal text, volume text, pages text, title text, abstract text, authors text, isolates int);";
+"ROLLBACK; SET TRANSACTION READ WRITE; CREATE TEMP TABLE temp_refs (pmid int, year int, journal text, volume text, pages text, title text, abstract text, authors text, isolates int);";
 	eval { $self->{'db'}->do($create); };
 	if ($@) {
 		$logger->error("Can't create temporary reference table. $@");
