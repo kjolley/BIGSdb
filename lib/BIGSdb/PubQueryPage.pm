@@ -20,7 +20,7 @@ package BIGSdb::PubQueryPage;
 use strict;
 use warnings;
 use Error qw(:try);
-use parent qw(BIGSdb::Page);
+use parent qw(BIGSdb::ResultsTablePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -108,6 +108,7 @@ sub print_content {
 	$q->param( 'curate', 1 ) if $self->{'curate'};
 	$self->paged_display( $system->{'dbtype'} eq 'isolates' ? $self->{'system'}->{'view'} : 'profiles',
 		$q->param('query'), '', [qw (curate scheme_id)] );
+	return;
 }
 
 sub get_title {
