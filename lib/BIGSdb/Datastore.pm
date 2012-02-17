@@ -263,41 +263,6 @@ sub get_scheme_field_values_by_isolate_id {
 	return $self->get_scheme_field_values_by_profile( $scheme_id, \@profile );
 }
 
-sub get_scheme_field_values {
-
-	#Deprecated 2011-10-02
-	my $msg = "Datastore::get_scheme_field_values is deprecated, use Datastore::get_scheme_field_values_by_isolate_id";
-	warnings::warnif( "deprecated", $msg );
-	$logger->warn("$msg. See apache error log for calling function.");
-
-	#if $field is included, only return that field, otherwise return a reference to an array of all scheme fields
-	my ( $self, $isolate_id, $scheme_id, $field ) = @_;
-	my $value;
-	my $scheme_fields = $self->get_scheme_fields($scheme_id);
-	my $scheme_loci   = $self->get_scheme_loci($scheme_id);
-	my @profile;
-	my $allele_ids = $self->get_all_allele_ids($isolate_id);
-	foreach (@$scheme_loci) {
-		push @profile, $allele_ids->{$_};
-	}
-	my $values;
-	try {
-		$values = $self->get_scheme($scheme_id)->get_field_values_by_profile( \@profile );
-		if ($field) {
-			for ( my $i = 0 ; $i < scalar @$scheme_fields ; $i++ ) {
-				if ( $field eq $scheme_fields->[$i] ) {
-					return [ $values->[$i] ];
-				}
-			}
-			return [];
-		}
-	}
-	catch BIGSdb::DatabaseConfigurationException with {
-		$logger->warn("Can't retrieve scheme_field values for scheme $scheme_id - scheme configuration error.");
-	};
-	return $values;
-}
-
 sub get_samples {
 
 	#return all sample fields except isolate_id
