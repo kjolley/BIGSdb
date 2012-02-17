@@ -359,6 +359,7 @@ sub _print_isolate_table {
 	my $extended = $self->get_extended_attributes;
 	my $attribute_sql =
 	  $self->{'db'}->prepare("SELECT value FROM isolate_value_extended_attributes WHERE isolate_field=? AND attribute=? AND field_value=?");
+	$self->{'scheme_loci'}->{0} = $self->{'datastore'}->get_loci_in_no_scheme;
 
 	while ( $limit_sql->fetchrow_arrayref ) {
 		my $profcomplete = 1;
@@ -439,7 +440,6 @@ sub _print_isolate_table {
 		}
 
 		#Print loci and scheme fields
-		$self->{'scheme_loci'}->{0} = $self->{'datastore'}->get_loci_in_no_scheme;
 		foreach my $scheme_id ( @$scheme_ids, 0 ) {
 			next
 			  if !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id} && $scheme_id;
