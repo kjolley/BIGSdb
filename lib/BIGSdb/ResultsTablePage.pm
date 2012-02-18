@@ -360,7 +360,7 @@ sub _print_isolate_table {
 	my $attribute_sql =
 	  $self->{'db'}->prepare("SELECT value FROM isolate_value_extended_attributes WHERE isolate_field=? AND attribute=? AND field_value=?");
 	$self->{'scheme_loci'}->{0} = $self->{'datastore'}->get_loci_in_no_scheme;
-
+	local $| = 1;
 	while ( $limit_sql->fetchrow_arrayref ) {
 		my $profcomplete = 1;
 		my $id;
@@ -457,6 +457,11 @@ sub _print_isolate_table {
 		undef $self->{'allele_sequences'}->{$id};
 		undef $self->{'designations'}->{$id};
 		undef $self->{'allele_sequence_flags'}->{$id};
+		
+		if ( $ENV{'MOD_PERL'} ) {
+			$self->{'mod_perl_request'}->rflush;
+			return if $self->{'mod_perl_request'}->connection->aborted;
+		}
 	}
 	print "</table></div>\n";
 	if ( !$self->{'curate'} ) {
