@@ -148,7 +148,7 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 				push @alleles, "locus='$locus' AND allele_id='$allele_id'";
 			}
 			if (@alleles) {
-				$" = ') OR (';
+				local $" = ') OR (';
 				$profiles_affected =
 				  $self->{'datastore'}->run_simple_query("SELECT COUNT (DISTINCT profile_id) FROM profile_members WHERE (@alleles)")->[0];
 			}
@@ -189,6 +189,9 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 				}
 			} elsif ($table eq 'sequences'){
 				$self->mark_cache_stale;
+			} elsif ($table eq 'profiles'){
+				my $scheme_id = $q->param('scheme_id');
+				$self->refresh_material_view($scheme_id);
 			}
 		};
 		if ($@) {
@@ -273,12 +276,13 @@ s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bi
 		print "<p>If you proceed, you will delete $count $record_name record$plural.  Please confirm that this is your intention.</p>\n";
 		print $q->start_form;
 		$q->param( 'deleteAll', 1 );
-		print $q->hidden($_) foreach qw (page db query deleteAll table delete_pending delete_tags);
+		print $q->hidden($_) foreach qw (page db query deleteAll table delete_pending delete_tags scheme_id);
 		print $q->submit( -label => 'Confirm deletion!', -class => 'submit' );
 		print $q->end_form;
 		$self->print_warning_sign;
 		print "</div>\n";
 	}
+	return;
 }
 
 sub get_title {

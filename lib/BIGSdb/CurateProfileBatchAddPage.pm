@@ -151,7 +151,10 @@ sub print_content {
 					}
 				}
 				local $" = ';';
-				eval { $self->{'db'}->do("@inserts"); };
+				eval { 
+					$self->{'db'}->do("@inserts"); 
+					$self->refresh_material_view($scheme_id);
+				};
 				if ($@) {
 					print
 "<div class=\"box\" id=\"statusbad\"><p>Database update failed - transaction cancelled - no records have been touched.</p>\n";

@@ -404,6 +404,8 @@ sub print_content {
 				print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}&amp;page=compositeQuery\">Query another</a>";
 			} elsif ( $table eq 'profiles' ) {
 				my $scheme_id = $q->param('scheme_id');
+				$self->refresh_material_view($scheme_id);
+				$self->{'db'}->commit;			
 				print "<p><a href=\""
 				  . $q->script_name
 				  . "?db=$self->{'instance'}&amp;page=profileQuery&amp;scheme_id=$scheme_id\">Query another</a>";

@@ -174,7 +174,7 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 			print "<fieldset><legend>Delete</legend>\n";
 			print $q->start_form;
 			$q->param( 'page', 'deleteAll' );
-			print $q->hidden($_) foreach qw (db page table query);
+			print $q->hidden($_) foreach qw (db page table query scheme_id);
 			if ( $table eq 'allele_designations' ) {
 				print "<ul><li>\n";
 				if ( $self->can_modify_table('allele_sequences') ) {

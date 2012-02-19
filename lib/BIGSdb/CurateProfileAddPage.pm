@@ -100,7 +100,7 @@ sub print_content {
 		}
 		if (@bad_field_buffer) {
 			print "<div class=\"box\" id=\"statusbad\"><p>There are problems with your record submission.  Please address the following:</p>\n";
-			$" = '<br />';
+			local $" = '<br />';
 			print "<p>@bad_field_buffer</p></div>\n";
 			$insert = 0;
 		}
@@ -114,7 +114,7 @@ sub print_content {
 				(my $cleaned = $_) =~ s/'/\\'/g;
 				push @locus_temp, "(locus='$cleaned' AND allele_id='$newdata{\"locus:$_\"}')";
 			}
-			$" = ' OR ';
+			local $" = ' OR ';
 			$qry .= "(@locus_temp)";
 			$qry .= ' GROUP BY profiles.profile_id having count(*)=' . scalar @locus_temp;
 			my $sql = $self->{'db'}->prepare($qry);
@@ -158,8 +158,11 @@ sub print_content {
 "INSERT INTO profile_fields(scheme_id,scheme_field,profile_id,value,curator,datestamp) VALUES ($scheme_id,'$_','$newdata{\"field:$primary_key\"}','$newdata{\"field:$_\"}',$newdata{'field:curator'},'today')";
 					push @inserts, $qry;
 				}
-				$" = ';';
-				eval { $self->{'db'}->do("@inserts") };
+				local $" = ';';
+				eval { 
+					$self->{'db'}->do("@inserts");
+					$self->refresh_material_view($scheme_id);
+				};
 				if ($@) {
 					print "<div class=\"box\" id=\"statusbad\"><p>Insert failed - transaction cancelled - no records have been touched.</p>\n";
 					if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
@@ -244,6 +247,7 @@ sub print_content {
 	print "</td></tr></table>\n";
 	print $q->end_form;
 	print "</div>\n";
+	return;
 }
 
 sub _is_scheme_field_bad {

@@ -195,6 +195,7 @@ sub print_content {
 				}
 			}
 			if ($success) {
+				$self->refresh_material_view($scheme_id);
 				$self->{'db'}->commit;
 				print "<div class=\"box\" id=\"resultsheader\"><p>Updated!</p>";
 				print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";

@@ -74,7 +74,7 @@ sub create_record_table {
 	$buffer .= $q->hidden( 'sent', 1 );
 	$buffer .= "<div class=\"box\" id=\"queryform\">" if !$nodiv;
 	$buffer .= "<p>Please fill in the fields below - required fields are marked with an exclamation mark (!).</p>\n";
-	$buffer .= "<div class=\"scrollable\">" if !$nodiv;
+	$buffer .= "<div class=\"scrollable\">"           if !$nodiv;
 	$buffer .= "<table>\n";
 
 	if ( scalar @$attributes > 15 ) {
@@ -977,7 +977,12 @@ sub drop_scheme_view {
 	#Change needs to be committed outside of subroutine (to allow drop as part of transaction)
 	my ( $self, $scheme_id ) = @_;
 	my $qry = "DROP VIEW IF EXISTS scheme_$scheme_id";
-	eval { $self->{'db'}->do($qry) };
+	eval { 
+		$self->{'db'}->do($qry);
+		if ($self->{'system'}->{'materialized_views'} && $self->{'system'}->{'materialized_views'} eq 'yes'){
+			$self->{'db'}->do("SELECT drop_matview('mv_scheme_$scheme_id')");
+		}
+	};
 	$logger->error($@) if $@;
 	return;
 }
@@ -991,19 +996,16 @@ sub create_scheme_view {
 	my ( $self, $scheme_id ) = @_;
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $qry;
+	return if !@$loci || !@$scheme_fields;    #No point creating view if table doesn't have either loci or fields.
 	my $pk_ref = $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key", $scheme_id );
 	my $pk;
 	if ( ref $pk_ref eq 'ARRAY' ) {
 		$pk = $pk_ref->[0];
-	}
-	if ( !$pk ) {
-		$qry =
-"CREATE OR REPLACE VIEW scheme_$scheme_id AS SELECT profiles.profile_id AS id,profiles.sender,profiles.curator,profiles.date_entered,profiles.datestamp";
 	} else {
-		$qry =
-"CREATE OR REPLACE VIEW scheme_$scheme_id AS SELECT profiles.profile_id AS $pk,profiles.sender,profiles.curator,profiles.date_entered,profiles.datestamp";
+		return;                               #No point creating view without a primary key.
 	}
+	my $qry = "CREATE OR REPLACE VIEW scheme_$scheme_id AS SELECT profiles.profile_id AS $pk,profiles.sender,"
+	  . "profiles.curator,profiles.date_entered,profiles.datestamp";
 	foreach (@$scheme_fields) {
 		$qry .= ",$_.value AS $_" if $_ ne $pk;
 	}
@@ -1027,6 +1029,44 @@ sub create_scheme_view {
 	eval {
 		$self->{'db'}->do($qry);
 		$self->{'db'}->do("GRANT SELECT ON scheme_$scheme_id TO $self->{'system'}->{'user'}");
+		if ($self->{'system'}->{'materialized_views'} && $self->{'system'}->{'materialized_views'} eq 'yes'){
+			$self->{'db'}->do("SELECT create_matview('mv_scheme_$scheme_id', 'scheme_$scheme_id')");
+			$self->{'db'}->do("CREATE UNIQUE INDEX i_mv$scheme_id\_1 ON mv_scheme_$scheme_id ($pk)");
+			local $" = ',';
+			my $locus_string = "@$loci";
+			$locus_string =~ s/'/\\'/g;
+			$self->{'db'}->do("CREATE UNIQUE INDEX i_mv$scheme_id\_2 ON mv_scheme_$scheme_id ($locus_string)");
+		}
+	};
+	$logger->error($@) if $@;
+	return;
+}
+
+sub refresh_material_view {
+	#Needs to be committed outside of subroutine (to allow refresh as part of transaction)
+	my ($self, $scheme_id) = @_;
+	return if !($self->{'system'}->{'materialized_views'} && $self->{'system'}->{'materialized_views'} eq 'yes');
+	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	return if !@$loci || !@$scheme_fields;
+	my $pk_ref = $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key", $scheme_id );
+	my $pk;
+	if ( ref $pk_ref eq 'ARRAY' ) {
+		$pk = $pk_ref->[0];
+	} else {
+		return; 
+	}
+	
+	eval {
+		$self->{'db'}->do("DROP INDEX i_mv$scheme_id\_1");
+		$self->{'db'}->do("DROP INDEX i_mv$scheme_id\_2");
+		$self->{'db'}->do("SELECT refresh_matview('mv_scheme_$scheme_id')");
+		$self->{'db'}->do("CREATE UNIQUE INDEX i_mv$scheme_id\_1 ON mv_scheme_$scheme_id ($pk)");
+		local $" = ',';
+		my $locus_string = "@$loci";
+		$locus_string =~ s/'/\\'/g;
+		$self->{'db'}->do("CREATE UNIQUE INDEX i_mv$scheme_id\_2 ON mv_scheme_$scheme_id ($locus_string)");
+		
 	};
 	$logger->error($@) if $@;
 	return;

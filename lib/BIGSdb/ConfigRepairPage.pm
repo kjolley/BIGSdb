@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011, University of Oxford
+#Copyright (c) 2011-2012, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -34,54 +34,55 @@ sub print_content {
 	my $q = $self->{'cgi'};
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 	print "<h1>Configuration repair - $desc</h1>";
-	if ($self->{'system'}->{'dbtype'} eq 'isolates'){
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>This function is only for use on sequence definition databases.</p></div>\n";
 		return;
-	} 
+	}
 	print "<div class=\"box\" id=\"queryform\">\n";
 	print "<h2>Rebuild scheme views</h2>\n";
 	print "<p>Scheme views can become damaged if the database is modifed outside of the web interface. This "
 	  . "is especially likely if loci that belong to schemes are renamed.</p>";
+	print "<p>As materialized views are enabled for this database, these will also be (re)created.</p>"
+	  if $self->{'system'}->{'materialized_views'} && $self->{'system'}->{'materialized_views'} eq 'yes';
 	my $scheme_ids =
 	  $self->{'datastore'}
 	  ->run_list_query_hashref( "SELECT id,description FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_fields WHERE primary_key) "
 		  . "AND id IN (SELECT scheme_id FROM scheme_members) ORDER BY id" );
-	if (!@$scheme_ids){
-		print "<p class=\"statusbad\">No schemes with a primary key and locus members have been defined.</p>\n"; 
+	if ( !@$scheme_ids ) {
+		print "<p class=\"statusbad\">No schemes with a primary key and locus members have been defined.</p>\n";
 	} else {
-		print "<p>Select the damaged scheme view and click 'Rebuid'.</p>\n";
-		my (@ids, %desc);
-		foreach (@$scheme_ids){
+		print "<p>Select the damaged scheme view and click 'Rebuild'.</p>\n";
+		my ( @ids, %desc );
+		foreach (@$scheme_ids) {
 			push @ids, $_->{'id'};
-			$desc{$_->{'id'}} = "$_->{'id'}) $_->{'description'}";
+			$desc{ $_->{'id'} } = "$_->{'id'}) $_->{'description'}";
 		}
 		print $q->start_form;
 		print $q->hidden($_) foreach qw (db page);
-		print $q->popup_menu(-name => 'scheme_id', -values => \@ids, -labels => \%desc);
-		print $q->submit(-name => 'rebuild', -value => 'Rebuild', -class => 'submit');
+		print $q->popup_menu( -name => 'scheme_id', -values => \@ids, -labels => \%desc );
+		print $q->submit( -name => 'rebuild', -value => 'Rebuild', -class => 'submit' );
 		print $q->end_form;
 	}
 	print "</div>\n";
-	if ($q->param('rebuild') && $q->param('scheme_id') && BIGSdb::Utils::is_int($q->param('scheme_id'))){
-		$self->_rebuild($q->param('scheme_id'));
+	if ( $q->param('rebuild') && $q->param('scheme_id') && BIGSdb::Utils::is_int( $q->param('scheme_id') ) ) {
+		$self->_rebuild( $q->param('scheme_id') );
 	}
 	return;
 }
 
 sub _rebuild {
-	my ($self, $scheme_id) = @_;
-	eval { 
+	my ( $self, $scheme_id ) = @_;
+	eval {
 		$self->drop_scheme_view($scheme_id);
 		$self->create_scheme_view($scheme_id);
 	};
-	if ($@){
+	if ($@) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Scheme rebuild failed.</p></div>\n";
 		$self->{'db'}->rollback;
 	} else {
 		print "<div class=\"box\" id=\"resultsheader\"><p>Scheme rebuild completed.</p></div>\n";
 		$self->{'db'}->commit;
 	}
-	return;	
+	return;
 }
-
 1;
