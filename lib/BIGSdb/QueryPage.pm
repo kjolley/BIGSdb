@@ -1633,6 +1633,7 @@ sub process_value {
 	my ( $self, $value_ref ) = @_;
 	$$value_ref =~ s/^\s*//;
 	$$value_ref =~ s/\s*$//;
+	$$value_ref =~ s/\\/\\\\/g;
 	$$value_ref =~ s/'/\\'/g;
 	return;
 }
