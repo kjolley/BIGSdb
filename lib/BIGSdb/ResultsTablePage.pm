@@ -1033,7 +1033,7 @@ sub _print_record_table {
 					local $" = "</a> <a class=\"seqflag_tooltip\">";
 					print @$flags ? "<td><a class=\"seqflag_tooltip\">@$flags</a></td>" : "<td />";
 				}
-			} elsif ( $field =~ /sequence$/ && $field ne 'coding_sequence' ) {
+			} elsif ( ($field =~ /sequence$/ || $field =~ /^primer/) && $field ne 'coding_sequence' ) {
 				if ( length( $data{ lc($field) } ) > 60 ) {
 					my $seq = BIGSdb::Utils::truncate_seq( \$data{ lc($field) }, 30 );
 					print "<td class=\"seq\">$seq</td>";

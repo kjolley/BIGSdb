@@ -107,6 +107,7 @@ sub print_content {
 	$newdata{'curator'} = $self->get_curator_id;
 	my @problems;
 	if ( $q->param('sent') ) {
+		$self->_format_data($table, \%newdata);
 		@problems = $self->check_record( $table, \%newdata );
 		my @extra_inserts;
 
@@ -644,6 +645,14 @@ sub _copy_locus_config {
 		$value =~ s/$locus/LOCUS/
 		  if any { $field eq $_ } qw(dbase_table dbase_id_field dbase_id2_field dbase_id2_value description_url url);		
 		$newdata_ref->{$field} = $value;
+	}
+	return;
+}
+
+sub _format_data {
+	my ($self, $table, $data_ref) = @_;
+	if ($table eq 'pcr'){
+		$data_ref->{$_} =~ s/[\r\n]//g foreach qw (primer1 primer2);
 	}
 	return;
 }
