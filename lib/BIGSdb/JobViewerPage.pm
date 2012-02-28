@@ -77,6 +77,7 @@ HTML
 		if ( ref $output eq 'HASH' ) {
 			foreach ( sort keys(%$output) ) {
 				my ( $link_text, $comments ) = split /\|/, $_;
+				$link_text =~ s/^\d{2}_//; #Descriptions can start with 2 digit number for ordering
 				my $text = "<li><a href=\"/tmp/$output->{$_}\">$link_text</a>";
 				$text .= " - $comments" if $comments;
 				$text .=

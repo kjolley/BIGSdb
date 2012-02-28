@@ -27,6 +27,7 @@ my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 use Apache2::Connection ();
 use Bio::SeqIO;
+use Bio::AlignIO;
 use List::MoreUtils qw(uniq any none);
 use BIGSdb::Page 'SEQ_METHODS';
 use constant MAX_UPLOAD_SIZE => 32768;
@@ -70,14 +71,17 @@ function enable_seqs(){
 		\$("#scheme_fieldset").hide(500);
 		\$("#locus_fieldset").hide(500);
 		\$("#tblastx").attr("disabled", false);
-		\$("#align").attr("disabled", false);
 		\$("#use_tagged").attr("disabled", true);
 	} else {
 		\$("#scheme_fieldset").show(500);
 		\$("#locus_fieldset").show(500);
 		\$("#tblastx").attr("disabled", true);
-		\$("#align").attr("disabled", true);
 		\$("#use_tagged").attr("disabled", false);
+	}
+	if ((\$("#accession").val() || \$("#ref_upload").val()) && \$("#align").attr('checked')){
+		\$("#include_ref").attr("disabled", false);
+	} else {
+		\$("#include_ref").attr("disabled", true);
 	}
 }
 
@@ -348,11 +352,13 @@ query against the six-frame translation of the sequences in the sequence bin (se
 result in the same translated sequence even if the nucleotide sequence is different).  This is SLOWER than BLASTN. Use with
 caution.">&nbsp;<i>i</i>&nbsp;</a></span></li><li>
 HTML
-	print $q->checkbox( -name => 'align', -id => 'align', -label => 'Produce alignments' );
+	print $q->checkbox( -name => 'align', -id => 'align', -label => 'Produce alignments (Clustal + XMFA)' );
 	print <<"HTML";
- <a class=\"tooltip\" title=\"Alignments (analysis by reference genome only) - Alignments will be produced in muscle for 
+ <a class=\"tooltip\" title=\"Alignments - Alignments will be produced in muscle for 
 any loci that vary between isolates. This may slow the analysis considerably.">&nbsp;<i>i</i>&nbsp;</a></li><li>
 HTML
+	print $q->checkbox( -name => 'include_ref', -id => 'include_ref', -label => 'Include ref sequences in alignment', -checked => 'true' );
+	print "</li><li>";
 	print $q->checkbox( -name => 'use_tagged', -id => 'use_tagged', -label => 'Use tagged designations if available', -checked => 'true' );
 	print <<"HTML";
 </li></ul></fieldset><fieldset style="float:left"><legend>Restrict included sequences by</legend><ul>
@@ -405,7 +411,7 @@ sub _analyse_by_loci {
 	foreach (@$ids) {
 		$isolate_FASTA{$_} = $self->_create_isolate_FASTA( $_, $job_id, $params );
 	}
-	open( my $fh, '>', "$self->{'config'}->{'tmp_dir'}/$job_id.txt" );
+	open( my $fh, '>', "$self->{'config'}->{'tmp_dir'}/$job_id.txt" ) || $logger->error("Can't open $job_id.txt for writing");
 	my $html_buffer = "<h3>Analysis against defined loci</h3>\n";
 	print $fh "Analysis against defined loci\n";
 	print $fh "Time: " . ( localtime(time) ) . "\n\n";
@@ -431,9 +437,15 @@ sub _analyse_by_loci {
 	@$loci = uniq @$loci;
 	my $progress = 0;
 	my $values;
+	my $align_filename = "$self->{'config'}->{'tmp_dir'}/$job_id\_align.txt";
+	my $xmfa_out   = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
+	my $xmfa_start = 1;
+	my $xmfa_end;
+	
 	foreach my $locus (@$loci) {
 		my $locus_FASTA = $self->_create_locus_FASTA_db( $locus, $job_id );
 		my $cleaned_locus = $self->clean_locus($locus);
+		my $muscle_input_buffer;
 		$html_buffer .= "<tr class=\"td$td\"><td>$cleaned_locus</td>";
 		print $fh $locus;
 		my $new_allele = 1;
@@ -443,21 +455,32 @@ sub _analyse_by_loci {
 			$id = $1 if $id =~ /(\d*)/;    #avoid taint check
 			my $out_file = "$self->{'config'}->{'secure_tmp_dir'}/$job_id\_isolate_$id\_outfile.txt";
 			my $match;
+			my $seq;
 			if ( $params->{'use_tagged'} ) {
 				my $allele_id = $self->{'datastore'}->get_allele_id( $id, $locus );
 				if ( defined $allele_id ) {
 					$match->{'exact'}  = 1;
 					$match->{'allele'} = $allele_id;
+					try {
+						my $seq_ref = $self->{'datastore'}->get_locus($locus)->get_allele_sequence($allele_id);
+						$seq = $$seq_ref if ref $seq_ref eq 'SCALAR';
+					} catch BIGSdb::DatabaseConnectionException with {
+						#ignore
+						$logger->debug("No connection to $locus database");
+					}
 				}
 			}
-			if ( !$match->{'exact'} ) {
+			if ( !$match->{'exact'} && !-z $locus_FASTA) {
 				if ( $locus_info->{'data_type'} eq 'DNA' ) {
 					$self->_blast( $blastn_word_size, $locus_FASTA, $isolate_FASTA{$id}, $out_file, 'blastn' );
 				} else {
 					$self->_blast( 3, $locus_FASTA, $isolate_FASTA{$id}, $out_file, 'blastx' );
 				}
 				$match = $self->_parse_blast_by_locus( $locus, $out_file, $params );
+				$seq = $self->_extract_sequence($match);
 			}
+			$muscle_input_buffer .= ">$id\n$seq\n" if $seq;			
+			
 			if ( ref $match ne 'HASH' ) {
 				$html_buffer .= "<td>X</td>";
 				$values->{$id}->{$locus} = 'X';
@@ -466,11 +489,12 @@ sub _analyse_by_loci {
 				$html_buffer .= "<td>$match->{'allele'}</td>";
 				$values->{$id}->{$locus} = $match->{'allele'};
 				print $fh "\t$match->{'allele'}";
+					
 			} else {
-				my $seq = $self->_extract_sequence($match);
+				my $seq = $self->_extract_sequence($match);			
 				my $found;
 				foreach ( keys %new ) {
-					if ( $seq eq $new{$_} ) {
+					if ( $seq && $seq eq $new{$_} ) {
 						$values->{$id}->{$locus} = "new#$_";
 						$html_buffer .= "<td>new#$_</td>\n";
 						print $fh "\tnew#$_";
@@ -499,13 +523,53 @@ sub _analyse_by_loci {
 		$progress++;
 		my $complete = int( 100 * $progress / scalar @$loci );
 		my $close_table = ( $progress != scalar @$loci ) ? '</table></div>' : '';
+		
+		my $fasta_file = "$self->{'config'}->{'secure_tmp_dir'}/$job_id\_$locus.fasta";
+		my $muscle_out = "$self->{'config'}->{'secure_tmp_dir'}/$job_id\_$locus.muscle";
+		if ( $params->{'align'} && $muscle_input_buffer) {
+			open (my $muscle_in_fh, '>', $fasta_file) || $logger->error("Can't open $fasta_file for writing.");
+			print $muscle_in_fh $muscle_input_buffer;
+			close $muscle_in_fh;
+			system( $self->{'config'}->{'muscle_path'}, '-in', $fasta_file, '-out', $muscle_out, '-quiet', '-clwstrict' );
+			if ( -e $muscle_out ) {
+				my $align = Bio::AlignIO->new( -format => 'clustalw', -file => $muscle_out )->next_aln;
+				open( my $fh_xmfa, '>>', $xmfa_out ) || $logger->error("Can't open output file $xmfa_out for appending");
+				foreach my $seq ( $align->each_seq ) {
+					$xmfa_end = $xmfa_start + $seq->length - 1;
+					print $fh_xmfa '>' . $seq->id . ":$xmfa_start-$xmfa_end + $locus\n";
+					my $sequence = BIGSdb::Utils::break_line( $seq->seq, 60 );
+					print $fh_xmfa "$sequence\n";
+				}
+				print $fh_xmfa "=\n";
+				close $fh_xmfa;
+				$xmfa_start = $xmfa_end + 1;
+				open( my $align_fh, '>>', $align_filename ) || $logger->error("Can't open output file $align_filename for appending");
+				print $align_fh "$locus\n";
+				print $align_fh '-' x ( length $locus ) . "\n\n";
+				open( my $muscle_fh, '<', $muscle_out ) || $logger->error("Can't open $muscle_out for reading");
+
+				while ( my $line = <$muscle_fh> ) {
+					print $align_fh $line;
+				}
+				close $muscle_fh;
+				close $align_fh;
+				unlink $muscle_out;
+			}
+		}
 		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete, message_html => "$html_buffer$close_table" } );
 	}
 	$html_buffer .= "</table></div>\n";
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => "$html_buffer" } );
 	close $fh;
 	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$job_id\*";
-	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => 'Main output file' } );
+	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Main output file' } );
+	if ( @$ids > 1 && $params->{'align'} ) {
+		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align.txt", description => '30_Alignments' } )
+		  if -e $align_filename;
+		$self->{'jobManager'}
+		  ->update_job_output( $job_id, { filename => "$job_id.xmfa", description => '35_Extracted sequences (XMFA format)' } )
+		  if -e "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa";
+	}
 	$self->_generate_splits( $job_id, $values );
 	return;
 }
@@ -517,22 +581,18 @@ sub _generate_splits {
 	$self->{'jobManager'}->update_job_output(
 		$job_id,
 		{
-			filename    => $nexus_file,
-			description => 'Distance matrix (Nexus format)|Suitable for loading in to <a href="http://www.splitstree.org">SplitsTree</a>. '
-			. 'Distances between taxa are calculated as the number of loci with different allele sequences'
+			filename => $nexus_file,
+			description =>
+			  '20_Distance matrix (Nexus format)|Suitable for loading in to <a href="http://www.splitstree.org">SplitsTree</a>. '
+			  . 'Distances between taxa are calculated as the number of loci with different allele sequences'
 		}
 	);
 	return if keys %$values > MAX_SPLITS_TAXA;
 	my $splits_img = "$job_id.png";
 	$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file", "$self->{'config'}->{'tmp_dir'}/$splits_img", 'PNG' );
 	if ( -e "$self->{'config'}->{'tmp_dir'}/$splits_img" ) {
-		$self->{'jobManager'}->update_job_output(
-			$job_id,
-			{
-				filename    => $splits_img,
-				description => 'Splits graph (PNG format)'
-			}
-		);
+		$self->{'jobManager'}
+		  ->update_job_output( $job_id, { filename => $splits_img, description => '25_Splits graph (Neighbour-net; PNG format)' } );
 	}
 	$splits_img = "$job_id.svg";
 	$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file", "$self->{'config'}->{'tmp_dir'}/$splits_img", 'SVG' );
@@ -540,12 +600,13 @@ sub _generate_splits {
 		$self->{'jobManager'}->update_job_output(
 			$job_id,
 			{
-				filename    => $splits_img,
-				description => 'Splits graph (SVG format)|This can be edited in <a href="http://inkscape.org">Inkscape</a> or other '
-				. 'vector graphics editors'
+				filename => $splits_img,
+				description =>
+				  '26_Splits graph (Neighbour-net; SVG format)|This can be edited in <a href="http://inkscape.org">Inkscape</a> or other '
+				  . 'vector graphics editors'
 			}
 		);
-	}	
+	}
 	return;
 }
 
@@ -577,7 +638,6 @@ sub _run_splitstree {
 
 sub _make_nexus_file {
 	my ( $self, $job_id, $dismat ) = @_;
-	open( my $fh, '>', "$self->{'config'}->{'tmp_dir'}/$job_id.nex" );
 	my $timestamp = scalar localtime;
 	my @ids = sort { $a <=> $b } keys %$dismat;
 	my %labels;
@@ -594,7 +654,7 @@ sub _make_nexus_file {
 		}
 	}
 	my $num_taxa = @ids;
-	print $fh <<"NEXUS";
+	my $header   = <<"NEXUS";
 #NEXUS
 [Distance matrix calculated by BIGSdb Genome Comparator ($timestamp)]
 [Jolley & Maiden 2010 BMC Bioinformatics 11:595]
@@ -614,15 +674,15 @@ BEGIN distances;
    ;
 MATRIX
 NEXUS
+	open( my $nexus_fh, '>', "$self->{'config'}->{'tmp_dir'}/$job_id.nex" ) || $logger->error("Can't open $job_id.nex for writing");
+	print $nexus_fh $header;
 	foreach my $i ( 0 .. @ids - 1 ) {
-		print $fh $labels{ $ids[$i] };
-		foreach my $j ( 0 .. $i ) {
-			print $fh "\t" . $dismat->{ $ids[$i] }->{ $ids[$j] };
-		}
-		print $fh "\n";
+		print $nexus_fh $labels{ $ids[$i] };
+		print $nexus_fh "\t" . $dismat->{ $ids[$i] }->{ $ids[$_] } foreach ( 0 .. $i );
+		print $nexus_fh "\n";
 	}
-	print $fh "   ;\nEND;\n";
-	close $fh;
+	print $nexus_fh "   ;\nEND;\n";
+	close $nexus_fh;
 	return "$job_id.nex";
 }
 
@@ -649,12 +709,10 @@ sub _analyse_by_reference {
 	foreach ( $seq_obj->get_SeqFeatures ) {
 		push @cds, $_ if $_->primary_tag eq 'CDS';
 	}
-	open( my $fh,       '>', "$self->{'config'}->{'tmp_dir'}/$job_id.txt" );
-	open( my $align_fh, '>', "$self->{'config'}->{'tmp_dir'}/$job_id\_align.txt" );
-	my $html_buffer = "<h3>Analysis by reference genome</h3>";
-	print $fh "Analysis by reference genome\n\n";
-	print $fh "Time: " . ( localtime(time) ) . "\n\n";
-	my %att = (
+	my $job_filename   = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
+	my $align_filename = "$self->{'config'}->{'tmp_dir'}/$job_id\_align.txt";
+	my $html_buffer    = "<h3>Analysis by reference genome</h3>";
+	my %att            = (
 		'accession'   => $accession,
 		'version'     => $seq_obj->seq_version,
 		'type'        => $seq_obj->alphabet,
@@ -665,14 +723,18 @@ sub _analyse_by_reference {
 	my %abb = ( 'cds' => 'coding regions' );
 	$html_buffer .= "<table class=\"resultstable\">";
 	my $td = 1;
+	my $file_buffer = "Analysis by reference genome\n\nTime: " . ( localtime(time) ) . "\n\n";
 
 	foreach (qw (accession version type length description cds)) {
 		if ( $att{$_} ) {
 			$html_buffer .= "<tr class=\"td$td\"><th>" . ( $abb{$_} || $_ ) . "</th><td style=\"text-align:left\">$att{$_}</td></tr>";
-			print $fh ( $abb{$_} || $_ ) . ": $att{$_}\n";
+			$file_buffer .= ( $abb{$_} || $_ ) . ": $att{$_}\n";
 			$td = $td == 1 ? 2 : 1;
 		}
 	}
+	open( my $job_fh, '>', $job_filename ) || $logger->error("Can't open $job_filename for writing");
+	print $job_fh $file_buffer;
+	close $job_fh;
 	$html_buffer .= "</table>";
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
 	my %isolate_FASTA;
@@ -811,53 +873,52 @@ sub _analyse_by_reference {
 			$varying_loci->{$locus_name}->{'start'} = $start;
 		}
 	}
-	print $fh "\n###\n\n";
-	my $values = $self->_print_variable_loci( $job_id, \$html_buffer, $fh, $align_fh, $params, $ids, $varying_loci );
-	print $fh "\n###\n\n";
-	$self->_print_missing_in_all( \$html_buffer, $fh, $all_missing );
+	my $values = $self->_print_variable_loci( $job_id, \$html_buffer, $job_filename, $align_filename, $params, $ids, $varying_loci );
+	$self->_print_missing_in_all( \$html_buffer, $job_filename, $all_missing );
 	foreach my $locus ( keys %$all_missing ) {
 		$values->{'0'}->{$locus} = 1;
 		$values->{$_}->{$locus} = 'X' foreach @$ids;
 	}
-	print $fh "\n###\n\n";
-	$self->_print_exact_matches( \$html_buffer, $fh, $exacts, $params );
-	print $fh "\n###\n\n";
-	$self->_print_exact_except_ref( \$html_buffer, $fh, $exact_except_ref );
+	$self->_print_exact_matches( \$html_buffer, $job_filename, $exacts, $params );
+	$self->_print_exact_except_ref( \$html_buffer, $job_filename, $exact_except_ref );
 	foreach my $locus ( keys %$exact_except_ref ) {
 		$values->{'0'}->{$locus} = 1;
 		$values->{$_}->{$locus} = 2 foreach @$ids;
 	}
-	print $fh "\n###\n\n";
-	$self->_print_truncated_loci( \$html_buffer, $fh, $truncated_loci );
+	$self->_print_truncated_loci( \$html_buffer, $job_filename, $truncated_loci );
 	$html_buffer .= "<p class=\"statusbad\">No sequences were extracted from reference file.</p>\n" if !$seqs_total;
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
-	close $fh;
-	close $align_fh;
+	close $job_fh;
 	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$prefix\*";
-	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => 'Main output file' } );
+	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Main output file' } );
 	$self->_generate_splits( $job_id, $values );
 
 	if ( @$ids > 1 && $params->{'align'} ) {
-		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align.txt", description => 'Alignments' } );
+		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align.txt", description => '30_Alignments' } )
+		  if -e $align_filename;
+		$self->{'jobManager'}
+		  ->update_job_output( $job_id, { filename => "$job_id.xmfa", description => '35_Extracted sequences (XMFA format)' } )
+		  if -e "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa";
 	}
 	return;
 }
 
 sub _print_variable_loci {
-	my ( $self, $job_id, $buffer_ref, $fh, $fh_align, $params, $ids, $loci ) = @_;
+	my ( $self, $job_id, $buffer_ref, $job_filename, $align_filename, $params, $ids, $loci ) = @_;
 	return if ref $loci ne 'HASH';
 	my $values;
 	$$buffer_ref .= "<h3>Loci with sequence differences between isolates:</h3>";
-	print $fh "Loci with sequence differences between isolates\n";
-	print $fh "-----------------------------------------------\n\n";
+	my $file_buffer = "\n###\n\n";
+	$file_buffer .= "Loci with sequence differences between isolates\n";
+	$file_buffer .= "-----------------------------------------------\n\n";
 	$$buffer_ref .= "<p>Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'.</p>";
-	print $fh "Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'.\n\n";
+	$file_buffer .= "Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'.\n\n";
 	$$buffer_ref .= "<p>Variable loci: " . ( scalar keys %$loci ) . "</p>";
-	print $fh "Variable loci: " . ( scalar keys %$loci ) . "\n\n";
+	$file_buffer .= "Variable loci: " . ( scalar keys %$loci ) . "\n\n";
 	$$buffer_ref .= "<div class=\"scrollable\">";
 	$$buffer_ref .=
 "<table class=\"resultstable\"><tr><th>Locus</th><th>Product</th><th>Sequence length</th><th>Genome position</th><th>Reference genome</th>";
-	print $fh "Locus\tProduct\tSequence length\tGenome position\tReference genome";
+	$file_buffer .= "Locus\tProduct\tSequence length\tGenome position\tReference genome";
 	my $isolate;
 
 	foreach my $id (@$ids) {
@@ -868,138 +929,173 @@ sub _print_variable_loci {
 			$isolate = ' (' . ( $isolate_ref->[0] ) . ')' if ref $isolate_ref eq 'ARRAY';
 		}
 		$$buffer_ref .= "<th>$id$isolate</th>";
-		print $fh "\t$id$isolate";
+		$file_buffer .= "\t$id$isolate";
 	}
 	$$buffer_ref .= "</tr>";
-	print $fh "\n";
+	$file_buffer .= "\n";
 	my $td = 1;
 	my $count;
-	my $temp     = BIGSdb::Utils::get_random();
-	my $progress = 0;
-	my $total    = 2 * ( scalar keys %$loci );    #need to show progress from 50 - 100%
+	my $temp       = BIGSdb::Utils::get_random();
+	my $progress   = 0;
+	my $total      = 2 * ( scalar keys %$loci );                      #need to show progress from 50 - 100%
+	my $xmfa_out   = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
+	my $xmfa_start = 1;
+	my $xmfa_end;
 
-	foreach ( sort keys %$loci ) {
+	foreach my $locus ( sort keys %$loci ) {
 		$progress++;
 		my $complete = 50 + int( 100 * $progress / $total );
 		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } ) if $params->{'align'};
-		my $fasta_file = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$_.fasta";
-		my $muscle_out = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$_.muscle";
-		open( my $fasta_fh, '>', $fasta_file );
+		my $fasta_file = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$locus.fasta";
+		my $muscle_out = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$locus.muscle";
 		my %alleles;
 		my $allele        = 1;
-		my $cleaned_locus = $self->clean_locus($_);
-		my $length        = length( $loci->{$_}->{'ref'} );
-		my $start         = $loci->{$_}->{'start'};
-		$values->{'0'}->{$_} = 1;
+		my $cleaned_locus = $self->clean_locus($locus);
+		my $length        = length( $loci->{$locus}->{'ref'} );
+		my $start         = $loci->{$locus}->{'start'};
+		$values->{'0'}->{$locus} = 1;
 		$$buffer_ref .=
-		  "<tr class=\"td$td\"><td>$cleaned_locus</td><td>$loci->{$_}->{'desc'}</td><td>$length</td><td>$start</td><td>1</td>";
-		print $fh "$_\t$loci->{$_}->{'desc'}\t$length\t$start\t1";
-		$alleles{1} = $loci->{$_}->{'ref'};
-		print $fasta_fh ">ref\n";
-		print $fasta_fh "$loci->{$_}->{'ref'}\n";
+		  "<tr class=\"td$td\"><td>$cleaned_locus</td><td>$loci->{$locus}->{'desc'}</td><td>$length</td><td>$start</td><td>1</td>";
+		$file_buffer .= "$locus\t$loci->{$locus}->{'desc'}\t$length\t$start\t1";
+		$alleles{1} = $loci->{$locus}->{'ref'};
+		open( my $fasta_fh, '>', $fasta_file ) || $logger->error("Can't open $fasta_file for writing");
 
+		if ( $params->{'include_ref'} ) {
+			print $fasta_fh ">ref\n";
+			print $fasta_fh "$loci->{$locus}->{'ref'}\n";
+		}
 		foreach my $id (@$ids) {
 			my $this_allele;
-			if ( !$loci->{$_}->{$id} ) {
+			if ( !$loci->{$locus}->{$id} ) {
 				$this_allele = 'X';
 			} else {
 				print $fasta_fh ">$id\n";
-				print $fasta_fh "$loci->{$_}->{$id}\n";
+				print $fasta_fh "$loci->{$locus}->{$id}\n";
 				my $i;
 				for ( $i = 1 ; $i <= $allele ; $i++ ) {
-					if ( $loci->{$_}->{$id} eq $alleles{$i} ) {
+					if ( $loci->{$locus}->{$id} eq $alleles{$i} ) {
 						$this_allele = $i;
 					}
 				}
 				if ( !$this_allele ) {
 					$allele++;
 					$this_allele = $allele;
-					$alleles{$this_allele} = $loci->{$_}->{$id};
+					$alleles{$this_allele} = $loci->{$locus}->{$id};
 				}
 			}
 			$$buffer_ref .= "<td>$this_allele</td>";
-			print $fh "\t$this_allele";
-			$values->{$id}->{$_} = $this_allele;
+			$file_buffer .= "\t$this_allele";
+			$values->{$id}->{$locus} = $this_allele;
 		}
 		$$buffer_ref .= "</tr>";
-		print $fh "\n";
+		$file_buffer .= "\n";
 		$td = $td == 1 ? 2 : 1;
 		close $fasta_fh;
 		if ( $params->{'align'} ) {
-			system( $self->{'config'}->{'muscle_path'}, '-in', $fasta_file, '-out', $muscle_out, '-quiet', '-clw' );
+			system( $self->{'config'}->{'muscle_path'}, '-in', $fasta_file, '-out', $muscle_out, '-quiet', '-clwstrict' );
 			if ( -e $muscle_out ) {
-				open( my $muscle_fh, '<', $muscle_out );
-				print $fh_align "$_\n";
-				print $fh_align '-' x ( length $_ ) . "\n\n";
-				while ( my $line = <$muscle_fh> ) {
-					print $fh_align $line;
+				my $align = Bio::AlignIO->new( -format => 'clustalw', -file => $muscle_out )->next_aln;
+				open( my $fh_xmfa, '>>', $xmfa_out ) or $logger->error("Can't open output file $xmfa_out for writing");
+				foreach my $seq ( $align->each_seq ) {
+					$xmfa_end = $xmfa_start + $seq->length - 1;
+					print $fh_xmfa '>' . $seq->id . ":$xmfa_start-$xmfa_end + $locus\n";
+					my $sequence = BIGSdb::Utils::break_line( $seq->seq, 60 );
+					print $fh_xmfa "$sequence\n";
 				}
-				close $muscle_out;
+				print $fh_xmfa "=\n";
+				close $fh_xmfa;
+				$xmfa_start = $xmfa_end + 1;
+				open( my $align_fh, '>>', $align_filename ) || $logger->error("Can't open $align_filename for appending");
+				print $align_fh "$locus\n";
+				print $align_fh '-' x ( length $locus ) . "\n\n";
+				open( my $muscle_fh, '<', $muscle_out ) || $logger->error("Can't open $muscle_out for reading");
+
+				while ( my $line = <$muscle_fh> ) {
+					print $align_fh $line;
+				}
+				close $muscle_fh;
+				close $align_fh;
 				unlink $muscle_out;
 			}
 		}
 		unlink $fasta_file;
 	}
+	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
+	print $job_fh $file_buffer;
+	close $job_fh;
 	$$buffer_ref .= "</table></div>";
 	return $values;
 }
 
 sub _print_exact_matches {
-	my ( $self, $buffer_ref, $fh, $exacts, $params ) = @_;
+	my ( $self, $buffer_ref, $job_filename, $exacts, $params ) = @_;
 	return if ref $exacts ne 'HASH';
 	$$buffer_ref .= "<h3>Exactly matching loci</h3>\n";
-	print $fh "Exactly matching loci\n";
-	print $fh "---------------------\n\n";
+	my $file_buffer = "\n###\n\n";
+	$file_buffer .= "Exactly matching loci\n";
+	$file_buffer .= "---------------------\n\n";
 	$$buffer_ref .= "<p>These loci are identical in all isolates";
-	print $fh "These loci are identical in all isolates";
+	$file_buffer .= "These loci are identical in all isolates";
 	if ( $params->{'accession'} ) {
 		$$buffer_ref .= ", including the reference genome";
-		print $fh ", including the reference genome";
+		$file_buffer .= ", including the reference genome";
 	}
 	$$buffer_ref .= ".</p>";
-	print $fh ".\n\n";
+	$file_buffer .= ".\n\n";
 	$$buffer_ref .= "<p>Matches: " . ( scalar keys %$exacts ) . "</p>";
-	print $fh "Matches: " . ( scalar keys %$exacts ) . "\n\n";
-	$self->_print_locus_table( $buffer_ref, $fh, $exacts );
+	$file_buffer .= "Matches: " . ( scalar keys %$exacts ) . "\n\n";
+	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
+	print $job_fh $file_buffer;
+	$self->_print_locus_table( $buffer_ref, $job_fh, $exacts );
+	close $job_fh;
 	return;
 }
 
 sub _print_exact_except_ref {
-	my ( $self, $buffer_ref, $fh, $exacts ) = @_;
+	my ( $self, $buffer_ref, $job_filename, $exacts ) = @_;
 	return if ref $exacts ne 'HASH';
+	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
 	$$buffer_ref .= "<h3>Loci exactly the same in all compared genomes except the reference</h3>";
-	print $fh "Loci exactly the same in all compared genomes except the reference\n";
-	print $fh "------------------------------------------------------------------\n\n";
+	print $job_fh "Loci exactly the same in all compared genomes except the reference\n";
+	print $job_fh "------------------------------------------------------------------\n\n";
 	$$buffer_ref .= "<p>Matches: " . ( scalar keys %$exacts ) . "</p>";
-	print $fh "Matches: " . ( scalar keys %$exacts ) . "\n\n";
-	$self->_print_locus_table( $buffer_ref, $fh, $exacts );
+	print $job_fh "Matches: " . ( scalar keys %$exacts ) . "\n\n";
+	$self->_print_locus_table( $buffer_ref, $job_fh, $exacts );
+	close $job_fh;
 	return;
 }
 
 sub _print_missing_in_all {
-	my ( $self, $buffer_ref, $fh, $missing ) = @_;
+	my ( $self, $buffer_ref, $job_filename, $missing ) = @_;
 	return if ref $missing ne 'HASH';
+	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
 	$$buffer_ref .= "<h3>Loci missing in all isolates</h3>";
-	print $fh "Loci missing in all isolates\n";
-	print $fh "----------------------------\n\n";
+	print $job_fh "\n###\n\n";
+	print $job_fh "Loci missing in all isolates\n";
+	print $job_fh "----------------------------\n\n";
 	$$buffer_ref .= "<p>Missing loci: " . ( scalar keys %$missing ) . "</p>";
-	print $fh "Missing loci: " . ( scalar keys %$missing ) . "\n\n";
-	$self->_print_locus_table( $buffer_ref, $fh, $missing );
+	print $job_fh "Missing loci: " . ( scalar keys %$missing ) . "\n\n";
+	$self->_print_locus_table( $buffer_ref, $job_fh, $missing );
+	close $job_fh;
 	return;
 }
 
 sub _print_truncated_loci {
-	my ( $self, $buffer_ref, $fh, $truncated ) = @_;
+	my ( $self, $buffer_ref, $job_filename, $truncated ) = @_;
 	return if ref $truncated ne 'HASH';
 	$$buffer_ref .= "<h3>Loci that are truncated in some isolates</h3>";
-	print $fh "Loci that are truncated in some isolates\n";
-	print $fh "----------------------------------------\n\n";
+	my $file_buffer = "\n###\n\n";
+	$file_buffer .= "Loci that are truncated in some isolates\n";
+	$file_buffer .= "----------------------------------------\n\n";
 	$$buffer_ref .= "<p>Truncated: " . ( scalar keys %$truncated ) . "</p>";
-	print $fh "Truncated: " . ( scalar keys %$truncated ) . "\n\n";
+	$file_buffer .= "Truncated: " . ( scalar keys %$truncated ) . "\n\n";
 	$$buffer_ref .= "<p>These loci are incomplete and located at the ends of contigs in at least one isolate. "
 	  . "They have been excluded from the distance matrix calculation.</p>";
-	print $fh "These loci are incomplete and located at the ends of contigs in at least one isolate.\n\n";
-	$self->_print_locus_table( $buffer_ref, $fh, $truncated );
+	$file_buffer .= "These loci are incomplete and located at the ends of contigs in at least one isolate.\n\n";
+	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
+	print $job_fh $file_buffer;
+	$self->_print_locus_table( $buffer_ref, $job_fh, $truncated );
+	close $job_fh;
 	return;
 }
 
@@ -1066,13 +1162,16 @@ sub _parse_blast_by_locus {
 	my $identity  = BIGSdb::Utils::is_int( $params->{'identity'} )  ? $params->{'identity'}  : 70;
 	my $alignment = BIGSdb::Utils::is_int( $params->{'alignment'} ) ? $params->{'alignment'} : 50;
 	my $full_path = "$blast_file";
-	open( my $blast_fh, '<', $full_path ) || ( $logger->error("Can't open BLAST output file $full_path. $!"), return \$; );
 	my $match;
 	my $quality = 0;    #simple metric of alignment length x percentage identity
 	my $ref_seq_sql = $self->{'db'}->prepare("SELECT length(reference_sequence) FROM loci WHERE id=?");
 	my %lengths;
+	my @blast;
+	open( my $blast_fh, '<', $full_path ) || ( $logger->error("Can't open BLAST output file $full_path. $!"), return \$; );
+	push @blast, $_ foreach <$blast_fh>;    #slurp file to prevent file handle remaining open during database queries.
+	close $blast_fh;
 
-	while ( my $line = <$blast_fh> ) {
+	foreach my $line (@blast) {
 		next if !$line || $line =~ /^#/;
 		my @record = split /\s+/, $line;
 		if ( !$lengths{ $record[1] } ) {
@@ -1131,7 +1230,6 @@ sub _parse_blast_by_locus {
 			}
 		}
 	}
-	close $blast_fh;
 	return $match;
 }
 
@@ -1141,13 +1239,16 @@ sub _parse_blast_ref {
 	my ( $self, $seq_ref, $blast_file, $params ) = @_;
 	my $identity  = BIGSdb::Utils::is_int( $params->{'identity'} )  ? $params->{'identity'}  : 70;
 	my $alignment = BIGSdb::Utils::is_int( $params->{'alignment'} ) ? $params->{'alignment'} : 50;
-	open( my $blast_fh, '<', $blast_file ) || ( $logger->error("Can't open BLAST output file $blast_file. $!"), return \$; );
 	my $match;
 	my $quality    = 0;                  #simple metric of alignment length x percentage identity
 	my $ref_length = length $$seq_ref;
 	my $required_alignment = $params->{'tblastx'} ? int( $ref_length / 3 ) : $ref_length;
+	my @blast;
+	open( my $blast_fh, '<', $blast_file ) || ( $logger->error("Can't open BLAST output file $blast_file. $!"), return \$; );
+	push @blast, $_ foreach <$blast_fh>;    #slurp file to prevent file handle remaining open during database queries.
+	close $blast_fh;
 
-	while ( my $line = <$blast_fh> ) {
+	foreach my $line (@blast) {
 		next if !$line || $line =~ /^#/;
 		my @record = split /\s+/, $line;
 		my $this_quality = $record[3] * $record[2];
@@ -1180,7 +1281,6 @@ sub _parse_blast_ref {
 			}
 		}
 	}
-	close $blast_fh;
 	return $match;
 }
 
@@ -1193,17 +1293,19 @@ sub _create_locus_FASTA_db {
 	$temp_fastafile =~ s/\\/\\\\/g;
 	$temp_fastafile =~ s/'/__prime__/g;
 	if ( !-e $temp_fastafile ) {
-		open( my $fasta_fh, '>', $temp_fastafile );
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+		my $file_buffer;
 		if ( $locus_info->{'dbase_name'} ) {
 			my $seqs_ref = $self->{'datastore'}->get_locus($locus)->get_all_sequences;
 			foreach ( keys %$seqs_ref ) {
 				next if !length $seqs_ref->{$_};
-				print $fasta_fh ">$_\n$seqs_ref->{$_}\n";
+				$file_buffer .= ">$_\n$seqs_ref->{$_}\n";
 			}
 		} else {
-			print $fasta_fh ">ref\n$locus_info->{'reference_sequence'}\n";
+			$file_buffer .= ">ref\n$locus_info->{'reference_sequence'}\n";
 		}
+		open( my $fasta_fh, '>', $temp_fastafile ) || $logger->error("Can't open $temp_fastafile for writing");
+		print $fasta_fh $file_buffer if $file_buffer;
 		close $fasta_fh;
 		if ( $self->{'config'}->{'blast+_path'} ) {
 			my $dbtype = $locus_info->{'data_type'} eq 'DNA' ? 'nucl' : 'prot';
@@ -1222,7 +1324,7 @@ sub _create_locus_FASTA_db {
 sub _create_reference_FASTA_file {
 	my ( $self, $seq_ref, $prefix ) = @_;
 	my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$prefix\_fastafile.txt";
-	open( my $fasta_fh, '>', $temp_fastafile );
+	open( my $fasta_fh, '>', $temp_fastafile ) || $logger->error("Can't open $temp_fastafile for writing");
 	print $fasta_fh ">ref\n$$seq_ref\n";
 	close $fasta_fh;
 	return $temp_fastafile;
@@ -1265,7 +1367,7 @@ sub _create_isolate_FASTA {
 	$logger->error($@) if $@;
 	$isolate_id = $1 if $isolate_id =~ /(\d*)/;    #avoid taint check
 	my $temp_infile = "$self->{'config'}->{'secure_tmp_dir'}/$prefix\_isolate_$isolate_id.txt";
-	open( my $infile_fh, '>', $temp_infile );
+	open( my $infile_fh, '>', $temp_infile ) || $logger->error("Can't open $temp_infile for writing");
 	while ( my ( $id, $seq ) = $sql->fetchrow_array ) {
 		print $infile_fh ">$id\n$seq\n";
 	}
