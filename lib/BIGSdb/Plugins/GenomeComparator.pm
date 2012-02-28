@@ -44,7 +44,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.3.0',
+		version     => '1.4.0',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		order       => 30,
@@ -451,6 +451,7 @@ sub _analyse_by_loci {
 		my $new_allele = 1;
 		my %new;
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+		my $seq_count = 0;
 		foreach my $id (@$ids) {
 			$id = $1 if $id =~ /(\d*)/;    #avoid taint check
 			my $out_file = "$self->{'config'}->{'secure_tmp_dir'}/$job_id\_isolate_$id\_outfile.txt";
@@ -479,8 +480,10 @@ sub _analyse_by_loci {
 				$match = $self->_parse_blast_by_locus( $locus, $out_file, $params );
 				$seq = $self->_extract_sequence($match);
 			}
-			$muscle_input_buffer .= ">$id\n$seq\n" if $seq;			
-			
+			if ($seq){
+				$muscle_input_buffer .= ">$id\n$seq\n";
+				$seq_count++;
+			}
 			if ( ref $match ne 'HASH' ) {
 				$html_buffer .= "<td>X</td>";
 				$values->{$id}->{$locus} = 'X';
@@ -526,7 +529,7 @@ sub _analyse_by_loci {
 		
 		my $fasta_file = "$self->{'config'}->{'secure_tmp_dir'}/$job_id\_$locus.fasta";
 		my $muscle_out = "$self->{'config'}->{'secure_tmp_dir'}/$job_id\_$locus.muscle";
-		if ( $params->{'align'} && $muscle_input_buffer) {
+		if ( $params->{'align'} && $seq_count > 1) {
 			open (my $muscle_in_fh, '>', $fasta_file) || $logger->error("Can't open $fasta_file for writing.");
 			print $muscle_in_fh $muscle_input_buffer;
 			close $muscle_in_fh;
@@ -946,13 +949,15 @@ sub _print_variable_loci {
 		$progress++;
 		my $complete = 50 + int( 100 * $progress / $total );
 		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } ) if $params->{'align'};
-		my $fasta_file = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$locus.fasta";
-		my $muscle_out = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$locus.muscle";
+		(my $escaped_locus = $locus) =~ s/[\/\|]/_/g; 
+		my $fasta_file = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.fasta";
+		my $muscle_out = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.muscle";
 		my %alleles;
 		my $allele        = 1;
 		my $cleaned_locus = $self->clean_locus($locus);
 		my $length        = length( $loci->{$locus}->{'ref'} );
 		my $start         = $loci->{$locus}->{'start'};
+		my $seq_count = 0;
 		$values->{'0'}->{$locus} = 1;
 		$$buffer_ref .=
 		  "<tr class=\"td$td\"><td>$cleaned_locus</td><td>$loci->{$locus}->{'desc'}</td><td>$length</td><td>$start</td><td>1</td>";
@@ -963,6 +968,7 @@ sub _print_variable_loci {
 		if ( $params->{'include_ref'} ) {
 			print $fasta_fh ">ref\n";
 			print $fasta_fh "$loci->{$locus}->{'ref'}\n";
+			$seq_count++;
 		}
 		foreach my $id (@$ids) {
 			my $this_allele;
@@ -971,6 +977,7 @@ sub _print_variable_loci {
 			} else {
 				print $fasta_fh ">$id\n";
 				print $fasta_fh "$loci->{$locus}->{$id}\n";
+				$seq_count++;
 				my $i;
 				for ( $i = 1 ; $i <= $allele ; $i++ ) {
 					if ( $loci->{$locus}->{$id} eq $alleles{$i} ) {
@@ -993,7 +1000,7 @@ sub _print_variable_loci {
 		close $fasta_fh;
 		if ( $params->{'align'} ) {
 			system( $self->{'config'}->{'muscle_path'}, '-in', $fasta_file, '-out', $muscle_out, '-quiet', '-clwstrict' );
-			if ( -e $muscle_out ) {
+			if ( -e $muscle_out && $seq_count > 1) {
 				my $align = Bio::AlignIO->new( -format => 'clustalw', -file => $muscle_out )->next_aln;
 				open( my $fh_xmfa, '>>', $xmfa_out ) or $logger->error("Can't open output file $xmfa_out for writing");
 				foreach my $seq ( $align->each_seq ) {
