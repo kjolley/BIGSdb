@@ -437,11 +437,11 @@ sub _analyse_by_loci {
 	@$loci = uniq @$loci;
 	my $progress = 0;
 	my $values;
-	my $align_filename = "$self->{'config'}->{'tmp_dir'}/$job_id\_align.txt";
-	my $xmfa_out   = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
-	my $xmfa_start = 1;
-	my $xmfa_end;
-	
+	my $align_file = "$self->{'config'}->{'tmp_dir'}/$job_id\_align.txt";
+	my $xmfa_out       = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
+	my $xmfa_start     = 1;
+	my $xmfa_end ;
+
 	foreach my $locus (@$loci) {
 		my $locus_FASTA = $self->_create_locus_FASTA_db( $locus, $job_id );
 		my $cleaned_locus = $self->clean_locus($locus);
@@ -451,7 +451,8 @@ sub _analyse_by_loci {
 		my $new_allele = 1;
 		my %new;
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-		my $seq_count = 0;
+		my $seq_count  = 0;
+
 		foreach my $id (@$ids) {
 			$id = $1 if $id =~ /(\d*)/;    #avoid taint check
 			my $out_file = "$self->{'config'}->{'secure_tmp_dir'}/$job_id\_isolate_$id\_outfile.txt";
@@ -465,13 +466,15 @@ sub _analyse_by_loci {
 					try {
 						my $seq_ref = $self->{'datastore'}->get_locus($locus)->get_allele_sequence($allele_id);
 						$seq = $$seq_ref if ref $seq_ref eq 'SCALAR';
-					} catch BIGSdb::DatabaseConnectionException with {
+					}
+					catch BIGSdb::DatabaseConnectionException with {
+
 						#ignore
 						$logger->debug("No connection to $locus database");
 					}
 				}
 			}
-			if ( !$match->{'exact'} && !-z $locus_FASTA) {
+			if ( !$match->{'exact'} && !-z $locus_FASTA ) {
 				if ( $locus_info->{'data_type'} eq 'DNA' ) {
 					$self->_blast( $blastn_word_size, $locus_FASTA, $isolate_FASTA{$id}, $out_file, 'blastn' );
 				} else {
@@ -480,7 +483,7 @@ sub _analyse_by_loci {
 				$match = $self->_parse_blast_by_locus( $locus, $out_file, $params );
 				$seq = $self->_extract_sequence($match);
 			}
-			if ($seq){
+			if ($seq) {
 				$muscle_input_buffer .= ">$id\n$seq\n";
 				$seq_count++;
 			}
@@ -492,9 +495,8 @@ sub _analyse_by_loci {
 				$html_buffer .= "<td>$match->{'allele'}</td>";
 				$values->{$id}->{$locus} = $match->{'allele'};
 				print $fh "\t$match->{'allele'}";
-					
 			} else {
-				my $seq = $self->_extract_sequence($match);			
+				my $seq = $self->_extract_sequence($match);
 				my $found;
 				foreach ( keys %new ) {
 					if ( $seq && $seq eq $new{$_} ) {
@@ -524,48 +526,28 @@ sub _analyse_by_loci {
 		$td = $td == 1 ? 2 : 1;
 		system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$job_id\_fastafile*";
 		$progress++;
-		my $complete = int( 100 * $progress / scalar @$loci );
+		my $complete    = int( 100 * $progress / scalar @$loci );
 		my $close_table = ( $progress != scalar @$loci ) ? '</table></div>' : '';
-		
-		my $fasta_file = "$self->{'config'}->{'secure_tmp_dir'}/$job_id\_$locus.fasta";
-		my $muscle_out = "$self->{'config'}->{'secure_tmp_dir'}/$job_id\_$locus.muscle";
+		my $fasta_file  = "$self->{'config'}->{'secure_tmp_dir'}/$job_id\_$locus.fasta";
+		my $muscle_out  = "$self->{'config'}->{'secure_tmp_dir'}/$job_id\_$locus.muscle";
+
 		if ( $params->{'align'} && $seq_count > 1) {
 			open (my $muscle_in_fh, '>', $fasta_file) || $logger->error("Can't open $fasta_file for writing.");
-			print $muscle_in_fh $muscle_input_buffer;
-			close $muscle_in_fh;
-			system( $self->{'config'}->{'muscle_path'}, '-in', $fasta_file, '-out', $muscle_out, '-quiet', '-clwstrict' );
-			if ( -e $muscle_out ) {
-				my $align = Bio::AlignIO->new( -format => 'clustalw', -file => $muscle_out )->next_aln;
-				open( my $fh_xmfa, '>>', $xmfa_out ) || $logger->error("Can't open output file $xmfa_out for appending");
-				my (%id_has_seq, $seq_length);
-				foreach my $seq ( $align->each_seq ) {
-					$xmfa_end = $xmfa_start + $seq->length - 1;
-					print $fh_xmfa '>' . $seq->id . ":$xmfa_start-$xmfa_end + $locus\n";
-					$id_has_seq{$seq->id} = 1;
-					$seq_length = $seq->length if !$seq_length;
-					my $sequence = BIGSdb::Utils::break_line( $seq->seq, 60 );
-					print $fh_xmfa "$sequence\n";
+            print $muscle_in_fh $muscle_input_buffer;
+            close $muscle_in_fh;
+			$self->_run_muscle(
+				{
+					ids            => $ids,
+					locus          => $locus,
+					seq_count      => $seq_count,
+					muscle_out     => $muscle_out,
+					fasta_file     => $fasta_file,
+					align_file     => $align_file,
+					xmfa_out       => $xmfa_out,
+					xmfa_start_ref => \$xmfa_start,
+					xmfa_end_ref   => \$xmfa_end
 				}
-				my $missing_seq = BIGSdb::Utils::break_line( ('-' x $seq_length), 60 );
-				foreach my $id (@$ids){
-					next if $id_has_seq{$id};
-					print $fh_xmfa ">$id:$xmfa_start-$xmfa_end + $locus\n$missing_seq\n";
-				}
-				print $fh_xmfa "=\n";
-				close $fh_xmfa;
-				$xmfa_start = $xmfa_end + 1;
-				open( my $align_fh, '>>', $align_filename ) || $logger->error("Can't open output file $align_filename for appending");
-				print $align_fh "$locus\n";
-				print $align_fh '-' x ( length $locus ) . "\n\n";
-				open( my $muscle_fh, '<', $muscle_out ) || $logger->error("Can't open $muscle_out for reading");
-
-				while ( my $line = <$muscle_fh> ) {
-					print $align_fh $line;
-				}
-				close $muscle_fh;
-				close $align_fh;
-				unlink $muscle_out;
-			}
+			);
 		}
 		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete, message_html => "$html_buffer$close_table" } );
 	}
@@ -576,7 +558,7 @@ sub _analyse_by_loci {
 	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Main output file' } );
 	if ( @$ids > 1 && $params->{'align'} ) {
 		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align.txt", description => '30_Alignments' } )
-		  if -e $align_filename;
+		  if -e $align_file;
 		$self->{'jobManager'}
 		  ->update_job_output( $job_id, { filename => "$job_id.xmfa", description => '35_Extracted sequences (XMFA format)' } )
 		  if -e "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa";
@@ -720,8 +702,8 @@ sub _analyse_by_reference {
 	foreach ( $seq_obj->get_SeqFeatures ) {
 		push @cds, $_ if $_->primary_tag eq 'CDS';
 	}
-	my $job_filename   = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
-	my $align_filename = "$self->{'config'}->{'tmp_dir'}/$job_id\_align.txt";
+	my $job_file   = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
+	my $align_file = "$self->{'config'}->{'tmp_dir'}/$job_id\_align.txt";
 	my $html_buffer    = "<h3>Analysis by reference genome</h3>";
 	my %att            = (
 		'accession'   => $accession,
@@ -743,7 +725,7 @@ sub _analyse_by_reference {
 			$td = $td == 1 ? 2 : 1;
 		}
 	}
-	open( my $job_fh, '>', $job_filename ) || $logger->error("Can't open $job_filename for writing");
+	open( my $job_fh, '>', $job_file ) || $logger->error("Can't open $job_file for writing");
 	print $job_fh $file_buffer;
 	close $job_fh;
 	$html_buffer .= "</table>";
@@ -884,19 +866,19 @@ sub _analyse_by_reference {
 			$varying_loci->{$locus_name}->{'start'} = $start;
 		}
 	}
-	my $values = $self->_print_variable_loci( $job_id, \$html_buffer, $job_filename, $align_filename, $params, $ids, $varying_loci );
-	$self->_print_missing_in_all( \$html_buffer, $job_filename, $all_missing );
+	my $values = $self->_print_variable_loci( $job_id, \$html_buffer, $job_file, $align_file, $params, $ids, $varying_loci );
+	$self->_print_missing_in_all( \$html_buffer, $job_file, $all_missing );
 	foreach my $locus ( keys %$all_missing ) {
 		$values->{'0'}->{$locus} = 1;
 		$values->{$_}->{$locus} = 'X' foreach @$ids;
 	}
-	$self->_print_exact_matches( \$html_buffer, $job_filename, $exacts, $params );
-	$self->_print_exact_except_ref( \$html_buffer, $job_filename, $exact_except_ref );
+	$self->_print_exact_matches( \$html_buffer, $job_file, $exacts, $params );
+	$self->_print_exact_except_ref( \$html_buffer, $job_file, $exact_except_ref );
 	foreach my $locus ( keys %$exact_except_ref ) {
 		$values->{'0'}->{$locus} = 1;
 		$values->{$_}->{$locus} = 2 foreach @$ids;
 	}
-	$self->_print_truncated_loci( \$html_buffer, $job_filename, $truncated_loci );
+	$self->_print_truncated_loci( \$html_buffer, $job_file, $truncated_loci );
 	$html_buffer .= "<p class=\"statusbad\">No sequences were extracted from reference file.</p>\n" if !$seqs_total;
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
 	close $job_fh;
@@ -906,7 +888,7 @@ sub _analyse_by_reference {
 
 	if ( @$ids > 1 && $params->{'align'} ) {
 		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align.txt", description => '30_Alignments' } )
-		  if -e $align_filename;
+		  if -e $align_file;
 		$self->{'jobManager'}
 		  ->update_job_output( $job_id, { filename => "$job_id.xmfa", description => '35_Extracted sequences (XMFA format)' } )
 		  if -e "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa";
@@ -915,7 +897,7 @@ sub _analyse_by_reference {
 }
 
 sub _print_variable_loci {
-	my ( $self, $job_id, $buffer_ref, $job_filename, $align_filename, $params, $ids, $loci ) = @_;
+	my ( $self, $job_id, $buffer_ref, $job_filename, $align_file, $params, $ids, $loci ) = @_;
 	return if ref $loci ne 'HASH';
 	my $values;
 	$$buffer_ref .= "<h3>Loci with sequence differences between isolates:</h3>";
@@ -951,13 +933,13 @@ sub _print_variable_loci {
 	my $total      = 2 * ( scalar keys %$loci );                      #need to show progress from 50 - 100%
 	my $xmfa_out   = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
 	my $xmfa_start = 1;
-	my $xmfa_end;
+	my $xmfa_end ;
 
 	foreach my $locus ( sort keys %$loci ) {
 		$progress++;
 		my $complete = 50 + int( 100 * $progress / $total );
 		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } ) if $params->{'align'};
-		(my $escaped_locus = $locus) =~ s/[\/\|]/_/g; 
+		( my $escaped_locus = $locus ) =~ s/[\/\|]/_/g;
 		my $fasta_file = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.fasta";
 		my $muscle_out = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.muscle";
 		my %alleles;
@@ -965,7 +947,7 @@ sub _print_variable_loci {
 		my $cleaned_locus = $self->clean_locus($locus);
 		my $length        = length( $loci->{$locus}->{'ref'} );
 		my $start         = $loci->{$locus}->{'start'};
-		my $seq_count = 0;
+		my $seq_count     = 0;
 		$values->{'0'}->{$locus} = 1;
 		$$buffer_ref .=
 		  "<tr class=\"td$td\"><td>$cleaned_locus</td><td>$loci->{$locus}->{'desc'}</td><td>$length</td><td>$start</td><td>1</td>";
@@ -1007,39 +989,19 @@ sub _print_variable_loci {
 		$td = $td == 1 ? 2 : 1;
 		close $fasta_fh;
 		if ( $params->{'align'} ) {
-			system( $self->{'config'}->{'muscle_path'}, '-in', $fasta_file, '-out', $muscle_out, '-quiet', '-clwstrict' );
-			if ( -e $muscle_out && $seq_count > 1) {
-				my $align = Bio::AlignIO->new( -format => 'clustalw', -file => $muscle_out )->next_aln;
-				my (%id_has_seq, $seq_length);
-				open( my $fh_xmfa, '>>', $xmfa_out ) or $logger->error("Can't open output file $xmfa_out for writing");
-				foreach my $seq ( $align->each_seq ) {
-					$xmfa_end = $xmfa_start + $seq->length - 1;
-					print $fh_xmfa '>' . $seq->id . ":$xmfa_start-$xmfa_end + $locus\n";
-					my $sequence = BIGSdb::Utils::break_line( $seq->seq, 60 );
-					print $fh_xmfa "$sequence\n";
-					$id_has_seq{$seq->id} = 1;
-					$seq_length = $seq->length if !$seq_length;
+			$self->_run_muscle(
+				{
+					ids            => $ids,
+					locus          => $locus,
+					seq_count      => $seq_count,
+					muscle_out     => $muscle_out,
+					fasta_file     => $fasta_file,
+					align_file     => $align_file,
+					xmfa_out       => $xmfa_out,
+					xmfa_start_ref => \$xmfa_start,
+					xmfa_end_ref   => \$xmfa_end
 				}
-				my $missing_seq = BIGSdb::Utils::break_line( ('-' x $seq_length), 60 );
-				foreach my $id (@$ids){
-					next if $id_has_seq{$id};
-					print $fh_xmfa ">$id:$xmfa_start-$xmfa_end + $locus\n$missing_seq\n";
-				}
-				print $fh_xmfa "=\n";
-				close $fh_xmfa;
-				$xmfa_start = $xmfa_end + 1;
-				open( my $align_fh, '>>', $align_filename ) || $logger->error("Can't open $align_filename for appending");
-				print $align_fh "$locus\n";
-				print $align_fh '-' x ( length $locus ) . "\n\n";
-				open( my $muscle_fh, '<', $muscle_out ) || $logger->error("Can't open $muscle_out for reading");
-
-				while ( my $line = <$muscle_fh> ) {
-					print $align_fh $line;
-				}
-				close $muscle_fh;
-				close $align_fh;
-				unlink $muscle_out;
-			}
+			);
 		}
 		unlink $fasta_file;
 	}
@@ -1048,6 +1010,47 @@ sub _print_variable_loci {
 	close $job_fh;
 	$$buffer_ref .= "</table></div>";
 	return $values;
+}
+
+sub _run_muscle {
+
+	#need values for ($ids, $locus, $seq_count, $muscle_out, $fasta_file, $align_file, $xmfa_out, $xmfa_start_ref, $xmfa_end_ref);
+	my ( $self, $values ) = @_;
+	return if $values->{'seq_count'} <= 1;
+	system( $self->{'config'}->{'muscle_path'}, '-in', $values->{'fasta_file'}, '-out', $values->{'muscle_out'}, '-quiet', '-clwstrict' );
+	if ( -e $values->{'muscle_out'} && $values->{'seq_count'} > 1 ) {
+		my $align = Bio::AlignIO->new( -format => 'clustalw', -file => $values->{'muscle_out'} )->next_aln;
+		my ( %id_has_seq, $seq_length );
+		open( my $fh_xmfa, '>>', $values->{'xmfa_out'} ) or $logger->error("Can't open output file $values->{'xmfa_out'} for writing");
+		foreach my $seq ( $align->each_seq ) {
+			${$values->{'xmfa_end_ref'}} = ${$values->{'xmfa_start_ref'}} + $seq->length - 1;
+			print $fh_xmfa '>' . $seq->id . ":${$values->{'xmfa_start_ref'}}-${$values->{'xmfa_end_ref'}} + $values->{'locus'}\n";
+			my $sequence = BIGSdb::Utils::break_line( $seq->seq, 60 );
+			print $fh_xmfa "$sequence\n";
+			$id_has_seq{ $seq->id } = 1;
+			$seq_length = $seq->length if !$seq_length;
+		}
+		my $missing_seq = BIGSdb::Utils::break_line( ( '-' x $seq_length ), 60 );
+		foreach my $id ( @{ $values->{'ids'} } ) {
+			next if $id_has_seq{$id};
+			print $fh_xmfa ">$id:${$values->{'xmfa_start_ref'}}-${$values->{'xmfa_end_ref'}} + $values->{'locus'}\n$missing_seq\n";
+		}
+		print $fh_xmfa "=\n";
+		close $fh_xmfa;
+		${ $values->{'xmfa_start_ref'} } = ${ $values->{'xmfa_end_ref'} } + 1;
+		open( my $align_fh, '>>', $values->{'align_file'} ) || $logger->error("Can't open $values->{'align_file'} for appending");
+		print $align_fh "$values->{'locus'}\n";
+		print $align_fh '-' x ( length $values->{'locus'} ) . "\n\n";
+		open( my $muscle_fh, '<', $values->{'muscle_out'} ) || $logger->error("Can't open $values->{'muscle_out'} for reading");
+
+		while ( my $line = <$muscle_fh> ) {
+			print $align_fh $line;
+		}
+		close $muscle_fh;
+		close $align_fh;
+		unlink $values->{'muscle_out'};
+	}
+	return;
 }
 
 sub _print_exact_matches {
