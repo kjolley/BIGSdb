@@ -570,7 +570,7 @@ sub _analyse_by_loci {
 				}
 			}
 			catch BIGSdb::CannotOpenFileException with {
-				$logger->error("Can't open create FASTA file from XMFA.");
+				$logger->error("Can't create FASTA file from XMFA.");
 			};
 		}
 	}
@@ -911,7 +911,7 @@ sub _analyse_by_reference {
 				}
 			}
 			catch BIGSdb::CannotOpenFileException with {
-				$logger->error("Can't open create FASTA file from XMFA.");
+				$logger->error("Can't create FASTA file from XMFA.");
 			};
 		}
 	}
