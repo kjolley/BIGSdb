@@ -438,9 +438,9 @@ sub _analyse_by_loci {
 	my $progress = 0;
 	my $values;
 	my $align_file = "$self->{'config'}->{'tmp_dir'}/$job_id\_align.txt";
-	my $xmfa_out       = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
-	my $xmfa_start     = 1;
-	my $xmfa_end ;
+	my $xmfa_out   = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
+	my $xmfa_start = 1;
+	my $xmfa_end;
 
 	foreach my $locus (@$loci) {
 		my $locus_FASTA = $self->_create_locus_FASTA_db( $locus, $job_id );
@@ -531,10 +531,10 @@ sub _analyse_by_loci {
 		my $fasta_file  = "$self->{'config'}->{'secure_tmp_dir'}/$job_id\_$locus.fasta";
 		my $muscle_out  = "$self->{'config'}->{'secure_tmp_dir'}/$job_id\_$locus.muscle";
 
-		if ( $params->{'align'} && $seq_count > 1) {
-			open (my $muscle_in_fh, '>', $fasta_file) || $logger->error("Can't open $fasta_file for writing.");
-            print $muscle_in_fh $muscle_input_buffer;
-            close $muscle_in_fh;
+		if ( $params->{'align'} && $seq_count > 1 ) {
+			open( my $muscle_in_fh, '>', $fasta_file ) || $logger->error("Can't open $fasta_file for writing.");
+			print $muscle_in_fh $muscle_input_buffer;
+			close $muscle_in_fh;
 			$self->_run_muscle(
 				{
 					ids            => $ids,
@@ -559,9 +559,20 @@ sub _analyse_by_loci {
 	if ( @$ids > 1 && $params->{'align'} ) {
 		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align.txt", description => '30_Alignments' } )
 		  if -e $align_file;
-		$self->{'jobManager'}
-		  ->update_job_output( $job_id, { filename => "$job_id.xmfa", description => '35_Extracted sequences (XMFA format)' } )
-		  if -e "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa";
+		if ( -e "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa" ) {
+			$self->{'jobManager'}
+			  ->update_job_output( $job_id, { filename => "$job_id.xmfa", description => '35_Extracted sequences (XMFA format)' } );
+			try {
+				my $fasta_file = BIGSdb::Utils::xmfa2fasta("$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa");
+				if ( -e $fasta_file ) {
+					$self->{'jobManager'}->update_job_output( $job_id,
+						{ filename => "$job_id.fas", description => '36_Concatenated aligned sequences (FASTA format)' } );
+				}
+			}
+			catch BIGSdb::CannotOpenFileException with {
+				$logger->error("Can't open create FASTA file from XMFA.");
+			};
+		}
 	}
 	$self->_generate_splits( $job_id, $values );
 	return;
@@ -702,10 +713,10 @@ sub _analyse_by_reference {
 	foreach ( $seq_obj->get_SeqFeatures ) {
 		push @cds, $_ if $_->primary_tag eq 'CDS';
 	}
-	my $job_file   = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
-	my $align_file = "$self->{'config'}->{'tmp_dir'}/$job_id\_align.txt";
-	my $html_buffer    = "<h3>Analysis by reference genome</h3>";
-	my %att            = (
+	my $job_file    = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
+	my $align_file  = "$self->{'config'}->{'tmp_dir'}/$job_id\_align.txt";
+	my $html_buffer = "<h3>Analysis by reference genome</h3>";
+	my %att         = (
 		'accession'   => $accession,
 		'version'     => $seq_obj->seq_version,
 		'type'        => $seq_obj->alphabet,
@@ -889,9 +900,20 @@ sub _analyse_by_reference {
 	if ( @$ids > 1 && $params->{'align'} ) {
 		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align.txt", description => '30_Alignments' } )
 		  if -e $align_file;
-		$self->{'jobManager'}
-		  ->update_job_output( $job_id, { filename => "$job_id.xmfa", description => '35_Extracted sequences (XMFA format)' } )
-		  if -e "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa";
+		if ( -e "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa" ) {
+			$self->{'jobManager'}
+			  ->update_job_output( $job_id, { filename => "$job_id.xmfa", description => '35_Extracted sequences (XMFA format)' } );
+			try {
+				my $fasta_file = BIGSdb::Utils::xmfa2fasta("$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa");
+				if ( -e $fasta_file ) {
+					$self->{'jobManager'}->update_job_output( $job_id,
+						{ filename => "$job_id.fas", description => '36_Concatenated aligned sequences (FASTA format)' } );
+				}
+			}
+			catch BIGSdb::CannotOpenFileException with {
+				$logger->error("Can't open create FASTA file from XMFA.");
+			};
+		}
 	}
 	return;
 }
@@ -933,7 +955,7 @@ sub _print_variable_loci {
 	my $total      = 2 * ( scalar keys %$loci );                      #need to show progress from 50 - 100%
 	my $xmfa_out   = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
 	my $xmfa_start = 1;
-	my $xmfa_end ;
+	my $xmfa_end;
 
 	foreach my $locus ( sort keys %$loci ) {
 		$progress++;
@@ -1023,7 +1045,7 @@ sub _run_muscle {
 		my ( %id_has_seq, $seq_length );
 		open( my $fh_xmfa, '>>', $values->{'xmfa_out'} ) or $logger->error("Can't open output file $values->{'xmfa_out'} for writing");
 		foreach my $seq ( $align->each_seq ) {
-			${$values->{'xmfa_end_ref'}} = ${$values->{'xmfa_start_ref'}} + $seq->length - 1;
+			${ $values->{'xmfa_end_ref'} } = ${ $values->{'xmfa_start_ref'} } + $seq->length - 1;
 			print $fh_xmfa '>' . $seq->id . ":${$values->{'xmfa_start_ref'}}-${$values->{'xmfa_end_ref'}} + $values->{'locus'}\n";
 			my $sequence = BIGSdb::Utils::break_line( $seq->seq, 60 );
 			print $fh_xmfa "$sequence\n";
