@@ -537,11 +537,19 @@ sub _analyse_by_loci {
 			if ( -e $muscle_out ) {
 				my $align = Bio::AlignIO->new( -format => 'clustalw', -file => $muscle_out )->next_aln;
 				open( my $fh_xmfa, '>>', $xmfa_out ) || $logger->error("Can't open output file $xmfa_out for appending");
+				my (%id_has_seq, $seq_length);
 				foreach my $seq ( $align->each_seq ) {
 					$xmfa_end = $xmfa_start + $seq->length - 1;
 					print $fh_xmfa '>' . $seq->id . ":$xmfa_start-$xmfa_end + $locus\n";
+					$id_has_seq{$seq->id} = 1;
+					$seq_length = $seq->length if !$seq_length;
 					my $sequence = BIGSdb::Utils::break_line( $seq->seq, 60 );
 					print $fh_xmfa "$sequence\n";
+				}
+				my $missing_seq = BIGSdb::Utils::break_line( ('-' x $seq_length), 60 );
+				foreach my $id (@$ids){
+					next if $id_has_seq{$id};
+					print $fh_xmfa ">$id:$xmfa_start-$xmfa_end + $locus\n$missing_seq\n";
 				}
 				print $fh_xmfa "=\n";
 				close $fh_xmfa;
@@ -1002,12 +1010,20 @@ sub _print_variable_loci {
 			system( $self->{'config'}->{'muscle_path'}, '-in', $fasta_file, '-out', $muscle_out, '-quiet', '-clwstrict' );
 			if ( -e $muscle_out && $seq_count > 1) {
 				my $align = Bio::AlignIO->new( -format => 'clustalw', -file => $muscle_out )->next_aln;
+				my (%id_has_seq, $seq_length);
 				open( my $fh_xmfa, '>>', $xmfa_out ) or $logger->error("Can't open output file $xmfa_out for writing");
 				foreach my $seq ( $align->each_seq ) {
 					$xmfa_end = $xmfa_start + $seq->length - 1;
 					print $fh_xmfa '>' . $seq->id . ":$xmfa_start-$xmfa_end + $locus\n";
 					my $sequence = BIGSdb::Utils::break_line( $seq->seq, 60 );
 					print $fh_xmfa "$sequence\n";
+					$id_has_seq{$seq->id} = 1;
+					$seq_length = $seq->length if !$seq_length;
+				}
+				my $missing_seq = BIGSdb::Utils::break_line( ('-' x $seq_length), 60 );
+				foreach my $id (@$ids){
+					next if $id_has_seq{$id};
+					print $fh_xmfa ">$id:$xmfa_start-$xmfa_end + $locus\n$missing_seq\n";
 				}
 				print $fh_xmfa "=\n";
 				close $fh_xmfa;
