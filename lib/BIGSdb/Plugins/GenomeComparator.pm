@@ -736,9 +736,6 @@ sub _analyse_by_reference {
 			$td = $td == 1 ? 2 : 1;
 		}
 	}
-	open( my $job_fh, '>', $job_file ) || $logger->error("Can't open $job_file for writing");
-	print $job_fh $file_buffer;
-	close $job_fh;
 	$html_buffer .= "</table>";
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
 	my %isolate_FASTA;
@@ -758,6 +755,15 @@ sub _analyse_by_reference {
 	my $progress   = 0;
 	my $total      = ( $params->{'align'} && scalar @$ids > 1 ) ? ( scalar @cds * 2 ) : scalar @cds;
 	my $seqs_total = 0;
+	$html_buffer .= "<h3>All loci</h3>\n";
+	$file_buffer .= "\n\nAll loci\n--------\n\n";
+	$html_buffer .= "<p>Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X', "
+	  . "truncated alleles (located at end of contig) are marked as 'T'.</p>";
+	$file_buffer .= "Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'. "
+	  . "truncated alleles (located at end of contig) are marked as 'T'.\n\n";
+	$self->_print_tabbed_isolate_header( $ids, \$file_buffer, \$html_buffer, );
+	my $close_table = '</table></div>';
+
 	foreach my $cds (@cds) {
 		$progress++;
 		my $complete = int( 100 * $progress / $total );
@@ -790,7 +796,7 @@ sub _analyse_by_reference {
 			my $err = shift;
 			$logger->debug($err);
 			$html_buffer .=
-			  "\n<p /><p class=\"statusbad\">Error: There are no product tags defined in record with supplied accession number.</p>\n";
+"\n$close_table<p class=\"statusbad\">Error: There are no product tags defined in record with supplied accession number.</p>\n";
 			$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
 		};
 		return if !@tags;
@@ -808,6 +814,11 @@ sub _analyse_by_reference {
 		my $first                = 1;
 		my $first_seq;
 		my $previous_seq = '';
+		$html_buffer .= "<tr class=\"td$td\"><td>$locus_name</td><td>$desc</td><td>$length</td><td>$start</td><td>1</td>";
+		$file_buffer .= "$locus_name\t$desc\t$length\t$start\t1";
+		my $allele = 1;
+		my %allele_seqs;
+		$allele_seqs{$seq} = 1;
 
 		foreach my $id (@$ids) {
 			$id = $1 if $id =~ /(\d*)/;    #avoid taint check
@@ -816,6 +827,7 @@ sub _analyse_by_reference {
 			my $match = $self->_parse_blast_ref( \$seq, $out_file, $params );
 			my $extracted_seq;
 			my $seqbin_length;
+			my $value;
 			if ( ref $match eq 'HASH' ) {
 				$missing_in_all = 0;
 				if ( $match->{'identity'} == 100 && $match->{'alignment'} >= $length ) {
@@ -828,17 +840,21 @@ sub _analyse_by_reference {
 				($seqbin_length) = $seqbin_length_sql->fetchrow_array;
 				if ( $match->{'predicted_start'} < 1 ) {
 					$match->{'predicted_start'} = 1;
-					$truncated_locus = 1;
+					$truncated_locus            = 1;
+					$value                      = 'T';
 				} elsif ( $match->{'predicted_start'} > $seqbin_length ) {
 					$match->{'predicted_start'} = $seqbin_length;
-					$truncated_locus = 1;
+					$truncated_locus            = 1;
+					$value                      = 'T';
 				}
 				if ( $match->{'predicted_end'} < 1 ) {
 					$match->{'predicted_end'} = 1;
-					$truncated_locus = 1;
+					$truncated_locus          = 1;
+					$value                    = 'T';
 				} elsif ( $match->{'predicted_end'} > $seqbin_length ) {
 					$match->{'predicted_end'} = $seqbin_length;
-					$truncated_locus = 1;
+					$truncated_locus          = 1;
+					$value                    = 'T';
 				}
 				$extracted_seq = $self->_extract_sequence($match);
 				$seqs{$id} = $extracted_seq;
@@ -853,8 +869,26 @@ sub _analyse_by_reference {
 				$all_exact            = 0;
 				$exact_except_for_ref = 0;
 			}
+			if ( !$value ) {
+				if ($extracted_seq) {
+					if ( $allele_seqs{$extracted_seq} ) {
+						$value = $allele_seqs{$extracted_seq};
+					} else {
+						$allele++;
+						$value = $allele;
+						$allele_seqs{$extracted_seq} = $allele;
+					}
+				} else {
+					$value = 'X';
+				}
+			}
+			$html_buffer .= "<td>$value</td>";
+			$file_buffer .= "\t$value";
+			$td = $td == 1 ? 2 : 1;
 			$first = 0;
 		}
+		$html_buffer .= "</tr>\n";
+		$file_buffer .= "\n";
 		if ($all_exact) {
 			$exacts->{$locus_name}->{'length'} = length $seq;
 			$exacts->{$locus_name}->{'desc'}   = $desc;
@@ -876,7 +910,12 @@ sub _analyse_by_reference {
 			$varying_loci->{$locus_name}->{'desc'}  = $desc;
 			$varying_loci->{$locus_name}->{'start'} = $start;
 		}
+		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete, message_html => "$html_buffer$close_table" } );
 	}
+	$html_buffer .= $close_table;
+	open( my $job_fh, '>', $job_file ) || $logger->error("Can't open $job_file for writing");
+	print $job_fh $file_buffer;
+	close $job_fh;
 	my $values = $self->_print_variable_loci( $job_id, \$html_buffer, $job_file, $align_file, $params, $ids, $varying_loci );
 	$self->_print_missing_in_all( \$html_buffer, $job_file, $all_missing );
 	foreach my $locus ( keys %$all_missing ) {
@@ -918,6 +957,27 @@ sub _analyse_by_reference {
 	return;
 }
 
+sub _print_tabbed_isolate_header {
+	my ( $self, $ids, $file_buffer_ref, $html_buffer_ref ) = @_;
+	$$html_buffer_ref .= "<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Locus</th><th>Product</th>"
+	  . "<th>Sequence length</th><th>Genome position</th><th>Reference genome</th>";
+	$$file_buffer_ref .= "Locus\tProduct\tSequence length\tGenome position\tReference genome";
+	foreach my $id (@$ids) {
+		my $isolate;
+		my $isolate_ref =
+		  $self->{'datastore'}
+		  ->run_simple_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?", $id );
+		if ( ref $isolate_ref eq 'ARRAY' ) {
+			$isolate = ' (' . ( $isolate_ref->[0] ) . ')' if ref $isolate_ref eq 'ARRAY';
+		}
+		$$html_buffer_ref .= "<th>$id$isolate</th>";
+		$$file_buffer_ref .= "\t$id$isolate";
+	}
+	$$html_buffer_ref .= "</tr>";
+	$$file_buffer_ref .= "\n";
+	return;
+}
+
 sub _print_variable_loci {
 	my ( $self, $job_id, $buffer_ref, $job_filename, $align_file, $params, $ids, $loci ) = @_;
 	return if ref $loci ne 'HASH';
@@ -930,24 +990,7 @@ sub _print_variable_loci {
 	$file_buffer .= "Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'.\n\n";
 	$$buffer_ref .= "<p>Variable loci: " . ( scalar keys %$loci ) . "</p>";
 	$file_buffer .= "Variable loci: " . ( scalar keys %$loci ) . "\n\n";
-	$$buffer_ref .= "<div class=\"scrollable\">";
-	$$buffer_ref .=
-"<table class=\"resultstable\"><tr><th>Locus</th><th>Product</th><th>Sequence length</th><th>Genome position</th><th>Reference genome</th>";
-	$file_buffer .= "Locus\tProduct\tSequence length\tGenome position\tReference genome";
-	my $isolate;
-
-	foreach my $id (@$ids) {
-		my $isolate_ref =
-		  $self->{'datastore'}
-		  ->run_simple_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?", $id );
-		if ( ref $isolate_ref eq 'ARRAY' ) {
-			$isolate = ' (' . ( $isolate_ref->[0] ) . ')' if ref $isolate_ref eq 'ARRAY';
-		}
-		$$buffer_ref .= "<th>$id$isolate</th>";
-		$file_buffer .= "\t$id$isolate";
-	}
-	$$buffer_ref .= "</tr>";
-	$file_buffer .= "\n";
+	$self->_print_tabbed_isolate_header( $ids, \$file_buffer, $buffer_ref );
 	my $td = 1;
 	my $count;
 	my $temp       = BIGSdb::Utils::get_random();
