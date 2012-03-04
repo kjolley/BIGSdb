@@ -46,6 +46,15 @@ sub initiate {
 	$self->{'config'} = $config;
 }
 
+sub drop_connection {
+	my ( $self, $attributes ) = @_;
+	my $host     = $attributes->{'host'}     || $self->{'system'}->{'host'};
+	return if !$attributes->{'dbase_name'};
+	$self->{'db'}->{"$attributes->{'host'}|$attributes->{'dbase_name'}"}->disconnect if $self->{'db'}->{"$attributes->{'host'}|$attributes->{'dbase_name'}"};
+	undef $self->{'db'}->{"$attributes->{'host'}|$attributes->{'dbase_name'}"};
+	return;
+}
+
 sub get_connection {
 	my ( $self, $attributes ) = @_;
 	my $host     = $attributes->{'host'}     || $self->{'system'}->{'host'};

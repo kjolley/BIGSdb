@@ -29,7 +29,7 @@ sub initiate {
 	my $id = $self->{'cgi'}->param('id');
 	return if !defined $id;
 	my ( $job, undef, undef ) = $self->{'jobManager'}->get_job($id);
-	return if $job->{'status'} && $job->{'status'} eq 'finished';
+	return if $job->{'status'} && ($job->{'status'} eq 'finished' || $job->{'status'} eq 'failed');
 	$self->{'refresh'} = 60;
 	return;
 }

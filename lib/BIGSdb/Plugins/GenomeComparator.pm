@@ -124,36 +124,25 @@ sub run_job {
 		return;
 	}
 	if ( $accession || $ref_upload ) {
-		my $seq_db = Bio::DB::GenBank->new;
-		$seq_db->verbose(2);    #convert warn to exception
 		my $seq_obj;
 		if ($accession) {
+			my $seq_db = Bio::DB::GenBank->new;
+			$seq_db->verbose(2);    #convert warn to exception
 			try {
 				$seq_obj = $seq_db->get_Seq_by_acc($accession);
 			}
 			catch Bio::Root::Exception with {
-				$self->{'jobManager'}->update_job_status(
-					$job_id,
-					{
-						'status'       => 'failed',
-						'message_html' => "<p class=\"statusbad\">No data returned for accession number #$accession.</p>"
-					}
-				);
 				my $err = shift;
 				$logger->debug($err);
+				throw BIGSdb::PluginException("No data returned for accession number #$accession.\n");
 			};
 		} else {
-			try {
+			eval {
 				my $seqio_object = Bio::SeqIO->new( -file => "$self->{'config'}->{'tmp_dir'}/$ref_upload" );
 				$seq_obj = $seqio_object->next_seq;
-			}
-			catch Bio::Root::Exception with {
-				my $err = shift;
-				$logger->debug($err);
 			};
-			if ( !$seq_obj ) {
-				$self->{'jobManager'}->update_job_status( $job_id,
-					{ 'status' => 'failed', 'message_html' => "<p class=\"statusbad\">Invalid data in uploaded reference file.</p>" } );
+			if ($@) {
+				throw BIGSdb::PluginException("Invalid data in uploaded reference file.");
 			}
 			unlink "$self->{'config'}->{'tmp_dir'}/$ref_upload";
 		}
@@ -411,176 +400,21 @@ sub _analyse_by_loci {
 	foreach (@$ids) {
 		$isolate_FASTA{$_} = $self->_create_isolate_FASTA( $_, $job_id, $params );
 	}
-	open( my $fh, '>', "$self->{'config'}->{'tmp_dir'}/$job_id.txt" ) || $logger->error("Can't open $job_id.txt for writing");
 	my $html_buffer = "<h3>Analysis against defined loci</h3>\n";
-	print $fh "Analysis against defined loci\n";
-	print $fh "Time: " . ( localtime(time) ) . "\n\n";
-	my $blastn_word_size = $params->{'word_size'} =~ /^(\d+)$/ ? $1 : 15;
-	$html_buffer .= "<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Locus</th>";
-	print $fh "Locus";
-	my %names;
-	my $isolate;
-
-	foreach my $id (@$ids) {
-		my $isolate_ref =
-		  $self->{'datastore'}->run_simple_query( "SELECT $self->{'system'}->{'labelfield'} FROM isolates WHERE id=?", $id );
-		if ( ref $isolate_ref eq 'ARRAY' ) {
-			$names{$id} = $isolate_ref->[0];
-			$isolate = ' (' . ( $isolate_ref->[0] ) . ')' if ref $isolate_ref eq 'ARRAY';
-		}
-		$html_buffer .= "<th>$id$isolate</th>";
-		print $fh "\t$id$isolate";
-	}
-	$html_buffer .= "</tr>";
-	print $fh "\n";
-	my $td = 1;
-	@$loci = uniq @$loci;
-	my $progress = 0;
-	my $values;
-	my $align_file = "$self->{'config'}->{'tmp_dir'}/$job_id\_align.txt";
-	my $xmfa_out   = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
-	my $xmfa_start = 1;
-	my $xmfa_end;
-
-	foreach my $locus (@$loci) {
-		my $locus_FASTA = $self->_create_locus_FASTA_db( $locus, $job_id );
-		my $cleaned_locus = $self->clean_locus($locus);
-		my $muscle_input_buffer;
-		$html_buffer .= "<tr class=\"td$td\"><td>$cleaned_locus</td>";
-		print $fh $locus;
-		my $new_allele = 1;
-		my %new;
-		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-		my $seq_count  = 0;
-
-		foreach my $id (@$ids) {
-			$id = $1 if $id =~ /(\d*)/;    #avoid taint check
-			my $out_file = "$self->{'config'}->{'secure_tmp_dir'}/$job_id\_isolate_$id\_outfile.txt";
-			my $match;
-			my $seq;
-			if ( $params->{'use_tagged'} ) {
-				my $allele_id = $self->{'datastore'}->get_allele_id( $id, $locus );
-				if ( defined $allele_id ) {
-					$match->{'exact'}  = 1;
-					$match->{'allele'} = $allele_id;
-					try {
-						my $seq_ref = $self->{'datastore'}->get_locus($locus)->get_allele_sequence($allele_id);
-						$seq = $$seq_ref if ref $seq_ref eq 'SCALAR';
-					}
-					catch BIGSdb::DatabaseConnectionException with {
-
-						#ignore
-						$logger->debug("No connection to $locus database");
-					}
-				}
-			}
-			if ( !$match->{'exact'} && !-z $locus_FASTA ) {
-				if ( $locus_info->{'data_type'} eq 'DNA' ) {
-					$self->_blast( $blastn_word_size, $locus_FASTA, $isolate_FASTA{$id}, $out_file, 'blastn' );
-				} else {
-					$self->_blast( 3, $locus_FASTA, $isolate_FASTA{$id}, $out_file, 'blastx' );
-				}
-				$match = $self->_parse_blast_by_locus( $locus, $out_file, $params );
-				$seq = $self->_extract_sequence($match);
-			}
-			if ($seq) {
-				$muscle_input_buffer .= ">$id\n$seq\n";
-				$seq_count++;
-			}
-			if ( ref $match ne 'HASH' ) {
-				$html_buffer .= "<td>X</td>";
-				$values->{$id}->{$locus} = 'X';
-				print $fh "\tX";
-			} elsif ( $match->{'exact'} ) {
-				$html_buffer .= "<td>$match->{'allele'}</td>";
-				$values->{$id}->{$locus} = $match->{'allele'};
-				print $fh "\t$match->{'allele'}";
-			} else {
-				my $seq = $self->_extract_sequence($match);
-				my $found;
-				foreach ( keys %new ) {
-					if ( $seq && $seq eq $new{$_} ) {
-						$values->{$id}->{$locus} = "new#$_";
-						$html_buffer .= "<td>new#$_</td>\n";
-						print $fh "\tnew#$_";
-						$found = 1;
-					}
-				}
-				if ( !$found ) {
-					if ( !defined $seq || $seq eq '' ) {
-						$values->{$id}->{$locus} = 'X';
-						$html_buffer .= "<td>X</td>";
-						print $fh "\tX";
-					} else {
-						$new{$new_allele} = $seq;
-						$values->{$id}->{$locus} = "new#$new_allele";
-						$html_buffer .= "<td>new#$new_allele</td>";
-						print $fh "\tnew#$new_allele";
-						$new_allele++;
-					}
-				}
-			}
-		}
-		$html_buffer .= "</tr>";
-		print $fh "\n";
-		$td = $td == 1 ? 2 : 1;
-		system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$job_id\_fastafile*";
-		$progress++;
-		my $complete    = int( 100 * $progress / scalar @$loci );
-		my $close_table = ( $progress != scalar @$loci ) ? '</table></div>' : '';
-		my $fasta_file  = "$self->{'config'}->{'secure_tmp_dir'}/$job_id\_$locus.fasta";
-		my $muscle_out  = "$self->{'config'}->{'secure_tmp_dir'}/$job_id\_$locus.muscle";
-
-		if ( $params->{'align'} && $seq_count > 1 ) {
-			open( my $muscle_in_fh, '>', $fasta_file ) || $logger->error("Can't open $fasta_file for writing.");
-			print $muscle_in_fh $muscle_input_buffer;
-			close $muscle_in_fh;
-			$self->_run_muscle(
-				{
-					ids            => $ids,
-					locus          => $locus,
-					seq_count      => $seq_count,
-					muscle_out     => $muscle_out,
-					fasta_file     => $fasta_file,
-					align_file     => $align_file,
-					xmfa_out       => $xmfa_out,
-					xmfa_start_ref => \$xmfa_start,
-					xmfa_end_ref   => \$xmfa_end
-				}
-			);
-		}
-		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete, message_html => "$html_buffer$close_table" } );
-	}
-	$html_buffer .= "</table></div>\n";
-	$self->{'jobManager'}->update_job_status( $job_id, { message_html => "$html_buffer" } );
-	close $fh;
-	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$job_id\*";
-	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Main output file' } );
-	if ( @$ids > 1 && $params->{'align'} ) {
-		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align.txt", description => '30_Alignments' } )
-		  if -e $align_file;
-		if ( -e "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa" ) {
-			$self->{'jobManager'}
-			  ->update_job_output( $job_id, { filename => "$job_id.xmfa", description => '35_Extracted sequences (XMFA format)' } );
-			try {
-				my $fasta_file = BIGSdb::Utils::xmfa2fasta("$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa");
-				if ( -e $fasta_file ) {
-					$self->{'jobManager'}->update_job_output( $job_id,
-						{ filename => "$job_id.fas", description => '36_Concatenated aligned sequences (FASTA format)' } );
-				}
-			}
-			catch BIGSdb::CannotOpenFileException with {
-				$logger->error("Can't create FASTA file from XMFA.");
-			};
-		}
-	}
-	$self->_generate_splits( $job_id, $values );
+	my $file_buffer = "Analysis against defined loci\n";
+	$file_buffer .= "Time: " . ( localtime(time) ) . "\n\n";
+	$html_buffer .= "<p>Allele numbers are used where these have been defined, otherwise sequences will be marked as 'New#1, "
+	  . "'New#2' etc. Missing alleles are marked as 'X'. Truncated alleles (located at end of contig) are marked as 'T'.</p>";
+	$file_buffer .= "Allele numbers are used where these have been defined, otherwise sequences will be marked as 'New#1, "
+	  . "'New#2' etc.\nMissing alleles are marked as 'X'. Truncated alleles (located at end of contig) are marked as 'T'.\n\n";
+	$self->_print_isolate_header( 0, $ids, \$file_buffer, \$html_buffer, );
+	$self->_run_comparison( 0, $job_id, $params, $ids, $loci, \$html_buffer, \$file_buffer );
 	return;
 }
 
 sub _generate_splits {
-	my ( $self, $job_id, $values ) = @_;
-	my $dismat = $self->_generate_distance_matrix($values);
+	my ( $self, $job_id, $values, $ignore_loci_ref ) = @_;
+	my $dismat = $self->_generate_distance_matrix( $values, $ignore_loci_ref );
 	my $nexus_file = $self->_make_nexus_file( $job_id, $dismat );
 	$self->{'jobManager'}->update_job_output(
 		$job_id,
@@ -615,13 +449,14 @@ sub _generate_splits {
 }
 
 sub _generate_distance_matrix {
-	my ( $self, $values ) = @_;
+	my ( $self, $values, $ignore_loci_ref ) = @_;
 	my @ids = sort { $a <=> $b } keys %$values;
 	my $dismat;
 	foreach my $i ( 0 .. @ids - 1 ) {
 		foreach my $j ( 0 .. $i ) {
 			$dismat->{ $ids[$i] }->{ $ids[$j] } = 0;
 			foreach my $locus ( keys %{ $values->{ $ids[$i] } } ) {
+				next if any { $locus eq $_ } @$ignore_loci_ref;
 				if ( $values->{ $ids[$i] }->{$locus} ne $values->{ $ids[$j] }->{$locus} ) {
 					$dismat->{ $ids[$i] }->{ $ids[$j] }++;
 				}
@@ -713,8 +548,6 @@ sub _analyse_by_reference {
 	foreach ( $seq_obj->get_SeqFeatures ) {
 		push @cds, $_ if $_->primary_tag eq 'CDS';
 	}
-	my $job_file    = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
-	my $align_file  = "$self->{'config'}->{'tmp_dir'}/$job_id\_align.txt";
 	my $html_buffer = "<h3>Analysis by reference genome</h3>";
 	my %att         = (
 		'accession'   => $accession,
@@ -728,8 +561,8 @@ sub _analyse_by_reference {
 	$html_buffer .= "<table class=\"resultstable\">";
 	my $td = 1;
 	my $file_buffer = "Analysis by reference genome\n\nTime: " . ( localtime(time) ) . "\n\n";
-
 	foreach (qw (accession version type length description cds)) {
+
 		if ( $att{$_} ) {
 			$html_buffer .= "<tr class=\"td$td\"><th>" . ( $abb{$_} || $_ ) . "</th><td style=\"text-align:left\">$att{$_}</td></tr>";
 			$file_buffer .= ( $abb{$_} || $_ ) . ": $att{$_}\n";
@@ -738,74 +571,107 @@ sub _analyse_by_reference {
 	}
 	$html_buffer .= "</table>";
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
-	my %isolate_FASTA;
-	my $prefix = BIGSdb::Utils::get_random();
-	$isolate_FASTA{$_} = $self->_create_isolate_FASTA_db( $_, $prefix ) foreach (@$ids);
 	my %loci;
-	my ( $word_size, $program );
+	$html_buffer .= "<h3>All loci</h3>\n";
+	$file_buffer .= "\n\nAll loci\n--------\n\n";
+	$html_buffer .= "<p>Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'. "
+	  . "Truncated alleles (located at end of contig) are marked as 'T'.</p>";
+	$file_buffer .= "Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'. \n"
+	  . "Truncated alleles (located at end of contig) are marked as 'T'.\n\n";
+	$self->_print_isolate_header( 1, $ids, \$file_buffer, \$html_buffer, );
+	$self->_run_comparison( 1, $job_id, $params, $ids, \@cds, \$html_buffer, \$file_buffer );
+	return;
+}
 
-	if ( $params->{'tblastx'} ) {
+sub _extract_cds_details {
+	my ( $self, $cds, $seqs_total_ref, $seqs_ref ) = @_;
+	my ( $locus_name, $length, $start, $desc );
+	my @aliases;
+	my $locus;
+	foreach (qw (gene gene_synonym locus_tag old_locus_tag)) {
+		my @values = $cds->has_tag($_) ? $cds->get_tag_values($_) : ();
+		foreach my $value (@values) {
+			if ($locus) {
+				push @aliases, $value;
+			} else {
+				$locus = $value;
+			}
+		}
+	}
+	local $" = '|';
+	$locus_name = $locus;
+	$locus_name .= "|@aliases" if @aliases;
+	my $seq = $cds->seq->seq;
+	return if !$seq;
+	$$seqs_total_ref++;
+	$seqs_ref->{'ref'} = $seq;
+	my @tags;
+	try {
+		push @tags, $_ foreach ( $cds->each_tag_value('product') );
+	}
+	catch Bio::Root::Exception with {
+		my $err = shift;
+		$logger->debug($err);
+		throw BIGSdb::DataException($err);
+	};
+	throw BIGSdb::DataException("No tags") if !@tags;
+	$start = $cds->start;
+	local $" = '; ';
+	$desc = "@tags";
+	return ( $locus_name, \$seq, $start, $desc );
+}
+
+sub _run_comparison {
+	my ( $self, $by_reference, $job_id, $params, $ids, $cds, $html_buffer_ref, $file_buffer_ref ) = @_;
+	my $progress    = 0;
+	my $total       = ( $params->{'align'} && @$ids > 1 ) ? ( @$cds * 2 ) : @$cds;
+	my $seqs_total  = 0;
+	my $close_table = '</table></div>';
+	my $td          = 1;
+	my ( $exacts, $exact_except_ref, $all_missing, $truncated_loci, $varying_loci );
+	my ( $word_size, $program );
+	my $job_file   = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
+	my $align_file = "$self->{'config'}->{'tmp_dir'}/$job_id\_align.txt";
+	my $prefix     = BIGSdb::Utils::get_random();
+	my $values;
+	my %isolate_FASTA;
+	$isolate_FASTA{$_} = $self->_create_isolate_FASTA_db( $_, $prefix ) foreach (@$ids);
+
+	if ( $by_reference && $params->{'tblastx'} ) {
 		$program   = 'tblastx';
 		$word_size = 3;
 	} else {
 		$program = 'blastn';
 		$word_size = $params->{'word_size'} =~ /^(\d+)$/ ? $1 : 15;
 	}
-	my ( $exacts, $exact_except_ref, $all_missing, $truncated_loci, $varying_loci );
-	my $progress   = 0;
-	my $total      = ( $params->{'align'} && scalar @$ids > 1 ) ? ( scalar @cds * 2 ) : scalar @cds;
-	my $seqs_total = 0;
-	$html_buffer .= "<h3>All loci</h3>\n";
-	$file_buffer .= "\n\nAll loci\n--------\n\n";
-	$html_buffer .= "<p>Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X', "
-	  . "truncated alleles (located at end of contig) are marked as 'T'.</p>";
-	$file_buffer .= "Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'. "
-	  . "truncated alleles (located at end of contig) are marked as 'T'.\n\n";
-	$self->_print_tabbed_isolate_header( $ids, \$file_buffer, \$html_buffer, );
-	my $close_table = '</table></div>';
-
-	foreach my $cds (@cds) {
+	foreach my $cds (@$cds) {
 		$progress++;
 		my $complete = int( 100 * $progress / $total );
 		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete } );
-		my @aliases;
-		my $locus;
 		my %seqs;
-		foreach (qw (gene gene_synonym locus_tag old_locus_tag)) {
-			my @values = $cds->has_tag($_) ? $cds->get_tag_values($_) : ();
-			foreach my $value (@values) {
-				if ($locus) {
-					push @aliases, $value;
-				} else {
-					$locus = $value;
-				}
+		my $seq_ref;
+		my ( $locus_name, $locus_info, $length, $start, $desc, $ref_seq_file );
+		if ($by_reference) {
+			my $continue = 1;
+			try {
+				( $locus_name, $seq_ref, $start, $desc ) = $self->_extract_cds_details( $cds, \$seqs_total, \%seqs );
 			}
-		}
-		local $" = '|';
-		my $locus_name = $locus;
-		$locus_name .= "|@aliases" if @aliases;
-		my $seq = $cds->seq->seq;
-		next if !$seq;
-		$seqs_total++;
-		$seqs{'ref'} = $seq;
-		my @tags;
-		try {
-			push @tags, $_ foreach ( $cds->each_tag_value('product') );
-		}
-		catch Bio::Root::Exception with {
-			my $err = shift;
-			$logger->debug($err);
-			$html_buffer .=
+			catch BIGSdb::DataException with {
+				$$html_buffer_ref .=
 "\n$close_table<p class=\"statusbad\">Error: There are no product tags defined in record with supplied accession number.</p>\n";
-			$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
-		};
-		return if !@tags;
-		my $start = $cds->start;
-		local $" = '; ';
-		my $desc   = "@tags";
-		my $length = length $seq;
-		$length = int( $length / 3 ) if $params->{'tblastx'};
-		my $ref_seq_file         = $self->_create_reference_FASTA_file( \$seq, $prefix );
+				$self->{'jobManager'}->update_job_status( $job_id, { status => 'failed', message_html => $$html_buffer_ref } );
+				$continue = 0;
+			};
+			next if !$continue || ref $seq_ref ne 'SCALAR';
+			$values->{'0'}->{$locus_name} = 1;
+			$length = length $$seq_ref;
+			$length = int( $length / 3 ) if $params->{'tblastx'};
+			$ref_seq_file = $self->_create_reference_FASTA_file( $seq_ref, $prefix );
+		} else {
+			$ref_seq_file = $self->_create_locus_FASTA_db( $cds, $job_id );
+			$locus_name   = $self->clean_locus($cds);
+			$locus_info   = $self->{'datastore'}->get_locus_info($cds);
+		}
 		my $seqbin_length_sql    = $self->{'db'}->prepare("SELECT length(sequence) FROM sequence_bin where id=?");
 		my $all_exact            = 1;
 		my $missing_in_all       = 1;
@@ -814,55 +680,99 @@ sub _analyse_by_reference {
 		my $first                = 1;
 		my $first_seq;
 		my $previous_seq = '';
-		$html_buffer .= "<tr class=\"td$td\"><td>$locus_name</td><td>$desc</td><td>$length</td><td>$start</td><td>1</td>";
-		$file_buffer .= "$locus_name\t$desc\t$length\t$start\t1";
-		my $allele = 1;
+		$$html_buffer_ref .= "<tr class=\"td$td\"><td>$locus_name</td>";
+		$$file_buffer_ref .= "$locus_name";
 		my %allele_seqs;
-		$allele_seqs{$seq} = 1;
 
+		if ($by_reference) {
+			$$html_buffer_ref .= "<td>$desc</td><td>$length</td><td>$start</td><td>1</td>";
+			$$file_buffer_ref .= "\t$desc\t$length\t$start\t1";
+			$allele_seqs{$$seq_ref} = 1;
+		}
+		my $allele = $by_reference ? 1 : 0;
 		foreach my $id (@$ids) {
 			$id = $1 if $id =~ /(\d*)/;    #avoid taint check
 			my $out_file = "$self->{'config'}->{'secure_tmp_dir'}/$prefix\_isolate_$id\_outfile.txt";
-			$self->_blast( $word_size, $isolate_FASTA{$id}, $ref_seq_file, $out_file, $program );
-			my $match = $self->_parse_blast_ref( \$seq, $out_file, $params );
+			my $match;
 			my $extracted_seq;
-			my $seqbin_length;
 			my $value;
-			if ( ref $match eq 'HASH' ) {
+			if ( !$by_reference ) {
+				if ( $params->{'use_tagged'} ) {
+					my $allele_id = $self->{'datastore'}->get_allele_id( $id, $cds );
+					if ( defined $allele_id ) {
+						$match->{'exact'}  = 1;
+						$match->{'allele'} = $allele_id;
+						$value             = $allele_id;
+						try {
+							my $seq_ref = $self->{'datastore'}->get_locus($cds)->get_allele_sequence($allele_id);
+							$extracted_seq = $$seq_ref if ref $seq_ref eq 'SCALAR';
+							$seqs{$id} = $extracted_seq;
+							$allele_seqs{$allele_id} = $extracted_seq;
+						}
+						catch BIGSdb::DatabaseConnectionException with {
+
+							#ignore
+							$logger->debug("No connection to $cds database");
+						}
+					}
+				}
+				if ( !$match->{'exact'} && !-z $ref_seq_file ) {
+					if ( $locus_info->{'data_type'} eq 'DNA' ) {
+						$self->_blast( $word_size, $ref_seq_file, $isolate_FASTA{$id}, $out_file, 'blastn' );
+					} else {
+						$self->_blast( 3, $ref_seq_file, $isolate_FASTA{$id}, $out_file, 'blastx' );
+					}
+					$match = $self->_parse_blast_by_locus( $cds, $out_file, $params );
+					$value = $match->{'allele'} if $match->{'exact'};
+				}
+			} else {
+				$self->_blast( $word_size, $isolate_FASTA{$id}, $ref_seq_file, $out_file, $program );
+				$match = $self->_parse_blast_ref( $seq_ref, $out_file, $params );
+			}
+			my $seqbin_length;
+			if ( ref $match eq 'HASH' && ( $match->{'identity'} || $match->{'allele'} ) ) {
 				$missing_in_all = 0;
-				if ( $match->{'identity'} == 100 && $match->{'alignment'} >= $length ) {
-					$exact_except_for_ref = 0;
-				} else {
-					$all_exact = 0;
+				if ($by_reference) {
+					if ( $match->{'identity'} == 100 && $match->{'alignment'} >= $length ) {
+						$exact_except_for_ref = 0;
+					} else {
+						$all_exact = 0;
+					}
 				}
 				eval { $seqbin_length_sql->execute( $match->{'seqbin_id'} ); };
 				$logger->error($@) if $@;
 				($seqbin_length) = $seqbin_length_sql->fetchrow_array;
-				if ( $match->{'predicted_start'} < 1 ) {
-					$match->{'predicted_start'} = 1;
-					$truncated_locus            = 1;
-					$value                      = 'T';
-				} elsif ( $match->{'predicted_start'} > $seqbin_length ) {
-					$match->{'predicted_start'} = $seqbin_length;
-					$truncated_locus            = 1;
-					$value                      = 'T';
+				if ( !$match->{'exact'} && $match->{'predicted_start'} && $match->{'predicted_end'} ) {
+					if ( $match->{'predicted_start'} < 1 ) {
+						$match->{'predicted_start'} = 1;
+						$truncated_locus            = 1;
+						$value                      = 'T';
+					} elsif ( $match->{'predicted_start'} > $seqbin_length ) {
+						$match->{'predicted_start'} = $seqbin_length;
+						$truncated_locus            = 1;
+						$value                      = 'T';
+					}
+					if ( $match->{'predicted_end'} < 1 ) {
+						$match->{'predicted_end'} = 1;
+						$truncated_locus          = 1;
+						$value                    = 'T';
+					} elsif ( $match->{'predicted_end'} > $seqbin_length ) {
+						$match->{'predicted_end'} = $seqbin_length;
+						$truncated_locus          = 1;
+						$value                    = 'T';
+					}
 				}
-				if ( $match->{'predicted_end'} < 1 ) {
-					$match->{'predicted_end'} = 1;
-					$truncated_locus          = 1;
-					$value                    = 'T';
-				} elsif ( $match->{'predicted_end'} > $seqbin_length ) {
-					$match->{'predicted_end'} = $seqbin_length;
-					$truncated_locus          = 1;
-					$value                    = 'T';
+				if ( !$extracted_seq ) {
+					$extracted_seq = $self->_extract_sequence($match);
+					$seqs{$id} = $extracted_seq;
 				}
-				$extracted_seq = $self->_extract_sequence($match);
-				$seqs{$id} = $extracted_seq;
-				if ($first) {
-					$previous_seq = $extracted_seq;
-				} else {
-					if ( $extracted_seq ne $previous_seq ) {
-						$exact_except_for_ref = 0;
+				if ($by_reference) {
+					if ($first) {
+						$previous_seq = $extracted_seq;
+					} else {
+						if ( $extracted_seq ne $previous_seq ) {
+							$exact_except_for_ref = 0;
+						}
 					}
 				}
 			} else {
@@ -875,34 +785,38 @@ sub _analyse_by_reference {
 						$value = $allele_seqs{$extracted_seq};
 					} else {
 						$allele++;
-						$value = $allele;
-						$allele_seqs{$extracted_seq} = $allele;
+						$value = $by_reference ? $allele : "new#$allele";
+						$allele_seqs{$extracted_seq} = $value;
 					}
 				} else {
 					$value = 'X';
 				}
 			}
-			$html_buffer .= "<td>$value</td>";
-			$file_buffer .= "\t$value";
-			$td = $td == 1 ? 2 : 1;
-			$first = 0;
+			$$html_buffer_ref .= "<td>$value</td>";
+			$$file_buffer_ref .= "\t$value";
+			$td                           = $td == 1 ? 2 : 1;
+			$first                        = 0;
+			$values->{$id}->{$locus_name} = $value;
 		}
-		$html_buffer .= "</tr>\n";
-		$file_buffer .= "\n";
+		$$html_buffer_ref .= "</tr>\n";
+		$$file_buffer_ref .= "\n";
+		if ( !$by_reference ) {
+			$all_exact = 0 if uniq values %seqs > 1;
+		}
 		if ($all_exact) {
-			$exacts->{$locus_name}->{'length'} = length $seq;
+			$exacts->{$locus_name}->{'length'} = length $$seq_ref if $by_reference;
 			$exacts->{$locus_name}->{'desc'}   = $desc;
 			$exacts->{$locus_name}->{'start'}  = $start;
 		} elsif ($missing_in_all) {
-			$all_missing->{$locus_name}->{'length'} = length $seq;
+			$all_missing->{$locus_name}->{'length'} = length $$seq_ref if $by_reference;
 			$all_missing->{$locus_name}->{'desc'}   = $desc;
 			$all_missing->{$locus_name}->{'start'}  = $start;
-		} elsif ($exact_except_for_ref) {
-			$exact_except_ref->{$locus_name}->{'length'} = length $seq;
+		} elsif ( $exact_except_for_ref && $by_reference ) {
+			$exact_except_ref->{$locus_name}->{'length'} = length $$seq_ref;
 			$exact_except_ref->{$locus_name}->{'desc'}   = $desc;
 			$exact_except_ref->{$locus_name}->{'start'}  = $start;
 		} elsif ($truncated_locus) {
-			$truncated_loci->{$locus_name}->{'length'} = length $seq;
+			$truncated_loci->{$locus_name}->{'length'} = length $$seq_ref if $by_reference;
 			$truncated_loci->{$locus_name}->{'desc'}   = $desc;
 			$truncated_loci->{$locus_name}->{'start'}  = $start;
 		} else {
@@ -910,31 +824,30 @@ sub _analyse_by_reference {
 			$varying_loci->{$locus_name}->{'desc'}  = $desc;
 			$varying_loci->{$locus_name}->{'start'} = $start;
 		}
-		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete, message_html => "$html_buffer$close_table" } );
+		$self->{'jobManager'}
+		  ->update_job_status( $job_id, { percent_complete => $complete, message_html => "$$html_buffer_ref$close_table" } );
 	}
-	$html_buffer .= $close_table;
+	$$html_buffer_ref .= $close_table;
 	open( my $job_fh, '>', $job_file ) || $logger->error("Can't open $job_file for writing");
-	print $job_fh $file_buffer;
+	print $job_fh $$file_buffer_ref;
 	close $job_fh;
-	my $values = $self->_print_variable_loci( $job_id, \$html_buffer, $job_file, $align_file, $params, $ids, $varying_loci );
-	$self->_print_missing_in_all( \$html_buffer, $job_file, $all_missing );
-	foreach my $locus ( keys %$all_missing ) {
-		$values->{'0'}->{$locus} = 1;
-		$values->{$_}->{$locus} = 'X' foreach @$ids;
+	$self->_print_variable_loci( $by_reference, $job_id, $html_buffer_ref, $job_file, $align_file, $params, $ids, $varying_loci, $values );
+	$self->_print_missing_in_all( $by_reference, $ids, $html_buffer_ref, $job_file, $all_missing, $values );
+	$self->_print_exact_matches( $by_reference, $ids, $html_buffer_ref, $job_file, $exacts, $params, $values );
+
+	if ($by_reference) {
+		$self->_print_exact_except_ref( $ids, $html_buffer_ref, $job_file, $exact_except_ref, $values );
 	}
-	$self->_print_exact_matches( \$html_buffer, $job_file, $exacts, $params );
-	$self->_print_exact_except_ref( \$html_buffer, $job_file, $exact_except_ref );
-	foreach my $locus ( keys %$exact_except_ref ) {
-		$values->{'0'}->{$locus} = 1;
-		$values->{$_}->{$locus} = 2 foreach @$ids;
-	}
-	$self->_print_truncated_loci( \$html_buffer, $job_file, $truncated_loci );
-	$html_buffer .= "<p class=\"statusbad\">No sequences were extracted from reference file.</p>\n" if !$seqs_total;
-	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
+	$self->_print_truncated_loci( $by_reference, $ids, $html_buffer_ref, $job_file, $truncated_loci, $values );
+	$$html_buffer_ref .= "<p class=\"statusbad\">No sequences were extracted from reference file.</p>\n"
+	  if ( !$seqs_total && $by_reference );
+	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$html_buffer_ref } );
 	close $job_fh;
 	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$prefix\*";
 	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Main output file' } );
-	$self->_generate_splits( $job_id, $values );
+	my @ignore_loci;
+	push @ignore_loci, $_ foreach keys %$truncated_loci;
+	$self->_generate_splits( $job_id, $values, \@ignore_loci );
 
 	if ( @$ids > 1 && $params->{'align'} ) {
 		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align.txt", description => '30_Alignments' } )
@@ -957,11 +870,14 @@ sub _analyse_by_reference {
 	return;
 }
 
-sub _print_tabbed_isolate_header {
-	my ( $self, $ids, $file_buffer_ref, $html_buffer_ref ) = @_;
-	$$html_buffer_ref .= "<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Locus</th><th>Product</th>"
-	  . "<th>Sequence length</th><th>Genome position</th><th>Reference genome</th>";
-	$$file_buffer_ref .= "Locus\tProduct\tSequence length\tGenome position\tReference genome";
+sub _print_isolate_header {
+	my ( $self, $by_reference, $ids, $file_buffer_ref, $html_buffer_ref ) = @_;
+	$$html_buffer_ref .= "<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Locus</th>";
+	$$file_buffer_ref .= "Locus";
+	if ($by_reference) {
+		$$html_buffer_ref .= "<th>Product</th><th>Sequence length</th><th>Genome position</th><th>Reference genome</th>";
+		$$file_buffer_ref .= "\tProduct\tSequence length\tGenome position\tReference genome";
+	}
 	foreach my $id (@$ids) {
 		my $isolate;
 		my $isolate_ref =
@@ -979,18 +895,15 @@ sub _print_tabbed_isolate_header {
 }
 
 sub _print_variable_loci {
-	my ( $self, $job_id, $buffer_ref, $job_filename, $align_file, $params, $ids, $loci ) = @_;
+	my ( $self, $by_reference, $job_id, $buffer_ref, $job_filename, $align_file, $params, $ids, $loci, $values ) = @_;
 	return if ref $loci ne 'HASH';
-	my $values;
 	$$buffer_ref .= "<h3>Loci with sequence differences between isolates:</h3>";
 	my $file_buffer = "\n###\n\n";
 	$file_buffer .= "Loci with sequence differences between isolates\n";
 	$file_buffer .= "-----------------------------------------------\n\n";
-	$$buffer_ref .= "<p>Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'.</p>";
-	$file_buffer .= "Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'.\n\n";
 	$$buffer_ref .= "<p>Variable loci: " . ( scalar keys %$loci ) . "</p>";
 	$file_buffer .= "Variable loci: " . ( scalar keys %$loci ) . "\n\n";
-	$self->_print_tabbed_isolate_header( $ids, \$file_buffer, $buffer_ref );
+	$self->_print_isolate_header( $by_reference, $ids, \$file_buffer, $buffer_ref );
 	my $td = 1;
 	my $count;
 	my $temp       = BIGSdb::Utils::get_random();
@@ -1005,49 +918,33 @@ sub _print_variable_loci {
 		my $complete = 50 + int( 100 * $progress / $total );
 		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } ) if $params->{'align'};
 		( my $escaped_locus = $locus ) =~ s/[\/\|]/_/g;
-		my $fasta_file = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.fasta";
-		my $muscle_out = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.muscle";
-		my %alleles;
-		my $allele        = 1;
+		my $fasta_file    = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.fasta";
+		my $muscle_out    = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.muscle";
 		my $cleaned_locus = $self->clean_locus($locus);
-		my $length        = length( $loci->{$locus}->{'ref'} );
 		my $start         = $loci->{$locus}->{'start'};
 		my $seq_count     = 0;
-		$values->{'0'}->{$locus} = 1;
-		$$buffer_ref .=
-		  "<tr class=\"td$td\"><td>$cleaned_locus</td><td>$loci->{$locus}->{'desc'}</td><td>$length</td><td>$start</td><td>1</td>";
-		$file_buffer .= "$locus\t$loci->{$locus}->{'desc'}\t$length\t$start\t1";
-		$alleles{1} = $loci->{$locus}->{'ref'};
-		open( my $fasta_fh, '>', $fasta_file ) || $logger->error("Can't open $fasta_file for writing");
+		$$buffer_ref .= "<tr class=\"td$td\"><td>$cleaned_locus</td>";
+		$file_buffer .= "$locus";
 
-		if ( $params->{'include_ref'} ) {
+		if ($by_reference) {
+			my $length = length( $loci->{$locus}->{'ref'} );
+			$$buffer_ref .= "<td>$loci->{$locus}->{'desc'}</td><td>$length</td><td>$start</td><td>1</td>";
+			$file_buffer .= "\t$loci->{$locus}->{'desc'}\t$length\t$start\t1";
+		}
+		open( my $fasta_fh, '>', $fasta_file ) || $logger->error("Can't open $fasta_file for writing");
+		if ( $by_reference && $params->{'include_ref'} ) {
 			print $fasta_fh ">ref\n";
 			print $fasta_fh "$loci->{$locus}->{'ref'}\n";
 			$seq_count++;
 		}
 		foreach my $id (@$ids) {
-			my $this_allele;
-			if ( !$loci->{$locus}->{$id} ) {
-				$this_allele = 'X';
-			} else {
+			if ( $loci->{$locus}->{$id} ) {
+				$seq_count++;
 				print $fasta_fh ">$id\n";
 				print $fasta_fh "$loci->{$locus}->{$id}\n";
-				$seq_count++;
-				my $i;
-				for ( $i = 1 ; $i <= $allele ; $i++ ) {
-					if ( $loci->{$locus}->{$id} eq $alleles{$i} ) {
-						$this_allele = $i;
-					}
-				}
-				if ( !$this_allele ) {
-					$allele++;
-					$this_allele = $allele;
-					$alleles{$this_allele} = $loci->{$locus}->{$id};
-				}
 			}
-			$$buffer_ref .= "<td>$this_allele</td>";
-			$file_buffer .= "\t$this_allele";
-			$values->{$id}->{$locus} = $this_allele;
+			$$buffer_ref .= "<td>$values->{$id}->{$locus}</td>";
+			$file_buffer .= "\t$values->{$id}->{$locus}";
 		}
 		$$buffer_ref .= "</tr>";
 		$file_buffer .= "\n";
@@ -1074,7 +971,7 @@ sub _print_variable_loci {
 	print $job_fh $file_buffer;
 	close $job_fh;
 	$$buffer_ref .= "</table></div>";
-	return $values;
+	return;
 }
 
 sub _run_muscle {
@@ -1119,7 +1016,7 @@ sub _run_muscle {
 }
 
 sub _print_exact_matches {
-	my ( $self, $buffer_ref, $job_filename, $exacts, $params ) = @_;
+	my ( $self, $by_reference, $ids, $buffer_ref, $job_filename, $exacts, $params, $values ) = @_;
 	return if ref $exacts ne 'HASH';
 	$$buffer_ref .= "<h3>Exactly matching loci</h3>\n";
 	my $file_buffer = "\n###\n\n";
@@ -1137,13 +1034,13 @@ sub _print_exact_matches {
 	$file_buffer .= "Matches: " . ( scalar keys %$exacts ) . "\n\n";
 	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
 	print $job_fh $file_buffer;
-	$self->_print_locus_table( $buffer_ref, $job_fh, $exacts );
+	$self->_print_locus_table( $by_reference, $ids, $buffer_ref, $job_fh, $exacts, $values );
 	close $job_fh;
 	return;
 }
 
 sub _print_exact_except_ref {
-	my ( $self, $buffer_ref, $job_filename, $exacts ) = @_;
+	my ( $self, $ids, $buffer_ref, $job_filename, $exacts, $values ) = @_;
 	return if ref $exacts ne 'HASH';
 	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
 	$$buffer_ref .= "<h3>Loci exactly the same in all compared genomes except the reference</h3>";
@@ -1151,13 +1048,13 @@ sub _print_exact_except_ref {
 	print $job_fh "------------------------------------------------------------------\n\n";
 	$$buffer_ref .= "<p>Matches: " . ( scalar keys %$exacts ) . "</p>";
 	print $job_fh "Matches: " . ( scalar keys %$exacts ) . "\n\n";
-	$self->_print_locus_table( $buffer_ref, $job_fh, $exacts );
+	$self->_print_locus_table( 1, $ids, $buffer_ref, $job_fh, $exacts, $values );
 	close $job_fh;
 	return;
 }
 
 sub _print_missing_in_all {
-	my ( $self, $buffer_ref, $job_filename, $missing ) = @_;
+	my ( $self, $by_reference, $ids, $buffer_ref, $job_filename, $missing, $values ) = @_;
 	return if ref $missing ne 'HASH';
 	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
 	$$buffer_ref .= "<h3>Loci missing in all isolates</h3>";
@@ -1166,13 +1063,13 @@ sub _print_missing_in_all {
 	print $job_fh "----------------------------\n\n";
 	$$buffer_ref .= "<p>Missing loci: " . ( scalar keys %$missing ) . "</p>";
 	print $job_fh "Missing loci: " . ( scalar keys %$missing ) . "\n\n";
-	$self->_print_locus_table( $buffer_ref, $job_fh, $missing );
+	$self->_print_locus_table( $by_reference, $ids, $buffer_ref, $job_fh, $missing, $values );
 	close $job_fh;
 	return;
 }
 
 sub _print_truncated_loci {
-	my ( $self, $buffer_ref, $job_filename, $truncated ) = @_;
+	my ( $self, $by_reference, $ids, $buffer_ref, $job_filename, $truncated, $values ) = @_;
 	return if ref $truncated ne 'HASH';
 	$$buffer_ref .= "<h3>Loci that are truncated in some isolates</h3>";
 	my $file_buffer = "\n###\n\n";
@@ -1185,25 +1082,42 @@ sub _print_truncated_loci {
 	$file_buffer .= "These loci are incomplete and located at the ends of contigs in at least one isolate.\n\n";
 	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
 	print $job_fh $file_buffer;
-	$self->_print_locus_table( $buffer_ref, $job_fh, $truncated );
+	$self->_print_locus_table( $by_reference, $ids, $buffer_ref, $job_fh, $truncated, $values );
 	close $job_fh;
 	return;
 }
 
 sub _print_locus_table {
-	my ( $self, $buffer_ref, $fh, $loci ) = @_;
-	$$buffer_ref .= "<div class=\"scrollable\">";
-	$$buffer_ref .= "<table class=\"resultstable\"><tr><th>Locus</th><th>Product</th><th>Sequence length</th><th>Genome position</th>";
-	print $fh "Locus\tProduct\tSequence length\tGenome position";
-	$$buffer_ref .= "</tr>";
-	print $fh "\n";
+	my ( $self, $by_reference, $ids, $buffer_ref, $fh, $loci, $values ) = @_;
+	my $file_buffer;
+	$self->_print_isolate_header( $by_reference, $ids, \$file_buffer, $buffer_ref );
+	print $fh $file_buffer;
 	my $td = 1;
-	foreach ( sort keys %$loci ) {
-		my $cleaned_locus = $self->clean_locus($_);
-		$$buffer_ref .=
-"<tr class=\"td$td\"><td>$cleaned_locus</td><td>$loci->{$_}->{'desc'}</td><td>$loci->{$_}->{'length'}</td><td>$loci->{$_}->{'start'}</td></tr>\n";
-		print $fh "$_\t$loci->{$_}->{'desc'}\t$loci->{$_}->{'length'}\t$loci->{$_}->{'start'}\n";
+	foreach my $locus ( sort keys %$loci ) {
+		my $cleaned_locus = $self->clean_locus($locus);
+		$$buffer_ref .= "<tr class=\"td$td\"><td>$cleaned_locus</td>";
+		print $fh $locus;
+#		if ($by_reference) {
+#			$$buffer_ref .= "<td>$loci->{$locus}->{'desc'}</td><td>$loci->{$locus}->{'length'}</td><td>$loci->{$locus}->{'start'}</td>";
+#			print $fh "\t$loci->{$locus}->{'desc'}\t$loci->{$locus}->{'length'}\t$loci->{$locus}->{'start'}";
+#		}
+		if ($by_reference) {
+#			my $length = length( $loci->{$locus}->{'ref'} );
+			my $length = $loci->{$locus}->{'length'};
+			my $start  = $loci->{$locus}->{'start'};
+			$$buffer_ref .= "<td>$loci->{$locus}->{'desc'}</td><td>$length</td><td>$start</td><td>1</td>";
+			print $fh "\t$loci->{$locus}->{'desc'}\t$length\t$start\t1";
+		}
+		foreach my $id (@$ids) {
+			$$buffer_ref .= "<td>$values->{$id}->{$locus}</td>";
+			print $fh "\t$values->{$id}->{$locus}";
+		}
+		$$buffer_ref .= "</tr>";
+		print $fh "\n";
 		$td = $td == 1 ? 2 : 1;
+#		$$buffer_ref .= "</tr>\n";
+#		print $fh "\n";
+#		$td = $td == 1 ? 2 : 1;
 	}
 	$$buffer_ref .= "</table>\n";
 	$$buffer_ref .= "</div>\n";
