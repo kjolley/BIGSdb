@@ -1097,12 +1097,7 @@ sub _print_locus_table {
 		my $cleaned_locus = $self->clean_locus($locus);
 		$$buffer_ref .= "<tr class=\"td$td\"><td>$cleaned_locus</td>";
 		print $fh $locus;
-#		if ($by_reference) {
-#			$$buffer_ref .= "<td>$loci->{$locus}->{'desc'}</td><td>$loci->{$locus}->{'length'}</td><td>$loci->{$locus}->{'start'}</td>";
-#			print $fh "\t$loci->{$locus}->{'desc'}\t$loci->{$locus}->{'length'}\t$loci->{$locus}->{'start'}";
-#		}
 		if ($by_reference) {
-#			my $length = length( $loci->{$locus}->{'ref'} );
 			my $length = $loci->{$locus}->{'length'};
 			my $start  = $loci->{$locus}->{'start'};
 			$$buffer_ref .= "<td>$loci->{$locus}->{'desc'}</td><td>$length</td><td>$start</td><td>1</td>";
@@ -1115,9 +1110,6 @@ sub _print_locus_table {
 		$$buffer_ref .= "</tr>";
 		print $fh "\n";
 		$td = $td == 1 ? 2 : 1;
-#		$$buffer_ref .= "</tr>\n";
-#		print $fh "\n";
-#		$td = $td == 1 ? 2 : 1;
 	}
 	$$buffer_ref .= "</table>\n";
 	$$buffer_ref .= "</div>\n";
