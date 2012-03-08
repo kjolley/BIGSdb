@@ -545,7 +545,6 @@ sub _output_single_query_nonexact {
 		} else {
 			print "<p>No results from BLAST.</p>\n";
 		}
-		print "</div>\n";
 		system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 	}
 	print "</div>\n";
