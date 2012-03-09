@@ -30,7 +30,7 @@ use constant MAX_TREE_NODES => 1000;
 sub initiate {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	$q->param('format', 'html') if !defined $q->param('format');
+	$q->param( 'format', 'html' ) if !defined $q->param('format');
 	if ( $q->param('format') eq 'text' ) {
 		$self->{'type'} = 'text';
 	} else {
@@ -42,13 +42,13 @@ sub initiate {
 sub get_attributes {
 
 	#override in subclass
-	return \%;
+	return \%;;
 }
 
 sub get_option_list {
 
 	#override in subclass
-	return \@;
+	return \@;;
 }
 
 sub get_extra_form_elements {
@@ -60,7 +60,7 @@ sub get_extra_form_elements {
 sub get_hidden_attributes {
 
 	#override in subclass
-	return \@;
+	return \@;;
 }
 
 sub get_plugin_javascript {
@@ -83,12 +83,12 @@ sub run_job {
 sub get_javascript {
 	my ($self) = @_;
 	my $plugin_name = $self->{'cgi'}->param('name');
-	my ($js, $tree_js);
+	my ( $js, $tree_js );
 	try {
 		$js = $self->{'pluginManager'}->get_plugin($plugin_name)->get_plugin_javascript;
 		my $requires = $self->{'pluginManager'}->get_plugin($plugin_name)->get_attributes->{'requires'};
-		if ($requires){
-			$tree_js = $requires =~ /js_tree/ ? $self->get_tree_javascript({checkboxes => 1, check_schemes => 1}) : '';
+		if ($requires) {
+			$tree_js = $requires =~ /js_tree/ ? $self->get_tree_javascript( { checkboxes => 1, check_schemes => 1 } ) : '';
 		} else {
 			$tree_js = '';
 		}
@@ -384,7 +384,7 @@ sub print_field_export_form {
 	$self->_print_all_none_buttons( \@isolate_js, \@isolate_js2, 'smallbutton rightbutton' );
 	$self->print_fields( \@display_fields, 'f', 6, 0, \%labels, $default_select, 0 );
 	print "</div>";
-	if ($options->{'include_composites'}) {
+	if ( $options->{'include_composites'} ) {
 		my $composites = $self->{'datastore'}->run_list_query("SELECT id FROM composite_fields ORDER BY id");
 		if (@$composites) {
 			my ( @com_js, @com_js2 );
@@ -397,7 +397,7 @@ sub print_field_export_form {
 			print "<div class='fieldsection'>";
 			print "<h2>Composite fields ";
 			print " <a class=\"tooltip\" title=\"Composite fields - These are constructed from combinations of other fields "
-				 ."(some of which may come from external databases).  Including composite fields will slow down the processing.\">&nbsp;<i>i</i>&nbsp;</a>";
+			  . "(some of which may come from external databases).  Including composite fields will slow down the processing.\">&nbsp;<i>i</i>&nbsp;</a>";
 			print "</h2>\n";
 			$self->_print_all_none_buttons( \@com_js, \@com_js2, 'smallbutton rightbutton' );
 			$self->print_fields( $composites, 'c', 6, 0, \%labels, $default_select, 0 );
@@ -483,7 +483,6 @@ sub get_selected_fields {
 	my $extended = $self->get_extended_attributes;
 	my @display_fields;
 	$self->escape_params;
-
 	foreach (@$fields) {
 		push @display_fields, $_;
 		push @display_fields, 'aliases' if $_ eq $self->{'system'}->{'labelfield'};
@@ -565,21 +564,22 @@ sub print_sequence_export_form {
 		print $q->radio_group( -name => 'chooseseq', -values => [ 'seqbin', 'allele_designation' ], -labels => \%labels,
 			-linebreak => 'true' );
 		print "<br />\n";
-		if ($options->{'translate'}){
+
+		if ( $options->{'translate'} ) {
 			print $q->checkbox( -name => 'translate', -label => 'Translate sequences' );
 			print "<br />\n";
 		}
-		if ($options->{'ignore_seqflags'}){
-			print $q->checkbox( -name => 'ignore_seqflags', -label => 'Do not include sequences with problem flagged', -checked => 'checked' );
-		  	print "<br />\n";
-		  }
-		if ($options->{'flanking'}){
+		if ( $options->{'ignore_seqflags'} ) {
+			print $q->checkbox( -name => 'ignore_seqflags', -label => 'Do not include sequences with problem flagged',
+				-checked => 'checked' );
+			print "<br />\n";
+		}
+		if ( $options->{'flanking'} ) {
 			print "Include ";
-			print $q->popup_menu( -name => 'flanking', -values => [FLANKING], -default => 0);
+			print $q->popup_menu( -name => 'flanking', -values => [FLANKING], -default => 0 );
 			print " bp flanking sequence";
 			print
 " <a class=\"tooltip\" title=\"Flanking sequence - This can only be included if you select to retrieve sequences from the sequence bin rather than from an external database.\">&nbsp;<i>i</i>&nbsp;</a>";
-			
 		}
 		print "</fieldset>\n";
 	}
@@ -625,11 +625,15 @@ sub print_sequence_export_form {
 					$labels->{"l_$member"} = "$member ($common_names->{$member}->{'common_name'})"
 					  if $common_names->{$member}->{'common_name'};
 				}
-				if (!$q->param('scheme_id')){
+				if ( !$q->param('scheme_id') ) {
 					$self->_print_all_none_buttons( \@scheme_js, \@scheme_js2, 'smallbutton rightbutton' );
 					print "<input type=\"button\" value=\"Show/Hide List\" class=\"toggleLink smallbutton rightbutton\" />\n";
 				}
-				$self->print_fields( \@values, "s_$scheme_id", 10, 1, $labels, $options->{'default_select'}, $q->param('scheme_id') ? 0 : 1 );
+				$self->print_fields(
+					\@values, "s_$scheme_id", 10, 1, $labels,
+					$options->{'default_select'},
+					$q->param('scheme_id') ? 0 : 1
+				);
 				print "</div>";
 			}
 		}

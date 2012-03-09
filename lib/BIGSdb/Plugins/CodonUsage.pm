@@ -172,12 +172,15 @@ sub run {
 			my $params = $q->Vars;
 			( my $list = $q->param('list') ) =~ s/[\r\n]+/\|\|/g;
 			$params->{'list'} = $list;
+			my $user_info = $self->{'datastore'}->get_user_info_from_username($self->{'username'});
 			my $job_id = $self->{'jobManager'}->add_job(
 				{
 					'dbase_config' => $self->{'instance'},
 					'ip_address'   => $q->remote_host,
 					'module'       => 'CodonUsage',
-					'parameters'   => $params
+					'parameters'   => $params,
+					'username'     => $self->{'username'},
+					'email'        => $user_info->{'email'}
 				}
 			);
 			print <<"HTML";

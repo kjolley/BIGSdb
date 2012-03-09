@@ -195,6 +195,7 @@ sub run {
 		my $scheme_string = "@selected_schemes";
 		$q->param( 'scheme_id', $scheme_string );
 		$q->param( 'ref_upload', $ref_upload ) if $ref_upload;
+		my $user_info = $self->{'datastore'}->get_user_info_from_username($self->{'username'});
 		if ($continue) {
 			my $params = $q->Vars;
 			my $job_id = $self->{'jobManager'}->add_job(
@@ -202,7 +203,9 @@ sub run {
 					'dbase_config' => $self->{'instance'},
 					'ip_address'   => $q->remote_host,
 					'module'       => 'GenomeComparator',
-					'parameters'   => $params
+					'parameters'   => $params,
+					'username'     => $self->{'username'},
+					'email'        => $user_info->{'email'}
 				}
 			);
 			print <<"HTML";
