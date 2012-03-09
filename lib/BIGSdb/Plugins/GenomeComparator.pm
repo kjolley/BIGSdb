@@ -563,14 +563,20 @@ sub _analyse_by_reference {
 		push @cds, $_ if $_->primary_tag eq 'CDS';
 	}
 	my $html_buffer = "<h3>Analysis by reference genome</h3>";
-	my %att         = (
-		'accession'   => $accession,
-		'version'     => $seq_obj->seq_version,
-		'type'        => $seq_obj->alphabet,
-		'length'      => $seq_obj->length,
-		'description' => $seq_obj->description,
-		'cds'         => scalar @cds
-	);
+	my %att;
+	eval {
+		%att         = (
+			'accession'   => $accession,
+			'version'     => $seq_obj->seq_version,
+			'type'        => $seq_obj->alphabet,
+			'length'      => $seq_obj->length,
+			'description' => $seq_obj->description,
+			'cds'         => scalar @cds
+		);
+	};
+	if ($@){
+		throw BIGSdb::PluginException("Invalid data in reference genome.");
+	}
 	my %abb = ( 'cds' => 'coding regions' );
 	$html_buffer .= "<table class=\"resultstable\">";
 	my $td = 1;
