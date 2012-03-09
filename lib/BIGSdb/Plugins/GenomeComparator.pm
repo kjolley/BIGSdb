@@ -29,7 +29,7 @@ use Apache2::Connection ();
 use Bio::SeqIO;
 use Bio::AlignIO;
 use List::MoreUtils qw(uniq any none);
-use BIGSdb::Page 'SEQ_METHODS';
+use BIGSdb::Page qw(SEQ_METHODS LOCUS_PATTERNS);
 use constant MAX_UPLOAD_SIZE => 32768;
 use constant MAX_SPLITS_TAXA => 200;
 
@@ -157,6 +157,7 @@ sub run_job {
 
 sub run {
 	my ($self) = @_;
+	my @patterns = LOCUS_PATTERNS;
 	print "<h1>Genome Comparator</h1>\n";
 	my $q = $self->{'cgi'};
 	if ( $q->param('submit') ) {
@@ -169,7 +170,13 @@ sub run {
 			  . "selected isolates haven't been filtered to none by selecting a project.</p></div>\n";
 			$continue = 0;
 		}
-		my @loci       = $q->param('locus');
+		my @loci = $q->param('locus');
+		my @cleaned_loci;
+		foreach my $locus (@loci) {
+			my $locus_name = $locus ~~ @patterns ? $1 : undef;
+			push @cleaned_loci, $locus_name if defined $locus_name;
+		}
+		$q->param( 'locus', @cleaned_loci );
 		my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 		push @$scheme_ids, 0;
 		my $accession = $q->param('accession');
@@ -261,7 +268,7 @@ selections. In addition to selecting individual loci, you can choose to include 
 by selecting the appropriate scheme description. Alternatively, you can enter the accession number for an 
 annotated reference genome and compare using the loci defined in that.</p>
 HTML
-	my $loci = $self->{'datastore'}->get_loci( { 'query_pref' => 0, 'seq_defined' => 1 } );
+	my ( $locus_list, $locus_labels ) = $self->get_field_selection_list( { 'loci' => 1, 'sort_labels' => 1 } );
 	print $q->start_form( -onMouseMove => 'enable_seqs()' );
 	print "<div class=\"scrollable\">\n";
 	print "<fieldset style=\"float:left\">\n<legend>Isolates</legend>\n";
@@ -280,7 +287,14 @@ HTML
 </fieldset>
 <fieldset id="locus_fieldset" style="float:left">\n<legend>Loci</legend>
 HTML
-	print $q->scrolling_list( -name => 'locus', -id => 'locus', -values => $loci, -size => 8, -multiple => 'true' );
+	print $q->scrolling_list(
+		-name     => 'locus',
+		-id       => 'locus',
+		-values   => $locus_list,
+		-labels   => $locus_labels,
+		-size     => 8,
+		-multiple => 'true'
+	);
 	print <<"HTML";
 <div style="text-align:center"><input type="button" onclick='listbox_selectall("locus",true)' value="All" style="margin-top:1em" class="smallbutton" />
 <input type="button" onclick='listbox_selectall("locus",false)' value="None" style="margin-top:1em" class="smallbutton" /></div>
@@ -794,14 +808,14 @@ sub _run_comparison {
 			}
 			$$html_buffer_ref .= "<td>$value</td>";
 			$$file_buffer_ref .= "\t$value";
-			$first                        = 0;
+			$first = 0;
 			$values->{$id}->{$locus_name} = $value;
 		}
 		$td = $td == 1 ? 2 : 1;
 		$$html_buffer_ref .= "</tr>\n";
 		$$file_buffer_ref .= "\n";
 		if ( !$by_reference ) {
-			$all_exact = 0 if (uniq values %seqs) > 1;
+			$all_exact = 0 if ( uniq values %seqs ) > 1;
 		}
 		if ($all_exact) {
 			$exacts->{$locus_name}->{'length'} = length $$seq_ref if $by_reference;

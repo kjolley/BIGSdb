@@ -45,6 +45,7 @@ sub new {
 sub _initiate {
 	my ( $self, $config_dir, $dbase_config_dir ) = @_;
 	$self->read_config_file($config_dir);
+	return;
 }
 
 sub _db_connect {
@@ -119,7 +120,7 @@ sub add_job {
 			$params->{'priority'}
 		);
 		my $param_sql = $self->{'db'}->prepare("INSERT INTO params (job_id,key,value) VALUES (?,?,?)");
-		$" = '||';
+		local $" = '||';
 		foreach ( keys %$cgi_params ) {
 			my @values = split( "\0", $cgi_params->{$_} );
 			$param_sql->execute( $id, $_, "@values" );
@@ -156,7 +157,7 @@ sub update_job_output {
 	} else {
 		$self->{'db'}->commit;
 	}
-	
+	return;
 }
 
 sub update_job_status {
