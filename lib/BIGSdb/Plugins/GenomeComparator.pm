@@ -794,14 +794,14 @@ sub _run_comparison {
 			}
 			$$html_buffer_ref .= "<td>$value</td>";
 			$$file_buffer_ref .= "\t$value";
-			$td                           = $td == 1 ? 2 : 1;
 			$first                        = 0;
 			$values->{$id}->{$locus_name} = $value;
 		}
+		$td = $td == 1 ? 2 : 1;
 		$$html_buffer_ref .= "</tr>\n";
 		$$file_buffer_ref .= "\n";
 		if ( !$by_reference ) {
-			$all_exact = 0 if uniq values %seqs > 1;
+			$all_exact = 0 if (uniq values %seqs) > 1;
 		}
 		if ($all_exact) {
 			$exacts->{$locus_name}->{'length'} = length $$seq_ref if $by_reference;
