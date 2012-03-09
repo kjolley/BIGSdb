@@ -176,7 +176,7 @@ sub run {
 			my $locus_name = $locus ~~ @patterns ? $1 : undef;
 			push @cleaned_loci, $locus_name if defined $locus_name;
 		}
-		$q->param( 'locus', @cleaned_loci );
+		$q->param( 'locus', uniq @cleaned_loci );
 		my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 		push @$scheme_ids, 0;
 		my $accession = $q->param('accession');
