@@ -600,11 +600,12 @@ sub print_sequence_export_form {
 		}
 		my $qry    = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
 		my $cn_sql = $self->{'db'}->prepare($qry);
-		eval { $cn_sql->execute; };
+		eval { $cn_sql->execute };
 		$logger->error($@) if $@;
 		my $common_names = $cn_sql->fetchall_hashref('id');
 		print "<div style=\"clear:both\">\n";
 		foreach my $scheme_id (@$schemes) {
+			next if $self->{'system'}->{'dbtype'} eq 'isolates' && !$self->{'prefs'}->{'analysis_schemes'}->{$scheme_id};
 			my ( @scheme_js, @scheme_js2 );
 			my $scheme_members = $self->{'datastore'}->get_scheme_loci($scheme_id);
 			my $scheme_info    = $self->{'datastore'}->get_scheme_info($scheme_id);
