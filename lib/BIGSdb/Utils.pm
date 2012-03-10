@@ -292,4 +292,13 @@ sub xmfa2fasta {
 	}
 	return $fasta_file;
 }
+
+sub get_style {
+	#Heatmap colour given value and max value
+	my ($value, $max_value) = @_;
+	my $normalised = $value/$max_value;
+	my $colour = sprintf("#%02x%02x%02x", $normalised * 201 + 54, abs(0.5 - $normalised) * 201 + 54, (1 - $normalised) * 201 + 54);
+	my $style = "background:$colour; color:white";
+	return $style;
+}
 1;

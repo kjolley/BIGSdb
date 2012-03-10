@@ -713,6 +713,8 @@ sub _run_comparison {
 			$allele_seqs{$$seq_ref} = 1;
 		}
 		my $allele = $by_reference ? 1 : 0;
+		my $colour = 0;
+		my %value_colour;
 		foreach my $id (@$ids) {
 			$id = $1 if $id =~ /(\d*)/;    #avoid taint check
 			my $out_file = "$self->{'config'}->{'secure_tmp_dir'}/$prefix\_isolate_$id\_outfile.txt";
@@ -815,7 +817,20 @@ sub _run_comparison {
 					$value = 'X';
 				}
 			}
-			$$html_buffer_ref .= "<td>$value</td>";
+			my $style;
+			given($value){
+				when ('T') {$style = 'background:green; color:white'}
+				when ('X') {$style = 'background:black; color:white'}
+				default {
+					if (!$value_colour{$value}){
+						$colour++;
+						$value_colour{$value} = $colour;
+					}
+					$style = BIGSdb::Utils::get_style($value_colour{$value}, scalar @$ids);
+				}
+			}
+			$self->{'style'}->{$locus_name}->{$value} = $style;
+			$$html_buffer_ref .= "<td style=\"$style\">$value</td>";
 			$$file_buffer_ref .= "\t$value";
 			$first = 0;
 			$values->{$id}->{$locus_name} = $value;
@@ -966,7 +981,8 @@ sub _print_variable_loci {
 				print $fasta_fh ">$id\n";
 				print $fasta_fh "$loci->{$locus}->{$id}\n";
 			}
-			$$buffer_ref .= "<td>$values->{$id}->{$locus}</td>";
+			my $style = $self->{'style'}->{$locus}->{$values->{$id}->{$locus}};
+			$$buffer_ref .= "<td style=\"$style\">$values->{$id}->{$locus}</td>";
 			$file_buffer .= "\t$values->{$id}->{$locus}";
 		}
 		$$buffer_ref .= "</tr>";
@@ -1127,10 +1143,11 @@ sub _print_locus_table {
 			print $fh "\t$loci->{$locus}->{'desc'}\t$length\t$start\t1";
 		}
 		foreach my $id (@$ids) {
-			$$buffer_ref .= "<td>$values->{$id}->{$locus}</td>";
+			my $style = $self->{'style'}->{$locus}->{$values->{$id}->{$locus}};
+			$$buffer_ref .= "<td style=\"$style\">$values->{$id}->{$locus}</td>";
 			print $fh "\t$values->{$id}->{$locus}";
 		}
-		$$buffer_ref .= "</tr>";
+		$$buffer_ref .= "</tr>\n";
 		print $fh "\n";
 		$td = $td == 1 ? 2 : 1;
 	}
@@ -1405,4 +1422,5 @@ sub _create_isolate_FASTA_db {
 	}
 	return $temp_infile;
 }
+
 1;
