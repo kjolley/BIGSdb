@@ -29,6 +29,7 @@ use Bio::Perl;
 use Bio::SeqIO;
 use Bio::AlignIO;
 use BIGSdb::Utils;
+use constant DEFAULT_LIMIT => 200;
 
 sub get_attributes {
 	my %att = (
@@ -147,7 +148,7 @@ HTML
 			return;
 		}
 	}
-	my $limit = $self->{'system'}->{'XMFA_limit'} || 200;
+	my $limit = $self->{'system'}->{'XMFA_limit'} || DEFAULT_LIMIT;
 	print <<"HTML";
 <div class="box" id="queryform">
 <p>This script will export allele sequences in Extended Multi-FASTA (XMFA) format suitable for loading into third-party
@@ -228,6 +229,11 @@ sub run_job {
 			@list = @{ $self->{'datastore'}->run_list_query($qry) };
 		}
 	}
+	my $limit = $self->{'system'}->{'XMFA_limit'} || DEFAULT_LIMIT;
+	if (@list > $limit){
+		my $message_html = "<p class=\"statusbad\">Please note that output is limited to the first $limit records.</p>\n";
+		$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => $message_html } );
+	}
 	my $progress = 0;
 	foreach my $locus_name (@selected_fields) {
 		my $locus;
@@ -244,7 +250,7 @@ sub run_job {
 		my $muscle_file = "$self->{'config'}->{secure_tmp_dir}/$temp.muscle";
 		open( my $fh_muscle, '>', "$temp_file" ) or $logger->error("could not open temp file $temp_file");
 		my $count = 0;
-		my $limit = $self->{'system'}->{'XMFA_limit'} || 200;
+		
 		foreach my $id (@list) {
 			last if $count == $limit;
 			$count++;
