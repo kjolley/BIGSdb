@@ -93,6 +93,11 @@ END
 	return $buffer;
 }
 
+sub get_option_list {
+	my @list = ( { name => 'use_all', description => 'List isolates without sequence bin data' } );
+	return \@list;
+}
+
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	my @loci = split /\|\|/, $params->{'locus'} // '';
@@ -195,7 +200,7 @@ sub run {
 		my $scheme_string = "@selected_schemes";
 		$q->param( 'scheme_id', $scheme_string );
 		$q->param( 'ref_upload', $ref_upload ) if $ref_upload;
-		my $user_info = $self->{'datastore'}->get_user_info_from_username($self->{'username'});
+		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		if ($continue) {
 			my $params = $q->Vars;
 			my $job_id = $self->{'jobManager'}->add_job(
@@ -247,8 +252,21 @@ sub _print_interface {
 	my $query_file = $q->param('query_file');
 	my $qry_ref    = $self->get_query($query_file);
 	my $selected_ids = defined $query_file ? $self->get_ids_from_query($qry_ref) : [];
-	my $qry =
-"SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM sequence_bin LEFT JOIN $view ON $view.id=sequence_bin.isolate_id ORDER BY $view.id";
+	my $guid = $self->get_guid;
+	my $qry;
+	my $use_all;
+	try {
+		my $pref = $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'GenomeComparator', 'use_all' );
+		$use_all = (defined $pref && $pref eq 'true') ? 1 : 0;
+	} catch BIGSdb::DatabaseNoRecordException with {
+		$use_all = 0;
+	};
+	if ($use_all){
+		$qry = "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM $view ORDER BY $view.id";
+	} else {	
+		$qry = "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM sequence_bin LEFT JOIN $view "
+		. "ON $view.id=sequence_bin.isolate_id ORDER BY $view.id";
+	}
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
 	$logger->error($@) if $@;
@@ -568,7 +586,7 @@ sub _analyse_by_reference {
 	my $html_buffer = "<h3>Analysis by reference genome</h3>";
 	my %att;
 	eval {
-		%att         = (
+		%att = (
 			'accession'   => $accession,
 			'version'     => $seq_obj->seq_version,
 			'type'        => $seq_obj->alphabet,
@@ -577,7 +595,7 @@ sub _analyse_by_reference {
 			'cds'         => scalar @cds
 		);
 	};
-	if ($@){
+	if ($@) {
 		throw BIGSdb::PluginException("Invalid data in reference genome.");
 	}
 	my %abb = ( 'cds' => 'coding regions' );
@@ -585,7 +603,6 @@ sub _analyse_by_reference {
 	my $td = 1;
 	my $file_buffer = "Analysis by reference genome\n\nTime: " . ( localtime(time) ) . "\n\n";
 	foreach (qw (accession version type length description cds)) {
-
 		if ( $att{$_} ) {
 			$html_buffer .= "<tr class=\"td$td\"><th>" . ( $abb{$_} || $_ ) . "</th><td style=\"text-align:left\">$att{$_}</td></tr>";
 			$file_buffer .= ( $abb{$_} || $_ ) . ": $att{$_}\n";
@@ -818,15 +835,15 @@ sub _run_comparison {
 				}
 			}
 			my $style;
-			given($value){
-				when ('T') {$style = 'background:green; color:white'}
-				when ('X') {$style = 'background:black; color:white'}
+			given ($value) {
+				when ('T') { $style = 'background:green; color:white' }
+				when ('X') { $style = 'background:black; color:white' }
 				default {
-					if (!$value_colour{$value}){
+					if ( !$value_colour{$value} ) {
 						$colour++;
 						$value_colour{$value} = $colour;
 					}
-					$style = BIGSdb::Utils::get_style($value_colour{$value}, scalar @$ids);
+					$style = BIGSdb::Utils::get_style( $value_colour{$value}, scalar @$ids );
 				}
 			}
 			$self->{'style'}->{$locus_name}->{$value} = $style;
@@ -981,7 +998,7 @@ sub _print_variable_loci {
 				print $fasta_fh ">$id\n";
 				print $fasta_fh "$loci->{$locus}->{$id}\n";
 			}
-			my $style = $self->{'style'}->{$locus}->{$values->{$id}->{$locus}};
+			my $style = $self->{'style'}->{$locus}->{ $values->{$id}->{$locus} };
 			$$buffer_ref .= "<td style=\"$style\">$values->{$id}->{$locus}</td>";
 			$file_buffer .= "\t$values->{$id}->{$locus}";
 		}
@@ -1143,7 +1160,7 @@ sub _print_locus_table {
 			print $fh "\t$loci->{$locus}->{'desc'}\t$length\t$start\t1";
 		}
 		foreach my $id (@$ids) {
-			my $style = $self->{'style'}->{$locus}->{$values->{$id}->{$locus}};
+			my $style = $self->{'style'}->{$locus}->{ $values->{$id}->{$locus} };
 			$$buffer_ref .= "<td style=\"$style\">$values->{$id}->{$locus}</td>";
 			print $fh "\t$values->{$id}->{$locus}";
 		}
@@ -1422,5 +1439,4 @@ sub _create_isolate_FASTA_db {
 	}
 	return $temp_infile;
 }
-
 1;
