@@ -392,6 +392,7 @@ sub _check_data {
 				);
 				$self->_check_data_duplicates( \%args );
 				if ( $table eq 'sequences' ) {
+					$file_header_pos{'allele_id'} = keys %file_header_pos if !defined $file_header_pos{'allele_id'};
 					$self->_check_data_sequences( \%args );
 				} elsif ( $table eq 'allele_designations' ) {
 					$self->_check_data_allele_designations( \%args );
