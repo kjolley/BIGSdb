@@ -67,7 +67,7 @@ function listbox_selectall(listID, isSelect) {
 }
 
 function enable_seqs(){
-	if (\$("#accession").val() || \$("#ref_upload").val()){
+	if (\$("#accession").val() || \$("#ref_upload").val() || \$("#annotation").val()){
 		\$("#scheme_fieldset").hide(500);
 		\$("#locus_fieldset").hide(500);
 		\$("#tblastx").attr("disabled", false);
@@ -78,7 +78,7 @@ function enable_seqs(){
 		\$("#tblastx").attr("disabled", true);
 		\$("#use_tagged").attr("disabled", false);
 	}
-	if ((\$("#accession").val() || \$("#ref_upload").val()) && \$("#align").attr('checked')){
+	if ((\$("#accession").val() || \$("#ref_upload").val() || \$("#annotation").val()) && \$("#align").attr('checked')){
 		\$("#include_ref").attr("disabled", false);
 	} else {
 		\$("#include_ref").attr("disabled", true);
@@ -87,6 +87,9 @@ function enable_seqs(){
 
 \$(function () {
 	enable_seqs();
+	\$("#accession").bind("input propertychange", function () {
+		enable_seqs();
+	});
 });
 
 END
@@ -104,7 +107,7 @@ sub run_job {
 	my @ids = split /\|\|/, $params->{'isolate_id'};
 	my $filtered_ids = $self->_filter_ids_by_project( \@ids, $params->{'project_list'} );
 	my @scheme_ids = split /\|\|/, ( defined $params->{'scheme_id'} ? $params->{'scheme_id'} : '' );
-	my $accession  = $params->{'accession'};
+	my $accession  = $params->{'accession'} || $params->{'annotation'};
 	my $ref_upload = $params->{'ref_upload'};
 	if ( !@$filtered_ids ) {
 		$self->{'jobManager'}->update_job_status(
@@ -184,7 +187,7 @@ sub run {
 		$q->param( 'locus', uniq @cleaned_loci );
 		my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 		push @$scheme_ids, 0;
-		my $accession = $q->param('accession');
+		my $accession = $q->param('accession') || $q->param('annotation');
 		if ( !$accession && !$ref_upload && !@loci && ( none { $q->param("s_$_") } @$scheme_ids ) && $continue ) {
 			print "<div class=\"box\" id=\"statusbad\"><p>You must either select one or more loci or schemes, provide "
 			  . "a genome accession number, or upload an annotated genome.</p></div>\n";
@@ -290,7 +293,7 @@ by selecting the appropriate scheme description. Alternatively, you can enter th
 annotated reference genome and compare using the loci defined in that.</p>
 HTML
 	my ( $locus_list, $locus_labels ) = $self->get_field_selection_list( { 'loci' => 1, 'sort_labels' => 1 } );
-	print $q->start_form( -onMouseMove => 'enable_seqs()' );
+	print $q->start_form;
 	print "<div class=\"scrollable\">\n";
 	print "<fieldset style=\"float:left\">\n<legend>Isolates</legend>\n";
 	print $q->scrolling_list(
@@ -332,15 +335,37 @@ HTML
 		-name      => 'accession',
 		-id        => 'accession',
 		-size      => 10,
-		-maxlength => 20,
-		-onKeyUp   => 'enable_seqs()',
-		-onBlur    => 'enable_seqs()'
+		-maxlength => 20
 	);
 	print " <a class=\"tooltip\" title=\"Reference genome - Use of a reference genome will override any locus "
-	  . "or scheme settings.\">&nbsp;<i>i</i>&nbsp;</a><br />or upload Genbank/EMBL file:<br />";
+	  . "or scheme settings.\">&nbsp;<i>i</i>&nbsp;</a><br />";
+	  	  	if ( $self->{'system'}->{'annotation'} ) {
+		my @annotations = split /;/, $self->{'system'}->{'annotation'};
+		my @names = ('');
+		my %labels;
+		foreach (@annotations) {
+			my ( $accession, $name ) = split /\|/, $_;
+			if ( $accession && $name ) {
+				push @names, $accession;
+				$labels{$accession} = $name;
+			}
+		}
+		if (@names) {
+			print "or choose annotated genome:<br />\n";
+			print $q->popup_menu(
+				-name    => 'annotation',
+				-id      => 'annotation',
+				-values  => \@names,
+				-labels  => \%labels,
+				-onChange => 'enable_seqs()',
+			);
+		}
+		print "<br />\n";
+	}
+	  print "or upload Genbank/EMBL file:<br />";
 	print $q->filefield( -name => 'ref_upload', -id => 'ref_upload', -size => 10, -maxlength => 512, -onChange => 'enable_seqs()', );
 	print " <a class=\"tooltip\" title=\"Reference upload - File format is recognised by the extension in the "
-	  . "name.  Make sure your file has a standard extension, e.g. .gb, .embl.\">&nbsp;<i>i</i>&nbsp;</a>";
+	  . "name.  Make sure your file has a standard extension, e.g. .gb, .embl.\">&nbsp;<i>i</i>&nbsp;</a><br />\n";
 	print "</fieldset>\n<fieldset style=\"float:left\">\n<legend>Parameters / options</legend>\n";
 	print "<ul><li><label for =\"identity\" class=\"parameter\">Min % identity:</label>\n";
 	print $q->popup_menu(
@@ -376,7 +401,7 @@ query against the six-frame translation of the sequences in the sequence bin (se
 result in the same translated sequence even if the nucleotide sequence is different).  This is SLOWER than BLASTN. Use with
 caution.">&nbsp;<i>i</i>&nbsp;</a></span></li><li>
 HTML
-	print $q->checkbox( -name => 'align', -id => 'align', -label => 'Produce alignments (Clustal + XMFA)' );
+	print $q->checkbox( -name => 'align', -id => 'align', -label => 'Produce alignments (Clustal + XMFA)', -onChange=>"enable_seqs()" );
 	print <<"HTML";
  <a class=\"tooltip\" title=\"Alignments - Alignments will be produced in muscle for 
 any loci that vary between isolates. This may slow the analysis considerably.">&nbsp;<i>i</i>&nbsp;</a></li><li>
@@ -638,9 +663,9 @@ sub _extract_cds_details {
 			}
 		}
 	}
-	local $" = '|';
+	local $" = ' | ';
 	$locus_name = $locus;
-	$locus_name .= "|@aliases" if @aliases;
+	$locus_name .= " | @aliases" if @aliases;
 	my $seq = $cds->seq->seq;
 	return if !$seq;
 	$$seqs_total_ref++;
