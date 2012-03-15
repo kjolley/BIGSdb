@@ -475,6 +475,7 @@ sub _analyse_by_loci {
 	  . "'New#2' etc.\nMissing alleles are marked as 'X'. Truncated alleles (located at end of contig) are marked as 'T'.\n\n";
 	$self->_print_isolate_header( 0, $ids, \$file_buffer, \$html_buffer, );
 	$self->_run_comparison( 0, $job_id, $params, $ids, $loci, \$html_buffer, \$file_buffer );
+	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$job_id\*";
 	return;
 }
 
