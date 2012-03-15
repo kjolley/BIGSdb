@@ -29,6 +29,7 @@ use Apache2::Connection ();
 use Bio::SeqIO;
 use Bio::AlignIO;
 use List::MoreUtils qw(uniq any none);
+use Digest::MD5;
 use BIGSdb::Page qw(SEQ_METHODS LOCUS_PATTERNS);
 use constant MAX_UPLOAD_SIZE => 32768;
 use constant MAX_SPLITS_TAXA => 200;
@@ -107,7 +108,7 @@ sub run_job {
 	my @ids = split /\|\|/, $params->{'isolate_id'};
 	my $filtered_ids = $self->_filter_ids_by_project( \@ids, $params->{'project_list'} );
 	my @scheme_ids = split /\|\|/, ( defined $params->{'scheme_id'} ? $params->{'scheme_id'} : '' );
-	my $accession  = $params->{'accession'} || $params->{'annotation'};
+	my $accession = $params->{'accession'} || $params->{'annotation'};
 	my $ref_upload = $params->{'ref_upload'};
 	if ( !@$filtered_ids ) {
 		$self->{'jobManager'}->update_job_status(
@@ -260,22 +261,22 @@ sub _print_interface {
 	my $use_all;
 	try {
 		my $pref = $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'GenomeComparator', 'use_all' );
-		$use_all = (defined $pref && $pref eq 'true') ? 1 : 0;
-	} catch BIGSdb::DatabaseNoRecordException with {
+		$use_all = ( defined $pref && $pref eq 'true' ) ? 1 : 0;
+	}
+	catch BIGSdb::DatabaseNoRecordException with {
 		$use_all = 0;
 	};
-	if ($use_all){
+	if ($use_all) {
 		$qry = "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM $view ORDER BY $view.id";
-	} else {	
+	} else {
 		$qry = "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM sequence_bin LEFT JOIN $view "
-		. "ON $view.id=sequence_bin.isolate_id ORDER BY $view.id";
+		  . "ON $view.id=sequence_bin.isolate_id ORDER BY $view.id";
 	}
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
 	$logger->error($@) if $@;
 	my @ids;
 	my %labels;
-
 	while ( my ( $id, $isolate ) = $sql->fetchrow_array ) {
 		next if !defined $id;
 		push @ids, $id;
@@ -331,15 +332,11 @@ HTML
 	print "</div>\n</fieldset>\n";
 	print "<fieldset style=\"float:left\">\n<legend>Reference genome</legend>\n";
 	print "Enter accession number:<br />\n";
-	print $q->textfield(
-		-name      => 'accession',
-		-id        => 'accession',
-		-size      => 10,
-		-maxlength => 20
-	);
+	print $q->textfield( -name => 'accession', -id => 'accession', -size => 10, -maxlength => 20 );
 	print " <a class=\"tooltip\" title=\"Reference genome - Use of a reference genome will override any locus "
 	  . "or scheme settings.\">&nbsp;<i>i</i>&nbsp;</a><br />";
-	  	  	if ( $self->{'system'}->{'annotation'} ) {
+
+	if ( $self->{'system'}->{'annotation'} ) {
 		my @annotations = split /;/, $self->{'system'}->{'annotation'};
 		my @names = ('');
 		my %labels;
@@ -353,16 +350,16 @@ HTML
 		if (@names) {
 			print "or choose annotated genome:<br />\n";
 			print $q->popup_menu(
-				-name    => 'annotation',
-				-id      => 'annotation',
-				-values  => \@names,
-				-labels  => \%labels,
+				-name     => 'annotation',
+				-id       => 'annotation',
+				-values   => \@names,
+				-labels   => \%labels,
 				-onChange => 'enable_seqs()',
 			);
 		}
 		print "<br />\n";
 	}
-	  print "or upload Genbank/EMBL file:<br />";
+	print "or upload Genbank/EMBL file:<br />";
 	print $q->filefield( -name => 'ref_upload', -id => 'ref_upload', -size => 10, -maxlength => 512, -onChange => 'enable_seqs()', );
 	print " <a class=\"tooltip\" title=\"Reference upload - File format is recognised by the extension in the "
 	  . "name.  Make sure your file has a standard extension, e.g. .gb, .embl.\">&nbsp;<i>i</i>&nbsp;</a><br />\n";
@@ -401,7 +398,7 @@ query against the six-frame translation of the sequences in the sequence bin (se
 result in the same translated sequence even if the nucleotide sequence is different).  This is SLOWER than BLASTN. Use with
 caution.">&nbsp;<i>i</i>&nbsp;</a></span></li><li>
 HTML
-	print $q->checkbox( -name => 'align', -id => 'align', -label => 'Produce alignments (Clustal + XMFA)', -onChange=>"enable_seqs()" );
+	print $q->checkbox( -name => 'align', -id => 'align', -label => 'Produce alignments (Clustal + XMFA)', -onChange => "enable_seqs()" );
 	print <<"HTML";
  <a class=\"tooltip\" title=\"Alignments - Alignments will be produced in muscle for 
 any loci that vary between isolates. This may slow the analysis considerably.">&nbsp;<i>i</i>&nbsp;</a></li><li>
@@ -709,6 +706,7 @@ sub _run_comparison {
 		$program = 'blastn';
 		$word_size = $params->{'word_size'} =~ /^(\d+)$/ ? $1 : 15;
 	}
+	my @loci;
 	foreach my $cds (@$cds) {
 		$progress++;
 		my $complete = int( 100 * $progress / $total );
@@ -737,6 +735,7 @@ sub _run_comparison {
 			$locus_name   = $self->clean_locus($cds);
 			$locus_info   = $self->{'datastore'}->get_locus_info($cds);
 		}
+		push @loci, $locus_name;
 		my $seqbin_length_sql    = $self->{'db'}->prepare("SELECT length(sequence) FROM sequence_bin where id=?");
 		my $all_exact            = 1;
 		my $missing_in_all       = 1;
@@ -921,6 +920,7 @@ sub _run_comparison {
 	$self->_print_truncated_loci( $by_reference, $ids, $html_buffer_ref, $job_file, $truncated_loci, $values );
 	$$html_buffer_ref .= "<p class=\"statusbad\">No sequences were extracted from reference file.</p>\n"
 	  if ( !$seqs_total && $by_reference );
+	$self->_identify_strains( $ids, $html_buffer_ref, $job_file, \@loci, $values );
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$html_buffer_ref } );
 	close $job_fh;
 	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$prefix\*";
@@ -950,6 +950,60 @@ sub _run_comparison {
 	return;
 }
 
+sub _identify_strains {
+	my ( $self, $ids, $buffer_ref, $job_file, $loci, $values ) = @_;
+	my %strains;
+	my $strain_isolates;
+	foreach my $id (@$ids) {
+		my $profile;
+		foreach my $locus (@$loci) {
+			$profile .= $values->{$id}->{$locus} . '|';
+		}
+		my $profile_hash = Digest::MD5::md5_hex($profile); #key could get very long otherwise
+		$strains{$profile_hash}++;
+		push @{$strain_isolates->{$profile_hash}}, $self->_get_isolate_name($id);
+	}
+	$$buffer_ref .= "<h3>Unique strains</h3>";
+	my $file_buffer = "\n###\n\n";
+	$file_buffer .= "Unique strains\n";
+	$file_buffer .= "--------------\n";
+	my $num_strains = keys %strains;
+	$$buffer_ref .= "<p>Unique strains: $num_strains</p>\n";
+	$file_buffer .= "Unique strains: $num_strains\n";
+	$$buffer_ref .= "<div class=\"scrollable\"><table><tr>";
+	$$buffer_ref .= "<th>Strain $_</th>" foreach (1 .. $num_strains);
+	$$buffer_ref .= "</tr>\n<tr>";
+	my $td = 1;
+	my $strain_id = 1;
+	foreach my $strain ( sort { $strains{$b} <=> $strains{$a} } keys %strains ) {
+		$$buffer_ref .= "<td class=\"td$td\" style=\"vertical-align:top\">";
+		$$buffer_ref .= "$_<br />\n" foreach @{$strain_isolates->{$strain}};
+		$$buffer_ref .= "</td>\n";
+		$td = $td == 1 ? 2 : 1;
+		$file_buffer .= "\nStrain $strain_id:\n";
+		$file_buffer .= "$_\n" foreach @{$strain_isolates->{$strain}};
+		$strain_id++;
+	}
+	$$buffer_ref .= "</tr></table></div>\n";
+	open( my $job_fh, '>>', $job_file ) || $logger->error("Can't open $job_file for appending");
+	print $job_fh $file_buffer;
+	close $job_fh;
+	
+	return;
+}
+
+sub _get_isolate_name {
+	my ( $self, $id ) = @_;
+	my $isolate = $id;
+	my $isolate_ref =
+	  $self->{'datastore'}
+	  ->run_simple_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?", $id );
+	if ( ref $isolate_ref eq 'ARRAY' ) {
+		$isolate .= ' (' . ( $isolate_ref->[0] ) . ')' if ref $isolate_ref eq 'ARRAY';
+	}
+	return $isolate;
+}
+
 sub _print_isolate_header {
 	my ( $self, $by_reference, $ids, $file_buffer_ref, $html_buffer_ref ) = @_;
 	$$html_buffer_ref .= "<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Locus</th>";
@@ -959,15 +1013,9 @@ sub _print_isolate_header {
 		$$file_buffer_ref .= "\tProduct\tSequence length\tGenome position\tReference genome";
 	}
 	foreach my $id (@$ids) {
-		my $isolate;
-		my $isolate_ref =
-		  $self->{'datastore'}
-		  ->run_simple_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?", $id );
-		if ( ref $isolate_ref eq 'ARRAY' ) {
-			$isolate = ' (' . ( $isolate_ref->[0] ) . ')' if ref $isolate_ref eq 'ARRAY';
-		}
-		$$html_buffer_ref .= "<th>$id$isolate</th>";
-		$$file_buffer_ref .= "\t$id$isolate";
+		my $isolate = $self->_get_isolate_name($id);
+		$$html_buffer_ref .= "<th>$isolate</th>";
+		$$file_buffer_ref .= "\t$isolate";
 	}
 	$$html_buffer_ref .= "</tr>";
 	$$file_buffer_ref .= "\n";
