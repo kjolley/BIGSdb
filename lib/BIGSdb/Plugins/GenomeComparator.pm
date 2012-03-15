@@ -79,6 +79,11 @@ function enable_seqs(){
 		\$("#tblastx").attr("disabled", true);
 		\$("#use_tagged").attr("disabled", false);
 	}
+	if (\$("#align").attr('checked')){
+		\$("#align_all").attr("disabled", false);
+	} else {
+		\$("#align_all").attr("disabled", true);
+	}
 	if ((\$("#accession").val() || \$("#ref_upload").val() || \$("#annotation").val()) && \$("#align").attr('checked')){
 		\$("#include_ref").attr("disabled", false);
 	} else {
@@ -403,9 +408,11 @@ HTML
  <a class=\"tooltip\" title=\"Alignments - Alignments will be produced in muscle for 
 any loci that vary between isolates. This may slow the analysis considerably.">&nbsp;<i>i</i>&nbsp;</a></li><li>
 HTML
-	print $q->checkbox( -name => 'include_ref', -id => 'include_ref', -label => 'Include ref sequences in alignment', -checked => 'true' );
+	print $q->checkbox( -name => 'include_ref', -id => 'include_ref', -label => 'Include ref sequences in alignment', -checked => 1 );
 	print "</li><li>";
-	print $q->checkbox( -name => 'use_tagged', -id => 'use_tagged', -label => 'Use tagged designations if available', -checked => 'true' );
+	print $q->checkbox( -name => 'align_all', -id => 'align_all', -label => 'Align all loci (not only variable)' );
+	print "</li><li>";
+	print $q->checkbox( -name => 'use_tagged', -id => 'use_tagged', -label => 'Use tagged designations if available', -checked => 1 );
 	print <<"HTML";
 </li></ul></fieldset><fieldset style="float:left"><legend>Restrict included sequences by</legend><ul>
 HTML
@@ -706,7 +713,7 @@ sub _run_comparison {
 		$program = 'blastn';
 		$word_size = $params->{'word_size'} =~ /^(\d+)$/ ? $1 : 15;
 	}
-	my @loci;
+	my $loci;
 	foreach my $cds (@$cds) {
 		$progress++;
 		my $complete = int( 100 * $progress / $total );
@@ -730,12 +737,13 @@ sub _run_comparison {
 			$length = length $$seq_ref;
 			$length = int( $length / 3 ) if $params->{'tblastx'};
 			$ref_seq_file = $self->_create_reference_FASTA_file( $seq_ref, $prefix );
+			$loci->{$locus_name}->{'ref'} = $$seq_ref;
 		} else {
 			$ref_seq_file = $self->_create_locus_FASTA_db( $cds, $job_id );
 			$locus_name   = $self->clean_locus($cds);
 			$locus_info   = $self->{'datastore'}->get_locus_info($cds);
 		}
-		push @loci, $locus_name;
+		
 		my $seqbin_length_sql    = $self->{'db'}->prepare("SELECT length(sequence) FROM sequence_bin where id=?");
 		my $all_exact            = 1;
 		my $missing_in_all       = 1;
@@ -875,6 +883,7 @@ sub _run_comparison {
 			$$file_buffer_ref .= "\t$value";
 			$first = 0;
 			$values->{$id}->{$locus_name} = $value;
+			$loci->{$locus_name}->{$id} = $seqs{$id};	
 		}
 		$td = $td == 1 ? 2 : 1;
 		$$html_buffer_ref .= "</tr>\n";
@@ -899,6 +908,7 @@ sub _run_comparison {
 			$truncated_loci->{$locus_name}->{'desc'}   = $desc;
 			$truncated_loci->{$locus_name}->{'start'}  = $start;
 		} else {
+			$varying_loci->{$locus_name}->{'length'} = length $$seq_ref if $by_reference;
 			$varying_loci->{$locus_name}->{$_} = $seqs{$_} foreach ( keys %seqs );
 			$varying_loci->{$locus_name}->{'desc'}  = $desc;
 			$varying_loci->{$locus_name}->{'start'} = $start;
@@ -910,7 +920,10 @@ sub _run_comparison {
 	open( my $job_fh, '>', $job_file ) || $logger->error("Can't open $job_file for writing");
 	print $job_fh $$file_buffer_ref;
 	close $job_fh;
-	$self->_print_variable_loci( $by_reference, $job_id, $html_buffer_ref, $job_file, $align_file, $params, $ids, $varying_loci, $values );
+	if ($params->{'align'}){
+		$self->_create_alignments( $job_id, $by_reference, $align_file, $ids, ($params->{'align_all'} ? $loci : $varying_loci), $params );
+	}
+	$self->_print_variable_loci( $by_reference, $ids, $html_buffer_ref, $job_file, $varying_loci, $values );
 	$self->_print_missing_in_all( $by_reference, $ids, $html_buffer_ref, $job_file, $all_missing, $values );
 	$self->_print_exact_matches( $by_reference, $ids, $html_buffer_ref, $job_file, $exacts, $params, $values );
 
@@ -920,7 +933,7 @@ sub _run_comparison {
 	$self->_print_truncated_loci( $by_reference, $ids, $html_buffer_ref, $job_file, $truncated_loci, $values );
 	$$html_buffer_ref .= "<p class=\"statusbad\">No sequences were extracted from reference file.</p>\n"
 	  if ( !$seqs_total && $by_reference );
-	$self->_identify_strains( $ids, $html_buffer_ref, $job_file, \@loci, $values );
+	$self->_identify_strains( $ids, $html_buffer_ref, $job_file, $loci, $values );
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$html_buffer_ref } );
 	close $job_fh;
 	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$prefix\*";
@@ -956,39 +969,39 @@ sub _identify_strains {
 	my $strain_isolates;
 	foreach my $id (@$ids) {
 		my $profile;
-		foreach my $locus (@$loci) {
+		foreach my $locus (keys %$loci) {
 			$profile .= $values->{$id}->{$locus} . '|';
 		}
-		my $profile_hash = Digest::MD5::md5_hex($profile); #key could get very long otherwise
+		my $profile_hash = Digest::MD5::md5_hex($profile);    #key could get very long otherwise
 		$strains{$profile_hash}++;
-		push @{$strain_isolates->{$profile_hash}}, $self->_get_isolate_name($id);
+		push @{ $strain_isolates->{$profile_hash} }, $self->_get_isolate_name($id);
 	}
 	$$buffer_ref .= "<h3>Unique strains</h3>";
 	my $file_buffer = "\n###\n\n";
 	$file_buffer .= "Unique strains\n";
-	$file_buffer .= "--------------\n";
+	$file_buffer .= "--------------\n\n";
 	my $num_strains = keys %strains;
 	$$buffer_ref .= "<p>Unique strains: $num_strains</p>\n";
 	$file_buffer .= "Unique strains: $num_strains\n";
 	$$buffer_ref .= "<div class=\"scrollable\"><table><tr>";
-	$$buffer_ref .= "<th>Strain $_</th>" foreach (1 .. $num_strains);
+	$$buffer_ref .= "<th>Strain $_</th>" foreach ( 1 .. $num_strains );
 	$$buffer_ref .= "</tr>\n<tr>";
-	my $td = 1;
+	my $td        = 1;
 	my $strain_id = 1;
+
 	foreach my $strain ( sort { $strains{$b} <=> $strains{$a} } keys %strains ) {
 		$$buffer_ref .= "<td class=\"td$td\" style=\"vertical-align:top\">";
-		$$buffer_ref .= "$_<br />\n" foreach @{$strain_isolates->{$strain}};
+		$$buffer_ref .= "$_<br />\n" foreach @{ $strain_isolates->{$strain} };
 		$$buffer_ref .= "</td>\n";
 		$td = $td == 1 ? 2 : 1;
 		$file_buffer .= "\nStrain $strain_id:\n";
-		$file_buffer .= "$_\n" foreach @{$strain_isolates->{$strain}};
+		$file_buffer .= "$_\n" foreach @{ $strain_isolates->{$strain} };
 		$strain_id++;
 	}
 	$$buffer_ref .= "</tr></table></div>\n";
 	open( my $job_fh, '>>', $job_file ) || $logger->error("Can't open $job_file for appending");
 	print $job_fh $file_buffer;
 	close $job_fh;
-	
 	return;
 }
 
@@ -996,8 +1009,7 @@ sub _get_isolate_name {
 	my ( $self, $id ) = @_;
 	my $isolate = $id;
 	my $isolate_ref =
-	  $self->{'datastore'}
-	  ->run_simple_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?", $id );
+	  $self->{'datastore'}->run_simple_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?", $id );
 	if ( ref $isolate_ref eq 'ARRAY' ) {
 		$isolate .= ' (' . ( $isolate_ref->[0] ) . ')' if ref $isolate_ref eq 'ARRAY';
 	}
@@ -1023,7 +1035,7 @@ sub _print_isolate_header {
 }
 
 sub _print_variable_loci {
-	my ( $self, $by_reference, $job_id, $buffer_ref, $job_filename, $align_file, $params, $ids, $loci, $values ) = @_;
+	my ( $self, $by_reference, $ids, $buffer_ref, $job_filename, $loci, $values ) = @_;
 	return if ref $loci ne 'HASH';
 	$$buffer_ref .= "<h3>Loci with sequence differences between isolates:</h3>";
 	my $file_buffer = "\n###\n\n";
@@ -1031,8 +1043,15 @@ sub _print_variable_loci {
 	$file_buffer .= "-----------------------------------------------\n\n";
 	$$buffer_ref .= "<p>Variable loci: " . ( scalar keys %$loci ) . "</p>";
 	$file_buffer .= "Variable loci: " . ( scalar keys %$loci ) . "\n\n";
-	$self->_print_isolate_header( $by_reference, $ids, \$file_buffer, $buffer_ref );
-	my $td = 1;
+	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
+	print $job_fh $file_buffer;
+	$self->_print_locus_table( $by_reference, $ids, $buffer_ref, $job_fh, $loci, $values );
+	close $job_fh;
+	return;
+}
+
+sub _create_alignments {
+	my ( $self, $job_id, $by_reference, $align_file, $ids, $loci, $params ) = @_;
 	my $count;
 	my $temp       = BIGSdb::Utils::get_random();
 	my $progress   = 0;
@@ -1044,21 +1063,13 @@ sub _print_variable_loci {
 	foreach my $locus ( sort keys %$loci ) {
 		$progress++;
 		my $complete = 50 + int( 100 * $progress / $total );
-		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } ) if $params->{'align'};
+		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } );
 		( my $escaped_locus = $locus ) =~ s/[\/\|]/_/g;
-		my $fasta_file    = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.fasta";
-		my $muscle_out    = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.muscle";
-		my $cleaned_locus = $self->clean_locus($locus);
-		my $start         = $loci->{$locus}->{'start'};
-		my $seq_count     = 0;
-		$$buffer_ref .= "<tr class=\"td$td\"><td>$cleaned_locus</td>";
-		$file_buffer .= "$locus";
+		my $fasta_file = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.fasta";
+		my $muscle_out = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.muscle";
 
-		if ($by_reference) {
-			my $length = length( $loci->{$locus}->{'ref'} );
-			$$buffer_ref .= "<td>$loci->{$locus}->{'desc'}</td><td>$length</td><td>$start</td><td>1</td>";
-			$file_buffer .= "\t$loci->{$locus}->{'desc'}\t$length\t$start\t1";
-		}
+		#my $start         = $loci->{$locus}->{'start'};
+		my $seq_count = 0;
 		open( my $fasta_fh, '>', $fasta_file ) || $logger->error("Can't open $fasta_file for writing");
 		if ( $by_reference && $params->{'include_ref'} ) {
 			print $fasta_fh ">ref\n";
@@ -1071,13 +1082,7 @@ sub _print_variable_loci {
 				print $fasta_fh ">$id\n";
 				print $fasta_fh "$loci->{$locus}->{$id}\n";
 			}
-			my $style = $self->{'style'}->{$locus}->{ $values->{$id}->{$locus} };
-			$$buffer_ref .= "<td style=\"$style\">$values->{$id}->{$locus}</td>";
-			$file_buffer .= "\t$values->{$id}->{$locus}";
 		}
-		$$buffer_ref .= "</tr>";
-		$file_buffer .= "\n";
-		$td = $td == 1 ? 2 : 1;
 		close $fasta_fh;
 		if ( $params->{'align'} ) {
 			$self->_run_muscle(
@@ -1096,10 +1101,6 @@ sub _print_variable_loci {
 		}
 		unlink $fasta_file;
 	}
-	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
-	print $job_fh $file_buffer;
-	close $job_fh;
-	$$buffer_ref .= "</table></div>";
 	return;
 }
 
