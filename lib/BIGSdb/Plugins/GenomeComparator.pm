@@ -414,7 +414,9 @@ HTML
 	print "</li><li>";
 	print $q->checkbox( -name => 'use_tagged', -id => 'use_tagged', -label => 'Use tagged designations if available', -checked => 1 );
 	print <<"HTML";
-</li></ul></fieldset><fieldset style="float:left"><legend>Restrict included sequences by</legend><ul>
+ <a class=\"tooltip\" title=\"Tagged desginations - Allele sequences will be extracted from the definition database based on allele 
+designation rather than by BLAST.  This should be much quicker. Peptide loci, however, are always extracted using BLAST.">
+&nbsp;<i>i</i>&nbsp;</a></li></ul></fieldset><fieldset style="float:left"><legend>Restrict included sequences by</legend><ul>
 HTML
 	my $buffer = $self->get_sequence_method_filter( { 'class' => 'parameter' } );
 	print "<li>$buffer</li>" if $buffer;
@@ -715,9 +717,6 @@ sub _run_comparison {
 	}
 	my $loci;
 	foreach my $cds (@$cds) {
-		$progress++;
-		my $complete = int( 100 * $progress / $total );
-		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete } );
 		my %seqs;
 		my $seq_ref;
 		my ( $locus_name, $locus_info, $length, $start, $desc, $ref_seq_file );
@@ -771,7 +770,7 @@ sub _run_comparison {
 			my $extracted_seq;
 			my $value;
 			if ( !$by_reference ) {
-				if ( $params->{'use_tagged'} ) {
+				if ( $params->{'use_tagged'} && $locus_info->{'data_type'} eq 'DNA') {
 					my $allele_id = $self->{'datastore'}->get_allele_id( $id, $cds );
 					if ( defined $allele_id ) {
 						$match->{'exact'}  = 1;
@@ -913,6 +912,8 @@ sub _run_comparison {
 			$varying_loci->{$locus_name}->{'desc'}  = $desc;
 			$varying_loci->{$locus_name}->{'start'} = $start;
 		}
+		$progress++;
+		my $complete = int( 100 * $progress / $total );
 		$self->{'jobManager'}
 		  ->update_job_status( $job_id, { percent_complete => $complete, message_html => "$$html_buffer_ref$close_table" } );
 	}
