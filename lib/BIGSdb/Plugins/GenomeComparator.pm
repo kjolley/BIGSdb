@@ -1431,8 +1431,11 @@ sub _parse_blast_ref {
 			$match->{'alignment'} = $record[3];
 			$match->{'start'}     = $record[8];
 			$match->{'end'}       = $record[9];
-			$match->{'reverse'}   = 1
-			  if ( ( $record[8] > $record[9] && $record[7] > $record[6] ) || ( $record[8] < $record[9] && $record[7] < $record[6] ) );
+			if ( ( $record[8] > $record[9] && $record[7] > $record[6] ) || ( $record[8] < $record[9] && $record[7] < $record[6] ) ){
+				$match->{'reverse'}   = 1;
+			} else {
+				$match->{'reverse'}   = 0;
+			}
 			if ( $required_alignment > $match->{'alignment'} ) {
 
 				if ( $match->{'reverse'} ) {
