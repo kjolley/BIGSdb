@@ -39,6 +39,7 @@ sub print_content {
 	{
 		no warnings 'uninitialized';
 		%helpers = (
+			'EMBOSS infoalign' => $self->{'config'}->{'emboss_path'} . '/infoalign',
 			'EMBOSS sixpack'   => $self->{'config'}->{'emboss_path'} . '/sixpack',
 			'EMBOSS stretcher' => $self->{'config'}->{'emboss_path'} . '/stretcher',
 			'blastn'           => $self->{'config'}->{'blast+_path'} . '/blastn',

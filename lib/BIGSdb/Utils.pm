@@ -251,10 +251,15 @@ sub round_to_nearest {
 }
 
 sub append {
-	my ( $source_file, $destination_file ) = @_;
+	my ( $source_file, $destination_file, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	open( my $fh1, '<',  $source_file );
 	open( my $fh,  '>>', $destination_file );
+	print $fh "\n" if $options->{'blank_before'};
+	print $fh "<pre>\n" if $options->{'preformatted'};
 	print $fh $_ while <$fh1>;
+	print $fh "</pre>\n" if $options->{'preformatted'};
+	print $fh "\n" if $options->{'blank_after'};
 	close $fh;
 	close $fh1;
 	return;
