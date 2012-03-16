@@ -213,16 +213,17 @@ sub run {
 		$q->param( 'scheme_id', $scheme_string );
 		$q->param( 'ref_upload', $ref_upload ) if $ref_upload;
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-		my $guid = $self->get_guid;
+		my $guid      = $self->get_guid;
 		my $html;
 		try {
-			my $pref = $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'GenomeComparator', 'html_alignments' );
+			my $pref =
+			  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'GenomeComparator', 'html_alignments' );
 			$html = ( defined $pref && $pref eq 'true' ) ? 1 : 0;
 		}
 		catch BIGSdb::DatabaseNoRecordException with {
 			$html = 1;
 		};
-		$q->param('html', $html);
+		$q->param( 'html', $html );
 		if ($continue) {
 			my $params = $q->Vars;
 			my $job_id = $self->{'jobManager'}->add_job(
@@ -716,7 +717,7 @@ sub _run_comparison {
 	my ( $exacts, $exact_except_ref, $all_missing, $truncated_loci, $varying_loci );
 	my ( $word_size, $program );
 	my $job_file   = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
-	my $align_file = "$self->{'config'}->{'tmp_dir'}/$job_id\_align" . ($params->{'html'} ? '.html' : '.txt');
+	my $align_file = "$self->{'config'}->{'tmp_dir'}/$job_id\_align" . ( $params->{'html'} ? '.html' : '.txt' );
 	my $prefix     = BIGSdb::Utils::get_random();
 	my $values;
 	my %isolate_FASTA;
@@ -935,8 +936,8 @@ sub _run_comparison {
 	print $job_fh $$file_buffer_ref;
 	close $job_fh;
 	if ( $params->{'align'} ) {
-		if ($params->{'html'}){
-			open (my $align_fh, '>', $align_file) || $logger->error("Can't open $align_file for writing");
+		if ( $params->{'html'} ) {
+			open( my $align_fh, '>', $align_file ) || $logger->error("Can't open $align_file for writing");
 			print $align_fh <<"HTML";
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
    "http://www.w3.org/TR/html4/strict.dtd">
@@ -949,7 +950,7 @@ HTML
 			close $align_fh;
 		}
 		$self->_create_alignments( $job_id, $by_reference, $align_file, $ids, ( $params->{'align_all'} ? $loci : $varying_loci ), $params );
-		open (my $align_fh, '>>', $align_file) || $logger->error("Can't open $align_file for appending");
+		open( my $align_fh, '>>', $align_file ) || $logger->error("Can't open $align_file for appending");
 		print $align_fh "</body></html>\n" if $params->{'html'};
 		close $align_fh;
 	}
@@ -972,7 +973,8 @@ HTML
 	$self->_generate_splits( $job_id, $values, \@ignore_loci );
 
 	if ( @$ids > 1 && $params->{'align'} ) {
-		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align". ($params->{'html'} ? '.html' : '.txt'), description => '30_Alignments' } )
+		$self->{'jobManager'}->update_job_output( $job_id,
+			{ filename => "$job_id\_align" . ( $params->{'html'} ? '.html' : '.txt' ), description => '30_Alignments' } )
 		  if -e $align_file;
 		if ( -e "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa" ) {
 			$self->{'jobManager'}
@@ -1126,7 +1128,8 @@ sub _create_alignments {
 					xmfa_out       => $xmfa_out,
 					xmfa_start_ref => \$xmfa_start,
 					xmfa_end_ref   => \$xmfa_end,
-				}, $params
+				},
+				$params
 			);
 		}
 		unlink $fasta_file;
@@ -1139,7 +1142,7 @@ sub _run_infoalign {
 	if ( -e "$self->{'config'}->{'emboss_path'}/infoalign" ) {
 		my $prefix  = BIGSdb::Utils::get_random();
 		my $outfile = "$self->{'config'}->{'secure_tmp_dir'}/$prefix.infoalign";
-		my $html = $params->{'html'} ? '-html' : '-nohtml';
+		my $html    = $params->{'html'} ? '-html' : '-nohtml';
 		system(
 "$self->{'config'}->{'emboss_path'}/infoalign -sequence $values->{'alignment'} -outfile $outfile -nousa -nosimcount -noweight -nodescription $html 2> /dev/null"
 		);
@@ -1175,14 +1178,18 @@ sub _run_muscle {
 		close $fh_xmfa;
 		${ $values->{'xmfa_start_ref'} } = ${ $values->{'xmfa_end_ref'} } + 1;
 		open( my $align_fh, '>>', $values->{'align_file'} ) || $logger->error("Can't open $values->{'align_file'} for appending");
-		if ($params->{'html'}){
+		if ( $params->{'html'} ) {
 			print $align_fh "<h2>$values->{'locus'}</h2>\n";
 		} else {
 			print $align_fh "$values->{'locus'}\n";
 			print $align_fh '-' x ( length $values->{'locus'} ) . "\n\n";
 		}
 		close $align_fh;
-		BIGSdb::Utils::append( $values->{'muscle_out'}, $values->{'align_file'}, { blank_after => 1, preformatted => ($params->{'html'} ? 1: 0) } );
+		BIGSdb::Utils::append(
+			$values->{'muscle_out'},
+			$values->{'align_file'},
+			{ blank_after => 1, preformatted => ( $params->{'html'} ? 1 : 0 ) }
+		);
 		$self->_run_infoalign( { alignment => $values->{'muscle_out'}, align_file => $values->{'align_file'} }, $params );
 		unlink $values->{'muscle_out'};
 	}
@@ -1374,10 +1381,12 @@ sub _parse_blast_by_locus {
 			$match->{'alignment'} = $record[3];
 			$match->{'start'}     = $record[6];
 			$match->{'end'}       = $record[7];
-			$match->{'reverse'}   = 1
-			  if ( ( $record[8] > $record[9] && $record[7] > $record[6] ) || ( $record[8] < $record[9] && $record[7] < $record[6] ) );
+			if ( ( $record[8] > $record[9] && $record[7] > $record[6] ) || ( $record[8] < $record[9] && $record[7] < $record[6] ) ) {
+				$match->{'reverse'} = 1;
+			} else {
+				$match->{'reverse'} = 0;
+			}
 			$match->{'exact'} = 1 if $match->{'identity'} == 100 && $match->{'alignment'} == $length;
-
 			if ( $length > $match->{'alignment'} ) {
 				if ( $match->{'reverse'} ) {
 					if ( $record[8] < $record[9] ) {
@@ -1431,13 +1440,12 @@ sub _parse_blast_ref {
 			$match->{'alignment'} = $record[3];
 			$match->{'start'}     = $record[8];
 			$match->{'end'}       = $record[9];
-			if ( ( $record[8] > $record[9] && $record[7] > $record[6] ) || ( $record[8] < $record[9] && $record[7] < $record[6] ) ){
-				$match->{'reverse'}   = 1;
+			if ( ( $record[8] > $record[9] && $record[7] > $record[6] ) || ( $record[8] < $record[9] && $record[7] < $record[6] ) ) {
+				$match->{'reverse'} = 1;
 			} else {
-				$match->{'reverse'}   = 0;
+				$match->{'reverse'} = 0;
 			}
 			if ( $required_alignment > $match->{'alignment'} ) {
-
 				if ( $match->{'reverse'} ) {
 					$match->{'predicted_start'} = $match->{'start'} - $ref_length + $record[6];
 					$match->{'predicted_end'}   = $match->{'end'} + $record[7] - 1;
