@@ -609,6 +609,8 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON profile_history TO apache;
 -- Snapshot materialized view SQL written by Jonathan Gardner
 -- http://tech.jonathangardner.net/wiki/PostgreSQL/Materialized_Views
 
+CREATE LANGUAGE 'plpgsql';
+
 CREATE TABLE matviews (
   mv_name NAME NOT NULL PRIMARY KEY,
   v_name NAME NOT NULL,
