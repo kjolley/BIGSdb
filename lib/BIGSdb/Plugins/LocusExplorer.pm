@@ -192,6 +192,7 @@ sub run {
 		}
 	}
 	$self->_print_interface( $locus, $display_loci, $cleaned );
+	return;
 }
 
 sub run_job {
@@ -222,6 +223,7 @@ sub run_job {
 		$self->{'jobManager'}
 		  ->update_job_output( $job_id, { 'filename' => "$temp.html", 'description' => 'Locus schematic (HTML format)' } );
 	}
+	return;
 }
 
 sub _print_interface {
@@ -250,7 +252,6 @@ sub _print_interface {
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	my $order      = $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST (allele_id AS integer)' : 'allele_id';
 	my $allele_ids = $self->{'datastore'}->run_list_query( "SELECT allele_id FROM sequences WHERE locus=? ORDER BY $order", $locus );
-	$" = ' ';
 	print $q->scrolling_list(
 		-name     => 'allele_ids',
 		-id       => 'allele_ids',
@@ -289,6 +290,7 @@ sub _print_interface {
 	print "</table>\n</fieldset>\n";
 	print $q->endform;
 	print "</div>\n";
+	return;
 }
 
 sub _get_seqs {
@@ -365,12 +367,15 @@ sub _snp {
 	} else {
 		my $params = $q->Vars;
 		$params->{'alignwidth'} = $self->{'prefs'}->{'alignwidth'};
+		my $user_info = $self->{'datastore'}->get_user_info_from_username($self->{'username'});
 		my $job_id = $self->{'jobManager'}->add_job(
 			{
 				'dbase_config' => $self->{'instance'},
 				'ip_address'   => $q->remote_host,
 				'module'       => 'LocusExplorer',
-				'parameters'   => $params
+				'parameters'   => $params,
+				'username'     => $self->{'username'},
+				'email'        => $user_info->{'email'}
 			}
 		);
 		print <<"HTML";
@@ -384,8 +389,8 @@ Follow the progress of this job and view the output.</a></p>
 <p>Please note that the % complete value will only update after the alignment of each locus.</p>
 </div>	
 HTML
-		return;
 	}
+	return;
 }
 
 sub get_snp_schematic {
@@ -568,11 +573,11 @@ sub _site_explorer {
 		my $pc            = BIGSdb::Utils::decimal_place( ( ( $site{$base} / $seq_count ) * 100 ), 2 );
 		print "<tr class=\"td$td\"><td>$base</td><td>$site{$base}";
 		if ( $site{$base} < 6 ) {
-			$" = ", $cleaned-";
+			local $" = ", $cleaned-";
 			print "<br />($cleaned-@sortedalleles)\n";
 		}
 		print "</td><td>$pc</td>";
-		$" = "' OR $locus='";
+		local $" = "' OR $locus='";
 		foreach (@schemes) {
 			my $qry      = "SELECT COUNT(*) FROM scheme_$_ WHERE $locus='@allelelist'";
 			my $numSTs   = $self->{'datastore'}->run_simple_query($qry)->[0];
@@ -589,8 +594,8 @@ sub _site_explorer {
 		print "</tr>\n";
 		$td = $td == 1 ? 2 : 1;
 	}
-	print "</table>\n";
-	print "</div>\n";
+	print "</table>\n</div>\n";
+	return;
 }
 
 sub _codon {
@@ -679,7 +684,7 @@ Frequency: Usage of given codon per 1000 codons.</p>
 <th>Amino acid</th><th>Fraction</th><th>Frequency</th><th>Number</th></tr></thead>
 <tbody>
 HTML
-	$" = '</td><td>';
+	local $" = '</td><td>';
 	my $td = 1;
 	foreach (@codons) {
 		my @values = split /\s+/, $_;
@@ -689,6 +694,7 @@ HTML
 	print "</tbody>\n</table>\n";
 	unlink $outfile;
 	print "</div>\n";
+	return;
 }
 
 sub _translate {
@@ -771,6 +777,7 @@ sub _translate {
 	print "</div>\n";
 	unlink $outfile;
 	unlink $finalfile;
+	return;
 }
 
 sub get_freq_table {
@@ -789,13 +796,13 @@ sub get_freq_table {
 	$buffer .= "<div class=\"scrollable\">\n";
 	$buffer .=
 "<table class=\"tablesorter\" id=\"sortTable\"><thead><tr><th rowspan=\"2\">Position</th><th colspan=\"$cols\" class=\"{sorter: false}\">$heading</th></tr>\n";
-	$" = '</th><th>';
+	local $" = '</th><th>';
 	$buffer .= "<tr><th>@chars</th>";
-	$" = '</th><th>%';
+	local $" = '</th><th>%';
 	$buffer .= "<th>\%@chars</th></tr>\n</thead><tbody>\n";
-	$" = "\t";
+	local $" = "\t";
 	print $fh "Position\t@chars";
-	$" = "\t\%";
+	local $" = "\t\%";
 	print $fh "\t\%@chars\n";
 	my $td = 1;
 	my $total;

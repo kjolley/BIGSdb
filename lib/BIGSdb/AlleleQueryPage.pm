@@ -424,13 +424,13 @@ sub _run_query {
 			my $param = $_->{'name'} . '_list';
 			if ( defined $q->param($param) && $q->param($param) ne '' ) {
 				my $value = $q->param($param);
+				$self->process_value( \$value );
 				if ( $qry2 !~ /WHERE \(\)\s*$/ ) {
 					$qry2 .= " AND ";
 				} else {
 					$qry2 = "SELECT * FROM sequences WHERE locus=E'$locus' AND ";
 				}
-				$value =~ s/'/\\'/g;
-				$qry2 .= $value eq 'null' ? "$_ is null" : "$_->{'name'} = '$value'";
+				$qry2 .= $value eq 'null' ? "$_->{'name'} is null" : "$_->{'name'} = E'$value'";
 			}
 		}
 		$qry2 .= " ORDER BY ";

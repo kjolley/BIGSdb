@@ -38,7 +38,7 @@ sub print_content {
 	my $instance = $self->{'instance'};
 	my $table = $q->param('table') || '';
 	my $record_name = $self->get_record_name($table);
-	if ( !$self->{'datastore'}->is_table($table) && !($table eq 'samples' && @{$self->{'xmlHandler'}->get_sample_field_list})) {
+	if ( !$self->{'datastore'}->is_table($table) && !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Table $table does not exist!</p></div>\n";
 		return;
 	}
@@ -107,6 +107,7 @@ sub print_content {
 	$newdata{'curator'} = $self->get_curator_id;
 	my @problems;
 	if ( $q->param('sent') ) {
+		$self->_format_data( $table, \%newdata );
 		@problems = $self->check_record( $table, \%newdata );
 		my @extra_inserts;
 
@@ -281,7 +282,7 @@ this sequence then make sure that the 'Override sequence similarity check' box i
 			}
 
 			#Make sure sequence bin data marked as DNA is valid
-		} elsif ( $table eq 'sequence_bin' && !BIGSdb::Utils::is_valid_DNA( \$newdata{'sequence'}, {allow_ambiguous => 1} ) ) {
+		} elsif ( $table eq 'sequence_bin' && !BIGSdb::Utils::is_valid_DNA( \$newdata{'sequence'}, { allow_ambiguous => 1 } ) ) {
 			push @problems, "Sequence contains non nucleotide (G|A|T|C + ambiguity code R|Y|W|S|M|K|V|H|D|B|X|N) characters.<br />";
 
 			#special case to check that start_pos is less than end_pos for allele_sequence
@@ -404,7 +405,16 @@ this sequence then make sure that the 'Override sequence similarity check' box i
 				}
 				if ( $table eq 'schemes' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 					$self->create_scheme_view( $newdata{'id'} );
-				} elsif ( ( any {$table eq $_} qw (scheme_members scheme_fields) ) && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+				} elsif (
+					(
+						any {
+							$table eq $_;
+						}
+						qw (scheme_members scheme_fields)
+					)
+					&& $self->{'system'}->{'dbtype'} eq 'sequences'
+				  )
+				{
 					$self->remove_profile_data( $newdata{'scheme_id'} );
 					$self->drop_scheme_view( $newdata{'scheme_id'} );
 					$self->create_scheme_view( $newdata{'scheme_id'} );
@@ -426,7 +436,7 @@ this sequence then make sure that the 'Override sequence similarity check' box i
 			} else {
 				$db->commit;
 				if ( $table eq 'sequences' ) {
-					my $cleaned_locus = $self->clean_locus($newdata{'locus'});
+					my $cleaned_locus = $self->clean_locus( $newdata{'locus'} );
 					$cleaned_locus =~ s/\\'/'/g;
 					print "<div class=\"box\" id=\"resultsheader\"><p>Sequence $cleaned_locus: $newdata{'allele_id'} added!</p>";
 				} else {
@@ -642,8 +652,19 @@ sub _copy_locus_config {
 		next if any { $field eq $_ } qw (id reference_sequence genome_position length common_name);
 		my $value = $locus_info->{$field} || '';
 		$value =~ s/$locus/LOCUS/
-		  if any { $field eq $_ } qw(dbase_table dbase_id_field dbase_id2_field dbase_id2_value description_url url);		
+		  if any { $field eq $_ } qw(dbase_table dbase_id_field dbase_id2_field dbase_id2_value description_url url);
+		if ( any { $field eq $_ } qw (main_display query_field analysis) ) {
+			$value = $locus_info->{$field} ? 'true' : 'false';
+		}
 		$newdata_ref->{$field} = $value;
+	}
+	return;
+}
+
+sub _format_data {
+	my ( $self, $table, $data_ref ) = @_;
+	if ( $table eq 'pcr' ) {
+		$data_ref->{$_} =~ s/[\r\n]//g foreach qw (primer1 primer2);
 	}
 	return;
 }

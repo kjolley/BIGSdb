@@ -1267,9 +1267,12 @@ sub _parse_blast_exact {
 					next LINE if !$self->_probe_filter_match( $locus, $match, $probe_matches );
 				}
 				$match->{'predicted_start'} = $match->{'start'};
-				$match->{'predicted_end'}   = $match->{'end'};
-				$match->{'reverse'}         = 1
-				  if ( ( $record[8] > $record[9] && $record[7] > $record[6] ) || ( $record[8] < $record[9] && $record[7] < $record[6] ) );
+				$match->{'predicted_end'}   = $match->{'end'};				
+				if ( ( $record[8] > $record[9] && $record[7] > $record[6] ) || ( $record[8] < $record[9] && $record[7] < $record[6] ) ){
+					$match->{'reverse'}         = 1;
+				} else {
+					$match->{'reverse'}         = 0;
+				}
 				$match->{'e-value'} = $record[10];
 				next if $matched_already->{ $match->{'allele'} }->{ $match->{'predicted_start'} };
 				push @matches, $match;
@@ -1320,10 +1323,12 @@ sub _parse_blast_partial {
 			$match->{'allele'}    = $record[1];
 			$match->{'identity'}  = $record[2];
 			$match->{'length'}    = $length;
-			$match->{'alignment'} = $record[3];
-			$match->{'reverse'}   = 1
-			  if ( ( $record[8] > $record[9] && $record[7] > $record[6] ) || ( $record[8] < $record[9] && $record[7] < $record[6] ) );
-
+			$match->{'alignment'} = $record[3];			
+			if ( ( $record[8] > $record[9] && $record[7] > $record[6] ) || ( $record[8] < $record[9] && $record[7] < $record[6] ) ){
+				$match->{'reverse'}   = 1;
+			} else {
+				$match->{'reverse'}   = 0;
+			}
 			if ( $record[6] < $record[7] ) {
 				$match->{'start'} = $record[6];
 				$match->{'end'}   = $record[7];

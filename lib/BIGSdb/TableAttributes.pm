@@ -19,6 +19,7 @@
 package BIGSdb::TableAttributes;
 use strict;
 use warnings;
+use List::MoreUtils qw(any);
 use BIGSdb::Page qw(SEQ_METHODS DATABANKS SEQ_FLAGS);
 
 sub get_isolate_aliases_table_attributes {

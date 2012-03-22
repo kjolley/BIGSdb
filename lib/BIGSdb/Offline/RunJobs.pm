@@ -20,6 +20,7 @@ package BIGSdb::Offline::RunJobs;
 use strict;
 use warnings;
 use parent qw(BIGSdb::Offline::Script);
+use Error qw(:try);
 use BIGSdb::OfflineJobManager;
 use BIGSdb::PluginManager;
 use BIGSdb::Parser;
@@ -74,9 +75,15 @@ sub run_script {
 	my $instance = $job->{'dbase_config'};
 	$self->_initiate_db($instance);
 	my $plugin = $self->{'pluginManager'}->get_plugin( $job->{'module'} );
-	$self->{'jobManager'}->update_job_status( $job_id, { 'status' => 'started', 'start_time' => 'now' } );
-	$plugin->run_job( $job_id, $params );
-	$self->{'jobManager'}->update_job_status( $job_id, { 'status' => 'finished', 'stop_time' => 'now', 'percent_complete' => 100 } );
+	$self->{'jobManager'}->update_job_status( $job_id, { status => 'started', start_time => 'now' } );
+	try {
+		$plugin->run_job( $job_id, $params );
+		$self->{'jobManager'}->update_job_status( $job_id, { status => 'finished', stop_time => 'now', percent_complete => 100 } );
+	} catch BIGSdb::PluginException with {
+		my $msg = shift;
+		$self->{'logger'}->debug($msg);
+		$self->{'jobManager'}->update_job_status( $job_id, { status => 'failed', stop_time => 'now', percent_complete => 100, message_html => "<p class=\"statusbad\">$msg</p>"});
+	};
 	return;
 }
 1;

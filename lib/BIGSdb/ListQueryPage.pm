@@ -328,7 +328,7 @@ sub _run_isolate_query {
 					$tempqry .= ')';
 				} elsif ( $field eq $self->{'system'}->{'labelfield'} ) {
 					$tempqry .=
-"(upper($self->{'system'}->{'labelfield'}) = upper('$value') OR id IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper('$value')))";
+"(upper($self->{'system'}->{'labelfield'}) = upper('$value') OR $self->{'system'}->{'view'}.id IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper('$value')))";
 				} elsif ( $datatype eq 'text' ) {
 					$tempqry .= "upper($field) = upper('$value')";
 				} else {

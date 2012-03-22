@@ -241,8 +241,8 @@ sub print_content {
 		my $first_record = 1;
 		my $header_row;
 		my $record_count;
-		$qry =
-"SELECT profiles.profile_id FROM profiles LEFT JOIN profile_members ON profiles.scheme_id = profile_members.scheme_id AND profiles.profile_id = profile_members.profile_id WHERE ";
+		$qry = "SELECT profiles.profile_id FROM profiles LEFT JOIN profile_members ON profiles.scheme_id = profile_members.scheme_id AND "
+		. "profiles.profile_id = profile_members.profile_id AND profiles.scheme_id = $scheme_id WHERE ";
 		my @locus_temp;
 		foreach (@$loci) {
 			push @locus_temp, "(locus='$_' AND allele_id=?)";

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2011, University of Oxford
+#(c) 2011-2012, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -45,10 +45,12 @@ sub new {
 sub _initiate {
 	my ( $self, $config_dir, $dbase_config_dir ) = @_;
 	$self->read_config_file($config_dir);
+	return;
 }
 
 sub _db_connect {
-	my ($self) = @_;
+	my ($self, $options) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $logger = get_logger('BIGSdb.Application_Initiate');
 	if ( !$self->{'config'}->{'jobs_db'} ) {
 		$logger->fatal("jobs_db not set in config file.");
@@ -62,6 +64,9 @@ sub _db_connect {
 		'password'   => $self->{'password'},
 		'writable'   => 1
 	);
+	if ($options->{'reconnect'}){
+		$self->{'db'} = $self->{'dataConnector'}->drop_connection( \%att )
+	}
 	try {
 		$self->{'db'} = $self->{'dataConnector'}->get_connection( \%att );
 	}
@@ -70,6 +75,7 @@ sub _db_connect {
 		$logger->error("Can not connect to database '$self->{'config'}->{'jobs_db'}'");
 		return;
 	};
+	return;
 }
 
 sub add_job {
@@ -114,7 +120,7 @@ sub add_job {
 			$params->{'priority'}
 		);
 		my $param_sql = $self->{'db'}->prepare("INSERT INTO params (job_id,key,value) VALUES (?,?,?)");
-		$" = '||';
+		local $" = '||';
 		foreach ( keys %$cgi_params ) {
 			my @values = split( "\0", $cgi_params->{$_} );
 			$param_sql->execute( $id, $_, "@values" );
@@ -151,7 +157,7 @@ sub update_job_output {
 	} else {
 		$self->{'db'}->commit;
 	}
-	
+	return;
 }
 
 sub update_job_status {
@@ -160,6 +166,9 @@ sub update_job_status {
 		$logger->error("status hash not passed as a ref");
 		throw BIGSdb::DataException("status hash not passed as a ref");
 	}
+	#Exceptions in BioPerl appear to sometimes cause the connection to the jobs database to be broken
+	#No idea why - so reconnect if status is 'failed'. 
+	$self->_db_connect({reconnect => 1}) if $status_hash->{'status'} && $status_hash->{'status'} eq 'failed';
 	eval {
 		foreach ( keys %$status_hash )
 		{
@@ -173,6 +182,7 @@ sub update_job_status {
 	} else {
 		$self->{'db'}->commit;
 	}
+	return;
 }
 
 sub get_job {
@@ -186,7 +196,7 @@ sub get_job {
 	my $job = $sql->fetchrow_hashref;
 	$sql = $self->{'db'}->prepare("SELECT key,value FROM params WHERE job_id=?");
 	my ($params,$output);
-	eval { $sql->execute( $job->{'id'} ); };
+	eval { $sql->execute( $job->{'id'} ) };
 	if ($@) {
 		$logger->error($@);
 		return;

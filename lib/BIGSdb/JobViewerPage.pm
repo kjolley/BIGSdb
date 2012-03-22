@@ -29,7 +29,7 @@ sub initiate {
 	my $id = $self->{'cgi'}->param('id');
 	return if !defined $id;
 	my ( $job, undef, undef ) = $self->{'jobManager'}->get_job($id);
-	return if $job->{'status'} && $job->{'status'} eq 'finished';
+	return if $job->{'status'} && ($job->{'status'} eq 'finished' || $job->{'status'} eq 'failed');
 	$self->{'refresh'} = 60;
 	return;
 }
@@ -77,6 +77,7 @@ HTML
 		if ( ref $output eq 'HASH' ) {
 			foreach ( sort keys(%$output) ) {
 				my ( $link_text, $comments ) = split /\|/, $_;
+				$link_text =~ s/^\d{2}_//; #Descriptions can start with 2 digit number for ordering
 				my $text = "<li><a href=\"/tmp/$output->{$_}\">$link_text</a>";
 				$text .= " - $comments" if $comments;
 				$text .=

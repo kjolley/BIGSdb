@@ -388,7 +388,7 @@ sub set_locus {
 }
 
 sub set_scheme {
-	$" = ', ';
+	local $" = ', ';
 	my ( $self, $guid, $dbase, $scheme_id, $action, $value ) = @_;
 	if ( !$self->_guid_exists($guid) ) {
 		$self->_add_existing_guid($guid);
@@ -424,7 +424,7 @@ sub set_scheme {
 }
 
 sub set_scheme_field {
-	$" = ', ';
+	local $" = ', ';
 	my ( $self, $guid, $dbase, $scheme_id, $field, $action, $value ) = @_;
 	if ( !$self->_guid_exists($guid) ) {
 		$self->_add_existing_guid($guid);
@@ -460,7 +460,7 @@ sub set_scheme_field {
 }
 
 sub set_plugin_attribute {
-	$" = ', ';
+	local $" = ', ';
 	my ( $self, $guid, $dbase, $plugin, $attribute, $value ) = @_;
 	if ( !$self->_guid_exists($guid) ) {
 		$self->_add_existing_guid($guid);

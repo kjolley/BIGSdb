@@ -251,12 +251,59 @@ sub round_to_nearest {
 }
 
 sub append {
-	my ( $source_file, $destination_file ) = @_;
-	open( my $fh1, '<', $source_file );
-	open( my $fh, '>>', $destination_file );
+	my ( $source_file, $destination_file, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	open( my $fh1, '<',  $source_file );
+	open( my $fh,  '>>', $destination_file );
+	print $fh "\n" if $options->{'blank_before'};
+	print $fh "<pre>\n" if $options->{'preformatted'};
 	print $fh $_ while <$fh1>;
+	print $fh "</pre>\n" if $options->{'preformatted'};
+	print $fh "\n" if $options->{'blank_after'};
 	close $fh;
 	close $fh1;
 	return;
+}
+
+sub xmfa2fasta {
+	my ($xmfa_file) = @_;
+	my %seq;
+	my @ids;
+	my $temp_seq = '';
+	my $current_id = '';
+	open (my $xmfa_fh, '<', $xmfa_file) || throw BIGSdb::CannotOpenFileException("Can't open $xmfa_file for reading");
+	while ( my $line = <$xmfa_fh> ) {
+		next if $line =~ /^=/;
+		if ( $line =~ /^>\s*([\d\w\s\|\-\\\/\.\(\)]+):/ ) {
+			$seq{$current_id} .= $temp_seq;
+			$current_id = $1;
+			if ( !$seq{$current_id} ) {
+				push @ids, $current_id;
+			}
+			$temp_seq = '';
+		} else {
+			$line =~ s/[\r\n]//g;
+			$temp_seq .= $line;
+		}
+	}
+	$seq{$current_id} .= $temp_seq;
+	close $xmfa_fh;
+	(my $fasta_file = $xmfa_file) =~ s/xmfa$/fas/; 
+	open (my $fasta_fh, '>', $fasta_file) || throw BIGSdb::CannotOpenFileException("Can't open $fasta_file for writing");
+	foreach (@ids) {
+		print $fasta_fh ">$_\n";
+		my $seq_ref = break_line( \$seq{$_}, 60 );
+		print $fasta_fh "$$seq_ref\n";
+	}
+	return $fasta_file;
+}
+
+sub get_style {
+	#Heatmap colour given value and max value
+	my ($value, $max_value) = @_;
+	my $normalised = $value/$max_value;
+	my $colour = sprintf("#%02x%02x%02x", $normalised * 201 + 54, abs(0.5 - $normalised) * 201 + 54, (1 - $normalised) * 201 + 54);
+	my $style = "background:$colour; color:white";
+	return $style;
 }
 1;
