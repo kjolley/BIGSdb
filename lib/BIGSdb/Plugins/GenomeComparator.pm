@@ -103,10 +103,7 @@ END
 }
 
 sub get_option_list {
-	my @list = (
-		{ name => 'use_all',         description => 'List isolates without sequence bin data' },
-		{ name => 'html_alignments', description => 'Display alignments in HTML format', default => 1 }
-	);
+	my @list = ( { name => 'use_all', description => 'List isolates without sequence bin data' }, );
 	return \@list;
 }
 
@@ -213,17 +210,6 @@ sub run {
 		$q->param( 'scheme_id', $scheme_string );
 		$q->param( 'ref_upload', $ref_upload ) if $ref_upload;
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-		my $guid      = $self->get_guid;
-		my $html;
-		try {
-			my $pref =
-			  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'GenomeComparator', 'html_alignments' );
-			$html = ( defined $pref && $pref eq 'true' ) ? 1 : 0;
-		}
-		catch BIGSdb::DatabaseNoRecordException with {
-			$html = 1;
-		};
-		$q->param( 'html', $html );
 		if ($continue) {
 			my $params = $q->Vars;
 			my $job_id = $self->{'jobManager'}->add_job(
@@ -716,9 +702,10 @@ sub _run_comparison {
 	my $td          = 1;
 	my ( $exacts, $exact_except_ref, $all_missing, $truncated_loci, $varying_loci );
 	my ( $word_size, $program );
-	my $job_file   = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
-	my $align_file = "$self->{'config'}->{'tmp_dir'}/$job_id\_align" . ( $params->{'html'} ? '.html' : '.txt' );
-	my $prefix     = BIGSdb::Utils::get_random();
+	my $job_file         = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
+	my $align_file       = "$self->{'config'}->{'tmp_dir'}/$job_id\_align.txt";
+	my $align_stats_file = "$self->{'config'}->{'tmp_dir'}/$job_id\_align_stats.txt";
+	my $prefix           = BIGSdb::Utils::get_random();
 	my $values;
 	my %isolate_FASTA;
 	$isolate_FASTA{$_} = $self->_create_isolate_FASTA_db( $_, $prefix ) foreach (@$ids);
@@ -936,22 +923,9 @@ sub _run_comparison {
 	print $job_fh $$file_buffer_ref;
 	close $job_fh;
 	if ( $params->{'align'} ) {
-		if ( $params->{'html'} ) {
-			open( my $align_fh, '>', $align_file ) || $logger->error("Can't open $align_file for writing");
-			print $align_fh <<"HTML";
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
-   "http://www.w3.org/TR/html4/strict.dtd">
-<html>
-<head>	
-<title>Alignments - Genome Comparator</title>
-</head>
-<body>		
-HTML
-			close $align_fh;
-		}
-		$self->_create_alignments( $job_id, $by_reference, $align_file, $ids, ( $params->{'align_all'} ? $loci : $varying_loci ), $params );
+		$self->_create_alignments( $job_id, $by_reference, $align_file, $align_stats_file, $ids,
+			( $params->{'align_all'} ? $loci : $varying_loci ), $params );
 		open( my $align_fh, '>>', $align_file ) || $logger->error("Can't open $align_file for appending");
-		print $align_fh "</body></html>\n" if $params->{'html'};
 		close $align_fh;
 	}
 	$self->_print_variable_loci( $by_reference, $ids, $html_buffer_ref, $job_file, $varying_loci, $values );
@@ -973,9 +947,10 @@ HTML
 	$self->_generate_splits( $job_id, $values, \@ignore_loci );
 
 	if ( @$ids > 1 && $params->{'align'} ) {
-		$self->{'jobManager'}->update_job_output( $job_id,
-			{ filename => "$job_id\_align" . ( $params->{'html'} ? '.html' : '.txt' ), description => '30_Alignments' } )
+		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align.txt", description => '30_Alignments' } )
 		  if -e $align_file;
+		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align_stats.txt", description => '31_Alignment stats' } )
+		  if -e $align_stats_file;
 		if ( -e "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa" ) {
 			$self->{'jobManager'}
 			  ->update_job_output( $job_id, { filename => "$job_id.xmfa", description => '35_Extracted sequences (XMFA format)' } );
@@ -1082,7 +1057,7 @@ sub _print_variable_loci {
 }
 
 sub _create_alignments {
-	my ( $self, $job_id, $by_reference, $align_file, $ids, $loci, $params ) = @_;
+	my ( $self, $job_id, $by_reference, $align_file, $align_stats_file, $ids, $loci, $params ) = @_;
 	my $count;
 	my $temp       = BIGSdb::Utils::get_random();
 	my $progress   = 0;
@@ -1119,15 +1094,16 @@ sub _create_alignments {
 		if ( $params->{'align'} ) {
 			$self->_run_muscle(
 				{
-					ids            => $ids,
-					locus          => $locus,
-					seq_count      => $seq_count,
-					muscle_out     => $muscle_out,
-					fasta_file     => $fasta_file,
-					align_file     => $align_file,
-					xmfa_out       => $xmfa_out,
-					xmfa_start_ref => \$xmfa_start,
-					xmfa_end_ref   => \$xmfa_end,
+					ids              => $ids,
+					locus            => $locus,
+					seq_count        => $seq_count,
+					muscle_out       => $muscle_out,
+					fasta_file       => $fasta_file,
+					align_file       => $align_file,
+					align_stats_file => $align_stats_file,
+					xmfa_out         => $xmfa_out,
+					xmfa_start_ref   => \$xmfa_start,
+					xmfa_end_ref     => \$xmfa_end,
 				},
 				$params
 			);
@@ -1142,11 +1118,15 @@ sub _run_infoalign {
 	if ( -e "$self->{'config'}->{'emboss_path'}/infoalign" ) {
 		my $prefix  = BIGSdb::Utils::get_random();
 		my $outfile = "$self->{'config'}->{'secure_tmp_dir'}/$prefix.infoalign";
-		my $html    = $params->{'html'} ? '-html' : '-nohtml';
 		system(
-"$self->{'config'}->{'emboss_path'}/infoalign -sequence $values->{'alignment'} -outfile $outfile -nousa -nosimcount -noweight -nodescription $html 2> /dev/null"
+"$self->{'config'}->{'emboss_path'}/infoalign -sequence $values->{'alignment'} -outfile $outfile -nousa -nosimcount -noweight -nodescription 2> /dev/null"
 		);
-		BIGSdb::Utils::append( $outfile, $values->{'align_file'}, { blank_after => 1 } ) if -e $outfile;
+		open( my $fh_stats, '>>', $values->{'align_stats_file'} )
+		  or $logger->error("Can't open output file $values->{'align_stats_file'} for appending");
+		print $fh_stats "$values->{'locus'}\n";
+		print $fh_stats '-' x ( length $values->{'locus'} ) . "\n\n";
+		close $fh_stats;
+		BIGSdb::Utils::append( $outfile, $values->{'align_stats_file'}, { blank_after => 1 } ) if -e $outfile;
 	}
 	return;
 }
@@ -1160,7 +1140,7 @@ sub _run_muscle {
 	if ( -e $values->{'muscle_out'} && $values->{'seq_count'} > 1 ) {
 		my $align = Bio::AlignIO->new( -format => 'clustalw', -file => $values->{'muscle_out'} )->next_aln;
 		my ( %id_has_seq, $seq_length );
-		open( my $fh_xmfa, '>>', $values->{'xmfa_out'} ) or $logger->error("Can't open output file $values->{'xmfa_out'} for writing");
+		open( my $fh_xmfa, '>>', $values->{'xmfa_out'} ) or $logger->error("Can't open output file $values->{'xmfa_out'} for appending");
 		foreach my $seq ( $align->each_seq ) {
 			${ $values->{'xmfa_end_ref'} } = ${ $values->{'xmfa_start_ref'} } + $seq->length - 1;
 			print $fh_xmfa '>' . $seq->id . ":${$values->{'xmfa_start_ref'}}-${$values->{'xmfa_end_ref'}} + $values->{'locus'}\n";
@@ -1178,19 +1158,12 @@ sub _run_muscle {
 		close $fh_xmfa;
 		${ $values->{'xmfa_start_ref'} } = ${ $values->{'xmfa_end_ref'} } + 1;
 		open( my $align_fh, '>>', $values->{'align_file'} ) || $logger->error("Can't open $values->{'align_file'} for appending");
-		if ( $params->{'html'} ) {
-			print $align_fh "<h2>$values->{'locus'}</h2>\n";
-		} else {
-			print $align_fh "$values->{'locus'}\n";
-			print $align_fh '-' x ( length $values->{'locus'} ) . "\n\n";
-		}
+		print $align_fh "$values->{'locus'}\n";
+		print $align_fh '-' x ( length $values->{'locus'} ) . "\n\n";
 		close $align_fh;
-		BIGSdb::Utils::append(
-			$values->{'muscle_out'},
-			$values->{'align_file'},
-			{ blank_after => 1, preformatted => ( $params->{'html'} ? 1 : 0 ) }
-		);
-		$self->_run_infoalign( { alignment => $values->{'muscle_out'}, align_file => $values->{'align_file'} }, $params );
+		BIGSdb::Utils::append( $values->{'muscle_out'}, $values->{'align_file'}, { blank_after => 1 } );
+		$values->{'alignment'} = $values->{'muscle_out'};
+		$self->_run_infoalign( $values, $params );
 		unlink $values->{'muscle_out'};
 	}
 	return;
