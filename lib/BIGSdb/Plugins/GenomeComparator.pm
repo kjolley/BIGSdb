@@ -148,7 +148,7 @@ sub run_job {
 			catch Bio::Root::Exception with {
 				my $err = shift;
 				$logger->debug($err);
-				throw BIGSdb::PluginException("No data returned for accession number #$accession.\n");
+				throw BIGSdb::PluginException("No data returned for accession number $accession.\n");
 			};
 		} else {
 			eval {
