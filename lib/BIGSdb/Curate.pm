@@ -62,7 +62,6 @@ sub db_connect {
 		'port'       => $self->{'system'}->{'port'},
 		'user'       => $self->{'system'}->{'user'},
 		'password'   => $self->{'system'}->{'password'},
-		'writable'   => 1
 	);
 	try {
 		$self->{'db'} = $self->{'dataConnector'}->get_connection( \%att );

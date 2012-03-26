@@ -176,7 +176,6 @@ sub _initiate_authdb {
 		'port'       => $self->{'system'}->{'port'},
 		'user'       => $self->{'system'}->{'user'},
 		'password'   => $self->{'system'}->{'password'},
-		'writable'   => 1
 	);
 	try {
 		$self->{'auth_db'} = $self->{'dataConnector'}->get_connection( \%att );
@@ -207,7 +206,7 @@ ON user_group_members.user_group=isolate_usergroup_acl.user_group_id LEFT JOIN u
 ON user_group_members.user_id=users.id WHERE users.user_name ='$username' AND read$write_clause)
 SQL
 	if ($username) {
-		eval { $self->{'db'}->do("SET TRANSACTION READ WRITE; CREATE TEMP VIEW tmp_userview AS $view_clause") };
+		eval { $self->{'db'}->do("CREATE TEMP VIEW tmp_userview AS $view_clause") };
 		if ($@) {
 			$logger->error("Can't create user view $@");
 			$self->{'db'}->rollback;
@@ -304,7 +303,6 @@ sub _setup_prefstore {
 		'port'       => $self->{'system'}->{'port'},
 		'user'       => $self->{'system'}->{'user'},
 		'password'   => $self->{'system'}->{'password'},
-		'writable'   => 1
 	);
 	my $pref_db;
 	try {

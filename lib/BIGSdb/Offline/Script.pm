@@ -54,7 +54,6 @@ sub new {
 	$self->{'port'}             = $options->{'port'};
 	$self->{'user'}             = $options->{'user'};
 	$self->{'password'}         = $options->{'password'};
-	$self->{'writable'}         = $options->{'writable'};
 	bless( $self, $class );
 
 	if ( !defined $self->{'logger'} ) {
@@ -93,10 +92,6 @@ sub initiate {
 	}
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
 	$self->db_connect;
-	if ( $self->{'writable'} ) {
-		$self->{'db'}->do("SET session CHARACTERISTICS AS TRANSACTION READ WRITE");
-		$self->{'db'}->commit;
-	}
 	$self->setup_datastore if $self->{'db'};
 	return;
 }

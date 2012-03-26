@@ -580,7 +580,7 @@ sub create_temp_scheme_table {
 	}
 	my $fields = $self->get_scheme_fields($id);
 	my $loci   = $self->get_scheme_loci($id);
-	my $create = "SET TRANSACTION READ WRITE; CREATE TEMP TABLE temp_scheme_$id (";
+	my $create = "CREATE TEMP TABLE temp_scheme_$id (";
 	my @table_fields;
 	foreach (@$fields) {
 		my $type = $self->get_scheme_field_info( $id, $_ )->{'type'};
@@ -1121,7 +1121,7 @@ sub create_temp_ref_table {
 	};
 	return if !$continue;
 	my $create =
-"ROLLBACK; SET TRANSACTION READ WRITE; CREATE TEMP TABLE temp_refs (pmid int, year int, journal text, volume text, pages text, title text, abstract text, authors text, isolates int);";
+"CREATE TEMP TABLE temp_refs (pmid int, year int, journal text, volume text, pages text, title text, abstract text, authors text, isolates int);";
 	eval { $self->{'db'}->do($create); };
 	if ($@) {
 		$logger->error("Can't create temporary reference table. $@");

@@ -70,10 +70,6 @@ sub get_connection {
 			eval {
 				$db = DBI->connect( "DBI:Pg:host=$host;port=$port;dbname=$attributes->{'dbase_name'}",
 					$user, $password, { 'AutoCommit' => 0, 'RaiseError' => 1, 'PrintError' => 0 } );
-				if ( !$attributes->{'writable'} ) {
-					$db->do("SET session CHARACTERISTICS AS TRANSACTION READ ONLY");
-					$db->commit;
-				}
 				$self->{'db'}->{"$host|$attributes->{'dbase_name'}"} = $db;
 			};
 			if ($@) {
@@ -82,11 +78,6 @@ sub get_connection {
 			} else {
 				$logger->info( "Connected to database $attributes->{'dbase_name'} ($host)" );
 				$logger->debug( "dbase: $attributes->{'dbase_name'}; host: $host; port: $port: user: $user; password: $password" );
-				if ( $attributes->{'writable'} ) {
-					$logger->info("Database '$attributes->{'dbase_name'}' session is writable");
-				} else {
-					$logger->info("Database '$attributes->{'dbase_name'}' session is read only");
-				}
 			}
 		}
 		return $self->{'db'}->{"$host|$attributes->{'dbase_name'}"};

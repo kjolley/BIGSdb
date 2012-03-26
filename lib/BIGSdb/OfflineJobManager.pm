@@ -62,7 +62,6 @@ sub _db_connect {
 		'port'       => $self->{'port'},
 		'user'       => $self->{'user'},
 		'password'   => $self->{'password'},
-		'writable'   => 1
 	);
 	if ($options->{'reconnect'}){
 		$self->{'db'} = $self->{'dataConnector'}->drop_connection( \%att )

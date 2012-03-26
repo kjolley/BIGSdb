@@ -61,7 +61,6 @@ BIGSdb::Offline::AutoTag->new(
 		password         => PASSWORD,
 		options			 => \%opts,
 		instance		 => $opts{'d'},
-		writable         => 1
 	}
 );
 
