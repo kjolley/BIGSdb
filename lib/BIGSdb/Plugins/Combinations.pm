@@ -36,11 +36,12 @@ sub get_attributes {
 		buttontext  => 'Combinations',
 		menutext    => 'Unique combinations',
 		module      => 'Combinations',
-		version     => '1.0.1',
+		version     => '1.0.2',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
 		help        => 'tooltips',
+		requires    => 'js_tree',
 		order       => 15
 	);
 	return \%att;
