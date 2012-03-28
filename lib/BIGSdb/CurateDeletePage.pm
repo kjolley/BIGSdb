@@ -34,6 +34,18 @@ sub print_content {
 		return;
 	}
 	print "<h1>Delete $record_name</h1>\n";
+	if ($table eq 'profiles'){
+		my $scheme_id = $q->param('scheme_id');
+		if (!$scheme_id || !BIGSdb::Utils::is_int($scheme_id)){
+			print "<div class=\"box\" id=\"statusbad\">Invalid scheme id.</p></div>\n";
+			return;
+		}
+		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+		if ( !$scheme_info ) {
+			print "<div class=\"box\" id=\"statusbad\">Scheme does not exist.</p></div>\n";
+			return;
+		}
+	}
 	if ( !$self->can_modify_table($table) ) {
 		if ( $table eq 'sequences' && $q->param('locus') ) {
 			my $locus = $q->param('locus');
