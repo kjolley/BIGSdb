@@ -444,9 +444,10 @@ sub _output_single_query_nonexact {
 		my $reverse = $partial_match->{'reverse'} ? 1 : 0;
 		my @args = (
 			'-aformat', 'markx2', '-awidth', $self->{'prefs'}->{'alignwidth'},
-			'-asequence', $seq1_infile, '-bsequence', $seq2_infile, '-sbegin1', $start, '-send1', $end, '-sreverse1', $reverse, '-outfile',
+			'-asequence', $seq1_infile, '-bsequence', $seq2_infile, '-sreverse1', $reverse, '-outfile',
 			$outfile
 		);
+		push @args, ('-sbegin1', $start, '-send1', $end) if length $$seq_ref > 10000;
 		system("$self->{'config'}->{'emboss_path'}/stretcher @args 2>/dev/null");
 		unlink $seq1_infile, $seq2_infile;
 		my $gaps;
