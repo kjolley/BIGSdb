@@ -57,6 +57,12 @@ sub get_attributes {
 	return \%att;
 }
 
+sub set_pref_requirements {
+	my ($self) = @_;
+	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 1, 'query_field' => 1 };
+	return;
+}
+
 sub get_plugin_javascript {
 	my ($self) = @_;
 	my $buffer = << "END";

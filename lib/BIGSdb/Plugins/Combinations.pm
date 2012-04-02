@@ -25,6 +25,12 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 
+sub set_pref_requirements {
+	my ($self) = @_;
+	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 1, 'query_field' => 0 };
+	return;
+}
+
 sub get_attributes {
 	my %att = (
 		name        => 'Unique Combinations',

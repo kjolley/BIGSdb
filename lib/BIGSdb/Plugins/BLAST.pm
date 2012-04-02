@@ -29,6 +29,12 @@ use Apache2::Connection ();
 use List::MoreUtils qw(any);
 use BIGSdb::Page qw(SEQ_METHODS FLANKING);
 
+sub set_pref_requirements {
+	my ($self) = @_;
+	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 0 };
+	return;
+}
+
 sub get_attributes {
 	my %att = (
 		name        => 'BLAST',

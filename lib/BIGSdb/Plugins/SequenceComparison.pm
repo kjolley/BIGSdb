@@ -50,6 +50,7 @@ sub get_attributes {
 sub set_pref_requirements {
 	my ($self) = @_;
 	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 0 };
+	return;
 }
 
 sub run {
@@ -135,7 +136,7 @@ sub run {
 		$buffer .= "<a href=\"/tmp/$temp.txt\"> View alignment </a>\n" if $self->{'config'}->{'emboss_path'};
 		$buffer .= "</p>\n";
 		$buffer .= "<p>Differences: $numdiffs<br />\n";
-		$" = "<br />\n";
+		local $" = "<br />\n";
 		$buffer .= "@results</p>";
 	} else {
 		print "<p>The alleles at this locus can have insertions or deletions so an alignment will be performed.</p>\n";
@@ -168,5 +169,6 @@ sub run {
 	}
 	print $buffer if $buffer;
 	print "</div>\n";
+	return;
 }
 1;

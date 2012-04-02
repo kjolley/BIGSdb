@@ -704,16 +704,11 @@ sub get_locus_list {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $qry = "SELECT id,common_name FROM loci";
-	my @option_clauses;
-	push @option_clauses, "analysis" if ( $options->{'analysis_pref'} );
-	if (@option_clauses) {
-		local $" = ' AND ';
-		$qry .= " WHERE @option_clauses";
-	}
 	my $loci = $self->run_list_query_hashref($qry);
 	my $cleaned;
 	my $display_loci;
 	foreach (@$loci) {
+		next if $options->{'analysis_pref'} && !$self->{'prefs'}->{'analysis_loci'}->{$_->{'id'}};
 		push @$display_loci, $_->{'id'};
 		$cleaned->{ $_->{'id'} } = $_->{'id'};
 		if ( $_->{'common_name'} ) {
