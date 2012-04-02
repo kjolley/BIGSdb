@@ -87,7 +87,7 @@ sub _print_interface {
 	  by selecting the appropriate scheme description. By default, loci are only scanned for an isolate when no allele designation has 
 	  been made or sequence tagged. You can choose to rescan loci with existing designations or tags by 
 	  selecting the appropriate options.</p>\n";
-	my ( $loci, $locus_labels ) = $self->get_field_selection_list( { 'loci' => 1, 'all_loci' => 1, 'sort_labels' => 1 } );
+	my ( $loci, $locus_labels ) = $self->get_field_selection_list( { 'loci' => 1, 'query_pref' => 0, 'sort_labels' => 1 } );
 	my $guid = $self->get_guid;
 	my $general_prefs;
 	if ($guid) {

@@ -304,7 +304,7 @@ selections. In addition to selecting individual loci, you can choose to include 
 by selecting the appropriate scheme description. Alternatively, you can enter the accession number for an 
 annotated reference genome and compare using the loci defined in that.</p>
 HTML
-	my ( $locus_list, $locus_labels ) = $self->get_field_selection_list( { 'loci' => 1, 'sort_labels' => 1 } );
+	my ( $locus_list, $locus_labels ) = $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
 	print $q->start_form;
 	print "<div class=\"scrollable\">\n";
 	print "<fieldset style=\"float:left\">\n<legend>Isolates</legend>\n";

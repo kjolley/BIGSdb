@@ -19,6 +19,7 @@
 package BIGSdb::Page;
 use strict;
 use warnings;
+use 5.010;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use Error qw(:try);
@@ -356,7 +357,8 @@ sub get_field_selection_list {
 	#isolate_fields: include isolate fields, prefix with f_
 	#extended_attributes: include isolate field extended attributes, named e_FIELDNAME||EXTENDED-FIELDNAME
 	#loci: include loci, prefix with either l_ or cn_ (common name)
-	#all_loci: include all loci, if not included or set to 0 the query flag in the locus table will be taken into account
+	#query_pref: only the loci for which the user has a query field preference selected will be returned
+	#analysis_pref: only the loci for which the user has an analysis preference selected will be returned
 	#scheme_fields: include scheme fields, prefix with s_SCHEME-ID_
 	#sort_labels: dictionary sort labels
 	my ( $self, $options ) = @_;
@@ -364,6 +366,8 @@ sub get_field_selection_list {
 		$logger->error("Invalid option hashref");
 		return;
 	}
+	$options->{'query_pref'} //= 1;
+	$options->{'analysis_pref'} //= 0;
 	my @values;
 	my $extended = $options->{'extended_attributes'} ? $self->get_extended_attributes : undef;
 	if ( $options->{'isolate_fields'} ) {
@@ -407,7 +411,7 @@ sub get_field_selection_list {
 			$logger->error($@) if $@;
 			my $common_names = $cn_sql->fetchall_hashref('id');
 			my $loci =
-			  $self->{'datastore'}->get_loci( { 'query_pref' => $options->{'all_loci'} ? 0 : 1, 'seq_defined' => 0, 'do_not_order' => 1 } );
+			  $self->{'datastore'}->get_loci( { query_pref => $options->{'query_pref'}, analysis_pref => $options->{'analysis_pref'}, seq_defined => 0, do_not_order => 1 } );
 			foreach (@$loci) {
 				push @locus_list, "l_$_";
 				$self->{'cache'}->{'labels'}->{"l_$_"} = $_;
