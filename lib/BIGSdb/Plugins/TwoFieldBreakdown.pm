@@ -79,10 +79,8 @@ sub run {
 	$qry =~ s/ORDER BY.*$//g;
 	$logger->debug("Breakdown query: $qry");
 	return if !$self->create_temp_tables($qry_ref);
-
-	if ( $q->param('function') eq 'breakdown' ) {
-		$self->_breakdown( \$qry );
-	}
+	$self->_breakdown( \$qry ) if  $q->param('function') eq 'breakdown' ;
+	return;
 }
 
 sub _print_interface {
@@ -94,8 +92,8 @@ sub _print_interface {
 	print $q->startform;
 	$q->param( 'function', 'breakdown' );
 	print $q->hidden($_) foreach qw (db page name function query_file);
-	my ( $headings, $labels ) =
-	  $self->get_field_selection_list( { 'isolate_fields' => 1, 'extended_attributes' => 1, 'loci' => 1, 'scheme_fields' => 1 } );
+	my ( $headings, $labels ) = $self->get_field_selection_list(
+		{ isolate_fields => 1, extended_attributes => 1, loci => 1, query_pref => 0, analysis_pref => 1, scheme_fields => 1 } );
 	print "<table>";
 	print "<tr><td align='right'>Select first field:</td>\n";
 	print "<td>\n";
@@ -123,6 +121,7 @@ sub _print_interface {
 	print "</td></tr>\n</table>\n";
 	print $q->endform;
 	print "</div>\n</div>\n";
+	return;
 }
 
 sub _breakdown {
@@ -285,10 +284,10 @@ sub _breakdown {
 	print "<table class=\"tablesorter\" id=\"sortTable\">\n<thead>\n";
 	print "<tr><td /><td colspan=\"$numfield2\" class=\"header\">$print_field2</td></tr>\n";
 	print $fh "$print_field1\t$print_field2\n";
-	$" = "</th><th class=\"{sorter: 'digit'}\">";
+	local $" = "</th><th class=\"{sorter: 'digit'}\">";
 	print
 "<tr><th>$print_field1</th><th class=\"{sorter: 'digit'}\">@field2values</th><th class=\"{sorter: 'digit'}\">Total</th></tr></thead><tbody>\n";
-	$" = "\t";
+	local $" = "\t";
 	print $fh "\t@field2values\tTotal\n";
 	my $td = 1;
 	{
@@ -393,7 +392,7 @@ sub _breakdown {
 			}
 			print "<div class=\"scrollable\" style=\"background:white; border: 1px solid black\">\n";
 			for ( my $i = 0 ; $i < 2 ; $i++ ) {
-				my $chart = new XYChart( 1000, 500 );
+				my $chart = XYChart->new( 1000, 500 );
 				$chart->setPlotArea( 100, 40, 580, 300 );
 				$chart->setBackground(0x00FFFFFF);
 				$chart->setTransparentColor(0x00FFFFFF);
@@ -463,6 +462,7 @@ sub _breakdown {
 		}
 	}
 	print "</div>\n";
+	return;
 }
 
 sub _get_value_frequency_hashes {
@@ -514,27 +514,27 @@ sub _get_value_frequency_hashes {
 		$$qry_ref =~ s/SELECT \*/SELECT $clean{$field1},$clean{$field2}/;
 	} elsif ( $field_type{$field1} eq 'field' && $field_type{$field2} eq 'locus' ) {
 		$$qry_ref =~
-s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT $self->{'system'}->{'view'}.$clean{$field1},allele_id AS field2 FROM $self->{'system'}->{'view'} LEFT JOIN allele_designations ON id=isolate_id AND locus='$clean{$field2}'/;
+s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT $self->{'system'}->{'view'}.$clean{$field1},allele_id AS field2 FROM $self->{'system'}->{'view'} LEFT JOIN allele_designations ON id=isolate_id AND locus=E'$clean{$field2}'/;
 	} elsif ( $field_type{$field2} eq 'field' && $field_type{$field1} eq 'locus' ) {
 		$$qry_ref =~
-s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT allele_id AS field1,$self->{'system'}->{'view'}.$clean{$field2} FROM $self->{'system'}->{'view'} LEFT JOIN allele_designations ON id=isolate_id AND locus='$clean{$field1}'/;
+s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT allele_id AS field1,$self->{'system'}->{'view'}.$clean{$field2} FROM $self->{'system'}->{'view'} LEFT JOIN allele_designations ON id=isolate_id AND locus=E'$clean{$field1}'/;
 	} elsif ( $field_type{$field1} eq 'field' && $field_type{$field2} eq 'scheme_field' ) {
 		$self->_modify_qry_f_s( $qry_ref, \%clean, \%scheme_id, $field1, $field2 );
 	} elsif ( $field_type{$field2} eq 'field' && $field_type{$field1} eq 'scheme_field' ) {
 		$self->_modify_qry_f_s( $qry_ref, \%clean, \%scheme_id, $field2, $field1, 1 );
 	} elsif ( $field_type{$field1} eq 'locus' && $field_type{$field2} eq 'locus' ) {
 		$$qry_ref =~
-s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT field1.allele_id AS field1,field2.allele_id AS field2 FROM $self->{'system'}->{'view'} LEFT JOIN allele_designations AS field1 ON id=field1.isolate_id AND field1.locus='$clean{$field1}' LEFT JOIN allele_designations AS field2 ON id=field2.isolate_id AND field2.locus='$clean{$field2}'/;
+s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT field1.allele_id AS field1,field2.allele_id AS field2 FROM $self->{'system'}->{'view'} LEFT JOIN allele_designations AS field1 ON id=field1.isolate_id AND field1.locus=E'$clean{$field1}' LEFT JOIN allele_designations AS field2 ON id=field2.isolate_id AND field2.locus=E'$clean{$field2}'/;
 	} elsif ( $field_type{$field1} eq 'locus' && $field_type{$field2} eq 'scheme_field' ) {
 		$self->_modify_qry_f_s( $qry_ref, \%clean, \%scheme_id, $field1, $field2 );
 		$$qry_ref =~
-s/SELECT (.*?) FROM $self->{'system'}->{'view'}/SELECT $1 FROM $self->{'system'}->{'view'} LEFT JOIN allele_designations AS field1 ON id=isolate_id AND locus='$clean{$field1}'/;
+s/SELECT (.*?) FROM $self->{'system'}->{'view'}/SELECT $1 FROM $self->{'system'}->{'view'} LEFT JOIN allele_designations AS field1 ON id=isolate_id AND locus=E'$clean{$field1}'/;
 		$clean{$field1} =~ s/'/\\'/;
 		$$qry_ref =~ s/$clean{$field1}/field1.allele_id/;
 	} elsif ( $field_type{$field2} eq 'locus' && $field_type{$field1} eq 'scheme_field' ) {
 		$self->_modify_qry_f_s( $qry_ref, \%clean, \%scheme_id, $field2, $field1, 1 );
 		$$qry_ref =~
-s/SELECT (.*?) FROM $self->{'system'}->{'view'}/SELECT $1 FROM $self->{'system'}->{'view'} LEFT JOIN allele_designations AS field2 ON id=isolate_id AND locus='$clean{$field2}'/;
+s/SELECT (.*?) FROM $self->{'system'}->{'view'}/SELECT $1 FROM $self->{'system'}->{'view'} LEFT JOIN allele_designations AS field2 ON id=isolate_id AND locus=E'$clean{$field2}'/;
 		$clean{$field2} =~ s/'/\\'/;
 		$$qry_ref =~ s/$clean{$field2}/field2.allele_id/;
 	} elsif ( $field_type{$field2} eq 'scheme_field' && $field_type{$field1} eq 'scheme_field' ) {
@@ -635,6 +635,7 @@ s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT $clean_ref->{$field1},$clean
 		$$qry_ref =~ s/LEFT JOIN refs on refs.isolate_id=$self->{'system'}->{'view'}.id//;
 		$$qry_ref =~ s/FROM $self->{'system'}->{'view'}/FROM $self->{'system'}->{'view'} LEFT JOIN refs ON refs.isolate_id=id/;
 	}
+	return;
 }
 
 sub _modify_qry_s_s {
@@ -662,13 +663,12 @@ s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT scheme_$scheme_id_ref->{$fie
 		$$qry_ref =~ s/LEFT JOIN refs on refs.isolate_id=$self->{'system'}->{'view'}.id//;
 		$$qry_ref =~ s/FROM $self->{'system'}->{'view'}/FROM $self->{'system'}->{'view'} LEFT JOIN refs ON refs.isolate_id=id/;
 	}
+	return;
 }
 
 sub _join_table {
 	my ( $self, $scheme_id, $scheme_loci ) = @_;
-	$" = ',';
 	my $joined_table;
-	$" = ',';
 	foreach (@$scheme_loci) {
 		$joined_table .=
 " left join allele_designations AS s_$scheme_id\_$_ on s_$scheme_id\_$_.isolate_id = $self->{'system'}->{'view'}.id and s_$scheme_id\_$_.locus='$_'";
@@ -681,7 +681,7 @@ sub _join_table {
 		  ? " CAST(s_$scheme_id\_$_.allele_id AS int)=scheme_$scheme_id\.$_"
 		  : " s_$scheme_id\_$_.allele_id=scheme_$scheme_id\.$_";
 	}
-	$" = ' AND ';
+	local $" = ' AND ';
 	$joined_table .= " @temp";
 	return $joined_table;
 }
@@ -695,7 +695,7 @@ sub _get_scheme_fields_sql {
 	foreach (@$scheme_loci) {
 		push @temp, "s_$scheme_id\_$_.locus='$_'";
 	}
-	$" = ' AND ';
+	local $" = ' AND ';
 	$joined_table .= " @temp";
 	return \$joined_table;
 }
