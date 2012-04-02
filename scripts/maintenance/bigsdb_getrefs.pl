@@ -101,6 +101,7 @@ foreach my $refid (@refs) {
 				my $io = Bio::Biblio::IO->new( '-data' => $citationxml, '-format' => 'pubmedxml' );
 				sleep 10;    #Let's be nice to the remote server.
 				my $bibref  = $io->next_bibref;
+				next if !$bibref;
 				my $pmid    = $bibref->pmid;
 				my $title   = $bibref->title;
 				my @authors = &getauthors($bibref);
