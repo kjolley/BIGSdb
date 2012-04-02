@@ -23,7 +23,7 @@ package BIGSdb::Utils;
 use strict;
 use warnings;
 use POSIX qw(ceil);
-use Time::Local;
+use autouse 'Time::Local' => qw(timelocal);
 
 sub reverse_complement {
 	my ($seq) = @_;

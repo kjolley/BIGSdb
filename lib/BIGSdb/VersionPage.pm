@@ -22,6 +22,12 @@ use strict;
 use warnings;
 use parent qw(BIGSdb::Page);
 
+sub set_pref_requirements {
+	my ($self) = @_;
+	$self->{'pref_requirements'} = { 'general' => 0, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 0 };
+	return;
+}
+
 sub print_content {
 	my ($self) = @_;
 	print <<"HTML";
