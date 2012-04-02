@@ -259,7 +259,7 @@ sub read_config_file {
 	foreach (
 		qw ( prefs_db auth_db jobs_db max_load emboss_path tmp_dir secure_tmp_dir blast_path blast+_path blast_threads
 		muscle_path	mogrify_path ipcress_path splitstree_path reference refdb chartdirector 
-		disable_updates disable_update_message intranet)
+		disable_updates disable_update_message intranet debug)
 	  )
 	{
 		$self->{'config'}->{$_} = $config->{_}->{$_};

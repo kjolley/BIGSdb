@@ -23,6 +23,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use Error qw(:try);
 use List::MoreUtils qw(uniq any none);
+use autouse 'Data::Dumper' => qw(Dumper);
 use parent 'Exporter';
 use constant SEQ_METHODS => (
 	'454',
@@ -241,6 +242,7 @@ sub print_page_content {
 		$self->_print_help_panel;
 		$self->print_content;
 		$self->_print_footer;
+		$self->_debug if $q->param('debug') && $self->{'config'}->{'debug'};
 		print $q->end_html;
 	}
 	return;
@@ -262,6 +264,12 @@ sub get_stylesheet {
 }
 sub get_title     { return 'BIGSdb' }
 sub print_content { }
+
+sub _debug {
+	my ($self) = @_;
+	print "<pre>\n" . Dumper ($self) . "</pre>\n";
+	return;
+}
 
 sub _print_header {
 	my ($self) = @_;
