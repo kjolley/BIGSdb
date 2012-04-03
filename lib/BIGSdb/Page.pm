@@ -362,10 +362,7 @@ sub get_field_selection_list {
 	#scheme_fields: include scheme fields, prefix with s_SCHEME-ID_
 	#sort_labels: dictionary sort labels
 	my ( $self, $options ) = @_;
-	if ( ref $options ne 'HASH' ) {
-		$logger->error("Invalid option hashref");
-		return;
-	}
+	$logger->logdie("Invalid option hashref") if ref $options ne 'HASH';
 	$options->{'query_pref'} //= 1;
 	$options->{'analysis_pref'} //= 0;
 	my @values;
@@ -501,7 +498,6 @@ sub _print_footer {
 
 sub print_file {
 	my ( $self, $file, $ignore_hashlines ) = @_;
-	my $logger = get_logger('BIGSdb.Page');
 	my $lociAdd;
 	my $loci;
 	if ( $self->{'curate'} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
@@ -1145,7 +1141,6 @@ sub get_curator_id {
 sub initiate_prefs {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
-	my $logger = get_logger('BIGSdb.Application_Initiate');
 	return if !$self->{'prefstore'};
 	my ( $general_prefs, $field_prefs, $scheme_field_prefs );
 	if (   $q->param('page')
@@ -1226,7 +1221,6 @@ sub initiate_prefs {
 sub _initiate_isolatedb_prefs {
 	my ( $self, $general_prefs, $field_prefs, $scheme_field_prefs ) = @_;
 	my $q          = $self->{'cgi'};
-	my $logger     = get_logger('BIGSdb.Application_Initiate');
 	my $field_list = $self->{'xmlHandler'}->get_field_list;
 	my $params     = $q->Vars;
 	my $extended   = $self->get_extended_attributes;
@@ -1342,11 +1336,8 @@ sub _initiate_isolatedb_prefs {
 			my $qry = "SELECT id,main_display FROM composite_fields";
 			my $sql = $self->{'db'}->prepare($qry);
 			eval { $sql->execute };
-			if ($@) {
-				$logger->error("Can't execute $qry");
-				return;
-			}
-			while ( my ( $id, $main_display ) = $sql->fetchrow_array() ) {
+			$logger->logdie($@) if $@;
+			while ( my ( $id, $main_display ) = $sql->fetchrow_array ) {
 				if ( defined $field_prefs->{$id}->{'maindisplay'} ) {
 					$self->{'prefs'}->{'maindisplayfields'}->{$id} = $field_prefs->{$id}->{'maindisplay'};
 				} else {

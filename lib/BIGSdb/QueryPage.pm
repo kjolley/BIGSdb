@@ -59,6 +59,9 @@ sub get_javascript {
   	\$('#locus_fieldset').coolfieldset({speed:"fast", collapsed:$locus_collapse});
    	\$('#tag_fieldset').coolfieldset({speed:"fast", collapsed:$tag_collapse});
   	\$('#filter_fieldset').coolfieldset({speed:"fast", collapsed:$filter_collapse});
+  	\$('#locus_fieldset').show();
+  	\$('#tag_fieldset').show();
+  	\$('#filter_fieldset').show();
 });
 
 function loadContent(url) {
@@ -497,7 +500,8 @@ sub _print_isolate_filter_fieldset {
 		  );
 	}
 	if (@filters) {
-		print "<fieldset id=\"filter_fieldset\" style=\"float:left\" class=\"coolfieldset\"><legend>Filters</legend>\n";
+		my $display = $q->param('no_js') ? 'block' : 'none';
+		print "<fieldset id=\"filter_fieldset\" style=\"float:left;display:$display\" class=\"coolfieldset\"><legend>Filters</legend>\n";
 		print "<div><ul>\n";
 		print "<li><span style=\"white-space:nowrap\">$_</span></li>" foreach (@filters);
 		print "</ul></div>\n</fieldset>";
@@ -510,7 +514,8 @@ sub _print_isolate_locus_fieldset {
 	my $q = $self->{'cgi'};
 	my ( $locus_list, $locus_labels ) = $self->get_field_selection_list( { 'loci' => 1, 'scheme_fields' => 1, 'sort_labels' => 1 } );
 	if (@$locus_list) {
-		print "<fieldset id=\"locus_fieldset\" style=\"float:left\" class=\"coolfieldset\">\n";
+		my $display = $q->param('no_js') ? 'block' : 'none';
+		print "<fieldset id=\"locus_fieldset\" style=\"float:left;display:$display\" class=\"coolfieldset\">\n";
 		print "<legend>Allele designations/scheme fields</legend><div>\n";
 		my $locus_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('loci') || 1 );
 		my $loci_field_heading = $locus_fields == 1 ? 'none' : 'inline';
@@ -533,7 +538,8 @@ sub _print_isolate_tag_fieldset {
 	return if !$self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM allele_sequences")->[0];
 	my ( $locus_list, $locus_labels ) = $self->get_field_selection_list( { 'loci' => 1, 'scheme_fields' => 0, 'sort_labels' => 1 } );
 	if (@$locus_list) {
-		print "<fieldset id=\"tag_fieldset\" style=\"float:left\" class=\"coolfieldset\">\n";
+		my $display = $q->param('no_js') ? 'block' : 'none';
+		print "<fieldset id=\"tag_fieldset\" style=\"float:left;display:$display\" class=\"coolfieldset\">\n";
 		print "<legend>Tagged sequences</legend><div>\n";
 		my $locus_tag_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('tags') || 1 );
 		my $locus_tags_heading = $locus_tag_fields == 1 ? 'none' : 'inline';
