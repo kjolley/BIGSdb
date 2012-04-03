@@ -347,17 +347,16 @@ sub _print_isolate_fields_fieldset {
 sub _filters_selected {
 	my ($self) = @_;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		return $self->_print_isolate_filter_fieldset( { 'selected' => 1 } );
+		my %params = $self->{'cgi'}->Vars;
+		return 1 if any { $_ =~ /_list$/ && $params{$_} ne '' } keys %params;
 	}
+	return;
 }
 
 sub _print_isolate_filter_fieldset {
-
-	#option 'selected' will return '1' if any filter is selected
-	my ( $self, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
-	my $prefs = $self->{'prefs'};
-	my $q     = $self->{'cgi'};
+	my ($self) = @_;
+	my $prefs  = $self->{'prefs'};
+	my $q      = $self->{'cgi'};
 	my @filters;
 	my $extended = $self->get_extended_attributes;
 	foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list } ) {
@@ -370,7 +369,6 @@ sub _print_isolate_filter_fieldset {
 				|| ( $thisfield{'userfield'} && $thisfield{'userfield'} eq 'yes' ) )
 			{
 				push @filters, $self->get_user_filter( $field, $self->{'system'}->{'view'} );
-				return 1 if $options->{'selected'} && $q->param("$field\_list");
 			} else {
 				if ( $thisfield{'optlist'} ) {
 					@dropdownlist = $self->{'xmlHandler'}->get_field_option_list($field);
@@ -401,7 +399,6 @@ sub _print_isolate_filter_fieldset {
 "$field filter - Select $a_or_an $field to filter your search to only those isolates that match the selected $field."
 					}
 				  );
-				return 1 if $options->{'selected'} && $q->param("$field\_list");
 			}
 		}
 		my $extatt = $extended->{$field};
@@ -422,7 +419,6 @@ sub _print_isolate_filter_fieldset {
 "$field\..$extended_attribute filter - Select $a_or_an $extended_attribute to filter your search to only those isolates that match the selected $field."
 						}
 					  );
-					return 1 if $options->{'selected'} && $q->param("$field\..$extended_attribute\_list");
 				}
 			}
 		}
@@ -446,12 +442,10 @@ sub _print_isolate_filter_fieldset {
 "publication filter - Select a publication to filter your search to only those isolates that match the selected publication."
 				}
 			  );
-			return 1 if $options->{'selected'} && $q->param('publication_list');
 		}
 	}
 	my $buffer = $self->get_project_filter( { 'any' => 1 } );
 	push @filters, $buffer if $buffer;
-	return 1 if $options->{'selected'} && $q->param('project_list');
 	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
 	foreach (@$schemes) {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
@@ -467,7 +461,6 @@ sub _print_isolate_filter_fieldset {
 "$scheme_info->{'description'} profile completion filter - Select whether the isolates should have complete, partial, or unstarted profiles."
 				}
 			  );
-			return 1 if $options->{'selected'} && $q->param("$field\_list");
 		}
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($_);
 		foreach my $field (@$scheme_fields) {
@@ -488,12 +481,11 @@ sub _print_isolate_filter_fieldset {
 "$field ($scheme_info->{'description'}) filter - Select $a_or_an $field to filter your search to only those isolates that match the selected $field."
 					}
 				  ) if @$values;
-				return 1 if $options->{'selected'} && $q->param("scheme\_$_\_$field\_list");
 			}
 		}
 	}
 	my $linked_seqs = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT id FROM sequence_bin)")->[0];
-	if ( $linked_seqs ) {
+	if ($linked_seqs) {
 		push @filters,
 		  $self->get_filter(
 			'linked_sequences',
@@ -503,9 +495,7 @@ sub _print_isolate_filter_fieldset {
 				'tooltip' => 'linked sequence filter - Filter by whether sequences have been linked with the isolate record.'
 			}
 		  );
-		return 1 if $options->{'selected'} && $q->param("linked_sequences_list");
 	}
-	return 0 if $options->{'selected'};
 	if (@filters) {
 		print "<fieldset id=\"filter_fieldset\" style=\"float:left\" class=\"coolfieldset\"><legend>Filters</legend>\n";
 		print "<div><ul>\n";
@@ -829,7 +819,7 @@ sub _grouped_field_query {
 	my ( $self, $groupedfields, $data, $errors_ref ) = @_;
 	my $text     = $data->{'text'};
 	my $operator = $data->{'operator'};
-	my $view = $self->{'system'}->{'view'};
+	my $view     = $self->{'system'}->{'view'};
 	my $buffer   = "$data->{'modifier'} (";
 	if ( $operator eq 'NOT' ) {
 		foreach (@$groupedfields) {
@@ -944,7 +934,6 @@ sub _generate_isolate_query_for_provenance_fields {
 				}
 				$field = $self->{'system'}->{'view'} . '.' . $field if !$extended_isolate_field;
 				my $labelfield = $self->{'system'}->{'view'} . '.' . $self->{'system'}->{'labelfield'};
-				
 				if ( $operator eq 'NOT' ) {
 					if ($extended_isolate_field) {
 						$qry .= $modifier
@@ -1219,7 +1208,8 @@ sub _modify_isolate_query_for_designations {
 				my $text     = $q->param("lt$i");
 				next if $combo{"$locus\_$operator\_$text"};    #prevent duplicates
 				$combo{"$locus\_$operator\_$text"} = 1;
-				$self->process_value(\$text);
+				$self->process_value( \$text );
+
 				if (   $text ne 'null'
 					&& ( $locus_info->{'allele_id_format'} eq 'integer' )
 					&& !BIGSdb::Utils::is_int($text) )
@@ -1279,7 +1269,7 @@ sub _modify_isolate_query_for_designations {
 				my $operator          = $q->param("ly$i");
 				my $text              = $q->param("lt$i");
 				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
-				$self->process_value(\$text);
+				$self->process_value( \$text );
 				if (   $text ne 'null'
 					&& ( $scheme_field_info->{'type'} eq 'integer' )
 					&& !BIGSdb::Utils::is_int($text) )
