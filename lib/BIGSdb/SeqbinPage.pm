@@ -49,6 +49,10 @@ sub print_content {
 		print "<h1>Sequence bin for isolate id $isolate_id</h1>";
 	}
 	my $count = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM sequence_bin WHERE isolate_id=?", $isolate_id )->[0];
+	if (!$count){
+		print "<div class=\"box statusbad\"><p>This isolate has no sequence data attached.</p></div>\n";
+		return;
+	}
 	print "<div class=\"box\" id=\"resultsheader\">\n";
 	print "<div style=\"float:left\">\n";
 	print "<h2>Contig summary statistics</h2>\n";
