@@ -28,6 +28,7 @@ my $logger = get_logger('BIGSdb.Page');
 sub set_pref_requirements {
 	my ($self) = @_;
 	$self->{'pref_requirements'} = { 'general' => 0, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 0 };
+	return;
 }
 
 sub print_content {
@@ -170,6 +171,7 @@ HTML
 		print "<div class=\"box\" id=\"statusbad\"><p>Oh dear.  Although you are set as a curator, you haven't been granted specific
 		permission to do anything.  Please contact the database administrator to set your appropriate permissions.</p></div>\n";
 	}
+	return;
 }
 
 sub _print_users {
@@ -513,6 +515,7 @@ sub _print_projects {
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=projects">?</a></td>
 <td style="text-align:left" class="comment">Set up projects to which isolates can belong.</td></tr>
 HTML
+	return $buffer;
 }
 
 sub _print_project_members {
@@ -524,6 +527,7 @@ sub _print_project_members {
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=project_members">?</a></td>
 <td style="text-align:left" class="comment">Add isolates to projects.</td></tr>
 HTML
+	return $buffer;
 }
 
 sub _print_loci {
