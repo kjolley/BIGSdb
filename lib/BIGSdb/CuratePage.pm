@@ -19,10 +19,11 @@
 package BIGSdb::CuratePage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use BIGSdb::Page qw(SEQ_FLAGS DATABANKS);
+use BIGSdb::Page qw(SEQ_FLAGS ALLELE_FLAGS DATABANKS);
 
 sub initiate {
 	my ($self) = @_;
@@ -96,7 +97,7 @@ sub create_record_table {
 					$buffer .= "<a class=\"tooltip\" title=\"$_->{'tooltip'}\">&nbsp;<i>i</i>&nbsp;</a>";
 				}
 				( my $cleaned_name = $_->{name} ) =~ tr/_/ /;
-				$buffer .= " $cleaned_name: ";
+				$buffer .= " $cleaned_name:&nbsp;";
 				$buffer .= '!' if $_->{'required'} eq 'yes';
 				$buffer .= "</td><td style=\"text-align:left\">";
 				if (   ( $update && $_->{'primary_key'} )
@@ -293,36 +294,7 @@ sub create_record_table {
 		}
 	}
 	if ( $table eq 'sequences' ) {
-		my @databanks = DATABANKS;
-		my @default_pubmed;
-		my $default_databanks;
-		if ( $q->param('page') eq 'update' && $q->param('locus') ) {
-			my $pubmed_list =
-			  $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM sequence_refs WHERE locus=? AND allele_id=? ORDER BY pubmed_id",
-				$q->param('locus'), $q->param('allele_id') );
-			@default_pubmed = @$pubmed_list;
-			foreach (@databanks) {
-				my $list =
-				  $self->{'datastore'}
-				  ->run_list_query( "SELECT databank_id FROM accession WHERE locus=? AND allele_id=? AND databank=? ORDER BY databank_id",
-					$q->param('locus'), $q->param('allele_id'), $_ );
-				$default_databanks->{$_} = $list;
-			}
-		}
-		$buffer .= "<tr><td style=\"text-align:right\">PubMed ids: </td><td>";
-		local $" = "\n";
-		$buffer .= $q->textarea( -name => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@default_pubmed" );
-		$buffer .= "</td></tr>\n";
-		foreach my $databank (@databanks) {
-			$buffer .= "<tr><td style=\"text-align:right\">$databank ids: </td><td>";
-			my @default;
-			if ( ref $default_databanks->{$databank} eq 'ARRAY' ) {
-				@default = @{ $default_databanks->{$databank} };
-			}
-			$buffer .=
-			  $q->textarea( -name => "databank_$databank", -rows => 2, -cols => 12, -style => 'width:10em', -default => "@default" );
-			$buffer .= "</td></tr>\n";
-		}
+		$buffer .= $self->_create_extra_fields_for_sequences( \%newdata );
 	} elsif ( $table eq 'locus_descriptions' ) {
 		my @default_aliases;
 		if ( $q->param('page') eq 'update' && $q->param('locus') ) {
@@ -357,44 +329,7 @@ sub create_record_table {
 		$buffer .= $q->textarea( -name => 'links', -rows => 3, -cols => 12, -default => "@default_links" );
 		$buffer .= "</td></tr>\n";
 	}
-	if ( $table eq 'sequences' && $q->param('locus') ) {
-		my $sql =
-		  $self->{'db'}->prepare(
-"SELECT field,description,value_format,required,length,option_list FROM locus_extended_attributes WHERE locus=? ORDER BY field_order"
-		  );
-		my $locus = $q->param('locus');
-		eval { $sql->execute($locus) };
-		$logger->error($@) if $@;
-		while ( my ( $field, $desc, $format, $required, $length, $optlist ) = $sql->fetchrow_array ) {
-			$buffer .= "<tr><td style=\"text-align:right\"> $field: " . ( $required ? '!' : '' ) . "</td><td style=\"text-align:left\">";
-			$length = 12 if !$length;
-			if ( $format eq 'boolean' ) {
-				$buffer .= $q->popup_menu( -name => $field, -values => [ '', qw (true false) ], -default => $newdata{$field} );
-			} elsif ($optlist) {
-				my @options = split /\|/, $optlist;
-				unshift @options, '';
-				$buffer .= $q->popup_menu( -name => $field, -values => \@options, -default => $newdata{$field} );
-			} elsif ( $length > 256 ) {
-				$newdata{ $_->{'name'} } = BIGSdb::Utils::split_line( $newdata{ $_->{'name'} } ) if $_->{'name'} eq 'sequence';
-				$buffer .= $q->textarea( -name => $field, -rows => '6', -cols => '70', -default => $newdata{$field} );
-			} elsif ( $length > 60 ) {
-				$newdata{ $_->{'name'} } = BIGSdb::Utils::split_line( $newdata{ $_->{'name'} } ) if $_->{'name'} eq 'sequence';
-				$buffer .= $q->textarea( -name => $field, -rows => '3', -cols => '70', -default => $newdata{$field} );
-			} else {
-				$buffer .= $q->textfield( -name => $field, -size => $length, -maxlength => $length, -default => $newdata{$field} );
-			}
-			$buffer .= "<span class=\"comment\"> $desc</span>\n" if $desc;
-			$buffer .= "</td></tr>\n";
-		}
-		my $locus_info = $self->{'datastore'}->get_locus_info( $q->param('locus') );
-		if ( ( !$q->param('locus') || ( ref $locus_info eq 'HASH' && $locus_info->{'data_type'} ne 'peptide' ) )
-			&& $q->param('page') ne 'update' )
-		{
-			$buffer .= "<tr><td colspan=\"2\" style=\"padding-top:1em\">";
-			$buffer .= $q->checkbox( -name => 'ignore_similarity', -label => 'Override sequence similarity check' );
-			$buffer .= "</td></tr>";
-		}
-	} elsif ( $table eq 'sequence_bin' ) {
+	if ( $table eq 'sequence_bin' ) {
 		my $sql = $self->{'db'}->prepare("SELECT id,description FROM experiments ORDER BY description");
 		eval { $sql->execute };
 		$logger->error($@) if $@;
@@ -434,6 +369,96 @@ sub create_record_table {
 	$buffer .= "</table>\n";
 	$buffer .= "</div>\n</div>\n" if !$nodiv;
 	$buffer .= $q->end_form;
+	return $buffer;
+}
+
+sub _create_extra_fields_for_sequences {
+	my ( $self, $newdata ) = @_;
+	my $q = $self->{'cgi'};
+	my $buffer;
+	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
+		my $list =
+		  $self->{'datastore'}
+		  ->run_list_query( "SELECT flag FROM allele_flags WHERE locus=? AND allele_id=?", $q->param('locus'), $q->param('allele_id') );
+		$buffer .=
+		  "<tr><td style=\"text-align:right\">Flags: <br /><span class=\"comment\">(Ctrl-click to select multiple)</span></td><td>";
+		$buffer .= $q->scrolling_list(
+			-name     => 'flags',
+			-id       => 'flags',
+			-values   => [ALLELE_FLAGS],
+			-size     => 5,
+			-multiple => 'true',
+			-default  => $list
+		);
+		$buffer .= "</td></tr>\n";
+	}
+	my @databanks = DATABANKS;
+	my @default_pubmed;
+	my $default_databanks;
+	if ( $q->param('page') eq 'update' && $q->param('locus') ) {
+		my $pubmed_list =
+		  $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM sequence_refs WHERE locus=? AND allele_id=? ORDER BY pubmed_id",
+			$q->param('locus'), $q->param('allele_id') );
+		@default_pubmed = @$pubmed_list;
+		foreach (@databanks) {
+			my $list =
+			  $self->{'datastore'}
+			  ->run_list_query( "SELECT databank_id FROM accession WHERE locus=? AND allele_id=? AND databank=? ORDER BY databank_id",
+				$q->param('locus'), $q->param('allele_id'), $_ );
+			$default_databanks->{$_} = $list;
+		}
+	}
+	$buffer .= "<tr><td style=\"text-align:right\">PubMed ids: </td><td>";
+	local $" = "\n";
+	$buffer .= $q->textarea( -name => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@default_pubmed" );
+	$buffer .= "</td></tr>\n";
+	foreach my $databank (@databanks) {
+		$buffer .= "<tr><td style=\"text-align:right\">$databank ids: </td><td>";
+		my @default;
+		if ( ref $default_databanks->{$databank} eq 'ARRAY' ) {
+			@default = @{ $default_databanks->{$databank} };
+		}
+		$buffer .= $q->textarea( -name => "databank_$databank", -rows => 2, -cols => 12, -style => 'width:10em', -default => "@default" );
+		$buffer .= "</td></tr>\n";
+	}
+	if ( $q->param('locus') ) {
+		my $sql =
+		  $self->{'db'}->prepare( "SELECT field,description,value_format,required,length,option_list FROM "
+			  . "locus_extended_attributes WHERE locus=? ORDER BY field_order" );
+		my $locus = $q->param('locus');
+		eval { $sql->execute($locus) };
+		$logger->error($@) if $@;
+		while ( my ( $field, $desc, $format, $required, $length, $optlist ) = $sql->fetchrow_array ) {
+			$buffer .=
+			  "<tr><td style=\"text-align:right\"> $field:&nbsp;" . ( $required ? '!' : '' ) . "</td><td style=\"text-align:left\">";
+			$length = 12 if !$length;
+			if ( $format eq 'boolean' ) {
+				$buffer .= $q->popup_menu( -name => $field, -values => [ '', qw (true false) ], -default => $newdata->{$field} );
+			} elsif ($optlist) {
+				my @options = split /\|/, $optlist;
+				unshift @options, '';
+				$buffer .= $q->popup_menu( -name => $field, -values => \@options, -default => $newdata->{$field} );
+			} elsif ( $length > 256 ) {
+				$newdata->{ $_->{'name'} } = BIGSdb::Utils::split_line( $newdata->{ $_->{'name'} } ) if $_->{'name'} eq 'sequence';
+				$buffer .= $q->textarea( -name => $field, -rows => 6, -cols => 70, -default => $newdata->{$field} );
+			} elsif ( $length > 60 ) {
+				$newdata->{ $_->{'name'} } = BIGSdb::Utils::split_line( $newdata->{ $_->{'name'} } ) if $_->{'name'} eq 'sequence';
+				$buffer .= $q->textarea( -name => $field, -rows => 3, -cols => 70, -default => $newdata->{$field} );
+			} else {
+				$buffer .= $q->textfield( -name => $field, -size => $length, -maxlength => $length, -default => $newdata->{$field} );
+			}
+			$buffer .= "<span class=\"comment\"> $desc</span>\n" if $desc;
+			$buffer .= "</td></tr>\n";
+		}
+		my $locus_info = $self->{'datastore'}->get_locus_info( $q->param('locus') );
+		if ( ( !$q->param('locus') || ( ref $locus_info eq 'HASH' && $locus_info->{'data_type'} ne 'peptide' ) )
+			&& $q->param('page') ne 'update' )
+		{
+			$buffer .= "<tr><td colspan=\"2\" style=\"padding-top:1em\">";
+			$buffer .= $q->checkbox( -name => 'ignore_similarity', -label => 'Override sequence similarity check' );
+			$buffer .= "</td></tr>";
+		}
+	}
 	return $buffer;
 }
 
@@ -977,10 +1002,12 @@ sub drop_scheme_view {
 	#Change needs to be committed outside of subroutine (to allow drop as part of transaction)
 	my ( $self, $scheme_id ) = @_;
 	my $qry = "DROP VIEW IF EXISTS scheme_$scheme_id";
-	eval { 
+	eval {
 		$self->{'db'}->do($qry);
-		if ($self->{'system'}->{'materialized_views'} && $self->{'system'}->{'materialized_views'} eq 'yes'){
-			my $view_exists_ref = $self->{'datastore'}->run_simple_query("SELECT 1 WHERE EXISTS(SELECT * FROM matviews WHERE v_name = ?)", "scheme_$scheme_id");
+		if ( $self->{'system'}->{'materialized_views'} && $self->{'system'}->{'materialized_views'} eq 'yes' ) {
+			my $view_exists_ref =
+			  $self->{'datastore'}
+			  ->run_simple_query( "SELECT 1 WHERE EXISTS(SELECT * FROM matviews WHERE v_name = ?)", "scheme_$scheme_id" );
 			$self->{'db'}->do("SELECT drop_matview('mv_scheme_$scheme_id')") if ref $view_exists_ref eq 'ARRAY' && $view_exists_ref->[0];
 		}
 	};
@@ -1030,7 +1057,7 @@ sub create_scheme_view {
 	eval {
 		$self->{'db'}->do($qry);
 		$self->{'db'}->do("GRANT SELECT ON scheme_$scheme_id TO $self->{'system'}->{'user'}");
-		if ($self->{'system'}->{'materialized_views'} && $self->{'system'}->{'materialized_views'} eq 'yes'){
+		if ( $self->{'system'}->{'materialized_views'} && $self->{'system'}->{'materialized_views'} eq 'yes' ) {
 			$self->{'db'}->do("SELECT create_matview('mv_scheme_$scheme_id', 'scheme_$scheme_id')");
 			$self->{'db'}->do("CREATE UNIQUE INDEX i_mv$scheme_id\_1 ON mv_scheme_$scheme_id ($pk)");
 			local $" = ',';
@@ -1044,20 +1071,21 @@ sub create_scheme_view {
 }
 
 sub refresh_material_view {
+
 	#Needs to be committed outside of subroutine (to allow refresh as part of transaction)
-	my ($self, $scheme_id) = @_;
-	return if !($self->{'system'}->{'materialized_views'} && $self->{'system'}->{'materialized_views'} eq 'yes');
+	my ( $self, $scheme_id ) = @_;
+	return if !( $self->{'system'}->{'materialized_views'} && $self->{'system'}->{'materialized_views'} eq 'yes' );
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	return if !@$loci || !@$scheme_fields;
 	my $pk_ref = $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key", $scheme_id );
 	my $pk;
+
 	if ( ref $pk_ref eq 'ARRAY' ) {
 		$pk = $pk_ref->[0];
 	} else {
-		return; 
+		return;
 	}
-	
 	eval {
 		$self->{'db'}->do("DROP INDEX i_mv$scheme_id\_1");
 		$self->{'db'}->do("DROP INDEX i_mv$scheme_id\_2");
@@ -1067,7 +1095,6 @@ sub refresh_material_view {
 		my $locus_string = "@$loci";
 		$locus_string =~ s/'/\\'/g;
 		$self->{'db'}->do("CREATE UNIQUE INDEX i_mv$scheme_id\_2 ON mv_scheme_$scheme_id ($locus_string)");
-		
 	};
 	$logger->error($@) if $@;
 	return;

@@ -1,3 +1,20 @@
+CREATE TABLE allele_flags (
+locus text NOT NULL,
+allele_id text NOT NULL,
+flag text NOT NULL,
+curator int NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY(locus,allele_id,flag),
+CONSTRAINT af_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE NO ACTION
+ON UPDATE CASCADE,
+CONSTRAINT af_locus_allele_id FOREIGN KEY(locus,allele_id) REFERENCES sequences
+ON DELETE CASCADE
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON allele_flags TO apache;
+
 -- Snapshot materialized view SQL written by Jonathan Gardner
 -- http://tech.jonathangardner.net/wiki/PostgreSQL/Materialized_Views
 
