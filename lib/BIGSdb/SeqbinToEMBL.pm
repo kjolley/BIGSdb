@@ -17,11 +17,12 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 package BIGSdb::SeqbinToEMBL;
+use strict;
+use warnings;
+use 5.010;
 use IO::String;
 use Bio::SeqIO;
 use Bio::SeqFeature::Generic;
-use strict;
-use warnings;
 use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
@@ -38,9 +39,9 @@ sub print_content {
 	my $q = $self->{'cgi'};
 	my $isolate_id;
 	my $seqbin_ids = [];
-	if ( defined $q->param('seqbin_id') && $q->param('seqbin_id') =~ /^(\d+)$/ ) {
+	if ( ( $q->param('seqbin_id') // '' ) =~ /^(\d+)$/ ) {
 		push @$seqbin_ids, $1;
-	} elsif ( defined $q->param('isolate_id') && $q->param('isolate_id') =~ /^(\d+)$/ ) {
+	} elsif ( ( $q->param('isolate_id') // '' ) =~ /^(\d+)$/ ) {
 		$isolate_id = $1;
 		$seqbin_ids = $self->{'datastore'}->run_list_query( "SELECT id FROM sequence_bin WHERE isolate_id=?", $isolate_id );
 	} else {
@@ -78,12 +79,10 @@ sub write_embl {
 
 			#BIGSdb stored ORF as 1-6.  BioPerl expects 0-2.
 			$locus_info->{'orf'} ||= 0;
-			if ( $locus_info->{'orf'} == 2 || $locus_info->{'orf'} == 5 ) {
-				$frame = 1;
-			} elsif ( $locus_info->{'orf'} == 3 || $locus_info->{'orf'} == 6 ) {
-				$frame = 2;
-			} else {
-				$frame = 0;
+			given ( $locus_info->{'orf'} ) {
+				when ( 2 || 5 ) { $frame = 1 };
+				when ( 3 || 6 ) { $frame = 2 };
+				default { $frame = 0 };
 			}
 			$allele_sequence->{'start_pos'} = 1 if $allele_sequence->{'start_pos'} < 1;
 			$allele_sequence->{'locus'} = $allele_sequence->{'locus'} . " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
@@ -101,12 +100,12 @@ sub write_embl {
 		my $stringfh_out = IO::String->new( \$str );
 		my $seq_out = Bio::SeqIO->new( -fh => $stringfh_out, -format => 'embl' );
 		$seq_out->write_seq($seq_object);
-		if ($options->{'get_buffer'}){
+		if ( $options->{'get_buffer'} ) {
 			$buffer .= $str;
 		} else {
 			print $str;
 		}
 	}
-	return $options->{'get_buffer'} ? $buffer: undef;
+	return $options->{'get_buffer'} ? $buffer : undef;
 }
 1;
