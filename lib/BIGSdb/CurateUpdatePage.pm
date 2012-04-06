@@ -365,11 +365,11 @@ HTML
 				  )
 				{
 					$insert =
-					    "UPDATE sequence_extended_attributes SET value='$cleaned_value',datestamp='now',curator=$newdata->{'curator'} "
-					  . "WHERE locus=E'$cleaned_locus' AND field='$cleaned_field' AND allele_id='$newdata->{'allele_id'}'";
+					    "UPDATE sequence_extended_attributes SET value=E'$cleaned_value',datestamp='now',curator=$newdata->{'curator'} "
+					  . "WHERE locus=E'$cleaned_locus' AND field=E'$cleaned_field' AND allele_id='$newdata->{'allele_id'}'";
 				} else {
 					$insert = "INSERT INTO sequence_extended_attributes(locus,field,allele_id,value,datestamp,curator) VALUES "
-					  . "(E'$cleaned_locus','$cleaned_field','$newdata->{'allele_id'}','$cleaned_value','now',$newdata->{'curator'})";
+					  . "(E'$cleaned_locus',E'$cleaned_field','$newdata->{'allele_id'}',E'$cleaned_value','now',$newdata->{'curator'})";
 				}
 				push @$extra_inserts, $insert;
 			}
@@ -384,21 +384,23 @@ HTML
 		return FAILURE;
 	}
 	( my $cleaned_locus = $newdata->{'locus'} ) =~ s/'/\\'/g;
-	my $existing_flags =
-	  $self->{'datastore'}
-	  ->run_list_query( "SELECT flag FROM allele_flags WHERE locus=? AND allele_id=?", $newdata->{'locus'}, $newdata->{'allele_id'} );
-	my @new_flags = $q->param('flags');
-	foreach my $new (@new_flags) {
-		next if none { $new eq $_ } ALLELE_FLAGS;
-		if ( !@$existing_flags || none { $new eq $_ } @$existing_flags ) {
-			push @$extra_inserts, "INSERT INTO allele_flags (locus,allele_id,flag,curator,datestamp) VALUES "
-			  . "(E'$cleaned_locus','$newdata->{'allele_id'}','$new',$newdata->{'curator'},'today')";
+	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
+		my $existing_flags =
+		  $self->{'datastore'}
+		  ->run_list_query( "SELECT flag FROM allele_flags WHERE locus=? AND allele_id=?", $newdata->{'locus'}, $newdata->{'allele_id'} );
+		my @new_flags = $q->param('flags');
+		foreach my $new (@new_flags) {
+			next if none { $new eq $_ } ALLELE_FLAGS;
+			if ( !@$existing_flags || none { $new eq $_ } @$existing_flags ) {
+				push @$extra_inserts, "INSERT INTO allele_flags (locus,allele_id,flag,curator,datestamp) VALUES "
+				  . "(E'$cleaned_locus','$newdata->{'allele_id'}','$new',$newdata->{'curator'},'today')";
+			}
 		}
-	}
-	foreach my $existing (@$existing_flags) {
-		if ( !@new_flags || none { $existing eq $_ } @new_flags ) {
-			push @$extra_inserts,
-			  "DELETE FROM allele_flags WHERE locus=E'$cleaned_locus' AND allele_id='$newdata->{'allele_id'}' AND flag='$existing'";
+		foreach my $existing (@$existing_flags) {
+			if ( !@new_flags || none { $existing eq $_ } @new_flags ) {
+				push @$extra_inserts,
+				  "DELETE FROM allele_flags WHERE locus=E'$cleaned_locus' AND allele_id='$newdata->{'allele_id'}' AND flag='$existing'";
+			}
 		}
 	}
 	my $existing_pubmeds =
