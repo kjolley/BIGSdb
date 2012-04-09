@@ -180,14 +180,14 @@ sub _run_profile_query {
 		$value =~ s/[\r\n]//g;
 		$value =~ s/'/\'/g;
 		next
-		  if ( ( lc($datatype) =~ /^int/ )
-			&& !BIGSdb::Utils::is_int($value) );
+		  if lc($datatype) =~ /^int/
+			  && !BIGSdb::Utils::is_int($value);
 		next
-		  if ( $field =~ /(.*) \(id\)$/
-			&& !BIGSdb::Utils::is_int($value) );
+		  if $field =~ /(.*) \(id\)$/
+			  && !BIGSdb::Utils::is_int($value);
 		next
-		  if ( lc($datatype) eq 'date'
-			&& !BIGSdb::Utils::is_date($value) );
+		  if lc($datatype) eq 'date'
+			  && !BIGSdb::Utils::is_date($value);
 		if ($value) {
 
 			if ($tempqry) {
@@ -291,14 +291,14 @@ sub _run_isolate_query {
 		$value =~ s/[\r\n]//g;
 		$value =~ s/'/\\'/g;
 		next
-		  if ( ( lc($datatype) =~ /^int/ )
-			&& !BIGSdb::Utils::is_int($value) );
+		  if lc($datatype) =~ /^int/
+			  && !BIGSdb::Utils::is_int($value);
 		next
-		  if ( $field =~ /(.*) \(id\)$/
-			&& !BIGSdb::Utils::is_int($value) );
+		  if $field =~ /(.*) \(id\)$/
+			  && !BIGSdb::Utils::is_int($value);
 		next
-		  if ( lc($datatype) eq 'date'
-			&& !BIGSdb::Utils::is_date($value) );
+		  if lc($datatype) eq 'date'
+			  && !BIGSdb::Utils::is_date($value);
 		if ($value) {
 
 			if ($tempqry) {

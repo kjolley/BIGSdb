@@ -25,6 +25,7 @@ use List::MoreUtils qw(any none);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant MAX_ROWS => 20;
+use constant MAX_INT  => 2147483647;
 use BIGSdb::Page qw(SEQ_FLAGS LOCUS_PATTERNS);
 
 sub initiate {
@@ -522,6 +523,7 @@ sub _print_isolate_locus_fieldset {
 		print "<span id=\"loci_field_heading\" style=\"display:$loci_field_heading\"><label for=\"c1\">Combine with: </label>\n";
 		print $q->popup_menu( -name => 'c1', -id => 'c1', -values => [qw (AND OR)], );
 		print "</span>\n<ul id=\"loci\">\n";
+
 		for ( 1 .. $locus_fields ) {
 			print "<li>\n";
 			$self->_print_loci_fields( $_, $locus_fields, $locus_list, $locus_labels );
@@ -546,6 +548,7 @@ sub _print_isolate_tag_fieldset {
 		print "<span id=\"locus_tags_heading\" style=\"display:$locus_tags_heading\"><label for=\"c1\">Combine with: </label>\n";
 		print $q->popup_menu( -name => 'c2', -id => 'c2', -values => [qw (AND OR)], );
 		print "</span>\n<ul id=\"tags\">\n";
+
 		for ( 1 .. $locus_tag_fields ) {
 			print "<li>\n";
 			$self->_print_locus_tag_fields( $_, $locus_tag_fields, $locus_list, $locus_labels );
@@ -1606,8 +1609,12 @@ sub _check_format {
 	my ( $self, $data, $error_ref ) = @_;
 	my $error;
 	if ( $data->{'text'} ne 'null' && defined $data->{'type'} ) {
-		if ( $data->{'type'} =~ /int/ && !BIGSdb::Utils::is_int( $data->{'text'} ) ) {
-			$error = "$data->{'field'} is an integer field.";
+		if ( $data->{'type'} =~ /int/ ) {
+			if ( !BIGSdb::Utils::is_int( $data->{'text'}, { do_not_check_range => 1 } ) ) {
+				$error = "$data->{'field'} is an integer field.";
+			} elsif ( $data->{'text'} > MAX_INT ) {
+				$error = "$data->{'field'} is too big (largest allowed integer is " . MAX_INT . ').';
+			}
 		} elsif ( $data->{'type'} eq 'float' && !BIGSdb::Utils::is_float( $data->{'text'} ) ) {
 			$error = "$data->{'field'} is a floating point number field.";
 		} elsif ( $data->{'type'} eq 'date' && !BIGSdb::Utils::is_date( $data->{'text'} ) ) {
