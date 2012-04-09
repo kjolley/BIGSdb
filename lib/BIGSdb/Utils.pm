@@ -23,7 +23,8 @@ package BIGSdb::Utils;
 use strict;
 use warnings;
 use POSIX qw(ceil);
-use autouse 'Time::Local' => qw(timelocal);
+use autouse 'Time::Local'  => qw(timelocal);
+use constant MAX_4BYTE_INT => 2147483647;
 
 sub reverse_complement {
 	my ($seq) = @_;
@@ -152,12 +153,16 @@ sub is_bool {
 }
 
 sub is_int {
-	my ($N) = shift;
+	my ( $N, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	return 0 if ( !defined $N || $N eq '' );
 	my ($sign) = '^\s* [-+]? \s*';
 	my ($int)  = '\d+ \s* $ ';
-	return 1 if ( $N =~ /$sign $int/x );
-	return 0;
+	if ( $N =~ /$sign $int/x ) {
+		return if !$options->{'do_not_check_range'} && $N > MAX_4BYTE_INT;
+		return 1;
+	}
+	return;
 }
 
 sub is_float {
@@ -255,11 +260,11 @@ sub append {
 	$options = {} if ref $options ne 'HASH';
 	open( my $fh1, '<',  $source_file );
 	open( my $fh,  '>>', $destination_file );
-	print $fh "\n" if $options->{'blank_before'};
+	print $fh "\n"      if $options->{'blank_before'};
 	print $fh "<pre>\n" if $options->{'preformatted'};
 	print $fh $_ while <$fh1>;
 	print $fh "</pre>\n" if $options->{'preformatted'};
-	print $fh "\n" if $options->{'blank_after'};
+	print $fh "\n"       if $options->{'blank_after'};
 	close $fh;
 	close $fh1;
 	return;
@@ -269,9 +274,9 @@ sub xmfa2fasta {
 	my ($xmfa_file) = @_;
 	my %seq;
 	my @ids;
-	my $temp_seq = '';
+	my $temp_seq   = '';
 	my $current_id = '';
-	open (my $xmfa_fh, '<', $xmfa_file) || throw BIGSdb::CannotOpenFileException("Can't open $xmfa_file for reading");
+	open( my $xmfa_fh, '<', $xmfa_file ) || throw BIGSdb::CannotOpenFileException("Can't open $xmfa_file for reading");
 	while ( my $line = <$xmfa_fh> ) {
 		next if $line =~ /^=/;
 		if ( $line =~ /^>\s*([\d\w\s\|\-\\\/\.\(\)]+):/ ) {
@@ -288,8 +293,8 @@ sub xmfa2fasta {
 	}
 	$seq{$current_id} .= $temp_seq;
 	close $xmfa_fh;
-	(my $fasta_file = $xmfa_file) =~ s/xmfa$/fas/; 
-	open (my $fasta_fh, '>', $fasta_file) || throw BIGSdb::CannotOpenFileException("Can't open $fasta_file for writing");
+	( my $fasta_file = $xmfa_file ) =~ s/xmfa$/fas/;
+	open( my $fasta_fh, '>', $fasta_file ) || throw BIGSdb::CannotOpenFileException("Can't open $fasta_file for writing");
 	foreach (@ids) {
 		print $fasta_fh ">$_\n";
 		my $seq_ref = break_line( \$seq{$_}, 60 );
@@ -299,11 +304,12 @@ sub xmfa2fasta {
 }
 
 sub get_style {
+
 	#Heatmap colour given value and max value
-	my ($value, $max_value) = @_;
-	my $normalised = $value/$max_value;
-	my $colour = sprintf("#%02x%02x%02x", $normalised * 201 + 54, abs(0.5 - $normalised) * 201 + 54, (1 - $normalised) * 201 + 54);
-	my $style = "background:$colour; color:white";
+	my ( $value, $max_value ) = @_;
+	my $normalised = $value / $max_value;
+	my $colour = sprintf( "#%02x%02x%02x", $normalised * 201 + 54, abs( 0.5 - $normalised ) * 201 + 54, ( 1 - $normalised ) * 201 + 54 );
+	my $style  = "background:$colour; color:white";
 	return $style;
 }
 1;

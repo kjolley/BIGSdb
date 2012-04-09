@@ -25,6 +25,7 @@ use parent qw(BIGSdb::QueryPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Page qw(LOCUS_PATTERNS);
+use constant INVALID_VALUE => 1;
 
 sub set_pref_requirements {
 	my ($self) = @_;
@@ -175,24 +176,9 @@ sub _run_profile_query {
 	my $tempqry;
 	@list = uniq @list;
 	foreach my $value (@list) {
-		$value =~ s/^\s*//;
-		$value =~ s/\s*$//;
-		$value =~ s/[\r\n]//g;
-		$value =~ s/'/\'/g;
-		next
-		  if ( ( lc($datatype) =~ /^int/ )
-			&& !BIGSdb::Utils::is_int($value) );
-		next
-		  if ( $field =~ /(.*) \(id\)$/
-			&& !BIGSdb::Utils::is_int($value) );
-		next
-		  if ( lc($datatype) eq 'date'
-			&& !BIGSdb::Utils::is_date($value) );
+		next if $self->_format_value($field, $datatype, \$value) == INVALID_VALUE;
 		if ($value) {
-
-			if ($tempqry) {
-				$tempqry .= " OR ";
-			}
+			$tempqry .= " OR " if $tempqry;
 			if ( $fieldtype eq 'scheme_field' || $fieldtype eq 'locus' ) {
 				( my $cleaned = $field ) =~ s/'/_PRIME_/g;
 				$tempqry .=
@@ -286,24 +272,9 @@ sub _run_isolate_query {
 		$fieldtype              = 'extended_isolate';
 	}
 	foreach my $value (@list) {
-		$value =~ s/^\s*//;
-		$value =~ s/\s*$//;
-		$value =~ s/[\r\n]//g;
-		$value =~ s/'/\\'/g;
-		next
-		  if ( ( lc($datatype) =~ /^int/ )
-			&& !BIGSdb::Utils::is_int($value) );
-		next
-		  if ( $field =~ /(.*) \(id\)$/
-			&& !BIGSdb::Utils::is_int($value) );
-		next
-		  if ( lc($datatype) eq 'date'
-			&& !BIGSdb::Utils::is_date($value) );
+		next if $self->_format_value($field, $datatype, \$value) == INVALID_VALUE;
 		if ($value) {
-
-			if ($tempqry) {
-				$tempqry .= " OR ";
-			}
+			$tempqry .= " OR " if $tempqry;
 			if ( $fieldtype eq 'isolate' ) {
 				if (   $field =~ /(.*) \(id\)$/
 					|| $field =~ /(.*) \(surname\)$/
@@ -374,5 +345,23 @@ sub _run_isolate_query {
 	my @hidden_attributes = qw(list attribute);
 	$self->paged_display( $self->{'system'}->{'view'}, $qry, '', \@hidden_attributes );
 	return;
+}
+
+sub _format_value {
+	my ( $self, $field, $data_type, $value_ref ) = @_;
+	$$value_ref =~ s/^\s*//;
+	$$value_ref =~ s/\s*$//;
+	$$value_ref =~ s/[\r\n]//g;
+	$$value_ref =~ s/'/\'/g;
+	return INVALID_VALUE
+	  if lc($data_type) =~ /^int/
+		  && !BIGSdb::Utils::is_int($$value_ref);
+	return INVALID_VALUE
+	  if $field =~ /(.*) \(id\)$/
+		  && !BIGSdb::Utils::is_int($$value_ref);
+	return INVALID_VALUE
+	  if lc($data_type) eq 'date'
+		  && !BIGSdb::Utils::is_date($$value_ref);
+	return 0;
 }
 1;
