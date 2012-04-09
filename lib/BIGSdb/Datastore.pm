@@ -19,9 +19,10 @@
 package BIGSdb::Datastore;
 use strict;
 use warnings;
-use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any);
 use Error qw(:try);
+use Carp;
+use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Datastore');
 use BIGSdb::ClientDB;
 use BIGSdb::Locus;
@@ -1182,8 +1183,8 @@ sub run_simple_query {
 	my ( $self, $qry, @values ) = @_;
 	$logger->debug("Query: $qry");
 	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute(@values); };
-	$logger->error("$qry $@") if $@;
+	eval { $sql->execute(@values) };
+	$logger->logcarp("$qry $@") if $@;
 	my $data = $sql->fetchrow_arrayref;
 	return $data;
 }
@@ -1194,8 +1195,8 @@ sub run_simple_query_hashref {
 	my ( $self, $qry, @values ) = @_;
 	$logger->debug("Query: $qry");
 	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute(@values); };
-	$logger->error($@) if $@;
+	eval { $sql->execute(@values) };
+	$logger->logcarp("$qry $@") if $@;
 	my $data = $sql->fetchrow_hashref;
 	return $data;
 }
@@ -1206,8 +1207,8 @@ sub run_list_query_hashref {
 	my ( $self, $qry, @values ) = @_;
 	$logger->debug("Query: $qry");
 	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute(@values); };
-	$logger->error($@) if $@;
+	eval { $sql->execute(@values) };
+	$logger->logcarp("$qry $@") if $@;
 	my @list;
 	while ( my $data = $sql->fetchrow_hashref ) {
 		push @list, $data;
@@ -1222,7 +1223,7 @@ sub run_list_query {
 	$logger->debug("Query: $qry");
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute(@values) };
-	$logger->error($@) if $@;
+	$logger->logcarp("$qry $@") if $@;
 	my @list;
 	while ( ( my $data ) = $sql->fetchrow_array ) {
 		if ( defined $data && $data ne '-999' && $data ne '0001-01-01' ) {
@@ -1247,9 +1248,7 @@ sub run_simple_ref_query {
 	$logger->debug("Ref query: $qry");
 	my $sql = $dbr->prepare($qry);
 	eval { $sql->execute(@values); };
-	if ($@) {
-		$logger->error("Couldn't execute: $qry values: @values $@");
-	}
+	$logger->logcarp("$qry $@") if $@;
 	my $data = $sql->fetchrow_arrayref;
 	return $data;
 }
