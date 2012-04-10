@@ -13,7 +13,13 @@
  locus_superscript_prefix="yes"
  authentication="builtin"
  read_access="public"
- projects="yes"
+ GenomeComparator="yes"
+ SeqbinBreakdown="yes"
+ BLAST="yes"
+ BURST="yes"
+ TagStatus="yes"
+ CodonUsage="yes"
+ tblastx_tagging="yes"
 >
 </system>
 <field type="int" required="yes" length="5" maindisplay="yes" comments="primary key">id</field>
