@@ -785,6 +785,26 @@ sub get_allele_designation {
 	return $allele;
 }
 
+sub get_allele_extended_attributes {
+	my ($self, $locus, $allele_id) = @_;
+	if ( !$self->{'sql'}->{'locus_extended_attributes'} ) {
+		$self->{'sql'}->{'locus_extended_attributes'} = $self->{'db'}->prepare( "SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order");
+	}
+	eval { $self->{'sql'}->{'locus_extended_attributes'}->execute($locus) };
+	$logger->logcarp($@) if $@;
+	if ( !$self->{'sql'}->{'sequence_extended_attributes'} ) {
+		$self->{'sql'}->{'sequence_extended_attributes'} = $self->{'db'}->prepare( "SELECT field,value FROM sequence_extended_attributes WHERE locus=? AND field=? AND allele_id=?");
+	}
+	my @values;
+	while (my ($field) = $self->{'sql'}->{'locus_extended_attributes'}->fetchrow_array){
+		eval { $self->{'sql'}->{'sequence_extended_attributes'}->execute($locus, $field, $allele_id) };
+		$logger->logcarp($@) if $@;	
+		my $values_ref = $self->{'sql'}->{'sequence_extended_attributes'}->fetchrow_hashref;
+		push @values, $values_ref if $values_ref;
+	}	
+	return \@values;
+}
+
 sub get_all_allele_designations {
 	my ( $self, $isolate_id ) = @_;
 	if ( !$self->{'sql'}->{'all_allele_designation'} ) {
@@ -834,10 +854,26 @@ sub get_sequence_flag {
 		  $self->{'db'}
 		  ->prepare("SELECT sequence_flags.flag FROM sequence_flags WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=?");
 	}
-	eval { $self->{'sql'}->{'sequence_flag'}->execute( $seqbin_id, $locus, $start, $end ); };
+	eval { $self->{'sql'}->{'sequence_flag'}->execute( $seqbin_id, $locus, $start, $end ) };
 	$logger->error($@) if $@;
 	my @flags;
 	while ( my ($flag) = $self->{'sql'}->{'sequence_flag'}->fetchrow_array ) {
+		push @flags, $flag;
+	}
+	return \@flags;
+}
+
+sub get_allele_flags {
+	my ( $self, $locus, $allele_id ) = @_;
+	if ( !$self->{'sql'}->{'allele_flags'} ) {
+		$self->{'sql'}->{'allele_flags'} =
+		  $self->{'db'}
+		  ->prepare("SELECT flag FROM allele_flags WHERE locus=? AND allele_id=? ORDER BY flag");
+	}
+	eval { $self->{'sql'}->{'allele_flags'}->execute( $locus, $allele_id ) };
+	$logger->error($@) if $@;
+	my @flags;
+	while ( my ($flag) = $self->{'sql'}->{'allele_flags'}->fetchrow_array ) {
 		push @flags, $flag;
 	}
 	return \@flags;
@@ -851,9 +887,9 @@ sub get_allele_id {
 		$self->{'sql'}->{'allele_id'} = $self->{'db'}->prepare("SELECT allele_id FROM allele_designations WHERE isolate_id=? AND locus=?");
 		$logger->info("Statement handle 'allele_designation' prepared.");
 	}
-	eval { $self->{'sql'}->{'allele_id'}->execute( $isolate_id, $locus ); };
+	eval { $self->{'sql'}->{'allele_id'}->execute( $isolate_id, $locus ) };
 	$logger->error($@) if $@;
-	my ($allele_id) = $self->{'sql'}->{'allele_id'}->fetchrow_array();
+	my ($allele_id) = $self->{'sql'}->{'allele_id'}->fetchrow_array;
 	return $allele_id;
 }
 

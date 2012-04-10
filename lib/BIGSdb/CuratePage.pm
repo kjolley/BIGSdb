@@ -377,9 +377,7 @@ sub _create_extra_fields_for_sequences {
 	my $q = $self->{'cgi'};
 	my $buffer;
 	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
-		my $list =
-		  $self->{'datastore'}
-		  ->run_list_query( "SELECT flag FROM allele_flags WHERE locus=? AND allele_id=?", $q->param('locus'), $q->param('allele_id') );
+		my $list = $self->{'datastore'}->get_allele_flags( $q->param('locus'), $q->param('allele_id') );
 		$buffer .=
 		  "<tr><td style=\"text-align:right\">Flags: <br /><span class=\"comment\">(Ctrl-click to select multiple)</span></td><td>";
 		$buffer .= $q->scrolling_list(

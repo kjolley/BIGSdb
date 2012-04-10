@@ -20,6 +20,7 @@ package BIGSdb::CurateTableHeaderPage;
 use strict;
 use warnings;
 use parent qw(BIGSdb::Page);
+use List::MoreUtils qw(none);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -33,24 +34,17 @@ sub print_content {
 	my ($self) = @_;
 	my @headers;
 	my $table = $self->{'cgi'}->param('table') || '';
-	if ( !$self->{'datastore'}->is_table($table) && !@{$self->{'xmlHandler'}->get_sample_field_list}) {
+	if ( !$self->{'datastore'}->is_table($table) && !@{ $self->{'xmlHandler'}->get_sample_field_list } ) {
 		print "Table $table does not exist!\n";
 		return;
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
-		foreach ( @{ $self->{'xmlHandler'}->get_field_list } ) {
-			push @headers, $_
-			  if $_ ne 'id'
-			  && $_ ne 'curator'
-			  && $_ ne 'sender'
-			  && $_ ne 'date_entered'
-			  && $_ ne 'datestamp';
-			  if ($_ eq $self->{'system'}->{'labelfield'}){
-			  	push @headers,'aliases';
-			  	push @headers,'references';
-			  }
+		foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list } ) {
+			push @headers, $field if none { $field eq $_ } qw (id curator sender date_entered_datestamp);
+			if ( $field eq $self->{'system'}->{'labelfield'} ) {
+				push @headers, qw(aliases references);
+			}
 		}
-		
 	} elsif ( $table eq 'profiles' ) {
 		my $scheme_id = $self->{'cgi'}->param('scheme') || 0;
 		my $primary_key;
@@ -71,24 +65,26 @@ sub print_content {
 		}
 	} else {
 		my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
-		foreach (@$attributes) {
-			
-			if ( !( $_->{'name'} eq 'id' && $_->{'type'} eq 'int' ) ) {
-				push @headers, $_->{'name'}
-				  if $_->{'name'} ne 'curator'
-				  && $_->{'name'} ne 'sender'
-				  && $_->{'name'} ne 'date_entered'
-				  && $_->{'name'} ne 'datestamp';
+		foreach my $att (@$attributes) {
+			if ( !( $att->{'name'} eq 'id' && $att->{'type'} eq 'int' ) ) {
+				push @headers, $att->{'name'} if none { $att->{'name'} eq $_ } qw (curator sender date_entered datestamp);
 			}
-			if ($table eq 'loci' && $self->{'system'}->{'dbtype'} eq 'isolates' && $_->{'name'} eq 'id'){
-				push @headers,'aliases';
+			if ( $table eq 'loci' && $self->{'system'}->{'dbtype'} eq 'isolates' && $att->{'name'} eq 'id' ) {
+				push @headers, 'aliases';
 			}
 		}
-		if ($table eq 'sequences' && $self->{'cgi'}->param('locus')){
-			shift @headers; #don't include 'locus'
-			my $extended_attributes = $self->{'datastore'}->run_list_query("SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order",$self->{'cgi'}->param('locus'));
-			if (ref $extended_attributes eq 'ARRAY'){
-				push @headers,@$extended_attributes;
+		if ( $table eq 'sequences' ) {
+			if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
+				push @headers, 'flags';
+			}
+			if ( $self->{'cgi'}->param('locus') ) {
+				shift @headers;    #don't include 'locus'
+				my $extended_attributes =
+				  $self->{'datastore'}->run_list_query( "SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order",
+					$self->{'cgi'}->param('locus') );
+				if ( ref $extended_attributes eq 'ARRAY' ) {
+					push @headers, @$extended_attributes;
+				}
 			}
 		}
 	}
@@ -96,4 +92,4 @@ sub print_content {
 	print "@headers";
 	return;
 }
-1;    
+1;

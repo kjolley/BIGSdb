@@ -25,19 +25,19 @@ use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
 
 sub print_content {
-	my ($self)    = @_;
-	my $q         = $self->{'cgi'};
-	my $locus     = $q->param('locus');
-	$locus =~ s/%27/'/g; #Web-escaped locus
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $locus  = $q->param('locus');
+	$locus =~ s/%27/'/g;    #Web-escaped locus
 	my $allele_id = $q->param('allele_id');
 	if ( !$self->{'datastore'}->is_locus($locus) ) {
 		print "<h1>Allele information</h1>\n";
 		print "<div class=\"box\" id=\"statusbad\"><p>Invalid locus selected.</p></div>\n";
 		return;
 	}
-	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	my $locus_info    = $self->{'datastore'}->get_locus_info($locus);
 	my $cleaned_locus = $self->clean_locus($locus);
-	print "<h1>Allele information" . (defined $allele_id ? " - $cleaned_locus: $allele_id\n" : '') . "</h1>\n";
+	print "<h1>Allele information" . ( defined $allele_id ? " - $cleaned_locus: $allele_id\n" : '' ) . "</h1>\n";
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>This function is not available from an isolate database.</p></div>\n";
 		return;
@@ -54,14 +54,17 @@ sub print_content {
 		print "<div class=\"box\" id=\"statusbad\"><p>This sequence does not exist.</p></div>\n";
 		return;
 	}
-	my $length       = length( $seq_ref->{'sequence'} );
-	my $seq          = BIGSdb::Utils::split_line( $seq_ref->{'sequence'} );
-	my $sender_info  = $self->{'datastore'}->get_user_info( $seq_ref->{'sender'} );
+	my $length      = length( $seq_ref->{'sequence'} );
+	my $seq         = BIGSdb::Utils::split_line( $seq_ref->{'sequence'} );
+	my $sender_info = $self->{'datastore'}->get_user_info( $seq_ref->{'sender'} );
 	$sender_info->{'affiliation'} =~ s/\&/\&amp;/g;
 	my $sender_email = !$self->{'system'}->{'privacy'} ? "<a href=\"mailto:$sender_info->{'email'}\">$sender_info->{'email'}</a>" : '';
 	my $curator_info = $self->{'datastore'}->get_user_info( $seq_ref->{'curator'} );
-	my $desc_exists = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM locus_descriptions WHERE locus=?",$locus)->[0];
-	my $desc_link = $desc_exists ? "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus\" class=\"info_tooltip\">&nbsp;i&nbsp;</a>" : '';
+	my $desc_exists  = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM locus_descriptions WHERE locus=?", $locus )->[0];
+	my $desc_link =
+	  $desc_exists
+	  ? "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus\" class=\"info_tooltip\">&nbsp;i&nbsp;</a>"
+	  : '';
 	print << "HTML";
 <div class="box" id="resultstable">
 <table class="resultstable">
@@ -76,29 +79,17 @@ sub print_content {
 <tr class="td1"><th>curator</th><td style="text-align:left">$curator_info->{'first_name'} $curator_info->{'surname'}</td><td style="text-align:left">$curator_info->{'affiliation'}</td><td style="text-align:left"><a href="mailto:$curator_info->{'email'}">$curator_info->{'email'}</a></td></tr>
 HTML
 	my $td = 2;
-	my $extended_attributes =
-	  $self->{'datastore'}->run_list_query( "SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order", $locus );
-
-	if ( ref $extended_attributes eq 'ARRAY' ) {
-		my $sql2 = $self->{'db'}->prepare("SELECT value FROM sequence_extended_attributes WHERE locus=? AND field=? AND allele_id=?");
-		foreach (@$extended_attributes) {
-			eval { $sql2->execute( $locus, $_, $allele_id ); };
-			if ($@) {
-				$logger->error("Can't execute $@");
-			}
-			my ($value) = $sql2->fetchrow_array;
-			if ($value) {
-				my $cleaned = $_;
-				$cleaned =~ tr/_/ /;
-				if ( $cleaned =~ /sequence$/ ) {
-					my $seq = BIGSdb::Utils::split_line($value);
-					print "<tr class=\"td$td\"><th>$cleaned</th><td style=\"text-align:left\" colspan=\"3\" class=\"seq\">$seq</td></tr>\n";
-				} else {
-					print "<tr class=\"td$td\"><th>$cleaned</th><td style=\"text-align:left\" colspan=\"3\">$value</td></tr>\n";
-				}
-				$td = $td == 1 ? 2 : 1;
-			}
+	my $extended_attributes = $self->{'datastore'}->get_allele_extended_attributes( $locus, $allele_id );
+	foreach my $ext (@$extended_attributes) {
+		my $cleaned_field = $ext->{'field'};
+		$cleaned_field =~ tr/_/ /;
+		if ( $cleaned_field =~ /sequence$/ ) {
+			my $seq = BIGSdb::Utils::split_line($ext->{'value'});
+			print "<tr class=\"td$td\"><th>$cleaned_field</th><td style=\"text-align:left\" colspan=\"3\" class=\"seq\">$seq</td></tr>\n";
+		} else {
+			print "<tr class=\"td$td\"><th>$cleaned_field</th><td style=\"text-align:left\" colspan=\"3\">$ext->{'value'}</td></tr>\n";
 		}
+		$td = $td == 1 ? 2 : 1;
 	}
 	my $qry = "SELECT databank, databank_id FROM accession WHERE locus=? and allele_id=? ORDER BY databank,databank_id";
 	$sql = $self->{'db'}->prepare($qry);
@@ -137,7 +128,7 @@ HTML
 		my $profiles =
 		  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM profile_members WHERE scheme_id=? AND locus=? AND allele_id=?",
 			$scheme->{'id'}, $locus, $allele_id )->[0];
-		my $plural = $profiles == 1 ? '' : 's'; 
+		my $plural  = $profiles == 1 ? ''         : 's';
 		my $contain = $profiles == 1 ? 'contains' : 'contain';
 		print "<td style=\"text-align:left\" colspan=\"2\">$profiles profile$plural $contain this allele</td><td>";
 		print $q->start_form;
@@ -178,13 +169,13 @@ HTML
 			#it seems we have to pass the parameters in the action clause for mod_perl2
 			#but separately for stand-alone CGI.
 			my %params = (
-				'db'    => $client->{'dbase_config_name'},
-				'page'  => 'query',
-				'ls1'   => 'l_' . ( $client->{'locus_alias'} || $locus ),
-				'ly1'   => '=',
-				'lt1'   => $allele_id,
-				'order' => 'id',
-				'submit'  => 1
+				'db'     => $client->{'dbase_config_name'},
+				'page'   => 'query',
+				'ls1'    => 'l_' . ( $client->{'locus_alias'} || $locus ),
+				'ly1'    => '=',
+				'lt1'    => $allele_id,
+				'order'  => 'id',
+				'submit' => 1
 			);
 			my @action_params;
 			foreach ( keys %params ) {
@@ -262,12 +253,12 @@ sub _get_reference {
 }
 
 sub get_title {
-	my ($self)    = @_;
-	my $locus     = $self->{'cgi'}->param('locus');
-	$locus =~ s/%27/'/g; #Web-escaped locus
+	my ($self) = @_;
+	my $locus = $self->{'cgi'}->param('locus');
+	$locus =~ s/%27/'/g;    #Web-escaped locus
 	my $allele_id = $self->{'cgi'}->param('allele_id');
 	return "Invalid locus" if !$self->{'datastore'}->is_locus($locus);
 	$locus =~ tr/_/ /;
-	return "Allele information" . (defined $allele_id ? " - $locus: $allele_id" : '');
+	return "Allele information" . ( defined $allele_id ? " - $locus: $allele_id" : '' );
 }
 1;

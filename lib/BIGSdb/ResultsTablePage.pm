@@ -171,6 +171,7 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 		}
 		print "</p>\n";
 		if ( $self->{'curate'} && $self->can_modify_table($table) ) {
+			my $page = $q->param('page');
 			print "<fieldset><legend>Delete</legend>\n";
 			print $q->start_form;
 			$q->param( 'page', 'deleteAll' );
@@ -229,6 +230,7 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 				print $q->end_form;
 				print "</fieldset>\n";
 			}
+			$q->param('page', $page); #reset
 		}
 		if (   $self->{'curate'}
 			&& $self->{'system'}->{'dbtype'} eq 'isolates'
@@ -950,6 +952,9 @@ sub _print_record_table {
 			}
 		}
 	}
+	if ($q->param('page') eq 'tableQuery' && $q->param('table') eq 'sequences' && ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ){
+		push @cleaned_headers, 'flags';
+	}
 	local $" = ',';
 	my $fields = "@qry_fields";
 	if ( $table eq 'allele_sequences' && $qry =~ /sequence_flags/ ) {
@@ -1097,6 +1102,11 @@ sub _print_record_table {
 				my ($value) = $ext_sql->fetchrow_array;
 				print defined $value ? "<td>$value</td>" : '<td />';
 			}
+		}
+		if ($q->param('page') eq 'tableQuery' && $q->param('table') eq 'sequences' && ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ){
+			my $flags = $self->{'datastore'}->get_allele_flags($data{'locus'},$data{'allele_id'});
+			local $" = '</a> <a class="seqflag_tooltip">';
+			print @$flags ? "<td><a class=\"seqflag_tooltip\">@$flags</a></td>" : '<td />';
 		}
 		print "</tr>\n";
 		$td = $td == 2 ? 1 : 2;
