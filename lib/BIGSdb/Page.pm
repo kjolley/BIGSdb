@@ -554,15 +554,15 @@ s/\$lociAdd/<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&a
 sub get_filter {
 	my ( $self, $name, $values, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $filter = $options->{'class'} || 'filter';
+	my $class = $options->{'class'} || 'filter';
 	( my $text = $options->{'text'} || $name ) =~ tr/_/ /;
 	my ( $label, $title ) = $self->_get_truncated_label("$text: ");
 	my $title_attribute = $title ? "title=\"$title\"" : '';
-	my $buffer = "<label for=\"$name\_list\" class=\"$filter\" $title_attribute>$label</label>\n";
+	my $buffer = "<label for=\"$name\_list\" class=\"$class\" $title_attribute>$label</label>\n";
 	unshift @$values, '' if !$options->{'noblank'};
 	$buffer .=
 	  $self->{'cgi'}
-	  ->popup_menu( -name => "$name\_list", -id => "$name\_list", -values => $values, -labels => $options->{'labels'}, -class => $filter );
+	  ->popup_menu( -name => "$name\_list", -id => "$name\_list", -values => $values, -labels => $options->{'labels'}, -class => $class );
 	$options->{'tooltip'} =~ tr/_/ / if $options->{'tooltip'};
 	$buffer .= " <a class=\"tooltip\" title=\"$options->{'tooltip'}\">&nbsp;<i>i</i>&nbsp;</a>" if $options->{'tooltip'};
 	return $buffer;

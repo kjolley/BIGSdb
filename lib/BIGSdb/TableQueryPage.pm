@@ -24,7 +24,7 @@ use List::MoreUtils qw(any uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant MAX_ROWS => 20;
-use BIGSdb::Page qw(SEQ_FLAGS);
+use BIGSdb::Page qw(SEQ_FLAGS ALLELE_FLAGS);
 
 sub initiate {
 	my ($self) = @_;
@@ -46,12 +46,12 @@ sub print_content {
 	my ($self) = @_;
 	my $system = $self->{'system'};
 	my $q      = $self->{'cgi'};
-	my $table  = $q->param('table') || '';
+	my $table = $q->param('table') || '';
 	if ( $q->param('no_header') ) {
 		$self->_ajax_content($table);
 		return;
 	}
-	if ( !$self->{'datastore'}->is_table($table) && !($table eq 'samples' && @{$self->{'xmlHandler'}->get_sample_field_list})) {
+	if ( !$self->{'datastore'}->is_table($table) && !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Table '$table' is not defined.</p></div>\n";
 		return;
 	}
@@ -60,7 +60,7 @@ sub print_content {
 	print "<h1>Query $cleaned for $system->{'description'} database</h1>\n";
 	my $qry;
 	if (   !defined $q->param('currentpage')
-		|| (defined $q->param('pagejump') && $q->param('pagejump') eq '1')
+		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
 		|| $q->param('First') )
 	{
 		if ( !$q->param('no_js') ) {
@@ -127,7 +127,7 @@ sub _print_table_fields {
 		print
 "<a id=\"add_table_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;fields=table_fields&amp;table=$table&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
 		print
-" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term \&lt;&shy;blank\&gt; or null. <p /><h3>Number of fields</h3>Add more fields by clicking the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>";
+" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term 'null'. <p /><h3>Number of fields</h3>Add more fields by clicking the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>";
 	}
 	print "</span>\n";
 	return;
@@ -156,6 +156,7 @@ sub _print_query_interface {
 	my $cleaned = $table;
 	$cleaned =~ tr/_/ /;
 	print "<p>Please enter your search criteria below (or leave blank and submit to return all records).";
+
 	if ( !$self->{'curate'} && $table ne 'samples' ) {
 		print " Matching $cleaned will be returned and you will then be able to update their display and query settings.";
 	}
@@ -181,7 +182,7 @@ sub _print_query_interface {
 	print $q->popup_menu( -name => 'order', -id => 'order', -values => $order_by, -labels => $labels );
 	print $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
 	print "</span></li>\n<li>\n";
-	print $self->get_number_records_control;	
+	print $self->get_number_records_control;
 	print "</li>\n\n";
 	my $page = $self->{'curate'} ? 'profileQuery' : 'query';
 	print
@@ -253,6 +254,9 @@ sub _print_query_interface {
 	}
 	if ( $table eq 'loci' || $table eq 'allele_designations' ) {
 		push @filters, $self->get_scheme_filter;
+	} elsif ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' && $table eq 'sequences' ) {
+		my @flag_values = ('any flag', 'no flag', ALLELE_FLAGS);
+		push @filters, $self->get_filter( 'allele_flag', \@flag_values );
 	} elsif ( $table eq 'sequence_bin' ) {
 		my %labels;
 		my @experiments;
@@ -323,9 +327,7 @@ sub _run_query {
 				my $field    = $q->param("s$i");
 				my $operator = $q->param("y$i");
 				my $text     = $q->param("t$i");
-				$text =~ s/^\s*//;
-				$text =~ s/\s*$//;
-				$text =~ s/'/\\'/g;
+				$self->process_value( \$text );
 				my $thisfield;
 				foreach (@$attributes) {
 					if ( $_->{'name'} eq $field ) {
@@ -333,45 +335,15 @@ sub _run_query {
 						last;
 					}
 				}
-				if ($thisfield->{'type'}){ #field may not actually exist in table (e.g. isolate_id in allele_sequences)
-					if (   $text ne '<blank>'
-						&& $text ne 'null'
-						&& ( $thisfield->{'type'} eq 'int' )
-						&& !BIGSdb::Utils::is_int($text) )
-					{
-						push @errors, "$field is an integer field.";
-						next;
-					} elsif ( $text ne '<blank>'
-						&& $text ne 'null'
-						&& lc( $thisfield->{'type'} ) eq 'bool'
-						&& !BIGSdb::Utils::is_bool($text) )
-					{
-						push @errors, "$field is a boolean field - should be in either true/false or 1/0.";
-						next;
-					} elsif ( $text ne '<blank>'
-						&& $text ne 'null'
-						&& lc( $thisfield->{'type'} ) eq 'date'
-						&& !BIGSdb::Utils::is_date($text) )
-					{
-						push @errors, "$field is a date field - should be in yyyy-mm-dd format (or 'today' / 'yesterday').";
-						next;
-					}
+				if ( $thisfield->{'type'} ) {    #field may not actually exist in table (e.g. isolate_id in allele_sequences)
+					next
+					  if $self->check_format( { field => $field, text => $text, type => lc( $thisfield->{'type'} ), operator => $operator },
+						\@errors );
+				} elsif ( $field =~ /(.*) \(id\)$/ || $field eq 'isolate_id' ) {
+					next if $self->check_format( { field => $field, text => $text, type => 'int', operator => $operator }, \@errors );
 				}
-				if ( !$self->is_valid_operator($operator) ) {
-					push @errors, "$operator is not a valid operator.";
-					next;
-				}
-				my $modifier = '';
-				if ( $i > 1 && !$first_value ) {
-					$modifier = " $andor ";
-				}
+				my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
 				$first_value = 0;
-				if ( ( $field =~ /(.*) \(id\)$/ || $field eq 'isolate_id' )
-					&& !BIGSdb::Utils::is_int($text) )
-				{
-					push @errors, "$field is an integer field.";
-					next;
-				}
 				if ( ( $table eq 'allele_sequences' || $table eq 'experiment_sequences' ) && $field eq 'isolate_id' ) {
 					$qry .= $modifier . $self->_search_by_isolate_id( $table, $operator, $text );
 				} elsif (
@@ -395,7 +367,7 @@ sub _run_query {
 					$qry .= $modifier . $self->search_users( $field, $operator, $text, $table );
 				} else {
 					if ( $operator eq 'NOT' ) {
-						if ( $text eq '<blank>' || $text eq 'null' ) {
+						if ( $text eq 'null' ) {
 							$qry .= $modifier . "$table.$field is not null";
 						} else {
 							if ( $thisfield->{'type'} ne 'text' ) {
@@ -418,15 +390,9 @@ sub _run_query {
 						}
 					} elsif ( $operator eq '=' ) {
 						if ( lc( $thisfield->{'type'} ) eq 'text' ) {
-							$qry .= $modifier
-							  . (
-								( $text eq '<blank>' || $text eq 'null' )
-								? "$table.$field is null"
-								: "upper($table.$field) = upper(E'$text')"
-							  );
+							$qry .= $modifier . ( $text eq 'null' ? "$table.$field is null" : "upper($table.$field) = upper(E'$text')" );
 						} else {
-							$qry .= $modifier
-							  . ( ( $text eq '<blank>' || $text eq 'null' ) ? "$table.$field is null" : "$table.$field = '$text'" );
+							$qry .= $modifier . ( $text eq 'null' ? "$table.$field is null" : "$table.$field = '$text'" );
 						}
 					} else {
 						$qry .= $modifier . "$table.$field $operator E'$text'";
@@ -434,7 +400,8 @@ sub _run_query {
 				}
 			}
 		}
-		if ( defined $q->param('scheme_id_list') && $q->param('scheme_id_list') ne ''
+		if (   defined $q->param('scheme_id_list')
+			&& $q->param('scheme_id_list') ne ''
 			&& any { $table eq $_ } qw (loci scheme_fields schemes scheme_members client_dbase_schemes allele_designations) )
 		{
 			if ( $table eq 'loci' ) {
@@ -475,6 +442,8 @@ sub _run_query {
 			$qry2 .= " AND ($qry)" if $qry;
 		} elsif ( $table eq 'allele_sequences' ) {
 			$qry2 = $self->_process_allele_sequences_filters($qry);
+		} elsif ( $table eq 'sequences'){
+			$qry2 = $self->_process_sequences_filters($qry);
 		} else {
 			$qry ||= '';
 			$qry2 = "SELECT * FROM $table WHERE ($qry)";
@@ -490,7 +459,7 @@ sub _run_query {
 					$qry2 = "SELECT * FROM $table WHERE ";
 				}
 				$value =~ s/'/\\'/g;
-				$qry2 .= ( ( $value eq '<blank>' || $value eq 'null' ) ? "$_ is null" : "$field = E'$value'" );
+				$qry2 .= ( $value eq 'null' ? "$_ is null" : "$field = E'$value'" );
 			}
 		}
 		$qry2 .= " ORDER BY $table.";
@@ -656,7 +625,8 @@ sub _process_allele_sequences_filters {
 				$qry2 =
 "SELECT * FROM allele_sequences INNER JOIN sequence_flags ON sequence_flags.seqbin_id = allele_sequences.seqbin_id AND sequence_flags.locus = allele_sequences.locus AND sequence_flags.start_pos = allele_sequences.start_pos AND sequence_flags.end_pos = allele_sequences.end_pos";
 				if ( any { $q->param('sequence_flag_list') eq $_ } SEQ_FLAGS ) {
-					$qry2 .= " AND flag = '" . $q->param('sequence_flag_list') . "'";
+					$qry2 .= $q->param('duplicates_list') ne '' ? ' AND ' : ' WHERE ';
+					$qry2 .= "flag = '" . $q->param('sequence_flag_list') . "'";
 				}
 			}
 		}
@@ -687,11 +657,37 @@ sub _process_allele_sequences_filters {
 				$qry2 = "SELECT * FROM allele_sequences WHERE ($scheme_qry)";
 			}
 		}
-		$qry2 .= " AND ($qry)" if $qry;
+		if ($qry){
+			$qry2 .= $qry =~ /WHERE/ ? ' AND ' : ' WHERE ';
+			$qry2 .= "($qry)";
+		}
 	} else {
 		$qry ||= '';
 		$qry2 = "SELECT * FROM allele_sequences WHERE ($qry)";
 	}
 	return $qry2;
+}
+
+sub _process_sequences_filters {
+	my ( $self, $qry ) = @_;
+	my $q = $self->{'cgi'};
+	my $qry2;
+	if ($q->param('allele_flag_list') ne '' && 	( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes'){
+		if ( $q->param('allele_flag_list') eq 'no flag' ) {
+			$qry2 = "SELECT * FROM sequences LEFT JOIN allele_flags ON allele_flags.locus = sequences.locus AND "
+			. "allele_flags.allele_id = sequences.allele_id WHERE flag IS NULL";
+		} else {
+			$qry2 = "SELECT * FROM sequences WHERE EXISTS (SELECT 1 FROM allele_flags WHERE sequences.locus=allele_flags.locus AND sequences.allele_id=allele_flags.allele_id";
+			if ( any { $q->param('allele_flag_list') eq $_ } ALLELE_FLAGS ) {
+				$qry2 .= " AND flag = '". $q->param('allele_flag_list'). "'";
+			}
+			$qry2 .= ')';
+		}
+		$qry2 .= " AND ($qry)" if $qry;
+	} else {
+		$qry ||= '';
+		$qry2 = "SELECT * FROM sequences WHERE ($qry)";
+	}
+	return $qry2;	
 }
 1;

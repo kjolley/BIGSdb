@@ -879,7 +879,7 @@ sub _grouped_field_query {
 		foreach (@$groupedfields) {
 			my %thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
 			return
-			  if $self->_check_format( { field => $_, text => $text, type => $thisfield{'type'}, operator => $data->{'operator'} },
+			  if $self->check_format( { field => $_, text => $text, type => $thisfield{'type'}, operator => $data->{'operator'} },
 				$errors_ref );
 			$buffer .= ' OR ' if $_ ne $groupedfields->[0];
 			%thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
@@ -922,7 +922,7 @@ sub _generate_isolate_query_for_provenance_fields {
 			my $text     = $q->param("t$i");
 			$self->process_value( \$text );
 			next
-			  if $self->_check_format( { field => $field, text => $text, type => lc( $thisfield{'type'} ), operator => $operator },
+			  if $self->check_format( { field => $field, text => $text, type => lc( $thisfield{'type'} ), operator => $operator },
 				$errors_ref );
 			my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
 			$first_value = 0;
@@ -1477,7 +1477,7 @@ sub _run_profile_query {
 				my $operator = $q->param("y$i");
 				my $text     = $q->param("t$i");
 				$self->process_value( \$text );
-				next if $self->_check_format( { field => $field, text => $text, type => $type, operator => $operator }, \@errors );
+				next if $self->check_format( { field => $field, text => $text, type => $type, operator => $operator }, \@errors );
 				my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
 				$first_value = 0;
 				if ( $field =~ /(.*) \(id\)$/
@@ -1603,7 +1603,7 @@ sub search_users {
 	return "($table.$field = '@$ids')";
 }
 
-sub _check_format {
+sub check_format {
 
 	#returns 1 if error
 	my ( $self, $data, $error_ref ) = @_;

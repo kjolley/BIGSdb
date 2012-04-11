@@ -79,6 +79,7 @@ sub print_content {
 <tr class="td1"><th>curator</th><td style="text-align:left">$curator_info->{'first_name'} $curator_info->{'surname'}</td><td style="text-align:left">$curator_info->{'affiliation'}</td><td style="text-align:left"><a href="mailto:$curator_info->{'email'}">$curator_info->{'email'}</a></td></tr>
 HTML
 	my $td = 2;
+	$self->_process_flags($locus, $allele_id, \$td);
 	my $extended_attributes = $self->{'datastore'}->get_allele_extended_attributes( $locus, $allele_id );
 	foreach my $ext (@$extended_attributes) {
 		my $cleaned_field = $ext->{'field'};
@@ -194,6 +195,19 @@ HTML
 		$td = $td == 1 ? 2 : 1;
 	}
 	print "</table>\n</div>\n";
+	return;
+}
+
+sub _process_flags {
+	my ($self, $locus, $allele_id, $td_ref) = @_;
+	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
+		my $flags = $self->{'datastore'}->get_allele_flags($locus, $allele_id);
+		if (@$flags){
+			local $" = "</a> <a class=\"seqflag_tooltip\">";
+			print "<tr class=\"td$$td_ref\"><th>flags</th><td style=\"text-align:left\" colspan=\"3\"><a class=\"seqflag_tooltip\">@$flags</a></td></tr>\n";
+			$$td_ref = $$td_ref == 1 ? 2 : 1;
+		}
+	}
 	return;
 }
 

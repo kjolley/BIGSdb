@@ -20,6 +20,8 @@ package BIGSdb::AlleleQueryPage;
 use strict;
 use warnings;
 use parent qw(BIGSdb::QueryPage);
+use List::MoreUtils qw(any);
+use BIGSdb::Page qw(ALLELE_FLAGS);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant MAX_ROWS => 10;
@@ -228,10 +230,15 @@ sub _print_query_interface {
 	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
 	print "</span></fieldset>\n</div>\n";
 	print "<div style=\"white-space:nowrap\"><fieldset><legend>Filter query by</legend>\n";
-	print "<ul>\n<li><span style=\"white-space:nowrap\">";
-	print "<label for=\"status_list\">status: </label>\n";
-	print $q->popup_menu( -name => 'status_list', -id => 'status_list', -values => [ '', 'trace checked', 'trace not checked' ] );
-	print "</span></li>\n</ul>\n</fieldset></div>\n";
+	print "<ul>\n<li>";
+	print $self->get_filter( 'status', [ 'trace checked', 'trace not checked' ], { class => 'display' } );
+	print "</li><li>\n";
+
+	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
+		my @flag_values = ( 'any flag', 'no flag', ALLELE_FLAGS );
+		print $self->get_filter( 'allele_flag', \@flag_values, { class => 'display' } );
+	}
+	print "</li></ul>\n</fieldset></div>\n";
 	print $q->endform;
 	print "</div>\n";
 	return;
@@ -268,26 +275,14 @@ sub _run_query {
 					eval { $extatt_sql->execute( $locus, $field ); };
 					$logger->error($@) if $@;
 					my $thisfield = $extatt_sql->fetchrow_hashref;
-					if (   $text ne 'null'
-						&& ( $thisfield->{'value_format'} eq 'integer' )
-						&& !BIGSdb::Utils::is_int($text) )
-					{
-						push @errors, "$field is an integer field.";
-						next;
-					} elsif ( $text ne 'null'
-						&& lc( $thisfield->{'value_format'} ) eq 'date'
-						&& !BIGSdb::Utils::is_date($text) )
-					{
-						push @errors, "$field is a date field - should be in yyyy-mm-dd format (or 'today' / 'yesterday').";
-						next;
-					} elsif ( !$self->is_valid_operator($operator) ) {
-						push @errors, "$operator is not a valid operator.";
-						next;
-					}
+					next
+					  if $self->check_format(
+							  { field => $field, text => $text, type => $thisfield->{'value_format'}, operator => $operator }, \@errors );
 					my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
 					$first_value = 0;
 					my $std_clause = "$modifier (allele_id IN (SELECT allele_id FROM sequence_extended_attributes "
 					  . "WHERE locus=E'$locus' AND field='$field' ";
+
 					if ( $operator eq 'NOT' ) {
 						$qry .= $std_clause;
 						if ( $text eq 'null' ) {
@@ -338,29 +333,9 @@ sub _run_query {
 						}
 					}
 					$thisfield->{'type'} ||= 'text';    # sender/curator surname, firstname, affiliation
-					if (   $text ne 'null'
-						&& $field eq 'allele_id'
-						&& $locus_info->{'allele_id_format'} eq 'integer'
-						&& !BIGSdb::Utils::is_int($text) )
-					{
-						push @errors, "$field is an integer field.";
-						next;
-					} elsif ( $text ne 'null'
-						&& ( $thisfield->{'type'} eq 'int' )
-						&& !BIGSdb::Utils::is_int($text) )
-					{
-						push @errors, "$field is an integer field.";
-						next;
-					} elsif ( $text ne 'null'
-						&& lc( $thisfield->{'type'} ) eq 'date'
-						&& !BIGSdb::Utils::is_date($text) )
-					{
-						push @errors, "$field is a date field - should be in yyyy-mm-dd format (or 'today' / 'yesterday').";
-						next;
-					} elsif ( !$self->is_valid_operator($operator) ) {
-						push @errors, "$operator is not a valid operator.";
-						next;
-					}
+					next
+					  if $self->check_format( { field => $field, text => $text, type => $thisfield->{'type'}, operator => $operator },
+							  \@errors );
 					my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
 					$first_value = 0;
 					if ( $field =~ /(.*) \(id\)$/
@@ -433,6 +408,7 @@ sub _run_query {
 				$qry2 .= $value eq 'null' ? "$_->{'name'} is null" : "$_->{'name'} = E'$value'";
 			}
 		}
+		$qry2 .= $self->_process_flags;
 		$qry2 .= " ORDER BY ";
 		if ( $q->param('order') eq 'allele_id' && $locus_info->{'allele_id_format'} eq 'integer' ) {
 			$qry2 .= "CAST (" . ( $q->param('order') ) . " AS integer)";
@@ -462,5 +438,25 @@ sub _run_query {
 		print "<p />\n";
 	}
 	return;
+}
+
+sub _process_flags {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $buffer = '';
+	if ( $q->param('allele_flag_list') ne '' && ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
+		if ( $q->param('allele_flag_list') eq 'no flag' ) {
+			$buffer .= " AND NOT EXISTS (SELECT 1 FROM allele_flags WHERE sequences.locus=allele_flags.locus AND "
+			  . "sequences.allele_id=allele_flags.allele_id)";
+		} else {
+			$buffer .= " AND EXISTS (SELECT 1 FROM allele_flags WHERE sequences.locus=allele_flags.locus AND "
+			  . "sequences.allele_id=allele_flags.allele_id";
+			if ( any { $q->param('allele_flag_list') eq $_ } ALLELE_FLAGS ) {
+				$buffer .= " AND flag = '" . $q->param('allele_flag_list') . "'";
+			}
+			$buffer .= ')';
+		}
+	}
+	return $buffer;
 }
 1;

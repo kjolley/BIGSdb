@@ -55,9 +55,9 @@ sub paged_display {
 
 	#sort allele_id integers numerically
 	$qry =~
-s/ORDER BY (.+),\s*\S+\.allele_id(.*)/ORDER BY $1,\(case when allele_id ~ '^[0-9]+\$' THEN lpad\(allele_id,10,'0'\) else allele_id end\)$2/;
+s/ORDER BY (.+),\s*\S+\.allele_id(.*)/ORDER BY $1,\(case when $table.allele_id ~ '^[0-9]+\$' THEN lpad\($table.allele_id,10,'0'\) else $table.allele_id end\)$2/;
 	$qry =~
-	  s/ORDER BY \S+\.allele_id(.*)/ORDER BY \(case when allele_id ~ '^[0-9]+\$' THEN lpad\(allele_id,10,'0'\) else allele_id end\)$1/;
+	  s/ORDER BY \S+\.allele_id(.*)/ORDER BY \(case when $table.allele_id ~ '^[0-9]+\$' THEN lpad\($table.allele_id,10,'0'\) else $table.allele_id end\)$1/;
 	my $totalpages = 1;
 	my $bar_buffer;
 	if ( $q->param('displayrecs') ) {
@@ -952,7 +952,7 @@ sub _print_record_table {
 			}
 		}
 	}
-	if ($q->param('page') eq 'tableQuery' && $q->param('table') eq 'sequences' && ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ){
+	if ((($q->param('page') eq 'tableQuery' && $q->param('table') eq 'sequences') || $q->param('page') eq 'alleleQuery') && ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ){
 		push @cleaned_headers, 'flags';
 	}
 	local $" = ',';
@@ -1103,7 +1103,7 @@ sub _print_record_table {
 				print defined $value ? "<td>$value</td>" : '<td />';
 			}
 		}
-		if ($q->param('page') eq 'tableQuery' && $q->param('table') eq 'sequences' && ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ){
+		if ((($q->param('page') eq 'tableQuery' && $q->param('table') eq 'sequences') || $q->param('page') eq 'alleleQuery') && ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ){
 			my $flags = $self->{'datastore'}->get_allele_flags($data{'locus'},$data{'allele_id'});
 			local $" = '</a> <a class="seqflag_tooltip">';
 			print @$flags ? "<td><a class=\"seqflag_tooltip\">@$flags</a></td>" : '<td />';
