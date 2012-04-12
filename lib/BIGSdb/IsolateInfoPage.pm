@@ -50,8 +50,7 @@ sub get_javascript {
 }
 
 sub _get_child_group_scheme_tables {
-	my ( $self, $id, $isolate_id, $locus_info, $locus_alias, $allele_designations, $allele_sequences, $allele_sequence_flags, $td, $level )
-	  = @_;
+	my ( $self, $id, $isolate_id, $locus_info, $locus_alias, $allele_designations, $td, $level ) = @_;
 	my $child_groups = $self->{'datastore'}->run_list_query(
 "SELECT id FROM scheme_groups LEFT JOIN scheme_group_group_members ON scheme_groups.id=group_id WHERE parent_group_id=? ORDER BY display_order",
 		$id
@@ -64,13 +63,10 @@ sub _get_child_group_scheme_tables {
 			last if $new_level == 10;    #prevent runaway if child is set as the parent of a parental group
 			my $field_buffer;
 			( $td, $field_buffer ) =
-			  $self->_get_group_scheme_tables( $_, $isolate_id, $locus_info, $locus_alias, $allele_designations, $allele_sequences,
-				$allele_sequence_flags, $td );
+			  $self->_get_group_scheme_tables( $_, $isolate_id, $locus_info, $locus_alias, $allele_designations, $td );
 			$buffer .= $field_buffer if $field_buffer;
-			( $td, $field_buffer ) = $self->_get_child_group_scheme_tables(
-				$_,                $isolate_id,            $locus_info, $locus_alias, $allele_designations,
-				$allele_sequences, $allele_sequence_flags, $td,         ++$new_level
-			);
+			( $td, $field_buffer ) =
+			  $self->_get_child_group_scheme_tables( $_, $isolate_id, $locus_info, $locus_alias, $allele_designations, $td, ++$new_level );
 			$buffer .= $field_buffer if $field_buffer;
 		}
 	}
@@ -78,7 +74,7 @@ sub _get_child_group_scheme_tables {
 }
 
 sub _get_group_scheme_tables {
-	my ( $self, $id, $isolate_id, $locus_info, $locus_alias, $allele_designations, $allele_sequences, $allele_sequence_flags, $td ) = @_;
+	my ( $self, $id, $isolate_id, $locus_info, $locus_alias, $allele_designations, $td ) = @_;
 	my $schemes = $self->{'datastore'}->run_list_query(
 "SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON schemes.id=scheme_id WHERE group_id=? ORDER BY display_order",
 		$id
@@ -88,10 +84,9 @@ sub _get_group_scheme_tables {
 		foreach my $scheme_id (@$schemes) {
 			next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};
 			if ( !$self->{'scheme_shown'}->{$scheme_id} ) {
-				( $td, my $field_buffer ) = $self->_get_scheme_fields(
-					$scheme_id,        $isolate_id,            $locus_info, $locus_alias, $allele_designations,
-					$allele_sequences, $allele_sequence_flags, $td,         $self->{'curate'}
-				);
+				( $td, my $field_buffer ) =
+				  $self->_get_scheme_fields( $scheme_id, $isolate_id, $locus_info, $locus_alias, $allele_designations, $td,
+					$self->{'curate'} );
 				$buffer .= $field_buffer if $field_buffer;
 				$self->{'scheme_shown'}->{$scheme_id} = 1;
 			}
@@ -105,8 +100,7 @@ sub print_content {
 	my $q          = $self->{'cgi'};
 	my $isolate_id = $q->param('id');
 	if ( defined $q->param('group_id') && BIGSdb::Utils::is_int( $q->param('group_id') ) ) {
-		my ( $locus_info, $locus_alias, $allele_designations, $allele_sequences, $allele_sequence_flags ) =
-		  $self->_get_scheme_attributes($isolate_id);
+		my ( $locus_info, $locus_alias, $allele_designations ) = $self->_get_scheme_attributes($isolate_id);
 		my $group_id = $q->param('group_id');
 		my $scheme_ids;
 		my $td = 1;
@@ -118,47 +112,37 @@ sub print_content {
 			foreach (@$scheme_ids) {
 				next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$_};
 				my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
-				( $td, $table_buffer ) = $self->_get_scheme_fields(
-					$_,                $isolate_id,            $locus_info, $locus_alias, $allele_designations,
-					$allele_sequences, $allele_sequence_flags, 1,           $self->{'curate'}
-				);
+				( $td, $table_buffer ) =
+				  $self->_get_scheme_fields( $_, $isolate_id, $locus_info, $locus_alias, $allele_designations, 1, $self->{'curate'} );
 				$buffer .= $table_buffer if $table_buffer;
 			}
 		} else {
 			( $td, $table_buffer ) =
-			  $self->_get_group_scheme_tables( $group_id, $isolate_id, $locus_info, $locus_alias, $allele_designations, $allele_sequences,
-				$allele_sequence_flags, $td );
+			  $self->_get_group_scheme_tables( $group_id, $isolate_id, $locus_info, $locus_alias, $allele_designations, $td );
 			$buffer .= $table_buffer if $table_buffer;
-			( $td, $table_buffer ) = $self->_get_child_group_scheme_tables(
-				$group_id,         $isolate_id,            $locus_info, $locus_alias, $allele_designations,
-				$allele_sequences, $allele_sequence_flags, $td,         1
-			);
+			( $td, $table_buffer ) =
+			  $self->_get_child_group_scheme_tables( $group_id, $isolate_id, $locus_info, $locus_alias, $allele_designations, $td, 1 );
 			$buffer .= $table_buffer if $table_buffer;
 		}
 		if ($buffer) {
 			print "<table style=\"width:100%\">\n$buffer</table>\n";
 		}
 		return;
-	} elsif ( defined $q->param('scheme_id') && BIGSdb::Utils::is_int($q->param('scheme_id'))) {
+	} elsif ( defined $q->param('scheme_id') && BIGSdb::Utils::is_int( $q->param('scheme_id') ) ) {
 		my $scheme_id = $q->param('scheme_id');
-		my ( $locus_info, $locus_alias, $allele_designations, $allele_sequences, $allele_sequence_flags ) =
-		  $self->_get_scheme_attributes($isolate_id);
+		my ( $locus_info, $locus_alias, $allele_designations ) = $self->_get_scheme_attributes($isolate_id);
 		my ( $td, $buffer );
 		if ( $scheme_id == -1 ) {
 			my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
 			foreach ( @$schemes, 0 ) {
 				next if $_ && !$self->{'prefs'}->{'isolate_display_schemes'}->{$_};
-				( $td, my $table_buffer ) = $self->_get_scheme_fields(
-					$_,                $isolate_id,            $locus_info, $locus_alias, $allele_designations,
-					$allele_sequences, $allele_sequence_flags, 1,           $self->{'curate'}
-				);
+				( $td, my $table_buffer ) =
+				  $self->_get_scheme_fields( $_, $isolate_id, $locus_info, $locus_alias, $allele_designations, 1, $self->{'curate'} );
 				$buffer .= $table_buffer if $table_buffer;
 			}
 		} else {
-			( $td, $buffer ) = $self->_get_scheme_fields(
-				$scheme_id,        $isolate_id,            $locus_info, $locus_alias, $allele_designations,
-				$allele_sequences, $allele_sequence_flags, 1,           $self->{'curate'}
-			);
+			( $td, $buffer ) =
+			  $self->_get_scheme_fields( $scheme_id, $isolate_id, $locus_info, $locus_alias, $allele_designations, 1, $self->{'curate'} );
 		}
 		if ($buffer) {
 			print "<table style=\"width:100%\">\n$buffer</table>\n";
@@ -170,7 +154,7 @@ sub print_content {
 		print "<div class=\"box\" id=\"statusbad\"><p>Isolate id must be an integer.</p></div>\n";
 		return;
 	}
-	if ($self->{'system'}->{'dbtype'} ne 'isolates'){
+	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
 		print "<h1>Isolate information</h1>\n";
 		print "<div class=\"box\" id=\"statusbad\"><p>This function can only be called for isolate databases.</p></div>\n";
 		return;
@@ -283,13 +267,9 @@ sub get_isolate_record {
 			$buffer .= $self->_get_seqbin_link( $id, \$td );
 		}
 	}
-	my ( $locus_info, $locus_alias, $allele_designations, $allele_sequences, $allele_sequence_flags ) = $self->_get_scheme_attributes($id);
+	my ( $locus_info, $locus_alias, $allele_designations ) = $self->_get_scheme_attributes($id);
 
 	#Print loci and scheme information
-	if ( !%$allele_designations && !%$allele_sequences ) {
-		$buffer .= "</table></div>\n";
-		return $buffer;
-	}
 	my $scheme_group_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM scheme_groups")->[0];
 	if ( $scheme_group_count || $self->{'curate'} ) {
 		$buffer .= "<tr><th style=\"vertical-align:top;padding-top:1em\">Schemes and loci</th><td colspan=\"5\">";
@@ -303,18 +283,16 @@ sub get_isolate_record {
 	$logger->error($@) if $@;
 	while ( my $scheme = $scheme_sql->fetchrow_hashref ) {
 		if ( $self->{'prefs'}->{'isolate_display_schemes'}->{ $scheme->{'id'} } ) {
-			( $td, my $field_buffer ) = $self->_get_scheme_fields(
-				$scheme->{'id'},   $data{'id'},            $locus_info, $locus_alias, $allele_designations,
-				$allele_sequences, $allele_sequence_flags, $td,         $summary_view
-			);
+			( $td, my $field_buffer ) =
+			  $self->_get_scheme_fields( $scheme->{'id'}, $data{'id'}, $locus_info, $locus_alias, $allele_designations, $td,
+				$summary_view );
 			$buffer .= $field_buffer if $field_buffer;
 		}
 	}
 
 	#Loci not belonging to a scheme
 	( $td, my $field_buffer ) =
-	  $self->_get_scheme_fields( 0, $data{'id'}, $locus_info, $locus_alias, $allele_designations, $allele_sequences, $allele_sequence_flags,
-		$td, $summary_view );
+	  $self->_get_scheme_fields( 0, $data{'id'}, $locus_info, $locus_alias, $allele_designations, $td, $summary_view );
 	$buffer .= $field_buffer if $field_buffer;
 	$buffer .= "</table></div>";
 	return $buffer;
@@ -514,10 +492,9 @@ sub _get_provenance_fields {
 }
 
 sub _get_scheme_attributes {
-	my ( $self, $isolate_id ) = @_;
 
-	#Extract all locus_info, allele_designations and allele_sequences using fetchall_hashref - quicker than
-	#making a separate call for each locus.
+	#Extract all locus_info and allele_designations - quicker than making a separate call for each locus.
+	my ( $self, $isolate_id ) = @_;
 	my $locus_info_sql = $self->{'db'}->prepare("SELECT id,common_name,url,description_url FROM loci");
 	eval { $locus_info_sql->execute };
 	$logger->error($@) if $@;
@@ -525,11 +502,9 @@ sub _get_scheme_attributes {
 	my $locus_alias_sql = $self->{'db'}->prepare("SELECT locus,alias FROM locus_aliases WHERE use_alias");
 	eval { $locus_alias_sql->execute };
 	$logger->error($@) if $@;
-	my $locus_alias           = $locus_alias_sql->fetchall_hashref( [qw(locus alias)] );
-	my $allele_designations   = $self->{'datastore'}->get_all_allele_designations($isolate_id);
-	my $allele_sequences      = $self->{'datastore'}->get_all_allele_sequences($isolate_id);
-	my $allele_sequence_flags = $self->{'datastore'}->get_all_sequence_flags($isolate_id);
-	return ( $locus_info, $locus_alias, $allele_designations, $allele_sequences, $allele_sequence_flags );
+	my $locus_alias = $locus_alias_sql->fetchall_hashref( [qw(locus alias)] );
+	my $allele_designations = $self->{'datastore'}->get_all_allele_designations($isolate_id);
+	return ( $locus_info, $locus_alias, $allele_designations );
 }
 
 sub _get_tree {
@@ -560,7 +535,7 @@ sub get_sample_summary {
 
 sub _get_samples {
 	my ( $self, $id, $td_ref, $include_side_header ) = @_;
-	my $buffer = '';
+	my $buffer        = '';
 	my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
 	my ( @selected_fields, @clean_fields );
 	foreach (@$sample_fields) {
@@ -625,10 +600,7 @@ sub _get_samples {
 }
 
 sub _get_scheme_fields {
-	my (
-		$self,                $id,               $isolate_id,            $locus_info, $locus_alias,
-		$allele_designations, $allele_sequences, $allele_sequence_flags, $td,         $summary_view
-	) = @_;
+	my ( $self, $id, $isolate_id, $locus_info, $locus_alias, $allele_designations, $td, $summary_view ) = @_;
 	my $q = $self->{'cgi'};
 	my $display_on_own_line;
 	my $scheme_fields;
@@ -671,13 +643,14 @@ sub _get_scheme_fields {
 		#Loci that don't belong to a scheme
 		$scheme_fields = [];
 		if ( $self->{'prefs'}->{'undesignated_alleles'} ) {
-			$loci = $self->{'datastore'}->get_loci_in_no_scheme();
+			$loci = $self->{'datastore'}->get_loci_in_no_scheme;
 		} else {
 			$loci = $self->{'datastore'}->run_list_query(
 "SELECT allele_designations.locus FROM allele_designations LEFT JOIN scheme_members ON allele_designations.locus = scheme_members.locus WHERE isolate_id=? AND scheme_id is null UNION SELECT allele_sequences.locus FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id LEFT JOIN scheme_members ON scheme_members.locus=allele_sequences.locus WHERE scheme_id is null AND isolate_id=? ORDER BY locus",
 				$isolate_id, $isolate_id
 			);
 		}
+		return $td if !@$loci;
 		foreach (@$loci) {
 			if ( $self->{'prefs'}->{'isolate_display_loci'}->{$_} ne 'hide' ) {
 				$locus_display_count++;
@@ -701,9 +674,6 @@ sub _get_scheme_fields {
 		$hidden_locus_count++
 		  if $self->{'prefs'}->{'isolate_display_loci'}->{$_} eq 'hide';
 	}
-	return $td
-	  if ( ( $hidden_locus_count == scalar @$loci && !$scheme_fields_count )
-		|| ( !keys %$allele_designations && !keys %$allele_sequences ) );
 	my $rowspan = $display_on_own_line ? ( $locus_display_count + $scheme_fields_count ) : 1;
 	$buffer .= (
 		$display_on_own_line
@@ -712,77 +682,52 @@ sub _get_scheme_fields {
 	) . "$info_ref->{'description'}</th>";
 	my ( %url, %locus_value );
 	my $provisional_profile;
-	foreach (@$loci) {
-		$allele_designations->{$_}->{'status'} ||= 'confirmed';
-		$provisional_profile = 1 if $self->{'prefs'}->{'mark_provisional'} && $allele_designations->{$_}->{'status'} eq 'provisional';
+	foreach my $locus (@$loci) {
+		$allele_designations->{$locus}->{'status'} ||= 'confirmed';
+		$provisional_profile = 1 if $self->{'prefs'}->{'mark_provisional'} && $allele_designations->{$locus}->{'status'} eq 'provisional';
 		my $cleaned_name;
-		my $display_locus_name = $_;
+		my $display_locus_name = $locus;
 		if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
 			$display_locus_name =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
 		}
 		$display_locus_name =~ tr/_/ /;
-		$locus_value{$_} .= "<span class=\"provisional\">"
-		  if ( $allele_designations->{$_}->{'status'} && $allele_designations->{$_}->{'status'} eq 'provisional' )
+		$locus_value{$locus} .= "<span class=\"provisional\">"
+		  if ( $allele_designations->{$locus}->{'status'} && $allele_designations->{$locus}->{'status'} eq 'provisional' )
 		  && $self->{'prefs'}->{'mark_provisional'};
 		$cleaned_name = $display_locus_name;
 		$cleaned_name =~ s/_/&nbsp;/g;
 		my $tooltip_name = $cleaned_name;
-		if ( $self->{'prefs'}->{'locus_alias'} && $locus_aliases{$_} ) {
+		if ( $self->{'prefs'}->{'locus_alias'} && $locus_aliases{$locus} ) {
 			local $" = '; ';
-			$cleaned_name .= "<br /><span class=\"comment\">(@{$locus_aliases{$_}})</span>";
+			$cleaned_name .= "<br /><span class=\"comment\">(@{$locus_aliases{$locus}})</span>";
 		}
-		push @profile, $allele_designations->{$_}->{'allele_id'};
-		if ( defined $allele_designations->{$_}->{'allele_id'} ) {
+		push @profile, $allele_designations->{$locus}->{'allele_id'};
+		if ( defined $allele_designations->{$locus}->{'allele_id'} ) {
 			my $url;
-			if ( $locus_info->{$_}->{'url'} && $allele_designations->{$_}->{'allele_id'} ne 'deleted' ) {
-				$url{$_} = $locus_info->{$_}->{'url'};
-				$url{$_} =~ s/\[\?\]/$allele_designations->{$_}->{'allele_id'}/g;
-				$url{$_} =~ s/\&/\&amp;/g;
-				$locus_value{$_} .= "<a href=\"$url{$_}\">$allele_designations->{$_}->{'allele_id'}</a>";
+			if ( $locus_info->{$locus}->{'url'} && $allele_designations->{$locus}->{'allele_id'} ne 'deleted' ) {
+				$url{$locus} = $locus_info->{$locus}->{'url'};
+				$url{$locus} =~ s/\[\?\]/$allele_designations->{$locus}->{'allele_id'}/g;
+				$url{$locus} =~ s/\&/\&amp;/g;
+				$locus_value{$locus} .= "<a href=\"$url{$locus}\">$allele_designations->{$locus}->{'allele_id'}</a>";
 			} else {
-				$locus_value{$_} .= "$allele_designations->{$_}->{'allele_id'}";
+				$locus_value{$locus} .= "$allele_designations->{$locus}->{'allele_id'}";
 			}
-			$locus_value{$_} .= "</span>"
-			  if $allele_designations->{$_}->{'status'} eq 'provisional'
+			$locus_value{$locus} .= "</span>"
+			  if $allele_designations->{$locus}->{'status'} eq 'provisional'
 				  && $self->{'prefs'}->{'mark_provisional'};
-			if ( $self->{'prefs'}->{'update_details'} && $allele_designations->{$_}->{'allele_id'} ) {
-				my $update_tooltip = $self->get_update_details_tooltip( $tooltip_name, $allele_designations->{$_} );
-				$locus_value{$_} .=
+			if ( $self->{'prefs'}->{'update_details'} && $allele_designations->{$locus}->{'allele_id'} ) {
+				my $update_tooltip = $self->get_update_details_tooltip( $tooltip_name, $allele_designations->{$locus} );
+				$locus_value{$locus} .=
 				  "<span style=\"font-size:0.5em\"> </span><a class=\"update_tooltip\" title=\"$update_tooltip\">&nbsp;...&nbsp;</a>";
 			}
 		}
-		if ( $self->{'prefs'}->{'sequence_details'} && keys %{ $allele_sequences->{$_} } > 0 ) {
-			my @seqs;
-			my @flags;
-			my %flags_used;
-			my $complete;
-			foreach my $seqbin_id ( keys %{ $allele_sequences->{$_} } ) {
-				foreach my $start ( keys %{ $allele_sequences->{$_}->{$seqbin_id} } ) {
-					foreach my $end ( keys %{ $allele_sequences->{$_}->{$seqbin_id}->{$start} } ) {
-						push @seqs, $allele_sequences->{$_}->{$seqbin_id}->{$start}->{$end};
-						$complete = 1 if $allele_sequences->{$_}->{$seqbin_id}->{$start}->{$end}->{'complete'};
-						my @flag_list = keys %{ $allele_sequence_flags->{$_}->{$seqbin_id}->{$start}->{$end} };
-						push @flags, \@flag_list;
-						$flags_used{$_} = 1 foreach @flag_list;
-					}
-				}
-			}
-			my $sequence_tooltip = $self->get_sequence_details_tooltip( $tooltip_name, $allele_designations->{$_}, \@seqs, \@flags );
-			my $sequence_class = $complete ? 'sequence_tooltip' : 'sequence_tooltip_incomplete';
-			$locus_value{$_} .=
-"<span style=\"font-size:0.2em\"> </span><a class=\"$sequence_class\" title=\"$sequence_tooltip\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleSequence&amp;id=$isolate_id&amp;locus=$_\">&nbsp;S&nbsp;</a>";
-			if ( keys %flags_used ) {
-				foreach my $flag ( sort keys %flags_used ) {
-					$locus_value{$_} .= "<a class=\"seqflag_tooltip\">$flag</a>";
-				}
-			}
+		$locus_value{$locus} .= $self->get_seq_detail_tooltips( $isolate_id, $locus ) if $self->{'prefs'}->{'sequence_details'};
+		if ( $allele_designations->{$locus}->{'allele_id'} ) {
+			$locus_value{$locus} .= $self->_get_pending_designation_tooltip( $isolate_id, $locus ) || '';
 		}
-		if ( $allele_designations->{$_}->{'allele_id'} ) {
-			$locus_value{$_} .= $self->_get_pending_designation_tooltip( $isolate_id, $_ ) || '';
-		}
-		my $action = $allele_designations->{$_}->{'allele_id'} ? 'update' : 'add';
-		$locus_value{$_} .=
-" <a href=\"$self->{'system'}->{'script_name'}?page=alleleUpdate&amp;db=$self->{'instance'}&amp;isolate_id=$isolate_id&amp;locus=$_\" class=\"update\">$action</a>"
+		my $action = $allele_designations->{$locus}->{'allele_id'} ? 'update' : 'add';
+		$locus_value{$locus} .=
+" <a href=\"$self->{'system'}->{'script_name'}?page=alleleUpdate&amp;db=$self->{'instance'}&amp;isolate_id=$isolate_id&amp;locus=$locus\" class=\"update\">$action</a>"
 		  if $self->{'curate'};
 	}
 	my %field_values;
@@ -795,18 +740,18 @@ sub _get_scheme_fields {
 			catch BIGSdb::DatabaseConnectionException with {};
 			my $scheme_field_values = $self->{'datastore'}->get_scheme_field_values_by_profile( $id, \@profile );
 			if ( defined $scheme_field_values && ref $scheme_field_values eq 'HASH' ) {
-				foreach (@$scheme_fields) {
-					my $value = $scheme_field_values->{ lc($_) };
+				foreach my $field (@$scheme_fields) {
+					my $value = $scheme_field_values->{ lc($field) };
 					$value = defined $value ? $value : '';
 					$value = 'Not defined' if $value eq '-999' || $value eq '';
-					my $att = $self->{'datastore'}->get_scheme_field_info( $id, $_ );
+					my $att = $self->{'datastore'}->get_scheme_field_info( $id, $field );
 					if ( $att->{'url'} && $value ne '' ) {
 						my $url = $att->{'url'};
 						$url =~ s/\[\?\]/$value/g;
 						$url =~ s/\&/\&amp;/g;
-						$field_values{$_} = "<a href=\"$url\">$value</a>";
+						$field_values{$field} = "<a href=\"$url\">$value</a>";
 					} else {
-						$field_values{$_} = $value;
+						$field_values{$field} = $value;
 					}
 				}
 			} else {
@@ -816,35 +761,35 @@ sub _get_scheme_fields {
 	}
 	my $first = 1;
 	if ($display_on_own_line) {
-		foreach (@$loci) {
+		foreach my $locus (@$loci) {
 			next
-			  if $self->{'prefs'}->{'isolate_display_loci'}->{$_} eq 'hide';
+			  if $self->{'prefs'}->{'isolate_display_loci'}->{$locus} eq 'hide';
 			$buffer .= "<tr class=\"td$td\">" if !$first;
-			my $cleaned = $self->clean_locus($_);
+			my $cleaned = $self->clean_locus($locus);
 			$buffer .= "<td>$cleaned";
 			my @other_display_names;
-			if ( $self->{'prefs'}->{'locus_alias'} && $locus_aliases{$_} ) {
-				push @other_display_names, @{ $locus_aliases{$_} };
+			if ( $self->{'prefs'}->{'locus_alias'} && $locus_aliases{$locus} ) {
+				push @other_display_names, @{ $locus_aliases{$locus} };
 			}
 			local $" = '; ';
 			$buffer .= "<br /><span class=\"comment\">(@other_display_names)</span>" if @other_display_names;
-			if ( $locus_info->{$_}->{'description_url'} ) {
-				$locus_info->{$_}->{'description_url'} =~ s/\&/\&amp;/g;
-				$buffer .= " <a href=\"$locus_info->{$_}->{'description_url'}\" class=\"info_tooltip\">&nbsp;<i>i</i>&nbsp;</a>";
+			if ( $locus_info->{$locus}->{'description_url'} ) {
+				$locus_info->{$locus}->{'description_url'} =~ s/\&/\&amp;/g;
+				$buffer .= " <a href=\"$locus_info->{$locus}->{'description_url'}\" class=\"info_tooltip\">&nbsp;<i>i</i>&nbsp;</a>";
 			}
 			$buffer .= '</td>';
-			$buffer .= defined $locus_value{$_} ? "<td>$locus_value{$_}</td>" : '<td />';
+			$buffer .= defined $locus_value{$locus} ? "<td>$locus_value{$locus}</td>" : '<td />';
 			my $display_seq =
-			  (      $self->{'prefs'}->{'isolate_display_loci'}->{$_} eq 'sequence'
-				  && $allele_designations->{$_}->{'allele_id'}
+			  (      $self->{'prefs'}->{'isolate_display_loci'}->{$locus} eq 'sequence'
+				  && $allele_designations->{$locus}->{'allele_id'}
 				  && !$summary_view )
 			  ? 1
 			  : 0;
-			if ( $display_seq && $allele_designations->{$_}->{'allele_id'} ) {
+			if ( $display_seq && $allele_designations->{$locus}->{'allele_id'} ) {
 				my $sequence;
 				try {
 					my $sequence_ref =
-					  $self->{'datastore'}->get_locus($_)->get_allele_sequence( $allele_designations->{$_}->{'allele_id'} );
+					  $self->{'datastore'}->get_locus($locus)->get_allele_sequence( $allele_designations->{$locus}->{'allele_id'} );
 					$sequence = BIGSdb::Utils::split_line($$sequence_ref);
 				}
 				catch BIGSdb::DatabaseConnectionException with {
@@ -863,13 +808,13 @@ sub _get_scheme_fields {
 			$first = 0;
 			$td = $td == 1 ? 2 : 1;
 		}
-		foreach (@$scheme_fields) {
-			next if !$self->{'prefs'}->{'isolate_display_scheme_fields'}->{$id}->{$_};
+		foreach my $field (@$scheme_fields) {
+			next if !$self->{'prefs'}->{'isolate_display_scheme_fields'}->{$id}->{$field};
 			$buffer .= "<tr class=\"td$td\">" if !$first;
-			( my $cleaned = $_ ) =~ tr/_/ /;
+			( my $cleaned = $field ) =~ tr/_/ /;
 			$buffer .= "<td>$cleaned</td>";
 			$buffer .= $provisional_profile ? "<td><span class=\"provisional\">" : '<td>';
-			$buffer .= $field_values{$_};
+			$buffer .= $field_values{$field};
 			$buffer .= $provisional_profile ? '</span></td>' : '</td>';
 			$buffer .= "<td colspan=\"3\" />";
 			$buffer .= "</tr>";
@@ -884,25 +829,25 @@ sub _get_scheme_fields {
 		my $i         = 0;
 		my $j         = 0;
 		my $max_cells = $q->param('no_header') ? 10 : 16;
-		foreach (@$loci) {
+		foreach my $locus (@$loci) {
 			next
-			  if $self->{'prefs'}->{'isolate_display_loci'}->{$_} eq 'hide';
+			  if $self->{'prefs'}->{'isolate_display_loci'}->{$locus} eq 'hide';
 			$header_buffer[$j] .= "<tr class=\"td$td\">" if !$i;
-			my $cleaned = $self->clean_locus($_);
+			my $cleaned = $self->clean_locus($locus);
 			my @other_display_names;
 			if ($id) {
 				$header_buffer[$j] .= "<th>$cleaned";
-				if ( $self->{'prefs'}->{'locus_alias'} && $locus_aliases{$_} ) {
-					push @other_display_names, @{ $locus_aliases{$_} };
+				if ( $self->{'prefs'}->{'locus_alias'} && $locus_aliases{$locus} ) {
+					push @other_display_names, @{ $locus_aliases{$locus} };
 				}
 				if (@other_display_names) {
 					local $" = '; ';
 					$header_buffer[$j] .= "<br /><span class=\"comment\">(@other_display_names)</span>";
 				}
-				if ( $locus_info->{$_}->{'description_url'} ) {
-					$locus_info->{$_}->{'description_url'} =~ s/\&/\&amp;/g;
+				if ( $locus_info->{$locus}->{'description_url'} ) {
+					$locus_info->{$locus}->{'description_url'} =~ s/\&/\&amp;/g;
 					$header_buffer[$j] .=
-					  " <a href=\"$locus_info->{$_}->{'description_url'}\" class=\"info_tooltip\">&nbsp;<i>i</i>&nbsp;</a>";
+					  " <a href=\"$locus_info->{$locus}->{'description_url'}\" class=\"info_tooltip\">&nbsp;<i>i</i>&nbsp;</a>";
 				}
 				$header_buffer[$j] .= '</th>';
 			} else {
@@ -939,11 +884,11 @@ sub _get_scheme_fields {
 		$header_buffer[$j] .= "</tr>\n" if $i;
 		$j = 0;
 		$i = 0;
-		foreach (@$loci) {
+		foreach my $locus (@$loci) {
 			next
-			  if $self->{'prefs'}->{'isolate_display_loci'}->{$_} eq 'hide';
+			  if $self->{'prefs'}->{'isolate_display_loci'}->{$locus} eq 'hide';
 			$value_buffer[$j] .= "<tr class=\"td$td\">" if !$i;
-			$value_buffer[$j] .= defined $locus_value{$_} ? "<td>$locus_value{$_}</td>" : '<td />';
+			$value_buffer[$j] .= defined $locus_value{$locus} ? "<td>$locus_value{$locus}</td>" : '<td />';
 			$i++;
 			if ( $i >= $max_cells ) {
 				$value_buffer[$j] .= "</tr>\n";
@@ -951,11 +896,11 @@ sub _get_scheme_fields {
 				$i = 0;
 			}
 		}
-		foreach (@$scheme_fields) {
-			if ( $self->{'prefs'}->{'isolate_display_scheme_fields'}->{$id}->{$_} ) {
+		foreach my $field (@$scheme_fields) {
+			if ( $self->{'prefs'}->{'isolate_display_scheme_fields'}->{$id}->{$field} ) {
 				$value_buffer[$j] .= "<tr class=\"td$td\">" if !$i;
 				$value_buffer[$j] .= $provisional_profile ? "<td><span class=\"provisional\">" : '<td>';
-				$value_buffer[$j] .= $field_values{$_};
+				$value_buffer[$j] .= $field_values{$field};
 				$value_buffer[$j] .= $provisional_profile ? '</span></td>'                     : '</td>';
 				$i++;
 				if ( $i >= $max_cells ) {
@@ -1071,8 +1016,8 @@ sub _get_ref_links {
 sub _get_seqbin_link {
 	my ( $self, $isolate_id, $td_ref ) = @_;
 	my $seqbin_count = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM sequence_bin WHERE isolate_id=?", $isolate_id )->[0];
-	my $buffer = '';
-	my $q = $self->{'cgi'};
+	my $buffer       = '';
+	my $q            = $self->{'cgi'};
 	if ($seqbin_count) {
 		my $length_data =
 		  $self->{'datastore'}->run_simple_query(
@@ -1113,14 +1058,15 @@ sub _print_projects {
 "SELECT * FROM projects WHERE full_description IS NOT NULL AND id IN (SELECT project_id FROM project_members WHERE isolate_id=?) ORDER BY id",
 		$isolate_id
 	);
-	if (@$projects){
+	if (@$projects) {
 		print "<div class=\"box\" id=\"resultsheader\">\n";
 		my $plural = @$projects == 1 ? '' : 's';
 		print "<p>This isolate is a member of the following project$plural:</p>\n";
 		print "<table>\n";
 		my $td = 1;
-		foreach (@$projects){
-			print "<tr class=\"td$td\"><th style=\"text-align:right;padding-right:1em\">$_->{'short_description'}</th><td style=\"padding-left:1em\">$_->{'full_description'}</td></tr>\n";
+		foreach (@$projects) {
+			print
+"<tr class=\"td$td\"><th style=\"text-align:right;padding-right:1em\">$_->{'short_description'}</th><td style=\"padding-left:1em\">$_->{'full_description'}</td></tr>\n";
 			$td = $td == 1 ? 2 : 1;
 		}
 		print "</table>\n</div>\n";

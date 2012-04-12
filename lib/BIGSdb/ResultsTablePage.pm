@@ -621,16 +621,6 @@ sub _print_isolate_table_scheme {
 	if ( !$self->{'urls_defined'} && $self->{'prefs'}->{'hyperlink_loci'} ) {
 		$self->_initiate_urls_for_loci;
 	}
-	if ( !$self->{'sequences_retrieved'}->{$isolate_id} && $self->{'prefs'}->{'sequence_details_main'} ) {
-		$self->{'allele_sequences'}->{$isolate_id}    = $self->{'datastore'}->get_all_allele_sequences($isolate_id);
-		$self->{'sequences_retrieved'}->{$isolate_id} = 1;
-	}
-	my $allele_sequences = $self->{'allele_sequences'}->{$isolate_id};
-	if ( !$self->{'sequence_flags_retrieved'}->{$isolate_id} && $self->{'prefs'}->{'sequence_details_main'} ) {
-		$self->{'allele_sequence_flags'}->{$isolate_id}    = $self->{'datastore'}->get_all_sequence_flags($isolate_id);
-		$self->{'sequence_flags_retrieved'}->{$isolate_id} = 1;
-	}
-	my $allele_sequence_flags = $self->{'allele_sequence_flags'}->{$isolate_id};
 	if ( !$self->{'designations_retrieved'}->{$isolate_id} ) {
 		$self->{'designations'}->{$isolate_id}           = $self->{'datastore'}->get_all_allele_designations($isolate_id);
 		$self->{'designations_retrieved'}->{$isolate_id} = 1;
@@ -661,35 +651,7 @@ sub _print_isolate_table_scheme {
 			print "</span>"
 			  if $allele_designations->{$_}->{'status'} eq 'provisional'
 				  && $self->{'prefs'}->{'mark_provisional_main'};
-			if ( $self->{'prefs'}->{'sequence_details_main'} && keys %{ $allele_sequences->{$_} } > 0 ) {
-				my @seqs;
-				my @flags;
-				my %flags_used;
-				my $complete;
-				foreach my $seqbin_id ( keys %{ $allele_sequences->{$_} } ) {
-					foreach my $start ( keys %{ $allele_sequences->{$_}->{$seqbin_id} } ) {
-						foreach my $end ( keys %{ $allele_sequences->{$_}->{$seqbin_id}->{$start} } ) {
-							push @seqs, $allele_sequences->{$_}->{$seqbin_id}->{$start}->{$end};
-							$complete = 1 if $allele_sequences->{$_}->{$seqbin_id}->{$start}->{$end}->{'complete'};
-							my @flag_list = keys %{ $allele_sequence_flags->{$_}->{$seqbin_id}->{$start}->{$end} };
-							push @flags, \@flag_list;
-							foreach (@flag_list) {
-								$flags_used{$_} = 1;
-							}
-						}
-					}
-				}
-				my $cleaned_locus    = $self->clean_locus($_);
-				my $sequence_tooltip = $self->get_sequence_details_tooltip( $cleaned_locus, $allele_designations->{$_}, \@seqs, \@flags );
-				my $sequence_class   = $complete ? 'sequence_tooltip' : 'sequence_tooltip_incomplete';
-				print
-"<span style=\"font-size:0.2em\"> </span><a class=\"$sequence_class\" title=\"$sequence_tooltip\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleSequence&amp;id=$isolate_id&amp;locus=$_\">&nbsp;S&nbsp;</a>";
-				if ( keys %flags_used ) {
-					foreach my $flag ( sort keys %flags_used ) {
-						print "<a class=\"seqflag_tooltip\">$flag</a>";
-					}
-				}
-			}
+			print $self->get_seq_detail_tooltips($isolate_id, $_) if $self->{'prefs'}->{'sequence_details_main'};
 			$self->_print_pending_tooltip( $isolate_id, $_ )
 			  if $self->{'prefs'}->{'display_pending_main'} && defined $allele_designations->{$_}->{'allele_id'};
 			my $action = exists $allele_designations->{$_}->{'allele_id'} ? 'update' : 'add';

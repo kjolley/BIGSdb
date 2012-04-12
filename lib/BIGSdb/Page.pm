@@ -47,16 +47,9 @@ use constant SEQ_FLAGS => (
 	'truncated',
 	'upstream fusion'
 );
-use constant ALLELE_FLAGS => (
-	'downstream fusion',
-	'frameshift',
-	'internal stop codon',
-	'no start codon',
-	'truncated',
-	'upstream fusion'
-);
-use constant DATABANKS      => qw(Genbank);
-use constant FLANKING       => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
+use constant ALLELE_FLAGS => ( 'downstream fusion', 'frameshift', 'internal stop codon', 'no start codon', 'truncated', 'upstream fusion' );
+use constant DATABANKS => qw(Genbank);
+use constant FLANKING => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
 use constant LOCUS_PATTERNS => ( qr/^l_(.+)/, qr/^la_(.+)\|\|/, qr/^cn_(.+)/ );
 our @EXPORT_OK = qw(SEQ_METHODS SEQ_FLAGS ALLELE_FLAGS DATABANKS FLANKING LOCUS_PATTERNS);
 
@@ -261,7 +254,7 @@ sub get_stylesheet {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system   = $self->{'system'};
-	my $filename = 'bigsdb.css?v=20120212';
+	my $filename = 'bigsdb.css?v=20120412';
 	if ( !$system->{'db'} ) {
 		$stylesheet = "/$filename";
 	} elsif ( -e "$ENV{'DOCUMENT_ROOT'}$system->{'webroot'}/$system->{'db'}/$filename" ) {
@@ -276,7 +269,7 @@ sub print_content { }
 
 sub _debug {
 	my ($self) = @_;
-	print "<pre>\n" . Dumper ($self) . "</pre>\n";
+	print "<pre>\n" . Dumper($self) . "</pre>\n";
 	return;
 }
 
@@ -371,7 +364,7 @@ sub get_field_selection_list {
 	#sort_labels: dictionary sort labels
 	my ( $self, $options ) = @_;
 	$logger->logdie("Invalid option hashref") if ref $options ne 'HASH';
-	$options->{'query_pref'} //= 1;
+	$options->{'query_pref'}    //= 1;
 	$options->{'analysis_pref'} //= 0;
 	my @values;
 	my $extended = $options->{'extended_attributes'} ? $self->get_extended_attributes : undef;
@@ -415,8 +408,14 @@ sub get_field_selection_list {
 			eval { $cn_sql->execute };
 			$logger->error($@) if $@;
 			my $common_names = $cn_sql->fetchall_hashref('id');
-			my $loci =
-			  $self->{'datastore'}->get_loci( { query_pref => $options->{'query_pref'}, analysis_pref => $options->{'analysis_pref'}, seq_defined => 0, do_not_order => 1 } );
+			my $loci         = $self->{'datastore'}->get_loci(
+				{
+					query_pref    => $options->{'query_pref'},
+					analysis_pref => $options->{'analysis_pref'},
+					seq_defined   => 0,
+					do_not_order  => 1
+				}
+			);
 			foreach (@$loci) {
 				push @locus_list, "l_$_";
 				$self->{'cache'}->{'labels'}->{"l_$_"} = $_;
@@ -727,8 +726,6 @@ sub _get_truncated_label {
 	return ( $label, $title );
 }
 
-
-
 sub clean_locus {
 	my ( $self, $locus ) = @_;
 	return if !defined $locus;
@@ -740,8 +737,6 @@ sub clean_locus {
 	$locus .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
 	return $locus;
 }
-
-
 
 sub get_link_button_to_ref {
 	my ( $self, $ref ) = @_;
@@ -886,8 +881,6 @@ s/FROM $view/FROM $view LEFT JOIN allele_designations AS ordering ON ordering.is
 	return;
 }
 
-
-
 sub is_allowed_to_view_isolate {
 	my ( $self, $isolate_id ) = @_;
 	my $allowed_to_view =
@@ -948,15 +941,14 @@ sub get_update_details_tooltip {
 	return $buffer;
 }
 
-sub get_sequence_details_tooltip {
+sub _get_seq_detail_tooltip_text {
 	my ( $self, $locus, $allele_ref, $alleleseq_ref, $flags_ref ) = @_;
 	my $buffer = defined $allele_ref->{'allele_id'} ? "$locus:$allele_ref->{'allele_id'} - " : "$locus - ";
 	my $i = 0;
 	local $" = '; ';
 	foreach (@$alleleseq_ref) {
-		$buffer .= '<br />' if $i;
-		$buffer .= "Seqbin id:$_->{'seqbin_id'}:  
-	$_->{'start_pos'} &rarr; $_->{'end_pos'}";
+		$buffer .= '<br />'      if $i;
+		$buffer .= "Seqbin id:$_->{'seqbin_id'}: $_->{'start_pos'} &rarr; $_->{'end_pos'}";
 		$buffer .= " (reverse)"  if $_->{'reverse'};
 		$buffer .= " incomplete" if !$_->{'complete'};
 		if ( ref $flags_ref->[$i] eq 'ARRAY' ) {
@@ -964,6 +956,58 @@ sub get_sequence_details_tooltip {
 			$buffer .= "<br />@flags" if @flags;
 		}
 		$i++;
+	}
+	return $buffer;
+}
+
+sub get_seq_detail_tooltips {
+	my ( $self, $isolate_id, $locus ) = @_;
+	my $buffer = '';
+	my $alleleseq_ref = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );    #ref to array of hashrefs
+	my $designation_ref = $self->{'datastore'}->get_allele_designation( $isolate_id, $locus );
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	my $designation_flags;
+	my (@all_flags, %flag_from_designation, %flag_from_alleleseq);
+	if ( $locus_info->{'flag_table'} && defined $designation_ref->{'allele_id'} ) {
+		$designation_flags = $self->{'datastore'}->get_locus($locus)->get_flags( $designation_ref->{'allele_id'} );
+		push @all_flags, @$designation_flags;
+		$flag_from_designation{$_} = 1 foreach @$designation_flags;
+	}
+	my ( @seqs, @flags_foreach_alleleseq, $complete );
+	if (@$alleleseq_ref) {
+		foreach my $alleleseq (@$alleleseq_ref) {
+			my $flaglist_ref =
+			  $self->{'datastore'}
+			  ->get_sequence_flag( $alleleseq->{'seqbin_id'}, $alleleseq->{'locus'}, $alleleseq->{'start_pos'}, $alleleseq->{'end_pos'} );
+			push @flags_foreach_alleleseq, $flaglist_ref;
+			push @all_flags,               @$flaglist_ref;
+			$flag_from_alleleseq{$_} = 1 foreach @$flaglist_ref;
+			$complete = 1 if $alleleseq->{'complete'};
+		}
+	}
+	@all_flags = sort uniq @all_flags;
+	my $cleaned_locus = $self->clean_locus($locus);
+	my $sequence_tooltip =
+	  $self->_get_seq_detail_tooltip_text( $cleaned_locus, $designation_ref, $alleleseq_ref, \@flags_foreach_alleleseq );
+	if (@$alleleseq_ref) {
+		my $sequence_class = $complete ? 'sequence_tooltip' : 'sequence_tooltip_incomplete';
+		$buffer .=
+"<span style=\"font-size:0.2em\"> </span><a class=\"$sequence_class\" title=\"$sequence_tooltip\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleSequence&amp;id=$isolate_id&amp;locus=$locus\">&nbsp;S&nbsp;</a>";
+	}
+	if (@all_flags){
+		my $text = "Flags - ";
+		foreach my $flag (@all_flags){
+			$text .= "$flag";
+			if ($flag_from_designation{$flag} && !$flag_from_alleleseq{$flag}){
+				$text .= " (allele designation)<br />"
+			} elsif (!$flag_from_designation{$flag} && $flag_from_alleleseq{$flag}){
+				$text .= " (sequence tag)<br />"
+			} else {
+				$text .= " (allele designation + sequence tag)<br />";
+			}
+		}
+		local $" = "</a> <a class=\"seqflag_tooltip\" title=\"$text\">";
+		$buffer .= "<a class=\"seqflag_tooltip\" title=\"$text\">@all_flags</a>";
 	}
 	return $buffer;
 }
@@ -1148,7 +1192,7 @@ sub get_curator_id {
 
 sub initiate_prefs {
 	my ($self) = @_;
-	my $q      = $self->{'cgi'};
+	my $q = $self->{'cgi'};
 	return if !$self->{'prefstore'};
 	my ( $general_prefs, $field_prefs, $scheme_field_prefs );
 	if (   $q->param('page')
@@ -1432,5 +1476,4 @@ sub clean_checkbox_id {
 	$var =~ s/\>/_GT_/g;
 	return $var;
 }
-
 1;

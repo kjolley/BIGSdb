@@ -107,17 +107,12 @@ a.sequence_tooltip_incomplete {
 #tooltip div,#tooltip h3 {margin:0}
 a.tooltip,a.info_tooltip {font:600 0.7em serif}
 
-a.seqflag_tooltip {
-	cursor:default;
-	text-decoration:none	
-}
-
 a.tooltip,a.update_tooltip,a.pending_tooltip,a.existing_tooltip,a.clashing_tooltip {
 	cursor:help;
 	text-decoration:none
 }
 
-a.sequence_tooltip,a.sequence_tooltip_incomplete,a.extract_tooltip,a.info_tooltip,a.cds {
+a.sequence_tooltip,a.sequence_tooltip_incomplete,a.extract_tooltip,a.info_tooltip,a.cds,a.seqflag_tooltip {
 	cursor:pointer;
 	text-decoration:none;	
 }

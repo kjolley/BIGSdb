@@ -101,7 +101,6 @@ sub get_all_sequences {
 "Can't execute 'sequence' query handle. Check database attributes in the locus table for locus '$self->{'id'}'! Statement was '$self->{'sql'}->{sequence}->{Statement}'. "
 			  . $self->{'db'}->errstr );
 		throw BIGSdb::DatabaseConfigurationException("Locus configuration error");
-		return;
 	}
 	my %seqs;
 	while ( my ( $id, $seq ) = $self->{'sql'}->{'all_sequences'}->fetchrow_array ) {
@@ -133,12 +132,32 @@ sub get_all_sequence_lengths {
 "Can't execute 'all_sequence_lengths' query handle. Check database attributes in the locus table for locus '$self->{'id'}'! Statement was '$self->{'sql'}->{sequence}->{Statement}'. "
 			  . $self->{'db'}->errstr );
 		throw BIGSdb::DatabaseConfigurationException("Locus configuration error");
-		return;
 	}
 	my %lengths;
 	while ( my ( $id, $length ) = $self->{'sql'}->{'all_sequence_lengths'}->fetchrow_array ) {
 		$lengths{$id} = $length;
 	}
 	return \%lengths;
+}
+
+sub get_flags {
+	my ($self, $allele_id) = @_;
+	if ( !$self->{'db'} ) {
+		$logger->info("No connection to locus $self->{'id'} database");
+		return \@;
+	}
+	if (!$self->{'sql'}->{'flags'}){
+		$self->{'sql'}->{'flags'} = $self->{'db'}->prepare("SELECT flag FROM allele_flags WHERE locus = ? AND allele_id=?");
+	}
+	eval { $self->{'sql'}->{'flags'}->execute($self->{'id'}, $allele_id)};
+	if ($@){
+		$logger->error($@) if $@;
+		throw BIGSdb::DatabaseConfigurationException("Locus configuration error");
+	}
+	my @flags;
+	while (my ($flag) = $self->{'sql'}->{'flags'}->fetchrow_array){
+		push @flags, $flag;
+	}
+	return \@flags;
 }
 1;
