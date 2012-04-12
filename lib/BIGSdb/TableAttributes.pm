@@ -304,6 +304,14 @@ sub get_loci_table_attributes {
 				comments => 'Field in sequence database containing allele sequence'
 			},
 			{
+				name => 'flag_table',
+				type => 'bool',
+				default => 'true',
+				comments => 'Seqdef database supports allele flags',
+				tooltip =>
+'flag_table - Set to true to specify that the seqdef database contains an allele flag table (which is the case for BIGSdb versions 1.4 onwards).'
+			},
+			{
 				name    => 'description_url',
 				type    => 'text',
 				length  => 120,

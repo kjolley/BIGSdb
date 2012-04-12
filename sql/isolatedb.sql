@@ -335,6 +335,7 @@ dbase_id_field text,
 dbase_id2_field text,
 dbase_id2_value text,
 dbase_seq_field text,
+flag_table boolean NOT NULL;
 url text,
 isolate_display text NOT NULL,
 main_display boolean NOT NULL,
