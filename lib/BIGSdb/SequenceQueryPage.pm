@@ -242,6 +242,7 @@ sub _output_single_query_exact {
 	  . "<th>End position</th>"
 	  . ( $data->{'linked_data'}         ? '<th>Linked data values</th>' : '' )
 	  . ( $data->{'extended_attributes'} ? '<th>Attributes</th>'         : '' )
+	  . (( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ? '<th>Flags</th>' : '' )
 	  . "</tr>\n";
 	if ( !$distinct_locus_selected && $q->param('order') eq 'locus' ) {
 		my %locus_values;
@@ -256,7 +257,7 @@ sub _output_single_query_exact {
 	foreach (@$exact_matches) {
 		print "<tr class=\"td$td\"><td>";
 		my $allele;
-		my ( $field_values, $attributes );
+		my ( $field_values, $attributes, $flags );
 		if ($distinct_locus_selected) {
 			my $cleaned = $self->clean_locus($locus);
 			print
@@ -264,6 +265,7 @@ sub _output_single_query_exact {
 			$allele       = "$cleaned: $_->{'allele'}";
 			$field_values = $self->_get_client_dbase_fields( $locus, [ $_->{'allele'} ] );
 			$attributes   = $self->_get_allele_attributes( $locus, [ $_->{'allele'} ] );
+			$flags = $self->{'datastore'}->get_allele_flags($locus, $_->{'allele'});
 		} else {    #either all loci or a scheme selected
 			my ( $locus, $allele_id );
 			if ( $_->{'allele'} =~ /(.*):(.*)/ ) {
@@ -273,6 +275,7 @@ sub _output_single_query_exact {
 				$allele       = "$cleaned: $allele_id";
 				$field_values = $self->_get_client_dbase_fields( $locus, [$allele_id] );
 				$attributes   = $self->_get_allele_attributes( $locus, [$allele_id] );
+				$flags = $self->{'datastore'}->get_allele_flags($locus, $allele_id);
 			}
 			print
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id\">"
@@ -281,7 +284,10 @@ sub _output_single_query_exact {
 		print "$allele</a></td><td>$_->{'length'}</td><td>$_->{'start'}</td><td>$_->{'end'}</td>";
 		print defined $field_values ? "<td style=\"text-align:left\">$field_values</td>" : '<td />' if $data->{'linked_data'};
 		print defined $attributes ? "<td style=\"text-align:left\">$attributes</td>" : '<td />' if $data->{'extended_attributes'};
-		
+		if (( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes'){
+			local $" = '</a> <a class="seqflag_tooltip">';
+			print @$flags ? "<td style=\"text-align:left\"><a class=\"seqflag_tooltip\">@$flags</a></td>" : '<td />';
+		}
 		print "</tr>\n";
 		$td = $td == 1 ? 2 : 1;
 	}
