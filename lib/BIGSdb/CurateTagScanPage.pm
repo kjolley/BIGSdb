@@ -60,7 +60,7 @@ function use_defaults() {
 }
 	
 END
-	$buffer.= $self->get_tree_javascript({checkboxes => 1, check_schemes => 1});
+	$buffer .= $self->get_tree_javascript( { checkboxes => 1, check_schemes => 1 } );
 	return $buffer;
 }
 
@@ -93,10 +93,7 @@ sub _print_interface {
 	if ($guid) {
 		$general_prefs = $self->{'prefstore'}->get_all_general_prefs( $guid, $self->{'system'}->{'db'} );
 	}
-	
-	my $selected_ids = $q->param('query') ? $self->_get_ids($q->param('query')) : [];
-
-	
+	my $selected_ids = $q->param('query') ? $self->_get_ids( $q->param('query') ) : [];
 	print $q->start_form;
 	print "<div class=\"scrollable\"><fieldset>\n<legend>Isolates</legend>\n";
 	print $q->scrolling_list(
@@ -125,7 +122,7 @@ sub _print_interface {
 	print "<noscript><p class=\"highlight\">Enable Javascript to select schemes.</p></noscript>\n";
 	print "<div id=\"tree\" class=\"tree\" style=\"height:180px; width:20em\">\n";
 	print $self->get_tree( undef, { no_link_out => 1, select_schemes => 1 } );
-	print "</div>\n";	
+	print "</div>\n";
 	print "</fieldset>\n";
 	print "<fieldset>\n<legend>Parameters</legend>\n";
 	print "<input type=\"button\" class=\"smallbutton legendbutton\" value=\"Defaults\" onclick=\"use_defaults()\" />";
@@ -304,11 +301,12 @@ sub _scan {
 	my @ids        = $q->param('isolate_id');
 	my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 	push @$scheme_ids, 0;
+
 	if ( !@ids ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>You must select one or more isolates.</p></div>\n";
 		return;
 	}
-	if ( !@loci && none {$q->param("s_$_")} @$scheme_ids ) {
+	if ( !@loci && none { $q->param("s_$_") } @$scheme_ids ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci or schemes.</p></div>\n";
 		return;
 	}
@@ -615,14 +613,17 @@ sub _tag {
 						my $reverse  = $q->param("id_$isolate_id\_$_\_reverse_$id")  ? 'TRUE' : 'FALSE';
 						my $complete = $q->param("id_$isolate_id\_$_\_complete_$id") ? 'TRUE' : 'FALSE';
 						push @updates,
-"INSERT INTO allele_sequences (seqbin_id,locus,start_pos,end_pos,reverse,complete,curator,datestamp) VALUES ($seqbin_id,'$cleaned_locus',$start,$end,'$reverse','$complete',$curator_id,'today')";
+						  "INSERT INTO allele_sequences (seqbin_id,locus,start_pos,end_pos,reverse,complete,curator,datestamp) "
+						  . "VALUES ($seqbin_id,'$cleaned_locus',$start,$end,'$reverse','$complete',$curator_id,'today')";
 						push @sequence_updates,
 						  ( $labels->{$isolate_id} || $isolate_id ) . ": $display_locus:  Seqbin id: $seqbin_id; $start-$end";
 						push @{ $history->{$isolate_id} }, "$_: sequence tagged. Seqbin id: $seqbin_id; $start-$end (sequence bin scan)";
 						if ( $q->param("id_$isolate_id\_$_\_sequence_$id\_flag") ) {
-							my $flag = $q->param("id_$isolate_id\_$_\_sequence_$id\_flag");
-							push @updates,
-"INSERT INTO sequence_flags (seqbin_id,locus,start_pos,end_pos,flag,datestamp,curator) VALUES ($seqbin_id,'$cleaned_locus',$start,$end,'$flag','today',$curator_id)";
+							my @flags = $q->param("id_$isolate_id\_$_\_sequence_$id\_flag");
+							foreach my $flag (@flags) {
+								push @updates, "INSERT INTO sequence_flags (seqbin_id,locus,start_pos,end_pos,flag,datestamp,curator) "
+								  . "VALUES ($seqbin_id,'$cleaned_locus',$start,$end,'$flag','today',$curator_id)";
+							}
 						}
 					}
 				}
@@ -720,9 +721,9 @@ sub get_title {
 
 sub _add_scheme_loci {
 	my ( $self, $loci_ref ) = @_;
-	my $q = $self->{'cgi'};
+	my $q          = $self->{'cgi'};
 	my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY id");
-	push @$scheme_ids, 0; #loci not belonging to a scheme.
+	push @$scheme_ids, 0;    #loci not belonging to a scheme.
 	my %locus_selected;
 	$locus_selected{$_} = 1 foreach @$loci_ref;
 	foreach (@$scheme_ids) {
@@ -896,11 +897,26 @@ sub _print_row {
 		push @$js4, "\$(\"#id_$isolate_id\_$cleaned_locus\_sequence_$id\").attr(\"checked\",false)";
 		$new_designation = 1;
 		print "</td><td>";
-		print $q->popup_menu(
-			-name   => "id_$isolate_id\_$locus\_sequence_$id\_flag",
-			-id     => "id_$isolate_id\_$cleaned_locus\_sequence_$id\_flag",
-			-values => [ '', SEQ_FLAGS ]
-		);
+		my ($default_flags);
+		if ( $locus_info->{'flag_table'} && $exact ) {
+			$default_flags = $self->{'datastore'}->get_locus($locus)->get_flags( $match->{'allele'} );
+		}
+		if ( @$default_flags > 1 ) {
+			print $q->popup_menu(
+				-name     => "id_$isolate_id\_$locus\_sequence_$id\_flag",
+				-id       => "id_$isolate_id\_$cleaned_locus\_sequence_$id\_flag",
+				-values   => [SEQ_FLAGS],
+				-default  => $default_flags,
+				-multiple => 'true',
+			);
+		} else {
+			print $q->popup_menu(
+				-name    => "id_$isolate_id\_$locus\_sequence_$id\_flag",
+				-id      => "id_$isolate_id\_$cleaned_locus\_sequence_$id\_flag",
+				-values  => [ '', SEQ_FLAGS ],
+				-default => $default_flags,
+			);
+		}
 	} else {
 		print $q->checkbox( -name => "id_$isolate_id\_$locus\_sequence_$id", -label => '', disabled => 'disabled' );
 		$seq_disabled = 1;
@@ -1160,7 +1176,7 @@ sub blast {
 		return if !@$probe_matches;
 	}
 	if ( -e $temp_fastafile && !-z $temp_fastafile ) {
-		my $blastn_word_size = (defined $self->{'cgi'}->param('word_size') && $self->{'cgi'}->param('word_size') =~ /(\d+)/) ? $1 : 15;
+		my $blastn_word_size = ( defined $self->{'cgi'}->param('word_size') && $self->{'cgi'}->param('word_size') =~ /(\d+)/ ) ? $1 : 15;
 		my $word_size = $program eq 'blastn' ? $blastn_word_size : 3;
 		if ( $self->{'config'}->{'blast+_path'} ) {
 			my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
@@ -1195,7 +1211,6 @@ sub blast {
 
 	#Calling function should delete working files.  This is not done here as they can be re-used
 	#if multiple loci are being scanned for the same isolate.
-	
 	return;
 }
 
@@ -1267,11 +1282,11 @@ sub _parse_blast_exact {
 					next LINE if !$self->_probe_filter_match( $locus, $match, $probe_matches );
 				}
 				$match->{'predicted_start'} = $match->{'start'};
-				$match->{'predicted_end'}   = $match->{'end'};				
-				if ( ( $record[8] > $record[9] && $record[7] > $record[6] ) || ( $record[8] < $record[9] && $record[7] < $record[6] ) ){
-					$match->{'reverse'}         = 1;
+				$match->{'predicted_end'}   = $match->{'end'};
+				if ( ( $record[8] > $record[9] && $record[7] > $record[6] ) || ( $record[8] < $record[9] && $record[7] < $record[6] ) ) {
+					$match->{'reverse'} = 1;
 				} else {
-					$match->{'reverse'}         = 0;
+					$match->{'reverse'} = 0;
 				}
 				$match->{'e-value'} = $record[10];
 				next if $matched_already->{ $match->{'allele'} }->{ $match->{'predicted_start'} };
@@ -1323,11 +1338,11 @@ sub _parse_blast_partial {
 			$match->{'allele'}    = $record[1];
 			$match->{'identity'}  = $record[2];
 			$match->{'length'}    = $length;
-			$match->{'alignment'} = $record[3];			
-			if ( ( $record[8] > $record[9] && $record[7] > $record[6] ) || ( $record[8] < $record[9] && $record[7] < $record[6] ) ){
-				$match->{'reverse'}   = 1;
+			$match->{'alignment'} = $record[3];
+			if ( ( $record[8] > $record[9] && $record[7] > $record[6] ) || ( $record[8] < $record[9] && $record[7] < $record[6] ) ) {
+				$match->{'reverse'} = 1;
 			} else {
-				$match->{'reverse'}   = 0;
+				$match->{'reverse'} = 0;
 			}
 			if ( $record[6] < $record[7] ) {
 				$match->{'start'} = $record[6];
@@ -1515,14 +1530,11 @@ sub _create_temp_tables {
 }
 
 sub _get_ids {
-	my ( $self, $qry) = @_;
+	my ( $self, $qry ) = @_;
 	$qry =~ s/ORDER BY.*$//g;
-	return if !$self->_create_temp_tables(\$qry);
+	return if !$self->_create_temp_tables( \$qry );
 	$qry =~ s/SELECT \*/SELECT id/;
 	my $ids = $self->{'datastore'}->run_list_query($qry);
 	return $ids;
 }
-
-
-
 1;

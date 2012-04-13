@@ -985,7 +985,7 @@ sub get_seq_detail_tooltips {
 			$complete = 1 if $alleleseq->{'complete'};
 		}
 	}
-	@all_flags = sort uniq @all_flags;
+	@all_flags = uniq sort @all_flags;
 	my $cleaned_locus = $self->clean_locus($locus);
 	my $sequence_tooltip =
 	  $self->_get_seq_detail_tooltip_text( $cleaned_locus, $designation_ref, $alleleseq_ref, \@flags_foreach_alleleseq );
@@ -1003,7 +1003,7 @@ sub get_seq_detail_tooltips {
 			} elsif (!$flag_from_designation{$flag} && $flag_from_alleleseq{$flag}){
 				$text .= " (sequence tag)<br />"
 			} else {
-				$text .= " (allele designation + sequence tag)<br />";
+				$text .= " (designation + tag)<br />";
 			}
 		}
 		local $" = "</a> <a class=\"seqflag_tooltip\" title=\"$text\">";
