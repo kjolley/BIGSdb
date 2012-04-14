@@ -1254,9 +1254,7 @@ sub get_sequence_bin_table_attributes {
 			name           => 'isolate_id',
 			type           => 'int',
 			required       => 'yes',
-			foreign_key    => 'isolates',
-			dropdown_query => 'yes',
-			labels         => '|$id|) |$' . $self->{'system'}->{'labelfield'} . '|'
+			foreign_key    => 'isolates'
 		},
 		{ name => 'sequence',             type => 'text', required => 'yes', length  => 2048, user_update => 'no' },
 		{ name => 'method',               type => 'text', required => 'yes', optlist => "@methods" },

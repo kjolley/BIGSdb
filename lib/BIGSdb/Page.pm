@@ -793,11 +793,6 @@ sub get_isolate_id_and_name_from_seqbin_id {
 	return ( $isolate_id, $isolate );
 }
 
-sub print_results_header_insert {
-
-	#Override in subclass
-}
-
 sub get_record_name {
 	my ( $self, $table ) = @_;
 	$table ||= '';
@@ -1475,5 +1470,18 @@ sub clean_checkbox_id {
 	$var =~ s/\)/_CLOSE_/g;
 	$var =~ s/\>/_GT_/g;
 	return $var;
+}
+
+sub get_query_from_file {
+	my ($self, $filename) = @_;
+	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
+	my $qry;
+	if ( -e $full_path ) {
+		if (open( my $fh, '<', $full_path )){
+			$qry = <$fh>;
+			close $fh;
+		}
+	}
+	return \$qry;
 }
 1;

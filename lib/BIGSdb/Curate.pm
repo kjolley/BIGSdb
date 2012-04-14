@@ -27,6 +27,7 @@ use BIGSdb::CurateAlleleUpdatePage;
 use BIGSdb::CurateBatchAddPage;
 use BIGSdb::CurateBatchAddSeqbinPage;
 use BIGSdb::CurateBatchIsolateUpdatePage;
+use BIGSdb::CurateBatchSetAlleleFlagsPage;
 use BIGSdb::CurateCompositeQueryPage;
 use BIGSdb::CurateCompositeUpdatePage;
 use BIGSdb::CurateDatabankScanPage;
@@ -121,7 +122,8 @@ sub print_page {
 		'linkToExperiment'   => 'CurateLinkToExperimentPage',
 		'alleleSequence'     => 'AlleleSequencePage',
 		'options'            => 'OptionsPage',
-		'exportConfig'       => 'CurateExportConfig'
+		'exportConfig'       => 'CurateExportConfig',
+		'setAlleleFlags'	 => 'CurateBatchSetAlleleFlagsPage'
 	);
 	my %page_attributes = (
 		'system'           => $self->{'system'},

@@ -57,7 +57,7 @@ sub paged_display {
 	$qry =~
 s/ORDER BY (.+),\s*\S+\.allele_id(.*)/ORDER BY $1,\(case when $table.allele_id ~ '^[0-9]+\$' THEN lpad\($table.allele_id,10,'0'\) else $table.allele_id end\)$2/;
 	$qry =~
-	  s/ORDER BY \S+\.allele_id(.*)/ORDER BY \(case when $table.allele_id ~ '^[0-9]+\$' THEN lpad\($table.allele_id,10,'0'\) else $table.allele_id end\)$1/;
+s/ORDER BY \S+\.allele_id(.*)/ORDER BY \(case when $table.allele_id ~ '^[0-9]+\$' THEN lpad\($table.allele_id,10,'0'\) else $table.allele_id end\)$1/;
 	my $totalpages = 1;
 	my $bar_buffer;
 	if ( $q->param('displayrecs') ) {
@@ -159,127 +159,21 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 				if ( $last > $records ) {
 					$last = $records;
 				}
-				print $first == $last ? " (record $first displayed)." : " ($first - $last displayed).";
-			} else {
-				print ".";
+				print $first == $last ? " (record $first displayed)." : " ($first - $last displayed)";
 			}
-		} else {
-			print ".";
 		}
+		print '.';
 		if ( !$self->{'curate'} || ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) ) {
 			print " Click the hyperlink$plural for detailed information.";
 		}
 		print "</p>\n";
-		if ( $self->{'curate'} && $self->can_modify_table($table) ) {
-			my $page = $q->param('page');
-			print "<fieldset><legend>Delete</legend>\n";
-			print $q->start_form;
-			$q->param( 'page', 'deleteAll' );
-			print $q->hidden($_) foreach qw (db page table query scheme_id);
-			if ( $table eq 'allele_designations' ) {
-				print "<ul><li>\n";
-				if ( $self->can_modify_table('allele_sequences') ) {
-					print $q->checkbox( -name => 'delete_tags', -label => 'Delete corresponding sequence tags' );
-					print "</li>\n<li>\n";
-				}
-				print $q->checkbox( -name => 'delete_pending', -label => 'Delete corresponding pending designations' );
-				print "</li></ul>\n";
-			}
-			print $q->submit( -name => 'Delete ALL', -class => 'submit' );
-			print $q->end_form;
-			print "</fieldset>";
-			if ( $table eq 'sequence_bin' ) {
-				my $experiments = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM experiments")->[0];
-				if ($experiments) {
-					print "<fieldset><legend>Experiments</legend>\n";
-					print $q->start_form;
-					$q->param( 'page', 'linkToExperiment' );
-					print $q->hidden($_) foreach qw (db page query);
-					print $q->submit( -name => 'Link to experiment', -class => 'submit' );
-					print $q->end_form;
-					print "</fieldset>";
-				}
-			}
-			if (   $self->{'system'}->{'read_access'} eq 'acl'
-				&& $self->{'system'}->{'dbtype'} eq 'isolates'
-				&& $table eq $self->{'system'}->{'view'}
-				&& $self->can_modify_table('isolate_user_acl') )
-			{
-				print "<fieldset><legend>Access control</legend>\n";
-				print $q->start_form;
-				$q->param( 'page', 'isolateACL' );
-				print $q->hidden($_) foreach qw (db page table query);
-				print $q->submit( -name => 'Modify access', -class => 'submit' );
-				print $q->end_form;
-				print "</fieldset>";
-			}
-			if (
-				any { $table eq $_ }
-				qw (schemes users user_groups user_group_members user_permissions projects project_members isolate_aliases
-				accession experiments experiment_sequences allele_sequences samples loci locus_aliases pcr probes isolate_field_extended_attributes
-				isolate_value_extended_attributes scheme_fields scheme_members scheme_groups scheme_group_scheme_members scheme_group_group_members
-				locus_descriptions scheme_curators locus_curators sequences sequence_refs profile_refs locus_extended_attributes client_dbases
-				client_dbase_loci client_dbase_schemes)
-			  )
-			{
-				print "<fieldset><legend>Database configuration</legend>\n";
-				print $q->start_form;
-				$q->param( 'page', 'exportConfig' );
-				print $q->hidden($_) foreach qw (db page table query);
-				print $q->submit( -name => 'Export configuration/data', -class => 'submit' );
-				print $q->end_form;
-				print "</fieldset>\n";
-			}
-			$q->param('page', $page); #reset
-		}
-		if (   $self->{'curate'}
-			&& $self->{'system'}->{'dbtype'} eq 'isolates'
-			&& $table eq $self->{'system'}->{'view'}
-			&& $self->can_modify_table('allele_sequences') )
-		{
-			print "<fieldset style=\"text-align:center\"><legend>Tag scanning</legend>\n";
-			print $q->start_form;
-			$q->param( 'page', 'tagScan' );
-			print $q->hidden($_) foreach qw (db page table query);
-			print $q->submit( -name => 'Scan', -class => 'submit' );
-			print $q->end_form;
-			print "</fieldset>\n";
-		}
-		if (   $self->{'curate'}
-			&& $self->{'system'}->{'dbtype'} eq 'isolates'
-			&& $table eq $self->{'system'}->{'view'}
-			&& $self->can_modify_table('project_members') )
-		{
-			my @projects;
-			my $project_qry = "SELECT id,short_description FROM projects ORDER BY short_description";
-			my $sql         = $self->{'db'}->prepare($project_qry);
-			eval { $sql->execute };
-			$logger->error($@) if $@;
-			my %labels;
-			while ( my @data = $sql->fetchrow_array ) {
-				push @projects, $data[0];
-				$labels{ $data[0] } = $data[1];
-			}
-			if (@projects) {
-				print "<fieldset><legend>Projects</legend>\n";
-				unshift @projects, '';
-				$labels{''} = "Select project...";
-				print $q->start_form;
-				$q->param( 'page',  'batchAdd' );
-				$q->param( 'table', 'project_members' );
-				print $q->hidden($_) foreach qw (db page table query);
-				print $q->popup_menu( -name => 'project', -values => \@projects, -labels => \%labels );
-				print $q->submit( -name => 'Link', -class => 'submit' );
-				print $q->end_form;
-				print "</fieldset>\n";
-			}
-		}
+		my $qry_filename = $self->make_temp_file($qry);
+		$self->_print_curate_headerbar_functions( $table, $qry_filename ) if $self->{'curate'};
+		$self->print_additional_headerbar_functions($qry_filename);
 	} else {
 		$logger->debug("Query: $qry");
 		print "<p>No records found!</p>\n";
 	}
-	my $filename = $self->make_temp_file($qry);
-	$self->print_results_header_insert($filename) if $records;
 	if ( $self->{'prefs'}->{'pagebar'} =~ /top/
 		&& ( $currentpage > 1 || $currentpage < $totalpages ) )
 	{
@@ -302,6 +196,179 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 	{
 		print "<div class=\"box\" id=\"resultsfooter\">$bar_buffer</div>\n";
 	}
+	return;
+}
+
+sub _print_curate_headerbar_functions {
+	my ( $self, $table, $qry_filename ) = @_;
+	my $q = $self->{'cgi'};
+	$q->param( 'filename', $qry_filename );
+	my $page = $q->param('page');
+	if ( $self->can_modify_table($table) ) {
+		$self->_print_delete_all_function($table);
+		$self->_print_link_seq_to_experiment_function if $table eq 'sequence_bin';
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
+			$self->_print_access_control_function;
+		}
+		$self->_print_export_configuration_function($table);
+		if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' && $table eq 'sequences' && $self->can_modify_table('sequences') ) {
+			$self->_print_set_sequence_flags_function;
+		}
+	}
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
+		$self->_print_tag_scanning_function           if $self->can_modify_table('allele_sequences');
+		$self->_print_modify_project_members_function if $self->can_modify_table('project_members');
+	}
+	$q->param( 'page', $page );    #reset
+	return;
+}
+
+sub print_additional_headerbar_functions {
+
+	#Override in subclass
+}
+
+sub _print_delete_all_function {
+
+	#TODO Use secure_tmp_dir to pass query
+	my ( $self, $table ) = @_;
+	my $q = $self->{'cgi'};
+	print "<fieldset><legend>Delete</legend>\n";
+	print $q->start_form;
+	$q->param( 'page', 'deleteAll' );
+	print $q->hidden($_) foreach qw (db page table query scheme_id);
+	if ( $table eq 'allele_designations' ) {
+		print "<ul><li>\n";
+		if ( $self->can_modify_table('allele_sequences') ) {
+			print $q->checkbox( -name => 'delete_tags', -label => 'Delete corresponding sequence tags' );
+			print "</li>\n<li>\n";
+		}
+		print $q->checkbox( -name => 'delete_pending', -label => 'Delete corresponding pending designations' );
+		print "</li></ul>\n";
+	}
+	print $q->submit( -name => 'Delete ALL', -class => 'submit' );
+	print $q->end_form;
+	print "</fieldset>";
+	return;
+}
+
+sub _print_link_seq_to_experiment_function {
+
+	#TODO Use secure_tmp_dir to pass query
+	my ($self)      = @_;
+	my $q           = $self->{'cgi'};
+	my $experiments = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM experiments")->[0];
+	if ($experiments) {
+		print "<fieldset><legend>Experiments</legend>\n";
+		print $q->start_form;
+		$q->param( 'page', 'linkToExperiment' );
+		print $q->hidden($_) foreach qw (db page query);
+		print $q->submit( -name => 'Link to experiment', -class => 'submit' );
+		print $q->end_form;
+		print "</fieldset>";
+	}
+	return;
+}
+
+sub _print_access_control_function {
+
+	#TODO Use secure_tmp_dir to pass query
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( $self->{'system'}->{'read_access'} eq 'acl' && $self->can_modify_table('isolate_user_acl') ) {
+		print "<fieldset><legend>Access control</legend>\n";
+		print $q->start_form;
+		$q->param( 'page', 'isolateACL' );
+		print $q->hidden($_) foreach qw (db page table query);
+		print $q->submit( -name => 'Modify access', -class => 'submit' );
+		print $q->end_form;
+		print "</fieldset>";
+	}
+	return;
+}
+
+sub _print_export_configuration_function {
+
+	#TODO Use secure_tmp_dir to pass query
+	my ( $self, $table ) = @_;
+	my $q = $self->{'cgi'};
+	if (
+		any { $table eq $_ }
+		qw (schemes users user_groups user_group_members user_permissions projects project_members isolate_aliases
+		accession experiments experiment_sequences allele_sequences samples loci locus_aliases pcr probes isolate_field_extended_attributes
+		isolate_value_extended_attributes scheme_fields scheme_members scheme_groups scheme_group_scheme_members scheme_group_group_members
+		locus_descriptions scheme_curators locus_curators sequences sequence_refs profile_refs locus_extended_attributes client_dbases
+		client_dbase_loci client_dbase_schemes)
+	  )
+	{
+		print "<fieldset><legend>Database configuration</legend>\n";
+		print $q->start_form;
+		$q->param( 'page', 'exportConfig' );
+		print $q->hidden($_) foreach qw (db page table query);
+		print $q->submit( -name => 'Export configuration/data', -class => 'submit' );
+		print $q->end_form;
+		print "</fieldset>\n";
+	}
+	return;
+}
+
+sub _print_tag_scanning_function {
+
+	#TODO Use secure_tmp_dir to pass query
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	print "<fieldset style=\"text-align:center\"><legend>Tag scanning</legend>\n";
+	print $q->start_form;
+	$q->param( 'page', 'tagScan' );
+	print $q->hidden($_) foreach qw (db page table query);
+	print $q->submit( -name => 'Scan', -class => 'submit' );
+	print $q->end_form;
+	print "</fieldset>\n";
+	return;
+}
+
+sub _print_modify_project_members_function {
+
+	#TODO Use secure_tmp_dir to pass query
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my @projects;
+	my $project_qry = "SELECT id,short_description FROM projects ORDER BY short_description";
+	my $sql         = $self->{'db'}->prepare($project_qry);
+	eval { $sql->execute };
+	$logger->error($@) if $@;
+	my %labels;
+
+	while ( my @data = $sql->fetchrow_array ) {
+		push @projects, $data[0];
+		$labels{ $data[0] } = $data[1];
+	}
+	if (@projects) {
+		print "<fieldset><legend>Projects</legend>\n";
+		unshift @projects, '';
+		$labels{''} = "Select project...";
+		print $q->start_form;
+		$q->param( 'page',  'batchAdd' );
+		$q->param( 'table', 'project_members' );
+		print $q->hidden($_) foreach qw (db page table query);
+		print $q->popup_menu( -name => 'project', -values => \@projects, -labels => \%labels );
+		print $q->submit( -name => 'Link', -class => 'submit' );
+		print $q->end_form;
+		print "</fieldset>\n";
+	}
+	return;
+}
+
+sub _print_set_sequence_flags_function {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	print "<fieldset><legend>Flags</legend>\n";
+	print $q->start_form;
+	$q->param( 'page', 'setAlleleFlags' );
+	print $q->hidden($_) foreach qw (db page filename);
+	print $q->submit( -name => 'Batch set', -class => 'submit' );
+	print $q->end_form;
+	print "</fieldset>\n";
 	return;
 }
 
@@ -363,6 +430,7 @@ sub _print_isolate_table {
 	  $self->{'db'}->prepare("SELECT value FROM isolate_value_extended_attributes WHERE isolate_field=? AND attribute=? AND field_value=?");
 	$self->{'scheme_loci'}->{0} = $self->{'datastore'}->get_loci_in_no_scheme;
 	local $| = 1;
+
 	while ( $limit_sql->fetchrow_arrayref ) {
 		my $profcomplete = 1;
 		my $id;
@@ -459,7 +527,6 @@ sub _print_isolate_table {
 		undef $self->{'allele_sequences'}->{$id};
 		undef $self->{'designations'}->{$id};
 		undef $self->{'allele_sequence_flags'}->{$id};
-		
 		if ( $ENV{'MOD_PERL'} ) {
 			$self->{'mod_perl_request'}->rflush;
 			return if $self->{'mod_perl_request'}->connection->aborted;
@@ -651,7 +718,7 @@ sub _print_isolate_table_scheme {
 			print "</span>"
 			  if $allele_designations->{$_}->{'status'} eq 'provisional'
 				  && $self->{'prefs'}->{'mark_provisional_main'};
-			print $self->get_seq_detail_tooltips($isolate_id, $_) if $self->{'prefs'}->{'sequence_details_main'};
+			print $self->get_seq_detail_tooltips( $isolate_id, $_ ) if $self->{'prefs'}->{'sequence_details_main'};
 			$self->_print_pending_tooltip( $isolate_id, $_ )
 			  if $self->{'prefs'}->{'display_pending_main'} && defined $allele_designations->{$_}->{'allele_id'};
 			my $action = exists $allele_designations->{$_}->{'allele_id'} ? 'update' : 'add';
@@ -914,7 +981,9 @@ sub _print_record_table {
 			}
 		}
 	}
-	if ((($q->param('page') eq 'tableQuery' && $q->param('table') eq 'sequences') || $q->param('page') eq 'alleleQuery') && ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ){
+	if (   ( ( $q->param('page') eq 'tableQuery' && $q->param('table') eq 'sequences' ) || $q->param('page') eq 'alleleQuery' )
+		&& ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' )
+	{
 		push @cleaned_headers, 'flags';
 	}
 	local $" = ',';
@@ -1000,7 +1069,7 @@ sub _print_record_table {
 					local $" = "</a> <a class=\"seqflag_tooltip\">";
 					print @$flags ? "<td><a class=\"seqflag_tooltip\">@$flags</a></td>" : "<td />";
 				}
-			} elsif ( ($field =~ /sequence$/ || $field =~ /^primer/) && $field ne 'coding_sequence' ) {
+			} elsif ( ( $field =~ /sequence$/ || $field =~ /^primer/ ) && $field ne 'coding_sequence' ) {
 				if ( length( $data{ lc($field) } ) > 60 ) {
 					my $seq = BIGSdb::Utils::truncate_seq( \$data{ lc($field) }, 30 );
 					print "<td class=\"seq\">$seq</td>";
@@ -1065,8 +1134,10 @@ sub _print_record_table {
 				print defined $value ? "<td>$value</td>" : '<td />';
 			}
 		}
-		if ((($q->param('page') eq 'tableQuery' && $q->param('table') eq 'sequences') || $q->param('page') eq 'alleleQuery') && ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ){
-			my $flags = $self->{'datastore'}->get_allele_flags($data{'locus'},$data{'allele_id'});
+		if (   ( ( $q->param('page') eq 'tableQuery' && $q->param('table') eq 'sequences' ) || $q->param('page') eq 'alleleQuery' )
+			&& ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' )
+		{
+			my $flags = $self->{'datastore'}->get_allele_flags( $data{'locus'}, $data{'allele_id'} );
 			local $" = '</a> <a class="seqflag_tooltip">';
 			print @$flags ? "<td><a class=\"seqflag_tooltip\">@$flags</a></td>" : '<td />';
 		}
@@ -1207,5 +1278,4 @@ sub _print_pending_tooltip {
 	}
 	return;
 }
-
 1;

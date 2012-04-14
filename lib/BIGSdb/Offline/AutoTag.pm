@@ -45,7 +45,7 @@ sub run_script {
 		@exclude_isolates = split /,/, $self->{'options'}->{'I'};
 	}
 	if ( $self->{'options'}->{'P'} ) {
-		push @exclude_isolates, @{$self->_get_isolates_excluded_by_project};
+		push @exclude_isolates, @{ $self->_get_isolates_excluded_by_project };
 		@exclude_isolates = uniq(@exclude_isolates);
 	}
 	if ( $self->{'options'}->{'r'} ) {
@@ -97,6 +97,7 @@ sub run_script {
 							{
 								seqbin_id => $_->{'seqbin_id'},
 								locus     => $locus,
+								allele_id => $_->{'allele'},
 								start_pos => $_->{'start'},
 								end_pos   => $_->{'end'},
 								reverse   => $_->{'reverse'}
@@ -181,6 +182,7 @@ sub _tag_allele {
 sub _tag_sequence {
 	my ( $self, $values ) = @_;
 	my $existing = $self->{'datastore'}->get_allele_sequence( $values->{'isolate_id'}, $values->{'locus'} );
+	my $locus_info = $self->{'datastore'}->get_locus_info( $values->{'locus'} );
 	if ( defined $existing ) {
 		foreach (@$existing) {
 			return
@@ -192,6 +194,8 @@ sub _tag_sequence {
 	my $sql =
 	  $self->{'db'}->prepare( "INSERT INTO allele_sequences (seqbin_id,locus,start_pos,"
 		  . "end_pos,reverse,complete,curator,datestamp) VALUES (?,?,?,?,?,?,?,?)" );
+	my $sql_flag =
+	  $self->{'db'}->prepare("INSERT INTO sequence_flags (seqbin_id,locus,start_pos,end_pos,flag,datestamp,curator) VALUES (?,?,?,?,?,?,?)");
 	eval {
 		$sql->execute(
 			$values->{'seqbin_id'},
@@ -199,6 +203,16 @@ sub _tag_sequence {
 			$values->{'end_pos'}, ( $values->{'reverse'} ? 'true' : 'false' ),
 			'true', TAG_USER, 'now'
 		);
+		if ( $locus_info->{'flag_table'} ) {
+			my $flags = $self->{'datastore'}->get_locus( $values->{'locus'} )->get_flags( $values->{'allele_id'} );
+			foreach my $flag (@$flags) {
+				$sql_flag->execute(
+					$values->{'seqbin_id'},
+					$values->{'locus'}, $values->{'start_pos'},
+					$values->{'end_pos'}, $flag, 'now', TAG_USER
+				);
+			}
+		}
 	};
 	if ($@) {
 		$self->{'logger'}->error($@) if $@;
