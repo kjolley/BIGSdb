@@ -33,6 +33,7 @@ use Digest::MD5;
 use BIGSdb::Page qw(SEQ_METHODS LOCUS_PATTERNS);
 use constant MAX_UPLOAD_SIZE => 32768;
 use constant MAX_SPLITS_TAXA => 200;
+use constant MAX_DISPLAY_TAXA => 150;
 
 sub get_attributes {
 	my %att = (
@@ -921,8 +922,13 @@ sub _run_comparison {
 		}
 		$progress++;
 		my $complete = int( 100 * $progress / $total );
-		$self->{'jobManager'}
+		if (@$ids > MAX_DISPLAY_TAXA){
+			$self->{'jobManager'}
+		  ->update_job_status( $job_id, { percent_complete => $complete, message_html => "<p>Dynamically updated output disabled as >" . MAX_DISPLAY_TAXA . " taxa selected.</p>" } );
+		} else {
+			$self->{'jobManager'}
 		  ->update_job_status( $job_id, { percent_complete => $complete, message_html => "$$html_buffer_ref$close_table" } );
+		}
 	}
 	$$html_buffer_ref .= $close_table;
 	open( my $job_fh, '>', $job_file ) || $logger->error("Can't open $job_file for writing");
@@ -941,10 +947,13 @@ sub _run_comparison {
 		$self->_print_exact_except_ref( $ids, $html_buffer_ref, $job_file, $exact_except_ref, $values );
 	}
 	$self->_print_truncated_loci( $by_reference, $ids, $html_buffer_ref, $job_file, $truncated_loci, $values );
-	$$html_buffer_ref .= "<p class=\"statusbad\">No sequences were extracted from reference file.</p>\n"
-	  if ( !$seqs_total && $by_reference );
-	$self->_identify_strains( $ids, $html_buffer_ref, $job_file, $loci, $values );
-	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$html_buffer_ref } );
+	 if ( !$seqs_total && $by_reference ){
+		$$html_buffer_ref .= "<p class=\"statusbad\">No sequences were extracted from reference file.</p>\n";
+	 } else {
+		$self->_identify_strains( $ids, $html_buffer_ref, $job_file, $loci, $values );
+		$$html_buffer_ref = '' if @$ids > MAX_DISPLAY_TAXA;
+		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$html_buffer_ref } );
+	 }
 	close $job_fh;
 	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$prefix\*";
 	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Main output file' } );
