@@ -26,17 +26,7 @@ use Error qw(:try);
 use List::MoreUtils qw(uniq any none);
 use autouse 'Data::Dumper' => qw(Dumper);
 use parent 'Exporter';
-use constant SEQ_METHODS => (
-	'454',
-	'Illumina',
-	'Ion Torrent',
-	'PacBio',
-	'Sanger',
-	'Solexa',    #deprecated
-	'SOLiD',
-	'other',
-	'unknown'
-);
+use constant SEQ_METHODS => ( '454', 'Illumina', 'Ion Torrent', 'PacBio', 'Sanger', 'Solexa', 'SOLiD', 'other', 'unknown' );
 use constant SEQ_FLAGS => (
 	'ambiguous read',
 	'apparent misassembly',
@@ -44,12 +34,14 @@ use constant SEQ_FLAGS => (
 	'frameshift',
 	'internal stop codon',
 	'no start codon',
+	'phase variable: off',
 	'truncated',
 	'upstream fusion'
 );
-use constant ALLELE_FLAGS => ( 'downstream fusion', 'frameshift', 'internal stop codon', 'no start codon', 'truncated', 'upstream fusion' );
-use constant DATABANKS => qw(Genbank);
-use constant FLANKING => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
+use constant ALLELE_FLAGS =>
+  ( 'downstream fusion', 'frameshift', 'internal stop codon', 'no start codon', 'phase variable: off', 'truncated', 'upstream fusion' );
+use constant DATABANKS      => qw(Genbank);
+use constant FLANKING       => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
 use constant LOCUS_PATTERNS => ( qr/^l_(.+)/, qr/^la_(.+)\|\|/, qr/^cn_(.+)/ );
 our @EXPORT_OK = qw(SEQ_METHODS SEQ_FLAGS ALLELE_FLAGS DATABANKS FLANKING LOCUS_PATTERNS);
 
@@ -957,12 +949,12 @@ sub _get_seq_detail_tooltip_text {
 
 sub get_seq_detail_tooltips {
 	my ( $self, $isolate_id, $locus ) = @_;
-	my $buffer = '';
-	my $alleleseq_ref = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );    #ref to array of hashrefs
+	my $buffer          = '';
+	my $alleleseq_ref   = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );      #ref to array of hashrefs
 	my $designation_ref = $self->{'datastore'}->get_allele_designation( $isolate_id, $locus );
-	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	my $locus_info      = $self->{'datastore'}->get_locus_info($locus);
 	my $designation_flags;
-	my (@all_flags, %flag_from_designation, %flag_from_alleleseq);
+	my ( @all_flags, %flag_from_designation, %flag_from_alleleseq );
 	if ( $locus_info->{'flag_table'} && defined $designation_ref->{'allele_id'} ) {
 		$designation_flags = $self->{'datastore'}->get_locus($locus)->get_flags( $designation_ref->{'allele_id'} );
 		push @all_flags, @$designation_flags;
@@ -989,14 +981,14 @@ sub get_seq_detail_tooltips {
 		$buffer .=
 "<span style=\"font-size:0.2em\"> </span><a class=\"$sequence_class\" title=\"$sequence_tooltip\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleSequence&amp;id=$isolate_id&amp;locus=$locus\">&nbsp;S&nbsp;</a>";
 	}
-	if (@all_flags){
+	if (@all_flags) {
 		my $text = "Flags - ";
-		foreach my $flag (@all_flags){
+		foreach my $flag (@all_flags) {
 			$text .= "$flag";
-			if ($flag_from_designation{$flag} && !$flag_from_alleleseq{$flag}){
-				$text .= " (allele designation)<br />"
-			} elsif (!$flag_from_designation{$flag} && $flag_from_alleleseq{$flag}){
-				$text .= " (sequence tag)<br />"
+			if ( $flag_from_designation{$flag} && !$flag_from_alleleseq{$flag} ) {
+				$text .= " (allele designation)<br />";
+			} elsif ( !$flag_from_designation{$flag} && $flag_from_alleleseq{$flag} ) {
+				$text .= " (sequence tag)<br />";
 			} else {
 				$text .= " (designation + tag)<br />";
 			}
@@ -1473,11 +1465,11 @@ sub clean_checkbox_id {
 }
 
 sub get_query_from_file {
-	my ($self, $filename) = @_;
+	my ( $self, $filename ) = @_;
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
 	my $qry;
 	if ( -e $full_path ) {
-		if (open( my $fh, '<', $full_path )){
+		if ( open( my $fh, '<', $full_path ) ) {
 			$qry = <$fh>;
 			close $fh;
 		}
