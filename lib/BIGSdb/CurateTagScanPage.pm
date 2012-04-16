@@ -907,7 +907,7 @@ sub _print_row {
 				-id       => "id_$isolate_id\_$cleaned_locus\_sequence_$id\_flag",
 				-values   => [SEQ_FLAGS],
 				-default  => $default_flags,
-				-multiple => 'true',
+				-multiple => 'multiple',
 			);
 		} else {
 			print $q->popup_menu(
