@@ -72,17 +72,11 @@ sub print_content {
 		return;
 	} elsif ( ( $table eq 'sequence_refs' || $table eq 'accession' ) && $q->param('locus') ) {
 		my $locus = $q->param('locus');
-		if ( !$self->is_admin ) {
-			my $allowed =
-			  $self->{'datastore'}
-			  ->run_simple_query( "SELECT COUNT(*) FROM locus_curators WHERE locus=? AND curator_id=?", $locus, $self->get_curator_id )
-			  ->[0];
-			if ( !$allowed ) {
-				print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to delete "
-				  . ( $table eq 'sequence_refs' ? 'references' : 'accession numbers' )
-				  . " for this locus.</p></div>\n";
-				return;
-			}
+		if ( !$self->is_admin && !$self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $self->get_curator_id ) ) {
+			print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to delete "
+			  . ( $table eq 'sequence_refs' ? 'references' : 'accession numbers' )
+			  . " for this locus.</p></div>\n";
+			return;
 		}
 	}
 	if ( ( $table eq 'scheme_fields' || $table eq 'scheme_members' ) && $self->{'system'}->{'dbtype'} eq 'sequences' && !$q->param('sent') )
@@ -117,14 +111,13 @@ sub print_content {
 	eval { $sql->execute };
 	$logger->error($@) if $@;
 	my $data = $sql->fetchrow_hashref;
-	if (!$data){
+	if ( !$data ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Selected record does not exist.</p></div>\n";
 		return;
 	}
 	$buffer .= $q->start_form;
 	$buffer .= "<div class=\"box\" id=\"resultstable\">\n";
 	$buffer .= "<p>You have chosen to delete the following record:</p>\n";
-
 	if ( scalar @$attributes > 10 ) {
 		$buffer .= "<p />";
 		$buffer .= $q->submit( -name => 'submit', -value => 'Delete!', -class => 'submit' );
@@ -235,7 +228,7 @@ sub print_content {
 	$buffer .= "</div>\n";
 	$buffer .= $q->end_form;
 	if ( $q->param('sent') ) {
-		$buffer .= $self->_delete( $table, $data, \@query_values );
+		$buffer .= $self->_delete( $table, $data, \@query_values ) || '';
 		return if $q->param('submit');
 	}
 	print $buffer;

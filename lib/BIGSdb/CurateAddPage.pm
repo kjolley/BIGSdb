@@ -54,17 +54,11 @@ sub print_content {
 		return;
 	} elsif ( ( $table eq 'sequence_refs' || $table eq 'accession' ) && $q->param('locus') ) {
 		my $locus = $q->param('locus');
-		if ( !$self->is_admin ) {
-			my $allowed =
-			  $self->{'datastore'}
-			  ->run_simple_query( "SELECT COUNT(*) FROM locus_curators WHERE locus=? AND curator_id=?", $locus, $self->get_curator_id )
-			  ->[0];
-			if ( !$allowed ) {
-				print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to add "
-				  . ( $table eq 'sequence_refs' ? 'references' : 'accession numbers' )
-				  . " for this locus.</p></div>\n";
-				return;
-			}
+		if ( !$self->is_admin && !$self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $self->get_curator_id ) ) {
+			print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to add "
+			  . ( $table eq 'sequence_refs' ? 'references' : 'accession numbers' )
+			  . " for this locus.</p></div>\n";
+			return;
 		}
 	} elsif ( $table eq 'pending_allele_designations' || $table eq 'allele_designations' ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Please add allele designations using the isolate update interface.</p></div>\n";

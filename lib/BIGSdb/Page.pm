@@ -1078,11 +1078,7 @@ sub can_modify_table {
 		if ( !$locus ) {
 			return 1;
 		} else {
-			my $allowed =
-			  $self->{'datastore'}
-			  ->run_simple_query( "SELECT COUNT(*) FROM locus_curators WHERE locus=? AND curator_id=?", $locus, $self->get_curator_id )
-			  ->[0];
-			return $allowed;
+			return $self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $self->get_curator_id )
 		}
 	} elsif ( $table eq 'allele_sequences' && $self->{'permissions'}->{'tag_sequences'} ) {
 		return 1;
