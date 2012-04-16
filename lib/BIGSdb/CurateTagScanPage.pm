@@ -901,7 +901,7 @@ sub _print_row {
 		if ( $locus_info->{'flag_table'} && $exact ) {
 			$default_flags = $self->{'datastore'}->get_locus($locus)->get_flags( $match->{'allele'} );
 		}
-		if ( @$default_flags > 1 ) {
+		if ( ref $default_flags eq 'ARRAY' && @$default_flags > 1 ) {
 			print $q->popup_menu(
 				-name     => "id_$isolate_id\_$locus\_sequence_$id\_flag",
 				-id       => "id_$isolate_id\_$cleaned_locus\_sequence_$id\_flag",
