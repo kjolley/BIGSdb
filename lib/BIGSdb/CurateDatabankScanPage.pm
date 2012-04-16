@@ -46,7 +46,7 @@ sub print_content {
 	print $q->end_form;
 	print "</div>\n";
 	if ( $accession ) {
-		my $seq_db = new Bio::DB::GenBank;
+		my $seq_db = Bio::DB::GenBank->new;
 		$seq_db->verbose(2);    #convert warn to exception
 		my $seq_obj;
 		try {
@@ -88,10 +88,9 @@ sub print_content {
 		}
 		print "<tr><td colspan=\"2\">";
 		print "<table style=\"width:100%\"><tr><th>Locus</th><th>Aliases</th><th>Product</th><th>Length</th></tr>\n";
-		$"=', ';
-		print $fh "id\tdata_type\tallele_id_format\tdescription\tlength\tlength_varies\tcoding_sequence\tmain_display\tisolate_display\tquery_field\tanalysis\treference_sequence\n";
+		print $fh "id\tdata_type\tallele_id_format\tdescription\tlength\tlength_varies\tcoding_sequence\tflag_table\tmain_display\tisolate_display\tquery_field\tanalysis\treference_sequence\n";
 		foreach my $cds (@cds){
-			$"='; ';
+			local $"='; ';
 			my @aliases;
 			my $locus;
 			foreach (qw (gene gene_synonym locus_tag old_locus_tag)){
@@ -117,7 +116,7 @@ sub print_content {
 				'rna' => 'RNA',
 				'protein' => 'peptide'
 			);
-			print $fh "$locus\t$type_lookup{$att{'type'}}\tinteger\t$tags{'product'}\t". ($cds->length)."\tTRUE\tTRUE\tFALSE\tallele only\tTRUE\tTRUE\t".($cds->seq->seq)."\n";
+			print $fh "$locus\t$type_lookup{$att{'type'}}\tinteger\t$tags{'product'}\t". ($cds->length)."\tTRUE\tTRUE\tTRUE\tFALSE\tallele only\tTRUE\tTRUE\t".($cds->seq->seq)."\n";
 		}
 		close $fh;
 		print "</table>\n";
@@ -125,6 +124,7 @@ sub print_content {
 		print "</table>";
 		print "</div>\n"
 	}
+	return;
 }
 
 sub get_title {
