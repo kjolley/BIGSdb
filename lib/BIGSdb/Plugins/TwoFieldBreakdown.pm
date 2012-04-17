@@ -79,7 +79,7 @@ sub run {
 	$qry =~ s/ORDER BY.*$//g;
 	$logger->debug("Breakdown query: $qry");
 	return if !$self->create_temp_tables($qry_ref);
-	$self->_breakdown( \$qry ) if  $q->param('function') eq 'breakdown' ;
+	$self->_breakdown( \$qry ) if $q->param('function') eq 'breakdown';
 	return;
 }
 
@@ -124,16 +124,53 @@ sub _print_interface {
 	return;
 }
 
+sub _reverse {
+	my ( $self, $field1, $field2 ) = @_;
+	my $q = $self->{'cgi'};
+	$field1 = $q->param('field2');
+	$field2 = $q->param('field1');
+	$q->param( 'field1', $field1 );
+	$q->param( 'field2', $field2 );
+	return ( $field1, $field2 );
+}
+
+sub _print_controls {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	print "<div style=\"float:left\">\n";
+	print $q->startform;
+	print $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc);
+	print $q->submit( -name => 'reverse', -value => 'Reverse axes', -class => 'submit' );
+	print $q->endform;
+	print "</div>\n<div style=\"float:left\">\n";
+	print $q->startform;
+	print $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc);
+	my %toggle =
+	  ( 'values only' => 'values and percentages', 'values and percentages' => 'percentages only', 'percentages only' => 'values only' );
+	print $q->submit( -name => 'toggledisplay', -label => ( 'Show ' . $toggle{ $q->param('display') } ), -class => 'submit' );
+	print $q->endform;
+	print "</div>\n";
+
+	if ( $q->param('display') ne 'values only' ) {
+		print "<div style=\"float:left\">\n";
+		print $q->startform;
+		print $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc);
+		my %toggle = ( 'dataset' => 'row', 'row' => 'column', 'column' => 'dataset' );
+		print $q->submit( -name => 'togglepc', -label => ( 'Calculate percentages by ' . $toggle{ $q->param('calcpc') } ),
+			-class => 'submit' );
+		print $q->endform;
+		print "</div>\n";
+	}
+	return;
+}
+
 sub _breakdown {
 	my ( $self, $qry_ref ) = @_;
 	my $q      = $self->{'cgi'};
 	my $field1 = $q->param('field1');
 	my $field2 = $q->param('field2');
 	if ( $q->param('reverse') ) {
-		$field1 = $q->param('field2');
-		$field2 = $q->param('field1');
-		$q->param( 'field1', $field1 );
-		$q->param( 'field2', $field2 );
+		( $field1, $field2 ) = $self->_reverse( $field1, $field2 );
 	}
 	my ( $attribute1, $attribute2 );
 	if ( $field1 =~ /^e_(.*)\|\|(.*)$/ ) {
@@ -255,32 +292,8 @@ sub _breakdown {
 	}
 	print "</p>\n";
 	print $fh "\n\n";
-	print "<table><tr><td>\n";
-	print $q->startform;
-	print $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc);
-	print $q->submit( -name => 'reverse', -value => 'Reverse axes', -class => 'submit' );
-	print $q->endform;
-	print "</td><td>\n";
-	print $q->startform;
-	print $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc);
-	my %toggle =
-	  ( 'values only' => 'values and percentages', 'values and percentages' => 'percentages only', 'percentages only' => 'values only' );
-	print $q->submit( -name => 'toggledisplay', -label => ( 'Show ' . $toggle{ $q->param('display') } ), -class => 'submit' );
-	print $q->endform;
-	print "</td>\n";
-
-	if ( $q->param('display') ne 'values only' ) {
-		print "<td>";
-		print $q->startform;
-		print $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc);
-		my %toggle = ( 'dataset' => 'row', 'row' => 'column', 'column' => 'dataset' );
-		print $q->submit( -name => 'togglepc', -label => ( 'Calculate percentages by ' . $toggle{ $q->param('calcpc') } ),
-			-class => 'submit' );
-		print $q->endform;
-		print "</td>\n";
-	}
-	print "</tr></table>\n";
-	print "<div class=\"scrollable\">\n";
+	$self->_print_controls;
+	print "<div class=\"scrollable\" style=\"clear:both\">\n";
 	print "<table class=\"tablesorter\" id=\"sortTable\">\n<thead>\n";
 	print "<tr><td /><td colspan=\"$numfield2\" class=\"header\">$print_field2</td></tr>\n";
 	print $fh "$print_field1\t$print_field2\n";
@@ -291,7 +304,7 @@ sub _breakdown {
 	print $fh "\t@field2values\tTotal\n";
 	my $td = 1;
 	{
-		no warnings;    #might complain about numeric comparison with non-numeric data
+		no warnings 'numeric';    #might complain about numeric comparison with non-numeric data
 		for my $field1value ( sort { $a <=> $b || $a cmp $b } keys %datahash ) {
 			my $total = 0;
 			print "<tr class=\"td$td\"><td>$field1value</td>\n";
@@ -374,94 +387,113 @@ sub _breakdown {
 	}
 	print "</tbody></table></div>\n";
 	close $fh;
-	print "<p><a href='/tmp/$temp1.txt'>Download as tab-delimited text.</a></p>\n";
+	print "<p><a href='/tmp/$temp1.txt'>Download as tab-delimited text.</a></p></div>\n";
 
 	#Chartdirector
-	if ( scalar keys %datahash < 31 && scalar @field2values < 31 ) {
-		if ( $self->{'config'}->{'chartdirector'} ) {
-			my $guid = $self->get_guid;
-			my %prefs;
-			foreach (qw (threeD transparent)) {
-				try {
-					$prefs{$_} = $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'TwoFieldBreakdown', $_ );
-					$prefs{$_} = $prefs{$_} eq 'true' ? 1 : 0;
-				}
-				catch BIGSdb::DatabaseNoRecordException with {
-					$prefs{$_} = 0;
-				};
-			}
-			print "<div class=\"scrollable\" style=\"background:white; border: 1px solid black\">\n";
-			for ( my $i = 0 ; $i < 2 ; $i++ ) {
-				my $chart = XYChart->new( 1000, 500 );
-				$chart->setPlotArea( 100, 40, 580, 300 );
-				$chart->setBackground(0x00FFFFFF);
-				$chart->setTransparentColor(0x00FFFFFF);
-				$chart->addLegend( 700, 10 );
-				$chart->xAxis()->setLabels( \@field2values )->setFontAngle(60);
-				my $layer;
-				if ( !$i ) {
-					no warnings 'once';
-					$layer = $chart->addBarLayer2( $perlchartdir::Stack, 0 );
-				} else {
-					no warnings 'once';
-					$layer = $chart->addBarLayer2( $perlchartdir::Percentage, 0 );
-				}
-				$layer->set3D if $prefs{'threeD'};
-				{
-					no warnings 'once';
-					$chart->setColors($perlchartdir::transparentPalette) if $prefs{'transparent'};
-				}
-				for my $field1value ( sort { $field1total{$b} <=> $field1total{$a} || $a cmp $b } keys %datahash ) {
-					if ( $field1value ne 'No value' ) {
-						my @dataset;
-						foreach my $field2value (@field2values) {
-							if ( !$datahash{$field1value}{$field2value} ) {
-								push @dataset, 0;
-							} else {
-								push @dataset, $datahash{$field1value}{$field2value};
-							}
-						}
-						$layer->addDataSet( \@dataset, -1, $field1value );
-					}
-				}
-
-				#Put unassigned or no value at end
-				my @specials = ( 'Unassigned', 'No value', 'unspecified' );
-				foreach my $specialvalue (@specials) {
-					if ( $datahash{$specialvalue} ) {
-						my @dataset;
-						foreach my $field2value (@field2values) {
-							if ( !$datahash{$specialvalue}{$field2value} ) {
-								push @dataset, 0;
-							} else {
-								push @dataset, $datahash{$specialvalue}{$field2value};
-							}
-						}
-						$layer->addDataSet( \@dataset, -1, $specialvalue );
-					}
-				}
-				if ( !$i ) {
-					$chart->addTitle( "Values", "arial.ttf", 14 );
-					my $filename = "$temp1\_$field1\_$field2.png";
-					if ( $filename =~ /(BIGSdb.*\.png)/ ) {
-						$filename = $1;    #untaint
-					}
-					$chart->makeChart("$self->{'config'}->{'tmp_dir'}\/$filename");
-					print "<img src=\"/tmp/$filename\" alt=\"$field1 vs $field2\" />";
-				} else {
-					$chart->addTitle( "Percentages", "arial.ttf", 14 );
-					my $filename = "$temp1\_$field1\_$field2\_pc.png";
-					if ( $filename =~ /(BIGSdb.*\.png)/ ) {
-						$filename = $1;    #untaint
-					}
-					$chart->makeChart("$self->{'config'}->{'tmp_dir'}\/$filename");
-					print "<img src=\"/tmp/$filename\" alt=\"$field1 vs $field2 percentage chart\" />";
-				}
-			}
-			print "</div>\n";
+	$self->_print_charts(
+		{
+			prefix        => $temp1,
+			field1        => $field1,
+			field2        => $field2,
+			data          => \%datahash,
+			field1_total  => \%field1total,
+			field2_values => \@field2values
 		}
+	);
+	return;
+}
+
+sub _print_charts {
+	my ( $self, $args ) = @_;
+	my $prefix        = $args->{'prefix'};
+	my $data          = $args->{'data'};
+	my $field1_total  = $args->{'field1_total'};
+	my $field2_values = $args->{'field2_values'};
+	my $field1        = $args->{'field1'};
+	my $field2        = $args->{'field2'};
+	if ( $self->{'config'}->{'chartdirector'} && keys %$data < 31 && @$field2_values < 31 ) {
+		print "<div class=\"box\" id=\"chart\">";
+		my $guid = $self->get_guid;
+		my %prefs;
+		foreach (qw (threeD transparent)) {
+			try {
+				$prefs{$_} = $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'TwoFieldBreakdown', $_ );
+				$prefs{$_} = $prefs{$_} eq 'true' ? 1 : 0;
+			}
+			catch BIGSdb::DatabaseNoRecordException with {
+				$prefs{$_} = 0;
+			};
+		}
+		print "<div class=\"scrollable\" style=\"background:white; border: 1px solid black\">\n";
+		for ( my $i = 0 ; $i < 2 ; $i++ ) {
+			my $chart = XYChart->new( 1000, 500 );
+			$chart->setPlotArea( 100, 40, 580, 300 );
+			$chart->setBackground(0x00FFFFFF);
+			$chart->setTransparentColor(0x00FFFFFF);
+			$chart->addLegend( 700, 10 );
+			$chart->xAxis()->setLabels($field2_values)->setFontAngle(60);
+			my $layer;
+			if ( !$i ) {
+				no warnings 'once';
+				$layer = $chart->addBarLayer2( $perlchartdir::Stack, 0 );
+			} else {
+				no warnings 'once';
+				$layer = $chart->addBarLayer2( $perlchartdir::Percentage, 0 );
+			}
+			$layer->set3D if $prefs{'threeD'};
+			{
+				no warnings 'once';
+				$chart->setColors($perlchartdir::transparentPalette) if $prefs{'transparent'};
+			}
+			for my $field1value ( sort { $field1_total->{$b} <=> $field1_total->{$a} || $a cmp $b } keys %$data ) {
+				if ( $field1value ne 'No value' ) {
+					my @dataset;
+					foreach my $field2value (@$field2_values) {
+						if ( !$data->{$field1value}->{$field2value} ) {
+							push @dataset, 0;
+						} else {
+							push @dataset, $data->{$field1value}->{$field2value};
+						}
+					}
+					$layer->addDataSet( \@dataset, -1, $field1value );
+				}
+			}
+
+			#Put unassigned or no value at end
+			my @specials = ( 'Unassigned', 'No value', 'unspecified' );
+			foreach my $specialvalue (@specials) {
+				if ( $data->{$specialvalue} ) {
+					my @dataset;
+					foreach my $field2value (@$field2_values) {
+						if ( !$data->{$specialvalue}->{$field2value} ) {
+							push @dataset, 0;
+						} else {
+							push @dataset, $data->{$specialvalue}->{$field2value};
+						}
+					}
+					$layer->addDataSet( \@dataset, -1, $specialvalue );
+				}
+			}
+			if ( !$i ) {
+				$chart->addTitle( "Values", "arial.ttf", 14 );
+				my $filename = "$prefix\_$field1\_$field2.png";
+				if ( $filename =~ /(BIGSdb.*\.png)/ ) {
+					$filename = $1;    #untaint
+				}
+				$chart->makeChart("$self->{'config'}->{'tmp_dir'}\/$filename");
+				print "<img src=\"/tmp/$filename\" alt=\"$field1 vs $field2\" />";
+			} else {
+				$chart->addTitle( "Percentages", "arial.ttf", 14 );
+				my $filename = "$prefix\_$field1\_$field2\_pc.png";
+				if ( $filename =~ /(BIGSdb.*\.png)/ ) {
+					$filename = $1;    #untaint
+				}
+				$chart->makeChart("$self->{'config'}->{'tmp_dir'}\/$filename");
+				print "<img src=\"/tmp/$filename\" alt=\"$field1 vs $field2 percentage chart\" />";
+			}
+		}
+		print "</div></div>\n";
 	}
-	print "</div>\n";
 	return;
 }
 
