@@ -320,6 +320,9 @@ sub _get_provenance_fields {
 		my %thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 		my $web;
 		if ( !defined $data->{$field} ) {
+			if ( $composites{ $field } ) {
+				$buffer .= $self->_get_composite_field_rows($isolate_id, $data, $field, \%composite_display_pos, $td_ref);
+			}
 			next;
 
 			#Do not print row
@@ -477,16 +480,23 @@ sub _get_provenance_fields {
 				$$td_ref = $$td_ref == 1 ? 2 : 1;
 			}
 		}
-		if ( $composites{$field} ) {
-			foreach ( keys %composite_display_pos ) {
-				next if $composite_display_pos{$_} ne $field;
-				$displayfield = $_;
-				$displayfield =~ tr/_/ /;
-				my $value = $self->{'datastore'}->get_composite_value( $isolate_id, $_, $data );
-				$buffer .= "<tr class=\"td$$td_ref\"><th>$displayfield</th><td style=\"text-align:left\" colspan=\"5\">$value</td></tr>\n";
-				$$td_ref = $$td_ref == 1 ? 2 : 1;
-			}
+		if ( $composites{ $field } ) {
+			$buffer .= $self->_get_composite_field_rows($isolate_id, $data, $field, \%composite_display_pos, $td_ref);
 		}
+	}
+	return $buffer;
+}
+
+sub _get_composite_field_rows {
+	my ( $self, $isolate_id, $data, $field_to_position_after, $composite_display_pos, $td_ref ) = @_;
+	my $buffer = '';
+	foreach ( keys %$composite_display_pos ) {
+		next if $composite_display_pos->{$_} ne $field_to_position_after;
+		my $displayfield = $_;
+		$displayfield =~ tr/_/ /;
+		my $value = $self->{'datastore'}->get_composite_value( $isolate_id, $_, $data );
+		$buffer .= "<tr class=\"td$$td_ref\"><th>$displayfield</th><td style=\"text-align:left\" colspan=\"5\">$value</td></tr>\n";
+		$$td_ref = $$td_ref == 1 ? 2 : 1;
 	}
 	return $buffer;
 }
