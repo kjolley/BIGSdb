@@ -20,6 +20,7 @@ package BIGSdb::OfflineJobManager;
 use strict;
 use warnings;
 use parent qw(BIGSdb::Application);
+use Carp;
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Job');
@@ -151,7 +152,7 @@ sub update_job_output {
 		$logger->debug($output_hash->{'filename'} . '; ' .$output_hash->{'description'}. "; $job_id");
 	};
 	if ($@) {
-		$logger->error($@);
+		$logger->logcarp($@);
 		$self->{'db'}->rollback;
 	} else {
 		$self->{'db'}->commit;
@@ -176,7 +177,7 @@ sub update_job_status {
 		}
 	};
 	if ($@) {
-		$logger->error($@);
+		$logger->logcarp($@);
 		$self->{'db'}->rollback;
 	} else {
 		$self->{'db'}->commit;

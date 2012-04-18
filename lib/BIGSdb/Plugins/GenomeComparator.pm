@@ -740,7 +740,7 @@ sub _run_comparison {
 				$self->{'jobManager'}->update_job_status( $job_id, { status => 'failed', message_html => $$html_buffer_ref } );
 				$continue = 0;
 			};
-			next if !$continue || ref $seq_ref ne 'SCALAR';
+			return if !$continue || ref $seq_ref ne 'SCALAR';
 			$values->{'0'}->{$locus_name} = 1;
 			$length = length $$seq_ref;
 			$length = int( $length / 3 ) if $params->{'tblastx'};
