@@ -456,18 +456,9 @@ sub _output_single_query_nonexact {
 		push @args, ('-sbegin1', $start, '-send1', $end) if length $$seq_ref > 10000;
 		system("$self->{'config'}->{'emboss_path'}/stretcher @args 2>/dev/null");
 		unlink $seq1_infile, $seq2_infile;
-		my $gaps;
 
-		if ( -e $outfile ) {
-			open my $fh, '<', $outfile;
-			while (<$fh>) {
-				$gaps = $1 if $_ =~ /^# Gaps:\s+(\d+)+\//;
-			}
-			close $fh;
-		}
-
-		#Display nucleotide differences if both BLAST and stretcher report no gaps.
-		if ( !$gaps && !$partial_match->{'gaps'} ) {
+		#Display nucleotide differences if BLAST reports no gaps.
+		if ( !$partial_match->{'gaps'} ) {
 			my $qstart = $partial_match->{'qstart'};
 			my $sstart = $partial_match->{'sstart'};
 			my $ssend  = $partial_match->{'send'};
