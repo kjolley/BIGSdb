@@ -22,6 +22,7 @@
 package BIGSdb::Plugins::BURST;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -199,7 +200,7 @@ sub _get_profile_array {
 	my @profiles;
 	my %st_frequency;
 	my $num_profiles = 0;
-	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $loci         = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	foreach (@$loci) {
 		$_ =~ s/'/_PRIME_/g;
 	}
@@ -263,7 +264,7 @@ sub _get_profile_array {
 			}
 		}
 		@profiles = sort { @{$a}[0] <=> @{$b}[0] } @profiles;
-	}	
+	}
 	return ( $loci, \@profiles, \%st_frequency, $num_profiles );
 }
 
@@ -298,7 +299,6 @@ sub _recursive_search {
 	my @matrix   = @{$matrix_ref};
 	my %st_freq  = %$profile_freq_ref;
 	my @result;
-	
 	my $grpdef = $self->{'cgi'}->param('grpdef') || 'n-2';
 	if ( $grpdef =~ /n\-(\d+)/ ) {
 		$grpdef = @$loci - $1;
@@ -520,357 +520,178 @@ sub _dfs {
 }
 
 sub _create_group_graphic {
-	my ( $self, $st_ref, $grpDisMat_ref, $at ) = @_;
+	my ( $self, $st_ref, $dismat_ref, $at ) = @_;
 	my $q       = $self->{'cgi'};
 	my $temp    = BIGSdb::Utils::get_random();
 	my $scale   = 5;
-	my @disMat  = @$grpDisMat_ref;
-	my @st      = @$st_ref;
-	my $num_sts = scalar @disMat;
-	my @assigned;
-	my @posntaken;
+	my $num_sts = @$dismat_ref;
+	my ( @assigned, @posntaken, @atPosn, @radius, @atList, $atRow );
 	my $filename = "$temp\_$at";
-	my @sts = @$st_ref;
-	my @atPosn;
-	my @radius;
-	my @atList;
-	my $atRow;
-	my $noAT = 0;
-	my $unit;
+	my $noAT     = 0;
 
 	#work out data row associated with AT
-	for ( my $i = 0 ; $i < $num_sts ; $i++ ) {
+	for my $i ( 0 .. $num_sts - 1 ) {
 		$radius[$i] = 0;
-		if ( $sts[$i] == $at ) {
-			$atRow = $i;
-		}
+		$atRow = $i if $st_ref->[$i] == $at;
 	}
 	$atList[0] = $atRow;
-	for ( my $j = 0 ; $j < $num_sts ; $j++ ) {
+	for my $j ( 0 .. $num_sts - 1 ) {
 		$assigned[$j] ||= 0;
-		if ( $disMat[$atRow][$j] == 1 && ( $assigned[$j] == 0 ) ) {
-			$assigned[$j] = -1;
-		} else {
-			$assigned[$j] = -9;
-		}
+		$assigned[$j] = $dismat_ref->[$atRow]->[$j] == 1 && ( $assigned[$j] == 0 ) ? -1 : -9;
 	}
-	$assigned[$atRow] = $atRow;
-	$radius[$atRow]   = 0;
+	( $assigned[$atRow], $radius[$atRow] ) = ( $atRow, 0 );
 
 	#find other ATs
-	for ( my $a = 1 ; $a < 9 ; $a++ ) {
+	for my $at ( 1 .. 8 ) {
 		my $maxslv = 0;
-		$posntaken[$a] = 0;
-		$atPosn[$a]    = 0;
-		for ( my $i = 0 ; $i < $num_sts ; $i++ ) {
+		$posntaken[$at] = 0;
+		$atPosn[$at]    = 0;
+		for my $i ( 0 .. $num_sts - 1 ) {
 			my $SLVs = 0;
 			for ( my $j = 0 ; $j < $num_sts ; $j++ ) {
-				if ( $disMat[$i][$j] == 1 && ( $assigned[$j] == -9 ) ) {
+				if ( $dismat_ref->[$i]->[$j] == 1 && ( $assigned[$j] == -9 ) ) {
 					$SLVs++;
 				}
 			}
 			if ( $SLVs > $maxslv ) {
-				$atList[$a] = $i;
+				$atList[$at] = $i;
 				$maxslv = $SLVs;
 			}
 		}
-		my $i = $atList[$a] || 0;
-		for ( my $j = 0 ; $j < $num_sts ; $j++ ) {
-			if ( $disMat[$i][$j] == 1 && ( $assigned[$j] == -9 ) ) {
+		my $i = $atList[$at] || 0;
+		for my $j ( 0 .. $num_sts - 1 ) {
+			if ( $dismat_ref->[$i]->[$j] == 1 && ( $assigned[$j] == -9 ) ) {
 				$assigned[$j] = -1;    #temp assignment;
 			}
 		}
-		if ( $maxslv < 2 ) {
-			last;
-		}
-		$noAT                    = $a;
-		$assigned[ $atList[$a] ] = $atList[$a];
-		$radius[ $atList[$a] ]   = 0;
+		last if $maxslv < 2;
+		$noAT                     = $at;
+		$assigned[ $atList[$at] ] = $atList[$at];
+		$radius[ $atList[$at] ]   = 0;
 	}
-	$unit = 6 * $scale;
-	my $width;
-	my $height;
-	if ( $noAT == 0 ) {
-		$width  = 11 * $unit;
-		$height = 11 * $unit;
-	} elsif ( $noAT == 1 ) {    # you can get three
-		                        #ATs in a diagonal with a group defined as an SLV of a SLV.
-		                        #We can only make the canvas medium sized therefore when there
-		                        #is one auxiliary AT.
-		$width  = 21 * $unit;
-		$height = 21 * $unit;
-	} else {
-		$width  = 29 * $unit;
-		$height = 29 * $unit;
+	my $unit = 6 * $scale;
+	my $size;
+
+	# You can get three ATs in a diagonal with a group defined as an SLV of a SLV.
+	# We can only make the canvas medium sized therefore when there is one auxiliary AT.
+	given ($noAT) {
+		when (0) { $size = 11 * $unit }
+		when (1) { $size = 21 * $unit }
+		default  { $size = 29 * $unit }
 	}
-	
 	my $buffer = <<"SVG";
 <?xml version="1.0" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
 "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg width="$width" height="$height" version="1.1" xmlns="http://www.w3.org/2000/svg">
+<svg width="$size" height="$size" version="1.1" xmlns="http://www.w3.org/2000/svg">
 SVG
-	my @posnX;
-	my @posnY;
 
 	#define positions for circles
-	$posnX[0] = $width / 2;
-	$posnY[0] = $height / 2;
-	$posnX[1] = $posnX[0] - 6 * $unit;
-	$posnY[1] = $posnY[0] + 6 * $unit;
-	$posnX[2] = $posnX[0] + 6 * $unit;
-	$posnY[2] = $posnY[0] - 6 * $unit;
-	$posnX[3] = $posnX[0] + 6 * $unit;
-	$posnY[3] = $posnY[0] + 6 * $unit;
-	$posnX[4] = $posnX[0] - 6 * $unit;
-	$posnY[4] = $posnY[0] - 6 * $unit;
-	$posnX[5] = $posnX[0] - 10 * $unit;
-	$posnY[5] = $posnY[0] + 10 * $unit;
-	$posnX[6] = $posnX[0] + 10 * $unit;
-	$posnY[6] = $posnY[0] - 10 * $unit;
-	$posnX[7] = $posnX[0] + 10 * $unit;
-	$posnY[7] = $posnY[0] + 10 * $unit;
-	$posnX[8] = $posnX[0] - 10 * $unit;
-	$posnY[8] = $posnY[0] - 10 * $unit;
-	for ( my $i = 0 ; $i < $num_sts ; $i++ ) {
-
-		if ( $assigned[$i] == -1 ) {
-			$assigned[$i] = -9;    #unassign temp assignments
-		}
+	my ( $posnX, $posnY ) = $self->_define_circle_positions( $size, $unit );
+	for my $i ( 0 .. $num_sts - 1 ) {
+		$assigned[$i] = -9 if $assigned[$i] == -1;    #unassign temp assignments
 	}
 	my $count = 0;
 
 	#connected directly to centre
-	$atPosn[0]    = 0;
-	$posntaken[0] = 1;
-	my @conncentre;
-	my @angleValue;
-	for ( my $a = 1 ; $a < $noAT + 1 ; $a++ ) {
-		if ( $disMat[$atRow][ $atList[$a] ] == 1 ) {
-			$conncentre[$a] = 1;
+	( $atPosn[0], $posntaken[0] ) = ( 0, 1 );
+	my ( @conncentre, @angleValue );
+	for my $at ( 1 .. $noAT ) {
+		if ( $dismat_ref->[$atRow]->[ $atList[$at] ] == 1 ) {
+			$conncentre[$at] = 1;
 			$count++;
-			$atPosn[$a]        = $count;
+			$atPosn[$at]       = $count;
 			$posntaken[$count] = 1;
-			my $x1 = $posnX[ $atPosn[0] ];
-			my $y1 = $posnY[ $atPosn[0] ];
-			my $x2 = $posnX[ $atPosn[$a] ];
-			my $y2 = $posnY[ $atPosn[$a] ];
+			my $x1 = $posnX->[ $atPosn[0] ];
+			my $y1 = $posnY->[ $atPosn[0] ];
+			my $x2 = $posnX->[ $atPosn[$at] ];
+			my $y2 = $posnY->[ $atPosn[$at] ];
 			( $x1, $y1, $x2, $y2 ) = $self->_offset_line( $x1, $y1, $x2, $y2, $unit );
-			$buffer.= "<line x1=\"$x1\" y1=\"$y1\" x2=\"$x2\" y2=\"$y2\" stroke=\"black\" opacity=\"0.2\" stroke-width=\"1\"/>";
+			$buffer .= "<line x1=\"$x1\" y1=\"$y1\" x2=\"$x2\" y2=\"$y2\" stroke=\"black\" opacity=\"0.2\" stroke-width=\"1\"/>";
 		} else {
-			$conncentre[$a] = 0;
+			$conncentre[$at] = 0;
 		}
 	}
 
 	#connect to inner circle
-	for ( my $a = 1 ; $a < $noAT + 1 ; $a++ ) {
-		if ( !$conncentre[$a] ) {
+	for my $at ( 1 .. $noAT ) {
+		if ( !$conncentre[$at] ) {
 			for ( my $k = 1 ; $k < $noAT + 1 ; $k++ ) {
 				if (   $conncentre[$k]
-					&& $disMat[ $atList[$a] ][ $atList[$k] ] == 1 )
+					&& $dismat_ref->[ $atList[$at] ]->[ $atList[$k] ] == 1 )
 				{
-					$atPosn[$a] = $atPosn[$k] + 4;
+					$atPosn[$at] = $atPosn[$k] + 4;
 					$posntaken[ $atPosn[$k] + 4 ] = 1;
-					my $x1 = $posnX[ $atPosn[$k] ];
-					my $y1 = $posnY[ $atPosn[$k] ];
-					my $x2 = $posnX[ $atPosn[$a] ];
-					my $y2 = $posnY[ $atPosn[$a] ];
+					my $x1 = $posnX->[ $atPosn[$k] ];
+					my $y1 = $posnY->[ $atPosn[$k] ];
+					my $x2 = $posnX->[ $atPosn[$at] ];
+					my $y2 = $posnY->[ $atPosn[$at] ];
 					( $x1, $y1, $x2, $y2 ) = $self->_offset_line( $x1, $y1, $x2, $y2, $unit );
-					$buffer.= "<line x1=\"$x1\" y1=\"$y1\" x2=\"$x2\" y2=\"$y2\" stroke=\"black\" stroke-width=\"1\"/>";
-					$buffer.= "<circle stroke=\"black\" fill=\"none\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
+					$buffer .= "<line x1=\"$x1\" y1=\"$y1\" x2=\"$x2\" y2=\"$y2\" stroke=\"black\" stroke-width=\"1\"/>";
+					$buffer .= "<circle stroke=\"black\" fill=\"none\" cx=\"$posnX->[$atPosn[$at]]\" cy=\"$posnY->[$atPosn[$at]]\" r=\""
 					  . ( $unit / 2 ) . "\"/>";
 				}
 			}
 		}
 	}
-
-	for ( my $a = 1 ; $a < $noAT + 1 ; $a++ ) {
+	for my $at ( 1 .. $noAT ) {
 		my $k;
-		if ( $atPosn[$a] == 0 ) {    #unpositioned
-			                         #assign to lowest untaken posn
+		if ( $atPosn[$at] == 0 ) {    #unpositioned
+			                          #assign to lowest untaken posn
 			$k = 0;
 			while ( $posntaken[$k] ) {
 				$k++;
 			}
-			$atPosn[$a]    = $k;
+			$atPosn[$at]   = $k;
 			$posntaken[$k] = 1;
 		}
 	}
 	my $angleOffset = 0;
-	for ( my $a = 0 ; $a < $noAT + 1 ; $a++ ) {
-
-		#Draw SLV ring
-		if ( $q->param('shade') ) {
-			$buffer.=
-			  "<circle stroke=\"black\" fill=\"black\" fill-opacity=\"0.1\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
-			  . ( $unit / 2 )
-			  . "\"/>\n";
-		} else {
-			$buffer.= "<circle stroke=\"black\" fill=\"none\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
-			  . ( $unit / 2 )
-			  . "\"/>\n";
+	$buffer .= $self->_draw_slv_rings(
+		{
+			noAT       => $noAT,
+			unit       => $unit,
+			posnX      => $posnX,
+			posnY      => $posnY,
+			atPosn_ref => \@atPosn,
+			st_ref     => $st_ref,
+			atList_ref => \@atList,
 		}
-		if ( $q->param('shade') ) {
-			$buffer.=
-"<circle stroke=\"red\" stroke-width=\"$unit\" stroke-opacity=\"0.1\" fill=\"none\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
-			  . ($unit)
-			  . "\"/>\n";
+	);
+	$buffer .= $self->_draw_ring_sts(
+		{
+			noAT            => $noAT,
+			num_sts         => $num_sts,
+			dismat_ref      => $dismat_ref,
+			atList_ref      => \@atList,
+			assigned_ref    => \@assigned,
+			radius_ref      => \@radius,
+			angle_value_ref => \@angleValue,
+			posnX           => $posnX,
+			posnY           => $posnY,
+			st_ref          => $st_ref,
+			unit            => $unit,
+			atPosn_ref      => \@atPosn,
+			angle_offset    => $angleOffset
 		}
-		$buffer.= "<circle stroke=\"red\" fill=\"none\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
-		  . ( 1.5 * $unit )
-		  . "\"/>\n";
-		my $x = $posnX[ $atPosn[$a] ] - length( $st[ $atList[$a] ] ) * 2;
-		my $y = $posnY[ $atPosn[$a] ] + 4;
-		$buffer.= "<text x=\"$x\" y=\"$y\" font-size=\"9\">$st[$atList[$a]]</text>\n";
-	}
-	for ( my $distance = 1 ; $distance < 3 ; $distance++ ) {
-
-		# Draw SLV and DLV ring STs
-		for ( my $a = 0 ; $a < $noAT + 1 ; $a++ ) {
-
-			my $circle = 0;
-			for ( my $j = 0 ; $j < $num_sts ; $j++ ) {
-				if ( $disMat[ $atList[$a] ][$j] == $distance
-					&& ( $assigned[$j] == -9 ) )
-				{
-					$circle++;
-				}
-			}
-			if ( $distance == 2 && $circle != 0 ) {
-
-				#draw outer circle if there are DLVs
-				if ( $q->param('shade') ) {
-					$buffer.=
-"<circle stroke=\"blue\" stroke-width=\"$unit\" stroke-opacity=\"0.1\" fill=\"none\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
-					  . ( 2 * $unit )
-					  . "\"/>\n";
-				}
-				$buffer.= "<circle stroke=\"blue\" fill=\"none\" cx=\"$posnX[$atPosn[$a]]\" cy=\"$posnY[$atPosn[$a]]\" r=\""
-				  . ( 2.5 * $unit )
-				  . "\"/>\n";
-				$angleOffset += 2 * PI * 10 / 360;
-			}
-			if ( $circle != 0 ) {
-				my $angle = 2 * PI / $circle;
-				my $k     = 0;
-				for ( my $j = 0 ; $j < $num_sts ; $j++ ) {
-					if ( $disMat[ $atList[$a] ][$j] == $distance
-						&& ( $assigned[$j] == -9 ) )
-					{
-						$k++;
-						my $x = int( $posnX[ $atPosn[$a] ] + cos( $angle * $k + $angleOffset ) * $unit * $distance );
-						my $y = int( $posnY[ $atPosn[$a] ] + sin( $angle * $k + $angleOffset ) * $unit * $distance );
-						if ( $q->param('hide') ) {
-							my $colour;
-							if ( $distance == 1 ) {
-								$colour = 'red';
-							} elsif ( $distance == 2 ) {
-								$colour = 'blue';
-							} else {
-								$colour = 'black';
-							}
-							$buffer.= "<circle fill=\"$colour\" stroke=\"$colour\" cx=\"$x\" cy=\"$y\" r=\"2\" \/>";
-						} else {
-							$x -= length( $st[$j] ) * 2;
-							$y += 4;
-							$buffer.= "<text x=\"$x\" y=\"$y\" font-size=\"9\">$st[$j]</text>\n";
-						}
-						$assigned[$j]   = $atList[$a];
-						$radius[$j]     = $distance;
-						$angleValue[$j] = $angle * $k + $angleOffset;
-					}
-				}
-			}
+	);
+	$buffer .= $self->_draw_spokes(
+		{
+			noAT            => $noAT,
+			num_sts         => $num_sts,
+			dismat_ref      => $dismat_ref,
+			atList_ref      => \@atList,
+			assigned_ref    => \@assigned,
+			radius_ref      => \@radius,
+			angle_value_ref => \@angleValue,
+			st_ref          => $st_ref,
+			unit            => $unit,
+			posnX           => $posnX,
+			posnY           => $posnY,
+			atPosn_ref      => \@atPosn,
 		}
-	}
-	for ( my $a = 0 ; $a < $noAT + 1 ; $a++ ) {
-
-		# spokes
-		for ( my $run = 0 ; $run < 5 ; $run++ ) {
-			my $anchor    = 0;
-			my $satellite = 0;
-			if ( $run == 0 ) {
-				$anchor    = 2;
-				$satellite = 1;
-			} elsif ( $run == 1 ) {
-				$anchor    = 1;
-				$satellite = 2;
-			} elsif ( $run == 2 ) {
-				$anchor    = 2;
-				$satellite = 2;
-			} elsif ( $run == 3 ) {
-				$anchor    = 3;
-				$satellite = 1;
-			} else {
-				$anchor    = 3;
-				$satellite = 2;
-			}
-			my @thisgo;
-			my $distance;
-			for ( my $k = 0 ; $k < $num_sts ; $k++ ) {
-				my $textOffset = 0;
-				my $xOffset    = 0;
-				my $yOffset    = 0;
-				if ( $disMat[ $atList[$a] ][$k] == $anchor ) {    #anchor
-					for ( my $j = 0 ; $j < $num_sts ; $j++ ) {
-						if (   $disMat[ $atList[$a] ][$j] > 2
-							&& ( $assigned[$j] == -9 )
-							&& ( $assigned[$k] == $atList[$a] ) )
-						{
-							if ( $disMat[$j][$k] == $satellite && !$thisgo[$j] ) {
-
-								#prevent proliferation of satellites
-								my $colour;
-								if ( $satellite == 2 ) {          #DLVs only
-									$colour   = 'blue';
-									$distance = 2;
-								} else {
-									$colour   = 'red';
-									$distance = 1;
-									$xOffset  = 1;                # offset ensures that red line is not
-									$yOffset  = 2;                # obscured by blue line
-								}
-								my $posXAnchor = int( $posnX[ $atPosn[$a] ] + $xOffset + cos( $angleValue[$k] ) * $unit * $radius[$k] );
-								my $posYAnchor = int( $posnY[ $atPosn[$a] ] + $yOffset + sin( $angleValue[$k] ) * $unit * $radius[$k] );
-								my $posX =
-								  int( $posnX[ $atPosn[$a] ] + $xOffset + cos( $angleValue[$k] ) * $unit * ( $distance + $radius[$k] ) );
-								my $posX_text = $posX;
-								if ( $posX < $posXAnchor ) {
-									$posX_text -= length( $st[$j] ) * 5;
-								}
-								my $posY =
-								  int( $posnY[ $atPosn[$a] ] + $yOffset + sin( $angleValue[$k] ) * $unit * ( $distance + $radius[$k] ) );
-								my $posY_text = $posY;
-								if ( $posYAnchor < $posY ) {
-									$posY_text += 4;
-								}
-								$buffer.=
-"<line x1=\"$posXAnchor\" y1=\"$posYAnchor\" x2=\"$posX\" y2=\"$posY\" stroke=\"$colour\" opacity=\"0.2\" stroke-width=\"1\"/>\n";
-								if ( $q->param('hide') ) {
-									$posX -= $xOffset;
-									$buffer.= "<circle fill=\"black\" stroke=\"black\" cx=\"$posX\" cy=\"$posY\" r=\"2\" \/>";
-								} else {
-									if ( $textOffset == 0 ) {
-										$buffer.= "<text x=\"$posX_text\" y=\"$posY_text\" font-size=\"9\">$st[$j]</text>\n";
-										$textOffset += 8;
-									} else {
-										$buffer.= "<text x=\"$posX_text\" y=\""
-										  . ( $posY_text + $textOffset )
-										  . "\" font-size=\"9\">$st[$j]</text>\n";
-									}
-								}
-								$thisgo[$j]     = 1;
-								$assigned[$j]   = $atList[$a];
-								$angleValue[$j] = $angleValue[$k];
-								$radius[$j]     = $radius[$k] + $satellite;
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	$buffer.= "</svg>\n";
+	);
+	$buffer .= "</svg>\n";
 	open( my $fh, '>', "$self->{'config'}->{'tmp_dir'}/$filename.svg" );
 	print $fh $buffer;
 	close $fh;
@@ -878,6 +699,215 @@ SVG
 "$self->{'config'}->{'mogrify_path'} -format png $self->{'config'}->{'tmp_dir'}/$filename.svg $self->{'config'}->{'tmp_dir'}/$filename.png"
 	);
 	return $filename;
+}
+
+sub _draw_slv_rings {
+	my ( $self, $args ) = @_;
+	my $noAT       = $args->{'noAT'};
+	my $posnX      = $args->{'posnX'};
+	my $posnY      = $args->{'posnY'};
+	my $atPosn_ref = $args->{'atPosn_ref'};
+	my $unit       = $args->{'unit'};
+	my $st_ref     = $args->{'st_ref'};
+	my $atList_ref = $args->{'atList_ref'};
+	my $buffer     = '';
+	for my $at ( 0 .. $noAT ) {
+
+		#Draw SLV ring
+		if ( $self->{'cgi'}->param('shade') ) {
+			$buffer .=
+"<circle stroke=\"black\" fill=\"black\" fill-opacity=\"0.1\" cx=\"$posnX->[$atPosn_ref->[$at]]\" cy=\"$posnY->[$atPosn_ref->[$at]]\" r=\""
+			  . ( $unit / 2 )
+			  . "\"/>\n";
+		} else {
+			$buffer .=
+			    "<circle stroke=\"black\" fill=\"none\" cx=\"$posnX->[$atPosn_ref->[$at]]\" cy=\"$posnY->[$atPosn_ref->[$at]]\" r=\""
+			  . ( $unit / 2 )
+			  . "\"/>\n";
+		}
+		if ( $self->{'cgi'}->param('shade') ) {
+			$buffer .=
+"<circle stroke=\"red\" stroke-width=\"$unit\" stroke-opacity=\"0.1\" fill=\"none\" cx=\"$posnX->[$atPosn_ref->[$at]]\" cy=\"$posnY->[$atPosn_ref->[$at]]\" r=\""
+			  . ($unit)
+			  . "\"/>\n";
+		}
+		$buffer .=
+		    "<circle stroke=\"red\" fill=\"none\" cx=\"$posnX->[$atPosn_ref->[$at]]\" cy=\"$posnY->[$atPosn_ref->[$at]]\" r=\""
+		  . ( 1.5 * $unit )
+		  . "\"/>\n";
+		my $x = $posnX->[ $atPosn_ref->[$at] ] - length( $st_ref->[ $atList_ref->[$at] ] ) * 2;
+		my $y = $posnY->[ $atPosn_ref->[$at] ] + 4;
+		$buffer .= "<text x=\"$x\" y=\"$y\" font-size=\"9\">$st_ref->[$atList_ref->[$at]]</text>\n";
+	}
+	return $buffer;
+}
+
+sub _draw_ring_sts {
+	my ( $self, $args ) = @_;
+	my $noAT            = $args->{'noAT'};
+	my $num_sts         = $args->{'num_sts'};
+	my $dismat_ref      = $args->{'dismat_ref'};
+	my $atList_ref      = $args->{'atList_ref'};
+	my $assigned_ref    = $args->{'assigned_ref'};
+	my $posnX           = $args->{'posnX'};
+	my $posnY           = $args->{'posnY'};
+	my $atPosn_ref      = $args->{'atPosn_ref'};
+	my $st_ref          = $args->{'st_ref'};
+	my $radius_ref      = $args->{'radius_ref'};
+	my $angle_value_ref = $args->{'angle_value_ref'};
+	my $unit            = $args->{'unit'};
+	my $angle_offset    = $args->{'angle_offset'};
+	my $buffer;
+
+	for my $distance ( 1 .. 2 ) {
+		for my $at ( 0 .. $noAT ) {
+			my $circle = 0;
+			for ( my $j = 0 ; $j < $num_sts ; $j++ ) {
+				if ( $dismat_ref->[ $atList_ref->[$at] ]->[$j] == $distance
+					&& ( $assigned_ref->[$j] == -9 ) )
+				{
+					$circle++;
+				}
+			}
+			if ( $distance == 2 && $circle != 0 ) {
+
+				#draw outer circle if there are DLVs
+				if ( $self->{'cgi'}->param('shade') ) {
+					$buffer .=
+"<circle stroke=\"blue\" stroke-width=\"$unit\" stroke-opacity=\"0.1\" fill=\"none\" cx=\"$posnX->[$atPosn_ref->[$at]]\" cy=\"$posnY->[$atPosn_ref->[$at]]\" r=\""
+					  . ( 2 * $unit )
+					  . "\"/>\n";
+				}
+				$buffer .=
+				    "<circle stroke=\"blue\" fill=\"none\" cx=\"$posnX->[$atPosn_ref->[$at]]\" cy=\"$posnY->[$atPosn_ref->[$at]]\" r=\""
+				  . ( 2.5 * $unit )
+				  . "\"/>\n";
+				$angle_offset += 2 * PI * 10 / 360;
+			}
+			if ( $circle != 0 ) {
+				my $angle = 2 * PI / $circle;
+				my $k     = 0;
+				for my $j ( 0 .. $num_sts - 1 ) {
+					if ( $dismat_ref->[ $atList_ref->[$at] ]->[$j] == $distance
+						&& ( $assigned_ref->[$j] == -9 ) )
+					{
+						$k++;
+						my $x = int( $posnX->[ $atPosn_ref->[$at] ] + cos( $angle * $k + $angle_offset ) * $unit * $distance );
+						my $y = int( $posnY->[ $atPosn_ref->[$at] ] + sin( $angle * $k + $angle_offset ) * $unit * $distance );
+						if ( $self->{'cgi'}->param('hide') ) {
+							my $colour;
+							given ($distance) {
+								when (1) { $colour = 'red' }
+								when (2) { $colour = 'blue' }
+								default  { $colour = 'black' }
+							}
+							$buffer .= "<circle fill=\"$colour\" stroke=\"$colour\" cx=\"$x\" cy=\"$y\" r=\"2\" \/>";
+						} else {
+							$x -= length( $st_ref->[$j] ) * 2;
+							$y += 4;
+							$buffer .= "<text x=\"$x\" y=\"$y\" font-size=\"9\">$st_ref->[$j]</text>\n";
+						}
+						( $assigned_ref->[$j], $radius_ref->[$j], $angle_value_ref->[$j] ) =
+						  ( $atList_ref->[$at], $distance, $angle * $k + $angle_offset );
+					}
+				}
+			}
+		}
+	}
+	return $buffer;
+}
+
+sub _draw_spokes {
+	my ( $self, $args ) = @_;
+	my $noAT            = $args->{'noAT'};
+	my $num_sts         = $args->{'num_sts'};
+	my $dismat_ref      = $args->{'dismat_ref'};
+	my $atList_ref      = $args->{'atList_ref'};
+	my $assigned_ref    = $args->{'assigned_ref'};
+	my $radius_ref      = $args->{'radius_ref'};
+	my $angle_value_ref = $args->{'angle_value_ref'};
+	my $st_ref          = $args->{'st_ref'};
+	my $unit            = $args->{'unit'};
+	my $posnX           = $args->{'posnX'};
+	my $posnY           = $args->{'posnY'};
+	my $atPosn_ref      = $args->{'atPosn_ref'};
+	my $at              = $args->{'at'};
+	my $buffer          = '';
+	for my $at ( 0 .. $noAT ) {
+
+		for my $run ( 0 .. 4 ) {
+			my ( $anchor, $satellite );
+			given ($run) {
+				when (0) { $anchor = 2; $satellite = 1 }
+				when (1) { $anchor = 1; $satellite = 2 }
+				when (2) { $anchor = 2; $satellite = 2 }
+				when (3) { $anchor = 3; $satellite = 1 }
+				default  { $anchor = 3; $satellite = 2 }
+			}
+			my ( @thisgo, $distance );
+			for my $k ( 0 .. $num_sts - 1 ) {
+				my ( $textOffset, $xOffset, $yOffset ) = ( 0, 0, 0 );
+				if ( $dismat_ref->[ $atList_ref->[$at] ]->[$k] == $anchor ) {    #anchor
+					for ( my $j = 0 ; $j < $num_sts ; $j++ ) {
+						if (   $dismat_ref->[ $atList_ref->[$at] ]->[$j] > 2
+							&& ( $assigned_ref->[$j] == -9 )
+							&& ( $assigned_ref->[$k] == $atList_ref->[$at] ) )
+						{
+							if ( $dismat_ref->[$j]->[$k] == $satellite && !$thisgo[$j] ) {
+
+								#prevent proliferation of satellites
+								my $colour;
+								if ( $satellite == 2 ) {                         #DLVs only
+									( $colour, $distance ) = ( 'blue', 2 );
+								} else {
+
+									# offset ensures that red line is not obscured by blue line
+									( $colour, $distance, $xOffset, $yOffset ) = ( 'red', 1, 1, 2 );
+								}
+								my $posXAnchor = int(
+									$posnX->[ $atPosn_ref->[$at] ] + $xOffset + cos( $angle_value_ref->[$k] ) * $unit * $radius_ref->[$k] );
+								my $posYAnchor = int(
+									$posnY->[ $atPosn_ref->[$at] ] + $yOffset + sin( $angle_value_ref->[$k] ) * $unit * $radius_ref->[$k] );
+								my $posX =
+								  int( $posnX->[ $atPosn_ref->[$at] ] +
+									  $xOffset +
+									  cos( $angle_value_ref->[$k] ) * $unit * ( $distance + $radius_ref->[$k] ) );
+								my $posX_text = $posX;
+								if ( $posX < $posXAnchor ) {
+									$posX_text -= length( $st_ref->[$j] ) * 5;
+								}
+								my $posY =
+								  int( $posnY->[ $atPosn_ref->[$at] ] +
+									  $yOffset +
+									  sin( $angle_value_ref->[$k] ) * $unit * ( $distance + $radius_ref->[$k] ) );
+								my $posY_text = $posY;
+								$posY_text += 4 if $posYAnchor < $posY;
+								$buffer .=
+"<line x1=\"$posXAnchor\" y1=\"$posYAnchor\" x2=\"$posX\" y2=\"$posY\" stroke=\"$colour\" opacity=\"0.2\" stroke-width=\"1\"/>\n";
+								if ( $self->{'cgi'}->param('hide') ) {
+									$posX -= $xOffset;
+									$buffer .= "<circle fill=\"black\" stroke=\"black\" cx=\"$posX\" cy=\"$posY\" r=\"2\" \/>";
+								} else {
+									if ( $textOffset == 0 ) {
+										$buffer .= "<text x=\"$posX_text\" y=\"$posY_text\" font-size=\"9\">$st_ref->[$j]</text>\n";
+										$textOffset += 8;
+									} else {
+										$buffer .=
+										    "<text x=\"$posX_text\" y=\""
+										  . ( $posY_text + $textOffset )
+										  . "\" font-size=\"9\">$st_ref->[$j]</text>\n";
+									}
+								}
+								( $thisgo[$j], $assigned_ref->[$j], $angle_value_ref->[$j], $radius_ref->[$j] ) =
+								  ( 1, $atList_ref->[$at], $angle_value_ref->[$k], $radius_ref->[$k] + $satellite );
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return $buffer;
 }
 
 sub _offset_line {
@@ -898,5 +928,29 @@ sub _offset_line {
 		$y1 = $y1 - $line_offset;
 	}
 	return ( $x1, $y1, $x2, $y2 );
+}
+
+sub _define_circle_positions {
+	my ( $self, $size, $unit ) = @_;
+	my ( @posnX, @posnY );
+	$posnX[0] = $size / 2;
+	$posnY[0] = $size / 2;
+	$posnX[1] = $posnX[0] - 6 * $unit;
+	$posnY[1] = $posnY[0] + 6 * $unit;
+	$posnX[2] = $posnX[0] + 6 * $unit;
+	$posnY[2] = $posnY[0] - 6 * $unit;
+	$posnX[3] = $posnX[0] + 6 * $unit;
+	$posnY[3] = $posnY[0] + 6 * $unit;
+	$posnX[4] = $posnX[0] - 6 * $unit;
+	$posnY[4] = $posnY[0] - 6 * $unit;
+	$posnX[5] = $posnX[0] - 10 * $unit;
+	$posnY[5] = $posnY[0] + 10 * $unit;
+	$posnX[6] = $posnX[0] + 10 * $unit;
+	$posnY[6] = $posnY[0] - 10 * $unit;
+	$posnX[7] = $posnX[0] + 10 * $unit;
+	$posnY[7] = $posnY[0] + 10 * $unit;
+	$posnX[8] = $posnX[0] - 10 * $unit;
+	$posnY[8] = $posnY[0] - 10 * $unit;
+	return ( \@posnX, \@posnY );
 }
 1;
