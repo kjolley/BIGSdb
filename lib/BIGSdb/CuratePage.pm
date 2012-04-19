@@ -476,7 +476,7 @@ sub check_record {
 		$newdata{ $_->{'name'} }            =~ s/'/\\'/g if defined $newdata{ $_->{'name'} };
 		$$allowed_valuesref{ $_->{'name'} } =~ s/'/\\'/g if defined $$allowed_valuesref{ $_->{'name'} };
 		if ( $_->{'name'} =~ /sequence$/ ) {
-			$newdata{ $_->{'name'} } = uc( $newdata{ $_->{'name'} } );
+			$newdata{ $_->{'name'} } = uc( $newdata{ $_->{'name'} } // '' ) ;
 			$newdata{ $_->{'name'} } =~ s/\s//g;
 		}
 		if ( $_->{'required'} eq 'yes' && ( !defined $newdata{ $_->{'name'} } || $newdata{ $_->{'name'} } eq '' ) ) {

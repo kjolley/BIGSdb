@@ -1096,12 +1096,18 @@ sub blast {
 	if ( !-e $temp_fastafile ) {
 		open( my $fasta_fh, '>', $temp_fastafile ) or $logger->error("Can't open temp file $temp_fastafile for writing");
 		if ( $locus_info->{'dbase_name'} ) {
-			my $seqs_ref = $self->{'datastore'}->get_locus($locus)->get_all_sequences;
-			return if !keys %$seqs_ref;
-			foreach ( keys %$seqs_ref ) {
-				next if !length $seqs_ref->{$_};
-				print $fasta_fh ">$_\n$seqs_ref->{$_}\n";
-			}
+			my $ok = 1;
+			try {
+				my $seqs_ref = $self->{'datastore'}->get_locus($locus)->get_all_sequences;
+				return if !keys %$seqs_ref;
+				foreach ( keys %$seqs_ref ) {
+					next if !length $seqs_ref->{$_};
+					print $fasta_fh ">$_\n$seqs_ref->{$_}\n";
+				}
+			} catch BIGSdb::DatabaseConfigurationException with {
+				$ok = 0;
+			};
+			return if !$ok;
 		} else {
 			return if !$locus_info->{'reference_sequence'};
 			print $fasta_fh ">ref\n$locus_info->{'reference_sequence'}\n";
@@ -1240,6 +1246,7 @@ sub _parse_blast_exact {
 					$lengths = $self->{'datastore'}->get_locus($locus)->get_all_sequence_lengths;
 				}
 			}
+			next if !defined $lengths->{ $record[1] };
 			$length = $lengths->{ $record[1] };
 			if (
 				(
@@ -1323,9 +1330,11 @@ sub _parse_blast_partial {
 				$logger->error($@) if $@;
 			} else {
 				my $seq_ref = $self->{'datastore'}->get_locus($locus)->get_allele_sequence( $record[1] );
+				next if !$$seq_ref;
 				$lengths{ $record[1] } = length($$seq_ref);
 			}
 		}
+		next if !defined $lengths{ $record[1] };
 		my $length = $lengths{ $record[1] };
 		if ( $self->{'cgi'}->param('tblastx') ) {
 			$record[3] *= 3;

@@ -39,7 +39,7 @@ sub new {
 sub DESTROY {
 	my ($self) = @_;
 	foreach ( keys %{ $self->{'sql'} } ) {
-		if ( $self->{'sql'}->{$_} ) {
+		if ( $self->{'sql'}->{$_} && UNIVERSAL::isa($self->{'sql'}->{$_},'UNIVERSAL')) {
 			$self->{'sql'}->{$_}->finish;
 			$logger->debug("Locus $self->{'id'} statement handle '$_' finished.");
 		}
@@ -98,7 +98,7 @@ sub get_all_sequences {
 	eval { $self->{'sql'}->{'all_sequences'}->execute };
 	if ($@) {
 		$logger->error(
-"Can't execute 'sequence' query handle. Check database attributes in the locus table for locus '$self->{'id'}'! Statement was '$self->{'sql'}->{sequence}->{Statement}'. "
+"Can't execute 'sequence' query handle. Check database attributes in the locus table for locus '$self->{'id'}'! '. "
 			  . $self->{'db'}->errstr );
 		throw BIGSdb::DatabaseConfigurationException("Locus configuration error");
 	}
