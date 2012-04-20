@@ -19,6 +19,7 @@
 package BIGSdb::CurateTagScanPage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::CuratePage BIGSdb::TreeViewPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -575,31 +576,32 @@ sub _tag {
 					$logger->error($@) if $@;
 					my $seqbin_info = $sql->fetchrow_hashref;
 					my $sender      = $seqbin_info->{'sender'};
-					if ( !defined $allele_id_to_set || !$pending_allele_ids_to_set{$allele_id} ) {
-						if ( !defined $set_allele_id && !defined $allele_id_to_set ) {
+					if ( !defined $set_allele_id && !defined $allele_id_to_set ) {
+						push @updates,
+"INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp,comments) VALUES ($isolate_id,E'$cleaned_locus','$allele_id',$sender,'confirmed','automatic',$curator_id,'today','today','Scanned from sequence bin')";
+						$allele_id_to_set = $allele_id;
+						push @allele_updates, ( $labels->{$isolate_id} || $isolate_id ) . ": $display_locus:  $allele_id";
+						push @{ $history->{$isolate_id} }, "$_: new designation '$allele_id' (sequence bin scan)";
+					} elsif (
+						(
+							   ( defined $set_allele_id && $set_allele_id ne $allele_id )
+							|| ( defined $allele_id_to_set && $allele_id_to_set ne $allele_id )
+						)
+						&& !$pending_allele_ids_to_set{$allele_id}
+					  )
+					{
+						eval { $pending_sql->execute( $isolate_id, $_, $allele_id, $sender ) };
+						$logger->error($@) if $@;
+						my ($exists) = $pending_sql->fetchrow_array;
+						if ( !$exists ) {
 							push @updates,
-"INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp,comments) VALUES ($isolate_id,'$cleaned_locus','$allele_id',$sender,'confirmed','automatic',$curator_id,'today','today','Scanned from sequence bin')";
-							$allele_id_to_set = $allele_id;
-							push @allele_updates, ( $labels->{$isolate_id} || $isolate_id ) . ": $display_locus:  $allele_id";
-							push @{ $history->{$isolate_id} }, "$_: new designation '$allele_id' (sequence bin scan)";
-						} elsif ( defined $set_allele_id
-							&& $set_allele_id ne $allele_id
-							&& ( !defined $allele_id_to_set || $allele_id_to_set ne $allele_id )
-							&& !$pending_allele_ids_to_set{$allele_id} )
-						{
-							eval { $pending_sql->execute( $isolate_id, $_, $allele_id, $sender ) };
-							$logger->error($@) if $@;
-							my ($exists) = $pending_sql->fetchrow_array;
-							if ( !$exists ) {
-								push @updates,
-"INSERT INTO pending_allele_designations (isolate_id,locus,allele_id,sender,method,curator,date_entered,datestamp,comments) VALUES ($isolate_id,'$cleaned_locus','$allele_id',$sender,'automatic',$curator_id,'today','today','Scanned from sequence bin')";
-								$pending_allele_ids_to_set{$allele_id} = 1;
-								push @pending_allele_updates,
-								    ( $labels->{$isolate_id} || $isolate_id )
-								  . ": $display_locus:  $allele_id (conflicts with existing designation '"
-								  . ( $set_allele_id eq '' ? $allele_id_to_set : $set_allele_id ) . "').";
-								push @{ $history->{$isolate_id} }, "$_: new pending designation '$allele_id' (sequence bin scan)";
-							}
+"INSERT INTO pending_allele_designations (isolate_id,locus,allele_id,sender,method,curator,date_entered,datestamp,comments) VALUES ($isolate_id,E'$cleaned_locus','$allele_id',$sender,'automatic',$curator_id,'today','today','Scanned from sequence bin')";
+							$pending_allele_ids_to_set{$allele_id} = 1;
+							push @pending_allele_updates,
+							    ( $labels->{$isolate_id} || $isolate_id )
+							  . ": $display_locus:  $allele_id (conflicts with existing designation '"
+							  . ( ( $set_allele_id // '' ) eq '' ? $allele_id_to_set : $set_allele_id ) . "').";
+							push @{ $history->{$isolate_id} }, "$_: new pending designation '$allele_id' (sequence bin scan)";
 						}
 					}
 				}
@@ -1104,7 +1106,8 @@ sub blast {
 					next if !length $seqs_ref->{$_};
 					print $fasta_fh ">$_\n$seqs_ref->{$_}\n";
 				}
-			} catch BIGSdb::DatabaseConfigurationException with {
+			}
+			catch BIGSdb::DatabaseConfigurationException with {
 				$ok = 0;
 			};
 			return if !$ok;
