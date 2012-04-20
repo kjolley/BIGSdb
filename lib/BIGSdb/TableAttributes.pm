@@ -304,9 +304,9 @@ sub get_loci_table_attributes {
 				comments => 'Field in sequence database containing allele sequence'
 			},
 			{
-				name => 'flag_table',
-				type => 'bool',
-				default => 'true',
+				name     => 'flag_table',
+				type     => 'bool',
+				default  => 'true',
 				comments => 'Seqdef database supports allele flags',
 				tooltip =>
 'flag_table - Set to true to specify that the seqdef database contains an allele flag table (which is the case for BIGSdb versions 1.4 onwards).'
@@ -698,6 +698,17 @@ sub get_sequence_refs_table_attributes {
 		{ name => 'locus',     type => 'text', required => 'yes', primary_key => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
 		{ name => 'allele_id', type => 'text', required => 'yes', primary_key => 'yes' },
 		{ name => 'pubmed_id', type => 'int',  required => 'yes', primary_key => 'yes' },
+		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' }
+	];
+	return $attributes;
+}
+
+sub get_allele_flags_table_attributes {
+	my $attributes = [
+		{ name => 'locus',     type => 'text', required => 'yes', primary_key => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
+		{ name => 'allele_id', type => 'text', required => 'yes', primary_key => 'yes' },
+		{ name => 'flag',      type => 'text', required => 'yes', primary_key => 'yes' },
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' }
 	];
@@ -1249,21 +1260,16 @@ sub get_sequence_bin_table_attributes {
 	my @methods = SEQ_METHODS;
 	local $" = ';';
 	my $attributes = [
-		{ name => 'id', type => 'int', required => 'yes', primary_key => 'yes' },
-		{
-			name           => 'isolate_id',
-			type           => 'int',
-			required       => 'yes',
-			foreign_key    => 'isolates'
-		},
-		{ name => 'sequence',             type => 'text', required => 'yes', length  => 2048, user_update => 'no' },
-		{ name => 'method',               type => 'text', required => 'yes', optlist => "@methods" },
+		{ name => 'id',         type => 'int',  required => 'yes', primary_key => 'yes' },
+		{ name => 'isolate_id', type => 'int',  required => 'yes', foreign_key => 'isolates' },
+		{ name => 'sequence',   type => 'text', required => 'yes', length      => 2048, user_update => 'no' },
+		{ name => 'method',     type => 'text', required => 'yes', optlist     => "@methods" },
 		{ name => 'original_designation', type => 'text', length   => 32 },
 		{ name => 'comments',             type => 'text', length   => 64 },
-		{ name => 'sender',       type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'curator',      type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'date_entered', type => 'date', required => 'yes' },
-		{ name => 'datestamp',    type => 'date', required => 'yes' }
+		{ name => 'sender',               type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'curator',              type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'date_entered',         type => 'date', required => 'yes' },
+		{ name => 'datestamp',            type => 'date', required => 'yes' }
 	];
 	return $attributes;
 }
