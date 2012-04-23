@@ -78,7 +78,7 @@ sub create_record_table {
 	$buffer .= "<div class=\"scrollable\">"           if !$nodiv;
 	$buffer .= "<table>\n";
 
-	if ( scalar @$attributes > 15 ) {
+	if ( @$attributes > 15 ) {
 		$buffer .= "<tr><td colspan=\"2\" style=\"text-align:right\">";
 		if ( !$q->param('submit') ) {
 			$buffer .= $q->submit( -name => 'Submit', -class => 'submit' );
@@ -86,90 +86,69 @@ sub create_record_table {
 		$buffer .= "</td></tr>\n";
 	}
 	foreach my $required ( '1', '0' ) {
-		foreach (@$attributes) {
-			my $name = $prepend_table_name ? "$table\_$_->{'name'}" : $_->{'name'};
-			if (   ( $_->{'required'} eq 'yes' && $required )
-				|| ( ( !$_->{'required'} || $_->{'required'} eq 'no' ) && !$required ) )
+		foreach my $att (@$attributes) {
+			my $name = $prepend_table_name ? "$table\_$att->{'name'}" : $att->{'name'};
+			if (   ( $att->{'required'} eq 'yes' && $required )
+				|| ( ( !$att->{'required'} || $att->{'required'} eq 'no' ) && !$required ) )
 			{
-				my $length = $_->{'length'} || ( $_->{'type'} eq 'int' ? 15 : 50 );
+				my $length = $att->{'length'} || ( $att->{'type'} eq 'int' ? 15 : 50 );
 				$buffer .= "<tr><td style=\"text-align:right\">";
-				if ( $_->{'tooltip'} ) {
-					$buffer .= "<a class=\"tooltip\" title=\"$_->{'tooltip'}\">&nbsp;<i>i</i>&nbsp;</a>";
+				if ( $att->{'tooltip'} ) {
+					$buffer .= "<a class=\"tooltip\" title=\"$att->{'tooltip'}\">&nbsp;<i>i</i>&nbsp;</a>";
 				}
-				( my $cleaned_name = $_->{name} ) =~ tr/_/ /;
+				( my $cleaned_name = $att->{name} ) =~ tr/_/ /;
 				$buffer .= " $cleaned_name:&nbsp;";
-				$buffer .= '!' if $_->{'required'} eq 'yes';
+				$buffer .= '!' if $att->{'required'} eq 'yes';
 				$buffer .= "</td><td style=\"text-align:left\">";
-				if (   ( $update && $_->{'primary_key'} )
-					|| ( $newdata_readonly && $newdata{ $_->{'name'} } ) )
+				if (   ( $update && $att->{'primary_key'} )
+					|| ( $newdata_readonly && $newdata{ $att->{'name'} } ) )
 				{
 					my $desc;
-					if ( $_->{'name'} eq 'locus' || ( $table eq 'loci' && $_->{'name'} eq 'id' ) ) {
-						$desc = $self->clean_locus( $newdata{ $_->{'name'} } );
-					} elsif ( $_->{'labels'} ) {
-						my @fields_to_query;
-						my @values = split /\|/, $_->{'labels'};
-						foreach (@values) {
-							if ( $_ =~ /\$(.*)/ ) {
-								push @fields_to_query, $1;
-							}
-						}
-						local $" = ',';
-						my $qry = "select id,@fields_to_query from $_->{'foreign_key'} WHERE id=?";
-						my $sql = $self->{'db'}->prepare($qry);
-						eval { $sql->execute( $newdata{ $_->{'name'} } ) };
-						$logger->error($@) if $@;
-						while ( my ( $id, @labels ) = $sql->fetchrow_array ) {
-							my $temp = $_->{'labels'};
-							my $i    = 0;
-							foreach (@fields_to_query) {
-								$temp =~ s/$_/$labels[$i]/;
-								$i++;
-							}
-							$temp =~ s/[\|\$]//g;
-							$desc = $temp;
-						}
+					if ( $att->{'name'} eq 'locus' || ( $table eq 'loci' && $att->{'name'} eq 'id' ) ) {
+						$desc = $self->clean_locus( $newdata{ $att->{'name'} } );
+					} elsif ( $att->{'labels'} ) {
+						$desc = $self->_get_foreign_key_label( $name, $newdata_ref, $att );
 					} else {
-						( $desc = $newdata{ $_->{'name'} } ) =~ tr/_/ /;
+						( $desc = $newdata{ $att->{'name'} } ) =~ tr/_/ /;
 					}
 					$buffer .= "<b>$desc";
-					if ( $table eq 'samples' && $_->{'name'} eq 'isolate_id' ) {
-						$buffer .= ") " . $self->get_isolate_name_from_id( $newdata{ $_->{'name'} } );
+					if ( $table eq 'samples' && $att->{'name'} eq 'isolate_id' ) {
+						$buffer .= ") " . $self->get_isolate_name_from_id( $newdata{ $att->{'name'} } );
 					}
 					$buffer .= '</b>';
-					$buffer .= $q->hidden( $name, $newdata{ $_->{'name'} } );
-				} elsif ( $q->param('page') eq 'update' && $_->{'user_update'} && $_->{'user_update'} eq 'no' ) {
-					if ( $_->{'name'} eq 'sequence' ) {
-						my $data_length = length( $newdata{ $_->{'name'} } );
+					$buffer .= $q->hidden( $name, $newdata{ $att->{'name'} } );
+				} elsif ( $q->param('page') eq 'update' && ($att->{'user_update'} // '') eq 'no' ) {
+					if ( $att->{'name'} eq 'sequence' ) {
+						my $data_length = length( $newdata{ $att->{'name'} } );
 						if ( $data_length > 5000 ) {
 							$buffer .=
 							    "<span class=\"seq\"><b>"
-							  . BIGSdb::Utils::truncate_seq( \$newdata{ $_->{'name'} }, 40 )
+							  . BIGSdb::Utils::truncate_seq( \$newdata{ $att->{'name'} }, 40 )
 							  . "</b></span><br />sequence is $data_length characters (too long to display)";
 						} else {
-							$buffer .= "<span class=\"seq\"><b>" . BIGSdb::Utils::split_line( $newdata{ $_->{'name'} } ) . "</b></span>";
+							$buffer .= "<span class=\"seq\"><b>" . BIGSdb::Utils::split_line( $newdata{ $att->{'name'} } ) . "</b></span>";
 						}
 					} else {
-						$buffer .= "<b>$newdata{$_->{'name'}}</b>";
+						$buffer .= "<b>$newdata{$att->{'name'}}</b>";
 					}
-				} elsif ( $_->{'name'} eq 'sender' ) {
+				} elsif ( $att->{'name'} eq 'sender' ) {
 					$buffer .= $q->popup_menu(
 						-name    => $name,
 						-values  => [ '', @users ],
 						-labels  => \%usernames,
-						-default => $newdata{ $_->{'name'} }
+						-default => $newdata{ $att->{'name'} }
 					);
-				} elsif ( $table eq 'sequences' && $_->{'name'} eq 'allele_id' && $q->param('locus') ) {
+				} elsif ( $table eq 'sequences' && $att->{'name'} eq 'allele_id' && $q->param('locus') ) {
 					my $locus_info = $self->{'datastore'}->get_locus_info( $q->param('locus') );
 					if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
 						my $default = $self->{'datastore'}->get_next_allele_id( $q->param('locus') );
 						$buffer .= $q->textfield( -name => $name, -size => $length, -maxlength => $length, -default => $default );
 					} else {
 						$buffer .=
-						  $q->textfield( -name => $name, -size => $length, -maxlength => $length, -default => $newdata{ $_->{'name'} } );
+						  $q->textfield( -name => $name, -size => $length, -maxlength => $length, -default => $newdata{ $att->{'name'} } );
 					}
 				} elsif ( ( $table eq 'sequences' || $table eq 'sequence_refs' || $table eq 'accession' || $table eq 'locus_descriptions' )
-					&& $_->{'name'} eq 'locus'
+					&& $att->{'name'} eq 'locus'
 					&& !$self->is_admin )
 				{
 					my $qry =
@@ -185,107 +164,80 @@ sub create_record_table {
 						-id      => $name,
 						-values  => $loci,
 						-labels  => \%labels,
-						-default => $newdata{ $_->{'name'} }
+						-default => $newdata{ $att->{'name'} }
 					);
-				} elsif ( $_->{'dropdown_query'}
-					&& $_->{'dropdown_query'} eq 'yes'
-					&& $_->{'foreign_key'} )
+				} elsif ( ( $att->{'dropdown_query'} // '' ) eq 'yes'
+					&& $att->{'foreign_key'} )
 				{
 					my @fields_to_query;
-					my %desc;
-					if ( $_->{'labels'} ) {
-						my @values = split /\|/, $_->{'labels'};
-						foreach (@values) {
-							if ( $_ =~ /\$(.*)/ ) {
-								push @fields_to_query, $1;
-							}
-						}
-						local $" = ',';
-						my $qry = "select id,@fields_to_query from $_->{'foreign_key'}";
-						my $sql = $self->{'db'}->prepare($qry);
-						eval { $sql->execute };
-						$logger->error($@) if $@;
-						while ( my ( $id, @labels ) = $sql->fetchrow_array() ) {
-							my $temp = $_->{'labels'};
-							my $i    = 0;
-							foreach (@fields_to_query) {
-								$temp =~ s/$_/$labels[$i]/;
-								$i++;
-							}
-							$temp =~ s/[\|\$]//g;
-							$desc{$id} = $temp;
-						}
+					my $desc;
+					if ( $att->{'labels'} ) {
+						(my $fields_ref, $desc) = $self->get_all_foreign_key_fields_and_labels($att);
+						@fields_to_query = @$fields_ref;
 					} else {
 						push @fields_to_query, 'id';
 					}
 					local $" = ',';
 					my @values;
-					if ( $_->{'foreign_key'} eq 'users' ) {
+					if ( $att->{'foreign_key'} eq 'users' ) {
 						@values = @{ $self->{'datastore'}->run_list_query("SELECT id FROM users WHERE id>0 ORDER BY @fields_to_query") };
 					} else {
-						@values = @{ $self->{'datastore'}->run_list_query("SELECT id FROM $_->{'foreign_key'} ORDER BY @fields_to_query") };
+						@values =
+						  @{ $self->{'datastore'}->run_list_query("SELECT id FROM $att->{'foreign_key'} ORDER BY @fields_to_query") };
 					}
 					$buffer .= $q->popup_menu(
 						-name    => $name,
 						-id      => $name,
 						-values  => [ '', @values ],
-						-labels  => \%desc,
-						-default => $newdata{ $_->{'name'} }
+						-labels  => $desc,
+						-default => $newdata{ $att->{'name'} }
 					);
-				} elsif ( $_->{'name'} eq 'datestamp' ) {
+				} elsif ( $att->{'name'} eq 'datestamp' ) {
 					$buffer .= "<b>" . $self->get_datestamp . "</b>\n";
-				} elsif ( $_->{'name'} eq 'date_entered' ) {
+				} elsif ( $att->{'name'} eq 'date_entered' ) {
 					if ( $q->param('page') eq 'update' or $q->param('page') eq 'alleleUpdate' ) {
-						$buffer .= "<b>" . $newdata{ $_->{'name'} } . "</b>\n";
+						$buffer .= "<b>" . $newdata{ $att->{'name'} } . "</b>\n";
 					} else {
 						$buffer .= "<b>" . $self->get_datestamp . "</b>\n";
 					}
-				} elsif ( $_->{'name'} eq 'curator' ) {
+				} elsif ( $att->{'name'} eq 'curator' ) {
 					$buffer .= "<b>" . $self->get_curator_name . ' (' . $self->{'username'} . ")</b>\n";
-				} elsif ( $_->{'type'} eq 'bool' ) {
-					my $default;
-					if (   $q->param('page') eq 'update'
-						&& defined $newdata{ $_->{'name'} }
-						&& $newdata{ $_->{'name'} } ne '' )
-					{
-						$default = $newdata{ $_->{'name'} } ? 'true' : 'false';
-					} else {
-						$default = $newdata{ $_->{'name'} };
-					}
-					my @values = qw(true false);
-					unshift @values, '' if !( $_->{'required'} eq 'yes' );
-					$buffer .= $q->popup_menu( -name => $name, -values => [@values], -default => $default );
-				} elsif ( $_->{'optlist'} ) {
+				} elsif ( $att->{'type'} eq 'bool' ) {
+					$buffer .= $self->_get_boolean_field( $name, $newdata_ref, $att );
+				} elsif ( $att->{'optlist'} ) {
 					my @optlist;
-					if ( $_->{'optlist'} eq 'isolate_fields' ) {
+					if ( $att->{'optlist'} eq 'isolate_fields' ) {
 						@optlist = @{ $self->{'xmlHandler'}->get_field_list() };
 					} else {
-						@optlist = split /;/, $_->{'optlist'};
+						@optlist = split /;/, $att->{'optlist'};
 					}
-					unshift @optlist, '' if !$_->{'default'};
-					$buffer .= $q->popup_menu( -name => $name, -values => [@optlist], -default => $newdata{ $_->{'name'} } );
+					unshift @optlist, '' if !$att->{'default'};
+					$buffer .= $q->popup_menu( -name => $name, -values => [@optlist], -default => $newdata{ $att->{'name'} } );
 				} else {
 					if ( $length >= 256 ) {
-						$newdata{ $_->{'name'} } = BIGSdb::Utils::split_line( $newdata{ $_->{'name'} } ) if $_->{'name'} eq 'sequence';
-						$buffer .= $q->textarea( -name => $name, -rows => '6', -cols => '70', -default => $newdata{ $_->{'name'} } );
+						$newdata{ $att->{'name'} } = BIGSdb::Utils::split_line( $newdata{ $att->{'name'} } )
+						  if $att->{'name'} eq 'sequence';
+						$buffer .= $q->textarea( -name => $name, -rows => 6, -cols => 70, -default => $newdata{ $att->{'name'} } );
 					} elsif ( $length >= 120 ) {
-						$newdata{ $_->{'name'} } = BIGSdb::Utils::split_line( $newdata{ $_->{'name'} } ) if $_->{'name'} eq 'sequence';
-						$buffer .= $q->textarea( -name => $name, -rows => '3', -cols => '70', -default => $newdata{ $_->{'name'} } );
+						$newdata{ $att->{'name'} } = BIGSdb::Utils::split_line( $newdata{ $att->{'name'} } )
+						  if $att->{'name'} eq 'sequence';
+						$buffer .= $q->textarea( -name => $name, -rows => 3, -cols => 70, -default => $newdata{ $att->{'name'} } );
 					} else {
 						$buffer .= $q->textfield(
 							-name      => $name,
 							-id        => $name,
 							-size      => $length,
 							-maxlength => $length,
-							-default   => $newdata{ $_->{'name'} }
+							-default   => $newdata{ $att->{'name'} }
 						);
 					}
 				}
-				if ( $_->{'comments'} ) {
-					$buffer .= " <span class=\"comment\">$_->{'comments'}</span>";
-				} elsif ( $_->{'type'} eq 'date'
-					&& lc( $_->{'name'} ne 'datestamp' )
-					&& lc( $_->{'name'} ne 'date_entered' ) )
+				if ( $att->{'comments'} ) {
+					my $padding = $att->{'type'} eq 'bool' ? '3em' : '0';
+					$buffer .= " <span class=\"comment\" style=\"padding-left:$padding\">$att->{'comments'}</span>";
+				} elsif ( $att->{'type'} eq 'date'
+					&& lc( $att->{'name'} ne 'datestamp' )
+					&& lc( $att->{'name'} ne 'date_entered' ) )
 				{
 					$buffer .= " <span class=\"comment\">format: yyyy-mm-dd (or 'today')</span>";
 				}
@@ -293,58 +245,10 @@ sub create_record_table {
 			}
 		}
 	}
-	if ( $table eq 'sequences' ) {
-		$buffer .= $self->_create_extra_fields_for_sequences( \%newdata );
-	} elsif ( $table eq 'locus_descriptions' ) {
-		my @default_aliases;
-		if ( $q->param('page') eq 'update' && $q->param('locus') ) {
-			my $alias_list =
-			  $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias", $q->param('locus') );
-			@default_aliases = @$alias_list;
-		}
-		$buffer .= "<tr><td style=\"text-align:right\">aliases: </td><td>";
-		local $" = "\n";
-		$buffer .= $q->textarea( -name => 'aliases', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@default_aliases" );
-		$buffer .= "</td></tr>\n";
-		my @default_pubmed;
-		if ( $q->param('page') eq 'update' && $q->param('locus') ) {
-			my $pubmed_list =
-			  $self->{'datastore'}
-			  ->run_list_query( "SELECT pubmed_id FROM locus_refs WHERE locus=? ORDER BY pubmed_id", $q->param('locus') );
-			@default_pubmed = @$pubmed_list;
-		}
-		$buffer .= "<tr><td style=\"text-align:right\">PubMed ids: </td><td>";
-		$buffer .= $q->textarea( -name => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@default_pubmed" );
-		$buffer .= "</td></tr>\n";
-		my @default_links;
-		if ( $q->param('page') eq 'update' && $q->param('locus') ) {
-			my $sql = $self->{'db'}->prepare("SELECT url,description FROM locus_links WHERE locus=? ORDER BY link_order");
-			eval { $sql->execute( $q->param('locus') ) };
-			$logger->error($@) if $@;
-			while ( my ( $url, $desc ) = $sql->fetchrow_array ) {
-				push @default_links, "$url|$desc";
-			}
-		}
-		$buffer .= "<tr><td style=\"text-align:right\">links: <br /><span class=\"comment\">(Format: URL|description)</span></td><td>";
-		$buffer .= $q->textarea( -name => 'links', -rows => 3, -cols => 12, -default => "@default_links" );
-		$buffer .= "</td></tr>\n";
-	}
-	if ( $table eq 'sequence_bin' ) {
-		my $sql = $self->{'db'}->prepare("SELECT id,description FROM experiments ORDER BY description");
-		eval { $sql->execute };
-		$logger->error($@) if $@;
-		my @ids = (0);
-		my %desc;
-		$desc{0} = '';
-		while ( my ( $id, $desc ) = $sql->fetchrow_array ) {
-			push @ids, $id;
-			$desc{$id} = $desc;
-		}
-		if ( @ids > 1 ) {
-			$buffer .= "<tr><td style=\"text-align:right\">link to experiment: </td><td style=\"text-align:left\">";
-			$buffer .= $q->popup_menu( -name => 'experiment', -values => \@ids, -default => $newdata{'experiment'}, -labels => \%desc );
-			$buffer .= "</td></tr>\n";
-		}
+	given ($table) {
+		when ('sequences')          { $buffer .= $self->_create_extra_fields_for_sequences( \%newdata ) }
+		when ('locus_descriptions') { $buffer .= $self->_create_extra_fields_for_locus_descriptions($newdata_ref) }
+		when ('sequence_bin')       { $buffer .= $self->_create_extra_fields_for_seqbin($newdata_ref) }
 	}
 	$buffer .= "<tr><td>";
 	my $page        = $q->param('page');
@@ -359,16 +263,47 @@ sub create_record_table {
 		local $" = "&amp;";
 		$extra_field = "&amp;@extra" if @extra;
 	}
-	$buffer .=
-"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;table=$table$extra_field\" class=\"resetbutton\">Reset</a>";
-	$buffer .= "</td><td style=\"text-align:right\">";
-	if ( !$q->param('submit') ) {
-		$buffer .= $q->submit( -name => 'Submit', -class => 'submit' );
-	}
-	$buffer .= "</td></tr>\n";
-	$buffer .= "</table>\n";
+	$buffer .= "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;"
+	  . "table=$table$extra_field\" class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\">";
+	$buffer .= $q->submit( -name => 'Submit', -class => 'submit' ) if !$q->param('submit');
+	$buffer .= "</td></tr>\n</table>\n";
 	$buffer .= "</div>\n</div>\n" if !$nodiv;
 	$buffer .= $q->end_form;
+	return $buffer;
+}
+
+sub _get_foreign_key_label {
+	my ( $self, $name, $newdata_ref, $att ) = @_;
+	my @fields_to_query;
+	my @values = split /\|/, $att->{'labels'};
+	foreach (@values) {
+		if ( $_ =~ /\$(.*)/ ) {
+			push @fields_to_query, $1;
+		}
+	}
+	local $" = ',';
+	my $data =
+	  $self->{'datastore'}
+	  ->run_simple_query_hashref( "select id,@fields_to_query from $att->{'foreign_key'} WHERE id=?", $newdata_ref->{ $att->{'name'} } );
+	my $desc = $att->{'labels'};
+	$desc =~ s/$_/$data->{$_}/ foreach @fields_to_query;
+	$desc =~ s/[\|\$]//g;
+	return $desc;
+}
+
+sub _get_boolean_field {
+	my ( $self, $name, $newdata_ref, $att ) = @_;
+	my $q      = $self->{'cgi'};
+	my $buffer = '';
+	my $default;
+	if ( $q->param('page') eq 'update' && ( $newdata_ref->{ $att->{'name'} // '' } ) ne '' ) {
+		$default = $newdata_ref->{ $att->{'name'} } ? 'true' : 'false';
+	} else {
+		$default = $newdata_ref->{ $att->{'name'} };
+	}
+	$default //= '-';
+	local $" = ' ';
+	$buffer .= $q->radio_group( -name => $name, -values => [qw (true false)], -default => $default );
 	return $buffer;
 }
 
@@ -460,6 +395,68 @@ sub _create_extra_fields_for_sequences {
 	return $buffer;
 }
 
+sub _create_extra_fields_for_locus_descriptions {
+	my ( $self, $newdata_ref ) = @_;
+	my $q = $self->{'cgi'};
+	my $buffer;
+	my @default_aliases;
+	if ( $q->param('page') eq 'update' && $q->param('locus') ) {
+		my $alias_list =
+		  $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias", $q->param('locus') );
+		@default_aliases = @$alias_list;
+	}
+	$buffer .= "<tr><td style=\"text-align:right\">aliases: </td><td>";
+	local $" = "\n";
+	$buffer .= $q->textarea( -name => 'aliases', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@default_aliases" );
+	$buffer .= "</td></tr>\n";
+	my @default_pubmed;
+	if ( $q->param('page') eq 'update' && $q->param('locus') ) {
+		my $pubmed_list =
+		  $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM locus_refs WHERE locus=? ORDER BY pubmed_id", $q->param('locus') );
+		@default_pubmed = @$pubmed_list;
+	}
+	$buffer .= "<tr><td style=\"text-align:right\">PubMed ids: </td><td>";
+	$buffer .= $q->textarea( -name => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@default_pubmed" );
+	$buffer .= "</td></tr>\n";
+	my @default_links;
+	if ( $q->param('page') eq 'update' && $q->param('locus') ) {
+		my $sql = $self->{'db'}->prepare("SELECT url,description FROM locus_links WHERE locus=? ORDER BY link_order");
+		eval { $sql->execute( $q->param('locus') ) };
+		$logger->error($@) if $@;
+		while ( my ( $url, $desc ) = $sql->fetchrow_array ) {
+			push @default_links, "$url|$desc";
+		}
+	}
+	$buffer .= "<tr><td style=\"text-align:right\">links: <br /><span class=\"comment\">(Format: URL|description)</span></td><td>";
+	$buffer .= $q->textarea( -name => 'links', -rows => 3, -cols => 12, -default => "@default_links" );
+	$buffer .= "</td></tr>\n";
+	return $buffer;
+}
+
+sub _create_extra_fields_for_seqbin {
+	my ( $self, $newdata_ref ) = @_;
+	my $q = $self->{'cgi'};
+	my $buffer;
+	return $buffer if $q->param('page') eq 'update';
+	my $sql = $self->{'db'}->prepare("SELECT id,description FROM experiments ORDER BY description");
+	eval { $sql->execute };
+	$logger->error($@) if $@;
+	my @ids = (0);
+	my %desc;
+	$desc{0} = '';
+
+	while ( my ( $id, $desc ) = $sql->fetchrow_array ) {
+		push @ids, $id;
+		$desc{$id} = $desc;
+	}
+	if ( @ids > 1 ) {
+		$buffer .= "<tr><td style=\"text-align:right\">link to experiment: </td><td style=\"text-align:left\">";
+		$buffer .= $q->popup_menu( -name => 'experiment', -values => \@ids, -default => $newdata_ref->{'experiment'}, -labels => \%desc );
+		$buffer .= "</td></tr>\n";
+	}
+	return $buffer;
+}
+
 sub check_record {
 	my ( $self, $table, $newdataref, $update, $allowed_valuesref ) = @_;
 
@@ -476,7 +473,7 @@ sub check_record {
 		$newdata{ $_->{'name'} }            =~ s/'/\\'/g if defined $newdata{ $_->{'name'} };
 		$$allowed_valuesref{ $_->{'name'} } =~ s/'/\\'/g if defined $$allowed_valuesref{ $_->{'name'} };
 		if ( $_->{'name'} =~ /sequence$/ ) {
-			$newdata{ $_->{'name'} } = uc( $newdata{ $_->{'name'} } // '' ) ;
+			$newdata{ $_->{'name'} } = uc( $newdata{ $_->{'name'} } // '' );
 			$newdata{ $_->{'name'} } =~ s/\s//g;
 		}
 		if ( $_->{'required'} eq 'yes' && ( !defined $newdata{ $_->{'name'} } || $newdata{ $_->{'name'} } eq '' ) ) {
@@ -1006,7 +1003,8 @@ sub drop_scheme_view {
 			my $view_exists_ref =
 			  $self->{'datastore'}
 			  ->run_simple_query( "SELECT 1 WHERE EXISTS(SELECT * FROM matviews WHERE v_name = ?)", "scheme_$scheme_id" );
-			$self->{'db'}->do("SELECT drop_matview('mv_scheme_$scheme_id')") if ref $view_exists_ref eq 'ARRAY' && $view_exists_ref->[0];
+			$self->{'db'}->do("SELECT drop_matview('mv_scheme_$scheme_id')")
+			  if ref $view_exists_ref eq 'ARRAY' && $view_exists_ref->[0];
 		}
 	};
 	$logger->error($@) if $@;

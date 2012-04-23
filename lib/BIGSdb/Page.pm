@@ -1472,4 +1472,31 @@ sub get_query_from_file {
 	}
 	return \$qry;
 }
+
+sub get_all_foreign_key_fields_and_labels {
+	#returns arrayref of fields needed to order label and a hashref of labels
+	my ( $self, $attribute_hashref ) = @_;
+	my @fields;
+	my @values = split /\|/, $attribute_hashref->{'labels'};
+	foreach (@values) {
+		if ( $_ =~ /\$(.*)/ ) {
+			push @fields, $1;
+		}
+	}
+	local $" = ',';
+	my $qry = "select id,@fields from $attribute_hashref->{'foreign_key'}";
+	my $sql = $self->{'db'}->prepare($qry);
+	eval { $sql->execute };
+	$logger->error($@) if $@;
+	my %desc;
+	while ( my $data = $sql->fetchrow_hashref ) {
+		my $temp = $attribute_hashref->{'labels'};
+		foreach (@fields) {
+			$temp =~ s/$_/$data->{$_}/;
+		}
+		$temp =~ s/[\|\$]//g;
+		$desc{$data->{'id'}} = $temp;
+	}
+	return (\@fields, \%desc);
+}
 1;

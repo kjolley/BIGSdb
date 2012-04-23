@@ -19,6 +19,7 @@
 package BIGSdb::ProfileInfoPage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::IsolateInfoPage);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
@@ -71,7 +72,7 @@ sub print_content {
 		print "<h2>Update history</h2>\n";
 		print
 "<p><a href=\"$self->{'system'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;scheme_id=$scheme_id&amp;profile_id=$profile_id\">Back to profile information</a></p>\n";
-		print $self->_get_update_history( $scheme_id, $profile_id );
+		print $self->_get_update_history( $scheme_id, $profile_id ) // '';
 	} else {
 		print "<table class=\"resultstable\">\n";
 		print "<tr class=\"td1\"><th>$primary_key</th><td style=\"text-align:left\" colspan=\"5\">$profile_id</td></tr>\n";

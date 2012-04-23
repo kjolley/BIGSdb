@@ -201,30 +201,13 @@ sub _print_query_interface {
 				if ( $_->{'name'} eq 'sender' || $_->{'name'} eq 'curator' ) {
 					push @filters, $self->get_user_filter( $_->{'name'}, $table );
 				} else {
-					my %desc;
+					my $desc;
 					my @values;
 					my @fields_to_query;
 					if ( $_->{'foreign_key'} ) {
 						if ( $_->{'labels'} ) {
-							my @values = split /\|/, $_->{'labels'};
-							foreach (@values) {
-								push @fields_to_query, $1 if $_ =~ /\$(.*)/;
-							}
-							local $" = ',';
-							my $qry = "select id,@fields_to_query from $_->{'foreign_key'} ORDER BY @fields_to_query";
-							my $sql = $self->{'db'}->prepare($qry) or die;
-							eval { $sql->execute; };
-							$logger->error($@) if $@;
-							while ( my ( $id, @labels ) = $sql->fetchrow_array ) {
-								my $temp = $_->{'labels'};
-								my $i    = 0;
-								foreach (@fields_to_query) {
-									$temp =~ s/$_/$labels[$i]/;
-									$i++;
-								}
-								$temp =~ s/[\|\$]//g;
-								$desc{$id} = $temp;
-							}
+							(my $fields_ref, $desc) = $self->get_all_foreign_key_fields_and_labels($_);
+							@fields_to_query = @$fields_ref;
 						} else {
 							push @fields_to_query, 'id';
 						}
@@ -242,7 +225,7 @@ sub _print_query_interface {
 						@values = @{ $self->{'datastore'}->run_list_query("SELECT $_->{'name'} FROM $table ORDER BY $order_by") };
 						@values = uniq @values;
 					}
-					push @filters, $self->get_filter( $_->{'name'}, \@values, { 'labels' => \%desc } );
+					push @filters, $self->get_filter( $_->{'name'}, \@values, { 'labels' => $desc } );
 				}
 			} elsif ( $_->{'optlist'} ) {
 				my @options = split /;/, $_->{'optlist'};
