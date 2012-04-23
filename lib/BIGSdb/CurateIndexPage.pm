@@ -192,7 +192,8 @@ sub _print_user_group_members {
 <tr class="td$td"><td>user group members</td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=user_group_members">+</a></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=user_group_members">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=user_group_members">?</a></td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=user_group_members">query</a> |
+<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=memberUpdate&amp;table=user_group_members">batch</a></td>
 <td style="text-align:left" class="comment">Add users to groups for setting access permissions.</td></tr>
 HTML
 	return $buffer;
@@ -474,7 +475,8 @@ sub _print_scheme_curators {
 <tr class="td$td"><td>scheme curator control list</td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=scheme_curators">+</a></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=scheme_curators">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=scheme_curators">?</a></td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=scheme_curators">query</a> |
+<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=memberUpdate&amp;table=scheme_curators">batch</a></td>
 <td style="text-align:left" class="comment">Define which curators can add or update profiles for particular schemes.</td></tr>
 
 HTML
@@ -487,7 +489,8 @@ sub _print_locus_curators {
 <tr class="td$td"><td>locus curator control list</td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=locus_curators">+</a></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=locus_curators">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=locus_curators">?</a></td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=locus_curators">query</a> |
+<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=memberUpdate&amp;table=locus_curators">batch</a></td>
 <td style="text-align:left" class="comment">Define which curators can add or update sequences for particular loci.</td></tr>
 
 HTML
