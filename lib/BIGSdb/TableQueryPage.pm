@@ -655,7 +655,7 @@ sub _process_sequences_filters {
 	my ( $self, $qry ) = @_;
 	my $q = $self->{'cgi'};
 	my $qry2;
-	if ($q->param('allele_flag_list') ne '' && 	( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes'){
+	if (($q->param('allele_flag_list') // '') ne '' && 	( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes'){
 		if ( $q->param('allele_flag_list') eq 'no flag' ) {
 			$qry2 = "SELECT * FROM sequences LEFT JOIN allele_flags ON allele_flags.locus = sequences.locus AND "
 			. "allele_flags.allele_id = sequences.allele_id WHERE flag IS NULL";
