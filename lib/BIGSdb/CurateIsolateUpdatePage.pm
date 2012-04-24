@@ -19,6 +19,7 @@
 package BIGSdb::CurateIsolateUpdatePage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::CuratePage BIGSdb::TreeViewPage);
 use List::MoreUtils qw(none);
 use Log::Log4perl qw(get_logger);
@@ -37,6 +38,7 @@ sub initiate {
 		return;
 	}
 	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree);
+	return;
 }
 
 sub print_content {
@@ -57,164 +59,173 @@ sub print_content {
 	}
 	eval { $sql->execute( $q->param('id') ) };
 	$logger->error($@) if $@;
-	my $data = $sql->fetchrow_hashref();
+	my $data = $sql->fetchrow_hashref;
 	if ( !$$data{'id'} ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>No record with id = " . $q->param('id') . " exists.</p></div>\n";
 		return;
 	}
 	if ( $q->param('sent') ) {
-		if ( !$self->can_modify_table('isolates') ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update isolate fields.</p></div>\n";
-			return;
-		}
-		my %newdata;
-		my @bad_field_buffer;
-		my $update = 1;
-		foreach my $required ( '1', '0' ) {
-			foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list } ) {
-				my %thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-				my $required_field = !( $thisfield{'required'} && $thisfield{'required'} eq 'no' );
-				if (   ( $required_field && $required )
-					|| ( !$required_field && !$required ) )
-				{
-					if ( $field eq 'curator' ) {
-						$newdata{$field} = $self->get_curator_id;
-					} elsif ( $field eq 'datestamp' ) {
-						$newdata{$field} = $self->get_datestamp;
-					} else {
-						$newdata{$field} = $q->param($field);
-					}
-					my $bad_field = $self->is_field_bad( $self->{'system'}->{'view'}, $field, $newdata{$field} );
-					if ($bad_field) {
-						push @bad_field_buffer, "Field '$field': $bad_field.";
-					}
-				}
-			}
-		}
-		if (@bad_field_buffer) {
-			print
-			  "<div class=\"box\" id=\"statusbad\"><p>There are problems with your record submission.  Please address the following:</p>\n";
-			$" = '<br />';
-			print "<p>@bad_field_buffer</p></div>\n";
-			$update = 0;
-		}
-		if ($update) {
-			my $qry;
-			$qry = "UPDATE isolates SET ";
-			$"   = ',';
-			my @updated_field;
-			foreach ( @{ $self->{'xmlHandler'}->get_field_list } ) {
-				$newdata{$_} = defined $newdata{$_} ? $newdata{$_} : '';
-				$newdata{$_} =~ s/'/\\'/g;
-				$newdata{$_} =~ s/\r//g;
-				$newdata{$_} =~ s/\n/ /g;
-				if ( $newdata{$_} ne '' ) {
-					$qry .= "$_='" . $newdata{$_} . "',";
+		$self->_update($data);
+		return;
+	}
+	$self->_print_interface($data);
+	return;
+}
+
+sub _update {
+	my ( $self, $data ) = @_;
+	my $q = $self->{'cgi'};
+	if ( !$self->can_modify_table('isolates') ) {
+		print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update isolate fields.</p></div>\n";
+		return;
+	}
+	my %newdata;
+	my @bad_field_buffer;
+	my $update = 1;
+	foreach my $required ( '1', '0' ) {
+		foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list } ) {
+			my %thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+			my $required_field = !( $thisfield{'required'} && $thisfield{'required'} eq 'no' );
+			if (   ( $required_field && $required )
+				|| ( !$required_field && !$required ) )
+			{
+				if ( $field eq 'curator' ) {
+					$newdata{$field} = $self->get_curator_id;
+				} elsif ( $field eq 'datestamp' ) {
+					$newdata{$field} = $self->get_datestamp;
 				} else {
-					$qry .= "$_=null,";
+					$newdata{$field} = $q->param($field);
 				}
-				$newdata{$_} =~ s/\\'/'/g;
-				$data->{ lc($_) } = defined $data->{ lc($_) } ? $data->{ lc($_) } : '';
-				if ( $_ ne 'datestamp' && $_ ne 'curator' && $data->{ lc($_) } ne $newdata{$_} ) {
-					push @updated_field, "$_: '$data->{lc($_)}' -> '$newdata{$_}'";
-				}
-			}
-			$qry =~ s/,$//;
-			$qry .= " WHERE id='$data->{'id'}'";
-			my @alias_update;
-			my $existing_aliases =
-			  $self->{'datastore'}
-			  ->run_list_query( "SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY isolate_id", $data->{'id'} );
-			my @new_aliases = split /\r?\n/, $q->param('aliases');
-			foreach my $new (@new_aliases) {
-				chomp $new;
-				next if $new eq '';
-				if ( !@$existing_aliases || none { $new eq $_ } @$existing_aliases ) {
-					( my $clean_new = $new ) =~ s/'/\\'/g;
-					push @alias_update,
-"INSERT INTO isolate_aliases (isolate_id,alias,curator,datestamp) VALUES ($data->{'id'},'$clean_new',$newdata{'curator'},'today')";
-					push @updated_field, "new alias: '$new'";
-				}
-			}
-			foreach my $existing (@$existing_aliases) {
-				if ( !@new_aliases || none { $existing eq $_ } @new_aliases ) {
-					( my $clean_existing = $existing ) =~ s/'/\\'/g;
-					push @alias_update,  "DELETE FROM isolate_aliases WHERE isolate_id=$data->{'id'} AND alias='$clean_existing'";
-					push @updated_field, "deleted alias: '$existing'";
-				}
-			}
-			my @pubmed_update;
-			my $existing_pubmeds = $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM refs WHERE isolate_id=?", $data->{'id'} );
-			my @new_pubmeds = split /\r?\n/, $q->param('pubmed');
-			foreach my $new (@new_pubmeds) {
-				chomp $new;
-				next if $new eq '';
-				if ( !@$existing_pubmeds || none { $new eq $_ } @$existing_pubmeds ) {
-					( my $clean_new = $new ) =~ s/'/\\'/g;
-					if ( !BIGSdb::Utils::is_int($clean_new) ) {
-						print "<div class=\"box\" id=\"statusbad\"><p>PubMed ids must be integers.</p></div>\n";
-						$update = 0;
-					}
-					push @pubmed_update,
-"INSERT INTO refs (isolate_id,pubmed_id,curator,datestamp) VALUES ($data->{'id'},'$clean_new',$newdata{'curator'},'today')";
-					push @updated_field, "new reference: 'Pubmed#$new'";
-				}
-			}
-			foreach my $existing (@$existing_pubmeds) {
-				if ( !@new_pubmeds || none { $existing eq $_ } @new_pubmeds ) {
-					( my $clean_existing = $existing ) =~ s/'/\\'/g;
-					push @pubmed_update, "DELETE FROM refs WHERE isolate_id=$data->{'id'} AND pubmed_id='$clean_existing'";
-					push @updated_field, "deleted reference: 'Pubmed#$existing'";
-				}
-			}
-			if ($update) {
-				if (@updated_field) {
-					eval {
-						$self->{'db'}->do($qry);
-						foreach ( @alias_update, @pubmed_update ) {
-							$self->{'db'}->do($_);
-						}
-					};
-					if ($@) {
-						print
-"<div class=\"box\" id=\"statusbad\"><p>Update failed - transaction cancelled - no records have been touched.</p>\n";
-						if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
-							print
-"<p>Data update would have resulted in records with either duplicate ids or another unique field with duplicate values.</p>\n";
-						} elsif ( $@ =~ /datestyle/){
-							print
-"<p>Date fields must be entered in yyyy-mm-dd format.</p>\n";
-						} else {
-							$logger->error("Can't update: $@");
-						}
-						print "</div>\n";
-						$self->{'db'}->rollback;					
-					} else {
-						$self->{'db'}->commit
-						  && print "<div class=\"box\" id=\"resultsheader\"><p>Updated!</p>";
-						print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
-						$logger->debug("Update: $qry");
-						local $" = '<br />';
-						$self->update_history( $data->{'id'}, "@updated_field" );
-						return;
-					}
-				} else {
-					print "<div class=\"box\" id=\"resultsheader\"><p>No field changes have been made.</p>\n";
-					print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
-					return;
+				my $bad_field = $self->is_field_bad( $self->{'system'}->{'view'}, $field, $newdata{$field} );
+				if ($bad_field) {
+					push @bad_field_buffer, "Field '$field': $bad_field.";
 				}
 			}
 		}
 	}
-	$qry = "select id,user_name,first_name,surname from users WHERE id>0 order by surname";
-	$sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute };
-	$logger->error($@) if $@;
-	my @users;
-	my %usernames;
-	while ( my ( $userid, $username, $firstname, $surname ) = $sql->fetchrow_array ) {
-		push @users, $userid;
-		$usernames{$userid} = "$surname, $firstname ($username)";
+	if (@bad_field_buffer) {
+		print "<div class=\"box\" id=\"statusbad\"><p>There are problems with your record submission.  "
+		  . "Please address the following:</p>\n";
+		local $" = '<br />';
+		print "<p>@bad_field_buffer</p></div>\n";
+		$update = 0;
+	}
+	if ($update) {
+		my $qry;
+		$qry = "UPDATE isolates SET ";
+		local $" = ',';
+		my @updated_field;
+		foreach ( @{ $self->{'xmlHandler'}->get_field_list } ) {
+			$newdata{$_} = $newdata{$_} // '';
+			$newdata{$_} =~ s/'/\\'/g;
+			$newdata{$_} =~ s/\r//g;
+			$newdata{$_} =~ s/\n/ /g;
+			if ( $newdata{$_} ne '' ) {
+				$qry .= "$_='" . $newdata{$_} . "',";
+			} else {
+				$qry .= "$_=null,";
+			}
+			$newdata{$_} =~ s/\\'/'/g;
+			$data->{ lc($_) } = defined $data->{ lc($_) } ? $data->{ lc($_) } : '';
+			if ( $_ ne 'datestamp' && $_ ne 'curator' && $data->{ lc($_) } ne $newdata{$_} ) {
+				push @updated_field, "$_: '$data->{lc($_)}' -> '$newdata{$_}'";
+			}
+		}
+		$qry =~ s/,$//;
+		$qry .= " WHERE id='$data->{'id'}'";
+		my @alias_update;
+		my $existing_aliases =
+		  $self->{'datastore'}->run_list_query( "SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY isolate_id", $data->{'id'} );
+		my @new_aliases = split /\r?\n/, $q->param('aliases');
+		foreach my $new (@new_aliases) {
+			chomp $new;
+			next if $new eq '';
+			if ( !@$existing_aliases || none { $new eq $_ } @$existing_aliases ) {
+				( my $clean_new = $new ) =~ s/'/\\'/g;
+				push @alias_update, "INSERT INTO isolate_aliases (isolate_id,alias,curator,datestamp) VALUES ($data->{'id'},"
+				  . "'$clean_new',$newdata{'curator'},'today')";
+				push @updated_field, "new alias: '$new'";
+			}
+		}
+		foreach my $existing (@$existing_aliases) {
+			if ( !@new_aliases || none { $existing eq $_ } @new_aliases ) {
+				( my $clean_existing = $existing ) =~ s/'/\\'/g;
+				push @alias_update,  "DELETE FROM isolate_aliases WHERE isolate_id=$data->{'id'} AND alias='$clean_existing'";
+				push @updated_field, "deleted alias: '$existing'";
+			}
+		}
+		my @pubmed_update;
+		my $existing_pubmeds = $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM refs WHERE isolate_id=?", $data->{'id'} );
+		my @new_pubmeds = split /\r?\n/, $q->param('pubmed');
+		foreach my $new (@new_pubmeds) {
+			chomp $new;
+			next if $new eq '';
+			if ( !@$existing_pubmeds || none { $new eq $_ } @$existing_pubmeds ) {
+				( my $clean_new = $new ) =~ s/'/\\'/g;
+				if ( !BIGSdb::Utils::is_int($clean_new) ) {
+					print "<div class=\"box\" id=\"statusbad\"><p>PubMed ids must be integers.</p></div>\n";
+					$update = 0;
+				}
+				push @pubmed_update, "INSERT INTO refs (isolate_id,pubmed_id,curator,datestamp) VALUES ($data->{'id'},"
+				  . "'$clean_new',$newdata{'curator'},'today')";
+				push @updated_field, "new reference: 'Pubmed#$new'";
+			}
+		}
+		foreach my $existing (@$existing_pubmeds) {
+			if ( !@new_pubmeds || none { $existing eq $_ } @new_pubmeds ) {
+				( my $clean_existing = $existing ) =~ s/'/\\'/g;
+				push @pubmed_update, "DELETE FROM refs WHERE isolate_id=$data->{'id'} AND pubmed_id='$clean_existing'";
+				push @updated_field, "deleted reference: 'Pubmed#$existing'";
+			}
+		}
+		if ($update) {
+			if (@updated_field) {
+				eval {
+					$self->{'db'}->do($qry);
+					foreach ( @alias_update, @pubmed_update ) {
+						$self->{'db'}->do($_);
+					}
+				};
+				if ($@) {
+					print "<div class=\"box\" id=\"statusbad\"><p>Update failed - transaction cancelled - "
+					  . "no records have been touched.</p>\n";
+					if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
+						print "<p>Data update would have resulted in records with either duplicate ids or "
+						  . "another unique field with duplicate values.</p>\n";
+					} elsif ( $@ =~ /datestyle/ ) {
+						print "<p>Date fields must be entered in yyyy-mm-dd format.</p>\n";
+					} else {
+						$logger->error($@);
+					}
+					print "</div>\n";
+					$self->{'db'}->rollback;
+				} else {
+					$self->{'db'}->commit
+					  && print "<div class=\"box\" id=\"resultsheader\"><p>Updated!</p>";
+					print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
+					local $" = '<br />';
+					$self->update_history( $data->{'id'}, "@updated_field" );
+					return;
+				}
+			} else {
+				print "<div class=\"box\" id=\"resultsheader\"><p>No field changes have been made.</p>\n";
+				print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
+				return;
+			}
+		}
+	}
+	return;
+}
+
+sub _print_interface {
+	my ( $self, $data ) = @_;
+	my $q         = $self->{'cgi'};
+	my $qry       = "select id,user_name,first_name,surname from users WHERE id>0 order by surname";
+	my $user_data = $self->{'datastore'}->run_list_query_hashref($qry);
+	my ( @users, %usernames );
+	foreach my $user_hashref (@$user_data) {
+		push @users, $user_hashref->{'id'};
+		$usernames{ $user_hashref->{'id'} } = "$user_hashref->{'surname'}, $user_hashref->{'first_name'} ($user_hashref->{'user_name'})";
 	}
 	print "<div class=\"scrollable\">\n";
 	print "<table><tr>";
@@ -227,10 +238,9 @@ sub print_content {
 		}
 		print "<table><tr><td>";
 		print $q->start_form;
-		print $q->hidden($_) foreach qw(page db);
-		print $q->hidden( 'sent', 1 );
-		print "<table>\n";
-		print "<tr><td colspan=\"2\" style=\"text-align:right\">";
+		$q->param( 'sent', 1 );
+		print $q->hidden($_) foreach qw(page db sent);
+		print "<table>\n<tr><td colspan=\"2\" style=\"text-align:right\">";
 		print $q->submit( -name => 'Update', -class => 'submit' );
 		print "</td></tr>\n";
 
@@ -306,59 +316,72 @@ sub print_content {
 		print "<tr><td style=\"text-align:right\">aliases: </td><td>";
 		my $aliases =
 		  $self->{'datastore'}->run_list_query( "SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias", $q->param('id') );
-		$" = "\n";
+		local $" = "\n";
 		print $q->textarea( -name => 'aliases', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@$aliases" );
-		print "</td></tr>\n";
-		print "<tr><td style=\"text-align:right\">PubMed ids: </td><td>";
+		print "</td></tr>\n<tr><td style=\"text-align:right\">PubMed ids: </td><td>";
 		my $pubmed =
 		  $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id", $q->param('id') );
-		$" = "\n";
 		print $q->textarea( -name => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@$pubmed" );
-		print "</td></tr>\n";
-		print "<tr><td>";
-		print
-"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateUpdate&amp;id=$data->{'id'}\" class=\"resetbutton\">Reset</a>";
-		print "</td><td style=\"text-align:right\">";
+		print "</td></tr>\n<tr><td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateUpdate&amp;"
+		  . "id=$data->{'id'}\" class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\">";
 		print $q->submit( -name => 'Update', -class => 'submit' );
-		print "</td></tr>\n";
-		print "</table>\n";
+		print "</td></tr>\n</table>\n";
 		print $q->end_form;
-		print "</td></tr></table>";
-		print "</div>\n";
+		print "</td></tr></table></div>\n";
 	}
-	if ( $self->can_modify_table('samples') ) {
-		my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
-		if (@$sample_fields) {
-			print "<div class=\"box\" id=\"samples\">\n";
-			print "<h2>Samples:</h2>\n";
-			my $isolate_record = BIGSdb::IsolateInfoPage->new(
-				(
-					'system'        => $self->{'system'},
-					'cgi'           => $self->{'cgi'},
-					'instance'      => $self->{'instance'},
-					'prefs'         => $self->{'prefs'},
-					'prefstore'     => $self->{'prefstore'},
-					'config'        => $self->{'config'},
-					'datastore'     => $self->{'datastore'},
-					'db'            => $self->{'db'},
-					'xmlHandler'    => $self->{'xmlHandler'},
-					'dataConnector' => $self->{'dataConnector'},
-					'curate'        => 1
-				)
-			);
-			print $isolate_record->get_sample_summary( $data->{'id'} );
-			print
-"<p /><p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=samples&amp;isolate_id=$data->{'id'}\" class=\"button\">&nbsp;Add new sample&nbsp;</a></p>\n";
-			print "</div>\n";
-		}
-	}
-	if ( $self->can_modify_table('allele_designations') ) {
-		print "</td><td style=\"vertical-align:top; padding-left:1em\">\n"
-		  if $self->can_modify_table('isolates') || $self->can_modify_table('samples');
-		print "<div class=\"box\" id=\"alleles\">\n";
-		print "<h2>Loci:</h2>\n";
-		print
-"<p>Allele designations are handled separately from isolate fields due to the potential complexity of multiple loci with set and pending designations.</p>\n";
+	$self->_print_samples($data)             if $self->can_modify_table('samples');
+	$self->_print_allele_designations($data) if $self->can_modify_table('allele_designations');
+	print "</td></tr></table>\n";
+	print "</div>\n";
+	return;
+}
+
+sub _print_allele_designations {
+	my ( $self, $data ) = @_;
+	my $q = $self->{'cgi'};
+	print "</td><td style=\"vertical-align:top; padding-left:1em\">\n"
+	  if $self->can_modify_table('isolates') || $self->can_modify_table('samples');
+	print "<div class=\"box\" id=\"alleles\">\n<h2>Loci:</h2>\n";
+	print "<p>Allele designations are handled separately from isolate fields due to the potential "
+	  . "complexity of multiple loci with set and pending designations.</p>\n";
+	my $isolate_record = BIGSdb::IsolateInfoPage->new(
+		(
+			'system'        => $self->{'system'},
+			'cgi'           => $self->{'cgi'},
+			'instance'      => $self->{'instance'},
+			'prefs'         => $self->{'prefs'},
+			'prefstore'     => $self->{'prefstore'},
+			'config'        => $self->{'config'},
+			'datastore'     => $self->{'datastore'},
+			'db'            => $self->{'db'},
+			'xmlHandler'    => $self->{'xmlHandler'},
+			'dataConnector' => $self->{'dataConnector'},
+			'curate'        => 1
+		)
+	);
+	my $locus_summary = $isolate_record->get_loci_summary( $data->{'id'} );
+	$locus_summary =~ s /<table class=\"resultstable\">\s*<\/table>//;
+	print $locus_summary;
+	print "<p />\n";
+	print $q->start_form;
+	my $loci = $self->{'datastore'}->get_loci( { 'query_pref' => 1 } );
+	print "Locus: ";
+	print $q->popup_menu( -name => 'locus', -values => $loci );
+	print $q->submit( -label => 'Add/update', -class => 'submit' );
+	$q->param( 'page',       'alleleUpdate' );
+	$q->param( 'isolate_id', $q->param('id') );
+	print $q->hidden($_) foreach qw(db page isolate_id);
+	print $q->end_form;
+	print "</div>\n";
+	return;
+}
+
+sub _print_samples {
+	my ( $self, $data ) = @_;
+	my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
+	if (@$sample_fields) {
+		print "<div class=\"box\" id=\"samples\">\n";
+		print "<h2>Samples:</h2>\n";
 		my $isolate_record = BIGSdb::IsolateInfoPage->new(
 			(
 				'system'        => $self->{'system'},
@@ -374,23 +397,12 @@ sub print_content {
 				'curate'        => 1
 			)
 		);
-		my $locus_summary = $isolate_record->get_loci_summary( $data->{'id'} );
-		$locus_summary =~ s /<table class=\"resultstable\">\s*<\/table>//;
-		print $locus_summary;
-		print "<p />\n";
-		print $q->start_form;
-		my $loci = $self->{'datastore'}->get_loci( { 'query_pref' => 1 } );
-		print "Locus: ";
-		print $q->popup_menu( -name => 'locus', -values => $loci );
-		print $q->submit( -label => 'Add/update', -class => 'submit' );
-		$q->param( 'page',       'alleleUpdate' );
-		$q->param( 'isolate_id', $q->param('id') );
-		print $q->hidden($_) foreach qw(db page isolate_id);
-		print $q->end_form;
+		print $isolate_record->get_sample_summary( $data->{'id'} );
+		print "<p /><p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;"
+		  . "table=samples&amp;isolate_id=$data->{'id'}\" class=\"button\">&nbsp;Add new sample&nbsp;</a></p>\n";
 		print "</div>\n";
 	}
-	print "</td></tr></table>\n";
-	print "</div>\n";
+	return;
 }
 
 sub get_title {

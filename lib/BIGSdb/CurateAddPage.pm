@@ -342,19 +342,25 @@ sub _insert {
 				print "<div class=\"box\" id=\"resultsheader\"><p>$record_name added!</p>";
 			}
 			if ( $table eq 'composite_fields' ) {
-				print
-"<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=compositeUpdate&amp;id=$newdata->{'id'}\">Add values and fully customize this composite field</a>.</p>";
+				print "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=compositeUpdate&amp;"
+				. "id=$newdata->{'id'}\">Add values and fully customize this composite field</a>.</p>";
 			}
-			my $locus_clause = '';
-			if ( $table eq 'sequences' ) {
-				$newdata->{'locus'} =~ s/\\//g;
-				$locus_clause = "&amp;locus=$newdata->{'locus'}&amp;status=$newdata->{'status'}&amp;sender=$newdata->{'sender'}";
+			print "<p>";
+			if ( $table eq 'samples' ) {
+				print "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;"
+				. "table=samples&isolate_id=$newdata->{'isolate_id'}\">Add another</a>";
+				print " | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateUpdate&amp;"
+				. "id=$newdata->{'isolate_id'}\">Back to isolate update</a>";
+			} else {
+				my $locus_clause = '';
+				if ( $table eq 'sequences' ) {
+					$newdata->{'locus'} =~ s/\\//g;
+					$locus_clause = "&amp;locus=$newdata->{'locus'}&amp;status=$newdata->{'status'}&amp;sender=$newdata->{'sender'}";
+				}
+				print "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;"
+				. "table=$table$locus_clause\">Add another</a>";
 			}
-			print "<p><a href=\""
-			  . $self->{'system'}->{'script_name'}
-			  . "?db=$self->{'instance'}&amp;page=add&amp;table=$table$locus_clause\">Add another</a> | <a href=\""
-			  . $self->{'system'}->{'script_name'}
-			  . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
+			print " | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
 			return SUCCESS;
 		}
 	}
