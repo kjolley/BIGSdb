@@ -21,10 +21,11 @@ use strict;
 use warnings;
 use parent qw(BIGSdb::QueryPage);
 use List::MoreUtils qw(any);
-use BIGSdb::Page qw(ALLELE_FLAGS);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant MAX_ROWS => 10;
+use BIGSdb::Page qw(ALLELE_FLAGS);
+use BIGSdb::QueryPage qw(OPERATORS);
 
 sub initiate {
 	my ($self) = @_;
@@ -166,7 +167,7 @@ sub _print_table_fields {
 	my $q = $self->{'cgi'};
 	print "<span style=\"white-space:nowrap\">\n";
 	print $q->popup_menu( -name => "s$row", -values => $select_items, -labels => $labels, -class => 'fieldlist' );
-	print $q->popup_menu( -name => "y$row", -values => [ "=", "contains", ">", "<", "NOT", "NOT contain" ] );
+	print $q->popup_menu( -name => "y$row", -values => [ OPERATORS ] );
 	print $q->textfield( -name => "t$row", -class => 'value_entry' );
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
@@ -299,6 +300,18 @@ sub _run_query {
 						  $thisfield->{'value_format'} eq 'integer'
 						  ? "AND CAST(value AS text) LIKE E'\%$text\%'))"
 						  : "AND upper(value) LIKE upper(E'\%$text\%')))";
+					} elsif ( $operator eq "starts with" ) {
+						$qry .= $std_clause;
+						$qry .=
+						  $thisfield->{'value_format'} eq 'integer'
+						  ? "AND CAST(value AS text) LIKE E'$text\%'))"
+						  : "AND upper(value) LIKE upper(E'$text\%')))";
+					} elsif ( $operator eq "ends with" ) {
+						$qry .= $std_clause;
+						$qry .=
+						  $thisfield->{'value_format'} eq 'integer'
+						  ? "AND CAST(value AS text) LIKE E'\%$text'))"
+						  : "AND upper(value) LIKE upper(E'\%$text')))";						  
 					} elsif ( $operator eq "NOT contain" ) {
 						$qry .= $std_clause;
 						$qry .=
@@ -366,6 +379,16 @@ sub _run_query {
 							  $thisfield->{'type'} eq 'text'
 							  ? "upper($field) LIKE upper(E'\%$text\%')"
 							  : "upper($field) LIKE upper(E'\%$text\%')";
+						} elsif ( $operator eq "starts with" ) {
+							$qry .=
+							  $thisfield->{'type'} eq 'text'
+							  ? "upper($field) LIKE upper(E'$text\%')"
+							  : "upper($field) LIKE upper(E'$text\%')";
+						} elsif ( $operator eq "ends with" ) {
+							$qry .=
+							  $thisfield->{'type'} eq 'text'
+							  ? "upper($field) LIKE upper(E'\%$text')"
+							  : "upper($field) LIKE upper(E'\%$text')";
 						} elsif ( $operator eq "NOT contain" ) {
 							$qry .=
 							  $thisfield->{'type'} eq 'text'

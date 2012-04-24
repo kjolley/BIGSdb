@@ -28,6 +28,7 @@ use constant MAX_ROWS  => 20;
 use constant MAX_INT   => 2147483647;
 use constant OPERATORS => ( '=', 'contains', 'starts with', 'ends with', '>', '<', 'NOT', 'NOT contain' );
 use BIGSdb::Page qw(SEQ_FLAGS LOCUS_PATTERNS);
+our @EXPORT_OK = qw(OPERATORS);
 
 sub initiate {
 	my ($self) = @_;
@@ -637,7 +638,7 @@ sub _print_scheme_fields {
 	my $q = $self->{'cgi'};
 	print "<span style=\"white-space:nowrap\">\n";
 	print $q->popup_menu( -name => "s$row", -values => $selectitems, -labels => $labels, -class => 'fieldlist' );
-	print $q->popup_menu( -name => "y$row", -values => [ "=", "contains", ">", "<", "NOT", "NOT contain" ] );
+	print $q->popup_menu( -name => "y$row", -values => [OPERATORS] );
 	print $q->textfield( -name => "t$row", -class => 'value_entry' );
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
@@ -923,7 +924,7 @@ sub _generate_isolate_query_for_provenance_fields {
 			my $text     = $q->param("t$i");
 			$self->process_value( \$text );
 			next
-			  if $self->check_format( { field => $field, text => $text, type => lc( $thisfield{'type'} ), operator => $operator },
+			  if $self->check_format( { field => $field, text => $text, type => lc( $thisfield{'type'} // '' ), operator => $operator },
 				$errors_ref );
 			my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
 			$first_value = 0;
@@ -943,8 +944,7 @@ sub _generate_isolate_query_for_provenance_fields {
 					next;
 				}
 				$field = $self->{'system'}->{'view'} . '.' . $field if !$extended_isolate_field;
-				my $labelfield = $self->{'system'}->{'view'} . '.' . $self->{'system'}->{'labelfield'};
-				my $args       = {
+				my $args = {
 					field                  => $field,
 					extended_isolate_field => $extended_isolate_field,
 					text                   => $text,
@@ -952,25 +952,8 @@ sub _generate_isolate_query_for_provenance_fields {
 					type                   => $thisfield{'type'}
 				};
 				if ( $operator eq 'NOT' ) {
-					if ($extended_isolate_field) {
-						$qry .= $modifier
-						  . (
-							( $text eq 'null' )
-							? "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field')"
-							: "$extended_isolate_field NOT IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value)=upper(E'$text'))"
-						  );
-					} elsif ( $field eq $labelfield ) {
-						$qry .= $modifier
-						  . "(NOT upper($field) = upper(E'$text') AND id NOT IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper(E'$text')))";
-					} else {
-						if ( $thisfield{'type'} eq 'int' || $thisfield{'type'} eq 'date' ) {
-							$qry .=
-							  $modifier . ( ( $text eq 'null' ) ? "$field is not null" : "NOT ($field = E'$text' OR $field IS NULL)" );
-						} else {
-							$qry .= $modifier
-							  . ( ( $text eq 'null' ) ? "$field is not null" : "(NOT upper($field) = upper(E'$text') OR $field IS NULL)" );
-						}
-					}
+					$args->{'not'} = 1;
+					$qry .= $self->_provenance_equals_type_operator($args);
 				} elsif ( $operator eq "contains" ) {
 					$args->{'behaviour'} = '%text%';
 					$qry .= $self->_provenance_like_type_operator($args);
@@ -985,22 +968,9 @@ sub _generate_isolate_query_for_provenance_fields {
 					$args->{'not'}       = 1;
 					$qry .= $self->_provenance_like_type_operator($args);
 				} elsif ( $operator eq '=' ) {
-					if ($extended_isolate_field) {
-						$qry .= $modifier
-						  . (
-							( $text eq 'null' )
-							? "$extended_isolate_field NOT IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field')"
-							: "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) = upper(E'$text'))"
-						  );
-					} elsif ( $field eq $labelfield ) {
-						$qry .= $modifier
-						  . "(upper($field) = upper(E'$text') OR $view.id IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper(E'$text')))";
-					} elsif ( lc( $thisfield{'type'} ) eq 'text' ) {
-						$qry .= $modifier . ( $text eq 'null' ? "$field is null" : "upper($field) = upper(E'$text')" );
-					} else {
-						$qry .= $modifier . ( $text eq 'null' ? "$field is null" : "$field = E'$text'" );
-					}
+					$qry .= $self->_provenance_equals_type_operator($args);
 				} else {
+					my $labelfield = $self->{'system'}->{'view'} . '.' . $self->{'system'}->{'labelfield'};
 					if ($extended_isolate_field) {
 						$qry .= $modifier
 						  . "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND value $operator E'$text')";
@@ -1022,29 +992,65 @@ sub _generate_isolate_query_for_provenance_fields {
 	return $qry;
 }
 
+sub _provenance_equals_type_operator {
+	my ( $self, $values ) = @_;
+	my $buffer     = $values->{'modifier'};
+	my $view       = $self->{'system'}->{'view'};
+	my $labelfield = "$view.$self->{'system'}->{'labelfield'}";
+	my $not        = $values->{'not'} ? 'NOT' : '';
+	my $inv_not    = $values->{'not'} ? '' : 'NOT';
+	if ( $values->{'extended_isolate_field'} ) {
+		$buffer .=
+		  $values->{'text'} eq 'null'
+		  ? "$values->{'extended_isolate_field'} $inv_not IN (SELECT field_value FROM isolate_value_extended_attributes WHERE "
+		  . "isolate_field='$values->{'extended_isolate_field'}' AND attribute='$values->{'field'}')"
+		  : "$values->{'extended_isolate_field'} $not IN (SELECT field_value FROM isolate_value_extended_attributes WHERE "
+		  . "isolate_field='$values->{'extended_isolate_field'}' AND attribute='$values->{'field'}' AND upper(value) = upper(E'$values->{'text'}'))";
+	} elsif ( $values->{'field'} eq $labelfield ) {
+		$buffer .=
+		    "($not upper($values->{'field'}) = upper(E'$values->{'text'}') "
+		  . ( $values->{'not'} ? ' AND ' : ' OR ' )
+		  . "$view.id $not IN (SELECT isolate_id FROM isolate_aliases WHERE "
+		  . "upper(alias) = upper(E'$values->{'text'}')))";
+	} else {
+		my $null_clause = $values->{'not'} ? "OR $values->{'field'} IS NULL" : '';
+		if ( lc( $values->{'type'} ) eq 'text' ) {
+			$buffer .= (
+				$values->{'text'} eq 'null'
+				? "$values->{'field'} is $not null"
+				: "($not upper($values->{'field'}) = upper(E'$values->{'text'}') $null_clause)"
+			);
+		} else {
+			$buffer .= (
+				$values->{'text'} eq 'null'
+				? "$values->{'field'} is $not null"
+				: "$not ($values->{'field'} = E'$values->{'text'}' $null_clause)"
+			);
+		}
+	}
+	return $buffer;
+}
+
 sub _provenance_like_type_operator {
 	my ( $self, $values ) = @_;
-	my $buffer;
+	my $buffer     = $values->{'modifier'};
 	my $view       = $self->{'system'}->{'view'};
-	my $labelfield = $view . '.' . $self->{'system'}->{'labelfield'};
+	my $labelfield = "$view.$self->{'system'}->{'labelfield'}";
 	my $not        = $values->{'not'} ? 'NOT' : '';
 	( my $text = $values->{'behaviour'} ) =~ s/text/$values->{'text'}/;
 	if ( $values->{'extended_isolate_field'} ) {
 		$buffer .=
-		    $values->{'modifier'}
-		  . "$values->{'extended_isolate_field'} $not IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field="
+		    "$values->{'extended_isolate_field'} $not IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field="
 		  . "'$values->{'extended_isolate_field'}' AND attribute='$values->{'field'}' AND upper(value) LIKE upper(E'$text'))";
 	} elsif ( $values->{'field'} eq $labelfield ) {
-		$buffer .=
-		    $values->{'modifier'}
-		  . "($not upper($values->{'field'}) LIKE upper(E'$text') OR $view.id $not IN (SELECT isolate_id FROM isolate_aliases WHERE "
+		$buffer .= "($not upper($values->{'field'}) LIKE upper(E'$text') OR $view.id $not IN (SELECT isolate_id FROM isolate_aliases WHERE "
 		  . "upper(alias) LIKE upper(E'$text')))";
 	} else {
 		my $null_clause = $values->{'not'} ? "OR $values->{'field'} IS NULL" : '';
 		if ( $values->{'type'} ne 'text' ) {
-			$buffer .= $values->{'modifier'} . "($not CAST($values->{'field'} AS text) LIKE E'$text' $null_clause)";
+			$buffer .= "($not CAST($values->{'field'} AS text) LIKE E'$text' $null_clause)";
 		} else {
-			$buffer .= $values->{'modifier'} . "($not upper($values->{'field'}) LIKE upper(E'$text') $null_clause)";
+			$buffer .= "($not upper($values->{'field'}) LIKE upper(E'$text') $null_clause)";
 		}
 	}
 	return $buffer;
@@ -1268,7 +1274,7 @@ sub _modify_isolate_query_for_designations {
 				} elsif ( $operator eq "ends with" ) {
 					$lqry{$locus} .= $andor if $lqry{$locus};
 					$lqry{$locus} .=
-					  "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) LIKE upper(E'\%$text'))";				
+					  "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) LIKE upper(E'\%$text'))";
 				} elsif ( $operator eq "NOT contain" ) {
 					$lqry{$locus} .= $andor if $lqry{$locus};
 					$lqry{$locus} .=
@@ -1360,7 +1366,6 @@ sub _modify_isolate_query_for_designations {
 					  $scheme_field_info->{'type'} eq 'integer'
 					  ? "($view.id IN ($joined_table AND CAST($field AS text) LIKE '\%$text'))"
 					  : "($view.id IN ($joined_table AND $field ILIKE '\%$text'))";
-
 				} elsif ( $operator eq "NOT contain" ) {
 					push @sqry,
 					  $scheme_field_info->{'type'} eq 'integer'
@@ -1537,6 +1542,8 @@ sub _run_profile_query {
 					given ($operator) {
 						when ('NOT') { $qry .= $text eq 'null' ? "(not $equals)" : "((NOT $equals) OR $cleaned IS NULL)" }
 						when ('contains')    { $qry .= "(upper($cleaned) LIKE upper('\%$text\%'))" }
+						when ('starts with') { $qry .= "(upper($cleaned) LIKE upper('$text\%'))" }
+						when ('ends with')   { $qry .= "(upper($cleaned) LIKE upper('\%$text'))" }
 						when ('NOT contain') { $qry .= "(NOT upper($cleaned) LIKE upper('\%$text\%') OR $cleaned IS NULL)" }
 						when ('=')           { $qry .= "($equals)" }
 						default { $qry .= ( $type eq 'integer' ? "(CAST($cleaned AS int)" : "($cleaned" ) . " $operator '$text')" }
@@ -1628,12 +1635,16 @@ sub search_users {
 	my ( $self, $name, $operator, $text, $table ) = @_;
 	my ( $field, $suffix ) = split / /, $name;
 	$suffix =~ s/[\(\)\s]//g;
-	my $qry      = "SELECT id FROM users WHERE ";
-	my $equals   = $suffix ne 'id' ? "upper($suffix) = upper('$text')" : "$suffix = '$text'";
-	my $contains = $suffix ne 'id' ? "upper($suffix) LIKE upper('\%$text\%')" : "CAST($suffix AS text) LIKE ('\%$text\%')";
+	my $qry         = "SELECT id FROM users WHERE ";
+	my $equals      = $suffix ne 'id' ? "upper($suffix) = upper('$text')" : "$suffix = '$text'";
+	my $contains    = $suffix ne 'id' ? "upper($suffix) LIKE upper('\%$text\%')" : "CAST($suffix AS text) LIKE ('\%$text\%')";
+	my $starts_with = $suffix ne 'id' ? "upper($suffix) LIKE upper('$text\%')" : "CAST($suffix AS text) LIKE ('$text\%')";
+	my $ends_with   = $suffix ne 'id' ? "upper($suffix) LIKE upper('\%$text')" : "CAST($suffix AS text) LIKE ('\%$text')";
 	given ($operator) {
 		when ('NOT')         { $qry .= "NOT $equals" }
 		when ('contains')    { $qry .= $contains }
+		when ('starts with') { $qry .= $starts_with }
+		when ('ends with')   { $qry .= $ends_with }
 		when ('NOT contain') { $qry .= "NOT $contains" }
 		when ('=')           { $qry .= $equals }
 		default              { $qry .= "$suffix $operator '$text'" }

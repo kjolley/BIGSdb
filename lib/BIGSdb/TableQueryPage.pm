@@ -25,6 +25,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant MAX_ROWS => 20;
 use BIGSdb::Page qw(SEQ_FLAGS ALLELE_FLAGS);
+use BIGSdb::QueryPage qw(OPERATORS);
 
 sub initiate {
 	my ($self) = @_;
@@ -120,7 +121,7 @@ sub _print_table_fields {
 	my $q = $self->{'cgi'};
 	print "<span style=\"white-space:nowrap\">\n";
 	print $q->popup_menu( -name => "s$row", -values => $select_items, -labels => $labels, -class => 'fieldlist' );
-	print $q->popup_menu( -name => "y$row", -values => [ "=", "contains", ">", "<", "NOT", "NOT contain" ] );
+	print $q->popup_menu( -name => "y$row", -values => [ OPERATORS ] );
 	print $q->textfield( -name => "t$row", -class => 'value_entry' );
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
@@ -365,6 +366,18 @@ sub _run_query {
 						} else {
 							$qry .= $modifier . "upper($table.$field) LIKE upper(E'\%$text\%')";
 						}
+					} elsif ( $operator eq "starts with" ) {
+						if ( $thisfield->{'type'} ne 'text' ) {
+							$qry .= $modifier . "CAST($table.$field AS text) LIKE '$text\%'";
+						} else {
+							$qry .= $modifier . "upper($table.$field) LIKE upper(E'$text\%')";
+						}
+					} elsif ( $operator eq "ends with" ) {
+						if ( $thisfield->{'type'} ne 'text' ) {
+							$qry .= $modifier . "CAST($table.$field AS text) LIKE '\%$text'";
+						} else {
+							$qry .= $modifier . "upper($table.$field) LIKE upper(E'\%$text')";
+						}	
 					} elsif ( $operator eq "NOT contain" ) {
 						if ( $thisfield->{'type'} ne 'text' ) {
 							$qry .= $modifier . "NOT CAST($table.$field AS text) LIKE '\%$text\%'";
