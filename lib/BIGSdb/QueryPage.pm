@@ -24,8 +24,9 @@ use parent qw(BIGSdb::ResultsTablePage);
 use List::MoreUtils qw(any none);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use constant MAX_ROWS => 20;
-use constant MAX_INT  => 2147483647;
+use constant MAX_ROWS  => 20;
+use constant MAX_INT   => 2147483647;
+use constant OPERATORS => ( '=', 'contains', 'starts with', 'ends with', '>', '<', 'NOT', 'NOT contain' );
 use BIGSdb::Page qw(SEQ_FLAGS LOCUS_PATTERNS);
 
 sub initiate {
@@ -222,7 +223,7 @@ sub _print_provenance_fields {
 	my $q = $self->{'cgi'};
 	print "<span style=\"white-space:nowrap\">\n";
 	print $q->popup_menu( -name => "s$row", -values => $select_items, -labels => $labels, -class => 'fieldlist' );
-	print $q->popup_menu( -name => "y$row", -values => [ "=", "contains", ">", "<", "NOT", "NOT contain" ] );
+	print $q->popup_menu( -name => "y$row", -values => [OPERATORS] );
 	print $q->textfield( -name => "t$row", -class => 'value_entry' );
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
@@ -244,7 +245,7 @@ sub _print_loci_fields {
 	my $q = $self->{'cgi'};
 	print "<span style=\"white-space:nowrap\">\n";
 	print $q->popup_menu( -name => "ls$row", -values => $locus_list, -labels => $locus_labels, -class => 'fieldlist' );
-	print $q->popup_menu( -name => "ly$row", -values => [ "=", "contains", ">", "<", "NOT", "NOT contain" ] );
+	print $q->popup_menu( -name => "ly$row", -values => [OPERATORS] );
 	print $q->textfield( -name => "lt$row", -class => 'value_entry' );
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
@@ -943,6 +944,13 @@ sub _generate_isolate_query_for_provenance_fields {
 				}
 				$field = $self->{'system'}->{'view'} . '.' . $field if !$extended_isolate_field;
 				my $labelfield = $self->{'system'}->{'view'} . '.' . $self->{'system'}->{'labelfield'};
+				my $args       = {
+					field                  => $field,
+					extended_isolate_field => $extended_isolate_field,
+					text                   => $text,
+					modifier               => $modifier,
+					type                   => $thisfield{'type'}
+				};
 				if ( $operator eq 'NOT' ) {
 					if ($extended_isolate_field) {
 						$qry .= $modifier
@@ -964,33 +972,18 @@ sub _generate_isolate_query_for_provenance_fields {
 						}
 					}
 				} elsif ( $operator eq "contains" ) {
-					if ($extended_isolate_field) {
-						$qry .= $modifier
-						  . "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) LIKE upper(E'\%$text\%'))";
-					} elsif ( $field eq $labelfield ) {
-						$qry .= $modifier
-						  . "(upper($field) LIKE upper('\%$text\%') OR $view.id IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) LIKE upper(E'\%$text\%')))";
-					} else {
-						if ( $thisfield{'type'} eq 'int' ) {
-							$qry .= $modifier . "CAST($field AS text) LIKE E'\%$text\%'";
-						} else {
-							$qry .= $modifier . "upper($field) LIKE upper(E'\%$text\%')";
-						}
-					}
+					$args->{'behaviour'} = '%text%';
+					$qry .= $self->_provenance_like_type_operator($args);
+				} elsif ( $operator eq 'starts with' ) {
+					$args->{'behaviour'} = 'text%';
+					$qry .= $self->_provenance_like_type_operator($args);
+				} elsif ( $operator eq 'ends with' ) {
+					$args->{'behaviour'} = '%text';
+					$qry .= $self->_provenance_like_type_operator($args);
 				} elsif ( $operator eq "NOT contain" ) {
-					if ($extended_isolate_field) {
-						$qry .= $modifier
-						  . "$extended_isolate_field NOT IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) LIKE upper(E'\%$text\%'))";
-					} elsif ( $field eq $labelfield ) {
-						$qry .= $modifier
-						  . "(NOT upper($field) LIKE upper(E'\%$text\%') AND id NOT IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) LIKE upper(E'\%$text\%')))";
-					} else {
-						if ( $thisfield{'type'} ne 'text' ) {
-							$qry .= $modifier . "(NOT CAST($field AS text) LIKE E'\%$text\%' OR $field IS NULL)";
-						} else {
-							$qry .= $modifier . "(NOT upper($field) LIKE upper(E'\%$text\%') OR $field IS NULL)";
-						}
-					}
+					$args->{'behaviour'} = '%text%';
+					$args->{'not'}       = 1;
+					$qry .= $self->_provenance_like_type_operator($args);
 				} elsif ( $operator eq '=' ) {
 					if ($extended_isolate_field) {
 						$qry .= $modifier
@@ -1027,6 +1020,34 @@ sub _generate_isolate_query_for_provenance_fields {
 	}
 	$qry .= ')';
 	return $qry;
+}
+
+sub _provenance_like_type_operator {
+	my ( $self, $values ) = @_;
+	my $buffer;
+	my $view       = $self->{'system'}->{'view'};
+	my $labelfield = $view . '.' . $self->{'system'}->{'labelfield'};
+	my $not        = $values->{'not'} ? 'NOT' : '';
+	( my $text = $values->{'behaviour'} ) =~ s/text/$values->{'text'}/;
+	if ( $values->{'extended_isolate_field'} ) {
+		$buffer .=
+		    $values->{'modifier'}
+		  . "$values->{'extended_isolate_field'} $not IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field="
+		  . "'$values->{'extended_isolate_field'}' AND attribute='$values->{'field'}' AND upper(value) LIKE upper(E'$text'))";
+	} elsif ( $values->{'field'} eq $labelfield ) {
+		$buffer .=
+		    $values->{'modifier'}
+		  . "($not upper($values->{'field'}) LIKE upper(E'$text') OR $view.id $not IN (SELECT isolate_id FROM isolate_aliases WHERE "
+		  . "upper(alias) LIKE upper(E'$text')))";
+	} else {
+		my $null_clause = $values->{'not'} ? "OR $values->{'field'} IS NULL" : '';
+		if ( $values->{'type'} ne 'text' ) {
+			$buffer .= $values->{'modifier'} . "($not CAST($values->{'field'} AS text) LIKE E'$text' $null_clause)";
+		} else {
+			$buffer .= $values->{'modifier'} . "($not upper($values->{'field'}) LIKE upper(E'$text') $null_clause)";
+		}
+	}
+	return $buffer;
 }
 
 sub _modify_isolate_query_for_filters {
@@ -1240,6 +1261,14 @@ sub _modify_isolate_query_for_designations {
 					$lqry{$locus} .= $andor if $lqry{$locus};
 					$lqry{$locus} .=
 					  "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) LIKE upper(E'\%$text\%'))";
+				} elsif ( $operator eq "starts with" ) {
+					$lqry{$locus} .= $andor if $lqry{$locus};
+					$lqry{$locus} .=
+					  "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) LIKE upper(E'$text\%'))";
+				} elsif ( $operator eq "ends with" ) {
+					$lqry{$locus} .= $andor if $lqry{$locus};
+					$lqry{$locus} .=
+					  "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) LIKE upper(E'\%$text'))";				
 				} elsif ( $operator eq "NOT contain" ) {
 					$lqry{$locus} .= $andor if $lqry{$locus};
 					$lqry{$locus} .=
@@ -1321,6 +1350,17 @@ sub _modify_isolate_query_for_designations {
 					  $scheme_field_info->{'type'} eq 'integer'
 					  ? "($view.id IN ($joined_table AND CAST($field AS text) ~* '$text'))"
 					  : "($view.id IN ($joined_table AND $field ~* '$text'))";
+				} elsif ( $operator eq "starts with" ) {
+					push @sqry,
+					  $scheme_field_info->{'type'} eq 'integer'
+					  ? "($view.id IN ($joined_table AND CAST($field AS text) LIKE '$text\%'))"
+					  : "($view.id IN ($joined_table AND $field ILIKE '$text\%'))";
+				} elsif ( $operator eq "ends with" ) {
+					push @sqry,
+					  $scheme_field_info->{'type'} eq 'integer'
+					  ? "($view.id IN ($joined_table AND CAST($field AS text) LIKE '\%$text'))"
+					  : "($view.id IN ($joined_table AND $field ILIKE '\%$text'))";
+
 				} elsif ( $operator eq "NOT contain" ) {
 					push @sqry,
 					  $scheme_field_info->{'type'} eq 'integer'
@@ -1573,7 +1613,8 @@ sub _run_profile_query {
 
 sub is_valid_operator {
 	my ( $self, $value ) = @_;
-	return ( any { $value eq $_ } ( qw (= contains > < NOT), 'NOT contain' ) ) ? 1 : 0;
+	my @operators = OPERATORS;
+	return ( any { $value eq $_ } @operators ) ? 1 : 0;
 }
 
 sub get_title {
@@ -1617,12 +1658,19 @@ sub check_format {
 			}
 		} elsif ( $data->{'type'} eq 'float' && !BIGSdb::Utils::is_float( $data->{'text'} ) ) {
 			$error = "$data->{'field'} is a floating point number field.";
+		} elsif (
+			$data->{'type'} eq 'date'
+			&& (
+				any {
+					$data->{'operator'} eq $_;
+				}
+				( 'contains', 'NOT contain', 'starts with', 'ends with' )
+			)
+		  )
+		{
+			$error = "Searching a date field can not be done for the '$data->{'operator'}' operator.";
 		} elsif ( $data->{'type'} eq 'date' && !BIGSdb::Utils::is_date( $data->{'text'} ) ) {
 			$error = "$data->{'field'} is a date field - should be in yyyy-mm-dd format (or 'today' / 'yesterday').";
-		} elsif ( $data->{'type'} eq 'date'
-			&& ( $data->{'operator'} eq 'contains' || $data->{'operator'} eq 'NOT contain' ) )
-		{
-			$error = "Searching a date field can not be done for 'contains' or 'NOT contain' operators.";
 		}
 	}
 	if ( !$error && !$self->is_valid_operator( $data->{'operator'} ) ) {
