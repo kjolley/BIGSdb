@@ -20,6 +20,7 @@ package BIGSdb::CurateAlleleUpdatePage;
 use strict;
 use warnings;
 use parent qw(BIGSdb::CuratePage BIGSdb::TreeViewPage);
+use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -43,14 +44,8 @@ sub print_content {
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
 	my $clear_pad = 1;
-	my $locus =
-	     $q->param('locus')
-	  || $q->param('allele_designations_locus')
-	  || $q->param('pending_allele_designations_locus');
-	my $id =
-	     $q->param('isolate_id')
-	  || $q->param('allele_designations_isolate_id')
-	  || $q->param('pending_allele_designations_isolate_id');
+	my $locus = $q->param('locus') || $q->param('allele_designations_locus') || $q->param('pending_allele_designations_locus');
+	my $id = $q->param('isolate_id') || $q->param('allele_designations_isolate_id') || $q->param('pending_allele_designations_isolate_id');
 	if ( !$id ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>No id passed.</p></div>\n";
 		return;
@@ -61,251 +56,40 @@ sub print_content {
 	}
 	my $cleaned_locus = $self->clean_locus($locus);
 	print "<h1>Update $cleaned_locus allele for isolate $id</h1>\n";
+	if ( !BIGSdb::Utils::is_int($id) ) {
+		print "<div class=\"box\" id=\"statusbad\"><p>Invalid id - Isolate ids are integers.</p></div>\n";
+		return;
+	}
 	if ( !$self->can_modify_table('allele_designations') ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update allele designations.</p></div>\n";
 		return;
 	} elsif ( !$self->is_allowed_to_view_isolate($id) ) {
-		print
-"<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update allele designations for this isolate.</p></div>\n";
+		print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update allele designations "
+		 . "for this isolate.</p></div>\n";
 		return;
 	}
-	my $qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE id = ?";
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute($id) };
-	$logger->error($@) if $@;
-	my $data = $sql->fetchrow_hashref;
+	my $data = $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $id );
 	if ( !$data->{'id'} ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>No record with id = $id exists.</p></div>\n";
 		return;
 	}
-	my ( $left_buffer, $right_buffer );
-	$right_buffer .= "<h2>Locus: $cleaned_locus</h2>";
-	$right_buffer .= "<h3>Allele designation";
-	$right_buffer .=
-" <a class=\"tooltip\" title=\"Allele designation - This is the primary designation and is used in all analyses.\">&nbsp;<i>i</i>&nbsp;</a>";
-	$right_buffer .= "</h3>\n";
-	my @problems;
+	my $right_buffer = <<"RIGHT_BUFFER";
+<h2>Locus: $cleaned_locus</h2>
+<h3>Allele designation <a class="tooltip" title="Allele designation - This is the primary designation and is used in all analyses.">
+&nbsp;<i>i</i>&nbsp;</a></h3>
+RIGHT_BUFFER
 	my $new_pending_problems;
-
+	my $error;
 	if ( $q->param('sent') ) {
-		my $table = $q->param('table');
-		if (   $table ne 'allele_designations'
-			&& $table ne 'pending_allele_designations' )
-		{
-			$logger->warn("Invalid table submitted");
-			print "<div class=\"box\" id=\"statusbad\"><p>Invalid table submitted.</p></div>\n";
-			return;
+		try {
+			$right_buffer .= $self->_update( $id, $locus, $data, \$new_pending_problems, \$clear_pad );
 		}
-		my %newdata;
-		my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
-		my @query_values;
-		foreach (@$attributes) {
-			if ( $_->{'primary_key'} ) {
-				my $value = $q->param("$table\_$_->{'name'}");
-				$value =~ s/'/\\'/g;
-				push @query_values, "$_->{'name'} = '$value'";
-			}
-		}
-		if ( !@query_values ) {
-			$right_buffer .= "<div class=\"box\" id=\"statusbad\"><p>No identifying attributes sent.</p>\n";
-			return;
-		}
-		foreach (@$attributes) {
-			my $param = "$table\_$_->{'name'}";
-			if ( defined $q->param($param) && $q->param($param) ne '' ) {
-				$newdata{ $_->{'name'} } = $q->param($param);
-			}
-		}
-		$newdata{'datestamp'} = $self->get_datestamp;
-		$newdata{'curator'}   = $self->get_curator_id;
-		$newdata{'date_entered'} =
-		    $q->param('action') eq 'update'
-		  ? $data->{'date_entered'}
-		  : $self->get_datestamp;
-		@problems = $self->check_record( $table, \%newdata, 1, $data );
-		if (@problems) {
-			local $" = "<br />\n";
-			if ( $table eq 'allele_designations' ) {
-				$right_buffer .= "<div class=\"statusbad_no_resize\"><p>@problems</p></div>\n";
-			} else {
-				$new_pending_problems .= "<div class=\"statusbad_no_resize\"><p>@problems</p></div>\n";
-			}
-		} else {
-			my ( @values, @add_values, @fields, @updated_field );
-			my $allele = $self->{'datastore'}->get_allele_designation( $id, $locus );
-			foreach (@$attributes) {
-				push @fields, $_->{'name'};
-				$newdata{ $_->{'name'} } = '' if !defined $newdata{ $_->{'name'} };
-				$newdata{ $_->{'name'} } =~ s/\\/\\\\/g;
-				$newdata{ $_->{'name'} } =~ s/'/\\'/g;
-				if ( $_->{'name'} =~ /sequence$/ ) {
-					$newdata{ $_->{'name'} } = uc( $newdata{ $_->{'name'} } );
-					$newdata{ $_->{'name'} } =~ s/\s//g;
-				}
-				if ( defined $newdata{ $_->{'name'} } && $newdata{ $_->{'name'} } ne '' ) {
-					push @values,     "$_->{'name'} = E'$newdata{ $_->{'name'}}'";
-					push @add_values, "E'$newdata{ $_->{'name'}}'";
-				} else {
-					push @values,     "$_->{'name'} = null";
-					push @add_values, 'null';
-				}
-				if (   defined $allele->{ lc( $_->{'name'} ) }
-					&& $newdata{ $_->{'name'} } ne $allele->{ lc( $_->{'name'} ) }
-					&& $_->{'name'}             ne 'datestamp'
-					&& $_->{'name'}             ne 'curator' )
-				{
-					push @updated_field, "$locus $_->{'name'}: $allele->{lc($_->{'name'})} -> $newdata{ $_->{'name'}}";
-				}
-			}
-			local $" = ',';
-			if ( $q->param('action') eq 'update' ) {
-				my $qry = "UPDATE $table SET @values WHERE ";
-				local $" = ' AND ';
-				$qry .= "@query_values";
-				eval { $self->{'db'}->do($qry) };
-				if ($@) {
-					$right_buffer .=
-					  "<div class=\"statusbad_no_resize\"><p>Update failed - transaction cancelled - no records have been touched.</p>\n";
-					$right_buffer .= "<p>Failed SQL: $qry</p>\n";
-					$right_buffer .= "<p>Error message: $@</p></div>\n";
-					$self->{'db'}->rollback;
-				} else {
-					$self->{'db'}->commit;
-					$right_buffer .= "<div class=\"statusgood_no_resize\"><p>allele designation updated!</p></div>";
-					local $" = '<br />';
-					$self->update_history( $id, "@updated_field" );
-				}
-			} elsif ( $q->param('action') eq 'add' ) {
-
-				#if adding pending designation, check that an existing one with the same
-				#primary key does not exist.
-				my $proceed = 1;
-				if ( $table eq 'pending_allele_designations' ) {
-					my $exists =
-					  $self->{'datastore'}->run_simple_query(
-"SELECT COUNT(*) FROM pending_allele_designations WHERE isolate_id=? AND locus=? AND allele_id=? AND sender=? AND method=?",
-						$newdata{'isolate_id'}, $newdata{'locus'}, $newdata{'allele_id'}, $newdata{'sender'}, $newdata{'method'} )->[0];
-					if ($exists) {
-						$new_pending_problems .=
-"<div class=\"statusbad_no_resize\"><p>Pending allele designation could not be added as it would result in a duplicate entry, i.e. a pending designation with the same allele_id, sender and method.</p></div>\n";
-						$proceed   = 0;
-						$clear_pad = 0;
-					}
-				} elsif ( $table eq 'allele_designations' ) {
-					my $exists =
-					  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM allele_designations WHERE isolate_id=? AND locus=?",
-						$newdata{'isolate_id'}, $newdata{'locus'} )->[0];
-					if ($exists) {
-						$new_pending_problems .=
-"<div class=\"statusbad_no_resize\"><p>Pending allele designation could not be added as it would result in a duplicate entry, i.e. a pending designation with the same allele_id, sender and method.</p></div>\n";
-						$proceed = 0;
-						$right_buffer .=
-"<div class=\"statusbad_no_resize\"><p>Allele designation already exists - please add a new pending designation instead.</p></div>\n";
-					}
-				}
-				if ($proceed) {
-					local $" = ',';
-					my $qry = "INSERT INTO $table (@fields) VALUES (@add_values)";
-					my $results_buffer;
-					eval { $self->{'db'}->do($qry) };
-					if ($@) {
-						$results_buffer .=
-"<div class=\"statusbad_no_resize\"><p>Update failed - transaction cancelled - no records have been touched.</p>\n";
-						$results_buffer .= "<p>Failed SQL: $qry</p>\n";
-						$results_buffer .= "<p>Error message: $@</p></div>\n";
-						$self->{'db'}->rollback;
-					} else {
-						$self->{'db'}->commit;
-						$results_buffer .= "<div class=\"statusgood_no_resize\"><p>allele designation updated!</p></div>";
-						my $display_table = $table eq 'allele_designations' ? '' : 'pending';
-						$self->update_history( $id, "$locus: new $display_table designation '$newdata{'allele_id'}'" );
-					}
-					if ( $table eq 'allele_designations' ) {
-						$right_buffer .= $results_buffer;
-					} else {
-						$new_pending_problems .= $results_buffer;
-					}
-				}
-			}
-		}
+		catch BIGSdb::DataException with {
+			$error = 1;
+		};
+		return if $error;
 	} elsif ( $q->param('sent2') ) {
-		my $qry = "SELECT * FROM pending_allele_designations WHERE isolate_id=? AND locus=? ORDER BY datestamp";
-		my $sql = $self->{'db'}->prepare($qry);
-		eval { $sql->execute( $id, $locus ) };
-		$logger->error($@) if $@;
-		while ( my $allele = $sql->fetchrow_hashref ) {
-			my $pk = "$allele->{'allele_id'}\_$allele->{'sender'}\_$allele->{'method'}";
-			if ( $q->param("$pk\_promote") ) {
-				my $to_be_promoted = $allele;
-				my $qry            = "SELECT * FROM allele_designations WHERE isolate_id=? AND locus=?";
-				my $sql            = $self->{'db'}->prepare($qry);
-				eval { $sql->execute( $id, $locus ) };
-				$logger->error($@) if $@;
-				my $to_be_demoted = $sql->fetchrow_hashref;
-
-				#Swap designation with pending
-				my $curator_id = $self->get_curator_id;
-				my $pad_exists = $self->{'datastore'}->run_simple_query(
-"SELECT COUNT(*) FROM pending_allele_designations WHERE isolate_id=? AND locus=? AND allele_id=? AND sender=? AND method=?",
-					$id, $locus,
-					$to_be_demoted->{'allele_id'},
-					$to_be_demoted->{'sender'},
-					$to_be_demoted->{'method'}
-				)->[0];
-				if (
-					$pad_exists
-					&& !(
-						   $to_be_demoted->{'allele_id'} eq $to_be_promoted->{'allele_id'}
-						&& $to_be_demoted->{'sender'}    eq $to_be_promoted->{'sender'}
-						&& $to_be_demoted->{'method'}    eq $to_be_promoted->{'method'}
-					)
-				  )
-				{
-					$right_buffer .=
-"<div class=\"statusbad_no_resize\"><p>Can't swap designations as it would result in two identical pending designations (same allele, sender and method).  In order to proceed, please delete the pending designation that matches the existing designation that you are demoting.</p></div>\n";
-				} else {
-					eval {
-						(my $cleaned_locus = $locus) =~ s/'/\\'/g;
-						$self->{'db'}->do( "DELETE FROM allele_designations WHERE isolate_id='$id' AND locus=E'$cleaned_locus'" );
-						$to_be_promoted->{'comments'} ||= '';
-						$to_be_demoted->{'comments'} ||= '';
-						
-						$self->{'db'}->do(
-"INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp,comments) VALUES ('$id',E'$cleaned_locus','$to_be_promoted->{'allele_id'}','$to_be_promoted->{'sender'}','provisional','$to_be_promoted->{'method'}',$curator_id,'$to_be_promoted->{'date_entered'}','today','$to_be_promoted->{'comments'}')"
-						);
-						$self->{'db'}->do(
-"DELETE FROM pending_allele_designations WHERE isolate_id='$id' AND locus=E'$cleaned_locus' AND allele_id='$to_be_promoted->{'allele_id'}' AND sender='$to_be_promoted->{'sender'}' AND method='$to_be_promoted->{'method'}'"
-						);
-						$self->{'db'}->do(
-"INSERT INTO pending_allele_designations (isolate_id,locus,allele_id,sender,method,curator,date_entered,datestamp,comments) VALUES ('$id',E'$cleaned_locus','$to_be_demoted->{'allele_id'}','$to_be_demoted->{'sender'}','$to_be_demoted->{'method'}',$curator_id,'$to_be_demoted->{'date_entered'}','today','$to_be_demoted->{'comments'}')"
-						);
-					};
-					if ($@) {
-						$logger->error("Can't swap designations $@");
-						$self->{'db'}->rollback;
-					} else {
-						$self->{'db'}->commit;
-						$self->update_history( $id,
-"$locus: designation '$to_be_promoted->{'allele_id'}' promoted from pending (designation '$to_be_demoted->{'allele_id'}' demoted to pending)"
-						);
-					}
-				}
-			} elsif ( $q->param("$pk\_delete") ) {
-				eval {
-					(my $cleaned_locus = $locus) =~ s/'/\\'/g;
-					$self->{'db'}->do(
-"DELETE FROM pending_allele_designations WHERE isolate_id='$id' AND locus=E'$cleaned_locus' AND allele_id='$allele->{'allele_id'}' AND sender='$allele->{'sender'}' AND method='$allele->{'method'}'"
-					);
-				};
-				if ($@) {
-					$logger->error("Can't delete pending designation $@");
-					$self->{'db'}->rollback;
-				} else {
-					$self->{'db'}->commit;
-					$self->update_history( $id, "$locus: pending designation '$allele->{'allele_id'}' deleted" );
-				}
-			}
-		}
+		$right_buffer .= $self->_handle_pending( $id, $locus );
 	}
 	$right_buffer .= $self->_get_allele_designation_form( $id, $locus );
 
@@ -329,20 +113,19 @@ sub print_content {
 			$right_buffer .=
 "<table class=\"resultstable\"><tr><th>Promote</th><th>Delete</th><th>Allele</th><th>More</th><th>Sender</th><th>Method</th><th>Datestamp</th></tr>\n";
 			my $td = 1;
+
 			while ( my $allele = $sql->fetchrow_hashref ) {
 				my $update_details_tooltip = $self->get_update_details_tooltip( $locus, $allele );
-				$right_buffer .= "<tr class=\"td$td\"><td>";
 				my $pk = "$allele->{'allele_id'}\_$allele->{'sender'}\_$allele->{'method'}";
+				my $sender = $self->{'datastore'}->get_user_info( $allele->{'sender'} );
+				
+				$right_buffer .= "<tr class=\"td$td\"><td>";
 				$right_buffer .= $q->submit( -name => "$pk\_promote", -label => 'Promote', -class => 'smallbutton' );
 				$right_buffer .= "</td><td>\n";
 				$right_buffer .= $q->submit( -name => "$pk\_delete",  -label => 'Delete',  -class => 'smallbutton' );
-				$right_buffer .= "</td><td>$allele->{'allele_id'}</td>";
-				$right_buffer .= "<td><a class=\"update_tooltip\" title=\"$update_details_tooltip\">&nbsp;...&nbsp;</a></td>";
-				my $sender = $self->{'datastore'}->get_user_info( $allele->{'sender'} );
-				$right_buffer .= "<td>$sender->{'first_name'} $sender->{'surname'}</td>";
-				$right_buffer .= "<td>$allele->{'method'}</td>";
-				$right_buffer .= "<td>$allele->{'datestamp'}</td>";
-				$right_buffer .= "</tr>\n";
+				$right_buffer .= "</td><td>$allele->{'allele_id'}</td><td><a class=\"update_tooltip\" title=\"$update_details_tooltip\">"
+				 . "&nbsp;...&nbsp;</a></td><td>$sender->{'first_name'} $sender->{'surname'}</td><td>$allele->{'method'}</td>"
+				 . "<td>$allele->{'datestamp'}</td></tr>\n";
 				$td = $td == 1 ? 2 : 1;
 			}
 			$right_buffer .= "</table>\n";
@@ -355,8 +138,10 @@ sub print_content {
 			$right_buffer .= $new_pending_problems if $new_pending_problems;
 		}
 		$right_buffer .= "<h3>Add new pending designation";
-		$right_buffer .=
-" <a class=\"tooltip\" title=\"Pending designations - These are provisional designations that may have been generated by automatic scripts.  Their presence may be indicated on the web interface but they are not used in any analyses.<p />Pending designations may be promoted to selected designations. In this case existing designations will be demoted to pending designations.\">&nbsp;<i>i</i>&nbsp;</a>"
+		$right_buffer .= " <a class=\"tooltip\" title=\"Pending designations - These are provisional designations that may have "
+		. "been generated by automatic scripts.  Their presence may be indicated on the web interface but they are not used in "
+		. "any analyses.<p />Pending designations may be promoted to selected designations. In this case existing designations "
+		. "will be demoted to pending designations.\">&nbsp;<i>i</i>&nbsp;</a>"
 		  if !$pending_count;
 		$right_buffer .= "</h3>\n";
 		$right_buffer .= $new_pending_problems if !$pending_count && $new_pending_problems;
@@ -368,6 +153,260 @@ sub print_content {
 	print "<div class=\"box\" id=\"resultstable\">\n";
 	print "<div class=\"scrollable\"><table><tr><td style=\"vertical-align:top\">\n";
 	print "<h2>Isolate summary:</h2>\n";
+	$self->_display_isolate_summary($id);
+	print "<h2>Update other loci:</h2>\n";
+	print $q->start_form;
+	my $loci = $self->{'datastore'}->get_loci( { 'query_pref' => 1 } );
+	print "Locus: ";
+	print $q->popup_menu( -name => 'locus', -values => $loci );
+	print $q->submit( -label => 'Add/update', -class => 'submit' );
+	$q->param( 'isolate_id', $id );
+	print $q->hidden($_) foreach qw(db page isolate_id);
+	print $q->end_form;
+	print "</td><td style=\"vertical-align:top; padding-left:2em\">";
+	print $right_buffer;
+	print "</td></tr></table>\n</div>\n";
+	print "</div>\n";
+	return;
+}
+
+sub _handle_pending {
+	my ( $self, $id, $locus, ) = @_;
+	my $q = $self->{'cgi'};
+	my $buffer = '';
+	my $qry = "SELECT * FROM pending_allele_designations WHERE isolate_id=? AND locus=? ORDER BY datestamp";
+	my $sql = $self->{'db'}->prepare($qry);
+	eval { $sql->execute( $id, $locus ) };
+	$logger->error($@) if $@;
+	while ( my $allele = $sql->fetchrow_hashref ) {
+		my $pk = "$allele->{'allele_id'}\_$allele->{'sender'}\_$allele->{'method'}";
+		if ( $q->param("$pk\_promote") ) {
+			my $to_be_promoted = $allele;
+			my $qry            = "SELECT * FROM allele_designations WHERE isolate_id=? AND locus=?";
+			my $sql            = $self->{'db'}->prepare($qry);
+			eval { $sql->execute( $id, $locus ) };
+			$logger->error($@) if $@;
+			my $to_be_demoted = $sql->fetchrow_hashref;
+
+			#Swap designation with pending
+			my $curator_id = $self->get_curator_id;
+			my $pad_exists = $self->{'datastore'}->run_simple_query(
+				"SELECT COUNT(*) FROM pending_allele_designations WHERE isolate_id=? AND locus=? AND allele_id=? AND sender=? AND method=?",
+				$id, $locus,
+				$to_be_demoted->{'allele_id'},
+				$to_be_demoted->{'sender'},
+				$to_be_demoted->{'method'}
+			)->[0];
+			if (
+				$pad_exists
+				&& !(
+					   $to_be_demoted->{'allele_id'} eq $to_be_promoted->{'allele_id'}
+					&& $to_be_demoted->{'sender'}    eq $to_be_promoted->{'sender'}
+					&& $to_be_demoted->{'method'}    eq $to_be_promoted->{'method'}
+				)
+			  )
+			{
+				$buffer .=
+				    "<div class=\"statusbad_no_resize\"><p>Can't swap designations as it would result in two identical "
+				  . "pending designations (same allele, sender and method).  In order to proceed, please delete the pending "
+				  . "designation that matches the existing designation that you are demoting.</p></div>\n";
+			} else {
+				eval {
+					my $sql = $self->{'db'}->prepare("DELETE FROM allele_designations WHERE isolate_id=? AND locus=?");
+					$sql->execute( $id, $locus );
+					$sql =
+					  $self->{'db'}->prepare( "INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,"
+						  . "curator,date_entered,datestamp,comments) VALUES (?,?,?,?,?,?,?,?,?,?)" );
+					$sql->execute(
+						$id,                            $locus,
+						$to_be_promoted->{'allele_id'}, $to_be_promoted->{'sender'},
+						'provisional',                  $to_be_promoted->{'method'},
+						$curator_id,                    $to_be_promoted->{'date_entered'},
+						'now',                          $to_be_promoted->{'comments'}
+					);
+					$sql =
+					  $self->{'db'}
+					  ->prepare("DELETE FROM pending_allele_designations WHERE (isolate_id,locus,allele_id,sender,method)=(?,?,?,?,?)");
+					$sql->execute( $id, $locus, $to_be_promoted->{'allele_id'}, $to_be_promoted->{'sender'}, $to_be_promoted->{'method'} );
+					$sql =
+					  $self->{'db'}->prepare( "INSERT INTO pending_allele_designations (isolate_id,locus,allele_id,sender,method,curator,"
+						  . "date_entered,datestamp,comments) VALUES (?,?,?,?,?,?,?,?,?)" );
+					$sql->execute(
+						$id,                              $locus,                     $to_be_demoted->{'allele_id'},
+						$to_be_demoted->{'sender'},       $to_be_demoted->{'method'}, $curator_id,
+						$to_be_demoted->{'date_entered'}, 'now',                      $to_be_demoted->{'comments'}
+					);
+				};
+				if ($@) {
+					$logger->error("Can't swap designations $@");
+					$self->{'db'}->rollback;
+				} else {
+					$self->{'db'}->commit;
+					$self->update_history( $id,
+						    "$locus: designation '$to_be_promoted->{'allele_id'}' promoted from pending "
+						  . "(designation '$to_be_demoted->{'allele_id'}' demoted to pending)" );
+				}
+			}
+		} elsif ( $q->param("$pk\_delete") ) {
+			eval {
+				my $sql = $self->{'db'}->prepare("DELETE FROM pending_allele_designations WHERE (isolate_id,locus,allele_id,sender,method)=(?,?,?,?,?)");
+				$sql->execute($id, $locus, $allele->{'allele_id'},$allele->{'sender'},$allele->{'method'} );
+			};
+			if ($@) {
+				$logger->error("Can't delete pending designation $@");
+				$self->{'db'}->rollback;
+			} else {
+				$self->{'db'}->commit;
+				$self->update_history( $id, "$locus: pending designation '$allele->{'allele_id'}' deleted" );
+			}
+		}
+	}
+	return $buffer;
+}
+
+sub _update {
+	my ( $self, $id, $locus, $data, $new_pending_problems_ref, $clear_pad_ref ) = @_;
+	my @problems;
+	my $buffer = '';
+	my $q      = $self->{'cgi'};
+	my $table  = $q->param('table');
+	if (   $table ne 'allele_designations'
+		&& $table ne 'pending_allele_designations' )
+	{
+		$logger->warn("Invalid table submitted");
+		print "<div class=\"box\" id=\"statusbad\"><p>Invalid table submitted.</p></div>\n";
+		throw BIGSdb::DataException("Invalid table submitted.");
+	}
+	my %newdata;
+	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
+	my @query_values;
+	foreach (@$attributes) {
+		if ( $_->{'primary_key'} ) {
+			my $value = $q->param("$table\_$_->{'name'}");
+			$value =~ s/'/\\'/g;
+			push @query_values, "$_->{'name'} = E'$value'";
+		}
+	}
+	foreach (@$attributes) {
+		my $param = "$table\_$_->{'name'}";
+		if ( defined $q->param($param) && $q->param($param) ne '' ) {
+			$newdata{ $_->{'name'} } = $q->param($param);
+		}
+	}
+	$newdata{'datestamp'}    = $self->get_datestamp;
+	$newdata{'curator'}      = $self->get_curator_id;
+	$newdata{'date_entered'} = $q->param('action') eq 'update' ? $data->{'date_entered'} : $self->get_datestamp;
+	@problems = $self->check_record( $table, \%newdata, 1, $data );
+	if (@problems) {
+		local $" = "<br />\n";
+		if ( $table eq 'allele_designations' ) {
+			$buffer .= "<div class=\"statusbad_no_resize\"><p>@problems</p></div>\n";
+		} else {
+			$$new_pending_problems_ref .= "<div class=\"statusbad_no_resize\"><p>@problems</p></div>\n";
+		}
+	} else {
+		my ( @values, @add_values, @fields, @updated_field );
+		my $allele = $self->{'datastore'}->get_allele_designation( $id, $locus );
+		foreach (@$attributes) {
+			push @fields, $_->{'name'};
+			$newdata{ $_->{'name'} } = '' if !defined $newdata{ $_->{'name'} };
+			if ( $_->{'name'} =~ /sequence$/ ) {
+				$newdata{ $_->{'name'} } = uc( $newdata{ $_->{'name'} } );
+				$newdata{ $_->{'name'} } =~ s/\s//g;
+			}
+			if ( ($newdata{ $_->{'name'} } // '') ne '' ) {
+				my $escaped = $newdata{ $_->{'name'} };
+				$escaped =~ s/\\/\\\\/g;
+				$escaped =~ s/'/\\'/g;
+				push @values,     "$_->{'name'} = E'$escaped'";
+				push @add_values, "E'$escaped'";
+			} else {
+				push @values,     "$_->{'name'} = null";
+				push @add_values, 'null';
+			}
+			if (   defined $allele->{ lc( $_->{'name'} ) }
+				&& $newdata{ $_->{'name'} } ne $allele->{ lc( $_->{'name'} ) }
+				&& $_->{'name'}             ne 'datestamp'
+				&& $_->{'name'}             ne 'curator' )
+			{
+				push @updated_field, "$locus $_->{'name'}: $allele->{lc($_->{'name'})} -> $newdata{ $_->{'name'}}";
+			}
+		}
+		local $" = ',';
+		if ( $q->param('action') eq 'update' ) {
+			my $qry = "UPDATE $table SET @values WHERE ";
+			local $" = ' AND ';
+			$qry .= "@query_values";
+			eval { $self->{'db'}->do($qry) };
+			if ($@) {
+				$buffer .=
+				  "<div class=\"statusbad_no_resize\"><p>Update failed - transaction cancelled - no records have been touched.</p>\n";
+				$buffer .= "<p>Failed SQL: $qry</p>\n";
+				$buffer .= "<p>Error message: $@</p></div>\n";
+				$self->{'db'}->rollback;
+			} else {
+				$self->{'db'}->commit;
+				$buffer .= "<div class=\"statusgood_no_resize\"><p>allele designation updated!</p></div>";
+				local $" = '<br />';
+				$self->update_history( $id, "@updated_field" );
+			}
+		} elsif ( $q->param('action') eq 'add' ) {
+
+			#if adding pending designation, check that an existing one with the same
+			#primary key does not exist.
+			my $proceed = 1;
+			if ( $table eq 'pending_allele_designations' ) {
+				my $exists =
+				  $self->{'datastore'}->run_simple_query(
+"SELECT COUNT(*) FROM pending_allele_designations WHERE isolate_id=? AND locus=? AND allele_id=? AND sender=? AND method=?",
+					$newdata{'isolate_id'}, $newdata{'locus'}, $newdata{'allele_id'}, $newdata{'sender'}, $newdata{'method'} )->[0];
+				if ($exists) {
+					$$new_pending_problems_ref .=
+					    "<div class=\"statusbad_no_resize\"><p>Pending allele designation could not be "
+					  . "added as it would result in a duplicate entry, i.e. a pending designation with the same allele_id, sender "
+					  . "and method.</p></div>\n";
+					$proceed        = 0;
+					$$clear_pad_ref = 0;
+				}
+			} elsif ( $table eq 'allele_designations' ) {
+				my $exists =
+				  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM allele_designations WHERE isolate_id=? AND locus=?",
+					$newdata{'isolate_id'}, $newdata{'locus'} )->[0];
+				if ($exists) {
+					$proceed = 0;
+					$buffer .= "<div class=\"statusbad_no_resize\"><p>Allele designation already exists - please add a "
+					  . "new pending designation instead.</p></div>\n";
+				}
+			}
+			if ($proceed) {
+				local $" = ',';
+				my $qry = "INSERT INTO $table (@fields) VALUES (@add_values)";
+				my $results_buffer;
+				eval { $self->{'db'}->do($qry) };
+				if ($@) {
+					$results_buffer .= "<div class=\"statusbad_no_resize\"><p>Update failed - transaction cancelled - "
+					  . "no records have been touched.</p>\n";
+					$logger->error("$qry $@");
+					$self->{'db'}->rollback;
+				} else {
+					$self->{'db'}->commit;
+					$results_buffer .= "<div class=\"statusgood_no_resize\"><p>allele designation updated!</p></div>";
+					my $display_table = $table eq 'allele_designations' ? '' : 'pending';
+					$self->update_history( $id, "$locus: new $display_table designation '$newdata{'allele_id'}'" );
+				}
+				if ( $table eq 'allele_designations' ) {
+					$buffer .= $results_buffer;
+				} else {
+					$$new_pending_problems_ref .= $results_buffer;
+				}
+			}
+		}
+	}
+	return $buffer;
+}
+
+sub _display_isolate_summary {
+	my ( $self, $id ) = @_;
 	my $isolate_record = BIGSdb::IsolateInfoPage->new(
 		(
 			'system'        => $self->{'system'},
@@ -384,19 +423,6 @@ sub print_content {
 		)
 	);
 	print $isolate_record->get_isolate_summary( $id, 1 );
-	print "<h2>Update other loci:</h2>\n";
-	print $q->start_form;
-	my $loci = $self->{'datastore'}->get_loci( { 'query_pref' => 1 } );
-	print "Locus: ";
-	print $q->popup_menu( -name => 'locus', -values => $loci );
-	print $q->submit( -label => 'Add/update', -class => 'submit' );
-	$q->param( 'isolate_id', $id );
-	print $q->hidden($_) foreach qw(db page isolate_id);
-	print $q->end_form;
-	print "</td><td style=\"vertical-align:top; padding-left:2em\">";
-	print $right_buffer;
-	print "</td></tr></table>\n</div>\n";
-	print "</div>\n";
 	return;
 }
 
@@ -430,6 +456,8 @@ sub get_title {
 	my $q     = $self->{'cgi'};
 	my $locus = $q->param('locus') || $q->param('allele_designations_locus') || $q->param('pending_allele_designations_locus');
 	my $id = $q->param('isolate_id') || $q->param('allele_designations_isolate_id') || $q->param('pending_allele_designations_isolate_id');
+	$id    //= '';
+	$locus //= '';
 	return "Update $locus allele for isolate $id - $desc";
 }
 1;
