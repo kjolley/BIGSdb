@@ -1039,18 +1039,17 @@ sub _provenance_like_type_operator {
 	my $not        = $values->{'not'} ? 'NOT' : '';
 	( my $text = $values->{'behaviour'} ) =~ s/text/$values->{'text'}/;
 	if ( $values->{'extended_isolate_field'} ) {
-		$buffer .=
-		    "$values->{'extended_isolate_field'} $not IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field="
-		  . "'$values->{'extended_isolate_field'}' AND attribute='$values->{'field'}' AND upper(value) LIKE upper(E'$text'))";
+		$buffer .= "$values->{'extended_isolate_field'} $not IN (SELECT field_value FROM isolate_value_extended_attributes "
+		 . "WHERE isolate_field='$values->{'extended_isolate_field'}' AND attribute='$values->{'field'}' AND value ILIKE E'$text')";
 	} elsif ( $values->{'field'} eq $labelfield ) {
-		$buffer .= "($not upper($values->{'field'}) LIKE upper(E'$text') OR $view.id $not IN (SELECT isolate_id FROM isolate_aliases WHERE "
-		  . "upper(alias) LIKE upper(E'$text')))";
+		$buffer .= "($not $values->{'field'} ILIKE E'$text' OR $view.id $not IN (SELECT isolate_id FROM isolate_aliases WHERE "
+		  . "alias ILIKE E'$text'))";
 	} else {
 		my $null_clause = $values->{'not'} ? "OR $values->{'field'} IS NULL" : '';
 		if ( $values->{'type'} ne 'text' ) {
 			$buffer .= "($not CAST($values->{'field'} AS text) LIKE E'$text' $null_clause)";
 		} else {
-			$buffer .= "($not upper($values->{'field'}) LIKE upper(E'$text') $null_clause)";
+			$buffer .= "($not $values->{'field'} ILIKE E'$text' $null_clause)";
 		}
 	}
 	return $buffer;

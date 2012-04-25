@@ -121,7 +121,7 @@ sub _print_table_fields {
 	my $q = $self->{'cgi'};
 	print "<span style=\"white-space:nowrap\">\n";
 	print $q->popup_menu( -name => "s$row", -values => $select_items, -labels => $labels, -class => 'fieldlist' );
-	print $q->popup_menu( -name => "y$row", -values => [ OPERATORS ] );
+	print $q->popup_menu( -name => "y$row", -values => [OPERATORS] );
 	print $q->textfield( -name => "t$row", -class => 'value_entry' );
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
@@ -207,7 +207,7 @@ sub _print_query_interface {
 					my @fields_to_query;
 					if ( $_->{'foreign_key'} ) {
 						if ( $_->{'labels'} ) {
-							(my $fields_ref, $desc) = $self->get_all_foreign_key_fields_and_labels($_);
+							( my $fields_ref, $desc ) = $self->get_all_foreign_key_fields_and_labels($_);
 							@fields_to_query = @$fields_ref;
 						} else {
 							push @fields_to_query, 'id';
@@ -239,7 +239,7 @@ sub _print_query_interface {
 	if ( $table eq 'loci' || $table eq 'allele_designations' ) {
 		push @filters, $self->get_scheme_filter;
 	} elsif ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' && $table eq 'sequences' ) {
-		my @flag_values = ('any flag', 'no flag', ALLELE_FLAGS);
+		my @flag_values = ( 'any flag', 'no flag', ALLELE_FLAGS );
 		push @filters, $self->get_filter( 'allele_flag', \@flag_values );
 	} elsif ( $table eq 'sequence_bin' ) {
 		my %labels;
@@ -350,48 +350,40 @@ sub _run_query {
 				{
 					$qry .= $modifier . $self->search_users( $field, $operator, $text, $table );
 				} else {
+					$qry .= $modifier;
 					if ( $operator eq 'NOT' ) {
 						if ( $text eq 'null' ) {
-							$qry .= $modifier . "$table.$field is not null";
+							$qry .= "$table.$field is not null";
 						} else {
-							if ( $thisfield->{'type'} ne 'text' ) {
-								$qry .= $modifier . "NOT CAST($table.$field AS text) = '$text'";
-							} else {
-								$qry .= $modifier . "NOT upper($table.$field) = upper('$text')";
-							}
+							$qry .=
+							  $thisfield->{'type'} ne 'text'
+							  ? "NOT CAST($table.$field AS text) = '$text'"
+							  : "NOT upper($table.$field) = upper('$text')";
 						}
 					} elsif ( $operator eq "contains" ) {
-						if ( $thisfield->{'type'} ne 'text' ) {
-							$qry .= $modifier . "CAST($table.$field AS text) LIKE '\%$text\%'";
-						} else {
-							$qry .= $modifier . "upper($table.$field) LIKE upper(E'\%$text\%')";
-						}
+						$qry .=
+						  $thisfield->{'type'} ne 'text'
+						  ? "CAST($table.$field AS text) LIKE '\%$text\%'"
+						  : "$table.$field ILIKE E'\%$text\%'";
 					} elsif ( $operator eq "starts with" ) {
-						if ( $thisfield->{'type'} ne 'text' ) {
-							$qry .= $modifier . "CAST($table.$field AS text) LIKE '$text\%'";
-						} else {
-							$qry .= $modifier . "upper($table.$field) LIKE upper(E'$text\%')";
-						}
+						$qry .=
+						  $thisfield->{'type'} ne 'text' ? "CAST($table.$field AS text) LIKE '$text\%'" : "$table.$field ILIKE E'$text\%'";
 					} elsif ( $operator eq "ends with" ) {
-						if ( $thisfield->{'type'} ne 'text' ) {
-							$qry .= $modifier . "CAST($table.$field AS text) LIKE '\%$text'";
-						} else {
-							$qry .= $modifier . "upper($table.$field) LIKE upper(E'\%$text')";
-						}	
+						$qry .=
+						  $thisfield->{'type'} ne 'text' ? "CAST($table.$field AS text) LIKE '\%$text'" : "$table.$field ILIKE E'\%$text'";
 					} elsif ( $operator eq "NOT contain" ) {
-						if ( $thisfield->{'type'} ne 'text' ) {
-							$qry .= $modifier . "NOT CAST($table.$field AS text) LIKE '\%$text\%'";
-						} else {
-							$qry .= $modifier . "NOT upper($table.$field) LIKE upper(E'\%$text\%')";
-						}
+						$qry .=
+						  $thisfield->{'type'} ne 'text'
+						  ? "NOT CAST($table.$field AS text) LIKE '\%$text\%'"
+						  : "NOT $table.$field ILIKE E'\%$text\%'";
 					} elsif ( $operator eq '=' ) {
-						if ( lc( $thisfield->{'type'} ) eq 'text' ) {
-							$qry .= $modifier . ( $text eq 'null' ? "$table.$field is null" : "upper($table.$field) = upper(E'$text')" );
+						if ( $thisfield->{'type'} eq 'text' ) {
+							$qry .= ( $text eq 'null' ? "$table.$field is null" : "upper($table.$field) = upper(E'$text')" );
 						} else {
-							$qry .= $modifier . ( $text eq 'null' ? "$table.$field is null" : "$table.$field = '$text'" );
+							$qry .= ( $text eq 'null' ? "$table.$field is null" : "$table.$field = '$text'" );
 						}
 					} else {
-						$qry .= $modifier . "$table.$field $operator E'$text'";
+						$qry .= "$table.$field $operator E'$text'";
 					}
 				}
 			}
@@ -438,7 +430,7 @@ sub _run_query {
 			$qry2 .= " AND ($qry)" if $qry;
 		} elsif ( $table eq 'allele_sequences' ) {
 			$qry2 = $self->_process_allele_sequences_filters($qry);
-		} elsif ( $table eq 'sequences'){
+		} elsif ( $table eq 'sequences' ) {
 			$qry2 = $self->_process_sequences_filters($qry);
 		} else {
 			$qry ||= '';
@@ -653,7 +645,7 @@ sub _process_allele_sequences_filters {
 				$qry2 = "SELECT * FROM allele_sequences WHERE ($scheme_qry)";
 			}
 		}
-		if ($qry){
+		if ($qry) {
 			$qry2 .= $qry =~ /WHERE/ ? ' AND ' : ' WHERE ';
 			$qry2 .= "($qry)";
 		}
@@ -668,14 +660,15 @@ sub _process_sequences_filters {
 	my ( $self, $qry ) = @_;
 	my $q = $self->{'cgi'};
 	my $qry2;
-	if (($q->param('allele_flag_list') // '') ne '' && 	( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes'){
+	if ( ( $q->param('allele_flag_list') // '' ) ne '' && ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
 		if ( $q->param('allele_flag_list') eq 'no flag' ) {
 			$qry2 = "SELECT * FROM sequences LEFT JOIN allele_flags ON allele_flags.locus = sequences.locus AND "
-			. "allele_flags.allele_id = sequences.allele_id WHERE flag IS NULL";
+			  . "allele_flags.allele_id = sequences.allele_id WHERE flag IS NULL";
 		} else {
-			$qry2 = "SELECT * FROM sequences WHERE EXISTS (SELECT 1 FROM allele_flags WHERE sequences.locus=allele_flags.locus AND sequences.allele_id=allele_flags.allele_id";
+			$qry2 =
+"SELECT * FROM sequences WHERE EXISTS (SELECT 1 FROM allele_flags WHERE sequences.locus=allele_flags.locus AND sequences.allele_id=allele_flags.allele_id";
 			if ( any { $q->param('allele_flag_list') eq $_ } ALLELE_FLAGS ) {
-				$qry2 .= " AND flag = '". $q->param('allele_flag_list'). "'";
+				$qry2 .= " AND flag = '" . $q->param('allele_flag_list') . "'";
 			}
 			$qry2 .= ')';
 		}
@@ -684,6 +677,6 @@ sub _process_sequences_filters {
 		$qry ||= '';
 		$qry2 = "SELECT * FROM sequences WHERE ($qry)";
 	}
-	return $qry2;	
+	return $qry2;
 }
 1;
