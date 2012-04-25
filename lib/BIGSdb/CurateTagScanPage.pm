@@ -38,6 +38,7 @@ my $TBLASTX         = 'off';
 my $HUNT            = 'off';
 my $RESCAN_ALLELES  = 'off';
 my $RESCAN_SEQS     = 'off';
+my $MARK_MISSING    = 'off';
 
 sub get_javascript {
 	my ($self) = @_;
@@ -58,6 +59,7 @@ function use_defaults() {
 	\$("#hunt").attr(\"checked\",$check_values{$HUNT});
 	\$("#rescan_alleles").attr(\"checked\",$check_values{$RESCAN_ALLELES});
 	\$("#rescan_seqs").attr(\"checked\",$check_values{$RESCAN_SEQS});
+	\$("#mark_missing").attr(\"checked\",$check_values{$MARK_MISSING});
 }
 	
 END
@@ -125,105 +127,7 @@ sub _print_interface {
 	print $self->get_tree( undef, { no_link_out => 1, select_schemes => 1 } );
 	print "</div>\n";
 	print "</fieldset>\n";
-	print "<fieldset>\n<legend>Parameters</legend>\n";
-	print "<input type=\"button\" class=\"smallbutton legendbutton\" value=\"Defaults\" onclick=\"use_defaults()\" />";
-	print "<ul><li><label for =\"identity\" class=\"parameter\">Min % identity:</label>";
-	print $q->popup_menu(
-		-name    => 'identity',
-		-id      => 'identity',
-		-values  => [qw(50 55 60 65 70 75 80 85 90 91 92 93 94 95 96 97 98 99 100)],
-		-default => $general_prefs->{'scan_identity'} || $MIN_IDENTITY
-	);
-	print " <a class=\"tooltip\" title=\"Minimum % identity - Match required for partial matching.\">&nbsp;<i>i</i>&nbsp;</a></li>";
-	print "<li><label for =\"alignment\" class=\"parameter\">Min % alignment:</label>";
-	print $q->popup_menu(
-		-name    => 'alignment',
-		-id      => 'alignment',
-		-values  => [qw(30 35 40 45 50 55 60 65 70 75 80 85 90 91 92 93 94 95 96 97 98 99 100)],
-		-default => $general_prefs->{'scan_alignment'} || $MIN_ALIGNMENT
-	);
-	print
-" <a class=\"tooltip\" title=\"Minimum % alignment - Percentage of allele sequence length required to be aligned for partial matching.\">&nbsp;<i>i</i>&nbsp;</a></li>";
-	print "<li><label for =\"word_size\" class=\"parameter\">BLASTN word size:</label>\n";
-	print $q->popup_menu(
-		-name    => 'word_size',
-		-id      => 'word_size',
-		-values  => [qw(7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28)],
-		-default => $general_prefs->{'scan_word_size'} || $WORD_SIZE
-	);
-	print
-" <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a></li>";
-	print "<li><label for =\"partial_matches\" class=\"parameter\">Return up to:</label>\n";
-	print $q->popup_menu(
-		-name    => 'partial_matches',
-		-id      => 'partial_matches',
-		-values  => [qw(1 2 3 4 5 6 7 8 9 10)],
-		-default => $general_prefs->{'scan_partial_matches'} || $PARTIAL_MATCHES
-	);
-	print " partial match(es)</li>";
-	print "<li><label for =\"limit_matches\" class=\"parameter\">Stop after:</label>\n";
-	print $q->popup_menu(
-		-name    => 'limit_matches',
-		-id      => 'limit_matches',
-		-values  => [qw(10 20 30 40 50 100 200 500 1000 2000 5000 10000 20000)],
-		-default => $general_prefs->{'scan_limit_matches'} || $LIMIT_MATCHES
-	);
-	print " new matches ";
-	print
-" <a class=\"tooltip\" title=\"Stop after matching - Limit the number of previously undesignated matches. You may wish to terminate the search after finding a set number of new matches.  You will be able to tag any sequences found and next time these won't be searched (by default) so this enables you to tag in batches.\">&nbsp;<i>i</i>&nbsp;</a></li>";
-	print "<li><label for =\"limit_time\" class=\"parameter\">Stop after:</label>\n";
-	print $q->popup_menu(
-		-name    => 'limit_time',
-		-id      => 'limit_time',
-		-values  => [qw(1 2 5 10 15 30 60 120 180 240 300)],
-		-default => $general_prefs->{'scan_limit_time'} || $LIMIT_TIME
-	);
-	print " minute(s) ";
-	print
-" <a class=\"tooltip\" title=\"Stop after time - Searches against lots of loci or for multiple isolates may take a long time. You may wish to terminate the search after a set time.  You will be able to tag any sequences found and next time these won't be searched (by default) so this enables you to tag in batches.\">&nbsp;<i>i</i>&nbsp;</a></li>";
-
-	if ( $self->{'system'}->{'tblastx_tagging'} && $self->{'system'}->{'tblastx_tagging'} eq 'yes' ) {
-		print "<li><span class=\"warning\">";
-		print $q->checkbox(
-			-name    => 'tblastx',
-			-id      => 'tblastx',
-			-label   => 'Use TBLASTX',
-			-checked => ( $general_prefs->{'scan_tblastx'} && $general_prefs->{'scan_tblastx'} eq 'on' ) ? 'checked' : ''
-		);
-		print " <a class=\"tooltip\" title=\"TBLASTX - Compares the six-frame translation of your nucleotide query against 
-	the six-frame translation of the sequences in the sequence bin.  This can be VERY SLOW (a few minutes for 
-	each comparison. Use with caution.<br /><br />Partial matches may be indicated even when an exact match 
-	is found if the matching allele contains a partial codon at one of the ends.  Identical matches will be indicated 
-	if the translated sequences match even if the nucleotide sequences don't. For this reason, allele designation 
-	tagging is disabled for TBLASTX matching.\">&nbsp;<i>i</i>&nbsp;</a>";
-		print "</span></li>\n";
-	}
-	print "<li>";
-	print $q->checkbox(
-		-name    => 'hunt',
-		-id      => 'hunt',
-		-label   => 'Hunt for nearby start and stop codons',
-		-checked => ( $general_prefs->{'scan_hunt'} && $general_prefs->{'scan_hunt'} eq 'on' ) ? 'checked' : ''
-	);
-	print " <a class=\"tooltip\" title=\"Hunt for start/stop codons - If the aligned sequence is not an exact match to an
-	existing allele and is not a complete coding sequence with start and stop codons at the ends, selecting this 
-	option will hunt for these by walking in and out from the ends in complete codons for up to 6 amino acids.\">&nbsp;<i>i</i>&nbsp;</a>";
-	print "</li><li>\n";
-	print $q->checkbox(
-		-name    => 'rescan_alleles',
-		-id      => 'rescan_alleles',
-		-label   => 'Rescan even if allele designations are already set',
-		-checked => ( $general_prefs->{'scan_rescan_alleles'} && $general_prefs->{'scan_rescan_alleles'} eq 'on' ) ? 'checked' : ''
-	);
-	print "</li><li>\n";
-	print $q->checkbox(
-		-name    => 'rescan_seqs',
-		-id      => 'rescan_seqs',
-		-label   => 'Rescan even if allele sequences are tagged',
-		-checked => ( $general_prefs->{'scan_rescan_seqs'} && $general_prefs->{'scan_rescan_seqs'} eq 'on' ) ? 'checked' : ''
-	);
-	print "</li></ul>\n";
-	print "</fieldset>";
+	$self->_print_parameter_fieldset($general_prefs);
 
 	#Only show repetitive loci fields if PCR or probe locus links have been set
 	my $pcr_links   = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM pcr_locus")->[0];
@@ -293,6 +197,120 @@ sub _print_interface {
 	return;
 }
 
+sub _print_parameter_fieldset {
+	my ( $self, $general_prefs ) = @_;
+	my $q = $self->{'cgi'};
+	print "<fieldset>\n<legend>Parameters</legend>\n"
+	  . "<input type=\"button\" class=\"smallbutton legendbutton\" value=\"Defaults\" onclick=\"use_defaults()\" />"
+	  . "<ul><li><label for =\"identity\" class=\"parameter\">Min % identity:</label>";
+	print $q->popup_menu(
+		-name    => 'identity',
+		-id      => 'identity',
+		-values  => [qw(50 55 60 65 70 75 80 85 90 91 92 93 94 95 96 97 98 99 100)],
+		-default => $general_prefs->{'scan_identity'} || $MIN_IDENTITY
+	);
+	print " <a class=\"tooltip\" title=\"Minimum % identity - Match required for partial matching.\">&nbsp;<i>i</i>&nbsp;</a></li>"
+	  . "<li><label for =\"alignment\" class=\"parameter\">Min % alignment:</label>";
+	print $q->popup_menu(
+		-name    => 'alignment',
+		-id      => 'alignment',
+		-values  => [qw(30 35 40 45 50 55 60 65 70 75 80 85 90 91 92 93 94 95 96 97 98 99 100)],
+		-default => $general_prefs->{'scan_alignment'} || $MIN_ALIGNMENT
+	);
+	print " <a class=\"tooltip\" title=\"Minimum % alignment - Percentage of allele sequence length required to be aligned for "
+	  . "partial matching.\">&nbsp;<i>i</i>&nbsp;</a></li>"
+	  . "<li><label for =\"word_size\" class=\"parameter\">BLASTN word size:</label>\n";
+	print $q->popup_menu(
+		-name    => 'word_size',
+		-id      => 'word_size',
+		-values  => [qw(7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28)],
+		-default => $general_prefs->{'scan_word_size'} || $WORD_SIZE
+	);
+	print " <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. "
+	  . "Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a></li>"
+	  . "<li><label for =\"partial_matches\" class=\"parameter\">Return up to:</label>\n";
+	print $q->popup_menu(
+		-name    => 'partial_matches',
+		-id      => 'partial_matches',
+		-values  => [qw(1 2 3 4 5 6 7 8 9 10)],
+		-default => $general_prefs->{'scan_partial_matches'} || $PARTIAL_MATCHES
+	);
+	print " partial match(es)</li>" . "<li><label for =\"limit_matches\" class=\"parameter\">Stop after:</label>\n";
+	print $q->popup_menu(
+		-name    => 'limit_matches',
+		-id      => 'limit_matches',
+		-values  => [qw(10 20 30 40 50 100 200 500 1000 2000 5000 10000 20000)],
+		-default => $general_prefs->{'scan_limit_matches'} || $LIMIT_MATCHES
+	);
+	print " new matches "
+	  . " <a class=\"tooltip\" title=\"Stop after matching - Limit the number of previously undesignated matches. You may wish to "
+	  . "terminate the search after finding a set number of new matches.  You will be able to tag any sequences found and next time "
+	  . "these won't be searched (by default) so this enables you to tag in batches.\">&nbsp;<i>i</i>&nbsp;</a></li>"
+	  . "<li><label for =\"limit_time\" class=\"parameter\">Stop after:</label>\n";
+	print $q->popup_menu(
+		-name    => 'limit_time',
+		-id      => 'limit_time',
+		-values  => [qw(1 2 5 10 15 30 60 120 180 240 300)],
+		-default => $general_prefs->{'scan_limit_time'} || $LIMIT_TIME
+	);
+	print " minute(s) "
+	  . " <a class=\"tooltip\" title=\"Stop after time - Searches against lots of loci or for multiple isolates may take a long time. "
+	  . "You may wish to terminate the search after a set time.  You will be able to tag any sequences found and next time these "
+	  . "won't be searched (by default) so this enables you to tag in batches.\">&nbsp;<i>i</i>&nbsp;</a></li>";
+
+	if ( $self->{'system'}->{'tblastx_tagging'} && $self->{'system'}->{'tblastx_tagging'} eq 'yes' ) {
+		print "<li><span class=\"warning\">";
+		print $q->checkbox(
+			-name    => 'tblastx',
+			-id      => 'tblastx',
+			-label   => 'Use TBLASTX',
+			-checked => ( $general_prefs->{'scan_tblastx'} && $general_prefs->{'scan_tblastx'} eq 'on' ) ? 'checked' : ''
+		);
+		print " <a class=\"tooltip\" title=\"TBLASTX - Compares the six-frame translation of your nucleotide query against "
+		  . "the six-frame translation of the sequences in the sequence bin.  This can be VERY SLOW (a few minutes for "
+		  . "each comparison. Use with caution.<br /><br />Partial matches may be indicated even when an exact match "
+		  . "is found if the matching allele contains a partial codon at one of the ends.  Identical matches will be indicated "
+		  . "if the translated sequences match even if the nucleotide sequences don't. For this reason, allele designation "
+		  . "tagging is disabled for TBLASTX matching.\">&nbsp;<i>i</i>&nbsp;</a>"
+		  . "</span></li>\n";
+	}
+	print "<li>";
+	print $q->checkbox(
+		-name    => 'hunt',
+		-id      => 'hunt',
+		-label   => 'Hunt for nearby start and stop codons',
+		-checked => ( $general_prefs->{'scan_hunt'} && $general_prefs->{'scan_hunt'} eq 'on' ) ? 'checked' : ''
+	);
+	print " <a class=\"tooltip\" title=\"Hunt for start/stop codons - If the aligned sequence is not an exact match to an "
+	  . "existing allele and is not a complete coding sequence with start and stop codons at the ends, selecting this "
+	  . "option will hunt for these by walking in and out from the ends in complete codons for up to 6 amino acids.\">"
+	  . "&nbsp;<i>i</i>&nbsp;</a>"
+	  . "</li><li>\n";
+	print $q->checkbox(
+		-name    => 'rescan_alleles',
+		-id      => 'rescan_alleles',
+		-label   => 'Rescan even if allele designations are already set',
+		-checked => ( $general_prefs->{'scan_rescan_alleles'} && $general_prefs->{'scan_rescan_alleles'} eq 'on' ) ? 'checked' : ''
+	);
+	print "</li><li>\n";
+	print $q->checkbox(
+		-name    => 'rescan_seqs',
+		-id      => 'rescan_seqs',
+		-label   => 'Rescan even if allele sequences are tagged',
+		-checked => ( $general_prefs->{'scan_rescan_seqs'} && $general_prefs->{'scan_rescan_seqs'} eq 'on' ) ? 'checked' : ''
+	);
+	print "</li><li>\n";
+	print $q->checkbox(
+		-name    => 'mark_missing',
+		-id      => 'mark_missing',
+		-label   => "Mark missing sequences as provisional allele '0'",
+		-checked => ( $general_prefs->{'scan_mark_missing'} && $general_prefs->{'scan_mark_missing'} eq 'on' ) ? 'checked' : ''
+	);
+	print "</li></ul>\n";
+	print "</fieldset>";
+	return;
+}
+
 sub _scan {
 	my ( $self, $labels ) = @_;
 	my $q          = $self->{'cgi'};
@@ -316,7 +334,9 @@ sub _scan {
 	my $guid = $self->get_guid;
 	if ($guid) {
 		my $dbname = $self->{'system'}->{'db'};
-		foreach (qw (identity alignment word_size partial_matches limit_matches limit_time tblastx hunt rescan_alleles rescan_seqs)) {
+		foreach (
+			qw (identity alignment word_size partial_matches limit_matches limit_time tblastx hunt rescan_alleles rescan_seqs mark_missing))
+		{
 			my $value = ( defined $q->param($_) && $q->param($_) ne '' ) ? $q->param($_) : 'off';
 			$self->{'prefstore'}->set_general( $guid, $dbname, "scan_$_", $value );
 		}
@@ -453,6 +473,15 @@ sub _scan {
 					$i++;
 				}
 				$first = 0;
+			} elsif ( $q->param('mark_missing')
+				&& !( ref $exact_matches   && @$exact_matches )
+				&& !( ref $partial_matches && @$partial_matches ) )
+			{
+				print $header_buffer if $first;
+				$self->_print_missing_row( $isolate_id, $labels, $locus, \@js, \@js2, );
+				$new_designation = 1;
+				$first           = 0;
+				$td              = $td == 1 ? 2 : 1;
 			} else {
 				print " ";    #try to prevent time-out.
 			}
@@ -569,16 +598,19 @@ sub _tag {
 			my $display_locus = $self->clean_locus($_);
 			foreach my $id (@ids) {
 				my $seqbin_id = $q->param("id_$isolate_id\_$_\_seqbin_id_$id");
-				if ( $q->param("id_$isolate_id\_$_\_allele_$id") && $q->param("id_$isolate_id\_$_\_allele_id_$id") ) {
+				if ( $q->param("id_$isolate_id\_$_\_allele_$id") && defined $q->param("id_$isolate_id\_$_\_allele_id_$id") ) {
 					my $allele_id = $q->param("id_$isolate_id\_$_\_allele_id_$id");
 					my $set_allele_id = $self->{'datastore'}->get_allele_id( $isolate_id, $_ );
 					eval { $sql->execute($seqbin_id) };
 					$logger->error($@) if $@;
 					my $seqbin_info = $sql->fetchrow_hashref;
-					my $sender      = $seqbin_info->{'sender'};
+					my $sender      = $allele_id ? $seqbin_info->{'sender'} : $self->get_curator_id;
+					my $status      = $allele_id ? 'confirmed' : 'provisional';
 					if ( !defined $set_allele_id && !defined $allele_id_to_set ) {
 						push @updates,
-"INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp,comments) VALUES ($isolate_id,E'$cleaned_locus','$allele_id',$sender,'confirmed','automatic',$curator_id,'today','today','Scanned from sequence bin')";
+						    "INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,"
+						  . "date_entered,datestamp,comments) VALUES ($isolate_id,E'$cleaned_locus','$allele_id',$sender,'$status',"
+						  . "'automatic',$curator_id,'today','today','Scanned from sequence bin')";
 						$allele_id_to_set = $allele_id;
 						push @allele_updates, ( $labels->{$isolate_id} || $isolate_id ) . ": $display_locus:  $allele_id";
 						push @{ $history->{$isolate_id} }, "$_: new designation '$allele_id' (sequence bin scan)";
@@ -943,6 +975,37 @@ sub _print_row {
 	}
 	print "</td></tr>\n";
 	return ( $off_end, $new_designation );
+}
+
+sub _print_missing_row {
+	my ( $self, $isolate_id, $labels, $locus, $js, $js2, ) = @_;
+	my $q                  = $self->{'cgi'};
+	my $existing_allele    = $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
+	my $existing_sequences = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
+	my $cleaned_locus      = $self->clean_locus($locus);
+	if ( defined $existing_allele || @$existing_sequences ) {
+		print ' ';    #try to prevent time-out.
+		return;
+	}
+	print "<tr class=\"provisional\">";
+	print "<td>" . ( $labels->{$isolate_id} || $isolate_id ) . "</td><td>missing</td><td>$cleaned_locus";
+	print "</td>";
+	print "<td>0</td>";
+	print "<td /><td /><td /><td /><td /><td /><td /><td /><td /><td /><td>";
+	$cleaned_locus = $self->clean_checkbox_id($locus);
+	$cleaned_locus =~ s/\\/\\\\/g;
+	print $q->checkbox(
+		-name    => "id_$isolate_id\_$locus\_allele_1",
+		-id      => "id_$isolate_id\_$cleaned_locus\_allele_1",
+		-label   => '',
+		-checked => 'checked'
+	);
+	print $q->hidden( "id_$isolate_id\_$locus\_allele_id_1", 0 );
+	push @$js,  "\$(\"#id_$isolate_id\_$cleaned_locus\_allele_1\").attr(\"checked\",true)";
+	push @$js2, "\$(\"#id_$isolate_id\_$cleaned_locus\_allele_1\").attr(\"checked\",false)";
+	print "</td><td /><td />";
+	print "</tr>\n";
+	return;
 }
 
 sub _simulate_PCR {
