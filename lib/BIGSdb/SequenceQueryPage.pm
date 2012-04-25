@@ -733,7 +733,11 @@ sub _parse_blast_partial {
 		$match{'qend'}      = $record[7];
 		$match{'sstart'}    = $record[8];
 		$match{'send'}      = $record[9];
-		$match{'reverse'}   = 1 if ( $record[8] > $record[9] || $record[7] < $record[6] );
+		if ( ( $record[8] > $record[9] && $record[7] > $record[6] ) || ( $record[8] < $record[9] && $record[7] < $record[6] ) ) {
+			$match{'reverse'} = 1;
+		} else {
+			$match{'reverse'} = 0;
+		}
 		$match{'bit_score'} = $record[11];
 		if ( $match{'bit_score'} > $best_match{'bit_score'} ) {
 			%best_match = %match;
