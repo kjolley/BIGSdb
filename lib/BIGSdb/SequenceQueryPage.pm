@@ -143,6 +143,7 @@ sub _run_query {
 	my $distinct_locus_selected = ( $locus && $locus !~ /SCHEME_\d+/ ) ? 1 : 0;
 	my $cleaned_locus           = $self->clean_locus($locus);
 	my $locus_info              = $self->{'datastore'}->get_locus_info($locus);
+	my $text_filename           = BIGSdb::Utils::get_random() . '.txt';
 	while ( my $seq_object = $seqin->next_seq ) {
 		if ( $ENV{'MOD_PERL'} ) {
 			$self->{'mod_perl_request'}->rflush;
@@ -174,7 +175,7 @@ sub _run_query {
 			if ( $page eq 'sequenceQuery' ) {
 				$self->_output_single_query_exact( $exact_matches, $data_ref );
 			} else {
-				$batch_buffer = $self->_output_batch_query_exact( $exact_matches, $data_ref );
+				$batch_buffer = $self->_output_batch_query_exact( $exact_matches, $data_ref, $text_filename );
 			}
 		} else {
 			if ( defined $locus_info->{'data_type'} && $qry_type ne $locus_info->{'data_type'} && $distinct_locus_selected ) {
@@ -198,7 +199,7 @@ sub _run_query {
 				if ( $page eq 'sequenceQuery' ) {
 					$self->_output_single_query_nonexact( $partial_match, $data_ref );
 				} else {
-					$batch_buffer = $self->_output_batch_query_nonexact( $partial_match, $data_ref );
+					$batch_buffer = $self->_output_batch_query_nonexact( $partial_match, $data_ref, $text_filename );
 				}
 			}
 		}
@@ -215,7 +216,10 @@ sub _run_query {
 		}
 	}
 	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$job*";
-	print "</table>\n</div>\n" if $page eq 'batchSequenceQuery' && $batch_buffer;
+	if ( $page eq 'batchSequenceQuery' && $batch_buffer ) {
+		print "</table>\n";
+		print "<p><a href=\"/tmp/$text_filename\">Text format</a></p></div>\n";
+	}
 	return;
 }
 
@@ -242,7 +246,7 @@ sub _output_single_query_exact {
 	  . "<th>End position</th>"
 	  . ( $data->{'linked_data'}         ? '<th>Linked data values</th>' : '' )
 	  . ( $data->{'extended_attributes'} ? '<th>Attributes</th>'         : '' )
-	  . (( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ? '<th>Flags</th>' : '' )
+	  . ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ? '<th>Flags</th>' : '' )
 	  . "</tr>\n";
 	if ( !$distinct_locus_selected && $q->param('order') eq 'locus' ) {
 		my %locus_values;
@@ -265,7 +269,7 @@ sub _output_single_query_exact {
 			$allele       = "$cleaned: $_->{'allele'}";
 			$field_values = $self->_get_client_dbase_fields( $locus, [ $_->{'allele'} ] );
 			$attributes   = $self->_get_allele_attributes( $locus, [ $_->{'allele'} ] );
-			$flags = $self->{'datastore'}->get_allele_flags($locus, $_->{'allele'});
+			$flags        = $self->{'datastore'}->get_allele_flags( $locus, $_->{'allele'} );
 		} else {    #either all loci or a scheme selected
 			my ( $locus, $allele_id );
 			if ( $_->{'allele'} =~ /(.*):(.*)/ ) {
@@ -275,7 +279,7 @@ sub _output_single_query_exact {
 				$allele       = "$cleaned: $allele_id";
 				$field_values = $self->_get_client_dbase_fields( $locus, [$allele_id] );
 				$attributes   = $self->_get_allele_attributes( $locus, [$allele_id] );
-				$flags = $self->{'datastore'}->get_allele_flags($locus, $allele_id);
+				$flags        = $self->{'datastore'}->get_allele_flags( $locus, $allele_id );
 			}
 			print
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id\">"
@@ -283,8 +287,8 @@ sub _output_single_query_exact {
 		}
 		print "$allele</a></td><td>$_->{'length'}</td><td>$_->{'start'}</td><td>$_->{'end'}</td>";
 		print defined $field_values ? "<td style=\"text-align:left\">$field_values</td>" : '<td />' if $data->{'linked_data'};
-		print defined $attributes ? "<td style=\"text-align:left\">$attributes</td>" : '<td />' if $data->{'extended_attributes'};
-		if (( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes'){
+		print defined $attributes   ? "<td style=\"text-align:left\">$attributes</td>"   : '<td />' if $data->{'extended_attributes'};
+		if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
 			local $" = '</a> <a class="seqflag_tooltip">';
 			print @$flags ? "<td style=\"text-align:left\"><a class=\"seqflag_tooltip\">@$flags</a></td>" : '<td />';
 		}
@@ -339,7 +343,7 @@ sub _output_scheme_fields {
 }
 
 sub _output_batch_query_exact {
-	my ( $self, $exact_matches, $data ) = @_;
+	my ( $self, $exact_matches, $data, $filename ) = @_;
 	my $locus                   = $data->{'locus'};
 	my $distinct_locus_selected = $data->{'distinct_locus_selected'};
 	my $td                      = $data->{'td'};
@@ -355,9 +359,13 @@ sub _output_batch_query_exact {
 		}
 		@$exact_matches = sort { $locus_values{$a} cmp $locus_values{$b} } @$exact_matches;
 	}
-	my $first = 1;
+	my $first       = 1;
+	my $text_buffer = '';
 	foreach (@$exact_matches) {
-		$buffer .= '; ' if !$first;
+		if ( !$first ) {
+			$buffer      .= '; ';
+			$text_buffer .= '; ';
+		}
 		my $allele_id;
 		if ( !$distinct_locus_selected && $_->{'allele'} =~ /(.*):(.*)/ ) {
 			( $locus, $allele_id ) = ( $1, $2 );
@@ -367,9 +375,13 @@ sub _output_batch_query_exact {
 		my $cleaned_locus = $self->clean_locus($locus);
 		$buffer .=
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id\">$cleaned_locus: $allele_id</a>";
+		$text_buffer .= "$cleaned_locus-$allele_id";
 		undef $locus if !$distinct_locus_selected;
 		$first = 0;
 	}
+	open( my $fh, '>>', "$self->{'config'}->{'tmp_dir'}/$filename" ) or $logger->error("Can't open $filename for appending");
+	say $fh "$id: $text_buffer";
+	close $fh;
 	return "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">$buffer</td></tr>\n";
 }
 
@@ -450,10 +462,9 @@ sub _output_single_query_nonexact {
 		my $reverse = $partial_match->{'reverse'} ? 1 : 0;
 		my @args = (
 			'-aformat', 'markx2', '-awidth', $self->{'prefs'}->{'alignwidth'},
-			'-asequence', $seq1_infile, '-bsequence', $seq2_infile, '-sreverse1', $reverse, '-outfile',
-			$outfile
+			'-asequence', $seq1_infile, '-bsequence', $seq2_infile, '-sreverse1', $reverse, '-outfile', $outfile
 		);
-		push @args, ('-sbegin1', $start, '-send1', $end) if length $$seq_ref > 10000;
+		push @args, ( '-sbegin1', $start, '-send1', $end ) if length $$seq_ref > 10000;
 		system("$self->{'config'}->{'emboss_path'}/stretcher @args 2>/dev/null");
 		unlink $seq1_infile, $seq2_infile;
 
@@ -561,10 +572,10 @@ sub _print_alignment {
 }
 
 sub _output_batch_query_nonexact {
-	my ( $self, $partial_match, $data ) = @_;
+	my ( $self, $partial_match, $data, $filename ) = @_;
 	my $locus                   = $data->{'locus'};
 	my $distinct_locus_selected = $data->{'distinct_locus_selected'};
-	my ( $batch_buffer, $buffer );
+	my ( $batch_buffer, $buffer, $text_buffer );
 	my $allele_seq_ref;
 	if ($distinct_locus_selected) {
 		$allele_seq_ref = $self->{'datastore'}->get_sequence( $locus, $partial_match->{'allele'} );
@@ -581,32 +592,36 @@ sub _output_batch_query_nonexact {
 			$qstart--;
 		}
 		if ( $sstart > $ssend ) {
-			$buffer .= "Reverse complemented - try reversing it and query again.";
+			$buffer      .= "Reverse complemented - try reversing it and query again.";
+			$text_buffer .= "Reverse complemented - try reversing it and query again.";
 		} else {
 			my $diffs = $self->_get_differences( $allele_seq_ref, $data->{'seq_ref'}, $sstart, $qstart );
 			if (@$diffs) {
 				my $plural = @$diffs > 1 ? 's' : '';
-				$buffer .= (@$diffs) . " difference$plural found. ";
+				$buffer      .= (@$diffs) . " difference$plural found. ";
+				$text_buffer .= (@$diffs) . " difference$plural found. ";
 				my $first = 1;
 				foreach (@$diffs) {
-					$buffer .= '; ' if !$first;
+					if ( !$first ) {
+						$buffer      .= '; ';
+						$text_buffer .= '; ';
+					}
 					$buffer .= $self->_format_difference( $_, $data->{'qry_type'} );
+					$text_buffer .= "\[$_->{'spos'}\]$_->{'sbase'}->\[" . ( $_->{'qpos'} // '' ) . "\]$_->{'qbase'}";
 					$first = 0;
 				}
-			} else {
-				$buffer .= "Your query sequence only starts at position $sstart of sequence ";
-				$buffer .= "$locus: " if $distinct_locus_selected;
-				$buffer .= "$partial_match->{'allele'}.";
 			}
 		}
 	} else {
-		$buffer .= "There are insertions/deletions between these sequences.  Try single sequence query to get more details.";
+		$buffer      .= "There are insertions/deletions between these sequences.  Try single sequence query to get more details.";
+		$text_buffer .= "Insertions/deletions present.";
 	}
-	my ( $allele, $cleaned_locus );
+	my ( $allele, $cleaned_locus, $text_allele );
 	if ($distinct_locus_selected) {
 		$cleaned_locus = $self->clean_locus($locus);
 		$allele =
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$partial_match->{'allele'}\">$cleaned_locus: $partial_match->{'allele'}</a>";
+		$text_allele = "$locus-$partial_match->{'allele'}";
 	} else {
 		if ( $partial_match->{'allele'} =~ /(.*):(.*)/ ) {
 			my ( $locus, $allele_id ) = ( $1, $2 );
@@ -614,10 +629,14 @@ sub _output_batch_query_nonexact {
 			$partial_match->{'allele'} =~ s/:/: /;
 			$allele =
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id\">$cleaned_locus: $allele_id</a>";
+			$text_allele = "$locus-$allele_id";
 		}
 	}
 	$batch_buffer =
 	  "<tr class=\"td$data->{'td'}\"><td>$data->{'id'}</td><td style=\"text-align:left\">Partial match found: $allele: $buffer</td></tr>\n";
+	open( my $fh, '>>', "$self->{'config'}->{'tmp_dir'}/$filename" ) or $logger->error("Can't open $filename for appending");
+	say $fh "$data->{'id'}: Partial match: $text_allele: $text_buffer";
+	close $fh;
 	return $batch_buffer;
 }
 
@@ -842,7 +861,7 @@ sub _get_allele_attributes {
 }
 
 sub _format_list_values {
-	my ($self, $hash_ref) = @_;
+	my ( $self, $hash_ref ) = @_;
 	my $buffer = '';
 	if ( keys %$hash_ref ) {
 		my $first = 1;
