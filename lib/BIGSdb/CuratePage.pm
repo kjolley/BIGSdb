@@ -117,7 +117,7 @@ sub create_record_table {
 					}
 					$buffer .= '</b>';
 					$buffer .= $q->hidden( $name, $newdata{ $att->{'name'} } );
-				} elsif ( $q->param('page') eq 'update' && ($att->{'user_update'} // '') eq 'no' ) {
+				} elsif ( $q->param('page') eq 'update' && ( $att->{'user_update'} // '' ) eq 'no' ) {
 					if ( $att->{'name'} eq 'sequence' ) {
 						my $data_length = length( $newdata{ $att->{'name'} } );
 						if ( $data_length > 5000 ) {
@@ -172,7 +172,7 @@ sub create_record_table {
 					my @fields_to_query;
 					my $desc;
 					if ( $att->{'labels'} ) {
-						(my $fields_ref, $desc) = $self->get_all_foreign_key_fields_and_labels($att);
+						( my $fields_ref, $desc ) = $self->get_all_foreign_key_fields_and_labels($att);
 						@fields_to_query = @$fields_ref;
 					} else {
 						push @fields_to_query, 'id';
@@ -246,7 +246,7 @@ sub create_record_table {
 		}
 	}
 	given ($table) {
-		when ('sequences')          { $buffer .= $self->_create_extra_fields_for_sequences( \%newdata ) }
+		when ('sequences')          { $buffer .= $self->_create_extra_fields_for_sequences($newdata_ref) }
 		when ('locus_descriptions') { $buffer .= $self->_create_extra_fields_for_locus_descriptions($newdata_ref) }
 		when ('sequence_bin')       { $buffer .= $self->_create_extra_fields_for_seqbin($newdata_ref) }
 	}
@@ -435,8 +435,8 @@ sub _create_extra_fields_for_locus_descriptions {
 
 sub _create_extra_fields_for_seqbin {
 	my ( $self, $newdata_ref ) = @_;
-	my $q = $self->{'cgi'};
-	my $buffer;
+	my $q      = $self->{'cgi'};
+	my $buffer = '';
 	return $buffer if $q->param('page') eq 'update';
 	my $sql = $self->{'db'}->prepare("SELECT id,description FROM experiments ORDER BY description");
 	eval { $sql->execute };
