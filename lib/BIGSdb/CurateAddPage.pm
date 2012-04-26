@@ -157,6 +157,7 @@ sub _insert {
 		}
 	} elsif ( $table eq 'sequence_bin' ) {
 		$newdata->{'sequence'} =~ s/[\W]//g;
+		push @problems, "Sequence data invalid." if !length $newdata->{'sequence'};
 		if ( $q->param('experiment') ) {
 			my $experiment = $q->param('experiment');
 			my $insert =
@@ -392,7 +393,6 @@ sub _check_allele_data {
 	} elsif ( $newdata->{'allele_id'} =~ /\s/ ) {
 		push @$problems, "Allele id must not contain spaces - try substituting with underscores (_).<br />";
 	} else {
-		$newdata->{'sequence'} = uc( $newdata->{'sequence'} );
 		$newdata->{'sequence'} =~ s/\s//g;
 		my $exist_ref =
 		  $self->{'datastore'}
