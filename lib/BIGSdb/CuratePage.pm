@@ -296,7 +296,7 @@ sub _get_boolean_field {
 	my $q      = $self->{'cgi'};
 	my $buffer = '';
 	my $default;
-	if ( $q->param('page') eq 'update' && ( $newdata_ref->{ $att->{'name'} // '' } ) ne '' ) {
+	if ( $q->param('page') eq 'update' && ( $newdata_ref->{ $att->{'name'} } // '' ) ne '' ) {
 		$default = $newdata_ref->{ $att->{'name'} } ? 'true' : 'false';
 	} else {
 		$default = $newdata_ref->{ $att->{'name'} };
