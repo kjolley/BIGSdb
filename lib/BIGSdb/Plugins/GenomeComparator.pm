@@ -703,7 +703,7 @@ sub _extract_cds_details {
 sub _run_comparison {
 	my ( $self, $by_reference, $job_id, $params, $ids, $cds, $html_buffer_ref, $file_buffer_ref ) = @_;
 	my $progress    = 0;
-	my $total       = ( $params->{'align'} && @$ids > 1 ) ? ( @$cds * 2 ) : @$cds;
+	my $total       = ( $params->{'align'} && (@$ids > 1 || (@$ids == 1 && $by_reference && $params->{'align_all'})) ) ? ( @$cds * 2 ) : @$cds;
 	my $seqs_total  = 0;
 	my $close_table = '</table></div>';
 	my $td          = 1;
@@ -960,8 +960,7 @@ sub _run_comparison {
 	my @ignore_loci;
 	push @ignore_loci, $_ foreach keys %$truncated_loci;
 	$self->_generate_splits( $job_id, $values, \@ignore_loci );
-
-	if ( @$ids > 1 && $params->{'align'} ) {
+	if ( $params->{'align'} && (@$ids > 1 || (@$ids == 1 && $by_reference && $params->{'align_all'}))) {
 		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align.txt", description => '30_Alignments' } )
 		  if -e $align_file;
 		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align_stats.txt", description => '31_Alignment stats' } )
@@ -1080,7 +1079,6 @@ sub _create_alignments {
 	my $xmfa_out   = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
 	my $xmfa_start = 1;
 	my $xmfa_end;
-
 	foreach my $locus ( sort keys %$loci ) {
 		$progress++;
 		my $complete = 50 + int( 100 * $progress / $total );
