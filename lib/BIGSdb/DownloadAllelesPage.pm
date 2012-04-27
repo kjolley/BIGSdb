@@ -291,8 +291,9 @@ sub _print_sequences {
 		print "Can't retrieve sequences.\n";
 		return;
 	}
+	my $delimiter = $self->{'cgi'}->param('delimiter') ?  $self->{'cgi'}->param('delimiter') : '_';
 	while ( my ( $id, $sequence ) = $sql->fetchrow_array ) {
-		print ">$cleaned $id\n";
+		print ">$cleaned$delimiter$id\n";
 		my $cleaned_seq = BIGSdb::Utils::break_line( $sequence, 60 ) || '';
 		print "$cleaned_seq\n";
 	}
