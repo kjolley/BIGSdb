@@ -176,15 +176,15 @@ sub _run_profile_query {
 	my $tempqry;
 	@list = uniq @list;
 	foreach my $value (@list) {
-		next if $self->_format_value($field, $datatype, \$value) == INVALID_VALUE;
+		next if $self->_format_value( $field, $datatype, \$value ) == INVALID_VALUE;
 		if ($value) {
 			$tempqry .= " OR " if $tempqry;
 			if ( $fieldtype eq 'scheme_field' || $fieldtype eq 'locus' ) {
 				( my $cleaned = $field ) =~ s/'/_PRIME_/g;
 				$tempqry .=
 				  $datatype eq 'text'
-				  ? "upper($cleaned)=upper('$value')"
-				  : "$cleaned='$value'";
+				  ? "upper($cleaned)=upper(E'$value')"
+				  : "$cleaned=E'$value'";
 			}
 		}
 	}
@@ -269,10 +269,11 @@ sub _run_isolate_query {
 	} elsif ( $field =~ /^e_(.*)\|\|(.*)/ ) {
 		$extended_isolate_field = $1;
 		$field                  = $2;
+		$datatype               = 'text';
 		$fieldtype              = 'extended_isolate';
 	}
 	foreach my $value (@list) {
-		next if $self->_format_value($field, $datatype, \$value) == INVALID_VALUE;
+		next if $self->_format_value( $field, $datatype, \$value ) == INVALID_VALUE;
 		if ($value) {
 			$tempqry .= " OR " if $tempqry;
 			if ( $fieldtype eq 'isolate' ) {
@@ -290,34 +291,34 @@ sub _run_isolate_query {
 						next if $thisfield{'type'} eq 'int' && !BIGSdb::Utils::is_int($value);
 						$tempqry .= ' OR ' if !$first;
 						if ( $thisfield{'type'} eq 'int' ) {
-							$tempqry .= "$groupedfields[$x] = '$value'";
+							$tempqry .= "$groupedfields[$x] = E'$value'";
 						} else {
-							$tempqry .= "upper($groupedfields[$x]) = upper('$value')";
+							$tempqry .= "upper($groupedfields[$x]) = upper(E'$value')";
 						}
 						$first = 0;
 					}
 					$tempqry .= ')';
 				} elsif ( $field eq $self->{'system'}->{'labelfield'} ) {
 					$tempqry .=
-"(upper($self->{'system'}->{'labelfield'}) = upper('$value') OR $self->{'system'}->{'view'}.id IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper('$value')))";
+"(upper($self->{'system'}->{'labelfield'}) = upper('$value') OR $self->{'system'}->{'view'}.id IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper(E'$value')))";
 				} elsif ( $datatype eq 'text' ) {
-					$tempqry .= "upper($field) = upper('$value')";
+					$tempqry .= "upper($field) = upper(E'$value')";
 				} else {
-					$tempqry .= "$field = '$value'";
+					$tempqry .= "$field = E'$value'";
 				}
 			} elsif ( $fieldtype eq 'locus' ) {
 				$tempqry .=
 				  $datatype eq 'text'
-				  ? "(allele_designations.locus=E'$field' AND upper(allele_designations.allele_id) = upper('$value'))"
-				  : "(allele_designations.locus=E'$field' AND allele_designations.allele_id = '$value')";
+				  ? "(allele_designations.locus=E'$field' AND upper(allele_designations.allele_id) = upper(E'$value'))"
+				  : "(allele_designations.locus=E'$field' AND allele_designations.allele_id = E'$value')";
 			} elsif ( $fieldtype eq 'scheme_field' ) {
 				$tempqry .=
 				  $datatype eq 'text'
-				  ? "upper($field)=upper('$value')"
-				  : "$field='$value'";
+				  ? "upper($field)=upper(E'$value')"
+				  : "$field=E'$value'";
 			} elsif ( $fieldtype eq 'extended_isolate' ) {
 				$tempqry .=
-"$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) = upper('$value'))";
+"$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) = upper(E'$value'))";
 			}
 		}
 	}
@@ -352,7 +353,7 @@ sub _format_value {
 	$$value_ref =~ s/^\s*//;
 	$$value_ref =~ s/\s*$//;
 	$$value_ref =~ s/[\r\n]//g;
-	$$value_ref =~ s/'/\'/g;
+	$$value_ref =~ s/'/\\'/g;
 	return INVALID_VALUE
 	  if lc($data_type) =~ /^int/
 		  && !BIGSdb::Utils::is_int($$value_ref);
