@@ -130,7 +130,7 @@ sub get_attributes {
 		section     => 'analysis,postquery',
 		input       => 'query',
 		help        => 'tooltips',
-		requires    => 'offline_jobs',
+		requires    => 'offline_jobs,js_tree',
 		system_flag => 'CodonUsage',
 		order       => 13
 	);
