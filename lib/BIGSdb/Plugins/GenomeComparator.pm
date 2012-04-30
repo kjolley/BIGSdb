@@ -499,7 +499,7 @@ sub _generate_splits {
 			  . 'Distances between taxa are calculated as the number of loci with different allele sequences'
 		}
 	);
-	return if keys %$values > MAX_SPLITS_TAXA;
+	return if (keys %$values) > MAX_SPLITS_TAXA;
 	my $splits_img = "$job_id.png";
 	$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file", "$self->{'config'}->{'tmp_dir'}/$splits_img", 'PNG' );
 	if ( -e "$self->{'config'}->{'tmp_dir'}/$splits_img" ) {
@@ -562,7 +562,7 @@ sub _make_nexus_file {
 			eval { $sql->execute($_) };
 			$logger->error($@) if $@;
 			my ($name) = $sql->fetchrow_array;
-			$name =~ tr/ /_/;
+			$name =~ tr/[\(\) ]/_/;
 			$labels{$_} = "$_|$name";
 		}
 	}
@@ -896,7 +896,7 @@ sub _run_comparison {
 		$$html_buffer_ref .= "</tr>\n";
 		$$file_buffer_ref .= "\n";
 		if ( !$by_reference ) {
-			$all_exact = 0 if ( uniq values %seqs ) > 1;
+			$all_exact = 0 if ( uniq (values %seqs // ()) ) > 1;
 		}
 		if ($all_exact) {
 			$exacts->{$locus_name}->{'length'} = length $$seq_ref if $by_reference;
