@@ -127,9 +127,6 @@ sub _go {
 sub run_script {
 
 	#override in subclass
-	my ($self) = @_;
-	$self->{'logger'}->fatal("run_script should be overridden in your subclass.");
-	return;
 }
 
 sub get_isolates_with_linked_seqs {
