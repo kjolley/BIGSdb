@@ -43,16 +43,21 @@ sub print_content {
 	} else {
 		$self->_print_interface;
 	}
+	return;
 }
 
 sub _print_interface {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	print
-"<div class=\"box\" id=\"queryform\"><p>This page allows you to upload sequence data for a specified isolate record in FASTA format.</p>\n";
-	print "<p>If an isolate id is chosen, then all sequences will be associated with that isolate.  
-	Alternatively, the isolate id, or any other isolate table field that uniquely defines the isolate, 
-	can be named in the identifier rows of the FASTA file.  This allows data for multiple isolates to be uploaded.</p>";
+	print <<"HTML";
+<div class="box" id="queryform"><p>This page allows you to upload sequence data for a specified isolate record in FASTA format.</p>
+<p>If an isolate id is chosen, then all sequences will be associated with that isolate. Alternatively, the isolate id, or any other 
+isolate table field that uniquely defines the isolate, can be named in the identifier rows of the FASTA file.  This allows data 
+for multiple isolates to be uploaded.</p>
+<p><em>Please note that you can reach this page for a specific isolate by 
+<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateQuery">querying isolates</a> 
+and then clicking 'Upload' within the isolate table.</em></p>
+HTML
 	print $q->start_form( -onMouseMove => 'enable_identifier_field()' );
 	my $qry = "select id,user_name,first_name,surname from users WHERE id>0 order by surname";
 	my $sql = $self->{'db'}->prepare($qry);
@@ -136,6 +141,7 @@ sub _print_interface {
 	print $q->end_form;
 	print "<p><a href=\"" . $q->script_name . "/?db=$self->{'instance'}\">Back</a></p>\n";
 	print "</div>\n";
+	return;
 }
 
 sub _check_data {
@@ -339,6 +345,7 @@ sub _check_data {
 		}
 		print "</td></tr></table>\n</div>\n";
 	}
+	return;
 }
 
 sub _upload {
