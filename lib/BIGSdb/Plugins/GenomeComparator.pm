@@ -896,7 +896,7 @@ sub _run_comparison {
 		$$html_buffer_ref .= "</tr>\n";
 		$$file_buffer_ref .= "\n";
 		if ( !$by_reference ) {
-			$all_exact = 0 if ( uniq (values %seqs // ()) ) > 1;
+			$all_exact = 0 if ( uniq values %seqs ) > 1;
 		}
 		if ($all_exact) {
 			$exacts->{$locus_name}->{'length'} = length $$seq_ref if $by_reference;
