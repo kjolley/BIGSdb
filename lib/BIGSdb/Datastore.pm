@@ -108,7 +108,7 @@ sub get_permissions {
 
 sub get_composite_value {
 	my ( $self, $isolate_id, $composite_field, $isolate_fields_hashref ) = @_;
-	my $value;
+	my $value = '';
 	if ( !$self->{'sql'}->{'composite_field_values'} ) {
 		$self->{'sql'}->{'composite_field_values'} =
 		  $self->{'db'}
