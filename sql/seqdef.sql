@@ -28,8 +28,6 @@ set_user_passwords boolean,
 set_user_permissions boolean,
 modify_loci boolean,
 modify_schemes boolean,
-modify_sequences boolean,
-modify_profiles boolean,
 PRIMARY KEY (user_id),
 CONSTRAINT up_user_id FOREIGN KEY (user_id) REFERENCES users
 ON DELETE CASCADE
