@@ -85,14 +85,23 @@ sub write_embl {
 				default { $frame = 0 };
 			}
 			$allele_sequence->{'start_pos'} = 1 if $allele_sequence->{'start_pos'} < 1;
+			my ($product, $desc);
+			if ($locus_info->{'dbase_name'} && ($locus_info->{'description_url'} // '') =~ /bigsdb/){
+				my $locus_desc = $self->{'datastore'}->get_locus( $allele_sequence->{'locus'})->get_description;
+				$product = $locus_desc->{'product'};
+				$desc = $locus_desc->{'full_name'};
+				$desc .= ' - ' if $desc && $locus_desc->{'description'};
+				$desc .= $locus_desc->{'description'} // '';
+			}
 			$allele_sequence->{'locus'} = $allele_sequence->{'locus'} . " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
+
 			my $feature = Bio::SeqFeature::Generic->new(
 				-start       => $allele_sequence->{'start_pos'},
 				-end         => $allele_sequence->{'end_pos'},
 				-primary_tag => 'CDS',
 				-strand      => ( $allele_sequence->{'reverse'} ? -1 : 1 ),
 				-frame       => $frame,
-				-tag         => { gene => $allele_sequence->{'locus'}, product => $locus_info->{'description'} }
+				-tag         => { gene => $allele_sequence->{'locus'}, product => $product, note => $desc }
 			);
 			$seq_object->add_SeqFeature($feature);
 		}
