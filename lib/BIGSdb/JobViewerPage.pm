@@ -34,7 +34,7 @@ sub initiate {
 	my $complete = $job->{'percent_complete'};
 	my $elapsed = $job->{'elapsed'} // 0;
 	
-	if ($job->{'status'}){
+	if ($job->{'status'} eq 'started'){
 		if ($complete > 0){
 			$self->{'refresh'} = (int ($elapsed/$complete) || 1) * 5;		
 		} elsif ($elapsed > 60) {
