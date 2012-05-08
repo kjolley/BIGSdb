@@ -1064,6 +1064,7 @@ sub _simulate_PCR {
 
 sub _simulate_hybridization {
 	my ( $self, $fasta_file, $locus ) = @_;
+	$logger->error("here");
 	my $q      = $self->{'cgi'};
 	my $probes = $self->{'datastore'}->run_list_query_hashref(
 "SELECT probes.id,probes.sequence,probe_locus.* FROM probes LEFT JOIN probe_locus ON probes.id = probe_locus.probe_id WHERE locus=?",
@@ -1116,7 +1117,7 @@ sub _simulate_hybridization {
 			$match->{'mismatches'} = $record[4];
 			next if $match->{'mismatches'} > $probe_info{ $match->{'probe_id'} }->{'max_mismatch'};
 			$match->{'gaps'} = $record[5];
-			next if $match->{'gaps'} > $probe_info{ $match->{'probe_id'} }->{'gaps'};
+			next if $match->{'gaps'} > $probe_info{ $match->{'probe_id'} }->{'max_gaps'};
 
 			if ( $record[8] < $record[9] ) {
 				$match->{'start'} = $record[8];
