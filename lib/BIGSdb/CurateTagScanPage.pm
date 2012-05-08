@@ -1064,7 +1064,6 @@ sub _simulate_PCR {
 
 sub _simulate_hybridization {
 	my ( $self, $fasta_file, $locus ) = @_;
-	$logger->error("here");
 	my $q      = $self->{'cgi'};
 	my $probes = $self->{'datastore'}->run_list_query_hashref(
 "SELECT probes.id,probes.sequence,probe_locus.* FROM probes LEFT JOIN probe_locus ON probes.id = probe_locus.probe_id WHERE locus=?",
