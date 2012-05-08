@@ -185,8 +185,8 @@ sub _read_code {
 	my $line_number;
 	while ( my $line = <$fh> ) {
 		$line_number++;
-		if ( $line =~ /^([\w_\-,;\$\@\%#'"\/\(\){}=<>\s]*)$/ && $line !~ /system/ && $line !~ /{\s*'db'\s*}/ )
-		{    #prevent system calls and direct access to db.
+		if ( $line =~ /^([\w_\-,;:\$\@\%#'"\/\(\){}=<>\s]*)$/ && $line !~ /system/ && $line !~ /[\W\s]+db[\W\s]+/ )
+		{ #prevent system calls (inc. backticks) and direct access to db (need to stop $self->{'db'}, $self->{"db"}, $self->{qw ( db )} etc.)
 			$line = $1;
 			foreach my $command (qw(scan_locus scan_scheme scan_group append_html get_scheme_html)) {
 				$line =~ s/$command/\$self->_$command/g;
@@ -326,14 +326,14 @@ sub _get_scheme_html {
 		$buffer .= "<th>@$loci</th>" if @$loci && $options->{'loci'};
 		$buffer .= "<th>@$fields</th>" if @$fields && $options->{'fields'};
 		$buffer .= "</tr>\n<tr class=\"td1\">";
-		if ($options->{'loci'}){
-			foreach my $locus (@$loci){
+		if ( $options->{'loci'} ) {
+			foreach my $locus (@$loci) {
 				my $value = $self->{'results'}->{'locus'}->{$locus} // '-';
 				$buffer .= "<td>$value</td>";
 			}
 		}
-		if ($options->{'fields'}){
-			foreach my $field (@$fields){
+		if ( $options->{'fields'} ) {
+			foreach my $field (@$fields) {
 				my $value = $self->{'results'}->{'scheme'}->{$scheme_id}->{$field} // '-';
 				$buffer .= "<td>$value</td>";
 			}
@@ -341,14 +341,14 @@ sub _get_scheme_html {
 		$buffer .= "</tr></table>\n";
 	} else {
 		$buffer .= "<ul>" if $options->{'loci'} || $options->{'fields'};
-		if (@$loci && $options->{'loci'}){			
-			foreach my $locus (@$loci){
+		if ( @$loci && $options->{'loci'} ) {
+			foreach my $locus (@$loci) {
 				my $value = $self->{'results'}->{'locus'}->{$locus} // '-';
 				$buffer .= "<li>$locus: $value</li>\n";
 			}
 		}
-		if (@$fields && $options->{'fields'}){	
-			foreach my $field (@$fields){
+		if ( @$fields && $options->{'fields'} ) {
+			foreach my $field (@$fields) {
 				my $value = $self->{'results'}->{'scheme'}->{$scheme_id}->{$field} // '-';
 				$buffer .= "<li>$field: $value</li>";
 			}
