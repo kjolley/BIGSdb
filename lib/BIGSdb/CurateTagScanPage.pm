@@ -1116,7 +1116,7 @@ sub _simulate_hybridization {
 			$match->{'mismatches'} = $record[4];
 			next if $match->{'mismatches'} > $probe_info{ $match->{'probe_id'} }->{'max_mismatch'};
 			$match->{'gaps'} = $record[5];
-			next if $match->{'gaps'} > $probe_info{ $match->{'probe_id'} }->{'gaps'};
+			next if $match->{'gaps'} > $probe_info{ $match->{'probe_id'} }->{'max_gaps'};
 
 			if ( $record[8] < $record[9] ) {
 				$match->{'start'} = $record[8];

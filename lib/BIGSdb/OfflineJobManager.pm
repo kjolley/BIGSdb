@@ -187,7 +187,7 @@ sub update_job_status {
 
 sub get_job {
 	my ( $self, $job_id ) = @_;
-	my $sql = $self->{'db'}->prepare("SELECT * FROM jobs WHERE id=?");
+	my $sql = $self->{'db'}->prepare("SELECT *,extract(epoch FROM now() - start_time) AS elapsed FROM jobs WHERE id=?");
 	eval { $sql->execute($job_id); };
 	if ($@) {
 		$logger->error($@);

@@ -19,6 +19,7 @@
 package BIGSdb::JobViewerPage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -30,8 +31,31 @@ sub initiate {
 	return if !defined $id;
 	my ( $job, undef, undef ) = $self->{'jobManager'}->get_job($id);
 	return if $job->{'status'} && ($job->{'status'} eq 'finished' || $job->{'status'} eq 'failed');
-	$self->{'refresh'} = 60;
+	my $complete = $job->{'percent_complete'};
+	my $elapsed = $job->{'elapsed'} // 0;
+	
+	if ($job->{'status'}){
+		if ($complete > 0){
+			$self->{'refresh'} = (int ($elapsed/$complete) || 1) * 5;		
+		} elsif ($elapsed > 60) {
+			$self->{'refresh'} = 60;
+		} else {
+			$self->{'refresh'} = 5; #update page frequently for the first minute
+		}		
+	} else {
+		$self->{'refresh'} = 5; #not started
+	}
 	return;
+}
+
+sub get_javascript {
+	my ($self)   = @_;
+	my $buffer   = << "END";
+\$(function () {
+	\$("html, body").animate({ scrollTop: \$(document).height()-\$(window).height() });	
+});
+END
+	return $buffer;
 }
 
 sub print_content {

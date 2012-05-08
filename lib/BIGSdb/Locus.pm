@@ -160,4 +160,20 @@ sub get_flags {
 	}
 	return \@flags;
 }
+
+sub get_description {
+	my ($self) = @_;
+		if ( !$self->{'db'} ) {
+		$logger->info("No connection to locus $self->{'id'} database");
+		return \%;
+	}
+	my $sql = $self->{'db'}->prepare("SELECT * FROM locus_descriptions WHERE locus=?");
+	eval { $sql->execute($self->{'id'})};
+	if ($@){
+		$logger->info("Can't access locus_description table for locus $self->{'id'}") if $@;
+		#Not all locus databases have to have a locus_descriptions table.
+		return \%;
+	}
+	return $sql->fetchrow_hashref;
+}
 1;

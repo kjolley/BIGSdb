@@ -29,6 +29,8 @@ use constant TAG_USERNAME => 'autotagger';
 
 sub run_script {
 	my ($self) = @_;
+	$self->{'cgi'}->param('pcr_filter', 1);
+	$self->{'cgi'}->param('probe_filter', 1);
 	die "No connection to database (check logs).\n" if !defined $self->{'db'} || $self->{'system'}->{'dbtype'} ne 'isolates';
 	my $tag_user_id = TAG_USER;
 	$self->{'username'} = TAG_USERNAME;

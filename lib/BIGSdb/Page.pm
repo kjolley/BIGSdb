@@ -30,6 +30,7 @@ use constant SEQ_METHODS => ( '454', 'Illumina', 'Ion Torrent', 'PacBio', 'Sange
 use constant SEQ_FLAGS => (
 	'ambiguous read',
 	'apparent misassembly',
+	'atypical',
 	'downstream fusion',
 	'frameshift',
 	'internal stop codon',
@@ -38,8 +39,16 @@ use constant SEQ_FLAGS => (
 	'truncated',
 	'upstream fusion'
 );
-use constant ALLELE_FLAGS =>
-  ( 'downstream fusion', 'frameshift', 'internal stop codon', 'no start codon', 'phase variable: off', 'truncated', 'upstream fusion' );
+use constant ALLELE_FLAGS => (
+	'atypical',
+	'downstream fusion',
+	'frameshift',
+	'internal stop codon',
+	'no start codon',
+	'phase variable: off',
+	'truncated',
+	'upstream fusion'
+);
 use constant DATABANKS      => qw(Genbank);
 use constant FLANKING       => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
 use constant LOCUS_PATTERNS => ( qr/^l_(.+)/, qr/^la_(.+)\|\|/, qr/^cn_(.+)/ );
@@ -1078,7 +1087,7 @@ sub can_modify_table {
 		if ( !$locus ) {
 			return 1;
 		} else {
-			return $self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $self->get_curator_id )
+			return $self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $self->get_curator_id );
 		}
 	} elsif ( $table eq 'allele_sequences' && $self->{'permissions'}->{'tag_sequences'} ) {
 		return 1;
@@ -1474,6 +1483,7 @@ sub get_query_from_file {
 }
 
 sub get_all_foreign_key_fields_and_labels {
+
 	#returns arrayref of fields needed to order label and a hashref of labels
 	my ( $self, $attribute_hashref ) = @_;
 	my @fields;
@@ -1495,8 +1505,8 @@ sub get_all_foreign_key_fields_and_labels {
 			$temp =~ s/$_/$data->{$_}/;
 		}
 		$temp =~ s/[\|\$]//g;
-		$desc{$data->{'id'}} = $temp;
+		$desc{ $data->{'id'} } = $temp;
 	}
-	return (\@fields, \%desc);
+	return ( \@fields, \%desc );
 }
 1;
