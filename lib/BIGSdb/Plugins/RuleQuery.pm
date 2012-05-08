@@ -143,12 +143,9 @@ sub _print_interface {
 sub _select_ruleset {
 	my ( $self, $rulesets ) = @_;
 	my $q = $self->{'cgi'};
-	use autouse 'Data::Dumper' => qw(Dumper);
-	print "<pre>" . Dumper($rulesets) . "</pre>";
 	print "<fieldset><legend>Please select ruleset</legend>";
 	my ( @ids, %labels );
 	foreach my $ruleset_id ( sort { $a cmp $b } keys %$rulesets ) {
-		$logger->error($ruleset_id);
 		my $ruleset = $rulesets->{$ruleset_id};
 		push @ids, $ruleset_id;
 		$labels{$ruleset_id} = $ruleset->{'description'};
@@ -163,9 +160,10 @@ sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	$self->remove_all_identifier_lines( \$params->{'sequence'} );
 	$self->{'sequence'} = \$params->{'sequence'};
+	$self->{'job_id'}   = $job_id;
 	my $code_ref = $self->_read_code( $params->{'rule_path'} );
 	if ( ref $code_ref eq 'SCALAR' ) {
-		eval "$$code_ref"; ## no critic (ProhibitStringyEval)
+		eval "$$code_ref";    ## no critic (ProhibitStringyEval)
 	}
 	if ($@) {
 		$logger->error($@);
@@ -187,11 +185,12 @@ sub _read_code {
 	my $line_number;
 	while ( my $line = <$fh> ) {
 		$line_number++;
-		if ( $line =~ /^([\w_\-;#'\(\)\s]*)$/ && $line !~ /system/ ) {
+		if ( $line =~ /^([\w_\-,;\$\@\%#'"\/\(\){}=<>\s]*)$/ && $line !~ /system/ && $line !~ /{\s*'db'\s*}/ )
+		{    #prevent system calls and direct access to db.
 			$line = $1;
-			$line =~ s/scan_locus/\$self->_scan_locus/g;
-			$line =~ s/scan_scheme/\$self->_scan_scheme/g;
-			$line =~ s/scan_group/\$self->_scan_group/g;
+			foreach my $command (qw(scan_locus scan_scheme scan_group append_html get_scheme_html)) {
+				$line =~ s/$command/\$self->_$command/g;
+			}
 			$code .= $line;
 		} else {
 			$logger->error("Line $line_number: \"$line\" rejected.  Script terminated.");
@@ -262,12 +261,13 @@ sub _scan_scheme {
 		push @placeholders, '?' foreach (@$scheme_loci);
 		if ( @$scheme_fields && $scheme_loci ) {
 			local $" = ',';
-			my $scheme_fields =
+			my $field_values =
 			  $self->{'datastore'}
 			  ->run_simple_query_hashref( "SELECT @$scheme_fields FROM scheme_$scheme_id WHERE (@$scheme_loci) = (@placeholders)",
 				@profiles );
-			foreach my $field ( keys %$scheme_fields ) {
-				$self->{'results'}->{'scheme'}->{$scheme_id}->{$field} = $scheme_fields->{$field};
+			foreach my $field (@$scheme_fields) {
+				$self->{'results'}->{'scheme'}->{$scheme_id}->{$field} = $field_values->{ lc($field) }
+				  if defined $field_values->{ lc($field) };
 			}
 		}
 	}
@@ -305,5 +305,56 @@ sub _get_child_groups {
 	}
 	@child_groups = uniq @child_groups;
 	return \@child_groups;
+}
+
+sub _append_html {
+	my ( $self, $text ) = @_;
+	$self->{'html'} .= "$text\n";
+	$self->{'jobManager'}->update_job_status( $self->{'job_id'}, { 'message_html' => $self->{'html'} } );
+	return;
+}
+
+sub _get_scheme_html {
+	my ( $self, $scheme_id, $options ) = @_;
+	$options = { table => 1, fields => 1, loci => 1 } if ref $options ne 'HASH';
+	my $fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+	my $loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $buffer = '';
+	if ( $options->{'table'} ) {
+		local $" = "</th><th>";
+		$buffer .= "<table><tr>";
+		$buffer .= "<th>@$loci</th>" if @$loci && $options->{'loci'};
+		$buffer .= "<th>@$fields</th>" if @$fields && $options->{'fields'};
+		$buffer .= "</tr>\n<tr class=\"td1\">";
+		if ($options->{'loci'}){
+			foreach my $locus (@$loci){
+				my $value = $self->{'results'}->{'locus'}->{$locus} // '-';
+				$buffer .= "<td>$value</td>";
+			}
+		}
+		if ($options->{'fields'}){
+			foreach my $field (@$fields){
+				my $value = $self->{'results'}->{'scheme'}->{$scheme_id}->{$field} // '-';
+				$buffer .= "<td>$value</td>";
+			}
+		}
+		$buffer .= "</tr></table>\n";
+	} else {
+		$buffer .= "<ul>" if $options->{'loci'} || $options->{'fields'};
+		if (@$loci && $options->{'loci'}){			
+			foreach my $locus (@$loci){
+				my $value = $self->{'results'}->{'locus'}->{$locus} // '-';
+				$buffer .= "<li>$locus: $value</li>\n";
+			}
+		}
+		if (@$fields && $options->{'fields'}){	
+			foreach my $field (@$fields){
+				my $value = $self->{'results'}->{'scheme'}->{$scheme_id}->{$field} // '-';
+				$buffer .= "<li>$field: $value</li>";
+			}
+		}
+		$buffer .= "</ul>" if $options->{'loci'} || $options->{'fields'};
+	}
+	return $buffer;
 }
 1;
