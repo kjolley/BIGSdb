@@ -76,7 +76,7 @@ sub run {
 	my $ruleset_id = ( $q->param('ruleset') // '' ) ne '' ? $q->param('ruleset') : undef;
 	if ( defined $ruleset_id ) {
 		if ( !defined $rulesets->{$ruleset_id} ) {
-			print "<div class=\"box\" id=\"statusbad\">Ruleset is not defined.</p></div>\n";
+			print "<div class=\"box\" id=\"statusbad\"><p>Ruleset is not defined.</p></div>\n";
 			return;
 		}
 	}
