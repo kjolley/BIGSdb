@@ -119,7 +119,11 @@ HTML
 	}
 	print "</div><div class=\"box\" id=\"resultsfooter\">";
 	print "<p>This page will reload in $self->{'refresh'} seconds. You can refresh it any time, or bookmark it and close your browser if you wish.</p>" if $self->{'refresh'};
-	print "<p>Please note that job results will not be stored on the server indefinitely.</p></div>";
+	if ($self->{'config'}->{'results_deleted_days'} && BIGSdb::Utils::is_int($self->{'config'}->{'results_deleted_days'})){
+		print "<p>Please note that job results will remain on the server for $self->{'config'}->{'results_deleted_days'} days.</p></div>";
+	} else {
+		print "<p>Please note that job results will not be stored on the server indefinitely.</p></div>";
+	}
 	return;
 }
 
