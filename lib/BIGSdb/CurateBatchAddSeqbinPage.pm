@@ -19,7 +19,7 @@
 package BIGSdb::CurateBatchAddSeqbinPage;
 use strict;
 use warnings;
-use parent qw(BIGSdb::CurateAddPage);
+use parent qw(BIGSdb::CurateAddPage BIGSdb::SeqbinPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use Error qw(:try);
@@ -235,21 +235,29 @@ sub _check_data {
 			my $min = 0;
 			my $max = 0;
 			my ( $mean, $total );
-
+			my @lengths;
 			foreach ( values %$seq_ref ) {
 				my $length = length $_;
 				next if $length < $min_size;
 				$min = $length if !$min || $length < $min;
 				$max = $length if $length > $max;
 				$total += $length;
+				push @lengths, $length;
 				$num++;
 			}
+			@lengths = sort {$b <=> $a} @lengths;
 			$mean = int $total / $num if $num;
-			print "<ul><li>Number of contigs: $num</li>\n";
-			print "<li>Minimum length: $min</li>\n";
-			print "<li>Maximum length: $max</li>\n";
-			print "<li>Total length: $total</li>\n";
-			print "<li>Mean length: $mean</li></ul>\n";
+			my $n_stats = $self->get_N_stats( $total, \@lengths );
+print << "STATS";
+<ul><li>Number of contigs: $num</li>
+<li>Minimum length: $min</li>
+<li>Maximum length: $max</li>
+<li>Total length: $total</li>
+<li>Mean length: $mean</li>
+<li>N50: $n_stats->{'N50'}</li>
+<li>N90: $n_stats->{'N90'}</li>
+<li>N95: $n_stats->{'N95'}</li></ul>
+STATS
 			print $q->start_form;
 			print $q->submit( -name => 'Upload', -class => 'submit' );
 			my $filename = $self->make_temp_file(@checked_buffer);

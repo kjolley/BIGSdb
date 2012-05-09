@@ -154,7 +154,7 @@ HTML
 		$logger->error($@) if $@;
 		my ($tagged) = $sql_tagged->fetchrow_array;
 		my $percent_tagged = BIGSdb::Utils::decimal_place( 100 * ( $tagged / @$loci ), 1 );
-		my $n_stats = $self->_get_N_stats( $sum, \@single_isolate_lengths );
+		my $n_stats = $self->get_N_stats( $sum, \@single_isolate_lengths );
 		print "<tr class=\"td$td\"><td>$_</td>";
 		print "<td>$isolate</td><td>$contigs</td><td>$sum</td><td>$min</td><td>$max</td><td>$mean</td>";
 		print defined $stddev ? "<td>$stddev</td>" : '<td />';
