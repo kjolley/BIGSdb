@@ -801,32 +801,29 @@ sub _get_client_dbase_fields {
 	my $values;
 	my %db_desc;
 	while ( my ( $client_dbase_id, $field ) = $sql->fetchrow_array ) {
-		my $client_db      = $self->{'datastore'}->get_client_db($client_dbase_id)->get_db;
+		my $client         = $self->{'datastore'}->get_client_db($client_dbase_id);
 		my $client_db_desc = $self->{'datastore'}->get_client_db_info($client_dbase_id)->{'name'};
-		my $client_sql     = $client_db->prepare(
-"SELECT $field FROM isolates LEFT JOIN allele_designations ON isolates.id = allele_designations.isolate_id WHERE allele_designations.locus=? AND allele_designations.allele_id=?"
-		);
-		foreach (@$allele_ids_refs) {
-			eval { $client_sql->execute( $locus, $_ ) };
-			if ($@) {
-				$logger->error(
-"Can't extract isolate field '$field' FROM client database, make sure the client_dbase_loci_fields table is correctly configured.  $@"
-				);
-			} else {
-				while ( my ($value) = $client_sql->fetchrow_array ) {
-					next if !defined $value || $value eq '';
-					if ( any { $field eq $_ } qw (species genus) ) {
-						$value = "<i>$value</i>";
-					}
-					push @{ $values->{$field} }, $value;
-					$db_desc{$client_db_desc} = 1;
-				}
+		foreach my $allele_id (@$allele_ids_refs) {
+			my $proceed = 1;
+			my $field_data;
+			try {
+				$field_data = $client->get_fields( $field, $locus, $allele_id );
 			}
-		}
-		if ( ref $values->{$field} eq 'ARRAY' && @{ $values->{$field} } ) {
-			my @list = @{ $values->{$field} };
-			@list = uniq sort @list;
-			@{ $values->{$field} } = @list;
+			catch BIGSdb::DatabaseConfigurationException with {
+				$logger->error( "Can't extract isolate field '$field' FROM client database, make sure the client_dbase_loci_fields "
+					  . "table is correctly configured.  $@" );
+				$proceed = 0;
+			};
+			return if !$proceed;
+			foreach my $data (@$field_data) {
+				my $value = $data->{$field};
+				if ( any { $field eq $_ } qw (species genus) ) {
+					$value = "<i>$value</i>";
+				}
+				$value .= " [n=$data->{'frequency'}]";
+				push @{ $values->{$field} }, $value;
+				$db_desc{$client_db_desc} = 1;
+			}
 		}
 	}
 	my $buffer;
