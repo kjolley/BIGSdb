@@ -673,11 +673,11 @@ sub _copy_locus_config {
 	return if !defined $locus;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	foreach my $field ( keys %$locus_info ) {
-		next if any { $field eq $_ } qw (id reference_sequence genome_position length common_name);
+		next if any { $field eq $_ } qw (id reference_sequence genome_position length orf common_name);
 		my $value = $locus_info->{$field} || '';
 		$value =~ s/$locus/LOCUS/
 		  if any { $field eq $_ } qw(dbase_table dbase_id_field dbase_id2_field dbase_id2_value description_url url);
-		if ( any { $field eq $_ } qw (main_display query_field analysis) ) {
+		if ( any { $field eq $_ } qw (length_varies coding_sequence main_display query_field analysis flag_table) ) {
 			$value = $locus_info->{$field} ? 'true' : 'false';
 		}
 		$newdata_ref->{$field} = $value;
