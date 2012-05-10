@@ -154,6 +154,7 @@ sub _initiate {
 	$self->{'system'}->{'privacy'}     ||= 'yes';
 	$self->{'system'}->{'privacy'} = $self->{'system'}->{'privacy'} eq 'no' ? 0 : 1;
 	$self->{'system'}->{'locus_superscript_prefix'} ||= 'no';
+	$self->{'system'}->{'dbase_config_dir'} = $dbase_config_dir;
 
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$self->{'system'}->{'view'}       ||= 'isolates';

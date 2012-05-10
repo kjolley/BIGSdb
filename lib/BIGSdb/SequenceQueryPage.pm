@@ -122,7 +122,7 @@ sub _run_query {
 	my ( $self, $sequence ) = @_;
 	my $q    = $self->{'cgi'};
 	my $page = $q->param('page');
-	$self->_remove_all_identifier_lines( \$sequence ) if $page eq 'sequenceQuery';    #Allows BLAST of multiple contigs
+	$self->remove_all_identifier_lines( \$sequence ) if $page eq 'sequenceQuery';    #Allows BLAST of multiple contigs
 	if ( $sequence !~ /^>/ ) {
 
 		#add identifier line if one missing since newer versions of BioPerl check
@@ -156,7 +156,7 @@ sub _run_query {
 		my $qry_type = BIGSdb::Utils::sequence_type($seq);
 		( my $blast_file, $job ) = $self->run_blast(
 			{ 'locus' => $locus, 'seq_ref' => \$seq, 'qry_type' => $qry_type, 'num_results' => 50000, 'cache' => 1, 'job' => $job } );
-		my $exact_matches = $self->_parse_blast_exact( $locus, $blast_file );
+		my $exact_matches = $self->parse_blast_exact( $locus, $blast_file );
 		my $data_ref = {
 			locus                   => $locus,
 			locus_info              => $locus_info,
@@ -187,7 +187,7 @@ sub _run_query {
 					return;
 				}
 			}
-			my $partial_match = $self->_parse_blast_partial($blast_file);
+			my $partial_match = $self->parse_blast_partial($blast_file);
 			if ( ref $partial_match ne 'HASH' || !defined $partial_match->{'allele'} ) {
 				if ( $page eq 'sequenceQuery' ) {
 					print "<div class=\"box\" id=\"statusbad\"><p>No matches found.</p></div>\n";
@@ -640,7 +640,7 @@ sub _output_batch_query_nonexact {
 	return $batch_buffer;
 }
 
-sub _remove_all_identifier_lines {
+sub remove_all_identifier_lines {
 	my ( $self, $seq_ref ) = @_;
 	$$seq_ref =~ s/>.+\n//g;
 	return;
@@ -665,7 +665,7 @@ sub _format_difference {
 	return $buffer;
 }
 
-sub _parse_blast_exact {
+sub parse_blast_exact {
 	my ( $self, $locus, $blast_file ) = @_;
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 	return if !-e $full_path;
@@ -711,7 +711,7 @@ sub _parse_blast_exact {
 	return \@matches;
 }
 
-sub _parse_blast_partial {
+sub parse_blast_partial {
 
 	#return best match
 	my ( $self, $blast_file ) = @_;
@@ -801,32 +801,29 @@ sub _get_client_dbase_fields {
 	my $values;
 	my %db_desc;
 	while ( my ( $client_dbase_id, $field ) = $sql->fetchrow_array ) {
-		my $client_db      = $self->{'datastore'}->get_client_db($client_dbase_id)->get_db;
+		my $client         = $self->{'datastore'}->get_client_db($client_dbase_id);
 		my $client_db_desc = $self->{'datastore'}->get_client_db_info($client_dbase_id)->{'name'};
-		my $client_sql     = $client_db->prepare(
-"SELECT $field FROM isolates LEFT JOIN allele_designations ON isolates.id = allele_designations.isolate_id WHERE allele_designations.locus=? AND allele_designations.allele_id=?"
-		);
-		foreach (@$allele_ids_refs) {
-			eval { $client_sql->execute( $locus, $_ ) };
-			if ($@) {
-				$logger->error(
-"Can't extract isolate field '$field' FROM client database, make sure the client_dbase_loci_fields table is correctly configured.  $@"
-				);
-			} else {
-				while ( my ($value) = $client_sql->fetchrow_array ) {
-					next if !defined $value || $value eq '';
-					if ( any { $field eq $_ } qw (species genus) ) {
-						$value = "<i>$value</i>";
-					}
-					push @{ $values->{$field} }, $value;
-					$db_desc{$client_db_desc} = 1;
-				}
+		foreach my $allele_id (@$allele_ids_refs) {
+			my $proceed = 1;
+			my $field_data;
+			try {
+				$field_data = $client->get_fields( $field, $locus, $allele_id );
 			}
-		}
-		if ( ref $values->{$field} eq 'ARRAY' && @{ $values->{$field} } ) {
-			my @list = @{ $values->{$field} };
-			@list = uniq sort @list;
-			@{ $values->{$field} } = @list;
+			catch BIGSdb::DatabaseConfigurationException with {
+				$logger->error( "Can't extract isolate field '$field' FROM client database, make sure the client_dbase_loci_fields "
+					  . "table is correctly configured.  $@" );
+				$proceed = 0;
+			};
+			return if !$proceed;
+			foreach my $data (@$field_data) {
+				my $value = $data->{$field};
+				if ( any { $field eq $_ } qw (species genus) ) {
+					$value = "<i>$value</i>";
+				}
+				$value .= " [n=$data->{'frequency'}]";
+				push @{ $values->{$field} }, $value;
+				$db_desc{$client_db_desc} = 1;
+			}
 		}
 	}
 	my $buffer;

@@ -16,14 +16,13 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
-
 package BIGSdb::ClientDB;
 use strict;
 use warnings;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.ClientDB');
 
-sub new {
+sub new {    ## no critic (RequireArgUnpacking)
 	my $class = shift;
 	my $self  = {@_};
 	$self->{'sql'} = {};
@@ -36,41 +35,42 @@ sub DESTROY {
 	my ($self) = @_;
 	foreach ( keys %{ $self->{'sql'} } ) {
 		if ( $self->{'sql'}->{$_} ) {
-			$self->{'sql'}->{$_}->finish();
-			$logger->debug( "ClientDB#$self->{'id'} statement handle '$_' finished." );
+			$self->{'sql'}->{$_}->finish;
+			$logger->debug("ClientDB#$self->{'id'} statement handle '$_' finished.");
 		}
 	}
 	$logger->info("ClientDB#$self->{'id'} destroyed.");
+	return;
 }
 
 sub count_isolates_with_allele {
-	my ($self, $locus, $allele_id) = @_;
+	my ( $self, $locus, $allele_id ) = @_;
 	if ( !$self->{'sql'}->{'isolate_allele_count'} ) {
-		$self->{'sql'}->{'isolate_allele_count'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM allele_designations WHERE locus=? AND allele_id=?");
+		$self->{'sql'}->{'isolate_allele_count'} =
+		  $self->{'db'}->prepare("SELECT COUNT(*) FROM allele_designations WHERE locus=? AND allele_id=?");
 		$logger->info("Statement handle 'isolate_allele_count' prepared.");
 	}
-	eval {	
-		$self->{'sql'}->{'isolate_allele_count'}->execute($locus,$allele_id);
-	};
+	eval { $self->{'sql'}->{'isolate_allele_count'}->execute( $locus, $allele_id ); };
 	$logger->error($@) if $@;
 	my ($count) = $self->{'sql'}->{'isolate_allele_count'}->fetchrow_array;
 	return $count;
 }
 
 sub count_matching_profiles {
-	my ($self, $alleles_hashref) = @_;
+	my ( $self, $alleles_hashref ) = @_;
 	my $locus_count = scalar keys %$alleles_hashref;
-	my $first = 1;
+	my $first       = 1;
 	my $temp;
-	foreach (keys %$alleles_hashref){
-		$temp.= ' OR ' if !$first;
+	foreach ( keys %$alleles_hashref ) {
+		$temp .= ' OR ' if !$first;
 		$temp .= "(locus='$_' AND allele_id='$alleles_hashref->{$_}')";
 		$first = 0;
 	}
-	my $qry = "SELECT COUNT(distinct isolate_id) FROM allele_designations WHERE isolate_id IN (SELECT isolate_id FROM allele_designations WHERE $temp GROUP BY isolate_id HAVING COUNT(isolate_id) = $locus_count)";
+	my $qry = "SELECT COUNT(distinct isolate_id) FROM allele_designations WHERE isolate_id IN (SELECT isolate_id "
+	. "FROM allele_designations WHERE $temp GROUP BY isolate_id HAVING COUNT(isolate_id) = $locus_count)";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
-	if ($@){
+	if ($@) {
 		$logger->error($@);
 		return 0;
 	}
@@ -78,11 +78,27 @@ sub count_matching_profiles {
 	return $count;
 }
 
+sub get_fields {
+	my ( $self, $field, $locus, $allele_id ) = @_;
+	if ( !$self->{'sql'}->{$field} ) {
+		$self->{'sql'}->{$field} =
+		  $self->{'db'}->prepare( "SELECT $field, count(*) AS frequency FROM isolates LEFT JOIN allele_designations ON isolates.id "
+			  . "= allele_designations.isolate_id WHERE allele_designations.locus=? AND allele_designations.allele_id=? AND $field IS "
+			  . "NOT NULL GROUP BY $field ORDER BY frequency desc" );
+	}
+	eval { $self->{'sql'}->{$field}->execute( $locus, $allele_id ) };
+	if ($@) {
+		throw BIGSdb::DatabaseConfigurationException($@);
+	}
+	my @data;
+	while ( my $hashref = $self->{'sql'}->{$field}->fetchrow_hashref ) {
+		push @data, $hashref;
+	}
+	return \@data;
+}
 
 sub get_db {
 	my ($self) = @_;
-	return $self->{'db'} if $self->{'db'};
+	return $self->{'db'};
 }
 1;
-
-

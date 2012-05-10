@@ -19,8 +19,8 @@
 package BIGSdb::OfflineJobManager;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::Application);
-use Carp;
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Job');
@@ -168,7 +168,7 @@ sub update_job_status {
 	}
 	#Exceptions in BioPerl appear to sometimes cause the connection to the jobs database to be broken
 	#No idea why - so reconnect if status is 'failed'. 
-	$self->_db_connect({reconnect => 1}) if $status_hash->{'status'} && $status_hash->{'status'} eq 'failed';
+	$self->_db_connect({reconnect => 1}) if ($status_hash->{'status'} // '') eq 'failed';
 	eval {
 		foreach ( keys %$status_hash )
 		{
@@ -187,7 +187,8 @@ sub update_job_status {
 
 sub get_job {
 	my ( $self, $job_id ) = @_;
-	my $sql = $self->{'db'}->prepare("SELECT *,extract(epoch FROM now() - start_time) AS elapsed FROM jobs WHERE id=?");
+	my $sql = $self->{'db'}->prepare("SELECT *,extract(epoch FROM now() - start_time) AS elapsed,extract(epoch FROM "
+	 . "stop_time - start_time) AS total_time FROM jobs WHERE id=?");
 	eval { $sql->execute($job_id); };
 	if ($@) {
 		$logger->error($@);
