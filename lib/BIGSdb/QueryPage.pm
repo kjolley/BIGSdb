@@ -1666,6 +1666,8 @@ sub check_format {
 			} elsif ( $data->{'text'} > MAX_INT ) {
 				$error = "$data->{'field'} is too big (largest allowed integer is " . MAX_INT . ').';
 			}
+		} elsif ( $data->{'type'} =~ /bool/ && !BIGSdb::Utils::is_bool($data->{'text'})){
+			$error = "$data->{'field'} is a boolean (true/false) field.";
 		} elsif ( $data->{'type'} eq 'float' && !BIGSdb::Utils::is_float( $data->{'text'} ) ) {
 			$error = "$data->{'field'} is a floating point number field.";
 		} elsif (

@@ -119,8 +119,10 @@ TOOLTIPS
 			print "</li>\n";
 		}
 	}
-	my $query_html_file = "$self->{'system'}->{'dbase_config_dir'}/$self->{'instance'}/contents/query.html";
-	$self->print_file($query_html_file) if -e $query_html_file;
+	if ($self->{'config'}->{'jobs_db'}){
+		my $query_html_file = "$self->{'system'}->{'dbase_config_dir'}/$self->{'instance'}/contents/job_query.html";
+		$self->print_file($query_html_file) if -e $query_html_file;
+	}
 	my $loci_defined = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT id FROM loci)")->[0];
 	if ($loci_defined) {
 		if ( $system->{'dbtype'} eq 'isolates' ) {
