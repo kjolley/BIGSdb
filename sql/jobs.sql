@@ -10,6 +10,7 @@ stop_time timestamp,
 module text NOT NULL,
 status text NOT NULL,
 percent_complete int,
+stage text,
 message_html text,
 priority int NOT NULL,
 PRIMARY KEY(id)

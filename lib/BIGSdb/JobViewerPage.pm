@@ -36,9 +36,13 @@ sub initiate {
 	
 	if ($job->{'status'} eq 'started'){
 		if ($complete > 0){
-			$self->{'refresh'} = (int ($elapsed/$complete) || 1) * 5;		
-		} elsif ($elapsed > 60) {
-			$self->{'refresh'} = 60;
+			$self->{'refresh'} = (int ($elapsed/$complete) || 1) * 5;	
+		} elsif ($elapsed > 300) {
+			$self->{'refresh'} = 60;	
+		} elsif ($elapsed > 120) {
+			$self->{'refresh'} = 20;
+		} elsif ($elapsed > 60){
+			$self->{'refresh'} = 10;
 		} else {
 			$self->{'refresh'} = 5; #update page frequently for the first minute
 		}		
@@ -89,10 +93,26 @@ sub print_content {
 <tr class="td1"><th style="text-align:right">Status: </th><td style="text-align:left">$job->{'status'}</td></tr>
 <tr class="td2"><th style="text-align:right">Start time: </th><td style="text-align:left">$start_time</td></tr>
 <tr class="td1"><th style="text-align:right">Progress: </th><td style="text-align:left">$job->{'percent_complete'}%</td></tr>
-<tr class="td2"><th style="text-align:right">Stop time: </th><td style="text-align:left">$stop_time</td></tr>
-</table>
-<h2>Output</h2>
 HTML
+	my $td = 2;
+	if ($job->{'stage'}){
+		print "<tr class=\"td$td\"><th style=\"text-align:right\">Stage: </th><td style=\"text-align:left\">$job->{'stage'}</td></tr>\n";
+		$td = $td == 1 ? 2 : 1;
+	}
+	if ($stop_time){
+		print "<tr class=\"td$td\"><th style=\"text-align:right\">Stop time: </th><td style=\"text-align:left\">$stop_time</td></tr>\n";
+		$td = $td == 1 ? 2 : 1;
+	}
+	my ($field, $value);
+	
+	if ($job->{'total_time'}){
+		($field, $value) = ('Total time', int($job->{'total_time'}) .' s');
+	} elsif ($job->{'elapsed'}){
+		($field, $value) = ('Elapsed time', int($job->{'elapsed'}) . ' s');
+	}
+	print "<tr class=\"td$td\"><th style=\"text-align:right\">$field: </th><td style=\"text-align:left\">$value</td></tr>\n" if $field && $value;
+	print "</table><h2>Output</h2>";
+
 	if ( !( $job->{'message_html'} || ref $output eq 'HASH' ) ) {
 		print "<p>No output yet.</p>\n";
 	} else {

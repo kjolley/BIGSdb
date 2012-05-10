@@ -126,7 +126,14 @@ sub _print_interface {
 	my $q = $self->{'cgi'};
 	print "<div class=\"box queryform\">\n";
 	print $q->start_form;
-	$self->_select_ruleset($rulesets) if !defined $ruleset_id;
+	if (defined $ruleset_id){
+		my $rule_description = "$self->{'system'}->{'dbase_config_dir'}/$self->{'instance'}/rules/$ruleset_id/description.html";
+		if (-e $rule_description){
+			$self->print_file($rule_description);
+		}	
+	} else {
+		$self->_select_ruleset($rulesets);
+	}
 	print "<div><fieldset><legend>Enter query sequence (single or multiple contigs up to whole genome in size)</legend>\n";
 	print $q->textarea( -name => 'sequence', -rows => 6, -cols => 70 );
 	print "</fieldset>\n</div>\n<span style=\"float:left\">";
@@ -170,9 +177,9 @@ sub run_job {
 	}
 
 	#DEBUGGING#
-	use autouse 'Data::Dumper' => qw(Dumper);
-	$self->{'html'} .= "<pre>" . Dumper( $self->{'results'} ) . "</pre>";
-	$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => $self->{'html'} } );
+#	use autouse 'Data::Dumper' => qw(Dumper);
+#	$self->{'html'} .= "<pre>" . Dumper( $self->{'results'} ) . "</pre>";
+#	$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => $self->{'html'} } );
 
 	#END#######
 	return;
@@ -185,12 +192,15 @@ sub _read_code {
 	my $line_number;
 	while ( my $line = <$fh> ) {
 		$line_number++;
-		if ( $line =~ /^([\w_\-,;:\$\@\%#'"\/\(\){}=<>\s]*)$/ && $line !~ /system/ && $line !~ /[\W\s]+db[\W\s]+/ )
+		if ( $line =~ /^([\w_\-\.,;:\|\$\@\%#'"\/\\\(\){}\[\]=<>\*\+\s~]*)$/ && $line !~ /system/ && $line !~ /[\W\s]+db[\W\s]+/ )
 		{ #prevent system calls (inc. backticks) and direct access to db (need to stop $self->{'db'}, $self->{"db"}, $self->{qw ( db )} etc.)
 			$line = $1;
-			foreach my $command (qw(scan_locus scan_scheme scan_group append_html get_scheme_html)) {
+			foreach my $command (qw(scan_locus scan_scheme scan_group append_html get_scheme_html get_client_field update_status)) {
 				$line =~ s/$command/\$self->_$command/g;
 			}
+			$line =~ s/\$results/\$self->{'results'}/g;
+			$line =~ s/<h1>/<h3 style=\\"border-bottom:none\\">/g;
+			$line =~ s/<\/h1>/<\/h3>/g;
 			$code .= $line;
 		} else {
 			$logger->error("Line $line_number: \"$line\" rejected.  Script terminated.");
@@ -314,6 +324,13 @@ sub _append_html {
 	return;
 }
 
+sub _update_status {
+	my ( $self, $status_hash ) = @_;
+	return if ref $status_hash ne 'HASH';
+	$self->{'jobManager'}->update_job_status( $self->{'job_id'}, $status_hash );
+	return;
+}
+
 sub _get_scheme_html {
 	my ( $self, $scheme_id, $options ) = @_;
 	$options = { table => 1, fields => 1, loci => 1 } if ref $options ne 'HASH';
@@ -322,7 +339,7 @@ sub _get_scheme_html {
 	my $buffer = '';
 	if ( $options->{'table'} ) {
 		local $" = "</th><th>";
-		$buffer .= "<table><tr>";
+		$buffer .= "<table class=\"resultstable\"><tr>";
 		$buffer .= "<th>@$loci</th>" if @$loci && $options->{'loci'};
 		$buffer .= "<th>@$fields</th>" if @$fields && $options->{'fields'};
 		$buffer .= "</tr>\n<tr class=\"td1\">";
@@ -356,5 +373,44 @@ sub _get_scheme_html {
 		$buffer .= "</ul>" if $options->{'loci'} || $options->{'fields'};
 	}
 	return $buffer;
+}
+
+sub _get_client_field {
+	my ( $self, $client_db_id, $locus, $field, $options ) = @_;
+	return if !BIGSdb::Utils::is_int( $client_db_id // '' );
+	$options = {} if ref $options ne 'HASH';
+	my $client = $self->{'datastore'}->get_client_db($client_db_id);
+	my $value  = $self->{'results'}->{'locus'}->{$locus};
+	return if !defined $value;
+	my $field_data;
+	my $proceed = 1;
+	try {
+		$field_data = $client->get_fields( $field, $locus, $self->{'results'}->{'locus'}->{$locus} );
+	}
+	catch BIGSdb::DatabaseConfigurationException with {
+		my $ex = shift;
+		$logger->error($ex);
+		$proceed = 0;
+	};
+	return if !$proceed;
+	my $total = 0;
+	$total += $_->{'frequency'} foreach @$field_data;
+	foreach my $data (@$field_data) {
+		$data->{'percentage'} = BIGSdb::Utils::decimal_place( 100 * $data->{'frequency'} / $total, 1 );
+	}
+	if ($options->{'min_percentage'}){
+		return $self->_filter_min_percentage($field_data,$options->{'min_percentage'});
+	}
+	return $field_data;
+}
+
+sub _filter_min_percentage {
+	my ($self, $field_data, $min_percentage) = @_;
+	return $field_data if !BIGSdb::Utils::is_int($min_percentage);
+	my @new_data;
+	foreach my $data (@$field_data){
+		push @new_data, $data if $data->{'percentage'} >= $min_percentage;
+	}	
+	return \@new_data;
 }
 1;
