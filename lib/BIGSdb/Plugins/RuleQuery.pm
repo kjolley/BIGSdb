@@ -73,7 +73,7 @@ sub run {
 		print "<div class=\"box\" id=\"statusbad\">No rulesets have been defined for this database.</p></div>\n";
 		return;
 	}
-	my $ruleset_id = ( $q->param('ruleset') // '' ) ne '' ? $q->param('ruleset') : undef;
+	my $ruleset_id = $q->param('ruleset');
 	if ( defined $ruleset_id ) {
 		if ( !defined $rulesets->{$ruleset_id} ) {
 			print "<div class=\"box\" id=\"statusbad\"><p>Ruleset is not defined.</p></div>\n";
@@ -126,11 +126,11 @@ sub _print_interface {
 	my $q = $self->{'cgi'};
 	print "<div class=\"box queryform\">\n";
 	print $q->start_form;
-	if (defined $ruleset_id){
+	if ( defined $ruleset_id ) {
 		my $rule_description = "$self->{'system'}->{'dbase_config_dir'}/$self->{'instance'}/rules/$ruleset_id/description.html";
-		if (-e $rule_description){
+		if ( -e $rule_description ) {
 			$self->print_file($rule_description);
-		}	
+		}
 	} else {
 		$self->_select_ruleset($rulesets);
 	}
@@ -177,10 +177,9 @@ sub run_job {
 	}
 
 	#DEBUGGING#
-#	use autouse 'Data::Dumper' => qw(Dumper);
-#	$self->{'html'} .= "<pre>" . Dumper( $self->{'results'} ) . "</pre>";
-#	$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => $self->{'html'} } );
-
+	#	use autouse 'Data::Dumper' => qw(Dumper);
+	#	$self->{'html'} .= "<pre>" . Dumper( $self->{'results'} ) . "</pre>";
+	#	$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => $self->{'html'} } );
 	#END#######
 	return;
 }
@@ -192,10 +191,14 @@ sub _read_code {
 	my $line_number;
 	while ( my $line = <$fh> ) {
 		$line_number++;
-		if ( $line =~ /^([\w_\-\.,;:\|\$\@\%#'"\/\\\(\){}\[\]=<>\*\+\s~]*)$/ && $line !~ /system/ && $line !~ /[\W\s]+db[\W\s]+/ )
+		if ( $line =~ /^([\w_\-&\.,;:\|\$\@\%#'"\/\\\(\){}\[\]=<>\*\+\s\?~]*)$/ && $line !~ /system/ && $line !~ /[\W\s]+db[\W\s]+/ )
 		{ #prevent system calls (inc. backticks) and direct access to db (need to stop $self->{'db'}, $self->{"db"}, $self->{qw ( db )} etc.)
 			$line = $1;
-			foreach my $command (qw(scan_locus scan_scheme scan_group append_html get_scheme_html get_client_field update_status)) {
+			foreach my $command (
+				qw(scan_locus scan_scheme scan_group append_html get_scheme_html get_client_field update_status
+				get_locus_info)
+			  )
+			{
 				$line =~ s/$command/\$self->_$command/g;
 			}
 			$line =~ s/\$results/\$self->{'results'}/g;
@@ -209,6 +212,11 @@ sub _read_code {
 	}
 	close $fh;
 	return \$code;
+}
+
+sub _get_locus_info {
+	my ( $self, $locus ) = @_;
+	return $self->{'datastore'}->get_locus_info($locus);
 }
 
 sub _scan_locus {
@@ -398,19 +406,19 @@ sub _get_client_field {
 	foreach my $data (@$field_data) {
 		$data->{'percentage'} = BIGSdb::Utils::decimal_place( 100 * $data->{'frequency'} / $total, 1 );
 	}
-	if ($options->{'min_percentage'}){
-		return $self->_filter_min_percentage($field_data,$options->{'min_percentage'});
+	if ( $options->{'min_percentage'} ) {
+		return $self->_filter_min_percentage( $field_data, $options->{'min_percentage'} );
 	}
 	return $field_data;
 }
 
 sub _filter_min_percentage {
-	my ($self, $field_data, $min_percentage) = @_;
+	my ( $self, $field_data, $min_percentage ) = @_;
 	return $field_data if !BIGSdb::Utils::is_int($min_percentage);
 	my @new_data;
-	foreach my $data (@$field_data){
+	foreach my $data (@$field_data) {
 		push @new_data, $data if $data->{'percentage'} >= $min_percentage;
-	}	
+	}
 	return \@new_data;
 }
 1;
