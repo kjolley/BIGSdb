@@ -1238,6 +1238,10 @@ sub blast {
 	if ( $locus_info->{'pcr_filter'} && $q->param('pcr_filter') ) {
 		if ( $self->{'config'}->{'ipcress_path'} ) {
 			$pcr_products = $self->_simulate_PCR( $temp_infile, $locus );
+			if (ref $pcr_products ne 'ARRAY'){
+				$logger->error("PCR filter is set for locus $locus but no reactions are defined.");
+				return;
+			}
 			return if !@$pcr_products;
 		} else {
 			$logger->error("Ipcress path is not set in bigsdb.conf.  PCR simulation can not be done so whole genome will be used.");
@@ -1245,6 +1249,10 @@ sub blast {
 	}
 	if ( $locus_info->{'probe_filter'} && $q->param('probe_filter') ) {
 		$probe_matches = $self->_simulate_hybridization( $temp_infile, $locus );
+		if (ref $probe_matches ne 'ARRAY'){
+			$logger->error("Probe filter is set for locus $locus but no probes are defined.");
+			return;
+		}
 		return if !@$probe_matches;
 	}
 	if ( -e $temp_fastafile && !-z $temp_fastafile ) {
