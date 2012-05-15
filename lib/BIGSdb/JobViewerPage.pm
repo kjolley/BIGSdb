@@ -103,12 +103,22 @@ HTML
 		print "<tr class=\"td$td\"><th style=\"text-align:right\">Stop time: </th><td style=\"text-align:left\">$stop_time</td></tr>\n";
 		$td = $td == 1 ? 2 : 1;
 	}
-	my ($field, $value);
-	
-	if ($job->{'total_time'}){
-		($field, $value) = ('Total time', int($job->{'total_time'}) .' s');
-	} elsif ($job->{'elapsed'}){
-		($field, $value) = ('Elapsed time', int($job->{'elapsed'}) . ' s');
+	my ($field, $value, $refresh);
+	eval "use Time::Duration;"; ## no critic (ProhibitStringyEval)
+	if ($@){
+		if ($job->{'total_time'}){
+			($field, $value) = ('Total time', int($job->{'total_time'}) .' s');
+		} elsif ($job->{'elapsed'}){
+			($field, $value) = ('Elapsed time', int($job->{'elapsed'}) . ' s');
+		}
+		$refresh = $self->{'refresh'} . ' seconds';
+	} else {
+		if ($job->{'total_time'}){
+			($field, $value) = ('Total time', duration($job->{'total_time'}));
+		} elsif ($job->{'elapsed'}){
+			($field, $value) = ('Elapsed time', duration($job->{'elapsed'}));
+		}
+		$refresh = duration($self->{'refresh'});
 	}
 	print "<tr class=\"td$td\"><th style=\"text-align:right\">$field: </th><td style=\"text-align:left\">$value</td></tr>\n" if $field && $value;
 	print "</table><h2>Output</h2>";
@@ -138,7 +148,7 @@ HTML
 		}
 	}
 	print "</div><div class=\"box\" id=\"resultsfooter\">";
-	print "<p>This page will reload in $self->{'refresh'} seconds. You can refresh it any time, or bookmark it and close your browser if you wish.</p>" if $self->{'refresh'};
+	print "<p>This page will reload in $refresh. You can refresh it any time, or bookmark it and close your browser if you wish.</p>" if $self->{'refresh'};
 	if ($self->{'config'}->{'results_deleted_days'} && BIGSdb::Utils::is_int($self->{'config'}->{'results_deleted_days'})){
 		print "<p>Please note that job results will remain on the server for $self->{'config'}->{'results_deleted_days'} days.</p></div>";
 	} else {
