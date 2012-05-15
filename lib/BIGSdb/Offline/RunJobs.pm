@@ -78,11 +78,14 @@ sub run_script {
 	$self->{'jobManager'}->update_job_status( $job_id, { status => 'started', start_time => 'now' } );
 	try {
 		$plugin->run_job( $job_id, $params );
-		$self->{'jobManager'}->update_job_status( $job_id, { status => 'finished', stop_time => 'now', percent_complete => 100 } );
-	} catch BIGSdb::PluginException with {
+		$self->{'jobManager'}
+		  ->update_job_status( $job_id, { status => 'finished', stage => '', stop_time => 'now', percent_complete => 100 } );
+	}
+	catch BIGSdb::PluginException with {
 		my $msg = shift;
 		$self->{'logger'}->debug($msg);
-		$self->{'jobManager'}->update_job_status( $job_id, { status => 'failed', stop_time => 'now', percent_complete => 100, message_html => "<p class=\"statusbad\">$msg</p>"});
+		$self->{'jobManager'}->update_job_status( $job_id,
+			{ status => 'failed', stop_time => 'now', percent_complete => 100, message_html => "<p class=\"statusbad\">$msg</p>" } );
 	};
 	return;
 }

@@ -965,7 +965,6 @@ sub _run_comparison {
 			};
 		}
 	}
-	$self->{'jobManager'}->update_job_status( $job_id, { stage => '' } );
 	return;
 }
 
