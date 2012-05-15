@@ -104,12 +104,6 @@ sub get_user_permissions_table_attributes {
 			comments => 'allow user to create or modify user groups and add users to these groups.'
 		},
 		{ name => 'set_user_passwords', type => 'bool', required => 'no', comments => 'allow user to modify other users\' password.' },
-		{
-			name     => 'set_user_permissions',
-			type     => 'bool',
-			required => 'no',
-			comments => 'allow user to modify other curators\' permissions.'
-		},
 		{ name => 'modify_loci',    type => 'bool', required => 'no', comments => 'allow user to add or modify loci.' },
 		{ name => 'modify_schemes', type => 'bool', required => 'no', comments => 'allow user to add or modify schemes.' },
 	];

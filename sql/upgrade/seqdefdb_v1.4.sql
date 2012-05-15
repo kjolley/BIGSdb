@@ -1,3 +1,5 @@
+ALTER TABLE user_permissions DROP COLUMN set_user_permissions;
+
 CREATE TABLE allele_flags (
 locus text NOT NULL,
 allele_id text NOT NULL,

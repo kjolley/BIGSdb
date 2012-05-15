@@ -1120,8 +1120,6 @@ sub can_modify_table {
 		&& $self->{'permissions'}->{'modify_schemes'} )
 	{
 		return 1;
-	} elsif ( $table eq 'user_permissions' && $self->{'permissions'}->{'set_user_permissions'} ) {
-		return 1;
 	} elsif ( ( $table eq 'projects' || $table eq 'project_members' ) && $self->{'permissions'}->{'modify_projects'} ) {
 		return 1;
 	} elsif ( $table eq 'samples' && $self->{'permissions'}->{'sample_management'} && @{ $self->{'xmlHandler'}->get_sample_field_list } ) {

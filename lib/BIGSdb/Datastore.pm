@@ -101,7 +101,7 @@ sub get_permissions {
 	my $sql =
 	  $self->{'db'}
 	  ->prepare("SELECT user_permissions.* FROM user_permissions LEFT JOIN users ON user_permissions.user_id = users.id WHERE user_name=?");
-	eval { $sql->execute($username); };
+	eval { $sql->execute($username) };
 	$logger->error($@) if $@;
 	return $sql->fetchrow_hashref;
 }
