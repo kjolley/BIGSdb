@@ -109,6 +109,10 @@ HTML
 	print $q->popup_menu( -name => 'sender', -id => 'sender', -values => [ '', @users ], -labels => \%usernames );
 	print "</li><li><label for=\"method\" class=\"parameter\">method: </label>\n";
 	print $q->popup_menu( -name => 'method', -id => 'method', -values => [ '', SEQ_METHODS ] );
+	print "</li><li><label for=\"run_id\" class=\"parameter\">run id: </label>\n";
+	print $q->textfield ( -name => 'run_id', -id => 'run_id', -size => 32);
+	print "</li><li><label for=\"assembly_id\" class=\"parameter\">assembly id: </label>\n";
+	print $q->textfield ( -name => 'assembly_id', -id => 'assembly_id', -size => 32);	
 	print "</li>\n</ul>\n</fieldset>\n<fieldset>\n<legend>Options</legend>\n";
 	print "<ul><li>";
 	print $q->checkbox( -name => 'size_filter', -label => "Don't insert sequences shorter than " );
@@ -226,7 +230,7 @@ sub _check_data {
 		}
 		if ($buffer) {
 			print "<div class=\"box\" id=\"resultstable\"><p>The following sequences will be entered.</p>\n";
-			print "<table><tr><td>";
+			print "<table><tr><td style=\"vertical-align:top\">";
 			print "<table class=\"resultstable\"><tr><th>Original designation</th><th>Sequence length</th><th>Comments</th></tr>\n";
 			print $buffer if $buffer;
 			print "</table>\n";
@@ -262,7 +266,7 @@ STATS
 			print $q->submit( -name => 'Upload', -class => 'submit' );
 			my $filename = $self->make_temp_file(@checked_buffer);
 			$q->param( 'checked_buffer', $filename );
-			print $q->hidden($_) foreach qw (db page checked_buffer isolate_id sender method comments experiment);
+			print $q->hidden($_) foreach qw (db page checked_buffer isolate_id sender method run_id assembly_id comments experiment);
 			print $q->end_form;
 			print "</td></tr></table>\n";
 		} else {
@@ -346,7 +350,7 @@ STATS
 			print $q->submit( -name => 'Upload', -class => 'submit' );
 			my $filename = $self->make_temp_file(@checked_buffer);
 			$q->param( 'checked_buffer', $filename );
-			print $q->hidden($_) foreach qw (db page checked_buffer isolate_id identifier_field sender method comments);
+			print $q->hidden($_) foreach qw (db page checked_buffer isolate_id identifier_field sender method run_id assembly_id comments);
 			print $q->end_form;
 		} else {
 			print "<p>Nothing to upload.</p>\n";
@@ -388,7 +392,7 @@ sub _upload {
 		return;
 	}
 	my $qry =
-"INSERT INTO sequence_bin (id,isolate_id,sequence,method,original_designation,comments,sender,curator,date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?,?)";
+"INSERT INTO sequence_bin (id,isolate_id,sequence,method,run_id,assembly_id,original_designation,comments,sender,curator,date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)";
 	my $sql = $self->{'db'}->prepare($qry);
 	$qry = "INSERT INTO experiment_sequences (experiment_id,seqbin_id,curator,datestamp) VALUES (?,?,?,?)";
 	my $sql_experiment = $self->{'db'}->prepare($qry);
@@ -406,7 +410,7 @@ sub _upload {
 			}
 			my $isolate_id = $q->param('isolate_id') ? $q->param('isolate_id') : $designation;
 			my @values = (
-				$id,          $isolate_id, $seq_ref->{$_},      $q->param('method'),
+				$id,          $isolate_id, $seq_ref->{$_},      $q->param('method'), $q->param('run_id'), $q->param('assembly_id'),
 				$designation, $comments,   $q->param('sender'), $curator,
 				'today',      'today'
 			);

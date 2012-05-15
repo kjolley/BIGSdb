@@ -104,8 +104,8 @@ sub get_user_permissions_table_attributes {
 			comments => 'allow user to create or modify user groups and add users to these groups.'
 		},
 		{ name => 'set_user_passwords', type => 'bool', required => 'no', comments => 'allow user to modify other users\' password.' },
-		{ name => 'modify_loci',    type => 'bool', required => 'no', comments => 'allow user to add or modify loci.' },
-		{ name => 'modify_schemes', type => 'bool', required => 'no', comments => 'allow user to add or modify schemes.' },
+		{ name => 'modify_loci',        type => 'bool', required => 'no', comments => 'allow user to add or modify loci.' },
+		{ name => 'modify_schemes',     type => 'bool', required => 'no', comments => 'allow user to add or modify schemes.' },
 	];
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		push @$attributes,
@@ -1258,6 +1258,8 @@ sub get_sequence_bin_table_attributes {
 		{ name => 'isolate_id', type => 'int',  required => 'yes', foreign_key => 'isolates' },
 		{ name => 'sequence',   type => 'text', required => 'yes', length      => 2048, user_update => 'no' },
 		{ name => 'method',     type => 'text', required => 'yes', optlist     => "@methods" },
+		{ name => 'run_id',               type => 'text', length   => 32 },
+		{ name => 'assembly_id',          type => 'text', length   => 32 },
 		{ name => 'original_designation', type => 'text', length   => 32 },
 		{ name => 'comments',             type => 'text', length   => 64 },
 		{ name => 'sender',               type => 'int',  required => 'yes', dropdown_query => 'yes' },
