@@ -364,9 +364,9 @@ sub _print_allele_designations {
 	print $locus_summary;
 	print "<p />\n";
 	print $q->start_form;
-	my $loci = $self->{'datastore'}->get_loci( { 'query_pref' => 1 } );
-	print "Locus: ";
-	print $q->popup_menu( -name => 'locus', -values => $loci );
+	my ( $loci, $labels ) = $self->{'datastore'}->get_locus_list;
+	print "<label for=\"locus\">Locus: </label>\n";
+	print $q->popup_menu( -name => 'locus', -id => 'locus', -values => $loci, -labels => $labels );
 	print $q->submit( -label => 'Add/update', -class => 'submit' );
 	$q->param( 'page',       'alleleUpdate' );
 	$q->param( 'isolate_id', $q->param('id') );

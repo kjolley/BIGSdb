@@ -45,6 +45,7 @@ sub print_content {
 	my $q         = $self->{'cgi'};
 	my $clear_pad = 1;
 	my $locus = $q->param('locus') || $q->param('allele_designations_locus') || $q->param('pending_allele_designations_locus');
+	$locus =~ s/^cn_//;
 	my $id = $q->param('isolate_id') || $q->param('allele_designations_isolate_id') || $q->param('pending_allele_designations_isolate_id');
 	if ( !$id ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>No id passed.</p></div>\n";
@@ -156,9 +157,9 @@ RIGHT_BUFFER
 	$self->_display_isolate_summary($id);
 	print "<h2>Update other loci:</h2>\n";
 	print $q->start_form;
-	my $loci = $self->{'datastore'}->get_loci( { 'query_pref' => 1 } );
-	print "Locus: ";
-	print $q->popup_menu( -name => 'locus', -values => $loci );
+	my ( $loci, $labels ) = $self->{'datastore'}->get_locus_list;
+	print "<label for=\"locus\">Locus: </label>\n";
+	print $q->popup_menu( -name => 'locus', -id => 'locus', -values => $loci, -labels => $labels );
 	print $q->submit( -label => 'Add/update', -class => 'submit' );
 	$q->param( 'isolate_id', $id );
 	print $q->hidden($_) foreach qw(db page isolate_id);
@@ -458,6 +459,7 @@ sub get_title {
 	my $id = $q->param('isolate_id') || $q->param('allele_designations_isolate_id') || $q->param('pending_allele_designations_isolate_id');
 	$id    //= '';
 	$locus //= '';
+	$locus =~ s/^cn_//;
 	return "Update $locus allele for isolate $id - $desc";
 }
 1;
