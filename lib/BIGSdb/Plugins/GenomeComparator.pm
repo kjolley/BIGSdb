@@ -31,8 +31,8 @@ use Bio::AlignIO;
 use List::MoreUtils qw(uniq any none);
 use Digest::MD5;
 use BIGSdb::Page qw(SEQ_METHODS LOCUS_PATTERNS);
-use constant MAX_UPLOAD_SIZE => 32768;
-use constant MAX_SPLITS_TAXA => 200;
+use constant MAX_UPLOAD_SIZE  => 32768;
+use constant MAX_SPLITS_TAXA  => 200;
 use constant MAX_DISPLAY_TAXA => 150;
 
 sub get_attributes {
@@ -305,7 +305,8 @@ selections. In addition to selecting individual loci, you can choose to include 
 by selecting the appropriate scheme description. Alternatively, you can enter the accession number for an 
 annotated reference genome and compare using the loci defined in that.</p>
 HTML
-	my ( $locus_list, $locus_labels ) = $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
+	my ( $locus_list, $locus_labels ) =
+	  $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
 	print $q->start_form;
 	print "<div class=\"scrollable\">\n";
 	print "<fieldset style=\"float:left\">\n<legend>Isolates</legend>\n";
@@ -499,7 +500,7 @@ sub _generate_splits {
 			  . 'Distances between taxa are calculated as the number of loci with different allele sequences'
 		}
 	);
-	return if (keys %$values) > MAX_SPLITS_TAXA;
+	return if ( keys %$values ) > MAX_SPLITS_TAXA;
 	my $splits_img = "$job_id.png";
 	$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file", "$self->{'config'}->{'tmp_dir'}/$splits_img", 'PNG' );
 	if ( -e "$self->{'config'}->{'tmp_dir'}/$splits_img" ) {
@@ -702,8 +703,9 @@ sub _extract_cds_details {
 
 sub _run_comparison {
 	my ( $self, $by_reference, $job_id, $params, $ids, $cds, $html_buffer_ref, $file_buffer_ref ) = @_;
-	my $progress    = 0;
-	my $total       = ( $params->{'align'} && (@$ids > 1 || (@$ids == 1 && $by_reference && $params->{'align_all'})) ) ? ( @$cds * 2 ) : @$cds;
+	my $progress = 0;
+	my $total =
+	  ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $by_reference && $params->{'align_all'} ) ) ) ? ( @$cds * 2 ) : @$cds;
 	my $seqs_total  = 0;
 	my $close_table = '</table></div>';
 	my $td          = 1;
@@ -774,38 +776,11 @@ sub _run_comparison {
 		foreach my $id (@$ids) {
 			$id = $1 if $id =~ /(\d*)/;    #avoid taint check
 			my $out_file = "$self->{'config'}->{'secure_tmp_dir'}/$prefix\_isolate_$id\_outfile.txt";
-			my $match;
-			my $extracted_seq;
-			my $value;
+			my ( $match, $value, $extracted_seq );
 			if ( !$by_reference ) {
-				if ( $params->{'use_tagged'} && $locus_info->{'data_type'} eq 'DNA' ) {
-					my $allele_id = $self->{'datastore'}->get_allele_id( $id, $cds );
-					if ( defined $allele_id ) {
-						$match->{'exact'}  = 1;
-						$match->{'allele'} = $allele_id;
-						$value             = $allele_id;
-						try {
-							my $seq_ref = $self->{'datastore'}->get_locus($cds)->get_allele_sequence($allele_id);
-							$extracted_seq = $$seq_ref if ref $seq_ref eq 'SCALAR';
-							$seqs{$id} = $extracted_seq;
-							$allele_seqs{$allele_id} = $extracted_seq;
-						}
-						catch BIGSdb::DatabaseConnectionException with {
-
-							#ignore
-							$logger->debug("No connection to $cds database");
-						}
-					}
-				}
-				if ( !$match->{'exact'} && !-z $ref_seq_file ) {
-					if ( $locus_info->{'data_type'} eq 'DNA' ) {
-						$self->_blast( $word_size, $ref_seq_file, $isolate_FASTA{$id}, $out_file, 'blastn' );
-					} else {
-						$self->_blast( 3, $ref_seq_file, $isolate_FASTA{$id}, $out_file, 'blastx' );
-					}
-					$match = $self->_parse_blast_by_locus( $cds, $out_file, $params );
-					$value = $match->{'allele'} if $match->{'exact'};
-				}
+				( $match, $value, $extracted_seq ) = $self->_scan_by_locus( $id, $cds, \%seqs, \%allele_seqs, $params,
+					{ word_size => $word_size, out_file => $out_file, ref_seq_file => $ref_seq_file, isolate_fasta_ref => \%isolate_FASTA }
+				);
 			} else {
 				$self->_blast( $word_size, $isolate_FASTA{$id}, $ref_seq_file, $out_file, $program );
 				$match = $self->_parse_blast_ref( $seq_ref, $out_file, $params );
@@ -922,12 +897,17 @@ sub _run_comparison {
 		}
 		$progress++;
 		my $complete = int( 100 * $progress / $total );
-		if (@$ids > MAX_DISPLAY_TAXA){
-			$self->{'jobManager'}
-		  ->update_job_status( $job_id, { percent_complete => $complete, message_html => "<p>Dynamically updated output disabled as >" . MAX_DISPLAY_TAXA . " taxa selected.</p>" } );
+		if ( @$ids > MAX_DISPLAY_TAXA ) {
+			$self->{'jobManager'}->update_job_status(
+				$job_id,
+				{
+					percent_complete => $complete,
+					message_html     => "<p>Dynamically updated output disabled as >" . MAX_DISPLAY_TAXA . " taxa selected.</p>"
+				}
+			);
 		} else {
 			$self->{'jobManager'}
-		  ->update_job_status( $job_id, { percent_complete => $complete, message_html => "$$html_buffer_ref$close_table" } );
+			  ->update_job_status( $job_id, { percent_complete => $complete, message_html => "$$html_buffer_ref$close_table" } );
 		}
 	}
 	$$html_buffer_ref .= $close_table;
@@ -947,20 +927,20 @@ sub _run_comparison {
 		$self->_print_exact_except_ref( $ids, $html_buffer_ref, $job_file, $exact_except_ref, $values );
 	}
 	$self->_print_truncated_loci( $by_reference, $ids, $html_buffer_ref, $job_file, $truncated_loci, $values );
-	 if ( !$seqs_total && $by_reference ){
+	if ( !$seqs_total && $by_reference ) {
 		$$html_buffer_ref .= "<p class=\"statusbad\">No sequences were extracted from reference file.</p>\n";
-	 } else {
+	} else {
 		$self->_identify_strains( $ids, $html_buffer_ref, $job_file, $loci, $values );
 		$$html_buffer_ref = '' if @$ids > MAX_DISPLAY_TAXA;
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$html_buffer_ref } );
-	 }
+	}
 	close $job_fh;
 	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$prefix\*";
 	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Main output file' } );
 	my @ignore_loci;
 	push @ignore_loci, $_ foreach keys %$truncated_loci;
 	$self->_generate_splits( $job_id, $values, \@ignore_loci );
-	if ( $params->{'align'} && (@$ids > 1 || (@$ids == 1 && $by_reference && $params->{'align_all'}))) {
+	if ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $by_reference && $params->{'align_all'} ) ) ) {
 		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align.txt", description => '30_Alignments' } )
 		  if -e $align_file;
 		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align_stats.txt", description => '31_Alignment stats' } )
@@ -981,6 +961,44 @@ sub _run_comparison {
 		}
 	}
 	return;
+}
+
+sub _scan_by_locus {
+	my ( $self, $isolate_id, $locus, $seqs_ref, $allele_seqs_ref, $params, $args ) = @_;
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	my ( $match, $value, $extracted_seq );
+	if ( $params->{'use_tagged'} && $locus_info->{'data_type'} eq 'DNA' ) {
+		my $allele_id = $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
+		if ( defined $allele_id ) {
+			$match->{'exact'}  = 1;
+			$match->{'allele'} = $allele_id;
+			$value             = $allele_id;
+			try {
+				my $seq_ref = $self->{'datastore'}->get_locus($locus)->get_allele_sequence($allele_id);
+				$extracted_seq = $$seq_ref if ref $seq_ref eq 'SCALAR';
+				$seqs_ref->{$isolate_id}       = $extracted_seq;
+				$allele_seqs_ref->{$allele_id} = $extracted_seq;
+			}
+			catch BIGSdb::DatabaseConnectionException with {
+				$logger->debug("No connection to $locus database");    #ignore
+			};
+		}
+	}
+	if ( !$match->{'exact'} && !-z $args->{'ref_seq_file'} ) {
+		if ( $locus_info->{'data_type'} eq 'DNA' ) {
+			$self->_blast(
+				$args->{'word_size'},
+				$args->{'ref_seq_file'},
+				$args->{'isolate_fasta_ref'}->{$isolate_id},
+				$args->{'out_file'}, 'blastn'
+			);
+		} else {
+			$self->_blast( 3, $args->{'ref_seq_file'}, $args->{'isolate_fasta_ref'}->{$isolate_id}, $args->{'out_file'}, 'blastx' );
+		}
+		$match = $self->_parse_blast_by_locus( $locus, $args->{'out_file'}, $params );
+		$value = $match->{'allele'} if $match->{'exact'};
+	}
+	return ( $match, $value, $extracted_seq );
 }
 
 sub _identify_strains {
@@ -1079,6 +1097,7 @@ sub _create_alignments {
 	my $xmfa_out   = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
 	my $xmfa_start = 1;
 	my $xmfa_end;
+
 	foreach my $locus ( sort keys %$loci ) {
 		$progress++;
 		my $complete = 50 + int( 100 * $progress / $total );
