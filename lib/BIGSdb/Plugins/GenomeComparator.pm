@@ -489,6 +489,7 @@ sub _analyse_by_loci {
 
 sub _generate_splits {
 	my ( $self, $job_id, $values, $ignore_loci_ref ) = @_;
+	$self->{'jobManager'}->update_job_status( $job_id, { stage => "Generating distance matrix" } );
 	my $dismat = $self->_generate_distance_matrix( $values, $ignore_loci_ref );
 	my $nexus_file = $self->_make_nexus_file( $job_id, $dismat );
 	$self->{'jobManager'}->update_job_output(
@@ -500,7 +501,9 @@ sub _generate_splits {
 			  . 'Distances between taxa are calculated as the number of loci with different allele sequences'
 		}
 	);
+	
 	return if ( keys %$values ) > MAX_SPLITS_TAXA;
+	$self->{'jobManager'}->update_job_status( $job_id, { stage => "Generating NeighborNet" } );
 	my $splits_img = "$job_id.png";
 	$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file", "$self->{'config'}->{'tmp_dir'}/$splits_img", 'PNG' );
 	if ( -e "$self->{'config'}->{'tmp_dir'}/$splits_img" ) {
@@ -773,6 +776,7 @@ sub _run_comparison {
 		my $allele = $by_reference ? 1 : 0;
 		my $colour = 0;
 		my %value_colour;
+		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Analysing locus: $locus_name" } );
 		foreach my $id (@$ids) {
 			$id = $1 if $id =~ /(\d*)/;    #avoid taint check
 			my $out_file = "$self->{'config'}->{'secure_tmp_dir'}/$prefix\_isolate_$id\_outfile.txt";
@@ -949,6 +953,7 @@ sub _run_comparison {
 			$self->{'jobManager'}
 			  ->update_job_output( $job_id, { filename => "$job_id.xmfa", description => '35_Extracted sequences (XMFA format)' } );
 			try {
+				$self->{'jobManager'}->update_job_status( $job_id, { stage => "Converting XMFA to FASTA" } );
 				my $fasta_file = BIGSdb::Utils::xmfa2fasta("$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa");
 				if ( -e $fasta_file ) {
 					$self->{'jobManager'}->update_job_output( $job_id,
@@ -960,6 +965,7 @@ sub _run_comparison {
 			};
 		}
 	}
+	$self->{'jobManager'}->update_job_status( $job_id, { stage => '' } );
 	return;
 }
 
@@ -1099,6 +1105,7 @@ sub _create_alignments {
 	my $xmfa_end;
 
 	foreach my $locus ( sort keys %$loci ) {
+		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Aligning $locus: sequences" } );
 		$progress++;
 		my $complete = 50 + int( 100 * $progress / $total );
 		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } );
