@@ -1104,7 +1104,7 @@ sub _create_alignments {
 	my $xmfa_end;
 
 	foreach my $locus ( sort keys %$loci ) {
-		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Aligning $locus: sequences" } );
+		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Aligning $locus sequences" } );
 		$progress++;
 		my $complete = 50 + int( 100 * $progress / $total );
 		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } );
