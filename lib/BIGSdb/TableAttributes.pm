@@ -300,6 +300,7 @@ sub get_loci_table_attributes {
 			{
 				name     => 'flag_table',
 				type     => 'bool',
+				required => 'yes',
 				default  => 'true',
 				comments => 'Seqdef database supports allele flags',
 				tooltip =>

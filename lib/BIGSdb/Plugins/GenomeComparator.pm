@@ -803,21 +803,21 @@ sub _run_comparison {
 				if ( !$match->{'exact'} && $match->{'predicted_start'} && $match->{'predicted_end'} ) {
 					if ( $match->{'predicted_start'} < 1 ) {
 						$match->{'predicted_start'} = 1;
-						$status{'truncated'}  = 1;
+						$status{'truncated'}        = 1;
 						$value                      = 'T';
 					} elsif ( $match->{'predicted_start'} > $seqbin_length ) {
 						$match->{'predicted_start'} = $seqbin_length;
-						$status{'truncated'}  = 1;
+						$status{'truncated'}        = 1;
 						$value                      = 'T';
 					}
 					if ( $match->{'predicted_end'} < 1 ) {
-						$match->{'predicted_end'}  = 1;
-						$status{'truncated'} = 1;
-						$value                     = 'T';
+						$match->{'predicted_end'} = 1;
+						$status{'truncated'}      = 1;
+						$value                    = 'T';
 					} elsif ( $match->{'predicted_end'} > $seqbin_length ) {
-						$match->{'predicted_end'}  = $seqbin_length;
-						$status{'truncated'} = 1;
-						$value                     = 'T';
+						$match->{'predicted_end'} = $seqbin_length;
+						$status{'truncated'}      = 1;
+						$value                    = 'T';
 					}
 				}
 				if ( !$extracted_seq ) {
@@ -834,7 +834,7 @@ sub _run_comparison {
 					}
 				}
 			} else {
-				$status{'all_exact'}            = 0;
+				$status{'all_exact'}        = 0;
 				$status{'exact_except_ref'} = 0;
 			}
 			if ( !$value ) {
@@ -875,7 +875,7 @@ sub _run_comparison {
 		if ( !$by_reference ) {
 			$status{'all_exact'} = 0 if ( uniq values %seqs ) > 1;
 		}
-		foreach my $class (qw (all_exact all_missing exact_except_ref truncated varying)){
+		foreach my $class (qw (all_exact all_missing exact_except_ref truncated varying)) {
 			next if !$status{$class} && $class ne 'varying';
 			next if $class eq 'exact_except_ref' && !$by_reference;
 			$locus_class->{$class}->{$locus_name}->{'length'} = length $$seq_ref if $by_reference;
@@ -926,7 +926,7 @@ sub _run_comparison {
 	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$prefix\*";
 	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Main output file' } );
 	my @ignore_loci;
-	push @ignore_loci, $_ foreach keys %{$locus_class->{'truncated'}};
+	push @ignore_loci, $_ foreach keys %{ $locus_class->{'truncated'} };
 	$self->_generate_splits( $job_id, $values, \@ignore_loci );
 	if ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $by_reference && $params->{'align_all'} ) ) ) {
 		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align.txt", description => '30_Alignments' } )
