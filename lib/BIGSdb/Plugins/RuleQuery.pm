@@ -42,6 +42,7 @@ sub get_attributes {
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => '',
+		url              => 'http://pubmlst.org/software/database/bigsdb/administration/rule_based_query.shtml',
 		requires         => 'offline_jobs',
 		order            => 15
 	);
