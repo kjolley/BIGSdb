@@ -502,11 +502,11 @@ sub _generate_splits {
 			  . 'Distances between taxa are calculated as the number of loci with different allele sequences'
 		}
 	);
-	
 	return if ( keys %$values ) > MAX_SPLITS_TAXA;
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => "Generating NeighborNet" } );
 	my $splits_img = "$job_id.png";
 	$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file", "$self->{'config'}->{'tmp_dir'}/$splits_img", 'PNG' );
+
 	if ( -e "$self->{'config'}->{'tmp_dir'}/$splits_img" ) {
 		$self->{'jobManager'}
 		  ->update_job_output( $job_id, { filename => $splits_img, description => '25_Splits graph (Neighbour-net; PNG format)' } );
@@ -713,7 +713,7 @@ sub _run_comparison {
 	my $seqs_total  = 0;
 	my $close_table = '</table></div>';
 	my $td          = 1;
-	my ( $exacts, $exact_except_ref, $all_missing, $truncated_loci, $varying_loci );
+	my $locus_class;
 	my ( $word_size, $program );
 	my $job_file         = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
 	my $align_file       = "$self->{'config'}->{'tmp_dir'}/$job_id\_align.txt";
@@ -757,12 +757,9 @@ sub _run_comparison {
 			$locus_name   = $self->clean_locus($cds);
 			$locus_info   = $self->{'datastore'}->get_locus_info($cds);
 		}
-		my $seqbin_length_sql    = $self->{'db'}->prepare("SELECT length(sequence) FROM sequence_bin where id=?");
-		my $all_exact            = 1;
-		my $missing_in_all       = 1;
-		my $exact_except_for_ref = 1;
-		my $truncated_locus      = 0;
-		my $first                = 1;
+		my $seqbin_length_sql = $self->{'db'}->prepare("SELECT length(sequence) FROM sequence_bin where id=?");
+		my %status            = ( all_exact => 1, all_missing => 1, exact_except_ref => 1, truncated => 0 );
+		my $first             = 1;
 		my $first_seq;
 		my $previous_seq = '';
 		$$html_buffer_ref .= "<tr class=\"td$td\"><td>$locus_name</td>";
@@ -792,12 +789,12 @@ sub _run_comparison {
 			}
 			my $seqbin_length;
 			if ( ref $match eq 'HASH' && ( $match->{'identity'} || $match->{'allele'} ) ) {
-				$missing_in_all = 0;
+				$status{'all_missing'} = 0;
 				if ($by_reference) {
 					if ( $match->{'identity'} == 100 && $match->{'alignment'} >= $length ) {
-						$exact_except_for_ref = 0;
+						$status{'exact_except_ref'} = 0;
 					} else {
-						$all_exact = 0;
+						$status{'all_exact'} = 0;
 					}
 				}
 				eval { $seqbin_length_sql->execute( $match->{'seqbin_id'} ); };
@@ -806,21 +803,21 @@ sub _run_comparison {
 				if ( !$match->{'exact'} && $match->{'predicted_start'} && $match->{'predicted_end'} ) {
 					if ( $match->{'predicted_start'} < 1 ) {
 						$match->{'predicted_start'} = 1;
-						$truncated_locus            = 1;
+						$status{'truncated'}  = 1;
 						$value                      = 'T';
 					} elsif ( $match->{'predicted_start'} > $seqbin_length ) {
 						$match->{'predicted_start'} = $seqbin_length;
-						$truncated_locus            = 1;
+						$status{'truncated'}  = 1;
 						$value                      = 'T';
 					}
 					if ( $match->{'predicted_end'} < 1 ) {
-						$match->{'predicted_end'} = 1;
-						$truncated_locus          = 1;
-						$value                    = 'T';
+						$match->{'predicted_end'}  = 1;
+						$status{'truncated'} = 1;
+						$value                     = 'T';
 					} elsif ( $match->{'predicted_end'} > $seqbin_length ) {
-						$match->{'predicted_end'} = $seqbin_length;
-						$truncated_locus          = 1;
-						$value                    = 'T';
+						$match->{'predicted_end'}  = $seqbin_length;
+						$status{'truncated'} = 1;
+						$value                     = 'T';
 					}
 				}
 				if ( !$extracted_seq ) {
@@ -832,13 +829,13 @@ sub _run_comparison {
 						$previous_seq = $extracted_seq;
 					} else {
 						if ( $extracted_seq ne $previous_seq ) {
-							$exact_except_for_ref = 0;
+							$status{'exact_except_ref'} = 0;
 						}
 					}
 				}
 			} else {
-				$all_exact            = 0;
-				$exact_except_for_ref = 0;
+				$status{'all_exact'}            = 0;
+				$status{'exact_except_ref'} = 0;
 			}
 			if ( !$value ) {
 				if ($extracted_seq) {
@@ -876,29 +873,15 @@ sub _run_comparison {
 		$$html_buffer_ref .= "</tr>\n";
 		$$file_buffer_ref .= "\n";
 		if ( !$by_reference ) {
-			$all_exact = 0 if ( uniq values %seqs ) > 1;
+			$status{'all_exact'} = 0 if ( uniq values %seqs ) > 1;
 		}
-		if ($all_exact) {
-			$exacts->{$locus_name}->{'length'} = length $$seq_ref if $by_reference;
-			$exacts->{$locus_name}->{'desc'}   = $desc;
-			$exacts->{$locus_name}->{'start'}  = $start;
-		} elsif ($missing_in_all) {
-			$all_missing->{$locus_name}->{'length'} = length $$seq_ref if $by_reference;
-			$all_missing->{$locus_name}->{'desc'}   = $desc;
-			$all_missing->{$locus_name}->{'start'}  = $start;
-		} elsif ( $exact_except_for_ref && $by_reference ) {
-			$exact_except_ref->{$locus_name}->{'length'} = length $$seq_ref;
-			$exact_except_ref->{$locus_name}->{'desc'}   = $desc;
-			$exact_except_ref->{$locus_name}->{'start'}  = $start;
-		} elsif ($truncated_locus) {
-			$truncated_loci->{$locus_name}->{'length'} = length $$seq_ref if $by_reference;
-			$truncated_loci->{$locus_name}->{'desc'}   = $desc;
-			$truncated_loci->{$locus_name}->{'start'}  = $start;
-		} else {
-			$varying_loci->{$locus_name}->{'length'} = length $$seq_ref if $by_reference;
-			$varying_loci->{$locus_name}->{$_} = $seqs{$_} foreach ( keys %seqs );
-			$varying_loci->{$locus_name}->{'desc'}  = $desc;
-			$varying_loci->{$locus_name}->{'start'} = $start;
+		foreach my $class (qw (all_exact all_missing exact_except_ref truncated varying)){
+			next if !$status{$class} && $class ne 'varying';
+			next if $class eq 'exact_except_ref' && !$by_reference;
+			$locus_class->{$class}->{$locus_name}->{'length'} = length $$seq_ref if $by_reference;
+			$locus_class->{$class}->{$locus_name}->{'desc'}   = $desc;
+			$locus_class->{$class}->{$locus_name}->{'start'}  = $start;
+			last;
 		}
 		$progress++;
 		my $complete = int( 100 * $progress / $total );
@@ -921,17 +904,17 @@ sub _run_comparison {
 	close $job_fh;
 	if ( $params->{'align'} ) {
 		$self->_create_alignments( $job_id, $by_reference, $align_file, $align_stats_file, $ids,
-			( $params->{'align_all'} ? $loci : $varying_loci ), $params );
+			( $params->{'align_all'} ? $loci : $locus_class->{'varying'} ), $params );
 		open( my $align_fh, '>>', $align_file ) || $logger->error("Can't open $align_file for appending");
 		close $align_fh;
 	}
-	$self->_print_variable_loci( $by_reference, $ids, $html_buffer_ref, $job_file, $varying_loci, $values );
-	$self->_print_missing_in_all( $by_reference, $ids, $html_buffer_ref, $job_file, $all_missing, $values );
-	$self->_print_exact_matches( $by_reference, $ids, $html_buffer_ref, $job_file, $exacts, $params, $values );
+	$self->_print_variable_loci( $by_reference, $ids, $html_buffer_ref, $job_file, $locus_class->{'varying'}, $values );
+	$self->_print_missing_in_all( $by_reference, $ids, $html_buffer_ref, $job_file, $locus_class->{'all_missing'}, $values );
+	$self->_print_exact_matches( $by_reference, $ids, $html_buffer_ref, $job_file, $locus_class->{'all_exact'}, $params, $values );
 	if ($by_reference) {
-		$self->_print_exact_except_ref( $ids, $html_buffer_ref, $job_file, $exact_except_ref, $values );
+		$self->_print_exact_except_ref( $ids, $html_buffer_ref, $job_file, $locus_class->{'exact_except_ref'}, $values );
 	}
-	$self->_print_truncated_loci( $by_reference, $ids, $html_buffer_ref, $job_file, $truncated_loci, $values );
+	$self->_print_truncated_loci( $by_reference, $ids, $html_buffer_ref, $job_file, $locus_class->{'truncated'}, $values );
 	if ( !$seqs_total && $by_reference ) {
 		$$html_buffer_ref .= "<p class=\"statusbad\">No sequences were extracted from reference file.</p>\n";
 	} else {
@@ -943,7 +926,7 @@ sub _run_comparison {
 	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$prefix\*";
 	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Main output file' } );
 	my @ignore_loci;
-	push @ignore_loci, $_ foreach keys %$truncated_loci;
+	push @ignore_loci, $_ foreach keys %{$locus_class->{'truncated'}};
 	$self->_generate_splits( $job_id, $values, \@ignore_loci );
 	if ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $by_reference && $params->{'align_all'} ) ) ) {
 		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align.txt", description => '30_Alignments' } )
@@ -1081,10 +1064,10 @@ sub _print_isolate_header {
 sub _print_variable_loci {
 	my ( $self, $by_reference, $ids, $buffer_ref, $job_filename, $loci, $values ) = @_;
 	return if ref $loci ne 'HASH';
-	$$buffer_ref .= "<h3>Loci with sequence differences between isolates:</h3>";
+	$$buffer_ref .= "<h3>Loci with sequence differences among isolates:</h3>";
 	my $file_buffer = "\n###\n\n";
-	$file_buffer .= "Loci with sequence differences between isolates\n";
-	$file_buffer .= "-----------------------------------------------\n\n";
+	$file_buffer .= "Loci with sequence differences among isolates\n";
+	$file_buffer .= "---------------------------------------------\n\n";
 	$$buffer_ref .= "<p>Variable loci: " . ( scalar keys %$loci ) . "</p>";
 	$file_buffer .= "Variable loci: " . ( scalar keys %$loci ) . "\n\n";
 	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
