@@ -6,6 +6,7 @@ Version 1.2: Change of isolate database structure. New package 'exonerate'
              required.
 Version 1.3: Change of isolate and seqdef database structures.  Ensure 
              jstree.js is upgraded.
+Version 1.4: Change of isolate, seqdef, and job database structures.
 
 Details can be found below.
 
@@ -87,3 +88,25 @@ found in the sql/upgrade directory, against your seqdef databases.
 
 Locus selection for plugins now uses a hierarchical expandable tree.  Please
 ensure you update the jquery.jstree.js file in the javascript directory.
+
+Version 1.4
+-----------
+There are changes to the isolate, sequence definition and jobs database
+structures.  Please run the isolatedb_v1.4.sql, seqdefdb_v1.4.sql and
+jobs_v1.4.sql scripts, found in the sql/upgrade directory, against your
+databases.
+
+Changes to the database structures are detailed below:
+
+1) The loci table of the isolate database has a new field to support flag
+tables in seqdef databases.  
+2) The sequence bin table of the isolate database has two new fields, run_id
+and assembly_id, to support assembly versioning.
+3) In both the isolate and seqdef databases the user_permissions table 
+has the set_user_permissions field removed as this is no longer used. 
+4) The seqdef database has a new allele_flags table to support flagging of
+allele sequences.
+5) The seqdef database has a new matviews table and Postgres functions
+defined to support materialized views of scheme data.
+6) The bigsdb_jobs database has a new field called stage added to the jobs
+table.  This is to support status messages during a job run.
