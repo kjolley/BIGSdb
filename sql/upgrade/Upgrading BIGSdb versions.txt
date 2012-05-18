@@ -54,8 +54,8 @@ structures.
 
 1) The loci table of the isolate database has a new field to support flag
 tables in seqdef databases.  
-2) The sequence bin table of the isolate databasehas two new fields run_id 
-and assembly_id to support assembly versioning.
+2) The sequence bin table of the isolate database has two new fields, run_id
+and assembly_id, to support assembly versioning.
 3) In both the isolate and seqdef databases the user_permissions table 
 has the set_user_permissions field removed as this is no longer used. 
 4) The seqdef database has a new allele_flags table to support flagging of
