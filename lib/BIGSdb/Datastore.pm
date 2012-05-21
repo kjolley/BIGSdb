@@ -271,7 +271,7 @@ sub get_samples {
 	if ( !$self->{'sql'}->{'get_samples'} ) {
 		my $fields = $self->{'xmlHandler'}->get_sample_field_list;
 		if ( !@$fields ) {
-			return \@;
+			return \@;;
 		}
 		local $" = ',';
 		$self->{'sql'}->{'get_samples'} = $self->{'db'}->prepare("SELECT @$fields FROM samples WHERE isolate_id=? ORDER BY sample_id");
@@ -421,6 +421,29 @@ sub get_scheme_loci {
 		}
 	}
 	return \@loci;
+}
+
+sub get_scheme_locus_aliases {
+	my ( $self, $scheme_id ) = @_;
+	if ($scheme_id) {
+		if ( !$self->{'sql'}->{'locus_scheme_aliases'} ) {
+			$self->{'sql'}->{'locus_scheme_aliases'} =
+			  $self->{'db'}->prepare( "SELECT locus,alias FROM locus_aliases WHERE use_alias AND "
+				  . "locus IN (SELECT locus FROM scheme_members WHERE scheme_id=?)" );
+		}
+		eval { $self->{'sql'}->{'locus_scheme_aliases'}->execute($scheme_id) };
+		$logger->error($@) if $@;
+		return $self->{'sql'}->{'locus_scheme_aliases'}->fetchall_hashref( [qw(locus alias)] );
+	} else {    #loci not in scheme
+		if ( !$self->{'sql'}->{'locus_noscheme_aliases'} ) {
+			$self->{'sql'}->{'locus_noscheme_aliases'} =
+			  $self->{'db'}
+			  ->prepare("SELECT locus,alias FROM locus_aliases WHERE use_alias AND locus NOT IN (SELECT locus FROM scheme_members)");
+		}
+		eval { $self->{'sql'}->{'locus_noscheme_aliases'}->execute };
+		$logger->error($@) if $@;
+		return $self->{'sql'}->{'locus_noscheme_aliases'}->fetchall_hashref( [qw(locus alias)] );
+	}
 }
 
 sub get_loci_in_no_scheme {
@@ -704,12 +727,12 @@ sub get_locus_list {
 	#analysis_pref: only the loci for which the user has an analysis preference selected will be returned
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $qry = "SELECT id,common_name FROM loci";
+	my $qry  = "SELECT id,common_name FROM loci";
 	my $loci = $self->run_list_query_hashref($qry);
 	my $cleaned;
 	my $display_loci;
 	foreach (@$loci) {
-		next if $options->{'analysis_pref'} && !$self->{'prefs'}->{'analysis_loci'}->{$_->{'id'}};
+		next if $options->{'analysis_pref'} && !$self->{'prefs'}->{'analysis_loci'}->{ $_->{'id'} };
 		push @$display_loci, $_->{'id'};
 		$cleaned->{ $_->{'id'} } = $_->{'id'};
 		if ( $_->{'common_name'} ) {
@@ -786,22 +809,24 @@ sub get_allele_designation {
 }
 
 sub get_allele_extended_attributes {
-	my ($self, $locus, $allele_id) = @_;
+	my ( $self, $locus, $allele_id ) = @_;
 	if ( !$self->{'sql'}->{'locus_extended_attributes'} ) {
-		$self->{'sql'}->{'locus_extended_attributes'} = $self->{'db'}->prepare( "SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order");
+		$self->{'sql'}->{'locus_extended_attributes'} =
+		  $self->{'db'}->prepare("SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order");
 	}
 	eval { $self->{'sql'}->{'locus_extended_attributes'}->execute($locus) };
 	$logger->logcarp($@) if $@;
 	if ( !$self->{'sql'}->{'sequence_extended_attributes'} ) {
-		$self->{'sql'}->{'sequence_extended_attributes'} = $self->{'db'}->prepare( "SELECT field,value FROM sequence_extended_attributes WHERE locus=? AND field=? AND allele_id=?");
+		$self->{'sql'}->{'sequence_extended_attributes'} =
+		  $self->{'db'}->prepare("SELECT field,value FROM sequence_extended_attributes WHERE locus=? AND field=? AND allele_id=?");
 	}
 	my @values;
-	while (my ($field) = $self->{'sql'}->{'locus_extended_attributes'}->fetchrow_array){
-		eval { $self->{'sql'}->{'sequence_extended_attributes'}->execute($locus, $field, $allele_id) };
-		$logger->logcarp($@) if $@;	
+	while ( my ($field) = $self->{'sql'}->{'locus_extended_attributes'}->fetchrow_array ) {
+		eval { $self->{'sql'}->{'sequence_extended_attributes'}->execute( $locus, $field, $allele_id ) };
+		$logger->logcarp($@) if $@;
 		my $values_ref = $self->{'sql'}->{'sequence_extended_attributes'}->fetchrow_hashref;
 		push @values, $values_ref if $values_ref;
-	}	
+	}
 	return \@values;
 }
 
@@ -815,6 +840,29 @@ sub get_all_allele_designations {
 	$logger->error($@) if $@;
 	my $alleles = $self->{'sql'}->{'all_allele_designation'}->fetchall_hashref('locus');
 	return $alleles;
+}
+
+sub get_scheme_allele_designations {
+	my ( $self, $isolate_id, $scheme_id ) = @_;
+	if ($scheme_id) {
+		if ( !$self->{'sql'}->{'scheme_allele_designations'} ) {
+			$self->{'sql'}->{'scheme_allele_designations'} =
+			  $self->{'db'}->prepare( "SELECT * FROM allele_designations "
+				  . "WHERE isolate_id=? AND locus IN (SELECT locus FROM scheme_members WHERE scheme_id=?)" );
+		}
+		eval { $self->{'sql'}->{'scheme_allele_designations'}->execute( $isolate_id, $scheme_id ) };
+		$logger->error($@) if $@;
+		return $self->{'sql'}->{'scheme_allele_designations'}->fetchall_hashref('locus');
+	} else {
+		if ( !$self->{'sql'}->{'noscheme_allele_designations'} ) {
+			$self->{'sql'}->{'noscheme_allele_designations'} =
+			  $self->{'db'}
+			  ->prepare( "SELECT * FROM allele_designations " . "WHERE isolate_id=? AND locus NOT IN (SELECT locus FROM scheme_members)" );
+		}
+		eval { $self->{'sql'}->{'noscheme_allele_designations'}->execute($isolate_id) };
+		$logger->error($@) if $@;
+		return $self->{'sql'}->{'noscheme_allele_designations'}->fetchall_hashref('locus');
+	}
 }
 
 sub get_all_allele_sequences {
@@ -867,8 +915,7 @@ sub get_allele_flags {
 	my ( $self, $locus, $allele_id ) = @_;
 	if ( !$self->{'sql'}->{'allele_flags'} ) {
 		$self->{'sql'}->{'allele_flags'} =
-		  $self->{'db'}
-		  ->prepare("SELECT flag FROM allele_flags WHERE locus=? AND allele_id=? ORDER BY flag");
+		  $self->{'db'}->prepare("SELECT flag FROM allele_flags WHERE locus=? AND allele_id=? ORDER BY flag");
 	}
 	eval { $self->{'sql'}->{'allele_flags'}->execute( $locus, $allele_id ) };
 	$logger->error($@) if $@;
