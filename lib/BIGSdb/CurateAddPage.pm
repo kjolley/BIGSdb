@@ -272,6 +272,7 @@ sub _insert {
 		my ( @table_fields, @values );
 		foreach (@$attributes) {
 			push @table_fields, $_->{'name'};
+			$newdata->{ $_->{'name'} } //= '';
 			$newdata->{ $_->{'name'} } =~ s/\\/\\\\/g;
 			$newdata->{ $_->{'name'} } =~ s/'/\\'/g;
 			if ( $_->{'name'} =~ /sequence$/ ) {
@@ -284,11 +285,7 @@ sub _insert {
 		my $first = 1;
 		foreach (@values) {
 			$valuestring .= ',' if !$first;
-			if ( $_ ne '' ) {
-				$valuestring .= "E'$_'";
-			} else {
-				$valuestring .= "null";
-			}
+			$valuestring .= $_ ne '' ? "E'$_'" : "null";
 			$first = 0;
 		}
 		local $" = ',';
