@@ -19,13 +19,14 @@
 package BIGSdb::IndexPage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 0 };
+	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
 	return;
 }
 
@@ -33,21 +34,20 @@ sub initiate {
 	my ($self) = @_;
 	$self->{'jQuery'} = 1;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		my $scheme_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM scheme_fields WHERE primary_key")->[0];
+		my $scheme_count = $self->_get_scheme_count_with_pk;
 		$self->{'tooltips'} = 1 if $scheme_count > 1;
 	}
 	return;
 }
 
 sub print_content {
-	my ($self)     = @_;
-	my $desc       = $self->{'system'}->{'description'};
-	my $scriptName = $self->{'system'}->{'script_name'};
-	my $instance   = $self->{'instance'};
-	my $system     = $self->{'system'};
-	my $q          = $self->{'cgi'};
-	print "<h1>Welcome to the $desc database</h1>";
-
+	my ($self)      = @_;
+	my $script_name = $self->{'system'}->{'script_name'};
+	my $instance    = $self->{'instance'};
+	my $system      = $self->{'system'};
+	my $q           = $self->{'cgi'};
+	my $desc        = $self->get_db_description;
+	say "<h1>Welcome to the $desc database</h1>";
 	$self->print_banner;
 	print << "HTML";
 <div class="box" id="index">
@@ -57,44 +57,39 @@ sub print_content {
 <h2>Query database</h2>
 <ul class="toplevel">
 HTML
-	my $scheme_count_with_pk =
-	  $self->{'datastore'}->run_simple_query(
-"SELECT COUNT (DISTINCT schemes.id) FROM schemes RIGHT JOIN scheme_members ON schemes.id=scheme_members.scheme_id JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key"
-	  )->[0];
-	my $qry =
-	  $system->{'dbtype'} eq 'isolates'
-	  ? "SELECT id,description FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_members) ORDER BY display_order,description"
-	  : "SELECT DISTINCT schemes.id,schemes.description,schemes.display_order FROM schemes RIGHT JOIN scheme_members ON schemes.id=scheme_members.scheme_id JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key ORDER BY schemes.display_order,schemes.description";
-	my $scheme_data = $self->{'datastore'}->run_list_query_hashref($qry);
+	my $set_id = $self->{'system'}->{'set_id'} // $q->param('set_id');
+	my $scheme_data = $self->{'datastore'}->get_scheme_list( {with_pk=>1, set_id=>$set_id} );
+	my $scheme_count_with_pk = $self->_get_scheme_count_with_pk;
 	my ( @scheme_ids, %desc );
+
 	foreach (@$scheme_data) {
 		push @scheme_ids, $_->{'id'};
 		$desc{ $_->{'id'} } = $_->{'description'};
 	}
 	if ( $system->{'dbtype'} eq 'isolates' ) {
-		print "<li><a href=\"$scriptName?page=query&amp;db=$instance\">Search database</a> - advanced queries.</li>\n
-<li><a href=\"$scriptName?page=browse&amp;db=$instance\">Browse database</a> - peruse all records.</li>\n";
+		say "<li><a href=\"$script_name?page=query&amp;db=$instance\">Search database</a> - advanced queries.</li>\n"
+		  . "<li><a href=\"$script_name?page=browse&amp;db=$instance\">Browse database</a> - peruse all records.</li>";
 	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
-		print "<li><a href=\"$scriptName?db=$instance&amp;page=sequenceQuery\">Sequence query</a> - query an allele sequence.</li>";
-		print
-"<li><a href=\"$scriptName?db=$instance&amp;page=batchSequenceQuery\">Batch sequence query</a> - query multiple sequences in FASTA format.</li>\n";
-		print "<li><a href=\"$scriptName?page=alleleQuery&amp;db=$instance\">Sequence attribute search</a> - find alleles by matching
-	 attributes.</li>\n";
+		say "<li><a href=\"$script_name?db=$instance&amp;page=sequenceQuery\">Sequence query</a> - query an allele sequence.</li>\n"
+		  . "<li><a href=\"$script_name?db=$instance&amp;page=batchSequenceQuery\">Batch sequence query</a> - query multiple sequences "
+		  . "in FASTA format.</li>";
+		say "<li><a href=\"$script_name?page=alleleQuery&amp;db=$instance\">Sequence attribute search</a> - find alleles by matching "
+		  . "attributes.</li>";
 		if ( $scheme_count_with_pk == 1 ) {
 			foreach (@$scheme_data) {
-				print
-"<li><a href=\"$scriptName?page=browse&amp;db=$instance&amp;scheme_id=$_->{'id'}\">Browse $_->{'description'} profiles</a></li>";
-				print
-"<li><a href=\"$scriptName?page=query&amp;db=$instance&amp;scheme_id=$_->{'id'}\">Search $_->{'description'} profiles</a></li>";
-				print
-"<li><a href=\"$scriptName?page=listQuery&amp;db=$instance&amp;scheme_id=$_->{'id'}\">List</a> - find $_->{'description'} profiles matched to entered list</li>";
-				print
-"<li><a href=\"$scriptName?page=batchProfiles&amp;db=$instance&amp;scheme_id=$_->{'id'}\">Batch profile query</a> - lookup $_->{'description'} profiles copied from a spreadsheet.</li>";
+				print <<"HTML";
+<li><a href="$script_name?page=browse&amp;db=$instance&amp;scheme_id=$_->{'id'}">Browse $_->{'description'} profiles</a></li>
+<li><a href="$script_name?page=query&amp;db=$instance&amp;scheme_id=$_->{'id'}">Search $_->{'description'} profiles</a></li>
+<li><a href="$script_name?page=listQuery&amp;db=$instance&amp;scheme_id=$_->{'id'}">List</a> - find $_->{'description'} 
+profiles matched to entered list</li>
+<li><a href="$script_name?page=batchProfiles&amp;db=$instance&amp;scheme_id=$_->{'id'}">Batch profile query</a> - lookup 
+$_->{'description'} profiles copied from a spreadsheet.</li>
+HTML
 			}
 		} elsif ( $scheme_count_with_pk > 1 ) {
-			print "<li>Scheme profile queries:";
-			print $q->start_form;
-			print "<table>";
+			say "<li>Scheme profile queries:";
+			say $q->start_form;
+			say "<table>";
 			print << "TOOLTIPS";
 <tr><td />
 <td style="text-align:center"><a class="tooltip" title="Browse - Peruse all records.">&nbsp;<i>i</i>&nbsp;</a></td>
@@ -105,21 +100,20 @@ HTML
 </tr>				
 TOOLTIPS
 			print "<tr><td>";
-			print $q->popup_menu( -name => 'scheme_id', -values => \@scheme_ids, -labels => \%desc );
-			print $q->hidden('db');
-			print "</td>\n";
-			my %labels =
-			  ( 'browse' => 'Browse', 'query' => 'Search', 'listQuery' => 'List', 'profiles' => 'Profiles', 'batchProfiles' => 'Batch' );
+			say $q->popup_menu( -name => 'scheme_id', -values => \@scheme_ids, -labels => \%desc );
+			say $q->hidden('db');
+			say "</td>";
+			my %labels = ( browse => 'Browse', query => 'Search', listQuery => 'List', profiles => 'Profiles', batchProfiles => 'Batch' );
 
 			foreach (qw (browse query listQuery profiles batchProfiles)) {
-				print "<td><button type=\"submit\" name=\"page\" value=\"$_\" class=\"smallbutton\">$labels{$_}</button></td>\n";
+				say "<td><button type=\"submit\" name=\"page\" value=\"$_\" class=\"smallbutton\">$labels{$_}</button></td>";
 			}
-			print "</tr>\n</table>\n";
-			print $q->end_form;
-			print "</li>\n";
+			say "</tr>\n</table>";
+			say $q->end_form;
+			say "</li>";
 		}
 	}
-	if ($self->{'config'}->{'jobs_db'}){
+	if ( $self->{'config'}->{'jobs_db'} ) {
 		my $query_html_file = "$self->{'system'}->{'dbase_config_dir'}/$self->{'instance'}/contents/job_query.html";
 		$self->print_file($query_html_file) if -e $query_html_file;
 	}
@@ -131,48 +125,48 @@ TOOLTIPS
 			  $self->{'datastore'}->run_simple_query(
 				"SELECT COUNT (DISTINCT schemes.id) FROM schemes RIGHT JOIN scheme_members ON schemes.id=scheme_members.scheme_id")->[0];
 			if ( $scheme_count_with_members > 1 ) {
-				print "<li>";
-				print $q->start_form;
-				print $q->popup_menu( -name => 'scheme_id', -values => \@scheme_ids, -labels => \%desc );
-				print $q->hidden('db');
-				print " <button type=\"submit\" name=\"page\" value=\"profiles\" class=\"smallbutton\">Combinations</button>\n";
-				print $q->end_form;
-				print "</li>\n";
+				say '<li>';
+				say $q->start_form;
+				say $q->popup_menu( -name => 'scheme_id', -values => \@scheme_ids, -labels => \%desc );
+				say $q->hidden('db');
+				say " <button type=\"submit\" name=\"page\" value=\"profiles\" class=\"smallbutton\">Combinations</button>\n";
+				say $q->end_form;
+				say '</li>';
 			} else {
 				my $i = 0;
 				my $buffer;
 				foreach (@$scheme_data) {
 					$desc =~ s/\&/\&amp;/g;
 					$buffer .= $i ? '| ' : '<li>';
-					$buffer .= "<a href=\"$scriptName?page=profiles&amp;scheme_id=$_->{'id'}&amp;db=$instance\">$_->{'description'}</a>\n";
+					$buffer .= "<a href=\"$script_name?page=profiles&amp;scheme_id=$_->{'id'}&amp;db=$instance\">$_->{'description'}</a>\n";
 					$i++;
 				}
 				$buffer .= "</li>" if $buffer;
-				print $buffer if $buffer;
+				say $buffer if $buffer;
 			}
-			print "<li><a href=\"$scriptName?page=profiles&amp;scheme_id=0&amp;db=$instance\">All loci</a></li>\n";
-			print "</ul>\n</li>\n";
+			say "<li><a href=\"$script_name?page=profiles&amp;scheme_id=0&amp;db=$instance\">All loci</a></li>";
+			say "</ul>\n</li>";
 		} elsif ( $system->{'dbtype'} eq 'sequences' && $scheme_count_with_pk == 1 ) {
 			my $buffer;
 			my $first = 1;
 			my $i     = 0;
-			$buffer .=
-"<li><a href=\"$scriptName?page=profiles&amp;db=$instance&amp;scheme_id=$scheme_data->[0]->{'id'}\">Search by combinations of $scheme_data->[0]->{'description'} alleles</a> - including partial matching.";
+			$buffer .= "<li><a href=\"$script_name?page=profiles&amp;db=$instance&amp;scheme_id=$scheme_data->[0]->{'id'}\">"
+			  . "Search by combinations of $scheme_data->[0]->{'description'} alleles</a> - including partial matching.";
 			$buffer .= "</li>" if $buffer;
-			$buffer .= "</ul>\n</li>\n" if $buffer && $scheme_count_with_pk > 1;
-			print $buffer;
+			$buffer .= "</ul>\n</li>" if $buffer && $scheme_count_with_pk > 1;
+			say $buffer;
 		}
 	}
 	if ( $system->{'dbtype'} eq 'isolates' ) {
-		print "<li><a href=\"$scriptName?page=listQuery&amp;db=$instance\">List query</a> - find isolates by matching
-	 a field to an entered list.</li>\n";
+		say "<li><a href=\"$script_name?page=listQuery&amp;db=$instance\">List query</a> - find isolates by matching "
+		 . "a field to an entered list.</li>";
 		my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
 		if (@$sample_fields) {
-			print
-"<li><a href=\"$scriptName?page=tableQuery&amp;table=samples&amp;db=$instance\">Sample management</a> - culture/DNA storage tracking</li>\n";
+			say "<li><a href=\"$script_name?page=tableQuery&amp;table=samples&amp;db=$instance\">"
+			  . "Sample management</a> - culture/DNA storage tracking</li>";
 		}
 	}
-	print "</ul>";
+	say "</ul>";
 	if ( $system->{'dbtype'} eq 'sequences' ) {
 		my $seq_download_buffer = '';
 		my $scheme_buffer       = '';
@@ -180,7 +174,7 @@ TOOLTIPS
 		if ( !( $self->{'system'}->{'disable_seq_downloads'} && $self->{'system'}->{'disable_seq_downloads'} eq 'yes' ) || $self->is_admin )
 		{
 			$seq_download_buffer =
-			    "<li><a href=\"$scriptName?page=downloadAlleles&amp;db=$instance"
+			    "<li><a href=\"$script_name?page=downloadAlleles&amp;db=$instance"
 			  . ( $group_count ? '&amp;tree=1' : '' )
 			  . "\">Allele sequences</a></li>\n";
 		}
@@ -192,12 +186,12 @@ TOOLTIPS
 			$scheme_buffer .= $q->popup_menu( -name => 'scheme_id', -values => \@scheme_ids, -labels => \%desc );
 			$scheme_buffer .= $q->hidden('db');
 			$scheme_buffer .=
-			  " <button type=\"submit\" name=\"page\" value=\"downloadProfiles\" class=\"smallbutton\">Download profiles</button>\n";
+			  " <button type=\"submit\" name=\"page\" value=\"downloadProfiles\" class=\"smallbutton\">" . "Download profiles</button>\n";
 			$scheme_buffer .= $q->end_form;
 			$scheme_buffer .= "</li>";
 		} elsif ( $scheme_count_with_pk == 1 ) {
-			$scheme_buffer .=
-"<li><a href=\"$scriptName?page=downloadProfiles&amp;db=$instance&amp;scheme_id=$scheme_data->[0]->{'id'}\">$scheme_data->[0]->{'description'} profiles</a></li>";
+			$scheme_buffer .= "<li><a href=\"$script_name?page=downloadProfiles&amp;db=$instance&amp;scheme_id="
+			  . "$scheme_data->[0]->{'id'}\">$scheme_data->[0]->{'description'} profiles</a></li>";
 		}
 		if ( $seq_download_buffer || $scheme_buffer ) {
 			print << "DOWNLOADS";
@@ -216,44 +210,43 @@ DOWNLOADS
 <img src="/images/icons/64x64/preferences.png" alt="" />
 <h2>Option settings</h2>
 <ul class="toplevel">
-<li><a href="$scriptName?page=options&amp;db=$instance">
+<li><a href="$script_name?page=options&amp;db=$instance">
 Set general options</a>
 OPTIONS
-	print " - including isolate table field handling" if $self->{'system'}->{'dbtype'} eq 'isolates';
-	print "</li>\n";
+	say " - including isolate table field handling" if $self->{'system'}->{'dbtype'} eq 'isolates';
+	say "</li>";
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		print "<li>Set display and query options for 
-<a href=\"$scriptName?page=tableQuery&amp;table=loci&amp;db=$instance\">locus</a>, 
-<a href=\"$scriptName?page=tableQuery&amp;table=schemes&amp;db=$instance\">schemes</a> or 
-<a href=\"$scriptName?page=tableQuery&amp;table=scheme_fields&amp;db=$instance\">scheme fields</a>.</li>";
+		say "<li>Set display and query options for <a href=\"$script_name?page=tableQuery&amp;table=loci&amp;db=$instance\">locus</a>, "
+		. "<a href=\"$script_name?page=tableQuery&amp;table=schemes&amp;db=$instance\">schemes</a> or "
+		. "<a href=\"$script_name?page=tableQuery&amp;table=scheme_fields&amp;db=$instance\">scheme fields</a>.</li>";
 	}
-	print "</ul>\n";
-	print "</div><div style=\"float:left; margin-right:1em\">\n";
-	print "<img src=\"/images/icons/64x64/information.png\" alt=\"\" />\n";
-	print "<h2>General information</h2>\n<ul class=\"toplevel\">\n";
+	say "</ul>\n</div>";
+	say "<div style=\"float:left; margin-right:1em\">";
+	say "<img src=\"/images/icons/64x64/information.png\" alt=\"\" />";
+	say "<h2>General information</h2>\n<ul class=\"toplevel\">";
 	my $max_date;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		my $allele_count = $self->{'datastore'}->run_simple_query("SELECT COUNT (*) FROM sequences");
+		my $allele_count = $self->_get_allele_count;
 		my $tables       = [qw (sequences profiles profile_refs accession)];
 		$max_date = $self->_get_max_date($tables);
-		print "<li>Number of sequences: $allele_count->[0]</li>";
+		say "<li>Number of sequences: $allele_count</li>";
 		if ( $scheme_count_with_pk == 1 ) {
 			foreach (@$scheme_data) {
 				my $profile_count =
 				  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM profiles WHERE scheme_id=?", $scheme_data->[0]->{'id'} )
 				  ->[0];
-				print "<li>Number of profiles ($scheme_data->[0]->{'description'}): $profile_count</li>\n";
+				say "<li>Number of profiles ($scheme_data->[0]->{'description'}): $profile_count</li>";
 			}
 		} elsif ( $scheme_count_with_pk > 1 ) {
-			print "<li>Number of profiles: <a id=\"toggle1\" class=\"showhide\">Show</a>\n";
-			print "<a id=\"toggle2\" class=\"hideshow\">Hide</a><div class=\"hideshow\"><ul>";
+			say "<li>Number of profiles: <a id=\"toggle1\" class=\"showhide\">Show</a>";
+			say "<a id=\"toggle2\" class=\"hideshow\">Hide</a><div class=\"hideshow\"><ul>";
 			foreach (@$scheme_data) {
 				my $profile_count =
 				  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM profiles WHERE scheme_id=?", $_->{'id'} )->[0];
 				$_->{'description'} =~ s/\&/\&amp;/g;
-				print "<li>$_->{'description'}: $profile_count</li>\n";
+				say "<li>$_->{'description'}: $profile_count</li>";
 			}
-			print "</ul></div></li>\n";
+			say "</ul></div></li>";
 		}
 	} else {
 		my $isolate_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}")->[0];
@@ -261,9 +254,9 @@ OPTIONS
 		$max_date = $self->_get_max_date( \@tables );
 		print "<li>Isolates: $isolate_count</li>";
 	}
-	print "<li>Last updated: $max_date</li>" if $max_date;
-	print "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=version\">About BIGSdb</a></li>\n";
-	print "</ul>\n</div>\n</div>\n</div>\n";
+	say "<li>Last updated: $max_date</li>" if $max_date;
+	say "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=version\">About BIGSdb</a></li>";
+	say "</ul>\n</div>\n</div>\n</div>";
 	my $plugins = $self->{'pluginManager'}->get_appropriate_plugin_names( 'breakdown|export|analysis|miscellaneous', $system->{'dbtype'} );
 	if (@$plugins) {
 		print "<div class=\"box\" id=\"plugins\"><div class=\"scrollable\">\n";
@@ -294,22 +287,22 @@ OPTIONS
 						$temp_buffer .= "</li>\n";
 						$active_plugin = 1;
 					} elsif ( $scheme_count_with_pk == 1 ) {
-						$temp_buffer .=
-"<li><a href=\"$scriptName?page=plugin&amp;name=$att->{'module'}&amp;db=$instance&amp;scheme_id=$scheme_data->[0]->{'id'}\">$menuitem</a></li>";
+						$temp_buffer .= "<li><a href=\"$script_name?page=plugin&amp;name=$att->{'module'}&amp;db=$instance&amp;"
+						  . "scheme_id=$scheme_data->[0]->{'id'}\">$menuitem</a></li>";
 						$active_plugin = 1;
 					}
 					$buffer .= $temp_buffer if $temp_buffer;
 				} else {
-					$buffer .= "<li><a href=\"$scriptName?db=$instance&amp;page=plugin&amp;name=$att->{'module'}\">$menuitem</a>";
+					$buffer .= "<li><a href=\"$script_name?db=$instance&amp;page=plugin&amp;name=$att->{'module'}\">$menuitem</a>";
 					$buffer .= " - $att->{'menu_description'}" if $att->{'menu_description'};
 					$buffer .= "</li>\n";
 					$active_plugin = 1;
 				}
 			}
-			$buffer .= "</ul>\n</div>\n";
-			print $buffer if $active_plugin;
+			$buffer .= "</ul>\n</div>";
+			say $buffer if $active_plugin;
 		}
-		print "</div>\n</div>\n";
+		say "</div>\n</div>";
 	}
 	return;
 }
@@ -324,7 +317,33 @@ sub _get_max_date {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
+	my $desc = $self->get_db_description || 'BIGSdb';
 	return $desc;
+}
+
+sub _get_scheme_count_with_pk {
+	my ($self) = @_;
+	my $set_clause = '';
+	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
+		my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
+		$set_clause = " AND schemes.id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)"
+		  if $set_id && BIGSdb::Utils::is_int($set_id);
+	}
+	return $self->{'datastore'}->run_simple_query( "SELECT COUNT (DISTINCT schemes.id) FROM schemes RIGHT JOIN scheme_members ON "
+		  . "schemes.id=scheme_members.scheme_id JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key$set_clause" )
+	  ->[0];
+}
+
+sub _get_allele_count {
+	my ($self) = @_;
+	my $set_clause = '';
+	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
+		my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
+		$set_clause =
+		    " WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
+		  . "set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id)"
+		  if $set_id && BIGSdb::Utils::is_int($set_id);
+	}
+	return $self->{'datastore'}->run_simple_query("SELECT COUNT (*) FROM sequences$set_clause")->[0];
 }
 1;

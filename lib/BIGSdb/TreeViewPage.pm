@@ -107,12 +107,18 @@ sub get_tree {
 	my $groups_with_no_parent =
 	  $self->{'datastore'}->run_list_query(
 		"SELECT id FROM scheme_groups WHERE id NOT IN (SELECT group_id FROM scheme_group_group_members) ORDER BY display_order,name");
+	my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
+	my $set_clause = '';
+
+	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
+		$set_clause = " AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)"
+		  if $set_id && BIGSdb::Utils::is_int($set_id);
+	}
 	my $schemes_not_in_group =
 	  $self->{'datastore'}->run_list_query_hashref(
-"SELECT id,description FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) ORDER BY display_order,description"
+"SELECT id,description FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) $set_clause ORDER BY display_order,description"
 	  );
 	my ( $buffer, $scheme_nodes );
-
 	foreach (@$groups_with_no_parent) {
 		my $group_info          = $self->{'datastore'}->get_scheme_group_info($_);
 		my $group_scheme_buffer = $self->_get_group_schemes( $_, $isolate_id, $options );
@@ -162,7 +168,7 @@ sub get_tree {
 		$temp_buffer .= "</ul></li>" if @$groups_with_no_parent;
 		$buffer .= $temp_buffer if $data_exists;
 	}
-	my $loci_not_in_schemes = $self->{'datastore'}->get_loci_in_no_scheme;
+	my $loci_not_in_schemes = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 	if ( @$loci_not_in_schemes && ( !defined $isolate_id || $self->_data_not_in_scheme_present($isolate_id) ) ) {
 		my $scheme_loci_buffer;
 		if ( $options->{'list_loci'} ) {
@@ -200,8 +206,16 @@ sub _get_group_schemes {
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
 	my $buffer;
+	my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
+	my $set_clause = '';
+	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
+		my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
+		$set_clause = " AND scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)"
+		  if $set_id && BIGSdb::Utils::is_int($set_id);
+	}
 	my $schemes = $self->{'datastore'}->run_list_query(
-"SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON schemes.id=scheme_id WHERE group_id=? ORDER BY display_order,description",
+		"SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON schemes.id=scheme_id WHERE group_id=? "
+		  . "$set_clause ORDER BY display_order,description",
 		$group_id
 	);
 	if (@$schemes) {
@@ -253,7 +267,7 @@ sub _get_scheme_loci {
 			$scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 		}
 	} else {
-		$loci = $self->{'datastore'}->get_loci_in_no_scheme($analysis_pref);
+		$loci = $self->{'datastore'}->get_loci_in_no_scheme( { analyse_pref => $analysis_pref } );
 	}
 	my $qry    = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
 	my $cn_sql = $self->{'db'}->prepare($qry);

@@ -117,7 +117,7 @@ sub _breakdown_isolate {
 		}
 		$td = $td == 1 ? 2 : 1;
 	}
-	my $no_scheme_loci = $self->{'datastore'}->get_loci_in_no_scheme(1);
+	my $no_scheme_loci = $self->{'datastore'}->get_loci_in_no_scheme({analyse_pref=>1});
 	my $first          = 1;
 	print "<tr class=\"td$td\"><th rowspan=\"" . @$no_scheme_loci . "\">Loci</th>";
 	foreach my $locus (@$no_scheme_loci) {
@@ -167,7 +167,7 @@ sub _print_schematic {
 		push @image_map, "<area shape=\"rect\" coords=\"I=$i,0,J=$j,20\" title=\"$desc\" alt=\"$desc\" />\n";
 		$i = $j + 1;
 	}
-	my $no_scheme_loci = $self->{'datastore'}->get_loci_in_no_scheme(1);
+	my $no_scheme_loci = $self->{'datastore'}->get_loci_in_no_scheme({analyse_pref=>1});
 	my $j              = $i + @$no_scheme_loci - 1;
 	push @image_map, "<area shape=\"rect\" coords=\"I=$i,0,J=$j,20\" title=\"Loci not in scheme\" alt=\"Loci not in scheme\" />\n";
 	my $scaling = IMAGE_WIDTH / $j;

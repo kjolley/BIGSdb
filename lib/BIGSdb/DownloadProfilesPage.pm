@@ -19,6 +19,7 @@
 package BIGSdb::DownloadProfilesPage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -26,7 +27,8 @@ my $logger = get_logger('BIGSdb.Page');
 sub initiate {
 	my ($self) = @_;
 	$self->{'type'}   = 'text';
-	$self->{'jQuery'} = 1;        #Use JQuery javascript library
+	$self->{'jQuery'} = 1;
+	return;
 }
 
 sub print_content {
@@ -34,15 +36,25 @@ sub print_content {
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
 	if ( !$scheme_id ) {
-		print "No scheme id passed.\n";
+		say "No scheme id passed.";
 		return;
 	} elsif ( !BIGSdb::Utils::is_int($scheme_id) ) {
-		print "Scheme id must be an integer.\n";
+		say "Scheme id must be an integer.";
 		return;
+	} elsif ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
+		my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
+		if ( $set_id && !BIGSdb::Utils::is_int($set_id) ) {
+			say "Set id must be an integer.";
+			return;
+		}
+		if ( $set_id && !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
+			say "Scheme $scheme_id is not available.";
+			return;
+		}
 	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 	if ( !$scheme_info ) {
-		print "Scheme does not exist.\n";
+		say "Scheme does not exist.";
 		return;
 	}
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
@@ -54,7 +66,7 @@ sub print_content {
 	};
 	my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
 	if ( !$primary_key ) {
-		print "This scheme has no primary key set.\n";
+		say "This scheme has no primary key set.";
 		return;
 	}
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
@@ -82,15 +94,16 @@ sub print_content {
 	eval { $sql->execute };
 	if ($@) {
 		$logger->error("Can't execute $@");
-		print "Can't retrieve data.\n";
+		say "Can't retrieve data.";
 		return;
 	}
 	local $" = "\t";
 	{
 		no warnings 'uninitialized';
 		while ( my @data = $sql->fetchrow_array ) {
-			print "@data\n";
+			say "@data";
 		}
 	}
+	return;
 }
 1;

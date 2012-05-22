@@ -718,7 +718,7 @@ sub get_profile_refs_table_attributes {
 			required       => 'yes',
 			primary_key    => 'yes',
 			foreign_key    => 'schemes',
-			labels         => '|$id|) |$description|',
+			labels         => '|$description|',
 			dropdown_query => 'yes'
 		},
 		{ name => 'profile_id', type => 'text', required => 'yes', primary_key    => 'yes' },
@@ -895,7 +895,7 @@ sub get_scheme_fields_table_attributes {
 			required       => 'yes',
 			primary_key    => 'yes',
 			foreign_key    => 'schemes',
-			labels         => '|$id|) |$description|',
+			labels         => '|$description|',
 			dropdown_query => 'yes'
 		},
 		{ name => 'field', type => 'text', required => 'yes', primary_key => 'yes', regex => '^[a-zA-Z][\w_]*$' },
@@ -1197,7 +1197,7 @@ sub get_profiles_table_attributes {
 			required       => 'yes',
 			primary_key    => 'yes',
 			foreign_key    => 'schemes',
-			labels         => '|$id|) |$description|',
+			labels         => '|$description|',
 			dropdown_query => 'yes'
 		},
 		{ name => 'profile_id',   type => 'text', required => 'yes', primary_key    => 'yes' },
@@ -1217,7 +1217,7 @@ sub get_scheme_curators_table_attributes {
 			required       => 'yes',
 			primary_key    => 'yes',
 			foreign_key    => 'schemes',
-			labels         => '|$id|) |$description|',
+			labels         => '|$description|',
 			dropdown_query => 'yes'
 		},
 		{
@@ -1397,6 +1397,63 @@ sub get_project_members_table_attributes {
 		{ name => 'isolate_id', type => 'int',  required => 'yes', primary_key    => 'yes', foreign_key => 'isolates' },
 		{ name => 'curator',    type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp',  type => 'date', required => 'yes' },
+	];
+	return $attributes;
+}
+
+sub get_sets_table_attributes {
+	my $attributes = [
+		{ name => 'id',               type => 'int',  required => 'yes', primary_key    => 'yes' },
+		{ name => 'description',      type => 'text', required => 'yes', length         => 40 },
+		{ name => 'long_description', type => 'text', length   => 256 },
+		{ name => 'curator',          type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp',        type => 'date', required => 'yes' },
+	];
+	return $attributes;
+}
+
+sub get_set_loci_table_attributes {
+	my $attributes = [
+		{
+			name           => 'set_id',
+			type           => 'int',
+			required       => 'yes',
+			primary_key    => 'yes',
+			foreign_key    => 'sets',
+			labels         => '|$description|',
+			dropdown_query => 'yes'
+		},
+		{ name => 'locus',    type => 'text', required => 'yes', primary_key => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
+		{ name => 'set_name', type => 'text', length   => 40 },
+		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' },
+	];
+	return $attributes;
+}
+
+sub get_set_schemes_table_attributes {
+	my $attributes = [
+		{
+			name           => 'set_id',
+			type           => 'int',
+			required       => 'yes',
+			primary_key    => 'yes',
+			foreign_key    => 'sets',
+			labels         => '|$description|',
+			dropdown_query => 'yes'
+		},
+		{
+			name           => 'scheme_id',
+			type           => 'int',
+			required       => 'yes',
+			primary_key    => 'yes',
+			foreign_key    => 'schemes',
+			labels         => '|$description|',
+			dropdown_query => 'yes'
+		},
+		{ name => 'set_name',  type => 'text', length   => 40 },
+		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' },
 	];
 	return $attributes;
 }

@@ -116,7 +116,12 @@ HTML
 	if ( $system->{'dbtype'} eq 'isolates' ) {
 		push @tables, qw(locus_aliases pcr pcr_locus probes probe_locus isolate_field_extended_attributes composite_fields);
 	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
-		push @tables, qw(locus_extended_attributes client_dbases client_dbase_loci client_dbase_schemes client_dbase_loci_fields);
+		push @tables, qw(locus_extended_attributes client_dbases client_dbase_loci client_dbase_schemes client_dbase_loci_fields);		
+		if (($self->{'system'}->{'sets'} // '') eq 'yes'){
+			push @tables, 'sets';
+			my $set_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM sets")->[0];
+			push @tables, qw( set_loci set_schemes) if $set_count; 
+		}
 		my $client_db_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM client_dbases")->[0];
 		if ( !$client_db_count ) {
 			push @skip_table, qw (client_dbase_loci client_dbase_schemes client_dbase_loci_fields);
@@ -422,6 +427,42 @@ sub _print_locus_descriptions {
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=locus_descriptions">++</a></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=locus_descriptions">?</a></td>
 <td></td></tr>
+HTML
+	return $buffer;
+}
+
+sub _print_sets {
+	my ( $self, $td ) = @_;
+	my $buffer = <<"HTML";
+<tr class="td$td"><td>sets</td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=sets">+</a></td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=sets">++</a></td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=sets">?</a></td>
+<td class="comment" style="text-align:left">Sets describe a collection of loci and schemes that can be treated like a stand-alone database.</td></tr>	
+HTML
+	return $buffer;
+}
+
+sub _print_set_loci {
+	my ( $self, $td ) = @_;
+	my $buffer = <<"HTML";
+<tr class="td$td"><td>set loci</td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=set_loci">+</a></td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=set_loci">++</a></td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=set_loci">?</a></td>
+<td class="comment" style="text-align:left">Add loci to sets.</td></tr>	
+HTML
+	return $buffer;
+}
+
+sub _print_set_schemes {
+	my ( $self, $td ) = @_;
+	my $buffer = <<"HTML";
+<tr class="td$td"><td>set schemes</td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=set_schemes">+</a></td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=set_schemes">++</a></td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=set_schemes">?</a></td>
+<td class="comment" style="text-align:left">Add schemes to sets.</td></tr>	
 HTML
 	return $buffer;
 }

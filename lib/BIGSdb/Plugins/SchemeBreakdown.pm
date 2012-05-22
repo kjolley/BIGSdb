@@ -331,7 +331,7 @@ sub _print_scheme_table {
 		$fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 		$loci = $self->{'datastore'}->get_scheme_loci( $scheme_id, ( { 'profile_name' => 0, 'analysis_pref' => 1 } ) );
 	} else {
-		$loci   = $self->{'datastore'}->get_loci_in_no_scheme(1);
+		$loci   = $self->{'datastore'}->get_loci_in_no_scheme({analyse_pref=>1});
 		$fields = \@;;
 	}
 	next if !@$loci && !@$fields;

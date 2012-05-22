@@ -19,6 +19,7 @@
 package BIGSdb::Datastore;
 use strict;
 use warnings;
+use 5.010;
 use List::MoreUtils qw(any);
 use Error qw(:try);
 use Carp;
@@ -448,20 +449,23 @@ sub get_scheme_locus_aliases {
 
 sub get_loci_in_no_scheme {
 
-	#if $analyse_pref flag is passed, only the loci for which the user has an analysis preference selected
+	#if 'analyse_pref' option is passed, only the loci for which the user has an analysis preference selected
 	#will be returned
-	my ( $self, $analyse_pref ) = @_;
-	if ( !$self->{'sql'}->{'no_scheme_loci'} ) {
-		$self->{'sql'}->{'no_scheme_loci'} =
-		  $self->{'db'}
-		  ->prepare("SELECT id FROM loci LEFT JOIN scheme_members ON loci.id = scheme_members.locus where scheme_id is null ORDER BY id");
-		$logger->info("Statement handle 'no_scheme_loci' prepared.");
+	my ( $self, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $qry;
+	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $options->{'set_id'} && BIGSdb::Utils::is_int( $options->{'set_id'} ) ) {
+		$qry = "SELECT locus FROM set_loci WHERE set_id=$options->{'set_id'} AND locus NOT IN (SELECT locus FROM scheme_members "
+		  . "WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$options->{'set_id'})) ORDER BY locus";
+	} else {
+		$qry = "SELECT id FROM loci LEFT JOIN scheme_members ON loci.id = scheme_members.locus where scheme_id is null ORDER BY id";
 	}
-	eval { $self->{'sql'}->{'no_scheme_loci'}->execute };
+	my $sql = $self->{'db'}->prepare($qry);
+	eval { $sql->execute };
 	$logger->error($@) if $@;
 	my @loci;
-	while ( my ($locus) = $self->{'sql'}->{'no_scheme_loci'}->fetchrow_array ) {
-		if ($analyse_pref) {
+	while ( my ($locus) = $sql->fetchrow_array ) {
+		if ( $options->{'analyse_pref'} ) {
 			if ( $self->{'prefs'}->{'analysis_loci'}->{$locus} ) {
 				push @loci, $locus;
 			}
@@ -542,7 +546,7 @@ sub get_all_scheme_field_info {
 		my @fields = $self->{'system'}->{'dbtype'} eq 'isolates' ? qw(main_display isolate_display query_field dropdown url) : 'dropdown';
 		local $" = ',';
 		my $sql = $self->{'db'}->prepare("SELECT scheme_id,field,@fields FROM scheme_fields");
-		eval { $sql->execute; };
+		eval { $sql->execute };
 		$logger->error($@) if $@;
 		my $data_ref = $sql->fetchall_arrayref;
 		foreach ( @{$data_ref} ) {
@@ -552,6 +556,74 @@ sub get_all_scheme_field_info {
 		}
 	}
 	return $self->{'all_scheme_field_info'};
+}
+
+sub get_scheme_list {
+	my ( $self, $options ) = @_;
+	my $qry;
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		$qry = "SELECT id,description FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_members) ORDER BY display_order,description";
+	} else {
+		if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $options->{'set_id'} && BIGSdb::Utils::is_int( $options->{'set_id'} ) ) {
+			if ( $options->{'with_pk'} ) {
+				$qry =
+				    "SELECT DISTINCT schemes.id,set_schemes.set_name,schemes.description,schemes.display_order FROM set_schemes "
+				  . "LEFT JOIN schemes ON set_schemes.scheme_id=schemes.id RIGHT JOIN scheme_members ON schemes.id="
+				  . "scheme_members.scheme_id JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key AND schemes.id "
+				  . "IN (SELECT scheme_id FROM set_schemes WHERE set_id=$options->{'set_id'}) ORDER BY schemes.display_order,"
+				  . "schemes.description";
+			} else {
+				$qry = "SELECT schemes.id,set_schemes.set_name,schemes.description,schemes.display_order FROM set_schemes "
+				. "LEFT JOIN schemes ON set_schemes.scheme_id=schemes.id AND schemes.id IN (SELECT scheme_id FROM set_schemes WHERE "
+				. "set_id=$options->{'set_id'}) ORDER BY schemes.display_order,schemes.description";
+				
+			}
+		} else {
+			if ( $options->{'with_pk'} ) {
+				$qry =
+				    "SELECT DISTINCT schemes.id,schemes.description,schemes.display_order FROM schemes RIGHT JOIN scheme_members ON "
+				  . "schemes.id=scheme_members.scheme_id JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key ORDER BY "
+				  . "schemes.display_order,schemes.description";
+			} else {
+				$qry = "SELECT id,description FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_members) ORDER BY display_order,description";
+			}
+		}
+	}
+	my $list = $self->run_list_query_hashref($qry);
+	foreach (@$list) {
+		$_->{'description'} = $_->{'set_name'} if $_->{'set_name'};
+	}
+	return $list;
+}
+
+sub is_scheme_in_set {
+	my ( $self, $scheme_id, $set_id ) = @_;
+	if ( !$self->{'sql'}->{'scheme_in_set'} ) {
+		$self->{'sql'}->{'scheme_in_set'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM set_schemes WHERE scheme_id=? AND set_id=?");
+	}
+	eval { $self->{'sql'}->{'scheme_in_set'}->execute( $scheme_id, $set_id ) };
+	$logger->error($@) if $@;
+	my ($is_it) = $self->{'sql'}->{'scheme_in_set'}->fetchrow_array;
+	return $is_it;
+}
+
+sub is_locus_in_set {
+	my ( $self, $locus, $set_id ) = @_;
+	if ( !$self->{'sql'}->{'locus_in_set'} ) {
+		$self->{'sql'}->{'locus_in_set'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM set_loci WHERE locus=? AND set_id=?");
+	}
+	eval { $self->{'sql'}->{'locus_in_set'}->execute( $locus, $set_id ) };
+	$logger->error($@) if $@;
+	my ($is_it) = $self->{'sql'}->{'locus_in_set'}->fetchrow_array;
+	return 1 if $is_it;
+
+	#Also check if locus is in schemes within set
+	my $schemes = $self->get_scheme_list( { set_id => $set_id } );
+	foreach my $scheme (@$schemes) {
+		my $locus_list = $self->get_scheme_loci( $scheme->{'id'} );
+		return 1 if any { $locus eq $_ } @$locus_list;
+	}
+	return;
 }
 
 sub get_scheme {
@@ -1374,7 +1446,7 @@ sub get_tables {
 		@tables =
 		  qw(users user_groups user_group_members sequences sequence_refs accession loci schemes scheme_members scheme_fields profiles
 		  profile_refs user_permissions client_dbases client_dbase_loci client_dbase_schemes locus_extended_attributes scheme_curators locus_curators
-		  locus_descriptions scheme_groups scheme_group_scheme_members scheme_group_group_members client_dbase_loci_fields);
+		  locus_descriptions scheme_groups scheme_group_scheme_members scheme_group_group_members client_dbase_loci_fields sets set_loci set_schemes);
 	}
 	return @tables;
 }

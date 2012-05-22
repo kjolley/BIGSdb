@@ -19,6 +19,7 @@
 package BIGSdb::DownloadAllelesPage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::TreeViewPage);
 use List::MoreUtils qw(none any);
 use Log::Log4perl qw(get_logger);
@@ -55,8 +56,8 @@ Click the nodes to expand/collapse.</p>
 </noscript>
 <div id="tree" class="tree">
 HTML
-	print $self->get_tree(undef);
-	print "</div>\n<div id=\"scheme_table\"></div>\n";
+	say $self->get_tree(undef);
+	say "</div>\n<div id=\"scheme_table\"></div>";
 	return;
 }
 
@@ -80,10 +81,15 @@ sub _print_child_group_scheme_tables {
 
 sub _print_group_scheme_tables {
 	my ( $self, $id, $scheme_shown ) = @_;
-	my $schemes = $self->{'datastore'}->run_list_query(
-"SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON schemes.id=scheme_id WHERE group_id=? ORDER BY display_order",
-		$id
-	);
+	my $set_clause = '';
+	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
+		my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
+		$set_clause = " AND scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)"
+		  if $set_id && BIGSdb::Utils::is_int($set_id);
+	}
+	my $qry =
+"SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON schemes.id=scheme_id WHERE group_id=? $set_clause ORDER BY display_order";
+	my $schemes = $self->{'datastore'}->run_list_query( $qry, $id );
 	if (@$schemes) {
 		foreach (@$schemes) {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
@@ -100,40 +106,61 @@ sub print_content {
 	my $q = $self->{'cgi'};
 	if ( $q->param('locus') ) {
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-			print "This function is not available for isolate databases.\n";
+			say "This function is not available for isolate databases.";
 			return;
 		}
 		if ( $self->{'system'}->{'disable_seq_downloads'} && $self->{'system'}->{'disable_seq_downloads'} eq 'yes' && !$self->is_admin ) {
-			print "Allele sequence downloads are disabled for this database.\n";
+			say "Allele sequence downloads are disabled for this database.";
 			return;
 		}
 		my $locus = $q->param('locus');
 		$locus =~ s/%27/'/g;    #Web-escaped locus
 		if ( $self->{'datastore'}->is_locus($locus) ) {
+			if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
+				my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
+				if ( $set_id && BIGSdb::Utils::is_int($set_id) ) {
+					if ( !$self->{'datastore'}->is_locus_in_set( $locus, $set_id ) ) {
+						say "$locus is not available";
+						return;
+					}
+				} else {
+					say "Set id must be an integer.";
+					return;
+				}
+			}
 			$self->_print_sequences($locus);
 		} else {
-			print "$locus is not a locus!\n";
+			say "$locus is not a locus!";
 		}
 		return;
 	}
 	local $| = 1;
 	if ( defined $q->param('scheme_id') ) {
 		my $scheme_id = $q->param('scheme_id');
+		my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
 		if ( !BIGSdb::Utils::is_int($scheme_id) ) {
 			$logger->warn("Invalid scheme selected - $scheme_id");
 			return;
 		}
 		if ( $scheme_id == -1 ) {
-			my $schemes = $self->{'datastore'}->run_list_query_hashref("SELECT id,description FROM schemes ORDER BY display_order,id");
+			my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 			foreach (@$schemes) {
 				$self->_print_scheme_table( $_->{'id'}, $_->{'description'} );
 			}
 			$self->_print_scheme_table( 0, 'Other loci' );
-		} else {
-			my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
-			my $desc = $scheme_id ? $scheme_info->{'description'} : 'Other loci';
-			$self->_print_scheme_table( $scheme_id, $desc );
+		} elsif ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
+			if ( !BIGSdb::Utils::is_int($set_id) ) {
+				$logger->warn("Set id must be an integer.");
+				return;
+			}
+			if ( $scheme_id && !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
+				$logger->warn("Scheme $scheme_id is not available.");
+				return;
+			}
 		}
+		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+		my $desc = $scheme_id ? $scheme_info->{'description'} : 'Other loci';
+		$self->_print_scheme_table( $scheme_id, $desc );
 		return;
 	} elsif ( defined $q->param('group_id') ) {
 		my $group_id = $q->param('group_id');
@@ -143,74 +170,77 @@ sub print_content {
 		}
 		my $scheme_ids;
 		if ( $group_id == 0 ) {
-			$scheme_ids =
-			  $self->{'datastore'}->run_list_query(
-				"SELECT id FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) ORDER BY display_order");
+			my $set_clause = '';
+			if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
+				my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
+				$set_clause = " AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)"
+				  if $set_id && BIGSdb::Utils::is_int($set_id);
+			}
+			my $qry =
+"SELECT id FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) $set_clause ORDER BY display_order";
+			$scheme_ids = $self->{'datastore'}->run_list_query($qry);
 			foreach (@$scheme_ids) {
 				my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
 				$self->_print_scheme_table( $_, $scheme_info->{'description'} );
 			}
 		} else {
-			my $scheme_shown;
-			$self->_print_group_scheme_tables( $group_id, $scheme_shown );
-			$self->_print_child_group_scheme_tables( $group_id, 1, $scheme_shown );
+			my $scheme_shown_ref;
+			$self->_print_group_scheme_tables( $group_id, $scheme_shown_ref );
+			$self->_print_child_group_scheme_tables( $group_id, 1, $scheme_shown_ref );
 		}
 		return;
 	}
-	print "<h1>Download allele sequences</h1>";
+	say "<h1>Download allele sequences</h1>";
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>This function is not available for isolate databases.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>This function is not available for isolate databases.</p></div>";
 		return;
 	}
-	if ( defined $self->{'system'}->{'disable_seq_downloads'} && $self->{'system'}->{'disable_seq_downloads'} eq 'yes' && !$self->is_admin )
-	{
-		print "<div class=\"box\" id=\"statusbad\"><p>Allele sequence downloads are disabled for this database.</p></div>\n";
+	if ( ( $self->{'system'}->{'disable_seq_downloads'} // '' ) eq 'yes' && !$self->is_admin ) {
+		say "<div class=\"box\" id=\"statusbad\"><p>Allele sequence downloads are disabled for this database.</p></div>";
 		return;
 	}
 	my $all_loci = $self->{'datastore'}->get_loci;
 	if ( !@$all_loci ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>No loci have been defined for this database.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>No loci have been defined for this database.</p></div>";
 		return;
 	}
-	print "<div class=\"box\" id=\"resultstable\">\n";
+	say "<div class=\"box\" id=\"resultstable\">";
 	if ( $q->param('tree') ) {
-		print "<p>Loci by scheme | "
+		say "<p>Loci by scheme | "
 		  . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;list=1\">"
 		  . "Alphabetical list</a>"
 		  . " | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles\">"
-		  . "All loci by scheme</a></p>\n";
+		  . "All loci by scheme</a></p>";
 		$self->_print_tree;
 	} elsif ( $q->param('list') ) {
-		print "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;tree=1\">"
+		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;tree=1\">"
 		  . "Loci by scheme</a>"
 		  . " | Alphabetical list"
 		  . " | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles\">"
-		  . "All loci by scheme</a></p>\n";
+		  . "All loci by scheme</a></p>";
 		$self->_print_alphabetical_list;
 	} else {
-		print "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;tree=1\">"
+		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;tree=1\">"
 		  . "Loci by scheme</a>"
 		  . " | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;list=1\">"
 		  . "Alphabetical list</a>"
-		  . " | All loci by scheme</p>\n";
+		  . " | All loci by scheme</p>";
 		$self->_print_all_loci_by_scheme;
 	}
-	print "</div>\n";
+	say "</div>";
 	return;
 }
 
 sub _print_all_loci_by_scheme {
 	my ($self) = @_;
-	my $qry    = "SELECT id,description FROM schemes ORDER BY display_order,id";
-	my $sql    = $self->{'db'}->prepare($qry);
-	eval { $sql->execute };
-	$logger->error($@) if $@;
-	while ( my ( $scheme_id, $desc ) = $sql->fetchrow_array ) {
+	my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
+	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+	foreach my $scheme (@$schemes) {
 		if ( $ENV{'MOD_PERL'} ) {
 			return if $self->{'mod_perl_request'}->connection->aborted;
-			$self->{'mod_perl_request'}->rflush;			
+			$self->{'mod_perl_request'}->rflush;
 		}
-		$self->_print_scheme_table( $scheme_id, $desc );
+		$self->_print_scheme_table( $scheme->{'id'}, $scheme->{'description'} );
 	}
 	$self->_print_scheme_table( 0, 'Other loci' );
 	return;
@@ -218,7 +248,9 @@ sub _print_all_loci_by_scheme {
 
 sub _print_scheme_table {
 	my ( $self, $scheme_id, $desc ) = @_;
-	my $loci = $scheme_id ? $self->{'datastore'}->get_scheme_loci($scheme_id) : $self->{'datastore'}->get_loci_in_no_scheme();
+	my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
+	my $loci =
+	  $scheme_id ? $self->{'datastore'}->get_scheme_loci($scheme_id) : $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 	my $td = 1;
 	my ( $scheme_descs_exist, $scheme_aliases_exist, $scheme_curators_exist );
 	if ($scheme_id) {
@@ -254,10 +286,10 @@ sub _print_scheme_table {
 		print "<table class=\"resultstable\">";
 		$self->_print_table_header_row(
 			{ descs_exist => $scheme_descs_exist, aliases_exist => $scheme_aliases_exist, curators_exist => $scheme_curators_exist } );
-		foreach (@$loci) {
+		foreach my $locus (@$loci) {
 			$self->_print_locus_row(
-				$_,
-				$self->clean_locus($_),
+				$locus,
+				$self->clean_locus($locus),
 				{
 					td             => $td,
 					descs_exist    => $scheme_descs_exist,
@@ -291,7 +323,7 @@ sub _print_sequences {
 		print "Can't retrieve sequences.\n";
 		return;
 	}
-	my $delimiter = $self->{'cgi'}->param('delimiter') ?  $self->{'cgi'}->param('delimiter') : '_';
+	my $delimiter = $self->{'cgi'}->param('delimiter') ? $self->{'cgi'}->param('delimiter') : '_';
 	while ( my ( $id, $sequence ) = $sql->fetchrow_array ) {
 		print ">$cleaned$delimiter$id\n";
 		my $cleaned_seq = BIGSdb::Utils::break_line( $sequence, 60 ) || '';
@@ -453,9 +485,22 @@ sub _print_alphabetical_list {
 
 sub _get_loci_by_letter {
 	my ( $self, $letter ) = @_;
-	my $main    = $self->{'datastore'}->run_list_query("SELECT id FROM loci WHERE UPPER(id) LIKE E'$letter%'");
-	my $common  = $self->{'datastore'}->run_list_query_hashref("SELECT id,common_name FROM loci WHERE UPPER(common_name) LIKE E'$letter%'");
-	my $aliases = $self->{'datastore'}->run_list_query_hashref("SELECT locus,alias FROM locus_aliases WHERE UPPER(alias) LIKE E'$letter%'");
+	my $set_clause = '';
+	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
+		my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
+		if ( $set_id && BIGSdb::Utils::is_int($set_id) ) {
+
+			#make sure 'id IN' has a space before it - used in the substitution a few lines on (also matches scheme_id otherwise).
+			$set_clause = "AND ( id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
+			  . "set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))";
+		}
+	}
+	my $main = $self->{'datastore'}->run_list_query("SELECT id FROM loci WHERE UPPER(id) LIKE E'$letter%' $set_clause");
+	my $common =
+	  $self->{'datastore'}->run_list_query_hashref("SELECT id,common_name FROM loci WHERE UPPER(common_name) LIKE E'$letter%' $set_clause");
+	$set_clause =~ s/ id IN/ locus IN/g;
+	my $aliases =
+	  $self->{'datastore'}->run_list_query_hashref("SELECT locus,alias FROM locus_aliases WHERE alias ILIKE E'$letter%' $set_clause");
 	return ( $main, $common, $aliases );
 }
 1;

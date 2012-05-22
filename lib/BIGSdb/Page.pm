@@ -739,6 +739,19 @@ sub clean_locus {
 	return $locus;
 }
 
+sub get_db_description {
+	my ($self) = @_;
+	my $desc;
+	if (($self->{'system'}->{'sets'} // '') eq 'yes'){
+		my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
+		if (BIGSdb::Utils::is_int($set_id)){
+			my $desc_ref = $self->{'datastore'}->run_simple_query("SELECT description FROM sets WHERE id=?", $set_id);
+			$desc = $desc_ref->[0] if ref $desc_ref eq 'ARRAY';
+		}
+	}
+	return $desc || $self->{'system'}->{'description'};
+}
+
 sub get_link_button_to_ref {
 	my ( $self, $ref ) = @_;
 	my $buffer;
@@ -844,7 +857,10 @@ sub get_record_name {
 		'pcr_locus'                         => 'PCR locus link',
 		'probes'                            => 'nucleotide probe',
 		'probe_locus'                       => 'probe locus link',
-		'client_dbase_loci_fields'          => 'locus to client database isolate field definition'
+		'client_dbase_loci_fields'          => 'locus to client database isolate field definition',
+		'sets'                              => 'set',
+		'set_loci'                          => 'set member locus',
+		'set_schemes'                       => 'set member schemes'
 	);
 	return $names{$table};
 }
