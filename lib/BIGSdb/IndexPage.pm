@@ -57,7 +57,7 @@ sub print_content {
 <h2>Query database</h2>
 <ul class="toplevel">
 HTML
-	my $set_id = $self->{'system'}->{'set_id'} // $q->param('set_id');
+	my $set_id = $self->get_set_id;
 	my $scheme_data = $self->{'datastore'}->get_scheme_list( {with_pk=>1, set_id=>$set_id} );
 	my $scheme_count_with_pk = $self->_get_scheme_count_with_pk;
 	my ( @scheme_ids, %desc );
@@ -325,7 +325,7 @@ sub _get_scheme_count_with_pk {
 	my ($self) = @_;
 	my $set_clause = '';
 	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
-		my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
+		my $set_id = $self->get_set_id;
 		$set_clause = " AND schemes.id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)"
 		  if $set_id && BIGSdb::Utils::is_int($set_id);
 	}
@@ -338,7 +338,7 @@ sub _get_allele_count {
 	my ($self) = @_;
 	my $set_clause = '';
 	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
-		my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
+		my $set_id = $self->get_set_id;
 		$set_clause =
 		    " WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
 		  . "set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id)"

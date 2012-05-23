@@ -16,6 +16,7 @@ CREATE TABLE set_loci (
 set_id int NOT NULL,
 locus text NOT NULL,
 set_name text,
+set_common_name text,
 curator int NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY(set_id, locus),

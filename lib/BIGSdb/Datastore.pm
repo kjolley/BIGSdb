@@ -20,7 +20,7 @@ package BIGSdb::Datastore;
 use strict;
 use warnings;
 use 5.010;
-use List::MoreUtils qw(any);
+use List::MoreUtils qw(any uniq);
 use Error qw(:try);
 use Carp;
 use Log::Log4perl qw(get_logger);
@@ -346,14 +346,24 @@ sub scheme_exists {
 }
 
 sub get_scheme_info {
-	my ( $self, $id ) = @_;
+	my ( $self, $scheme_id, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	if ( !$self->{'sql'}->{'scheme_info'} ) {
 		$self->{'sql'}->{'scheme_info'} = $self->{'db'}->prepare("SELECT * FROM schemes WHERE id=?");
-		$logger->info("Statement handle 'scheme_info' prepared.");
 	}
-	eval { $self->{'sql'}->{'scheme_info'}->execute($id) };
+	eval { $self->{'sql'}->{'scheme_info'}->execute($scheme_id) };
 	$logger->error($@) if $@;
-	return $self->{'sql'}->{'scheme_info'}->fetchrow_hashref;
+	my $scheme_info = $self->{'sql'}->{'scheme_info'}->fetchrow_hashref;
+	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $options->{'set_id'} && BIGSdb::Utils::is_int( $options->{'set_id'} ) ) {
+		if ( !$self->{'sql'}->{'set_scheme_info'} ) {
+			$self->{'sql'}->{'set_scheme_info'} = $self->{'db'}->prepare("SELECT set_name FROM set_schemes WHERE set_id=? AND scheme_id=?");
+		}
+		eval { $self->{'sql'}->{'set_scheme_info'}->execute( $options->{'set_id'}, $scheme_id ) };
+		$logger->error($@) if $@;
+		my ($desc) = $self->{'sql'}->{'set_scheme_info'}->fetchrow_array;
+		$scheme_info->{'description'} = $desc if defined $desc;
+	}
+	return $scheme_info;
 }
 
 sub get_all_scheme_info {
@@ -388,7 +398,7 @@ sub get_scheme_loci {
 	#options passed as hashref:
 	#analyse_pref: only the loci for which the user has a analysis preference selected will be returned
 	#profile_name: to substitute profile field value in query
-	#	({'profile_name' => 1, 'analysis_pref' => 1})
+	#	({profile_name => 1, analysis_pref => 1})
 	my ( $self, $id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my @field_names = 'locus';
@@ -573,10 +583,10 @@ sub get_scheme_list {
 				  . "IN (SELECT scheme_id FROM set_schemes WHERE set_id=$options->{'set_id'}) ORDER BY schemes.display_order,"
 				  . "schemes.description";
 			} else {
-				$qry = "SELECT schemes.id,set_schemes.set_name,schemes.description,schemes.display_order FROM set_schemes "
-				. "LEFT JOIN schemes ON set_schemes.scheme_id=schemes.id AND schemes.id IN (SELECT scheme_id FROM set_schemes WHERE "
-				. "set_id=$options->{'set_id'}) ORDER BY schemes.display_order,schemes.description";
-				
+				$qry =
+				    "SELECT schemes.id,set_schemes.set_name,schemes.description,schemes.display_order FROM set_schemes "
+				  . "LEFT JOIN schemes ON set_schemes.scheme_id=schemes.id AND schemes.id IN (SELECT scheme_id FROM set_schemes WHERE "
+				  . "set_id=$options->{'set_id'}) WHERE schemes.id IS NOT NULL ORDER BY schemes.display_order,schemes.description";
 			}
 		} else {
 			if ( $options->{'with_pk'} ) {
@@ -585,7 +595,8 @@ sub get_scheme_list {
 				  . "schemes.id=scheme_members.scheme_id JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key ORDER BY "
 				  . "schemes.display_order,schemes.description";
 			} else {
-				$qry = "SELECT id,description FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_members) ORDER BY display_order,description";
+				$qry =
+"SELECT id,description FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_members) ORDER BY display_order,description";
 			}
 		}
 	}
@@ -799,21 +810,41 @@ sub get_locus_list {
 	#analysis_pref: only the loci for which the user has an analysis preference selected will be returned
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $qry  = "SELECT id,common_name FROM loci";
+	my $qry;
+	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $options->{'set_id'} && BIGSdb::Utils::is_int( $options->{'set_id'} ) ) {
+		$qry =
+		    "SELECT loci.id,common_name,set_id,set_name,set_common_name FROM loci LEFT JOIN set_loci ON loci.id = set_loci.locus "
+		  . "WHERE id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
+		  . "set_id=$options->{'set_id'})) OR id IN (SELECT locus FROM set_loci WHERE set_id=$options->{'set_id'})";
+	} else {
+		$qry = "SELECT id,common_name FROM loci";
+	}
 	my $loci = $self->run_list_query_hashref($qry);
 	my $cleaned;
 	my $display_loci;
-	foreach (@$loci) {
-		next if $options->{'analysis_pref'} && !$self->{'prefs'}->{'analysis_loci'}->{ $_->{'id'} };
-		push @$display_loci, $_->{'id'};
-		$cleaned->{ $_->{'id'} } = $_->{'id'};
-		if ( $_->{'common_name'} ) {
-			$cleaned->{ $_->{'id'} } .= " ($_->{'common_name'})";
-			push @$display_loci, "cn_$_->{'id'}";
-			$cleaned->{"cn_$_->{'id'}"} = "$_->{'common_name'} ($_->{'id'})";
-			$cleaned->{"cn_$_->{'id'}"} =~ tr/_/ /;
+	foreach my $locus (@$loci) {
+		next if $options->{'analysis_pref'} && !$self->{'prefs'}->{'analysis_loci'}->{ $locus->{'id'} };
+		next if ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $locus->{'set_id'} && $locus->{'set_id'} != $options->{'set_id'};
+		push @$display_loci, $locus->{'id'};
+		if ( $locus->{'set_name'} ) {
+			$cleaned->{ $locus->{'id'} } = $locus->{'set_name'};
+			if ( $locus->{'set_common_name'} ) {
+				$cleaned->{ $locus->{'id'} } .= " ($locus->{'set_common_name'})";
+				push @$display_loci, "cn_$locus->{'id'}";
+				$cleaned->{"cn_$locus->{'id'}"} = "$locus->{'set_common_name'} ($locus->{'set_name'})";
+				$cleaned->{"cn_$locus->{'id'}"} =~ tr/_/ /;
+			}
+		} else {
+			$cleaned->{ $locus->{'id'} } = $locus->{'id'};
+			if ( $locus->{'common_name'} ) {
+				$cleaned->{ $locus->{'id'} } .= " ($locus->{'common_name'})";
+				push @$display_loci, "cn_$locus->{'id'}";
+				$cleaned->{"cn_$locus->{'id'}"} = "$locus->{'common_name'} ($locus->{'id'})";
+				$cleaned->{"cn_$locus->{'id'}"} =~ tr/_/ /;
+			}
 		}
 	}
+	@$display_loci = uniq @$display_loci;
 
 	#dictionary sort
 	@$display_loci = map { $_->[0] }
@@ -827,14 +858,26 @@ sub get_locus_list {
 }
 
 sub get_locus_info {
-	my ( $self, $locus ) = @_;
+	my ( $self, $locus, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	if ( !$self->{'sql'}->{'locus_info'} ) {
 		$self->{'sql'}->{'locus_info'} = $self->{'db'}->prepare("SELECT * FROM loci WHERE id=?");
 		$logger->info("Statement handle 'locus_info' prepared.");
 	}
 	eval { $self->{'sql'}->{'locus_info'}->execute($locus) };
 	$logger->error($@) if $@;
-	return $self->{'sql'}->{'locus_info'}->fetchrow_hashref;
+	my $locus_info = $self->{'sql'}->{'locus_info'}->fetchrow_hashref;
+	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $options->{'set_id'} && BIGSdb::Utils::is_int( $options->{'set_id'} ) ) {
+		if ( !$self->{'sql'}->{'set_locus_info'} ) {
+			$self->{'sql'}->{'set_locus_info'} = $self->{'db'}->prepare( "SELECT * FROM set_loci WHERE set_id=? AND locus=?" );
+		}
+		eval {$self->{'sql'}->{'set_locus_info'}->execute( $options->{'set_id'}, $locus)};
+		$logger->error($@) if $@;
+		my $set_locus = $self->{'sql'}->{'set_locus_info'}->fetchrow_hashref;
+		$locus_info->{'set_name'} = $set_locus->{'set_name'};
+		$locus_info->{'set_common_name'} = $set_locus->{'set_common_name'};
+	}
+	return $locus_info;
 }
 
 sub get_locus {

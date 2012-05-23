@@ -164,7 +164,7 @@ sub get_user_permissions_table_attributes {
 sub get_loci_table_attributes {
 	my ($self) = @_;
 	my $attributes = [
-		{ name => 'id', type => 'text', required => 'yes', unique => 'yes', primary_key => 'yes' },
+		{ name => 'id', type => 'text', length => 50, required => 'yes', unique => 'yes', primary_key => 'yes' },
 		{ name => 'common_name', type => 'text', tooltip  => 'common name - Name that the locus is commonly known as.' },
 		{ name => 'data_type',   type => 'text', required => 'yes', optlist => 'DNA;peptide', default => 'DNA' },
 		{
@@ -1425,8 +1425,9 @@ sub get_set_loci_table_attributes {
 		},
 		{ name => 'locus',    type => 'text', required => 'yes', primary_key => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
 		{ name => 'set_name', type => 'text', length   => 40 },
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' },
+		{ name => 'set_common_name', type => 'text', length   => 40 },
+		{ name => 'curator',         type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp',       type => 'date', required => 'yes' },
 	];
 	return $attributes;
 }

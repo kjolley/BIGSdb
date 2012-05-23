@@ -55,16 +55,23 @@ sub run_blast {
 		if ( !$options->{'locus'} ) {
 
 			#Create file and BLAST db of all sequences in a cache directory so can be reused.
-			$temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'instance'}/$cleaned_run\_fastafile.txt";
-			my $stale_flag_file = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'instance'}/stale";
+			my $set_id = $self->get_set_id // 'all';
+			$set_id = 'all' if ($self->{'system'}->{'sets'} // '') ne 'yes';
+			$temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$set_id/$cleaned_run\_fastafile.txt";
+			my $stale_flag_file = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$set_id/stale";
 			if ( -e $temp_fastafile && !-e $stale_flag_file ) {
 				$already_generated = 1;
 			} else {
-				eval {
-					mkpath("$self->{'config'}->{'secure_tmp_dir'}/$self->{'instance'}");
-					unlink $stale_flag_file;
-				};
-				$logger->error($@) if $@;
+				my $new_path = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$set_id";
+				if (-f $new_path){
+					$logger->error("Can't create directory $new_path for cache files - a filename exists with this name.");
+				} else {
+					eval {
+						mkpath($new_path);
+						unlink $stale_flag_file;
+					};
+					$logger->error($@) if $@;
+				}
 			}
 		} else {
 			$temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'job'}\_$cleaned_run\_fastafile.txt";
@@ -72,15 +79,21 @@ sub run_blast {
 		}
 		if ( !$already_generated ) {
 			my ( $qry, $sql );
-			if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
+			if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {				
 				$qry = "SELECT locus,allele_id,sequence from sequences WHERE locus=?";
 			} else {
 				if ( $options->{'locus'} =~ /SCHEME_(\d+)/ ) {
 					my $scheme_id = $1;
-					$qry =
-"SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id=$scheme_id) AND locus IN (SELECT id FROM loci WHERE data_type=?)";
-				} else {
+					$qry = "SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT locus FROM scheme_members WHERE "
+					. "scheme_id=$scheme_id) AND locus IN (SELECT id FROM loci WHERE data_type=?)";
+				} else {				
 					$qry = "SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT id FROM loci WHERE data_type=?)";
+					my $set_id = $self->get_set_id;
+					if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int( $set_id ) ) {
+						$qry .= " AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
+					  . "set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))";
+					}
+					
 				}
 			}
 			$sql = $self->{'db'}->prepare($qry);

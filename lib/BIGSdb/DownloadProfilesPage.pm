@@ -42,7 +42,7 @@ sub print_content {
 		say "Scheme id must be an integer.";
 		return;
 	} elsif ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
-		my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
+		my $set_id = $self->get_set_id;
 		if ( $set_id && !BIGSdb::Utils::is_int($set_id) ) {
 			say "Set id must be an integer.";
 			return;
@@ -72,19 +72,24 @@ sub print_content {
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	print "$primary_key";
 	my @fields = ($primary_key);
-	foreach (@$loci) {
+	my $set_id = $self->get_set_id;
+	foreach my $locus (@$loci) {
 		print "\t";
-		my $locus_info   = $self->{'datastore'}->get_locus_info($_);
-		my $header_value = $_;
-		$header_value .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
+		my $locus_info   = $self->{'datastore'}->get_locus_info($locus, {set_id=>$set_id});
+		my $header_value = $locus_info->{'set_name'} // $locus;
+		if ($set_id){
+			$header_value .= " ($locus_info->{'set_common_name'})" if $locus_info->{'set_common_name'};
+		} else {
+			$header_value .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
+		}
 		print $header_value;
-		( my $cleaned = $_ ) =~ s/'/_PRIME_/g;
+		( my $cleaned = $locus ) =~ s/'/_PRIME_/g;
 		push @fields, $cleaned;
 	}
-	foreach (@$scheme_fields) {
-		next if $_ eq $primary_key;
-		print "\t$_";
-		push @fields, $_;
+	foreach my $field (@$scheme_fields) {
+		next if $field eq $primary_key;
+		print "\t$field";
+		push @fields, $field;
 	}
 	print "\n";
 	local $" = ',';

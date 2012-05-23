@@ -731,21 +731,39 @@ sub clean_locus {
 	my ( $self, $locus ) = @_;
 	return if !defined $locus;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
+		my $set_id = $self->get_set_id;
+		if ($set_id && BIGSdb::Utils::is_int($set_id)){
+			my $set_locus = $self->{'datastore'}->run_simple_query_hashref("SELECT * FROM set_loci WHERE set_id=? AND locus=?", $set_id, $locus);
+			if ($set_locus->{'set_name'}){
+				$locus = $set_locus->{'set_name'};
+				$locus .= " ($set_locus->{'set_common_name'})" if $set_locus->{'set_common_name'};
+			}
+		}
+	} else {
+		$locus =~ s/^_//;    #locus names can't begin with a digit, so people can use an underscore, but this looks untidy in the interface.
+		$locus .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
+	}
+	
 	if ( $self->{'system'}->{'locus_superscript_prefix'} && $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
 		$locus =~ s/^([A-Za-z]{1,3})_/<sup>$1<\/sup>/;
 	}
-	$locus =~ s/^_//;    #locus names can't begin with a digit, so people can use an underscore, but this looks untidy in the interface.
-	$locus .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
 	return $locus;
+}
+
+sub get_set_id {
+	my ($self) = @_;
+	my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
+	return $set_id;
 }
 
 sub get_db_description {
 	my ($self) = @_;
 	my $desc;
-	if (($self->{'system'}->{'sets'} // '') eq 'yes'){
-		my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
-		if (BIGSdb::Utils::is_int($set_id)){
-			my $desc_ref = $self->{'datastore'}->run_simple_query("SELECT description FROM sets WHERE id=?", $set_id);
+	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
+		my $set_id = $self->get_set_id;
+		if ( BIGSdb::Utils::is_int($set_id) ) {
+			my $desc_ref = $self->{'datastore'}->run_simple_query( "SELECT description FROM sets WHERE id=?", $set_id );
 			$desc = $desc_ref->[0] if ref $desc_ref eq 'ARRAY';
 		}
 	}
@@ -1039,12 +1057,20 @@ sub make_temp_file {
 }
 
 sub mark_cache_stale {
+
+	#Mark all cache subdirectories as stale (each locus set will use a different directory)
 	my ($self) = @_;
-	my $dir = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'instance'}";
+	my $dir = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}";
 	if ( -d $dir ) {
-		my $stale_flag_file = "$dir/stale";
-		system("touch $stale_flag_file");
-		$logger->error("Can't mark BLAST db stale.") if $?;
+		foreach my $subdir ( glob "$dir/*" ) {
+			next if !-d $subdir;    #skip if not a dirctory
+			if ( $subdir =~ /\/(all|\d+)$/ ) {
+				$subdir = $1;
+				my $stale_flag_file = "$dir/$subdir/stale";
+				open( my $fh, '>', $stale_flag_file ) || $logger->error("Can't mark BLAST db stale.");
+				close $fh;
+			}
+		}
 	}
 	return;
 }

@@ -167,7 +167,7 @@ sub _print_table_fields {
 	my $q = $self->{'cgi'};
 	print "<span style=\"white-space:nowrap\">\n";
 	print $q->popup_menu( -name => "s$row", -values => $select_items, -labels => $labels, -class => 'fieldlist' );
-	print $q->popup_menu( -name => "y$row", -values => [ OPERATORS ] );
+	print $q->popup_menu( -name => "y$row", -values => [OPERATORS] );
 	print $q->textfield( -name => "t$row", -class => 'value_entry' );
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
@@ -186,7 +186,8 @@ sub _print_query_interface {
 	my $locus  = $q->param('locus');
 	my ( $select_items, $labels, $order_by ) = $self->_get_select_items($locus);
 	print "<div class=\"box\" id=\"queryform\">\n";
-	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list;
+	my $set_id = $self->get_set_id;
+	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
 	unshift @$display_loci, '';
 	print $q->startform;
 	$cleaned->{''} = 'Please select ...';
@@ -278,7 +279,7 @@ sub _run_query {
 					my $thisfield = $extatt_sql->fetchrow_hashref;
 					next
 					  if $self->check_format(
-							  { field => $field, text => $text, type => $thisfield->{'value_format'}, operator => $operator }, \@errors );
+						{ field => $field, text => $text, type => $thisfield->{'value_format'}, operator => $operator }, \@errors );
 					my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
 					$first_value = 0;
 					my $std_clause = "$modifier (allele_id IN (SELECT allele_id FROM sequence_extended_attributes "
@@ -311,7 +312,7 @@ sub _run_query {
 						$qry .=
 						  $thisfield->{'value_format'} eq 'integer'
 						  ? "AND CAST(value AS text) LIKE E'\%$text'))"
-						  : "AND upper(value) LIKE upper(E'\%$text')))";						  
+						  : "AND upper(value) LIKE upper(E'\%$text')))";
 					} elsif ( $operator eq "NOT contain" ) {
 						$qry .= $std_clause;
 						$qry .=
@@ -348,7 +349,7 @@ sub _run_query {
 					$thisfield->{'type'} ||= 'text';    # sender/curator surname, firstname, affiliation
 					next
 					  if $self->check_format( { field => $field, text => $text, type => $thisfield->{'type'}, operator => $operator },
-							  \@errors );
+						\@errors );
 					my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
 					$first_value = 0;
 					if ( $field =~ /(.*) \(id\)$/
@@ -465,7 +466,7 @@ sub _run_query {
 
 sub _process_flags {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my $q      = $self->{'cgi'};
 	my $buffer = '';
 	if ( $q->param('allele_flag_list') ne '' && ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
 		if ( $q->param('allele_flag_list') eq 'no flag' ) {

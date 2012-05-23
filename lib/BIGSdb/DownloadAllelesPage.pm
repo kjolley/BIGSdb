@@ -81,9 +81,9 @@ sub _print_child_group_scheme_tables {
 
 sub _print_group_scheme_tables {
 	my ( $self, $id, $scheme_shown ) = @_;
+	my $set_id     = $self->get_set_id;
 	my $set_clause = '';
 	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
-		my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
 		$set_clause = " AND scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)"
 		  if $set_id && BIGSdb::Utils::is_int($set_id);
 	}
@@ -91,11 +91,11 @@ sub _print_group_scheme_tables {
 "SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON schemes.id=scheme_id WHERE group_id=? $set_clause ORDER BY display_order";
 	my $schemes = $self->{'datastore'}->run_list_query( $qry, $id );
 	if (@$schemes) {
-		foreach (@$schemes) {
-			my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
+		foreach my $scheme_id (@$schemes) {
+			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 			$scheme_info->{'description'} =~ s/&/\&amp;/g;
-			$self->_print_scheme_table( $_, $scheme_info->{'description'} ) if !$scheme_shown->{$_};
-			$scheme_shown->{$_} = 1;
+			$self->_print_scheme_table( $scheme_id, $scheme_info->{'description'} ) if !$scheme_shown->{$scheme_id};
+			$scheme_shown->{$scheme_id} = 1;
 		}
 	}
 	return;
@@ -117,7 +117,7 @@ sub print_content {
 		$locus =~ s/%27/'/g;    #Web-escaped locus
 		if ( $self->{'datastore'}->is_locus($locus) ) {
 			if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
-				my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
+				my $set_id = $self->get_set_id;
 				if ( $set_id && BIGSdb::Utils::is_int($set_id) ) {
 					if ( !$self->{'datastore'}->is_locus_in_set( $locus, $set_id ) ) {
 						say "$locus is not available";
@@ -135,17 +135,17 @@ sub print_content {
 		return;
 	}
 	local $| = 1;
+	my $set_id = $self->get_set_id;
 	if ( defined $q->param('scheme_id') ) {
 		my $scheme_id = $q->param('scheme_id');
-		my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
 		if ( !BIGSdb::Utils::is_int($scheme_id) ) {
 			$logger->warn("Invalid scheme selected - $scheme_id");
 			return;
 		}
 		if ( $scheme_id == -1 ) {
 			my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-			foreach (@$schemes) {
-				$self->_print_scheme_table( $_->{'id'}, $_->{'description'} );
+			foreach my $scheme (@$schemes) {
+				$self->_print_scheme_table( $scheme->{'id'}, $scheme->{'description'} );
 			}
 			$self->_print_scheme_table( 0, 'Other loci' );
 		} elsif ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
@@ -158,7 +158,7 @@ sub print_content {
 				return;
 			}
 		}
-		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 		my $desc = $scheme_id ? $scheme_info->{'description'} : 'Other loci';
 		$self->_print_scheme_table( $scheme_id, $desc );
 		return;
@@ -172,16 +172,15 @@ sub print_content {
 		if ( $group_id == 0 ) {
 			my $set_clause = '';
 			if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
-				my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
 				$set_clause = " AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)"
 				  if $set_id && BIGSdb::Utils::is_int($set_id);
 			}
 			my $qry =
 "SELECT id FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) $set_clause ORDER BY display_order";
 			$scheme_ids = $self->{'datastore'}->run_list_query($qry);
-			foreach (@$scheme_ids) {
-				my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
-				$self->_print_scheme_table( $_, $scheme_info->{'description'} );
+			foreach my $scheme_id (@$scheme_ids) {
+				my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
+				$self->_print_scheme_table( $scheme_id, $scheme_info->{'description'} );
 			}
 		} else {
 			my $scheme_shown_ref;
@@ -233,7 +232,7 @@ sub print_content {
 
 sub _print_all_loci_by_scheme {
 	my ($self) = @_;
-	my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
+	my $set_id = $self->get_set_id;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	foreach my $scheme (@$schemes) {
 		if ( $ENV{'MOD_PERL'} ) {
@@ -248,7 +247,7 @@ sub _print_all_loci_by_scheme {
 
 sub _print_scheme_table {
 	my ( $self, $scheme_id, $desc ) = @_;
-	my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
+	my $set_id = $self->get_set_id;
 	my $loci =
 	  $scheme_id ? $self->{'datastore'}->get_scheme_loci($scheme_id) : $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 	my $td = 1;
@@ -312,12 +311,15 @@ sub get_title {
 
 sub _print_sequences {
 	my ( $self, $locus ) = @_;
-	( my $cleaned = $locus ) =~ s/^_//;
-	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	my $qry        = "SELECT allele_id,sequence FROM sequences WHERE locus=? ORDER BY "
+	my $set_id = $self->get_set_id;
+	my $locus_info = $self->{'datastore'}->get_locus_info( $locus, { set_id => $set_id } );
+	( my $cleaned = $locus_info->{'set_name'} // $locus ) =~ s/^_//;
+	$cleaned =~ tr/ /_/;
+	my $qry = "SELECT allele_id,sequence FROM sequences WHERE locus=? ORDER BY "
 	  . ( $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id' );
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute($locus) };
+
 	if ($@) {
 		$logger->error($@);
 		print "Can't retrieve sequences.\n";
@@ -487,7 +489,7 @@ sub _get_loci_by_letter {
 	my ( $self, $letter ) = @_;
 	my $set_clause = '';
 	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
-		my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
+		my $set_id = $self->get_set_id;
 		if ( $set_id && BIGSdb::Utils::is_int($set_id) ) {
 
 			#make sure 'id IN' has a space before it - used in the substitution a few lines on (also matches scheme_id otherwise).

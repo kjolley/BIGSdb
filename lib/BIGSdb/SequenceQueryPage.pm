@@ -78,10 +78,9 @@ sub print_content {
 	  . "90% or more G,A,T,C or N characters.\">&nbsp;<i>i</i>&nbsp;</a></p>\n";
 	print $q->start_form;
 	print "<div class=\"scrollable\"><fieldset><legend>Please select locus/scheme</legend>\n";
-	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list;
-	my $scheme_list =
-	  $self->{'datastore'}->run_list_query_hashref("SELECT id,description FROM schemes ORDER BY display_order desc,description desc");
-
+	my $set_id = $self->get_set_id;
+	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
+	my $scheme_list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	foreach (@$scheme_list) {
 		unshift @$display_loci, "SCHEME_$_->{'id'}";
 		$cleaned->{"SCHEME_$_->{'id'}"} = $_->{'description'};
@@ -319,7 +318,8 @@ sub _output_scheme_fields {
 				  $self->{'datastore'}
 				  ->run_simple_query_hashref( "SELECT @$scheme_fields FROM scheme_$scheme_id WHERE (@$scheme_loci) = (@placeholders)",
 					@profile );
-				my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+				my $set_id = $self->get_set_id;
+				my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id, {set_id=>$set_id});
 				print "<h2>$scheme_info->{'description'}</h2>\n<table>\n";
 				my $pks =
 				  $self->{'datastore'}->run_list_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id );
@@ -330,7 +330,8 @@ sub _output_scheme_fields {
 					$field =~ tr/_/ /;
 					print "<tr class=\"td$td\"><th>$field</th><td>";
 					print $primary_key && $value ne 'Not defined'
-					  ? "<a href=\"$self->{'system'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;scheme_id=$scheme_id&amp;profile_id=$value\">$value</a>"
+					  ? "<a href=\"$self->{'system'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;"
+					  . "scheme_id=$scheme_id&amp;profile_id=$value\">$value</a>"
 					  : $value;
 					print "</td></tr>\n";
 					$td = $td == 1 ? 2 : 1;
