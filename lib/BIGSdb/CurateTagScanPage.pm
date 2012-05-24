@@ -1262,11 +1262,11 @@ sub blast {
 			my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
 			my $filter = $program eq 'blastn' ? 'dust' : 'seg';
 			system(
-"$self->{'config'}->{'blast+_path'}/$program -num_threads $blast_threads -max_target_seqs 10 -parse_deflines -word_size $word_size -db $temp_fastafile -query $temp_infile -out $temp_outfile -outfmt 6 -$filter no"
+"$self->{'config'}->{'blast+_path'}/$program -num_threads $blast_threads -max_target_seqs 1000 -parse_deflines -word_size $word_size -db $temp_fastafile -query $temp_infile -out $temp_outfile -outfmt 6 -$filter no"
 			);
 		} else {
 			system(
-"$self->{'config'}->{'blast_path'}/blastall -B $seq_count -b 10 -p $program -W $word_size -d $temp_fastafile -i $temp_infile -o $temp_outfile -m8 -F F 2> /dev/null"
+"$self->{'config'}->{'blast_path'}/blastall -B $seq_count -b 1000 -p $program -W $word_size -d $temp_fastafile -i $temp_infile -o $temp_outfile -m8 -F F 2> /dev/null"
 			);
 		}
 		my ( $exact_matches, $matched_regions, $partial_matches );
