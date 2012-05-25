@@ -40,7 +40,14 @@ sub print_content {
 		print "<div class=\"box\" id=\"statusbad\"><p>No profile id passed.</p></div>\n";
 		return;
 	}
-	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+	my $set_id = $self->get_set_id;
+	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+		if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
+			print "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is unavailable.</p></div>\n";
+			return;
+		} 
+	}
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 	if ( !$scheme_info ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Scheme $scheme_id does not exist.</p></div>\n";
 		return;
@@ -63,7 +70,7 @@ sub print_content {
 		return;
 	}
 	my $data = $sql->fetchrow_hashref;
-	if (!defined $data){
+	if ( !defined $data ) {
 		print "<div class=\"box statusbad\"><p>This profile does not exist!</p></div>\n";
 		return;
 	}
@@ -80,7 +87,7 @@ sub print_content {
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 		my $td            = 2;
 		foreach (@$loci) {
-			my $cleaned    = $self->clean_locus($_);
+			my $cleaned = $self->clean_locus($_);
 			print "<tr class=\"td$td\"><th>$cleaned</th>";
 			( my $cleaned2 = $_ ) =~ s/'/_PRIME_/g;
 			print
@@ -130,7 +137,7 @@ sub print_content {
 					}
 				}
 			} else {
-				$data->{lc($_)} ||= '';
+				$data->{ lc($_) } ||= '';
 				print "<td style=\"text-align:left\" colspan=\"5\">$data->{lc($_)}</td></tr>\n";
 			}
 			$td = $td == 1 ? 2 : 1;
@@ -255,7 +262,8 @@ sub get_title {
 	my $scheme_info;
 	my $primary_key;
 	if ( $scheme_id && BIGSdb::Utils::is_int($scheme_id) ) {
-		$scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+		my $set_id = $self->get_set_id;
+		$scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 		eval {
 			$primary_key =
 			  $self->{'datastore'}->run_list_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )->[0];
@@ -295,7 +303,6 @@ sub get_link_button_to_ref {
 	);
 	$q->param( 'pmid', $ref );
 	$q->param( 'page', 'pubquery' );
-
 	$buffer .= $q->hidden($_) foreach qw (db query pmid page curate scheme_id);
 	$buffer .= $q->submit( -value => 'Display', -class => 'submit' );
 	$buffer .= $q->end_form;

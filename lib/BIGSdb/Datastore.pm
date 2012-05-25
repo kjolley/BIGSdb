@@ -869,12 +869,12 @@ sub get_locus_info {
 	my $locus_info = $self->{'sql'}->{'locus_info'}->fetchrow_hashref;
 	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $options->{'set_id'} && BIGSdb::Utils::is_int( $options->{'set_id'} ) ) {
 		if ( !$self->{'sql'}->{'set_locus_info'} ) {
-			$self->{'sql'}->{'set_locus_info'} = $self->{'db'}->prepare( "SELECT * FROM set_loci WHERE set_id=? AND locus=?" );
+			$self->{'sql'}->{'set_locus_info'} = $self->{'db'}->prepare("SELECT * FROM set_loci WHERE set_id=? AND locus=?");
 		}
-		eval {$self->{'sql'}->{'set_locus_info'}->execute( $options->{'set_id'}, $locus)};
+		eval { $self->{'sql'}->{'set_locus_info'}->execute( $options->{'set_id'}, $locus ) };
 		$logger->error($@) if $@;
 		my $set_locus = $self->{'sql'}->{'set_locus_info'}->fetchrow_hashref;
-		$locus_info->{'set_name'} = $set_locus->{'set_name'};
+		$locus_info->{'set_name'}        = $set_locus->{'set_name'};
 		$locus_info->{'set_common_name'} = $set_locus->{'set_common_name'};
 	}
 	return $locus_info;
@@ -909,6 +909,22 @@ sub is_locus {
 	$id ||= '';
 	my $loci = $self->get_loci( { 'do_not_order' => 1 } );
 	return any { $_ eq $id } @$loci;
+}
+
+sub get_set_locus_label {
+	my ( $self, $locus, $set_id ) = @_;
+	if ( !$self->{'sql'}->{'update_locus_setnames'} ) {
+		$self->{'sql'}->{'update_locus_setnames'} = $self->{'db'}->prepare("SELECT * FROM set_loci WHERE set_id=? AND locus=?");
+	}
+	if ( $self->{'system'}->{'sets'} && $set_id ) {
+		eval { $self->{'sql'}->{'update_locus_setnames'}->execute( $set_id, $locus ) };
+		$logger->error($@) if $@;
+		my $set_loci    = $self->{'sql'}->{'update_locus_setnames'}->fetchrow_hashref;
+		my $set_cleaned = $set_loci->{'set_name'};
+		$set_cleaned .= " ($set_loci->{'set_common_name'})" if $set_loci->{'set_common_name'};
+		return $set_cleaned;
+	}
+	return;
 }
 ##############ALLELES##################################################################
 sub get_allele_designation {

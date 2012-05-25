@@ -44,32 +44,38 @@ sub print_content {
 	my $system    = $self->{'system'};
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
+	my $set_id    = $self->get_set_id;
 	my $scheme_info;
 	my $primary_key;
 	if ( $system->{'dbtype'} eq 'sequences' ) {
+
 		if ( !$scheme_id ) {
 			print "<div class=\"box\" id=\"statusbad\"><p>No scheme id passed.</p></div>\n";
 			return;
 		} elsif ( !BIGSdb::Utils::is_int($scheme_id) ) {
 			print "<div class=\"box\" id=\"statusbad\">Scheme id must be an integer.</p></div>\n";
 			return;
-		} else {
-			$scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
-			if ( !$scheme_info ) {
-				print "<div class=\"box\" id=\"statusbad\">Scheme does not exist.</p></div>\n";
+		} elsif ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+			if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
+				print "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is unavailable.</p></div>\n";
 				return;
 			}
-			print "<h1>Query $scheme_info->{'description'} profiles by matching a field against a list</h1>\n";
-			eval {
-				$primary_key =
-				  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )
-				  ->[0];
-			};
-			if ( !$primary_key ) {
-				print
+		}
+		$scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
+		if ( !$scheme_info ) {
+			print "<div class=\"box\" id=\"statusbad\">Scheme does not exist.</p></div>\n";
+			return;
+		}
+		print "<h1>Query $scheme_info->{'description'} profiles by matching a field against a list</h1>\n";
+		eval {
+			$primary_key =
+			  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )
+			  ->[0];
+		};
+		if ( !$primary_key ) {
+			print
 "<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  Profile browsing can not be done until this has been set.</p></div>\n";
-				return;
-			}
+			return;
 		}
 	} else {
 		print "<h1>Query $system->{'description'} database matching a field against a list</h1>\n";
@@ -117,12 +123,18 @@ sub _print_query_interface {
 			push @$field_list, "s_$scheme_id\_$_";
 			( $labels->{"s_$scheme_id\_$_"} = $_ ) =~ tr/_/ /;
 		}
+		my $set_id = $self->get_set_id;
 		my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-		foreach (@$loci) {
-			my $locus_info = $self->{'datastore'}->get_locus_info($_);
-			push @$field_list, "l_$_";
-			$labels->{"l_$_"} = $_;
-			$labels->{"l_$_"} .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
+		foreach my $locus (@$loci) {
+			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+			push @$field_list, "l_$locus";
+			$labels->{"l_$locus"} = $locus;
+			$labels->{"l_$locus"} .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
+			my $set_id = $self->get_set_id;
+			if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+				my $set_cleaned = $self->{'datastore'}->get_set_locus_label($locus, $set_id);
+				$labels->{"l_$locus"} = $set_cleaned if $set_cleaned;
+			}
 		}
 		$order_list   = $field_list;
 		$order_labels = $labels;

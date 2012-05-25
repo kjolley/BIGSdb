@@ -31,7 +31,7 @@ sub initiate {
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 1, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 1 };
+	$self->{'pref_requirements'} = { general => 1, main_display => 1, isolate_display => 0, analysis => 0, query_field => 1 };
 	return;
 }
 
@@ -44,6 +44,7 @@ sub print_content {
 	my $scheme_id;
 	my $scheme_info;
 	my $primary_key;
+	my $set_id = $self->get_set_id;
 
 	if ( $system->{'dbtype'} eq 'sequences' ) {
 		$scheme_id = $q->param('scheme_id');
@@ -53,23 +54,27 @@ sub print_content {
 		} elsif ( !BIGSdb::Utils::is_int($scheme_id) ) {
 			print "<div class=\"box\" id=\"statusbad\"><p>Scheme id must be an integer.</p></div>\n";
 			return;
-		} else {
-			$scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
-			if ( !$scheme_info ) {
-				print "<div class=\"box\" id=\"statusbad\">Scheme does not exist.</p></div>\n";
+		} elsif ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+			if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
+				print "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is unavailable.</p></div>\n";
 				return;
 			}
-			print "<h1>Browse $scheme_info->{'description'} profiles</h1>\n";
-			eval {
-				$primary_key =
-				  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )
-				  ->[0];
-			};
-			if ( !$primary_key ) {
-				print
+		}
+		$scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
+		if ( !$scheme_info ) {
+			print "<div class=\"box\" id=\"statusbad\">Scheme does not exist.</p></div>\n";
+			return;
+		}
+		print "<h1>Browse $scheme_info->{'description'} profiles</h1>\n";
+		eval {
+			$primary_key =
+			  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )
+			  ->[0];
+		};
+		if ( !$primary_key ) {
+			print
 "<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  Profile browsing can not be done until this has been set.</p></div>\n";
-				return;
-			}
+			return;
 		}
 	} else {
 		print "<h1>Browse $system->{'description'} database</h1>\n";
@@ -97,22 +102,24 @@ sub print_content {
 				$cleaned =~ tr/_/ /;
 				$labels->{$primary_key} = $cleaned;
 			}
-			my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-			foreach (@$loci) {
-				my $locus_info = $self->{'datastore'}->get_locus_info($_);
-				push @$order_by, $_;
-				my $cleaned = $_;
+			my $loci         = $self->{'datastore'}->get_scheme_loci($scheme_id);
+			foreach my $locus (@$loci) {
+				my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+				push @$order_by, $locus;
+				my $cleaned = $locus;
 				$cleaned .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
 				$cleaned =~ tr/_/ /;
-				$labels->{$_} = $cleaned;
+				my $set_cleaned = $self->{'datastore'}->get_set_locus_label($locus, $set_id);
+				$cleaned = $set_cleaned if $set_cleaned;
+				$labels->{$locus} = $cleaned;
 			}
 			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-			foreach (@$scheme_fields) {
-				next if $_ eq $primary_key;
-				push @$order_by, $_;
-				my $cleaned = $_;
+			foreach my $field (@$scheme_fields) {
+				next if $field eq $primary_key;
+				push @$order_by, $field;
+				my $cleaned = $field;
 				$cleaned =~ tr/_/ /;
-				$labels->{$_} = $cleaned;
+				$labels->{$field} = $cleaned;
 			}
 			push @$order_by, qw (sender curator date_entered datestamp);
 			$labels->{'date_entered'} = 'date entered';

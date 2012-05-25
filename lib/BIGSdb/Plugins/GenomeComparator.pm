@@ -196,7 +196,6 @@ sub run {
 		my @cleaned_loci;
 		foreach my $locus (@loci) {
 			my $locus_name = $locus =~ /$pattern/ ? $1 : undef;
-			$logger->error($locus_name);
 			push @cleaned_loci, $locus_name if defined $locus_name;
 		}
 		$q->param( 'locus', uniq @cleaned_loci );

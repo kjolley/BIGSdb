@@ -56,11 +56,17 @@ sub print_content {
 		print "<div class=\"box\" id=\"statusbad\"><p>This function is only available for sequence definition databases.</p></div>\n";
 		return;
 	}
-	my $scheme_info = $scheme_id > 0 ? $self->{'datastore'}->get_scheme_info($scheme_id) : undef;
+	my $set_id = $self->get_set_id;
+	my $scheme_info = $scheme_id > 0 ? $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } ) : undef;
 	if ( ( !$scheme_info->{'id'} || !$scheme_id ) ) {
 		print "<h1>Batch profile query</h1>\n";
 		print "<div class=\"box\" id=\"statusbad\"><p>Invalid scheme selected.</p></div>\n";
 		return;
+	} elsif ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+		if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
+			print "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is unavailable.</p></div>\n";
+			return;
+		}
 	}
 	my $loci =
 	  $self->{'datastore'}->run_list_query( "SELECT locus FROM scheme_members WHERE scheme_id=? ORDER BY field_order", $scheme_id );

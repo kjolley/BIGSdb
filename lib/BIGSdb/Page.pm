@@ -1549,4 +1549,5 @@ sub get_all_foreign_key_fields_and_labels {
 	}
 	return ( \@fields, \%desc );
 }
+
 1;
