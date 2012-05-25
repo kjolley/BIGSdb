@@ -24,7 +24,7 @@ use parent qw(BIGSdb::TreeViewPage);
 use List::MoreUtils qw(none any);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use BIGSdb::Page qw(LOCUS_PATTERNS);
+use BIGSdb::Page qw(LOCUS_PATTERN);
 
 sub initiate {
 	my ($self) = @_;
@@ -443,7 +443,7 @@ sub _print_locus_row {
 
 sub _print_alphabetical_list {
 	my ($self) = @_;
-	my @locus_patterns = LOCUS_PATTERNS;
+	my $locus_pattern = LOCUS_PATTERN;
 	foreach my $letter ( 0 .. 9, 'A' .. 'Z' ) {
 		if ( $ENV{'MOD_PERL'} ) {
 			return if $self->{'mod_perl_request'}->connection->aborted;
@@ -474,7 +474,7 @@ sub _print_alphabetical_list {
 			my $td = 1;
 
 			foreach my $locus ( sort { $names{$a} cmp $names{$b} } keys %names ) {
-				my $locus_name = $locus ~~ @locus_patterns ? $1 : undef;
+				my $locus_name = $locus =~ /$locus_pattern/ ? $1 : undef;
 				$self->_print_locus_row( $locus_name, $names{$locus},
 					{ td => $td, descs_exist => $descs_exist, aliases_exist => $aliases_exist, curators_exist => $curators_exist, } );
 				$td = $td == 1 ? 2 : 1;

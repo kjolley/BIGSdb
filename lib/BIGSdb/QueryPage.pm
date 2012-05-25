@@ -27,7 +27,7 @@ my $logger = get_logger('BIGSdb.Page');
 use constant MAX_ROWS  => 20;
 use constant MAX_INT   => 2147483647;
 use constant OPERATORS => ( '=', 'contains', 'starts with', 'ends with', '>', '<', 'NOT', 'NOT contain' );
-use BIGSdb::Page qw(SEQ_FLAGS LOCUS_PATTERNS);
+use BIGSdb::Page qw(SEQ_FLAGS LOCUS_PATTERN);
 our @EXPORT_OK = qw(OPERATORS);
 
 sub initiate {
@@ -1040,7 +1040,7 @@ sub _provenance_like_type_operator {
 	( my $text = $values->{'behaviour'} ) =~ s/text/$values->{'text'}/;
 	if ( $values->{'extended_isolate_field'} ) {
 		$buffer .= "$values->{'extended_isolate_field'} $not IN (SELECT field_value FROM isolate_value_extended_attributes "
-		 . "WHERE isolate_field='$values->{'extended_isolate_field'}' AND attribute='$values->{'field'}' AND value ILIKE E'$text')";
+		  . "WHERE isolate_field='$values->{'extended_isolate_field'}' AND attribute='$values->{'field'}' AND value ILIKE E'$text')";
 	} elsif ( $values->{'field'} eq $labelfield ) {
 		$buffer .= "($not $values->{'field'} ILIKE E'$text' OR $view.id $not IN (SELECT isolate_id FROM isolate_aliases WHERE "
 		  . "alias ILIKE E'$text'))";
@@ -1231,11 +1231,11 @@ sub _modify_isolate_query_for_designations {
 	my $q    = $self->{'cgi'};
 	my $view = $self->{'system'}->{'view'};
 	my ( %lqry, @lqry_blank, %combo );
-	my @locus_patterns = LOCUS_PATTERNS;
+	my $pattern = LOCUS_PATTERN;
 	my $andor = defined $q->param('c1') && $q->param('c1') eq 'AND' ? ' AND ' : ' OR ';
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		if ( defined $q->param("lt$i") && $q->param("lt$i") ne '' ) {
-			if ( $q->param("ls$i") ~~ @locus_patterns ) {
+			if ( $q->param("ls$i") =~ /$pattern/ ) {
 				my $locus      = $1;
 				my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 				$locus =~ s/'/\\'/g;
@@ -1433,13 +1433,13 @@ sub _modify_isolate_query_for_tags {
 	my $q    = $self->{'cgi'};
 	my $view = $self->{'system'}->{'view'};
 	my @tag_queries;
-	my @locus_patterns = LOCUS_PATTERNS;
+	my $pattern = LOCUS_PATTERN;
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		if ( defined $q->param("ts$i") && $q->param("ts$i") ne '' && defined $q->param("tt$i") && $q->param("tt$i") ne '' ) {
 			my $action = $q->param("tt$i");
 			my $locus;
 			if ( $q->param("ts$i") ne 'any locus' ) {
-				if ( $q->param("ts$i") ~~ @locus_patterns ) {
+				if ( $q->param("ts$i") =~ /$pattern/ ) {
 					$locus = $1;
 				}
 				if ( !$self->{'datastore'}->is_locus($locus) ) {
@@ -1666,7 +1666,7 @@ sub check_format {
 			} elsif ( $data->{'text'} > MAX_INT ) {
 				$error = "$data->{'field'} is too big (largest allowed integer is " . MAX_INT . ').';
 			}
-		} elsif ( $data->{'type'} =~ /bool/ && !BIGSdb::Utils::is_bool($data->{'text'})){
+		} elsif ( $data->{'type'} =~ /bool/ && !BIGSdb::Utils::is_bool( $data->{'text'} ) ) {
 			$error = "$data->{'field'} is a boolean (true/false) field.";
 		} elsif ( $data->{'type'} eq 'float' && !BIGSdb::Utils::is_float( $data->{'text'} ) ) {
 			$error = "$data->{'field'} is a floating point number field.";
