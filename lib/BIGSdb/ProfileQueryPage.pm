@@ -24,7 +24,7 @@ use parent qw(BIGSdb::ResultsTablePage);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
-use BIGSdb::Page qw(LOCUS_PATTERNS);
+use BIGSdb::Page qw(LOCUS_PATTERN);
 
 sub initiate {
 	my ($self) = @_;
@@ -271,9 +271,9 @@ sub _run_query {
 		my @params = $q->param;
 		my @loci;
 		my %values;
-		my @patterns = LOCUS_PATTERNS;
+		my $pattern = LOCUS_PATTERN;
 		foreach (@params) {
-			if ( $_ ~~ @patterns ) {
+			if ( $_ =~ /$pattern/ ) {
 				if ( $q->param($_) ne '' ) {
 					push @loci, $1;
 					if ( $values{$1} && $q->param($_) && $values{$1} ne $q->param($_) ) {

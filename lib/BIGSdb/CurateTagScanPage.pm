@@ -26,7 +26,7 @@ my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(uniq any none);
 use Apache2::Connection ();
 use Error qw(:try);
-use BIGSdb::Page qw(SEQ_METHODS SEQ_FLAGS LOCUS_PATTERNS);
+use BIGSdb::Page qw(SEQ_METHODS SEQ_FLAGS LOCUS_PATTERN);
 ###DEFAUT SCAN PARAMETERS#############
 my $MIN_IDENTITY    = 70;
 my $MIN_ALIGNMENT   = 50;
@@ -392,9 +392,9 @@ sub _scan {
 		next if $isolate_id eq '' || $isolate_id eq 'all';
 		next if !$self->is_allowed_to_view_isolate($isolate_id);
 		my %locus_checked;
-		my @patterns = LOCUS_PATTERNS;
+		my $pattern = LOCUS_PATTERN;
 		foreach my $locus_id (@loci) {
-			my $locus = $locus_id ~~ @patterns ? $1 : undef;
+			my $locus = $locus_id =~ /$pattern/ ? $1 : undef;
 			if ( !defined $locus ) {
 				$logger->error("Locus name not extracted: Input was '$locus_id'");
 				next;

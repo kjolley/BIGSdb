@@ -23,7 +23,7 @@ use parent qw(BIGSdb::CuratePage BIGSdb::BlastPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(any none);
-use BIGSdb::Page qw(DATABANKS LOCUS_PATTERNS ALLELE_FLAGS);
+use BIGSdb::Page qw(DATABANKS LOCUS_PATTERN ALLELE_FLAGS);
 use constant SUCCESS => 1;
 
 sub initiate {
@@ -665,8 +665,8 @@ sub _print_copy_locus_record_form {
 sub _copy_locus_config {
 	my ( $self, $newdata_ref ) = @_;
 	my $q        = $self->{'cgi'};
-	my @patterns = LOCUS_PATTERNS;
-	my $locus    = $q->param('locus') ~~ @patterns ? $1 : undef;
+	my $pattern = LOCUS_PATTERN;
+	my $locus    = $q->param('locus') =~ /$pattern/ ? $1 : undef;
 	return if !defined $locus;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	foreach my $field ( keys %$locus_info ) {

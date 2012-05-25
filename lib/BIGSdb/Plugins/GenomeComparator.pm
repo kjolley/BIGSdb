@@ -30,7 +30,7 @@ use Bio::SeqIO;
 use Bio::AlignIO;
 use List::MoreUtils qw(uniq any none);
 use Digest::MD5;
-use BIGSdb::Page qw(SEQ_METHODS LOCUS_PATTERNS);
+use BIGSdb::Page qw(SEQ_METHODS LOCUS_PATTERN);
 use constant MAX_UPLOAD_SIZE  => 32768;
 use constant MAX_SPLITS_TAXA  => 200;
 use constant MAX_DISPLAY_TAXA => 150;
@@ -179,7 +179,7 @@ sub run_job {
 
 sub run {
 	my ($self) = @_;
-	my @patterns = LOCUS_PATTERNS;
+	my $pattern = LOCUS_PATTERN;
 	print "<h1>Genome Comparator</h1>\n";
 	my $q = $self->{'cgi'};
 	if ( $q->param('submit') ) {
@@ -195,7 +195,8 @@ sub run {
 		my @loci = $q->param('locus');
 		my @cleaned_loci;
 		foreach my $locus (@loci) {
-			my $locus_name = $locus ~~ @patterns ? $1 : undef;
+			my $locus_name = $locus =~ /$pattern/ ? $1 : undef;
+			$logger->error($locus_name);
 			push @cleaned_loci, $locus_name if defined $locus_name;
 		}
 		$q->param( 'locus', uniq @cleaned_loci );
