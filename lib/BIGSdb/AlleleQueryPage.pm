@@ -19,6 +19,7 @@
 package BIGSdb::AlleleQueryPage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::QueryPage);
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
@@ -347,6 +348,7 @@ sub _run_query {
 						}
 					}
 					$thisfield->{'type'} ||= 'text';    # sender/curator surname, firstname, affiliation
+					$thisfield->{'type'} = $locus_info->{'allele_id_format'} // 'text';
 					next
 					  if $self->check_format( { field => $field, text => $text, type => $thisfield->{'type'}, operator => $operator },
 						\@errors );
