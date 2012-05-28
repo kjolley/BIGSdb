@@ -570,8 +570,12 @@ sub print_sequence_export_form {
 			print "<br />\n";
 		}
 		if ( $options->{'ignore_seqflags'} ) {
-			print $q->checkbox( -name => 'ignore_seqflags', -label => 'Do not include sequences with problem flagged',
-				-checked => 'checked' );
+			print $q->checkbox( -name => 'ignore_seqflags', -label => 'Do not include sequences with problem flagged '
+			. '(defined alleles will still be used)', -checked => 'checked' );
+			print "<br />\n";
+		}
+		if ( $options->{'ignore_incomplete'} ) {
+			print $q->checkbox( -name => 'ignore_incomplete', -label => 'Do not include incomplete sequences', -checked => 'checked' );
 			print "<br />\n";
 		}
 		if ( $options->{'flanking'} ) {
@@ -594,7 +598,7 @@ sub print_sequence_export_form {
 		my ( @js, @js2 );
 		my $schemes;
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-			$schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
+			$schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,description");
 		} else {
 			push @$schemes, $scheme_id || 0;
 		}
