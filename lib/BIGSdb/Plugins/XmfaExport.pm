@@ -42,7 +42,7 @@ sub get_attributes {
 		buttontext  => 'XMFA',
 		menutext    => 'XMFA export',
 		module      => 'XmfaExport',
-		version     => '1.2.1',
+		version     => '1.2.2',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		section     => 'export,postquery',
@@ -67,14 +67,13 @@ sub run {
 	my $query_file = $q->param('query_file');
 	my $scheme_id  = $q->param('scheme_id');
 	print "<h1>Export allele sequences in XMFA format</h1>\n";
-	if (!-e $self->{'config'}->{'muscle_path'} || !-x $self->{'config'}->{'muscle_path'}){
-		$logger->error("This plugin requires MUSCLE to be installed and it is not.  Please install MUSCLE "
-		. "or check the settings in bigsdb.conf.");
+	if ( !-e $self->{'config'}->{'muscle_path'} || !-x $self->{'config'}->{'muscle_path'} ) {
+		$logger->error( "This plugin requires MUSCLE to be installed and it is not.  Please install MUSCLE "
+			  . "or check the settings in bigsdb.conf." );
 	}
 	my $list;
 	my $qry_ref;
 	my $pk;
-
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$pk = 'id';
 	} else {
@@ -94,8 +93,8 @@ sub run {
 		my $pk_ref =
 		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key", $scheme_id );
 		if ( ref $pk_ref ne 'ARRAY' ) {
-			print
-"<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  Profile concatenation can not be done until this has been set.</p></div>\n";
+			print "<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  Profile concatenation "
+			  . "can not be done until this has been set.</p></div>\n";
 			return;
 		}
 		$pk = $pk_ref->[0];
@@ -130,8 +129,8 @@ sub run {
 			$params->{'pk'} = $pk;
 			( my $list = $q->param('list') ) =~ s/[\r\n]+/\|\|/g;
 			$params->{'list'} = $list;
-			my $user_info = $self->{'datastore'}->get_user_info_from_username($self->{'username'});
-			my $job_id = $self->{'jobManager'}->add_job(
+			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+			my $job_id    = $self->{'jobManager'}->add_job(
 				{
 					'dbase_config' => $self->{'instance'},
 					'ip_address'   => $q->remote_host,
@@ -163,7 +162,7 @@ can be included.  Please check the loci that you would like to include.  If a se
 the remote database, it will be replaced with 'N's. Output is limited to $limit records. Please be aware that it may take a long time 
 to generate the output file as the sequences are passed through muscle to align them.</p>
 HTML
-	my $options = { default_select => 0, translate => 1, flanking => 1, ignore_seqflags => 1};
+	my $options = { default_select => 0, translate => 1, flanking => 1, ignore_seqflags => 1, ignore_incomplete => 1 };
 	$self->print_sequence_export_form( $pk, $list, $scheme_id, $options );
 	print "</div>\n";
 	return;
@@ -179,41 +178,44 @@ sub run_job {
 	my $isolate_sql;
 	if ( $params->{'includes'} ) {
 		my @includes = split /\|\|/, $params->{'includes'};
-		local $"     = ',';
+		local $" = ',';
 		$isolate_sql = $self->{'db'}->prepare("SELECT @includes FROM $self->{'system'}->{'view'} WHERE id=?");
 	}
-	
-	my $length_sql  = $self->{'db'}->prepare("SELECT length FROM loci WHERE id=?");
 	my $substring_query;
-	if ($params->{'flanking'} && BIGSdb::Utils::is_int($params->{'flanking'})){
+	if ( $params->{'flanking'} && BIGSdb::Utils::is_int( $params->{'flanking'} ) ) {
+
 		#round up to the nearest multiple of 3 if translating sequences to keep in reading frame
-		if ($params->{'translate'}){
-			$params->{'flanking'} = BIGSdb::Utils::round_to_nearest($params->{'flanking'},3);
+		if ( $params->{'translate'} ) {
+			$params->{'flanking'} = BIGSdb::Utils::round_to_nearest( $params->{'flanking'}, 3 );
 		}
-		$substring_query  = "substring(sequence from allele_sequences.start_pos-$params->{'flanking'} for allele_sequences.end_pos-allele_sequences.start_pos+1+2*$params->{'flanking'})";
+		$substring_query = "substring(sequence from allele_sequences.start_pos-$params->{'flanking'} for "
+		. "allele_sequences.end_pos-allele_sequences.start_pos+1+2*$params->{'flanking'})";
 	} else {
-		$substring_query  = "substring(sequence from allele_sequences.start_pos for allele_sequences.end_pos-allele_sequences.start_pos+1)";
+		$substring_query = "substring(sequence from allele_sequences.start_pos for allele_sequences.end_pos-allele_sequences.start_pos+1)";
 	}
-	
-	my $ignore_seqflag = $params->{'ignore_seqflags'} ? 'AND flag IS NULL AND complete' : '';
+	my $ignore_seqflags   = $params->{'ignore_seqflags'}   ? 'AND flag IS NULL' : '';
+	my $ignore_incomplete = $params->{'ignore_incomplete'} ? 'AND complete'     : '';
 	my $seqbin_sql =
-	  $self->{'db'}->prepare(
-"SELECT $substring_query,reverse FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id LEFT JOIN sequence_flags ON allele_sequences.seqbin_id = sequence_flags.seqbin_id AND allele_sequences.locus = sequence_flags.locus AND allele_sequences.start_pos = sequence_flags.start_pos AND allele_sequences.end_pos = sequence_flags.end_pos WHERE isolate_id=? AND allele_sequences.locus=? $ignore_seqflag ORDER BY complete,allele_sequences.datestamp LIMIT 1"
-	  );
+	  $self->{'db'}->prepare( "SELECT $substring_query,reverse FROM allele_sequences LEFT JOIN sequence_bin ON "
+		  . "allele_sequences.seqbin_id = sequence_bin.id LEFT JOIN sequence_flags ON allele_sequences.seqbin_id = "
+		  . "sequence_flags.seqbin_id AND allele_sequences.locus = sequence_flags.locus AND allele_sequences.start_pos = "
+		  . "sequence_flags.start_pos AND allele_sequences.end_pos = sequence_flags.end_pos WHERE isolate_id=? AND allele_sequences.locus=? "
+		  . "$ignore_seqflags $ignore_incomplete ORDER BY complete,allele_sequences.datestamp LIMIT 1" );
 	my @problem_ids;
 	my $start = 1;
 	my $end;
 	my $no_output = 1;
 
 	#reorder loci by genome order, schemes then by name (genome order may not be set)
-	my $locus_qry =
-"SELECT id,scheme_id from loci left join scheme_members on loci.id = scheme_members.locus order by genome_position,scheme_members.scheme_id,id";
+	my $locus_qry = "SELECT id,scheme_id from loci left join scheme_members on loci.id = scheme_members.locus "
+	. "order by genome_position,scheme_members.scheme_id,id";
 	my $locus_sql = $self->{'db'}->prepare($locus_qry);
 	eval { $locus_sql->execute };
 	$logger->error($@) if $@;
 	my @selected_fields;
 	my %picked;
 	while ( my ( $locus, $scheme_id ) = $locus_sql->fetchrow_array ) {
+
 		if ( ( $scheme_id && $params->{"s_$scheme_id\_l_$locus"} ) || ( !$scheme_id && $params->{"l_$locus"} ) ) {
 			push @selected_fields, $locus if !$picked{$locus};
 			$picked{$locus} = 1;
@@ -236,11 +238,12 @@ sub run_job {
 		}
 	}
 	my $limit = $self->{'system'}->{'XMFA_limit'} || DEFAULT_LIMIT;
-	if (@list > $limit){
+	if ( @list > $limit ) {
 		my $message_html = "<p class=\"statusbad\">Please note that output is limited to the first $limit records.</p>\n";
 		$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => $message_html } );
 	}
 	my $progress = 0;
+	my %no_seq;
 	foreach my $locus_name (@selected_fields) {
 		my $locus;
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
@@ -256,7 +259,6 @@ sub run_job {
 		my $muscle_file = "$self->{'config'}->{secure_tmp_dir}/$temp.muscle";
 		open( my $fh_muscle, '>', "$temp_file" ) or $logger->error("could not open temp file $temp_file");
 		my $count = 0;
-		
 		foreach my $id (@list) {
 			last if $count == $limit;
 			$count++;
@@ -310,36 +312,8 @@ sub run_job {
 				} elsif ($seqbin_seq) {
 					$seq = $seqbin_seq;
 				} else {
-					eval { $length_sql->execute($locus_name) };
-					$logger->error($@) if $@;
-					my ($length) = $length_sql->fetchrow_array;
-					if ($length) {
-						$seq .= 'N' x $length;
-					} else {
-
-						#find most common length;
-						if ( !$common_length ) {
-							my $seqs = $locus->get_all_sequences;
-							my %length_freqs;
-							foreach ( values %$seqs ) {
-								$length_freqs{ length $_ }++;
-							}
-							my $max_freqs = 0;
-							foreach ( keys %length_freqs ) {
-								if ( $length_freqs{$_} > $max_freqs ) {
-									$max_freqs     = $length_freqs{$_};
-									$common_length = $_;
-								}
-							}
-							if ( $locus_info->{'data_type'} eq 'peptide' ) {
-								$common_length *= 3;    #3 nucleotides/codon
-							}
-						}
-						if ( !$common_length ) {
-							$common_length = 10;        #arbitrary length to show that sequence is missing.
-						}
-						$seq = 'N' x $common_length;
-					}
+					$seq = 'N';
+					$no_seq{$id} = 1;
 				}
 				if ( $params->{'translate'} ) {
 					$seq = BIGSdb::Utils::chop_seq( $seq, $locus_info->{'orf'} || 1 );
@@ -374,6 +348,7 @@ sub run_job {
 				$end = $start + $length - 1;
 				print $fh '>' . $seq->id . ":$start-$end + $locus_name\n";
 				my $sequence = BIGSdb::Utils::break_line( $seq->seq, 60 );
+				$sequence =~ s/N/-/g if $no_seq{$seq->id};
 				print $fh "$sequence\n";
 			}
 			$start = $end + 1;
@@ -388,7 +363,7 @@ sub run_job {
 	close $fh;
 	my $message_html;
 	if (@problem_ids) {
-		local $"      = ', ';
+		local $" = ', ';
 		$message_html = "<p>The following ids could not be processed (they do not exist): @problem_ids.</p>\n";
 	}
 	if ($no_output) {

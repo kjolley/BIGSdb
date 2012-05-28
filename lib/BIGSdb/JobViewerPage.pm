@@ -115,8 +115,10 @@ HTML
 	} else {
 		if ($job->{'total_time'}){
 			($field, $value) = ('Total time', duration($job->{'total_time'}));
+			$value = '<1 second' if $value eq 'just now';
 		} elsif ($job->{'elapsed'}){
 			($field, $value) = ('Elapsed time', duration($job->{'elapsed'}));
+			$value = '<1 second' if $value eq 'just now';
 		}
 		$refresh = duration($self->{'refresh'});
 	}
