@@ -44,13 +44,19 @@ sub print_content {
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
 	$scheme_id = -1 if !BIGSdb::Utils::is_int($scheme_id);
-	my $scheme_info = $scheme_id > 0 ? $self->{'datastore'}->get_scheme_info($scheme_id) : undef;
+	my $set_id = $self->get_set_id;
+	my $scheme_info = $scheme_id > 0 ? $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } ) : undef;
 	( $scheme_info->{'description'} //= '' ) =~ s/\&/\&amp;/g;
 	print "<h1>Search $system->{'description'} database by combinations of $scheme_info->{'description'} loci</h1>\n";
 
 	if ( ( !$scheme_info->{'id'} && $scheme_id ) || ( $self->{'system'}->{'dbtype'} eq 'sequences' && !$scheme_id ) ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Invalid scheme selected.</p></div>\n";
 		return;
+	} elsif ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+		if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
+			print "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is unavailable.</p></div>\n";
+			return;
+		}
 	}
 	my $qry;
 	if ( !defined $q->param('currentpage')
@@ -94,7 +100,7 @@ sub _print_query_interface {
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 				try {
 					my $loci_values = $self->{'datastore'}->get_scheme($scheme_id)->get_profile_by_primary_keys( \@values );
-					foreach my $i( 0 .. @$loci - 1) {
+					foreach my $i ( 0 .. @$loci - 1 ) {
 						$q->param( "l_$loci->[$i]", $loci_values->[$i] );
 					}
 				}
@@ -189,8 +195,7 @@ sub _print_query_interface {
 	print "</fieldset>\n";
 	if ($primary_key) {
 		my $remote = $self->{'system'}->{'dbtype'} eq 'isolates' ? ' by searching remote database' : '';
-		print
-		  "<fieldset id=\"autofill_fieldset\" style=\"float:left\"><legend>Autofill profile$remote</legend>\n<ul>\n";
+		print "<fieldset id=\"autofill_fieldset\" style=\"float:left\"><legend>Autofill profile$remote</legend>\n<ul>\n";
 		my $first = 1;
 		print "<li><label for=\"$primary_key\" class=\"display\">$primary_key: </label>\n";
 		print $q->textfield( -name => $primary_key, -id => $primary_key, -class => "allele_entry" );
