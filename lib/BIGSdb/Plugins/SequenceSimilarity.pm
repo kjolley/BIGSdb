@@ -55,7 +55,8 @@ sub run {
 	$locus =~ s/^cn_//;
 	my $allele = $q->param('allele');
 	print "<h1>Find most similar alleles</h1>\n";
-	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list;
+	my $set_id = $self->get_set_id;
+	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list({set_id => $set_id});
 	if ( !@$display_loci ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>No loci have been defined for this database.</p></div>\n";
 		return;
@@ -76,8 +77,8 @@ sub run {
 	print "</td></tr><tr><td style=\"text-align:right\">Number of results: </td><td>\n";
 	print $q->popup_menu( -name => 'num_results', -values => [ 5, 10, 25, 50, 100, 200 ], -default => $num_results );
 	print "</td></tr>";
-	print
-"<tr><td style=\"text-align:left\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=SequenceSimilarity\" class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\">";
+	print "<tr><td style=\"text-align:left\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;"
+	. "name=SequenceSimilarity\" class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\">";
 	print $q->submit( -name => 'submit', -value => 'Submit', -class => 'submit' );
 	print "</td></tr>\n</table>\n";
 	print $q->end_form;
@@ -107,16 +108,13 @@ sub run {
 	print "<div class=\"box\" id=\"resultsheader\">\n";
 	print "<h2>$cleanlocus-$allele</h2>\n";
 	if ( ref $matches_ref eq 'ARRAY' && scalar @$matches_ref > 0 ) {
-		print
-"<table class=\"resultstable\"><tr><th>Allele</th><th>% Identity</th><th>Mismatches</th><th>Gaps</th><th>Alignment</th><th>Compare</th></tr>\n";
+		print "<table class=\"resultstable\"><tr><th>Allele</th><th>% Identity</th><th>Mismatches</th><th>Gaps</th><th>Alignment</th>"
+		. "<th>Compare</th></tr>\n";
 		my $td = 1;
 		foreach (@$matches_ref) {
 			next if $_->{'allele'} eq $allele;
-			print "<tr class=\"td$td\"><td>$cleanlocus: $_->{'allele'}</td>
-			<td>$_->{'identity'}</td>
-			<td>$_->{'mismatches'}</td>
-			<td>$_->{'gaps'}</td>
-			<td>$_->{'alignment'}/" . ( length $$seq_ref ) . "</td>\n<td>";
+			print "<tr class=\"td$td\"><td>$cleanlocus: $_->{'allele'}</td><td>$_->{'identity'}</td><td>$_->{'mismatches'}</td>"
+			. "<td>$_->{'gaps'}</td><td>$_->{'alignment'}/" . ( length $$seq_ref ) . "</td>\n<td>";
 			print $q->start_form;
 			$q->param( 'allele1', $allele );
 			$q->param( 'allele2', $_->{'allele'} );
@@ -136,6 +134,7 @@ sub run {
 	#delete all working files
 	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 	print "</div>\n";
+	return;
 }
 
 sub _parse_blast_partial {

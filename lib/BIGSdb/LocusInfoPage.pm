@@ -41,6 +41,13 @@ sub print_content {
 		print "<h1>Locus information</h1>\n";
 		print "<div class=\"box\" id=\"statusbad\"><p>Invalid locus selected.</p></div>\n";
 		return;
+	} elsif ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
+		my $set_id = $self->get_set_id;
+		if ( $set_id && BIGSdb::Utils::is_int($set_id) && !$self->{'datastore'}->is_locus_in_set( $locus, $set_id )) {
+			print "<h1>Locus information</h1>\n";
+			print "<div class=\"box\" id=\"statusbad\"><p>The selected locus is unavailable.</p></div>\n";
+			return;			
+		}
 	}
 	my $locus_info    = $self->{'datastore'}->get_locus_info($locus);
 	my $cleaned_locus = $self->clean_locus($locus);
@@ -94,7 +101,7 @@ sub print_content {
 	my $refs = $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM locus_refs WHERE locus=?", $locus );
 	if (@$refs) {
 		print "<h2>References</h2>\n<ul>\n";
-		my $citations = $self->{'datastore'}->get_citation_hash( $refs, { 'all_authors' => 1, 'formatted' => 1, 'link_pubmed' => 1 } );
+		my $citations = $self->{'datastore'}->get_citation_hash( $refs, { all_authors => 1, formatted => 1, link_pubmed => 1 } );
 		foreach (@$refs) {
 			print "<li>$citations->{$_}</li>\n";
 		}
@@ -119,5 +126,6 @@ sub print_content {
 		print "</ul>\n";
 	}
 	print "</div>\n";
+	return;
 }
 1;

@@ -51,7 +51,8 @@ sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	print "<h1>Allele sequence comparison</h1>\n";
-	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list;
+	my $set_id = $self->get_set_id;
+	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
 	if ( !@$display_loci ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>No loci have been defined for this database.</p></div>\n";
 		return;

@@ -19,6 +19,7 @@
 package BIGSdb::Plugin;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::TreeViewPage);
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
@@ -528,8 +529,8 @@ sub print_sequence_export_form {
 	print $q->start_form;
 	print "<fieldset style=\"float:left\">\n<legend>Select $pk" . "s</legend>\n";
 	local $" = "\n";
-	print
-"<p style=\"padding-right:2em\">Paste in list of ids to include, start a new<br />line for each.  Leave blank to include all ids.</p>\n";
+	print "<p style=\"padding-right:2em\">Paste in list of ids to include, start a new<br />line for each. "
+	  . "Leave blank to include all ids.</p>\n";
 	print $q->textarea( -name => 'list', -rows => 5, -columns => 6, -default => "@$list" );
 	print "</fieldset>\n";
 
@@ -554,12 +555,12 @@ sub print_sequence_export_form {
 		my $options_heading = $options->{'options_heading'} || 'Options';
 		print "<fieldset style=\"float:left\">\n<legend>$options_heading</legend>";
 		print "If both allele designations and tagged sequences<br />exist for a locus, choose how you want these handled: ";
-		print
-" <a class=\"tooltip\" title=\"Sequence retrieval - Peptide loci will only be retrieved from the sequence bin (as nucleotide sequences).\">&nbsp;<i>i</i>&nbsp;</a>";
+		print " <a class=\"tooltip\" title=\"Sequence retrieval - Peptide loci will only be retrieved from the sequence bin "
+		  . "(as nucleotide sequences).\">&nbsp;<i>i</i>&nbsp;</a>";
 		print "<br /><br />";
 		my %labels = (
-			'seqbin'             => 'Use sequences tagged from the bin',
-			'allele_designation' => 'Use allele sequence retrieved from external database'
+			seqbin             => 'Use sequences tagged from the bin',
+			allele_designation => 'Use allele sequence retrieved from external database'
 		);
 		print $q->radio_group( -name => 'chooseseq', -values => [ 'seqbin', 'allele_designation' ], -labels => \%labels,
 			-linebreak => 'true' );
@@ -570,8 +571,11 @@ sub print_sequence_export_form {
 			print "<br />\n";
 		}
 		if ( $options->{'ignore_seqflags'} ) {
-			print $q->checkbox( -name => 'ignore_seqflags', -label => 'Do not include sequences with problem flagged '
-			. '(defined alleles will still be used)', -checked => 'checked' );
+			print $q->checkbox(
+				-name    => 'ignore_seqflags',
+				-label   => 'Do not include sequences with problem flagged ' . '(defined alleles will still be used)',
+				-checked => 'checked'
+			);
 			print "<br />\n";
 		}
 		if ( $options->{'ignore_incomplete'} ) {
@@ -582,8 +586,8 @@ sub print_sequence_export_form {
 			print "Include ";
 			print $q->popup_menu( -name => 'flanking', -values => [FLANKING], -default => 0 );
 			print " bp flanking sequence";
-			print
-" <a class=\"tooltip\" title=\"Flanking sequence - This can only be included if you select to retrieve sequences from the sequence bin rather than from an external database.\">&nbsp;<i>i</i>&nbsp;</a>";
+			print " <a class=\"tooltip\" title=\"Flanking sequence - This can only be included if you select to retrieve sequences "
+			  . "from the sequence bin rather than from an external database.\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
 		print "</fieldset>\n";
 	}
@@ -596,11 +600,12 @@ sub print_sequence_export_form {
 		$self->_print_tree;
 	} else {
 		my ( @js, @js2 );
+		my $set_id = $self->get_set_id;
 		my $schemes;
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-			$schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,description");
+			$schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 		} else {
-			push @$schemes, $scheme_id || 0;
+			push @$schemes, { id => $scheme_id };
 		}
 		my $qry    = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
 		my $cn_sql = $self->{'db'}->prepare($qry);
@@ -608,11 +613,14 @@ sub print_sequence_export_form {
 		$logger->error($@) if $@;
 		my $common_names = $cn_sql->fetchall_hashref('id');
 		print "<div style=\"clear:both\">\n";
-		foreach my $scheme_id (@$schemes) {
+		my $scheme_members_sql = $self->{'db'}->prepare("SELECT * FROM scheme_members WHERE scheme_id = ? AND locus = ?");
+
+		foreach my $scheme (@$schemes) {
+			$scheme_id = $scheme->{'id'};
 			next if $self->{'system'}->{'dbtype'} eq 'isolates' && !$self->{'prefs'}->{'analysis_schemes'}->{$scheme_id};
 			my ( @scheme_js, @scheme_js2 );
 			my $scheme_members = $self->{'datastore'}->get_scheme_loci($scheme_id);
-			my $scheme_info    = $self->{'datastore'}->get_scheme_info($scheme_id);
+			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 			if (@$scheme_members) {
 				( my $heading = $scheme_info->{'description'} ) =~ s/\&/\&amp;/g;
 				print "<div class='fieldsection'>";
@@ -620,14 +628,23 @@ sub print_sequence_export_form {
 				my @values;
 				my $labels;
 				foreach my $member (@$scheme_members) {
+					my $member_info = {};
+					my $set_label;
+					if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+						eval { $scheme_members_sql->execute( $scheme_id, $member ) };
+						$logger->error($@) if $@;
+						$member_info = $scheme_members_sql->fetchrow_hashref;
+					} else {
+						$set_label = $self->{'datastore'}->get_set_locus_label( $member, $set_id );
+					}
 					my $cleaned_member = $self->clean_checkbox_id($member);
 					push @values,     "l_$member";
 					push @js,         "\$(\"#s_$scheme_id\_l_$cleaned_member\").attr(\"checked\",true)";
 					push @js2,        "\$(\"#s_$scheme_id\_l_$cleaned_member\").attr(\"checked\",false)";
 					push @scheme_js,  "\$(\"#s_$scheme_id\_l_$cleaned_member\").attr(\"checked\", true)";
 					push @scheme_js2, "\$(\"#s_$scheme_id\_l_$cleaned_member\").attr(\"checked\", false)";
-					$labels->{"l_$member"} = "$member ($common_names->{$member}->{'common_name'})"
-					  if $common_names->{$member}->{'common_name'};
+					$labels->{"l_$member"} = $set_label // $member_info->{'profile_name'} // $member;
+					$labels->{"l_$member"} .= " ($common_names->{$member}->{'common_name'})" if $common_names->{$member}->{'common_name'};
 				}
 				if ( !$q->param('scheme_id') ) {
 					$self->_print_all_none_buttons( \@scheme_js, \@scheme_js2, 'smallbutton rightbutton' );
@@ -643,9 +660,10 @@ sub print_sequence_export_form {
 		}
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 			my $loci =
-			  $self->{'datastore'}->run_list_query(
-"SELECT id FROM loci WHERE id NOT IN (SELECT DISTINCT locus FROM scheme_members) AND (id IN (SELECT DISTINCT locus FROM allele_designations LEFT JOIN loci ON allele_designations.locus = loci.id AND loci.data_type = 'DNA' AND loci.dbase_name IS NOT NULL AND loci.dbase_id_field IS NOT NULL AND loci.dbase_seq_field IS NOT NULL) OR id IN (SELECT DISTINCT locus FROM allele_sequences)) ORDER BY id"
-			  );
+			  $self->{'datastore'}->run_list_query( "SELECT id FROM loci WHERE id NOT IN (SELECT DISTINCT locus FROM scheme_members) "
+				  . "AND (id IN (SELECT DISTINCT locus FROM allele_designations LEFT JOIN loci ON allele_designations.locus = loci.id AND "
+				  . "loci.data_type = 'DNA' AND loci.dbase_name IS NOT NULL AND loci.dbase_id_field IS NOT NULL AND loci.dbase_seq_field IS "
+				  . "NOT NULL) OR id IN (SELECT DISTINCT locus FROM allele_sequences)) ORDER BY id" );
 			if (@$loci) {
 				print "<div class='fieldsection'>";
 				print "<h2>Loci not belonging to any scheme</h2>\n";
@@ -678,13 +696,14 @@ sub print_sequence_export_form {
 
 sub _print_tree {
 	my ( $self, $include_scheme_fields ) = @_;
-	print "<p style=\"clear:both\">Click within the tree to select loci belonging to schemes or groups of schemes.</p>
-	<p>If the tree is slow to update, you can try modifying your locus and
-	scheme preferences by setting 'analysis' to false for any <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=schemes\">schemes</a>
-	 or <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=loci\">loci</a> for which you do not plan to use in analysis tools.</p>\n";
+	print "<p style=\"clear:both\">Click within the tree to select loci belonging to schemes or groups of schemes.</p>"
+	. "<p>If the tree is slow to update, you can try modifying your locus and 	scheme preferences by setting 'analysis' "
+	. "to false for any <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;"
+	. "table=schemes\">schemes</a> or <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;"
+	, "table=loci\">loci</a> for which you do not plan to use in analysis tools.</p>\n";
 	print "<noscript><p class=\"highlight\">Javascript needs to be enabled.</p></noscript>\n";
 	print "<div id=\"tree\" class=\"tree\">\n";
-	my $options = { 'no_link_out' => 1, 'list_loci' => 1, 'analysis_pref' => 1 };
+	my $options = { no_link_out => 1, list_loci => 1, analysis_pref => 1 };
 	$options->{'scheme_fields'} = 1 if $include_scheme_fields;
 	print $self->get_tree( undef, $options );
 	print "</div>\n";
@@ -731,5 +750,4 @@ sub escape_params {
 	}
 	return;
 }
-
 1;

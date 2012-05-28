@@ -57,7 +57,7 @@ sub get_attributes {
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 1, 'query_field' => 0 };
+	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 0 };
 	return;
 }
 
@@ -269,9 +269,7 @@ sub run_job {
 					eval { $isolate_sql->execute($id) };
 					$logger->error($@) if $@;
 					@includes = $isolate_sql->fetchrow_array;
-					foreach (@includes) {
-						$_ =~ tr/ /_/;
-					}
+					tr/ /_/ foreach @includes;
 				}
 				if ($id) {
 					print $fh_muscle ">$id";
@@ -340,13 +338,22 @@ sub run_job {
 		}
 		close $fh_muscle;
 		system( $self->{'config'}->{'muscle_path'}, '-in', $temp_file, '-out', $muscle_file, '-quiet' );
+		my $output_locus_name = $locus_name;
+		if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
+			my $set_id = $self->get_set_id;
+			if ( $set_id && BIGSdb::Utils::is_int($set_id) ) {
+				my $set_name = $self->{'datastore'}->run_simple_query_hashref("SELECT * FROM set_loci WHERE set_id=? AND locus=?", $set_id, $locus_name);
+				$output_locus_name = $set_name->{'set_name'} // $locus_name;
+				$output_locus_name =~ tr/ /_/;
+			}
+		}
 		if ( -e $muscle_file ) {
 			$no_output = 0;
 			my $seq_in = Bio::SeqIO->new( '-format' => 'fasta', '-file' => $muscle_file );
 			while ( my $seq = $seq_in->next_seq ) {
 				my $length = $seq->length;
 				$end = $start + $length - 1;
-				print $fh '>' . $seq->id . ":$start-$end + $locus_name\n";
+				print $fh '>' . $seq->id . ":$start-$end + $output_locus_name\n";
 				my $sequence = BIGSdb::Utils::break_line( $seq->seq, 60 );
 				$sequence =~ s/N/-/g if $no_seq{$seq->id};
 				print $fh "$sequence\n";

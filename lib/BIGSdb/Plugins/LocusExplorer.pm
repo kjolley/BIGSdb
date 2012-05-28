@@ -20,6 +20,7 @@
 package BIGSdb::Plugins::LocusExplorer;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -164,7 +165,8 @@ HEADER
 sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list;
+	my $set_id = $self->get_set_id;
+	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list({set_id => $set_id});
 	if ( !@$display_loci ) {
 		print "<h1>Locus Explorer</h1>\n";
 		print "<div class=\"box\" id=\"statusbad\"><p>No loci have been defined for this database.</p></div>\n";
@@ -260,10 +262,10 @@ sub _print_interface {
 		-size     => 6,
 		-multiple => 'true'
 	);
-	print
-"<br /><input type=\"button\" onclick='listbox_selectall(\"allele_ids\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
-	print
-"<input type=\"button\" onclick='listbox_selectall(\"allele_ids\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
+	print "<br /><input type=\"button\" onclick='listbox_selectall(\"allele_ids\",true)' value=\"All\" "
+	. "style=\"margin-top:1em\" class=\"smallbutton\" />\n";
+	print "<input type=\"button\" onclick='listbox_selectall(\"allele_ids\",false)' value=\"None\" "
+	. "style=\"margin-top:1em\" class=\"smallbutton\" />\n";
 	print "</fieldset>\n";
 	print "<fieldset>\n<legend>Analysis functions</legend>\n";
 	print "<table>";
@@ -430,8 +432,8 @@ sub get_snp_schematic {
 		foreach my $base ( sort { $nuc{$b} <=> $nuc{$a} } ( keys(%nuc) ) ) {
 			my $prop = $nuc{$base} / $seq_count;
 			if ($seq_file) {
-				$linebuffer[$linenumber] .=
-"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=LocusExplorer&amp;snp=1&amp;function=siteExplorer&amp;file=$seq_file&amp;locus=$locus&amp;pos="
+				$linebuffer[$linenumber] .= "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;"
+				. "name=LocusExplorer&amp;snp=1&amp;function=siteExplorer&amp;file=$seq_file&amp;locus=$locus&amp;pos="
 				  . ( $i + 1 )
 				  . "\" class=\""
 				  . $self->_get_prop_class($prop)
