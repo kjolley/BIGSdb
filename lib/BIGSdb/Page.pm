@@ -508,20 +508,29 @@ sub print_file {
 	my ( $self, $file, $ignore_hashlines ) = @_;
 	my $lociAdd;
 	my $loci;
+	my $set_id = $self->get_set_id;
 	if ( $self->{'curate'} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		if ( $self->is_admin ) {
-			$loci = $self->{'datastore'}->get_loci;
+			my $qry = "SELECT id FROM loci";
+			if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+				$qry .= " WHERE id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
+				  . "set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id)";
+			}
+			$loci = $self->{'datastore'}->run_list_query($qry);
 		} else {
 			my $qry =
-"SELECT locus_curators.locus from locus_curators LEFT JOIN loci ON locus=id LEFT JOIN scheme_members on loci.id = scheme_members.locus WHERE locus_curators.curator_id=? ORDER BY scheme_members.scheme_id,locus_curators.locus";
+			    "SELECT locus_curators.locus from locus_curators LEFT JOIN loci ON locus=id LEFT JOIN scheme_members on "
+			  . "loci.id = scheme_members.locus WHERE locus_curators.curator_id=? AND (id IN (SELECT locus FROM scheme_members "
+			  . "WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)) OR id IN (SELECT locus FROM set_loci "
+			  . "WHERE set_id=$set_id)) ORDER BY scheme_members.scheme_id,locus_curators.locus";
 			$loci = $self->{'datastore'}->run_list_query( $qry, $self->get_curator_id );
 		}
 		my $first = 1;
-		foreach ( uniq @$loci ) {
-			my $cleaned = $self->clean_locus($_);
+		foreach my $locus ( uniq @$loci ) {
+			my $cleaned = $self->clean_locus($locus);
 			$lociAdd .= ' | ' if !$first;
-			$lociAdd .=
-"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=sequences&amp;locus=$_\">$cleaned</a>";
+			$lociAdd .= "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;"
+			  . "table=sequences&amp;locus=$locus\">$cleaned</a>";
 			$first = 0;
 		}
 	}
@@ -529,20 +538,19 @@ sub print_file {
 		my $system = $self->{'system'};
 		open( my $fh, '<', $file ) or return;
 		while (<$fh>) {
-			next if $_ =~ /^#/ && $ignore_hashlines;
-			$_ =~ s/\$instance/$self->{'instance'}/;
-			$_ =~ s/\$webroot/$system->{'webroot'}/;
-			$_ =~ s/\$dbase/$system->{'db'}/;
-			$_ =~ s/\$indexpage/$system->{'indexpage'}/;
+			next if /^#/ && $ignore_hashlines;
+			s/\$instance/$self->{'instance'}/;
+			s/\$webroot/$system->{'webroot'}/;
+			s/\$dbase/$system->{'db'}/;
+			s/\$indexpage/$system->{'indexpage'}/;
 			if ( $self->{'curate'} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 				if ( @$loci && @$loci < 30 ) {
-					$_ =~ s/\$lociAdd/$lociAdd/;
+					s/\$lociAdd/$lociAdd/;
 				} else {
-					$_ =~
 s/\$lociAdd/<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=sequences">Add<\/a>/;
 				}
 			}
-			print $_;
+			print;
 		}
 		close $fh;
 	} else {
@@ -733,9 +741,10 @@ sub clean_locus {
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
 		my $set_id = $self->get_set_id;
-		if ($set_id && BIGSdb::Utils::is_int($set_id)){
-			my $set_locus = $self->{'datastore'}->run_simple_query_hashref("SELECT * FROM set_loci WHERE set_id=? AND locus=?", $set_id, $locus);
-			if ($set_locus->{'set_name'}){
+		if ( $set_id && BIGSdb::Utils::is_int($set_id) ) {
+			my $set_locus =
+			  $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM set_loci WHERE set_id=? AND locus=?", $set_id, $locus );
+			if ( $set_locus->{'set_name'} ) {
 				$locus = $set_locus->{'set_name'};
 				$locus .= " ($set_locus->{'set_common_name'})" if $set_locus->{'set_common_name'};
 			}
@@ -744,7 +753,6 @@ sub clean_locus {
 		$locus =~ s/^_//;    #locus names can't begin with a digit, so people can use an underscore, but this looks untidy in the interface.
 		$locus .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
 	}
-	
 	if ( $self->{'system'}->{'locus_superscript_prefix'} && $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
 		$locus =~ s/^([A-Za-z]{1,3})_/<sup>$1<\/sup>/;
 	}
@@ -1549,5 +1557,4 @@ sub get_all_foreign_key_fields_and_labels {
 	}
 	return ( \@fields, \%desc );
 }
-
 1;
