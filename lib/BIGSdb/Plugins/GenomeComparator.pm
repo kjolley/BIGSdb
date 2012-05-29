@@ -46,7 +46,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.4.0',
+		version     => '1.4.1',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/genome_comparator.shtml',
@@ -754,7 +754,7 @@ sub _run_comparison {
 			$loci->{$locus_name}->{'ref'} = $$seq_ref;
 		} else {
 			$ref_seq_file = $self->_create_locus_FASTA_db( $cds, $job_id );
-			$locus_name   = $self->clean_locus($cds);
+			$locus_name   = $cds;
 			$locus_info   = $self->{'datastore'}->get_locus_info($cds);
 		}
 		my $seqbin_length_sql = $self->{'db'}->prepare("SELECT length(sequence) FROM sequence_bin where id=?");
@@ -762,7 +762,8 @@ sub _run_comparison {
 		my $first             = 1;
 		my $first_seq;
 		my $previous_seq = '';
-		$$html_buffer_ref .= "<tr class=\"td$td\"><td>$locus_name</td>";
+		my $cleaned_locus_name = $by_reference ? $locus_name : $self->clean_locus($locus_name);
+		$$html_buffer_ref .= "<tr class=\"td$td\"><td>$cleaned_locus_name</td>";
 		$$file_buffer_ref .= "$locus_name";
 		my %allele_seqs;
 
