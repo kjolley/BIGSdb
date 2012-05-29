@@ -178,17 +178,34 @@ sub create_record_table {
 						push @fields_to_query, 'id';
 					}
 					local $" = ',';
-					my @values;
+					my $qry;
+					my $set_id = $self->get_set_id;
+					my $values;
 					if ( $att->{'foreign_key'} eq 'users' ) {
-						@values = @{ $self->{'datastore'}->run_list_query("SELECT id FROM users WHERE id>0 ORDER BY @fields_to_query") };
+						$qry = "SELECT id FROM users WHERE id>0 ORDER BY @fields_to_query";
+						$values = $self->{'datastore'}->run_list_query($qry);
+					} elsif ( $att->{'foreign_key'} eq 'loci'
+						&& ( $self->{'system'}->{'sets'} // '' ) eq 'yes'
+						&& $set_id
+						&& BIGSdb::Utils::is_int($set_id) )
+					{
+						( $values, $desc ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, no_list_by_common_name => 1 } );
+					} elsif ( $att->{'foreign_key'} eq 'schemes'
+						&& ( $self->{'system'}->{'sets'} // '' ) eq 'yes'
+						&& $set_id
+						&& BIGSdb::Utils::is_int($set_id) )
+					{
+						my $scheme_list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+						push @$values, $_->{'id'} foreach @$scheme_list;
 					} else {
-						@values =
-						  @{ $self->{'datastore'}->run_list_query("SELECT id FROM $att->{'foreign_key'} ORDER BY @fields_to_query") };
+						$qry = "SELECT id FROM $att->{'foreign_key'} ORDER BY @fields_to_query";
+						$values = $self->{'datastore'}->run_list_query($qry);
 					}
+					$values = [] if ref $values ne 'ARRAY';
 					$buffer .= $q->popup_menu(
 						-name    => $name,
 						-id      => $name,
-						-values  => [ '', @values ],
+						-values  => [ '', @$values ],
 						-labels  => $desc,
 						-default => $newdata{ $att->{'name'} }
 					);

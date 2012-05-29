@@ -52,7 +52,7 @@ sub print_content {
 	}
 	my $type = $self->get_record_name($table) // 'record';
 	print "<h1>Batch update $type" . "s </h1>\n";
-	if (!$self->can_modify_table($table)){
+	if ( !$self->can_modify_table($table) ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Your user account does not have permission to modify this table.<p></div>\n";
 		return;
 	}
@@ -77,13 +77,26 @@ sub _print_interface {
 		print "<p>Select values to enable or disable and then click the appropriate arrow button.</p>\n";
 		my $table_data = $self->_get_table_data($table);
 		print "<fieldset><legend>Select $table_data->{'plural'}</legend>\n";
+		my $set_clause = '';
+		my $set_id     = $self->get_set_id;
+		if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+			given ($table) {
+				when ('locus_curators') {
+					#make sure 'id IN' has a space before it - used in the substitution a few lines on (also matches scheme_id otherwise).
+					$set_clause = "AND ( id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM "
+					. "set_schemes WHERE set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))";
+				}
+				when ('scheme_curators'){ $set_clause = "AND ( id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id))" }
+			}
+		}
 		my $available = $self->{'datastore'}->run_list_query(
-"SELECT id FROM $table_data->{'parent'} WHERE id NOT IN (SELECT $table_data->{'foreign'} FROM $table WHERE $table_data->{'user_field'}=?) ORDER BY $table_data->{'order'}",
+"SELECT id FROM $table_data->{'parent'} WHERE id NOT IN (SELECT $table_data->{'foreign'} FROM $table WHERE $table_data->{'user_field'}=?) $set_clause ORDER BY $table_data->{'order'}",
 			$user_id
 		);
 		push @$available, '' if !@$available;
+		$set_clause =~ s/id IN/$table_data->{'foreign'} IN/;
 		my $selected = $self->{'datastore'}->run_list_query(
-"SELECT $table_data->{'foreign'} FROM $table LEFT JOIN $table_data->{'parent'} ON $table_data->{'foreign'} = $table_data->{'id'} WHERE $table_data->{'user_field'}=? ORDER BY $table_data->{'parent'}.$table_data->{'order'}",
+"SELECT $table_data->{'foreign'} FROM $table LEFT JOIN $table_data->{'parent'} ON $table_data->{'foreign'} = $table_data->{'id'} WHERE $table_data->{'user_field'}=? $set_clause ORDER BY $table_data->{'parent'}.$table_data->{'order'}",
 			$user_id
 		);
 		push @$selected, '' if !@$selected;
@@ -201,7 +214,7 @@ sub _print_sender_form {
 	}
 	print "<fieldset><legend>Select user</legend>\n";
 	print "<p>The user status must also be <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
-	  . "page=tableQuery&amp;table=users\">set to curator or admin</a> for permissions to work.</p>"
+	  . "page=tableQuery&amp;table=users\">set to curator</a> for permissions to work.</p>"
 	  if $q->param('table') =~ /_curators$/;
 	print $q->start_form;
 	print $self->get_filter( 'users', \@users, { class => 'display', labels => \%usernames } );

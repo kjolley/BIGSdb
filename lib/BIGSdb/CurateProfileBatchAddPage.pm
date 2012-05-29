@@ -28,6 +28,7 @@ sub print_content {
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
+	my $set_id    = $self->get_set_id;
 	if ( !$self->{'datastore'}->scheme_exists($scheme_id) ) {
 		print "<h1>batch insert profiles</h1>\n";
 		print "<div class=\"box\" id=\"statusbad\"><p>Invalid scheme passed.</p></div>\n";
@@ -39,6 +40,11 @@ sub print_content {
 	} elsif ( !$self->can_modify_table('profiles') ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to add new profiles.</p></div>\n";
 		return;
+	} elsif ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+		if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
+			print "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is inaccessible.</p></div>\n";
+			return;
+		}
 	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 	print "<h1>Batch insert $scheme_info->{'description'} profiles</h1>\n";

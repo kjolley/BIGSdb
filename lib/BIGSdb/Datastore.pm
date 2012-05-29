@@ -830,17 +830,21 @@ sub get_locus_list {
 			$cleaned->{ $locus->{'id'} } = $locus->{'set_name'};
 			if ( $locus->{'set_common_name'} ) {
 				$cleaned->{ $locus->{'id'} } .= " ($locus->{'set_common_name'})";
-				push @$display_loci, "cn_$locus->{'id'}";
-				$cleaned->{"cn_$locus->{'id'}"} = "$locus->{'set_common_name'} ($locus->{'set_name'})";
-				$cleaned->{"cn_$locus->{'id'}"} =~ tr/_/ /;
+				if (!$options->{'no_list_by_common_name'}){
+					push @$display_loci, "cn_$locus->{'id'}";
+					$cleaned->{"cn_$locus->{'id'}"} = "$locus->{'set_common_name'} ($locus->{'set_name'})";
+					$cleaned->{"cn_$locus->{'id'}"} =~ tr/_/ /;
+				}
 			}
 		} else {
 			$cleaned->{ $locus->{'id'} } = $locus->{'id'};
 			if ( $locus->{'common_name'} ) {
 				$cleaned->{ $locus->{'id'} } .= " ($locus->{'common_name'})";
-				push @$display_loci, "cn_$locus->{'id'}";
-				$cleaned->{"cn_$locus->{'id'}"} = "$locus->{'common_name'} ($locus->{'id'})";
-				$cleaned->{"cn_$locus->{'id'}"} =~ tr/_/ /;
+				if (!$options->{'no_list_by_common_name'}){
+					push @$display_loci, "cn_$locus->{'id'}";
+					$cleaned->{"cn_$locus->{'id'}"} = "$locus->{'common_name'} ($locus->{'id'})";
+					$cleaned->{"cn_$locus->{'id'}"} =~ tr/_/ /;
+				}
 			}
 		}
 	}

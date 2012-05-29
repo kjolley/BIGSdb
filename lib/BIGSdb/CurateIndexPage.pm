@@ -116,11 +116,11 @@ HTML
 	if ( $system->{'dbtype'} eq 'isolates' ) {
 		push @tables, qw(locus_aliases pcr pcr_locus probes probe_locus isolate_field_extended_attributes composite_fields);
 	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
-		push @tables, qw(locus_extended_attributes client_dbases client_dbase_loci client_dbase_schemes client_dbase_loci_fields);		
-		if (($self->{'system'}->{'sets'} // '') eq 'yes'){
+		push @tables, qw(locus_extended_attributes client_dbases client_dbase_loci client_dbase_schemes client_dbase_loci_fields);
+		if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
 			push @tables, 'sets';
 			my $set_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM sets")->[0];
-			push @tables, qw( set_loci set_schemes) if $set_count; 
+			push @tables, qw( set_loci set_schemes) if $set_count;
 		}
 		my $client_db_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM client_dbases")->[0];
 		if ( !$client_db_count ) {
@@ -143,12 +143,13 @@ HTML
 		$can_do_something = 1;
 	}
 	if ( $self->{'permissions'}->{'modify_loci'} || $self->{'permissions'}->{'modify_schemes'} || $self->is_admin ) {
-		$list_buffer .= "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configCheck\">"
-		. "Configuration check</a> - checks database connectivity for loci and schemes and that required helper "
-		. "applications are properly installed.</li>\n";
-		if ($self->{'system'}->{'dbtype'} eq 'sequences'){
+		$list_buffer .=
+		    "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configCheck\">"
+		  . "Configuration check</a> - checks database connectivity for loci and schemes and that required helper "
+		  . "applications are properly installed.</li>\n";
+		if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 			$list_buffer .= "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configRepair\">"
-			. "Configuration repair</a> - Rebuild scheme tables</li>\n"
+			  . "Configuration repair</a> - Rebuild scheme tables</li>\n";
 		}
 		$can_do_something = 1;
 	}
@@ -482,6 +483,7 @@ HTML
 sub _print_profiles {
 	my ( $self, $td ) = @_;
 	my $schemes;
+	my $set_id = $self->get_set_id;
 	if ( $self->is_admin ) {
 		$schemes =
 		  $self->{'datastore'}->run_list_query(
@@ -493,16 +495,21 @@ sub _print_profiles {
 		  ->run_list_query( "SELECT scheme_id FROM scheme_curators WHERE curator_id=? ORDER BY scheme_id", $self->get_curator_id );
 	}
 	my $buffer;
-	foreach (@$schemes) {
-		my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
+	foreach my $scheme_id (@$schemes) {
+		next
+		  if ( $self->{'system'}->{'sets'} // '' ) eq 'yes'
+		  && $set_id
+		  && BIGSdb::Utils::is_int($set_id)
+		  && !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id );
+		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 		( my $clean_desc = $scheme_info->{'description'} ) =~ s/\&/\&amp;/g;
 		$buffer .= <<"HTML";
 <tr class="td$td"><td>$clean_desc profiles</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileAdd&amp;scheme_id=$_">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileBatchAdd&amp;scheme_id=$_">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileQuery&amp;scheme_id=$_">query</a> | 
-<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=browse&amp;scheme_id=$_">browse</a> |
-<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=listQuery&amp;scheme_id=$_">list</a></td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileAdd&amp;scheme_id=$scheme_id">+</a></td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileBatchAdd&amp;scheme_id=$scheme_id">++</a></td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileQuery&amp;scheme_id=$scheme_id">query</a> | 
+<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=browse&amp;scheme_id=$scheme_id">browse</a> |
+<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=listQuery&amp;scheme_id=$scheme_id">list</a></td>
 <td></td></tr>
 HTML
 		$td = $td == 1 ? 2 : 1;
@@ -540,6 +547,14 @@ HTML
 
 sub _print_profile_refs {
 	my ( $self, $td ) = @_;
+	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes'){
+		my $set_id = $self->get_set_id;
+		my $schemes_in_set = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM set_schemes WHERE set_id=?", $set_id)->[0];
+		return if $set_id && BIGSdb::Utils::is_int($set_id) && !$schemes_in_set;
+	} else {
+		my $scheme_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM schemes")->[0];
+		return if !$scheme_count;
+	}
 	my $buffer = <<"HTML";
 <tr class="td$td"><td>PubMed links (to profiles)</td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=profile_refs">+</a></td>

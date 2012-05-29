@@ -66,9 +66,9 @@ sub print_content {
 		&& !$q->param('data')
 		&& !$q->param('checked_buffer') )
 	{
-		print "<div class=\"box\" id=\"warning\"><p>Please be aware that any modifications to the structure of a scheme will result in the
-		removal of all data from it. This is done to ensure data integrity.  This does not affect allele designations, but any profiles
-		will have to be reloaded.</p></div>\n";
+		print "<div class=\"box\" id=\"warning\"><p>Please be aware that any modifications to the structure of a scheme will result in the "
+		  . "removal of all data from it. This is done to ensure data integrity.  This does not affect allele designations, but any profiles "
+		  . "will have to be reloaded.</p></div>\n";
 	}
 	my ( $uses_integer_id, $has_sender_field );
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
@@ -88,10 +88,10 @@ sub print_content {
 		$self->_upload_data( { 'table' => $table, 'locus' => $locus } );
 	} elsif ( $q->param('data') || $q->param('query') ) {
 		$self->_check_data(
-			{ 'table' => $table, 'uses_integer_id' => $uses_integer_id, 'locus' => $locus, 'has_sender_field' => $has_sender_field } );
+			{ table => $table, uses_integer_id => $uses_integer_id, locus => $locus, has_sender_field => $has_sender_field } );
 	} else {
 		$self->_print_interface(
-			{ 'table' => $table, 'uses_integer_id' => $uses_integer_id, 'has_sender_field' => $has_sender_field, 'locus' => $locus } );
+			{ table => $table, uses_integer_id => $uses_integer_id, has_sender_field => $has_sender_field, locus => $locus } );
 	}
 	return;
 }
@@ -192,12 +192,19 @@ sub _print_interface_sender_field {
 }
 
 sub _print_interface_locus_selection {
-	my ($self)             = @_;
-	my $q                  = $self->{'cgi'};
-	my $loci_with_extended = $self->{'datastore'}->run_list_query("SELECT DISTINCT locus FROM locus_extended_attributes ORDER BY locus");
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $set_id = $self->get_set_id;
+	my $qry    = "SELECT DISTINCT locus FROM locus_extended_attributes ";
+	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+		$qry .= "WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
+		  . "set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id) ";
+	}
+	$qry .= "ORDER BY locus";
+	my $loci_with_extended = $self->{'datastore'}->run_list_query($qry);
 	if ( ref $loci_with_extended eq 'ARRAY' ) {
-		print "<li>Please note, some loci have extended attributes which may be required.  For affected loci please use the batch insert
-				page specific to that locus: ";
+		print "<li>Please note, some loci have extended attributes which may be required.  For affected loci please use the batch insert "
+		  . "page specific to that locus: ";
 		if ( @$loci_with_extended > 10 ) {
 			print $q->start_form;
 			print $q->hidden($_) foreach qw (page db table);
@@ -211,10 +218,10 @@ sub _print_interface_locus_selection {
 			print $q->end_form;
 		} else {
 			my $first = 1;
-			foreach (@$loci_with_extended) {
+			foreach my $locus (@$loci_with_extended) {
 				print ' | ' if !$first;
-				print
-"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=sequences&amp;locus=$_\">$_</a>";
+				print "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;"
+				  . "table=sequences&amp;locus=$locus\">$locus</a>";
 				$first = 0;
 			}
 		}
@@ -232,9 +239,9 @@ sub _print_interface_sequence_switches {
 	print $q->checkbox( -name => 'ignore_non_DNA', -label => 'Ignore sequences containing non-nucleotide characters' );
 	print "</li><li>\n";
 	print $q->checkbox(
-		-name => 'complete_CDS',
-		-label =>
-'Silently reject all sequences that are not complete reading frames - these must have a start and in-frame stop codon at the ends and no internal stop codons.  Existing sequences are also ignored.'
+		-name  => 'complete_CDS',
+		-label => 'Silently reject all sequences that are not complete reading frames - these must have a start and in-frame '
+		  . 'stop codon at the ends and no internal stop codons.  Existing sequences are also ignored.'
 	);
 	print "</li><li>\n";
 	print $q->checkbox( -name => 'ignore_similarity', -label => 'Override sequence similarity check' );
@@ -350,14 +357,14 @@ sub _check_data {
 			}
 			my ( $pk_combination, $pk_values_ref ) = $self->_get_primary_key_values(
 				{
-					'primary_keys'    => \@primary_keys,
-					'file_header_pos' => \%file_header_pos,
-					'id'              => $id,
-					'locus'           => $locus,
-					'table'           => $table,
-					'first'           => \$first,
-					'data'            => \@data,
-					'record_count'    => \$record_count
+					primary_keys    => \@primary_keys,
+					file_header_pos => \%file_header_pos,
+					id              => $id,
+					locus           => $locus,
+					table           => $table,
+					first           => \$first,
+					data            => \@data,
+					record_count    => \$record_count
 				}
 			);
 			my $rowbuffer;
@@ -372,28 +379,28 @@ sub _check_data {
 				#Check individual values for correctness.
 				my $value = $self->_extract_value(
 					{
-						'field'               => $field,
-						'data'                => \@data,
-						'id'                  => $id,
-						'file_header_pos'     => \%file_header_pos,
-						'extended_attributes' => $extended_attributes
+						field               => $field,
+						data                => \@data,
+						id                  => $id,
+						file_header_pos     => \%file_header_pos,
+						extended_attributes => $extended_attributes
 					}
 				);
 				my $special_problem;
 				my %args = (
-					'locus'                   => $locus,
-					'field'                   => $field,
-					'value'                   => \$value,
-					'file_header_pos'         => \%file_header_pos,
-					'data'                    => \@data,
-					'required_extended_exist' => $required_extended_exist,
-					'pk_combination'          => $pk_combination,
-					'problems'                => \%problems,
-					'special_problem'         => \$special_problem,
-					'continue'                => \$continue,
-					'last_id'                 => \%last_id,
-					'extended_attributes'     => $extended_attributes,
-					'unique_field'            => \%unique_field
+					locus                   => $locus,
+					field                   => $field,
+					value                   => \$value,
+					file_header_pos         => \%file_header_pos,
+					data                    => \@data,
+					required_extended_exist => $required_extended_exist,
+					pk_combination          => $pk_combination,
+					problems                => \%problems,
+					special_problem         => \$special_problem,
+					continue                => \$continue,
+					last_id                 => \%last_id,
+					extended_attributes     => $extended_attributes,
+					unique_field            => \%unique_field
 				);
 				$self->_check_data_duplicates( \%args );
 				if ( $table eq 'sequences' ) {
@@ -441,19 +448,19 @@ sub _check_data {
 			}
 			$tablebuffer .= "<tr class=\"td$td\">$rowbuffer";
 			my %args = (
-				'file_header_fields' => \@file_header_fields,
-				'header_row'         => \$header_row,
-				'first_record'       => $first_record,
-				'file_header_pos'    => \%file_header_pos,
-				'data'               => \@data,
-				'locus_format'       => \%locus_format,
-				'locus_regex'        => \%locus_regex,
-				'primary_keys'       => \@primary_keys,
-				'pk_combination'     => $pk_combination,
-				'pk_values'          => $pk_values_ref,
-				'problems'           => \%problems,
-				'checked_record'     => \$checked_record,
-				'table'              => $table
+				file_header_fields => \@file_header_fields,
+				header_row         => \$header_row,
+				first_record       => $first_record,
+				file_header_pos    => \%file_header_pos,
+				data               => \@data,
+				locus_format       => \%locus_format,
+				locus_regex        => \%locus_regex,
+				primary_keys       => \@primary_keys,
+				pk_combination     => $pk_combination,
+				pk_values          => $pk_values_ref,
+				problems           => \%problems,
+				checked_record     => \$checked_record,
+				table              => $table
 			);
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
 
@@ -765,12 +772,12 @@ sub _check_data_loci {
 		$arg_ref->{'problems'}->{$pk_combination} .= "Locus set as non variable length but no length is set.<br />";
 	}
 	if ( $data[ $file_header_pos{'id'} ] =~ /^\d/ ) {
-		$arg_ref->{'problems'}->{$pk_combination} .=
-		  "Locus names can not start with a digit.  Try prepending an underscore (_) which will get hidden in the query interface.<br />";
+		$arg_ref->{'problems'}->{$pk_combination} .= "Locus names can not start with a digit.  Try prepending an underscore (_) "
+		. "which will get hidden in the query interface.<br />";
 	}
 	if ( $data[ $file_header_pos{'id'} ] =~ /[^\w_']/ ) {
-		$arg_ref->{'problems'}->{$pk_combination} .=
-		  "Locus names can only contain alphanumeric, underscore (_) and prime (') characters (no spaces or other symbols).<br />";
+		$arg_ref->{'problems'}->{$pk_combination} .= "Locus names can only contain alphanumeric, underscore (_) and prime (') "
+		. "characters (no spaces or other symbols).<br />";
 	}
 	return;
 }
@@ -819,8 +826,8 @@ sub _check_data_allele_designations {
 			  if !defined $arg_ref->{'problems'}->{$pk_combination} || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/;
 			${ $arg_ref->{'special_problem'} } = 1;
 		} elsif ( $format->[1] && ${ $arg_ref->{'value'} } !~ /$format->[1]/ ) {
-			$arg_ref->{'problems'}->{$pk_combination} .=
-			  "$field value is invalid - it must match the regular expression /$format->[1]/.<br />";
+			$arg_ref->{'problems'}->{$pk_combination} .= "$field value is invalid - it must match the regular expression "
+			. "/$format->[1]/.<br />";
 			${ $arg_ref->{'special_problem'} } = 1;
 		}
 	}
@@ -929,18 +936,18 @@ sub _check_data_sequences {
 		my $length     = defined ${ $arg_ref->{'value'} } ? length( ${ $arg_ref->{'value'} } ) : 0;
 		my $units      = ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' ) ? 'bp' : 'residues';
 		if ( !$locus_info->{'length_varies'} && defined $locus_info->{'length'} && $locus_info->{'length'} != $length ) {
-			my $problem_text =
-			  "Sequence is $length $units long but this locus is set as a standard length of $locus_info->{'length'} $units.<br />";
+			my $problem_text = "Sequence is $length $units long but this locus is set as a standard length of "
+			. "$locus_info->{'length'} $units.<br />";
 			$buffer .= $problem_text
 			  if !$buffer || $buffer !~ /$problem_text/;
 			${ $arg_ref->{'special_problem'} } = 1;
 		} elsif ( $locus_info->{'min_length'} && $length < $locus_info->{'min_length'} ) {
-			my $problem_text =
-			  "Sequence is $length $units long but this locus is set with a minimum length of $locus_info->{'min_length'} $units.<br />";
+			my $problem_text = "Sequence is $length $units long but this locus is set with a minimum length of "
+			. "$locus_info->{'min_length'} $units.<br />";
 			$buffer .= $problem_text;
 		} elsif ( $locus_info->{'max_length'} && $length > $locus_info->{'max_length'} ) {
-			my $problem_text =
-			  "Sequence is $length $units long but this locus is set with a maximum length of $locus_info->{'max_length'} $units.<br />";
+			my $problem_text = "Sequence is $length $units long but this locus is set with a maximum length of "
+			. "$locus_info->{'max_length'} $units.<br />";
 			$buffer .= $problem_text;
 		} elsif ( defined $file_header_pos{'allele_id'}
 			&& defined $data[ $file_header_pos{'allele_id'} ]
