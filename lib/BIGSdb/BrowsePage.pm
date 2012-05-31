@@ -77,7 +77,8 @@ sub print_content {
 			return;
 		}
 	} else {
-		print "<h1>Browse $system->{'description'} database</h1>\n";
+		my $desc = $self->get_db_description;
+		print "<h1>Browse $desc database</h1>\n";
 	}
 	my $qry;
 	if ( !defined $q->param('currentpage')

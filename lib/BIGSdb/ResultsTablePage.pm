@@ -418,9 +418,12 @@ sub _print_isolate_table {
 			$composites{ $data[1] }            = 1;
 		}
 	}
-	my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,description");
+
+	#	my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,description");
+	my $set_id = $self->get_set_id;
+	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	print "<div class=\"box\" id=\"resultstable\"><div class=\"scrollable\"><table class=\"resultstable\">\n";
-	$self->_print_isolate_table_header( \%composites, \%composite_display_pos, $scheme_ids, $qry_limit );
+	$self->_print_isolate_table_header( \%composites, \%composite_display_pos, $schemes, $qry_limit );
 	my $td = 1;
 	local $" = "=? AND ";
 	my $field_attributes;
@@ -510,7 +513,9 @@ sub _print_isolate_table {
 		}
 
 		#Print loci and scheme fields
-		foreach my $scheme_id ( @$scheme_ids, 0 ) {
+		my @scheme_ids;
+		push @scheme_ids, $_->{'id'} foreach (@$schemes);
+		foreach my $scheme_id ( @scheme_ids, 0 ) {
 			next
 			  if !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id} && $scheme_id;
 			next
@@ -542,7 +547,7 @@ sub _print_isolate_table {
 }
 
 sub _print_isolate_table_header {
-	my ( $self, $composites, $composite_display_pos, $scheme_ids, $limit_qry ) = @_;
+	my ( $self, $composites, $composite_display_pos, $schemes, $limit_qry ) = @_;
 	my @selectitems   = $self->{'xmlHandler'}->get_select_items('userFieldIdsOnly');
 	my $header_buffer = "<tr>";
 	my $col_count;
@@ -597,9 +602,8 @@ sub _print_isolate_table_header {
 	my $alias_sql = $self->{'db'}->prepare("SELECT alias FROM locus_aliases WHERE locus=?");
 	$logger->error($@) if $@;
 	local $" = '; ';
-	my $scheme_info = $self->{'datastore'}->get_all_scheme_info;
-
-	foreach my $scheme_id (@$scheme_ids) {
+	foreach my $scheme (@$schemes) {
+		my $scheme_id = $scheme->{'id'};
 		next if !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};
 		next
 		  if $self->{'system'}->{'hide_unused_schemes'}
@@ -641,7 +645,7 @@ sub _print_isolate_table_header {
 			}
 		}
 		if ( scalar @scheme_header ) {
-			$fieldtype_header .= "<th colspan=\"" . scalar @scheme_header . "\">$scheme_info->{$scheme_id}->{'description'}</th>";
+			$fieldtype_header .= "<th colspan=\"" . scalar @scheme_header . "\">$scheme->{'description'}</th>";
 		}
 		local $" = '</th><th>';
 		$header_buffer .= "<th>@scheme_header</th>" if @scheme_header;
@@ -1050,11 +1054,11 @@ sub _print_record_table {
 				}
 				$value = $self->clean_locus($value);
 				if ( $table eq 'sequences' ) {
-					print
-"<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;@query_values\">$value</a></td>";
+					print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;"
+					 . "@query_values\">$value</a></td>";
 				} else {
-					print
-"<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=recordInfo&amp;table=$table&amp;@query_values\">$value</a></td>";
+					print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=recordInfo&amp;"
+					 . "table=$table&amp;@query_values\">$value</a></td>";
 				}
 			} elsif ( $type{$field} eq 'bool' ) {
 				if ( $data{ lc($field) } eq '' ) {

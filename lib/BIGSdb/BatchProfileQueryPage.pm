@@ -146,13 +146,11 @@ sub print_content {
 	print $q->hidden($_) foreach qw (db page scheme_id);
 	local $" = ', ';
 	print <<"HTML";
-<p>Enter allelic profiles below in tab (or space) delimited text format 
-using copy and paste (for example directly from a spreadsheet).  
-Columns can be separated by any amount of whitespace.  The first column 
-should be an isolate identifier and the remaining columns should comprise 
-the allele numbers (order: @cleaned_loci). Click here for 
-<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchProfiles&amp;function=examples&amp;scheme_id=$scheme_id">example data</a>.  
-Non-numerical characters will be stripped out of the query.</p>
+<p>Enter allelic profiles below in tab-delimited text format using copy and paste (for example directly from a spreadsheet).  
+Columns can be separated by any amount of whitespace.  The first column should be an isolate identifier and the remaining 
+columns should comprise the allele numbers (order: @cleaned_loci). Click here for 
+<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchProfiles&amp;function=examples&amp;scheme_id=$scheme_id">
+example data</a>.  Non-numerical characters will be stripped out of the query.</p>
 HTML
 	print $q->textarea( -name => 'profiles', -rows => 10, -columns => 80, -override => 1 );
 	print "<p />";

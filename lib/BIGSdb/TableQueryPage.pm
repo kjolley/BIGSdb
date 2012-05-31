@@ -19,6 +19,7 @@
 package BIGSdb::TableQueryPage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::QueryPage);
 use List::MoreUtils qw(any uniq);
 use Log::Log4perl qw(get_logger);
@@ -39,7 +40,7 @@ sub initiate {
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 0 };
+	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
 	return;
 }
 
@@ -58,18 +59,20 @@ sub print_content {
 	}
 	my $cleaned = $table;
 	$cleaned =~ tr/_/ /;
-	print "<h1>Query $cleaned for $system->{'description'} database</h1>\n";
+	my $desc = $self->get_db_description;
+	print "<h1>Query $cleaned for $desc database</h1>\n";
 	my $qry;
 	if (   !defined $q->param('currentpage')
 		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
 		|| $q->param('First') )
 	{
 		if ( !$q->param('no_js') ) {
-			print "<noscript><p class=\"highlight\">The dynamic customisation of this interface requires that you enable Javascript in your
-		browser. Alternatively, you can use a <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$table&amp;no_js=1\">non-Javascript 
-		version</a> that has 4 combinations of fields.</p></noscript>\n";
+			print "<noscript><p class=\"highlight\">The dynamic customisation of this interface requires that you enable Javascript in "
+			  . "your browser. Alternatively, you can use a <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
+			  . "page=tableQuery&amp;table=$table&amp;no_js=1\">non-Javascript version</a> that has 4 combinations of fields.</p>"
+			  . "</noscript>\n";
 		}
-		$self->_print_query_interface();
+		$self->_print_query_interface;
 	}
 	if (   defined $q->param('query')
 		or defined $q->param('t1') )
@@ -83,7 +86,7 @@ sub print_content {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
+	my $desc = $self->get_db_description || 'BIGSdb';
 	my $record = $self->get_record_name( $self->{'cgi'}->param('table') ) || 'record';
 	return "Query $record information - $desc";
 }
@@ -199,13 +202,18 @@ sub _print_query_interface {
 			( my $tooltip = $_->{'tooltip'} ) =~ tr/_/ /;
 			$tooltip =~ s/ - / filter - Select a value to filter your search to only those with the selected attribute. /;
 			if ( ( $_->{'dropdown_query'} && $_->{'dropdown_query'} eq 'yes' ) ) {
-				if ( $_->{'name'} eq 'sender' || $_->{'name'} eq 'curator' ) {
+				if ( $_->{'name'} eq 'sender' || $_->{'name'} eq 'curator' || ($_->{'foreign_key'} // '') eq 'users' ) {
 					push @filters, $self->get_user_filter( $_->{'name'}, $table );
+				} elsif ( $_->{'name'} eq 'scheme_id' ) {
+					push @filters, $self->get_scheme_filter;
+				} elsif ( $_->{'name'} eq 'locus'){
+					push @filters, $self->get_locus_filter;
 				} else {
 					my $desc;
 					my @values;
 					my @fields_to_query;
 					if ( $_->{'foreign_key'} ) {
+						next if $_->{'name'} eq 'scheme_id';
 						if ( $_->{'labels'} ) {
 							( my $fields_ref, $desc ) = $self->get_all_foreign_key_fields_and_labels($_);
 							@fields_to_query = @$fields_ref;
@@ -213,30 +221,24 @@ sub _print_query_interface {
 							push @fields_to_query, 'id';
 						}
 						local $" = ',';
-						if ( $_->{'foreign_key'} eq 'users' ) {
-							@values =
-							  @{ $self->{'datastore'}->run_list_query("SELECT id FROM users WHERE id>0 ORDER BY @fields_to_query") };
-						} else {
-							@values =
-							  @{ $self->{'datastore'}->run_list_query("SELECT id FROM $_->{'foreign_key'} ORDER BY @fields_to_query") };
-							next if !@values;
-						}
+						@values = @{ $self->{'datastore'}->run_list_query("SELECT id FROM $_->{'foreign_key'} ORDER BY @fields_to_query") };
+						next if !@values;
 					} else {
 						my $order_by = $_->{'type'} eq 'text' ? "lower($_->{'name'})" : $_->{'name'};
 						@values = @{ $self->{'datastore'}->run_list_query("SELECT $_->{'name'} FROM $table ORDER BY $order_by") };
 						@values = uniq @values;
 					}
-					push @filters, $self->get_filter( $_->{'name'}, \@values, { 'labels' => $desc } );
+					push @filters, $self->get_filter( $_->{'name'}, \@values, { labels => $desc } );
 				}
 			} elsif ( $_->{'optlist'} ) {
 				my @options = split /;/, $_->{'optlist'};
 				push @filters, $self->get_filter( $_->{'name'}, \@options );
 			} elsif ( $_->{'type'} eq 'bool' ) {
-				push @filters, $self->get_filter( $_->{'name'}, [qw(true false)], { 'tooltip' => $tooltip } );
+				push @filters, $self->get_filter( $_->{'name'}, [qw(true false)], { tooltip => $tooltip } );
 			}
 		}
 	}
-	if ( $table eq 'loci' || $table eq 'allele_designations' ) {
+	if ( any { $table eq $_ } qw (loci allele_designations) ) {
 		push @filters, $self->get_scheme_filter;
 	} elsif ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' && $table eq 'sequences' ) {
 		my @flag_values = ( 'any flag', 'no flag', ALLELE_FLAGS );
@@ -253,7 +255,7 @@ sub _print_query_interface {
 			$labels{ $data[0] } = $data[1];
 		}
 		if (@experiments) {
-			push @filters, $self->get_filter( 'experiment', \@experiments, { 'labels' => \%labels } );
+			push @filters, $self->get_filter( 'experiment', \@experiments, { labels => \%labels } );
 		}
 	} elsif ( $table eq 'locus_descriptions' ) {
 		my %labels;
@@ -357,8 +359,9 @@ sub _run_query {
 						} else {
 							$qry .=
 							  $thisfield->{'type'} ne 'text'
-							  ? "NOT CAST($table.$field AS text) = '$text'"
-							  : "NOT upper($table.$field) = upper('$text')";
+							  ? "(NOT CAST($table.$field AS text) = '$text'"
+							  : "(NOT upper($table.$field) = upper('$text')";
+							$qry .= " OR $table.$field IS NULL)";
 						}
 					} elsif ( $operator eq "contains" ) {
 						$qry .=
@@ -374,8 +377,9 @@ sub _run_query {
 					} elsif ( $operator eq "NOT contain" ) {
 						$qry .=
 						  $thisfield->{'type'} ne 'text'
-						  ? "NOT CAST($table.$field AS text) LIKE '\%$text\%'"
-						  : "NOT $table.$field ILIKE E'\%$text\%'";
+						  ? "(NOT CAST($table.$field AS text) LIKE '\%$text\%'"
+						  : "(NOT $table.$field ILIKE E'\%$text\%'";
+						$qry .= " OR $table.$field IS NULL)";
 					} elsif ( $operator eq '=' ) {
 						if ( $thisfield->{'type'} eq 'text' ) {
 							$qry .= ( $text eq 'null' ? "$table.$field is null" : "upper($table.$field) = upper(E'$text')" );
@@ -388,6 +392,8 @@ sub _run_query {
 				}
 			}
 		}
+		$self->_modify_loci_for_sets( $table, \$qry );
+		$self->_modify_schemes_for_sets( $table, \$qry );
 		if (   defined $q->param('scheme_id_list')
 			&& $q->param('scheme_id_list') ne ''
 			&& any { $table eq $_ } qw (loci scheme_fields schemes scheme_members client_dbase_schemes allele_designations) )
@@ -504,6 +510,40 @@ s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bi
 		print "<p />\n";
 	}
 	return;
+}
+
+sub _modify_loci_for_sets {
+	my ( $self, $table, $qry_ref ) = @_;
+	my $set_id = $self->get_set_id;
+	my $identifier;
+	given ($table) {
+		when ('loci') { $identifier = 'id' }
+		when ('scheme_members') {$identifier = 'locus'}
+		default { return }
+	}
+	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+		$$qry_ref .= ' AND ' if $$qry_ref;
+		$$qry_ref .=
+		    " ($table.$identifier IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
+		  . "set_id=$set_id)) OR $table.$identifier IN (SELECT locus FROM set_loci WHERE set_id=$set_id))";
+	}
+	return;
+}
+
+sub _modify_schemes_for_sets {
+	my ( $self, $table, $qry_ref ) = @_;
+	my $set_id = $self->get_set_id;
+	my $identifier;
+	given ($table) {
+		when ('schemes') { $identifier = 'id' }
+		when ('scheme_members') {$identifier = 'scheme_id'}
+		default { return }
+	}
+	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+		$$qry_ref .= ' AND ' if $$qry_ref;
+		$$qry_ref .= " ($table.$identifier IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id))";
+	}
+	return;	
 }
 
 sub print_additional_headerbar_functions {

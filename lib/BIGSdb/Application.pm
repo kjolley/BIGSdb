@@ -19,6 +19,7 @@
 package BIGSdb::Application;
 use strict;
 use warnings;
+use 5.010;
 use BIGSdb::AlleleInfoPage;
 use BIGSdb::AlleleQueryPage;
 use BIGSdb::AlleleSequencePage;
@@ -126,8 +127,10 @@ sub _initiate {
 		$self->{'error'} = 'invalidXML';
 		return;
 	}
-	$self->{'system'} = $self->{'xmlHandler'}->get_system_hash();
-	if ( $self->{'system'}->{'dbtype'} ne 'sequences' && $self->{'system'}->{'dbtype'} ne 'isolates' ) {
+	$self->{'system'} = $self->{'xmlHandler'}->get_system_hash;
+	if ( !defined $self->{'system'}->{'dbtype'}
+		|| ( $self->{'system'}->{'dbtype'} ne 'sequences' && $self->{'system'}->{'dbtype'} ne 'isolates' ) )
+	{
 		$self->{'error'} = 'invalidDbType';
 	}
 	$self->{'script_name'} = $q->script_name || 'bigsdb.pl';
@@ -156,7 +159,7 @@ sub _initiate {
 	$self->{'system'}->{'locus_superscript_prefix'} ||= 'no';
 	$self->{'system'}->{'dbase_config_dir'} = $dbase_config_dir;
 
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+	if ( ($self->{'system'}->{'dbtype'} // '') eq 'isolates' ) {
 		$self->{'system'}->{'view'}       ||= 'isolates';
 		$self->{'system'}->{'labelfield'} ||= 'isolate';
 		if ( !$self->{'xmlHandler'}->is_field( $self->{'system'}->{'labelfield'} ) ) {
@@ -197,6 +200,7 @@ sub initiate_view {
 	my $username   = $attributes->{'username'};
 	my $status_ref = $self->{'datastore'}->run_simple_query( "SELECT status FROM users WHERE user_name=?", $username );
 	return if ref $status_ref ne 'ARRAY' || $status_ref->[0] eq 'admin';
+
 	#You need to be able to read and write to a record to view it in the curator's interface
 	my $write_clause = $attributes->{'curate'} ? ' AND write=true' : '';
 	my $view_clause = << "SQL";
@@ -259,7 +263,7 @@ sub read_config_file {
 	$config = Config::Tiny->read("$config_dir/bigsdb.conf");
 	foreach (
 		qw ( prefs_db auth_db jobs_db max_load emboss_path tmp_dir secure_tmp_dir blast_path blast+_path blast_threads
-		muscle_path	mogrify_path ipcress_path splitstree_path reference refdb chartdirector 
+		muscle_path	mogrify_path ipcress_path splitstree_path reference refdb chartdirector
 		disable_updates disable_update_message intranet debug results_deleted_days)
 	  )
 	{

@@ -318,10 +318,11 @@ sub _print_help_panel {
 		}
 	}
 	if ( $self->{'tooltips'} ) {
-		print "<span id=\"toggle\" style=\"display:none\">Toggle: </span>"
-		  . "<a id=\"toggle_tooltips\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=options&amp;toggle_tooltips=1\" style=\"display:none; margin-right:1em;\">&nbsp;<i>i</i>&nbsp;</a> ";
+		print "<span id=\"toggle\" style=\"display:none\">Toggle: </span><a id=\"toggle_tooltips\" href=\""
+		  . "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=options&amp;toggle_tooltips=1\" style=\"display:none; "
+		  . "margin-right:1em;\">&nbsp;<i>i</i>&nbsp;</a> ";
 	}
-	if ( defined $self->{'system'}->{'dbtype'} && $self->{'system'}->{'dbtype'} eq 'isolates' && $self->{'field_help'} ) {
+	if ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' && $self->{'field_help'} ) {
 
 		#open new page unless already on field values help page
 		print $q->param('page') eq 'fieldValues'
@@ -368,38 +369,9 @@ sub get_field_selection_list {
 	$options->{'query_pref'}    //= 1;
 	$options->{'analysis_pref'} //= 0;
 	my @values;
-	my $extended = $options->{'extended_attributes'} ? $self->get_extended_attributes : undef;
 	if ( $options->{'isolate_fields'} ) {
-		my @isolate_list;
-		my $fields     = $self->{'xmlHandler'}->get_field_list;
-		my $attributes = $self->{'xmlHandler'}->get_all_field_attributes;
-		foreach (@$fields) {
-			if (
-				( $options->{'sender_attributes'} )
-				&& (   $_ eq 'sender'
-					|| $_ eq 'curator'
-					|| ( $attributes->{$_}->{'userfield'} && $attributes->{$_}->{'userfield'} eq 'yes' ) )
-			  )
-			{
-				foreach my $user_attribute (qw (id surname first_name affiliation)) {
-					push @isolate_list, "f_$_ ($user_attribute)";
-					( $self->{'cache'}->{'labels'}->{"f_$_ ($user_attribute)"} = "$_ ($user_attribute)" ) =~ tr/_/ /;
-				}
-			} else {
-				push @isolate_list, "f_$_";
-				( $self->{'cache'}->{'labels'}->{"f_$_"} = $_ ) =~ tr/_/ /;
-				if ( $options->{'extended_attributes'} ) {
-					my $extatt = $extended->{$_};
-					if ( ref $extatt eq 'ARRAY' ) {
-						foreach my $extended_attribute (@$extatt) {
-							push @isolate_list, "e_$_||$extended_attribute";
-							$self->{'cache'}->{'labels'}->{"e_$_||$extended_attribute"} = "$_..$extended_attribute";
-						}
-					}
-				}
-			}
-		}
-		push @values, @isolate_list;
+		my $isolate_fields = $self->_get_provenance_fields($options);
+		push @values, @$isolate_fields;
 	}
 	if ( $options->{'loci'} ) {
 		if ( !$self->{'cache'}->{'loci'} ) {
@@ -409,21 +381,43 @@ sub get_field_selection_list {
 			eval { $cn_sql->execute };
 			$logger->error($@) if $@;
 			my $common_names = $cn_sql->fetchall_hashref('id');
+			my $set_id       = $self->get_set_id;
 			my $loci         = $self->{'datastore'}->get_loci(
 				{
 					query_pref    => $options->{'query_pref'},
 					analysis_pref => $options->{'analysis_pref'},
 					seq_defined   => 0,
-					do_not_order  => 1
+					do_not_order  => 1,
+					set_id        => $set_id
 				}
 			);
-			foreach (@$loci) {
-				push @locus_list, "l_$_";
-				$self->{'cache'}->{'labels'}->{"l_$_"} = $_;
-				if ( $common_names->{$_}->{'common_name'} ) {
-					$self->{'cache'}->{'labels'}->{"l_$_"} .= " ($common_names->{$_}->{'common_name'})";
-					push @locus_list, "cn_$_";
-					$self->{'cache'}->{'labels'}->{"cn_$_"} = "$common_names->{$_}->{'common_name'} ($_)";
+			my $set_sql;
+
+			if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+				$set_sql = $self->{'db'}->prepare("SELECT * FROM set_loci WHERE set_id=? AND locus=?");
+			}
+			foreach my $locus (@$loci) {
+				push @locus_list, "l_$locus";
+				$self->{'cache'}->{'labels'}->{"l_$locus"} = $locus;
+				my $set_name_is_set;
+				if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+					eval { $set_sql->execute( $set_id, $locus ) };
+					$logger->error($@) if $@;
+					my $set_locus = $set_sql->fetchrow_hashref;
+					if ( $set_locus->{'set_name'} ) {
+						$self->{'cache'}->{'labels'}->{"l_$locus"} = $set_locus->{'set_name'};
+						if ( $set_locus->{'set_common_name'} ) {
+							$self->{'cache'}->{'labels'}->{"l_$locus"} .= " ($set_locus->{'set_common_name'})";
+							push @locus_list, "cn_$locus";
+							$self->{'cache'}->{'labels'}->{"cn_$locus"} = "$set_locus->{'set_common_name'} ($set_locus->{'set_name'})";
+						}
+						$set_name_is_set = 1;
+					}
+				}
+				if ( !$set_name_is_set && $common_names->{$locus}->{'common_name'} ) {
+					$self->{'cache'}->{'labels'}->{"l_$locus"} .= " ($common_names->{$locus}->{'common_name'})";
+					push @locus_list, "cn_$locus";
+					$self->{'cache'}->{'labels'}->{"cn_$locus"} = "$common_names->{$locus}->{'common_name'} ($locus)";
 				}
 			}
 			if ( $self->{'prefs'}->{'locus_alias'} ) {
@@ -454,32 +448,8 @@ sub get_field_selection_list {
 		push @values, @{ $self->{'cache'}->{'loci'} };
 	}
 	if ( $options->{'scheme_fields'} ) {
-		if ( !$self->{'cache'}->{'scheme_fields'} ) {
-			my @scheme_field_list;
-			my $qry = "SELECT id, description FROM schemes ORDER BY display_order,description";
-			my $sql = $self->{'db'}->prepare($qry);
-			eval { $sql->execute };
-			$logger->error($@) if $@;
-			my $scheme_fields = $self->{'datastore'}->get_all_scheme_fields;
-			my $scheme_info   = $self->{'datastore'}->get_all_scheme_info;
-			while ( my ( $scheme_id, $desc ) = $sql->fetchrow_array ) {
-				my $scheme_db = $scheme_info->{$scheme_id}->{'dbase_name'};
-
-				#No point using scheme fields if no scheme database is available.
-				if (   $self->{'prefs'}->{'query_field_schemes'}->{$scheme_id}
-					&& $scheme_db )
-				{
-					foreach my $field ( @{ $scheme_fields->{$scheme_id} } ) {
-						if ( $self->{'prefs'}->{'query_field_scheme_fields'}->{$scheme_id}->{$field} ) {
-							( $self->{'cache'}->{'labels'}->{"s_$scheme_id\_$field"} = "$field ($desc)" ) =~ tr/_/ /;
-							push @scheme_field_list, "s_$scheme_id\_$field";
-						}
-					}
-				}
-			}
-			$self->{'cache'}->{'scheme_fields'} = \@scheme_field_list;
-		}
-		push @values, @{ $self->{'cache'}->{'scheme_fields'} };
+		my $scheme_fields = $self->_get_scheme_fields($options);
+		push @values, @$scheme_fields;
 	}
 	if ( $options->{'sort_labels'} ) {
 
@@ -493,6 +463,78 @@ sub get_field_selection_list {
 		  } uniq @values;
 	}
 	return \@values, $self->{'cache'}->{'labels'};
+}
+
+sub _get_provenance_fields {
+	my ( $self, $options ) = @_;
+	my @isolate_list;
+	my $fields     = $self->{'xmlHandler'}->get_field_list;
+	my $attributes = $self->{'xmlHandler'}->get_all_field_attributes;
+	my $extended   = $options->{'extended_attributes'} ? $self->get_extended_attributes : undef;
+	foreach (@$fields) {
+		if (
+			( $options->{'sender_attributes'} )
+			&& (   $_ eq 'sender'
+				|| $_ eq 'curator'
+				|| ( $attributes->{$_}->{'userfield'} && $attributes->{$_}->{'userfield'} eq 'yes' ) )
+		  )
+		{
+			foreach my $user_attribute (qw (id surname first_name affiliation)) {
+				push @isolate_list, "f_$_ ($user_attribute)";
+				( $self->{'cache'}->{'labels'}->{"f_$_ ($user_attribute)"} = "$_ ($user_attribute)" ) =~ tr/_/ /;
+			}
+		} else {
+			push @isolate_list, "f_$_";
+			( $self->{'cache'}->{'labels'}->{"f_$_"} = $_ ) =~ tr/_/ /;
+			if ( $options->{'extended_attributes'} ) {
+				my $extatt = $extended->{$_};
+				if ( ref $extatt eq 'ARRAY' ) {
+					foreach my $extended_attribute (@$extatt) {
+						push @isolate_list, "e_$_||$extended_attribute";
+						$self->{'cache'}->{'labels'}->{"e_$_||$extended_attribute"} = "$_..$extended_attribute";
+					}
+				}
+			}
+		}
+	}
+	return \@isolate_list;
+}
+
+sub _get_scheme_fields {
+	my ( $self, $options ) = @_;
+	if ( !$self->{'cache'}->{'scheme_fields'} ) {
+		my @scheme_field_list;
+		my $set_id        = $self->get_set_id;
+		my $schemes       = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+		my $scheme_fields = $self->{'datastore'}->get_all_scheme_fields;
+		my $scheme_info   = $self->{'datastore'}->get_all_scheme_info;
+		my $set_sql;
+		if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+			$set_sql = $self->{'db'}->prepare("SELECT set_name FROM set_schemes WHERE set_id=? AND scheme_id=?");
+		}
+		foreach my $scheme (@$schemes) {
+			my ( $scheme_id, $desc ) = ( $scheme->{'id'}, $scheme->{'description'} );
+			my $scheme_db = $scheme_info->{$scheme_id}->{'dbase_name'};
+
+			#No point using scheme fields if no scheme database is available.
+			if ( $self->{'prefs'}->{'query_field_schemes'}->{$scheme_id} && $scheme_db ) {
+				foreach my $field ( @{ $scheme_fields->{$scheme_id} } ) {
+					if ( $self->{'prefs'}->{'query_field_scheme_fields'}->{$scheme_id}->{$field} ) {
+						if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+							eval { $set_sql->execute( $set_id, $scheme_id ) };
+							$logger->error($@) if $@;
+							my ($set_name) = $set_sql->fetchrow_array;
+							$desc = $set_name if defined $set_name;
+						}
+						( $self->{'cache'}->{'labels'}->{"s_$scheme_id\_$field"} = "$field ($desc)" ) =~ tr/_/ /;
+						push @scheme_field_list, "s_$scheme_id\_$field";
+					}
+				}
+			}
+		}
+		$self->{'cache'}->{'scheme_fields'} = \@scheme_field_list;
+	}
+	return $self->{'cache'}->{'scheme_fields'};
 }
 
 sub _print_footer {
@@ -631,13 +673,11 @@ sub get_number_records_control {
 sub get_scheme_filter {
 	my ($self) = @_;
 	if ( !$self->{'cache'}->{'schemes'} ) {
-		my $qry = "SELECT id,description FROM schemes ORDER BY UPPER(description),id";
-		my $sql = $self->{'db'}->prepare($qry);
-		eval { $sql->execute };
-		$logger->error($@) if $@;
-		while ( my @data = $sql->fetchrow_array ) {
-			push @{ $self->{'cache'}->{'schemes'} }, $data[0];
-			$self->{'cache'}->{'scheme_labels'}->{ $data[0] } = $data[1];
+		my $set_id = $self->get_set_id;
+		my $list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+		foreach my $scheme (@$list) {
+			push @{ $self->{'cache'}->{'schemes'} }, $scheme->{'id'};
+			$self->{'cache'}->{'scheme_labels'}->{ $scheme->{'id'} } = $scheme->{'description'};
 		}
 		push @{ $self->{'cache'}->{'schemes'} }, 0;
 		$self->{'cache'}->{'scheme_labels'}->{0} = 'No scheme';
@@ -646,11 +686,20 @@ sub get_scheme_filter {
 		'scheme_id',
 		$self->{'cache'}->{'schemes'},
 		{
-			'text'    => 'scheme',
-			'labels'  => $self->{'cache'}->{'scheme_labels'},
-			'tooltip' => 'scheme filter - Select a scheme to filter your search to only those belonging to the selected scheme.'
+			text    => 'scheme',
+			labels  => $self->{'cache'}->{'scheme_labels'},
+			tooltip => 'scheme filter - Select a scheme to filter your search to only those belonging to the selected scheme.'
 		}
 	);
+	return $buffer;
+}
+
+sub get_locus_filter {
+	my ($self) = @_;
+	my $set_id = $self->get_set_id;
+	my ( $loci, $labels ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, no_list_by_common_name => 1 } );
+	my $buffer =
+	  $self->get_filter( 'locus', $loci, { labels => $labels, tooltip => 'locus filter - Select a locus to filter your search by.' } );
 	return $buffer;
 }
 
@@ -775,7 +824,9 @@ sub get_db_description {
 			$desc = $desc_ref->[0] if ref $desc_ref eq 'ARRAY';
 		}
 	}
-	return $desc || $self->{'system'}->{'description'};
+	$desc = $self->{'system'}->{'description'} if !defined $desc;
+	$desc =~ s/\&/\&amp;/g;
+	return $desc;
 }
 
 sub get_link_button_to_ref {

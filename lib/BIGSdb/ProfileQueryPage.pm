@@ -47,12 +47,13 @@ sub print_content {
 	my $set_id = $self->get_set_id;
 	my $scheme_info = $scheme_id > 0 ? $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } ) : undef;
 	( $scheme_info->{'description'} //= '' ) =~ s/\&/\&amp;/g;
-	print "<h1>Search $system->{'description'} database by combinations of $scheme_info->{'description'} loci</h1>\n";
+	my $desc = $self->get_db_description;
+	print "<h1>Search $desc database by combinations of $scheme_info->{'description'} loci</h1>\n";
 
 	if ( ( !$scheme_info->{'id'} && $scheme_id ) || ( $self->{'system'}->{'dbtype'} eq 'sequences' && !$scheme_id ) ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Invalid scheme selected.</p></div>\n";
 		return;
-	} elsif ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+	} elsif ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $scheme_id && $set_id && BIGSdb::Utils::is_int($set_id) ) {
 		if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
 			print "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is unavailable.</p></div>\n";
 			return;
@@ -85,7 +86,8 @@ sub _print_query_interface {
 		  ->run_simple_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key ORDER BY field_order", $scheme_id );
 		$primary_key = $primary_key_ref->[0] if ref $primary_key_ref eq 'ARRAY';
 	}
-	my $loci = $scheme_id ? $self->{'datastore'}->get_scheme_loci($scheme_id) : $self->{'datastore'}->get_loci( { 'query_pref' => 1 } );
+	my $set_id = $self->get_set_id;
+	my $loci = $scheme_id ? $self->{'datastore'}->get_scheme_loci($scheme_id) : $self->{'datastore'}->get_loci( { query_pref => 1, set_id =>$set_id } );
 	my $scheme_fields;
 	$scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id) if $scheme_id;
 	my @errors;

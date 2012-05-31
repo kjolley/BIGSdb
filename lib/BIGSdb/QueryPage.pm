@@ -42,7 +42,7 @@ sub initiate {
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 1, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 1 };
+	$self->{'pref_requirements'} = { general => 1, main_display => 1, isolate_display => 0, analysis => 0, query_field => 1 };
 	return;
 }
 
@@ -186,7 +186,8 @@ sub print_content {
 		if ( $self->{'curate'} ) {
 			print "<h1>Isolate query/update</h1>\n";
 		} else {
-			print "<h1>Search $system->{'description'} database</h1>\n";
+			my $desc = $self->get_db_description;
+			print "<h1>Search $desc database</h1>\n";
 		}
 	}
 	my $qry;
@@ -453,39 +454,40 @@ sub _print_isolate_filter_fieldset {
 	}
 	my $buffer = $self->get_project_filter( { 'any' => 1 } );
 	push @filters, $buffer if $buffer;
-	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
-	foreach (@$schemes) {
-		my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
-		my $field       = "scheme_$_\_profile_status";
+#	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
+	my $set_id = $self->get_set_id;
+	my $schemes = $self->{'datastore'}->get_scheme_list({set_id=>$set_id});
+	foreach my $scheme (@$schemes) {
+		my $field       = "scheme_$scheme->{'id'}\_profile_status";
 		if ( $prefs->{'dropdownfields'}->{$field} ) {
 			push @filters,
 			  $self->get_filter(
 				$field,
 				[ 'complete', 'incomplete', 'partial', 'started', 'not started' ],
 				{
-					'text' => "$scheme_info->{'description'} profiles",
+					'text' => "$scheme->{'description'} profiles",
 					'tooltip' =>
-"$scheme_info->{'description'} profile completion filter - Select whether the isolates should have complete, partial, or unstarted profiles."
+"$scheme->{'description'} profile completion filter - Select whether the isolates should have complete, partial, or unstarted profiles."
 				}
 			  );
 		}
-		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($_);
+		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme->{'id'});
 		foreach my $field (@$scheme_fields) {
-			if ( $self->{'prefs'}->{"dropdown\_scheme_fields"}->{$_}->{$field} ) {
-				my $values = $self->{'datastore'}->get_scheme($_)->get_distinct_fields($field);
-				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $_, $field );
+			if ( $self->{'prefs'}->{"dropdown\_scheme_fields"}->{$scheme->{'id'}}->{$field} ) {
+				my $values = $self->{'datastore'}->get_scheme($scheme->{'id'})->get_distinct_fields($field);
+				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme->{'id'}, $field );
 				if ( $scheme_field_info->{'type'} eq 'integer' ) {
 					@$values = sort { $a <=> $b } @$values;
 				}
 				my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
 				push @filters,
 				  $self->get_filter(
-					"scheme\_$_\_$field",
+					"scheme\_$scheme->{'id'}\_$field",
 					$values,
 					{
-						'text' => "$field ($scheme_info->{'description'})",
+						'text' => "$field ($scheme->{'description'})",
 						'tooltip' =>
-"$field ($scheme_info->{'description'}) filter - Select $a_or_an $field to filter your search to only those isolates that match the selected $field."
+"$field ($scheme->{'description'}) filter - Select $a_or_an $field to filter your search to only those isolates that match the selected $field."
 					}
 				  ) if @$values;
 			}

@@ -78,7 +78,8 @@ sub print_content {
 			return;
 		}
 	} else {
-		print "<h1>Query $system->{'description'} database matching a field against a list</h1>\n";
+		my $desc = $self->get_db_description;
+		print "<h1>Query $desc database matching a field against a list</h1>\n";
 	}
 	my $qry;
 	if ( !defined $q->param('currentpage')

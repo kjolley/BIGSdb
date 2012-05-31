@@ -572,7 +572,16 @@ sub get_scheme_list {
 	my ( $self, $options ) = @_;
 	my $qry;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		$qry = "SELECT id,description FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_members) ORDER BY display_order,description";
+		if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $options->{'set_id'} && BIGSdb::Utils::is_int( $options->{'set_id'} ) ) {
+			$qry =
+			    "SELECT DISTINCT schemes.id,set_schemes.set_name,schemes.description,schemes.display_order FROM set_schemes "
+			  . "LEFT JOIN schemes ON set_schemes.scheme_id = schemes.id WHERE id IN (SELECT scheme_id FROM scheme_members) AND "
+			  . "schemes.id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$options->{'set_id'}) ORDER BY "
+			  . "schemes.display_order,schemes.description";
+		} else {
+			$qry =
+			  "SELECT id,description FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_members) ORDER BY display_order,description";
+		}
 	} else {
 		if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $options->{'set_id'} && BIGSdb::Utils::is_int( $options->{'set_id'} ) ) {
 			if ( $options->{'with_pk'} ) {
@@ -770,19 +779,25 @@ sub get_loci {
 	#analysis_pref: only the loci for which the user has an analysis preference selected will be returned
 	#seq_defined: only the loci for which a database or a reference sequence has been defined will be returned
 	#do_not_order: don't order
-	#{ 'query_pref' => 1, 'analysis_pref' => 1, 'seq_defined' => 1, 'do_not_order' => 1 }
+	#{ query_pref => 1, analysis_pref => 1, seq_defined => 1, do_not_order => 1 }
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $defined_clause = $options->{'seq_defined'} ? 'WHERE dbase_name IS NOT NULL OR reference_sequence IS NOT NULL' : '';
 
 	#Need to sort if pref settings are to be checked as we need scheme information
 	$options->{'do_not_order'} = 0 if any { $options->{$_} } qw (query_pref analysis_pref);
+	my $set_clause = '';
+	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $options->{'set_id'} && BIGSdb::Utils::is_int( $options->{'set_id'} ) ) {
+		$set_clause = $defined_clause ? 'AND' : 'WHERE';
+		$set_clause .= " (id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
+		  . "set_id=$options->{'set_id'})) OR id IN (SELECT locus FROM set_loci WHERE set_id=$options->{'set_id'}))";
+	}
 	my $qry;
 	if ( $options->{'do_not_order'} ) {
-		$qry = "SELECT id FROM loci $defined_clause";
+		$qry = "SELECT id FROM loci $defined_clause $set_clause";
 	} else {
-		$qry =
-"SELECT id,scheme_id from loci left join scheme_members on loci.id = scheme_members.locus $defined_clause order by scheme_members.scheme_id,id";
+		$qry = "SELECT id,scheme_id from loci left join scheme_members on loci.id = scheme_members.locus $defined_clause $set_clause "
+		  . "order by scheme_members.scheme_id,id";
 	}
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
@@ -800,6 +815,7 @@ sub get_loci {
 				  || ( defined $_->[1] && !$self->{'prefs'}->{'analysis_schemes'}->{ $_->[1] } ) );
 		push @query_loci, $_->[0];
 	}
+	@query_loci = uniq(@query_loci);
 	return \@query_loci;
 }
 
@@ -819,6 +835,10 @@ sub get_locus_list {
 	} else {
 		$qry = "SELECT id,common_name FROM loci";
 	}
+	if ($options->{'locus_curator'} && BIGSdb::Utils::is_int($options->{'locus_curator'})){
+		$qry .= ($qry =~ /loci$/) ? ' WHERE ' : ' AND ';
+		$qry .= "loci.id IN (SELECT locus from locus_curators WHERE curator_id = $options->{'locus_curator'})";		
+	}
 	my $loci = $self->run_list_query_hashref($qry);
 	my $cleaned;
 	my $display_loci;
@@ -830,7 +850,7 @@ sub get_locus_list {
 			$cleaned->{ $locus->{'id'} } = $locus->{'set_name'};
 			if ( $locus->{'set_common_name'} ) {
 				$cleaned->{ $locus->{'id'} } .= " ($locus->{'set_common_name'})";
-				if (!$options->{'no_list_by_common_name'}){
+				if ( !$options->{'no_list_by_common_name'} ) {
 					push @$display_loci, "cn_$locus->{'id'}";
 					$cleaned->{"cn_$locus->{'id'}"} = "$locus->{'set_common_name'} ($locus->{'set_name'})";
 					$cleaned->{"cn_$locus->{'id'}"} =~ tr/_/ /;
@@ -840,7 +860,7 @@ sub get_locus_list {
 			$cleaned->{ $locus->{'id'} } = $locus->{'id'};
 			if ( $locus->{'common_name'} ) {
 				$cleaned->{ $locus->{'id'} } .= " ($locus->{'common_name'})";
-				if (!$options->{'no_list_by_common_name'}){
+				if ( !$options->{'no_list_by_common_name'} ) {
 					push @$display_loci, "cn_$locus->{'id'}";
 					$cleaned->{"cn_$locus->{'id'}"} = "$locus->{'common_name'} ($locus->{'id'})";
 					$cleaned->{"cn_$locus->{'id'}"} =~ tr/_/ /;
@@ -1501,7 +1521,8 @@ sub get_tables {
 		  qw(users user_groups user_group_members allele_sequences sequence_bin accession refs allele_designations pending_allele_designations loci
 		  locus_aliases schemes scheme_members scheme_fields composite_fields composite_field_values isolate_aliases user_permissions isolate_user_acl
 		  isolate_usergroup_acl projects project_members experiments experiment_sequences isolate_field_extended_attributes
-		  isolate_value_extended_attributes scheme_groups scheme_group_scheme_members scheme_group_group_members pcr pcr_locus probes probe_locus);
+		  isolate_value_extended_attributes scheme_groups scheme_group_scheme_members scheme_group_group_members pcr pcr_locus probes probe_locus
+		  sets set_loci set_schemes);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';

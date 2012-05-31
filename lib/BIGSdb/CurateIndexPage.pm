@@ -82,8 +82,7 @@ sub print_content {
 		}
 	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
 		foreach (
-			qw (locus_descriptions scheme_curators locus_curators sequences accession
-			sequence_refs profiles profile_refs)
+			qw (locus_descriptions scheme_curators locus_curators sequences accession sequence_refs profiles profile_refs)
 		  )
 		{
 			if ( $self->can_modify_table($_) || $_ eq 'profiles' ) {    #profile permissions handled by ACL
@@ -117,15 +116,15 @@ HTML
 		push @tables, qw(locus_aliases pcr pcr_locus probes probe_locus isolate_field_extended_attributes composite_fields);
 	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
 		push @tables, qw(locus_extended_attributes client_dbases client_dbase_loci client_dbase_schemes client_dbase_loci_fields);
-		if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
-			push @tables, 'sets';
-			my $set_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM sets")->[0];
-			push @tables, qw( set_loci set_schemes) if $set_count;
-		}
 		my $client_db_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM client_dbases")->[0];
 		if ( !$client_db_count ) {
 			push @skip_table, qw (client_dbase_loci client_dbase_schemes client_dbase_loci_fields);
 		}
+	}
+	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
+		push @tables, 'sets';
+		my $set_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM sets")->[0];
+		push @tables, qw( set_loci set_schemes) if $set_count;
 	}
 	push @tables, qw (schemes scheme_members scheme_fields scheme_groups scheme_group_scheme_members scheme_group_group_members);
 	foreach my $table (@tables) {
@@ -138,8 +137,8 @@ HTML
 	}
 	my $list_buffer;
 	if ( $self->{'system'}->{'authentication'} eq 'builtin' && ( $self->{'permissions'}->{'set_user_passwords'} || $self->is_admin ) ) {
-		$list_buffer .=
-"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=setPassword\">Set user passwords</a> - Set a user password to enable them to log on or change an existing password.</li>\n";
+		$list_buffer .= "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=setPassword\">"
+		  . "Set user passwords</a> - Set a user password to enable them to log on or change an existing password.</li>\n";
 		$can_do_something = 1;
 	}
 	if ( $self->{'permissions'}->{'modify_loci'} || $self->{'permissions'}->{'modify_schemes'} || $self->is_admin ) {
@@ -174,8 +173,8 @@ HTML
 		print "</div>\n";
 	}
 	if ( !$can_do_something ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Oh dear.  Although you are set as a curator, you haven't been granted specific
-		permission to do anything.  Please contact the database administrator to set your appropriate permissions.</p></div>\n";
+		print "<div class=\"box\" id=\"statusbad\"><p>Oh dear.  Although you are set as a curator, you haven't been granted specific "
+		  . "permission to do anything.  Please contact the database administrator to set your appropriate permissions.</p></div>\n";
 	}
 	return;
 }
@@ -547,9 +546,9 @@ HTML
 
 sub _print_profile_refs {
 	my ( $self, $td ) = @_;
-	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes'){
+	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
 		my $set_id = $self->get_set_id;
-		my $schemes_in_set = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM set_schemes WHERE set_id=?", $set_id)->[0];
+		my $schemes_in_set = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM set_schemes WHERE set_id=?", $set_id )->[0];
 		return if $set_id && BIGSdb::Utils::is_int($set_id) && !$schemes_in_set;
 	} else {
 		my $scheme_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM schemes")->[0];

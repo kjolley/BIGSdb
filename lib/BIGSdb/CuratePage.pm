@@ -151,19 +151,16 @@ sub create_record_table {
 					&& $att->{'name'} eq 'locus'
 					&& !$self->is_admin )
 				{
-					my $qry =
-"SELECT locus_curators.locus from locus_curators LEFT JOIN loci ON locus=id WHERE locus_curators.curator_id=? ORDER BY locus_curators.locus";
-					my $loci = $self->{'datastore'}->run_list_query( "$qry", $self->get_curator_id );
-					unshift @$loci, '';
-					my %labels;
-					foreach (@$loci) {
-						( $labels{$_} = $_ ) =~ tr/_/ /;
-					}
+					my $set_id = $self->get_set_id;
+					my ( $values, $desc ) =
+					  $self->{'datastore'}
+					  ->get_locus_list( { set_id => $set_id, no_list_by_common_name => 1, locus_curator => $self->get_curator_id } );
+					$values = [] if ref $values ne 'ARRAY';
 					$buffer .= $q->popup_menu(
 						-name    => $name,
 						-id      => $name,
-						-values  => $loci,
-						-labels  => \%labels,
+						-values  => [ '', @$values ],
+						-labels  => $desc,
 						-default => $newdata{ $att->{'name'} }
 					);
 				} elsif ( ( $att->{'dropdown_query'} // '' ) eq 'yes'
@@ -182,15 +179,17 @@ sub create_record_table {
 					my $set_id = $self->get_set_id;
 					my $values;
 					if ( $att->{'foreign_key'} eq 'users' ) {
-						$qry = "SELECT id FROM users WHERE id>0 ORDER BY @fields_to_query";
+						$qry    = "SELECT id FROM users WHERE id>0 ORDER BY @fields_to_query";
 						$values = $self->{'datastore'}->run_list_query($qry);
 					} elsif ( $att->{'foreign_key'} eq 'loci'
+						&& $table ne 'set_loci'
 						&& ( $self->{'system'}->{'sets'} // '' ) eq 'yes'
 						&& $set_id
 						&& BIGSdb::Utils::is_int($set_id) )
 					{
 						( $values, $desc ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, no_list_by_common_name => 1 } );
 					} elsif ( $att->{'foreign_key'} eq 'schemes'
+						&& $table ne 'set_schemes'
 						&& ( $self->{'system'}->{'sets'} // '' ) eq 'yes'
 						&& $set_id
 						&& BIGSdb::Utils::is_int($set_id) )
@@ -198,7 +197,7 @@ sub create_record_table {
 						my $scheme_list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 						push @$values, $_->{'id'} foreach @$scheme_list;
 					} else {
-						$qry = "SELECT id FROM $att->{'foreign_key'} ORDER BY @fields_to_query";
+						$qry    = "SELECT id FROM $att->{'foreign_key'} ORDER BY @fields_to_query";
 						$values = $self->{'datastore'}->run_list_query($qry);
 					}
 					$values = [] if ref $values ne 'ARRAY';
