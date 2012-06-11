@@ -470,7 +470,7 @@ sub _process_flags {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $buffer = '';
-	if ( $q->param('allele_flag_list') ne '' && ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
+	if ( ($q->param('allele_flag_list') // '') ne '' && ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
 		if ( $q->param('allele_flag_list') eq 'no flag' ) {
 			$buffer .= " AND NOT EXISTS (SELECT 1 FROM allele_flags WHERE sequences.locus=allele_flags.locus AND "
 			  . "sequences.allele_id=allele_flags.allele_id)";

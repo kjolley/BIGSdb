@@ -1475,7 +1475,7 @@ sub _modify_isolate_query_for_tags {
 				$temp_qry = "$view.id IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause AND complete)";
 			} elsif ( $action eq 'incomplete' ) {
 				$temp_qry = "$view.id IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause AND NOT complete)";
-			} elsif ( $action =~ /^flagged: ([\w\s]+)$/ ) {
+			} elsif ( $action =~ /^flagged: ([\w\s:]+)$/ ) {
 				my $flag              = $1;
 				my $flag_joined_table = "sequence_flags LEFT JOIN sequence_bin ON sequence_flags.seqbin_id = sequence_bin.id";
 				if ( $flag eq 'any' ) {
