@@ -698,6 +698,11 @@ sub _is_field_bad_isolates {
 	if ( $fieldname eq 'curator' && $value ne $self->get_curator_id ) {
 		return "must be set to the currently logged in curator id (" . $self->get_curator_id . ").";
 	}
+	
+	#Make sure int fields really are integers
+	if ( $thisfield{'type'} eq 'int' && !BIGSdb::Utils::is_int($value) ) {
+		return 'must be an integer';
+	}
 
 	#Make sure sender is in database
 	if ( $fieldname eq 'sender' or $fieldname eq 'sequenced_by' ) {
@@ -723,11 +728,6 @@ sub _is_field_bad_isolates {
 				return 'does not conform to the required formatting';
 			}
 		}
-	}
-
-	#Make sure int fields really are integers
-	if ( $thisfield{'type'} eq 'int' && !BIGSdb::Utils::is_int($value) ) {
-		return 'must be an integer';
 	}
 
 	#Make sure floats fields really are floats
@@ -816,6 +816,11 @@ sub _is_field_bad_other {
 	if ( $fieldname eq 'curator' && $value ne $self->get_curator_id ) {
 		return "must be set to the currently logged in curator id (" . $self->get_curator_id . ").";
 	}
+	
+	#Make sure int fields really are integers
+	if ( $thisfield->{'type'} eq 'int' && !BIGSdb::Utils::is_int($value) ) {
+		return 'must be an integer';
+	}
 
 	#Make sure sender is in database
 	if ( $fieldname eq 'sender' or $fieldname eq 'sequenced_by' ) {
@@ -841,11 +846,6 @@ sub _is_field_bad_other {
 				return 'does not conform to the required formatting';
 			}
 		}
-	}
-
-	#Make sure int fields really are integers
-	if ( $thisfield->{'type'} eq 'int' && !BIGSdb::Utils::is_int($value) ) {
-		return 'must be an integer';
 	}
 
 	#Make sure floats fields really are floats
