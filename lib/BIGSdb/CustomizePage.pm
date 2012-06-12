@@ -16,7 +16,6 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
-
 package BIGSdb::CustomizePage;
 use strict;
 use warnings;
@@ -28,16 +27,17 @@ my $logger = get_logger('BIGSdb.Page');
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (jQuery tooltips noCache);
+	return;
 }
 
 sub print_content {
-	my ($self)   = @_;
+	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
 	my $table     = $q->param('table');
 	my $record    = $self->get_record_name($table);
 	my $filename  = $q->param('filename');
 	my $prefstore = $self->{'prefstore'};
-	my $guid = $self->get_guid;
+	my $guid      = $self->get_guid;
 	$prefstore->update_datestamp($guid) if $guid;
 	print "<h1>Customize $record display</h1>\n";
 
@@ -45,9 +45,8 @@ sub print_content {
 		print <<"HTML";
 <div class="box" id="statusbad">
 <h2>Unable to proceed</h2>
-<p class="statusbad">In order to store options, a cookie needs to be 
-saved on your computer. Cookies appear to be disabled, however.  Please enable them in your 
-browser settings to proceed.</p>
+<p class="statusbad">In order to store options, a cookie needs to be saved on your computer. Cookies appear to be disabled, however.  
+Please enable them in your browser settings to proceed.</p>
 </div>
 HTML
 		return;
@@ -57,7 +56,7 @@ HTML
 		return;
 	}
 	if ( !$table
-		or ( none {$table eq $_} qw (loci scheme_fields schemes) ) )
+		|| ( none { $table eq $_ } qw (loci scheme_fields schemes) ) )
 	{
 		print "<div class=\"box\" id=\"statusbad\"><p>Table '$table' is not a valid table customization.</p></div>\n";
 		return;
@@ -65,7 +64,7 @@ HTML
 	my $file = $self->{'config'}->{'secure_tmp_dir'} . '/' . $filename;
 	my $qry;
 	if ( -e $file ) {
-		if (open( my $fh, '<', $file )){
+		if ( open( my $fh, '<', $file ) ) {
 			$qry = <$fh>;
 			close $fh;
 		}
@@ -76,20 +75,18 @@ HTML
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my ( @display, @cleaned_headers );
 	my %type;
-	foreach (@$attributes) {
-		next if $_->{'hide'} eq 'yes';
-		if (   $_->{'primary_key'} 
-			or $_->{'name'} =~ /display/
-			or $_->{'name'} eq 'description'
-			or $_->{'name'} eq 'query_field'
-			or $_->{'name'} eq 'analysis'
-			or ($_->{'name'} eq 'dropdown' && $table eq 'scheme_fields') )
+	foreach my $att (@$attributes) {
+		next if $att->{'hide'} eq 'yes';
+		if (   $att->{'primary_key'}
+			|| $att->{'name'} =~ /display/
+			|| ( any { $att->{'name'} eq $_ } qw (description query_field analysis) )
+			|| ( $att->{'name'} eq 'dropdown' && $table eq 'scheme_fields' ) )
 		{
-			push @display, $_->{'name'};
-			my $cleaned = $_->{'name'};
+			push @display, $att->{'name'};
+			my $cleaned = $att->{'name'};
 			$cleaned =~ tr/_/ /;
 			push @cleaned_headers, $cleaned;
-			$type{ $_->{'name'} } = $_->{'type'};
+			$type{ $att->{'name'} } = $att->{'type'};
 		}
 	}
 	my $sql = $self->{'db'}->prepare($qry);
@@ -100,21 +97,20 @@ HTML
 		print "<div class=\"box\" id=\"statusbad\"><p>No matches found!</p></div>\n";
 		return;
 	}
-	$sql->finish();
+	$sql->finish;
 	eval { $sql->execute };
 	$logger->error($@) if $@;
 	print $q->start_form;
-	$" = '</th><th>';
+	local $" = '</th><th>';
 	print "<div class=\"box\" id=\"resultstable\">";
-	print
-"<p>Here you can customize the display of $record records.  These settings will be remembered between sessions.  Click the checkboxes to select loci and select the required option for each attribute.</p>\n";
+	print "<p>Here you can customize the display of $record records.  These settings will be remembered between sessions.  "
+	  . "Click the checkboxes to select loci and select the required option for each attribute.</p>\n";
 	print "<table class=\"resultstable\">\n";
 	print "<tr><th>Select</th><th>@cleaned_headers</th></tr>\n";
 	my $td = 1;
-	$" = "&amp;";
+	local $" = "&amp;";
 	my ( @js, @js2 );
-	my $updated     = 0;
-	my $not_default = 0;
+	my ( $updated, $not_default ) = ( 0, 0 );
 
 	while ( my $data = $sql->fetchrow_hashref ) {
 		print "<tr class=\"td$td\"><td>";
@@ -129,135 +125,13 @@ HTML
 		push @js,  "\$(\"#$cleaned_id\").attr(\"checked\",true)";
 		push @js2, "\$(\"#$cleaned_id\").attr(\"checked\",false)";
 		print "</td>";
+		my @args = ( \@display, $data, $prefstore, $guid, \$updated, \$not_default );
 		if ( $table eq 'loci' ) {
-			foreach my $field (@display) {
-				if (   $q->param("$field\_change")
-					&& $q->param("id_$data->{'id'}") )
-				{
-					my $value = $q->param($field);
-					$prefstore->set_locus( $guid, $self->{'system'}->{'db'}, $data->{'id'}, $field, $value );
-					print "<td>$value <span class=\"highlight\">*</span></td>";
-					$updated = 1;
-				} elsif ( $q->param("$field\_default")
-					&& $q->param("id_$data->{'id'}") )
-				{
-					my $locus_info = $self->{'datastore'}->get_locus_info( $data->{'id'} );
-					my $value      = $locus_info->{$field};
-					if ( $field eq 'main_display' or $field eq 'query_field' or $field eq 'analysis' ) {
-						$value = $value ? 'true' : 'false';
-					}
-					$prefstore->delete_locus( $guid, $self->{'system'}->{'db'}, $data->{'id'}, $field );
-					print "<td>$value</td>";
-				} else {
-					my $value;
-					if ( $field eq 'isolate_display' ) {
-						$value = $self->{'prefs'}->{'isolate_display_loci'}->{ $data->{'id'} };
-						my $locus_info = $self->{'datastore'}->get_locus_info( $data->{'id'} );
-						if ( $value ne $locus_info->{'isolate_display'} ) {
-							$value .= " <span class=\"non-default\">&#134;</span>";
-							$not_default = 1;
-						}
-					} elsif ( $field eq 'main_display'
-						or $field eq 'query_field'
-						or $field eq 'analysis' )
-					{
-						$value =
-						  $self->{'prefs'}->{"$field\_loci"}->{ $data->{'id'} }
-						  ? 'true'
-						  : 'false';
-						my $locus_info = $self->{'datastore'}->get_locus_info( $data->{'id'} );
-						if (   ( $value eq 'true' && !$locus_info->{$field} )
-							|| ( $value eq 'false' && $locus_info->{$field} ) )
-						{
-							$value .= " <span class=\"non-default\">&#134;</span>";
-							$not_default = 1;
-						}
-					} else {
-						$value = $data->{$field};
-						if ($table eq 'loci' && $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' && $field eq 'id' ) {
-							$value =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-						}
-					}
-					print "<td>$value</td>";
-				}
-			}
+			$self->_process_loci(@args);
 		} elsif ( $table eq 'scheme_fields' ) {
-			foreach my $field (@display) {
-				if (   $q->param("$field\_change")
-					&& $q->param("field_$data->{'scheme_id'}\_$data->{'field'}") )
-				{
-					my $value = $q->param($field);
-					$prefstore->set_scheme_field( $guid, $self->{'system'}->{'db'}, $data->{'scheme_id'}, $data->{'field'}, $field,
-						$value );
-					print "<td>$value <span class=\"highlight\">*</span></td>";
-					$updated = 1;
-				} elsif ( $q->param("$field\_default")
-					&& $q->param("field_$data->{'scheme_id'}\_$data->{'field'}") )
-				{
-					my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $data->{'scheme_id'}, $data->{'field'} );
-					my $value = $scheme_field_info->{$field} ? 'true' : 'false';
-					$prefstore->delete_scheme_field( $guid, $self->{'system'}->{'db'}, $data->{'scheme_id'}, $data->{'field'}, $field );
-					print "<td>$value</td>";
-				} else {
-					my $value;
-					if (   any {$field eq $_} qw (isolate_display main_display query_field dropdown) ){
-						$value =
-						  $self->{'prefs'}->{"$field\_scheme_fields"}->{ $data->{'scheme_id'} }->{ $data->{'field'} }
-						  ? 'true'
-						  : 'false';
-						my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $data->{'scheme_id'}, $data->{'field'} );
-						if (
-							( $value eq 'true' && !$scheme_field_info->{$field} )
-							|| (   $value eq 'false'
-								&& $scheme_field_info->{$field} )
-						  )
-						{
-							$value .= " <span class=\"non-default\">&#134;</span>";
-							$not_default = 1;
-						}
-					} else {
-						$value = $data->{$field};
-					}
-					print defined $value ? "<td>$value</td>" : '<td />';
-				}
-			}
+			$self->_process_scheme_fields(@args);
 		} elsif ( $table eq 'schemes' ) {
-			foreach my $field (@display) {
-				if (   $q->param("$field\_change")
-					&& $q->param("id_$data->{'id'}") )
-				{
-					my $value = $q->param($field);
-					$prefstore->set_scheme( $guid, $self->{'system'}->{'db'}, $data->{'id'}, $field, $value );
-					print "<td>$value <span class=\"highlight\">*</span></td>";
-					$updated = 1;
-				} elsif ( $q->param("$field\_default")
-					&& $q->param("id_$data->{'id'}") )
-				{
-					my $scheme_info = $self->{'datastore'}->get_scheme_info( $data->{'id'} );
-					my $value = $scheme_info->{$field} ? 'true' : 'false';
-					$prefstore->delete_scheme( $guid, $self->{'system'}->{'db'}, $data->{'id'}, $field );
-					print "<td>$value</td>";
-				} else {
-					my $value;
-					if (   any {$field eq $_} qw (isolate_display main_display query_field analysis) )
-					{
-						$value =
-						  $self->{'prefs'}->{"$field\_schemes"}->{ $data->{'id'} }
-						  ? 'true'
-						  : 'false';
-						my $scheme_info = $self->{'datastore'}->get_scheme_info( $data->{'id'} );
-						if (   ( $value eq 'true' && !$scheme_info->{$field} )
-							|| ( $value eq 'false' && $scheme_info->{$field} ) )
-						{
-							$value .= " <span class=\"non-default\">&#134;</span>";
-							$not_default = 1;
-						}
-					} else {
-						$value = $data->{$field};
-					}
-					print defined $value ? "<td>$value</td>" : '<td />';
-				}
-			}
+			$self->_process_schemes(@args);
 		}
 		print "</tr>\n";
 		$td = $td == 2 ? 1 : 2;
@@ -275,28 +149,28 @@ HTML
 	print "<div class=\"box\" id=\"resultsheader\">";
 	print "<table>";
 
-	foreach (@$attributes) {
+	foreach my $att (@$attributes) {
 		next
-		  if $_->{'hide'} eq 'yes'
-		  or ( $_->{'name'} ne 'main_display' and $_->{'name'} ne 'isolate_display' and $_->{'name'} ne 'query_field' and $_->{'name'} ne 'analysis'  ) 
-		  && !($_->{'name'} eq 'dropdown' && $table eq 'scheme_fields');
+		  if $att->{'hide'} eq 'yes'
+			  || ( ( none { $att->{'name'} eq $_ } qw (main_display isolate_display query_field analysis) )
+				  && !( $att->{'name'} eq 'dropdown' && $table eq 'scheme_fields' ) );
 		print "<tr><td style=\"text-align:right\">";
-		my $cleaned = $_->{'name'};
+		my $cleaned = $att->{'name'};
 		$cleaned =~ tr/_/ /;
 		print "$cleaned: ";
-		my $tooltip = $self->_get_tooltip( $_->{'name'} );
+		my $tooltip = $self->_get_tooltip( $att->{'name'} );
 		print " <a class=\"tooltip\" title=\"$tooltip\">&nbsp;<i>i</i>&nbsp;</a>";
 		print "</td><td>";
 
-		if ( $_->{'type'} eq 'bool' ) {
-			print $q->popup_menu( -name => $_->{'name'}, -values => [qw(true false)] );
-		} elsif ( $_->{'optlist'} ) {
-			my @values = split /;/, $_->{'optlist'};
-			print $q->popup_menu( -name => $_->{'name'}, -values => [@values] );
+		if ( $att->{'type'} eq 'bool' ) {
+			print $q->popup_menu( -name => $att->{'name'}, -values => [qw(true false)] );
+		} elsif ( $att->{'optlist'} ) {
+			my @values = split /;/, $att->{'optlist'};
+			print $q->popup_menu( -name => $att->{'name'}, -values => [@values] );
 		}
 		print "</td><td>";
-		print $q->submit( -name => "$_->{'name'}_change",  -label => 'Change',           -class => 'submit' );
-		print $q->submit( -name => "$_->{'name'}_default", -label => 'Restore defaults', -class => 'button' );
+		print $q->submit( -name => "$att->{'name'}_change",  -label => 'Change',           -class => 'submit' );
+		print $q->submit( -name => "$att->{'name'}_default", -label => 'Restore defaults', -class => 'button' );
 		print "</td></tr>";
 	}
 	print "</table>\n";
@@ -304,6 +178,140 @@ HTML
 	print $q->hidden($_) foreach qw (db page filename table);
 	print $q->hidden( 'set', 1 );
 	print $q->end_form;
+	return;
+}
+
+sub _process_loci {
+	my ( $self, $display, $data, $prefstore, $guid, $updated_ref, $not_default_ref ) = @_;
+	my $q = $self->{'cgi'};
+	foreach my $field (@$display) {
+		if ( $q->param("$field\_change") && $q->param("id_$data->{'id'}") ) {
+			my $value = $q->param($field);
+			$prefstore->set_locus( $guid, $self->{'system'}->{'db'}, $data->{'id'}, $field, $value );
+			print "<td>$value <span class=\"highlight\">*</span></td>";
+			$$updated_ref = 1;
+		} elsif ( $q->param("$field\_default") && $q->param("id_$data->{'id'}") ) {
+			my $locus_info = $self->{'datastore'}->get_locus_info( $data->{'id'} );
+			my $value      = $locus_info->{$field};
+			if ( $field eq 'main_display' or $field eq 'query_field' or $field eq 'analysis' ) {
+				$value = $value ? 'true' : 'false';
+			}
+			$prefstore->delete_locus( $guid, $self->{'system'}->{'db'}, $data->{'id'}, $field );
+			print "<td>$value</td>";
+		} else {
+			my $value;
+			if ( $field eq 'isolate_display' ) {
+				$value = $self->{'prefs'}->{'isolate_display_loci'}->{ $data->{'id'} };
+				my $locus_info = $self->{'datastore'}->get_locus_info( $data->{'id'} );
+				if ( $value ne $locus_info->{'isolate_display'} ) {
+					$value .= " <span class=\"non-default\">&#134;</span>";
+					$$not_default_ref = 1;
+				}
+			} elsif ( $field eq 'main_display'
+				or $field eq 'query_field'
+				or $field eq 'analysis' )
+			{
+				$value =
+				  $self->{'prefs'}->{"$field\_loci"}->{ $data->{'id'} }
+				  ? 'true'
+				  : 'false';
+				my $locus_info = $self->{'datastore'}->get_locus_info( $data->{'id'} );
+				if (   ( $value eq 'true' && !$locus_info->{$field} )
+					|| ( $value eq 'false' && $locus_info->{$field} ) )
+				{
+					$value .= " <span class=\"non-default\">&#134;</span>";
+					$$not_default_ref = 1;
+				}
+			} else {
+				$value = $data->{$field};
+				$value = $self->clean_locus($value) if $field eq 'id';
+			}
+			print "<td>$value</td>";
+		}
+	}
+	return;
+}
+
+sub _process_scheme_fields {
+	my ( $self, $display, $data, $prefstore, $guid, $updated_ref, $not_default_ref ) = @_;
+	my $q = $self->{'cgi'};
+	foreach my $field (@$display) {
+		if (   $q->param("$field\_change")
+			&& $q->param("field_$data->{'scheme_id'}\_$data->{'field'}") )
+		{
+			my $value = $q->param($field);
+			$prefstore->set_scheme_field( $guid, $self->{'system'}->{'db'}, $data->{'scheme_id'}, $data->{'field'}, $field, $value );
+			print "<td>$value <span class=\"highlight\">*</span></td>";
+			$$updated_ref = 1;
+		} elsif ( $q->param("$field\_default")
+			&& $q->param("field_$data->{'scheme_id'}\_$data->{'field'}") )
+		{
+			my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $data->{'scheme_id'}, $data->{'field'} );
+			my $value = $scheme_field_info->{$field} ? 'true' : 'false';
+			$prefstore->delete_scheme_field( $guid, $self->{'system'}->{'db'}, $data->{'scheme_id'}, $data->{'field'}, $field );
+			print "<td>$value</td>";
+		} else {
+			my $value;
+			if ( any { $field eq $_ } qw (isolate_display main_display query_field dropdown) ) {
+				$value =
+				  $self->{'prefs'}->{"$field\_scheme_fields"}->{ $data->{'scheme_id'} }->{ $data->{'field'} }
+				  ? 'true'
+				  : 'false';
+				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $data->{'scheme_id'}, $data->{'field'} );
+				if (   ( $value eq 'true' && !$scheme_field_info->{$field} )
+					|| ( $value eq 'false' && $scheme_field_info->{$field} ) )
+				{
+					$value .= " <span class=\"non-default\">&#134;</span>";
+					$$not_default_ref = 1;
+				}
+			} else {
+				$value = $data->{$field};
+			}
+			print defined $value ? "<td>$value</td>" : '<td />';
+		}
+	}
+	return;
+}
+
+sub _process_schemes {
+	my ( $self, $display, $data, $prefstore, $guid, $updated_ref, $not_default_ref ) = @_;
+	my $q = $self->{'cgi'};
+	foreach my $field (@$display) {
+		if (   $q->param("$field\_change")
+			&& $q->param("id_$data->{'id'}") )
+		{
+			my $value = $q->param($field);
+			$prefstore->set_scheme( $guid, $self->{'system'}->{'db'}, $data->{'id'}, $field, $value );
+			print "<td>$value <span class=\"highlight\">*</span></td>";
+			$$updated_ref = 1;
+		} elsif ( $q->param("$field\_default")
+			&& $q->param("id_$data->{'id'}") )
+		{
+			my $scheme_info = $self->{'datastore'}->get_scheme_info( $data->{'id'} );
+			my $value = $scheme_info->{$field} ? 'true' : 'false';
+			$prefstore->delete_scheme( $guid, $self->{'system'}->{'db'}, $data->{'id'}, $field );
+			print "<td>$value</td>";
+		} else {
+			my $value;
+			if ( any { $field eq $_ } qw (isolate_display main_display query_field analysis) ) {
+				$value =
+				  $self->{'prefs'}->{"$field\_schemes"}->{ $data->{'id'} }
+				  ? 'true'
+				  : 'false';
+				my $scheme_info = $self->{'datastore'}->get_scheme_info( $data->{'id'} );
+				if (   ( $value eq 'true' && !$scheme_info->{$field} )
+					|| ( $value eq 'false' && $scheme_info->{$field} ) )
+				{
+					$value .= " <span class=\"non-default\">&#134;</span>";
+					$$not_default_ref = 1;
+				}
+			} else {
+				$value = $data->{$field};
+			}
+			print defined $value ? "<td>$value</td>" : '<td />';
+		}
+	}
+	return;
 }
 
 sub _get_tooltip {
@@ -323,7 +331,7 @@ sub _get_tooltip {
 	} elsif ( $action eq 'analysis' ) {
 		my $plural = $table eq 'schemes' ? '' : 's';
 		$value = "analysis - Sets whether the $record can be used in data analysis functions.";
-	} elsif ($action eq 'dropdown'){
+	} elsif ( $action eq 'dropdown' ) {
 		$value = "dropdown - Sets whether the $record has a dropdown list box in the query interface.";
 	}
 	if ( $table eq 'schemes' ) {
@@ -333,11 +341,9 @@ sub _get_tooltip {
 }
 
 sub get_title {
-	my ($self)   = @_;
-	my $desc   = $self->{'system'}->{'description'} || 'BIGSdb';
+	my ($self) = @_;
+	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 	my $record = $self->get_record_name( $self->{'cgi'}->param('table') );
 	return "Customize $record display - $desc";
 }
 1;
-
-
