@@ -86,8 +86,8 @@ sub _print_plugins {
 			  if !$self->{'config'}->{'chartdirector'}
 				  && $attr->{'requires'} =~ /chartdirector/;
 			$disabled_reason{$_} = 'Reference database not configured.'
-			  if !$self->{'config'}->{'refdb'}
-				  && $attr->{'requires'} =~ /refdb/;
+			  if !$self->{'config'}->{'ref_db'}
+				  && $attr->{'requires'} =~ /ref_?db/;
 			$disabled_reason{$_} = 'EMBOSS not installed.'
 			  if !$self->{'config'}->{'emboss_path'}
 				  && $attr->{'requires'} =~ /emboss/;

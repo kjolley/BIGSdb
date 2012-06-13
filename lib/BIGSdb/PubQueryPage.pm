@@ -30,7 +30,7 @@ sub print_content {
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
 	my %att       = (
-		'dbase_name' => $self->{'config'}->{'refdb'},
+		'dbase_name' => $self->{'config'}->{'ref_db'},
 		'host'       => $system->{'host'},
 		'port'       => $system->{'port'},
 		'user'       => $system->{'user'},

@@ -431,7 +431,7 @@ sub _print_isolate_filter_fieldset {
 			}
 		}
 	}
-	if ( $self->{'config'}->{'refdb'} ) {
+	if ( $self->{'config'}->{'ref_db'} ) {
 		my $pmid = $self->{'datastore'}->run_list_query("SELECT DISTINCT(pubmed_id) FROM refs");
 		my $buffer;
 		if (@$pmid) {
@@ -698,7 +698,7 @@ sub _print_profile_query_interface {
 	print "</ul>\n";
 	print "</fieldset>\n";
 	my @filters;
-	if ( $self->{'config'}->{'refdb'} ) {
+	if ( $self->{'config'}->{'ref_db'} ) {
 		my $pmid = $self->{'datastore'}->run_list_query( "SELECT DISTINCT(pubmed_id) FROM profile_refs WHERE scheme_id=?", $scheme_id );
 		if (@$pmid) {
 			my $labels = $self->{'datastore'}->get_citation_hash($pmid);

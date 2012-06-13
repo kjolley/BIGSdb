@@ -123,8 +123,8 @@ sub get_appropriate_plugin_names {
 			  if !$self->{'config'}->{'chartdirector'}
 				  && $attr->{'requires'} =~ /chartdirector/;
 			next
-			  if !$self->{'config'}->{'refdb'}
-				  && $attr->{'requires'} =~ /refdb/;
+			  if !$self->{'config'}->{'ref_db'}
+				  && $attr->{'requires'} =~ /ref_?db/;
 			next
 			  if !$self->{'config'}->{'emboss_path'}
 				  && $attr->{'requires'} =~ /emboss/;

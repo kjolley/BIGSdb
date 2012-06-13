@@ -214,9 +214,9 @@ sub _process_flags {
 sub _get_reference {
 	my ( $self, $pmid, $td ) = @_;
 	my $buffer;
-	if ( $self->{'config'}->{'refdb'} ) {
+	if ( $self->{'config'}->{'ref_db'} ) {
 		my %att = (
-			dbase_name => $self->{'config'}->{'refdb'},
+			dbase_name => $self->{'config'}->{'ref_db'},
 			host       => $self->{'system'}->{'host'},
 			port       => $self->{'system'}->{'port'},
 			user       => $self->{'system'}->{'user'},
@@ -253,7 +253,7 @@ sub _get_reference {
 			$sqlr->finish;
 			$sqlr2->finish;
 		} else {
-			$logger->error("No connection to reference database '$self->{'config'}->{'refdb'}' - check configuration.\n");
+			$logger->error("No connection to reference database '$self->{'config'}->{'ref_db'}' - check configuration.\n");
 			$buffer .=
 "<tr class=\"td$td\"><th>reference</th><td align=\"left\"><a href='http://www.ncbi.nlm.nih.gov/entrez/query.fcgi?cmd=Retrieve&amp;db=PubMed&amp;list_uids=$pmid&amp;dopt=Abstract'>$pmid</a></td><td colspan=\"3\" style=\"text-align:left; width:75%\">No details available.";
 			$buffer .= "</td></tr>\n";

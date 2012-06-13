@@ -128,9 +128,7 @@ sub _initiate {
 		return;
 	}
 	$self->{'system'} = $self->{'xmlHandler'}->get_system_hash;
-	if ( !defined $self->{'system'}->{'dbtype'}
-		|| ( $self->{'system'}->{'dbtype'} ne 'sequences' && $self->{'system'}->{'dbtype'} ne 'isolates' ) )
-	{
+	if ( $self->{'system'}->{'dbtype'} ne 'sequences' && $self->{'system'}->{'dbtype'} ne 'isolates' ) {
 		$self->{'error'} = 'invalidDbType';
 	}
 	$self->{'script_name'} = $q->script_name || 'bigsdb.pl';
@@ -163,11 +161,18 @@ sub _initiate {
 		$self->{'system'}->{'view'}       ||= 'isolates';
 		$self->{'system'}->{'labelfield'} ||= 'isolate';
 		if ( !$self->{'xmlHandler'}->is_field( $self->{'system'}->{'labelfield'} ) ) {
-			$logger->error(
-"The defined labelfield '$self->{'system'}->{'labelfield'}' does not exist in the database.  Please set the labelfield attribute in the system tag of the database XML file."
-			);
+			$logger->error( "The defined labelfield '$self->{'system'}->{'labelfield'}' does not exist in the database.  "
+				  . "Please set the labelfield attribute in the system tag of the database XML file." );
 		}
 	}
+
+	#Allow individual database configs to override system auth and pref databases
+	$self->{'config'}->{'prefs_db'} = $self->{'system'}->{'prefs_db'} if defined $self->{'system'}->{'prefs_db'};
+	$self->{'config'}->{'auth_db'}  = $self->{'system'}->{'auth_db'}  if defined $self->{'system'}->{'auth_db'};
+
+	#refdb attribute has been renamed ref_db for consistency with other databases (refdb still works)
+	$self->{'config'}->{'ref_db'} //= $self->{'config'}->{'refdb'};
+	$self->{'config'}->{'ref_db'} = $self->{'system'}->{'ref_db'} if defined $self->{'system'}->{'ref_db'};
 	return;
 }
 
@@ -263,7 +268,7 @@ sub read_config_file {
 	$config = Config::Tiny->read("$config_dir/bigsdb.conf");
 	foreach (
 		qw ( prefs_db auth_db jobs_db max_load emboss_path tmp_dir secure_tmp_dir blast_path blast+_path blast_threads
-		muscle_path	mogrify_path ipcress_path splitstree_path reference refdb chartdirector
+		muscle_path	mogrify_path ipcress_path splitstree_path reference refdb ref_db chartdirector
 		disable_updates disable_update_message intranet debug results_deleted_days)
 	  )
 	{
