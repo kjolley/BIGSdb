@@ -42,7 +42,7 @@ sub get_attributes {
 		section     => 'breakdown,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/publications.shtml',
 		input       => 'query',
-		requires    => 'refdb',
+		requires    => 'ref_db',
 		order       => 30,
 	);
 	return \%att;
@@ -59,7 +59,7 @@ sub run {
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
 	print "<h1>Publication breakdown of dataset</h1>\n";
-	if ( !$self->{'config'}->{'refdb'} ) {
+	if ( !$self->{'config'}->{'ref_db'} ) {
 		print "<div class=\"box\" id=\"statusbad\">No reference database has been defined.</p></div>\n";
 		return;
 	}

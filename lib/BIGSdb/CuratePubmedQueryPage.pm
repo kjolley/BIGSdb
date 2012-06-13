@@ -352,9 +352,9 @@ sub _get_user_info {
 sub _print_maintable_reference {
 	my ( $self, $fieldname, $pmid, $td ) = @_;
 	my $q = $self->{'cgi'};
-	if ( $self->{'config'}->{'refdb'} ) {
+	if ( $self->{'config'}->{'ref_db'} ) {
 		my %att = (
-			dbase_name => $self->{'config'}->{'refdb'},
+			dbase_name => $self->{'config'}->{'ref_db'},
 			host       => $self->{'system'}->{'host'},
 			port       => $self->{'system'}->{'port'},
 			user       => $self->{'system'}->{'user'},

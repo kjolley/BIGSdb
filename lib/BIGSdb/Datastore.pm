@@ -1098,7 +1098,7 @@ sub get_citation_hash {
 	my ( $self, $pmid_ref, $options ) = @_;
 	my $citation_ref;
 	my %att = (
-		'dbase_name' => $self->{'config'}->{'refdb'},
+		'dbase_name' => $self->{'config'}->{'ref_db'},
 		'host'       => $self->{'system'}->{'host'},
 		'port'       => $self->{'system'}->{'port'},
 		'user'       => $self->{'system'}->{'user'},
@@ -1111,7 +1111,7 @@ sub get_citation_hash {
 	catch BIGSdb::DatabaseConnectionException with {
 		$logger->error("Can't connect to reference database");
 	};
-	return $citation_ref if !$self->{'config'}->{'refdb'} || !$dbr;
+	return $citation_ref if !$self->{'config'}->{'ref_db'} || !$dbr;
 	my $sqlr  = $dbr->prepare("SELECT year,journal,title,volume,pages FROM refs WHERE pmid=?");
 	my $sqlr2 = $dbr->prepare("SELECT surname,initials FROM authors WHERE id=?");
 	my $sqlr3 = $dbr->prepare("SELECT author FROM refauthors WHERE pmid=? ORDER BY position");
@@ -1182,7 +1182,7 @@ sub get_citation_hash {
 sub create_temp_ref_table {
 	my ( $self, $list, $qry_ref ) = @_;
 	my %att = (
-		'dbase_name' => $self->{'config'}->{'refdb'},
+		'dbase_name' => $self->{'config'}->{'ref_db'},
 		'host'       => $self->{'system'}->{'host'},
 		'port'       => $self->{'system'}->{'port'},
 		'user'       => $self->{'system'}->{'user'},
@@ -1321,7 +1321,7 @@ sub run_simple_ref_query {
 	#runs simple query (single row returned) against ref database
 	my ( $self, $qry, @values ) = @_;
 	my %att = (
-		'dbase_name' => $self->{'config'}->{'refdb'},
+		'dbase_name' => $self->{'config'}->{'ref_db'},
 		'host'       => $self->{'system'}->{'host'},
 		'port'       => $self->{'system'}->{'port'},
 		'user'       => $self->{'system'}->{'user'},
