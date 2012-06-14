@@ -128,7 +128,9 @@ sub _initiate {
 		return;
 	}
 	$self->{'system'} = $self->{'xmlHandler'}->get_system_hash;
-	if ( $self->{'system'}->{'dbtype'} ne 'sequences' && $self->{'system'}->{'dbtype'} ne 'isolates' ) {
+	if ( !defined $self->{'system'}->{'dbtype'}
+		|| ( $self->{'system'}->{'dbtype'} ne 'sequences' && $self->{'system'}->{'dbtype'} ne 'isolates' ) )
+	{
 		$self->{'error'} = 'invalidDbType';
 	}
 	$self->{'script_name'} = $q->script_name || 'bigsdb.pl';
