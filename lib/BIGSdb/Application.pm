@@ -127,7 +127,9 @@ sub _initiate {
 		return;
 	}
 	$self->{'system'} = $self->{'xmlHandler'}->get_system_hash;
-	if ( $self->{'system'}->{'dbtype'} ne 'sequences' && $self->{'system'}->{'dbtype'} ne 'isolates' ) {
+	if ( !defined $self->{'system'}->{'dbtype'}
+		|| ( $self->{'system'}->{'dbtype'} ne 'sequences' && $self->{'system'}->{'dbtype'} ne 'isolates' ) )
+	{
 		$self->{'error'} = 'invalidDbType';
 	}
 	$self->{'script_name'} = $q->script_name || 'bigsdb.pl';
@@ -156,7 +158,7 @@ sub _initiate {
 	$self->{'system'}->{'locus_superscript_prefix'} ||= 'no';
 	$self->{'system'}->{'dbase_config_dir'} = $dbase_config_dir;
 
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+	if ( ($self->{'system'}->{'dbtype'} // '') eq 'isolates' ) {
 		$self->{'system'}->{'view'}       ||= 'isolates';
 		$self->{'system'}->{'labelfield'} ||= 'isolate';
 		if ( !$self->{'xmlHandler'}->is_field( $self->{'system'}->{'labelfield'} ) ) {
