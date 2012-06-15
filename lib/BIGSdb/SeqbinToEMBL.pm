@@ -68,7 +68,13 @@ sub write_embl {
 		local $" = '; ';
 		$seq_object->accession_number("@$accessions") if @$accessions;
 		$seq_object->desc( $seq->[3] );
-		my $qry = "SELECT * FROM allele_sequences WHERE seqbin_id=?";
+		my $set_id = $self->get_set_id;
+		my $set_clause =
+		  $set_id
+		  ? "AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes "
+		  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
+		  : '';
+		my $qry = "SELECT * FROM allele_sequences WHERE seqbin_id=? $set_clause";
 		my $sql = $self->{'db'}->prepare($qry);
 		eval { $sql->execute($seqbin_id) };
 		$logger->error($@) if $@;
@@ -85,16 +91,15 @@ sub write_embl {
 				default { $frame = 0 };
 			}
 			$allele_sequence->{'start_pos'} = 1 if $allele_sequence->{'start_pos'} < 1;
-			my ($product, $desc);
-			if ($locus_info->{'dbase_name'} && ($locus_info->{'description_url'} // '') =~ /bigsdb/){
-				my $locus_desc = $self->{'datastore'}->get_locus( $allele_sequence->{'locus'})->get_description;
+			my ( $product, $desc );
+			if ( $locus_info->{'dbase_name'} && ( $locus_info->{'description_url'} // '' ) =~ /bigsdb/ ) {
+				my $locus_desc = $self->{'datastore'}->get_locus( $allele_sequence->{'locus'} )->get_description;
 				$product = $locus_desc->{'product'};
-				$desc = $locus_desc->{'full_name'};
+				$desc    = $locus_desc->{'full_name'};
 				$desc .= ' - ' if $desc && $locus_desc->{'description'};
 				$desc .= $locus_desc->{'description'} // '';
 			}
-			$allele_sequence->{'locus'} = $allele_sequence->{'locus'} . " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
-
+			$allele_sequence->{'locus'} = $self->clean_locus( $allele_sequence->{'locus'}, { text_output => 1 } );
 			my $feature = Bio::SeqFeature::Generic->new(
 				-start       => $allele_sequence->{'start_pos'},
 				-end         => $allele_sequence->{'end_pos'},

@@ -38,7 +38,7 @@ sub get_attributes {
 		buttontext  => 'Sequence bin',
 		menutext    => 'Sequence bin',
 		module      => 'SeqbinBreakdown',
-		version     => '1.0.3',
+		version     => '1.0.4',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -50,7 +50,7 @@ sub get_attributes {
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { 'general' => 0, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 0 };
+	$self->{'pref_requirements'} = { general => 0, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
 	return;
 }
 
@@ -102,9 +102,15 @@ sub run {
 	my $sql_contig_lengths =
 	  $self->{'db'}
 	  ->prepare( "SELECT length(sequence) FROM sequence_bin WHERE isolate_id=?$method_clause ORDER BY " . "length(sequence) DESC" );
+	my $set_id = $self->get_set_id;
+	my $set_clause =
+	  $set_id
+	  ? "AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes "
+	  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
+	  : '';
 	my $sql_tagged =
 	  $self->{'db'}->prepare( "SELECT COUNT(DISTINCT locus) FROM allele_sequences LEFT JOIN sequence_bin ON seqbin_id = "
-		  . "sequence_bin.id WHERE isolate_id=?" );
+		  . "sequence_bin.id WHERE isolate_id=? $set_clause" );
 	my $labelfield = ucfirst( $self->{'system'}->{'labelfield'} );
 	my $temp       = BIGSdb::Utils::get_random();
 	open( my $fh, '>', "$self->{'config'}->{'tmp_dir'}/$temp.txt" )
@@ -124,13 +130,13 @@ HTML
 	my $td = 1;
 	local $| = 1;
 	my ($data);
-	my $loci = $self->{'datastore'}->get_loci;
+	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
 
-	foreach (@$ids) {
+	foreach my $id (@$ids) {
 		eval {
-			$sql->execute($_);
-			$sql_name->execute($_);
-			$sql_contig_lengths->execute($_);
+			$sql->execute($id);
+			$sql_name->execute($id);
+			$sql_contig_lengths->execute($id);
 		};
 		if ($@) {
 			$logger->error($@);
@@ -148,21 +154,21 @@ HTML
 		}
 		next if !$contigs;
 		my ($isolate) = $sql_name->fetchrow_array;
-		my $allele_designations = $self->{'datastore'}->get_all_allele_ids($_);
+		my $allele_designations = $self->{'datastore'}->get_all_allele_ids( $id, { set_id => $set_id } );
 		my $percent_alleles = BIGSdb::Utils::decimal_place( 100 * ( scalar keys %$allele_designations ) / @$loci, 1 );
-		eval { $sql_tagged->execute($_) };
+		eval { $sql_tagged->execute($id) };
 		$logger->error($@) if $@;
 		my ($tagged) = $sql_tagged->fetchrow_array;
 		my $percent_tagged = BIGSdb::Utils::decimal_place( 100 * ( $tagged / @$loci ), 1 );
 		my $n_stats = $self->get_N_stats( $sum, \@single_isolate_lengths );
-		print "<tr class=\"td$td\"><td>$_</td>";
+		print "<tr class=\"td$td\"><td>$id</td>";
 		print "<td>$isolate</td><td>$contigs</td><td>$sum</td><td>$min</td><td>$max</td><td>$mean</td>";
 		print defined $stddev ? "<td>$stddev</td>" : '<td />';
 		print "<td>$n_stats->{'N50'}</td><td>$n_stats->{'N90'}</td><td>$n_stats->{'N95'}</td>"
 		  . "<td>$percent_alleles</td><td>$percent_tagged</td>";
-		print
-"<td><a href=\"$self->{'system'}->{'script_name'}?page=seqbin&amp;db=$self->{'instance'}&amp;isolate_id=$_\" class=\"extract_tooltip\" target=\"_blank\">Display &rarr;</a></td></tr>\n";
-		print $fh "$_\t$isolate\t$contigs\t$sum\t$min\t$max\t$mean\t";
+		print "<td><a href=\"$self->{'system'}->{'script_name'}?page=seqbin&amp;db=$self->{'instance'}&amp;isolate_id=$id\" "
+		  . "class=\"extract_tooltip\" target=\"_blank\">Display &rarr;</a></td></tr>\n";
+		print $fh "$id\t$isolate\t$contigs\t$sum\t$min\t$max\t$mean\t";
 		print $fh "$stddev" if defined $stddev;
 		print $fh "\t$n_stats->{'N50'}\t$n_stats->{'N90'}\t$n_stats->{'N95'}\t$percent_alleles\t$percent_tagged\n";
 		push @{ $data->{'contigs'} }, $contigs;

@@ -556,7 +556,6 @@ sub _get_value_frequency_hashes {
 				}
 			}
 		}
-		$print{$_} =~ tr/_/ /;
 	}
 	if ( $field_type{$field1} eq $field_type{$field2} && $field_type{$field1} eq 'field' ) {
 		$$qry_ref =~ s/SELECT \*/SELECT $clean{$field1},$clean{$field2}/;

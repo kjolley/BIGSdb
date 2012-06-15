@@ -1096,10 +1096,14 @@ sub get_allele_id {
 }
 
 sub get_all_allele_ids {
-	my ( $self, $isolate_id ) = @_;
+	my ( $self, $isolate_id, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my %allele_ids;
 	if ( !$self->{'sql'}->{'all_allele_ids'} ) {
-		$self->{'sql'}->{'all_allele_ids'} = $self->{'db'}->prepare("SELECT locus,allele_id FROM allele_designations WHERE isolate_id=?");
+		my $set_clause = $options->{'set_id'} ? "AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT "
+		 . "scheme_id FROM set_schemes WHERE set_id=$options->{'set_id'})) OR locus IN (SELECT locus FROM set_loci WHERE "
+		 . "set_id=$options->{'set_id'}))" : '';
+		$self->{'sql'}->{'all_allele_ids'} = $self->{'db'}->prepare("SELECT locus,allele_id FROM allele_designations WHERE isolate_id=? $set_clause");
 		$logger->info("Statement handle 'all_allele_ids' prepared.");
 	}
 	eval { $self->{'sql'}->{'all_allele_ids'}->execute($isolate_id) };

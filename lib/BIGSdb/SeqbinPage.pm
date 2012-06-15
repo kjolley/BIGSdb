@@ -19,6 +19,7 @@
 package BIGSdb::SeqbinPage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::IsolateInfoPage);
 use BIGSdb::SeqbinToEMBL;
 use Log::Log4perl qw(get_logger);
@@ -44,19 +45,19 @@ sub print_content {
 	my @name = $self->get_name($isolate_id);
 	local $" = ' ';
 	if (@name) {
-		print "<h1>Sequence bin for @name</h1>";
+		say "<h1>Sequence bin for @name</h1>";
 	} else {
-		print "<h1>Sequence bin for isolate id $isolate_id</h1>";
+		say "<h1>Sequence bin for isolate id $isolate_id</h1>";
 	}
 	my $count = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM sequence_bin WHERE isolate_id=?", $isolate_id )->[0];
 	if ( !$count ) {
-		print "<div class=\"box statusbad\"><p>This isolate has no sequence data attached.</p></div>\n";
+		say "<div class=\"box statusbad\"><p>This isolate has no sequence data attached.</p></div>";
 		return;
 	}
-	print "<div class=\"box\" id=\"resultsheader\">\n";
-	print "<div style=\"float:left\">\n";
-	print "<h2>Contig summary statistics</h2>\n";
-	print "<ul>\n<li>Number of contigs: $count</li>\n";
+	say "<div class=\"box\" id=\"resultsheader\">";
+	say "<div style=\"float:left\">";
+	say "<h2>Contig summary statistics</h2>";
+	say "<ul>\n<li>Number of contigs: $count</li>";
 	my ( $data, $lengths );
 	if ( $count > 1 ) {
 		$data = $self->{'datastore'}->run_simple_query(
@@ -84,19 +85,19 @@ HTML
 		  $self->{'datastore'}->run_simple_query( "SELECT length(sequence) FROM sequence_bin WHERE isolate_id=?", $isolate_id )->[0];
 		print "<li>Length: $length</li>\n</ul>\n";
 	}
-	print
-"<ul><li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadSeqbin&amp;isolate_id=$isolate_id\">Download sequences (FASTA format)</a></li>\n";
-	print
-"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=embl&amp;isolate_id=$isolate_id\">Download sequences with annotations (EMBL format)</a></li></ul>\n";
-	print "</div>\n";
+	say "<ul><li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadSeqbin&amp;"
+	  . "isolate_id=$isolate_id\">Download sequences (FASTA format)</a></li>";
+	say "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=embl&amp;isolate_id=$isolate_id\">"
+	  . "Download sequences with annotations (EMBL format)</a></li></ul>";
+	say "</div>";
 	if ( $count > 1 ) {
 		print "<div style=\"float:left;padding-left:2em\">\n";
 		print "<h2>Contig size distribution</h2>\n";
 		my $temp = BIGSdb::Utils::get_random();
 		open( my $fh_output, '>', "$self->{'config'}->{'tmp_dir'}/$temp.txt" )
 		  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$temp.txt for writing");
-		foreach (@$lengths) {
-			print $fh_output "$_\n";
+		foreach my $length (@$lengths) {
+			print $fh_output "$length\n";
 		}
 		close $fh_output;
 		my $bins =
@@ -118,40 +119,46 @@ HTML
 			BIGSdb::Charts::barchart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$temp\_histogram.png", 'large', \%prefs );
 			print "<img src=\"/tmp/$temp\_histogram.png\" alt=\"histogram\" style=\"width:200px;border:0\" /><br />\n";
 		}
-		print "<ul>\n";
-		print "<li><a href=\"/tmp/$temp\_histogram.png\">Enlarge chart</a></li>\n" if $self->{'config'}->{'chartdirector'};
-		print "<li><a href=\"/tmp/$temp.txt\">Download lengths</a></li>\n";
-		print "</ul>\n";
-		print "</div>\n";
+		say "<ul>";
+		say "<li><a href=\"/tmp/$temp\_histogram.png\">Enlarge chart</a></li>" if $self->{'config'}->{'chartdirector'};
+		say "<li><a href=\"/tmp/$temp.txt\">Download lengths</a></li>";
+		say "</ul>\n</div>";
 	}
-	print "<div style=\"clear:both\"></div>\n";
-	print "</div><div class=\"box\" id=\"resultstable\">\n";
-	my $qry =
-"SELECT id,length(sequence) AS length,original_designation,method,comments,sender,curator,date_entered,datestamp FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) desc";
+	say "<div style=\"clear:both\"></div>";
+	say "</div><div class=\"box\" id=\"resultstable\">";
+	my $qry = "SELECT id,length(sequence) AS length,original_designation,method,comments,sender,curator,date_entered,datestamp "
+	  . "FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) desc";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute($isolate_id) };
 	$logger->error($@) if $@;
-	print "<div class=\"scrollable\">\n";
-	print "<table class=\"resultstable\"><tr><th>Sequence</th><th>Sequencing method</th><th>Original designation</th><th>Length</th>"
-	  . "<th>Comments</th><th>Locus</th><th>Start</th><th>End</th><th>Direction</th><th>EMBL format</th><th>Artemis <a class=\"tooltip\" title=\"Artemis "
-	  . " - This will launch Artemis using Java WebStart.  The contig annotations should open within Artemis but this may depend on your operating system "
-	  . " and version of Java.  If the annotations do not open within Artemis, download the EMBL file locally and load manually in to Artemis.\">&nbsp;<i>i</i>&nbsp;</a></th>";
+	say "<div class=\"scrollable\">";
+	say "<table class=\"resultstable\"><tr><th>Sequence</th><th>Sequencing method</th><th>Original designation</th><th>Length</th>"
+	  . "<th>Comments</th><th>Locus</th><th>Start</th><th>End</th><th>Direction</th><th>EMBL format</th><th>Artemis <a class=\"tooltip\" "
+	  . "title=\"Artemis - This will launch Artemis using Java WebStart.  The contig annotations should open within Artemis but this "
+	  . "may depend on your operating system and version of Java.  If the annotations do not open within Artemis, download the EMBL "
+	  . "file locally and load manually in to Artemis.\">&nbsp;<i>i</i>&nbsp;</a></th>";
 
 	if ( $self->{'curate'} && ( $self->{'permissions'}->{'modify_loci'} || $self->is_admin ) ) {
-		print "<th>Renumber <a class=\"tooltip\" title=\"Renumber - You can use the numbering of the sequence tags to automatically "
+		say "<th>Renumber <a class=\"tooltip\" title=\"Renumber - You can use the numbering of the sequence tags to automatically "
 		  . "set the genome order position for each locus. This will be used to order the sequences when exporting FASTA or XMFA files."
-		  . "\">&nbsp;<i>i</i>&nbsp;</a></th>\n";
+		  . "\">&nbsp;<i>i</i>&nbsp;</a></th>";
 	}
 	print "</tr>\n";
 	my $td = 1;
-	$qry = "SELECT * FROM allele_sequences WHERE seqbin_id = ? ORDER BY start_pos";
+	my $set_id = $self->get_set_id;
+	my $set_clause =
+	  $set_id
+	  ? "AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes "
+	  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
+	  : '';
+	$qry = "SELECT * FROM allele_sequences WHERE seqbin_id = ? $set_clause ORDER BY start_pos";
 	my $seq_sql = $self->{'db'}->prepare($qry);
 	local $" = 1;
 	while ( my $data = $sql->fetchrow_hashref ) {
 		eval { $seq_sql->execute( $data->{'id'} ) };
 		$logger->error($@) if $@;
 		my $allele_count =
-		  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM allele_sequences WHERE seqbin_id=?", $data->{'id'} )->[0];
+		  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM allele_sequences WHERE seqbin_id=? $set_clause", $data->{'id'} )->[0];
 		my $first = 1;
 		if ($allele_count) {
 			print "<tr class=\"td$td\">";
@@ -197,7 +204,7 @@ HTML
 						print "</td>";
 					}
 				}
-				print "</tr>\n";
+				say "</tr>";
 				$first = 0;
 			}
 		} else {
@@ -208,7 +215,7 @@ HTML
 			print defined $data->{'comments'} ? "<td>$data->{'comments'}</td>" : '<td />';
 			print "<td /><td /><td /><td /><td /><td />";
 			print "<td />" if $self->{'curate'};
-			print "</tr>\n";
+			say "</tr>";
 		}
 		$td = $td == 1 ? 2 : 1;
 		if ( $ENV{'MOD_PERL'} ) {
@@ -216,7 +223,7 @@ HTML
 			return if $self->{'mod_perl_request'}->connection->aborted;
 		}
 	}
-	print "</table></div>\n</div>\n";
+	say "</table></div>\n</div>";
 	return;
 }
 

@@ -36,7 +36,7 @@ sub get_attributes {
 		buttontext  => 'Schemes/alleles',
 		menutext    => 'Scheme and alleles',
 		module      => 'SchemeBreakdown',
-		version     => '1.1.0',
+		version     => '1.1.1',
 		section     => 'breakdown,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/scheme_breakdown.shtml',
 		input       => 'query',
@@ -77,7 +77,7 @@ sub run {
 	} else {
 		print "<h1>Scheme field and allele breakdown of dataset</h1>\n";
 	}
-	my $loci    = $self->{'datastore'}->run_list_query("SELECT id FROM loci ORDER BY id");
+	my $loci = $self->{'datastore'}->run_list_query("SELECT id FROM loci ORDER BY id");
 	if ( !scalar @$loci ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>No loci are defined for this database.</p></div>\n";
 		return;
@@ -97,12 +97,12 @@ sub run {
 	print "</div>\n";
 	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,description");
 	my @selected_schemes;
-	foreach (@$schemes, 0){
+	foreach ( @$schemes, 0 ) {
 		push @selected_schemes, $_ if $q->param("s_$_");
 	}
 	return if !@selected_schemes;
 	print "<div class=\"box\" id=\"resultstable\">\n";
-	foreach my $scheme_id ( @selected_schemes ) {
+	foreach my $scheme_id (@selected_schemes) {
 		$self->_print_scheme_table( $scheme_id, \$qry );
 	}
 	print "</div>\n";
@@ -322,7 +322,8 @@ sub _breakdown_field {
 
 sub _print_scheme_table {
 	my ( $self, $scheme_id, $qry_ref ) = @_;
-	my $q = $self->{'cgi'};
+	my $q      = $self->{'cgi'};
+	my $set_id = $self->get_set_id;
 	return
 	  if !$self->{'prefs'}->{'analysis_schemes'}->{$scheme_id}
 		  && $scheme_id;
@@ -331,7 +332,7 @@ sub _print_scheme_table {
 		$fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 		$loci = $self->{'datastore'}->get_scheme_loci( $scheme_id, ( { 'profile_name' => 0, 'analysis_pref' => 1 } ) );
 	} else {
-		$loci   = $self->{'datastore'}->get_loci_in_no_scheme({analyse_pref=>1});
+		$loci = $self->{'datastore'}->get_loci_in_no_scheme( { analyse_pref => 1, set_id => $set_id } );
 		$fields = \@;;
 	}
 	next if !@$loci && !@$fields;
@@ -341,7 +342,7 @@ sub _print_scheme_table {
 	my $rows = ( @$fields >= @$loci ? @$fields : @$loci ) || 1;
 	my $scheme_info;
 	if ($scheme_id) {
-		$scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+		$scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 	} else {
 		$scheme_info->{'description'} = 'Loci not in schemes';
 	}
@@ -372,41 +373,42 @@ sub _print_scheme_table {
 	my $td = 1;
 	print "<tr class=\"td$td\">";
 
-	for my $i( 0 .. $rows - 1 ) {
+	for my $i ( 0 .. $rows - 1 ) {
 		print "<tr class=\"td$td\">" if $i;
 		my $display;
-		if (@$fields){
-		$display = $fields->[$i] || '';
-		$display =~ tr/_/ /;
-		print "<td>$display</td>";
-		if ( $scheme_info->{'dbase_name'} && @$fields && $fields->[$i] ) {
-			my $scheme_query = $$scheme_fields_qry;
-			$scheme_query =~ s/\*/COUNT (DISTINCT(scheme_$scheme_id\.$fields->[$i]))/;
-			if ( $$qry_ref =~ /SELECT \* FROM refs/ || $$qry_ref =~ /SELECT \* FROM $self->{'system'}->{'view'} LEFT JOIN refs/ ) {
-				$scheme_query =~ s/FROM $self->{'system'}->{'view'}/FROM $self->{'system'}->{'view'} LEFT JOIN refs ON refs.isolate_id=id/;
+		if (@$fields) {
+			$display = $fields->[$i] || '';
+			$display =~ tr/_/ /;
+			print "<td>$display</td>";
+			if ( $scheme_info->{'dbase_name'} && @$fields && $fields->[$i] ) {
+				my $scheme_query = $$scheme_fields_qry;
+				$scheme_query =~ s/\*/COUNT (DISTINCT(scheme_$scheme_id\.$fields->[$i]))/;
+				if ( $$qry_ref =~ /SELECT \* FROM refs/ || $$qry_ref =~ /SELECT \* FROM $self->{'system'}->{'view'} LEFT JOIN refs/ ) {
+					$scheme_query =~
+					  s/FROM $self->{'system'}->{'view'}/FROM $self->{'system'}->{'view'} LEFT JOIN refs ON refs.isolate_id=id/;
+				}
+				if ( $$qry_ref =~ /WHERE (.*)$/ ) {
+					$scheme_query .= " AND ($1)";
+				}
+				my $sql = $self->{'db'}->prepare($scheme_query);
+				$logger->debug($scheme_query);
+				eval { $sql->execute };
+				$logger->error($@) if $@;
+				my ($value) = $sql->fetchrow_array;
+				print "<td>$value</td><td>";
+				if ($value) {
+					print $q->start_form;
+					print $q->submit( -label => 'Breakdown', -class => 'smallbutton' );
+					$q->param( 'field',           "$scheme_id\_$fields->[$i]" );
+					$q->param( 'type',            'field' );
+					$q->param( 'field_breakdown', 1 );
+					print $q->hidden($_) foreach qw (page name db query_file type field field_breakdown);
+					print $q->end_form;
+				}
+				print "</td>";
+			} else {
+				print "<td /><td />";
 			}
-			if ( $$qry_ref =~ /WHERE (.*)$/ ) {
-				$scheme_query .= " AND ($1)";
-			}
-			my $sql = $self->{'db'}->prepare($scheme_query);
-			$logger->debug($scheme_query);
-			eval { $sql->execute };
-			$logger->error($@) if $@;
-			my ($value) = $sql->fetchrow_array;
-			print "<td>$value</td><td>";
-			if ($value) {
-				print $q->start_form;
-				print $q->submit( -label => 'Breakdown', -class => 'smallbutton' );
-				$q->param( 'field', "$scheme_id\_$fields->[$i]" );
-				$q->param( 'type',  'field' );
-				$q->param ('field_breakdown', 1);
-				print $q->hidden($_) foreach qw (page name db query_file type field field_breakdown);
-				print $q->end_form;
-			}
-			print "</td>";
-		} else {
-			print "<td /><td />";
-		}
 		}
 		$display = $self->clean_locus( $loci->[$i] );
 		my @other_display_names;
