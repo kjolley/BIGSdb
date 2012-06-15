@@ -769,7 +769,6 @@ sub get_schemes_table_attributes {
 			type           => 'text',
 			required       => 'yes',
 			length         => 50,
-			dropdown_query => 'yes',
 			tooltip        => 'description - Ensure this is short since it is used in table headings and drop-down lists.'
 		}
 	];

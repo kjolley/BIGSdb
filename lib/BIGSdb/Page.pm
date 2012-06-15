@@ -785,8 +785,9 @@ sub _get_truncated_label {
 }
 
 sub clean_locus {
-	my ( $self, $locus ) = @_;
+	my ( $self, $locus, $options ) = @_;
 	return if !defined $locus;
+	$options = {} if ref $options ne 'HASH';
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
 		my $set_id = $self->get_set_id;
@@ -802,7 +803,7 @@ sub clean_locus {
 		$locus =~ s/^_//;    #locus names can't begin with a digit, so people can use an underscore, but this looks untidy in the interface.
 		$locus .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
 	}
-	if ( $self->{'system'}->{'locus_superscript_prefix'} && $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
+	if ( !$options->{'text_output'} && ($self->{'system'}->{'locus_superscript_prefix'} // '') eq 'yes' ) {
 		$locus =~ s/^([A-Za-z]{1,3})_/<sup>$1<\/sup>/;
 	}
 	return $locus;
@@ -810,8 +811,11 @@ sub clean_locus {
 
 sub get_set_id {
 	my ($self) = @_;
-	my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
-	return $set_id;
+	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes'  ) {
+		my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
+		return $set_id if $set_id && BIGSdb::Utils::is_int($set_id);
+	}
+	return;
 }
 
 sub get_db_description {

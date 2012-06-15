@@ -267,7 +267,8 @@ sub _get_scheme_loci {
 			$scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 		}
 	} else {
-		$loci = $self->{'datastore'}->get_loci_in_no_scheme( { analyse_pref => $analysis_pref } );
+		my $set_id = $self->get_set_id;
+		$loci = $self->{'datastore'}->get_loci_in_no_scheme( { analyse_pref => $analysis_pref, set_id => $set_id } );
 	}
 	my $qry    = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
 	my $cn_sql = $self->{'db'}->prepare($qry);

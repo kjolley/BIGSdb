@@ -189,56 +189,63 @@ sub _print_query_interface {
 	print $self->get_number_records_control;
 	print "</li>\n\n";
 	my $page = $self->{'curate'} ? 'profileQuery' : 'query';
-	print
-"</ul><span style=\"float:left\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$table\" class=\"resetbutton\">Reset</a></span><span style=\"float:right\">";
+	print "</ul><span style=\"float:left\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
+	  . "page=tableQuery&amp;table=$table\" class=\"resetbutton\">Reset</a></span><span style=\"float:right\">";
 	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
 	print "</span></fieldset>\n";
 	print "</div>\n";
 	my @filters;
 	my %labels;
 
-	foreach (@$attributes) {
-		if ( $_->{'optlist'} || $_->{'type'} eq 'bool' || ( $_->{'dropdown_query'} && $_->{'dropdown_query'} eq 'yes' ) ) {
-			( my $tooltip = $_->{'tooltip'} ) =~ tr/_/ /;
+	foreach my $att (@$attributes) {
+		if ( $att->{'optlist'} || $att->{'type'} eq 'bool' || ( $att->{'dropdown_query'} && $att->{'dropdown_query'} eq 'yes' ) ) {
+			( my $tooltip = $att->{'tooltip'} ) =~ tr/_/ /;
 			$tooltip =~ s/ - / filter - Select a value to filter your search to only those with the selected attribute. /;
-			if ( ( $_->{'dropdown_query'} && $_->{'dropdown_query'} eq 'yes' ) ) {
-				if ( $_->{'name'} eq 'sender' || $_->{'name'} eq 'curator' || ($_->{'foreign_key'} // '') eq 'users' ) {
-					push @filters, $self->get_user_filter( $_->{'name'}, $table );
-				} elsif ( $_->{'name'} eq 'scheme_id' ) {
+			if ( ( $att->{'dropdown_query'} && $att->{'dropdown_query'} eq 'yes' ) ) {
+				if ( $att->{'name'} eq 'sender' || $att->{'name'} eq 'curator' || ( $att->{'foreign_key'} // '' ) eq 'users' ) {
+					push @filters, $self->get_user_filter( $att->{'name'}, $table );
+				} elsif ( $att->{'name'} eq 'scheme_id' ) {
 					push @filters, $self->get_scheme_filter;
-				} elsif ( $_->{'name'} eq 'locus'){
+				} elsif ( $att->{'name'} eq 'locus' ) {
 					push @filters, $self->get_locus_filter;
+				} elsif ( $table eq 'schemes' && $att->{'name'} eq 'description' ) {
+					my $set_id = $self->get_set_id;
+					my $scheme_list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+					my @values;
+					push @values, $_->{'description'} foreach @$scheme_list;
+					push @filters, $self->get_filter( $att->{'name'}, \@values );
 				} else {
 					my $desc;
 					my @values;
 					my @fields_to_query;
-					if ( $_->{'foreign_key'} ) {
-						next if $_->{'name'} eq 'scheme_id';
-						if ( $_->{'labels'} ) {
-							( my $fields_ref, $desc ) = $self->get_all_foreign_key_fields_and_labels($_);
+					if ( $att->{'foreign_key'} ) {
+						next if $att->{'name'} eq 'scheme_id';
+						if ( $att->{'labels'} ) {
+							( my $fields_ref, $desc ) = $self->get_all_foreign_key_fields_and_labels($att);
 							@fields_to_query = @$fields_ref;
 						} else {
 							push @fields_to_query, 'id';
 						}
 						local $" = ',';
-						@values = @{ $self->{'datastore'}->run_list_query("SELECT id FROM $_->{'foreign_key'} ORDER BY @fields_to_query") };
+						@values =
+						  @{ $self->{'datastore'}->run_list_query("SELECT id FROM $att->{'foreign_key'} ORDER BY @fields_to_query") };
 						next if !@values;
 					} else {
-						my $order_by = $_->{'type'} eq 'text' ? "lower($_->{'name'})" : $_->{'name'};
-						@values = @{ $self->{'datastore'}->run_list_query("SELECT $_->{'name'} FROM $table ORDER BY $order_by") };
+						my $order_by = $att->{'type'} eq 'text' ? "lower($att->{'name'})" : $att->{'name'};
+						@values = @{ $self->{'datastore'}->run_list_query("SELECT $att->{'name'} FROM $table ORDER BY $order_by") };
 						@values = uniq @values;
 					}
-					push @filters, $self->get_filter( $_->{'name'}, \@values, { labels => $desc } );
+					push @filters, $self->get_filter( $att->{'name'}, \@values, { labels => $desc } );
 				}
-			} elsif ( $_->{'optlist'} ) {
-				my @options = split /;/, $_->{'optlist'};
-				push @filters, $self->get_filter( $_->{'name'}, \@options );
-			} elsif ( $_->{'type'} eq 'bool' ) {
-				push @filters, $self->get_filter( $_->{'name'}, [qw(true false)], { tooltip => $tooltip } );
+			} elsif ( $att->{'optlist'} ) {
+				my @options = split /;/, $att->{'optlist'};
+				push @filters, $self->get_filter( $att->{'name'}, \@options );
+			} elsif ( $att->{'type'} eq 'bool' ) {
+				push @filters, $self->get_filter( $att->{'name'}, [qw(true false)], { tooltip => $tooltip } );
 			}
 		}
 	}
-	if ( any { $table eq $_ } qw (loci allele_designations) ) {
+	if ( any { $table eq $_ } qw (loci allele_designations schemes) ) {
 		push @filters, $self->get_scheme_filter;
 	} elsif ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' && $table eq 'sequences' ) {
 		my @flag_values = ( 'any flag', 'no flag', ALLELE_FLAGS );
@@ -394,24 +401,24 @@ sub _run_query {
 		}
 		$self->_modify_loci_for_sets( $table, \$qry );
 		$self->_modify_schemes_for_sets( $table, \$qry );
-		if (   defined $q->param('scheme_id_list')
-			&& $q->param('scheme_id_list') ne ''
+		if (   ( $q->param('scheme_id_list') // '' ) ne ''
+			&& BIGSdb::Utils::is_int( $q->param('scheme_id_list') )
 			&& any { $table eq $_ } qw (loci scheme_fields schemes scheme_members client_dbase_schemes allele_designations) )
 		{
-			if ( $table eq 'loci' ) {
-				$qry2 = "SELECT * FROM loci LEFT JOIN scheme_members ON loci.id = scheme_members.locus WHERE scheme_id";
-			} elsif ( $table eq 'allele_designations' ) {
-				$qry2 =
-"SELECT * FROM allele_designations LEFT JOIN scheme_members ON allele_designations.locus = scheme_members.locus WHERE scheme_id";
-			} elsif ( $table eq 'schemes' ) {
-				$qry2 = "SELECT * FROM schemes WHERE id";
-			} else {
-				$qry2 = "SELECT * FROM $table WHERE scheme_id";
+			my $scheme_id = $q->param('scheme_id_list');
+			my $set_id    = $self->get_set_id;
+			my ( $identifier, $field );
+			given ($table) {
+				when ('loci')                { ( $identifier, $field ) = ( 'id',        'locus' ) }
+				when ('allele_designations') { ( $identifier, $field ) = ( 'locus',     'locus' ) }
+				when ('schemes')             { ( $identifier, $field ) = ( 'id',        'scheme_id' ) }
+				default                      { ( $identifier, $field ) = ( 'scheme_id', 'scheme_id' ) }
 			}
 			if ( $q->param('scheme_id_list') eq '0' ) {
-				$qry2 .= " IS NULL";
+				my $set_clause = $set_id ? "WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : '';
+				$qry2 = "SELECT * FROM $table WHERE $identifier NOT IN (SELECT $field FROM scheme_members $set_clause)";
 			} else {
-				$qry2 .= "=" . $q->param('scheme_id_list');
+				$qry2 = "SELECT * FROM $table WHERE $identifier IN (SELECT $field FROM scheme_members WHERE scheme_id = $scheme_id)";
 			}
 			if ($qry) {
 				$qry2 .= " AND ($qry)";
@@ -517,11 +524,12 @@ sub _modify_loci_for_sets {
 	my $set_id = $self->get_set_id;
 	my $identifier;
 	given ($table) {
-		when ('loci') { $identifier = 'id' }
-		when ('scheme_members') {$identifier = 'locus'}
-		default { return }
+		when ('loci')                { $identifier = 'id' }
+		when ('scheme_members')      { $identifier = 'locus' }
+		when ('allele_designations') { $identifier = 'locus' }
+		default                      { return }
 	}
-	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+	if ($set_id) {
 		$$qry_ref .= ' AND ' if $$qry_ref;
 		$$qry_ref .=
 		    " ($table.$identifier IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
@@ -535,15 +543,15 @@ sub _modify_schemes_for_sets {
 	my $set_id = $self->get_set_id;
 	my $identifier;
 	given ($table) {
-		when ('schemes') { $identifier = 'id' }
-		when ('scheme_members') {$identifier = 'scheme_id'}
-		default { return }
+		when ('schemes')        { $identifier = 'id' }
+		when ('scheme_members') { $identifier = 'scheme_id' }
+		default                 { return }
 	}
-	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+	if ($set_id) {
 		$$qry_ref .= ' AND ' if $$qry_ref;
 		$$qry_ref .= " ($table.$identifier IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id))";
 	}
-	return;	
+	return;
 }
 
 sub print_additional_headerbar_functions {

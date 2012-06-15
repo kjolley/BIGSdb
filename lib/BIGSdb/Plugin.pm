@@ -347,7 +347,8 @@ sub print_field_export_form {
 	my ( $self, $default_select, $output_format_list, $options ) = @_;
 	my $q       = $self->{'cgi'};
 	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
-	my $loci    = $self->{'datastore'}->get_loci_in_no_scheme;
+	my $set_id = $self->get_set_id;
+	my $loci    = $self->{'datastore'}->get_loci_in_no_scheme({set_id => $set_id});
 	my $fields  = $self->{'xmlHandler'}->get_field_list;
 	my @display_fields;
 	my $extended = $options->{'extended_attributes'} ? $self->get_extended_attributes : undef;
@@ -405,7 +406,7 @@ sub print_field_export_form {
 			print "</div>";
 		}
 	}
-	my $total_loci = $self->{'datastore'}->get_loci( { 'analysis_pref' => 1 } );
+	my $total_loci = $self->{'datastore'}->get_loci( { analysis_pref => 1, set_id => $set_id } );
 	if ( @$total_loci <= MAX_TREE_NODES ) {
 		print "<h2>Schemes and loci</h2>\n";
 		$self->_print_tree(1);
@@ -703,7 +704,8 @@ sub _print_tree {
 	, "table=loci\">loci</a> for which you do not plan to use in analysis tools.</p>\n";
 	print "<noscript><p class=\"highlight\">Javascript needs to be enabled.</p></noscript>\n";
 	print "<div id=\"tree\" class=\"tree\">\n";
-	my $options = { no_link_out => 1, list_loci => 1, analysis_pref => 1 };
+	my $set_id = $self->get_set_id;
+	my $options = { no_link_out => 1, list_loci => 1, analysis_pref => 1, set_id => $set_id };
 	$options->{'scheme_fields'} = 1 if $include_scheme_fields;
 	print $self->get_tree( undef, $options );
 	print "</div>\n";

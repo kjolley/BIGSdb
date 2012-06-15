@@ -27,7 +27,7 @@ use Error qw(:try);
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 1, 'query_field' => 0 };
+	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 0 };
 	return;
 }
 
@@ -182,10 +182,18 @@ sub run {
 			open( my $fh, '>', $full_path )
 			  or $logger->error("Can't open temp file $filename for writing");
 			print "<div class=\"scrollable\"><table class=\"tablesorter\" id=\"sortTable\">\n<thead>\n";
-			local $" = '</th><th>';
-			print "<tr><th>@header</th><th>Frequency</th><th>Percentage</th></tr></thead>\n<tbody>\n";
-			local $" = "\t";
-			print $fh "@header\tFrequency\tPercentage\n";
+			print "<tr>";
+			foreach my $heading (@header){
+				my ($cleaned_html, $cleaned_text) = ($heading, $heading);
+				if ($self->{'datastore'}->is_locus($heading)){
+					$cleaned_html =  $self->clean_locus($heading);
+					$cleaned_text = $self->clean_locus($heading,{text_output=>1})
+				}
+				print "<th>$cleaned_html</th>";
+				print $fh "$cleaned_text\t";
+			}
+			print "<th>Frequency</th><th>Percentage</th></tr></thead>\n<tbody>\n";
+			print $fh "Frequency\tPercentage\n";
 			my $td = 1;
 
 			foreach ( sort { $combs{$b} <=> $combs{$a} } keys %combs ) {

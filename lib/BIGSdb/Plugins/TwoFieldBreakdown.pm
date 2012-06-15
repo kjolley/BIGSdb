@@ -37,7 +37,7 @@ sub get_attributes {
 		buttontext  => 'Two Field',
 		menutext    => 'Two field',
 		module      => 'TwoFieldBreakdown',
-		version     => '1.0.2',
+		version     => '1.0.3',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/two_field_breakdown.shtml',
@@ -92,8 +92,18 @@ sub _print_interface {
 	print $q->startform;
 	$q->param( 'function', 'breakdown' );
 	print $q->hidden($_) foreach qw (db page name function query_file);
+	my $set_id = $self->get_set_id;
 	my ( $headings, $labels ) = $self->get_field_selection_list(
-		{ isolate_fields => 1, extended_attributes => 1, loci => 1, query_pref => 0, analysis_pref => 1, scheme_fields => 1 } );
+		{
+			isolate_fields      => 1,
+			extended_attributes => 1,
+			loci                => 1,
+			query_pref          => 0,
+			analysis_pref       => 1,
+			scheme_fields       => 1,
+			set_id              => $set_id
+		}
+	);
 	print "<table>";
 	print "<tr><td align='right'>Select first field:</td>\n";
 	print "<td>\n";
@@ -192,8 +202,8 @@ sub _breakdown {
 		  $self->_get_value_frequency_hashes( $field1, $field2, $qry_ref );
 	}
 	catch BIGSdb::DatabaseConnectionException with {
-		print
-"<div class=\"box\" id=\"statusbad\"><p>The database for the scheme of one of your selected fields is inaccessible.  This may be a configuration problem.</p></div>\n";
+		print "<div class=\"box\" id=\"statusbad\"><p>The database for the scheme of one of your selected fields is inaccessible.  "
+		  . "This may be a configuration problem.</p></div>\n";
 		return;
 	};
 	if ( $attribute1 || $attribute2 ) {
@@ -241,8 +251,8 @@ sub _breakdown {
 	}
 	my $numfield2 = scalar @field2values + 1;
 	if ( scalar keys %datahash > 2000 || $numfield2 > 2000 ) {
-		print
-"<div class=\"box\" id=\"statusbad\"><p>One of your selected fields has more than 2000 values - calculation has been disabled to prevent your browser locking up.</p>";
+		print "<div class=\"box\" id=\"statusbad\"><p>One of your selected fields has more than 2000 values - calculation "
+		  . "has been disabled to prevent your browser locking up.</p>";
 		print "<p>$print_field1: " . ( scalar keys %datahash ) . "<br />";
 		print "$print_field2: $numfield2</p>\n";
 		print "</div>\n";
@@ -281,8 +291,14 @@ sub _breakdown {
 	open( my $fh, '>', $out_file )
 	  or $logger->error("Can't open temp file $out_file for writing");
 	print "<div class=\"box\" id=\"resultstable\">\n";
-	print "<h2>Breakdown of $print_field1 by $print_field2:</h2>\n";
-	print $fh "Breakdown of $print_field1 by $print_field2:\n";
+	my $html_field1 = $self->{'datastore'}->is_locus($print_field1) ? $self->clean_locus($print_field1) : $print_field1;
+	my $html_field2 = $self->{'datastore'}->is_locus($print_field2) ? $self->clean_locus($print_field2) : $print_field2;
+	my $text_field1 =
+	  $self->{'datastore'}->is_locus($print_field1) ? $self->clean_locus( $print_field1, { text_output => 1 } ) : $print_field1;
+	my $text_field2 =
+	  $self->{'datastore'}->is_locus($print_field2) ? $self->clean_locus( $print_field2, { text_output => 1 } ) : $print_field2;
+	print "<h2>Breakdown of $html_field1 by $html_field2:</h2>\n";
+	print $fh "Breakdown of $text_field1 by $text_field2:\n";
 	print "<p>Selected options: Display $display. ";
 	print $fh "Selected options: Display $display. ";
 
@@ -295,11 +311,11 @@ sub _breakdown {
 	$self->_print_controls;
 	print "<div class=\"scrollable\" style=\"clear:both\">\n";
 	print "<table class=\"tablesorter\" id=\"sortTable\">\n<thead>\n";
-	print "<tr><td /><td colspan=\"$numfield2\" class=\"header\">$print_field2</td></tr>\n";
-	print $fh "$print_field1\t$print_field2\n";
+	print "<tr><td /><td colspan=\"$numfield2\" class=\"header\">$html_field2</td></tr>\n";
+	print $fh "$text_field1\t$text_field2\n";
 	local $" = "</th><th class=\"{sorter: 'digit'}\">";
-	print
-"<tr><th>$print_field1</th><th class=\"{sorter: 'digit'}\">@field2values</th><th class=\"{sorter: 'digit'}\">Total</th></tr></thead><tbody>\n";
+	print "<tr><th>$html_field1</th><th class=\"{sorter: 'digit'}\">@field2values</th><th class=\"{sorter: 'digit'}\">"
+	  . "Total</th></tr></thead><tbody>\n";
 	local $" = "\t";
 	print $fh "\t@field2values\tTotal\n";
 	my $td = 1;
