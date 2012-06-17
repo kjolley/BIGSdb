@@ -21,6 +21,7 @@ package BIGSdb::Plugins::Concatenate;
 use strict;
 use warnings;
 use parent qw(BIGSdb::Plugin);
+use List::MoreUtils qw(uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
@@ -28,7 +29,7 @@ use Apache2::Connection ();
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 1, 'query_field' => 0 };
+	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 0 };
 	return;
 }
 
@@ -98,9 +99,9 @@ sub run {
 		}
 	} elsif ($query_file) {
 		my $qry_ref = $self->get_query($query_file);
-		return if ref $qry_ref ne 'SCALAR';		
+		return if ref $qry_ref ne 'SCALAR';
 		return if !$self->create_temp_tables($qry_ref);
-		if ($self->{'system'}->{'dbtype'} eq 'isolates'){
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 			my $view = $self->{'system'}->{'view'};
 			$$qry_ref =~ s/SELECT ($view\.\*|\*)/SELECT $pk/;
 			$self->rewrite_query_ref_order_by($qry_ref) if $self->{'system'}->{'dbtype'} eq 'isolates';
@@ -138,8 +139,8 @@ sub run {
 			print "<div class=\"box\" id=\"resultstable\">";
 			print "<p>Please wait for processing to finish (do not refresh page).</p>\n";
 			print "<p>Output file being generated ...";
-			my $filename  = ( BIGSdb::Utils::get_random() ) . '.txt';
-			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
+			my $filename    = ( BIGSdb::Utils::get_random() ) . '.txt';
+			my $full_path   = "$self->{'config'}->{'tmp_dir'}/$filename";
 			my $problem_ids = $self->_write_fasta( $list, \@fields_selected, $full_path, $pk );
 			print " done</p>";
 			print "<p><a href=\"/tmp/$filename\">Output file</a> (right-click to save)</p>\n";
@@ -160,7 +161,7 @@ sequences can be included.  Please check the loci that you would like to include
 the remote database, it will be replaced with dashes. Please be aware that since alleles may have insertions or deletions,
 the sequences may need to be aligned.</p>
 HTML
-	my $options = {'default_select' => 0, 'translate' => 1};
+	my $options = { default_select => 0, translate => 1 };
 	$self->print_sequence_export_form( $pk, $list, $scheme_id, $options );
 	print "</div>\n";
 	return;
@@ -177,10 +178,10 @@ sub _write_fasta {
 	my $isolate_sql;
 	if ( $q->param('includes') ) {
 		my @includes = $q->param('includes');
-		local $"           = ',';
+		local $" = ',';
 		$isolate_sql = $self->{'db'}->prepare("SELECT @includes FROM $self->{'system'}->{'view'} WHERE id=?");
 	}
-	my $length_sql  = $self->{'db'}->prepare("SELECT length FROM loci WHERE id=?");
+	my $length_sql = $self->{'db'}->prepare("SELECT length FROM loci WHERE id=?");
 	my $seqbin_sql =
 	  $self->{'db'}->prepare(
 "SELECT substring(sequence from start_pos for end_pos-start_pos+1),reverse FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE isolate_id=? AND locus=? ORDER BY complete desc,allele_sequences.datestamp LIMIT 1"
@@ -191,17 +192,18 @@ sub _write_fasta {
 	my $j = 0;
 
 	#reorder loci by genome order, schemes then by name (genome order may not be set)
-	my $locus_qry =
-"SELECT id,scheme_id from loci left join scheme_members on loci.id = scheme_members.locus order by genome_position,scheme_members.scheme_id,id";
+	my $locus_qry = "SELECT id,scheme_id from loci left join scheme_members on loci.id = scheme_members.locus order "
+	  . "by genome_position,scheme_members.scheme_id,id";
 	my $locus_sql = $self->{'db'}->prepare($locus_qry);
 	eval { $locus_sql->execute };
 	$logger->error($@) if $@;
 	my @selected_fields;
 	while ( my ( $locus, $scheme_id ) = $locus_sql->fetchrow_array ) {
-		if ( ( $scheme_id && $q->param("s_$scheme_id\_l_$locus") ) || ( !$scheme_id && $q->param("l_$locus") ) ) {
+		if ( ( $scheme_id && $q->param("s_$scheme_id\_l_$locus") ) || ( $q->param("l_$locus") ) ) {
 			push @selected_fields, $locus;
 		}
 	}
+	@selected_fields = uniq @selected_fields;
 	foreach my $id (@$list) {
 		print "." if !$i;
 		print " " if !$j;
@@ -322,8 +324,8 @@ sub _write_fasta {
 							$temp_seq = '-' x $most_common{$locus};
 						}
 					}
-					if ($q->param('translate')){					
-						$temp_seq = BIGSdb::Utils::chop_seq($temp_seq,$locus_info->{'orf'} || 1);
+					if ( $q->param('translate') ) {
+						$temp_seq = BIGSdb::Utils::chop_seq( $temp_seq, $locus_info->{'orf'} || 1 );
 						my $peptide = Bio::Perl::translate_as_string($temp_seq);
 						$seq .= $peptide;
 					} else {

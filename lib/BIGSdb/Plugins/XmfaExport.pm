@@ -42,7 +42,7 @@ sub get_attributes {
 		buttontext  => 'XMFA',
 		menutext    => 'XMFA export',
 		module      => 'XmfaExport',
-		version     => '1.2.2',
+		version     => '1.2.3',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		section     => 'export,postquery',
@@ -132,12 +132,12 @@ sub run {
 			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 			my $job_id    = $self->{'jobManager'}->add_job(
 				{
-					'dbase_config' => $self->{'instance'},
-					'ip_address'   => $q->remote_host,
-					'module'       => 'XmfaExport',
-					'parameters'   => $params,
-					'username'     => $self->{'username'},
-					'email'        => $user_info->{'email'}
+					dbase_config => $self->{'instance'},
+					ip_address   => $q->remote_host,
+					module       => 'XmfaExport',
+					parameters   => $params,
+					username     => $self->{'username'},
+					email        => $user_info->{'email'}
 				}
 			);
 			print <<"HTML";
@@ -216,7 +216,7 @@ sub run_job {
 	my %picked;
 	while ( my ( $locus, $scheme_id ) = $locus_sql->fetchrow_array ) {
 
-		if ( ( $scheme_id && $params->{"s_$scheme_id\_l_$locus"} ) || ( !$scheme_id && $params->{"l_$locus"} ) ) {
+		if ( ( $scheme_id && $params->{"s_$scheme_id\_l_$locus"} ) || ( $params->{"l_$locus"} ) ) {
 			push @selected_fields, $locus if !$picked{$locus};
 			$picked{$locus} = 1;
 		}

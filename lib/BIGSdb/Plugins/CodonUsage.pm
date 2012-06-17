@@ -20,6 +20,7 @@
 package BIGSdb::Plugins::CodonUsage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -125,7 +126,7 @@ sub get_attributes {
 		buttontext  => 'Codons',
 		menutext    => 'Codon usage',
 		module      => 'CodonUsage',
-		version     => '1.0.1',
+		version     => '1.0.2',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -139,7 +140,7 @@ sub get_attributes {
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 1, 'query_field' => 0 };
+	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 0 };
 	return;
 }
 
@@ -147,7 +148,7 @@ sub run {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
-	print "<h1>Codon usage analysis</h1>\n";
+	say "<h1>Codon usage analysis</h1>";
 	my $list;
 	my $qry_ref;
 	if ( $q->param('list') ) {
@@ -173,20 +174,20 @@ sub run {
 			push @fields_selected, $_ if $_ =~ /^l_/ or $_ =~ /s_\d+_l_/;
 		}
 		if ( !@fields_selected ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>No fields have been selected!</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>No fields have been selected!</p></div>";
 		} else {
 			my $params = $q->Vars;
 			( my $list = $q->param('list') ) =~ s/[\r\n]+/\|\|/g;
 			$params->{'list'} = $list;
-			my $user_info = $self->{'datastore'}->get_user_info_from_username($self->{'username'});
-			my $job_id = $self->{'jobManager'}->add_job(
+			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+			my $job_id    = $self->{'jobManager'}->add_job(
 				{
-					'dbase_config' => $self->{'instance'},
-					'ip_address'   => $q->remote_host,
-					'module'       => 'CodonUsage',
-					'parameters'   => $params,
-					'username'     => $self->{'username'},
-					'email'        => $user_info->{'email'}
+					dbase_config => $self->{'instance'},
+					ip_address   => $q->remote_host,
+					module       => 'CodonUsage',
+					parameters   => $params,
+					username     => $self->{'username'},
+					email        => $user_info->{'email'}
 				}
 			);
 			print <<"HTML";
@@ -210,9 +211,9 @@ for which the correct ORF has been set (if they are not in reading frame 1).  Pa
 bin will not be analysed. Please check the loci that you 
 would like to include.</p>
 HTML
-	my $options = { 'default_select' => 0, 'translate' => 0, 'options_heading' => 'Sequence retrieval', 'ignore_seqflags' => 1 };
+	my $options = { default_select => 0, translate => 0, options_heading => 'Sequence retrieval', ignore_seqflags => 1 };
 	$self->print_sequence_export_form( 'id', $list, undef, $options );
-	print "</div>\n";
+	say "</div>";
 	return;
 }
 
@@ -248,23 +249,27 @@ sub run_job {
 		$ignore_seqflag = 'AND flag IS NULL';
 	}
 	my $seqbin_sql =
-	  $self->{'db'}->prepare(
-"SELECT substring(sequence from allele_sequences.start_pos for allele_sequences.end_pos-allele_sequences.start_pos+1),reverse FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id LEFT JOIN sequence_flags ON allele_sequences.seqbin_id = sequence_flags.seqbin_id AND allele_sequences.locus = sequence_flags.locus AND allele_sequences.start_pos = sequence_flags.start_pos AND allele_sequences.end_pos = sequence_flags.end_pos WHERE isolate_id=? AND allele_sequences.locus=? AND complete $ignore_seqflag ORDER BY allele_sequences.datestamp LIMIT 1"
-	  );
+	  $self->{'db'}->prepare( "SELECT substring(sequence from allele_sequences.start_pos for "
+		  . "allele_sequences.end_pos-allele_sequences.start_pos+1),reverse FROM allele_sequences LEFT JOIN sequence_bin ON "
+		  . "allele_sequences.seqbin_id = sequence_bin.id LEFT JOIN sequence_flags ON allele_sequences.seqbin_id = "
+		  . "sequence_flags.seqbin_id AND allele_sequences.locus = sequence_flags.locus AND allele_sequences.start_pos = "
+		  . "sequence_flags.start_pos AND allele_sequences.end_pos = sequence_flags.end_pos WHERE isolate_id=? AND "
+		  . "allele_sequences.locus=? AND complete $ignore_seqflag ORDER BY allele_sequences.datestamp LIMIT 1" );
 	my $start = 1;
 	my $end;
 	my $no_output = 1;
 
 	#reorder loci by genome order, schemes then by name (genome order may not be set)
-	my $locus_qry =
-"SELECT id,scheme_id from loci left join scheme_members on loci.id = scheme_members.locus order by genome_position,scheme_members.scheme_id,id";
+	my $locus_qry = "SELECT id,scheme_id from loci left join scheme_members on loci.id = scheme_members.locus order by "
+	  . "genome_position,scheme_members.scheme_id,id";
 	my $locus_sql = $self->{'db'}->prepare($locus_qry);
 	eval { $locus_sql->execute };
 	$logger->error($@) if $@;
 	my @selected_fields;
 	my %picked;
 	while ( my ( $locus, $scheme_id ) = $locus_sql->fetchrow_array ) {
-		if ( ( $scheme_id && $params->{"s_$scheme_id\_l_$locus"} ) || ( !$scheme_id && $params->{"l_$locus"} ) ) {
+
+		if ( ( $scheme_id && $params->{"s_$scheme_id\_l_$locus"} ) || $params->{"l_$locus"} ) {
 			push @selected_fields, $locus if !$picked{$locus};
 			$picked{$locus} = 1;
 		}
@@ -353,7 +358,7 @@ sub run_job {
 			close $fh_cusp_in;
 			system("$self->{'config'}->{'emboss_path'}/cusp -sequence $temp_file -outfile $cusp_file -warning false 2>/dev/null");
 			if ( -e $cusp_file ) {
-				open( my $fh_cusp, '<', $cusp_file ); 
+				open( my $fh_cusp, '<', $cusp_file );
 				while (<$fh_cusp>) {
 					next if $_ =~ /^#/ || $_ eq '';
 					my ( $codon, $aa, undef, undef, $number ) = split /\s+/, $_;
@@ -415,17 +420,19 @@ sub run_job {
 	print $fh_rscu_by_locus "Locus\t@codons\n";
 	print $fh_number_by_locus "Locus\t@codons\n";
 	$progress = 0;
+	my $set_id = $self->get_set_id;
 	foreach my $locus (@selected_fields) {
+		my $display_locus = $self->clean_locus( $locus, { text_output => 1 } );
 		$no_output = 0;
-		print $fh_rscu_by_locus "$locus";
-		print $fh_number_by_locus "$locus";
+		print $fh_rscu_by_locus "$display_locus";
+		print $fh_number_by_locus "$display_locus";
 		foreach my $codon (@codons) {
 			my $aa       = $translate{$codon};
-			my $expected = $locus_aa_count->{$locus}->{$aa} / $codons_per_aa{$aa};
+			my $expected = ( $locus_aa_count->{$locus}->{$aa} // 0 ) / $codons_per_aa{$aa};
 			my $rscu     = $expected ? ( $locus_codon_count->{$locus}->{$codon} / $expected ) : 1;
 			$rscu = BIGSdb::Utils::decimal_place( $rscu, 3 );
 			print $fh_rscu_by_locus "\t$rscu";
-			print $fh_number_by_locus "\t$locus_codon_count->{$locus}->{$codon}";
+			print $fh_number_by_locus "\t" . ( $locus_codon_count->{$locus}->{$codon} // 0 );
 		}
 		print $fh_rscu_by_locus "\n";
 		print $fh_number_by_locus "\n";

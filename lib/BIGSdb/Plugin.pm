@@ -346,9 +346,9 @@ sub print_fields {
 sub print_field_export_form {
 	my ( $self, $default_select, $output_format_list, $options ) = @_;
 	my $q       = $self->{'cgi'};
-	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
 	my $set_id = $self->get_set_id;
-	my $loci    = $self->{'datastore'}->get_loci_in_no_scheme({set_id => $set_id});
+	my $schemes = $self->{'datastore'}->get_scheme_list({set_id=>$set_id});
+	my $loci    = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 	my $fields  = $self->{'xmlHandler'}->get_field_list;
 	my @display_fields;
 	my $extended = $options->{'extended_attributes'} ? $self->get_extended_attributes : undef;
@@ -411,42 +411,36 @@ sub print_field_export_form {
 		print "<h2>Schemes and loci</h2>\n";
 		$self->_print_tree(1);
 	} else {
-		my $qry    = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
-		my $cn_sql = $self->{'db'}->prepare($qry);
-		eval { $cn_sql->execute; };
-		$logger->error($@) if $@;
-		my $common_names = $cn_sql->fetchall_hashref('id');
-		foreach (@$schemes) {
-			my $scheme_members = $self->{'datastore'}->get_scheme_loci($_);
-			my $scheme_fields  = $self->{'datastore'}->get_scheme_fields($_);
-			my $scheme_info    = $self->{'datastore'}->get_scheme_info($_);
+		foreach my $scheme (@$schemes) {
+			my $scheme_id = $scheme->{'id'};
+			my $scheme_members = $self->{'datastore'}->get_scheme_loci($scheme_id);
+			my $scheme_fields  = $self->{'datastore'}->get_scheme_fields($scheme_id);
+			my $scheme_info    = $self->{'datastore'}->get_scheme_info($scheme_id);
 			if ( @$scheme_members or @$scheme_fields ) {
 				( my $heading = $scheme_info->{'description'} ) =~ s/\&/\&amp;/g;
 				print "<div class='fieldsection'>";
 				print "<h2>$heading</h2>\n";
 				my @values;
-				my $labels;
 				my ( @scheme_js, @scheme_js2 );
 				foreach my $member (@$scheme_members) {
 					my $cleaned_member = $self->clean_checkbox_id($member);
 					push @values,     "l_$member";
-					push @js,         "\$(\"#s_$_\_l_$cleaned_member\").attr(\"checked\",true)";
-					push @js2,        "\$(\"#s_$_\_l_$cleaned_member\").attr(\"checked\",false)";
-					push @scheme_js,  "\$(\"#s_$_\_l_$cleaned_member\").attr(\"checked\",true)";
-					push @scheme_js2, "\$(\"#s_$_\_l_$cleaned_member\").attr(\"checked\",false)";
-					$labels->{"l_$member"} = "$member ($common_names->{$member}->{'common_name'})"
-					  if $common_names->{$member}->{'common_name'};
+					push @js,         "\$(\"#s_$scheme_id\_l_$cleaned_member\").attr(\"checked\",true)";
+					push @js2,        "\$(\"#s_$scheme_id\_l_$cleaned_member\").attr(\"checked\",false)";
+					push @scheme_js,  "\$(\"#s_$scheme_id\_l_$cleaned_member\").attr(\"checked\",true)";
+					push @scheme_js2, "\$(\"#s_$scheme_id\_l_$cleaned_member\").attr(\"checked\",false)";
+					$labels{"l_$member"} = $self->clean_locus($member,{text_output=>1});
 				}
 				foreach my $scheme_field (@$scheme_fields) {
 					push @values,     "f_$scheme_field";
-					push @js,         "\$(\"#s_$_\_f_$scheme_field\").attr(\"checked\",true)";
-					push @js2,        "\$(\"#s_$_\_f_$scheme_field\").attr(\"checked\",false)";
-					push @scheme_js,  "\$(\"#s_$_\_f_$scheme_field\").attr(\"checked\",true)";
-					push @scheme_js2, "\$(\"#s_$_\_f_$scheme_field\").attr(\"checked\",false)";
+					push @js,         "\$(\"#s_$scheme_id\_f_$scheme_field\").attr(\"checked\",true)";
+					push @js2,        "\$(\"#s_$scheme_id\_f_$scheme_field\").attr(\"checked\",false)";
+					push @scheme_js,  "\$(\"#s_$scheme_id\_f_$scheme_field\").attr(\"checked\",true)";
+					push @scheme_js2, "\$(\"#s_$scheme_id\_f_$scheme_field\").attr(\"checked\",false)";
 				}
 				$self->_print_all_none_buttons( \@scheme_js, \@scheme_js2, 'smallbutton rightbutton' );
 				print "<input type=\"button\" value=\"Show/Hide List\" class=\"toggleLink smallbutton rightbutton\" />\n";
-				$self->print_fields( \@values, "s_$_", 10, 1, $labels, $default_select, 1 );
+				$self->print_fields( \@values, "s_$scheme_id", 10, 1, \%labels, $default_select, 1 );
 				print "</div>";
 			}
 		}
@@ -454,14 +448,14 @@ sub print_field_export_form {
 			print "<div class='fieldsection'>";
 			print "<h2>Loci not belonging to any scheme</h2>\n";
 			my ( @scheme_js, @scheme_js2 );
-			foreach (@$loci) {
-				my $cleaned = $self->clean_checkbox_id($_);
+			foreach my $locus (@$loci) {
+				my $cleaned = $self->clean_checkbox_id($locus);
 				push @js,         "\$(\"#l_$cleaned\").attr(\"checked\",true)";
 				push @js2,        "\$(\"#l_$cleaned\").attr(\"checked\",false)";
 				push @scheme_js,  "\$(\"#l_$cleaned\").attr(\"checked\",true)";
 				push @scheme_js2, "\$(\"#l_$cleaned\").attr(\"checked\",false)";
-			}
-			my %labels;
+				$labels{$locus} = $self->clean_locus($locus,{text_output=>1});
+			}			
 			$self->_print_all_none_buttons( \@scheme_js, \@scheme_js2, 'smallbutton rightbutton' );
 			print "<input type=\"button\" value=\"Show/Hide List\" class=\"toggleLink smallbutton rightbutton\" />\n";
 			$self->print_fields( $loci, 'l', 12, 0, \%labels, $default_select, 1 );
@@ -495,7 +489,8 @@ sub get_selected_fields {
 			}
 		}
 	}
-	my $loci       = $self->{'datastore'}->get_loci_in_no_scheme;
+	my $set_id     = $self->get_set_id;
+	my $loci       = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 	my $composites = $self->{'datastore'}->run_list_query("SELECT id FROM composite_fields");
 	my $schemes    = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 	my @fields_selected;
@@ -559,10 +554,8 @@ sub print_sequence_export_form {
 		print " <a class=\"tooltip\" title=\"Sequence retrieval - Peptide loci will only be retrieved from the sequence bin "
 		  . "(as nucleotide sequences).\">&nbsp;<i>i</i>&nbsp;</a>";
 		print "<br /><br />";
-		my %labels = (
-			seqbin             => 'Use sequences tagged from the bin',
-			allele_designation => 'Use allele sequence retrieved from external database'
-		);
+		my %labels =
+		  ( seqbin => 'Use sequences tagged from the bin', allele_designation => 'Use allele sequence retrieved from external database' );
 		print $q->radio_group( -name => 'chooseseq', -values => [ 'seqbin', 'allele_designation' ], -labels => \%labels,
 			-linebreak => 'true' );
 		print "<br />\n";
@@ -593,7 +586,8 @@ sub print_sequence_export_form {
 		print "</fieldset>\n";
 	}
 	print $self->get_extra_form_elements;
-	my $loci = $self->{'datastore'}->get_loci( { 'analysis_pref' => 1 } );
+	my $set_id = $self->get_set_id;
+	my $loci = $self->{'datastore'}->get_loci( { analysis_pref => 1, set_id => $set_id } );
 	if ( !$scheme_id && @$loci <= MAX_TREE_NODES ) {
 
 		#There are currently performance issues with the hierarchical Javascript tree, so don't display it once
@@ -601,21 +595,13 @@ sub print_sequence_export_form {
 		$self->_print_tree;
 	} else {
 		my ( @js, @js2 );
-		my $set_id = $self->get_set_id;
 		my $schemes;
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 			$schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 		} else {
 			push @$schemes, { id => $scheme_id };
 		}
-		my $qry    = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
-		my $cn_sql = $self->{'db'}->prepare($qry);
-		eval { $cn_sql->execute };
-		$logger->error($@) if $@;
-		my $common_names = $cn_sql->fetchall_hashref('id');
 		print "<div style=\"clear:both\">\n";
-		my $scheme_members_sql = $self->{'db'}->prepare("SELECT * FROM scheme_members WHERE scheme_id = ? AND locus = ?");
-
 		foreach my $scheme (@$schemes) {
 			$scheme_id = $scheme->{'id'};
 			next if $self->{'system'}->{'dbtype'} eq 'isolates' && !$self->{'prefs'}->{'analysis_schemes'}->{$scheme_id};
@@ -629,23 +615,13 @@ sub print_sequence_export_form {
 				my @values;
 				my $labels;
 				foreach my $member (@$scheme_members) {
-					my $member_info = {};
-					my $set_label;
-					if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-						eval { $scheme_members_sql->execute( $scheme_id, $member ) };
-						$logger->error($@) if $@;
-						$member_info = $scheme_members_sql->fetchrow_hashref;
-					} else {
-						$set_label = $self->{'datastore'}->get_set_locus_label( $member, $set_id );
-					}
 					my $cleaned_member = $self->clean_checkbox_id($member);
 					push @values,     "l_$member";
 					push @js,         "\$(\"#s_$scheme_id\_l_$cleaned_member\").attr(\"checked\",true)";
 					push @js2,        "\$(\"#s_$scheme_id\_l_$cleaned_member\").attr(\"checked\",false)";
 					push @scheme_js,  "\$(\"#s_$scheme_id\_l_$cleaned_member\").attr(\"checked\", true)";
 					push @scheme_js2, "\$(\"#s_$scheme_id\_l_$cleaned_member\").attr(\"checked\", false)";
-					$labels->{"l_$member"} = $set_label // $member_info->{'profile_name'} // $member;
-					$labels->{"l_$member"} .= " ($common_names->{$member}->{'common_name'})" if $common_names->{$member}->{'common_name'};
+					$labels->{"l_$member"} = $self->clean_locus( $member, { text_output => 1 } );
 				}
 				if ( !$q->param('scheme_id') ) {
 					$self->_print_all_none_buttons( \@scheme_js, \@scheme_js2, 'smallbutton rightbutton' );
@@ -660,23 +636,33 @@ sub print_sequence_export_form {
 			}
 		}
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+			my $set_scheme_clause =
+			  $set_id
+			  ? "SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)"
+			  : 'SELECT DISTINCT locus FROM scheme_members';
+			my $set_clause =
+			  $set_id
+			  ? "AND (id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes "
+			  . "WHERE set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
+			  : '';
 			my $loci =
-			  $self->{'datastore'}->run_list_query( "SELECT id FROM loci WHERE id NOT IN (SELECT DISTINCT locus FROM scheme_members) "
+			  $self->{'datastore'}->run_list_query( "SELECT id FROM loci WHERE (id NOT IN ($set_scheme_clause) "
 				  . "AND (id IN (SELECT DISTINCT locus FROM allele_designations LEFT JOIN loci ON allele_designations.locus = loci.id AND "
 				  . "loci.data_type = 'DNA' AND loci.dbase_name IS NOT NULL AND loci.dbase_id_field IS NOT NULL AND loci.dbase_seq_field IS "
-				  . "NOT NULL) OR id IN (SELECT DISTINCT locus FROM allele_sequences)) ORDER BY id" );
+				  . "NOT NULL) OR id IN (SELECT DISTINCT locus FROM allele_sequences))) $set_clause ORDER BY id" );
 			if (@$loci) {
 				print "<div class='fieldsection'>";
 				print "<h2>Loci not belonging to any scheme</h2>\n";
 				my ( @scheme_js, @scheme_js2 );
-				foreach (@$loci) {
-					my $cleaned = $self->clean_checkbox_id($_);
+				my %labels;
+				foreach my $locus (@$loci) {
+					my $cleaned = $self->clean_checkbox_id($locus);
 					push @js,         "\$(\"#l_$cleaned\").attr(\"checked\",true)";
 					push @js2,        "\$(\"#l_$cleaned\").attr(\"checked\",false)";
 					push @scheme_js,  "\$(\"#l_$cleaned\").attr(\"checked\",true)";
 					push @scheme_js2, "\$(\"#l_$cleaned\").attr(\"checked\",false)";
+					$labels{$locus} = $self->clean_locus( $locus, { text_output => 1 } );
 				}
-				my %labels;
 				$self->_print_all_none_buttons( \@scheme_js, \@scheme_js2, 'smallbutton rightbutton' );
 				print "<input type=\"button\" value=\"Show/Hide List\" class=\"toggleLink smallbutton rightbutton\" />\n";
 				$self->print_fields( $loci, 'l', 12, 0, \%labels, $options->{'default_select'}, 1 );
@@ -698,10 +684,10 @@ sub print_sequence_export_form {
 sub _print_tree {
 	my ( $self, $include_scheme_fields ) = @_;
 	print "<p style=\"clear:both\">Click within the tree to select loci belonging to schemes or groups of schemes.</p>"
-	. "<p>If the tree is slow to update, you can try modifying your locus and 	scheme preferences by setting 'analysis' "
-	. "to false for any <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;"
-	. "table=schemes\">schemes</a> or <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;"
-	, "table=loci\">loci</a> for which you do not plan to use in analysis tools.</p>\n";
+	  . "<p>If the tree is slow to update, you can try modifying your locus and 	scheme preferences by setting 'analysis' "
+	  . "to false for any <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;"
+	  . "table=schemes\">schemes</a> or <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;",
+	  "table=loci\">loci</a> for which you do not plan to use in analysis tools.</p>\n";
 	print "<noscript><p class=\"highlight\">Javascript needs to be enabled.</p></noscript>\n";
 	print "<div id=\"tree\" class=\"tree\">\n";
 	my $set_id = $self->get_set_id;

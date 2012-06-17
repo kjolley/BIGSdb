@@ -20,6 +20,7 @@
 package BIGSdb::Plugins::Export;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -38,7 +39,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.1.0',
+		version     => '1.1.1',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/export_isolates.shtml',
@@ -71,7 +72,7 @@ sub run {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
-	print "<h1>Export dataset</h1>\n";
+	say "<h1>Export dataset</h1>";
 	if ( $q->param('submit') ) {
 		my $selected_fields = $self->get_selected_fields;
 		if ( !@$selected_fields ) {
@@ -82,8 +83,8 @@ sub run {
 			my $qry_ref    = $self->get_query($query_file);
 			return if ref $qry_ref ne 'SCALAR';
 			my $view = $self->{'system'}->{'view'};
-			print "<div class=\"box\" id=\"resultstable\">";
-			print "<p>Please wait for processing to finish (do not refresh page).</p>\n";
+			say "<div class=\"box\" id=\"resultstable\">";
+			say "<p>Please wait for processing to finish (do not refresh page).</p>";
 			print "<p>Output file being generated ...";
 			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
 			return if !$self->create_temp_tables($qry_ref);
@@ -93,9 +94,9 @@ sub run {
 			$$qry_ref =~ s/SELECT ($view\.\*|\*)/SELECT $field_string/;
 			$self->rewrite_query_ref_order_by($qry_ref);
 			$self->_write_tab_text( $qry_ref, $selected_fields, $full_path );
-			print " done</p>";
-			print "<p><a href=\"/tmp/$filename\">Output file</a> (right-click to save)</p>\n";
-			print "</div>\n";
+			say " done</p>";
+			say "<p><a href=\"/tmp/$filename\">Output file</a> (right-click to save)</p>";
+			say "</div>";
 			return;
 		}
 	}
@@ -107,12 +108,12 @@ HTML
 	foreach (qw (shtml html)) {
 		my $policy = "$ENV{'DOCUMENT_ROOT'}$self->{'system'}->{'webroot'}/policy.$_";
 		if ( -e $policy ) {
-			print
-"<p>Use of exported data is subject to the terms of the <a href='$self->{'system'}->{'webroot'}/policy.$_'>policy document</a>!</p>";
+			say "<p>Use of exported data is subject to the terms of the <a href='$self->{'system'}->{'webroot'}/policy.$_'>"
+			  . "policy document</a>!</p>";
 			last;
 		}
 	}
-	$self->print_field_export_form( 1, [], { 'include_composites' => 1, 'extended_attributes' => 1 } );
+	$self->print_field_export_form( 1, [], { include_composites => 1, extended_attributes => 1 } );
 	print "</div>\n";
 	return;
 }
@@ -122,6 +123,7 @@ sub _write_tab_text {
 	my $guid = $self->get_guid;
 	my %prefs;
 	my %default_prefs = ( alleles => 1, molwt => 0, met => 1, oneline => 0, labelfield => 0, info => 0 );
+	my $set_id = $self->get_set_id;
 	foreach (qw (alleles molwt met oneline labelfield info)) {
 		try {
 			$prefs{$_} = $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'Export', $_ );
@@ -144,7 +146,7 @@ sub _write_tab_text {
 		foreach (@$fields) {
 			my $field = $_;
 			if ( $field =~ /^s_(\d+)_f/ ) {
-				my $scheme_info = $self->{'datastore'}->get_scheme_info($1);
+				my $scheme_info = $self->{'datastore'}->get_scheme_info( $1, { set_id => $set_id } );
 				$field .= " ($scheme_info->{'description'})"
 				  if $scheme_info->{'description'};
 				$schemes{$1} = 1;
@@ -153,6 +155,7 @@ sub _write_tab_text {
 			$field =~ s/^(s_\d+_l|s_\d+_f|f|l|c)_//g;    #strip off prefix for header row
 			$field =~ s/___/../;
 			if ($is_locus) {
+				$field = $self->clean_locus( $field, { text_output => 1 } );
 				if ( $prefs{'alleles'} ) {
 					print $fh "\t" if !$first;
 					print $fh $field;
@@ -195,7 +198,9 @@ sub _write_tab_text {
 	my $alias_sql = $self->{'db'}->prepare("SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias");
 	my $attribute_sql =
 	  $self->{'db'}->prepare("SELECT value FROM isolate_value_extended_attributes WHERE isolate_field=? AND attribute=? AND field_value=?");
-	my $allele_sql = $self->{'db'}->prepare("SELECT allele_designations.datestamp AS des_datestamp,first_name,surname FROM allele_designations LEFT JOIN users ON allele_designations.curator = users.id WHERE isolate_id=? AND locus=?");
+	my $allele_sql =
+	  $self->{'db'}->prepare( "SELECT allele_designations.datestamp AS des_datestamp,first_name,surname FROM "
+		  . "allele_designations LEFT JOIN users ON allele_designations.curator = users.id WHERE isolate_id=? AND locus=?" );
 	local $| = 1;
 
 	while ( $sql->fetchrow_arrayref ) {
@@ -208,11 +213,10 @@ sub _write_tab_text {
 		my $first      = 1;
 		my $allele_ids = $self->{'datastore'}->get_all_allele_ids( $data{'id'} );
 		my $scheme_field_values;
-
 		foreach (@$fields) {
 			if ( $prefs{'oneline'} ) {
 				print $fh "$data{'id'}\t";
-				print $fh "$data{$self->{'system'}->{'labelfield'}}\t" if $prefs{'labelfield'};				
+				print $fh "$data{$self->{'system'}->{'labelfield'}}\t" if $prefs{'labelfield'};
 			}
 			if ( $_ =~ /^f_(.*)/ ) {
 				my $field = $1;
@@ -259,17 +263,17 @@ sub _write_tab_text {
 					if ( $prefs{'oneline'} ) {
 						print $fh "$locus\t";
 						print $fh $allele_ids->{$locus} if defined $allele_ids->{$locus};
-						if ($prefs{'info'}){
-							eval { $allele_sql->execute($data{'id'},$locus)};
+						if ( $prefs{'info'} ) {
+							eval { $allele_sql->execute( $data{'id'}, $locus ) };
 							$logger->error($@) if $@;
 							my $allele_info = $allele_sql->fetchrow_hashref;
-							if (defined $allele_info){
+							if ( defined $allele_info ) {
 								print $fh "\t$allele_info->{'first_name'} $allele_info->{'surname'}\t";
 								print $fh "$allele_info->{'des_datestamp'}\t";
 								print $fh $allele_info->{'comments'} if defined $allele_info->{'comments'};
 							}
 						}
-						print $fh "\n";						
+						print $fh "\n";
 					} else {
 						print $fh "\t" if !$first;
 						print $fh $allele_ids->{$locus} if defined $allele_ids->{$locus};
@@ -277,9 +281,9 @@ sub _write_tab_text {
 				}
 				if ( $prefs{'molwt'} ) {
 					if ( $prefs{'oneline'} ) {
-						if ($prefs{'alleles'}){
+						if ( $prefs{'alleles'} ) {
 							print $fh "$data{'id'}\t";
-							print $fh "$data{$self->{'system'}->{'labelfield'}}\t" if $prefs{'labelfield'};			
+							print $fh "$data{$self->{'system'}->{'labelfield'}}\t" if $prefs{'labelfield'};
 						}
 						print $fh "$locus MolWt\t";
 						print $fh $self->_get_molwt( $locus, $allele_ids->{$locus}, $prefs{'met'} );
@@ -290,10 +294,10 @@ sub _write_tab_text {
 					}
 				}
 			} elsif ( $_ =~ /^s_(\d+)_f_(.*)/ ) {
-				my $scheme_id    = $1;
-				my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+				my $scheme_id            = $1;
+				my $scheme_info          = $self->{'datastore'}->get_scheme_info($scheme_id);
 				my $display_scheme_field = $2;
-				my $scheme_field = lc($display_scheme_field);
+				my $scheme_field         = lc($display_scheme_field);
 				if ( ref $scheme_field_values->{$1} ne 'HASH' ) {
 					$scheme_field_values->{$scheme_id} =
 					  $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $data{'id'}, $scheme_id );
