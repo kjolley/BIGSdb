@@ -184,6 +184,7 @@ sub _run_query {
 					$self->_output_single_query_nonexact_mismatched($data_ref);
 					$blast_file =~ s/_outfile.txt//;
 					system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$blast_file*";
+					say "</div>";
 					return;
 				}
 			}
