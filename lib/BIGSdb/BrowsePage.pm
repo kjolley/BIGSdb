@@ -54,7 +54,7 @@ sub print_content {
 		} elsif ( !BIGSdb::Utils::is_int($scheme_id) ) {
 			print "<div class=\"box\" id=\"statusbad\"><p>Scheme id must be an integer.</p></div>\n";
 			return;
-		} elsif ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+		} elsif ($set_id) {
 			if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
 				print "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is unavailable.</p></div>\n";
 				return;

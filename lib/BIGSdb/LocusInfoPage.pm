@@ -37,17 +37,15 @@ sub print_content {
 	my $q      = $self->{'cgi'};
 	my $locus  = $q->param('locus');
 	$locus =~ s/%27/'/g;    #Web-escaped locus
+	my $set_id = $self->get_set_id;
 	if ( !$self->{'datastore'}->is_locus($locus) ) {
 		print "<h1>Locus information</h1>\n";
 		print "<div class=\"box\" id=\"statusbad\"><p>Invalid locus selected.</p></div>\n";
 		return;
-	} elsif ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
-		my $set_id = $self->get_set_id;
-		if ( $set_id && BIGSdb::Utils::is_int($set_id) && !$self->{'datastore'}->is_locus_in_set( $locus, $set_id )) {
-			print "<h1>Locus information</h1>\n";
-			print "<div class=\"box\" id=\"statusbad\"><p>The selected locus is unavailable.</p></div>\n";
-			return;			
-		}
+	} elsif ( $set_id && !$self->{'datastore'}->is_locus_in_set( $locus, $set_id )) {
+		print "<h1>Locus information</h1>\n";
+		print "<div class=\"box\" id=\"statusbad\"><p>The selected locus is unavailable.</p></div>\n";
+		return;			
 	}
 	my $locus_info    = $self->{'datastore'}->get_locus_info($locus);
 	my $cleaned_locus = $self->clean_locus($locus);

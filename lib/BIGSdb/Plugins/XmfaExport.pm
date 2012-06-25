@@ -189,7 +189,7 @@ sub run_job {
 			$params->{'flanking'} = BIGSdb::Utils::round_to_nearest( $params->{'flanking'}, 3 );
 		}
 		$substring_query = "substring(sequence from allele_sequences.start_pos-$params->{'flanking'} for "
-		. "allele_sequences.end_pos-allele_sequences.start_pos+1+2*$params->{'flanking'})";
+		  . "allele_sequences.end_pos-allele_sequences.start_pos+1+2*$params->{'flanking'})";
 	} else {
 		$substring_query = "substring(sequence from allele_sequences.start_pos for allele_sequences.end_pos-allele_sequences.start_pos+1)";
 	}
@@ -208,7 +208,7 @@ sub run_job {
 
 	#reorder loci by genome order, schemes then by name (genome order may not be set)
 	my $locus_qry = "SELECT id,scheme_id from loci left join scheme_members on loci.id = scheme_members.locus "
-	. "order by genome_position,scheme_members.scheme_id,id";
+	  . "order by genome_position,scheme_members.scheme_id,id";
 	my $locus_sql = $self->{'db'}->prepare($locus_qry);
 	eval { $locus_sql->execute };
 	$logger->error($@) if $@;
@@ -339,13 +339,12 @@ sub run_job {
 		close $fh_muscle;
 		system( $self->{'config'}->{'muscle_path'}, '-in', $temp_file, '-out', $muscle_file, '-quiet' );
 		my $output_locus_name = $locus_name;
-		if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
-			my $set_id = $self->get_set_id;
-			if ( $set_id && BIGSdb::Utils::is_int($set_id) ) {
-				my $set_name = $self->{'datastore'}->run_simple_query_hashref("SELECT * FROM set_loci WHERE set_id=? AND locus=?", $set_id, $locus_name);
-				$output_locus_name = $set_name->{'set_name'} // $locus_name;
-				$output_locus_name =~ tr/ /_/;
-			}
+		my $set_id            = $self->get_set_id;
+		if ($set_id) {
+			my $set_name =
+			  $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM set_loci WHERE set_id=? AND locus=?", $set_id, $locus_name );
+			$output_locus_name = $set_name->{'set_name'} // $locus_name;
+			$output_locus_name =~ tr/ /_/;
 		}
 		if ( -e $muscle_file ) {
 			$no_output = 0;
@@ -355,7 +354,7 @@ sub run_job {
 				$end = $start + $length - 1;
 				print $fh '>' . $seq->id . ":$start-$end + $output_locus_name\n";
 				my $sequence = BIGSdb::Utils::break_line( $seq->seq, 60 );
-				$sequence =~ s/N/-/g if $no_seq{$seq->id};
+				$sequence =~ s/N/-/g if $no_seq{ $seq->id };
 				print $fh "$sequence\n";
 			}
 			$start = $end + 1;

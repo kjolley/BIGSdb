@@ -181,19 +181,9 @@ sub create_record_table {
 					if ( $att->{'foreign_key'} eq 'users' ) {
 						$qry    = "SELECT id FROM users WHERE id>0 ORDER BY @fields_to_query";
 						$values = $self->{'datastore'}->run_list_query($qry);
-					} elsif ( $att->{'foreign_key'} eq 'loci'
-						&& $table ne 'set_loci'
-						&& ( $self->{'system'}->{'sets'} // '' ) eq 'yes'
-						&& $set_id
-						&& BIGSdb::Utils::is_int($set_id) )
-					{
+					} elsif ( $att->{'foreign_key'} eq 'loci' && $table ne 'set_loci' && $set_id ) {
 						( $values, $desc ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, no_list_by_common_name => 1 } );
-					} elsif ( $att->{'foreign_key'} eq 'schemes'
-						&& $table ne 'set_schemes'
-						&& ( $self->{'system'}->{'sets'} // '' ) eq 'yes'
-						&& $set_id
-						&& BIGSdb::Utils::is_int($set_id) )
-					{
+					} elsif ( $att->{'foreign_key'} eq 'schemes' && $table ne 'set_schemes' && $set_id){
 						my $scheme_list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 						push @$values, $_->{'id'} foreach @$scheme_list;
 					} else {
@@ -714,7 +704,7 @@ sub _is_field_bad_isolates {
 	if ( $fieldname eq 'curator' && $value ne $self->get_curator_id ) {
 		return "must be set to the currently logged in curator id (" . $self->get_curator_id . ").";
 	}
-	
+
 	#Make sure int fields really are integers
 	if ( $thisfield{'type'} eq 'int' && !BIGSdb::Utils::is_int($value) ) {
 		return 'must be an integer';
@@ -832,7 +822,7 @@ sub _is_field_bad_other {
 	if ( $fieldname eq 'curator' && $value ne $self->get_curator_id ) {
 		return "must be set to the currently logged in curator id (" . $self->get_curator_id . ").";
 	}
-	
+
 	#Make sure int fields really are integers
 	if ( $thisfield->{'type'} eq 'int' && !BIGSdb::Utils::is_int($value) ) {
 		return 'must be an integer';

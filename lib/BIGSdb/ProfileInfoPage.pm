@@ -41,7 +41,7 @@ sub print_content {
 		return;
 	}
 	my $set_id = $self->get_set_id;
-	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+	if ($set_id) {
 		if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
 			print "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is unavailable.</p></div>\n";
 			return;

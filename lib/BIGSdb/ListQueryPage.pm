@@ -55,7 +55,7 @@ sub print_content {
 		} elsif ( !BIGSdb::Utils::is_int($scheme_id) ) {
 			print "<div class=\"box\" id=\"statusbad\">Scheme id must be an integer.</p></div>\n";
 			return;
-		} elsif ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+		} elsif ($set_id) {
 			if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
 				print "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is unavailable.</p></div>\n";
 				return;
@@ -132,7 +132,7 @@ sub _print_query_interface {
 			$labels->{"l_$locus"} = $locus;
 			$labels->{"l_$locus"} .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
 			my $set_id = $self->get_set_id;
-			if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+			if ($set_id) {
 				my $set_cleaned = $self->{'datastore'}->get_set_locus_label($locus, $set_id);
 				$labels->{"l_$locus"} = $set_cleaned if $set_cleaned;
 			}

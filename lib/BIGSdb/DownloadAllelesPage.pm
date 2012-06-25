@@ -81,12 +81,8 @@ sub _print_child_group_scheme_tables {
 
 sub _print_group_scheme_tables {
 	my ( $self, $id, $scheme_shown ) = @_;
-	my $set_id     = $self->get_set_id;
-	my $set_clause = '';
-	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
-		$set_clause = " AND scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)"
-		  if $set_id && BIGSdb::Utils::is_int($set_id);
-	}
+	my $set_id = $self->get_set_id;
+	my $set_clause = $set_id ? " AND scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : '';
 	my $qry =
 "SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON schemes.id=scheme_id WHERE group_id=? $set_clause ORDER BY display_order";
 	my $schemes = $self->{'datastore'}->run_list_query( $qry, $id );
@@ -116,15 +112,10 @@ sub print_content {
 		my $locus = $q->param('locus');
 		$locus =~ s/%27/'/g;    #Web-escaped locus
 		if ( $self->{'datastore'}->is_locus($locus) ) {
-			if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
-				my $set_id = $self->get_set_id;
-				if ( $set_id && BIGSdb::Utils::is_int($set_id) ) {
-					if ( !$self->{'datastore'}->is_locus_in_set( $locus, $set_id ) ) {
-						say "$locus is not available";
-						return;
-					}
-				} else {
-					say "Set id must be an integer.";
+			my $set_id = $self->get_set_id;
+			if ($set_id) {
+				if ( !$self->{'datastore'}->is_locus_in_set( $locus, $set_id ) ) {
+					say "$locus is not available";
 					return;
 				}
 			}
@@ -148,11 +139,7 @@ sub print_content {
 				$self->_print_scheme_table( $scheme->{'id'}, $scheme->{'description'} );
 			}
 			$self->_print_scheme_table( 0, 'Other loci' );
-		} elsif ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
-			if ( !BIGSdb::Utils::is_int($set_id) ) {
-				$logger->warn("Set id must be an integer.");
-				return;
-			}
+		} elsif ($set_id) {
 			if ( $scheme_id && !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
 				$logger->warn("Scheme $scheme_id is not available.");
 				return;
@@ -170,13 +157,9 @@ sub print_content {
 		}
 		my $scheme_ids;
 		if ( $group_id == 0 ) {
-			my $set_clause = '';
-			if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
-				$set_clause = " AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)"
-				  if $set_id && BIGSdb::Utils::is_int($set_id);
-			}
-			my $qry =
-"SELECT id FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) $set_clause ORDER BY display_order";
+			my $set_clause = $set_id ? " AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : '';
+			my $qry = "SELECT id FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) "
+			  . "$set_clause ORDER BY display_order";
 			$scheme_ids = $self->{'datastore'}->run_list_query($qry);
 			foreach my $scheme_id (@$scheme_ids) {
 				my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
@@ -487,16 +470,14 @@ sub _print_alphabetical_list {
 
 sub _get_loci_by_letter {
 	my ( $self, $letter ) = @_;
-	my $set_clause = '';
-	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
-		my $set_id = $self->get_set_id;
-		if ( $set_id && BIGSdb::Utils::is_int($set_id) ) {
+	my $set_id = $self->get_set_id;
 
-			#make sure 'id IN' has a space before it - used in the substitution a few lines on (also matches scheme_id otherwise).
-			$set_clause = "AND ( id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
-			  . "set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))";
-		}
-	}
+	#make sure 'id IN' has a space before it - used in the substitution a few lines on (also matches scheme_id otherwise).
+	my $set_clause =
+	  $set_id
+	  ? "AND ( id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
+	  . "set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
+	  : '';
 	my $main = $self->{'datastore'}->run_list_query("SELECT id FROM loci WHERE UPPER(id) LIKE E'$letter%' $set_clause");
 	my $common =
 	  $self->{'datastore'}->run_list_query_hashref("SELECT id,common_name FROM loci WHERE UPPER(common_name) LIKE E'$letter%' $set_clause");

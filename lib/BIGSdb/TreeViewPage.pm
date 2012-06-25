@@ -108,12 +108,7 @@ sub get_tree {
 	  $self->{'datastore'}->run_list_query(
 		"SELECT id FROM scheme_groups WHERE id NOT IN (SELECT group_id FROM scheme_group_group_members) ORDER BY display_order,name");
 	my $set_id     = $self->get_set_id;
-	my $set_clause = '';
-
-	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
-		$set_clause = " AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)"
-		  if $set_id && BIGSdb::Utils::is_int($set_id);
-	}
+	my $set_clause = $set_id ? " AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : '';
 	my $schemes_not_in_group =
 	  $self->{'datastore'}->run_list_query_hashref(
 "SELECT id,description FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) $set_clause ORDER BY display_order,description"
@@ -207,11 +202,7 @@ sub _get_group_schemes {
 	my $q = $self->{'cgi'};
 	my $buffer;
 	my $set_id     = $self->get_set_id;
-	my $set_clause = '';
-	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
-		$set_clause = " AND scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)"
-		  if $set_id && BIGSdb::Utils::is_int($set_id);
-	}
+	my $set_clause = $set_id ? " AND scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : '';
 	my $schemes = $self->{'datastore'}->run_list_query(
 		"SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON schemes.id=scheme_id WHERE group_id=? "
 		  . "$set_clause ORDER BY display_order,description",

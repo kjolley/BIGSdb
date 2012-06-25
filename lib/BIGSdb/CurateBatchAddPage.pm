@@ -196,7 +196,7 @@ sub _print_interface_locus_selection {
 	my $q      = $self->{'cgi'};
 	my $set_id = $self->get_set_id;
 	my $qry    = "SELECT DISTINCT locus FROM locus_extended_attributes ";
-	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+	if ($set_id) {
 		$qry .= "WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
 		  . "set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id) ";
 	}

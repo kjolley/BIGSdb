@@ -393,14 +393,14 @@ sub get_field_selection_list {
 			);
 			my $set_sql;
 
-			if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+			if ($set_id) {
 				$set_sql = $self->{'db'}->prepare("SELECT * FROM set_loci WHERE set_id=? AND locus=?");
 			}
 			foreach my $locus (@$loci) {
 				push @locus_list, "l_$locus";
 				$self->{'cache'}->{'labels'}->{"l_$locus"} = $locus;
 				my $set_name_is_set;
-				if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+				if ($set_id) {
 					eval { $set_sql->execute( $set_id, $locus ) };
 					$logger->error($@) if $@;
 					my $set_locus = $set_sql->fetchrow_hashref;
@@ -509,7 +509,7 @@ sub _get_scheme_fields {
 		my $scheme_fields = $self->{'datastore'}->get_all_scheme_fields;
 		my $scheme_info   = $self->{'datastore'}->get_all_scheme_info;
 		my $set_sql;
-		if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+		if ($set_id) {
 			$set_sql = $self->{'db'}->prepare("SELECT set_name FROM set_schemes WHERE set_id=? AND scheme_id=?");
 		}
 		foreach my $scheme (@$schemes) {
@@ -520,7 +520,7 @@ sub _get_scheme_fields {
 			if ( $self->{'prefs'}->{'query_field_schemes'}->{$scheme_id} && $scheme_db ) {
 				foreach my $field ( @{ $scheme_fields->{$scheme_id} } ) {
 					if ( $self->{'prefs'}->{'query_field_scheme_fields'}->{$scheme_id}->{$field} ) {
-						if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+						if ($set_id) {
 							eval { $set_sql->execute( $set_id, $scheme_id ) };
 							$logger->error($@) if $@;
 							my ($set_name) = $set_sql->fetchrow_array;
@@ -554,7 +554,7 @@ sub print_file {
 	if ( $self->{'curate'} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		if ( $self->is_admin ) {
 			my $qry = "SELECT id FROM loci";
-			if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+			if ($set_id) {
 				$qry .= " WHERE id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
 				  . "set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id)";
 			}
@@ -789,21 +789,19 @@ sub clean_locus {
 	return if !defined $locus;
 	$options = {} if ref $options ne 'HASH';
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
-		my $set_id = $self->get_set_id;
-		if ( $set_id && BIGSdb::Utils::is_int($set_id) ) {
-			my $set_locus =
-			  $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM set_loci WHERE set_id=? AND locus=?", $set_id, $locus );
-			if ( $set_locus->{'set_name'} ) {
-				$locus = $set_locus->{'set_name'};
-				$locus .= " ($set_locus->{'set_common_name'})" if $set_locus->{'set_common_name'};
-			}
+	my $set_id     = $self->get_set_id;
+	if ($set_id) {
+		my $set_locus =
+		  $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM set_loci WHERE set_id=? AND locus=?", $set_id, $locus );
+		if ( $set_locus->{'set_name'} ) {
+			$locus = $set_locus->{'set_name'};
+			$locus .= " ($set_locus->{'set_common_name'})" if $set_locus->{'set_common_name'};
 		}
 	} else {
 		$locus =~ s/^_//;    #locus names can't begin with a digit, so people can use an underscore, but this looks untidy in the interface.
 		$locus .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
 	}
-	if ( !$options->{'text_output'} && ($self->{'system'}->{'locus_superscript_prefix'} // '') eq 'yes' ) {
+	if ( !$options->{'text_output'} && ( $self->{'system'}->{'locus_superscript_prefix'} // '' ) eq 'yes' ) {
 		$locus =~ s/^([A-Za-z]{1,3})_/<sup>$1<\/sup>/;
 	}
 	return $locus;
@@ -811,7 +809,7 @@ sub clean_locus {
 
 sub get_set_id {
 	my ($self) = @_;
-	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes'  ) {
+	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
 		my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
 		return $set_id if $set_id && BIGSdb::Utils::is_int($set_id);
 	}
@@ -821,12 +819,10 @@ sub get_set_id {
 sub get_db_description {
 	my ($self) = @_;
 	my $desc;
-	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
-		my $set_id = $self->get_set_id;
-		if ( BIGSdb::Utils::is_int($set_id) ) {
-			my $desc_ref = $self->{'datastore'}->run_simple_query( "SELECT description FROM sets WHERE id=?", $set_id );
-			$desc = $desc_ref->[0] if ref $desc_ref eq 'ARRAY';
-		}
+	my $set_id = $self->get_set_id;
+	if ($set_id) {
+		my $desc_ref = $self->{'datastore'}->run_simple_query( "SELECT description FROM sets WHERE id=?", $set_id );
+		$desc = $desc_ref->[0] if ref $desc_ref eq 'ARRAY';
 	}
 	$desc = $self->{'system'}->{'description'} if !defined $desc;
 	$desc =~ s/\&/\&amp;/g;

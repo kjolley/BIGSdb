@@ -79,7 +79,7 @@ sub _print_interface {
 		print "<fieldset><legend>Select $table_data->{'plural'}</legend>\n";
 		my $set_clause = '';
 		my $set_id     = $self->get_set_id;
-		if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+		if ($set_id) {
 			given ($table) {
 				when ('locus_curators') {
 					#make sure 'id IN' has a space before it - used in the substitution a few lines on (also matches scheme_id otherwise).

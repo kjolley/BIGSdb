@@ -356,14 +356,12 @@ sub get_title {
 
 sub _get_allele_count {
 	my ($self) = @_;
-	my $set_clause = '';
-	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
-		my $set_id = $self->get_set_id;
-		$set_clause =
-		    " WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
-		  . "set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id)"
-		  if $set_id && BIGSdb::Utils::is_int($set_id);
-	}
+	my $set_id = $self->get_set_id;
+	my $set_clause =
+	  $set_id
+	  ? " WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
+	  . "set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id)"
+	  : '';
 	return $self->{'datastore'}->run_simple_query("SELECT COUNT (*) FROM sequences$set_clause")->[0];
 }
 
@@ -371,7 +369,7 @@ sub _are_loci_defined {
 	my ($self) = @_;
 	my $qry;
 	my $set_id = $self->get_set_id;
-	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+	if ($set_id) {
 		$qry =
 		    "SELECT EXISTS(SELECT loci.id FROM loci LEFT JOIN set_loci ON loci.id = set_loci.locus "
 		  . "WHERE id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "

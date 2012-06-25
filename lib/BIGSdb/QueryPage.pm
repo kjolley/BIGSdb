@@ -617,7 +617,7 @@ sub _get_profile_select_items {
 		$cleaned{$locus} = $locus;
 		$cleaned{$locus} .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
 		my $set_id = $self->get_set_id;
-		if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+		if ($set_id) {
 			my $set_cleaned = $self->{'datastore'}->get_set_locus_label( $locus, $set_id );
 			$cleaned{$locus} = $set_cleaned if $set_cleaned;
 		}
@@ -673,7 +673,7 @@ sub _print_profile_query_interface {
 		print "<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  "
 		  . "Profile querying can not be done until this has been set.</p></div>\n";
 		return;
-	} elsif ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+	} elsif ($set_id) {
 		if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
 			print "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is unavailable.</p></div>\n";
 			return;

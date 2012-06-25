@@ -40,7 +40,7 @@ sub print_content {
 	} elsif ( !$self->can_modify_table('profiles') ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to add new profiles.</p></div>\n";
 		return;
-	} elsif ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $set_id && BIGSdb::Utils::is_int($set_id) ) {
+	} elsif ($set_id) {
 		if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
 			print "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is inaccessible.</p></div>\n";
 			return;

@@ -495,11 +495,7 @@ sub _print_profiles {
 	}
 	my $buffer;
 	foreach my $scheme_id (@$schemes) {
-		next
-		  if ( $self->{'system'}->{'sets'} // '' ) eq 'yes'
-		  && $set_id
-		  && BIGSdb::Utils::is_int($set_id)
-		  && !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id );
+		next if $set_id && !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id );
 		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 		( my $clean_desc = $scheme_info->{'description'} ) =~ s/\&/\&amp;/g;
 		$buffer .= <<"HTML";
@@ -546,10 +542,10 @@ HTML
 
 sub _print_profile_refs {
 	my ( $self, $td ) = @_;
-	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
-		my $set_id = $self->get_set_id;
+	my $set_id = $self->get_set_id;
+	if ($set_id) {		
 		my $schemes_in_set = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM set_schemes WHERE set_id=?", $set_id )->[0];
-		return if $set_id && BIGSdb::Utils::is_int($set_id) && !$schemes_in_set;
+		return !$schemes_in_set;
 	} else {
 		my $scheme_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM schemes")->[0];
 		return if !$scheme_count;

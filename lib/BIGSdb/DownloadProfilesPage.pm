@@ -35,22 +35,17 @@ sub print_content {
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
+	my $set_id = $self->get_set_id;
 	if ( !$scheme_id ) {
 		say "No scheme id passed.";
 		return;
 	} elsif ( !BIGSdb::Utils::is_int($scheme_id) ) {
 		say "Scheme id must be an integer.";
 		return;
-	} elsif ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
-		my $set_id = $self->get_set_id;
-		if ( $set_id && !BIGSdb::Utils::is_int($set_id) ) {
-			say "Set id must be an integer.";
-			return;
-		}
-		if ( $set_id && !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
+	} elsif ( $set_id && !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
 			say "Scheme $scheme_id is not available.";
 			return;
-		}
+		
 	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 	if ( !$scheme_info ) {
