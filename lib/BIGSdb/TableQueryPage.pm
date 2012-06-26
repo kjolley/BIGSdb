@@ -603,18 +603,22 @@ sub _process_allele_sequences_filters {
 	my ( $self, $qry ) = @_;
 	my $q = $self->{'cgi'};
 	my $qry2;
+	my @conditions;
 	if ( any { $q->param($_) ne '' } qw (sequence_flag_list duplicates_list scheme_id_list) ) {
 		if ( $q->param('sequence_flag_list') ne '' ) {
 			if ( $q->param('sequence_flag_list') eq 'no flag' ) {
 				$qry2 =
-"SELECT * FROM allele_sequences LEFT JOIN sequence_flags ON sequence_flags.seqbin_id = allele_sequences.seqbin_id AND sequence_flags.locus = allele_sequences.locus AND sequence_flags.start_pos = allele_sequences.start_pos AND sequence_flags.end_pos = allele_sequences.end_pos";
-				$qry2 .= " AND flag IS NULL";
+				    "SELECT * FROM allele_sequences LEFT JOIN sequence_flags ON sequence_flags.seqbin_id = "
+				  . "allele_sequences.seqbin_id AND sequence_flags.locus = allele_sequences.locus AND sequence_flags.start_pos = "
+				  . "allele_sequences.start_pos AND sequence_flags.end_pos = allele_sequences.end_pos";
+				push @conditions, 'flag IS NULL';
 			} else {
 				$qry2 =
-"SELECT * FROM allele_sequences INNER JOIN sequence_flags ON sequence_flags.seqbin_id = allele_sequences.seqbin_id AND sequence_flags.locus = allele_sequences.locus AND sequence_flags.start_pos = allele_sequences.start_pos AND sequence_flags.end_pos = allele_sequences.end_pos";
+				    "SELECT * FROM allele_sequences INNER JOIN sequence_flags ON sequence_flags.seqbin_id = "
+				  . "allele_sequences.seqbin_id AND sequence_flags.locus = allele_sequences.locus AND sequence_flags.start_pos = "
+				  . "allele_sequences.start_pos AND sequence_flags.end_pos = allele_sequences.end_pos";
 				if ( any { $q->param('sequence_flag_list') eq $_ } SEQ_FLAGS ) {
-					$qry2 .= $q->param('duplicates_list') ne '' ? ' AND ' : ' WHERE ';
-					$qry2 .= "flag = '" . $q->param('sequence_flag_list') . "'";
+					push @conditions, "flag = '" . $q->param('sequence_flag_list') . "'";
 				}
 			}
 		}
@@ -623,7 +627,10 @@ sub _process_allele_sequences_filters {
 			my $not = $match == 1 ? 'NOT' : '';
 			$match = 2 if $match == 1;    #no dups == NOT 2 or more
 			my $dup_qry =
-" LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE (allele_sequences.locus,sequence_bin.isolate_id) $not IN (SELECT allele_sequences.locus,sequence_bin.isolate_id FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id GROUP BY allele_sequences.locus,sequence_bin.isolate_id HAVING count(*)>=$match)";
+			    " LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE "
+			  . "(allele_sequences.locus,sequence_bin.isolate_id) $not IN (SELECT allele_sequences.locus,sequence_bin.isolate_id "
+			  . "FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id GROUP BY "
+			  . "allele_sequences.locus,sequence_bin.isolate_id HAVING count(*)>=$match)";
 			if ($qry2) {
 				$qry2 .= $dup_qry;
 			} else {
@@ -631,19 +638,24 @@ sub _process_allele_sequences_filters {
 			}
 		}
 		if ( $q->param('scheme_id_list') ne '' ) {
-			my $scheme_qry =
-"allele_sequences.locus IN (SELECT DISTINCT allele_sequences.locus FROM allele_sequences LEFT JOIN scheme_members ON allele_sequences.locus = scheme_members.locus WHERE scheme_id";
+			my $scheme_qry = "allele_sequences.locus IN (SELECT DISTINCT allele_sequences.locus FROM allele_sequences LEFT JOIN "
+			  . "scheme_members ON allele_sequences.locus = scheme_members.locus WHERE scheme_id";
 			if ( $q->param('scheme_id_list') eq '0' ) {
 				$scheme_qry .= " IS NULL)";
 			} else {
 				$scheme_qry .= "=" . $q->param('scheme_id_list') . ")";
 			}
 			if ($qry2) {
-				$qry2 .= $q->param('duplicates_list') ne '' ? ' AND ' : ' WHERE ';
+				$qry2 .= ( $q->param('duplicates_list') || $q->param('scheme_id_list') ) ? ' AND ' : ' WHERE ';
 				$qry2 .= "($scheme_qry)";
 			} else {
 				$qry2 = "SELECT * FROM allele_sequences WHERE ($scheme_qry)";
 			}
+		}
+		if (@conditions) {
+			local $" = ') AND (';
+			$qry2 .= $q->param('duplicates_list') ne '' ? ' AND' : ' WHERE';
+			$qry2 .= " (@conditions)";
 		}
 		if ($qry) {
 			$qry2 .= $qry =~ /WHERE/ ? ' AND ' : ' WHERE ';
