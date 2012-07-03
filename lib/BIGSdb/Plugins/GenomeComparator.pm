@@ -939,9 +939,9 @@ sub _run_comparison {
 	$self->_generate_splits( $job_id, $values, \@ignore_loci );
 	if ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $by_reference ) ) ) {
 		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align.txt", description => '30_Alignments' } )
-		  if -e $align_file;
+		  if -e $align_file && !-z $align_file;
 		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align_stats.txt", description => '31_Alignment stats' } )
-		  if -e $align_stats_file;
+		  if -e $align_stats_file && !-z $align_stats_file;
 		if ( -e "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa" ) {
 			$self->{'jobManager'}
 			  ->update_job_output( $job_id, { filename => "$job_id.xmfa", description => '35_Extracted sequences (XMFA format)' } );
