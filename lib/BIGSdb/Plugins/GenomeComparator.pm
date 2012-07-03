@@ -709,7 +709,7 @@ sub _run_comparison {
 	my ( $self, $by_reference, $job_id, $params, $ids, $cds, $html_buffer_ref, $file_buffer_ref ) = @_;
 	my $progress = 0;
 	my $total =
-	  ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $by_reference && $params->{'align_all'} ) ) ) ? ( @$cds * 2 ) : @$cds;
+	  ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $by_reference ) ) ) ? ( @$cds * 2 ) : @$cds;
 	my $seqs_total  = 0;
 	my $close_table = '</table></div>';
 	my $td          = 1;
@@ -934,7 +934,7 @@ sub _run_comparison {
 	my @ignore_loci;
 	push @ignore_loci, $_ foreach keys %{ $locus_class->{'truncated'} };
 	$self->_generate_splits( $job_id, $values, \@ignore_loci );
-	if ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $by_reference && $params->{'align_all'} ) ) ) {
+	if ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $by_reference ) ) ) {
 		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align.txt", description => '30_Alignments' } )
 		  if -e $align_file;
 		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align_stats.txt", description => '31_Alignment stats' } )
@@ -1102,8 +1102,6 @@ sub _create_alignments {
 		$escaped_locus =~ tr/ /_/;
 		my $fasta_file = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.fasta";
 		my $muscle_out = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.muscle";
-
-		#my $start         = $loci->{$locus}->{'start'};
 		my $seq_count = 0;
 		open( my $fasta_fh, '>', $fasta_file ) || $logger->error("Can't open $fasta_file for writing");
 		if ( $by_reference && $params->{'include_ref'} ) {
@@ -1165,7 +1163,7 @@ sub _run_muscle {
 	my ( $self, $values, $params ) = @_;
 	return if $values->{'seq_count'} <= 1;
 	system( $self->{'config'}->{'muscle_path'}, '-in', $values->{'fasta_file'}, '-out', $values->{'muscle_out'}, '-quiet', '-clwstrict' );
-	if ( -e $values->{'muscle_out'} && $values->{'seq_count'} > 1 ) {
+	if ( -e $values->{'muscle_out'} ) {
 		my $align = Bio::AlignIO->new( -format => 'clustalw', -file => $values->{'muscle_out'} )->next_aln;
 		my ( %id_has_seq, $seq_length );
 		open( my $fh_xmfa, '>>', $values->{'xmfa_out'} ) or $logger->error("Can't open output file $values->{'xmfa_out'} for appending");
