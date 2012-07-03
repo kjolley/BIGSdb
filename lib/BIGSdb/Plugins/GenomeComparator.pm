@@ -890,6 +890,7 @@ sub _run_comparison {
 					$locus_class->{$class}->{$locus_name}->{$id} = $seqs{$id};
 				}
 			}
+			$locus_class->{$class}->{$locus_name}->{'ref'} = $$seq_ref if $by_reference;
 			last;
 		}
 		$progress++;
