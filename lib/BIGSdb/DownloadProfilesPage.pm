@@ -67,7 +67,6 @@ sub print_content {
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	print "$primary_key";
 	my @fields = ($primary_key);
-	my $set_id = $self->get_set_id;
 	foreach my $locus (@$loci) {
 		print "\t";
 		my $locus_info   = $self->{'datastore'}->get_locus_info($locus, {set_id=>$set_id});

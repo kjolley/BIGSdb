@@ -127,8 +127,8 @@ sub run_job {
 		$self->{'jobManager'}->update_job_status(
 			$job_id,
 			{
-				'status'       => 'failed',
-				'message_html' => "<p class=\"statusbad\">You must include one or more isolates. Make "
+				status       => 'failed',
+				message_html => "<p class=\"statusbad\">You must include one or more isolates. Make "
 				  . "sure your selected isolates haven't been filtered to none by selecting a project.</p>"
 			}
 		);
@@ -138,8 +138,8 @@ sub run_job {
 		$self->{'jobManager'}->update_job_status(
 			$job_id,
 			{
-				'status'       => 'failed',
-				'message_html' => "<p class=\"statusbad\">You must either select one or more loci or schemes, "
+				status       => 'failed',
+				message_html => "<p class=\"statusbad\">You must either select one or more loci or schemes, "
 				  . "provide a genome accession number, or upload an annotated genome.</p>"
 			}
 		);
@@ -609,8 +609,10 @@ sub _add_scheme_loci {
 	my @scheme_ids = split /\|\|/, ( defined $params->{'scheme_id'} ? $params->{'scheme_id'} : '' );
 	my %locus_selected;
 	$locus_selected{$_} = 1 foreach (@$loci);
+	my $set_id = $self->get_set_id;
 	foreach (@scheme_ids) {
-		my $scheme_loci = $_ ? $self->{'datastore'}->get_scheme_loci($_) : $self->{'datastore'}->get_loci_in_no_scheme;
+		my $scheme_loci =
+		  $_ ? $self->{'datastore'}->get_scheme_loci($_) : $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 		foreach my $locus (@$scheme_loci) {
 			if ( !$locus_selected{$locus} ) {
 				push @$loci, $locus;
@@ -631,12 +633,12 @@ sub _analyse_by_reference {
 	my %att;
 	eval {
 		%att = (
-			'accession'   => $accession,
-			'version'     => $seq_obj->seq_version,
-			'type'        => $seq_obj->alphabet,
-			'length'      => $seq_obj->length,
-			'description' => $seq_obj->description,
-			'cds'         => scalar @cds
+			accession   => $accession,
+			version     => $seq_obj->seq_version,
+			type        => $seq_obj->alphabet,
+			length      => $seq_obj->length,
+			description => $seq_obj->description,
+			cds         => scalar @cds
 		);
 	};
 	if ($@) {
@@ -764,7 +766,8 @@ sub _run_comparison {
 		my $previous_seq = '';
 		my $cleaned_locus_name = $by_reference ? $locus_name : $self->clean_locus($locus_name);
 		$$html_buffer_ref .= "<tr class=\"td$td\"><td>$cleaned_locus_name</td>";
-		$$file_buffer_ref .= "$locus_name";
+		my $text_locus_name = $by_reference ? $locus_name : $self->clean_locus( $locus_name, { text_output => 1 } );
+		$$file_buffer_ref .= "$text_locus_name";
 		my %allele_seqs;
 
 		if ($by_reference) {
@@ -882,9 +885,9 @@ sub _run_comparison {
 			$locus_class->{$class}->{$locus_name}->{'length'} = length $$seq_ref if $by_reference;
 			$locus_class->{$class}->{$locus_name}->{'desc'}   = $desc;
 			$locus_class->{$class}->{$locus_name}->{'start'}  = $start;
-			if ($class eq 'varying'){
+			if ( $class eq 'varying' ) {
 				foreach my $id (@$ids) {
-					$locus_class->{$class}->{$locus_name}->{$id}   = $seqs{$id};
+					$locus_class->{$class}->{$locus_name}->{$id} = $seqs{$id};
 				}
 			}
 			last;
@@ -1097,7 +1100,7 @@ sub _create_alignments {
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Aligning $locus sequences" } );
 		$progress++;
 		my $complete = 50 + int( 100 * $progress / $total );
-		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } );
+		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete } );
 		( my $escaped_locus = $locus ) =~ s/[\/\|]/_/g;
 		$escaped_locus =~ tr/ /_/;
 		my $fasta_file = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.fasta";
@@ -1116,7 +1119,7 @@ sub _create_alignments {
 				$seq_count++;
 				print $fasta_fh ">$id\n";
 				print $fasta_fh "$loci->{$locus}->{$id}\n";
-			}		
+			}
 		}
 		close $fasta_fh;
 		if ( $params->{'align'} ) {
@@ -1151,8 +1154,9 @@ sub _run_infoalign {
 		);
 		open( my $fh_stats, '>>', $values->{'align_stats_file'} )
 		  or $logger->error("Can't open output file $values->{'align_stats_file'} for appending");
-		print $fh_stats "$values->{'locus'}\n";
-		print $fh_stats '-' x ( length $values->{'locus'} ) . "\n\n";
+		my $heading_locus = $self->clean_locus( $values->{'locus'}, { text_output => 1 } );
+		print $fh_stats "$heading_locus\n";
+		print $fh_stats '-' x ( length $heading_locus ) . "\n\n";
 		close $fh_stats;
 		BIGSdb::Utils::append( $outfile, $values->{'align_stats_file'}, { blank_after => 1 } ) if -e $outfile;
 	}
@@ -1169,9 +1173,10 @@ sub _run_muscle {
 		my $align = Bio::AlignIO->new( -format => 'clustalw', -file => $values->{'muscle_out'} )->next_aln;
 		my ( %id_has_seq, $seq_length );
 		open( my $fh_xmfa, '>>', $values->{'xmfa_out'} ) or $logger->error("Can't open output file $values->{'xmfa_out'} for appending");
+		my $locus = $self->clean_locus( $values->{'locus'}, { text_output => 1, no_common_name => 1 } );
 		foreach my $seq ( $align->each_seq ) {
 			${ $values->{'xmfa_end_ref'} } = ${ $values->{'xmfa_start_ref'} } + $seq->length - 1;
-			print $fh_xmfa '>' . $seq->id . ":${$values->{'xmfa_start_ref'}}-${$values->{'xmfa_end_ref'}} + $values->{'locus'}\n";
+			print $fh_xmfa '>' . $seq->id . ":${$values->{'xmfa_start_ref'}}-${$values->{'xmfa_end_ref'}} + $locus\n";
 			my $sequence = BIGSdb::Utils::break_line( $seq->seq, 60 );
 			print $fh_xmfa "$sequence\n";
 			$id_has_seq{ $seq->id } = 1;
@@ -1180,14 +1185,15 @@ sub _run_muscle {
 		my $missing_seq = BIGSdb::Utils::break_line( ( '-' x $seq_length ), 60 );
 		foreach my $id ( @{ $values->{'ids'} } ) {
 			next if $id_has_seq{$id};
-			print $fh_xmfa ">$id:${$values->{'xmfa_start_ref'}}-${$values->{'xmfa_end_ref'}} + $values->{'locus'}\n$missing_seq\n";
+			print $fh_xmfa ">$id:${$values->{'xmfa_start_ref'}}-${$values->{'xmfa_end_ref'}} + $locus\n$missing_seq\n";
 		}
 		print $fh_xmfa "=\n";
 		close $fh_xmfa;
 		${ $values->{'xmfa_start_ref'} } = ${ $values->{'xmfa_end_ref'} } + 1;
 		open( my $align_fh, '>>', $values->{'align_file'} ) || $logger->error("Can't open $values->{'align_file'} for appending");
-		print $align_fh "$values->{'locus'}\n";
-		print $align_fh '-' x ( length $values->{'locus'} ) . "\n\n";
+		my $heading_locus = $self->clean_locus( $values->{'locus'}, { text_output => 1 } );
+		print $align_fh "$heading_locus\n";
+		print $align_fh '-' x ( length $heading_locus ) . "\n\n";
 		close $align_fh;
 		BIGSdb::Utils::append( $values->{'muscle_out'}, $values->{'align_file'}, { blank_after => 1 } );
 		$values->{'alignment'} = $values->{'muscle_out'};
@@ -1278,7 +1284,8 @@ sub _print_locus_table {
 	foreach my $locus ( sort keys %$loci ) {
 		my $cleaned_locus = $self->clean_locus($locus);
 		$$buffer_ref .= "<tr class=\"td$td\"><td>$cleaned_locus</td>";
-		print $fh $locus;
+		my $text_locus = $self->clean_locus( $locus, { text_output => 1 } );
+		print $fh $text_locus;
 		if ($by_reference) {
 			my $length = $loci->{$locus}->{'length'};
 			my $start  = $loci->{$locus}->{'start'};
