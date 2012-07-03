@@ -1092,7 +1092,6 @@ sub _create_alignments {
 	my $xmfa_out   = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
 	my $xmfa_start = 1;
 	my $xmfa_end;
-	my $locus_list_ref;
 
 	foreach my $locus ( sort keys %$loci ) {
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Aligning $locus sequences" } );
