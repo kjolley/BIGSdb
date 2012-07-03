@@ -882,6 +882,11 @@ sub _run_comparison {
 			$locus_class->{$class}->{$locus_name}->{'length'} = length $$seq_ref if $by_reference;
 			$locus_class->{$class}->{$locus_name}->{'desc'}   = $desc;
 			$locus_class->{$class}->{$locus_name}->{'start'}  = $start;
+			if ($class eq 'varying'){
+				foreach my $id (@$ids) {
+					$locus_class->{$class}->{$locus_name}->{$id}   = $seqs{$id};
+				}
+			}
 			last;
 		}
 		$progress++;
@@ -1111,7 +1116,7 @@ sub _create_alignments {
 				$seq_count++;
 				print $fasta_fh ">$id\n";
 				print $fasta_fh "$loci->{$locus}->{$id}\n";
-			}
+			}		
 		}
 		close $fasta_fh;
 		if ( $params->{'align'} ) {

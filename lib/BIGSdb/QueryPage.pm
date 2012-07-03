@@ -1056,7 +1056,8 @@ sub _provenance_like_type_operator {
 		$buffer .= "$values->{'extended_isolate_field'} $not IN (SELECT field_value FROM isolate_value_extended_attributes "
 		  . "WHERE isolate_field='$values->{'extended_isolate_field'}' AND attribute='$values->{'field'}' AND value ILIKE E'$text')";
 	} elsif ( $values->{'field'} eq $labelfield ) {
-		$buffer .= "($not $values->{'field'} ILIKE E'$text' OR $view.id $not IN (SELECT isolate_id FROM isolate_aliases WHERE "
+		my $andor = $values->{'not'} ? 'AND' : 'OR';
+		$buffer .= "($not $values->{'field'} ILIKE E'$text' $andor $view.id $not IN (SELECT isolate_id FROM isolate_aliases WHERE "
 		  . "alias ILIKE E'$text'))";
 	} else {
 		my $null_clause = $values->{'not'} ? "OR $values->{'field'} IS NULL" : '';

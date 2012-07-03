@@ -1499,6 +1499,7 @@ sub get_table_field_attributes {
 
 	#Returns array ref of attributes for a specific table provided by table-specific helper functions in BIGSdb::TableAttributes.
 	my ( $self, $table ) = @_;
+	return if $table eq 'samples';
 	my $function   = "BIGSdb::TableAttributes::get_$table\_table_attributes";
 	my $attributes = $self->$function();
 	foreach my $att (@$attributes) {

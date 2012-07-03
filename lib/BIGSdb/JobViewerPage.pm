@@ -30,7 +30,8 @@ sub initiate {
 	my $id = $self->{'cgi'}->param('id');
 	return if !defined $id;
 	my ( $job, undef, undef ) = $self->{'jobManager'}->get_job($id);
-	return if $job->{'status'} && ($job->{'status'} eq 'finished' || $job->{'status'} eq 'failed');
+	return if !$job->{'status'};
+	return if $job->{'status'} eq 'finished' || $job->{'status'} eq 'failed';
 	my $complete = $job->{'percent_complete'};
 	my $elapsed = $job->{'elapsed'} // 0;
 	
