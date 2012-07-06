@@ -326,17 +326,24 @@ HTML
 </fieldset>
 <fieldset id="locus_fieldset" style="float:left">\n<legend>Loci</legend>
 HTML
-	print $q->scrolling_list(
-		-name     => 'locus',
-		-id       => 'locus',
-		-values   => $locus_list,
-		-labels   => $locus_labels,
-		-size     => 8,
-		-multiple => 'true'
-	);
-	print <<"HTML";
+
+	if (@$locus_list) {
+		print $q->scrolling_list(
+			-name     => 'locus',
+			-id       => 'locus',
+			-values   => $locus_list,
+			-labels   => $locus_labels,
+			-size     => 8,
+			-multiple => 'true'
+		);
+		print <<"HTML";
 <div style="text-align:center"><input type="button" onclick='listbox_selectall("locus",true)' value="All" style="margin-top:1em" class="smallbutton" />
 <input type="button" onclick='listbox_selectall("locus",false)' value="None" style="margin-top:1em" class="smallbutton" /></div>
+HTML
+	} else {
+		print "No loci available<br />for analysis";
+	}
+	print <<"HTML";
 </fieldset>
 <fieldset id="scheme_fieldset" style="float:left"><legend>Schemes</legend>
 <noscript><p class="highlight">Enable Javascript to select schemes.</p></noscript>
@@ -709,9 +716,8 @@ sub _extract_cds_details {
 
 sub _run_comparison {
 	my ( $self, $by_reference, $job_id, $params, $ids, $cds, $html_buffer_ref, $file_buffer_ref ) = @_;
-	my $progress = 0;
-	my $total =
-	  ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $by_reference ) ) ) ? ( @$cds * 2 ) : @$cds;
+	my $progress    = 0;
+	my $total       = ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $by_reference ) ) ) ? ( @$cds * 2 ) : @$cds;
 	my $seqs_total  = 0;
 	my $close_table = '</table></div>';
 	my $td          = 1;
@@ -1106,8 +1112,9 @@ sub _create_alignments {
 		$escaped_locus =~ tr/ /_/;
 		my $fasta_file = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.fasta";
 		my $muscle_out = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.muscle";
-		my $seq_count = 0;
+		my $seq_count  = 0;
 		open( my $fasta_fh, '>', $fasta_file ) || $logger->error("Can't open $fasta_file for writing");
+
 		if ( $by_reference && $params->{'include_ref'} ) {
 			print $fasta_fh ">ref\n";
 			print $fasta_fh "$loci->{$locus}->{'ref'}\n";

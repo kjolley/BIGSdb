@@ -112,10 +112,12 @@ sub get_plugin_categories {
 }
 
 sub get_appropriate_plugin_names {
-	my ( $self, $section, $dbtype, $category ) = @_;
+	my ( $self, $section, $dbtype, $category, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
 	return if none { $section =~ /$_/ } qw (postquery breakdown analysis export miscellaneous);
 	my @plugins;
+	my $pk_scheme_list = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $options->{'set_id'} } );
 	foreach ( sort { $self->{'attributes'}->{$a}->{'order'} <=> $self->{'attributes'}->{$b}->{'order'} } keys %{ $self->{'attributes'} } ) {
 		my $attr = $self->{'attributes'}->{$_};
 		if ( $attr->{'requires'} ) {
@@ -137,6 +139,7 @@ sub get_appropriate_plugin_names {
 			next
 			  if !$self->{'config'}->{'jobs_db'}
 				  && $attr->{'requires'} =~ /offline_jobs/;
+			next if !@$pk_scheme_list && $attr->{'requires'} =~ /pk_scheme/;    #must be a scheme with primary key and loci defined
 		}
 		next
 		  if (
@@ -175,7 +178,7 @@ sub is_plugin {
 }
 
 sub get_installed_plugins {
-	my ( $self ) = @_;
+	my ($self) = @_;
 	return $self->{'attributes'};
 }
 1;

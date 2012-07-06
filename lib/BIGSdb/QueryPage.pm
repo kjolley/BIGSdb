@@ -454,7 +454,6 @@ sub _print_isolate_filter_fieldset {
 	}
 	my $buffer = $self->get_project_filter( { 'any' => 1 } );
 	push @filters, $buffer if $buffer;
-#	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
 	my $set_id = $self->get_set_id;
 	my $schemes = $self->{'datastore'}->get_scheme_list({set_id=>$set_id});
 	foreach my $scheme (@$schemes) {

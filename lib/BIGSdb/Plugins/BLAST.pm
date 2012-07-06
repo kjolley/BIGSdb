@@ -31,7 +31,7 @@ use BIGSdb::Page qw(SEQ_METHODS FLANKING);
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 0 };
+	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
 	return;
 }
 
@@ -73,8 +73,8 @@ sub run {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $view   = $self->{'system'}->{'view'};
-	my $qry =
-"SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM sequence_bin LEFT JOIN $view ON $view.id=sequence_bin.isolate_id ORDER BY $view.id";
+	my $qry    = "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM sequence_bin LEFT JOIN $view ON "
+	  . "$view.id=sequence_bin.isolate_id ORDER BY $view.id";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
 	$logger->error($@) if $@;
@@ -87,14 +87,14 @@ sub run {
 	}
 	print "<h1>BLAST</h1>\n";
 	if ( !@ids ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>There are no sequences in the sequence bin.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>There are no sequences in the sequence bin.</p></div>";
 		return;
 	}
 	$self->_print_interface( \@ids, \%labels );
 	return if !( $q->param('submit') && $q->param('sequence') );
 	@ids = $q->param('isolate_id');
 	if ( !@ids ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>You must select one or more isolates.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>You must select one or more isolates.</p></div>";
 		return;
 	}
 	my $seq = $q->param('sequence');
@@ -102,8 +102,8 @@ sub run {
 	my $header_buffer = "<table class=\"resultstable\">\n";
 	my $labelfield    = $self->{'system'}->{'labelfield'};
 	( my $display_label = ucfirst($labelfield) ) =~ tr/_/ /;
-	$header_buffer .=
-"<tr><th>Isolate id</th><th>$display_label</th><th>% identity</th><th>Alignment length</th><th>Mismatches</th><th>Gaps</th><th>Seqbin id</th><th>Start</th><th>End</th><th>Orientation</th><th>E-value</th><th>Bit score</th></tr>\n";
+	$header_buffer .= "<tr><th>Isolate id</th><th>$display_label</th><th>% identity</th><th>Alignment length</th><th>Mismatches</th>"
+	  . "<th>Gaps</th><th>Seqbin id</th><th>Start</th><th>End</th><th>Orientation</th><th>E-value</th><th>Bit score</th></tr>\n";
 	my $first        = 1;
 	my $some_results = 0;
 	$sql = $self->{'db'}->prepare("SELECT $labelfield FROM $self->{'system'}->{'view'} WHERE id=?");
@@ -123,10 +123,11 @@ sub run {
 		my $rows        = @$matches;
 		my $first_match = 1;
 		my $flanking = $q->param('flanking') // $self->{'prefs'}->{'flanking'};
+
 		foreach my $match (@$matches) {
 			if ($first_match) {
-				print
-"<tr class=\"td$td\"><td rowspan=\"$rows\" style=\"vertical-align:top\">$_</td><td rowspan=\"$rows\" style=\" vertical-align:top\">$label</td>";
+				print "<tr class=\"td$td\"><td rowspan=\"$rows\" style=\"vertical-align:top\">$_</td><td rowspan=\"$rows\" "
+				  . "style=\" vertical-align:top\">$label</td>";
 			} else {
 				print "<tr class=\"td$td\">";
 			}
@@ -134,20 +135,22 @@ sub run {
 				print "<td>$match->{$attribute}";
 				if ( $attribute eq 'end' ) {
 					$match->{'reverse'} ||= 0;
-					print
-" <a target=\"_blank\" class=\"extract_tooltip\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=extractedSequence&amp;translate=1&amp;no_highlight=1&amp;seqbin_id=$match->{'seqbin_id'}&amp;start=$match->{'start'}&amp;end=$match->{'end'}&amp;reverse=$match->{'reverse'}&amp;flanking=$flanking\">extract&nbsp;&rarr;</a>";
+					print " <a target=\"_blank\" class=\"extract_tooltip\" href=\"$self->{'system'}->{'script_name'}?"
+					  . "db=$self->{'instance'}&amp;page=extractedSequence&amp;translate=1&amp;no_highlight=1&amp;"
+					  . "seqbin_id=$match->{'seqbin_id'}&amp;start=$match->{'start'}&amp;end=$match->{'end'}&amp;"
+					  . "reverse=$match->{'reverse'}&amp;flanking=$flanking\">extract&nbsp;&rarr;</a>";
 				}
 				print "</td>";
 			}
 			print "<td style=\"font-size:2em\">" . ( $match->{'reverse'} ? '&larr;' : '&rarr;' ) . "</td>";
 			print "<td>$match->{$_}</td>" foreach qw(e_value bit_score);
-			print "</tr>\n";
+			say "</tr>";
 			$first_match = 0;
-			my $start    = $match->{'start'};
-			my $end      = $match->{'end'};
-			my $length   = abs( $end - $start + 1 );
-			my $qry =
-"SELECT substring(sequence from $start for $length) AS seq,substring(sequence from ($start-$flanking) for $flanking) AS upstream,substring(sequence from ($end+1) for $flanking) AS downstream FROM sequence_bin WHERE id=?";
+			my $start  = $match->{'start'};
+			my $end    = $match->{'end'};
+			my $length = abs( $end - $start + 1 );
+			my $qry    = "SELECT substring(sequence from $start for $length) AS seq,substring(sequence from ($start-$flanking) "
+			  . "for $flanking) AS upstream,substring(sequence from ($end+1) for $flanking) AS downstream FROM sequence_bin WHERE id=?";
 			my $seq_ref = $self->{'datastore'}->run_simple_query_hashref( $qry, $match->{'seqbin_id'} );
 			$seq_ref->{'seq'}        = BIGSdb::Utils::reverse_complement( $seq_ref->{'seq'} )        if $match->{'reverse'};
 			$seq_ref->{'upstream'}   = BIGSdb::Utils::reverse_complement( $seq_ref->{'upstream'} )   if $match->{'reverse'};
@@ -175,35 +178,33 @@ sub run {
 		$first = 0;
 		if ( $ENV{'MOD_PERL'} ) {
 			$self->{'mod_perl_request'}->rflush;
-			if ( $self->{'mod_perl_request'}->connection->aborted ) {
-				return;
-			}
+			return if $self->{'mod_perl_request'}->connection->aborted;
 		}
 	}
 	if ($some_results) {
-		print "</table>\n";
-		print
-"<p style=\"margin-top:1em\">Download <a href=\"/tmp/$out_file\">FASTA</a> | <a href=\"/tmp/$out_file_flanking\">FASTA with flanking</a>";
-		print
-" <a class=\"tooltip\" title=\"Flanking sequence - You can change the amount of flanking sequence exported by selecting the appropriate length in the options page.\">&nbsp;<i>i</i>&nbsp;</a>";
-		print "</p>\n";
+		say "</table>";
+		say "<p style=\"margin-top:1em\">Download <a href=\"/tmp/$out_file\">FASTA</a> | "
+		  . "<a href=\"/tmp/$out_file_flanking\">FASTA with flanking</a>";
+		say " <a class=\"tooltip\" title=\"Flanking sequence - You can change the amount of flanking sequence exported by selecting "
+		  . "the appropriate length in the options page.\">&nbsp;<i>i</i>&nbsp;</a>";
+		say "</p>";
 	} else {
-		print "<p>No matches found.</p>\n";
+		say "<p>No matches found.</p>";
 	}
-	print "</div>\n";
+	say "</div>";
 	return;
 }
 
 sub _print_interface {
 	my ( $self, $ids, $labels ) = @_;
 	my $q = $self->{'cgi'};
-	print "<div class=\"box\" id=\"queryform\">\n";
-	print "<p>Please select the required isolate ids to BLAST against (use ctrl or shift to make 
-	  multiple selections) and paste in your query sequence.  Nucleotide or peptide sequences can be queried.</p>\n";
-	print $q->start_form;
-	print "<div class=\"scrollable\">\n";
-	print "<fieldset style=\"float:left\">\n<legend>Isolates</legend>\n";
-	print $q->scrolling_list(
+	say "<div class=\"box\" id=\"queryform\">";
+	say "<p>Please select the required isolate ids to BLAST against (use ctrl or shift to make multiple selections) and paste in your "
+	  . "query sequence.  Nucleotide or peptide sequences can be queried.</p>";
+	say $q->start_form;
+	say "<div class=\"scrollable\">";
+	say "<fieldset style=\"float:left\">\n<legend>Isolates</legend>";
+	say $q->scrolling_list(
 		-name     => 'isolate_id',
 		-id       => 'isolate_id',
 		-values   => $ids,
@@ -211,61 +212,59 @@ sub _print_interface {
 		-size     => 8,
 		-multiple => 'true'
 	);
-	print
-"<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"isolate_id\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
-	print
-"<input type=\"button\" onclick='listbox_selectall(\"isolate_id\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
-	print "</fieldset>\n";
-	print "<fieldset style=\"float:left\"><legend>Paste sequence</legend>\n";
-	print $q->textarea( -name => 'sequence', -rows => '8', -cols => '70' );
-	print "</fieldset>\n";
-	print "<fieldset style=\"float:left\">\n<legend>Parameters</legend>\n";
-	print "<ul><li><label for=\"word_size\" class=\"parameter\">BLASTN word size:</label>\n";
-	print $q->popup_menu(
+	say "<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"isolate_id\",true)' "
+	  . "value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
+	say "<input type=\"button\" onclick='listbox_selectall(\"isolate_id\",false)' value=\"None\" "
+	  . "style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
+	say "</fieldset>";
+	say "<fieldset style=\"float:left\"><legend>Paste sequence</legend>";
+	say $q->textarea( -name => 'sequence', -rows => 8, -cols => 70 );
+	say "</fieldset>";
+	say "<fieldset style=\"float:left\">\n<legend>Parameters</legend>";
+	say "<ul><li><label for=\"word_size\" class=\"parameter\">BLASTN word size:</label>";
+	say $q->popup_menu(
 		-name    => 'word_size',
 		-id      => 'word_size',
 		-values  => [qw(7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28)],
 		-default => 11
 	);
-	print
-" <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a></li>";
-	print "<li><label for=\"hits\" class=\"parameter\">Hits per isolate:</label>\n";
-	print $q->popup_menu( -name => 'hits', -id => 'hits', -values => [qw(1 2 3 4 5 6 7 8 9 10 20 30 40 50)], -default => 1 );
-	print "</li><li><label for=\"flanking\" class=\"parameter\">Flanking length (bp):</label>\n";
-	print $q->popup_menu( -name => 'flanking', -id => 'flanking', -values => [ FLANKING ], -default => $self->{'prefs'}->{'flanking'} );
-	print
-" <a class=\"tooltip\" title=\"Flanking length - This is the length of flanking sequence (if present) that will be output in the secondary FASTA file.  The default value can be changed in the options page.\">&nbsp;<i>i</i>&nbsp;</a>";
-
-	print "</li>\n<li>\n";
-	print $q->checkbox( -name => 'tblastx', label => 'Use TBLASTX' );
-	print
-" <a class=\"tooltip\" title=\"TBLASTX - Compares the six-frame translation of your nucleotide query against the six-frame translation of the sequences in the sequence bin.\">&nbsp;<i>i</i>&nbsp;</a></li>";
-	print "</ul>\n";
-	print "</fieldset>\n";
-	print "<fieldset style=\"float:left\">\n<legend>Restrict included sequences by</legend>\n";
-	print "<ul>\n";
+	say " <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an "
+	  . "extension. Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a></li>";
+	say "<li><label for=\"hits\" class=\"parameter\">Hits per isolate:</label>";
+	say $q->popup_menu( -name => 'hits', -id => 'hits', -values => [qw(1 2 3 4 5 6 7 8 9 10 20 30 40 50)], -default => 1 );
+	say "</li><li><label for=\"flanking\" class=\"parameter\">Flanking length (bp):</label>";
+	say $q->popup_menu( -name => 'flanking', -id => 'flanking', -values => [FLANKING], -default => $self->{'prefs'}->{'flanking'} );
+	say " <a class=\"tooltip\" title=\"Flanking length - This is the length of flanking sequence (if present) that will be output "
+	  . "in the secondary FASTA file.  The default value can be changed in the options page.\">&nbsp;<i>i</i>&nbsp;</a></li>";
+	say "<li>";
+	say $q->checkbox( -name => 'tblastx', label => 'Use TBLASTX' );
+	say " <a class=\"tooltip\" title=\"TBLASTX - Compares the six-frame translation of your nucleotide query against the "
+	  . "six-frame translation of the sequences in the sequence bin.\">&nbsp;<i>i</i>&nbsp;</a></li>";
+	say "</ul>";
+	say "</fieldset>";
+	say "<fieldset style=\"float:left\">\n<legend>Restrict included sequences by</legend>";
+	say "<ul>";
 	my $buffer = $self->get_sequence_method_filter( { 'class' => 'parameter' } );
-	print "<li>$buffer</li>" if $buffer;
+	say "<li>$buffer</li>" if $buffer;
 	$buffer = $self->get_project_filter( { 'class' => 'parameter' } );
-	print "<li>$buffer</li>" if $buffer;
+	say "<li>$buffer</li>" if $buffer;
 	$buffer = $self->get_experiment_filter( { 'class' => 'parameter' } );
-	print "<li>$buffer</li>" if $buffer;
-	print "</ul>\n</fieldset>\n";
-	print "<table style=\"width:95%\"><tr><td style=\"text-align:left\">";
-	print
-"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=BLAST\" class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\" colspan=\"3\">";
-	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	print "</td></tr></table>\n";
-	print $q->hidden($_) foreach qw (db page name);
-	print "</div>\n";
-	print $q->end_form;
-	print "</div>\n";
+	say "<li>$buffer</li>" if $buffer;
+	say "</ul>\n</fieldset>";
+	say "<table style=\"width:95%\"><tr><td style=\"text-align:left\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
+	  . "&amp;page=plugin&amp;name=BLAST\" class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\" colspan=\"3\">";
+	say $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
+	say "</td></tr></table>";
+	say $q->hidden($_) foreach qw (db page name);
+	say "</div>";
+	say $q->end_form;
+	say "</div>";
 	return;
 }
 
 sub _blast {
 	my ( $self, $isolate_id, $seq_ref ) = @_;
-	$$seq_ref =~ s/>.+\n//g; #Remove BLAST identifier lines if present
+	$$seq_ref =~ s/>.+\n//g;    #Remove BLAST identifier lines if present
 	my $seq_type = BIGSdb::Utils::sequence_type($$seq_ref);
 	$$seq_ref =~ s/\s//g;
 	my $program;
@@ -286,8 +285,8 @@ sub _blast {
 	close $queryfile_fh;
 
 	#create isolate FASTA database
-	my $qry =
-"SELECT DISTINCT sequence_bin.id,sequence FROM sequence_bin LEFT JOIN experiment_sequences ON sequence_bin.id=seqbin_id LEFT JOIN project_members ON sequence_bin.isolate_id = project_members.isolate_id WHERE sequence_bin.isolate_id=?";
+	my $qry = "SELECT DISTINCT sequence_bin.id,sequence FROM sequence_bin LEFT JOIN experiment_sequences ON sequence_bin.id=seqbin_id "
+	 . "LEFT JOIN project_members ON sequence_bin.isolate_id = project_members.isolate_id WHERE sequence_bin.isolate_id=?";
 	my @criteria = ($isolate_id);
 	my $method   = $self->{'cgi'}->param('seq_method_list');
 	if ($method) {
@@ -389,5 +388,4 @@ sub _extract_match_from_blast_result_line {
 	$match->{'bit_score'} = $record[11];
 	return $match;
 }
-
 1;

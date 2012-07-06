@@ -816,6 +816,16 @@ sub get_set_id {
 	return;
 }
 
+sub extract_scheme_desc {
+	my ( $self, $scheme_data ) = @_;
+	my ( @scheme_ids, %desc );
+	foreach (@$scheme_data) {
+		push @scheme_ids, $_->{'id'};
+		$desc{ $_->{'id'} } = $_->{'description'};
+	}
+	return ( \@scheme_ids, \%desc );
+}
+
 sub get_db_description {
 	my ($self) = @_;
 	my $desc;

@@ -418,8 +418,6 @@ sub _print_isolate_table {
 			$composites{ $data[1] }            = 1;
 		}
 	}
-
-	#	my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,description");
 	my $set_id = $self->get_set_id;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	print "<div class=\"box\" id=\"resultstable\"><div class=\"scrollable\"><table class=\"resultstable\">\n";
@@ -430,8 +428,9 @@ sub _print_isolate_table {
 	$field_attributes->{$_} = $self->{'xmlHandler'}->get_field_attributes($_) foreach (@$fields);
 	my $extended = $self->get_extended_attributes;
 	my $attribute_sql =
-	  $self->{'db'}->prepare("SELECT value FROM isolate_value_extended_attributes WHERE isolate_field=? AND attribute=? AND field_value=?");
-	$self->{'scheme_loci'}->{0} = $self->{'datastore'}->get_loci_in_no_scheme;
+	  $self->{'db'}
+	  ->prepare( "SELECT value FROM isolate_value_extended_attributes WHERE isolate_field=? AND attribute=? AND field_value=?" );
+	$self->{'scheme_loci'}->{0} = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 	local $| = 1;
 
 	while ( $limit_sql->fetchrow_arrayref ) {
@@ -596,8 +595,8 @@ sub _print_isolate_table_header {
 		}
 	}
 	$fieldtype_header .= "<th colspan=\"$col_count\">Isolate fields";
-	$fieldtype_header .=
-" <a class=\"tooltip\" title=\"Isolate fields - You can select the isolate fields that are displayed here by going to the options page.\">&nbsp;<i>i</i>&nbsp;</a>";
+	$fieldtype_header .= " <a class=\"tooltip\" title=\"Isolate fields - You can select the isolate fields that are displayed here "
+	  . "by going to the options page.\">&nbsp;<i>i</i>&nbsp;</a>";
 	$fieldtype_header .= "</th>";
 	my $alias_sql = $self->{'db'}->prepare("SELECT alias FROM locus_aliases WHERE locus=?");
 	$logger->error($@) if $@;
@@ -651,7 +650,8 @@ sub _print_isolate_table_header {
 		$header_buffer .= "<th>@scheme_header</th>" if @scheme_header;
 	}
 	my @locus_header;
-	my $loci = $self->{'datastore'}->get_loci_in_no_scheme();
+	my $set_id = $self->get_set_id;
+	my $loci = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 	foreach (@$loci) {
 		if ( $self->{'prefs'}->{'main_display_loci'}->{$_} ) {
 			my @aliases;
@@ -887,10 +887,12 @@ sub _print_plugin_buttons {
 			$filename       = BIGSdb::Utils::get_random() . '.txt';
 			$full_file_path = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
 		} until ( !-e $full_file_path );
+		my $set_id = $self->get_set_id;
 		foreach (@$plugin_categories) {
 			my $cat_buffer;
 			my $plugin_names =
-			  $self->{'pluginManager'}->get_appropriate_plugin_names( 'postquery', $self->{'system'}->{'dbtype'}, $_ || 'none' );
+			  $self->{'pluginManager'}
+			  ->get_appropriate_plugin_names( 'postquery', $self->{'system'}->{'dbtype'}, $_ || 'none', { set_id => $set_id } );
 			if (@$plugin_names) {
 				my $plugin_buffer;
 				if ( !$query_temp_file_written ) {
@@ -1055,10 +1057,10 @@ sub _print_record_table {
 				$value = $self->clean_locus($value);
 				if ( $table eq 'sequences' ) {
 					print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;"
-					 . "@query_values\">$value</a></td>";
+					  . "@query_values\">$value</a></td>";
 				} else {
 					print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=recordInfo&amp;"
-					 . "table=$table&amp;@query_values\">$value</a></td>";
+					  . "table=$table&amp;@query_values\">$value</a></td>";
 				}
 			} elsif ( $type{$field} eq 'bool' ) {
 				if ( $data{ lc($field) } eq '' ) {
@@ -1119,7 +1121,7 @@ sub _print_record_table {
 					print "<td>$data{'isolate_id'}) " . $self->get_isolate_name_from_id( $data{'isolate_id'} ) . "</td>";
 				} else {
 					my $value = $data{ lc($field) };
-					if ( $field eq 'locus' || ( $table eq 'loci' && $field eq 'id' ) ) {
+					if ( ($field eq 'locus' && $table ne 'set_loci') || ( $table eq 'loci' && $field eq 'id' ) ) {
 						$value = $self->clean_locus($value);
 					} else {
 						$value =~ s/\&/\&amp;/g;

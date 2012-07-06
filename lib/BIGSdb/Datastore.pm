@@ -354,7 +354,7 @@ sub get_scheme_info {
 	eval { $self->{'sql'}->{'scheme_info'}->execute($scheme_id) };
 	$logger->error($@) if $@;
 	my $scheme_info = $self->{'sql'}->{'scheme_info'}->fetchrow_hashref;
-	if ($options->{'set_id'}) {
+	if ( $options->{'set_id'} ) {
 		if ( !$self->{'sql'}->{'set_scheme_info'} ) {
 			$self->{'sql'}->{'set_scheme_info'} = $self->{'db'}->prepare("SELECT set_name FROM set_schemes WHERE set_id=? AND scheme_id=?");
 		}
@@ -464,7 +464,7 @@ sub get_loci_in_no_scheme {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $qry;
-	if ($options->{'set_id'}) {
+	if ( $options->{'set_id'} ) {
 		$qry = "SELECT locus FROM set_loci WHERE set_id=$options->{'set_id'} AND locus NOT IN (SELECT locus FROM scheme_members "
 		  . "WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$options->{'set_id'})) ORDER BY locus";
 	} else {
@@ -571,42 +571,29 @@ sub get_all_scheme_field_info {
 sub get_scheme_list {
 	my ( $self, $options ) = @_;
 	my $qry;
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		if ($options->{'set_id'}) {
+	if ( $options->{'set_id'} ) {
+		if ( $options->{'with_pk'} ) {
 			$qry =
 			    "SELECT DISTINCT schemes.id,set_schemes.set_name,schemes.description,schemes.display_order FROM set_schemes "
-			  . "LEFT JOIN schemes ON set_schemes.scheme_id = schemes.id WHERE id IN (SELECT scheme_id FROM scheme_members) AND "
-			  . "schemes.id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$options->{'set_id'}) ORDER BY "
+			  . "LEFT JOIN schemes ON set_schemes.scheme_id=schemes.id RIGHT JOIN scheme_members ON schemes.id="
+			  . "scheme_members.scheme_id JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key AND schemes.id "
+			  . "IN (SELECT scheme_id FROM set_schemes WHERE set_id=$options->{'set_id'}) ORDER BY schemes.display_order,"
+			  . "schemes.description";
+		} else {
+			$qry =
+			    "SELECT schemes.id,set_schemes.set_name,schemes.description,schemes.display_order FROM set_schemes "
+			  . "LEFT JOIN schemes ON set_schemes.scheme_id=schemes.id AND schemes.id IN (SELECT scheme_id FROM set_schemes WHERE "
+			  . "set_id=$options->{'set_id'}) WHERE schemes.id IS NOT NULL ORDER BY schemes.display_order,schemes.description";
+		}
+	} else {
+		if ( $options->{'with_pk'} ) {
+			$qry =
+			    "SELECT DISTINCT schemes.id,schemes.description,schemes.display_order FROM schemes RIGHT JOIN scheme_members ON "
+			  . "schemes.id=scheme_members.scheme_id JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key ORDER BY "
 			  . "schemes.display_order,schemes.description";
 		} else {
 			$qry =
 			  "SELECT id,description FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_members) ORDER BY display_order,description";
-		}
-	} else {
-		if ($options->{'set_id'}) {
-			if ( $options->{'with_pk'} ) {
-				$qry =
-				    "SELECT DISTINCT schemes.id,set_schemes.set_name,schemes.description,schemes.display_order FROM set_schemes "
-				  . "LEFT JOIN schemes ON set_schemes.scheme_id=schemes.id RIGHT JOIN scheme_members ON schemes.id="
-				  . "scheme_members.scheme_id JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key AND schemes.id "
-				  . "IN (SELECT scheme_id FROM set_schemes WHERE set_id=$options->{'set_id'}) ORDER BY schemes.display_order,"
-				  . "schemes.description";
-			} else {
-				$qry =
-				    "SELECT schemes.id,set_schemes.set_name,schemes.description,schemes.display_order FROM set_schemes "
-				  . "LEFT JOIN schemes ON set_schemes.scheme_id=schemes.id AND schemes.id IN (SELECT scheme_id FROM set_schemes WHERE "
-				  . "set_id=$options->{'set_id'}) WHERE schemes.id IS NOT NULL ORDER BY schemes.display_order,schemes.description";
-			}
-		} else {
-			if ( $options->{'with_pk'} ) {
-				$qry =
-				    "SELECT DISTINCT schemes.id,schemes.description,schemes.display_order FROM schemes RIGHT JOIN scheme_members ON "
-				  . "schemes.id=scheme_members.scheme_id JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key ORDER BY "
-				  . "schemes.display_order,schemes.description";
-			} else {
-				$qry =
-"SELECT id,description FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_members) ORDER BY display_order,description";
-			}
 		}
 	}
 	my $list = $self->run_list_query_hashref($qry);
@@ -787,7 +774,7 @@ sub get_loci {
 	#Need to sort if pref settings are to be checked as we need scheme information
 	$options->{'do_not_order'} = 0 if any { $options->{$_} } qw (query_pref analysis_pref);
 	my $set_clause = '';
-	if ($options->{'set_id'}) {
+	if ( $options->{'set_id'} ) {
 		$set_clause = $defined_clause ? 'AND' : 'WHERE';
 		$set_clause .= " (id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
 		  . "set_id=$options->{'set_id'})) OR id IN (SELECT locus FROM set_loci WHERE set_id=$options->{'set_id'}))";
@@ -827,7 +814,7 @@ sub get_locus_list {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $qry;
-	if ($options->{'set_id'}) {
+	if ( $options->{'set_id'} ) {
 		$qry =
 		    "SELECT loci.id,common_name,set_id,set_name,set_common_name FROM loci LEFT JOIN set_loci ON loci.id = set_loci.locus "
 		  . "WHERE id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
@@ -835,9 +822,9 @@ sub get_locus_list {
 	} else {
 		$qry = "SELECT id,common_name FROM loci";
 	}
-	if ($options->{'locus_curator'} && BIGSdb::Utils::is_int($options->{'locus_curator'})){
-		$qry .= ($qry =~ /loci$/) ? ' WHERE ' : ' AND ';
-		$qry .= "loci.id IN (SELECT locus from locus_curators WHERE curator_id = $options->{'locus_curator'})";		
+	if ( $options->{'locus_curator'} && BIGSdb::Utils::is_int( $options->{'locus_curator'} ) ) {
+		$qry .= ( $qry =~ /loci$/ ) ? ' WHERE ' : ' AND ';
+		$qry .= "loci.id IN (SELECT locus from locus_curators WHERE curator_id = $options->{'locus_curator'})";
 	}
 	my $loci = $self->run_list_query_hashref($qry);
 	my $cleaned;
@@ -891,7 +878,7 @@ sub get_locus_info {
 	eval { $self->{'sql'}->{'locus_info'}->execute($locus) };
 	$logger->error($@) if $@;
 	my $locus_info = $self->{'sql'}->{'locus_info'}->fetchrow_hashref;
-	if ($options->{'set_id'}) {
+	if ( $options->{'set_id'} ) {
 		if ( !$self->{'sql'}->{'set_locus_info'} ) {
 			$self->{'sql'}->{'set_locus_info'} = $self->{'db'}->prepare("SELECT * FROM set_loci WHERE set_id=? AND locus=?");
 		}
@@ -1100,10 +1087,14 @@ sub get_all_allele_ids {
 	$options = {} if ref $options ne 'HASH';
 	my %allele_ids;
 	if ( !$self->{'sql'}->{'all_allele_ids'} ) {
-		my $set_clause = $options->{'set_id'} ? "AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT "
-		 . "scheme_id FROM set_schemes WHERE set_id=$options->{'set_id'})) OR locus IN (SELECT locus FROM set_loci WHERE "
-		 . "set_id=$options->{'set_id'}))" : '';
-		$self->{'sql'}->{'all_allele_ids'} = $self->{'db'}->prepare("SELECT locus,allele_id FROM allele_designations WHERE isolate_id=? $set_clause");
+		my $set_clause =
+		  $options->{'set_id'}
+		  ? "AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT "
+		  . "scheme_id FROM set_schemes WHERE set_id=$options->{'set_id'})) OR locus IN (SELECT locus FROM set_loci WHERE "
+		  . "set_id=$options->{'set_id'}))"
+		  : '';
+		$self->{'sql'}->{'all_allele_ids'} =
+		  $self->{'db'}->prepare("SELECT locus,allele_id FROM allele_designations WHERE isolate_id=? $set_clause");
 		$logger->info("Statement handle 'all_allele_ids' prepared.");
 	}
 	eval { $self->{'sql'}->{'all_allele_ids'}->execute($isolate_id) };

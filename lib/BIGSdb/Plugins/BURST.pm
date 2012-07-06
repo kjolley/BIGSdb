@@ -31,7 +31,7 @@ use constant PI => 3.141592654;
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 0 };
+	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
 	return;
 }
 
@@ -46,13 +46,13 @@ sub get_attributes {
 		buttontext  => 'BURST',
 		menutext    => 'BURST',
 		module      => 'BURST',
-		version     => '1.0.1',
+		version     => '1.0.2',
 		dbtype      => 'isolates,sequences',
 		section     => 'postquery',
 		order       => 10,
 		system_flag => 'BURST',
 		input       => 'query',
-		requires    => 'mogrify',
+		requires    => 'mogrify,pk_scheme',
 		min         => 2,
 		max         => 1000
 	);
@@ -64,30 +64,30 @@ sub run {
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
 	my $scheme_id  = $q->param('scheme_id');
-	print "<h1>BURST analysis</h1>\n";
+	say "<h1>BURST analysis</h1>";
 	my $list;
 	my $qry_ref;
 	my $pk;
 
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		if ( !$scheme_id ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>No scheme id passed.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>No scheme id passed.</p></div>";
 			return;
 		} elsif ( !BIGSdb::Utils::is_int($scheme_id) ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>Scheme id must be an integer.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>Scheme id must be an integer.</p></div>";
 			return;
 		} else {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 			if ( !$scheme_info ) {
-				print "<div class=\"box\" id=\"statusbad\">Scheme does not exist.</p></div>\n";
+				say "<div class=\"box\" id=\"statusbad\">Scheme does not exist.</p></div>";
 				return;
 			}
 		}
 		my $pk_ref =
 		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key", $scheme_id );
 		if ( ref $pk_ref ne 'ARRAY' ) {
-			print
-"<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  Profile concatenation can not be done until this has been set.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  Profile concatenation "
+			  . "can not be done until this has been set.</p></div>\n";
 			return;
 		}
 		$pk = $pk_ref->[0];
@@ -102,9 +102,9 @@ sub run {
 		}
 		$list = $self->{'datastore'}->run_list_query($$qry_ref);
 	} else {
-		print "<div class=\"box\" id=\"statusbad\">\n";
-		print "<p>No query has been passed.</p>\n";
-		print "</div>\n";
+		say "<div class=\"box\" id=\"statusbad\">";
+		say "<p>No query has been passed.</p>";
+		say "</div>";
 	}
 	if ( $q->param('Submit') ) {
 		$self->_run_burst( $scheme_id, $pk, $list );
@@ -127,55 +127,49 @@ names in the results table.</li>
 image format that can be manipulated and scaled in drawing packages, including the freely 
 available <a href="http://www.inkscape.org">Inkscape</a>. </p>
 HTML
-	print $q->start_form;
-	print $q->hidden($_) foreach qw (db page name query_file);
+	say $q->start_form;
+	say $q->hidden($_) foreach qw (db page name query_file);
 	my $locus_count;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		my $sql =
-		  $self->{'db'}->prepare(
-"SELECT id,description FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_members) AND id IN (SELECT scheme_id FROM scheme_fields WHERE primary_key) ORDER BY description"
-		  );
-		eval { $sql->execute };
-		$logger->error($@) if $@;
-		my @schemes;
-		my %desc;
-		while ( my ( $id, $desc ) = $sql->fetchrow_array ) {
-			push @schemes, $id;
-			$desc{$id} = $desc;
+		my $set_id = $self->get_set_id;
+		my $scheme_data = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
+		if (!@$scheme_data){
+			say $q->end_form;
+			say "<p class=\"statusbad\">No schemes available.</p></div>";
+			return;
 		}
-		if ( @schemes > 1 ) {
-			print "<p>Select scheme: ";
-			print $q->popup_menu( -name => 'scheme_id', -values => \@schemes, -labels => \%desc );
-			print "</p>\n";
+		my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
+		if ( @$scheme_ids_ref > 1 ) {
+			say "<p>Select scheme: ";
+			say $q->popup_menu( -name => 'scheme_id', -values => $scheme_ids_ref, -labels => $desc_ref );
+			say "</p>";
 		} else {
-			print "<p>Scheme: $desc{$schemes[0]}</p>";
-			$q->param( 'scheme_id', $schemes[0] );
-			print $q->hidden('scheme_id');
+			say "<p>Scheme: $desc_ref->{$scheme_ids_ref->[0]}</p>";
+			$q->param( 'scheme_id', $scheme_ids_ref->[0] );
+			say $q->hidden('scheme_id');
 		}
 		$locus_count =
-		  $self->{'datastore'}->run_simple_query(
-"SELECT COUNT(*) FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM scheme_fields WHERE primary_key) GROUP BY scheme_id ORDER BY COUNT(*) desc LIMIT 1"
-		  )->[0];
+		  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM "
+			  . "scheme_fields WHERE primary_key) GROUP BY scheme_id ORDER BY COUNT(*) desc LIMIT 1" )->[0];
 	} else {
 		$locus_count = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM scheme_members WHERE scheme_id=?", $scheme_id )->[0];
 		$q->param( 'scheme_id', $scheme_id );
-		print $q->hidden('scheme_id');
+		say $q->hidden('scheme_id');
 	}
 	print "<p>Group definition: profiles match at \n";
 	my @values;
 	for ( my $i = 1 ; $i < $locus_count ; $i++ ) {
 		push @values, "n-$i";
 	}
-	my $default = 'n-2';
-	print $q->popup_menu( -name => 'grpdef', -value => [@values], -default => $default );
-	print " loci to any other member of the group <span class=\"comment\">[n = number of loci in scheme]</span>.</p>\n<p>";
-	print $q->checkbox( -name => 'shade', -label => 'Shade variant rings', -checked => 1 );
-	print "<br />\n";
-	print $q->checkbox( -name => 'hide', -label => 'Hide variant names (useful for overview if names start to overlap)', -checked => 0 );
-	print "</p>\n";
-	print $q->submit( -name => 'Submit', -class => 'submit' );
-	print $q->end_form;
-	print "</div>\n";
+	say $q->popup_menu( -name => 'grpdef', -value => [@values], -default => 'n-2' );
+	say " loci to any other member of the group <span class=\"comment\">[n = number of loci in scheme]</span>.</p>\n<p>";
+	say $q->checkbox( -name => 'shade', -label => 'Shade variant rings', -checked => 1 );
+	say "<br />";
+	say $q->checkbox( -name => 'hide', -label => 'Hide variant names (useful for overview if names start to overlap)', -checked => 0 );
+	say "</p>";
+	say $q->submit( -name => 'Submit', -class => 'submit' );
+	say $q->end_form;
+	say "</div>";
 	return;
 }
 

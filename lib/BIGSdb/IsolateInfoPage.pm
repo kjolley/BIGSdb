@@ -19,17 +19,18 @@
 package BIGSdb::IsolateInfoPage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::TreeViewPage);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
-use List::MoreUtils qw(any);
+use List::MoreUtils qw(any none);
 my $logger = get_logger('BIGSdb.Page');
 use constant ISOLATE_SUMMARY => 1;
 use constant LOCUS_SUMMARY   => 2;
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 0, 'isolate_display' => 1, 'analysis' => 0, 'query_field' => 0 };
+	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 1, analysis => 0, query_field => 0 };
 	return;
 }
 
@@ -52,7 +53,8 @@ sub get_javascript {
 sub _get_child_group_scheme_tables {
 	my ( $self, $id, $isolate_id, $td, $level ) = @_;
 	my $child_groups = $self->{'datastore'}->run_list_query(
-"SELECT id FROM scheme_groups LEFT JOIN scheme_group_group_members ON scheme_groups.id=group_id WHERE parent_group_id=? ORDER BY display_order",
+		"SELECT id FROM scheme_groups LEFT JOIN scheme_group_group_members ON "
+		  . "scheme_groups.id=group_id WHERE parent_group_id=? ORDER BY display_order",
 		$id
 	);
 	my $buffer;
@@ -73,14 +75,19 @@ sub _get_child_group_scheme_tables {
 
 sub _get_group_scheme_tables {
 	my ( $self, $id, $isolate_id, $td ) = @_;
+	my $set_id = $self->get_set_id;
+	my $scheme_data = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+	my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
 	my $schemes = $self->{'datastore'}->run_list_query(
-"SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON schemes.id=scheme_id WHERE group_id=? ORDER BY display_order",
+		"SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON "
+		  . "schemes.id=scheme_id WHERE group_id=? ORDER BY display_order",
 		$id
 	);
 	my $buffer;
 	if (@$schemes) {
 		foreach my $scheme_id (@$schemes) {
 			next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};
+			next if none { $scheme_id eq $_ } @$scheme_ids_ref;
 			if ( !$self->{'scheme_shown'}->{$scheme_id} ) {
 				( $td, my $field_buffer ) = $self->_get_scheme_fields( $scheme_id, $isolate_id, $td, $self->{'curate'} );
 				$buffer .= $field_buffer if $field_buffer;
@@ -95,6 +102,9 @@ sub print_content {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
 	my $isolate_id = $q->param('id');
+	my $set_id     = $self->get_set_id;
+	my $scheme_data = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+	my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
 	if ( defined $q->param('group_id') && BIGSdb::Utils::is_int( $q->param('group_id') ) ) {
 		my $group_id = $q->param('group_id');
 		my $scheme_ids;
@@ -104,10 +114,11 @@ sub print_content {
 			$scheme_ids =
 			  $self->{'datastore'}->run_list_query(
 				"SELECT id FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) ORDER BY display_order");
-			foreach (@$scheme_ids) {
-				next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$_};
-				my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
-				( $td, $table_buffer ) = $self->_get_scheme_fields( $_, $isolate_id, 1, $self->{'curate'} );
+			foreach my $scheme_id (@$scheme_ids) {
+				next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};
+				next if none { $scheme_id eq $_ } @$scheme_ids_ref;
+				my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+				( $td, $table_buffer ) = $self->_get_scheme_fields( $scheme_id, $isolate_id, 1, $self->{'curate'} );
 				$buffer .= $table_buffer if $table_buffer;
 			}
 		} else {
@@ -117,7 +128,7 @@ sub print_content {
 			$buffer .= $table_buffer if $table_buffer;
 		}
 		if ($buffer) {
-			print "<table style=\"width:100%\">\n$buffer</table>\n";
+			say "<table style=\"width:100%\">\n$buffer</table>";
 		}
 		return;
 	} elsif ( defined $q->param('scheme_id') && BIGSdb::Utils::is_int( $q->param('scheme_id') ) ) {
@@ -135,56 +146,56 @@ sub print_content {
 			( $td, $buffer ) = $self->_get_scheme_fields( $scheme_id, $isolate_id, 1, $self->{'curate'} );
 		}
 		if ($buffer) {
-			print "<table style=\"width:100%\">\n$buffer</table>\n";
+			say "<table style=\"width:100%\">\n$buffer</table>";
 		}
 		return;
 	}
 	if ( !BIGSdb::Utils::is_int($isolate_id) ) {
-		print "<h1>Isolate information: id-$isolate_id</h1>";
-		print "<div class=\"box\" id=\"statusbad\"><p>Isolate id must be an integer.</p></div>\n";
+		say "<h1>Isolate information: id-$isolate_id</h1>";
+		say "<div class=\"box\" id=\"statusbad\"><p>Isolate id must be an integer.</p></div>";
 		return;
 	}
 	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
-		print "<h1>Isolate information</h1>\n";
-		print "<div class=\"box\" id=\"statusbad\"><p>This function can only be called for isolate databases.</p></div>\n";
+		say "<h1>Isolate information</h1>";
+		say "<div class=\"box\" id=\"statusbad\"><p>This function can only be called for isolate databases.</p></div>";
 		return;
 	}
 	my $qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute($isolate_id) };
 	if ($@) {
-		print "<h1>Isolate information: id-$isolate_id</h1>";
-		print "<div class=\"box\" id=\"statusbad\"><p>Invalid search performed.</p></div>\n";
+		say "<h1>Isolate information: id-$isolate_id</h1>";
+		say "<div class=\"box\" id=\"statusbad\"><p>Invalid search performed.</p></div>";
 		$logger->debug("Can't execute $qry: $@\n");
 		return;
 	}
 	my $data = $sql->fetchrow_hashref;
 	if ( !$data ) {
-		print "<h1>Isolate information: id-$isolate_id</h1>";
-		print "<div class=\"box\" id=\"statusbad\"><p>The database contains no record of this isolate.</p></div>";
+		say "<h1>Isolate information: id-$isolate_id</h1>";
+		say "<div class=\"box\" id=\"statusbad\"><p>The database contains no record of this isolate.</p></div>";
 		return;
 	} elsif ( !$self->is_allowed_to_view_isolate($isolate_id) ) {
-		print "<h1>Isolate information</h1>\n";
-		print "<div class=\"box\" id=\"statusbad\"><p>Your user account does not have permission to view this record.</p></div>";
+		say "<h1>Isolate information</h1>";
+		say "<div class=\"box\" id=\"statusbad\"><p>Your user account does not have permission to view this record.</p></div>";
 		return;
 	}
 	if ( defined $data->{ $self->{'system'}->{'labelfield'} } && $data->{ $self->{'system'}->{'labelfield'} } ne '' ) {
 		my $identifier = $self->{'system'}->{'labelfield'};
 		$identifier =~ tr/_/ /;
-		print "<h1>Full information on $identifier $data->{lc($self->{'system'}->{'labelfield'})}</h1>";
+		say "<h1>Full information on $identifier $data->{lc($self->{'system'}->{'labelfield'})}</h1>";
 	} else {
-		print "<h1>Full information on id $data->{'id'}</h1>";
+		say "<h1>Full information on id $data->{'id'}</h1>";
 	}
 	if ( $self->{'cgi'}->param('history') ) {
-		print "<div class=\"box\" id=\"resultstable\">\n";
-		print "<h2>Update history</h2>\n";
-		print
-"<p><a href=\"$self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'}&amp;id=$isolate_id\">Back to isolate information</a></p>\n";
-		print $self->_get_update_history($isolate_id);
+		say "<div class=\"box\" id=\"resultstable\">";
+		say "<h2>Update history</h2>";
+		say "<p><a href=\"$self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'}&amp;id=$isolate_id\">"
+		  . "Back to isolate information</a></p>";
+		say $self->_get_update_history($isolate_id);
 	} else {
 		$self->_print_projects($isolate_id);
-		print "<div class=\"box\" id=\"resultstable\">\n";
-		print $self->get_isolate_record($isolate_id);
+		say "<div class=\"box\" id=\"resultstable\">";
+		say $self->get_isolate_record($isolate_id);
 	}
 	print "</div>\n";
 	return;
@@ -203,8 +214,8 @@ sub _get_update_history {
 			$time =~ s/:\d\d\.\d+//;
 			my $action = $_->{'action'};
 			$action =~ s/->/\&rarr;/g;
-			$buffer .=
-"<tr class=\"td$td\"><td style=\"vertical-align:top\">$time</td><td style=\"vertical-align:top\">$curator_info->{'first_name'} $curator_info->{'surname'}</td><td style=\"text-align:left\">$action</td></tr>\n";
+			$buffer .= "<tr class=\"td$td\"><td style=\"vertical-align:top\">$time</td><td style=\"vertical-align:top\">"
+			  . "$curator_info->{'first_name'} $curator_info->{'surname'}</td><td style=\"text-align:left\">$action</td></tr>\n";
 			$td = $td == 1 ? 2 : 1;
 		}
 		$buffer .= "</table>\n";
@@ -588,8 +599,12 @@ sub _get_scheme_fields {
 	my $buffer;
 	my ( $loci, @profile, $info_ref );
 	my $locus_display_count = 0;
+	my $set_id              = $self->get_set_id;
 
 	if ($scheme_id) {
+		my $scheme_data = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+		my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
+		return $td if none { $scheme_id eq $_ } @$scheme_ids_ref;
 		$scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 		$loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		my $to_display;
@@ -597,22 +612,24 @@ sub _get_scheme_fields {
 		$display_on_own_line = 1
 		  if $summary_view && @$loci + @$scheme_fields > 5;    #make sure table doesn't get too wide
 		my $allele_designations_exist = $self->{'datastore'}->run_simple_query(
-"SELECT COUNT(isolate_id) FROM allele_designations LEFT JOIN scheme_members ON scheme_members.locus=allele_designations.locus WHERE isolate_id=? AND scheme_id=?",
+			"SELECT COUNT(isolate_id) FROM allele_designations LEFT JOIN scheme_members ON scheme_members.locus=allele_designations.locus "
+			  . "WHERE isolate_id=? AND scheme_id=?",
 			$isolate_id, $scheme_id
 		)->[0];
 		my $allele_sequences_exist = $self->{'datastore'}->run_simple_query(
-"SELECT COUNT(isolate_id) FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id LEFT JOIN scheme_members ON allele_sequences.locus=scheme_members.locus WHERE isolate_id=? AND scheme_id=?",
+			"SELECT COUNT(isolate_id) FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id LEFT JOIN "
+			  . "scheme_members ON allele_sequences.locus=scheme_members.locus WHERE isolate_id=? AND scheme_id=?",
 			$isolate_id, $scheme_id
 		)->[0];
-		foreach (@$loci) {
 
+		foreach (@$loci) {
 			if ( $self->{'prefs'}->{'isolate_display_loci'}->{$_} ne 'hide' ) {
 				$locus_display_count++;
 			}
 		}
 		return $td if !$allele_designations_exist && !$allele_sequences_exist;
 		$display_on_own_line = 0 if !$locus_display_count;
-		$info_ref = $self->{'datastore'}->get_scheme_info($scheme_id);
+		$info_ref = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 		foreach (@$scheme_fields) {
 			if ( $self->{'prefs'}->{'isolate_display_scheme_fields'}->{$scheme_id}->{$_} ) {
 				$scheme_fields_count++;
@@ -622,22 +639,30 @@ sub _get_scheme_fields {
 
 		#Loci that don't belong to a scheme
 		$scheme_fields = [];
+		my $loci_in_no_scheme = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 		if ( $self->{'prefs'}->{'undesignated_alleles'} ) {
-			$loci = $self->{'datastore'}->get_loci_in_no_scheme;
+			$loci = $loci_in_no_scheme;
 		} else {
-			$loci = $self->{'datastore'}->run_list_query(
-"SELECT allele_designations.locus FROM allele_designations LEFT JOIN scheme_members ON allele_designations.locus = scheme_members.locus WHERE isolate_id=? AND scheme_id is null UNION SELECT allele_sequences.locus FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id LEFT JOIN scheme_members ON scheme_members.locus=allele_sequences.locus WHERE scheme_id is null AND isolate_id=? ORDER BY locus",
-				$isolate_id, $isolate_id
-			);
-		}
-		return $td if !@$loci;
-		foreach (@$loci) {
-			if ( $self->{'prefs'}->{'isolate_display_loci'}->{$_} ne 'hide' ) {
-				$locus_display_count++;
+			my $loci_with_designations =
+			  $self->{'datastore'}->run_list_query( "SELECT locus FROM allele_designations WHERE isolate_id = ?", $isolate_id );
+			my $loci_with_tags =
+			  $self->{'datastore'}->run_list_query(
+				"SELECT DISTINCT locus FROM allele_sequences LEFT JOIN sequence_bin ON seqbin_id=sequence_bin.id WHERE isolate_id=?",
+				$isolate_id );
+			foreach my $locus (@$loci_in_no_scheme) {
+				next if none { $locus eq $_ } ( @$loci_with_designations, @$loci_with_tags );
+				push @$loci, $locus;
 			}
 		}
-		$info_ref->{'description'} = 'Loci';
-		$display_on_own_line = 1;
+		if ( ref $loci eq 'ARRAY' && @$loci ) {
+			foreach (@$loci) {
+				if ( $self->{'prefs'}->{'isolate_display_loci'}->{$_} ne 'hide' ) {
+					$locus_display_count++;
+				}
+			}
+			$info_ref->{'description'} = 'Loci';
+			$display_on_own_line = 1;
+		}
 	}
 	return $td if !( $locus_display_count + $scheme_fields_count ) && !$display_on_own_line;
 	my $hidden_locus_count = 0;
@@ -898,7 +923,7 @@ sub _get_scheme_fields_inline {
 			}
 		}
 	}
-	if ($i){
+	if ($i) {
 		my $missing_cells = $max_cells - $i;
 		$header_buffer[$j] .= "<td rowspan=\"2\" colspan=\"$missing_cells\" />" if $j;
 		$header_buffer[$j] .= "</tr>\n";
@@ -1059,8 +1084,15 @@ sub _get_seqbin_link {
 		$buffer .= $q->submit( -value => 'Display', -class => 'submit' );
 		$buffer .= $q->end_form;
 		$buffer .= "</td></tr>\n";
+		my $set_id = $self->get_set_id;
+		my $set_clause =
+		  $set_id
+		  ? "AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes "
+		  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
+		  : '';
 		my $tagged = $self->{'datastore'}->run_simple_query(
-"SELECT COUNT(*) FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE sequence_bin.isolate_id=?",
+			"SELECT COUNT(*) FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id "
+			  . "WHERE sequence_bin.isolate_id=? $set_clause",
 			$isolate_id
 		)->[0];
 		$plural = $tagged == 1 ? '' : 's';

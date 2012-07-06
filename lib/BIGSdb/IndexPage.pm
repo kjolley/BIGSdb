@@ -61,7 +61,7 @@ HTML
 	my $set_id = $self->get_set_id;
 	my $scheme_data =
 	  $self->{'datastore'}->get_scheme_list( { with_pk => ( $self->{'system'}->{'dbtype'} eq 'sequences' ? 1 : 0 ), set_id => $set_id } );
-	my ( $scheme_ids_ref, $desc_ref ) = $self->_extract_scheme_desc($scheme_data);
+	my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
 
 	if ( $system->{'dbtype'} eq 'isolates' ) {
 		say "<li><a href=\"$script_name?db=$instance&amp;page=query\">Search database</a> - advanced queries.</li>\n"
@@ -168,19 +168,9 @@ TOOLTIPS
 	return;
 }
 
-sub _extract_scheme_desc {
-	my ( $self, $scheme_data ) = @_;
-	my ( @scheme_ids, %desc );
-	foreach (@$scheme_data) {
-		push @scheme_ids, $_->{'id'};
-		$desc{ $_->{'id'} } = $_->{'description'};
-	}
-	return ( \@scheme_ids, \%desc );
-}
-
 sub _print_download_section {
 	my ( $self,           $scheme_data ) = @_;
-	my ( $scheme_ids_ref, $desc_ref )    = $self->_extract_scheme_desc($scheme_data);
+	my ( $scheme_ids_ref, $desc_ref )    = $self->extract_scheme_desc($scheme_data);
 	my $q                   = $self->{'cgi'};
 	my $seq_download_buffer = '';
 	my $scheme_buffer       = '';
@@ -286,16 +276,17 @@ sub _print_general_info_section {
 
 sub _print_plugin_section {
 	my ( $self,           $scheme_data ) = @_;
-	my ( $scheme_ids_ref, $desc_ref )    = $self->_extract_scheme_desc($scheme_data);
+	my ( $scheme_ids_ref, $desc_ref )    = $self->extract_scheme_desc($scheme_data);
 	my $q = $self->{'cgi'};
+	my $set_id = $self->get_set_id;
 	my $plugins =
-	  $self->{'pluginManager'}->get_appropriate_plugin_names( 'breakdown|export|analysis|miscellaneous', $self->{'system'}->{'dbtype'} );
+	  $self->{'pluginManager'}->get_appropriate_plugin_names( 'breakdown|export|analysis|miscellaneous', $self->{'system'}->{'dbtype'},{ set_id => $set_id } );
 	if (@$plugins) {
 		print "<div class=\"box\" id=\"plugins\"><div class=\"scrollable\">\n";
 		my $active_plugin;
 		foreach (qw (breakdown export analysis miscellaneous)) {
 			$q->param( 'page', 'index' );
-			$plugins = $self->{'pluginManager'}->get_appropriate_plugin_names( $_, $self->{'system'}->{'dbtype'} );
+			$plugins = $self->{'pluginManager'}->get_appropriate_plugin_names( $_, $self->{'system'}->{'dbtype'},{ set_id => $set_id } );
 			next if !@$plugins;
 			my $buffer = "<div style=\"float:left; margin-right:1em\">\n";
 			$buffer .= "<img src=\"/images/icons/64x64/$_.png\" alt=\"\" />\n";
