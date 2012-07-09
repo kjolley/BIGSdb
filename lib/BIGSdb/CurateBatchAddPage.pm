@@ -657,7 +657,8 @@ sub _check_data_isolate_record_locus_fields {
 	my @data            = @{ $arg_ref->{'data'} };
 	my $pk_combination  = $arg_ref->{'pk_combination'};
 	my %is_locus;
-	$is_locus{$_} = 1 foreach @{ $self->{'datastore'}->get_loci };
+	my $set_id = $self->get_set_id;
+	$is_locus{$_} = 1 foreach @{ $self->{'datastore'}->get_loci({set_id => $set_id}) };
 	my $locusbuffer;
 
 	foreach ( @{ $arg_ref->{'file_header_fields'} } ) {

@@ -985,7 +985,7 @@ sub get_all_allele_designations {
 }
 
 sub get_scheme_allele_designations {
-	my ( $self, $isolate_id, $scheme_id ) = @_;
+	my ( $self, $isolate_id, $scheme_id, $options ) = @_;
 	if ($scheme_id) {
 		if ( !$self->{'sql'}->{'scheme_allele_designations'} ) {
 			$self->{'sql'}->{'scheme_allele_designations'} =
@@ -997,9 +997,12 @@ sub get_scheme_allele_designations {
 		return $self->{'sql'}->{'scheme_allele_designations'}->fetchall_hashref('locus');
 	} else {
 		if ( !$self->{'sql'}->{'noscheme_allele_designations'} ) {
+			my $set_clause =
+			  $options->{'set_id'}
+			  ? "SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$options->{'set_id'})"
+			  : "SELECT locus FROM scheme_members";
 			$self->{'sql'}->{'noscheme_allele_designations'} =
-			  $self->{'db'}
-			  ->prepare( "SELECT * FROM allele_designations " . "WHERE isolate_id=? AND locus NOT IN (SELECT locus FROM scheme_members)" );
+			  $self->{'db'}->prepare("SELECT * FROM allele_designations WHERE isolate_id=? AND locus NOT IN ($set_clause)");
 		}
 		eval { $self->{'sql'}->{'noscheme_allele_designations'}->execute($isolate_id) };
 		$logger->error($@) if $@;

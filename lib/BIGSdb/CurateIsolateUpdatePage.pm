@@ -380,27 +380,27 @@ sub _print_samples {
 	my ( $self, $data ) = @_;
 	my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
 	if (@$sample_fields) {
-		print "<div class=\"box\" id=\"samples\">\n";
-		print "<h2>Samples:</h2>\n";
+		say "<div class=\"box\" id=\"samples\">";
+		say "<h2>Samples:</h2>";
 		my $isolate_record = BIGSdb::IsolateInfoPage->new(
 			(
-				'system'        => $self->{'system'},
-				'cgi'           => $self->{'cgi'},
-				'instance'      => $self->{'instance'},
-				'prefs'         => $self->{'prefs'},
-				'prefstore'     => $self->{'prefstore'},
-				'config'        => $self->{'config'},
-				'datastore'     => $self->{'datastore'},
-				'db'            => $self->{'db'},
-				'xmlHandler'    => $self->{'xmlHandler'},
-				'dataConnector' => $self->{'dataConnector'},
-				'curate'        => 1
+				system        => $self->{'system'},
+				cgi           => $self->{'cgi'},
+				instance      => $self->{'instance'},
+				prefs         => $self->{'prefs'},
+				prefstore     => $self->{'prefstore'},
+				config        => $self->{'config'},
+				datastore     => $self->{'datastore'},
+				db            => $self->{'db'},
+				xmlHandler    => $self->{'xmlHandler'},
+				dataConnector => $self->{'dataConnector'},
+				curate        => 1
 			)
 		);
-		print $isolate_record->get_sample_summary( $data->{'id'} );
-		print "<p /><p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;"
-		  . "table=samples&amp;isolate_id=$data->{'id'}\" class=\"button\">&nbsp;Add new sample&nbsp;</a></p>\n";
-		print "</div>\n";
+		say $isolate_record->get_sample_summary( $data->{'id'} );
+		say "<p /><p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;"
+		  . "table=samples&amp;isolate_id=$data->{'id'}\" class=\"button\">&nbsp;Add new sample&nbsp;</a></p>";
+		say "</div>\n";
 	}
 	return;
 }

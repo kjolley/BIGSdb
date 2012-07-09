@@ -107,13 +107,14 @@ sub get_tree {
 	my $groups_with_no_parent =
 	  $self->{'datastore'}->run_list_query(
 		"SELECT id FROM scheme_groups WHERE id NOT IN (SELECT group_id FROM scheme_group_group_members) ORDER BY display_order,name");
-	my $set_id     = $self->get_set_id;
+	my $set_id = $self->get_set_id;
 	my $set_clause = $set_id ? " AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : '';
 	my $schemes_not_in_group =
 	  $self->{'datastore'}->run_list_query_hashref(
 "SELECT id,description FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) $set_clause ORDER BY display_order,description"
 	  );
 	my ( $buffer, $scheme_nodes );
+
 	foreach (@$groups_with_no_parent) {
 		my $group_info          = $self->{'datastore'}->get_scheme_group_info($_);
 		my $group_scheme_buffer = $self->_get_group_schemes( $_, $isolate_id, $options );
@@ -203,12 +204,13 @@ sub _get_group_schemes {
 	my $buffer;
 	my $set_id     = $self->get_set_id;
 	my $set_clause = $set_id ? " AND scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : '';
-	my $schemes = $self->{'datastore'}->run_list_query(
+	my $schemes    = $self->{'datastore'}->run_list_query(
 		"SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON schemes.id=scheme_id WHERE group_id=? "
 		  . "$set_clause ORDER BY display_order,description",
 		$group_id
 	);
 	if (@$schemes) {
+
 		foreach my $scheme_id (@$schemes) {
 			next if $options->{'isolate_display'} && !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};
 			next if $options->{'analysis_pref'}   && !$self->{'prefs'}->{'analysis_schemes'}->{$scheme_id};
@@ -348,13 +350,19 @@ sub _scheme_data_present {
 
 sub _data_not_in_scheme_present {
 	my ( $self, $isolate_id ) = @_;
+	my $set_id = $self->get_set_id;
+	my $set_clause =
+	  $set_id
+	  ? "SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)"
+	  : "SELECT locus FROM scheme_members";
 	my $designations =
-	  $self->{'datastore'}->run_simple_query(
-		"SELECT EXISTS(SELECT * FROM allele_designations WHERE isolate_id=? AND locus NOT IN (SELECT locus FROM scheme_members))",
+	  $self->{'datastore'}
+	  ->run_simple_query( "SELECT EXISTS(SELECT * FROM allele_designations WHERE isolate_id=? AND locus NOT IN ($set_clause))",
 		$isolate_id )->[0];
 	return 1 if $designations;
 	my $sequences = $self->{'datastore'}->run_simple_query(
-"SELECT EXISTS(SELECT * FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id WHERE isolate_id=? AND locus NOT IN (SELECT locus FROM scheme_members))",
+		"SELECT EXISTS(SELECT * FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id WHERE "
+		  . "isolate_id=? AND locus NOT IN ($set_clause))",
 		$isolate_id
 	)->[0];
 	return $sequences ? 1 : 0;

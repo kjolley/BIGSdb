@@ -39,17 +39,17 @@ sub print_content {
 	my $table       = $q->param('table');
 	my $record_name = $self->get_record_name($table);
 	if ( !$self->{'datastore'}->is_table($table) && !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Table $table does not exist!</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Table $table does not exist!</p></div>";
 		return;
 	}
 	print "<h1>Update $record_name</h1>\n";
 	if ( !$self->can_modify_table($table) ) {
 		if ( $table eq 'sequences' && $q->param('locus') ) {
 			my $locus = $q->param('locus');
-			print
-"<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update $locus sequences in the database.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update $locus sequences in "
+			 . "the database.</p></div>";
 		} else {
-			print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update this record.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update this record.</p></div>n";
 		}
 		return;
 	} elsif (
@@ -63,20 +63,20 @@ sub print_content {
 		&& !$self->is_allowed_to_view_isolate( $q->param('isolate_id') )
 	  )
 	{
-		print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to modify data for this isolate.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to modify data for this isolate.</p></div>";
 		return;
 	}
 	if ( $table eq 'pending_allele_designations' ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Pending designations cannot be updated using this function.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Pending designations cannot be updated using this function.</p></div>";
 		return;
 	} elsif ( $table eq 'allele_sequences' ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Sequence tags cannot be updated using this function.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Sequence tags cannot be updated using this function.</p></div>";
 		return;
 	}
 	if ( $table eq 'scheme_fields' && $self->{'system'}->{'dbtype'} eq 'sequences' && !$q->param('sent') ) {
-		print "<div class=\"box\" id=\"warning\"><p>Please be aware that any changes to the structure of a scheme will "
+		say "<div class=\"box\" id=\"warning\"><p>Please be aware that any changes to the structure of a scheme will "
 		  . " result in all data being removed from it.  This will happen if you modify the type or change whether "
-		  . " the field is a primary key.  All other changes are ok.</p></div>\n";
+		  . " the field is a primary key.  All other changes are ok.</p></div>";
 	}
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my @query_values;
@@ -89,7 +89,7 @@ sub print_content {
 		}
 	}
 	if ( !@query_values ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>No identifying attributes sent.</p>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>No identifying attributes sent.</p>";
 		return;
 	}
 	local $" = ' AND ';
@@ -98,7 +98,7 @@ sub print_content {
 	eval { $sql->execute };
 	if ($@) {
 		$logger->error($@);
-		print "<div class=\"box\" id=\"statusbad\"><p>No identifying attributes sent.</p>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>No identifying attributes sent.</p>";
 		return;
 	} else {
 		$logger->debug("Query: $qry");
@@ -128,7 +128,7 @@ sub print_content {
 		@problems = $self->check_record( $table, \%newdata, 1, $data );
 		if (@problems) {
 			local $" = "<br />\n";
-			print "<div class=\"box\" id=\"statusbad\"><p>@problems</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>@problems</p></div>";
 		} else {
 			my $status;
 			if ( $table eq 'users' ) {
@@ -225,12 +225,12 @@ HTML
 					$self->{'db'}->rollback;
 				} else {
 					$self->{'db'}->commit
-					  && print "<div class=\"box\" id=\"resultsheader\"><p>$record_name updated!</p>";
-					print "<p><a href=\""
+					  && say "<div class=\"box\" id=\"resultsheader\"><p>$record_name updated!</p>";
+					say "<p><a href=\""
 					  . $q->script_name
 					  . "?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$table\">Update another</a> | <a href=\""
 					  . $q->script_name
-					  . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
+					  . "?db=$self->{'instance'}\">Back to main page</a></p></div>";
 					if ( $table eq 'allele_designations' ) {
 						$self->update_history( $data->{'isolate_id'}, "$data->{'locus'}: $data->{'allele_id'} -> $new_value{'allele_id'}" );
 					}

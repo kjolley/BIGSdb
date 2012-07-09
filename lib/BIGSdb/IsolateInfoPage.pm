@@ -687,7 +687,7 @@ sub _get_scheme_fields {
 		: "<tr class=\"td$td\"><th>"
 	) . "$info_ref->{'description'}</th>";
 	my ( %url, %locus_value );
-	my $allele_designations = $self->{'datastore'}->get_scheme_allele_designations( $isolate_id, $scheme_id );
+	my $allele_designations = $self->{'datastore'}->get_scheme_allele_designations( $isolate_id, $scheme_id, {set_id => $set_id} );
 	my $provisional_profile;
 	foreach my $locus (@$loci) {
 		$allele_designations->{$locus}->{'status'} ||= 'confirmed';

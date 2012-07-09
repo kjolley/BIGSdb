@@ -28,9 +28,9 @@ use constant SUCCESS => 1;
 
 sub print_content {
 	my ($self) = @_;
-	print "<h1>Add new isolate</h1>\n";
+	say "<h1>Add new isolate</h1>";
 	if ( !$self->can_modify_table('isolates') ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to add records to the isolates table.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to add records to the isolates table.</p></div>";
 		return;
 	}
 	my $q = $self->{'cgi'};
@@ -57,7 +57,8 @@ sub print_content {
 sub _check {
 	my ( $self, $newdata ) = @_;
 	my $q = $self->{'cgi'};
-	my $loci = $self->{'datastore'}->get_loci( { 'query_pref' => 1 } );
+	my $set_id = $self->get_set_id;
+	my $loci = $self->{'datastore'}->get_loci( { query_pref => 1, set_id => $set_id } );
 	@$loci = uniq @$loci;
 	my @bad_field_buffer;
 	my $insert = 1;
@@ -100,15 +101,15 @@ sub _check {
 		}
 	}
 	if (@bad_field_buffer) {
-		print "<div class=\"box\" id=\"statusbad\"><p>There are problems with your record submission.  Please address the following:</p>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>There are problems with your record submission.  Please address the following:</p>";
 		local $" = '<br />';
-		print "<p>@bad_field_buffer</p></div>\n";
+		say "<p>@bad_field_buffer</p></div>";
 		$insert = 0;
 	}
 	if ($insert) {
 		if ( $self->id_exists( $newdata->{'id'} ) ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>id-$newdata->{'id'} has already been defined - "
-			  . "please choose a different id number.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>id-$newdata->{'id'} has already been defined - "
+			  . "please choose a different id number.</p></div>";
 			$insert = 0;
 		}
 		return $self->_insert($newdata) if $insert;
@@ -182,19 +183,19 @@ sub _insert {
 		if ($@) {
 			print "<div class=\"box\" id=\"statusbad\"><p>Insert failed - transaction cancelled - no records have been touched.</p>\n";
 			if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
-				print "<p>Data entry would have resulted in records with either duplicate ids or another unique field with "
-				  . "duplicate values.</p>\n";
+				say "<p>Data entry would have resulted in records with either duplicate ids or another unique field with "
+				  . "duplicate values.</p>";
 			} else {
-				print "<p>Error message: $@</p>\n";
+				say "<p>Error message: $@</p>";
 				$logger->error("Insert failed: $qry  $@");
 			}
 			print "</div>\n";
 			$self->{'db'}->rollback;
 		} else {
 			$self->{'db'}->commit
-			  && print "<div class=\"box\" id=\"resultsheader\"><p>id-$newdata->{'id'} added!</p>";
-			print "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateAdd\">Add another</a> | "
-			  . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
+			  && say "<div class=\"box\" id=\"resultsheader\"><p>id-$newdata->{'id'} added!</p>";
+			say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateAdd\">Add another</a> | "
+			  . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>";
 			return SUCCESS;
 		}
 	}
@@ -203,12 +204,13 @@ sub _insert {
 
 sub _print_interface {
 	my ( $self, $newdata ) = @_;
-	my $loci = $self->{'datastore'}->get_loci( { 'query_pref' => 1 } );
+	my $set_id = $self->get_set_id;
+	my $loci = $self->{'datastore'}->get_loci( { query_pref => 1, set_id => $set_id } );
 	@$loci = uniq @$loci;
 	my $q = $self->{'cgi'};
-	print "<div class=\"box\" id=\"queryform\"><p>Please fill in the fields below - required fields are " . "
-	marked with an exclamation mark (!).</p>\n";
-	print "<div class=\"scrollable\">\n";
+	say "<div class=\"box\" id=\"queryform\"><p>Please fill in the fields below - required fields are "
+	  . "marked with an exclamation mark (!).</p>";
+	say "<div class=\"scrollable\">";
 	my $qry = "SELECT id,user_name,first_name,surname FROM users WHERE id>0 ORDER BY surname";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
@@ -220,17 +222,17 @@ sub _print_interface {
 		push @users, $userid;
 		$usernames{$userid} = "$surname, $firstname ($username)";
 	}
-	print $q->start_form;
+	say $q->start_form;
 	$q->param( 'sent', 1 );
-	print $q->hidden($_) foreach qw(page db sent);
+	say $q->hidden($_) foreach qw(page db sent);
 	my $field_list = $self->{'xmlHandler'}->get_field_list;
 	if ( @$field_list > 15 ) {
-		print "<span style=\"float:right\">";
-		print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-		print "</span>\n";
+		say "<span style=\"float:right\">";
+		say $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
+		say "</span>";
 	}
-	print "<fieldset><legend>Isolate fields</legend>";
-	print "<table>\n";
+	say "<fieldset><legend>Isolate fields</legend>";
+	say "<table>";
 
 	#Display required fields first
 	foreach my $required ( '1', '0' ) {
@@ -250,15 +252,15 @@ sub _print_interface {
 					foreach my $option ( $self->{'xmlHandler'}->get_field_option_list($field) ) {
 						push @optlist, $option;
 					}
-					print $q->popup_menu( -name => $field, -values => [ '', @optlist ], -default => $newdata->{$field} );
+					say $q->popup_menu( -name => $field, -values => [ '', @optlist ], -default => $newdata->{$field} );
 				} elsif ( $thisfield{'type'} eq 'bool' ) {
-					print $q->popup_menu( -name => $field, -values => [ '', 'true', 'false' ], -default => $newdata->{$field} );
+					say $q->popup_menu( -name => $field, -values => [ '', 'true', 'false' ], -default => $newdata->{$field} );
 				} elsif ( lc($field) eq 'datestamp'
 					|| lc($field) eq 'date_entered' )
 				{
-					print "<b>" . $self->get_datestamp . "</b>\n";
+					say "<b>" . $self->get_datestamp . "</b>";
 				} elsif ( lc($field) eq 'curator' ) {
-					print "<b>" . $self->get_curator_name . ' (' . $self->{'username'} . ")</b>\n";
+					say "<b>" . $self->get_curator_name . ' (' . $self->{'username'} . ")</b>";
 				} elsif (
 					lc($field) eq 'sender'
 					|| lc($field) eq 'sequenced_by'
@@ -266,31 +268,31 @@ sub _print_interface {
 						&& $thisfield{'userfield'} eq 'yes' )
 				  )
 				{
-					print $q->popup_menu( -name => $field, -values => [ '', @users ], -labels => \%usernames,
-						-default => $newdata->{$field}, );
+					say $q->popup_menu( -name => $field, -values => [ '', @users ], -labels => \%usernames, -default => $newdata->{$field},
+					);
 				} else {
 					if ( $thisfield{'length'} && $thisfield{'length'} > 60 ) {
-						print $q->textarea( -name => $field, -rows => 3, -cols => 40, -default => $newdata->{$field} );
+						say $q->textarea( -name => $field, -rows => 3, -cols => 40, -default => $newdata->{$field} );
 					} else {
-						print $q->textfield( -name => $field, -size => $thisfield{'length'}, -default => $newdata->{$field} );
+						say $q->textfield( -name => $field, -size => $thisfield{'length'}, -default => $newdata->{$field} );
 					}
 				}
 				if (   $field ne 'datestamp'
 					&& $field ne 'date_entered'
 					&& lc( $thisfield{'type'} ) eq 'date' )
 				{
-					print " format: yyyy-mm-dd";
+					say " format: yyyy-mm-dd";
 				}
-				print "</td></tr>\n";
+				say "</td></tr>";
 			}
 		}
 	}
-	print "<tr><td style=\"text-align:right\">aliases: </td><td>";
-	print $q->textarea( -name => 'aliases', -rows => 2, -cols => 12, -style => 'width:10em' );
-	print "</td></tr>\n";
-	print "<tr><td style=\"text-align:right\">PubMed ids: </td><td>";
-	print $q->textarea( -name => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em' );
-	print "</td></tr>\n";
+	say "<tr><td style=\"text-align:right\">aliases: </td><td>";
+	say $q->textarea( -name => 'aliases', -rows => 2, -cols => 12, -style => 'width:10em' );
+	say "</td></tr>";
+	say "<tr><td style=\"text-align:right\">PubMed ids: </td><td>";
+	say $q->textarea( -name => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em' );
+	say "</td></tr>";
 	my $locus_buffer;
 
 	if ( @$loci <= 100 ) {
@@ -306,15 +308,15 @@ sub _print_interface {
 		$locus_buffer .= "<tr><td style=\"text-align:right\">Loci: </td><td style=\"white-space: nowrap\">Too many to display. "
 		  . "You can batch add allele designations after entering isolate provenace data.</td></tr>\n";
 	}
-	print "</table>\n";
-	print "</fieldset>\n";
-	print "<fieldset><legend>Allele designations</legend>\n<table>$locus_buffer</table></fieldset>" if @$loci;
-	print "<div style=\"margin-bottom:2em\">\n<span style=\"float:left\"><a href=\"$self->{'system'}->{'script_name'}?"
+	say "</table>";
+	say "</fieldset>";
+	say "<fieldset><legend>Allele designations</legend>\n<table>$locus_buffer</table></fieldset>" if @$loci;
+	say "<div style=\"margin-bottom:2em\">\n<span style=\"float:left\"><a href=\"$self->{'system'}->{'script_name'}?"
 	  . " db=$self->{'instance'}&amp;page=isolateAdd\" class=\"resetbutton\">Reset</a></span><span style=\"float:right\">";
-	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	print "</span></div>\n";
-	print $q->end_form;
-	print "</div></div>\n";
+	say $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
+	say "</span></div>";
+	say $q->end_form;
+	say "</div></div>";
 	return;
 }
 
