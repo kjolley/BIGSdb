@@ -560,11 +560,13 @@ sub print_file {
 			}
 			$loci = $self->{'datastore'}->run_list_query($qry);
 		} else {
-			my $qry =
-			    "SELECT locus_curators.locus from locus_curators LEFT JOIN loci ON locus=id LEFT JOIN scheme_members on "
-			  . "loci.id = scheme_members.locus WHERE locus_curators.curator_id=? AND (id IN (SELECT locus FROM scheme_members "
-			  . "WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)) OR id IN (SELECT locus FROM set_loci "
-			  . "WHERE set_id=$set_id)) ORDER BY scheme_members.scheme_id,locus_curators.locus";
+			my $set_clause =
+			  $set_id
+			  ? "AND (id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes "
+			  . "WHERE set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
+			  : '';
+			my $qry = "SELECT locus_curators.locus from locus_curators LEFT JOIN loci ON locus=id LEFT JOIN scheme_members on "
+			  . "loci.id = scheme_members.locus WHERE locus_curators.curator_id=? $set_clause ORDER BY scheme_members.scheme_id,locus_curators.locus";
 			$loci = $self->{'datastore'}->run_list_query( $qry, $self->get_curator_id );
 		}
 		my $first = 1;

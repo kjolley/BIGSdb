@@ -69,10 +69,9 @@ sub print_content {
 	}
 	if ( ( $table eq 'scheme_fields' || $table eq 'scheme_members' ) && $self->{'system'}->{'dbtype'} eq 'sequences' && !$q->param('sent') )
 	{
-		print
-		  "<div class=\"box\" id=\"warning\"><p>Please be aware that any modifications to the structure of this scheme will result in the
-		removal of all data from it. This is done to ensure data integrity.  This does not affect allele designations, but any profiles
-		will have to be reloaded.</p></div>\n";
+		print "<div class=\"box\" id=\"warning\"><p>Please be aware that any modifications to the structure of this scheme "
+		 . "will result in the removal of all data from it. This is done to ensure data integrity.  This does not affect "
+		 . "allele designations, but any profiles will have to be reloaded.</p></div>\n";
 	}
 	my $buffer;
 	my %newdata;

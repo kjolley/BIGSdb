@@ -104,7 +104,7 @@ sub create_record_table {
 					|| ( $newdata_readonly && $newdata{ $att->{'name'} } ) )
 				{
 					my $desc;
-					if ( ($att->{'name'} eq 'locus' && $table ne 'set_loci') || ( $table eq 'loci' && $att->{'name'} eq 'id' ) ) {
+					if ( ( $att->{'name'} eq 'locus' && $table ne 'set_loci' ) || ( $table eq 'loci' && $att->{'name'} eq 'id' ) ) {
 						$desc = $self->clean_locus( $newdata{ $att->{'name'} } );
 					} elsif ( $att->{'labels'} ) {
 						$desc = $self->_get_foreign_key_label( $name, $newdata_ref, $att );
@@ -183,7 +183,7 @@ sub create_record_table {
 						$values = $self->{'datastore'}->run_list_query($qry);
 					} elsif ( $att->{'foreign_key'} eq 'loci' && $table ne 'set_loci' && $set_id ) {
 						( $values, $desc ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, no_list_by_common_name => 1 } );
-					} elsif ( $att->{'foreign_key'} eq 'schemes' && $table ne 'set_schemes' && $set_id){
+					} elsif ( $att->{'foreign_key'} eq 'schemes' && $table ne 'set_schemes' && $set_id ) {
 						my $scheme_list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 						push @$values, $_->{'id'} foreach @$scheme_list;
 					} else {
@@ -914,6 +914,7 @@ sub _is_field_bad_other {
 	if ( $thisfield->{'foreign_key'} ) {
 		my $qry = "SELECT COUNT(*) FROM $thisfield->{'foreign_key'} WHERE id=?";
 		my $sql = $self->{'db'}->prepare($qry) or die 'cannot prepare';
+		$value = $self->map_locus_name($value) if $fieldname eq 'locus';
 		eval { $sql->execute($value) };
 		$logger->error($@) if $@;
 		my ($exists) = $sql->fetchrow_array;
@@ -922,6 +923,15 @@ sub _is_field_bad_other {
 		}
 	}
 	return 0;
+}
+
+sub map_locus_name {
+	my ( $self, $locus ) = @_;
+	my $set_id = $self->get_set_id;
+	return $locus if !$set_id;
+	my $locus_list = $self->{'datastore'}->run_list_query( "SELECT locus FROM set_loci WHERE set_id=? AND set_name=?", $set_id, $locus );
+	return $locus if @$locus_list != 1;
+	return $locus_list->[0];
 }
 
 sub update_history {

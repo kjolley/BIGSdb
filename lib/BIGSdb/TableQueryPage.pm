@@ -525,6 +525,7 @@ sub _modify_loci_for_sets {
 	my $identifier;
 	given ($table) {
 		when ('loci')                { $identifier = 'id' }
+		when ('locus_aliases')		 { $identifier = 'locus' }
 		when ('scheme_members')      { $identifier = 'locus' }
 		when ('allele_designations') { $identifier = 'locus' }
 		default                      { return }

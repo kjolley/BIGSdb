@@ -422,7 +422,8 @@ sub _check_data {
 				} else {
 					$display_value = $value;
 				}
-				if ( !( ( my $problem .= $self->is_field_bad( $table, $field, $value, 'insert' ) ) || $special_problem ) ) {
+				my $problem = $self->is_field_bad( $table, $field, $value, 'insert' );
+				if ( !( $problem || $special_problem ) ) {
 					if ( $table eq 'sequences' && $field eq 'flags' ) {
 						my @flags = split /;/, ( $display_value // '' );
 						local $" = "</a> <a class=\"seqflag_tooltip\">";
@@ -658,29 +659,34 @@ sub _check_data_isolate_record_locus_fields {
 	my $pk_combination  = $arg_ref->{'pk_combination'};
 	my %is_locus;
 	my $set_id = $self->get_set_id;
-	$is_locus{$_} = 1 foreach @{ $self->{'datastore'}->get_loci({set_id => $set_id}) };
+	$is_locus{$_} = 1 foreach @{ $self->{'datastore'}->get_loci( { set_id => $set_id } ) };
 	my $locusbuffer;
 
-	foreach ( @{ $arg_ref->{'file_header_fields'} } ) {
-		if ( $is_locus{$_} ) {
-			${ $arg_ref->{'header_row'} } .= "$_\t" if $first_record;
-			my $value = defined $file_header_pos{$_} ? $data[ $file_header_pos{$_} ] : undef;
-			if ( !$arg_ref->{'locus_format'}->{$_} ) {
-				my $locus_info = $self->{'datastore'}->get_locus_info($_);
-				$arg_ref->{'locus_format'}->{$_} = $locus_info->{'allele_id_format'};
-				$arg_ref->{'locus_regex'}->{$_}  = $locus_info->{'allele_id_regex'};
+	foreach my $field ( @{ $arg_ref->{'file_header_fields'} } ) {
+		if ( !$self->{'field_name_cache'}->{$field} ) {
+			$self->{'field_name_cache'}->{$field} = $self->map_locus_name($field) // $field;
+		}
+		if ( $is_locus{ $self->{'field_name_cache'}->{$field} } ) {
+			${ $arg_ref->{'header_row'} } .= "$self->{'field_name_cache'}->{$field}\t" if $first_record;
+			my $value = defined $file_header_pos{$field} ? $data[ $file_header_pos{$field} ] : undef;
+			if ( !$arg_ref->{'locus_format'}->{ $self->{'field_name_cache'}->{$field} } ) {
+				my $locus_info = $self->{'datastore'}->get_locus_info( $self->{'field_name_cache'}->{$field} );
+				$arg_ref->{'locus_format'}->{ $self->{'field_name_cache'}->{$field} } = $locus_info->{'allele_id_format'};
+				$arg_ref->{'locus_regex'}->{ $self->{'field_name_cache'}->{$field} }  = $locus_info->{'allele_id_regex'};
 			}
 			if ( defined $value && $value ne '' ) {
-				if ( $arg_ref->{'locus_format'}->{$_} eq 'integer'
+				if ( $arg_ref->{'locus_format'}->{ $self->{'field_name_cache'}->{$field} } eq 'integer'
 					&& !BIGSdb::Utils::is_int($value) )
 				{
-					$locusbuffer .= "<span><font color='red'>$_:&nbsp;$value</font></span><br />";
-					$arg_ref->{'problems'}->{$pk_combination} .= "'$_' must be an integer<br />";
-				} elsif ( $arg_ref->{'locus_regex'}->{$_} && $value !~ /$arg_ref->{'locus_regex'}->{$_}/ ) {
-					$locusbuffer .= "<span><font color='red'>$_:&nbsp;$value</font></span><br />";
-					$arg_ref->{'problems'}->{$pk_combination} .= "'$_' does not conform to specified format.<br />";
+					$locusbuffer .= "<span><font color='red'>$field:&nbsp;$value</font></span><br />";
+					$arg_ref->{'problems'}->{$pk_combination} .= "'$field' must be an integer<br />";
+				} elsif ( $arg_ref->{'locus_regex'}->{ $self->{'field_name_cache'}->{$field} }
+					&& $value !~ /$arg_ref->{'locus_regex'}->{$self->{'field_name_cache'}->{$field}}/ )
+				{
+					$locusbuffer .= "<span><font color='red'>$field:&nbsp;$value</font></span><br />";
+					$arg_ref->{'problems'}->{$pk_combination} .= "'$field' does not conform to specified format.<br />";
 				} else {
-					$locusbuffer .= "$_:&nbsp;$value<br />";
+					$locusbuffer .= "$field:&nbsp;$value<br />";
 				}
 				${ $arg_ref->{'checked_record'} } .= "$value\t";
 			} else {
@@ -774,11 +780,11 @@ sub _check_data_loci {
 	}
 	if ( $data[ $file_header_pos{'id'} ] =~ /^\d/ ) {
 		$arg_ref->{'problems'}->{$pk_combination} .= "Locus names can not start with a digit.  Try prepending an underscore (_) "
-		. "which will get hidden in the query interface.<br />";
+		  . "which will get hidden in the query interface.<br />";
 	}
 	if ( $data[ $file_header_pos{'id'} ] =~ /[^\w_']/ ) {
-		$arg_ref->{'problems'}->{$pk_combination} .= "Locus names can only contain alphanumeric, underscore (_) and prime (') "
-		. "characters (no spaces or other symbols).<br />";
+		$arg_ref->{'problems'}->{$pk_combination} .=
+		  "Locus names can only contain alphanumeric, underscore (_) and prime (') " . "characters (no spaces or other symbols).<br />";
 	}
 	return;
 }
@@ -813,9 +819,12 @@ sub _check_data_allele_designations {
 	if ( $field eq 'allele_id' ) {
 		my $format;
 		eval {
-			$format =
-			  $self->{'datastore'}
-			  ->run_simple_query( "SELECT allele_id_format,allele_id_regex FROM loci WHERE id=?", $data[ $file_header_pos{'locus'} ] );
+			if ( defined $file_header_pos{'locus'} )
+			{
+				$format =
+				  $self->{'datastore'}
+				  ->run_simple_query( "SELECT allele_id_format,allele_id_regex FROM loci WHERE id=?", $data[ $file_header_pos{'locus'} ] );
+			}
 		};
 		$logger->error($@) if $@;
 		if (   defined $format->[0]
@@ -827,8 +836,8 @@ sub _check_data_allele_designations {
 			  if !defined $arg_ref->{'problems'}->{$pk_combination} || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/;
 			${ $arg_ref->{'special_problem'} } = 1;
 		} elsif ( $format->[1] && ${ $arg_ref->{'value'} } !~ /$format->[1]/ ) {
-			$arg_ref->{'problems'}->{$pk_combination} .= "$field value is invalid - it must match the regular expression "
-			. "/$format->[1]/.<br />";
+			$arg_ref->{'problems'}->{$pk_combination} .=
+			  "$field value is invalid - it must match the regular expression " . "/$format->[1]/.<br />";
 			${ $arg_ref->{'special_problem'} } = 1;
 		}
 	}
@@ -937,18 +946,18 @@ sub _check_data_sequences {
 		my $length     = defined ${ $arg_ref->{'value'} } ? length( ${ $arg_ref->{'value'} } ) : 0;
 		my $units      = ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' ) ? 'bp' : 'residues';
 		if ( !$locus_info->{'length_varies'} && defined $locus_info->{'length'} && $locus_info->{'length'} != $length ) {
-			my $problem_text = "Sequence is $length $units long but this locus is set as a standard length of "
-			. "$locus_info->{'length'} $units.<br />";
+			my $problem_text =
+			  "Sequence is $length $units long but this locus is set as a standard length of " . "$locus_info->{'length'} $units.<br />";
 			$buffer .= $problem_text
 			  if !$buffer || $buffer !~ /$problem_text/;
 			${ $arg_ref->{'special_problem'} } = 1;
 		} elsif ( $locus_info->{'min_length'} && $length < $locus_info->{'min_length'} ) {
 			my $problem_text = "Sequence is $length $units long but this locus is set with a minimum length of "
-			. "$locus_info->{'min_length'} $units.<br />";
+			  . "$locus_info->{'min_length'} $units.<br />";
 			$buffer .= $problem_text;
 		} elsif ( $locus_info->{'max_length'} && $length > $locus_info->{'max_length'} ) {
 			my $problem_text = "Sequence is $length $units long but this locus is set with a maximum length of "
-			. "$locus_info->{'max_length'} $units.<br />";
+			  . "$locus_info->{'max_length'} $units.<br />";
 			$buffer .= $problem_text;
 		} elsif ( defined $file_header_pos{'allele_id'}
 			&& defined $data[ $file_header_pos{'allele_id'} ]
@@ -1135,22 +1144,23 @@ sub _upload_data {
 			my @value_list;
 			my ( @extras, @ref_extras );
 			my ( $id,     $sender );
-			foreach (@fields_to_include) {
-				$id = $data[ $fieldorder{$_} ] if $_ eq 'id';
-				if ( $_ eq 'date_entered' || $_ eq 'datestamp' ) {
+			foreach my $field (@fields_to_include) {
+				$id = $data[ $fieldorder{$field} ] if $field eq 'id';
+				if ( $field eq 'date_entered' || $field eq 'datestamp' ) {
 					push @value_list, "'today'";
-				} elsif ( $_ eq 'curator' ) {
+				} elsif ( $field eq 'curator' ) {
 					push @value_list, $self->get_curator_id;
-				} elsif ( defined $fieldorder{$_}
-					&& defined $data[ $fieldorder{$_} ]
-					&& $data[ $fieldorder{$_} ] ne 'null'
-					&& $data[ $fieldorder{$_} ] ne '' )
+				} elsif ( defined $fieldorder{$field}
+					&& defined $data[ $fieldorder{$field} ]
+					&& $data[ $fieldorder{$field} ] ne 'null'
+					&& $data[ $fieldorder{$field} ] ne '' )
 				{
-					push @value_list, "'$data[$fieldorder{$_}]'";
-					if ( $_ eq 'sender' ) {
-						$sender = $data[ $fieldorder{$_} ];
+					$data[ $fieldorder{$field} ] = $self->map_locus_name( $data[ $fieldorder{$field} ] ) if $field eq 'locus';
+					push @value_list, "'$data[$fieldorder{$field}]'";
+					if ( $field eq 'sender' ) {
+						$sender = $data[ $fieldorder{$field} ];
 					}
-				} elsif ( $_ eq 'sender' ) {
+				} elsif ( $field eq 'sender' ) {
 					if ( $q->param('sender') ) {
 						$sender = $q->param('sender');
 						push @value_list, $q->param('sender');
@@ -1158,13 +1168,13 @@ sub _upload_data {
 						push @value_list, 'null';
 						$logger->error("No sender!");
 					}
-				} elsif ( $table eq 'sequences' && !defined $fieldorder{$_} && $locus ) {
+				} elsif ( $table eq 'sequences' && !defined $fieldorder{$field} && $locus ) {
 					( my $cleaned_locus = $locus ) =~ s/'/\\'/g;
 					push @value_list, "'$cleaned_locus'";
 				} else {
 					push @value_list, 'null';
 				}
-				if ( $_ eq 'scheme_id' ) {
+				if ( $field eq 'scheme_id' ) {
 					$schemes{ $data[ $fieldorder{'scheme_id'} ] } = 1;
 				}
 			}

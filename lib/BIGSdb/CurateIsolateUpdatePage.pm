@@ -44,24 +44,24 @@ sub initiate {
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	print "<h1>Update isolate</h1>\n";
+	say "<h1>Update isolate</h1>";
 	my $qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE id = ?";
 	my $sql = $self->{'db'}->prepare($qry);
 	if ( !$q->param('id') ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>No id passed.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>No id passed.</p></div>";
 		return;
 	} elsif ( !$self->can_modify_table('isolates')
 		&& !$self->can_modify_table('allele_designations')
 		&& !$self->can_modify_table('samples') )
 	{
-		print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update isolate records.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update isolate records.</p></div>";
 		return;
 	}
 	eval { $sql->execute( $q->param('id') ) };
 	$logger->error($@) if $@;
 	my $data = $sql->fetchrow_hashref;
 	if ( !$$data{'id'} ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>No record with id = " . $q->param('id') . " exists.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>No record with id = " . $q->param('id') . " exists.</p></div>";
 		return;
 	}
 	if ( $q->param('sent') ) {
@@ -76,7 +76,7 @@ sub _update {
 	my ( $self, $data ) = @_;
 	my $q = $self->{'cgi'};
 	if ( !$self->can_modify_table('isolates') ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update isolate fields.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update isolate fields.</p></div>";
 		return;
 	}
 	my %newdata;
@@ -104,10 +104,10 @@ sub _update {
 		}
 	}
 	if (@bad_field_buffer) {
-		print "<div class=\"box\" id=\"statusbad\"><p>There are problems with your record submission.  "
-		  . "Please address the following:</p>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>There are problems with your record submission.  "
+		  . "Please address the following:</p>";
 		local $" = '<br />';
-		print "<p>@bad_field_buffer</p></div>\n";
+		say "<p>@bad_field_buffer</p></div>";
 		$update = 0;
 	}
 	if ($update) {
@@ -187,13 +187,13 @@ sub _update {
 					}
 				};
 				if ($@) {
-					print "<div class=\"box\" id=\"statusbad\"><p>Update failed - transaction cancelled - "
-					  . "no records have been touched.</p>\n";
+					say "<div class=\"box\" id=\"statusbad\"><p>Update failed - transaction cancelled - "
+					  . "no records have been touched.</p>";
 					if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
-						print "<p>Data update would have resulted in records with either duplicate ids or "
-						  . "another unique field with duplicate values.</p>\n";
+						say "<p>Data update would have resulted in records with either duplicate ids or "
+						  . "another unique field with duplicate values.</p>";
 					} elsif ( $@ =~ /datestyle/ ) {
-						print "<p>Date fields must be entered in yyyy-mm-dd format.</p>\n";
+						say "<p>Date fields must be entered in yyyy-mm-dd format.</p>";
 					} else {
 						$logger->error($@);
 					}
@@ -201,15 +201,15 @@ sub _update {
 					$self->{'db'}->rollback;
 				} else {
 					$self->{'db'}->commit
-					  && print "<div class=\"box\" id=\"resultsheader\"><p>Updated!</p>";
-					print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
+					  && say "<div class=\"box\" id=\"resultsheader\"><p>Updated!</p>";
+					say "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>";
 					local $" = '<br />';
 					$self->update_history( $data->{'id'}, "@updated_field" );
 					return;
 				}
 			} else {
-				print "<div class=\"box\" id=\"resultsheader\"><p>No field changes have been made.</p>\n";
-				print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
+				say "<div class=\"box\" id=\"resultsheader\"><p>No field changes have been made.</p>";
+				say "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>";
 				return;
 			}
 		}
@@ -227,22 +227,22 @@ sub _print_interface {
 		push @users, $user_hashref->{'id'};
 		$usernames{ $user_hashref->{'id'} } = "$user_hashref->{'surname'}, $user_hashref->{'first_name'} ($user_hashref->{'user_name'})";
 	}
-	print "<div class=\"scrollable\">\n";
-	print "<table><tr>";
-	print "<td style=\"vertical-align:top\">\n";
+	say "<div class=\"scrollable\">";
+	say "<table><tr>";
+	say "<td style=\"vertical-align:top\">";
 	if ( $self->can_modify_table('isolates') ) {
-		print "<div class=\"box\" id=\"queryform\">\n";
+		say "<div class=\"box\" id=\"queryform\">";
 		if ( !$q->param('sent') ) {
-			print "<h2>Isolate fields:</h2>\n";
-			print "<p>Update your record as required:</p>\n";
+			say "<h2>Isolate fields:</h2>";
+			say "<p>Update your record as required:</p>";
 		}
-		print "<table><tr><td>";
-		print $q->start_form;
+		say "<table><tr><td>";
+		say $q->start_form;
 		$q->param( 'sent', 1 );
-		print $q->hidden($_) foreach qw(page db sent);
-		print "<table>\n<tr><td colspan=\"2\" style=\"text-align:right\">";
-		print $q->submit( -name => 'Update', -class => 'submit' );
-		print "</td></tr>\n";
+		say $q->hidden($_) foreach qw(page db sent);
+		say "<table>\n<tr><td colspan=\"2\" style=\"text-align:right\">";
+		say $q->submit( -name => 'Update', -class => 'submit' );
+		say "</td></tr>";
 
 		#Display required fields first
 		foreach my $required ( '1', '0' ) {
@@ -261,7 +261,7 @@ sub _print_interface {
 					print "</td><td style=\"text-align:left; width:90%\">";
 					if ( $thisfield{'optlist'} ) {
 						my @optlist = $self->{'xmlHandler'}->get_field_option_list($field);
-						print $q->popup_menu( -name => $field, -values => [ '', @optlist ], -default => $$data{ lc($field) } );
+						say $q->popup_menu( -name => $field, -values => [ '', @optlist ], -default => $$data{ lc($field) } );
 					} elsif ( $thisfield{'type'} eq 'bool' ) {
 						my $default;
 						if (   $$data{ lc($field) } eq 't'
@@ -272,17 +272,17 @@ sub _print_interface {
 						} else {
 							$default = 'false';
 						}
-						print $q->popup_menu( -name => $field, -values => [ '', 'true', 'false' ], -default => $default );
+						say $q->popup_menu( -name => $field, -values => [ '', 'true', 'false' ], -default => $default );
 					} elsif ( $field eq 'id' ) {
-						print "<b>$$data{'id'}</b>\n";
-						print $q->hidden( 'id', $$data{'id'} );
+						say "<b>$$data{'id'}</b>";
+						say $q->hidden( 'id', $$data{'id'} );
 					} elsif ( lc($field) eq 'curator' ) {
-						print '<b>' . $self->get_curator_name . ' (' . $self->{'username'} . ")</b>\n";
+						say '<b>' . $self->get_curator_name . ' (' . $self->{'username'} . ")</b>";
 					} elsif ( lc($field) eq 'date_entered' ) {
-						print '<b>' . $$data{ lc($field) } . "</b>\n";
-						print $q->hidden( 'date_entered', $$data{ lc($field) } );
+						say '<b>' . $$data{ lc($field) } . "</b>";
+						say $q->hidden( 'date_entered', $$data{ lc($field) } );
 					} elsif ( lc($field) eq 'datestamp' ) {
-						print '<b>' . $self->get_datestamp . "</b>\n";
+						say '<b>' . $self->get_datestamp . "</b>";
 					} elsif (
 						lc($field) eq 'sender'
 						|| lc($field) eq 'sequenced_by'
@@ -290,7 +290,7 @@ sub _print_interface {
 							&& $thisfield{'userfield'} eq 'yes' )
 					  )
 					{
-						print $q->popup_menu(
+						say $q->popup_menu(
 							-name    => $field,
 							-values  => [ '', @users ],
 							-labels  => \%usernames,
@@ -298,9 +298,9 @@ sub _print_interface {
 						);
 					} else {
 						if ( $thisfield{'length'} && $thisfield{'length'} > 60 ) {
-							print $q->textarea( -name => $field, -rows => 3, -cols => 60, -default => $$data{ lc($field) } );
+							say $q->textarea( -name => $field, -rows => 3, -cols => 60, -default => $$data{ lc($field) } );
 						} else {
-							print $q->textfield( -name => $field, -size => $thisfield{'length'}, -default => $$data{ lc($field) } );
+							say $q->textfield( -name => $field, -size => $thisfield{'length'}, -default => $$data{ lc($field) } );
 						}
 					}
 					if (   $field ne 'datestamp'
@@ -309,70 +309,71 @@ sub _print_interface {
 					{
 						print " format: yyyy-mm-dd";
 					}
-					print "</td></tr>\n";
+					say "</td></tr>";
 				}
 			}
 		}
-		print "<tr><td style=\"text-align:right\">aliases: </td><td>";
+		say "<tr><td style=\"text-align:right\">aliases: </td><td>";
 		my $aliases =
 		  $self->{'datastore'}->run_list_query( "SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias", $q->param('id') );
 		local $" = "\n";
-		print $q->textarea( -name => 'aliases', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@$aliases" );
-		print "</td></tr>\n<tr><td style=\"text-align:right\">PubMed ids: </td><td>";
+		say $q->textarea( -name => 'aliases', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@$aliases" );
+		say "</td></tr>\n<tr><td style=\"text-align:right\">PubMed ids: </td><td>";
 		my $pubmed =
 		  $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id", $q->param('id') );
-		print $q->textarea( -name => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@$pubmed" );
-		print "</td></tr>\n<tr><td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateUpdate&amp;"
+		say $q->textarea( -name => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@$pubmed" );
+		say "</td></tr>\n<tr><td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateUpdate&amp;"
 		  . "id=$data->{'id'}\" class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\">";
-		print $q->submit( -name => 'Update', -class => 'submit' );
-		print "</td></tr>\n</table>\n";
-		print $q->end_form;
-		print "</td></tr></table></div>\n";
+		say $q->submit( -name => 'Update', -class => 'submit' );
+		say "</td></tr>\n</table>";
+		say $q->end_form;
+		say "</td></tr></table></div>";
 	}
 	$self->_print_samples($data)             if $self->can_modify_table('samples');
 	$self->_print_allele_designations($data) if $self->can_modify_table('allele_designations');
-	print "</td></tr></table>\n";
-	print "</div>\n";
+	say "</td></tr></table>";
+	say "</div>";
 	return;
 }
 
 sub _print_allele_designations {
 	my ( $self, $data ) = @_;
 	my $q = $self->{'cgi'};
-	print "</td><td style=\"vertical-align:top; padding-left:1em\">\n"
+	say "</td><td style=\"vertical-align:top; padding-left:1em\">"
 	  if $self->can_modify_table('isolates') || $self->can_modify_table('samples');
-	print "<div class=\"box\" id=\"alleles\">\n<h2>Loci:</h2>\n";
-	print "<p>Allele designations are handled separately from isolate fields due to the potential "
-	  . "complexity of multiple loci with set and pending designations.</p>\n";
+	say "<div class=\"box\" id=\"alleles\">\n<h2>Loci:</h2>";
+	say "<p>Allele designations are handled separately from isolate fields due to the potential "
+	  . "complexity of multiple loci with set and pending designations.</p>";
 	my $isolate_record = BIGSdb::IsolateInfoPage->new(
 		(
-			'system'        => $self->{'system'},
-			'cgi'           => $self->{'cgi'},
-			'instance'      => $self->{'instance'},
-			'prefs'         => $self->{'prefs'},
-			'prefstore'     => $self->{'prefstore'},
-			'config'        => $self->{'config'},
-			'datastore'     => $self->{'datastore'},
-			'db'            => $self->{'db'},
-			'xmlHandler'    => $self->{'xmlHandler'},
-			'dataConnector' => $self->{'dataConnector'},
-			'curate'        => 1
+			system        => $self->{'system'},
+			cgi           => $self->{'cgi'},
+			instance      => $self->{'instance'},
+			prefs         => $self->{'prefs'},
+			prefstore     => $self->{'prefstore'},
+			config        => $self->{'config'},
+			datastore     => $self->{'datastore'},
+			db            => $self->{'db'},
+			xmlHandler    => $self->{'xmlHandler'},
+			dataConnector => $self->{'dataConnector'},
+			curate        => 1
 		)
 	);
 	my $locus_summary = $isolate_record->get_loci_summary( $data->{'id'} );
 	$locus_summary =~ s /<table class=\"resultstable\">\s*<\/table>//;
-	print $locus_summary;
-	print "<p />\n";
-	print $q->start_form;
-	my ( $loci, $labels ) = $self->{'datastore'}->get_locus_list;
-	print "<label for=\"locus\">Locus: </label>\n";
-	print $q->popup_menu( -name => 'locus', -id => 'locus', -values => $loci, -labels => $labels );
-	print $q->submit( -label => 'Add/update', -class => 'submit' );
+	say $locus_summary;
+	say "<p />";
+	say $q->start_form;
+	my $set_id = $self->get_set_id;
+	my ( $loci, $labels ) = $self->{'datastore'}->get_locus_list({set_id => $set_id});
+	say "<label for=\"locus\">Locus: </label>";
+	say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $loci, -labels => $labels );
+	say $q->submit( -label => 'Add/update', -class => 'submit' );
 	$q->param( 'page',       'alleleUpdate' );
 	$q->param( 'isolate_id', $q->param('id') );
-	print $q->hidden($_) foreach qw(db page isolate_id);
-	print $q->end_form;
-	print "</div>\n";
+	say $q->hidden($_) foreach qw(db page isolate_id);
+	say $q->end_form;
+	say "</div>";
 	return;
 }
 
@@ -400,7 +401,7 @@ sub _print_samples {
 		say $isolate_record->get_sample_summary( $data->{'id'} );
 		say "<p /><p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;"
 		  . "table=samples&amp;isolate_id=$data->{'id'}\" class=\"button\">&nbsp;Add new sample&nbsp;</a></p>";
-		say "</div>\n";
+		say "</div>";
 	}
 	return;
 }

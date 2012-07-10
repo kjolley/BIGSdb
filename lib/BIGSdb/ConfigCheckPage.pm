@@ -19,6 +19,7 @@
 package BIGSdb::ConfigCheckPage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -26,15 +27,15 @@ my $logger = get_logger('BIGSdb.Page');
 sub print_content {
 	my ($self) = @_;
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	print "<h1>Configuration check - $desc</h1>";
+	say "<h1>Configuration check - $desc</h1>";
 	if ( !( $self->{'permissions'}->{'modify_loci'} || $self->{'permissions'}->{'modify_schemes'} || $self->is_admin ) ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>You do not have permission to view this page.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>You do not have permission to view this page.</p></div>";
 		return;
 	}
-	print "<div class=\"box\" id=\"resultstable\">\n";
-	print "<h2>Helper applications</h2>\n";
-	print
-"<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Program</th><th>Path</th><th>Installed</th><th>Executable</th></tr>\n";
+	say "<div class=\"box\" id=\"resultstable\">";
+	say "<h2>Helper applications</h2>";
+	say "<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Program</th><th>Path</th><th>Installed</th>"
+	  . "<th>Executable</th></tr>";
 	my %helpers;
 	{
 		no warnings 'uninitialized';
@@ -54,47 +55,57 @@ sub print_content {
 	}
 	my $td = 1;
 	foreach ( sort { $a cmp $b } keys %helpers ) {
-		print "<tr class=\"td$td\"><td>$_</td><td>$helpers{$_}</td><td>"
+		say "<tr class=\"td$td\"><td>$_</td><td>$helpers{$_}</td><td>"
 		  . ( -e ( $helpers{$_} ) ? '<span class="statusgood">ok</span>' : '<span class="statusbad">X</span>' )
 		  . "</td><td>"
 		  . ( -x ( $helpers{$_} ) ? '<span class="statusgood">ok</span>' : '<span class="statusbad">X</span>' )
-		  . "</td></tr>\n";
+		  . "</td></tr>";
 		$td = $td == 1 ? 2 : 1;
 	}
-	print "</table></div>\n";
+	say "</table></div>";
 	local $| = 1;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		print "<h2>Locus databases</h2>\n";
-		my $loci = $self->{'datastore'}->run_list_query("SELECT id FROM loci WHERE dbase_name IS NOT null ORDER BY id");
+		say "<h2>Locus databases</h2>";
+		my $set_id = $self->get_set_id;
+		my $set_clause =
+		  $set_id
+		  ? "AND (id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes "
+		  . "WHERE set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
+		  : '';
+		my $loci = $self->{'datastore'}->run_list_query("SELECT id FROM loci WHERE dbase_name IS NOT null $set_clause ORDER BY id");
 		$td = 1;
 		if (@$loci) {
-			print "<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Locus</th><th>Database</th><th>Host</th><th>Port</th>
-			<th>Table</th><th>Primary id field</th><th>Secondary id field</th><th>Secondary id field value</th>
-			<th>Sequence field</th><th>Database accessible</th><th>Sequence query</th><th>Sequences assigned</th></tr>\n";
+			say "<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Locus</th><th>Database</th><th>Host</th><th>Port</th>"
+			  . "<th>Table</th><th>Primary id field</th><th>Secondary id field</th><th>Secondary id field value</th>"
+			  . "<th>Sequence field</th><th>Database accessible</th><th>Sequence query</th><th>Sequences assigned</th></tr>";
 			foreach (@$loci) {
 				if ( $ENV{'MOD_PERL'} ) {
 					$self->{'mod_perl_request'}->rflush;
-					if ( $self->{'mod_perl_request'}->connection->aborted ) {
-						return;
-					}
+					return if $self->{'mod_perl_request'}->connection->aborted;
 				}
 				my $locus_info = $self->{'datastore'}->get_locus_info($_);
 				next if !$locus_info->{'dbase_name'};
 				my $cleaned = $self->clean_locus($_);
-				print "<tr class=\"td$td\"><td>$cleaned</td><td>$locus_info->{'dbase_name'}</td>
-			<td>" . ( $locus_info->{'dbase_host'}      || 'localhost' ) . "</td>
-			<td>" . ( $locus_info->{'dbase_port'}      || 5432 ) . "</td>
-			<td>" . ( $locus_info->{'dbase_table'}     || '' ) . "</td>
-			<td>" . ( $locus_info->{'dbase_id_field'}  || '' ) . "</td>
-			<td>" . ( $locus_info->{'dbase_id2_field'} || '' ) . "</td>
-			<td>" . ( $locus_info->{'dbase_id2_value'} || '' ) . "</td>
-			<td>" . ( $locus_info->{'dbase_seq_field'} || '' ) . "</td><td>";
+				print "<tr class=\"td$td\"><td>$cleaned</td><td>$locus_info->{'dbase_name'}</td><td>"
+				  . ( $locus_info->{'dbase_host'} || 'localhost' )
+				  . "</td><td>"
+				  . ( $locus_info->{'dbase_port'} || 5432 )
+				  . "</td><td>"
+				  . ( $locus_info->{'dbase_table'} || '' )
+				  . "</td><td>"
+				  . ( $locus_info->{'dbase_id_field'} || '' )
+				  . "</td><td>"
+				  . ( $locus_info->{'dbase_id2_field'} || '' )
+				  . "</td><td>"
+				  . ( $locus_info->{'dbase_id2_value'} || '' )
+				  . "</td><td>"
+				  . ( $locus_info->{'dbase_seq_field'} || '' )
+				  . "</td><td>";
 				eval { my $locus_db = $self->{'datastore'}->get_locus($_)->{'db'}; };
-
 				if ($@) {
-					print '<span class="statusbad">X</span>';
+					say '<span class="statusbad">X</span>';
 				} else {
-					print '<span class="statusgood">ok</span>';
+					say '<span class="statusgood">ok</span>';
 				}
 				print "</td><td>";
 				my $seq;
@@ -103,63 +114,68 @@ sub print_content {
 
 					#seq can contain opening brace if sequence_field = table by mistake
 					$logger->debug("$_; $@");
-					print '<span class="statusbad">X</span>';
+					say '<span class="statusbad">X</span>';
 				} else {
-					print '<span class="statusgood">ok</span>';
+					say '<span class="statusgood">ok</span>';
 				}
-				print "</td><td>";
+				say "</td><td>";
 				my $seqs;
 				eval { $seqs = $self->{'datastore'}->get_locus($_)->get_all_sequences; };
 				if ( $@ || ( ref $seqs eq 'HASH' && scalar keys %$seqs == 0 ) ) {
 					$logger->debug("$_; $@");
-					print '<span class="statusbad">X</span>';
+					say '<span class="statusbad">X</span>';
 				} else {
-					print '<span class="statusgood">' . scalar keys(%$seqs) . '</span>';
+					say '<span class="statusgood">' . scalar keys(%$seqs) . '</span>';
 				}
-				print "</td></tr>\n";
+				say "</td></tr>";
 				$td = $td == 1 ? 2 : 1;
 			}
-			print "</table></div>\n";
+			say "</table></div>";
 		} else {
-			print "<p>No loci with databases defined.</p>\n";
+			say "<p>No loci with databases defined.</p>";
 		}
 		print "<h2>Scheme databases</h2>";
-		my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes WHERE dbase_name IS NOT NULL ORDER BY id");
+		$set_clause = $set_id ? "AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : '';
+		my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes WHERE dbase_name IS NOT NULL $set_clause ORDER BY id");
 		$td = 1;
 		if (@$schemes) {
-			print
-"<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Scheme description</th><th>Database</th><th>Host</th><th>Port</th>
-			<th>Table</th><th>Database accessible</th><th>Profile query</th></tr>\n";
-			foreach (@$schemes) {
-				my $scheme_info = $self->{'datastore'}->get_scheme_info($_);
+			say "<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Scheme description</th><th>Database</th>"
+			  . "<th>Host</th><th>Port</th><th>Table</th><th>Database accessible</th><th>Profile query</th></tr>";
+			foreach my $scheme_id (@$schemes) {
+				my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 				$scheme_info->{'description'} =~ s/&/&amp;/g;
-				print "<tr class=\"td$td\"><td>$scheme_info->{'description'}</td><td>" . ( $scheme_info->{'dbase_name'} || '' ) . "</td>
-			<td>" . ( $scheme_info->{'dbase_host'}  || 'localhost' ) . "</td>
-			<td>" . ( $scheme_info->{'dbase_port'}  || 5432 ) . "</td>
-			<td>" . ( $scheme_info->{'dbase_table'} || '' ) . "</td><td>";
-				if ( $self->{'datastore'}->get_scheme($_)->get_db ) {
+				print "<tr class=\"td$td\"><td>$scheme_info->{'description'}</td><td>"
+				  . ( $scheme_info->{'dbase_name'} || '' )
+				  . "</td><td>"
+				  . ( $scheme_info->{'dbase_host'} || 'localhost' )
+				  . "</td><td>"
+				  . ( $scheme_info->{'dbase_port'} || 5432 )
+				  . "</td><td>"
+				  . ( $scheme_info->{'dbase_table'} || '' )
+				  . "</td><td>";
+				if ( $self->{'datastore'}->get_scheme($scheme_id)->get_db ) {
 					print '<span class="statusgood">ok</span>';
 				} else {
 					print '<span class="statusbad">X</span>';
 				}
 				print "</td><td>";
-				my $loci = $self->{'datastore'}->get_scheme_loci($_);
+				my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 				my @values;
 				foreach (@$loci) {
 					push @values, '1';
 				}
-				eval { $self->{'datastore'}->get_scheme($_)->get_field_values_by_profile( \@values ); };
+				eval { $self->{'datastore'}->get_scheme($scheme_id)->get_field_values_by_profile( \@values ); };
 				if ($@) {
 					print '<span class="statusbad">X</span>';
 				} else {
 					print '<span class="statusgood">ok</span>';
 				}
-				print "</td></tr>\n";
+				say "</td></tr>";
 				$td = $td == 1 ? 2 : 1;
 			}
-			print "</table></div>\n";
+			say "</table></div>";
 		} else {
-			print "<p>No schemes with databases defined.</p>\n";
+			say "<p>No schemes with databases defined.</p>";
 		}
 	} else {
 
@@ -170,7 +186,8 @@ sub print_content {
 			my $client      = $self->{'datastore'}->get_client_db($_);
 			my $client_info = $self->{'datastore'}->get_client_db_info($_);
 			$buffer .=
-"<tr class=\"td$td\"><td>$client_info->{'name'}</td><td>$client_info->{'description'}</td><td>$client_info->{'dbase_name'}</td><td>"
+			    "<tr class=\"td$td\"><td>$client_info->{'name'}</td><td>$client_info->{'description'}</td>"
+			  . "<td>$client_info->{'dbase_name'}</td><td>"
 			  . ( $client_info->{'dbase_host'} || 'localhost' ) . "</td>
 			<td>" . ( $client_info->{'dbase_port'} || 5432 ) . "</td><td>";
 			eval {
@@ -185,14 +202,14 @@ sub print_content {
 			$buffer .= "</td></tr>\n";
 		}
 		if ($buffer) {
-			print "<h2>Client databases</h2>\n";
-			print
-"<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Name</th><th>Description</th><th>Database</th><th>Host</th><th>Port</th><th>Database accessible</th></tr>";
-			print $buffer;
-			print "</table></div>\n";
+			say "<h2>Client databases</h2>";
+			say "<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Name</th><th>Description</th><th>Database</th>"
+			  . "<th>Host</th><th>Port</th><th>Database accessible</th></tr>";
+			say $buffer;
+			say "</table></div>";
 		}
 	}
-	print "</div>\n";
+	say "</div>";
 	return;
 }
 
