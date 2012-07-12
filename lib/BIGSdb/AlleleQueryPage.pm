@@ -35,6 +35,7 @@ sub initiate {
 		return;
 	}
 	$self->{$_} = 1 foreach qw(jQuery tooltips);
+	$self->{'noCache'} = 1 if ($self->{'system'}->{'sets'} // '') eq 'yes';
 	return;
 }
 
@@ -95,7 +96,8 @@ sub print_content {
 		return;
 	}
 	my $cleaned_locus = $self->clean_locus($locus);
-	print "<h1>Query $cleaned_locus sequences - $self->{'system'}->{'description'} database</h1>\n";
+	my $desc = $self->get_db_description;
+	print "<h1>Query $cleaned_locus sequences - $desc database</h1>\n";
 	my $qry;
 	if (   !defined $q->param('currentpage')
 		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )

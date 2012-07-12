@@ -66,7 +66,8 @@ sub run {
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
 	my $scheme_id  = $q->param('scheme_id');
-	print "<h1>Export allele sequences in XMFA format</h1>\n";
+	my $desc = $self->get_db_description;
+	print "<h1>Export allele sequences in XMFA format - $desc</h1>\n";
 	if ( !-e $self->{'config'}->{'muscle_path'} || !-x $self->{'config'}->{'muscle_path'} ) {
 		$logger->error( "This plugin requires MUSCLE to be installed and it is not.  Please install MUSCLE "
 			  . "or check the settings in bigsdb.conf." );

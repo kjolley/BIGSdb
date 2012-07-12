@@ -62,7 +62,8 @@ sub run {
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
 	my $scheme_id  = $q->param('scheme_id');
-	print "<h1>Concatenate allele sequences</h1>\n";
+	my $desc = $self->get_db_description;
+	print "<h1>Concatenate allele sequences - $desc</h1>\n";
 	my $list;
 	my $qry_ref;
 	my $pk;

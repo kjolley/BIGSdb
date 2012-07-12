@@ -33,6 +33,15 @@ sub set_pref_requirements {
 sub initiate {
 	my ($self) = @_;
 	$self->{'jQuery'} = 1;
+	if ($self->{'cgi'}->param('choose_set')){
+		my $guid = $self->get_guid;
+		if ($guid){
+			$self->{'prefstore'}->set_general($guid, $self->{'system'}->{'db'}, 'set_id', $self->{'cgi'}->param('sets_list') );
+		} else {
+			$self->{'system'}->{'sets'} = 'no';
+		}
+	}
+	
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $set_id = $self->get_set_id;
 		my $scheme_data = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
@@ -50,6 +59,10 @@ sub print_content {
 	my $desc        = $self->get_db_description;
 	say "<h1>Welcome to the $desc database</h1>";
 	$self->print_banner;
+	my $set_id = $self->get_set_id;
+	if (($self->{'system'}->{'sets'} // '') eq 'yes'){
+		$self->_print_set_section;
+	}
 	print << "HTML";
 <div class="box" id="index">
 <div class="scrollable">
@@ -58,7 +71,7 @@ sub print_content {
 <h2>Query database</h2>
 <ul class="toplevel">
 HTML
-	my $set_id = $self->get_set_id;
+	
 	my $scheme_data =
 	  $self->{'datastore'}->get_scheme_list( { with_pk => ( $self->{'system'}->{'dbtype'} eq 'sequences' ? 1 : 0 ), set_id => $set_id } );
 	my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
@@ -165,6 +178,39 @@ TOOLTIPS
 	$self->_print_general_info_section($scheme_data);
 	say "</div></div>";
 	$self->_print_plugin_section($scheme_data);
+	return;
+}
+
+sub _print_set_section {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $set_id = $self->get_set_id;
+	return if $self->{'system'}->{'set_id'} && BIGSdb::Utils::is_int($self->{'system'}->{'set_id'});
+	my $guid = $self->get_guid;
+	return if !$guid; #Cookies disabled
+	my $sets = $self->{'datastore'}->run_list_query_hashref("SELECT * FROM sets ORDER BY description");
+	return if !@$sets;
+	say "<div class=\"box\" id=\"sets\">";
+	print << "SETS";
+<div class="scrollable">	
+<div style="float:left; margin-right:1em">
+<img src="/images/icons/64x64/choose.png" alt="" />
+<h2>Datasets</h2>
+<p>This database contains multiple datasets.  You can choose to display a single set or the whole database.</p>
+SETS
+	say $q->start_form;
+	say "<label for=\"sets_list\">Please select: </label>";	
+	my @set_ids = (0);
+	my %labels = (0 => 'Whole database');
+	foreach my $set (@$sets){
+		push @set_ids, $set->{'id'};
+		$labels{$set->{'id'}} = $set->{'description'};
+	}
+	say $q->popup_menu(-name => 'sets_list', -id => 'sets_list', -values => \@set_ids, -labels => \%labels, -default => $set_id);
+	say $q->submit(-name => 'choose_set', -label => 'Choose', -class => 'smallbutton');
+	say $q->hidden($_) foreach qw (db page);
+	say $q->end_form;
+	say "</div></div></div>";
 	return;
 }
 

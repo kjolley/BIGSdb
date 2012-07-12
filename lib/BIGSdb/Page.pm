@@ -76,6 +76,7 @@ sub set_cookie_attributes {
 sub initiate {
 	my ($self) = @_;
 	$self->{'jQuery'} = 1;    #Use JQuery javascript library
+	$self->{'noCache'} = 1 if ($self->{'system'}->{'sets'} // '') eq 'yes';
 	return;
 }
 
@@ -255,7 +256,7 @@ sub get_stylesheet {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system   = $self->{'system'};
-	my $filename = 'bigsdb.css?v=20120412';
+	my $filename = 'bigsdb.css?v=20120512';
 	if ( !$system->{'db'} ) {
 		$stylesheet = "/$filename";
 	} elsif ( -e "$ENV{'DOCUMENT_ROOT'}$system->{'webroot'}/$system->{'db'}/$filename" ) {
@@ -812,7 +813,7 @@ sub clean_locus {
 sub get_set_id {
 	my ($self) = @_;
 	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
-		my $set_id = $self->{'system'}->{'set_id'} // $self->{'cgi'}->param('set_id');
+		my $set_id = $self->{'system'}->{'set_id'} // $self->{'prefs'}->{'set_id'};
 		return $set_id if $set_id && BIGSdb::Utils::is_int($set_id);
 	}
 	return;
@@ -1330,7 +1331,7 @@ sub initiate_prefs {
 			$self->{'prefs'}->{'pagebar'}     = $general_prefs->{'pagebar'}     || 'top and bottom';
 			$self->{'prefs'}->{'alignwidth'}  = $general_prefs->{'alignwidth'}  || 100;
 			$self->{'prefs'}->{'flanking'}    = $general_prefs->{'flanking'}    || 100;
-
+			$self->{'prefs'}->{'set_id'}      = $general_prefs->{'set_id'} if !$self->{'curate'};
 			#default off
 			foreach (qw (hyperlink_loci )) {
 				$general_prefs->{$_} ||= 'off';

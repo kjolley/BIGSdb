@@ -37,6 +37,7 @@ sub initiate {
 		return;
 	}
 	$self->{$_} = 1 foreach qw (jQuery jQuery.jstree);
+	$self->{'noCache'} = 1 if ($self->{'system'}->{'sets'} // '') eq 'yes';
 	return;
 }
 

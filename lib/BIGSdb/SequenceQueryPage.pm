@@ -67,7 +67,8 @@ sub print_content {
 		print "<div class=\"box\" id=\"statusbad\"><p>This function is not available in isolate databases.</p></div>\n";
 		return;
 	}
-	print $page eq 'sequenceQuery' ? "<h1>Sequence query</h1>\n" : "<h1>Batch sequence query</h1>\n";
+	my $desc = $self->get_db_description;
+	print $page eq 'sequenceQuery' ? "<h1>Sequence query - $desc</h1>\n" : "<h1>Batch sequence query - $desc</h1>\n";
 	print "<div class=\"box\" id=\"queryform\">\n";
 	print "<p>Please paste in your sequence"
 	  . ( $page eq 'batchSequenceQuery' ? 's' : '' )
@@ -81,7 +82,7 @@ sub print_content {
 	my $set_id = $self->get_set_id;
 	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
 	my $scheme_list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-	foreach (@$scheme_list) {
+	foreach (reverse @$scheme_list) {
 		unshift @$display_loci, "SCHEME_$_->{'id'}";
 		$cleaned->{"SCHEME_$_->{'id'}"} = $_->{'description'};
 	}

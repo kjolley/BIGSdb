@@ -37,6 +37,7 @@ sub initiate {
 	} else {
 		$self->{$_} = 1 foreach qw(jQuery jQuery.tablesort jQuery.jstree);
 	}
+	$self->{'noCache'} = 1 if ($self->{'system'}->{'sets'} // '') eq 'yes';
 	return;
 }
 

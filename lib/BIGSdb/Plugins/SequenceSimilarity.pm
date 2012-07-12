@@ -54,7 +54,8 @@ sub run {
 	my $locus = $q->param('locus') || '';
 	$locus =~ s/^cn_//;
 	my $allele = $q->param('allele');
-	print "<h1>Find most similar alleles</h1>\n";
+	my $desc = $self->get_db_description;
+	print "<h1>Find most similar alleles - $desc</h1>\n";
 	my $set_id = $self->get_set_id;
 	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list({set_id => $set_id});
 	if ( !@$display_loci ) {

@@ -1,5 +1,6 @@
 analysis.png        LGPL2.1         http://www.oxygen-icons.org/
 breakdown.png       LGPL2.1         http://www.oxygen-icons.org/
+choose.png			LGPL2.1			http://commons.wikimedia.org/wiki/Crystal_Clear
 configure.png       LGPL2.1         http://www.oxygen-icons.org/
 download.png        Public domain   http://tango.freedesktop.org/Tango_Icon_Library
 edit.png            LGPL2.1         http://commons.wikimedia.org/wiki/Crystal_Clear

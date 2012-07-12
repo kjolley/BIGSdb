@@ -519,13 +519,17 @@ div #index {
 	background:#d5e0d5;
 }
 
-div #index img,#plugins img,#restricted img {
+div #sets {
+	background:#e0e0d5;
+}
+
+div #index img,#plugins img,#sets img, #restricted img {
 	float:left;
 	margin-right:10px;
 	width:32px;
 }
 
-div #index h2,#plugins h2,#restricted h2{
+div #index h2,#plugins h2,#sets h2, #restricted h2{
 	margin-left:42px;	
 }
 

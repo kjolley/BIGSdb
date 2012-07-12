@@ -233,7 +233,8 @@ sub _print_interface {
 	my $q = $self->{'cgi'};
 	my $coding_loci =
 	  $self->{'datastore'}->run_list_query( "SELECT id FROM loci WHERE data_type=? AND coding_sequence ORDER BY id", 'DNA' );
-	print "<h1>Locus Explorer</h1>\n<div class=\"box\" id=\"queryform\">\n";
+	my $desc = $self->get_db_description;
+	print "<h1>Locus Explorer - $desc</h1>\n<div class=\"box\" id=\"queryform\">\n";
 	print $q->start_form;
 	$q->param( 'function', 'snp' );
 	print $q->hidden($_) foreach qw (db page function name);

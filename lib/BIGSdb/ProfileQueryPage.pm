@@ -29,6 +29,7 @@ use BIGSdb::Page qw(LOCUS_PATTERN);
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (tooltips jQuery);
+	$self->{'noCache'} = 1 if ($self->{'system'}->{'sets'} // '') eq 'yes';
 	return;
 }
 
