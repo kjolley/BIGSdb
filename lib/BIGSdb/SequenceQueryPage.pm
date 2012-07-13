@@ -82,7 +82,8 @@ sub print_content {
 	my $set_id = $self->get_set_id;
 	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
 	my $scheme_list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-	foreach (reverse @$scheme_list) {
+
+	foreach ( reverse @$scheme_list ) {
 		unshift @$display_loci, "SCHEME_$_->{'id'}";
 		$cleaned->{"SCHEME_$_->{'id'}"} = $_->{'description'};
 	}
@@ -321,7 +322,7 @@ sub _output_scheme_fields {
 				  ->run_simple_query_hashref( "SELECT @$scheme_fields FROM scheme_$scheme_id WHERE (@$scheme_loci) = (@placeholders)",
 					@profile );
 				my $set_id = $self->get_set_id;
-				my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id, {set_id=>$set_id});
+				my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 				print "<h2>$scheme_info->{'description'}</h2>\n<table>\n";
 				my $pks =
 				  $self->{'datastore'}->run_list_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id );
@@ -376,9 +377,10 @@ sub _output_batch_query_exact {
 			$allele_id = $_->{'allele'};
 		}
 		my $cleaned_locus = $self->clean_locus($locus);
+		my $text_locus = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
 		$buffer .=
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id\">$cleaned_locus: $allele_id</a>";
-		$text_buffer .= "$cleaned_locus-$allele_id";
+		$text_buffer .= "$text_locus-$allele_id";
 		undef $locus if !$distinct_locus_selected;
 		$first = 0;
 	}
@@ -619,20 +621,22 @@ sub _output_batch_query_nonexact {
 		$buffer      .= "There are insertions/deletions between these sequences.  Try single sequence query to get more details.";
 		$text_buffer .= "Insertions/deletions present.";
 	}
-	my ( $allele, $cleaned_locus, $text_allele );
+	my ( $allele, $text_allele, $cleaned_locus, $text_locus );
 	if ($distinct_locus_selected) {
 		$cleaned_locus = $self->clean_locus($locus);
+		$text_locus = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
 		$allele =
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$partial_match->{'allele'}\">$cleaned_locus: $partial_match->{'allele'}</a>";
-		$text_allele = "$locus-$partial_match->{'allele'}";
+		$text_allele = "$text_locus-$partial_match->{'allele'}";
 	} else {
 		if ( $partial_match->{'allele'} =~ /(.*):(.*)/ ) {
 			my ( $locus, $allele_id ) = ( $1, $2 );
 			$cleaned_locus = $self->clean_locus($locus);
+			$text_locus = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
 			$partial_match->{'allele'} =~ s/:/: /;
 			$allele =
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id\">$cleaned_locus: $allele_id</a>";
-			$text_allele = "$locus-$allele_id";
+			$text_allele = "$text_locus-$allele_id";
 		}
 	}
 	$batch_buffer =

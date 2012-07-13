@@ -807,6 +807,7 @@ sub clean_locus {
 	if ( !$options->{'text_output'} && ( $self->{'system'}->{'locus_superscript_prefix'} // '' ) eq 'yes' ) {
 		$locus =~ s/^([A-Za-z]{1,3})_/<sup>$1<\/sup>/;
 	}
+	$locus =~ tr/_/ / if !$options->{'text_output'};
 	return $locus;
 }
 
