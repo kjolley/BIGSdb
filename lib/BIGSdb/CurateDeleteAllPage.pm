@@ -19,6 +19,7 @@
 package BIGSdb::CurateDeleteAllPage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
@@ -30,7 +31,7 @@ sub print_content {
 	my $table       = $q->param('table');
 	my $query       = $q->param('query');
 	my $record_name = $self->get_record_name($table);
-	print "<h1>Delete multiple $record_name records</h1>\n";
+	say "<h1>Delete multiple $record_name records</h1>";
 	if ( $table eq 'profiles' && $query =~ /SELECT \* FROM scheme_(\d+)/ ) {
 		my $scheme_id = $1;
 		my $pk_ref =
@@ -42,22 +43,21 @@ sub print_content {
 			$query = "SELECT \* FROM profiles WHERE scheme_id=$scheme_id AND profile_id IN ($query)";
 		}
 	}
-	if ( !$self->{'datastore'}->is_table($table) && !($table eq 'samples' && @{$self->{'xmlHandler'}->get_sample_field_list})) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Table $table does not exist!</p></div>\n";
+	if ( !$self->{'datastore'}->is_table($table) && !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) ) {
+		say "<div class=\"box\" id=\"statusbad\"><p>Table $table does not exist!</p></div>";
 		return;
 	} elsif ( !$query ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>No selection query passed!</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>No selection query passed!</p></div>";
 		return;
 	} elsif ( $query !~ /SELECT \* FROM $table/ ) {
 		$logger->error("Table: $table; Query:$query");
-		print "<div class=\"box\" id=\"statusbad\"><p>Invalid query passed!</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Invalid query passed!</p></div>";
 		return;
 	} elsif ( !$self->can_modify_table($table) ) {
-		print
-		  "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to delete records from the $table table.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to delete records from the $table table.</p></div>";
 		return;
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' && !$self->is_admin && ( $table eq 'sequences' || $table eq 'sequence_refs' ) ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Only administrators can batch delete from the $table table.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Only administrators can batch delete from the $table table.</p></div>";
 		return;
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
@@ -66,9 +66,10 @@ sub print_content {
 			if ( $query =~ /temp_scheme_$_\s/ ) {
 				try {
 					$self->{'datastore'}->create_temp_scheme_table($_);
-				} catch BIGSdb::DatabaseConnectionException with {
-					print
-"<div class=\"box\" id=\"statusbad\"><p>Can't copy data into temporary table - please check scheme configuration (more details will be in the log file).</p></div>\n";					
+				}
+				catch BIGSdb::DatabaseConnectionException with {
+					say "<div class=\"box\" id=\"statusbad\"><p>Can't copy data into temporary table - please check scheme configuration "
+					  . "(more details will be in the log file).</p></div>";
 					$logger->error("Can't copy data to temporary table.");
 				};
 			}
@@ -76,9 +77,14 @@ sub print_content {
 	}
 	if ( $q->param('deleteAll') ) {
 		my $delete_qry = $query;
-		if (   ( $self->{'system'}->{'read_access'} eq 'acl' || ( $self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl' ))
+		if (
+			(
+				$self->{'system'}->{'read_access'} eq 'acl'
+				|| ( $self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl' )
+			)
 			&& $self->{'username'}
-			&& !$self->is_admin )
+			&& !$self->is_admin
+		  )
 		{
 			if ( $table eq $self->{'system'}->{'view'} ) {
 				$delete_qry =~ s/WHERE/AND/;
@@ -107,10 +113,13 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 		} elsif ( $table eq 'sequence_bin' && $delete_qry =~ /JOIN experiment_sequences/ ) {
 			$delete_qry = "DELETE FROM sequence_bin WHERE id IN ($delete_qry)";
 			$delete_qry =~ s/SELECT \*/SELECT id/;
-		} elsif ($table eq 'allele_sequences' && ($delete_qry =~ /JOIN sequence_flags/ || $delete_qry =~ /JOIN sequence_bin/ || $delete_qry =~ /JOIN scheme_members/)){
-			$delete_qry =~ s/SELECT \*/SELECT allele_sequences.seqbin_id,allele_sequences.locus,allele_sequences.start_pos,allele_sequences.end_pos/;
+		} elsif ( $table eq 'allele_sequences'
+			&& ( $delete_qry =~ /JOIN sequence_flags/ || $delete_qry =~ /JOIN sequence_bin/ || $delete_qry =~ /JOIN scheme_members/ ) )
+		{
+			$delete_qry =~
+			  s/SELECT \*/SELECT allele_sequences.seqbin_id,allele_sequences.locus,allele_sequences.start_pos,allele_sequences.end_pos/;
 			$delete_qry = "DELETE FROM allele_sequences WHERE (seqbin_id,locus,start_pos,end_pos) IN ($delete_qry)";
-		} elsif ($table eq 'allele_designations' && ($delete_qry =~ /JOIN scheme_members/)){
+		} elsif ( $table eq 'allele_designations' && ( $delete_qry =~ /JOIN scheme_members/ ) ) {
 			$delete_qry =~ s/SELECT \*/SELECT allele_designations.isolate_id,allele_designations.locus,allele_designations.allele_id/;
 			$delete_qry = "DELETE FROM allele_designations WHERE (isolate_id,locus,allele_id) IN ($delete_qry)";
 		}
@@ -118,7 +127,7 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 		my $scheme_ids;
 		my $profiles_affected;
 		my $schemes_affected;
-		if ($table eq 'loci' && $delete_qry =~ /JOIN scheme_members/ && $delete_qry !~ /scheme_id is null/){
+		if ( $table eq 'loci' && $delete_qry =~ /JOIN scheme_members/ && $delete_qry !~ /scheme_id is null/ ) {
 			$schemes_affected = 1;
 		}
 		my @allele_designations;
@@ -167,12 +176,11 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 		}
 		if ($profiles_affected) {
 			my $plural = $profiles_affected == 1 ? '' : 's';
-			print
-"<div class=\"box\" id=\"statusbad\"><p>Alleles are referenced by $profiles_affected allelic profile$plural - can not delete!</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>Alleles are referenced by $profiles_affected allelic profile$plural - "
+			  . "can not delete!</p></div>";
 			return;
 		} elsif ($schemes_affected) {
-			print
-			  "<div class=\"box\" id=\"statusbad\"><p>Deleting these loci would affect scheme definitions - can not delete!</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>Deleting these loci would affect scheme definitions - can not delete!</p></div>\n";
 			return;
 		}
 		eval {
@@ -187,21 +195,21 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 				foreach (@$scheme_ids) {
 					$self->drop_scheme_view($_);
 				}
-			} elsif ($table eq 'sequences'){
+			} elsif ( $table eq 'sequences' ) {
 				$self->mark_cache_stale;
-			} elsif ($table eq 'profiles'){
+			} elsif ( $table eq 'profiles' ) {
 				my $scheme_id = $q->param('scheme_id');
 				$self->refresh_material_view($scheme_id);
 			}
 		};
 		if ($@) {
-			print "<div class=\"box\" id=\"statusbad\"><p>Delete failed - transaction cancelled - no records have been touched.</p>";
+			say "<div class=\"box\" id=\"statusbad\"><p>Delete failed - transaction cancelled - no records have been touched.</p>";
 			if ( $@ =~ /foreign key/ ) {
-				print "<p>Selected records are referred to by other tables and can not be deleted.</p></div>\n";
+				say "<p>Selected records are referred to by other tables and can not be deleted.</p></div>";
 				$logger->debug($@);
 			} else {
-				print "<p>This is a bug in the software or database structure.  Please report this to the database administrator.
-				More details will be available in the error log.</p></div>\n";
+				say "<p>This is a bug in the software or database structure.  Please report this to the database administrator. "
+				 . "More details will be available in the error log.</p></div>";
 				$logger->error($@);
 			}
 			$self->{'db'}->rollback;
@@ -231,57 +239,70 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 						}
 					}
 				}
-				if ($commit){
+				if ($commit) {
 					$self->{'db'}->commit;
 				} else {
 					$self->{'db'}->rollback;
 				}
 			}
-			print "<div class=\"box\" id=\"resultsheader\"><p>Records deleted.</p>";
-			print "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Return to index</a></p></div>\n";
+			say "<div class=\"box\" id=\"resultsheader\"><p>Records deleted.</p>";
+			say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Return to index</a></p></div>";
 		}
 	} else {
-		if (   ( $table eq 'scheme_fields' || $table eq 'scheme_members' )
-			&& $self->{'system'}->{'dbtype'} eq 'sequences'
-			&& !$q->param('sent') )
-		{
-			print
-"<div class=\"box\" id=\"warning\"><p>Please be aware that any modifications to the structure of this scheme will result in the
-			removal of all data from it. This is done to ensure data integrity.  This does not affect allele designations, but any profiles
-			will have to be reloaded.</p></div>\n";
-		}
-		my $count_qry = $query;
-		if (   ( $self->{'system'}->{'read_access'} eq 'acl' || ($self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl' ))
-			&& $self->{'username'}
-			&& !$self->is_admin )
-		{
-			if ( $table eq 'allele_designations' || $table eq 'sequence_bin' || $table eq 'isolate_aliases' ) {
-				$count_qry =~ s/WHERE/AND/;
-				$count_qry =~ s/FROM $table/FROM $table WHERE isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})/;
-			} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' && ( $table eq 'allele_sequences' || $table eq 'accession' ) ) {
-				$count_qry =~ s/WHERE/AND/;
-				$count_qry =~
-s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bin.id WHERE isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})/;
-			}
-		}
-		if ($table eq 'allele_sequences'){
-			$count_qry =~ s/SELECT \*/SELECT COUNT(DISTINCT allele_sequences.seqbin_id||allele_sequences.locus||allele_sequences.start_pos||allele_sequences.end_pos)/;
-		} else {
-			$count_qry =~ s/SELECT \*/SELECT COUNT\(\*\)/;
-		}
-		$count_qry =~ s/ORDER BY.*//;
-		my ($count) = $self->{'datastore'}->run_simple_query($count_qry)->[0];
-		my $plural = $count == 1 ? '' : 's';
-		print "<div class=\"box\" id=\"statusbad\">\n";
-		print "<p>If you proceed, you will delete $count $record_name record$plural.  Please confirm that this is your intention.</p>\n";
-		print $q->start_form;
-		$q->param( 'deleteAll', 1 );
-		print $q->hidden($_) foreach qw (page db query deleteAll table delete_pending delete_tags scheme_id);
-		print $q->submit( -label => 'Confirm deletion!', -class => 'submit' );
-		print $q->end_form;
-		$self->print_warning_sign;
-		print "</div>\n";
+		$self->_print_interface( $table, $query );
 	}
+	return;
+}
+
+sub _print_interface {
+	my ( $self, $table, $query ) = @_;
+	my $q = $self->{'cgi'};
+	if (   ( $table eq 'scheme_fields' || $table eq 'scheme_members' )
+		&& $self->{'system'}->{'dbtype'} eq 'sequences'
+		&& !$q->param('sent') )
+	{
+		say "<div class=\"box\" id=\"warning\"><p>Please be aware that any modifications to the structure of this scheme will "
+		  . "result in the removal of all data from it. This is done to ensure data integrity.  This does not affect allele designations, "
+		  . "but any profiles will have to be reloaded.</p></div>";
+	}
+	my $count_qry = $query;
+	if (
+		(
+			$self->{'system'}->{'read_access'} eq 'acl'
+			|| ( $self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl' )
+		)
+		&& $self->{'username'}
+		&& !$self->is_admin
+	  )
+	{
+		if ( $table eq 'allele_designations' || $table eq 'sequence_bin' || $table eq 'isolate_aliases' ) {
+			$count_qry =~ s/WHERE/AND/;
+			$count_qry =~ s/FROM $table/FROM $table WHERE isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})/;
+		} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' && ( $table eq 'allele_sequences' || $table eq 'accession' ) ) {
+			$count_qry =~ s/WHERE/AND/;
+			$count_qry =~
+s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bin.id WHERE isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})/;
+		}
+	}
+	if ( $table eq 'allele_sequences' ) {
+		$count_qry =~
+s/SELECT \*/SELECT COUNT(DISTINCT allele_sequences.seqbin_id||allele_sequences.locus||allele_sequences.start_pos||allele_sequences.end_pos)/;
+	} else {
+		$count_qry =~ s/SELECT \*/SELECT COUNT\(\*\)/;
+	}
+	$count_qry =~ s/ORDER BY.*//;
+	my ($count) = $self->{'datastore'}->run_simple_query($count_qry)->[0];
+	my $plural = $count == 1 ? '' : 's';
+	say "<div class=\"box\" id=\"statusbad\">";
+	my $record_name = $self->get_record_name($table);
+	say "<p>If you proceed, you will delete $count $record_name record$plural.  Please confirm that this is your intention.</p>";
+	say $q->start_form;
+	$q->param( 'deleteAll', 1 );
+	say $q->hidden($_) foreach qw (page db query deleteAll table delete_pending delete_tags scheme_id);
+	say $q->submit( -label => 'Confirm deletion!', -class => 'submit' );
+	say $q->end_form;
+	$self->print_warning_sign;
+	say "</div>";
 	return;
 }
 

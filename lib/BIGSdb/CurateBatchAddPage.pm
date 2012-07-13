@@ -19,6 +19,7 @@
 package BIGSdb::CurateBatchAddPage;
 use strict;
 use warnings;
+use 5.010;
 use List::MoreUtils qw(any none uniq);
 use parent qw(BIGSdb::CurateAddPage);
 use Log::Log4perl qw(get_logger);
@@ -34,31 +35,31 @@ sub print_content {
 	my $locus         = $q->param('locus');
 	$cleaned_table =~ tr/_/ /;
 	if ( !$self->{'datastore'}->is_table($table) && !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Table $table does not exist!</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Table $table does not exist!</p></div>";
 		return;
 	}
 	if ( $table eq 'sequences' && $locus ) {
 		if ( !$self->{'datastore'}->is_locus($locus) ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>Locus $locus does not exist!</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>Locus $locus does not exist!</p></div>";
 			return;
 		}
 		my $cleaned_locus = $self->clean_locus($locus);
-		print "<h1>Batch insert $cleaned_locus sequences</h1>\n";
+		say "<h1>Batch insert $cleaned_locus sequences</h1>";
 	} else {
-		print "<h1>Batch insert $cleaned_table</h1>\n";
+		say "<h1>Batch insert $cleaned_table</h1>";
 	}
 	if ( !$self->can_modify_table($table) ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to add records to the $table table.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to add records to the $table table.</p></div>";
 		return;
 	}
 	if ( $table eq 'pending_allele_designations' ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>You can not use this interface to add pending allele designations.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>You can not use this interface to add pending allele designations.</p></div>";
 		return;
 	} elsif ( $table eq 'sequence_bin' ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>You can not use this interface to add sequences to the bin.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>You can not use this interface to add sequences to the bin.</p></div>";
 		return;
 	} elsif ( $table eq 'allele_sequences' ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Tag allele sequences using the scan interface.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Tag allele sequences using the scan interface.</p></div>";
 		return;
 	}
 	if (   ( $table eq 'scheme_fields' || $table eq 'scheme_members' )
@@ -66,32 +67,30 @@ sub print_content {
 		&& !$q->param('data')
 		&& !$q->param('checked_buffer') )
 	{
-		print "<div class=\"box\" id=\"warning\"><p>Please be aware that any modifications to the structure of a scheme will result in the "
+		say "<div class=\"box\" id=\"warning\"><p>Please be aware that any modifications to the structure of a scheme will result in the "
 		  . "removal of all data from it. This is done to ensure data integrity.  This does not affect allele designations, but any profiles "
-		  . "will have to be reloaded.</p></div>\n";
+		  . "will have to be reloaded.</p></div>";
 	}
 	my ( $uses_integer_id, $has_sender_field );
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
-		$uses_integer_id  = 1;
-		$has_sender_field = 1;
+		( $uses_integer_id, $has_sender_field ) = ( 1, 1 );
 	} else {
 		my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
-		foreach (@$attributes) {
-			if ( $_->{'name'} eq 'id' && $_->{'type'} eq 'int' ) {
+		foreach my $att (@$attributes) {
+			if ( $att->{'name'} eq 'id' && $att->{'type'} eq 'int' ) {
 				$uses_integer_id = 1;
-			} elsif ( $_->{'name'} eq 'sender' ) {
+			} elsif ( $att->{'name'} eq 'sender' ) {
 				$has_sender_field = 1;
 			}
 		}
 	}
+	my $args_ref = { table => $table, uses_integer_id => $uses_integer_id, has_sender_field => $has_sender_field, locus => $locus };
 	if ( $q->param('checked_buffer') ) {
-		$self->_upload_data( { 'table' => $table, 'locus' => $locus } );
+		$self->_upload_data($args_ref);
 	} elsif ( $q->param('data') || $q->param('query') ) {
-		$self->_check_data(
-			{ table => $table, uses_integer_id => $uses_integer_id, locus => $locus, has_sender_field => $has_sender_field } );
+		$self->_check_data($args_ref);
 	} else {
-		$self->_print_interface(
-			{ table => $table, uses_integer_id => $uses_integer_id, has_sender_field => $has_sender_field, locus => $locus } );
+		$self->_print_interface($args_ref);
 	}
 	return;
 }
@@ -133,17 +132,18 @@ HTML
 	my $locus_attribute = '';
 	if ( $table eq 'sequences' ) {
 		$locus_attribute = "&amp;locus=$arg_ref->{'locus'}" if $arg_ref->{'locus'};
-		print "<li>If the locus uses integer allele ids you can leave the allele_id "
-		  . "field blank and the next available number will be used.</li>\n";
+		say "<li>If the locus uses integer allele ids you can leave the allele_id "
+		  . "field blank and the next available number will be used.</li>";
 		if ( $self->{'system'}->{'allele_flags'} ) {
-			print "<li>Sequence flags can be added as a semi-colon (;) separated list</li>\n";
+			say "<li>Sequence flags can be added as a semi-colon (;) separated list</li>";
 		}
 	}
 	print << "HTML";
 </ul>
 <ul>
-<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;table=$table$locus_attribute">Download tab-delimited 
-header for your spreadsheet</a> - use Paste special &rarr; text to paste the data.</li>
+<li>
+<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;table=$table$locus_attribute">
+Download tab-delimited header for your spreadsheet</a> - use Paste special &rarr; text to paste the data.</li>
 HTML
 	if ( $table eq 'sequences' && !$q->param('locus') ) {
 		$self->_print_interface_locus_selection;
@@ -156,17 +156,17 @@ HTML
 	if ( $table eq 'sequences' ) {
 		$self->_print_interface_sequence_switches;
 	}
-	print "<p>Please paste in tab-delimited text (<strong>include a field header line</strong>).</p>\n";
-	print $q->hidden($_) foreach qw (page db table locus);
-	print $q->textarea( -name => 'data', -rows => 20, -columns => 120 );
-	print "<table style=\"width:95%\"><tr><td>";
-	print $q->reset( -class => 'reset' );
-	print "</td><td style=\"text-align:right\">";
-	print $q->submit( -class => 'submit' );
-	print "</td></tr></table><p />\n";
-	print $q->end_form;
-	print "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back</a></p>\n";
-	print "</div>\n";
+	say "<p>Please paste in tab-delimited text (<strong>include a field header line</strong>).</p>";
+	say $q->hidden($_) foreach qw (page db table locus);
+	say $q->textarea( -name => 'data', -rows => 20, -columns => 120 );
+	say "<table style=\"width:95%\"><tr><td>";
+	say $q->reset( -class => 'reset' );
+	say "</td><td style=\"text-align:right\">";
+	say $q->submit( -class => 'submit' );
+	say "</td></tr></table><p />";
+	say $q->end_form;
+	say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back</a></p>";
+	say "</div>";
 	return;
 }
 
@@ -184,10 +184,10 @@ sub _print_interface_sender_field {
 		push @users, $userid;
 		$usernames{$userid} = "$surname, $firstname ($username)";
 	}
-	print "<p>Please select the sender from the list below:</p>\n";
+	say "<p>Please select the sender from the list below:</p>";
 	$usernames{-1} = 'Override with sender field';
-	print $self->{'cgi'}->popup_menu( -name => 'sender', -values => [ '', -1, @users ], -labels => \%usernames );
-	print "<span class=\"comment\"> Value will be overridden if you include a sender field in your pasted data.</span>\n";
+	say $self->{'cgi'}->popup_menu( -name => 'sender', -values => [ '', -1, @users ], -labels => \%usernames );
+	say "<span class=\"comment\"> Value will be overridden if you include a sender field in your pasted data.</span>";
 	return;
 }
 
@@ -203,29 +203,29 @@ sub _print_interface_locus_selection {
 	$qry .= "ORDER BY locus";
 	my $loci_with_extended = $self->{'datastore'}->run_list_query($qry);
 	if ( ref $loci_with_extended eq 'ARRAY' ) {
-		print "<li>Please note, some loci have extended attributes which may be required.  For affected loci please use the batch insert "
+		say "<li>Please note, some loci have extended attributes which may be required.  For affected loci please use the batch insert "
 		  . "page specific to that locus: ";
 		if ( @$loci_with_extended > 10 ) {
-			print $q->start_form;
-			print $q->hidden($_) foreach qw (page db table);
-			print "Reload page specific for locus: ";
+			say $q->start_form;
+			say $q->hidden($_) foreach qw (page db table);
+			say "Reload page specific for locus: ";
 			my @values = @$loci_with_extended;
 			my %labels;
 			unshift @values, '';
 			$labels{''} = 'Select ...';
-			print $q->popup_menu( -name => 'locus', -values => \@values, -labels => \%labels );
-			print $q->submit( -name => 'Reload', -class => 'submit' );
-			print $q->end_form;
+			say $q->popup_menu( -name => 'locus', -values => \@values, -labels => \%labels );
+			say $q->submit( -name => 'Reload', -class => 'submit' );
+			say $q->end_form;
 		} else {
 			my $first = 1;
 			foreach my $locus (@$loci_with_extended) {
 				print ' | ' if !$first;
-				print "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;"
+				say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;"
 				  . "table=sequences&amp;locus=$locus\">$locus</a>";
 				$first = 0;
 			}
 		}
-		print "</li>\n";
+		say "</li>";
 	}
 	return;
 }
@@ -233,19 +233,19 @@ sub _print_interface_locus_selection {
 sub _print_interface_sequence_switches {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	print "<ul style=\"list-style-type:none\"><li>\n";
-	print $q->checkbox( -name => 'ignore_existing', -label => 'Ignore existing sequences', -checked => 'checked' );
-	print "</li><li>\n";
-	print $q->checkbox( -name => 'ignore_non_DNA', -label => 'Ignore sequences containing non-nucleotide characters' );
-	print "</li><li>\n";
-	print $q->checkbox(
+	say "<ul style=\"list-style-type:none\"><li>";
+	say $q->checkbox( -name => 'ignore_existing', -label => 'Ignore existing sequences', -checked => 'checked' );
+	say "</li><li>";
+	say $q->checkbox( -name => 'ignore_non_DNA', -label => 'Ignore sequences containing non-nucleotide characters' );
+	say "</li><li>";
+	say $q->checkbox(
 		-name  => 'complete_CDS',
 		-label => 'Silently reject all sequences that are not complete reading frames - these must have a start and in-frame '
 		  . 'stop codon at the ends and no internal stop codons.  Existing sequences are also ignored.'
 	);
-	print "</li><li>\n";
-	print $q->checkbox( -name => 'ignore_similarity', -label => 'Override sequence similarity check' );
-	print "</li></ul>\n";
+	say "</li><li>";
+	say $q->checkbox( -name => 'ignore_similarity', -label => 'Override sequence similarity check' );
+	say "</li></ul>";
 	return;
 }
 
@@ -268,9 +268,8 @@ sub _check_data {
 		}
 		if ($locus) {
 			my $sql =
-			  $self->{'db'}->prepare(
-"SELECT field,value_format,value_regex,required,option_list FROM locus_extended_attributes WHERE locus=? ORDER BY field_order"
-			  );
+			  $self->{'db'}->prepare( "SELECT field,value_format,value_regex,required,option_list FROM "
+				  . "locus_extended_attributes WHERE locus=? ORDER BY field_order" );
 			eval { $sql->execute($locus) };
 			$logger->error($@) if $@;
 			while ( my ( $field, $format, $regex, $required, $optlist ) = $sql->fetchrow_array ) {
@@ -290,7 +289,7 @@ sub _check_data {
 	if ( $arg_ref->{'has_sender_field'} ) {
 		my $sender = $q->param('sender');
 		if ( !$sender ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>Please go back and select the sender for this submission.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>Please go back and select the sender for this submission.</p></div>";
 			return;
 		} elsif ( $sender == -1 ) {
 			$sender_message = "<p>Using sender field in pasted data.</p>\n";
@@ -300,14 +299,10 @@ sub _check_data {
 		}
 	}
 	my %problems;
-	my $tablebuffer;
-	$tablebuffer .= "<div class=\"scrollable\"><table class=\"resultstable\"><tr>";
-	$tablebuffer .= $self->_get_field_table_header($table);
-	$tablebuffer .= "</tr>";
-	my @records = split /\n/, $q->param('data');
-	my $td = 1;
+	my $tablebuffer = "<div class=\"scrollable\"><table class=\"resultstable\"><tr>" . $self->_get_field_table_header($table) . "</tr>";
+	my @records     = split /\n/, $q->param('data');
+	my $td          = 1;
 	my $header;
-
 	while ( $header = shift @records ) {    #ignore blank lines before header
 		$header =~ s/\r//g;
 		last if $header ne '';
@@ -335,13 +330,8 @@ sub _check_data {
 		}
 	}
 	my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
-	my %locus_format;
-	my %locus_regex;
+	my ( %locus_format, %locus_regex, $header_row, $record_count );
 	my $first_record = 1;
-	my $header_row;
-	my $record_count;
-	my ( $sql_sequence_exists, $sql_allele_id_exists );
-
 	foreach my $record (@records) {
 		$record =~ s/\r//g;
 		next if $record =~ /^\s*$/;
@@ -351,9 +341,7 @@ sub _check_data {
 			my @data = split /\t/, $record;
 			my $first = 1;
 			if ( $arg_ref->{'uses_integer_id'} && !$first_record ) {
-				do {
-					$id++;
-				} while ( $self->_is_id_used( $table, $id ) );
+				do { $id++ } while ( $self->_is_id_used( $table, $id ) );
 			}
 			my ( $pk_combination, $pk_values_ref ) = $self->_get_primary_key_values(
 				{
@@ -505,8 +493,8 @@ sub _check_data {
 				  $self->{'datastore'}
 				  ->run_simple_query( "SELECT isolate_id FROM sequence_bin WHERE id=?", $data[ $file_header_pos{'seqbin_id'} ] );
 				if ( ref $isolate_id_ref eq 'ARRAY' && !$self->is_allowed_to_view_isolate( $isolate_id_ref->[0] ) ) {
-					$problems{$pk_combination} .=
-"The sequence you are trying to add an accession to belongs to an isolate to which your user account is not allowed to access.";
+					$problems{$pk_combination} .= "The sequence you are trying to add an accession to belongs to an isolate "
+					  . "to which your user account is not allowed to access.";
 				}
 
 				#check that user is allowed to access this isolate record
@@ -549,38 +537,45 @@ sub _check_data {
 	}
 	$tablebuffer .= "</table></div>\n";
 	if ( !$record_count ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>No valid data entered. Make sure you've included the header line.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>No valid data entered. Make sure you've included the header line.</p></div>";
 		return;
 	}
-	if (%problems) {
-		print "<div class=\"box\" id=\"statusbad\"><h2>Import status</h2>\n";
-		print "<table class=\"resultstable\">";
-		print "<tr><th>Primary key</th><th>Problem(s)</th></tr>\n";
+	$self->_report_check( $table, \$tablebuffer, \%problems, \@checked_buffer, \$sender_message );
+	return;
+}
+
+sub _report_check {
+	my ( $self, $table, $table_buffer_ref, $problems_ref, $checked_buffer_ref, $sender_message_ref ) = @_;
+	my $q = $self->{'cgi'};
+	if (%$problems_ref) {
+		say "<div class=\"box\" id=\"statusbad\"><h2>Import status</h2>";
+		say "<table class=\"resultstable\">";
+		say "<tr><th>Primary key</th><th>Problem(s)</th></tr>";
 		my $td = 1;
-		foreach my $id ( sort keys %problems ) {
-			print "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">$problems{$id}</td></tr>";
+		foreach my $id ( sort keys %$problems_ref ) {
+			say "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">$problems_ref->{$id}</td></tr>";
 			$td = $td == 1 ? 2 : 1;    #row stripes
 		}
-		print "</table></div>\n";
+		say "</table></div>";
 	} else {
-		print
-		  "<div class=\"box\" id=\"resultsheader\"><h2>Import status</h2>$sender_message<p>No obvious problems identified so far.</p>\n";
-		my $filename = $self->make_temp_file(@checked_buffer);
-		print $q->start_form;
-		print $q->hidden($_) foreach qw (page table db sender locus);
-		print $q->hidden( 'checked_buffer', $filename );
-		print $q->submit( -name => 'Import data', -class => 'submit' );
-		print $q->endform;
-		print "</div>\n";
+		say
+		  "<div class=\"box\" id=\"resultsheader\"><h2>Import status</h2>$$sender_message_ref<p>No obvious problems identified so far.</p>";
+		my $filename = $self->make_temp_file(@$checked_buffer_ref);
+		say $q->start_form;
+		say $q->hidden($_) foreach qw (page table db sender locus);
+		say $q->hidden( 'checked_buffer', $filename );
+		say $q->submit( -name => 'Import data', -class => 'submit' );
+		say $q->endform;
+		say "</div>";
 	}
-	print "<div class=\"box\" id=\"resultstable\"><h2>Data to be imported</h2>\n";
+	say "<div class=\"box\" id=\"resultstable\"><h2>Data to be imported</h2>";
 	my $caveat =
 	  ( $table eq 'sequences' && ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' )
 	  ? '<em>Note: valid sequence flags are displayed with a red background not red text.</em>'
 	  : '';
-	print "<p>The following table shows your data.  Any field with red text has a problem and needs to be checked. $caveat</p>\n";
-	print $tablebuffer;
-	print "</div><p />";
+	say "<p>The following table shows your data.  Any field with red text has a problem and needs to be checked. $caveat</p>";
+	say $$table_buffer_ref;
+	say "</div><p />";
 	return;
 }
 
@@ -737,17 +732,16 @@ sub _check_data_primary_key {
 		if ($@) {
 			my $message = $@;
 			local $" = ', ';
-			$logger->debug(
-"Can't execute primary key check (incorrect data pasted): primary keys: @primary_keys values: @{$arg_ref->{'pk_values'}} $message"
-			);
+			$logger->debug( "Can't execute primary key check (incorrect data pasted): primary keys: @primary_keys values: "
+				  . "@{$arg_ref->{'pk_values'}} $message" );
 			my $plural = scalar @primary_keys > 1 ? 's' : '';
 			if ( $message =~ /invalid input/ ) {
-				print
-				  "<div class=\"box statusbad\"><p>Your pasted data has invalid primary key field$plural (@primary_keys) data.</p></div>\n";
+				say "<div class=\"box statusbad\"><p>Your pasted data has invalid primary key field$plural (@primary_keys) "
+				  . "data.</p></div>";
 				throw BIGSdb::DataException("Invalid primary key");
 			}
-			print
-"<div class=\"box statusbad\"><p>Your pasted data does not appear to contain the primary key field$plural (@primary_keys) required for this table.</p></div>\n";
+			say "<div class=\"box statusbad\"><p>Your pasted data does not appear to contain the primary key field$plural "
+			  . "(@primary_keys) required for this table.</p></div>";
 			throw BIGSdb::DataException("no primary key field$plural (@primary_keys)");
 		}
 		my ($exists) = $self->{'sql'}->{'primary_key_check'}->fetchrow_array;
@@ -784,7 +778,7 @@ sub _check_data_loci {
 	}
 	if ( $data[ $file_header_pos{'id'} ] =~ /[^\w_']/ ) {
 		$arg_ref->{'problems'}->{$pk_combination} .=
-		  "Locus names can only contain alphanumeric, underscore (_) and prime (') " . "characters (no spaces or other symbols).<br />";
+		  "Locus names can only contain alphanumeric, underscore (_) and prime (') characters (no spaces or other symbols).<br />";
 	}
 	return;
 }
@@ -837,7 +831,7 @@ sub _check_data_allele_designations {
 			${ $arg_ref->{'special_problem'} } = 1;
 		} elsif ( $format->[1] && ${ $arg_ref->{'value'} } !~ /$format->[1]/ ) {
 			$arg_ref->{'problems'}->{$pk_combination} .=
-			  "$field value is invalid - it must match the regular expression " . "/$format->[1]/.<br />";
+			  "$field value is invalid - it must match the regular expression /$format->[1]/.<br />";
 			${ $arg_ref->{'special_problem'} } = 1;
 		}
 	}
@@ -1215,7 +1209,9 @@ sub _upload_data {
 					{
 						( my $cleaned_locus = $_ ) =~ s/'/\\'/g;
 						$qry =
-"INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp) VALUES ('$id',E'$cleaned_locus','$value','$sender','confirmed','manual','$curator','today','today')";
+						    "INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,"
+						  . "date_entered,datestamp) VALUES ('$id',E'$cleaned_locus','$value','$sender','confirmed','manual',"
+						  . "'$curator','today','today')";
 						push @inserts, $qry;
 						$logger->debug("INSERT: $qry");
 					}
@@ -1247,8 +1243,8 @@ sub _upload_data {
 					$_ =~ s/^\s*//g;
 					$_ =~ s/\s*$//g;
 					if ( $_ && $_ ne $id && $_ ne 'null' ) {
-						$qry =
-						  "INSERT INTO locus_aliases (locus,alias,use_alias,curator,datestamp) VALUES ('$id','$_','TRUE',$curator,'today')";
+						$qry = "INSERT INTO locus_aliases (locus,alias,use_alias,curator,datestamp) VALUES "
+						  . "('$id','$_','TRUE',$curator,'today')";
 						push @inserts, $qry;
 						$logger->debug("INSERT: $qry");
 					}
@@ -1269,8 +1265,8 @@ sub _upload_data {
 							&& $data[ $fieldorder{$_} ] ne ''
 							&& $data[ $fieldorder{$_} ] ne 'null' )
 						{
-							push @inserts,
-"INSERT INTO sequence_extended_attributes (locus,field,allele_id,value,datestamp,curator) VALUES (E'$cleaned_locus',E'$cleaned_field',E'$allele_id','$data[$fieldorder{$_}]','today',$curator)";
+							push @inserts, "INSERT INTO sequence_extended_attributes (locus,field,allele_id,value,datestamp,curator) "
+							  . "VALUES (E'$cleaned_locus',E'$cleaned_field',E'$allele_id','$data[$fieldorder{$_}]','today',$curator)";
 						}
 					}
 				}
@@ -1280,8 +1276,8 @@ sub _upload_data {
 				{
 					my @flags = split /;/, $data[ $fieldorder{'flags'} ];
 					foreach (@flags) {
-						push @inserts,
-"INSERT INTO allele_flags (locus,allele_id,flag,datestamp,curator) VALUES (E'$cleaned_locus',E'$allele_id','$_','today',$curator)";
+						push @inserts, "INSERT INTO allele_flags (locus,allele_id,flag,datestamp,curator) VALUES "
+						  . "(E'$cleaned_locus',E'$allele_id','$_','today',$curator)";
 					}
 				}
 				$self->mark_cache_stale;
@@ -1299,13 +1295,13 @@ sub _upload_data {
 			};
 			if ($@) {
 				my $err = $@;
-				print
-"<div class=\"box\" id=\"statusbad\"><p>Database update failed - transaction cancelled - no records have been touched.</p>\n";
+				say "<div class=\"box\" id=\"statusbad\"><p>Database update failed - transaction cancelled - no records "
+				  . "have been touched.</p>";
 				if ( $err =~ /duplicate/ && $err =~ /unique/ ) {
-					print
-"<p>Data entry would have resulted in records with either duplicate ids or another unique field with duplicate values.</p>\n";
+					say "<p>Data entry would have resulted in records with either duplicate ids or another unique field "
+					  . "with duplicate values.</p>";
 				} else {
-					print "<p>An error has occurred - more details will be available in the server log.</p>\n";
+					say "<p>An error has occurred - more details will be available in the server log.</p>";
 					$logger->error($err);
 				}
 				print "</div>\n";
@@ -1315,12 +1311,12 @@ sub _upload_data {
 		}
 	}
 	$self->{'db'}->commit
-	  && print "<div class=\"box\" id=\"resultsheader\"><p>Database updated ok</p>";
+	  && say "<div class=\"box\" id=\"resultsheader\"><p>Database updated ok</p>";
 	foreach (@history) {
 		my ( $isolate_id, $action ) = split /\|/, $_;
 		$self->update_history( $isolate_id, $action );
 	}
-	print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
+	say "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>";
 	return;
 }
 
