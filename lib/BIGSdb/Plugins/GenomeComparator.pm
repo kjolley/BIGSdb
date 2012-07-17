@@ -716,18 +716,12 @@ sub _extract_cds_details {
 
 sub _run_comparison {
 	my ( $self, $by_reference, $job_id, $params, $ids, $cds, $html_buffer_ref, $file_buffer_ref ) = @_;
-	my $progress    = 0;
-	my $total       = ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $by_reference ) ) ) ? ( @$cds * 2 ) : @$cds;
-	my $seqs_total  = 0;
+	my ( $progress, $seqs_total, $td ) = ( 0, 0, 1 );
+	my $total = ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $by_reference ) ) ) ? ( @$cds * 2 ) : @$cds;
 	my $close_table = '</table></div>';
-	my $td          = 1;
-	my $locus_class;
-	my ( $word_size, $program );
-	my $job_file         = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
-	my $align_file       = "$self->{'config'}->{'tmp_dir'}/$job_id\_align.txt";
-	my $align_stats_file = "$self->{'config'}->{'tmp_dir'}/$job_id\_align_stats.txt";
-	my $prefix           = BIGSdb::Utils::get_random();
-	my $values;
+	my ( $locus_class, $values, $word_size, $program );
+	my $job_file = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
+	my $prefix   = BIGSdb::Utils::get_random();
 	my %isolate_FASTA;
 	$isolate_FASTA{$_} = $self->_create_isolate_FASTA_db( $_, $prefix ) foreach (@$ids);
 
@@ -811,23 +805,12 @@ sub _run_comparison {
 				$logger->error($@) if $@;
 				($seqbin_length) = $seqbin_length_sql->fetchrow_array;
 				if ( !$match->{'exact'} && $match->{'predicted_start'} && $match->{'predicted_end'} ) {
-					if ( $match->{'predicted_start'} < 1 ) {
-						$match->{'predicted_start'} = 1;
-						$status{'truncated'}        = 1;
-						$value                      = 'T';
-					} elsif ( $match->{'predicted_start'} > $seqbin_length ) {
-						$match->{'predicted_start'} = $seqbin_length;
-						$status{'truncated'}        = 1;
-						$value                      = 'T';
-					}
-					if ( $match->{'predicted_end'} < 1 ) {
-						$match->{'predicted_end'} = 1;
-						$status{'truncated'}      = 1;
-						$value                    = 'T';
-					} elsif ( $match->{'predicted_end'} > $seqbin_length ) {
-						$match->{'predicted_end'} = $seqbin_length;
-						$status{'truncated'}      = 1;
-						$value                    = 'T';
+					foreach (qw (predicted_start predicted_end)){
+						if ( $match->{$_} < 1 ) {
+							( $match->{$_}, $status{'truncated'}, $value ) = ( 1, 1, 'T' );
+						} elsif ( $match->{$_} > $seqbin_length ) {
+							( $match->{$_}, $status{'truncated'}, $value ) = ( $seqbin_length, 1, 'T' );
+						}						
 					}
 				}
 				if ( !$extracted_seq ) {
@@ -844,8 +827,7 @@ sub _run_comparison {
 					}
 				}
 			} else {
-				$status{'all_exact'}        = 0;
-				$status{'exact_except_ref'} = 0;
+				( $status{'all_exact'}, $status{'exact_except_ref'} ) = ( 0, 0 );
 			}
 			if ( !$value ) {
 				if ($extracted_seq) {
@@ -915,36 +897,61 @@ sub _run_comparison {
 		}
 	}
 	$$html_buffer_ref .= $close_table;
+	$self->_print_reports(
+		$params, $ids, $loci,
+		{
+			job_id          => $job_id,
+			job_file        => $job_file,
+			by_reference    => $by_reference,
+			locus_class     => $locus_class,
+			values          => $values,
+			file_buffer_ref => $file_buffer_ref,
+			html_buffer_ref => $html_buffer_ref,
+			seqs_total      => $seqs_total
+		}
+	);
+	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$prefix\*";
+	return;
+}
+
+sub _print_reports {
+	my ( $self, $params, $ids, $loci, $args ) = @_;
+	my ( $job_id, $values, $locus_class, $job_file, $file_buffer_ref, $html_buffer_ref ) = (
+		$args->{'job_id'}, $args->{'values'}, $args->{'locus_class'},
+		$args->{'job_file'},
+		$args->{'file_buffer_ref'},
+		$args->{'html_buffer_ref'}
+	);
+	my $align_file       = "$self->{'config'}->{'tmp_dir'}/$job_id\_align.txt";
+	my $align_stats_file = "$self->{'config'}->{'tmp_dir'}/$job_id\_align_stats.txt";
 	open( my $job_fh, '>', $job_file ) || $logger->error("Can't open $job_file for writing");
 	print $job_fh $$file_buffer_ref;
 	close $job_fh;
 	if ( $params->{'align'} ) {
-		$self->_create_alignments( $job_id, $by_reference, $align_file, $align_stats_file, $ids,
-			( $params->{'align_all'} ? $loci : $locus_class->{'varying'} ), $params );
+		$self->_create_alignments( $job_id, $args->{'by_reference'},
+			$align_file, $align_stats_file, $ids, ( $params->{'align_all'} ? $loci : $locus_class->{'varying'} ), $params );
 		open( my $align_fh, '>>', $align_file ) || $logger->error("Can't open $align_file for appending");
 		close $align_fh;
 	}
-	$self->_print_variable_loci( $by_reference, $ids, $html_buffer_ref, $job_file, $locus_class->{'varying'}, $values );
-	$self->_print_missing_in_all( $by_reference, $ids, $html_buffer_ref, $job_file, $locus_class->{'all_missing'}, $values );
-	$self->_print_exact_matches( $by_reference, $ids, $html_buffer_ref, $job_file, $locus_class->{'all_exact'}, $params, $values );
-	if ($by_reference) {
+	$self->_print_variable_loci( $args->{'by_reference'}, $ids, $html_buffer_ref, $job_file, $locus_class->{'varying'}, $values );
+	$self->_print_missing_in_all( $args->{'by_reference'}, $ids, $html_buffer_ref, $job_file, $locus_class->{'all_missing'}, $values );
+	$self->_print_exact_matches( $args->{'by_reference'}, $ids, $html_buffer_ref, $job_file, $locus_class->{'all_exact'}, $params,
+		$values );
+	if ( $args->{'by_reference'} ) {
 		$self->_print_exact_except_ref( $ids, $html_buffer_ref, $job_file, $locus_class->{'exact_except_ref'}, $values );
 	}
-	$self->_print_truncated_loci( $by_reference, $ids, $html_buffer_ref, $job_file, $locus_class->{'truncated'}, $values );
-	if ( !$seqs_total && $by_reference ) {
+	$self->_print_truncated_loci( $args->{'by_reference'}, $ids, $html_buffer_ref, $job_file, $locus_class->{'truncated'}, $values );
+	if ( !$args->{'seqs_total'} && $args->{'by_reference'} ) {
 		$$html_buffer_ref .= "<p class=\"statusbad\">No sequences were extracted from reference file.</p>\n";
 	} else {
 		$self->_identify_strains( $ids, $html_buffer_ref, $job_file, $loci, $values );
 		$$html_buffer_ref = '' if @$ids > MAX_DISPLAY_TAXA;
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$html_buffer_ref } );
 	}
-	close $job_fh;
-	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$prefix\*";
 	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Main output file' } );
-	my @ignore_loci;
-	push @ignore_loci, $_ foreach keys %{ $locus_class->{'truncated'} };
+	my @ignore_loci = keys %{ $locus_class->{'truncated'} };
 	$self->_generate_splits( $job_id, $values, \@ignore_loci );
-	if ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $by_reference ) ) ) {
+	if ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $args->{'by_reference'} ) ) ) {
 		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align.txt", description => '30_Alignments' } )
 		  if -e $align_file && !-z $align_file;
 		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align_stats.txt", description => '31_Alignment stats' } )
