@@ -29,16 +29,16 @@ use constant TAG_USERNAME => 'autotagger';
 
 sub run_script {
 	my ($self) = @_;
-	$self->{'cgi'}->param('pcr_filter', 1);
-	$self->{'cgi'}->param('probe_filter', 1);
+	$self->{'cgi'}->param( 'pcr_filter',   1 );
+	$self->{'cgi'}->param( 'probe_filter', 1 );
 	die "No connection to database (check logs).\n" if !defined $self->{'db'} || $self->{'system'}->{'dbtype'} ne 'isolates';
 	my $tag_user_id = TAG_USER;
 	$self->{'username'} = TAG_USERNAME;
 	my $user_ok =
 	  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM users WHERE id=? AND user_name=?", $tag_user_id, $self->{'username'} )
 	  ->[0];
-	die
-"Database user '$self->{'username'}' not set.  Enter a user '$self->{'username'}' with id $tag_user_id in the database to represent the auto tagger.\n"
+	die "Database user '$self->{'username'}' not set.  Enter a user '$self->{'username'}' with id $tag_user_id in the database "
+	  . "to represent the auto tagger.\n"
 	  if !$user_ok;
 	my $isolates = $self->get_isolates_with_linked_seqs;
 	my @exclude_isolates;
@@ -62,9 +62,10 @@ sub run_script {
 	$self->{'start_time'} = time;
 	my $file_prefix  = BIGSdb::Utils::get_random();
 	my $locus_prefix = BIGSdb::Utils::get_random();
-	$self->{'logger'}->info( "Autotagger start: " . strftime( '%d-%b-%Y %H:%M', localtime ) );
+	$self->{'logger'}->info( "Autotagger start ($self->{'options'}->{'d'}): " . strftime( '%d-%b-%Y %H:%M', localtime ) );
 
 	foreach my $isolate_id (@$isolates) {
+		next if $self->{'options'}->{'n'} && $self->_is_previously_tagged($isolate_id);
 		if ( $self->{'options'}->{'m'} && BIGSdb::Utils::is_int( $self->{'options'}->{'m'} ) ) {
 			my $size = $self->_get_size_of_seqbin($isolate_id);
 			next if $size < $self->{'options'}->{'m'};
@@ -79,7 +80,7 @@ sub run_script {
 			next;
 		}
 		next if any { BIGSdb::Utils::is_int($_) && $isolate_id == $_ } @exclude_isolates;
-		$self->{'logger'}->info("Checking isolate $isolate_id");
+		$self->{'logger'}->info("$self->{'options'}->{'d'}:Checking isolate $isolate_id");
 		undef $self->{'history'};
 		foreach my $locus (@$loci) {
 			next if defined $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
@@ -122,7 +123,7 @@ sub run_script {
 	if ( $self->_is_time_up && !$self->{'options'}->{'q'} ) {
 		print "Time limit reached ($self->{'options'}->{'t'} minute" . ( $self->{'options'}->{'t'} == 1 ? '' : 's' ) . ")\n";
 	}
-	$self->{'logger'}->info( "Autotagger stop: " . strftime( '%d-%b-%Y %H:%M', localtime ) );
+	$self->{'logger'}->info( "Autotagger stop ($self->{'options'}->{'d'}): " . strftime( '%d-%b-%Y %H:%M', localtime ) );
 	return;
 }
 
@@ -197,7 +198,8 @@ sub _tag_sequence {
 	  $self->{'db'}->prepare( "INSERT INTO allele_sequences (seqbin_id,locus,start_pos,"
 		  . "end_pos,reverse,complete,curator,datestamp) VALUES (?,?,?,?,?,?,?,?)" );
 	my $sql_flag =
-	  $self->{'db'}->prepare("INSERT INTO sequence_flags (seqbin_id,locus,start_pos,end_pos,flag,datestamp,curator) VALUES (?,?,?,?,?,?,?)");
+	  $self->{'db'}
+	  ->prepare("INSERT INTO sequence_flags (seqbin_id,locus,start_pos,end_pos,flag,datestamp,curator) VALUES (?,?,?,?,?,?,?)");
 	eval {
 		$sql->execute(
 			$values->{'seqbin_id'},
@@ -262,5 +264,18 @@ sub _get_isolates_excluded_by_project {
 	}
 	@isolates = uniq(@isolates);
 	return \@isolates;
+}
+
+sub _is_previously_tagged {
+	my ( $self, $isolate_id ) = @_;
+	my $designations_set =
+	  $self->{'datastore'}->run_simple_query( "SELECT EXISTS(SELECT isolate_id FROM allele_designations WHERE isolate_id=?)", $isolate_id )
+	  ->[0];
+	my $tagged = $self->{'datastore'}->run_simple_query(
+		"SELECT EXISTS(SELECT isolate_id FROM allele_sequences LEFT JOIN sequence_bin "
+		  . "ON allele_sequences.seqbin_id = sequence_bin.id WHERE isolate_id=?)",
+		$isolate_id
+	)->[0];
+	return ( $tagged || $designations_set ) ? 1 : 0;
 }
 1;
