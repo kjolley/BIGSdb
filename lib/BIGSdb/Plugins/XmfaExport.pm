@@ -21,6 +21,7 @@ package BIGSdb::Plugins::XmfaExport;
 use strict;
 use warnings;
 use parent qw(BIGSdb::Plugin);
+use 5.010;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
@@ -42,7 +43,7 @@ sub get_attributes {
 		buttontext  => 'XMFA',
 		menutext    => 'XMFA export',
 		module      => 'XmfaExport',
-		version     => '1.2.3',
+		version     => '1.2.4',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		section     => 'export,postquery',
@@ -66,8 +67,8 @@ sub run {
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
 	my $scheme_id  = $q->param('scheme_id');
-	my $desc = $self->get_db_description;
-	print "<h1>Export allele sequences in XMFA format - $desc</h1>\n";
+	my $desc       = $self->get_db_description;
+	say "<h1>Export allele sequences in XMFA format - $desc</h1>";
 	if ( !-e $self->{'config'}->{'muscle_path'} || !-x $self->{'config'}->{'muscle_path'} ) {
 		$logger->error( "This plugin requires MUSCLE to be installed and it is not.  Please install MUSCLE "
 			  . "or check the settings in bigsdb.conf." );
@@ -79,23 +80,23 @@ sub run {
 		$pk = 'id';
 	} else {
 		if ( !$scheme_id ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>No scheme id passed.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>No scheme id passed.</p></div>";
 			return;
 		} elsif ( !BIGSdb::Utils::is_int($scheme_id) ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>Scheme id must be an integer.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>Scheme id must be an integer.</p></div>";
 			return;
 		} else {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 			if ( !$scheme_info ) {
-				print "<div class=\"box\" id=\"statusbad\">Scheme does not exist.</p></div>\n";
+				say "<div class=\"box\" id=\"statusbad\">Scheme does not exist.</p></div>";
 				return;
 			}
 		}
 		my $pk_ref =
 		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key", $scheme_id );
 		if ( ref $pk_ref ne 'ARRAY' ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  Profile concatenation "
-			  . "can not be done until this has been set.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  Profile concatenation "
+			  . "can not be done until this has been set.</p></div>";
 			return;
 		}
 		$pk = $pk_ref->[0];
@@ -124,7 +125,7 @@ sub run {
 			push @fields_selected, $_ if $_ =~ /^l_/ or $_ =~ /s_\d+_l_/;
 		}
 		if ( !@fields_selected ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>No fields have been selected!</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>No fields have been selected!</p></div>";
 		} else {
 			my $params = $q->Vars;
 			$params->{'pk'} = $pk;
@@ -165,7 +166,7 @@ to generate the output file as the sequences are passed through muscle to align 
 HTML
 	my $options = { default_select => 0, translate => 1, flanking => 1, ignore_seqflags => 1, ignore_incomplete => 1 };
 	$self->print_sequence_export_form( $pk, $list, $scheme_id, $options );
-	print "</div>\n";
+	say "</div>";
 	return;
 }
 
@@ -173,7 +174,7 @@ sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	my $scheme_id = $params->{'scheme_id'};
 	my $pk        = $params->{'pk'};
-	my $filename  = "$self->{'config'}->{'tmp_dir'}/$job_id\.txt";
+	my $filename  = "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa";
 	open( my $fh, '>', $filename )
 	  or $logger->error("Can't open output file $filename for writing");
 	my $isolate_sql;
@@ -241,7 +242,7 @@ sub run_job {
 	my $limit = $self->{'system'}->{'XMFA_limit'} || DEFAULT_LIMIT;
 	if ( @list > $limit ) {
 		my $message_html = "<p class=\"statusbad\">Please note that output is limited to the first $limit records.</p>\n";
-		$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => $message_html } );
+		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
 	}
 	my $progress = 0;
 	my %no_seq;
@@ -317,9 +318,9 @@ sub run_job {
 				if ( $params->{'translate'} ) {
 					$seq = BIGSdb::Utils::chop_seq( $seq, $locus_info->{'orf'} || 1 );
 					my $peptide = Bio::Perl::translate_as_string($seq);
-					print $fh_muscle "$peptide\n";
+					say $fh_muscle $peptide;
 				} else {
-					print $fh_muscle "$seq\n";
+					say $fh_muscle $seq;
 				}
 			} else {
 				my $profile_sql = $self->{'db'}->prepare("SELECT $pk FROM scheme_$scheme_id WHERE $pk=?");
@@ -329,8 +330,8 @@ sub run_job {
 				if ($profile_id) {
 					my $allele_id = $self->{'datastore'}->get_profile_allele_designation( $scheme_id, $id, $locus_name )->{'allele_id'};
 					my $allele_seq = $self->{'datastore'}->get_sequence( $locus_name, $allele_id );
-					print $fh_muscle ">$profile_id\n";
-					print $fh_muscle "$$allele_seq\n";
+					say $fh_muscle ">$profile_id";
+					say $fh_muscle "$$allele_seq";
 				} else {
 					push @problem_ids, $id;
 					next;
@@ -349,14 +350,14 @@ sub run_job {
 		}
 		if ( -e $muscle_file ) {
 			$no_output = 0;
-			my $seq_in = Bio::SeqIO->new( '-format' => 'fasta', '-file' => $muscle_file );
+			my $seq_in = Bio::SeqIO->new( -format => 'fasta', -file => $muscle_file );
 			while ( my $seq = $seq_in->next_seq ) {
 				my $length = $seq->length;
 				$end = $start + $length - 1;
 				print $fh '>' . $seq->id . ":$start-$end + $output_locus_name\n";
 				my $sequence = BIGSdb::Utils::break_line( $seq->seq, 60 );
 				$sequence =~ s/N/-/g if $no_seq{ $seq->id };
-				print $fh "$sequence\n";
+				say $fh $sequence;
 			}
 			$start = $end + 1;
 			print $fh "=\n";
@@ -365,7 +366,7 @@ sub run_job {
 		unlink $temp_file;
 		$progress++;
 		my $complete = int( 100 * $progress / scalar @selected_fields );
-		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } );
+		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete } );
 	}
 	close $fh;
 	my $message_html;
@@ -376,9 +377,20 @@ sub run_job {
 	if ($no_output) {
 		$message_html .= "<p>No output generated.  Please ensure that your sequences have been defined for these isolates.</p>\n";
 	} else {
-		$self->{'jobManager'}->update_job_output( $job_id, { 'filename' => "$job_id.txt", 'description' => 'XMFA output file' } );
+		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.xmfa", description => '10_XMFA output file' } );
+		try {
+			$self->{'jobManager'}->update_job_status( $job_id, { stage => "Converting XMFA to FASTA" } );
+			my $fasta_file = BIGSdb::Utils::xmfa2fasta("$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa");
+			if ( -e $fasta_file ) {
+				$self->{'jobManager'}->update_job_output( $job_id,
+					{ filename => "$job_id.fas", description => '20_Concatenated aligned sequences (FASTA format)' } );
+			}
+		}
+		catch BIGSdb::CannotOpenFileException with {
+			$logger->error("Can't create FASTA file from XMFA.");
+		};
 	}
-	$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => $message_html } ) if $message_html;
+	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } ) if $message_html;
 	return;
 }
 1;
