@@ -335,7 +335,7 @@ sub _print_scheme_table {
 		$loci = $self->{'datastore'}->get_loci_in_no_scheme( { analyse_pref => 1, set_id => $set_id } );
 		$fields = \@;;
 	}
-	next if !@$loci && !@$fields;
+	return if !@$loci && !@$fields;
 	if ( !$self->{'sql'}->{'alias_sql'} ) {
 		$self->{'sql'}->{'alias_sql'} = $self->{'db'}->prepare("SELECT alias FROM locus_aliases WHERE locus=?");
 	}
