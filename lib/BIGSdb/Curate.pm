@@ -45,7 +45,6 @@ use BIGSdb::CuratePage;
 use BIGSdb::CurateProfileAddPage;
 use BIGSdb::CurateProfileBatchAddPage;
 use BIGSdb::CurateProfileUpdatePage;
-use BIGSdb::CuratePubmedQueryPage;
 use BIGSdb::CurateRenumber;
 use BIGSdb::CurateTableHeaderPage;
 use BIGSdb::CurateTagScanPage;
@@ -90,7 +89,6 @@ sub print_page {
 		'isolateDelete'      => 'CurateIsolateDeletePage',
 		'isolateUpdate'      => 'CurateIsolateUpdatePage',
 		'batchIsolateUpdate' => 'CurateBatchIsolateUpdatePage',
-		'pubmedQuery'        => 'CuratePubmedQueryPage',
 		'batchAdd'           => 'CurateBatchAddPage',
 		'batchAddSeqbin'     => 'CurateBatchAddSeqbinPage',
 		'tableHeader'        => 'CurateTableHeaderPage',

@@ -1307,7 +1307,8 @@ sub get_citation_hash {
 		{
 			no warnings 'uninitialized';
 			if ( $options->{'formatted'} ) {
-				$citation = "$author ($year). $title ";
+				$citation = "$author ($year). ";
+				$citation .= "$title " if !$options->{'no_title'};
 				$citation .= "<a href=\"http://www.ncbi.nlm.nih.gov/pubmed/$_\">" if $options->{'link_pubmed'};
 				$citation .= "<i>$journal</i> <b>$volume</b>$pages";
 				$citation .= "</a>"                                               if $options->{'link_pubmed'};

@@ -185,7 +185,7 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 		$self->_print_isolate_table( \$qry, $currentpage, $q->param('curate'), $records );
 	} elsif ( $table eq 'profiles' ) {
 		$self->_print_profile_table( \$qry, $currentpage, $q->param('curate'), $records );
-	} elsif ( $table eq 'refs' ) {
+	} elsif ( !$self->{'curate'} && $table eq 'refs' ) {
 		$self->_print_publication_table( \$qry, $currentpage );
 	} else {
 		$self->_print_record_table( $table, \$qry, $currentpage );
@@ -986,6 +986,7 @@ sub _print_record_table {
 		push @cleaned_headers, $cleaned;
 		push @cleaned_headers, 'isolate id' if $table eq 'experiment_sequences' && $attr->{'name'} eq 'experiment_id';
 		push @cleaned_headers, 'flag' if $table eq 'allele_sequences' && $attr->{'name'} eq 'complete';
+		push @cleaned_headers, 'citation' if $attr->{'name'} eq 'pubmed_id';
 		$type{ $attr->{'name'} }        = $attr->{'type'};
 		$foreign_key{ $attr->{'name'} } = $attr->{'foreign_key'};
 		$labels{ $attr->{'name'} }      = $attr->{'labels'};
@@ -1032,7 +1033,8 @@ sub _print_record_table {
 	print "<tr>";
 
 	if ( $self->{'curate'} ) {
-		print "<th>Delete</th><th>Update</th>";
+		print "<th>Delete</th>";
+		print "<th>Update</th>" if $table !~ /refs$/;
 	}
 	print "<th>@cleaned_headers</th></tr>\n";
 	my $td = 1;
@@ -1057,7 +1059,7 @@ sub _print_record_table {
 			  . "?db=$self->{'instance'}&amp;page=delete&amp;table=$table&amp;@query_values\">Delete</a></td>";
 			if ( $table eq 'allele_sequences' ) {
 				print "<td><a href=\"" . $q->script_name . "?db=$self->{'instance'}&amp;page=tagUpdate&amp;@query_values\">Update</a></td>";
-			} else {
+			} elsif ($table !~ /refs$/) {
 				print "<td><a href=\""
 				  . $q->script_name
 				  . "?db=$self->{'instance'}&amp;page=update&amp;table=$table&amp;@query_values\">Update</a></td>";
@@ -1130,6 +1132,10 @@ sub _print_record_table {
 					$value =~ s/\&/\&amp;/g;
 					print "<td>$value</td>";
 				}
+			} elsif ($field eq 'pubmed_id'){
+				print "<td>$data{'pubmed_id'}</td>";
+				my $citation = $self->{'datastore'}->get_citation_hash([$data{ 'pubmed_id'}],{formatted=>1,no_title=>1,link_pubmed=>1});
+				print "<td>$citation->{$data{ 'pubmed_id'}}</td>";
 			} else {
 				if ( ( $table eq 'allele_sequences' || $table eq 'experiment_sequences' ) && $field eq 'seqbin_id' ) {
 					my ( $isolate_id, $isolate ) = $self->get_isolate_id_and_name_from_seqbin_id( $data{'seqbin_id'} );
