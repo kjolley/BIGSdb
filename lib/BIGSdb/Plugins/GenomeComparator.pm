@@ -68,12 +68,7 @@ sub set_pref_requirements {
 sub get_plugin_javascript {
 	my ($self) = @_;
 	my $buffer = << "END";
-function listbox_selectall(listID, isSelect) {
-	var listbox = document.getElementById(listID);
-	for(var count=0; count < listbox.options.length; count++) {
-		listbox.options[count].selected = isSelect;
-	}
-}
+
 
 function enable_seqs(){
 	if (\$("#accession").val() || \$("#ref_upload").val() || \$("#annotation").val()){
@@ -306,8 +301,6 @@ selections. In addition to selecting individual loci, you can choose to include 
 by selecting the appropriate scheme description. Alternatively, you can enter the accession number for an 
 annotated reference genome and compare using the loci defined in that.</p>
 HTML
-	my ( $locus_list, $locus_labels ) =
-	  $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
 	print $q->start_form;
 	print "<div class=\"scrollable\">\n";
 	print "<fieldset style=\"float:left\">\n<legend>Isolates</legend>\n";
@@ -324,33 +317,10 @@ HTML
 <div style="text-align:center"><input type="button" onclick='listbox_selectall("isolate_id",true)' value="All" style="margin-top:1em" class="smallbutton" />
 <input type="button" onclick='listbox_selectall("isolate_id",false)' value="None" style="margin-top:1em" class="smallbutton" /></div>
 </fieldset>
-<fieldset id="locus_fieldset" style="float:left">\n<legend>Loci</legend>
 HTML
 
-	if (@$locus_list) {
-		print $q->scrolling_list(
-			-name     => 'locus',
-			-id       => 'locus',
-			-values   => $locus_list,
-			-labels   => $locus_labels,
-			-size     => 8,
-			-multiple => 'true'
-		);
-		print <<"HTML";
-<div style="text-align:center"><input type="button" onclick='listbox_selectall("locus",true)' value="All" style="margin-top:1em" class="smallbutton" />
-<input type="button" onclick='listbox_selectall("locus",false)' value="None" style="margin-top:1em" class="smallbutton" /></div>
-HTML
-	} else {
-		print "No loci available<br />for analysis";
-	}
-	print <<"HTML";
-</fieldset>
-<fieldset id="scheme_fieldset" style="float:left"><legend>Schemes</legend>
-<noscript><p class="highlight">Enable Javascript to select schemes.</p></noscript>
-<div id="tree" class="tree" style="height:150px; width:20em">
-HTML
-	print $self->get_tree( undef, { no_link_out => 1, select_schemes => 1 } );
-	print "</div>\n</fieldset>\n";
+	$self->print_isolates_locus_fieldset;
+	$self->print_scheme_fieldset;
 	print "<fieldset style=\"float:left\">\n<legend>Reference genome</legend>\n";
 	print "Enter accession number:<br />\n";
 	print $q->textfield( -name => 'accession', -id => 'accession', -size => 10, -maxlength => 20 );

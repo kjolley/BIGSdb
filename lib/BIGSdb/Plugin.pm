@@ -24,7 +24,7 @@ use parent qw(BIGSdb::TreeViewPage);
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any);
-use BIGSdb::Page qw(FLANKING);
+use BIGSdb::Page qw(FLANKING LOCUS_PATTERN);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_TREE_NODES => 1000;
 
@@ -37,7 +37,7 @@ sub initiate {
 	} else {
 		$self->{$_} = 1 foreach qw(jQuery jQuery.tablesort jQuery.jstree);
 	}
-	$self->{'noCache'} = 1 if ($self->{'system'}->{'sets'} // '') eq 'yes';
+	$self->{'noCache'} = 1 if ( $self->{'system'}->{'sets'} // '' ) eq 'yes';
 	return;
 }
 
@@ -101,6 +101,13 @@ sub get_javascript {
 		$logger->warn($message);
 	};
 	$js .= <<"JS";
+function listbox_selectall(listID, isSelect) {
+	var listbox = document.getElementById(listID);
+	for(var count=0; count < listbox.options.length; count++) {
+		listbox.options[count].selected = isSelect;
+	}
+}	
+	
 \$(document).ready(function() 
     { 
         \$("#sortTable").tablesorter({widgets:['zebra']});       
@@ -132,19 +139,19 @@ sub get_query {
 				close $fh;
 			} else {
 				if ( $self->{'cgi'}->param('format') eq 'text' ) {
-					print "Can not open temporary file.\n";
+					say "Can not open temporary file.";
 				} else {
-					print "<div class=\"box\" id=\"statusbad\"><p>Can not open temporary file.</p></div>\n";
+					say "<div class=\"box\" id=\"statusbad\"><p>Can not open temporary file.</p></div>";
 				}
 				$logger->error("can't open temporary file $query_file. $@");
 				return;
 			}
 		} else {
 			if ( $self->{'cgi'}->param('format') eq 'text' ) {
-				print "The temporary file containing your query does not exist. Please repeat your query.\n";
+				say "The temporary file containing your query does not exist. Please repeat your query.";
 			} else {
-				print
-"<div class=\"box\" id=\"statusbad\"><p>The temporary file containing your query does not exist. Please repeat your query.</p></div>\n";
+				say "<div class=\"box\" id=\"statusbad\"><p>The temporary file containing your query does not exist. "
+				  . "Please repeat your query.</p></div>";
 			}
 			return;
 		}
@@ -172,9 +179,9 @@ sub create_temp_tables {
 	}
 	catch BIGSdb::DatabaseConnectionException with {
 		if ( $format ne 'text' ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>Can not connect to remote database.  The query can not be performed.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>Can not connect to remote database.  The query can not be performed.</p></div>";
 		} else {
-			print "Can not connect to remote database.  The query can not be performed.\n";
+			say "Can not connect to remote database.  The query can not be performed.";
 		}
 		$logger->error("Can't connect to remote database.");
 		$continue = 0;
@@ -188,8 +195,8 @@ sub print_content {
 	my $plugin_name = $q->param('name');
 	if ( !$self->{'pluginManager'}->is_plugin($plugin_name) ) {
 		my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-		print "<h1>$desc</h1>";
-		print "<div class=\"box\" id=\"statusbad\"><p>Invalid (or no) plugin called.</p></div>";
+		say "<h1>$desc</h1>";
+		say "<div class=\"box\" id=\"statusbad\"><p>Invalid (or no) plugin called.</p></div>";
 		return;
 	}
 	my $plugin;
@@ -198,14 +205,14 @@ sub print_content {
 		$plugin = $self->{'pluginManager'}->get_plugin($plugin_name);
 	}
 	catch BIGSdb::InvalidPluginException with {
-		print "<div class=\"box\" id=\"statusbad\"><p>Plugin '$plugin_name' does not exist!</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Plugin '$plugin_name' does not exist!</p></div>";
 		$continue = 0;
 	};
 	my $att = $plugin->get_attributes;
 	$plugin->{'username'} = $self->{'username'};
 	my $dbtype = $self->{'system'}->{'dbtype'};
 	if ( $att->{'dbtype'} !~ /$dbtype/ ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>This plugin is not compatible with this type of database ($dbtype).</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>This plugin is not compatible with this type of database ($dbtype).</p></div>";
 		$continue = 0;
 	}
 	return if !$continue;
@@ -244,15 +251,15 @@ sub print_content {
 		}
 		if ( !$cookies_disabled ) {
 			my $att = $self->{'pluginManager'}->get_plugin_attributes($plugin_name);
-			print $q->start_form;
+			say $q->start_form;
 			$q->param( 'update_options', 1 );
-			print $q->hidden($_) foreach @{ $plugin->get_hidden_attributes() };
-			print $q->hidden($_) foreach qw(page db name query_file update_options);
-			print "<div id=\"hidefromnonJS\" class=\"hiddenbydefault\">\n";
-			print "<div class=\"floatmenu\"><a id=\"toggle1\" class=\"showhide\">Show options</a>\n";
-			print "<a id=\"toggle2\" class=\"hideshow\">Hide options</a></div>\n";
-			print "<div class=\"hideshow\">\n";
-			print "<div id=\"pluginoptions\"><table><tr><th>$att->{'name'} options</th></tr>\n";
+			say $q->hidden($_) foreach @{ $plugin->get_hidden_attributes() };
+			say $q->hidden($_) foreach qw(page db name query_file update_options);
+			say "<div id=\"hidefromnonJS\" class=\"hiddenbydefault\">";
+			say "<div class=\"floatmenu\"><a id=\"toggle1\" class=\"showhide\">Show options</a>";
+			say "<a id=\"toggle2\" class=\"hideshow\">Hide options</a></div>";
+			say "<div class=\"hideshow\">";
+			say "<div id=\"pluginoptions\"><table><tr><th>$att->{'name'} options</th></tr>";
 			my $td   = 1;
 			my $guid = $self->get_guid;
 
@@ -267,25 +274,25 @@ sub print_content {
 				catch BIGSdb::DatabaseNoRecordException with {
 					$default = $_->{'default'};
 				};
-				print "<tr class=\"td$td\"><td>\n";
+				say "<tr class=\"td$td\"><td>";
 				if ( $_->{'optlist'} ) {
 					print $_->{'description'} . ': ';
 					my @values = split /;/, $_->{'optlist'};
-					print $q->popup_menu( -name => $_->{'name'}, -values => [@values], -default => $default );
+					say $q->popup_menu( -name => $_->{'name'}, -values => [@values], -default => $default );
 				} else {
-					print $q->checkbox( -name => $_->{'name'}, -label => $_->{'description'}, selected => $default );
+					say $q->checkbox( -name => $_->{'name'}, -label => $_->{'description'}, selected => $default );
 				}
-				print "</td></tr>\n";
+				say "</td></tr>";
 				$td = $td == 1 ? 2 : 1;
 			}
-			print "<tr class=\"td$td\"><td style=\"text-align:center\">";
-			print $q->submit( -name => 'reset', -label => 'Reset to defaults', -class => 'reset' );
-			print $q->submit( -name => 'set',   -label => 'Set options',       -class => 'submit' );
-			print "</td></tr>\n";
-			print "</table></div>\n</div>\n</div>\n";
-			print $q->end_form;
+			say "<tr class=\"td$td\"><td style=\"text-align:center\">";
+			say $q->submit( -name => 'reset', -label => 'Reset to defaults', -class => 'reset' );
+			say $q->submit( -name => 'set',   -label => 'Set options',       -class => 'submit' );
+			say "</td></tr>";
+			say "</table></div>\n</div>\n</div>";
+			say $q->end_form;
 		} else {
-			print "<div class=\"floatmenu\" >Options disabled (allow cookies to enable)</div>\n";
+			say "<div class=\"floatmenu\" >Options disabled (allow cookies to enable)</div>";
 		}
 	}
 	$plugin->initiate_prefs;
@@ -308,47 +315,35 @@ sub print_fields {
 	my ( $self, $fields, $prefix, $num_columns, $trim_prefix, $labels, $default_select, $toggle ) = @_;
 	my $q                 = $self->{'cgi'};
 	my $fields_per_column = BIGSdb::Utils::round_up( @$fields / $num_columns );
-	my @cols;
+	say "<div style=\"float:left;margin-bottom:1em\"><ul>";
 	my $i = 0;
-	my $j = 0;
-	foreach (@$fields) {
-		$cols[$i][$j] = $_;
-		$j++;
-		if ( $j == $fields_per_column ) {
-			$j = 0;
-			$i++;
+	foreach my $field (@$fields) {
+		my $label = $labels->{$field} || $field;
+		$label =~ s/^[lf]_// if $trim_prefix;
+		$label =~ s/___/../;
+		$label =~ tr/_/ /;
+		my $id = $self->clean_checkbox_id("$prefix\_$field");
+		print "<li>";
+		my $value = $prefix eq 'c' ? 0 : $default_select;
+		print $q->checkbox( -name => "$prefix\_$field", -id => $id, -checked => $value, -value => 'checked', -label => $label );
+		say "</li>";
+		$i++;
+
+		if ( $i == $fields_per_column && $field ne $fields->[-1] ) {
+			$i = 0;
+			say "</ul></div><div style=\"float:left;margin-bottom:1em\"><ul>";
 		}
 	}
-	$toggle = $toggle ? "class=\"toggle\"" : "";
-	print "<table $toggle>";
-	my $row = 0;
-	do {
-		print "<tr>";
-		for ( my $i = 0 ; $i < $num_columns ; $i++ ) {
-			last if !$cols[$i][$row];
-			my $field = $cols[$i][$row];
-			my $label = $labels->{$field} || $field;
-			$label =~ s/^[lf]_// if $trim_prefix;
-			$label =~ s/___/../;
-			$label =~ tr/_/ /;
-			my $id = $self->clean_checkbox_id("$prefix\_$field");
-			print "<td style=\"padding-left:1em\">";
-			my $value = $prefix eq 'c' ? 0 : $default_select;
-			print $q->checkbox( -name => "$prefix\_$field", -id => $id, -checked => $value, -value => 'checked', -label => $label );
-			print "</td>\n";
-		}
-		print "</tr>\n";
-		$row++;
-	} while ( $cols[0][$row] );
-	print "</table>";
+	say "</ul></div>";
+	say "<div style=\"clear:both\"></div>";
 	return;
 }
 
 sub print_field_export_form {
-	my ( $self, $default_select, $output_format_list, $options ) = @_;
+	my ( $self, $default_select, $options ) = @_;
 	my $q       = $self->{'cgi'};
-	my $set_id = $self->get_set_id;
-	my $schemes = $self->{'datastore'}->get_scheme_list({set_id=>$set_id});
+	my $set_id  = $self->get_set_id;
+	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	my $loci    = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 	my $fields  = $self->{'xmlHandler'}->get_field_list;
 	my @display_fields;
@@ -375,18 +370,12 @@ sub print_field_export_form {
 		push @isolate_js,  "\$(\"#f_$_\").attr(\"checked\",true)";
 		push @isolate_js2, "\$(\"#f_$_\").attr(\"checked\",false)";
 	}
-	print $q->start_form;
-	if ( ref $output_format_list eq 'ARRAY' && @$output_format_list ) {
-		print "<p>Please select output format: ";
-		print $q->popup_menu( -name => 'format', -values => $output_format_list );
-		print "</p>\n";
-	}
-	print "<div class='fieldsection'>";
-	print "<h2>Isolate fields</h2>\n";
+	say $q->start_form;
+	say "<fieldset style=\"float:left\"><legend>Isolate fields</legend>";
 	my %labels;
-	$self->_print_all_none_buttons( \@isolate_js, \@isolate_js2, 'smallbutton rightbutton' );
-	$self->print_fields( \@display_fields, 'f', 6, 0, \%labels, $default_select, 0 );
-	print "</div>";
+	$self->print_fields( \@display_fields, 'f', 3, 0, \%labels, $default_select, 0 );
+	$self->_print_all_none_buttons( \@isolate_js, \@isolate_js2, 'smallbutton' );
+	say "</fieldset>";
 	if ( $options->{'include_composites'} ) {
 		my $composites = $self->{'datastore'}->run_list_query("SELECT id FROM composite_fields ORDER BY id");
 		if (@$composites) {
@@ -397,79 +386,23 @@ sub print_field_export_form {
 				push @com_js,  "\$(\"#c_$_\").attr(\"checked\",true)";
 				push @com_js2, "\$(\"#c_$_\").attr(\"checked\",false)";
 			}
-			print "<div class='fieldsection'>";
-			print "<h2>Composite fields ";
+			print "<fieldset style=\"float:left\"><legend>Composite fields";
 			print " <a class=\"tooltip\" title=\"Composite fields - These are constructed from combinations of other fields "
 			  . "(some of which may come from external databases).  Including composite fields will slow down the processing.\">&nbsp;<i>i</i>&nbsp;</a>";
-			print "</h2>\n";
-			$self->_print_all_none_buttons( \@com_js, \@com_js2, 'smallbutton rightbutton' );
-			$self->print_fields( $composites, 'c', 6, 0, \%labels, $default_select, 0 );
-			print "</div>";
+			say "</legend>";
+			$self->print_fields( $composites, 'c', 1, 0, \%labels, $default_select, 0 );
+			$self->_print_all_none_buttons( \@com_js, \@com_js2, 'smallbutton' );
+			say "</fieldset>";
 		}
 	}
-	my $total_loci = $self->{'datastore'}->get_loci( { analysis_pref => 1, set_id => $set_id } );
-	if ( @$total_loci <= MAX_TREE_NODES ) {
-		print "<h2>Schemes and loci</h2>\n";
-		$self->_print_tree(1);
-	} else {
-		foreach my $scheme (@$schemes) {
-			my $scheme_id = $scheme->{'id'};
-			my $scheme_members = $self->{'datastore'}->get_scheme_loci($scheme_id);
-			my $scheme_fields  = $self->{'datastore'}->get_scheme_fields($scheme_id);
-			my $scheme_info    = $self->{'datastore'}->get_scheme_info($scheme_id);
-			if ( @$scheme_members or @$scheme_fields ) {
-				( my $heading = $scheme_info->{'description'} ) =~ s/\&/\&amp;/g;
-				print "<div class='fieldsection'>";
-				print "<h2>$heading</h2>\n";
-				my @values;
-				my ( @scheme_js, @scheme_js2 );
-				foreach my $member (@$scheme_members) {
-					my $cleaned_member = $self->clean_checkbox_id($member);
-					push @values,     "l_$member";
-					push @js,         "\$(\"#s_$scheme_id\_l_$cleaned_member\").attr(\"checked\",true)";
-					push @js2,        "\$(\"#s_$scheme_id\_l_$cleaned_member\").attr(\"checked\",false)";
-					push @scheme_js,  "\$(\"#s_$scheme_id\_l_$cleaned_member\").attr(\"checked\",true)";
-					push @scheme_js2, "\$(\"#s_$scheme_id\_l_$cleaned_member\").attr(\"checked\",false)";
-					$labels{"l_$member"} = $self->clean_locus($member,{text_output=>1});
-				}
-				foreach my $scheme_field (@$scheme_fields) {
-					push @values,     "f_$scheme_field";
-					push @js,         "\$(\"#s_$scheme_id\_f_$scheme_field\").attr(\"checked\",true)";
-					push @js2,        "\$(\"#s_$scheme_id\_f_$scheme_field\").attr(\"checked\",false)";
-					push @scheme_js,  "\$(\"#s_$scheme_id\_f_$scheme_field\").attr(\"checked\",true)";
-					push @scheme_js2, "\$(\"#s_$scheme_id\_f_$scheme_field\").attr(\"checked\",false)";
-				}
-				$self->_print_all_none_buttons( \@scheme_js, \@scheme_js2, 'smallbutton rightbutton' );
-				print "<input type=\"button\" value=\"Show/Hide List\" class=\"toggleLink smallbutton rightbutton\" />\n";
-				$self->print_fields( \@values, "s_$scheme_id", 10, 1, \%labels, $default_select, 1 );
-				print "</div>";
-			}
-		}
-		if (@$loci) {
-			print "<div class='fieldsection'>";
-			print "<h2>Loci not belonging to any scheme</h2>\n";
-			my ( @scheme_js, @scheme_js2 );
-			foreach my $locus (@$loci) {
-				my $cleaned = $self->clean_checkbox_id($locus);
-				push @js,         "\$(\"#l_$cleaned\").attr(\"checked\",true)";
-				push @js2,        "\$(\"#l_$cleaned\").attr(\"checked\",false)";
-				push @scheme_js,  "\$(\"#l_$cleaned\").attr(\"checked\",true)";
-				push @scheme_js2, "\$(\"#l_$cleaned\").attr(\"checked\",false)";
-				$labels{$locus} = $self->clean_locus($locus,{text_output=>1});
-			}			
-			$self->_print_all_none_buttons( \@scheme_js, \@scheme_js2, 'smallbutton rightbutton' );
-			print "<input type=\"button\" value=\"Show/Hide List\" class=\"toggleLink smallbutton rightbutton\" />\n";
-			$self->print_fields( $loci, 'l', 12, 0, \%labels, $default_select, 1 );
-			print "</div>";
-		}
-		local $" = ';';
-		print "<input type=\"button\" value=\"Select all\" onclick='@js' style=\"margin-top:1em\" class=\"button\" />\n";
-		print "<input type=\"button\" value=\"Select none\" onclick='@js2' style=\"margin-top:1em\" class=\"button\" />\n";
-		print "<noscript><span class=\"comment\"> Enable javascript for select buttons to work!</span></noscript>\n";
-	}
-	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	print $q->hidden($_) foreach qw (db page name query_file);
-	print $q->end_form;
+	$self->print_isolates_locus_fieldset;
+	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
+	say "<div style=\"clear:both\"></div>";
+	say "<div style=\"text-align:right;padding-right:10em\">";
+	say $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
+	say "</div>";
+	say $q->hidden($_) foreach qw (db page name query_file);
+	say $q->end_form;
 	return;
 }
 
@@ -491,7 +424,7 @@ sub get_selected_fields {
 		}
 	}
 	my $set_id     = $self->get_set_id;
-	my $loci       = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
+	my $loci       = $self->{'datastore'}->get_loci( { set_id => $set_id } );
 	my $composites = $self->{'datastore'}->run_list_query("SELECT id FROM composite_fields");
 	my $schemes    = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 	my @fields_selected;
@@ -501,20 +434,22 @@ sub get_selected_fields {
 	foreach (@$composites) {
 		push @fields_selected, "c_$_" if $q->param("c_$_");
 	}
+	my %picked;
 	foreach (@$schemes) {
 		my $scheme_members = $self->{'datastore'}->get_scheme_loci($_);
 		foreach my $member (@$scheme_members) {
 			push @fields_selected, "s_$_\_l_$member"
-			  if $q->param("s_$_\_l_$member");
+			  if $q->param("s_$_") && $q->param('scheme_members');
 		}
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($_);
 		foreach my $scheme_field (@$scheme_fields) {
 			push @fields_selected, "s_$_\_f_$scheme_field"
-			  if $q->param("s_$_\_f_$scheme_field");
+			  if $q->param("s_$_") && $q->param('scheme_fields');
 		}
 	}
-	foreach (@$loci) {
-		push @fields_selected, "l_$_" if $q->param("l_$_");
+	my $selected_loci = $self->get_selected_loci;
+	foreach my $locus (@$loci) {
+		push @fields_selected, "l_$locus" if any { $locus eq $_ } @$selected_loci;
 	}
 	return \@fields_selected;
 }
@@ -523,16 +458,18 @@ sub print_sequence_export_form {
 	my ( $self, $pk, $list, $scheme_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
-	print $q->start_form;
-	print "<fieldset style=\"float:left\">\n<legend>Select $pk" . "s</legend>\n";
+	say $q->start_form;
+	say "<fieldset style=\"float:left\">\n<legend>Select $pk" . "s</legend>";
 	local $" = "\n";
-	print "<p style=\"padding-right:2em\">Paste in list of ids to include, start a new<br />line for each. "
-	  . "Leave blank to include all ids.</p>\n";
-	print $q->textarea( -name => 'list', -rows => 5, -columns => 6, -default => "@$list" );
-	print "</fieldset>\n";
+	say "<p style=\"padding-right:2em\">Paste in list of ids to include, start a new<br />line for each. "
+	  . "Leave blank to include all ids.</p>";
+	say $q->textarea( -name => 'list', -rows => 5, -columns => 6, -default => "@$list" );
+	say "</fieldset>";
+	my ( $locus_list, $locus_labels ) =
+	  $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
 
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		print "<fieldset style=\"float:left\">\n<legend>Include in identifier row</legend>";
+		say "<fieldset style=\"float:left\">\n<legend>Include in identifier row</legend>";
 		my @fields;
 		my $labels;
 		foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list } ) {
@@ -540,7 +477,7 @@ sub print_sequence_export_form {
 			push @fields, $field;
 			( $labels->{$field} = $field ) =~ tr/_/ /;
 		}
-		print $q->scrolling_list(
+		say $q->scrolling_list(
 			-name     => 'includes',
 			-id       => 'includes',
 			-values   => \@fields,
@@ -548,154 +485,221 @@ sub print_sequence_export_form {
 			-size     => 10,
 			-multiple => 'true'
 		);
-		print "</fieldset>\n";
+		say "</fieldset>";
+	}
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		$self->print_isolates_locus_fieldset;
+		$self->print_scheme_fieldset;
+	} else {
+		$self->print_scheme_locus_fieldset( $scheme_id, $options );
+	}
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $options_heading = $options->{'options_heading'} || 'Options';
-		print "<fieldset style=\"float:left\">\n<legend>$options_heading</legend>";
-		print "If both allele designations and tagged sequences<br />exist for a locus, choose how you want these handled: ";
-		print " <a class=\"tooltip\" title=\"Sequence retrieval - Peptide loci will only be retrieved from the sequence bin "
+		say "<fieldset style=\"float:left\">\n<legend>$options_heading</legend>";
+		say "If both allele designations and tagged sequences<br />exist for a locus, choose how you want these handled: ";
+		say " <a class=\"tooltip\" title=\"Sequence retrieval - Peptide loci will only be retrieved from the sequence bin "
 		  . "(as nucleotide sequences).\">&nbsp;<i>i</i>&nbsp;</a>";
-		print "<br /><br />";
+		say "<br /><br />";
 		my %labels =
 		  ( seqbin => 'Use sequences tagged from the bin', allele_designation => 'Use allele sequence retrieved from external database' );
-		print $q->radio_group( -name => 'chooseseq', -values => [ 'seqbin', 'allele_designation' ], -labels => \%labels,
+		say $q->radio_group( -name => 'chooseseq', -values => [ 'seqbin', 'allele_designation' ], -labels => \%labels,
 			-linebreak => 'true' );
-		print "<br />\n";
+		say "<br />";
 
 		if ( $options->{'translate'} ) {
-			print $q->checkbox( -name => 'translate', -label => 'Translate sequences' );
-			print "<br />\n";
+			say $q->checkbox( -name => 'translate', -label => 'Translate sequences' );
+			say "<br />";
 		}
 		if ( $options->{'ignore_seqflags'} ) {
-			print $q->checkbox(
+			say $q->checkbox(
 				-name    => 'ignore_seqflags',
 				-label   => 'Do not include sequences with problem flagged ' . '(defined alleles will still be used)',
 				-checked => 'checked'
 			);
-			print "<br />\n";
+			say "<br />";
 		}
 		if ( $options->{'ignore_incomplete'} ) {
-			print $q->checkbox( -name => 'ignore_incomplete', -label => 'Do not include incomplete sequences', -checked => 'checked' );
-			print "<br />\n";
+			say $q->checkbox( -name => 'ignore_incomplete', -label => 'Do not include incomplete sequences', -checked => 'checked' );
+			say "<br />";
 		}
 		if ( $options->{'flanking'} ) {
-			print "Include ";
-			print $q->popup_menu( -name => 'flanking', -values => [FLANKING], -default => 0 );
-			print " bp flanking sequence";
-			print " <a class=\"tooltip\" title=\"Flanking sequence - This can only be included if you select to retrieve sequences "
+			say "Include ";
+			say $q->popup_menu( -name => 'flanking', -values => [FLANKING], -default => 0 );
+			say " bp flanking sequence";
+			say " <a class=\"tooltip\" title=\"Flanking sequence - This can only be included if you select to retrieve sequences "
 			  . "from the sequence bin rather than from an external database.\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
-		print "</fieldset>\n";
+		say "</fieldset>";
 	}
-	print $self->get_extra_form_elements;
-	my $set_id = $self->get_set_id;
-	my $loci = $self->{'datastore'}->get_loci( { analysis_pref => 1, set_id => $set_id } );
-	if ( !$scheme_id && @$loci <= MAX_TREE_NODES ) {
+	say $self->get_extra_form_elements;
+	say "<div style=\"clear:both\"></div>";
+	say $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
+	say $q->hidden($_) foreach qw (db page name query_file scheme_id);
+	say $q->end_form;
+	return;
+}
 
-		#There are currently performance issues with the hierarchical Javascript tree, so don't display it once
-		#the number of loci go over a certain threshold.
-		$self->_print_tree;
+sub print_isolates_locus_fieldset {
+	my ($self) = @_;
+	say "<fieldset id=\"locus_fieldset\" style=\"float:left\">\n<legend>Loci</legend>";
+	my ( $locus_list, $locus_labels ) =
+	  $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
+	if (@$locus_list) {
+		print $self->{'cgi'}->scrolling_list(
+			-name     => 'locus',
+			-id       => 'locus',
+			-values   => $locus_list,
+			-labels   => $locus_labels,
+			-size     => 8,
+			-multiple => 'true'
+		);
+		print <<"HTML";
+<div style="text-align:center"><input type="button" onclick='listbox_selectall("locus",true)' value="All" style="margin-top:1em" class="smallbutton" />
+<input type="button" onclick='listbox_selectall("locus",false)' value="None" style="margin-top:1em" class="smallbutton" /></div>
+HTML
 	} else {
-		my ( @js, @js2 );
-		my $schemes;
-		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-			$schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-		} else {
-			push @$schemes, { id => $scheme_id };
-		}
-		print "<div style=\"clear:both\">\n";
-		foreach my $scheme (@$schemes) {
-			$scheme_id = $scheme->{'id'};
-			next if $self->{'system'}->{'dbtype'} eq 'isolates' && !$self->{'prefs'}->{'analysis_schemes'}->{$scheme_id};
-			my ( @scheme_js, @scheme_js2 );
-			my $scheme_members = $self->{'datastore'}->get_scheme_loci($scheme_id);
-			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-			if (@$scheme_members) {
-				( my $heading = $scheme_info->{'description'} ) =~ s/\&/\&amp;/g;
-				print "<div class='fieldsection'>";
-				print "<h2>$heading</h2>\n";
-				my @values;
-				my $labels;
-				foreach my $member (@$scheme_members) {
-					my $cleaned_member = $self->clean_checkbox_id($member);
-					push @values,     "l_$member";
-					push @js,         "\$(\"#s_$scheme_id\_l_$cleaned_member\").attr(\"checked\",true)";
-					push @js2,        "\$(\"#s_$scheme_id\_l_$cleaned_member\").attr(\"checked\",false)";
-					push @scheme_js,  "\$(\"#s_$scheme_id\_l_$cleaned_member\").attr(\"checked\", true)";
-					push @scheme_js2, "\$(\"#s_$scheme_id\_l_$cleaned_member\").attr(\"checked\", false)";
-					$labels->{"l_$member"} = $self->clean_locus( $member, { text_output => 1 } );
-				}
-				if ( !$q->param('scheme_id') ) {
-					$self->_print_all_none_buttons( \@scheme_js, \@scheme_js2, 'smallbutton rightbutton' );
-					print "<input type=\"button\" value=\"Show/Hide List\" class=\"toggleLink smallbutton rightbutton\" />\n";
-				}
-				$self->print_fields(
-					\@values, "s_$scheme_id", 10, 1, $labels,
-					$options->{'default_select'},
-					$q->param('scheme_id') ? 0 : 1
-				);
-				print "</div>";
-			}
-		}
-		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-			my $set_scheme_clause =
-			  $set_id
-			  ? "SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)"
-			  : 'SELECT DISTINCT locus FROM scheme_members';
-			my $set_clause =
-			  $set_id
-			  ? "AND (id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes "
-			  . "WHERE set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
-			  : '';
-			my $loci =
-			  $self->{'datastore'}->run_list_query( "SELECT id FROM loci WHERE (id NOT IN ($set_scheme_clause) "
-				  . "AND (id IN (SELECT DISTINCT locus FROM allele_designations LEFT JOIN loci ON allele_designations.locus = loci.id AND "
-				  . "loci.data_type = 'DNA' AND loci.dbase_name IS NOT NULL AND loci.dbase_id_field IS NOT NULL AND loci.dbase_seq_field IS "
-				  . "NOT NULL) OR id IN (SELECT DISTINCT locus FROM allele_sequences))) $set_clause ORDER BY id" );
-			if (@$loci) {
-				print "<div class='fieldsection'>";
-				print "<h2>Loci not belonging to any scheme</h2>\n";
-				my ( @scheme_js, @scheme_js2 );
-				my %labels;
-				foreach my $locus (@$loci) {
-					my $cleaned = $self->clean_checkbox_id($locus);
-					push @js,         "\$(\"#l_$cleaned\").attr(\"checked\",true)";
-					push @js2,        "\$(\"#l_$cleaned\").attr(\"checked\",false)";
-					push @scheme_js,  "\$(\"#l_$cleaned\").attr(\"checked\",true)";
-					push @scheme_js2, "\$(\"#l_$cleaned\").attr(\"checked\",false)";
-					$labels{$locus} = $self->clean_locus( $locus, { text_output => 1 } );
-				}
-				$self->_print_all_none_buttons( \@scheme_js, \@scheme_js2, 'smallbutton rightbutton' );
-				print "<input type=\"button\" value=\"Show/Hide List\" class=\"toggleLink smallbutton rightbutton\" />\n";
-				$self->print_fields( $loci, 'l', 12, 0, \%labels, $options->{'default_select'}, 1 );
-				print "</div>";
-			}
-		}
-		local $" = ';';
-		print "</div>\n";
-		print "<input type=\"button\" value=\"Select all\" onclick='@js' style=\"margin-top:1em\" class=\"button\" />\n";
-		print "<input type=\"button\" value=\"Select none\" onclick='@js2' style=\"margin-top:1em\" class=\"button\" />\n";
-		print "<noscript><span class=\"comment\"> Enable javascript for select buttons to work!</span></noscript>\n";
+		print "No loci available<br />for analysis";
 	}
-	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	print $q->hidden($_) foreach qw (db page name query_file scheme_id);
-	print $q->end_form;
+	say "</fieldset>";
+	return;
+}
+
+sub print_scheme_locus_fieldset {
+	my ( $self, $scheme_id, $options ) = @_;
+	my ( @scheme_js, @scheme_js2 );
+	my $locus_list = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	say "<fieldset><legend>Select loci</legend>";
+	if (@$locus_list) {
+		print $self->{'cgi'}->scrolling_list( -name => 'locus', -id => 'locus', -values => $locus_list, -size => 8, -multiple => 'true' );
+		print <<"HTML";
+<div style="text-align:center"><input type="button" onclick='listbox_selectall("locus",true)' 
+value="All" style="margin-top:1em" class="smallbutton" />
+<input type="button" onclick='listbox_selectall("locus",false)' value="None" style="margin-top:1em" 
+class="smallbutton" /></div>
+HTML
+	} else {
+		say "No loci available<br />for analysis";
+	}
+	say "</fieldset>";
+	return;
+}
+
+sub print_scheme_fieldset {
+	my ( $self, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $q = $self->{'cgi'};
+	print <<"HTML";
+<fieldset id="scheme_fieldset" style="float:left"><legend>Schemes</legend>
+<noscript><p class="highlight">Enable Javascript to select schemes.</p></noscript>
+<div id="tree" class="tree" style="height:150px; width:20em">
+HTML
+	say $self->get_tree( undef, { no_link_out => 1, select_schemes => 1 } );
+	say "</div>";
+	if ( $options->{'fields_or_loci'} ) {
+		say "<div style=\"padding-top:1em\"><ul><li>";
+		say $q->checkbox( -name => 'scheme_fields', -label => 'Include all fields from selected schemes', -checked => 1 );
+		say "</li><li>";
+		say $q->checkbox( -name => 'scheme_members', -label => 'Include all loci from selected schemes', -checked => 1 );
+		say "</li></ul></div>";
+	}
+	say "</fieldset>\n";
+	return;
+}
+
+sub get_selected_loci {
+	my ($self) = @_;
+	$self->escape_params;
+	my @loci = $self->{'cgi'}->param('locus');
+	my @loci_selected;
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		my $pattern = LOCUS_PATTERN;
+		foreach my $locus (@loci) {
+			my $locus_name = $locus =~ /$pattern/ ? $1 : undef;
+			push @loci_selected, "$locus_name" if defined $locus_name;
+		}
+	} else {
+		@loci_selected = @loci;
+	}
+	return \@loci_selected;
+}
+
+sub order_selected_loci {
+
+	#For isolate databases, reorder loci by genome order, schemes then by name (genome order may not be set)
+	#For offline jobs, pass in params from the job database.  Leave undefined for live jobs (will get CGI params).
+	my ( $self, $params ) = @_;
+	my $locus_qry = "SELECT id,scheme_id from loci left join scheme_members on loci.id = scheme_members.locus "
+	  . "order by genome_position,scheme_members.scheme_id,id";
+	my $locus_sql = $self->{'db'}->prepare($locus_qry);
+	eval { $locus_sql->execute };
+	$logger->error($@) if $@;
+	my @selected;
+	my %picked;
+	my ( @selected_loci, @selected_schemes );
+
+	if ( defined $params ) {
+		@selected_loci    = split /\|\|/, ( $params->{'locus'}  // '' );
+		@selected_schemes = split /\|\|/, ( $params->{'scheme'} // '' );
+	} else {
+		my $q = $self->{'cgi'};
+		@selected_loci = $q->param('locus');
+		my $set_id = $self->get_set_id;
+		my $scheme_list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+		foreach my $scheme (@$scheme_list) {
+			push @selected_schemes, $scheme->{'id'} if $q->param("s_$scheme->{'id'}");
+		}
+		push @selected_schemes, 0 if $q->param('s_0');
+	}
+	return \@selected_loci if $self->{'system'}->{'dbtype'} eq 'sequences';
+	my $pattern = LOCUS_PATTERN;
+	my @selected_locus_names;
+	foreach my $locus (@selected_loci) {
+		my $locus_name = $locus =~ /$pattern/ ? $1 : undef;
+		push @selected_locus_names, $locus_name if defined $locus_name;
+	}
+	while ( my ( $locus, $scheme_id ) = $locus_sql->fetchrow_array ) {
+		$scheme_id //= 0;
+		if ( ( any { $scheme_id eq $_ } @selected_schemes ) || ( any { $locus eq $_ } @selected_locus_names ) ) {
+			push @selected, $locus if !$picked{$locus};
+			$picked{$locus} = 1;
+		}
+	}
+	return \@selected;
+}
+
+sub set_scheme_param {
+
+	#Set CGI param from scheme tree selections for passing to offline job.
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
+	my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+	push @$scheme_ids, 0;
+	my @selected_schemes;
+	foreach (@$scheme_ids) {
+		next if !$q->param("s_$_");
+		push @selected_schemes, $_;
+		$q->delete("s_$_");
+	}
+	local $" = '||';
+	my $scheme_string = "@selected_schemes";
+	$q->param( 'scheme', $scheme_string );
 	return;
 }
 
 sub _print_tree {
 	my ( $self, $include_scheme_fields ) = @_;
-	print "<p style=\"clear:both\">Click within the tree to select loci belonging to schemes or groups of schemes.</p>"
+	say "<p style=\"clear:both\">Click within the tree to select loci belonging to schemes or groups of schemes.</p>"
 	  . "<p>If the tree is slow to update, you can try modifying your locus and 	scheme preferences by setting 'analysis' "
 	  . "to false for any <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;"
 	  . "table=schemes\">schemes</a> or <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;",
-	  "table=loci\">loci</a> for which you do not plan to use in analysis tools.</p>\n";
-	print "<noscript><p class=\"highlight\">Javascript needs to be enabled.</p></noscript>\n";
-	print "<div id=\"tree\" class=\"tree\">\n";
+	  "table=loci\">loci</a> for which you do not plan to use in analysis tools.</p>";
+	say "<noscript><p class=\"highlight\">Javascript needs to be enabled.</p></noscript>";
+	say "<div id=\"tree\" class=\"tree\">";
 	my $set_id = $self->get_set_id;
 	my $options = { no_link_out => 1, list_loci => 1, analysis_pref => 1, set_id => $set_id };
 	$options->{'scheme_fields'} = 1 if $include_scheme_fields;
-	print $self->get_tree( undef, $options );
-	print "</div>\n";
+	say $self->get_tree( undef, $options );
+	say "</div>\n";
 	return;
 }
 
@@ -703,8 +707,8 @@ sub _print_all_none_buttons {
 	my ( $self, $js1, $js2, $class ) = @_;
 	if ( ref $js1 && ref $js2 ) {
 		local $" = ',';
-		print "<input type=\"button\" value=\"None\" class=\"$class\" onclick='@$js2' />\n";
-		print "<input type=\"button\" value=\"All\" class=\"$class\" onclick='@$js1' />\n";
+		say "<input type=\"button\" value=\"All\" class=\"$class\" onclick='@$js1' />";
+		say "<input type=\"button\" value=\"None\" class=\"$class\" onclick='@$js2' />";
 	}
 	return;
 }

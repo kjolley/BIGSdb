@@ -20,6 +20,7 @@
 package BIGSdb::Plugins::Combinations;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -42,7 +43,7 @@ sub get_attributes {
 		buttontext  => 'Combinations',
 		menutext    => 'Unique combinations',
 		module      => 'Combinations',
-		version     => '1.0.2',
+		version     => '1.0.3',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -57,11 +58,11 @@ sub run {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
-	print "<h1>Frequencies of field combinations</h1>\n";
+	say "<h1>Frequencies of field combinations</h1>";
 	if ( $q->param('submit') ) {
 		my $selected_fields = $self->get_selected_fields;
 		if ( !@$selected_fields ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>No fields have been selected!</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>No fields have been selected!</p></div>";
 		} else {
 			my $query_file = $q->param('query_file');
 			my $qry_ref    = $self->get_query($query_file);
@@ -112,7 +113,7 @@ sub run {
 			  $self->{'db'}
 			  ->prepare("SELECT value FROM isolate_value_extended_attributes WHERE isolate_field=? AND attribute=? AND field_value=?");
 			my %combs;
-			print "<div class=\"box\" id=\"resultstable\">\n";
+			say "<div class=\"box\" id=\"resultstable\">";
 			print "<p class=\"comment\">Calculating... ";
 			my $total;
 
@@ -176,24 +177,24 @@ sub run {
 				}
 				$j = 0 if $j == 10;
 			}
-			print "</p>";
+			say "</p>";
 			my $filename  = BIGSdb::Utils::get_random() . '.txt';
 			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
 			open( my $fh, '>', $full_path )
 			  or $logger->error("Can't open temp file $filename for writing");
-			print "<div class=\"scrollable\"><table class=\"tablesorter\" id=\"sortTable\">\n<thead>\n";
-			print "<tr>";
+			say "<div class=\"scrollable\"><table class=\"tablesorter\" id=\"sortTable\">\n<thead>";
+			say "<tr>";
 			foreach my $heading (@header){
 				my ($cleaned_html, $cleaned_text) = ($heading, $heading);
 				if ($self->{'datastore'}->is_locus($heading)){
 					$cleaned_html =  $self->clean_locus($heading);
 					$cleaned_text = $self->clean_locus($heading,{text_output=>1})
 				}
-				print "<th>$cleaned_html</th>";
+				say "<th>$cleaned_html</th>";
 				print $fh "$cleaned_text\t";
 			}
-			print "<th>Frequency</th><th>Percentage</th></tr></thead>\n<tbody>\n";
-			print $fh "Frequency\tPercentage\n";
+			say "<th>Frequency</th><th>Percentage</th></tr></thead>\n<tbody>";
+			say $fh "Frequency\tPercentage";
 			my $td = 1;
 
 			foreach ( sort { $combs{$b} <=> $combs{$a} } keys %combs ) {
@@ -205,19 +206,21 @@ sub run {
 				print $fh "@values\t$combs{$_}\t$pc\n";
 				$td = $td == 1 ? 2 : 1;
 			}
-			print "</tbody></table></div>\n";
+			say "</tbody></table></div>";
 			close $fh;
-			print "<p /><p><a href=\"/tmp/$filename\">Download as tab-delimited text.</a></p>\n";
-			print "</div>\n";
+			say "<p /><p><a href=\"/tmp/$filename\">Download as tab-delimited text.</a></p>";
+			say "</div>";
 			return;
 		}
 	}
 	print <<"HTML";
 <div class="box" id="queryform">
-<p>Here you can determine the frequencies of unique field combinations in the dataset.  Please select your combination of fields.</p>
+<p>Here you can determine the frequencies of unique field combinations in the dataset.  Please select your 
+combination of fields. Select loci either from the locus list or by selecting one or more schemes to include 
+all loci (and/or fields) from a scheme.</p>
 HTML
-	$self->print_field_export_form( 0, 0, { 'include_composites' => 1, 'extended_attributes' => 1 } );
-	print "</div>\n";
+	$self->print_field_export_form( 0, { include_composites => 1, extended_attributes => 1 } );
+	say "</div>";
 	return;
 }
 1;

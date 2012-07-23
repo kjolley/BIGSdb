@@ -76,7 +76,7 @@ sub run {
 	if ( $q->param('submit') ) {
 		my $selected_fields = $self->get_selected_fields;
 		if ( !@$selected_fields ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>No fields have been selected!</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>No fields have been selected!</p></div>";
 		} else {
 			my $filename   = BIGSdb::Utils::get_random() . '.txt';
 			my $query_file = $q->param('query_file');
@@ -103,7 +103,8 @@ sub run {
 	print <<"HTML";
 <div class="box" id="queryform">
 <p>This script will export the dataset in tab-delimited text, suitable for importing into a spreadsheet.
-You can choose which fields you would like included - please uncheck any that are not required.</p>
+Select which fields you would like included.  Select loci either from the locus list or by selecting one or
+more schemes to include all loci (and/or fields) from a scheme.</p>
 HTML
 	foreach (qw (shtml html)) {
 		my $policy = "$ENV{'DOCUMENT_ROOT'}$self->{'system'}->{'webroot'}/policy.$_";
@@ -113,7 +114,7 @@ HTML
 			last;
 		}
 	}
-	$self->print_field_export_form( 1, [], { include_composites => 1, extended_attributes => 1 } );
+	$self->print_field_export_form( 1, { include_composites => 1, extended_attributes => 1 } );
 	print "</div>\n";
 	return;
 }

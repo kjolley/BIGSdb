@@ -25,12 +25,14 @@ use 5.010;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
+use List::MoreUtils qw(any none);
 use Apache2::Connection ();
 use Bio::Perl;
 use Bio::SeqIO;
 use Bio::AlignIO;
 use BIGSdb::Utils;
 use constant DEFAULT_LIMIT => 200;
+use BIGSdb::Page qw(LOCUS_PATTERN);
 
 sub get_attributes {
 	my %att = (
@@ -43,7 +45,7 @@ sub get_attributes {
 		buttontext  => 'XMFA',
 		menutext    => 'XMFA export',
 		module      => 'XmfaExport',
-		version     => '1.2.4',
+		version     => '1.3.0',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		section     => 'export,postquery',
@@ -118,15 +120,15 @@ sub run {
 		$list = \@;;
 	}
 	if ( $q->param('submit') ) {
-		$self->escape_params;
-		my @param_names = $q->param;
-		my @fields_selected;
-		foreach (@param_names) {
-			push @fields_selected, $_ if $_ =~ /^l_/ or $_ =~ /s_\d+_l_/;
-		}
-		if ( !@fields_selected ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>No fields have been selected!</p></div>";
+		my $loci_selected = $self->get_selected_loci;
+		my $scheme_ids    = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+		push @$scheme_ids, 0;
+		if ( !@$loci_selected && none { $q->param("s_$_") } @$scheme_ids ) {
+			print "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci";
+			print " or schemes" if $self->{'system'}->{'dbtype'} eq 'isolates';
+			print ".</p></div>\n";
 		} else {
+			$self->set_scheme_param;
 			my $params = $q->Vars;
 			$params->{'pk'} = $pk;
 			( my $list = $q->param('list') ) =~ s/[\r\n]+/\|\|/g;
@@ -156,14 +158,24 @@ HTML
 		}
 	}
 	my $limit = $self->{'system'}->{'XMFA_limit'} || DEFAULT_LIMIT;
+	if ($self->{'system'}->{'dbtype'} eq 'isolates'){
 	print <<"HTML";
 <div class="box" id="queryform">
 <p>This script will export allele sequences in Extended Multi-FASTA (XMFA) format suitable for loading into third-party
 applications, such as ClonalFrame.  Only loci that have a corresponding database containing sequences, or with sequences tagged,  
-can be included.  Please check the loci that you would like to include.  If a sequence does not exist in
-the remote database, it will be replaced with 'N's. Output is limited to $limit records. Please be aware that it may take a long time 
-to generate the output file as the sequences are passed through muscle to align them.</p>
+can be included.  Please check the loci that you would like to include.  Alternatively select one or more schemes to include
+all loci that are members of the scheme.  If a sequence does not exist in the remote database, it will be replaced with 
+'-'s. Output is limited to $limit records. Please be aware that it may take a long time to generate the output file as the 
+sequences are passed through muscle to align them.</p>
 HTML
+	} else {
+print <<"HTML";
+<div class="box" id="queryform">
+<p>This script will export allele sequences in Extended Multi-FASTA (XMFA) format suitable for loading into third-party
+applications, such as ClonalFrame.  Please be aware that it may take a long time to generate the output file as the 
+sequences are passed through muscle to align them.</p>
+HTML
+	}
 	my $options = { default_select => 0, translate => 1, flanking => 1, ignore_seqflags => 1, ignore_incomplete => 1 };
 	$self->print_sequence_export_form( $pk, $list, $scheme_id, $options );
 	say "</div>";
@@ -206,24 +218,10 @@ sub run_job {
 	my @problem_ids;
 	my $start = 1;
 	my $end;
-	my $no_output = 1;
-
-	#reorder loci by genome order, schemes then by name (genome order may not be set)
-	my $locus_qry = "SELECT id,scheme_id from loci left join scheme_members on loci.id = scheme_members.locus "
-	  . "order by genome_position,scheme_members.scheme_id,id";
-	my $locus_sql = $self->{'db'}->prepare($locus_qry);
-	eval { $locus_sql->execute };
-	$logger->error($@) if $@;
-	my @selected_fields;
-	my %picked;
-	while ( my ( $locus, $scheme_id ) = $locus_sql->fetchrow_array ) {
-
-		if ( ( $scheme_id && $params->{"s_$scheme_id\_l_$locus"} ) || ( $params->{"l_$locus"} ) ) {
-			push @selected_fields, $locus if !$picked{$locus};
-			$picked{$locus} = 1;
-		}
-	}
+	my $no_output     = 1;
+	my $selected_loci = $self->order_selected_loci($params);
 	my @list = split /\|\|/, $params->{'list'};
+
 	if ( !@list ) {
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 			my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
@@ -246,7 +244,7 @@ sub run_job {
 	}
 	my $progress = 0;
 	my %no_seq;
-	foreach my $locus_name (@selected_fields) {
+	foreach my $locus_name (@$selected_loci) {
 		my $locus;
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
 		my $common_length;
@@ -365,7 +363,7 @@ sub run_job {
 		unlink $muscle_file;
 		unlink $temp_file;
 		$progress++;
-		my $complete = int( 100 * $progress / scalar @selected_fields );
+		my $complete = int( 100 * $progress / scalar @$selected_loci );
 		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete } );
 	}
 	close $fh;

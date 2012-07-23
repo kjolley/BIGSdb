@@ -22,97 +22,98 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin);
+use List::MoreUtils qw(none);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 my %codons_per_aa = (
-	'A' => 4,
-	'C' => 2,
-	'D' => 2,
-	'E' => 2,
-	'F' => 2,
-	'G' => 4,
-	'H' => 2,
-	'I' => 3,
-	'K' => 2,
-	'L' => 6,
-	'M' => 1,
-	'N' => 2,
-	'P' => 4,
-	'Q' => 2,
-	'R' => 6,
-	'S' => 6,
-	'T' => 4,
-	'V' => 4,
-	'W' => 1,
-	'Y' => 2,
+	A   => 4,
+	C   => 2,
+	D   => 2,
+	E   => 2,
+	F   => 2,
+	G   => 4,
+	H   => 2,
+	I   => 3,
+	K   => 2,
+	L   => 6,
+	M   => 1,
+	N   => 2,
+	P   => 4,
+	Q   => 2,
+	R   => 6,
+	S   => 6,
+	T   => 4,
+	V   => 4,
+	W   => 1,
+	Y   => 2,
 	'*' => 3
 );
 my %translate = (
-	'GCA' => 'A',
-	'GCC' => 'A',
-	'GCG' => 'A',
-	'GCT' => 'A',
-	'TGC' => 'C',
-	'TGT' => 'C',
-	'GAC' => 'D',
-	'GAT' => 'D',
-	'GAA' => 'E',
-	'GAG' => 'E',
-	'TTC' => 'F',
-	'TTT' => 'F',
-	'GGA' => 'G',
-	'GGC' => 'G',
-	'GGG' => 'G',
-	'GGT' => 'G',
-	'CAC' => 'H',
-	'CAT' => 'H',
-	'ATA' => 'I',
-	'ATC' => 'I',
-	'ATT' => 'I',
-	'AAA' => 'K',
-	'AAG' => 'K',
-	'CTA' => 'L',
-	'CTC' => 'L',
-	'CTG' => 'L',
-	'CTT' => 'L',
-	'TTA' => 'L',
-	'TTG' => 'L',
-	'ATG' => 'M',
-	'AAC' => 'N',
-	'AAT' => 'N',
-	'CCA' => 'P',
-	'CCC' => 'P',
-	'CCG' => 'P',
-	'CCT' => 'P',
-	'CAA' => 'Q',
-	'CAG' => 'Q',
-	'AGA' => 'R',
-	'AGG' => 'R',
-	'CGA' => 'R',
-	'CGC' => 'R',
-	'CGG' => 'R',
-	'CGT' => 'R',
-	'AGC' => 'S',
-	'AGT' => 'S',
-	'TCA' => 'S',
-	'TCC' => 'S',
-	'TCG' => 'S',
-	'TCT' => 'S',
-	'ACA' => 'T',
-	'ACC' => 'T',
-	'ACG' => 'T',
-	'ACT' => 'T',
-	'GTA' => 'V',
-	'GTC' => 'V',
-	'GTG' => 'V',
-	'GTT' => 'V',
-	'TGG' => 'W',
-	'TAC' => 'Y',
-	'TAT' => 'Y',
-	'TAA' => '*',
-	'TAG' => '*',
-	'TGA' => '*'
+	GCA => 'A',
+	GCC => 'A',
+	GCG => 'A',
+	GCT => 'A',
+	TGC => 'C',
+	TGT => 'C',
+	GAC => 'D',
+	GAT => 'D',
+	GAA => 'E',
+	GAG => 'E',
+	TTC => 'F',
+	TTT => 'F',
+	GGA => 'G',
+	GGC => 'G',
+	GGG => 'G',
+	GGT => 'G',
+	CAC => 'H',
+	CAT => 'H',
+	ATA => 'I',
+	ATC => 'I',
+	ATT => 'I',
+	AAA => 'K',
+	AAG => 'K',
+	CTA => 'L',
+	CTC => 'L',
+	CTG => 'L',
+	CTT => 'L',
+	TTA => 'L',
+	TTG => 'L',
+	ATG => 'M',
+	AAC => 'N',
+	AAT => 'N',
+	CCA => 'P',
+	CCC => 'P',
+	CCG => 'P',
+	CCT => 'P',
+	CAA => 'Q',
+	CAG => 'Q',
+	AGA => 'R',
+	AGG => 'R',
+	CGA => 'R',
+	CGC => 'R',
+	CGG => 'R',
+	CGT => 'R',
+	AGC => 'S',
+	AGT => 'S',
+	TCA => 'S',
+	TCC => 'S',
+	TCG => 'S',
+	TCT => 'S',
+	ACA => 'T',
+	ACC => 'T',
+	ACG => 'T',
+	ACT => 'T',
+	GTA => 'V',
+	GTC => 'V',
+	GTG => 'V',
+	GTT => 'V',
+	TGG => 'W',
+	TAC => 'Y',
+	TAT => 'Y',
+	TAA => '*',
+	TAG => '*',
+	TGA => '*'
 );
 
 sub get_attributes {
@@ -126,7 +127,7 @@ sub get_attributes {
 		buttontext  => 'Codons',
 		menutext    => 'Codon usage',
 		module      => 'CodonUsage',
-		version     => '1.0.2',
+		version     => '1.1.0',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -168,14 +169,13 @@ sub run {
 		$list = \@;;
 	}
 	if ( $q->param('submit') ) {
-		my @param_names = $q->param;
-		my @fields_selected;
-		foreach (@param_names) {
-			push @fields_selected, $_ if $_ =~ /^l_/ or $_ =~ /s_\d+_l_/;
-		}
-		if ( !@fields_selected ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>No fields have been selected!</p></div>";
+		my $loci_selected = $self->get_selected_loci;
+		my $scheme_ids    = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+		push @$scheme_ids, 0;
+		if ( !@$loci_selected && none { $q->param("s_$_") } @$scheme_ids ) {
+			say "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci or schemes.</p></div>";
 		} else {
+			$self->set_scheme_param;
 			my $params = $q->Vars;
 			( my $list = $q->param('list') ) =~ s/[\r\n]+/\|\|/g;
 			$params->{'list'} = $list;
@@ -258,22 +258,7 @@ sub run_job {
 	my $start = 1;
 	my $end;
 	my $no_output = 1;
-
-	#reorder loci by genome order, schemes then by name (genome order may not be set)
-	my $locus_qry = "SELECT id,scheme_id from loci left join scheme_members on loci.id = scheme_members.locus order by "
-	  . "genome_position,scheme_members.scheme_id,id";
-	my $locus_sql = $self->{'db'}->prepare($locus_qry);
-	eval { $locus_sql->execute };
-	$logger->error($@) if $@;
-	my @selected_fields;
-	my %picked;
-	while ( my ( $locus, $scheme_id ) = $locus_sql->fetchrow_array ) {
-
-		if ( ( $scheme_id && $params->{"s_$scheme_id\_l_$locus"} ) || $params->{"l_$locus"} ) {
-			push @selected_fields, $locus if !$picked{$locus};
-			$picked{$locus} = 1;
-		}
-	}
+	my $selected_loci = $self->order_selected_loci($params);
 	my @list = split /\|\|/, $params->{'list'};
 	if ( !@list ) {
 		my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
@@ -283,7 +268,7 @@ sub run_job {
 	my ( $locus_codon_count, $locus_aa_count, $total_codon_count, $total_aa_count, $rscu );
 	my %includes;
 	my %bad_ids;
-	foreach my $locus_name (@selected_fields) {
+	foreach my $locus_name (@$selected_loci) {
 		my $locus;
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
 		my $common_length;
@@ -373,7 +358,7 @@ sub run_job {
 			unlink $cusp_file, $temp_file;
 		}
 		$progress++;
-		my $complete = int( 90 * $progress / scalar @selected_fields );    #go up to 90%
+		my $complete = int( 90 * $progress / scalar @$selected_loci );    #go up to 90%
 		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } );
 	}
 	my $message_html;
@@ -421,7 +406,7 @@ sub run_job {
 	print $fh_number_by_locus "Locus\t@codons\n";
 	$progress = 0;
 	my $set_id = $self->get_set_id;
-	foreach my $locus (@selected_fields) {
+	foreach my $locus (@$selected_loci) {
 		my $display_locus = $self->clean_locus( $locus, { text_output => 1 } );
 		$no_output = 0;
 		print $fh_rscu_by_locus "$display_locus";
@@ -437,7 +422,7 @@ sub run_job {
 		print $fh_rscu_by_locus "\n";
 		print $fh_number_by_locus "\n";
 		$progress++;
-		my $complete = 95 + int( 5 * $progress / scalar @selected_fields );    #go up to 100%
+		my $complete = 95 + int( 5 * $progress / scalar @$selected_loci );    #go up to 100%
 		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } );
 	}
 	foreach (qw ($fh_rscu_by_isolate $fh_number_by_isolate $fh_rscu_by_locus $fh_number_by_locus)) {

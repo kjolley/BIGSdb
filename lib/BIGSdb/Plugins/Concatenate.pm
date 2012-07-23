@@ -20,8 +20,9 @@
 package BIGSdb::Plugins::Concatenate;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::Plugin);
-use List::MoreUtils qw(uniq);
+use List::MoreUtils qw(none uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
@@ -44,7 +45,7 @@ sub get_attributes {
 		buttontext  => 'Concatenate',
 		menutext    => 'Concatenate alleles',
 		module      => 'Concatenate',
-		version     => '1.0.2',
+		version     => '1.1.0',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		help        => 'tooltips',
@@ -63,7 +64,7 @@ sub run {
 	my $query_file = $q->param('query_file');
 	my $scheme_id  = $q->param('scheme_id');
 	my $desc = $self->get_db_description;
-	print "<h1>Concatenate allele sequences - $desc</h1>\n";
+	say "<h1>Concatenate allele sequences - $desc</h1>";
 	my $list;
 	my $qry_ref;
 	my $pk;
@@ -72,23 +73,23 @@ sub run {
 		$pk = 'id';
 	} else {
 		if ( !$scheme_id ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>No scheme id passed.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>No scheme id passed.</p></div>";
 			return;
 		} elsif ( !BIGSdb::Utils::is_int($scheme_id) ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>Scheme id must be an integer.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>Scheme id must be an integer.</p></div>";
 			return;
 		} else {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 			if ( !$scheme_info ) {
-				print "<div class=\"box\" id=\"statusbad\">Scheme does not exist.</p></div>\n";
+				say "<div class=\"box\" id=\"statusbad\">Scheme does not exist.</p></div>";
 				return;
 			}
 		}
 		my $pk_ref =
 		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key", $scheme_id );
 		if ( ref $pk_ref ne 'ARRAY' ) {
-			print
-"<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  Profile concatenation can not be done until this has been set.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  Profile concatenation "
+			 . "can not be done until this has been set.</p></div>";
 			return;
 		}
 		$pk = $pk_ref->[0];
@@ -112,13 +113,13 @@ sub run {
 		$list = \@;;
 	}
 	if ( $q->param('submit') ) {
-		my @params = $q->param;
-		my @fields_selected;
-		foreach (@params) {
-			push @fields_selected, $_ if $_ =~ /^l_/ or $_ =~ /s_\d+_l_/;
-		}
-		if ( !@fields_selected ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>No fields have been selected!</p></div>\n";
+		my $loci_selected = $self->get_selected_loci;
+		my $scheme_ids    = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+		push @$scheme_ids, 0;
+		if ( !@$loci_selected && none { $q->param("s_$_") } @$scheme_ids ) {
+			print "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci";
+			print " or schemes" if $self->{'system'}->{'dbtype'} eq 'isolates';
+			say ".</p></div>";
 		} else {
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 				if ( !@$list ) {
@@ -137,34 +138,43 @@ sub run {
 					$list = $self->{'datastore'}->run_list_query($qry);
 				}
 			}
-			print "<div class=\"box\" id=\"resultstable\">";
-			print "<p>Please wait for processing to finish (do not refresh page).</p>\n";
+			say "<div class=\"box\" id=\"resultstable\">";
+			say "<p>Please wait for processing to finish (do not refresh page).</p>";
 			print "<p>Output file being generated ...";
 			my $filename    = ( BIGSdb::Utils::get_random() ) . '.txt';
 			my $full_path   = "$self->{'config'}->{'tmp_dir'}/$filename";
-			my $problem_ids = $self->_write_fasta( $list, \@fields_selected, $full_path, $pk );
-			print " done</p>";
-			print "<p><a href=\"/tmp/$filename\">Output file</a> (right-click to save)</p>\n";
-			print "</div>\n";
+			my $problem_ids = $self->_write_fasta( $list, $loci_selected, $full_path, $pk );
+			say " done</p>";
+			say "<p><a href=\"/tmp/$filename\">Output file</a> (right-click to save)</p>";
+			say "</div>";
 
 			if (@$problem_ids) {
 				local $" = '; ';
-				print
-"<div class=\"box\" id=\"statusbad\"><p>The following ids could not be processed (they do not exist): @$problem_ids.</p></div>\n";
+				say "<div class=\"box\" id=\"statusbad\"><p>The following ids could not be processed "
+				 . "(they do not exist): @$problem_ids.</p></div>";
 			}
 			return;
 		}
 	}
+	if ($self->{'system'}->{'dbtype'} eq 'isolates'){
 	print <<"HTML";
 <div class="box" id="queryform">
 <p>This script will concatenate alleles in FASTA format.  Only loci that have a corresponding database containing
-sequences can be included.  Please check the loci that you would like to include.  If a sequence does not exist in
-the remote database, it will be replaced with dashes. Please be aware that since alleles may have insertions or deletions,
-the sequences may need to be aligned.</p>
+sequences, or with sequences tagged, can be included.  Please check the loci that you would like to include.  
+Alternatively select one or more schemes to include all loci that are members of the scheme.  If a sequence does 
+not exist in the remote database, it will be replaced with dashes. Please be aware that since alleles may have 
+insertions or deletions, the sequences may need to be aligned.</p>
 HTML
+	} else {
+		print <<"HTML";
+<div class="box" id="queryform">
+<p>This script will concatenate alleles in FASTA format. Please be aware that since alleles may have 
+insertions or deletions, the sequences may need to be aligned.</p>
+HTML
+	}
 	my $options = { default_select => 0, translate => 1 };
 	$self->print_sequence_export_form( $pk, $list, $scheme_id, $options );
-	print "</div>\n";
+	say "</div>";
 	return;
 }
 
@@ -192,19 +202,7 @@ sub _write_fasta {
 	my $i = 0;
 	my $j = 0;
 
-	#reorder loci by genome order, schemes then by name (genome order may not be set)
-	my $locus_qry = "SELECT id,scheme_id from loci left join scheme_members on loci.id = scheme_members.locus order "
-	  . "by genome_position,scheme_members.scheme_id,id";
-	my $locus_sql = $self->{'db'}->prepare($locus_qry);
-	eval { $locus_sql->execute };
-	$logger->error($@) if $@;
-	my @selected_fields;
-	while ( my ( $locus, $scheme_id ) = $locus_sql->fetchrow_array ) {
-		if ( ( $scheme_id && $q->param("s_$scheme_id\_l_$locus") ) || ( $q->param("l_$locus") ) ) {
-			push @selected_fields, $locus;
-		}
-	}
-	@selected_fields = uniq @selected_fields;
+	my $selected_loci = $self->order_selected_loci;
 	foreach my $id (@$list) {
 		print "." if !$i;
 		print " " if !$j;
@@ -250,7 +248,7 @@ sub _write_fasta {
 		}
 		my %loci;
 		my $seq;
-		foreach my $locus (@selected_fields) {
+		foreach my $locus (@$selected_loci) {
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 			if ( !$loci{$locus} ) {
 				try {
@@ -340,7 +338,7 @@ sub _write_fasta {
 			}
 		}
 		$seq = BIGSdb::Utils::break_line( $seq, 60 );
-		print $fh "$seq\n";
+		say $fh "$seq";
 		$i++;
 		if ( $i == 50 ) {
 			$i = 0;
