@@ -510,7 +510,10 @@ sub _print_isolate_table {
 				print "<td>@$aliases</td>";
 			}
 		}
-
+		if ($self->{'prefs'}->{'display_seqbin_main'}){
+			my $size = $self->_get_seqbin_size($id);
+			print "<td>$size</td>";
+		}
 		#Print loci and scheme fields
 		my @scheme_ids;
 		push @scheme_ids, $_->{'id'} foreach (@$schemes);
@@ -543,6 +546,19 @@ sub _print_isolate_table {
 	print "</div>\n";
 	$sql->finish if $sql;
 	return;
+}
+
+sub _get_seqbin_size {
+	my ($self, $isolate_id) = @_;
+	if (!$self->{'sql'}->{'seqbin_size'}){
+		$self->{'sql'}->{'seqbin_size'} = $self->{'db'}->prepare("SELECT SUM(length(sequence)) FROM sequence_bin WHERE isolate_id=?");
+	}
+	eval {
+		$self->{'sql'}->{'seqbin_size'}->execute($isolate_id);
+	};
+	$logger->error($@) if $@;
+	my ($size) = $self->{'sql'}->{'seqbin_size'}->fetchrow_array // 0;
+	return $size;
 }
 
 sub _print_isolate_table_header {
@@ -598,6 +614,8 @@ sub _print_isolate_table_header {
 	$fieldtype_header .= " <a class=\"tooltip\" title=\"Isolate fields - You can select the isolate fields that are displayed here "
 	  . "by going to the options page.\">&nbsp;<i>i</i>&nbsp;</a>";
 	$fieldtype_header .= "</th>";
+	$fieldtype_header .= "<th rowspan=\"2\">Seqbin size (bp)</th>" if $self->{'prefs'}->{'display_seqbin_main'};
+	
 	my $alias_sql = $self->{'db'}->prepare("SELECT alias FROM locus_aliases WHERE locus=?");
 	$logger->error($@) if $@;
 	local $" = '; ';
