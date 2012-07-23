@@ -26,6 +26,7 @@ use List::MoreUtils qw(uniq);
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
+use constant MAX_UPLOAD_SIZE  => 32 * 1024 * 1024; #32Mb
 
 sub get_attributes {
 	my %att = (
@@ -38,7 +39,7 @@ sub get_attributes {
 		category         => 'Analysis',
 		menutext         => 'Rule Query',
 		module           => 'RuleQuery',
-		version          => '1.0.0',
+		version          => '1.0.1',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => '',
@@ -95,7 +96,11 @@ sub run {
 			}
 		}
 	}
-	if ( $sequence && $ruleset_id && $valid_DNA ) {
+	if (!$sequence && $q->param('fasta_upload')){
+			my $upload_file = $self->_upload_fasta_file;
+			$q->param('upload_file', $upload_file);
+	}
+	if ( ($sequence || $q->param('upload_file')) && $ruleset_id && $valid_DNA ) {
 		my $params = $q->Vars;
 		$params->{'rule_path'} = $rulesets->{$ruleset_id}->{'path'};
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
@@ -122,6 +127,21 @@ HTML
 	return;
 }
 
+sub _upload_fasta_file {
+	my ($self) = @_;
+	my $temp = BIGSdb::Utils::get_random();
+	my $filename = "$self->{'config'}->{'tmp_dir'}/$temp\_upload.fas";
+	my $buffer;
+	open( my $fh, '>', $filename ) || $logger->error("Could not open $filename for writing.");
+	my $fh2 = $self->{'cgi'}->upload('fasta_upload');
+	binmode $fh2;
+	binmode $fh;
+	read( $fh2, $buffer, MAX_UPLOAD_SIZE );
+	print $fh $buffer;
+	close $fh;
+	return "$temp\_upload.fas";
+}
+
 sub _print_interface {
 	my ( $self, $rulesets, $ruleset_id ) = @_;
 	my $q = $self->{'cgi'};
@@ -135,13 +155,18 @@ sub _print_interface {
 	} else {
 		$self->_select_ruleset($rulesets);
 	}
-	print "<div><fieldset><legend>Enter query sequence (single or multiple contigs up to whole genome in size)</legend>\n";
+	print "<div><fieldset style=\"float:left\"><legend>Enter query sequence (single or multiple contigs up to whole genome in size)</legend>\n";
 	print $q->textarea( -name => 'sequence', -rows => 6, -cols => 70 );
-	print "</fieldset>\n</div>\n<span style=\"float:left\">";
+	print "</fieldset>\n";
+	print "<fieldset style=\"float:left\">\n<legend>Alternatively upload FASTA file</legend>\n";
+	print "Select FASTA file:<br />";
+	print $q->filefield( -name => 'fasta_upload', -id => 'fasta_upload', -size => 10, -maxlength => 512 );
+	print "</fieldset>\n";
+	print "</div>\n<div style=\"clear:both\"><span style=\"float:left\">";
 	print $q->reset( -label => 'Reset', -class => 'reset' );
 	print "</span><span style=\"float:right;padding-right:5em\">\n";
 	print $q->submit( -label => 'Submit', -class => 'submit' );
-	print "</span>\n<div style=\"clear:both\"></div>\n";
+	print "</span>\n<div style=\"clear:both\"></div></div>\n";
 	print $q->hidden($_) foreach qw(db page name ruleset);
 	print $q->end_form;
 	print "</div>\n";
@@ -166,8 +191,18 @@ sub _select_ruleset {
 
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
-	$self->remove_all_identifier_lines( \$params->{'sequence'} );
-	$self->{'sequence'} = \$params->{'sequence'};
+	my $sequence = '';
+	if ($params->{'sequence'}){
+		$sequence = $params->{'sequence'};
+	} elsif ($params->{'upload_file'}){
+		my $file = "$self->{'config'}->{'tmp_dir'}/$params->{'upload_file'}";
+		if (-e $file){
+			open (my $fh, '<', $file) or $logger->error("Can't open sequence file $file");
+			$sequence = do {local $/; <$fh>}; #slurp
+		}
+	}
+	$self->remove_all_identifier_lines( \$sequence );
+	$self->{'sequence'} = \$sequence;
 	$self->{'job_id'}   = $job_id;
 	my $code_ref = $self->_read_code( $params->{'rule_path'} );
 	if ( ref $code_ref eq 'SCALAR' ) {

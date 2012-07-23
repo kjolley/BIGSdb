@@ -31,7 +31,7 @@ use Bio::AlignIO;
 use List::MoreUtils qw(uniq any none);
 use Digest::MD5;
 use BIGSdb::Page qw(SEQ_METHODS LOCUS_PATTERN);
-use constant MAX_UPLOAD_SIZE  => 32768;
+use constant MAX_UPLOAD_SIZE  => 32 * 1024 * 1024; #32Mb
 use constant MAX_SPLITS_TAXA  => 200;
 use constant MAX_DISPLAY_TAXA => 150;
 
@@ -247,12 +247,12 @@ sub _upload_ref_file {
 	my $format = $self->{'cgi'}->param('ref_upload') =~ /.+(\.\w+)$/ ? "$1" : '';
 	my $filename = "$self->{'config'}->{'tmp_dir'}/$temp\_ref$format";
 	my $buffer;
-	my $buffer_size = MAX_UPLOAD_SIZE;
 	open( my $fh, '>', $filename ) || $logger->error("Could not open $filename for writing.");
 	my $fh2 = $self->{'cgi'}->upload('ref_upload');
 	binmode $fh2;
 	binmode $fh;
-	print $fh $buffer while ( read( $fh2, $buffer, $buffer_size ) );
+	read( $fh2, $buffer, MAX_UPLOAD_SIZE );
+	print $fh $buffer;
 	close $fh;
 	return "$temp\_ref$format";
 }

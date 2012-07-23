@@ -1059,10 +1059,9 @@ sub _print_record_table {
 			  . "?db=$self->{'instance'}&amp;page=delete&amp;table=$table&amp;@query_values\">Delete</a></td>";
 			if ( $table eq 'allele_sequences' ) {
 				print "<td><a href=\"" . $q->script_name . "?db=$self->{'instance'}&amp;page=tagUpdate&amp;@query_values\">Update</a></td>";
-			} elsif ($table !~ /refs$/) {
-				print "<td><a href=\""
-				  . $q->script_name
-				  . "?db=$self->{'instance'}&amp;page=update&amp;table=$table&amp;@query_values\">Update</a></td>";
+			} elsif ($table !~ /refs$/) { #no editable values in ref tables
+				print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=update&amp;table=$table&amp;"
+				 . "@query_values\">Update</a></td>";
 			}
 		}
 		foreach my $field (@display) {
