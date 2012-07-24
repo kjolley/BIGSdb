@@ -937,9 +937,13 @@ sub _check_data_sequences {
 			  : undef;
 		}
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-		my $length     = defined ${ $arg_ref->{'value'} } ? length( ${ $arg_ref->{'value'} } ) : 0;
+		${ $arg_ref->{'value'} } //= '';
+		${ $arg_ref->{'value'} } =~ s/ //g;
+		my $length     = length( ${ $arg_ref->{'value'} } );
 		my $units      = ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' ) ? 'bp' : 'residues';
-		if ( !$locus_info->{'length_varies'} && defined $locus_info->{'length'} && $locus_info->{'length'} != $length ) {
+		if ($length == 0){
+			${ $arg_ref->{'continue'} } = 0;
+		} elsif ( !$locus_info->{'length_varies'} && defined $locus_info->{'length'} && $locus_info->{'length'} != $length ) {
 			my $problem_text =
 			  "Sequence is $length $units long but this locus is set as a standard length of " . "$locus_info->{'length'} $units.<br />";
 			$buffer .= $problem_text
