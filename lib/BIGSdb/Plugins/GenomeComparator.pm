@@ -31,7 +31,7 @@ use Bio::AlignIO;
 use List::MoreUtils qw(uniq any none);
 use Digest::MD5;
 use BIGSdb::Page qw(SEQ_METHODS LOCUS_PATTERN);
-use constant MAX_UPLOAD_SIZE  => 32 * 1024 * 1024; #32Mb
+use constant MAX_UPLOAD_SIZE  => 32 * 1024 * 1024;    #32Mb
 use constant MAX_SPLITS_TAXA  => 200;
 use constant MAX_DISPLAY_TAXA => 150;
 
@@ -61,7 +61,7 @@ sub get_attributes {
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 1, 'query_field' => 1 };
+	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 1 };
 	return;
 }
 
@@ -217,12 +217,12 @@ sub run {
 			my $params = $q->Vars;
 			my $job_id = $self->{'jobManager'}->add_job(
 				{
-					'dbase_config' => $self->{'instance'},
-					'ip_address'   => $q->remote_host,
-					'module'       => 'GenomeComparator',
-					'parameters'   => $params,
-					'username'     => $self->{'username'},
-					'email'        => $user_info->{'email'}
+					dbase_config => $self->{'instance'},
+					ip_address   => $q->remote_host,
+					module       => 'GenomeComparator',
+					parameters   => $params,
+					username     => $self->{'username'},
+					email        => $user_info->{'email'}
 				}
 			);
 			print <<"HTML";
@@ -291,7 +291,7 @@ sub _print_interface {
 		$labels{$id} = "$id) $isolate";
 	}
 	if ( !@ids ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>There are no sequences in the sequence bin.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>There are no sequences in the sequence bin.</p></div>";
 		return;
 	}
 	print <<"HTML";
@@ -301,10 +301,10 @@ selections. In addition to selecting individual loci, you can choose to include 
 by selecting the appropriate scheme description. Alternatively, you can enter the accession number for an 
 annotated reference genome and compare using the loci defined in that.</p>
 HTML
-	print $q->start_form;
-	print "<div class=\"scrollable\">\n";
-	print "<fieldset style=\"float:left\">\n<legend>Isolates</legend>\n";
-	print $q->scrolling_list(
+	say $q->start_form;
+	say "<div class=\"scrollable\">";
+	say "<fieldset style=\"float:left\">\n<legend>Isolates</legend>";
+	say $q->scrolling_list(
 		-name     => 'isolate_id',
 		-id       => 'isolate_id',
 		-values   => \@ids,
@@ -318,13 +318,12 @@ HTML
 <input type="button" onclick='listbox_selectall("isolate_id",false)' value="None" style="margin-top:1em" class="smallbutton" /></div>
 </fieldset>
 HTML
-
 	$self->print_isolates_locus_fieldset;
 	$self->print_scheme_fieldset;
-	print "<fieldset style=\"float:left\">\n<legend>Reference genome</legend>\n";
-	print "Enter accession number:<br />\n";
-	print $q->textfield( -name => 'accession', -id => 'accession', -size => 10, -maxlength => 20 );
-	print " <a class=\"tooltip\" title=\"Reference genome - Use of a reference genome will override any locus "
+	say "<fieldset style=\"float:left\">\n<legend>Reference genome</legend>";
+	say "Enter accession number:<br />";
+	say $q->textfield( -name => 'accession', -id => 'accession', -size => 10, -maxlength => 20 );
+	say " <a class=\"tooltip\" title=\"Reference genome - Use of a reference genome will override any locus "
 	  . "or scheme settings.\">&nbsp;<i>i</i>&nbsp;</a><br />";
 
 	if ( $self->{'system'}->{'annotation'} ) {
@@ -339,8 +338,8 @@ HTML
 			}
 		}
 		if (@names) {
-			print "or choose annotated genome:<br />\n";
-			print $q->popup_menu(
+			say "or choose annotated genome:<br />";
+			say $q->popup_menu(
 				-name     => 'annotation',
 				-id       => 'annotation',
 				-values   => \@names,
@@ -348,78 +347,83 @@ HTML
 				-onChange => 'enable_seqs()',
 			);
 		}
-		print "<br />\n";
+		say "<br />";
 	}
-	print "or upload Genbank/EMBL file:<br />";
-	print $q->filefield( -name => 'ref_upload', -id => 'ref_upload', -size => 10, -maxlength => 512, -onChange => 'enable_seqs()', );
-	print " <a class=\"tooltip\" title=\"Reference upload - File format is recognised by the extension in the "
-	  . "name.  Make sure your file has a standard extension, e.g. .gb, .embl.\">&nbsp;<i>i</i>&nbsp;</a><br />\n";
-	print "</fieldset>\n<fieldset style=\"float:left\">\n<legend>Parameters / options</legend>\n";
-	print "<ul><li><label for =\"identity\" class=\"parameter\">Min % identity:</label>\n";
-	print $q->popup_menu(
+	say "or upload Genbank/EMBL file:<br />";
+	say $q->filefield( -name => 'ref_upload', -id => 'ref_upload', -size => 10, -maxlength => 512, -onChange => 'enable_seqs()' );
+	say " <a class=\"tooltip\" title=\"Reference upload - File format is recognised by the extension in the "
+	  . "name.  Make sure your file has a standard extension, e.g. .gb, .embl.\">&nbsp;<i>i</i>&nbsp;</a><br />";
+	say "</fieldset>\n<fieldset style=\"float:left\">\n<legend>Parameters / options</legend>";
+	say "<ul><li><label for =\"identity\" class=\"parameter\">Min % identity:</label>";
+	say $q->popup_menu(
 		-name    => 'identity',
 		-id      => 'identity',
 		-values  => [qw(30 35 40 45 50 55 60 65 70 75 80 85 90 91 92 93 94 95 96 97 98 99 100)],
 		-default => 70
 	);
-	print " <a class=\"tooltip\" title=\"Minimum % identity - Match required for partial matching.\">&nbsp;<i>i</i>&nbsp;</a></li>";
-	print "<li><label for=\"alignment\" class=\"parameter\">Min % alignment:</label>\n";
-	print $q->popup_menu(
+	say " <a class=\"tooltip\" title=\"Minimum % identity - Match required for partial matching.\">&nbsp;<i>i</i>&nbsp;</a></li>";
+	say "<li><label for=\"alignment\" class=\"parameter\">Min % alignment:</label>";
+	say $q->popup_menu(
 		-name    => 'alignment',
 		-id      => 'alignment',
 		-values  => [qw(10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 90 91 92 93 94 95 96 97 98 99 100)],
 		-default => 50
 	);
-	print
-" <a class=\"tooltip\" title=\"Minimum % alignment - Percentage of allele sequence length required to be aligned for partial matching.\">&nbsp;<i>i</i>&nbsp;</a></li>";
-	print "<li><label for=\"word_size\" class=\"parameter\">BLASTN word size:</label>\n";
-	print $q->popup_menu(
+	say " <a class=\"tooltip\" title=\"Minimum % alignment - Percentage of allele sequence length required to be aligned for "
+	  . "partial matching.\">&nbsp;<i>i</i>&nbsp;</a></li>";
+	say "<li><label for=\"word_size\" class=\"parameter\">BLASTN word size:</label>";
+	say $q->popup_menu(
 		-name    => 'word_size',
 		-id      => 'word_size',
 		-values  => [qw(8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28)],
 		-default => 15
 	);
-	print
-" <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a></li>\n";
-	print "<li><span class=\"warning\">";
-	print $q->checkbox( -name => 'tblastx', -id => 'tblastx', -label => 'Use TBLASTX' );
+	say " <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. "
+	  . "Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a></li>";
+	say "<li><span class=\"warning\">";
+	say $q->checkbox( -name => 'tblastx', -id => 'tblastx', -label => 'Use TBLASTX' );
 	print <<"HTML";
  <a class="tooltip" title="TBLASTX (analysis by reference genome only) - Compares the six-frame translation of your nucleotide 
 query against the six-frame translation of the sequences in the sequence bin (sequences will be classed as identical if they 
 result in the same translated sequence even if the nucleotide sequence is different).  This is SLOWER than BLASTN. Use with
 caution.">&nbsp;<i>i</i>&nbsp;</a></span></li><li>
 HTML
-	print $q->checkbox( -name => 'align', -id => 'align', -label => 'Produce alignments (Clustal + XMFA)', -onChange => "enable_seqs()" );
+	say $q->checkbox( -name => 'align', -id => 'align', -label => 'Produce alignments (Clustal + XMFA)', -onChange => "enable_seqs()" );
 	print <<"HTML";
  <a class=\"tooltip\" title=\"Alignments - Alignments will be produced in muscle for 
 any loci that vary between isolates. This may slow the analysis considerably.">&nbsp;<i>i</i>&nbsp;</a></li><li>
 HTML
-	print $q->checkbox( -name => 'include_ref', -id => 'include_ref', -label => 'Include ref sequences in alignment', -checked => 1 );
-	print "</li><li>";
-	print $q->checkbox( -name => 'align_all', -id => 'align_all', -label => 'Align all loci (not only variable)' );
-	print "</li><li>";
-	print $q->checkbox( -name => 'use_tagged', -id => 'use_tagged', -label => 'Use tagged designations if available', -checked => 1 );
+	say $q->checkbox( -name => 'include_ref', -id => 'include_ref', -label => 'Include ref sequences in alignment', -checked => 1 );
+	say "</li><li>";
+	say $q->checkbox( -name => 'align_all', -id => 'align_all', -label => 'Align all loci (not only variable)' );
+	say "</li><li>";
+	say $q->checkbox( -name => 'use_tagged', -id => 'use_tagged', -label => 'Use tagged designations if available', -checked => 1 );
 	print <<"HTML";
  <a class=\"tooltip\" title=\"Tagged desginations - Allele sequences will be extracted from the definition database based on allele 
 designation rather than by BLAST.  This should be much quicker. Peptide loci, however, are always extracted using BLAST.">
-&nbsp;<i>i</i>&nbsp;</a></li></ul></fieldset><fieldset style="float:left"><legend>Restrict included sequences by</legend><ul>
+&nbsp;<i>i</i>&nbsp;</a></li><li>
 HTML
-	my $buffer = $self->get_sequence_method_filter( { 'class' => 'parameter' } );
-	print "<li>$buffer</li>" if $buffer;
-	$buffer = $self->get_project_filter( { 'class' => 'parameter' } );
-	print "<li>$buffer</li>" if $buffer;
-	$buffer = $self->get_experiment_filter( { 'class' => 'parameter' } );
-	print "<li>$buffer</li>" if $buffer;
-	print "</ul>\n</fieldset>\n</div>\n";
-	print "<table style=\"width:95%\"><tr><td style=\"text-align:left\">";
-	print
-"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=GenomeComparator\" class=\"resetbutton\">"
-	  . "Reset</a></td><td style=\"text-align:right\" colspan=\"4\">";
-	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	print "</td></tr></table>\n";
-	print $q->hidden($_) foreach qw (page name db);
-	print $q->end_form;
-	print "</div>\n";
+	say $q->checkbox( -name => 'disable_html', -id => 'disable_html', -label => 'Disable HTML output' );
+	print <<"HTML";
+ <a class=\"tooltip\" title=\"Disable HTML - Select this option if you are analysing very large numbers of loci which may cause your
+ browser problems in rendering the output table.">&nbsp;<i>i</i>&nbsp;</a></li>
+HTML
+	say "</ul></fieldset><fieldset style=\"float:left\"><legend>Restrict included sequences by</legend><ul>";
+	my $buffer = $self->get_sequence_method_filter( { class => 'parameter' } );
+	say "<li>$buffer</li>" if $buffer;
+	$buffer = $self->get_project_filter( { class => 'parameter' } );
+	say "<li>$buffer</li>" if $buffer;
+	$buffer = $self->get_experiment_filter( { class => 'parameter' } );
+	say "<li>$buffer</li>" if $buffer;
+	say "</ul>\n</fieldset>\n</div>";
+	say "<table style=\"width:95%\"><tr><td style=\"text-align:left\">";
+	say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=GenomeComparator\" ",
+	  "class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\" colspan=\"4\">";
+	say $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
+	say "</td></tr></table>";
+	say $q->hidden($_) foreach qw (page name db);
+	say $q->end_form;
+	say "</div>";
 	return;
 }
 
@@ -440,10 +444,9 @@ sub _analyse_by_loci {
 		$self->{'jobManager'}->update_job_status(
 			$job_id,
 			{
-				'status' => 'failed',
-				'message_html' =>
-				  "<p class=\"statusbad\">You must select at least two isolates for comparison against defined loci. Make sure "
-				  . "your selected isolates haven't been filtered to fewer than two by selecting a project.</p>"
+				status       => 'failed',
+				message_html => "<p class=\"statusbad\">You must select at least two isolates for comparison against defined loci. "
+				  . "Make sure your selected isolates haven't been filtered to fewer than two by selecting a project.</p>"
 			}
 		);
 		return;
@@ -621,7 +624,7 @@ sub _analyse_by_reference {
 	if ($@) {
 		throw BIGSdb::PluginException("Invalid data in reference genome.");
 	}
-	my %abb = ( 'cds' => 'coding regions' );
+	my %abb = ( cds => 'coding regions' );
 	$html_buffer .= "<table class=\"resultstable\">";
 	my $td = 1;
 	my $file_buffer = "Analysis by reference genome\n\nTime: " . ( localtime(time) ) . "\n\n";
@@ -775,12 +778,12 @@ sub _run_comparison {
 				$logger->error($@) if $@;
 				($seqbin_length) = $seqbin_length_sql->fetchrow_array;
 				if ( !$match->{'exact'} && $match->{'predicted_start'} && $match->{'predicted_end'} ) {
-					foreach (qw (predicted_start predicted_end)){
+					foreach (qw (predicted_start predicted_end)) {
 						if ( $match->{$_} < 1 ) {
 							( $match->{$_}, $status{'truncated'}, $value ) = ( 1, 1, 'T' );
 						} elsif ( $match->{$_} > $seqbin_length ) {
 							( $match->{$_}, $status{'truncated'}, $value ) = ( $seqbin_length, 1, 'T' );
-						}						
+						}
 					}
 				}
 				if ( !$extracted_seq ) {
@@ -853,14 +856,12 @@ sub _run_comparison {
 		}
 		$progress++;
 		my $complete = int( 100 * $progress / $total );
-		if ( @$ids > MAX_DISPLAY_TAXA ) {
-			$self->{'jobManager'}->update_job_status(
-				$job_id,
-				{
-					percent_complete => $complete,
-					message_html     => "<p>Dynamically updated output disabled as >" . MAX_DISPLAY_TAXA . " taxa selected.</p>"
-				}
-			);
+		if ( @$ids > MAX_DISPLAY_TAXA || $params->{'disable_html'} ) {
+			my $message =
+			  $params->{'disable_html'}
+			  ? "<p>Dynamically updated output disabled.</p>"
+			  : "<p>Dynamically updated output disabled as >" . MAX_DISPLAY_TAXA . " taxa selected.</p>";
+			$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete, message_html => $message } );
 		} else {
 			$self->{'jobManager'}
 			  ->update_job_status( $job_id, { percent_complete => $complete, message_html => "$$html_buffer_ref$close_table" } );
@@ -915,7 +916,7 @@ sub _print_reports {
 		$$html_buffer_ref .= "<p class=\"statusbad\">No sequences were extracted from reference file.</p>\n";
 	} else {
 		$self->_identify_strains( $ids, $html_buffer_ref, $job_file, $loci, $values );
-		$$html_buffer_ref = '' if @$ids > MAX_DISPLAY_TAXA;
+		$$html_buffer_ref = '' if @$ids > MAX_DISPLAY_TAXA || $params->{'disable_html'};
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$html_buffer_ref } );
 	}
 	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Main output file' } );

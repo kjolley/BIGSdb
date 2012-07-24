@@ -66,6 +66,8 @@ sub new {
 	my $self = {};
 	$self->{'system'}           = {};
 	$self->{'config'}           = {};
+	$CGI::POST_MAX              = 50 * 1024 * 1024;             #Limit any uploads to 50Mb.
+	$CGI::DISABLE_UPLOADS       = 0;
 	$self->{'cgi'}              = CGI->new;
 	$self->{'instance'}         = undef;
 	$self->{'xmlHandler'}       = undef;
@@ -159,7 +161,7 @@ sub _initiate {
 	$self->{'system'}->{'locus_superscript_prefix'} ||= 'no';
 	$self->{'system'}->{'dbase_config_dir'} = $dbase_config_dir;
 
-	if ( ($self->{'system'}->{'dbtype'} // '') eq 'isolates' ) {
+	if ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ) {
 		$self->{'system'}->{'view'}       ||= 'isolates';
 		$self->{'system'}->{'labelfield'} ||= 'isolate';
 		if ( !$self->{'xmlHandler'}->is_field( $self->{'system'}->{'labelfield'} ) ) {
