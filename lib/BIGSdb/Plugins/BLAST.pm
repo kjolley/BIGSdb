@@ -46,7 +46,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.0.2',
+		version     => '1.0.3',
 		dbtype      => 'isolates',
 		section     => 'analysis',
 		order       => 32,
@@ -112,12 +112,12 @@ sub run {
 	my $out_file          = "$temp.txt";
 	my $out_file_flanking = "$temp\_flanking.txt";
 
-	foreach (@ids) {
-		my $matches = $self->_blast( $_, \$seq );
+	foreach my $id (@ids) {
+		my $matches = $self->_blast( $id, \$seq );
 		next if ref $matches ne 'ARRAY' || !@$matches;
 		print $header_buffer if $first;
 		$some_results = 1;
-		eval { $sql->execute($_) };
+		eval { $sql->execute($id) };
 		$logger->error($@) if $@;
 		my ($label)     = $sql->fetchrow_array;
 		my $rows        = @$matches;
@@ -126,8 +126,9 @@ sub run {
 
 		foreach my $match (@$matches) {
 			if ($first_match) {
-				print "<tr class=\"td$td\"><td rowspan=\"$rows\" style=\"vertical-align:top\">$_</td><td rowspan=\"$rows\" "
-				  . "style=\" vertical-align:top\">$label</td>";
+				print "<tr class=\"td$td\"><td rowspan=\"$rows\" style=\"vertical-align:top\">"
+				 . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$id\">$id</a>"
+				 . "</td><td rowspan=\"$rows\" style=\" vertical-align:top\">$label</td>";
 			} else {
 				print "<tr class=\"td$td\">";
 			}
@@ -155,7 +156,7 @@ sub run {
 			$seq_ref->{'seq'}        = BIGSdb::Utils::reverse_complement( $seq_ref->{'seq'} )        if $match->{'reverse'};
 			$seq_ref->{'upstream'}   = BIGSdb::Utils::reverse_complement( $seq_ref->{'upstream'} )   if $match->{'reverse'};
 			$seq_ref->{'downstream'} = BIGSdb::Utils::reverse_complement( $seq_ref->{'downstream'} ) if $match->{'reverse'};
-			my $fasta_id = ">$_|$label|$match->{'seqbin_id'}|$start\n";
+			my $fasta_id = ">$id|$label|$match->{'seqbin_id'}|$start\n";
 			my $seq_with_flanking;
 
 			if ( $match->{'reverse'} ) {
