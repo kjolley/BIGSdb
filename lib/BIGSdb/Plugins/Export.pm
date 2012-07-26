@@ -51,6 +51,28 @@ sub get_attributes {
 	return \%att;
 }
 
+
+sub get_plugin_javascript {
+	my $js = << "END";
+function enable_controls(){
+	if (\$("#m_references").attr('checked')){
+		\$("input:radio[name='ref_type']").attr("disabled", false);
+	} else {
+		\$("input:radio[name='ref_type']").attr("disabled", true);
+	}
+}
+
+\$(document).ready(function() 
+    { 
+		enable_controls();
+    } 
+); 
+END
+	return $js;
+}
+
+
+
 sub get_option_list {
 	my ($self) = @_;
 	my @list = (
@@ -68,6 +90,24 @@ sub get_option_list {
 	return \@list;
 }
 
+sub get_extra_fields {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say "<fieldset style=\"float:left\"><legend>References</legend><ul><li>";
+	print $q->checkbox(
+		-name     => 'm_references',
+		-id       => 'm_references',
+		-value    => 'checked',
+		-label    => 'references',
+		-onChange => 'enable_controls()'
+	);
+	say "</li><li>";
+	print $q->radio_group( -name => 'ref_type', -values => [ 'PubMed id', 'Full citation' ], -default => 'PubMed id',
+		-linebreak => 'true' );
+	say "</li></ul></fieldset>";
+	return;
+}
+
 sub run {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
@@ -75,6 +115,7 @@ sub run {
 	say "<h1>Export dataset</h1>";
 	if ( $q->param('submit') ) {
 		my $selected_fields = $self->get_selected_fields;
+		push @$selected_fields, "m_references" if $q->param('m_references');		
 		if ( !@$selected_fields ) {
 			say "<div class=\"box\" id=\"statusbad\"><p>No fields have been selected!</p></div>";
 		} else {
@@ -145,7 +186,7 @@ sub _write_tab_text {
 		my $first = 1;
 		my %schemes;
 		foreach (@$fields) {
-			my $field = $_;
+			my $field = $_;    #don't modify @$fields
 			if ( $field =~ /^s_(\d+)_f/ ) {
 				my $scheme_info = $self->{'datastore'}->get_scheme_info( $1, { set_id => $set_id } );
 				$field .= " ($scheme_info->{'description'})"
@@ -153,7 +194,7 @@ sub _write_tab_text {
 				$schemes{$1} = 1;
 			}
 			my $is_locus = $field =~ /^(s_\d+_l_|l_)/ ? 1 : 0;
-			$field =~ s/^(s_\d+_l|s_\d+_f|f|l|c)_//g;    #strip off prefix for header row
+			$field =~ s/^(s_\d+_l|s_\d+_f|f|l|c|m)_//g;    #strip off prefix for header row
 			$field =~ s/___/../;
 			if ($is_locus) {
 				$field = $self->clean_locus( $field, { text_output => 1 } );
@@ -322,9 +363,11 @@ sub _write_tab_text {
 					print $fh $value if defined $value;
 					print $fh "\n";
 				} else {
-					print $fh "\t" if !$first;
-					print $fh $value;
+					print $fh "\t"   if !$first;
+					print $fh $value if defined $value;
 				}
+			} elsif ( $_ =~ /^m_references/ ) {
+				$self->_write_ref( $fh, $data{'id'}, $first, \%prefs );
 			}
 			$first = 0;
 		}
@@ -338,6 +381,41 @@ sub _write_tab_text {
 	}
 	close $fh;
 	return;
+}
+
+sub _write_ref {
+	my ( $self, $fh, $isolate_id, $first, $prefs ) = @_;
+	my $value = $self->_get_refs($isolate_id);
+	if ( ( $self->{'cgi'}->param('ref_type') // '' ) eq 'Full citation' ) {
+		my $citation_hash = $self->{'datastore'}->get_citation_hash($value);
+		my @citations;
+		push @citations, $citation_hash->{$_} foreach @$value;
+		$value = \@citations;
+	}
+	local $" = '; ';
+	if ( $prefs->{'oneline'} ) {
+		print $fh "references\t";
+		print $fh "@$value";
+		print $fh "\n";
+	} else {
+		print $fh "\t" if !$first;
+		print $fh "@$value";
+	}
+	return;
+}
+
+sub _get_refs {
+	my ( $self, $isolate_id ) = @_;
+	if ( !$self->{'sql'}->{'get_refs'} ) {
+		$self->{'sql'}->{'get_refs'} = $self->{'db'}->prepare("SELECT pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id");
+	}
+	eval { $self->{'sql'}->{'get_refs'}->execute($isolate_id) };
+	$logger->error($@) if $@;
+	my @refs;
+	while ( my ($ref) = $self->{'sql'}->{'get_refs'}->fetchrow_array ) {
+		push @refs, $ref;
+	}
+	return \@refs;
 }
 
 sub _get_molwt {

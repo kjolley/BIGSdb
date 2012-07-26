@@ -74,7 +74,7 @@ sub get_plugin_javascript {
 	my $query_file = $q->param('query_file');
 	my $query_clause = defined $query_file ? "&amp;query_file=$query_file" : '';
 	my $script_name  = $self->{'system'}->{'script_name'};
-	my $links        = my $js = << "END";
+	my $js = << "END";
 \$(function () {
 	\$("#imagegallery a").click(function(event){
 		event.preventDefault();

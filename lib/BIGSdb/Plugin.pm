@@ -44,16 +44,22 @@ sub initiate {
 sub get_attributes {
 
 	#override in subclass
-	return \%;;
+	return \%;
 }
 
 sub get_option_list {
 
 	#override in subclass
-	return \@;;
+	return \@;
 }
 
 sub get_extra_form_elements {
+
+	#override in subclass
+	return '';
+}
+
+sub get_extra_fields {
 
 	#override in subclass
 	return '';
@@ -106,19 +112,11 @@ function listbox_selectall(listID, isSelect) {
 	for(var count=0; count < listbox.options.length; count++) {
 		listbox.options[count].selected = isSelect;
 	}
-}	
-	
+}
+
 \$(document).ready(function() 
     { 
         \$("#sortTable").tablesorter({widgets:['zebra']});       
- 
-         // toggle: hide all elements with class onload
-        \$('.toggle').hide();
-        // capture clicks on the toggle links
-        \$('.toggleLink').click(function() {
-            \$(this).next('.toggle').toggle();
-            return false;
-        }); 
     } 
 ); 	
 $tree_js
@@ -312,7 +310,7 @@ sub get_title {
 }
 
 sub print_fields {
-	my ( $self, $fields, $prefix, $num_columns, $trim_prefix, $labels, $default_select, $toggle ) = @_;
+	my ( $self, $fields, $prefix, $num_columns, $trim_prefix, $labels, $default_select ) = @_;
 	my $q                 = $self->{'cgi'};
 	my $fields_per_column = BIGSdb::Utils::round_up( @$fields / $num_columns );
 	say "<div style=\"float:left;margin-bottom:1em\"><ul>";
@@ -324,8 +322,7 @@ sub print_fields {
 		$label =~ tr/_/ /;
 		my $id = $self->clean_checkbox_id("$prefix\_$field");
 		print "<li>";
-		my $value = $prefix eq 'c' ? 0 : $default_select;
-		print $q->checkbox( -name => "$prefix\_$field", -id => $id, -checked => $value, -value => 'checked', -label => $label );
+		print $q->checkbox( -name => "$prefix\_$field", -id => $id, -checked => $default_select, -value => 'checked', -label => $label );
 		say "</li>";
 		$i++;
 
@@ -373,7 +370,7 @@ sub print_field_export_form {
 	say $q->start_form;
 	say "<fieldset style=\"float:left\"><legend>Isolate fields</legend>";
 	my %labels;
-	$self->print_fields( \@display_fields, 'f', 3, 0, \%labels, $default_select, 0 );
+	$self->print_fields( \@display_fields, 'f', 3, 0, \%labels, $default_select );
 	$self->_print_all_none_buttons( \@isolate_js, \@isolate_js2, 'smallbutton' );
 	say "</fieldset>";
 	if ( $options->{'include_composites'} ) {
@@ -390,11 +387,12 @@ sub print_field_export_form {
 			print " <a class=\"tooltip\" title=\"Composite fields - These are constructed from combinations of other fields "
 			  . "(some of which may come from external databases).  Including composite fields will slow down the processing.\">&nbsp;<i>i</i>&nbsp;</a>";
 			say "</legend>";
-			$self->print_fields( $composites, 'c', 1, 0, \%labels, $default_select, 0 );
+			$self->print_fields( $composites, 'c', 1, 0, \%labels, 0 );
 			$self->_print_all_none_buttons( \@com_js, \@com_js2, 'smallbutton' );
 			say "</fieldset>";
 		}
 	}
+	$self->get_extra_fields;
 	$self->print_isolates_locus_fieldset;
 	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
 	say "<div style=\"clear:both\"></div>";
