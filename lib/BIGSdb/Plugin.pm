@@ -44,13 +44,13 @@ sub initiate {
 sub get_attributes {
 
 	#override in subclass
-	return \%;
+	return \%;;
 }
 
 sub get_option_list {
 
 	#override in subclass
-	return \@;
+	return \@;;
 }
 
 sub get_extra_form_elements {
@@ -404,6 +404,31 @@ sub print_field_export_form {
 	return;
 }
 
+sub get_id_list {
+	my ( $self, $pk, $query_file ) = @_;
+	my $q = $self->{'cgi'};
+	my $list;
+	if ( $q->param('list') ) {
+		foreach ( split /\n/, $q->param('list') ) {
+			chomp;
+			push @$list, $_;
+		}
+	} elsif ($query_file) {
+		my $qry_ref = $self->get_query($query_file);
+		return if ref $qry_ref ne 'SCALAR';
+		return if !$self->create_temp_tables($qry_ref);
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+			my $view = $self->{'system'}->{'view'};
+			$$qry_ref =~ s/SELECT ($view\.\*|\*)/SELECT $pk/;
+			$self->rewrite_query_ref_order_by($qry_ref);
+		}
+		$list = $self->{'datastore'}->run_list_query($$qry_ref);
+	} else {
+		$list = \@;;
+	}
+	return $list;
+}
+
 sub get_selected_fields {
 	my ($self)   = @_;
 	my $q        = $self->{'cgi'};
@@ -491,7 +516,7 @@ sub print_sequence_export_form {
 	} else {
 		$self->print_scheme_locus_fieldset( $scheme_id, $options );
 	}
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && !$options->{'no_options'} ) {
 		my $options_heading = $options->{'options_heading'} || 'Options';
 		say "<fieldset style=\"float:left\">\n<legend>$options_heading</legend>";
 		say "If both allele designations and tagged sequences<br />exist for a locus, choose how you want these handled: ";

@@ -65,8 +65,6 @@ sub run {
 	my $scheme_id  = $q->param('scheme_id');
 	my $desc = $self->get_db_description;
 	say "<h1>Concatenate allele sequences - $desc</h1>";
-	my $list;
-	my $qry_ref;
 	my $pk;
 
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -94,24 +92,25 @@ sub run {
 		}
 		$pk = $pk_ref->[0];
 	}
-	if ( $q->param('list') ) {
-		foreach ( split /\n/, $q->param('list') ) {
-			chomp;
-			push @$list, $_;
-		}
-	} elsif ($query_file) {
-		my $qry_ref = $self->get_query($query_file);
-		return if ref $qry_ref ne 'SCALAR';
-		return if !$self->create_temp_tables($qry_ref);
-		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-			my $view = $self->{'system'}->{'view'};
-			$$qry_ref =~ s/SELECT ($view\.\*|\*)/SELECT $pk/;
-			$self->rewrite_query_ref_order_by($qry_ref) if $self->{'system'}->{'dbtype'} eq 'isolates';
-		}
-		$list = $self->{'datastore'}->run_list_query($$qry_ref);
-	} else {
-		$list = \@;;
-	}
+	my $list = $self->get_id_list($pk, $query_file);
+#	if ( $q->param('list') ) {
+#		foreach ( split /\n/, $q->param('list') ) {
+#			chomp;
+#			push @$list, $_;
+#		}
+#	} elsif ($query_file) {
+#		my $qry_ref = $self->get_query($query_file);
+#		return if ref $qry_ref ne 'SCALAR';
+#		return if !$self->create_temp_tables($qry_ref);
+#		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+#			my $view = $self->{'system'}->{'view'};
+#			$$qry_ref =~ s/SELECT ($view\.\*|\*)/SELECT $pk/;
+#			$self->rewrite_query_ref_order_by($qry_ref) if $self->{'system'}->{'dbtype'} eq 'isolates';
+#		}
+#		$list = $self->{'datastore'}->run_list_query($$qry_ref);
+#	} else {
+#		$list = \@;
+#	}
 	if ( $q->param('submit') ) {
 		my $loci_selected = $self->get_selected_loci;
 		my $scheme_ids    = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");

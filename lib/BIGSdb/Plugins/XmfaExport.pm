@@ -75,8 +75,6 @@ sub run {
 		$logger->error( "This plugin requires MUSCLE to be installed and it is not.  Please install MUSCLE "
 			  . "or check the settings in bigsdb.conf." );
 	}
-	my $list;
-	my $qry_ref;
 	my $pk;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$pk = 'id';
@@ -103,22 +101,8 @@ sub run {
 		}
 		$pk = $pk_ref->[0];
 	}
-	if ( $q->param('list') ) {
-		foreach ( split /\n/, $q->param('list') ) {
-			chomp;
-			push @$list, $_;
-		}
-	} elsif ($query_file) {
-		my $qry_ref = $self->get_query($query_file);
-		return if ref $qry_ref ne 'SCALAR';
-		my $view = $self->{'system'}->{'view'};
-		return if !$self->create_temp_tables($qry_ref);
-		$$qry_ref =~ s/SELECT ($view\.\*|\*)/SELECT $pk/ if defined $view;
-		$self->rewrite_query_ref_order_by($qry_ref) if $self->{'system'}->{'dbtype'} eq 'isolates';
-		$list = $self->{'datastore'}->run_list_query($$qry_ref);
-	} else {
-		$list = \@;;
-	}
+	
+	my $list = $self->get_id_list($pk, $query_file);
 	if ( $q->param('submit') ) {
 		my $loci_selected = $self->get_selected_loci;
 		my $scheme_ids    = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
