@@ -52,3 +52,6 @@ ON UPDATE CASCADE
 );
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON set_schemes TO apache;
+
+ALTER TABLE loci ADD COLUMN match_longest boolean;
+

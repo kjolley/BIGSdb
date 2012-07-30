@@ -212,23 +212,29 @@ sub get_loci_table_attributes {
 		push @$attributes,
 		  (
 			{
-				name   => 'reference_sequence',
-				type   => 'text',
-				length => 30000,
-				tooltip =>
-				  'reference_sequence - Used by the automated sequence comparison algorithms to identify sequences matching this locus.'
+				name    => 'reference_sequence',
+				type    => 'text',
+				length  => 30000,
+				tooltip => 'reference_sequence - Used by the automated sequence comparison algorithms to identify sequences '
+				  . 'matching this locus.'
 			},
 			{
-				name => 'pcr_filter',
-				type => 'bool',
-				tooltip =>
-'pcr filter - Set to true to specify that sequences used for tagging are filtered to only include regions that are amplified by in silico PCR reaction.'
+				name    => 'pcr_filter',
+				type    => 'bool',
+				tooltip => 'pcr filter - Set to true to specify that sequences used for tagging are filtered to only include regions '
+				  . 'that are amplified by in silico PCR reaction.'
 			},
 			{
-				name => 'probe_filter',
-				type => 'bool',
-				tooltip =>
-'probe filter - Set to true to specify that sequences used for tagging are filtered to only include regions within a specified distance of a hybdridization probe.'
+				name    => 'probe_filter',
+				type    => 'bool',
+				tooltip => 'probe filter - Set to true to specify that sequences used for tagging are filtered to only include regions '
+				  . 'within a specified distance of a hybdridization probe.'
+			},
+			{
+				name    => 'match_longest',
+				type    => 'bool',
+				tooltip => 'match longest - Only select the longest exact match when tagging.  This is useful when there may be '
+				  . 'overlapping alleles that are identical apart from one lacking an end sequence.'
 			},
 			{
 				name     => 'dbase_name',
@@ -280,16 +286,17 @@ sub get_loci_table_attributes {
 				type     => 'text',
 				hide     => 'yes',
 				comments => 'Secondary field that defines allele, e.g. \'locus\'',
-				tooltip =>
-'dbase id2 field - Use where the sequence database table requires more than the id to define the allele. This could, for example, be something like \'locus\' where the database table holds the sequences for multiple loci and therefore has a \'locus\' field.  Leave blank if a secondary id field is not used.'
+				tooltip  => 'dbase id2 field - Use where the sequence database table requires more than the id to define the allele. '
+				  . 'This could, for example, be something like \'locus\' where the database table holds the sequences for multiple loci '
+				  . 'and therefore has a \'locus\' field.  Leave blank if a secondary id field is not used.'
 			},
 			{
 				name     => 'dbase_id2_value',
 				type     => 'text',
 				hide     => 'yes',
 				comments => 'Secondary field value, e.g. locus name',
-				tooltip =>
-'dbase id2 value - Set the value that the secondary id field must include to select this locus.  This will probably be the name of the locus.  Leave blank if a secondary id field is not used.'
+				tooltip  => 'dbase id2 value - Set the value that the secondary id field must include to select this locus.  This will '
+				  . 'probably be the name of the locus.  Leave blank if a secondary id field is not used.'
 			},
 			{
 				name     => 'dbase_seq_field',
@@ -303,8 +310,8 @@ sub get_loci_table_attributes {
 				required => 'yes',
 				default  => 'true',
 				comments => 'Seqdef database supports allele flags',
-				tooltip =>
-'flag_table - Set to true to specify that the seqdef database contains an allele flag table (which is the case for BIGSdb versions 1.4 onwards).'
+				tooltip  => 'flag_table - Set to true to specify that the seqdef database contains an allele flag table (which is the '
+				  . 'case for BIGSdb versions 1.4 onwards).'
 			},
 			{
 				name    => 'description_url',
@@ -314,12 +321,12 @@ sub get_loci_table_attributes {
 				tooltip => 'description url - The URL used to hyperlink to locus information in the isolate information page.'
 			},
 			{
-				name   => 'url',
-				type   => 'text',
-				length => 120,
-				hide   => 'yes',
-				tooltip =>
-'url - The URL used to hyperlink allele numbers in the isolate information page.  Instances of [?] within the URL will be substituted with the allele id.'
+				name    => 'url',
+				type    => 'text',
+				length  => 120,
+				hide    => 'yes',
+				tooltip => 'url - The URL used to hyperlink allele numbers in the isolate information page.  Instances of [?] within '
+				  . 'the URL will be substituted with the allele id.'
 			},
 			{
 				name     => 'isolate_display',
@@ -327,16 +334,16 @@ sub get_loci_table_attributes {
 				required => 'yes',
 				optlist  => 'allele only;sequence;hide',
 				default  => 'allele only',
-				tooltip =>
-				  'isolate display - Sets how to display the locus in the isolate info page (can be overridden by user preference).'
+				tooltip  => 'isolate display - Sets how to display the locus in the isolate info page (can be overridden '
+				  . 'by user preference).'
 			},
 			{
 				name     => 'main_display',
 				type     => 'bool',
 				required => 'yes',
 				default  => 'false',
-				tooltip =>
-				  'main display - Sets whether to display locus in isolate query results table (can be overridden by user preference).'
+				tooltip  => 'main display - Sets whether to display locus in isolate query results table (can be overridden '
+				  . 'by user preference).'
 			},
 			{
 				name     => 'query_field',
@@ -765,11 +772,11 @@ sub get_schemes_table_attributes {
 	my $attributes = [
 		{ name => 'id', type => 'int', required => 'yes', unique => 'yes', primary_key => 'yes' },
 		{
-			name           => 'description',
-			type           => 'text',
-			required       => 'yes',
-			length         => 50,
-			tooltip        => 'description - Ensure this is short since it is used in table headings and drop-down lists.'
+			name     => 'description',
+			type     => 'text',
+			required => 'yes',
+			length   => 50,
+			tooltip  => 'description - Ensure this is short since it is used in table headings and drop-down lists.'
 		}
 	];
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -813,32 +820,32 @@ sub get_schemes_table_attributes {
 				type     => 'bool',
 				required => 'yes',
 				default  => 'true',
-				tooltip =>
-'isolate_display - Sets whether to display the scheme in the isolate info page, setting to false overrides values for individual loci and scheme fields (can be overridden by user preference)'
+				tooltip  => 'isolate_display - Sets whether to display the scheme in the isolate info page, setting to false overrides '
+				  . 'values for individual loci and scheme fields (can be overridden by user preference)'
 			},
 			{
 				name     => 'main_display',
 				type     => 'bool',
 				required => 'yes',
 				default  => 'true',
-				tooltip =>
-'main_display - Sets whether to display the scheme in isolate query results table, setting to false overrides values for individual loci and scheme fields (can be overridden by user preference).'
+				tooltip  => 'main_display - Sets whether to display the scheme in isolate query results table, setting to false overrides '
+				  . 'values for individual loci and scheme fields (can be overridden by user preference).'
 			},
 			{
 				name     => 'query_field',
 				type     => 'bool',
 				required => 'yes',
 				default  => 'true',
-				tooltip =>
-'query_field - Sets whether this scheme can be used in isolate queries, setting to false overrides values for individual loci and scheme fields (can be overridden by user preference).'
+				tooltip  => 'query_field - Sets whether this scheme can be used in isolate queries, setting to false overrides values '
+				  . 'for individual loci and scheme fields (can be overridden by user preference).'
 			},
 			{
 				name     => 'query_status',
 				type     => 'bool',
 				required => 'yes',
 				default  => 'false',
-				tooltip =>
-'query_status - Sets whether a drop-down list box should be used in query interface to select profile completion status for this scheme.'
+				tooltip  => 'query_status - Sets whether a drop-down list box should be used in query interface to select profile '
+				  . 'completion status for this scheme.'
 			},
 			{
 				name     => 'analysis',
@@ -918,31 +925,32 @@ sub get_scheme_fields_table_attributes {
 				type     => 'bool',
 				required => 'yes',
 				default  => 'true',
-				tooltip =>
-				  'isolate display - Sets how to display the locus in the isolate info page (can be overridden by user preference).'
+				tooltip  => 'isolate display - Sets how to display the locus in the isolate info page (can be overridden '
+				  . 'by user preference).'
 			},
 			{
 				name     => 'main_display',
 				type     => 'bool',
 				required => 'yes',
 				default  => 'false',
-				tooltip =>
-				  'main display - Sets whether to display locus in isolate query results table (can be overridden by user preference).'
+				tooltip  => 'main display - Sets whether to display locus in isolate query results table (can be overridden by '
+				  . 'user preference).'
 			},
 			{
 				name     => 'query_field',
 				type     => 'bool',
 				required => 'yes',
 				default  => 'true',
-				tooltip  => 'query field - Sets whether this locus can be used in isolate queries (can be overridden by user preference).'
+				tooltip  => 'query field - Sets whether this locus can be used in isolate queries (can be overridden by '
+				  . 'user preference).'
 			},
 			{
 				name     => 'dropdown',
 				type     => 'bool',
 				required => 'yes',
 				default  => 'false',
-				tooltip =>
-				  'dropdown - Sets whether to display a dropdown list box in the query interface (can be overridden by user preference).'
+				tooltip  => 'dropdown - Sets whether to display a dropdown list box in the query interface (can be overridden by '
+				  . 'user preference).'
 			}
 		  );
 	} else {
@@ -953,8 +961,8 @@ sub get_scheme_fields_table_attributes {
 				type     => 'bool',
 				required => 'yes',
 				default  => 'false',
-				tooltip =>
-				  'dropdown - Sets whether to display a dropdown list box in the query interface (can be overridden by user preference).'
+				tooltip  => 'dropdown - Sets whether to display a dropdown list box in the query interface (can be '
+				  . 'overridden by user preference).'
 			}
 		  );
 		push @$attributes, ( { name => 'value_regex', type => 'text', comments => 'Regular expression that constrains value of field' } );
@@ -1081,11 +1089,12 @@ sub get_composite_field_values_table_attributes {
 		{ name => 'field_order', type => 'int', required => 'yes', primary_key => 'yes' },
 		{ name => 'empty_value', type => 'text' },
 		{
-			name   => 'regex',
-			type   => 'text',
-			length => 50,
-			tooltip =>
-'regex - You can use regular expressions here to do some complex text manipulations on the displayed value.  For example: <br /><br /><b>s/ST-(\S+) complex.*/cc$1/</b><br /><br />will convert something like \'ST-41/44 complex/lineage III\' to \'cc41/44\''
+			name    => 'regex',
+			type    => 'text',
+			length  => 50,
+			tooltip => 'regex - You can use regular expressions here to do some complex text manipulations on the displayed value. '
+			  . 'For example: <br /><br /><b>s/ST-(\S+) complex.*/cc$1/</b><br /><br />will convert something like '
+			  . '\'ST-41/44 complex/lineage III\' to \'cc41/44\''
 		},
 		{ name => 'field',     type => 'text', length   => 40,    required       => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' },
@@ -1304,12 +1313,12 @@ sub get_isolate_field_extended_attributes_table_attributes {
 		{ name => 'value_regex', type => 'text', tooltip => 'value regex - Regular expression that constrains values.' },
 		{ name => 'description', type => 'text', length  => 256 },
 		{
-			name   => 'url',
-			type   => 'text',
-			length => 120,
-			hide   => 'yes',
-			tooltip =>
-'url - The URL used to hyperlink values in the isolate information page.  Instances of [?] within the URL will be substituted with the value.'
+			name    => 'url',
+			type    => 'text',
+			length  => 120,
+			hide    => 'yes',
+			tooltip => 'url - The URL used to hyperlink values in the isolate information page.  Instances of [?] within '
+			  . 'the URL will be substituted with the value.'
 		},
 		{ name => 'length',      type => 'integer' },
 		{ name => 'field_order', type => 'int', length => 4 },
@@ -1370,11 +1379,11 @@ sub get_projects_table_attributes {
 			tooltip        => 'description - Ensure this is short since it is used in table headings and drop-down lists.'
 		},
 		{
-			name   => 'full_description',
-			type   => 'text',
-			length => 512,
-			tooltip =>
-"full description - This text will appear on the record pages of isolates belonging to the project.  You can use HTML markup here.  If you don't enter anything here then the project will not be listed on the isolate record page."
+			name    => 'full_description',
+			type    => 'text',
+			length  => 512,
+			tooltip => "full description - This text will appear on the record pages of isolates belonging to the project.  You can use '
+			 . 'HTML markup here.  If you don't enter anything here then the project will not be listed on the isolate record page."
 		},
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' },

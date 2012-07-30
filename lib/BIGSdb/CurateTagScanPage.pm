@@ -1303,6 +1303,7 @@ sub _parse_blast_exact {
 	my $lengths;
 	my $matched_already;
 	my $region_matched_already;
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
   LINE: while ( my $line = <$blast_fh> ) {
 		my $match;
 		next if !$line || $line =~ /^#/;
@@ -1374,6 +1375,7 @@ sub _parse_blast_exact {
 				push @matches, $match;
 				$matched_already->{ $match->{'allele'} }->{ $match->{'predicted_start'} }           = 1;
 				$region_matched_already->{ $match->{'seqbin_id'} }->{ $match->{'predicted_start'} } = 1;
+				last if $locus_info->{'match_longest'};
 			}
 		}
 	}
