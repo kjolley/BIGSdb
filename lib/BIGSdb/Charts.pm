@@ -93,7 +93,8 @@ sub piechart {
 }
 
 sub barchart {
-	my ( $labels, $data, $filename, $size, $prefs ) = @_;
+	my ( $labels, $data, $filename, $size, $prefs, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $max_label_length = _find_length_of_largest_label($labels);
 	my $preferred        = 10;
 	my $values           = scalar @$labels;
@@ -129,7 +130,7 @@ sub barchart {
 		$layer = $chart->addBarLayer( $data, $chart->gradientColor( 0, 0, 0, 500, 0xf0f0f0, 0x404080 ) );
 	}
 	$chart->setBackground(0x00FFFFFF);
-	$chart->setTransparentColor(0x00FFFFFF);
+	$chart->setTransparentColor(0x00FFFFFF) if !$options->{'no_transparent'};
 	$layer->set3D if $prefs->{'threeD'};
 	{
 		no warnings 'once';

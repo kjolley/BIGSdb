@@ -20,6 +20,7 @@
 package BIGSdb::Plugins::SeqbinBreakdown;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::Plugin BIGSdb::SeqbinPage);
 use Log::Log4perl qw(get_logger);
 use POSIX qw(ceil);
@@ -66,9 +67,9 @@ sub run {
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
 	my $qry_ref    = $self->get_query($query_file);
-	print "<h1>Breakdown of sequence bin contig properties</h1>\n";
+	say "<h1>Breakdown of sequence bin contig properties</h1>";
 	if ( ref $qry_ref ne 'SCALAR' ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Error retrieving query.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Error retrieving query.</p></div>";
 		return;
 	}
 	my $qry = $$qry_ref;
@@ -89,8 +90,8 @@ sub run {
 	my $seqbin_count =
 	  $self->{'datastore'}->run_list_query("SELECT COUNT(*) FROM sequence_bin WHERE isolate_id IN ($qry)$method_clause")->[0];
 	if ( !$seqbin_count ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>There are no sequences stored for any of the selected isolates generated with "
-		  . "the sequence method (set in options).</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>There are no sequences stored for any of the selected isolates generated with "
+		  . "the sequence method (set in options).</p></div>";
 		return;
 	}
 	$qry .= " ORDER BY id";
@@ -125,8 +126,7 @@ sub run {
 <tbody>
 HTML
 	  ;
-	print $fh "Isolate id\t$labelfield\tContigs\tTotal length\tMin\tMax\tMean\tStdDev\t"
-	  . "N50\tN90\tN95\t%Allele designated\t%Loci tagged\n";
+	say $fh "Isolate id\t$labelfield\tContigs\tTotal length\tMin\tMax\tMean\tStdDev\t" . "N50\tN90\tN95\t%Allele designated\t%Loci tagged";
 	my $td = 1;
 	local $| = 1;
 	my ($data);
@@ -161,35 +161,34 @@ HTML
 		my ($tagged) = $sql_tagged->fetchrow_array;
 		my $percent_tagged = BIGSdb::Utils::decimal_place( 100 * ( $tagged / @$loci ), 1 );
 		my $n_stats = $self->get_N_stats( $sum, \@single_isolate_lengths );
-		print "<tr class=\"td$td\"><td>$id</td>";
-		print "<td>$isolate</td><td>$contigs</td><td>$sum</td><td>$min</td><td>$max</td><td>$mean</td>";
-		print defined $stddev ? "<td>$stddev</td>" : '<td />';
-		print "<td>$n_stats->{'N50'}</td><td>$n_stats->{'N90'}</td><td>$n_stats->{'N95'}</td>"
+		say "<tr class=\"td$td\"><td>$id</td>";
+		say "<td>$isolate</td><td>$contigs</td><td>$sum</td><td>$min</td><td>$max</td><td>$mean</td>";
+		say defined $stddev ? "<td>$stddev</td>" : '<td />';
+		say "<td>$n_stats->{'N50'}</td><td>$n_stats->{'N90'}</td><td>$n_stats->{'N95'}</td>"
 		  . "<td>$percent_alleles</td><td>$percent_tagged</td>";
-		print "<td><a href=\"$self->{'system'}->{'script_name'}?page=seqbin&amp;db=$self->{'instance'}&amp;isolate_id=$id\" "
-		  . "class=\"extract_tooltip\" target=\"_blank\">Display &rarr;</a></td></tr>\n";
+		say "<td><a href=\"$self->{'system'}->{'script_name'}?page=seqbin&amp;db=$self->{'instance'}&amp;isolate_id=$id\" "
+		  . "class=\"extract_tooltip\" target=\"_blank\">Display &rarr;</a></td></tr>";
 		print $fh "$id\t$isolate\t$contigs\t$sum\t$min\t$max\t$mean\t";
 		print $fh "$stddev" if defined $stddev;
-		print $fh "\t$n_stats->{'N50'}\t$n_stats->{'N90'}\t$n_stats->{'N95'}\t$percent_alleles\t$percent_tagged\n";
+		say $fh "\t$n_stats->{'N50'}\t$n_stats->{'N90'}\t$n_stats->{'N95'}\t$percent_alleles\t$percent_tagged";
 		push @{ $data->{'contigs'} }, $contigs;
 		push @{ $data->{'sum'} },     $sum;
 		push @{ $data->{'mean'} },    $mean;
 		$td = $td == 1 ? 2 : 1;
 	}
-	print "</tbody></table>\n";
+	say "</tbody></table>";
 	close $fh;
-	print "<p><a href=\"/tmp/$temp.txt\">Download in tab-delimited text format</a></p>\n";
-	print "</div>\n";
+	say "<p><a href=\"/tmp/$temp.txt\">Download in tab-delimited text format</a></p>";
+	say "</div>";
 	$self->_print_charts( $data, $temp ) if $self->{'config'}->{'chartdirector'};
 	return;
 }
 
 sub _print_charts {
 	my ( $self, $data, $prefix ) = @_;
-	print "<div class=\"box\" id=\"resultsfooter\">\n";
-	my %title =
-	  ( 'contigs' => 'Number of contigs', 'sum' => 'Total length', 'mean' => 'Mean contig length', 'lengths' => 'Contig lengths' );
-	print "<p>Click on the following charts to enlarge</p>\n";
+	say "<div class=\"box\" id=\"resultsfooter\">";
+	my %title = ( contigs => 'Number of contigs', sum => 'Total length', mean => 'Mean contig length', lengths => 'Contig lengths' );
+	say "<p>Click on the following charts to enlarge</p>";
 	foreach (qw (contigs sum mean lengths)) {
 		my $stats = BIGSdb::Utils::stats( $data->{$_} );
 		my $bins =
@@ -219,17 +218,20 @@ sub _print_charts {
 			push @labels, $i * $width;
 			push @values, $histogram->{$i};
 		}
-		my %prefs = ( 'offset_label' => 1, 'x-title' => $title{$_}, 'y-title' => 'Frequency' );
+		my %prefs = ( offset_label => 1, 'x-title' => $title{$_}, 'y-title' => 'Frequency' );
+		BIGSdb::Charts::barchart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$prefix\_large_histogram_$_.png",
+			'large', \%prefs, { no_transparent => 1 } );
 		BIGSdb::Charts::barchart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$prefix\_histogram_$_.png", 'large', \%prefs );
-		print "<div style=\"float:left;padding-right:1em\">\n";
-		print "<h2>$title{$_}</h2>\n";
-		print "Overall mean: "
+		say "<div style=\"float:left;padding-right:1em\">";
+		say "<h2>$title{$_}</h2>";
+		say "Overall mean: "
 		  . BIGSdb::Utils::decimal_place( $stats->{'mean'}, 1 )
 		  . "; &sigma;: "
 		  . BIGSdb::Utils::decimal_place( $stats->{'std'}, 1 )
 		  . "<br />";
-		print
-"<a href=\"/tmp/$prefix\_histogram_$_.png\" target=\"_blank\"><img src=\"/tmp/$prefix\_histogram_$_.png\" alt=\"$_ histogram\" style=\"width:300px; border:0\" /></a>\n";
+		say "<a href=\"/tmp/$prefix\_large_histogram_$_.png\" target=\"_blank\"><img src=\"/tmp/$prefix\_histogram_$_.png\" "
+		  . "alt=\"$_ histogram\" style=\"width:300px; border:0\" /></a>";
+
 		if ( $_ eq 'lengths' ) {
 			my $filename  = BIGSdb::Utils::get_random() . '.txt';
 			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
@@ -238,14 +240,14 @@ sub _print_charts {
 					print $fh "$length\n";
 				}
 				close $fh;
-				print "<p><a href=\"/tmp/$filename\">Download lengths</a></p>\n" if -e $full_path && !-z $full_path;
+				say "<p><a href=\"/tmp/$filename\">Download lengths</a></p>" if -e $full_path && !-z $full_path;
 			} else {
 				$logger->error("Can't open $full_path for writing");
 			}
 		}
-		print "</div>\n";
+		say "</div>";
 	}
-	print "<div style=\"clear:both\"></div></div>\n";
+	say "<div style=\"clear:both\"></div></div>";
 	return;
 }
 1;
