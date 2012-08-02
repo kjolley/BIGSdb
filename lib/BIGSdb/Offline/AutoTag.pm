@@ -116,14 +116,23 @@ sub run_script {
 			local $" = '<br />';
 			$self->update_history( $isolate_id, "@{$self->{'history'}}" );
 		}
-		system "rm -f $self->{'config'}->{'secure_tmp_dir'}/*$file_prefix*";    #delete isolate seqbin FASTA
+		$self->_delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$file_prefix*");    #delete isolate seqbin FASTA
 		last if $self->_is_time_up;
 	}
-	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*";       #delete locus working files
+	$self->_delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");       #delete locus working files
 	if ( $self->_is_time_up && !$self->{'options'}->{'q'} ) {
 		print "Time limit reached ($self->{'options'}->{'t'} minute" . ( $self->{'options'}->{'t'} == 1 ? '' : 's' ) . ")\n";
 	}
 	$self->{'logger'}->info( "Autotagger stop ($self->{'options'}->{'d'}): " . strftime( '%d-%b-%Y %H:%M', localtime ) );
+	return;
+}
+
+sub _delete_temp_files {
+	my ( $self, $wildcard ) = @_;
+	my @file_list = glob($wildcard);
+	foreach my $file (@file_list) {
+		unlink $1 if $file =~ /(.*BIGSdb.*)/;                                                 #untaint
+	}
 	return;
 }
 
