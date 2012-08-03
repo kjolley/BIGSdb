@@ -52,3 +52,10 @@ ON UPDATE CASCADE
 );
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON set_schemes TO apache;
+
+ALTER TABLE loci ADD COLUMN formatted_name text;
+ALTER TABLE loci ADD COLUMN formatted_common_name text;
+
+ALTER TABLE set_loci ADD COLUMN formatted_set_name text;
+ALTER TABLE set_loci ADD COLUMN formatted_set_common_name text;
+

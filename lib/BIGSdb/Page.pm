@@ -798,11 +798,23 @@ sub clean_locus {
 		  $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM set_loci WHERE set_id=? AND locus=?", $set_id, $locus );
 		if ( $set_locus->{'set_name'} ) {
 			$locus = $set_locus->{'set_name'};
-			$locus .= " ($set_locus->{'set_common_name'})" if $set_locus->{'set_common_name'} && !$options->{'no_common_name'};
+			$locus = $set_locus->{'formatted_set_name'} if !$options->{'text_output'} && $set_locus->{'formatted_set_name'};
+			if (!$options->{'no_common_name'}){
+				my $common_name = '';
+				$common_name = " ($set_locus->{'set_common_name'})" if $set_locus->{'set_common_name'};
+				$common_name = " ($set_locus->{'formatted_set_common_name'})" if !$options->{'text_output'} && $set_locus->{'formatted_set_common_name'};
+				$locus .= $common_name;				
+			}
 		}
 	} else {
+		$locus = $locus_info->{'formatted_name'} if !$options->{'text_output'} && $locus_info->{'formatted_name'};
 		$locus =~ s/^_//;    #locus names can't begin with a digit, so people can use an underscore, but this looks untidy in the interface.
-		$locus .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'} && !$options->{'no_common_name'};
+		if (!$options->{'no_common_name'}){
+			my $common_name = '';
+			$common_name = " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
+			$common_name = " ($locus_info->{'formatted_common_name'})" if !$options->{'text_output'} && $locus_info->{'formatted_common_name'};
+			$locus .= $common_name;	
+		}
 	}
 	if ( !$options->{'text_output'} && ( $self->{'system'}->{'locus_superscript_prefix'} // '' ) eq 'yes' ) {
 		$locus =~ s/^([A-Za-z]{1,3})_/<sup>$1<\/sup>/;
