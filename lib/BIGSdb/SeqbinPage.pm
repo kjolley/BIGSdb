@@ -83,7 +83,7 @@ HTML
 	} else {
 		my $length =
 		  $self->{'datastore'}->run_simple_query( "SELECT length(sequence) FROM sequence_bin WHERE isolate_id=?", $isolate_id )->[0];
-		print "<li>Length: $length</li>\n</ul>\n";
+		say "<li>Length: $length</li>\n</ul>";
 	}
 	say "<ul><li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadSeqbin&amp;"
 	  . "isolate_id=$isolate_id\">Download sequences (FASTA format)</a></li>";
@@ -116,11 +116,13 @@ HTML
 		}
 		if ( $self->{'config'}->{'chartdirector'} ) {
 			my %prefs = ( 'offset_label' => 1, 'x-title' => 'Contig size (bp)', 'y-title' => 'Frequency' );
+			BIGSdb::Charts::barchart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$temp\_large_histogram.png",
+			'large', \%prefs, { no_transparent => 1 } );		
 			BIGSdb::Charts::barchart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$temp\_histogram.png", 'large', \%prefs );
 			print "<img src=\"/tmp/$temp\_histogram.png\" alt=\"histogram\" style=\"width:200px;border:0\" /><br />\n";
 		}
 		say "<ul>";
-		say "<li><a href=\"/tmp/$temp\_histogram.png\">Enlarge chart</a></li>" if $self->{'config'}->{'chartdirector'};
+		say "<li><a href=\"/tmp/$temp\_large_histogram.png\">Enlarge chart</a></li>" if $self->{'config'}->{'chartdirector'};
 		say "<li><a href=\"/tmp/$temp.txt\">Download lengths</a></li>";
 		say "</ul>\n</div>";
 	}

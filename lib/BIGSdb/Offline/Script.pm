@@ -185,4 +185,13 @@ sub get_project_isolates {
 	return $self->{'datastore'}->run_list_query( "SELECT isolate_id FROM project_members WHERE project_id=?", $project_id );
 }
 
+sub delete_temp_files {
+	my ( $self, $wildcard ) = @_;
+	my @file_list = glob($wildcard);
+	foreach my $file (@file_list) {
+		unlink $1 if $file =~ /(.*BIGSdb.*)/;                                                 #untaint
+	}
+	return;
+}
+
 1;
