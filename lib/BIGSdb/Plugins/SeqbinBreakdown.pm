@@ -39,7 +39,7 @@ sub get_attributes {
 		buttontext  => 'Sequence bin',
 		menutext    => 'Sequence bin',
 		module      => 'SeqbinBreakdown',
-		version     => '1.0.4',
+		version     => '1.0.5',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -126,7 +126,7 @@ sub run {
 <tbody>
 HTML
 	  ;
-	say $fh "Isolate id\t$labelfield\tContigs\tTotal length\tMin\tMax\tMean\tStdDev\t" . "N50\tN90\tN95\t%Allele designated\t%Loci tagged";
+	say $fh "Isolate id\t$labelfield\tContigs\tTotal length\tMin\tMax\tMean\tStdDev\tN50\tN90\tN95\t%Allele designated\t%Loci tagged";
 	my $td = 1;
 	local $| = 1;
 	my ($data);
@@ -219,9 +219,8 @@ sub _print_charts {
 			push @values, $histogram->{$i};
 		}
 		my %prefs = ( offset_label => 1, 'x-title' => $title{$_}, 'y-title' => 'Frequency' );
-		BIGSdb::Charts::barchart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$prefix\_large_histogram_$_.png",
+		BIGSdb::Charts::barchart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$prefix\_histogram_$_.png",
 			'large', \%prefs, { no_transparent => 1 } );
-		BIGSdb::Charts::barchart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$prefix\_histogram_$_.png", 'large', \%prefs );
 		say "<div style=\"float:left;padding-right:1em\">";
 		say "<h2>$title{$_}</h2>";
 		say "Overall mean: "
@@ -229,9 +228,8 @@ sub _print_charts {
 		  . "; &sigma;: "
 		  . BIGSdb::Utils::decimal_place( $stats->{'std'}, 1 )
 		  . "<br />";
-		say "<a href=\"/tmp/$prefix\_large_histogram_$_.png\" target=\"_blank\"><img src=\"/tmp/$prefix\_histogram_$_.png\" "
-		  . "alt=\"$_ histogram\" style=\"width:300px; border:0\" /></a>";
-
+		say "<a href=\"/tmp/$prefix\_histogram_$_.png\" rel=\"lightbox-1\" class=\"lightbox\" title=\"$title{$_}\">"
+		  . "<img src=\"/tmp/$prefix\_histogram_$_.png\" alt=\"$_ histogram\" style=\"width:200px; border:1px dashed black\" /></a>";
 		if ( $_ eq 'lengths' ) {
 			my $filename  = BIGSdb::Utils::get_random() . '.txt';
 			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";

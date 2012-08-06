@@ -1,7 +1,7 @@
 
 
 $(function () {
-	$('div.content a').tooltip({ 
+	$('div.content a:not(.lightbox)').tooltip({ 
 	    track: true, 
 	    delay: 0, 
 	    showURL: false, 

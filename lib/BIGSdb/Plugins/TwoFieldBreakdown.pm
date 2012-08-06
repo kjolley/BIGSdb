@@ -37,7 +37,7 @@ sub get_attributes {
 		buttontext  => 'Two Field',
 		menutext    => 'Two field',
 		module      => 'TwoFieldBreakdown',
-		version     => '1.0.3',
+		version     => '1.0.4',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/two_field_breakdown.shtml',
@@ -411,6 +411,10 @@ sub _breakdown {
 			prefix        => $temp1,
 			field1        => $field1,
 			field2        => $field2,
+			html_field1   => $html_field1,
+			html_field2   => $html_field2,
+			text_field1   => $text_field1,
+			text_field2   => $text_field2,
 			data          => \%datahash,
 			field1_total  => \%field1total,
 			field2_values => \@field2values
@@ -427,8 +431,11 @@ sub _print_charts {
 	my $field2_values = $args->{'field2_values'};
 	my $field1        = $args->{'field1'};
 	my $field2        = $args->{'field2'};
+	my $text_field1   = $args->{'text_field1'};
+	my $text_field2   = $args->{'text_field2'};
 	if ( $self->{'config'}->{'chartdirector'} && keys %$data < 31 && @$field2_values < 31 ) {
-		print "<div class=\"box\" id=\"chart\">";
+		print "<div class=\"box\" id=\"chart\"><h2>Charts</h2>";
+		print "<p>Click to enlarge.</p>";
 		my $guid = $self->get_guid;
 		my %prefs;
 		foreach (qw (threeD transparent)) {
@@ -440,12 +447,10 @@ sub _print_charts {
 				$prefs{$_} = 0;
 			};
 		}
-		print "<div class=\"scrollable\" style=\"background:white; border: 1px solid black\">\n";
 		for ( my $i = 0 ; $i < 2 ; $i++ ) {
 			my $chart = XYChart->new( 1000, 500 );
 			$chart->setPlotArea( 100, 40, 580, 300 );
 			$chart->setBackground(0x00FFFFFF);
-			$chart->setTransparentColor(0x00FFFFFF);
 			$chart->addLegend( 700, 10 );
 			$chart->xAxis()->setLabels($field2_values)->setFontAngle(60);
 			my $layer;
@@ -497,7 +502,10 @@ sub _print_charts {
 					$filename = $1;    #untaint
 				}
 				$chart->makeChart("$self->{'config'}->{'tmp_dir'}\/$filename");
-				print "<img src=\"/tmp/$filename\" alt=\"$field1 vs $field2\" />";
+				print "<fieldset><legend>Values</legend>";
+				print "<a href=\"/tmp/$filename\" rel=\"lightbox-1\" class=\"lightbox\" title=\"$text_field1 vs $text_field2\">"
+				  . "<img src=\"/tmp/$filename\" alt=\"$text_field1 vs $text_field2\" style=\"width:200px; border: 1px dashed black\" /></a>";
+				print "</fieldset>";
 			} else {
 				$chart->addTitle( "Percentages", "arial.ttf", 14 );
 				my $filename = "$prefix\_$field1\_$field2\_pc.png";
@@ -505,10 +513,15 @@ sub _print_charts {
 					$filename = $1;    #untaint
 				}
 				$chart->makeChart("$self->{'config'}->{'tmp_dir'}\/$filename");
-				print "<img src=\"/tmp/$filename\" alt=\"$field1 vs $field2 percentage chart\" />";
+				print "<fieldset><legend>Percentages</legend>";
+				print
+"<a href=\"/tmp/$filename\" rel=\"lightbox-1\" class=\"lightbox\"  title=\"$text_field1 vs $text_field2 percentage chart\">"
+				  . "<img src=\"/tmp/$filename\" alt=\"$text_field1 vs $text_field2 percentage chart\"  style=\"width:200px; "
+				  . "border: 1px dashed black\" /></a>";
+				print "</fieldset>";
 			}
 		}
-		print "</div></div>\n";
+		print "</div>\n";
 	}
 	return;
 }

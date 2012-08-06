@@ -29,7 +29,7 @@ use POSIX qw(ceil);
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (tooltips jQuery);
+	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.slimbox jQuery.jstree);
 	return;
 }
 
@@ -118,13 +118,11 @@ HTML
 			my %prefs = ( 'offset_label' => 1, 'x-title' => 'Contig size (bp)', 'y-title' => 'Frequency' );
 			BIGSdb::Charts::barchart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$temp\_large_histogram.png",
 			'large', \%prefs, { no_transparent => 1 } );		
-			BIGSdb::Charts::barchart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$temp\_histogram.png", 'large', \%prefs );
-			print "<img src=\"/tmp/$temp\_histogram.png\" alt=\"histogram\" style=\"width:200px;border:0\" /><br />\n";
+			say "<a href=\"/tmp/$temp\_large_histogram.png\" rel=\"lightbox\" class=\"lightbox\" title=\"Contig size distribution\">"
+			 . "<img src=\"/tmp/$temp\_large_histogram.png\" alt=\"Contig size distribution\" style=\"width:200px;border:1px "
+			 . "dashed black\" /></a><br />Click to enlarge";
 		}
-		say "<ul>";
-		say "<li><a href=\"/tmp/$temp\_large_histogram.png\">Enlarge chart</a></li>" if $self->{'config'}->{'chartdirector'};
-		say "<li><a href=\"/tmp/$temp.txt\">Download lengths</a></li>";
-		say "</ul>\n</div>";
+		say "<ul><li><a href=\"/tmp/$temp.txt\">Download lengths</a></li></ul></div>";
 	}
 	say "<div style=\"clear:both\"></div>";
 	say "</div><div class=\"box\" id=\"resultstable\">";

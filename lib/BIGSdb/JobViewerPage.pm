@@ -26,7 +26,7 @@ my $logger = get_logger('BIGSdb.Page');
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw(jQuery noCache);
+	$self->{$_} = 1 foreach qw(jQuery jQuery.slimbox noCache);
 	my $id = $self->{'cgi'}->param('id');
 	return if !defined $id;
 	my ( $job, undef, undef ) = $self->{'jobManager'}->get_job($id);
@@ -137,10 +137,12 @@ HTML
 				$link_text =~ s/^\d{2}_//; #Descriptions can start with 2 digit number for ordering
 				my $text = "<li><a href=\"/tmp/$output->{$_}\">$link_text</a>";
 				$text .= " - $comments" if $comments;
-				$text .=
-"<br /><a href=\"/tmp/$output->{$_}\"><img src=\"/tmp/$output->{$_}\" alt=\"\" style=\"max-height:200px;border:1px dashed black\" /></a>"
-				  if $output->{$_} =~ /\.png$/;
-				$text .= " (click to enlarge)" if $output->{$_} =~ /\.png$/;
+				if ($output->{$_} =~ /\.png$/){
+					my $title = $link_text . ($comments ? " - $comments" : '');
+					$text .= "<br /><a href=\"/tmp/$output->{$_}\" rel=\"lightbox-1\" class=\"lightbox\" title=\"$title\">"
+					 . "<img src=\"/tmp/$output->{$_}\" alt=\"\" style=\"max-width:200px;border:1px dashed black\" /></a>"
+					 . " (click to enlarge)";
+				}
 				$text .= "</li>\n";
 				push @buffer, $text;
 			}

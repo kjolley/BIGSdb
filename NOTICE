@@ -14,7 +14,8 @@ This product includes XML Parser code released as part of mlstdb, written by
 Man-Suen Chan and released under the GPL.
 
 This product uses the jQuery Javascript library and associated plugins.  These
-have been released under the GNU General Public License version 2 (GPL).
+have been released under the GNU General Public License version 2 (GPL) or MIT
+license.
 
 This product includes perl-md5-login Perl/CGI + JavaScript user authorization 
 (https://sourceforge.net/projects/perl-md5-login/). This has been released 

@@ -196,6 +196,9 @@ sub print_page_content {
 			if ( $self->{'jQuery.coolfieldset'} ) {
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.coolfieldset.js" } );
 			}
+			if ($self->{'jQuery.slimbox'}){
+				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.slimbox2.js" } );
+			}
 			push @javascript, { 'language' => 'Javascript', 'code' => $page_js } if $page_js;
 		}
 
@@ -256,7 +259,7 @@ sub get_stylesheet {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system   = $self->{'system'};
-	my $filename = 'bigsdb.css?v=20120512';
+	my $filename = 'bigsdb.css?v=20120803';
 	if ( !$system->{'db'} ) {
 		$stylesheet = "/$filename";
 	} elsif ( -e "$ENV{'DOCUMENT_ROOT'}$system->{'webroot'}/$system->{'db'}/$filename" ) {

@@ -35,7 +35,7 @@ sub initiate {
 	if ( $q->param('format') eq 'text' ) {
 		$self->{'type'} = 'text';
 	} else {
-		$self->{$_} = 1 foreach qw(jQuery jQuery.tablesort jQuery.jstree);
+		$self->{$_} = 1 foreach qw(jQuery jQuery.tablesort jQuery.jstree jQuery.slimbox);
 	}
 	$self->{'noCache'} = 1 if ( $self->{'system'}->{'sets'} // '' ) eq 'yes';
 	return;
