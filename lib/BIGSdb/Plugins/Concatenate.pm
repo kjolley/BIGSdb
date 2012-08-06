@@ -230,6 +230,7 @@ sub _write_fasta {
 		my %loci;
 		my $seq;
 		foreach my $locus (@$selected_loci) {
+			my $no_seq = 0;
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 			if ( !$loci{$locus} ) {
 				try {
@@ -278,6 +279,7 @@ sub _write_fasta {
 						my ($length) = $length_sql->fetchrow_array;
 						if ($length) {
 							$temp_seq = '-' x $length;
+							$no_seq = 1;
 						} else {
 
 							#find most common length;
@@ -302,11 +304,12 @@ sub _write_fasta {
 								$most_common{$locus} = 10;        #arbitrary length to show that sequence is missing.
 							}
 							$temp_seq = '-' x $most_common{$locus};
+							$no_seq = 1;
 						}
 					}
 					if ( $q->param('translate') ) {
 						$temp_seq = BIGSdb::Utils::chop_seq( $temp_seq, $locus_info->{'orf'} || 1 );
-						my $peptide = Bio::Perl::translate_as_string($temp_seq);
+						my $peptide = !$no_seq ? Bio::Perl::translate_as_string($temp_seq) : 'X';
 						$seq .= $peptide;
 					} else {
 						$seq .= $temp_seq;

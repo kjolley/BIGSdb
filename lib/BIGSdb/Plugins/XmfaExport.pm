@@ -299,7 +299,7 @@ sub run_job {
 				}
 				if ( $params->{'translate'} ) {
 					$seq = BIGSdb::Utils::chop_seq( $seq, $locus_info->{'orf'} || 1 );
-					my $peptide = Bio::Perl::translate_as_string($seq);
+					my $peptide = $seq ? Bio::Perl::translate_as_string($seq) : 'X';
 					say $fh_muscle $peptide;
 				} else {
 					say $fh_muscle $seq;
