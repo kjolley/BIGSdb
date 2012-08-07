@@ -368,23 +368,23 @@ sub _print_isolate_filter_fieldset {
 	my @filters;
 	my $extended = $self->get_extended_attributes;
 	foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list } ) {
-		my %thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-		my @dropdownlist;
+		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+		my $dropdownlist;
 		my %dropdownlabels;
 		if ( $prefs->{'dropdownfields'}->{$field} ) {
 			if (   $field eq 'sender'
 				|| $field eq 'curator'
-				|| ( $thisfield{'userfield'} && $thisfield{'userfield'} eq 'yes' ) )
+				|| ( $thisfield->{'userfield'} && $thisfield->{'userfield'} eq 'yes' ) )
 			{
 				push @filters, $self->get_user_filter( $field, $self->{'system'}->{'view'} );
 			} else {
-				if ( $thisfield{'optlist'} ) {
-					@dropdownlist = $self->{'xmlHandler'}->get_field_option_list($field);
-					$dropdownlabels{$_} = $_ foreach (@dropdownlist);
-					if (   $thisfield{'required'}
-						&& $thisfield{'required'} eq 'no' )
+				if ( $thisfield->{'optlist'} ) {
+					$dropdownlist = $self->{'xmlHandler'}->get_field_option_list($field);
+					$dropdownlabels{$_} = $_ foreach (@$dropdownlist);
+					if (   $thisfield->{'required'}
+						&& $thisfield->{'required'} eq 'no' )
 					{
-						push @dropdownlist, '<blank>';
+						push @$dropdownlist, '<blank>';
 						$dropdownlabels{'<blank>'} = '<blank>';
 					}
 				} else {
@@ -393,14 +393,14 @@ sub _print_isolate_filter_fieldset {
 					eval { $sql->execute };
 					$logger->error($@) if $@;
 					while ( my ($value) = $sql->fetchrow_array ) {
-						push @dropdownlist, $value;
+						push @$dropdownlist, $value;
 					}
 				}
 				my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
 				push @filters,
 				  $self->get_filter(
 					$field,
-					\@dropdownlist,
+					$dropdownlist,
 					{
 						'labels' => \%dropdownlabels,
 						'tooltip' =>
@@ -847,13 +847,13 @@ sub _grouped_field_query {
 	my $buffer   = "$data->{'modifier'} (";
 	if ( $operator eq 'NOT' ) {
 		foreach (@$groupedfields) {
-			my %thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
+			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
 			if ( $text eq 'null' ) {
 				$buffer .= ' OR ' if $_ ne $groupedfields->[0];
 				$buffer .= "($view.$_ IS NOT NULL)";
 			} else {
 				$buffer .= ' AND ' if $_ ne $groupedfields->[0];
-				if ( $thisfield{'type'} ne 'text' ) {
+				if ( $thisfield->{'type'} ne 'text' ) {
 					$buffer .= "(NOT CAST($view.$_ AS text) = E'$text' OR $view.$_ IS NULL)";
 				} else {
 					$buffer .= "(NOT upper($view.$_) = upper(E'$text') OR $view.$_ IS NULL)";
@@ -862,9 +862,9 @@ sub _grouped_field_query {
 		}
 	} elsif ( $operator eq "contains" ) {
 		foreach (@$groupedfields) {
-			my %thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
+			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
 			$buffer .= ' OR ' if $_ ne $groupedfields->[0];
-			if ( $thisfield{'type'} ne 'text' ) {
+			if ( $thisfield->{'type'} ne 'text' ) {
 				$buffer .= "CAST($view.$_ AS text) LIKE E'\%$text\%'";
 			} else {
 				$buffer .= "upper($view.$_) LIKE upper(E'\%$text\%')";
@@ -872,9 +872,9 @@ sub _grouped_field_query {
 		}
 	} elsif ( $operator eq "NOT contain" ) {
 		foreach (@$groupedfields) {
-			my %thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
+			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
 			$buffer .= ' AND ' if $_ ne $groupedfields->[0];
-			if ( $thisfield{'type'} ne 'text' ) {
+			if ( $thisfield->{'type'} ne 'text' ) {
 				$buffer .= "(NOT CAST($view.$_ AS text) LIKE E'\%$text\%' OR $view.$_ IS NULL)";
 			} else {
 				$buffer .= "(NOT upper($view.$_) LIKE upper(E'\%$text\%') OR $view.$_ IS NULL)";
@@ -882,9 +882,9 @@ sub _grouped_field_query {
 		}
 	} elsif ( $operator eq '=' ) {
 		foreach (@$groupedfields) {
-			my %thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
+			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
 			$buffer .= ' OR ' if $_ ne $groupedfields->[0];
-			if ( $thisfield{'type'} ne 'text' ) {
+			if ( $thisfield->{'type'} ne 'text' ) {
 				$buffer .= $text eq 'null' ? "$view.$_ IS NULL" : "CAST($view.$_ AS text) = E'$text'";
 			} else {
 				$buffer .= $text eq 'null' ? "$view.$_ IS NULL" : "upper($view.$_) = upper(E'$text')";
@@ -892,13 +892,12 @@ sub _grouped_field_query {
 		}
 	} else {
 		foreach (@$groupedfields) {
-			my %thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
+			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
 			return
-			  if $self->check_format( { field => $_, text => $text, type => $thisfield{'type'}, operator => $data->{'operator'} },
+			  if $self->check_format( { field => $_, text => $text, type => $thisfield->{'type'}, operator => $data->{'operator'} },
 				$errors_ref );
 			$buffer .= ' OR ' if $_ ne $groupedfields->[0];
-			%thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
-			if ( $thisfield{'type'} ne 'text' ) {
+			if ( $thisfield->{'type'} ne 'text' ) {
 				$buffer .= "(CAST($view.$_ AS text) $operator E'$text' AND $view.$_ is not null)";
 			} else {
 				$buffer .= "($view.$_ $operator E'$text' AND $view.$_ is not null)";
@@ -921,7 +920,7 @@ sub _generate_isolate_query_for_provenance_fields {
 			my $field = $q->param("s$i");
 			$field =~ s/^f_//;
 			my @groupedfields = $self->get_grouped_fields($field);
-			my %thisfield     = $self->{'xmlHandler'}->get_field_attributes($field);
+			my $thisfield     = $self->{'xmlHandler'}->get_field_attributes($field);
 			my $extended_isolate_field;
 			if ( $field =~ /^e_(.*)\|\|(.*)/ ) {
 				$extended_isolate_field = $1;
@@ -930,14 +929,14 @@ sub _generate_isolate_query_for_provenance_fields {
 				  $self->{'datastore'}
 				  ->run_simple_query_hashref( "SELECT * FROM isolate_field_extended_attributes WHERE isolate_field=? AND attribute=?",
 					$extended_isolate_field, $field );
-				$thisfield{'type'} = $att_info->{'value_format'};
-				$thisfield{'type'} = 'int' if $thisfield{'type'} eq 'integer';
+				$thisfield->{'type'} = $att_info->{'value_format'};
+				$thisfield->{'type'} = 'int' if $thisfield->{'type'} eq 'integer';
 			}
 			my $operator = $q->param("y$i");
 			my $text     = $q->param("t$i");
 			$self->process_value( \$text );
 			next
-			  if $self->check_format( { field => $field, text => $text, type => lc( $thisfield{'type'} // '' ), operator => $operator },
+			  if $self->check_format( { field => $field, text => $text, type => lc( $thisfield->{'type'} // '' ), operator => $operator },
 				$errors_ref );
 			my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
 			$first_value = 0;
@@ -962,7 +961,7 @@ sub _generate_isolate_query_for_provenance_fields {
 					extended_isolate_field => $extended_isolate_field,
 					text                   => $text,
 					modifier               => $modifier,
-					type                   => $thisfield{'type'}
+					type                   => $thisfield->{'type'}
 				};
 				if ( $operator eq 'NOT' ) {
 					$args->{'not'} = 1;

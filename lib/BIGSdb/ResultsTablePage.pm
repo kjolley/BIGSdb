@@ -473,8 +473,8 @@ sub _print_isolate_table {
 				} elsif (
 					$thisfieldname eq 'sender'
 					|| $thisfieldname eq 'curator'
-					|| (   $field_attributes->{'thisfieldname'}{'userfield'}
-						&& $field_attributes->{'thisfieldname'}{'userfield'} eq 'yes' )
+					|| (   $field_attributes->{'thisfieldname'}->{'userfield'}
+						&& $field_attributes->{'thisfieldname'}->{'userfield'} eq 'yes' )
 				  )
 				{
 					my $user_info = $self->{'datastore'}->get_user_info( $data{$thisfieldname} );
@@ -563,11 +563,11 @@ sub _get_seqbin_size {
 
 sub _print_isolate_table_header {
 	my ( $self, $composites, $composite_display_pos, $schemes, $limit_qry ) = @_;
-	my @selectitems   = $self->{'xmlHandler'}->get_select_items('userFieldIdsOnly');
+	my $select_items   = $self->{'xmlHandler'}->get_field_list;
 	my $header_buffer = "<tr>";
 	my $col_count;
 	my $extended = $self->get_extended_attributes;
-	foreach my $col (@selectitems) {
+	foreach my $col (@$select_items) {
 		if (   $self->{'prefs'}->{'maindisplayfields'}->{$col}
 			|| $col eq 'id' )
 		{

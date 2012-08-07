@@ -26,23 +26,24 @@
 #Man-Suen Chan, (c) 2001 M-S Chan & University of Oxford
 #Included and released under GPLv3 by permission.
 ########################################################
-
 package BIGSdb::Parser;
 use strict;
 use warnings;
+use 5.010;
 use XML::Parser::PerlSAX;
 use List::MoreUtils qw(any);
 
-sub get_system_hash { 
+sub get_system_hash {
 	my ($self) = @_;
 	return $self->{'system'};
 }
 
-sub get_field_list  { 
+sub get_field_list {
 	my ($self) = @_;
-	return $self->{'fields'} 
+	return $self->{'fields'};
 }
-sub get_sample_field_list { 
+
+sub get_sample_field_list {
 	my ($self) = @_;
 	return $self->{'sample_fields'};
 }
@@ -54,70 +55,29 @@ sub get_all_field_attributes {
 
 sub get_field_attributes {
 	my ( $self, $name ) = @_;
-	if ( $self->{'attributes'}->{$name} ) {
-		return %{ $self->{'attributes'}->{$name} };
-	}
-	return %;
+	return $self->{'attributes'}->{$name} // {};
 }
 
 sub get_sample_field_attributes {
 	my ( $self, $name ) = @_;
-	if ( $self->{'sample_attributes'}->{$name} ) {
-		return %{ $self->{'sample_attributes'}->{$name} };
-	}
-	return %;
+	return $self->{'sample_attributes'}->{$name} // {};
 }
 
 sub is_field {
 	my ( $self, $field ) = @_;
 	$field ||= '';
-	return any {$_ eq $field} @{$self->{'fields'}};
+	return any { $_ eq $field } @{ $self->{'fields'} };
 }
 
 sub get_field_option_list {
 	my ( $self, $name ) = @_;
-	if ( $self->{'options'}->{$name} ) {
-		return @{ $self->{'options'}->{$name} };
-	}
-	return @;
-}
-
-sub get_select_items {
-	my ( $self, $args ) = @_;
-	my @selectitems;
-	if ( $args =~ /includeGroupedFields/ ) {
-		for ( my $i = 1 ; $i < 11 ; $i++ ) {
-			if ( $self->{'system'}->{"fieldgroup$i"} ) {
-				my $group = ( split /:/, $self->{'system'}->{"fieldgroup$i"} )[0];
-				push @selectitems, $group;
-			}
-		}
-	}
-	foreach (@{$self->{'fields'}}) {
-		my $thisfield = $self->{'attributes'}->{$_};
-		$_ = 'ST' if $_ eq 'st';
-		if (
-			( $args !~ /userFieldIdsOnly/ )
-			&& (   $_ eq 'sender'
-				|| $_ eq 'curator'
-				|| ( $thisfield->{'userfield'} && $thisfield->{'userfield'} eq 'yes' ) )
-		  )
-		{
-			push @selectitems, "$_ (id)";
-			push @selectitems, "$_ (surname)";
-			push @selectitems, "$_ (first_name)";
-			push @selectitems, "$_ (affiliation)";
-		} else {
-			push @selectitems, $_;
-		}
-	}
-	return @selectitems;
+	return $self->{'options'}->{$name} // [];
 }
 
 sub get_grouped_fields {
 	my ($self) = @_;
 	my @list;
-	for ( my $i = 1 ; $i < 11 ; $i++ ) {
+	for my $i ( 1 .. 10 ) {
 		if ( $self->{'system'}->{"fieldgroup$i"} ) {
 			my $group = ( split /:/, $self->{'system'}->{"fieldgroup$i"} )[0];
 			push @list, $group;
@@ -126,12 +86,12 @@ sub get_grouped_fields {
 	return \@list;
 }
 
-sub new { ##no critic
+sub new {    ##no critic
 	my $class = shift;
 	my $self  = {@_};
 	bless( $self, $class );
-	$self->{'fields'} = [];
-	$self->{'system'} = {};
+	$self->{'fields'}        = [];
+	$self->{'system'}        = {};
 	$self->{'sample_fields'} = [];
 	return $self;
 }
@@ -140,18 +100,18 @@ sub characters {
 	my ( $self, $element ) = @_;
 	chomp( $element->{'Data'} );
 	$element->{'Data'} =~ s/^\s*//;
-	if ($self->{'_in_system'}) {
-	} elsif ($self->{'_in_field'}) {
+	if ( $self->{'_in_system'} ) {
+	} elsif ( $self->{'_in_field'} ) {
 		$self->{'field_name'} = $element->{'Data'};
-		push @{$self->{'fields'}}, $self->{'field_name'};
-		$self->{'attributes'}->{$self->{'field_name'}} = $self->{'these'};
+		push @{ $self->{'fields'} }, $self->{'field_name'};
+		$self->{'attributes'}->{ $self->{'field_name'} } = $self->{'these'};
 		$self->{'_in_field'} = 0;
 	} elsif ( $self->{'_in_optlist'} ) {
-		push @{ $self->{'options'}->{$self->{'field_name'}} }, $element->{'Data'} if $element->{'Data'} ne '';
-	} elsif ( $self->{'_in_sample'}) {
+		push @{ $self->{'options'}->{ $self->{'field_name'} } }, $element->{'Data'} if $element->{'Data'} ne '';
+	} elsif ( $self->{'_in_sample'} ) {
 		$self->{'field_name'} = $element->{'Data'};
-		push @{$self->{'sample_fields'}}, $self->{'field_name'};
-		$self->{'sample_attributes'}->{$self->{'field_name'}}  = $self->{'these'};
+		push @{ $self->{'sample_fields'} }, $self->{'field_name'};
+		$self->{'sample_attributes'}->{ $self->{'field_name'} } = $self->{'these'};
 		$self->{'_in_sample'} = 0;
 	}
 	return;
@@ -159,31 +119,22 @@ sub characters {
 
 sub start_element {
 	my ( $self, $element ) = @_;
-	if ( $element->{'Name'} eq 'system' ) {
-		$self->{'_in_system'} = 1;
-		$self->{'system'}     = $element->{'Attributes'} ;
-	} elsif ( $element->{'Name'} eq 'field' ) {
-		$self->{'_in_field'} = 1;
-		$self->{'these'}     = $element->{'Attributes'};
-	} elsif ( $element->{'Name'} eq 'optlist' ) {
-		$self->{'_in_optlist'} = 1;
-	} elsif ( $element->{'Name'} eq 'sample' ) {
-		$self->{'_in_sample'} = 1;
-		$self->{'these'}     = $element->{'Attributes'} ;
+	given ( $element->{'Name'} ) {
+		when ('system') { $self->{'_in_system'} = 1; $self->{'system'} = $element->{'Attributes'} }
+		when ('field')  { $self->{'_in_field'}  = 1; $self->{'these'}  = $element->{'Attributes'} }
+		when ('optlist') { $self->{'_in_optlist'} = 1 }
+		when ('sample') { $self->{'_in_sample'} = 1; $self->{'these'} = $element->{'Attributes'} }
 	}
 	return;
 }
 
 sub end_element {
 	my ( $self, $element ) = @_;
-	if ($element->{'Name'} eq 'system'){
-		$self->{'_in_system'}  = 0;
-	} elsif ($element->{'Name'} eq 'field'){
-		$self->{'_in_field'}   = 0;
-	} elsif ($element->{'Name'} eq 'optlist'){
-		$self->{'_in_optlist'} = 0
-	} elsif ($element->{'Name'} eq 'sample'){
-		$self->{'_in_sample'} = 0
+	given ( $element->{'Name'} ) {
+		when ('system')  { $self->{'_in_system'}  = 0 }
+		when ('field')   { $self->{'_in_field'}   = 0 }
+		when ('optlist') { $self->{'_in_optlist'} = 0 }
+		when ('sample')  { $self->{'_in_sample'}  = 0 }
 	}
 	return;
 }

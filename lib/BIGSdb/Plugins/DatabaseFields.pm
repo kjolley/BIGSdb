@@ -64,30 +64,29 @@ sub _print_fields {
 	my $q          = $self->{'cgi'};
 	my $field_list = $self->{'xmlHandler'}->get_field_list;
 	my $td         = 1;
-	foreach (@$field_list) {
-		my %thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
-		$thisfield{'comments'} = '' if !$thisfield{'comments'};
-		print "<tr class=\"td$td\"><td>$_</td><td>$thisfield{'comments'}</td><td>$thisfield{'type'}</td><td>";
-		if ( $thisfield{'optlist'} ) {
-			foreach ( $self->{'xmlHandler'}->get_field_option_list($_) ) {
-				print "$_<br />\n";
-			}
-		} elsif ( $_ eq 'sender'
-			|| $_ eq 'sequenced_by' || ( $thisfield{'userfield'} && $thisfield{'userfield'} eq 'yes' ) )
+	foreach my $field (@$field_list) {
+		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+		$thisfield->{'comments'} = '' if !$thisfield->{'comments'};
+		print "<tr class=\"td$td\"><td>$field</td><td>$thisfield->{'comments'}</td><td>$thisfield->{'type'}</td><td>";
+		if ( $thisfield->{'optlist'} ) {
+			my $option_list = $self->{'xmlHandler'}->get_field_option_list($field);
+			print "$_<br />\n" foreach @$option_list;
+		} elsif ( $field eq 'sender'
+			|| $field eq 'sequenced_by' || ( $thisfield->{'userfield'} && $thisfield->{'userfield'} eq 'yes' ) )
 		{
 			print "<a href=\""
 			  . $q->script_name
 			  . "?db=$self->{'instance'}&amp;page=fieldValues&amp;field=f_sender\" target=\"_blank\">Click for list of sender ids</a>";
-		} elsif ( $_ eq 'curator' ) {
+		} elsif ( $field eq 'curator' ) {
 			print "<a href=\""
 			  . $q->script_name
 			  . "?db=$self->{'instance'}&amp;page=fieldValues&amp;field=f_curator\" target=\"_blank\">Click for list of curator ids</a>";
 		} else {
 			print '-';
 		}
-		if ( $thisfield{'composite'} ) {
+		if ( $thisfield->{'composite'} ) {
 			print "</td><td>n/a (composite field)</td></tr>\n";
-		} elsif ( $thisfield{'required'} && $thisfield{'required'} eq 'no' ) {
+		} elsif ( $thisfield->{'required'} && $thisfield->{'required'} eq 'no' ) {
 			print "</td><td>no</td></tr>\n";
 		} else {
 			print "</td><td>yes</td></tr>\n";

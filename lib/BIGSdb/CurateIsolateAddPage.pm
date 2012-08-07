@@ -39,8 +39,8 @@ sub print_content {
 		if ( $q->param($field) ) {
 			$newdata{$field} = $q->param($field);
 		} else {
-			my %thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-			if ( $thisfield{'type'} eq 'int'
+			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+			if ( $thisfield->{'type'} eq 'int'
 				&& lc($field) eq 'id' )
 			{
 				$newdata{$field} = $self->next_id('isolates');
@@ -64,8 +64,8 @@ sub _check {
 	my $insert = 1;
 	foreach my $required ( '1', '0' ) {
 		foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list } ) {
-			my %thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-			my $required_field = !( ( $thisfield{'required'} // '' ) eq 'no' );
+			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+			my $required_field = !( ( $thisfield->{'required'} // '' ) eq 'no' );
 			if (   ( $required_field && $required )
 				|| ( !$required_field && !$required ) )
 			{
@@ -237,8 +237,8 @@ sub _print_interface {
 	#Display required fields first
 	foreach my $required ( '1', '0' ) {
 		foreach my $field (@$field_list) {
-			my %thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-			my $required_field = !( ( $thisfield{'required'} // '' ) eq 'no' );
+			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+			my $required_field = !( ( $thisfield->{'required'} // '' ) eq 'no' );
 			if (   ( $required_field && $required )
 				|| ( !$required_field && !$required ) )
 			{
@@ -247,13 +247,10 @@ sub _print_interface {
 					print '!';
 				}
 				print "</td><td style=\"text-align:left\">";
-				if ( $thisfield{'optlist'} ) {
-					my @optlist;
-					foreach my $option ( $self->{'xmlHandler'}->get_field_option_list($field) ) {
-						push @optlist, $option;
-					}
-					say $q->popup_menu( -name => $field, -values => [ '', @optlist ], -default => $newdata->{$field} );
-				} elsif ( $thisfield{'type'} eq 'bool' ) {
+				if ( $thisfield->{'optlist'} ) {
+					my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
+					say $q->popup_menu( -name => $field, -values => [ '', @$optlist ], -default => $newdata->{$field} );
+				} elsif ( $thisfield->{'type'} eq 'bool' ) {
 					say $q->popup_menu( -name => $field, -values => [ '', 'true', 'false' ], -default => $newdata->{$field} );
 				} elsif ( lc($field) eq 'datestamp'
 					|| lc($field) eq 'date_entered' )
@@ -264,22 +261,22 @@ sub _print_interface {
 				} elsif (
 					lc($field) eq 'sender'
 					|| lc($field) eq 'sequenced_by'
-					|| (   $thisfield{'userfield'}
-						&& $thisfield{'userfield'} eq 'yes' )
+					|| (   $thisfield->{'userfield'}
+						&& $thisfield->{'userfield'} eq 'yes' )
 				  )
 				{
 					say $q->popup_menu( -name => $field, -values => [ '', @users ], -labels => \%usernames, -default => $newdata->{$field},
 					);
 				} else {
-					if ( $thisfield{'length'} && $thisfield{'length'} > 60 ) {
+					if ( $thisfield->{'length'} && $thisfield->{'length'} > 60 ) {
 						say $q->textarea( -name => $field, -rows => 3, -cols => 40, -default => $newdata->{$field} );
 					} else {
-						say $q->textfield( -name => $field, -size => $thisfield{'length'}, -default => $newdata->{$field} );
+						say $q->textfield( -name => $field, -size => $thisfield->{'length'}, -default => $newdata->{$field} );
 					}
 				}
 				if (   $field ne 'datestamp'
 					&& $field ne 'date_entered'
-					&& lc( $thisfield{'type'} ) eq 'date' )
+					&& lc( $thisfield->{'type'} ) eq 'date' )
 				{
 					say " format: yyyy-mm-dd";
 				}

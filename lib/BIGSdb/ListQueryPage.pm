@@ -244,8 +244,8 @@ sub _run_isolate_query {
 
 	if ( $field =~ /^f_(.*)$/ ) {
 		$field = $1;
-		my %thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-		$datatype  = $thisfield{'type'};
+		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+		$datatype  = $thisfield->{'type'};
 		$fieldtype = 'isolate';
 	} elsif ( $field =~ /$locus_pattern/ ) {
 		$field    = $1;
@@ -300,10 +300,10 @@ sub _run_isolate_query {
 					$tempqry .= " (";
 					my $first = 1;
 					for ( my $x = 0 ; $x < scalar @groupedfields ; $x++ ) {
-						my %thisfield = $self->{'xmlHandler'}->get_field_attributes( $groupedfields[$x] );
-						next if $thisfield{'type'} eq 'int' && !BIGSdb::Utils::is_int($value);
+						my $thisfield = $self->{'xmlHandler'}->get_field_attributes( $groupedfields[$x] );
+						next if $thisfield->{'type'} eq 'int' && !BIGSdb::Utils::is_int($value);
 						$tempqry .= ' OR ' if !$first;
-						if ( $thisfield{'type'} eq 'int' ) {
+						if ( $thisfield->{'type'} eq 'int' ) {
 							$tempqry .= "$groupedfields[$x] = E'$value'";
 						} else {
 							$tempqry .= "upper($groupedfields[$x]) = upper(E'$value')";

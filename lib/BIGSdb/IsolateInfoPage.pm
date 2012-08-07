@@ -314,7 +314,7 @@ sub _get_provenance_fields {
 	foreach my $field (@$field_list) {
 		my $displayfield = $field;
 		$displayfield =~ tr/_/ /;
-		my %thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 		my $web;
 		if ( !defined $data->{$field} ) {
 			if ( $composites{$field} ) {
@@ -323,8 +323,8 @@ sub _get_provenance_fields {
 			next;
 
 			#Do not print row
-		} elsif ( $thisfield{'web'} ) {
-			my $url = $thisfield{'web'};
+		} elsif ( $thisfield->{'web'} ) {
+			my $url = $thisfield->{'web'};
 			$url =~ s/\[\\*\?\]/$data->{$field}/;
 			$url =~ s/\&/\&amp;/g;
 			my $domain;
@@ -338,7 +338,7 @@ sub _get_provenance_fields {
 		}
 		if (   ( $field eq 'curator' )
 			|| ( $field eq 'sender' )
-			|| ( $thisfield{'userfield'} && $thisfield{'userfield'} eq 'yes' ) )
+			|| ( $thisfield->{'userfield'} && $thisfield->{'userfield'} eq 'yes' ) )
 		{
 			my $userdata = $self->{'datastore'}->get_user_info( $data->{$field} );
 			my $colspan = $summary_view ? 5 : 2;
@@ -348,7 +348,7 @@ sub _get_provenance_fields {
 				$buffer .= "<td style=\"text-align:left\" colspan=\"2\">$userdata->{affiliation}</td>";
 				if (
 					$field eq 'curator'
-					|| ( ( $field eq 'sender' || ( $thisfield{'userfield'} && $thisfield{'userfield'} eq 'yes' ) )
+					|| ( ( $field eq 'sender' || ( $thisfield->{'userfield'} && $thisfield->{'userfield'} eq 'yes' ) )
 						&& !$self->{'system'}->{'privacy'} )
 				  )
 				{
@@ -360,7 +360,7 @@ sub _get_provenance_fields {
 						$buffer .= "<td style=\"text-align:left\"><a href=\"mailto:$userdata->{'email'}\">$userdata->{'email'}</a></td>";
 					}
 				}
-				if ( ( $field eq 'sender' || ( $thisfield{'userfield'} && $thisfield{'userfield'} eq 'yes' ) )
+				if ( ( $field eq 'sender' || ( $thisfield->{'userfield'} && $thisfield->{'userfield'} eq 'yes' ) )
 					&& $self->{'system'}->{'privacy'} )
 				{
 					$buffer .= "<td></td>";
@@ -529,22 +529,22 @@ sub _get_samples {
 	my $buffer        = '';
 	my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
 	my ( @selected_fields, @clean_fields );
-	foreach (@$sample_fields) {
-		next if $_ eq 'isolate_id';
-		my %attributes = $self->{'xmlHandler'}->get_sample_field_attributes($_);
-		next if defined $attributes{'maindisplay'} && $attributes{'maindisplay'} eq 'no';
-		push @selected_fields, $_;
-		( my $clean = $_ ) =~ tr/_/ /;
+	foreach my $field (@$sample_fields) {
+		next if $field eq 'isolate_id';
+		my $attributes = $self->{'xmlHandler'}->get_sample_field_attributes($field);
+		next if ($attributes->{'maindisplay'} // '') eq 'no';
+		push @selected_fields, $field;
+		( my $clean = $field ) =~ tr/_/ /;
 		push @clean_fields, $clean;
 	}
 	if (@selected_fields) {
 		my $samples = $self->{'datastore'}->get_samples($id);
 		my @sample_rows;
 		foreach my $sample (@$samples) {
-			foreach (@$sample_fields) {
-				if ( $_ eq 'sender' || $_ eq 'curator' ) {
-					my $user_info = $self->{'datastore'}->get_user_info( $sample->{$_} );
-					$sample->{$_} = "$user_info->{'first_name'} $user_info->{'surname'}";
+			foreach my $field (@$sample_fields) {
+				if ( $field eq 'sender' || $field eq 'curator' ) {
+					my $user_info = $self->{'datastore'}->get_user_info( $sample->{$field} );
+					$sample->{$field} = "$user_info->{'first_name'} $user_info->{'surname'}";
 				}
 			}
 			my $row = "<tr class=\"td$$td_ref\">";
@@ -557,10 +557,10 @@ sub _get_samples {
 				$sample->{$field} = defined $sample->{$field} ? $sample->{$field} : '';
 				if ( $field eq 'sample_id' && $self->{'prefs'}->{'sample_details'} ) {
 					my $info = "Sample $sample->{$field} - ";
-					foreach (@$sample_fields) {
-						next if $_ eq 'sample_id' || $_ eq 'isolate_id';
-						( my $clean = $_ ) =~ tr/_/ /;
-						$info .= "$clean: $sample->{$_}&nbsp;<br />" if defined $sample->{$_};   #nbsp added to stop Firefox truncating text
+					foreach my $field (@$sample_fields) {
+						next if $field eq 'sample_id' || $field eq 'isolate_id';
+						( my $clean = $field ) =~ tr/_/ /;
+						$info .= "$clean: $sample->{$field}&nbsp;<br />" if defined $sample->{$field};   #nbsp added to stop Firefox truncating text
 					}
 					$row .=
 "<td>$sample->{$field}<span style=\"font-size:0.5em\"> </span><a class=\"update_tooltip\" title=\"$info\">&nbsp;...&nbsp;</a></td>";

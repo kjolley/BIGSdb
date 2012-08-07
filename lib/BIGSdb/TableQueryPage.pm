@@ -591,7 +591,7 @@ sub _search_by_isolate_id {
 
 sub _search_by_isolate {
 	my ( $self, $table, $operator, $text ) = @_;
-	my %att   = $self->{'xmlHandler'}->get_field_attributes( $self->{'system'}->{'labelfield'} );
+	my $att   = $self->{'xmlHandler'}->get_field_attributes( $self->{'system'}->{'labelfield'} );
 	my $field = $self->{'system'}->{'labelfield'};
 	my $qry;
 	if ( $table eq 'allele_sequences' || $table eq 'experiment_sequences' ) {
@@ -610,7 +610,7 @@ sub _search_by_isolate {
 		if ( $text eq '<blank>' || $text eq 'null' ) {
 			$qry .= "$field is not null";
 		} else {
-			if ( $att{'type'} eq 'int' ) {
+			if ( $att->{'type'} eq 'int' ) {
 				$qry .= "NOT CAST($field AS text) = '$text'";
 			} else {
 				$qry .=
@@ -618,21 +618,21 @@ sub _search_by_isolate {
 			}
 		}
 	} elsif ( $operator eq "contains" ) {
-		if ( $att{'type'} eq 'int' ) {
+		if ( $att->{'type'} eq 'int' ) {
 			$qry .= "CAST($field AS text) LIKE '\%$text\%'";
 		} else {
 			$qry .=
 "upper($field) LIKE upper('\%$text\%') OR $self->{'system'}->{'view'}.id IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) LIKE upper('\%$text\%'))";
 		}
 	} elsif ( $operator eq "NOT contain" ) {
-		if ( $att{'type'} eq 'int' ) {
+		if ( $att->{'type'} eq 'int' ) {
 			$qry .= "NOT CAST($field AS text) LIKE '\%$text\%'";
 		} else {
 			$qry .=
 "NOT upper($field) LIKE upper('\%$text\%') AND $self->{'system'}->{'view'}.id NOT IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) LIKE upper('\%$text\%'))";
 		}
 	} elsif ( $operator eq '=' ) {
-		if ( lc( $att{'type'} ) eq 'text' ) {
+		if ( lc( $att->{'type'} ) eq 'text' ) {
 			$qry .= (
 				( $text eq '<blank>' || $text eq 'null' )
 				? "$field is null"
