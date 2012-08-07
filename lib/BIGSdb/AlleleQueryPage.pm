@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::QueryPage);
-use List::MoreUtils qw(any);
+use List::MoreUtils qw(any none);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant MAX_ROWS => 10;
@@ -35,7 +35,7 @@ sub initiate {
 		return;
 	}
 	$self->{$_} = 1 foreach qw(jQuery tooltips);
-	$self->{'noCache'} = 1 if ($self->{'system'}->{'sets'} // '') eq 'yes';
+	$self->{'noCache'} = 1 if ( $self->{'system'}->{'sets'} // '' ) eq 'yes';
 	return;
 }
 
@@ -96,7 +96,7 @@ sub print_content {
 		return;
 	}
 	my $cleaned_locus = $self->clean_locus($locus);
-	my $desc = $self->get_db_description;
+	my $desc          = $self->get_db_description;
 	print "<h1>Query $cleaned_locus sequences - $desc database</h1>\n";
 	my $qry;
 	if (   !defined $q->param('currentpage')
@@ -351,9 +351,11 @@ sub _run_query {
 					}
 					$thisfield->{'type'} ||= 'text';    # sender/curator surname, firstname, affiliation
 					$thisfield->{'type'} = $locus_info->{'allele_id_format'} // 'text';
-					next
-					  if $self->check_format( { field => $field, text => $text, type => $thisfield->{'type'}, operator => $operator },
-						\@errors );
+					if ( none { $field =~ /\($_\)$/ } qw (surname first_name affiliation) ) {
+						next
+						  if $self->check_format( { field => $field, text => $text, type => $thisfield->{'type'}, operator => $operator },
+							\@errors );
+					}
 					my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
 					$first_value = 0;
 					if ( $field =~ /(.*) \(id\)$/
@@ -363,11 +365,7 @@ sub _run_query {
 						next;
 					}
 					$qry .= $modifier;
-					if (   $field =~ /(.*) \(id\)$/
-						|| $field =~ /(.*) \(surname\)$/
-						|| $field =~ /(.*) \(first_name\)$/
-						|| $field =~ /(.*) \(affiliation\)$/ )
-					{
+					if ( any { $field =~ /.* \($_\)/ } qw (id surname first_name affiliation) ) {
 						$qry .= $self->search_users( $field, $operator, $text, 'sequences' );
 					} else {
 						if ( $operator eq 'NOT' ) {
@@ -472,7 +470,7 @@ sub _process_flags {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $buffer = '';
-	if ( ($q->param('allele_flag_list') // '') ne '' && ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
+	if ( ( $q->param('allele_flag_list') // '' ) ne '' && ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
 		if ( $q->param('allele_flag_list') eq 'no flag' ) {
 			$buffer .= " AND NOT EXISTS (SELECT 1 FROM allele_flags WHERE sequences.locus=allele_flags.locus AND "
 			  . "sequences.allele_id=allele_flags.allele_id)";
