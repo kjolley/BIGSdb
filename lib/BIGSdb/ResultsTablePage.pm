@@ -571,8 +571,8 @@ sub _print_isolate_table_header {
 		if (   $self->{'prefs'}->{'maindisplayfields'}->{$col}
 			|| $col eq 'id' )
 		{
-			$col =~ tr/_/ /;
-			$header_buffer .= "<th>$col</th>";
+			(my $display_col = $col) =~ tr/_/ /;
+			$header_buffer .= "<th>$display_col</th>";
 			$col_count++;
 		}
 		if ( $composites->{$col} ) {
