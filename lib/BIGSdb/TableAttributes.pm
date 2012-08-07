@@ -1479,23 +1479,20 @@ sub get_samples_table_attributes {
 	}
 	my $attributes;
 	foreach (@$fields) {
-		my %field_attributes = $self->{'xmlHandler'}->get_sample_field_attributes($_);
-		my @optlist;
-		if ( $field_attributes{'optlist'} && $field_attributes{'optlist'} eq 'yes' ) {
-			@optlist = $self->{'xmlHandler'}->get_field_option_list($_);
-		}
+		my $field_attributes = $self->{'xmlHandler'}->get_sample_field_attributes($_);
+		my $optlist = ( $field_attributes->{'optlist'} // '' ) eq 'yes' ? $self->{'xmlHandler'}->get_field_option_list($_) : [];
 		local $" = ';';
 		push @$attributes,
 		  (
 			{
 				name        => $_,
-				type        => $field_attributes{'type'},
-				required    => $field_attributes{'required'},
+				type        => $field_attributes->{'type'},
+				required    => $field_attributes->{'required'},
 				primary_key => ( $_ eq 'isolate_id' || $_ eq 'sample_id' ) ? 'yes' : '',
 				foreign_key => $_ eq 'isolate_id' ? 'isolates' : '',
-				optlist => "@optlist",
-				main_display => $field_attributes{'maindisplay'},
-				length       => $field_attributes{'length'} || ( $field_attributes{'type'} eq 'int' ? 6 : 12 )
+				optlist => "@$optlist",
+				main_display => $field_attributes->{'maindisplay'},
+				length       => $field_attributes->{'length'} || ( $field_attributes->{'type'} eq 'int' ? 6 : 12 )
 			}
 		  );
 	}

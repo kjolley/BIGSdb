@@ -387,8 +387,8 @@ sub _print_isolate_table_fields_options {
 			print "</li>\n";
 			push @js,  "\$(\"#field_$field\").attr(\"checked\",true)";
 			push @js2, "\$(\"#field_$field\").attr(\"checked\",false)";
-			my %thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-			my $value = $thisfield{'maindisplay'} && $thisfield{'maindisplay'} eq 'no' ? 'false' : 'true';
+			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+			my $value = ($thisfield->{'maindisplay'} // '') eq 'no' ? 'false' : 'true';
 			push @js3, "\$(\"#field_$field\").attr(\"checked\",$value)";
 			$i++;
 			$self->_check_new_column( scalar @field_names, \$i, \$cols, $rel_widths, DISPLAY_COLUMNS );
@@ -507,7 +507,6 @@ sub _print_isolate_query_fields_options {
 	print "<div style=\"float:left; width:$rel_widths->{0}%\">";
 	print "<ul>\n";
 	foreach (@checkfields) {
-		my %thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
 		if ( $_ ne 'id' ) {
 			print "<li>";
 			print $q->checkbox(
@@ -525,8 +524,8 @@ sub _print_isolate_query_fields_options {
 				my $scheme_info = $self->{'datastore'}->get_scheme_info($1);
 				$value = $scheme_info->{'query_status'} ? 'true' : 'false';
 			} else {
-				my %thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
-				$value = ( $thisfield{'dropdown'} && $thisfield{'dropdown'} eq 'yes' ) ? 'true' : 'false';
+				my $thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
+				$value = ( ($thisfield->{'dropdown'} // '') eq 'yes' ) ? 'true' : 'false';
 			}
 			push @js3, "\$(\"#dropfield_$_\").attr(\"checked\",$value)";
 			$i++;

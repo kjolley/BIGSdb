@@ -288,7 +288,7 @@ STATS
 		if ( $q->param('size_filter') && BIGSdb::Utils::is_int( $q->param('size') ) ) {
 			$min_size = $q->param('size_filter') && $q->param('size');
 		}
-		my %attributes   = $self->{'xmlHandler'}->get_field_attributes($id_field);
+		my $attributes   = $self->{'xmlHandler'}->get_field_attributes($id_field);
 		my $allow_upload = 0;
 		my $sql          = $self->{'db'}->prepare("SELECT id FROM $self->{'system'}->{'view'} WHERE $id_field = ?");
 		foreach ( sort { $a cmp $b } keys %$seq_ref ) {
@@ -320,7 +320,7 @@ STATS
 					($designation) = @ids;
 				}
 			}
-			if ( $attributes{'type'} eq 'int' && !BIGSdb::Utils::is_int($_) ) {
+			if ( $attributes->{'type'} eq 'int' && !BIGSdb::Utils::is_int($_) ) {
 				$status = 'BIGSdb id must be an integer';
 				print "<tr class=\"td$td\"><td class=\"statusbad\">$designation</td>";
 				print $identifier_field_html if $identifier_field_html;

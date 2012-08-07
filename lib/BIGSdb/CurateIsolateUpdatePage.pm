@@ -84,8 +84,8 @@ sub _update {
 	my $update = 1;
 	foreach my $required ( '1', '0' ) {
 		foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list } ) {
-			my %thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-			my $required_field = !( $thisfield{'required'} && $thisfield{'required'} eq 'no' );
+			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+			my $required_field = !( ($thisfield->{'required'} // '') eq 'no' );
 			if (   ( $required_field && $required )
 				|| ( !$required_field && !$required ) )
 			{
@@ -247,10 +247,10 @@ sub _print_interface {
 		#Display required fields first
 		foreach my $required ( '1', '0' ) {
 			foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list } ) {
-				my %thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+				my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 				if (
-					!( $thisfield{'required'} && $thisfield{'required'} eq 'no' ) && $required
-					|| ( ( $thisfield{'required'} && $thisfield{'required'} eq 'no' )
+					!( $thisfield->{'required'} && $thisfield->{'required'} eq 'no' ) && $required
+					|| ( ( $thisfield->{'required'} && $thisfield->{'required'} eq 'no' )
 						&& $required == 0 )
 				  )
 				{
@@ -259,10 +259,10 @@ sub _print_interface {
 						print '!';
 					}
 					print "</td><td style=\"text-align:left; width:90%\">";
-					if ( $thisfield{'optlist'} ) {
-						my @optlist = $self->{'xmlHandler'}->get_field_option_list($field);
-						say $q->popup_menu( -name => $field, -values => [ '', @optlist ], -default => $$data{ lc($field) } );
-					} elsif ( $thisfield{'type'} eq 'bool' ) {
+					if ( $thisfield->{'optlist'} ) {
+						my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
+						say $q->popup_menu( -name => $field, -values => [ '', @$optlist ], -default => $$data{ lc($field) } );
+					} elsif ( $thisfield->{'type'} eq 'bool' ) {
 						my $default;
 						if (   $$data{ lc($field) } eq 't'
 							|| $$data{ lc($field) } eq '1'
@@ -286,8 +286,8 @@ sub _print_interface {
 					} elsif (
 						lc($field) eq 'sender'
 						|| lc($field) eq 'sequenced_by'
-						|| (   $thisfield{'userfield'}
-							&& $thisfield{'userfield'} eq 'yes' )
+						|| (   $thisfield->{'userfield'}
+							&& $thisfield->{'userfield'} eq 'yes' )
 					  )
 					{
 						say $q->popup_menu(
@@ -297,15 +297,15 @@ sub _print_interface {
 							-default => $$data{ lc($field) }
 						);
 					} else {
-						if ( $thisfield{'length'} && $thisfield{'length'} > 60 ) {
+						if ( $thisfield->{'length'} && $thisfield->{'length'} > 60 ) {
 							say $q->textarea( -name => $field, -rows => 3, -cols => 60, -default => $$data{ lc($field) } );
 						} else {
-							say $q->textfield( -name => $field, -size => $thisfield{'length'}, -default => $$data{ lc($field) } );
+							say $q->textfield( -name => $field, -size => $thisfield->{'length'}, -default => $$data{ lc($field) } );
 						}
 					}
 					if (   $field ne 'datestamp'
 						&& $field ne 'date_entered'
-						&& lc( $thisfield{'type'} ) eq 'date' )
+						&& lc( $thisfield->{'type'} ) eq 'date' )
 					{
 						print " format: yyyy-mm-dd";
 					}

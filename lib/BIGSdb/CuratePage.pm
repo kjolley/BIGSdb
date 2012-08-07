@@ -685,14 +685,14 @@ sub _is_field_bad_isolates {
 	$value = '' if !defined $value;
 	$value =~ s/<blank>//;
 	$value =~ s/null//;
-	my %thisfield = $self->{'xmlHandler'}->get_field_attributes($fieldname);
-	$thisfield{'type'} ||= 'text';
+	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($fieldname);
+	$thisfield->{'type'} ||= 'text';
 
 	#If field is null make sure it's not a required field
 	if ( $value eq '' ) {
 		if (   $fieldname eq 'aliases'
 			|| $fieldname eq 'references'
-			|| ( $thisfield{'required'} && $thisfield{'required'} eq 'no' ) )
+			|| ( $thisfield->{'required'} && $thisfield->{'required'} eq 'no' ) )
 		{
 			return 0;
 		} else {
@@ -706,7 +706,7 @@ sub _is_field_bad_isolates {
 	}
 
 	#Make sure int fields really are integers
-	if ( $thisfield{'type'} eq 'int' && !BIGSdb::Utils::is_int($value) ) {
+	if ( $thisfield->{'type'} eq 'int' && !BIGSdb::Utils::is_int($value) ) {
 		return 'must be an integer';
 	}
 
@@ -728,16 +728,16 @@ sub _is_field_bad_isolates {
 	}
 
 	#If a regex pattern exists, make sure data conforms to it
-	if ( $thisfield{'regex'} ) {
-		if ( $value !~ /^$thisfield{'regex'}$/ ) {
-			if ( !( $thisfield{'required'} && $thisfield{'required'} eq 'no' && $value eq '' ) ) {
+	if ( $thisfield->{'regex'} ) {
+		if ( $value !~ /^$thisfield->{'regex'}$/ ) {
+			if ( !( $thisfield->{'required'} && $thisfield->{'required'} eq 'no' && $value eq '' ) ) {
 				return 'does not conform to the required formatting';
 			}
 		}
 	}
 
 	#Make sure floats fields really are floats
-	if ( $thisfield{'type'} eq 'float' && !BIGSdb::Utils::is_float($value) ) {
+	if ( $thisfield->{'type'} eq 'float' && !BIGSdb::Utils::is_float($value) ) {
 		return 'must be a floating point number';
 	}
 
@@ -756,7 +756,7 @@ sub _is_field_bad_isolates {
 	}
 
 	#make sure date fields really are dates in correct format
-	if ( $thisfield{'type'} eq 'date' && $value !~ /^\d\d\d\d-\d\d-\d\d$/ ) {
+	if ( $thisfield->{'type'} eq 'date' && $value !~ /^\d\d\d\d-\d\d-\d\d$/ ) {
 		return "must be a date in yyyy-mm-dd format";
 	}
 	if (   $flag
@@ -777,22 +777,22 @@ sub _is_field_bad_isolates {
 	}
 
 	#Make sure options list fields only use a listed option (or null if optional)
-	if ( $thisfield{'optlist'} ) {
-		my @options = $self->{'xmlHandler'}->get_field_option_list($fieldname);
-		foreach (@options) {
+	if ( $thisfield->{'optlist'} ) {
+		my $options = $self->{'xmlHandler'}->get_field_option_list($fieldname);
+		foreach (@$options) {
 			if ( $value eq $_ ) {
 				return 0;
 			}
 		}
-		if ( $thisfield{'required'} && $thisfield{'required'} eq 'no' ) {
+		if ( $thisfield->{'required'} && $thisfield->{'required'} eq 'no' ) {
 			return 0 if ( $value eq '' );
 		}
 		return "'$value' is not on the list of allowed values for this field.";
 	}
 
 	#Make sure field is not too long
-	if ( $thisfield{'length'} && length($value) > $thisfield{'length'} ) {
-		return "field is too long (maximum length $thisfield{'length'})";
+	if ( $thisfield->{'length'} && length($value) > $thisfield->{'length'} ) {
+		return "field is too long (maximum length $thisfield->{'length'})";
 	}
 	return 0;
 }

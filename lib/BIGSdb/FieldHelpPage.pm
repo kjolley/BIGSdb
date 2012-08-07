@@ -92,38 +92,38 @@ sub _print_isolate_field {
 	( my $cleaned = $field ) =~ tr/_/ /;
 	say "<div class=\"box\" id=\"resultstable\">";
 	say "<h2>$cleaned</h2>";
-	my %attributes = $self->{'xmlHandler'}->get_field_attributes($field);
+	my $attributes = $self->{'xmlHandler'}->get_field_attributes($field);
 	say "<table class=\"resultstable\">";
 	my %type = ( 'int' => 'integer', 'float' => 'floating point number' );
 	my $unique = $self->{'datastore'}->run_simple_query("SELECT COUNT(DISTINCT $field) FROM $self->{'system'}->{'view'}")->[0];
 	say "<tr class=\"td1\"><th style=\"text-align:right\">Data type</th><td style=\"text-align:left\">"
-	  . ( $type{ $attributes{'type'} } || $attributes{'type'} )
+	  . ( $type{ $attributes->{'type'} } || $attributes->{'type'} )
 	  . "</td></tr>";
 	say "<tr class=\"td2\"><th style=\"text-align:right\">Required</th><td style=\"text-align:left\">"
 	  . (
-		!defined $attributes{'required'} || $attributes{'required'} ne 'no'
+		!defined $attributes->{'required'} || $attributes->{'required'} ne 'no'
 		? "yes - this is a required field so all records must contain a value.</td></tr>"
 		: "no - this is an optional field so some records may not contain a value.</td></tr>"
 	  );
 	say "<tr class=\"td1\"><th style=\"text-align:right\">Unique values</th><td style=\"text-align:left\">$unique</td></tr>";
 	my $td = 2;
 
-	if ( $attributes{'comments'} ) {
-		say "<tr class=\"td$td\"><th style=\"text-align:right\">Comments</th><td style=\"text-align:left\">$attributes{'comments'}"
+	if ( $attributes->{'comments'} ) {
+		say "<tr class=\"td$td\"><th style=\"text-align:right\">Comments</th><td style=\"text-align:left\">$attributes->{'comments'}"
 		  . "</td></tr>";
 		$td = $td == 1 ? 2 : 1;
 	}
-	if ( $attributes{'regex'} ) {
+	if ( $attributes->{'regex'} ) {
 		say "<tr class=\"td$td\"><th style=\"text-align:right\">Regular expression</th><td style=\"text-align:left\">"
 		  . "Values are constrained to the following <a href=\"http://en.wikipedia.org/wiki/Regex\">regular expression</a>"
-		  . ": /$attributes{'regex'}/</td></tr>";
+		  . ": /$attributes->{'regex'}/</td></tr>";
 	}
 	print "</table>\n<p />\n";
 	my $used_list = $self->{'datastore'}->run_list_query("SELECT DISTINCT $field FROM $self->{'system'}->{'view'} ORDER BY $field");
-	my $cols = $attributes{'type'} eq 'int' ? 10 : 6;
+	my $cols = $attributes->{'type'} eq 'int' ? 10 : 6;
 	my $used;
 	$used->{$_} = 1 foreach @$used_list;
-	if ( $field eq 'sender' || $field eq 'curator' || ( $attributes{'userfield'} && $attributes{'userfield'} eq 'yes' ) ) {
+	if ( $field eq 'sender' || $field eq 'curator' || ( $attributes->{'userfield'} && $attributes->{'userfield'} eq 'yes' ) ) {
 		print "<p>The integer stored in this field is the key to the following users";
 		my $filter = $field eq 'curator' ? "WHERE (status = 'curator' or status = 'admin') AND id>0" : 'WHERE id>0';
 		my $qry = "SELECT id, user_name, surname, first_name, affiliation FROM users $filter ORDER BY id";
@@ -144,11 +144,11 @@ sub _print_isolate_field {
 			say "<tr><td>$data[0]</td><td>$data[1]</td><td>$data[2]</td><td>$data[3]</td><td align='left'>$data[4]</td></tr>";
 		}
 		say "</tbody></table>";
-	} elsif ( $attributes{'optlist'} && $attributes{'optlist'} eq 'yes' ) {
+	} elsif ( ($attributes->{'optlist'} // '') eq 'yes' ) {
 		say "<p>The field has a constrained list of allowable values (values present in the database are "
 		  . "<span class=\"highlightvalue\">highlighted</span>):</p>";
-		my @options = $self->{'xmlHandler'}->get_field_option_list($field);
-		$self->_print_list( \@options, $cols, $used );
+		my $options = $self->{'xmlHandler'}->get_field_option_list($field);
+		$self->_print_list( $options, $cols, $used );
 	} else {
 		say "<p>The following values are present in the database:</p>";
 		$self->_print_list( $used_list, $cols );
