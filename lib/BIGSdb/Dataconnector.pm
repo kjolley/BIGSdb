@@ -32,10 +32,11 @@ sub new {
 
 sub DESTROY {
 	my ($self) = @_;
-	foreach ( keys %{ $self->{'db'} } ) {
-		$self->{'db'}->{$_}->disconnect()
-		  and $logger->info("Disconnected from database $self->{'db'}->{$_}->{Name}");
+	foreach my $db ( keys %{ $self->{'db'} } ) {
+		eval { $self->{'db'}->{$db}->disconnect and $logger->info("Disconnected from database $self->{'db'}->{$db}->{'Name'}") };
+		$logger->debug($@) if $@;
 	}
+	return;
 }
 
 sub initiate {
@@ -44,13 +45,15 @@ sub initiate {
 	my ( $self, $system, $config ) = @_;
 	$self->{'system'} = $system;
 	$self->{'config'} = $config;
+	return;
 }
 
 sub drop_connection {
 	my ( $self, $attributes ) = @_;
-	my $host     = $attributes->{'host'}     || $self->{'system'}->{'host'};
+	my $host = $attributes->{'host'} || $self->{'system'}->{'host'};
 	return if !$attributes->{'dbase_name'};
-	$self->{'db'}->{"$attributes->{'host'}|$attributes->{'dbase_name'}"}->disconnect if $self->{'db'}->{"$attributes->{'host'}|$attributes->{'dbase_name'}"};
+	$self->{'db'}->{"$attributes->{'host'}|$attributes->{'dbase_name'}"}->disconnect
+	  if $self->{'db'}->{"$attributes->{'host'}|$attributes->{'dbase_name'}"};
 	undef $self->{'db'}->{"$attributes->{'host'}|$attributes->{'dbase_name'}"};
 	return;
 }
@@ -63,24 +66,21 @@ sub get_connection {
 	my $password = $attributes->{'password'} || $self->{'system'}->{'password'};
 	$host = $self->{'config'}->{'host_map'}->{$host} || $host;
 	throw BIGSdb::DatabaseConnectionException("No database name passed") if !$attributes->{'dbase_name'};
-	if ( $attributes->{'dbase_name'} ) {
-
-		if ( !$self->{'db'}->{"$host|$attributes->{'dbase_name'}"} ) {
-			my $db;
-			eval {
-				$db = DBI->connect( "DBI:Pg:host=$host;port=$port;dbname=$attributes->{'dbase_name'}",
-					$user, $password, { 'AutoCommit' => 0, 'RaiseError' => 1, 'PrintError' => 0 } );
-				$self->{'db'}->{"$host|$attributes->{'dbase_name'}"} = $db;
-			};
-			if ($@) {
-				$logger->error( "Can not connect to database '$attributes->{'dbase_name'}' ($host). $@" );
-				throw BIGSdb::DatabaseConnectionException( "Can not connect to database '$attributes->{'dbase_name'}' ($host)" );
-			} else {
-				$logger->info( "Connected to database $attributes->{'dbase_name'} ($host)" );
-				$logger->debug( "dbase: $attributes->{'dbase_name'}; host: $host; port: $port: user: $user; password: $password" );
-			}
+	if ( !$self->{'db'}->{"$host|$attributes->{'dbase_name'}"} ) {
+		my $db;
+		eval {
+			$db = DBI->connect( "DBI:Pg:host=$host;port=$port;dbname=$attributes->{'dbase_name'}",
+				$user, $password, { AutoCommit => 0, RaiseError => 1, PrintError => 0 } );
+			$self->{'db'}->{"$host|$attributes->{'dbase_name'}"} = $db;
+		};
+		if ($@) {
+			$logger->error("Can not connect to database '$attributes->{'dbase_name'}' ($host). $@");
+			throw BIGSdb::DatabaseConnectionException("Can not connect to database '$attributes->{'dbase_name'}' ($host)");
+		} else {
+			$logger->info("Connected to database $attributes->{'dbase_name'} ($host)");
+			$logger->debug("dbase: $attributes->{'dbase_name'}; host: $host; port: $port: user: $user; password: $password");
 		}
-		return $self->{'db'}->{"$host|$attributes->{'dbase_name'}"};
 	}
+	return $self->{'db'}->{"$host|$attributes->{'dbase_name'}"};
 }
 1;
