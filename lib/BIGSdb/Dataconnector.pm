@@ -34,7 +34,7 @@ sub DESTROY {
 	my ($self) = @_;
 	foreach my $db ( keys %{ $self->{'db'} } ) {
 		eval { $self->{'db'}->{$db}->disconnect and $logger->info("Disconnected from database $self->{'db'}->{$db}->{'Name'}") };
-		$logger->debug($@) if $@;
+		$logger->error($@) if $@;
 	}
 	return;
 }
