@@ -39,8 +39,19 @@ sub get_system_hash {
 }
 
 sub get_field_list {
-	my ($self) = @_;
-	return $self->{'fields'};
+	my ($self, $metadata_arrayref) = @_;
+	$metadata_arrayref = [] if ref $metadata_arrayref ne 'ARRAY';
+	my @fields;
+	foreach my $field (@{$self->{'fields'}}){
+		if ($field =~ /^(meta-[^:]+):.+/){
+			foreach my $metadata (@$metadata_arrayref){
+				push @fields, $field if $metadata eq $1;
+			}
+		} else {
+			push @fields, $field;
+		}
+	}
+	return \@fields;
 }
 
 sub get_sample_field_list {
@@ -137,5 +148,15 @@ sub end_element {
 		when ('sample')  { $self->{'_in_sample'}  = 0 }
 	}
 	return;
+}
+
+sub get_metadata_list {
+	my ($self) = @_;
+	my %list;
+	foreach my $field (@{$self->{'fields'}}){
+		$list{$1} = 1 if $field =~ /^(meta-[^:]+):/;
+	}
+	my @list = sort keys %list;
+	return \@list;
 }
 1;
