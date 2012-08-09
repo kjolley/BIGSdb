@@ -50,9 +50,10 @@ sub count_isolates_with_allele {
 		  $self->{'db'}->prepare("SELECT COUNT(*) FROM allele_designations WHERE locus=? AND allele_id=?");
 		$logger->info("Statement handle 'isolate_allele_count' prepared.");
 	}
-	eval { $self->{'sql'}->{'isolate_allele_count'}->execute( $locus, $allele_id ); };
+	eval { $self->{'sql'}->{'isolate_allele_count'}->execute( $locus, $allele_id ) };
 	$logger->error($@) if $@;
 	my ($count) = $self->{'sql'}->{'isolate_allele_count'}->fetchrow_array;
+	$self->{'sql'}->{'isolate_allele_count'}->finish;    #Getting active statement handle errors on disconnect without.
 	return $count;
 }
 
@@ -67,7 +68,7 @@ sub count_matching_profiles {
 		$first = 0;
 	}
 	my $qry = "SELECT COUNT(distinct isolate_id) FROM allele_designations WHERE isolate_id IN (SELECT isolate_id "
-	. "FROM allele_designations WHERE $temp GROUP BY isolate_id HAVING COUNT(isolate_id) = $locus_count)";
+	  . "FROM allele_designations WHERE $temp GROUP BY isolate_id HAVING COUNT(isolate_id) = $locus_count)";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
 	if ($@) {

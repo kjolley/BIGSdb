@@ -33,9 +33,19 @@ sub new {
 sub DESTROY {
 	my ($self) = @_;
 	foreach my $db ( keys %{ $self->{'db'} } ) {
+		$self->_log_active_statement_handles( $self->{'db'}->{$db}, 1 );
 		eval { $self->{'db'}->{$db}->disconnect and $logger->info("Disconnected from database $self->{'db'}->{$db}->{'Name'}") };
 		$logger->error($@) if $@;
 	}
+	return;
+}
+
+sub _log_active_statement_handles {
+	my ( $self, $h, $level ) = @_;
+	if ( $h->{'Active'} && $h->{'Type'} eq 'st' ) {
+		$logger->logwarn("Active statement: $h->{'Statement'}");
+	}
+	$self->_log_active_statement_handles( $_, $level + 1 ) for ( grep { defined } @{ $h->{'ChildHandles'} } );
 	return;
 }
 
