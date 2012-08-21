@@ -19,7 +19,7 @@
 package BIGSdb::ResultsTablePage;
 use strict;
 use warnings;
-use parent qw(BIGSdb::Page);
+use parent qw(BIGSdb::Page BIGSdb::SequenceQueryPage);
 use Error qw(:try);
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
@@ -428,8 +428,7 @@ sub _print_isolate_table {
 	$field_attributes->{$_} = $self->{'xmlHandler'}->get_field_attributes($_) foreach (@$fields);
 	my $extended = $self->get_extended_attributes;
 	my $attribute_sql =
-	  $self->{'db'}
-	  ->prepare( "SELECT value FROM isolate_value_extended_attributes WHERE isolate_field=? AND attribute=? AND field_value=?" );
+	  $self->{'db'}->prepare("SELECT value FROM isolate_value_extended_attributes WHERE isolate_field=? AND attribute=? AND field_value=?");
 	$self->{'scheme_loci'}->{0} = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 	local $| = 1;
 
@@ -510,10 +509,11 @@ sub _print_isolate_table {
 				print "<td>@$aliases</td>";
 			}
 		}
-		if ($self->{'prefs'}->{'display_seqbin_main'}){
+		if ( $self->{'prefs'}->{'display_seqbin_main'} ) {
 			my $size = $self->_get_seqbin_size($id);
 			print "<td>$size</td>";
 		}
+
 		#Print loci and scheme fields
 		my @scheme_ids;
 		push @scheme_ids, $_->{'id'} foreach (@$schemes);
@@ -549,13 +549,11 @@ sub _print_isolate_table {
 }
 
 sub _get_seqbin_size {
-	my ($self, $isolate_id) = @_;
-	if (!$self->{'sql'}->{'seqbin_size'}){
+	my ( $self, $isolate_id ) = @_;
+	if ( !$self->{'sql'}->{'seqbin_size'} ) {
 		$self->{'sql'}->{'seqbin_size'} = $self->{'db'}->prepare("SELECT SUM(length(sequence)) FROM sequence_bin WHERE isolate_id=?");
 	}
-	eval {
-		$self->{'sql'}->{'seqbin_size'}->execute($isolate_id);
-	};
+	eval { $self->{'sql'}->{'seqbin_size'}->execute($isolate_id); };
 	$logger->error($@) if $@;
 	my ($size) = $self->{'sql'}->{'seqbin_size'}->fetchrow_array // 0;
 	return $size;
@@ -563,7 +561,7 @@ sub _get_seqbin_size {
 
 sub _print_isolate_table_header {
 	my ( $self, $composites, $composite_display_pos, $schemes, $limit_qry ) = @_;
-	my $select_items   = $self->{'xmlHandler'}->get_field_list;
+	my $select_items  = $self->{'xmlHandler'}->get_field_list;
 	my $header_buffer = "<tr>";
 	my $col_count;
 	my $extended = $self->get_extended_attributes;
@@ -571,7 +569,7 @@ sub _print_isolate_table_header {
 		if (   $self->{'prefs'}->{'maindisplayfields'}->{$col}
 			|| $col eq 'id' )
 		{
-			(my $display_col = $col) =~ tr/_/ /;
+			( my $display_col = $col ) =~ tr/_/ /;
 			$header_buffer .= "<th>$display_col</th>";
 			$col_count++;
 		}
@@ -615,10 +613,10 @@ sub _print_isolate_table_header {
 	  . "by going to the options page.\">&nbsp;<i>i</i>&nbsp;</a>";
 	$fieldtype_header .= "</th>";
 	$fieldtype_header .= "<th rowspan=\"2\">Seqbin size (bp)</th>" if $self->{'prefs'}->{'display_seqbin_main'};
-	
 	my $alias_sql = $self->{'db'}->prepare("SELECT alias FROM locus_aliases WHERE locus=?");
 	$logger->error($@) if $@;
 	local $" = '; ';
+
 	foreach my $scheme (@$schemes) {
 		my $scheme_id = $scheme->{'id'};
 		next if !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};
@@ -950,6 +948,70 @@ sub _print_plugin_buttons {
 	return;
 }
 
+sub _get_record_table_info {
+	my ( $self, $table ) = @_;
+	my $q = $self->{'cgi'};
+	my ( @headers, @display, @qry_fields, %type, %foreign_key, %labels );
+	my $user_variable_fields = 0;
+	push @headers, 'isolate id' if $table eq 'allele_sequences';
+	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
+	foreach my $attr (@$attributes) {
+		next if $table eq 'sequence_bin' && $attr->{'name'} eq 'sequence';
+		next if $attr->{'hide'} eq 'yes' || ( $attr->{'public_hide'} eq 'yes' && !$self->{'curate'} ) || $attr->{'main_display'} eq 'no';
+		push @display,    $attr->{'name'};
+		push @qry_fields, "$table.$attr->{'name'}";
+		my $cleaned = $attr->{'name'};
+		$cleaned =~ tr/_/ /;
+		if ( any { $attr->{'name'} eq $_ } qw (isolate_display main_display query_field query_status dropdown analysis) ) {
+			$cleaned .= '*';
+			$user_variable_fields = 1;
+		}
+		push @headers, $cleaned;
+		push @headers, 'isolate id' if $table eq 'experiment_sequences' && $attr->{'name'} eq 'experiment_id';
+		push @headers, 'flag' if $table eq 'allele_sequences' && $attr->{'name'} eq 'complete';
+		push @headers, 'citation' if $attr->{'name'} eq 'pubmed_id';
+		$type{ $attr->{'name'} }        = $attr->{'type'};
+		$foreign_key{ $attr->{'name'} } = $attr->{'foreign_key'};
+		$labels{ $attr->{'name'} }      = $attr->{'labels'};
+	}
+	my $extended_attributes;
+	my $linked_data;
+	if ( $q->param('page') eq 'alleleQuery' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		my $locus = $q->param('locus');
+		if ( $self->{'datastore'}->is_locus($locus) ) {
+			$extended_attributes =
+			  $self->{'datastore'}
+			  ->run_list_query( "SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order", $locus );
+			if ( ref $extended_attributes eq 'ARRAY' ) {
+				foreach (@$extended_attributes) {
+					( my $cleaned = $_ ) =~ tr/_/ /;
+					push @headers, $cleaned;
+				}
+			}
+			$linked_data = $self->_data_linked_to_locus($locus);
+			push @headers, 'linked data values' if $linked_data;
+		}
+	}
+	if (   ( ( $q->param('page') eq 'tableQuery' && $q->param('table') eq 'sequences' ) || $q->param('page') eq 'alleleQuery' )
+		&& ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' )
+	{
+		push @headers, 'flags';
+	}
+	return (
+		{
+			headers              => \@headers,
+			qry_fields           => \@qry_fields,
+			display              => \@display,
+			type                 => \%type,
+			foreign_key          => \%foreign_key,
+			labels               => \%labels,
+			extended_attributes  => $extended_attributes,
+			linked_data          => $linked_data,
+			user_variable_fields => $user_variable_fields
+		}
+	);
+}
+
 sub _print_record_table {
 	my ( $self, $table, $qryref, $page ) = @_;
 	my $pagesize = $self->{'prefs'}->{'displayrecs'};
@@ -967,52 +1029,11 @@ sub _print_record_table {
 		$logger->warn("Malicious SQL injection attempt '$qry'");
 		return;
 	}
-	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
-	my ( @qry_fields, @display,     @cleaned_headers );
-	my ( %type,       %foreign_key, %labels );
-	my $user_variable_fields = 0;
-	push @cleaned_headers, 'isolate id' if $table eq 'allele_sequences';
-	foreach my $attr (@$attributes) {
-		next if $table eq 'sequence_bin' && $attr->{'name'} eq 'sequence';
-		next if $attr->{'hide'} eq 'yes' || ( $attr->{'public_hide'} eq 'yes' && !$self->{'curate'} ) || $attr->{'main_display'} eq 'no';
-		push @display,    $attr->{'name'};
-		push @qry_fields, "$table.$attr->{'name'}";
-		my $cleaned = $attr->{'name'};
-		$cleaned =~ tr/_/ /;
-		if ( any { $attr->{'name'} eq $_ } qw (isolate_display main_display query_field query_status dropdown analysis) ) {
-			$cleaned .= '*';
-			$user_variable_fields = 1;
-		}
-		push @cleaned_headers, $cleaned;
-		push @cleaned_headers, 'isolate id' if $table eq 'experiment_sequences' && $attr->{'name'} eq 'experiment_id';
-		push @cleaned_headers, 'flag' if $table eq 'allele_sequences' && $attr->{'name'} eq 'complete';
-		push @cleaned_headers, 'citation' if $attr->{'name'} eq 'pubmed_id';
-		$type{ $attr->{'name'} }        = $attr->{'type'};
-		$foreign_key{ $attr->{'name'} } = $attr->{'foreign_key'};
-		$labels{ $attr->{'name'} }      = $attr->{'labels'};
-	}
-	my $extended_attributes;
-	if ( $q->param('page') eq 'alleleQuery' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		my $locus = $q->param('locus');
-		if ( $self->{'datastore'}->is_locus($locus) ) {
-			$extended_attributes =
-			  $self->{'datastore'}
-			  ->run_list_query( "SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order", $locus );
-			if ( ref $extended_attributes eq 'ARRAY' ) {
-				foreach (@$extended_attributes) {
-					( my $cleaned = $_ ) =~ tr/_/ /;
-					push @cleaned_headers, $cleaned;
-				}
-			}
-		}
-	}
-	if (   ( ( $q->param('page') eq 'tableQuery' && $q->param('table') eq 'sequences' ) || $q->param('page') eq 'alleleQuery' )
-		&& ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' )
-	{
-		push @cleaned_headers, 'flags';
-	}
+	my $table_info = $self->_get_record_table_info($table);
+	my ( $headers, $qry_fields, $display, $extended_attributes ) =
+	  ( $table_info->{'headers'}, $table_info->{'qry_fields'}, $table_info->{'display'}, $table_info->{'extended_attributes'} );
 	local $" = ',';
-	my $fields = "@qry_fields";
+	my $fields = "@$qry_fields";
 	if ( $table eq 'allele_sequences' && $qry =~ /sequence_flags/ ) {
 		$qry =~ s/\*/DISTINCT $fields/;
 	} else {
@@ -1027,7 +1048,7 @@ sub _print_record_table {
 	eval { $sql->execute };
 	$logger->error($@) if $@;
 	my %data = ();
-	$sql->bind_columns( map { \$data{$_} } @display );    #quicker binding hash to arrayref than to use hashref
+	$sql->bind_columns( map { \$data{$_} } @$display );    #quicker binding hash to arrayref than to use hashref
 	local $" = '</th><th>';
 	print "<div class=\"box\" id=\"resultstable\"><div class=\"scrollable\"><table class=\"resultstable\">\n";
 	print "<tr>";
@@ -1036,9 +1057,10 @@ sub _print_record_table {
 		print "<th>Delete</th>";
 		print "<th>Update</th>" if $table !~ /refs$/;
 	}
-	print "<th>@cleaned_headers</th></tr>\n";
+	print "<th>@$headers</th></tr>\n";
 	my $td = 1;
 	my ( %foreign_key_sql, $fields_to_query );
+	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	while ( $sql->fetchrow_arrayref ) {
 		my @query_values;
 		my %primary_key;
@@ -1059,12 +1081,12 @@ sub _print_record_table {
 			  . "?db=$self->{'instance'}&amp;page=delete&amp;table=$table&amp;@query_values\">Delete</a></td>";
 			if ( $table eq 'allele_sequences' ) {
 				print "<td><a href=\"" . $q->script_name . "?db=$self->{'instance'}&amp;page=tagUpdate&amp;@query_values\">Update</a></td>";
-			} elsif ($table !~ /refs$/) { #no editable values in ref tables
+			} elsif ( $table !~ /refs$/ ) {    #no editable values in ref tables
 				print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=update&amp;table=$table&amp;"
-				 . "@query_values\">Update</a></td>";
+				  . "@query_values\">Update</a></td>";
 			}
 		}
-		foreach my $field (@display) {
+		foreach my $field (@$display) {
 			$data{ lc($field) } = '' if !defined $data{ lc($field) };
 			if ( $primary_key{$field} && !$self->{'curate'} ) {
 				my $value;
@@ -1081,7 +1103,7 @@ sub _print_record_table {
 					print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=recordInfo&amp;"
 					  . "table=$table&amp;@query_values\">$value</a></td>";
 				}
-			} elsif ( $type{$field} eq 'bool' ) {
+			} elsif ( $table_info->{'type'}->{$field} eq 'bool' ) {
 				if ( $data{ lc($field) } eq '' ) {
 					print "<td></td>";
 				} else {
@@ -1104,10 +1126,10 @@ sub _print_record_table {
 			} elsif ( $field eq 'curator' || $field eq 'sender' ) {
 				my $user_info = $self->{'datastore'}->get_user_info( $data{ lc($field) } );
 				print "<td>$user_info->{'first_name'} $user_info->{'surname'}</td>";
-			} elsif ( $foreign_key{$field} && $labels{$field} ) {
+			} elsif ( $table_info->{'foreign_key'}->{$field} && $table_info->{'labels'}->{$field} ) {
 				my @fields_to_query;
 				if ( !$foreign_key_sql{$field} ) {
-					my @values = split /\|/, $labels{$field};
+					my @values = split /\|/, $table_info->{'labels'}->{$field};
 					foreach (@values) {
 						if ( $_ =~ /\$(.*)/ ) {
 							push @fields_to_query, $1;
@@ -1115,13 +1137,13 @@ sub _print_record_table {
 					}
 					$fields_to_query->{$field} = \@fields_to_query;
 					local $" = ',';
-					my $qry = "select @fields_to_query from $foreign_key{$field} WHERE id=?";
+					my $qry = "select @fields_to_query from $table_info->{'foreign_key'}->{$field} WHERE id=?";
 					$foreign_key_sql{$field} = $self->{'db'}->prepare($qry) or die;
 				}
 				eval { $foreign_key_sql{$field}->execute( $data{ lc($field) } ) };
 				$logger->error($@) if $@;
-				while ( my @labels = $foreign_key_sql{$field}->fetchrow_array() ) {
-					my $value = $labels{$field};
+				while ( my @labels = $foreign_key_sql{$field}->fetchrow_array ) {
+					my $value = $table_info->{'labels'}->{$field};
 					my $i     = 0;
 					foreach ( @{ $fields_to_query->{$field} } ) {
 						$value =~ s/$_/$labels[$i]/;
@@ -1131,9 +1153,10 @@ sub _print_record_table {
 					$value =~ s/\&/\&amp;/g;
 					print "<td>$value</td>";
 				}
-			} elsif ($field eq 'pubmed_id'){
+			} elsif ( $field eq 'pubmed_id' ) {
 				print "<td>$data{'pubmed_id'}</td>";
-				my $citation = $self->{'datastore'}->get_citation_hash([$data{ 'pubmed_id'}],{formatted=>1,no_title=>1,link_pubmed=>1});
+				my $citation =
+				  $self->{'datastore'}->get_citation_hash( [ $data{'pubmed_id'} ], { formatted => 1, no_title => 1, link_pubmed => 1 } );
 				print "<td>$citation->{$data{ 'pubmed_id'}}</td>";
 			} else {
 				if ( ( $table eq 'allele_sequences' || $table eq 'experiment_sequences' ) && $field eq 'seqbin_id' ) {
@@ -1144,7 +1167,7 @@ sub _print_record_table {
 					print "<td>$data{'isolate_id'}) " . $self->get_isolate_name_from_id( $data{'isolate_id'} ) . "</td>";
 				} else {
 					my $value = $data{ lc($field) };
-					if ( ($field eq 'locus' && $table ne 'set_loci') || ( $table eq 'loci' && $field eq 'id' ) ) {
+					if ( ( $field eq 'locus' && $table ne 'set_loci' ) || ( $table eq 'loci' && $field eq 'id' ) ) {
 						$value = $self->clean_locus($value);
 					} else {
 						$value =~ s/\&/\&amp;/g;
@@ -1163,6 +1186,10 @@ sub _print_record_table {
 				print defined $value ? "<td>$value</td>" : '<td />';
 			}
 		}
+		if ( $table_info->{'linked_data'} ) {
+			my $field_values = $self->get_client_dbase_fields( $data{'locus'}, [ $data{'allele_id'} ] );
+			print defined $field_values ? "<td style=\"text-align:left\">$field_values</td>" : '<td />';
+		}
 		if (   ( ( $q->param('page') eq 'tableQuery' && $q->param('table') eq 'sequences' ) || $q->param('page') eq 'alleleQuery' )
 			&& ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' )
 		{
@@ -1174,7 +1201,7 @@ sub _print_record_table {
 		$td = $td == 2 ? 1 : 2;
 	}
 	print "</table></div>";
-	if ($user_variable_fields) {
+	if ( $table_info->{'user_variable_fields'} ) {
 		print "<p class=\"comment\">* Default values are displayed for this field.  These may be overridden by user preference.</p>\n";
 	}
 	print "</div>\n";
@@ -1276,6 +1303,14 @@ sub _is_scheme_data_present {
 	}
 	$self->{'cache'}->{$qry}->{$scheme_id} = 0;
 	return 0;
+}
+
+sub _data_linked_to_locus {
+	my ( $self, $locus ) = @_;
+	my $qry;
+	$locus =~ s/'/\\'/g;
+	$qry = "SELECT EXISTS (SELECT * FROM client_dbase_loci_fields WHERE locus=E'$locus')";
+	return $self->{'datastore'}->run_simple_query($qry)->[0];
 }
 
 sub _initiate_urls_for_loci {

@@ -151,8 +151,8 @@ HTML
 		  ->count_isolates_with_allele( $client->{'locus_alias'} || $locus, $allele_id );
 		next if !$isolate_count;
 		my $plural = $isolate_count == 1 ? '' : 's';
-		say "<tr class=\"td$td\"><th>client database</th><td>$client->{'name'}</td><td style=\"text-align:left\">"
-		  . "$client->{'description'}</td><td colspan=\"2\">$isolate_count isolate$plural<br />";
+		say "<tr class=\"td$td\"><th>client database</th><td style=\"text-align:left\">$client->{'name'}</td>"
+		  . "<td style=\"text-align:left\">$client->{'description'}</td><td colspan=\"2\">$isolate_count isolate$plural<br />";
 		if ( $client->{'url'} ) {
 
 			#it seems we have to pass the parameters in the action clause for mod_perl2

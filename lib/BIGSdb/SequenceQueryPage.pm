@@ -269,7 +269,7 @@ sub _output_single_query_exact {
 			print
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$_->{'allele'}\">";
 			$allele       = "$cleaned: $_->{'allele'}";
-			$field_values = $self->_get_client_dbase_fields( $locus, [ $_->{'allele'} ] );
+			$field_values = $self->get_client_dbase_fields( $locus, [ $_->{'allele'} ] );
 			$attributes   = $self->_get_allele_attributes( $locus, [ $_->{'allele'} ] );
 			$flags        = $self->{'datastore'}->get_allele_flags( $locus, $_->{'allele'} );
 		} else {    #either all loci or a scheme selected
@@ -279,7 +279,7 @@ sub _output_single_query_exact {
 				$designations{$locus} = $allele_id;
 				my $cleaned = $self->clean_locus($locus);
 				$allele       = "$cleaned: $allele_id";
-				$field_values = $self->_get_client_dbase_fields( $locus, [$allele_id] );
+				$field_values = $self->get_client_dbase_fields( $locus, [$allele_id] );
 				$attributes   = $self->_get_allele_attributes( $locus, [$allele_id] );
 				$flags        = $self->{'datastore'}->get_allele_flags( $locus, $allele_id );
 			}
@@ -799,7 +799,7 @@ sub _cleanup_alignment {
 	return;
 }
 
-sub _get_client_dbase_fields {
+sub get_client_dbase_fields {
 	my ( $self, $locus, $allele_ids_refs ) = @_;
 	return [] if ref $allele_ids_refs ne 'ARRAY';
 	my $sql = $self->{'db'}->prepare("SELECT client_dbase_id,isolate_field FROM client_dbase_loci_fields WHERE allele_query AND locus = ?");
@@ -889,7 +889,7 @@ sub _data_linked_to_locus {
 	given ($locus) {
 		when ('0') { $qry = "SELECT EXISTS (SELECT * FROM $table)" }
 		when (/SCHEME_(\d+)/) {
-			$qry = "SELECT EXISTS (SELECT * FROM $table WHERE locus IN " . "(SELECT locus FROM scheme_members WHERE scheme_id=$1))"
+			$qry = "SELECT EXISTS (SELECT * FROM $table WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id=$1))"
 		}
 		default {
 			$locus =~ s/'/\\'/g;
