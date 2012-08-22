@@ -22,7 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::BlastPage);
 use Log::Log4perl qw(get_logger);
-use List::MoreUtils qw(uniq any none);
+use List::MoreUtils qw(any none);
 use Error qw(:try);
 use IO::String;
 use Bio::SeqIO;
@@ -269,8 +269,8 @@ sub _output_single_query_exact {
 			print
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$_->{'allele'}\">";
 			$allele       = "$cleaned: $_->{'allele'}";
-			$field_values = $self->get_client_dbase_fields( $locus, [ $_->{'allele'} ] );
-			$attributes   = $self->_get_allele_attributes( $locus, [ $_->{'allele'} ] );
+			$field_values = $self->{'datastore'}->get_client_dbase_fields( $locus, [ $_->{'allele'} ] );
+			$attributes   = $self->{'datastore'}->get_allele_attributes( $locus, [ $_->{'allele'} ] );
 			$flags        = $self->{'datastore'}->get_allele_flags( $locus, $_->{'allele'} );
 		} else {    #either all loci or a scheme selected
 			my ( $locus, $allele_id );
@@ -279,8 +279,8 @@ sub _output_single_query_exact {
 				$designations{$locus} = $allele_id;
 				my $cleaned = $self->clean_locus($locus);
 				$allele       = "$cleaned: $allele_id";
-				$field_values = $self->get_client_dbase_fields( $locus, [$allele_id] );
-				$attributes   = $self->_get_allele_attributes( $locus, [$allele_id] );
+				$field_values = $self->{'datastore'}->get_client_dbase_fields( $locus, [$allele_id] );
+				$attributes   = $self->{'datastore'}->get_allele_attributes( $locus, [$allele_id] );
 				$flags        = $self->{'datastore'}->get_allele_flags( $locus, $allele_id );
 			}
 			print
@@ -797,90 +797,6 @@ sub _cleanup_alignment {
 	close $in_fh;
 	close $out_fh;
 	return;
-}
-
-sub get_client_dbase_fields {
-	my ( $self, $locus, $allele_ids_refs ) = @_;
-	return [] if ref $allele_ids_refs ne 'ARRAY';
-	my $sql = $self->{'db'}->prepare("SELECT client_dbase_id,isolate_field FROM client_dbase_loci_fields WHERE allele_query AND locus = ?");
-	eval { $sql->execute($locus) };
-	$logger->error($@) if $@;
-	my $values;
-	my %db_desc;
-	while ( my ( $client_dbase_id, $field ) = $sql->fetchrow_array ) {
-		my $client         = $self->{'datastore'}->get_client_db($client_dbase_id);
-		my $client_db_desc = $self->{'datastore'}->get_client_db_info($client_dbase_id)->{'name'};
-		foreach my $allele_id (@$allele_ids_refs) {
-			my $proceed = 1;
-			my $field_data;
-			try {
-				$field_data = $client->get_fields( $field, $locus, $allele_id );
-			}
-			catch BIGSdb::DatabaseConfigurationException with {
-				$logger->error( "Can't extract isolate field '$field' FROM client database, make sure the client_dbase_loci_fields "
-					  . "table is correctly configured.  $@" );
-				$proceed = 0;
-			};
-			return if !$proceed;
-			foreach my $data (@$field_data) {
-				my $value = $data->{$field};
-				if ( any { $field eq $_ } qw (species genus) ) {
-					$value = "<i>$value</i>";
-				}
-				$value .= " [n=$data->{'frequency'}]";
-				push @{ $values->{$field} }, $value;
-				$db_desc{$client_db_desc} = 1;
-			}
-		}
-	}
-	my $buffer;
-	if ( keys %$values ) {
-		my @dbs = sort keys %db_desc;
-		local $" = "</span> <span class=\"link\">";
-		$buffer .= "<span class=\"link\">@dbs</span> ";
-		$buffer .= $self->_format_list_values($values);
-	}
-	return $buffer;
-}
-
-sub _get_allele_attributes {
-	my ( $self, $locus, $allele_ids_refs ) = @_;
-	return [] if ref $allele_ids_refs ne 'ARRAY';
-	my $fields = $self->{'datastore'}->run_list_query( "SELECT field FROM locus_extended_attributes WHERE locus=?", $locus );
-	my $sql = $self->{'db'}->prepare("SELECT value FROM sequence_extended_attributes WHERE locus=? AND field=? AND allele_id=?");
-	my $values;
-	return if !@$fields;
-	foreach my $field (@$fields) {
-		foreach (@$allele_ids_refs) {
-			eval { $sql->execute( $locus, $field, $_ ) };
-			$logger->error($@) if $@;
-			while ( my ($value) = $sql->fetchrow_array ) {
-				next if !defined $value || $value eq '';
-				push @{ $values->{$field} }, $value;
-			}
-		}
-		if ( ref $values->{$field} eq 'ARRAY' && @{ $values->{$field} } ) {
-			my @list = @{ $values->{$field} };
-			@list = uniq sort @list;
-			@{ $values->{$field} } = @list;
-		}
-	}
-	return $self->_format_list_values($values);
-}
-
-sub _format_list_values {
-	my ( $self, $hash_ref ) = @_;
-	my $buffer = '';
-	if ( keys %$hash_ref ) {
-		my $first = 1;
-		foreach ( sort keys %$hash_ref ) {
-			local $" = ', ';
-			$buffer .= '; ' if !$first;
-			$buffer .= "$_: @{$hash_ref->{$_}}";
-			$first = 0;
-		}
-	}
-	return $buffer;
 }
 
 sub _data_linked_to_locus {

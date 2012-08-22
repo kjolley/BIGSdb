@@ -1246,6 +1246,90 @@ sub get_next_allele_id {
 	$logger->debug("Next id: $next");
 	return $next;
 }
+
+sub get_client_dbase_fields {
+	my ( $self, $locus, $allele_ids_refs ) = @_;
+	return [] if ref $allele_ids_refs ne 'ARRAY';
+	my $sql = $self->{'db'}->prepare("SELECT client_dbase_id,isolate_field FROM client_dbase_loci_fields WHERE allele_query AND locus = ?");
+	eval { $sql->execute($locus) };
+	$logger->error($@) if $@;
+	my $values;
+	my %db_desc;
+	while ( my ( $client_dbase_id, $field ) = $sql->fetchrow_array ) {
+		my $client         = $self->get_client_db($client_dbase_id);
+		my $client_db_desc = $self->get_client_db_info($client_dbase_id)->{'name'};
+		foreach my $allele_id (@$allele_ids_refs) {
+			my $proceed = 1;
+			my $field_data;
+			try {
+				$field_data = $client->get_fields( $field, $locus, $allele_id );
+			}
+			catch BIGSdb::DatabaseConfigurationException with {
+				$logger->error( "Can't extract isolate field '$field' FROM client database, make sure the client_dbase_loci_fields "
+					  . "table is correctly configured.  $@" );
+				$proceed = 0;
+			};
+			return if !$proceed;
+			foreach my $data (@$field_data) {
+				my $value = $data->{$field};
+				if ( any { $field eq $_ } qw (species genus) ) {
+					$value = "<i>$value</i>";
+				}
+				$value .= " [n=$data->{'frequency'}]";
+				push @{ $values->{$field} }, $value;
+				$db_desc{$client_db_desc} = 1;
+			}
+		}
+	}
+	my $buffer;
+	if ( keys %$values ) {
+		my @dbs = sort keys %db_desc;
+		local $" = "</span> <span class=\"link\">";
+		$buffer .= "<span class=\"link\">@dbs</span> ";
+		$buffer .= $self->_format_list_values($values);
+	}
+	return $buffer;
+}
+
+sub _format_list_values {
+	my ( $self, $hash_ref ) = @_;
+	my $buffer = '';
+	if ( keys %$hash_ref ) {
+		my $first = 1;
+		foreach ( sort keys %$hash_ref ) {
+			local $" = ', ';
+			$buffer .= '; ' if !$first;
+			$buffer .= "$_: @{$hash_ref->{$_}}";
+			$first = 0;
+		}
+	}
+	return $buffer;
+}
+
+sub get_allele_attributes {
+	my ( $self, $locus, $allele_ids_refs ) = @_;
+	return [] if ref $allele_ids_refs ne 'ARRAY';
+	my $fields = $self->run_list_query( "SELECT field FROM locus_extended_attributes WHERE locus=?", $locus );
+	my $sql = $self->{'db'}->prepare("SELECT value FROM sequence_extended_attributes WHERE locus=? AND field=? AND allele_id=?");
+	my $values;
+	return if !@$fields;
+	foreach my $field (@$fields) {
+		foreach (@$allele_ids_refs) {
+			eval { $sql->execute( $locus, $field, $_ ) };
+			$logger->error($@) if $@;
+			while ( my ($value) = $sql->fetchrow_array ) {
+				next if !defined $value || $value eq '';
+				push @{ $values->{$field} }, $value;
+			}
+		}
+		if ( ref $values->{$field} eq 'ARRAY' && @{ $values->{$field} } ) {
+			my @list = @{ $values->{$field} };
+			@list = uniq sort @list;
+			@{ $values->{$field} } = @list;
+		}
+	}
+	return $self->_format_list_values($values);
+}
 ##############REFERENCES###############################################################
 sub get_citation_hash {
 	my ( $self, $pmid_ref, $options ) = @_;

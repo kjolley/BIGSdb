@@ -19,7 +19,7 @@
 package BIGSdb::ResultsTablePage;
 use strict;
 use warnings;
-use parent qw(BIGSdb::Page BIGSdb::SequenceQueryPage);
+use parent qw(BIGSdb::Page);
 use Error qw(:try);
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
@@ -1187,7 +1187,7 @@ sub _print_record_table {
 			}
 		}
 		if ( $table_info->{'linked_data'} ) {
-			my $field_values = $self->get_client_dbase_fields( $data{'locus'}, [ $data{'allele_id'} ] );
+			my $field_values = $self->{'datastore'}->get_client_dbase_fields( $data{'locus'}, [ $data{'allele_id'} ] );
 			print defined $field_values ? "<td style=\"text-align:left\">$field_values</td>" : '<td />';
 		}
 		if (   ( ( $q->param('page') eq 'tableQuery' && $q->param('table') eq 'sequences' ) || $q->param('page') eq 'alleleQuery' )

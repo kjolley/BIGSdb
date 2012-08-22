@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Page);
+use List::MoreUtils qw(any uniq);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
@@ -36,7 +37,6 @@ sub print_content {
 		say "<div class=\"box\" id=\"statusbad\"><p>Invalid locus selected.</p></div>";
 		return;
 	}
-	my $locus_info    = $self->{'datastore'}->get_locus_info($locus);
 	my $cleaned_locus = $self->clean_locus($locus);
 	say "<h1>Allele information" . ( defined $allele_id ? " - $cleaned_locus: $allele_id\n" : '' ) . "</h1>";
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -66,6 +66,7 @@ sub print_content {
 	  : '';
 	print << "HTML";
 <div class="box" id="resultstable">
+<div class="scrollable">
 <table class="resultstable">
 <tr class="td1"><th>locus</th><td style="text-align:left" colspan="3">$cleaned_locus $desc_link</td></tr>
 <tr class="td2"><th>allele</th><td style="text-align:left" colspan="3">$allele_id</td></tr>
@@ -74,8 +75,11 @@ sub print_content {
 <tr class="td1"><th>status</th><td style="text-align:left" colspan="3">$seq_ref->{'status'}</td></tr>
 <tr class="td2"><th>date entered</th><td style="text-align:left" colspan="3">$seq_ref->{'date_entered'}</td></tr>
 <tr class="td1"><th>datestamp</th><td style="text-align:left" colspan="3">$seq_ref->{'datestamp'}</td></tr>
-<tr class="td2"><th>sender</th><td style="text-align:left">$sender_info->{'first_name'} $sender_info->{'surname'}</td><td style="text-align:left">$sender_info->{'affiliation'}</td><td>$sender_email</td></tr>
-<tr class="td1"><th>curator</th><td style="text-align:left">$curator_info->{'first_name'} $curator_info->{'surname'}</td><td style="text-align:left">$curator_info->{'affiliation'}</td><td style="text-align:left"><a href="mailto:$curator_info->{'email'}">$curator_info->{'email'}</a></td></tr>
+<tr class="td2"><th>sender</th><td style="text-align:left">$sender_info->{'first_name'} $sender_info->{'surname'}</td>
+<td style="text-align:left">$sender_info->{'affiliation'}</td><td>$sender_email</td></tr>
+<tr class="td1"><th>curator</th><td style="text-align:left">$curator_info->{'first_name'} $curator_info->{'surname'}</td>
+<td style="text-align:left">$curator_info->{'affiliation'}</td><td style="text-align:left">
+<a href="mailto:$curator_info->{'email'}">$curator_info->{'email'}</a></td></tr>
 HTML
 	my $td = 2;
 	$self->_process_flags( $locus, $allele_id, \$td );
@@ -141,30 +145,41 @@ HTML
 		say "</td></tr>";
 		$td = $td == 1 ? 2 : 1;
 	}
-	$qry = "SELECT client_dbases.*,locus_alias FROM client_dbases LEFT JOIN client_dbase_loci ON "
+	$td = $self->_print_client_database_data( $locus, $allele_id, $td );
+	$self->_print_linked_data($locus, $allele_id, $td );
+	say "</table>\n</div></div>";
+	return;
+}
+
+sub _print_client_database_data {
+	my ( $self, $locus, $allele_id, $td ) = @_;
+	my $q   = $self->{'cgi'};
+	my $qry = "SELECT client_dbases.*,locus_alias FROM client_dbases LEFT JOIN client_dbase_loci ON "
 	  . "client_dbases.id=client_dbase_id WHERE locus=?";
 	my $client_list = $self->{'datastore'}->run_list_query_hashref( $qry, $locus );
-	my $data_type = $locus_info->{'data_type'} eq 'DNA' ? 'allele' : 'peptide';
+	my $locus_info  = $self->{'datastore'}->get_locus_info($locus);
+	my $data_type   = $locus_info->{'data_type'} eq 'DNA' ? 'allele' : 'peptide';
 	foreach my $client (@$client_list) {
+		say "<tr class=\"td$td\"><th>client database</th><td style=\"text-align:left\">$client->{'name'}</td>"
+		  . "<td style=\"text-align:left\">$client->{'description'}</td>";
 		my $isolate_count =
 		  $self->{'datastore'}->get_client_db( $client->{'id'} )
 		  ->count_isolates_with_allele( $client->{'locus_alias'} || $locus, $allele_id );
 		next if !$isolate_count;
 		my $plural = $isolate_count == 1 ? '' : 's';
-		say "<tr class=\"td$td\"><th>client database</th><td style=\"text-align:left\">$client->{'name'}</td>"
-		  . "<td style=\"text-align:left\">$client->{'description'}</td><td colspan=\"2\">$isolate_count isolate$plural<br />";
+		say "<td colspan=\"2\">$isolate_count isolate$plural<br />";
 		if ( $client->{'url'} ) {
 
 			#it seems we have to pass the parameters in the action clause for mod_perl2
 			#but separately for stand-alone CGI.
 			my %params = (
-				'db'     => $client->{'dbase_config_name'},
-				'page'   => 'query',
-				'ls1'    => 'l_' . ( $client->{'locus_alias'} || $locus ),
-				'ly1'    => '=',
-				'lt1'    => $allele_id,
-				'order'  => 'id',
-				'submit' => 1
+				db     => $client->{'dbase_config_name'},
+				page   => 'query',
+				ls1    => 'l_' . ( $client->{'locus_alias'} || $locus ),
+				ly1    => '=',
+				lt1    => $allele_id,
+				order  => 'id',
+				submit => 1
 			);
 			my @action_params;
 			foreach ( keys %params ) {
@@ -173,16 +188,21 @@ HTML
 			}
 			local $" = '&';
 			say $q->start_form( -action => "$client->{'url'}?@action_params", -method => 'post' );
-			foreach (qw (db page ls1 ly1 lt1 order submit)) {
-				say $q->hidden($_);
-			}
+			say $q->hidden($_) foreach qw (db page ls1 ly1 lt1 order submit);
 			say $q->submit( -label => 'Display', -class => 'submit' );
 			say $q->end_form;
 		}
 		say "</td></tr>";
 		$td = $td == 1 ? 2 : 1;
 	}
-	say "</table>\n</div>";
+	return $td;
+}
+
+sub _print_linked_data {
+	my ( $self, $locus, $allele_id, $td ) = @_;
+	my $field_values = $self->{'datastore'}->get_client_dbase_fields( $locus, [ $allele_id ] );
+	return if !defined $field_values;
+	say "<tr class=\"td$td\"><th>linked data</th><td colspan=\"3\" style=\"text-align:left\">$field_values</td></tr>";
 	return;
 }
 
