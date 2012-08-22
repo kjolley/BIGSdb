@@ -136,10 +136,7 @@ HTML
 		$q->param( 't1',        $allele_id );
 		$q->param( 'order',     $pk );
 		$q->param( 'submit',    1 );
-
-		foreach (qw (db page scheme_id s1 y1 t1 order submit)) {
-			say $q->hidden($_);
-		}
+		say $q->hidden($_) foreach qw (db page scheme_id s1 y1 t1 order submit);
 		say $q->submit( -label => 'Display', -class => 'submit' );
 		say $q->end_form;
 		say "</td></tr>";
@@ -157,8 +154,6 @@ sub _print_client_database_data {
 	my $qry = "SELECT client_dbases.*,locus_alias FROM client_dbases LEFT JOIN client_dbase_loci ON "
 	  . "client_dbases.id=client_dbase_id WHERE locus=?";
 	my $client_list = $self->{'datastore'}->run_list_query_hashref( $qry, $locus );
-	my $locus_info  = $self->{'datastore'}->get_locus_info($locus);
-	my $data_type   = $locus_info->{'data_type'} eq 'DNA' ? 'allele' : 'peptide';
 	foreach my $client (@$client_list) {
 		say "<tr class=\"td$td\"><th>client database</th><td style=\"text-align:left\">$client->{'name'}</td>"
 		  . "<td style=\"text-align:left\">$client->{'description'}</td>";
