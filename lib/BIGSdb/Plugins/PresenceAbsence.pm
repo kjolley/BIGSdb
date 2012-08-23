@@ -144,6 +144,7 @@ sub _write_output {
 			return if $self->{'mod_perl_request'}->connection->aborted;
 		}
 		$id =~ s/[\r\n]//g;
+		next if !BIGSdb::Utils::is_int($id);
 		my $allele_ids = $self->{'datastore'}->get_all_allele_ids($id);
 		my $tags       = $self->{'datastore'}->get_all_allele_sequences($id);
 		print $fh $id;

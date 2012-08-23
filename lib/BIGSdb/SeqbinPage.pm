@@ -126,11 +126,6 @@ HTML
 	}
 	say "<div style=\"clear:both\"></div>";
 	say "</div><div class=\"box\" id=\"resultstable\">";
-	my $qry = "SELECT id,length(sequence) AS length,original_designation,method,comments,sender,curator,date_entered,datestamp "
-	  . "FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) desc";
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute($isolate_id) };
-	$logger->error($@) if $@;
 	say "<div class=\"scrollable\">";
 	say "<table class=\"resultstable\"><tr><th>Sequence</th><th>Sequencing method</th><th>Original designation</th><th>Length</th>"
 	  . "<th>Comments</th><th>Locus</th><th>Start</th><th>End</th><th>Direction</th><th>EMBL format</th><th>Artemis <a class=\"tooltip\" "
@@ -145,6 +140,10 @@ HTML
 	}
 	print "</tr>\n";
 	my $td = 1;
+	my $qry = "SELECT id,length(sequence) AS length,original_designation,method,comments,sender,curator,date_entered,datestamp "
+	  . "FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) desc";
+	my $length_data = $self->{'datastore'}->run_list_query_hashref($qry, $isolate_id);
+	
 	my $set_id = $self->get_set_id;
 	my $set_clause =
 	  $set_id
@@ -154,7 +153,7 @@ HTML
 	$qry = "SELECT * FROM allele_sequences WHERE seqbin_id = ? $set_clause ORDER BY start_pos";
 	my $seq_sql = $self->{'db'}->prepare($qry);
 	local $" = 1;
-	while ( my $data = $sql->fetchrow_hashref ) {
+	foreach my $data (@$length_data){
 		eval { $seq_sql->execute( $data->{'id'} ) };
 		$logger->error($@) if $@;
 		my $allele_count =
