@@ -59,7 +59,7 @@ sub _check {
 	my $q             = $self->{'cgi'};
 	my $set_id        = $self->get_set_id;
 	my $loci          = $self->{'datastore'}->get_loci( { query_pref => 1, set_id => $set_id } );
-	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id, {curate => 1});
 	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
 	@$loci = uniq @$loci;
 	my @bad_field_buffer;
@@ -148,7 +148,7 @@ sub _insert {
 	my $insert = 1;
 	my @fields_with_values;
 	my %meta_fields;
-	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id, {curate => 1});
 	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
 
 	foreach my $field (@$field_list) {
@@ -254,7 +254,7 @@ sub _print_interface {
 	say $q->start_form;
 	$q->param( 'sent', 1 );
 	say $q->hidden($_) foreach qw(page db sent);
-	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id, {curate => 1});
 	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
 	if ( @$field_list > 15 ) {
 		say "<span style=\"float:right\">";

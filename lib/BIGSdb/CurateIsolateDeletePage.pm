@@ -16,10 +16,10 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
-
 package BIGSdb::CurateIsolateDeletePage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::CuratePage BIGSdb::TreeViewPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -32,93 +32,88 @@ sub get_javascript {
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree);
+	return;
 }
 
 sub print_content {
 	my ($self) = @_;
-	my $q    = $self->{'cgi'};
-	my $id   = $q->param('id');
+	my $q      = $self->{'cgi'};
+	my $id     = $q->param('id');
 	my $sql;
 	my $buffer;
-	print "<h1>Delete isolate</h1>\n";
+	say "<h1>Delete isolate</h1>";
+	if ( !$id ) {
+		say "<div class=\"box\" id=\"statusbad\"><p>No id passed.</p></div>";
+		return;
+	} elsif (!BIGSdb::Utils::is_int($id)){
+		say "<div class=\"box\" id=\"statusbad\"><p>Isolate id must be an integer.</p></div>";
+		return;
+	}
+	my $data = $self->{'datastore'}->run_simple_query_hashref("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $id);
+	if ( !$data->{'id'} ) {
+		say "<div class=\"box\" id=\"statusbad\"><p>No record with id = $id exists.</p></div>";
+		return;
+	}
 	if ( !$self->can_modify_table('isolates') ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to delete records to the isolates table.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to delete records to the isolates table.</p></div>";
 		return;
-	} elsif (!$self->is_allowed_to_view_isolate($id)){
-		print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to delete this isolate record.</p></div>\n";
-		return;
-	}
-	my $qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE id = ?";
-	$sql = $self->{'db'}->prepare($qry);
-
-	if ( !$q->param('id') ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>No id passed.</p></div>\n";
-		return;
-	}
-	eval { $sql->execute($id) };
-	$logger->error($@) if $@;
-	my ($data) = $sql->fetchrow_hashref;
-	if ( !$$data{'id'} ) {
-		print
-"<div class=\"box\" id=\"statusbad\"><p>No record with id = $id exists.</p></div>\n";
+	} elsif ( !$self->is_allowed_to_view_isolate($id) ) {
+		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to delete this isolate record.</p></div>";
 		return;
 	}
 	$buffer .= "<div class=\"box\" id=\"resultstable\">\n";
 	$buffer .= "<p>You have selected to delete the following record:</p>";
 	$buffer .= $q->start_form;
 	$buffer .= $q->hidden($_) foreach qw (page db id);
-	$buffer .= $q->submit( -name => 'submit', -value => 'Delete!', -class=>'submit' );
+	$buffer .= $q->submit( -name => 'submit', -value => 'Delete!', -class => 'submit' );
 	$buffer .= $q->end_form;
 	$buffer .= "<p />\n";
 	my $isolate_record = BIGSdb::IsolateInfoPage->new(
 		(
-			'system'        => $self->{'system'},
-			'cgi'           => $self->{'cgi'},
-			'instance'      => $self->{'instance'},
-			'prefs'         => $self->{'prefs'},
-			'prefstore'     => $self->{'prefstore'},
-			'config'        => $self->{'config'},
-			'datastore'     => $self->{'datastore'},
-			'db'            => $self->{'db'},
-			'xmlHandler'    => $self->{'xmlHandler'},
-			'dataConnector' => $self->{'dataConnector'},
-			'curate'		=> 1
+			system        => $self->{'system'},
+			cgi           => $self->{'cgi'},
+			instance      => $self->{'instance'},
+			prefs         => $self->{'prefs'},
+			prefstore     => $self->{'prefstore'},
+			config        => $self->{'config'},
+			datastore     => $self->{'datastore'},
+			db            => $self->{'db'},
+			xmlHandler    => $self->{'xmlHandler'},
+			dataConnector => $self->{'dataConnector'},
+			curate        => 1
 		)
 	);
 	my $record_table = $isolate_record->get_isolate_record($id);
 	$buffer .= $record_table;
 	$buffer .= "<p />\n";
 	$buffer .= $q->start_form;
-	$q->param('page', 'isolateDelete'); #need to set as this may have changed if there is a seqbin display button
+	$q->param( 'page', 'isolateDelete' );    #need to set as this may have changed if there is a seqbin display button
 	$buffer .= $q->hidden($_) foreach qw (page db id);
-	$buffer .= $q->submit( -name => 'submit', -value => 'Delete!', -class=>'submit' );
+	$buffer .= $q->submit( -name => 'submit', -value => 'Delete!', -class => 'submit' );
 	$buffer .= $q->end_form;
 	$buffer .= "</div>\n";
+
 	if ( $q->param('submit') ) {
 		my @qry;
-		push @qry,
-		  "DELETE FROM isolates WHERE id = '$$data{'id'}'";
+		push @qry, "DELETE FROM isolates WHERE id = '$$data{'id'}'";
 		foreach (@qry) {
 			eval { $self->{'db'}->do($_) };
 			if ($@) {
-				print
-"<div class=\"box\" id=\"statusbad\"><p>Delete failed - transaction cancelled - no records have been touched.</p>\n";
-				print "<p>Failed SQL: $_</p>\n";
-				print "<p>Error message: $@</p></div>\n";
+				say "<div class=\"box\" id=\"statusbad\"><p>Delete failed - transaction cancelled - no records have been touched.</p>";
+				say "<p>Failed SQL: $_</p>";
+				say "<p>Error message: $@</p></div>";
 				$logger->error("Delete failed: $_ $@");
 				$self->{'db'}->rollback;
 				return;
 			}
 		}
 		$self->{'db'}->commit
-		  && print
-"<div class=\"box\" id=\"resultsheader\"><p>Isolate id:$$data{'id'} deleted!</p>";
-		print "<p><a href=\""
-		  . $q->script_name
-		  . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
+		  && say "<div class=\"box\" id=\"resultsheader\"><p>Isolate id:$data->{'id'} deleted!</p>";
+		print "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>";
 		return;
 	}
 	print $buffer;
+	return;
 }
 
 sub get_title {
@@ -126,7 +121,4 @@ sub get_title {
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 	return "Delete isolate - $desc";
 }
-
 1;
-
-

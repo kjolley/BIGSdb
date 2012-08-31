@@ -923,12 +923,6 @@ sub _is_field_bad_other {
 	return 0;
 }
 
-sub get_metaset_and_fieldname {
-	my ($self, $field) = @_;
-	my ( $metaset, $metafield ) = $field =~ /meta_([^:]):+(.*)/ ? ( $1, $2 ) : ( undef, undef );
-	return ($metaset, $metafield);
-}
-
 sub clean_value {
 	my ( $self, $value ) = @_;
 	$value =~ s/'/\\'/g;

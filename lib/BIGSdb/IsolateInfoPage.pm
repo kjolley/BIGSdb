@@ -238,30 +238,18 @@ sub get_isolate_record {
 	$summary_view ||= 0;
 	my $sql;
 	my $buffer;
-	my $q      = $self->{'cgi'};
-	my $fields = $self->{'xmlHandler'}->get_field_list;
-	my $view   = $self->{'system'}->{'view'};
-	local $" = ",$view.";
-	my $field_string = "$view.@$fields";
-	my $qry          = "SELECT $field_string FROM $view WHERE id=?";
-	$sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute($id) };
-
-	if ($@) {
-		$logger->error("Can't execute $qry; value: $id");
-		throw BIGSdb::DatabaseConfigurationException("Invalid search $@");
-	}
-	my %data = ();
-	$sql->bind_columns( map { \$data{$_} } @$fields );    #quicker binding hash to arrayref than to use hashref
-	$sql->fetchrow_arrayref;
-	if ( !%data ) {
+	my $q = $self->{'cgi'};
+	my $data = $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $id );
+	$self->add_existing_metadata_to_hashref($data);
+	if ( !$data ) {
 		$logger->error("Record $id does not exist");
 		throw BIGSdb::DatabaseNoRecordException("Record $id does not exist");
 	}
+	$self->add_existing_metadata_to_hashref($data);
 	my $td = 1;
 	$buffer .= "<div class=\"scrollable\"><table class=\"resultstable\">\n";
 	if ( $summary_view != LOCUS_SUMMARY ) {
-		$buffer .= $self->_get_provenance_fields( $id, \%data, \$td, $summary_view );
+		$buffer .= $self->_get_provenance_fields( $id, $data, \$td, $summary_view );
 		if ( !$summary_view ) {
 			$buffer .= $self->_get_samples( $id, \$td, 1 );
 			$buffer .= $self->_get_ref_links( $id, \$td );
@@ -283,13 +271,13 @@ sub get_isolate_record {
 	$logger->error($@) if $@;
 	while ( my $scheme = $scheme_sql->fetchrow_hashref ) {
 		if ( $self->{'prefs'}->{'isolate_display_schemes'}->{ $scheme->{'id'} } ) {
-			( $td, my $field_buffer ) = $self->_get_scheme_fields( $scheme->{'id'}, $data{'id'}, $td, $summary_view );
+			( $td, my $field_buffer ) = $self->_get_scheme_fields( $scheme->{'id'}, $id, $td, $summary_view );
 			$buffer .= $field_buffer if $field_buffer;
 		}
 	}
 
 	#Loci not belonging to a scheme
-	( $td, my $field_buffer ) = $self->_get_scheme_fields( 0, $data{'id'}, $td, $summary_view );
+	( $td, my $field_buffer ) = $self->_get_scheme_fields( 0, $id, $td, $summary_view );
 	$buffer .= $field_buffer if $field_buffer;
 	$buffer .= "</table></div>";
 	return $buffer;
@@ -298,10 +286,13 @@ sub get_isolate_record {
 sub _get_provenance_fields {
 	my ( $self, $isolate_id, $data, $td_ref, $summary_view ) = @_;
 	my $buffer;
-	my $q          = $self->{'cgi'};
-	my $field_list = $self->{'xmlHandler'}->get_field_list;
+	my $q             = $self->{'cgi'};
+	my $set_id        = $self->get_set_id;
+	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => $self->{'curate'} } );
+	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
 	my ( %composites, %composite_display_pos );
 	my $composite_data = $self->{'datastore'}->run_list_query_hashref("SELECT id,position_after FROM composite_fields");
+
 	foreach (@$composite_data) {
 		$composite_display_pos{ $_->{'id'} }  = $_->{'position_after'};
 		$composites{ $_->{'position_after'} } = 1;
@@ -312,11 +303,13 @@ sub _get_provenance_fields {
 		  $self->{'datastore'}->run_list_query("SELECT DISTINCT isolate_field FROM isolate_field_extended_attributes");
 	}
 	foreach my $field (@$field_list) {
-		my $displayfield = $field;
+		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+		my $displayfield = $metafield // $field;
 		$displayfield =~ tr/_/ /;
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 		my $web;
-		if ( !defined $data->{$field} ) {
+		my $value = $data->{ lc($field) };
+		if ( !defined $value ) {
 			if ( $composites{$field} ) {
 				$buffer .= $self->_get_composite_field_rows( $isolate_id, $data, $field, \%composite_display_pos, $td_ref );
 			}
@@ -325,13 +318,13 @@ sub _get_provenance_fields {
 			#Do not print row
 		} elsif ( $thisfield->{'web'} ) {
 			my $url = $thisfield->{'web'};
-			$url =~ s/\[\\*\?\]/$data->{$field}/;
+			$url =~ s/\[\\*\?\]/$value/;
 			$url =~ s/\&/\&amp;/g;
 			my $domain;
 			if ( ( lc($url) =~ /http:\/\/(.*?)\/+/ ) ) {
 				$domain = $1;
 			}
-			$web = "<a href=\"$url\">$data->{$field}</a>";
+			$web = "<a href=\"$url\">$value</a>";
 			if ( $domain && $domain ne $q->virtual_host ) {
 				$web .= " <span class=\"link\"><span style=\"font-size:1.2em\">&rarr;</span> $domain</span>";
 			}
@@ -340,7 +333,7 @@ sub _get_provenance_fields {
 			|| ( $field eq 'sender' )
 			|| ( $thisfield->{'userfield'} && $thisfield->{'userfield'} eq 'yes' ) )
 		{
-			my $userdata = $self->{'datastore'}->get_user_info( $data->{$field} );
+			my $userdata = $self->{'datastore'}->get_user_info($value);
 			my $colspan = $summary_view ? 5 : 2;
 			$buffer .= "<tr class=\"td$$td_ref\"><th>$displayfield</th><td align=\"left\" colspan=\"$colspan\">";
 			$buffer .= "$userdata->{first_name} $userdata->{surname}</td>";
@@ -416,7 +409,7 @@ sub _get_provenance_fields {
 			my $sql_att =
 			  $self->{'db'}
 			  ->prepare("SELECT attribute,value FROM isolate_value_extended_attributes WHERE isolate_field=? AND field_value=?");
-			eval { $sql_att->execute( $field, $data->{$field} ) };
+			eval { $sql_att->execute( $field, $value ) };
 			$logger->error($@) if $@;
 			my %attributes;
 			while ( my ( $attribute, $value ) = $sql_att->fetchrow_array ) {
@@ -426,7 +419,7 @@ sub _get_provenance_fields {
 				my $rows = keys %attributes || 1;
 				$buffer .=
 				  "<tr class=\"td$$td_ref\"><th rowspan=\"$rows\">$displayfield</th><td style=\"text-align:left\" rowspan=\"$rows\">";
-				$buffer .= $web || $data->{$field};
+				$buffer .= $web || $value;
 				$buffer .= "</td>";
 				my $first = 1;
 				foreach ( sort { $order{$a} <=> $order{$b} } keys(%attributes) ) {
@@ -456,12 +449,12 @@ sub _get_provenance_fields {
 				}
 			} else {
 				$buffer .= "<tr class=\"td$$td_ref\"><th>$displayfield</th><td style=\"text-align:left\" colspan=\"5\">";
-				$buffer .= $web || $data->{$field};
+				$buffer .= $web || $value;
 				$buffer .= "</td>";
 			}
 		} else {
 			$buffer .= "<tr class=\"td$$td_ref\"><th>$displayfield</th><td style=\"text-align:left\" colspan=\"5\">";
-			$buffer .= $web || $data->{$field};
+			$buffer .= $web || $value;
 			$buffer .= "</td>";
 		}
 		$buffer .= "</tr>\n";
@@ -532,7 +525,7 @@ sub _get_samples {
 	foreach my $field (@$sample_fields) {
 		next if $field eq 'isolate_id';
 		my $attributes = $self->{'xmlHandler'}->get_sample_field_attributes($field);
-		next if ($attributes->{'maindisplay'} // '') eq 'no';
+		next if ( $attributes->{'maindisplay'} // '' ) eq 'no';
 		push @selected_fields, $field;
 		( my $clean = $field ) =~ tr/_/ /;
 		push @clean_fields, $clean;
@@ -560,7 +553,8 @@ sub _get_samples {
 					foreach my $field (@$sample_fields) {
 						next if $field eq 'sample_id' || $field eq 'isolate_id';
 						( my $clean = $field ) =~ tr/_/ /;
-						$info .= "$clean: $sample->{$field}&nbsp;<br />" if defined $sample->{$field};   #nbsp added to stop Firefox truncating text
+						$info .= "$clean: $sample->{$field}&nbsp;<br />"
+						  if defined $sample->{$field};    #nbsp added to stop Firefox truncating text
 					}
 					$row .=
 "<td>$sample->{$field}<span style=\"font-size:0.5em\"> </span><a class=\"update_tooltip\" title=\"$info\">&nbsp;...&nbsp;</a></td>";
@@ -687,7 +681,7 @@ sub _get_scheme_fields {
 		: "<tr class=\"td$td\"><th>"
 	) . "$info_ref->{'description'}</th>";
 	my ( %url, %locus_value );
-	my $allele_designations = $self->{'datastore'}->get_scheme_allele_designations( $isolate_id, $scheme_id, {set_id => $set_id} );
+	my $allele_designations = $self->{'datastore'}->get_scheme_allele_designations( $isolate_id, $scheme_id, { set_id => $set_id } );
 	my $provisional_profile;
 	foreach my $locus (@$loci) {
 		$allele_designations->{$locus}->{'status'} ||= 'confirmed';

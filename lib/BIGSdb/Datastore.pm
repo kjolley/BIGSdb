@@ -137,7 +137,7 @@ sub get_composite_value {
 		}
 		if ( $field =~ /^f_(.+)/ ) {
 			my $isolate_field = $1;
-			my $text_value    = $isolate_fields_hashref->{$isolate_field};
+			my $text_value    = $isolate_fields_hashref->{lc($isolate_field)};
 			if ($regex) {
 				my $expression = "\$text_value =~ $regex";
 				eval "$expression";
@@ -1652,10 +1652,11 @@ sub get_primary_keys {
 }
 
 sub get_set_metadata {
-	my ($self, $set_id) = @_;
+	my ($self, $set_id, $options) = @_;
+	$options = {} if ref $options ne 'HASH';
 	if ($set_id){
 		return $self->run_list_query("SELECT metadata_id FROM set_metadata WHERE set_id=?", $set_id);
-	} else {
+	} elsif ($options->{'curate'}) {
 		return $self->{'xmlHandler'}->get_metadata_list;
 	}
 }

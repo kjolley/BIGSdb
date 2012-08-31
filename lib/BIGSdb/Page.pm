@@ -346,6 +346,26 @@ sub _print_help_panel {
 	return;
 }
 
+sub get_metaset_and_fieldname {
+	my ($self, $field) = @_;
+	my ( $metaset, $metafield ) = $field =~ /meta_([^:]):+(.*)/ ? ( $1, $2 ) : ( undef, undef );
+	return ($metaset, $metafield);
+}
+
+sub add_existing_metadata_to_hashref {
+	my ( $self, $data ) = @_;
+	my $metadata_list = $self->{'xmlHandler'}->get_metadata_list;
+	foreach my $metadata_set (@$metadata_list) {
+		my $metadata = $self->{'datastore'}->run_list_query_hashref( "SELECT * FROM $metadata_set WHERE isolate_id=?", $data->{'id'} );
+		foreach my $metadata_ref (@$metadata) {
+			foreach my $field ( keys %$metadata_ref ) {
+				$data->{"$metadata_set:$field"} = $metadata_ref->{$field};
+			}
+		}
+	}
+	return;
+}
+
 sub get_extended_attributes {
 	my ($self) = @_;
 	my $extended;

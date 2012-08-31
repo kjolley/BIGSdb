@@ -19,6 +19,7 @@
 package BIGSdb::CurateDeletePage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::CuratePage);
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
@@ -31,60 +32,61 @@ sub print_content {
 	my $table = $q->param('table') || '';
 	my $record_name = $self->get_record_name($table);
 	if ( !$self->{'datastore'}->is_table($table) && !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Table $table does not exist!</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Table $table does not exist!</p></div>";
 		return;
 	}
-	print "<h1>Delete $record_name</h1>\n";
+	say "<h1>Delete $record_name</h1>";
 	if ( $table eq 'profiles' ) {
 		my $scheme_id = $q->param('scheme_id');
 		if ( !$scheme_id || !BIGSdb::Utils::is_int($scheme_id) ) {
-			print "<div class=\"box\" id=\"statusbad\">Invalid scheme id.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\">Invalid scheme id.</p></div>";
 			return;
 		}
 		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 		if ( !$scheme_info ) {
-			print "<div class=\"box\" id=\"statusbad\">Scheme does not exist.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\">Scheme does not exist.</p></div>";
 			return;
 		}
 	}
 	if ( !$self->can_modify_table($table) ) {
 		if ( $table eq 'sequences' && $q->param('locus') ) {
 			my $locus = $q->param('locus');
-			print
-"<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to delete $locus sequences from the database.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to delete $locus sequences from the "
+			  . "database.</p></div>";
 		} else {
-			print
-"<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to delete records from the $table table.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to delete records from the $table "
+			  . "table.</p></div>";
 		}
 		return;
-	} elsif (
-		(
-			$self->{'system'}->{'read_access'} eq 'acl'
-			|| ( $self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl' )
-		)
+	} elsif ( ( $self->{'system'}->{'read_access'} eq 'acl' || ( ( $self->{'system'}->{'write_access'} // '' ) eq 'acl' ) )
 		&& $self->{'username'}
 		&& !$self->is_admin
 		&& $q->param('isolate_id')
-		&& !$self->is_allowed_to_view_isolate( $q->param('isolate_id') )
-	  )
+		&& !$self->is_allowed_to_view_isolate( $q->param('isolate_id') ) )
 	{
-		print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to modify this isolate.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to modify this isolate.</p></div>";
 		return;
 	} elsif ( ( $table eq 'sequence_refs' || $table eq 'accession' ) && $q->param('locus') ) {
 		my $locus = $q->param('locus');
 		if ( !$self->is_admin && !$self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $self->get_curator_id ) ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to delete "
+			say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to delete "
 			  . ( $table eq 'sequence_refs' ? 'references' : 'accession numbers' )
-			  . " for this locus.</p></div>\n";
+			  . " for this locus.</p></div>";
 			return;
 		}
 	}
+	$self->_display_record($table);
+	return;
+}
+
+sub _display_record {
+	my ( $self, $table ) = @_;
+	my $q = $self->{'cgi'};
 	if ( ( $table eq 'scheme_fields' || $table eq 'scheme_members' ) && $self->{'system'}->{'dbtype'} eq 'sequences' && !$q->param('sent') )
 	{
-		print
-		  "<div class=\"box\" id=\"warning\"><p>Please be aware that any modifications to the structure of this scheme will result in the
-		removal of all data from it. This is done to ensure data integrity.  This does not affect allele designations, but any profiles
-		will have to be reloaded.</p></div>\n";
+		say "<div class=\"box\" id=\"warning\"><p>Please be aware that any modifications to the structure of this scheme will result "
+		  . "in the removal of all data from it. This is done to ensure data integrity.  This does not affect allele designations, but "
+		  . "any profiles will have to be reloaded.</p></div>";
 	}
 	my $buffer;
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
@@ -97,12 +99,12 @@ sub print_content {
 			push @query_values, "$_->{'name'} = E'$value'";
 			$primary_keys{ $_->{'name'} } = 1 if defined $q->param( $_->{'name'} );
 			if ( $_->{'type'} eq 'int' && !BIGSdb::Utils::is_int( $q->param( $_->{'name'} ) ) ) {
-				print "<div class=\"box\" id=\"statusbad\"><p>Field $_->{'name'} must be an integer.</p></div>\n";
+				say "<div class=\"box\" id=\"statusbad\"><p>Field $_->{'name'} must be an integer.</p></div>";
 			}
 		}
 	}
 	if ( scalar @query_values != scalar keys %primary_keys ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Insufficient identifying attributes sent.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Insufficient identifying attributes sent.</p></div>";
 		return;
 	}
 	local $" = ' AND ';
@@ -112,7 +114,7 @@ sub print_content {
 	$logger->error($@) if $@;
 	my $data = $sql->fetchrow_hashref;
 	if ( !$data ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Selected record does not exist.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Selected record does not exist.</p></div>";
 		return;
 	}
 	$buffer .= $q->start_form;
@@ -160,8 +162,8 @@ sub print_content {
 			my $value_length = length($value);
 			if ( $value_length > 5000 ) {
 				$value = BIGSdb::Utils::truncate_seq( \$value, 30 );
-				$buffer .=
-"<td style=\"text-align:left\"><span class=\"seq\">$value</span><br />Sequence is $value_length characters (too long to display)</td>\n";
+				$buffer .= "<td style=\"text-align:left\"><span class=\"seq\">$value</span><br />Sequence is $value_length characters "
+				  . "(too long to display)</td>\n";
 			} else {
 				$value = BIGSdb::Utils::split_line($value) || '';
 				$buffer .= "<td style=\"text-align:left\" class=\"seq\">$value</td>\n";
@@ -231,7 +233,7 @@ sub print_content {
 		$buffer .= $self->_delete( $table, $data, \@query_values ) || '';
 		return if $q->param('submit');
 	}
-	print $buffer;
+	say $buffer;
 	return;
 }
 
@@ -245,8 +247,8 @@ sub _delete {
 
 		#Don't delete yourself
 		if ( defined $data->{'id'} && $data->{'id'} == $self->get_curator_id ) {
-			$nogo_buffer .=
-"It's not a good idea to remove yourself as a curator!  If you really wish to do this, you'll need to do it from another curator account.<br />\n";
+			$nogo_buffer .= "It's not a good idea to remove yourself as a curator!  If you really wish to do this, you'll need to do it "
+			  . "from another curator account.<br />\n";
 			$proceed = 0;
 		}
 
@@ -322,8 +324,8 @@ sub _delete {
 				my $record_name = $self->get_record_name($table);
 				my $plural = $num > 1 ? 's' : '';
 				$data->{'id'} =~ s/'/\\'/g;
-				$nogo_buffer .=
-				  "$record_name '$data->{'id'}' is referenced by $num record$plural in table '$table_to_check' - can not delete!<br />";
+				$nogo_buffer .= "$record_name '$data->{'id'}' is referenced by $num record$plural in table '$table_to_check' - "
+				  . "can not delete!<br />";
 				$proceed = 0;
 			}
 		}
@@ -349,7 +351,7 @@ sub _delete {
 	} elsif (
 		$proceed
 		&& ( $self->{'system'}->{'read_access'} eq 'acl'
-			|| ( $self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl' ) )
+			|| ( ( $self->{'system'}->{'write_access'} // '' ) eq 'acl' ) )
 		&& $self->{'username'}
 		&& !$self->is_admin
 		&& ( $table eq 'accession' || $table eq 'allele_sequences' )
@@ -360,15 +362,14 @@ sub _delete {
 		  $self->{'datastore'}->run_simple_query( "SELECT isolate_id FROM sequence_bin WHERE id=?", $data->{'seqbin_id'} )->[0];
 		if ( !$self->is_allowed_to_view_isolate($isolate_id) ) {
 			my $record_type = $self->get_record_name($table);
-			$nogo_buffer .=
-			  "The $record_type you are trying to delete belongs to an isolate to which your user account is not allowed to access.<br />";
+			$nogo_buffer .= "The $record_type you are trying to delete belongs to an isolate to which your user account is not "
+			  . "allowed to access.<br />";
 			$proceed = 0;
 		}
 	}
 	if ( !$proceed ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>$nogo_buffer</p><p><a href=\""
-		  . $q->script_name
-		  . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>$nogo_buffer</p><p>"
+		  . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>";
 		return;
 	}
 	$buffer .= "</p>\n";
@@ -385,8 +386,8 @@ sub _confirm {
 	local $" = ' AND ';
 	my $qry = "DELETE FROM $table WHERE @$query_values_ref";
 	if ( $table eq 'allele_designations' && $self->can_modify_table('allele_sequences') && $q->param('delete_tags') ) {
-		$qry .=
-";DELETE FROM allele_sequences WHERE seqbin_id IN (SELECT id FROM sequence_bin WHERE $query_values_ref->[0]) AND $query_values_ref->[1]";
+		$qry .= ";DELETE FROM allele_sequences WHERE seqbin_id IN (SELECT id FROM sequence_bin WHERE "
+		  . "$query_values_ref->[0]) AND $query_values_ref->[1]";
 	}
 	eval {
 		$self->{'db'}->do($qry);
@@ -401,28 +402,27 @@ sub _confirm {
 	if ($@) {
 		my $err = $@;
 		$logger->error($err);
-		print "<div class=\"box\" id=\"statusbad\"><p>Delete failed - transaction cancelled - no records have been touched.</p>\n";
-		print "<p>Failed SQL: $qry</p>\n";
-		print "<p>Error message: $err</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Delete failed - transaction cancelled - no records have been touched.</p>";
+		say "<p>Failed SQL: $qry</p>";
+		say "<p>Error message: $err</p></div>";
 		$self->{'db'}->rollback;
 		return;
 	}
 	my $record_name = $self->get_record_name($table);
-	$self->{'db'}->commit
-	  && print "<div class=\"box\" id=\"resultsheader\"><p>$record_name deleted!</p>";
+	$self->{'db'}->commit && say "<div class=\"box\" id=\"resultsheader\"><p>$record_name deleted!</p>";
 	if ( $table eq 'composite_fields' ) {
-		print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}&amp;page=compositeQuery\">Query another</a>";
+		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=compositeQuery\">Query another</a>";
 	} elsif ( $table eq 'profiles' ) {
 		my $scheme_id = $q->param('scheme_id');
 		$self->refresh_material_view($scheme_id);
 		$self->{'db'}->commit;
-		print "<p><a href=\""
-		  . $q->script_name
-		  . "?db=$self->{'instance'}&amp;page=profileQuery&amp;scheme_id=$scheme_id\">Query another</a>";
+		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileQuery&amp;scheme_id=$scheme_id\">"
+		  . "Query another</a>";
 	} else {
-		print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$table\">Query another</a>";
+		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$table\">"
+		  . "Query another</a>";
 	}
-	print " | <a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
+	say " | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>";
 	$logger->debug("Deleted record: $qry");
 	if ( $table eq 'allele_designations' ) {
 		my $deltags = $q->param('delete_tags') ? "<br />$data->{'locus'}: sequence tag(s) deleted" : '';
@@ -450,8 +450,8 @@ sub _get_extra_sequences_fields {
 		my $flags = $self->{'datastore'}->get_allele_flags( $q->param('locus'), $q->param('allele_id') );
 		local $" = '</a> <a class="seqflag_tooltip">';
 		if (@$flags) {
-			$buffer .=
-"<tr class=\"td$td\"><th style=\"text-align:right\">flags&nbsp;</th><td style=\"text-align:left\"><a class=\"seqflag_tooltip\">@$flags</a></td></tr>\n";
+			$buffer .= "<tr class=\"td$td\"><th style=\"text-align:right\">flags&nbsp;</th><td style=\"text-align:left\">"
+			  . "<a class=\"seqflag_tooltip\">@$flags</a></td></tr>\n";
 			$td = $td == 1 ? 2 : 1;
 		}
 	}
@@ -462,8 +462,8 @@ sub _get_extra_sequences_fields {
 			$q->param('locus'), $q->param('allele_id'), $databank );
 		foreach my $accession (@$accessions) {
 			$accession = "<a href=\"http://www.ncbi.nlm.nih.gov/nuccore/$accession\">$accession</a>" if $databank eq 'Genbank';
-			$buffer .=
-			  "<tr class=\"td$td\"><th style=\"text-align:right\">$databank&nbsp;</th><td style=\"text-align:left\">$accession</td></tr>\n";
+			$buffer .= "<tr class=\"td$td\"><th style=\"text-align:right\">$databank&nbsp;</th>"
+			  . "<td style=\"text-align:left\">$accession</td></tr>\n";
 			$td = $td == 1 ? 2 : 1;
 		}
 	}
@@ -472,8 +472,8 @@ sub _get_extra_sequences_fields {
 		$q->param('locus'), $q->param('allele_id') );
 	my $citations = $self->{'datastore'}->get_citation_hash( $pubmed_list, { formatted => 1, all_authors => 1, link_pubmed => 1 } );
 	foreach my $pmid (@$pubmed_list) {
-		$buffer .=
-"<tr class=\"td$td\"><th style=\"text-align:right\">reference&nbsp;</th><td style=\"text-align:left\">$citations->{$pmid}</td></tr>";
+		$buffer .= "<tr class=\"td$td\"><th style=\"text-align:right\">reference&nbsp;</th><td style=\"text-align:left\">"
+		  . "$citations->{$pmid}</td></tr>";
 		$td = $td == 1 ? 2 : 1;
 	}
 	my $extended_attributes = $self->{'datastore'}->get_allele_extended_attributes( $q->param('locus'), $q->param('allele_id') );
@@ -482,11 +482,11 @@ sub _get_extra_sequences_fields {
 		$cleaned_field =~ tr/_/ /;
 		if ( $cleaned_field =~ /sequence$/ ) {
 			my $seq = BIGSdb::Utils::split_line( $ext->{'value'} );
-			$buffer .=
-"<tr class=\"td$td\"><th style=\"text-align:right\">$cleaned_field&nbsp;</th><td style=\"text-align:left\" colspan=\"3\" class=\"seq\">$seq</td></tr>\n";
+			$buffer .= "<tr class=\"td$td\"><th style=\"text-align:right\">$cleaned_field&nbsp;</th>"
+			  . "<td style=\"text-align:left\" colspan=\"3\" class=\"seq\">$seq</td></tr>\n";
 		} else {
-			$buffer .=
-"<tr class=\"td$td\"><th style=\"text-align:right\">$cleaned_field&nbsp;</th><td style=\"text-align:left\" colspan=\"3\">$ext->{'value'}</td></tr>\n";
+			$buffer .= "<tr class=\"td$td\"><th style=\"text-align:right\">$cleaned_field&nbsp;</th>"
+			  . "<td style=\"text-align:left\" colspan=\"3\">$ext->{'value'}</td></tr>\n";
 		}
 		$td = $td == 1 ? 2 : 1;
 	}

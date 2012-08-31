@@ -61,7 +61,7 @@ sub print_content {
 	eval { $sql->execute( $q->param('id') ) };
 	$logger->error($@) if $@;
 	my $data = $sql->fetchrow_hashref;
-	$self->_add_existing_metadata_to_hashref($data);
+	$self->add_existing_metadata_to_hashref($data);
 	if ( !$data->{'id'} ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>No record with id = " . $q->param('id') . " exists.</p></div>";
 		return;
@@ -82,9 +82,8 @@ sub _check {
 	}
 	my %newdata;
 	my @bad_field_buffer;
-	my $update        = 1;
 	my $set_id        = $self->get_set_id;
-	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id, {curate => 1});
 	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
 	foreach my $required ( 1, 0 ) {
 
@@ -113,22 +112,8 @@ sub _check {
 		  . "Please address the following:</p>";
 		local $" = '<br />';
 		say "<p>@bad_field_buffer</p></div>";
-		$update = 0;
-	}
-	return $self->_update( $data, \%newdata ) if $update;
-	return;
-}
-
-sub _add_existing_metadata_to_hashref {
-	my ( $self, $data ) = @_;
-	my $metadata_list = $self->{'xmlHandler'}->get_metadata_list;
-	foreach my $metadata_set (@$metadata_list) {
-		my $metadata = $self->{'datastore'}->run_list_query_hashref( "SELECT * FROM $metadata_set WHERE isolate_id=?", $data->{'id'} );
-		foreach my $metadata_ref (@$metadata) {
-			foreach my $field ( keys %$metadata_ref ) {
-				$data->{"$metadata_set:$field"} = $metadata_ref->{$field};
-			}
-		}
+	} else {
+		return $self->_update( $data, \%newdata );
 	}
 	return;
 }
@@ -142,11 +127,18 @@ sub _update {
 	my @updated_field;
 	my $set_id = $self->get_set_id;
 	my %meta_fields;
-	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id, {curate => 1});
 	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
 
 	foreach my $field (@$field_list) {
 		$data->{ lc($field) } //= '';
+		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+		if ($att->{'type'} eq 'bool'){
+			given ($data->{ lc($field) }){
+				when ('1') {$data->{ lc($field) } = 'true'}
+				when ('0') {$data->{ lc($field) } = 'false'}
+			}
+		}
 		if ( $field ne 'datestamp' && $field ne 'curator' && $data->{ lc($field) } ne $newdata->{$field} ) {
 			my $cleaned = $self->clean_value( $newdata->{$field} ) // '';
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
@@ -296,7 +288,7 @@ sub _print_interface {
 		say $q->submit( -name => 'Update', -class => 'submit' );
 		say "</td></tr>";
 		my $set_id        = $self->get_set_id;
-		my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+		my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id, {curate => 1});
 		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
 
 		#Display required fields first
