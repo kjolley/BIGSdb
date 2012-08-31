@@ -46,7 +46,12 @@ sub print_content {
 	foreach (qw (users user_groups user_group_members user_permissions)) {
 		if ( $self->can_modify_table($_) ) {
 			my $function = "_print_$_";
-			$buffer .= $self->$function($td);
+			try {
+				$buffer .= $self->$function($td);
+			}
+			catch BIGSdb::DataException with {
+				$td = $td == 1 ? 2 : 1;
+			};
 			$td = $td == 1 ? 2 : 1;
 			$can_do_something = 1;
 		}
@@ -81,16 +86,17 @@ sub print_content {
 			}
 		}
 	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
-		foreach (
-			qw (locus_descriptions scheme_curators locus_curators sequences accession sequence_refs profiles profile_refs)
-		  )
-		{
+		foreach (qw (locus_descriptions scheme_curators locus_curators sequences accession sequence_refs profiles profile_refs)) {
 			if ( $self->can_modify_table($_) || $_ eq 'profiles' ) {    #profile permissions handled by ACL
 				my $function = "_print_$_";
-				my ( $temp_buffer, $returned_td ) = $self->$function($td);
-				$buffer .= $temp_buffer if $temp_buffer;
-				$td = $returned_td || ( $td == 1 ? 2 : 1 );
-				$can_do_something = 1 if $temp_buffer;
+				try {
+					my ( $temp_buffer, $returned_td ) = $self->$function($td);
+					if ($temp_buffer) {
+						$buffer .= $temp_buffer;
+						$can_do_something = 1;
+					}
+					$td = $returned_td || ( $td == 1 ? 2 : 1 );
+				};
 			}
 		}
 	}
@@ -111,28 +117,40 @@ HTML
 	#Display links for updating database configuration tables.
 	#These are admin functions, some of which some curators may be allowed to access.
 	my $set_id = $self->get_set_id;
-	if (!$set_id){ #only modify schemes/loci etc. when sets not being used otherwise it can get too confusing for a curator
+	if ( !$set_id ) {    #only modify schemes/loci etc. when sets not being used otherwise it can get too confusing for a curator
 		my @tables = qw (loci);
 		my @skip_table;
 		if ( $system->{'dbtype'} eq 'isolates' ) {
 			push @tables, qw(locus_aliases pcr pcr_locus probes probe_locus isolate_field_extended_attributes composite_fields);
 		} elsif ( $system->{'dbtype'} eq 'sequences' ) {
 			push @tables, qw(locus_extended_attributes client_dbases client_dbase_loci client_dbase_schemes client_dbase_loci_fields);
-			my $client_db_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM client_dbases")->[0];
-			if ( !$client_db_count ) {
-				push @skip_table, qw (client_dbase_loci client_dbase_schemes client_dbase_loci_fields);
-			}
+
+			#			my $client_db_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM client_dbases")->[0];
+			#			if ( !$client_db_count ) {
+			#				push @skip_table, qw (client_dbase_loci client_dbase_schemes client_dbase_loci_fields);
+			#			}
 		}
 		if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
 			push @tables, 'sets';
 			my $set_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM sets")->[0];
-			push @tables, qw( set_loci set_schemes) if $set_count;
+			if ($set_count) {
+				push @tables, qw( set_loci set_schemes);
+				if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+					my $metadata_list = $self->{'xmlHandler'}->get_metadata_list;
+					push @tables, 'set_metadata' if @$metadata_list;
+				}
+			}
 		}
 		push @tables, qw (schemes scheme_members scheme_fields scheme_groups scheme_group_scheme_members scheme_group_group_members);
 		foreach my $table (@tables) {
 			if ( $self->can_modify_table($table) && ( !@skip_table || none { $table eq $_ } @skip_table ) ) {
 				my $function = "_print_$table";
-				$buffer .= $self->$function($td);
+				try {
+					$buffer .= $self->$function($td);
+				}
+				catch BIGSdb::DataException with {
+					$td = $td == 1 ? 2 : 1;
+				};
 				$td = $td == 1 ? 2 : 1;
 				$can_do_something = 1;
 			}
@@ -184,51 +202,30 @@ HTML
 
 sub _print_users {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>users</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=users">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=users">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=users">?</a></td>
-<td></td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table( 'users', $td );
 }
 
 sub _print_user_group_members {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>user group members</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=user_group_members">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=user_group_members">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=user_group_members">query</a> |
-<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=memberUpdate&amp;table=user_group_members">batch</a></td>
-<td style="text-align:left" class="comment">Add users to groups for setting access permissions.</td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table( 'user_group_members', $td, { comments => 'Add users to groups for setting access permissions.' } );
 }
 
 sub _print_user_permissions {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>user permissions</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=user_permissions">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=user_permissions">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=user_permissions">?</a></td>
-<td style="text-align:left" class="comment">Set curator permissions for individual users - these are only active for users with a status of 'curator' in the users table.</td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table(
+		'user_permissions',
+		$td,
+		{
+			comments => "Set curator permissions for individual users - these are only active for users with a status of 'curator' "
+			  . "in the users table."
+		}
+	);
 }
 
 sub _print_user_groups {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>user groups</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=user_groups">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=user_groups">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=user_groups">?</a></td>
-<td style="text-align:left" class="comment">Users can be members of these groups - use for setting access permissions.</td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table( 'user_groups', $td,
+		{ comments => 'Users can be members of these groups - use for setting access permissions.' } );
 }
 
 sub _print_isolates {
@@ -248,52 +245,26 @@ HTML
 
 sub _print_isolate_aliases {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>isolate aliases</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=isolate_aliases">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=isolate_aliases">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=isolate_aliases">?</a></td>
-<td class="comment" style="text-align:left">Add alternative names for isolates.</td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table( 'isolate_aliases', $td, { comments => 'Add alternative names for isolates.' } );
 }
 
 sub _print_isolate_field_extended_attributes {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>isolate field extended attributes</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=isolate_field_extended_attributes">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=isolate_field_extended_attributes">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=isolate_field_extended_attributes">?</a></td>
-<td style="text-align:left" class="comment">Define additional attributes to associate with values of a particular isolate record field.</td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table( 'isolate_field_extended_attributes',
+		$td, { comments => 'Define additional attributes to associate with values of a particular isolate record field.' } );
 }
 
 sub _print_isolate_value_extended_attributes {
 	my ( $self, $td ) = @_;
 	my $count_att = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM isolate_field_extended_attributes")->[0];
 	throw BIGSdb::DataException("No extended attributes") if !$count_att;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>isolate field extended attribute values</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=isolate_value_extended_attributes">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=isolate_value_extended_attributes">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=isolate_value_extended_attributes">?</a></td>
-<td style="text-align:left" class="comment">Add values for additional isolate field attributes.</td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table( 'isolate_value_extended_attributes',
+		$td, { title => 'isolate field extended attribute values', comments => 'Add values for additional isolate field attributes.' } );
 }
 
 sub _print_refs {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>PubMed links</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=refs">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=refs">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=refs">?</a></td>
-<td></td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table( 'refs', $td, { title => 'PubMed links' } );
 }
 
 sub _print_allele_designations {
@@ -322,34 +293,19 @@ HTML
 
 sub _print_accession {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>accession number links</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=accession">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=accession">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=accession">?</a></td>
-<td class="comment" style="text-align:left">Tag sequences with Genbank/EMBL accession number.</td></tr>	
-HTML
-	return $buffer;
+	return $self->_print_table( 'accession', $td,
+		{ title => 'accession number links', comments => 'Tag sequences with Genbank/EMBL accession number.' } );
 }
 
 sub _print_experiments {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>experiments</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=experiments">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=experiments">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=experiments">?</a></td>
-<td class="comment" style="text-align:left">Set up experiments to which sequences in the bin can belong.</td></tr>	
-HTML
-	return $buffer;
+	return $self->_print_table( 'experiments', $td, { comments => 'Set up experiments to which sequences in the bin can belong.' } );
 }
 
 sub _print_experiment_sequences {
 	my ( $self, $td ) = @_;
 	my $buffer = <<"HTML";
-<tr class="td$td"><td>experiment sequence links</td>
-<td />
-<td />
+<tr class="td$td"><td>experiment sequence links</td><td /><td />
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=experiment_sequences">?</a></td>
 <td class="comment" style="text-align:left">Query/delete links associating sequences to experiments.</td></tr>	
 HTML
@@ -424,62 +380,33 @@ sub _print_locus_descriptions {
 		  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM locus_curators WHERE curator_id=?", $self->get_curator_id )->[0];
 		return if !$allowed;
 	}
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>locus descriptions</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=locus_descriptions">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=locus_descriptions">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=locus_descriptions">?</a></td>
-<td></td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table( 'locus_descriptions', $td );
 }
 
 sub _print_sets {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>sets</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=sets">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=sets">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=sets">?</a></td>
-<td class="comment" style="text-align:left">Sets describe a collection of loci and schemes that can be treated like a stand-alone database.</td></tr>	
-HTML
-	return $buffer;
+	return $self->_print_table( 'sets', $td,
+		{ comments => 'Sets describe a collection of loci and schemes that can be treated like a stand-alone database.' } );
 }
 
 sub _print_set_loci {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>set loci</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=set_loci">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=set_loci">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=set_loci">?</a></td>
-<td class="comment" style="text-align:left">Add loci to sets.</td></tr>	
-HTML
-	return $buffer;
+	return $self->_print_table( 'set_loci', $td, { comments => 'Add loci to sets.' } );
 }
 
 sub _print_set_schemes {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>set schemes</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=set_schemes">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=set_schemes">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=set_schemes">?</a></td>
-<td class="comment" style="text-align:left">Add schemes to sets.</td></tr>	
-HTML
-	return $buffer;
+	return $self->_print_table( 'set_schemes', $td, { comments => 'Add schemes to sets.' } );
+}
+
+sub _print_set_metadata {
+	my ( $self, $td ) = @_;
+	return $self->_print_table( 'set_metadata', $td, { comments => 'Add metadata collection to sets.' } );
 }
 
 sub _print_sequence_refs {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>PubMed links (to sequences)</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=sequence_refs">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=sequence_refs">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=sequence_refs">?</a></td>
-<td></td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table( 'sequence_refs', $td, { title => 'PubMed links (to sequences)' } );
 }
 
 sub _print_profiles {
@@ -546,45 +473,24 @@ HTML
 sub _print_profile_refs {
 	my ( $self, $td ) = @_;
 	my $set_id = $self->get_set_id;
-	if ($set_id) {		
+	if ($set_id) {
 		my $schemes_in_set = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM set_schemes WHERE set_id=?", $set_id )->[0];
 		return !$schemes_in_set;
 	} else {
 		my $scheme_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM schemes")->[0];
 		return if !$scheme_count;
 	}
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>PubMed links (to profiles)</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=profile_refs">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=profile_refs">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=profile_refs">?</a></td>
-<td></td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table( 'profile_refs', $td, { title => 'PubMed links (to profiles)' } );
 }
 
 sub _print_projects {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>projects</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=projects">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=projects">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=projects">?</a></td>
-<td style="text-align:left" class="comment">Set up projects to which isolates can belong.</td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table( 'projects', $td, { comments => 'Set up projects to which isolates can belong.' } );
 }
 
 sub _print_project_members {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>project members</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=project_members">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=project_members">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=project_members">?</a></td>
-<td style="text-align:left" class="comment">Add isolates to projects.</td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table( 'project_members', $td, { requires => 'projects', comments => 'Add isolates to projects.' } );
 }
 
 sub _print_loci {
@@ -607,123 +513,97 @@ HTML
 
 sub _print_pcr {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>PCR reactions</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=pcr">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=pcr">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=pcr">?</a></td>
-<td style="text-align:left" class="comment">Set up <i>in silico</i> PCR reactions.  These can be used to filter genomes for tagging to specific repetitive loci.</td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table(
+		'pcr', $td,
+		{
+			title    => 'PCR reactions',
+			comments => 'Set up <i>in silico</i> PCR reactions.  These can be used to filter genomes for tagging to '
+			  . 'specific repetitive loci.'
+		}
+	);
 }
 
 sub _print_pcr_locus {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>PCR locus links</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=pcr_locus">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=pcr_locus">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=pcr_locus">?</a></td>
-<td style="text-align:left" class="comment">Link a locus to an <i>in silico</i> PCR reaction.</td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table( 'pcr_locus', $td,
+		{ requires => 'pcr', title => 'PCR locus links', comments => 'Link a locus to an <i>in silico</i> PCR reaction.' } );
 }
 
 sub _print_probes {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>nucleotide probes</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=probes">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=probes">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=probes">?</a></td>
-<td style="text-align:left" class="comment">Define nucleotide probes for <i>in silico</i> hybridization reaction to filter genomes for tagging to specific repetitive loci.</td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table(
+		'probes', $td,
+		{
+			title    => 'nucleotide probes',
+			comments => 'Define nucleotide probes for <i>in silico</i> hybridization reaction to filter genomes for '
+			  . 'tagging to specific repetitive loci.'
+		}
+	);
 }
 
 sub _print_probe_locus {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>probe locus links</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=probe_locus">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=probe_locus">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=probe_locus">?</a></td>
-<td style="text-align:left" class="comment">Link a locus to an <i>in silico</i> hybridization reaction.</td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table( 'probe_locus', $td,
+		{ requires => 'probes', title => 'probe locus links', comments => 'Link a locus to an <i>in silico</i> hybridization reaction.' } );
 }
 
 sub _print_locus_aliases {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>locus aliases</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=locus_aliases">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=locus_aliases">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=locus_aliases">?</a></td>
-<td style="text-align:left" class="comment">Add alternative names for loci.  These can also be set when you batch add loci.</td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table( 'locus_aliases', $td,
+		{ requires => 'loci', comments => 'Add alternative names for loci.  These can also be set when you batch add loci.' } );
 }
 
 sub _print_client_dbases {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>client databases</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=client_dbases">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=client_dbases">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=client_dbases">?</a></td>
-<td style="text-align:left" class="comment">Add isolate databases that use locus allele or scheme profile definitions defined in this database - this enables
-backlinks and searches of these databases when you query sequences or profiles in this database.</td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table(
+		'client_dbases',
+		$td,
+		{
+			title    => 'client databases',
+			comments => 'Add isolate databases that use locus allele or scheme profile definitions defined in this database - this '
+			  . 'enables backlinks and searches of these databases when you query sequences or profiles in this database.'
+		}
+	);
 }
 
 sub _print_client_dbase_loci_fields {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>client database fields linked to loci</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=client_dbase_loci_fields">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=client_dbase_loci_fields">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=client_dbase_loci_fields">?</a></td>
-<td style="text-align:left" class="comment">Define fields in client database whose value can be displayed when isolate has matching allele.</td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table(
+		'client_dbase_loci_fields',
+		$td,
+		{
+			requires => 'loci,client_dbases',
+			title    => 'client database fields linked to loci',
+			comments => 'Define fields in client database whose value can be displayed when isolate has matching allele.'
+		}
+	);
 }
 
 sub _print_locus_extended_attributes {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>locus extended attributes</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=locus_extended_attributes">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=locus_extended_attributes">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=locus_extended_attributes">?</a></td>
-<td style="text-align:left" class="comment">Define additional fields to associate with sequences of a particular locus.</td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table( 'locus_extended_attributes', $td,
+		{ requires => 'loci', comments => 'Define additional fields to associate with sequences of a particular locus.' } );
 }
 
 sub _print_client_dbase_loci {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>client database loci</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=client_dbase_loci">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=client_dbase_loci">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=client_dbase_loci">?</a></td>
-<td style="text-align:left" class="comment">Define loci that are used in client databases.</td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table( 'client_dbase_loci', $td,
+		{ requires => 'loci,client_dbases', title => 'client database loci', comments => 'Define loci that are used in client databases.' }
+	);
 }
 
 sub _print_client_dbase_schemes {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>client database schemes</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=client_dbase_schemes">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=client_dbase_schemes">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=client_dbase_schemes">?</a></td>
-<td style="text-align:left" class="comment">Define schemes that are used in client databases. You will need to add the appropriate loci to the client database loci table.</td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table(
+		'client_dbase_schemes',
+		$td,
+		{
+			requires => 'schemes,client_dbases',
+			title    => 'client database schemes',
+			comments => 'Define schemes that are used in client databases. You will need to add the appropriate loci to the '
+			  . 'client database loci table.'
+		}
+	);
 }
 
 sub _print_composite_fields {
@@ -740,97 +620,88 @@ HTML
 
 sub _print_schemes {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>schemes</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=schemes">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=schemes">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=schemes">?</a></td>
-<td style="text-align:left" class="comment">Describes schemes consisting of collections of loci, e.g. MLST.</td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table( 'schemes', $td, { comments => 'Describes schemes consisting of collections of loci, e.g. MLST.' } );
 }
 
 sub _print_scheme_groups {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>scheme groups</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=scheme_groups">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=scheme_groups">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=scheme_groups">?</a></td>
-<td style="text-align:left" class="comment">Describes groups in to which schemes can belong - groups can also belong to other groups.</td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table( 'scheme_groups', $td,
+		{ comments => 'Describes groups in to which schemes can belong - groups can also belong to other groups.' } );
 }
 
 sub _print_scheme_group_scheme_members {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>scheme group scheme members</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=scheme_group_scheme_members">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=scheme_group_scheme_members">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=scheme_group_scheme_members">?</a></td>
-<td style="text-align:left" class="comment">Defines which schemes belong to a group.</td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table( 'scheme_group_scheme_members', $td,
+		{ requires => 'scheme_groups,schemes', comments => 'Defines which schemes belong to a group.' } );
 }
 
 sub _print_scheme_group_group_members {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>scheme group group members</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=scheme_group_group_members">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=scheme_group_group_members">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=scheme_group_group_members">?</a></td>
-<td style="text-align:left" class="comment">Defines which scheme groups belong to a parent group.</td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table( 'scheme_group_group_members', $td,
+		{ requires => 'scheme_groups', comments => 'Defines which scheme groups belong to a parent group.' } );
 }
 
 sub _print_scheme_members {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>scheme members</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=scheme_members">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=scheme_members">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=scheme_members">?</a></td>
-<td style="text-align:left" class="comment">Defines which loci belong to a scheme.</td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table( 'scheme_members', $td,
+		{ requires => 'schemes,loci', comments => 'Defines which loci belong to a scheme.' } );
 }
 
 sub _print_scheme_fields {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>scheme fields</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=scheme_fields">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=scheme_fields">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=scheme_fields">?</a></td>
-<td style="text-align:left" class="comment">Defines which fields belong to a scheme.</td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table( 'scheme_fields', $td, { requires => 'schemes', comments => 'Defines which fields belong to a scheme.' } );
 }
 
 sub _print_isolate_user_acl {
 	my ( $self, $td ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>isolate user access control list</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=isolate_user_acl">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=isolate_user_acl">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=isolate_user_acl">?</a></td>
-<td style="text-align:left" class="comment">Define which users can access or update specific isolate records.  It is usually easier to modify these controls by searching or browsing isolates and selecting the appropriate options.</td></tr>
-HTML
-	return $buffer;
+	return $self->_print_table(
+		'isolate_user_acl',
+		$td,
+		{
+			title    => 'isolate user access control list',
+			comments => 'Define which users can access or update specific isolate records.  It is usually easier to modify these '
+			  . 'controls by searching or browsing isolates and selecting the appropriate options.'
+		}
+	);
 }
 
 sub _print_isolate_usergroup_acl {
 	my ( $self, $td ) = @_;
+	return $self->_print_table(
+		'isolate_usergroup_acl',
+		$td,
+		{
+			title    => 'isolate user group access control list',
+			comments => 'Define which usergroups can access or update specific isolate records. It is usually easier to modify these '
+			 . 'controls by searching or browsing isolates and selecting the appropriate options.'
+		}
+	);
+}
+
+sub _print_table {
+	my ( $self, $table, $td, $values ) = @_;
+	$values = {} if ref $values ne 'HASH';
+	if ( $values->{'requires'} ) {
+		my @requires = split /,/, $values->{'requires'};
+		foreach my $required (@requires) {
+			my $required_value_exists = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT * FROM $required)")->[0];
+			throw BIGSdb::DataException("Required parent record does not exist.") if !$required_value_exists;
+		}
+	}
+	my $title = $values->{'title'} // $table;
+	$title =~ tr/_/ /;
+	my $comments = $values->{'comments'} // '';
 	my $buffer = <<"HTML";
-<tr class="td$td"><td>isolate user group access control list</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=isolate_usergroup_acl">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=isolate_usergroup_acl">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=isolate_usergroup_acl">?</a></td>
-<td style="text-align:left" class="comment">Define which usergroups can access or update specific isolate records. It is usually easier to modify these controls by searching or browsing isolates and selecting the appropriate options.</td></tr>
+<tr class="td$td"><td>$title</td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=$table">+</a></td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=$table">++</a></td>
 HTML
+	my $records_exist = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT * FROM $table)")->[0];
+	$buffer .=
+	  $records_exist
+	  ? "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$table\">?</a></td>"
+	  : '<td />';
+	$buffer .= "<td style=\"text-align:left\" class=\"comment\">$comments</td></tr>";
 	return $buffer;
 }
 

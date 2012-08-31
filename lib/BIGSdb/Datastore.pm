@@ -1606,7 +1606,7 @@ sub get_tables {
 		  locus_aliases schemes scheme_members scheme_fields composite_fields composite_field_values isolate_aliases user_permissions isolate_user_acl
 		  isolate_usergroup_acl projects project_members experiments experiment_sequences isolate_field_extended_attributes
 		  isolate_value_extended_attributes scheme_groups scheme_group_scheme_members scheme_group_group_members pcr pcr_locus probes probe_locus
-		  sets set_loci set_schemes samples);
+		  sets set_loci set_schemes set_metadata samples);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';
@@ -1650,4 +1650,14 @@ sub get_primary_keys {
 	}
 	return @keys;
 }
+
+sub get_set_metadata {
+	my ($self, $set_id) = @_;
+	if ($set_id){
+		return $self->run_list_query("SELECT metadata_id FROM set_metadata WHERE set_id=?", $set_id);
+	} else {
+		return $self->{'xmlHandler'}->get_metadata_list;
+	}
+}
+
 1;

@@ -259,7 +259,7 @@ sub get_stylesheet {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system   = $self->{'system'};
-	my $filename = 'bigsdb.css?v=20120803';
+	my $filename = 'bigsdb.css?v=20120824';
 	if ( !$system->{'db'} ) {
 		$stylesheet = "/$filename";
 	} elsif ( -e "$ENV{'DOCUMENT_ROOT'}$system->{'webroot'}/$system->{'db'}/$filename" ) {
@@ -966,7 +966,8 @@ sub get_record_name {
 		'client_dbase_loci_fields'          => 'locus to client database isolate field definition',
 		'sets'                              => 'set',
 		'set_loci'                          => 'set member locus',
-		'set_schemes'                       => 'set member schemes'
+		'set_schemes'                       => 'set member schemes',
+		'set_metadata'						=> 'set metadata'
 	);
 	return $names{$table};
 }

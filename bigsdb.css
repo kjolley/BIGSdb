@@ -417,6 +417,7 @@ tr.total {background:green;color:white}
 span.statusgood {color:green}
 span.statusbad {color:red}
 span.link {padding:0 0.5em;font-size:0.8em; background:green; color:white;}
+span.metaset {padding:0 0.5em;font-size:0.8em; background:blue; color:white;}
 span.highlightvalue {background:#ffffa0; border-bottom:1px solid #e0e000; color: #400000}
 
 .A,.G,.T,.C {font-weight:600}

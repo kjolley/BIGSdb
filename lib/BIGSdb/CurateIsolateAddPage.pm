@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CurateAddPage);
-use List::MoreUtils qw(uniq);
+use List::MoreUtils qw(none uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant SUCCESS => 1;
@@ -56,31 +56,32 @@ sub print_content {
 
 sub _check {
 	my ( $self, $newdata ) = @_;
-	my $q = $self->{'cgi'};
-	my $set_id = $self->get_set_id;
-	my $loci = $self->{'datastore'}->get_loci( { query_pref => 1, set_id => $set_id } );
+	my $q             = $self->{'cgi'};
+	my $set_id        = $self->get_set_id;
+	my $loci          = $self->{'datastore'}->get_loci( { query_pref => 1, set_id => $set_id } );
+	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
 	@$loci = uniq @$loci;
 	my @bad_field_buffer;
 	my $insert = 1;
-	foreach my $required ( '1', '0' ) {
-		foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list } ) {
+
+	foreach my $required ( 1, 0 ) {
+		foreach my $field (@$field_list) {
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 			my $required_field = !( ( $thisfield->{'required'} // '' ) eq 'no' );
-			if (   ( $required_field && $required )
-				|| ( !$required_field && !$required ) )
-			{
+			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+			$required_field = 0 if !$set_id && defined $metaset;    #Field can't be compulsory if part of a metadata collection.
+			if ( $required_field == $required ) {
 				if ( $field eq 'curator' ) {
 					$newdata->{$field} = $self->get_curator_id;
-				} elsif ( $field eq 'datestamp'
-					|| $field eq 'date_entered' )
-				{
+				} elsif ( $field ~~ [qw(datestamp date_entered)] ) {
 					$newdata->{$field} = $self->get_datestamp;
 				} else {
 					$newdata->{$field} = $q->param($field);
 				}
 				my $bad_field = $self->is_field_bad( $self->{'system'}->{'view'}, $field, $newdata->{$field} );
 				if ($bad_field) {
-					push @bad_field_buffer, "Field '$field': $bad_field";
+					push @bad_field_buffer, "Field '" . ( $metafield // $field ) . "': $bad_field";
 				}
 			}
 		}
@@ -117,31 +118,61 @@ sub _check {
 	return;
 }
 
+
+
+sub _prepare_metaset_insert {
+	my ( $self, $meta_fields, $newdata ) = @_;
+	my @metasets = keys %$meta_fields;
+	my @inserts;
+	foreach my $metaset (@metasets) {
+		my @fields = @{ $meta_fields->{$metaset} };
+		local $" = ',';
+		my $qry = "INSERT INTO meta_$metaset (isolate_id,@fields) VALUES ($newdata->{'id'}";
+		foreach my $field (@fields) {
+			$qry .= ',';
+			my $cleaned = $self->clean_value( $newdata->{"meta_$metaset:$field"} );
+			$qry .= "E'$cleaned'";
+		}
+		$qry .= ')';
+		push @inserts, $qry;
+	}
+	return \@inserts;
+}
+
 sub _insert {
 	my ( $self, $newdata ) = @_;
-	my $q = $self->{'cgi'};
-	my $loci = $self->{'datastore'}->get_loci( { query_pref => 1 } );
+	my $q      = $self->{'cgi'};
+	my $set_id = $self->get_set_id;
+	my $loci   = $self->{'datastore'}->get_loci( { query_pref => 1, set_id => $set_id } );
 	@$loci = uniq @$loci;
 	my $insert = 1;
 	my @fields_with_values;
-	foreach ( @{ $self->{'xmlHandler'}->get_field_list } ) {
-		push @fields_with_values, $_ if $newdata->{$_} ne '';
+	my %meta_fields;
+	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+
+	foreach my $field (@$field_list) {
+		if ( $newdata->{$field} ne '' ) {
+			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+			if ( defined $metaset ) {
+				push @{ $meta_fields{$metaset} }, $metafield;
+			} else {
+				push @fields_with_values, $field;
+			}
+		}
 	}
 	my @inserts;
-	my $qry;
-	$qry = "INSERT INTO isolates ";
 	local $" = ',';
-	$qry .= "(@fields_with_values";
-	$qry .= ') VALUES (';
-	foreach (@fields_with_values) {
-		$newdata->{$_} =~ s/'/\\'/g;
-		$newdata->{$_} =~ s/\r//g;
-		$newdata->{$_} =~ s/\n/ /g;
-		$qry .= "E'$newdata->{$_}',";
+	my $qry = "INSERT INTO isolates (@fields_with_values) VALUES (";
+	foreach my $field (@fields_with_values) {
+		$qry .= "," if $field ne $fields_with_values[0];
+		my $cleaned = $self->clean_value( $newdata->{$field} );
+		$qry .= "E'$cleaned'";
 	}
-	$qry =~ s/,$//;
 	$qry .= ')';
 	push @inserts, $qry;
+	my $metadata_inserts = $self->_prepare_metaset_insert( \%meta_fields, $newdata );
+	push @inserts, @$metadata_inserts;
 
 	#Set read ACL for 'All users' group
 	push @inserts, "INSERT INTO isolate_usergroup_acl (isolate_id,user_group_id,read,write) VALUES ($newdata->{'id'},0,true,false)";
@@ -211,73 +242,63 @@ sub _print_interface {
 	say "<div class=\"box\" id=\"queryform\"><p>Please fill in the fields below - required fields are "
 	  . "marked with an exclamation mark (!).</p>";
 	say "<div class=\"scrollable\">";
-	my $qry = "SELECT id,user_name,first_name,surname FROM users WHERE id>0 ORDER BY surname";
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute };
-	$logger->error($@) if $@;
-	my @users;
-	my %usernames;
+	my ( @users, %usernames );
+	my $user_data =
+	  $self->{'datastore'}
+	  ->run_list_query_hashref("SELECT id,user_name,first_name,surname FROM users WHERE id>0 ORDER BY surname, first_name, user_name");
 
-	while ( my ( $userid, $username, $firstname, $surname ) = $sql->fetchrow_array ) {
-		push @users, $userid;
-		$usernames{$userid} = "$surname, $firstname ($username)";
+	foreach (@$user_data) {
+		push @users, $_->{'id'};
+		$usernames{ $_->{'id'} } = "$_->{'surname'}, $_->{'first_name'} ($_->{'user_name'})";
 	}
 	say $q->start_form;
 	$q->param( 'sent', 1 );
 	say $q->hidden($_) foreach qw(page db sent);
-	my $field_list = $self->{'xmlHandler'}->get_field_list;
+	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
 	if ( @$field_list > 15 ) {
 		say "<span style=\"float:right\">";
 		say $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
 		say "</span>";
 	}
 	say "<fieldset><legend>Isolate fields</legend>";
+	say "<p><span class=\"metaset\">Metadata</span><span class=\"comment\">: These fields are available in the specified "
+	  . "dataset only.</span></p>"
+	  if !$set_id && @$metadata_list;
 	say "<table>";
 
 	#Display required fields first
-	foreach my $required ( '1', '0' ) {
+	foreach my $required ( 1, 0 ) {
 		foreach my $field (@$field_list) {
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 			my $required_field = !( ( $thisfield->{'required'} // '' ) eq 'no' );
-			if (   ( $required_field && $required )
-				|| ( !$required_field && !$required ) )
-			{
-				print "<tr><td style=\"text-align:right\">$field: ";
-				if ($required) {
-					print '!';
-				}
+			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+			$required_field = 0 if !$set_id && defined $metaset;    #Field can't be compulsory if part of a metadata collection.
+			if ( $required_field == $required ) {
+				print "<tr><td style=\"text-align:right\">" . ( $metafield // $field ) . ": ";
+				print '!' if $required;
 				print "</td><td style=\"text-align:left\">";
 				if ( $thisfield->{'optlist'} ) {
 					my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
 					say $q->popup_menu( -name => $field, -values => [ '', @$optlist ], -default => $newdata->{$field} );
 				} elsif ( $thisfield->{'type'} eq 'bool' ) {
 					say $q->popup_menu( -name => $field, -values => [ '', 'true', 'false' ], -default => $newdata->{$field} );
-				} elsif ( lc($field) eq 'datestamp'
-					|| lc($field) eq 'date_entered' )
-				{
+				} elsif ( lc($field) ~~ [qw(datestamp date_entered)] ) {
 					say "<b>" . $self->get_datestamp . "</b>";
 				} elsif ( lc($field) eq 'curator' ) {
 					say "<b>" . $self->get_curator_name . ' (' . $self->{'username'} . ")</b>";
-				} elsif (
-					lc($field) eq 'sender'
-					|| lc($field) eq 'sequenced_by'
-					|| (   $thisfield->{'userfield'}
-						&& $thisfield->{'userfield'} eq 'yes' )
-				  )
-				{
-					say $q->popup_menu( -name => $field, -values => [ '', @users ], -labels => \%usernames, -default => $newdata->{$field},
-					);
+				} elsif ( lc($field) ~~ [qw(sender sequenced_by)] || ( $thisfield->{'userfield'} // '' ) eq 'yes' ) {
+					say $q->popup_menu( -name => $field, -values => [ '', @users ], -labels => \%usernames,
+						-default => $newdata->{$field} );
 				} else {
-					if ( $thisfield->{'length'} && $thisfield->{'length'} > 60 ) {
+					if ( ( $thisfield->{'length'} // 0 ) > 60 ) {
 						say $q->textarea( -name => $field, -rows => 3, -cols => 40, -default => $newdata->{$field} );
 					} else {
 						say $q->textfield( -name => $field, -size => $thisfield->{'length'}, -default => $newdata->{$field} );
 					}
 				}
-				if (   $field ne 'datestamp'
-					&& $field ne 'date_entered'
-					&& lc( $thisfield->{'type'} ) eq 'date' )
-				{
+				say " <span class=\"metaset\">Metadata: $metaset</span>" if !$set_id && defined $metaset;
+				if ( ( none { lc($field) eq $_ } qw(datestamp date_entered) ) && lc( $thisfield->{'type'} ) eq 'date' ) {
 					say " format: yyyy-mm-dd";
 				}
 				say "</td></tr>";

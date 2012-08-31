@@ -687,13 +687,11 @@ sub _is_field_bad_isolates {
 	$value =~ s/null//;
 	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($fieldname);
 	$thisfield->{'type'} ||= 'text';
-
+	my $set_id = $self->get_set_id;
+	$thisfield->{'required'} = 'no' if !$set_id && $fieldname =~ /^meta_/;    #Field can't be compulsory if part of a metadata collection.
 	#If field is null make sure it's not a required field
 	if ( $value eq '' ) {
-		if (   $fieldname eq 'aliases'
-			|| $fieldname eq 'references'
-			|| ( $thisfield->{'required'} && $thisfield->{'required'} eq 'no' ) )
-		{
+		if (   $fieldname ~~ [qw(aliases references)] || ( ($thisfield->{'required'} // '') eq 'no' ) ){
 			return 0;
 		} else {
 			return 'is a required field and cannot be left blank.';
@@ -923,6 +921,20 @@ sub _is_field_bad_other {
 		}
 	}
 	return 0;
+}
+
+sub get_metaset_and_fieldname {
+	my ($self, $field) = @_;
+	my ( $metaset, $metafield ) = $field =~ /meta_([^:]):+(.*)/ ? ( $1, $2 ) : ( undef, undef );
+	return ($metaset, $metafield);
+}
+
+sub clean_value {
+	my ( $self, $value ) = @_;
+	$value =~ s/'/\\'/g;
+	$value =~ s/\r//g;
+	$value =~ s/\n/ /g;
+	return $value;
 }
 
 sub map_locus_name {

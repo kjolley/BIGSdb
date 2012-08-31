@@ -43,7 +43,7 @@ sub get_field_list {
 	$metadata_arrayref = [] if ref $metadata_arrayref ne 'ARRAY';
 	my @fields;
 	foreach my $field (@{$self->{'fields'}}){
-		if ($field =~ /^(meta-[^:]+):.+/){
+		if ($field =~ /^(meta_[^:]+):.+/){
 			foreach my $metadata (@$metadata_arrayref){
 				push @fields, $field if $metadata eq $1;
 			}
@@ -154,7 +154,7 @@ sub get_metadata_list {
 	my ($self) = @_;
 	my %list;
 	foreach my $field (@{$self->{'fields'}}){
-		$list{$1} = 1 if $field =~ /^(meta-[^:]+):/;
+		$list{$1} = 1 if $field =~ /^(meta_[^:]+):/;
 	}
 	my @list = sort keys %list;
 	return \@list;
