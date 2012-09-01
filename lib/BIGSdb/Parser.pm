@@ -39,7 +39,8 @@ sub get_system_hash {
 }
 
 sub get_field_list {
-	my ($self, $metadata_arrayref) = @_;
+	my ($self, $metadata_arrayref, $options) = @_;
+	$options = {} if ref $options ne 'HASH';
 	$metadata_arrayref = [] if ref $metadata_arrayref ne 'ARRAY';
 	my @fields;
 	foreach my $field (@{$self->{'fields'}}){
@@ -48,7 +49,7 @@ sub get_field_list {
 				push @fields, $field if $metadata eq $1;
 			}
 		} else {
-			push @fields, $field;
+			push @fields, $field if !$options->{'meta_fields_only'};
 		}
 	}
 	return \@fields;

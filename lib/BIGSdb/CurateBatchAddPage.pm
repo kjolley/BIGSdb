@@ -558,8 +558,8 @@ sub _report_check {
 		}
 		say "</table></div>";
 	} else {
-		say
-		  "<div class=\"box\" id=\"resultsheader\"><h2>Import status</h2>$$sender_message_ref<p>No obvious problems identified so far.</p>";
+		say "<div class=\"box\" id=\"resultsheader\"><h2>Import status</h2>$$sender_message_ref<p>No obvious problems "
+		  . "identified so far.</p>";
 		my $filename = $self->make_temp_file(@$checked_buffer_ref);
 		say $q->start_form;
 		say $q->hidden($_) foreach qw (page table db sender locus);
@@ -939,9 +939,9 @@ sub _check_data_sequences {
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		${ $arg_ref->{'value'} } //= '';
 		${ $arg_ref->{'value'} } =~ s/ //g;
-		my $length     = length( ${ $arg_ref->{'value'} } );
-		my $units      = ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' ) ? 'bp' : 'residues';
-		if ($length == 0){
+		my $length = length( ${ $arg_ref->{'value'} } );
+		my $units = ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' ) ? 'bp' : 'residues';
+		if ( $length == 0 ) {
 			${ $arg_ref->{'continue'} } = 0;
 		} elsif ( !$locus_info->{'length_varies'} && defined $locus_info->{'length'} && $locus_info->{'length'} != $length ) {
 			my $problem_text =
@@ -1117,16 +1117,21 @@ sub _upload_data {
 	for ( my $i = 0 ; $i < @fieldorder ; $i++ ) {
 		$fieldorder{ $fieldorder[$i] } = $i;
 	}
-	my @fields_to_include;
+	my ( @fields_to_include, @metafields );
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
-		foreach ( @{ $self->{'xmlHandler'}->get_field_list } ) {
-			push @fields_to_include, $_;
+		my $set_id        = $self->get_set_id;
+		my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
+		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+		foreach my $field (@$field_list) {
+			if ( $field =~ /^meta_.*:/ ) {
+				push @metafields, $field;
+			} else {
+				push @fields_to_include, $field;
+			}
 		}
 	} else {
 		my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
-		foreach (@$attributes) {
-			push @fields_to_include, $_->{'name'};
-		}
+		push @fields_to_include, $_->{'name'} foreach @$attributes;
 		if ( $table eq 'sequences' && $locus ) {
 			$extended_attributes =
 			  $self->{'datastore'}->run_list_query( "SELECT field FROM locus_extended_attributes WHERE locus=?", $locus );
@@ -1198,6 +1203,8 @@ sub _upload_data {
 
 				#Set read/write ACL for curator
 				push @inserts, "INSERT INTO isolate_user_acl (isolate_id,user_id,read,write) VALUES ($id,$curator,true,true)";
+				my $meta_inserts = $self->_prepare_metaset_insert( \@metafields, \%fieldorder, \@data );
+				push @inserts, @$meta_inserts;
 
 				#Remove duplicate loci which may occur if they belong to more than one scheme.
 				my @locus_list = uniq @$loci;
@@ -1320,8 +1327,37 @@ sub _upload_data {
 		my ( $isolate_id, $action ) = split /\|/, $_;
 		$self->update_history( $isolate_id, $action );
 	}
-	say "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>";
+	say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>";
 	return;
+}
+
+sub _prepare_metaset_insert {
+	my ( $self, $fields, $fieldorder, $data ) = @_;
+	my %metasets;
+	foreach my $field (@$fields) {
+		next if !defined $fieldorder->{$field};
+		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+		my $value = $data->[ $fieldorder->{$field} ] // 'null';
+		$metasets{$metaset} = 1 if $value ne 'null';
+	}
+	my @metasets = keys %metasets;
+	my @inserts;
+	my $isolate_id = $data->[ $fieldorder->{'id'} ];
+	foreach my $metaset (@metasets) {
+		my $fields = $self->{'xmlHandler'}->get_field_list( ["meta_$metaset"], { meta_fields_only => 1 } );
+		local $" = ',';
+		my $qry = "INSERT INTO meta_$metaset (isolate_id,@$fields) VALUES ($isolate_id";
+		foreach my $field (@$fields) {
+			$qry .= ',';
+			my $value = $data->[ $fieldorder->{$field} ] // 'null';
+			my $cleaned = $self->clean_value($value);
+			$qry .= $value eq 'null' ? 'null' : "E'$cleaned'";
+		}
+		$qry .= ')';
+		$qry =~ s/meta_$metaset://g;    #field names include metaset which isn't used in database table.
+		push @inserts, $qry;
+	}
+	return \@inserts;
 }
 
 sub get_title {
@@ -1338,7 +1374,10 @@ sub _get_fields_in_order {
 	my ( $self, $table ) = @_;
 	my @fieldnums;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
-		foreach ( @{ $self->{'xmlHandler'}->get_field_list() } ) {
+		my $set_id        = $self->get_set_id;
+		my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
+		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+		foreach (@$field_list) {
 			push @fieldnums, $_;
 			if ( $_ eq $self->{'system'}->{'labelfield'} ) {
 				push @fieldnums, 'aliases';
@@ -1361,7 +1400,10 @@ sub _get_field_table_header {
 	my ( $self, $table ) = @_;
 	my @headers;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
-		foreach ( @{ $self->{'xmlHandler'}->get_field_list } ) {
+		my $set_id        = $self->get_set_id;
+		my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
+		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+		foreach (@$field_list) {
 			push @headers, $_;
 			if ( $_ eq $self->{'system'}->{'labelfield'} ) {
 				push @headers, 'aliases';

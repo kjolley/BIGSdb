@@ -240,7 +240,6 @@ sub get_isolate_record {
 	my $buffer;
 	my $q = $self->{'cgi'};
 	my $data = $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $id );
-	$self->add_existing_metadata_to_hashref($data);
 	if ( !$data ) {
 		$logger->error("Record $id does not exist");
 		throw BIGSdb::DatabaseNoRecordException("Record $id does not exist");

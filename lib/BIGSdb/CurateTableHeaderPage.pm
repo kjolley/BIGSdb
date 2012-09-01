@@ -39,8 +39,11 @@ sub print_content {
 		return;
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
-		foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list } ) {
-			push @headers, $field if none { $field eq $_ } qw (id curator sender date_entered_datestamp);
+		my $set_id        = $self->get_set_id;
+		my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
+		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+		foreach my $field (@$field_list) {
+			push @headers, $field if none { $field eq $_ } qw (id curator sender date_entered datestamp);
 			if ( $field eq $self->{'system'}->{'labelfield'} ) {
 				push @headers, qw(aliases references);
 			}
