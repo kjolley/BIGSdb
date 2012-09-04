@@ -20,6 +20,7 @@
 package BIGSdb::Plugins::DatabaseFields;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -43,53 +44,56 @@ sub get_attributes {
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { 'general' => 0, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 0 };
+	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
 	return;
 }
 
 sub run {
 	my ($self) = @_;
-	print "<h1>Description of database fields</h1>\n";
-	print "<div class=\"box\" id=\"resultstable\">\n";
-	print "<p>Order columns by clicking their headings. <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=DatabaseFields\">Reset default order</a>.</p>\n";
-	print "<table class=\"tablesorter\" id=\"sortTable\">\n<thead>\n";
-	print "<tr><th>field name</th><th>comments</th><th>data type</th><th class=\"{sorter: false}\">allowed values</th><th>required</th></tr></thead>\n<tbody>";
+	say "<h1>Description of database fields</h1>";
+	say "<div class=\"box\" id=\"resultstable\">";
+	say "<p>Order columns by clicking their headings. <a href=\"$self->{'system'}->{'script_name'}?"
+	  . "db=$self->{'instance'}&amp;page=plugin&amp;name=DatabaseFields\">Reset default order</a>.</p>";
+	say "<table class=\"tablesorter\" id=\"sortTable\">\n<thead>";
+	say "<tr><th>field name</th><th>comments</th><th>data type</th><th class=\"{sorter: false}\">allowed values</th>"
+	  . "<th>required</th></tr></thead>\n<tbody>";
 	$self->_print_fields;
-	print "</tbody></table>\n</div>\n";
+	say "</tbody></table>\n</div>";
 	return;
 }
 
 sub _print_fields {
-	my ($self)     = @_;
-	my $q          = $self->{'cgi'};
-	my $field_list = $self->{'xmlHandler'}->get_field_list;
-	my $td         = 1;
+	my ($self)        = @_;
+	my $q             = $self->{'cgi'};
+	my $set_id        = $self->get_set_id;
+	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $td            = 1;
 	foreach my $field (@$field_list) {
+		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 		$thisfield->{'comments'} = '' if !$thisfield->{'comments'};
-		print "<tr class=\"td$td\"><td>$field</td><td>$thisfield->{'comments'}</td><td>$thisfield->{'type'}</td><td>";
+		print "<tr class=\"td$td\"><td>"
+		  . ( $metafield // $field )
+		  . "</td><td>$thisfield->{'comments'}</td><td>$thisfield->{'type'}</td><td>";
 		if ( $thisfield->{'optlist'} ) {
 			my $option_list = $self->{'xmlHandler'}->get_field_option_list($field);
-			print "$_<br />\n" foreach @$option_list;
-		} elsif ( $field eq 'sender'
-			|| $field eq 'sequenced_by' || ( $thisfield->{'userfield'} && $thisfield->{'userfield'} eq 'yes' ) )
-		{
-			print "<a href=\""
-			  . $q->script_name
-			  . "?db=$self->{'instance'}&amp;page=fieldValues&amp;field=f_sender\" target=\"_blank\">Click for list of sender ids</a>";
+			say "$_<br />" foreach @$option_list;
+		} elsif ( $field eq 'sender' || $field eq 'sequenced_by' || ( $thisfield->{'userfield'} // '' ) eq 'yes' ) {
+			say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=fieldValues&amp;field=f_sender\" "
+			  . "target=\"_blank\">Click for list of sender ids</a>";
 		} elsif ( $field eq 'curator' ) {
-			print "<a href=\""
-			  . $q->script_name
-			  . "?db=$self->{'instance'}&amp;page=fieldValues&amp;field=f_curator\" target=\"_blank\">Click for list of curator ids</a>";
+			say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=fieldValues&amp;field=f_curator\" "
+			  . "target=\"_blank\">Click for list of curator ids</a>";
 		} else {
 			print '-';
 		}
 		if ( $thisfield->{'composite'} ) {
-			print "</td><td>n/a (composite field)</td></tr>\n";
-		} elsif ( $thisfield->{'required'} && $thisfield->{'required'} eq 'no' ) {
-			print "</td><td>no</td></tr>\n";
+			say "</td><td>n/a (composite field)</td></tr>";
+		} elsif ( ( $thisfield->{'required'} // '' ) eq 'no' ) {
+			say "</td><td>no</td></tr>";
 		} else {
-			print "</td><td>yes</td></tr>\n";
+			say "</td><td>yes</td></tr>";
 		}
 		$td = $td == 1 ? 2 : 1;
 	}
