@@ -19,6 +19,7 @@
 package BIGSdb::CurateBatchIsolateUpdatePage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -58,7 +59,9 @@ id	field	value
 <p>Please enter the field(s) that you are selecting isolates on.  Values used must be unique within this field or 
 combination of fields, i.e. only one isolate has the value(s) used.  Usually the database id will be used.</p>
 HTML
-		my $fields = $self->{'xmlHandler'}->get_field_list;
+		my $set_id        = $self->get_set_id;
+		my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
+		my $fields        = $self->{'xmlHandler'}->get_field_list($metadata_list);
 		print $q->start_form;
 		print $q->hidden($_) foreach qw (db page);
 		print "<fieldset><legend>Options</legend>\n";
@@ -85,6 +88,53 @@ HTML
 	return;
 }
 
+sub _get_id_fields {
+	my ($self)   = @_;
+	my $q        = $self->{'cgi'};
+	my $idfield1 = $q->param('idfield1');
+	my ( $metaset1, $metafield1 ) = $self->get_metaset_and_fieldname($idfield1);
+	my $idfield2 = $q->param('idfield2');
+	my ( $metaset2, $metafield2 ) = $self->get_metaset_and_fieldname($idfield2);
+	return {
+		field1     => $idfield1,
+		metaset1   => $metaset1,
+		metafield1 => $metafield1,
+		field2     => $idfield2,
+		metaset2   => $metaset2,
+		metafield2 => $metafield2
+	};
+}
+
+sub _get_match_joined_table {
+	my ($self) = @_;
+	my $id     = $self->_get_id_fields;
+	my $table  = $self->{'system'}->{'view'};
+	$table .= " LEFT JOIN meta_$id->{'metaset1'} ON $self->{'system'}->{'view'}.id = meta_$id->{'metaset1'}.isolate_id"
+	  if defined $id->{'metaset1'};
+	$table .= " LEFT JOIN meta_$id->{'metaset2'} ON $self->{'system'}->{'view'}.id = meta_$id->{'metaset2'}.isolate_id"
+	  if defined $id->{'metaset2'};
+	return $table;
+}
+
+sub _get_field_and_match_joined_table {
+	my ( $self, $field ) = @_;
+	my $table = $self->_get_match_joined_table;
+	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+	if ( defined $metaset && $table !~ /meta_$metaset / ) {
+		$table .= " LEFT JOIN meta_$metaset ON $self->{'system'}->{'view'}.id=meta_$metaset.isolate_id";
+	}
+	return $table;
+}
+
+sub _get_match_criteria {
+	my ($self) = @_;
+	my $id = $self->_get_id_fields;
+	my $match = ( defined $id->{'metaset1'} ? "meta_$id->{'metaset1'}.$id->{'metafield1'}" : $id->{'field1'} ) . "=?";
+	$match .= " AND " . ( defined $id->{'metaset2'} ? "meta_$id->{'metaset2'}.$id->{'metafield2'}" : $id->{'field2'} ) . "=?"
+	  if $id->{'field2'} ne '<none>';
+	return $match;
+}
+
 sub _check {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
@@ -95,25 +145,33 @@ sub _check {
 		print "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchIsolateUpdate\">Back</a></p></div>\n";
 		return;
 	}
-	my $buffer   = "<div class=\"box\" id=\"resultstable\">\n";
-	my $idfield1 = $q->param('idfield1');
-	my $idfield2 = $q->param('idfield2');
+	if ( $q->param('idfield1') eq $q->param('idfield2') ) {
+		say "<div class=\"box\" id=\"statusbad\"><p>Please select different id fields.<p></div>";
+		return;
+	}
+	my $buffer = "<div class=\"box\" id=\"resultstable\">\n";
+	my $id     = $self->_get_id_fields;
 	$buffer .= "<p>The following changes will be made to the database.  Please check that this is what you intend and "
 	  . "then press 'Submit'.  If you do not wish to make these changes, press your browser's back button.</p>\n";
-	my $extraheader = $idfield2 ne '<none>' ? "<th>$idfield2</th>" : '';
-	$buffer .= "<table class=\"resultstable\"><tr><th>Transaction</th><th>$idfield1</th>$extraheader<th>Field</th>"
+	my $extraheader = $id->{'field2'} ne '<none>' ? "<th>$id->{'field2'}</th>" : '';
+	$buffer .= "<table class=\"resultstable\"><tr><th>Transaction</th><th>$id->{'field1'}</th>$extraheader<th>Field</th>"
 	  . "<th>New value</th><th>Value currently in database</th><th>Action</th></tr>\n";
 	my $i = 0;
 	my ( @id, @id2, @field, @value, @update );
-	my $td  = 1;
-	my $qry = "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE $idfield1=?";
-	$qry .= " AND $idfield2=?" if $idfield2 ne '<none>';
-	my $sql = $self->{'db'}->prepare($qry);
+	my $td          = 1;
+	my $match_table = $self->_get_match_joined_table;
+	my $match       = $self->_get_match_criteria;
+	my $qry         = "SELECT COUNT(*) FROM $match_table WHERE $match";
+	my $sql         = $self->{'db'}->prepare($qry);
 	$qry =~ s/COUNT\(\*\)/id/;
-	my $sql_id = $self->{'db'}->prepare($qry);
+	my $sql_id     = $self->{'db'}->prepare($qry);
+	my $prefix     = BIGSdb::Utils::get_random();
+	my $file       = "$self->{'config'}->{'secure_tmp_dir'}/$prefix.txt";
+	my $table_rows = 0;
 
 	foreach my $row (@rows) {
-		if ( $idfield2 eq '<none>' ) {
+		next if ( split /\t/, $row ) < 3;
+		if ( $id->{'field2'} eq '<none>' ) {
 			( $id[$i], $field[$i], $value[$i] ) = split /\t/, $row;
 		} else {
 			( $id[$i], $id2[$i], $field[$i], $value[$i] ) = split /\t/, $row;
@@ -136,7 +194,7 @@ sub _check {
 				my $count;
 				my @args;
 				push @args, $id[$i];
-				push @args, $id2[$i] if $idfield2 ne '<none>';
+				push @args, $id2[$i] if $id->{'field2'} ne '<none>';
 
 				#check if allowed to edit
 				my $error;
@@ -168,32 +226,33 @@ sub _check {
 					($count) = $sql->fetchrow_array;
 				};
 				if ( $@ || $count == 0 ) {
-					$oldvalue = "<span class=\"statusbad\">no editable record with $idfield1='$id[$i]'";
-					$oldvalue .= " and $idfield2='$id2[$i]'"
-					  if $idfield2 ne '<none>';
+					$oldvalue = "<span class=\"statusbad\">no editable record with $id->{'field1'}='$id[$i]'";
+					$oldvalue .= " and $id->{'field2'}='$id2[$i]'" if $id->{'field2'} ne '<none>';
 					$oldvalue .= "</span>";
 					$action = "<span class=\"statusbad\">no action</span>";
 				} elsif ( $count > 1 ) {
-					$oldvalue = "<span class=\"statusbad\">duplicate records with $idfield1='$id[$i]'</span>";
-					$action   = "<span class=\"statusbad\">no action</span>";
+					$oldvalue = "<span class=\"statusbad\">duplicate records with $id->{'field1'}='$id[$i]'";
+					$oldvalue .= " and $id->{'field2'}='$id2[$i]'" if $id->{'field2'} ne '<none>';
+					$oldvalue .= "</span>";
+					$action = "<span class=\"statusbad\">no action</span>";
 				} else {
 					my $qry;
 					my @args;
+					my $table = $self->_get_field_and_match_joined_table( $field[$i] );
 					if ($is_locus) {
-						$qry = "SELECT allele_id FROM allele_designations LEFT JOIN $self->{'system'}->{'view'} ON "
-						  . "$self->{'system'}->{'view'}.id=isolate_id WHERE locus=? AND $idfield1=?";
+						$qry = "SELECT allele_id FROM allele_designations LEFT JOIN $table ON "
+						  . "$self->{'system'}->{'view'}.id=allele_designations.isolate_id WHERE locus=? AND $match";
 						push @args, $field[$i];
 					} else {
-						$qry = "SELECT $field[$i] FROM $self->{'system'}->{'view'} WHERE $idfield1=?";
+						my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname( $field[$i] );
+						$qry = "SELECT " . ( $metafield // $field[$i] ) . " FROM $table WHERE $match";
 					}
-					$qry .= " AND $idfield2=?" if $idfield2 ne '<none>';
 					my $sql2 = $self->{'db'}->prepare($qry);
 					push @args, $id[$i];
-					push @args, $id2[$i] if $idfield2 ne '<none>';
+					push @args, $id2[$i] if $id->{'field2'} ne '<none>';
 					eval { $sql2->execute(@args) };
 					$logger->error($@) if $@;
 					$oldvalue = $sql2->fetchrow_array;
-
 					if (   !defined $oldvalue
 						|| $oldvalue eq ''
 						|| $q->param('overwrite') )
@@ -227,179 +286,188 @@ sub _check {
 				$action   = "<span class=\"statusbad\">no action</span>";
 			}
 			$displayvalue =~ s/<blank>/&lt;blank&gt;/;
-			if ( $idfield2 ne '<none>' ) {
+			if ( $id->{'field2'} ne '<none>' ) {
 				$buffer .= "<tr class=\"td$td\"><td>$i</td><td>$id[$i]</td><td>$id2[$i]</td><td>$field[$i]</td>"
 				  . "<td>$displayvalue</td><td>$oldvalue</td><td>$action</td></tr>\n";
 			} else {
 				$buffer .= "<tr class=\"td$td\"><td>$i</td><td>$id[$i]</td><td>$field[$i]</td><td>$displayvalue</td>"
-				  . "<td>$oldvalue</td><td>$action</td></tr>\n";
+				  . "<td>$oldvalue</td><td>$action</td></tr>";
 			}
+			$table_rows++;
 			$td = $td == 1 ? 2 : 1;
 		}
-		$value[$i] =~ s/<blank>// if defined $value[$i];
+		$value[$i] =~ s/(<blank>|null)// if defined $value[$i];
 		$i++;
 	}
-	print $buffer;
-	print "</table>";
-	print "<p />\n";
-	print $q->start_form;
-	$q->param( 'idfield1',  $idfield1 );
-	$q->param( 'idfield2',  $idfield2 );
-	$q->param( 'id',        @id );
-	$q->param( 'id2',       @id2 );
-	$q->param( 'updaterec', @update );
-	$q->param( 'field',     @field );
-	$q->param( 'value',     @value );
-	$q->param( 'update',    1 );
-	print $q->hidden($_) foreach qw (db page idfield1 idfield2 id id2 updaterec field value update);
-	print $q->submit( -label => 'Submit', -class => 'submit' );
-	print $q->endform;
-	print "<p /><p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p>\n";
-	print "</div>\n";
+	if ($table_rows) {
+		say $buffer;
+		say "</table><p />";
+		open( my $fh, '>', $file ) or $logger->error("Can't open temp file $file for writing");
+		foreach my $i ( 0 .. @rows - 1 ) {
+			if ( $update[$i] ) {
+				say $fh "$id[$i]\t$id2[$i]\t$field[$i]\t$value[$i]";
+			}
+		}
+		close $fh;
+		say $q->start_form;
+		$q->param( 'idfield1', $id->{'field1'} );
+		$q->param( 'idfield2', $id->{'field2'} );
+		$q->param( 'update',   1 );
+		$q->param( 'file',     "$prefix.txt" );
+		say $q->hidden($_) foreach qw (db page idfield1 idfield2 update file);
+		say $q->submit( -label => 'Submit', -class => 'submit' );
+		say $q->endform;
+	} else {
+		say "<div class=\"box\" id=\"statusbad\"><p>No valid values to update.</p>";
+	}
+	say "<p /><p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p>\n</div>";
 	return;
 }
 
 sub _update {
-	my ($self)   = @_;
-	my $q        = $self->{'cgi'};
-	my @id       = $q->param("id");
-	my @id2      = $q->param("id2");
-	my $idfield1 = $q->param('idfield1');
-	my $idfield2 = $q->param('idfield2');
-	my @update   = $q->param("updaterec");
-	my @field    = $q->param("field");
-	my @value    = $q->param("value");
-	print "<div class=\"box\" id=\"resultsheader\">\n";
-	print "<h2>Updating database ...</h2>";
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $id     = $self->_get_id_fields;
+	my $file   = $q->param('file');
+	my $transaction;
+	my $i = 1;
+	open( my $fh, '<', "$self->{'config'}->{'secure_tmp_dir'}/$file" ) or $logger->error("Can't open $file for reading");
+	while ( my $line = <$fh> ) {
+		chomp $line;
+		my @record = split /\t/, $line;
+		$transaction->{$i}->{'id'}    = $record[0];
+		$transaction->{$i}->{'id2'}   = $record[1];
+		$transaction->{$i}->{'field'} = $record[2];
+		$transaction->{$i}->{'value'} = $record[3];
+		$i++;
+	}
+	close $fh;
+	say "<div class=\"box\" id=\"resultsheader\">";
+	say "<h2>Updating database ...</h2>";
 	my $nochange     = 1;
 	my $curator_id   = $self->get_curator_id;
 	my $curator_name = $self->get_curator_name;
-	print "User: $curator_name<br />\n";
+	say "User: $curator_name<br />";
 	my $datestamp = $self->get_datestamp;
-	print "Datestamp: $datestamp<br />\n";
+	say "Datestamp: $datestamp<br />";
 	my $tablebuffer;
-	my $td = 1;
+	my $td          = 1;
+	my $match_table = $self->_get_match_joined_table;
+	my $match       = $self->_get_match_criteria;
 
-	for my $i ( 0 .. @update - 1 ) {
+	foreach my $i ( sort { $a <=> $b } keys %$transaction ) {
+		my ( $id1, $id2, $field, $value ) =
+		  ( $transaction->{$i}->{'id'}, $transaction->{$i}->{'id2'}, $transaction->{$i}->{'field'}, $transaction->{$i}->{'value'} );
 		my ( $isolate_id, $old_value );
-		if ( $update[$i] ) {
-			$nochange = 0;
-			my ( $qry, $qry2 );
-			my $is_locus = $self->{'datastore'}->is_locus( $field[$i] );
-			my ( @args, @args2 );
-			if ($is_locus) {
-				my @id_args;
-				my $id_qry = "SELECT id FROM $self->{'system'}->{'view'} WHERE id IN (SELECT id FROM "
-				  . "$self->{'system'}->{'view'}) AND $idfield1=?";
-				push @id_args, $id[$i];
-				if ( $idfield2 ne '<none>' ) {
-					$id_qry .= " AND $idfield2=?";
-					push @id_args, $id2[$i];
-				}
-				my $sql_id = $self->{'db'}->prepare($id_qry);
-				eval { $sql_id->execute(@id_args) };
-				$logger->error($@) if $@;
-				($isolate_id) = $sql_id->fetchrow_array;
+		$nochange = 0;
+		my ( $qry, $qry2 );
+		my $is_locus = $self->{'datastore'}->is_locus($field);
+		my ( @args, @args2 );
+		if ($is_locus) {
+			my @id_args;
+			my $id_qry = "SELECT $self->{'system'}->{'view'}.id FROM $match_table WHERE $match";
+			push @id_args, $id1;
+			push @id_args, $id2 if $id->{'field2'} ne '<none>';
+			my $sql_id = $self->{'db'}->prepare($id_qry);
+			eval { $sql_id->execute(@id_args) };
+			$logger->error($@) if $@;
+			($isolate_id) = $sql_id->fetchrow_array;
 
-				#if existing designation set, demote it to pending
-				my $existing_ref = $self->{'datastore'}->get_allele_designation( $isolate_id, $field[$i] );
-				if ( ref $existing_ref eq 'HASH' ) {
-					$old_value = $existing_ref->{'allele_id'};
+			#if existing designation set, demote it to pending
+			my $existing_ref = $self->{'datastore'}->get_allele_designation( $isolate_id, $field );
+			if ( ref $existing_ref eq 'HASH' ) {
+				$old_value = $existing_ref->{'allele_id'};
 
-					#make sure existing pending designation with same allele_id, sender and method doesn't exit
-					my $pending_designations = $self->{'datastore'}->get_pending_allele_designations( $isolate_id, $field[$i] );
-					my $exists;
-					foreach (@$pending_designations) {
-						if (   $_->{'allele_id'} eq $existing_ref->{'allele_id'}
-							&& $_->{'sender'} eq $existing_ref->{'sender'}
-							&& $_->{'method'} eq 'manual' )
-						{
-							$exists = 1;
-						}
-					}
-					if ( !$exists ) {
-						my $pending_sql =
-						  $self->{'db'}->prepare( "INSERT INTO pending_allele_designations (isolate_id,locus,allele_id,"
-							  . "sender,method,curator,date_entered,datestamp,comments) VALUES (?,?,?,?,?,?,?,?,?)" );
-						eval {
-							$pending_sql->execute(
-								$isolate_id,                     $field[$i],                   $existing_ref->{'allele_id'},
-								$existing_ref->{'sender'},       'manual',                     $existing_ref->{'curator'},
-								$existing_ref->{'date_entered'}, $existing_ref->{'datestamp'}, $existing_ref->{'comments'}
-							);
-						};
+				#delete existing pending designations with same allele_id
+				my $pending_designations = $self->{'datastore'}->get_pending_allele_designations( $isolate_id, $field );
+				foreach (@$pending_designations) {
+					if (   $_->{'allele_id'} eq $existing_ref->{'allele_id'}
+						&& $_->{'sender'} eq $existing_ref->{'sender'}
+						&& $_->{'method'} eq 'manual' )
+					{
+						my $delete_sql =
+						  $self->{'db'}->prepare("DELETE FROM pending_allele_designations WHERE isolate_id=? and locus=? AND allele_id=?");
+						eval { $delete_sql->execute( $isolate_id, $field, $value ) };
 						$logger->error($@) if $@;
 					}
-					my $delete_sql = $self->{'db'}->prepare("DELETE FROM allele_designations WHERE isolate_id=? and locus=?");
-					eval { $delete_sql->execute( $isolate_id, $field[$i] ) };
-					$logger->error($@) if $@;
 				}
-				my $isolate_ref =
-				  $self->{'datastore'}->run_simple_query( "SELECT sender FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id );
-				$qry = "INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp) "
-				  . "VALUES (?,?,?,?,?,?,?,?,?)";
-				push @args, ( $isolate_id, $field[$i], $value[$i], $isolate_ref->[0], 'confirmed', 'manual', $curator_id, 'now', 'now' );
+				my $delete_sql = $self->{'db'}->prepare("DELETE FROM allele_designations WHERE isolate_id=? and locus=?");
+				eval { $delete_sql->execute( $isolate_id, $field ) };
+				$logger->error($@) if $@;
+			}
+			my $isolate_ref =
+			  $self->{'datastore'}->run_simple_query( "SELECT sender FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id );
+			$qry = "INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp) "
+			  . "VALUES (?,?,?,?,?,?,?,?,?)";
+			push @args, ( $isolate_id, $field, $value, $isolate_ref->[0], 'confirmed', 'manual', $curator_id, 'now', 'now' );
 
-				#delete from pending if it matches the new designation
-				$qry2 .=
-				  ";DELETE FROM pending_allele_designations WHERE isolate_id=? AND locus=? AND " . "allele_id=? AND sender=? AND method=?";
-				push @args2, ( $isolate_id, $field[$i], $value[$i], $isolate_ref->[0], 'manual' );
-			} else {
-				if ( $value[$i] eq '' ) {
-					$qry = "UPDATE isolates SET $field[$i]=null,datestamp=?,curator=? WHERE id IN (SELECT id FROM "
-					  . "$self->{'system'}->{'view'}) AND $idfield1=?";
-					push @args, ( 'now', $curator_id, $id[$i] );
+			#delete from pending if it matches the new designation
+			$qry2 .= ";DELETE FROM pending_allele_designations WHERE isolate_id=? AND locus=? AND allele_id=? AND sender=? AND method=?";
+			push @args2, ( $isolate_id, $field, $value, $isolate_ref->[0], 'manual' );
+		} else {
+			my @id_args = ($id1);
+			push @id_args, $id2 if $id->{'field2'} ne '<none>';
+			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+			push @args, ( $value eq '' ? undef : $value );
+			if ( defined $metaset ) {
+				my $record_exists = $self->{'datastore'}->run_simple_query(
+"SELECT EXISTS(SELECT * FROM meta_$metaset WHERE isolate_id IN (SELECT $self->{'system'}->{'view'}.id FROM $match_table WHERE $match))",
+					@id_args
+				)->[0];
+				$isolate_id =
+				  $self->{'datastore'}->run_simple_query( "SELECT $self->{'system'}->{'view'}.id FROM $match_table WHERE $match", @id_args )
+				  ->[0];
+				if ($record_exists) {
+					$qry = "UPDATE meta_$metaset SET $metafield=? WHERE isolate_id=?";
 				} else {
-					$qry = "UPDATE isolates SET $field[$i]=?,datestamp=?,curator=? WHERE id IN "
-					  . "(SELECT id FROM $self->{'system'}->{'view'}) AND $idfield1=?";
-					push @args, ( $value[$i], 'now', $curator_id, $id[$i] );
+					$qry = "INSERT INTO meta_$metaset VALUES SET ($metafield, $isolate_id) = (?,?)";
 				}
-				my @id_args = ( $id[$i] );
-				if ( $idfield2 ne '<none>' ) {
-					$qry .= " AND $idfield2=?";
-					push @args,    $id2[$i];
-					push @id_args, $id2[$i];
-				}
+				push @args, $isolate_id;
+				my $old_value_ref =
+				  $self->{'datastore'}->run_simple_query( "SELECT $metafield FROM meta_$metaset WHERE isolate_id=?", $isolate_id );
+				$old_value = ref $old_value_ref eq 'ARRAY' ? $old_value_ref->[0] : undef;
+			} else {
+				$qry = "UPDATE isolates SET $field=?,datestamp=?,curator=? WHERE id IN (SELECT $self->{'system'}->{'view'}.id "
+				  . "FROM $match_table WHERE $match)";
+				push @args, ( 'now', $curator_id, @id_args );
 				my $id_qry = $qry;
-				$id_qry =~ s/UPDATE isolates .* WHERE/SELECT id,$field[$i] FROM isolates WHERE/;
+				$id_qry =~ s/UPDATE isolates .*? WHERE/SELECT id,$field FROM isolates WHERE/;
 				my $sql_id = $self->{'db'}->prepare($id_qry);
 				eval { $sql_id->execute(@id_args) };
 				$logger->error($@) if $@;
 				( $isolate_id, $old_value ) = $sql_id->fetchrow_array;
 			}
-			$tablebuffer .= "<tr class=\"td$td\"><td>$idfield1='$id[$i]'";
-			$tablebuffer .= " AND $idfield2='$id2[$i]'"
-			  if $idfield2 ne '<none>';
-			$tablebuffer .= "</td><td>$field[$i]</td><td>$value[$i]</td>";
-			my $update_sql = $self->{'db'}->prepare($qry);
-			eval {
-				$update_sql->execute(@args);
-				if ($qry2) {
-					my $delete_sql = $self->{'db'}->prepare($qry2);
-					$delete_sql->execute(@args2);
-				}
-			};
-			if ($@) {
-				$logger->error($@);
-				$tablebuffer .= "<td class=\"statusbad\">can't update!</td></tr>\n";
-				$self->{'db'}->rollback;
-			} else {
-				$self->{'db'}->commit;
-				$tablebuffer .= "<td class=\"statusgood\">done!</td></tr>\n";
-				$old_value ||= '';
-				$self->update_history( $isolate_id, "$field[$i]: '$old_value' -> '$value[$i]'" );
-			}
-			$td = $td == 1 ? 2 : 1;
 		}
+		$tablebuffer .= "<tr class=\"td$td\"><td>$id->{'field1'}='$id1'";
+		$tablebuffer .= " AND $id->{'field2'}='$id2'" if $id->{'field2'} ne '<none>';
+		$tablebuffer .= "</td><td>$field</td><td>$value</td>";
+		my $update_sql = $self->{'db'}->prepare($qry);
+		eval {
+			$update_sql->execute(@args);
+			if ($qry2) {
+				my $delete_sql = $self->{'db'}->prepare($qry2);
+				$delete_sql->execute(@args2);
+			}
+		};
+		if ($@) {
+			$logger->error($@);
+			$tablebuffer .= "<td class=\"statusbad\">can't update!</td></tr>\n";
+			$self->{'db'}->rollback;
+		} else {
+			$self->{'db'}->commit;
+			$tablebuffer .= "<td class=\"statusgood\">done!</td></tr>\n";
+			$old_value //= '';
+			$self->update_history( $isolate_id, "$field: '$old_value' -> '$value'" ) if $old_value ne $value;
+		}
+		$td = $td == 1 ? 2 : 1;
 	}
 	if ($nochange) {
-		print "<p>No changes to be made.</p>\n";
+		say "<p>No changes to be made.</p>";
 	} else {
-		print "<p /><table class=\"resultstable\"><tr><th>Condition</th><th>Field</th><th>New value</th>"
-		  . "<th>Status</th></tr>$tablebuffer</table>\n";
+		say "<p /><table class=\"resultstable\"><tr><th>Condition</th><th>Field</th><th>New value</th>"
+		  . "<th>Status</th></tr>$tablebuffer</table>";
 	}
-	print "<p /><p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p>\n";
-	print "</div>\n";
+	say "<p /><p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p>\n</div>";
 	return;
 }
 

@@ -304,6 +304,7 @@ sub _get_provenance_fields {
 	foreach my $field (@$field_list) {
 		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 		my $displayfield = $metafield // $field;
+		$displayfield .= " <span class=\"metaset\">Metadata: $metaset</span>" if !$set_id && defined $metaset;
 		$displayfield =~ tr/_/ /;
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 		my $web;
