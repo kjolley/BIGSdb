@@ -75,8 +75,8 @@ sub set_cookie_attributes {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{'jQuery'} = 1;    #Use JQuery javascript library
-	$self->{'noCache'} = 1 if ($self->{'system'}->{'sets'} // '') eq 'yes';
+	$self->{'jQuery'} = 1;                                                      #Use JQuery javascript library
+	$self->{'noCache'} = 1 if ( $self->{'system'}->{'sets'} // '' ) eq 'yes';
 	return;
 }
 
@@ -196,7 +196,7 @@ sub print_page_content {
 			if ( $self->{'jQuery.coolfieldset'} ) {
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.coolfieldset.js" } );
 			}
-			if ($self->{'jQuery.slimbox'}){
+			if ( $self->{'jQuery.slimbox'} ) {
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.slimbox2.js" } );
 			}
 			push @javascript, { 'language' => 'Javascript', 'code' => $page_js } if $page_js;
@@ -347,9 +347,9 @@ sub _print_help_panel {
 }
 
 sub get_metaset_and_fieldname {
-	my ($self, $field) = @_;
+	my ( $self, $field ) = @_;
 	my ( $metaset, $metafield ) = $field =~ /meta_([^:]):+(.*)/ ? ( $1, $2 ) : ( undef, undef );
-	return ($metaset, $metafield);
+	return ( $metaset, $metafield );
 }
 
 sub add_existing_metadata_to_hashref {
@@ -492,30 +492,30 @@ sub get_field_selection_list {
 sub _get_provenance_fields {
 	my ( $self, $options ) = @_;
 	my @isolate_list;
-	my $fields     = $self->{'xmlHandler'}->get_field_list;
-	my $attributes = $self->{'xmlHandler'}->get_all_field_attributes;
-	my $extended   = $options->{'extended_attributes'} ? $self->get_extended_attributes : undef;
-	foreach (@$fields) {
-		if (
-			( $options->{'sender_attributes'} )
-			&& (   $_ eq 'sender'
-				|| $_ eq 'curator'
-				|| ( $attributes->{$_}->{'userfield'} && $attributes->{$_}->{'userfield'} eq 'yes' ) )
-		  )
+	my $set_id        = $self->get_set_id;
+	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => $self->{'curate'} } );
+	my $fields        = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $attributes    = $self->{'xmlHandler'}->get_all_field_attributes;
+	my $extended      = $options->{'extended_attributes'} ? $self->get_extended_attributes : undef;
+	foreach my $field (@$fields) {
+
+		if (   ( $options->{'sender_attributes'} )
+			&& ( $field ~~ [qw(sender curator)] || ( $attributes->{$field}->{'userfield'} // '' ) eq 'yes' ) )
 		{
 			foreach my $user_attribute (qw (id surname first_name affiliation)) {
-				push @isolate_list, "f_$_ ($user_attribute)";
-				( $self->{'cache'}->{'labels'}->{"f_$_ ($user_attribute)"} = "$_ ($user_attribute)" ) =~ tr/_/ /;
+				push @isolate_list, "f_$field ($user_attribute)";
+				( $self->{'cache'}->{'labels'}->{"f_$field ($user_attribute)"} = "$field ($user_attribute)" ) =~ tr/_/ /;
 			}
 		} else {
-			push @isolate_list, "f_$_";
-			( $self->{'cache'}->{'labels'}->{"f_$_"} = $_ ) =~ tr/_/ /;
+			push @isolate_list, "f_$field";
+			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+			( $self->{'cache'}->{'labels'}->{"f_$field"} = $metafield // $field ) =~ tr/_/ /;
 			if ( $options->{'extended_attributes'} ) {
-				my $extatt = $extended->{$_};
+				my $extatt = $extended->{$field};
 				if ( ref $extatt eq 'ARRAY' ) {
 					foreach my $extended_attribute (@$extatt) {
-						push @isolate_list, "e_$_||$extended_attribute";
-						$self->{'cache'}->{'labels'}->{"e_$_||$extended_attribute"} = "$_..$extended_attribute";
+						push @isolate_list, "e_$field||$extended_attribute";
+						$self->{'cache'}->{'labels'}->{"e_$field||$extended_attribute"} = "$field..$extended_attribute";
 					}
 				}
 			}
@@ -822,21 +822,23 @@ sub clean_locus {
 		if ( $set_locus->{'set_name'} ) {
 			$locus = $set_locus->{'set_name'};
 			$locus = $set_locus->{'formatted_set_name'} if !$options->{'text_output'} && $set_locus->{'formatted_set_name'};
-			if (!$options->{'no_common_name'}){
+			if ( !$options->{'no_common_name'} ) {
 				my $common_name = '';
 				$common_name = " ($set_locus->{'set_common_name'})" if $set_locus->{'set_common_name'};
-				$common_name = " ($set_locus->{'formatted_set_common_name'})" if !$options->{'text_output'} && $set_locus->{'formatted_set_common_name'};
-				$locus .= $common_name;				
+				$common_name = " ($set_locus->{'formatted_set_common_name'})"
+				  if !$options->{'text_output'} && $set_locus->{'formatted_set_common_name'};
+				$locus .= $common_name;
 			}
 		}
 	} else {
 		$locus = $locus_info->{'formatted_name'} if !$options->{'text_output'} && $locus_info->{'formatted_name'};
 		$locus =~ s/^_//;    #locus names can't begin with a digit, so people can use an underscore, but this looks untidy in the interface.
-		if (!$options->{'no_common_name'}){
+		if ( !$options->{'no_common_name'} ) {
 			my $common_name = '';
 			$common_name = " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
-			$common_name = " ($locus_info->{'formatted_common_name'})" if !$options->{'text_output'} && $locus_info->{'formatted_common_name'};
-			$locus .= $common_name;	
+			$common_name = " ($locus_info->{'formatted_common_name'})"
+			  if !$options->{'text_output'} && $locus_info->{'formatted_common_name'};
+			$locus .= $common_name;
 		}
 	}
 	if ( !$options->{'text_output'} && ( $self->{'system'}->{'locus_superscript_prefix'} // '' ) eq 'yes' ) {
@@ -987,7 +989,7 @@ sub get_record_name {
 		'sets'                              => 'set',
 		'set_loci'                          => 'set member locus',
 		'set_schemes'                       => 'set member schemes',
-		'set_metadata'						=> 'set metadata'
+		'set_metadata'                      => 'set metadata'
 	);
 	return $names{$table};
 }
@@ -1014,8 +1016,17 @@ s/FROM $view/FROM $view LEFT JOIN allele_designations AS ordering ON ordering.is
 		} else {
 			$$qry_ref =~ s/ORDER BY l_\S+\s/ORDER BY ordering.allele_id /;
 		}
-	} elsif ( $$qry_ref =~ /ORDER BY f_/ ) {
-		$$qry_ref =~ s/ORDER BY f_/ORDER BY $view\./;
+	} elsif ( $$qry_ref =~ /ORDER BY f_(\S+)/ ) {
+		my $field = $1;
+		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+		if ( defined $metaset ) {
+			my $metafield_join = $self->_create_join_sql_for_metafield($metaset);
+			$$qry_ref =~ s/(SELECT \.* FROM $view)/$1 $metafield_join/;
+			$$qry_ref =~ s/FROM $view/FROM $view $metafield_join/;
+			$$qry_ref =~ s/ORDER BY f_$field/ORDER BY ordering\.$metafield/;
+		} else {
+			$$qry_ref =~ s/ORDER BY f_/ORDER BY $view\./;
+		}
 	}
 	return;
 }
@@ -1058,8 +1069,14 @@ sub _create_join_sql_for_locus {
 	( my $clean_locus_name = $locus ) =~ s/'/_PRIME_/g;
 	$clean_locus_name =~ s/-/_/g;
 	( my $escaped_locus = $locus ) =~ s/'/\\'/g;
-	my $qry =
-" LEFT JOIN allele_designations AS l_$clean_locus_name ON l_$clean_locus_name\.isolate_id=$self->{'system'}->{'view'}.id AND l_$clean_locus_name.locus=E'$escaped_locus'";
+	my $qry = " LEFT JOIN allele_designations AS l_$clean_locus_name ON l_$clean_locus_name\.isolate_id=$self->{'system'}->{'view'}.id "
+	  . "AND l_$clean_locus_name.locus=E'$escaped_locus'";
+	return $qry;
+}
+
+sub _create_join_sql_for_metafield {
+	my ( $self, $metaset ) = @_;
+	my $qry = " LEFT JOIN meta_$metaset AS ordering ON ordering.isolate_id = $self->{'system'}->{'view'}.id";
 	return $qry;
 }
 
@@ -1368,7 +1385,8 @@ sub initiate_prefs {
 			$self->{'prefs'}->{'pagebar'}     = $general_prefs->{'pagebar'}     || 'top and bottom';
 			$self->{'prefs'}->{'alignwidth'}  = $general_prefs->{'alignwidth'}  || 100;
 			$self->{'prefs'}->{'flanking'}    = $general_prefs->{'flanking'}    || 100;
-			$self->{'prefs'}->{'set_id'}      = $general_prefs->{'set_id'} if !$self->{'curate'};
+			$self->{'prefs'}->{'set_id'} = $general_prefs->{'set_id'} if !$self->{'curate'};
+
 			#default off
 			foreach (qw (hyperlink_loci )) {
 				$general_prefs->{$_} ||= 'off';

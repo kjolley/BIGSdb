@@ -50,36 +50,36 @@ sub print_content {
 	if ( $system->{'dbtype'} eq 'sequences' ) {
 
 		if ( !$scheme_id ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>No scheme id passed.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>No scheme id passed.</p></div>";
 			return;
 		} elsif ( !BIGSdb::Utils::is_int($scheme_id) ) {
-			print "<div class=\"box\" id=\"statusbad\">Scheme id must be an integer.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\">Scheme id must be an integer.</p></div>";
 			return;
 		} elsif ($set_id) {
 			if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
-				print "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is unavailable.</p></div>\n";
+				say "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is unavailable.</p></div>";
 				return;
 			}
 		}
 		$scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 		if ( !$scheme_info ) {
-			print "<div class=\"box\" id=\"statusbad\">Scheme does not exist.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\">Scheme does not exist.</p></div>";
 			return;
 		}
-		print "<h1>Query $scheme_info->{'description'} profiles by matching a field against a list</h1>\n";
+		say "<h1>Query $scheme_info->{'description'} profiles by matching a field against a list</h1>";
 		eval {
 			$primary_key =
 			  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )
 			  ->[0];
 		};
 		if ( !$primary_key ) {
-			print
-"<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  Profile browsing can not be done until this has been set.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  Profile browsing can not be "
+			 . "done until this has been set.</p></div>";
 			return;
 		}
 	} else {
 		my $desc = $self->get_db_description;
-		print "<h1>Query $desc database matching a field against a list</h1>\n";
+		say "<h1>Query $desc database matching a field against a list</h1>";
 	}
 	my $qry;
 	if ( !defined $q->param('currentpage')
@@ -110,9 +110,9 @@ sub _print_query_interface {
 	my @grouped_fields;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		( $order_list, $order_labels ) =
-		  $self->get_field_selection_list( { 'isolate_fields' => 1, 'loci' => 1, 'scheme_fields' => 1, 'sender_attributes' => 0, } );
+		  $self->get_field_selection_list( { isolate_fields => 1, loci => 1, scheme_fields => 1, sender_attributes => 0, } );
 		( $field_list, $labels ) = $self->get_field_selection_list(
-			{ 'isolate_fields' => 1, 'loci' => 1, 'scheme_fields' => 1, 'sender_attributes' => 1, 'extended_attributes' => 1 } );
+			{ isolate_fields => 1, loci => 1, scheme_fields => 1, sender_attributes => 1, extended_attributes => 1 } );
 		my $grouped = $self->{'xmlHandler'}->get_grouped_fields;
 		foreach (@$grouped) {
 			push @grouped_fields, "f_$_";
@@ -140,33 +140,32 @@ sub _print_query_interface {
 		$order_list   = $field_list;
 		$order_labels = $labels;
 	}
-	print "<div class=\"box\" id=\"queryform\">\n<div class=\"scrollable\">";
-	print $q->start_form;
-	print "<fieldset id=\"attribute_fieldset\" style=\"float:left\"><legend>Please select attribute</legend>\n";
+	say "<div class=\"box\" id=\"queryform\">\n<div class=\"scrollable\">";
+	say $q->start_form;
+	say "<fieldset id=\"attribute_fieldset\" style=\"float:left\"><legend>Please select attribute</legend>";
 	my @select_items = ( @grouped_fields, @$field_list );
-	print $q->popup_menu( -name => 'attribute', -values => \@select_items, -labels => $labels );
-	print "</fieldset><div style=\"clear:both\"></div>\n";
-	print "<fieldset id=\"list_fieldset\" style=\"float:left\"><legend>Enter your list of attribute values below "
-	  . "(one per line)</legend>\n";
-	print $q->textarea( -name => 'list', -rows => 8, -cols => 40 );
-	print "</fieldset>\n";
-	print "<fieldset id=\"display_fieldset\" style=\"float:left\"><legend>Display/sort options</legend>\n";
-	print "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>\n";
-	print $q->popup_menu( -name => 'order', -id => 'order', -values => $order_list, -labels => $order_labels );
-	print $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
-	print "</span></li>\n<li>";
-	print $self->get_number_records_control;
-	print "</li></ul></fieldset>\n";
-	print "<div style=\"clear:both\">";
+	say $q->popup_menu( -name => 'attribute', -values => \@select_items, -labels => $labels );
+	say "</fieldset><div style=\"clear:both\"></div>";
+	say "<fieldset id=\"list_fieldset\" style=\"float:left\"><legend>Enter your list of attribute values below (one per line)</legend>";
+	say $q->textarea( -name => 'list', -rows => 8, -cols => 40 );
+	say "</fieldset>";
+	say "<fieldset id=\"display_fieldset\" style=\"float:left\"><legend>Display/sort options</legend>";
+	say "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>";
+	say $q->popup_menu( -name => 'order', -id => 'order', -values => $order_list, -labels => $order_labels );
+	say $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
+	say "</span></li>\n<li>";
+	say $self->get_number_records_control;
+	say "</li></ul></fieldset>";
+	say "<div style=\"clear:both\">";
 	my $scheme_clause = $self->{'system'}->{'dbtype'} eq 'isolates' ? '' : "&amp;scheme_id=$scheme_id";
-	print "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=listQuery$scheme_clause\" "
-	  . "class=\"resetbutton\">Reset</a>";
-	print "<span style=\"float:right\">";
-	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	print "</span></div>";
-	print $q->hidden($_) foreach qw (page db scheme_id);
-	print $q->end_form;
-	print "</div></div>\n";
+	say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=listQuery$scheme_clause\" "
+	 . "class=\"resetbutton\">Reset</a>";
+	say "<span style=\"float:right\">";
+	say $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
+	say "</span></div>";
+	say $q->hidden($_) foreach qw (page db scheme_id);
+	say $q->end_form;
+	say "</div></div>";
 	return;
 }
 
@@ -202,7 +201,7 @@ sub _run_profile_query {
 		}
 	}
 	if ( !$tempqry ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>No valid values entered.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>No valid values entered.</p></div>";
 		return;
 	}
 	my $qry = "SELECT * FROM scheme_$scheme_id WHERE $tempqry";
@@ -246,7 +245,8 @@ sub _run_isolate_query {
 		$field = $1;
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 		$datatype  = $thisfield->{'type'};
-		$fieldtype = 'isolate';
+		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+		$fieldtype = defined $metaset ? 'metafield': 'isolate';
 	} elsif ( $field =~ /$locus_pattern/ ) {
 		$field    = $1;
 		$datatype = $self->{'datastore'}->get_locus_info($field)->{'allele_id_format'};
@@ -299,7 +299,7 @@ sub _run_isolate_query {
 				} elsif ( scalar @groupedfields ) {
 					$tempqry .= " (";
 					my $first = 1;
-					for ( my $x = 0 ; $x < scalar @groupedfields ; $x++ ) {
+					for my $x ( 0 .. @groupedfields - 1 ) {
 						my $thisfield = $self->{'xmlHandler'}->get_field_attributes( $groupedfields[$x] );
 						next if $thisfield->{'type'} eq 'int' && !BIGSdb::Utils::is_int($value);
 						$tempqry .= ' OR ' if !$first;
@@ -312,13 +312,16 @@ sub _run_isolate_query {
 					}
 					$tempqry .= ')';
 				} elsif ( $field eq $self->{'system'}->{'labelfield'} ) {
-					$tempqry .=
-"(upper($self->{'system'}->{'labelfield'}) = upper('$value') OR $self->{'system'}->{'view'}.id IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper(E'$value')))";
+					$tempqry .= "(upper($self->{'system'}->{'labelfield'}) = upper('$value') OR $self->{'system'}->{'view'}.id IN "
+					 . "(SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper(E'$value')))";
 				} elsif ( $datatype eq 'text' ) {
 					$tempqry .= "upper($field) = upper(E'$value')";
 				} else {
 					$tempqry .= "$field = E'$value'";
 				}
+			} elsif ($fieldtype eq 'metafield'){
+				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+				$tempqry .= $datatype eq 'text' ? "upper($metafield) = upper(E'$value')" : "$metafield = E'$value'";
 			} elsif ( $fieldtype eq 'locus' ) {
 				$tempqry .=
 				  $datatype eq 'text'
@@ -330,21 +333,25 @@ sub _run_isolate_query {
 				  ? "upper($field)=upper(E'$value')"
 				  : "$field=E'$value'";
 			} elsif ( $fieldtype eq 'extended_isolate' ) {
-				$tempqry .=
-"$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) = upper(E'$value'))";
+				$tempqry .= "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE "
+				 . "isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) = upper(E'$value'))";
 			}
 		}
 	}
 	if ( !$tempqry ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>No valid values entered.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>No valid values entered.</p></div>";
 		return;
 	}
 	my $qry;
+	
 	if ( $fieldtype eq 'isolate' || $extended_isolate_field ) {
 		$qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE ($tempqry)";
+	} elsif ($fieldtype eq 'metafield'){
+		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+		$qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE id IN (SELECT isolate_id FROM meta_$metaset WHERE $tempqry)";
 	} elsif ( $fieldtype eq 'locus' ) {
-		$qry =
-"SELECT * FROM $self->{'system'}->{'view'} WHERE id IN (select distinct($self->{'system'}->{'view'}.id) FROM $self->{'system'}->{'view'} LEFT JOIN allele_designations ON $self->{'system'}->{'view'}.id=allele_designations.isolate_id WHERE $tempqry)";
+		$qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE id IN (select distinct($self->{'system'}->{'view'}.id) "
+		 . "FROM $self->{'system'}->{'view'} LEFT JOIN allele_designations ON $self->{'system'}->{'view'}.id=allele_designations.isolate_id WHERE $tempqry)";
 	} elsif ( $fieldtype eq 'scheme_field' ) {
 		$qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE $self->{'system'}->{'view'}.id IN ($joined_table AND ($tempqry))";
 	}
