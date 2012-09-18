@@ -74,7 +74,7 @@ sub run {
 	my $q      = $self->{'cgi'};
 	my $view   = $self->{'system'}->{'view'};
 	my $qry    = "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM sequence_bin LEFT JOIN $view ON "
-	  . "$view.id=sequence_bin.isolate_id ORDER BY $view.id";
+	  . "$view.id=sequence_bin.isolate_id WHERE $view.id IS NOT NULL ORDER BY $view.id";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
 	$logger->error($@) if $@;
@@ -111,6 +111,12 @@ sub run {
 	my $temp              = BIGSdb::Utils::get_random();
 	my $out_file          = "$temp.txt";
 	my $out_file_flanking = "$temp\_flanking.txt";
+	my $out_file_table    = "$temp\_table.txt";
+	open( my $fh_output_table, '>>', "$self->{'config'}->{'tmp_dir'}/$out_file_table" )
+	  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$out_file_table for writing");
+	say $fh_output_table
+	  "Isolate id\t$display_label\t% identity\tAlignment length\tMismatches\tGaps\tSeqbin id\tStart\tEnd\tOrientation\tE-value\tBig score";
+	close $fh_output_table;
 
 	foreach my $id (@ids) {
 		my $matches = $self->_blast( $id, \$seq );
@@ -125,13 +131,15 @@ sub run {
 		my $flanking = $q->param('flanking') // $self->{'prefs'}->{'flanking'};
 
 		foreach my $match (@$matches) {
+			my $file_buffer;
 			if ($first_match) {
 				print "<tr class=\"td$td\"><td rowspan=\"$rows\" style=\"vertical-align:top\">"
-				 . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$id\">$id</a>"
-				 . "</td><td rowspan=\"$rows\" style=\" vertical-align:top\">$label</td>";
+				  . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$id\">$id</a>"
+				  . "</td><td rowspan=\"$rows\" style=\" vertical-align:top\">$label</td>";
 			} else {
 				print "<tr class=\"td$td\">";
 			}
+			$file_buffer .= "$id\t$label";
 			foreach my $attribute (qw(identity alignment mismatches gaps seqbin_id start end)) {
 				print "<td>$match->{$attribute}";
 				if ( $attribute eq 'end' ) {
@@ -142,9 +150,14 @@ sub run {
 					  . "reverse=$match->{'reverse'}&amp;flanking=$flanking\">extract&nbsp;&rarr;</a>";
 				}
 				print "</td>";
+				$file_buffer .= "\t$match->{$attribute}";
 			}
 			print "<td style=\"font-size:2em\">" . ( $match->{'reverse'} ? '&larr;' : '&rarr;' ) . "</td>";
-			print "<td>$match->{$_}</td>" foreach qw(e_value bit_score);
+			$file_buffer .= $match->{'reverse'} ? "\tReverse" : "\tForward";
+			foreach (qw(e_value bit_score)) {
+				print "<td>$match->{$_}</td>";
+				$file_buffer .= "\t$match->{$_}";
+			}
 			say "</tr>";
 			$first_match = 0;
 			my $start  = $match->{'start'};
@@ -174,6 +187,10 @@ sub run {
 			print $fh_output_flanking $seq_with_flanking . "\n";
 			close $fh_output;
 			close $fh_output_flanking;
+			open( my $fh_output_table, '>>', "$self->{'config'}->{'tmp_dir'}/$out_file_table" )
+			  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$out_file_table for writing");
+			say $fh_output_table $file_buffer;
+			close $fh_output_table;
 		}
 		$td = $td == 1 ? 2 : 1;
 		$first = 0;
@@ -187,7 +204,8 @@ sub run {
 		say "<p style=\"margin-top:1em\">Download <a href=\"/tmp/$out_file\">FASTA</a> | "
 		  . "<a href=\"/tmp/$out_file_flanking\">FASTA with flanking</a>";
 		say " <a class=\"tooltip\" title=\"Flanking sequence - You can change the amount of flanking sequence exported by selecting "
-		  . "the appropriate length in the options page.\">&nbsp;<i>i</i>&nbsp;</a>";
+		  . "the appropriate length in the options page.\">&nbsp;<i>i</i>&nbsp;</a> | ";
+		say "<a href=\"/tmp/$out_file_table\">Table (tab-delimited text)</a>";
 		say "</p>";
 	} else {
 		say "<p>No matches found.</p>";
@@ -287,7 +305,7 @@ sub _blast {
 
 	#create isolate FASTA database
 	my $qry = "SELECT DISTINCT sequence_bin.id,sequence FROM sequence_bin LEFT JOIN experiment_sequences ON sequence_bin.id=seqbin_id "
-	 . "LEFT JOIN project_members ON sequence_bin.isolate_id = project_members.isolate_id WHERE sequence_bin.isolate_id=?";
+	  . "LEFT JOIN project_members ON sequence_bin.isolate_id = project_members.isolate_id WHERE sequence_bin.isolate_id=?";
 	my @criteria = ($isolate_id);
 	my $method   = $self->{'cgi'}->param('seq_method_list');
 	if ($method) {
