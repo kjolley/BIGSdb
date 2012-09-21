@@ -528,8 +528,9 @@ sub _generate_distance_matrix {
 sub _run_splitstree {
 	my ( $self, $nexus_file, $output_file, $format ) = @_;
 	if ( $self->{'config'}->{'splitstree_path'} && -x $self->{'config'}->{'splitstree_path'} ) {
-		system "$self->{'config'}->{'splitstree_path'} +g false -S true "
-		  . "-x \"EXECUTE FILE=$nexus_file;EXPORTGRAPHICS format=$format file=$output_file REPLACE=yes;QUIT\"";
+		system( $self->{'config'}->{'splitstree_path'},
+			'+g', 'false', '-S', 'true', '-x',
+			"EXECUTE FILE=$nexus_file;EXPORTGRAPHICS format=$format file=$output_file REPLACE=yes;QUIT" );
 	}
 	return;
 }
