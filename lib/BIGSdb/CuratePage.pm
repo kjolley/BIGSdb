@@ -756,8 +756,8 @@ sub _is_field_bad_isolates {
 	}
 
 	#make sure date fields really are dates in correct format
-	if ( $thisfield->{'type'} eq 'date' && $value !~ /^\d\d\d\d-\d\d-\d\d$/ ) {
-		return "must be a date in yyyy-mm-dd format";
+	if ( $thisfield->{'type'} eq 'date' && !BIGSdb::Utils::is_date($value)  ) {
+		return "must be a valid date in yyyy-mm-dd format";
 	}
 	if (   $flag
 		&& $flag eq 'insert'
