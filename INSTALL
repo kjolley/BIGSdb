@@ -144,9 +144,13 @@ script to 'bigsjobs' or create a symlink and call that from CRON, e.g.
 copy bigsjobs.pl to /usr/local/bin
 sudo ln -s /usr/local/bin/bigsjobs.pl /usr/local/bin/bigsjobs
 
+You should install xvfb, which is a virtual X server that may be required for 
+third party applications called from plugins. This is required, for example, 
+for calling splitstree4 from the Genome Comparator plugin.
+
 Add the following to /etc/crontab:
 
-* *    * * *	bigsdb  /usr/local/bin/bigsjobs
+* *    * * *	bigsdb  xvfb-run /usr/local/bin/bigsjobs
 
 (set to run every minute from the 'bigsdb' user account).
 
