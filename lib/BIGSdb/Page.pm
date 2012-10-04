@@ -333,7 +333,7 @@ sub _print_help_panel {
 		  ? $q->start_form( -style => 'display:inline' )
 		  : $q->start_form( -target => '_blank', -style => 'display:inline' );
 		print "<b>Field help: </b>";
-		my ( $values, $labels ) = $self->get_field_selection_list( { 'isolate_fields' => 1, 'loci' => 1, 'scheme_fields' => 1 } );
+		my ( $values, $labels ) = $self->get_field_selection_list( { isolate_fields => 1, loci => 1, scheme_fields => 1 } );
 		print $q->popup_menu( -name => 'field', -values => $values, -labels => $labels );
 		print $q->submit( -name => 'Go', -class => 'fieldvaluebutton' );
 		my $refer_page = $q->param('page');

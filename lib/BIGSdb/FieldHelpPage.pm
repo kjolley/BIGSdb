@@ -34,7 +34,7 @@ sub initiate {
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { general => 0, main_display => 0, isolate_display => 0, analysis => 0, query_field => 1 };
+	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 1 };
 	return;
 }
 
@@ -89,13 +89,18 @@ sub _print_isolate_field {
 		say "<div class=\"box\" id=\"statusbad\"><p>Invalid field selected.</p></div>";
 		return;
 	}
-	( my $cleaned = $field ) =~ tr/_/ /;
+	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+	( my $cleaned = $metafield // $field ) =~ tr/_/ /;
 	say "<div class=\"box\" id=\"resultstable\">";
 	say "<h2>$cleaned</h2>";
 	my $attributes = $self->{'xmlHandler'}->get_field_attributes($field);
 	say "<table class=\"resultstable\">";
 	my %type = ( 'int' => 'integer', 'float' => 'floating point number' );
-	my $unique = $self->{'datastore'}->run_simple_query("SELECT COUNT(DISTINCT $field) FROM $self->{'system'}->{'view'}")->[0];
+	my $unique_qry =
+	  defined $metaset
+	  ? "SELECT COUNT(DISTINCT $metafield) FROM meta_$metaset WHERE isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})"
+	  : "SELECT COUNT(DISTINCT $field) FROM $self->{'system'}->{'view'}";
+	my $unique = $self->{'datastore'}->run_simple_query($unique_qry)->[0];
 	say "<tr class=\"td1\"><th style=\"text-align:right\">Data type</th><td style=\"text-align:left\">"
 	  . ( $type{ $attributes->{'type'} } || $attributes->{'type'} )
 	  . "</td></tr>";
@@ -119,7 +124,11 @@ sub _print_isolate_field {
 		  . ": /$attributes->{'regex'}/</td></tr>";
 	}
 	print "</table>\n<p />\n";
-	my $used_list = $self->{'datastore'}->run_list_query("SELECT DISTINCT $field FROM $self->{'system'}->{'view'} ORDER BY $field");
+	my $qry =
+	  defined $metaset
+	  ? "SELECT DISTINCT $metafield FROM meta_$metaset WHERE isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})"
+	  : "SELECT DISTINCT $field FROM $self->{'system'}->{'view'} ORDER BY $field";
+	my $used_list = $self->{'datastore'}->run_list_query($qry);
 	my $cols = $attributes->{'type'} eq 'int' ? 10 : 6;
 	my $used;
 	$used->{$_} = 1 foreach @$used_list;
@@ -144,7 +153,7 @@ sub _print_isolate_field {
 			say "<tr><td>$data[0]</td><td>$data[1]</td><td>$data[2]</td><td>$data[3]</td><td align='left'>$data[4]</td></tr>";
 		}
 		say "</tbody></table>";
-	} elsif ( ($attributes->{'optlist'} // '') eq 'yes' ) {
+	} elsif ( ( $attributes->{'optlist'} // '' ) eq 'yes' ) {
 		say "<p>The field has a constrained list of allowable values (values present in the database are "
 		  . "<span class=\"highlightvalue\">highlighted</span>):</p>";
 		my $options = $self->{'xmlHandler'}->get_field_option_list($field);

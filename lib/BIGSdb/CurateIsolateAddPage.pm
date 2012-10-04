@@ -206,7 +206,7 @@ sub _insert {
 			$insert = 0;
 		}
 		push @inserts,
-		  "INSERT INTO refs (isolate_id,pubmed_id,curator,datestamp) VALUES ($newdata->{'id'}," . "$new,$newdata->{'curator'},'today')";
+		  "INSERT INTO refs (isolate_id,pubmed_id,curator,datestamp) VALUES ($newdata->{'id'},$new,$newdata->{'curator'},'today')";
 	}
 	if ($insert) {
 		local $" = ';';
