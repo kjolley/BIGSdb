@@ -232,10 +232,11 @@ sub _print_provenance_fields {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		if ( !$q->param('no_js') ) {
 			my $page = $self->{'curate'} ? 'isolateQuery' : 'query';
-			print
-"<a id=\"add_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;fields=provenance&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
-			print
-" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term 'null'. <p /><h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
+			print "<a id=\"add_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;"
+			  . "fields=provenance&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
+			print " <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term 'null'. <p />"
+			  . "<h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' "
+			  . "for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
 	}
 	print "</span>\n";
@@ -254,10 +255,11 @@ sub _print_loci_fields {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		if ( !$q->param('no_js') ) {
 			my $page = $self->{'curate'} ? 'isolateQuery' : 'query';
-			print
-"<a id=\"add_loci\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;fields=loci&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
-			print
-" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term 'null'. <p /><h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
+			print "<a id=\"add_loci\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;"
+			  . "fields=loci&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
+			print " <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term 'null'. <p />"
+			  . "<h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' "
+			  . "for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
 	}
 	print "</span>\n";
@@ -281,10 +283,11 @@ sub _print_locus_tag_fields {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		if ( !$q->param('no_js') ) {
 			my $page = $self->{'curate'} ? 'isolateQuery' : 'query';
-			print
-"<a id=\"add_tags\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;fields=tags&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
-			print
-" <a class=\"tooltip\" title=\"Number of fields - Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
+			print "<a id=\"add_tags\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;"
+			  . "fields=tags&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
+			print " <a class=\"tooltip\" title=\"Number of fields - Add more fields by clicking the '+' button.</p>"
+			  . "<h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of "
+			  . "these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
 	}
 	print "</span>\n";
@@ -322,8 +325,8 @@ sub _print_isolate_query_interface {
 	$self->_print_isolate_tag_fieldset;
 	$self->_print_isolate_filter_fieldset;
 	my $page = $self->{'curate'} ? 'isolateQuery' : 'query';
-	print
-"<div style=\"clear:both\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page\" class=\"resetbutton\">Reset</a><span style=\"float:right\">";
+	print "<div style=\"clear:both\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
+	  . "page=$page\" class=\"resetbutton\">Reset</a><span style=\"float:right\">";
 	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
 	print "</span></div>";
 	print "</div>\n";
@@ -455,9 +458,9 @@ sub _print_isolate_filter_fieldset {
 	my $buffer = $self->get_project_filter( { 'any' => 1 } );
 	push @filters, $buffer if $buffer;
 	my $set_id = $self->get_set_id;
-	my $schemes = $self->{'datastore'}->get_scheme_list({set_id=>$set_id});
+	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	foreach my $scheme (@$schemes) {
-		my $field       = "scheme_$scheme->{'id'}\_profile_status";
+		my $field = "scheme_$scheme->{'id'}\_profile_status";
 		if ( $prefs->{'dropdownfields'}->{$field} ) {
 			push @filters,
 			  $self->get_filter(
@@ -470,10 +473,10 @@ sub _print_isolate_filter_fieldset {
 				}
 			  );
 		}
-		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme->{'id'});
+		my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $scheme->{'id'} );
 		foreach my $field (@$scheme_fields) {
-			if ( $self->{'prefs'}->{"dropdown\_scheme_fields"}->{$scheme->{'id'}}->{$field} ) {
-				my $values = $self->{'datastore'}->get_scheme($scheme->{'id'})->get_distinct_fields($field);
+			if ( $self->{'prefs'}->{"dropdown\_scheme_fields"}->{ $scheme->{'id'} }->{$field} ) {
+				my $values = $self->{'datastore'}->get_scheme( $scheme->{'id'} )->get_distinct_fields($field);
 				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme->{'id'}, $field );
 				if ( $scheme_field_info->{'type'} eq 'integer' ) {
 					@$values = sort { $a <=> $b } @$values;
@@ -955,6 +958,7 @@ sub _generate_isolate_query_for_provenance_fields {
 						$errors_ref );
 					next;
 				}
+				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname( $field );
 				$field = $self->{'system'}->{'view'} . '.' . $field if !$extended_isolate_field;
 				my $args = {
 					field                  => $field,
@@ -983,18 +987,21 @@ sub _generate_isolate_query_for_provenance_fields {
 					$qry .= $self->_provenance_equals_type_operator($args);
 				} else {
 					my $labelfield = $self->{'system'}->{'view'} . '.' . $self->{'system'}->{'labelfield'};
+					$qry .= $modifier;
 					if ($extended_isolate_field) {
-						$qry .= $modifier
-						  . "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND value $operator E'$text')";
+						$qry .= "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND value $operator E'$text')";
 					} elsif ( $field eq $labelfield ) {
-						$qry .= $modifier
-						  . "($field $operator '$text' OR $view.id IN (SELECT isolate_id FROM isolate_aliases WHERE alias $operator E'$text'))";
+						$qry .= "($field $operator '$text' OR $view.id IN (SELECT isolate_id FROM isolate_aliases WHERE alias $operator E'$text'))";
 					} else {
 						if ( $text eq 'null' ) {
 							push @$errors_ref, "$operator is not a valid operator for comparing null values.";
 							next;
 						}
-						$qry .= $modifier . "$field $operator E'$text'";
+						if ( defined $metaset ) {
+							$qry .= "id IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield $operator E'$text')";
+						} else {
+							$qry .= "$field $operator E'$text'";
+						}
 					}
 				}
 			}
@@ -1025,19 +1032,33 @@ sub _provenance_equals_type_operator {
 		  . "$view.id $not IN (SELECT isolate_id FROM isolate_aliases WHERE "
 		  . "upper(alias) = upper(E'$values->{'text'}')))";
 	} else {
-		my $null_clause = $values->{'not'} ? "OR $values->{'field'} IS NULL" : '';
-		if ( lc( $values->{'type'} ) eq 'text' ) {
-			$buffer .= (
-				$values->{'text'} eq 'null'
-				? "$values->{'field'} is $not null"
-				: "($not upper($values->{'field'}) = upper(E'$values->{'text'}') $null_clause)"
-			);
+		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname( $values->{'field'} );
+		if ( defined $metaset ) {
+			my $andor = $not ? 'AND' : 'OR';
+			if ( $values->{'text'} eq 'null' ) {
+				$buffer .= "id $not IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield IS NULL) $andor id $inv_not "
+				  . "IN (SELECT isolate_id FROM meta_$metaset)";
+			} else {
+				$buffer .=
+				  lc( $values->{'type'} ) eq 'text'
+				  ? "id $not IN (SELECT isolate_id FROM meta_$metaset WHERE upper($metafield) = upper(E'$values->{'text'}') )"
+				  : "id $not IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield = E'$values->{'text'}' )";
+			}
 		} else {
-			$buffer .= (
-				$values->{'text'} eq 'null'
-				? "$values->{'field'} is $not null"
-				: "$not ($values->{'field'} = E'$values->{'text'}' $null_clause)"
-			);
+			my $null_clause = $values->{'not'} ? "OR $values->{'field'} IS NULL" : '';
+			if ( lc( $values->{'type'} ) eq 'text' ) {
+				$buffer .= (
+					$values->{'text'} eq 'null'
+					? "$values->{'field'} is $not null"
+					: "($not upper($values->{'field'}) = upper(E'$values->{'text'}') $null_clause)"
+				);
+			} else {
+				$buffer .= (
+					$values->{'text'} eq 'null'
+					? "$values->{'field'} is $not null"
+					: "$not ($values->{'field'} = E'$values->{'text'}' $null_clause)"
+				);
+			}
 		}
 	}
 	return $buffer;
@@ -1058,11 +1079,19 @@ sub _provenance_like_type_operator {
 		$buffer .= "($not $values->{'field'} ILIKE E'$text' $andor $view.id $not IN (SELECT isolate_id FROM isolate_aliases WHERE "
 		  . "alias ILIKE E'$text'))";
 	} else {
-		my $null_clause = $values->{'not'} ? "OR $values->{'field'} IS NULL" : '';
-		if ( $values->{'type'} ne 'text' ) {
-			$buffer .= "($not CAST($values->{'field'} AS text) LIKE E'$text' $null_clause)";
+		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname( $values->{'field'} );
+		if ( defined $metaset ) {
+			$buffer .=
+			  lc( $values->{'type'} ) eq 'text'
+			  ? "id $not IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield ILIKE E'$text')"
+			  : "id $not IN (SELECT isolate_id FROM meta_$metaset WHERE CAST($metafield AS text) LIKE E'$text')";
 		} else {
-			$buffer .= "($not $values->{'field'} ILIKE E'$text' $null_clause)";
+			my $null_clause = $values->{'not'} ? "OR $values->{'field'} IS NULL" : '';
+			if ( $values->{'type'} ne 'text' ) {
+				$buffer .= "($not CAST($values->{'field'} AS text) LIKE E'$text' $null_clause)";
+			} else {
+				$buffer .= "($not $values->{'field'} ILIKE E'$text' $null_clause)";
+			}
 		}
 	}
 	return $buffer;
