@@ -1702,16 +1702,17 @@ sub check_format {
 	my ( $self, $data, $error_ref ) = @_;
 	my $error;
 	if ( $data->{'text'} ne 'null' && defined $data->{'type'} ) {
+		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($data->{'field'});
 		if ( $data->{'type'} =~ /int/ ) {
 			if ( !BIGSdb::Utils::is_int( $data->{'text'}, { do_not_check_range => 1 } ) ) {
-				$error = "$data->{'field'} is an integer field.";
+				$error = ($metafield // $data->{'field'}) . " is an integer field.";
 			} elsif ( $data->{'text'} > MAX_INT ) {
-				$error = "$data->{'field'} is too big (largest allowed integer is " . MAX_INT . ').';
+				$error = ($metafield // $data->{'field'}) . " is too big (largest allowed integer is " . MAX_INT . ').';
 			}
 		} elsif ( $data->{'type'} =~ /bool/ && !BIGSdb::Utils::is_bool( $data->{'text'} ) ) {
-			$error = "$data->{'field'} is a boolean (true/false) field.";
+			$error = ($metafield // $data->{'field'}) . " is a boolean (true/false) field.";
 		} elsif ( $data->{'type'} eq 'float' && !BIGSdb::Utils::is_float( $data->{'text'} ) ) {
-			$error = "$data->{'field'} is a floating point number field.";
+			$error = ($metafield // $data->{'field'}) . " is a floating point number field.";
 		} elsif (
 			$data->{'type'} eq 'date'
 			&& (
@@ -1724,7 +1725,7 @@ sub check_format {
 		{
 			$error = "Searching a date field can not be done for the '$data->{'operator'}' operator.";
 		} elsif ( $data->{'type'} eq 'date' && !BIGSdb::Utils::is_date( $data->{'text'} ) ) {
-			$error = "$data->{'field'} is a date field - should be in yyyy-mm-dd format (or 'today' / 'yesterday').";
+			$error = ($metafield // $data->{'field'}) . " is a date field - should be in yyyy-mm-dd format (or 'today' / 'yesterday').";
 		}
 	}
 	if ( !$error && !$self->is_valid_operator( $data->{'operator'} ) ) {
