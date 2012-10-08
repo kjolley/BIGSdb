@@ -20,6 +20,7 @@
 package BIGSdb::Plugins::FieldBreakdown;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -36,7 +37,7 @@ sub get_attributes {
 		buttontext  => 'Fields',
 		menutext    => 'Single field',
 		module      => 'FieldBreakdown',
-		version     => '1.0.2',
+		version     => '1.0.3',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/field_breakdown.shtml',
@@ -49,7 +50,7 @@ sub get_attributes {
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { 'general' => 0, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 0 };
+	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
 	return;
 }
 
@@ -74,7 +75,7 @@ sub get_plugin_javascript {
 	my $query_file = $q->param('query_file');
 	my $query_clause = defined $query_file ? "&amp;query_file=$query_file" : '';
 	my $script_name  = $self->{'system'}->{'script_name'};
-	my $js = << "END";
+	my $js           = << "END";
 \$(function () {
 	\$("#imagegallery a").click(function(event){
 		event.preventDefault();
@@ -82,6 +83,7 @@ sub get_plugin_javascript {
 		\$("img#placeholder").attr("src",image);
 		var field = \$(this).attr("name");
 		var display = field;
+		display = display.replace(/^meta_\\d+:/, "");
 		display = display.replace(/_/g," ");
 		
 		\$("#field").empty();
@@ -114,9 +116,9 @@ sub run {
 	my $query_file = $q->param('query_file');
 	my $format     = $q->param('format');
 	if ( !( defined $q->param('function') && $q->param('function') eq 'summary_table' ) ) {
-		print "<h1>Field breakdown of dataset</h1>\n";
-		print
-"<script type=\"text/javascript\">\n//<![CDATA[\ndocument.write('<p id=\"hideonload\"><b>Please wait for charts to be generated ...</b></p>')\n//]]>\n</script>\n";
+		say "<h1>Field breakdown of dataset</h1>";
+		say "<script type=\"text/javascript\">\n//<![CDATA[\ndocument.write('<p id=\"hideonload\"><b>Please wait for charts to be "
+		  . "generated ...</b></p>')\n//]]>\n</script>";
 	}
 	my %prefs;
 	$prefs{'breakdown_composites'} = $self->_use_composites;
@@ -155,14 +157,16 @@ sub run {
 		if ($@) {
 			$logger->error($@);
 		} else {
-			while ( my @data = $sql->fetchrow_array() ) {
+			while ( my @data = $sql->fetchrow_array ) {
 				$composite_display_pos{ $data[0] } = $data[1];
 				$composites{ $data[1] }            = 1;
 			}
 		}
 	}
 	my $display_name;
-	my $field_list = $self->{'xmlHandler'}->get_field_list();
+	my $set_id        = $self->get_set_id;
+	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
 	my @expanded_list;
 	foreach (@$field_list) {
 		push @expanded_list, $_;
@@ -174,14 +178,15 @@ sub run {
 	}
 	foreach my $field (@expanded_list) {
 		if ( !$noshow{$field} ) {
-			my $display = $field;
+			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+			my $display = $metafield // $field;
 			$display =~ tr/_/ /;
 			my $display_field = $field;
 			my $num_values    = keys %{ $value_frequency->{$field} };
 			my $plural        = $num_values != 1 ? 's' : '';
 			$title = "$display - $num_values value$plural";
 			print " | " if !$first;
-			print "<a href=\"/tmp/$temp\_$field.png\" name=\"$display_field\" title=\"$title\">$display</a>";
+			say "<a href=\"/tmp/$temp\_$field.png\" name=\"$display_field\" title=\"$title\">$display</a>";
 			$self->_create_chartdirector_chart( $field, $num_values, $value_frequency->{$field}, $temp, $query_file );
 
 			if ($first) {
@@ -201,7 +206,7 @@ sub run {
 				my $display = $_;
 				$display =~ tr/_/ /;
 				$title = "$display - This is a composite field";
-				print "<a href=\"/tmp/$temp\_$_.png\" name=\"$_\" title=\"$title\">$display</a>";
+				say "<a href=\"/tmp/$temp\_$_.png\" name=\"$_\" title=\"$title\">$display</a>";
 				$self->_create_chartdirector_chart( $_, 2, $value_frequency->{$_}, $temp, $query_file );
 				if ($first) {
 					$src          = "/tmp/$temp\_$_.png";
@@ -212,13 +217,15 @@ sub run {
 			}
 		}
 	}
-	print "</p></div>\n";
-	print "<noscript><p class=\"highlight\">Please enable Javascript to view breakdown charts in place.</p></noscript>\n";
-	print "<h2 id=\"field\">$display_name</h2>\n";
-	print "<div class=\"box\" id=\"chart\"><img id=\"placeholder\" src=\"$src\" alt=\"breakdown chart\" /></div>\n";
+	say "</p></div>";
+	say "<noscript><p class=\"highlight\">Please enable Javascript to view breakdown charts in place.</p></noscript>";
+	say "<h2 id=\"field\">$display_name</h2>";
+	say "<div class=\"box\" id=\"chart\"><img id=\"placeholder\" src=\"$src\" alt=\"breakdown chart\" /></div>";
 	my $query_clause = defined $query_file ? "&amp;query_file=$query_file" : '';
-	print
-"<p id=\"links\"><a href='$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;function=summary_table$query_clause&amp;field=$name&amp;format=html'>Display table</a> | <a href='$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;function=summary_table$query_clause&amp;field=$name&amp;format=text'>Tab-delimited text</a></p>\n";
+	say "<p id=\"links\"><a href='$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;"
+	  . "function=summary_table$query_clause&amp;field=$name&amp;format=html'>Display table</a> | "
+	  . "<a href='$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;"
+	  . "function=summary_table$query_clause&amp;field=$name&amp;format=text'>Tab-delimited text</a></p>";
 	return;
 }
 
@@ -292,9 +299,9 @@ sub _summary_table {
 	my $format = $q->param('format') || 'html';
 	if ( !$field ) {
 		if ( $format ne 'text' ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>No field selected.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>No field selected.</p></div>";
 		} else {
-			print "No field selected.\n";
+			say "No field selected.";
 		}
 		return;
 	}
@@ -304,28 +311,29 @@ sub _summary_table {
 		&& !$self->_is_composite_field($field) )
 	{
 		if ( $format ne 'text' ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>Invalid field selected.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>Invalid field selected.</p></div>";
 		} else {
-			print "Invalid file selected.\n";
+			say "Invalid file selected.";
 		}
 		return;
 	}
 	if ( !$qry ) {
 		if ( $format ne 'text' ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>No query selected.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>No query selected.</p></div>";
 		} else {
-			print "No query selected.\n";
+			say "No query selected.";
 		}
 		return;
 	}
 	my $td = 1;
 	my ( @labels, @values );
-	my $display_field = $field;
+	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+	my $display_field = $metafield // $field;
 	$display_field =~ tr/_/ /;
 	if ( $format eq 'html' ) {
-		print "<h1>Breakdown by $display_field</h1>\n";
+		say "<h1>Breakdown by $display_field</h1>";
 	} else {
-		print "Breakdown for $display_field\n\n";
+		say "Breakdown for $display_field\n";
 	}
 	$logger->debug("Breakdown query: $qry");
 	my ( $num_records, $frequency ) = $self->_get_value_frequency_hash( \$qry, $isolate_field );
@@ -337,13 +345,13 @@ sub _summary_table {
 	}
 	my $plural = $num_values != 1 ? 's' : '';
 	if ( $format eq 'html' ) {
-		print "<div class=\"box\" id=\"resultstable\">";
-		print "<p>$num_values value$plural.</p>\n";
-		print
-"<table class=\"tablesorter\" id=\"sortTable\"><thead><tr><th>$field</th><th>Frequency</th><th>Percentage</th></tr></thead><tbody>\n";
+		say "<div class=\"box\" id=\"resultstable\">";
+		say "<p>$num_values value$plural.</p>";
+		say "<table class=\"tablesorter\" id=\"sortTable\"><thead><tr><th>$field</th><th>Frequency</th><th>Percentage</th></tr>"
+		 . "</thead><tbody>";
 	} else {
-		print "$num_values value$plural.\n\n";
-		print "$field\tfrequency\tpercentage\n";
+		say "$num_values value$plural.\n";
+		say "$field\tfrequency\tpercentage";
 	}
 	if (   $field =~ /^age_/
 		or $field =~ /^age$/
@@ -356,10 +364,10 @@ sub _summary_table {
 		foreach my $key ( sort { $a <=> $b } keys %$value_frequency ) {
 			my $percentage = BIGSdb::Utils::decimal_place( ( $value_frequency->{$key} / $num_records ) * 100, 2 );
 			if ( $format eq 'html' ) {
-				print
-"<tr class=\"td$td\"><td>$key</td><td>$value_frequency->{$key}</td><td style=\"text-align:center\">$percentage%</td></tr>\n";
+				say "<tr class=\"td$td\"><td>$key</td><td>$value_frequency->{$key}</td><td style=\"text-align:center\">"
+				 . "$percentage%</td></tr>";
 			} else {
-				print "$key\t$value_frequency->{$key}\t$percentage\n";
+				say "$key\t$value_frequency->{$key}\t$percentage";
 			}
 			$td = $td == 1 ? 2 : 1;    #row stripes
 		}
@@ -372,16 +380,16 @@ sub _summary_table {
 			push @values, $value_frequency->{$key};
 			my $percentage = BIGSdb::Utils::decimal_place( ( $value_frequency->{$key} / $num_records ) * 100, 2 );
 			if ( $format eq 'html' ) {
-				print
-"<tr class=\"td$td\"><td>$key</td><td style=\"text-align:center\">$value_frequency->{$key}</td><td style=\"text-align:center\">$percentage%</td></tr>\n";
+				say "<tr class=\"td$td\"><td>$key</td><td style=\"text-align:center\">$value_frequency->{$key}</td>"
+				 . "<td style=\"text-align:center\">$percentage%</td></tr>";
 			} else {
-				print "$key\t$value_frequency->{$key}\t$percentage\n";
+				say "$key\t$value_frequency->{$key}\t$percentage";
 			}
 			$td = $td == 1 ? 2 : 1;    #row stripes
 		}
 	}
 	if ( $format eq 'html' ) {
-		print "</tbody></table></div>";
+		say "</tbody></table></div>";
 	}
 	return;
 }
@@ -417,7 +425,7 @@ sub _get_value_frequency_hash {
 	my @field_list;
 	my $format = $self->{'cgi'}->param('format');
 	if ($query_field) {
-		push @field_list, $query_field;
+		push @field_list, ( 'id', $query_field );
 	} else {
 		@field_list = @$fields;
 	}
@@ -460,11 +468,30 @@ sub _get_value_frequency_hash {
 			foreach my $extended_attribute (@$extatt) {
 				foreach ( keys %{ $value_frequency->{$field} } ) {
 					eval { $sql_extended->execute( $field, $extended_attribute, $_ ) };
+					$logger->error($@) if $@;
 					my ($value) = $sql_extended->fetchrow_array;
 					$value = 'No value/unassigned' if !defined $value || $value eq '';
 					$value_frequency->{"$field..$extended_attribute"}->{$value} += $value_frequency->{$field}->{$_};
 				}
 			}
+		}
+	}
+
+	#Metadata sets
+	my $set_id        = $self->get_set_id;
+	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	foreach my $field (@$field_list) {
+		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+		next if !defined $metaset;
+		my $meta_sql = $self->{'db'}->prepare("SELECT isolate_id,$metafield FROM meta_$metaset");
+		eval { $meta_sql->execute };
+		$logger->error($@) if $@;
+		my $meta_data = $meta_sql->fetchall_hashref('isolate_id');
+		foreach my $isolate_id ( keys %{ $value_frequency->{'id'} } ) {
+			my $value = $meta_data->{$isolate_id}->{$metafield};
+			$value = 'No value/unassigned' if !defined $value || $value eq '';
+			$value_frequency->{$field}->{$value}++;
 		}
 	}
 	return $num_records, $value_frequency;
