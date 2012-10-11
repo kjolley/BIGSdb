@@ -369,8 +369,11 @@ sub _print_isolate_filter_fieldset {
 	my $prefs  = $self->{'prefs'};
 	my $q      = $self->{'cgi'};
 	my @filters;
-	my $extended = $self->get_extended_attributes;
-	foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list } ) {
+	my $extended      = $self->get_extended_attributes;
+	my $set_id        = $self->get_set_id;
+	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	foreach my $field (@$field_list) {
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 		my $dropdownlist;
 		my %dropdownlabels;
@@ -381,6 +384,7 @@ sub _print_isolate_filter_fieldset {
 			{
 				push @filters, $self->get_user_filter( $field, $self->{'system'}->{'view'} );
 			} else {
+				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 				if ( $thisfield->{'optlist'} ) {
 					$dropdownlist = $self->{'xmlHandler'}->get_field_option_list($field);
 					$dropdownlabels{$_} = $_ foreach (@$dropdownlist);
@@ -390,24 +394,27 @@ sub _print_isolate_filter_fieldset {
 						push @$dropdownlist, '<blank>';
 						$dropdownlabels{'<blank>'} = '<blank>';
 					}
+				} elsif ( defined $metaset ) {
+					my $list =
+					  $self->{'datastore'}->run_list_query( "SELECT DISTINCT($metafield) FROM meta_$metaset WHERE isolate_id "
+						  . "IN (SELECT id FROM $self->{'system'}->{'view'})" );
+					push @$dropdownlist, @$list;
 				} else {
-					my $qry = "SELECT DISTINCT($field) FROM $self->{'system'}->{'view'} ORDER BY $field";
-					my $sql = $self->{'db'}->prepare($qry);
-					eval { $sql->execute };
-					$logger->error($@) if $@;
-					while ( my ($value) = $sql->fetchrow_array ) {
-						push @$dropdownlist, $value;
-					}
+					my $list =
+					  $self->{'datastore'}->run_list_query("SELECT DISTINCT($field) FROM $self->{'system'}->{'view'} ORDER BY $field");
+					push @$dropdownlist, @$list;
 				}
 				my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
+				my $display_field = $metafield // $field;
 				push @filters,
 				  $self->get_filter(
 					$field,
 					$dropdownlist,
 					{
-						'labels' => \%dropdownlabels,
-						'tooltip' =>
-"$field filter - Select $a_or_an $field to filter your search to only those isolates that match the selected $field."
+						text => $metafield // undef,
+						'labels'  => \%dropdownlabels,
+						'tooltip' => "$display_field filter - Select $a_or_an $display_field to filter your search to only those "
+						  . "isolates that match the selected $display_field."
 					}
 				  );
 			}
@@ -426,8 +433,8 @@ sub _print_isolate_filter_fieldset {
 						"$field\..$extended_attribute",
 						$values,
 						{
-							'tooltip' =>
-"$field\..$extended_attribute filter - Select $a_or_an $extended_attribute to filter your search to only those isolates that match the selected $field."
+							    'tooltip' => "$field\..$extended_attribute filter - Select $a_or_an $extended_attribute to filter your "
+							  . "search to only those isolates that match the selected $field."
 						}
 					  );
 				}
@@ -447,17 +454,16 @@ sub _print_isolate_filter_fieldset {
 				'publication',
 				\@values,
 				{
-					'labels' => $labels,
-					'text'   => 'Publication',
-					'tooltip' =>
-"publication filter - Select a publication to filter your search to only those isolates that match the selected publication."
+					'labels'  => $labels,
+					'text'    => 'Publication',
+					'tooltip' => "publication filter - Select a publication to filter your search to only those isolates "
+					  . "that match the selected publication."
 				}
 			  );
 		}
 	}
 	my $buffer = $self->get_project_filter( { 'any' => 1 } );
 	push @filters, $buffer if $buffer;
-	my $set_id = $self->get_set_id;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	foreach my $scheme (@$schemes) {
 		my $field = "scheme_$scheme->{'id'}\_profile_status";
@@ -467,9 +473,9 @@ sub _print_isolate_filter_fieldset {
 				$field,
 				[ 'complete', 'incomplete', 'partial', 'started', 'not started' ],
 				{
-					'text' => "$scheme->{'description'} profiles",
-					'tooltip' =>
-"$scheme->{'description'} profile completion filter - Select whether the isolates should have complete, partial, or unstarted profiles."
+					'text'    => "$scheme->{'description'} profiles",
+					'tooltip' => "$scheme->{'description'} profile completion filter - Select whether the isolates should "
+					  . "have complete, partial, or unstarted profiles."
 				}
 			  );
 		}
@@ -487,9 +493,9 @@ sub _print_isolate_filter_fieldset {
 					"scheme\_$scheme->{'id'}\_$field",
 					$values,
 					{
-						'text' => "$field ($scheme->{'description'})",
-						'tooltip' =>
-"$field ($scheme->{'description'}) filter - Select $a_or_an $field to filter your search to only those isolates that match the selected $field."
+						'text'    => "$field ($scheme->{'description'})",
+						'tooltip' => "$field ($scheme->{'description'}) filter - Select $a_or_an $field to filter your search "
+						  . "to only those isolates that match the selected $field."
 					}
 				  ) if @$values;
 			}
@@ -958,7 +964,7 @@ sub _generate_isolate_query_for_provenance_fields {
 						$errors_ref );
 					next;
 				}
-				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname( $field );
+				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 				$field = $self->{'system'}->{'view'} . '.' . $field if !$extended_isolate_field;
 				my $args = {
 					field                  => $field,
@@ -989,9 +995,11 @@ sub _generate_isolate_query_for_provenance_fields {
 					my $labelfield = $self->{'system'}->{'view'} . '.' . $self->{'system'}->{'labelfield'};
 					$qry .= $modifier;
 					if ($extended_isolate_field) {
-						$qry .= "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND value $operator E'$text')";
+						$qry .=
+"$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND value $operator E'$text')";
 					} elsif ( $field eq $labelfield ) {
-						$qry .= "($field $operator '$text' OR $view.id IN (SELECT isolate_id FROM isolate_aliases WHERE alias $operator E'$text'))";
+						$qry .=
+"($field $operator '$text' OR $view.id IN (SELECT isolate_id FROM isolate_aliases WHERE alias $operator E'$text'))";
 					} else {
 						if ( $text eq 'null' ) {
 							push @$errors_ref, "$operator is not a valid operator for comparing null values.";
@@ -1101,30 +1109,43 @@ sub _modify_isolate_query_for_filters {
 	my ( $self, $qry, $extended ) = @_;
 
 	#extended: extended attributes hashref;
-	my $q    = $self->{'cgi'};
-	my $view = $self->{'system'}->{'view'};
-	foreach ( @{ $self->{'xmlHandler'}->get_field_list() } ) {
-		if ( defined $q->param("$_\_list") && $q->param("$_\_list") ne '' ) {
-			my $value = $q->param("$_\_list");
+	my $q             = $self->{'cgi'};
+	my $view          = $self->{'system'}->{'view'};
+	my $set_id        = $self->get_set_id;
+	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	foreach my $field (@$field_list) {
+		if ( defined $q->param("$field\_list") && $q->param("$field\_list") ne '' ) {
+			my $value = $q->param("$field\_list");
 			if ( $qry !~ /WHERE \(\)\s*$/ ) {
 				$qry .= " AND ";
 			} else {
 				$qry = "SELECT * FROM $view WHERE ";
 			}
-			$qry .= ( ( $value eq '<blank>' || $value eq 'null' ) ? "$_ is null" : "$_ = '$value'" );
+			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+			if ( defined $metaset ) {
+				$qry .= (
+					( $value eq '<blank>' || $value eq 'null' )
+					? "(id IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield IS NULL) OR id NOT IN (SELECT isolate_id FROM "
+					  . "meta_$metaset))"
+					: "(id IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield = E'$value'))"
+				);
+			} else {
+				$qry .= ( ( $value eq '<blank>' || $value eq 'null' ) ? "$field is null" : "$field = '$value'" );
+			}
 		}
-		my $extatt = $extended->{$_};
+		my $extatt = $extended->{$field};
 		if ( ref $extatt eq 'ARRAY' ) {
 			foreach my $extended_attribute (@$extatt) {
-				if ( defined $q->param("$_\..$extended_attribute\_list") && $q->param("$_\..$extended_attribute\_list") ne '' ) {
-					my $value = $q->param("$_\..$extended_attribute\_list");
+				if ( defined $q->param("$field\..$extended_attribute\_list") && $q->param("$field\..$extended_attribute\_list") ne '' ) {
+					my $value = $q->param("$field\..$extended_attribute\_list");
 					$value =~ s/'/\\'/g;
 					if ( $qry !~ /WHERE \(\)\s*$/ ) {
 						$qry .=
-" AND ($_ IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$_' AND attribute='$extended_attribute' AND value='$value'))";
+" AND ($field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$field' AND attribute='$extended_attribute' AND value='$value'))";
 					} else {
 						$qry =
-"SELECT * FROM $view WHERE ($_ IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$_' AND attribute='$extended_attribute' AND value='$value'))";
+"SELECT * FROM $view WHERE ($field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$field' AND attribute='$extended_attribute' AND value='$value'))";
 					}
 				}
 			}
@@ -1702,17 +1723,17 @@ sub check_format {
 	my ( $self, $data, $error_ref ) = @_;
 	my $error;
 	if ( $data->{'text'} ne 'null' && defined $data->{'type'} ) {
-		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($data->{'field'});
+		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname( $data->{'field'} );
 		if ( $data->{'type'} =~ /int/ ) {
 			if ( !BIGSdb::Utils::is_int( $data->{'text'}, { do_not_check_range => 1 } ) ) {
-				$error = ($metafield // $data->{'field'}) . " is an integer field.";
+				$error = ( $metafield // $data->{'field'} ) . " is an integer field.";
 			} elsif ( $data->{'text'} > MAX_INT ) {
-				$error = ($metafield // $data->{'field'}) . " is too big (largest allowed integer is " . MAX_INT . ').';
+				$error = ( $metafield // $data->{'field'} ) . " is too big (largest allowed integer is " . MAX_INT . ').';
 			}
 		} elsif ( $data->{'type'} =~ /bool/ && !BIGSdb::Utils::is_bool( $data->{'text'} ) ) {
-			$error = ($metafield // $data->{'field'}) . " is a boolean (true/false) field.";
+			$error = ( $metafield // $data->{'field'} ) . " is a boolean (true/false) field.";
 		} elsif ( $data->{'type'} eq 'float' && !BIGSdb::Utils::is_float( $data->{'text'} ) ) {
-			$error = ($metafield // $data->{'field'}) . " is a floating point number field.";
+			$error = ( $metafield // $data->{'field'} ) . " is a floating point number field.";
 		} elsif (
 			$data->{'type'} eq 'date'
 			&& (
@@ -1725,7 +1746,7 @@ sub check_format {
 		{
 			$error = "Searching a date field can not be done for the '$data->{'operator'}' operator.";
 		} elsif ( $data->{'type'} eq 'date' && !BIGSdb::Utils::is_date( $data->{'text'} ) ) {
-			$error = ($metafield // $data->{'field'}) . " is a date field - should be in yyyy-mm-dd format (or 'today' / 'yesterday').";
+			$error = ( $metafield // $data->{'field'} ) . " is a date field - should be in yyyy-mm-dd format (or 'today' / 'yesterday').";
 		}
 	}
 	if ( !$error && !$self->is_valid_operator( $data->{'operator'} ) ) {

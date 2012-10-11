@@ -137,8 +137,11 @@ sub set_options {
 			{
 				$prefstore->set_general( $guid, $dbname, $_, $prefs->{$_} ? 'on' : 'off' );
 			}
+			my $set_id = $self->get_set_id;
 			my $extended = $self->get_extended_attributes;
-			foreach ( @{ $self->{'xmlHandler'}->get_field_list() } ) {
+			my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+			my $field_list = $self->{'xmlHandler'}->get_field_list($metadata_list);
+			foreach ( @$field_list ) {
 				$prefstore->set_field( $guid, $dbname, $_, 'maindisplay', $prefs->{'maindisplayfields'}->{$_} ? 'true' : 'false' );
 				$prefstore->set_field( $guid, $dbname, $_, 'dropdown',    $prefs->{'dropdownfields'}->{$_}    ? 'true' : 'false' );
 				my $extatt = $extended->{$_};
@@ -341,7 +344,9 @@ sub _print_isolate_table_fields_options {
 	$self->_print_form_buttons;
 	my $i      = 0;
 	my $cols   = 1;
-	my $fields = $self->{'xmlHandler'}->get_field_list;
+	my $set_id        = $self->get_set_id;
+	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
 	my ( @js, @js2, @js3, %composites, %composite_display_pos, %composite_main_display );
 	my $qry = "SELECT id,position_after,main_display FROM composite_fields";
 	my $sql = $self->{'db'}->prepare($qry);
@@ -357,7 +362,7 @@ sub _print_isolate_table_fields_options {
 		}
 	}
 	my @field_names;
-	foreach my $field (@$fields) {
+	foreach my $field (@$field_list) {
 		next if $field eq 'id';
 		push @field_names, $field;
 		if ( ref $self->{'extended'} eq 'HASH' && ref $self->{'extended'}->{$field} eq 'ARRAY' ) {
@@ -374,22 +379,24 @@ sub _print_isolate_table_fields_options {
 	my $rel_widths = $self->_determine_column_widths( \@field_names, undef, DISPLAY_COLUMNS );
 	print "<div style=\"float:left; width:$rel_widths->{0}%\">";
 	print "<ul>\n";
-	foreach my $field (@$fields) {
+	foreach my $field (@$field_list) {
+		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 		if ( $field ne 'id' ) {
 			print "<li>";
+			(my $id = "field_$field") =~ tr/:/_/;
 			print $q->checkbox(
 				-name    => "field_$field",
-				-id      => "field_$field",
+				-id      => $id,
 				-checked => $prefs->{'maindisplayfields'}->{$field},
 				-value   => 'checked',
-				-label   => $field
+				-label   => $metafield // $field
 			);
 			print "</li>\n";
-			push @js,  "\$(\"#field_$field\").attr(\"checked\",true)";
-			push @js2, "\$(\"#field_$field\").attr(\"checked\",false)";
+			push @js,  "\$(\"#$id\").attr(\"checked\",true)";
+			push @js2, "\$(\"#$id\").attr(\"checked\",false)";
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 			my $value = ($thisfield->{'maindisplay'} // '') eq 'no' ? 'false' : 'true';
-			push @js3, "\$(\"#field_$field\").attr(\"checked\",$value)";
+			push @js3, "\$(\"#$id\").attr(\"checked\",$value)";
 			$i++;
 			$self->_check_new_column( scalar @field_names, \$i, \$cols, $rel_widths, DISPLAY_COLUMNS );
 			my $extatt = $self->{'extended'}->{$field};
@@ -479,8 +486,10 @@ sub _print_isolate_query_fields_options {
 	$self->_print_form_buttons;
 	my $i           = 0;
 	my $cols        = 1;
-	my $fields      = $self->{'xmlHandler'}->get_field_list;
-	my @checkfields = @$fields;
+	my $set_id        = $self->get_set_id;
+	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my @checkfields = @$field_list;
 	my %labels;
 
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -506,46 +515,48 @@ sub _print_isolate_query_fields_options {
 	my $rel_widths = $self->_determine_column_widths( \@field_names, \%labels, QUERY_FILTER_COLUMNS );
 	print "<div style=\"float:left; width:$rel_widths->{0}%\">";
 	print "<ul>\n";
-	foreach (@checkfields) {
-		if ( $_ ne 'id' ) {
+	foreach my $field (@checkfields) {
+		if ( $field ne 'id' ) {
+			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+			(my $id = "dropfield_$field") =~ tr/:/_/;
 			print "<li>";
 			print $q->checkbox(
-				-name    => "dropfield_$_",
-				-id      => "dropfield_$_",
-				-checked => $prefs->{'dropdownfields'}->{$_},
+				-name    => "dropfield_$field",
+				-id      => $id,
+				-checked => $prefs->{'dropdownfields'}->{$field},
 				-value   => 'checked',
-				-label   => $labels{$_} || $_
+				-label   => $labels{$field} || ($metafield // $field)
 			);
 			print "</li>\n";
-			push @js,  "\$(\"#dropfield_$_\").attr(\"checked\",true)";
-			push @js2, "\$(\"#dropfield_$_\").attr(\"checked\",false)";
+			push @js,  "\$(\"#$id\").attr(\"checked\",true)";
+			push @js2, "\$(\"#$id\").attr(\"checked\",false)";
 			my $value;
-			if ( $_ =~ /^scheme_(\d+)_profile_status/ ) {
+			if ( $field =~ /^scheme_(\d+)_profile_status/ ) {
 				my $scheme_info = $self->{'datastore'}->get_scheme_info($1);
 				$value = $scheme_info->{'query_status'} ? 'true' : 'false';
 			} else {
-				my $thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
+				my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 				$value = ( ($thisfield->{'dropdown'} // '') eq 'yes' ) ? 'true' : 'false';
 			}
-			push @js3, "\$(\"#dropfield_$_\").attr(\"checked\",$value)";
+			push @js3, "\$(\"#$id\").attr(\"checked\",$value)";
 			$i++;
 			$self->_check_new_column( scalar @field_names, \$i, \$cols, $rel_widths, QUERY_FILTER_COLUMNS );
 		}
-		my $extatt = $self->{'extended'}->{$_};
+		my $extatt = $self->{'extended'}->{$field};
 		if ( ref $extatt eq 'ARRAY' ) {
 			foreach my $extended_attribute (@$extatt) {
 				print "<li>";
 				print $q->checkbox(
-					-name    => "dropfield_e_$_\..$extended_attribute",
-					-id      => "dropfield_e_$_\___$extended_attribute",
-					-checked => $prefs->{'dropdownfields'}->{"$_\..$extended_attribute"},
+					-name    => "dropfield_e_$field\..$extended_attribute",
+					-id      => "dropfield_e_$field\___$extended_attribute",
+					-checked => $prefs->{'dropdownfields'}->{"$field\..$extended_attribute"},
 					-value   => 'checked',
-					-label   => "$_\..$extended_attribute"
+					-label   => "$field\..$extended_attribute"
 				);
 				print "</li>\n";
-				push @js,  "\$(\"#dropfield_e_$_\___$extended_attribute\").attr(\"checked\",true)";
-				push @js2, "\$(\"#dropfield_e_$_\___$extended_attribute\").attr(\"checked\",false)";
-				push @js3, "\$(\"#dropfield_e_$_\___$extended_attribute\").attr(\"checked\",false)";
+				push @js,  "\$(\"#dropfield_e_$field\___$extended_attribute\").attr(\"checked\",true)";
+				push @js2, "\$(\"#dropfield_e_$field\___$extended_attribute\").attr(\"checked\",false)";
+				push @js3, "\$(\"#dropfield_e_$field\___$extended_attribute\").attr(\"checked\",false)";
 				$i++;
 				$self->_check_new_column( scalar @field_names, \$i, \$cols, $rel_widths, QUERY_FILTER_COLUMNS );
 			}

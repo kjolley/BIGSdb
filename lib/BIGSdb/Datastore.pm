@@ -51,7 +51,7 @@ sub update_prefs {
 sub DESTROY {
 	my ($self) = @_;
 	foreach ( keys %{ $self->{'sql'} } ) {
-		$self->{'sql'}->{$_}->finish() if $self->{'sql'}->{$_};
+		$self->{'sql'}->{$_}->finish if $self->{'sql'}->{$_};
 		$logger->info("Statement handle '$_' destroyed.");
 	}
 	foreach ( keys %{ $self->{'scheme'} } ) {
@@ -544,7 +544,8 @@ sub get_scheme_field_info {
 	}
 	eval { $self->{'sql'}->{'scheme_field_info'}->execute( $id, $field ) };
 	$logger->error($@) if $@;
-	return $self->{'sql'}->{'scheme_field_info'}->fetchrow_hashref;
+	my $data = $self->{'sql'}->{'scheme_field_info'}->fetchrow_hashref;
+	return $data;
 }
 
 sub get_all_scheme_field_info {
@@ -1660,5 +1661,16 @@ sub get_set_metadata {
 		return $self->{'xmlHandler'}->get_metadata_list;
 	}
 }
+
+ sub get_metadata_value {
+ 	my ($self,$isolate_id,$metaset,$metafield) = @_;
+ 	if (!$self->{'sql'}->{"metadata_value_$metaset"}){
+ 		$self->{'sql'}->{"metadata_value_$metaset"} = $self->{'db'}->prepare("SELECT * FROM meta_$metaset WHERE isolate_id = ?");
+ 	}
+ 	eval {$self->{'sql'}->{"metadata_value_$metaset"}->execute($isolate_id)};
+ 	$logger->error($@) if $@;
+ 	my $data =  $self->{'sql'}->{"metadata_value_$metaset"}->fetchrow_hashref;
+ 	return $data->{$metafield} // '';
+ }
 
 1;

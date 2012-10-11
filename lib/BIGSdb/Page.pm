@@ -82,7 +82,7 @@ sub initiate {
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 1, 'isolate_display' => 1, 'analysis' => 1, 'query_field' => 1 };
+	$self->{'pref_requirements'} = { general => 1, main_display => 1, isolate_display => 1, analysis => 1, query_field => 1 };
 	return;
 }
 
@@ -634,11 +634,12 @@ sub get_filter {
 	( my $text = $options->{'text'} || $name ) =~ tr/_/ /;
 	my ( $label, $title ) = $self->_get_truncated_label("$text: ");
 	my $title_attribute = $title ? "title=\"$title\"" : '';
-	my $buffer = "<label for=\"$name\_list\" class=\"$class\" $title_attribute>$label</label>\n";
+	(my $id = "$name\_list") =~ tr/:/_/;
+	my $buffer = "<label for=\"$id\" class=\"$class\" $title_attribute>$label</label>\n";
 	unshift @$values, '' if !$options->{'noblank'};
 	$buffer .=
 	  $self->{'cgi'}
-	  ->popup_menu( -name => "$name\_list", -id => "$name\_list", -values => $values, -labels => $options->{'labels'}, -class => $class );
+	  ->popup_menu( -name => "$name\_list", -id => $id, -values => $values, -labels => $options->{'labels'}, -class => $class );
 	$options->{'tooltip'} =~ tr/_/ / if $options->{'tooltip'};
 	$buffer .= " <a class=\"tooltip\" title=\"$options->{'tooltip'}\">&nbsp;<i>i</i>&nbsp;</a>" if $options->{'tooltip'};
 	return $buffer;
@@ -1353,10 +1354,15 @@ sub initiate_prefs {
 	my $q = $self->{'cgi'};
 	return if !$self->{'prefstore'};
 	my ( $general_prefs, $field_prefs, $scheme_field_prefs );
-	if (   $q->param('page')
-		&& $q->param('page') eq 'options'
-		&& $q->param('set') )
-	{
+	my $guid = $self->get_guid || 1;
+	try {
+		$self->{'prefstore'}->update_datestamp($guid);
+	}
+	catch BIGSdb::PrefstoreConfigurationException with {
+		undef $self->{'prefstore'};
+		$self->{'fatal'} = 'prefstoreConfig';
+	};
+	if ( ( $q->param('page') // '' ) eq 'options' && $q->param('set') ) {
 		foreach (qw(displayrecs pagebar alignwidth flanking)) {
 			$self->{'prefs'}->{$_} = $q->param($_);
 		}
@@ -1365,16 +1371,11 @@ sub initiate_prefs {
 		foreach (qw (hyperlink_loci tooltips)) {
 			$self->{'prefs'}->{$_} = ( $q->param($_) && $q->param($_) eq 'on' ) ? 1 : 0;
 		}
+		return if !$self->{'prefstore'};
+		$self->{'prefs'}->{'set_id'} = $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'set_id' )
+		  if $self->{'pref_requirements'}->{'general'};
 	} else {
 		return if !$self->{'pref_requirements'}->{'general'} && !$self->{'pref_requirements'}->{'query_field'};
-		my $guid = $self->get_guid || 1;
-		try {
-			$self->{'prefstore'}->update_datestamp($guid);
-		}
-		catch BIGSdb::PrefstoreConfigurationException with {
-			undef $self->{'prefstore'};
-			$self->{'fatal'} = 'prefstoreConfig';
-		};
 		return if !$self->{'prefstore'};
 		my $dbname = $self->{'system'}->{'db'};
 		$field_prefs = $self->{'prefstore'}->get_all_field_prefs( $guid, $dbname );
@@ -1431,10 +1432,12 @@ sub initiate_prefs {
 
 sub _initiate_isolatedb_prefs {
 	my ( $self, $general_prefs, $field_prefs, $scheme_field_prefs ) = @_;
-	my $q          = $self->{'cgi'};
-	my $field_list = $self->{'xmlHandler'}->get_field_list;
-	my $params     = $q->Vars;
-	my $extended   = $self->get_extended_attributes;
+	my $q             = $self->{'cgi'};
+	my $set_id        = $self->get_set_id;
+	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $params        = $q->Vars;
+	my $extended      = $self->get_extended_attributes;
 
 	#Parameters set by preference store via session cookie
 	if (   $params->{'page'} eq 'options'

@@ -378,7 +378,7 @@ sub _print_isolate_table {
 	my $logger    = get_logger('BIGSdb.Page');
 	my $q         = $self->{'cgi'};
 	my $qry       = $$qryref;
-	my $qry_limit = $qry;
+	my $qry_limit = $qry;	
 	my $fields    = $self->{'xmlHandler'}->get_field_list;
 	my $view      = $self->{'system'}->{'view'};
 	local $" = ",$view.";
@@ -430,13 +430,16 @@ sub _print_isolate_table {
 	my $attribute_sql =
 	  $self->{'db'}->prepare("SELECT value FROM isolate_value_extended_attributes WHERE isolate_field=? AND attribute=? AND field_value=?");
 	$self->{'scheme_loci'}->{0} = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
+	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	
 	local $| = 1;
 
 	while ( $limit_sql->fetchrow_arrayref ) {
 		my $profcomplete = 1;
 		my $id;
 		print "<tr class=\"td$td\">";
-		foreach my $thisfieldname (@$fields) {
+		foreach my $thisfieldname (@$field_list) {
 			$data{$thisfieldname} = '' if !defined $data{$thisfieldname};
 			$data{$thisfieldname} =~ tr/\n/ /;
 			if (   $self->{'prefs'}->{'maindisplayfields'}->{$thisfieldname}
@@ -479,7 +482,13 @@ sub _print_isolate_table {
 					my $user_info = $self->{'datastore'}->get_user_info( $data{$thisfieldname} );
 					print "<td>$user_info->{'first_name'} $user_info->{'surname'}</td>";
 				} else {
-					print "<td>$data{$thisfieldname}</td>";
+					if ($thisfieldname =~ /^meta_\d+:/){
+						my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($thisfieldname);
+						my $value = $self->{'datastore'}->get_metadata_value($id,$metaset,$metafield);
+						print "<td>$value</td>";
+					} else {
+						print "<td>$data{$thisfieldname}</td>";
+					}
 				}
 			}
 			my $extatt = $extended->{$thisfieldname};
@@ -561,7 +570,9 @@ sub _get_seqbin_size {
 
 sub _print_isolate_table_header {
 	my ( $self, $composites, $composite_display_pos, $schemes, $limit_qry ) = @_;
-	my $select_items  = $self->{'xmlHandler'}->get_field_list;
+	my $set_id        = $self->get_set_id;
+	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+	my $select_items    = $self->{'xmlHandler'}->get_field_list($metadata_list);
 	my $header_buffer = "<tr>";
 	my $col_count;
 	my $extended = $self->get_extended_attributes;
@@ -569,7 +580,8 @@ sub _print_isolate_table_header {
 		if (   $self->{'prefs'}->{'maindisplayfields'}->{$col}
 			|| $col eq 'id' )
 		{
-			( my $display_col = $col ) =~ tr/_/ /;
+			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($col);
+			( my $display_col = $metafield // $col ) =~ tr/_/ /;
 			$header_buffer .= "<th>$display_col</th>";
 			$col_count++;
 		}
@@ -666,7 +678,6 @@ sub _print_isolate_table_header {
 		$header_buffer .= "<th>@scheme_header</th>" if @scheme_header;
 	}
 	my @locus_header;
-	my $set_id = $self->get_set_id;
 	my $loci = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 	foreach (@$loci) {
 		if ( $self->{'prefs'}->{'main_display_loci'}->{$_} ) {
@@ -687,7 +698,7 @@ sub _print_isolate_table_header {
 			push @locus_header, "$cleaned_locus" . ( @aliases ? " <span class=\"comment\">(@aliases)</span>" : '' );
 		}
 	}
-	if ( scalar @locus_header ) {
+	if (@locus_header) {
 		$fieldtype_header .= "<th colspan=\"" . scalar @locus_header . "\">Loci</th>";
 	}
 	local $" = '</th><th>';
