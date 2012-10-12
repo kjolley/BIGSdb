@@ -819,8 +819,10 @@ sub _run_isolate_query {
 		}
 		push @hidden_attributes, qw(no_js publication_list project_list linked_sequences_list);
 		my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
-		foreach (@$schemes) {
-			push @hidden_attributes, "scheme_$_\_profile_status_list";
+		foreach my $scheme_id (@$schemes) {
+			push @hidden_attributes, "scheme_$scheme_id\_profile_status_list";
+			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+			push @hidden_attributes, "scheme_$scheme_id\_$_\_list" foreach (@$scheme_fields);
 		}
 		my $view = $self->{'system'}->{'view'};
 		$qry =~ s/ datestamp/ $view\.datestamp/g;     #datestamp exists in other tables and can be ambiguous on complex queries
