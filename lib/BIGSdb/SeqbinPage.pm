@@ -39,7 +39,7 @@ sub print_content {
 	my $isolate_id = $q->param('isolate_id');
 	my $exists = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id )->[0];
 	if ( !$exists ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>The database contains no record of this isolate.</p></div>";
+		say "<div class=\"box\" id=\"statusbad\"><p>The database contains no record of this isolate.</p></div>";
 		return;
 	}
 	my @name = $self->get_name($isolate_id);
@@ -49,7 +49,10 @@ sub print_content {
 	} else {
 		say "<h1>Sequence bin for isolate id $isolate_id</h1>";
 	}
-	my $count = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM sequence_bin WHERE isolate_id=?", $isolate_id )->[0];
+	my $qry = "SELECT id,length(sequence) AS length,original_designation,method,comments,sender,curator,date_entered,datestamp "
+	  . "FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) desc";
+	my $length_data = $self->{'datastore'}->run_list_query_hashref( $qry, $isolate_id );
+	my $count = @$length_data;
 	if ( !$count ) {
 		say "<div class=\"box statusbad\"><p>This isolate has no sequence data attached.</p></div>";
 		return;
@@ -58,7 +61,7 @@ sub print_content {
 	say "<div style=\"float:left\">";
 	say "<h2>Contig summary statistics</h2>";
 	say "<ul>\n<li>Number of contigs: $count</li>";
-	my ( $data, $lengths );
+	my ( $data, $lengths, $n_stats );
 	if ( $count > 1 ) {
 		$data = $self->{'datastore'}->run_simple_query(
 			"SELECT SUM(length(sequence)),MIN(length(sequence)),MAX(length(sequence)),CEIL(AVG(length(sequence))), "
@@ -68,7 +71,7 @@ sub print_content {
 		$lengths =
 		  $self->{'datastore'}
 		  ->run_list_query( "SELECT length(sequence) FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) desc", $isolate_id );
-		my $n_stats = $self->get_N_stats( $data->[0], $lengths );
+		$n_stats = $self->get_N_stats( $data->[0], $lengths );
 		print <<"HTML"
 	<li>Total length: $data->[0]</li>
 	<li>Minimum length: $data->[1]</li>
@@ -117,12 +120,29 @@ HTML
 		if ( $self->{'config'}->{'chartdirector'} ) {
 			my %prefs = ( 'offset_label' => 1, 'x-title' => 'Contig size (bp)', 'y-title' => 'Frequency' );
 			BIGSdb::Charts::barchart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$temp\_large_histogram.png",
-			'large', \%prefs, { no_transparent => 1 } );		
-			say "<a href=\"/tmp/$temp\_large_histogram.png\" rel=\"lightbox\" class=\"lightbox\" title=\"Contig size distribution\">"
-			 . "<img src=\"/tmp/$temp\_large_histogram.png\" alt=\"Contig size distribution\" style=\"width:200px;border:1px "
-			 . "dashed black\" /></a><br />Click to enlarge";
+				'large', \%prefs, { no_transparent => 1 } );
+			say "<a href=\"/tmp/$temp\_large_histogram.png\" rel=\"lightbox-1\" class=\"lightbox\" title=\"Contig size distribution\">"
+			  . "<img src=\"/tmp/$temp\_large_histogram.png\" alt=\"Contig size distribution\" style=\"width:200px;border:1px "
+			  . "dashed black\" /></a><br />Click to enlarge";
 		}
 		say "<ul><li><a href=\"/tmp/$temp.txt\">Download lengths</a></li></ul></div>";
+		if ( $self->{'config'}->{'chartdirector'} ) {
+			print "<div style=\"float:left;padding-left:2em\">\n";
+			print "<h2>Cumulative contig length</h2>\n";
+			my ( @contig_labels, @cumulative );
+			push @contig_labels, $_ foreach ( 1 .. $count );
+			my $total_length = 0;
+			foreach (@$length_data) {
+				$total_length += $_->{'length'};
+				push @cumulative, $total_length;
+			}
+			my %prefs = ( 'offset_label' => 1, 'x-title' => 'Contig number', 'y-title' => 'Cumulative length' );
+			BIGSdb::Charts::linechart( \@contig_labels, \@cumulative, "$self->{'config'}->{'tmp_dir'}/$temp\_cumulative_length.png",
+				'large', \%prefs, { no_transparent => 1 } );
+			say "<a href=\"/tmp/$temp\_cumulative_length.png\" rel=\"lightbox-1\" class=\"lightbox\" title=\"Cumulative contig length\">"
+			  . "<img src=\"/tmp/$temp\_cumulative_length.png\" alt=\"Cumulative contig length\" style=\"width:200px;border:1px "
+			  . "dashed black\" /></a></div>";
+		}
 	}
 	say "<div style=\"clear:both\"></div>";
 	say "</div><div class=\"box\" id=\"resultstable\">";
@@ -132,18 +152,13 @@ HTML
 	  . "title=\"Artemis - This will launch Artemis using Java WebStart.  The contig annotations should open within Artemis but this "
 	  . "may depend on your operating system and version of Java.  If the annotations do not open within Artemis, download the EMBL "
 	  . "file locally and load manually in to Artemis.\">&nbsp;<i>i</i>&nbsp;</a></th>";
-
 	if ( $self->{'curate'} && ( $self->{'permissions'}->{'modify_loci'} || $self->is_admin ) ) {
 		say "<th>Renumber <a class=\"tooltip\" title=\"Renumber - You can use the numbering of the sequence tags to automatically "
 		  . "set the genome order position for each locus. This will be used to order the sequences when exporting FASTA or XMFA files."
 		  . "\">&nbsp;<i>i</i>&nbsp;</a></th>";
 	}
 	print "</tr>\n";
-	my $td = 1;
-	my $qry = "SELECT id,length(sequence) AS length,original_designation,method,comments,sender,curator,date_entered,datestamp "
-	  . "FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) desc";
-	my $length_data = $self->{'datastore'}->run_list_query_hashref($qry, $isolate_id);
-	
+	my $td     = 1;
 	my $set_id = $self->get_set_id;
 	my $set_clause =
 	  $set_id
@@ -153,11 +168,13 @@ HTML
 	$qry = "SELECT * FROM allele_sequences WHERE seqbin_id = ? $set_clause ORDER BY start_pos";
 	my $seq_sql = $self->{'db'}->prepare($qry);
 	local $" = 1;
-	foreach my $data (@$length_data){
+
+	foreach my $data (@$length_data) {
 		eval { $seq_sql->execute( $data->{'id'} ) };
 		$logger->error($@) if $@;
 		my $allele_count =
-		  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM allele_sequences WHERE seqbin_id=? $set_clause", $data->{'id'} )->[0];
+		  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM allele_sequences WHERE seqbin_id=? $set_clause", $data->{'id'} )
+		  ->[0];
 		my $first = 1;
 		if ($allele_count) {
 			print "<tr class=\"td$td\">";
