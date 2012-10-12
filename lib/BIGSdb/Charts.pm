@@ -155,6 +155,58 @@ sub barchart {
 	return;
 }
 
+sub linechart {
+	my ( $labels, $data, $filename, $size, $prefs, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $max_label_length = _find_length_of_largest_label($labels);
+	my $preferred        = 10;
+	my $values           = scalar @$labels;
+	my $display_labels;
+	if ( $values > 50 ) {
+		my $pruning_factor = int( $values / 50 );
+
+		#prune labels
+		my $i = 0;
+		foreach (@$labels) {
+			if ( $i < $pruning_factor ) {
+				push @$display_labels, '';
+			} else {
+				push @$display_labels, $_;
+			}
+			$i++;
+			$i = 0 if $i > $pruning_factor;
+		}
+	} else {
+		$display_labels = $labels;
+	}
+	my $y_offset = $max_label_length * 5;
+	$y_offset += 10 if $prefs->{'x-title'};
+	my $x_offset = $prefs->{'y-title'} ? 20 : 0;
+	my ( $chart, $layer );
+	if ( $size eq 'small' ) {
+		$chart = XYChart->new( 780, 350 );
+		$chart->setPlotArea( 50 + $x_offset, 20, 710, 300 - $y_offset );
+	} else {
+		$chart = XYChart->new( 920, 500 );
+		$chart->setPlotArea( 50 + $x_offset, 20, 800, 450 - $y_offset );
+	}
+	$layer = $chart->addLineLayer2();
+	{
+		no warnings 'once';
+		$layer->addDataSet($data, 0x00000080)->setDataSymbol($perlchartdir::CircleSymbol,5);
+	}
+	$chart->setBackground(0x00FFFFFF);
+	$chart->setTransparentColor(0x00FFFFFF) if !$options->{'no_transparent'};
+	$layer->setBorderColor( -1, 1 );
+	my $angle = $max_label_length > 12 ? 90 : 45;
+	$chart->xAxis()->setLabels($display_labels)->setFontAngle($angle);
+	
+	$chart->xAxis->setTitle( $prefs->{'x-title'} ) if $prefs->{'x-title'};
+	$chart->yAxis->setTitle( $prefs->{'y-title'} ) if $prefs->{'y-title'};
+	$chart->makeChart($filename);
+	return;	
+}
+
 sub _find_length_of_largest_label {
 	my ($label_ref) = @_;
 	my $max = 0;
