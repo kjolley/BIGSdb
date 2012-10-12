@@ -591,9 +591,19 @@ sub print_scheme_locus_fieldset {
 	my ( $self, $scheme_id, $options ) = @_;
 	my ( @scheme_js, @scheme_js2 );
 	my $locus_list = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $set_id     = $self->get_set_id;
+	my %labels;
+	( $labels{$_} = $self->{'datastore'}->get_set_locus_label( $_, $set_id ) ) foreach (@$locus_list);
 	say "<fieldset><legend>Select loci</legend>";
 	if (@$locus_list) {
-		print $self->{'cgi'}->scrolling_list( -name => 'locus', -id => 'locus', -values => $locus_list, -size => 8, -multiple => 'true' );
+		print $self->{'cgi'}->scrolling_list(
+			-name     => 'locus',
+			-id       => 'locus',
+			-values   => $locus_list,
+			-labels   => \%labels,
+			-size     => 8,
+			-multiple => 'true'
+		);
 		print <<"HTML";
 <div style="text-align:center"><input type="button" onclick='listbox_selectall("locus",true)' 
 value="All" style="margin-top:1em" class="smallbutton" />
