@@ -20,7 +20,8 @@
 package BIGSdb::Plugins::SequenceComparison;
 use strict;
 use warnings;
-use parent qw(BIGSdb::Plugin);
+use 5.010;
+use parent qw(BIGSdb::Plugin BIGSdb::SequenceQueryPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
@@ -37,7 +38,7 @@ sub get_attributes {
 		category         => 'Analysis',
 		menutext         => 'Sequence comparison',
 		module           => 'SequenceComparison',
-		version          => '1.0.1',
+		version          => '1.0.2',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => 'analysis',
@@ -49,42 +50,42 @@ sub get_attributes {
 
 sub run {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	my $desc = $self->get_db_description;
-	print "<h1>Allele sequence comparison - $desc</h1>\n";
+	my $q      = $self->{'cgi'};
+	my $desc   = $self->get_db_description;
+	say "<h1>Allele sequence comparison - $desc</h1>";
 	my $set_id = $self->get_set_id;
 	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
 	if ( !@$display_loci ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>No loci have been defined for this database.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>No loci have been defined for this database.</p></div>";
 		return;
 	}
-	print "<div class=\"box\" id=\"queryform\">\n";
-	print "<p>This tool allows you to select two alleles and highlight the nucleotide differences between them.</p>\n";
+	say "<div class=\"box\" id=\"queryform\">";
+	say "<p>This tool allows you to select two alleles and highlight the nucleotide differences between them.</p>";
 	my $locus = $q->param('locus') || '';
 	if ( $locus =~ /^cn_(.+)/ ) {
 		$locus = $1;
 		$q->param( 'locus', $locus );
 	}
-	print $q->start_form;
+	say $q->start_form;
 	my $sent = $q->param('sent');
 	$q->param( 'sent', 1 );
-	print $q->hidden($_) foreach qw (db page name sent);
-	print "<table>";
-	print "<tr><td style=\"text-align:right\">Select locus: </td><td>\n";
-	print $q->popup_menu( -name => 'locus', -values => $display_loci, -labels => $cleaned );
-	print "</td></tr>\n";
+	say $q->hidden($_) foreach qw (db page name sent);
+	say "<table>";
+	say "<tr><td style=\"text-align:right\">Select locus: </td><td>";
+	say $q->popup_menu( -name => 'locus', -values => $display_loci, -labels => $cleaned );
+	say "</td></tr>";
 
 	foreach (qw(1 2)) {
-		print "<tr><td style=\"text-align:right\">Allele #$_</td><td>\n";
-		print $q->textfield( -name => "allele$_", size => '8' );
-		print "</td></tr>\n";
+		say "<tr><td style=\"text-align:right\">Allele #$_</td><td>";
+		say $q->textfield( -name => "allele$_", size => 8 );
+		say "</td></tr>";
 	}
-	print "<tr><td /><td>\n";
-	print $q->submit( -name => 'Submit', -class => 'submit' );
-	print "</td></tr>\n";
-	print "</table>\n";
-	print $q->endform;
-	print "</div>\n";
+	say "<tr><td /><td>";
+	say $q->submit( -name => 'Submit', -class => 'submit' );
+	say "</td></tr>";
+	say "</table>";
+	say $q->endform;
+	say "</div>";
 	return if !$sent;
 	my @seq;
 	my $displaylocus = $self->clean_locus($locus);
@@ -92,29 +93,50 @@ sub run {
 	my $allele2      = $q->param('allele2');
 
 	if ( !$allele1 || !$allele2 ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Please enter two allele identifiers.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Please enter two allele identifiers.</p></div>";
 		return;
 	} elsif ( $allele1 eq $allele2 ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Please enter two <em>different</em> allele numbers.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Please enter two <em>different</em> allele numbers.</p></div>";
 		return;
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( $locus_info->{'allele_id_format'} eq 'integer' && ( !BIGSdb::Utils::is_int($allele1) || !BIGSdb::Utils::is_int($allele2) ) ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Both your allele identifiers should be integers.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Both your allele identifiers should be integers.</p></div>";
 		return;
 	}
 	my $seq1_ref = $self->{'datastore'}->get_sequence( $locus, $allele1 );
 	my $seq2_ref = $self->{'datastore'}->get_sequence( $locus, $allele2 );
 	if ( !defined $$seq1_ref ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Allele #1 has not been defined.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Allele #1 has not been defined.</p></div>";
 		return;
 	} elsif ( !defined $$seq2_ref ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Allele #2 has not been defined.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Allele #2 has not been defined.</p></div>";
 		return;
 	}
-	print "<div class=\"box\" id=\"resultsheader\">\n";
-	print "<h2>Nucleotide differences between $displaylocus: $allele1 and $displaylocus: $allele2</h2>\n";
-	my $temp = &BIGSdb::Utils::get_random();
+	say "<div class=\"box\" id=\"resultsheader\">";
+	say "<h2>Nucleotide differences between $displaylocus: $allele1 and $displaylocus: $allele2</h2>";
+	my $temp    = &BIGSdb::Utils::get_random();
+	my $outfile = "$self->{'config'}->{'tmp_dir'}/$temp.txt";
+	if ( $self->{'config'}->{'emboss_path'} ) {
+		my $seq1_infile = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_1.txt";
+		my $seq2_infile = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_2.txt";
+		open( my $fh, '>', $seq1_infile )
+		  || $logger->error("Could not write temporary input file");
+		say $fh ">$allele1";
+		print $fh $$seq1_ref;
+		close $fh;
+		open( $fh, '>', $seq2_infile )
+		  || $logger->error("Could not write temporary input file");
+		say $fh ">$allele2";
+		print $fh $$seq2_ref;
+		close $fh;
+
+		#run EMBOSS stretcher
+		system(
+"$self->{'config'}->{'emboss_path'}/stretcher -aformat markx2 -awidth $self->{'prefs'}->{'alignwidth'} $seq1_infile $seq2_infile $outfile 2> /dev/null"
+		);
+		unlink $seq1_infile, $seq2_infile;
+	}
 	my $buffer;
 	if ( length $$seq1_ref == length $$seq2_ref ) {
 		my @results;
@@ -128,43 +150,43 @@ sub run {
 		}
 		my $numdiffs = scalar @results;
 		my $ident = BIGSdb::Utils::decimal_place( 100 - ( ( $numdiffs / ( length $$seq1_ref ) ) * 100 ), 2 );
-		$buffer .= "<p>Identity: $ident %<br />\n";
-		$buffer .= "<a href=\"/tmp/$temp.txt\"> View alignment </a>\n" if $self->{'config'}->{'emboss_path'};
-		$buffer .= "</p>\n";
+		$buffer .= "<p>Identity: $ident %</p>\n";
+		$buffer .= $self->get_alignment( $outfile, $temp );
 		$buffer .= "<p>Differences: $numdiffs<br />\n";
 		local $" = "<br />\n";
 		$buffer .= "@results</p>";
 	} else {
-		print "<p>The alleles at this locus can have insertions or deletions so an alignment will be performed.</p>\n";
+		say "<p>The alleles at this locus can have insertions or deletions so an alignment will be performed.</p>";
 	}
-	if ( $self->{'config'}->{'emboss_path'} ) {
-		my $seq1_infile = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_1.txt";
-		my $seq2_infile = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_2.txt";
-		open( my $fh, '>', $seq1_infile )
-		  || $logger->error("Could not write temporary input file");
-		print $fh ">$allele1\n";
-		print $fh $$seq1_ref;
-		close $fh;
-		open( $fh, '>', $seq2_infile )
-		  || $logger->error("Could not write temporary input file");
-		print $fh ">$allele2\n";
-		print $fh $$seq2_ref;
-		close $fh;
-		my $outfile = "$self->{'config'}->{'tmp_dir'}/$temp.txt";
-
-		#run EMBOSS stretcher
-		system(
-"$self->{'config'}->{'emboss_path'}/stretcher -aformat markx2 -awidth $self->{'prefs'}->{'alignwidth'} $seq1_infile $seq2_infile $outfile 2> /dev/null"
-		);
-		unlink $seq1_infile, $seq2_infile;
-		if ( length $$seq1_ref != length $$seq2_ref ) {
-			print "<pre style=\"font-size:1.2em\">\n";
-			$self->print_file( "$self->{'config'}->{'tmp_dir'}/$temp.txt", 1 );
-			print "</pre>\n";
-		}
+	if ( length $$seq1_ref != length $$seq2_ref ) {
+		say "<pre style=\"font-size:1.2em\">";
+		$self->print_file( $outfile, 1 );
+		say "</pre>";
 	}
-	print $buffer if $buffer;
-	print "</div>\n";
+	say $buffer if $buffer;
+	say "</div>";
 	return;
+}
+
+sub get_plugin_javascript {
+	my $buffer = << "END";
+\$(function () {
+	\$('a[rel=ajax]').click(function(){
+  		\$(this).attr('href', function(){
+  			if (this.href.match(/javascript.loadContent/)){
+  				return;
+  			};
+    		return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1\'\)"));
+    	});
+  	});
+});
+
+function loadContent(url) {
+	\$("#alignment").html('<img src=\"/javascript/themes/default/throbber.gif\" /> Loading ...').load(url);
+	\$("#alignment_link").hide();
+}
+
+END
+	return $buffer;
 }
 1;
