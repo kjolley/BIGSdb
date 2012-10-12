@@ -42,7 +42,8 @@ sub get_attributes {
 		version          => '1.1.0',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
-		section          => 'analysis',
+		input            => 'query',
+		section          => 'postquery,analysis',
 		requires         => 'muscle,offline_jobs',
 		order            => 15
 	);
@@ -193,8 +194,22 @@ sub run {
 			return;
 		}
 	}
-	$self->_print_interface( $locus, $display_loci, $cleaned );
+	my $query_file = $q->param('query_file');
+	my $list = $self->_get_id_list( $query_file );
+	$self->_print_interface( $locus, $display_loci, $cleaned, $list );
 	return;
+}
+
+sub _get_id_list {
+	my ($self, $query_file) = @_;
+	if ($query_file) {
+		my $qry_ref = $self->get_query($query_file);
+		return if ref $qry_ref ne 'SCALAR';
+		$$qry_ref =~ s/\*/allele_id/;
+		my $ids = $self->{'datastore'}->run_list_query($$qry_ref);
+		return $ids;
+	}
+	return \@;
 }
 
 sub run_job {
@@ -229,7 +244,7 @@ sub run_job {
 }
 
 sub _print_interface {
-	my ( $self, $locus, $display_loci, $cleaned ) = @_;
+	my ( $self, $locus, $display_loci, $cleaned, $list_ref ) = @_;
 	my $q = $self->{'cgi'};
 	my $coding_loci =
 	  $self->{'datastore'}->run_list_query( "SELECT id FROM loci WHERE data_type=? AND coding_sequence ORDER BY id", 'DNA' );
@@ -261,7 +276,8 @@ sub _print_interface {
 		-values   => $allele_ids,
 		-style    => 'width:100%',
 		-size     => 6,
-		-multiple => 'true'
+		-multiple => 'true',
+		-default  => $list_ref
 	);
 	print "<br /><input type=\"button\" onclick='listbox_selectall(\"allele_ids\",true)' value=\"All\" "
 	. "style=\"margin-top:1em\" class=\"smallbutton\" />\n";

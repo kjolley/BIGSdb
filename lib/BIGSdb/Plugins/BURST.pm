@@ -48,6 +48,7 @@ sub get_attributes {
 		module      => 'BURST',
 		version     => '1.0.2',
 		dbtype      => 'isolates,sequences',
+		seqdb_type  => 'schemes',
 		section     => 'postquery',
 		order       => 10,
 		system_flag => 'BURST',

@@ -45,7 +45,7 @@ sub get_attributes {
 		buttontext  => 'XMFA',
 		menutext    => 'XMFA export',
 		module      => 'XmfaExport',
-		version     => '1.3.0',
+		version     => '1.3.1',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		section     => 'export,postquery',
@@ -101,8 +101,7 @@ sub run {
 		}
 		$pk = $pk_ref->[0];
 	}
-	
-	my $list = $self->get_id_list($pk, $query_file);
+	my $list = $self->get_id_list( $pk, $query_file );
 	if ( $q->param('submit') ) {
 		my $loci_selected = $self->get_selected_loci;
 		my $scheme_ids    = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
@@ -114,7 +113,8 @@ sub run {
 		} else {
 			$self->set_scheme_param;
 			my $params = $q->Vars;
-			$params->{'pk'} = $pk;
+			$params->{'pk'}     = $pk;
+			$params->{'set_id'} = $self->get_set_id;
 			( my $list = $q->param('list') ) =~ s/[\r\n]+/\|\|/g;
 			$params->{'list'} = $list;
 			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
@@ -142,8 +142,8 @@ HTML
 		}
 	}
 	my $limit = $self->{'system'}->{'XMFA_limit'} || DEFAULT_LIMIT;
-	if ($self->{'system'}->{'dbtype'} eq 'isolates'){
-	print <<"HTML";
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		print <<"HTML";
 <div class="box" id="queryform">
 <p>This script will export allele sequences in Extended Multi-FASTA (XMFA) format suitable for loading into third-party
 applications, such as ClonalFrame.  Only loci that have a corresponding database containing sequences, or with sequences tagged,  
@@ -153,7 +153,7 @@ all loci that are members of the scheme.  If a sequence does not exist in the re
 sequences are passed through muscle to align them.</p>
 HTML
 	} else {
-print <<"HTML";
+		print <<"HTML";
 <div class="box" id="queryform">
 <p>This script will export allele sequences in Extended Multi-FASTA (XMFA) format suitable for loading into third-party
 applications, such as ClonalFrame.  Please be aware that it may take a long time to generate the output file as the 
@@ -204,7 +204,7 @@ sub run_job {
 	my $end;
 	my $no_output     = 1;
 	my $selected_loci = $self->order_selected_loci($params);
-	my @list = split /\|\|/, $params->{'list'};
+	my @list          = split /\|\|/, $params->{'list'};
 
 	if ( !@list ) {
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -322,14 +322,7 @@ sub run_job {
 		}
 		close $fh_muscle;
 		system( $self->{'config'}->{'muscle_path'}, '-in', $temp_file, '-out', $muscle_file, '-quiet' );
-		my $output_locus_name = $locus_name;
-		my $set_id            = $self->get_set_id;
-		if ($set_id) {
-			my $set_name =
-			  $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM set_loci WHERE set_id=? AND locus=?", $set_id, $locus_name );
-			$output_locus_name = $set_name->{'set_name'} // $locus_name;
-			$output_locus_name =~ tr/ /_/;
-		}
+		my $output_locus_name = $self->{'datastore'}->get_set_locus_label( $locus_name, $params->{'set_id'} ) // $locus_name;
 		if ( -e $muscle_file ) {
 			$no_output = 0;
 			my $seq_in = Bio::SeqIO->new( -format => 'fasta', -file => $muscle_file );

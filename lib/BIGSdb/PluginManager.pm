@@ -85,7 +85,8 @@ sub get_plugin_attributes {
 }
 
 sub get_plugin_categories {
-	my ( $self, $section, $dbtype ) = @_;
+	my ( $self, $section, $dbtype, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	return
 	  if ( $section !~ /tools/
 		&& $section !~ /postquery/
@@ -96,6 +97,7 @@ sub get_plugin_categories {
 		my $attr = $self->{'attributes'}->{$_};
 		next if $attr->{'section'} !~ /$section/;
 		next if $attr->{'dbtype'} !~ /$dbtype/;
+		next if $options->{'seqdb_type'} && ($attr->{'seqdb_type'} // '') !~ /$options->{'seqdb_type'}/;
 		if ( $attr->{'category'} ) {
 			if ( !$done{ $attr->{'category'} } ) {
 				push @categories, $attr->{'category'};
@@ -158,6 +160,7 @@ sub get_appropriate_plugin_names {
 		my $plugin_section = $attr->{'section'};
 		next if $plugin_section !~ /$section/;
 		next if $attr->{'dbtype'} !~ /$dbtype/;
+		next if $options->{'seqdb_type'} && ($attr->{'seqdb_type'} // '') !~ /$options->{'seqdb_type'}/;
 		if (  !$q->param('page')
 			|| $q->param('page') eq 'index'
 			|| $q->param('page') eq 'options'

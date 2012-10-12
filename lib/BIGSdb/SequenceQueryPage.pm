@@ -485,9 +485,9 @@ sub _output_single_query_nonexact {
 			if ($reverse) {
 				print "<p>The sequence is reverse-complemented with respect to the reference sequence. "
 				  . "The list of differences is disabled but you can use the alignment or try reversing it and querying again.</p>\n";
-				$self->_print_alignment( $outfile, $temp );
+				print $self->get_alignment( $outfile, $temp );
 			} else {
-				$self->_print_alignment( $outfile, $temp );
+				print $self->get_alignment( $outfile, $temp );
 				my $diffs = $self->_get_differences( $allele_seq_ref, $seq_ref, $sstart, $qstart );
 				print "<h2>Differences</h2>\n";
 				if (@$diffs) {
@@ -565,15 +565,16 @@ sub _output_single_query_nonexact {
 	return;
 }
 
-sub _print_alignment {
+sub get_alignment {
 	my ( $self, $outfile, $outfile_prefix ) = @_;
+	my $buffer = '';
 	if ( -e $outfile ) {
 		my $cleaned_file = "$self->{'config'}->{'tmp_dir'}/$outfile_prefix\_cleaned.txt";
 		$self->_cleanup_alignment( $outfile, $cleaned_file );
-		print "<p><a href=\"/tmp/$outfile_prefix\_cleaned.txt\" id=\"alignment_link\" rel=\"ajax\">Show alignment</a></p>\n";
-		print "<pre style=\"font-size:1.2em\"><span id=\"alignment\"></span></pre>\n";
+		$buffer.= "<p><a href=\"/tmp/$outfile_prefix\_cleaned.txt\" id=\"alignment_link\" rel=\"ajax\">Show alignment</a></p>\n";
+		$buffer.= "<pre style=\"font-size:1.2em\"><span id=\"alignment\"></span></pre>\n";
 	}
-	return;
+	return $buffer;
 }
 
 sub _output_batch_query_nonexact {
