@@ -188,7 +188,7 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 	} elsif ( !$self->{'curate'} && $table eq 'refs' ) {
 		$self->_print_publication_table( \$qry, $currentpage );
 	} else {
-		$self->_print_record_table( $table, \$qry, $currentpage );
+		$self->_print_record_table( $table, \$qry, $currentpage, $records );
 	}
 	if (   $self->{'prefs'}->{'displayrecs'}
 		&& $self->{'prefs'}->{'pagebar'} =~ /bottom/
@@ -540,9 +540,7 @@ sub _print_isolate_table {
 		}
 	}
 	print "</table></div>\n";
-	if ( !$self->{'curate'} ) {
-		$self->_print_plugin_buttons( $qryref, $records );
-	}
+	$self->_print_plugin_buttons( $qryref, $records ) if !$self->{'curate'};
 	print "</div>\n";
 	$sql->finish if $sql;
 	return;
@@ -894,7 +892,8 @@ sub _print_profile_table {
 sub _print_plugin_buttons {
 	my ( $self, $qry_ref, $records ) = @_;
 	my $q = $self->{'cgi'};
-	my $plugin_categories = $self->{'pluginManager'}->get_plugin_categories( 'postquery', 'isolates' );
+	my $seqdb_type = $q->param('page') eq 'alleleQuery' ? 'sequences' : 'schemes';
+	my $plugin_categories = $self->{'pluginManager'}->get_plugin_categories( 'postquery', $self->{'system'}->{'dbtype'}, {seqdb_type => $seqdb_type} );
 	if (@$plugin_categories) {
 		print "<p />\n<h2>Analysis tools:</h2>\n<div class=\"scrollable\">\n<table>";
 		my $query_temp_file_written = 0;
@@ -908,7 +907,7 @@ sub _print_plugin_buttons {
 			my $cat_buffer;
 			my $plugin_names =
 			  $self->{'pluginManager'}
-			  ->get_appropriate_plugin_names( 'postquery', $self->{'system'}->{'dbtype'}, $_ || 'none', { set_id => $set_id } );
+			  ->get_appropriate_plugin_names( 'postquery', $self->{'system'}->{'dbtype'}, $_ || 'none', { set_id => $set_id, seqdb_type => $seqdb_type } );
 			if (@$plugin_names) {
 				my $plugin_buffer;
 				if ( !$query_temp_file_written ) {
@@ -927,9 +926,9 @@ sub _print_plugin_buttons {
 					$plugin_buffer .= $q->start_form;
 					$q->param( 'page', 'plugin' );
 					$q->param( 'name', $att->{'module'} );
-					$plugin_buffer .= $q->hidden($_) foreach qw (db page name calling_page scheme_id);
+					$plugin_buffer .= $q->hidden($_) foreach qw (db page name calling_page scheme_id locus);
 					$plugin_buffer .= $q->hidden( 'query_file', $filename )
-					  if $att->{'input'} eq 'query';
+					  if ($att->{'input'} // '') eq 'query';
 					$plugin_buffer .= $q->submit( -label => ( $att->{'buttontext'} || $att->{'menutext'} ), -class => 'pagebar' );
 					$plugin_buffer .= $q->end_form;
 					$plugin_buffer .= '</td>';
@@ -1013,7 +1012,7 @@ sub _get_record_table_info {
 }
 
 sub _print_record_table {
-	my ( $self, $table, $qryref, $page ) = @_;
+	my ( $self, $table, $qryref, $page, $records ) = @_;
 	my $pagesize = $self->{'prefs'}->{'displayrecs'};
 	my $q        = $self->{'cgi'};
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
@@ -1204,6 +1203,7 @@ sub _print_record_table {
 	if ( $table_info->{'user_variable_fields'} ) {
 		print "<p class=\"comment\">* Default values are displayed for this field.  These may be overridden by user preference.</p>\n";
 	}
+	$self->_print_plugin_buttons( $qryref, $records ) if !$self->{'curate'};
 	print "</div>\n";
 	return;
 }
