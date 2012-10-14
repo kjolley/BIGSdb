@@ -127,7 +127,7 @@ sub get_attributes {
 		buttontext  => 'Codons',
 		menutext    => 'Codon usage',
 		module      => 'CodonUsage',
-		version     => '1.1.0',
+		version     => '1.1.1',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -150,7 +150,7 @@ sub run {
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
 	say "<h1>Codon usage analysis</h1>";
-	my $list = $self->get_id_list('id', $query_file);
+	my $list = $self->get_id_list( 'id', $query_file );
 	if ( $q->param('submit') ) {
 		my $loci_selected = $self->get_selected_loci;
 		my $scheme_ids    = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
@@ -222,10 +222,10 @@ sub run_job {
 	my $rscu_by_locus     = "$self->{'config'}->{'tmp_dir'}/$job_id\_rscu_by_locus.txt";
 	my $number_by_locus   = "$self->{'config'}->{'tmp_dir'}/$job_id\_number_by_locus.txt";
 	my $isolate_sql;
+	my @includes;
 	if ( $params->{'includes'} ) {
-		my @includes = split /\|\|/, $params->{'includes'};
-		local $" = ',';
-		$isolate_sql = $self->{'db'}->prepare("SELECT @includes FROM $self->{'system'}->{'view'} WHERE id=?");
+		@includes = split /\|\|/, $params->{'includes'};
+		$isolate_sql = $self->{'db'}->prepare("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?");
 	}
 	my $ignore_seqflag;
 	if ( $params->{'ignore_seqflags'} ) {
@@ -240,9 +240,9 @@ sub run_job {
 		  . "allele_sequences.locus=? AND complete $ignore_seqflag ORDER BY allele_sequences.datestamp LIMIT 1" );
 	my $start = 1;
 	my $end;
-	my $no_output = 1;
+	my $no_output     = 1;
 	my $selected_loci = $self->order_selected_loci($params);
-	my @list = split /\|\|/, $params->{'list'};
+	my @list          = split /\|\|/, $params->{'list'};
 	if ( !@list ) {
 		my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
 		@list = @{ $self->{'datastore'}->run_list_query($qry) };
@@ -266,7 +266,7 @@ sub run_job {
 		my $cusp_file = "$self->{'config'}->{secure_tmp_dir}/$temp.cusp";
 		local $" = '|';
 		foreach my $id (@list) {
-			my @includes;
+			my @include_values;
 			my $buffer;
 			next if $bad_ids{$id};
 			if (   !BIGSdb::Utils::is_int($id)
@@ -275,16 +275,20 @@ sub run_job {
 				$bad_ids{$id} = 1;
 				next;
 			}
-			if ( $params->{'includes'} ) {
+			if (@includes) {
 				eval { $isolate_sql->execute($id) };
-				$logger->error($@) if $@;
-				@includes = $isolate_sql->fetchrow_array;
-				foreach (@includes) {
-					tr/ /_/ if defined;
-				}
-				{
-					no warnings 'uninitialized';
-					$includes{$id} = "|@includes";
+				my $include_data = $isolate_sql->fetchrow_hashref;
+				foreach my $field (@includes) {
+					my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+					my $value;
+					if ( defined $metaset ) {
+						$value = $self->{'datastore'}->get_metadata_value( $id, $metaset, $metafield );
+					} else {
+						$value = $include_data->{$field} // '';
+					}
+					$value =~ tr/ /_/;
+					push @include_values, $value;
+					$includes{$id} = "|@include_values";
 				}
 			}
 			my $allele_id = $self->{'datastore'}->get_allele_id( $id, $locus_name );

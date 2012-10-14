@@ -1636,6 +1636,7 @@ sub clean_checkbox_id {
 	$var =~ s/\(/_OPEN_/g;
 	$var =~ s/\)/_CLOSE_/g;
 	$var =~ s/\>/_GT_/g;
+	$var =~ tr/:/_/;
 	return $var;
 }
 

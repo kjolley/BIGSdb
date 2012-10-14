@@ -45,7 +45,7 @@ sub get_attributes {
 		buttontext  => 'Concatenate',
 		menutext    => 'Concatenate alleles',
 		module      => 'Concatenate',
-		version     => '1.1.0',
+		version     => '1.1.1',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		help        => 'tooltips',
@@ -63,10 +63,9 @@ sub run {
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
 	my $scheme_id  = $q->param('scheme_id');
-	my $desc = $self->get_db_description;
+	my $desc       = $self->get_db_description;
 	say "<h1>Concatenate allele sequences - $desc</h1>";
 	my $pk;
-
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$pk = 'id';
 	} else {
@@ -87,12 +86,12 @@ sub run {
 		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key", $scheme_id );
 		if ( ref $pk_ref ne 'ARRAY' ) {
 			say "<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  Profile concatenation "
-			 . "can not be done until this has been set.</p></div>";
+			  . "can not be done until this has been set.</p></div>";
 			return;
 		}
 		$pk = $pk_ref->[0];
 	}
-	my $list = $self->get_id_list($pk, $query_file);
+	my $list = $self->get_id_list( $pk, $query_file );
 	if ( $q->param('submit') ) {
 		my $loci_selected = $self->get_selected_loci;
 		my $scheme_ids    = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
@@ -132,13 +131,13 @@ sub run {
 			if (@$problem_ids) {
 				local $" = '; ';
 				say "<div class=\"box\" id=\"statusbad\"><p>The following ids could not be processed "
-				 . "(they do not exist): @$problem_ids.</p></div>";
+				  . "(they do not exist): @$problem_ids.</p></div>";
 			}
 			return;
 		}
 	}
-	if ($self->{'system'}->{'dbtype'} eq 'isolates'){
-	print <<"HTML";
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		print <<"HTML";
 <div class="box" id="queryform">
 <p>This script will concatenate alleles in FASTA format.  Only loci that have a corresponding database containing
 sequences, or with sequences tagged, can be included.  Please check the loci that you would like to include.  
@@ -167,23 +166,19 @@ sub _write_fasta {
 	local $| = 1;
 	open( my $fh, '>', $filename )
 	  or $logger->error("Can't open temp file $filename for writing");
-	my $isolate_sql;
-	if ( $q->param('includes') ) {
-		my @includes = $q->param('includes');
-		local $" = ',';
-		$isolate_sql = $self->{'db'}->prepare("SELECT @includes FROM $self->{'system'}->{'view'} WHERE id=?");
-	}
-	my $length_sql = $self->{'db'}->prepare("SELECT length FROM loci WHERE id=?");
+	my $isolate_sql = $self->{'db'}->prepare("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?");
+	my @includes    = $q->param('includes');
+	my $length_sql  = $self->{'db'}->prepare("SELECT length FROM loci WHERE id=?");
 	my $seqbin_sql =
-	  $self->{'db'}->prepare(
-"SELECT substring(sequence from start_pos for end_pos-start_pos+1),reverse FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE isolate_id=? AND locus=? ORDER BY complete desc,allele_sequences.datestamp LIMIT 1"
-	  );
+	  $self->{'db'}->prepare( "SELECT substring(sequence from start_pos for end_pos-start_pos+1),reverse FROM "
+		  . "allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE isolate_id=? AND locus=? "
+		  . "ORDER BY complete desc,allele_sequences.datestamp LIMIT 1" );
 	my @problem_ids;
 	my %most_common;
-	my $i = 0;
-	my $j = 0;
-
+	my $i             = 0;
+	my $j             = 0;
 	my $selected_loci = $self->order_selected_loci;
+
 	foreach my $id (@$list) {
 		print "." if !$i;
 		print " " if !$j;
@@ -194,22 +189,27 @@ sub _write_fasta {
 		$id =~ s/[\r\n]//g;
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 			next if !BIGSdb::Utils::is_int($id);
-			my @includes;
-			if ( $q->param('includes') ) {
+			my @include_values;
+			if (@includes) {
 				eval { $isolate_sql->execute($id) };
 				$logger->error($@) if $@;
-				@includes = $isolate_sql->fetchrow_array;
-				foreach (@includes) {
-					tr/ /_/ if defined;
+				my $include_data = $isolate_sql->fetchrow_hashref;
+				foreach my $field (@includes) {
+					my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+					my $value;
+					if ( defined $metaset ) {
+						$value = $self->{'datastore'}->get_metadata_value( $id, $metaset, $metafield );
+					} else {
+						$value = $include_data->{$field} // '';
+					}
+					$value =~ tr/ /_/;
+					push @include_values, $value;
 				}
 			}
 			if ($id) {
 				print $fh ">$id";
 				local $" = '|';
-				{
-					no warnings 'uninitialized';
-					print $fh "|@includes" if $q->param('includes');
-				}
+				print $fh "|@include_values" if @includes;
 				print $fh "\n";
 			} else {
 				push @problem_ids, $id;
@@ -230,7 +230,7 @@ sub _write_fasta {
 		my %loci;
 		my $seq;
 		foreach my $locus (@$selected_loci) {
-			my $no_seq = 0;
+			my $no_seq     = 0;
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 			if ( !$loci{$locus} ) {
 				try {
@@ -279,7 +279,7 @@ sub _write_fasta {
 						my ($length) = $length_sql->fetchrow_array;
 						if ($length) {
 							$temp_seq = '-' x $length;
-							$no_seq = 1;
+							$no_seq   = 1;
 						} else {
 
 							#find most common length;
@@ -304,7 +304,7 @@ sub _write_fasta {
 								$most_common{$locus} = 10;        #arbitrary length to show that sequence is missing.
 							}
 							$temp_seq = '-' x $most_common{$locus};
-							$no_seq = 1;
+							$no_seq   = 1;
 						}
 					}
 					if ( $q->param('translate') ) {

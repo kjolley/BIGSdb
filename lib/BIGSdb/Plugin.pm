@@ -319,6 +319,7 @@ sub print_fields {
 		my $label = $labels->{$field} || $field;
 		$label =~ s/^[lf]_// if $trim_prefix;
 		$label =~ s/___/../;
+		$label =~ s/^meta_\d+://;
 		$label =~ tr/_/ /;
 		my $id = $self->clean_checkbox_id("$prefix\_$field");
 		print "<li>";
@@ -342,30 +343,32 @@ sub print_field_export_form {
 	my $set_id  = $self->get_set_id;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	my $loci    = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
-	my $fields  = $self->{'xmlHandler'}->get_field_list;
+	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+	my $fields  = $self->{'xmlHandler'}->get_field_list($metadata_list);
 	my @display_fields;
 	my $extended = $options->{'extended_attributes'} ? $self->get_extended_attributes : undef;
 	my ( @js, @js2, @isolate_js, @isolate_js2 );
 
-	foreach (@$fields) {
-		push @display_fields, $_;
-		push @display_fields, 'aliases' if $_ eq $self->{'system'}->{'labelfield'};
+	foreach my $field (@$fields) {
+		push @display_fields, $field;
+		push @display_fields, 'aliases' if $field eq $self->{'system'}->{'labelfield'};
 		if ( $options->{'extended_attributes'} ) {
-			my $extatt = $extended->{$_};
+			my $extatt = $extended->{$field};
 			if ( ref $extatt eq 'ARRAY' ) {
 				foreach my $extended_attribute (@$extatt) {
-					push @display_fields, "$_\_\_\_$extended_attribute";
+					push @display_fields, "$field\_\_\_$extended_attribute";
 				}
 			}
 		}
 	}
 	push @isolate_js,  @js;
 	push @isolate_js2, @js2;
-	foreach (@display_fields) {
-		push @js,          "\$(\"#f_$_\").attr(\"checked\",true)";
-		push @js2,         "\$(\"#f_$_\").attr(\"checked\",false)";
-		push @isolate_js,  "\$(\"#f_$_\").attr(\"checked\",true)";
-		push @isolate_js2, "\$(\"#f_$_\").attr(\"checked\",false)";
+	foreach my $field (@display_fields) {
+		(my $id = "f_$field") =~ tr/:/_/;
+		push @js,          "\$(\"#$id\").attr(\"checked\",true)";
+		push @js2,         "\$(\"#$id\").attr(\"checked\",false)";
+		push @isolate_js,  "\$(\"#$id\").attr(\"checked\",true)";
+		push @isolate_js2, "\$(\"#$id\").attr(\"checked\",false)";
 	}
 	say $q->start_form;
 	say "<fieldset style=\"float:left\"><legend>Isolate fields</legend>";
@@ -432,7 +435,9 @@ sub get_id_list {
 sub get_selected_fields {
 	my ($self)   = @_;
 	my $q        = $self->{'cgi'};
-	my $fields   = $self->{'xmlHandler'}->get_field_list;
+	my $set_id     = $self->get_set_id;
+	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+	my $fields   = $self->{'xmlHandler'}->get_field_list($metadata_list);
 	my $extended = $self->get_extended_attributes;
 	my @display_fields;
 	$self->escape_params;
@@ -446,7 +451,6 @@ sub get_selected_fields {
 			}
 		}
 	}
-	my $set_id     = $self->get_set_id;
 	my $loci       = $self->{'datastore'}->get_loci( { set_id => $set_id } );
 	my $composites = $self->{'datastore'}->run_list_query("SELECT id FROM composite_fields");
 	my $schemes    = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
@@ -495,10 +499,14 @@ sub print_sequence_export_form {
 		say "<fieldset style=\"float:left\">\n<legend>Include in identifier row</legend>";
 		my @fields;
 		my $labels;
-		foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list } ) {
+		my $set_id        = $self->get_set_id;
+		my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+		foreach my $field (@$field_list) {
 			next if any { $field eq $_ } qw (id datestamp date_entered curator sender);
+			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			push @fields, $field;
-			( $labels->{$field} = $field ) =~ tr/_/ /;
+			( $labels->{$field} = $metafield // $field ) =~ tr/_/ /;
 		}
 		say $q->scrolling_list(
 			-name     => 'includes',

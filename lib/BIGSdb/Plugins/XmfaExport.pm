@@ -45,7 +45,7 @@ sub get_attributes {
 		buttontext  => 'XMFA',
 		menutext    => 'XMFA export',
 		module      => 'XmfaExport',
-		version     => '1.3.1',
+		version     => '1.3.2',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		section     => 'export,postquery',
@@ -174,10 +174,10 @@ sub run_job {
 	open( my $fh, '>', $filename )
 	  or $logger->error("Can't open output file $filename for writing");
 	my $isolate_sql;
+	my @includes;
 	if ( $params->{'includes'} ) {
-		my @includes = split /\|\|/, $params->{'includes'};
-		local $" = ',';
-		$isolate_sql = $self->{'db'}->prepare("SELECT @includes FROM $self->{'system'}->{'view'} WHERE id=?");
+		@includes = split /\|\|/, $params->{'includes'};
+		$isolate_sql = $self->{'db'}->prepare("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?");
 	}
 	my $substring_query;
 	if ( $params->{'flanking'} && BIGSdb::Utils::is_int( $params->{'flanking'} ) ) {
@@ -247,18 +247,27 @@ sub run_job {
 			last if $count == $limit;
 			$count++;
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-				my @includes;
+				my @include_values;
 				next if !BIGSdb::Utils::is_int($id);
-				if ( $params->{'includes'} ) {
+				if (@includes) {
 					eval { $isolate_sql->execute($id) };
-					$logger->error($@) if $@;
-					@includes = $isolate_sql->fetchrow_array;
-					tr/ /_/ foreach @includes;
+					my $include_data = $isolate_sql->fetchrow_hashref;
+					foreach my $field (@includes) {
+						my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+						my $value;
+						if ( defined $metaset ) {
+							$value = $self->{'datastore'}->get_metadata_value( $id, $metaset, $metafield );
+						} else {
+							$value = $include_data->{$field} // '';
+						}
+						$value =~ tr/ /_/;
+						push @include_values, $value;
+					}
 				}
 				if ($id) {
 					print $fh_muscle ">$id";
 					local $" = '|';
-					print $fh_muscle "|@includes" if $params->{'includes'};
+					print $fh_muscle "|@include_values" if @includes;
 					print $fh_muscle "\n";
 				} else {
 					push @problem_ids, $id;

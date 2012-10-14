@@ -192,6 +192,7 @@ sub _write_tab_text {
 			}
 			my $is_locus = $field =~ /^(s_\d+_l_|l_)/ ? 1 : 0;
 			$field =~ s/^(s_\d+_l|s_\d+_f|f|l|c|m)_//g;    #strip off prefix for header row
+			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			$field =~ s/___/../;
 			if ($is_locus) {
 				$field = $self->clean_locus( $field, { text_output => 1 } );
@@ -207,7 +208,7 @@ sub _write_tab_text {
 				}
 			} else {
 				print $fh "\t" if !$first;
-				print $fh $field;
+				print $fh $metafield // $field;
 				$first = 0;
 			}
 		}
@@ -277,7 +278,18 @@ sub _write_tab_text {
 
 sub _write_field {
 	my ( $self, $fh, $field, $data, $first, $prefs ) = @_;
-	if ( $field eq 'aliases' ) {
+	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+	if (defined $metaset){
+		my $value = $self->{'datastore'}->get_metadata_value($data->{'id'},$metaset,$metafield);
+		if ( $prefs->{'oneline'} ) {
+			print $fh "$metafield\t";
+			print $fh $value;
+			print $fh "\n";
+		} else {
+			print $fh "\t" if !$first;
+			print $fh $value;
+		}
+	} elsif ( $field eq 'aliases' ) {
 		if ( !$self->{'sql'}->{'alias'} ) {
 			$self->{'sql'}->{'alias'} = $self->{'db'}->prepare("SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias");
 		}
