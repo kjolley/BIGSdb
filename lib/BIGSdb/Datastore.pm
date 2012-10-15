@@ -137,7 +137,7 @@ sub get_composite_value {
 		}
 		if ( $field =~ /^f_(.+)/ ) {
 			my $isolate_field = $1;
-			my $text_value    = $isolate_fields_hashref->{lc($isolate_field)};
+			my $text_value    = $isolate_fields_hashref->{ lc($isolate_field) };
 			if ($regex) {
 				my $expression = "\$text_value =~ $regex";
 				eval "$expression";
@@ -240,7 +240,7 @@ sub get_scheme_field_values_by_profile {
 		local $" = ',';
 		if ( !defined $self->{'cache'}->{$scheme_id}->{'field_values_by_profile'}->{"@$profile_ref"} ) {
 			try {
-				$values = $self->{'scheme'}->{$scheme_id}->get_field_values_by_profile( $profile_ref, { 'return_hashref' => 1 } );
+				$values = $self->{'scheme'}->{$scheme_id}->get_field_values_by_profile( $profile_ref, { return_hashref => 1 } );
 				$self->{'cache'}->{$scheme_id}->{'field_values_by_profile'}->{"@$profile_ref"} = $values;
 			}
 			catch BIGSdb::DatabaseConfigurationException with {
@@ -257,11 +257,14 @@ sub get_scheme_field_values_by_isolate_id {
 
 	#Returns a hashref of field values
 	my ( $self, $isolate_id, $scheme_id ) = @_;
-	my $scheme_fields = $self->get_scheme_fields($scheme_id);
-	my $scheme_loci   = $self->get_scheme_loci($scheme_id);
+	if ( !$self->{'cache'}->{'scheme_loci'}->{$scheme_id} ) {
+
+		#cache this because this sub may be called thousands of times by some plugins.
+		$self->{'cache'}->{'scheme_loci'}->{$scheme_id} = $self->get_scheme_loci($scheme_id);
+	}
 	my @profile;
 	my $allele_ids = $self->get_all_allele_ids($isolate_id);
-	push @profile, $allele_ids->{$_} foreach @$scheme_loci;
+	push @profile, $allele_ids->{$_} foreach @{ $self->{'cache'}->{'scheme_loci'}->{$scheme_id} };
 	return $self->get_scheme_field_values_by_profile( $scheme_id, \@profile );
 }
 
@@ -1393,7 +1396,7 @@ sub get_citation_hash {
 			no warnings 'uninitialized';
 			if ( $options->{'formatted'} ) {
 				$citation = "$author ($year). ";
-				$citation .= "$title " if !$options->{'no_title'};
+				$citation .= "$title "                                            if !$options->{'no_title'};
 				$citation .= "<a href=\"http://www.ncbi.nlm.nih.gov/pubmed/$_\">" if $options->{'link_pubmed'};
 				$citation .= "<i>$journal</i> <b>$volume</b>$pages";
 				$citation .= "</a>"                                               if $options->{'link_pubmed'};
@@ -1653,24 +1656,23 @@ sub get_primary_keys {
 }
 
 sub get_set_metadata {
-	my ($self, $set_id, $options) = @_;
+	my ( $self, $set_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	if ($set_id){
-		return $self->run_list_query("SELECT metadata_id FROM set_metadata WHERE set_id=?", $set_id);
-	} elsif ($options->{'curate'}) {
+	if ($set_id) {
+		return $self->run_list_query( "SELECT metadata_id FROM set_metadata WHERE set_id=?", $set_id );
+	} elsif ( $options->{'curate'} ) {
 		return $self->{'xmlHandler'}->get_metadata_list;
 	}
 }
 
- sub get_metadata_value {
- 	my ($self,$isolate_id,$metaset,$metafield) = @_;
- 	if (!$self->{'sql'}->{"metadata_value_$metaset"}){
- 		$self->{'sql'}->{"metadata_value_$metaset"} = $self->{'db'}->prepare("SELECT * FROM meta_$metaset WHERE isolate_id = ?");
- 	}
- 	eval {$self->{'sql'}->{"metadata_value_$metaset"}->execute($isolate_id)};
- 	$logger->error($@) if $@;
- 	my $data =  $self->{'sql'}->{"metadata_value_$metaset"}->fetchrow_hashref;
- 	return $data->{$metafield} // '';
- }
-
+sub get_metadata_value {
+	my ( $self, $isolate_id, $metaset, $metafield ) = @_;
+	if ( !$self->{'sql'}->{"metadata_value_$metaset"} ) {
+		$self->{'sql'}->{"metadata_value_$metaset"} = $self->{'db'}->prepare("SELECT * FROM meta_$metaset WHERE isolate_id = ?");
+	}
+	eval { $self->{'sql'}->{"metadata_value_$metaset"}->execute($isolate_id) };
+	$logger->error($@) if $@;
+	my $data = $self->{'sql'}->{"metadata_value_$metaset"}->fetchrow_hashref;
+	return $data->{$metafield} // '';
+}
 1;

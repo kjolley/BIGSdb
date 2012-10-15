@@ -20,6 +20,7 @@
 package BIGSdb::Plugins::TwoFieldBreakdown;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -37,7 +38,7 @@ sub get_attributes {
 		buttontext  => 'Two Field',
 		menutext    => 'Two field',
 		module      => 'TwoFieldBreakdown',
-		version     => '1.0.4',
+		version     => '1.1.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/two_field_breakdown.shtml',
@@ -73,13 +74,11 @@ sub run {
 	}
 	my %prefs;
 	my $query_file = $q->param('query_file');
-	my $qry_ref    = $self->get_query($query_file);
-	return if ref $qry_ref ne 'SCALAR';
-	my $qry = $$qry_ref;
-	$qry =~ s/ORDER BY.*$//g;
-	$logger->debug("Breakdown query: $qry");
-	return if !$self->create_temp_tables($qry_ref);
-	$self->_breakdown( \$qry ) if $q->param('function') eq 'breakdown';
+	my $id_list = $self->get_id_list( 'id', $query_file );
+	if ( !@$id_list ) {
+		$id_list = $self->{'datastore'}->run_list_query("SELECT id FROM $self->{'system'}->{'view'}");
+	}
+	$self->_breakdown($id_list) if $q->param('function') eq 'breakdown';
 	return;
 }
 
@@ -175,7 +174,7 @@ sub _print_controls {
 }
 
 sub _breakdown {
-	my ( $self, $qry_ref ) = @_;
+	my ( $self, $id_list ) = @_;
 	my $q      = $self->{'cgi'};
 	my $field1 = $q->param('field1');
 	my $field2 = $q->param('field2');
@@ -199,7 +198,7 @@ sub _breakdown {
 	my ( $grandtotal, $datahash_ref, $field1total_ref, $field2total_ref, $clean_field1, $clean_field2, $print_field1, $print_field2 );
 	try {
 		( $grandtotal, $datahash_ref, $field1total_ref, $field2total_ref, $clean_field1, $clean_field2, $print_field1, $print_field2 ) =
-		  $self->_get_value_frequency_hashes( $field1, $field2, $qry_ref );
+		  $self->_get_value_frequency_hashes( $field1, $field2, $id_list );
 	}
 	catch BIGSdb::DatabaseConnectionException with {
 		print "<div class=\"box\" id=\"statusbad\"><p>The database for the scheme of one of your selected fields is inaccessible.  "
@@ -527,7 +526,8 @@ sub _print_charts {
 }
 
 sub _get_value_frequency_hashes {
-	my ( $self, $field1, $field2, $qry_ref ) = @_;
+	my ( $self, $field1, $field2, $id_list ) = @_;
+	my $total_isolates = $self->{'datastore'}->run_simple_query("SELECT COUNT(id) FROM $self->{'system'}->{'view'}")->[0];
 	my $datahash;
 	my $grandtotal = 0;
 
@@ -549,84 +549,115 @@ sub _get_value_frequency_hashes {
 	my %scheme_id;
 	foreach ( $field1, $field2 ) {
 		if ( $self->{'xmlHandler'}->is_field( $clean{$_} ) ) {
-			$field_type{$_} = 'field';
-			$print{$_}      = $clean{$_};
+			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($_);
+			$field_type{ $clean{$_} } = defined $metaset ? 'metafield' : 'field';
+			$print{$_} = $clean{$_};
 		} elsif ( $self->{'datastore'}->is_locus( $clean{$_} ) ) {
-			$field_type{$_} = 'locus';
-			$print{$_}      = $clean{$_};
+			$field_type{ $clean{$_} } = 'locus';
+			$print{$_} = $clean{$_};
 			$clean{$_} =~ s/'/\\'/g;
 		} else {
 			if ( $_ =~ /^s_(\d+)_(.*)/ ) {
 				my $scheme_id = $1;
 				my $field     = $2;
 				if ( $self->{'datastore'}->is_scheme_field( $scheme_id, $field ) ) {
-					$field_type{$_} = 'scheme_field';
-					$scheme_id{$_}  = $scheme_id;
-					$clean{$_}      = $field;
-					$print{$_}      = $clean{$_};
-					my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id{$_} );
+					$clean{$_}                = $field;
+					$print{$_}                = $clean{$_};
+					$field_type{ $clean{$_} } = 'scheme_field';
+					$scheme_id{ $clean{$_} }  = $scheme_id;
+					my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 					$print{$_} .= " ($scheme_info->{'description'})";
 				}
 			}
 		}
 	}
-	if ( $field_type{$field1} eq $field_type{$field2} && $field_type{$field1} eq 'field' ) {
-		$$qry_ref =~ s/SELECT \*/SELECT $clean{$field1},$clean{$field2}/;
-	} elsif ( $field_type{$field1} eq 'field' && $field_type{$field2} eq 'locus' ) {
-		$$qry_ref =~
-s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT $self->{'system'}->{'view'}.$clean{$field1},allele_id AS field2 FROM $self->{'system'}->{'view'} LEFT JOIN allele_designations ON id=isolate_id AND locus=E'$clean{$field2}'/;
-	} elsif ( $field_type{$field2} eq 'field' && $field_type{$field1} eq 'locus' ) {
-		$$qry_ref =~
-s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT allele_id AS field1,$self->{'system'}->{'view'}.$clean{$field2} FROM $self->{'system'}->{'view'} LEFT JOIN allele_designations ON id=isolate_id AND locus=E'$clean{$field1}'/;
-	} elsif ( $field_type{$field1} eq 'field' && $field_type{$field2} eq 'scheme_field' ) {
-		$self->_modify_qry_f_s( $qry_ref, \%clean, \%scheme_id, $field1, $field2 );
-	} elsif ( $field_type{$field2} eq 'field' && $field_type{$field1} eq 'scheme_field' ) {
-		$self->_modify_qry_f_s( $qry_ref, \%clean, \%scheme_id, $field2, $field1, 1 );
-	} elsif ( $field_type{$field1} eq 'locus' && $field_type{$field2} eq 'locus' ) {
-		$$qry_ref =~
-s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT field1.allele_id AS field1,field2.allele_id AS field2 FROM $self->{'system'}->{'view'} LEFT JOIN allele_designations AS field1 ON id=field1.isolate_id AND field1.locus=E'$clean{$field1}' LEFT JOIN allele_designations AS field2 ON id=field2.isolate_id AND field2.locus=E'$clean{$field2}'/;
-	} elsif ( $field_type{$field1} eq 'locus' && $field_type{$field2} eq 'scheme_field' ) {
-		$self->_modify_qry_f_s( $qry_ref, \%clean, \%scheme_id, $field1, $field2 );
-		$$qry_ref =~
-s/SELECT (.*?) FROM $self->{'system'}->{'view'}/SELECT $1 FROM $self->{'system'}->{'view'} LEFT JOIN allele_designations AS field1 ON id=isolate_id AND locus=E'$clean{$field1}'/;
-		$clean{$field1} =~ s/'/\\'/;
-		$$qry_ref =~ s/$clean{$field1}/field1.allele_id/;
-	} elsif ( $field_type{$field2} eq 'locus' && $field_type{$field1} eq 'scheme_field' ) {
-		$self->_modify_qry_f_s( $qry_ref, \%clean, \%scheme_id, $field2, $field1, 1 );
-		$$qry_ref =~
-s/SELECT (.*?) FROM $self->{'system'}->{'view'}/SELECT $1 FROM $self->{'system'}->{'view'} LEFT JOIN allele_designations AS field2 ON id=isolate_id AND locus=E'$clean{$field2}'/;
-		$clean{$field2} =~ s/'/\\'/;
-		$$qry_ref =~ s/$clean{$field2}/field2.allele_id/;
-	} elsif ( $field_type{$field2} eq 'scheme_field' && $field_type{$field1} eq 'scheme_field' ) {
-		$self->_modify_qry_s_s( $qry_ref, \%clean, \%scheme_id, $field1, $field2 );
-	} else {
-		return;
-	}
-
-	#In some circumstances, such as selecting a scheme field as one of the query fields, when the dataset
-	#had been filtered based on a scheme field, the query planner chose a plan with multiple nested loops
-	#due to poor estimation of the number of rows returned for particular subqueries.  On a test database
-	#switching the enable_nestloop setting to off speeded up the calculation from many minutes to a couple
-	#of seconds.
-	#
-	#Disabled now as more recent PostgreSQL versions don't seem to have the problem.
-	#
-	#	$$qry_ref = "SET enable_nestloop = off; " . $$qry_ref
-	#	  if ( $field_type{$field1} eq 'scheme_field' || $field_type{$field2} eq 'scheme_field' );
-	$logger->debug($$qry_ref);
-	my $sql = $self->{'db'}->prepare($$qry_ref);
-	eval { $sql->execute };
-	$logger->error($@) if $@;
-	while ( my ( $value1, $value2 ) = $sql->fetchrow_array ) {
-		foreach ( $value1, $value2 ) {
-			$_ = 'No value' if !defined $_ || $_ eq '';
+	foreach my $id (@$id_list) {
+		my @values = $self->_get_values( $id, [ $clean{$field1}, $clean{$field2} ],
+			\%field_type, \%scheme_id, { fetchall => ( @$id_list / $total_isolates >= 0.5 ? 1 : 0 ) } );
+		foreach (qw (0 1)) {
+			$values[$_] = 'No value' if !defined $values[$_] || $values[$_] eq '';
 		}
-		$datahash->{$value1}->{$value2}++;
+		$datahash->{ $values[0] }->{ $values[1] }++;
 		$grandtotal++;
-		$field1total->{$value1}++;
-		$field2total->{$value2}++;
+		$field1total->{ $values[0] }++;
+		$field2total->{ $values[1] }++;
 	}
 	return ( $grandtotal, $datahash, $field1total, $field2total, $clean{$field1}, $clean{$field2}, $print{$field1}, $print{$field2} );
+}
+
+sub _get_values {
+
+	#If number of records is >=50% of total records, query database and fetch all rows, otherwise call for each record in turn.
+	my ( $self, $isolate_id, $fields, $field_type, $scheme_id, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my @values;
+	foreach my $field (@$fields) {
+		my $value;
+		given ( $field_type->{$field} ) {
+			when ('field') {
+				if ( $options->{'fetchall'} ) {
+					if ( !$self->{'cache'}->{$field} ) {
+						my $sql = $self->{'db'}->prepare("SELECT id, $field FROM $self->{'system'}->{'view'}");
+						eval { $sql->execute };
+						$logger->error($@) if $@;
+						$self->{'cache'}->{$field} = $sql->fetchall_hashref('id');
+					}
+					$value = $self->{'cache'}->{$field}->{$isolate_id}->{$field};
+				} else {
+					if ( !$self->{'sql'}->{'field_value'}->{$field} ) {
+						$self->{'sql'}->{'field_value'}->{$field} =
+						  $self->{'db'}->prepare("SELECT $field FROM $self->{'system'}->{'view'} WHERE id=?");
+					}
+					eval { $self->{'sql'}->{'field_value'}->{$field}->execute($isolate_id) };
+					$logger->error($@) if $@;
+					($value) = $self->{'sql'}->{'field_value'}->{$field}->fetchrow_array;
+				}
+			}
+			when ('locus') {
+				if ( $options->{'fetchall'} ) {
+					if ( !$self->{'cache'}->{$field} ) {
+						my $sql = $self->{'db'}->prepare("SELECT isolate_id, allele_id FROM allele_designations WHERE locus=?");
+						eval { $sql->execute($field) };
+						$logger->error($@) if $@;
+						$self->{'cache'}->{$field} = $sql->fetchall_hashref('isolate_id');
+					}
+					$value = $self->{'cache'}->{$field}->{$isolate_id}->{'allele_id'};
+				} else {
+					$value = $self->{'datastore'}->get_allele_id( $isolate_id, $field );
+				}
+			}
+			when ('scheme_field') {
+				my $scheme_values = $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id->{$field} );
+				if ( ref $scheme_values eq 'HASH' ) {
+					$value = $scheme_values->{ lc($field) };
+				}
+			}
+			when ('metafield') {
+				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+				if ( $options->{'fetchall'} ) {
+					if ( !$self->{'cache'}->{$field} ) {					
+						my $sql =
+						  $self->{'db'}->prepare( "SELECT isolate_id, $metafield FROM meta_$metaset WHERE isolate_id IN "
+							  . "(SELECT id FROM $self->{'system'}->{'view'})" );
+						eval { $sql->execute };
+						$logger->error($@) if $@;
+						$self->{'cache'}->{$field} = $sql->fetchall_hashref('isolate_id');
+					}
+					$value = $self->{'cache'}->{$field}->{$isolate_id}->{$metafield};					
+				} else {
+					if ( !$self->{'sql'}->{'field_value'}->{$field} ) {
+						$self->{'sql'}->{'field_value'}->{$field} =
+						  $self->{'db'}->prepare("SELECT $metafield FROM meta_$metaset WHERE isolate_id=?");
+					}
+					eval { $self->{'sql'}->{'field_value'}->{$field}->execute($isolate_id) };
+					$logger->error($@) if $@;
+					($value) = $self->{'sql'}->{'field_value'}->{$field}->fetchrow_array;
+				}
+			}
+		}
+		push @values, $value;
+	}
+	return @values;
 }
 
 sub _recalculate_for_attributes {
@@ -661,102 +692,5 @@ sub _recalculate_for_attributes {
 		}
 	}
 	return $new_hash;
-}
-
-sub _modify_qry_f_s {
-
-	#field1 is an isolate field, field2 is a scheme field
-	my ( $self, $qry_ref, $clean_ref, $scheme_id_ref, $field1, $field2, $switch ) = @_;
-	try {
-		$self->{'datastore'}->create_temp_scheme_table( $scheme_id_ref->{$field2} );
-	}
-	catch BIGSdb::DatabaseConnectionException with {
-		$logger->error("Can't copy data to temporary table.");
-	};
-	my $scheme_sql_ref = $self->_get_scheme_fields_sql( $scheme_id_ref->{$field2} );
-	$$qry_ref =~ s/WHERE/AND/;
-	foreach ( $field1, $field2 ) {
-		if (   $clean_ref->{$_} eq 'datestamp'
-			|| $clean_ref->{$_} eq 'date_entered'
-			|| $clean_ref->{$_} eq 'sender'
-			|| $clean_ref->{$_} eq 'curator' )
-		{
-			$clean_ref->{$_} = $self->{'system'}->{'view'} . ".$clean_ref->{$_}";
-		}
-	}
-	if ($switch) {
-		$$qry_ref =~
-s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT $clean_ref->{$field2},$clean_ref->{$field1} FROM $self->{'system'}->{'view'} $$scheme_sql_ref/;
-	} else {
-		$$qry_ref =~
-s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT $clean_ref->{$field1},$clean_ref->{$field2} FROM $self->{'system'}->{'view'} $$scheme_sql_ref/;
-	}
-	if ( $$qry_ref =~ /pubmed_id/ ) {
-		$$qry_ref =~ s/LEFT JOIN refs on refs.isolate_id=$self->{'system'}->{'view'}.id//;
-		$$qry_ref =~ s/FROM $self->{'system'}->{'view'}/FROM $self->{'system'}->{'view'} LEFT JOIN refs ON refs.isolate_id=id/;
-	}
-	return;
-}
-
-sub _modify_qry_s_s {
-
-	#both fields are scheme fields
-	my ( $self, $qry_ref, $clean_ref, $scheme_id_ref, $field1, $field2 ) = @_;
-	try {
-		$self->{'datastore'}->create_temp_scheme_table( $scheme_id_ref->{$field1} );
-		$self->{'datastore'}->create_temp_scheme_table( $scheme_id_ref->{$field2} );
-	}
-	catch BIGSdb::DatabaseConnectionException with {
-		$logger->error("Can't copy data to temporary table.");
-	};
-	my $scheme_loci = $self->{'datastore'}->get_scheme_loci( $scheme_id_ref->{$field1} );
-	my $scheme_sql = $self->_join_table( $scheme_id_ref->{$field1}, $scheme_loci );
-	if ( $scheme_id_ref->{$field1} != $scheme_id_ref->{$field2} ) {
-		my $scheme_loci = $self->{'datastore'}->get_scheme_loci( $scheme_id_ref->{$field2} );
-		$scheme_sql .= $self->_join_table( $scheme_id_ref->{$field2}, $scheme_loci );
-	}
-
-	#$$qry_ref =~ s/WHERE/AND/;
-	$$qry_ref =~
-s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT scheme_$scheme_id_ref->{$field1}.$clean_ref->{$field1},scheme_$scheme_id_ref->{$field2}.$clean_ref->{$field2} FROM $self->{'system'}->{'view'} $scheme_sql/;
-	if ( $$qry_ref =~ /pubmed_id/ ) {
-		$$qry_ref =~ s/LEFT JOIN refs on refs.isolate_id=$self->{'system'}->{'view'}.id//;
-		$$qry_ref =~ s/FROM $self->{'system'}->{'view'}/FROM $self->{'system'}->{'view'} LEFT JOIN refs ON refs.isolate_id=id/;
-	}
-	return;
-}
-
-sub _join_table {
-	my ( $self, $scheme_id, $scheme_loci ) = @_;
-	my $joined_table;
-	foreach (@$scheme_loci) {
-		$joined_table .=
-" left join allele_designations AS s_$scheme_id\_$_ on s_$scheme_id\_$_.isolate_id = $self->{'system'}->{'view'}.id and s_$scheme_id\_$_.locus='$_'";
-	}
-	$joined_table .= " left join temp_scheme_$scheme_id AS scheme_$scheme_id ON ";
-	my @temp;
-	foreach (@$scheme_loci) {
-		my $locus_info = $self->{'datastore'}->get_locus_info($_);
-		push @temp, $locus_info->{'allele_id_format'} eq 'integer'
-		  ? " CAST(s_$scheme_id\_$_.allele_id AS int)=scheme_$scheme_id\.$_"
-		  : " s_$scheme_id\_$_.allele_id=scheme_$scheme_id\.$_";
-	}
-	local $" = ' AND ';
-	$joined_table .= " @temp";
-	return $joined_table;
-}
-
-sub _get_scheme_fields_sql {
-	my ( $self, $scheme_id ) = @_;
-	my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $joined_table = $self->_join_table( $scheme_id, $scheme_loci );
-	$joined_table .= " WHERE";
-	my @temp;
-	foreach (@$scheme_loci) {
-		push @temp, "s_$scheme_id\_$_.locus='$_'";
-	}
-	local $" = ' AND ';
-	$joined_table .= " @temp";
-	return \$joined_table;
 }
 1;
