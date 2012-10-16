@@ -65,7 +65,7 @@ sub get_hidden_attributes {
 sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	print "<h1>Two field breakdown of dataset</h1>\n";
+	say "<h1>Two field breakdown of dataset</h1>";
 	my $format = $q->param('format');
 	$self->{'extended'} = $self->get_extended_attributes;
 	if ( !$q->param('function') ) {
@@ -85,12 +85,12 @@ sub run {
 sub _print_interface {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	print "<div class=\"box\" id=\"queryform\">\n";
-	print "<div class=\"scrollable\">\n";
-	print "<p>Here you can create a table breaking down one field by another, e.g. breakdown of serogroup by year.</p>\n";
-	print $q->startform;
+	say "<div class=\"box\" id=\"queryform\">";
+	say "<div class=\"scrollable\">";
+	say "<p>Here you can create a table breaking down one field by another, e.g. breakdown of serogroup by year.</p>";
+	say $q->startform;
 	$q->param( 'function', 'breakdown' );
-	print $q->hidden($_) foreach qw (db page name function query_file);
+	say $q->hidden($_) foreach qw (db page name function query_file);
 	my $set_id = $self->get_set_id;
 	my ( $headings, $labels ) = $self->get_field_selection_list(
 		{
@@ -103,33 +103,32 @@ sub _print_interface {
 			set_id              => $set_id
 		}
 	);
-	print "<table>";
-	print "<tr><td align='right'>Select first field:</td>\n";
-	print "<td>\n";
-	print $q->popup_menu( -name => 'field1', -values => $headings, -labels => $labels );
-	print "</td>\n";
-	print "<td rowspan=\"2\" style=\"padding-left:1em\">";
-	print "Display:<br />\n";
-	print $q->radio_group(
+	say "<fieldset style=\"float:left\"><legend>Select fields</legend><ul><li>";
+	say "<label for=\"field1\">Field 1:</label>";
+	say $q->popup_menu( -name => 'field1', -id => 'field1', -values => $headings, -labels => $labels );
+	say "</li><li>";
+	say "<label for=\"field2\">Field 2:</label>";
+	say $q->popup_menu( -name => 'field2', -id => 'field2', -values => $headings, -labels => $labels );
+	say "</li></ul></fieldset>";
+	say "<fieldset style=\"float:left\"><legend>Display</legend>";
+	say $q->radio_group(
 		-name      => 'display',
 		-values    => [ 'values only', 'values and percentages', 'percentages only' ],
 		-default   => 'values only',
 		-linebreak => 'true'
 	);
-	print "</td><td rowspan=\"2\">";
-	print "Calculate percentages by:<br /> ";
-	print $q->radio_group( -name => 'calcpc', -values => [ 'dataset', 'row', 'column' ], -default => 'dataset', -linebreak => 'true' );
-	print "</td></tr>\n";
-	print "<tr><td align='right' valign='top'>Select second field:</td><td valign='top'>\n";
-	print $q->popup_menu( -name => 'field2', -values => $headings, -labels => $labels );
-	print "</td></tr>\n";
-	print "<tr><td>";
-	print $q->reset( -class => 'reset' );
-	print "</td><td colspan=\"3\" style=\"text-align:right\">";
-	print $q->submit( -class => 'submit', -label => 'Submit' );
-	print "</td></tr>\n</table>\n";
-	print $q->endform;
-	print "</div>\n</div>\n";
+	say "</fieldset>";
+	
+	say "<fieldset style=\"float:left\"><legend>Calculate percentages by</legend>";
+	say $q->radio_group( -name => 'calcpc', -values => [ 'dataset', 'row', 'column' ], -default => 'dataset', -linebreak => 'true' );
+	say "</fieldset>";
+	say "<div style=\"clear:both\"><span style=\"float:left\">";
+	say $q->reset( -class => 'reset' );
+	say "</span><span style=\"float:right;padding-right:5em\">";
+	say $q->submit( -class => 'submit', -label => 'Submit' );
+	say "</span></div>";
+	say $q->endform;
+	say "</div>\n</div>";
 	return;
 }
 
@@ -146,29 +145,29 @@ sub _reverse {
 sub _print_controls {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	print "<div style=\"float:left\">\n";
-	print $q->startform;
-	print $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc);
-	print $q->submit( -name => 'reverse', -value => 'Reverse axes', -class => 'submit' );
-	print $q->endform;
-	print "</div>\n<div style=\"float:left\">\n";
-	print $q->startform;
-	print $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc);
+	say "<div style=\"float:left\">";
+	say $q->startform;
+	say $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc);
+	say $q->submit( -name => 'reverse', -value => 'Reverse axes', -class => 'submit' );
+	say $q->endform;
+	say "</div>\n<div style=\"float:left\">";
+	say $q->startform;
+	say $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc);
 	my %toggle =
 	  ( 'values only' => 'values and percentages', 'values and percentages' => 'percentages only', 'percentages only' => 'values only' );
-	print $q->submit( -name => 'toggledisplay', -label => ( 'Show ' . $toggle{ $q->param('display') } ), -class => 'submit' );
-	print $q->endform;
-	print "</div>\n";
+	say $q->submit( -name => 'toggledisplay', -label => ( 'Show ' . $toggle{ $q->param('display') } ), -class => 'submit' );
+	say $q->endform;
+	say "</div>";
 
 	if ( $q->param('display') ne 'values only' ) {
-		print "<div style=\"float:left\">\n";
-		print $q->startform;
-		print $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc);
+		say "<div style=\"float:left\">";
+		say $q->startform;
+		say $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc);
 		my %toggle = ( 'dataset' => 'row', 'row' => 'column', 'column' => 'dataset' );
-		print $q->submit( -name => 'togglepc', -label => ( 'Calculate percentages by ' . $toggle{ $q->param('calcpc') } ),
+		say $q->submit( -name => 'togglepc', -label => ( 'Calculate percentages by ' . $toggle{ $q->param('calcpc') } ),
 			-class => 'submit' );
-		print $q->endform;
-		print "</div>\n";
+		say $q->endform;
+		say "</div>";
 	}
 	return;
 }
@@ -191,7 +190,7 @@ sub _breakdown {
 		$attribute2 = $2;
 	}
 	if ( $field1 eq $field2 ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>You must select two <em>different</em> fields.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>You must select two <em>different</em> fields.</p></div>";
 		return;
 	}
 	my ( $display, $calcpc );
@@ -201,8 +200,8 @@ sub _breakdown {
 		  $self->_get_value_frequency_hashes( $field1, $field2, $id_list );
 	}
 	catch BIGSdb::DatabaseConnectionException with {
-		print "<div class=\"box\" id=\"statusbad\"><p>The database for the scheme of one of your selected fields is inaccessible.  "
-		  . "This may be a configuration problem.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>The database for the scheme of one of your selected fields is inaccessible.  "
+		  . "This may be a configuration problem.</p></div>";
 		return;
 	};
 	if ( $attribute1 || $attribute2 ) {
@@ -232,7 +231,7 @@ sub _breakdown {
 	};
 	if ( $@ =~ /HASH reference/ ) {
 		$logger->debug($@);
-		print "<div class=\"box\" id=\"statusbad\"><p>No data retrieved.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>No data retrieved.</p></div>";
 		return;
 	}
 
@@ -250,11 +249,11 @@ sub _breakdown {
 	}
 	my $numfield2 = scalar @field2values + 1;
 	if ( scalar keys %datahash > 2000 || $numfield2 > 2000 ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>One of your selected fields has more than 2000 values - calculation "
+		say "<div class=\"box\" id=\"statusbad\"><p>One of your selected fields has more than 2000 values - calculation "
 		  . "has been disabled to prevent your browser locking up.</p>";
-		print "<p>$print_field1: " . ( scalar keys %datahash ) . "<br />";
-		print "$print_field2: $numfield2</p>\n";
-		print "</div>\n";
+		say "<p>$print_field1: " . ( scalar keys %datahash ) . "<br />";
+		say "$print_field2: $numfield2</p>";
+		say "</div>";
 		return;
 	}
 	if ( $q->param('toggledisplay') ) {
@@ -289,40 +288,40 @@ sub _breakdown {
 	my $out_file = "$self->{'config'}->{'tmp_dir'}/$temp1.txt";
 	open( my $fh, '>', $out_file )
 	  or $logger->error("Can't open temp file $out_file for writing");
-	print "<div class=\"box\" id=\"resultstable\">\n";
+	say "<div class=\"box\" id=\"resultstable\">\n";
 	my $html_field1 = $self->{'datastore'}->is_locus($print_field1) ? $self->clean_locus($print_field1) : $print_field1;
 	my $html_field2 = $self->{'datastore'}->is_locus($print_field2) ? $self->clean_locus($print_field2) : $print_field2;
 	my $text_field1 =
 	  $self->{'datastore'}->is_locus($print_field1) ? $self->clean_locus( $print_field1, { text_output => 1 } ) : $print_field1;
 	my $text_field2 =
 	  $self->{'datastore'}->is_locus($print_field2) ? $self->clean_locus( $print_field2, { text_output => 1 } ) : $print_field2;
-	print "<h2>Breakdown of $html_field1 by $html_field2:</h2>\n";
-	print $fh "Breakdown of $text_field1 by $text_field2:\n";
-	print "<p>Selected options: Display $display. ";
+	say "<h2>Breakdown of $html_field1 by $html_field2:</h2>";
+	say $fh "Breakdown of $text_field1 by $text_field2:";
+	say "<p>Selected options: Display $display. ";
 	print $fh "Selected options: Display $display. ";
 
 	if ( $display ne 'values only' ) {
-		print "Calculate percentages by $calcpc.";
+		say "Calculate percentages by $calcpc.";
 		print $fh "Calculate percentages by $calcpc.";
 	}
-	print "</p>\n";
-	print $fh "\n\n";
+	say "</p>";
+	say $fh "\n";
 	$self->_print_controls;
-	print "<div class=\"scrollable\" style=\"clear:both\">\n";
-	print "<table class=\"tablesorter\" id=\"sortTable\">\n<thead>\n";
-	print "<tr><td /><td colspan=\"$numfield2\" class=\"header\">$html_field2</td></tr>\n";
-	print $fh "$text_field1\t$text_field2\n";
+	say "<div class=\"scrollable\" style=\"clear:both\">";
+	say "<table class=\"tablesorter\" id=\"sortTable\">\n<thead>";
+	say "<tr><td /><td colspan=\"$numfield2\" class=\"header\">$html_field2</td></tr>";
+	say $fh "$text_field1\t$text_field2";
 	local $" = "</th><th class=\"{sorter: 'digit'}\">";
-	print "<tr><th>$html_field1</th><th class=\"{sorter: 'digit'}\">@field2values</th><th class=\"{sorter: 'digit'}\">"
-	  . "Total</th></tr></thead><tbody>\n";
+	say "<tr><th>$html_field1</th><th class=\"{sorter: 'digit'}\">@field2values</th><th class=\"{sorter: 'digit'}\">"
+	  . "Total</th></tr></thead><tbody>";
 	local $" = "\t";
-	print $fh "\t@field2values\tTotal\n";
+	say $fh "\t@field2values\tTotal";
 	my $td = 1;
 	{
 		no warnings 'numeric';    #might complain about numeric comparison with non-numeric data
 		for my $field1value ( sort { $a <=> $b || $a cmp $b } keys %datahash ) {
 			my $total = 0;
-			print "<tr class=\"td$td\"><td>$field1value</td>\n";
+			say "<tr class=\"td$td\"><td>$field1value</td>";
 			print $fh "$field1value";
 			foreach my $field2value (@field2values) {
 				my $value = $datahash{$field1value}{$field2value} || 0;
@@ -336,17 +335,17 @@ sub _breakdown {
 				}
 				$total += $value;
 				if ( !$value ) {
-					print "<td></td>\n";
+					say "<td></td>";
 					print $fh "\t";
 				} else {
 					if ( $q->param('display') eq 'values and percentages' ) {
-						print "<td>$value ($percentage%)</td>\n";
+						say "<td>$value ($percentage%)</td>";
 						print $fh "\t$value ($percentage%)";
 					} elsif ( $q->param('display') eq 'percentages only' ) {
-						print "<td>$percentage</td>\n";
+						say "<td>$percentage</td>";
 						print $fh "\t$percentage";
 					} else {
-						print "<td>$value</td>\n";
+						say "<td>$value</td>";
 						print $fh "\t$value";
 					}
 				}
@@ -358,19 +357,19 @@ sub _breakdown {
 				$percentage = BIGSdb::Utils::decimal_place( ( $field1total{$field1value} / $grandtotal ) * 100, 1 );
 			}
 			if ( $q->param('display') eq 'values and percentages' ) {
-				print "<td>$total ($percentage%)</td></tr>\n";
-				print $fh "\t$total ($percentage%)\n";
+				say "<td>$total ($percentage%)</td></tr>";
+				say $fh "\t$total ($percentage%)";
 			} elsif ( $q->param('display') eq 'percentages only' ) {
-				print "<td>$percentage</td></tr>\n";
-				print $fh "\t$percentage\n";
+				say "<td>$percentage</td></tr>";
+				say $fh "\t$percentage";
 			} else {
-				print "<td>$total</td></tr>\n";
-				print $fh "\t$total\n";
+				say "<td>$total</td></tr>";
+				say $fh "\t$total";
 			}
 			$td = $td == 1 ? 2 : 1;    #row stripes
 		}
 	};
-	print "</tbody><tbody><tr class=\"total\"><td>Total</td>\n";
+	say "</tbody><tbody><tr class=\"total\"><td>Total</td>";
 	print $fh "Total";
 	foreach my $field2value (@field2values) {
 		my $percentage;
@@ -380,29 +379,29 @@ sub _breakdown {
 			$percentage = BIGSdb::Utils::decimal_place( ( $field2total{$field2value} / $grandtotal ) * 100, 1 );
 		}
 		if ( $q->param('display') eq 'values and percentages' ) {
-			print "<td>$field2total{$field2value} ($percentage%)</td>";
+			say "<td>$field2total{$field2value} ($percentage%)</td>";
 			print $fh "\t$field2total{$field2value} ($percentage%)";
 		} elsif ( $q->param('display') eq 'percentages only' ) {
-			print "<td>$percentage</td>";
+			say "<td>$percentage</td>";
 			print $fh "\t$percentage";
 		} else {
-			print "<td>$field2total{$field2value}</td>";
+			say "<td>$field2total{$field2value}</td>";
 			print $fh "\t$field2total{$field2value}";
 		}
 	}
 	if ( $q->param('display') eq 'values and percentages' ) {
-		print "<td>$grandtotal (100%)</td></tr>\n";
-		print $fh "\t$grandtotal (100%)\n";
+		say "<td>$grandtotal (100%)</td></tr>";
+		say $fh "\t$grandtotal (100%)";
 	} elsif ( $q->param('display') eq 'percentages only' ) {
-		print "<td>100</td></tr>\n";
-		print $fh "\t100\n";
+		say "<td>100</td></tr>";
+		say $fh "\t100";
 	} else {
-		print "<td>$grandtotal</td></tr>\n";
-		print $fh "\t$grandtotal\n";
+		say "<td>$grandtotal</td></tr>";
+		say $fh "\t$grandtotal";
 	}
-	print "</tbody></table></div>\n";
+	say "</tbody></table></div>";
 	close $fh;
-	print "<p><a href='/tmp/$temp1.txt'>Download as tab-delimited text.</a></p></div>\n";
+	say "<p><a href='/tmp/$temp1.txt'>Download as tab-delimited text.</a></p></div>";
 
 	#Chartdirector
 	$self->_print_charts(
@@ -501,10 +500,10 @@ sub _print_charts {
 					$filename = $1;    #untaint
 				}
 				$chart->makeChart("$self->{'config'}->{'tmp_dir'}\/$filename");
-				print "<fieldset><legend>Values</legend>";
-				print "<a href=\"/tmp/$filename\" rel=\"lightbox-1\" class=\"lightbox\" title=\"$text_field1 vs $text_field2\">"
+				say "<fieldset><legend>Values</legend>";
+				say "<a href=\"/tmp/$filename\" rel=\"lightbox-1\" class=\"lightbox\" title=\"$text_field1 vs $text_field2\">"
 				  . "<img src=\"/tmp/$filename\" alt=\"$text_field1 vs $text_field2\" style=\"width:200px; border: 1px dashed black\" /></a>";
-				print "</fieldset>";
+				say "</fieldset>";
 			} else {
 				$chart->addTitle( "Percentages", "arial.ttf", 14 );
 				my $filename = "$prefix\_$field1\_$field2\_pc.png";
@@ -512,15 +511,13 @@ sub _print_charts {
 					$filename = $1;    #untaint
 				}
 				$chart->makeChart("$self->{'config'}->{'tmp_dir'}\/$filename");
-				print "<fieldset><legend>Percentages</legend>";
-				print
-"<a href=\"/tmp/$filename\" rel=\"lightbox-1\" class=\"lightbox\"  title=\"$text_field1 vs $text_field2 percentage chart\">"
-				  . "<img src=\"/tmp/$filename\" alt=\"$text_field1 vs $text_field2 percentage chart\"  style=\"width:200px; "
-				  . "border: 1px dashed black\" /></a>";
-				print "</fieldset>";
+				say "<fieldset><legend>Percentages</legend>";
+				say "<a href=\"/tmp/$filename\" rel=\"lightbox-1\" class=\"lightbox\"  title=\"$text_field1 vs $text_field2 "
+				 . "percentage chart\"><img src=\"/tmp/$filename\" alt=\"$text_field1 vs $text_field2 percentage chart\"  "
+				 . "style=\"width:200px;border:1px dashed black\" /></a></fieldset>";
 			}
 		}
-		print "</div>\n";
+		say "</div>";
 	}
 	return;
 }
@@ -551,7 +548,8 @@ sub _get_value_frequency_hashes {
 		if ( $self->{'xmlHandler'}->is_field( $clean{$_} ) ) {
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($_);
 			$field_type{ $clean{$_} } = defined $metaset ? 'metafield' : 'field';
-			$print{$_} = $clean{$_};
+			$metafield =~ tr/_/ / if defined $metafield;
+			$print{$_} = $metafield // $clean{$_};
 		} elsif ( $self->{'datastore'}->is_locus( $clean{$_} ) ) {
 			$field_type{ $clean{$_} } = 'locus';
 			$print{$_} = $clean{$_};
