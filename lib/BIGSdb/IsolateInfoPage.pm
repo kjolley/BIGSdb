@@ -150,7 +150,11 @@ sub print_content {
 		}
 		return;
 	}
-	if ( !BIGSdb::Utils::is_int($isolate_id) ) {
+	if (!defined $isolate_id || $isolate_id eq ''){
+		say "<h1>Isolate information</h1>";
+		say "<div class=\"box statusbad\"><p>No isolate id provided.</p></div>";
+		return;
+	} elsif ( !BIGSdb::Utils::is_int($isolate_id) ) {
 		say "<h1>Isolate information: id-$isolate_id</h1>";
 		say "<div class=\"box\" id=\"statusbad\"><p>Isolate id must be an integer.</p></div>";
 		return;
