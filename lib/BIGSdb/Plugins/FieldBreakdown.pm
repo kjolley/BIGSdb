@@ -263,7 +263,7 @@ sub _create_chartdirector_chart {
 		or $field =~ /^year_/
 		or $field =~ /^year$/ )
 	{
-		no warnings;    #might complain about numeric comparison with non-numeric data
+		no warnings 'numeric';    #might complain about numeric comparison with non-numeric data
 		foreach my $key ( sort { $a <=> $b } keys %value_frequency ) {
 			if ( !( $key eq 'No value/unassigned' && $numvalues > 1 ) ) {
 				$key =~ s/&Delta;/deleted/g;
@@ -275,7 +275,7 @@ sub _create_chartdirector_chart {
 			BIGSdb::Charts::barchart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$temp\_$field.png", $size, \%prefs );
 		}
 	} else {
-		no warnings;    #might complain about numeric comparison with non-numeric data
+		no warnings 'numeric';    #might complain about numeric comparison with non-numeric data
 		foreach my $key ( sort { $value_frequency{$b} <=> $value_frequency{$a} || ( $a <=> $b ) || ( $a cmp $b ) } keys %value_frequency ) {
 			$key =~ s/&Delta;/deleted/g;
 			push @labels, $key;
@@ -348,7 +348,7 @@ sub _summary_table {
 		say "<div class=\"box\" id=\"resultstable\">";
 		say "<p>$num_values value$plural.</p>";
 		say "<table class=\"tablesorter\" id=\"sortTable\"><thead><tr><th>$display_field</th><th>Frequency</th><th>Percentage</th></tr>"
-		 . "</thead><tbody>";
+		  . "</thead><tbody>";
 	} else {
 		say "$num_values value$plural.\n";
 		say "$display_field\tfrequency\tpercentage";
@@ -360,19 +360,19 @@ sub _summary_table {
 	{
 
 		#sort keys numerically
-		no warnings;    #might complain about numeric comparison with non-numeric data
+		no warnings 'numeric';    #might complain about numeric comparison with non-numeric data
 		foreach my $key ( sort { $a <=> $b } keys %$value_frequency ) {
 			my $percentage = BIGSdb::Utils::decimal_place( ( $value_frequency->{$key} / $num_records ) * 100, 2 );
 			if ( $format eq 'html' ) {
 				say "<tr class=\"td$td\"><td>$key</td><td>$value_frequency->{$key}</td><td style=\"text-align:center\">"
-				 . "$percentage%</td></tr>";
+				  . "$percentage%</td></tr>";
 			} else {
 				say "$key\t$value_frequency->{$key}\t$percentage";
 			}
 			$td = $td == 1 ? 2 : 1;    #row stripes
 		}
 	} else {
-		no warnings;                   #might complain about numeric comparison with non-numeric data
+		no warnings 'numeric';    #might complain about numeric comparison with non-numeric data
 		foreach
 		  my $key ( sort { $value_frequency->{$b} <=> $value_frequency->{$a} || ( $a <=> $b ) || ( $a cmp $b ) } keys %$value_frequency )
 		{
@@ -381,7 +381,7 @@ sub _summary_table {
 			my $percentage = BIGSdb::Utils::decimal_place( ( $value_frequency->{$key} / $num_records ) * 100, 2 );
 			if ( $format eq 'html' ) {
 				say "<tr class=\"td$td\"><td>$key</td><td style=\"text-align:center\">$value_frequency->{$key}</td>"
-				 . "<td style=\"text-align:center\">$percentage%</td></tr>";
+				  . "<td style=\"text-align:center\">$percentage%</td></tr>";
 			} else {
 				say "$key\t$value_frequency->{$key}\t$percentage";
 			}
@@ -424,7 +424,7 @@ sub _get_value_frequency_hash {
 	my $value;
 	my @field_list;
 	my $format = $self->{'cgi'}->param('format');
-	if ($query_field) {
+	if ( $query_field && $query_field !~ /^meta_[^:]+:/ ) {
 		push @field_list, ( 'id', $query_field );
 	} else {
 		@field_list = @$fields;
