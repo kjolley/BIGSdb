@@ -89,6 +89,7 @@ sub run {
 					$schemes{$1} = 1;
 				}
 				$field =~ s/^(s_\d+_l|s_\d+_f|f|l|c)_//g;    #strip off prefix for header row
+				$field =~ s/^meta_\d+://;
 				$field =~ tr/_/ / if !$self->{'datastore'}->is_locus($field);
 				$field =~ s/___/../;
 				push @header, $field;
@@ -133,7 +134,10 @@ sub run {
 					$key .= '_|_' if !$first;
 					if ( $_ =~ /^f_(.*)/ ) {
 						my $field = $1;
-						if ( $field eq 'aliases' ) {
+						my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+						if ( defined $metaset){
+							$key .= $self->{'datastore'}->get_metadata_value($data{'id'}, $metaset, $metafield) || '-';
+						} elsif ( $field eq 'aliases' ) {
 							eval { $alias_sql->execute( $data{'id'} ) };
 							$logger->error($@) if $@;
 							my @aliases;
