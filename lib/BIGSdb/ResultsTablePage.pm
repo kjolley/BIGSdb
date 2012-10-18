@@ -482,7 +482,7 @@ sub _print_isolate_table {
 					my $user_info = $self->{'datastore'}->get_user_info( $data{$thisfieldname} );
 					print "<td>$user_info->{'first_name'} $user_info->{'surname'}</td>";
 				} else {
-					if ($thisfieldname =~ /^meta_\d+:/){
+					if ($thisfieldname =~ /^meta_[^:]+:/){
 						my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($thisfieldname);
 						my $value = $self->{'datastore'}->get_metadata_value($id,$metaset,$metafield);
 						print "<td>$value</td>";

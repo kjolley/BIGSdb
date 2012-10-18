@@ -89,7 +89,7 @@ sub run {
 					$schemes{$1} = 1;
 				}
 				$field =~ s/^(s_\d+_l|s_\d+_f|f|l|c)_//g;    #strip off prefix for header row
-				$field =~ s/^meta_\d+://;
+				$field =~ s/^meta_.+?://;
 				$field =~ tr/_/ / if !$self->{'datastore'}->is_locus($field);
 				$field =~ s/___/../;
 				push @header, $field;

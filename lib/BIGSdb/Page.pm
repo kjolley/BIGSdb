@@ -348,7 +348,7 @@ sub _print_help_panel {
 
 sub get_metaset_and_fieldname {
 	my ( $self, $field ) = @_;
-	my ( $metaset, $metafield ) = $field =~ /meta_([^:]):+(.*)/ ? ( $1, $2 ) : ( undef, undef );
+	my ( $metaset, $metafield ) = $field =~ /meta_([^:]+):(.*)/ ? ( $1, $2 ) : ( undef, undef );
 	return ( $metaset, $metafield );
 }
 

@@ -83,7 +83,7 @@ sub get_plugin_javascript {
 		\$("img#placeholder").attr("src",image);
 		var field = \$(this).attr("name");
 		var display = field;
-		display = display.replace(/^meta_\\d+:/, "");
+		display = display.replace(/^meta_[^:]+:/, "");
 		display = display.replace(/_/g," ");
 		
 		\$("#field").empty();
@@ -347,11 +347,11 @@ sub _summary_table {
 	if ( $format eq 'html' ) {
 		say "<div class=\"box\" id=\"resultstable\">";
 		say "<p>$num_values value$plural.</p>";
-		say "<table class=\"tablesorter\" id=\"sortTable\"><thead><tr><th>$field</th><th>Frequency</th><th>Percentage</th></tr>"
+		say "<table class=\"tablesorter\" id=\"sortTable\"><thead><tr><th>$display_field</th><th>Frequency</th><th>Percentage</th></tr>"
 		 . "</thead><tbody>";
 	} else {
 		say "$num_values value$plural.\n";
-		say "$field\tfrequency\tpercentage";
+		say "$display_field\tfrequency\tpercentage";
 	}
 	if (   $field =~ /^age_/
 		or $field =~ /^age$/
