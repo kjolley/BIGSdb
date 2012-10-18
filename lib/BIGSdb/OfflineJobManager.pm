@@ -122,8 +122,10 @@ sub add_job {
 		my $param_sql = $self->{'db'}->prepare("INSERT INTO params (job_id,key,value) VALUES (?,?,?)");
 		local $" = '||';
 		foreach ( keys %$cgi_params ) {
-			my @values = split( "\0", $cgi_params->{$_} );
-			$param_sql->execute( $id, $_, "@values" );
+			if (defined $cgi_params->{$_}){
+				my @values = split( "\0", $cgi_params->{$_} );
+				$param_sql->execute( $id, $_, "@values" );
+			}
 		}
 	};
 	if ($@) {
