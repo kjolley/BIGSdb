@@ -166,7 +166,7 @@ sub _write_fasta {
 	local $| = 1;
 	open( my $fh, '>', $filename )
 	  or $logger->error("Can't open temp file $filename for writing");
-	my $isolate_sql = $self->{'db'}->prepare("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?");
+	my $isolate_sql = $self->{'system'}->{'view'} ? $self->{'db'}->prepare("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?") : undef;
 	my @includes    = $q->param('includes');
 	my $length_sql  = $self->{'db'}->prepare("SELECT length FROM loci WHERE id=?");
 	my $seqbin_sql =
