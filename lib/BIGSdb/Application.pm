@@ -170,9 +170,11 @@ sub _initiate {
 		}
 	}
 
-	#Allow individual database configs to override system auth and pref databases
-	$self->{'config'}->{'prefs_db'} = $self->{'system'}->{'prefs_db'} if defined $self->{'system'}->{'prefs_db'};
-	$self->{'config'}->{'auth_db'}  = $self->{'system'}->{'auth_db'}  if defined $self->{'system'}->{'auth_db'};
+	#Allow individual database configs to override system auth and pref databases and tmp directories
+	$self->{'config'}->{'prefs_db'}       = $self->{'system'}->{'prefs_db'}       if defined $self->{'system'}->{'prefs_db'};
+	$self->{'config'}->{'auth_db'}        = $self->{'system'}->{'auth_db'}        if defined $self->{'system'}->{'auth_db'};
+	$self->{'config'}->{'tmp_dir'}        = $self->{'system'}->{'tmp_dir'}        if defined $self->{'system'}->{'tmp_dir'};
+	$self->{'config'}->{'secure_tmp_dir'} = $self->{'system'}->{'secure_tmp_dir'} if defined $self->{'system'}->{'secure_tmp_dir'};
 
 	#refdb attribute has been renamed ref_db for consistency with other databases (refdb still works)
 	$self->{'config'}->{'ref_db'} //= $self->{'config'}->{'refdb'};
