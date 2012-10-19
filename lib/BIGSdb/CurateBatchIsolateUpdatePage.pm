@@ -170,7 +170,8 @@ sub _check {
 	my $table_rows = 0;
 
 	foreach my $row (@rows) {
-		next if ( split /\t/, $row ) < 3;
+		my @cols = split /\t/, $row;
+		next if @cols < 3;
 		if ( $id->{'field2'} eq '<none>' ) {
 			( $id[$i], $field[$i], $value[$i] ) = split /\t/, $row;
 		} else {
