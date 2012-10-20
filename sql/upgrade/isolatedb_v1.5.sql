@@ -16,7 +16,9 @@ CREATE TABLE set_loci (
 set_id int NOT NULL,
 locus text NOT NULL,
 set_name text,
+formatted_set_name text,
 set_common_name text,
+formatted_set_common_name text,
 curator int NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY(set_id, locus),
@@ -73,6 +75,5 @@ ALTER TABLE loci ADD COLUMN match_longest boolean;
 ALTER TABLE loci ADD COLUMN formatted_name text;
 ALTER TABLE loci ADD COLUMN formatted_common_name text;
 
-ALTER TABLE set_loci ADD COLUMN formatted_set_name text;
-ALTER TABLE set_loci ADD COLUMN formatted_set_common_name text;
+
 

@@ -16,7 +16,9 @@ CREATE TABLE set_loci (
 set_id int NOT NULL,
 locus text NOT NULL,
 set_name text,
+formatted_set_name text,
 set_common_name text,
+formatted_set_common_name text,
 curator int NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY(set_id, locus),
@@ -56,6 +58,4 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON set_schemes TO apache;
 ALTER TABLE loci ADD COLUMN formatted_name text;
 ALTER TABLE loci ADD COLUMN formatted_common_name text;
 
-ALTER TABLE set_loci ADD COLUMN formatted_set_name text;
-ALTER TABLE set_loci ADD COLUMN formatted_set_common_name text;
 
