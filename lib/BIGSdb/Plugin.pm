@@ -666,7 +666,7 @@ sub get_selected_loci {
 
 sub order_selected_loci {
 
-	#For isolate databases, reorder loci by genome order, schemes then by name (genome order may not be set)
+	#Reorder loci by genome order, schemes, then by name (genome order may not be set)
 	#For offline jobs, pass in params from the job database.  Leave undefined for live jobs (will get CGI params).
 	my ( $self, $params ) = @_;
 	my $locus_qry = "SELECT id,scheme_id from loci left join scheme_members on loci.id = scheme_members.locus "
@@ -691,12 +691,15 @@ sub order_selected_loci {
 		}
 		push @selected_schemes, 0 if $q->param('s_0');
 	}
-	return \@selected_loci if $self->{'system'}->{'dbtype'} eq 'sequences';
-	my $pattern = LOCUS_PATTERN;
 	my @selected_locus_names;
-	foreach my $locus (@selected_loci) {
-		my $locus_name = $locus =~ /$pattern/ ? $1 : undef;
-		push @selected_locus_names, $locus_name if defined $locus_name;
+	if ($self->{'system'}->{'dbtype'} eq 'sequences'){
+		@selected_locus_names = @selected_loci;
+	} else {
+		my $pattern = LOCUS_PATTERN;
+		foreach my $locus (@selected_loci) {
+			my $locus_name = $locus =~ /$pattern/ ? $1 : undef;
+			push @selected_locus_names, $locus_name if defined $locus_name;
+		}
 	}
 	while ( my ( $locus, $scheme_id ) = $locus_sql->fetchrow_array ) {
 		$scheme_id //= 0;
