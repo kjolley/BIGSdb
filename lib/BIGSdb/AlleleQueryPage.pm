@@ -350,7 +350,7 @@ sub _run_query {
 						}
 					}
 					$thisfield->{'type'} ||= 'text';    # sender/curator surname, firstname, affiliation
-					$thisfield->{'type'} = $locus_info->{'allele_id_format'} // 'text';
+					$thisfield->{'type'} = $locus_info->{'allele_id_format'} // 'text' if $thisfield->{'name'} eq 'allele_id';
 					if ( none { $field =~ /\($_\)$/ } qw (surname first_name affiliation) ) {
 						next
 						  if $self->check_format( { field => $field, text => $text, type => $thisfield->{'type'}, operator => $operator },
