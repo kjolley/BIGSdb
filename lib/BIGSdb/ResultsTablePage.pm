@@ -903,6 +903,7 @@ sub _print_profile_table {
 sub _print_plugin_buttons {
 	my ( $self, $qry_ref, $records ) = @_;
 	my $q = $self->{'cgi'};
+	return if $q->param('page') eq 'customize';
 	my $seqdb_type = $q->param('page') eq 'alleleQuery' ? 'sequences' : 'schemes';
 	my $plugin_categories = $self->{'pluginManager'}->get_plugin_categories( 'postquery', $self->{'system'}->{'dbtype'}, {seqdb_type => $seqdb_type} );
 	if (@$plugin_categories) {
