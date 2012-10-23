@@ -116,12 +116,14 @@ HTML
 	}
 	$qry = "SELECT schemes.* FROM schemes LEFT JOIN scheme_members ON schemes.id=scheme_id WHERE locus=?";
 	my $scheme_list = $self->{'datastore'}->run_list_query_hashref( $qry, $locus );
+	my $set_id = $self->get_set_id;
 	foreach my $scheme (@$scheme_list) {
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'}, { set_id => $set_id } );
 		my $pk_ref =
 		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key", $scheme->{'id'} );
 		next if ref $pk_ref ne 'ARRAY';
 		my $pk = $pk_ref->[0];
-		print "<tr class=\"td$td\"><th>$scheme->{'description'}</th>";
+		print "<tr class=\"td$td\"><th>$scheme_info->{'description'}</th>";
 		my $profiles =
 		  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM profile_members WHERE scheme_id=? AND locus=? AND allele_id=?",
 			$scheme->{'id'}, $locus, $allele_id )->[0];
@@ -143,7 +145,7 @@ HTML
 		$td = $td == 1 ? 2 : 1;
 	}
 	$td = $self->_print_client_database_data( $locus, $allele_id, $td );
-	$self->_print_linked_data($locus, $allele_id, $td );
+	$self->_print_linked_data( $locus, $allele_id, $td );
 	say "</table>\n</div></div>";
 	return;
 }
@@ -195,7 +197,7 @@ sub _print_client_database_data {
 
 sub _print_linked_data {
 	my ( $self, $locus, $allele_id, $td ) = @_;
-	my $field_values = $self->{'datastore'}->get_client_dbase_fields( $locus, [ $allele_id ] );
+	my $field_values = $self->{'datastore'}->get_client_dbase_fields( $locus, [$allele_id] );
 	return if !defined $field_values;
 	say "<tr class=\"td$td\"><th>linked data</th><td colspan=\"3\" style=\"text-align:left\">$field_values</td></tr>";
 	return;
