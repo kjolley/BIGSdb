@@ -37,7 +37,8 @@ sub print_content {
 	my $instance     = $self->{'instance'};
 	my $system       = $self->{'system'};
 	my $curator_name = $self->get_curator_name;
-	print "<h1>Database curator's interface - $system->{'description'}</h1>\n";
+	my $desc = $self->get_db_description;
+	print "<h1>Database curator's interface - $desc</h1>\n";
 	my $td = 1;
 	my $buffer;
 	my $can_do_something;

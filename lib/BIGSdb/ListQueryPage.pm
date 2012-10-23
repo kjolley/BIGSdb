@@ -47,6 +47,7 @@ sub print_content {
 	my $set_id    = $self->get_set_id;
 	my $scheme_info;
 	my $primary_key;
+	my $desc = $self->get_db_description;
 	if ( $system->{'dbtype'} eq 'sequences' ) {
 
 		if ( !$scheme_id ) {
@@ -66,7 +67,7 @@ sub print_content {
 			say "<div class=\"box\" id=\"statusbad\">Scheme does not exist.</p></div>";
 			return;
 		}
-		say "<h1>Query $scheme_info->{'description'} profiles by matching a field against a list</h1>";
+		say "<h1>Query $scheme_info->{'description'} profiles by matching a field against a list - $desc</h1>";
 		eval {
 			$primary_key =
 			  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )
@@ -78,7 +79,6 @@ sub print_content {
 			return;
 		}
 	} else {
-		my $desc = $self->get_db_description;
 		say "<h1>Query $desc database matching a field against a list</h1>";
 	}
 	my $qry;

@@ -161,6 +161,7 @@ sub print_content {
 		$self->_ajax_content;
 		return;
 	}
+	my $desc = $self->get_db_description;
 	if ( $system->{'dbtype'} eq 'sequences' ) {
 		$scheme_id = $q->param('scheme_id');
 		if ( !$scheme_id ) {
@@ -177,16 +178,15 @@ sub print_content {
 				return;
 			}
 			if ( $self->{'curate'} ) {
-				print "<h1>Query/update $scheme_info->{'description'} profiles</h1>\n";
+				print "<h1>Query/update $scheme_info->{'description'} profiles - $desc</h1>\n";
 			} else {
-				print "<h1>Search $scheme_info->{'description'} profiles</h1>\n";
+				print "<h1>Search $scheme_info->{'description'} profiles - $desc</h1>\n";
 			}
 		}
 	} else {
 		if ( $self->{'curate'} ) {
 			print "<h1>Isolate query/update</h1>\n";
 		} else {
-			my $desc = $self->get_db_description;
 			print "<h1>Search $desc database</h1>\n";
 		}
 	}
@@ -724,7 +724,7 @@ sub _print_profile_query_interface {
 			  );
 		}
 	}
-	my $scheme_info   = $self->{'datastore'}->get_scheme_info($scheme_id);
+	my $scheme_info   = $self->{'datastore'}->get_scheme_info($scheme_id, {set_id => $set_id});
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	foreach my $field (@$scheme_fields) {
 		if ( $self->{'prefs'}->{"dropdown\_scheme_fields"}->{$scheme_id}->{$field} ) {
@@ -734,6 +734,7 @@ sub _print_profile_query_interface {
 			  $self->{'datastore'}->run_list_query(
 				"SELECT DISTINCT $value_clause FROM profile_fields WHERE scheme_id=? AND scheme_field=? ORDER BY $value_clause",
 				$scheme_id, $field );
+			next if !@$values;
 			my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
 			push @filters,
 			  $self->get_filter(

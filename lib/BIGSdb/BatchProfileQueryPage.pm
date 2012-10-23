@@ -51,15 +51,16 @@ sub print_content {
 	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
 		$scheme_id = -1;
 	}
+	my $desc = $self->get_db_description;
 	if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
-		print "<h1>Batch profile query</h1>\n";
+		print "<h1>Batch profile query - $desc</h1>\n";
 		print "<div class=\"box\" id=\"statusbad\"><p>This function is only available for sequence definition databases.</p></div>\n";
 		return;
 	}
 	my $set_id = $self->get_set_id;
 	my $scheme_info = $scheme_id > 0 ? $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } ) : undef;
 	if ( ( !$scheme_info->{'id'} || !$scheme_id ) ) {
-		print "<h1>Batch profile query</h1>\n";
+		print "<h1>Batch profile query - $desc</h1>\n";
 		print "<div class=\"box\" id=\"statusbad\"><p>Invalid scheme selected.</p></div>\n";
 		return;
 	} elsif ($set_id) {
@@ -72,7 +73,7 @@ sub print_content {
 	  $self->{'datastore'}->run_list_query( "SELECT locus FROM scheme_members WHERE scheme_id=? ORDER BY field_order", $scheme_id );
 	my @cleaned_loci;
 	push @cleaned_loci, $self->clean_locus($_) foreach @$loci;
-	print "<h1>Batch profile query - $scheme_info->{'description'}</h1>\n";
+	print "<h1>Batch $scheme_info->{'description'} profile query - $desc</h1>\n";
 	if ( $q->param('profiles') ) {
 		my $profiles = $q->param('profiles');
 		my @rows = split /\n/, $profiles;

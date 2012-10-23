@@ -27,7 +27,7 @@ my $logger = get_logger('BIGSdb.Page');
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	print "<h1>Update profile</h1>\n";
+	say "<h1>Update profile</h1>";
 	my ( $scheme_id, $profile_id ) = ( $q->param('scheme_id'), $q->param('profile_id') );
 	if ( !$scheme_id ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>No scheme_id passed.</p></div>";
@@ -117,13 +117,15 @@ sub _update {
 	my $loci            = $self->{'datastore'}->get_scheme_loci( $args->{'scheme_id'} );
 	my $scheme_fields   = $self->{'datastore'}->get_scheme_fields( $args->{'scheme_id'} );
 	my $profile_changed = 0;
+	my $set_id = $self->get_set_id;
 	foreach my $locus (@$loci) {
+		my $mapped = $self->{'datastore'}->get_set_locus_label($locus, $set_id) // $locus;
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		$newdata{"locus:$locus"} = $q->param("locus:$locus");
 		if ( !$newdata{"locus:$locus"} ) {
-			push @bad_field_buffer, "Locus '$locus' is a required field.";
+			push @bad_field_buffer, "Locus '$mapped' is a required field.";
 		} elsif ( $locus_info->{'allele_id_format'} eq 'integer' && !BIGSdb::Utils::is_int( $newdata{"locus:$locus"} ) ) {
-			push @bad_field_buffer, "Locus '$locus' must be an integer.";
+			push @bad_field_buffer, "Locus '$mapped' must be an integer.";
 		} elsif ( $args->{'allele_data'}->{$locus} ne $newdata{"locus:$locus"} ) {
 			$locus_changed{$locus} = 1;
 			$profile_changed = 1;
@@ -131,7 +133,7 @@ sub _update {
 			my $allele_exists =
 			  $self->{'datastore'}
 			  ->run_simple_query( "SELECT EXISTS(SELECT * FROM sequences WHERE locus=? AND allele_id=?)", $locus, $allele )->[0];
-			push @bad_field_buffer, "$locus allele '$allele' has not been defined." if !$allele_exists;
+			push @bad_field_buffer, "$mapped allele '$allele' has not been defined." if !$allele_exists;
 		}
 	}
 	if ( !@bad_field_buffer && $profile_changed ) {
@@ -310,9 +312,11 @@ sub _print_interface {
 	say "<tr><td style=\"text-align:right\">$args->{'primary_key'}: !</td><td><b>$args->{'profile_id'}</b></td></tr>";
 	my $loci          = $self->{'datastore'}->get_scheme_loci( $args->{'scheme_id'} );
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $args->{'scheme_id'} );
+	my $set_id = $self->get_set_id;
 
 	foreach my $locus (@$loci) {
-		say "<tr><td style=\"text-align:right\">$locus: !</td><td>";
+		my $mapped = $self->{'datastore'}->get_set_locus_label($locus, $set_id) // $locus;
+		say "<tr><td style=\"text-align:right\">$mapped: !</td><td>";
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		print $q->textfield(
 			-name    => "locus:$locus",

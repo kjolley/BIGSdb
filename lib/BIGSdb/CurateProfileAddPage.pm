@@ -301,16 +301,18 @@ sub _is_scheme_field_bad {
 sub _is_locus_field_bad {
 	my ( $self, $scheme_id, $locus, $value ) = @_;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	my $set_id = $self->get_set_id;
+	my $mapped = $self->{'datastore'}->get_set_locus_label($locus, $set_id) // $locus;
 	if ( !defined $value || $value eq '' ) {
-		return "Locus '$locus' requires a value.";
+		return "Locus '$mapped' requires a value.";
 	} elsif ( $locus_info->{'allele_id_format'} eq 'integer'
 		&& !BIGSdb::Utils::is_int($value) )
 	{
-		return "Locus '$locus' must be an integer.";
+		return "Locus '$mapped' must be an integer.";
 	} elsif ( $locus_info->{'allele_id_regex'} && $value !~ /$locus_info->{'allele_id_regex'}/ ) {
 		return "Allele id value is invalid - it must match the regular expression /$locus_info->{'allele_id_regex'}/.";
 	} elsif ( !$self->{'datastore'}->sequence_exists( $locus, $value ) ) {
-		return "Allele $locus $value has not been defined.";
+		return "Allele $mapped $value has not been defined.";
 	}
 }
 1;

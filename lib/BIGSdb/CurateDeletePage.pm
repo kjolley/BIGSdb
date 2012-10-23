@@ -496,9 +496,11 @@ sub _get_extra_sequences_fields {
 sub _get_profile_fields {
 	my ( $self, $scheme_id, $primary_key, $data, $td_ref ) = @_;
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $set_id = $self->get_set_id;
 	my $buffer;
 	foreach my $locus (@$loci) {
-		$buffer .= "<tr class=\"td$$td_ref\"><th style=\"text-align:right\">$locus&nbsp;</th>";
+		my $mapped = $self->{'datastore'}->get_set_locus_label($locus, $set_id) // $locus;
+		$buffer .= "<tr class=\"td$$td_ref\"><th style=\"text-align:right\">$mapped&nbsp;</th>";
 		my $allele_id =
 		  $self->{'datastore'}->run_simple_query( "SELECT allele_id FROM profile_members WHERE scheme_id=? AND locus=? AND profile_id=?",
 			$scheme_id, $locus, $data->{ $_->{'name'} } )->[0];

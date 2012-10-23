@@ -57,11 +57,16 @@ sub print_content {
 			  ->[0];
 		};
 		$logger->error($@) if $@;
+		my $set_id = $self->get_set_id;
+
 		push @headers, $primary_key;
 		my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-		push @headers, @$loci;
+		my %labels;
+		foreach my $locus (@$loci){
+			my $label = $self->{'datastore'}->get_set_locus_label($locus, $set_id);
+			push @headers, $label // $locus;
+		}
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-
 		foreach (@$scheme_fields) {
 			my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $_ );
 			push @headers, $_ if !$scheme_field_info->{'primary_key'};

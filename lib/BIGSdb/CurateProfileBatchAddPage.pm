@@ -119,6 +119,12 @@ sub _check {
 	my $primary_key   = $self->_get_primary_key($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my @mapped_loci;
+	my $set_id = $self->get_set_id;
+	foreach my $locus (@$loci){
+		my $mapped = $self->{'datastore'}->get_set_locus_label($locus, $set_id) // $locus;
+		push @mapped_loci, $mapped;
+	}
 	my $q             = $self->{'cgi'};
 	my @checked_buffer;
 	my @fieldorder = ( $primary_key, @$loci );
@@ -128,17 +134,19 @@ sub _check {
 	my %pks_so_far;
 	my %profiles_so_far;
 	local $" = '</th><th>';
-	my $table_buffer = "<table class=\"resultstable\"><tr><th>$primary_key</th><th>@$loci</th>";
-
-	foreach (@$scheme_fields) {
-		$is_field{$_} = 1;
-		$scheme_field_info->{$_} = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $_ );
-		if ( $_ ne $primary_key ) {
-			push @fieldorder, $_;
-			$table_buffer .= "<th>$_</th>";
+	my $table_buffer = "<table class=\"resultstable\"><tr><th>$primary_key</th><th>@mapped_loci</th>";
+	foreach my $field (@$scheme_fields) {
+		$is_field{$field} = 1;
+		$scheme_field_info->{$field} = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+		if ( $field ne $primary_key ) {
+			push @fieldorder, $field;
+			$table_buffer .= "<th>$field</th>";
 		}
 	}
-	push @fieldorder, qw (sender curator date_entered datestamp);
+	foreach my $field (qw (sender curator date_entered datestamp)){
+		 $table_buffer .= "<th>$field</th>";
+		 push @fieldorder, $field;
+	}
 	$table_buffer .= "</tr>\n";
 	my ( $firstname, $surname, $userid );
 	my $sender_message;
@@ -153,10 +161,6 @@ sub _check {
 		$sender_message = "<p>Sender: $sender_ref->{'first_name'} $sender_ref->{'surname'}</p>\n";
 	}
 	my %problems;
-	my $tablebuffer;
-	$tablebuffer .= "<table class=\"resultstable\"><tr>";
-	local $" = "</th><th>";
-	$tablebuffer .= "<th>@fieldorder</th></tr>";
 	my @records   = split /\n/, $q->param('data');
 	my $td        = 1;
 	my $headerRow = shift @records;
@@ -166,20 +170,21 @@ sub _check {
 	my $i = 0;
 	my $pk_included;
 
-	foreach (@fileheaderFields) {
-		$fileheaderPos{$_} = $i;
+	foreach my $field (@fileheaderFields) {
+		my $mapped = $self->map_locus_name($field);
+		$fileheaderPos{$mapped} = $i;
 		$i++;
-		$pk_included = 1 if $_ eq $primary_key;
+		$pk_included = 1 if $field eq $primary_key;
 	}
 	my $pk;
 	$pk = $self->next_id( 'profiles', $scheme_id );
 	my $qry                   = "SELECT profile_id FROM profiles WHERE scheme_id=? AND profile_id=?";
 	my $primary_key_check_sql = $self->{'db'}->prepare($qry);
 	my %locus_format;
-	foreach (@$loci) {
-		my $locus_info = $self->{'datastore'}->get_locus_info($_);
-		$locus_format{$_} = $locus_info->{'allele_id_format'};
-		$is_locus{$_}     = 1;
+	foreach my $locus (@$loci) {
+		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+		$locus_format{$locus} = $locus_info->{'allele_id_format'};
+		$is_locus{$locus}     = 1;
 	}
 	my $first_record = 1;
 	my $header_row;
@@ -208,7 +213,7 @@ sub _check {
 			$pk = $data[ $fileheaderPos{$primary_key} ];
 		}
 		$record_count++;
-		$tablebuffer .= "<tr class=\"td$td\">";
+		$table_buffer .= "<tr class=\"td$td\">";
 		$i = 0;
 		foreach my $field (@fieldorder) {
 			my $value;
@@ -242,7 +247,7 @@ sub _check {
 				$value = $self->get_curator_id;
 			} else {
 				if ( defined $fileheaderPos{$field} ) {
-					$header_row .= "$field\t" if $first_record;
+					$header_row .= "$field\t" if $first_record;					
 					$value = $data[ $fileheaderPos{$field} ];
 				}
 			}
@@ -253,7 +258,8 @@ sub _check {
 					$problems{$pk} .= "Locus $field requires a value.<br />";
 					$problem = 1;
 				} elsif ( $locus_format{$field} eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
-					$problems{$pk} .= "Locus $field must be an integer.<br />";
+					my $mapped = $self->{'datastore'}->get_set_locus_label($field, $set_id) // $field;
+					$problems{$pk} .= "Locus $mapped must be an integer.<br />";
 					$problem = 1;
 				}
 
@@ -281,9 +287,9 @@ sub _check {
 			$value = defined $value ? $value : '';
 			my $display_value = $value;
 			if ( !$problem ) {
-				$tablebuffer .= "<td>$display_value</td>";
+				$table_buffer .= "<td>$display_value</td>";
 			} else {
-				$tablebuffer .= "<td><font color=\"red\">$display_value</font></td>";
+				$table_buffer .= "<td><font color=\"red\">$display_value</font></td>";
 			}
 			$checked_record .= "$value\t"
 			  if defined $fileheaderPos{$field}
@@ -317,14 +323,14 @@ sub _check {
 			$profiles_so_far{"@profile"} = 1;
 		}
 		$pks_so_far{$pk} = 1;
-		$tablebuffer .= "</tr>\n";
+		$table_buffer .= "</tr>\n";
 		$td = $td == 1 ? 2 : 1;    #row stripes
 		push @checked_buffer, $header_row if $first_record;
 		$checked_record =~ s/\t$//;
 		push @checked_buffer, $checked_record;
 		$first_record = 0;
 	}
-	$tablebuffer .= "</table>\n";
+	$table_buffer .= "</table>\n";
 	if ( !$record_count ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>No valid data entered. Make sure you've included the header line.</p></div>\n";
 		return;
@@ -355,7 +361,7 @@ sub _check {
 	}
 	print "<div class=\"box\" id=\"resultstable\"><h2>Data to be imported</h2>\n";
 	print "<p>The following table shows your data.  Any field coloured red has a problem and needs to be checked.</p>\n";
-	print $tablebuffer;
+	print $table_buffer;
 	print "</div><p />";
 	return;
 }
@@ -426,15 +432,16 @@ sub _upload {
 "INSERT INTO profiles (scheme_id,profile_id,@fields_to_include) VALUES ($scheme_id,'$data[$fieldorder{$primary_key}]',@value_list)";
 			push @inserts, $qry;
 			my $curator = $self->get_curator_id;
-			foreach (@$loci) {
-				$data[ $fieldorder{$_} ] =~ s/^\s*//g;
-				$data[ $fieldorder{$_} ] =~ s/\s*$//g;
-				if (   defined $fieldorder{$_}
-					&& $data[ $fieldorder{$_} ] ne 'null'
-					&& $data[ $fieldorder{$_} ] ne '' )
+			foreach my $locus (@$loci) {
+				my $mapped = $self->map_locus_name($locus);
+				$data[ $fieldorder{$locus} ] =~ s/^\s*//g;
+				$data[ $fieldorder{$locus} ] =~ s/\s*$//g;
+				if (   defined $fieldorder{$locus}
+					&& $data[ $fieldorder{$locus} ] ne 'null'
+					&& $data[ $fieldorder{$locus} ] ne '' )
 				{
-					$qry =
-"INSERT INTO profile_members (scheme_id,locus,profile_id,allele_id,curator,datestamp) VALUES ($scheme_id,'$_','$data[$fieldorder{$primary_key}]','$data[$fieldorder{$_}]','$curator','today')";
+					$qry = "INSERT INTO profile_members (scheme_id,locus,profile_id,allele_id,curator,datestamp) VALUES "
+					 . "($scheme_id,E'$mapped','$data[$fieldorder{$primary_key}]','$data[$fieldorder{$locus}]','$curator','today')";
 					push @inserts, $qry;
 					$logger->debug("INSERT: $qry");
 				}
@@ -449,7 +456,7 @@ sub _upload {
 					&& $value ne '' )
 				{
 					$qry =
-"INSERT INTO profile_fields (scheme_id,scheme_field,profile_id,value,curator,datestamp) VALUES ($scheme_id,'$_','$data[$fieldorder{$primary_key}]','$value','$curator','today')";
+"INSERT INTO profile_fields (scheme_id,scheme_field,profile_id,value,curator,datestamp) VALUES ($scheme_id,E'$_','$data[$fieldorder{$primary_key}]','$value','$curator','today')";
 					push @inserts, $qry;
 				}
 			}
