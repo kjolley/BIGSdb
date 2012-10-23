@@ -559,7 +559,7 @@ sub next_id {
 
 		#this will find next id except when id 1 is missing
 		my $qry =
-		  "SELECT l.id + 1 AS start FROM $table AS l left outer join $table AS r on l.id+1=r.id where r.id is null ORDER BY l.id LIMIT 1";
+		  "SELECT l.id + 1 AS start FROM $table AS l left outer join $table AS r on l.id+1=r.id where r.id is null AND l.id>0 ORDER BY l.id LIMIT 1";
 		$self->{'sql'}->{'next_id'}->{$table} = $self->{'db'}->prepare($qry);
 	}
 	eval { $self->{'sql'}->{'next_id'}->{$table}->execute };
