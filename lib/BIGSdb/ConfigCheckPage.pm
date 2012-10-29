@@ -101,8 +101,8 @@ sub print_content {
 				  . "</td><td>"
 				  . ( $locus_info->{'dbase_seq_field'} || '' )
 				  . "</td><td>";
-				eval { my $locus_db = $self->{'datastore'}->get_locus($_)->{'db'}; };
-				if ($@) {
+				my $locus_db = $self->{'datastore'}->get_locus($_)->{'db'};
+				if (!$locus_db) {
 					say '<span class="statusbad">X</span>';
 				} else {
 					say '<span class="statusgood">ok</span>';
