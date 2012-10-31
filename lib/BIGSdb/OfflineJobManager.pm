@@ -50,7 +50,7 @@ sub _initiate {
 }
 
 sub _db_connect {
-	my ($self, $options) = @_;
+	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $logger = get_logger('BIGSdb.Application_Initiate');
 	if ( !$self->{'config'}->{'jobs_db'} ) {
@@ -64,8 +64,8 @@ sub _db_connect {
 		'user'       => $self->{'user'},
 		'password'   => $self->{'password'},
 	);
-	if ($options->{'reconnect'}){
-		$self->{'db'} = $self->{'dataConnector'}->drop_connection( \%att )
+	if ( $options->{'reconnect'} ) {
+		$self->{'db'} = $self->{'dataConnector'}->drop_connection( \%att );
 	}
 	try {
 		$self->{'db'} = $self->{'dataConnector'}->get_connection( \%att );
@@ -122,7 +122,7 @@ sub add_job {
 		my $param_sql = $self->{'db'}->prepare("INSERT INTO params (job_id,key,value) VALUES (?,?,?)");
 		local $" = '||';
 		foreach ( keys %$cgi_params ) {
-			if (defined $cgi_params->{$_}){
+			if ( defined $cgi_params->{$_} ) {
 				my @values = split( "\0", $cgi_params->{$_} );
 				$param_sql->execute( $id, $_, "@values" );
 			}
@@ -146,12 +146,11 @@ sub update_job_output {
 	eval {
 		$self->{'db'}->do(
 			"INSERT INTO output (job_id,filename,description) VALUES (?,?,?)",
-			undef,
-			$job_id,
+			undef, $job_id,
 			$output_hash->{'filename'},
 			$output_hash->{'description'}
 		);
-		$logger->debug($output_hash->{'filename'} . '; ' .$output_hash->{'description'}. "; $job_id");
+		$logger->debug( $output_hash->{'filename'} . '; ' . $output_hash->{'description'} . "; $job_id" );
 	};
 	if ($@) {
 		$logger->logcarp($@);
@@ -168,9 +167,10 @@ sub update_job_status {
 		$logger->error("status hash not passed as a ref");
 		throw BIGSdb::DataException("status hash not passed as a ref");
 	}
+
 	#Exceptions in BioPerl appear to sometimes cause the connection to the jobs database to be broken
-	#No idea why - so reconnect if status is 'failed'. 
-	$self->_db_connect({reconnect => 1}) if ($status_hash->{'status'} // '') eq 'failed';
+	#No idea why - so reconnect if status is 'failed'.
+	$self->_db_connect( { reconnect => 1 } ) if ( $status_hash->{'status'} // '' ) eq 'failed';
 	eval {
 		foreach ( keys %$status_hash )
 		{
@@ -189,8 +189,9 @@ sub update_job_status {
 
 sub get_job {
 	my ( $self, $job_id ) = @_;
-	my $sql = $self->{'db'}->prepare("SELECT *,extract(epoch FROM now() - start_time) AS elapsed,extract(epoch FROM "
-	 . "stop_time - start_time) AS total_time FROM jobs WHERE id=?");
+	my $sql =
+	  $self->{'db'}->prepare( "SELECT *,extract(epoch FROM now() - start_time) AS elapsed,extract(epoch FROM "
+		  . "stop_time - start_time) AS total_time FROM jobs WHERE id=?" );
 	eval { $sql->execute($job_id); };
 	if ($@) {
 		$logger->error($@);
@@ -198,7 +199,7 @@ sub get_job {
 	}
 	my $job = $sql->fetchrow_hashref;
 	$sql = $self->{'db'}->prepare("SELECT key,value FROM params WHERE job_id=?");
-	my ($params,$output);
+	my ( $params, $output );
 	eval { $sql->execute( $job->{'id'} ) };
 	if ($@) {
 		$logger->error($@);
@@ -219,6 +220,20 @@ sub get_job {
 	return ( $job, $params, $output );
 }
 
+sub get_jobs_ahead_in_queue {
+	my ( $self, $job_id ) = @_;
+	my $sql =
+	  $self->{'db'}
+	  ->prepare( "SELECT count(*) FROM jobs where status='submitted' AND submit_time < " . "(SELECT submit_time FROM jobs WHERE id=?)" );
+	eval { $sql->execute($job_id) };
+	if ($@) {
+		$logger->error($@);
+		return;
+	}
+	my ($jobs) = $sql->fetchrow_array;
+	return $jobs;
+}
+
 sub get_next_job_id {
 	my ($self) = @_;
 	my $sql = $self->{'db'}->prepare("SELECT id FROM jobs WHERE status='submitted' ORDER BY priority asc,submit_time asc LIMIT 1");
@@ -230,5 +245,4 @@ sub get_next_job_id {
 	my ($job) = $sql->fetchrow_array;
 	return $job;
 }
-
 1;

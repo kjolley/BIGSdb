@@ -85,6 +85,15 @@ sub print_content {
 	( my $start_time = $job->{'start_time'} ? $job->{'start_time'} : '' ) =~ s/\.\d+$//;
 	( my $stop_time  = $job->{'stop_time'}  ? $job->{'stop_time'}  : '' ) =~ s/\.\d+$//;
 	$job->{'percent_complete'} = 'indeterminate ' if $job->{'percent_complete'} == -1;
+	if ($job->{'status'} eq 'submitted'){
+		my $jobs_in_queue = $self->{'jobManager'}->get_jobs_ahead_in_queue($id);
+		if ($jobs_in_queue){
+			my $plural = $jobs_in_queue == 1 ? '' : 's';
+			$job->{'status'} .= " ($jobs_in_queue unstarted job$plural ahead in queue)";
+		} else {
+			$job->{'status'} .= " (first in queue)";
+		}
+	}
 	print << "HTML";
 <div class="box" id="resultstable">
 <h2>Status</h2>
