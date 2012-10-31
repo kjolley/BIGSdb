@@ -115,7 +115,7 @@ sub run {
 	open( my $fh_output_table, '>>', "$self->{'config'}->{'tmp_dir'}/$out_file_table" )
 	  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$out_file_table for writing");
 	say $fh_output_table
-	  "Isolate id\t$display_label\t% identity\tAlignment length\tMismatches\tGaps\tSeqbin id\tStart\tEnd\tOrientation\tE-value\tBig score";
+	  "Isolate id\t$display_label\t% identity\tAlignment length\tMismatches\tGaps\tSeqbin id\tStart\tEnd\tOrientation\tE-value\tBit score";
 	close $fh_output_table;
 
 	foreach my $id (@ids) {
