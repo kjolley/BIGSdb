@@ -71,6 +71,22 @@ ON UPDATE CASCADE
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON set_metadata TO apache;
 
+CREATE TABLE set_view (
+set_id int NOT NULL,
+view text NOT NULL,
+curator int NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY(set_id, view),
+CONSTRAINT sv_set_id FOREIGN KEY (set_id) REFERENCES sets
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT sv_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE NO ACTION
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON set_view TO apache;
+
 ALTER TABLE loci ADD COLUMN match_longest boolean;
 ALTER TABLE loci ADD COLUMN formatted_name text;
 ALTER TABLE loci ADD COLUMN formatted_common_name text;
