@@ -856,6 +856,12 @@ sub get_set_id {
 		my $set_id = $self->{'system'}->{'set_id'} // $self->{'prefs'}->{'set_id'};
 		return $set_id if $set_id && BIGSdb::Utils::is_int($set_id);
 	}
+	if (!$self->{'curate'} && ($self->{'system'}->{'only_sets'} // '') eq 'yes'){
+		if (!$self->{'cache'}->{'set_list'}){
+			$self->{'cache'}->{'set_list'} = $self->{'datastore'}->run_list_query("SELECT id FROM sets");
+		}
+		return $self->{'cache'}->{'set_list'}->[0] if @{$self->{'cache'}->{'set_list'}} == 1;
+	}
 	return;
 }
 
@@ -1636,7 +1642,7 @@ sub initiate_view {
 	if ( $self->{'system'}->{'view'} eq 'isolates' && $set_id ) {
 		if ( $self->{'system'}->{'views'} && BIGSdb::Utils::is_int($set_id) ) {
 			my $view_ref = $self->{'datastore'}->run_simple_query( "SELECT view FROM set_view WHERE set_id=?", $set_id );
-			$self->{'system'}->{'view'} = ref $view_ref eq 'ARRAY' ? $view_ref->[0] : undef;
+			$self->{'system'}->{'view'} = $view_ref->[0] if ref $view_ref eq 'ARRAY';
 		}
 	}
 	if ( $username && ( $self->{'system'}->{'read_access'} eq 'acl' || ( ( $self->{'system'}->{'write_access'} // '' ) eq 'acl' ) ) ) {

@@ -585,7 +585,7 @@ sub get_scheme_list {
 			  . "schemes.description";
 		} else {
 			$qry =
-			    "SELECT schemes.id,set_schemes.set_name,schemes.description,schemes.display_order FROM set_schemes "
+			    "SELECT DISTINCT schemes.id,set_schemes.set_name,schemes.description,schemes.display_order FROM set_schemes "
 			  . "LEFT JOIN schemes ON set_schemes.scheme_id=schemes.id AND schemes.id IN (SELECT scheme_id FROM set_schemes WHERE "
 			  . "set_id=$options->{'set_id'}) WHERE schemes.id IS NOT NULL ORDER BY schemes.display_order,schemes.description";
 		}

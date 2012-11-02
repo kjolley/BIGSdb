@@ -189,7 +189,7 @@ sub _print_set_section {
 	my $guid = $self->get_guid;
 	return if !$guid; #Cookies disabled
 	my $sets = $self->{'datastore'}->run_list_query_hashref("SELECT * FROM sets ORDER BY description");
-	return if !@$sets;
+	return if !@$sets || (@$sets == 1 && ($self->{'system'}->{'only_sets'} // '') eq 'yes');
 	say "<div class=\"box\" id=\"sets\">";
 	print << "SETS";
 <div class="scrollable">	
@@ -200,7 +200,11 @@ sub _print_set_section {
 SETS
 	say $q->start_form;
 	say "<label for=\"sets_list\">Please select: </label>";	
-	my @set_ids = (0);
+	
+	my @set_ids;
+	if (($self->{'system'}->{'only_sets'} // '') ne 'yes'){
+		push @set_ids, 0;
+	}
 	my %labels = (0 => 'Whole database');
 	foreach my $set (@$sets){
 		push @set_ids, $set->{'id'};
