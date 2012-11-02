@@ -294,6 +294,7 @@ sub print_content {
 		}
 	}
 	$plugin->initiate_prefs;
+	$plugin->initiate_view($self->{'username'}, $self->{'curate'});
 	$plugin->run;
 	return;
 }

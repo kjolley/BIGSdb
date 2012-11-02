@@ -64,7 +64,6 @@ sub new {    ## no critic
 	bless( $self, $class );
 	$self->initiate;
 	$self->set_pref_requirements;
-	$self->_initiate_view( $self->{'username'}, $self->{'curate'} );
 	return $self;
 }
 
@@ -143,6 +142,7 @@ sub print_page_content {
 		}
 	} else {
 		$self->initiate_prefs;
+		$self->initiate_view( $self->{'username'}, $self->{'curate'} );
 	}
 	if ( $self->{'type'} ne 'xhtml' ) {
 		my %atts;
@@ -1629,9 +1629,17 @@ sub _initiate_isolatedb_prefs {
 	return;
 }
 
-sub _initiate_view {
+sub initiate_view {
 	my ( $self, $username, $curate ) = @_;
-	if ( $self->{'system'}->{'read_access'} eq 'acl' || ( ( $self->{'system'}->{'write_access'} // '' ) eq 'acl' ) ) {
+	return if !$self->{'system'}->{'dbtype'} eq 'isolates';
+	my $set_id = $self->get_set_id;
+	if ( $self->{'system'}->{'view'} eq 'isolates' && $set_id ) {
+		if ( $self->{'system'}->{'views'} && BIGSdb::Utils::is_int($set_id) ) {
+			my $view_ref = $self->{'datastore'}->run_simple_query( "SELECT view FROM set_view WHERE set_id=?", $set_id );
+			$self->{'system'}->{'view'} = ref $view_ref eq 'ARRAY' ? $view_ref->[0] : undef;
+		}
+	}
+	if ( $username && ( $self->{'system'}->{'read_access'} eq 'acl' || ( ( $self->{'system'}->{'write_access'} // '' ) eq 'acl' ) ) ) {
 
 		#create view containing only isolates that are allowed to be viewed by user
 		my $status_ref = $self->{'datastore'}->run_simple_query( "SELECT status FROM users WHERE user_name=?", $username );
@@ -1646,14 +1654,12 @@ id IN (SELECT isolate_id FROM isolate_usergroup_acl LEFT JOIN user_group_members
 ON user_group_members.user_group=isolate_usergroup_acl.user_group_id LEFT JOIN users 
 ON user_group_members.user_id=users.id WHERE users.user_name ='$username' AND read$write_clause)
 SQL
-		if ($username) {
-			eval { $self->{'db'}->do("CREATE TEMP VIEW tmp_userview AS $view_clause") };
-			if ($@) {
-				$logger->error("Can't create user view $@");
-				$self->{'db'}->rollback;
-			} else {
-				$self->{'system'}->{'view'} = 'tmp_userview';
-			}
+		eval { $self->{'db'}->do("CREATE TEMP VIEW tmp_userview AS $view_clause") };
+		if ($@) {
+			$logger->error("Can't create user view $@");
+			$self->{'db'}->rollback;
+		} else {
+			$self->{'system'}->{'view'} = 'tmp_userview';
 		}
 	}
 	return;
