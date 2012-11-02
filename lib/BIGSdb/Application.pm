@@ -203,36 +203,6 @@ sub _initiate_authdb {
 	return;
 }
 
-sub initiate_view {
-
-	#create view containing only isolates that are allowed to be viewed by user
-	my ( $self, $attributes ) = @_;
-	my $logger     = get_logger('BIGSdb.Application_Initiate');
-	my $username   = $attributes->{'username'};
-	my $status_ref = $self->{'datastore'}->run_simple_query( "SELECT status FROM users WHERE user_name=?", $username );
-	return if ref $status_ref ne 'ARRAY' || $status_ref->[0] eq 'admin';
-
-	#You need to be able to read and write to a record to view it in the curator's interface
-	my $write_clause = $attributes->{'curate'} ? ' AND write=true' : '';
-	my $view_clause = << "SQL";
-SELECT * FROM $self->{'system'}->{'view'} WHERE id IN (SELECT isolate_id FROM isolate_user_acl 
-LEFT JOIN users ON isolate_user_acl.user_id = users.id WHERE user_name='$username' AND read$write_clause) OR 
-id IN (SELECT isolate_id FROM isolate_usergroup_acl LEFT JOIN user_group_members 
-ON user_group_members.user_group=isolate_usergroup_acl.user_group_id LEFT JOIN users 
-ON user_group_members.user_id=users.id WHERE users.user_name ='$username' AND read$write_clause)
-SQL
-	if ($username) {
-		eval { $self->{'db'}->do("CREATE TEMP VIEW tmp_userview AS $view_clause") };
-		if ($@) {
-			$logger->error("Can't create user view $@");
-			$self->{'db'}->rollback;
-		} else {
-			$self->{'system'}->{'view'} = 'tmp_userview';
-		}
-	}
-	return;
-}
-
 sub initiate_plugins {
 	my ( $self, $plugin_dir ) = @_;
 	$self->{'pluginManager'} = BIGSdb::PluginManager->new(
@@ -439,10 +409,6 @@ sub print_page {
 		( $continue, $auth_cookies_ref ) = $self->authenticate( \%page_attributes );
 	}
 	return if !$continue;
-	if ( $self->{'system'}->{'read_access'} eq 'acl' ) {
-		$self->initiate_view( \%page_attributes );    #replace current view with one containing only isolates viewable by user
-		$page_attributes{'system'} = $self->{'system'};
-	}
 	if ( $self->{'page'} eq 'options'
 		&& ( $self->{'cgi'}->param('set') || $self->{'cgi'}->param('reset') ) )
 	{

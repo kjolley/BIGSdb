@@ -152,12 +152,6 @@ sub print_page {
 		( $continue, $auth_cookies_ref ) = $self->authenticate( \%page_attributes );
 	}
 	return if !$continue;
-	if ( $self->{'system'}->{'read_access'} eq 'acl'
-		|| ( defined $self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl' ) )
-	{
-		$self->initiate_view( \%page_attributes );    #replace current view with one containing only isolates viewable by user
-		$page_attributes{'system'} = $self->{'system'};
-	}
 	my $user_status;
 	eval {
 		$user_status =

@@ -64,6 +64,7 @@ sub new {    ## no critic
 	bless( $self, $class );
 	$self->initiate;
 	$self->set_pref_requirements;
+	$self->_initiate_view( $self->{'username'}, $self->{'curate'} );
 	return $self;
 }
 
@@ -634,7 +635,7 @@ sub get_filter {
 	( my $text = $options->{'text'} || $name ) =~ tr/_/ /;
 	my ( $label, $title ) = $self->_get_truncated_label("$text: ");
 	my $title_attribute = $title ? "title=\"$title\"" : '';
-	(my $id = "$name\_list") =~ tr/:/_/;
+	( my $id = "$name\_list" ) =~ tr/:/_/;
 	my $buffer = "<label for=\"$id\" class=\"$class\" $title_attribute>$label</label>\n";
 	unshift @$values, '' if !$options->{'noblank'};
 	$buffer .=
@@ -991,7 +992,7 @@ sub get_record_name {
 		'set_loci'                          => 'set member locus',
 		'set_schemes'                       => 'set member schemes',
 		'set_metadata'                      => 'set metadata',
-		'set_view'							=> 'database view linked to set'
+		'set_view'                          => 'database view linked to set'
 	);
 	return $names{$table};
 }
@@ -1622,6 +1623,36 @@ sub _initiate_isolatedb_prefs {
 				$self->{'prefs'}->{'dropdownfields'}->{$field} = $field_prefs->{$field}->{'dropdown'};
 			} else {
 				$self->{'prefs'}->{'dropdownfields'}->{$field} = $self->{'prefs'}->{'query_status_schemes'}->{$scheme_id};
+			}
+		}
+	}
+	return;
+}
+
+sub _initiate_view {
+	my ( $self, $username, $curate ) = @_;
+	if ( $self->{'system'}->{'read_access'} eq 'acl' || ( ( $self->{'system'}->{'write_access'} // '' ) eq 'acl' ) ) {
+
+		#create view containing only isolates that are allowed to be viewed by user
+		my $status_ref = $self->{'datastore'}->run_simple_query( "SELECT status FROM users WHERE user_name=?", $username );
+		return if ref $status_ref ne 'ARRAY' || $status_ref->[0] eq 'admin';
+
+		#You need to be able to read and write to a record to view it in the curator's interface
+		my $write_clause = $curate ? ' AND write=true' : '';
+		my $view_clause = << "SQL";
+SELECT * FROM $self->{'system'}->{'view'} WHERE id IN (SELECT isolate_id FROM isolate_user_acl 
+LEFT JOIN users ON isolate_user_acl.user_id = users.id WHERE user_name='$username' AND read$write_clause) OR 
+id IN (SELECT isolate_id FROM isolate_usergroup_acl LEFT JOIN user_group_members 
+ON user_group_members.user_group=isolate_usergroup_acl.user_group_id LEFT JOIN users 
+ON user_group_members.user_id=users.id WHERE users.user_name ='$username' AND read$write_clause)
+SQL
+		if ($username) {
+			eval { $self->{'db'}->do("CREATE TEMP VIEW tmp_userview AS $view_clause") };
+			if ($@) {
+				$logger->error("Can't create user view $@");
+				$self->{'db'}->rollback;
+			} else {
+				$self->{'system'}->{'view'} = 'tmp_userview';
 			}
 		}
 	}
