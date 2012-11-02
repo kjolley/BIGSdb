@@ -990,7 +990,8 @@ sub get_record_name {
 		'sets'                              => 'set',
 		'set_loci'                          => 'set member locus',
 		'set_schemes'                       => 'set member schemes',
-		'set_metadata'                      => 'set metadata'
+		'set_metadata'                      => 'set metadata',
+		'set_view'							=> 'database view linked to set'
 	);
 	return $names{$table};
 }

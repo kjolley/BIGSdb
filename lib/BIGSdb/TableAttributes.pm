@@ -1499,6 +1499,33 @@ sub get_set_metadata_table_attributes {
 	return $attributes;
 }
 
+sub get_set_view_table_attributes {
+	my ($self) = @_;
+	my @views = split /,/, $self->{'system'}->{'views'};
+	local $" = ';';
+	my $attributes = [
+		{
+			name           => 'set_id',
+			type           => 'int',
+			required       => 'yes',
+			primary_key    => 'yes',
+			foreign_key    => 'sets',
+			labels         => '|$description|',
+			dropdown_query => 'yes'
+		},
+		{
+			name           => 'view',
+			type           => 'text',
+			required       => 'yes',
+			optlist        => "@views",
+			dropdown_query => 'yes'
+		},
+		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' },
+	];
+	return $attributes;
+}
+
 sub get_samples_table_attributes {
 	my ($self) = @_;
 	my $fields = $self->{'xmlHandler'}->get_sample_field_list;

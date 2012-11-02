@@ -76,7 +76,7 @@ set_id int NOT NULL,
 view text NOT NULL,
 curator int NOT NULL,
 datestamp date NOT NULL,
-PRIMARY KEY(set_id, view),
+PRIMARY KEY(set_id),
 CONSTRAINT sv_set_id FOREIGN KEY (set_id) REFERENCES sets
 ON DELETE CASCADE
 ON UPDATE CASCADE,

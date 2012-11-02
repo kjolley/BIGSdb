@@ -125,11 +125,6 @@ HTML
 			push @tables, qw(locus_aliases pcr pcr_locus probes probe_locus isolate_field_extended_attributes composite_fields);
 		} elsif ( $system->{'dbtype'} eq 'sequences' ) {
 			push @tables, qw(locus_extended_attributes client_dbases client_dbase_loci client_dbase_schemes client_dbase_loci_fields);
-
-			#			my $client_db_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM client_dbases")->[0];
-			#			if ( !$client_db_count ) {
-			#				push @skip_table, qw (client_dbase_loci client_dbase_schemes client_dbase_loci_fields);
-			#			}
 		}
 		if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
 			push @tables, 'sets';
@@ -139,6 +134,7 @@ HTML
 				if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 					my $metadata_list = $self->{'xmlHandler'}->get_metadata_list;
 					push @tables, 'set_metadata' if @$metadata_list;
+					push @tables, 'set_view' if $self->{'system'}->{'views'};
 				}
 			}
 		}
@@ -403,6 +399,11 @@ sub _print_set_schemes {
 sub _print_set_metadata {
 	my ( $self, $td ) = @_;
 	return $self->_print_table( 'set_metadata', $td, { comments => 'Add metadata collection to sets.' } );
+}
+
+sub _print_set_view {
+	my ( $self, $td ) = @_;
+	return $self->_print_table( 'set_view', $td, { comments => 'Set database views linked to sets.' } );
 }
 
 sub _print_sequence_refs {
