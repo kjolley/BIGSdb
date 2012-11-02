@@ -196,8 +196,9 @@ sub _print_set_section {
 <div style="float:left; margin-right:1em">
 <img src="/images/icons/64x64/choose.png" alt="" />
 <h2>Datasets</h2>
-<p>This database contains multiple datasets.  You can choose to display a single set or the whole database.</p>
+<p>This database contains multiple datasets.  
 SETS
+	print (($self->{'system'}->{'only_sets'} // '') eq 'yes' ? '</p>' : 'You can choose to display a single set or the whole database.</p>');
 	say $q->start_form;
 	say "<label for=\"sets_list\">Please select: </label>";	
 	
