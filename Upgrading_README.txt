@@ -7,6 +7,7 @@ Version 1.2: Change of isolate database structure. New package 'exonerate'
 Version 1.3: Change of isolate and seqdef database structures.  Ensure 
              jstree.js is upgraded.
 Version 1.4: Change of isolate, seqdef, and job database structures.
+Version 1.5: Change of isolate and seqdef database structures.
 
 Details can be found below.
 
@@ -110,3 +111,23 @@ allele sequences.
 defined to support materialized views of scheme data.
 6) The bigsdb_jobs database has a new field called stage added to the jobs
 table.  This is to support status messages during a job run.
+
+Version 1.5
+-----------
+There are changes to the isolate and sequence definition database structures.
+Please run the isolatedb_v1.5.sql and seqdefdb_v1.5.sql, found in the sql/
+upgrade directory, against your databases.
+
+Changes to the database structures are detailed below:
+
+1) There are new tables in both the isolate and seqdef databases to support
+dataset partitions: sets, set_loci, set_schemes, set_metadata.  The isolate
+database has one extra table to handle database views: set_view.
+2) There is a new field in the isolate database loci table, match_longest, 
+that when true specifies that a BLAST search for tagging will only return the
+best (longest) match.
+3) There are two new fields in the loci table of both isolate and seqdef
+databases, formatted_name and formatted_common_name, where the isolate name
+can be formatted using HTML attributes for display in the website.
+
+
