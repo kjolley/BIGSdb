@@ -57,7 +57,7 @@ sub print_content {
 	my $system      = $self->{'system'};
 	my $q           = $self->{'cgi'};
 	my $desc        = $self->get_db_description;
-	say "<h1>Welcome to the $desc database</h1>";
+	say "<h1>$desc database</h1>";
 	$self->print_banner;
 	my $set_id = $self->get_set_id;
 	if (($self->{'system'}->{'sets'} // '') eq 'yes'){

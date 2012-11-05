@@ -129,12 +129,14 @@ sub print_page_content {
 	$" = ' ';    ##no critic #ensure reset when running under mod_perl
 	if ( $q->param('page') && $q->param('page') eq 'plugin' ) {
 
-		#need to determine if tooltips should be displayed since this is set in the <HEAD>;
+		#need to determine if tooltips should be displayed since this is set in the <HEAD>.  Also need to define set_id
+		#since this is needed to determine page title (other prefs are read later but these are needed early).
 		if ( $self->{'prefstore'} ) {
 			my $guid = $self->get_guid;
 			try {
 				$self->{'prefs'}->{'tooltips'} =
-				  $self->{'prefstore'}->get_tooltips_pref( $guid, $self->{'system'}->{'db'} ) eq 'on' ? 1 : 0;
+				  ( $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'tooltips' ) // '' ) eq 'off' ? 0 : 1;
+				$self->{'prefs'}->{'set_id'} = $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'set_id' );
 			}
 			catch BIGSdb::DatabaseNoRecordException with {
 				$self->{'prefs'}->{'tooltips'} = 1;
@@ -856,11 +858,11 @@ sub get_set_id {
 		my $set_id = $self->{'system'}->{'set_id'} // $self->{'prefs'}->{'set_id'};
 		return $set_id if $set_id && BIGSdb::Utils::is_int($set_id);
 	}
-	if (!$self->{'curate'} && ($self->{'system'}->{'only_sets'} // '') eq 'yes'){
-		if (!$self->{'cache'}->{'set_list'}){
+	if ( !$self->{'curate'} && ( $self->{'system'}->{'only_sets'} // '' ) eq 'yes' ) {
+		if ( !$self->{'cache'}->{'set_list'} ) {
 			$self->{'cache'}->{'set_list'} = $self->{'datastore'}->run_list_query("SELECT id FROM sets ORDER BY display_order,description");
 		}
-		return $self->{'cache'}->{'set_list'}->[0] if @{$self->{'cache'}->{'set_list'}};
+		return $self->{'cache'}->{'set_list'}->[0] if @{ $self->{'cache'}->{'set_list'} };
 	}
 	return;
 }
@@ -877,13 +879,12 @@ sub extract_scheme_desc {
 
 sub get_db_description {
 	my ($self) = @_;
-	my $desc;
+	my $desc   = $self->{'system'}->{'description'};
 	my $set_id = $self->get_set_id;
 	if ($set_id) {
 		my $desc_ref = $self->{'datastore'}->run_simple_query( "SELECT description FROM sets WHERE id=?", $set_id );
-		$desc = $desc_ref->[0] if ref $desc_ref eq 'ARRAY';
+		$desc .= ' (' . $desc_ref->[0] . ')' if ref $desc_ref eq 'ARRAY';
 	}
-	$desc = $self->{'system'}->{'description'} if !defined $desc;
 	$desc =~ s/\&/\&amp;/g;
 	return $desc;
 }

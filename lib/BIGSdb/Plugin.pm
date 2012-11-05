@@ -301,7 +301,7 @@ sub print_content {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc        = $self->{'system'}->{'description'} || 'BIGSdb';
+	my $desc        = $self->get_db_description || 'BIGSdb';
 	my $plugin_name = $self->{'cgi'}->param('name');
 	my $att         = $self->{'pluginManager'}->get_plugin_attributes($plugin_name);
 	if ( $att->{'menutext'} ) {
