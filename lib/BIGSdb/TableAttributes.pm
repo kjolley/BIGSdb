@@ -1416,6 +1416,7 @@ sub get_sets_table_attributes {
 		{ name => 'id',               type => 'int',  required => 'yes', primary_key    => 'yes' },
 		{ name => 'description',      type => 'text', required => 'yes', length         => 40 },
 		{ name => 'long_description', type => 'text', length   => 256 },
+		{ name => 'display_order',    type => 'int' },
 		{ name => 'curator',          type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp',        type => 'date', required => 'yes' },
 	];

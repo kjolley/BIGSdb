@@ -858,9 +858,9 @@ sub get_set_id {
 	}
 	if (!$self->{'curate'} && ($self->{'system'}->{'only_sets'} // '') eq 'yes'){
 		if (!$self->{'cache'}->{'set_list'}){
-			$self->{'cache'}->{'set_list'} = $self->{'datastore'}->run_list_query("SELECT id FROM sets");
+			$self->{'cache'}->{'set_list'} = $self->{'datastore'}->run_list_query("SELECT id FROM sets ORDER BY display_order,description");
 		}
-		return $self->{'cache'}->{'set_list'}->[0] if @{$self->{'cache'}->{'set_list'}} == 1;
+		return $self->{'cache'}->{'set_list'}->[0] if @{$self->{'cache'}->{'set_list'}};
 	}
 	return;
 }
@@ -1637,7 +1637,7 @@ sub _initiate_isolatedb_prefs {
 
 sub initiate_view {
 	my ( $self, $username, $curate ) = @_;
-	return if !$self->{'system'}->{'dbtype'} eq 'isolates';
+	return if $self->{'system'}->{'dbtype'} ne 'isolates';
 	my $set_id = $self->get_set_id;
 	if ( $self->{'system'}->{'view'} eq 'isolates' && $set_id ) {
 		if ( $self->{'system'}->{'views'} && BIGSdb::Utils::is_int($set_id) ) {

@@ -626,6 +626,7 @@ CREATE TABLE sets (
 id int NOT NULL,
 description text NOT NULL,
 long_description text,
+display_order int,
 curator int NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY(id),

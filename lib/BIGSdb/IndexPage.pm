@@ -188,7 +188,7 @@ sub _print_set_section {
 	return if $self->{'system'}->{'set_id'} && BIGSdb::Utils::is_int($self->{'system'}->{'set_id'});
 	my $guid = $self->get_guid;
 	return if !$guid; #Cookies disabled
-	my $sets = $self->{'datastore'}->run_list_query_hashref("SELECT * FROM sets ORDER BY description");
+	my $sets = $self->{'datastore'}->run_list_query_hashref("SELECT * FROM sets ORDER BY display_order,description");
 	return if !@$sets || (@$sets == 1 && ($self->{'system'}->{'only_sets'} // '') eq 'yes');
 	say "<div class=\"box\" id=\"sets\">";
 	print << "SETS";
