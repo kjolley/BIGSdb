@@ -689,9 +689,10 @@ sub _is_field_bad_isolates {
 	$thisfield->{'type'} ||= 'text';
 	my $set_id = $self->get_set_id;
 	$thisfield->{'required'} = 'no' if !$set_id && $fieldname =~ /^meta_/;    #Field can't be compulsory if part of a metadata collection.
-	#If field is null make sure it's not a required field
+	                                                                          #If field is null make sure it's not a required field
+
 	if ( $value eq '' ) {
-		if (   $fieldname ~~ [qw(aliases references)] || ( ($thisfield->{'required'} // '') eq 'no' ) ){
+		if ( $fieldname ~~ [qw(aliases references)] || ( ( $thisfield->{'required'} // '' ) eq 'no' ) ) {
 			return 0;
 		} else {
 			return 'is a required field and cannot be left blank.';
@@ -754,7 +755,7 @@ sub _is_field_bad_isolates {
 	}
 
 	#make sure date fields really are dates in correct format
-	if ( $thisfield->{'type'} eq 'date' && !BIGSdb::Utils::is_date($value)  ) {
+	if ( $thisfield->{'type'} eq 'date' && !BIGSdb::Utils::is_date($value) ) {
 		return "must be a valid date in yyyy-mm-dd format";
 	}
 	if (   $flag
@@ -962,15 +963,15 @@ sub promote_pending_allele_designation {
 	my $pending_designations_ref = $self->{'datastore'}->get_pending_allele_designations( $isolate_id, $locus );
 	return if !@$pending_designations_ref;
 	my $pending    = $pending_designations_ref->[0];
-	my $curator_id = $self->get_curator_id();
+	my $curator_id = $self->get_curator_id;
 	$locus =~ s/'/\\'/g;
+	$pending->{'comments'} //= '';
 	eval {
-		$self->{'db'}->do(
-"INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp,comments) VALUES ($pending->{'isolate_id'},E'$pending->{'locus'}','$pending->{'allele_id'}',$pending->{'sender'},'provisional','$pending->{'method'}',$curator_id,'$pending->{'date_entered'}','now','$pending->{'comments'}')"
-		);
-		$self->{'db'}->do(
-"DELETE FROM pending_allele_designations WHERE isolate_id=$isolate_id AND locus=E'$locus' AND allele_id='$pending->{'allele_id'}' AND sender=$pending->{'sender'} AND method='$pending->{'method'}'"
-		);
+		$self->{'db'}->do( "INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,"
+			  . "datestamp,comments) VALUES ($pending->{'isolate_id'},E'$pending->{'locus'}','$pending->{'allele_id'}',$pending->{'sender'},"
+			  . "'provisional','$pending->{'method'}',$curator_id,'$pending->{'date_entered'}','now','$pending->{'comments'}')" );
+		$self->{'db'}->do( "DELETE FROM pending_allele_designations WHERE isolate_id=$isolate_id AND locus=E'$locus' AND "
+			  . "allele_id='$pending->{'allele_id'}' AND sender=$pending->{'sender'} AND method='$pending->{'method'}'" );
 	};
 	if ($@) {
 		$logger->error($@);

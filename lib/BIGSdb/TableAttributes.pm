@@ -1502,7 +1502,7 @@ sub get_set_metadata_table_attributes {
 
 sub get_set_view_table_attributes {
 	my ($self) = @_;
-	my @views = split /,/, $self->{'system'}->{'views'};
+	my @views = $self->{'system'}->{'views'} ? (split /,/, $self->{'system'}->{'views'}) : ();
 	local $" = ';';
 	my $attributes = [
 		{
