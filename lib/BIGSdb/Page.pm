@@ -578,6 +578,7 @@ sub print_file {
 	my $lociAdd;
 	my $loci;
 	my $set_id = $self->get_set_id;
+	my $set_string = $set_id ? "&amp;set_id=$set_id" : '';
 	if ( $self->{'curate'} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		if ( $self->is_admin ) {
 			my $qry = "SELECT id FROM loci";
@@ -620,6 +621,9 @@ sub print_file {
 				} else {
 s/\$lociAdd/<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=sequences">Add<\/a>/;
 				}
+			}
+			if (!$self->{'curate'} && $set_id){
+				s/(bigsdb\.pl.*page=.+?)"/$1$set_string"/g;
 			}
 			print;
 		}

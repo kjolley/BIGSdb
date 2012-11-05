@@ -60,6 +60,7 @@ sub print_content {
 	say "<h1>$desc database</h1>";
 	$self->print_banner;
 	my $set_id = $self->get_set_id;
+	my $set_string = $set_id ? "&amp;set_id=$set_id" : ''; #append to URLs to ensure unique caching.
 	if (($self->{'system'}->{'sets'} // '') eq 'yes'){
 		$self->_print_set_section;
 	}
@@ -77,22 +78,22 @@ HTML
 	my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
 
 	if ( $system->{'dbtype'} eq 'isolates' ) {
-		say "<li><a href=\"$script_name?db=$instance&amp;page=query\">Search database</a> - advanced queries.</li>\n"
-		  . "<li><a href=\"$script_name?db=$instance&amp;page=browse\">Browse database</a> - peruse all records.</li>";
+		say "<li><a href=\"$script_name?db=$instance&amp;page=query$set_string\">Search database</a> - advanced queries.</li>\n"
+		  . "<li><a href=\"$script_name?db=$instance&amp;page=browse$set_string\">Browse database</a> - peruse all records.</li>";
 	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
-		say "<li><a href=\"$script_name?db=$instance&amp;page=sequenceQuery\">Sequence query</a> - query an allele sequence.</li>\n"
-		  . "<li><a href=\"$script_name?db=$instance&amp;page=batchSequenceQuery\">Batch sequence query</a> - query multiple sequences "
+		say "<li><a href=\"$script_name?db=$instance&amp;page=sequenceQuery$set_string\">Sequence query</a> - query an allele sequence.</li>\n"
+		  . "<li><a href=\"$script_name?db=$instance&amp;page=batchSequenceQuery$set_string\">Batch sequence query</a> - query multiple sequences "
 		  . "in FASTA format.</li>\n"
-		  . "<li><a href=\"$script_name?db=$instance&amp;page=alleleQuery\">Sequence attribute search</a> - find alleles by matching "
+		  . "<li><a href=\"$script_name?db=$instance&amp;page=alleleQuery$set_string\">Sequence attribute search</a> - find alleles by matching "
 		  . "attributes.</li>";
 		if ( @$scheme_data == 1 ) {
 			foreach (@$scheme_data) {
 				print <<"HTML";
-<li><a href="$script_name?db=$instance&amp;page=browse&amp;scheme_id=$_->{'id'}">Browse $_->{'description'} profiles</a></li>
-<li><a href="$script_name?db=$instance&amp;page=query&amp;scheme_id=$_->{'id'}">Search $_->{'description'} profiles</a></li>
-<li><a href="$script_name?db=$instance&amp;page=listQuery&amp;scheme_id=$_->{'id'}">List</a> - find $_->{'description'} 
+<li><a href="$script_name?db=$instance&amp;page=browse&amp;scheme_id=$_->{'id'}$set_string">Browse $_->{'description'} profiles</a></li>
+<li><a href="$script_name?db=$instance&amp;page=query&amp;scheme_id=$_->{'id'}$set_string">Search $_->{'description'} profiles</a></li>
+<li><a href="$script_name?db=$instance&amp;page=listQuery&amp;scheme_id=$_->{'id'}$set_string">List</a> - find $_->{'description'} 
 profiles matched to entered list</li>
-<li><a href="$script_name?db=$instance&amp;page=batchProfiles&amp;scheme_id=$_->{'id'}">Batch profile query</a> - lookup 
+<li><a href="$script_name?db=$instance&amp;page=batchProfiles&amp;scheme_id=$_->{'id'}$set_string">Batch profile query</a> - lookup 
 $_->{'description'} profiles copied from a spreadsheet.</li>
 HTML
 			}
@@ -144,19 +145,19 @@ TOOLTIPS
 				foreach (@$scheme_data) {
 					$desc =~ s/\&/\&amp;/g;
 					$buffer .= $i ? '| ' : '<li>';
-					$buffer .= "<a href=\"$script_name?db=$instance&amp;page=profiles&amp;scheme_id=$_->{'id'}\">$_->{'description'}</a>\n";
+					$buffer .= "<a href=\"$script_name?db=$instance&amp;page=profiles&amp;scheme_id=$_->{'id'}$set_string\">$_->{'description'}</a>\n";
 					$i++;
 				}
 				$buffer .= "</li>" if $buffer;
 				say $buffer if $buffer;
 			}
-			say "<li><a href=\"$script_name?db=$instance&amp;page=profiles&amp;scheme_id=0\">All loci</a></li>";
+			say "<li><a href=\"$script_name?db=$instance&amp;page=profiles&amp;scheme_id=0$set_string\">All loci</a></li>";
 			say "</ul>\n</li>";
 		} elsif ( $system->{'dbtype'} eq 'sequences' && @$scheme_data == 1 ) {
 			my $buffer;
 			my $first = 1;
 			my $i     = 0;
-			$buffer .= "<li><a href=\"$script_name?db=$instance&amp;page=profiles&amp;scheme_id=$scheme_data->[0]->{'id'}\">"
+			$buffer .= "<li><a href=\"$script_name?db=$instance&amp;page=profiles&amp;scheme_id=$scheme_data->[0]->{'id'}$set_string\">"
 			  . "Search by combinations of $scheme_data->[0]->{'description'} alleles</a> - including partial matching.";
 			$buffer .= "</li>" if $buffer;
 			$buffer .= "</ul>\n</li>" if $buffer && @$scheme_data > 1;
@@ -164,7 +165,7 @@ TOOLTIPS
 		}
 	}
 	if ( $system->{'dbtype'} eq 'isolates' ) {
-		say "<li><a href=\"$script_name?db=$instance&amp;page=listQuery\">List query</a> - find isolates by matching "
+		say "<li><a href=\"$script_name?db=$instance&amp;page=listQuery$set_string\">List query</a> - find isolates by matching "
 		  . "a field to an entered list.</li>";
 		my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
 		if (@$sample_fields) {
@@ -264,21 +265,23 @@ DOWNLOADS
 
 sub _print_options_section {
 	my ($self) = @_;
+	my $set_id = $self->get_set_id;
+	my $set_string = $set_id ? "&amp;set_id=$set_id" : '';
 	print << "OPTIONS";
 <div style="float:left; margin-right:1em">
 <img src="/images/icons/64x64/preferences.png" alt="" />
 <h2>Option settings</h2>
 <ul class="toplevel">
-<li><a href="$self->{'system'}->{'script_name'}?page=options&amp;db=$self->{'instance'}">
+<li><a href="$self->{'system'}->{'script_name'}?page=options&amp;db=$self->{'instance'}$set_string">
 Set general options</a>
 OPTIONS
 	say " - including isolate table field handling" if $self->{'system'}->{'dbtype'} eq 'isolates';
 	say "</li>";
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		say "<li>Set display and query options for <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
-		  . "page=tableQuery&amp;table=loci\">locus</a>, <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
-		  . "page=tableQuery&amp;table=schemes\">schemes</a> or <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
-		  . "page=tableQuery&amp;table=scheme_fields\">scheme fields</a>.</li>";
+		  . "page=tableQuery&amp;table=loci$set_string\">locus</a>, <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
+		  . "page=tableQuery&amp;table=schemes$set_string\">schemes</a> or <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
+		  . "page=tableQuery&amp;table=scheme_fields$set_string\">scheme fields</a>.</li>";
 	}
 	say "</ul>\n</div>";
 	return;
@@ -330,6 +333,7 @@ sub _print_plugin_section {
 	my ( $scheme_ids_ref, $desc_ref )    = $self->extract_scheme_desc($scheme_data);
 	my $q = $self->{'cgi'};
 	my $set_id = $self->get_set_id;
+	my $set_string = $set_id ? "&amp;set_id=$set_id" : '';
 	my $plugins =
 	  $self->{'pluginManager'}->get_appropriate_plugin_names( 'breakdown|export|analysis|miscellaneous', $self->{'system'}->{'dbtype'},{ set_id => $set_id } );
 	if (@$plugins) {
@@ -362,13 +366,13 @@ sub _print_plugin_section {
 						$active_plugin = 1;
 					} elsif ( @$scheme_data == 1 ) {
 						$temp_buffer .= "<li><a href=\"$self->{'system'}->{'script_name'}?page=plugin&amp;name=$att->{'module'}&amp;"
-						  . "db=$self->{'instance'}&amp;scheme_id=$scheme_data->[0]->{'id'}\">$menuitem</a></li>";
+						  . "db=$self->{'instance'}&amp;scheme_id=$scheme_data->[0]->{'id'}$set_string\">$menuitem</a></li>";
 						$active_plugin = 1;
 					}
 					$buffer .= $temp_buffer if $temp_buffer;
 				} else {
 					$buffer .= "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;"
-					  . "name=$att->{'module'}\">$menuitem</a>";
+					  . "name=$att->{'module'}$set_string\">$menuitem</a>";
 					$buffer .= " - $att->{'menu_description'}" if $att->{'menu_description'};
 					$buffer .= "</li>\n";
 					$active_plugin = 1;
