@@ -232,7 +232,8 @@ sub _print_query_interface {
 						next if !@values;
 					} else {
 						my $order_by = $att->{'type'} eq 'text' ? "lower($att->{'name'})" : $att->{'name'};
-						@values = @{ $self->{'datastore'}->run_list_query("SELECT $att->{'name'} FROM $table ORDER BY $order_by") };
+						my $empty_clause = $att->{'type'} eq 'text' ? " WHERE $att->{'name'} <> ''" : '';
+						@values = @{ $self->{'datastore'}->run_list_query("SELECT $att->{'name'} FROM $table$empty_clause ORDER BY $order_by") };
 						@values = uniq @values;
 					}
 					push @filters, $self->get_filter( $att->{'name'}, \@values, { labels => $desc } );
