@@ -133,7 +133,9 @@ HTML
 	if ( $table eq 'sequences' ) {
 		$locus_attribute = "&amp;locus=$arg_ref->{'locus'}" if $arg_ref->{'locus'};
 		say "<li>If the locus uses integer allele ids you can leave the allele_id "
-		  . "field blank and the next available number will be used.</li>";
+		  . "field blank and the next available number will be used.</li>"
+		  . "<li>The status value may be either 'trace checked' or 'trace not checked' depending on whether "
+		  . "trace files have been manually assessed or not.</li>";
 		if ( $self->{'system'}->{'allele_flags'} ) {
 			say "<li>Sequence flags can be added as a semi-colon (;) separated list</li>";
 		}
@@ -410,7 +412,10 @@ sub _check_data {
 				} else {
 					$display_value = $value;
 				}
-				my $problem = $self->is_field_bad( $table, $field, $value, 'insert' );
+				my $problem;
+				if (!($table eq 'sequences' && $field eq 'allele_id' && defined $problems{$pk_combination})){
+					$problem = $self->is_field_bad( $table, $field, $value, 'insert' );
+				}
 				if ( !( $problem || $special_problem ) ) {
 					if ( $table eq 'sequences' && $field eq 'flags' ) {
 						my @flags = split /;/, ( $display_value // '' );
