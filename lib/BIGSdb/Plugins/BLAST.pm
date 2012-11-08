@@ -42,13 +42,14 @@ sub get_attributes {
 		affiliation => 'University of Oxford, UK',
 		email       => 'keith.jolley@zoo.ox.ac.uk',
 		description => 'BLAST a query sequence against selected isolate data',
-		category    => 'Genome',
+		category    => 'Analysis',
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.0.3',
+		version     => '1.1.0',
 		dbtype      => 'isolates',
-		section     => 'analysis',
+		section     => 'analysis,postquery',
+		input       => 'query',
 		order       => 32,
 		help        => 'tooltips',
 		system_flag => 'BLAST'
@@ -97,13 +98,22 @@ sub run {
 		say "<div class=\"box\" id=\"statusbad\"><p>You must select one or more isolates.</p></div>";
 		return;
 	}
-	my $seq = $q->param('sequence');
+	my @includes = $q->param('includes');
+	my %meta_labels;
+	foreach my $field (@includes) {
+		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+		$meta_labels{$field} = $metafield;
+	}
+	my $isolate_sql = $self->{'db'}->prepare("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?");
+	my $seq         = $q->param('sequence');
 	print "<div class=\"box\" id=\"resultstable\">\n";
 	my $header_buffer = "<table class=\"resultstable\">\n";
 	my $labelfield    = $self->{'system'}->{'labelfield'};
 	( my $display_label = ucfirst($labelfield) ) =~ tr/_/ /;
-	$header_buffer .= "<tr><th>Isolate id</th><th>$display_label</th><th>% identity</th><th>Alignment length</th><th>Mismatches</th>"
-	  . "<th>Gaps</th><th>Seqbin id</th><th>Start</th><th>End</th><th>Orientation</th><th>E-value</th><th>Bit score</th></tr>\n";
+	$header_buffer .= "<tr><th>Isolate id</th><th>$display_label</th>";
+	$header_buffer .= "<th>" . ( $meta_labels{$_} // $_ ) . '</th>' foreach @includes;
+	$header_buffer .= "<th>% identity</th><th>Alignment length</th><th>Mismatches</th><th>Gaps</th><th>Seqbin id</th><th>Start</th>"
+	  . "<th>End</th><th>Orientation</th><th>E-value</th><th>Bit score</th></tr>\n";
 	my $first        = 1;
 	my $some_results = 0;
 	$sql = $self->{'db'}->prepare("SELECT $labelfield FROM $self->{'system'}->{'view'} WHERE id=?");
@@ -114,14 +124,31 @@ sub run {
 	my $out_file_table    = "$temp\_table.txt";
 	open( my $fh_output_table, '>>', "$self->{'config'}->{'tmp_dir'}/$out_file_table" )
 	  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$out_file_table for writing");
-	say $fh_output_table
-	  "Isolate id\t$display_label\t% identity\tAlignment length\tMismatches\tGaps\tSeqbin id\tStart\tEnd\tOrientation\tE-value\tBit score";
+	print $fh_output_table "Isolate id\t$display_label\t";
+	print $fh_output_table ( $meta_labels{$_} // $_ ) . "\t" foreach @includes;
+	say $fh_output_table "% identity\tAlignment length\tMismatches\tGaps\tSeqbin id\tStart\tEnd\tOrientation\tE-value\tBit score";
 	close $fh_output_table;
 
 	foreach my $id (@ids) {
 		my $matches = $self->_blast( $id, \$seq );
 		next if ref $matches ne 'ARRAY' || !@$matches;
 		print $header_buffer if $first;
+		my @include_values;
+		if (@includes) {
+			eval { $isolate_sql->execute($id) };
+			$logger->error($@) if $@;
+			my $include_data = $isolate_sql->fetchrow_hashref;
+			foreach my $field (@includes) {
+				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+				my $value;
+				if ( defined $metaset ) {
+					$value = $self->{'datastore'}->get_metadata_value( $id, $metaset, $metafield );
+				} else {
+					$value = $include_data->{$field} // '';
+				}
+				push @include_values, $value;
+			}
+		}
 		$some_results = 1;
 		eval { $sql->execute($id) };
 		$logger->error($@) if $@;
@@ -139,7 +166,9 @@ sub run {
 			} else {
 				print "<tr class=\"td$td\">";
 			}
+			print "<td>$_</td>" foreach @include_values;
 			$file_buffer .= "$id\t$label";
+			$file_buffer .= "\t$_" foreach @include_values;
 			foreach my $attribute (qw(identity alignment mismatches gaps seqbin_id start end)) {
 				print "<td>$match->{$attribute}";
 				if ( $attribute eq 'end' ) {
@@ -216,7 +245,10 @@ sub run {
 
 sub _print_interface {
 	my ( $self, $ids, $labels ) = @_;
-	my $q = $self->{'cgi'};
+	my $q            = $self->{'cgi'};
+	my $query_file   = $q->param('query_file');
+	my $qry_ref      = $self->get_query($query_file);
+	my $selected_ids = defined $query_file ? $self->get_ids_from_query($qry_ref) : [];
 	say "<div class=\"box\" id=\"queryform\">";
 	say "<p>Please select the required isolate ids to BLAST against (use ctrl or shift to make multiple selections) and paste in your "
 	  . "query sequence.  Nucleotide or peptide sequences can be queried.</p>";
@@ -229,7 +261,8 @@ sub _print_interface {
 		-values   => $ids,
 		-labels   => $labels,
 		-size     => 8,
-		-multiple => 'true'
+		-multiple => 'true',
+		-default  => $selected_ids
 	);
 	say "<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"isolate_id\",true)' "
 	  . "value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
@@ -238,6 +271,28 @@ sub _print_interface {
 	say "</fieldset>";
 	say "<fieldset style=\"float:left\"><legend>Paste sequence</legend>";
 	say $q->textarea( -name => 'sequence', -rows => 8, -cols => 70 );
+	say "</fieldset>";
+	say "<fieldset style=\"float:left\">\n<legend>Include in results table</legend>";
+	my @fields;
+	my $set_id        = $self->get_set_id;
+	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+
+	foreach my $field (@$field_list) {
+		next if $field eq $self->{'system'}->{'labelfield'};
+		next if any { $field eq $_ } qw (id datestamp date_entered curator sender);
+		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+		push @fields, $field;
+		( $labels->{$field} = $metafield // $field ) =~ tr/_/ /;
+	}
+	say $q->scrolling_list(
+		-name     => 'includes',
+		-id       => 'includes',
+		-values   => \@fields,
+		-labels   => $labels,
+		-size     => 10,
+		-multiple => 'true'
+	);
 	say "</fieldset>";
 	say "<fieldset style=\"float:left\">\n<legend>Parameters</legend>";
 	say "<ul><li><label for=\"word_size\" class=\"parameter\">BLASTN word size:</label>";
