@@ -139,14 +139,16 @@ sub _update {
 				when ('0') {$data->{ lc($field) } = 'false'}
 			}
 		}
-		if ( $field ne 'datestamp' && $field ne 'curator' && $data->{ lc($field) } ne $newdata->{$field} ) {
+		if ( $data->{ lc($field) } ne $newdata->{$field} ) {
 			my $cleaned = $self->clean_value( $newdata->{$field} ) // '';
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			if ( defined $metaset ) {
 				push @{ $meta_fields{$metaset} }, $metafield;
 			} else {
 				$qry .= $cleaned ne '' ? "$field=E'$cleaned'," : "$field=null,";
-				push @updated_field, "$field: '$data->{lc($field)}' -> '$newdata->{$field}'";
+				if ($field ne 'datestamp' && $field ne 'curator'){
+					push @updated_field, "$field: '$data->{lc($field)}' -> '$newdata->{$field}'";
+				}
 			}
 		}
 	}
