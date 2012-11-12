@@ -150,7 +150,7 @@ for calling splitstree4 from the Genome Comparator plugin.
 
 Add the following to /etc/crontab:
 
-* *    * * *	bigsdb  xvfb-run /usr/local/bin/bigsjobs
+* *    * * *	bigsdb  xvfb-run -a /usr/local/bin/bigsjobs
 
 (set to run every minute from the 'bigsdb' user account).
 
