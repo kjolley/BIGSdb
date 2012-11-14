@@ -1143,7 +1143,7 @@ sub _core_mean_distance {
 		);
 		if ( -e $image_file ) {
 			$self->{'jobManager'}->update_job_output( $args->{'job_id'},
-				{ filename => "$args->{'job_id'}\_core2.png", description => '42_Mean distance of core genome alleles (PNG format)' } );
+				{ filename => "$args->{'job_id'}\_core2.png", description => '42_Overall mean distance (from consensus sequence) of core genome alleles (PNG format)' } );
 		}
 	}
 	return;
