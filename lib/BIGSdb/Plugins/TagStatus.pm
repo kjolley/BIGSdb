@@ -310,7 +310,7 @@ sub _make_svg {
    <svg xmlns="http://www.w3.org/2000/svg"
      xmlns:xlink="http://www.w3.org/1999/xlink" width="$width" height="20" viewBox="0 0 $width 10">
 SVG
-	my $pos     = 0;
+	my $pos     = int (0.5 * $bar_width);
 	my @colours = COLOURS;
 	foreach (@$values) {
 		say $fh "<line x1=\"$pos\" y1=\"0\" x2=\"$pos\" y2=\"20\" style=\"stroke-width: $bar_width; stroke: #$colours[$_];\" />";
