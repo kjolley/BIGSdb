@@ -67,10 +67,10 @@ sub print_content {
 		|| $q->param('First') )
 	{
 		if ( !$q->param('no_js') ) {
-			print "<noscript><p class=\"highlight\">The dynamic customisation of this interface requires that you enable Javascript in "
-			  . "your browser. Alternatively, you can use a <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
-			  . "page=tableQuery&amp;table=$table&amp;no_js=1\">non-Javascript version</a> that has 4 combinations of fields.</p>"
-			  . "</noscript>\n";
+			say "<noscript><div class=\"box statusbad\"><p>The dynamic customisation of this interface requires that you enable "
+			  . "Javascript in your browser. Alternatively, you can use a <a href=\"$self->{'system'}->{'script_name'}?db="
+			  . "$self->{'instance'}&amp;page=tableQuery&amp;table=$table&amp;no_js=1\">non-Javascript version</a> that has 4 "
+			  . "combinations of fields.</p></div></noscript>";
 		}
 		$self->_print_query_interface;
 	}
@@ -159,8 +159,12 @@ sub _print_query_interface {
 	my $table_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('table_fields') || 1 );
 	my $cleaned = $table;
 	$cleaned =~ tr/_/ /;
-	print "<p>Please enter your search criteria below (or leave blank and submit to return all records).";
 
+	if ( $table eq 'sequences' && $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT * FROM locus_extended_attributes)")->[0] ) {
+		say "<p>Some loci have additional fields which are not searchable from this general page.  Search for these at the "
+		  . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleQuery\">locus-specific query</a> page.</p>";
+	}
+	print "<p>Please enter your search criteria below (or leave blank and submit to return all records).";
 	if ( !$self->{'curate'} && $table ne 'samples' ) {
 		print " Matching $cleaned will be returned and you will then be able to update their display and query settings.";
 	}
@@ -231,9 +235,10 @@ sub _print_query_interface {
 						  @{ $self->{'datastore'}->run_list_query("SELECT id FROM $att->{'foreign_key'} ORDER BY @fields_to_query") };
 						next if !@values;
 					} else {
-						my $order_by = $att->{'type'} eq 'text' ? "lower($att->{'name'})" : $att->{'name'};
+						my $order_by     = $att->{'type'} eq 'text' ? "lower($att->{'name'})"       : $att->{'name'};
 						my $empty_clause = $att->{'type'} eq 'text' ? " WHERE $att->{'name'} <> ''" : '';
-						@values = @{ $self->{'datastore'}->run_list_query("SELECT $att->{'name'} FROM $table$empty_clause ORDER BY $order_by") };
+						@values =
+						  @{ $self->{'datastore'}->run_list_query("SELECT $att->{'name'} FROM $table$empty_clause ORDER BY $order_by") };
 						@values = uniq @values;
 					}
 					push @filters, $self->get_filter( $att->{'name'}, \@values, { labels => $desc } );
@@ -526,7 +531,7 @@ sub _modify_loci_for_sets {
 	my $identifier;
 	given ($table) {
 		when ('loci')                { $identifier = 'id' }
-		when ('locus_aliases')		 { $identifier = 'locus' }
+		when ('locus_aliases')       { $identifier = 'locus' }
 		when ('scheme_members')      { $identifier = 'locus' }
 		when ('allele_designations') { $identifier = 'locus' }
 		default                      { return }
@@ -560,7 +565,7 @@ sub print_additional_headerbar_functions {
 	my ( $self, $filename ) = @_;
 	return if $self->{'curate'};
 	my $q = $self->{'cgi'};
-	return if $q->param('table') eq 'samples';
+	return if $q->param('table') eq 'samples' || $q->param('table') eq 'sequences';
 	my $record = $self->get_record_name( $q->param('table') );
 	print "<fieldset><legend>Customize</legend>\n";
 	print $q->start_form;

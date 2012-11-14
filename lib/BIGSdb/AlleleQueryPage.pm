@@ -105,10 +105,10 @@ sub print_content {
 	{
 		if ( !$q->param('no_js') ) {
 			my $locus_clause = $locus ? "&amp;locus=$locus" : '';
-			print
-"<noscript><div class=\"box statusbad\"><p>The dynamic customisation of this interface requires that you enable Javascript in your "
-			  . "browser. Alternatively, you can use a <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleQuery"
-			  . "$locus_clause&amp;no_js=1\">non-Javascript version</a> that has 4 combinations of fields.</p></div></noscript>\n";
+			say "<noscript><div class=\"box statusbad\"><p>The dynamic customisation of this interface requires that you enable "
+			  . "Javascript in your browser. Alternatively, you can use a <a href=\"$self->{'system'}->{'script_name'}?db="
+			  . "$self->{'instance'}&amp;page=alleleQuery$locus_clause&amp;no_js=1\">non-Javascript version</a> that has 4 combinations "
+			  . "of fields.</p></div></noscript>";
 		}
 		$self->_print_query_interface();
 	}
@@ -116,7 +116,9 @@ sub print_content {
 		|| defined $q->param('t1') )
 	{
 		if ( $q->param('locus') eq '' ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>Please select locus.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>Please select locus or use the general "
+			  . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=sequences\">"
+			  . "sequence attribute query</a> page.</p></div>";
 		} else {
 			$self->_run_query;
 		}
@@ -350,7 +352,7 @@ sub _run_query {
 						}
 					}
 					$thisfield->{'type'} ||= 'text';    # sender/curator surname, firstname, affiliation
-					$thisfield->{'type'} = $locus_info->{'allele_id_format'} // 'text' if ($thisfield->{'name'} // '') eq 'allele_id';
+					$thisfield->{'type'} = $locus_info->{'allele_id_format'} // 'text' if ( $thisfield->{'name'} // '' ) eq 'allele_id';
 					if ( none { $field =~ /\($_\)$/ } qw (surname first_name affiliation) ) {
 						next
 						  if $self->check_format( { field => $field, text => $text, type => $thisfield->{'type'}, operator => $operator },
@@ -485,5 +487,4 @@ sub _process_flags {
 	}
 	return $buffer;
 }
-
 1;

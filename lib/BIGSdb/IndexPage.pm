@@ -84,7 +84,7 @@ HTML
 		say "<li><a href=\"$script_name?db=$instance&amp;page=sequenceQuery$set_string\">Sequence query</a> - query an allele sequence.</li>\n"
 		  . "<li><a href=\"$script_name?db=$instance&amp;page=batchSequenceQuery$set_string\">Batch sequence query</a> - query multiple sequences "
 		  . "in FASTA format.</li>\n"
-		  . "<li><a href=\"$script_name?db=$instance&amp;page=alleleQuery$set_string\">Sequence attribute search</a> - find alleles by matching "
+		  . "<li><a href=\"$script_name?db=$instance&amp;page=tableQuery&amp;table=sequences$set_string\">Sequence attribute search</a> - find alleles by matching "
 		  . "attributes.</li>";
 		if ( @$scheme_data == 1 ) {
 			foreach (@$scheme_data) {

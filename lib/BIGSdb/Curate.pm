@@ -113,6 +113,7 @@ sub print_page {
 		'setPassword'        => 'ChangePasswordPage',
 		'profileInfo'        => 'ProfileInfoPage',
 		'alleleInfo'         => 'AlleleInfoPage',
+		'alleleQuery'		 => 'AlleleQueryPage',
 		'isolateACL'         => 'CurateIsolateACLPage',
 		'fieldValues'        => 'FieldHelpPage',
 		'tableQuery'         => 'TableQueryPage',
