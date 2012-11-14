@@ -27,8 +27,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 use Apache2::Connection ();
-use constant COLOURS     => qw(eee c22 22c c4c 000);    #none; designations only; tags only; both; flags
-use constant IMAGE_WIDTH => 1200;
+use constant COLOURS => qw(eee c22 22c c4c 000);    #none; designations only; tags only; both; flags
 
 sub get_attributes {
 	my %att = (
@@ -41,13 +40,14 @@ sub get_attributes {
 		buttontext  => 'Tag status',
 		menutext    => 'Tag status',
 		module      => 'TagStatus',
-		version     => '1.0.2',
+		version     => '1.1.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		requires    => 'mogrify',
 		system_flag => 'TagStatus',
 		input       => 'query',
 		help        => 'tooltips',
+		requires    => 'js_tree',
 		order       => 95,
 		max         => 1000
 	);
@@ -72,9 +72,19 @@ sub run {
 	}
 	if ( $q->param('isolate_id') && BIGSdb::Utils::is_int( $q->param('isolate_id') ) ) {
 		$self->_breakdown_isolate( $q->param('isolate_id') );
+		return;
 	} else {
 		say "<h1>Tag status</h1>";
-		$self->_print_schematic($ids);
+		print "<div class=\"box\" id=\"queryform\" style=\"display:none\">\n";
+		$self->_print_tree;
+		print "</div>\n";
+		my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,description");
+		my @selected_schemes;
+		foreach ( @$schemes, 0 ) {
+			push @selected_schemes, $_ if $q->param("s_$_");
+		}
+		return if !@selected_schemes;
+		$self->_print_schematic( $ids, \@selected_schemes );
 	}
 	return;
 }
@@ -120,21 +130,21 @@ sub _breakdown_isolate {
 		$td = $td == 1 ? 2 : 1;
 	}
 	my $no_scheme_loci = $self->{'datastore'}->get_loci_in_no_scheme( { analyse_pref => 1, set_id => $set_id } );
-	my $first = 1;
-	print "<tr class=\"td$td\"><th rowspan=\"" . @$no_scheme_loci . "\">Loci</th>";
-	foreach my $locus (@$no_scheme_loci) {
-		print "<tr class=\"td$td\">" if !$first;
-		my $cleaned = $self->clean_locus($locus);
-		print "<td>$cleaned</td>";
-		print defined $allele_ids->{$locus} ? "<td style=\"$tagged\">$allele_ids->{$locus}</td>" : "<td style=\"$untagged\" />";
-		print defined $tags->{$locus} ? "<td style=\"$tagged\">" : "<td style=\"$untagged\">";
-		$self->_get_flags( $id, $locus ) if any { $locus eq $_ } @flagged_loci;
-		say "</td></tr>";
-		$first = 0;
+	if (@$no_scheme_loci) {
+		my $first = 1;
+		print "<tr class=\"td$td\"><th rowspan=\"" . @$no_scheme_loci . "\">Loci</th>";
+		foreach my $locus (@$no_scheme_loci) {
+			print "<tr class=\"td$td\">" if !$first;
+			my $cleaned = $self->clean_locus($locus);
+			print "<td>$cleaned</td>";
+			print defined $allele_ids->{$locus} ? "<td style=\"$tagged\">$allele_ids->{$locus}</td>" : "<td style=\"$untagged\" />";
+			print defined $tags->{$locus} ? "<td style=\"$tagged\">" : "<td style=\"$untagged\">";
+			$self->_get_flags( $id, $locus ) if any { $locus eq $_ } @flagged_loci;
+			say "</td></tr>";
+			$first = 0;
+		}
 	}
-	say "</table>";
-	say "<div class=\"scrollable\">";
-	say "</div>\n</div>";
+	say "</table></div>";
 	return;
 }
 
@@ -154,42 +164,43 @@ sub _get_flags {
 }
 
 sub _print_schematic {
-	my ( $self, $ids ) = @_;
+	my ( $self, $ids, $schemes ) = @_;
+	my $locus_count = $self->_get_locus_count($schemes);
+	return if !$locus_count;
+	my $bar_width = $self->_get_bar_width($locus_count);
+	my %selected_schemes = map { $_ => 1 } @$schemes;
 	my @loci;
-	my $set_id       = $self->get_set_id;
-	my $scheme_data  = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+	my $set_id = $self->get_set_id;
+	my $scheme_data = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
-
 	my %scheme_loci;
 	my @image_map;
 	my $i = 0;
+
 	foreach my $scheme_id (@$scheme_ids_ref) {
+		next if !$selected_schemes{$scheme_id};
 		my $scheme_loci = $self->{'datastore'}->get_scheme_loci( $scheme_id, { profile_name => 0, analysis_pref => 1 } );
 		push @loci, @$scheme_loci;
-		$scheme_loci{ $scheme_id } = $scheme_loci;
-		my $j = $i + @$scheme_loci - 1;
-		push @image_map, "<area shape=\"rect\" coords=\"I=$i,0,J=$j,20\" title=\"$desc_ref->{$scheme_id}\" alt=\"$desc_ref->{$scheme_id}\" />\n";
+		$scheme_loci{$scheme_id} = $scheme_loci;
+		my $j = $i + ( @$scheme_loci * $bar_width ) - 1;
+		push @image_map,
+		  "<area shape=\"rect\" coords=\"I=$i,0,J=$j,20\" title=\"$desc_ref->{$scheme_id}\" alt=\"$desc_ref->{$scheme_id}\" />\n";
 		$i = $j + 1;
 	}
 	my $no_scheme_loci = $self->{'datastore'}->get_loci_in_no_scheme( { analyse_pref => 1, set_id => $set_id } );
-	my $j = $i + @$no_scheme_loci - 1;
+	my $j = $i + ( @$no_scheme_loci * $bar_width ) - 1;
 	push @image_map, "<area shape=\"rect\" coords=\"I=$i,0,J=$j,20\" title=\"Loci not in scheme\" alt=\"Loci not in scheme\" />\n";
-	my $scaling = IMAGE_WIDTH / $j;
 	foreach (@image_map) {
 		if ( $_ =~ /I=(\d+)/ ) {
-			my $new_value = int( $scaling * $1 );
+			my $new_value = int($1);
 			$_ =~ s/I=\d+/$new_value/;
 		}
 		if ( $_ =~ /J=(\d+)/ ) {
-			my $new_value = int( $scaling * $1 );
+			my $new_value = int($1);
 			$_ =~ s/J=\d+/$new_value/;
 		}
 	}
 	push @loci, @$no_scheme_loci;
-	if ( !@loci ) {
-		say "<div class=\"box statusbad\"><p>No loci to analyse.</p></div>";
-		return;
-	}
 	say "<div class=\"box\" id=\"resultstable\">";
 	say "<p>Bars represent loci by schemes arranged in alphabetical order.  If a locus appears in more than one scheme "
 	  . "it will appear more than once in this graphic.  Click on the id hyperlink for a detailed breakdown for an isolate.</p>";
@@ -201,6 +212,8 @@ sub _print_schematic {
 	  . "<span style=\"color: #$colours[4]; font-weight:600\">Flagged</span> "
 	  . "<a class=\"tooltip\" title=\"Flags - Sequences may be flagged to indicate problems, e.g. ambiguous reads, internal stop "
 	  . "codons etc.\">&nbsp;<i>i</i>&nbsp;</a></p>";
+	my $plural = $locus_count == 1 ? 'us' : 'i';
+	say "<p><b>$locus_count loc$plural selected:</b></p>";
 	say "<map id=\"schemes\" name=\"schemes\">\n@image_map</map>";
 	say "<div class=\"scrollable\">";
 	say "<table class=\"resultstable\"><tr><th>Id</th><th>Isolate</th><th>Designation status</th></tr>";
@@ -225,7 +238,8 @@ sub _print_schematic {
 		print "<tr class=\"td$td\"><td><a href=\"$url\">$id</a></td><td>$isolate</td>";
 
 		foreach my $scheme_id (@$scheme_ids_ref) {
-			my @loci = @{ $scheme_loci{ $scheme_id } };
+			next if !$selected_schemes{$scheme_id};
+			my @loci = @{ $scheme_loci{$scheme_id} };
 			foreach my $locus (@loci) {
 				my $value = defined $allele_ids->{$locus} ? 1 : 0;
 				$value += defined $tags->{$locus} ? 2 : 0;
@@ -234,30 +248,62 @@ sub _print_schematic {
 			}
 		}
 		foreach my $locus (@$no_scheme_loci) {
+			next if !$selected_schemes{0};
 			my $value = defined $allele_ids->{$locus} ? 1 : 0;
 			$value += defined $tags->{$locus} ? 2 : 0;
 			$value = defined $flags->{$locus} ? 4 : $value;
 			push @designations, $value;
 		}
 		my $designation_filename = "$self->{'config'}->{'tmp_dir'}/$prefix\_$id\_designation.svg";
-		$self->_make_svg( $designation_filename, \@designations );
-		system(
-"$self->{'config'}->{'mogrify_path'} -format png $designation_filename $self->{'config'}->{'tmp_dir'}/$prefix\_$id\_designation.png"
-		);
-		unlink $designation_filename;
-		say "<td><img src=\"/tmp/$prefix\_$id\_designation.png\" alt=\"\" width=\""
-		  . IMAGE_WIDTH
-		  . "px\" height=\"20px\" usemap=\"#schemes\" style=\"border:0\" /></td></tr>";
+		$self->_make_svg( $designation_filename, $bar_width, \@designations );
+		say "<td><img src=\"/tmp/$prefix\_$id\_designation.svg\" alt=\"\" usemap=\"#schemes\" style=\"border:1px solid #ddd\" /></td></tr>";
 		$td = $td == 1 ? 2 : 1;
 	}
 	say "</table>\n</div></div>";
 	return;
 }
 
+sub _get_bar_width {
+	my ( $self, $locus_count ) = @_;
+	my $bar_width;
+	if ( $locus_count > 600 ) {
+		$bar_width = 1;
+	} elsif ( $locus_count > 300 ) {
+		$bar_width = 2;
+	} elsif ( $locus_count > 150 ) {
+		$bar_width = 4;
+	} elsif ( $locus_count > 100 ) {
+		$bar_width = 6;
+	} elsif ( $locus_count > 50 ) {
+		$bar_width = 12;
+	} else {
+		$bar_width = 20;
+	}
+	return $bar_width;
+}
+
+sub _get_locus_count {
+	my ( $self, $scheme_list ) = @_;
+	my %selected_schemes = map { $_ => 1 } @$scheme_list;
+	my $set_id           = $self->get_set_id;
+	my $scheme_data      = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+	my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
+	my $count = 0;
+	foreach my $scheme_id (@$scheme_ids_ref) {
+		next if !$selected_schemes{$scheme_id};
+		my $scheme_loci = $self->{'datastore'}->get_scheme_loci( $scheme_id, { profile_name => 0, analysis_pref => 1 } );
+		$count += @$scheme_loci;
+	}
+	return $count if !$selected_schemes{0};
+	my $no_scheme_loci = $self->{'datastore'}->get_loci_in_no_scheme( { analyse_pref => 1, set_id => $set_id } );
+	$count += @$no_scheme_loci;
+	return $count;
+}
+
 sub _make_svg {
-	my ( $self, $filename, $values ) = @_;
+	my ( $self, $filename, $bar_width, $values ) = @_;
 	open( my $fh, '>', $filename ) or $logger->error("could not open $filename for writing.");
-	my $width = @$values;
+	my $width = @$values * $bar_width;
 	print $fh <<"SVG";
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 20001102//EN"
    "http://www.w3.org/TR/2000/CR-SVG-20001102/DTD/svg-20001102.dtd">
@@ -267,11 +313,42 @@ SVG
 	my $pos     = 0;
 	my @colours = COLOURS;
 	foreach (@$values) {
-		say $fh "<line x1=\"$pos\" y1=\"0\" x2=\"$pos\" y2=\"20\" style=\"stroke-width: 1; stroke: #$colours[$_];\" />";
-		$pos++;
+		say $fh "<line x1=\"$pos\" y1=\"0\" x2=\"$pos\" y2=\"20\" style=\"stroke-width: $bar_width; stroke: #$colours[$_];\" />";
+		$pos += $bar_width;
 	}
 	say $fh "</svg>";
 	close $fh;
 	return;
+}
+
+sub _print_tree {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	print $q->start_form;
+	print << "HTML";
+<p>Select schemes or groups of schemes within the tree.  A breakdown of the individual loci belonging to 
+these schemes will then be performed.</p>
+<noscript>
+<p class="highlight">You need to enable Javascript in order to select schemes for analysis.</p>
+</noscript>
+<div id="tree" class="tree" style=\"height:10em; width:30em\">
+HTML
+	print $self->get_tree( undef, { no_link_out => 1, select_schemes => 1, analysis_pref => 1 } );
+	print "</div>\n";
+	print $q->submit( -name => 'selected', -label => 'Select', -class => 'submit' );
+	print $q->hidden($_) foreach qw(db page name query_file);
+	print $q->end_form;
+	return;
+}
+
+sub get_plugin_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+\$(function () {
+	\$('#queryform').show();
+});
+	
+END
+	return $buffer;
 }
 1;
