@@ -59,7 +59,7 @@ sub _check {
 	my $q             = $self->{'cgi'};
 	my $set_id        = $self->get_set_id;
 	my $loci          = $self->{'datastore'}->get_loci( { query_pref => 1, set_id => $set_id } );
-	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id, {curate => 1});
+	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
 	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
 	@$loci = uniq @$loci;
 	my @bad_field_buffer;
@@ -118,8 +118,6 @@ sub _check {
 	return;
 }
 
-
-
 sub _prepare_metaset_insert {
 	my ( $self, $meta_fields, $newdata ) = @_;
 	my @metasets = keys %$meta_fields;
@@ -148,8 +146,8 @@ sub _insert {
 	my $insert = 1;
 	my @fields_with_values;
 	my %meta_fields;
-	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id, {curate => 1});
-	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
+	my $field_list = $self->{'xmlHandler'}->get_field_list($metadata_list);
 
 	foreach my $field (@$field_list) {
 		if ( $newdata->{$field} ne '' ) {
@@ -254,8 +252,8 @@ sub _print_interface {
 	say $q->start_form;
 	$q->param( 'sent', 1 );
 	say $q->hidden($_) foreach qw(page db sent);
-	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id, {curate => 1});
-	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
+	my $field_list = $self->{'xmlHandler'}->get_field_list($metadata_list);
 	if ( @$field_list > 15 ) {
 		say "<span style=\"float:right\">";
 		say $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
@@ -280,21 +278,42 @@ sub _print_interface {
 				print "</td><td style=\"text-align:left\">";
 				if ( $thisfield->{'optlist'} ) {
 					my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
-					say $q->popup_menu( -name => $field, -values => [ '', @$optlist ], -default => $newdata->{$field} );
+					say $q->popup_menu(
+						-name    => $field,
+						-values  => [ '', @$optlist ],
+						-default => ( $newdata->{$field} // $thisfield->{'default'} )
+					);
 				} elsif ( $thisfield->{'type'} eq 'bool' ) {
-					say $q->popup_menu( -name => $field, -values => [ '', 'true', 'false' ], -default => $newdata->{$field} );
+					say $q->popup_menu(
+						-name   => $field,
+						-values => [ '', 'true', 'false' ],
+						-default => ( $newdata->{$field} // $thisfield->{'default'} )
+					);
 				} elsif ( lc($field) ~~ [qw(datestamp date_entered)] ) {
 					say "<b>" . $self->get_datestamp . "</b>";
 				} elsif ( lc($field) eq 'curator' ) {
 					say "<b>" . $self->get_curator_name . ' (' . $self->{'username'} . ")</b>";
 				} elsif ( lc($field) ~~ [qw(sender sequenced_by)] || ( $thisfield->{'userfield'} // '' ) eq 'yes' ) {
-					say $q->popup_menu( -name => $field, -values => [ '', @users ], -labels => \%usernames,
-						-default => $newdata->{$field} );
+					say $q->popup_menu(
+						-name    => $field,
+						-values  => [ '', @users ],
+						-labels  => \%usernames,
+						-default => ( $newdata->{$field} // $thisfield->{'default'} )
+					);
 				} else {
 					if ( ( $thisfield->{'length'} // 0 ) > 60 ) {
-						say $q->textarea( -name => $field, -rows => 3, -cols => 40, -default => $newdata->{$field} );
+						say $q->textarea(
+							-name    => $field,
+							-rows    => 3,
+							-cols    => 40,
+							-default => ( $newdata->{$field} // $thisfield->{'default'} )
+						);
 					} else {
-						say $q->textfield( -name => $field, -size => $thisfield->{'length'}, -default => $newdata->{$field} );
+						say $q->textfield(
+							-name    => $field,
+							-size    => $thisfield->{'length'},
+							-default => ( $newdata->{$field} // $thisfield->{'default'} )
+						);
 					}
 				}
 				say " <span class=\"metaset\">Metadata: $metaset</span>" if !$set_id && defined $metaset;
