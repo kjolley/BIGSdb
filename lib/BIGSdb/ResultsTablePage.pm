@@ -378,7 +378,7 @@ sub _print_isolate_table {
 	my $logger    = get_logger('BIGSdb.Page');
 	my $q         = $self->{'cgi'};
 	my $qry       = $$qryref;
-	my $qry_limit = $qry;	
+	my $qry_limit = $qry;
 	my $fields    = $self->{'xmlHandler'}->get_field_list;
 	my $view      = $self->{'system'}->{'view'};
 	local $" = ",$view.";
@@ -432,7 +432,6 @@ sub _print_isolate_table {
 	$self->{'scheme_loci'}->{0} = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
 	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
-	
 	local $| = 1;
 
 	while ( $limit_sql->fetchrow_arrayref ) {
@@ -482,9 +481,9 @@ sub _print_isolate_table {
 					my $user_info = $self->{'datastore'}->get_user_info( $data{$thisfieldname} );
 					print "<td>$user_info->{'first_name'} $user_info->{'surname'}</td>";
 				} else {
-					if ($thisfieldname =~ /^meta_[^:]+:/){
+					if ( $thisfieldname =~ /^meta_[^:]+:/ ) {
 						my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($thisfieldname);
-						my $value = $self->{'datastore'}->get_metadata_value($id,$metaset,$metafield);
+						my $value = $self->{'datastore'}->get_metadata_value( $id, $metaset, $metafield );
 						print "<td>$value</td>";
 					} else {
 						print "<td>$data{$thisfieldname}</td>";
@@ -570,11 +569,12 @@ sub _print_isolate_table_header {
 	my ( $self, $composites, $composite_display_pos, $schemes, $limit_qry ) = @_;
 	my $set_id        = $self->get_set_id;
 	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
-	my $select_items    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $select_items  = $self->{'xmlHandler'}->get_field_list($metadata_list);
 	my $header_buffer = "<tr>";
 	my $col_count;
 	my $extended = $self->get_extended_attributes;
 	foreach my $col (@$select_items) {
+
 		if (   $self->{'prefs'}->{'maindisplayfields'}->{$col}
 			|| $col eq 'id' )
 		{
@@ -904,8 +904,10 @@ sub _print_plugin_buttons {
 	my ( $self, $qry_ref, $records ) = @_;
 	my $q = $self->{'cgi'};
 	return if $q->param('page') eq 'customize';
+	return if $q->param('page') eq 'tableQuery' && $q->param('table') eq 'sequences';
 	my $seqdb_type = $q->param('page') eq 'alleleQuery' ? 'sequences' : 'schemes';
-	my $plugin_categories = $self->{'pluginManager'}->get_plugin_categories( 'postquery', $self->{'system'}->{'dbtype'}, {seqdb_type => $seqdb_type} );
+	my $plugin_categories =
+	  $self->{'pluginManager'}->get_plugin_categories( 'postquery', $self->{'system'}->{'dbtype'}, { seqdb_type => $seqdb_type } );
 	if (@$plugin_categories) {
 		print "<p />\n<h2>Analysis tools:</h2>\n<div class=\"scrollable\">\n<table>";
 		my $query_temp_file_written = 0;
@@ -917,9 +919,12 @@ sub _print_plugin_buttons {
 		my $set_id = $self->get_set_id;
 		foreach (@$plugin_categories) {
 			my $cat_buffer;
-			my $plugin_names =
-			  $self->{'pluginManager'}
-			  ->get_appropriate_plugin_names( 'postquery', $self->{'system'}->{'dbtype'}, $_ || 'none', { set_id => $set_id, seqdb_type => $seqdb_type } );
+			my $plugin_names = $self->{'pluginManager'}->get_appropriate_plugin_names(
+				'postquery',
+				$self->{'system'}->{'dbtype'},
+				$_ || 'none',
+				{ set_id => $set_id, seqdb_type => $seqdb_type }
+			);
 			if (@$plugin_names) {
 				my $plugin_buffer;
 				if ( !$query_temp_file_written ) {
@@ -940,7 +945,7 @@ sub _print_plugin_buttons {
 					$q->param( 'name', $att->{'module'} );
 					$plugin_buffer .= $q->hidden($_) foreach qw (db page name calling_page scheme_id locus);
 					$plugin_buffer .= $q->hidden( 'query_file', $filename )
-					  if ($att->{'input'} // '') eq 'query';
+					  if ( $att->{'input'} // '' ) eq 'query';
 					$plugin_buffer .= $q->submit( -label => ( $att->{'buttontext'} || $att->{'menutext'} ), -class => 'pagebar' );
 					$plugin_buffer .= $q->end_form;
 					$plugin_buffer .= '</td>';
