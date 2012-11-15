@@ -49,18 +49,18 @@ sub initiate {
 			$logger->warn("$plugin_name plugin not installed properly!  $@");
 		} else {
 			my $plugin = "BIGSdb::Plugins::$plugin_name"->new(
-				'system'           => $self->{'system'},
-				'cgi'              => $self->{'cgi'},
-				'instance'         => $self->{'instance'},
-				'prefs'            => $self->{'prefs'},
-				'prefstore'        => $self->{'prefstore'},
-				'config'           => $self->{'config'},
-				'datastore'        => $self->{'datastore'},
-				'db'               => $self->{'db'},
-				'xmlHandler'       => $self->{'xmlHandler'},
-				'dataConnector'    => $self->{'dataConnector'},
-				'jobManager'       => $self->{'jobManager'},
-				'mod_perl_request' => $self->{'mod_perl_request'}
+				system           => $self->{'system'},
+				cgi              => $self->{'cgi'},
+				instance         => $self->{'instance'},
+				prefs            => $self->{'prefs'},
+				prefstore        => $self->{'prefstore'},
+				config           => $self->{'config'},
+				datastore        => $self->{'datastore'},
+				db               => $self->{'db'},
+				xmlHandler       => $self->{'xmlHandler'},
+				dataConnector    => $self->{'dataConnector'},
+				jobManager       => $self->{'jobManager'},
+				mod_perl_request => $self->{'mod_perl_request'}
 			);
 			$self->{'plugins'}->{$plugin_name}    = $plugin;
 			$self->{'attributes'}->{$plugin_name} = $plugin->get_attributes;
@@ -97,7 +97,7 @@ sub get_plugin_categories {
 		my $attr = $self->{'attributes'}->{$_};
 		next if $attr->{'section'} !~ /$section/;
 		next if $attr->{'dbtype'} !~ /$dbtype/;
-		next if $dbtype eq 'sequences' && $options->{'seqdb_type'} && ($attr->{'seqdb_type'} // '') !~ /$options->{'seqdb_type'}/;
+		next if $dbtype eq 'sequences' && $options->{'seqdb_type'} && ( $attr->{'seqdb_type'} // '' ) !~ /$options->{'seqdb_type'}/;
 		if ( $attr->{'category'} ) {
 			if ( !$done{ $attr->{'category'} } ) {
 				push @categories, $attr->{'category'};
@@ -145,7 +145,8 @@ sub get_appropriate_plugin_names {
 		}
 		next
 		  if (
-			$attr->{'system_flag'}
+			   !( ( $self->{'system'}->{'all_plugins'} // '' ) eq 'yes' )
+			&& $attr->{'system_flag'}
 			&& (  !$self->{'system'}->{ $attr->{'system_flag'} }
 				|| $self->{'system'}->{ $attr->{'system_flag'} } eq 'no' )
 		  );
@@ -160,7 +161,7 @@ sub get_appropriate_plugin_names {
 		my $plugin_section = $attr->{'section'};
 		next if $plugin_section !~ /$section/;
 		next if $attr->{'dbtype'} !~ /$dbtype/;
-		next if $dbtype eq 'sequences' && $options->{'seqdb_type'} && ($attr->{'seqdb_type'} // '') !~ /$options->{'seqdb_type'}/;
+		next if $dbtype eq 'sequences' && $options->{'seqdb_type'} && ( $attr->{'seqdb_type'} // '' ) !~ /$options->{'seqdb_type'}/;
 		if (  !$q->param('page')
 			|| $q->param('page') eq 'index'
 			|| $q->param('page') eq 'options'

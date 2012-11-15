@@ -16,15 +16,15 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
-
 package BIGSdb::VersionPage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::Page);
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { 'general' => 0, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 0 };
+	$self->{'pref_requirements'} = { general => 0, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
 	return;
 }
 
@@ -57,7 +57,7 @@ can be found at <a href="http://www.gnu.org/licenses/gpl.html">http://www.gnu.or
 http://pubmlst.org/software/database/bigsdb/</a>.</p>
 HTML
 	$self->_print_plugins;
-	print "</div>\n";
+	say "</div>";
 	return;
 }
 
@@ -67,19 +67,19 @@ sub get_title {
 
 sub _print_plugins {
 	my ($self) = @_;
-	print "<h2>Installed plugins</h2>\n";
+	say "<h2>Installed plugins</h2>";
 	my $plugins = $self->{'pluginManager'}->get_installed_plugins;
-	if (!keys %{$plugins}){
-		print "<p>No plugins installed</p>\n";
+	if ( !keys %{$plugins} ) {
+		say "<p>No plugins installed</p>";
 		return;
 	}
-	print "<p>Plugins may be disabled by the system administrator for specific databases where either they're not appropriate"
-	. " or if they may take up too many resources on a public database.</p>\n";
-	my ($enabled_buffer, $disabled_buffer, %disabled_reason);
+	say "<p>Plugins may be disabled by the system administrator for specific databases where either they're not appropriate"
+	  . " or if they may take up too many resources on a public database.</p>";
+	my ( $enabled_buffer, $disabled_buffer, %disabled_reason );
 	my $dbtype = $self->{'system'}->{'dbtype'};
-	my $etd = 1;
-	my $dtd = 1;
-	foreach (sort {$a cmp $b} keys %{$plugins}){
+	my $etd    = 1;
+	my $dtd    = 1;
+	foreach ( sort { $a cmp $b } keys %{$plugins} ) {
 		my $attr = $plugins->{$_};
 		if ( $attr->{'requires'} ) {
 			$disabled_reason{$_} = 'Chartdirector not installed.'
@@ -103,25 +103,28 @@ sub _print_plugins {
 		}
 		$disabled_reason{$_} = 'Not specifically enabled for this database.'
 		  if (
-			$attr->{'system_flag'}
+			   !( ( $self->{'system'}->{'all_plugins'} // '' ) eq 'yes' )
+			&& $attr->{'system_flag'}
 			&& (  !$self->{'system'}->{ $attr->{'system_flag'} }
 				|| $self->{'system'}->{ $attr->{'system_flag'} } eq 'no' )
 		  );
-		$disabled_reason{$_} = 'Only for ' . ($dbtype eq 'isolates' ? 'seqdef' : 'isolate') . ' databases.'
-			if $attr->{'dbtype'} !~ /$dbtype/;
+		$disabled_reason{$_} = 'Only for ' . ( $dbtype eq 'isolates' ? 'seqdef' : 'isolate' ) . ' databases.'
+		  if $attr->{'dbtype'} !~ /$dbtype/;
 		my $comments = '';
-		if (defined $attr->{'min'} && defined $attr->{'max'}){
+		if ( defined $attr->{'min'} && defined $attr->{'max'} ) {
 			$comments .= "Limited to queries with between $attr->{'min'} and $attr->{'max'} results.";
-		} elsif (defined $attr->{'min'}){
+		} elsif ( defined $attr->{'min'} ) {
 			$comments .= "Limited to queries with at least $attr->{'min'} results.";
-		} elsif (defined $attr->{'max'}){
+		} elsif ( defined $attr->{'max'} ) {
 			$comments .= "Limited to queries with fewer than $attr->{'max'} results.";
 		}
-		my $author = defined $attr->{'email'} && $attr->{'email'} ne '' ? "<a href=\"mailto:$attr->{'email'}\">$attr->{'author'}</a>" : $attr->{'author'};
-		$author .=  " ($attr->{'affiliation'})" if $attr->{'affiliation'};
+		my $author =
+		  defined $attr->{'email'}
+		  && $attr->{'email'} ne '' ? "<a href=\"mailto:$attr->{'email'}\">$attr->{'author'}</a>" : $attr->{'author'};
+		$author .= " ($attr->{'affiliation'})" if $attr->{'affiliation'};
 		my $name = defined $attr->{'url'} ? "<a href=\"$attr->{'url'}\">$attr->{'name'}</a>" : $attr->{'name'};
 		my $row_buffer = "<td>$name</td><td>$author</td><td>$attr->{'description'}</td><td>$attr->{'version'}</td>";
-		if ($disabled_reason{$_}){
+		if ( $disabled_reason{$_} ) {
 			$disabled_buffer .= "<tr class=\"td$dtd\">$row_buffer<td>$disabled_reason{$_}</td></tr>";
 			$dtd = $dtd == 1 ? 2 : 1;
 		} else {
@@ -129,22 +132,20 @@ sub _print_plugins {
 			$etd = $etd == 1 ? 2 : 1;
 		}
 	}
-	if ($enabled_buffer || $disabled_buffer){
-		print "<table class=\"resultstable\">";
-		if ($enabled_buffer){
-			print "<tr><th colspan=\"5\">Enabled plugins</th></tr>\n";	
-			print "<tr><th>Name</th><th>Author</th><th>Description</th><th>Version</th><th>Comments</th></tr>\n";
-			print $enabled_buffer;
+	if ( $enabled_buffer || $disabled_buffer ) {
+		say "<table class=\"resultstable\">";
+		if ($enabled_buffer) {
+			say "<tr><th colspan=\"5\">Enabled plugins</th></tr>";
+			say "<tr><th>Name</th><th>Author</th><th>Description</th><th>Version</th><th>Comments</th></tr>";
+			say $enabled_buffer;
 		}
-		if ($disabled_buffer){
-			print "<tr><th colspan=\"5\">Disabled plugins</th></tr>\n";	
-			print "<tr><th>Name</th><th>Author</th><th>Description</th><th>Version</th><th>Disabled because</th></tr>\n";
-			print $disabled_buffer;			
+		if ($disabled_buffer) {
+			say "<tr><th colspan=\"5\">Disabled plugins</th></tr>";
+			say "<tr><th>Name</th><th>Author</th><th>Description</th><th>Version</th><th>Disabled because</th></tr>";
+			say $disabled_buffer;
 		}
-		print "</table>\n";
-	} 
+		say "</table>";
+	}
 	return;
 }
-
-
 1;
