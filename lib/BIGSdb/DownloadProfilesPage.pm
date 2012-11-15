@@ -35,7 +35,7 @@ sub print_content {
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
-	my $set_id = $self->get_set_id;
+	my $set_id    = $self->get_set_id;
 	if ( !$scheme_id ) {
 		say "No scheme id passed.";
 		return;
@@ -43,9 +43,8 @@ sub print_content {
 		say "Scheme id must be an integer.";
 		return;
 	} elsif ( $set_id && !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
-			say "Scheme $scheme_id is not available.";
-			return;
-		
+		say "Scheme $scheme_id is not available.";
+		return;
 	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 	if ( !$scheme_info ) {
@@ -69,13 +68,8 @@ sub print_content {
 	my @fields = ($primary_key);
 	foreach my $locus (@$loci) {
 		print "\t";
-		my $locus_info   = $self->{'datastore'}->get_locus_info($locus, {set_id=>$set_id});
+		my $locus_info = $self->{'datastore'}->get_locus_info( $locus, { set_id => $set_id } );
 		my $header_value = $locus_info->{'set_name'} // $locus;
-		if ($set_id){
-			$header_value .= " ($locus_info->{'set_common_name'})" if $locus_info->{'set_common_name'};
-		} else {
-			$header_value .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
-		}
 		print $header_value;
 		( my $cleaned = $locus ) =~ s/'/_PRIME_/g;
 		push @fields, $cleaned;
