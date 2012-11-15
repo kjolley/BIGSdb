@@ -160,9 +160,16 @@ sub _print_query_interface {
 	my $cleaned = $table;
 	$cleaned =~ tr/_/ /;
 
-	if ( $table eq 'sequences' && $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT * FROM locus_extended_attributes)")->[0] ) {
-		say "<p>Some loci have additional fields which are not searchable from this general page.  Search for these at the "
-		  . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleQuery\">locus-specific query</a> page.</p>";
+	if ( $table eq 'sequences' ) {
+		if ( $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT * FROM locus_extended_attributes)")->[0] ) {
+			say "<p>Some loci have additional fields which are not searchable from this general page.  Search for these at the "
+			  . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleQuery\">"
+			  . "locus-specific query</a> page.  Use this page also for access to the sequence analysis or export plugins.</p>";
+		} else {
+			say "<p>You can also search using the <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
+			  . "page=alleleQuery\">locus-specific query</a> page.  Use this page for access to the sequence analysis or export plugins."
+			  . "</p>";
+		}
 	}
 	print "<p>Please enter your search criteria below (or leave blank and submit to return all records).";
 	if ( !$self->{'curate'} && $table ne 'samples' ) {
