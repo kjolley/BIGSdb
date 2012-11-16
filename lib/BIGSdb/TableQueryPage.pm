@@ -477,8 +477,9 @@ sub _run_query {
 			}
 		}
 		$qry2 .= " ORDER BY $table.";
-		$qry2 .= $q->param('order');
-		my $dir = $q->param('direction') eq 'descending' ? 'desc' : 'asc';
+		my $default_order = $table eq 'sequences' ? 'locus' : 'id';
+		$qry2 .= $q->param('order') || $default_order;
+		my $dir = ($q->param('direction') // '') eq 'descending' ? 'desc' : 'asc';
 		my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
 		local $" = ",$table.";
 		$qry2 .= " $dir,$table.@primary_keys;";
