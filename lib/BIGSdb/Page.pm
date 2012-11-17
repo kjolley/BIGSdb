@@ -148,14 +148,18 @@ sub print_page_content {
 	}
 	if ( $self->{'type'} ne 'xhtml' ) {
 		my %atts;
-		if ( $self->{'type'} eq 'embl' ) {
-			$atts{'type'} = 'chemical/x-embl-dl-nucleotide';
-			my $id = $q->param('seqbin_id') || $q->param('isolate_id') || '';
-			$atts{'attachment'} = "sequence$id.embl";
-		} elsif ( $self->{'type'} eq 'no_header' ) {
-			$atts{'type'} = 'text/html';
-		} else {
-			$atts{'type'} = 'text/plain';
+		given ( $self->{'type'} ) {
+			when ('embl') {
+				$atts{'type'} = 'chemical/x-embl-dl-nucleotide';
+				my $id = $q->param('seqbin_id') || $q->param('isolate_id') || '';
+				$atts{'attachment'} = "sequence$id.embl";
+			}
+			when ('tar') {
+				$atts{'type'}       = 'application/x-tar';
+				$atts{'attachment'} = $self->{'attachment'};
+			}
+			when ('no_header') { $atts{'type'} = 'text/html' }
+			default            { $atts{'type'} = 'text/plain' }
 		}
 		$atts{'expires'} = '+1h' if !$self->{'noCache'};
 		print $q->header( \%atts );
@@ -622,7 +626,7 @@ sub print_file {
 s/\$lociAdd/<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=sequences">Add<\/a>/;
 				}
 			}
-			if (!$self->{'curate'} && $set_id){
+			if ( !$self->{'curate'} && $set_id ) {
 				s/(bigsdb\.pl.*page=.+?)"/$1$set_string"/g;
 			}
 			print;
@@ -1642,7 +1646,7 @@ sub _initiate_isolatedb_prefs {
 
 sub initiate_view {
 	my ( $self, $username, $curate ) = @_;
-	return if ($self->{'system'}->{'dbtype'} // '') ne 'isolates';
+	return if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
 	my $set_id = $self->get_set_id;
 	if ( $self->{'system'}->{'view'} eq 'isolates' && $set_id ) {
 		if ( $self->{'system'}->{'views'} && BIGSdb::Utils::is_int($set_id) ) {

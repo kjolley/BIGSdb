@@ -46,7 +46,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.4.1',
+		version     => '1.5.0',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/genome_comparator.shtml',
@@ -82,11 +82,19 @@ function enable_seqs(){
 		\$("#tblastx").attr("disabled", true);
 		\$("#use_tagged").attr("disabled", false);
 	}
-	if (\$("#align").attr('checked')){
+	if (\$("#calc_distances").attr("checked")){
+		\$("#align").attr("checked", true);
+		\$("#align_all").attr("checked", true);
+		\$("#include_ref").attr("checked", false);
+	} else {
+		\$("#align").attr("disabled", false);
+	}
+	if (\$("#align").attr("checked")){
 		\$("#align_all").attr("disabled", false);
 	} else {
 		\$("#align_all").attr("disabled", true);
 	}
+
 	if ((\$("#accession").val() || \$("#ref_upload").val() || \$("#annotation").val()) && \$("#align").attr('checked')){
 		\$("#include_ref").attr("disabled", false);
 	} else {
@@ -212,6 +220,11 @@ sub run {
 		my $scheme_string = "@selected_schemes";
 		$q->param( 'scheme_id', $scheme_string );
 		$q->param( 'ref_upload', $ref_upload ) if $ref_upload;
+		if ( $q->param('calc_distances') ) {
+			$q->param( 'align',       'on' );
+			$q->param( 'align_all',   'on' );
+			$q->param( 'include_ref', '' );
+		}
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		if ($continue) {
 			my $params = $q->Vars;
@@ -390,37 +403,70 @@ caution.">&nbsp;<i>i</i>&nbsp;</a></span></li><li>
 HTML
 	say $q->checkbox( -name => 'align', -id => 'align', -label => 'Produce alignments (Clustal + XMFA)', -onChange => "enable_seqs()" );
 	print <<"HTML";
- <a class=\"tooltip\" title=\"Alignments - Alignments will be produced in muscle for 
+ <a class="tooltip" title="Alignments - Alignments will be produced in muscle for 
 any loci that vary between isolates. This may slow the analysis considerably.">&nbsp;<i>i</i>&nbsp;</a></li><li>
 HTML
-	say $q->checkbox( -name => 'include_ref', -id => 'include_ref', -label => 'Include ref sequences in alignment', -checked => 1 );
+	say $q->checkbox(
+		-name     => 'include_ref',
+		-id       => 'include_ref',
+		-label    => 'Include ref sequences in alignment',
+		-checked  => 1,
+		-onChange => "enable_seqs()"
+	);
 	say "</li><li>";
-	say $q->checkbox( -name => 'align_all', -id => 'align_all', -label => 'Align all loci (not only variable)' );
+	say $q->checkbox(
+		-name     => 'align_all',
+		-id       => 'align_all',
+		-label    => 'Align all loci (not only variable)',
+		-onChange => "enable_seqs()"
+	);
 	say "</li><li>";
 	say $q->checkbox( -name => 'use_tagged', -id => 'use_tagged', -label => 'Use tagged designations if available', -checked => 1 );
 	print <<"HTML";
- <a class=\"tooltip\" title=\"Tagged desginations - Allele sequences will be extracted from the definition database based on allele 
+ <a class="tooltip" title="Tagged desginations - Allele sequences will be extracted from the definition database based on allele 
 designation rather than by BLAST.  This should be much quicker. Peptide loci, however, are always extracted using BLAST.">
 &nbsp;<i>i</i>&nbsp;</a></li><li>
 HTML
 	say $q->checkbox( -name => 'disable_html', -id => 'disable_html', -label => 'Disable HTML output' );
 	print <<"HTML";
- <a class=\"tooltip\" title=\"Disable HTML - Select this option if you are analysing very large numbers of loci which may cause your
+ <a class="tooltip" title="Disable HTML - Select this option if you are analysing very large numbers of loci which may cause your
  browser problems in rendering the output table.">&nbsp;<i>i</i>&nbsp;</a></li>
 HTML
-	say "</ul></fieldset><fieldset style=\"float:left\"><legend>Restrict included sequences by</legend><ul>";
+	say "</ul></fieldset><fieldset style=\"float:left\"><legend>Core genome analysis</legend><ul>";
+	say "<li><label for=\"core_threshold\">Core threshold (%):</label>";
+	say $q->popup_menu(
+		-name    => 'core_threshold',
+		-id      => 'core_threshold',
+		-values  => [qw (80 85 90 91 92 93 94 95 96 97 98 99 100)],
+		-default => 90
+	);
+	print <<"HTML";
+ <a class="tooltip" title="Core threshold - Percentage of isolates that locus must be present in to be considered part
+ of the core genome.">&nbsp;<i>i</i>&nbsp;</a></li>
+ <li>
+HTML
+	say $q->checkbox(
+		-name  => 'calc_distances',
+		-id    => 'calc_distances',
+		-label => 'Calculate mean distances',
+		, -onChange => 'enable_seqs()'
+	);
+	print <<"HTML";
+ <a class="tooltip" title=\"Mean distance - This requires performing alignments of sequences so will take longer to perform.">
+ &nbsp;<i>i</i>&nbsp;</a></li>
+ </ul></fieldset><fieldset style=\"float:left\"><legend>Restrict included sequences by</legend><ul>
+HTML
 	my $buffer = $self->get_sequence_method_filter( { class => 'parameter' } );
 	say "<li>$buffer</li>" if $buffer;
 	$buffer = $self->get_project_filter( { class => 'parameter' } );
 	say "<li>$buffer</li>" if $buffer;
 	$buffer = $self->get_experiment_filter( { class => 'parameter' } );
 	say "<li>$buffer</li>" if $buffer;
-	say "</ul>\n</fieldset>\n</div>";
-	say "<table style=\"width:95%\"><tr><td style=\"text-align:left\">";
-	say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=GenomeComparator\" ",
-	  "class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\" colspan=\"4\">";
+	say "</ul>\n</fieldset>\n";
+	say "<div style=\"clear:both\"><span style=\"float:left\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
+	  . "page=plugin&amp;name=GenomeComparator\" class=\"resetbutton\">Reset</a></span><span style=\"float:right;padding-right:5%\">";
 	say $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	say "</td></tr></table>";
+	say "</span></div></div>";
 	say $q->hidden($_) foreach qw (page name db);
 	say $q->end_form;
 	say "</div>";
@@ -690,10 +736,10 @@ sub _extract_cds_details {
 
 sub _run_comparison {
 	my ( $self, $by_reference, $job_id, $params, $ids, $cds, $html_buffer_ref, $file_buffer_ref ) = @_;
-	my ( $progress, $seqs_total, $td ) = ( 0, 0, 1 );
+	my ( $progress, $seqs_total, $td, $order_count ) = ( 0, 0, 1, 1 );
 	my $total = ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $by_reference ) ) ) ? ( @$cds * 2 ) : @$cds;
 	my $close_table = '</table></div>';
-	my ( $locus_class, $values, $word_size, $program );
+	my ( $locus_class, $presence, $order, $values, $word_size, $program );
 	my $job_file = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
 	my $prefix   = BIGSdb::Utils::get_random();
 	my %isolate_FASTA;
@@ -717,8 +763,8 @@ sub _run_comparison {
 				( $locus_name, $seq_ref, $start, $desc ) = $self->_extract_cds_details( $cds, \$seqs_total, \%seqs );
 			}
 			catch BIGSdb::DataException with {
-				$$html_buffer_ref .=
-"\n$close_table<p class=\"statusbad\">Error: There are no product tags defined in record with supplied accession number.</p>\n";
+				$$html_buffer_ref .= "\n$close_table<p class=\"statusbad\">Error: There are no product tags defined in record with "
+				  . "supplied accession number.</p>\n";
 				$self->{'jobManager'}->update_job_status( $job_id, { status => 'failed', message_html => $$html_buffer_ref } );
 				$continue = 0;
 			};
@@ -733,6 +779,8 @@ sub _run_comparison {
 			$locus_name   = $cds;
 			$locus_info   = $self->{'datastore'}->get_locus_info($cds);
 		}
+		$order->{$locus_name} = $order_count;
+		$order_count++;
 		my $seqbin_length_sql = $self->{'db'}->prepare("SELECT length(sequence) FROM sequence_bin where id=?");
 		my %status            = ( all_exact => 1, all_missing => 1, exact_except_ref => 1, truncated => 0 );
 		my $first             = 1;
@@ -828,6 +876,7 @@ sub _run_comparison {
 					$style = BIGSdb::Utils::get_style( $value_colour{$value}, scalar @$ids );
 				}
 			}
+			$presence->{$locus_name}++ if $value ne 'X';
 			$self->{'style'}->{$locus_name}->{$value} = $style;
 			$$html_buffer_ref .= "<td style=\"$style\">$value</td>";
 			$$file_buffer_ref .= "\t$value";
@@ -879,7 +928,10 @@ sub _run_comparison {
 			values          => $values,
 			file_buffer_ref => $file_buffer_ref,
 			html_buffer_ref => $html_buffer_ref,
-			seqs_total      => $seqs_total
+			seqs_total      => $seqs_total,
+			ids             => $ids,
+			presence        => $presence,
+			order           => $order
 		}
 	);
 	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$prefix\*";
@@ -899,8 +951,10 @@ sub _print_reports {
 	open( my $job_fh, '>', $job_file ) || $logger->error("Can't open $job_file for writing");
 	print $job_fh $$file_buffer_ref;
 	close $job_fh;
+	my $distances;
+
 	if ( $params->{'align'} ) {
-		$self->_create_alignments( $job_id, $args->{'by_reference'},
+		$distances = $self->_create_alignments( $job_id, $args->{'by_reference'},
 			$align_file, $align_stats_file, $ids, ( $params->{'align_all'} ? $loci : $locus_class->{'varying'} ), $params );
 		open( my $align_fh, '>>', $align_file ) || $logger->error("Can't open $align_file for appending");
 		close $align_fh;
@@ -944,7 +998,164 @@ sub _print_reports {
 			};
 		}
 	}
+	$self->_core_analysis( $params, $loci, $distances, $args );
 	return;
+}
+
+sub _core_analysis {
+	my ( $self, $params, $loci, $distances, $args ) = @_;
+	return if ref $loci ne 'HASH';
+	my $core_count = 0;
+	my @core_loci;
+	my $isolate_count = @{ $args->{'ids'} };
+	my $locus_count   = keys %$loci;
+	my $order         = $args->{'order'};
+	my $out_file      = "$self->{'config'}->{'tmp_dir'}/$args->{'job_id'}\_core.txt";
+	open( my $fh, '>', $out_file ) || $logger->error("Can't open $out_file for writing");
+	say $fh "Core genome analysis";
+	say $fh "--------------------\n";
+	say $fh "Parameters:";
+	say $fh "Min % identity: $params->{'identity'}";
+	say $fh "Min % alignment: $params->{'alignment'}";
+	say $fh "BLASTN word size: $params->{'word_size'}";
+	my $threshold =
+	  ( $params->{'core_threshold'} && BIGSdb::Utils::is_int( $params->{'core_threshold'} ) ) ? $params->{'core_threshold'} : 90;
+	say $fh "Core threshold (percentage of isolates that contain locus): $threshold\%\n";
+	print $fh "Locus\tIsolate frequency\tIsolate percentage\tCore";
+	print $fh "\tMean distance" if $params->{'calc_distances'};
+	print $fh "\n";
+	my %range;
+
+	foreach my $locus ( sort { $order->{$a} <=> $order->{$b} } keys %$loci ) {
+		my $freq = $args->{'presence'}->{$locus} // 0;
+		my $percentage = BIGSdb::Utils::decimal_place( $freq * 100 / $isolate_count, 1 );
+		my $core;
+		if ( $percentage >= $threshold ) {
+			$core = 'Y';
+			push @core_loci, $locus;
+		} else {
+			$core = '-';
+		}
+		$core_count++ if $percentage >= $threshold;
+		print $fh "$locus\t$freq\t$percentage\t$core";
+		print $fh "\t" . BIGSdb::Utils::decimal_place( ( $distances->{$locus} // 0 ), 3 ) if $params->{'calc_distances'};
+		print $fh "\n";
+		for ( my $upper_range = 5 ; $upper_range <= 100 ; $upper_range += 5 ) {
+			$range{$upper_range}++ if $percentage >= ( $upper_range - 5 ) && $percentage < $upper_range;
+		}
+		$range{'all_isolates'}++ if $percentage == 100;
+	}
+	say $fh "\nCore loci: $core_count\n";
+	say $fh "Present in % of isolates\tNumber of loci\tPercentage (%) of loci";
+	my ( @labels, @values );
+	for ( my $upper_range = 5 ; $upper_range <= 100 ; $upper_range += 5 ) {
+		my $label      = ( $upper_range - 5 ) . " - <$upper_range";
+		my $value      = $range{$upper_range} // 0;
+		my $percentage = BIGSdb::Utils::decimal_place( $value * 100 / $locus_count, 1 );
+		say $fh "$label\t$value\t$percentage";
+		push @labels, $label;
+		push @values, $value;
+	}
+	$range{'all_isolates'} //= 0;
+	my $percentage = BIGSdb::Utils::decimal_place( $range{'all_isolates'} * 100 / $locus_count, 1 );
+	say $fh "100\t$range{'all_isolates'}\t$percentage";
+	push @labels, 100;
+	push @values, $range{'all_isolates'};
+	close $fh;
+	$self->_core_mean_distance( $args, $out_file, \@core_loci, $loci, $distances ) if $params->{'calc_distances'};
+
+	if ( -e $out_file ) {
+		$self->{'jobManager'}->update_job_output( $args->{'job_id'},
+			{ filename => "$args->{'job_id'}\_core.txt", description => '40_Locus presence frequency' } );
+	}
+	if ( $self->{'config'}->{'chartdirector'} ) {
+		my $image_file = "$self->{'config'}->{'tmp_dir'}/$args->{'job_id'}\_core.png";
+		BIGSdb::Charts::barchart(
+			\@labels, \@values, $image_file, 'large',
+			{ 'x-title'      => 'Present in % of isolates', 'y-title' => 'Number of loci' },
+			{ no_transparent => 1 }
+		);
+		if ( -e $image_file ) {
+			$self->{'jobManager'}->update_job_output( $args->{'job_id'},
+				{ filename => "$args->{'job_id'}\_core.png", description => '41_Locus presence frequency chart (PNG format)' } );
+		}
+	}
+	return;
+}
+
+sub _core_mean_distance {
+	my ( $self, $args, $out_file, $core_loci, $loci, $distances ) = @_;
+	return if !@$core_loci;
+	my $file_buffer = "\nMean distances of core loci\n---------------------------\n\n";
+	my $largest_distance = $self->_get_largest_distance( $core_loci, $loci, $distances );
+	my (@labels, @values);
+	if ( !$largest_distance ) {
+		$file_buffer .= "All loci are identical.\n";
+	} else {
+		my $increment;
+
+		#Aim to have <50 points
+		foreach (qw(0.0001 0.0002 0.0005 0.001 0.002 0.005 0.01 0.02)) {
+			if ( ( $largest_distance / $_ ) <= 50 ) {
+				$increment = $_;
+				last;
+			}
+		}
+		$increment //= 0.02;
+		my %upper_range;
+		foreach my $locus (@$core_loci) {
+			my $range = 0;
+			if ( $distances->{$locus} ) {
+				my $distance = $distances->{$locus} =~ /^([\d\.]+)$/ ? $1 : 0;    #untaint
+				do( $range += $increment ) until $range >= $distance;
+			}
+			$upper_range{$range}++;
+		}
+		$file_buffer .= "Mean distance*\tFrequency\tPercentage\n";
+		$file_buffer .= "0\t"
+		  . ( $upper_range{0} // 0 ) . "\t"
+		  . BIGSdb::Utils::decimal_place( ( ( $upper_range{0} // 0 ) * 100 / @$core_loci ), 1 ) . "\n";
+		my $range = 0;
+		push @labels, 0;
+		push @values, $upper_range{0} // 0;
+		do {
+			$range += $increment;
+			my $label = '>'
+			  . ( $range - $increment )
+			  . " - $range";
+			my $value = $upper_range{$range} // 0;
+			push @labels, $label;
+			push @values, $value;
+			$file_buffer .= "$label\t$value\t"
+			  . BIGSdb::Utils::decimal_place( ( ( $upper_range{$range} // 0 ) * 100 / @$core_loci ), 1 ) . "\n";
+		} until ( $range > $largest_distance );
+		$file_buffer .= "\n*Mean distance is the overall mean distance calculated from a computed consensus sequence.\n"
+	}
+	open( my $fh, '>>', $out_file ) || $logger->error("Can't open $out_file for appending");
+	say $fh $file_buffer;
+	close $fh;
+	if (@labels && $self->{'config'}->{'chartdirector'} ) {
+		my $image_file = "$self->{'config'}->{'tmp_dir'}/$args->{'job_id'}\_core2.png";
+		BIGSdb::Charts::barchart(
+			\@labels, \@values, $image_file, 'large',
+			{ 'x-title'      => 'Overall mean distance', 'y-title' => 'Number of loci' },
+			{ no_transparent => 1 }
+		);
+		if ( -e $image_file ) {
+			$self->{'jobManager'}->update_job_output( $args->{'job_id'},
+				{ filename => "$args->{'job_id'}\_core2.png", description => '42_Overall mean distance (from consensus sequence) of core genome alleles (PNG format)' } );
+		}
+	}
+	return;
+}
+
+sub _get_largest_distance {
+	my ( $self, $core_loci, $loci, $distances ) = @_;
+	my $largest = 0;
+	foreach my $locus (@$core_loci) {
+		$largest = $distances->{$locus} if $distances->{$locus} > $largest;
+	}
+	return $largest;
 }
 
 sub _scan_by_locus {
@@ -1081,6 +1292,7 @@ sub _create_alignments {
 	my $xmfa_out   = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
 	my $xmfa_start = 1;
 	my $xmfa_end;
+	my $distances;
 
 	foreach my $locus ( sort keys %$loci ) {
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Aligning $locus sequences" } );
@@ -1108,7 +1320,7 @@ sub _create_alignments {
 		}
 		close $fasta_fh;
 		if ( $params->{'align'} ) {
-			$self->_run_muscle(
+			$distances->{$locus} = $self->_run_muscle(
 				{
 					ids              => $ids,
 					locus            => $locus,
@@ -1126,10 +1338,12 @@ sub _create_alignments {
 		}
 		unlink $fasta_file;
 	}
-	return;
+	return $distances;
 }
 
 sub _run_infoalign {
+
+	#returns mean distance
 	my ( $self, $values, $params ) = @_;
 	if ( -e "$self->{'config'}->{'emboss_path'}/infoalign" ) {
 		my $prefix  = BIGSdb::Utils::get_random();
@@ -1143,7 +1357,23 @@ sub _run_infoalign {
 		print $fh_stats "$heading_locus\n";
 		print $fh_stats '-' x ( length $heading_locus ) . "\n\n";
 		close $fh_stats;
-		BIGSdb::Utils::append( $outfile, $values->{'align_stats_file'}, { blank_after => 1 } ) if -e $outfile;
+
+		if ( -e $outfile ) {
+			BIGSdb::Utils::append( $outfile, $values->{'align_stats_file'}, { blank_after => 1 } );
+			open( my $fh, '<', $outfile ) or $logger->error("Can't open alignment stats file file $outfile for reading");
+			my $row        = 0;
+			my $total_diff = 0;
+			while (<$fh>) {
+				next if /^#/;
+				my @values = split /\s+/;
+				my $diff   = $values[7];    # % difference from consensus
+				$total_diff += $diff;
+				$row++;
+			}
+			my $mean_distance = $total_diff / ( $row * 100 );
+			close $fh;
+			return $mean_distance;
+		}
 	}
 	return;
 }
@@ -1154,6 +1384,7 @@ sub _run_muscle {
 	my ( $self, $values, $params ) = @_;
 	return if $values->{'seq_count'} <= 1;
 	system( $self->{'config'}->{'muscle_path'}, '-in', $values->{'fasta_file'}, '-out', $values->{'muscle_out'}, '-quiet', '-clwstrict' );
+	my $distance;
 	if ( -e $values->{'muscle_out'} ) {
 		my $align = Bio::AlignIO->new( -format => 'clustalw', -file => $values->{'muscle_out'} )->next_aln;
 		my ( %id_has_seq, $seq_length );
@@ -1182,10 +1413,10 @@ sub _run_muscle {
 		close $align_fh;
 		BIGSdb::Utils::append( $values->{'muscle_out'}, $values->{'align_file'}, { blank_after => 1 } );
 		$values->{'alignment'} = $values->{'muscle_out'};
-		$self->_run_infoalign( $values, $params );
+		$distance = $self->_run_infoalign( $values, $params );
 		unlink $values->{'muscle_out'};
 	}
-	return;
+	return $distance;
 }
 
 sub _print_exact_matches {

@@ -26,36 +26,44 @@ my $logger = get_logger('BIGSdb.Page');
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw(jQuery jQuery.slimbox noCache);
-	my $id = $self->{'cgi'}->param('id');
+	my $q      = $self->{'cgi'};
+	my $id     = $q->param('id');
+	if ( ( $q->param('output') // '' ) eq 'archive' ) {
+		$self->{'type'}       = 'tar';
+		$self->{'attachment'} = "$id.tar";
+		$self->{'noCache'}    = 1;
+		return;
+	} else {
+		$self->{$_} = 1 foreach qw(jQuery jQuery.slimbox noCache);
+	}
 	return if !defined $id;
 	my ( $job, undef, undef ) = $self->{'jobManager'}->get_job($id);
 	return if !$job->{'status'};
 	return if $job->{'status'} eq 'finished' || $job->{'status'} eq 'failed';
 	my $complete = $job->{'percent_complete'};
 	my $elapsed = $job->{'elapsed'} // 0;
-	
-	if ($job->{'status'} eq 'started'){
-		if ($complete > 0){
-			$self->{'refresh'} = (int ($elapsed/$complete) || 1) * 5;	
-		} elsif ($elapsed > 300) {
-			$self->{'refresh'} = 60;	
-		} elsif ($elapsed > 120) {
+	if ( $job->{'status'} eq 'started' ) {
+
+		if ( $complete > 0 ) {
+			$self->{'refresh'} = ( int( $elapsed / $complete ) || 1 ) * 5;
+		} elsif ( $elapsed > 300 ) {
+			$self->{'refresh'} = 60;
+		} elsif ( $elapsed > 120 ) {
 			$self->{'refresh'} = 20;
-		} elsif ($elapsed > 60){
+		} elsif ( $elapsed > 60 ) {
 			$self->{'refresh'} = 10;
 		} else {
-			$self->{'refresh'} = 5; #update page frequently for the first minute
-		}		
+			$self->{'refresh'} = 5;    #update page frequently for the first minute
+		}
 	} else {
-		$self->{'refresh'} = 5; #not started
+		$self->{'refresh'} = 5;        #not started
 	}
 	return;
 }
 
 sub get_javascript {
-	my ($self)   = @_;
-	my $buffer   = << "END";
+	my ($self) = @_;
+	my $buffer = << "END";
 \$(function () {
 	\$("html, body").animate({ scrollTop: \$(document).height()-\$(window).height() });	
 });
@@ -65,9 +73,13 @@ END
 
 sub print_content {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my $q      = $self->{'cgi'};
+	my $id     = $q->param('id');
+	if ( ( $q->param('output') // '' ) eq 'archive' ) {
+		$self->_tar_archive($id);
+		return;
+	}
 	print "<h1>Job status viewer</h1>";
-	my $id = $q->param('id');
 	if ( !defined $id || $id !~ /BIGSdb_\d+/ ) {
 		print "<div class=\"box\" id=\"statusbad\">\n";
 		print "<p>The submitted job id is invalid.</p>\n";
@@ -85,9 +97,9 @@ sub print_content {
 	( my $start_time = $job->{'start_time'} ? $job->{'start_time'} : '' ) =~ s/\.\d+$//;
 	( my $stop_time  = $job->{'stop_time'}  ? $job->{'stop_time'}  : '' ) =~ s/\.\d+$//;
 	$job->{'percent_complete'} = 'indeterminate ' if $job->{'percent_complete'} == -1;
-	if ($job->{'status'} eq 'submitted'){
+	if ( $job->{'status'} eq 'submitted' ) {
 		my $jobs_in_queue = $self->{'jobManager'}->get_jobs_ahead_in_queue($id);
-		if ($jobs_in_queue){
+		if ($jobs_in_queue) {
 			my $plural = $jobs_in_queue == 1 ? '' : 's';
 			$job->{'status'} .= " ($jobs_in_queue unstarted job$plural ahead in queue)";
 		} else {
@@ -105,56 +117,69 @@ sub print_content {
 <tr class="td1"><th style="text-align:right">Progress: </th><td style="text-align:left">$job->{'percent_complete'}%</td></tr>
 HTML
 	my $td = 2;
-	if ($job->{'stage'}){
+	if ( $job->{'stage'} ) {
 		print "<tr class=\"td$td\"><th style=\"text-align:right\">Stage: </th><td style=\"text-align:left\">$job->{'stage'}</td></tr>\n";
 		$td = $td == 1 ? 2 : 1;
 	}
-	if ($stop_time){
+	if ($stop_time) {
 		print "<tr class=\"td$td\"><th style=\"text-align:right\">Stop time: </th><td style=\"text-align:left\">$stop_time</td></tr>\n";
 		$td = $td == 1 ? 2 : 1;
 	}
-	my ($field, $value, $refresh);
-	eval "use Time::Duration;"; ## no critic (ProhibitStringyEval)
-	if ($@){
-		if ($job->{'total_time'}){
-			($field, $value) = ('Total time', int($job->{'total_time'}) .' s');
-		} elsif ($job->{'elapsed'}){
-			($field, $value) = ('Elapsed time', int($job->{'elapsed'}) . ' s');
+	my ( $field, $value, $refresh );
+	eval "use Time::Duration;";    ## no critic (ProhibitStringyEval)
+	if ($@) {
+		if ( $job->{'total_time'} ) {
+			( $field, $value ) = ( 'Total time', int( $job->{'total_time'} ) . ' s' );
+		} elsif ( $job->{'elapsed'} ) {
+			( $field, $value ) = ( 'Elapsed time', int( $job->{'elapsed'} ) . ' s' );
 		}
 		$refresh = $self->{'refresh'} . ' seconds';
 	} else {
-		if ($job->{'total_time'}){
-			($field, $value) = ('Total time', duration($job->{'total_time'}));
+		if ( $job->{'total_time'} ) {
+			( $field, $value ) = ( 'Total time', duration( $job->{'total_time'} ) );
 			$value = '<1 second' if $value eq 'just now';
-		} elsif ($job->{'elapsed'}){
-			($field, $value) = ('Elapsed time', duration($job->{'elapsed'}));
+		} elsif ( $job->{'elapsed'} ) {
+			( $field, $value ) = ( 'Elapsed time', duration( $job->{'elapsed'} ) );
 			$value = '<1 second' if $value eq 'just now';
 		}
-		$refresh = duration($self->{'refresh'});
+		$refresh = duration( $self->{'refresh'} );
 	}
-	print "<tr class=\"td$td\"><th style=\"text-align:right\">$field: </th><td style=\"text-align:left\">$value</td></tr>\n" if $field && $value;
+	print "<tr class=\"td$td\"><th style=\"text-align:right\">$field: </th><td style=\"text-align:left\">$value</td></tr>\n"
+	  if $field && $value;
 	print "</table><h2>Output</h2>";
-
 	if ( !( $job->{'message_html'} || ref $output eq 'HASH' ) ) {
 		print "<p>No output yet.</p>\n";
 	} else {
 		print "$job->{'message_html'}" if $job->{'message_html'};
 		my @buffer;
 		if ( ref $output eq 'HASH' ) {
+			my $include_in_tar = 0;
 			foreach ( sort keys(%$output) ) {
 				my ( $link_text, $comments ) = split /\|/, $_;
-				$link_text =~ s/^\d{2}_//; #Descriptions can start with 2 digit number for ordering
+				$link_text =~ s/^\d{2}_//;    #Descriptions can start with 2 digit number for ordering
 				my $text = "<li><a href=\"/tmp/$output->{$_}\">$link_text</a>";
 				$text .= " - $comments" if $comments;
-				if ($output->{$_} =~ /\.png$/){
-					my $title = $link_text . ($comments ? " - $comments" : '');
-					$text .= "<br /><a href=\"/tmp/$output->{$_}\" rel=\"lightbox-1\" class=\"lightbox\" title=\"$title\">"
-					 . "<img src=\"/tmp/$output->{$_}\" alt=\"\" style=\"max-width:200px;border:1px dashed black\" /></a>"
-					 . " (click to enlarge)";
+				my $size = -s "$self->{'config'}->{'tmp_dir'}/$output->{$_}";
+				if ($size > (1024 * 1024)){ #1Mb
+					my $size_in_MB = BIGSdb::Utils::decimal_place($size / (1024*1024),1);
+					$text .= " ($size_in_MB MB)";
+				} 
+				$include_in_tar++ if $size < (10 * 1024 * 1024); #10MB
+				if ( $output->{$_} =~ /\.png$/ ) {
+					my $title = $link_text . ( $comments ? " - $comments" : '' );
+					$text .=
+					    "<br /><a href=\"/tmp/$output->{$_}\" rel=\"lightbox-1\" class=\"lightbox\" title=\"$title\">"
+					  . "<img src=\"/tmp/$output->{$_}\" alt=\"\" style=\"max-width:200px;border:1px dashed black\" /></a>"
+					  . " (click to enlarge)";
 				}
 				$text .= "</li>\n";
 				push @buffer, $text;
 			}
+			my $tar_msg = $include_in_tar < (keys %$output) ? ' (only files <10MB included - download larger files separately)' : '';
+			push @buffer,
+			  "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$id&amp;"
+			  . "output=archive\">Tar file containing output files</a>$tar_msg</li>"
+			  if $job->{'status'} eq 'finished' && $include_in_tar > 1;
 		}
 		if (@buffer) {
 			local $" = "\n";
@@ -162,8 +187,9 @@ HTML
 		}
 	}
 	print "</div><div class=\"box\" id=\"resultsfooter\">";
-	print "<p>This page will reload in $refresh. You can refresh it any time, or bookmark it and close your browser if you wish.</p>" if $self->{'refresh'};
-	if ($self->{'config'}->{'results_deleted_days'} && BIGSdb::Utils::is_int($self->{'config'}->{'results_deleted_days'})){
+	print "<p>This page will reload in $refresh. You can refresh it any time, or bookmark it and close your browser if you wish.</p>"
+	  if $self->{'refresh'};
+	if ( $self->{'config'}->{'results_deleted_days'} && BIGSdb::Utils::is_int( $self->{'config'}->{'results_deleted_days'} ) ) {
 		print "<p>Please note that job results will remain on the server for $self->{'config'}->{'results_deleted_days'} days.</p></div>";
 	} else {
 		print "<p>Please note that job results will not be stored on the server indefinitely.</p></div>";
@@ -175,5 +201,26 @@ sub get_title {
 	my ($self) = @_;
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 	return "Job status viewer - $desc";
+}
+
+sub _tar_archive {
+	my ( $self, $id ) = @_;
+	return if !defined $id || $id !~ /BIGSdb_\d+/;
+	my ( $job, $params, $output ) = $self->{'jobManager'}->get_job($id);
+	if ( ref $output eq 'HASH' ) {
+		my @filenames;
+		foreach my $desc ( sort keys(%$output) ) {
+			my $full_path = "$self->{'config'}->{'tmp_dir'}/$output->{$desc}";
+			if ( -e $full_path && -s $full_path < (10 * 1024 * 1024) ) {  #smaller than 10MB
+				push @filenames, $output->{$desc};
+			}
+		}
+		if (@filenames) {
+			local $" = ' ';
+			$logger->error("cd $self->{'config'}->{'tmp_dir'} && tar -cf - @filenames");
+			system "cd $self->{'config'}->{'tmp_dir'} && tar -cf - @filenames" || $logger->error("Can't create tar");
+		}
+	}
+	return;
 }
 1;
