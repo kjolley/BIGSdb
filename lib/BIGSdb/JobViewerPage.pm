@@ -153,11 +153,18 @@ HTML
 		print "$job->{'message_html'}" if $job->{'message_html'};
 		my @buffer;
 		if ( ref $output eq 'HASH' ) {
+			my $include_in_tar = 0;
 			foreach ( sort keys(%$output) ) {
 				my ( $link_text, $comments ) = split /\|/, $_;
 				$link_text =~ s/^\d{2}_//;    #Descriptions can start with 2 digit number for ordering
 				my $text = "<li><a href=\"/tmp/$output->{$_}\">$link_text</a>";
 				$text .= " - $comments" if $comments;
+				my $size = -s "$self->{'config'}->{'tmp_dir'}/$output->{$_}";
+				if ($size > (1024 * 1024)){ #1Mb
+					my $size_in_MB = BIGSdb::Utils::decimal_place($size / (1024*1024),1);
+					$text .= " ($size_in_MB MB)";
+				} 
+				$include_in_tar++ if $size < (10 * 1024 * 1024); #10MB
 				if ( $output->{$_} =~ /\.png$/ ) {
 					my $title = $link_text . ( $comments ? " - $comments" : '' );
 					$text .=
@@ -168,10 +175,11 @@ HTML
 				$text .= "</li>\n";
 				push @buffer, $text;
 			}
+			my $tar_msg = $include_in_tar < (keys %$output) ? ' (only files <10MB included - download larger files separately)' : '';
 			push @buffer,
 			  "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$id&amp;"
-			  . "output=archive\">Tar file containing all output files</a></li>"
-			  if $job->{'status'} eq 'finished' && keys(%$output) > 1;
+			  . "output=archive\">Tar file containing output files</a>$tar_msg</li>"
+			  if $job->{'status'} eq 'finished' && $include_in_tar > 1;
 		}
 		if (@buffer) {
 			local $" = "\n";
@@ -202,12 +210,14 @@ sub _tar_archive {
 	if ( ref $output eq 'HASH' ) {
 		my @filenames;
 		foreach my $desc ( sort keys(%$output) ) {
-			if ( -e "$self->{'config'}->{'tmp_dir'}/$output->{$desc}" ) {
+			my $full_path = "$self->{'config'}->{'tmp_dir'}/$output->{$desc}";
+			if ( -e $full_path && -s $full_path < (10 * 1024 * 1024) ) {  #smaller than 10MB
 				push @filenames, $output->{$desc};
 			}
 		}
 		if (@filenames) {
 			local $" = ' ';
+			$logger->error("cd $self->{'config'}->{'tmp_dir'} && tar -cf - @filenames");
 			system "cd $self->{'config'}->{'tmp_dir'} && tar -cf - @filenames" || $logger->error("Can't create tar");
 		}
 	}
