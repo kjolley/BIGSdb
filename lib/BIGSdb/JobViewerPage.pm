@@ -217,8 +217,12 @@ sub _tar_archive {
 		}
 		if (@filenames) {
 			local $" = ' ';
-			$logger->error("cd $self->{'config'}->{'tmp_dir'} && tar -cf - @filenames");
-			system "cd $self->{'config'}->{'tmp_dir'} && tar -cf - @filenames" || $logger->error("Can't create tar");
+			my $command = "cd $self->{'config'}->{'tmp_dir'} && tar -cf - @filenames";
+			if ( $ENV{'MOD_PERL'} ) {
+				print `$command`; # http://modperlbook.org/html/6-4-8-Output-from-System-Calls.html
+			} else {
+				system $command || $logger->error("Can't create tar: $?");
+			}
 		}
 	}
 	return;
