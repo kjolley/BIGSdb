@@ -157,12 +157,12 @@ sub _print_client_database_data {
 	  . "client_dbases.id=client_dbase_id WHERE locus=?";
 	my $client_list = $self->{'datastore'}->run_list_query_hashref( $qry, $locus );
 	foreach my $client (@$client_list) {
-		say "<tr class=\"td$td\"><th>client database</th><td style=\"text-align:left\">$client->{'name'}</td>"
-		  . "<td style=\"text-align:left\">$client->{'description'}</td>";
 		my $isolate_count =
 		  $self->{'datastore'}->get_client_db( $client->{'id'} )
 		  ->count_isolates_with_allele( $client->{'locus_alias'} || $locus, $allele_id );
 		next if !$isolate_count;
+		say "<tr class=\"td$td\"><th>client database</th><td style=\"text-align:left\">$client->{'name'}</td>"
+		  . "<td style=\"text-align:left\">$client->{'description'}</td>";
 		my $plural = $isolate_count == 1 ? '' : 's';
 		say "<td colspan=\"2\">$isolate_count isolate$plural<br />";
 		if ( $client->{'url'} ) {
