@@ -23,6 +23,8 @@ package BIGSdb::Utils;
 use strict;
 use warnings;
 use POSIX qw(ceil);
+use Bio::SeqIO;
+use Bio::SeqFeature::Generic;
 use autouse 'Time::Local'  => qw(timelocal);
 use constant MAX_4BYTE_INT => 2147483647;
 
@@ -301,6 +303,36 @@ sub xmfa2fasta {
 		print $fasta_fh "$$seq_ref\n";
 	}
 	return $fasta_file;
+}
+
+sub fasta2genbank {
+	my ($fasta_file) = @_;
+	( my $genbank_file = $fasta_file ) =~ s/\.(fas|fasta)$/.gb/;
+	my $in  = Bio::SeqIO->new( -file => $fasta_file,      -format => 'fasta' );
+	my $out = Bio::SeqIO->new( -file => ">$genbank_file", -format => 'genbank' );
+	my $start      = 1;
+	my $concat_seq = '';
+	my @features;
+	while ( my $seq_obj = $in->next_seq ) {
+		my $id  = $seq_obj->primary_id;
+		my $seq = ($seq_obj->primary_seq->seq =~ /(.*)/) ? $1: undef; #untaint
+		$concat_seq .= $seq;
+		my $length = length($seq);
+		my $end    = $start + $length - 1;
+		my $feat   = Bio::SeqFeature::Generic->new(
+			-start       => $start,
+			-end         => $end,
+			-strand      => 1,
+			-primary_tag => 'CDS',
+			-tag         => { gene => $id, product => '' }
+		);
+		push @features, $feat;
+		$start += $length;
+	}
+	my $out_seq_obj = Bio::Seq->new( -seq => $concat_seq, -id => 'FROM_FASTA' );
+	$out_seq_obj->add_SeqFeature($_) foreach (@features);
+	$out->write_seq($out_seq_obj);
+	return $genbank_file;
 }
 
 sub get_style {

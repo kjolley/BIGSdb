@@ -162,6 +162,14 @@ sub run_job {
 				throw BIGSdb::PluginException("No data returned for accession number $accession.\n");
 			};
 		} else {
+			if ($ref_upload =~ /fas$/ || $ref_upload =~ /fasta$/){
+				try {
+					BIGSdb::Utils::fasta2genbank("$self->{'config'}->{'tmp_dir'}/$ref_upload");
+				} catch Bio::Root::Exception with {
+					throw BIGSdb::PluginException("Invalid data in uploaded reference file.");
+				};
+				$ref_upload =~ s/\.(fas|fasta)$/\.gb/;
+			}
 			eval {
 				my $seqio_object = Bio::SeqIO->new( -file => "$self->{'config'}->{'tmp_dir'}/$ref_upload" );
 				$seq_obj = $seqio_object->next_seq;
@@ -362,10 +370,10 @@ HTML
 		}
 		say "<br />";
 	}
-	say "or upload Genbank/EMBL file:<br />";
+	say "or upload Genbank/EMBL/FASTA file:<br />";
 	say $q->filefield( -name => 'ref_upload', -id => 'ref_upload', -size => 10, -maxlength => 512, -onChange => 'enable_seqs()' );
 	say " <a class=\"tooltip\" title=\"Reference upload - File format is recognised by the extension in the "
-	  . "name.  Make sure your file has a standard extension, e.g. .gb, .embl.\">&nbsp;<i>i</i>&nbsp;</a><br />";
+	  . "name.  Make sure your file has a standard extension, e.g. .gb, .embl, .fas.\">&nbsp;<i>i</i>&nbsp;</a><br />";
 	say "</fieldset>\n<fieldset style=\"float:left\">\n<legend>Parameters / options</legend>";
 	say "<ul><li><label for =\"identity\" class=\"parameter\">Min % identity:</label>";
 	say $q->popup_menu(
