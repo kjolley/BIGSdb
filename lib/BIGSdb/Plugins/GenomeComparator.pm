@@ -978,19 +978,21 @@ sub _print_reports {
 	my @ignore_loci = keys %{ $locus_class->{'truncated'} };
 	$self->_generate_splits( $job_id, $values, \@ignore_loci );
 	if ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $args->{'by_reference'} ) ) ) {
-		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align.txt", description => '30_Alignments' } )
+		$self->{'jobManager'}
+		  ->update_job_output( $job_id, { filename => "$job_id\_align.txt", description => '30_Alignments', compress => 1 } )
 		  if -e $align_file && !-z $align_file;
-		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\_align_stats.txt", description => '31_Alignment stats' } )
+		$self->{'jobManager'}
+		  ->update_job_output( $job_id, { filename => "$job_id\_align_stats.txt", description => '31_Alignment stats', compress => 1 } )
 		  if -e $align_stats_file && !-z $align_stats_file;
 		if ( -e "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa" ) {
-			$self->{'jobManager'}
-			  ->update_job_output( $job_id, { filename => "$job_id.xmfa", description => '35_Extracted sequences (XMFA format)' } );
+			$self->{'jobManager'}->update_job_output( $job_id,
+				{ filename => "$job_id.xmfa", description => '35_Extracted sequences (XMFA format)', compress => 1, keep_original => 1 } );
 			try {
 				$self->{'jobManager'}->update_job_status( $job_id, { stage => "Converting XMFA to FASTA" } );
 				my $fasta_file = BIGSdb::Utils::xmfa2fasta("$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa");
 				if ( -e $fasta_file ) {
 					$self->{'jobManager'}->update_job_output( $job_id,
-						{ filename => "$job_id.fas", description => '36_Concatenated aligned sequences (FASTA format)' } );
+						{ filename => "$job_id.fas", description => '36_Concatenated aligned sequences (FASTA format)', compress => 1 } );
 				}
 			}
 			catch BIGSdb::CannotOpenFileException with {
@@ -1088,7 +1090,7 @@ sub _core_mean_distance {
 	return if !@$core_loci;
 	my $file_buffer = "\nMean distances of core loci\n---------------------------\n\n";
 	my $largest_distance = $self->_get_largest_distance( $core_loci, $loci, $distances );
-	my (@labels, @values);
+	my ( @labels, @values );
 	if ( !$largest_distance ) {
 		$file_buffer .= "All loci are identical.\n";
 	} else {
@@ -1120,21 +1122,19 @@ sub _core_mean_distance {
 		push @values, $upper_range{0} // 0;
 		do {
 			$range += $increment;
-			my $label = '>'
-			  . ( $range - $increment )
-			  . " - $range";
+			my $label = '>' . ( $range - $increment ) . " - $range";
 			my $value = $upper_range{$range} // 0;
 			push @labels, $label;
 			push @values, $value;
-			$file_buffer .= "$label\t$value\t"
-			  . BIGSdb::Utils::decimal_place( ( ( $upper_range{$range} // 0 ) * 100 / @$core_loci ), 1 ) . "\n";
+			$file_buffer .=
+			  "$label\t$value\t" . BIGSdb::Utils::decimal_place( ( ( $upper_range{$range} // 0 ) * 100 / @$core_loci ), 1 ) . "\n";
 		} until ( $range > $largest_distance );
-		$file_buffer .= "\n*Mean distance is the overall mean distance calculated from a computed consensus sequence.\n"
+		$file_buffer .= "\n*Mean distance is the overall mean distance calculated from a computed consensus sequence.\n";
 	}
 	open( my $fh, '>>', $out_file ) || $logger->error("Can't open $out_file for appending");
 	say $fh $file_buffer;
 	close $fh;
-	if (@labels && $self->{'config'}->{'chartdirector'} ) {
+	if ( @labels && $self->{'config'}->{'chartdirector'} ) {
 		my $image_file = "$self->{'config'}->{'tmp_dir'}/$args->{'job_id'}\_core2.png";
 		BIGSdb::Charts::barchart(
 			\@labels, \@values, $image_file, 'large',
@@ -1142,8 +1142,13 @@ sub _core_mean_distance {
 			{ no_transparent => 1 }
 		);
 		if ( -e $image_file ) {
-			$self->{'jobManager'}->update_job_output( $args->{'job_id'},
-				{ filename => "$args->{'job_id'}\_core2.png", description => '42_Overall mean distance (from consensus sequence) of core genome alleles (PNG format)' } );
+			$self->{'jobManager'}->update_job_output(
+				$args->{'job_id'},
+				{
+					filename    => "$args->{'job_id'}\_core2.png",
+					description => '42_Overall mean distance (from consensus sequence) of core genome alleles (PNG format)'
+				}
+			);
 		}
 	}
 	return;

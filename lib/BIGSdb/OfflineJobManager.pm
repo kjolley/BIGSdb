@@ -143,6 +143,22 @@ sub update_job_output {
 		$logger->error("status hash not passed as a ref");
 		throw BIGSdb::DataException("status hash not passed as a ref");
 	}
+	if ($output_hash->{'compress'}){
+		my $full_path = "$self->{'config'}->{'tmp_dir'}/$output_hash->{'filename'}";
+		if (-s $full_path > (10 * 1024 * 1024)){ #>10 MB
+			if ($output_hash->{'keep_original'}){
+				system ("gzip -c $full_path > $full_path\.gz");
+			} else {
+				system ('gzip', $full_path);
+			}
+			if ($? == -1){
+				$logger->error("Can't gzip file $full_path: $!");
+			} else {
+				$output_hash->{'filename'} .= '.gz';
+				$output_hash->{'description'} .= ' [gzipped file]'
+			}
+		}
+	}
 	eval {
 		$self->{'db'}->do(
 			"INSERT INTO output (job_id,filename,description) VALUES (?,?,?)",
