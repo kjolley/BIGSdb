@@ -159,7 +159,7 @@ HTML
 				$link_text =~ s/^\d{2}_//;    #Descriptions can start with 2 digit number for ordering
 				my $text = "<li><a href=\"/tmp/$output->{$_}\">$link_text</a>";
 				$text .= " - $comments" if $comments;
-				my $size = -s "$self->{'config'}->{'tmp_dir'}/$output->{$_}";
+				my $size = -s "$self->{'config'}->{'tmp_dir'}/$output->{$_}" // 0;
 				if ($size > (1024 * 1024)){ #1Mb
 					my $size_in_MB = BIGSdb::Utils::decimal_place($size / (1024*1024),1);
 					$text .= " ($size_in_MB MB)";
