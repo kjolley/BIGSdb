@@ -349,7 +349,7 @@ sub _print_interface {
 	say "</fieldset>";
 	say "<fieldset><legend>Allele designations</legend>\n<table>$locus_buffer</table></fieldset>" if @$loci;
 	say "<div style=\"margin-bottom:2em\">\n<span style=\"float:left\"><a href=\"$self->{'system'}->{'script_name'}?"
-	  . " db=$self->{'instance'}&amp;page=isolateAdd\" class=\"resetbutton\">Reset</a></span><span style=\"float:right\">";
+	  . "db=$self->{'instance'}&amp;page=isolateAdd\" class=\"resetbutton\">Reset</a></span><span style=\"float:right\">";
 	say $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
 	say "</span></div>";
 	say $q->end_form;
