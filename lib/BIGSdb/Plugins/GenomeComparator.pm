@@ -162,10 +162,11 @@ sub run_job {
 				throw BIGSdb::PluginException("No data returned for accession number $accession.\n");
 			};
 		} else {
-			if ($ref_upload =~ /fas$/ || $ref_upload =~ /fasta$/){
+			if ( $ref_upload =~ /fas$/ || $ref_upload =~ /fasta$/ ) {
 				try {
 					BIGSdb::Utils::fasta2genbank("$self->{'config'}->{'tmp_dir'}/$ref_upload");
-				} catch Bio::Root::Exception with {
+				}
+				catch Bio::Root::Exception with {
 					throw BIGSdb::PluginException("Invalid data in uploaded reference file.");
 				};
 				$ref_upload =~ s/\.(fas|fasta)$/\.gb/;
@@ -781,11 +782,15 @@ sub _run_comparison {
 			$length = length $$seq_ref;
 			$length = int( $length / 3 ) if $params->{'tblastx'};
 			$ref_seq_file = $self->_create_reference_FASTA_file( $seq_ref, $prefix );
-			$loci->{$locus_name}->{'ref'} = $$seq_ref;
+			$loci->{$locus_name}->{'ref'}    = $$seq_ref;
+			$loci->{$locus_name}->{'length'} = $length;
+			$loci->{$locus_name}->{'start'}  = $start;
 		} else {
-			$ref_seq_file = $self->_create_locus_FASTA_db( $cds, $job_id );
-			$locus_name   = $cds;
-			$locus_info   = $self->{'datastore'}->get_locus_info($cds);
+			$ref_seq_file                    = $self->_create_locus_FASTA_db( $cds, $job_id );
+			$locus_name                      = $cds;
+			$locus_info                      = $self->{'datastore'}->get_locus_info($cds);
+			$loci->{$locus_name}->{'start'}  = $locus_info->{'genome_position'};
+			$loci->{$locus_name}->{'length'} = $locus_info->{'length'};
 		}
 		$order->{$locus_name} = $order_count;
 		$order_count++;
@@ -1031,13 +1036,15 @@ sub _core_analysis {
 	my $threshold =
 	  ( $params->{'core_threshold'} && BIGSdb::Utils::is_int( $params->{'core_threshold'} ) ) ? $params->{'core_threshold'} : 90;
 	say $fh "Core threshold (percentage of isolates that contain locus): $threshold\%\n";
-	print $fh "Locus\tIsolate frequency\tIsolate percentage\tCore";
+	print $fh "Locus\tSequence length\tGenome position\tIsolate frequency\tIsolate percentage\tCore";
 	print $fh "\tMean distance" if $params->{'calc_distances'};
 	print $fh "\n";
 	my %range;
 
 	foreach my $locus ( sort { $order->{$a} <=> $order->{$b} } keys %$loci ) {
-		my $freq = $args->{'presence'}->{$locus} // 0;
+		my $length = $loci->{$locus}->{'length'}   // '';
+		my $pos    = $loci->{$locus}->{'start'}    // '';
+		my $freq   = $args->{'presence'}->{$locus} // 0;
 		my $percentage = BIGSdb::Utils::decimal_place( $freq * 100 / $isolate_count, 1 );
 		my $core;
 		if ( $percentage >= $threshold ) {
@@ -1047,7 +1054,7 @@ sub _core_analysis {
 			$core = '-';
 		}
 		$core_count++ if $percentage >= $threshold;
-		print $fh "$locus\t$freq\t$percentage\t$core";
+		print $fh "$locus\t$length\t$pos\t$freq\t$percentage\t$core";
 		print $fh "\t" . BIGSdb::Utils::decimal_place( ( $distances->{$locus} // 0 ), 3 ) if $params->{'calc_distances'};
 		print $fh "\n";
 		for ( my $upper_range = 5 ; $upper_range <= 100 ; $upper_range += 5 ) {
