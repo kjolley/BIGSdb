@@ -236,7 +236,8 @@ sub _print_interface_sequence_switches {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say "<ul style=\"list-style-type:none\"><li>";
-	say $q->checkbox( -name => 'ignore_existing', -label => 'Ignore existing sequences', -checked => 'checked' );
+	my $ignore_existing = $q->param('ignore_existing') // 'checked';
+	say $q->checkbox( -name => 'ignore_existing', -label => 'Ignore existing sequences', -checked => $ignore_existing );
 	say "</li><li>";
 	say $q->checkbox( -name => 'ignore_non_DNA', -label => 'Ignore sequences containing non-nucleotide characters' );
 	say "</li><li>";
@@ -567,7 +568,7 @@ sub _report_check {
 		  . "identified so far.</p>";
 		my $filename = $self->make_temp_file(@$checked_buffer_ref);
 		say $q->start_form;
-		say $q->hidden($_) foreach qw (page table db sender locus);
+		say $q->hidden($_) foreach qw (page table db sender locus ignore_existing ignore_non_DNA complete_CDS ignore_similarity);
 		say $q->hidden( 'checked_buffer', $filename );
 		say $q->submit( -name => 'Import data', -class => 'submit' );
 		say $q->endform;
@@ -1332,7 +1333,18 @@ sub _upload_data {
 		my ( $isolate_id, $action ) = split /\|/, $_;
 		$self->update_history( $isolate_id, $action );
 	}
-	say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>";
+	say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a>";
+	if ($table eq 'sequences'){
+		my $sender = $q->param('sender');
+		my $ignore_existing = $q->param('ignore_existing') ? 'on' : 'off';
+		my $ignore_non_DNA = $q->param('ignore_non_DNA') ? 'on' : 'off';
+		my $complete_CDS = $q->param('complete_CDS') ? 'on' : 'off';
+		my $ignore_similarity = $q->param('ignore_similarity') ? 'on' : 'off';
+		say " | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=sequences&amp;"
+		 . "sender=$sender&amp;ignore_existing=$ignore_existing&amp;ignore_non_DNA=$ignore_non_DNA&amp;complete_CDS=$complete_CDS&amp;"
+		 . "ignore_similarity=$ignore_similarity\">Add more</a>";
+	}
+	say "</p></div>";
 	return;
 }
 
