@@ -1089,12 +1089,12 @@ sub _get_seqbin_link {
 		  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 		  : '';
 		my $tagged = $self->{'datastore'}->run_simple_query(
-			"SELECT COUNT(*) FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id "
+			"SELECT COUNT(DISTINCT locus) FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id "
 			  . "WHERE sequence_bin.isolate_id=? $set_clause",
 			$isolate_id
 		)->[0];
-		$plural = $tagged == 1 ? '' : 's';
-		$buffer .= "<tr class=\"td$$td_ref\"><td style=\"text-align:left\" colspan=\"4\">$tagged allele sequence$plural tagged</td></tr>\n";
+		$plural = $tagged == 1 ? 'us' : 'i';
+		$buffer .= "<tr class=\"td$$td_ref\"><td style=\"text-align:left\" colspan=\"4\">$tagged loc$plural tagged</td></tr>\n";
 		$$td_ref = $$td_ref == 1 ? 2 : 1;
 		$q->param( 'page', 'info' );
 	}
