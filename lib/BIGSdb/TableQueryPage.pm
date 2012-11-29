@@ -165,11 +165,16 @@ sub _print_query_interface {
 			say "<p>Some loci have additional fields which are not searchable from this general page.  Search for these at the "
 			  . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleQuery\">"
 			  . "locus-specific query</a> page.  Use this page also for access to the sequence analysis or export plugins.</p>";
+	
 		} else {
 			say "<p>You can also search using the <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
 			  . "page=alleleQuery\">locus-specific query</a> page.  Use this page for access to the sequence analysis or export plugins."
 			  . "</p>";
 		}
+		say "<p>Also note that as some loci can have text-based allele names that searching by allele_id using the "
+			  . "'<' or '>' modifiers will work alphabetically rather than numerically.  This limitation does not exist when "
+			  . "using the <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleQuery\">"
+			  . "locus-specific query</a> page.</p>" ;
 	}
 	print "<p>Please enter your search criteria below (or leave blank and submit to return all records).";
 	if ( !$self->{'curate'} && $table ne 'samples' ) {
