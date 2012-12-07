@@ -456,6 +456,7 @@ sub _scan {
 						$logger->error($@) if $@;
 						my ($seq) = $extract_seq_sql->fetchrow_array;
 						$seq = BIGSdb::Utils::reverse_complement($seq) if $_->{'reverse'};
+						$seq = uc($seq);
 						$new_seqs_found = 1;
 						my $new = 1;
 
