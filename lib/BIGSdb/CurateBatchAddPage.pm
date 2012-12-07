@@ -20,6 +20,7 @@ package BIGSdb::CurateBatchAddPage;
 use strict;
 use warnings;
 use 5.010;
+use Digest::MD5 qw(md5);
 use List::MoreUtils qw(any none uniq);
 use parent qw(BIGSdb::CurateAddPage);
 use Log::Log4perl qw(get_logger);
@@ -237,7 +238,7 @@ sub _print_interface_sequence_switches {
 	my $q = $self->{'cgi'};
 	say "<ul style=\"list-style-type:none\"><li>";
 	my $ignore_existing = $q->param('ignore_existing') // 'checked';
-	say $q->checkbox( -name => 'ignore_existing', -label => 'Ignore existing sequences', -checked => $ignore_existing );
+	say $q->checkbox( -name => 'ignore_existing', -label => 'Ignore existing or duplicate sequences', -checked => $ignore_existing );
 	say "</li><li>";
 	say $q->checkbox( -name => 'ignore_non_DNA', -label => 'Ignore sequences containing non-nucleotide characters' );
 	say "</li><li>";
@@ -945,6 +946,7 @@ sub _check_data_sequences {
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		${ $arg_ref->{'value'} } //= '';
 		${ $arg_ref->{'value'} } =~ s/ //g;
+		
 		my $length = length( ${ $arg_ref->{'value'} } );
 		my $units = ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' ) ? 'bp' : 'residues';
 		if ( $length == 0 ) {
@@ -971,10 +973,17 @@ sub _check_data_sequences {
 		} else {
 			${ $arg_ref->{'value'} } = uc( ${ $arg_ref->{'value'} } );
 			${ $arg_ref->{'value'} } =~ s/[\W]//g;
-			eval { $self->{'sql'}->{'sequence_exists'}->execute( $locus, ${ $arg_ref->{'value'} } ) };
-			if ($@) {
-				$logger->error("Can't execute sequence exists check. values $locus,${$arg_ref->{'value'}} $@");
+			my $md5_seq = md5(${ $arg_ref->{'value'} });
+			$self->{'unique_values'}->{$locus}->{$md5_seq}++;
+			if ($self->{'unique_values'}->{$locus}->{$md5_seq} > 1){
+				if ($q->param('ignore_existing')){
+					${ $arg_ref->{'continue'} } = 0;
+				} else {
+					$buffer .= "Sequence appears more than once in this submission.<br />";
+				}
 			}
+			eval { $self->{'sql'}->{'sequence_exists'}->execute( $locus, ${ $arg_ref->{'value'} } ) };
+			$logger->error($@) if $@;
 			my ($exists) = $self->{'sql'}->{'sequence_exists'}->fetchrow_array;
 			if ($exists) {
 				if ( $q->param('complete_CDS') || $q->param('ignore_existing') ) {
