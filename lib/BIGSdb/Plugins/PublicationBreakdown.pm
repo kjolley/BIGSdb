@@ -20,6 +20,7 @@
 package BIGSdb::Plugins::PublicationBreakdown;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::Plugin BIGSdb::ResultsTablePage);
 use List::MoreUtils qw(any uniq);
 use Log::Log4perl qw(get_logger);
@@ -37,7 +38,7 @@ sub get_attributes {
 		buttontext  => 'Publications',
 		menutext    => 'Publications',
 		module      => 'PublicationBreakdown',
-		version     => '1.1.0',
+		version     => '1.1.1',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/publications.shtml',
@@ -50,7 +51,7 @@ sub get_attributes {
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 0 };
+	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
 	return;
 }
 
@@ -58,9 +59,9 @@ sub run {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
-	print "<h1>Publication breakdown of dataset</h1>\n";
+	say "<h1>Publication breakdown of dataset</h1>";
 	if ( !$self->{'config'}->{'ref_db'} ) {
-		print "<div class=\"box\" id=\"statusbad\">No reference database has been defined.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\">No reference database has been defined.</p></div>";
 		return;
 	}
 	my %prefs;
@@ -77,51 +78,48 @@ sub run {
 	eval { $sql->execute };
 	$logger->error($@) if $@;
 	my @list;
+
 	while ( my ($pmid) = $sql->fetchrow_array ) {
 		push @list, $pmid if $pmid;
 	}
 	my $guid = $self->get_guid;
 	if ( $self->{'datastore'}->create_temp_ref_table( \@list, \$isolate_qry ) ) {
-		print "<div class=\"box\" id=\"queryform\">\n";
-		print $q->startform;
+		say "<div class=\"box\" id=\"queryform\">";
+		say $q->startform;
 		$q->param( 'all_records', 1 ) if !$query_file;
-		print $q->hidden($_) foreach qw (db name query_file page all_records);
-		print "<fieldset class=\"filter\"><legend>Filter query by</legend>\n";
+		say $q->hidden($_) foreach qw (db name query_file page all_records);
+		say "<fieldset class=\"filter\"><legend>Filter query by</legend>";
 		my $author_list = $self->_get_author_list;
-		print "<ul><li><label for=\"author_list\" class=\"display\">Author:</label>\n";
-		print $q->popup_menu( -name => 'author_list', -id => 'author_list', -values => $author_list );
-		print "</li>\n<li><label for=\"year_list\" class=\"display\">Year:</label>\n";
+		say "<ul><li><label for=\"author_list\" class=\"display\">Author:</label>";
+		say $q->popup_menu( -name => 'author_list', -id => 'author_list', -values => $author_list );
+		say "</li>\n<li><label for=\"year_list\" class=\"display\">Year:</label>";
 		my $year_list = $self->{'datastore'}->run_list_query("SELECT DISTINCT year FROM temp_refs ORDER BY year");
 		unshift @$year_list, 'All years';
 		print $q->popup_menu( -name => 'year_list', -id => 'year_list', -values => $year_list );
-		print "</li>\n</ul>\n</fieldset>\n";
-		print "<fieldset class=\"display\">\n";
-		print "<ul><li><label for=\"order\" class=\"display\">Order by: </label>\n";
+		say "</li>\n</ul>\n</fieldset>";
+		say "<fieldset class=\"display\">";
+		say "<ul><li><label for=\"order\" class=\"display\">Order by: </label>";
 		my %labels = ( pmid => 'Pubmed id', first_author => 'first author', isolates => 'number of isolates' );
 		my @order_list = qw(pmid authors year title isolates);
-		print $q->popup_menu( -name => 'order', -id => 'order', -values => \@order_list, -labels => \%labels, -default => 'isolates' );
-		print $q->popup_menu(
+		say $q->popup_menu( -name => 'order', -id => 'order', -values => \@order_list, -labels => \%labels, -default => 'isolates' );
+		say $q->popup_menu(
 			-name    => 'direction',
 			-values  => [qw (asc desc)],
 			-labels  => { 'asc' => 'ascending', 'desc' => 'descending' },
 			-default => 'desc'
 		);
-		print "</li>\n<li><label for=\"displayrecs\" class=\"display\">Display: </label>\n";
-
-		if ( $q->param('displayrecs') ) {
-			$self->{'prefs'}->{'displayrecs'} = $q->param('displayrecs');
-		}
-		print $q->popup_menu(
+		say "</li>\n<li><label for=\"displayrecs\" class=\"display\">Display: </label>";
+		$self->{'prefs'}->{'displayrecs'} = $q->param('displayrecs') if $q->param('displayrecs');
+		say $q->popup_menu(
 			-name    => 'displayrecs',
 			-id      => 'displayrecs',
-			-values  => [ qw (10 25 50 100 200 500 all) ],
+			-values  => [qw (10 25 50 100 200 500 all)],
 			-default => $self->{'prefs'}->{'displayrecs'}
 		);
-		print " records per page</li>\n</ul>\n";
-		print
-		  "<span style=\"float:right\"><input type=\"submit\" name=\"submit\" value=\"Submit\" class=\"submit\" /></span>\n</fieldset>\n";
-		print $q->endform;
-		print "</div>\n";
+		say " records per page</li>\n</ul>";
+		say "<span style=\"float:right\"><input type=\"submit\" name=\"submit\" value=\"Submit\" class=\"submit\" /></span>\n</fieldset>";
+		say $q->endform;
+		say "</div>";
 		my @filters;
 		my $author =
 		  ( any { defined $q->param('author_list') && $q->param('author_list') eq $_ } @$author_list )
@@ -150,7 +148,12 @@ sub _get_author_list {
 	eval { $sql->execute };
 	$logger->error($@) if $@;
 	while ( my ($authorstring) = $sql->fetchrow_array ) {
-		push @authornames, split /, /, $authorstring if defined $authorstring;
+		if ( defined $authorstring ) {
+			my @temp_list = split /, /, $authorstring;
+			foreach my $name (@temp_list) {
+				push @authornames, $name if $name !~ /^\s*$/;
+			}
+		}
 	}
 	@authornames = sort { lc($a) cmp lc($b) } uniq @authornames;
 	unshift @authornames, 'All authors';
