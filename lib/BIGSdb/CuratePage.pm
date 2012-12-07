@@ -104,7 +104,9 @@ sub create_record_table {
 					|| ( $newdata_readonly && $newdata{ $att->{'name'} } ) )
 				{
 					my $desc;
-					if ( ( $att->{'name'} eq 'locus' && $table ne 'set_loci' ) || ( $table eq 'loci' && $att->{'name'} eq 'id' ) ) {
+					if ( !$self->{'curate'}
+						&& ( ( $att->{'name'} eq 'locus' && $table ne 'set_loci' ) || ( $table eq 'loci' && $att->{'name'} eq 'id' ) ) )
+					{
 						$desc = $self->clean_locus( $newdata{ $att->{'name'} } );
 					} elsif ( $att->{'labels'} ) {
 						$desc = $self->_get_foreign_key_label( $name, $newdata_ref, $att );

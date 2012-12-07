@@ -1183,7 +1183,8 @@ sub _print_record_table {
 					print "<td>$data{'isolate_id'}) " . $self->get_isolate_name_from_id( $data{'isolate_id'} ) . "</td>";
 				} else {
 					my $value = $data{ lc($field) };
-					if ( ( $field eq 'locus' && $table ne 'set_loci' ) || ( $table eq 'loci' && $field eq 'id' ) ) {
+					if ( !$self->{'curate'} && ( ( $field eq 'locus' && $table ne 'set_loci' ) || ( $table eq 'loci' && $field eq 'id' ) ) )
+					{
 						$value = $self->clean_locus($value);
 					} else {
 						$value =~ s/\&/\&amp;/g;
