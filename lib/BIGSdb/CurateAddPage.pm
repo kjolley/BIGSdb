@@ -70,8 +70,8 @@ sub print_content {
 	if ( ( $table eq 'scheme_fields' || $table eq 'scheme_members' ) && $self->{'system'}->{'dbtype'} eq 'sequences' && !$q->param('sent') )
 	{
 		print "<div class=\"box\" id=\"warning\"><p>Please be aware that any modifications to the structure of this scheme "
-		 . "will result in the removal of all data from it. This is done to ensure data integrity.  This does not affect "
-		 . "allele designations, but any profiles will have to be reloaded.</p></div>\n";
+		  . "will result in the removal of all data from it. This is done to ensure data integrity.  This does not affect "
+		  . "allele designations, but any profiles will have to be reloaded.</p></div>\n";
 	}
 	my $buffer;
 	my %newdata;
@@ -320,8 +320,9 @@ sub _insert {
 		if ($@) {
 			print "<div class=\"box\" id=\"statusbad\"><p>Insert failed - transaction cancelled - no records have been touched.</p>\n";
 			if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
-				print
-"<p>Data entry would have resulted in records with either duplicate ids or another unique field with duplicate values.</p>\n";
+				print "<p>Data entry would have resulted in records with either duplicate ids or another unique field with duplicate "
+				  . "values.  This can result from another curator adding data at the same time.  Try pressing the browser back button "
+				  . "and then re-submit the records.</p>\n";
 			} else {
 				print "<p>Error message: $@</p>\n";
 				$logger->error("Insert failed: $@");
@@ -340,14 +341,14 @@ sub _insert {
 			}
 			if ( $table eq 'composite_fields' ) {
 				print "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=compositeUpdate&amp;"
-				. "id=$newdata->{'id'}\">Add values and fully customize this composite field</a>.</p>";
+				  . "id=$newdata->{'id'}\">Add values and fully customize this composite field</a>.</p>";
 			}
 			print "<p>";
 			if ( $table eq 'samples' ) {
 				print "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;"
-				. "table=samples&isolate_id=$newdata->{'isolate_id'}\">Add another</a>";
+				  . "table=samples&isolate_id=$newdata->{'isolate_id'}\">Add another</a>";
 				print " | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateUpdate&amp;"
-				. "id=$newdata->{'isolate_id'}\">Back to isolate update</a>";
+				  . "id=$newdata->{'isolate_id'}\">Back to isolate update</a>";
 			} else {
 				my $locus_clause = '';
 				if ( $table eq 'sequences' ) {
@@ -355,7 +356,7 @@ sub _insert {
 					$locus_clause = "&amp;locus=$newdata->{'locus'}&amp;status=$newdata->{'status'}&amp;sender=$newdata->{'sender'}";
 				}
 				print "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;"
-				. "table=$table$locus_clause\">Add another</a>";
+				  . "table=$table$locus_clause\">Add another</a>";
 			}
 			print " | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
 			return SUCCESS;
@@ -559,7 +560,7 @@ sub next_id {
 
 		#this will find next id except when id 1 is missing
 		my $qry =
-		  "SELECT l.id + 1 AS start FROM $table AS l left outer join $table AS r on l.id+1=r.id where r.id is null AND l.id>0 ORDER BY l.id LIMIT 1";
+"SELECT l.id + 1 AS start FROM $table AS l left outer join $table AS r on l.id+1=r.id where r.id is null AND l.id>0 ORDER BY l.id LIMIT 1";
 		$self->{'sql'}->{'next_id'}->{$table} = $self->{'db'}->prepare($qry);
 	}
 	eval { $self->{'sql'}->{'next_id'}->{$table}->execute };
@@ -663,9 +664,9 @@ sub _print_copy_locus_record_form {
 
 sub _copy_locus_config {
 	my ( $self, $newdata_ref ) = @_;
-	my $q        = $self->{'cgi'};
+	my $q       = $self->{'cgi'};
 	my $pattern = LOCUS_PATTERN;
-	my $locus    = $q->param('locus') =~ /$pattern/ ? $1 : undef;
+	my $locus   = $q->param('locus') =~ /$pattern/ ? $1 : undef;
 	return if !defined $locus;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	foreach my $field ( keys %$locus_info ) {

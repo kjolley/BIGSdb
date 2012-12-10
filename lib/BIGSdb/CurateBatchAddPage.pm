@@ -415,7 +415,7 @@ sub _check_data {
 					$display_value = $value;
 				}
 				my $problem;
-				if (!($table eq 'sequences' && $field eq 'allele_id' && defined $problems{$pk_combination})){
+				if ( !( $table eq 'sequences' && $field eq 'allele_id' && defined $problems{$pk_combination} ) ) {
 					$problem = $self->is_field_bad( $table, $field, $value, 'insert' );
 				}
 				if ( !( $problem || $special_problem ) ) {
@@ -946,7 +946,6 @@ sub _check_data_sequences {
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		${ $arg_ref->{'value'} } //= '';
 		${ $arg_ref->{'value'} } =~ s/ //g;
-		
 		my $length = length( ${ $arg_ref->{'value'} } );
 		my $units = ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' ) ? 'bp' : 'residues';
 		if ( $length == 0 ) {
@@ -973,10 +972,10 @@ sub _check_data_sequences {
 		} else {
 			${ $arg_ref->{'value'} } = uc( ${ $arg_ref->{'value'} } );
 			${ $arg_ref->{'value'} } =~ s/[\W]//g;
-			my $md5_seq = md5(${ $arg_ref->{'value'} });
+			my $md5_seq = md5( ${ $arg_ref->{'value'} } );
 			$self->{'unique_values'}->{$locus}->{$md5_seq}++;
-			if ($self->{'unique_values'}->{$locus}->{$md5_seq} > 1){
-				if ($q->param('ignore_existing')){
+			if ( $self->{'unique_values'}->{$locus}->{$md5_seq} > 1 ) {
+				if ( $q->param('ignore_existing') ) {
 					${ $arg_ref->{'continue'} } = 0;
 				} else {
 					$buffer .= "Sequence appears more than once in this submission.<br />";
@@ -1325,7 +1324,8 @@ sub _upload_data {
 				  . "have been touched.</p>";
 				if ( $err =~ /duplicate/ && $err =~ /unique/ ) {
 					say "<p>Data entry would have resulted in records with either duplicate ids or another unique field "
-					  . "with duplicate values.</p>";
+					  . "with duplicate values.  This can result from another curator adding data at the same time.  Try "
+					  . "pressing the browser back button twice and then re-submit the records.</p>";
 				} else {
 					say "<p>An error has occurred - more details will be available in the server log.</p>";
 					$logger->error($err);
@@ -1343,15 +1343,15 @@ sub _upload_data {
 		$self->update_history( $isolate_id, $action );
 	}
 	say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a>";
-	if ($table eq 'sequences'){
-		my $sender = $q->param('sender');
-		my $ignore_existing = $q->param('ignore_existing') ? 'on' : 'off';
-		my $ignore_non_DNA = $q->param('ignore_non_DNA') ? 'on' : 'off';
-		my $complete_CDS = $q->param('complete_CDS') ? 'on' : 'off';
+	if ( $table eq 'sequences' ) {
+		my $sender            = $q->param('sender');
+		my $ignore_existing   = $q->param('ignore_existing') ? 'on' : 'off';
+		my $ignore_non_DNA    = $q->param('ignore_non_DNA') ? 'on' : 'off';
+		my $complete_CDS      = $q->param('complete_CDS') ? 'on' : 'off';
 		my $ignore_similarity = $q->param('ignore_similarity') ? 'on' : 'off';
 		say " | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=sequences&amp;"
-		 . "sender=$sender&amp;ignore_existing=$ignore_existing&amp;ignore_non_DNA=$ignore_non_DNA&amp;complete_CDS=$complete_CDS&amp;"
-		 . "ignore_similarity=$ignore_similarity\">Add more</a>";
+		  . "sender=$sender&amp;ignore_existing=$ignore_existing&amp;ignore_non_DNA=$ignore_non_DNA&amp;complete_CDS=$complete_CDS&amp;"
+		  . "ignore_similarity=$ignore_similarity\">Add more</a>";
 	}
 	say "</p></div>";
 	return;
