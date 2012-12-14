@@ -452,6 +452,7 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON scheme_group_group_members TO apache;
 CREATE TABLE client_dbase_schemes (
 client_dbase_id int NOT NULL,
 scheme_id int NOT NULL,
+client_scheme_id int,
 curator int NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY (client_dbase_id,scheme_id),

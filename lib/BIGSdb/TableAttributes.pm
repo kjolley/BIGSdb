@@ -681,6 +681,7 @@ sub get_client_dbase_schemes_table_attributes {
 			labels         => '|$description|',
 			dropdown_query => 'yes'
 		},
+		{ name => 'client_scheme_id', type => 'int', comments => 'id number of the scheme in the client database (if different)' },
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' }
 	];

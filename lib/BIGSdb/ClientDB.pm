@@ -63,6 +63,10 @@ sub count_matching_profiles {
 	my $first       = 1;
 	my $temp;
 	foreach ( keys %$alleles_hashref ) {
+		if (!defined $alleles_hashref->{$_}){
+			$logger->error("Invalid loci passed to client database#$self->{'id'} for profile check.");
+			return 0;
+		}
 		$temp .= ' OR ' if !$first;
 		$temp .= "(locus='$_' AND allele_id='$alleles_hashref->{$_}')";
 		$first = 0;
