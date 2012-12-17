@@ -165,16 +165,18 @@ sub _print_query_interface {
 			say "<p>Some loci have additional fields which are not searchable from this general page.  Search for these at the "
 			  . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleQuery\">"
 			  . "locus-specific query</a> page.  Use this page also for access to the sequence analysis or export plugins.</p>";
-	
 		} else {
 			say "<p>You can also search using the <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
 			  . "page=alleleQuery\">locus-specific query</a> page.  Use this page for access to the sequence analysis or export plugins."
 			  . "</p>";
 		}
-		say "<p>Also note that as some loci can have text-based allele names that searching by allele_id using the "
-			  . "'<' or '>' modifiers will work alphabetically rather than numerically.  This limitation does not exist when "
-			  . "using the <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleQuery\">"
-			  . "locus-specific query</a> page.</p>" ;
+		my $any_text_ids_used =
+		  $self->{'datastore'}->run_simple_query( "SELECT EXISTS(SELECT * FROM loci WHERE allele_id_format=?)", 'text' )->[0];
+		if ($any_text_ids_used) {
+			say "<p>Also note that some loci in this database have allele ids defined as text strings.  Queries using the "
+			  . "'<' or '>' modifiers will work alphabetically rather than numerically unless you filter your search to a locus "
+			  . "that uses integer allele ids using the drop-down list.</p>";
+		}
 	}
 	print "<p>Please enter your search criteria below (or leave blank and submit to return all records).";
 	if ( !$self->{'curate'} && $table ne 'samples' ) {
@@ -412,7 +414,16 @@ sub _run_query {
 							$qry .= ( $text eq 'null' ? "$table.$field is null" : "$table.$field = '$text'" );
 						}
 					} else {
-						$qry .= "$table.$field $operator E'$text'";
+						if ( $table eq 'sequences' ) {
+							if ($self->_are_only_int_allele_ids_used && BIGSdb::Utils::is_int($text)){
+								$qry .= "CAST($table.$field AS integer)";
+							} else {
+								$qry .= "$table.$field";
+							}							
+							$qry .= " $operator E'$text'";
+						} else {
+							$qry .= "$table.$field $operator E'$text'";
+						}
 					}
 				}
 			}
@@ -484,7 +495,7 @@ sub _run_query {
 		$qry2 .= " ORDER BY $table.";
 		my $default_order = $table eq 'sequences' ? 'locus' : 'id';
 		$qry2 .= $q->param('order') || $default_order;
-		my $dir = ($q->param('direction') // '') eq 'descending' ? 'desc' : 'asc';
+		my $dir = ( $q->param('direction') // '' ) eq 'descending' ? 'desc' : 'asc';
 		my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
 		local $" = ",$table.";
 		$qry2 .= " $dir,$table.@primary_keys;";
@@ -758,5 +769,21 @@ sub _process_sequences_filters {
 		$qry2 = "SELECT * FROM sequences WHERE ($qry)";
 	}
 	return $qry2;
+}
+
+sub _are_only_int_allele_ids_used {
+
+	#if all loci used have integer allele_ids then cast to int when performing a '<' or '>' query.
+	#If not the query has to be treated as text
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $any_text_ids_used =
+	  $self->{'datastore'}->run_simple_query( "SELECT EXISTS(SELECT * FROM loci WHERE allele_id_format=?)", 'text' )->[0];
+	return 1 if !$any_text_ids_used;
+	if ( $q->param('locus_list') ) {
+		my $locus_info = $self->{'datastore'}->get_locus_info( $q->param('locus_list') );
+		return 1 if $locus_info->{'allele_id_format'} eq 'integer';
+	}
+	return;
 }
 1;
