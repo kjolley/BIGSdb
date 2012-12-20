@@ -261,28 +261,10 @@ sub get_isolate_record {
 	}
 
 	#Print loci and scheme information
-	my $scheme_group_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM scheme_groups")->[0];
-	if ( $scheme_group_count || $self->{'curate'} ) {
-		$buffer .= "<tr><th style=\"vertical-align:top;padding-top:1em\">Schemes and loci</th><td colspan=\"5\">";
-		$buffer .= $self->_get_tree($id);
-		$buffer .= "</td></tr>";
-		$buffer .= "</table></div>\n";
-		return $buffer;
-	}
-	my $scheme_sql = $self->{'db'}->prepare("SELECT * FROM schemes ORDER BY display_order,id");
-	eval { $scheme_sql->execute };
-	$logger->error($@) if $@;
-	while ( my $scheme = $scheme_sql->fetchrow_hashref ) {
-		if ( $self->{'prefs'}->{'isolate_display_schemes'}->{ $scheme->{'id'} } ) {
-			( $td, my $field_buffer ) = $self->_get_scheme_fields( $scheme->{'id'}, $id, $td, $summary_view );
-			$buffer .= $field_buffer if $field_buffer;
-		}
-	}
-
-	#Loci not belonging to a scheme
-	( $td, my $field_buffer ) = $self->_get_scheme_fields( 0, $id, $td, $summary_view );
-	$buffer .= $field_buffer if $field_buffer;
-	$buffer .= "</table></div>";
+	$buffer .= "<tr><th style=\"vertical-align:top;padding-top:1em\">Schemes and loci</th><td colspan=\"5\">";
+	$buffer .= $self->_get_tree($id);
+	$buffer .= "</td></tr>";
+	$buffer .= "</table></div>\n";
 	return $buffer;
 }
 
