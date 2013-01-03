@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -67,12 +67,10 @@ HTML
 		return;
 	}
 	print <<"HTML";
-<div class="box" id="resultsheader"><p>Here you can set options for your use of the website.  Options are
-remembered between sessions and affect the current database ($desc) 
-only. If some 
-of the options don't appear to set when you next go to a query page, 
-try refreshing the page (Shift + Refresh) as some pages are cached by 
-your browser.</p></div>
+<div class="box" id="resultsheader"><p>Here you can set options for your use of the website.  Options are remembered between sessions and 
+affect the current database ($desc) only. If some of the options don't appear to set when you next go to a query page, try refreshing the 
+page (Shift + Refresh) as some pages are cached by your browser.</p>
+</div>
 HTML
 	say $q->start_form;
 	$q->param( 'page', 'options' );
@@ -88,8 +86,7 @@ HTML
 	say "</div></div>";
 	say "<div class=\"box reset\">";
 	say "<h2>Reset</h2>";
-	say "<p>Click the reset button to remove all user settings for this database - "
-	  . "this includes locus and scheme field preferences.</p>";
+	say "<p>Click the reset button to remove all user settings for this database - this includes locus and scheme field preferences.</p>";
 	say $q->submit( -name => 'reset', -label => 'Reset all to defaults', -class => 'button' );
 	say "</div>";
 	say $q->end_form;
@@ -99,9 +96,9 @@ HTML
 sub _print_form_buttons {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	print "<div style=\"float:right;margin-top:-1.95em\">";
-	print $q->submit( -name => 'set', -label => 'Set options', -class => 'submit' );
-	print "</div>\n";
+	say "<div style=\"float:right;margin-top:-1.95em\">";
+	say $q->submit( -name => 'set', -label => 'Set options', -class => 'submit' );
+	say "</div>";
 	return;
 }
 
