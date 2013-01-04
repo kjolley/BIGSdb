@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -425,12 +425,14 @@ sub _output_single_query_nonexact {
 	print "<div class=\"box\" id=\"resultsheader\"><p>Closest match: ";
 	my $cleaned_match = $partial_match->{'allele'};
 	my $cleaned_locus;
+	my $flags;
 
 	if ($distinct_locus_selected) {
 		print
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$cleaned_match\">";
 		$cleaned_locus = $self->clean_locus($locus);
 		print "$cleaned_locus: ";
+		$flags = $self->{'datastore'}->get_allele_flags( $locus, $cleaned_match );
 	} else {
 		my ( $locus, $allele_id );
 		if ( $cleaned_match =~ /(.*):(.*)/ ) {
@@ -439,9 +441,16 @@ sub _output_single_query_nonexact {
 			$cleaned_match = "$cleaned_locus: $allele_id";
 			print
 "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id\">";
+			$flags = $self->{'datastore'}->get_allele_flags( $locus, $allele_id );
 		}
 	}
-	print "$cleaned_match</a></p>";
+	print "$cleaned_match</a>";
+	if ( ref $flags eq 'ARRAY' ) {
+		local $" = '</a> <a class="seqflag_tooltip">';
+		my $plural = @$flags == 1 ? '' : 's';
+		print " (Flag$plural: <a class=\"seqflag_tooltip\">@$flags</a>)" if @$flags;
+	}
+	say "</p>";
 	my ( $data_type, $allele_seq_ref );
 	if ($distinct_locus_selected) {
 		$allele_seq_ref = $self->{'datastore'}->get_sequence( $locus, $partial_match->{'allele'} );
@@ -571,8 +580,8 @@ sub get_alignment {
 	if ( -e $outfile ) {
 		my $cleaned_file = "$self->{'config'}->{'tmp_dir'}/$outfile_prefix\_cleaned.txt";
 		$self->_cleanup_alignment( $outfile, $cleaned_file );
-		$buffer.= "<p><a href=\"/tmp/$outfile_prefix\_cleaned.txt\" id=\"alignment_link\" rel=\"ajax\">Show alignment</a></p>\n";
-		$buffer.= "<pre style=\"font-size:1.2em\"><span id=\"alignment\"></span></pre>\n";
+		$buffer .= "<p><a href=\"/tmp/$outfile_prefix\_cleaned.txt\" id=\"alignment_link\" rel=\"ajax\">Show alignment</a></p>\n";
+		$buffer .= "<pre style=\"font-size:1.2em\"><span id=\"alignment\"></span></pre>\n";
 	}
 	return $buffer;
 }
