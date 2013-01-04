@@ -1,6 +1,6 @@
 #Combinations.pm - Unique combinations plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -43,7 +43,7 @@ sub get_attributes {
 		buttontext  => 'Combinations',
 		menutext    => 'Unique combinations',
 		module      => 'Combinations',
-		version     => '1.0.3',
+		version     => '1.0.4',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -80,6 +80,7 @@ sub run {
 			local $| = 1;
 			my @header;
 			my %schemes;
+
 			foreach (@$selected_fields) {
 				my $field = $_;
 				if ( $field =~ /^s_(\d+)_f/ ) {
@@ -88,7 +89,7 @@ sub run {
 					  if $scheme_info->{'description'};
 					$schemes{$1} = 1;
 				}
-				$field =~ s/^(s_\d+_l|s_\d+_f|f|l|c)_//g;    #strip off prefix for header row
+				$field =~ s/^(s_\d+_l|s_\d+_f|f|l|c)_//g;                       #strip off prefix for header row
 				$field =~ s/^meta_.+?://;
 				$field =~ tr/_/ / if !$self->{'datastore'}->is_locus($field);
 				$field =~ s/___/../;
@@ -135,8 +136,8 @@ sub run {
 					if ( $_ =~ /^f_(.*)/ ) {
 						my $field = $1;
 						my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-						if ( defined $metaset){
-							$key .= $self->{'datastore'}->get_metadata_value($data{'id'}, $metaset, $metafield) || '-';
+						if ( defined $metaset ) {
+							$key .= $self->{'datastore'}->get_metadata_value( $data{'id'}, $metaset, $metafield ) || '-';
 						} elsif ( $field eq 'aliases' ) {
 							eval { $alias_sql->execute( $data{'id'} ) };
 							$logger->error($@) if $@;
@@ -151,17 +152,18 @@ sub run {
 							eval { $attribute_sql->execute( $isolate_field, $attribute, $data{$isolate_field} ) };
 							$logger->error($@) if $@;
 							my ($value) = $attribute_sql->fetchrow_array;
-							$key .= (defined $value && $value ne '') ? $value : '-';
+							$key .= ( defined $value && $value ne '' ) ? $value : '-';
 						} else {
-							$key .= (defined $data{$field} && $data{$field} ne '') ? $data{$field} : '-';
+							$key .= ( defined $data{$field} && $data{$field} ne '' ) ? $data{$field} : '-';
 						}
 					} elsif ( $_ =~ /^(s_\d+_l_|l_)(.*)/ ) {
-						$key .= (defined $allele_ids->{$2} && $allele_ids->{$2} ne '') ? $allele_ids->{$2} : '-';
+						$key .= ( defined $allele_ids->{$2} && $allele_ids->{$2} ne '' ) ? $allele_ids->{$2} : '-';
 					} elsif ( $_ =~ /^s_(\d+)_f_(.*)/ ) {
-						my $scheme_id = $1;
+						my $scheme_id    = $1;
 						my $scheme_field = lc($2);
 						if ( ref $scheme_field_values->{$scheme_id} ne 'HASH' ) {
-							$scheme_field_values->{$scheme_id} = $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $data{'id'}, $scheme_id );
+							$scheme_field_values->{$scheme_id} =
+							  $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $data{'id'}, $scheme_id );
 						}
 						my $value = $scheme_field_values->{$scheme_id}->{$scheme_field};
 						undef $value
@@ -182,17 +184,19 @@ sub run {
 				$j = 0 if $j == 10;
 			}
 			say "</p>";
+			say "<p>Number of unique combinations: " . ( keys %combs ) . "</p>";
 			my $filename  = BIGSdb::Utils::get_random() . '.txt';
 			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
 			open( my $fh, '>', $full_path )
 			  or $logger->error("Can't open temp file $filename for writing");
 			say "<div class=\"scrollable\"><table class=\"tablesorter\" id=\"sortTable\">\n<thead>";
 			say "<tr>";
-			foreach my $heading (@header){
-				my ($cleaned_html, $cleaned_text) = ($heading, $heading);
-				if ($self->{'datastore'}->is_locus($heading)){
-					$cleaned_html =  $self->clean_locus($heading);
-					$cleaned_text = $self->clean_locus($heading,{text_output=>1})
+
+			foreach my $heading (@header) {
+				my ( $cleaned_html, $cleaned_text ) = ( $heading, $heading );
+				if ( $self->{'datastore'}->is_locus($heading) ) {
+					$cleaned_html = $self->clean_locus($heading);
+					$cleaned_text = $self->clean_locus( $heading, { text_output => 1 } );
 				}
 				say "<th>$cleaned_html</th>";
 				print $fh "$cleaned_text\t";
@@ -200,7 +204,6 @@ sub run {
 			say "<th>Frequency</th><th>Percentage</th></tr></thead>\n<tbody>";
 			say $fh "Frequency\tPercentage";
 			my $td = 1;
-
 			foreach ( sort { $combs{$b} <=> $combs{$a} } keys %combs ) {
 				my @values = split /_\|_/, $_;
 				my $pc = BIGSdb::Utils::decimal_place( 100 * $combs{$_} / $total, 2 );
