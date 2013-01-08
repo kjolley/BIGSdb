@@ -1137,6 +1137,7 @@ sub _core_mean_distance {
 		push @values, $upper_range{0} // 0;
 		do {
 			$range += $increment;
+			$range = (int(($range * 10000.0) + 0.5) / 10000.0); #Set float precision
 			my $label = '>' . ( $range - $increment ) . " - $range";
 			my $value = $upper_range{$range} // 0;
 			push @labels, $label;
