@@ -316,6 +316,7 @@ sub fasta2genbank {
 	while ( my $seq_obj = $in->next_seq ) {
 		my $id  = $seq_obj->primary_id;
 		my $seq = ($seq_obj->primary_seq->seq =~ /(.*)/) ? $1: undef; #untaint
+		$seq =~ s/-//g;
 		$concat_seq .= $seq;
 		my $length = length($seq);
 		my $end    = $start + $length - 1;
