@@ -1,6 +1,6 @@
 #GenomeComparator.pm - Genome comparison plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -46,7 +46,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.5.0',
+		version     => '1.5.1',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/genome_comparator.shtml',
@@ -959,8 +959,8 @@ sub _print_reports {
 		$args->{'file_buffer_ref'},
 		$args->{'html_buffer_ref'}
 	);
-	my $align_file       = "$self->{'config'}->{'tmp_dir'}/$job_id\_align.txt";
-	my $align_stats_file = "$self->{'config'}->{'tmp_dir'}/$job_id\_align_stats.txt";
+	my $align_file       = "$self->{'config'}->{'tmp_dir'}/$job_id\.align";
+	my $align_stats_file = "$self->{'config'}->{'tmp_dir'}/$job_id\.align_stats";
 	open( my $job_fh, '>', $job_file ) || $logger->error("Can't open $job_file for writing");
 	print $job_fh $$file_buffer_ref;
 	close $job_fh;
@@ -992,10 +992,10 @@ sub _print_reports {
 	$self->_generate_splits( $job_id, $values, \@ignore_loci );
 	if ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $args->{'by_reference'} ) ) ) {
 		$self->{'jobManager'}
-		  ->update_job_output( $job_id, { filename => "$job_id\_align.txt", description => '30_Alignments', compress => 1 } )
+		  ->update_job_output( $job_id, { filename => "$job_id\.align", description => '30_Alignments', compress => 1 } )
 		  if -e $align_file && !-z $align_file;
 		$self->{'jobManager'}
-		  ->update_job_output( $job_id, { filename => "$job_id\_align_stats.txt", description => '31_Alignment stats', compress => 1 } )
+		  ->update_job_output( $job_id, { filename => "$job_id\.align_stats", description => '31_Alignment stats', compress => 1 } )
 		  if -e $align_stats_file && !-z $align_stats_file;
 		if ( -e "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa" ) {
 			$self->{'jobManager'}->update_job_output( $job_id,
