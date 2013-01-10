@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -37,6 +37,14 @@ sub print_content {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
 	my $isolate_id = $q->param('isolate_id');
+	if ( !defined $isolate_id ) {
+		say "<div class=\"box\" id=\"statusbad\"><p>Isolate id not specified.</p></div>";
+		return;
+	}
+	if ( !BIGSdb::Utils::is_int($isolate_id) ) {
+		say "<div class=\"box\" id=\"statusbad\"><p>Isolate id must be an integer.</p></div>";
+		return;
+	}
 	my $exists = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id )->[0];
 	if ( !$exists ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>The database contains no record of this isolate.</p></div>";
