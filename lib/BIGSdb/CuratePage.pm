@@ -804,9 +804,7 @@ sub _is_field_bad_other {
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my $thisfield;
 	foreach (@$attributes) {
-		if ( $_->{'name'} eq $fieldname ) {
-			$thisfield = $_;
-		}
+		$thisfield = $_ if $_->{'name'} eq $fieldname;
 	}
 	$thisfield->{'type'} ||= 'text';
 
@@ -815,7 +813,13 @@ sub _is_field_bad_other {
 		if ( !$thisfield->{'required'} || $thisfield->{'required'} ne 'yes' ) {
 			return 0;
 		} else {
-			return 'is a required field and cannot be left blank.';
+			my $msg = 'is a required field and cannot be left blank.';
+			if ($thisfield->{'optlist'}){
+				my @optlist = split /;/, $thisfield->{'optlist'};
+				local $" = "', '";
+				$msg .= " Allowed values are '@optlist'.";
+			}
+			return $msg;
 		}
 	}
 
