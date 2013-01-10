@@ -969,7 +969,7 @@ sub _check_data_sequences {
 			&& $data[ $file_header_pos{'allele_id'} ] =~ /\s/ )
 		{
 			$buffer .= "Allele id must not contain spaces - try substituting with underscores (_).<br />";
-		} else {
+		} elsif ( defined $locus ) {
 			${ $arg_ref->{'value'} } = uc( ${ $arg_ref->{'value'} } );
 			${ $arg_ref->{'value'} } =~ s/[\W]//g;
 			my $md5_seq = md5( ${ $arg_ref->{'value'} } );
