@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,7 @@
 package BIGSdb::BatchProfileQueryPage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
@@ -53,19 +54,19 @@ sub print_content {
 	}
 	my $desc = $self->get_db_description;
 	if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
-		print "<h1>Batch profile query - $desc</h1>\n";
-		print "<div class=\"box\" id=\"statusbad\"><p>This function is only available for sequence definition databases.</p></div>\n";
+		say "<h1>Batch profile query - $desc</h1>";
+		say "<div class=\"box\" id=\"statusbad\"><p>This function is only available for sequence definition databases.</p></div>";
 		return;
 	}
 	my $set_id = $self->get_set_id;
 	my $scheme_info = $scheme_id > 0 ? $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } ) : undef;
 	if ( ( !$scheme_info->{'id'} || !$scheme_id ) ) {
-		print "<h1>Batch profile query - $desc</h1>\n";
-		print "<div class=\"box\" id=\"statusbad\"><p>Invalid scheme selected.</p></div>\n";
+		say "<h1>Batch profile query - $desc</h1>";
+		say "<div class=\"box\" id=\"statusbad\"><p>Invalid scheme selected.</p></div>";
 		return;
 	} elsif ($set_id) {
 		if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is unavailable.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is unavailable.</p></div>";
 			return;
 		}
 	}
@@ -73,17 +74,17 @@ sub print_content {
 	  $self->{'datastore'}->run_list_query( "SELECT locus FROM scheme_members WHERE scheme_id=? ORDER BY field_order", $scheme_id );
 	my @cleaned_loci;
 	push @cleaned_loci, $self->clean_locus($_) foreach @$loci;
-	print "<h1>Batch $scheme_info->{'description'} profile query - $desc</h1>\n";
+	say "<h1>Batch $scheme_info->{'description'} profile query - $desc</h1>";
 	if ( $q->param('profiles') ) {
 		my $profiles = $q->param('profiles');
 		my @rows = split /\n/, $profiles;
 		local $" = '</th><th>';
-		print "<div class=\"box\" id=\"resultstable\"><table class=\"resultstable\"><tr><th>Isolate</th><th>@cleaned_loci</th>\n";
+		print "<div class=\"box\" id=\"resultstable\"><table class=\"resultstable\"><tr><th>Isolate</th><th>@cleaned_loci</th>";
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-		foreach (@$scheme_fields) {
-			my $cleaned = $_;
+		foreach my $field (@$scheme_fields) {
+			my $cleaned = $field;
 			$cleaned =~ tr/_/ /;
-			print "<th>$cleaned</th>\n";
+			print "<th>$cleaned</th>";
 		}
 		local $" = ',';
 		my $qry             = "SELECT @$scheme_fields FROM scheme_$scheme_id WHERE ";
@@ -92,19 +93,19 @@ sub print_content {
 		local $" = '=? AND ';
 		$qry .= "@cleaned_loci_db=?";
 		my $sql = $self->{'db'}->prepare($qry);
-		print "</tr>\n";
+		say "</tr>";
 		my $td = 1;
 		local $| = 1;
 
-		foreach (@rows) {
-			my @profile = split /\t/;
+		foreach my $row (@rows) {
+			my @profile = split /\t/, $row;
 			my $isolate = shift @profile;
-			foreach (@profile) {
-				$_ =~ s/^\s+//g;
-				$_ =~ s/\s+$//g;
+			foreach my $allele (@profile) {
+				$allele =~ s/^\s+//g;
+				$allele =~ s/\s+$//g;
 			}
-			print "<tr class=\"td$td\"><td>$isolate</td>";
-			for ( my $i = 0 ; $i < @$loci ; $i++ ) {
+			say "<tr class=\"td$td\"><td>$isolate</td>";
+			for my $i ( 0 .. @$loci - 1 ) {
 				if ( $profile[$i] ) {
 					print "<td>$profile[$i]</td>";
 				} else {
@@ -132,19 +133,19 @@ sub print_content {
 				}
 				$i++;
 			}
-			print "</tr>\n";
+			say "</tr>";
 			$td = $td == 1 ? 2 : 1;
 			if ( $ENV{'MOD_PERL'} ) {
 				$self->{'mod_perl_request'}->rflush;
 				return if $self->{'mod_perl_request'}->connection->aborted;
 			}
 		}
-		print "</table>\n</div>\n";
+		say "</table>\n</div>";
 		return;
 	}
-	print "<div class=\"box\" id=\"queryform\">\n";
-	print $q->start_form;
-	print $q->hidden($_) foreach qw (db page scheme_id);
+	say "<div class=\"box\" id=\"queryform\">";
+	say $q->start_form;
+	say $q->hidden($_) foreach qw (db page scheme_id);
 	local $" = ', ';
 	print <<"HTML";
 <p>Enter allelic profiles below in tab-delimited text format using copy and paste (for example directly from a spreadsheet).  
@@ -153,12 +154,12 @@ columns should comprise the allele numbers (order: @cleaned_loci). Click here fo
 <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchProfiles&amp;function=examples&amp;scheme_id=$scheme_id">
 example data</a>.  Non-numerical characters will be stripped out of the query.</p>
 HTML
-	print $q->textarea( -name => 'profiles', -rows => 10, -columns => 80, -override => 1 );
-	print "<p />";
-	print $q->reset( -class => 'reset' );
-	print $q->submit( -label => 'Submit query', -class => 'submit' );
-	print $q->endform;
-	print "<p />\n</div>";
+	say $q->textarea( -name => 'profiles', -rows => 10, -columns => 80, -override => 1 );
+	say "<p />";
+	say $q->reset( -class => 'reset' );
+	say $q->submit( -label => 'Submit query', -class => 'submit' );
+	say $q->endform;
+	say "<p />\n</div>";
 	return;
 }
 
@@ -194,7 +195,7 @@ sub _print_examples {
 	my $i = 1;
 
 	while ( my @profile = $sql->fetchrow_array ) {
-		print "isolate_$i\t@profile\n";
+		say "isolate_$i\t@profile";
 		$i++;
 	}
 	return;
