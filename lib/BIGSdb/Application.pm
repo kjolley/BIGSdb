@@ -53,6 +53,7 @@ use BIGSdb::RecordInfoPage;
 use BIGSdb::SeqbinPage;
 use BIGSdb::SeqbinToEMBL;
 use BIGSdb::SequenceQueryPage;
+use BIGSdb::SequenceTranslatePage;
 use BIGSdb::TableQueryPage;
 use BIGSdb::VersionPage;
 use CGI;
@@ -186,11 +187,11 @@ sub _initiate_authdb {
 	my ($self) = @_;
 	my $logger = get_logger('BIGSdb.Application_Initiate');
 	my %att    = (
-		'dbase_name' => $self->{'config'}->{'auth_db'},
-		'host'       => $self->{'system'}->{'host'},
-		'port'       => $self->{'system'}->{'port'},
-		'user'       => $self->{'system'}->{'user'},
-		'password'   => $self->{'system'}->{'password'},
+		dbase_name => $self->{'config'}->{'auth_db'},
+		host       => $self->{'system'}->{'host'},
+		port       => $self->{'system'}->{'port'},
+		user       => $self->{'system'}->{'user'},
+		password   => $self->{'system'}->{'password'},
 	);
 	try {
 		$self->{'auth_db'} = $self->{'dataConnector'}->get_connection( \%att );
@@ -206,18 +207,18 @@ sub _initiate_authdb {
 sub initiate_plugins {
 	my ( $self, $plugin_dir ) = @_;
 	$self->{'pluginManager'} = BIGSdb::PluginManager->new(
-		'system'           => $self->{'system'},
-		'cgi'              => $self->{'cgi'},
-		'instance'         => $self->{'instance'},
-		'prefstore'        => $self->{'prefstore'},
-		'config'           => $self->{'config'},
-		'datastore'        => $self->{'datastore'},
-		'db'               => $self->{'db'},
-		'xmlHandler'       => $self->{'xmlHandler'},
-		'dataConnector'    => $self->{'dataConnector'},
-		'mod_perl_request' => $self->{'mod_perl_request'},
-		'jobManager'       => $self->{'jobManager'},
-		'pluginDir'        => $plugin_dir
+		system           => $self->{'system'},
+		cgi              => $self->{'cgi'},
+		instance         => $self->{'instance'},
+		prefstore        => $self->{'prefstore'},
+		config           => $self->{'config'},
+		datastore        => $self->{'datastore'},
+		db               => $self->{'db'},
+		xmlHandler       => $self->{'xmlHandler'},
+		dataConnector    => $self->{'dataConnector'},
+		mod_perl_request => $self->{'mod_perl_request'},
+		jobManager       => $self->{'jobManager'},
+		pluginDir        => $plugin_dir
 	);
 	return;
 }
@@ -284,11 +285,11 @@ sub read_host_mapping_file {
 sub _setup_prefstore {
 	my ($self) = @_;
 	my %att = (
-		'dbase_name' => $self->{'config'}->{'prefs_db'},
-		'host'       => $self->{'system'}->{'host'},
-		'port'       => $self->{'system'}->{'port'},
-		'user'       => $self->{'system'}->{'user'},
-		'password'   => $self->{'system'}->{'password'},
+		dbase_name => $self->{'config'}->{'prefs_db'},
+		host       => $self->{'system'}->{'host'},
+		port       => $self->{'system'}->{'port'},
+		user       => $self->{'system'}->{'user'},
+		password   => $self->{'system'}->{'password'},
 	);
 	my $pref_db;
 	try {
@@ -306,11 +307,11 @@ sub setup_datastore {
 	my ($self) = @_;
 	$self->{'datastore'} = BIGSdb::Datastore->new(
 		(
-			'db'            => $self->{'db'},
-			'dataConnector' => $self->{'dataConnector'},
-			'system'        => $self->{'system'},
-			'config'        => $self->{'config'},
-			'xmlHandler'    => $self->{'xmlHandler'}
+			db            => $self->{'db'},
+			dataConnector => $self->{'dataConnector'},
+			system        => $self->{'system'},
+			config        => $self->{'config'},
+			xmlHandler    => $self->{'xmlHandler'}
 		)
 	);
 	return;
@@ -319,11 +320,11 @@ sub setup_datastore {
 sub db_connect {
 	my ($self) = @_;
 	my %att = (
-		'dbase_name' => $self->{'system'}->{'db'},
-		'host'       => $self->{'system'}->{'host'},
-		'port'       => $self->{'system'}->{'port'},
-		'user'       => $self->{'system'}->{'user'},
-		'password'   => $self->{'system'}->{'password'}
+		dbase_name => $self->{'system'}->{'db'},
+		host       => $self->{'system'}->{'host'},
+		port       => $self->{'system'}->{'port'},
+		user       => $self->{'system'}->{'user'},
+		password   => $self->{'system'}->{'password'}
 	);
 	try {
 		$self->{'db'} = $self->{'dataConnector'}->get_connection( \%att );
@@ -348,54 +349,55 @@ sub print_page {
 	my $set_options = 0;
 	my $cookies;
 	my %classes = (
-		'index'              => 'IndexPage',
-		'browse'             => 'BrowsePage',
-		'query'              => 'QueryPage',
-		'pubquery'           => 'PubQueryPage',
-		'listQuery'          => 'ListQueryPage',
-		'info'               => 'IsolateInfoPage',
-		'tableQuery'         => 'TableQueryPage',
-		'options'            => 'OptionsPage',
-		'profiles'           => 'ProfileQueryPage',
-		'batchProfiles'      => 'BatchProfileQueryPage',
-		'sequenceQuery'      => 'SequenceQueryPage',
-		'batchSequenceQuery' => 'SequenceQueryPage',
-		'customize'          => 'CustomizePage',
-		'recordInfo'         => 'RecordInfoPage',
-		'version'            => 'VersionPage',
-		'plugin'             => 'Plugin',
-		'profileInfo'        => 'ProfileInfoPage',
-		'downloadAlleles'    => 'DownloadAllelesPage',
-		'downloadProfiles'   => 'DownloadProfilesPage',
-		'downloadSeqbin'     => 'DownloadSeqbinPage',
-		'seqbin'             => 'SeqbinPage',
-		'embl'               => 'SeqbinToEMBL',
-		'alleleSequence'     => 'AlleleSequencePage',
-		'changePassword'     => 'ChangePasswordPage',
-		'alleleInfo'         => 'AlleleInfoPage',
-		'fieldValues'        => 'FieldHelpPage',
-		'extractedSequence'  => 'ExtractedSequencePage',
-		'alleleQuery'        => 'AlleleQueryPage',
-		'locusInfo'          => 'LocusInfoPage',
-		'job'                => 'JobViewerPage'
+		index              => 'IndexPage',
+		browse             => 'BrowsePage',
+		query              => 'QueryPage',
+		pubquery           => 'PubQueryPage',
+		listQuery          => 'ListQueryPage',
+		info               => 'IsolateInfoPage',
+		tableQuery         => 'TableQueryPage',
+		options            => 'OptionsPage',
+		profiles           => 'ProfileQueryPage',
+		batchProfiles      => 'BatchProfileQueryPage',
+		sequenceQuery      => 'SequenceQueryPage',
+		batchSequenceQuery => 'SequenceQueryPage',
+		sequenceTranslate  => 'SequenceTranslatePage',
+		customize          => 'CustomizePage',
+		recordInfo         => 'RecordInfoPage',
+		version            => 'VersionPage',
+		plugin             => 'Plugin',
+		profileInfo        => 'ProfileInfoPage',
+		downloadAlleles    => 'DownloadAllelesPage',
+		downloadProfiles   => 'DownloadProfilesPage',
+		downloadSeqbin     => 'DownloadSeqbinPage',
+		seqbin             => 'SeqbinPage',
+		embl               => 'SeqbinToEMBL',
+		alleleSequence     => 'AlleleSequencePage',
+		changePassword     => 'ChangePasswordPage',
+		alleleInfo         => 'AlleleInfoPage',
+		fieldValues        => 'FieldHelpPage',
+		extractedSequence  => 'ExtractedSequencePage',
+		alleleQuery        => 'AlleleQueryPage',
+		locusInfo          => 'LocusInfoPage',
+		job                => 'JobViewerPage'
 	);
 	my $page;
 	my %page_attributes = (
-		'system'           => $self->{'system'},
-		'dbase_config_dir' => $dbase_config_dir,
-		'cgi'              => $self->{'cgi'},
-		'instance'         => $self->{'instance'},
-		'prefs'            => $self->{'prefs'},
-		'prefstore'        => $self->{'prefstore'},
-		'config'           => $self->{'config'},
-		'datastore'        => $self->{'datastore'},
-		'db'               => $self->{'db'},
-		'xmlHandler'       => $self->{'xmlHandler'},
-		'dataConnector'    => $self->{'dataConnector'},
-		'pluginManager'    => $self->{'pluginManager'},
-		'mod_perl_request' => $self->{'mod_perl_request'},
-		'jobManager'       => $self->{'jobManager'},
-		'curate'           => 0
+		system           => $self->{'system'},
+		dbase_config_dir => $dbase_config_dir,
+		cgi              => $self->{'cgi'},
+		instance         => $self->{'instance'},
+		prefs            => $self->{'prefs'},
+		prefstore        => $self->{'prefstore'},
+		config           => $self->{'config'},
+		datastore        => $self->{'datastore'},
+		db               => $self->{'db'},
+		xmlHandler       => $self->{'xmlHandler'},
+		dataConnector    => $self->{'dataConnector'},
+		pluginManager    => $self->{'pluginManager'},
+		mod_perl_request => $self->{'mod_perl_request'},
+		jobManager       => $self->{'jobManager'},
+		curate           => 0
 	);
 	my $continue = 1;
 	my $auth_cookies_ref;
@@ -416,7 +418,7 @@ sub print_page {
 		$page->initiate_prefs;
 		$page->set_options;
 		$self->{'page'} = 'index';
-		$self->{'cgi'}->param( 'page', 'index' );     #stop prefs initiating twice
+		$self->{'cgi'}->param( 'page', 'index' );    #stop prefs initiating twice
 		$set_options = 1;
 	}
 	if ( !$self->{'db'} ) {

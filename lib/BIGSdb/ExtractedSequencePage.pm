@@ -128,7 +128,7 @@ sub format_sequence {
 	  ? ( 10 - substr( $length + length( $seq_ref->{'downstream'} ), -1 ) )
 	  : ( 10 - substr( $length + length( $seq_ref->{'upstream'} ), -1 ) );
 	my $seq1 = substr( $seq_ref->{'seq'}, 0, $upstream_offset );
-	my $seq2 = substr( $seq_ref->{'seq'}, $upstream_offset );
+	my $seq2 = ( $upstream_offset < length $seq_ref->{'seq'} ) ? substr( $seq_ref->{'seq'}, $upstream_offset ) : '';
 	my $downstream = $options->{'reverse'} ? $seq_ref->{'upstream'} : $seq_ref->{'downstream'};
 	my $downstream1 = substr( $downstream, 0, $downstream_offset );
 	my $downstream2 = ( length($downstream) >= $downstream_offset ) ? substr( $downstream, $downstream_offset ) : '';
@@ -157,7 +157,8 @@ sub format_sequence {
 
 		#5' of start codon
 		if ( $orf > 1 && $start_offset ) {
-			push @highlights, ($highlight_start) . '-' . ( $highlight_start + $orf - 2 ) . " coding";
+			push @highlights, ($highlight_start) . '-' . ( $highlight_start + $orf - 2 ) . " coding"
+			  if ( $highlight_start + $orf - 2 ) > $highlight_start;
 		}
 
 		#start codon
@@ -167,7 +168,7 @@ sub format_sequence {
 
 		#Coding sequence between start and end codons
 		push @highlights, ( $highlight_start + $start_offset ) . '-' . ( $highlight_end - $end_offset ) . " coding"
-		  if $highlight_start && $highlight_end;
+		  if $highlight_start && $highlight_end && ( ( $highlight_end - $end_offset ) > ( $highlight_start + $start_offset ) );
 
 		#end codon
 		if ($end_offset) {

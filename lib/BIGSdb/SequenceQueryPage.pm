@@ -191,7 +191,9 @@ sub _run_query {
 			my $partial_match = $self->parse_blast_partial($blast_file);
 			if ( ref $partial_match ne 'HASH' || !defined $partial_match->{'allele'} ) {
 				if ( $page eq 'sequenceQuery' ) {
-					print "<div class=\"box\" id=\"statusbad\"><p>No matches found.</p></div>\n";
+					say "<div class=\"box\" id=\"statusbad\"><p>No matches found.</p>";
+					$self->_translate_button( \$seq ) if $seq_type eq 'DNA';
+					say "</div>";
 				} else {
 					my $id = defined $seq_object->id ? $seq_object->id : '';
 					$batch_buffer = "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">No matches found.</td></tr>\n";
@@ -224,6 +226,20 @@ sub _run_query {
 	return;
 }
 
+sub _translate_button {
+	my ( $self, $seq_ref ) = @_;
+	return if ref $seq_ref ne 'SCALAR' || length $$seq_ref < 3 || length $$seq_ref > 10000;
+	return if !$self->{'config'}->{'emboss_path'};
+	my $q = $self->{'cgi'};
+	say $q->start_form;
+	$q->param( 'page',     'sequenceTranslate' );
+	$q->param( 'sequence', $$seq_ref );
+	say $q->hidden($_) foreach (qw (db page sequence));
+	say $q->submit( -label => 'Translate query', -class => 'submit' );
+	say $q->end_form;
+	return;
+}
+
 sub _output_single_query_exact {
 	my ( $self, $exact_matches, $data ) = @_;
 	my $data_type               = $data->{'locus_info'}->{'data_type'};
@@ -233,7 +249,9 @@ sub _output_single_query_exact {
 	my $q                       = $self->{'cgi'};
 	my %designations;
 	say "<div class=\"box\" id=\"resultsheader\"><p>";
-	say @$exact_matches . " exact match" . ( @$exact_matches > 1 ? 'es' : '' ) . " found.</p></div>";
+	say @$exact_matches . " exact match" . ( @$exact_matches > 1 ? 'es' : '' ) . " found.</p>";
+	$self->_translate_button( $data->{seq_ref} ) if $seq_type eq 'DNA';
+	say "</div>";
 	say "<div class=\"box\" id=\"resultstable\">";
 
 	if ( defined $data_type && $data_type eq 'peptide' && $seq_type eq 'DNA' ) {
@@ -413,7 +431,9 @@ sub _output_single_query_nonexact {
 	my $locus                   = $data->{'locus'};
 	my $qry_type                = $data->{'qry_type'};
 	my $seq_ref                 = $data->{'seq_ref'};
-	say "<div class=\"box\" id=\"resultsheader\"><p>Closest match: ";
+	say "<div class=\"box\" id=\"resultsheader\">";
+	$self->_translate_button( $data->{seq_ref} ) if $data->{'seq_type'} eq 'DNA';
+	say "<p style=\"padding-top:0.5em\">Closest match: ";
 	my $cleaned_match = $partial_match->{'allele'};
 	my $cleaned_locus;
 	my $flags;
@@ -623,8 +643,8 @@ sub _output_batch_query_nonexact {
 	my ( $allele, $text_allele, $cleaned_locus, $text_locus );
 	if ($distinct_locus_selected) {
 		$cleaned_locus = $self->clean_locus($locus);
-		$text_locus = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
-		$allele = "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;"
+		$text_locus    = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
+		$allele        = "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;"
 		  . "allele_id=$partial_match->{'allele'}\">$cleaned_locus: $partial_match->{'allele'}</a>";
 		$text_allele = "$text_locus-$partial_match->{'allele'}";
 	} else {
