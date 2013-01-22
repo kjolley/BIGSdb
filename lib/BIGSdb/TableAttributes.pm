@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -208,7 +208,14 @@ sub get_loci_table_attributes {
 			type    => 'int',
 			length  => 10,
 			tooltip => 'genome position - starting position in reference genome.  This is used to order concatenated output functions.'
+		},
+		{
+			name    => 'match_longest',
+			type    => 'bool',
+			tooltip => 'match longest - Only select the longest exact match when tagging/querying.  This is useful when there may be '
+			  . 'overlapping alleles that are identical apart from one lacking an end sequence.'
 		}
+		
 	  );
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		push @$attributes,
@@ -231,12 +238,6 @@ sub get_loci_table_attributes {
 				type    => 'bool',
 				tooltip => 'probe filter - Set to true to specify that sequences used for tagging are filtered to only include regions '
 				  . 'within a specified distance of a hybdridization probe.'
-			},
-			{
-				name    => 'match_longest',
-				type    => 'bool',
-				tooltip => 'match longest - Only select the longest exact match when tagging.  This is useful when there may be '
-				  . 'overlapping alleles that are identical apart from one lacking an end sequence.'
 			},
 			{
 				name     => 'dbase_name',

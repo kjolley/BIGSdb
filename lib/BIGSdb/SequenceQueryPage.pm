@@ -248,20 +248,18 @@ sub _output_single_query_exact {
 	my $distinct_locus_selected = $data->{'distinct_locus_selected'};
 	my $q                       = $self->{'cgi'};
 	my %designations;
-	say "<div class=\"box\" id=\"resultsheader\"><p>";
-	say @$exact_matches . " exact match" . ( @$exact_matches > 1 ? 'es' : '' ) . " found.</p>";
-	$self->_translate_button( $data->{seq_ref} ) if $seq_type eq 'DNA';
-	say "</div>";
-	say "<div class=\"box\" id=\"resultstable\">";
+	my $buffer = "<div class=\"box\" id=\"resultstable\">\n";
 
 	if ( defined $data_type && $data_type eq 'peptide' && $seq_type eq 'DNA' ) {
-		say "<p>Please note that as this is a peptide locus, the length corresponds to the peptide translated from your "
+		$buffer .= "<p>Please note that as this is a peptide locus, the length corresponds to the peptide translated from your "
 		  . "query sequence.</p>";
 	} elsif ( defined $data_type && $data_type eq 'DNA' && $seq_type eq 'peptide' ) {
-		say "<p>Please note that as this is a DNA locus, the length corresponds to the matching nucleotide sequence that "
+		$buffer .= "<p>Please note that as this is a DNA locus, the length corresponds to the matching nucleotide sequence that "
 		  . "was translated to align against your peptide query sequence.</p>";
 	}
-	say "<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Allele</th><th>Length</th><th>Start position</th>"
+	$buffer .= "<div class=\"scrollable\">\n";
+	$buffer .=
+	    "<table class=\"resultstable\"><tr><th>Allele</th><th>Length</th><th>Start position</th>"
 	  . "<th>End position</th>"
 	  . ( $data->{'linked_data'}         ? '<th>Linked data values</th>' : '' )
 	  . ( $data->{'extended_attributes'} ? '<th>Attributes</th>'         : '' )
@@ -276,14 +274,18 @@ sub _output_single_query_exact {
 		@$exact_matches = sort { $locus_values{$a} cmp $locus_values{$b} } @$exact_matches;
 	}
 	my $td = 1;
+	my %locus_matches;
+	my $displayed = 0;
 	foreach (@$exact_matches) {
-		say "<tr class=\"td$td\"><td>";
 		my $allele;
 		my ( $field_values, $attributes, $flags );
 		if ($distinct_locus_selected) {
+			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+			$locus_matches{$locus}++;
+			next if $locus_info->{'match_longest'} && $locus_matches{$locus} > 1;
 			my $cleaned = $self->clean_locus($locus);
-			say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;"
-			  . "allele_id=$_->{'allele'}\">";
+			$buffer .= "<tr class=\"td$td\"><td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
+			  . "page=alleleInfo&amp;locus=$locus&amp;allele_id=$_->{'allele'}\">";
 			$allele       = "$cleaned: $_->{'allele'}";
 			$field_values = $self->{'datastore'}->get_client_dbase_fields( $locus, [ $_->{'allele'} ] );
 			$attributes   = $self->{'datastore'}->get_allele_attributes( $locus, [ $_->{'allele'} ] );
@@ -293,27 +295,37 @@ sub _output_single_query_exact {
 			if ( $_->{'allele'} =~ /(.*):(.*)/ ) {
 				( $locus, $allele_id ) = ( $1, $2 );
 				$designations{$locus} = $allele_id;
+				my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+				$locus_matches{$locus}++;
+				next if $locus_info->{'match_longest'} && $locus_matches{$locus} > 1;
 				my $cleaned = $self->clean_locus($locus);
 				$allele       = "$cleaned: $allele_id";
 				$field_values = $self->{'datastore'}->get_client_dbase_fields( $locus, [$allele_id] );
 				$attributes   = $self->{'datastore'}->get_allele_attributes( $locus, [$allele_id] );
 				$flags        = $self->{'datastore'}->get_allele_flags( $locus, $allele_id );
 			}
-			say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;"
-			  . "allele_id=$allele_id\">"
+			$buffer .=
+			    "<tr class=\"td$td\"><td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
+			  . "page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id\">"
 			  if $locus && $allele_id;
 		}
-		say "$allele</a></td><td>$_->{'length'}</td><td>$_->{'start'}</td><td>$_->{'end'}</td>";
-		say defined $field_values ? "<td style=\"text-align:left\">$field_values</td>" : '<td />' if $data->{'linked_data'};
-		say defined $attributes   ? "<td style=\"text-align:left\">$attributes</td>"   : '<td />' if $data->{'extended_attributes'};
+		$buffer .= "$allele</a></td><td>$_->{'length'}</td><td>$_->{'start'}</td><td>$_->{'end'}</td>";
+		$buffer .= defined $field_values ? "<td style=\"text-align:left\">$field_values</td>" : '<td />' if $data->{'linked_data'};
+		$buffer .= defined $attributes ? "<td style=\"text-align:left\">$attributes</td>" : '<td />' if $data->{'extended_attributes'};
 		if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
 			local $" = '</a> <a class="seqflag_tooltip">';
-			say @$flags ? "<td style=\"text-align:left\"><a class=\"seqflag_tooltip\">@$flags</a></td>" : '<td />';
+			$buffer .= @$flags ? "<td style=\"text-align:left\"><a class=\"seqflag_tooltip\">@$flags</a></td>" : '<td />';
 		}
-		say "</tr>";
+		$buffer .= "</tr>\n";
+		$displayed++;
 		$td = $td == 1 ? 2 : 1;
 	}
-	say "</table></div>";
+	$buffer .= "</table></div>\n";
+	say "<div class=\"box\" id=\"resultsheader\"><p>";
+	say "$displayed exact match" . ( $displayed > 1 ? 'es' : '' ) . " found.</p>";
+	$self->_translate_button( $data->{seq_ref} ) if $seq_type eq 'DNA';
+	say "</div>";
+	say $buffer;
 	$self->_output_scheme_fields( $locus, \%designations );
 	say "</div>";
 	return;
@@ -369,7 +381,7 @@ sub _output_batch_query_exact {
 	my $td                      = $data->{'td'};
 	my $id                      = $data->{'id'};
 	my $q                       = $self->{'cgi'};
-	my $buffer                  = "Exact match" . ( @$exact_matches == 1 ? '' : 'es' ) . " found: ";
+	my $buffer                  = '';
 	if ( !$distinct_locus_selected && $q->param('order') eq 'locus' ) {
 		my %locus_values;
 		foreach (@$exact_matches) {
@@ -381,29 +393,39 @@ sub _output_batch_query_exact {
 	}
 	my $first       = 1;
 	my $text_buffer = '';
+	my %locus_matches;
+	my $displayed = 0;
 	foreach (@$exact_matches) {
-		if ( !$first ) {
-			$buffer      .= '; ';
-			$text_buffer .= '; ';
-		}
 		my $allele_id;
 		if ( !$distinct_locus_selected && $_->{'allele'} =~ /(.*):(.*)/ ) {
 			( $locus, $allele_id ) = ( $1, $2 );
 		} else {
 			$allele_id = $_->{'allele'};
 		}
+		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+		$locus_matches{$locus}++;
+		next if $locus_info->{'match_longest'} && $locus_matches{$locus} > 1;
+		if ( !$first ) {
+			$buffer      .= '; ';
+			$text_buffer .= '; ';
+		}
 		my $cleaned_locus = $self->clean_locus($locus);
 		my $text_locus = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
 		$buffer .= "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;"
 		  . "allele_id=$allele_id\">$cleaned_locus: $allele_id</a>";
 		$text_buffer .= "$text_locus-$allele_id";
+		$displayed++;
 		undef $locus if !$distinct_locus_selected;
 		$first = 0;
 	}
 	open( my $fh, '>>', "$self->{'config'}->{'tmp_dir'}/$filename" ) or $logger->error("Can't open $filename for appending");
 	say $fh "$id: $text_buffer";
 	close $fh;
-	return "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">$buffer</td></tr>\n";
+	return
+	    "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">"
+	  . "Exact match"
+	  . ( $displayed == 1 ? '' : 'es' )
+	  . " found: $buffer</td></tr>\n";
 }
 
 sub _output_single_query_nonexact_mismatched {
