@@ -87,9 +87,7 @@ sub print_content {
 	if (@stops) {
 		local $" = ', ';
 		my $plural = @stops == 1 ? '' : 's';
-		say
-"<span class=\"highlight\">Internal stop codon$plural in ORF-$orf at position$plural: @stops (numbering includes upstream flanking "
-		  . "sequence).</span>";
+		say "<span class=\"highlight\">Internal stop codon$plural in ORF-$orf at position$plural: @stops.</span>";
 	} else {
 		say "<span class=\"statusgood\">No internal stop codons in ORF-$orf</span>";
 	}
