@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -31,6 +31,7 @@ use constant SEQ_FLAGS => (
 	'ambiguous read',
 	'apparent misassembly',
 	'atypical',
+	'contains IS element',
 	'downstream fusion',
 	'frameshift',
 	'internal stop codon',
@@ -41,6 +42,7 @@ use constant SEQ_FLAGS => (
 );
 use constant ALLELE_FLAGS => (
 	'atypical',
+	'contains IS element',
 	'downstream fusion',
 	'frameshift',
 	'internal stop codon',
