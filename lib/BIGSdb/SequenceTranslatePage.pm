@@ -34,6 +34,8 @@ sub get_title {
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
+	my $orf = $q->param('orf') // 1;
+	$orf = 1 if !( BIGSdb::Utils::is_int($orf) && $orf < 4 && $orf > 0 );
 	say "<h1>Sequence translation</h1>";
 	if ( !$self->{'config'}->{'emboss_path'} ) {
 		$logger->fatal("EMBOSS not installed");
@@ -56,14 +58,40 @@ sub print_content {
 		say "<div class=\"box\" id=\"statusbad\"><p>Passed sequence is longer than the maximum permissible length ($max bp)</p></div>";
 		return;
 	}
-	my $formatted_seq = $self->format_sequence( { seq => $seq }, { translate => 1 } );
+	$seq = BIGSdb::Utils::reverse_complement($seq) if $q->param('reverse');
+	$q->param( 'sequence', $seq );
+	say "<div class=\"box\" id=\"queryform\">";
+	say "<fieldset><legend>Modify sequence attributes</legend>";
+	say $q->start_form;
+	say "<ul style=\"padding-bottom: 0.5em\"><li>";
+	say "<label for=\"orf\">ORF: </label>";
+	say $q->popup_menu( -name => 'orf', -id => 'orf', -values => [qw(1 2 3)], -default => $orf );
+	say "</li></ul>";
+	say "<span style=\"float:left\">";
+	say $q->submit( -label => 'Reverse', -name => 'reverse', -class => 'submit' );
+	say "</span>";
+	say "<span style=\"float:right\">";
+	say $q->submit( -label => 'Update', -class => 'submit' );
+	say "</span>";
+	say $q->hidden($_) foreach qw(db page sequence);
+	say $q->end_form;
+	say "</fieldset></div>";
+	my $formatted_seq = $self->format_sequence( { seq => $seq }, { translate => 1, orf => $orf } );
 	say "<div class=\"box\" id=\"sequence\"><div class=\"scrollable\">";
+	say "<h2>Sequence</h2>";
+	say "<ul><li>Length: " . ( length $seq ) . " bp</li></ul>";
+	say "<div class=\"seq\">$formatted_seq->{'seq'}</div>";
+	say "<h2>Translation</h2>";
 	my @stops = @{ $formatted_seq->{'internal_stop'} };
+
 	if (@stops) {
 		local $" = ', ';
 		my $plural = @stops == 1 ? '' : 's';
-		say "<span class=\"highlight\">Internal stop codon$plural at position$plural: @stops (numbering includes upstream flanking "
+		say
+"<span class=\"highlight\">Internal stop codon$plural in ORF-$orf at position$plural: @stops (numbering includes upstream flanking "
 		  . "sequence).</span>";
+	} else {
+		say "<span class=\"statusgood\">No internal stop codons in ORF-$orf</span>";
 	}
 	say "<pre class=\"sixpack\">";
 	say $formatted_seq->{'sixpack'};
