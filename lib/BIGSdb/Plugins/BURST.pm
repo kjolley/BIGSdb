@@ -1,6 +1,6 @@
 #BURST.pm - BURST plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -480,8 +480,7 @@ sub _recursive_search {
 
 	# print singles
 	print "<h2>Singletons:</h2>\n";
-	print "<div class=\"scrollable\">\n";
-	my $buffer = "<table class=\"resultstable\"><tr><th>ST</th><th>Frequency</th></tr>";
+	my $buffer = "<div class=\"scrollable\">\n<table class=\"resultstable\"><tr><th>ST</th><th>Frequency</th></tr>";
 	$td = 1;
 	my $count;
 	for ( my $i = 0 ; $i < $num_profiles ; $i++ ) {
