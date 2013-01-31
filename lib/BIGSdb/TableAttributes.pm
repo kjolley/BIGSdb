@@ -215,7 +215,6 @@ sub get_loci_table_attributes {
 			tooltip => 'match longest - Only select the longest exact match when tagging/querying.  This is useful when there may be '
 			  . 'overlapping alleles that are identical apart from one lacking an end sequence.'
 		}
-		
 	  );
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		push @$attributes,
@@ -682,9 +681,9 @@ sub get_client_dbase_schemes_table_attributes {
 			labels         => '|$description|',
 			dropdown_query => 'yes'
 		},
-		{ name => 'client_scheme_id', type => 'int', comments => 'id number of the scheme in the client database (if different)' },
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'client_scheme_id', type => 'int',  comments => 'id number of the scheme in the client database (if different)' },
+		{ name => 'curator',          type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp',        type => 'date', required => 'yes' }
 	];
 	return $attributes;
 }
@@ -857,6 +856,15 @@ sub get_schemes_table_attributes {
 				required => 'yes',
 				default  => 'true',
 				tooltip  => 'analysis - Sets whether to include this scheme in analysis functions (can be overridden by user preference).'
+			}
+		  );
+	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		push @$attributes,
+		  (
+			{
+				name    => 'allow_missing_loci',
+				type    => 'bool',
+				tooltip => "allow_missing_loci - Allow profiles to contain '0' (locus missing) or 'N' (any allele)."
 			}
 		  );
 	}
@@ -1420,7 +1428,7 @@ sub get_sets_table_attributes {
 		{ name => 'long_description', type => 'text', length   => 256 },
 		{ name => 'display_order',    type => 'int' },
 		{ name => 'curator',          type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp',        type => 'date', required => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' },
 	];
 	return $attributes;
 }
@@ -1504,7 +1512,7 @@ sub get_set_metadata_table_attributes {
 
 sub get_set_view_table_attributes {
 	my ($self) = @_;
-	my @views = $self->{'system'}->{'views'} ? (split /,/, $self->{'system'}->{'views'}) : ();
+	my @views = $self->{'system'}->{'views'} ? ( split /,/, $self->{'system'}->{'views'} ) : ();
 	local $" = ';';
 	my $attributes = [
 		{
@@ -1516,13 +1524,7 @@ sub get_set_view_table_attributes {
 			labels         => '|$description|',
 			dropdown_query => 'yes'
 		},
-		{
-			name           => 'view',
-			type           => 'text',
-			required       => 'yes',
-			optlist        => "@views",
-			dropdown_query => 'yes'
-		},
+		{ name => 'view',      type => 'text', required => 'yes', optlist        => "@views", dropdown_query => 'yes' },
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' },
 	];

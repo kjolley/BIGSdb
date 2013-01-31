@@ -329,6 +329,7 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON allele_flags TO apache;
 CREATE TABLE schemes (
 id int NOT NULL UNIQUE,
 description text NOT NULL,
+allow_missing_loci boolean,
 display_order int,
 curator int NOT NULL,
 date_entered date NOT NULL,

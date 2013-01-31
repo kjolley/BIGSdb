@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -81,7 +81,7 @@ sub print_content {
 		}
 	}
 	if ( $q->param('sent') ) {
-		return if $self->_upload( $scheme_id, $primary_key, \%newdata );		
+		return if $self->_upload( $scheme_id, $primary_key, \%newdata );
 	}
 	$self->_print_interface( $scheme_id, $primary_key, \%newdata );
 	return;
@@ -108,8 +108,7 @@ sub _upload {
 	$newdata->{"field:sender"}  = $q->param("field:sender");
 	if ( !$newdata->{"field:sender"} ) {
 		push @bad_field_buffer, "Field 'sender' requires a value.";
-	}
-	if ( !BIGSdb::Utils::is_int( $newdata->{'field:sender'} ) ) {
+	} elsif ( !BIGSdb::Utils::is_int( $newdata->{'field:sender'} ) ) {
 		push @bad_field_buffer, "Field 'sender' is invalid.";
 	}
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
@@ -125,28 +124,11 @@ sub _upload {
 		$insert = 0;
 	}
 
-	#Make sure profile not already entered;
+	#Make sure profile not already entered
 	if ($insert) {
-		my $qry = "SELECT profiles.profile_id FROM profiles LEFT JOIN profile_members ON profiles.scheme_id = "
-		  . "profile_members.scheme_id AND profiles.profile_id = profile_members.profile_id WHERE profiles.scheme_id=$scheme_id AND ";
-		my @locus_temp;
-		foreach my $locus (@$loci) {
-			( my $cleaned = $locus ) =~ s/'/\\'/g;
-			push @locus_temp, "(locus=E'$cleaned' AND allele_id=E'$newdata->{\"locus:$locus\"}')";
-		}
-		local $" = ' OR ';
-		$qry .= "(@locus_temp)";
-		$qry .= ' GROUP BY profiles.profile_id having count(*)=' . scalar @locus_temp;
-		my $sql = $self->{'db'}->prepare($qry);
-		eval { $sql->execute };
-		$logger->error($@) if $@;
-		my ($value) = $sql->fetchrow_array;
-
-		if ($value) {
-			say "<div class=\"box\" id=\"statusbad\"><p>This allelic profile has already been defined as "
-			  . "$primary_key-$value.</p></div>";
-			$insert = 0;
-		}
+		my ( $exists, $msg ) = $self->_profile_exists( $scheme_id, $primary_key, $newdata );
+		say "<div class=\"box\" id=\"statusbad\"><p>$msg</p></div>" if $msg;
+		$insert = 0 if $exists;
 	}
 	if ($insert) {
 		my $pk_exists = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM profiles WHERE scheme_id=? AND profile_id=?",
@@ -194,9 +176,7 @@ sub _upload {
 					say "<p>Data entry would have resulted in records with either duplicate ids or another unique field with "
 					  . "duplicate values.</p>";
 				} else {
-					say "<p>SQL: @inserts</p>";
 					$logger->error("Insert failed: @inserts  $@");
-					say "<p>Error message: $@</p>";
 				}
 				say "</div>";
 				$self->{'db'}->rollback;
@@ -214,11 +194,53 @@ sub _upload {
 	return;
 }
 
+sub _profile_exists {
+	my ( $self, $scheme_id, $primary_key, $newdata ) = @_;
+	my ( $profile_exists, $msg );
+	my $qry = "SELECT profiles.profile_id FROM profiles LEFT JOIN profile_members ON profiles.scheme_id = "
+	  . "profile_members.scheme_id AND profiles.profile_id = profile_members.profile_id WHERE profiles.scheme_id=$scheme_id AND ";
+	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my @locus_temp;
+	foreach my $locus (@$loci) {
+		next if $newdata->{"locus:$locus"} eq 'N';    #N can be any allele so can not be used to differentiate profiles
+		( my $cleaned = $locus ) =~ s/'/\\'/g;
+		push @locus_temp, "(locus=E'$cleaned' AND (allele_id=E'$newdata->{\"locus:$locus\"}' OR allele_id='N'))";
+	}
+	local $" = ' OR ';
+	$qry .= "(@locus_temp)";
+	$qry .= ' GROUP BY profiles.profile_id having count(*)=' . scalar @locus_temp;
+	if (@locus_temp) {
+		my $sql = $self->{'db'}->prepare($qry);
+		eval { $sql->execute };
+		$logger->error($@) if $@;
+		my ($value) = $sql->fetchrow_array;
+		if ($value) {
+			if ( @locus_temp < @$loci ) {
+				$msg .= "Profiles containing an arbitrary allele (N) at a particular locus may match profiles with actual values at "
+				  . "that locus and cannot therefore be defined.  This profile matches $primary_key-$value.";
+			} else {
+				$msg .= "This allelic profile has already been defined as $primary_key-$value.";
+			}
+			$profile_exists = 1;
+		}
+	} else {
+		$msg .= "You cannot define a profile with every locus set to be an arbitrary value (N).";
+		$profile_exists = 1;
+	}
+	return ( $profile_exists, $msg );
+}
+
 sub _print_interface {
 	my ( $self, $scheme_id, $primary_key, $newdata ) = @_;
-	my $q = $self->{'cgi'};
+	my $q           = $self->{'cgi'};
+	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+	my $msg =
+	  $scheme_info->{'allow_missing_loci'}
+	  ? " This scheme allows profile definitions to contain missing alleles (designate "
+	  . "these as '0') or ignored alleles (designate these as 'N')."
+	  : '';
 	say "<div class=\"box\" id=\"queryform\"><p>Please fill in the fields below - required fields are marked with an "
-	  . "exclamation mark (!).</p>";
+	  . "exclamation mark (!).$msg</p>";
 	my $qry = "select id,user_name,first_name,surname from users where id>0 order by surname";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
@@ -301,18 +323,48 @@ sub _is_scheme_field_bad {
 sub _is_locus_field_bad {
 	my ( $self, $scheme_id, $locus, $value ) = @_;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	my $set_id = $self->get_set_id;
-	my $mapped = $self->{'datastore'}->get_set_locus_label($locus, $set_id) // $locus;
+	my $set_id     = $self->get_set_id;
+	my $mapped     = $self->{'datastore'}->get_set_locus_label( $locus, $set_id ) // $locus;
 	if ( !defined $value || $value eq '' ) {
 		return "Locus '$mapped' requires a value.";
-	} elsif ( $locus_info->{'allele_id_format'} eq 'integer'
-		&& !BIGSdb::Utils::is_int($value) )
-	{
+	} elsif ( $value eq '0' || $value eq 'N' ) {
+		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+		if ( $scheme_info->{'allow_missing_loci'} ) {
+			if ( !$self->{'datastore'}->sequence_exists( $locus, $value ) ) {
+				$self->define_missing_allele( $locus, $value );
+			}
+			return;
+		} else {
+			return "Allele id value is invalid - this scheme does not allow missing (0) or arbitrary alleles (N) in the profile.";
+		}
+	} elsif ( $locus_info->{'allele_id_format'} eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
 		return "Locus '$mapped' must be an integer.";
 	} elsif ( $locus_info->{'allele_id_regex'} && $value !~ /$locus_info->{'allele_id_regex'}/ ) {
 		return "Allele id value is invalid - it must match the regular expression /$locus_info->{'allele_id_regex'}/.";
 	} elsif ( !$self->{'datastore'}->sequence_exists( $locus, $value ) ) {
 		return "Allele $mapped $value has not been defined.";
 	}
+	return;
+}
+
+sub define_missing_allele {
+	my ( $self, $locus, $allele ) = @_;
+	my $seq;
+	given ($allele) {
+		when ('0') { $seq = 'null allele' };
+		when ('N') { $seq = 'arbitrary allele' }
+		default    { return }
+	}
+	my $sql =
+	  $self->{'db'}->prepare( "INSERT INTO sequences (locus, allele_id, sequence, sender, curator, date_entered, datestamp, "
+		  . "status) VALUES (?,?,?,?,?,?,?,?)" );
+	eval { $sql->execute( $locus, $allele, $seq, 0, 0, 'now', 'now', '' ) };
+	if ($@) {
+		$logger->error($@) if $@;
+		$self->{'db'}->rollback;
+		return;
+	}
+	$self->{'db'}->commit;
+	return;
 }
 1;
