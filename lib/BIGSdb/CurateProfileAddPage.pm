@@ -114,7 +114,7 @@ sub _upload {
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	foreach my $locus (@$loci) {
 		$newdata->{"locus:$locus"} = $q->param("locus:$locus");
-		my $field_bad = $self->_is_locus_field_bad( $scheme_id, $locus, $newdata->{"locus:$locus"} );
+		my $field_bad = $self->is_locus_field_bad( $scheme_id, $locus, $newdata->{"locus:$locus"} );
 		push @bad_field_buffer, $field_bad if $field_bad;
 	}
 	if (@bad_field_buffer) {
@@ -126,7 +126,7 @@ sub _upload {
 
 	#Make sure profile not already entered
 	if ($insert) {
-		my ( $exists, $msg ) = $self->_profile_exists( $scheme_id, $primary_key, $newdata );
+		my ( $exists, $msg ) = $self->profile_exists( $scheme_id, $primary_key, $newdata );
 		say "<div class=\"box\" id=\"statusbad\"><p>$msg</p></div>" if $msg;
 		$insert = 0 if $exists;
 	}
@@ -194,30 +194,32 @@ sub _upload {
 	return;
 }
 
-sub _profile_exists {
+sub profile_exists {
 	my ( $self, $scheme_id, $primary_key, $newdata ) = @_;
 	my ( $profile_exists, $msg );
 	my $qry = "SELECT profiles.profile_id FROM profiles LEFT JOIN profile_members ON profiles.scheme_id = "
 	  . "profile_members.scheme_id AND profiles.profile_id = profile_members.profile_id WHERE profiles.scheme_id=$scheme_id AND ";
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my @locus_temp;
+	my @values;
 	foreach my $locus (@$loci) {
 		next if $newdata->{"locus:$locus"} eq 'N';    #N can be any allele so can not be used to differentiate profiles
 		( my $cleaned = $locus ) =~ s/'/\\'/g;
-		push @locus_temp, "(locus=E'$cleaned' AND (allele_id=E'$newdata->{\"locus:$locus\"}' OR allele_id='N'))";
+		push @values,     $newdata->{"locus:$locus"};
+		push @locus_temp, "(locus=E'$cleaned' AND (allele_id=? OR allele_id='N'))";
 	}
 	local $" = ' OR ';
 	$qry .= "(@locus_temp)";
 	$qry .= ' GROUP BY profiles.profile_id having count(*)=' . scalar @locus_temp;
 	if (@locus_temp) {
 		my $sql = $self->{'db'}->prepare($qry);
-		eval { $sql->execute };
+		eval { $sql->execute(@values) };
 		$logger->error($@) if $@;
 		my ($value) = $sql->fetchrow_array;
 		if ($value) {
 			if ( @locus_temp < @$loci ) {
 				$msg .= "Profiles containing an arbitrary allele (N) at a particular locus may match profiles with actual values at "
-				  . "that locus and cannot therefore be defined.  This profile matches $primary_key-$value.";
+				  . "that locus and cannot therefore be defined.  This profile matches $primary_key-$value (possibly others too).";
 			} else {
 				$msg .= "This allelic profile has already been defined as $primary_key-$value.";
 			}
@@ -320,7 +322,7 @@ sub _is_scheme_field_bad {
 	}
 }
 
-sub _is_locus_field_bad {
+sub is_locus_field_bad {
 	my ( $self, $scheme_id, $locus, $value ) = @_;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	my $set_id     = $self->get_set_id;
