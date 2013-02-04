@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,7 @@
 package BIGSdb::CurateProfileBatchAddPage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::CurateProfileAddPage);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(none);
@@ -30,19 +31,19 @@ sub print_content {
 	my $scheme_id = $q->param('scheme_id');
 	my $set_id    = $self->get_set_id;
 	if ( !$self->{'datastore'}->scheme_exists($scheme_id) ) {
-		print "<h1>batch insert profiles</h1>\n";
-		print "<div class=\"box\" id=\"statusbad\"><p>Invalid scheme passed.</p></div>\n";
+		say "<h1>batch insert profiles</h1>";
+		say "<div class=\"box\" id=\"statusbad\"><p>Invalid scheme passed.</p></div>";
 		return;
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		print
-"<div class=\"box\" id=\"statusbad\"><p>You can only add profiles to a sequence/profile database - this is an isolate database.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>You can only add profiles to a sequence/profile database - this is an isolate "
+		  . "database.</p></div>";
 		return;
 	} elsif ( !$self->can_modify_table('profiles') ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to add new profiles.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to add new profiles.</p></div>";
 		return;
 	} elsif ($set_id) {
 		if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is inaccessible.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is inaccessible.</p></div>";
 			return;
 		}
 	}
@@ -52,12 +53,12 @@ sub print_content {
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $primary_key   = $self->_get_primary_key($scheme_id);
 	if ( !$primary_key ) {
-		print
-"<div class=\"box\" id=\"statusbad\"><p>This scheme doesn't have a primary key field defined.  Profiles can not be entered until this has been done.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>This scheme doesn't have a primary key field defined.  Profiles can not be entered "
+		  . "until this has been done.</p></div>";
 		return;
 	} elsif ( !@$loci ) {
-		print
-"<div class=\"box\" id=\"statusbad\"><p>This scheme doesn't have any loci belonging to it.  Profiles can not be entered until there is at least one locus defined.</p></div>\n";
+		print "<div class=\"box\" id=\"statusbad\"><p>This scheme doesn't have any loci belonging to it.  Profiles can not be entered "
+		  . "until there is at least one locus defined.</p></div>";
 		return;
 	}
 	if ( $q->param('checked_buffer') ) {
@@ -119,13 +120,14 @@ sub _check {
 	my $primary_key   = $self->_get_primary_key($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $scheme_info   = $self->{'datastore'}->get_scheme_info($scheme_id);
 	my @mapped_loci;
 	my $set_id = $self->get_set_id;
-	foreach my $locus (@$loci){
-		my $mapped = $self->{'datastore'}->get_set_locus_label($locus, $set_id) // $locus;
+	foreach my $locus (@$loci) {
+		my $mapped = $self->{'datastore'}->get_set_locus_label( $locus, $set_id ) // $locus;
 		push @mapped_loci, $mapped;
 	}
-	my $q             = $self->{'cgi'};
+	my $q = $self->{'cgi'};
 	my @checked_buffer;
 	my @fieldorder = ( $primary_key, @$loci );
 	my %is_field;
@@ -135,6 +137,7 @@ sub _check {
 	my %profiles_so_far;
 	local $" = '</th><th>';
 	my $table_buffer = "<table class=\"resultstable\"><tr><th>$primary_key</th><th>@mapped_loci</th>";
+
 	foreach my $field (@$scheme_fields) {
 		$is_field{$field} = 1;
 		$scheme_field_info->{$field} = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
@@ -143,16 +146,17 @@ sub _check {
 			$table_buffer .= "<th>$field</th>";
 		}
 	}
-	foreach my $field (qw (sender curator date_entered datestamp)){
-		 $table_buffer .= "<th>$field</th>";
-		 push @fieldorder, $field;
+	foreach my $field (qw (sender curator date_entered datestamp)) {
+		$table_buffer .= "<th>$field</th>";
+		push @fieldorder, $field;
 	}
 	$table_buffer .= "</tr>\n";
 	my ( $firstname, $surname, $userid );
 	my $sender_message;
 	my $sender = $q->param('sender');
 	if ( !$sender ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Please go back and select the sender for this submission.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Please enter a sender for this submission.</p></div>";
+		$self->_print_interface($scheme_id);
 		return;
 	} elsif ( $sender == -1 ) {
 		$sender_message = "<p>Using sender field in pasted data.</p>\n";
@@ -189,20 +193,11 @@ sub _check {
 	my $first_record = 1;
 	my $header_row;
 	my $record_count;
-	$qry = "SELECT profiles.profile_id FROM profiles LEFT JOIN profile_members ON profiles.scheme_id = profile_members.scheme_id AND "
-	  . "profiles.profile_id = profile_members.profile_id AND profiles.scheme_id = $scheme_id WHERE ";
-	my @locus_temp;
-	foreach (@$loci) {
-		push @locus_temp, "(locus='$_' AND allele_id=?)";
-	}
-	local $" = ' OR ';
-	$qry .= "(@locus_temp)";
-	$qry .= ' GROUP BY profiles.profile_id having count(*)=' . scalar @locus_temp;
-	my $profile_check_sql = $self->{'db'}->prepare($qry);
 	foreach my $record (@records) {
 		$record =~ s/\r//g;
 		next if $record =~ /^\s*$/;
 		my @profile;
+		my %newdata;
 		my $checked_record;
 		my @data = split /\t/, $record;
 		if ( $self->_is_integer_primary_key($scheme_id) && !$first_record && !$pk_included ) {
@@ -247,32 +242,16 @@ sub _check {
 				$value = $self->get_curator_id;
 			} else {
 				if ( defined $fileheaderPos{$field} ) {
-					$header_row .= "$field\t" if $first_record;					
+					$header_row .= "$field\t" if $first_record;
 					$value = $data[ $fileheaderPos{$field} ];
 				}
 			}
 			if ( $is_locus{$field} ) {
 				push @profile, $value;
-				my $locus_info = $self->{'datastore'}->get_locus_info($field);
-				if ( !defined $value ) {
-					$problems{$pk} .= "Locus $field requires a value.<br />";
-					$problem = 1;
-				} elsif ( $locus_format{$field} eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
-					my $mapped = $self->{'datastore'}->get_set_locus_label($field, $set_id) // $field;
-					$problems{$pk} .= "Locus $mapped must be an integer.<br />";
-					$problem = 1;
-				}
-
-				#check for regex which is defined in loci table
-				elsif ( $locus_info->{'allele_id_regex'} && $value !~ /$locus_info->{'allele_id_regex'}/ ) {
-					$problems{$pk} .=
-					  "Locus $field value is invalid - it must match the regular expression /$locus_info->{'allele_id_regex'}/.<br />";
-					$problem = 1;
-				}
-
-				#check allele exists
-				elsif ( !$self->{'datastore'}->sequence_exists( $field, $value ) ) {
-					$problems{$pk} .= "Sequence $field $value does not exist.<br />";
+				$newdata{"locus:$field"} = $value;
+				my $field_bad = $self->is_locus_field_bad( $scheme_id, $field, $value );
+				if ($field_bad) {
+					$problems{$pk} .= $field_bad;
 					$problem = 1;
 				}
 			} elsif ( $is_field{$field} && defined $value ) {
@@ -297,12 +276,8 @@ sub _check {
 		}
 
 		#check if profile exists
-		eval { $profile_check_sql->execute(@profile) };
-		$logger->error($@) if $@;
-		my ($exists) = $profile_check_sql->fetchrow_array;
-		if ($exists) {
-			$problems{$pk} .= "The profile for $primary_key-$pk already exists in the database ($primary_key-$exists).<br />";
-		}
+		my ( $exists, $msg ) = $self->profile_exists( $scheme_id, $primary_key, \%newdata );
+		$problems{$pk} .= "$msg<br />" if $exists;
 
 		#check if primary key already exists
 		eval { $primary_key_check_sql->execute( $scheme_id, $pk ) };
@@ -319,6 +294,24 @@ sub _check {
 			local $" = ',';
 			if ( $profiles_so_far{"@profile"} && none { $_ eq '' } @profile ) {
 				$problems{$pk} .= "The profile '@profile' has been included more than once in this submission.<br />";
+			} elsif ( $scheme_info->{'allow_missing_loci'} ) {
+
+				#Need to check if profile matches another in this submission using arbitrary matches against allele 'N'.
+				foreach my $profile_string ( keys %profiles_so_far ) {
+					my $it_matches = 1;
+					my @existing_profile = split /,/, $profile_string;
+					foreach my $i ( 0 .. @profile - 1 ) {
+						if ( $profile[$i] ne $existing_profile[$i] && $profile[$i] ne 'N' && $existing_profile[$i] ne 'N' ) {
+							$it_matches = 0;
+							last;
+						}
+					}
+					if ($it_matches) {
+						$problems{$pk} .= "The profile '@profile' matches another profile in this submission when considering that "
+						  . "arbitrary allele 'N' can match any other allele.";
+						last;
+					}
+				}
 			}
 			$profiles_so_far{"@profile"} = 1;
 		}
@@ -332,37 +325,36 @@ sub _check {
 	}
 	$table_buffer .= "</table>\n";
 	if ( !$record_count ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>No valid data entered. Make sure you've included the header line.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>No valid data entered. Make sure you've included the header line.</p></div>";
 		return;
 	}
 	if (%problems) {
-		print "<div class=\"box\" id=\"statusbad\"><h2>Import status</h2>\n";
-		print "<table class=\"resultstable\">";
-		print "<tr><th>$primary_key</th><th>Problem(s)</th></tr>\n";
+		say "<div class=\"box\" id=\"statusbad\"><h2>Import status</h2>";
+		say "<table class=\"resultstable\">";
+		say "<tr><th>$primary_key</th><th>Problem(s)</th></tr>";
 		my $td = 1;
 		{
 			no warnings 'numeric';
 			foreach my $id ( sort { $a <=> $b || $a cmp $b } keys %problems ) {
-				print "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">$problems{$id}</td></tr>";
+				say "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">$problems{$id}</td></tr>";
 				$td = $td == 1 ? 2 : 1;    #row stripes
 			}
 		}
-		print "</table></div>\n";
+		say "</table></div>";
 	} else {
-		print
-		  "<div class=\"box\" id=\"resultsheader\"><h2>Import status</h2>$sender_message<p>No obvious problems identified so far.</p>\n";
+		say "<div class=\"box\" id=\"resultsheader\"><h2>Import status</h2>$sender_message<p>No obvious problems identified so far.</p>";
 		my $filename = $self->make_temp_file(@checked_buffer);
-		print $q->start_form;
-		print $q->hidden($_) foreach qw (data page table db sender scheme_id);
-		print $q->hidden( 'checked_buffer', $filename );
-		print $q->submit( -name => 'Import data', -class => 'submit' );
-		print $q->endform;
-		print "</div>\n";
+		say $q->start_form;
+		say $q->hidden($_) foreach qw (data page table db sender scheme_id);
+		say $q->hidden( 'checked_buffer', $filename );
+		say $q->submit( -name => 'Import data', -class => 'submit' );
+		say $q->endform;
+		say "</div>";
 	}
-	print "<div class=\"box\" id=\"resultstable\"><h2>Data to be imported</h2>\n";
-	print "<p>The following table shows your data.  Any field coloured red has a problem and needs to be checked.</p>\n";
-	print $table_buffer;
-	print "</div><p />";
+	say "<div class=\"box\" id=\"resultstable\"><h2>Data to be imported</h2>";
+	say "<p>The following table shows your data.  Any field coloured red has a problem and needs to be checked.</p>";
+	say $table_buffer;
+	say "</div><p />";
 	return;
 }
 
@@ -428,8 +420,8 @@ sub _upload {
 			my @inserts;
 			my $qry;
 			local $" = ',';
-			$qry =
-"INSERT INTO profiles (scheme_id,profile_id,@fields_to_include) VALUES ($scheme_id,'$data[$fieldorder{$primary_key}]',@value_list)";
+			$qry = "INSERT INTO profiles (scheme_id,profile_id,@fields_to_include) VALUES ($scheme_id,'$data[$fieldorder{$primary_key}]',"
+			  . "@value_list)";
 			push @inserts, $qry;
 			my $curator = $self->get_curator_id;
 			foreach my $locus (@$loci) {
@@ -441,7 +433,7 @@ sub _upload {
 					&& $data[ $fieldorder{$locus} ] ne '' )
 				{
 					$qry = "INSERT INTO profile_members (scheme_id,locus,profile_id,allele_id,curator,datestamp) VALUES "
-					 . "($scheme_id,E'$mapped','$data[$fieldorder{$primary_key}]','$data[$fieldorder{$locus}]','$curator','today')";
+					  . "($scheme_id,E'$mapped','$data[$fieldorder{$primary_key}]','$data[$fieldorder{$locus}]','$curator','today')";
 					push @inserts, $qry;
 					$logger->debug("INSERT: $qry");
 				}
@@ -455,8 +447,8 @@ sub _upload {
 					&& $value ne 'null'
 					&& $value ne '' )
 				{
-					$qry =
-"INSERT INTO profile_fields (scheme_id,scheme_field,profile_id,value,curator,datestamp) VALUES ($scheme_id,E'$_','$data[$fieldorder{$primary_key}]','$value','$curator','today')";
+					$qry = "INSERT INTO profile_fields (scheme_id,scheme_field,profile_id,value,curator,datestamp) VALUES "
+					  . "($scheme_id,E'$_','$data[$fieldorder{$primary_key}]','$value','$curator','today')";
 					push @inserts, $qry;
 				}
 			}
@@ -466,15 +458,15 @@ sub _upload {
 				$self->refresh_material_view($scheme_id);
 			};
 			if ($@) {
-				print
-"<div class=\"box\" id=\"statusbad\"><p>Database update failed - transaction cancelled - no records have been touched.</p>\n";
+				say "<div class=\"box\" id=\"statusbad\"><p>Database update failed - transaction cancelled - no records have "
+				  . "been touched.</p>";
 				if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
-					print
-"<p>Data entry would have resulted in records with either duplicate ids or another unique field with duplicate values.</p>\n";
+					say "<p>Data entry would have resulted in records with either duplicate ids or another unique field with "
+					  . "duplicate values.</p>";
 				} else {
-					print "<p>Error message: $@</p>\n";
+					say "<p>Error message: $@</p>";
 				}
-				print "</div>\n";
+				say "</div>";
 				$self->{'db'}->rollback;
 				$logger->error("Can't insert: $@");
 				return;
@@ -482,8 +474,8 @@ sub _upload {
 		}
 	}
 	$self->{'db'}->commit
-	  && print "<div class=\"box\" id=\"resultsheader\"><p>Database updated ok</p>";
-	print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
+	  && say "<div class=\"box\" id=\"resultsheader\"><p>Database updated ok</p>";
+	say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>";
 	return;
 }
 
@@ -514,7 +506,7 @@ HTML
 Download tab-delimited header for your spreadsheet</a> - use Paste special &rarr; text to paste the data.</li>
 </ul>
 HTML
-	print $q->start_form;
+	say $q->start_form;
 	my $qry = "select id,user_name,first_name,surname from users WHERE id> 0 order by surname";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
@@ -527,22 +519,22 @@ HTML
 		push @users, $userid;
 		$usernames{$userid} = "$surname, $firstname ($username)";
 	}
-	print "<p>Please select the sender from the list below:</p>\n";
+	say "<p>Please select the sender from the list below:</p>";
 	$usernames{-1} = 'Override with sender field';
-	print "<table><tr><td>\n";
-	print $q->popup_menu( -name => 'sender', -values => [ '', -1, @users ], -labels => \%usernames );
-	print "</td><td class=\"comment\">Value will be overridden if you include a sender field in your pasted data.</td></tr></table>\n";
-	print "<p>Please paste in tab-delimited text (<strong>include a field header line</strong>).</p>\n";
-	print $q->hidden($_) foreach qw (page db scheme_id);
-	print $q->textarea( -name => 'data', -rows => 20, -columns => 120 );
-	print "<table style=\"width:95%\"><tr><td>";
-	print $q->reset( -class => 'reset' );
-	print "</td><td style=\"text-align:right\">";
-	print $q->submit( -class => 'submit' );
-	print "</td></tr></table><p />\n";
-	print $q->end_form;
-	print "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back</a></p>\n";
-	print "</div>\n";
+	say "<table><tr><td>";
+	say $q->popup_menu( -name => 'sender', -values => [ '', -1, @users ], -labels => \%usernames );
+	say "</td><td class=\"comment\">Value will be overridden if you include a sender field in your pasted data.</td></tr></table>";
+	say "<p>Please paste in tab-delimited text (<strong>include a field header line</strong>).</p>";
+	say $q->hidden($_) foreach qw (page db scheme_id);
+	say $q->textarea( -name => 'data', -rows => 20, -columns => 120 );
+	say "<table style=\"width:95%\"><tr><td>";
+	say $q->reset( -class => 'reset' );
+	say "</td><td style=\"text-align:right\">";
+	say $q->submit( -class => 'submit' );
+	say "</td></tr></table><p />";
+	say $q->end_form;
+	say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back</a></p>";
+	say "</div>";
 	return;
 }
 
