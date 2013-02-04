@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -133,34 +133,43 @@ sub _print_isolate_field {
 	my $used;
 	$used->{$_} = 1 foreach @$used_list;
 	if ( $field eq 'sender' || $field eq 'curator' || ( $attributes->{'userfield'} && $attributes->{'userfield'} eq 'yes' ) ) {
-		print "<p>The integer stored in this field is the key to the following users";
 		my $filter = $field eq 'curator' ? "WHERE (status = 'curator' or status = 'admin') AND id>0" : 'WHERE id>0';
-		my $qry = "SELECT id, user_name, surname, first_name, affiliation FROM users $filter ORDER BY id";
-		print " (only curators or administrators shown)" if $field eq 'curator';
-		say ". Only users linked to an isolate record are shown.</p>";
-		my $sql = $self->{'db'}->prepare($qry);
+		my $qry    = "SELECT id, user_name, surname, first_name, affiliation FROM users $filter ORDER BY id";
+		my $sql    = $self->{'db'}->prepare($qry);
 		eval { $sql->execute };
 		$logger->error($@) if $@;
-		say "<table class=\"tablesorter\" id=\"sortTable\">\n";
-		say "<thead><tr><th>id</th><th>username</th><th>surname</th><th>first name</th>"
-		  . "<th>affiliation / collaboration</th></tr></thead><tbody>";
-
+		my $buffer;
 		while ( my @data = $sql->fetchrow_array ) {
 			next if !$used->{ $data[0] };
 			foreach (@data) {
 				$_ =~ s/\&/\&amp;/g;
 			}
-			say "<tr><td>$data[0]</td><td>$data[1]</td><td>$data[2]</td><td>$data[3]</td><td align='left'>$data[4]</td></tr>";
+			$buffer .= "<tr><td>$data[0]</td><td>$data[1]</td><td>$data[2]</td><td>$data[3]</td><td align='left'>$data[4]</td></tr>\n";
 		}
-		say "</tbody></table>";
+		if ($buffer) {
+			print "<p>The integer stored in this field is the key to the following users";
+			print " (only curators or administrators shown)" if $field eq 'curator';
+			say ". Only users linked to an isolate record are shown.</p>";
+			say "<table class=\"tablesorter\" id=\"sortTable\">\n";
+			say "<thead><tr><th>id</th><th>username</th><th>surname</th><th>first name</th>"
+			  . "<th>affiliation / collaboration</th></tr></thead><tbody>";
+			say $buffer;
+			say "</tbody></table>";
+		} else {
+			say "<p>The database currently contains no values.</p>";
+		}
 	} elsif ( ( $attributes->{'optlist'} // '' ) eq 'yes' ) {
 		say "<p>The field has a constrained list of allowable values (values present in the database are "
 		  . "<span class=\"highlightvalue\">highlighted</span>):</p>";
 		my $options = $self->{'xmlHandler'}->get_field_option_list($field);
 		$self->_print_list( $options, $cols, $used );
 	} else {
-		say "<p>The following values are present in the database:</p>";
-		$self->_print_list( $used_list, $cols );
+		if (@$used_list) {
+			say "<p>The following values are present in the database:</p>";
+			$self->_print_list( $used_list, $cols );
+		} else {
+			say "<p>The database currently contains no values.</p>";
+		}
 	}
 	say "</div>";
 	return;
