@@ -554,6 +554,7 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON pending_allele_designations TO apache;
 CREATE TABLE schemes (
 id int NOT NULL UNIQUE,
 description text NOT NULL,
+allow_missing_loci boolean,
 dbase_name text,
 dbase_host text,
 dbase_port int,

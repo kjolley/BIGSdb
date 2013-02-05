@@ -858,22 +858,18 @@ sub get_schemes_table_attributes {
 				tooltip  => 'analysis - Sets whether to include this scheme in analysis functions (can be overridden by user preference).'
 			}
 		  );
-	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		push @$attributes,
-		  (
-			{
-				name    => 'allow_missing_loci',
-				type    => 'bool',
-				tooltip => "allow_missing_loci - Allow profiles to contain '0' (locus missing) or 'N' (any allele)."
-			}
-		  );
 	}
 	push @$attributes,
 	  (
-		{ name => 'display_order', type => 'int',  tooltip  => 'display_order - order of appearance in interface.' },
-		{ name => 'curator',       type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp',     type => 'date', required => 'yes' },
-		{ name => 'date_entered',  type => 'date', required => 'yes' }
+		{ name => 'display_order', type => 'int', tooltip => 'display_order - order of appearance in interface.' },
+		{
+			name    => 'allow_missing_loci',
+			type    => 'bool',
+			tooltip => "allow_missing_loci - Allow profiles to contain '0' (locus missing) or 'N' (any allele)."
+		},
+		{ name => 'curator',      type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp',    type => 'date', required => 'yes' },
+		{ name => 'date_entered', type => 'date', required => 'yes' }
 	  );
 	return $attributes;
 }

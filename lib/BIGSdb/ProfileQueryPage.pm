@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -29,7 +29,7 @@ use BIGSdb::Page qw(LOCUS_PATTERN);
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (tooltips jQuery);
-	$self->{'noCache'} = 1 if ($self->{'system'}->{'sets'} // '') eq 'yes';
+	$self->{'noCache'} = 1 if ( $self->{'system'}->{'sets'} // '' ) eq 'yes';
 	return;
 }
 
@@ -49,14 +49,14 @@ sub print_content {
 	my $scheme_info = $scheme_id > 0 ? $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } ) : undef;
 	( $scheme_info->{'description'} //= '' ) =~ s/\&/\&amp;/g;
 	my $desc = $self->get_db_description;
-	print "<h1>Search $desc database by combinations of $scheme_info->{'description'} loci</h1>\n";
+	say "<h1>Search $desc database by combinations of $scheme_info->{'description'} loci</h1>";
 
 	if ( ( !$scheme_info->{'id'} && $scheme_id ) || ( $self->{'system'}->{'dbtype'} eq 'sequences' && !$scheme_id ) ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Invalid scheme selected.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Invalid scheme selected.</p></div>";
 		return;
-	} elsif ($scheme_id && $set_id) {
+	} elsif ( $scheme_id && $set_id ) {
 		if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is unavailable.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is unavailable.</p></div>";
 			return;
 		}
 	}
@@ -71,7 +71,7 @@ sub print_content {
 	{
 		$self->_run_query($scheme_id);
 	} else {
-		print "<p />\n";
+		say "<p />";
 	}
 	return;
 }
@@ -79,7 +79,7 @@ sub print_content {
 sub _print_query_interface {
 	my ( $self, $scheme_id ) = @_;
 	my $q = $self->{'cgi'};
-	print "<div class=\"box\" id=\"queryform\">\n";
+	say "<div class=\"box\" id=\"queryform\">";
 	my $primary_key;
 	if ($scheme_id) {
 		my $primary_key_ref =
@@ -88,7 +88,10 @@ sub _print_query_interface {
 		$primary_key = $primary_key_ref->[0] if ref $primary_key_ref eq 'ARRAY';
 	}
 	my $set_id = $self->get_set_id;
-	my $loci = $scheme_id ? $self->{'datastore'}->get_scheme_loci($scheme_id) : $self->{'datastore'}->get_loci( { query_pref => 1, set_id =>$set_id } );
+	my $loci =
+	    $scheme_id
+	  ? $self->{'datastore'}->get_scheme_loci($scheme_id)
+	  : $self->{'datastore'}->get_loci( { query_pref => 1, set_id => $set_id } );
 	my $scheme_fields;
 	$scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id) if $scheme_id;
 	my @errors;
@@ -131,11 +134,11 @@ sub _print_query_interface {
 			}
 		}
 	}
-	print "<div class=\"scrollable\">\n";
-	print $q->start_form;
-	print
-"<fieldset id=\"profile_fieldset\" style=\"float:left\"><legend>Please enter your allelic profile below.  Blank loci will be ignored.</legend>\n";
-	print "<table class=\"queryform\">";
+	say "<div class=\"scrollable\">";
+	say $q->start_form;
+	say "<fieldset id=\"profile_fieldset\" style=\"float:left\"><legend>Please enter your allelic profile below.  Blank loci "
+	  . "will be ignored.</legend>";
+	say "<table class=\"queryform\">";
 	my $i = 0;
 	my ( $header_row, $form_row );
 	my $all_integers = 1;
@@ -179,8 +182,8 @@ sub _print_query_interface {
 	}
 	foreach (@display_loci) {
 		if ( $i == $max_per_row ) {
-			print "<tr>$header_row</tr>\n";
-			print "<tr>$form_row</tr>\n";
+			say "<tr>$header_row</tr>";
+			say "<tr>$form_row</tr>";
 			undef $header_row;
 			undef $form_row;
 			$i = 0;
@@ -192,30 +195,30 @@ sub _print_query_interface {
 		$form_row   .= "</td>\n";
 		$i++;
 	}
-	print "<tr>$header_row</tr>\n";
-	print "<tr>$form_row</tr>\n";
-	print "</table>\n";
-	print "</fieldset>\n";
+	say "<tr>$header_row</tr>";
+	say "<tr>$form_row</tr>";
+	say "</table>";
+	say "</fieldset>";
 	if ($primary_key) {
 		my $remote = $self->{'system'}->{'dbtype'} eq 'isolates' ? ' by searching remote database' : '';
-		print "<fieldset id=\"autofill_fieldset\" style=\"float:left\"><legend>Autofill profile$remote</legend>\n<ul>\n";
+		say "<fieldset id=\"autofill_fieldset\" style=\"float:left\"><legend>Autofill profile$remote</legend>\n<ul>";
 		my $first = 1;
-		print "<li><label for=\"$primary_key\" class=\"display\">$primary_key: </label>\n";
-		print $q->textfield( -name => $primary_key, -id => $primary_key, -class => "allele_entry" );
-		print $q->submit( -name => 'Autofill', -class => 'submit' ) if $first;
+		say "<li><label for=\"$primary_key\" class=\"display\">$primary_key: </label>";
+		say $q->textfield( -name => $primary_key, -id => $primary_key, -class => "allele_entry" );
+		say $q->submit( -name => 'Autofill', -class => 'submit' ) if $first;
 		$first = 0;
-		print "</li>";
-		print "</ul></fieldset>\n";
+		say "</li>";
+		say "</ul></fieldset>";
 	}
-	print "<div style=\"clear:both\">\n";
+	say "<div style=\"clear:both\">";
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $buffer = $self->get_project_filter( { class => 'display' } );
 		if ($buffer) {
-			print "<fieldset>\n<legend>Restrict included sequences by</legend>\n";
-			print "<ul><li>$buffer</li></ul></fieldset>\n";
+			say "<fieldset>\n<legend>Restrict included sequences by</legend>";
+			say "<ul><li>$buffer</li></ul></fieldset>";
 		}
 	}
-	print "<fieldset id=\"options_fieldset\" style=\"float:left\"><legend>Options</legend>\n";
+	say "<fieldset id=\"options_fieldset\" style=\"float:left\"><legend>Options</legend>";
 	my ( @values, %labels );
 	push @values, 0;
 	foreach my $i ( reverse 1 .. @$loci ) {
@@ -224,14 +227,14 @@ sub _print_query_interface {
 	}
 	$labels{0} = 'Exact or nearest match';
 	$labels{ scalar @$loci } = 'Exact match only';
-	print $self->get_filter( 'matches', \@values, { labels => \%labels, text => 'Search', noblank => 1, class => 'display' } );
-	print "</fieldset>\n";
-	print "<fieldset id=\"display_fieldset\" style=\"float:left\"><legend>Display/sort options</legend>\n";
-	print "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>\n";
+	say $self->get_filter( 'matches', \@values, { labels => \%labels, text => 'Search', noblank => 1, class => 'display' } );
+	say "</fieldset>";
+	say "<fieldset id=\"display_fieldset\" style=\"float:left\"><legend>Display/sort options</legend>";
+	say "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>";
 	my ( $order_by, $dropdown_labels );
 
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		( $order_by, $dropdown_labels ) = $self->get_field_selection_list( { 'isolate_fields' => 1, 'loci' => 1, 'scheme_fields' => 1 } );
+		( $order_by, $dropdown_labels ) = $self->get_field_selection_list( { isolate_fields => 1, loci => 1, scheme_fields => 1 } );
 	} else {
 		my $order_by_temp;
 		push @$order_by_temp, $primary_key;
@@ -246,23 +249,23 @@ sub _print_query_interface {
 			$dropdown_labels->{"f_$item"} =~ tr/_/ /;
 		}
 	}
-	print $q->popup_menu( -name => 'order', -id => 'order', -values => $order_by, -labels => $dropdown_labels );
-	print $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
-	print "</span></li>\n<li>";
-	print $self->get_number_records_control;
-	print "</li></ul></fieldset>\n";
-	print
-"</div>\n<div style=\"clear:both\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profiles&amp;scheme_id=$scheme_id\" class=\"resetbutton\">Reset</a><span style=\"float:right\">";
-	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	print "</span></div>";
-	print $q->hidden($_) foreach qw (db page scheme_id);
-	print $q->hidden( 'sent', 1 );
-	print $q->end_form;
-	print "</div></div>\n";
+	say $q->popup_menu( -name => 'order', -id => 'order', -values => $order_by, -labels => $dropdown_labels );
+	say $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
+	say "</span></li>\n<li>";
+	say $self->get_number_records_control;
+	say "</li></ul></fieldset>";
+	say "</div>\n<div style=\"clear:both\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profiles&amp;"
+	  . "scheme_id=$scheme_id\" class=\"resetbutton\">Reset</a><span style=\"float:right\">";
+	say $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
+	say "</span></div>";
+	say $q->hidden($_) foreach qw (db page scheme_id);
+	say $q->hidden( 'sent', 1 );
+	say $q->end_form;
+	say "</div></div>";
 
 	if (@errors) {
 		local $" = '<br />';
-		print "<div class=\"box\" id=\"statusbad\"><p>Problem with search criteria:</p><p>@errors</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Problem with search criteria:</p><p>@errors</p></div>";
 	}
 	return;
 }
@@ -288,8 +291,8 @@ sub _run_query {
 						my $aliases =
 						  $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias", $1 );
 						local $" = ', ';
-						push @errors,
-"Locus $1 has been defined with more than one value (due to an alias for this locus also being used). The following alias(es) exist for this locus: @$aliases";
+						push @errors, "Locus $1 has been defined with more than one value (due to an alias for this locus also being "
+						  . "used). The following alias(es) exist for this locus: @$aliases";
 						next;
 					}
 					$values{$1} = $q->param($_);
@@ -297,6 +300,7 @@ sub _run_query {
 			}
 		}
 		my ( @lqry, @lqry_blank );
+		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 		foreach my $locus (@loci) {
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 			$values{$locus} = defined $values{$locus} ? $values{$locus} : '';
@@ -304,50 +308,50 @@ sub _run_query {
 			$values{$locus} =~ s/\s*$//;
 			$values{$locus} =~ s/'/\\'/g;
 			( my $cleaned_locus = $locus ) =~ s/'/\\'/g;
-			if (   $values{$locus} ne ''
-				&& ( $locus_info->{'allele_id_format'} eq 'integer' )
-				&& !BIGSdb::Utils::is_int( $values{$locus} ) )
+			if ( ( $values{$locus} ne '' && $locus_info->{'allele_id_format'} eq 'integer' && !BIGSdb::Utils::is_int( $values{$locus} ) )
+				&& !( $scheme_info->{'allow_missing_loci'} && $values{$locus} eq 'N' ) )
 			{
-				push @errors, "$locus is an integer field.";
+				my $msg = $scheme_info->{'allow_missing_loci'} ? ' Arbitrary values (N) may also be used.' : '';
+				push @errors, "$locus is an integer field.$msg";
 				next;
 			}
 			next if $values{$locus} eq '';
-			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-				push @lqry,
-				  $locus_info->{'allele_id_format'} eq 'text'
-				  ? "(allele_designations.locus='$cleaned_locus' AND upper(allele_designations.allele_id) = upper('$values{$locus}'))"
-				  : "(allele_designations.locus='$cleaned_locus' AND allele_designations.allele_id = '$values{$locus}')";
+			my $table = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'allele_designations' : 'profile_members';
+			my $locus_qry;
+			if ( $values{$locus} eq 'N' ) {
+				$locus_qry = "($table.locus='$cleaned_locus'";    #don't match allele_id because it can be anything
 			} else {
-				push @lqry,
+				my $arbitrary_clause = $scheme_info->{'allow_missing_loci'} ? " OR $table.allele_id = 'N'" : '';
+				$locus_qry =
 				  $locus_info->{'allele_id_format'} eq 'text'
-				  ? "(profile_members.locus='$cleaned_locus' AND upper(profile_members.allele_id) = upper('$values{$locus}') AND profile_members.scheme_id=$scheme_id)"
-				  : "(profile_members.locus='$cleaned_locus' AND profile_members.allele_id = '$values{$locus}' AND profile_members.scheme_id=$scheme_id)";
+				  ? "($table.locus='$cleaned_locus' AND (upper($table.allele_id) = upper('$values{$locus}')$arbitrary_clause)"
+				  : "($table.locus='$cleaned_locus' AND ($table.allele_id = '$values{$locus}'$arbitrary_clause)";
 			}
+			$locus_qry .= $self->{'system'}->{'dbtype'} eq 'isolates' ? ')' : " AND profile_members.scheme_id=$scheme_id)";
+			push @lqry, $locus_qry;
 		}
 		if (@lqry) {
 			local $" = ' OR ';
 			my $matches = $q->param('matches_list');
-			if ( $matches == scalar @loci ) {
-				$matches = scalar @lqry;
-			}
+			$matches = @lqry if $matches == @loci;
 			my $lqry;
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-				$lqry =
-"(select distinct($system->{'view'}.id) FROM $system->{'view'} LEFT JOIN allele_designations ON $system->{'view'}.id=allele_designations.isolate_id WHERE @lqry";
+				$lqry = "(select distinct($system->{'view'}.id) FROM $system->{'view'} LEFT JOIN allele_designations ON "
+				  . "$system->{'view'}.id=allele_designations.isolate_id WHERE @lqry";
 			} else {
 				my $primary_key =
 				  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )
 				  ->[0];
 				$lqry =
-"(select distinct(profiles.profile_id) FROM profiles LEFT JOIN profile_members ON profiles.profile_id=profile_members.profile_id AND profiles.scheme_id=profile_members.scheme_id AND profile_members.scheme_id=$scheme_id WHERE scheme_$scheme_id.$primary_key=profiles.profile_id AND (@lqry)";
+				    "(select distinct(profiles.profile_id) FROM profiles LEFT JOIN profile_members ON profiles.profile_id="
+				  . "profile_members.profile_id AND profiles.scheme_id=profile_members.scheme_id AND profile_members.scheme_id=$scheme_id "
+				  . "WHERE scheme_$scheme_id.$primary_key=profiles.profile_id AND (@lqry)";
 			}
-			if ( $matches == 0 ) {
-
-				#Find out the greatest number of matches
+			if ( $matches == 0 ) {    #Find out the greatest number of matches
 				my $qry;
 				if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-					$qry =
-"SELECT COUNT(id) FROM $system->{'view'} LEFT JOIN allele_designations ON $system->{'view'}.id=isolate_id WHERE (@lqry)";
+					$qry = "SELECT COUNT(id) FROM $system->{'view'} LEFT JOIN allele_designations ON $system->{'view'}.id=isolate_id "
+					  . "WHERE (@lqry)";
 					if (   $qry
 						&& $self->{'system'}->{'dbtype'} eq 'isolates'
 						&& $q->param('project_list')
@@ -362,7 +366,9 @@ sub _run_query {
 					$qry .= "GROUP BY $system->{'view'}.id ORDER BY count(id) desc LIMIT 1";
 				} else {
 					$qry =
-"SELECT COUNT(profiles.profile_id) FROM profiles LEFT JOIN profile_members ON profiles.profile_id=profile_members.profile_id AND profiles.scheme_id=profile_members.scheme_id AND profile_members.scheme_id=$scheme_id WHERE @lqry GROUP BY profiles.profile_id ORDER BY COUNT(profiles.profile_id) desc LIMIT 1";
+					    "SELECT COUNT(profiles.profile_id) FROM profiles LEFT JOIN profile_members ON profiles.profile_id="
+					  . "profile_members.profile_id AND profiles.scheme_id=profile_members.scheme_id AND profile_members.scheme_id="
+					  . "$scheme_id WHERE @lqry GROUP BY profiles.profile_id ORDER BY COUNT(profiles.profile_id) desc LIMIT 1";
 				}
 				my $match_sql = $self->{'db'}->prepare($qry);
 				eval { $match_sql->execute };
@@ -434,23 +440,19 @@ sub _run_query {
 	}
 	if (@errors) {
 		local $" = '<br />';
-		print "<div class=\"box\" id=\"statusbad\"><p>Problem with search criteria:</p>\n";
-		print "<p>@errors</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Problem with search criteria:</p>";
+		say "<p>@errors</p></div>";
 	} elsif ( $qry !~ /^ ORDER BY/ ) {
 		my @hidden_attributes;
-		foreach (qw(scheme matches project_list)) {
-			push @hidden_attributes, $_;
-		}
+		push @hidden_attributes, $_ foreach qw(scheme matches project_list);
 		my $loci = $self->{'datastore'}->get_scheme_loci( $q->param('scheme_id') );
-		foreach (@$loci) {
-			push @hidden_attributes, "l_$_";
-		}
+		push @hidden_attributes, "l_$_" foreach @$loci;
 		push @hidden_attributes, 'scheme_id';
 		$self->paged_display( $self->{'system'}->{'dbtype'} eq 'isolates' ? $self->{'system'}->{'view'} : 'profiles',
 			$qry, $msg, \@hidden_attributes, $count );
-		print "<p />\n";
+		say "<p />";
 	} else {
-		print "<div class=\"box\" id=\"statusbad\">Invalid search performed.</div>\n";
+		say "<div class=\"box\" id=\"statusbad\">Invalid search performed.</div>";
 	}
 	return;
 }
