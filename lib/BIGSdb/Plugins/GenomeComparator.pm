@@ -46,7 +46,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.5.1',
+		version     => '1.5.2',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/genome_comparator.shtml',
@@ -732,11 +732,8 @@ sub _extract_cds_details {
 		push @tags, $_ foreach ( $cds->each_tag_value('product') );
 	}
 	catch Bio::Root::Exception with {
-		my $err = shift;
-		$logger->debug($err);
-		throw BIGSdb::DataException($err);
+		push @tags, 'no product';
 	};
-	throw BIGSdb::DataException("No tags") if !@tags;
 	$start = $cds->start;
 	local $" = '; ';
 	$desc = "@tags";
