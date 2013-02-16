@@ -1,6 +1,6 @@
 #CodonUsage.pm - Codon usage plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2011-2012, University of Oxford
+#Copyright (c) 2011-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -127,7 +127,7 @@ sub get_attributes {
 		buttontext  => 'Codons',
 		menutext    => 'Codon usage',
 		module      => 'CodonUsage',
-		version     => '1.1.1',
+		version     => '1.1.2',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
