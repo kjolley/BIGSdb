@@ -162,6 +162,7 @@ sub run {
 			my $params = $q->Vars;
 			( my $list = $q->param('list') ) =~ s/[\r\n]+/\|\|/g;
 			$params->{'list'} = $list;
+			$params->{'set_id'} = $self->get_set_id;
 			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 			my $job_id    = $self->{'jobManager'}->add_job(
 				{
@@ -217,6 +218,7 @@ sub get_extra_form_elements {
 
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
+	$self->set_offline_view($params);
 	my $rscu_by_isolate   = "$self->{'config'}->{'tmp_dir'}/$job_id\_rscu_by_isolate.txt";
 	my $number_by_isolate = "$self->{'config'}->{'tmp_dir'}/$job_id\_number_by_isolate.txt";
 	my $rscu_by_locus     = "$self->{'config'}->{'tmp_dir'}/$job_id\_rscu_by_locus.txt";

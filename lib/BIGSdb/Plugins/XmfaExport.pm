@@ -168,6 +168,7 @@ HTML
 
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
+	$self->set_offline_view($params);
 	my $scheme_id = $params->{'scheme_id'};
 	my $pk        = $params->{'pk'};
 	my $filename  = "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa";

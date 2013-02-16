@@ -408,6 +408,16 @@ sub print_field_export_form {
 	return;
 }
 
+sub set_offline_view {
+	my ($self, $params) = @_;
+	my $set_id = $params->{'set_id'};
+	if ( $self->{'system'}->{'view'} eq 'isolates' && $set_id ) {
+		my $view_ref = $self->{'datastore'}->run_simple_query( "SELECT view FROM set_view WHERE set_id=?", $set_id );
+		$self->{'system'}->{'view'} = $view_ref->[0] if ref $view_ref eq 'ARRAY';
+	}
+	return;
+}
+
 sub get_id_list {
 	my ( $self, $pk, $query_file ) = @_;
 	my $q = $self->{'cgi'};
