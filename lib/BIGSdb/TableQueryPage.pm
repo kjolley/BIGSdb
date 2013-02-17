@@ -415,15 +415,18 @@ sub _run_query {
 						}
 					} else {
 						if ( $table eq 'sequences' && $field eq 'allele_id' ) {
-							if ($self->_are_only_int_allele_ids_used && BIGSdb::Utils::is_int($text)){
+							if ( $self->_are_only_int_allele_ids_used && BIGSdb::Utils::is_int($text) ) {
 								$qry .= "CAST($table.$field AS integer)";
 							} else {
 								$qry .= "$table.$field";
-							}							
+							}
 							$qry .= " $operator E'$text'";
 						} else {
 							$qry .= "$table.$field $operator E'$text'";
 						}
+					}
+					if ( $table eq 'sequences' && $field eq 'allele_id' ) {
+						$qry .= " AND $table.$field NOT IN ('0', 'N')";    #Alleles can be set to 0 or N for arbitrary profile definitions
 					}
 				}
 			}
