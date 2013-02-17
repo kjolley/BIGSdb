@@ -275,13 +275,14 @@ sub _check_scheme_fields {
 	#Check that only one primary key field is set for a scheme field
 	my ( $self, $newdata ) = @_;
 	if ( $newdata->{'primary_key'} eq 'true' ) {
-		my $primary_key;
+		my $primary_key_ref;
 		eval {
-			$primary_key =
+			$primary_key_ref =
 			  $self->{'datastore'}
-			  ->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $newdata->{'scheme_id'} )->[0];
+			  ->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $newdata->{'scheme_id'} );
 		};
 		$logger->error($@) if $@;
+		my $primary_key = ref $primary_key_ref eq 'ARRAY' ? $primary_key_ref->[0] : undef;
 		if ( $primary_key && $primary_key ne $newdata->{'field'} ) {
 			print <<"HTML";
 <div class="box" id="statusbad"><p>This scheme already has a primary key field set ($primary_key).</p>

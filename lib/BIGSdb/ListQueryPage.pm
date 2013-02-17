@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -211,7 +211,7 @@ sub _run_profile_query {
 		( my $cleaned = $locus ) =~ s/'/_PRIME_/;
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-			$qry .= "CAST($cleaned AS int)";
+			$qry .= "to_number(textcat('0', $cleaned), text(99999999))";
 		} else {
 			$qry .= "$cleaned";
 		}

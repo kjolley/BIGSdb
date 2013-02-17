@@ -201,19 +201,19 @@ sub profile_exists {
 	  . "profile_members.scheme_id AND profiles.profile_id = profile_members.profile_id WHERE profiles.scheme_id=$scheme_id AND ";
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my @locus_temp;
-	my @values;
 	foreach my $locus (@$loci) {
 		next if $newdata->{"locus:$locus"} eq 'N';    #N can be any allele so can not be used to differentiate profiles
 		( my $cleaned = $locus ) =~ s/'/\\'/g;
-		push @values,     $newdata->{"locus:$locus"};
-		push @locus_temp, "(locus=E'$cleaned' AND (allele_id=? OR allele_id='N'))";
+		my $value = $newdata->{"locus:$locus"};
+		$value =~ s/'/\\'/g;
+		push @locus_temp, "(locus=E'$cleaned' AND (allele_id=E'$value' OR allele_id='N'))";
 	}
 	local $" = ' OR ';
 	$qry .= "(@locus_temp)";
 	$qry .= ' GROUP BY profiles.profile_id having count(*)=' . scalar @locus_temp;
 	if (@locus_temp) {
 		my $sql = $self->{'db'}->prepare($qry);
-		eval { $sql->execute(@values) };
+		eval { $sql->execute };
 		$logger->error($@) if $@;
 		my ($value) = $sql->fetchrow_array;
 		if ($value) {

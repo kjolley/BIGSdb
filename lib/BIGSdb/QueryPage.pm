@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -724,7 +724,7 @@ sub _print_profile_query_interface {
 			  );
 		}
 	}
-	my $scheme_info   = $self->{'datastore'}->get_scheme_info($scheme_id, {set_id => $set_id});
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	foreach my $field (@$scheme_fields) {
 		if ( $self->{'prefs'}->{"dropdown\_scheme_fields"}->{$scheme_id}->{$field} ) {
@@ -831,8 +831,8 @@ sub _run_isolate_query {
 		$self->paged_display( $self->{'system'}->{'view'}, $qry, '', \@hidden_attributes );
 		print "<p />\n";
 	} else {
-		print
-"<div class=\"box\" id=\"statusbad\">Invalid search performed.  Try to <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=browse\">browse all records</a>.</div>\n";
+		say "<div class=\"box\" id=\"statusbad\">Invalid search performed.  Try to <a href=\"$self->{'system'}->{'script_name'}?db="
+		  . "$self->{'instance'}&amp;page=browse\">browse all records</a>.</div>";
 	}
 	return;
 }
@@ -1144,11 +1144,11 @@ sub _modify_isolate_query_for_filters {
 					my $value = $q->param("$field\..$extended_attribute\_list");
 					$value =~ s/'/\\'/g;
 					if ( $qry !~ /WHERE \(\)\s*$/ ) {
-						$qry .=
-" AND ($field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$field' AND attribute='$extended_attribute' AND value='$value'))";
+						$qry .= " AND ($field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$field' "
+						  . "AND attribute='$extended_attribute' AND value='$value'))";
 					} else {
-						$qry =
-"SELECT * FROM $view WHERE ($field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$field' AND attribute='$extended_attribute' AND value='$value'))";
+						$qry = "SELECT * FROM $view WHERE ($field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE "
+						  . "isolate_field='$field' AND attribute='$extended_attribute' AND value='$value'))";
 					}
 				}
 			}
@@ -1463,8 +1463,8 @@ sub _modify_isolate_query_for_designations {
 			$modify = "GROUP BY id HAVING count(id)=" . scalar keys %lqry;
 		}
 		my @lqry = values %lqry;
-		my $lqry =
-"$view.id IN (select distinct($view.id) FROM $view LEFT JOIN allele_designations ON $view.id=allele_designations.isolate_id WHERE @lqry $modify)";
+		my $lqry = "$view.id IN (select distinct($view.id) FROM $view LEFT JOIN allele_designations ON $view.id="
+		  . "allele_designations.isolate_id WHERE @lqry $modify)";
 		if ( $qry =~ /\(\)$/ ) {
 			$qry = "SELECT * FROM $view WHERE $brace$lqry";
 		} else {
@@ -1533,8 +1533,8 @@ sub _modify_isolate_query_for_tags {
 				if ( $flag eq 'any' ) {
 					$temp_qry = "$view.id IN (SELECT isolate_id FROM $flag_joined_table WHERE $locus_clause)";
 				} elsif ( $flag eq 'none' ) {
-					$temp_qry =
-"$view.id IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause) AND id NOT IN (SELECT isolate_id FROM $flag_joined_table WHERE $locus_clause)";
+					$temp_qry = "$view.id IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause) AND id NOT IN "
+					  . "(SELECT isolate_id FROM $flag_joined_table WHERE $locus_clause)";
 				} else {
 					$temp_qry = "$view.id IN (SELECT isolate_id FROM $flag_joined_table WHERE $locus_clause AND flag='$flag')";
 				}
@@ -1560,7 +1560,8 @@ sub _run_profile_query {
 	my $system = $self->{'system'};
 	my $qry;
 	my @errors;
-	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $loci        = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 	if ( !defined $q->param('query') ) {
 		$qry = "SELECT * FROM scheme_$scheme_id WHERE (";
 		my $andor       = $q->param('c0');
@@ -1587,7 +1588,9 @@ sub _run_profile_query {
 				my $operator = $q->param("y$i");
 				my $text     = $q->param("t$i");
 				$self->process_value( \$text );
-				next if $self->check_format( { field => $field, text => $text, type => $type, operator => $operator }, \@errors );
+				next
+				  if !( $scheme_info->{'allow_missing_loci'} && $is_locus && $text eq 'N' && $operator ne '<' && $operator ne '>' )
+					  && $self->check_format( { field => $field, text => $text, type => $type, operator => $operator }, \@errors );
 				my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
 				$first_value = 0;
 				if ( $field =~ /(.*) \(id\)$/
@@ -1604,6 +1607,7 @@ sub _run_profile_query {
 					  $text eq 'null'
 					  ? "$cleaned is null"
 					  : ( $type eq 'text' ? "upper($cleaned) = upper('$text')" : "$cleaned = '$text'" );
+					$equals .= " OR $cleaned = 'N'" if $is_locus && $scheme_info->{'allow_missing_loci'};
 					given ($operator) {
 						when ('NOT') { $qry .= $text eq 'null' ? "(not $equals)" : "((NOT $equals) OR $cleaned IS NULL)" }
 						when ('contains')    { $qry .= "(upper($cleaned) LIKE upper('\%$text\%'))" }
@@ -1611,7 +1615,10 @@ sub _run_profile_query {
 						when ('ends with')   { $qry .= "(upper($cleaned) LIKE upper('\%$text'))" }
 						when ('NOT contain') { $qry .= "(NOT upper($cleaned) LIKE upper('\%$text\%') OR $cleaned IS NULL)" }
 						when ('=')           { $qry .= "($equals)" }
-						default { $qry .= ( $type eq 'integer' ? "(CAST($cleaned AS int)" : "($cleaned" ) . " $operator '$text')" }
+						default {
+							$qry .= ( $type eq 'integer' ? "(to_number(textcat('0', $cleaned), text(99999999))" : "($cleaned" )
+							  . " $operator '$text')"
+						}
 					}
 				}
 			}
@@ -1653,7 +1660,7 @@ sub _run_profile_query {
 			my $locus_info = $self->{'datastore'}->get_locus_info($order);
 			$order =~ s/'/_PRIME_/g;
 			if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-				$order = "CAST($order AS int)";
+				$order = "to_number(textcat('0', $order), text(99999999))";    #Handle arbitrary allele = 'N'
 			}
 		}
 		$qry .= " ORDER BY" . ( $order ne $primary_key ? " $order $dir,$profile_id_field;" : " $profile_id_field $dir;" );
@@ -1662,8 +1669,8 @@ sub _run_profile_query {
 	}
 	if (@errors) {
 		local $" = '<br />';
-		print "<div class=\"box\" id=\"statusbad\"><p>Problem with search criteria:</p>\n";
-		print "<p>@errors</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Problem with search criteria:</p>";
+		say "<p>@errors</p></div>";
 	} elsif ( $qry !~ /\(\)/ ) {
 		my @hidden_attributes;
 		push @hidden_attributes, 'c0', 'c1';
@@ -1677,8 +1684,8 @@ sub _run_profile_query {
 		$self->paged_display( 'profiles', $qry, '', \@hidden_attributes );
 		print "<p />\n";
 	} else {
-		print
-"<div class=\"box\" id=\"statusbad\">Invalid search performed. Try to <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=browse&amp;scheme_id=$scheme_id\">browse all records</a>.</div>\n";
+		say "<div class=\"box\" id=\"statusbad\">Invalid search performed. Try to <a href=\"$self->{'system'}->{'script_name'}?db="
+		  . "$self->{'instance'}&amp;page=browse&amp;scheme_id=$scheme_id\">browse all records</a>.</div>";
 	}
 	return;
 }

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2010-2012, University of Oxford
+#(c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -151,13 +151,13 @@ sub print_content {
 		} elsif ( $system->{'dbtype'} eq 'sequences' ) {
 			my $pk_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
 			my $profile_id_field = $pk_field_info->{'type'} eq 'integer' ? "lpad($primary_key,20,'0')" : $primary_key;
+			$order =~ s/'/_PRIME_/g;
 			if ( $self->{'datastore'}->is_locus($order) ) {
 				my $locus_info = $self->{'datastore'}->get_locus_info($order);
 				if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-					$order = "CAST($order AS int)";
+					$order = "to_number(textcat('0', $order), text(99999999))";    #Handle arbitrary allele = 'N'
 				}
 			}
-			$order =~ s/'/_PRIME_/g;
 			$qry .= "SELECT * FROM scheme_$scheme_id ORDER BY "
 			  . ( $order ne $primary_key ? "$order $dir,$profile_id_field;" : "$profile_id_field $dir;" );
 			$self->paged_display( 'profiles', $qry, '', ['scheme_id'] );

@@ -1087,7 +1087,7 @@ sub create_scheme_view {
 			$self->{'db'}->do("CREATE UNIQUE INDEX i_mv$scheme_id\_1 ON mv_scheme_$scheme_id ($pk)");
 			local $" = ',';
 			my $locus_string = "@$loci";
-			$locus_string =~ s/'/\\'/g;
+			$locus_string =~ s/'/_PRIME_/g;
 			$self->{'db'}->do("CREATE UNIQUE INDEX i_mv$scheme_id\_2 ON mv_scheme_$scheme_id ($locus_string)");
 		}
 	};
@@ -1118,7 +1118,7 @@ sub refresh_material_view {
 		$self->{'db'}->do("CREATE UNIQUE INDEX i_mv$scheme_id\_1 ON mv_scheme_$scheme_id ($pk)");
 		local $" = ',';
 		my $locus_string = "@$loci";
-		$locus_string =~ s/'/\\'/g;
+		$locus_string =~ s/'/_PRIME_/g;
 		$self->{'db'}->do("CREATE UNIQUE INDEX i_mv$scheme_id\_2 ON mv_scheme_$scheme_id ($locus_string)");
 	};
 	$logger->error($@) if $@;
