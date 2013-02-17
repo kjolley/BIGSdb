@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -37,7 +37,7 @@ sub initiate {
 		return;
 	}
 	$self->{$_} = 1 foreach qw (jQuery jQuery.jstree);
-	$self->{'noCache'} = 1 if ($self->{'system'}->{'sets'} // '') eq 'yes';
+	$self->{'noCache'} = 1 if ( $self->{'system'}->{'sets'} // '' ) eq 'yes';
 	return;
 }
 
@@ -246,27 +246,28 @@ sub _print_scheme_table {
 			"SELECT COUNT(*) FROM locus_aliases LEFT JOIN scheme_members ON locus_aliases.locus=scheme_members.locus WHERE scheme_id=?",
 			$scheme_id )->[0];
 		$scheme_curators_exist = $self->{'datastore'}->run_simple_query(
-"SELECT COUNT(*) FROM locus_curators LEFT JOIN scheme_members ON locus_curators.locus=scheme_members.locus WHERE scheme_id=? AND (hide_public IS NULL OR NOT hide_public)",
+			"SELECT COUNT(*) FROM locus_curators LEFT JOIN scheme_members ON locus_curators.locus=scheme_members.locus "
+			  . "WHERE scheme_id=? AND (hide_public IS NULL OR NOT hide_public)",
 			$scheme_id
 		)->[0];
 	} else {
 		$scheme_descs_exist =
 		  $self->{'datastore'}->run_simple_query(
-"SELECT COUNT(*) FROM locus_descriptions LEFT JOIN scheme_members ON locus_descriptions.locus=scheme_members.locus WHERE scheme_id IS NULL"
-		  )->[0];
+			    "SELECT COUNT(*) FROM locus_descriptions LEFT JOIN scheme_members ON locus_descriptions.locus=scheme_members.locus "
+			  . "WHERE scheme_id IS NULL" )->[0];
 		$scheme_aliases_exist =
-		  $self->{'datastore'}->run_simple_query(
-"SELECT COUNT(*) FROM locus_aliases LEFT JOIN scheme_members ON locus_aliases.locus=scheme_members.locus WHERE scheme_id IS NULL"
-		  )->[0];
+		  $self->{'datastore'}
+		  ->run_simple_query( "SELECT COUNT(*) FROM locus_aliases LEFT JOIN scheme_members ON locus_aliases.locus=scheme_members.locus "
+			  . "WHERE scheme_id IS NULL" )->[0];
 		$scheme_curators_exist =
-		  $self->{'datastore'}->run_simple_query(
-"SELECT COUNT(*) FROM locus_curators LEFT JOIN scheme_members ON locus_curators.locus=scheme_members.locus WHERE scheme_id IS NULL AND (hide_public IS NULL OR NOT hide_public)"
-		  )->[0];
+		  $self->{'datastore'}
+		  ->run_simple_query( "SELECT COUNT(*) FROM locus_curators LEFT JOIN scheme_members ON locus_curators.locus=scheme_members.locus "
+			  . "WHERE scheme_id IS NULL AND (hide_public IS NULL OR NOT hide_public)" )->[0];
 	}
 	if (@$loci) {
 		$desc =~ s/\&/\&amp;/g;
-		print "<h2>$desc</h2>\n";
-		print "<table class=\"resultstable\">";
+		say "<h2>$desc</h2>";
+		say "<table class=\"resultstable\">";
 		$self->_print_table_header_row(
 			{ descs_exist => $scheme_descs_exist, aliases_exist => $scheme_aliases_exist, curators_exist => $scheme_curators_exist } );
 		foreach my $locus (@$loci) {
@@ -282,7 +283,7 @@ sub _print_scheme_table {
 			);
 			$td = $td == 1 ? 2 : 1;
 		}
-		print "</table>\n";
+		say "</table>";
 	}
 	return;
 }
@@ -299,32 +300,32 @@ sub _print_sequences {
 	my $locus_info = $self->{'datastore'}->get_locus_info( $locus, { set_id => $set_id } );
 	( my $cleaned = $locus_info->{'set_name'} // $locus ) =~ s/^_//;
 	$cleaned =~ tr/ /_/;
-	my $qry = "SELECT allele_id,sequence FROM sequences WHERE locus=? ORDER BY "
+	my $qry = "SELECT allele_id,sequence FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N') ORDER BY "
 	  . ( $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id' );
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute($locus) };
 
 	if ($@) {
 		$logger->error($@);
-		print "Can't retrieve sequences.\n";
+		say "Can't retrieve sequences.";
 		return;
 	}
 	my $delimiter = $self->{'cgi'}->param('delimiter') ? $self->{'cgi'}->param('delimiter') : '_';
 	while ( my ( $id, $sequence ) = $sql->fetchrow_array ) {
-		print ">$cleaned$delimiter$id\n";
+		say ">$cleaned$delimiter$id";
 		my $cleaned_seq = BIGSdb::Utils::break_line( $sequence, 60 ) || '';
-		print "$cleaned_seq\n";
+		say "$cleaned_seq";
 	}
 	return;
 }
 
 sub _print_table_header_row {
 	my ( $self, $options ) = @_;
-	print "<tr><th>Locus</th><th>Download</th><th>Type</th><th>Alleles</th><th>Length</th>";
-	print "<th>Full name/product</th>" if $options->{'descs_exist'};
-	print "<th>Aliases</th>\n"         if $options->{'aliases_exist'};
-	print "<th>Curator(s)</th>\n"      if $options->{'curators_exist'};
-	print "</tr>\n";
+	say "<tr><th>Locus</th><th>Download</th><th>Type</th><th>Alleles</th><th>Length</th>";
+	say "<th>Full name/product</th>" if $options->{'descs_exist'};
+	say "<th>Aliases</th>"           if $options->{'aliases_exist'};
+	say "<th>Curator(s)</th>"        if $options->{'curators_exist'};
+	say "</tr>";
 	return;
 }
 
@@ -332,7 +333,7 @@ sub _print_locus_row {
 	my ( $self, $locus, $display_name, $options ) = @_;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( !$self->{'sql'}->{'count'} ) {
-		$self->{'sql'}->{'count'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM sequences WHERE locus=?");
+		$self->{'sql'}->{'count'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N')");
 	}
 	if ( !$self->{'sql'}->{'desc'} ) {
 		$self->{'sql'}->{'desc'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM locus_descriptions WHERE locus=?");
@@ -356,12 +357,12 @@ sub _print_locus_row {
 	my ($desc_exists) = $self->{'sql'}->{'desc'}->fetchrow_array;
 
 	if ($desc_exists) {
-		print
-" <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus\" class=\"info_tooltip\">&nbsp;i&nbsp;</a>";
+		print " <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus\" "
+		  . "class=\"info_tooltip\">&nbsp;i&nbsp;</a>";
 	}
 	print "</td><td>";
-	print
-"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;locus=$locus\" class=\"downloadbutton\">&darr;</a>"
+	print "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;locus=$locus\" "
+	  . "class=\"downloadbutton\">&darr;</a>"
 	  if $count;
 	print "</td><td>$locus_info->{'data_type'}</td><td>$count</td>";
 	if ( $locus_info->{'length_varies'} ) {
