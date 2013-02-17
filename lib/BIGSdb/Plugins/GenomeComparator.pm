@@ -299,8 +299,8 @@ sub _print_interface {
 	if ($use_all) {
 		$qry = "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM $view ORDER BY $view.id";
 	} else {
-		$qry = "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM sequence_bin LEFT JOIN $view "
-		  . "ON $view.id=sequence_bin.isolate_id ORDER BY $view.id";
+		$qry = "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM $view WHERE $view.id IN (SELECT isolate_id FROM "
+		  . "sequence_bin) ORDER BY $view.id";
 	}
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };

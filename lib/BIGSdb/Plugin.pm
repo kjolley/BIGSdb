@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -405,6 +405,16 @@ sub print_field_export_form {
 	say "</div>";
 	say $q->hidden($_) foreach qw (db page name query_file);
 	say $q->end_form;
+	return;
+}
+
+sub set_offline_view {
+	my ($self, $params) = @_;
+	my $set_id = $params->{'set_id'};
+	if ( $self->{'system'}->{'view'} eq 'isolates' && $set_id ) {
+		my $view_ref = $self->{'datastore'}->run_simple_query( "SELECT view FROM set_view WHERE set_id=?", $set_id );
+		$self->{'system'}->{'view'} = $view_ref->[0] if ref $view_ref eq 'ARRAY';
+	}
 	return;
 }
 
