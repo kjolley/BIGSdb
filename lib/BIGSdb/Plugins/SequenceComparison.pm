@@ -1,6 +1,6 @@
 #SequenceComparison.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -38,7 +38,7 @@ sub get_attributes {
 		category         => 'Analysis',
 		menutext         => 'Sequence comparison',
 		module           => 'SequenceComparison',
-		version          => '1.0.2',
+		version          => '1.0.3',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => 'analysis',
@@ -92,11 +92,14 @@ sub run {
 	my $allele1      = $q->param('allele1');
 	my $allele2      = $q->param('allele2');
 
-	if ( !$allele1 || !$allele2 ) {
+	if ( !defined $allele1 || !defined $allele2 ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>Please enter two allele identifiers.</p></div>";
 		return;
 	} elsif ( $allele1 eq $allele2 ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>Please enter two <em>different</em> allele numbers.</p></div>";
+		return;
+	} elsif ( $allele1 eq '0' || $allele2 eq '0' ) {
+		say "<div class=\"box\" id=\"statusbad\"><p>Allele 0 is not a valid identifier.</p></div>";
 		return;
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
@@ -132,9 +135,8 @@ sub run {
 		close $fh;
 
 		#run EMBOSS stretcher
-		system(
-"$self->{'config'}->{'emboss_path'}/stretcher -aformat markx2 -awidth $self->{'prefs'}->{'alignwidth'} $seq1_infile $seq2_infile $outfile 2> /dev/null"
-		);
+		system( "$self->{'config'}->{'emboss_path'}/stretcher -aformat markx2 -awidth $self->{'prefs'}->{'alignwidth'} $seq1_infile "
+			  . "$seq2_infile $outfile 2> /dev/null" );
 		unlink $seq1_infile, $seq2_infile;
 	}
 	my $buffer;

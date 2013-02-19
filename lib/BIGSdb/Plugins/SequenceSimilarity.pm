@@ -1,7 +1,7 @@
 #SequenceSimilarity.pm - Plugin for BIGSdb
 #This requires the SequenceComparison plugin
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,6 +21,7 @@
 package BIGSdb::Plugins::SequenceSimilarity;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::Plugin BIGSdb::BlastPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -38,7 +39,7 @@ sub get_attributes {
 		category         => 'Analysis',
 		menutext         => 'Sequence similarity',
 		module           => 'SequenceSimilarity',
-		version          => '1.0.1',
+		version          => '1.0.2',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => 'analysis',
@@ -54,51 +55,53 @@ sub run {
 	my $locus = $q->param('locus') || '';
 	$locus =~ s/^cn_//;
 	my $allele = $q->param('allele');
-	my $desc = $self->get_db_description;
+	my $desc   = $self->get_db_description;
 	print "<h1>Find most similar alleles - $desc</h1>\n";
 	my $set_id = $self->get_set_id;
-	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list({set_id => $set_id});
+	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
+
 	if ( !@$display_loci ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>No loci have been defined for this database.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>No loci have been defined for this database.</p></div>";
 		return;
 	}
-	print "<div class=\"box\" id=\"queryform\">\n";
-	print "<p>This page allows you to find the most similar sequences to a selected allele using BLAST.</p>\n";
+	say "<div class=\"box\" id=\"queryform\">";
+	say "<p>This page allows you to find the most similar sequences to a selected allele using BLAST.</p>";
 	my $num_results =
 	  ( defined $q->param('num_results') && $q->param('num_results') =~ /(\d+)/ )
 	  ? $1
 	  : 10;
-	print $q->start_form;
-	print $q->hidden($_) foreach qw (db page name);
-	print "<table>";
-	print "<tr><td style=\"text-align:right\">Select locus: </td><td>";
-	print $q->popup_menu( -name => 'locus', -values => $display_loci, -labels => $cleaned );
-	print "</td></tr><tr><td style=\"text-align:right\">Allele: </td><td>\n";
-	print $q->textfield( -name => 'allele', -size => 4 );
-	print "</td></tr><tr><td style=\"text-align:right\">Number of results: </td><td>\n";
-	print $q->popup_menu( -name => 'num_results', -values => [ 5, 10, 25, 50, 100, 200 ], -default => $num_results );
-	print "</td></tr>";
-	print "<tr><td style=\"text-align:left\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;"
-	. "name=SequenceSimilarity\" class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\">";
-	print $q->submit( -name => 'submit', -value => 'Submit', -class => 'submit' );
-	print "</td></tr>\n</table>\n";
-	print $q->end_form;
-	print "</div>\n";
-	return if !( $locus && $allele );
+	say $q->start_form;
+	say $q->hidden($_) foreach qw (db page name);
+	say "<table>";
+	say "<tr><td style=\"text-align:right\">Select locus: </td><td>";
+	say $q->popup_menu( -name => 'locus', -values => $display_loci, -labels => $cleaned );
+	say "</td></tr><tr><td style=\"text-align:right\">Allele: </td><td>";
+	say $q->textfield( -name => 'allele', -size => 4 );
+	say "</td></tr><tr><td style=\"text-align:right\">Number of results: </td><td>";
+	say $q->popup_menu( -name => 'num_results', -values => [ 5, 10, 25, 50, 100, 200 ], -default => $num_results );
+	say "</td></tr>";
+	say "<tr><td style=\"text-align:left\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;"
+	  . "name=SequenceSimilarity\" class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\">";
+	say $q->submit( -name => 'submit', -value => 'Submit', -class => 'submit' );
+	say "</td></tr>\n</table>";
+	say $q->end_form;
+	say "</div>";
+	return if !$locus || !defined $allele;
 
 	if ( !$self->{'datastore'}->is_locus($locus) ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Invalid locus entered.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Invalid locus entered.</p></div>";
 		return;
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( $locus_info->{'allele_id_format'} eq 'integer' && !BIGSdb::Utils::is_int($allele) ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Allele must be an integer.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Allele must be an integer.</p></div>";
 		return;
 	}
 	my ($valid) =
-	  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM sequences WHERE locus=? AND allele_id=?", $locus, $allele )->[0];
+	  $self->{'datastore'}
+	  ->run_simple_query( "SELECT COUNT(*) FROM sequences WHERE locus=? AND allele_id=? AND allele_id != '0'", $locus, $allele )->[0];
 	if ( !$valid ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Allele $locus-$allele does not exist.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Allele $locus-$allele does not exist.</p></div>";
 		return;
 	}
 	my $cleanlocus = $self->clean_locus($locus);
@@ -106,35 +109,37 @@ sub run {
 	my ( $blast_file, undef ) = $self->run_blast(
 		{ 'locus' => $locus, 'seq_ref' => $seq_ref, 'qry_type' => $locus_info->{'data_type'}, 'num_results' => $num_results + 1 } );
 	my $matches_ref = $self->_parse_blast_partial($blast_file);
-	print "<div class=\"box\" id=\"resultsheader\">\n";
-	print "<h2>$cleanlocus-$allele</h2>\n";
+	say "<div class=\"box\" id=\"resultsheader\">";
+	say "<h2>$cleanlocus-$allele</h2>";
 	if ( ref $matches_ref eq 'ARRAY' && scalar @$matches_ref > 0 ) {
-		print "<table class=\"resultstable\"><tr><th>Allele</th><th>% Identity</th><th>Mismatches</th><th>Gaps</th><th>Alignment</th>"
-		. "<th>Compare</th></tr>\n";
+		say "<table class=\"resultstable\"><tr><th>Allele</th><th>% Identity</th><th>Mismatches</th><th>Gaps</th><th>Alignment</th>"
+		  . "<th>Compare</th></tr>";
 		my $td = 1;
 		foreach (@$matches_ref) {
 			next if $_->{'allele'} eq $allele;
-			print "<tr class=\"td$td\"><td>$cleanlocus: $_->{'allele'}</td><td>$_->{'identity'}</td><td>$_->{'mismatches'}</td>"
-			. "<td>$_->{'gaps'}</td><td>$_->{'alignment'}/" . ( length $$seq_ref ) . "</td>\n<td>";
-			print $q->start_form;
+			say "<tr class=\"td$td\"><td>$cleanlocus: $_->{'allele'}</td><td>$_->{'identity'}</td><td>$_->{'mismatches'}</td>"
+			  . "<td>$_->{'gaps'}</td><td>$_->{'alignment'}/"
+			  . ( length $$seq_ref )
+			  . "</td>\n<td>";
+			say $q->start_form;
 			$q->param( 'allele1', $allele );
 			$q->param( 'allele2', $_->{'allele'} );
 			$q->param( 'name',    'SequenceComparison' );
 			$q->param( 'sent',    1 );
-			print $q->hidden($_) foreach qw (db page name locus allele1 allele2 sent);
-			print $q->submit( -name => "Compare $cleaned->{$locus}: $_->{'allele'}", -class => 'submit' );
-			print $q->end_form;
-			print "</td></tr>\n";
+			say $q->hidden($_) foreach qw (db page name locus allele1 allele2 sent);
+			say $q->submit( -name => "Compare $cleaned->{$locus}: $_->{'allele'}", -class => 'submit' );
+			say $q->end_form;
+			say "</td></tr>";
 			$td = $td == 1 ? 2 : 1;
 		}
-		print "</table>\n";
+		say "</table>";
 	} else {
-		print "<p>No similar alleles found.</p>\n";
+		say "<p>No similar alleles found.</p>";
 	}
 
 	#delete all working files
 	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$blast_file";
-	print "</div>\n";
+	say "</div>";
 	return;
 }
 
