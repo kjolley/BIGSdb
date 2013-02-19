@@ -90,8 +90,9 @@ sub print_content {
 		my $qry             = "SELECT @$scheme_fields FROM scheme_$scheme_id WHERE ";
 		my @cleaned_loci_db = @$loci;
 		$_ =~ s/'/_PRIME_/g foreach @cleaned_loci_db;
-		local $" = '=? AND ';
-		$qry .= "@cleaned_loci_db=?";
+		
+		local $" = $scheme_info->{'allow_missing_loci'} ? " IN (?, 'N')) AND (" : '=?) AND (';
+		$qry .= "(@cleaned_loci_db=?)";
 		my $sql = $self->{'db'}->prepare($qry);
 		say "</tr>";
 		my $td = 1;

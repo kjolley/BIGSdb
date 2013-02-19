@@ -324,8 +324,8 @@ sub _run_query {
 				my $arbitrary_clause = $scheme_info->{'allow_missing_loci'} ? " OR $table.allele_id = 'N'" : '';
 				$locus_qry =
 				  $locus_info->{'allele_id_format'} eq 'text'
-				  ? "($table.locus='$cleaned_locus' AND (upper($table.allele_id) = upper('$values{$locus}')$arbitrary_clause)"
-				  : "($table.locus='$cleaned_locus' AND ($table.allele_id = '$values{$locus}'$arbitrary_clause)";
+				  ? "($table.locus='$cleaned_locus' AND (upper($table.allele_id) = upper(E'$values{$locus}')$arbitrary_clause)"
+				  : "($table.locus='$cleaned_locus' AND ($table.allele_id = E'$values{$locus}'$arbitrary_clause)";
 			}
 			$locus_qry .= $self->{'system'}->{'dbtype'} eq 'isolates' ? ')' : " AND profile_members.scheme_id=$scheme_id)";
 			push @lqry, $locus_qry;
@@ -425,8 +425,8 @@ sub _run_query {
 					$qry .= "$profile_id_field $dir;";
 				} elsif ( $self->{'datastore'}->is_locus($order_field) ) {
 					my $locus_info = $self->{'datastore'}->get_locus_info($order_field);
-					$order_field =~ s/'/_PRIME_/g;
-					$qry .= $locus_info->{'allele_id_format'} eq 'integer' ? "CAST($order_field AS int)" : $order_field;
+					$order_field =~ s/'/_PRIME_/g;								
+					$qry .= $locus_info->{'allele_id_format'} eq 'integer' ? "to_number(textcat('0', $order_field), text(99999999))" : $order_field;
 					$qry .= " $dir,$profile_id_field;";
 				} elsif ( $self->{'datastore'}->is_scheme_field( $scheme_id, $order_field ) ) {
 					my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $order_field );
