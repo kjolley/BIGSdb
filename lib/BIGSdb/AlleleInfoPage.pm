@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -43,13 +43,13 @@ sub print_content {
 		say "<div class=\"box\" id=\"statusbad\"><p>This function is not available from an isolate database.</p></div>";
 		return;
 	}
-	if ( !$allele_id ) {
+	if ( !defined $allele_id ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>No allele id selected.</p></div>";
 		return;
 	}
 	my $seq_ref =
 	  $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM sequences WHERE locus=? AND allele_id=?", $locus, $allele_id );
-	if ( !$seq_ref->{'allele_id'} ) {
+	if ( !defined $seq_ref->{'allele_id'} ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>This sequence does not exist.</p></div>";
 		return;
 	}
@@ -70,6 +70,16 @@ sub print_content {
 <table class="resultstable">
 <tr class="td1"><th>locus</th><td style="text-align:left" colspan="3">$cleaned_locus $desc_link</td></tr>
 <tr class="td2"><th>allele</th><td style="text-align:left" colspan="3">$allele_id</td></tr>
+
+HTML
+	my $heading = "<tr class=\"td1\"><th>description</th><td style=\"text-align:left\" colspan=\"3\">";
+	given ($allele_id) {
+		when ('0') { say $heading . "This is a null allele. When included in a profile it means that this locus is missing.</td></tr>" }
+		when ('N') {
+			say $heading . "This is an arbitrary allele.  When included in a profile it means that this locus is ignored.</td></tr>"
+		}
+		default {
+			print << "HTML";
 <tr class="td1"><th>sequence</th><td style="text-align:left" class="seq" colspan="3">$seq</td></tr>
 <tr class="td2"><th>length</th><td style="text-align:left" colspan="3">$length</td></tr>
 <tr class="td1"><th>status</th><td style="text-align:left" colspan="3">$seq_ref->{'status'}</td></tr>
@@ -81,10 +91,11 @@ sub print_content {
 <td style="text-align:left">$curator_info->{'affiliation'}</td><td style="text-align:left">
 <a href="mailto:$curator_info->{'email'}">$curator_info->{'email'}</a></td></tr>
 HTML
+		}
+	}
 	my $td = 2;
 	$self->_process_flags( $locus, $allele_id, \$td );
 	my $extended_attributes = $self->{'datastore'}->get_allele_extended_attributes( $locus, $allele_id );
-
 	foreach my $ext (@$extended_attributes) {
 		my $cleaned_field = $ext->{'field'};
 		$cleaned_field =~ tr/_/ /;
