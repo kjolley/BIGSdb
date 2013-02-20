@@ -90,6 +90,7 @@ sub get_field_values_by_profile {
 	my @locus_terms;
 	if ( !$self->{'sql'}->{'scheme_fields'} ) {
 		foreach my $locus (@$loci) {
+			$locus =~ s/'/_PRIME_/g;
 			my $temp = "$locus=?";
 			$temp .= " OR $locus='N'" if $self->{'allow_missing_loci'};
 			push @locus_terms, "($temp)";

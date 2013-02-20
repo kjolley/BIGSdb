@@ -229,6 +229,7 @@ sub get_scheme_field_values_by_profile {
 			my $loci   = $self->{'cache'}->{'scheme_loci'}->{$scheme_id};
 			my @locus_terms;
 			foreach my $locus (@$loci) {
+				$locus =~ s/'/_PRIME_/g;
 				my $temp = "$locus=?";
 				$temp .= " OR $locus='N'" if $self->{'cache'}->{'scheme_info'}->{$scheme_id}->{'allow_missing_loci'};
 				push @locus_terms, "($temp)";
@@ -685,7 +686,8 @@ sub is_scheme_field {
 
 sub create_temp_scheme_table {
 	my ( $self, $id ) = @_;
-	my $scheme_db = $self->get_scheme($id)->get_db();
+	my $scheme_info = $self->get_scheme_info($id);
+	my $scheme_db = $self->get_scheme($id)->get_db;
 	if ( !$scheme_db ) {
 		$logger->error("No scheme database for scheme $id");
 		throw BIGSdb::DatabaseConnectionException("Database does not exist");
@@ -708,13 +710,14 @@ sub create_temp_scheme_table {
 	my $qry = "SELECT profile_name FROM scheme_members WHERE locus=? AND scheme_id=?";
 	my $sql = $self->{'db'}->prepare($qry);
 	my @query_loci;
-	foreach (@$loci) {
-		my $type = $self->get_locus_info($_)->{'allele_id_format'};
-		eval { $sql->execute( $_, $id ) };
+	foreach my $locus (@$loci) {
+		my $type = $scheme_info->{'allow_missing_loci'} ? 'text' : $self->get_locus_info($locus)->{'allele_id_format'};
+		eval { $sql->execute( $locus, $id ) };
 		$logger->error($@) if $@;
 		my ($profile_name) = $sql->fetchrow_array;
-		push @table_fields, "$_ $type";
-		push @query_loci, $profile_name || $_;
+		$locus =~ s/'/_PRIME_/g;
+		push @table_fields, "$locus $type";
+		push @query_loci, $profile_name || $locus;
 	}
 	local $" = ',';
 	$create .= "@table_fields";

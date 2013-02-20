@@ -1378,6 +1378,7 @@ sub _modify_isolate_query_for_designations {
 				my $operator          = $q->param("ly$i");
 				my $text              = $q->param("lt$i");
 				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+				my $scheme_info       = $self->{'datastore'}->get_scheme_info($scheme_id);
 				$self->process_value( \$text );
 				if (   $text ne 'null'
 					&& ( $scheme_field_info->{'type'} eq 'integer' )
@@ -1393,23 +1394,34 @@ sub _modify_isolate_query_for_designations {
 				my $scheme_loci  = $self->{'datastore'}->get_scheme_loci($scheme_id);
 				my $joined_table = "SELECT $view.id FROM $view";
 				foreach (@$scheme_loci) {
-					$joined_table .= " left join allele_designations AS $_ on $_.isolate_id = $self->{'system'}->{'view'}.id";
+					( my $locus = $_ ) =~ s/'/_PRIME_/g;
+					$joined_table .= " left join allele_designations AS $locus on $locus.isolate_id = $self->{'system'}->{'view'}.id";
 				}
 				$joined_table .= " left join temp_scheme_$scheme_id AS scheme_$scheme_id ON ";
 				my @temp;
 				foreach (@$scheme_loci) {
 					my $locus_info = $self->{'datastore'}->get_locus_info($_);
+					( my $locus = $_ ) =~ s/'/_PRIME_/g;
+
+					#Use correct cast to ensure that database indexes are used.
 					if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-						push @temp, " CAST($_.allele_id AS int)=scheme_$scheme_id\.$_";
+						if ( $scheme_info->{'allow_missing_loci'} ) {
+							push @temp,
+							  " (CAST($locus.allele_id AS text)=CAST(scheme_$scheme_id\.$locus AS text) OR scheme_$scheme_id\.$locus='N')";
+						} else {
+							push @temp, " CAST($locus.allele_id AS int)=scheme_$scheme_id\.$locus";
+						}
 					} else {
-						push @temp, " $_.allele_id=scheme_$scheme_id\.$_";
+						push @temp, " $locus.allele_id=scheme_$scheme_id\.$locus";
 					}
 				}
 				local $" = ' AND ';
 				$joined_table .= " @temp WHERE";
 				undef @temp;
 				foreach (@$scheme_loci) {
-					push @temp, "$_.locus='$_'";
+					( my $cleaned_locus = $_ ) =~ s/'/_PRIME_/g;
+					( my $escaped_locus = $_ ) =~ s/'/\\'/g;
+					push @temp, "$cleaned_locus.locus=E'$escaped_locus'";
 				}
 				$joined_table .= " @temp";
 				if ( $operator eq 'NOT' ) {
