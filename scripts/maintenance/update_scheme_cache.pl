@@ -68,8 +68,9 @@ foreach (@fields) {
 	$first = 0;
 }
 foreach (@loci) {
+	(my $cleaned_locus = $_) =~ s/'/_PRIME_/g;
 	$qry .= ', ' if !$first;
-	$qry .= "$_ $locus_type{$_}";
+	$qry .= "$cleaned_locus $locus_type{$_}";
 	$first = 0;
 }
 $qry .= ", PRIMARY KEY ($pk)" if $pk;
@@ -86,6 +87,7 @@ if ( !@fields ) {
 local $" = ',';
 my @profile_loci;
 foreach (@loci) {
+	s/'/_PRIME_/g;
 	push @profile_loci, $profile_name{$_} || $_;
 }
 $sql = $db1->prepare("SELECT @fields,@profile_loci FROM scheme_$opts{'x'}");
