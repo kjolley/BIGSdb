@@ -150,7 +150,7 @@ sub print_content {
 		}
 		return;
 	}
-	if (!defined $isolate_id || $isolate_id eq ''){
+	if ( !defined $isolate_id || $isolate_id eq '' ) {
 		say "<h1>Isolate information</h1>";
 		say "<div class=\"box statusbad\"><p>No isolate id provided.</p></div>";
 		return;
@@ -296,6 +296,7 @@ sub _get_provenance_fields {
 		my $web;
 		my $value = $data->{ lc($field) };
 		if ( !defined $value ) {
+
 			if ( $composites{$field} ) {
 				$buffer .= $self->_get_composite_field_rows( $isolate_id, $data, $field, \%composite_display_pos, $td_ref );
 			}
@@ -715,7 +716,8 @@ sub _get_scheme_fields {
 		}
 		my $action = $allele_designations->{$locus}->{'allele_id'} ? 'update' : 'add';
 		$locus_value{$locus} .=
-" <a href=\"$self->{'system'}->{'script_name'}?page=alleleUpdate&amp;db=$self->{'instance'}&amp;isolate_id=$isolate_id&amp;locus=$locus\" class=\"update\">$action</a>"
+		    " <a href=\"$self->{'system'}->{'script_name'}?page=alleleUpdate&amp;db=$self->{'instance'}&amp;"
+		  . "isolate_id=$isolate_id&amp;locus=$locus\" class=\"update\">$action</a>"
 		  if $self->{'curate'};
 	}
 	my %field_values;

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2011, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -16,14 +16,13 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
-
 package BIGSdb::Scheme;
 use strict;
 use warnings;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Scheme');
 
-sub new { ## no critic
+sub new {    ## no critic
 	my $class = shift;
 	my $self  = {@_};
 	$self->{'sql'} = {};
@@ -37,7 +36,7 @@ sub DESTROY {
 	foreach ( keys %{ $self->{'sql'} } ) {
 		if ( $self->{'sql'}->{$_} ) {
 			$self->{'sql'}->{$_}->finish;
-			$logger->debug( "Scheme#$self->{'id'} ($self->{'description'}) statement handle '$_' finished." );
+			$logger->debug("Scheme#$self->{'id'} ($self->{'description'}) statement handle '$_' finished.");
 		}
 	}
 	$logger->info("Scheme#$self->{'id'} ($self->{'description'}) destroyed.");
@@ -58,7 +57,7 @@ sub get_profile_by_primary_keys {
 		my $primary_keys = $self->{'primary_keys'};
 		$qry .= "@$primary_keys=?";
 		$self->{'sql'}->{'scheme_profiles'} = $self->{'db'}->prepare($qry);
-		$logger->debug( "Scheme#$self->{'id'} ($self->{'description'}) statement handle 'scheme_profiles' prepared." );
+		$logger->debug("Scheme#$self->{'id'} ($self->{'description'}) statement handle 'scheme_profiles' prepared.");
 	}
 	eval { $self->{'sql'}->{'scheme_profiles'}->execute(@$values) };
 	if ($@) {
@@ -76,6 +75,7 @@ sub get_profile_by_primary_keys {
 sub get_field_values_by_profile {
 	my ( $self, $profile, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
+
 	#Note that when returning a hashref that field names will always be lower-case!
 	if ( !$self->{'db'} ) {
 		$logger->debug("No connection to scheme database");
@@ -87,22 +87,28 @@ sub get_field_values_by_profile {
 	}
 	my $fields = $self->{'fields'};
 	my $loci   = $self->{'loci'};
-	if ( !$self->{'sql'}->{'scheme_fields'} ) {		
-		my @placeholders;
-		push @placeholders, '?' foreach (@$loci);
+	my @locus_terms;
+	if ( !$self->{'sql'}->{'scheme_fields'} ) {
+		foreach my $locus (@$loci) {
+			my $temp = "$locus=?";
+			$temp .= " OR $locus='N'" if $self->{'allow_missing_loci'};
+			push @locus_terms, "($temp)";
+		}
+		local $" = ' AND ';
+		my $locus_term_string = "@locus_terms";
 		local $" = ',';
-		my $qry = "SELECT @$fields FROM $self->{'dbase_table'} WHERE (@$loci) = (@placeholders)";
+		my $qry = "SELECT @$fields FROM $self->{'dbase_table'} WHERE $locus_term_string";
 		$self->{'sql'}->{'scheme_fields'} = $self->{'db'}->prepare($qry);
-		$logger->debug( "Scheme#$self->{'id'} ($self->{'description'}) statement handle 'scheme_fields' prepared. $qry" );
+		$logger->debug("Scheme#$self->{'id'} ($self->{'description'}) statement handle 'scheme_fields' prepared. $qry");
 	}
 	eval { $self->{'sql'}->{'scheme_fields'}->execute(@$profile) };
 	if ($@) {
-		$logger->warn(
-"Can't execute 'scheme_fields' query handle. Check database attributes in the scheme_fields table for scheme#$self->{'id'} ($self->{'description'})! Statement was '$self->{'sql'}->{scheme_fields}->{Statement}'. "
+		$logger->warn( "Can't execute 'scheme_fields' query handle. Check database attributes in the scheme_fields table for "
+			  . "scheme#$self->{'id'} ($self->{'description'})! Statement was '$self->{'sql'}->{scheme_fields}->{Statement}'. "
 			  . $self->{'db'}->errstr );
 		throw BIGSdb::DatabaseConfigurationException("Scheme configuration error");
 	} else {
-		if ($options->{'return_hashref'}){
+		if ( $options->{'return_hashref'} ) {
 			return $self->{'sql'}->{'scheme_fields'}->fetchrow_hashref;
 		}
 		my @values = $self->{'sql'}->{'scheme_fields'}->fetchrow_array;
@@ -111,29 +117,30 @@ sub get_field_values_by_profile {
 }
 
 sub get_distinct_fields {
-	my ($self, $field) = @_;	
+	my ( $self, $field ) = @_;
 	my @values;
+
 	#If database name contains term 'bigsdb', then assume it has the usual BIGSdb seqdef structure.
 	#Now can query profile_fields table directly, rather than the scheme view.  This will be much quicker.
 	my $qry;
-	if ($self->{'dbase_name'} =~ /bigsdb/ && $self->{'dbase_table'} =~ /^scheme_(\d+)$/){
+	if ( $self->{'dbase_name'} =~ /bigsdb/ && $self->{'dbase_table'} =~ /^scheme_(\d+)$/ ) {
 		my $scheme_id = $1;
 		$qry = "SELECT distinct value FROM profile_fields WHERE scheme_field='$field' AND scheme_id=$scheme_id ORDER BY value";
 	} else {
 		$qry = "SELECT distinct $field FROM $self->{'dbase_table'} WHERE $field <> '-999' ORDER BY $field";
 	}
 	my $sql = $self->{'db'}->prepare($qry);
-	$logger->debug( "Scheme#$self->{'id'} ($self->{'description'}) statement handle 'distinct_fields' prepared." );
+	$logger->debug("Scheme#$self->{'id'} ($self->{'description'}) statement handle 'distinct_fields' prepared.");
 	eval { $sql->execute };
-	if ($@){
-		$logger->warn(
-"Can't execute query handle. Check database attributes in the scheme_fields table for scheme#$self->{'id'} ($self->{'description'})! Statement was '$self->{'sql'}->{scheme_fields}->{Statement}'. "
+	if ($@) {
+		$logger->warn( "Can't execute query handle. Check database attributes in the scheme_fields table for scheme#$self->{'id'} "
+			  . "($self->{'description'})! Statement was '$self->{'sql'}->{scheme_fields}->{Statement}'. "
 			  . $self->{'db'}->errstr );
 		throw BIGSdb::DatabaseConfigurationException("Scheme configuration error");
-		return \@;
+		return \@;;
 	} else {
-		while (my ($value) = $sql->fetchrow_array){
-			push @values,$value;
+		while ( my ($value) = $sql->fetchrow_array ) {
+			push @values, $value;
 		}
 	}
 	return \@values;
@@ -145,5 +152,3 @@ sub get_db {
 	return;
 }
 1;
-
-

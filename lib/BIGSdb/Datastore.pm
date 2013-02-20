@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -199,7 +199,10 @@ sub get_scheme_field_values_by_profile {
 		$self->{'cache'}->{'scheme_loci'}->{$scheme_id} = $self->get_scheme_loci($scheme_id);
 	}
 	return if ref $self->{'cache'}->{'scheme_loci'}->{$scheme_id} ne 'ARRAY' || !@{ $self->{'cache'}->{'scheme_loci'}->{$scheme_id} };
-	if ( $self->{'system'}->{'use_temp_scheme_table'} && $self->{'system'}->{'use_temp_scheme_table'} eq 'yes' ) {
+	if ( !$self->{'cache'}->{'scheme_info'}->{$scheme_id} ) {
+		$self->{'cache'}->{'scheme_info'}->{$scheme_id} = $self->get_scheme_info($scheme_id);
+	}
+	if ( ($self->{'system'}->{'use_temp_scheme_table'} // '') eq 'yes' ) {
 
 		#Import all profiles from seqdef database into indexed scheme table.  Under some circumstances
 		#this can be considerably quicker than querying the seqdef scheme view (a few ms compared to
@@ -222,11 +225,19 @@ sub get_scheme_field_values_by_profile {
 		if ( !$self->{'sql'}->{"field_values_$scheme_id"} ) {
 			my @placeholders;
 			push @placeholders, '?' foreach @{ $self->{'cache'}->{'scheme_loci'}->{$scheme_id} };
+			my $fields = $self->{'cache'}->{'scheme_fields'}->{$scheme_id};
+			my $loci   = $self->{'cache'}->{'scheme_loci'}->{$scheme_id};
+			my @locus_terms;
+			foreach my $locus (@$loci) {
+				my $temp = "$locus=?";
+				$temp .= " OR $locus='N'" if $self->{'cache'}->{'scheme_info'}->{$scheme_id}->{'allow_missing_loci'};
+				push @locus_terms, "($temp)";
+			}
+			local $" = ' AND ';
+			my $locus_term_string = "@locus_terms";
 			local $" = ',';
 			$self->{'sql'}->{"field_values_$scheme_id"} =
-			  $self->{'db'}->prepare(
-"SELECT @{ $self->{'cache'}->{'scheme_fields'}->{$scheme_id} } FROM temp_scheme_$scheme_id WHERE (@{ $self->{'cache'}->{'scheme_loci'}->{$scheme_id} }) = (@placeholders)"
-			  );
+			  $self->{'db'}->prepare("SELECT @$fields FROM temp_scheme_$scheme_id WHERE $locus_term_string");
 		}
 		eval {
 			$self->{'sql'}->{"field_values_$scheme_id"}->execute(@$profile_ref);
@@ -643,11 +654,12 @@ sub get_scheme {
 		my $attributes = $self->get_scheme_info($id);
 		if ( $attributes->{'dbase_name'} ) {
 			my %att = (
-				'dbase_name' => $attributes->{'dbase_name'},
-				'host'       => $attributes->{'dbase_host'},
-				'port'       => $attributes->{'dbase_port'},
-				'user'       => $attributes->{'dbase_user'},
-				'password'   => $attributes->{'dbase_password'}
+				dbase_name         => $attributes->{'dbase_name'},
+				host               => $attributes->{'dbase_host'},
+				port               => $attributes->{'dbase_port'},
+				user               => $attributes->{'dbase_user'},
+				password           => $attributes->{'dbase_password'},
+				allow_missing_loci => $attributes->{'allow_missing_loci'}
 			);
 			try {
 				$attributes->{'db'} = $self->{'dataConnector'}->get_connection( \%att );
@@ -657,7 +669,7 @@ sub get_scheme {
 			};
 		}
 		$attributes->{'fields'} = $self->get_scheme_fields($id);
-		$attributes->{'loci'} = $self->get_scheme_loci( $id, ( { 'profile_name' => 1, 'analysis_pref' => 0 } ) );
+		$attributes->{'loci'} = $self->get_scheme_loci( $id, ( { profile_name => 1, analysis_pref => 0 } ) );
 		$attributes->{'primary_keys'} =
 		  $self->run_list_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key ORDER BY field_order", $id );
 		$self->{'scheme'}->{$id} = BIGSdb::Scheme->new(%$attributes);
