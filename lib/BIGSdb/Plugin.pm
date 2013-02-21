@@ -294,7 +294,7 @@ sub print_content {
 		}
 	}
 	$plugin->initiate_prefs;
-	$plugin->initiate_view($self->{'username'}, $self->{'curate'});
+	$plugin->initiate_view( $self->{'username'}, $self->{'curate'} );
 	$plugin->run;
 	return;
 }
@@ -340,12 +340,12 @@ sub print_fields {
 
 sub print_field_export_form {
 	my ( $self, $default_select, $options ) = @_;
-	my $q       = $self->{'cgi'};
-	my $set_id  = $self->get_set_id;
-	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-	my $loci    = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
+	my $q             = $self->{'cgi'};
+	my $set_id        = $self->get_set_id;
+	my $schemes       = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+	my $loci          = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
-	my $fields  = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $fields        = $self->{'xmlHandler'}->get_field_list($metadata_list);
 	my @display_fields;
 	my $extended = $options->{'extended_attributes'} ? $self->get_extended_attributes : undef;
 	my ( @js, @js2, @isolate_js, @isolate_js2 );
@@ -365,7 +365,7 @@ sub print_field_export_form {
 	push @isolate_js,  @js;
 	push @isolate_js2, @js2;
 	foreach my $field (@display_fields) {
-		(my $id = "f_$field") =~ tr/:/_/;
+		( my $id = "f_$field" ) =~ tr/:/_/;
 		push @js,          "\$(\"#$id\").attr(\"checked\",true)";
 		push @js2,         "\$(\"#$id\").attr(\"checked\",false)";
 		push @isolate_js,  "\$(\"#$id\").attr(\"checked\",true)";
@@ -409,7 +409,7 @@ sub print_field_export_form {
 }
 
 sub set_offline_view {
-	my ($self, $params) = @_;
+	my ( $self, $params ) = @_;
 	my $set_id = $params->{'set_id'};
 	if ( $self->{'system'}->{'view'} eq 'isolates' && $set_id ) {
 		my $view_ref = $self->{'datastore'}->run_simple_query( "SELECT view FROM set_view WHERE set_id=?", $set_id );
@@ -444,14 +444,15 @@ sub get_id_list {
 }
 
 sub get_selected_fields {
-	my ($self)   = @_;
-	my $q        = $self->{'cgi'};
-	my $set_id     = $self->get_set_id;
+	my ($self)        = @_;
+	my $q             = $self->{'cgi'};
+	my $set_id        = $self->get_set_id;
 	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
-	my $fields   = $self->{'xmlHandler'}->get_field_list($metadata_list);
-	my $extended = $self->get_extended_attributes;
+	my $fields        = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $extended      = $self->get_extended_attributes;
 	my @display_fields;
 	$self->escape_params;
+
 	foreach (@$fields) {
 		push @display_fields, $_;
 		push @display_fields, 'aliases' if $_ eq $self->{'system'}->{'labelfield'};
@@ -535,42 +536,54 @@ sub print_sequence_export_form {
 	} else {
 		$self->print_scheme_locus_fieldset( $scheme_id, $options );
 	}
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && !$options->{'no_options'} ) {
+	if ( !$options->{'no_options'} ) {
 		my $options_heading = $options->{'options_heading'} || 'Options';
 		say "<fieldset style=\"float:left\">\n<legend>$options_heading</legend>";
-		say "If both allele designations and tagged sequences<br />exist for a locus, choose how you want these handled: ";
-		say " <a class=\"tooltip\" title=\"Sequence retrieval - Peptide loci will only be retrieved from the sequence bin "
-		  . "(as nucleotide sequences).\">&nbsp;<i>i</i>&nbsp;</a>";
-		say "<br /><br />";
-		my %labels =
-		  ( seqbin => 'Use sequences tagged from the bin', allele_designation => 'Use allele sequence retrieved from external database' );
-		say $q->radio_group( -name => 'chooseseq', -values => [ 'seqbin', 'allele_designation' ], -labels => \%labels,
-			-linebreak => 'true' );
-		say "<br />";
-
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+			say "If both allele designations and tagged sequences<br />exist for a locus, choose how you want these handled: ";
+			say " <a class=\"tooltip\" title=\"Sequence retrieval - Peptide loci will only be retrieved from the sequence bin "
+			  . "(as nucleotide sequences).\">&nbsp;<i>i</i>&nbsp;</a>";
+			say "<br /><br />";
+			my %labels = (
+				seqbin             => 'Use sequences tagged from the bin',
+				allele_designation => 'Use allele sequence retrieved from external database'
+			);
+			say $q->radio_group(
+				-name      => 'chooseseq',
+				-values    => [ 'seqbin', 'allele_designation' ],
+				-labels    => \%labels,
+				-linebreak => 'true'
+			);
+			say "<br />";
+			if ( $options->{'ignore_seqflags'} ) {
+				say $q->checkbox(
+					-name    => 'ignore_seqflags',
+					-label   => 'Do not include sequences with problem flagged ' . '(defined alleles will still be used)',
+					-checked => 'checked'
+				);
+				say "<br />";
+			}
+			if ( $options->{'ignore_incomplete'} ) {
+				say $q->checkbox( -name => 'ignore_incomplete', -label => 'Do not include incomplete sequences', -checked => 'checked' );
+				say "<br />";
+			}
+			if ( $options->{'flanking'} ) {
+				say "Include ";
+				say $q->popup_menu( -name => 'flanking', -values => [FLANKING], -default => 0 );
+				say " bp flanking sequence";
+				say " <a class=\"tooltip\" title=\"Flanking sequence - This can only be included if you select to retrieve sequences "
+				  . "from the sequence bin rather than from an external database.\">&nbsp;<i>i</i>&nbsp;</a>";
+				say "<br />";
+			}
+		}
 		if ( $options->{'translate'} ) {
 			say $q->checkbox( -name => 'translate', -label => 'Translate sequences' );
 			say "<br />";
 		}
-		if ( $options->{'ignore_seqflags'} ) {
-			say $q->checkbox(
-				-name    => 'ignore_seqflags',
-				-label   => 'Do not include sequences with problem flagged ' . '(defined alleles will still be used)',
-				-checked => 'checked'
-			);
+		if ( $options->{'in_frame'} ) {
+			say $q->checkbox( -name => 'in_frame', -label => 'Concatenate in frame' );
 			say "<br />";
-		}
-		if ( $options->{'ignore_incomplete'} ) {
-			say $q->checkbox( -name => 'ignore_incomplete', -label => 'Do not include incomplete sequences', -checked => 'checked' );
-			say "<br />";
-		}
-		if ( $options->{'flanking'} ) {
-			say "Include ";
-			say $q->popup_menu( -name => 'flanking', -values => [FLANKING], -default => 0 );
-			say " bp flanking sequence";
-			say " <a class=\"tooltip\" title=\"Flanking sequence - This can only be included if you select to retrieve sequences "
-			  . "from the sequence bin rather than from an external database.\">&nbsp;<i>i</i>&nbsp;</a>";
-		}
+		}		
 		say "</fieldset>";
 	}
 	say $self->get_extra_form_elements;
@@ -703,7 +716,7 @@ sub order_selected_loci {
 		push @selected_schemes, 0 if $q->param('s_0');
 	}
 	my @selected_locus_names;
-	if ($self->{'system'}->{'dbtype'} eq 'sequences'){
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		@selected_locus_names = @selected_loci;
 	} else {
 		my $pattern = LOCUS_PATTERN;

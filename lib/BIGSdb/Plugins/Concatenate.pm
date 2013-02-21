@@ -1,6 +1,6 @@
 #Concatenate.pm - Concatenate plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -45,7 +45,7 @@ sub get_attributes {
 		buttontext  => 'Concatenate',
 		menutext    => 'Concatenate alleles',
 		module      => 'Concatenate',
-		version     => '1.1.1',
+		version     => '1.1.2',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		help        => 'tooltips',
@@ -152,7 +152,7 @@ HTML
 insertions or deletions, the sequences may need to be aligned.</p>
 HTML
 	}
-	my $options = { default_select => 0, translate => 1 };
+	my $options = { default_select => 0, translate => 1, in_frame => 1 };
 	$self->print_sequence_export_form( $pk, $list, $scheme_id, $options );
 	say "</div>";
 	return;
@@ -307,8 +307,10 @@ sub _write_fasta {
 							$no_seq   = 1;
 						}
 					}
-					if ( $q->param('translate') ) {
+					if ( $q->param('in_frame')){
 						$temp_seq = BIGSdb::Utils::chop_seq( $temp_seq, $locus_info->{'orf'} || 1 );
+					}
+					if ( $q->param('translate') ) {					
 						my $peptide = !$no_seq ? Bio::Perl::translate_as_string($temp_seq) : 'X';
 						$seq .= $peptide;
 					} else {
@@ -316,8 +318,19 @@ sub _write_fasta {
 					}
 				} else {
 					my $allele_id = $self->{'datastore'}->get_profile_allele_designation( $scheme_id, $id, $locus )->{'allele_id'};
-					my $allele_seq = $self->{'datastore'}->get_sequence( $locus, $allele_id );
-					$seq .= $$allele_seq;
+					my $allele_seq_ref = $self->{'datastore'}->get_sequence( $locus, $allele_id );
+					my $allele_seq;
+					if ( $q->param('in_frame')){
+						$allele_seq = BIGSdb::Utils::chop_seq( $$allele_seq_ref, $locus_info->{'orf'} || 1 );
+					} else {
+						$allele_seq = $$allele_seq_ref;
+					}			
+					if ( $q->param('translate') ) {
+						my $peptide = !$no_seq ? Bio::Perl::translate_as_string($allele_seq) : 'X';
+						$seq .= $peptide;
+					} else {
+						$seq .= $allele_seq;
+					}
 				}
 			}
 		}

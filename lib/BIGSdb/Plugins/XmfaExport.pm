@@ -321,9 +321,16 @@ sub run_job {
 				my ($profile_id) = $profile_sql->fetchrow_array;
 				if ($profile_id) {
 					my $allele_id = $self->{'datastore'}->get_profile_allele_designation( $scheme_id, $id, $locus_name )->{'allele_id'};
-					my $allele_seq = $self->{'datastore'}->get_sequence( $locus_name, $allele_id );
+					my $allele_seq_ref = $self->{'datastore'}->get_sequence( $locus_name, $allele_id );
 					say $fh_muscle ">$profile_id";
-					say $fh_muscle "$$allele_seq";
+					my $allele_seq = $$allele_seq_ref;
+					if ( $params->{'translate'} && $locus_info->{'data_type'} eq 'DNA') {
+						$allele_seq = BIGSdb::Utils::chop_seq( $allele_seq, $locus_info->{'orf'} || 1 );
+						my $peptide = $allele_seq ? Bio::Perl::translate_as_string($allele_seq) : 'X';
+						say $fh_muscle $peptide;
+					} else {
+						say $fh_muscle $allele_seq;
+					}
 				} else {
 					push @problem_ids, $id;
 					next;
