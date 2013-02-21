@@ -1065,18 +1065,28 @@ sub _create_join_sql_for_scheme {
 		my $scheme_id    = $1;
 		my $scheme_field = $2;
 		my $loci         = $self->{'datastore'}->get_scheme_loci($scheme_id);
+		my $scheme_info  = $self->{'datastore'}->get_scheme_info($scheme_id);
 		foreach (@$loci) {
-			$qry .= " LEFT JOIN allele_designations AS l_$_ ON l_$_\.isolate_id=$self->{'system'}->{'view'}.id AND l_$_.locus=E'$_'";
+			( my $cleaned_locus = $_ ) =~ s/'/_PRIME_/;
+			( my $escaped_locus = $_ ) =~ s/'/\\'/;
+			$qry .= " LEFT JOIN allele_designations AS l_$cleaned_locus ON l_$cleaned_locus\.isolate_id=$self->{'system'}->{'view'}.id "
+			  . "AND l_$cleaned_locus.locus=E'$escaped_locus'";
 		}
 		$qry .= " LEFT JOIN temp_scheme_$scheme_id AS ordering ON";
 		my $first = 1;
 		foreach (@$loci) {
+			( my $cleaned_locus = $_ ) =~ s/'/_PRIME_/;
 			my $locus_info = $self->{'datastore'}->get_locus_info($_);
 			$qry .= " AND" if !$first;
 			if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-				$qry .= " CAST(l_$_.allele_id AS integer)=ordering.$_";
+				if ( $scheme_info->{'allow_missing_loci'} ) {
+					$qry .= " (CAST(COALESCE(l_$cleaned_locus.allele_id,'N') AS text)=CAST(ordering.$cleaned_locus AS text) "
+					  . "OR ordering.$cleaned_locus='N')";
+				} else {
+					$qry .= " CAST(l_$cleaned_locus.allele_id AS integer)=ordering.$cleaned_locus";
+				}
 			} else {
-				$qry .= " l_$_.allele_id=ordering.$_";
+				$qry .= " l_$cleaned_locus.allele_id=ordering.$cleaned_locus";
 			}
 			$first = 0;
 		}

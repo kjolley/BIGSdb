@@ -1304,6 +1304,7 @@ sub _modify_isolate_query_for_designations {
 			if ( $q->param("ls$i") =~ /$pattern/ ) {
 				my $locus      = $1;
 				my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+				my $unmodified_locus = $locus;
 				$locus =~ s/'/\\'/g;
 				my $operator = $q->param("ly$i");
 				my $text     = $q->param("lt$i");
@@ -1315,7 +1316,7 @@ sub _modify_isolate_query_for_designations {
 					&& ( $locus_info->{'allele_id_format'} eq 'integer' )
 					&& !BIGSdb::Utils::is_int($text) )
 				{
-					push @$errors_ref, "$locus is an integer field.";
+					push @$errors_ref, "$unmodified_locus is an integer field.";
 					next;
 				} elsif ( !$self->is_valid_operator($operator) ) {
 					push @$errors_ref, "$operator is not a valid operator.";
