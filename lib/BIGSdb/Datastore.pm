@@ -189,7 +189,6 @@ sub get_composite_value {
 
 sub get_scheme_field_values_by_profile {
 	my ( $self, $scheme_id, $profile_ref ) = @_;
-	return if ref $profile_ref ne 'ARRAY' || any { !defined $_ } @$profile_ref;
 	my $values;
 	if ( !$self->{'cache'}->{'scheme_fields'}->{$scheme_id} ) {
 		$self->{'cache'}->{'scheme_fields'}->{$scheme_id} = $self->get_scheme_fields($scheme_id);
@@ -201,6 +200,13 @@ sub get_scheme_field_values_by_profile {
 	return if ref $self->{'cache'}->{'scheme_loci'}->{$scheme_id} ne 'ARRAY' || !@{ $self->{'cache'}->{'scheme_loci'}->{$scheme_id} };
 	if ( !$self->{'cache'}->{'scheme_info'}->{$scheme_id} ) {
 		$self->{'cache'}->{'scheme_info'}->{$scheme_id} = $self->get_scheme_info($scheme_id);
+	}
+	return if ref $profile_ref ne 'ARRAY' || (any { !defined $_ } @$profile_ref && !$self->{'cache'}->{'scheme_info'}->{$scheme_id}->{'allow_missing_loci'});
+	
+	if ($self->{'cache'}->{'scheme_info'}->{$scheme_id}->{'allow_missing_loci'}){
+		foreach (@$profile_ref){
+			$_ = 'N' if !defined $_;
+		}
 	}
 	if ( ($self->{'system'}->{'use_temp_scheme_table'} // '') eq 'yes' ) {
 

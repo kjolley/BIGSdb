@@ -713,6 +713,9 @@ sub _print_isolate_table_scheme {
 	if ( !$self->{'scheme_fields'}->{$scheme_id} ) {
 		$self->{'scheme_fields'}->{$scheme_id} = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	}
+	if ( !$self->{'scheme_info'}->{$scheme_id} ) {
+		$self->{'scheme_info'}->{$scheme_id} = $self->{'datastore'}->get_scheme_info($scheme_id);
+	}	
 	my ( @profile, $incomplete );
 	if ( !$self->{'urls_defined'} && $self->{'prefs'}->{'hyperlink_loci'} ) {
 		$self->_initiate_urls_for_loci;
@@ -766,7 +769,7 @@ sub _print_isolate_table_scheme {
 		  || !@{ $self->{'scheme_fields'}->{$scheme_id} }
 		  || !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};
 	my $values;
-	if ( !$incomplete && @profile ) {
+	if ( (!$incomplete || $self->{'scheme_info'}->{$scheme_id}->{'allow_missing_loci'}) && @profile ) {
 		$values = $self->{'datastore'}->get_scheme_field_values_by_profile( $scheme_id, \@profile );
 	}
 	foreach ( @{ $self->{'scheme_fields'}->{$scheme_id} } ) {

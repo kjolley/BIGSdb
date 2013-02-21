@@ -324,8 +324,8 @@ sub _run_query {
 				my $arbitrary_clause = $scheme_info->{'allow_missing_loci'} ? " OR $table.allele_id = 'N'" : '';
 				$locus_qry =
 				  $locus_info->{'allele_id_format'} eq 'text'
-				  ? "($table.locus='$cleaned_locus' AND (upper($table.allele_id) = upper(E'$values{$locus}')$arbitrary_clause)"
-				  : "($table.locus='$cleaned_locus' AND ($table.allele_id = E'$values{$locus}'$arbitrary_clause)";
+				  ? "($table.locus=E'$cleaned_locus' AND (upper($table.allele_id) = upper(E'$values{$locus}')$arbitrary_clause)"
+				  : "($table.locus=E'$cleaned_locus' AND ($table.allele_id = E'$values{$locus}'$arbitrary_clause)";
 			}
 			$locus_qry .= $self->{'system'}->{'dbtype'} eq 'isolates' ? ')' : " AND profile_members.scheme_id=$scheme_id)";
 			push @lqry, $locus_qry;

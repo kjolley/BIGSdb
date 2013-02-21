@@ -1396,6 +1396,9 @@ sub _modify_isolate_query_for_designations {
 				foreach (@$scheme_loci) {
 					( my $locus = $_ ) =~ s/'/_PRIME_/g;
 					$joined_table .= " left join allele_designations AS $locus on $locus.isolate_id = $self->{'system'}->{'view'}.id";
+					( my $cleaned_locus = $_ ) =~ s/'/_PRIME_/g;
+					( my $escaped_locus = $_ ) =~ s/'/\\'/g;
+					$joined_table .= " AND $cleaned_locus.locus=E'$escaped_locus'";
 				}
 				$joined_table .= " left join temp_scheme_$scheme_id AS scheme_$scheme_id ON ";
 				my @temp;
@@ -1406,62 +1409,59 @@ sub _modify_isolate_query_for_designations {
 					#Use correct cast to ensure that database indexes are used.
 					if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
 						if ( $scheme_info->{'allow_missing_loci'} ) {
-							push @temp,
-							  " (CAST($locus.allele_id AS text)=CAST(scheme_$scheme_id\.$locus AS text) OR scheme_$scheme_id\.$locus='N')";
+							push @temp, "(CAST(COALESCE($locus.allele_id,'N') AS text)=CAST(scheme_$scheme_id\.$locus AS text) "
+							  . "OR scheme_$scheme_id\.$locus='N')";
 						} else {
-							push @temp, " CAST($locus.allele_id AS int)=scheme_$scheme_id\.$locus";
+							push @temp, "CAST($locus.allele_id AS int)=scheme_$scheme_id\.$locus";
 						}
 					} else {
-						push @temp, " $locus.allele_id=scheme_$scheme_id\.$locus";
+						if ( $scheme_info->{'allow_missing_loci'} ) {
+							push @temp, "COALESCE($locus.allele_id,'N')=scheme_$scheme_id\.$locus";
+						} else {
+							push @temp, "$locus.allele_id=scheme_$scheme_id\.$locus";
+						}
 					}
 				}
 				local $" = ' AND ';
-				$joined_table .= " @temp WHERE";
-				undef @temp;
-				foreach (@$scheme_loci) {
-					( my $cleaned_locus = $_ ) =~ s/'/_PRIME_/g;
-					( my $escaped_locus = $_ ) =~ s/'/\\'/g;
-					push @temp, "$cleaned_locus.locus=E'$escaped_locus'";
-				}
-				$joined_table .= " @temp";
+				$joined_table .= "@temp";
 				if ( $operator eq 'NOT' ) {
 					push @sqry, ( $text eq 'null' )
-					  ? "($view.id NOT IN ($joined_table AND $field is null))"
-					  : "($view.id NOT IN ($joined_table AND $field='$text'))";
+					  ? "($view.id NOT IN ($joined_table WHERE $field is null))"
+					  : "($view.id NOT IN ($joined_table WHERE $field='$text'))";
 				} elsif ( $operator eq "contains" ) {
 					push @sqry,
 					  $scheme_field_info->{'type'} eq 'integer'
-					  ? "($view.id IN ($joined_table AND CAST($field AS text) ~* '$text'))"
-					  : "($view.id IN ($joined_table AND $field ~* '$text'))";
+					  ? "($view.id IN ($joined_table WHERE CAST($field AS text) ~* '$text'))"
+					  : "($view.id IN ($joined_table WHERE $field ~* '$text'))";
 				} elsif ( $operator eq "starts with" ) {
 					push @sqry,
 					  $scheme_field_info->{'type'} eq 'integer'
-					  ? "($view.id IN ($joined_table AND CAST($field AS text) LIKE '$text\%'))"
-					  : "($view.id IN ($joined_table AND $field ILIKE '$text\%'))";
+					  ? "($view.id IN ($joined_table WHERE CAST($field AS text) LIKE '$text\%'))"
+					  : "($view.id IN ($joined_table WHERE $field ILIKE '$text\%'))";
 				} elsif ( $operator eq "ends with" ) {
 					push @sqry,
 					  $scheme_field_info->{'type'} eq 'integer'
-					  ? "($view.id IN ($joined_table AND CAST($field AS text) LIKE '\%$text'))"
-					  : "($view.id IN ($joined_table AND $field ILIKE '\%$text'))";
+					  ? "($view.id IN ($joined_table WHERE CAST($field AS text) LIKE '\%$text'))"
+					  : "($view.id IN ($joined_table WHERE $field ILIKE '\%$text'))";
 				} elsif ( $operator eq "NOT contain" ) {
 					push @sqry,
 					  $scheme_field_info->{'type'} eq 'integer'
-					  ? "($view.id IN ($joined_table AND CAST($field AS text) !~* '$text'))"
-					  : "($view.id IN ($joined_table AND $field !~* '$text'))";
+					  ? "($view.id IN ($joined_table WHERE CAST($field AS text) !~* '$text'))"
+					  : "($view.id IN ($joined_table WHERE $field !~* '$text'))";
 				} elsif ( $operator eq '=' ) {
 					if ( $text eq 'null' ) {
-						push @lqry_blank, "($view.id IN ($joined_table AND $field is null))";
+						push @lqry_blank, "($view.id IN ($joined_table WHERE $field is null))";
 					} else {
 						push @sqry,
 						  $scheme_field_info->{'type'} eq 'text'
-						  ? "($view.id IN ($joined_table AND upper($field)=upper('$text')))"
-						  : "($view.id IN ($joined_table AND $field='$text'))";
+						  ? "($view.id IN ($joined_table WHERE upper($field)=upper('$text')))"
+						  : "($view.id IN ($joined_table WHERE $field='$text'))";
 					}
 				} else {
 					if ( $scheme_field_info->{'type'} eq 'integer' ) {
-						push @sqry, "($view.id IN ($joined_table AND CAST($field AS int) $operator '$text'))";
+						push @sqry, "($view.id IN ($joined_table WHERE CAST($field AS int) $operator '$text'))";
 					} else {
-						push @sqry, "($view.id IN ($joined_table AND $field $operator '$text'))";
+						push @sqry, "($view.id IN ($joined_table WHERE $field $operator '$text'))";
 					}
 				}
 			}
