@@ -48,8 +48,8 @@ sub print_content {
 	my $scheme_info;
 	my $primary_key;
 	my $desc = $self->get_db_description;
-	if ( $system->{'dbtype'} eq 'sequences' ) {
 
+	if ( $system->{'dbtype'} eq 'sequences' ) {
 		if ( !$scheme_id ) {
 			say "<div class=\"box\" id=\"statusbad\"><p>No scheme id passed.</p></div>";
 			return;
@@ -75,7 +75,7 @@ sub print_content {
 		};
 		if ( !$primary_key ) {
 			say "<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  Profile browsing can not be "
-			 . "done until this has been set.</p></div>";
+			  . "done until this has been set.</p></div>";
 			return;
 		}
 	} else {
@@ -125,7 +125,7 @@ sub _print_query_interface {
 			( $labels->{"s_$scheme_id\_$_"} = $_ ) =~ tr/_/ /;
 		}
 		my $set_id = $self->get_set_id;
-		my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+		my $loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		foreach my $locus (@$loci) {
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 			push @$field_list, "l_$locus";
@@ -133,7 +133,7 @@ sub _print_query_interface {
 			$labels->{"l_$locus"} .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
 			my $set_id = $self->get_set_id;
 			if ($set_id) {
-				my $set_cleaned = $self->{'datastore'}->get_set_locus_label($locus, $set_id);
+				my $set_cleaned = $self->{'datastore'}->get_set_locus_label( $locus, $set_id );
 				$labels->{"l_$locus"} = $set_cleaned if $set_cleaned;
 			}
 		}
@@ -159,7 +159,7 @@ sub _print_query_interface {
 	say "<div style=\"clear:both\">";
 	my $scheme_clause = $self->{'system'}->{'dbtype'} eq 'isolates' ? '' : "&amp;scheme_id=$scheme_id";
 	say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=listQuery$scheme_clause\" "
-	 . "class=\"resetbutton\">Reset</a>";
+	  . "class=\"resetbutton\">Reset</a>";
 	say "<span style=\"float:right\">";
 	say $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
 	say "</span></div>";
@@ -244,9 +244,9 @@ sub _run_isolate_query {
 	if ( $field =~ /^f_(.*)$/ ) {
 		$field = $1;
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-		$datatype  = $thisfield->{'type'};
+		$datatype = $thisfield->{'type'};
 		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-		$fieldtype = defined $metaset ? 'metafield': 'isolate';
+		$fieldtype = defined $metaset ? 'metafield' : 'isolate';
 	} elsif ( $field =~ /$locus_pattern/ ) {
 		$field    = $1;
 		$datatype = $self->{'datastore'}->get_locus_info($field)->{'allele_id_format'};
@@ -258,25 +258,36 @@ sub _run_isolate_query {
 		$datatype  = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field )->{'type'};
 		$fieldtype = 'scheme_field';
 		my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 		$joined_table = "SELECT id FROM $self->{'system'}->{'view'}";
 		foreach (@$scheme_loci) {
-			$joined_table .= " left join allele_designations AS $_ on $_.isolate_id = $self->{'system'}->{'view'}.id";
+			( my $cleaned_locus = $_ ) =~ s/'/_PRIME_/g;
+			$joined_table .=
+			  " left join allele_designations AS $cleaned_locus on $cleaned_locus.isolate_id = $self->{'system'}->{'view'}.id";
 		}
 		$joined_table .= " left join temp_scheme_$scheme_id AS scheme_$scheme_id ON ";
 		my @temp;
 		foreach (@$scheme_loci) {
+			( my $cleaned_locus = $_ ) =~ s/'/_PRIME_/g;
 			my $locus_info = $self->{'datastore'}->get_locus_info($_);
 			if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-				push @temp, " CAST($_.allele_id AS int)=scheme_$scheme_id\.$_";
+				if ( $scheme_info->{'allow_missing_loci'} ) {
+					push @temp, "(CAST(COALESCE($cleaned_locus.allele_id,'N') AS text)=CAST(scheme_$scheme_id\.$cleaned_locus AS text) "
+					  . "OR scheme_$scheme_id\.$cleaned_locus='N')";
+				} else {
+					push @temp, "CAST($cleaned_locus.allele_id AS text)=CAST(scheme_$scheme_id\.$cleaned_locus AS text)";
+				}
 			} else {
-				push @temp, " $_.allele_id=scheme_$scheme_id\.$_";
+				push @temp, " $cleaned_locus.allele_id=scheme_$scheme_id\.$cleaned_locus";
 			}
 		}
 		local $" = ' AND ';
 		$joined_table .= " @temp WHERE";
 		undef @temp;
 		foreach (@$scheme_loci) {
-			push @temp, "$_.locus=E'$_'";
+			( my $cleaned_locus = $_ ) =~ s/'/_PRIME_/g;
+			( my $escaped_locus = $_ ) =~ s/'/\\'/g;
+			push @temp, "$cleaned_locus.locus=E'$escaped_locus'";
 		}
 		$joined_table .= " @temp";
 	} elsif ( $field =~ /^e_(.*)\|\|(.*)/ ) {
@@ -313,13 +324,13 @@ sub _run_isolate_query {
 					$tempqry .= ')';
 				} elsif ( $field eq $self->{'system'}->{'labelfield'} ) {
 					$tempqry .= "(upper($self->{'system'}->{'labelfield'}) = upper('$value') OR $self->{'system'}->{'view'}.id IN "
-					 . "(SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper(E'$value')))";
+					  . "(SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper(E'$value')))";
 				} elsif ( $datatype eq 'text' ) {
 					$tempqry .= "upper($field) = upper(E'$value')";
 				} else {
 					$tempqry .= "$field = E'$value'";
 				}
-			} elsif ($fieldtype eq 'metafield'){
+			} elsif ( $fieldtype eq 'metafield' ) {
 				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 				$tempqry .= $datatype eq 'text' ? "upper($metafield) = upper(E'$value')" : "$metafield = E'$value'";
 			} elsif ( $fieldtype eq 'locus' ) {
@@ -334,7 +345,7 @@ sub _run_isolate_query {
 				  : "$field=E'$value'";
 			} elsif ( $fieldtype eq 'extended_isolate' ) {
 				$tempqry .= "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE "
-				 . "isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) = upper(E'$value'))";
+				  . "isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) = upper(E'$value'))";
 			}
 		}
 	}
@@ -343,15 +354,14 @@ sub _run_isolate_query {
 		return;
 	}
 	my $qry;
-	
 	if ( $fieldtype eq 'isolate' || $extended_isolate_field ) {
 		$qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE ($tempqry)";
-	} elsif ($fieldtype eq 'metafield'){
+	} elsif ( $fieldtype eq 'metafield' ) {
 		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 		$qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE id IN (SELECT isolate_id FROM meta_$metaset WHERE $tempqry)";
 	} elsif ( $fieldtype eq 'locus' ) {
 		$qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE id IN (select distinct($self->{'system'}->{'view'}.id) "
-		 . "FROM $self->{'system'}->{'view'} LEFT JOIN allele_designations ON $self->{'system'}->{'view'}.id=allele_designations.isolate_id WHERE $tempqry)";
+		  . "FROM $self->{'system'}->{'view'} LEFT JOIN allele_designations ON $self->{'system'}->{'view'}.id=allele_designations.isolate_id WHERE $tempqry)";
 	} elsif ( $fieldtype eq 'scheme_field' ) {
 		$qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE $self->{'system'}->{'view'}.id IN ($joined_table AND ($tempqry))";
 	}
