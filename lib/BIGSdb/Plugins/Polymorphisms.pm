@@ -266,7 +266,8 @@ sub _print_interface {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $view   = $self->{'system'}->{'view'};
-	my ( $loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { 'analysis_pref' => 1 } );
+	my $set_id = $self->get_set_id;
+	my ( $loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, analysis_pref => 1 } );
 	if ( !@$loci ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>No loci have been defined for this database.</p></div>";
 		return;
