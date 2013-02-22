@@ -1,6 +1,6 @@
 #Polymorphisms.pm - Plugin for BIGSdb (requires LocusExplorer plugin)
 #Written by Keith Jolley
-#Copyright (c) 2011-2012, University of Oxford
+#Copyright (c) 2011-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,6 +20,7 @@
 package BIGSdb::Plugins::Polymorphisms;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::Plugins::LocusExplorer);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -39,7 +40,7 @@ sub get_attributes {
 		category    => 'Breakdown',
 		menutext    => 'Polymorphic sites',
 		module      => 'Polymorphisms',
-		version     => '1.0.1',
+		version     => '1.0.2',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		requires    => 'muscle,offline_jobs',
@@ -53,7 +54,7 @@ sub get_attributes {
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { 'general' => 1, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 1, 'query_field' => 0 };
+	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 0 };
 	return;
 }
 
@@ -61,14 +62,14 @@ sub run {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
-	print "<h1>Polymorphic site analysis</h1>\n";
+	say "<h1>Polymorphic site analysis</h1>";
 	my $locus = $q->param('locus') || '';
 	if ( $locus =~ /^cn_(.+)/ ) {
 		$locus = $1;
 		$q->param( 'locus', $locus );
 	}
 	if ( !$locus ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Please select a locus.</p></div>\n" if $q->param('submit');
+		say "<div class=\"box\" id=\"statusbad\"><p>Please select a locus.</p></div>" if $q->param('submit');
 		$self->_print_interface;
 		return;
 	}
@@ -85,16 +86,16 @@ sub run {
 		$options{'count_only'} = 0;
 		my $seqs = $self->_get_seqs( $locus, $ids, \%options );
 		if ( !@$seqs ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>There are no $locus alleles in your selection.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>There are no $locus alleles in your selection.</p></div>";
 			return;
 		}
-		print "<div class=\"box\" id=\"resultsheader\">\n";
+		say "<div class=\"box\" id=\"resultsheader\">";
 		my ( $buffer, $freqs ) = $self->get_snp_schematic( $locus, $seqs, undef, $self->{'prefs'}->{'alignwidth'} );
 		print $buffer;
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		( $buffer, undef ) = $self->get_freq_table( $freqs, $locus_info );
-		print $buffer if $buffer;
-		print "</div>\n";
+		say $buffer if $buffer;
+		say "</div>";
 	} elsif ( $seq_count <= MAX_SEQS ) {
 
 		#Make sure query file is accessible to job host (the web server and job host may not be the same machine)
@@ -107,15 +108,15 @@ sub run {
 		}
 		my $params = $q->Vars;
 		$params->{'alignwidth'} = $self->{'prefs'}->{'alignwidth'};
-		my $user_info = $self->{'datastore'}->get_user_info_from_username($self->{'username'});
-		my $job_id = $self->{'jobManager'}->add_job(
+		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+		my $job_id    = $self->{'jobManager'}->add_job(
 			{
-				'dbase_config' => $self->{'instance'},
-				'ip_address'   => $q->remote_host,
-				'module'       => 'Polymorphisms',
-				'parameters'   => $params,
-				'username'     => $self->{'username'},
-				'email'        => $user_info->{'email'}
+				dbase_config => $self->{'instance'},
+				ip_address   => $q->remote_host,
+				module       => 'Polymorphisms',
+				parameters   => $params,
+				username     => $self->{'username'},
+				email        => $user_info->{'email'}
 			}
 		);
 		print <<"HTML";
@@ -133,9 +134,9 @@ HTML
 	} else {
 		my $max      = MAX_SEQS;
 		my $num_seqs = @$ids;
-		print "<div class=\"box\" id=\"statusbad\"><p>This analysis relies are being able to produce an alignment 
-		of your sequences.  This is a potentially processor- and memory-intensive operation for large numbers of
-		sequences and is consequently limited to $max records.  You have $num_seqs records in your analysis.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>This analysis relies are being able to produce an alignment "
+		  . "of your sequences.  This is a potentially processor- and memory-intensive operation for large numbers of "
+		  . "ssequences and is consequently limited to $max records.  You have $num_seqs records in your analysis.</p></div>";
 	}
 	return;
 }
@@ -173,17 +174,16 @@ sub run_job {
 	my $html_file = "$self->{'config'}->{tmp_dir}/$temp.html";
 	my ( $buffer, $freqs ) = $self->get_snp_schematic( $locus, $seqs, undef, $params->{'alignwidth'} );
 	open( my $html_fh, '>', $html_file );
-	print $html_fh $self->get_html_header($locus);
-	print $html_fh "<h1>Polymorphic site analysis</h1>\n<div class=\"box\" id=\"resultsheader\">\n";
-	print $html_fh $buffer;
+	say $html_fh $self->get_html_header($locus);
+	say $html_fh "<h1>Polymorphic site analysis</h1>\n<div class=\"box\" id=\"resultsheader\">";
+	say $html_fh $buffer;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	( $buffer, undef ) = $self->get_freq_table( $freqs, $locus_info );
-	print $html_fh $buffer;
-	print $html_fh "</div>\n</body>\n</html>\n";
+	say $html_fh $buffer;
+	say $html_fh "</div>\n</body>\n</html>";
 	$self->{'jobManager'}->update_job_output( $job_id, { 'filename' => "$temp.html", 'description' => 'Locus schematic (HTML format)' } );
 	return;
 }
-
 sub get_plugin_javascript { }
 
 sub _get_seqs {
@@ -196,9 +196,9 @@ sub _get_seqs {
 	$options = {} if ref $options ne 'HASH';
 	my $exclude_clause = $options->{'exclude_incompletes'} ? ' AND complete ' : '';
 	my $seqbin_sql =
-	  $self->{'db'}->prepare(
-"SELECT substring(sequence from start_pos for end_pos-start_pos+1),reverse FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE isolate_id=? AND locus=? $exclude_clause ORDER BY complete desc,allele_sequences.datestamp LIMIT 1"
-	  );
+	  $self->{'db'}->prepare( "SELECT substring(sequence from start_pos for end_pos-start_pos+1),reverse FROM allele_sequences "
+		  . "LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE isolate_id=? AND locus=? $exclude_clause "
+		  . "ORDER BY complete desc,allele_sequences.datestamp LIMIT 1" );
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
 	my $locus;
 	try {
@@ -268,42 +268,43 @@ sub _print_interface {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $view   = $self->{'system'}->{'view'};
-	my ( $loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { 'analysis_pref' => 1 } );
+	my $set_id = $self->get_set_id;
+	my ( $loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, analysis_pref => 1 } );
 	if ( !@$loci ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>No loci have been defined for this database.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>No loci have been defined for this database.</p></div>";
 		return;
 	}
-	print "<div class=\"box\" id=\"queryform\">\n";
-	print "<p>This tool will analyse the polymorphic sites in the selected locus for the current isolate dataset.</p>\n";
-	print "<p>If more than 50 sequences have been selected, the job will be run by the offline job manager which may 
-	take a few minutes (or longer depending on the queue).  This is because sequences may have gaps in them and 
-	consequently need to be aligned which is a processor- and memory- intensive operation.</p>\n";
-	print "<div class=\"scrollable\">\n";
-	print $q->start_form;
-	print "<fieldset style=\"float:left\">\n<legend>Loci</legend>\n";
-	print $q->scrolling_list( -name => 'locus', -id => 'locus', -values => $loci, -labels => $cleaned, -size => 8, );
-	print "</fieldset>\n";
-	print "<fieldset style=\"float:left\">\n<legend>Options</legend>\n";
-	print "If both allele designations and tagged sequences<br />exist for a locus, choose how you want these handled: ";
-	print
-" <a class=\"tooltip\" title=\"Sequence retrieval - Peptide loci will only be retrieved from the sequence bin (as nucleotide sequences).\">&nbsp;<i>i</i>&nbsp;</a>";
-	print "<br /><br />";
-	print "<ul>\n<li>\n";
+	say "<div class=\"box\" id=\"queryform\">";
+	say "<p>This tool will analyse the polymorphic sites in the selected locus for the current isolate dataset.</p>";
+	say "<p>If more than 50 sequences have been selected, the job will be run by the offline job manager which may "
+	  . "take a few minutes (or longer depending on the queue).  This is because sequences may have gaps in them and "
+	  . "consequently need to be aligned which is a processor- and memory- intensive operation.</p>";
+	say "<div class=\"scrollable\">";
+	say $q->start_form;
+	say "<fieldset style=\"float:left\">\n<legend>Loci</legend>";
+	say $q->scrolling_list( -name => 'locus', -id => 'locus', -values => $loci, -labels => $cleaned, -size => 8, );
+	say "</fieldset>";
+	say "<fieldset style=\"float:left\">\n<legend>Options</legend>";
+	say "If both allele designations and tagged sequences<br />exist for a locus, choose how you want these handled: ";
+	say " <a class=\"tooltip\" title=\"Sequence retrieval - Peptide loci will only be retrieved from the sequence bin (as nucleotide "
+	  . "sequences).\">&nbsp;<i>i</i>&nbsp;</a>";
+	say "<br /><br />";
+	say "<ul>\n<li>";
 	my %labels =
 	  ( 'seqbin' => 'Use sequences tagged from the bin', 'allele_designation' => 'Use allele sequence retrieved from external database' );
-	print $q->radio_group( -name => 'chooseseq', -values => [ 'seqbin', 'allele_designation' ], -labels => \%labels, -linebreak => 'true' );
-	print "</li>\n<li style=\"margin-top:1em\">\n";
-	print $q->checkbox( -name => 'unique', -label => 'Analyse single example of each unique sequence', -checked => 'checked' );
-	print "</li>\n<li>\n";
-	print $q->checkbox( -name => 'exclude_incompletes', -label => 'Exclude incomplete sequences', -checked => 'checked' );
-	print "</li></ul>\n";
-	print "</fieldset>\n";
-	print "<fieldset class=\"display\">\n";
-	print $q->submit( -name => 'submit', -label => 'Analyse', -class => 'submit' );
-	print "</fieldset>\n";
-	print $q->hidden($_) foreach (qw (page name db query_file));
-	print $q->end_form;
-	print "</div>\n</div>\n";
+	say $q->radio_group( -name => 'chooseseq', -values => [ 'seqbin', 'allele_designation' ], -labels => \%labels, -linebreak => 'true' );
+	say "</li>\n<li style=\"margin-top:1em\">";
+	say $q->checkbox( -name => 'unique', -label => 'Analyse single example of each unique sequence', -checked => 'checked' );
+	say "</li>\n<li>";
+	say $q->checkbox( -name => 'exclude_incompletes', -label => 'Exclude incomplete sequences', -checked => 'checked' );
+	say "</li></ul>";
+	say "</fieldset>";
+	say "<fieldset class=\"display\">";
+	say $q->submit( -name => 'submit', -label => 'Analyse', -class => 'submit' );
+	say "</fieldset>";
+	say $q->hidden($_) foreach (qw (page name db query_file));
+	say $q->end_form;
+	say "</div>\n</div>";
 	return;
 }
 1;
