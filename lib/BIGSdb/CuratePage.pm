@@ -1086,9 +1086,11 @@ sub create_scheme_view {
 			$self->{'db'}->do("SELECT create_matview('mv_scheme_$scheme_id', 'scheme_$scheme_id')");
 			$self->{'db'}->do("CREATE UNIQUE INDEX i_mv$scheme_id\_1 ON mv_scheme_$scheme_id ($pk)");
 			local $" = ',';
-			my $locus_string = "@$loci";
-			$locus_string =~ s/'/_PRIME_/g;
-			$self->{'db'}->do("CREATE UNIQUE INDEX i_mv$scheme_id\_2 ON mv_scheme_$scheme_id ($locus_string)");
+			if (@$loci <= 32){ #By default PostgreSQL will not allow indexes with more than 32 columns
+				my $locus_string = "@$loci";
+				$locus_string =~ s/'/_PRIME_/g;
+				$self->{'db'}->do("CREATE UNIQUE INDEX i_mv$scheme_id\_2 ON mv_scheme_$scheme_id ($locus_string)");
+			}
 		}
 	};
 	$logger->error($@) if $@;
