@@ -319,7 +319,7 @@ sub _run_query {
 			my $table = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'allele_designations' : 'profile_members';
 			my $locus_qry;
 			if ( $values{$locus} eq 'N' ) {
-				$locus_qry = "($table.locus='$cleaned_locus'";    #don't match allele_id because it can be anything
+				$locus_qry = "($table.locus=E'$cleaned_locus'";    #don't match allele_id because it can be anything
 			} else {
 				my $arbitrary_clause = $scheme_info->{'allow_missing_loci'} ? " OR $table.allele_id = 'N'" : '';
 				$locus_qry =

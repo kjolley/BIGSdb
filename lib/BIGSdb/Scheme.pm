@@ -51,6 +51,7 @@ sub get_profile_by_primary_keys {
 	}
 	if ( !$self->{'sql'}->{'scheme_profiles'} ) {
 		my $loci = $self->{'loci'};
+		s/'/_PRIME_/g foreach @$loci;
 		local $" = ',';
 		my $qry = "SELECT @$loci FROM $self->{'dbase_table'} WHERE ";
 		local $" = '=? AND ';
@@ -61,8 +62,8 @@ sub get_profile_by_primary_keys {
 	}
 	eval { $self->{'sql'}->{'scheme_profiles'}->execute(@$values) };
 	if ($@) {
-		$logger->warn(
-"Can't execute 'scheme_profiles' query handle. Check database attributes in the scheme_fields and scheme_members tables for scheme#$self->{'id'} ($self->{'description'})! Statement was '$self->{'sql'}->{scheme_fields}->{Statement}'. $@"
+		$logger->warn( "Can't execute 'scheme_profiles' query handle. Check database attributes in the scheme_fields and scheme_members "
+			  . "tables for scheme#$self->{'id'} ($self->{'description'})! Statement was '$self->{'sql'}->{scheme_fields}->{Statement}'. $@"
 			  . $self->{'db'}->errstr );
 		throw BIGSdb::DatabaseConfigurationException("Scheme configuration error");
 		return;
