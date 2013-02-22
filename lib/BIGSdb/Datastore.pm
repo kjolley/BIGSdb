@@ -760,10 +760,10 @@ sub create_temp_scheme_table {
 		$self->{'db'}->rollback;
 		throw BIGSdb::DatabaseConnectionException("Can't put data into temp table");
 	}
-	local $" = ',';
-	eval { $self->{'db'}->do("CREATE INDEX i_$id ON temp_scheme_$id (@$loci)"); };
-	if ($@) {
-		$logger->warn("Can't create index");
+	if (@$loci <= 32){ #By default PostgreSQL will not allow indexes with more than 32 columns
+		local $" = ',';
+		eval { $self->{'db'}->do("CREATE INDEX i_$id ON temp_scheme_$id (@$loci)"); };		
+		$logger->warn("Can't create index") if $@;
 	}
 	foreach (@$fields) {
 		$self->{'db'}->do("CREATE INDEX i_$id\_$_ ON temp_scheme_$id ($_)");
