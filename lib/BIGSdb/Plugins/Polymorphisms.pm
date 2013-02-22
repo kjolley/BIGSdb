@@ -58,6 +58,8 @@ sub set_pref_requirements {
 	return;
 }
 
+sub get_plugin_javascript { } #override version in LocusExplorer.pm
+
 sub run {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
