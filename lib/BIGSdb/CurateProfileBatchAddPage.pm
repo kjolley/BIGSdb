@@ -353,8 +353,9 @@ sub _check {
 	}
 	say "<div class=\"box\" id=\"resultstable\"><h2>Data to be imported</h2>";
 	say "<p>The following table shows your data.  Any field coloured red has a problem and needs to be checked.</p>";
+	say "<div class=\"scrollable\">";
 	say $table_buffer;
-	say "</div><p />";
+	say "</div></div><p />";
 	return;
 }
 
