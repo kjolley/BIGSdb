@@ -1,6 +1,6 @@
 #SchemeBreakdown.pm - SchemeBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,6 +20,7 @@
 package BIGSdb::Plugins::SchemeBreakdown;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -73,13 +74,13 @@ sub run {
 	my $query_file = $q->param('query_file');
 	my $format     = $q->param('format');
 	if ( $format eq 'text' ) {
-		print "Scheme field and allele breakdown of dataset\n\n" if !$q->param('download');
+		say "Scheme field and allele breakdown of dataset\n" if !$q->param('download');
 	} else {
-		print "<h1>Scheme field and allele breakdown of dataset</h1>\n";
+		say "<h1>Scheme field and allele breakdown of dataset</h1>";
 	}
 	my $loci = $self->{'datastore'}->run_list_query("SELECT id FROM loci ORDER BY id");
 	if ( !scalar @$loci ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>No loci are defined for this database.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>No loci are defined for this database.</p></div>";
 		return;
 	}
 	my $qry_ref = $self->get_query($query_file);
@@ -92,20 +93,20 @@ sub run {
 		$self->_do_analysis( \$qry );
 		return;
 	}
-	print "<div class=\"box\" id=\"queryform\">\n";
+	say "<div class=\"box\" id=\"queryform\">";
 	$self->_print_tree;
-	print "</div>\n";
+	say "</div>";
 	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,description");
 	my @selected_schemes;
 	foreach ( @$schemes, 0 ) {
 		push @selected_schemes, $_ if $q->param("s_$_");
 	}
 	return if !@selected_schemes;
-	print "<div class=\"box\" id=\"resultstable\">\n";
+	say "<div class=\"box\" id=\"resultstable\">";
 	foreach my $scheme_id (@selected_schemes) {
 		$self->_print_scheme_table( $scheme_id, \$qry );
 	}
-	print "</div>\n";
+	say "</div>";
 	return;
 }
 
@@ -120,7 +121,7 @@ sub _do_analysis {
 			$scheme_id = $1;
 			$field     = $2;
 			if ( !$self->{'datastore'}->is_scheme_field( $scheme_id, $field ) ) {
-				print "<div class=\"box\" id=\"statusbad\"><p>Invalid field passed for analysis!</p></div>\n";
+				say "<div class=\"box\" id=\"statusbad\"><p>Invalid field passed for analysis!</p></div>";
 				$logger->error( "Invalid field passed for analysis. Field is set as '" . $q->param('field') . "'." );
 				return;
 			}
@@ -133,8 +134,8 @@ sub _do_analysis {
 					$self->{'datastore'}->create_temp_scheme_table($scheme_id);
 				}
 				catch BIGSdb::DatabaseConnectionException with {
-					print
-"<div class=\"box\" id=\"statusbad\"><p>The database for scheme $scheme_id is not accessible.  This may be a configuration problem.</p></div>\n";
+					say "<div class=\"box\" id=\"statusbad\"><p>The database for scheme $scheme_id is not accessible.  This may be a "
+					  . "configuration problem.</p></div>";
 					$continue = 0;
 				};
 				return if !$continue;
@@ -155,14 +156,14 @@ sub _do_analysis {
 			}
 			$field_query .= " GROUP BY scheme_$scheme_id.$field";
 		} else {
-			print "<div class=\"box\" id=\"statusbad\"><p>Invalid field passed for analysis!</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>Invalid field passed for analysis!</p></div>";
 			$logger->error( "Invalid field passed for analysis. Field is set as '" . $q->param('field') . "'." );
 			return;
 		}
 	} elsif ( $q->param('type') eq 'locus' ) {
 		my $locus = $q->param('field');
 		if ( !$self->{'datastore'}->is_locus($locus) ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>Invalid locus passed for analysis!</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>Invalid locus passed for analysis!</p></div>";
 			$logger->error( "Invalid locus passed for analysis. Locus is set as '" . $q->param('field') . "'." );
 			return;
 		}
@@ -186,7 +187,7 @@ s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT \* FROM $self->{'system'}->{
 s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}->{'view'} LEFT JOIN allele_designations ON isolate_id=id/;
 		$field_query .= " GROUP BY allele_id";
 	} else {
-		print "<div class=\"box\" id=\"statusbad\"><p>Invalid field passed for analysis!</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Invalid field passed for analysis!</p></div>";
 		$logger->error( "Invalid field passed for analysis. Field type is set as '" . $q->param('type') . "'." );
 		return;
 	}
@@ -243,26 +244,26 @@ sub _breakdown_field {
 	my $total  = $self->{'datastore'}->run_simple_query($qry)->[0];
 	my $format = $q->param('format');
 	if ( $format eq 'text' ) {
-		print "Total: $total isolates\n\n";
-		print "$heading\tFrequency\tPercentage\n";
+		say "Total: $total isolates\n";
+		say "$heading\tFrequency\tPercentage";
 	} else {
-		print "<div class=\"box\" id=\"resultstable\"><div class=\"scrollable\">";
-		print "<table><tr><td style=\"vertical-align:top\">\n";
-		print "<p>Total: $total isolates</p>\n";
-		print "<table class=\"tablesorter\" id=\"sortTable\">\n";
+		say "<div class=\"box\" id=\"resultstable\"><div class=\"scrollable\">";
+		say "<table><tr><td style=\"vertical-align:top\">";
+		say "<p>Total: $total isolates</p>";
+		say "<table class=\"tablesorter\" id=\"sortTable\">";
 		$heading = $self->clean_locus($heading) if $q->param('type') eq 'locus';
-		print "<thead><tr><th>$heading$html_heading</th><th>Frequency</th><th>Percentage</th></tr></thead>\n";
+		say "<thead><tr><th>$heading$html_heading</th><th>Frequency</th><th>Percentage</th></tr></thead>";
 	}
 	my ( @labels, @values );
 	while ( my ( $allele_id, $count ) = $sql->fetchrow_array ) {
 		if ($count) {
 			my $percentage = BIGSdb::Utils::decimal_place( $count * 100 / $total, 2 );
 			if ( $format eq 'text' ) {
-				print "$allele_id\t$count\t$percentage\n";
+				say "$allele_id\t$count\t$percentage";
 			} else {
-				print "<tr class=\"td$td\"><td>";
+				say "<tr class=\"td$td\"><td>";
 				if ( $allele_id eq '' ) {
-					print 'No value';
+					say 'No value';
 				} else {
 					my $url;
 					if ( $q->param('type') eq 'locus' ) {
@@ -270,9 +271,9 @@ sub _breakdown_field {
 						$url =~ s/\&/\&amp;/g;
 						$url =~ s/\[\?\]/$allele_id/;
 					}
-					print $url ? "<a href=\"$url\">$allele_id</a>" : $allele_id;
+					say $url ? "<a href=\"$url\">$allele_id</a>" : $allele_id;
 				}
-				print "</td><td>$count</td><td>$percentage</td></tr>\n";
+				say "</td><td>$count</td><td>$percentage</td></tr>";
 				$td = $td == 1 ? 2 : 1;
 			}
 			push @labels, ( $allele_id ne '' ) ? $allele_id : 'No value';
@@ -280,14 +281,14 @@ sub _breakdown_field {
 		}
 	}
 	if ( $format ne 'text' ) {
-		print "</table>\n";
-		print "</td><td style=\"vertical-align:top; padding-left:2em\">\n";
+		say "</table>";
+		say "</td><td style=\"vertical-align:top; padding-left:2em\">";
 		my $query_file_att = $q->param('query_file') ? ( "&amp;query_file=" . $q->param('query_file') ) : undef;
-		print $q->start_form;
-		print $q->submit( -name => 'field_breakdown', -label => 'Tab-delimited text', -class => 'smallbutton' );
+		say $q->start_form;
+		say $q->submit( -name => 'field_breakdown', -label => 'Tab-delimited text', -class => 'smallbutton' );
 		$q->param( 'format', 'text' );
-		print $q->hidden($_) foreach qw (query_file field type page name db format);
-		print $q->end_form;
+		say $q->hidden($_) foreach qw (query_file field type page name db format);
+		say $q->end_form;
 
 		if ( $self->{'config'}->{'chartdirector'} ) {
 			my %prefs;
@@ -310,12 +311,12 @@ sub _breakdown_field {
 			};
 			my $temp = BIGSdb::Utils::get_random();
 			BIGSdb::Charts::piechart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$temp\_pie.png", 24, 'small', \%prefs );
-			print "<img src=\"/tmp/$temp\_pie.png\" alt=\"pie chart\" />\n";
+			say "<img src=\"/tmp/$temp\_pie.png\" alt=\"pie chart\" />";
 			BIGSdb::Charts::barchart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$temp\_bar.png", 'small', \%prefs );
-			print "<img src=\"/tmp/$temp\_bar.png\" alt=\"bar chart\" />\n";
+			say "<img src=\"/tmp/$temp\_bar.png\" alt=\"bar chart\" />";
 		}
-		print "</td></tr></table>\n";
-		print "</div></div>\n";
+		say "</td></tr></table>";
+		say "</div></div>";
 	}
 	return;
 }
@@ -354,32 +355,32 @@ sub _print_scheme_table {
 			$self->{'datastore'}->create_temp_scheme_table($scheme_id);
 		}
 		catch BIGSdb::DatabaseConnectionException with {
-			print "</table>\n</div>\n";
-			print
-"<div class=\"box\" id=\"statusbad\"><p>The database for scheme $scheme_id is not accessible.  This may be a configuration problem.</p></div>\n";
+			say "</table>\n</div>";
+			say "<div class=\"box\" id=\"statusbad\"><p>The database for scheme $scheme_id is not accessible.  "
+			  . "This may be a configuration problem.</p></div>";
 			$continue = 0;
 		};
 		return if !$continue;
 	}
 	( my $desc = $scheme_info->{'description'} ) =~ s/&/&amp;/g;
 	local $| = 1;
-	print "<h2>$desc</h2>\n";
-	print "<table class=\"resultstable\">\n<tr>";
-	print "<th colspan=\"3\">Fields</th>" if @$fields;
-	print "<th colspan=\"4\">Alleles</th></tr>\n<tr>";
-	print "<th>Field name</th><th>Unique values</th><th>Analyse</th>" if @$fields;
-	print "<th>Locus</th><th>Unique alleles</th><th>Analyse</th><th>Download</th>";
-	print "</tr>\n";
+	say "<h2>$desc</h2>";
+	say "<table class=\"resultstable\">\n<tr>";
+	say "<th colspan=\"3\">Fields</th>" if @$fields;
+	say "<th colspan=\"4\">Alleles</th></tr>\n<tr>";
+	say "<th>Field name</th><th>Unique values</th><th>Analyse</th>" if @$fields;
+	say "<th>Locus</th><th>Unique alleles</th><th>Analyse</th><th>Download</th>";
+	say "</tr>";
 	my $td = 1;
-	print "<tr class=\"td$td\">";
+	say "<tr class=\"td$td\">";
 
 	for my $i ( 0 .. $rows - 1 ) {
-		print "<tr class=\"td$td\">" if $i;
+		say "<tr class=\"td$td\">" if $i;
 		my $display;
 		if (@$fields) {
 			$display = $fields->[$i] || '';
 			$display =~ tr/_/ /;
-			print "<td>$display</td>";
+			say "<td>$display</td>";
 			if ( $scheme_info->{'dbase_name'} && @$fields && $fields->[$i] ) {
 				my $scheme_query = $$scheme_fields_qry;
 				$scheme_query =~ s/\*/COUNT (DISTINCT(scheme_$scheme_id\.$fields->[$i]))/;
@@ -395,19 +396,19 @@ sub _print_scheme_table {
 				eval { $sql->execute };
 				$logger->error($@) if $@;
 				my ($value) = $sql->fetchrow_array;
-				print "<td>$value</td><td>";
+				say "<td>$value</td><td>";
 				if ($value) {
-					print $q->start_form;
-					print $q->submit( -label => 'Breakdown', -class => 'smallbutton' );
+					say $q->start_form;
+					say $q->submit( -label => 'Breakdown', -class => 'smallbutton' );
 					$q->param( 'field',           "$scheme_id\_$fields->[$i]" );
 					$q->param( 'type',            'field' );
 					$q->param( 'field_breakdown', 1 );
-					print $q->hidden($_) foreach qw (page name db query_file type field field_breakdown);
-					print $q->end_form;
+					say $q->hidden($_) foreach qw (page name db query_file type field field_breakdown);
+					say $q->end_form;
 				}
-				print "</td>";
+				say "</td>";
 			} else {
-				print "<td /><td />";
+				say "<td /><td />";
 			}
 		}
 		$display = $self->clean_locus( $loci->[$i] );
@@ -449,31 +450,31 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 			eval { $sql->execute };
 			$logger->error($@) if $@;
 			my ($value) = $sql->fetchrow_array;
-			print "<td>$value</td>";
+			say "<td>$value</td>";
 			if ($value) {
-				print "<td>";
-				print $q->start_form;
-				print $q->submit( -label => 'Breakdown', -class => 'smallbutton' );
+				say "<td>";
+				say $q->start_form;
+				say $q->submit( -label => 'Breakdown', -class => 'smallbutton' );
 				$q->param( 'field', $loci->[$i] );
 				$q->param( 'type',  'locus' );
-				print $q->hidden( 'field_breakdown', 1 );
-				print $q->hidden($_) foreach qw (page name db query_file field type);
-				print $q->end_form;
-				print "</td><td>";
-				print $q->start_form;
-				print $q->submit( -label => 'Download', -class => 'smallbutton' );
-				print $q->hidden( 'download', 1 );
+				say $q->hidden( 'field_breakdown', 1 );
+				say $q->hidden($_) foreach qw (page name db query_file field type);
+				say $q->end_form;
+				say "</td><td>";
+				say $q->start_form;
+				say $q->submit( -label => 'Download', -class => 'smallbutton' );
+				say $q->hidden( 'download', 1 );
 				$q->param( 'format', 'text' );
-				print $q->hidden($_) foreach qw (page name db query_file field type format);
-				print $q->end_form;
-				print "</td>";
+				say $q->hidden($_) foreach qw (page name db query_file field type format);
+				say $q->end_form;
+				say "</td>";
 			} else {
-				print "<td /><td />";
+				say "<td /><td />";
 			}
 		} else {
-			print "<td /><td />\n";
+			say "<td /><td />\n";
 		}
-		print "</tr>\n";
+		say "</tr>";
 		$td = $td == 1 ? 2 : 1;
 	}
 	print "</table>\n";
@@ -489,13 +490,13 @@ sub _download_alleles {
 	my $allele_ids = $self->{'datastore'}->run_list_query_hashref($$query_ref);
 	my $locus      = $self->{'datastore'}->get_locus($locus_name);
 	foreach (@$allele_ids) {
-		print ">$_->{'allele_id'}\n";
+		say ">$_->{'allele_id'}";
 		my $seq_ref = $locus->get_allele_sequence( $_->{'allele_id'} );
 		if ( ref $seq_ref eq 'SCALAR' && defined $$seq_ref ) {
 			$seq_ref = BIGSdb::Utils::break_line( $seq_ref, 60 );
-			print "$$seq_ref\n";
+			say $$seq_ref;
 		} else {
-			print "Can't extract sequence\n";
+			say "Can't extract sequence";
 		}
 	}
 	return;
@@ -505,32 +506,43 @@ sub _get_scheme_fields_sql {
 	my ( $self, $scheme_id ) = @_;
 	my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+	my $scheme_info   = $self->{'datastore'}->get_scheme_info($scheme_id);
 	my $joined_table  = "SELECT * FROM $self->{'system'}->{'view'}";
 	foreach (@$scheme_loci) {
-		$joined_table .= " left join allele_designations AS $_ on $_.isolate_id = $self->{'system'}->{'view'}.id";
+		( my $cleaned_locus = $_ ) =~ s/'/_PRIME_/g;
+		( my $escaped_locus = $_ ) =~ s/'/\\'/g;
+		$joined_table .= " left join allele_designations AS $cleaned_locus on $cleaned_locus.isolate_id = $self->{'system'}->{'view'}.id "
+		  . "AND $cleaned_locus.locus=E'$escaped_locus'";
 	}
 	$joined_table .= " left join temp_scheme_$scheme_id AS scheme_$scheme_id ON ";
 	my @temp;
 	foreach (@$scheme_loci) {
 		my $locus_info = $self->{'datastore'}->get_locus_info($_);
-		push @temp, $locus_info->{'allele_id_format'} eq 'integer'
-		  ? " CAST($_.allele_id AS int)=scheme_$scheme_id\.$_"
-		  : " $_.allele_id=scheme_$scheme_id\.$_";
+		( my $locus = $_ ) =~ s/'/_PRIME_/g;
+		if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
+			if ( $scheme_info->{'allow_missing_loci'} ) {
+				push @temp, "(CAST(COALESCE($locus.allele_id,'N') AS text)=CAST(scheme_$scheme_id\.$locus AS text) "
+				  . "OR scheme_$scheme_id\.$locus='N')";
+			} else {
+				push @temp, "CAST($locus.allele_id AS int)=scheme_$scheme_id\.$locus";
+			}
+		} else {
+			if ( $scheme_info->{'allow_missing_loci'} ) {
+				push @temp, "COALESCE($locus.allele_id,'N')=scheme_$scheme_id\.$locus";
+			} else {
+				push @temp, "$locus.allele_id=scheme_$scheme_id\.$locus";
+			}
+		}
 	}
 	local $" = ' AND ';
-	$joined_table .= " @temp WHERE";
-	undef @temp;
-	foreach (@$scheme_loci) {
-		push @temp, "$_.locus='$_'";
-	}
-	$joined_table .= " @temp";
+	$joined_table .= " @temp ";
 	return \$joined_table;
 }
 
 sub _print_tree {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	print $q->start_form;
+	say $q->start_form;
 	print << "HTML";
 <p>Select schemes or groups of schemes within the tree.  A breakdown of the individual fields and loci belonging to 
 these schemes will then be performed.</p>
@@ -539,11 +551,11 @@ these schemes will then be performed.</p>
 </noscript>
 <div id="tree" class="tree" style=\"display:none; height:10em; width:30em\">
 HTML
-	print $self->get_tree( undef, { no_link_out => 1, select_schemes => 1, analysis_pref => 1 } );
-	print "</div>\n";
-	print $q->submit( -name => 'selected', -label => 'Select', -class => 'submit' );
-	print $q->hidden($_) foreach qw(db page name query_file);
-	print $q->end_form;
+	say $self->get_tree( undef, { no_link_out => 1, select_schemes => 1, analysis_pref => 1 } );
+	say "</div>";
+	say $q->submit( -name => 'selected', -label => 'Select', -class => 'submit' );
+	say $q->hidden($_) foreach qw(db page name query_file);
+	say $q->end_form;
 	return;
 }
 
