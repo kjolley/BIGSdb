@@ -547,11 +547,11 @@ sub _get_value_frequency_hashes {
 	foreach ( $field1, $field2 ) {
 		if ( $self->{'xmlHandler'}->is_field( $clean{$_} ) ) {
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($_);
-			$field_type{ $clean{$_} } = defined $metaset ? 'metafield' : 'field';
+			$field_type{ $_ } = defined $metaset ? 'metafield' : 'field';
 			$metafield =~ tr/_/ / if defined $metafield;
 			$print{$_} = $metafield // $clean{$_};
 		} elsif ( $self->{'datastore'}->is_locus( $clean{$_} ) ) {
-			$field_type{ $clean{$_} } = 'locus';
+			$field_type{ $_ } = 'locus';
 			$print{$_} = $clean{$_};
 		} else {
 			if ( $_ =~ /^s_(\d+)_(.*)/ ) {
@@ -560,8 +560,8 @@ sub _get_value_frequency_hashes {
 				if ( $self->{'datastore'}->is_scheme_field( $scheme_id, $field ) ) {
 					$clean{$_}                = $field;
 					$print{$_}                = $clean{$_};
-					$field_type{ $clean{$_} } = 'scheme_field';
-					$scheme_id{ $clean{$_} }  = $scheme_id;
+					$field_type{ $_ } = 'scheme_field';
+					$scheme_id{ $_ }  = $scheme_id;
 					my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 					$print{$_} .= " ($scheme_info->{'description'})";
 				}
@@ -569,7 +569,7 @@ sub _get_value_frequency_hashes {
 		}
 	}
 	foreach my $id (@$id_list) {
-		my @values = $self->_get_values( $id, [ $clean{$field1}, $clean{$field2} ],
+		my @values = $self->_get_values( $id, [ $field1, $field2] , \%clean,
 			\%field_type, \%scheme_id, { fetchall => ( @$id_list / $total_isolates >= 0.5 ? 1 : 0 ) } );
 		foreach (qw (0 1)) {
 			$values[$_] = 'No value' if !defined $values[$_] || $values[$_] eq '';
@@ -585,7 +585,7 @@ sub _get_value_frequency_hashes {
 sub _get_values {
 
 	#If number of records is >=50% of total records, query database and fetch all rows, otherwise call for each record in turn.
-	my ( $self, $isolate_id, $fields, $field_type, $scheme_id, $options ) = @_;
+	my ( $self, $isolate_id, $fields, $clean_fields, $field_type, $scheme_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my @values;
 	foreach my $field (@$fields) {
@@ -594,16 +594,17 @@ sub _get_values {
 			when ('field') {
 				if ( $options->{'fetchall'} ) {
 					if ( !$self->{'cache'}->{$field} ) {
-						my $sql = $self->{'db'}->prepare("SELECT id, $field FROM $self->{'system'}->{'view'}");
+						my $sql = $self->{'db'}->prepare("SELECT id, $clean_fields->{$field} FROM $self->{'system'}->{'view'}");
 						eval { $sql->execute };
 						$logger->error($@) if $@;
 						$self->{'cache'}->{$field} = $sql->fetchall_hashref('id');
 					}
-					$value = $self->{'cache'}->{$field}->{$isolate_id}->{$field};
+					$value = $self->{'cache'}->{$field}->{$isolate_id}->{$clean_fields->{$field}};
 				} else {
 					if ( !$self->{'sql'}->{'field_value'}->{$field} ) {
 						$self->{'sql'}->{'field_value'}->{$field} =
-						  $self->{'db'}->prepare("SELECT $field FROM $self->{'system'}->{'view'} WHERE id=?");
+						  $self->{'db'}->prepare("SELECT $clean_fields->{$field} FROM $self->{'system'}->{'view'} WHERE id=?");
+						  
 					}
 					eval { $self->{'sql'}->{'field_value'}->{$field}->execute($isolate_id) };
 					$logger->error($@) if $@;
@@ -614,23 +615,23 @@ sub _get_values {
 				if ( $options->{'fetchall'} ) {
 					if ( !$self->{'cache'}->{$field} ) {
 						my $sql = $self->{'db'}->prepare("SELECT isolate_id, allele_id FROM allele_designations WHERE locus=?");
-						eval { $sql->execute($field) };
+						eval { $sql->execute($clean_fields->{$field}) };
 						$logger->error($@) if $@;
 						$self->{'cache'}->{$field} = $sql->fetchall_hashref('isolate_id');
 					}
 					$value = $self->{'cache'}->{$field}->{$isolate_id}->{'allele_id'};
 				} else {
-					$value = $self->{'datastore'}->get_allele_id( $isolate_id, $field );
+					$value = $self->{'datastore'}->get_allele_id( $isolate_id, $clean_fields->{$field} );
 				}
 			}
 			when ('scheme_field') {
 				my $scheme_values = $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id->{$field} );
 				if ( ref $scheme_values eq 'HASH' ) {
-					$value = $scheme_values->{ lc($field) };
+					$value = $scheme_values->{ lc($clean_fields->{$field}) };
 				}
 			}
 			when ('metafield') {
-				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($clean_fields->{$field});
 				if ( $options->{'fetchall'} ) {
 					if ( !$self->{'cache'}->{$field} ) {					
 						my $sql =
