@@ -79,7 +79,9 @@ sub print_content {
 		my $profiles = $q->param('profiles');
 		my @rows = split /\n/, $profiles;
 		local $" = '</th><th>';
-		print "<div class=\"box\" id=\"resultstable\"><table class=\"resultstable\"><tr><th>Isolate</th><th>@cleaned_loci</th>";
+		say "<div class=\"box\" id=\"resultstable\">";
+		say "<div class=\"scrollable\">";
+		say "<table class=\"resultstable\"><tr><th>Isolate</th><th>@cleaned_loci</th>";
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 		foreach my $field (@$scheme_fields) {
 			my $cleaned = $field;
@@ -141,7 +143,7 @@ sub print_content {
 				return if $self->{'mod_perl_request'}->connection->aborted;
 			}
 		}
-		say "</table>\n</div>";
+		say "</table>\n</div></div>";
 		return;
 	}
 	say "<div class=\"box\" id=\"queryform\">";
