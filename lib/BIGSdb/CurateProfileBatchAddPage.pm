@@ -456,7 +456,6 @@ sub _upload {
 			local $" = ';';
 			eval {
 				$self->{'db'}->do("@inserts");
-				$self->refresh_material_view($scheme_id);
 			};
 			if ($@) {
 				say "<div class=\"box\" id=\"statusbad\"><p>Database update failed - transaction cancelled - no records have "
@@ -474,6 +473,7 @@ sub _upload {
 			}
 		}
 	}
+	$self->refresh_material_view($scheme_id);	
 	$self->{'db'}->commit
 	  && say "<div class=\"box\" id=\"resultsheader\"><p>Database updated ok</p>";
 	say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>";

@@ -1101,7 +1101,7 @@ sub refresh_material_view {
 
 	#Needs to be committed outside of subroutine (to allow refresh as part of transaction)
 	my ( $self, $scheme_id ) = @_;
-	return if !( $self->{'system'}->{'materialized_views'} && $self->{'system'}->{'materialized_views'} eq 'yes' );
+	return if !( ($self->{'system'}->{'materialized_views'} // '') eq 'yes' );
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	return if !@$loci || !@$scheme_fields;
