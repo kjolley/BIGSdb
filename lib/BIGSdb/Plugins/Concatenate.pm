@@ -245,13 +245,15 @@ sub _write_fasta {
 					my $allele_id = $self->{'datastore'}->get_allele_id( $id, $locus );
 					my $allele_seq;
 					if ( $locus_info->{'data_type'} eq 'DNA' ) {
-						try {
-							$allele_seq = $loci{$locus}->get_allele_sequence($allele_id);
+						if ($allele_id ne '0'){
+							try {
+								$allele_seq = $loci{$locus}->get_allele_sequence($allele_id);
+							}
+							catch BIGSdb::DatabaseConnectionException with {
+	
+								#do nothing
+							};
 						}
-						catch BIGSdb::DatabaseConnectionException with {
-
-							#do nothing
-						};
 					}
 					my $seqbin_seq;
 					eval { $seqbin_sql->execute( $id, $locus ); };
@@ -318,18 +320,20 @@ sub _write_fasta {
 					}
 				} else {
 					my $allele_id = $self->{'datastore'}->get_profile_allele_designation( $scheme_id, $id, $locus )->{'allele_id'};
-					my $allele_seq_ref = $self->{'datastore'}->get_sequence( $locus, $allele_id );
-					my $allele_seq;
-					if ( $q->param('in_frame')){
-						$allele_seq = BIGSdb::Utils::chop_seq( $$allele_seq_ref, $locus_info->{'orf'} || 1 );
-					} else {
-						$allele_seq = $$allele_seq_ref;
-					}			
-					if ( $q->param('translate') ) {
-						my $peptide = !$no_seq ? Bio::Perl::translate_as_string($allele_seq) : 'X';
-						$seq .= $peptide;
-					} else {
-						$seq .= $allele_seq;
+					if ($allele_id ne 'N' && $allele_id ne '0'){
+						my $allele_seq_ref = $self->{'datastore'}->get_sequence( $locus, $allele_id );
+						my $allele_seq;
+						if ( $q->param('in_frame')){
+							$allele_seq = BIGSdb::Utils::chop_seq( $$allele_seq_ref, $locus_info->{'orf'} || 1 );
+						} else {
+							$allele_seq = $$allele_seq_ref;
+						}			
+						if ( $q->param('translate') ) {
+							my $peptide = !$no_seq ? Bio::Perl::translate_as_string($allele_seq) : 'X';
+							$seq .= $peptide;
+						} else {
+							$seq .= $allele_seq;
+						}
 					}
 				}
 			}
