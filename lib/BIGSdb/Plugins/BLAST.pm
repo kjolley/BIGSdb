@@ -46,7 +46,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.1.1',
+		version     => '1.1.2',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -131,7 +131,7 @@ sub run {
 
 	foreach my $id (@ids) {
 		my $matches = $self->_blast( $id, \$seq );
-		next if ref $matches ne 'ARRAY' || !@$matches;
+		next if !$q->param('show_no_match') && (ref $matches ne 'ARRAY' || !@$matches);
 		print $header_buffer if $first;
 		my @include_values;
 		if (@includes) {
@@ -219,6 +219,14 @@ sub run {
 			open( my $fh_output_table, '>>', "$self->{'config'}->{'tmp_dir'}/$out_file_table" )
 			  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$out_file_table for writing");
 			say $fh_output_table $file_buffer;
+			close $fh_output_table;
+		}
+		if (!@$matches){
+			say "<tr class=\"td$td\"><td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$id\">"
+			  . "$id</a></td><td>$label</td><td>0</td><td colspan=\"9\" /></tr>";
+			open( my $fh_output_table, '>>', "$self->{'config'}->{'tmp_dir'}/$out_file_table" )
+			  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$out_file_table for writing");
+			say $fh_output_table "$id\t$label\t0";
 			close $fh_output_table;
 		}
 		$td = $td == 1 ? 2 : 1;
@@ -315,6 +323,12 @@ sub _print_interface {
 	say " <a class=\"tooltip\" title=\"TBLASTX - Compares the six-frame translation of your nucleotide query against the "
 	  . "six-frame translation of the sequences in the sequence bin.\">&nbsp;<i>i</i>&nbsp;</a></li>";
 	say "</ul>";
+	say "</fieldset>";
+	say "<fieldset>";
+	say "<legend>Options</legend>";
+	say "<ul><li>";
+	say $q->checkbox ( -name => 'show_no_match', label => 'Show 0% matches in table');
+	say "</li></ul>";
 	say "</fieldset>";
 	say "<fieldset style=\"float:left\">\n<legend>Restrict included sequences by</legend>";
 	say "<ul>";
