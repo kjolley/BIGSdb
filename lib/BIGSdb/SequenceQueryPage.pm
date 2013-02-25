@@ -263,7 +263,8 @@ sub _output_single_query_exact {
 	  . "<th>End position</th>"
 	  . ( $data->{'linked_data'}         ? '<th>Linked data values</th>' : '' )
 	  . ( $data->{'extended_attributes'} ? '<th>Attributes</th>'         : '' )
-	  . ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ? '<th>Flags</th>' : '' ) . "</tr>";
+	  . ( ( $self->{'system'}->{'allele_flags'}    // '' ) eq 'yes' ? '<th>Flags</th>'    : '' )
+	  . ( ( $self->{'system'}->{'allele_comments'} // '' ) eq 'yes' ? '<th>Comments</th>' : '' ) . "</tr>";
 	if ( !$distinct_locus_selected && $q->param('order') eq 'locus' ) {
 		my %locus_values;
 		foreach (@$exact_matches) {
@@ -278,7 +279,7 @@ sub _output_single_query_exact {
 	my $displayed = 0;
 	foreach (@$exact_matches) {
 		my $allele;
-		my ( $field_values, $attributes, $flags );
+		my ( $field_values, $attributes, $allele_info, $flags );
 		if ($distinct_locus_selected) {
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 			$locus_matches{$locus}++;
@@ -289,7 +290,10 @@ sub _output_single_query_exact {
 			$allele       = "$cleaned: $_->{'allele'}";
 			$field_values = $self->{'datastore'}->get_client_dbase_fields( $locus, [ $_->{'allele'} ] );
 			$attributes   = $self->{'datastore'}->get_allele_attributes( $locus, [ $_->{'allele'} ] );
-			$flags        = $self->{'datastore'}->get_allele_flags( $locus, $_->{'allele'} );
+			$allele_info =
+			  $self->{'datastore'}
+			  ->run_simple_query_hashref( "SELECT * FROM sequences WHERE locus=? AND allele_id=?", $locus, $_->{'allele'} );
+			$flags = $self->{'datastore'}->get_allele_flags( $locus, $_->{'allele'} );
 		} else {    #either all loci or a scheme selected
 			my ( $locus, $allele_id );
 			if ( $_->{'allele'} =~ /(.*):(.*)/ ) {
@@ -302,7 +306,10 @@ sub _output_single_query_exact {
 				$allele       = "$cleaned: $allele_id";
 				$field_values = $self->{'datastore'}->get_client_dbase_fields( $locus, [$allele_id] );
 				$attributes   = $self->{'datastore'}->get_allele_attributes( $locus, [$allele_id] );
-				$flags        = $self->{'datastore'}->get_allele_flags( $locus, $allele_id );
+				$allele_info =
+				  $self->{'datastore'}
+				  ->run_simple_query_hashref( "SELECT * FROM sequences WHERE locus=? AND allele_id=?", $locus, $allele_id );
+				$flags = $self->{'datastore'}->get_allele_flags( $locus, $allele_id );
 			}
 			$buffer .=
 			    "<tr class=\"td$td\"><td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
@@ -315,6 +322,9 @@ sub _output_single_query_exact {
 		if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
 			local $" = '</a> <a class="seqflag_tooltip">';
 			$buffer .= @$flags ? "<td style=\"text-align:left\"><a class=\"seqflag_tooltip\">@$flags</a></td>" : '<td />';
+		}
+		if ( ( $self->{'system'}->{'allele_comments'} // '' ) eq 'yes' ) {
+			$buffer .= $allele_info->{'comments'} ? "<td>$allele_info->{'comments'}</td>" : '<td />';
 		}
 		$buffer .= "</tr>\n";
 		$displayed++;

@@ -201,14 +201,15 @@ sub get_scheme_field_values_by_profile {
 	if ( !$self->{'cache'}->{'scheme_info'}->{$scheme_id} ) {
 		$self->{'cache'}->{'scheme_info'}->{$scheme_id} = $self->get_scheme_info($scheme_id);
 	}
-	return if ref $profile_ref ne 'ARRAY' || (any { !defined $_ } @$profile_ref && !$self->{'cache'}->{'scheme_info'}->{$scheme_id}->{'allow_missing_loci'});
-	
-	if ($self->{'cache'}->{'scheme_info'}->{$scheme_id}->{'allow_missing_loci'}){
-		foreach (@$profile_ref){
+	return
+	  if ref $profile_ref ne 'ARRAY'
+		  || ( any { !defined $_ } @$profile_ref && !$self->{'cache'}->{'scheme_info'}->{$scheme_id}->{'allow_missing_loci'} );
+	if ( $self->{'cache'}->{'scheme_info'}->{$scheme_id}->{'allow_missing_loci'} ) {
+		foreach (@$profile_ref) {
 			$_ = 'N' if !defined $_;
 		}
 	}
-	if ( ($self->{'system'}->{'use_temp_scheme_table'} // '') eq 'yes' ) {
+	if ( ( $self->{'system'}->{'use_temp_scheme_table'} // '' ) eq 'yes' ) {
 
 		#Import all profiles from seqdef database into indexed scheme table.  Under some circumstances
 		#this can be considerably quicker than querying the seqdef scheme view (a few ms compared to
@@ -693,7 +694,7 @@ sub is_scheme_field {
 sub create_temp_scheme_table {
 	my ( $self, $id ) = @_;
 	my $scheme_info = $self->get_scheme_info($id);
-	my $scheme_db = $self->get_scheme($id)->get_db;
+	my $scheme_db   = $self->get_scheme($id)->get_db;
 	if ( !$scheme_db ) {
 		$logger->error("No scheme database for scheme $id");
 		throw BIGSdb::DatabaseConnectionException("Database does not exist");
@@ -760,15 +761,15 @@ sub create_temp_scheme_table {
 		$self->{'db'}->rollback;
 		throw BIGSdb::DatabaseConnectionException("Can't put data into temp table");
 	}
-	if (@$loci <= 32){ #By default PostgreSQL will not allow indexes with more than 32 columns
+	if ( @$loci <= 32 ) {    #By default PostgreSQL will not allow indexes with more than 32 columns
 		local $" = ',';
-		eval { $self->{'db'}->do("CREATE INDEX i_$id ON temp_scheme_$id (@$loci)"); };		
+		eval { $self->{'db'}->do("CREATE INDEX i_$id ON temp_scheme_$id (@$loci)"); };
 		$logger->warn("Can't create index") if $@;
 	}
 	foreach (@$fields) {
 		$self->{'db'}->do("CREATE INDEX i_$id\_$_ ON temp_scheme_$id ($_)");
 		$self->{'db'}->do("UPDATE temp_scheme_$id SET $_ = null WHERE $_='-999'")
-		  ;    #Needed as old style profiles database stored null values as '-999'.
+		  ;                  #Needed as old style profiles database stored null values as '-999'.
 	}
 	return "temp_scheme_$id";
 }
@@ -1243,7 +1244,8 @@ sub get_next_allele_id {
 	my ( $self, $locus ) = @_;
 	if ( !$self->{'sql'}->{'next_allele_id'} ) {
 		$self->{'sql'}->{'next_allele_id'} =
-		  $self->{'db'}->prepare("SELECT DISTINCT CAST(allele_id AS int) FROM sequences WHERE locus = ? ORDER BY CAST(allele_id AS int)");
+		  $self->{'db'}->prepare( "SELECT DISTINCT CAST(allele_id AS int) FROM sequences WHERE locus = ? AND allele_id != 'N' ORDER BY "
+			  . "CAST(allele_id AS int)" );
 		$logger->info("Statement handle 'next_allele_id' prepared.");
 	}
 	eval { $self->{'sql'}->{'next_allele_id'}->execute($locus) };
@@ -1603,7 +1605,7 @@ sub get_table_field_attributes {
 
 	#Returns array ref of attributes for a specific table provided by table-specific helper functions in BIGSdb::TableAttributes.
 	my ( $self, $table ) = @_;
-	my $function   = "BIGSdb::TableAttributes::get_$table\_table_attributes";
+	my $function = "BIGSdb::TableAttributes::get_$table\_table_attributes";
 	my $attributes = $self->$function();
 	return if ref $attributes ne 'ARRAY';
 	foreach my $att (@$attributes) {

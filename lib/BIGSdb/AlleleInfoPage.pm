@@ -94,6 +94,10 @@ HTML
 		}
 	}
 	my $td = 2;
+	if ( $seq_ref->{'comments'} ) {
+		say "<tr class=\"td2\"><th>comments</th><td style=\"text-align:left\" colspan=\"3\">$seq_ref->{'comments'}</td></tr>";
+		$td = 1;
+	}
 	$self->_process_flags( $locus, $allele_id, \$td );
 	my $extended_attributes = $self->{'datastore'}->get_allele_extended_attributes( $locus, $allele_id );
 	foreach my $ext (@$extended_attributes) {

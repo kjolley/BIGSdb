@@ -1112,6 +1112,7 @@ sub get_composite_field_values_table_attributes {
 }
 
 sub get_sequences_table_attributes {
+	my ($self) = @_;
 	my $attributes = [
 		{ name => 'locus',     type => 'text', required => 'yes', primary_key => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
 		{ name => 'allele_id', type => 'text', required => 'yes', primary_key => 'yes' },
@@ -1129,6 +1130,11 @@ sub get_sequences_table_attributes {
 		{ name => 'date_entered', type => 'date', required => 'yes', public_hide    => 'yes' },
 		{ name => 'datestamp',    type => 'date', required => 'yes', public_hide    => 'yes' }
 	];
+	if (($self->{'system'}->{'allele_comments'} // '') eq 'yes'){
+		push @$attributes,
+	  (
+		{ name => 'comments',    type => 'text', required => 'no', length => 80 });
+	}
 	return $attributes;
 }
 
