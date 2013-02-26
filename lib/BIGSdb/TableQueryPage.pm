@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -425,9 +425,6 @@ sub _run_query {
 							$qry .= "$table.$field $operator E'$text'";
 						}
 					}
-					if ( $table eq 'sequences' && $field eq 'allele_id' ) {
-						$qry .= " AND $table.$field NOT IN ('0', 'N')";    #Alleles can be set to 0 or N for arbitrary profile definitions
-					}
 				}
 			}
 		}
@@ -495,6 +492,9 @@ sub _run_query {
 				$qry2 .= ( $value eq 'null' ? "$_ is null" : "$field = E'$value'" );
 			}
 		}
+		if ( $table eq 'sequences' ) {
+			$qry2 .= " AND $table.allele_id NOT IN ('0', 'N')";    #Alleles can be set to 0 or N for arbitrary profile definitions
+		}
 		$qry2 .= " ORDER BY $table.";
 		my $default_order = $table eq 'sequences' ? 'locus' : 'id';
 		$qry2 .= $q->param('order') || $default_order;
@@ -540,7 +540,11 @@ s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bi
 		$self->paged_display( $table, $qry2, '', \@hidden_attributes );
 		print "<p />\n";
 	} else {
-		my $qry = "SELECT * FROM $table ORDER BY $table.";
+		my $qry = "SELECT * FROM $table";
+		if ( $table eq 'sequences' ) {
+			$qry .= " WHERE $table.allele_id NOT IN ('0', 'N')";    #Alleles can be set to 0 or N for arbitrary profile definitions
+		}
+		$qry .= " ORDER BY $table.";
 		$qry .= $q->param('order');
 		my $dir = $q->param('direction') eq 'descending' ? 'desc' : 'asc';
 		my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
