@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2012, University of Oxford
+#Copyright (c) 2011-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -187,6 +187,11 @@ HTML
 		}
 	}
 	print "</div><div class=\"box\" id=\"resultsfooter\">";
+	if ($job->{'status'} eq 'started'){
+		say "<p>Progress: $job->{'percent_complete'}%";
+		say "<br />Stage: $job->{'stage'}" if $job->{'stage'};
+		say "</p>";
+	}
 	print "<p>This page will reload in $refresh. You can refresh it any time, or bookmark it and close your browser if you wish.</p>"
 	  if $self->{'refresh'};
 	if ( $self->{'config'}->{'results_deleted_days'} && BIGSdb::Utils::is_int( $self->{'config'}->{'results_deleted_days'} ) ) {
