@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -106,6 +106,10 @@ sub _check {
 		local $" = '<br />';
 		say "<p>@bad_field_buffer</p></div>";
 		$insert = 0;
+	}
+	foreach ( keys %$newdata ) {    #Strip any trailing spaces
+		$newdata->{$_} =~ s/^\s*//g;
+		$newdata->{$_} =~ s/\s*$//g;
 	}
 	if ($insert) {
 		if ( $self->id_exists( $newdata->{'id'} ) ) {
@@ -225,7 +229,7 @@ sub _insert {
 			  && say "<div class=\"box\" id=\"resultsheader\"><p>id-$newdata->{'id'} added!</p>";
 			say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateAdd\">Add another</a> | "
 			  . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin&amp;"
-			  . "isolate_id=$newdata->{'id'}\">Upload sequences<a> | "
+			  . "isolate_id=$newdata->{'id'}\">Upload sequences</a> | "
 			  . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>";
 			return SUCCESS;
 		}
