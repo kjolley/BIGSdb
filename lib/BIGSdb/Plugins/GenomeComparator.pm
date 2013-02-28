@@ -34,6 +34,7 @@ use BIGSdb::Page qw(SEQ_METHODS LOCUS_PATTERN);
 use constant MAX_UPLOAD_SIZE  => 32 * 1024 * 1024;    #32Mb
 use constant MAX_SPLITS_TAXA  => 200;
 use constant MAX_DISPLAY_TAXA => 150;
+use constant MAX_GENOMES      => 1000;
 
 sub get_attributes {
 	my %att = (
@@ -202,6 +203,15 @@ sub run {
 		if ( !@$filtered_ids ) {
 			print "<div class=\"box\" id=\"statusbad\"><p>You must include one or more isolates. Make sure your "
 			  . "selected isolates haven't been filtered to none by selecting a project.</p></div>\n";
+			$continue = 0;
+		}
+		my $max_genomes =
+		  ( $self->{'system'}->{'genome_comparator_limit'} && BIGSdb::Utils::is_int( $self->{'system'}->{'genome_comparator_limit'} ) )
+		  ? $self->{'system'}->{'genome_comparator_limit'}
+		  : MAX_GENOMES;
+		if ( @$filtered_ids > $max_genomes){
+			say "<div class=\"box\" id=\"statusbad\"><p>Genome Comparator analysis is limited to $max_genomes isolates.  You have "
+			  . "selected " . @$filtered_ids . ".</p></div>";
 			$continue = 0;
 		}
 		my @loci = $q->param('locus');
@@ -988,8 +998,7 @@ sub _print_reports {
 	my @ignore_loci = keys %{ $locus_class->{'truncated'} };
 	$self->_generate_splits( $job_id, $values, \@ignore_loci );
 	if ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $args->{'by_reference'} ) ) ) {
-		$self->{'jobManager'}
-		  ->update_job_output( $job_id, { filename => "$job_id\.align", description => '30_Alignments', compress => 1 } )
+		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\.align", description => '30_Alignments', compress => 1 } )
 		  if -e $align_file && !-z $align_file;
 		$self->{'jobManager'}
 		  ->update_job_output( $job_id, { filename => "$job_id\.align_stats", description => '31_Alignment stats', compress => 1 } )
@@ -1134,7 +1143,7 @@ sub _core_mean_distance {
 		push @values, $upper_range{0} // 0;
 		do {
 			$range += $increment;
-			$range = (int(($range * 10000.0) + 0.5) / 10000.0); #Set float precision
+			$range = ( int( ( $range * 10000.0 ) + 0.5 ) / 10000.0 );    #Set float precision
 			my $label = '>' . ( $range - $increment ) . " - $range";
 			my $value = $upper_range{$range} // 0;
 			push @labels, $label;
