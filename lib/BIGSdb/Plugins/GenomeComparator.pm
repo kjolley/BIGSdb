@@ -123,7 +123,7 @@ sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	my @loci = split /\|\|/, $params->{'locus'} // '';
 	my @ids = split /\|\|/, $params->{'isolate_id'};
-	my $filtered_ids = $self->_filter_ids_by_project( \@ids, $params->{'project_list'} );
+	my $filtered_ids = $self->filter_ids_by_project( \@ids, $params->{'project_list'} );
 	my @scheme_ids = split /\|\|/, ( defined $params->{'scheme_id'} ? $params->{'scheme_id'} : '' );
 	my $accession = $params->{'accession'} || $params->{'annotation'};
 	my $ref_upload = $params->{'ref_upload'};
@@ -198,20 +198,22 @@ sub run {
 	if ( $q->param('submit') ) {
 		my @ids          = $q->param('isolate_id');
 		my $ref_upload   = $q->param('ref_upload') ? $self->_upload_ref_file : undef;
-		my $filtered_ids = $self->_filter_ids_by_project( \@ids, $q->param('project_list') );
+		my $filtered_ids = $self->filter_ids_by_project( \@ids, $q->param('project_list') );
 		my $continue     = 1;
 		if ( !@$filtered_ids ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>You must include one or more isolates. Make sure your "
-			  . "selected isolates haven't been filtered to none by selecting a project.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>You must include one or more isolates. Make sure your "
+			  . "selected isolates haven't been filtered to none by selecting a project.</p></div>";
 			$continue = 0;
 		}
 		my $max_genomes =
 		  ( $self->{'system'}->{'genome_comparator_limit'} && BIGSdb::Utils::is_int( $self->{'system'}->{'genome_comparator_limit'} ) )
 		  ? $self->{'system'}->{'genome_comparator_limit'}
 		  : MAX_GENOMES;
-		if ( @$filtered_ids > $max_genomes){
+		if ( @$filtered_ids > $max_genomes ) {
 			say "<div class=\"box\" id=\"statusbad\"><p>Genome Comparator analysis is limited to $max_genomes isolates.  You have "
-			  . "selected " . @$filtered_ids . ".</p></div>";
+			  . "selected "
+			  . @$filtered_ids
+			  . ".</p></div>";
 			$continue = 0;
 		}
 		my @loci = $q->param('locus');
@@ -292,7 +294,6 @@ sub _upload_ref_file {
 sub _print_interface {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
-	my $view       = $self->{'system'}->{'view'};
 	my $query_file = $q->param('query_file');
 	my $qry_ref    = $self->get_query($query_file);
 	my $selected_ids = defined $query_file ? $self->get_ids_from_query($qry_ref) : [];
@@ -306,23 +307,8 @@ sub _print_interface {
 	catch BIGSdb::DatabaseNoRecordException with {
 		$use_all = 0;
 	};
-	if ($use_all) {
-		$qry = "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM $view ORDER BY $view.id";
-	} else {
-		$qry = "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM $view WHERE $view.id IN (SELECT isolate_id FROM "
-		  . "sequence_bin) ORDER BY $view.id";
-	}
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute };
-	$logger->error($@) if $@;
-	my @ids;
-	my %labels;
-	while ( my ( $id, $isolate ) = $sql->fetchrow_array ) {
-		next if !defined $id;
-		push @ids, $id;
-		$labels{$id} = "$id) $isolate";
-	}
-	if ( !@ids ) {
+	my $seqbin_values = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT id FROM sequence_bin)");
+	if ( !$seqbin_values->[0] ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>There are no sequences in the sequence bin.</p></div>";
 		return;
 	}
@@ -335,21 +321,7 @@ annotated reference genome and compare using the loci defined in that.</p>
 HTML
 	say $q->start_form;
 	say "<div class=\"scrollable\">";
-	say "<fieldset style=\"float:left\">\n<legend>Isolates</legend>";
-	say $q->scrolling_list(
-		-name     => 'isolate_id',
-		-id       => 'isolate_id',
-		-values   => \@ids,
-		-labels   => \%labels,
-		-size     => 8,
-		-multiple => 'true',
-		-default  => $selected_ids
-	);
-	print <<"HTML";
-<div style="text-align:center"><input type="button" onclick='listbox_selectall("isolate_id",true)' value="All" style="margin-top:1em" class="smallbutton" />
-<input type="button" onclick='listbox_selectall("isolate_id",false)' value="None" style="margin-top:1em" class="smallbutton" /></div>
-</fieldset>
-HTML
+	$self->print_seqbin_isolate_fieldset( { use_all => $use_all, selected_ids => $selected_ids} );
 	$self->print_isolates_locus_fieldset;
 	$self->print_scheme_fieldset;
 	say "<fieldset style=\"float:left\">\n<legend>Reference genome</legend>";
@@ -471,17 +443,11 @@ HTML
 		, -onChange => 'enable_seqs()'
 	);
 	print <<"HTML";
- <a class="tooltip" title=\"Mean distance - This requires performing alignments of sequences so will take longer to perform.">
+ <a class="tooltip" title="Mean distance - This requires performing alignments of sequences so will take longer to perform.">
  &nbsp;<i>i</i>&nbsp;</a></li>
- </ul></fieldset><fieldset style=\"float:left\"><legend>Restrict included sequences by</legend><ul>
+ </ul></fieldset>
 HTML
-	my $buffer = $self->get_sequence_method_filter( { class => 'parameter' } );
-	say "<li>$buffer</li>" if $buffer;
-	$buffer = $self->get_project_filter( { class => 'parameter' } );
-	say "<li>$buffer</li>" if $buffer;
-	$buffer = $self->get_experiment_filter( { class => 'parameter' } );
-	say "<li>$buffer</li>" if $buffer;
-	say "</ul>\n</fieldset>\n";
+	$self->print_sequence_filter_fieldset;
 	say "<div style=\"clear:both\"><span style=\"float:left\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
 	  . "page=plugin&amp;name=GenomeComparator\" class=\"resetbutton\">Reset</a></span><span style=\"float:right;padding-right:5%\">";
 	say $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
@@ -490,17 +456,6 @@ HTML
 	say $q->end_form;
 	say "</div>";
 	return;
-}
-
-sub _filter_ids_by_project {
-	my ( $self, $ids, $project_id ) = @_;
-	return $ids if !$project_id;
-	my $ids_in_project = $self->{'datastore'}->run_list_query( "SELECT isolate_id FROM project_members WHERE project_id = ?", $project_id );
-	my @filtered_ids;
-	foreach my $id (@$ids) {
-		push @filtered_ids, $id if any { $id eq $_ } @$ids_in_project;
-	}
-	return \@filtered_ids;
 }
 
 sub _analyse_by_loci {
@@ -1766,8 +1721,8 @@ sub _create_reference_FASTA_file {
 
 sub _create_isolate_FASTA {
 	my ( $self, $isolate_id, $prefix, $params ) = @_;
-	my $qry =
-"SELECT DISTINCT id,sequence FROM sequence_bin LEFT JOIN experiment_sequences ON sequence_bin.id=seqbin_id LEFT JOIN project_members ON sequence_bin.isolate_id = project_members.isolate_id WHERE sequence_bin.isolate_id=?";
+	my $qry = "SELECT DISTINCT id,sequence FROM sequence_bin LEFT JOIN experiment_sequences ON sequence_bin.id=seqbin_id WHERE "
+	  . "sequence_bin.isolate_id=?";
 	my @criteria = ($isolate_id);
 	my $method   = $params->{'seq_method_list'};
 	if ($method) {
@@ -1777,15 +1732,6 @@ sub _create_isolate_FASTA {
 		}
 		$qry .= " AND method=?";
 		push @criteria, $method;
-	}
-	my $project = $params->{'project'};
-	if ($project) {
-		if ( !BIGSdb::Utils::is_int($project) ) {
-			$logger->error("Invalid project $project");
-			return;
-		}
-		$qry .= " AND project_id=?";
-		push @criteria, $project;
 	}
 	my $experiment = $params->{'experiment_list'};
 	if ($experiment) {

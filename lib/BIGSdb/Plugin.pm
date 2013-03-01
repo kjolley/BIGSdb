@@ -411,7 +411,7 @@ sub print_field_export_form {
 sub set_offline_view {
 	my ( $self, $params ) = @_;
 	my $set_id = $params->{'set_id'};
-	if ( ($self->{'system'}->{'view'} // '') eq 'isolates' && $set_id ) {
+	if ( ( $self->{'system'}->{'view'} // '' ) eq 'isolates' && $set_id ) {
 		my $view_ref = $self->{'datastore'}->run_simple_query( "SELECT view FROM set_view WHERE set_id=?", $set_id );
 		$self->{'system'}->{'view'} = $view_ref->[0] if ref $view_ref eq 'ARRAY';
 	}
@@ -441,6 +441,32 @@ sub get_id_list {
 		$list = \@;;
 	}
 	return $list;
+}
+
+sub _get_isolates_with_seqbin {
+
+	#Return list and formatted labels
+	my ( $self, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $view = $self->{'system'}->{'view'};
+	my $qry;
+	if ( $options->{'use_all'} ) {
+		$qry = "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM $view ORDER BY $view.id";
+	} else {
+		$qry = "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM $view WHERE $view.id IN (SELECT isolate_id FROM "
+		  . "sequence_bin) ORDER BY $view.id";
+	}
+	my $sql = $self->{'db'}->prepare($qry);
+	eval { $sql->execute };
+	$logger->error($@) if $@;
+	my @ids;
+	my %labels;
+	while ( my ( $id, $isolate ) = $sql->fetchrow_array ) {
+		next if !defined $id;
+		push @ids, $id;
+		$labels{$id} = "$id) $isolate";
+	}
+	return ( \@ids, \%labels );
 }
 
 sub get_selected_fields {
@@ -583,7 +609,7 @@ sub print_sequence_export_form {
 		if ( $options->{'in_frame'} ) {
 			say $q->checkbox( -name => 'in_frame', -label => 'Concatenate in frame' );
 			say "<br />";
-		}		
+		}
 		say "</fieldset>";
 	}
 	say $self->get_extra_form_elements;
@@ -591,6 +617,29 @@ sub print_sequence_export_form {
 	say $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
 	say $q->hidden($_) foreach qw (db page name query_file scheme_id);
 	say $q->end_form;
+	return;
+}
+
+sub print_seqbin_isolate_fieldset {
+	my ( $self, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $q = $self->{'cgi'};
+	my ( $ids, $labels ) = $self->_get_isolates_with_seqbin($options);
+	say "<fieldset style=\"float:left\">\n<legend>Isolates</legend>";
+	say $q->scrolling_list(
+		-name     => 'isolate_id',
+		-id       => 'isolate_id',
+		-values   => $ids,
+		-labels   => $labels,
+		-size     => 8,
+		-multiple => 'true',
+		-default  => $options->{'selected_ids'}
+	);
+	print <<"HTML";
+<div style="text-align:center"><input type="button" onclick='listbox_selectall("isolate_id",true)' value="All" style="margin-top:1em" class="smallbutton" />
+<input type="button" onclick='listbox_selectall("isolate_id",false)' value="None" style="margin-top:1em" class="smallbutton" /></div>
+</fieldset>
+HTML
 	return;
 }
 
@@ -669,6 +718,30 @@ HTML
 	}
 	say "</fieldset>\n";
 	return;
+}
+
+sub print_sequence_filter_fieldset {
+	my ($self) = @_;
+	say "<fieldset style=\"float:left\"><legend>Restrict included sequences by</legend><ul>";
+	my $buffer = $self->get_sequence_method_filter( { class => 'parameter' } );
+	say "<li>$buffer</li>" if $buffer;
+	$buffer = $self->get_project_filter( { class => 'parameter' } );
+	say "<li>$buffer</li>" if $buffer;
+	$buffer = $self->get_experiment_filter( { class => 'parameter' } );
+	say "<li>$buffer</li>" if $buffer;
+	say "</ul>\n</fieldset>\n";
+	return;
+}
+
+sub filter_ids_by_project {
+	my ( $self, $ids, $project_id ) = @_;
+	return $ids if !$project_id;
+	my $ids_in_project = $self->{'datastore'}->run_list_query( "SELECT isolate_id FROM project_members WHERE project_id = ?", $project_id );
+	my @filtered_ids;
+	foreach my $id (@$ids) {
+		push @filtered_ids, $id if any { $id eq $_ } @$ids_in_project;
+	}
+	return \@filtered_ids;
 }
 
 sub get_selected_loci {

@@ -107,6 +107,16 @@ sub get_permissions {
 	return $sql->fetchrow_hashref;
 }
 
+sub get_isolate_field_values {
+	my ($self, $isolate_id) = @_;
+	if ( !$self->{'sql'}->{'isolate_field_values'} ) {
+		$self->{'sql'}->{'isolate_field_values'} = $self->{'db'}->prepare("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?");
+	}
+	eval { $self->{'sql'}->{'isolate_field_values'}->execute($isolate_id) };
+	$logger->error($@) if $@;
+	return $self->{'sql'}->{'isolate_field_values'}->fetchrow_hashref;
+}
+
 sub get_composite_value {
 	my ( $self, $isolate_id, $composite_field, $isolate_fields_hashref ) = @_;
 	my $value = '';
