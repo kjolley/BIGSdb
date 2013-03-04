@@ -84,6 +84,8 @@ sub run {
 				return;
 			}
 		}
+	}
+	if ($scheme_id && BIGSdb::Utils::is_int($scheme_id)){
 		my $pk_ref =
 		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key", $scheme_id );
 		if ( ref $pk_ref ne 'ARRAY' ) {
@@ -272,7 +274,7 @@ sub _generate_distance_matrix {
 		for ( my $j = 0 ; $j < $num_profiles ; $j++ ) {
 			my $same = 0;
 			for ( my $k = 1 ; $k < @$loci + 1 ; $k++ ) {
-				if ( $profiles[$i][$k] == $profiles[$j][$k] ) {
+				if ( defined $profiles[$i][$k] && defined $profiles[$j][$k] && $profiles[$i][$k] eq $profiles[$j][$k] ) {
 					$same++;
 				}
 				$matrix[$i][$j] = $same;
