@@ -46,7 +46,7 @@ sub get_attributes {
 		buttontext  => 'BURST',
 		menutext    => 'BURST',
 		module      => 'BURST',
-		version     => '1.0.2',
+		version     => '1.0.3',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		section     => 'postquery',
@@ -179,14 +179,14 @@ sub _run_burst {
 	my ( $loci, $profiles_ref, $profile_freq_ref, $num_profiles ) = $self->_get_profile_array( $scheme_id, $pk, $list );
 	my ( $matrix_ref, $error ) = $self->_generate_distance_matrix( $loci, $num_profiles, $profiles_ref );
 	if ($error) {
-		print "<div class=\"box\" id=\"statusbad\"><p>$error</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>$error</p></div>";
 		return;
 	}
 	if ( !$num_profiles ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>No complete profiles were returned for the selected scheme.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>No complete profiles were returned for the selected scheme.</p></div>";
 		return;
 	}
-	$self->_recursive_search( $loci, $num_profiles, $profiles_ref, $matrix_ref, $profile_freq_ref );
+	$self->_recursive_search( $loci, $num_profiles, $profiles_ref, $matrix_ref, $profile_freq_ref, $pk );
 	return;
 }
 
@@ -289,7 +289,8 @@ sub _generate_distance_matrix {
 }
 
 sub _recursive_search {
-	my ( $self, $loci, $num_profiles, $profiles_ref, $matrix_ref, $profile_freq_ref ) = @_;
+	my ( $self, $loci, $num_profiles, $profiles_ref, $matrix_ref, $profile_freq_ref, $pk ) = @_;
+	$pk //= 'ST';
 	my @profiles = @{$profiles_ref};
 	my @matrix   = @{$matrix_ref};
 	my %st_freq  = %$profile_freq_ref;
@@ -302,7 +303,7 @@ sub _recursive_search {
 		|| $grpdef < 1
 		|| $grpdef > @$loci - 1 )
 	{
-		print "<div class=\"box\" id=\"statusbad\"><p>Invalid group definition selected.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Invalid group definition selected.</p></div>";
 		return;
 	}
 	my $g = 0;
@@ -317,11 +318,11 @@ sub _recursive_search {
 
 	#calculate group details
 	my $h = 0;
-	print "<div class=\"box\" id=\"resultstable\">\n";
-	print "<h2>Groups:</h2>\n";
-	print "<strong>Group definition: $grpdef or more matches</strong>\n";
+	say "<div class=\"box\" id=\"resultstable\">";
+	say "<h2>Groups:</h2>";
+	say "<strong>Group definition: $grpdef or more matches</strong>";
 	if ( $self->{'config'}->{'mogrify_path'} ) {
-		print "<p>Groups with central STs will be displayed as an image.</p>\n";
+		say "<p>Groups with central $pk will be displayed as an image.</p>";
 	}
 	my $td = 1;
 	my @groupSize;
@@ -370,9 +371,9 @@ sub _recursive_search {
 		my $at = 0;
 		if ( $thisGroupSize > 1 ) {
 			$h++;
-			print "<div class=\"scrollable\" style=\"margin-bottom:1em\">\n";
-			print "<table class=\"resultstable\"><tr><th colspan=\"5\">group: $h</th></tr>\n";
-			print "<tr><th>ST</th><th>Frequency</th><th>SLV</th><th>DLV</th><th>SAT</th></tr>\n";
+			say "<div class=\"scrollable\" style=\"margin-bottom:1em\">";
+			say "<table class=\"resultstable\"><tr><th colspan=\"5\">group: $h</th></tr>";
+			say "<tr><th>$pk</th><th>Frequency</th><th>SLV</th><th>DLV</th><th>SAT</th></tr>";
 			if ( $maxslv < 2 ) {
 				$noancestor = 1;
 			} else {
@@ -429,13 +430,13 @@ sub _recursive_search {
 					if ($noancestor) {
 						$anc = ' ';
 					}
-					print "<tr class=\"td$td\">";
-					print "<td>$profiles[$i][0]$anc</td>";
-					print "<td>$st_freq{$profiles[$i][0]}</td>";
-					print defined $result[0][$i] ? "<td>$result[0][$i]</td>" : '<td />';
-					print defined $result[1][$i] ? "<td>$result[1][$i]</td>" : '<td />';
-					print defined $result[2][$i] ? "<td>$result[2][$i]</td>" : '<td />';
-					print "</tr>\n";
+					say "<tr class=\"td$td\">";
+					say "<td>$profiles[$i][0]$anc</td>";
+					say "<td>$st_freq{$profiles[$i][0]}</td>";
+					say defined $result[0][$i] ? "<td>$result[0][$i]</td>" : '<td />';
+					say defined $result[1][$i] ? "<td>$result[1][$i]</td>" : '<td />';
+					say defined $result[2][$i] ? "<td>$result[2][$i]</td>" : '<td />';
+					say "</tr>";
 					$td = $td == 1 ? 2 : 1;    #row stripes
 					$st[$stCount] = $profiles[$i][0];
 					my $stCount2 = 0;
@@ -470,17 +471,17 @@ sub _recursive_search {
 			}
 			if ( $self->{'config'}->{'mogrify_path'} ) {
 				my $imageFile = $self->_create_group_graphic( \@st, \@grpDisMat, $at );
-				print
-"<tr class=\"td2\"><td colspan=\"5\" style=\"border:1px dashed black\"><img src=\"/tmp/$imageFile.png\" alt=\"BURST group\" /></td></tr>\n";
-				print "<tr class=\"td1\"><td colspan=\"5\"><a href=\"/tmp/$imageFile.svg\">SVG file</a> (right click to save)</td></tr>\n";
+				say "<tr class=\"td2\"><td colspan=\"5\" style=\"border:1px dashed black\"><img src=\"/tmp/$imageFile.png\" "
+				  . "alt=\"BURST group\" /></td></tr>";
+				say "<tr class=\"td1\"><td colspan=\"5\"><a href=\"/tmp/$imageFile.svg\">SVG file</a> (right click to save)</td></tr>";
 			}
 		}
 		print "</table></div>\n" if ( $thisGroupSize > 1 );
 	}
 
 	# print singles
-	print "<h2>Singletons:</h2>\n";
-	my $buffer = "<div class=\"scrollable\">\n<table class=\"resultstable\"><tr><th>ST</th><th>Frequency</th></tr>";
+	say "<h2>Singletons:</h2>";
+	my $buffer = "<div class=\"scrollable\">\n<table class=\"resultstable\"><tr><th>$pk</th><th>Frequency</th></tr>";
 	$td = 1;
 	my $count;
 	for ( my $i = 0 ; $i < $num_profiles ; $i++ ) {
@@ -492,8 +493,8 @@ sub _recursive_search {
 		}
 	}
 	$buffer .= "</table></div>";
-	print $count ? $buffer : "<p>None</p>\n";
-	print "</div>\n";
+	say $count ? $buffer : "<p>None</p>";
+	say "</div>";
 	return;
 }
 
