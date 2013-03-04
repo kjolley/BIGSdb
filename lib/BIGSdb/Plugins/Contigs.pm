@@ -1,4 +1,4 @@
-#Contigs.pm - Contig analysis plugin for BIGSdb
+#Contigs.pm - Contig export and analysis plugin for BIGSdb
 #Written by Keith Jolley
 #Copyright (c) 2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
@@ -27,26 +27,26 @@ my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 use List::MoreUtils qw(any none);
 use constant MAX_ISOLATES => 1000;
-use BIGSdb::Page qw(SEQ_METHODS LOCUS_PATTERN);
+use BIGSdb::Page qw(SEQ_METHODS);
 
 sub get_attributes {
 	my %att = (
-		name        => 'Contig analysis',
+		name        => 'Contig export',
 		author      => 'Keith Jolley',
 		affiliation => 'University of Oxford, UK',
 		email       => 'keith.jolley@zoo.ox.ac.uk',
-		description => 'Analyse contigs selected from query results',
-		category    => 'Analysis',
+		description => 'Analyse and export contigs selected from query results',
+		category    => 'Export',
 		buttontext  => 'Contigs',
 		menutext    => 'Contigs',
 		module      => 'Contigs',
 		version     => '1.0.0',
 		dbtype      => 'isolates',
-		section     => 'analysis,postquery',
+		section     => 'export,postquery',
 		input       => 'query',
 		help        => 'tooltips',
 		order       => 20,
-		system_flag => 'ContigAnalysis'
+		system_flag => 'ContigExport'
 	);
 	return \%att;
 }
@@ -58,28 +58,28 @@ sub set_pref_requirements {
 }
 
 sub _download_contigs {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
 	my $isolate_id = $q->param('isolate_id');
-	if (!defined $isolate_id || !BIGSdb::Utils::is_int($isolate_id)){
+	if ( !defined $isolate_id || !BIGSdb::Utils::is_int($isolate_id) ) {
 		say "Invalid isolate id passed.";
 	}
 	my $pc_untagged = $q->param('pc_untagged') // 0;
-	if (!defined $pc_untagged || !BIGSdb::Utils::is_int($pc_untagged)){
+	if ( !defined $pc_untagged || !BIGSdb::Utils::is_int($pc_untagged) ) {
 		say "Invalid percentage tagged threshold value passed.";
 		return;
 	}
-	$pc_untagged = $1 if $pc_untagged =~ /^(\d)+$/; #untaint	
-	my $data = $self->_calculate($isolate_id,{ pc_untagged => $pc_untagged, get_contigs=>1});
-
+	$pc_untagged = $1 if $pc_untagged =~ /^(\d+)$/;    #untaint
+	my $data = $self->_calculate( $isolate_id, { pc_untagged => $pc_untagged, get_contigs => 1 } );
 	my $export_seq = $q->param('match') ? $data->{'match_seq'} : $data->{'non_match_seq'};
-	if (!@$export_seq){
+	if ( !@$export_seq ) {
 		say "No sequences matching selected criteria.";
 		return;
 	}
-	foreach (@$export_seq){
+	foreach (@$export_seq) {
 		say ">$_->{'seqbin_id'}";
-		say $_->{'sequence'};
+		my $cleaned_seq = BIGSdb::Utils::break_line( $_->{'sequence'}, 60 ) || '';
+		say $cleaned_seq;
 	}
 	return;
 }
@@ -87,12 +87,11 @@ sub _download_contigs {
 sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	if ($q->param('format') eq 'text'){
+	if ( $q->param('format') eq 'text' ) {
 		$self->_download_contigs;
 		return;
 	}
-	print "<h1>Contig analysis and export</h1>\n";
-	
+	say "<h1>Contig analysis and export</h1>";
 	$self->_print_interface;
 	if ( $q->param('submit') ) {
 		my @ids = $q->param('isolate_id');
@@ -123,10 +122,19 @@ sub _run_analysis {
 	say "<div class=\"box\" id=\"resultstable\">";
 	my $pc_untagged = $q->param('pc_untagged');
 	$pc_untagged = 0 if !defined $pc_untagged || !BIGSdb::Utils::is_int($pc_untagged);
-	say "<table class=\"tablesorter\" id=\"sortTable\"><thead><tr><th rowspan=\"2\">id</th><th rowspan=\"2\">"
-	  . "$self->{'system'}->{'labelfield'}</th><th rowspan=\"2\">contigs</th><th colspan=\"3\" class=\"{sorter: false}\">"
-	  . "contigs with >=$pc_untagged\% sequence length untagged</th>";
-	say "</tr><tr><th>count</th><th class=\"{sorter: false}\">matching contigs</th><th class=\"{sorter: false}\">non-matching contigs</th></tr></thead><tbody>";
+	my $title = "Contigs with >=$pc_untagged\% sequence length untagged";
+	print << "HTML";
+<h2>$title</h2>
+<table class="tablesorter" id="sortTable"><thead><tr><th rowspan="2">id</th><th rowspan="2">
+$self->{'system'}->{'labelfield'}</th><th rowspan="2">contigs</th><th colspan="2" class="{sorter: false}">
+matching contigs</th><th colspan="2" class="{sorter: false}">non-matching contigs</th></tr>\n<tr><th>count</th>
+<th class="{sorter: false}">download</th><th>count</th><th class="{sorter: false}">download</th></tr></thead><tbody>
+HTML
+	my $filebuffer = << "TEXTFILE";
+$title:
+
+id\t$self->{'system'}->{'labelfield'}\tcontigs\tmatching contigs\tnon-matching contigs
+TEXTFILE
 	my $label_field = $self->{'system'}->{'labelfield'};
 	my $isolate_sql = $self->{'db'}->prepare("SELECT $label_field FROM $self->{'system'}->{'view'} WHERE id=?");
 	my $td          = 1;
@@ -139,17 +147,39 @@ sub _run_analysis {
 		  . "id=$isolate_id\">$isolate_id</a></td><td>$isolate_name</td>";
 		my $results = $self->_calculate( $isolate_id, { pc_untagged => $pc_untagged } );
 		say "<td>$results->{'total'}</td><td>$results->{'pc_untagged'}</td>";
-		say "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=Contigs&amp;"
-		  . "format=text&amp;isolate_id=$isolate_id&amp;pc_untagged=$pc_untagged&amp;match=1\" class=\"downloadbutton\">&darr;</a></td>";
-		
+		my @attributes;
+		push @attributes, "pc_untagged=$pc_untagged";
+		push @attributes, 'min_length=' . ( $q->param('min_length_list') // 0 );
+		push @attributes, 'seq_method=' . $q->param('seq_method_list') if $q->param('seq_method_list');
+		push @attributes, 'experiment=' . $q->param('experiment_list') if $q->param('experiment_list');
+		push @attributes, 'header=' . $q->param('header_list') // 1;
+		local $" = '&amp;';
+		say $results->{'pc_untagged'}
+		  ? "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;"
+		  . "name=Contigs&amp;format=text&amp;isolate_id=$isolate_id&amp;match=1&amp;@attributes\""
+		  . " class=\"downloadbutton\">&darr;</a></td>"
+		  : "<td />";
+		my $non_match = $results->{'total'} - $results->{'pc_untagged'};
+		say $non_match
+		  ? "<td>$non_match</td><td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=Contigs&amp;"
+		  . "format=text&amp;isolate_id=$isolate_id&amp;match=0&amp;@attributes\" class=\"downloadbutton\">&darr;</a></td>"
+		  : "<td>$non_match</td><td />";
 		say "</tr>";
+		$filebuffer .= "$isolate_id\t$isolate_name\t$results->{'total'}\t$results->{'pc_untagged'}\t$non_match\n";
 		$td = $td == 1 ? 2 : 1;
+
 		if ( $ENV{'MOD_PERL'} ) {
 			$self->{'mod_perl_request'}->rflush;
 			return if $self->{'mod_perl_request'}->connection->aborted;
 		}
 	}
 	say "</tbody></table>";
+	my $prefix   = BIGSdb::Utils::get_random();
+	my $filename = "$self->{'config'}->{'tmp_dir'}/$prefix.txt";
+	open( my $fh, '>', $filename ) || $logger->error("Can't open $filename for writing");
+	say $fh $filebuffer;
+	close $fh;
+	print "<p style=\"margin-top:1em\"><a href=\"/tmp/$prefix.txt\">Tab-delimited text format</a></p>";
 	say "</div>";
 	return;
 }
@@ -158,9 +188,9 @@ sub _calculate {
 	my ( $self, $isolate_id, $options ) = @_;
 	my $q        = $self->{'cgi'};
 	my $add_seq  = $options->{'get_contigs'} ? ',sequence' : '';
-	my $qry      = "SELECT id,length(sequence) AS seq_length$add_seq FROM sequence_bin WHERE isolate_id=?";
+	my $qry      = "SELECT id,length(sequence) AS seq_length,original_designation$add_seq FROM sequence_bin WHERE isolate_id=?";
 	my @criteria = ($isolate_id);
-	my $method   = $q->param('seq_method_list');
+	my $method   = $q->param('seq_method_list') // $q->param('seq_method');
 	if ($method) {
 		if ( !any { $_ eq $method } SEQ_METHODS ) {
 			$logger->error("Invalid method $method");
@@ -169,7 +199,7 @@ sub _calculate {
 		$qry .= " AND method=?";
 		push @criteria, $method;
 	}
-	my $experiment = $q->param('experiment_list');
+	my $experiment = $q->param('experiment_list') // $q->param('experiment');
 	if ($experiment) {
 		if ( !BIGSdb::Utils::is_int($experiment) ) {
 			$logger->error("Invalid experiment $experiment");
@@ -183,23 +213,28 @@ sub _calculate {
 	eval { $sql->execute(@criteria); };
 	my ( $total, $pc_untagged ) = ( 0, 0 );
 	my $tagged_sql = $self->{'db'}->prepare("SELECT sum(abs(end_pos-start_pos)) FROM allele_sequences WHERE seqbin_id=?");
-	my (@match_seq, @non_match_seq);
-	while ( my ( $seqbin_id, $seq_length, $seq ) = $sql->fetchrow_array ) {
-		my $match = 0;
+	my ( @match_seq, @non_match_seq );
+	while ( my ( $seqbin_id, $seq_length, $orig_designation, $seq ) = $sql->fetchrow_array ) {
+		my $min_length = $q->param('min_length_list') // $q->param('min_length');
+		next if ( $min_length && BIGSdb::Utils::is_int($min_length) && $seq_length < $min_length );
+		my $match = 1;
 		$total++;
 		eval { $tagged_sql->execute($seqbin_id) };
 		$logger->error($@) if $@;
 		my ($tagged_length) = $tagged_sql->fetchrow_array // 0;
 		$tagged_length = $seq_length if $tagged_length > $seq_length;
-		if ( (( $seq_length - $tagged_length ) * 100 / $seq_length ) >= $options->{'pc_untagged'}){
-			$match = 1;
+
+		if ( ( ( $seq_length - $tagged_length ) * 100 / $seq_length ) >= $options->{'pc_untagged'} ) {
 			$pc_untagged++;
+		} else {
+			$match = 0;
 		}
-		if ($options->{'get_contigs'}){
-			if ($match){
-				push @match_seq, {seqbin_id => $seqbin_id, sequence => $seq};
+		if ( $options->{'get_contigs'} ) {
+			my $header = ( $q->param('header') // 1 ) == 1 ? ( $orig_designation || $seqbin_id ) : $seqbin_id;
+			if ($match) {
+				push @match_seq, { seqbin_id => $header, sequence => $seq };
 			} else {
-				push @non_match_seq, {seqbin_id => $seqbin_id, sequence => $seq};
+				push @non_match_seq, { seqbin_id => $header, sequence => $seq };
 			}
 		}
 	}
@@ -223,13 +258,14 @@ sub _print_interface {
 <div class="box" id="queryform">
 <p>Please select the required isolate ids from which contigs are associated - use Ctrl or Shift to make multiple 
 selections.  Please note that the total length of tagged sequence is calculated by adding up the length of all loci tagged
-within the contig - if these loci overlap then the total tagged length can be longer than the length of the contig.</p>
+within the contig - if these loci overlap then the total tagged length will be reported as being longer than it really is 
+but it won't exceed the length of the contig.</p>
 HTML
 	say $q->start_form;
 	say "<div class=\"scrollable\">";
 	$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids } );
 	$self->_print_options_fieldset;
-	$self->print_sequence_filter_fieldset;
+	$self->print_sequence_filter_fieldset( { min_length => 1 } );
 	say "<div style=\"clear:both\"><span style=\"float:left\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
 	  . "page=plugin&amp;name=Contigs\" class=\"resetbutton\">Reset</a></span><span style=\"float:right;padding-right:5%\">";
 	say $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
@@ -248,9 +284,18 @@ sub _print_options_fieldset {
 	say "<fieldset style=\"float:left\">\n<legend>Options</legend>";
 	say "<ul>";
 	say "<li><label for=\"pc_untagged\">Identify contigs with >= </label>";
-	say $q->popup_menu( -name => 'pc_untagged', -id => 'pc_untagged', values => \@pc_values );
+	say $q->popup_menu( -name => 'pc_untagged', -id => 'pc_untagged', -values => \@pc_values );
 	say "% of sequence untagged</li>";
-	say "</ul>";
+	say "<li><label for=\"header_list\">FASTA header line: </label>";
+	say $q->popup_menu(
+		-name   => 'header_list',
+		-id     => 'header_list',
+		-values => [qw (1 2)],
+		-labels => { 1 => 'original designation', 2 => 'seqbin id' }
+	);
+	say " <a class=\"tooltip\" title=\"FASTA header line - Seqbin id will be used if the original designation has not been stored.\">"
+	  . "&nbsp;<i>i</i>&nbsp;</a>";
+	say "</li></ul>";
 	say "</fieldset>";
 	return;
 }

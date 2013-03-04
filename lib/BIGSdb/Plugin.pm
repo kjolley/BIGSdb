@@ -721,7 +721,8 @@ HTML
 }
 
 sub print_sequence_filter_fieldset {
-	my ($self) = @_;
+	my ($self, $options) = @_;
+	$options = {} if ref $options ne 'HASH';
 	say "<fieldset style=\"float:left\"><legend>Restrict included sequences by</legend><ul>";
 	my $buffer = $self->get_sequence_method_filter( { class => 'parameter' } );
 	say "<li>$buffer</li>" if $buffer;
@@ -729,6 +730,18 @@ sub print_sequence_filter_fieldset {
 	say "<li>$buffer</li>" if $buffer;
 	$buffer = $self->get_experiment_filter( { class => 'parameter' } );
 	say "<li>$buffer</li>" if $buffer;
+	if ($options->{'min_length'}){
+		$buffer = $self->get_filter(
+			'min_length',
+			[qw (100 200 500 1000 2000 5000 10000 20000 50000 100000)],
+			{
+				text    => 'Minimum length',
+				tooltip => 'minimum length filter - Only include sequences that are longer or equal to the specified length.',
+				class   => 'parameter'
+			}
+		);
+		say "<li>$buffer</li>";
+	}
 	say "</ul>\n</fieldset>\n";
 	return;
 }
