@@ -995,11 +995,11 @@ sub _generate_isolate_query_for_provenance_fields {
 				} elsif ( $operator eq '=' ) {
 					$qry .= $self->_provenance_equals_type_operator($args);
 				} else {
-					my $labelfield = $self->{'system'}->{'view'} . '.' . $self->{'system'}->{'labelfield'};
+					my $labelfield = $view . '.' . $self->{'system'}->{'labelfield'};
 					$qry .= $modifier;
 					if ($extended_isolate_field) {
 						$qry .=
-"$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND value $operator E'$text')";
+"$view.$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND value $operator E'$text')";
 					} elsif ( $field eq $labelfield ) {
 						$qry .=
 "($field $operator '$text' OR $view.id IN (SELECT isolate_id FROM isolate_aliases WHERE alias $operator E'$text'))";
@@ -1032,9 +1032,9 @@ sub _provenance_equals_type_operator {
 	if ( $values->{'extended_isolate_field'} ) {
 		$buffer .=
 		  $values->{'text'} eq 'null'
-		  ? "$values->{'extended_isolate_field'} $inv_not IN (SELECT field_value FROM isolate_value_extended_attributes WHERE "
+		  ? "$view.$values->{'extended_isolate_field'} $inv_not IN (SELECT field_value FROM isolate_value_extended_attributes WHERE "
 		  . "isolate_field='$values->{'extended_isolate_field'}' AND attribute='$values->{'field'}')"
-		  : "$values->{'extended_isolate_field'} $not IN (SELECT field_value FROM isolate_value_extended_attributes WHERE "
+		  : "$view.$values->{'extended_isolate_field'} $not IN (SELECT field_value FROM isolate_value_extended_attributes WHERE "
 		  . "isolate_field='$values->{'extended_isolate_field'}' AND attribute='$values->{'field'}' AND upper(value) = upper(E'$values->{'text'}'))";
 	} elsif ( $values->{'field'} eq $labelfield ) {
 		$buffer .=
@@ -1047,13 +1047,13 @@ sub _provenance_equals_type_operator {
 		if ( defined $metaset ) {
 			my $andor = $not ? 'AND' : 'OR';
 			if ( $values->{'text'} eq 'null' ) {
-				$buffer .= "id $not IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield IS NULL) $andor id $inv_not "
+				$buffer .= "$view.id $not IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield IS NULL) $andor id $inv_not "
 				  . "IN (SELECT isolate_id FROM meta_$metaset)";
 			} else {
 				$buffer .=
 				  lc( $values->{'type'} ) eq 'text'
-				  ? "id $not IN (SELECT isolate_id FROM meta_$metaset WHERE upper($metafield) = upper(E'$values->{'text'}') )"
-				  : "id $not IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield = E'$values->{'text'}' )";
+				  ? "$view.id $not IN (SELECT isolate_id FROM meta_$metaset WHERE upper($metafield) = upper(E'$values->{'text'}') )"
+				  : "$view.id $not IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield = E'$values->{'text'}' )";
 			}
 		} else {
 			my $null_clause = $values->{'not'} ? "OR $values->{'field'} IS NULL" : '';
@@ -1083,7 +1083,7 @@ sub _provenance_like_type_operator {
 	my $not        = $values->{'not'} ? 'NOT' : '';
 	( my $text = $values->{'behaviour'} ) =~ s/text/$values->{'text'}/;
 	if ( $values->{'extended_isolate_field'} ) {
-		$buffer .= "$values->{'extended_isolate_field'} $not IN (SELECT field_value FROM isolate_value_extended_attributes "
+		$buffer .= "$view.$values->{'extended_isolate_field'} $not IN (SELECT field_value FROM isolate_value_extended_attributes "
 		  . "WHERE isolate_field='$values->{'extended_isolate_field'}' AND attribute='$values->{'field'}' AND value ILIKE E'$text')";
 	} elsif ( $values->{'field'} eq $labelfield ) {
 		my $andor = $values->{'not'} ? 'AND' : 'OR';
@@ -1094,8 +1094,8 @@ sub _provenance_like_type_operator {
 		if ( defined $metaset ) {
 			$buffer .=
 			  lc( $values->{'type'} ) eq 'text'
-			  ? "id $not IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield ILIKE E'$text')"
-			  : "id $not IN (SELECT isolate_id FROM meta_$metaset WHERE CAST($metafield AS text) LIKE E'$text')";
+			  ? "$view.id $not IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield ILIKE E'$text')"
+			  : "$view.id $not IN (SELECT isolate_id FROM meta_$metaset WHERE CAST($metafield AS text) LIKE E'$text')";
 		} else {
 			my $null_clause = $values->{'not'} ? "OR $values->{'field'} IS NULL" : '';
 			if ( $values->{'type'} ne 'text' ) {
