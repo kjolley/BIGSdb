@@ -490,14 +490,12 @@ sub _download_alleles {
 	my $allele_ids = $self->{'datastore'}->run_list_query_hashref($$query_ref);
 	my $locus      = $self->{'datastore'}->get_locus($locus_name);
 	foreach (@$allele_ids) {
-		say ">$_->{'allele_id'}";
 		my $seq_ref = $locus->get_allele_sequence( $_->{'allele_id'} );
 		if ( ref $seq_ref eq 'SCALAR' && defined $$seq_ref ) {
 			$seq_ref = BIGSdb::Utils::break_line( $seq_ref, 60 );
+			say ">$_->{'allele_id'}";
 			say $$seq_ref;
-		} else {
-			say "Can't extract sequence";
-		}
+		} 
 	}
 	return;
 }
@@ -505,7 +503,6 @@ sub _download_alleles {
 sub _get_scheme_fields_sql {
 	my ( $self, $scheme_id ) = @_;
 	my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $scheme_info   = $self->{'datastore'}->get_scheme_info($scheme_id);
 	my $joined_table  = "SELECT * FROM $self->{'system'}->{'view'}";
 	foreach (@$scheme_loci) {
