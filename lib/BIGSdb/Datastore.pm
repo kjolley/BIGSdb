@@ -108,7 +108,7 @@ sub get_permissions {
 }
 
 sub get_isolate_field_values {
-	my ($self, $isolate_id) = @_;
+	my ( $self, $isolate_id ) = @_;
 	if ( !$self->{'sql'}->{'isolate_field_values'} ) {
 		$self->{'sql'}->{'isolate_field_values'} = $self->{'db'}->prepare("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?");
 	}
@@ -267,16 +267,19 @@ sub get_scheme_field_values_by_profile {
 			$self->{'scheme'}->{$scheme_id} = $self->get_scheme($scheme_id);
 		}
 		local $" = ',';
-		if ( !defined $self->{'cache'}->{$scheme_id}->{'field_values_by_profile'}->{"@$profile_ref"} ) {
-			try {
-				$values = $self->{'scheme'}->{$scheme_id}->get_field_values_by_profile( $profile_ref, { return_hashref => 1 } );
-				$self->{'cache'}->{$scheme_id}->{'field_values_by_profile'}->{"@$profile_ref"} = $values;
+		{
+			no warnings 'uninitialized';    #Values in @$profile_ref may be null - this is ok.
+			if ( !defined $self->{'cache'}->{$scheme_id}->{'field_values_by_profile'}->{"@$profile_ref"} ) {
+				try {
+					$values = $self->{'scheme'}->{$scheme_id}->get_field_values_by_profile( $profile_ref, { return_hashref => 1 } );
+					$self->{'cache'}->{$scheme_id}->{'field_values_by_profile'}->{"@$profile_ref"} = $values;
+				}
+				catch BIGSdb::DatabaseConfigurationException with {
+					$logger->warn("Scheme database $scheme_id is not configured correctly");
+				};
+			} else {
+				$values = $self->{'cache'}->{$scheme_id}->{'field_values_by_profile'}->{"@$profile_ref"};
 			}
-			catch BIGSdb::DatabaseConfigurationException with {
-				$logger->warn("Scheme database $scheme_id is not configured correctly");
-			};
-		} else {
-			$values = $self->{'cache'}->{$scheme_id}->{'field_values_by_profile'}->{"@$profile_ref"};
 		}
 	}
 	return $values;
@@ -1615,7 +1618,7 @@ sub get_table_field_attributes {
 
 	#Returns array ref of attributes for a specific table provided by table-specific helper functions in BIGSdb::TableAttributes.
 	my ( $self, $table ) = @_;
-	my $function = "BIGSdb::TableAttributes::get_$table\_table_attributes";
+	my $function   = "BIGSdb::TableAttributes::get_$table\_table_attributes";
 	my $attributes = $self->$function();
 	return if ref $attributes ne 'ARRAY';
 	foreach my $att (@$attributes) {
