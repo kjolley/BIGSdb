@@ -245,7 +245,7 @@ sub _write_fasta {
 					my $allele_id = $self->{'datastore'}->get_allele_id( $id, $locus );
 					my $allele_seq;
 					if ( $locus_info->{'data_type'} eq 'DNA' ) {
-						if ($allele_id ne '0'){
+						if (($allele_id // '0') ne '0'){
 							try {
 								$allele_seq = $loci{$locus}->get_allele_sequence($allele_id);
 							}
