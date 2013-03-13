@@ -1053,8 +1053,13 @@ s/FROM $view/FROM $view LEFT JOIN allele_designations AS ordering ON ordering.is
 
 sub is_allowed_to_view_isolate {
 	my ( $self, $isolate_id ) = @_;
-	my $allowed_to_view =
-	  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id )->[0];
+	if ( !$self->{'sql'}->{'allowed_to_view'} ) {
+		$self->{'sql'}->{'allowed_to_view'} =
+		  $self->{'db'}->prepare("SELECT EXISTS (SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)");
+	}
+	eval { $self->{'sql'}->{'allowed_to_view'}->execute($isolate_id) };
+	$logger->error($@) if $@;
+	my $allowed_to_view = $self->{'sql'}->{'allowed_to_view'}->fetchrow_array;
 	return $allowed_to_view;
 }
 
