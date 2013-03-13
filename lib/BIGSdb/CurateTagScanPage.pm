@@ -455,8 +455,8 @@ sub _scan {
 						eval { $extract_seq_sql->execute( $_->{'seqbin_id'} ) };
 						$logger->error($@) if $@;
 						my ($seq) = $extract_seq_sql->fetchrow_array;
-						$seq = BIGSdb::Utils::reverse_complement($seq) if $_->{'reverse'};
-						$seq = uc($seq);
+						$seq            = BIGSdb::Utils::reverse_complement($seq) if $_->{'reverse'};
+						$seq            = uc($seq);
 						$new_seqs_found = 1;
 						my $new = 1;
 
@@ -491,8 +491,10 @@ sub _scan {
 				if ( $self->{'mod_perl_request'}->connection->aborted ) {
 
 					#clean up
-					system
-					  "rm -f $self->{'config'}->{'secure_tmp_dir'}/*$file_prefix* $self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*";
+					my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/*$file_prefix*");
+					foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/ }
+					@files = glob("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");
+					foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/ }
 					return;
 				}
 			}
@@ -500,13 +502,15 @@ sub _scan {
 		}
 
 		#delete isolate working files
-		system "rm -f $self->{'config'}->{'secure_tmp_dir'}/*$file_prefix*";
+		my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/*$file_prefix*");
+		foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/ }
 		$last_id_checked = $isolate_id;
 	}
 	close $seqs_fh;
 
 	#delete locus working files
-	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*";
+	my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");
+	foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/ }
 	if ($first) {
 		$tag_button = 0;
 	} else {
@@ -560,16 +564,16 @@ sub _tag {
 	  ->prepare("SELECT COUNT(*) FROM pending_allele_designations WHERE isolate_id=? AND locus=? AND allele_id=? AND sender=?");
 	my $sequence_exists_sql =
 	  $self->{'db'}->prepare("SELECT COUNT(*) FROM allele_sequences WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=?");
-	my @params     = $q->param;
-	my @ids        = $q->param('isolate_id');
-	my @loci       = $q->param('locus');
-	my @scheme_ids = $q->param('scheme_id');
+	my @params      = $q->param;
+	my @isolate_ids = $q->param('isolate_id');
+	my @loci        = $q->param('locus');
+	my @scheme_ids  = $q->param('scheme_id');
 	$self->_add_scheme_loci( \@loci );
 	@loci = uniq @loci;
 	my $sql        = $self->{'db'}->prepare("SELECT sender FROM sequence_bin WHERE id=?");
 	my $curator_id = $self->get_curator_id;
 
-	foreach my $isolate_id (@ids) {
+	foreach my $isolate_id (@isolate_ids) {
 		next if !$self->is_allowed_to_view_isolate($isolate_id);
 		my %tested_locus;
 		foreach (@loci) {
@@ -1239,7 +1243,7 @@ sub blast {
 	if ( $locus_info->{'pcr_filter'} && $q->param('pcr_filter') ) {
 		if ( $self->{'config'}->{'ipcress_path'} ) {
 			$pcr_products = $self->_simulate_PCR( $temp_infile, $locus );
-			if (ref $pcr_products ne 'ARRAY'){
+			if ( ref $pcr_products ne 'ARRAY' ) {
 				$logger->error("PCR filter is set for locus $locus but no reactions are defined.");
 				return;
 			}
@@ -1250,7 +1254,7 @@ sub blast {
 	}
 	if ( $locus_info->{'probe_filter'} && $q->param('probe_filter') ) {
 		$probe_matches = $self->_simulate_hybridization( $temp_infile, $locus );
-		if (ref $probe_matches ne 'ARRAY'){
+		if ( ref $probe_matches ne 'ARRAY' ) {
 			$logger->error("Probe filter is set for locus $locus but no probes are defined.");
 			return;
 		}
