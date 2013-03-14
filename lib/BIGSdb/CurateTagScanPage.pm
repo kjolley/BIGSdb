@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -478,11 +478,15 @@ sub _scan {
 				&& !( ref $exact_matches   && @$exact_matches )
 				&& !( ref $partial_matches && @$partial_matches ) )
 			{
-				print $header_buffer if $first;
-				$self->_print_missing_row( $isolate_id, $labels, $locus, \@js, \@js2, );
-				$new_designation = 1;
-				$first           = 0;
-				$td              = $td == 1 ? 2 : 1;
+				
+				my $buffer = $self->_get_missing_row( $isolate_id, $labels, $locus, \@js, \@js2, );
+				if ($buffer){
+					print $header_buffer if $first;
+					print $buffer;
+					$new_designation = 1;
+					$first           = 0;
+					$td              = $td == 1 ? 2 : 1;
+				}
 			} else {
 				print " ";    #try to prevent time-out.
 			}
@@ -982,35 +986,36 @@ sub _print_row {
 	return ( $off_end, $new_designation );
 }
 
-sub _print_missing_row {
+sub _get_missing_row {
 	my ( $self, $isolate_id, $labels, $locus, $js, $js2, ) = @_;
 	my $q                  = $self->{'cgi'};
 	my $existing_allele    = $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
 	my $existing_sequences = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
 	my $cleaned_locus      = $self->clean_locus($locus);
+	my $buffer;
 	if ( defined $existing_allele || @$existing_sequences ) {
 		print ' ';    #try to prevent time-out.
-		return;
+		return $buffer;
 	}
-	print "<tr class=\"provisional\">";
-	print "<td>" . ( $labels->{$isolate_id} || $isolate_id ) . "</td><td>missing</td><td>$cleaned_locus";
-	print "</td>";
-	print "<td>0</td>";
-	print "<td /><td /><td /><td /><td /><td /><td /><td /><td /><td /><td>";
+	$buffer .= "<tr class=\"provisional\">";
+	$buffer .= "<td>" . ( $labels->{$isolate_id} || $isolate_id ) . "</td><td>missing</td><td>$cleaned_locus";
+	$buffer .= "</td>";
+	$buffer .= "<td>0</td>";
+	$buffer .= "<td /><td /><td /><td /><td /><td /><td /><td /><td /><td /><td>";
 	$cleaned_locus = $self->clean_checkbox_id($locus);
 	$cleaned_locus =~ s/\\/\\\\/g;
-	print $q->checkbox(
+	$buffer .= $q->checkbox(
 		-name    => "id_$isolate_id\_$locus\_allele_1",
 		-id      => "id_$isolate_id\_$cleaned_locus\_allele_1",
 		-label   => '',
 		-checked => 'checked'
 	);
-	print $q->hidden( "id_$isolate_id\_$locus\_allele_id_1", 0 );
+	$buffer .= $q->hidden( "id_$isolate_id\_$locus\_allele_id_1", 0 );
 	push @$js,  "\$(\"#id_$isolate_id\_$cleaned_locus\_allele_1\").attr(\"checked\",true)";
 	push @$js2, "\$(\"#id_$isolate_id\_$cleaned_locus\_allele_1\").attr(\"checked\",false)";
-	print "</td><td /><td />";
-	print "</tr>\n";
-	return;
+	$buffer .= "</td><td /><td />";
+	$buffer .= "</tr>\n";
+	return $buffer;
 }
 
 sub _simulate_PCR {
