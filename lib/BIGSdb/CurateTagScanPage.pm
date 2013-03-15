@@ -380,6 +380,7 @@ sub _scan {
 		}
 	}
 	local $| = 1;
+	my %isolates_to_tag;
 	foreach my $isolate_id (@ids) {
 		next if $project_id && none { $isolate_id == $_ } @isolates_in_project;
 		if ( $match >= $limit ) {
@@ -431,6 +432,7 @@ sub _scan {
 					$td = $td == 1 ? 2 : 1;
 					$i++;
 				}
+				$isolates_to_tag{$isolate_id} = 1;
 				$first = 0;
 			}
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
@@ -475,6 +477,7 @@ sub _scan {
 					$i++;
 				}
 				$first = 0;
+				$isolates_to_tag{$isolate_id} = 1;
 			} elsif ( $q->param('mark_missing')
 				&& !( ref $exact_matches   && @$exact_matches )
 				&& !( ref $partial_matches && @$partial_matches ) )
@@ -483,9 +486,10 @@ sub _scan {
 				if ($buffer) {
 					print $header_buffer if $first;
 					print $buffer;
-					$new_designation = 1;
-					$first           = 0;
-					$td              = $td == 1 ? 2 : 1;
+					$new_designation              = 1;
+					$first                        = 0;
+					$td                           = $td == 1 ? 2 : 1;
+					$isolates_to_tag{$isolate_id} = 1;
 				}
 			} else {
 				print " ";    #try to prevent time-out.
@@ -541,6 +545,8 @@ sub _scan {
 		  . "database for allele assignment.\">&nbsp;<i>i</i>&nbsp;</a></p>";
 	}
 	if ($tag_button) {
+		$q->param( 'isolate_id', sort { $a <=> $b } keys %isolates_to_tag )
+		  ;    #pass the isolates that appear in the table rather than whole selection.
 		say $q->submit( -name => 'tag', -label => 'Tag alleles/sequences', -class => 'submit' );
 		say "<noscript><p><span class=\"comment\"> Enable javascript for select buttons to work!</span></p></noscript>\n";
 		foreach (
@@ -740,9 +746,9 @@ sub print_content {
 	my ( $ids, $labels ) = $self->get_isolates_with_seqbin;
 	$self->_print_interface( $ids, $labels );
 	if ( $q->param('tag') ) {
-		$self->_tag( $labels );
+		$self->_tag($labels);
 	} elsif ( $q->param('scan') ) {
-		$self->_scan( $labels );
+		$self->_scan($labels);
 	}
 	return;
 }
