@@ -42,7 +42,7 @@ my $MARK_MISSING    = 'off';
 
 sub get_javascript {
 	my ($self) = @_;
-	my %check_values = ( 'on' => 'true', 'off' => 'false' );
+	my %check_values = ( on => 'true', off => 'false' );
 	my $buffer = << "END";
 function listbox_selectall(listID, isSelect) {
 	\$("#" + listID + " option").attr("selected",isSelect);
@@ -76,30 +76,29 @@ sub initiate {
 sub _print_interface {
 	my ( $self, $ids, $labels ) = @_;
 	my $q = $self->{'cgi'};
-	print "<h1>Sequence tag scan</h1>\n";
+	say "<h1>Sequence tag scan</h1>";
 	if ( !@$ids ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>There are no sequences in the sequence bin.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>There are no sequences in the sequence bin.</p></div>";
 		return;
 	} elsif ( !$self->can_modify_table('allele_sequences') ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to tag sequences.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to tag sequences.</p></div>";
 		return;
 	}
-	print "<div class=\"box\" id=\"queryform\">\n";
-	print "<p>Please select the required isolate ids and loci for sequence scanning - use ctrl or shift to make 
-	  multiple selections. In addition to selecting individual loci, you can choose to include all loci defined in schemes
-	  by selecting the appropriate scheme description. By default, loci are only scanned for an isolate when no allele designation has 
-	  been made or sequence tagged. You can choose to rescan loci with existing designations or tags by 
-	  selecting the appropriate options.</p>\n";
-	my ( $loci, $locus_labels ) = $self->get_field_selection_list( { 'loci' => 1, 'query_pref' => 0, 'sort_labels' => 1 } );
+	say "<div class=\"box\" id=\"queryform\">";
+	say "<p>Please select the required isolate ids and loci for sequence scanning - use ctrl or shift to make multiple selections. In "
+	  . "addition to selecting individual loci, you can choose to include all loci defined in schemes by selecting the appropriate scheme "
+	  . "description. By default, loci are only scanned for an isolate when no allele designation has been made or sequence tagged. You "
+	  . "can choose to rescan loci with existing designations or tags by selecting the appropriate options.</p>";
+	my ( $loci, $locus_labels ) = $self->get_field_selection_list( { loci => 1, query_pref => 0, sort_labels => 1 } );
 	my $guid = $self->get_guid;
 	my $general_prefs;
 	if ($guid) {
 		$general_prefs = $self->{'prefstore'}->get_all_general_prefs( $guid, $self->{'system'}->{'db'} );
 	}
 	my $selected_ids = $q->param('query') ? $self->_get_ids( $q->param('query') ) : [];
-	print $q->start_form;
-	print "<div class=\"scrollable\"><fieldset>\n<legend>Isolates</legend>\n";
-	print $q->scrolling_list(
+	say $q->start_form;
+	say "<div class=\"scrollable\"><fieldset>\n<legend>Isolates</legend>";
+	say $q->scrolling_list(
 		-name     => 'isolate_id',
 		-id       => 'isolate_id',
 		-values   => $ids,
@@ -108,206 +107,208 @@ sub _print_interface {
 		-multiple => 'true',
 		-default  => $selected_ids
 	);
-	print
-"<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"isolate_id\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
-	print
-"<input type=\"button\" onclick='listbox_selectall(\"isolate_id\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
-	print "</fieldset>\n";
-	print "<fieldset>\n<legend>Loci</legend>\n";
-	print $q->scrolling_list( -name => 'locus', -id => 'locus', -values => $loci, -labels => $locus_labels, -size => 11,
+	say "<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"isolate_id\",true)' value=\"All\" "
+	  . "style=\"margin-top:1em\" class=\"smallbutton\" />";
+	say "<input type=\"button\" onclick='listbox_selectall(\"isolate_id\",false)' value=\"None\" style=\"margin-top:1em\" "
+	  . "class=\"smallbutton\" /></div>";
+	say "</fieldset>";
+	say "<fieldset>\n<legend>Loci</legend>";
+	say $q->scrolling_list( -name => 'locus', -id => 'locus', -values => $loci, -labels => $locus_labels, -size => 11,
 		-multiple => 'true' );
-	print
-"<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"locus\",true)' value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
-	print
-"<input type=\"button\" onclick='listbox_selectall(\"locus\",false)' value=\"None\" style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
-	print "</fieldset>";
-	print "<fieldset>\n<legend>Schemes</legend>\n";
-	print "<noscript><p class=\"highlight\">Enable Javascript to select schemes.</p></noscript>\n";
-	print "<div id=\"tree\" class=\"tree\" style=\"height:180px; width:20em\">\n";
-	print $self->get_tree( undef, { no_link_out => 1, select_schemes => 1 } );
-	print "</div>\n";
-	print "</fieldset>\n";
+	say "<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"locus\",true)' value=\"All\" "
+	  . "style=\"margin-top:1em\" class=\"smallbutton\" />";
+	say "<input type=\"button\" onclick='listbox_selectall(\"locus\",false)' value=\"None\" style=\"margin-top:1em\" "
+	  . "class=\"smallbutton\" /></div>";
+	say "</fieldset>";
+	say "<fieldset>\n<legend>Schemes</legend>";
+	say "<noscript><p class=\"highlight\">Enable Javascript to select schemes.</p></noscript>";
+	say "<div id=\"tree\" class=\"tree\" style=\"height:180px; width:20em\">";
+	say $self->get_tree( undef, { no_link_out => 1, select_schemes => 1 } );
+	say "</div>";
+	say "</fieldset>";
 	$self->_print_parameter_fieldset($general_prefs);
 
 	#Only show repetitive loci fields if PCR or probe locus links have been set
 	my $pcr_links   = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM pcr_locus")->[0];
 	my $probe_links = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM probe_locus")->[0];
 	if ( $pcr_links + $probe_links ) {
-		print "<fieldset>\n<legend>Repetitive loci</legend>\n";
-		print "<ul>";
+		say "<fieldset>\n<legend>Repetitive loci</legend>";
+		say "<ul>";
 		if ($pcr_links) {
-			print "<li>";
-			print $q->checkbox( -name => 'pcr_filter', -label => 'Filter by PCR', -checked => 'checked' );
-			print " <a class=\"tooltip\" title=\"Filter by PCR - Loci can be defined by a simulated PCR reaction(s) so that only
-			regions of the genome predicted to be amplified will be recognised in the scan. De-selecting this option will ignore this filter and the
-			whole sequence bin will be scanned instead.  Partial matches will also be returned (up to the number set in the parameters) even if exact
-			matches are found.  De-selecting this option will be necessary if the gene in question is incomplete due to being located at the end
-			of a contig since it can not then be bounded by PCR primers.\">&nbsp;<i>i</i>&nbsp;</a>";
-			print "</li>\n<li><label for=\"alter_pcr_mismatches\" class=\"parameter\">&Delta; PCR mismatch:</label>\n";
-			print $q->popup_menu(
+			say "<li>";
+			say $q->checkbox( -name => 'pcr_filter', -label => 'Filter by PCR', -checked => 'checked' );
+			say " <a class=\"tooltip\" title=\"Filter by PCR - Loci can be defined by a simulated PCR reaction(s) so that only regions of "
+			  . "the genome predicted to be amplified will be recognised in the scan. De-selecting this option will ignore this filter "
+			  . "and the whole sequence bin will be scanned instead.  Partial matches will also be returned (up to the number set in the "
+			  . "parameters) even if exact matches are found.  De-selecting this option will be necessary if the gene in question is "
+			  . "incomplete due to being located at the end of a contig since it can not then be bounded by PCR primers.\">"
+			  . "&nbsp;<i>i</i>&nbsp;</a>";
+			say "</li>\n<li><label for=\"alter_pcr_mismatches\" class=\"parameter\">&Delta; PCR mismatch:</label>";
+			say $q->popup_menu(
 				-name    => 'alter_pcr_mismatches',
 				-id      => 'alter_pcr_mismatches',
 				-values  => [qw (-3 -2 -1 0 +1 +2 +3)],
 				-default => 0
 			);
-			print
-			  " <a class=\"tooltip\" title=\"Change primer mismatch - Each defined PCR reaction will have a parameter specifying the allowed
-			number of mismatches per primer. You can increase or decrease this value here, altering the stringency of the reaction.\">&nbsp;<i>i</i>&nbsp;</a>";
-			print "</li>";
+			say " <a class=\"tooltip\" title=\"Change primer mismatch - Each defined PCR reaction will have a parameter specifying the "
+			  . "allowed number of mismatches per primer. You can increase or decrease this value here, altering the stringency of the "
+			  . "reaction.\">&nbsp;<i>i</i>&nbsp;</a>";
+			say "</li>";
 		}
 		if ($probe_links) {
-			print "<li>";
-			print $q->checkbox( -name => 'probe_filter', -label => 'Filter by probe', -checked => 'checked' );
-			print " <a class=\"tooltip\" title=\"Filter by probe - Loci can be defined by a simulated hybridization reaction(s) so that only
-			regions of the genome predicted to be within a set distance of a hybridization sequence will be recognised in the scan. De-selecting this 
-			option will ignore this filter and the whole sequence bin will be scanned instead.  Partial matches will also be returned (up to the 
-			number set in the parameters) even if exact matches are found.\">&nbsp;<i>i</i>&nbsp;</a></li>\n";
-			print "<li><label for=\"alter_probe_mismatches\" class=\"parameter\">&Delta; Probe mismatch:</label>\n";
-			print $q->popup_menu(
+			say "<li>";
+			say $q->checkbox( -name => 'probe_filter', -label => 'Filter by probe', -checked => 'checked' );
+			say " <a class=\"tooltip\" title=\"Filter by probe - Loci can be defined by a simulated hybridization reaction(s) so that "
+			  . "only regions of the genome predicted to be within a set distance of a hybridization sequence will be recognised in the "
+			  . "scan. De-selecting this option will ignore this filter and the whole sequence bin will be scanned instead.  Partial "
+			  . "matches will also be returned (up to the number set in the parameters) even if exact matches are found.\">"
+			  . "&nbsp;<i>i</i>&nbsp;</a></li>";
+			say "<li><label for=\"alter_probe_mismatches\" class=\"parameter\">&Delta; Probe mismatch:</label>";
+			say $q->popup_menu(
 				-name    => 'alter_probe_mismatches',
 				-id      => 'alter_probe_mismatches',
 				-values  => [qw (-3 -2 -1 0 +1 +2 +3)],
 				-default => 0
 			);
-			print
-" <a class=\"tooltip\" title=\"Change probe mismatch - Each hybridization reaction will have a parameter specifying the allowed
-			number of mismatches. You can increase or decrease this value here, altering the stringency of the reaction.\">&nbsp;<i>i</i>&nbsp;</a>";
-			print "</li>";
+			say " <a class=\"tooltip\" title=\"Change probe mismatch - Each hybridization reaction will have a parameter specifying the "
+			  . "allowed number of mismatches. You can increase or decrease this value here, altering the stringency of the reaction.\">"
+			  . "&nbsp;<i>i</i>&nbsp;</a>";
+			say "</li>";
 		}
-		print "</ul>\n</fieldset>\n";
+		say "</ul>\n</fieldset>";
 	}
-	print "<fieldset>\n<legend>Restrict included sequences by</legend>\n";
-	print "<ul>\n";
-	my $buffer = $self->get_sequence_method_filter( { 'class' => 'parameter' } );
-	print "<li>$buffer</li>" if $buffer;
-	$buffer = $self->get_project_filter( { 'class' => 'parameter' } );
-	print "<li>$buffer</li>" if $buffer;
-	$buffer = $self->get_experiment_filter( { 'class' => 'parameter' } );
-	print "<li>$buffer</li>" if $buffer;
-	print "</ul></fieldset>\n";
-	print "</div>";
-	print "<table style=\"width:95%\"><tr><td style=\"text-align:left\">";
-	print
-"<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan\" class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\" colspan=\"3\">";
-	print $q->submit( -name => 'scan', -label => 'Scan', -class => 'submit' );
-	print "</td></tr></table>\n";
-	print $q->hidden($_) foreach qw (page db);
-	print $q->end_form;
-	print "</div>\n";
+	say "<fieldset>\n<legend>Restrict included sequences by</legend>";
+	say "<ul>";
+	my $buffer = $self->get_sequence_method_filter( { class => 'parameter' } );
+	say "<li>$buffer</li>" if $buffer;
+	$buffer = $self->get_project_filter( { class => 'parameter' } );
+	say "<li>$buffer</li>" if $buffer;
+	$buffer = $self->get_experiment_filter( { class => 'parameter' } );
+	say "<li>$buffer</li>" if $buffer;
+	say "</ul></fieldset>";
+	say "</div>";
+	say "<table style=\"width:95%\"><tr><td style=\"text-align:left\">";
+	say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan\" class=\"resetbutton\">Reset</a></td>"
+	  . "<td style=\"text-align:right\" colspan=\"3\">";
+	say $q->submit( -name => 'scan', -label => 'Scan', -class => 'submit' );
+	say "</td></tr></table>";
+	say $q->hidden($_) foreach qw (page db);
+	say $q->end_form;
+	say "</div>";
 	return;
 }
 
 sub _print_parameter_fieldset {
 	my ( $self, $general_prefs ) = @_;
 	my $q = $self->{'cgi'};
-	print "<fieldset>\n<legend>Parameters</legend>\n"
+	say "<fieldset>\n<legend>Parameters</legend>"
 	  . "<input type=\"button\" class=\"smallbutton legendbutton\" value=\"Defaults\" onclick=\"use_defaults()\" />"
 	  . "<ul><li><label for =\"identity\" class=\"parameter\">Min % identity:</label>";
-	print $q->popup_menu(
+	say $q->popup_menu(
 		-name    => 'identity',
 		-id      => 'identity',
 		-values  => [qw(50 55 60 65 70 75 80 85 90 91 92 93 94 95 96 97 98 99 100)],
 		-default => $general_prefs->{'scan_identity'} || $MIN_IDENTITY
 	);
-	print " <a class=\"tooltip\" title=\"Minimum % identity - Match required for partial matching.\">&nbsp;<i>i</i>&nbsp;</a></li>"
+	say " <a class=\"tooltip\" title=\"Minimum % identity - Match required for partial matching.\">&nbsp;<i>i</i>&nbsp;</a></li>"
 	  . "<li><label for =\"alignment\" class=\"parameter\">Min % alignment:</label>";
-	print $q->popup_menu(
+	say $q->popup_menu(
 		-name    => 'alignment',
 		-id      => 'alignment',
 		-values  => [qw(30 35 40 45 50 55 60 65 70 75 80 85 90 91 92 93 94 95 96 97 98 99 100)],
 		-default => $general_prefs->{'scan_alignment'} || $MIN_ALIGNMENT
 	);
-	print " <a class=\"tooltip\" title=\"Minimum % alignment - Percentage of allele sequence length required to be aligned for "
+	say " <a class=\"tooltip\" title=\"Minimum % alignment - Percentage of allele sequence length required to be aligned for "
 	  . "partial matching.\">&nbsp;<i>i</i>&nbsp;</a></li>"
-	  . "<li><label for =\"word_size\" class=\"parameter\">BLASTN word size:</label>\n";
-	print $q->popup_menu(
+	  . "<li><label for =\"word_size\" class=\"parameter\">BLASTN word size:</label>";
+	say $q->popup_menu(
 		-name    => 'word_size',
 		-id      => 'word_size',
 		-values  => [qw(7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28)],
 		-default => $general_prefs->{'scan_word_size'} || $WORD_SIZE
 	);
-	print " <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. "
+	say " <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. "
 	  . "Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a></li>"
-	  . "<li><label for =\"partial_matches\" class=\"parameter\">Return up to:</label>\n";
-	print $q->popup_menu(
+	  . "<li><label for =\"partial_matches\" class=\"parameter\">Return up to:</label>";
+	say $q->popup_menu(
 		-name    => 'partial_matches',
 		-id      => 'partial_matches',
 		-values  => [qw(1 2 3 4 5 6 7 8 9 10)],
 		-default => $general_prefs->{'scan_partial_matches'} || $PARTIAL_MATCHES
 	);
-	print " partial match(es)</li>" . "<li><label for =\"limit_matches\" class=\"parameter\">Stop after:</label>\n";
-	print $q->popup_menu(
+	say " partial match(es)</li>" . "<li><label for =\"limit_matches\" class=\"parameter\">Stop after:</label>";
+	say $q->popup_menu(
 		-name    => 'limit_matches',
 		-id      => 'limit_matches',
 		-values  => [qw(10 20 30 40 50 100 200 500 1000 2000 5000 10000 20000)],
 		-default => $general_prefs->{'scan_limit_matches'} || $LIMIT_MATCHES
 	);
-	print " new matches "
+	say " new matches "
 	  . " <a class=\"tooltip\" title=\"Stop after matching - Limit the number of previously undesignated matches. You may wish to "
 	  . "terminate the search after finding a set number of new matches.  You will be able to tag any sequences found and next time "
 	  . "these won't be searched (by default) so this enables you to tag in batches.\">&nbsp;<i>i</i>&nbsp;</a></li>"
-	  . "<li><label for =\"limit_time\" class=\"parameter\">Stop after:</label>\n";
-	print $q->popup_menu(
+	  . "<li><label for =\"limit_time\" class=\"parameter\">Stop after:</label>";
+	say $q->popup_menu(
 		-name    => 'limit_time',
 		-id      => 'limit_time',
 		-values  => [qw(1 2 5 10 15 30 60 120 180 240 300)],
 		-default => $general_prefs->{'scan_limit_time'} || $LIMIT_TIME
 	);
-	print " minute(s) "
+	say " minute(s) "
 	  . " <a class=\"tooltip\" title=\"Stop after time - Searches against lots of loci or for multiple isolates may take a long time. "
 	  . "You may wish to terminate the search after a set time.  You will be able to tag any sequences found and next time these "
 	  . "won't be searched (by default) so this enables you to tag in batches.\">&nbsp;<i>i</i>&nbsp;</a></li>";
 
 	if ( $self->{'system'}->{'tblastx_tagging'} && $self->{'system'}->{'tblastx_tagging'} eq 'yes' ) {
-		print "<li><span class=\"warning\">";
-		print $q->checkbox(
+		say "<li><span class=\"warning\">";
+		say $q->checkbox(
 			-name    => 'tblastx',
 			-id      => 'tblastx',
 			-label   => 'Use TBLASTX',
 			-checked => ( $general_prefs->{'scan_tblastx'} && $general_prefs->{'scan_tblastx'} eq 'on' ) ? 'checked' : ''
 		);
-		print " <a class=\"tooltip\" title=\"TBLASTX - Compares the six-frame translation of your nucleotide query against "
+		say " <a class=\"tooltip\" title=\"TBLASTX - Compares the six-frame translation of your nucleotide query against "
 		  . "the six-frame translation of the sequences in the sequence bin.  This can be VERY SLOW (a few minutes for "
 		  . "each comparison. Use with caution.<br /><br />Partial matches may be indicated even when an exact match "
 		  . "is found if the matching allele contains a partial codon at one of the ends.  Identical matches will be indicated "
 		  . "if the translated sequences match even if the nucleotide sequences don't. For this reason, allele designation "
 		  . "tagging is disabled for TBLASTX matching.\">&nbsp;<i>i</i>&nbsp;</a>"
-		  . "</span></li>\n";
+		  . "</span></li>";
 	}
-	print "<li>";
-	print $q->checkbox(
+	say "<li>";
+	say $q->checkbox(
 		-name    => 'hunt',
 		-id      => 'hunt',
 		-label   => 'Hunt for nearby start and stop codons',
 		-checked => ( $general_prefs->{'scan_hunt'} && $general_prefs->{'scan_hunt'} eq 'on' ) ? 'checked' : ''
 	);
-	print " <a class=\"tooltip\" title=\"Hunt for start/stop codons - If the aligned sequence is not an exact match to an "
+	say " <a class=\"tooltip\" title=\"Hunt for start/stop codons - If the aligned sequence is not an exact match to an "
 	  . "existing allele and is not a complete coding sequence with start and stop codons at the ends, selecting this "
 	  . "option will hunt for these by walking in and out from the ends in complete codons for up to 6 amino acids.\">"
 	  . "&nbsp;<i>i</i>&nbsp;</a>"
-	  . "</li><li>\n";
-	print $q->checkbox(
+	  . "</li><li>";
+	say $q->checkbox(
 		-name    => 'rescan_alleles',
 		-id      => 'rescan_alleles',
 		-label   => 'Rescan even if allele designations are already set',
 		-checked => ( $general_prefs->{'scan_rescan_alleles'} && $general_prefs->{'scan_rescan_alleles'} eq 'on' ) ? 'checked' : ''
 	);
-	print "</li><li>\n";
-	print $q->checkbox(
+	say "</li><li>";
+	say $q->checkbox(
 		-name    => 'rescan_seqs',
 		-id      => 'rescan_seqs',
 		-label   => 'Rescan even if allele sequences are tagged',
 		-checked => ( $general_prefs->{'scan_rescan_seqs'} && $general_prefs->{'scan_rescan_seqs'} eq 'on' ) ? 'checked' : ''
 	);
-	print "</li><li>\n";
-	print $q->checkbox(
+	say "</li><li>";
+	say $q->checkbox(
 		-name    => 'mark_missing',
 		-id      => 'mark_missing',
 		-label   => "Mark missing sequences as provisional allele '0'",
 		-checked => ( $general_prefs->{'scan_mark_missing'} && $general_prefs->{'scan_mark_missing'} eq 'on' ) ? 'checked' : ''
 	);
-	print "</li></ul>\n";
-	print "</fieldset>";
+	say "</li></ul>";
+	say "</fieldset>";
 	return;
 }
 
@@ -322,11 +323,11 @@ sub _scan {
 	push @$scheme_ids, 0;
 
 	if ( !@ids ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>You must select one or more isolates.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>You must select one or more isolates.</p></div>";
 		return;
 	}
 	if ( !@loci && none { $q->param("s_$_") } @$scheme_ids ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci or schemes.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci or schemes.</p></div>";
 		return;
 	}
 
@@ -343,12 +344,12 @@ sub _scan {
 	}
 	$self->_add_scheme_loci( \@loci );
 	my $header_buffer =
-"<div class=\"scrollable\">\n<table class=\"resultstable\"><tr><th>Isolate</th><th>Match</th><th>Locus</th><th>Allele</th><th>% identity</th><th>Alignment length</th><th>Allele length</th><th>E-value</th><th>Sequence bin id</th>
-<th>Start</th><th>End</th><th>Predicted start</th><th>Predicted end</th><th>Orientation</th><th>Designate allele</th><th>Tag sequence</th><th>Flag";
-	$header_buffer .= " <a class=\"tooltip\" title=\"Flag - Set a status flag for the sequence.  You need to also tag the sequence for
-		any flag to take effect.\">&nbsp;<i>i</i>&nbsp;</a>";
-	$header_buffer .= "</th></tr>\n";
-	print "<div class=\"box\" id=\"resultstable\">\n";
+	    "<div class=\"scrollable\">\n<table class=\"resultstable\"><tr><th>Isolate</th><th>Match</th><th>Locus</th>"
+	  . "<th>Allele</th><th>% identity</th><th>Alignment length</th><th>Allele length</th><th>E-value</th><th>Sequence bin id</th>"
+	  . "<th>Start</th><th>End</th><th>Predicted start</th><th>Predicted end</th><th>Orientation</th><th>Designate allele</th>"
+	  . "<th>Tag sequence</th><th>Flag <a class=\"tooltip\" title=\"Flag - Set a status flag for the sequence.  You need to also "
+	  . "tag the sequence for any flag to take effect.\">&nbsp;<i>i</i>&nbsp;</a></th></tr>";
+	say "<div class=\"box\" id=\"resultstable\">";
 	print $q->start_form;
 	my $tag_button = 1;
 	my ( @js, @js2, @js3, @js4 );
@@ -366,7 +367,7 @@ sub _scan {
 	my $locus_prefix = BIGSdb::Utils::get_random();
 	my $seq_filename = $self->{'config'}->{'tmp_dir'} . "/$file_prefix\_unique_sequences.txt";
 	open( my $seqs_fh, '>', $seq_filename ) or $logger->error("Can't open $seq_filename for writing");
-	print $seqs_fh "locus\tallele_id\tstatus\tsequence\n";
+	say $seqs_fh "locus\tallele_id\tstatus\tsequence";
 	my $new_seqs_found;
 	my $last_id_checked;
 	my @isolates_in_project;
@@ -467,7 +468,7 @@ sub _scan {
 						}
 						if ($new) {
 							push @{ $new_alleles->{$locus} }, $seq;
-							print $seqs_fh "$locus\t\ttrace not checked\t$seq\n";
+							say $seqs_fh "$locus\t\ttrace not checked\t$seq";
 						}
 					}
 					$td = $td == 1 ? 2 : 1;
@@ -478,9 +479,8 @@ sub _scan {
 				&& !( ref $exact_matches   && @$exact_matches )
 				&& !( ref $partial_matches && @$partial_matches ) )
 			{
-				
 				my $buffer = $self->_get_missing_row( $isolate_id, $labels, $locus, \@js, \@js2, );
-				if ($buffer){
+				if ($buffer) {
 					print $header_buffer if $first;
 					print $buffer;
 					$new_designation = 1;
@@ -519,43 +519,43 @@ sub _scan {
 		$tag_button = 0;
 	} else {
 		$buffer .= "</table></div>\n";
-		$buffer .= "<p>* Allele continues beyond end of contig</p>\n" if $show_key;
+		$buffer .= "<p>* Allele continues beyond end of contig</p>" if $show_key;
 	}
 	if ($tag_button) {
 		local $" = ';';
-		print "<tr class=\"td\"><td colspan=\"14\" /><td>\n";
-		print "<input type=\"button\" value=\"All\" onclick='@js' class=\"smallbutton\" />"   if @js;
-		print "<input type=\"button\" value=\"None\" onclick='@js2' class=\"smallbutton\" />" if @js2;
-		print "</td><td>\n";
-		print "<input type=\"button\" value=\"All\" onclick='@js3' class=\"smallbutton\" />"  if @js3;
-		print "<input type=\"button\" value=\"None\" onclick='@js4' class=\"smallbutton\" />" if @js4;
-		print "</td></tr>\n";
+		say "<tr class=\"td\"><td colspan=\"14\" /><td>";
+		say "<input type=\"button\" value=\"All\" onclick='@js' class=\"smallbutton\" />"   if @js;
+		say "<input type=\"button\" value=\"None\" onclick='@js2' class=\"smallbutton\" />" if @js2;
+		say "</td><td>";
+		say "<input type=\"button\" value=\"All\" onclick='@js3' class=\"smallbutton\" />"  if @js3;
+		say "<input type=\"button\" value=\"None\" onclick='@js4' class=\"smallbutton\" />" if @js4;
+		say "</td></tr>";
 	}
-	print $buffer                                                           if $buffer;
-	print "<p>Time limit reached (checked up to id-$last_id_checked).</p>"  if $out_of_time;
-	print "<p>Match limit reached (checked up to id-$last_id_checked).</p>" if $match_limit_reached;
+	say $buffer                                                           if $buffer;
+	say "<p>Time limit reached (checked up to id-$last_id_checked).</p>"  if $out_of_time;
+	say "<p>Match limit reached (checked up to id-$last_id_checked).</p>" if $match_limit_reached;
 	if ($new_seqs_found) {
-		print "<p><a href=\"/tmp/$file_prefix\_unique_sequences.txt\" target=\"_blank\">New unique sequences</a>\n";
-		print
-" <a class=\"tooltip\" title=\"Unique sequence - This is a list of new sequences (tab-delimited with locus name) of unique new sequences found in this search.  This can be used to facilitate rapid upload of new sequences to a sequence definition database for allele assignment.\">&nbsp;<i>i</i>&nbsp;</a>";
-		print "</p>\n";
+		say "<p><a href=\"/tmp/$file_prefix\_unique_sequences.txt\" target=\"_blank\">New unique sequences</a>";
+		say " <a class=\"tooltip\" title=\"Unique sequence - This is a list of new sequences (tab-delimited with locus name) of unique "
+		  . "new sequences found in this search.  This can be used to facilitate rapid upload of new sequences to a sequence definition "
+		  . "database for allele assignment.\">&nbsp;<i>i</i>&nbsp;</a></p>";
 	}
 	if ($tag_button) {
-		print $q->submit( -name => 'tag', -label => 'Tag alleles/sequences', -class => 'submit' );
-		print "<noscript><p><span class=\"comment\"> Enable javascript for select buttons to work!</span></p></noscript>\n";
+		say $q->submit( -name => 'tag', -label => 'Tag alleles/sequences', -class => 'submit' );
+		say "<noscript><p><span class=\"comment\"> Enable javascript for select buttons to work!</span></p></noscript>\n";
 		foreach (
 			qw (db page isolate_id rescan_alleles rescan_seqs locus identity alignment limit_matches limit_time seq_method_list
 			experiment_list project_list tblastx hunt pcr_filter alter_pcr_mismatches probe_filter alter_probe_mismatches)
 		  )
 		{
-			print $q->hidden($_);
+			say $q->hidden($_);
 		}
-		print $q->hidden("s_$_") foreach @$scheme_ids;
+		say $q->hidden("s_$_") foreach @$scheme_ids;
 	} else {
-		print "<p>No sequence or allele tags to update.</p>";
+		say "<p>No sequence or allele tags to update.</p>";
 	}
-	print $q->end_form;
-	print "</div>\n";
+	say $q->end_form;
+	say "</div>";
 	return;
 }
 
@@ -636,7 +636,9 @@ sub _tag {
 						my ($exists) = $pending_sql->fetchrow_array;
 						if ( !$exists ) {
 							push @updates,
-"INSERT INTO pending_allele_designations (isolate_id,locus,allele_id,sender,method,curator,date_entered,datestamp,comments) VALUES ($isolate_id,E'$cleaned_locus','$allele_id',$sender,'automatic',$curator_id,'today','today','Scanned from sequence bin')";
+							    "INSERT INTO pending_allele_designations (isolate_id,locus,allele_id,sender,method,curator,"
+							  . "date_entered,datestamp,comments) VALUES ($isolate_id,E'$cleaned_locus','$allele_id',$sender,'automatic',"
+							  . "$curator_id,'today','today','Scanned from sequence bin')";
 							$pending_allele_ids_to_set{$allele_id} = 1;
 							push @pending_allele_updates,
 							    ( $labels->{$isolate_id} || $isolate_id )
@@ -684,36 +686,36 @@ sub _tag {
 		};
 		if ($@) {
 			my $err = $@;
-			print
-			  "<div class=\"box\" id=\"statusbad\"><p>Database update failed - transaction cancelled - no records have been touched.</p>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>Database update failed - transaction cancelled - no records have been "
+			  . "touched.</p>";
 			if ( $err =~ /duplicate/ && $err =~ /unique/ ) {
-				print
-"<p>Data entry would have resulted in records with either duplicate ids or another unique field with duplicate values.</p>\n";
+				say "<p>Data entry would have resulted in records with either duplicate ids or another unique field with "
+				  . "duplicate values.</p>";
 				$logger->debug("$err $query");
 			} else {
-				print "<p>Error message: $err</p>\n";
+				say "<p>Error message: $err</p>";
 				$logger->error($err);
 			}
-			print "</div>\n";
+			say "</div>";
 			$self->{'db'}->rollback;
 			return;
 		} else {
 			$self->{'db'}->commit;
-			print "<div class=\"box\" id=\"resultsheader\"><p>Database updated ok.</p>";
-			print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
-			print "<div class=\"box\" id=\"resultstable\">\n";
+			say "<div class=\"box\" id=\"resultsheader\"><p>Database updated ok.</p>";
+			say "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>";
+			say "<div class=\"box\" id=\"resultstable\">";
 			local $" = "<br />\n";
 			if (@allele_updates) {
-				print "<h2>Allele designations set</h2>\n";
-				print "<p>@allele_updates</p>\n";
+				say "<h2>Allele designations set</h2>";
+				say "<p>@allele_updates</p>";
 			}
 			if (@pending_allele_updates) {
-				print "<h2>Pending allele designations set</h2>\n";
-				print "<p>@pending_allele_updates</p>\n";
+				say "<h2>Pending allele designations set</h2>";
+				say "<p>@pending_allele_updates</p>";
 			}
 			if (@sequence_updates) {
-				print "<h2>Allele sequences set</h2>\n";
-				print "<p>@sequence_updates</p>\n";
+				say "<h2>Allele sequences set</h2>";
+				say "<p>@sequence_updates</p>";
 			}
 			if ( ref $history eq 'HASH' ) {
 				foreach ( keys %$history ) {
@@ -722,11 +724,11 @@ sub _tag {
 					$self->update_history( $_, "@message" );
 				}
 			}
-			print "</div>\n";
+			say "</div>";
 		}
 	} else {
-		print "<div class=\"box\" id=\"resultsheader\"><p>No updates required.</p>\n";
-		print "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
+		say "<div class=\"box\" id=\"resultsheader\"><p>No updates required.</p>";
+		say "<p><a href=\"$self->{'system'}->{'script_name'}db=$self->{'instance'}\">Back to main page</a></p></div>";
 	}
 	return;
 }
@@ -735,8 +737,8 @@ sub print_content {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $view   = $self->{'system'}->{'view'};
-	my $qry =
-"SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM sequence_bin LEFT JOIN $view ON $view.id=sequence_bin.isolate_id WHERE $view.id IS NOT NULL ORDER BY $view.id";
+	my $qry    = "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM sequence_bin LEFT JOIN $view ON $view.id="
+	  . "sequence_bin.isolate_id WHERE $view.id IS NOT NULL ORDER BY $view.id";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
 	$logger->error($@) if $@;
@@ -845,8 +847,8 @@ sub _print_row {
 				$seq_ref->[0] = BIGSdb::Utils::reverse_complement( $seq_ref->[0] ) if $match->{'reverse'};
 				( $complete_gene, $status ) = $self->_is_complete_gene( $seq_ref->[0] );
 				if ($complete_gene) {
-					$complete_tooltip =
-"<a class=\"cds\" title=\"CDS - this is a complete coding sequence including start and terminating stop codons with no internal stop codons.\">CDS</a>";
+					$complete_tooltip = "<a class=\"cds\" title=\"CDS - this is a complete coding sequence including start and "
+					  . "terminating stop codons with no internal stop codons.\">CDS</a>";
 					last RUN;
 				}
 			}
@@ -892,8 +894,10 @@ sub _print_row {
 	print "<td>$match->{'end'} </td>";
 	print "<td>$match->{'predicted_start'}</td>";
 	$match->{'reverse'} ||= 0;
-	print
-"<td>$match->{'predicted_end'} <a target=\"_blank\" class=\"extract_tooltip\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=extractedSequence&amp;seqbin_id=$match->{'seqbin_id'}&amp;start=$predicted_start&amp;end=$predicted_end&amp;reverse=$match->{'reverse'}&amp;translate=$translate&amp;orf=$orf\">extract&nbsp;&rarr;</a>$complete_tooltip</td>";
+	print "<td>$match->{'predicted_end'} <a target=\"_blank\" class=\"extract_tooltip\" href=\"$self->{'system'}->{'script_name'}?"
+	  . "db=$self->{'instance'}&amp;page=extractedSequence&amp;seqbin_id=$match->{'seqbin_id'}&amp;start=$predicted_start&amp;"
+	  . "end=$predicted_end&amp;reverse=$match->{'reverse'}&amp;translate=$translate&amp;orf=$orf\">extract&nbsp;&rarr;</a>"
+	  . "$complete_tooltip</td>";
 	print "<td style=\"font-size:2em\">" . ( $match->{'reverse'} ? '&larr;' : '&rarr;' ) . "</td><td>";
 	my $sender = $self->{'datastore'}->run_simple_query( "SELECT sender FROM sequence_bin WHERE id=?", $match->{'seqbin_id'} )->[0];
 	my $matching_pending =
@@ -911,18 +915,18 @@ sub _print_row {
 		&& $match->{'allele'} ne 'ref'
 		&& !$q->param('tblastx') )
 	{
-		print $q->checkbox(
+		say $q->checkbox(
 			-name    => "id_$isolate_id\_$locus\_allele_$id",
 			-id      => "id_$isolate_id\_$cleaned_locus\_allele_$id",
 			-label   => '',
 			-checked => $exact
 		);
-		print $q->hidden( "id_$isolate_id\_$locus\_seqbin_id_$id", $match->{'seqbin_id'} );
+		say $q->hidden( "id_$isolate_id\_$locus\_seqbin_id_$id", $match->{'seqbin_id'} );
 		push @$js,  "\$(\"#id_$isolate_id\_$cleaned_locus\_allele_$id\").attr(\"checked\",true)";
 		push @$js2, "\$(\"#id_$isolate_id\_$cleaned_locus\_allele_$id\").attr(\"checked\",false)";
 		$new_designation = 1;
 	} else {
-		print $q->checkbox( -name => "id_$isolate_id\_$locus\_allele_$id", -label => '', disabled => 'disabled' );
+		say $q->checkbox( -name => "id_$isolate_id\_$locus\_allele_$id", -label => '', disabled => 'disabled' );
 	}
 	print "</td><td>";
 	my $allele_sequence_exists =
@@ -930,7 +934,7 @@ sub _print_row {
 	  ->run_simple_query( "SELECT COUNT(*) FROM allele_sequences WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=?",
 		$match->{'seqbin_id'}, $locus, $predicted_start, $predicted_end )->[0];
 	if ( !$allele_sequence_exists ) {
-		print $q->checkbox(
+		say $q->checkbox(
 			-name    => "id_$isolate_id\_$locus\_sequence_$id",
 			-id      => "id_$isolate_id\_$cleaned_locus\_sequence_$id",
 			-label   => '',
@@ -939,13 +943,13 @@ sub _print_row {
 		push @$js3, "\$(\"#id_$isolate_id\_$cleaned_locus\_sequence_$id\").attr(\"checked\",true)";
 		push @$js4, "\$(\"#id_$isolate_id\_$cleaned_locus\_sequence_$id\").attr(\"checked\",false)";
 		$new_designation = 1;
-		print "</td><td>";
+		say "</td><td>";
 		my ($default_flags);
 		if ( $locus_info->{'flag_table'} && $exact ) {
 			$default_flags = $self->{'datastore'}->get_locus($locus)->get_flags( $match->{'allele'} );
 		}
 		if ( ref $default_flags eq 'ARRAY' && @$default_flags > 1 ) {
-			print $q->popup_menu(
+			say $q->popup_menu(
 				-name     => "id_$isolate_id\_$locus\_sequence_$id\_flag",
 				-id       => "id_$isolate_id\_$cleaned_locus\_sequence_$id\_flag",
 				-values   => [SEQ_FLAGS],
@@ -953,7 +957,7 @@ sub _print_row {
 				-multiple => 'multiple',
 			);
 		} else {
-			print $q->popup_menu(
+			say $q->popup_menu(
 				-name    => "id_$isolate_id\_$locus\_sequence_$id\_flag",
 				-id      => "id_$isolate_id\_$cleaned_locus\_sequence_$id\_flag",
 				-values  => [ '', SEQ_FLAGS ],
@@ -961,28 +965,28 @@ sub _print_row {
 			);
 		}
 	} else {
-		print $q->checkbox( -name => "id_$isolate_id\_$locus\_sequence_$id", -label => '', disabled => 'disabled' );
+		say $q->checkbox( -name => "id_$isolate_id\_$locus\_sequence_$id", -label => '', disabled => 'disabled' );
 		$seq_disabled = 1;
-		print "</td><td>";
+		say "</td><td>";
 		my $flags =
 		  $self->{'datastore'}
 		  ->run_list_query( "SELECT flag FROM sequence_flags WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=? ORDER BY flag",
 			$match->{'seqbin_id'}, $locus, $predicted_start, $predicted_end );
 		foreach (@$flags) {
-			print " <a class=\"seqflag_tooltip\">$_</a>";
+			say " <a class=\"seqflag_tooltip\">$_</a>";
 		}
 	}
 	if ($exact) {
-		print $q->hidden( "id_$isolate_id\_$locus\_allele_id_$id", $match->{'allele'} );
+		say $q->hidden( "id_$isolate_id\_$locus\_allele_id_$id", $match->{'allele'} );
 	}
 	if ( !$seq_disabled ) {
-		print $q->hidden( "id_$isolate_id\_$locus\_start_$id",     $predicted_start );
-		print $q->hidden( "id_$isolate_id\_$locus\_end_$id",       $predicted_end );
-		print $q->hidden( "id_$isolate_id\_$locus\_reverse_$id",   $match->{'reverse'} );
-		print $q->hidden( "id_$isolate_id\_$locus\_complete_$id",  1 ) if !$off_end;
-		print $q->hidden( "id_$isolate_id\_$locus\_seqbin_id_$id", $match->{'seqbin_id'} );
+		say $q->hidden( "id_$isolate_id\_$locus\_start_$id",     $predicted_start );
+		say $q->hidden( "id_$isolate_id\_$locus\_end_$id",       $predicted_end );
+		say $q->hidden( "id_$isolate_id\_$locus\_reverse_$id",   $match->{'reverse'} );
+		say $q->hidden( "id_$isolate_id\_$locus\_complete_$id",  1 ) if !$off_end;
+		say $q->hidden( "id_$isolate_id\_$locus\_seqbin_id_$id", $match->{'seqbin_id'} );
 	}
-	print "</td></tr>\n";
+	say "</td></tr>";
 	return ( $off_end, $new_designation );
 }
 
@@ -1206,8 +1210,8 @@ sub blast {
 	#this should then be deleted by the calling function!
 	my $seq_count = 0;
 	if ( !-e $temp_infile ) {
-		my $qry =
-"SELECT DISTINCT sequence_bin.id,sequence FROM sequence_bin LEFT JOIN experiment_sequences ON sequence_bin.id=seqbin_id WHERE sequence_bin.isolate_id=?";
+		my $qry = "SELECT DISTINCT sequence_bin.id,sequence FROM sequence_bin LEFT JOIN experiment_sequences ON sequence_bin.id=seqbin_id "
+		  . "WHERE sequence_bin.isolate_id=?";
 		my @criteria = ($isolate_id);
 		my $method   = $self->{'cgi'}->param('seq_method_list');
 		if ($method) {
