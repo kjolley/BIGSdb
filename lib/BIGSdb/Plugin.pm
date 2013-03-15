@@ -443,32 +443,6 @@ sub get_id_list {
 	return $list;
 }
 
-sub _get_isolates_with_seqbin {
-
-	#Return list and formatted labels
-	my ( $self, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
-	my $view = $self->{'system'}->{'view'};
-	my $qry;
-	if ( $options->{'use_all'} ) {
-		$qry = "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM $view ORDER BY $view.id";
-	} else {
-		$qry = "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM $view WHERE $view.id IN (SELECT isolate_id FROM "
-		  . "sequence_bin) ORDER BY $view.id";
-	}
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute };
-	$logger->error($@) if $@;
-	my @ids;
-	my %labels;
-	while ( my ( $id, $isolate ) = $sql->fetchrow_array ) {
-		next if !defined $id;
-		push @ids, $id;
-		$labels{$id} = "$id) $isolate";
-	}
-	return ( \@ids, \%labels );
-}
-
 sub get_selected_fields {
 	my ($self)        = @_;
 	my $q             = $self->{'cgi'};
@@ -624,7 +598,7 @@ sub print_seqbin_isolate_fieldset {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
-	my ( $ids, $labels ) = $self->_get_isolates_with_seqbin($options);
+	my ( $ids, $labels ) = $self->get_isolates_with_seqbin($options);
 	say "<fieldset style=\"float:left\">\n<legend>Isolates</legend>";
 	say $q->scrolling_list(
 		-name     => 'isolate_id',

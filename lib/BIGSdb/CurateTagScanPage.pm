@@ -737,23 +737,12 @@ sub print_content {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $view   = $self->{'system'}->{'view'};
-	my $qry    = "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM sequence_bin LEFT JOIN $view ON $view.id="
-	  . "sequence_bin.isolate_id WHERE $view.id IS NOT NULL ORDER BY $view.id";
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute };
-	$logger->error($@) if $@;
-	my @ids;
-	my %labels;
-
-	while ( my ( $id, $isolate ) = $sql->fetchrow_array ) {
-		push @ids, $id;
-		$labels{$id} = "$id) $isolate";
-	}
-	$self->_print_interface( \@ids, \%labels );
+	my ( $ids, $labels ) = $self->get_isolates_with_seqbin;
+	$self->_print_interface( $ids, $labels );
 	if ( $q->param('tag') ) {
-		$self->_tag( \%labels );
+		$self->_tag( $labels );
 	} elsif ( $q->param('scan') ) {
-		$self->_scan( \%labels );
+		$self->_scan( $labels );
 	}
 	return;
 }

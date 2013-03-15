@@ -373,13 +373,13 @@ sub _check_allele_data {
 	my $q = $self->{'cgi'};
 	$newdata->{'sequence'} = uc $newdata->{'sequence'};
 	my $locus_info = $self->{'datastore'}->get_locus_info( $newdata->{'locus'} );
-	if ($locus_info->{'data_type'} eq 'DNA'){
+	if ( $locus_info->{'data_type'} eq 'DNA' ) {
 		$newdata->{'sequence'} =~ s/[^GATC]//g;
 	} else {
 		$newdata->{'sequence'} =~ s/[^GPAVLIMCFYWHKRQNEDST\*]//g;
 	}
-	my $length     = length( $newdata->{'sequence'} );
-	my $units      = $locus_info->{'data_type'} && $locus_info->{'data_type'} eq 'DNA' ? 'bp' : 'residues';
+	my $length = length( $newdata->{'sequence'} );
+	my $units = $locus_info->{'data_type'} && $locus_info->{'data_type'} eq 'DNA' ? 'bp' : 'residues';
 	if ( !$length ) {
 		push @$problems, "Sequence is a required field and can not be left blank.<br />";
 	} elsif ( !$locus_info->{'length_varies'} && defined $locus_info->{'length'} && $locus_info->{'length'} != $length ) {
@@ -455,7 +455,7 @@ sub _check_allele_data {
 	if (@missing_field) {
 		local $" = ', ';
 		push @$problems,
-		  "Please fill in all extended attribute fields.  The following extended attribute fields are " . "missing: @missing_field";
+		  "Please fill in all extended attribute fields.  The following extended attribute fields are missing: @missing_field";
 	}
 	my @flags = $q->param('flags');
 	foreach my $flag (@flags) {
