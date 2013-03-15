@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -29,8 +29,8 @@ sub print_content {
 	my $q = $self->{'cgi'};
 	print "<h1>Batch isolate update</h1>\n";
 	if ( !$self->can_modify_table('isolates') || !$self->can_modify_table('allele_designations') ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update "
-		  . "either isolate records or allele designations.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update "
+		  . "either isolate records or allele designations.</p></div>";
 		return;
 	}
 	if ( $q->param('update') ) {
@@ -62,28 +62,28 @@ HTML
 		my $set_id        = $self->get_set_id;
 		my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
 		my $fields        = $self->{'xmlHandler'}->get_field_list($metadata_list);
-		print $q->start_form;
-		print $q->hidden($_) foreach qw (db page);
-		print "<fieldset><legend>Options</legend>\n";
-		print "<ul><li><label for=\"idfield1\" class=\"filter\">Primary selection field: </label>";
-		print $q->popup_menu( -name => 'idfield1', -id => 'idfield1', -values => $fields );
-		print "</li><li><label for=\"idfield2\" class=\"filter\">Optional selection field: </label>\n";
+		say $q->start_form;
+		say $q->hidden($_) foreach qw (db page);
+		say "<fieldset><legend>Options</legend>";
+		say "<ul><li><label for=\"idfield1\" class=\"filter\">Primary selection field: </label>";
+		say $q->popup_menu( -name => 'idfield1', -id => 'idfield1', -values => $fields );
+		say "</li><li><label for=\"idfield2\" class=\"filter\">Optional selection field: </label>";
 		unshift @$fields, '<none>';
-		print $q->popup_menu( -name => 'idfield2', -id => 'idfield2', -values => $fields );
-		print "</li><li>";
-		print $q->checkbox( -name => 'overwrite', -label => 'Overwrite existing data', -checked => 0 );
-		print "</li></ul></fieldset>\n";
-		print "<p>Please paste in your data below:</p>\n";
-		print $q->textarea( -name => 'data', -rows => 15, -columns => 40, -override => 1 );
-		print "<span style=\"float:left\">\n";
-		print $q->reset( -class => 'reset' );
-		print "</span>\n<span style=\"float:right;padding-right:2em\">\n";
-		print $q->submit( -label => 'Submit', -class => 'submit' );
-		print "</span>\n";
-		print $q->endform;
-		print "<div style=\"clear:both;padding-top:1em\"><p><a href=\"$self->{'system'}->{'script_name'}"
-		  . "?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
-		print "</div>\n";
+		say $q->popup_menu( -name => 'idfield2', -id => 'idfield2', -values => $fields );
+		say "</li><li>";
+		say $q->checkbox( -name => 'overwrite', -label => 'Overwrite existing data', -checked => 0 );
+		say "</li></ul></fieldset>";
+		say "<p>Please paste in your data below:</p>";
+		say $q->textarea( -name => 'data', -rows => 15, -columns => 40, -override => 1 );
+		say "<span style=\"float:left\">";
+		say $q->reset( -class => 'reset' );
+		say "</span>\n<span style=\"float:right;padding-right:2em\">";
+		say $q->submit( -label => 'Submit', -class => 'submit' );
+		say "</span>";
+		say $q->endform;
+		say "<div style=\"clear:both;padding-top:1em\"><p><a href=\"$self->{'system'}->{'script_name'}"
+		  . "?db=$self->{'instance'}\">Back to main page</a></p></div>";
+		say "</div>";
 	}
 	return;
 }
@@ -141,8 +141,8 @@ sub _check {
 	my $data   = $q->param('data');
 	my @rows = split /\n/, $data;
 	if ( @rows < 2 ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Nothing entered.  Make sure you include a header line.</p>\n";
-		print "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchIsolateUpdate\">Back</a></p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Nothing entered.  Make sure you include a header line.</p>";
+		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchIsolateUpdate\">Back</a></p></div>";
 		return;
 	}
 	if ( $q->param('idfield1') eq $q->param('idfield2') ) {
@@ -202,8 +202,8 @@ sub _check {
 				eval { $sql_id->execute(@args) };
 				if ($@) {
 					if ( $@ =~ /integer/ ) {
-						print "<div class=\"box\" id=\"statusbad\"><p>Your id field(s) contain text characters but the "
-						  . "field can only contain integers.</p></div>\n";
+						say "<div class=\"box\" id=\"statusbad\"><p>Your id field(s) contain text characters but the "
+						  . "field can only contain integers.</p></div>";
 						$logger->debug($@);
 						return;
 					}
@@ -216,8 +216,8 @@ sub _check {
 				}
 				if (@not_allowed) {
 					local $" = ', ';
-					print "<div class=\"box\" id=\"statusbad\"><p>You are not allowed to edit the following isolate "
-					  . "records: @not_allowed.</p></div>\n";
+					say "<div class=\"box\" id=\"statusbad\"><p>You are not allowed to edit the following isolate "
+					  . "records: @not_allowed.</p></div>";
 					return;
 				}
 
@@ -258,7 +258,7 @@ sub _check {
 						|| $oldvalue eq ''
 						|| $q->param('overwrite') )
 					{
-						$oldvalue = "-"
+						$oldvalue = "&lt;blank&gt;"
 						  if !defined $oldvalue || $oldvalue eq '';
 						my $problem = $self->is_field_bad( $self->{'system'}->{'view'}, $field[$i], $value[$i], 'update' );
 						if ($is_locus) {
@@ -270,7 +270,7 @@ sub _check {
 						if ($problem) {
 							$action = "<span class=\"statusbad\">no action - $problem</span>";
 						} else {
-							if ( $value[$i] eq $oldvalue ) {
+							if ( $value[$i] eq $oldvalue || ($value[$i] eq '<blank>' && $oldvalue eq '&lt;blank&gt;') ) {
 								$action = "<span class=\"statusbad\">no action - new value unchanged</span>";
 								$update[$i] = 0;
 							} else {
@@ -409,7 +409,7 @@ sub _update {
 			my @id_args = ($id1);
 			push @id_args, $id2 if $id->{'field2'} ne '<none>';
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-			push @args, ( $value eq '' ? undef : $value );
+			push @args, ( ($value // '') eq '' ? undef : $value );
 			if ( defined $metaset ) {
 				my $record_exists = $self->{'datastore'}->run_simple_query(
 "SELECT EXISTS(SELECT * FROM meta_$metaset WHERE isolate_id IN (SELECT $self->{'system'}->{'view'}.id FROM $match_table WHERE $match))",
@@ -441,6 +441,7 @@ sub _update {
 		}
 		$tablebuffer .= "<tr class=\"td$td\"><td>$id->{'field1'}='$id1'";
 		$tablebuffer .= " AND $id->{'field2'}='$id2'" if $id->{'field2'} ne '<none>';
+		$value //= '&lt;blank&gt;';
 		$tablebuffer .= "</td><td>$field</td><td>$value</td>";
 		my $update_sql = $self->{'db'}->prepare($qry);
 		eval {
@@ -458,6 +459,7 @@ sub _update {
 			$self->{'db'}->commit;
 			$tablebuffer .= "<td class=\"statusgood\">done!</td></tr>\n";
 			$old_value //= '';
+			$value = '' if $value eq '&lt;blank&gt;';
 			$self->update_history( $isolate_id, "$field: '$old_value' -> '$value'" ) if $old_value ne $value;
 		}
 		$td = $td == 1 ? 2 : 1;
