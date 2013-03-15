@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -372,8 +372,12 @@ sub _check_allele_data {
 	my ( $self, $newdata, $problems, $extra_inserts ) = @_;
 	my $q = $self->{'cgi'};
 	$newdata->{'sequence'} = uc $newdata->{'sequence'};
-	$newdata->{'sequence'} =~ s/[\W]//g;
 	my $locus_info = $self->{'datastore'}->get_locus_info( $newdata->{'locus'} );
+	if ($locus_info->{'data_type'} eq 'DNA'){
+		$newdata->{'sequence'} =~ s/[^GATC]//g;
+	} else {
+		$newdata->{'sequence'} =~ s/[^GPAVLIMCFYWHKRQNEDST\*]//g;
+	}
 	my $length     = length( $newdata->{'sequence'} );
 	my $units      = $locus_info->{'data_type'} && $locus_info->{'data_type'} eq 'DNA' ? 'bp' : 'residues';
 	if ( !$length ) {
@@ -390,7 +394,6 @@ sub _check_allele_data {
 	} elsif ( $newdata->{'allele_id'} =~ /\s/ ) {
 		push @$problems, "Allele id must not contain spaces - try substituting with underscores (_).<br />";
 	} else {
-		$newdata->{'sequence'} =~ s/\s//g;
 		my $exist_ref =
 		  $self->{'datastore'}
 		  ->run_simple_query( "SELECT allele_id FROM sequences WHERE locus=? AND sequence=?", $newdata->{'locus'}, $newdata->{'sequence'} );
