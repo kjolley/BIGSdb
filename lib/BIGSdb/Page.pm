@@ -868,7 +868,7 @@ sub get_set_id {
 		my $set_id = $self->{'system'}->{'set_id'} // $self->{'prefs'}->{'set_id'};
 		return $set_id if $set_id && BIGSdb::Utils::is_int($set_id);
 	}
-	if ( !$self->{'curate'} && ( $self->{'system'}->{'only_sets'} // '' ) eq 'yes' ) {
+	if ( ( $self->{'system'}->{'only_sets'} // '' ) eq 'yes' && !$self->{'curate'} ) {
 		if ( !$self->{'cache'}->{'set_list'} ) {
 			$self->{'cache'}->{'set_list'} = $self->{'datastore'}->run_list_query("SELECT id FROM sets ORDER BY display_order,description");
 		}
@@ -1446,7 +1446,7 @@ sub initiate_prefs {
 			$self->{'prefs'}->{'pagebar'}     = $general_prefs->{'pagebar'}     || 'top and bottom';
 			$self->{'prefs'}->{'alignwidth'}  = $general_prefs->{'alignwidth'}  || 100;
 			$self->{'prefs'}->{'flanking'}    = $general_prefs->{'flanking'}    || 100;
-			$self->{'prefs'}->{'set_id'} = $general_prefs->{'set_id'} if !$self->{'curate'};
+			$self->{'prefs'}->{'set_id'} = $general_prefs->{'set_id'};
 
 			#default off
 			foreach (qw (hyperlink_loci )) {

@@ -62,7 +62,7 @@ sub print_content {
 	my $set_id = $self->get_set_id;
 	my $set_string = $set_id ? "&amp;set_id=$set_id" : ''; #append to URLs to ensure unique caching.
 	if (($self->{'system'}->{'sets'} // '') eq 'yes'){
-		$self->_print_set_section;
+		$self->print_set_section;
 	}
 	print << "HTML";
 <div class="box" id="index">
@@ -182,7 +182,7 @@ TOOLTIPS
 	return;
 }
 
-sub _print_set_section {
+sub print_set_section {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my $set_id = $self->get_set_id;
