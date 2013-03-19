@@ -1,6 +1,6 @@
 #PresenceAbsence.pm - Presence/Absence export plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -22,8 +22,9 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin);
-use List::MoreUtils qw(none);
+use List::MoreUtils qw(none uniq);
 use Log::Log4perl qw(get_logger);
+use constant MAX_SPLITS_TAXA => 200;
 my $logger = get_logger('BIGSdb.Plugins');
 
 sub get_attributes {
@@ -32,16 +33,16 @@ sub get_attributes {
 		author      => 'Keith Jolley',
 		affiliation => 'University of Oxford, UK',
 		email       => 'keith.jolley@zoo.ox.ac.uk',
-		description => 'Export presence/absence status of loci for dataset generated from query results',
-		category    => 'Export',
+		description => 'Analyse presence/absence status of loci for dataset generated from query results',
+		category    => 'Analysis',
 		buttontext  => 'Presence/Absence',
 		menutext    => 'Presence/absence status of loci',
 		module      => 'PresenceAbsence',
-		version     => '1.0.0',
+		version     => '1.1.0',
 		dbtype      => 'isolates',
-		section     => 'export,postquery',
+		section     => 'analysis,postquery',
 		input       => 'query',
-		requires    => 'js_tree',
+		requires    => 'js_tree,offline_jobs',
 		order       => 16
 	);
 	return \%att;
@@ -55,33 +56,46 @@ sub run {
 	say "<h1>Export presence/absence status of loci - $desc</h1>";
 	my $list = $self->get_id_list( 'id', $query_file );
 	if ( $q->param('submit') ) {
-		my $loci_selected = $self->get_selected_loci;
-		my $scheme_ids    = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+		my @loci_selected = $q->param('locus');
+		$q->delete('list');
+		my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 		push @$scheme_ids, 0;
-		if ( !@$loci_selected && none { $q->param("s_$_") } @$scheme_ids ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci";
-			print " or schemes" if $self->{'system'}->{'dbtype'} eq 'isolates';
-			say ".</p></div>";
+		my @schemes_selected;
+		foreach (@$scheme_ids) {
+			next if !$q->param("s_$_");
+			push @schemes_selected, $_;
+			$q->delete("s_$_");
+		}
+		local $" = '||';
+		my $scheme_string = "@schemes_selected";
+		my $locus_string  = "@loci_selected";
+		if ( !@loci_selected && !@schemes_selected ) {
+			say "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci or schemes.</p></div>";
 		} else {
-			if ( !@$list ) {
-				my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
-				$list = $self->{'datastore'}->run_list_query($qry);
-			}
-			say "<div class=\"box\" id=\"resultstable\">";
-			say "<p>Please wait for processing to finish (do not refresh page).</p>";
-			print "<p>Output file being generated ...";
-			my $filename    = ( BIGSdb::Utils::get_random() ) . '.txt';
-			my $full_path   = "$self->{'config'}->{'tmp_dir'}/$filename";
-			my $problem_ids = $self->_write_output( $list, $loci_selected, $full_path );
-			say " done</p>";
-			say "<p><a href=\"/tmp/$filename\">Output file</a> (right-click to save)</p>";
-			say "</div>";
-
-			if (@$problem_ids) {
-				local $" = '; ';
-				say "<div class=\"box\" id=\"statusbad\"><p>The following ids could not be processed "
-				  . "(they do not exist): @$problem_ids.</p></div>";
-			}
+			my $params = $q->Vars;
+			local $" = '||';
+			$params->{'isolate_ids'} = "@$list";
+			$params->{'scheme'}      = "@schemes_selected";
+			$params->{'locus'}       = "@loci_selected";
+			$params->{'view'}        = $self->{'system'}->{'view'};
+			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+			my $job_id    = $self->{'jobManager'}->add_job(
+				{
+					dbase_config => $self->{'instance'},
+					ip_address   => $q->remote_host,
+					module       => 'PresenceAbsence',
+					parameters   => $params,
+					username     => $self->{'username'},
+					email        => $user_info->{'email'},
+				}
+			);
+			print <<"HTML";
+<div class="box" id="resultstable">
+<p>This analysis has been submitted to the job queue.</p>
+<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">
+Follow the progress of this job and view the output.</a></p> 	
+</div>	
+HTML
 			return;
 		}
 	}
@@ -93,6 +107,78 @@ that are members of the scheme.</p>
 HTML
 	$self->print_sequence_export_form( 'id', $list, undef, { no_options => 1 } );
 	say "</div>";
+	return;
+}
+
+sub run_job {
+	my ( $self, $job_id, $params ) = @_;
+	my @ids = split /\|\|/, $params->{'isolate_ids'};
+	if ( !@ids ) {
+		my $qry     = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
+		my $ids_ref = $self->{'datastore'}->run_list_query($qry);
+		@ids = @$ids_ref;
+	}
+	if ( !@ids ) {
+		$self->{'jobManager'}->update_job_status( $job_id,
+			{ status => 'failed', message_html => "<p class=\"statusbad\">You must include one or more isolates.</p>" } );
+		return;
+	}
+	my @loci       = split /\|\|/, $params->{'locus'};
+	my @scheme_ids = split /\|\|/, $params->{'scheme'};
+	if ( !@loci && !@scheme_ids ) {
+		$self->{'jobManager'}->update_job_status( $job_id,
+			{ status => 'failed', message_html => "<p class=\"statusbad\">You must either select one or more loci or schemes.</p>" } );
+		return;
+	}
+	my $full_path = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
+	@ids = uniq @ids;
+	my ( $problem_ids, $values ) = $self->_write_output( $job_id, $params, \@ids, $full_path );
+	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Main output file' } );
+	if (@$problem_ids) {
+		local $" = '; ';
+		$self->{'jobManager'}->update_job_status(
+			$job_id,
+			{
+				percent_complete => 100,
+				message_html     => "<p>The following ids could not be processed " . "(they do not exist): @$problem_ids.</p>"
+			}
+		);
+	}
+	return if !$params->{'dismat'};
+	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => 50, stage => "Generating distance matrix" } );
+	my $dismat     = $self->_generate_distance_matrix($values);
+	my $nexus_file = $self->_make_nexus_file($dismat);
+	if ( -e "$self->{'config'}->{'tmp_dir'}/$nexus_file" ) {
+		$self->{'jobManager'}->update_job_output(
+			$job_id,
+			{
+				filename    => "$nexus_file",
+				description => '20_Distance matrix (Nexus format)|Suitable for loading in to <a href="http://www.splitstree.org">'
+				  . 'SplitsTree</a>. Distances between taxa are calculated as the number of loci that are differentially present'
+			}
+		);
+	}
+	if ( keys %$values <= MAX_SPLITS_TAXA ) {
+		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => 75, stage => "Generating NeighborNet" } );
+		my $splits_img = "$job_id.png";
+		$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file", "$self->{'config'}->{'tmp_dir'}/$splits_img", 'PNG' );
+		if ( -e "$self->{'config'}->{'tmp_dir'}/$splits_img" ) {
+			$self->{'jobManager'}
+			  ->update_job_output( $job_id, { filename => $splits_img, description => '25_Splits graph (Neighbour-net; PNG format)' } );
+		}
+		$splits_img = "$job_id.svg";
+		$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file", "$self->{'config'}->{'tmp_dir'}/$splits_img", 'SVG' );
+		if ( -e "$self->{'config'}->{'tmp_dir'}/$splits_img" ) {
+			$self->{'jobManager'}->update_job_output(
+				$job_id,
+				{
+					filename    => $splits_img,
+					description => '26_Splits graph (Neighbour-net; SVG format)|This can be edited in <a href="http://inkscape.org">'
+					  . 'Inkscape</a> or other vector graphics editors'
+				}
+			);
+		}
+	}
 	return;
 }
 
@@ -108,43 +194,61 @@ sub get_extra_form_elements {
 	say $q->popup_menu( -name => 'present', -id => 'present', -value => [qw (O Y *)] );
 	say "</li><li><label for=\"absent\" class=\"parameter\">Symbol for absent: </label>";
 	say $q->popup_menu( -name => 'absent', -id => 'absent', -value => [ qw (X N -), ' ' ], );
+	say "</li><li>";
+	say $q->checkbox( -name => 'dismat', -id => 'dismat', -label => 'Generate distance matrix' );
 	say "</li></ul></fieldset>";
 	return;
 }
 
+sub _isolate_exists {
+	my ( $self, $params, $id ) = @_;
+	my $view = $params->{'view'} // 'isolates';
+	if ( !$self->{'sql'}->{'id_exists'} ) {
+		$self->{'sql'}->{'id_exists'} = $self->{'db'}->prepare("SELECT EXISTS(SELECT id FROM $view WHERE id=?)");
+	}
+	eval { $self->{'sql'}->{'id_exists'}->execute($id) };
+	$logger->error($@) if $@;
+	my $exists = $self->{'sql'}->{'id_exists'}->fetchrow_array;
+	return $exists;
+}
+
 sub _write_output {
-	my ( $self, $list, $loci, $filename, ) = @_;
-	my $q = $self->{'cgi'};
+	my ( $self, $job_id, $params, $list, $filename, ) = @_;
 	my @problem_ids;
 	my $isolate_sql;
-	my @includes = $q->param('includes');
+	my @includes;
+	@includes = $params->{'includes'} if $params->{'includes'};
 	if (@includes) {
 		local $" = ',';
 		$isolate_sql = $self->{'db'}->prepare("SELECT @includes FROM $self->{'system'}->{'view'} WHERE id=?");
 	}
-	local $| = 1;
-	my $i = 0;
-	my $j = 0;
 	open( my $fh, '>', $filename )
 	  or $logger->error("Can't open temp file $filename for writing");
-	my $selected_loci = $self->order_selected_loci;
+	my $selected_loci = $self->order_selected_loci($params);
 	print $fh 'id';
 	print $fh "\t$_" foreach (@includes);
-
 	foreach my $locus (@$selected_loci) {
 		my $locus_name = $self->clean_locus( $locus, { text_output => 1 } );
 		print $fh "\t$locus_name";
 	}
 	print $fh "\n";
+	my $values;
+	my $progress    = 0;
+	my $i           = 0;
+	my $max_percent = $params->{'dismat'} ? 50 : 100;
 	foreach my $id (@$list) {
-		print "." if !$i;
-		print " " if !$j;
-		if ( !$i && $ENV{'MOD_PERL'} ) {
-			$self->{'mod_perl_request'}->rflush;
-			return if $self->{'mod_perl_request'}->connection->aborted;
-		}
+		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Analysing id: $id" } );
 		$id =~ s/[\r\n]//g;
-		next if !BIGSdb::Utils::is_int($id);
+		if ( !BIGSdb::Utils::is_int($id) ) {
+			push @problem_ids, $id;
+			next;
+		} else {
+			my $id_exists = $self->_isolate_exists( $params, $id );
+			if ( !$id_exists ) {
+				push @problem_ids, $id;
+				next;
+			}
+		}
 		my $allele_ids = $self->{'datastore'}->get_all_allele_ids($id);
 		my $tags       = $self->{'datastore'}->get_all_allele_sequences($id);
 		print $fh $id;
@@ -156,26 +260,98 @@ sub _write_output {
 			no warnings 'uninitialized';
 			print $fh "\t@include_values";
 		}
-		my $present = $q->param('present') || 'O';
-		my $absent  = $q->param('absent')  || 'X';
+		my $present = $params->{'present'} || 'O';
+		my $absent  = $params->{'absent'}  || 'X';
 		foreach my $locus (@$selected_loci) {
 			my $value = '';
-			given ( $q->param('presence') ) {
+			given ( $params->{'presence'} ) {
 				when ('designations') { $value = $allele_ids->{$locus} ? $present : $absent }
 				when ('tags')         { $value = $tags->{$locus}       ? $present : $absent }
 				default { $value = ( $allele_ids->{$locus} || $tags->{$locus} ) ? $present : $absent }
 			}
 			print $fh "\t$value";
+			$values->{$id}->{$locus} = $value;
 		}
 		print $fh "\n";
 		$i++;
-		if ( $i == 50 ) {
-			$i = 0;
-			$j++;
-		}
-		$j = 0 if $j == 10;
+		my $progress = int( $i * $max_percent / @$list );
+		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $progress } );
 	}
 	close $fh;
-	return \@problem_ids;
+	return ( \@problem_ids, $values );
+}
+
+sub _generate_distance_matrix {
+	my ( $self, $values ) = @_;
+	my @ids = sort { $a <=> $b } keys %$values;
+	my $dismat;
+	foreach my $i ( 0 .. @ids - 1 ) {
+		foreach my $j ( 0 .. $i ) {
+			$dismat->{ $ids[$i] }->{ $ids[$j] } = 0;
+			foreach my $locus ( keys %{ $values->{ $ids[$i] } } ) {
+				if ( $values->{ $ids[$i] }->{$locus} ne $values->{ $ids[$j] }->{$locus} ) {
+					$dismat->{ $ids[$i] }->{ $ids[$j] }++;
+				}
+			}
+		}
+	}
+	return $dismat;
+}
+
+sub _make_nexus_file {
+	my ( $self, $dismat ) = @_;
+	my $timestamp = scalar localtime;
+	my @ids = sort { $a <=> $b } keys %$dismat;
+	my %labels;
+	my $sql = $self->{'db'}->prepare("SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?");
+	foreach (@ids) {
+		eval { $sql->execute($_) };
+		$logger->error($@) if $@;
+		my ($name) = $sql->fetchrow_array;
+		$name =~ tr/[\(\):, ]/_/;
+		$labels{$_} = "$_|$name";
+	}
+	my $num_taxa = @ids;
+	my $header   = <<"NEXUS";
+#NEXUS
+[Distance matrix calculated by BIGSdb Presence/Absence plugin ($timestamp)]
+[Jolley & Maiden 2010 BMC Bioinformatics 11:595]
+
+BEGIN taxa;
+   DIMENSIONS ntax = $num_taxa;	
+
+END;
+
+BEGIN distances;
+   DIMENSIONS ntax = $num_taxa;
+   FORMAT
+      triangle=LOWER
+      diagonal
+      labels
+      missing=?
+   ;
+MATRIX
+NEXUS
+	my $prefix = BIGSdb::Utils::get_random();
+	open( my $nexus_fh, '>', "$self->{'config'}->{'tmp_dir'}/$prefix.nex" ) || $logger->error("Can't open $prefix.nex for writing");
+	print $nexus_fh $header;
+	foreach my $i ( 0 .. @ids - 1 ) {
+		print $nexus_fh $labels{ $ids[$i] };
+		print $nexus_fh "\t" . $dismat->{ $ids[$i] }->{ $ids[$_] } foreach ( 0 .. $i );
+		print $nexus_fh "\n";
+	}
+	print $nexus_fh "   ;\nEND;\n";
+	close $nexus_fh;
+	return "$prefix.nex";
+}
+
+sub _run_splitstree {
+	my ( $self, $nexus_file, $output_file, $format ) = @_;
+	if ( $self->{'config'}->{'splitstree_path'} && -x $self->{'config'}->{'splitstree_path'} ) {
+		system( $self->{'config'}->{'splitstree_path'},
+			'+g', 'false', '-S', 'true', '-x',
+			"EXECUTE FILE=$nexus_file;EXPORTGRAPHICS format=$format file=$output_file REPLACE=yes;QUIT" );
+	}
+	return;
 }
 1;

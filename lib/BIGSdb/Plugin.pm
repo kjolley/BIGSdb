@@ -424,7 +424,7 @@ sub get_id_list {
 	my $list;
 	if ( $q->param('list') ) {
 		foreach ( split /\n/, $q->param('list') ) {
-			chomp;
+			$_ =~s/\s*$//;
 			push @$list, $_;
 		}
 	} elsif ($query_file) {

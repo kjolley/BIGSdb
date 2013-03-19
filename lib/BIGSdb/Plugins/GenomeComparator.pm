@@ -568,7 +568,7 @@ sub _make_nexus_file {
 			eval { $sql->execute($_) };
 			$logger->error($@) if $@;
 			my ($name) = $sql->fetchrow_array;
-			$name =~ tr/[\(\): ]/_/;
+			$name =~ tr/[\(\):, ]/_/;
 			$labels{$_} = "$_|$name";
 		}
 	}
