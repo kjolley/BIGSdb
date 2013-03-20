@@ -1172,13 +1172,28 @@ sub get_allele_sequence {
 		  );
 		$logger->info("Statement handle 'allele_sequence' prepared.");
 	}
-	eval { $self->{'sql'}->{'allele_sequence'}->execute( $isolate_id, $locus ); };
+	eval { $self->{'sql'}->{'allele_sequence'}->execute( $isolate_id, $locus ) };
 	$logger->error($@) if $@;
 	my @allele_sequences;
-	while ( my $allele_sequence = $self->{'sql'}->{'allele_sequence'}->fetchrow_hashref() ) {
+	while ( my $allele_sequence = $self->{'sql'}->{'allele_sequence'}->fetchrow_hashref ) {
 		push @allele_sequences, $allele_sequence;
 	}
 	return \@allele_sequences;
+}
+
+sub allele_sequence_exists {
+
+	#Marginally quicker than get_allele_sequence if you just want to check presence of tag.
+	my ( $self, $isolate_id, $locus ) = @_;
+	if ( !$self->{'sql'}->{'allele_sequence_exists'} ) {
+		$self->{'sql'}->{'allele_sequence_exists'} =
+		  $self->{'db'}->prepare( "SELECT EXISTS(SELECT allele_sequences.seqbin_id FROM allele_sequences LEFT JOIN sequence_bin ON "
+			  . "allele_sequences.seqbin_id = sequence_bin.id WHERE isolate_id=? AND locus=?)" );
+	}
+	eval { $self->{'sql'}->{'allele_sequence_exists'}->execute( $isolate_id, $locus ) };
+	$logger->error($@) if $@;
+	my ($exists) = $self->{'sql'}->{'allele_sequence_exists'}->fetchrow_array;
+	return $exists;
 }
 
 sub sequences_exist {
@@ -1189,9 +1204,9 @@ sub sequences_exist {
 		$self->{'sql'}->{'sequences_exist'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM sequences WHERE locus=?");
 		$logger->info("Statement handle 'sequences_exist' prepared.");
 	}
-	eval { $self->{'sql'}->{'sequences_exist'}->execute($locus); };
+	eval { $self->{'sql'}->{'sequences_exist'}->execute($locus) };
 	$logger->error($@) if $@;
-	my ($exists) = $self->{'sql'}->{'sequences_exist'}->fetchrow_array();
+	my ($exists) = $self->{'sql'}->{'sequences_exist'}->fetchrow_array;
 	return $exists;
 }
 
@@ -1203,9 +1218,9 @@ sub sequence_exists {
 		$self->{'sql'}->{'sequence_exists'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM sequences WHERE locus=? AND allele_id=?");
 		$logger->info("Statement handle 'sequence_exists' prepared.");
 	}
-	eval { $self->{'sql'}->{'sequence_exists'}->execute( $locus, $allele_id ); };
+	eval { $self->{'sql'}->{'sequence_exists'}->execute( $locus, $allele_id ) };
 	$logger->error($@) if $@;
-	my ($exists) = $self->{'sql'}->{'sequence_exists'}->fetchrow_array();
+	my ($exists) = $self->{'sql'}->{'sequence_exists'}->fetchrow_array;
 	return $exists;
 }
 
@@ -1216,9 +1231,9 @@ sub get_profile_allele_designation {
 		  $self->{'db'}->prepare("SELECT * FROM profile_members WHERE scheme_id=? AND profile_id=? AND locus=?");
 		$logger->info("Statement handle 'profile_allele_designation' prepared.");
 	}
-	eval { $self->{'sql'}->{'profile_allele_designation'}->execute( $scheme_id, $profile_id, $locus ); };
+	eval { $self->{'sql'}->{'profile_allele_designation'}->execute( $scheme_id, $profile_id, $locus ) };
 	$logger->error($@) if $@;
-	my $allele = $self->{'sql'}->{'profile_allele_designation'}->fetchrow_hashref();
+	my $allele = $self->{'sql'}->{'profile_allele_designation'}->fetchrow_hashref;
 	return $allele;
 }
 
@@ -1230,7 +1245,7 @@ sub get_sequence {
 		$self->{'sql'}->{'sequence'} = $self->{'db'}->prepare("SELECT sequence FROM sequences WHERE locus=? AND allele_id=?");
 		$logger->info("Statement handle 'sequence' prepared.");
 	}
-	eval { $self->{'sql'}->{'sequence'}->execute( $locus, $allele_id ); };
+	eval { $self->{'sql'}->{'sequence'}->execute( $locus, $allele_id ) };
 	$logger->error($@) if $@;
 	my ($seq) = $self->{'sql'}->{'sequence'}->fetchrow_array;
 	return \$seq;
@@ -1244,7 +1259,7 @@ sub is_allowed_to_modify_locus_sequences {
 		$self->{'sql'}->{'allow_locus'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM locus_curators WHERE locus=? AND curator_id=?");
 		$logger->info("Statement handle 'allow_locus' prepared.");
 	}
-	eval { $self->{'sql'}->{'allow_locus'}->execute( $locus, $curator_id ); };
+	eval { $self->{'sql'}->{'allow_locus'}->execute( $locus, $curator_id ) };
 	$logger->error($@) if $@;
 	my ($allowed) = $self->{'sql'}->{'allow_locus'}->fetchrow_array;
 	return $allowed;

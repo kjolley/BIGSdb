@@ -412,11 +412,7 @@ sub _scan {
 				last;
 			}
 			next if !$q->param('rescan_alleles') && defined $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
-			
-			if (!$q->param('rescan_seqs')){
-				my $allele_seq = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
-				next if ref $allele_seq eq 'ARRAY' && @$allele_seq > 0;
-			}			
+			next if !$q->param('rescan_seqs') && $self->{'datastore'}->allele_sequence_exists( $isolate_id, $locus );
 			my ( $exact_matches, $partial_matches ) = $self->blast( $locus, $isolate_id, $file_prefix, $locus_prefix );
 			my $off_end;
 			my $i = 1;
@@ -553,7 +549,7 @@ sub _scan {
 		say $q->submit( -name => 'tag', -label => 'Tag alleles/sequences', -class => 'submit' );
 		say "<noscript><p><span class=\"comment\"> Enable javascript for select buttons to work!</span></p></noscript>\n";
 		foreach (
-			qw (db page isolate_id isolate_id_list rescan_alleles rescan_seqs locus identity alignment limit_matches limit_time 
+			qw (db page isolate_id isolate_id_list rescan_alleles rescan_seqs locus identity alignment limit_matches limit_time
 			seq_method_list	experiment_list project_list tblastx hunt pcr_filter alter_pcr_mismatches probe_filter alter_probe_mismatches)
 		  )
 		{
