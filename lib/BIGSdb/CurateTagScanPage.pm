@@ -411,10 +411,12 @@ sub _scan {
 				$out_of_time = 1;
 				last;
 			}
-			my $allele_seq = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
-			next
-			  if ( ( !$q->param('rescan_alleles') && defined $self->{'datastore'}->get_allele_id( $isolate_id, $locus ) )
-				|| ( !$q->param('rescan_seqs') && ref $allele_seq eq 'ARRAY' && scalar @$allele_seq > 0 ) );
+			next if !$q->param('rescan_alleles') && defined $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
+			
+			if (!$q->param('rescan_seqs')){
+				my $allele_seq = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
+				next if ref $allele_seq eq 'ARRAY' && @$allele_seq > 0;
+			}			
 			my ( $exact_matches, $partial_matches ) = $self->blast( $locus, $isolate_id, $file_prefix, $locus_prefix );
 			my $off_end;
 			my $i = 1;
