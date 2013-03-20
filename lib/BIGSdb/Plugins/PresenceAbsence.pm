@@ -140,7 +140,7 @@ sub run_job {
 			$job_id,
 			{
 				percent_complete => 100,
-				message_html     => "<p>The following ids could not be processed " . "(they do not exist): @$problem_ids.</p>"
+				message_html     => "<p>The following ids could not be processed (they do not exist): @$problem_ids.</p>"
 			}
 		);
 	}

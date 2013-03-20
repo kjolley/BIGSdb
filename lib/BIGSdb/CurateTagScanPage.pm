@@ -545,13 +545,14 @@ sub _scan {
 		  . "database for allele assignment.\">&nbsp;<i>i</i>&nbsp;</a></p>";
 	}
 	if ($tag_button) {
-		$q->param( 'isolate_id', sort { $a <=> $b } keys %isolates_to_tag )
-		  ;    #pass the isolates that appear in the table rather than whole selection.
+		$q->param( 'isolate_id_list', sort { $a <=> $b } keys %isolates_to_tag )
+		  ;    #pass the isolates that appear in the table rather than whole selection.  Don't overwrite isolate_id param though
+		       #or it will reset the isolate list selections.
 		say $q->submit( -name => 'tag', -label => 'Tag alleles/sequences', -class => 'submit' );
 		say "<noscript><p><span class=\"comment\"> Enable javascript for select buttons to work!</span></p></noscript>\n";
 		foreach (
-			qw (db page isolate_id rescan_alleles rescan_seqs locus identity alignment limit_matches limit_time seq_method_list
-			experiment_list project_list tblastx hunt pcr_filter alter_pcr_mismatches probe_filter alter_probe_mismatches)
+			qw (db page isolate_id isolate_id_list rescan_alleles rescan_seqs locus identity alignment limit_matches limit_time 
+			seq_method_list	experiment_list project_list tblastx hunt pcr_filter alter_pcr_mismatches probe_filter alter_probe_mismatches)
 		  )
 		{
 			say $q->hidden($_);
@@ -575,7 +576,7 @@ sub _tag {
 	my $sequence_exists_sql =
 	  $self->{'db'}->prepare("SELECT COUNT(*) FROM allele_sequences WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=?");
 	my @params      = $q->param;
-	my @isolate_ids = $q->param('isolate_id');
+	my @isolate_ids = $q->param('isolate_id_list');
 	my @loci        = $q->param('locus');
 	my @scheme_ids  = $q->param('scheme_id');
 	$self->_add_scheme_loci( \@loci );
