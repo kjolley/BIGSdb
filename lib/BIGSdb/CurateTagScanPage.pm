@@ -1175,7 +1175,7 @@ sub blast {
 				return if !keys %$seqs_ref;
 				foreach ( keys %$seqs_ref ) {
 					next if !length $seqs_ref->{$_};
-					print $fasta_fh ">$_\n$seqs_ref->{$_}\n";
+					say $fasta_fh ">$_\n$seqs_ref->{$_}";
 				}
 			}
 			catch BIGSdb::DatabaseConfigurationException with {
@@ -1184,7 +1184,7 @@ sub blast {
 			return if !$ok;
 		} else {
 			return if !$locus_info->{'reference_sequence'};
-			print $fasta_fh ">ref\n$locus_info->{'reference_sequence'}\n";
+			say $fasta_fh ">ref\n$locus_info->{'reference_sequence'}";
 		}
 		close $fasta_fh;
 		if ( $self->{'config'}->{'blast+_path'} ) {
@@ -1204,11 +1204,15 @@ sub blast {
 	#this should then be deleted by the calling function!
 	my $seq_count = 0;
 	if ( !-e $temp_infile ) {
-		my $qry = "SELECT DISTINCT sequence_bin.id,sequence FROM sequence_bin LEFT JOIN experiment_sequences ON sequence_bin.id=seqbin_id "
-		  . "WHERE sequence_bin.isolate_id=?";
+		my $experiment      = $self->{'cgi'}->param('experiment_list');
+		my $distinct_clause = $experiment ? ' DISTINCT' : '';
+		my $qry             = "SELECT$distinct_clause sequence_bin.id,sequence FROM sequence_bin ";
+		$qry .= "LEFT JOIN experiment_sequences ON sequence_bin.id=seqbin_id " if $experiment;
+		$qry .= "WHERE sequence_bin.isolate_id=?";
 		my @criteria = ($isolate_id);
 		my $method   = $self->{'cgi'}->param('seq_method_list');
 		if ($method) {
+
 			if ( !any { $_ eq $method } SEQ_METHODS ) {
 				$logger->error("Invalid method $method");
 				return;
@@ -1216,7 +1220,6 @@ sub blast {
 			$qry .= " AND method=?";
 			push @criteria, $method;
 		}
-		my $experiment = $self->{'cgi'}->param('experiment_list');
 		if ($experiment) {
 			if ( !BIGSdb::Utils::is_int($experiment) ) {
 				$logger->error("Invalid experiment $experiment");
@@ -1226,16 +1229,16 @@ sub blast {
 			push @criteria, $experiment;
 		}
 		my $sql = $self->{'db'}->prepare($qry);
-		eval { $sql->execute(@criteria); };
+		eval { $sql->execute(@criteria) };
 		$logger->error($@) if $@;
 		open( my $infile_fh, '>', $temp_infile ) or $logger->error("Can't open temp file $temp_infile for writing");
 		while ( my ( $id, $seq ) = $sql->fetchrow_array ) {
 			$seq_count++;
-			print $infile_fh ">$id\n$seq\n";
+			say $infile_fh ">$id\n$seq";
 		}
 		close $infile_fh;
 		open( my $seqcount_fh, '>', "$temp_infile\_seqcount" ) or $logger->error("Can't open temp file $temp_infile\_seqcount for writing");
-		print $seqcount_fh "$seq_count";
+		say $seqcount_fh $seq_count;
 		close $seqcount_fh;
 	} else {
 		open( my $seqcount_fh, '<', "$temp_infile\_seqcount" ) or $logger->error("Can't open temp file $temp_infile\_seqcount for reading");
@@ -1270,12 +1273,14 @@ sub blast {
 			my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
 			my $filter = $program eq 'blastn' ? 'dust' : 'seg';
 			system(
-"$self->{'config'}->{'blast+_path'}/$program -num_threads $blast_threads -max_target_seqs 1000 -parse_deflines -word_size $word_size -db $temp_fastafile -query $temp_infile -out $temp_outfile -outfmt 6 -$filter no"
+				"$self->{'config'}->{'blast+_path'}/$program",
+				'-num_threads', $blast_threads, '-max_target_seqs', 1000,       '-parse_deflines', '-word_size',
+				$word_size,     '-db',          $temp_fastafile,    '-query',   $temp_infile,      '-out',
+				$temp_outfile,  '-outfmt',      6,                  "-$filter", 'no'
 			);
 		} else {
-			system(
-"$self->{'config'}->{'blast_path'}/blastall -B $seq_count -b 1000 -p $program -W $word_size -d $temp_fastafile -i $temp_infile -o $temp_outfile -m8 -F F 2> /dev/null"
-			);
+			system( "$self->{'config'}->{'blast_path'}/blastall -B $seq_count -b 1000 -p $program -W $word_size -d $temp_fastafile -i "
+				  . "$temp_infile -o $temp_outfile -m8 -F F 2> /dev/null" );
 		}
 		my ( $exact_matches, $matched_regions, $partial_matches );
 		my $pcr_filter   = !$q->param('pcr_filter')   ? 0 : $locus_info->{'pcr_filter'};
