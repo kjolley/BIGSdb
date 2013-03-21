@@ -49,7 +49,7 @@ sub print_content {
 			say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update $locus sequences in "
 			 . "the database.</p></div>";
 		} else {
-			say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update this record.</p></div>n";
+			say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update this record.</p></div>";
 		}
 		return;
 	} elsif (
