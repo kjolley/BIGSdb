@@ -867,7 +867,7 @@ sub _print_row {
 	my $translate     = $locus_info->{'coding_sequence'} ? 1 : 0;
 	my $orf           = $locus_info->{'orf'} || 1;
 	if ($warning) {
-		print "<tr style=\"color:white;background:red\">";
+		print "<tr class=\"warning\">";
 	} else {
 		print "<tr class=\"td$td\">";
 	}
@@ -886,9 +886,10 @@ sub _print_row {
 	print "<td>$match->{'seqbin_id'} </td>";
 	print "<td>$match->{'start'}</td>";
 	print "<td>$match->{'end'} </td>";
-	print "<td>$match->{'predicted_start'}</td>";
+	print $off_end ? "<td class=\"incomplete\">$match->{'predicted_start'}</td>" : "<td>$match->{'predicted_start'}</td>";
 	$match->{'reverse'} ||= 0;
-	print "<td>$match->{'predicted_end'} <a target=\"_blank\" class=\"extract_tooltip\" href=\"$self->{'system'}->{'script_name'}?"
+	print $off_end ? "<td class=\"incomplete\">" : "<td>";
+	print "$match->{'predicted_end'} <a target=\"_blank\" class=\"extract_tooltip\" href=\"$self->{'system'}->{'script_name'}?"
 	  . "db=$self->{'instance'}&amp;page=extractedSequence&amp;seqbin_id=$match->{'seqbin_id'}&amp;start=$predicted_start&amp;"
 	  . "end=$predicted_end&amp;reverse=$match->{'reverse'}&amp;translate=$translate&amp;orf=$orf\">extract&nbsp;&rarr;</a>"
 	  . "$complete_tooltip</td>";

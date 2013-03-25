@@ -195,6 +195,7 @@ a.update {
 .non-default {color:#00f}
 .comment {font-size: 0.9em}
 .warning {background:#fcc}
+.incomplete {background:#fb6}
 
 .chartbar {
 	background:#707090;
@@ -413,6 +414,7 @@ td.statusbad {color:red}
 td.partialmatch {color:#ff8c00}
 td.header {background:#404090;color:white}
 tr.total {background:green;color:white}
+tr.warning {color:white;background:red}
 
 span.statusgood {color:green}
 span.statusbad {color:red}
