@@ -240,6 +240,7 @@ sub _run_isolate_query {
 	my $lqry;
 	my $extended_isolate_field;
 	my $locus_pattern = LOCUS_PATTERN;
+	my $view = $self->{'system'}->{'view'};
 
 	if ( $field =~ /^f_(.*)$/ ) {
 		$field = $1;
@@ -315,20 +316,20 @@ sub _run_isolate_query {
 						next if $thisfield->{'type'} eq 'int' && !BIGSdb::Utils::is_int($value);
 						$tempqry .= ' OR ' if !$first;
 						if ( $thisfield->{'type'} eq 'int' ) {
-							$tempqry .= "$groupedfields[$x] = E'$value'";
+							$tempqry .= "$view.$groupedfields[$x] = E'$value'";
 						} else {
-							$tempqry .= "upper($groupedfields[$x]) = upper(E'$value')";
+							$tempqry .= "upper($view.$groupedfields[$x]) = upper(E'$value')";
 						}
 						$first = 0;
 					}
 					$tempqry .= ')';
 				} elsif ( $field eq $self->{'system'}->{'labelfield'} ) {
-					$tempqry .= "(upper($self->{'system'}->{'labelfield'}) = upper('$value') OR $self->{'system'}->{'view'}.id IN "
+					$tempqry .= "(upper($self->{'system'}->{'labelfield'}) = upper('$value') OR $view.id IN "
 					  . "(SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper(E'$value')))";
 				} elsif ( $datatype eq 'text' ) {
-					$tempqry .= "upper($field) = upper(E'$value')";
+					$tempqry .= "upper($view.$field) = upper(E'$value')";
 				} else {
-					$tempqry .= "$field = E'$value'";
+					$tempqry .= "$view.$field = E'$value'";
 				}
 			} elsif ( $fieldtype eq 'metafield' ) {
 				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
@@ -344,7 +345,7 @@ sub _run_isolate_query {
 				  ? "upper($field)=upper(E'$value')"
 				  : "$field=E'$value'";
 			} elsif ( $fieldtype eq 'extended_isolate' ) {
-				$tempqry .= "$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE "
+				$tempqry .= "$view.$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE "
 				  . "isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) = upper(E'$value'))";
 			}
 		}

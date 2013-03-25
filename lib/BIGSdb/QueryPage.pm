@@ -1134,7 +1134,7 @@ sub _modify_isolate_query_for_filters {
 					: "(id IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield = E'$value'))"
 				);
 			} else {
-				$qry .= ( ( $value eq '<blank>' || $value eq 'null' ) ? "$field is null" : "$field = '$value'" );
+				$qry .= ( ( $value eq '<blank>' || $value eq 'null' ) ? "$view.$field is null" : "$view.$field = '$value'" );
 			}
 		}
 		my $extatt = $extended->{$field};
