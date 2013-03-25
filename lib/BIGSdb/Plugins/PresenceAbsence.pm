@@ -25,6 +25,7 @@ use parent qw(BIGSdb::Plugin);
 use List::MoreUtils qw(none uniq);
 use Log::Log4perl qw(get_logger);
 use constant MAX_SPLITS_TAXA => 200;
+use constant MAX_DISMAT_TAXA => 1000;
 my $logger = get_logger('BIGSdb.Plugins');
 
 sub get_attributes {
@@ -43,6 +44,7 @@ sub get_attributes {
 		section     => 'analysis,postquery',
 		input       => 'query',
 		requires    => 'js_tree,offline_jobs',
+		help        => 'tooltips',
 		order       => 16
 	);
 	return \%att;
@@ -136,47 +138,44 @@ sub run_job {
 	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Main output file' } );
 	if (@$problem_ids) {
 		local $" = '; ';
-		$self->{'jobManager'}->update_job_status(
-			$job_id,
-			{
-				percent_complete => 100,
-				message_html     => "<p>The following ids could not be processed (they do not exist): @$problem_ids.</p>"
-			}
-		);
+		$self->{'jobManager'}->update_job_status( $job_id,
+			{ message_html => "<p>The following ids could not be processed (they do not exist): @$problem_ids.</p>" } );
 	}
 	return if !$params->{'dismat'};
-	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => 50, stage => "Generating distance matrix" } );
-	my $dismat     = $self->_generate_distance_matrix($values);
-	my $nexus_file = $self->_make_nexus_file($dismat);
-	if ( -e "$self->{'config'}->{'tmp_dir'}/$nexus_file" ) {
-		$self->{'jobManager'}->update_job_output(
-			$job_id,
-			{
-				filename    => "$nexus_file",
-				description => '20_Distance matrix (Nexus format)|Suitable for loading in to <a href="http://www.splitstree.org">'
-				  . 'SplitsTree</a>. Distances between taxa are calculated as the number of loci that are differentially present'
-			}
-		);
-	}
-	if ( keys %$values <= MAX_SPLITS_TAXA ) {
-		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => 75, stage => "Generating NeighborNet" } );
-		my $splits_img = "$job_id.png";
-		$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file", "$self->{'config'}->{'tmp_dir'}/$splits_img", 'PNG' );
-		if ( -e "$self->{'config'}->{'tmp_dir'}/$splits_img" ) {
-			$self->{'jobManager'}
-			  ->update_job_output( $job_id, { filename => $splits_img, description => '25_Splits graph (Neighbour-net; PNG format)' } );
-		}
-		$splits_img = "$job_id.svg";
-		$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file", "$self->{'config'}->{'tmp_dir'}/$splits_img", 'SVG' );
-		if ( -e "$self->{'config'}->{'tmp_dir'}/$splits_img" ) {
+	if ( keys %$values <= MAX_DISMAT_TAXA ) {
+		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => 50, stage => "Generating distance matrix" } );
+		my $dismat     = $self->_generate_distance_matrix($values);
+		my $nexus_file = $self->_make_nexus_file($dismat);
+		if ( -e "$self->{'config'}->{'tmp_dir'}/$nexus_file" ) {
 			$self->{'jobManager'}->update_job_output(
 				$job_id,
 				{
-					filename    => $splits_img,
-					description => '26_Splits graph (Neighbour-net; SVG format)|This can be edited in <a href="http://inkscape.org">'
-					  . 'Inkscape</a> or other vector graphics editors'
+					filename    => "$nexus_file",
+					description => '20_Distance matrix (Nexus format)|Suitable for loading in to <a href="http://www.splitstree.org">'
+					  . 'SplitsTree</a>. Distances between taxa are calculated as the number of loci that are differentially present'
 				}
 			);
+		}
+		if ( keys %$values <= MAX_SPLITS_TAXA ) {
+			$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => 75, stage => "Generating NeighborNet" } );
+			my $splits_img = "$job_id.png";
+			$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file", "$self->{'config'}->{'tmp_dir'}/$splits_img", 'PNG' );
+			if ( -e "$self->{'config'}->{'tmp_dir'}/$splits_img" ) {
+				$self->{'jobManager'}
+				  ->update_job_output( $job_id, { filename => $splits_img, description => '25_Splits graph (Neighbour-net; PNG format)' } );
+			}
+			$splits_img = "$job_id.svg";
+			$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file", "$self->{'config'}->{'tmp_dir'}/$splits_img", 'SVG' );
+			if ( -e "$self->{'config'}->{'tmp_dir'}/$splits_img" ) {
+				$self->{'jobManager'}->update_job_output(
+					$job_id,
+					{
+						filename    => $splits_img,
+						description => '26_Splits graph (Neighbour-net; SVG format)|This can be edited in <a href="http://inkscape.org">'
+						  . 'Inkscape</a> or other vector graphics editors'
+					}
+				);
+			}
 		}
 	}
 	return;
@@ -196,6 +195,9 @@ sub get_extra_form_elements {
 	say $q->popup_menu( -name => 'absent', -id => 'absent', -value => [ qw (X N -), ' ' ], );
 	say "</li><li>";
 	say $q->checkbox( -name => 'dismat', -id => 'dismat', -label => 'Generate distance matrix' );
+	my $max = MAX_DISMAT_TAXA;
+	say " <a class=\"tooltip\" title=\"Distance matrix - This is limited to $max isolates and is disabled if more are selected\">"
+	  . "&nbsp;<i>i</i>&nbsp;</a>";
 	say "</li></ul></fieldset>";
 	return;
 }
@@ -235,7 +237,7 @@ sub _write_output {
 	my $values;
 	my $progress    = 0;
 	my $i           = 0;
-	my $max_percent = $params->{'dismat'} ? 50 : 100;
+	my $max_percent = ( $params->{'dismat'} && @$list <= MAX_DISMAT_TAXA ) ? 50 : 100;
 	foreach my $id (@$list) {
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Analysing id: $id" } );
 		$id =~ s/[\r\n]//g;
