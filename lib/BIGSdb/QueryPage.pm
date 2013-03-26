@@ -1218,26 +1218,21 @@ sub _modify_isolate_query_for_filters {
 					$allele_clause .= "(locus=E'$locus' AND allele_id IS NOT NULL)";
 					$first = 0;
 				}
-				my $param = $q->param("scheme_$scheme_id\_profile_status_list");
-				my $clause;
-				if ( $param eq 'complete' ) {
-					$clause =
-"($view.id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING COUNT(isolate_id)= "
-					  . scalar @$scheme_loci . '))';
-				} elsif ( $param eq 'partial' ) {
-					$clause =
-"($view.id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING COUNT(isolate_id)< "
-					  . scalar @$scheme_loci . '))';
-				} elsif ( $param eq 'started' ) {
-					$clause =
-"($view.id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING COUNT(isolate_id)>0))";
-				} elsif ( $param eq 'incomplete' ) {
-					$clause =
-"($view.id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING COUNT(isolate_id)< "
-					  . scalar @$scheme_loci
-					  . ") OR id NOT IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id )) ";
-				} else {
-					$clause = "(id NOT IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id ))";
+				my $param  = $q->param("scheme_$scheme_id\_profile_status_list");
+				my $clause = "($view.id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING "
+				  . "COUNT(isolate_id)";
+				my $locus_count = @$scheme_loci;
+				given ($param) {
+					when ('complete') { $clause .= "=$locus_count))" }
+					when ('partial')  { $clause .= "<$locus_count))" }
+					when ('started')  { $clause .= '>0))' }
+					when ('incomplete') {
+						$clause .= "<$locus_count) OR id NOT IN (SELECT isolate_id FROM allele_designations WHERE "
+						  . "$allele_clause GROUP BY isolate_id ))"
+					}
+					default {
+						$clause = "(id NOT IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id ))"
+					}
 				}
 				if ( $qry !~ /WHERE \(\)\s*$/ ) {
 					$qry .= "AND $clause";
@@ -1302,8 +1297,8 @@ sub _modify_isolate_query_for_designations {
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		if ( defined $q->param("lt$i") && $q->param("lt$i") ne '' ) {
 			if ( $q->param("ls$i") =~ /$pattern/ ) {
-				my $locus      = $1;
-				my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+				my $locus            = $1;
+				my $locus_info       = $self->{'datastore'}->get_locus_info($locus);
 				my $unmodified_locus = $locus;
 				$locus =~ s/'/\\'/g;
 				my $operator = $q->param("ly$i");
