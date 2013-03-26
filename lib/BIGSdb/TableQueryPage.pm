@@ -481,7 +481,12 @@ sub _run_query {
 		foreach (@$attributes) {
 			my $param = $_->{'name'} . '_list';
 			if ( defined $q->param($param) && $q->param($param) ne '' ) {
-				my $value = $q->param($param);
+				my $value;
+				if ($_->{'name'} eq 'locus'){
+					($value = $q->param('locus_list')) =~ s/^cn_//;
+				} else {
+					$value = $q->param($param);
+				}
 				my $field = "$table." . $_->{'name'};
 				if ( $qry2 !~ /WHERE \(\)\s*$/ ) {
 					$qry2 .= " AND ";
@@ -788,7 +793,8 @@ sub _are_only_int_allele_ids_used {
 	  $self->{'datastore'}->run_simple_query( "SELECT EXISTS(SELECT * FROM loci WHERE allele_id_format=?)", 'text' )->[0];
 	return 1 if !$any_text_ids_used;
 	if ( $q->param('locus_list') ) {
-		my $locus_info = $self->{'datastore'}->get_locus_info( $q->param('locus_list') );
+		(my $locus = $q->param('locus_list')) =~ s/^cn_//;
+		my $locus_info = $self->{'datastore'}->get_locus_info( $locus );
 		return 1 if $locus_info->{'allele_id_format'} eq 'integer';
 	}
 	return;

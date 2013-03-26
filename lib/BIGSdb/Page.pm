@@ -737,7 +737,7 @@ sub get_scheme_filter {
 sub get_locus_filter {
 	my ($self) = @_;
 	my $set_id = $self->get_set_id;
-	my ( $loci, $labels ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, no_list_by_common_name => 1 } );
+	my ( $loci, $labels ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
 	my $buffer =
 	  $self->get_filter( 'locus', $loci, { labels => $labels, tooltip => 'locus filter - Select a locus to filter your search by.' } );
 	return $buffer;
