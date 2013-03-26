@@ -427,6 +427,7 @@ sub _upload {
 			my $curator = $self->get_curator_id;
 			foreach my $locus (@$loci) {
 				my $mapped = $self->map_locus_name($locus);
+				$mapped =~ s/'/\\'/g;
 				$data[ $fieldorder{$locus} ] =~ s/^\s*//g;
 				$data[ $fieldorder{$locus} ] =~ s/\s*$//g;
 				if (   defined $fieldorder{$locus}
