@@ -864,7 +864,7 @@ sub _print_row {
 	}
 	my $cleaned_locus = $self->clean_locus($locus);
 	my $locus_info    = $self->{'datastore'}->get_locus_info($locus);
-	my $translate     = $locus_info->{'coding_sequence'} ? 1 : 0;
+	my $translate     = ($locus_info->{'coding_sequence'} || $locus_info->{'data_type'} eq 'peptide') ? 1 : 0;
 	my $orf           = $locus_info->{'orf'} || 1;
 	if ($warning) {
 		print "<tr class=\"warning\">";
