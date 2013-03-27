@@ -398,6 +398,16 @@ sub get_scheme_info {
 		my ($desc) = $self->{'sql'}->{'set_scheme_info'}->fetchrow_array;
 		$scheme_info->{'description'} = $desc if defined $desc;
 	}
+	if ( $options->{'get_pk'} ) {
+		if ( !$self->{'sql'}->{'scheme_info_get_pk'} ) {
+			$self->{'sql'}->{'scheme_info_get_pk'} =
+			  $self->{'db'}->prepare("SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key");
+		}
+		eval { $self->{'sql'}->{'scheme_info_get_pk'}->execute($scheme_id) };
+		$logger->error($@) if $@;
+		my ($pk) = $self->{'sql'}->{'scheme_info_get_pk'}->fetchrow_array;
+		$scheme_info->{'primary_key'} = $pk if $pk;
+	}
 	return $scheme_info;
 }
 
