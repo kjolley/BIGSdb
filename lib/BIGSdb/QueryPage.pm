@@ -1454,6 +1454,10 @@ sub _modify_isolate_query_for_designations {
 						  : "($view.id IN ($joined_table WHERE $field='$text'))";
 					}
 				} else {
+					if ( $text eq 'null' ) {
+						push @$errors_ref, "$operator is not a valid operator for comparing null values.";
+						next;
+					}
 					if ( $scheme_field_info->{'type'} eq 'integer' ) {
 						push @sqry, "($view.id IN ($joined_table WHERE CAST($field AS int) $operator '$text'))";
 					} else {
