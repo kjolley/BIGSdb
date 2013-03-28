@@ -212,10 +212,10 @@ sub is_profile_provisional {
 	#If the scheme allows missing loci, then a locus may be 'N' in the profile.  The tested profile is only provisional if an allele is
 	#provisional at a position that is not a N is the profile definition.
 	my ( $self, $scheme_id, $profile, $provisional_alleles ) = @_;
-	my $scheme_field_values = $self->get_scheme_field_values_by_profile( $scheme_id, $profile );
-	return if !$scheme_field_values;
 	my $scheme_info = $self->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	return 1 if %$provisional_alleles && !$scheme_info->{'allow_missing_loci'};
+	my $scheme_field_values = $self->get_scheme_field_values_by_profile( $scheme_id, $profile );
+	return if !$scheme_field_values;
 	my $profile_id = $scheme_field_values->{ lc( $scheme_info->{'primary_key'} ) };
 	my $ambiguous_loci = $self->get_ambiguous_loci( $scheme_id, $profile_id );
 	foreach my $locus ( keys %$provisional_alleles ) {

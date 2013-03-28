@@ -725,43 +725,44 @@ sub _print_isolate_table_scheme {
 		$self->{'designations_retrieved'}->{$isolate_id} = 1;
 	}
 	my $allele_designations = $self->{'designations'}->{$isolate_id};
-	my $provisional_profile;
-	foreach ( @{ $self->{'scheme_loci'}->{$scheme_id} } ) {
-		$allele_designations->{$_}->{'status'} ||= 'confirmed';
-		$provisional_profile = 1 if $self->{'prefs'}->{'mark_provisional_main'} && $allele_designations->{$_}->{'status'} eq 'provisional';
-		next if !$self->{'prefs'}->{'main_display_loci'}->{$_} && ( !$scheme_id || !@{ $self->{'scheme_fields'}->{$scheme_id} } );
-		if ( $self->{'prefs'}->{'main_display_loci'}->{$_} ) {
+	my %provisional_allele;
+	my $loci = $self->{'scheme_loci'}->{$scheme_id};
+	foreach my $locus ( @$loci ) {
+		$allele_designations->{$locus}->{'status'} ||= 'confirmed';
+		$provisional_allele{$locus} = 1 if $self->{'prefs'}->{'mark_provisional_main'} && $allele_designations->{$locus}->{'status'} eq 'provisional';
+		next if !$self->{'prefs'}->{'main_display_loci'}->{$locus} && ( !$scheme_id || !@{ $self->{'scheme_fields'}->{$scheme_id} } );
+		if ( $self->{'prefs'}->{'main_display_loci'}->{$locus} ) {
 			print "<td>";
 			print "<span class=\"provisional\">"
-			  if $allele_designations->{$_}->{'status'} eq 'provisional'
+			  if $allele_designations->{$locus}->{'status'} eq 'provisional'
 				  && $self->{'prefs'}->{'mark_provisional_main'};
-			if (   defined $allele_designations->{$_}->{'allele_id'}
-				&& defined $self->{'url'}->{$_}
-				&& $self->{'url'}->{$_} ne ''
-				&& $self->{'prefs'}->{'main_display_loci'}->{$_}
+			if (   defined $allele_designations->{$locus}->{'allele_id'}
+				&& defined $self->{'url'}->{$locus}
+				&& $self->{'url'}->{$locus} ne ''
+				&& $self->{'prefs'}->{'main_display_loci'}->{$locus}
 				&& $self->{'prefs'}->{'hyperlink_loci'} )
 			{
-				my $url = $self->{'url'}->{$_};
-				$url =~ s/\[\?\]/$allele_designations->{$_}->{'allele_id'}/g;
-				print "<a href=\"$url\">$allele_designations->{$_}->{'allele_id'}</a>";
+				my $url = $self->{'url'}->{$locus};
+				$url =~ s/\[\?\]/$allele_designations->{$locus}->{'allele_id'}/g;
+				print "<a href=\"$url\">$allele_designations->{$locus}->{'allele_id'}</a>";
 			} else {
-				print defined $allele_designations->{$_}->{'allele_id'} ? $allele_designations->{$_}->{'allele_id'} : '';
+				print defined $allele_designations->{$locus}->{'allele_id'} ? $allele_designations->{$locus}->{'allele_id'} : '';
 			}
 			print "</span>"
-			  if $allele_designations->{$_}->{'status'} eq 'provisional'
+			  if $allele_designations->{$locus}->{'status'} eq 'provisional'
 				  && $self->{'prefs'}->{'mark_provisional_main'};
-			print $self->get_seq_detail_tooltips( $isolate_id, $_ ) if $self->{'prefs'}->{'sequence_details_main'};
-			$self->_print_pending_tooltip( $isolate_id, $_ )
-			  if $self->{'prefs'}->{'display_pending_main'} && defined $allele_designations->{$_}->{'allele_id'};
-			my $action = exists $allele_designations->{$_}->{'allele_id'} ? 'update' : 'add';
+			print $self->get_seq_detail_tooltips( $isolate_id, $locus ) if $self->{'prefs'}->{'sequence_details_main'};
+			$self->_print_pending_tooltip( $isolate_id, $locus )
+			  if $self->{'prefs'}->{'display_pending_main'} && defined $allele_designations->{$locus}->{'allele_id'};
+			my $action = exists $allele_designations->{$locus}->{'allele_id'} ? 'update' : 'add';
 			print
-" <a href=\"$self->{'system'}->{'script_name'}?page=alleleUpdate&amp;db=$self->{'instance'}&amp;isolate_id=$isolate_id&amp;locus=$_\" class=\"update\">$action</a>"
+" <a href=\"$self->{'system'}->{'script_name'}?page=alleleUpdate&amp;db=$self->{'instance'}&amp;isolate_id=$isolate_id&amp;locus=$locus\" class=\"update\">$action</a>"
 			  if $self->{'curate'};
 			print "</td>";
 		}
 		if ($scheme_id) {
-			push @profile, $allele_designations->{$_}->{'allele_id'};
-			$incomplete = 1 if !defined $allele_designations->{$_}->{'allele_id'};
+			push @profile, $allele_designations->{$locus}->{'allele_id'};
+			$incomplete = 1 if !defined $allele_designations->{$locus}->{'allele_id'};
 		}
 	}
 	return
@@ -772,27 +773,29 @@ sub _print_isolate_table_scheme {
 	if ( (!$incomplete || $self->{'scheme_info'}->{$scheme_id}->{'allow_missing_loci'}) && @profile ) {
 		$values = $self->{'datastore'}->get_scheme_field_values_by_profile( $scheme_id, \@profile );
 	}
-	foreach ( @{ $self->{'scheme_fields'}->{$scheme_id} } ) {
-		if ( $self->{'prefs'}->{'main_display_scheme_fields'}->{$scheme_id}->{$_} ) {
+	my $scheme_fields = $self->{'scheme_fields'}->{$scheme_id};
+	my $provisional_profile = $self->{'datastore'}->is_profile_provisional( $scheme_id, \@profile, \%provisional_allele );
+	foreach my $field ( @$scheme_fields ) {
+		if ( $self->{'prefs'}->{'main_display_scheme_fields'}->{$scheme_id}->{$field} ) {
 			if ( ref $values eq 'HASH' ) {
-				$values->{ lc($_) } = '' if !defined $values->{ lc($_) };
-				if ( !$self->{'scheme_fields_info'}->{$scheme_id}->{$_} ) {
-					$self->{'scheme_fields_info'}->{$scheme_id}->{$_} = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $_ );
+				$values->{ lc($field) } = '' if !defined $values->{ lc($field) };
+				if ( !$self->{'scheme_fields_info'}->{$scheme_id}->{$field} ) {
+					$self->{'scheme_fields_info'}->{$scheme_id}->{$field} = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 				}
 				my $url;
 				if (   $self->{'prefs'}->{'hyperlink_loci'}
-					&& $self->{'scheme_fields_info'}->{$scheme_id}->{$_}->{'url'} )
+					&& $self->{'scheme_fields_info'}->{$scheme_id}->{$field}->{'url'} )
 				{
-					$url = $self->{'scheme_fields_info'}->{$scheme_id}->{$_}->{'url'};
-					$url =~ s/\[\?\]/$values->{lc($_)}/g;
+					$url = $self->{'scheme_fields_info'}->{$scheme_id}->{$field}->{'url'};
+					$url =~ s/\[\?\]/$values->{lc($field)}/g;
 					$url =~ s/\&/\&amp;/g;
 				}
-				if ( $values->{ lc($_) } eq '-999' ) {
-					$values->{ lc($_) } = '';
+				if ( $values->{ lc($field) } eq '-999' ) {
+					$values->{ lc($field) } = '';
 				}
-				if ( defined $values->{ lc($_) } && $values->{ lc($_) } ne '' ) {
+				if ( defined $values->{ lc($field) } && $values->{ lc($field) } ne '' ) {
 					print $provisional_profile ? "<td><span class=\"provisional\">"       : '<td>';
-					print $url                 ? "<a href=\"$url\">$values->{lc($_)}</a>" : $values->{ lc($_) };
+					print $url                 ? "<a href=\"$url\">$values->{lc($field)}</a>" : $values->{ lc($field) };
 					print $provisional_profile ? '</span></td>'                           : '</td>';
 				} else {
 					print '<td />';
