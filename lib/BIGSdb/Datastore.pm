@@ -197,6 +197,59 @@ sub get_composite_value {
 	return $value;
 }
 
+sub get_ambiguous_loci {
+	my ( $self, $scheme_id, $profile_id ) = @_;
+	my $profile = $self->get_profile_by_primary_key( $scheme_id, $profile_id, { hashref => 1 } );
+	my %ambiguous;
+	foreach my $locus ( keys %$profile ) {
+		$ambiguous{$locus} = 1 if $profile->{$locus} eq 'N';
+	}
+	return \%ambiguous;
+}
+
+sub is_profile_provisional {
+
+	#If the scheme allows missing loci, then a locus may be 'N' in the profile.  The tested profile is only provisional if an allele is
+	#provisional at a position that is not a N is the profile definition.
+	my ( $self, $scheme_id, $profile, $provisional_alleles ) = @_;
+	my $scheme_info = $self->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	return 1 if %$provisional_alleles && !$scheme_info->{'allow_missing_loci'};
+	my $scheme_field_values = $self->get_scheme_field_values_by_profile( $scheme_id, $profile );
+	return if !$scheme_field_values;
+	my $profile_id = $scheme_field_values->{ lc( $scheme_info->{'primary_key'} ) };
+	my $ambiguous_loci = $self->get_ambiguous_loci( $scheme_id, $profile_id );
+	foreach my $locus ( keys %$provisional_alleles ) {
+		return 1 if !$ambiguous_loci->{$locus};
+	}
+	return;
+}
+
+sub get_profile_by_primary_key {
+	my ( $self, $scheme_id, $profile_id, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $loci_values;
+	try {
+		$loci_values = $self->get_scheme($scheme_id)->get_profile_by_primary_keys( [$profile_id] );
+	}
+	catch BIGSdb::DatabaseConfigurationException with {
+		$logger->error("Error retrieving information from remote database - check configuration.");
+	};
+	return if !defined $loci_values;
+	if ( $options->{'hashref'} ) {
+		my $loci = $self->get_scheme_loci($scheme_id);
+		my %values;
+		my $i = 0;
+		foreach my $locus (@$loci) {
+			$values{$locus} = $loci_values->[$i];
+			$i++;
+		}
+		return \%values;
+	} else {
+		return $loci_values;
+	}
+	return;
+}
+
 sub get_scheme_field_values_by_profile {
 	my ( $self, $scheme_id, $profile_ref ) = @_;
 	my $values;
@@ -397,6 +450,16 @@ sub get_scheme_info {
 		$logger->error($@) if $@;
 		my ($desc) = $self->{'sql'}->{'set_scheme_info'}->fetchrow_array;
 		$scheme_info->{'description'} = $desc if defined $desc;
+	}
+	if ( $options->{'get_pk'} ) {
+		if ( !$self->{'sql'}->{'scheme_info_get_pk'} ) {
+			$self->{'sql'}->{'scheme_info_get_pk'} =
+			  $self->{'db'}->prepare("SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key");
+		}
+		eval { $self->{'sql'}->{'scheme_info_get_pk'}->execute($scheme_id) };
+		$logger->error($@) if $@;
+		my ($pk) = $self->{'sql'}->{'scheme_info_get_pk'}->fetchrow_array;
+		$scheme_info->{'primary_key'} = $pk if $pk;
 	}
 	return $scheme_info;
 }

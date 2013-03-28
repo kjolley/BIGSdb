@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -571,77 +571,108 @@ sub _get_samples {
 	return $buffer;
 }
 
-sub _get_scheme_fields {
-	my ( $self, $scheme_id, $isolate_id, $td, $summary_view ) = @_;
-	my $q = $self->{'cgi'};
-	my $display_on_own_line;
-	my $scheme_fields;
-	my $scheme_fields_count = 0;
-	my $buffer;
-	my ( $loci, @profile, $info_ref );
-	my $locus_display_count = 0;
-	my $set_id              = $self->get_set_id;
-
-	if ($scheme_id) {
-		my $scheme_data = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-		my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
-		return $td if none { $scheme_id eq $_ } @$scheme_ids_ref;
-		$scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-		$loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
-		my $to_display;
-		$display_on_own_line = $self->{'datastore'}->are_sequences_displayed_in_scheme($scheme_id);
-		$display_on_own_line = 1
-		  if $summary_view && @$loci + @$scheme_fields > 5;    #make sure table doesn't get too wide
-		my $allele_designations_exist = $self->{'datastore'}->run_simple_query(
-			"SELECT COUNT(isolate_id) FROM allele_designations LEFT JOIN scheme_members ON scheme_members.locus=allele_designations.locus "
-			  . "WHERE isolate_id=? AND scheme_id=?",
-			$isolate_id, $scheme_id
-		)->[0];
-		my $allele_sequences_exist = $self->{'datastore'}->run_simple_query(
-			"SELECT COUNT(isolate_id) FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id LEFT JOIN "
-			  . "scheme_members ON allele_sequences.locus=scheme_members.locus WHERE isolate_id=? AND scheme_id=?",
-			$isolate_id, $scheme_id
-		)->[0];
-
-		foreach (@$loci) {
-			if ( $self->{'prefs'}->{'isolate_display_loci'}->{$_} ne 'hide' ) {
-				$locus_display_count++;
-			}
+sub _get_loci_not_in_schemes {
+	my ( $self, $isolate_id ) = @_;
+	my $set_id = $self->get_set_id;
+	my $loci;
+	my $loci_in_no_scheme = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
+	if ( $self->{'prefs'}->{'undesignated_alleles'} ) {
+		$loci = $loci_in_no_scheme;
+	} else {
+		my $loci_with_designations =
+		  $self->{'datastore'}->run_list_query( "SELECT locus FROM allele_designations WHERE isolate_id=?", $isolate_id );
+		my %designations = map { $_ => 1 } @$loci_with_designations;
+		my $loci_with_tags =
+		  $self->{'datastore'}->run_list_query(
+			"SELECT DISTINCT locus FROM allele_sequences LEFT JOIN sequence_bin ON seqbin_id=sequence_bin.id WHERE isolate_id=?",
+			$isolate_id );
+		my %tags = map { $_ => 1 } @$loci_with_tags;
+		foreach my $locus (@$loci_in_no_scheme) {
+			next if !$designations{$locus} && !$tags{$locus};
+			push @$loci, $locus;
 		}
-		return $td if !$allele_designations_exist && !$allele_sequences_exist;
-		$display_on_own_line = 0 if !$locus_display_count;
-		$info_ref = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-		foreach (@$scheme_fields) {
-			if ( $self->{'prefs'}->{'isolate_display_scheme_fields'}->{$scheme_id}->{$_} ) {
-				$scheme_fields_count++;
+	}
+	return $loci // [];
+}
+
+sub _should_display_scheme {
+	my ( $self, $isolate_id, $scheme_id, $summary_view ) = @_;
+	my $set_id = $self->get_set_id;
+	my $scheme_data = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+	my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
+	return 0 if none { $scheme_id eq $_ } @$scheme_ids_ref;
+	my $scheme_fields       = $self->{'datastore'}->get_scheme_fields($scheme_id);
+	my $loci                = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $display_on_own_line = $self->{'datastore'}->are_sequences_displayed_in_scheme($scheme_id);
+	$display_on_own_line = 1
+	  if $summary_view && @$loci + @$scheme_fields > 5;    #make sure table doesn't get too wide
+	my $designations_exist = $self->{'datastore'}->run_simple_query(
+		"SELECT EXISTS(SELECT isolate_id FROM allele_designations LEFT JOIN scheme_members ON scheme_members.locus="
+		  . "allele_designations.locus WHERE isolate_id=? AND scheme_id=?)",
+		$isolate_id, $scheme_id
+	)->[0];
+	my $sequences_exist = $self->{'datastore'}->run_simple_query(
+		"SELECT EXISTS(SELECT isolate_id FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id="
+		  . "sequence_bin.id LEFT JOIN scheme_members ON allele_sequences.locus=scheme_members.locus WHERE isolate_id=? "
+		  . "AND scheme_id=?)",
+		$isolate_id, $scheme_id
+	)->[0];
+	my $should_display = ( $designations_exist || $sequences_exist ) ? 1 : 0;
+	return ( $should_display, $display_on_own_line );
+}
+
+sub _get_scheme_field_values {
+	my ( $self, $isolate_id, $scheme_id, $scheme_fields, $profile ) = @_;
+	my %values;
+	my $scheme_field_values = $self->{'datastore'}->get_scheme_field_values_by_profile( $scheme_id, $profile );
+	if ( defined $scheme_field_values && ref $scheme_field_values eq 'HASH' ) {
+		foreach my $field (@$scheme_fields) {
+			my $value = $scheme_field_values->{ lc($field) };
+			$value = defined $value ? $value : '';
+			$value = 'Not defined' if $value eq '-999' || $value eq '';
+			my $att = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+			if ( $att->{'url'} && $value ne '' ) {
+				my $url = $att->{'url'};
+				$url =~ s/\[\?\]/$value/g;
+				$url =~ s/\&/\&amp;/g;
+				$values{$field} = "<a href=\"$url\">$value</a>";
+			} else {
+				$values{$field} = $value;
 			}
 		}
 	} else {
+		$values{$_} = 'Not defined' foreach @$scheme_fields;
+	}
+	return \%values;
+}
 
-		#Loci that don't belong to a scheme
-		$scheme_fields = [];
-		my $loci_in_no_scheme = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
-		if ( $self->{'prefs'}->{'undesignated_alleles'} ) {
-			$loci = $loci_in_no_scheme;
-		} else {
-			my $loci_with_designations =
-			  $self->{'datastore'}->run_list_query( "SELECT locus FROM allele_designations WHERE isolate_id = ?", $isolate_id );
-			my $loci_with_tags =
-			  $self->{'datastore'}->run_list_query(
-				"SELECT DISTINCT locus FROM allele_sequences LEFT JOIN sequence_bin ON seqbin_id=sequence_bin.id WHERE isolate_id=?",
-				$isolate_id );
-			foreach my $locus (@$loci_in_no_scheme) {
-				next if none { $locus eq $_ } ( @$loci_with_designations, @$loci_with_tags );
-				push @$loci, $locus;
-			}
+sub _get_scheme_fields {
+	my ( $self, $scheme_id, $isolate_id, $td, $summary_view ) = @_;
+	my $q = $self->{'cgi'};
+	my ( $locus_display_count, $scheme_fields_count ) = ( 0, 0 );
+	my ( $loci, @profile, $scheme_fields, $scheme_info, $display_on_own_line, $buffer );
+	my $set_id = $self->get_set_id;
+	if ($scheme_id) {
+		( my $should_display, $display_on_own_line ) = $self->_should_display_scheme( $isolate_id, $scheme_id, $summary_view );
+		return $td if !$should_display;
+		$scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+		$loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
+		foreach (@$loci) {
+			$locus_display_count++ if $self->{'prefs'}->{'isolate_display_loci'}->{$_} ne 'hide';
 		}
-		if ( ref $loci eq 'ARRAY' && @$loci ) {
+		$display_on_own_line = 0 if !$locus_display_count;
+		$scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
+		foreach (@$scheme_fields) {
+			$scheme_fields_count++ if $self->{'prefs'}->{'isolate_display_scheme_fields'}->{$scheme_id}->{$_};
+		}
+	} else {
+		$scheme_fields = [];
+		$loci          = $self->_get_loci_not_in_schemes($isolate_id);
+		if (@$loci) {
 			foreach (@$loci) {
-				if ( $self->{'prefs'}->{'isolate_display_loci'}->{$_} ne 'hide' ) {
-					$locus_display_count++;
-				}
+				$locus_display_count++ if $self->{'prefs'}->{'isolate_display_loci'}->{$_} ne 'hide';
 			}
-			$info_ref->{'description'} = 'Loci';
+			$scheme_info->{'description'} = 'Loci';
 			$display_on_own_line = 1;
 		}
 	}
@@ -652,9 +683,7 @@ sub _get_scheme_fields {
 	foreach (@$loci) {
 		my $aliases;
 		foreach my $alias ( sort keys %{ $locus_alias->{$_} } ) {
-			if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-				$alias =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-			}
+			$alias =~ s/^([A-Za-z]{1,3})_/<sup>$1<\/sup>/ if ( $self->{'system'}->{'locus_superscript_prefix'} // '' ) eq 'yes';
 			push @$aliases, $alias;
 		}
 		$locus_aliases{$_} = $aliases;
@@ -666,24 +695,18 @@ sub _get_scheme_fields {
 		$display_on_own_line
 		? "<tr class=\"td$td\"><th rowspan=\"$rowspan\" style=\"vertical-align:top;padding-top:1em\">"
 		: "<tr class=\"td$td\"><th>"
-	) . "$info_ref->{'description'}</th>";
+	) . "$scheme_info->{'description'}</th>";
 	my ( %url, %locus_value );
 	my $allele_designations = $self->{'datastore'}->get_scheme_allele_designations( $isolate_id, $scheme_id, { set_id => $set_id } );
-	my $provisional_profile;
+	my %provisional_allele;
 	foreach my $locus (@$loci) {
 		$allele_designations->{$locus}->{'status'} ||= 'confirmed';
-		$provisional_profile = 1 if $self->{'prefs'}->{'mark_provisional'} && $allele_designations->{$locus}->{'status'} eq 'provisional';
-		my $cleaned_name;
-		my $display_locus_name = $locus;
-		if ( $self->{'system'}->{'locus_superscript_prefix'} eq 'yes' ) {
-			$display_locus_name =~ s/^([A-Za-z])_/<sup>$1<\/sup>/;
-		}
-		$display_locus_name =~ tr/_/ /;
+		$provisional_allele{$locus} = 1
+		  if $self->{'prefs'}->{'mark_provisional'} && $allele_designations->{$locus}->{'status'} eq 'provisional';
 		$locus_value{$locus} .= "<span class=\"provisional\">"
 		  if ( $allele_designations->{$locus}->{'status'} && $allele_designations->{$locus}->{'status'} eq 'provisional' )
 		  && $self->{'prefs'}->{'mark_provisional'};
-		$cleaned_name = $display_locus_name;
-		$cleaned_name =~ s/_/&nbsp;/g;
+		my $cleaned_name = $self->clean_locus($locus);
 		my $tooltip_name = $cleaned_name;
 		if ( $self->{'prefs'}->{'locus_alias'} && $locus_aliases{$locus} ) {
 			local $" = '; ';
@@ -720,35 +743,8 @@ sub _get_scheme_fields {
 		  . "isolate_id=$isolate_id&amp;locus=$locus\" class=\"update\">$action</a>"
 		  if $self->{'curate'};
 	}
-	my %field_values;
-	if ( defined $scheme_fields && scalar @$scheme_fields ) {
-		if ($scheme_fields_count) {
-			my $scheme;
-			try {
-				$scheme = $self->{'datastore'}->get_scheme($scheme_id);
-			}
-			catch BIGSdb::DatabaseConnectionException with {};
-			my $scheme_field_values = $self->{'datastore'}->get_scheme_field_values_by_profile( $scheme_id, \@profile );
-			if ( defined $scheme_field_values && ref $scheme_field_values eq 'HASH' ) {
-				foreach my $field (@$scheme_fields) {
-					my $value = $scheme_field_values->{ lc($field) };
-					$value = defined $value ? $value : '';
-					$value = 'Not defined' if $value eq '-999' || $value eq '';
-					my $att = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
-					if ( $att->{'url'} && $value ne '' ) {
-						my $url = $att->{'url'};
-						$url =~ s/\[\?\]/$value/g;
-						$url =~ s/\&/\&amp;/g;
-						$field_values{$field} = "<a href=\"$url\">$value</a>";
-					} else {
-						$field_values{$field} = $value;
-					}
-				}
-			} else {
-				$field_values{$_} = 'Not defined' foreach @$scheme_fields;
-			}
-		}
-	}
+	my $field_values = $scheme_fields_count ? $self->_get_scheme_field_values( $isolate_id, $scheme_id, $scheme_fields, \@profile ) : undef;
+	my $provisional_profile = $self->{'datastore'}->is_profile_provisional( $scheme_id, \@profile, \%provisional_allele );
 	my @args = (
 		{
 			loci                => $loci,
@@ -758,7 +754,7 @@ sub _get_scheme_fields {
 			summary_view        => $summary_view,
 			scheme_id           => $scheme_id,
 			scheme_fields_count => $scheme_fields_count,
-			field_values        => \%field_values,
+			field_values        => $field_values,
 			provisional_profile => $provisional_profile,
 			td_ref              => \$td
 		}
