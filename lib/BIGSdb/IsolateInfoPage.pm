@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -661,7 +661,7 @@ sub _get_scheme_fields {
 			$locus_display_count++ if $self->{'prefs'}->{'isolate_display_loci'}->{$_} ne 'hide';
 		}
 		$display_on_own_line = 0 if !$locus_display_count;
-		$scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
+		$scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 		foreach (@$scheme_fields) {
 			$scheme_fields_count++ if $self->{'prefs'}->{'isolate_display_scheme_fields'}->{$scheme_id}->{$_};
 		}
@@ -698,10 +698,11 @@ sub _get_scheme_fields {
 	) . "$scheme_info->{'description'}</th>";
 	my ( %url, %locus_value );
 	my $allele_designations = $self->{'datastore'}->get_scheme_allele_designations( $isolate_id, $scheme_id, { set_id => $set_id } );
-	my $provisional_profile;
+	my %provisional_allele;
 	foreach my $locus (@$loci) {
 		$allele_designations->{$locus}->{'status'} ||= 'confirmed';
-		$provisional_profile = 1 if $self->{'prefs'}->{'mark_provisional'} && $allele_designations->{$locus}->{'status'} eq 'provisional';
+		$provisional_allele{$locus} = 1
+		  if $self->{'prefs'}->{'mark_provisional'} && $allele_designations->{$locus}->{'status'} eq 'provisional';
 		$locus_value{$locus} .= "<span class=\"provisional\">"
 		  if ( $allele_designations->{$locus}->{'status'} && $allele_designations->{$locus}->{'status'} eq 'provisional' )
 		  && $self->{'prefs'}->{'mark_provisional'};
@@ -743,6 +744,7 @@ sub _get_scheme_fields {
 		  if $self->{'curate'};
 	}
 	my $field_values = $scheme_fields_count ? $self->_get_scheme_field_values( $isolate_id, $scheme_id, $scheme_fields, \@profile ) : undef;
+	my $provisional_profile = $self->{'datastore'}->is_profile_provisional( $scheme_id, \@profile, \%provisional_allele );
 	my @args = (
 		{
 			loci                => $loci,
