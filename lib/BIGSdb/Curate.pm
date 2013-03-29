@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -27,6 +27,7 @@ use BIGSdb::CurateAlleleUpdatePage;
 use BIGSdb::CurateBatchAddPage;
 use BIGSdb::CurateBatchAddSeqbinPage;
 use BIGSdb::CurateBatchIsolateUpdatePage;
+use BIGSdb::CurateBatchProfileUpdatePage;
 use BIGSdb::CurateBatchSetAlleleFlagsPage;
 use BIGSdb::CurateCompositeQueryPage;
 use BIGSdb::CurateCompositeUpdatePage;
@@ -58,11 +59,11 @@ my $logger = get_logger('BIGSdb.Page');
 sub db_connect {
 	my ($self) = @_;
 	my %att = (
-		'dbase_name' => $self->{'system'}->{'db'},
-		'host'       => $self->{'system'}->{'host'},
-		'port'       => $self->{'system'}->{'port'},
-		'user'       => $self->{'system'}->{'user'},
-		'password'   => $self->{'system'}->{'password'},
+		dbase_name => $self->{'system'}->{'db'},
+		host       => $self->{'system'}->{'host'},
+		port       => $self->{'system'}->{'port'},
+		user       => $self->{'system'}->{'user'},
+		password   => $self->{'system'}->{'password'},
 	);
 	try {
 		$self->{'db'} = $self->{'dataConnector'}->get_connection( \%att );
@@ -77,69 +78,70 @@ sub db_connect {
 sub print_page {
 	my ( $self, $dbase_config_dir ) = @_;
 	my %classes = (
-		'index'              => 'CurateIndexPage',
-		'add'                => 'CurateAddPage',
-		'delete'             => 'CurateDeletePage',
-		'deleteAll'          => 'CurateDeleteAllPage',
-		'update'             => 'CurateUpdatePage',
-		'isolateAdd'         => 'CurateIsolateAddPage',
-		'isolateQuery'       => 'QueryPage',
-		'browse'             => 'BrowsePage',
-		'listQuery'          => 'ListQueryPage',
-		'isolateDelete'      => 'CurateIsolateDeletePage',
-		'isolateUpdate'      => 'CurateIsolateUpdatePage',
-		'batchIsolateUpdate' => 'CurateBatchIsolateUpdatePage',
-		'batchAdd'           => 'CurateBatchAddPage',
-		'batchAddSeqbin'     => 'CurateBatchAddSeqbinPage',
-		'tableHeader'        => 'CurateTableHeaderPage',
-		'compositeQuery'     => 'CurateCompositeQueryPage',
-		'compositeUpdate'    => 'CurateCompositeUpdatePage',
-		'alleleUpdate'       => 'CurateAlleleUpdatePage',
-		'info'               => 'IsolateInfoPage',
-		'pubquery'           => 'PubQueryPage',
-		'profileAdd'         => 'CurateProfileAddPage',
-		'profileQuery'       => 'QueryPage',
-		'profileUpdate'      => 'CurateProfileUpdatePage',
-		'profileBatchAdd'    => 'CurateProfileBatchAddPage',
-		'tagScan'            => 'CurateTagScanPage',
-		'tagUpdate'          => 'CurateTagUpdatePage',
-		'databankScan'       => 'CurateDatabankScanPage',
-		'renumber'           => 'CurateRenumber',
-		'seqbin'             => 'SeqbinPage',
-		'embl'               => 'SeqbinToEMBL',
-		'configCheck'        => 'ConfigCheckPage',
-		'configRepair'		 => 'ConfigRepairPage',
-		'changePassword'     => 'ChangePasswordPage',
-		'setPassword'        => 'ChangePasswordPage',
-		'profileInfo'        => 'ProfileInfoPage',
-		'alleleInfo'         => 'AlleleInfoPage',
-		'alleleQuery'		 => 'AlleleQueryPage',
-		'isolateACL'         => 'CurateIsolateACLPage',
-		'fieldValues'        => 'FieldHelpPage',
-		'tableQuery'         => 'TableQueryPage',
-		'extractedSequence'  => 'ExtractedSequencePage',
-		'downloadSeqbin'     => 'DownloadSeqbinPage',
-		'linkToExperiment'   => 'CurateLinkToExperimentPage',
-		'alleleSequence'     => 'AlleleSequencePage',
-		'options'            => 'OptionsPage',
-		'exportConfig'       => 'CurateExportConfig',
-		'setAlleleFlags'	 => 'CurateBatchSetAlleleFlagsPage',
-		'memberUpdate'       => 'CurateMembersPage'
+		index              => 'CurateIndexPage',
+		add                => 'CurateAddPage',
+		delete             => 'CurateDeletePage',
+		deleteAll          => 'CurateDeleteAllPage',
+		update             => 'CurateUpdatePage',
+		isolateAdd         => 'CurateIsolateAddPage',
+		isolateQuery       => 'QueryPage',
+		browse             => 'BrowsePage',
+		listQuery          => 'ListQueryPage',
+		isolateDelete      => 'CurateIsolateDeletePage',
+		isolateUpdate      => 'CurateIsolateUpdatePage',
+		batchIsolateUpdate => 'CurateBatchIsolateUpdatePage',
+		batchProfileUpdate => 'CurateBatchProfileUpdatePage',
+		batchAdd           => 'CurateBatchAddPage',
+		batchAddSeqbin     => 'CurateBatchAddSeqbinPage',
+		tableHeader        => 'CurateTableHeaderPage',
+		compositeQuery     => 'CurateCompositeQueryPage',
+		compositeUpdate    => 'CurateCompositeUpdatePage',
+		alleleUpdate       => 'CurateAlleleUpdatePage',
+		info               => 'IsolateInfoPage',
+		pubquery           => 'PubQueryPage',
+		profileAdd         => 'CurateProfileAddPage',
+		profileQuery       => 'QueryPage',
+		profileUpdate      => 'CurateProfileUpdatePage',
+		profileBatchAdd    => 'CurateProfileBatchAddPage',
+		tagScan            => 'CurateTagScanPage',
+		tagUpdate          => 'CurateTagUpdatePage',
+		databankScan       => 'CurateDatabankScanPage',
+		renumber           => 'CurateRenumber',
+		seqbin             => 'SeqbinPage',
+		embl               => 'SeqbinToEMBL',
+		configCheck        => 'ConfigCheckPage',
+		configRepair		 => 'ConfigRepairPage',
+		changePassword     => 'ChangePasswordPage',
+		setPassword        => 'ChangePasswordPage',
+		profileInfo        => 'ProfileInfoPage',
+		alleleInfo         => 'AlleleInfoPage',
+		alleleQuery		 => 'AlleleQueryPage',
+		isolateACL         => 'CurateIsolateACLPage',
+		fieldValues        => 'FieldHelpPage',
+		tableQuery         => 'TableQueryPage',
+		extractedSequence  => 'ExtractedSequencePage',
+		downloadSeqbin     => 'DownloadSeqbinPage',
+		linkToExperiment   => 'CurateLinkToExperimentPage',
+		alleleSequence     => 'AlleleSequencePage',
+		options            => 'OptionsPage',
+		exportConfig       => 'CurateExportConfig',
+		setAlleleFlags	 => 'CurateBatchSetAlleleFlagsPage',
+		memberUpdate       => 'CurateMembersPage'
 	);
 	my %page_attributes = (
-		'system'           => $self->{'system'},
-		'dbase_config_dir' => $dbase_config_dir,
-		'cgi'              => $self->{'cgi'},
-		'instance'         => $self->{'instance'},
-		'prefs'            => $self->{'prefs'},
-		'prefstore'        => $self->{'prefstore'},
-		'config'           => $self->{'config'},
-		'datastore'        => $self->{'datastore'},
-		'db'               => $self->{'db'},
-		'xmlHandler'       => $self->{'xmlHandler'},
-		'dataConnector'    => $self->{'dataConnector'},
-		'mod_perl_request' => $self->{'mod_perl_request'},
-		'curate'           => 1
+		system           => $self->{'system'},
+		dbase_config_dir => $dbase_config_dir,
+		cgi              => $self->{'cgi'},
+		instance         => $self->{'instance'},
+		prefs            => $self->{'prefs'},
+		prefstore        => $self->{'prefstore'},
+		config           => $self->{'config'},
+		datastore        => $self->{'datastore'},
+		db               => $self->{'db'},
+		xmlHandler       => $self->{'xmlHandler'},
+		dataConnector    => $self->{'dataConnector'},
+		mod_perl_request => $self->{'mod_perl_request'},
+		curate           => 1
 	);
 	my $page;
 	my $continue = 1;

@@ -47,7 +47,7 @@ sub print_content {
 			return;
 		}
 	}
-	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 	print "<h1>Batch insert $scheme_info->{'description'} profiles</h1>\n";
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
@@ -427,7 +427,7 @@ sub _upload {
 			my $curator = $self->get_curator_id;
 			foreach my $locus (@$loci) {
 				my $mapped = $self->map_locus_name($locus);
-				$mapped =~ s/'/\\'/g;
+				$mapped                      =~ s/'/\\'/g;
 				$data[ $fieldorder{$locus} ] =~ s/^\s*//g;
 				$data[ $fieldorder{$locus} ] =~ s/\s*$//g;
 				if (   defined $fieldorder{$locus}
@@ -455,9 +455,7 @@ sub _upload {
 				}
 			}
 			local $" = ';';
-			eval {
-				$self->{'db'}->do("@inserts");
-			};
+			eval { $self->{'db'}->do("@inserts"); };
 			if ($@) {
 				say "<div class=\"box\" id=\"statusbad\"><p>Database update failed - transaction cancelled - no records have "
 				  . "been touched.</p>";
@@ -474,7 +472,7 @@ sub _upload {
 			}
 		}
 	}
-	$self->refresh_material_view($scheme_id);	
+	$self->refresh_material_view($scheme_id);
 	$self->{'db'}->commit
 	  && say "<div class=\"box\" id=\"resultsheader\"><p>Database updated ok</p>";
 	say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>";

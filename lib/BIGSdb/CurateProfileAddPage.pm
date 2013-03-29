@@ -52,7 +52,7 @@ sub print_content {
 			return;
 		}
 	}
-	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 	say "<h1>Add new $scheme_info->{'description'} profile</h1>";
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $primary_key;

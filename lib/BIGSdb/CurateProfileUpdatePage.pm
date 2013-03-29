@@ -236,7 +236,7 @@ sub _update {
 			say "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>";
 			$logger->info("Updated profile scheme_id:$scheme_id profile_id:$args->{'profile_id'}");
 			local $" = '<br />';
-			$self->_update_profile_history( $scheme_id, $args->{'profile_id'}, "@updated_field" );
+			$self->update_profile_history( $scheme_id, $args->{'profile_id'}, "@updated_field" );
 			return;
 		} else {
 			say "<div class=\"box\" id=\"statusbad\"><p>Update failed - transaction cancelled - no records have been touched.</p></div>";
@@ -252,7 +252,7 @@ sub get_title {
 	return "Update profile - $desc";
 }
 
-sub _update_profile_history {
+sub update_profile_history {
 	my ( $self, $scheme_id, $profile_id, $action ) = @_;
 	return if !$action || !$scheme_id || !$profile_id;
 	my $curator_id = $self->get_curator_id;

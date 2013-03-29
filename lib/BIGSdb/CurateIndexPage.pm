@@ -464,7 +464,7 @@ sub _print_profiles {
 	my $buffer;
 	foreach my $scheme_id (@$schemes) {
 		next if $set_id && !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id );
-		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 		( my $clean_desc = $scheme_info->{'description'} ) =~ s/\&/\&amp;/g;
 		$buffer .= <<"HTML";
 <tr class="td$td"><td>$clean_desc profiles</td>
@@ -472,7 +472,8 @@ sub _print_profiles {
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileBatchAdd&amp;scheme_id=$scheme_id$set_string">++</a></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileQuery&amp;scheme_id=$scheme_id$set_string">query</a> | 
 <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=browse&amp;scheme_id=$scheme_id$set_string">browse</a> |
-<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=listQuery&amp;scheme_id=$scheme_id$set_string">list</a></td>
+<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=listQuery&amp;scheme_id=$scheme_id$set_string">list</a> |
+<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchProfileUpdate&amp;scheme_id=$scheme_id$set_string">batch update</a></td>
 <td></td></tr>
 HTML
 		$td = $td == 1 ? 2 : 1;
