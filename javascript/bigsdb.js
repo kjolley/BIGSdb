@@ -11,7 +11,6 @@ $(function () {
 	$('div.content a.truncated').tooltip({ 
 	    track: false, 
 	});	
-	$("div.box").cornerz();
 	
 	$("#hidefromnonJS").removeClass("hiddenbydefault");
 	$("#hideonload").slideUp("normal");

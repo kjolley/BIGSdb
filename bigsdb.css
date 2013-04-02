@@ -489,7 +489,8 @@ div.box {
 	padding:10px;
 	font-size:0.8em;
 	margin-bottom: 0.5em;
-	border: 1px solid #ccc
+	border: 1px solid #ccc;
+	border-radius: 10px;
 }
 
 div.queryform, div#queryform {

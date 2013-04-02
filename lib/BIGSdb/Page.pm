@@ -188,9 +188,9 @@ sub print_page_content {
 
 				#Load jQuery library from Google CDN
 				push @javascript,
-				  ( { 'language' => 'Javascript', 'src' => "http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js" } );
+				  ( { 'language' => 'Javascript', 'src' => "http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js" } );
 			}
-			foreach (qw (jquery.tooltip.js cornerz.js bigsdb.js)) {
+			foreach (qw (jquery.tooltip.js bigsdb.js)) {
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/$_" } );
 			}
 			if ( $self->{'jQuery.tablesort'} ) {
