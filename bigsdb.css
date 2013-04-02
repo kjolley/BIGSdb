@@ -95,16 +95,20 @@ a.sequence_tooltip_incomplete {
 	color:black	
 }
 
-#tooltip {
-	position:absolute;
-	font-size:0.75em;
-	z-index:3000;
-	padding:5px;
-	width:20em
+.ui-tooltip {
+	padding: 8px;
+	position: absolute;
+	z-index: 9999;
+	max-width: 300px;
+	-webkit-box-shadow: 0 0 5px #aaa;
+	box-shadow: 0 0 5px #aaa;
+	background: #fafad2;
+}
+body .ui-tooltip {
+	border-width: 2px;
 }
 
-#tooltip,a.tooltip {border:1px solid black}
-#tooltip div,#tooltip h3 {margin:0}
+a.tooltip {border:1px solid black}
 a.tooltip,a.info_tooltip {font:600 0.7em serif}
 
 a.tooltip,a.update_tooltip,a.pending_tooltip,a.existing_tooltip,a.clashing_tooltip {
@@ -390,8 +394,6 @@ div.menu {
 }
 
 div.menu,div.content {
-	-webkit-border-radius: 10px;
-	-moz-border-radius: 10px;
 	border-radius: 10px;	
 }
 

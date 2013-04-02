@@ -184,13 +184,16 @@ sub print_page_content {
 		if ( $self->{'jQuery'} ) {
 			if ( $self->{'config'}->{'intranet'} eq 'yes' ) {
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.js" } );
+				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery-ui.js" } );
 			} else {
 
 				#Load jQuery library from Google CDN
 				push @javascript,
-				  ( { 'language' => 'Javascript', 'src' => "http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js" } );
+				  ( { 'language' => 'Javascript', 'src' => "http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js" } );
+				push @javascript,
+				  ( { 'language' => 'Javascript', 'src' => "http://ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/jquery-ui.min.js" } );
 			}
-			foreach (qw (jquery.tooltip.js bigsdb.js)) {
+			foreach (qw (bigsdb.js)) {
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/$_" } );
 			}
 			if ( $self->{'jQuery.tablesort'} ) {

@@ -65,6 +65,12 @@ sub get_javascript {
   	\$('#locus_fieldset').show();
   	\$('#tag_fieldset').show();
   	\$('#filter_fieldset').show();
+  	\$('#prov_tooltip').tooltip({ content: "<h3>Search values</h3>Empty field values can be searched using the term 'null'. <p />"
+  		+ "<h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' "
+  		+ "for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>" });
+  	\$('#scheme_field_tooltip').tooltip({ content: "<h3>Search values</h3>Empty field values can be searched using the term 'null'."
+  		+ "<h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p>" });	
+ 		
 });
 
 function loadContent(url) {
@@ -234,9 +240,7 @@ sub _print_provenance_fields {
 			my $page = $self->{'curate'} ? 'isolateQuery' : 'query';
 			print "<a id=\"add_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;"
 			  . "fields=provenance&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
-			print " <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term 'null'. <p />"
-			  . "<h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' "
-			  . "for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
+			print " <a class=\"tooltip\" id=\"prov_tooltip\" title=\"\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
 	}
 	print "</span>\n";
@@ -662,8 +666,7 @@ sub _print_scheme_fields {
 			my $page = $self->{'curate'} ? 'profileQuery' : 'query';
 			print
 "<a id=\"add_scheme_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;fields=scheme&amp;scheme_id=$scheme_id&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
-			print
-" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term 'null'. <p /><h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
+			print " <a class=\"tooltip\" id=\"scheme_field_tooltip\" title=\"\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
 	}
 	print "</span>\n";

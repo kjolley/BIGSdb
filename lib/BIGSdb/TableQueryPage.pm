@@ -44,6 +44,16 @@ sub set_pref_requirements {
 	return;
 }
 
+sub get_javascript {
+	my $buffer          = << "END";
+\$(function () {
+	\$('#field_tooltip').tooltip({ content: "<h3>Search values</h3>Empty field values can be searched using the term 'null'."
+		+ "<h3>Number of fields</h3>Add more fields by clicking the '+' button." });
+});	
+END
+	return $buffer;
+}
+
 sub print_content {
 	my ($self) = @_;
 	my $system = $self->{'system'};
@@ -130,8 +140,7 @@ sub _print_table_fields {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		print
 "<a id=\"add_table_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;fields=table_fields&amp;table=$table&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
-		print
-" <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term 'null'. <p /><h3>Number of fields</h3>Add more fields by clicking the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>";
+		print " <a class=\"tooltip\" id=\"field_tooltip\" title=\"\">&nbsp;<i>i</i>&nbsp;</a>";
 	}
 	print "</span>\n";
 	return;
