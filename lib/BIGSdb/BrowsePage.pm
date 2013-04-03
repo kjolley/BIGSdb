@@ -46,57 +46,57 @@ sub print_content {
 	my $scheme_info;
 	my $primary_key;
 	my $set_id = $self->get_set_id;
-	my $desc = $self->get_db_description;
+	my $desc   = $self->get_db_description;
+
 	if ( $system->{'dbtype'} eq 'sequences' ) {
 		$scheme_id = $q->param('scheme_id');
 		if ( !$scheme_id ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>No scheme id passed.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>No scheme id passed.</p></div>";
 			return;
 		} elsif ( !BIGSdb::Utils::is_int($scheme_id) ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>Scheme id must be an integer.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>Scheme id must be an integer.</p></div>";
 			return;
 		} elsif ($set_id) {
 			if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
-				print "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is unavailable.</p></div>\n";
+				say "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is unavailable.</p></div>";
 				return;
 			}
 		}
 		$scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 		if ( !$scheme_info ) {
-			print "<div class=\"box\" id=\"statusbad\">Scheme does not exist.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\">Scheme does not exist.</p></div>";
 			return;
 		}
-		print "<h1>Browse $scheme_info->{'description'} profiles - $desc</h1>\n";
+		say "<h1>Browse $scheme_info->{'description'} profiles - $desc</h1>";
 		eval {
 			$primary_key =
 			  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )
 			  ->[0];
 		};
 		if ( !$primary_key ) {
-			print
-"<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  Profile browsing can not be done until this has been set.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  Profile browsing can not be "
+			  . "done until this has been set.</p></div>";
 			return;
 		}
 	} else {
-		
-		print "<h1>Browse $desc database</h1>\n";
+		say "<h1>Browse $desc database</h1>";
 	}
 	my $qry;
 	if ( !defined $q->param('currentpage')
 		|| $q->param('First') )
 	{
-		print "<div class=\"box\" id=\"queryform\">\n";
-		print $q->startform;
-		print "<div class=\"scrollable\">\n";
-		print "<fieldset id=\"browse_fieldset\" style=\"float:left\"><legend>Please enter your browse criteria below.</legend>\n";
-		print $q->hidden( 'sent', 1 );
-		print $q->hidden($_) foreach qw (db page sent scheme_id);
-		print "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>\n";
+		say "<div class=\"box\" id=\"queryform\">";
+		say $q->startform;
+		say "<div class=\"scrollable\">";
+		say "<fieldset id=\"browse_fieldset\" style=\"float:left\"><legend>Browse criteria</legend>";
+		say $q->hidden( 'sent', 1 );
+		say $q->hidden($_) foreach qw (db page sent scheme_id);
+		say "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>";
 		my $labels;
 		my $order_by;
 
 		if ( $system->{'dbtype'} eq 'isolates' ) {
-			( $order_by, $labels ) = $self->get_field_selection_list( { 'isolate_fields' => 1, 'loci' => 1, 'scheme_fields' => 1 } );
+			( $order_by, $labels ) = $self->get_field_selection_list( { isolate_fields => 1, loci => 1, scheme_fields => 1 } );
 		} elsif ( $system->{'dbtype'} eq 'sequences' ) {
 			if ($primary_key) {
 				push @$order_by, $primary_key;
@@ -104,14 +104,14 @@ sub print_content {
 				$cleaned =~ tr/_/ /;
 				$labels->{$primary_key} = $cleaned;
 			}
-			my $loci         = $self->{'datastore'}->get_scheme_loci($scheme_id);
+			my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 			foreach my $locus (@$loci) {
 				my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 				push @$order_by, $locus;
 				my $cleaned = $locus;
 				$cleaned .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
 				$cleaned =~ tr/_/ /;
-				my $set_cleaned = $self->{'datastore'}->get_set_locus_label($locus, $set_id);
+				my $set_cleaned = $self->{'datastore'}->get_set_locus_label( $locus, $set_id );
 				$cleaned = $set_cleaned if $set_cleaned;
 				$labels->{$locus} = $cleaned;
 			}
@@ -127,17 +127,17 @@ sub print_content {
 			$labels->{'date_entered'} = 'date entered';
 			$labels->{'profile_id'}   = $primary_key;
 		}
-		print $q->popup_menu( -name => 'order', -id => 'order', -values => $order_by, -labels => $labels );
-		print "</span></li><li><span style=\"white-space:nowrap\">\n<label for=\"direction\" class=\"display\">Direction: </label>\n";
-		print $q->popup_menu( -name => 'direction', -id => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
-		print "</span></li><li>";
-		print $self->get_number_records_control;
-		print "</li></ul></fieldset>";
+		say $q->popup_menu( -name => 'order', -id => 'order', -values => $order_by, -labels => $labels );
+		say "</span></li><li><span style=\"white-space:nowrap\">\n<label for=\"direction\" class=\"display\">Direction: </label>";
+		say $q->popup_menu( -name => 'direction', -id => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
+		say "</span></li><li>";
+		say $self->get_number_records_control;
+		say "</li></ul></fieldset>";
 		say "<fieldset style=\"float:left\"><legend>Action</legend>";
-		print $q->submit( -name => 'Browse all records', -class => 'submit' );
-		print "</fieldset></div>\n";
-		print $q->endform;
-		print "</div>\n";
+		say $q->submit( -name => 'Browse all records', -class => 'submit' );
+		say "</fieldset></div>";
+		say $q->endform;
+		say "</div>";
 	}
 	if ( defined $q->param('sent') || defined $q->param('currentpage') ) {
 		my $order;
@@ -165,7 +165,6 @@ sub print_content {
 			$self->paged_display( 'profiles', $qry, '', ['scheme_id'] );
 		}
 	}
-	print "<p />\n";
 	return;
 }
 
