@@ -44,16 +44,6 @@ sub set_pref_requirements {
 	return;
 }
 
-sub get_javascript {
-	my $buffer          = << "END";
-\$(function () {
-	\$('#field_tooltip').tooltip({ content: "<h3>Search values</h3>Empty field values can be searched using the term 'null'."
-		+ "<h3>Number of fields</h3>Add more fields by clicking the '+' button." });
-});	
-END
-	return $buffer;
-}
-
 sub print_content {
 	my ($self) = @_;
 	my $system = $self->{'system'};

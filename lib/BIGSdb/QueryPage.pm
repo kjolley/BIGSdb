@@ -65,13 +65,14 @@ sub get_javascript {
   	\$('#locus_fieldset').show();
   	\$('#tag_fieldset').show();
   	\$('#filter_fieldset').show();
-  	\$('#prov_tooltip').tooltip({ content: "<h3>Search values</h3>Empty field values can be searched using the term 'null'. <p />"
-  		+ "<h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' "
-  		+ "for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>" });
-  	\$('#scheme_field_tooltip').tooltip({ content: "<h3>Search values</h3>Empty field values can be searched using the term 'null'."
-  		+ "<h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p>" });	
- 		
-});
+  	\$('#prov_tooltip,#loci_tooltip,#scheme_field_tooltip,#field_tooltip').tooltip({ content: "<h3>Search values</h3><p>Empty field "
+  		+ "values can be searched using the term 'null'. </p><h3>Number of fields</h3><p>Add more fields by clicking the '+' button."
+  		+ "</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms."
+  		+ "</p>" });
+  	\$('#tag_tooltip').tooltip({ content: "<h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p>" });	
+ 
+
+ });
 
 function loadContent(url) {
 	var row = parseInt(url.match(/row=(\\d+)/)[1]);
@@ -202,10 +203,10 @@ sub print_content {
 	{
 		if ( !$q->param('no_js') ) {
 			my $scheme_clause = $system->{'dbtype'} eq 'sequences' ? "&amp;scheme_id=$scheme_id" : '';
-			print
-"<noscript><div class=\"statusbad_no_resize\"><p>The dynamic customisation of this interface requires that you enable Javascript in your
-		browser. Alternatively, you can use a <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query$scheme_clause&amp;no_js=1\">non-Javascript 
-		version</a> that has 4 combinations of fields.</p></div></noscript>\n";
+			say "<noscript><div class=\"box statusbad\"><p>The dynamic customisation of this interface requires that you enable "
+			  . "Javascript in your browser. Alternatively, you can use a <a href=\"$self->{'system'}->{'script_name'}?db="
+			  . "$self->{'instance'}&amp;page=query$scheme_clause&amp;no_js=1\">non-Javascript version</a> that has 4 combinations "
+			  . "of fields.</p></div></noscript>";
 		}
 		if ( $system->{'dbtype'} eq 'isolates' ) {
 			$self->_print_isolate_query_interface;
@@ -261,9 +262,7 @@ sub _print_loci_fields {
 			my $page = $self->{'curate'} ? 'isolateQuery' : 'query';
 			print "<a id=\"add_loci\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;"
 			  . "fields=loci&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
-			print " <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term 'null'. <p />"
-			  . "<h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p><h3>Query modifier</h3><p>Select 'AND' "
-			  . "for the isolate query to match ALL search terms, 'OR' to match ANY of these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
+			print " <a class=\"tooltip\" id=\"loci_tooltip\" title=\"\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
 	}
 	print "</span>\n";
@@ -289,9 +288,7 @@ sub _print_locus_tag_fields {
 			my $page = $self->{'curate'} ? 'isolateQuery' : 'query';
 			print "<a id=\"add_tags\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;"
 			  . "fields=tags&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
-			print " <a class=\"tooltip\" title=\"Number of fields - Add more fields by clicking the '+' button.</p>"
-			  . "<h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of "
-			  . "these terms.</p>\">&nbsp;<i>i</i>&nbsp;</a>";
+			print " <a class=\"tooltip\" id=\"tag_tooltip\" title=\"\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
 	}
 	print "</span>\n";

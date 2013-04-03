@@ -63,9 +63,27 @@ sub initiate {
 
 sub get_javascript {
 	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $id     = $q->param('id');
+	my ( $job, $params, $output ) = $self->{'jobManager'}->get_job($id);
+	my $percent = $job->{'percent_complete'};
+	if ($percent == -1){
+		my $buffer = << "END";
+\$(function () {
+	\$("html, body").animate({ scrollTop: \$(document).height()-\$(window).height() });	
+	\$("#progressbar").progressbar({value: false});
+});
+END
+		return $buffer;
+	}
 	my $buffer = << "END";
 \$(function () {
 	\$("html, body").animate({ scrollTop: \$(document).height()-\$(window).height() });	
+	\$("#progressbar")
+		.progressbar({	value: $percent	})
+		.children('.ui-progressbar-value')
+    	.html($percent + '%')
+    	.css("display", "block");
 });
 END
 	return $buffer;
@@ -114,7 +132,9 @@ sub print_content {
 <tr class="td2"><th style="text-align:right">Submit time: </th><td style="text-align:left">$submit_time</td></tr>
 <tr class="td1"><th style="text-align:right">Status: </th><td style="text-align:left">$job->{'status'}</td></tr>
 <tr class="td2"><th style="text-align:right">Start time: </th><td style="text-align:left">$start_time</td></tr>
-<tr class="td1"><th style="text-align:right">Progress: </th><td style="text-align:left">$job->{'percent_complete'}%</td></tr>
+<tr class="td1"><th style="text-align:right">Progress: </th><td style="text-align:left">
+<noscript>$job->{'percent_complete'}%</noscript>
+<div id="progressbar"></div></td></tr>
 HTML
 	my $td = 2;
 	if ( $job->{'stage'} ) {

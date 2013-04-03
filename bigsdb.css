@@ -95,19 +95,6 @@ a.sequence_tooltip_incomplete {
 	color:black	
 }
 
-.ui-tooltip {
-	padding: 8px;
-	position: absolute;
-	z-index: 9999;
-	max-width: 300px;
-	-webkit-box-shadow: 0 0 5px #aaa;
-	box-shadow: 0 0 5px #aaa;
-	background: #fafad2;
-}
-body .ui-tooltip {
-	border-width: 2px;
-}
-
 a.tooltip {border:1px solid black}
 a.tooltip,a.info_tooltip {font:600 0.7em serif}
 
@@ -339,7 +326,7 @@ table.tablesorter {text-align:center}
 table.tablesorter tr.even td {background:#efefff;text-align:center}
 table.tablesorter tr.odd td {background:#efefef;text-align:center}
 table.tablesorter th.header { 
-	background-image: url(/images/tablesorter/bg.gif);
+	background-image: url(/javascript/tablesorter/bg.gif);
 	background-repeat: no-repeat; 
 	padding:0px;
 	margin:0px;
@@ -348,11 +335,11 @@ table.tablesorter th.header {
     cursor: pointer; 
  } 
 table.tablesorter th.headerSortUp { 
-    background-image: url(/images/tablesorter/asc.gif); 
+    background-image: url(/javascript/tablesorter/asc.gif); 
     background-color: #0000FF; 
 }
 table.tablesorter th.headerSortDown { 
-    background-image: url(/images/tablesorter/desc.gif); 
+    background-image: url(/javascript/tablesorter/desc.gif); 
     background-color: #0000FF; 
 } 
 
@@ -493,6 +480,7 @@ div.box {
 	margin-bottom: 0.5em;
 	border: 1px solid #ccc;
 	border-radius: 10px;
+	box-shadow: 3px 3px 3px #dfdfdf;
 }
 
 div.queryform, div#queryform {
@@ -772,11 +760,11 @@ td.tree {
 }
 
 .coolfieldset legend, .coolfieldset.expanded legend{
-	background: transparent url(/images/coolfieldset/expanded.gif) no-repeat center left;
+	background: transparent url(/javascript/coolfieldset/expanded.gif) no-repeat center left;
 }
 
 .coolfieldset.collapsed legend{
-	background: transparent url(/images/coolfieldset/collapsed.gif) no-repeat center left;
+	background: transparent url(/javascript/coolfieldset/collapsed.gif) no-repeat center left;
 }
 
 .widetable.collapsed { display: inline }
@@ -803,7 +791,7 @@ td.tree {
 }
 
 .lbLoading {
-	background: #fff url(/images/slimbox/loading.gif) no-repeat center;
+	background: #fff url(/javascript/slimbox/loading.gif) no-repeat center;
 }
 
 #lbImage {
@@ -827,7 +815,7 @@ td.tree {
 }
 
 #lbPrevLink:hover {
-	background: transparent url(/images/slimbox/prevlabel.gif) no-repeat 0 15%;
+	background: transparent url(/javascript/slimbox/prevlabel.gif) no-repeat 0 15%;
 }
 
 #lbNextLink {
@@ -835,7 +823,7 @@ td.tree {
 }
 
 #lbNextLink:hover {
-	background: transparent url(/images/slimbox/nextlabel.gif) no-repeat 100% 15%;
+	background: transparent url(/javascript/slimbox/nextlabel.gif) no-repeat 100% 15%;
 }
 
 #lbBottom {
@@ -853,7 +841,7 @@ td.tree {
 	float: right;
 	width: 66px;
 	height: 22px;
-	background: transparent url(/images/slimbox/closelabel.gif) no-repeat center;
+	background: transparent url(/javascript/slimbox/closelabel.gif) no-repeat center;
 	margin: 5px 0;
 	outline: none;
 }

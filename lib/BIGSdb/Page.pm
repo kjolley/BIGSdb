@@ -167,7 +167,7 @@ sub print_page_content {
 		print $q->header( \%atts );
 		$self->print_content;
 	} else {
-		my $stylesheet = $self->get_stylesheet();
+		my $stylesheets = $self->get_stylesheets;
 		if ( !$q->cookie( -name => 'guid' ) && $self->{'prefstore'} ) {
 			my $guid = $self->{'prefstore'}->get_new_guid;
 			push @{ $self->{'cookies'} }, $q->cookie( -name => 'guid', -value => $guid, -expires => '+10y' );
@@ -189,7 +189,7 @@ sub print_page_content {
 
 				#Load jQuery library from Google CDN
 				push @javascript,
-				  ( { 'language' => 'Javascript', 'src' => "http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js" } );
+				  ( { 'language' => 'Javascript', 'src' => "http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js" } );
 				push @javascript,
 				  ( { 'language' => 'Javascript', 'src' => "http://ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/jquery-ui.min.js" } );
 			}
@@ -238,23 +238,18 @@ sub print_page_content {
 			$http_equiv = "<meta http-equiv=\"refresh\" content=\"$self->{'refresh'}\" />";
 		}
 		my $tooltip_display = $self->{'prefs'}->{'tooltips'} ? 'inline' : 'none';
+		my @args = (
+			-title  => $title,
+			-meta   => {%meta_content},
+			-style  => [ { -src => $stylesheets->[0], -code => ".tooltip{display:$tooltip_display}" }, { src => $stylesheets->[1] } ],
+			-script => \@javascript
+		);
 		if (%shortcut_icon) {
-			print $q->start_html(
-				-title => $title,
-				-meta  => {%meta_content},
-				-style => { -src => $stylesheet, -code => ".tooltip{display:$tooltip_display}" },
-				-head   => [ CGI->Link( {%shortcut_icon} ), $http_equiv ],
-				-script => \@javascript
-			);
+			push @args, ( -head => [ CGI->Link( {%shortcut_icon} ), $http_equiv ] );
 		} else {
-			print $q->start_html(
-				-title  => $title,
-				-meta   => {%meta_content},
-				-style  => { -src => $stylesheet, -code => ".tooltip{display:$tooltip_display}" },
-				-script => \@javascript,
-				-head   => $http_equiv
-			);
+			push @args, ( -head => $http_equiv );
 		}
+		print $q->start_html(@args);
 		$self->_print_header;
 		$self->_print_login_details
 		  if ( defined $self->{'system'}->{'read_access'} && $self->{'system'}->{'read_access'} ne 'public' ) || $self->{'curate'};
@@ -267,19 +262,27 @@ sub print_page_content {
 	return;
 }
 
-sub get_stylesheet {
+sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
-	my $system   = $self->{'system'};
-	my $filename = 'bigsdb.css?v=20130325';
-	if ( !$system->{'db'} ) {
-		$stylesheet = "/$filename";
-	} elsif ( -e "$ENV{'DOCUMENT_ROOT'}$system->{'webroot'}/$system->{'db'}/$filename" ) {
-		$stylesheet = "$system->{'webroot'}/$system->{'db'}/$filename";
-	} else {
-		$stylesheet = "$system->{'webroot'}/$filename";
+	my $system    = $self->{'system'};
+	my $version = '20130402';
+	my @filenames = qw(bigsdb.css jquery-ui.css);
+	my @paths;
+	foreach my $filename (@filenames) {
+		my $vfilename = "$filename?v=$version";
+		if ( !$system->{'db'} ) {
+			$stylesheet = "/$filename";
+		} elsif ( -e "$ENV{'DOCUMENT_ROOT'}$system->{'webroot'}/$system->{'db'}/$filename" ) {
+			$stylesheet = "$system->{'webroot'}/$system->{'db'}/$vfilename";
+		} elsif ( -e "$ENV{'DOCUMENT_ROOT'}$system->{'webroot'}/$filename" ) {
+			$stylesheet = "$system->{'webroot'}/$vfilename";
+		} else {
+			$stylesheet = "/$vfilename";
+		}
+		push @paths, $stylesheet;
 	}
-	return $stylesheet;
+	return \@paths;
 }
 sub get_title     { return 'BIGSdb' }
 sub print_content { }
@@ -1449,7 +1452,7 @@ sub initiate_prefs {
 			$self->{'prefs'}->{'pagebar'}     = $general_prefs->{'pagebar'}     || 'top and bottom';
 			$self->{'prefs'}->{'alignwidth'}  = $general_prefs->{'alignwidth'}  || 100;
 			$self->{'prefs'}->{'flanking'}    = $general_prefs->{'flanking'}    || 100;
-			$self->{'prefs'}->{'set_id'} = $general_prefs->{'set_id'};
+			$self->{'prefs'}->{'set_id'}      = $general_prefs->{'set_id'};
 
 			#default off
 			foreach (qw (hyperlink_loci )) {
