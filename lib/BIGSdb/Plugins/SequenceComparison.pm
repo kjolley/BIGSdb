@@ -70,22 +70,20 @@ sub run {
 	my $sent = $q->param('sent');
 	$q->param( 'sent', 1 );
 	say $q->hidden($_) foreach qw (db page name sent);
-	say "<table>";
-	say "<tr><td style=\"text-align:right\">Select locus: </td><td>";
-	say $q->popup_menu( -name => 'locus', -values => $display_loci, -labels => $cleaned );
-	say "</td></tr>";
-
+	say "<fieldset style=\"float:left\"><legend>Select parameters</legend>";
+	say "<ul><li>";
+	say "<label for=\"locus\" class=\"display\">Locus: </label>";
+	say $q->popup_menu( -name => 'locus', -id => 'locus', values => $display_loci, -labels => $cleaned );
+	say "</li>";
 	foreach (qw(1 2)) {
-		say "<tr><td style=\"text-align:right\">Allele #$_</td><td>";
-		say $q->textfield( -name => "allele$_", size => 8 );
-		say "</td></tr>";
+		say "<li><label for=\"allele$_\" class=\"display\">Allele #$_: </label>";
+		say $q->textfield( -name => "allele$_", -id => "allele$_", -size => 8 );
+		say "</li>";
 	}
-	say "<tr><td /><td>";
-	say $q->submit( -name => 'Submit', -class => 'submit' );
-	say "</td></tr>";
-	say "</table>";
+	say "</ul></fieldset>";
+	$self->print_action_fieldset( { name => 'SequenceComparison', no_reset => 1 } );
 	say $q->endform;
-	say "</div>";
+	say "<div style=\"clear:both\"></div></div>";
 	return if !$sent;
 	my @seq;
 	my $displaylocus = $self->clean_locus($locus);

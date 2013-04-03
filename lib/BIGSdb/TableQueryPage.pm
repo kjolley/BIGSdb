@@ -54,13 +54,13 @@ sub print_content {
 		return;
 	}
 	if ( !$self->{'datastore'}->is_table($table) && !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Table '$table' is not defined.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Table '$table' is not defined.</p></div>";
 		return;
 	}
 	my $cleaned = $table;
 	$cleaned =~ tr/_/ /;
 	my $desc = $self->get_db_description;
-	print "<h1>Query $cleaned for $desc database</h1>\n";
+	say "<h1>Query $cleaned for $desc database</h1>";
 	my $qry;
 	if (   !defined $q->param('currentpage')
 		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
@@ -89,6 +89,17 @@ sub get_title {
 	my $desc = $self->get_db_description || 'BIGSdb';
 	my $record = $self->get_record_name( $self->{'cgi'}->param('table') ) || 'record';
 	return "Query $record information - $desc";
+}
+
+sub get_javascript {
+	my ($self) = @_;
+	my $buffer = $self->SUPER::get_javascript;
+	$buffer .= << "END";
+\$(function () {
+  	\$('fieldset').coolfieldset({speed:"fast", collapsed:true});
+ });
+END
+	return $buffer;
 }
 
 sub _get_select_items {
@@ -122,17 +133,17 @@ sub _print_table_fields {
 	#split so single row can be added by AJAX call
 	my ( $self, $table, $row, $max_rows, $select_items, $labels ) = @_;
 	my $q = $self->{'cgi'};
-	print "<span style=\"white-space:nowrap\">\n";
+	say "<span style=\"white-space:nowrap\">";
 	print $q->popup_menu( -name => "s$row", -values => $select_items, -labels => $labels, -class => 'fieldlist' );
 	print $q->popup_menu( -name => "y$row", -values => [OPERATORS] );
-	print $q->textfield( -name => "t$row", -class => 'value_entry' );
+	say $q->textfield( -name => "t$row", -class => 'value_entry' );
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
-		print
-"<a id=\"add_table_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;fields=table_fields&amp;table=$table&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
-		print " <a class=\"tooltip\" id=\"field_tooltip\" title=\"\">&nbsp;<i>i</i>&nbsp;</a>";
+		print "<a id=\"add_table_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;"
+		  . "fields=table_fields&amp;table=$table&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>"
+		  . " <a class=\"tooltip\" id=\"field_tooltip\" title=\"\">&nbsp;<i>i</i>&nbsp;</a>";
 	}
-	print "</span>\n";
+	say "</span>";
 	return;
 }
 
@@ -154,7 +165,7 @@ sub _print_query_interface {
 	my $q      = $self->{'cgi'};
 	my $table  = $q->param('table');
 	my ( $select_items, $labels, $order_by, $attributes ) = $self->_get_select_items($table);
-	print "<div class=\"box\" id=\"queryform\"><div class=\"scrollable\">\n";
+	say "<div class=\"box\" id=\"queryform\"><div class=\"scrollable\">";
 	my $table_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('table_fields') || 1 );
 	my $cleaned = $table;
 	$cleaned =~ tr/_/ /;
@@ -177,40 +188,34 @@ sub _print_query_interface {
 			  . "that uses integer allele ids using the drop-down list.</p>";
 		}
 	}
-	print "<p>Please enter your search criteria below (or leave blank and submit to return all records).";
+	say "<p>Please enter your search criteria below (or leave blank and submit to return all records).";
 	if ( !$self->{'curate'} && $table ne 'samples' ) {
-		print " Matching $cleaned will be returned and you will then be able to update their display and query settings.";
+		say " Matching $cleaned will be returned and you will then be able to update their display and query settings.";
 	}
-	print "</p>\n";
-	print $q->startform;
-	print $q->hidden($_) foreach qw (db page table no_js);
-	print "<div style=\"white-space:nowrap\"><fieldset>\n<legend>Search criteria</legend>\n";
+	say "</p>";
+	say $q->startform;
+	say $q->hidden($_) foreach qw (db page table no_js);
+	say "<fieldset style=\"float:left\">\n<legend>Search criteria</legend>\n";
 	my $table_field_heading = $table_fields == 1 ? 'none' : 'inline';
-	print "<span id=\"table_field_heading\" style=\"display:$table_field_heading\"><label for=\"c0\">Combine searches with: </label>\n";
-	print $q->popup_menu( -name => 'c0', -id => 'c0', -values => [ "AND", "OR" ] );
-	print "</span>\n";
-	print "<ul id=\"table_fields\">\n";
+	say "<span id=\"table_field_heading\" style=\"display:$table_field_heading\"><label for=\"c0\">Combine searches with: </label>";
+	say $q->popup_menu( -name => 'c0', -id => 'c0', -values => [ "AND", "OR" ] );
+	say "</span>";
+	say "<ul id=\"table_fields\">";
 
 	foreach my $i ( 1 .. $table_fields ) {
-		print "<li>";
+		say "<li>";
 		$self->_print_table_fields( $table, $i, $table_fields, $select_items, $labels );
-		print "</li>\n";
+		say "</li>";
 	}
-	print "</ul>\n";
-	print "</fieldset>\n";
-	print "<fieldset class=\"display\">\n";
-	print "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>\n";
-	print $q->popup_menu( -name => 'order', -id => 'order', -values => $order_by, -labels => $labels );
-	print $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
-	print "</span></li>\n<li>\n";
-	print $self->get_number_records_control;
-	print "</li>\n\n";
-	my $page = $self->{'curate'} ? 'profileQuery' : 'query';
-	print "</ul><span style=\"float:left\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
-	  . "page=tableQuery&amp;table=$table\" class=\"resetbutton\">Reset</a></span><span style=\"float:right\">";
-	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	print "</span></fieldset>\n";
-	print "</div>\n";
+	say "</ul>";
+	say "</fieldset>";
+	say "<fieldset style=\"float:left\"><legend>Display</legend>";
+	say "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>";
+	say $q->popup_menu( -name => 'order', -id => 'order', -values => $order_by, -labels => $labels );
+	say $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
+	say "</span></li>\n<li>";
+	say $self->get_number_records_control;
+	say "</li></ul></fieldset>";
 	my @filters;
 	my %labels;
 
@@ -312,12 +317,14 @@ sub _print_query_interface {
 		  );
 	}
 	if (@filters) {
-		print "<fieldset>\n<legend>Filter query by</legend>\n<ul>\n";
-		print "<li><span style=\"white-space:nowrap\">$_</span></li>" foreach @filters;
-		print "</ul>\n</fieldset>";
+		my $class_clause = @filters>2 ? ' class="coolfieldset"' : '';
+		say "<fieldset style=\"float:left\"$class_clause>\n<legend>Filter query by</legend>\n<div><ul>";
+		say "<li><span style=\"white-space:nowrap\">$_</span></li>" foreach @filters;
+		say "</ul>\n</div></fieldset>";
 	}
-	print $q->endform;
-	print "</div></div>\n";
+	$self->print_action_fieldset( { page => 'tableQuery', table => $table } );
+	say $q->endform;
+	say "</div></div>";
 	return;
 }
 
@@ -602,14 +609,14 @@ sub print_additional_headerbar_functions {
 	my $q = $self->{'cgi'};
 	return if $q->param('table') eq 'samples' || $q->param('table') eq 'sequences';
 	my $record = $self->get_record_name( $q->param('table') );
-	print "<fieldset><legend>Customize</legend>\n";
-	print $q->start_form;
-	print $q->submit( -name => 'customize', -label => "$record options", -class => 'submit' );
+	say "<fieldset><legend>Customize</legend>";
+	say $q->start_form;
+	say $q->submit( -name => 'customize', -label => "$record options", -class => 'submit' );
 	$q->param( 'page',     'customize' );
 	$q->param( 'filename', $filename );
-	print $q->hidden($_) foreach qw (db filename table page);
-	print $q->end_form;
-	print "</fieldset>\n";
+	say $q->hidden($_) foreach qw (db filename table page);
+	say $q->end_form;
+	say "</fieldset>";
 	return;
 }
 

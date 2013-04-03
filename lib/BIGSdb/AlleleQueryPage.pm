@@ -190,64 +190,59 @@ sub _print_query_interface {
 	my $q      = $self->{'cgi'};
 	my $locus  = $q->param('locus');
 	my ( $select_items, $labels, $order_by ) = $self->_get_select_items($locus);
-	print "<div class=\"box\" id=\"queryform\">\n";
+	say "<div class=\"box\" id=\"queryform\"><div class=\"scrollable\">";
 	my $set_id = $self->get_set_id;
 	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
 	unshift @$display_loci, '';
 	print $q->startform;
 	$cleaned->{''} = 'Please select ...';
-	print "<p><b>Locus: </b>";
-	print $q->popup_menu( -name => 'locus', -id => 'locus', -values => $display_loci, -labels => $cleaned );
-	print " <span class=\"comment\">Page will reload when changed</span></p>";
-	print $q->hidden($_) foreach qw (db page no_js);
+	say "<p><b>Locus: </b>";
+	say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $display_loci, -labels => $cleaned );
+	say " <span class=\"comment\">Page will reload when changed</span></p>";
+	say $q->hidden($_) foreach qw (db page no_js);
 
 	if ( $q->param('locus') ) {
 		my $desc_exists = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM locus_descriptions WHERE locus=?", $locus )->[0];
 		if ($desc_exists) {
-			print "<ul><li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus\">"
-			  . "Further information</a> is available for this locus.</li></ul>\n";
+			say "<ul><li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus\">"
+			  . "Further information</a> is available for this locus.</li></ul>";
 		}
 	}
-	print "<p>Please enter your search criteria below (or leave blank and submit to return all records).</p>";
-	print "<div style=\"white-space:nowrap\">";
+	say "<p>Please enter your search criteria below (or leave blank and submit to return all records).</p>";
 	my $table_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('table_fields') || 1 );
-	print "<fieldset>\n<legend>Locus fields</legend>\n";
+	say "<fieldset style=\"float:left\">\n<legend>Locus fields</legend>";
 	my $table_field_heading = $table_fields == 1 ? 'none' : 'inline';
-	print "<span id=\"table_field_heading\" style=\"display:$table_field_heading\"><label for=\"c0\">Combine searches with: </label>\n";
-	print $q->popup_menu( -name => 'c0', -id => 'c0', -values => [ "AND", "OR" ] );
-	print "</span>\n<ul id=\"table_fields\">\n";
+	say "<span id=\"table_field_heading\" style=\"display:$table_field_heading\"><label for=\"c0\">Combine searches with: </label>";
+	say $q->popup_menu( -name => 'c0', -id => 'c0', -values => [ "AND", "OR" ] );
+	say "</span>\n<ul id=\"table_fields\">";
 
 	foreach my $i ( 1 .. $table_fields ) {
-		print "<li>";
+		say "<li>";
 		$self->_print_table_fields( $locus, $i, $table_fields, $select_items, $labels );
-		print "</li>\n";
+		say "</li>";
 	}
-	print "</ul>\n";
-	print "</fieldset>\n";
-	print "<fieldset class=\"display\">\n";
-	print "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>\n";
-	print $q->popup_menu( -name => 'order', -id => 'order', -values => $order_by, -labels => $labels );
-	print $q->popup_menu( -name => 'direction', -values => [qw(ascending descending)], -default => 'ascending' );
-	print "</span></li>\n<li>";
-	print $self->get_number_records_control;
-	print "</li>\n";
-	my $locus_clause = $locus ? "&amp;locus=$locus" : '';
-	print "</ul><span style=\"float:left\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
-	  . "page=alleleQuery$locus_clause\" class=\"resetbutton\">Reset</a></span><span style=\"float:right\">";
-	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	print "</span></fieldset>\n</div>\n";
-	print "<div style=\"white-space:nowrap\"><fieldset><legend>Filter query by</legend>\n";
-	print "<ul>\n<li>";
-	print $self->get_filter( 'status', [ 'trace checked', 'trace not checked' ], { class => 'display' } );
-	print "</li><li>\n";
+	say "</ul>";
+	say "</fieldset>";
+	say "<fieldset style=\"float:left\"><legend>Display</legend>";
+	say "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>";
+	say $q->popup_menu( -name => 'order', -id => 'order', -values => $order_by, -labels => $labels );
+	say $q->popup_menu( -name => 'direction', -values => [qw(ascending descending)], -default => 'ascending' );
+	say "</span></li>\n<li>";
+	say $self->get_number_records_control;
+	say "</li></ul></fieldset>";
+	say "<fieldset style=\"float:left\"><legend>Filter query by</legend>";
+	say "<ul>\n<li>";
+	say $self->get_filter( 'status', [ 'trace checked', 'trace not checked' ], { class => 'display' } );
+	say "</li><li>";
 
 	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
 		my @flag_values = ( 'any flag', 'no flag', ALLELE_FLAGS );
-		print $self->get_filter( 'allele_flag', \@flag_values, { class => 'display' } );
+		say $self->get_filter( 'allele_flag', \@flag_values, { class => 'display' } );
 	}
-	print "</li></ul>\n</fieldset></div>\n";
-	print $q->endform;
-	print "</div>\n";
+	say "</li></ul>\n</fieldset>";
+	$self->print_action_fieldset( {locus => $locus} );
+	say $q->endform;
+	say "<div style=\"clear:both\"></div></div></div>";
 	return;
 }
 
@@ -440,6 +435,7 @@ sub _run_query {
 			}
 		}
 		$qry2 .= $self->_process_flags;
+		$qry2 .= " AND sequences.allele_id NOT IN ('0', 'N')";
 		$qry2 .= " ORDER BY ";
 		if ( $q->param('order') eq 'allele_id' && $locus_info->{'allele_id_format'} eq 'integer' ) {
 			$qry2 .= "CAST (" . ( $q->param('order') ) . " AS integer)";

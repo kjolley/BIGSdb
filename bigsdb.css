@@ -207,7 +207,6 @@ a.update {
 input.submit:hover {
 	background:#fff;
 	color:black;
-	border:2px solid;
 	border-top-color:#9b9;
 	border-left-color:#9b9;
 	border-right-color:#696;
@@ -229,14 +228,16 @@ input.submit:hover {
 }
 
 .button {
-	border:2px solid;
-	margin:5px
+	border:1px solid;
+	margin:5px;
+	border-radius:3px;
 }
 
 .smallbutton {
 	border:1px solid;
 	font-size:0.8em;
     margin:1px;
+    border-radius: 3px;
 }
 
 .rightbutton {
@@ -264,11 +265,12 @@ input.submit {
 	margin:2px;
 	padding: 0 5px 0 5px;
 	color:#333;
-	border:2px solid;
+	border:1px solid;
 	border-top-color:#696;
 	border-left-color:#696;
 	border-right-color:#363;
 	border-bottom-color:#363;
+	border-radius: 3px;
 }
 
 input.fieldvaluebutton {
@@ -288,7 +290,15 @@ input.pagebar {
 	border-top-color:#696;
 	border-left-color:#696;
 	border-right-color:#363;
-	border-bottom-color:#363
+	border-bottom-color:#363;
+	border-radius: 3px;
+}
+
+.pagebar_selected {
+	font:84% arial,helvetica,sans-serif;
+	border: 1px solid black; 
+	padding: 0 5px;
+	border-radius: 3px;
 }
 
 a.resetbutton, input.reset{
@@ -296,20 +306,20 @@ a.resetbutton, input.reset{
 	margin:2px;
 	padding: 0 10px 0 10px;
 	color:#333;
-	border:2px solid;
+	border:1px solid;
 	border-top-color:#669;
 	border-left-color:#669;
 	border-right-color:#336;
 	border-bottom-color:#336;
 	display:block;
-	float:left
+	float:left;
+	border-radius:3px;
 }
 
 a.resetbutton:hover, input.reset:hover {
 	background:#fff;
 	color:black;
 	text-decoration:none;
-	border:2px solid;
 	border-top-color:#99b;
 	border-left-color:#99b;
 	border-right-color:#669;
@@ -686,7 +696,7 @@ fieldset {
 	vertical-align:top;
 	border:0;
 	border-top:1px solid #aaa;
-	background:#dedede
+	background:#e0e0e0
 }
 
 fieldset ul { 

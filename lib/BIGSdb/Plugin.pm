@@ -399,10 +399,8 @@ sub print_field_export_form {
 	$self->get_extra_fields;
 	$self->print_isolates_locus_fieldset;
 	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
+	$self->print_action_fieldset( { no_reset => 1 } );	
 	say "<div style=\"clear:both\"></div>";
-	say "<div style=\"text-align:right;padding-right:10em\">";
-	say $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	say "</div>";
 	say $q->hidden($_) foreach qw (db page name query_file);
 	say $q->end_form;
 	return;
@@ -587,8 +585,8 @@ sub print_sequence_export_form {
 		say "</fieldset>";
 	}
 	say $self->get_extra_form_elements;
+	$self->print_action_fieldset( { no_reset => 1 } );	
 	say "<div style=\"clear:both\"></div>";
-	say $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
 	say $q->hidden($_) foreach qw (db page name query_file scheme_id);
 	say $q->end_form;
 	return;
@@ -649,7 +647,7 @@ sub print_scheme_locus_fieldset {
 	my $set_id     = $self->get_set_id;
 	my %labels;
 	( $labels{$_} = $self->{'datastore'}->get_set_locus_label( $_, $set_id ) ) foreach (@$locus_list);
-	say "<fieldset><legend>Select loci</legend>";
+	say "<fieldset style=\"float:left\"><legend>Select loci</legend>";
 	if (@$locus_list) {
 		print $self->{'cgi'}->scrolling_list(
 			-name     => 'locus',

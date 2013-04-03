@@ -32,13 +32,19 @@ $(function () {
 	  		});
 	   	});
 	});
+	
+	//Tooltips
 	var title = $(".tooltip[title]");
 	$.each(title, function(index, value) {
 		var value = $(this).attr('title');
 		value = value.replace(/^([^<h3>].+?) - /,"<h3>$1</h3>");
 		$(this).tooltip({content: value});
 	});
-
+	
+	//Fix for IE reset button not recognised within anchor
+	$("input.reset").click(function() { 
+	    location.href = $(this).closest("a").attr("href");
+	});
 });
 		
 function getCookie(name) {

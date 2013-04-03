@@ -314,25 +314,22 @@ sub _print_isolate_query_interface {
 	my $system = $self->{'system'};
 	my $prefs  = $self->{'prefs'};
 	my $q      = $self->{'cgi'};
-	print "<div class=\"box\" id=\"queryform\"><div class=\"scrollable\">\n";
-	print $q->startform;
+	say "<div class=\"box\" id=\"queryform\"><div class=\"scrollable\">";
+	say $q->startform;
 	$q->param( 'table', $self->{'system'}->{'view'} );
-	print $q->hidden($_) foreach qw (db page table no_js);
-	print "<div style=\"white-space:nowrap\">\n";
+	say $q->hidden($_) foreach qw (db page table no_js);
+	say "<div style=\"white-space:nowrap\">";
 	$self->_print_isolate_fields_fieldset;
 	$self->_print_isolate_display_fieldset;
-	print "<div style=\"clear:both\"></div>";
+	say "<div style=\"clear:both\"></div>";
 	$self->_print_isolate_locus_fieldset;
 	$self->_print_isolate_tag_fieldset;
 	$self->_print_isolate_filter_fieldset;
 	my $page = $self->{'curate'} ? 'isolateQuery' : 'query';
-	print "<div style=\"clear:both\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
-	  . "page=$page\" class=\"resetbutton\">Reset</a><span style=\"float:right\">";
-	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	print "</span></div>";
-	print "</div>\n";
-	print $q->end_form;
-	print "</div>\n</div>\n";
+	$self->print_action_fieldset( { page => $page } );
+	say "</div>";
+	say $q->end_form;
+	say "</div>\n</div>";
 	return;
 }
 
@@ -766,10 +763,7 @@ sub _print_profile_query_interface {
 		print "</ul>\n</fieldset>";
 	}
 	my $page = $self->{'curate'} ? 'profileQuery' : 'query';
-	print
-"<div style=\"clear:both\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;scheme_id=$scheme_id\" class=\"resetbutton\">Reset</a><span style=\"float:right\">";
-	print $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	print "</span></div>\n";
+	$self->print_action_fieldset({page => $page, scheme_id => $scheme_id});
 	print $q->end_form;
 	print "</div></div>\n";
 	return;

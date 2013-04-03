@@ -162,14 +162,11 @@ sub _print_interface {
 	print "Select FASTA file:<br />";
 	print $q->filefield( -name => 'fasta_upload', -id => 'fasta_upload', -size => 10, -maxlength => 512 );
 	print "</fieldset>\n";
-	print "</div>\n<div style=\"clear:both\"><span style=\"float:left\">";
-	print $q->reset( -label => 'Reset', -class => 'reset' );
-	print "</span><span style=\"float:right;padding-right:5em\">\n";
-	print $q->submit( -label => 'Submit', -class => 'submit' );
-	print "</span>\n<div style=\"clear:both\"></div></div>\n";
+	$self->print_action_fieldset( { name => 'RuleQuery', ruleset => $ruleset_id } );
+	say "</div>";
 	print $q->hidden($_) foreach qw(db page name ruleset);
 	print $q->end_form;
-	print "</div>\n";
+	print "<div style=\"clear:both\"></div></div>\n";
 	return;
 }
 

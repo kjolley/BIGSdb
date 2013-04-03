@@ -88,7 +88,7 @@ sub run {
 		say $q->startform;
 		$q->param( 'all_records', 1 ) if !$query_file;
 		say $q->hidden($_) foreach qw (db name query_file page all_records);
-		say "<fieldset class=\"filter\"><legend>Filter query by</legend>";
+		say "<fieldset style=\"float:left\"><legend>Filter query by</legend>";
 		my $author_list = $self->_get_author_list;
 		say "<ul><li><label for=\"author_list\" class=\"display\">Author:</label>";
 		say $q->popup_menu( -name => 'author_list', -id => 'author_list', -values => $author_list );
@@ -97,7 +97,7 @@ sub run {
 		unshift @$year_list, 'All years';
 		print $q->popup_menu( -name => 'year_list', -id => 'year_list', -values => $year_list );
 		say "</li>\n</ul>\n</fieldset>";
-		say "<fieldset class=\"display\">";
+		say "<fieldset style=\"float:left\"><legend>Display</legend>";
 		say "<ul><li><label for=\"order\" class=\"display\">Order by: </label>";
 		my %labels = ( pmid => 'Pubmed id', first_author => 'first author', isolates => 'number of isolates' );
 		my @order_list = qw(pmid authors year title isolates);
@@ -116,10 +116,10 @@ sub run {
 			-values  => [qw (10 25 50 100 200 500 all)],
 			-default => $self->{'prefs'}->{'displayrecs'}
 		);
-		say " records per page</li>\n</ul>";
-		say "<span style=\"float:right\"><input type=\"submit\" name=\"submit\" value=\"Submit\" class=\"submit\" /></span>\n</fieldset>";
+		say " records per page</li>\n</ul></fieldset>";
+		$self->print_action_fieldset( { no_reset => 1 } );	
 		say $q->endform;
-		say "</div>";
+		say "<div style=\"clear:both\"></div></div>";
 		my @filters;
 		my $author =
 		  ( any { defined $q->param('author_list') && $q->param('author_list') eq $_ } @$author_list )

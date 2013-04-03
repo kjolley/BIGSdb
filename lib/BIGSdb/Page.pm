@@ -266,7 +266,7 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system    = $self->{'system'};
-	my $version = '20130402';
+	my $version   = '20130402';
 	my @filenames = qw(bigsdb.css jquery-ui.css);
 	my @paths;
 	foreach my $filename (@filenames) {
@@ -286,6 +286,26 @@ sub get_stylesheets {
 }
 sub get_title     { return 'BIGSdb' }
 sub print_content { }
+
+sub print_action_fieldset {
+	my ( $self, $options ) = @_;
+	my $q = $self->{'cgi'};
+	my $page = $options->{'page'} // $q->param('page');
+	$options = {} if ref $options ne 'HASH';
+	say "<fieldset style=\"float:left\"><legend>Action</legend>";
+	my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page";
+	foreach (qw (scheme_id table name locus ruleset)){
+		$url .= "&amp;$_=$options->{$_}" if defined $options->{$_};
+	}
+	if (!$options->{'no_reset'}){
+		say "<a href=\"$url\">";
+		say $q->button( -name => 'reset', -label => 'Reset', -class => 'reset' );
+		say "</a>";
+	}
+	say $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
+	say "</fieldset>";
+	return;
+}
 
 sub _debug {
 	my ($self) = @_;

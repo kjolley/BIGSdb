@@ -72,21 +72,18 @@ sub run {
 	  : 10;
 	say $q->start_form;
 	say $q->hidden($_) foreach qw (db page name);
-	say "<table>";
-	say "<tr><td style=\"text-align:right\">Select locus: </td><td>";
-	say $q->popup_menu( -name => 'locus', -values => $display_loci, -labels => $cleaned );
-	say "</td></tr><tr><td style=\"text-align:right\">Allele: </td><td>";
-	say $q->textfield( -name => 'allele', -size => 4 );
-	say "</td></tr><tr><td style=\"text-align:right\">Number of results: </td><td>";
-	say $q->popup_menu( -name => 'num_results', -values => [ 5, 10, 25, 50, 100, 200 ], -default => $num_results );
-	say "</td></tr>";
-	say "<tr><td style=\"text-align:left\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;"
-	  . "name=SequenceSimilarity\" class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\">";
-	say $q->submit( -name => 'submit', -value => 'Submit', -class => 'submit' );
-	say "</td></tr>\n</table>";
+	say "<fieldset style=\"float:left\"><legend>Select parameters</legend>";
+	say "<ul><li><label for=\"locus\" class=\"parameter\">Locus: </label>";
+	say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $display_loci, -labels => $cleaned );
+	say "</li><li><label for=\"allele\" class=\"parameter\">Allele: </label>";
+	say $q->textfield( -name => 'allele', -id => 'allele', -size => 4 );
+	say "</li><li><label for=\"num_results\" class=\"parameter\">Number of results:</label>";
+	say $q->popup_menu( -name => 'num_results', -id =>'num_results', -values => [ 5, 10, 25, 50, 100, 200 ], -default => $num_results );
+	say "</li></ul></fieldset>";
+	$self->print_action_fieldset( { name => 'SequenceSimilarity' } );
 	say $q->end_form;
-	say "</div>";
-	return if !$locus || !defined $allele;
+	say "<div style=\"clear:both\"></div></div>";
+	return if !$locus || !defined $allele || $allele eq '';
 
 	if ( !$self->{'datastore'}->is_locus($locus) ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>Invalid locus entered.</p></div>";

@@ -158,11 +158,10 @@ columns should comprise the allele numbers (order: @cleaned_loci). Click here fo
 example data</a>.  Non-numerical characters will be stripped out of the query.</p>
 HTML
 	say $q->textarea( -name => 'profiles', -rows => 10, -columns => 80, -override => 1 );
-	say "<p />";
-	say $q->reset( -class => 'reset' );
-	say $q->submit( -label => 'Submit query', -class => 'submit' );
+	$self->print_action_fieldset({scheme_id => $scheme_id});
+	say "<div style=\"clear:both\"></div>";
 	say $q->endform;
-	say "<p />\n</div>";
+	say "</div>";
 	return;
 }
 

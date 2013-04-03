@@ -121,7 +121,7 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 			for ( my $i = $first ; $i < $last + 1 ; $i++ ) {    #don't use range operator as $last may not be an integer.
 				if ( $i == $currentpage ) {
 					$bar_buffer .=
-					  "</td><th style=\"font-size: 84%; border: 1px solid black; padding-left: 5px; padding-right: 5px\">$i</th><td>";
+					  "</td><th class=\"pagebar_selected\">$i</th><td>";
 				} else {
 					$bar_buffer .=
 					  $q->submit( -name => $i == 1 ? 'First' : 'pagejump', -value => $i, -label => " $i ", -class => 'pagebar' );

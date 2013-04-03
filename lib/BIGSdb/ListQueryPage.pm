@@ -156,13 +156,7 @@ sub _print_query_interface {
 	say "</span></li>\n<li>";
 	say $self->get_number_records_control;
 	say "</li></ul></fieldset>";
-	say "<div style=\"clear:both\">";
-	my $scheme_clause = $self->{'system'}->{'dbtype'} eq 'isolates' ? '' : "&amp;scheme_id=$scheme_id";
-	say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=listQuery$scheme_clause\" "
-	  . "class=\"resetbutton\">Reset</a>";
-	say "<span style=\"float:right\">";
-	say $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	say "</span></div>";
+	$self->print_action_fieldset({scheme_id => $scheme_id});
 	say $q->hidden($_) foreach qw (page db scheme_id);
 	say $q->end_form;
 	say "</div></div>";

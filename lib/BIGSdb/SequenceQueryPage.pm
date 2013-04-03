@@ -94,7 +94,7 @@ sub print_content {
 	say $q->popup_menu( -name => 'order', -values => [ ( 'locus', 'best match' ) ] );
 	say "</fieldset>";
 	say "<div style=\"clear:both\">";
-	say "<fieldset><legend>"
+	say "<fieldset style=\"float:left\"><legend>"
 	  . (
 		$page eq 'sequenceQuery'
 		? 'Enter query sequence (single or multiple contigs up to whole genome in size)'
@@ -107,14 +107,13 @@ sub print_content {
 		$q->param( 'sequence', '' );
 	}
 	say $q->textarea( -name => 'sequence', -rows => 6, -cols => 70 );
-	say "</fieldset></div>\n<div style=\"clear:both\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
-	  . "page=$page\" class=\"resetbutton\">Reset</a><span style=\"float:right\">";
-	say $q->submit( -name => 'Submit', -class => 'submit' );
-	say "</span></div></div>";
+	say "</fieldset>";
+	$self->print_action_fieldset;
+	say "</div></div>";
 	say $q->hidden($_) foreach qw (db page);
 	say $q->end_form;
 	say "</div>";
-	$self->_run_query($sequence) if $q->param('Submit') && $sequence;
+	$self->_run_query($sequence) if $q->param('submit') && $sequence;
 	return;
 }
 

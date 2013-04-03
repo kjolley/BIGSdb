@@ -266,10 +266,7 @@ HTML
 	$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids } );
 	$self->_print_options_fieldset;
 	$self->print_sequence_filter_fieldset( { min_length => 1 } );
-	say "<div style=\"clear:both\"><span style=\"float:left\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
-	  . "page=plugin&amp;name=Contigs\" class=\"resetbutton\">Reset</a></span><span style=\"float:right;padding-right:5%\">";
-	say $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	say "</span></div>";
+	$self->print_action_fieldset( { name => 'Contigs' } );
 	say $q->hidden($_) foreach qw (page name db);
 	say "</div>";
 	say $q->end_form;

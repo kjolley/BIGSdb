@@ -122,11 +122,7 @@ sub _print_interface {
 	say "<fieldset style=\"float:left\"><legend>Calculate percentages by</legend>";
 	say $q->radio_group( -name => 'calcpc', -values => [ 'dataset', 'row', 'column' ], -default => 'dataset', -linebreak => 'true' );
 	say "</fieldset>";
-	say "<div style=\"clear:both\"><span style=\"float:left\">";
-	say $q->reset( -class => 'reset' );
-	say "</span><span style=\"float:right;padding-right:5em\">";
-	say $q->submit( -class => 'submit', -label => 'Submit' );
-	say "</span></div>";
+	$self->print_action_fieldset( { name => 'TwoFieldBreakdown' } );
 	say $q->endform;
 	say "</div>\n</div>";
 	return;

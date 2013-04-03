@@ -448,10 +448,7 @@ HTML
  </ul></fieldset>
 HTML
 	$self->print_sequence_filter_fieldset;
-	say "<div style=\"clear:both\"><span style=\"float:left\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
-	  . "page=plugin&amp;name=GenomeComparator\" class=\"resetbutton\">Reset</a></span><span style=\"float:right;padding-right:5%\">";
-	say $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	say "</span></div></div>";
+	$self->print_action_fieldset( { name => 'GenomeComparator' } );
 	say $q->hidden($_) foreach qw (page name db);
 	say $q->end_form;
 	say "</div>";

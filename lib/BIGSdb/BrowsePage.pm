@@ -19,6 +19,7 @@
 package BIGSdb::BrowsePage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::ResultsTablePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -131,9 +132,10 @@ sub print_content {
 		print $q->popup_menu( -name => 'direction', -id => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
 		print "</span></li><li>";
 		print $self->get_number_records_control;
-		print "</li><li><span style=\"float:right\">";
+		print "</li></ul></fieldset>";
+		say "<fieldset style=\"float:left\"><legend>Action</legend>";
 		print $q->submit( -name => 'Browse all records', -class => 'submit' );
-		print "</span></li></ul></fieldset></div>\n";
+		print "</fieldset></div>\n";
 		print $q->endform;
 		print "</div>\n";
 	}

@@ -339,10 +339,7 @@ sub _print_interface {
 	$buffer = $self->get_experiment_filter( { 'class' => 'parameter' } );
 	say "<li>$buffer</li>" if $buffer;
 	say "</ul>\n</fieldset>";
-	say "<table style=\"width:95%\"><tr><td style=\"text-align:left\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
-	  . "&amp;page=plugin&amp;name=BLAST\" class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\" colspan=\"3\">";
-	say $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	say "</td></tr></table>";
+	$self->print_action_fieldset( { name => 'BLAST' } );
 	say $q->hidden($_) foreach qw (db page name);
 	say "</div>";
 	say $q->end_form;
