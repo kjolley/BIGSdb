@@ -167,7 +167,6 @@ sub print_page_content {
 		print $q->header( \%atts );
 		$self->print_content;
 	} else {
-		my $stylesheets = $self->get_stylesheets;
 		if ( !$q->cookie( -name => 'guid' ) && $self->{'prefstore'} ) {
 			my $guid = $self->{'prefstore'}->get_new_guid;
 			push @{ $self->{'cookies'} }, $q->cookie( -name => 'guid', -value => $guid, -expires => '+10y' );
@@ -193,9 +192,7 @@ sub print_page_content {
 				push @javascript,
 				  ( { 'language' => 'Javascript', 'src' => "http://ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/jquery-ui.min.js" } );
 			}
-			foreach (qw (bigsdb.js)) {
-				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/$_" } );
-			}
+			push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/bigsdb.js?v20130405" } );
 			if ( $self->{'jQuery.tablesort'} ) {
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.tablesorter.js?v20110725" } );
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.metadata.js" } );
@@ -238,6 +235,7 @@ sub print_page_content {
 			$http_equiv = "<meta http-equiv=\"refresh\" content=\"$self->{'refresh'}\" />";
 		}
 		my $tooltip_display = $self->{'prefs'}->{'tooltips'} ? 'inline' : 'none';
+		my $stylesheets = $self->get_stylesheets;
 		my @args = (
 			-title  => $title,
 			-meta   => {%meta_content},
@@ -298,7 +296,7 @@ sub print_action_fieldset {
 		$url .= "&amp;$_=$options->{$_}" if defined $options->{$_};
 	}
 	if (!$options->{'no_reset'}){
-		say "<a href=\"$url\">";
+		say "<a href=\"$url\" style=\"text-decoration:none\">";
 		say $q->button( -name => 'reset', -label => 'Reset', -class => 'reset' );
 		say "</a>";
 	}
