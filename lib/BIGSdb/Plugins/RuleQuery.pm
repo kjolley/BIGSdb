@@ -166,7 +166,7 @@ sub _print_interface {
 	say "</div>";
 	print $q->hidden($_) foreach qw(db page name ruleset);
 	print $q->end_form;
-	print "<div style=\"clear:both\"></div></div>\n";
+	print "</div>\n";
 	return;
 }
 

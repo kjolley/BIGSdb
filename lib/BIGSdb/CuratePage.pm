@@ -258,23 +258,17 @@ sub create_record_table {
 		when ('locus_descriptions') { $buffer .= $self->_create_extra_fields_for_locus_descriptions($newdata_ref) }
 		when ('sequence_bin')       { $buffer .= $self->_create_extra_fields_for_seqbin($newdata_ref) }
 	}
-	$buffer .= "<tr><td>";
-	my $page        = $q->param('page');
+	$buffer .= "</table>\n";
+	my $page = $q->param('page');
+	my @extra;
 	my $extra_field = '';
 	if ( $update || $table eq 'pending_allele_designations' ) {
-		my @extra;
-		foreach (@$attributes) {
-			if ( $_->{'primary_key'} ) {
-				push @extra, "$_->{'name'}=$newdata{$_->{'name'}}" if defined $newdata{ $_->{'name'} };
-			}
+		my $pk_fields = $self->{'datastore'}->get_table_pks($table);
+		foreach my $pk (@$pk_fields) {
+			push @extra, ( $pk => $newdata{$pk} );
 		}
-		local $" = "&amp;";
-		$extra_field = "&amp;@extra" if @extra;
 	}
-	$buffer .= "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;"
-	  . "table=$table$extra_field\" class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\">";
-	$buffer .= $q->submit( -name => 'Submit', -class => 'submit' ) if !$q->param('submit');
-	$buffer .= "</td></tr>\n</table>\n";
+	$buffer .= $self->print_action_fieldset( { get_only => 1, page => $page, table => $table, @extra } );
 	$buffer .= "</div>\n</div>\n" if !$nodiv;
 	$buffer .= $q->end_form;
 	return $buffer;
@@ -814,7 +808,7 @@ sub _is_field_bad_other {
 			return 0;
 		} else {
 			my $msg = 'is a required field and cannot be left blank.';
-			if ($thisfield->{'optlist'}){
+			if ( $thisfield->{'optlist'} ) {
 				my @optlist = split /;/, $thisfield->{'optlist'};
 				local $" = "', '";
 				$msg .= " Allowed values are '@optlist'.";
@@ -1086,7 +1080,7 @@ sub create_scheme_view {
 			$self->{'db'}->do("SELECT create_matview('mv_scheme_$scheme_id', 'scheme_$scheme_id')");
 			$self->{'db'}->do("CREATE UNIQUE INDEX i_mv$scheme_id\_1 ON mv_scheme_$scheme_id ($pk)");
 			local $" = ',';
-			if (@$loci <= 32){ #By default PostgreSQL will not allow indexes with more than 32 columns
+			if ( @$loci <= 32 ) {    #By default PostgreSQL will not allow indexes with more than 32 columns
 				my $locus_string = "@$loci";
 				$locus_string =~ s/'/_PRIME_/g;
 				$self->{'db'}->do("CREATE UNIQUE INDEX i_mv$scheme_id\_2 ON mv_scheme_$scheme_id ($locus_string)");
@@ -1101,7 +1095,7 @@ sub refresh_material_view {
 
 	#Needs to be committed outside of subroutine (to allow refresh as part of transaction)
 	my ( $self, $scheme_id ) = @_;
-	return if !( ($self->{'system'}->{'materialized_views'} // '') eq 'yes' );
+	return if !( ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' );
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	return if !@$loci || !@$scheme_fields;
@@ -1117,7 +1111,7 @@ sub refresh_material_view {
 		$self->{'db'}->do("DROP INDEX i_mv$scheme_id\_1");
 		$self->{'db'}->do("SELECT refresh_matview('mv_scheme_$scheme_id')");
 		$self->{'db'}->do("CREATE UNIQUE INDEX i_mv$scheme_id\_1 ON mv_scheme_$scheme_id ($pk)");
-		if (@$loci <= 32){ #By default PostgreSQL will not allow indexes with more than 32 columns
+		if ( @$loci <= 32 ) {    #By default PostgreSQL will not allow indexes with more than 32 columns
 			local $" = ',';
 			my $locus_string = "@$loci";
 			$locus_string =~ s/'/_PRIME_/g;

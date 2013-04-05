@@ -159,7 +159,6 @@ example data</a>.  Non-numerical characters will be stripped out of the query.</
 HTML
 	say $q->textarea( -name => 'profiles', -rows => 10, -columns => 80, -override => 1 );
 	$self->print_action_fieldset({scheme_id => $scheme_id});
-	say "<div style=\"clear:both\"></div>";
 	say $q->endform;
 	say "</div>";
 	return;

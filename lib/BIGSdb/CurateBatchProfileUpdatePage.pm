@@ -79,15 +79,9 @@ HTML
 		say "</li></ul></fieldset>";
 		say "<p>Please paste in your data below:</p>";
 		say $q->textarea( -name => 'data', -rows => 15, -columns => 40, -override => 1 );
-		say "<span style=\"float:left\">";
-		say $q->reset( -class => 'reset' );
-		say "</span>\n<span style=\"float:right;padding-right:2em\">";
-		say $q->submit( -label => 'Submit', -class => 'submit' );
-		say "</span>";
+		$self->print_action_fieldset({scheme_id => $scheme_id});
 		say $q->endform;
-		say "<div style=\"clear:both;padding-top:1em\"><p><a href=\"$self->{'system'}->{'script_name'}"
-		  . "?db=$self->{'instance'}\">Back to main page</a></p></div>";
-		say "</div>";
+		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>";
 	}
 	return;
 }

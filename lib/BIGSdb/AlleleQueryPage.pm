@@ -242,7 +242,7 @@ sub _print_query_interface {
 	say "</li></ul>\n</fieldset>";
 	$self->print_action_fieldset( {locus => $locus} );
 	say $q->endform;
-	say "<div style=\"clear:both\"></div></div></div>";
+	say "</div></div>";
 	return;
 }
 

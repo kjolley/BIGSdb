@@ -82,7 +82,7 @@ sub run {
 	say "</li></ul></fieldset>";
 	$self->print_action_fieldset( { name => 'SequenceSimilarity' } );
 	say $q->end_form;
-	say "<div style=\"clear:both\"></div></div>";
+	say "</div>";
 	return if !$locus || !defined $allele || $allele eq '';
 
 	if ( !$self->{'datastore'}->is_locus($locus) ) {

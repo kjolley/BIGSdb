@@ -337,7 +337,7 @@ sub _print_interface {
 	say "</table>";
 	$self->print_action_fieldset({scheme_id => $args->{'scheme_id'}, profile_id => $args->{'profile_id'}});
 	say $q->end_form;
-	say "<div style=\"clear:both\"></div></div>";
+	say "</div>";
 	return;
 }
 1;

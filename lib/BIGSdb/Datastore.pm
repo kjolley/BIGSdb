@@ -1707,6 +1707,18 @@ sub get_table_field_attributes {
 	return $attributes;
 }
 
+sub get_table_pks {
+	my ( $self, $table ) = @_;
+	my @pk_fields;
+	my $attributes = $self->get_table_field_attributes($table);
+	foreach (@$attributes) {
+		if ( $_->{'primary_key'} ) {
+			push @pk_fields, $_->{'name'};
+		}
+	}
+	return \@pk_fields;
+}
+
 sub is_table {
 	my ( $self, $qry ) = @_;
 	$qry ||= '';

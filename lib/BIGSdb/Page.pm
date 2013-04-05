@@ -235,8 +235,8 @@ sub print_page_content {
 			$http_equiv = "<meta http-equiv=\"refresh\" content=\"$self->{'refresh'}\" />";
 		}
 		my $tooltip_display = $self->{'prefs'}->{'tooltips'} ? 'inline' : 'none';
-		my $stylesheets = $self->get_stylesheets;
-		my @args = (
+		my $stylesheets     = $self->get_stylesheets;
+		my @args            = (
 			-title  => $title,
 			-meta   => {%meta_content},
 			-style  => [ { -src => $stylesheets->[0], -code => ".tooltip{display:$tooltip_display}" }, { src => $stylesheets->[1] } ],
@@ -290,18 +290,25 @@ sub print_action_fieldset {
 	my $q = $self->{'cgi'};
 	my $page = $options->{'page'} // $q->param('page');
 	$options = {} if ref $options ne 'HASH';
-	say "<fieldset style=\"float:left\"><legend>Action</legend>";
-	my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page";
-	foreach (qw (scheme_id table name locus ruleset profile_id)){
+	my $buffer = "<fieldset style=\"float:left\"><legend>Action</legend>\n";
+	my $url    = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page";
+	my @fields = qw (scheme_id table name ruleset locus profile_id);
+	if ( $options->{'table'} ) {
+		my $pk_fields = $self->{'datastore'}->get_table_pks($options->{'table'} );
+		push @fields, @$pk_fields;
+	}
+	foreach ( uniq @fields ) {
 		$url .= "&amp;$_=$options->{$_}" if defined $options->{$_};
 	}
-	if (!$options->{'no_reset'}){
-		say "<a href=\"$url\" style=\"text-decoration:none\">";
-		say $q->button( -name => 'reset', -label => 'Reset', -class => 'reset' );
-		say "</a>";
+	if ( !$options->{'no_reset'} ) {
+		$buffer .= "<a href=\"$url\" style=\"text-decoration:none\">";
+		$buffer .= $q->button( -name => 'reset', -label => 'Reset', -class => 'reset' );
+		$buffer .= "</a>\n";
 	}
-	say $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	say "</fieldset>";
+	$buffer .= $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
+	$buffer .= "</fieldset><div style=\"clear:both\"></div>";
+	return $buffer if $options->{'get_only'};
+	say $buffer;
 	return;
 }
 

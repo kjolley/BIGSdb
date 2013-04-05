@@ -119,7 +119,7 @@ sub run {
 		say " records per page</li>\n</ul></fieldset>";
 		$self->print_action_fieldset( { no_reset => 1 } );	
 		say $q->endform;
-		say "<div style=\"clear:both\"></div></div>";
+		say "</div>";
 		my @filters;
 		my $author =
 		  ( any { defined $q->param('author_list') && $q->param('author_list') eq $_ } @$author_list )
