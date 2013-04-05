@@ -292,7 +292,7 @@ sub print_action_fieldset {
 	$options = {} if ref $options ne 'HASH';
 	say "<fieldset style=\"float:left\"><legend>Action</legend>";
 	my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page";
-	foreach (qw (scheme_id table name locus ruleset)){
+	foreach (qw (scheme_id table name locus ruleset profile_id)){
 		$url .= "&amp;$_=$options->{$_}" if defined $options->{$_};
 	}
 	if (!$options->{'no_reset'}){

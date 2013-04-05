@@ -87,6 +87,15 @@ sub print_content {
 	return;
 }
 
+sub _clean_field {
+	my ($self, $value_ref) = @_;
+	$$value_ref =~ s/\\/\\\\/g;
+	$$value_ref =~ s/'/\\'/g;
+	$$value_ref =~ s/^\s*//;
+	$$value_ref =~ s/\s*$//;
+	return;
+}
+
 sub _upload {
 	my ( $self, $scheme_id, $primary_key, $newdata ) = @_;
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
@@ -96,8 +105,7 @@ sub _upload {
 	my $insert = 1;
 	foreach my $field (@$scheme_fields) {
 		$newdata->{"field:$field"} = $q->param("field:$field");
-		$newdata->{"field:$field"} =~ s/\\/\\\\/g;
-		$newdata->{"field:$field"} =~ s/'/\\'/g;
+		$self->_clean_field(\$newdata->{"field:$field"});
 		push @fields_with_values, $field if $newdata->{"field:$field"};
 		my $field_bad = $self->_is_scheme_field_bad( $scheme_id, $field, $newdata->{"field:$field"} );
 		if ($field_bad) {
@@ -114,6 +122,7 @@ sub _upload {
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	foreach my $locus (@$loci) {
 		$newdata->{"locus:$locus"} = $q->param("locus:$locus");
+		$self->_clean_field(\$newdata->{"locus:$locus"});
 		my $field_bad = $self->is_locus_field_bad( $scheme_id, $locus, $newdata->{"locus:$locus"} );
 		push @bad_field_buffer, $field_bad if $field_bad;
 	}

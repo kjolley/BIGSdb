@@ -246,6 +246,8 @@ sub _check {
 					$value = $data[ $fileheaderPos{$field} ];
 				}
 			}
+			$value =~ s/^\s*//;
+			$value =~ s/\s*$//;
 			if ( $is_locus{$field} ) {
 				push @profile, $value;
 				$newdata{"locus:$field"} = $value;

@@ -121,6 +121,7 @@ sub _update {
 	my $set_id = $self->get_set_id;
 	foreach my $locus (@$loci) {
 		$newdata{"locus:$locus"} = $q->param("locus:$locus");
+		$self->_clean_field(\$newdata{"locus:$locus"});
 		my $field_bad = $self->is_locus_field_bad( $scheme_id, $locus, $newdata{"locus:$locus"} );
 		push @bad_field_buffer, $field_bad if $field_bad;
 		if ( $args->{'allele_data'}->{$locus} ne $newdata{"locus:$locus"} ) {
@@ -135,6 +136,7 @@ sub _update {
 	foreach my $field (@$scheme_fields) {
 		next if $field eq $args->{'primary_key'};
 		$newdata{"field:$field"} = $q->param("field:$field");
+		$self->_clean_field(\$newdata{"field:$field"});
 		my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 		if ( $field_info->{'type'} eq 'integer' && !BIGSdb::Utils::is_int( $newdata{"field:$field"} ) ) {
 			push @bad_field_buffer, "Field '$field' must be an integer.";
@@ -332,15 +334,10 @@ sub _print_interface {
 	say $self->get_curator_name() . ' (' . $self->{'username'} . ")</b></td></tr>";
 	say "<tr><td style=\"text-align:right\">date_entered: !</td><td><b>$args->{'profile_data'}->{'date_entered'}</b></td></tr>";
 	say "<tr><td style=\"text-align:right\">datestamp: !</td><td><b>" . $self->get_datestamp . "</b></td></tr>";
-	say "<tr><td>";
-	say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileUpdate&amp;scheme_id=$args->{'scheme_id'}&amp;"
-	  . "profile_id=$args->{'profile_data'}->{'profile_id'}\" class=\"resetbutton\">Reset</a>";
-	say "</td><td style=\"text-align:right\">";
-	say $q->submit( -name => 'Update', -class => 'submit' );
-	say "</td></tr>";
 	say "</table>";
+	$self->print_action_fieldset({scheme_id => $args->{'scheme_id'}, profile_id => $args->{'profile_id'}});
 	say $q->end_form;
-	say "</div>";
+	say "<div style=\"clear:both\"></div></div>";
 	return;
 }
 1;
