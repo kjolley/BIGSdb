@@ -1246,29 +1246,34 @@ sub _modify_isolate_query_for_filters {
 				my $scheme_loci  = $self->{'datastore'}->get_scheme_loci($scheme_id);
 				my $joined_table = "SELECT $view.id FROM $view";
 				foreach (@$scheme_loci) {
-					$joined_table .= " left join allele_designations AS $_ on $_.isolate_id = $self->{'system'}->{'view'}.id";
+					(my $locus = $_) =~ s/'/_PRIME_/g;
+					$joined_table .= " left join allele_designations AS $locus on $locus.isolate_id = $self->{'system'}->{'view'}.id";
 				}
 				$joined_table .= " left join temp_scheme_$scheme_id AS scheme_$scheme_id ON ";
 				my @temp;
 				foreach (@$scheme_loci) {
 					my $locus_info = $self->{'datastore'}->get_locus_info($_);
+					(my $locus = $_) =~ s/'/_PRIME_/g;
 					if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-						push @temp, " CAST($_.allele_id AS int)=scheme_$scheme_id\.$_";
+						push @temp, " CAST($locus.allele_id AS int)=scheme_$scheme_id\.$locus";
 					} else {
-						push @temp, " $_.allele_id=scheme_$scheme_id\.$_";
+						push @temp, " $locus.allele_id=scheme_$scheme_id\.$locus";
 					}
 				}
 				local $" = ' AND ';
 				$joined_table .= " @temp WHERE";
 				undef @temp;
 				foreach (@$scheme_loci) {
-					push @temp, "$_.locus='$_'";
+					(my $locus = $_) =~ s/'/_PRIME_/g;
+					(my $cleaned = $_) =~ s/'/\\'/g;
+					push @temp, "$locus.locus=E'$cleaned'";
 				}
 				$joined_table .= " @temp";
+				$value =~ s/'/\\'/g;
 				if ( $scheme_field_info->{'type'} eq 'integer' ) {
-					$clause = "($view.id IN ($joined_table AND CAST($field AS int) = '$value'))";
+					$clause = "($view.id IN ($joined_table AND CAST($field AS int) = E'$value'))";
 				} else {
-					$clause = "($view.id IN ($joined_table AND $field = '$value'))";
+					$clause = "($view.id IN ($joined_table AND $field = E'$value'))";
 				}
 				if ( $qry !~ /WHERE \(\)\s*$/ ) {
 					$qry .= "AND $clause";
