@@ -216,6 +216,7 @@ sub _print_query_interface {
 	say "</span></li>\n<li>";
 	say $self->get_number_records_control;
 	say "</li></ul></fieldset>";
+	say "<div style=\"clear:both\"></div>";
 	my @filters;
 	my %labels;
 
