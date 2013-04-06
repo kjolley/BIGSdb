@@ -366,10 +366,10 @@ sub print_field_export_form {
 	push @isolate_js2, @js2;
 	foreach my $field (@display_fields) {
 		( my $id = "f_$field" ) =~ tr/:/_/;
-		push @js,          "\$(\"#$id\").attr(\"checked\",true)";
-		push @js2,         "\$(\"#$id\").attr(\"checked\",false)";
-		push @isolate_js,  "\$(\"#$id\").attr(\"checked\",true)";
-		push @isolate_js2, "\$(\"#$id\").attr(\"checked\",false)";
+		push @js,          "\$(\"#$id\").prop(\"checked\",true)";
+		push @js2,         "\$(\"#$id\").prop(\"checked\",false)";
+		push @isolate_js,  "\$(\"#$id\").prop(\"checked\",true)";
+		push @isolate_js2, "\$(\"#$id\").prop(\"checked\",false)";
 	}
 	say $q->start_form;
 	say "<fieldset style=\"float:left\"><legend>Isolate fields</legend>";
@@ -382,10 +382,10 @@ sub print_field_export_form {
 		if (@$composites) {
 			my ( @com_js, @com_js2 );
 			foreach (@$composites) {
-				push @js,      "\$(\"#c_$_\").attr(\"checked\",true)";
-				push @js2,     "\$(\"#c_$_\").attr(\"checked\",false)";
-				push @com_js,  "\$(\"#c_$_\").attr(\"checked\",true)";
-				push @com_js2, "\$(\"#c_$_\").attr(\"checked\",false)";
+				push @js,      "\$(\"#c_$_\").prop(\"checked\",true)";
+				push @js2,     "\$(\"#c_$_\").prop(\"checked\",false)";
+				push @com_js,  "\$(\"#c_$_\").prop(\"checked\",true)";
+				push @com_js2, "\$(\"#c_$_\").prop(\"checked\",false)";
 			}
 			print "<fieldset style=\"float:left\"><legend>Composite fields";
 			print " <a class=\"tooltip\" title=\"Composite fields - These are constructed from combinations of other fields "

@@ -122,8 +122,8 @@ HTML
 		}
 		my $cleaned_id = $self->clean_checkbox_id($id);
 		print $q->checkbox( -name => $id, -id => $cleaned_id, -label => '', -checked => 'checked' );
-		push @js,  "\$(\"#$cleaned_id\").attr(\"checked\",true)";
-		push @js2, "\$(\"#$cleaned_id\").attr(\"checked\",false)";
+		push @js,  "\$(\"#$cleaned_id\").prop(\"checked\",true)";
+		push @js2, "\$(\"#$cleaned_id\").prop(\"checked\",false)";
 		print "</td>";
 		my @args = ( \@display, $data, $prefstore, $guid, \$updated, \$not_default );
 		if ( $table eq 'loci' ) {

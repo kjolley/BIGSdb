@@ -271,7 +271,7 @@ sub get_javascript {
 	my ($self) = @_;
 	my $buffer = << "END";
 function listbox_selectall(listID, isSelect) {
-	\$("#" + listID + " option").attr("selected",isSelect);
+	\$("#" + listID + " option").prop("selected",isSelect);
 }
 END
 	return $buffer;

@@ -179,12 +179,12 @@ sub _print_access_table {
 		  . "</td><td style=\"text-align:center\">"
 		  . $q->checkbox( -name => "$type\_write\_$id", -label => '', -checked => $write, -id => "$type\_write_$id" )
 		  . "</td></tr>\n";
-		push @js,  "\$(\"#$type\_select_$id\").attr(\"checked\",true)";
-		push @js2, "\$(\"#$type\_select_$id\").attr(\"checked\",false)";
-		push @js3, "\$(\"#$type\_read_$id\").attr(\"checked\",true)";
-		push @js4, "\$(\"#$type\_read_$id\").attr(\"checked\",false)";
-		push @js5, "\$(\"#$type\_write_$id\").attr(\"checked\",true)";
-		push @js6, "\$(\"#$type\_write_$id\").attr(\"checked\",false)";
+		push @js,  "\$(\"#$type\_select_$id\").prop(\"checked\",true)";
+		push @js2, "\$(\"#$type\_select_$id\").prop(\"checked\",false)";
+		push @js3, "\$(\"#$type\_read_$id\").prop(\"checked\",true)";
+		push @js4, "\$(\"#$type\_read_$id\").prop(\"checked\",false)";
+		push @js5, "\$(\"#$type\_write_$id\").prop(\"checked\",true)";
+		push @js6, "\$(\"#$type\_write_$id\").prop(\"checked\",false)";
 		$td = $td == 1 ? 2 : 1;
 		$count++;
 	}

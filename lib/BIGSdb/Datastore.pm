@@ -799,7 +799,7 @@ sub create_temp_scheme_table {
 		$logger->error($@) if $@;
 		my ($profile_name) = $sql->fetchrow_array;
 		$locus =~ s/'/_PRIME_/g;
-		$profile_name =~ s/'/_PRIME_/g;
+		$profile_name =~ s/'/_PRIME_/g if defined $profile_name;
 		push @table_fields, "$locus $type";
 		push @query_loci, $profile_name || $locus;
 	}

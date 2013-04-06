@@ -51,7 +51,6 @@ use BIGSdb::CurateTableHeaderPage;
 use BIGSdb::CurateTagScanPage;
 use BIGSdb::CurateTagUpdatePage;
 use BIGSdb::CurateUpdatePage;
-
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
@@ -110,12 +109,12 @@ sub print_page {
 		seqbin             => 'SeqbinPage',
 		embl               => 'SeqbinToEMBL',
 		configCheck        => 'ConfigCheckPage',
-		configRepair		 => 'ConfigRepairPage',
+		configRepair       => 'ConfigRepairPage',
 		changePassword     => 'ChangePasswordPage',
 		setPassword        => 'ChangePasswordPage',
 		profileInfo        => 'ProfileInfoPage',
 		alleleInfo         => 'AlleleInfoPage',
-		alleleQuery		 => 'AlleleQueryPage',
+		alleleQuery        => 'AlleleQueryPage',
 		isolateACL         => 'CurateIsolateACLPage',
 		fieldValues        => 'FieldHelpPage',
 		tableQuery         => 'TableQueryPage',
@@ -125,7 +124,7 @@ sub print_page {
 		alleleSequence     => 'AlleleSequencePage',
 		options            => 'OptionsPage',
 		exportConfig       => 'CurateExportConfig',
-		setAlleleFlags	 => 'CurateBatchSetAlleleFlagsPage',
+		setAlleleFlags     => 'CurateBatchSetAlleleFlagsPage',
 		memberUpdate       => 'CurateMembersPage'
 	);
 	my %page_attributes = (
@@ -161,7 +160,7 @@ sub print_page {
 		  $self->{'datastore'}->run_simple_query( "SELECT status FROM users WHERE user_name=?", $page_attributes{'username'} )->[0];
 	};
 	$logger->error($@) if $@;
-	if ( !defined $user_status || ($user_status ne 'admin' && $user_status ne 'curator' )) {
+	if ( !defined $user_status || ( $user_status ne 'admin' && $user_status ne 'curator' ) ) {
 		$page_attributes{'error'} = 'invalidCurator';
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
 		$page->print_page_content;
@@ -172,14 +171,14 @@ sub print_page {
 	} elsif ( !$self->{'prefstore'} ) {
 		$page_attributes{'error'} = 'noPrefs';
 		$page_attributes{'fatal'} = $self->{'fatal'};
-		$page = BIGSdb::ErrorPage->new(%page_attributes);
+		$page                     = BIGSdb::ErrorPage->new(%page_attributes);
 	} elsif ( ( $self->{'system'}->{'disable_updates'} && $self->{'system'}->{'disable_updates'} eq 'yes' )
 		|| ( $self->{'config'}->{'disable_updates'} && $self->{'config'}->{'disable_updates'} eq 'yes' ) )
 	{
 		$page_attributes{'error'}   = 'disableUpdates';
 		$page_attributes{'message'} = $self->{'config'}->{'disable_update_message'} || $self->{'system'}->{'disable_update_message'};
 		$page_attributes{'fatal'}   = $self->{'fatal'};
-		$page = BIGSdb::ErrorPage->new(%page_attributes);
+		$page                       = BIGSdb::ErrorPage->new(%page_attributes);
 	} elsif ( $classes{ $self->{'page'} } ) {
 		if ( ref $auth_cookies_ref eq 'ARRAY' ) {
 			foreach (@$auth_cookies_ref) {

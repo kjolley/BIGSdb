@@ -75,31 +75,31 @@ function enable_seqs(){
 	if (\$("#accession").val() || \$("#ref_upload").val() || \$("#annotation").val()){
 		\$("#scheme_fieldset").hide(500);
 		\$("#locus_fieldset").hide(500);
-		\$("#tblastx").attr("disabled", false);
-		\$("#use_tagged").attr("disabled", true);
+		\$("#tblastx").prop("disabled", false);
+		\$("#use_tagged").prop("disabled", true);
 	} else {
 		\$("#scheme_fieldset").show(500);
 		\$("#locus_fieldset").show(500);
-		\$("#tblastx").attr("disabled", true);
-		\$("#use_tagged").attr("disabled", false);
+		\$("#tblastx").prop("disabled", true);
+		\$("#use_tagged").prop("disabled", false);
 	}
-	if (\$("#calc_distances").attr("checked")){
-		\$("#align").attr("checked", true);
-		\$("#align_all").attr("checked", true);
-		\$("#include_ref").attr("checked", false);
+	if (\$("#calc_distances").prop("checked")){
+		\$("#align").prop("checked", true);
+		\$("#align_all").prop("checked", true);
+		\$("#include_ref").prop("checked", false);
 	} else {
-		\$("#align").attr("disabled", false);
+		\$("#align").prop("disabled", false);
 	}
-	if (\$("#align").attr("checked")){
-		\$("#align_all").attr("disabled", false);
+	if (\$("#align").prop("checked")){
+		\$("#align_all").prop("disabled", false);
 	} else {
-		\$("#align_all").attr("disabled", true);
+		\$("#align_all").prop("disabled", true);
 	}
 
-	if ((\$("#accession").val() || \$("#ref_upload").val() || \$("#annotation").val()) && \$("#align").attr('checked')){
-		\$("#include_ref").attr("disabled", false);
+	if ((\$("#accession").val() || \$("#ref_upload").val() || \$("#annotation").val()) && \$("#align").prop('checked')){
+		\$("#include_ref").prop("disabled", false);
 	} else {
-		\$("#include_ref").attr("disabled", true);
+		\$("#include_ref").prop("disabled", true);
 	}
 }
 

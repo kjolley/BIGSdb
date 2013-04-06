@@ -45,7 +45,7 @@ sub get_javascript {
 	my %check_values = ( on => 'true', off => 'false' );
 	my $buffer = << "END";
 function listbox_selectall(listID, isSelect) {
-	\$("#" + listID + " option").attr("selected",isSelect);
+	\$("#" + listID + " option").prop("selected",isSelect);
 }
 
 function use_defaults() {
@@ -55,11 +55,11 @@ function use_defaults() {
 	\$("#partial_matches").val($PARTIAL_MATCHES);
 	\$("#limit_matches").val($LIMIT_MATCHES);
 	\$("#limit_time").val($LIMIT_TIME);
-	\$("#tblastx").attr(\"checked\",$check_values{$TBLASTX});
-	\$("#hunt").attr(\"checked\",$check_values{$HUNT});
-	\$("#rescan_alleles").attr(\"checked\",$check_values{$RESCAN_ALLELES});
-	\$("#rescan_seqs").attr(\"checked\",$check_values{$RESCAN_SEQS});
-	\$("#mark_missing").attr(\"checked\",$check_values{$MARK_MISSING});
+	\$("#tblastx").prop(\"checked\",$check_values{$TBLASTX});
+	\$("#hunt").prop(\"checked\",$check_values{$HUNT});
+	\$("#rescan_alleles").prop(\"checked\",$check_values{$RESCAN_ALLELES});
+	\$("#rescan_seqs").prop(\"checked\",$check_values{$RESCAN_SEQS});
+	\$("#mark_missing").prop(\"checked\",$check_values{$MARK_MISSING});
 }
 	
 END
@@ -917,8 +917,8 @@ sub _print_row {
 			-checked => $exact
 		);
 		say $q->hidden( "id_$isolate_id\_$locus\_seqbin_id_$id", $match->{'seqbin_id'} );
-		push @$js,  "\$(\"#id_$isolate_id\_$cleaned_locus\_allele_$id\").attr(\"checked\",true)";
-		push @$js2, "\$(\"#id_$isolate_id\_$cleaned_locus\_allele_$id\").attr(\"checked\",false)";
+		push @$js,  "\$(\"#id_$isolate_id\_$cleaned_locus\_allele_$id\").prop(\"checked\",true)";
+		push @$js2, "\$(\"#id_$isolate_id\_$cleaned_locus\_allele_$id\").prop(\"checked\",false)";
 		$new_designation = 1;
 	} else {
 		say $q->checkbox( -name => "id_$isolate_id\_$locus\_allele_$id", -label => '', disabled => 'disabled' );
@@ -935,8 +935,8 @@ sub _print_row {
 			-label   => '',
 			-checked => $exact
 		);
-		push @$js3, "\$(\"#id_$isolate_id\_$cleaned_locus\_sequence_$id\").attr(\"checked\",true)";
-		push @$js4, "\$(\"#id_$isolate_id\_$cleaned_locus\_sequence_$id\").attr(\"checked\",false)";
+		push @$js3, "\$(\"#id_$isolate_id\_$cleaned_locus\_sequence_$id\").prop(\"checked\",true)";
+		push @$js4, "\$(\"#id_$isolate_id\_$cleaned_locus\_sequence_$id\").prop(\"checked\",false)";
 		$new_designation = 1;
 		say "</td><td>";
 		my ($default_flags);
@@ -1010,8 +1010,8 @@ sub _get_missing_row {
 		-checked => 'checked'
 	);
 	$buffer .= $q->hidden( "id_$isolate_id\_$locus\_allele_id_1", 0 );
-	push @$js,  "\$(\"#id_$isolate_id\_$cleaned_locus\_allele_1\").attr(\"checked\",true)";
-	push @$js2, "\$(\"#id_$isolate_id\_$cleaned_locus\_allele_1\").attr(\"checked\",false)";
+	push @$js,  "\$(\"#id_$isolate_id\_$cleaned_locus\_allele_1\").prop(\"checked\",true)";
+	push @$js2, "\$(\"#id_$isolate_id\_$cleaned_locus\_allele_1\").prop(\"checked\",false)";
 	$buffer .= "</td><td /><td />";
 	$buffer .= "</tr>\n";
 	return $buffer;

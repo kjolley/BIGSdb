@@ -391,11 +391,11 @@ HTML
 				-label   => $metafield // $field
 			);
 			say "</li>";
-			push @js,  "\$(\"#$id\").attr(\"checked\",true)";
-			push @js2, "\$(\"#$id\").attr(\"checked\",false)";
+			push @js,  "\$(\"#$id\").prop(\"checked\",true)";
+			push @js2, "\$(\"#$id\").prop(\"checked\",false)";
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 			my $value = ( $thisfield->{'maindisplay'} // '' ) eq 'no' ? 'false' : 'true';
-			push @js3, "\$(\"#$id\").attr(\"checked\",$value)";
+			push @js3, "\$(\"#$id\").prop(\"checked\",$value)";
 			$i++;
 			$self->_check_new_column( scalar @field_names, \$i, \$cols, $rel_widths, DISPLAY_COLUMNS );
 			my $extatt = $self->{'extended'}->{$field};
@@ -411,9 +411,9 @@ HTML
 						-label   => "$field..$extended_attribute"
 					);
 					say "</li>";
-					push @js,  "\$(\"#extended_$field\___$extended_attribute\").attr(\"checked\",true)";
-					push @js2, "\$(\"#extended_$field\___$extended_attribute\").attr(\"checked\",false)";
-					push @js3, "\$(\"#extended_$field\___$extended_attribute\").attr(\"checked\",false)";
+					push @js,  "\$(\"#extended_$field\___$extended_attribute\").prop(\"checked\",true)";
+					push @js2, "\$(\"#extended_$field\___$extended_attribute\").prop(\"checked\",false)";
+					push @js3, "\$(\"#extended_$field\___$extended_attribute\").prop(\"checked\",false)";
 					$i++;
 					$self->_check_new_column( scalar @field_names, \$i, \$cols, $rel_widths, DISPLAY_COLUMNS );
 				}
@@ -428,11 +428,11 @@ HTML
 					-label   => 'aliases'
 				);
 				say "</li>";
-				push @js,  "\$(\"#field_aliases\").attr(\"checked\",true)";
-				push @js2, "\$(\"#field_aliases\").attr(\"checked\",false)";
+				push @js,  "\$(\"#field_aliases\").prop(\"checked\",true)";
+				push @js2, "\$(\"#field_aliases\").prop(\"checked\",false)";
 				my $value =
 				  $self->{'system'}->{'maindisplay_aliases'} && $self->{'system'}->{'maindisplay_aliases'} eq 'yes' ? 'true' : 'false';
-				push @js3, "\$(\"#field_aliases\").attr(\"checked\",$value)";
+				push @js3, "\$(\"#field_aliases\").prop(\"checked\",$value)";
 				$i++;
 				$self->_check_new_column( scalar @field_names, \$i, \$cols, $rel_widths, DISPLAY_COLUMNS );
 			}
@@ -449,10 +449,10 @@ HTML
 					-label   => $_
 				);
 				say "</li>";
-				push @js,  "\$(\"#field_$_\").attr(\"checked\",true)";
-				push @js2, "\$(\"#field_$_\").attr(\"checked\",false)";
+				push @js,  "\$(\"#field_$_\").prop(\"checked\",true)";
+				push @js2, "\$(\"#field_$_\").prop(\"checked\",false)";
 				my $value = $composite_main_display{$_} ? 'true' : 'false';
-				push @js3, "\$(\"#field_$_\").attr(\"checked\",$value)";
+				push @js3, "\$(\"#field_$_\").prop(\"checked\",$value)";
 				$i++;
 				$self->_check_new_column( scalar @field_names, \$i, \$cols, $rel_widths, DISPLAY_COLUMNS );
 			}
@@ -528,8 +528,8 @@ HTML
 				-label   => $labels{$field} || ( $metafield // $field )
 			);
 			say "</li>";
-			push @js,  "\$(\"#$id\").attr(\"checked\",true)";
-			push @js2, "\$(\"#$id\").attr(\"checked\",false)";
+			push @js,  "\$(\"#$id\").prop(\"checked\",true)";
+			push @js2, "\$(\"#$id\").prop(\"checked\",false)";
 			my $value;
 
 			if ( $field =~ /^scheme_(\d+)_profile_status/ ) {
@@ -539,7 +539,7 @@ HTML
 				my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 				$value = ( ( $thisfield->{'dropdown'} // '' ) eq 'yes' ) ? 'true' : 'false';
 			}
-			push @js3, "\$(\"#$id\").attr(\"checked\",$value)";
+			push @js3, "\$(\"#$id\").prop(\"checked\",$value)";
 			$i++;
 			$self->_check_new_column( scalar @field_names, \$i, \$cols, $rel_widths, QUERY_FILTER_COLUMNS );
 		}
@@ -555,9 +555,9 @@ HTML
 					-label   => "$field\..$extended_attribute"
 				);
 				say "</li>";
-				push @js,  "\$(\"#dropfield_e_$field\___$extended_attribute\").attr(\"checked\",true)";
-				push @js2, "\$(\"#dropfield_e_$field\___$extended_attribute\").attr(\"checked\",false)";
-				push @js3, "\$(\"#dropfield_e_$field\___$extended_attribute\").attr(\"checked\",false)";
+				push @js,  "\$(\"#dropfield_e_$field\___$extended_attribute\").prop(\"checked\",true)";
+				push @js2, "\$(\"#dropfield_e_$field\___$extended_attribute\").prop(\"checked\",false)";
+				push @js3, "\$(\"#dropfield_e_$field\___$extended_attribute\").prop(\"checked\",false)";
 				$i++;
 				$self->_check_new_column( scalar @field_names, \$i, \$cols, $rel_widths, QUERY_FILTER_COLUMNS );
 			}

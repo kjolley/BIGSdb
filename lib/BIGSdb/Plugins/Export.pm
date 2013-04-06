@@ -54,10 +54,10 @@ sub get_attributes {
 sub get_plugin_javascript {
 	my $js = << "END";
 function enable_controls(){
-	if (\$("#m_references").attr('checked')){
-		\$("input:radio[name='ref_type']").attr("disabled", false);
+	if (\$("#m_references").prop("checked")){
+		\$("input:radio[name='ref_type']").prop("disabled", false);
 	} else {
-		\$("input:radio[name='ref_type']").attr("disabled", true);
+		\$("input:radio[name='ref_type']").prop("disabled", true);
 	}
 }
 
