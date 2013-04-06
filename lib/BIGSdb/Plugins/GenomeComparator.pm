@@ -440,7 +440,7 @@ HTML
 		-name  => 'calc_distances',
 		-id    => 'calc_distances',
 		-label => 'Calculate mean distances',
-		, -onChange => 'enable_seqs()'
+		-onChange => 'enable_seqs()'
 	);
 	print <<"HTML";
  <a class="tooltip" title="Mean distance - This requires performing alignments of sequences so will take longer to perform.">
@@ -450,6 +450,7 @@ HTML
 	$self->print_sequence_filter_fieldset;
 	$self->print_action_fieldset( { name => 'GenomeComparator' } );
 	say $q->hidden($_) foreach qw (page name db);
+	say "</div>";
 	say $q->end_form;
 	say "</div>";
 	return;
