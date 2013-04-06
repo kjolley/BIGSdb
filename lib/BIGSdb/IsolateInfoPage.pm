@@ -369,7 +369,7 @@ sub _get_provenance_fields {
 						$title .= "more ...";
 					}
 					$buffer .= "<tr class=\"td$$td_ref\"><th>update history</th><td style=\"text-align:left\" colspan=\"5\">";
-					$buffer .= "<a title=\"$title\" class=\"pending_tooltip\">";
+					$buffer .= "<a title=\"$title\" class=\"update_tooltip\">";
 					$buffer .= "$num_changes update$plural</a>";
 					my $refer_page = $q->param('page');
 					$buffer .=
