@@ -93,10 +93,12 @@ sub get_title {
 
 sub get_javascript {
 	my ($self) = @_;
+	my $filter_collapse = $self->_filters_selected ? 'false' : 'true';
 	my $buffer = $self->SUPER::get_javascript;
 	$buffer .= << "END";
 \$(function () {
-  	\$('fieldset').coolfieldset({speed:"fast", collapsed:true});
+  	\$('#filters_fieldset').coolfieldset({speed:"fast", collapsed:$filter_collapse});
+  	\$('#filters_fieldset').show();
  });
 END
 	return $buffer;
@@ -318,14 +320,25 @@ sub _print_query_interface {
 		  );
 	}
 	if (@filters) {
-		my $class_clause = @filters>2 ? ' class="coolfieldset"' : '';
-		say "<fieldset style=\"float:left\"$class_clause>\n<legend>Filter query by</legend>\n<div><ul>";
+		if (@filters > 2){
+			say "<fieldset id=\"filters_fieldset\" style=\"float:left;display:none\" class=\"coolfieldset\">\n<legend>Filter query by</legend>";
+		} else {
+			say "<fieldset style=\"float:left\">\n<legend>Filter query by</legend>";
+		}
+		say "<div><ul>";
 		say "<li><span style=\"white-space:nowrap\">$_</span></li>" foreach @filters;
 		say "</ul>\n</div></fieldset>";
 	}
 	$self->print_action_fieldset( { page => 'tableQuery', table => $table } );
 	say $q->endform;
 	say "</div></div>";
+	return;
+}
+
+sub _filters_selected {
+	my ($self) = @_;
+	my %params = $self->{'cgi'}->Vars;
+	return 1 if any { $_ =~ /_list$/ && $params{$_} ne '' } keys %params;
 	return;
 }
 
@@ -489,8 +502,8 @@ sub _run_query {
 			my $param = $_->{'name'} . '_list';
 			if ( defined $q->param($param) && $q->param($param) ne '' ) {
 				my $value;
-				if ($_->{'name'} eq 'locus'){
-					($value = $q->param('locus_list')) =~ s/^cn_//;
+				if ( $_->{'name'} eq 'locus' ) {
+					( $value = $q->param('locus_list') ) =~ s/^cn_//;
 				} else {
 					$value = $q->param($param);
 				}
@@ -800,8 +813,8 @@ sub _are_only_int_allele_ids_used {
 	  $self->{'datastore'}->run_simple_query( "SELECT EXISTS(SELECT * FROM loci WHERE allele_id_format=?)", 'text' )->[0];
 	return 1 if !$any_text_ids_used;
 	if ( $q->param('locus_list') ) {
-		(my $locus = $q->param('locus_list')) =~ s/^cn_//;
-		my $locus_info = $self->{'datastore'}->get_locus_info( $locus );
+		( my $locus = $q->param('locus_list') ) =~ s/^cn_//;
+		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		return 1 if $locus_info->{'allele_id_format'} eq 'integer';
 	}
 	return;
