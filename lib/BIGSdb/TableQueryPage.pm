@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::QueryPage);
-use List::MoreUtils qw(any uniq);
+use List::MoreUtils qw(none any uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant MAX_ROWS => 20;
@@ -320,8 +320,9 @@ sub _print_query_interface {
 		  );
 	}
 	if (@filters) {
-		if (@filters > 2){
-			say "<fieldset id=\"filters_fieldset\" style=\"float:left;display:none\" class=\"coolfieldset\">\n<legend>Filter query by</legend>";
+		if ( @filters > 2 ) {
+			say
+"<fieldset id=\"filters_fieldset\" style=\"float:left;display:none\" class=\"coolfieldset\">\n<legend>Filter query by</legend>";
 		} else {
 			say "<fieldset style=\"float:left\">\n<legend>Filter query by</legend>";
 		}
@@ -448,6 +449,8 @@ sub _run_query {
 				}
 			}
 		}
+		$self->_modify_isolates_for_view( $table, \$qry );
+		$self->_modify_seqbin_for_view( $table, \$qry );
 		$self->_modify_loci_for_sets( $table, \$qry );
 		$self->_modify_schemes_for_sets( $table, \$qry );
 		if (   ( $q->param('scheme_id_list') // '' ) ne ''
@@ -577,6 +580,29 @@ s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bi
 		$qry .= " $dir,$table.@primary_keys;";
 		$self->paged_display( $table, $qry, '', \@hidden_attributes );
 		print "<p />\n";
+	}
+	return;
+}
+
+
+sub _modify_isolates_for_view {
+	my ( $self, $table, $qry_ref ) = @_;
+	return if none {$table eq $_} qw(allele_designations isolate_aliases project_members refs sequence_bin); 
+	my $view = $self->{'system'}->{'view'};
+	if ( $view ne 'isolates' ) {
+		$$qry_ref .= ' AND ' if $$qry_ref;
+		$$qry_ref .= " ($table.isolate_id IN (SELECT id FROM $view))";
+	}
+	return;
+}
+
+sub _modify_seqbin_for_view {
+	my ( $self, $table, $qry_ref ) = @_;
+	return if none {$table eq $_} qw(allele_sequences experiment_sequences); 
+	my $view = $self->{'system'}->{'view'};
+	if ( $view ne 'isolates' ) {
+		$$qry_ref .= ' AND ' if $$qry_ref;
+		$$qry_ref .= " ($table.seqbin_id IN (SELECT id FROM sequence_bin WHERE isolate_id IN (SELECT id FROM $view)))";
 	}
 	return;
 }
