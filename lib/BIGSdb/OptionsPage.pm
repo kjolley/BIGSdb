@@ -110,11 +110,9 @@ sub get_title {
 
 sub set_options {
 	my ($self)     = @_;
-	my $stylesheet = $self->get_stylesheet;
 	my $q          = $self->{'cgi'};
 	my $prefs      = $self->{'prefs'};
 	my $prefstore  = $self->{'prefstore'};
-	my $system     = $self->{'system'};
 	if ( $q->param('set') ) {
 		my $guid = $self->get_guid;
 		return if !$guid;
