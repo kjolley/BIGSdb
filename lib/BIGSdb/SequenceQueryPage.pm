@@ -348,7 +348,10 @@ sub _output_scheme_fields {
 		my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		if ( @$scheme_fields && @$scheme_loci ) {
 			my ( @profile, @placeholders );
+			my @cleaned_loci;
 			foreach (@$scheme_loci) {
+				(my $cleaned_locus = $_) =~ s/'/_PRIME_/g;
+				push @cleaned_loci, $cleaned_locus;
 				push @profile,      $designations->{$_};
 				push @placeholders, '?';
 			}
@@ -356,7 +359,7 @@ sub _output_scheme_fields {
 				local $" = ',';
 				my $values =
 				  $self->{'datastore'}
-				  ->run_simple_query_hashref( "SELECT @$scheme_fields FROM scheme_$scheme_id WHERE (@$scheme_loci) = (@placeholders)",
+				  ->run_simple_query_hashref( "SELECT @$scheme_fields FROM scheme_$scheme_id WHERE (@cleaned_loci) = (@placeholders)",
 					@profile );
 				my $set_id = $self->get_set_id;
 				my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
