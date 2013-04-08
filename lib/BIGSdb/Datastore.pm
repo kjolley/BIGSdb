@@ -838,15 +838,26 @@ sub create_temp_scheme_table {
 		$self->{'db'}->rollback;
 		throw BIGSdb::DatabaseConnectionException("Can't put data into temp table");
 	}
-	if ( @$loci <= 32 ) {    #By default PostgreSQL will not allow indexes with more than 32 columns
-		local $" = ',';
-		eval { $self->{'db'}->do("CREATE INDEX i_$id ON temp_scheme_$id (@$loci)"); };
-		$logger->warn("Can't create index") if $@;
+	local $" = ',';
+
+	#Create separate indices consisting of up to 10 loci each
+	my $i     = 0;
+	my $index = 1;
+	my @temp_loci;
+	foreach my $locus (@$loci) {
+		push @temp_loci, $locus;
+		$i++;
+		if ( $i % 10 == 0 || $i == @$loci ) {
+			eval { $self->{'db'}->do("CREATE INDEX i_$id\_$index ON temp_scheme_$id (@temp_loci)"); };
+			$logger->warn("Can't create index $@") if $@;
+			$index++;
+			undef @temp_loci;
+		}
 	}
 	foreach (@$fields) {
 		$self->{'db'}->do("CREATE INDEX i_$id\_$_ ON temp_scheme_$id ($_)");
 		$self->{'db'}->do("UPDATE temp_scheme_$id SET $_ = null WHERE $_='-999'")
-		  ;                  #Needed as old style profiles database stored null values as '-999'.
+		  ;    #Needed as old style profiles database stored null values as '-999'.
 	}
 	return "temp_scheme_$id";
 }
