@@ -37,7 +37,7 @@ sub get_attributes {
 		buttontext  => 'Schemes/alleles',
 		menutext    => 'Scheme and alleles',
 		module      => 'SchemeBreakdown',
-		version     => '1.1.1',
+		version     => '1.1.2',
 		section     => 'breakdown,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/scheme_breakdown.shtml',
 		input       => 'query',
@@ -373,7 +373,33 @@ sub _print_scheme_table {
 	say "</tr>";
 	my $td = 1;
 	say "<tr class=\"td$td\">";
+	my $field_values;
 
+	if ( $scheme_info->{'dbase_name'} && @$fields ) {
+		my $scheme_query = $$scheme_fields_qry;
+		if ( $$qry_ref =~ /SELECT \* FROM refs/ || $$qry_ref =~ /SELECT \* FROM $self->{'system'}->{'view'} LEFT JOIN refs/ ) {
+			$scheme_query =~ s/FROM $self->{'system'}->{'view'}/FROM $self->{'system'}->{'view'} LEFT JOIN refs ON refs.isolate_id=id/;
+		}
+		if ( $$qry_ref =~ /WHERE (.*)$/ ) {
+			$scheme_query .= " AND ($1)";
+		}
+		local $" = ",scheme_$scheme_id.";
+		my $field_string = "scheme_$scheme_id.@$fields";
+		$scheme_query =~ s/\*/$field_string/;
+		my $sql = $self->{'db'}->prepare($scheme_query);
+		$logger->debug($scheme_query);
+		eval { $sql->execute };
+		$logger->error($@) if $@;
+		my $data = $sql->fetchall_arrayref;
+
+		foreach my $values (@$data) {
+			my $i = 0;
+			foreach my $field (@$fields) {
+				$field_values->{$field}->{ $values->[$i] } = 1 if defined $values->[$i];
+				$i++;
+			}
+		}
+	}
 	for my $i ( 0 .. $rows - 1 ) {
 		say "<tr class=\"td$td\">" if $i;
 		my $display;
@@ -382,20 +408,7 @@ sub _print_scheme_table {
 			$display =~ tr/_/ /;
 			say "<td>$display</td>";
 			if ( $scheme_info->{'dbase_name'} && @$fields && $fields->[$i] ) {
-				my $scheme_query = $$scheme_fields_qry;
-				$scheme_query =~ s/\*/COUNT (DISTINCT(scheme_$scheme_id\.$fields->[$i]))/;
-				if ( $$qry_ref =~ /SELECT \* FROM refs/ || $$qry_ref =~ /SELECT \* FROM $self->{'system'}->{'view'} LEFT JOIN refs/ ) {
-					$scheme_query =~
-					  s/FROM $self->{'system'}->{'view'}/FROM $self->{'system'}->{'view'} LEFT JOIN refs ON refs.isolate_id=id/;
-				}
-				if ( $$qry_ref =~ /WHERE (.*)$/ ) {
-					$scheme_query .= " AND ($1)";
-				}
-				my $sql = $self->{'db'}->prepare($scheme_query);
-				$logger->debug($scheme_query);
-				eval { $sql->execute };
-				$logger->error($@) if $@;
-				my ($value) = $sql->fetchrow_array;
+				my $value = keys %{ $field_values->{ $fields->[$i] } };
 				say "<td>$value</td><td>";
 				if ($value) {
 					say $q->start_form;
@@ -495,16 +508,16 @@ sub _download_alleles {
 			$seq_ref = BIGSdb::Utils::break_line( $seq_ref, 60 );
 			say ">$_->{'allele_id'}";
 			say $$seq_ref;
-		} 
+		}
 	}
 	return;
 }
 
 sub _get_scheme_fields_sql {
 	my ( $self, $scheme_id ) = @_;
-	my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $scheme_info   = $self->{'datastore'}->get_scheme_info($scheme_id);
-	my $joined_table  = "SELECT * FROM $self->{'system'}->{'view'}";
+	my $scheme_loci  = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $scheme_info  = $self->{'datastore'}->get_scheme_info($scheme_id);
+	my $joined_table = "SELECT * FROM $self->{'system'}->{'view'}";
 	foreach (@$scheme_loci) {
 		( my $cleaned_locus = $_ ) =~ s/'/_PRIME_/g;
 		( my $escaped_locus = $_ ) =~ s/'/\\'/g;
