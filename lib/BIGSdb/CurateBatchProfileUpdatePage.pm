@@ -79,7 +79,7 @@ HTML
 		say "</li></ul></fieldset>";
 		say "<p>Please paste in your data below:</p>";
 		say $q->textarea( -name => 'data', -rows => 15, -columns => 40, -override => 1 );
-		$self->print_action_fieldset({scheme_id => $scheme_id});
+		$self->print_action_fieldset( { scheme_id => $scheme_id } );
 		say $q->endform;
 		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>";
 	}
@@ -344,7 +344,8 @@ sub _update {
 			}
 		}
 		$tablebuffer .= "<tr class=\"td$td\"><td>$id</td>";
-		$value //= '&lt;blank&gt;';
+		$value     //= '&lt;blank&gt;';
+		$old_value //= '&lt;blank&gt;';
 		$tablebuffer .= "<td>$mapped{$field}</td><td>$old_value</td><td>$value</td>";
 		$changes = 1 if @updates;
 		eval { $self->{'db'}->do($_) foreach @updates };
