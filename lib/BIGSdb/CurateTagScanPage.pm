@@ -187,11 +187,7 @@ sub _print_interface {
 	say "<li>$buffer</li>" if $buffer;
 	say "</ul></fieldset>";
 	say "</div>";
-	say "<table style=\"width:95%\"><tr><td style=\"text-align:left\">";
-	say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan\" class=\"resetbutton\">Reset</a></td>"
-	  . "<td style=\"text-align:right\" colspan=\"3\">";
-	say $q->submit( -name => 'scan', -label => 'Scan', -class => 'submit' );
-	say "</td></tr></table>";
+	$self->print_action_fieldset( { submit_label => 'Scan' } );
 	say $q->hidden($_) foreach qw (page db);
 	say $q->end_form;
 	say "</div>";
@@ -746,7 +742,7 @@ sub print_content {
 	$self->_print_interface( $ids, $labels );
 	if ( $q->param('tag') ) {
 		$self->_tag($labels);
-	} elsif ( $q->param('scan') ) {
+	} elsif ( $q->param('submit') ) {
 		$self->_scan($labels);
 	}
 	return;
@@ -864,7 +860,7 @@ sub _print_row {
 	}
 	my $cleaned_locus = $self->clean_locus($locus);
 	my $locus_info    = $self->{'datastore'}->get_locus_info($locus);
-	my $translate     = ($locus_info->{'coding_sequence'} || $locus_info->{'data_type'} eq 'peptide') ? 1 : 0;
+	my $translate     = ( $locus_info->{'coding_sequence'} || $locus_info->{'data_type'} eq 'peptide' ) ? 1 : 0;
 	my $orf           = $locus_info->{'orf'} || 1;
 	if ($warning) {
 		print "<tr class=\"warning\">";
