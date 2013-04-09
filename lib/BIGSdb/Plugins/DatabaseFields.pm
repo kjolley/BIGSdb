@@ -72,7 +72,7 @@ sub _print_fields {
 	foreach my $field (@$field_list) {
 		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-		$thisfield->{'comments'} = '' if !$thisfield->{'comments'};
+		$thisfield->{'comments'} //= '';
 		print "<tr class=\"td$td\"><td>"
 		  . ( $metafield // $field )
 		  . "</td><td>$thisfield->{'comments'}</td><td>$thisfield->{'type'}</td><td>";
