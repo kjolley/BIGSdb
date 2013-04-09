@@ -889,7 +889,13 @@ sub get_scheme_members_table_attributes {
 		{ name => 'locus', type => 'text', required => 'yes', primary_key => 'yes', foreign_key => 'loci', dropdown_query => 'yes' }
 	];
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		push @$attributes, { name => 'profile_name', type => 'text', required => 'no' };
+		push @$attributes,
+		  {
+			name     => 'profile_name',
+			type     => 'text',
+			required => 'no',
+			tooltip  => 'profile_name - This is the name of the locus within the sequence definition database.'
+		  };
 	}
 	push @$attributes,
 	  (
@@ -1130,10 +1136,8 @@ sub get_sequences_table_attributes {
 		{ name => 'date_entered', type => 'date', required => 'yes', public_hide    => 'yes' },
 		{ name => 'datestamp',    type => 'date', required => 'yes', public_hide    => 'yes' }
 	];
-	if (($self->{'system'}->{'allele_comments'} // '') eq 'yes'){
-		push @$attributes,
-	  (
-		{ name => 'comments',    type => 'text', required => 'no', length => 80 });
+	if ( ( $self->{'system'}->{'allele_comments'} // '' ) eq 'yes' ) {
+		push @$attributes, ( { name => 'comments', type => 'text', required => 'no', length => 80 } );
 	}
 	return $attributes;
 }
