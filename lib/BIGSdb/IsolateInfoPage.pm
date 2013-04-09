@@ -47,8 +47,19 @@ sub initiate {
 
 sub get_javascript {
 	my ($self) = @_;
-	return $self->get_tree_javascript;
+	my $buffer = << "END";
+\$(function () {
+	\$(document).ajaxComplete(function() {
+		reloadTooltips();
+	});
+});
+END
+	$buffer .= $self->get_tree_javascript;
+	return $buffer;
 }
+	
+	
+
 
 sub _get_child_group_scheme_tables {
 	my ( $self, $id, $isolate_id, $td, $level ) = @_;

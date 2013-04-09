@@ -28,7 +28,15 @@ use constant SUCCESS => 1;
 
 sub get_javascript {
 	my ($self) = @_;
-	return $self->get_tree_javascript;
+	my $buffer = << "END";
+\$(function () {
+	\$(document).ajaxComplete(function() {
+		reloadTooltips();
+	});
+});
+END
+	$buffer .= $self->get_tree_javascript;
+	return $buffer;
 }
 
 sub initiate {
