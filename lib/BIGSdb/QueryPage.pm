@@ -763,7 +763,7 @@ sub _print_profile_query_interface {
 		print "</ul>\n</fieldset>";
 	}
 	my $page = $self->{'curate'} ? 'profileQuery' : 'query';
-	$self->print_action_fieldset({page => $page, scheme_id => $scheme_id});
+	$self->print_action_fieldset( { page => $page, scheme_id => $scheme_id } );
 	print $q->end_form;
 	print "</div></div>\n";
 	return;
@@ -1246,26 +1246,20 @@ sub _modify_isolate_query_for_filters {
 				my $scheme_loci  = $self->{'datastore'}->get_scheme_loci($scheme_id);
 				my $joined_table = "SELECT $view.id FROM $view";
 				foreach (@$scheme_loci) {
-					(my $locus = $_) =~ s/'/_PRIME_/g;
+					( my $locus = $_ ) =~ s/'/_PRIME_/g;
 					$joined_table .= " left join allele_designations AS $locus on $locus.isolate_id = $self->{'system'}->{'view'}.id";
 				}
 				$joined_table .= " left join temp_scheme_$scheme_id AS scheme_$scheme_id ON ";
 				my @temp;
 				foreach (@$scheme_loci) {
-					my $locus_info = $self->{'datastore'}->get_locus_info($_);
-					(my $locus = $_) =~ s/'/_PRIME_/g;
-					if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-						push @temp, " CAST($locus.allele_id AS int)=scheme_$scheme_id\.$locus";
-					} else {
-						push @temp, " $locus.allele_id=scheme_$scheme_id\.$locus";
-					}
+					push @temp, $self->_get_scheme_locus_query_clause( $scheme_id, $_ );
 				}
 				local $" = ' AND ';
 				$joined_table .= " @temp WHERE";
 				undef @temp;
 				foreach (@$scheme_loci) {
-					(my $locus = $_) =~ s/'/_PRIME_/g;
-					(my $cleaned = $_) =~ s/'/\\'/g;
+					( my $locus   = $_ ) =~ s/'/_PRIME_/g;
+					( my $cleaned = $_ ) =~ s/'/\\'/g;
 					push @temp, "$locus.locus=E'$cleaned'";
 				}
 				$joined_table .= " @temp";
@@ -1284,6 +1278,29 @@ sub _modify_isolate_query_for_filters {
 		}
 	}
 	return $qry;
+}
+
+sub _get_scheme_locus_query_clause {
+	my ( $self, $scheme_id, $locus ) = @_;
+	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+	( my $cleaned_locus = $locus ) =~ s/'/_PRIME_/g;
+
+	#Use correct cast to ensure that database indexes are used.
+	my $locus_info = $self->{'datastore'}->get_locus_info($_);
+	if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
+		if ( $scheme_info->{'allow_missing_loci'} ) {
+			return "(CAST(COALESCE($cleaned_locus.allele_id,'N') AS text)=CAST(scheme_$scheme_id\.$cleaned_locus AS text) "
+			  . "OR scheme_$scheme_id\.$cleaned_locus='N')";
+		} else {
+			return "CAST($cleaned_locus.allele_id AS int)=scheme_$scheme_id\.$cleaned_locus";
+		}
+	} else {
+		if ( $scheme_info->{'allow_missing_loci'} ) {
+			return "COALESCE($cleaned_locus.allele_id,'N')=scheme_$scheme_id\.$cleaned_locus";
+		} else {
+			return "$cleaned_locus.allele_id=scheme_$scheme_id\.$cleaned_locus";
+		}
+	}
 }
 
 sub _modify_isolate_query_for_designations {
@@ -1398,24 +1415,7 @@ sub _modify_isolate_query_for_designations {
 				$joined_table .= " left join temp_scheme_$scheme_id AS scheme_$scheme_id ON ";
 				my @temp;
 				foreach (@$scheme_loci) {
-					my $locus_info = $self->{'datastore'}->get_locus_info($_);
-					( my $locus = $_ ) =~ s/'/_PRIME_/g;
-
-					#Use correct cast to ensure that database indexes are used.
-					if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-						if ( $scheme_info->{'allow_missing_loci'} ) {
-							push @temp, "(CAST(COALESCE($locus.allele_id,'N') AS text)=CAST(scheme_$scheme_id\.$locus AS text) "
-							  . "OR scheme_$scheme_id\.$locus='N')";
-						} else {
-							push @temp, "CAST($locus.allele_id AS int)=scheme_$scheme_id\.$locus";
-						}
-					} else {
-						if ( $scheme_info->{'allow_missing_loci'} ) {
-							push @temp, "COALESCE($locus.allele_id,'N')=scheme_$scheme_id\.$locus";
-						} else {
-							push @temp, "$locus.allele_id=scheme_$scheme_id\.$locus";
-						}
-					}
+					push @temp, $self->_get_scheme_locus_query_clause( $scheme_id, $_ );
 				}
 				local $" = ' AND ';
 				$joined_table .= "@temp";
