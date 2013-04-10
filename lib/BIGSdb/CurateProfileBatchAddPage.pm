@@ -246,6 +246,7 @@ sub _check {
 					$value = $data[ $fileheaderPos{$field} ];
 				}
 			}
+			$value = defined $value ? $value : '';			
 			$value =~ s/^\s*//;
 			$value =~ s/\s*$//;
 			if ( $is_locus{$field} ) {
@@ -253,7 +254,7 @@ sub _check {
 				$newdata{"locus:$field"} = $value;
 				my $field_bad = $self->is_locus_field_bad( $scheme_id, $field, $value );
 				if ($field_bad) {
-					$problems{$pk} .= $field_bad;
+					$problems{$pk} .= "$field_bad<br />";
 					$problem = 1;
 				}
 			} elsif ( $is_field{$field} && defined $value ) {
@@ -265,7 +266,6 @@ sub _check {
 					$problem = 1;
 				}
 			}
-			$value = defined $value ? $value : '';
 			my $display_value = $value;
 			if ( !$problem ) {
 				$table_buffer .= "<td>$display_value</td>";
