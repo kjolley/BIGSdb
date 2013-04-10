@@ -737,7 +737,7 @@ sub _print_profile_query_interface {
 			  $self->get_filter(
 				$field, $values,
 				{
-					'text' => "$field ($scheme_info->{'description'})",
+					'text' => $field,
 					'tooltip' =>
 "$field ($scheme_info->{'description'}) filter - Select $a_or_an $field to filter your search to only those profiles that match the selected $field."
 				}
