@@ -277,7 +277,7 @@ sub update_profile_history {
 sub _print_interface {
 	my ( $self, $args ) = @_;
 	my $q = $self->{'cgi'};
-	print "<div class=\"box\" id=\"queryform\">\n";
+	say "<div class=\"box\" id=\"queryform\"><div class=\"scrollable\">";
 	if ( !$q->param('sent') ) {
 		say "<p>Update your record as required - required fields are marked with an exclamation mark (!):</p>";
 	}
@@ -337,7 +337,7 @@ sub _print_interface {
 	say "</table>";
 	$self->print_action_fieldset({scheme_id => $args->{'scheme_id'}, profile_id => $args->{'profile_id'}});
 	say $q->end_form;
-	say "</div>";
+	say "</div></div>";
 	return;
 }
 1;

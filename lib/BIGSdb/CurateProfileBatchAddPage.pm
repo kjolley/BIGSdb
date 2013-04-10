@@ -246,7 +246,7 @@ sub _check {
 					$value = $data[ $fileheaderPos{$field} ];
 				}
 			}
-			$value = defined $value ? $value : '';			
+			$value = defined $value ? $value : '';
 			$value =~ s/^\s*//;
 			$value =~ s/\s*$//;
 			if ( $is_locus{$field} ) {
@@ -529,11 +529,7 @@ HTML
 	say "<p>Please paste in tab-delimited text (<strong>include a field header line</strong>).</p>";
 	say $q->hidden($_) foreach qw (page db scheme_id);
 	say $q->textarea( -name => 'data', -rows => 20, -columns => 120 );
-	say "<table style=\"width:95%\"><tr><td>";
-	say $q->reset( -class => 'reset' );
-	say "</td><td style=\"text-align:right\">";
-	say $q->submit( -class => 'submit' );
-	say "</td></tr></table><p />";
+	$self->print_action_fieldset( { scheme_id => $scheme_id } );
 	say $q->end_form;
 	say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back</a></p>";
 	say "</div>";

@@ -250,8 +250,8 @@ sub _print_interface {
 	  ? " This scheme allows profile definitions to contain missing alleles (designate "
 	  . "these as '0') or ignored alleles (designate these as 'N')."
 	  : '';
-	say "<div class=\"box\" id=\"queryform\"><p>Please fill in the fields below - required fields are marked with an "
-	  . "exclamation mark (!).$msg</p>";
+	say "<div class=\"box\" id=\"queryform\"><div class=\"scrollable\">";
+	say "<p>Please fill in the fields below - required fields are marked with an exclamation mark (!).$msg</p>";
 	my $qry = "select id,user_name,first_name,surname from users where id>0 order by surname";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
@@ -304,15 +304,10 @@ sub _print_interface {
 	  . "</b></td></tr>";
 	say "<tr><td style=\"text-align:right\">datestamp: </td><td style=\"white-space: nowrap\"><b>"
 	  . $self->get_datestamp
-	  . "</b></td></tr>";
-	say "<tr><td>";
-	say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileAdd&amp;scheme_id=$scheme_id\" "
-	  . "class=\"resetbutton\">Reset</a>";
-	say "</td><td style=\"text-align:right; padding-left:2em\">";
-	say $q->submit( -name => 'Submit', -class => 'submit' );
-	say "</td></tr></table>";
+	  . "</b></td></tr></table>";
+	$self->print_action_fieldset( { scheme_id => $scheme_id } );
 	say $q->end_form;
-	say "</div>";
+	say "</div></div>";
 	return;
 }
 
