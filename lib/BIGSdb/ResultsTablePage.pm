@@ -1299,7 +1299,7 @@ sub _is_scheme_data_present {
 	my ( $self, $qry, $scheme_id ) = @_;
 	return $self->{'cache'}->{$qry}->{$scheme_id} if defined $self->{'cache'}->{$qry}->{$scheme_id};
 	if ( !$self->{'cache'}->{$qry}->{'ids'} ) {
-		$qry =~ s/\*/id/;
+		$qry =~ s/SELECT \*/SELECT id/;
 		$self->{'cache'}->{$qry}->{'ids'} = $self->{'datastore'}->run_list_query($qry);
 	}
 	my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
