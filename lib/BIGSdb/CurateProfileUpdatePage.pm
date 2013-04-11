@@ -319,7 +319,7 @@ sub _print_interface {
 		my $field_info = $self->{'datastore'}->get_scheme_field_info( $args->{'scheme_id'}, $field );
 		say $q->textfield(
 			-name    => "field:$field",
-			-size    => $field_info->{'type'} eq 'integer' ? 10 : 20,
+			-size    => $field_info->{'type'} eq 'integer' ? 10 : 50,
 			-default => $args->{'field_data'}->{$field}
 		);
 		say "</td></tr>";

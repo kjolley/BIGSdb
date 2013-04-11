@@ -292,7 +292,7 @@ sub _print_interface {
 	foreach my $field (@$fields) {
 		say "<tr><td style=\"text-align: right\">$field: </td><td style=\"white-space: nowrap\">";
 		my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
-		say $q->textfield( -name => "field:$field", -size => $field_info->{'type'} eq 'integer' ? 10 : 30, -default => $newdata->{$field} );
+		say $q->textfield( -name => "field:$field", -size => $field_info->{'type'} eq 'integer' ? 10 : 50, -default => $newdata->{$field} );
 		say "</td></tr>";
 	}
 	say "<tr><td style=\"text-align:right\">curator: </td><td style=\"white-space: nowrap\"><b>"
