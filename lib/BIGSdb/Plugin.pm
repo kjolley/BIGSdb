@@ -399,7 +399,7 @@ sub print_field_export_form {
 	$self->get_extra_fields;
 	$self->print_isolates_locus_fieldset;
 	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
-	$self->print_action_fieldset( { no_reset => 1 } );	
+	$self->print_action_fieldset( { no_reset => 1 } );
 	say "<div style=\"clear:both\"></div>";
 	say $q->hidden($_) foreach qw (db page name query_file);
 	say $q->end_form;
@@ -422,7 +422,7 @@ sub get_id_list {
 	my $list;
 	if ( $q->param('list') ) {
 		foreach ( split /\n/, $q->param('list') ) {
-			$_ =~s/\s*$//;
+			$_ =~ s/\s*$//;
 			push @$list, $_;
 		}
 	} elsif ($query_file) {
@@ -504,11 +504,9 @@ sub print_sequence_export_form {
 	say "</fieldset>";
 	my ( $locus_list, $locus_labels ) =
 	  $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
+	my ( @fields, $labels );
 
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		say "<fieldset style=\"float:left\">\n<legend>Include in identifier row</legend>";
-		my @fields;
-		my $labels;
 		my $set_id        = $self->get_set_id;
 		my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
 		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
@@ -518,6 +516,15 @@ sub print_sequence_export_form {
 			push @fields, $field;
 			( $labels->{$field} = $metafield // $field ) =~ tr/_/ /;
 		}
+	} else {
+		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+		foreach (@$scheme_fields) {
+			push @fields, $_ if $_ ne $scheme_info->{'primary_key'};
+		}
+	}
+	if (@fields) {
+		say "<fieldset style=\"float:left\">\n<legend>Include in identifier row</legend>";
 		say $q->scrolling_list(
 			-name     => 'includes',
 			-id       => 'includes',
@@ -585,7 +592,7 @@ sub print_sequence_export_form {
 		say "</fieldset>";
 	}
 	say $self->get_extra_form_elements;
-	$self->print_action_fieldset( { no_reset => 1 } );	
+	$self->print_action_fieldset( { no_reset => 1 } );
 	say "<div style=\"clear:both\"></div>";
 	say $q->hidden($_) foreach qw (db page name query_file scheme_id);
 	say $q->end_form;
@@ -693,7 +700,7 @@ HTML
 }
 
 sub print_sequence_filter_fieldset {
-	my ($self, $options) = @_;
+	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	say "<fieldset style=\"float:left\"><legend>Restrict included sequences by</legend><ul>";
 	my $buffer = $self->get_sequence_method_filter( { class => 'parameter' } );
@@ -702,7 +709,8 @@ sub print_sequence_filter_fieldset {
 	say "<li>$buffer</li>" if $buffer;
 	$buffer = $self->get_experiment_filter( { class => 'parameter' } );
 	say "<li>$buffer</li>" if $buffer;
-	if ($options->{'min_length'}){
+
+	if ( $options->{'min_length'} ) {
 		$buffer = $self->get_filter(
 			'min_length',
 			[qw (100 200 500 1000 2000 5000 10000 20000 50000 100000)],

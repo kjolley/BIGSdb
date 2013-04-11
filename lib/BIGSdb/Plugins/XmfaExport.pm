@@ -45,7 +45,7 @@ sub get_attributes {
 		buttontext  => 'XMFA',
 		menutext    => 'XMFA export',
 		module      => 'XmfaExport',
-		version     => '1.3.3',
+		version     => '1.4.0',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		section     => 'export,postquery',
@@ -176,6 +176,7 @@ sub run_job {
 	  or $logger->error("Can't open output file $filename for writing");
 	my $isolate_sql;
 	my @includes;
+
 	if ( $params->{'includes'} ) {
 		@includes = split /\|\|/, $params->{'includes'};
 		$isolate_sql = $self->{'db'}->prepare("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?");
@@ -315,29 +316,39 @@ sub run_job {
 					say $fh_muscle $seq;
 				}
 			} else {
-				my $profile_sql = $self->{'db'}->prepare("SELECT $pk FROM scheme_$scheme_id WHERE $pk=?");
+				my $profile_sql = $self->{'db'}->prepare("SELECT * FROM scheme_$scheme_id WHERE $pk=?");
 				eval { $profile_sql->execute($id) };
 				$logger->error($@) if $@;
-				my ($profile_id) = $profile_sql->fetchrow_array;
+				my $profile_data = $profile_sql->fetchrow_hashref;
+				my $profile_id   = $profile_data->{ lc($pk) };
+				my $header;
+				if ( defined $profile_id ) {
+					$header = ">$profile_id";
+					if (@includes) {
+						foreach my $field (@includes) {
+							my $value = $profile_data->{ lc($field) } // '';
+							$value =~ tr/[\(\):, ]/_/;
+							$header .= "|$value";
+						}
+					}
+				}
 				if ($profile_id) {
 					my $allele_id = $self->{'datastore'}->get_profile_allele_designation( $scheme_id, $id, $locus_name )->{'allele_id'};
-						my $allele_seq_ref = $self->{'datastore'}->get_sequence( $locus_name, $allele_id );
-						say $fh_muscle ">$profile_id";
-						if ($allele_id eq '0' || $allele_id eq 'N'){
-							say $fh_muscle 'N';
-							$no_seq{$id} = 1;
+					my $allele_seq_ref = $self->{'datastore'}->get_sequence( $locus_name, $allele_id );
+					say $fh_muscle $header;
+					if ( $allele_id eq '0' || $allele_id eq 'N' ) {
+						say $fh_muscle 'N';
+						$no_seq{$id} = 1;
+					} else {
+						my $allele_seq = $$allele_seq_ref;
+						if ( $params->{'translate'} && $locus_info->{'data_type'} eq 'DNA' ) {
+							$allele_seq = BIGSdb::Utils::chop_seq( $allele_seq, $locus_info->{'orf'} || 1 );
+							my $peptide = $allele_seq ? Bio::Perl::translate_as_string($allele_seq) : 'X';
+							say $fh_muscle $peptide;
 						} else {
-						
-							my $allele_seq = $$allele_seq_ref;
-							if ( $params->{'translate'} && $locus_info->{'data_type'} eq 'DNA') {
-								$allele_seq = BIGSdb::Utils::chop_seq( $allele_seq, $locus_info->{'orf'} || 1 );
-								my $peptide = $allele_seq ? Bio::Perl::translate_as_string($allele_seq) : 'X';
-								say $fh_muscle $peptide;
-							} else {
-								say $fh_muscle $allele_seq;
-							}
+							say $fh_muscle $allele_seq;
 						}
-					
+					}
 				} else {
 					push @problem_ids, $id;
 					next;
