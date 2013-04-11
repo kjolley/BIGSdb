@@ -115,13 +115,13 @@ sub _update {
 	my $update = 1;
 	my ( %locus_changed, %field_changed );
 	my $q               = $self->{'cgi'};
-	my $loci            = $self->{'datastore'}->get_scheme_loci( $scheme_id );
-	my $scheme_fields   = $self->{'datastore'}->get_scheme_fields( $scheme_id );
+	my $loci            = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $scheme_fields   = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $profile_changed = 0;
-	my $set_id = $self->get_set_id;
+	my $set_id          = $self->get_set_id;
 	foreach my $locus (@$loci) {
 		$newdata{"locus:$locus"} = $q->param("locus:$locus");
-		$self->_clean_field(\$newdata{"locus:$locus"});
+		$self->_clean_field( \$newdata{"locus:$locus"} );
 		my $field_bad = $self->is_locus_field_bad( $scheme_id, $locus, $newdata{"locus:$locus"} );
 		push @bad_field_buffer, $field_bad if $field_bad;
 		if ( $args->{'allele_data'}->{$locus} ne $newdata{"locus:$locus"} ) {
@@ -136,7 +136,7 @@ sub _update {
 	foreach my $field (@$scheme_fields) {
 		next if $field eq $args->{'primary_key'};
 		$newdata{"field:$field"} = $q->param("field:$field");
-		$self->_clean_field(\$newdata{"field:$field"});
+		$self->_clean_field( \$newdata{"field:$field"} );
 		my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 		if ( $field_info->{'type'} eq 'integer' && !BIGSdb::Utils::is_int( $newdata{"field:$field"} ) ) {
 			push @bad_field_buffer, "Field '$field' must be an integer.";
@@ -168,9 +168,7 @@ sub _update {
 			my $sql_update =
 			  $self->{'db'}
 			  ->prepare("UPDATE profile_members SET allele_id=?,datestamp=?,curator=? WHERE scheme_id=? AND locus=? AND profile_id=?");
-			eval {
-				$sql_update->execute( $newdata{"locus:$locus"}, 'today', $curator_id, $scheme_id, $locus, $args->{'profile_id'} );
-			};
+			eval { $sql_update->execute( $newdata{"locus:$locus"}, 'today', $curator_id, $scheme_id, $locus, $args->{'profile_id'} ); };
 			if ($@) {
 				$logger->error($@);
 				$self->{'db'}->rollback;
@@ -182,9 +180,7 @@ sub _update {
 			if ( $field eq 'sender' ) {
 				my $sql_update =
 				  $self->{'db'}->prepare("UPDATE profiles SET sender=?,datestamp=?,curator=? WHERE scheme_id=? AND profile_id=?");
-				eval {
-					$sql_update->execute( $newdata{"field:sender"}, 'today', $curator_id, $scheme_id, $args->{'profile_id'} );
-				};
+				eval { $sql_update->execute( $newdata{"field:sender"}, 'today', $curator_id, $scheme_id, $args->{'profile_id'} ); };
 				if ($@) {
 					$logger->error($@);
 					$self->{'db'}->rollback;
@@ -193,13 +189,20 @@ sub _update {
 				push @updated_field, "$field: '$args->{'profile_data'}->{$field}' -> '$newdata{\"field:$field\"}'";
 			} else {
 				if ( defined $args->{'field_data'}->{$field} && $args->{'field_data'}->{$field} ne '' ) {
-					my $sql_update =
-					  $self->{'db'}->prepare(
-						"UPDATE profile_fields SET value=?,datestamp=?,curator=? WHERE scheme_id=? AND scheme_field=? AND profile_id=?");
-					eval {
-						$sql_update->execute( $newdata{"field:$field"},
-							'today', $curator_id, $scheme_id, $field, $args->{'profile_id'} );
-					};
+					if ( $newdata{"field:$field"} eq '' ) {
+						my $sql_update =
+						  $self->{'db'}->prepare("DELETE FROM profile_fields WHERE scheme_id=? AND scheme_field=? AND profile_id=?");
+						eval { $sql_update->execute( $scheme_id, $field, $args->{'profile_id'} ); };
+					} else {
+						my $sql_update =
+						  $self->{'db'}->prepare(
+							"UPDATE profile_fields SET value=?,datestamp=?,curator=? WHERE scheme_id=? AND scheme_field=? AND profile_id=?"
+						  );
+						eval {
+							$sql_update->execute( $newdata{"field:$field"},
+								'today', $curator_id, $scheme_id, $field, $args->{'profile_id'} );
+						};
+					}
 					if ($@) {
 						$logger->error($@);
 						$self->{'db'}->rollback;
@@ -210,8 +213,7 @@ sub _update {
 					  $self->{'db'}->prepare(
 						"INSERT INTO profile_fields (scheme_id,scheme_field,profile_id,value,curator,datestamp) VALUES (?,?,?,?,?,?)");
 					eval {
-						$sql_update->execute( $scheme_id, $field, $args->{'profile_id'}, $newdata{"field:$field"},
-							$curator_id, 'today' );
+						$sql_update->execute( $scheme_id, $field, $args->{'profile_id'}, $newdata{"field:$field"}, $curator_id, 'today' );
 					};
 					if ($@) {
 						$logger->error($@);
@@ -232,7 +234,7 @@ sub _update {
 			}
 		}
 		if ($success) {
-			$self->refresh_material_view( $scheme_id );
+			$self->refresh_material_view($scheme_id);
 			$self->{'db'}->commit;
 			say "<div class=\"box\" id=\"resultsheader\"><p>Updated!</p>";
 			say "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>";
@@ -298,10 +300,10 @@ sub _print_interface {
 	say "<tr><td style=\"text-align:right\">$args->{'primary_key'}: !</td><td><b>$args->{'profile_id'}</b></td></tr>";
 	my $loci          = $self->{'datastore'}->get_scheme_loci( $args->{'scheme_id'} );
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $args->{'scheme_id'} );
-	my $set_id = $self->get_set_id;
+	my $set_id        = $self->get_set_id;
 
 	foreach my $locus (@$loci) {
-		my $mapped = $self->{'datastore'}->get_set_locus_label($locus, $set_id) // $locus;
+		my $mapped = $self->{'datastore'}->get_set_locus_label( $locus, $set_id ) // $locus;
 		say "<tr><td style=\"text-align:right\">$mapped: !</td><td>";
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		print $q->textfield(
@@ -335,7 +337,7 @@ sub _print_interface {
 	say "<tr><td style=\"text-align:right\">date_entered: !</td><td><b>$args->{'profile_data'}->{'date_entered'}</b></td></tr>";
 	say "<tr><td style=\"text-align:right\">datestamp: !</td><td><b>" . $self->get_datestamp . "</b></td></tr>";
 	say "</table>";
-	$self->print_action_fieldset({scheme_id => $args->{'scheme_id'}, profile_id => $args->{'profile_id'}});
+	$self->print_action_fieldset( { scheme_id => $args->{'scheme_id'}, profile_id => $args->{'profile_id'} } );
 	say $q->end_form;
 	say "</div></div>";
 	return;
