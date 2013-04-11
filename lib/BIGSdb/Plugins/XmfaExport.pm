@@ -156,8 +156,8 @@ HTML
 		print <<"HTML";
 <div class="box" id="queryform">
 <p>This script will export allele sequences in Extended Multi-FASTA (XMFA) format suitable for loading into third-party
-applications, such as ClonalFrame.  Please be aware that it may take a long time to generate the output file as the 
-sequences are passed through muscle to align them.</p>
+applications, such as ClonalFrame.  Output is limited to $limit records. Please be aware that it may take a long time 
+to generate the output file as the sequences are passed through muscle to align them.</p>
 HTML
 	}
 	my $options = { default_select => 0, translate => 1, flanking => 1, ignore_seqflags => 1, ignore_incomplete => 1 };
