@@ -668,7 +668,7 @@ sub get_sender_fullname {
 
 sub is_field_bad {
 	my ( $self, $table, $fieldname, $value, $flag ) = @_;
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		return $self->_is_field_bad_isolates( $fieldname, $value, $flag );
 	} else {
 		return $self->_is_field_bad_other( $table, $fieldname, $value, $flag );

@@ -73,7 +73,7 @@ sub print_content {
 		  . "will have to be reloaded.</p></div>";
 	}
 	my ( $uses_integer_id, $has_sender_field );
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		( $uses_integer_id, $has_sender_field ) = ( 1, 1 );
 	} else {
 		my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
@@ -109,7 +109,7 @@ copied from a spreadsheet.</p>
 <li>Field header names must be included and fields
 can be in any order. Optional fields can be omitted if you wish.</li>
 HTML
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		print << "HTML";
 <li>Enter aliases (alternative names) for your isolates as a semi-colon (;) separated list.</li>	
 <li>Enter references for your isolates as a semi-colon (;) separated list of PubMed ids 
@@ -320,7 +320,7 @@ sub _check_data {
 	}
 	my $id;
 	my %unique_field;
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		$id = $self->next_id($table);
 	} else {
 		my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
@@ -458,7 +458,7 @@ sub _check_data {
 				checked_record     => \$checked_record,
 				table              => $table
 			);
-			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
+			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 
 				#Check for locus values that can also be uploaded with an isolate record.
 				$tablebuffer .= $self->_check_data_isolate_record_locus_fields( \%args );
@@ -1137,7 +1137,7 @@ sub _upload_data {
 		$fieldorder{ $fieldorder[$i] } = $i;
 	}
 	my ( @fields_to_include, @metafields );
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		my $set_id        = $self->get_set_id;
 		my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
 		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
@@ -1200,7 +1200,7 @@ sub _upload_data {
 					$schemes{ $data[ $fieldorder{'scheme_id'} ] } = 1;
 				}
 			}
-			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && ( $table eq 'loci' || $table eq $self->{'system'}->{'view'} ) ) {
+			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && ( $table eq 'loci' || $table eq 'isolates' ) ) {
 				@extras     = split /;/, $data[ $fieldorder{'aliases'} ]    if defined $fieldorder{'aliases'};
 				@ref_extras = split /;/, $data[ $fieldorder{'references'} ] if defined $fieldorder{'references'};
 			}
@@ -1215,7 +1215,7 @@ sub _upload_data {
 			}
 			$logger->debug("INSERT: $qry");
 			my $curator = $self->get_curator_id;
-			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
+			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 
 				#Set read ACL for 'All users' group
 				push @inserts, "INSERT INTO isolate_usergroup_acl (isolate_id,user_group_id,read,write) VALUES ($id,0,true,false)";
@@ -1404,7 +1404,7 @@ sub _get_fields_in_order {
 	#Return list of fields in order
 	my ( $self, $table ) = @_;
 	my @fieldnums;
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		my $set_id        = $self->get_set_id;
 		my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
 		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
@@ -1430,7 +1430,7 @@ sub _get_fields_in_order {
 sub _get_field_table_header {
 	my ( $self, $table ) = @_;
 	my @headers;
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		my $set_id        = $self->get_set_id;
 		my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
 		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);

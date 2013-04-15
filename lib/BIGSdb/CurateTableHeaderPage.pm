@@ -38,7 +38,7 @@ sub print_content {
 		print "Table $table does not exist!\n";
 		return;
 	}
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		my $set_id        = $self->get_set_id;
 		my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
 		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);

@@ -1725,7 +1725,7 @@ sub initiate_view {
 	my ( $self, $username, $curate ) = @_;
 	return if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
 	my $set_id = $self->get_set_id;
-	if ( $self->{'system'}->{'view'} eq 'isolates' && $set_id ) {
+	if ( defined $self->{'system'}->{'view'} && $set_id ) {
 		if ( $self->{'system'}->{'views'} && BIGSdb::Utils::is_int($set_id) ) {
 			my $view_ref = $self->{'datastore'}->run_simple_query( "SELECT view FROM set_view WHERE set_id=?", $set_id );
 			$self->{'system'}->{'view'} = $view_ref->[0] if ref $view_ref eq 'ARRAY';

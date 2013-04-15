@@ -163,7 +163,7 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 			}
 		}
 		print '.';
-		if ( !$self->{'curate'} || ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) ) {
+		if ( !$self->{'curate'} || ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) ) {
 			print " Click the hyperlink$plural for detailed information.";
 		}
 		print "</p>\n";
@@ -207,7 +207,7 @@ sub _print_curate_headerbar_functions {
 	if ( $self->can_modify_table($table) ) {
 		$self->_print_delete_all_function($table);
 		$self->_print_link_seq_to_experiment_function if $table eq 'sequence_bin';
-		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 			$self->_print_access_control_function;
 		}
 		$self->_print_export_configuration_function($table);
@@ -215,7 +215,7 @@ sub _print_curate_headerbar_functions {
 			$self->_print_set_sequence_flags_function;
 		}
 	}
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		$self->_print_tag_scanning_function           if $self->can_modify_table('allele_sequences');
 		$self->_print_modify_project_members_function if $self->can_modify_table('project_members');
 	}

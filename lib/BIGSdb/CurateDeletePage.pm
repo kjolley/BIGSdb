@@ -263,7 +263,7 @@ sub _delete {
 				next if !@$sample_fields && $table eq 'samples';
 				my $num = $self->{'datastore'}->run_simple_query( "SELECT count(*) FROM $table WHERE curator = ?", $data->{'id'} )->[0];
 				my $num_senders;
-				if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
+				if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 					$num_senders =
 					  $self->{'datastore'}->run_simple_query( "SELECT count(*) FROM $table WHERE sender = ?", $data->{'id'} )->[0];
 				}

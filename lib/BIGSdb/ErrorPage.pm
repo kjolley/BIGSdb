@@ -29,7 +29,7 @@ sub print_content {
 	my $desc      = $self->get_title;
 	my $show_oops = (any {$self->{'error'} eq $_} qw (userNotAuthenticated accessDisabled)) ? 0 : 1;
 	print "<h1>$desc</h1>\n";
-	print "<p style=\"font-size:5em; color:#A0A0A0; padding-top:1em\">Ooops ...</p>\n" if $show_oops;
+	print "<p style=\"font-size:5em; color:#A0A0A0; padding-top:1em\">Oops ...</p>\n" if $show_oops;
 	print "<div class=\"box\" id=\"statusbad\">\n";
 
 	if ( $self->{'error'} eq 'unknown' ) {

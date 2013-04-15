@@ -60,7 +60,7 @@ sub print_content {
 		say "<div class=\"box\" id=\"statusbad\"><p>Only administrators can batch delete from the $table table.</p></div>";
 		return;
 	}
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 		foreach (@$schemes) {
 			if ( $query =~ /temp_scheme_$_\s/ ) {
@@ -96,7 +96,7 @@ sub _delete {
 		&& !$self->is_admin
 	  )
 	{
-		if ( $table eq $self->{'system'}->{'view'} ) {
+		if ( $table eq 'isolates' ) {
 			$delete_qry =~ s/WHERE/AND/;
 			$delete_qry =~ s/FROM $table/FROM isolates WHERE id IN (SELECT id FROM $self->{'system'}->{'view'})/;
 		} elsif ( $table eq 'allele_designations' || $table eq 'sequence_bin' || $table eq 'isolate_aliases' ) {

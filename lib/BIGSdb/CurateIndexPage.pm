@@ -247,7 +247,7 @@ sub _print_isolates {
 	my $buffer = <<"HTML";
 <tr class="td$td"><td>isolates</td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateAdd$set_string">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=$self->{'system'}->{'view'}$set_string">++</a></td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=isolates$set_string">++</a></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateQuery$set_string">query</a> | 
 <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=browse$set_string">browse</a> |
 <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=listQuery$set_string">list</a> |
