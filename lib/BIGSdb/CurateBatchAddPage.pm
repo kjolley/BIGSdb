@@ -418,6 +418,7 @@ sub _check_data {
 				if ( !( $table eq 'sequences' && $field eq 'allele_id' && defined $problems{$pk_combination} ) ) {
 					$problem = $self->is_field_bad( $table, $field, $value, 'insert' );
 				}
+				$display_value =~ s/&/&amp;/g if defined $display_value;
 				if ( !( $problem || $special_problem ) ) {
 					if ( $table eq 'sequences' && $field eq 'flags' ) {
 						my @flags = split /;/, ( $display_value // '' );
@@ -947,12 +948,11 @@ sub _check_data_sequences {
 		${ $arg_ref->{'value'} } //= '';
 		${ $arg_ref->{'value'} } =~ s/ //g;
 		${ $arg_ref->{'value'} } = uc( ${ $arg_ref->{'value'} } );
-		if ($locus_info->{'data_type'} eq 'DNA'){
+		if ( $locus_info->{'data_type'} eq 'DNA' ) {
 			${ $arg_ref->{'value'} } =~ s/[^GATC]//g;
 		} else {
 			${ $arg_ref->{'value'} } =~ s/[^GPAVLIMCFYWHKRQNEDST\*]//g;
 		}
-		
 		my $length = length( ${ $arg_ref->{'value'} } );
 		my $units = ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' ) ? 'bp' : 'residues';
 		if ( $length == 0 ) {

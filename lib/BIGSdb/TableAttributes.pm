@@ -318,14 +318,14 @@ sub get_loci_table_attributes {
 			{
 				name    => 'description_url',
 				type    => 'text',
-				length  => 120,
+				length  => 150,
 				hide    => 'yes',
 				tooltip => 'description url - The URL used to hyperlink to locus information in the isolate information page.'
 			},
 			{
 				name    => 'url',
 				type    => 'text',
-				length  => 120,
+				length  => 150,
 				hide    => 'yes',
 				tooltip => 'url - The URL used to hyperlink allele numbers in the isolate information page.  Instances of [?] within '
 				  . 'the URL will be substituted with the allele id.'
