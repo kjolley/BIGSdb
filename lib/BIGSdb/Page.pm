@@ -926,8 +926,8 @@ sub get_db_description {
 	my $desc   = $self->{'system'}->{'description'};
 	my $set_id = $self->get_set_id;
 	if ($set_id) {
-		my $desc_ref = $self->{'datastore'}->run_simple_query( "SELECT description FROM sets WHERE id=?", $set_id );
-		$desc .= ' (' . $desc_ref->[0] . ')' if ref $desc_ref eq 'ARRAY';
+		my $desc_ref = $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM sets WHERE id=?", $set_id );
+		$desc .= ' (' . $desc_ref->{'description'} . ')' if $desc_ref->{'description'} && !$desc_ref->{'hidden'};
 	}
 	$desc =~ s/\&/\&amp;/g;
 	return $desc;

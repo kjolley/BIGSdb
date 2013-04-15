@@ -1429,11 +1429,17 @@ sub get_project_members_table_attributes {
 
 sub get_sets_table_attributes {
 	my $attributes = [
-		{ name => 'id',               type => 'int',  required => 'yes', primary_key    => 'yes' },
-		{ name => 'description',      type => 'text', required => 'yes', length         => 40 },
+		{ name => 'id',               type => 'int',  required => 'yes', primary_key => 'yes' },
+		{ name => 'description',      type => 'text', required => 'yes', length      => 40 },
 		{ name => 'long_description', type => 'text', length   => 256 },
 		{ name => 'display_order',    type => 'int' },
-		{ name => 'curator',          type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{
+			name    => 'hidden',
+			type    => 'bool',
+			tooltip => "hidden - Don't show this set in selection lists.  When selected this set can "
+			  . "only be used by specifying the set_id in the database configuration file."
+		},
+		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' },
 	];
 	return $attributes;

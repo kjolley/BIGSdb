@@ -108,8 +108,10 @@ sub _check {
 		$insert = 0;
 	}
 	foreach ( keys %$newdata ) {    #Strip any trailing spaces
-		$newdata->{$_} =~ s/^\s*//g;
-		$newdata->{$_} =~ s/\s*$//g;
+		if ( defined $newdata->{$_} ) {
+			$newdata->{$_} =~ s/^\s*//g;
+			$newdata->{$_} =~ s/\s*$//g;
+		}
 	}
 	if ($insert) {
 		if ( $self->id_exists( $newdata->{'id'} ) ) {

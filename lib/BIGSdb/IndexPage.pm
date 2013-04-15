@@ -33,15 +33,14 @@ sub set_pref_requirements {
 sub initiate {
 	my ($self) = @_;
 	$self->{'jQuery'} = 1;
-	if ($self->{'cgi'}->param('choose_set')){
+	if ( $self->{'cgi'}->param('choose_set') ) {
 		my $guid = $self->get_guid;
-		if ($guid){
-			$self->{'prefstore'}->set_general($guid, $self->{'system'}->{'db'}, 'set_id', $self->{'cgi'}->param('sets_list') );
+		if ($guid) {
+			$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, 'set_id', $self->{'cgi'}->param('sets_list') );
 		} else {
 			$self->{'system'}->{'sets'} = 'no';
 		}
 	}
-	
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $set_id = $self->get_set_id;
 		my $scheme_data = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
@@ -60,8 +59,9 @@ sub print_content {
 	say "<h1>$desc database</h1>";
 	$self->print_banner;
 	my $set_id = $self->get_set_id;
-	my $set_string = $set_id ? "&amp;set_id=$set_id" : ''; #append to URLs to ensure unique caching.
-	if (($self->{'system'}->{'sets'} // '') eq 'yes'){
+	my $set_string = $set_id ? "&amp;set_id=$set_id" : '';    #append to URLs to ensure unique caching.
+
+	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
 		$self->print_set_section;
 	}
 	print << "HTML";
@@ -72,16 +72,15 @@ sub print_content {
 <h2>Query database</h2>
 <ul class="toplevel">
 HTML
-	
 	my $scheme_data =
 	  $self->{'datastore'}->get_scheme_list( { with_pk => ( $self->{'system'}->{'dbtype'} eq 'sequences' ? 1 : 0 ), set_id => $set_id } );
 	my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
-
 	if ( $system->{'dbtype'} eq 'isolates' ) {
 		say "<li><a href=\"$script_name?db=$instance&amp;page=query$set_string\">Search database</a> - advanced queries.</li>\n"
 		  . "<li><a href=\"$script_name?db=$instance&amp;page=browse$set_string\">Browse database</a> - peruse all records.</li>";
 	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
-		say "<li><a href=\"$script_name?db=$instance&amp;page=sequenceQuery$set_string\">Sequence query</a> - query an allele sequence.</li>\n"
+		say
+"<li><a href=\"$script_name?db=$instance&amp;page=sequenceQuery$set_string\">Sequence query</a> - query an allele sequence.</li>\n"
 		  . "<li><a href=\"$script_name?db=$instance&amp;page=batchSequenceQuery$set_string\">Batch sequence query</a> - query multiple sequences "
 		  . "in FASTA format.</li>\n"
 		  . "<li><a href=\"$script_name?db=$instance&amp;page=tableQuery&amp;table=sequences$set_string\">Sequence attribute search</a> - find alleles by matching "
@@ -145,7 +144,8 @@ TOOLTIPS
 				foreach (@$scheme_data) {
 					$desc =~ s/\&/\&amp;/g;
 					$buffer .= $i ? '| ' : '<li>';
-					$buffer .= "<a href=\"$script_name?db=$instance&amp;page=profiles&amp;scheme_id=$_->{'id'}$set_string\">$_->{'description'}</a>\n";
+					$buffer .=
+"<a href=\"$script_name?db=$instance&amp;page=profiles&amp;scheme_id=$_->{'id'}$set_string\">$_->{'description'}</a>\n";
 					$i++;
 				}
 				$buffer .= "</li>" if $buffer;
@@ -184,13 +184,15 @@ TOOLTIPS
 
 sub print_set_section {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my $q      = $self->{'cgi'};
 	my $set_id = $self->get_set_id;
-	return if $self->{'system'}->{'set_id'} && BIGSdb::Utils::is_int($self->{'system'}->{'set_id'});
+	return if $self->{'system'}->{'set_id'} && BIGSdb::Utils::is_int( $self->{'system'}->{'set_id'} );
 	my $guid = $self->get_guid;
-	return if !$guid; #Cookies disabled
-	my $sets = $self->{'datastore'}->run_list_query_hashref("SELECT * FROM sets ORDER BY display_order,description");
-	return if !@$sets || (@$sets == 1 && ($self->{'system'}->{'only_sets'} // '') eq 'yes');
+	return if !$guid;    #Cookies disabled
+	my $sets =
+	  $self->{'datastore'}
+	  ->run_list_query_hashref( "SELECT * FROM sets WHERE NOT hidden OR hidden IS NULL ORDER BY display_order,description" );
+	return if !@$sets || ( @$sets == 1 && ( $self->{'system'}->{'only_sets'} // '' ) eq 'yes' );
 	say "<div class=\"box\" id=\"sets\">";
 	print << "SETS";
 <div class="scrollable">	
@@ -199,21 +201,23 @@ sub print_set_section {
 <h2>Datasets</h2>
 <p>This database contains multiple datasets.  
 SETS
-	print (($self->{'system'}->{'only_sets'} // '') eq 'yes' ? '</p>' : 'You can choose to display a single set or the whole database.</p>');
+	print( ( $self->{'system'}->{'only_sets'} // '' ) eq 'yes'
+		? '</p>'
+		: 'You can choose to display a single set or the whole database.</p>' );
 	say $q->start_form;
-	say "<label for=\"sets_list\">Please select: </label>";	
-	
+	say "<label for=\"sets_list\">Please select: </label>";
 	my @set_ids;
-	if (($self->{'system'}->{'only_sets'} // '') ne 'yes'){
+
+	if ( ( $self->{'system'}->{'only_sets'} // '' ) ne 'yes' ) {
 		push @set_ids, 0;
 	}
-	my %labels = (0 => 'Whole database');
-	foreach my $set (@$sets){
+	my %labels = ( 0 => 'Whole database' );
+	foreach my $set (@$sets) {
 		push @set_ids, $set->{'id'};
-		$labels{$set->{'id'}} = $set->{'description'};
+		$labels{ $set->{'id'} } = $set->{'description'};
 	}
-	say $q->popup_menu(-name => 'sets_list', -id => 'sets_list', -values => \@set_ids, -labels => \%labels, -default => $set_id);
-	say $q->submit(-name => 'choose_set', -label => 'Choose', -class => 'smallbutton');
+	say $q->popup_menu( -name => 'sets_list', -id => 'sets_list', -values => \@set_ids, -labels => \%labels, -default => $set_id );
+	say $q->submit( -name => 'choose_set', -label => 'Choose', -class => 'smallbutton' );
 	say $q->hidden($_) foreach qw (db page);
 	say $q->end_form;
 	say "</div></div></div>";
@@ -331,17 +335,18 @@ sub _print_general_info_section {
 sub _print_plugin_section {
 	my ( $self,           $scheme_data ) = @_;
 	my ( $scheme_ids_ref, $desc_ref )    = $self->extract_scheme_desc($scheme_data);
-	my $q = $self->{'cgi'};
-	my $set_id = $self->get_set_id;
+	my $q          = $self->{'cgi'};
+	my $set_id     = $self->get_set_id;
 	my $set_string = $set_id ? "&amp;set_id=$set_id" : '';
 	my $plugins =
-	  $self->{'pluginManager'}->get_appropriate_plugin_names( 'breakdown|export|analysis|miscellaneous', $self->{'system'}->{'dbtype'},{ set_id => $set_id } );
+	  $self->{'pluginManager'}
+	  ->get_appropriate_plugin_names( 'breakdown|export|analysis|miscellaneous', $self->{'system'}->{'dbtype'}, { set_id => $set_id } );
 	if (@$plugins) {
 		print "<div class=\"box\" id=\"plugins\"><div class=\"scrollable\">\n";
 		my $active_plugin;
 		foreach (qw (breakdown export analysis miscellaneous)) {
 			$q->param( 'page', 'index' );
-			$plugins = $self->{'pluginManager'}->get_appropriate_plugin_names( $_, $self->{'system'}->{'dbtype'},{ set_id => $set_id } );
+			$plugins = $self->{'pluginManager'}->get_appropriate_plugin_names( $_, $self->{'system'}->{'dbtype'}, { set_id => $set_id } );
 			next if !@$plugins;
 			my $buffer = "<div style=\"float:left; margin-right:1em\">\n";
 			$buffer .= "<img src=\"/images/icons/64x64/$_.png\" alt=\"\" />\n";
