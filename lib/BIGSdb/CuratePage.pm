@@ -929,6 +929,8 @@ sub clean_value {
 	$value =~ s/'/\\'/g;
 	$value =~ s/\r//g;
 	$value =~ s/\n/ /g;
+	$value =~ s/^\s*//;
+	$value =~ s/\s*$//;
 	return $value;
 }
 
