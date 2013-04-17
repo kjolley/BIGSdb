@@ -66,7 +66,7 @@ sub get_javascript {
 	my $q      = $self->{'cgi'};
 	my $id     = $q->param('id');
 	my ( $job, $params, $output ) = $self->{'jobManager'}->get_job($id);
-	my $percent = $job->{'percent_complete'};
+	my $percent = $job->{'percent_complete'} // 0;
 	if ($percent == -1){
 		my $buffer = << "END";
 \$(function () {
