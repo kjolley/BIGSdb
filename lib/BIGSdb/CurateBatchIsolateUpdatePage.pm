@@ -255,7 +255,7 @@ sub _check {
 					{
 						$oldvalue = "&lt;blank&gt;"
 						  if !defined $oldvalue || $oldvalue eq '';
-						my $problem = $self->is_field_bad( $self->{'system'}->{'view'}, $field[$i], $value[$i], 'update' );
+						my $problem = $self->is_field_bad( 'isolates', $field[$i], $value[$i], 'update' );
 						if ($is_locus) {
 							my $locus_info = $self->{'datastore'}->get_locus_info( $field[$i] );
 							if ( $locus_info->{'allele_id_format'} eq 'integer' && !BIGSdb::Utils::is_int( $value[$i] ) ) {
