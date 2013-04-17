@@ -215,7 +215,7 @@ sub _print_curate_headerbar_functions {
 			$self->_print_set_sequence_flags_function;
 		}
 	}
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
 		$self->_print_tag_scanning_function           if $self->can_modify_table('allele_sequences');
 		$self->_print_modify_project_members_function if $self->can_modify_table('project_members');
 	}
