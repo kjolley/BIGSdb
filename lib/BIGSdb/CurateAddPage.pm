@@ -371,10 +371,10 @@ sub _check_allele_data {
 	#Prepare extra inserts for PubMed/Genbank records and sequence flags.
 	my ( $self, $newdata, $problems, $extra_inserts ) = @_;
 	my $q = $self->{'cgi'};
-	$newdata->{'sequence'} = uc $newdata->{'sequence'};
 	my $locus_info = $self->{'datastore'}->get_locus_info( $newdata->{'locus'} );
+	$newdata->{'sequence'} = uc $newdata->{'sequence'};
 	if ( $locus_info->{'data_type'} eq 'DNA' ) {
-		$newdata->{'sequence'} =~ s/[^GATC]//g;
+		$newdata->{'sequence'} =~ s/[\W]//g;
 	} else {
 		$newdata->{'sequence'} =~ s/[^GPAVLIMCFYWHKRQNEDST\*]//g;
 	}
@@ -394,6 +394,7 @@ sub _check_allele_data {
 	} elsif ( $newdata->{'allele_id'} =~ /\s/ ) {
 		push @$problems, "Allele id must not contain spaces - try substituting with underscores (_).<br />";
 	} else {
+		$newdata->{'sequence'} =~ s/\s//g;
 		my $exist_ref =
 		  $self->{'datastore'}
 		  ->run_simple_query( "SELECT allele_id FROM sequences WHERE locus=? AND sequence=?", $newdata->{'locus'}, $newdata->{'sequence'} );

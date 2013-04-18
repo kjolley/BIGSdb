@@ -947,12 +947,6 @@ sub _check_data_sequences {
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		${ $arg_ref->{'value'} } //= '';
 		${ $arg_ref->{'value'} } =~ s/ //g;
-		${ $arg_ref->{'value'} } = uc( ${ $arg_ref->{'value'} } );
-		if ( $locus_info->{'data_type'} eq 'DNA' ) {
-			${ $arg_ref->{'value'} } =~ s/[^GATC]//g;
-		} else {
-			${ $arg_ref->{'value'} } =~ s/[^GPAVLIMCFYWHKRQNEDST\*]//g;
-		}
 		my $length = length( ${ $arg_ref->{'value'} } );
 		my $units = ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' ) ? 'bp' : 'residues';
 		if ( $length == 0 ) {
@@ -977,6 +971,12 @@ sub _check_data_sequences {
 		{
 			$buffer .= "Allele id must not contain spaces - try substituting with underscores (_).<br />";
 		} elsif ( defined $locus ) {
+			${ $arg_ref->{'value'} } = uc( ${ $arg_ref->{'value'} } );
+			if ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' ) {
+				${ $arg_ref->{'value'} } =~ s/[\W]//g;
+			} else {
+				${ $arg_ref->{'value'} } =~ s/[^GPAVLIMCFYWHKRQNEDST\*]//g;
+			}
 			my $md5_seq = md5( ${ $arg_ref->{'value'} } );
 			$self->{'unique_values'}->{$locus}->{$md5_seq}++;
 			if ( $self->{'unique_values'}->{$locus}->{$md5_seq} > 1 ) {
