@@ -8,6 +8,7 @@ Version 1.3: Change of isolate and seqdef database structures.  Ensure
              jstree.js is upgraded.
 Version 1.4: Change of isolate, seqdef, and job database structures.
 Version 1.5: Change of isolate and seqdef database structures.
+Version 1.6: Change of isolate and seqdef database structures.
 
 Details can be found below.
 
