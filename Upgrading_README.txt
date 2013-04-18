@@ -120,9 +120,9 @@ upgrade directory, against your databases.
 
 Changes to the database structures are detailed below:
 
-1) There are new tables in both the isolate and seqdef databases to support
-dataset partitions: sets, set_loci, set_schemes, set_metadata.  The isolate
-database has one extra table to handle database views: set_view.
+11) There are new tables in both the isolate and seqdef databases to support
+dataset partitions: sets, set_loci, set_schemes. The isolate database has two 
+extra tables to handle database views and metadata: set_view and set_metadata.
 2) There is a new field in the isolate database loci table, match_longest, 
 that when true specifies that a BLAST search for tagging will only return the
 best (longest) match.
@@ -130,4 +130,17 @@ best (longest) match.
 databases, formatted_name and formatted_common_name, where the isolate name
 can be formatted using HTML attributes for display in the website.
 
+Version 1.6
+-----------
+There are changes to the isolate and sequence definition database structures.
+Please run the isolatedb_v1.6.sql and seqdefdb_v1.6.sql, found in the sql/
+upgrade directory, against your databases.
+
+Additionally, jQuery has been updated to version 1.9.1.  This has necessitated
+an upgrade to various Javascript plugins.  Please make sure that the 
+javascript directory is up to date.  The cornerz jquery plugin is no longer
+required since its functionality is now available using CSS.
+
+There are also stylesheet changes so update bigsdb.css and ensure the new 
+jquery-ui.css is copied to the same location.
 
