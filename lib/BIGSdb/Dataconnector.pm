@@ -35,7 +35,7 @@ sub DESTROY {
 	foreach my $db ( keys %{ $self->{'db'} } ) {
 		$self->_log_active_statement_handles( $self->{'db'}->{$db}, 1 );
 		eval { $self->{'db'}->{$db}->disconnect and $logger->info("Disconnected from database $self->{'db'}->{$db}->{'Name'}") };
-		$logger->error($@) if $@;
+		$logger->debug("Database $self->{'db'}->{$db}->{'Name'}: $@") if $@;
 	}
 	return;
 }
