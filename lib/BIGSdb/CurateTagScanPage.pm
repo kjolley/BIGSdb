@@ -44,11 +44,15 @@ my $MARK_MISSING    = 'off';
 sub get_javascript {
 	my ($self) = @_;
 	my %check_values = ( on => 'true', off => 'false' );
-	my $buffer = << "END";
+	my $buffer;
+	if ( !$self->{'cgi'}->param('tag') ) {
+		$buffer .= << "END";
 \$(function () {	
 		\$("html, body").animate({ scrollTop: \$(document).height()-\$(window).height() });	
-});	
-	
+});			
+END
+	}
+	$buffer .= << "END";
 function listbox_selectall(listID, isSelect) {
 	\$("#" + listID + " option").prop("selected",isSelect);
 }
@@ -76,10 +80,36 @@ sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.jstree noCache);
 	my $q = $self->{'cgi'};
-	if ($q->param('submit') || $q->param('results')){
-		$self->{'refresh'} = $q->param('results') ? 5 : 2;
+	if ( $q->param('submit') || $q->param('results') ) {
 		$self->{'scan_job'} = $q->param('scan') || BIGSdb::Utils::get_random();
-		$self->{'refresh_page'} = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;scan=$self->{'scan_job'}&amp;results=1";
+		my $scan_job = $self->{'scan_job'} =~ /^(BIGSdb_[0-9_]+)$/ ? $1 : undef;
+		my $status = $self->_read_status($scan_job);
+		return if $status->{'server_busy'};
+		if ( !$status->{'stop_time'} ) {
+			if ( $status->{'start_time'} ) {
+				if ( !$q->param('results') ) {
+					$self->{'refresh'} = 2;
+				} else {
+					my $elapsed = time - $status->{'start_time'};
+					if    ( $elapsed < 120 )  { $self->{'refresh'} = 5 }
+					elsif ( $elapsed < 300 )  { $self->{'refresh'} = 10 }
+					elsif ( $elapsed < 600 )  { $self->{'refresh'} = 30 }
+					elsif ( $elapsed < 3600 ) { $self->{'refresh'} = 60 }
+					else                      { $self->{'refresh'} = 300 }
+				}
+			} else {
+				$self->{'refresh'} = 2;
+			}
+			$self->{'refresh_page'} =
+			  "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;scan=$scan_job&amp;results=1";
+		}
+		if ( $q->param('stop') ) {
+			my $status_file = "$self->{'config'}->{'secure_tmp_dir'}/$scan_job\_status.txt";
+			open( my $fh, '>>', $status_file ) || $logger->error("Can't open $status_file for appending");
+			say $fh "request_stop:1";
+			close $fh;
+			$self->{'refresh'} = 1;
+		}
 	}
 	return;
 }
@@ -198,8 +228,6 @@ sub _print_interface {
 	say "</ul></fieldset>";
 	say "</div>";
 	$self->print_action_fieldset( { submit_label => 'Scan' } );
-#	my $scan_job = BIGSdb::Utils::get_random();
-#	say $q->hidden('scan', $scan_job);
 	say $q->hidden($_) foreach qw (page db);
 	say $q->end_form;
 	say "</div>";
@@ -342,7 +370,8 @@ sub _scan {
 	if ($guid) {
 		my $dbname = $self->{'system'}->{'db'};
 		foreach (
-			qw (identity alignment word_size partial_matches limit_matches limit_time tblastx hunt rescan_alleles rescan_seqs mark_missing))
+			qw (identity alignment word_size partial_matches limit_matches limit_time tblastx hunt rescan_alleles rescan_seqs mark_missing)
+		  )
 		{
 			my $value = ( defined $q->param($_) && $q->param($_) ne '' ) ? $q->param($_) : 'off';
 			$self->{'prefstore'}->set_general( $guid, $dbname, "scan_$_", $value );
@@ -351,7 +380,6 @@ sub _scan {
 	$self->_add_scheme_loci( \@loci );
 	my $tag_button = 1;
 	my ( @js, @js2, @js3, @js4 );
-	my $show_key;    #TODO need to get this back
 	my $buffer;
 	my $first = 1;
 	my $new_alleles;
@@ -359,103 +387,56 @@ sub _scan {
 	my ( %allele_designation_set, %allele_sequence_tagged );
 	my $out_of_time;
 	my $match_limit_reached;
-	my $new_seqs_found;     #TODO get this back
-	my $last_id_checked;    #TODO get this back
-	my $file_prefix  = BIGSdb::Utils::get_random();
 	my $scan_job = $self->{'scan_job'} =~ /^(BIGSdb_[0-9_]+)$/ ? $1 : undef;
-	
 	my $project_id = $q->param('project_list');
-	my %isolates_to_tag;    #TODO get this back too
-		local $| = 1;
-	
-	local $SIG{CHLD} = 'IGNORE';    #prevent zombie processes if apache restarted during scan
+	local $| = 1;
+	$SIG{CHLD} = 'IGNORE';    ## no critic (RequireLocalizedPunctuationVars) prevent zombie processes
 	defined( my $pid = fork ) or $logger->error("cannot fork");
 
 	unless ($pid) {
 		open STDIN,  '<', '/dev/null';
-    	open STDOUT, '>', '/dev/null';
-    	open STDERR, '>&STDOUT';
-		
+		open STDOUT, '>', '/dev/null';
+		open STDERR, '>&STDOUT';
 		my $options = {
-			labels => $labels,
-			limit        => $limit,
-			time_limit   => $time_limit,
-			loci         => \@loci,
-			project_id   => $project_id,
-			file_prefix  => $file_prefix,
-			scan_job => $scan_job,
-			script_name  => $self->{'system'}->{'script_name'}
+			labels               => $labels,
+			limit                => $limit,
+			time_limit           => $time_limit,
+			loci                 => \@loci,
+			project_id           => $project_id,
+			scan_job             => $scan_job,
+			script_name          => $self->{'system'}->{'script_name'},
+			curator_name         => $self->get_curator_name,
+			throw_busy_exception => 1
 		};
-		my $params      = $q->Vars;
-		my $scan_thread = BIGSdb::Offline::Scan->new(
-			{
-				config_dir       => $self->{'config_dir'},
-				lib_dir          => $self->{'lib_dir'},
-				dbase_config_dir => $self->{'dbase_config_dir'},
-				host             => $self->{'system'}->{'host'},
-				port             => $self->{'system'}->{'port'},
-				user             => $self->{'system'}->{'user'},
-				password         => $self->{'system'}->{'password'},
-				options          => $options,
-				params           => $params,
-				instance         => $self->{'instance'}
-			}
-		);
+		my $params = $q->Vars;
+		try {
+			BIGSdb::Offline::Scan->new(
+				{
+					config_dir       => $self->{'config_dir'},
+					lib_dir          => $self->{'lib_dir'},
+					dbase_config_dir => $self->{'dbase_config_dir'},
+					host             => $self->{'system'}->{'host'},
+					port             => $self->{'system'}->{'port'},
+					user             => $self->{'system'}->{'user'},
+					password         => $self->{'system'}->{'password'},
+					options          => $options,
+					params           => $params,
+					instance         => $self->{'instance'},
+					logger           => $logger
+				}
+			);
+		}
+		catch BIGSdb::ServerBusyException with {
+			my $status_file = "$self->{'config'}->{'secure_tmp_dir'}/$scan_job\_status.txt";
+			open( my $fh, '>', $status_file ) || $logger->error("Can't open $status_file for writing");
+			say $fh "server_busy:1";
+			close $fh;
+		};
 		CORE::exit(0);
 	}
 	say "<div class=\"box\" id=\"resultsheader\"><p>You will be forwarded to the results page shortly.  Click "
 	  . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;scan=$scan_job&amp;results=1\">here</a> "
 	  . "if you're not.</p></div>";
-	return;
-	
-	
-
-	
-	
-	
-	if ($first) {
-		$tag_button = 0;
-	} else {
-		$buffer .= "</table></div>\n";
-		$buffer .= "<p>* Allele continues beyond end of contig</p>" if $show_key;
-	}
-	if ($tag_button) {
-		local $" = ';';
-		say "<tr class=\"td\"><td colspan=\"14\" /><td>";
-		say "<input type=\"button\" value=\"All\" onclick='@js' class=\"smallbutton\" />"   if @js;
-		say "<input type=\"button\" value=\"None\" onclick='@js2' class=\"smallbutton\" />" if @js2;
-		say "</td><td>";
-		say "<input type=\"button\" value=\"All\" onclick='@js3' class=\"smallbutton\" />"  if @js3;
-		say "<input type=\"button\" value=\"None\" onclick='@js4' class=\"smallbutton\" />" if @js4;
-		say "</td></tr>";
-	}
-	say $buffer                                                           if $buffer;
-	say "<p>Time limit reached (checked up to id-$last_id_checked).</p>"  if $out_of_time;            #TODO make sure this is returned
-	say "<p>Match limit reached (checked up to id-$last_id_checked).</p>" if $match_limit_reached;    #TODO make sure this is returned
-	if ($new_seqs_found) {
-		say "<p><a href=\"/tmp/$file_prefix\_unique_sequences.txt\" target=\"_blank\">New unique sequences</a>";
-		say " <a class=\"tooltip\" title=\"Unique sequence - This is a list of new sequences (tab-delimited with locus name) of unique "
-		  . "new sequences found in this search.  This can be used to facilitate rapid upload of new sequences to a sequence definition "
-		  . "database for allele assignment.\">&nbsp;<i>i</i>&nbsp;</a></p>";
-	}
-	if ($tag_button) {
-		$q->param( 'isolate_id_list', sort { $a <=> $b } keys %isolates_to_tag )
-		  ;    #pass the isolates that appear in the table rather than whole selection.  Don't overwrite isolate_id param though
-		       #or it will reset the isolate list selections.
-		say $q->submit( -name => 'tag', -label => 'Tag alleles/sequences', -class => 'submit' );
-		say "<noscript><p><span class=\"comment\"> Enable javascript for select buttons to work!</span></p></noscript>\n";
-		foreach (
-			qw (db page isolate_id isolate_id_list rescan_alleles rescan_seqs locus identity alignment limit_matches limit_time
-			seq_method_list	experiment_list project_list tblastx hunt pcr_filter alter_pcr_mismatches probe_filter alter_probe_mismatches)
-		  )
-		{
-			say $q->hidden($_);
-		}
-		say $q->hidden("s_$_") foreach @$scheme_ids;
-	} else {
-		say "<p>No sequence or allele tags to update.</p>";
-	}
-	say "</div>";
 	return;
 }
 
@@ -470,7 +451,7 @@ sub _tag {
 	  $self->{'db'}->prepare("SELECT COUNT(*) FROM allele_sequences WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=?");
 	my @params      = $q->param;
 	my @isolate_ids = $q->param('isolate_id_list');
-	my @loci        = $q->param('locus');
+	my @loci        = $q->param('loci');
 	my @scheme_ids  = $q->param('scheme_id');
 	$self->_add_scheme_loci( \@loci );
 	@loci = uniq @loci;
@@ -634,51 +615,95 @@ sub _tag {
 }
 
 sub _show_results {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my ($self)   = @_;
+	my $q        = $self->{'cgi'};
 	my $scan_job = $q->param('scan');
 	$scan_job = $scan_job =~ /^(BIGSdb_[0-9_]+)$/ ? $1 : undef;
-	if (!defined $scan_job){
+	if ( !defined $scan_job ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>Invalid job id passed.</p></div>";
 		return;
 	}
 	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/$scan_job\_table.html";
+	my $status   = $self->_read_status($scan_job);
+	if ( $status->{'server_busy'} ) {
+		say "<div class=\"box\" id=\"statusbad\"><p>The server is currently too busy to run your scan.  Please wait a few minutes "
+		  . "and then try again.</p></div>";
+		return;
+	} elsif ( !$status->{'start_time'} ) {
+		say "<div class=\"box\" id=\"statusbad\"><p>The requested job does not exist.</p></div>";
+		return;
+	}
 	say "<div class=\"box\" id=\"resultstable\">";
-		say $q->start_form;
-	
-	if (!-e $filename || !-s $filename){
-		say "<p>No results yet ... please wait</p>";
+	say $q->start_form;
+	if ( !-s $filename ) {
+		if ( $status->{'stop_time'} ) {
+			say "<p>No matches found.</p>";
+		} else {
+			say "<p>No results yet ... please wait.</p>";
+		}
 	} else {
 		say "<div class=\"scrollable\">\n<table class=\"resultstable\"><tr><th>Isolate</th><th>Match</th><th>Locus</th>"
-	  . "<th>Allele</th><th>% identity</th><th>Alignment length</th><th>Allele length</th><th>E-value</th><th>Sequence bin id</th>"
-	  . "<th>Start</th><th>End</th><th>Predicted start</th><th>Predicted end</th><th>Orientation</th><th>Designate allele</th>"
-	  . "<th>Tag sequence</th><th>Flag <a class=\"tooltip\" title=\"Flag - Set a status flag for the sequence.  You need to also "
-	  . "tag the sequence for any flag to take effect.\">&nbsp;<i>i</i>&nbsp;</a></th></tr>";
-	  $self->print_file($filename);
-	  say "</table></div>";
+		  . "<th>Allele</th><th>% identity</th><th>Alignment length</th><th>Allele length</th><th>E-value</th><th>Sequence bin id</th>"
+		  . "<th>Start</th><th>End</th><th>Predicted start</th><th>Predicted end</th><th>Orientation</th><th>Designate allele</th>"
+		  . "<th>Tag sequence</th><th>Flag <a class=\"tooltip\" title=\"Flag - Set a status flag for the sequence.  You need to also "
+		  . "tag the sequence for any flag to take effect.\">&nbsp;<i>i</i>&nbsp;</a></th></tr>";
+		$self->print_file($filename);
+		say "</table></div>";
+		say "<p>* Allele continues beyond end of contig</p>" if $status->{'allele_off_contig'};
+	}
+	if ( $status->{'new_seqs_found'} ) {
+		say "<p><a href=\"/tmp/$scan_job\_unique_sequences.txt\" target=\"_blank\">New unique sequences</a>"
+		  . " <a class=\"tooltip\" title=\"Unique sequence - This is a list of new unique sequences found in this search (tab-delimited "
+		  . "with locus name). This can be used to facilitate rapid upload of new sequences to a sequence definition database for allele "
+		  . "assignment.\">&nbsp;<i>i</i>&nbsp;</a></p>";
+	}
+	if ( -s $filename && $status->{'stop_time'} ) {
+		if ( $status->{'tag_isolates'} ) {
+			my @isolates_to_tag = split /,/, $status->{'tag_isolates'};
+			say $q->hidden( 'isolate_id_list', @isolates_to_tag );
+			my @loci = split /,/, $status->{'loci'};
+			say $q->hidden( 'loci', @loci );
+		}
+		say $q->hidden($_) foreach qw(db page);
+		say $q->submit( -name => 'tag', -label => 'Tag alleles/sequences', -class => 'submit' );
 	}
 	say $q->end_form;
 	say "</div>";
-	
 	say "<div class=\"box\" id=\"resultsfooter\">";
+	my $elapsed = $status->{'start_time'} ? $status->{'start_time'} - ( $status->{'stop_time'} // time ) : undef;
+	my ( $refresh_time, $elapsed_time );
 	eval "use Time::Duration;";    ## no critic (ProhibitStringyEval)
-	my $refresh;
 	if ($@) {
-		$refresh = $self->{'refresh'} . ' seconds';
+		$refresh_time = $self->{'refresh'} . ' seconds';
+		$elapsed_time = $elapsed ? "$elapsed seconds" : undef;
 	} else {
-		$refresh = duration( $self->{'refresh'} );
+		$refresh_time = duration( $self->{'refresh'} );
+		$elapsed_time = $elapsed ? duration($elapsed) : undef;
 	}
-
-
-	
-	say "<p>This page will reload in $refresh. You can refresh it any time, or bookmark it and close your browser if you wish.</p>"
-	  if $self->{'refresh'};
+	if ( $status->{'match_limit_reached'} ) {
+		say "<p>Match limit reached (checked up to id-$status->{'last_isolate'}).</p>";
+	} elsif ( $status->{'time_limit_reached'} ) {
+		say "<p>Time limit reached (checked up to id-$status->{'last_isolate'}).</p>";
+	}
+	say "<p>";
+	say "<b>Started:</b> " . scalar localtime( $status->{'start_time'} ) . '<br />'  if $status->{'start_time'};
+	say "<b>Finished:</b> " . scalar localtime( $status->{'stop_time'} ) . ')<br />' if $status->{'stop_time'};
+	say "<b>Elapsed time:</b> $elapsed_time"                                         if $elapsed_time;
+	say "</p>";
+	if ( !$status->{'stop_time'} ) {
+		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;scan=$self->{'scan_job'}&amp;"
+		  . "results=1&amp;stop=1\" class=\"resetbutton\" style=\"margin-top:-0.2em;margin-right:1em\">Stop job!</a> Clicking this will "
+		  . "request that the job finishes allowing new designations to be made.  Please allow a few seconds for it to stop.</p>";
+	}
+	if ( $self->{'refresh'} ) {
+		say "<p>This page will reload in $refresh_time. You can refresh it any time, or bookmark it, close your browser and return "
+		  . "to it later if you wish.</p>";
+	}
 	if ( $self->{'config'}->{'results_deleted_days'} && BIGSdb::Utils::is_int( $self->{'config'}->{'results_deleted_days'} ) ) {
-		say "<p>Please note that job results will remain on the server for $self->{'config'}->{'results_deleted_days'} days.</p></div>";
+		say "<p>Please note that scan results will remain on the server for $self->{'config'}->{'results_deleted_days'} days.</p></div>";
 	} else {
-		say "<p>Please note that job results will not be stored on the server indefinitely.</p></div>";
+		say "<p>Please note that scan results will not be stored on the server indefinitely.</p></div>";
 	}
-	
 	return;
 }
 
@@ -690,13 +715,12 @@ sub print_content {
 	say "<h1>Sequence tag scan</h1>";
 	if ( $q->param('tag') ) {
 		$self->_tag($labels);
-	} elsif ( $q->param('results')){
+	} elsif ( $q->param('results') ) {
 		$self->_show_results;
 	} elsif ( $q->param('submit') ) {
 		$self->_scan($labels);
 	} else {
 		$self->_print_interface( $ids, $labels );
-		
 	}
 	return;
 }
@@ -727,161 +751,6 @@ sub _add_scheme_loci {
 	return;
 }
 
-sub _simulate_PCR {
-	my ( $self, $fasta_file, $locus ) = @_;
-	my $q = $self->{'cgi'};
-	my $reactions =
-	  $self->{'datastore'}
-	  ->run_list_query_hashref( "SELECT pcr.* FROM pcr LEFT JOIN pcr_locus ON pcr.id = pcr_locus.pcr_id WHERE locus=?", $locus );
-	return if !@$reactions;
-	my $temp          = BIGSdb::Utils::get_random();
-	my $reaction_file = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_reactions.txt";
-	my $results_file  = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_results.txt";
-	open( my $fh, '>', $reaction_file );
-	my $max_primer_mismatch = 0;
-	my $conditions;
-
-	foreach (@$reactions) {
-		foreach my $primer (qw (primer1 primer2)) {
-			$_->{$primer} =~ tr/ //;
-		}
-		my $min_length = $_->{'min_length'} || 1;
-		my $max_length = $_->{'max_length'} || 50000;
-		$max_primer_mismatch = $_->{'max_primer_mismatch'} if $_->{'max_primer_mismatch'} > $max_primer_mismatch;
-		if ( $q->param('alter_pcr_mismatches') && $q->param('alter_pcr_mismatches') =~ /([\-\+]\d)/ ) {
-			my $delta = $1;
-			$max_primer_mismatch += $delta;
-			$max_primer_mismatch = 0 if $max_primer_mismatch < 0;
-		}
-		print $fh "$_->{'id'}\t$_->{'primer1'}\t$_->{'primer2'}\t$min_length\t$max_length\n";
-		$conditions->{ $_->{'id'} } = $_;
-	}
-	close $fh;
-	system(
-"$self->{'config'}->{'ipcress_path'} --input $reaction_file --sequence $fasta_file --mismatch $max_primer_mismatch --pretty false > $results_file 2> /dev/null"
-	);
-	my @pcr_products;
-	open( $fh, '<', $results_file );
-	while (<$fh>) {
-		if ( $_ =~ /^ipcress:/ ) {
-			my ( undef, $seq_id, $reaction_id, $length, undef, $start, $mismatch1, undef, $end, $mismatch2, $desc ) = split /\s+/, $_;
-			next if $desc =~ /single/;    #product generated by one primer only.
-			my ( $seqbin_id, undef ) = split /:/, $seq_id;
-			$logger->debug("Seqbin_id:$seqbin_id; $start-$end; mismatch1:$mismatch1; mismatch2:$mismatch2");
-			next
-			  if $mismatch1 > $conditions->{$reaction_id}->{'max_primer_mismatch'}
-				  || $mismatch2 > $conditions->{$reaction_id}->{'max_primer_mismatch'};
-			my $product =
-			  { 'seqbin_id' => $seqbin_id, 'start' => $start, 'end' => $end, 'mismatch1' => $mismatch1, 'mismatch2' => $mismatch2 };
-			push @pcr_products, $product;
-		}
-	}
-	close $fh;
-	unlink $reaction_file, $results_file;
-	return \@pcr_products;
-}
-
-sub _simulate_hybridization {
-	my ( $self, $fasta_file, $locus ) = @_;
-	my $q      = $self->{'cgi'};
-	my $probes = $self->{'datastore'}->run_list_query_hashref(
-"SELECT probes.id,probes.sequence,probe_locus.* FROM probes LEFT JOIN probe_locus ON probes.id = probe_locus.probe_id WHERE locus=?",
-		$locus
-	);
-	return if !@$probes;
-	my $file_prefix      = BIGSdb::Utils::get_random();
-	my $probe_fasta_file = "$self->{'config'}->{'secure_tmp_dir'}/$file_prefix\_probe.txt";
-	my $results_file     = "$self->{'config'}->{'secure_tmp_dir'}/$file_prefix\_results.txt";
-	open( my $fh, '>', $probe_fasta_file ) or $logger->error("Can't open temp file $probe_fasta_file for writing");
-	my %probe_info;
-
-	foreach (@$probes) {
-		$_->{'sequence'} =~ s/\s//g;
-		print $fh ">$_->{'id'}\n$_->{'sequence'}\n";
-		$_->{'max_mismatch'} = 0 if !$_->{'max_mismatch'};
-		if ( $q->param('alter_probe_mismatches') && $q->param('alter_probe_mismatches') =~ /([\-\+]\d)/ ) {
-			my $delta = $1;
-			$_->{'max_mismatch'} += $delta;
-			$_->{'max_mismatch'} = 0 if $_->{'max_mismatch'} < 0;
-		}
-		$_->{'max_gaps'} = 0 if !$_->{'max_gaps'};
-		$_->{'min_alignment'} = length $_->{'sequence'} if !$_->{'min_alignment'};
-		$probe_info{ $_->{'id'} } = $_;
-	}
-	close $fh;
-	if ( $self->{'config'}->{'blast+_path'} ) {
-		system("$self->{'config'}->{'blast+_path'}/makeblastdb -in $fasta_file -logfile /dev/null -parse_seqids -dbtype nucl");
-		my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
-		system(
-"$self->{'config'}->{'blast+_path'}/blastn -task blastn -num_threads $blast_threads -max_target_seqs 1000 -parse_deflines -db $fasta_file -out $results_file -query $probe_fasta_file -outfmt 6 -dust no"
-		);
-	} else {
-		my $seq_count = scalar @$probes;
-		system("$self->{'config'}->{'blast_path'}/formatdb -i $fasta_file -p F -o T");
-		system(
-"$self->{'config'}->{'blast_path'}/blastall -B $seq_count -b 1000 -p blastn -d $fasta_file -i $probe_fasta_file -o $results_file -m8 -F F 2> /dev/null"
-		);
-	}
-	my @matches;
-	if ( -e $results_file ) {
-		open( $fh, '<', $results_file );
-		while (<$fh>) {
-			my @record = split /\t/, $_;
-			my $match;
-			$match->{'probe_id'}  = $record[0];
-			$match->{'seqbin_id'} = $record[1];
-			$match->{'alignment'} = $record[3];
-			next if $match->{'alignment'} < $probe_info{ $match->{'probe_id'} }->{'min_alignment'};
-			$match->{'mismatches'} = $record[4];
-			next if $match->{'mismatches'} > $probe_info{ $match->{'probe_id'} }->{'max_mismatch'};
-			$match->{'gaps'} = $record[5];
-			next if $match->{'gaps'} > $probe_info{ $match->{'probe_id'} }->{'max_gaps'};
-
-			if ( $record[8] < $record[9] ) {
-				$match->{'start'} = $record[8];
-				$match->{'end'}   = $record[9];
-			} else {
-				$match->{'start'} = $record[9];
-				$match->{'end'}   = $record[8];
-			}
-			$logger->debug("Seqbin: $match->{'seqbin_id'}; Start: $match->{'start'}; End: $match->{'end'}");
-			push @matches, $match;
-		}
-		close $fh;
-		unlink $results_file;
-	}
-	unlink $probe_fasta_file;
-	return \@matches;
-}
-
-sub _probe_filter_match {
-	my ( $self, $locus, $blast_match, $probe_matches ) = @_;
-	my $good_match = 0;
-	my %probe_info;
-	foreach (@$probe_matches) {
-		if ( !$probe_info{ $_->{'probe_id'} } ) {
-			$probe_info{ $_->{'probe_id'} } =
-			  $self->{'datastore'}
-			  ->run_simple_query_hashref( "SELECT * FROM probe_locus WHERE locus=? AND probe_id=?", $locus, $_->{'probe_id'} );
-		}
-		next if $blast_match->{'seqbin_id'} != $_->{'seqbin_id'};
-		my $probe_distance = -1;
-		if ( $blast_match->{'start'} > $_->{'end'} ) {
-			$probe_distance = $blast_match->{'start'} - $_->{'end'};
-		}
-		if ( $blast_match->{'end'} < $_->{'start'} ) {
-			my $end_distance = $_->{'start'} - $blast_match->{'end'};
-			if ( ( $end_distance < $probe_distance ) || ( $probe_distance == -1 ) ) {
-				$probe_distance = $end_distance;
-			}
-		}
-		next if ( $probe_distance > $probe_info{ $_->{'probe_id'} }->{'max_distance'} ) || $probe_distance == -1;
-		$logger->debug("Probe distance: $probe_distance");
-		return 1;
-	}
-	return 0;
-}
-
 sub _create_temp_tables {
 	my ( $self, $qry_ref ) = @_;
 	my $qry      = $$qry_ref;
@@ -908,5 +777,20 @@ sub _get_ids {
 	$qry =~ s/SELECT \*/SELECT id/;
 	my $ids = $self->{'datastore'}->run_list_query($qry);
 	return $ids;
+}
+
+sub _read_status {
+	my ( $self, $scan_job ) = @_;
+	my $status_file = "$self->{'config'}->{'secure_tmp_dir'}/$scan_job\_status.txt";
+	my %data;
+	return \%data if !-e $status_file;
+	open( my $fh, '<', $status_file ) || $logger->error("Can't open $status_file for reading. $!");
+	while (<$fh>) {
+		if ( $_ =~ /^(.*):(.*)$/ ) {
+			$data{$1} = $2;
+		}
+	}
+	close $fh;
+	return \%data;
 }
 1;

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2012, University of Oxford
+#Copyright (c) 2011-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -22,15 +22,15 @@ use warnings;
 use List::Util qw(shuffle);
 use List::MoreUtils qw(none any uniq);
 use POSIX qw(strftime);
-use parent qw(BIGSdb::Offline::Script BIGSdb::CurateTagScanPage);
+use parent qw(BIGSdb::Offline::Scan);
 use BIGSdb::Utils;
 use constant TAG_USER     => -1;             #User id for tagger (there needs to be a record in the users table)
 use constant TAG_USERNAME => 'autotagger';
 
 sub run_script {
 	my ($self) = @_;
-	$self->{'cgi'}->param( 'pcr_filter',   1 );
-	$self->{'cgi'}->param( 'probe_filter', 1 );
+	my $params;
+	$params->{$_} = 1 foreach qw(pcr_filter probe_filter);
 	die "No connection to database (check logs).\n" if !defined $self->{'db'} || $self->{'system'}->{'dbtype'} ne 'isolates';
 	my $tag_user_id = TAG_USER;
 	$self->{'username'} = TAG_USERNAME;
@@ -44,7 +44,7 @@ sub run_script {
 	my @exclude_isolates;
 
 	if ( $self->{'options'}->{'I'} ) {
-		@exclude_isolates = split /,/, $self->{'options'}->{'I'};
+		@exclude_isolates = split /,/, $self->{'options'}->{'I'}; 
 	}
 	if ( $self->{'options'}->{'P'} ) {
 		push @exclude_isolates, @{ $self->_get_isolates_excluded_by_project };
@@ -86,7 +86,7 @@ sub run_script {
 			next if defined $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
 			my $allele_seq = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
 			next if ref $allele_seq eq 'ARRAY' && @$allele_seq;
-			my ( $exact_matches, undef ) = $self->blast( $locus, $isolate_id, $file_prefix, $locus_prefix );
+			my ( $exact_matches, undef ) = $self->blast( $params, $locus, $isolate_id, $file_prefix, $locus_prefix );
 			if ( ref $exact_matches && @$exact_matches ) {
 				print "Isolate: $isolate_id; Locus: $locus; " if !$self->{'options'}->{'q'};
 				foreach (@$exact_matches) {

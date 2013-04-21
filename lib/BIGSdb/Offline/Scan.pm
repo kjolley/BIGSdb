@@ -20,20 +20,19 @@ package BIGSdb::Offline::Scan;
 use strict;
 use warnings;
 no warnings 'io';    #Prevent false warning message about STDOUT being reopened.
-use parent qw(BIGSdb::Offline::Script BIGSdb::Page);
+use parent qw(BIGSdb::Offline::Script BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
-my $logger = get_logger('BIGSdb.Page');
+my $logger = get_logger('BIGSdb.Scan');
 use List::MoreUtils qw( any none);
 use Error qw(:try);
 use BIGSdb::Page qw(SEQ_METHODS SEQ_FLAGS LOCUS_PATTERN);
 
 sub blast {
-	my ( $self, $locus, $isolate_id, $file_prefix, $locus_prefix ) = @_;
+	my ( $self, $params, $locus, $isolate_id, $file_prefix, $locus_prefix ) = @_;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	my $q          = $self->{'cgi'};
 	my $program;
 	if ( $locus_info->{'data_type'} eq 'DNA' ) {
-		$program = $q->param('tblastx') ? 'tblastx' : 'blastn';
+		$program = $params->{'tblastx'} ? 'tblastx' : 'blastn';
 	} else {
 		$program = 'blastx';
 	}
@@ -88,13 +87,13 @@ sub blast {
 	#this should then be deleted by the calling function!
 	my $seq_count = 0;
 	if ( !-e $temp_infile ) {
-		my $experiment      = $self->{'cgi'}->param('experiment_list');
+		my $experiment      = $params->{'experiment_list'};
 		my $distinct_clause = $experiment ? ' DISTINCT' : '';
 		my $qry             = "SELECT$distinct_clause sequence_bin.id,sequence FROM sequence_bin ";
 		$qry .= "LEFT JOIN experiment_sequences ON sequence_bin.id=seqbin_id " if $experiment;
 		$qry .= "WHERE sequence_bin.isolate_id=?";
 		my @criteria = ($isolate_id);
-		my $method   = $self->{'cgi'}->param('seq_method_list');
+		my $method   = $params->{'seq_method_list'};
 		if ($method) {
 
 			if ( !any { $_ eq $method } SEQ_METHODS ) {
@@ -130,7 +129,7 @@ sub blast {
 		close $seqcount_fh;
 	}
 	my ( $pcr_products, $probe_matches );
-	if ( $locus_info->{'pcr_filter'} && $q->param('pcr_filter') ) {
+	if ( $locus_info->{'pcr_filter'} && $params->{'pcr_filter'} ) {
 		if ( $self->{'config'}->{'ipcress_path'} ) {
 			$pcr_products = $self->_simulate_PCR( $temp_infile, $locus );
 			if ( ref $pcr_products ne 'ARRAY' ) {
@@ -142,7 +141,7 @@ sub blast {
 			$logger->error("Ipcress path is not set in bigsdb.conf.  PCR simulation can not be done so whole genome will be used.");
 		}
 	}
-	if ( $locus_info->{'probe_filter'} && $q->param('probe_filter') ) {
+	if ( $locus_info->{'probe_filter'} && $params->{'probe_filter'} ) {
 		$probe_matches = $self->_simulate_hybridization( $temp_infile, $locus );
 		if ( ref $probe_matches ne 'ARRAY' ) {
 			$logger->error("Probe filter is set for locus $locus but no probes are defined.");
@@ -151,7 +150,7 @@ sub blast {
 		return if !@$probe_matches;
 	}
 	if ( -e $temp_fastafile && !-z $temp_fastafile ) {
-		my $blastn_word_size = ( defined $self->{'cgi'}->param('word_size') && $self->{'cgi'}->param('word_size') =~ /(\d+)/ ) ? $1 : 15;
+		my $blastn_word_size = ( defined $params->{'word_size'} && $params->{'word_size'} =~ /(\d+)/ ) ? $1 : 15;
 		my $word_size = $program eq 'blastn' ? $blastn_word_size : 3;
 		if ( $self->{'config'}->{'blast+_path'} ) {
 			my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
@@ -167,19 +166,19 @@ sub blast {
 				  . "$temp_infile -o $temp_outfile -m8 -F F 2> /dev/null" );
 		}
 		my ( $exact_matches, $matched_regions, $partial_matches );
-		my $pcr_filter   = !$q->param('pcr_filter')   ? 0 : $locus_info->{'pcr_filter'};
-		my $probe_filter = !$q->param('probe_filter') ? 0 : $locus_info->{'probe_filter'};
+		my $pcr_filter   = !$params->{'pcr_filter'}   ? 0 : $locus_info->{'pcr_filter'};
+		my $probe_filter = !$params->{'probe_filter'} ? 0 : $locus_info->{'probe_filter'};
 		if ( -e "$self->{'config'}->{'secure_tmp_dir'}/$outfile_url" ) {
 			( $exact_matches, $matched_regions ) =
 			  $self->_parse_blast_exact( $locus, $outfile_url, $pcr_filter, $pcr_products, $probe_filter, $probe_matches );
 			$partial_matches =
-			  $self->_parse_blast_partial( $locus, $matched_regions, $outfile_url, $pcr_filter, $pcr_products, $probe_filter,
+			  $self->_parse_blast_partial( $params, $locus, $matched_regions, $outfile_url, $pcr_filter, $pcr_products, $probe_filter,
 				$probe_matches )
 			  if !@$exact_matches
 				  || (   $locus_info->{'pcr_filter'}
-					  && !$q->param('pcr_filter')
+					  && !$params->{'pcr_filter'}
 					  && $locus_info->{'probe_filter'}
-					  && !$q->param('probe_filter') );
+					  && !$params->{'probe_filter'} );
 		} else {
 			$logger->debug("$self->{'config'}->{'secure_tmp_dir'}/$outfile_url does not exist");
 		}
@@ -195,17 +194,14 @@ sub run_script {
 	my ($self)  = @_;
 	my $params  = $self->{'params'};
 	my $options = $self->{'options'};
-
-	#	  use autouse 'Data::Dumper' => qw(Dumper);
-	#	$logger->error( Dumper( $params ));
 	my @isolate_ids = split( "\0", $params->{'isolate_id'} );
 	throw BIGSdb::DataException("Invalid isolate_ids passed") if !@isolate_ids;
 	my $loci = $self->{'options'}->{'loci'};
 	throw BIGSdb::DataException("Invalid loci passed") if ref $loci ne 'ARRAY';
 	my $labels = $self->{'options'}->{'labels'};
 	$self->{'system'}->{'script_name'} = $self->{'options'}->{'script_name'};
-	my ( @js, @js2, @js3, @js4 );    #TODO Need to find a way to get these back
-	my $show_key;                    #TODO Need to find a way to get these back
+	my ( @js, @js2, @js3, @js4 );
+	my $show_key;
 	my $td = 1;
 	my $new_alleles;
 	my $new_seqs_found;
@@ -216,6 +212,7 @@ sub run_script {
 	my $start_time   = time;
 	my $locus_prefix = BIGSdb::Utils::get_random();
 	my @isolates_in_project;
+	my $file_prefix = BIGSdb::Utils::get_random();
 
 	if ( $options->{'project_id'} && BIGSdb::Utils::is_int( $options->{'project_id'} ) ) {
 		my $list_ref =
@@ -223,14 +220,13 @@ sub run_script {
 		@isolates_in_project = @$list_ref;
 	}
 	my $match        = 0;
-	my $seq_filename = $self->{'config'}->{'tmp_dir'} . "/$options->{'file_prefix'}\_unique_sequences.txt";
+	my $seq_filename = $self->{'config'}->{'tmp_dir'} . "/$options->{'scan_job'}\_unique_sequences.txt";
 	open( my $seqs_fh, '>', $seq_filename ) or $logger->error("Can't open $seq_filename for writing");
 	say $seqs_fh "locus\tallele_id\tstatus\tsequence";
-#	my $status = $self->_read_status($options->{'scan_job'});
-
-	
-	my $timestamp  = localtime;
+	close $seqs_fh;
+	my $timestamp = time;
 	$self->_write_status( $options->{'scan_job'}, "start_time:$timestamp", { reset => 1 } );
+	$logger->info("Scan $self->{'instance'}:$options->{'scan_job'} ($options->{'curator_name'}) started");
 	my $table_file = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'scan_job'}_table.html";
 	unlink $table_file;    #delete file if scan restarted
 
@@ -238,17 +234,25 @@ sub run_script {
 		next if $options->{'project_id'} && none { $isolate_id == $_ } @isolates_in_project;
 		if ( $match >= $options->{'limit'} ) {
 			$match_limit_reached = 1;
+			$self->_write_status( $options->{'scan_job'}, "match_limit_reached:1" );
+			$self->_write_status( $options->{'scan_job'}, "last_isolate:$isolate_id" );
 			last;
 		}
 		if ( time >= $start_time + $options->{'time_limit'} ) {
 			$out_of_time = 1;
+			$self->_write_status( $options->{'scan_job'}, "time_limit_reached:1" );
+			$self->_write_status( $options->{'scan_job'}, "last_isolate:$isolate_id" );
 			last;
 		}
+		my $status = $self->_read_status( $options->{'scan_job'} );
+		last if $status->{'request_stop'};
 		next if $isolate_id eq '' || $isolate_id eq 'all';
 		next if !$self->is_allowed_to_view_isolate($isolate_id);
 		my %locus_checked;
 		my $pattern = LOCUS_PATTERN;
 		foreach my $locus_id (@$loci) {
+			my $status = $self->_read_status( $options->{'scan_job'} );
+			last if $status->{'request_stop'};
 			my $row_buffer;
 			my $locus = $locus_id =~ /$pattern/ ? $1 : undef;
 			if ( !defined $locus ) {
@@ -259,15 +263,19 @@ sub run_script {
 			$locus_checked{$locus} = 1;
 			if ( $match >= $options->{'limit'} ) {
 				$match_limit_reached = 1;
+				$self->_write_status( $options->{'scan_job'}, "match_limit_reached:1" );
+				$self->_write_status( $options->{'scan_job'}, "last_isolate:$isolate_id" );
 				last;
 			}
 			if ( time >= $start_time + $options->{'time_limit'} ) {
 				$out_of_time = 1;
+				$self->_write_status( $options->{'scan_job'}, "time_limit_reached:1" );
+				$self->_write_status( $options->{'scan_job'}, "last_isolate:$isolate_id" );
 				last;
 			}
 			next if !$params->{'rescan_alleles'} && defined $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
 			next if !$params->{'rescan_seqs'} && $self->{'datastore'}->allele_sequence_exists( $isolate_id, $locus );
-			my ( $exact_matches, $partial_matches ) = $self->blast( $locus, $isolate_id, $options->{'file_prefix'}, $locus_prefix );
+			my ( $exact_matches, $partial_matches ) = $self->blast( $params, $locus, $isolate_id, $file_prefix, $locus_prefix );
 			my $off_end;
 			my $i = 1;
 			my $new_designation;
@@ -275,8 +283,9 @@ sub run_script {
 				my %new_matches;
 				foreach (@$exact_matches) {
 					my $match_key = "$_->{'seqbin_id'}\|$_->{'predicted_start'}|$_->{'predicted_end'}";
-					( $row_buffer, $off_end, $new_designation ) =
+					( my $buffer, $off_end, $new_designation ) =
 					  $self->_get_row( $isolate_id, $labels, $locus, $i, $_, $td, 1, \@js, \@js2, \@js3, \@js4, $new_matches{$match_key} );
+					$row_buffer .= $buffer;
 					$new_matches{$match_key} = 1;
 					$show_key = 1 if $off_end;
 					$td = $td == 1 ? 2 : 1;
@@ -285,16 +294,13 @@ sub run_script {
 				$isolates_to_tag{$isolate_id} = 1;
 			}
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-			if (   ref $partial_matches
-				&& @$partial_matches
-				&& ( !@$exact_matches || ( $locus_info->{'pcr_filter'} && !$self->{'options'}->{'pcr_filter'} ) )
-			  )    #TODO Need probe_filter here??
-			{
+			if ( ref $partial_matches && @$partial_matches && !@$exact_matches ) {
 				my %new_matches;
 				foreach (@$partial_matches) {
 					my $match_key = "$_->{'seqbin_id'}\|$_->{'predicted_start'}|$_->{'predicted_end'}";
-					( $row_buffer, $off_end, $new_designation ) =
+					( my $buffer, $off_end, $new_designation ) =
 					  $self->_get_row( $isolate_id, $labels, $locus, $i, $_, $td, 0, \@js, \@js2, \@js3, \@js4, $new_matches{$match_key} );
+					$row_buffer .= $buffer;
 					$new_matches{$match_key} = 1;
 					if ($off_end) {
 						$show_key = 1;
@@ -318,7 +324,9 @@ sub run_script {
 						}
 						if ($new) {
 							push @{ $new_alleles->{$locus} }, $seq;
+							open( my $seqs_fh, '>>', $seq_filename ) or $logger->error("Can't open $seq_filename for appending");
 							say $seqs_fh "$locus\t\ttrace not checked\t$seq";
+							close $seqs_fh;
 						}
 					}
 					$td = $td == 1 ? 2 : 1;
@@ -345,24 +353,44 @@ sub run_script {
 		}
 
 		#delete isolate working files
-		my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/*$options->{'file_prefix'}*");
+		my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/*$file_prefix*");
 		foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/ }
 		$last_id_checked = $isolate_id;
 	}
-	close $seqs_fh;
 
 	#delete locus working files
 	my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");
 	foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/ }
+	if ($match) {
+		open( my $fh, '>>', $table_file ) || $logger->error("Can't open $table_file for appending");
+		local $" = ';';
+		say $fh "<tr class=\"td\"><td colspan=\"14\" /><td>";
+		say $fh "<input type=\"button\" value=\"All\" onclick='@js' class=\"smallbutton\" />"   if @js;
+		say $fh "<input type=\"button\" value=\"None\" onclick='@js2' class=\"smallbutton\" />" if @js2;
+		say $fh "</td><td>";
+		say $fh "<input type=\"button\" value=\"All\" onclick='@js3' class=\"smallbutton\" />"  if @js3;
+		say $fh "<input type=\"button\" value=\"None\" onclick='@js4' class=\"smallbutton\" />" if @js4;
+		say $fh "</td></tr>";
+		close $fh;
+	}
+	$timestamp = time;
+	$self->_write_status( $options->{'scan_job'}, "allele_off_contig:1" ) if $show_key;
+	$self->_write_status( $options->{'scan_job'}, "new_matches:$match" );
+	$self->_write_status( $options->{'scan_job'}, "new_seqs_found:1" )    if $new_seqs_found;
+	my @isolates_to_tag = sort { $a <=> $b } keys %isolates_to_tag;
+	local $" = ',';
+	$self->_write_status( $options->{'scan_job'}, "tag_isolates:@isolates_to_tag" );
+	$self->_write_status( $options->{'scan_job'}, "loci:@$loci" );
+	$self->_write_status( $options->{'scan_job'}, "stop_time:$timestamp" );
+	$logger->info("Scan $self->{'instance'}:$options->{'scan_job'} ($options->{'curator_name'}) finished");
 	return;
 }
 
 sub _get_row {
 	my ( $self, $isolate_id, $labels, $locus, $id, $match, $td, $exact, $js, $js2, $js3, $js4, $warning ) = @_;
-	my $q = $self->{'cgi'};    #TODO change this for params
-
-	#	my $params  = $self->{'params'};
-	my $class = $exact ? '' : " class=\"partialmatch\"";
+	my $q      = $self->{'cgi'};
+	my $params = $self->{'params'};
+	my $class  = $exact ? '' : " class=\"partialmatch\"";
 	my $tooltip;
 	my $new_designation = 0;
 	my $existing_allele = $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
@@ -374,7 +402,7 @@ sub _get_row {
 	my $seqbin_length =
 	  $self->{'datastore'}->run_simple_query( "SELECT length(sequence) FROM sequence_bin WHERE id=?", $match->{'seqbin_id'} )->[0];
 	my $off_end;
-	my $hunt_for_start_end = ( !$exact && $q->param('hunt') ) ? 1 : 0;
+	my $hunt_for_start_end = ( !$exact && $params->{'hunt'} ) ? 1 : 0;
 	my $original_start     = $match->{'predicted_start'};
 	my $original_end       = $match->{'predicted_end'};
 	my ( $predicted_start, $predicted_end );
@@ -491,7 +519,7 @@ sub _get_row {
 		&& ( !defined $existing_allele || $match->{'allele'} ne $existing_allele )
 		&& !$matching_pending
 		&& $match->{'allele'} ne 'ref'
-		&& !$q->param('tblastx') )
+		&& !$params->{'tblastx'} )
 	{
 		$buffer .= $q->checkbox(
 			-name    => "id_$isolate_id\_$locus\_allele_$id",
@@ -690,10 +718,10 @@ sub _parse_blast_exact {
 }
 
 sub _parse_blast_partial {
-	my ( $self, $locus, $exact_matched_regions, $blast_file, $pcr_filter, $pcr_products, $probe_filter, $probe_matches ) = @_;
+	my ( $self, $params, $locus, $exact_matched_regions, $blast_file, $pcr_filter, $pcr_products, $probe_filter, $probe_matches ) = @_;
 	my @matches;
-	my $identity  = $self->{'cgi'}->param('identity');
-	my $alignment = $self->{'cgi'}->param('alignment');
+	my $identity  = $params->{'identity'};
+	my $alignment = $params->{'alignment'};
 	$identity  = 70 if !BIGSdb::Utils::is_int($identity);
 	$alignment = 50 if !BIGSdb::Utils::is_int($alignment);
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
@@ -718,7 +746,7 @@ sub _parse_blast_partial {
 		}
 		next if !defined $lengths{ $record[1] };
 		my $length = $lengths{ $record[1] };
-		if ( $self->{'cgi'}->param('tblastx') ) {
+		if ( $params->{'tblastx'} ) {
 			$record[3] *= 3;
 		}
 		my $quality = $record[3] * $record[2];    #simple metric of alignment length x percentage identity
@@ -804,7 +832,7 @@ sub _parse_blast_partial {
 
 	#Only return the number of matches selected by 'partial_matches' parameter
 	@matches = sort { $b->{'quality'} <=> $a->{'quality'} } @matches;
-	my $partial_matches = $self->{'cgi'}->param('partial_matches');
+	my $partial_matches = $params->{'partial_matches'};
 	$partial_matches = 1 if !BIGSdb::Utils::is_int($partial_matches) || $partial_matches < 1;
 	while ( @matches > $partial_matches ) {
 		pop @matches;
@@ -888,9 +916,9 @@ sub _write_status {
 
 sub _read_status {
 	my ( $self, $scan_job ) = @_;
-	my $status_file = "$self->{'config'}->{'secure_tmp_dir'}/$scan_job\_status.txt";	
+	my $status_file = "$self->{'config'}->{'secure_tmp_dir'}/$scan_job\_status.txt";
 	my %data;
-	return \%data if -!e $status_file;
+	return \%data if !-e $status_file;
 	open( my $fh, '<', $status_file ) || $logger->error("Can't open $status_file for reading. $!");
 	while (<$fh>) {
 		if ( $_ =~ /^(.*):(.*)$/ ) {
@@ -899,5 +927,160 @@ sub _read_status {
 	}
 	close $fh;
 	return \%data;
+}
+
+sub _simulate_PCR {
+	my ( $self, $fasta_file, $locus ) = @_;
+	my $q = $self->{'cgi'};
+	my $reactions =
+	  $self->{'datastore'}
+	  ->run_list_query_hashref( "SELECT pcr.* FROM pcr LEFT JOIN pcr_locus ON pcr.id = pcr_locus.pcr_id WHERE locus=?", $locus );
+	return if !@$reactions;
+	my $temp          = BIGSdb::Utils::get_random();
+	my $reaction_file = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_reactions.txt";
+	my $results_file  = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_results.txt";
+	open( my $fh, '>', $reaction_file );
+	my $max_primer_mismatch = 0;
+	my $conditions;
+
+	foreach (@$reactions) {
+		foreach my $primer (qw (primer1 primer2)) {
+			$_->{$primer} =~ tr/ //;
+		}
+		my $min_length = $_->{'min_length'} || 1;
+		my $max_length = $_->{'max_length'} || 50000;
+		$max_primer_mismatch = $_->{'max_primer_mismatch'} if $_->{'max_primer_mismatch'} > $max_primer_mismatch;
+		if ( $q->param('alter_pcr_mismatches') && $q->param('alter_pcr_mismatches') =~ /([\-\+]\d)/ ) {
+			my $delta = $1;
+			$max_primer_mismatch += $delta;
+			$max_primer_mismatch = 0 if $max_primer_mismatch < 0;
+		}
+		print $fh "$_->{'id'}\t$_->{'primer1'}\t$_->{'primer2'}\t$min_length\t$max_length\n";
+		$conditions->{ $_->{'id'} } = $_;
+	}
+	close $fh;
+	system(
+"$self->{'config'}->{'ipcress_path'} --input $reaction_file --sequence $fasta_file --mismatch $max_primer_mismatch --pretty false > $results_file 2> /dev/null"
+	);
+	my @pcr_products;
+	open( $fh, '<', $results_file );
+	while (<$fh>) {
+		if ( $_ =~ /^ipcress:/ ) {
+			my ( undef, $seq_id, $reaction_id, $length, undef, $start, $mismatch1, undef, $end, $mismatch2, $desc ) = split /\s+/, $_;
+			next if $desc =~ /single/;    #product generated by one primer only.
+			my ( $seqbin_id, undef ) = split /:/, $seq_id;
+			$logger->debug("Seqbin_id:$seqbin_id; $start-$end; mismatch1:$mismatch1; mismatch2:$mismatch2");
+			next
+			  if $mismatch1 > $conditions->{$reaction_id}->{'max_primer_mismatch'}
+				  || $mismatch2 > $conditions->{$reaction_id}->{'max_primer_mismatch'};
+			my $product =
+			  { 'seqbin_id' => $seqbin_id, 'start' => $start, 'end' => $end, 'mismatch1' => $mismatch1, 'mismatch2' => $mismatch2 };
+			push @pcr_products, $product;
+		}
+	}
+	close $fh;
+	unlink $reaction_file, $results_file;
+	return \@pcr_products;
+}
+
+sub _simulate_hybridization {
+	my ( $self, $fasta_file, $locus ) = @_;
+	my $q      = $self->{'cgi'};
+	my $probes = $self->{'datastore'}->run_list_query_hashref(
+"SELECT probes.id,probes.sequence,probe_locus.* FROM probes LEFT JOIN probe_locus ON probes.id = probe_locus.probe_id WHERE locus=?",
+		$locus
+	);
+	return if !@$probes;
+	my $file_prefix      = BIGSdb::Utils::get_random();
+	my $probe_fasta_file = "$self->{'config'}->{'secure_tmp_dir'}/$file_prefix\_probe.txt";
+	my $results_file     = "$self->{'config'}->{'secure_tmp_dir'}/$file_prefix\_results.txt";
+	open( my $fh, '>', $probe_fasta_file ) or $logger->error("Can't open temp file $probe_fasta_file for writing");
+	my %probe_info;
+
+	foreach (@$probes) {
+		$_->{'sequence'} =~ s/\s//g;
+		print $fh ">$_->{'id'}\n$_->{'sequence'}\n";
+		$_->{'max_mismatch'} = 0 if !$_->{'max_mismatch'};
+		if ( $q->param('alter_probe_mismatches') && $q->param('alter_probe_mismatches') =~ /([\-\+]\d)/ ) {
+			my $delta = $1;
+			$_->{'max_mismatch'} += $delta;
+			$_->{'max_mismatch'} = 0 if $_->{'max_mismatch'} < 0;
+		}
+		$_->{'max_gaps'} = 0 if !$_->{'max_gaps'};
+		$_->{'min_alignment'} = length $_->{'sequence'} if !$_->{'min_alignment'};
+		$probe_info{ $_->{'id'} } = $_;
+	}
+	close $fh;
+	if ( $self->{'config'}->{'blast+_path'} ) {
+		system("$self->{'config'}->{'blast+_path'}/makeblastdb -in $fasta_file -logfile /dev/null -parse_seqids -dbtype nucl");
+		my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
+		system(
+"$self->{'config'}->{'blast+_path'}/blastn -task blastn -num_threads $blast_threads -max_target_seqs 1000 -parse_deflines -db $fasta_file -out $results_file -query $probe_fasta_file -outfmt 6 -dust no"
+		);
+	} else {
+		my $seq_count = scalar @$probes;
+		system("$self->{'config'}->{'blast_path'}/formatdb -i $fasta_file -p F -o T");
+		system(
+"$self->{'config'}->{'blast_path'}/blastall -B $seq_count -b 1000 -p blastn -d $fasta_file -i $probe_fasta_file -o $results_file -m8 -F F 2> /dev/null"
+		);
+	}
+	my @matches;
+	if ( -e $results_file ) {
+		open( $fh, '<', $results_file );
+		while (<$fh>) {
+			my @record = split /\t/, $_;
+			my $match;
+			$match->{'probe_id'}  = $record[0];
+			$match->{'seqbin_id'} = $record[1];
+			$match->{'alignment'} = $record[3];
+			next if $match->{'alignment'} < $probe_info{ $match->{'probe_id'} }->{'min_alignment'};
+			$match->{'mismatches'} = $record[4];
+			next if $match->{'mismatches'} > $probe_info{ $match->{'probe_id'} }->{'max_mismatch'};
+			$match->{'gaps'} = $record[5];
+			next if $match->{'gaps'} > $probe_info{ $match->{'probe_id'} }->{'max_gaps'};
+
+			if ( $record[8] < $record[9] ) {
+				$match->{'start'} = $record[8];
+				$match->{'end'}   = $record[9];
+			} else {
+				$match->{'start'} = $record[9];
+				$match->{'end'}   = $record[8];
+			}
+			$logger->debug("Seqbin: $match->{'seqbin_id'}; Start: $match->{'start'}; End: $match->{'end'}");
+			push @matches, $match;
+		}
+		close $fh;
+		unlink $results_file;
+	}
+	unlink $probe_fasta_file;
+	return \@matches;
+}
+
+sub _probe_filter_match {
+	my ( $self, $locus, $blast_match, $probe_matches ) = @_;
+	my $good_match = 0;
+	my %probe_info;
+	foreach (@$probe_matches) {
+		if ( !$probe_info{ $_->{'probe_id'} } ) {
+			$probe_info{ $_->{'probe_id'} } =
+			  $self->{'datastore'}
+			  ->run_simple_query_hashref( "SELECT * FROM probe_locus WHERE locus=? AND probe_id=?", $locus, $_->{'probe_id'} );
+		}
+		next if $blast_match->{'seqbin_id'} != $_->{'seqbin_id'};
+		my $probe_distance = -1;
+		if ( $blast_match->{'start'} > $_->{'end'} ) {
+			$probe_distance = $blast_match->{'start'} - $_->{'end'};
+		}
+		if ( $blast_match->{'end'} < $_->{'start'} ) {
+			my $end_distance = $_->{'start'} - $blast_match->{'end'};
+			if ( ( $end_distance < $probe_distance ) || ( $probe_distance == -1 ) ) {
+				$probe_distance = $end_distance;
+			}
+		}
+		next if ( $probe_distance > $probe_info{ $_->{'probe_id'} }->{'max_distance'} ) || $probe_distance == -1;
+		$logger->debug("Probe distance: $probe_distance");
+		return 1;
+	}
+	return 0;
 }
 1;

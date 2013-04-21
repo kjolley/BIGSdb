@@ -412,7 +412,7 @@ td.statusbad {color:red}
 td.partialmatch {color:#ff8c00}
 td.header {background:#404090;color:white}
 tr.total {background:green;color:white}
-tr.warning {color:white;background:red}
+tr.warning {background:#e0a0a0;color:black}
 
 span.statusgood {color:green}
 span.statusbad {color:red}

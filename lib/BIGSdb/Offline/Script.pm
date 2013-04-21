@@ -117,6 +117,9 @@ sub _go {
 	};
 	if ($load_average > $max_load){
 		$self->{'logger'}->info("Load average = $load_average. Threshold is set at $max_load. Aborting.");
+		if ($self->{'options'}->{'throw_busy_exception'}){
+			throw BIGSdb::ServerBusyException("Exception: Load average = $load_average");
+		}		
 		return;
 	}
 	$self->read_host_mapping_file( $self->{'config_dir'} );
