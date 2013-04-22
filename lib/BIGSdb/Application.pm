@@ -63,7 +63,7 @@ use Log::Log4perl qw(get_logger);
 use Config::Tiny;
 
 sub new {
-	my ( $class, $config_dir, $plugin_dir, $dbase_config_dir, $r, $curate ) = @_;
+	my ( $class, $config_dir, $lib_dir, $dbase_config_dir, $r, $curate ) = @_;
 	my $self = {};
 	$self->{'system'}           = {};
 	$self->{'config'}           = {};
@@ -82,6 +82,9 @@ sub new {
 	$self->{'mod_perl_request'} = $r;
 	$self->{'fatal'}            = undef;
 	$self->{'curate'}           = $curate;
+	$self->{'config_dir'}       = $config_dir;
+	$self->{'lib_dir'}          = $lib_dir;
+	$self->{'dbase_config_dir'} = $dbase_config_dir;
 	bless( $self, $class );
 	$self->_initiate( $config_dir, $dbase_config_dir );
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
@@ -103,10 +106,10 @@ sub new {
 			  if ( $q->param('page') eq 'plugin'
 				|| $q->param('page') eq 'job' )
 			  && $self->{'config'}->{'jobs_db'};
-			$self->initiate_plugins($plugin_dir);
+			$self->initiate_plugins($lib_dir);
 		}
 	}
-	$self->print_page($dbase_config_dir);
+	$self->print_page;
 	$self->_db_disconnect;
 	return $self;
 }
@@ -345,7 +348,7 @@ sub _db_disconnect {
 }
 
 sub print_page {
-	my ( $self, $dbase_config_dir ) = @_;
+	my ($self) = @_;
 	my $set_options = 0;
 	my $cookies;
 	my %classes = (
@@ -384,7 +387,9 @@ sub print_page {
 	my $page;
 	my %page_attributes = (
 		system           => $self->{'system'},
-		dbase_config_dir => $dbase_config_dir,
+		dbase_config_dir => $self->{'dbase_config_dir'},
+		config_dir       => $self->{'config_dir'},
+		lib_dir          => $self->{'lib_dir'},
 		cgi              => $self->{'cgi'},
 		instance         => $self->{'instance'},
 		prefs            => $self->{'prefs'},

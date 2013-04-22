@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2012, University of Oxford
+#Copyright (c) 2011-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -45,6 +45,7 @@ sub new {
 	$self->{'pluginManager'}    = undef;
 	$self->{'db'}               = undef;
 	$self->{'options'}          = $options->{'options'};
+	$self->{'params'}           = $options->{'params'};
 	$self->{'instance'}         = $options->{'instance'};
 	$self->{'logger'}           = $options->{'logger'};
 	$self->{'config_dir'}       = $options->{'config_dir'};
@@ -55,7 +56,7 @@ sub new {
 	$self->{'user'}             = $options->{'user'};
 	$self->{'password'}         = $options->{'password'};
 	bless( $self, $class );
-
+	
 	if ( !defined $self->{'logger'} ) {
 		Log::Log4perl->init_once("$self->{'config_dir'}/script_logging.conf");
 		$self->{'logger'} = get_logger('BIGSdb.Script');
@@ -116,6 +117,9 @@ sub _go {
 	};
 	if ($load_average > $max_load){
 		$self->{'logger'}->info("Load average = $load_average. Threshold is set at $max_load. Aborting.");
+		if ($self->{'options'}->{'throw_busy_exception'}){
+			throw BIGSdb::ServerBusyException("Exception: Load average = $load_average");
+		}		
 		return;
 	}
 	$self->read_host_mapping_file( $self->{'config_dir'} );

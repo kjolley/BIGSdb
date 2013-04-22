@@ -55,27 +55,8 @@ use Log::Log4perl qw(get_logger);
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
 
-sub db_connect {
-	my ($self) = @_;
-	my %att = (
-		dbase_name => $self->{'system'}->{'db'},
-		host       => $self->{'system'}->{'host'},
-		port       => $self->{'system'}->{'port'},
-		user       => $self->{'system'}->{'user'},
-		password   => $self->{'system'}->{'password'},
-	);
-	try {
-		$self->{'db'} = $self->{'dataConnector'}->get_connection( \%att );
-	}
-	catch BIGSdb::DatabaseConnectionException with {
-		my $logger = get_logger('BIGSdb.Application_Initiate');
-		$logger->fatal("Can not connect to database '$self->{'system'}->{'db'}'");
-	};
-	return;
-}
-
 sub print_page {
-	my ( $self, $dbase_config_dir ) = @_;
+	my ($self) = @_;
 	my %classes = (
 		index              => 'CurateIndexPage',
 		add                => 'CurateAddPage',
@@ -129,7 +110,9 @@ sub print_page {
 	);
 	my %page_attributes = (
 		system           => $self->{'system'},
-		dbase_config_dir => $dbase_config_dir,
+		dbase_config_dir => $self->{'dbase_config_dir'},
+		config_dir       => $self->{'config_dir'},
+		lib_dir          => $self->{'lib_dir'},
 		cgi              => $self->{'cgi'},
 		instance         => $self->{'instance'},
 		prefs            => $self->{'prefs'},

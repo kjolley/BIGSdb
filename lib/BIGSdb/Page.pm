@@ -232,7 +232,8 @@ sub print_page_content {
 		}
 		my $http_equiv;
 		if ( $self->{'refresh'} ) {
-			$http_equiv = "<meta http-equiv=\"refresh\" content=\"$self->{'refresh'}\" />";
+			my $refresh_page = $self->{'refresh_page'} ? ";URL='$self->{'refresh_page'}'" : '';
+			$http_equiv = "<meta http-equiv=\"refresh\" content=\"$self->{'refresh'}$refresh_page\" />";
 		}
 		my $tooltip_display = $self->{'prefs'}->{'tooltips'} ? 'inline' : 'none';
 		my $stylesheets     = $self->get_stylesheets;

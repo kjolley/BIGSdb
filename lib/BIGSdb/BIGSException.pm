@@ -54,6 +54,15 @@ package BIGSdb::PrefstoreConfigurationException;
 use parent -norequire, qw(BIGSdb::DatabaseException);
 1;
 
+#Server exceptions
+package BIGSdb::ServerException;
+use parent qw(BIGSdb::BIGSException);
+1;
+
+package BIGSdb::ServerBusyException;
+use parent -norequire, qw(BIGSdb::ServerException);
+1;
+
 #File exceptions
 package BIGSdb::FileException;
 use parent qw(BIGSdb::BIGSException);
