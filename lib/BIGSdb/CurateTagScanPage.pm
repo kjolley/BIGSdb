@@ -397,49 +397,55 @@ sub _scan {
 	my $scan_job = $self->{'scan_job'} =~ /^(BIGSdb_[0-9_]+)$/ ? $1 : undef;
 	$self->_save_parameters($scan_job);
 	my $project_id = $q->param('project_list');
-	$SIG{CHLD} = 'IGNORE';    ## no critic (RequireLocalizedPunctuationVars) prevent zombie processes
-	defined( my $pid = fork ) or $logger->error("cannot fork");
 
-	unless ($pid) {
-		open STDIN,  '<', '/dev/null';
-		open STDOUT, '>', '/dev/null';
-		open STDERR, '>&STDOUT';
-		my $options = {
-			labels               => $labels,
-			limit                => $limit,
-			time_limit           => $time_limit,
-			loci                 => \@loci,
-			project_id           => $project_id,
-			scan_job             => $scan_job,
-			script_name          => $self->{'system'}->{'script_name'},
-			curator_name         => $self->get_curator_name,
-			throw_busy_exception => 1
-		};
-		my $params = $q->Vars;
-		try {
-			BIGSdb::Offline::Scan->new(
-				{
-					config_dir       => $self->{'config_dir'},
-					lib_dir          => $self->{'lib_dir'},
-					dbase_config_dir => $self->{'dbase_config_dir'},
-					host             => $self->{'system'}->{'host'},
-					port             => $self->{'system'}->{'port'},
-					user             => $self->{'system'}->{'user'},
-					password         => $self->{'system'}->{'password'},
-					options          => $options,
-					params           => $params,
-					instance         => $self->{'instance'},
-					logger           => $logger
-				}
-			);
+	#Use double fork to prevent zombie processes on apache2-mpm-worker
+	defined( my $kid = fork ) or $logger->error("cannot fork");
+	if ($kid) {
+		waitpid( $kid, 0 );
+	} else {
+		defined( my $grandkid = fork ) or $logger->error("Kid cannot fork");
+		if ($grandkid) {
+			CORE::exit(0);
+		} else {
+			open STDIN,  '<', '/dev/null';
+			open STDOUT, '>', '/dev/null';
+			my $options = {
+				labels               => $labels,
+				limit                => $limit,
+				time_limit           => $time_limit,
+				loci                 => \@loci,
+				project_id           => $project_id,
+				scan_job             => $scan_job,
+				script_name          => $self->{'system'}->{'script_name'},
+				curator_name         => $self->get_curator_name,
+				throw_busy_exception => 1
+			};
+			my $params = $q->Vars;
+			try {
+				BIGSdb::Offline::Scan->new(
+					{
+						config_dir       => $self->{'config_dir'},
+						lib_dir          => $self->{'lib_dir'},
+						dbase_config_dir => $self->{'dbase_config_dir'},
+						host             => $self->{'system'}->{'host'},
+						port             => $self->{'system'}->{'port'},
+						user             => $self->{'system'}->{'user'},
+						password         => $self->{'system'}->{'password'},
+						options          => $options,
+						params           => $params,
+						instance         => $self->{'instance'},
+						logger           => $logger
+					}
+				);
+			}
+			catch BIGSdb::ServerBusyException with {
+				my $status_file = "$self->{'config'}->{'secure_tmp_dir'}/$scan_job\_status.txt";
+				open( my $fh, '>', $status_file ) || $logger->error("Can't open $status_file for writing");
+				say $fh "server_busy:1";
+				close $fh;
+			};
+			CORE::exit(0);
 		}
-		catch BIGSdb::ServerBusyException with {
-			my $status_file = "$self->{'config'}->{'secure_tmp_dir'}/$scan_job\_status.txt";
-			open( my $fh, '>', $status_file ) || $logger->error("Can't open $status_file for writing");
-			say $fh "server_busy:1";
-			close $fh;
-		};
-		CORE::exit(0);
 	}
 	say "<div class=\"box\" id=\"resultsheader\"><p>You will be forwarded to the results page shortly.  Click "
 	  . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;scan=$scan_job&amp;results=1\">here</a> "
@@ -672,9 +678,10 @@ sub _show_results {
 	if ( -s $filename && $status->{'stop_time'} ) {
 		if ( $status->{'tag_isolates'} ) {
 			my @isolates_to_tag = split /,/, $status->{'tag_isolates'};
-			say $q->hidden( 'isolate_id_list', @isolates_to_tag );
+			$q->param('isolate_id_list', @isolates_to_tag);
 			my @loci = split /,/, $status->{'loci'};
-			say $q->hidden( 'loci', @loci );
+			$q->param('loci', @loci);
+			say $q->hidden($_) foreach qw(isolate_id_list loci);
 		}
 		say $q->hidden($_) foreach qw(db page scan);
 		say $q->submit( -name => 'tag', -label => 'Tag alleles/sequences', -class => 'submit' );
