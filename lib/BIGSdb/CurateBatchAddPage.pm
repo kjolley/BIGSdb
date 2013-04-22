@@ -162,7 +162,7 @@ HTML
 	say "<p>Please paste in tab-delimited text (<strong>include a field header line</strong>).</p>";
 	say $q->hidden($_) foreach qw (page db table locus);
 	say $q->textarea( -name => 'data', -rows => 20, -columns => 120 );
-	say $self->print_action_fieldset( { table => $table } );
+	$self->print_action_fieldset( { table => $table } );
 	say $q->end_form;
 	say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back</a></p>";
 	say "</div>";

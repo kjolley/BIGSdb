@@ -288,9 +288,10 @@ sub print_content { }
 sub print_action_fieldset {
 	my ( $self, $options ) = @_;
 	my $q            = $self->{'cgi'};
+	$options = {} if ref $options ne 'HASH';
 	my $page         = $options->{'page'} // $q->param('page');
 	my $submit_label = $options->{'submit_label'} // 'Submit';
-	$options = {} if ref $options ne 'HASH';
+	
 	my $buffer = "<fieldset style=\"float:left\"><legend>Action</legend>\n";
 	my $url    = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page";
 	my @fields = qw (scheme_id table name ruleset locus profile_id);

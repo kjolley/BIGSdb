@@ -1722,6 +1722,7 @@ sub get_table_field_attributes {
 sub get_table_pks {
 	my ( $self, $table ) = @_;
 	my @pk_fields;
+	return ['id'] if $table eq 'isolates';
 	my $attributes = $self->get_table_field_attributes($table);
 	foreach (@$attributes) {
 		if ( $_->{'primary_key'} ) {
