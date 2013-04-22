@@ -111,6 +111,20 @@ sub initiate {
 			$self->{'refresh'} = 1;
 		}
 	}
+	if ( $q->param('parameters') ) {
+		my $scan_job = $q->param('parameters');
+		my $filename = "$self->{'config'}->{'secure_tmp_dir'}/$scan_job\_parameters";
+		if ( -e $filename ) {
+			open( my $fh, '<', $filename ) || $logger->error("Can't open $filename for reading");
+			my $temp_q = CGI->new( \*$fh );    # Temp CGI object to read in parameters
+			close $fh;
+			my $params = $temp_q->Vars;
+			foreach my $key ( keys %$params ) {
+				next if any { $key eq $_ } qw (submit);
+				$q->param( $key, $temp_q->param($key) );
+			}
+		}
+	}
 	return;
 }
 
@@ -378,18 +392,11 @@ sub _scan {
 		}
 	}
 	$self->_add_scheme_loci( \@loci );
-	my $tag_button = 1;
-	my ( @js, @js2, @js3, @js4 );
-	my $buffer;
-	my $first = 1;
-	my $new_alleles;
 	my $limit = BIGSdb::Utils::is_int( $q->param('limit_matches') ) ? $q->param('limit_matches') : $LIMIT_MATCHES;
 	my ( %allele_designation_set, %allele_sequence_tagged );
-	my $out_of_time;
-	my $match_limit_reached;
 	my $scan_job = $self->{'scan_job'} =~ /^(BIGSdb_[0-9_]+)$/ ? $1 : undef;
+	$self->_save_parameters($scan_job);
 	my $project_id = $q->param('project_list');
-	local $| = 1;
 	$SIG{CHLD} = 'IGNORE';    ## no critic (RequireLocalizedPunctuationVars) prevent zombie processes
 	defined( my $pid = fork ) or $logger->error("cannot fork");
 
@@ -556,6 +563,7 @@ sub _tag {
 			}
 		}
 	}
+	my $scan_job = $q->param('scan');
 	if (@updates) {
 		my $query;
 		eval {
@@ -583,7 +591,9 @@ sub _tag {
 		} else {
 			$self->{'db'}->commit;
 			say "<div class=\"box\" id=\"resultsheader\"><p>Database updated ok.</p>";
-			say "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>";
+			say "<p><a href=\"$self->{'system'}->{'script_name'}db=$self->{'instance'}\">Back to main page</a> | "
+			  . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;parameters=$scan_job\">"
+			  . "Reload scan form</a></p></div>";
 			say "<div class=\"box\" id=\"resultstable\">";
 			local $" = "<br />\n";
 			if (@allele_updates) {
@@ -609,7 +619,9 @@ sub _tag {
 		}
 	} else {
 		say "<div class=\"box\" id=\"resultsheader\"><p>No updates required.</p>";
-		say "<p><a href=\"$self->{'system'}->{'script_name'}db=$self->{'instance'}\">Back to main page</a></p></div>";
+		say "<p><a href=\"$self->{'system'}->{'script_name'}db=$self->{'instance'}\">Back to main page</a> | "
+		  . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;parameters=$scan_job\">"
+		  . "Reload scan form</a></p></div>";
 	}
 	return;
 }
@@ -664,7 +676,7 @@ sub _show_results {
 			my @loci = split /,/, $status->{'loci'};
 			say $q->hidden( 'loci', @loci );
 		}
-		say $q->hidden($_) foreach qw(db page);
+		say $q->hidden($_) foreach qw(db page scan);
 		say $q->submit( -name => 'tag', -label => 'Tag alleles/sequences', -class => 'submit' );
 	}
 	say $q->end_form;
@@ -792,5 +804,14 @@ sub _read_status {
 	}
 	close $fh;
 	return \%data;
+}
+
+sub _save_parameters {
+	my ( $self, $scan_job ) = @_;
+	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/$scan_job\_parameters";
+	open( my $fh, '>', $filename ) || $logger->error("Can't open $filename for writing");
+	$self->{'cgi'}->save( \*$fh );
+	close $fh;
+	return;
 }
 1;
