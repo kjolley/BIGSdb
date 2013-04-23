@@ -224,8 +224,7 @@ sub run_script {
 	open( my $seqs_fh, '>', $seq_filename ) or $logger->error("Can't open $seq_filename for writing");
 	say $seqs_fh "locus\tallele_id\tstatus\tsequence";
 	close $seqs_fh;
-	my $timestamp = time;
-	$self->_write_status( $options->{'scan_job'}, "start_time:$timestamp", { reset => 1 } );
+	$self->_write_status( $options->{'scan_job'}, "start_time:$start_time", { reset => 1 } );
 	$logger->info("Scan $self->{'instance'}:$options->{'scan_job'} ($options->{'curator_name'}) started");
 	my $table_file = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'scan_job'}_table.html";
 	unlink $table_file;    #delete file if scan restarted
@@ -373,7 +372,7 @@ sub run_script {
 		say $fh "</td></tr>";
 		close $fh;
 	}
-	$timestamp = time;
+	my $stop_time = time;
 	$self->_write_status( $options->{'scan_job'}, "allele_off_contig:1" ) if $show_key;
 	$self->_write_status( $options->{'scan_job'}, "new_matches:$match" );
 	$self->_write_status( $options->{'scan_job'}, "new_seqs_found:1" )    if $new_seqs_found;
@@ -381,7 +380,7 @@ sub run_script {
 	local $" = ',';
 	$self->_write_status( $options->{'scan_job'}, "tag_isolates:@isolates_to_tag" );
 	$self->_write_status( $options->{'scan_job'}, "loci:@$loci" );
-	$self->_write_status( $options->{'scan_job'}, "stop_time:$timestamp" );
+	$self->_write_status( $options->{'scan_job'}, "stop_time:$stop_time" );
 	$logger->info("Scan $self->{'instance'}:$options->{'scan_job'} ($options->{'curator_name'}) finished");
 	return;
 }

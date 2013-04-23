@@ -88,7 +88,7 @@ sub initiate {
 		if ( !$status->{'stop_time'} ) {
 			if ( $status->{'start_time'} ) {
 				if ( !$q->param('results') ) {
-					$self->{'refresh'} = 2;
+					$self->{'refresh'} = 5;
 				} else {
 					my $elapsed = time - $status->{'start_time'};
 					if    ( $elapsed < 120 )  { $self->{'refresh'} = 5 }
@@ -98,7 +98,7 @@ sub initiate {
 					else                      { $self->{'refresh'} = 300 }
 				}
 			} else {
-				$self->{'refresh'} = 2;
+				$self->{'refresh'} = 5;
 			}
 			$self->{'refresh_page'} =
 			  "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;scan=$scan_job&amp;results=1";
