@@ -79,7 +79,7 @@ sub _check {
 				} else {
 					$newdata->{$field} = $q->param($field);
 				}
-				my $bad_field = $self->is_field_bad( $self->{'system'}->{'view'}, $field, $newdata->{$field} );
+				my $bad_field = $self->is_field_bad( 'isolates', $field, $newdata->{$field} );
 				if ($bad_field) {
 					push @bad_field_buffer, "Field '" . ( $metafield // $field ) . "': $bad_field";
 				}
