@@ -1264,6 +1264,7 @@ sub _upload_data {
 						}
 					}
 				}
+				push @history, "$id|Isolate record added";
 			} elsif ( $table eq 'loci' ) {
 				foreach (@extras) {
 					$_ =~ s/^\s*//g;

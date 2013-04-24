@@ -288,14 +288,13 @@ sub print_content { }
 
 sub print_action_fieldset {
 	my ( $self, $options ) = @_;
-	my $q            = $self->{'cgi'};
+	my $q = $self->{'cgi'};
 	$options = {} if ref $options ne 'HASH';
-	my $page         = $options->{'page'} // $q->param('page');
+	my $page         = $options->{'page'}         // $q->param('page');
 	my $submit_label = $options->{'submit_label'} // 'Submit';
-	
-	my $buffer = "<fieldset style=\"float:left\"><legend>Action</legend>\n";
-	my $url    = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page";
-	my @fields = qw (scheme_id table name ruleset locus profile_id);
+	my $buffer       = "<fieldset style=\"float:left\"><legend>Action</legend>\n";
+	my $url          = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page";
+	my @fields       = qw (scheme_id table name ruleset locus profile_id);
 	if ( $options->{'table'} ) {
 		my $pk_fields = $self->{'datastore'}->get_table_pks( $options->{'table'} );
 		push @fields, @$pk_fields;
@@ -1020,58 +1019,59 @@ sub get_record_name {
 	my ( $self, $table ) = @_;
 	$table ||= '';
 	my %names = (
-		'users'                             => 'user',
-		'user_groups'                       => 'user group',
-		'user_group_members'                => 'user group member',
-		'loci'                              => 'locus',
-		'refs'                              => 'PubMed link',
-		'allele_designations'               => 'allele designation',
-		'pending_allele_designations'       => 'pending allele designation',
-		'scheme_members'                    => 'scheme member',
-		'schemes'                           => 'scheme',
-		'scheme_fields'                     => 'scheme field',
-		'composite_fields'                  => 'composite field',
-		'composite_field_values'            => 'composite field value',
-		'isolates'                          => 'isolate',
-		'sequences'                         => 'allele sequence',
-		'accession'                         => 'accession number',
-		'sequence_refs'                     => 'PubMed link',
-		'profiles'                          => 'profile',
-		'sequence_bin'                      => 'sequence (contig)',
-		'allele_sequences'                  => 'allele sequence tag',
-		'isolate_aliases'                   => 'isolate alias',
-		'locus_aliases'                     => 'locus alias',
-		'user_permissions'                  => 'user permission record',
-		'isolate_user_acl'                  => 'isolate access control record',
-		'isolate_usergroup_acl'             => 'isolate group access control record',
-		'client_dbases'                     => 'client database',
-		'client_dbase_loci'                 => 'locus to client database definition',
-		'client_dbase_schemes'              => 'scheme to client database definition',
-		'locus_extended_attributes'         => 'locus extended attribute',
-		'projects'                          => 'project description',
-		'project_members'                   => 'project member',
-		'profile_refs'                      => 'Pubmed link',
-		'samples'                           => 'sample storage record',
-		'scheme_curators'                   => 'scheme curator access record',
-		'locus_curators'                    => 'locus curator access record',
-		'experiments'                       => 'experiment',
-		'experiment_sequences'              => 'experiment sequence link',
-		'isolate_field_extended_attributes' => 'isolate field extended attribute',
-		'isolate_value_extended_attributes' => 'isolate field extended attribute value',
-		'locus_descriptions'                => 'locus description',
-		'scheme_groups'                     => 'scheme group',
-		'scheme_group_scheme_members'       => 'scheme group scheme member',
-		'scheme_group_group_members'        => 'scheme group group member',
-		'pcr'                               => 'PCR reaction',
-		'pcr_locus'                         => 'PCR locus link',
-		'probes'                            => 'nucleotide probe',
-		'probe_locus'                       => 'probe locus link',
-		'client_dbase_loci_fields'          => 'locus to client database isolate field definition',
-		'sets'                              => 'set',
-		'set_loci'                          => 'set member locus',
-		'set_schemes'                       => 'set member schemes',
-		'set_metadata'                      => 'set metadata',
-		'set_view'                          => 'database view linked to set'
+		users                             => 'user',
+		user_groups                       => 'user group',
+		user_group_members                => 'user group member',
+		loci                              => 'locus',
+		refs                              => 'PubMed link',
+		allele_designations               => 'allele designation',
+		pending_allele_designations       => 'pending allele designation',
+		scheme_members                    => 'scheme member',
+		schemes                           => 'scheme',
+		scheme_fields                     => 'scheme field',
+		composite_fields                  => 'composite field',
+		composite_field_values            => 'composite field value',
+		isolates                          => 'isolate',
+		sequences                         => 'allele sequence',
+		accession                         => 'accession number',
+		sequence_refs                     => 'PubMed link',
+		profiles                          => 'profile',
+		sequence_bin                      => 'sequence (contig)',
+		allele_sequences                  => 'allele sequence tag',
+		isolate_aliases                   => 'isolate alias',
+		locus_aliases                     => 'locus alias',
+		user_permissions                  => 'user permission record',
+		isolate_user_acl                  => 'isolate access control record',
+		isolate_usergroup_acl             => 'isolate group access control record',
+		client_dbases                     => 'client database',
+		client_dbase_loci                 => 'locus to client database definition',
+		client_dbase_schemes              => 'scheme to client database definition',
+		locus_extended_attributes         => 'locus extended attribute',
+		projects                          => 'project description',
+		project_members                   => 'project member',
+		profile_refs                      => 'Pubmed link',
+		samples                           => 'sample storage record',
+		scheme_curators                   => 'scheme curator access record',
+		locus_curators                    => 'locus curator access record',
+		experiments                       => 'experiment',
+		experiment_sequences              => 'experiment sequence link',
+		isolate_field_extended_attributes => 'isolate field extended attribute',
+		isolate_value_extended_attributes => 'isolate field extended attribute value',
+		locus_descriptions                => 'locus description',
+		scheme_groups                     => 'scheme group',
+		scheme_group_scheme_members       => 'scheme group scheme member',
+		scheme_group_group_members        => 'scheme group group member',
+		pcr                               => 'PCR reaction',
+		pcr_locus                         => 'PCR locus link',
+		probes                            => 'nucleotide probe',
+		probe_locus                       => 'probe locus link',
+		client_dbase_loci_fields          => 'locus to client database isolate field definition',
+		sets                              => 'set',
+		set_loci                          => 'set member locus',
+		set_schemes                       => 'set member schemes',
+		set_metadata                      => 'set metadata',
+		set_view                          => 'database view linked to set',
+		history                           => 'update record'
 	);
 	return $names{$table};
 }
@@ -1313,6 +1313,7 @@ sub can_modify_table {
 	my ( $self, $table ) = @_;
 	my $scheme_id = $self->{'cgi'}->param('scheme_id');
 	my $locus     = $self->{'cgi'}->param('locus');
+	return 0 if $table eq 'history' || $table eq 'profile_history';
 	return 1 if $self->is_admin;
 	if ( $table eq 'users' && $self->{'permissions'}->{'modify_users'} ) {
 		return 1;

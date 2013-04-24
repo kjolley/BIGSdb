@@ -74,9 +74,7 @@ sub print_content {
 		}
 		$self->_print_query_interface;
 	}
-	if (   defined $q->param('query')
-		or defined $q->param('t1') )
-	{
+	if ( $q->param('submit') || defined $q->param('query') || defined $q->param('t1') ) {
 		$self->_run_query();
 	} else {
 		print "<p />\n";
@@ -385,7 +383,7 @@ sub _run_query {
 						any {
 							$table eq $_;
 						}
-						qw (allele_sequences allele_designations experiment_sequences sequence_bin project_members isolate_aliases samples)
+						qw (allele_sequences allele_designations experiment_sequences sequence_bin project_members isolate_aliases samples history)
 					)
 					&& $field eq $self->{'system'}->{'labelfield'}
 				  )
@@ -524,7 +522,12 @@ sub _run_query {
 			$qry2 .= " AND $table.allele_id NOT IN ('0', 'N')";    #Alleles can be set to 0 or N for arbitrary profile definitions
 		}
 		$qry2 .= " ORDER BY $table.";
-		my $default_order = $table eq 'sequences' ? 'locus' : 'id';
+		my $default_order;
+		given ($table) {
+			when ('sequences') { $default_order = 'locus' }
+			when ('history')   { $default_order = 'timestamp' }
+			default            { $default_order = 'id' }
+		}
 		$qry2 .= $q->param('order') || $default_order;
 		my $dir = ( $q->param('direction') // '' ) eq 'descending' ? 'desc' : 'asc';
 		my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
@@ -573,7 +576,13 @@ s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bi
 			$qry .= " WHERE $table.allele_id NOT IN ('0', 'N')";    #Alleles can be set to 0 or N for arbitrary profile definitions
 		}
 		$qry .= " ORDER BY $table.";
-		$qry .= $q->param('order');
+		my $default_order;
+		given ($table) {
+			when ('sequences') { $default_order = 'locus' }
+			when ('history')   { $default_order = 'timestamp' }
+			default            { $default_order = 'id' }
+		}
+		$qry .= $q->param('order') || $default_order;
 		my $dir = $q->param('direction') eq 'descending' ? 'desc' : 'asc';
 		my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
 		local $" = ",$table.";
@@ -584,10 +593,9 @@ s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bi
 	return;
 }
 
-
 sub _modify_isolates_for_view {
 	my ( $self, $table, $qry_ref ) = @_;
-	return if none {$table eq $_} qw(allele_designations isolate_aliases project_members refs sequence_bin); 
+	return if none { $table eq $_ } qw(allele_designations isolate_aliases project_members refs sequence_bin history);
 	my $view = $self->{'system'}->{'view'};
 	if ( $view ne 'isolates' ) {
 		$$qry_ref .= ' AND ' if $$qry_ref;
@@ -598,7 +606,7 @@ sub _modify_isolates_for_view {
 
 sub _modify_seqbin_for_view {
 	my ( $self, $table, $qry_ref ) = @_;
-	return if none {$table eq $_} qw(allele_sequences experiment_sequences); 
+	return if none { $table eq $_ } qw(allele_sequences experiment_sequences);
 	my $view = $self->{'system'}->{'view'};
 	if ( $view ne 'isolates' ) {
 		$$qry_ref .= ' AND ' if $$qry_ref;
@@ -647,7 +655,7 @@ sub print_additional_headerbar_functions {
 	my ( $self, $filename ) = @_;
 	return if $self->{'curate'};
 	my $q = $self->{'cgi'};
-	return if $q->param('table') eq 'samples' || $q->param('table') eq 'sequences';
+	return if any { $q->param('table') eq $_ } qw (samples sequences history);
 	my $record = $self->get_record_name( $q->param('table') );
 	say "<fieldset><legend>Customize</legend>";
 	say $q->start_form;
@@ -688,7 +696,13 @@ sub _search_by_isolate {
 	} elsif ( $table eq 'sequence_bin' ) {
 		$qry =
 "sequence_bin.id IN (SELECT sequence_bin.id FROM sequence_bin LEFT JOIN $self->{'system'}->{'view'} ON isolate_id = $self->{'system'}->{'view'}.id WHERE ";
-	} elsif ( $table eq 'allele_designations' || $table eq 'project_members' || $table eq 'isolate_aliases' || $table eq 'samples' ) {
+	} elsif (
+		any {
+			$table eq $_;
+		}
+		qw (allele_designations project_members isolate_aliases samples history)
+	  )
+	{
 		$qry = "$table.isolate_id IN (SELECT id FROM $self->{'system'}->{'view'} WHERE ";
 	} else {
 		$logger->error("Invalid table $table");

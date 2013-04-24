@@ -19,6 +19,7 @@
 package BIGSdb::ResultsTablePage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::Page);
 use Error qw(:try);
 use List::MoreUtils qw(any);
@@ -120,8 +121,7 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 			$bar_buffer .= "<td>";
 			for ( my $i = $first ; $i < $last + 1 ; $i++ ) {    #don't use range operator as $last may not be an integer.
 				if ( $i == $currentpage ) {
-					$bar_buffer .=
-					  "</td><th class=\"pagebar_selected\">$i</th><td>";
+					$bar_buffer .= "</td><th class=\"pagebar_selected\">$i</th><td>";
 				} else {
 					$bar_buffer .=
 					  $q->submit( -name => $i == 1 ? 'First' : 'pagejump', -value => $i, -label => " $i ", -class => 'pagebar' );
@@ -715,7 +715,7 @@ sub _print_isolate_table_scheme {
 	}
 	if ( !$self->{'scheme_info'}->{$scheme_id} ) {
 		$self->{'scheme_info'}->{$scheme_id} = $self->{'datastore'}->get_scheme_info($scheme_id);
-	}	
+	}
 	my ( @profile, $incomplete );
 	if ( !$self->{'urls_defined'} && $self->{'prefs'}->{'hyperlink_loci'} ) {
 		$self->_initiate_urls_for_loci;
@@ -727,9 +727,10 @@ sub _print_isolate_table_scheme {
 	my $allele_designations = $self->{'designations'}->{$isolate_id};
 	my %provisional_allele;
 	my $loci = $self->{'scheme_loci'}->{$scheme_id};
-	foreach my $locus ( @$loci ) {
+	foreach my $locus (@$loci) {
 		$allele_designations->{$locus}->{'status'} ||= 'confirmed';
-		$provisional_allele{$locus} = 1 if $self->{'prefs'}->{'mark_provisional_main'} && $allele_designations->{$locus}->{'status'} eq 'provisional';
+		$provisional_allele{$locus} = 1
+		  if $self->{'prefs'}->{'mark_provisional_main'} && $allele_designations->{$locus}->{'status'} eq 'provisional';
 		next if !$self->{'prefs'}->{'main_display_loci'}->{$locus} && ( !$scheme_id || !@{ $self->{'scheme_fields'}->{$scheme_id} } );
 		if ( $self->{'prefs'}->{'main_display_loci'}->{$locus} ) {
 			print "<td>";
@@ -770,17 +771,18 @@ sub _print_isolate_table_scheme {
 		  || !@{ $self->{'scheme_fields'}->{$scheme_id} }
 		  || !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};
 	my $values;
-	if ( (!$incomplete || $self->{'scheme_info'}->{$scheme_id}->{'allow_missing_loci'}) && @profile ) {
+	if ( ( !$incomplete || $self->{'scheme_info'}->{$scheme_id}->{'allow_missing_loci'} ) && @profile ) {
 		$values = $self->{'datastore'}->get_scheme_field_values_by_profile( $scheme_id, \@profile );
 	}
 	my $scheme_fields = $self->{'scheme_fields'}->{$scheme_id};
 	my $provisional_profile = $self->{'datastore'}->is_profile_provisional( $scheme_id, \@profile, \%provisional_allele );
-	foreach my $field ( @$scheme_fields ) {
+	foreach my $field (@$scheme_fields) {
 		if ( $self->{'prefs'}->{'main_display_scheme_fields'}->{$scheme_id}->{$field} ) {
 			if ( ref $values eq 'HASH' ) {
 				$values->{ lc($field) } = '' if !defined $values->{ lc($field) };
 				if ( !$self->{'scheme_fields_info'}->{$scheme_id}->{$field} ) {
-					$self->{'scheme_fields_info'}->{$scheme_id}->{$field} = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+					$self->{'scheme_fields_info'}->{$scheme_id}->{$field} =
+					  $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 				}
 				my $url;
 				if (   $self->{'prefs'}->{'hyperlink_loci'}
@@ -794,9 +796,9 @@ sub _print_isolate_table_scheme {
 					$values->{ lc($field) } = '';
 				}
 				if ( defined $values->{ lc($field) } && $values->{ lc($field) } ne '' ) {
-					print $provisional_profile ? "<td><span class=\"provisional\">"       : '<td>';
+					print $provisional_profile ? "<td><span class=\"provisional\">"           : '<td>';
 					print $url                 ? "<a href=\"$url\">$values->{lc($field)}</a>" : $values->{ lc($field) };
-					print $provisional_profile ? '</span></td>'                           : '</td>';
+					print $provisional_profile ? '</span></td>'                               : '</td>';
 				} else {
 					print '<td />';
 				}
@@ -910,7 +912,7 @@ sub _print_plugin_buttons {
 	my ( $self, $qry_ref, $records ) = @_;
 	my $q = $self->{'cgi'};
 	return if $q->param('page') eq 'customize';
-	return if $q->param('page') eq 'tableQuery' && any { $q->param('table') eq $_ } qw(sequences samples);
+	return if $q->param('page') eq 'tableQuery' && any { $q->param('table') eq $_ } qw(sequences samples history);
 	my $seqdb_type = $q->param('page') eq 'alleleQuery' ? 'sequences' : 'schemes';
 	my $plugin_categories =
 	  $self->{'pluginManager'}->get_plugin_categories( 'postquery', $self->{'system'}->{'dbtype'}, { seqdb_type => $seqdb_type } );
@@ -1118,16 +1120,28 @@ sub _print_record_table {
 					$value = $data{ lc($field) };
 				}
 				$value = $self->clean_locus($value);
-				if ( $table eq 'sequences' ) {
-					print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;"
-					  . "@query_values\">$value</a></td>";
-				} else {
-					print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=recordInfo&amp;"
-					  . "table=$table&amp;@query_values\">$value</a></td>";
+				given ($table) {
+					when ('sequences') {
+						print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;"
+						  . "@query_values\">$value</a></td>";
+					}
+					when ('history') {
+						if ( $field eq 'isolate_id' ) {
+							print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;"
+							  . "id=$data{'isolate_id'}\">$value</a></td>";
+						} else {
+							$value =~ s/\..*$//;    #Remove fractions of second from output
+							print "<td>$value</td>";
+						}
+					}
+					default {
+						print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=recordInfo&amp;"
+						  . "table=$table&amp;@query_values\">$value</a></td>";
+					}
 				}
 			} elsif ( $table_info->{'type'}->{$field} eq 'bool' ) {
 				if ( $data{ lc($field) } eq '' ) {
-					print "<td></td>";
+					print "<td />";
 				} else {
 					my $value = $data{ lc($field) } ? 'true' : 'false';
 					print "<td>$value</td>";
@@ -1195,7 +1209,7 @@ sub _print_record_table {
 					} else {
 						$value =~ s/\&/\&amp;/g;
 					}
-					print "<td>$value</td>";
+					print $field eq 'action' ? "<td style=\"text-align:left\">$value</td>" : "<td>$value</td>";
 				}
 			}
 		}

@@ -1749,7 +1749,7 @@ sub get_tables {
 		  locus_aliases schemes scheme_members scheme_fields composite_fields composite_field_values isolate_aliases user_permissions isolate_user_acl
 		  isolate_usergroup_acl projects project_members experiments experiment_sequences isolate_field_extended_attributes
 		  isolate_value_extended_attributes scheme_groups scheme_group_scheme_members scheme_group_group_members pcr pcr_locus probes probe_locus
-		  sets set_loci set_schemes set_metadata set_view samples isolates);
+		  sets set_loci set_schemes set_metadata set_view samples isolates history);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';

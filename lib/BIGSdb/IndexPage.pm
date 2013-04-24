@@ -191,7 +191,7 @@ sub print_set_section {
 	return if !$guid;    #Cookies disabled
 	my $sets =
 	  $self->{'datastore'}
-	  ->run_list_query_hashref( "SELECT * FROM sets WHERE NOT hidden OR hidden IS NULL ORDER BY display_order,description" );
+	  ->run_list_query_hashref("SELECT * FROM sets WHERE NOT hidden OR hidden IS NULL ORDER BY display_order,description");
 	return if !@$sets || ( @$sets == 1 && ( $self->{'system'}->{'only_sets'} // '' ) eq 'yes' );
 	say "<div class=\"box\" id=\"sets\">";
 	print << "SETS";
@@ -201,9 +201,11 @@ sub print_set_section {
 <h2>Datasets</h2>
 <p>This database contains multiple datasets.  
 SETS
-	print( ( $self->{'system'}->{'only_sets'} // '' ) eq 'yes'
+	print(
+		( $self->{'system'}->{'only_sets'} // '' ) eq 'yes'
 		? '</p>'
-		: 'You can choose to display a single set or the whole database.</p>' );
+		: 'You can choose to display a single set or the whole database.</p>'
+	);
 	say $q->start_form;
 	say "<label for=\"sets_list\">Please select: </label>";
 	my @set_ids;
@@ -296,6 +298,8 @@ sub _print_general_info_section {
 	say "<div style=\"float:left; margin-right:1em\">";
 	say "<img src=\"/images/icons/64x64/information.png\" alt=\"\" />";
 	say "<h2>General information</h2>\n<ul class=\"toplevel\">";
+	my $set_id = $self->get_set_id;
+	my $set_string = $set_id ? "&amp;set_id=$set_id" : '';    #append to URLs to ensure unique caching.
 	my $max_date;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $allele_count = $self->_get_allele_count;
@@ -327,6 +331,9 @@ sub _print_general_info_section {
 		print "<li>Isolates: $isolate_count</li>";
 	}
 	say "<li>Last updated: $max_date</li>" if $max_date;
+	say "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=history&amp;"
+	  . "order=timestamp&amp;direction=descending&amp;submit=1$set_string\">Update history</a></li>"
+	  if $self->{'system'}->{'dbtype'} eq 'isolates';
 	say "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=version\">About BIGSdb</a></li>";
 	say "</ul>\n</div>";
 	return;

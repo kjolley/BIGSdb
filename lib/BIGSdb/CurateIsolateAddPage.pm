@@ -233,6 +233,7 @@ sub _insert {
 			  . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin&amp;"
 			  . "isolate_id=$newdata->{'id'}\">Upload sequences</a> | "
 			  . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>";
+			$self->update_history( $newdata->{'id'}, "Isolate record added" );
 			return SUCCESS;
 		}
 	}
