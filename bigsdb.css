@@ -329,8 +329,8 @@ input.pagebar:hover {
 	border:1px solid #f00
 }
 
-.td1 {background:#efefff}
-.td2 {background:#efefef}
+.td1 {background:#efefff; vertical-align:top}
+.td2 {background:#efefef; vertical-align:top}
 table.tablesorter {text-align:center}
 table.tablesorter tr.even td {background:#efefff;text-align:center}
 table.tablesorter tr.odd td {background:#efefef;text-align:center}
