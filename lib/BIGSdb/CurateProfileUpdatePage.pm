@@ -256,26 +256,6 @@ sub get_title {
 	return "Update profile - $desc";
 }
 
-sub update_profile_history {
-	my ( $self, $scheme_id, $profile_id, $action ) = @_;
-	return if !$action || !$scheme_id || !$profile_id;
-	my $curator_id = $self->get_curator_id;
-	$action     =~ s/'/\\'/g;
-	$profile_id =~ s/'/\\'/g;
-	eval {
-		$self->{'db'}->do(
-"INSERT INTO profile_history (scheme_id,profile_id,timestamp,action,curator) VALUES ($scheme_id,E'$profile_id','now',E'$action',$curator_id)"
-		);
-	};
-	if ($@) {
-		$logger->error("Can't update history for scheme_id:$scheme_id profile:$profile_id '$action' $@");
-		$self->{'db'}->rollback;
-	} else {
-		$self->{'db'}->commit;
-	}
-	return;
-}
-
 sub _print_interface {
 	my ( $self, $args ) = @_;
 	my $q = $self->{'cgi'};

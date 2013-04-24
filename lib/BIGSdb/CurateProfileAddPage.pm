@@ -88,7 +88,7 @@ sub print_content {
 }
 
 sub _clean_field {
-	my ($self, $value_ref) = @_;
+	my ( $self, $value_ref ) = @_;
 	$$value_ref =~ s/\\/\\\\/g;
 	$$value_ref =~ s/'/\\'/g;
 	$$value_ref =~ s/^\s*//;
@@ -105,7 +105,7 @@ sub _upload {
 	my $insert = 1;
 	foreach my $field (@$scheme_fields) {
 		$newdata->{"field:$field"} = $q->param("field:$field");
-		$self->_clean_field(\$newdata->{"field:$field"});
+		$self->_clean_field( \$newdata->{"field:$field"} );
 		push @fields_with_values, $field if $newdata->{"field:$field"};
 		my $field_bad = $self->_is_scheme_field_bad( $scheme_id, $field, $newdata->{"field:$field"} );
 		if ($field_bad) {
@@ -122,7 +122,7 @@ sub _upload {
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	foreach my $locus (@$loci) {
 		$newdata->{"locus:$locus"} = $q->param("locus:$locus");
-		$self->_clean_field(\$newdata->{"locus:$locus"});
+		$self->_clean_field( \$newdata->{"locus:$locus"} );
 		my $field_bad = $self->is_locus_field_bad( $scheme_id, $locus, $newdata->{"locus:$locus"} );
 		push @bad_field_buffer, $field_bad if $field_bad;
 	}
@@ -196,6 +196,7 @@ sub _upload {
 				say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileAdd&amp;scheme_id="
 				  . "$scheme_id\">Add another</a> | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">"
 				  . "Back to main page</a></p></div>";
+				$self->update_profile_history( $scheme_id, $newdata->{"field:$primary_key"}, "Profile added" );
 				return SUCCESS;
 			}
 		}
@@ -371,6 +372,26 @@ sub define_missing_allele {
 		return;
 	}
 	$self->{'db'}->commit;
+	return;
+}
+
+sub update_profile_history {
+	my ( $self, $scheme_id, $profile_id, $action ) = @_;
+	return if !$action || !$scheme_id || !$profile_id;
+	my $curator_id = $self->get_curator_id;
+	$action     =~ s/'/\\'/g;
+	$profile_id =~ s/'/\\'/g;
+	eval {
+		$self->{'db'}->do(
+"INSERT INTO profile_history (scheme_id,profile_id,timestamp,action,curator) VALUES ($scheme_id,E'$profile_id','now',E'$action',$curator_id)"
+		);
+	};
+	if ($@) {
+		$logger->error("Can't update history for scheme_id:$scheme_id profile:$profile_id '$action' $@");
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
 	return;
 }
 1;

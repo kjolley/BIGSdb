@@ -877,16 +877,14 @@ sub _print_profile_table {
 		my $profcomplete = 1;
 		print "<tr class=\"td$td\">";
 		if ( $self->{'curate'} ) {
-			print "<td><a href=\""
-			  . $q->script_name
-			  . "?db=$self->{'instance'}&amp;page=delete&amp;table=profiles&amp;scheme_id=$scheme_id&amp;profile_id=$pk_value\">Delete</a></td><td><a href=\""
-			  . $q->script_name
-			  . "?db=$self->{'instance'}&amp;page=profileUpdate&amp;scheme_id=$scheme_id&amp;profile_id=$pk_value\">Update</a></td>";
-			print
-"<td><a href=\"$self->{'system'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;scheme_id=$scheme_id&amp;profile_id=$pk_value&amp;curate=1\">$pk_value</a></td>";
+			print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=delete&amp;table=profiles&amp;"
+			  . "scheme_id=$scheme_id&amp;profile_id=$pk_value\">Delete</a></td><td><a href=\"$self->{'system'}->{'script_name'}?"
+			  . "db=$self->{'instance'}&amp;page=profileUpdate&amp;scheme_id=$scheme_id&amp;profile_id=$pk_value\">Update</a></td>";
+			print "<td><a href=\"$self->{'system'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;scheme_id=$scheme_id"
+			  . "&amp;profile_id=$pk_value&amp;curate=1\">$pk_value</a></td>";
 		} else {
-			print
-"<td><a href=\"$self->{'system'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;scheme_id=$scheme_id&amp;profile_id=$pk_value\">$pk_value</a></td>";
+			print "<td><a href=\"$self->{'system'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;"
+			  . "scheme_id=$scheme_id&amp;profile_id=$pk_value\">$pk_value</a></td>";
 		}
 		foreach (@$loci) {
 			( my $cleaned = $_ ) =~ s/'/_PRIME_/g;
@@ -912,7 +910,7 @@ sub _print_plugin_buttons {
 	my ( $self, $qry_ref, $records ) = @_;
 	my $q = $self->{'cgi'};
 	return if $q->param('page') eq 'customize';
-	return if $q->param('page') eq 'tableQuery' && any { $q->param('table') eq $_ } qw(sequences samples history);
+	return if $q->param('page') eq 'tableQuery' && any { $q->param('table') eq $_ } qw(sequences samples history profile_history);
 	my $seqdb_type = $q->param('page') eq 'alleleQuery' ? 'sequences' : 'schemes';
 	my $plugin_categories =
 	  $self->{'pluginManager'}->get_plugin_categories( 'postquery', $self->{'system'}->{'dbtype'}, { seqdb_type => $seqdb_type } );
@@ -1100,16 +1098,18 @@ sub _print_record_table {
 		}
 		print "<tr class=\"td$td\">";
 		if ( $self->{'curate'} ) {
-			print "<td><a href=\""
-			  . $q->script_name
-			  . "?db=$self->{'instance'}&amp;page=delete&amp;table=$table&amp;@query_values\">Delete</a></td>";
+			print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=delete&amp;table=$table&amp;"
+			  . "@query_values\">Delete</a></td>";
 			if ( $table eq 'allele_sequences' ) {
-				print "<td><a href=\"" . $q->script_name . "?db=$self->{'instance'}&amp;page=tagUpdate&amp;@query_values\">Update</a></td>";
+				print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagUpdate&amp;@query_values\">"
+				  . "Update</a></td>";
 			} elsif ( $table !~ /refs$/ ) {    #no editable values in ref tables
 				print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=update&amp;table=$table&amp;"
 				  . "@query_values\">Update</a></td>";
 			}
 		}
+		my $set_id = $self->get_set_id;
+		my $scheme_info = $data{'scheme_id'} ? $self->{'datastore'}->get_scheme_info( $data{'scheme_id'}, { set_id => $set_id } ) : undef;
 		foreach my $field (@$display) {
 			$data{ lc($field) } = '' if !defined $data{ lc($field) };
 			if ( $primary_key{$field} && !$self->{'curate'} ) {
@@ -1131,6 +1131,20 @@ sub _print_record_table {
 							  . "id=$data{'isolate_id'}\">$value</a></td>";
 						} else {
 							$value =~ s/\..*$//;    #Remove fractions of second from output
+							print "<td>$value</td>";
+						}
+					}
+					when ('profile_history') {
+						my $set_id = $self->get_set_id;
+						my $scheme_info = $self->{'datastore'}->get_scheme_info( $data{'scheme_id'}, { set_id => $set_id } );
+						if ( $field eq 'profile_id' ) {
+							print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileInfo&amp;"
+							  . "scheme_id=$data{'scheme_id'}&amp;profile_id=$data{'profile_id'}\">$value</a></td>";
+						} else {
+							given ($field) {
+								when ('timestamp') { $value =~ s/\..*$// }
+								when ('scheme_id') { $value = $scheme_info->{'description'} }
+							}
 							print "<td>$value</td>";
 						}
 					}

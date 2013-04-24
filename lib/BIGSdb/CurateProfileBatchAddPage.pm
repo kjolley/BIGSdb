@@ -388,6 +388,7 @@ sub _upload {
 	}
 	my @fields_to_include = qw(sender curator date_entered datestamp);
 	my $primary_key       = $self->_get_primary_key($scheme_id);
+	my @profile_ids;
 	foreach my $record (@records) {
 		$record =~ s/\r//g;
 		if ($record) {
@@ -425,8 +426,10 @@ sub _upload {
 			local $" = ',';
 			$qry = "INSERT INTO profiles (scheme_id,profile_id,@fields_to_include) VALUES ($scheme_id,'$data[$fieldorder{$primary_key}]',"
 			  . "@value_list)";
-			push @inserts, $qry;
+			push @inserts,     $qry;
+			push @profile_ids, $data[ $fieldorder{$primary_key} ];
 			my $curator = $self->get_curator_id;
+
 			foreach my $locus (@$loci) {
 				my $mapped = $self->map_locus_name($locus);
 				$mapped                      =~ s/'/\\'/g;
@@ -478,6 +481,9 @@ sub _upload {
 	$self->{'db'}->commit
 	  && say "<div class=\"box\" id=\"resultsheader\"><p>Database updated ok</p>";
 	say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>";
+	foreach my $profile_id (@profile_ids) {
+		$self->update_profile_history( $scheme_id, $profile_id, "Profile added" );
+	}
 	return;
 }
 

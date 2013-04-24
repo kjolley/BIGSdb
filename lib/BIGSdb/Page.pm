@@ -1071,7 +1071,8 @@ sub get_record_name {
 		set_schemes                       => 'set member schemes',
 		set_metadata                      => 'set metadata',
 		set_view                          => 'database view linked to set',
-		history                           => 'update record'
+		history                           => 'update record',
+		profile_history                   => 'profile update record'
 	);
 	return $names{$table};
 }

@@ -163,10 +163,21 @@ sub get_user_permissions_table_attributes {
 
 sub get_history_table_attributes {
 	my $attributes = [
-		{ name => 'isolate_id', type => 'int',  required => 'yes', primary_key    => 'yes', foreign_key => 'isolates' },
+		{ name => 'isolate_id', type => 'int',  required => 'yes', primary_key => 'yes', foreign_key => 'isolates' },
+		{ name => 'timestamp',  type => 'time', required => 'yes', primary_key => 'yes' },
+		{ name => 'action',     type => 'text', required => 'yes' },
+		{ name => 'curator', type => 'int', required => 'yes', dropdown_query => 'yes' },
+	];
+	return $attributes;
+}
+
+sub get_profile_history_table_attributes {
+	my $attributes = [
+		{ name => 'scheme_id', type => 'int', required => 'yes', primary_key => 'yes', foreign_key => 'schemes', dropdown_query => 'yes' },
+		{ name => 'profile_id', type => 'text', required => 'yes', primary_key    => 'yes' },
 		{ name => 'timestamp',  type => 'time', required => 'yes', primary_key    => 'yes' },
 		{ name => 'action',     type => 'text', required => 'yes' },
-		{ name => 'curator',    type => 'int',  required => 'yes', dropdown_query => 'yes'},
+		{ name => 'curator',    type => 'int',  required => 'yes', dropdown_query => 'yes' },
 	];
 	return $attributes;
 }
