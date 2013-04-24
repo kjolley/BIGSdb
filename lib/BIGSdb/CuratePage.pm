@@ -948,7 +948,11 @@ sub update_history {
 	return if !$action || !$isolate_id;
 	my $curator_id = $self->get_curator_id;
 	my $sql        = $self->{'db'}->prepare("INSERT INTO history (isolate_id,timestamp,action,curator) VALUES (?,?,?,?)");
-	eval { $sql->execute( $isolate_id, 'now', $action, $curator_id ) };
+	my $sql_time   = $self->{'db'}->prepare("UPDATE isolates SET (datestamp,curator) = (?,?) WHERE id=?");
+	eval {
+		$sql->execute( $isolate_id, 'now', $action, $curator_id );
+		$sql_time->execute( 'now', $curator_id, $isolate_id );
+	};
 	if ($@) {
 		$logger->error("Can't update history for isolate $isolate_id '$action' $@");
 		$self->{'db'}->rollback;
