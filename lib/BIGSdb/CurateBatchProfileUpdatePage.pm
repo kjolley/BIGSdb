@@ -356,8 +356,9 @@ sub _update {
 		} else {
 			$tablebuffer .= "<td class=\"statusgood\">OK</td></tr>\n";
 			$old_value //= '';
-			$value = ''     if $value eq '&lt;blank&gt;';
-			$id    = $value if $field eq $scheme_info->{'primary_key'};
+			$old_value = ''     if $old_value eq '&lt;blank&gt;';
+			$value     = ''     if $value     eq '&lt;blank&gt;';
+			$id        = $value if $field     eq $scheme_info->{'primary_key'};
 			push @history_updates, { id => $id, action => "$field: '$old_value' -> '$value'" };
 		}
 		$td = $td == 1 ? 2 : 1;
