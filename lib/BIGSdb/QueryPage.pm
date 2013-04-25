@@ -1756,8 +1756,7 @@ sub check_format {
 		} elsif ( $data->{'type'} eq 'float' && !BIGSdb::Utils::is_float( $data->{'text'} ) ) {
 			$error = ( $metafield // $data->{'field'} ) . " is a floating point number field.";
 		} elsif (
-			$data->{'type'} eq 'date'
-			&& (
+			$data->{'type'} eq 'date' && (
 				any {
 					$data->{'operator'} eq $_;
 				}

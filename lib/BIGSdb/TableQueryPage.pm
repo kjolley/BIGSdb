@@ -110,20 +110,23 @@ sub _get_select_items {
 		push @select_items, 'isolate_id';
 		push @select_items, $self->{'system'}->{'labelfield'};
 	}
-	foreach (@$attributes) {
-		if ( $_->{'name'} eq 'sender' || $_->{'name'} eq 'curator' || $_->{'name'} eq 'user_id' ) {
-			push @select_items, "$_->{'name'} (id)", "$_->{'name'} (surname)", "$_->{'name'} (first_name)", "$_->{'name'} (affiliation)";
+	my %labels;
+	foreach my $att (@$attributes) {
+		if ( any { $att->{'name'} eq $_ } qw (sender curator user_id) ) {
+			push @select_items, "$att->{'name'} (id)", "$att->{'name'} (surname)", "$att->{'name'} (first_name)",
+			  "$att->{'name'} (affiliation)";
+		} elsif ( $att->{'query_datestamp'} ) {
+			push @select_items, "$att->{'name'} (date)";
 		} else {
-			push @select_items, $_->{'name'};
+			push @select_items, $att->{'name'};
 		}
-		push @order_by, $_->{'name'};
-		if ( $_->{'name'} eq 'isolate_id' ) {
+		push @order_by, $att->{'name'};
+		if ( $att->{'name'} eq 'isolate_id' ) {
 			push @select_items, $self->{'system'}->{'labelfield'};
 		}
 	}
-	my %labels;
 	foreach my $item (@select_items) {
-		( $labels{$item} = $item ) =~ tr/_/ /;
+		( $labels{$item} = $item ) =~ tr/_/ / if !defined $labels{$item};
 	}
 	return ( \@select_items, \%labels, \@order_by, $attributes );
 }
@@ -367,7 +370,10 @@ sub _run_query {
 						last;
 					}
 				}
-				if ( $thisfield->{'type'} ) {    #field may not actually exist in table (e.g. isolate_id in allele_sequences)
+				if ( $field =~ / \(date\)$/ ) {
+					$thisfield->{'type'} = 'date';    #Timestamps are too awkward to search with so only search on date component
+				}
+				if ( $thisfield->{'type'} ) {         #field may not actually exist in table (e.g. isolate_id in allele_sequences)
 					next
 					  if $self->check_format( { field => $field, text => $text, type => lc( $thisfield->{'type'} ), operator => $operator },
 						\@errors );
@@ -397,6 +403,8 @@ sub _run_query {
 				  )
 				{
 					$qry .= $modifier . $self->search_users( $field, $operator, $text, $table );
+				} elsif ( $field =~ /(.*) \(date\)$/ ) {
+					$qry .= $modifier . $self->_search_timestamp_by_date( $1, $operator, $text, $table );
 				} else {
 					$qry .= $modifier;
 					if ( $operator eq 'NOT' ) {
@@ -858,5 +866,13 @@ sub _are_only_int_allele_ids_used {
 		return 1 if $locus_info->{'allele_id_format'} eq 'integer';
 	}
 	return;
+}
+
+sub _search_timestamp_by_date {
+	my ( $self, $field, $operator, $text, $table ) = @_;
+	if ( $operator eq 'NOT' ) {
+		return "(NOT date($table.$field) = '$text')";
+	}
+	return "(date($table.$field) $operator '$text')";
 }
 1;
