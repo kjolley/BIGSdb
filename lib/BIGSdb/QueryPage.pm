@@ -614,7 +614,8 @@ sub _get_profile_select_items {
 		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )->[0];
 	};
 	if ($@) {
-		$logger->error("No primary key - this should not have been called");
+		$logger->error("No primary key - this should not have been called.");
+		return;
 	}
 	push @selectitems, $primary_key;
 	push @orderitems,  $primary_key;
