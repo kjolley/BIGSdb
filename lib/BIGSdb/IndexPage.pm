@@ -332,10 +332,11 @@ sub _print_general_info_section {
 	}
 	say "<li>Last updated: $max_date</li>" if $max_date;
 	my $history_table = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'history' : 'profile_history';
+	my $history_exists = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT * FROM $history_table)")->[0];
 	say "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$history_table&amp;"
 	  . "order=timestamp&amp;direction=descending&amp;submit=1$set_string\">"
 	  . ( $self->{'system'}->{'dbtype'} eq 'sequences' ? 'Profile u' : 'U' )
-	  . "pdate history</a></li>";
+	  . "pdate history</a></li>" if $history_exists;
 	say "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=version\">About BIGSdb</a></li>";
 	say "</ul>\n</div>";
 	return;
