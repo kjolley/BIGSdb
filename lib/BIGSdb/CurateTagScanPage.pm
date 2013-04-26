@@ -678,9 +678,9 @@ sub _show_results {
 	if ( -s $filename && $status->{'stop_time'} ) {
 		if ( $status->{'tag_isolates'} ) {
 			my @isolates_to_tag = split /,/, $status->{'tag_isolates'};
-			$q->param('isolate_id_list', @isolates_to_tag);
+			$q->param( 'isolate_id_list', @isolates_to_tag );
 			my @loci = split /,/, $status->{'loci'};
-			$q->param('loci', @loci);
+			$q->param( 'loci', @loci );
 			say $q->hidden($_) foreach qw(isolate_id_list loci);
 		}
 		say $q->hidden($_) foreach qw(db page scan);
@@ -705,9 +705,9 @@ sub _show_results {
 		say "<p>Time limit reached (checked up to id-$status->{'last_isolate'}).</p>";
 	}
 	say "<p>";
-	say "<b>Started:</b> " . scalar localtime( $status->{'start_time'} ) . '<br />'  if $status->{'start_time'};
-	say "<b>Finished:</b> " . scalar localtime( $status->{'stop_time'} ) . ')<br />' if $status->{'stop_time'};
-	say "<b>Elapsed time:</b> $elapsed_time"                                         if $elapsed_time;
+	say "<b>Started:</b> " . scalar localtime( $status->{'start_time'} ) . '<br />' if $status->{'start_time'};
+	say "<b>Finished:</b> " . scalar localtime( $status->{'stop_time'} ) . '<br />' if $status->{'stop_time'};
+	say "<b>Elapsed time:</b> $elapsed_time"                                        if $elapsed_time;
 	say "</p>";
 	if ( !$status->{'stop_time'} ) {
 		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;scan=$self->{'scan_job'}&amp;"
