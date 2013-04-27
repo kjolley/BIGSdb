@@ -130,6 +130,7 @@ sub _update {
 		}
 	}
 	if ( !@bad_field_buffer && $profile_changed ) {
+		$newdata{"field:$args->{'primary_key'}"} = $args->{'profile_id'};
 		my ( $exists, $msg ) = $self->profile_exists( $scheme_id, $args->{'primary_key'}, \%newdata );
 		push @bad_field_buffer, $msg if $exists;
 	}

@@ -222,16 +222,14 @@ sub profile_exists {
 	$qry .= "(@locus_temp)";
 	$qry .= ' GROUP BY profiles.profile_id having count(*)=' . scalar @locus_temp;
 	if (@locus_temp) {
-		my $sql = $self->{'db'}->prepare($qry);
-		eval { $sql->execute };
-		$logger->error($@) if $@;
-		my ($value) = $sql->fetchrow_array;
-		if ($value) {
+		my $values = $self->{'datastore'}->run_list_query($qry);
+		$newdata->{"field:$primary_key"} //= '';
+		if (@$values && !(@$values == 1 && $values->[0] eq $newdata->{"field:$primary_key"})) {
 			if ( @locus_temp < @$loci ) {
 				$msg .= "Profiles containing an arbitrary allele (N) at a particular locus may match profiles with actual values at "
-				  . "that locus and cannot therefore be defined.  This profile matches $primary_key-$value (possibly others too).";
+				  . "that locus and cannot therefore be defined.  This profile matches $primary_key-$values->[0] (possibly others too).";
 			} else {
-				$msg .= "This allelic profile has already been defined as $primary_key-$value.";
+				$msg .= "This allelic profile has already been defined as $primary_key-$values->[0].";
 			}
 			$profile_exists = 1;
 		}
