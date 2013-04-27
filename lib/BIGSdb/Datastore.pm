@@ -1489,7 +1489,10 @@ sub get_citation_hash {
 		$logger->error($@) if $@;
 		my ( $year, $journal, $title, $volume, $pages ) = $sqlr->fetchrow_array;
 		if ( !defined $year && !defined $journal ) {
-			$citation_ref->{$_} .= $options->{'state_if_unavailable'} ? 'No details available.' : "Pubmed id#$_";
+			$citation_ref->{$_} .= "<a href=\"http://www.ncbi.nlm.nih.gov/pubmed/$_\">" if $options->{'link_pubmed'};
+			$citation_ref->{$_} .= "Pubmed id#$_";
+			$citation_ref->{$_} .= "</a>" if $options->{'link_pubmed'};
+			$citation_ref->{$_} .= ": No details available." if $options->{'state_if_unavailable'};			
 			next;
 		}
 		my @authors;

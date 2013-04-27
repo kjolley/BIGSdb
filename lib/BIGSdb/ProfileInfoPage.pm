@@ -143,24 +143,19 @@ sub print_content {
 			}
 			$td = $td == 1 ? 2 : 1;
 		}
-		my $refs =
+		my $pmids =
 		  $self->{'datastore'}
 		  ->run_list_query( "SELECT profile_refs.pubmed_id FROM profile_refs WHERE scheme_id=? AND profile_id=? ORDER BY pubmed_id",
 			$scheme_id, $profile_id );
-		foreach (@$refs) {
-			say $self->get_main_table_reference( 'reference', $_, $td );
-			$td = $td == 1 ? 2 : 1;    #row stripes
-		}
+		say $self->get_refs_row( $pmids, \$td );
 		my $qry = "SELECT client_dbase_id, client_scheme_id FROM client_dbase_schemes WHERE scheme_id=?";
 		$sql = $self->{'db'}->prepare($qry);
 		eval { $sql->execute($scheme_id) };
 		$logger->error($@) if $@;
 		while ( my ( $client_dbase_id, $client_scheme_id ) = $sql->fetchrow_array ) {
 			my $client_info = $self->{'datastore'}->get_client_db_info($client_dbase_id);
-			my $loci =
-			  $self->{'datastore'}
-			  ->run_list_query( "SELECT locus FROM scheme_members WHERE scheme_id=?", $scheme_id );
-			my $sql2 = $self->{'db'}->prepare("SELECT locus,locus_alias FROM client_dbase_loci WHERE client_dbase_id=? AND locus=?");
+			my $loci        = $self->{'datastore'}->run_list_query( "SELECT locus FROM scheme_members WHERE scheme_id=?", $scheme_id );
+			my $sql2        = $self->{'db'}->prepare("SELECT locus,locus_alias FROM client_dbase_loci WHERE client_dbase_id=? AND locus=?");
 			my %alleles;
 			foreach (@$loci) {
 				eval { $sql2->execute( $client_dbase_id, $_ ) };
@@ -289,9 +284,8 @@ sub get_link_button_to_ref {
 	my $qry = "SELECT COUNT(profile_refs.profile_id) FROM profile_refs RIGHT JOIN profiles on profile_refs.profile_id=profiles.profile_id "
 	  . "AND profile_refs.scheme_id=profiles.scheme_id WHERE pubmed_id=?";
 	$count = $self->{'datastore'}->run_simple_query( $qry, $ref )->[0];
-	$buffer .= $count == 1 ? "1 profile" : "$count profiles";
 	my $q = $self->{'cgi'};
-	$buffer .= $q->start_form;
+	$buffer .= $q->start_form( -style => "display:inline" );
 	$q->param( 'curate', 1 ) if $self->{'curate'};
 	my $scheme_id = $q->param('scheme_id');
 	my $primary_key;
@@ -308,7 +302,8 @@ sub get_link_button_to_ref {
 	$q->param( 'pmid', $ref );
 	$q->param( 'page', 'pubquery' );
 	$buffer .= $q->hidden($_) foreach qw (db query pmid page curate scheme_id);
-	$buffer .= $q->submit( -value => 'Display', -class => 'submit' );
+	my $plural = $count == 1 ? '' : 's';
+	$buffer .= $q->submit( -value => "$count profile$plural", -class => 'smallbutton' );
 	$buffer .= $q->end_form;
 	return $buffer;
 }

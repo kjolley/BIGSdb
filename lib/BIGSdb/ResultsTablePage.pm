@@ -1304,7 +1304,7 @@ sub _print_publication_table {
 		if ( defined $q->param('calling_page') && $q->param('calling_page') ne 'browse' && !$q->param('all_records') ) {
 			$buffer .= "<td>$refdata->{'isolates'}</td>";
 		}
-		$buffer .= "<td>" . $self->get_link_button_to_ref( $refdata->{'pmid'} ) . "</td>\n";
+		$buffer .= "<td>" . $self->get_link_button_to_ref( $refdata->{'pmid'}, { class => 'submit' } ) . "</td>\n";
 		$buffer .= "</tr>\n";
 		$td = $td == 1 ? 2 : 1;
 	}

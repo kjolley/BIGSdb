@@ -52,14 +52,16 @@ sub get_javascript {
 	\$(document).ajaxComplete(function() {
 		reloadTooltips();
 	});
+	\$( "#showrefs" ).click(function() {
+		\$( "#references" ).toggle( 'blind', {} , 1000 );
+		return false;
+	});
 });
+
 END
 	$buffer .= $self->get_tree_javascript;
 	return $buffer;
 }
-	
-	
-
 
 sub _get_child_group_scheme_tables {
 	my ( $self, $id, $isolate_id, $td, $level ) = @_;
@@ -973,19 +975,6 @@ sub _get_pending_designation_tooltip {
 	return $buffer;
 }
 
-sub get_main_table_reference {
-	my ( $self, $fieldname, $pmid, $td ) = @_;
-	my $citation_ref =
-	  $self->{'datastore'}->get_citation_hash( [$pmid], { 'formatted' => 1, 'all_authors' => 1, 'state_if_unavailable' => 1 } );
-	my $buffer =
-	    "<tr class=\"td$td\"><th>$fieldname</th>"
-	  . "<td align=\"left\"><a href=\"http://www.ncbi.nlm.nih.gov/pubmed/$pmid\">$pmid</a></td>"
-	  . "<td colspan=\"3\" style=\"text-align:left; width:75%\">$citation_ref->{$pmid}</td><td>";
-	$buffer .= $self->get_link_button_to_ref($pmid);
-	$buffer .= "</td></tr>\n";
-	return $buffer;
-}
-
 sub get_title {
 	my ($self) = @_;
 	my $isolate_id = $self->{'cgi'}->param('id');
@@ -1037,10 +1026,34 @@ sub get_name {
 
 sub _get_ref_links {
 	my ( $self, $isolate_id, $td_ref ) = @_;
+	my $pmids =
+	  $self->{'datastore'}->run_list_query( "SELECT refs.pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id", $isolate_id );
+	return $self->get_refs_row( $pmids, $td_ref );
+}
+
+sub get_refs_row {
+	my ( $self, $pmids, $td_ref ) = @_;
 	my $buffer = '';
-	my $refs = $self->{'datastore'}->run_list_query( "SELECT refs.pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id", $isolate_id );
-	foreach my $ref (@$refs) {
-		$buffer .= $self->get_main_table_reference( 'reference', $ref, $$td_ref );
+	if (@$pmids) {
+		$buffer .=
+		    "<tr class=\"td$$td_ref\"><th>publication"
+		  . ( @$pmids > 1 ? 's' : '' ) . " ("
+		  . @$pmids
+		  . ")</th><td colspan=\"5\" "
+		  . "style=\"text-align:left\">\n";
+		my $display = @$pmids > 4 ? 'none' : 'block';
+		$buffer .= "<span><a id=\"showrefs\" class=\"smallbutton\" style=\"cursor:pointer\">&nbsp;show/hide&nbsp;</a></span>"
+		  if $display eq 'none';
+		$buffer .= "<ul style=\"display:$display\" id=\"references\">\n";
+		my $citations =
+		  $self->{'datastore'}
+		  ->get_citation_hash( $pmids, { formatted => 1, all_authors => 1, state_if_unavailable => 1, link_pubmed => 1 } );
+		foreach my $pmid ( sort { $citations->{$a} cmp $citations->{$b} } @$pmids ) {
+			$buffer .= "<li style=\"padding-bottom:1em\">$citations->{$pmid}";
+			$buffer .= $self->get_link_button_to_ref($pmid);
+			$buffer .= "</li>\n";
+		}
+		$buffer .= "</ul></td></tr>\n";
 		$$td_ref = $$td_ref == 1 ? 2 : 1;
 	}
 	return $buffer;

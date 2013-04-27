@@ -935,28 +935,28 @@ sub get_db_description {
 }
 
 sub get_link_button_to_ref {
-	my ( $self, $ref ) = @_;
+	my ( $self, $ref, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $buffer;
 	if ( !$self->{'sql'}->{'link_ref'} ) {
-		my $qry =
-"SELECT COUNT(refs.isolate_id) FROM $self->{'system'}->{'view'} LEFT JOIN refs on refs.isolate_id=$self->{'system'}->{'view'}.id WHERE pubmed_id=?";
+		my $qry = "SELECT COUNT(refs.isolate_id) FROM $self->{'system'}->{'view'} LEFT JOIN refs on refs.isolate_id="
+		  . "$self->{'system'}->{'view'}.id WHERE pubmed_id=?";
 		$self->{'sql'}->{'link_ref'} = $self->{'db'}->prepare($qry);
 	}
 	eval { $self->{'sql'}->{'link_ref'}->execute($ref) };
 	$logger->error($@) if $@;
 	my ($count) = $self->{'sql'}->{'link_ref'}->fetchrow_array;
 	my $plural = $count == 1 ? '' : 's';
-	$buffer .= "$count isolate$plural";
 	my $q = $self->{'cgi'};
-	$buffer .= $q->start_form;
+	$buffer .= $q->start_form( -style => 'display:inline' );
 	$q->param( 'curate', 1 ) if $self->{'curate'};
 	$q->param( 'query',
-"SELECT * FROM $self->{'system'}->{'view'} LEFT JOIN refs on refs.isolate_id=$self->{'system'}->{'view'}.id WHERE pubmed_id='$ref' ORDER BY $self->{'system'}->{'view'}.id;"
-	);
+		    "SELECT * FROM $self->{'system'}->{'view'} LEFT JOIN refs on refs.isolate_id=$self->{'system'}->{'view'}.id "
+		  . "WHERE pubmed_id='$ref' ORDER BY $self->{'system'}->{'view'}.id;" );
 	$q->param( 'pmid', $ref );
 	$q->param( 'page', 'pubquery' );
 	$buffer .= $q->hidden($_) foreach qw(db page query curate pmid);
-	$buffer .= $q->submit( -value => 'Display', -class => 'submit' );
+	$buffer .= $q->submit( -value => "$count isolate$plural", -class => $options->{'class'} // 'smallbutton' );
 	$buffer .= $q->end_form;
 	$q->param( 'page', 'info' );
 	return $buffer;
