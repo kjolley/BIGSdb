@@ -22,13 +22,11 @@ h1 {
 h2 {
 	font: 600 1.2em Arial,Helvetica,sans-serif; 
 	color: #606060;
-	border-bottom: dotted #8080b0 1px;
 }
 
 h3 {
 	font: 600 1.1em Arial,Helvetica,sans-serif;
 	color: #000080;
-	border-bottom: dotted #8080b0 1px	
 } 
 h4,h5,h6 {font: 1em Arial,Helvetica,sans-serif}
 ul {list-style:disc}
@@ -526,6 +524,10 @@ div #sets {
 	background:#e0e0d5;
 }
 
+div #projects {
+	background:#f0f0e5;
+}
+
 div #index img,#plugins img,#sets img, #restricted img {
 	float:left;
 	margin-right:10px;
@@ -579,6 +581,7 @@ table.resultstable {
 
 table.profile {
 	background:#e0e0e0;
+	text-align:center;
 }
 
 div #resultstable {
@@ -681,10 +684,10 @@ div #plugins {
 	background:#d5d5e0;
 }
 
-.field { color: blue }
-.text { color: black }
-.locus { color: green }
-.scheme { color: red}
+span.field { color: blue }
+span.text { color: black }
+span.locus { color: green }
+span.scheme { color: red}
 
 pre.sixpack {
 	font-size:1.3em	
@@ -746,14 +749,68 @@ div.tree {
 	overflow:auto;
 }
 
-td.tree {
-	text-align:left;
-	vertical-align:top;
-	height:100px; 
-	margin:0; 
-	border:1px solid gray; 
-	background:white; 
-	overflow:auto;	
+div.scheme_tree {
+	max-width:30em;
+	min-height:3em;
+	max-height:15em; 
+	border:1px solid #aaa; 
+	overflow:auto;
+	margin-right:1em;
+}
+
+ .data dt { float: left; clear: left; width: 10em; text-align: right; font-weight: bold; color: #404080; } 
+ .data dt:after { content: ":"; } 
+ .data dd { margin: 0 0 0 11em; padding: 0 0 0.3em 0; }
+ 
+ dl.profile
+{
+	margin:0;
+	display:inline-block;
+	border:1px solid #ccc;
+	text-align:center;
+}
+	
+.profile dt
+{
+	margin:0;
+	padding:0 0.5em;
+	height:1.2em;
+	background-color:#a3a3cc;
+	color:black;
+	font-weight:bold;
+}
+	
+.profile dd
+{
+	min-height:1.5em;
+	padding: 0 0.2em;
+	margin:0;
+	background:white;
+}
+
+
+ .projects dt
+{
+	background-color: #666;
+	color: white;
+	padding: 0.1em;
+	font-weight: bold;
+	text-align: center;
+	border-radius:30px
+}
+	
+.projects dd
+{
+	margin: 0 0 1em 0;
+	text-align: left;
+	padding: 0.5em;
+}
+
+h3.scheme {
+	text-align:center;
+	background: #404080;
+	color:white;
+	border-radius:30px;
 }
 
 .coolfieldset, .coolfieldset.expanded{

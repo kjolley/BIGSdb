@@ -208,6 +208,9 @@ sub print_page_content {
 			if ( $self->{'jQuery.slimbox'} ) {
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.slimbox2.js?v20130405" } );
 			}
+			if ( $self->{'jQuery.columnizer'} ) {
+				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.columnizer.js" } );
+			}
 			push @javascript, { 'language' => 'Javascript', 'code' => $page_js } if $page_js;
 		}
 
