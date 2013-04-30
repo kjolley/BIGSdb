@@ -750,7 +750,8 @@ div.tree {
 }
 
 div.scheme_tree {
-	max-width:30em;
+	min-width:15em;
+	max-width:95%;
 	min-height:3em;
 	max-height:15em; 
 	border:1px solid #aaa; 
@@ -758,9 +759,19 @@ div.scheme_tree {
 	margin-right:1em;
 }
 
- .data dt { float: left; clear: left; width: 10em; text-align: right; font-weight: bold; color: #404080; } 
+ .data dt { 
+ 	float: left; 
+ 	clear: left; 
+ 	width: 10em; 
+ 	text-align: right; 
+ 	font-weight: bold; 
+ 	color: #404080; 
+ } 
  .data dt:after { content: ":"; } 
- .data dd { margin: 0 0 0 11em; padding: 0 0 0.3em 0; }
+ .data dd { 
+	margin: 0 0 0 11em; 
+	padding: 0 0 0.3em 0; 
+}
  
  dl.profile
 {

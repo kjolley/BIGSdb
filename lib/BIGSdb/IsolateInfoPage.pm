@@ -481,7 +481,8 @@ sub _get_tree {
 	$buffer .= "<noscript><p class=\"highlight\">Enable Javascript to enhance your viewing experience.</p></noscript>\n";
 	$buffer .= $self->get_tree( $isolate_id, { isolate_display => $self->{'curate'} ? 0 : 1 } );
 	$buffer .= "</div>\n";
-	$buffer .= "<div id=\"scheme_table\" style=\"float:left\"></div><div style=\"clear:both\"></div>\n";
+	$buffer .= "<div id=\"scheme_table\" style=\"float:left\">Navigate and select schemes within tree to display allele "
+	  . "designations</div><div style=\"clear:both\"></div>\n";
 	return $buffer;
 }
 
@@ -891,10 +892,10 @@ sub _get_ref_links {
 	my ( $self, $isolate_id ) = @_;
 	my $pmids =
 	  $self->{'datastore'}->run_list_query( "SELECT refs.pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id", $isolate_id );
-	return $self->get_refs_row($pmids);
+	return $self->get_refs($pmids);
 }
 
-sub get_refs_row {
+sub get_refs {
 	my ( $self, $pmids ) = @_;
 	my $buffer = '';
 	if (@$pmids) {

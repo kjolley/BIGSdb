@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -81,42 +81,47 @@ sub print_content {
 		  . "profile_id=$profile_id\">Back to profile information</a></p>";
 		say $self->_get_update_history( $scheme_id, $profile_id ) // '';
 	} else {
-		say "<table class=\"resultstable\">";
-		say "<tr class=\"td1\"><th>$primary_key</th><td style=\"text-align:left\" colspan=\"5\">$profile_id</td></tr>";
+		say "<div class=\"scrollable\">";
+		say "<dl class=\"profile\">";
+		say "<dt>$primary_key</dt><dd>$profile_id</dd>";
+		say "</dl>";
 		my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-		my $td            = 2;
 		foreach (@$loci) {
 			my $cleaned = $self->clean_locus($_);
-			say "<tr class=\"td$td\"><th>$cleaned</th>";
 			( my $cleaned2 = $_ ) =~ s/'/_PRIME_/g;
-			say "<td style=\"text-align:left\" colspan=\"5\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
-			  . "page=alleleInfo&amp;locus=$_&amp;allele_id=$data->{lc($cleaned2)}\">$data->{lc($cleaned2)}</a></td></tr>";
-			$td = $td == 1 ? 2 : 1;
+			say "<dl class=\"profile\"><dt>$cleaned</dt><dd><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
+			  . "page=alleleInfo&amp;locus=$_&amp;allele_id=$data->{lc($cleaned2)}\">$data->{lc($cleaned2)}</a></dd></dl>";
 		}
-		foreach ( @$scheme_fields, qw (sender curator date_entered datestamp) ) {
+		foreach (@$scheme_fields) {
+			my $cleaned = $_;
 			next if $_ eq $primary_key;
+			$cleaned =~ tr/_/ /;
+			say "<dl class=\"profile\"><dt>$cleaned</dt>";
+			$data->{ lc($_) } //= '';
+			say "<dd>$data->{lc($_)}</dd></dl>";
+		}
+		say "<dl class=\"data\">";
+		foreach (qw (sender curator date_entered datestamp)) {
 			my $cleaned = $_;
 			$cleaned =~ tr/_/ /;
-			say "<tr class=\"td$td\"><th>$cleaned</th>";
+			say "<dt>$cleaned</dt>";
 			if ( $_ eq 'sender' || $_ eq 'curator' ) {
 				my $userdata = $self->{'datastore'}->get_user_info( $data->{$_} );
-				say "<td style=\"text-align:left\" colspan=\"2\">$userdata->{'first_name'} $userdata->{'surname'}</td>"
-				  . "<td colspan=\"2\" style=\"text-align:left\">$userdata->{'affiliation'}</td>";
+				my $person   = "$userdata->{'first_name'} $userdata->{'surname'}, $userdata->{'affiliation'}";
 				if ( $_ eq 'curator' || !$self->{'system'}->{'privacy'} ) {
 					if ( $userdata->{'email'} =~ /\@/ ) {
-						say "<td><a href=\"mailto:$userdata->{'email'}\">$userdata->{'email'}</a></td></tr>";
+						$person .= " (E-mail: <a href=\"mailto:$userdata->{'email'}\">$userdata->{'email'}</a>)";
 					} else {
-						say "<td>$userdata->{'email'}</td></tr>";
+						$person .= " (E-mail: $userdata->{'email'})";
 					}
 				} else {
-					say "<td></td></tr>";
 				}
+				say "<dd>$person</dd>";
 				if ( $_ eq 'curator' ) {
 					my $history = $self->_get_history( $scheme_id, $profile_id );
 					my $num_changes = scalar @$history;
 					if ($num_changes) {
-						$td = $td == 1 ? 2 : 1;
 						my $plural = $num_changes == 1 ? '' : 's';
 						my $title;
 						$title = "Update history - ";
@@ -127,92 +132,97 @@ sub print_content {
 							$action =~ s/:.*//g;
 							$title .= "$time: $action<br />";
 						}
-						say "<tr class=\"td$td\"><th>update history</th><td style=\"text-align:left\" colspan=\"5\">";
-						say "<a title=\"$title\" class=\"pending_tooltip\">";
-						say "$num_changes update$plural</a>";
+						say "<dt>update history</dt>";
 						my $refer_page = $self->{'cgi'}->param('page');
+						say "<dd><a title=\"$title\" class=\"pending_tooltip\">$num_changes update$plural</a>";
 						say " <a href=\"$self->{'system'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;"
 						  . "scheme_id=$scheme_id&amp;profile_id=$profile_id&amp;history=1&amp;refer=$refer_page\">show details</a>"
-						  . "</td></tr>";
-						$td = $td == 1 ? 2 : 1;
+						  . "</dd>";
 					}
 				}
 			} else {
 				$data->{ lc($_) } ||= '';
-				say "<td style=\"text-align:left\" colspan=\"5\">$data->{lc($_)}</td></tr>";
+				say "<dd>$data->{lc($_)}</dd>";
 			}
-			$td = $td == 1 ? 2 : 1;
 		}
-		my $pmids =
-		  $self->{'datastore'}
-		  ->run_list_query( "SELECT profile_refs.pubmed_id FROM profile_refs WHERE scheme_id=? AND profile_id=? ORDER BY pubmed_id",
-			$scheme_id, $profile_id );
-		say $self->get_refs_row( $pmids, \$td );
+		say "</dl>";
+		say $self->_get_ref_links( $scheme_id, $profile_id );
 		my $qry = "SELECT client_dbase_id, client_scheme_id FROM client_dbase_schemes WHERE scheme_id=?";
 		$sql = $self->{'db'}->prepare($qry);
 		eval { $sql->execute($scheme_id) };
 		$logger->error($@) if $@;
-		while ( my ( $client_dbase_id, $client_scheme_id ) = $sql->fetchrow_array ) {
-			my $client_info = $self->{'datastore'}->get_client_db_info($client_dbase_id);
-			my $loci        = $self->{'datastore'}->run_list_query( "SELECT locus FROM scheme_members WHERE scheme_id=?", $scheme_id );
-			my $sql2        = $self->{'db'}->prepare("SELECT locus,locus_alias FROM client_dbase_loci WHERE client_dbase_id=? AND locus=?");
-			my %alleles;
-			foreach (@$loci) {
-				eval { $sql2->execute( $client_dbase_id, $_ ) };
-				$logger->error($@) if $@;
-				while ( my ( $c_locus, $c_alias ) = $sql2->fetchrow_array ) {
-					$alleles{ $c_alias || $c_locus } = $data->{ lc($_) };
-				}
-			}
-			my $count;
-			if ( !( scalar keys %alleles ) ) {
-				$logger->error("No client database loci have been set.");
-				$count = 0;
-			} else {
-				$count = $self->{'datastore'}->get_client_db($client_dbase_id)->count_matching_profiles( \%alleles );
-			}
-			if ($count) {
-				my $plural = $count == 1 ? '' : 's';
-				say "<tr class=\"td$td\"><th>client database</th><td>$client_info->{'name'}</td>"
-				  . "<td style=\"text-align:left\" colspan=\"3\">$client_info->{'description'}</td>";
-				say "<td style=\"text-align:center\">$count isolate$plural<br />";
-				my $primary_key;
-				eval {
-					$primary_key =
-					  $self->{'datastore'}
-					  ->run_list_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )->[0];
-				};
-				$logger->error($@) if $@;
-				if ( $client_info->{'url'} ) {
+		my $clients = $sql->fetchall_arrayref;
 
-					#it seems we have to pass the parameters in the action clause for mod_perl2
-					#but separately for stand-alone CGI.
-					my $c_scheme_id = $client_scheme_id // $scheme_id;
-					my %params = (
-						db     => $client_info->{'dbase_config_name'},
-						page   => 'query',
-						ls1    => "s_$c_scheme_id\_$primary_key",
-						ly1    => '=',
-						lt1    => $profile_id,
-						order  => 'id',
-						submit => 1
-					);
-					my @action_params;
-					foreach ( keys %params ) {
-						$q->param( $_, $params{$_} );
-						push @action_params, "$_=$params{$_}";
+		if (@$clients) {
+			my $plural = @$clients > 1 ? 's' : '';
+			say "<h2>Client database$plural</h2>";
+			say "<dl class=\"data\">";
+			foreach my $client (@$clients) {
+				my ( $client_dbase_id, $client_scheme_id ) = @$client;
+				my $client_info = $self->{'datastore'}->get_client_db_info($client_dbase_id);
+				my $loci = $self->{'datastore'}->run_list_query( "SELECT locus FROM scheme_members WHERE scheme_id=?", $scheme_id );
+				my $sql2 = $self->{'db'}->prepare("SELECT locus,locus_alias FROM client_dbase_loci WHERE client_dbase_id=? AND locus=?");
+				my %alleles;
+				foreach (@$loci) {
+					eval { $sql2->execute( $client_dbase_id, $_ ) };
+					$logger->error($@) if $@;
+					while ( my ( $c_locus, $c_alias ) = $sql2->fetchrow_array ) {
+						$alleles{ $c_alias || $c_locus } = $data->{ lc($_) };
 					}
-					local $" = '&';
-					say $q->start_form( -action => "$client_info->{'url'}?@action_params", -method => 'post' );
-					say $q->hidden($_) foreach qw (db page ls1 ly1 lt1 order submit);
-					say $q->submit( -label => 'Display', -class => 'submit' );
-					say $q->end_form;
 				}
-				say "</td></tr>";
-				$td = $td == 1 ? 2 : 1;
+				my $count;
+				if ( !( scalar keys %alleles ) ) {
+					$logger->error("No client database loci have been set.");
+					$count = 0;
+				} else {
+					$count = $self->{'datastore'}->get_client_db($client_dbase_id)->count_matching_profiles( \%alleles );
+				}
+				if ($count) {
+					my $plural = $count == 1 ? '' : 's';
+					say "<dt>$client_info->{'name'}</dt>";
+					say "<dd>$client_info->{'description'} ";
+					my $primary_key;
+					eval {
+						$primary_key =
+						  $self->{'datastore'}
+						  ->run_list_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )->[0];
+					};
+					$logger->error($@) if $@;
+					if ( $client_info->{'url'} ) {
+
+						#it seems we have to pass the parameters in the action clause for mod_perl2
+						#but separately for stand-alone CGI.
+						my $c_scheme_id = $client_scheme_id // $scheme_id;
+						my %params = (
+							db     => $client_info->{'dbase_config_name'},
+							page   => 'query',
+							ls1    => "s_$c_scheme_id\_$primary_key",
+							ly1    => '=',
+							lt1    => $profile_id,
+							order  => 'id',
+							submit => 1
+						);
+						my @action_params;
+						foreach ( keys %params ) {
+							$q->param( $_, $params{$_} );
+							push @action_params, "$_=$params{$_}";
+						}
+						local $" = '&';
+						say $q->start_form(
+							-action => "$client_info->{'url'}?@action_params",
+							-method => 'post',
+							-style  => 'display:inline'
+						);
+						say $q->hidden($_) foreach qw (db page ls1 ly1 lt1 order submit);
+						say $q->submit( -label => "$count isolate$plural", -class => 'smallbutton' );
+						say $q->end_form;
+					}
+					say "</dd>";
+				}
+				say "</dl>";
 			}
 		}
-		say "</table>";
+		say "</div>";
 	}
 	say "</div>";
 	return;
@@ -229,6 +239,15 @@ sub _get_history {
 		push @history, $data;
 	}
 	return \@history;
+}
+
+sub _get_ref_links {
+	my ( $self, $scheme_id, $profile_id ) = @_;
+	my $pmids =
+	  $self->{'datastore'}
+	  ->run_list_query( "SELECT profile_refs.pubmed_id FROM profile_refs WHERE scheme_id=? AND profile_id=? ORDER BY pubmed_id",
+		$scheme_id, $profile_id );
+	return $self->get_refs($pmids);
 }
 
 sub _get_update_history {
