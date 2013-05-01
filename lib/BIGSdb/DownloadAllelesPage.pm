@@ -128,6 +128,8 @@ sub print_content {
 	}
 	local $| = 1;
 	my $set_id = $self->get_set_id;
+	$self->{'prefix'}  = BIGSdb::Utils::get_random();
+	$self->{'outfile'} = "$self->{'config'}->{'tmp_dir'}/$self->{'prefix'}.txt";
 	if ( defined $q->param('scheme_id') ) {
 		my $scheme_id = $q->param('scheme_id');
 		if ( !BIGSdb::Utils::is_int($scheme_id) ) {
@@ -149,6 +151,8 @@ sub print_content {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 		my $desc = $scheme_id ? $scheme_info->{'description'} : 'Other loci';
 		$self->_print_scheme_table( $scheme_id, $desc );
+		say "<p style=\"margin-top:1em\"><a href=\"/tmp/$self->{'prefix'}.txt\">Download in tab-delimited text format</a></p>"
+		  if -e $self->{'outfile'};
 		return;
 	} elsif ( defined $q->param('group_id') ) {
 		my $group_id = $q->param('group_id');
@@ -171,6 +175,8 @@ sub print_content {
 			$self->_print_group_scheme_tables( $group_id, $scheme_shown_ref );
 			$self->_print_child_group_scheme_tables( $group_id, 1, $scheme_shown_ref );
 		}
+		say "<p style=\"margin-top:1em\"><a href=\"/tmp/$self->{'prefix'}.txt\">Download in tab-delimited text format</a></p>"
+		  if -e $self->{'outfile'};
 		return;
 	}
 	say "<h1>Download allele sequences</h1>";
@@ -226,6 +232,8 @@ sub _print_all_loci_by_scheme {
 		$self->_print_scheme_table( $scheme->{'id'}, $scheme->{'description'} );
 	}
 	$self->_print_scheme_table( 0, 'Other loci' );
+	say "<p style=\"margin-top:1em\"><a href=\"/tmp/$self->{'prefix'}.txt\">Download in tab-delimited text format</a></p>"
+	  if -e $self->{'outfile'};
 	return;
 }
 
@@ -278,7 +286,8 @@ sub _print_scheme_table {
 					td             => $td,
 					descs_exist    => $scheme_descs_exist,
 					aliases_exist  => $scheme_aliases_exist,
-					curators_exist => $scheme_curators_exist
+					curators_exist => $scheme_curators_exist,
+					scheme         => $desc
 				}
 			);
 			$td = $td == 1 ? 2 : 1;
@@ -380,6 +389,7 @@ sub _print_locus_row {
 	} else {
 		print "<td>Fixed: $locus_info->{'length'} " . ( $locus_info->{'data_type'} eq 'DNA' ? 'bp' : 'aa' ) . "</td>\n";
 	}
+	my $products;
 	if ( $options->{'descs_exist'} ) {
 		eval { $self->{'sql'}->{'name'}->execute($locus) };
 		$logger->($@) if $@;
@@ -388,8 +398,10 @@ sub _print_locus_row {
 		push @names_product, $name    if $name;
 		push @names_product, $product if $product;
 		local $" = ' / ';
-		print "<td>@names_product</td>";
+		$products = "@names_product";
+		print "<td>$products</td>";
 	}
+	my $aliases;
 	if ( $options->{'aliases_exist'} ) {
 		eval { $self->{'sql'}->{'alias'}->execute($locus) };
 		$logger->($@) if $@;
@@ -398,8 +410,10 @@ sub _print_locus_row {
 			push @aliases, $alias if $display_name !~ /$alias/;
 		}
 		local $" = '; ';
-		print "<td>@aliases</td>\n";
+		$aliases = "@aliases";
+		print "<td>$aliases</td>\n";
 	}
+	my $curators;
 	if ( $options->{'curators_exist'} ) {
 		eval { $self->{'sql'}->{'curator'}->execute($locus) };
 		$logger->($@) if $@;
@@ -414,15 +428,33 @@ sub _print_locus_row {
 		print "<td>";
 		foreach my $curator (@curators) {
 			print ', ' if !$first;
+			$curators .= '; ' if !$first;
 			my $first_initial = $info->{$curator}->{'first_name'} ? substr( $info->{$curator}->{'first_name'}, 0, 1 ) . '. ' : '';
 			print "<a href=\"mailto:$info->{$curator}->{'email'}\">" if $info->{$curator}->{'email'};
 			print "$first_initial$info->{$curator}->{'surname'}";
+			$curators .= "$first_initial$info->{$curator}->{'surname'}";
 			print "</a>" if $info->{$curator}->{'email'};
 			$first = 0;
 		}
 		print "</td>";
 	}
 	print "</tr>\n";
+	open( my $fh, '>>', $self->{'outfile'} ) || $logger->error("Can't open $self->{'outfile'} for appending");
+	if ( !-s $self->{'outfile'} ) {
+		say $fh ( $options->{'scheme'} ? "scheme\t" : '' )
+		  . "locus\tdata type\talleles\tlength varies\tstandard length\tmin length\t"
+		  . "max_length\tfull name/product\taliases\tcurators";
+	}
+	say $fh ( $options->{'scheme'} ? "$options->{'scheme'}\t" : '' )
+	  . "$locus\t$locus_info->{'data_type'}\t$count\t"
+	  . ( $locus_info->{'length_varies'} ? 'true' : 'false' ) . "\t"
+	  . ( $locus_info->{'length'}     // '' ) . "\t"
+	  . ( $locus_info->{'min_length'} // '' ) . "\t"
+	  . ( $locus_info->{'max_length'} // '' ) . "\t"
+	  . ( $products                   // '' ) . "\t"
+	  . ( $aliases                    // '' ) . "\t"
+	  . ( $curators                   // '' );
+	close $fh;
 	return;
 }
 
@@ -467,6 +499,8 @@ sub _print_alphabetical_list {
 			print "</table>\n";
 		}
 	}
+	say "<p style=\"margin-top:1em\"><a href=\"/tmp/$self->{'prefix'}.txt\">Download in tab-delimited text format</a></p>"
+	  if -e $self->{'outfile'};
 	return;
 }
 
