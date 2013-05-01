@@ -688,6 +688,7 @@ span.field { color: blue }
 span.text { color: black }
 span.locus { color: green }
 span.scheme { color: red}
+span.aliases {font-size: 0.9em}
 
 pre.sixpack {
 	font-size:1.3em	
@@ -822,6 +823,7 @@ h3.scheme {
 	background: #404080;
 	color:white;
 	border-radius:30px;
+	padding: 0 1em;
 }
 
 .coolfieldset, .coolfieldset.expanded{

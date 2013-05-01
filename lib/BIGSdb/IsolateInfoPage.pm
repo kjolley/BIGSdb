@@ -51,6 +51,11 @@ sub get_javascript {
 \$(function () {
 	\$(document).ajaxComplete(function() {
 		reloadTooltips();
+		if (\$("span").hasClass('aliases')){
+			\$("span#aliases_button").css('display', 'inline');
+		} else {
+			\$("span#aliases_button").css('display', 'none');
+		}
 	});
 	\$( "#hidden_references" ).css('display', 'none');
 	\$( "#show_refs" ).click(function() {
@@ -60,6 +65,10 @@ sub get_javascript {
 	\$( "#sample_table" ).css('display', 'none');
 	\$( "#show_samples" ).click(function() {
 		\$( "#sample_table" ).toggle( 'blind', {} , 500 );
+		return false;
+	});
+	\$( "#show_aliases" ).click(function() {
+		\$( "span.aliases" ).toggle( 'highlight', {} , 500 );
 		return false;
 	});
 	\$("#provenance").columnize({width:400});
@@ -222,7 +231,13 @@ sub print_content {
 		$self->_print_projects($isolate_id);
 		say "<div class=\"box\" id=\"resultstable\">";
 		say $self->get_isolate_record($isolate_id);
-		say "<h2>Schemes and loci</h2>";
+		my $locus_aliases_exist = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT * FROM locus_aliases)")->[0];
+		my $aliases_button =
+		  $locus_aliases_exist
+		  ? " <span id=\"aliases_button\" style=\"margin-left:1em;display:none\">"
+		  . "<a id=\"show_aliases\" class=\"smallbutton\" style=\"cursor:pointer\">&nbsp;show/hide locus aliases&nbsp;</a></span>"
+		  : '';
+		say "<h2>Schemes and loci$aliases_button</h2>";
 		say $self->_get_tree($isolate_id);
 		say "</div>";
 	}
@@ -477,12 +492,12 @@ sub _get_composite_field_rows {
 
 sub _get_tree {
 	my ( $self, $isolate_id ) = @_;
-	my $buffer = "<div id=\"tree\" class=\"scheme_tree\" style=\"float:left\">\n";
+	my $buffer = "<div class=\"scrollable\"><div id=\"tree\" class=\"scheme_tree\" style=\"float:left\">\n";
 	$buffer .= "<noscript><p class=\"highlight\">Enable Javascript to enhance your viewing experience.</p></noscript>\n";
 	$buffer .= $self->get_tree( $isolate_id, { isolate_display => $self->{'curate'} ? 0 : 1 } );
 	$buffer .= "</div>\n";
 	$buffer .= "<div id=\"scheme_table\" style=\"float:left\">Navigate and select schemes within tree to display allele "
-	  . "designations</div><div style=\"clear:both\"></div>\n";
+	  . "designations</div><div style=\"clear:both\"></div></div>\n";
 	return $buffer;
 }
 
@@ -701,10 +716,6 @@ sub _get_scheme_fields {
 		  && $self->{'prefs'}->{'mark_provisional'};
 		my $cleaned_name = $self->clean_locus($locus);
 		my $tooltip_name = $cleaned_name;
-		if ( $self->{'prefs'}->{'locus_alias'} && $locus_aliases{$locus} ) {
-			local $" = '; ';
-			$cleaned_name .= "<br /><span class=\"comment\">(@{$locus_aliases{$locus}})</span>";
-		}
 		push @profile, $allele_designations->{$locus}->{'allele_id'};
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		if ( defined $allele_designations->{$locus}->{'allele_id'} ) {
@@ -764,12 +775,14 @@ sub _get_scheme_field_display {
 		my $cleaned   = $self->clean_locus($locus);
 		my $dt_buffer = "<dt>$cleaned";
 		my @other_display_names;
-		if ( $self->{'prefs'}->{'locus_alias'} && $args->{'locus_aliases'}->{$locus} ) {
+		if ( $args->{'locus_aliases'}->{$locus} ) {
 			push @other_display_names, @{ $args->{'locus_aliases'}->{$locus} };
 		}
-		local $" = '; ';
+		local $" = ';nbsp';
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-		$dt_buffer .= " <span class=\"comment\">(@other_display_names)</span>" if @other_display_names;
+		my $alias_display = $self->{'prefs'}->{'locus_alias'} ? 'inline' : 'none';
+		$dt_buffer .= "&nbsp;<span class=\"aliases\" style=\"display:$alias_display\">(@other_display_names)</span>"
+		  if @other_display_names;
 		if ( $locus_info->{'description_url'} ) {
 			$locus_info->{'description_url'} =~ s/\&/\&amp;/g;
 			$dt_buffer .= "&nbsp;<a href=\"$locus_info->{'description_url'}\" class=\"info_tooltip\">&nbsp;<i>i</i>&nbsp;</a>";
@@ -902,7 +915,7 @@ sub get_refs {
 		$buffer .= "<h2>Publication" . ( @$pmids > 1 ? 's' : '' ) . " (" . @$pmids . ")";
 		my $display = @$pmids > 4 ? 'none' : 'block';
 		$buffer .=
-"<span style=\"margin-left:1em\"><a id=\"show_refs\" class=\"smallbutton\" style=\"cursor:pointer;display:none\">&nbsp;show/hide&nbsp;</a></span>"
+"<span style=\"margin-left:1em\"><a id=\"show_refs\" class=\"smallbutton\" style=\"cursor:pointer\">&nbsp;show/hide&nbsp;</a></span>"
 		  if $display eq 'none';
 		$buffer .= "</h2>\n";
 		my $id = $display eq 'none' ? 'hidden_references' : 'references';
