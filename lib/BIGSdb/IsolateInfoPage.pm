@@ -884,7 +884,7 @@ sub _get_history {
 		#need to count total
 		$count = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM history WHERE isolate_id=?", $isolate_id )->[0];
 	} else {
-		$count = scalar @history;
+		$count = @history;
 	}
 	return \@history, $count;
 }

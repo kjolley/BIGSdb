@@ -119,8 +119,7 @@ sub print_content {
 				}
 				say "<dd>$person</dd>";
 				if ( $_ eq 'curator' ) {
-					my $history = $self->_get_history( $scheme_id, $profile_id );
-					my $num_changes = scalar @$history;
+					my ( $history, $num_changes ) = $self->_get_history( $scheme_id, $profile_id, 10 );
 					if ($num_changes) {
 						my $plural = $num_changes == 1 ? '' : 's';
 						my $title;
@@ -131,6 +130,9 @@ sub print_content {
 							my $action = $_->{'action'};
 							$action =~ s/:.*//g;
 							$title .= "$time: $action<br />";
+						}
+						if ( $num_changes > 10 ) {
+							$title .= "more ...";
 						}
 						say "<dt>update history</dt>";
 						my $refer_page = $self->{'cgi'}->param('page');
@@ -229,8 +231,10 @@ sub print_content {
 }
 
 sub _get_history {
-	my ( $self, $scheme_id, $profile_id ) = @_;
-	my $qry = "SELECT timestamp,action,curator FROM profile_history where scheme_id=? AND profile_id=? ORDER BY timestamp desc";
+	my ( $self, $scheme_id, $profile_id, $limit ) = @_;
+	my $limit_clause = $limit ? " LIMIT $limit" : '';
+	my $qry =
+	  "SELECT timestamp,action,curator FROM profile_history where scheme_id=? AND profile_id=? ORDER BY timestamp desc$limit_clause";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute( $scheme_id, $profile_id ) };
 	$logger->error($@) if $@;
@@ -238,7 +242,17 @@ sub _get_history {
 	while ( my $data = $sql->fetchrow_hashref ) {
 		push @history, $data;
 	}
-	return \@history;
+	my $count;
+	if ($limit) {
+
+		#need to count total
+		$count =
+		  $self->{'datastore'}
+		  ->run_simple_query( "SELECT COUNT(*) FROM profile_history WHERE scheme_id=? AND profile_id=?", $scheme_id, $profile_id )->[0];
+	} else {
+		$count = @history;
+	}
+	return \@history, $count;
 }
 
 sub _get_ref_links {
