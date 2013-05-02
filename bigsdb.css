@@ -367,13 +367,6 @@ div.content {
 	padding:10px 5px
 }
 
-div.options { float:left;padding-right:2em }
-div.options h2{ 
-	border-bottom:none; 
-	font-size:1em; 
-	color: navy;
-}
-
 div.reset { background:#d5d5e0;}
 
 div.menu {
@@ -699,6 +692,12 @@ fieldset {
 	vertical-align:top;
 	border:0;
 	border-top:1px solid #aaa;
+}
+
+div #accordion ul {
+	margin:0; 
+	padding:0 0 0 0.5em;  
+	list-style:none; 
 }
 
 fieldset ul { 

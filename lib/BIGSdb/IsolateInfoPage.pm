@@ -231,12 +231,8 @@ sub print_content {
 		$self->_print_projects($isolate_id);
 		say "<div class=\"box\" id=\"resultstable\">";
 		say $self->get_isolate_record($isolate_id);
-		my $locus_aliases_exist = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT * FROM locus_aliases)")->[0];
-		my $aliases_button =
-		  $locus_aliases_exist
-		  ? " <span id=\"aliases_button\" style=\"margin-left:1em;display:none\">"
-		  . "<a id=\"show_aliases\" class=\"smallbutton\" style=\"cursor:pointer\">&nbsp;show/hide locus aliases&nbsp;</a></span>"
-		  : '';
+		my $aliases_button = " <span id=\"aliases_button\" style=\"margin-left:1em;display:none\">"
+		  . "<a id=\"show_aliases\" class=\"smallbutton\" style=\"cursor:pointer\">&nbsp;show/hide locus aliases&nbsp;</a></span>";
 		say "<h2>Schemes and loci$aliases_button</h2>";
 		say $self->_get_tree($isolate_id);
 		say "</div>";
