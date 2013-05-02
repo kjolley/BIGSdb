@@ -229,7 +229,7 @@ sub print_content {
 		say $self->_get_update_history($isolate_id);
 	} else {
 		$self->_print_projects($isolate_id);
-		say "<div class=\"box\" id=\"resultstable\">";
+		say "<div class=\"box\" id=\"resultspanel\">";
 		say $self->get_isolate_record($isolate_id);
 		my $aliases_button = " <span id=\"aliases_button\" style=\"margin-left:1em;display:none\">"
 		  . "<a id=\"show_aliases\" class=\"smallbutton\" style=\"cursor:pointer\">&nbsp;show/hide locus aliases&nbsp;</a></span>";

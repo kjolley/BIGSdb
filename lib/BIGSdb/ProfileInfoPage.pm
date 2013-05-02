@@ -74,13 +74,15 @@ sub print_content {
 		say "<div class=\"box statusbad\"><p>This profile does not exist!</p></div>";
 		return;
 	}
-	print "<div class=\"box\" id=\"resultstable\">\n";
+	
 	if ( $q->param('history') ) {
+		say "<div class=\"box\" id=\"resultstable\">";
 		say "<h2>Update history</h2>";
 		say "<p><a href=\"$self->{'system'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;scheme_id=$scheme_id&amp;"
 		  . "profile_id=$profile_id\">Back to profile information</a></p>";
 		say $self->_get_update_history( $scheme_id, $profile_id ) // '';
 	} else {
+		say "<div class=\"box\" id=\"resultspanel\">";
 		say "<div class=\"scrollable\">";
 		say "<dl class=\"profile\">";
 		say "<dt>$primary_key</dt><dd>$profile_id</dd>";
@@ -266,9 +268,9 @@ sub _get_ref_links {
 
 sub _get_update_history {
 	my ( $self, $scheme_id, $profile_id ) = @_;
-	my $history = $self->_get_history( $scheme_id, $profile_id );
+	my ($history, undef) = $self->_get_history( $scheme_id, $profile_id );
 	my $buffer;
-	if ( scalar @$history ) {
+	if ( @$history ) {
 		$buffer .= "<table class=\"resultstable\"><tr><th>Timestamp</th><th>Curator</th><th>Action</th></tr>\n";
 		my $td = 1;
 		foreach (@$history) {
