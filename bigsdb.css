@@ -773,6 +773,9 @@ div.scheme_tree {
  	float: left; 
  	clear: left; 
  	width: 10em; 
+ 	white-space: nowrap;
+ 	overflow: hidden;
+ 	text-overflow: ellipsis;
  	text-align: right; 
  	font-weight: bold; 
  	color: #404080; 

@@ -221,7 +221,7 @@ sub get_title {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw(jQuery jQuery.columnizer);
+	$self->{$_} = 1 foreach qw(jQuery);
 	return;
 }
 

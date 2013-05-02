@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -118,21 +118,18 @@ sub _display_record {
 		return;
 	}
 	$buffer .= $q->start_form;
-	$buffer .= "<div class=\"box\" id=\"resultstable\">\n";
+	$buffer .= "<div class=\"box\" id=\"resultspanel\">\n";
+	$buffer .= "<div class=\"scrollable\">";
 	$buffer .= "<p>You have chosen to delete the following record:</p>\n";
-	if ( scalar @$attributes > 10 ) {
-		$buffer .= "<p />";
-		$buffer .= $q->submit( -name => 'submit', -value => 'Delete!', -class => 'submit' );
-	}
 	$buffer .= $q->hidden($_) foreach qw(page db table);
 	$buffer .= $q->hidden( 'sent', 1 );
 	foreach (@$attributes) {
+
 		if ( $_->{'primary_key'} ) {
 			$buffer .= $q->hidden( $_->{'name'}, $data->{ $_->{'name'} } );
 		}
 	}
-	$buffer .= "<table class=\"resultstable\">\n";
-	my $td = 1;
+	$buffer .= "<div id=\"record\"><dl class=\"data\">";
 	my $primary_key;
 	if ( $table eq 'profiles' ) {
 		eval {
@@ -143,10 +140,11 @@ sub _display_record {
 		$logger->error($@) if $@;
 	}
 	foreach (@$attributes) {
+		( my $field_name = $_->{'name'} ) =~ tr/_/ /;
 		if ( $table eq 'profiles' && $_->{'name'} eq 'profile_id' ) {
-			$buffer .= "<tr class=\"td$td\"><th style=\"text-align:right\">$primary_key&nbsp;</th>";
+			$buffer .= "<dt>$primary_key</dt>";
 		} else {
-			$buffer .= "<tr class=\"td$td\"><th style=\"text-align:right\">$_->{name}&nbsp;</th>";
+			$buffer .= "<dt>$field_name</dt>";
 		}
 		my $value;
 		if ( $_->{'type'} eq 'bool' ) {
@@ -154,7 +152,7 @@ sub _display_record {
 		} else {
 			$value = $data->{ $_->{'name'} };
 		}
-		if ( $_->{'name'} eq 'url' ) {
+		if ( $_->{'name'} =~ /url$/ ) {
 			$value =~ s/\&/\&amp;/g if defined $value;
 		}
 		if ( $_->{'name'} =~ /sequence$/ && $_->{'name'} ne 'coding_sequence' ) {
@@ -162,20 +160,19 @@ sub _display_record {
 			my $value_length = length($value);
 			if ( $value_length > 5000 ) {
 				$value = BIGSdb::Utils::truncate_seq( \$value, 30 );
-				$buffer .= "<td style=\"text-align:left\"><span class=\"seq\">$value</span><br />Sequence is $value_length characters "
-				  . "(too long to display)</td>\n";
+				$buffer .= "<dd><span class=\"seq\">$value</span> Sequence is $value_length characters (too long to display)</dd>\n";
 			} else {
 				$value = BIGSdb::Utils::split_line($value) || '';
-				$buffer .= "<td style=\"text-align:left\" class=\"seq\">$value</td>\n";
+				$buffer .= "<dd class=\"seq\">$value</dd>\n";
 			}
 		} elsif ( $_->{'name'} eq 'curator' or $_->{'name'} eq 'sender' ) {
 			my $user = $self->{'datastore'}->get_user_info($value);
 			$user->{'first_name'} ||= '';
 			$user->{'surname'}    ||= '';
-			$buffer .= "<td style=\"text-align:left\">$user->{'first_name'} $user->{'surname'}</td>\n";
+			$buffer .= "<dd>$user->{'first_name'} $user->{'surname'}</dd>\n";
 		} elsif ( $_->{'name'} eq 'scheme_id' ) {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info($value);
-			$buffer .= "<td style=\"text-align:left\">$value) $scheme_info->{'description'}</td>\n";
+			$buffer .= "<dd>$value) $scheme_info->{'description'}</dd>\n";
 		} elsif ( $_->{'foreign_key'} && $_->{'labels'} ) {
 			my @fields_to_query;
 			my @values = split /\|/, $_->{'labels'};
@@ -197,25 +194,23 @@ sub _display_record {
 					$i++;
 				}
 				$label_value =~ s/[\|\$]//g;
-				$buffer .= "<td style=\"text-align:left\">$label_value</td>\n";
+				$buffer .= "<dd>$label_value</dd>\n";
 			}
 		} elsif ( $_->{'name'} eq 'locus' ) {
 			$value = $self->clean_locus($value);
-			$buffer .= defined $value ? "<td style=\"text-align:left\">$value</td>\n" : '<td />';
+			$buffer .= defined $value ? "<dd>$value</dd>\n" : '<dd>&nbsp;</dd>';
 		} else {
-			$buffer .= defined $value ? "<td style=\"text-align:left\">$value</td>\n" : '<td />';
+			$buffer .= defined $value ? "<dd>$value</dd>\n" : '<dd>&nbsp;</dd>';
 		}
-		$buffer .= "</tr>\n";
-		$td = $td == 1 ? 2 : 1;
 		if ( $table eq 'profiles' && $_->{'name'} eq 'profile_id' ) {
 			my $scheme_id = $q->param('scheme_id');
-			$buffer .= $self->_get_profile_fields( $scheme_id, $primary_key, $data, \$td );
+			$buffer .= $self->_get_profile_fields( $scheme_id, $primary_key, $data );
 		}
 	}
 	if ( $table eq 'sequences' ) {
-		$buffer .= $self->_get_extra_sequences_fields( $data, $td );
+		$buffer .= $self->_get_extra_sequences_fields($data);
 	}
-	$buffer .= "</table>\n";
+	$buffer .= "</dl></div></div>\n";
 	if ( $table eq 'allele_designations' ) {
 		$buffer .= "<div><fieldset>\n<legend>Options</legend>\n<ul>\n<li>\n";
 		if ( $self->can_modify_table('allele_sequences') ) {
@@ -443,16 +438,15 @@ sub _confirm {
 }
 
 sub _get_extra_sequences_fields {
-	my ( $self, $data, $td ) = @_;
+	my ( $self, $data ) = @_;
 	my $q      = $self->{'cgi'};
 	my $buffer = '';
 	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
 		my $flags = $self->{'datastore'}->get_allele_flags( $q->param('locus'), $q->param('allele_id') );
 		local $" = '</a> <a class="seqflag_tooltip">';
 		if (@$flags) {
-			$buffer .= "<tr class=\"td$td\"><th style=\"text-align:right\">flags&nbsp;</th><td style=\"text-align:left\">"
+			$buffer .= "<tr ><th style=\"text-align:right\">flags&nbsp;</th><td style=\"text-align:left\">"
 			  . "<a class=\"seqflag_tooltip\">@$flags</a></td></tr>\n";
-			$td = $td == 1 ? 2 : 1;
 		}
 	}
 	foreach my $databank (DATABANKS) {
@@ -462,9 +456,7 @@ sub _get_extra_sequences_fields {
 			$q->param('locus'), $q->param('allele_id'), $databank );
 		foreach my $accession (@$accessions) {
 			$accession = "<a href=\"http://www.ncbi.nlm.nih.gov/nuccore/$accession\">$accession</a>" if $databank eq 'Genbank';
-			$buffer .= "<tr class=\"td$td\"><th style=\"text-align:right\">$databank&nbsp;</th>"
-			  . "<td style=\"text-align:left\">$accession</td></tr>\n";
-			$td = $td == 1 ? 2 : 1;
+			$buffer .= "<tr><th style=\"text-align:right\">$databank&nbsp;</th>" . "<td style=\"text-align:left\">$accession</td></tr>\n";
 		}
 	}
 	my $pubmed_list =
@@ -472,9 +464,8 @@ sub _get_extra_sequences_fields {
 		$q->param('locus'), $q->param('allele_id') );
 	my $citations = $self->{'datastore'}->get_citation_hash( $pubmed_list, { formatted => 1, all_authors => 1, link_pubmed => 1 } );
 	foreach my $pmid (@$pubmed_list) {
-		$buffer .= "<tr class=\"td$td\"><th style=\"text-align:right\">reference&nbsp;</th><td style=\"text-align:left\">"
-		  . "$citations->{$pmid}</td></tr>";
-		$td = $td == 1 ? 2 : 1;
+		$buffer .=
+		  "<tr><th style=\"text-align:right\">reference&nbsp;</th><td style=\"text-align:left\">" . "$citations->{$pmid}</td></tr>";
 	}
 	my $extended_attributes = $self->{'datastore'}->get_allele_extended_attributes( $q->param('locus'), $q->param('allele_id') );
 	foreach my $ext (@$extended_attributes) {
@@ -482,35 +473,33 @@ sub _get_extra_sequences_fields {
 		$cleaned_field =~ tr/_/ /;
 		if ( $cleaned_field =~ /sequence$/ ) {
 			my $seq = BIGSdb::Utils::split_line( $ext->{'value'} );
-			$buffer .= "<tr class=\"td$td\"><th style=\"text-align:right\">$cleaned_field&nbsp;</th>"
+			$buffer .= "<tr ><th style=\"text-align:right\">$cleaned_field&nbsp;</th>"
 			  . "<td style=\"text-align:left\" colspan=\"3\" class=\"seq\">$seq</td></tr>\n";
 		} else {
-			$buffer .= "<tr class=\"td$td\"><th style=\"text-align:right\">$cleaned_field&nbsp;</th>"
+			$buffer .= "<tr><th style=\"text-align:right\">$cleaned_field&nbsp;</th>"
 			  . "<td style=\"text-align:left\" colspan=\"3\">$ext->{'value'}</td></tr>\n";
 		}
-		$td = $td == 1 ? 2 : 1;
 	}
 	return $buffer;
 }
 
 sub _get_profile_fields {
-	my ( $self, $scheme_id, $primary_key, $data, $td_ref ) = @_;
-	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my ( $self, $scheme_id, $primary_key, $data ) = @_;
+	my $loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $set_id = $self->get_set_id;
 	my $buffer;
 	foreach my $locus (@$loci) {
-		my $mapped = $self->{'datastore'}->get_set_locus_label($locus, $set_id) // $locus;
-		$buffer .= "<tr class=\"td$$td_ref\"><th style=\"text-align:right\">$mapped&nbsp;</th>";
+		my $mapped = $self->{'datastore'}->get_set_locus_label( $locus, $set_id ) // $locus;
+		$buffer .= "<tr ><th style=\"text-align:right\">$mapped&nbsp;</th>";
 		my $allele_id =
 		  $self->{'datastore'}->run_simple_query( "SELECT allele_id FROM profile_members WHERE scheme_id=? AND locus=? AND profile_id=?",
 			$scheme_id, $locus, $data->{ $_->{'name'} } )->[0];
 		$buffer .= "<td style=\"text-align:left\">$allele_id</td></tr>\n";
-		$$td_ref = $$td_ref == 1 ? 2 : 1;
 	}
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	foreach my $field (@$scheme_fields) {
 		next if $field eq $primary_key;
-		$buffer .= "<tr class=\"td$$td_ref\"><th style=\"text-align:right\">$field&nbsp;</th>";
+		$buffer .= "<tr><th style=\"text-align:right\">$field&nbsp;</th>";
 		my $value_ref =
 		  $self->{'datastore'}->run_simple_query( "SELECT value FROM profile_fields WHERE scheme_id=? AND scheme_field=? AND profile_id=?",
 			$scheme_id, $field, $data->{ $_->{'name'} } );
@@ -519,7 +508,6 @@ sub _get_profile_fields {
 		} else {
 			$buffer .= "<td /></tr>\n";
 		}
-		$$td_ref = $$td_ref == 1 ? 2 : 1;
 	}
 	return $buffer;
 }
@@ -530,6 +518,12 @@ sub get_title {
 	my $table = $self->{'cgi'}->param('table');
 	my $type  = $self->get_record_name($table) || 'record';
 	return "Delete $type - $desc";
+}
+
+sub initiate {
+	my ($self) = @_;
+	$self->{$_} = 1 foreach qw(jQuery);
+	return;
 }
 
 sub _get_tables_which_reference_table {
