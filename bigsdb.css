@@ -139,6 +139,12 @@ a.info_tooltip {
 	font-size:0.7em	
 }
 
+span.seqflag {
+	background:#fad2d2;
+	color:black;
+	border:1px solid #c0c0c0;	
+}
+
 a.seqflag_tooltip {
 	background:#fad2d2;
 	color:black;
@@ -579,6 +585,10 @@ table.profile {
 
 div #resultstable {
 	background:#e0e0e0;	
+}
+
+div #resultspanel {
+	background:#f0f0f0;	
 }
 
 div #samples table {border-spacing:1px}

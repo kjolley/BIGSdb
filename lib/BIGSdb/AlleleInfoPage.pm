@@ -57,189 +57,156 @@ sub print_content {
 	my $seq         = BIGSdb::Utils::split_line( $seq_ref->{'sequence'} );
 	my $sender_info = $self->{'datastore'}->get_user_info( $seq_ref->{'sender'} );
 	$sender_info->{'affiliation'} =~ s/\&/\&amp;/g;
-	my $sender_email = !$self->{'system'}->{'privacy'} ? "<a href=\"mailto:$sender_info->{'email'}\">$sender_info->{'email'}</a>" : '';
+	my $sender_email =
+	  !$self->{'system'}->{'privacy'} ? "(E-mail: <a href=\"mailto:$sender_info->{'email'}\">$sender_info->{'email'}</a>)" : '';
 	my $curator_info = $self->{'datastore'}->get_user_info( $seq_ref->{'curator'} );
-	my $desc_exists  = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM locus_descriptions WHERE locus=?", $locus )->[0];
+	my $desc_exists = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM locus_descriptions WHERE locus=?", $locus )->[0];
 	my $desc_link =
 	  $desc_exists
 	  ? "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus\" class=\"info_tooltip\">&nbsp;i&nbsp;</a>"
 	  : '';
-	print << "HTML";
-<div class="box" id="resultstable">
-<div class="scrollable">
-<table class="resultstable">
-<tr class="td1"><th>locus</th><td style="text-align:left" colspan="3">$cleaned_locus $desc_link</td></tr>
-<tr class="td2"><th>allele</th><td style="text-align:left" colspan="3">$allele_id</td></tr>
-
-HTML
-	my $heading = "<tr class=\"td1\"><th>description</th><td style=\"text-align:left\" colspan=\"3\">";
+	say "<div class=\"box\" id=\"resultspanel\">";
+	say "<h2>Provenance/meta data</h2>";
+	say "<dl class=\"data\">";
+	say "<dt>locus</dt><dd>$cleaned_locus $desc_link</dd>";
+	say "<dt>allele</dt><dd>$allele_id</dd>";
 	given ($allele_id) {
-		when ('0') { say $heading . "This is a null allele. When included in a profile it means that this locus is missing.</td></tr>" }
+		when ('0') {
+			say "<dt>description</dt><dd>This is a null allele. When included in a profile it means that this locus is missing.</dd>"
+		}
 		when ('N') {
-			say $heading . "This is an arbitrary allele.  When included in a profile it means that this locus is ignored.</td></tr>"
+			say "<dt>description</dt><dd>This is an arbitrary allele.  When included in a profile it means that this locus is ignored.</dd>"
 		}
 		default {
 			print << "HTML";
-<tr class="td1"><th>sequence</th><td style="text-align:left" class="seq" colspan="3">$seq</td></tr>
-<tr class="td2"><th>length</th><td style="text-align:left" colspan="3">$length</td></tr>
-<tr class="td1"><th>status</th><td style="text-align:left" colspan="3">$seq_ref->{'status'}</td></tr>
-<tr class="td2"><th>date entered</th><td style="text-align:left" colspan="3">$seq_ref->{'date_entered'}</td></tr>
-<tr class="td1"><th>datestamp</th><td style="text-align:left" colspan="3">$seq_ref->{'datestamp'}</td></tr>
-<tr class="td2"><th>sender</th><td style="text-align:left">$sender_info->{'first_name'} $sender_info->{'surname'}</td>
-<td style="text-align:left">$sender_info->{'affiliation'}</td><td>$sender_email</td></tr>
-<tr class="td1"><th>curator</th><td style="text-align:left">$curator_info->{'first_name'} $curator_info->{'surname'}</td>
-<td style="text-align:left">$curator_info->{'affiliation'}</td><td style="text-align:left">
-<a href="mailto:$curator_info->{'email'}">$curator_info->{'email'}</a></td></tr>
+<dt>sequences</dt><dd style="text-align:left" class="seq">$seq</dd>
+<dt>length</dt><dd>$length</dd>			
+<dt>status</dt><dd>$seq_ref->{'status'}</dd>
+<dt>date entered</dt><dd>$seq_ref->{'date_entered'}</dd>
+<dt>datestamp</dt><dd>$seq_ref->{'datestamp'}</dd>
+<dt>sender</dt><dd>$sender_info->{'first_name'} $sender_info->{'surname'}, $sender_info->{'affiliation'}$sender_email</dd>
+<dt>curator</dt><dd>$curator_info->{'first_name'} $curator_info->{'surname'}, $curator_info->{'affiliation'} 
+(E-mail: <a href="mailto:$curator_info->{'email'}">$curator_info->{'email'}</a>)</dd>
+
 HTML
 		}
 	}
-	my $td = 2;
-	if ( $seq_ref->{'comments'} ) {
-		say "<tr class=\"td2\"><th>comments</th><td style=\"text-align:left\" colspan=\"3\">$seq_ref->{'comments'}</td></tr>";
-		$td = 1;
-	}
-	$self->_process_flags( $locus, $allele_id, \$td );
+	say "<dt>comments</dt><dd>$seq_ref->{'comments'}</dd>" if $seq_ref->{'comments'};
+	$self->_process_flags( $locus, $allele_id );
 	my $extended_attributes = $self->{'datastore'}->get_allele_extended_attributes( $locus, $allele_id );
 	foreach my $ext (@$extended_attributes) {
 		my $cleaned_field = $ext->{'field'};
 		$cleaned_field =~ tr/_/ /;
 		if ( $cleaned_field =~ /sequence$/ ) {
 			my $seq = BIGSdb::Utils::split_line( $ext->{'value'} );
-			say "<tr class=\"td$td\"><th>$cleaned_field</th><td style=\"text-align:left\" colspan=\"3\" class=\"seq\">$seq</td></tr>";
+			say "<dt>$cleaned_field</dt><dd class=\"seq\">$seq</dd>";
 		} else {
-			say "<tr class=\"td$td\"><th>$cleaned_field</th><td style=\"text-align:left\" colspan=\"3\">$ext->{'value'}</td></tr>";
+			say "<dt>$cleaned_field</dt><dd>$ext->{'value'}</dd>";
 		}
-		$td = $td == 1 ? 2 : 1;
 	}
-	my $qry = "SELECT databank, databank_id FROM accession WHERE locus=? and allele_id=? ORDER BY databank,databank_id";
-	my $accession_list = $self->{'datastore'}->run_list_query_hashref( $qry, $locus, $allele_id );
-	foreach my $accession (@$accession_list) {
-		print "<tr class=\"td$td\"><th>$accession->{'databank'} #</th><td style=\"text-align:left\" colspan=\"3\">";
-		if ( $accession->{'databank'} eq 'Genbank' ) {
-			print "<a href=\"http://www.ncbi.nlm.nih.gov/nuccore/$accession->{'databank_id'}\">$accession->{'databank_id'}</a>";
-		} else {
-			print "$accession->{'databank_id'}";
-		}
-		say "</td></tr>";
-		$td = $td == 1 ? 2 : 1;
-	}
-	$qry = "SELECT pubmed_id FROM sequence_refs WHERE locus=? and allele_id=? ORDER BY pubmed_id";
-	my $pmid_list = $self->{'datastore'}->run_list_query( $qry, $locus, $allele_id );
-	foreach my $pmid (@$pmid_list) {
-		print $self->_get_reference( $pmid, $td );
-		$td = $td == 1 ? 2 : 1;
-	}
-	$qry = "SELECT schemes.* FROM schemes LEFT JOIN scheme_members ON schemes.id=scheme_id WHERE locus=?";
+	say "</dl>";
+	$self->_print_accessions( $locus, $allele_id );
+	$self->_print_ref_links( $locus, $allele_id );
+	my $qry         = "SELECT schemes.* FROM schemes LEFT JOIN scheme_members ON schemes.id=scheme_id WHERE locus=?";
 	my $scheme_list = $self->{'datastore'}->run_list_query_hashref( $qry, $locus );
-	my $set_id = $self->get_set_id;
-	foreach my $scheme (@$scheme_list) {
-		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'}, { set_id => $set_id } );
-		my $pk_ref =
-		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key", $scheme->{'id'} );
-		next if ref $pk_ref ne 'ARRAY';
-		my $pk = $pk_ref->[0];
-		print "<tr class=\"td$td\"><th>$scheme_info->{'description'}</th>";
-		my $profiles =
-		  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM profile_members WHERE scheme_id=? AND locus=? AND allele_id=?",
-			$scheme->{'id'}, $locus, $allele_id )->[0];
-		my $plural  = $profiles == 1 ? ''         : 's';
-		my $contain = $profiles == 1 ? 'contains' : 'contain';
-		say "<td style=\"text-align:left\" colspan=\"2\">$profiles profile$plural $contain this allele</td><td>";
-		say $q->start_form;
-		$q->param( 'page',      'query' );
-		$q->param( 'scheme_id', $scheme->{'id'} );
-		$q->param( 's1',        $locus );
-		$q->param( 'y1',        '=' );
-		$q->param( 't1',        $allele_id );
-		$q->param( 'order',     $pk );
-		$q->param( 'submit',    1 );
-		say $q->hidden($_) foreach qw (db page scheme_id s1 y1 t1 order submit);
-		say $q->submit( -label => 'Display', -class => 'submit' );
-		say $q->end_form;
-		say "</td></tr>";
-		$td = $td == 1 ? 2 : 1;
+	my $set_id      = $self->get_set_id;
+	if (@$scheme_list) {
+		my $profile_buffer;
+		foreach my $scheme (@$scheme_list) {
+			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'}, { set_id => $set_id } );
+			my $pk_ref =
+			  $self->{'datastore'}
+			  ->run_simple_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key", $scheme->{'id'} );
+			next if ref $pk_ref ne 'ARRAY';
+			my $pk = $pk_ref->[0];
+			$profile_buffer .= "<dt>$scheme_info->{'description'}</dt>";
+			my $profiles =
+			  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM profile_members WHERE scheme_id=? AND locus=? AND allele_id=?",
+				$scheme->{'id'}, $locus, $allele_id )->[0];
+			my $plural  = $profiles == 1 ? ''         : 's';
+			my $contain = $profiles == 1 ? 'contains' : 'contain';
+			$profile_buffer .= "<dd>";
+			$profile_buffer .= $q->start_form;
+			$q->param( 'page',      'query' );
+			$q->param( 'scheme_id', $scheme->{'id'} );
+			$q->param( 's1',        $locus );
+			$q->param( 'y1',        '=' );
+			$q->param( 't1',        $allele_id );
+			$q->param( 'order',     $pk );
+			$q->param( 'submit',    1 );
+			$profile_buffer .= $q->hidden($_) foreach qw (db page scheme_id s1 y1 t1 order submit);
+			$profile_buffer .= $q->submit( -label => "$profiles profile$plural", -class => 'smallbutton' );
+			$profile_buffer .= $q->end_form;
+			$profile_buffer .= "</dd>";
+		}
+		if ($profile_buffer) {
+			say "<h2>Profiles containing this allele</h2>\n<dl class=\"data\">\n$profile_buffer</dl>";
+		}
 	}
-	$td = $self->_print_client_database_data( $locus, $allele_id, $td );
-	$self->_print_linked_data( $locus, $allele_id, $td );
-	say "</table>\n</div></div>";
+	$self->_print_client_database_data( $locus, $allele_id );
+	my $client_buffer = $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $allele_id );
+	say "<h2>Linked data</h2>\n$client_buffer" if $client_buffer;
+	say "</div>";
 	return;
 }
 
 sub _print_client_database_data {
-	my ( $self, $locus, $allele_id, $td ) = @_;
+	my ( $self, $locus, $allele_id ) = @_;
 	my $q   = $self->{'cgi'};
 	my $qry = "SELECT client_dbases.*,locus_alias FROM client_dbases LEFT JOIN client_dbase_loci ON "
 	  . "client_dbases.id=client_dbase_id WHERE locus=?";
 	my $client_list = $self->{'datastore'}->run_list_query_hashref( $qry, $locus );
-	foreach my $client (@$client_list) {
-		my $isolate_count =
-		  $self->{'datastore'}->get_client_db( $client->{'id'} )
-		  ->count_isolates_with_allele( $client->{'locus_alias'} || $locus, $allele_id );
-		next if !$isolate_count;
-		say "<tr class=\"td$td\"><th>client database</th><td style=\"text-align:left\">$client->{'name'}</td>"
-		  . "<td style=\"text-align:left\">$client->{'description'}</td>";
-		my $plural = $isolate_count == 1 ? '' : 's';
-		say "<td colspan=\"2\">$isolate_count isolate$plural<br />";
-		if ( $client->{'url'} ) {
+	if (@$client_list) {
+		say "<h2>Isolate databases</h2>\n<dl class=\"data\">";
+		foreach my $client (@$client_list) {
+			my $isolate_count =
+			  $self->{'datastore'}->get_client_db( $client->{'id'} )
+			  ->count_isolates_with_allele( $client->{'locus_alias'} || $locus, $allele_id );
+			next if !$isolate_count;
+			say "<dt>$client->{'name'}</dt>";
+			say "<dd>$client->{'description'} ";
+			my $plural = $isolate_count == 1 ? '' : 's';
+			if ( $client->{'url'} ) {
 
-			#it seems we have to pass the parameters in the action clause for mod_perl2
-			#but separately for stand-alone CGI.
-			my %params = (
-				db     => $client->{'dbase_config_name'},
-				page   => 'query',
-				ls1    => 'l_' . ( $client->{'locus_alias'} || $locus ),
-				ly1    => '=',
-				lt1    => $allele_id,
-				order  => 'id',
-				submit => 1
-			);
-			my @action_params;
-			foreach ( keys %params ) {
-				$q->param( $_, $params{$_} );
-				push @action_params, "$_=$params{$_}";
+				#it seems we have to pass the parameters in the action clause for mod_perl2
+				#but separately for stand-alone CGI.
+				my %params = (
+					db     => $client->{'dbase_config_name'},
+					page   => 'query',
+					ls1    => 'l_' . ( $client->{'locus_alias'} || $locus ),
+					ly1    => '=',
+					lt1    => $allele_id,
+					order  => 'id',
+					submit => 1
+				);
+				my @action_params;
+				foreach ( keys %params ) {
+					$q->param( $_, $params{$_} );
+					push @action_params, "$_=$params{$_}";
+				}
+				local $" = '&';
+				say $q->start_form( -action => "$client->{'url'}?@action_params", -method => 'post', -style => 'display:inline' );
+				local $" = ' ';
+				say $q->hidden($_) foreach qw (db page ls1 ly1 lt1 order submit);
+				say $q->submit( -label => "$isolate_count isolate$plural", -class => 'smallbutton' );
+				say $q->end_form;
 			}
-			local $" = '&';
-			say $q->start_form( -action => "$client->{'url'}?@action_params", -method => 'post' );
-			say $q->hidden($_) foreach qw (db page ls1 ly1 lt1 order submit);
-			say $q->submit( -label => 'Display', -class => 'submit' );
-			say $q->end_form;
+			say "</dd></dl>";
 		}
-		say "</td></tr>";
-		$td = $td == 1 ? 2 : 1;
 	}
-	return $td;
-}
-
-sub _print_linked_data {
-	my ( $self, $locus, $allele_id, $td ) = @_;
-	my $field_values = $self->{'datastore'}->get_client_dbase_fields( $locus, [$allele_id] );
-	return if !defined $field_values;
-	say "<tr class=\"td$td\"><th>linked data</th><td colspan=\"3\" style=\"text-align:left\">$field_values</td></tr>";
 	return;
 }
 
 sub _process_flags {
-	my ( $self, $locus, $allele_id, $td_ref ) = @_;
+	my ( $self, $locus, $allele_id ) = @_;
 	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
 		my $flags = $self->{'datastore'}->get_allele_flags( $locus, $allele_id );
 		if (@$flags) {
-			local $" = "</a> <a class=\"seqflag_tooltip\">";
-			say "<tr class=\"td$$td_ref\"><th>flags</th><td style=\"text-align:left\" colspan=\"3\">"
-			  . "<a class=\"seqflag_tooltip\">@$flags</a></td></tr>";
-			$$td_ref = $$td_ref == 1 ? 2 : 1;
+			local $" = "</span> <span class=\"seqflag\">";
+			say "<dt>flags</dt><dd><span class=\"seqflag\">@$flags</span></dd>";
 		}
 	}
 	return;
-}
-
-sub _get_reference {
-	my ( $self, $pmid, $td ) = @_;
-	my $citation = $self->{'datastore'}->get_citation_hash( [$pmid], { formatted => 1, all_authors => 1 } );
-	my $buffer =
-	    "<tr class=\"td$td\"><th>reference</th><td align=\"left\">"
-	  . "<a href='http://www.ncbi.nlm.nih.gov/entrez/query.fcgi?cmd=Retrieve&amp;db=PubMed&amp;list_uids=$pmid&amp;dopt=Abstract'>"
-	  . "$pmid</a></td><td colspan=\"3\" style=\"text-align:left; width:75%\">$citation->{$pmid}</td></tr>\n";
-	return $buffer;
 }
 
 sub get_title {
@@ -250,5 +217,86 @@ sub get_title {
 	return "Invalid locus" if !$self->{'datastore'}->is_locus($locus);
 	$locus =~ tr/_/ /;
 	return "Allele information" . ( defined $allele_id ? " - $locus: $allele_id" : '' );
+}
+
+sub initiate {
+	my ($self) = @_;
+	$self->{$_} = 1 foreach qw(jQuery jQuery.columnizer);
+	return;
+}
+
+sub _print_accessions {
+	my ( $self, $locus, $allele_id ) = @_;
+	my $qry            = "SELECT databank, databank_id FROM accession WHERE locus=? and allele_id=? ORDER BY databank,databank_id";
+	my $accession_list = $self->{'datastore'}->run_list_query_hashref( $qry, $locus, $allele_id );
+	my $buffer         = '';
+	if (@$accession_list) {
+		say "<h2>Accession" . ( @$accession_list > 1 ? 's' : '' ) . " (" . @$accession_list . ")";
+		my $display = @$accession_list > 4 ? 'none' : 'block';
+		say
+"<span style=\"margin-left:1em\"><a id=\"show_accessions\" class=\"smallbutton\" style=\"cursor:pointer\">&nbsp;show/hide&nbsp;</a></span>"
+		  if $display eq 'none';
+		say "</h2>\n";
+		my $id = $display eq 'none' ? 'hidden_accessions' : 'accessions';
+		say "<div id=\"$id\">";
+		say $buffer .= "<dl class=\"data\">\n";
+		foreach my $accession (@$accession_list) {
+			say "<dt>$accession->{'databank'}</dt>";
+			given ( $accession->{'databank'} ) {
+				when ('Genbank') {
+					say
+					  "<dd><a href=\"http://www.ncbi.nlm.nih.gov/nuccore/$accession->{'databank_id'}\">$accession->{'databank_id'}</a></dd>"
+				}
+				default { say "<dd>$accession->{'databank_id'}</dd>" };
+			}
+		}
+		say "</dl></div>\n";
+	}
+	return $buffer;
+}
+
+sub _print_ref_links {
+	my ( $self, $locus, $allele_id ) = @_;
+	my $pmids =
+	  $self->{'datastore'}
+	  ->run_list_query( "SELECT pubmed_id FROM sequence_refs WHERE locus=? and allele_id=? ORDER BY pubmed_id", $locus, $allele_id );
+	if (@$pmids) {
+		say "<h2>Publication" . ( @$pmids > 1 ? 's' : '' ) . " (" . @$pmids . ")";
+		my $display = @$pmids > 4 ? 'none' : 'block';
+		say
+"<span style=\"margin-left:1em\"><a id=\"show_refs\" class=\"smallbutton\" style=\"cursor:pointer\">&nbsp;show/hide&nbsp;</a></span>"
+		  if $display eq 'none';
+		say "</h2>\n";
+		my $id = $display eq 'none' ? 'hidden_references' : 'references';
+		say "<ul id=\"$id\">\n";
+		my $citations =
+		  $self->{'datastore'}
+		  ->get_citation_hash( $pmids, { formatted => 1, all_authors => 1, state_if_unavailable => 1, link_pubmed => 1 } );
+		foreach my $pmid ( sort { $citations->{$a} cmp $citations->{$b} } @$pmids ) {
+			say "<li style=\"padding-bottom:1em\">$citations->{$pmid}</li>";
+		}
+		say "</ul>";
+	}
+	return;
+}
+
+sub get_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+\$(function () {
+	\$( "#hidden_accessions" ).css('display', 'none');
+	\$( "#show_accessions" ).click(function() {
+		\$( "#hidden_accessions" ).toggle( 'blind', {} , 500 );
+		return false;
+	});
+	\$( "#hidden_references" ).css('display', 'none');
+	\$( "#show_refs" ).click(function() {
+		\$( "#hidden_references" ).toggle( 'blind', {} , 500 );
+		return false;
+	});
+});
+
+END
+	return $buffer;
 }
 1;
