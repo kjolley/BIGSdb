@@ -56,13 +56,14 @@ sub print_content {
 	eval { $sql->execute( $isolate_id, $locus ) };
 	$logger->error($@) if $@;
 	my $buffer;
+	my $update_buffer = '';
 
 	while ( my ( $seqbin_id, $start_pos, $end_pos, $reverse, $complete, $method ) = $sql->fetchrow_array ) {
 		$buffer .= "<dl class=\"data\">";
 		$buffer .= "<dt>sequence bin id</dt><dd>$seqbin_id</dd>";
 		if ( $self->{'curate'} ) {
-			$buffer .= "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagUpdate&amp;seqbin_id=$seqbin_id"
-			  . "&amp;locus=$locus&amp;start_pos=$start_pos&amp;end_pos=$end_pos\" class=\"smallbutton\">Update</a>\n";
+			$update_buffer = " <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagUpdate&amp;seqbin_id="
+			  . "$seqbin_id&amp;locus=$locus&amp;start_pos=$start_pos&amp;end_pos=$end_pos\" class=\"smallbutton\">Update</a>\n";
 		}
 		my $translate = ( $locus_info->{'coding_sequence'} || $locus_info->{'data_type'} eq 'peptide' ) ? 1 : 0;
 		my $orf = $locus_info->{'orf'} || 1;
@@ -70,7 +71,7 @@ sub print_content {
 		$buffer .= "<dt>end</dt><dd>$end_pos</dd>\n";
 		my $length = abs( $end_pos - $start_pos + 1 );
 		$buffer .= "<dt>length</dt><dd>$length</dd>\n";
-		my $orientation = $reverse ? '&larr;' : '&rarr;';
+		my $orientation = $reverse ? 'reverse' : 'forward';
 		$buffer .= "<dt>orientation</dt><dd>$orientation</dd>\n";
 		$buffer .= "<dt>complete</dt><dd>" . ( $complete ? 'yes' : 'no' ) . "</dd>\n";
 		$buffer .= "<dt>method</dt><dd>$method</dd>\n";
@@ -96,7 +97,7 @@ sub print_content {
 	}
 	if ($buffer) {
 		say "<div class=\"box\" id=\"resultspanel\">\n<div class=\"scrollable\">";
-		say "<h2>Contig position</h2>";
+		say "<h2>Contig position$update_buffer</h2>";
 		say $buffer;
 		say "</div></div>";
 	} else {
