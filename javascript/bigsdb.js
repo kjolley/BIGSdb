@@ -40,6 +40,16 @@ $(function () {
 	$("input.reset").click(function() { 
 	    location.href = $(this).closest("a").attr("href");
 	});
+	
+	//Add tooltip to truncated definition list titles
+	$('dt').each(function(){
+		if( this.offsetWidth + 1 < this.scrollWidth){
+			$(this).prop('title', $(this).text());
+			$(this).tooltip();
+			$(this).css('cursor', 'pointer');
+		}
+	});
+
 });
 
 function reloadTooltips() {

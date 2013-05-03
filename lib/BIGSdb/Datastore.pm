@@ -1377,7 +1377,50 @@ sub get_next_allele_id {
 	return $next;
 }
 
+sub get_client_data_linked_to_allele {
+	my ( $self, $locus, $allele_id, $td ) = @_;
+	my $sql =
+	  $self->{'db'}->prepare(
+"SELECT client_dbase_id,isolate_field FROM client_dbase_loci_fields WHERE allele_query AND locus = ? ORDER BY client_dbase_id,isolate_field"
+	  );
+	eval { $sql->execute($locus) };
+	$logger->error($@) if $@;
+	my $client_field_data = $sql->fetchall_arrayref;
+	my $buffer;
+	foreach my $client_field (@$client_field_data) {
+		my $field          = $client_field->[1];
+		my $client         = $self->get_client_db( $client_field->[0] );
+		my $client_db_desc = $self->get_client_db_info( $client_field->[0] )->{'name'};
+		my $proceed        = 1;
+		my $field_data;
+		try {
+			$field_data = $client->get_fields( $field, $locus, $allele_id );
+		}
+		catch BIGSdb::DatabaseConfigurationException with {
+			$logger->error( "Can't extract isolate field '$field' FROM client database, make sure the client_dbase_loci_fields "
+				  . "table is correctly configured.  $@" );
+			$proceed = 0;
+		};
+		return if !$proceed;
+		$buffer .= "<dt>$field</dt>";
+		my @values;
+		foreach my $data (@$field_data) {
+			my $value = $data->{$field};
+			if ( any { $field eq $_ } qw (species genus) ) {
+				$value = "<i>$value</i>";
+			}
+			$value .= " [n=$data->{'frequency'}]";
+			push @values, $value;
+		}
+		local $" = '; ';
+		$buffer .= "<dd>@values <span class=\"link\">$client_db_desc</span></dd>";
+	}
+	$buffer = "<dl class=\"data\">\n$buffer\n</dl>" if $buffer;
+	return $buffer;
+}
+
 sub get_client_dbase_fields {
+	#TODO deprecate and use get_client_data_linked_to_allele instead.
 	my ( $self, $locus, $allele_ids_refs ) = @_;
 	return [] if ref $allele_ids_refs ne 'ARRAY';
 	my $sql = $self->{'db'}->prepare("SELECT client_dbase_id,isolate_field FROM client_dbase_loci_fields WHERE allele_query AND locus = ?");
@@ -1491,8 +1534,8 @@ sub get_citation_hash {
 		if ( !defined $year && !defined $journal ) {
 			$citation_ref->{$_} .= "<a href=\"http://www.ncbi.nlm.nih.gov/pubmed/$_\">" if $options->{'link_pubmed'};
 			$citation_ref->{$_} .= "Pubmed id#$_";
-			$citation_ref->{$_} .= "</a>" if $options->{'link_pubmed'};
-			$citation_ref->{$_} .= ": No details available." if $options->{'state_if_unavailable'};			
+			$citation_ref->{$_} .= "</a>"                                               if $options->{'link_pubmed'};
+			$citation_ref->{$_} .= ": No details available."                            if $options->{'state_if_unavailable'};
 			next;
 		}
 		my @authors;
@@ -1712,7 +1755,9 @@ sub get_table_field_attributes {
 	#Returns array ref of attributes for a specific table provided by table-specific helper functions in BIGSdb::TableAttributes.
 	my ( $self, $table ) = @_;
 	my $function   = "BIGSdb::TableAttributes::get_$table\_table_attributes";
-	my $attributes = $self->$function();
+	my $attributes;
+	eval { $attributes = $self->$function() };
+	$logger->logcarp($@) if $@; 
 	return if ref $attributes ne 'ARRAY';
 	foreach my $att (@$attributes) {
 		foreach (qw(tooltip optlist required default hide public_hide main_display)) {

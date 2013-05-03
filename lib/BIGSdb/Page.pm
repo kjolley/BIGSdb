@@ -192,7 +192,7 @@ sub print_page_content {
 				push @javascript,
 				  ( { 'language' => 'Javascript', 'src' => "http://ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/jquery-ui.min.js" } );
 			}
-			push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/bigsdb.js?v20130405" } );
+			push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/bigsdb.js?v20130503" } );
 			if ( $self->{'jQuery.tablesort'} ) {
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.tablesorter.js?v20110725" } );
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.metadata.js" } );
@@ -207,6 +207,9 @@ sub print_page_content {
 			}
 			if ( $self->{'jQuery.slimbox'} ) {
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.slimbox2.js?v20130405" } );
+			}
+			if ( $self->{'jQuery.columnizer'} ) {
+				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.columnizer.js" } );
 			}
 			push @javascript, { 'language' => 'Javascript', 'code' => $page_js } if $page_js;
 		}
@@ -265,7 +268,7 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system    = $self->{'system'};
-	my $version   = '20130424';
+	my $version   = '20130503';
 	my @filenames = qw(bigsdb.css jquery-ui.css);
 	my @paths;
 	foreach my $filename (@filenames) {

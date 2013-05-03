@@ -33,6 +33,7 @@ sub get_javascript {
 	\$(document).ajaxComplete(function() {
 		reloadTooltips();
 	});
+	\$("#sample").columnize({width:300});
 });
 END
 	$buffer .= $self->get_tree_javascript;
@@ -46,7 +47,7 @@ sub initiate {
 		$self->{'noCache'} = 1;
 		return;
 	}
-	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree);
+	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree jQuery.columnizer);
 	return;
 }
 
@@ -420,7 +421,7 @@ sub _print_samples {
 	my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
 	if (@$sample_fields) {
 		say "<div class=\"box\" id=\"samples\">";
-		say "<h2>Samples:</h2>";
+		say "<h2>Samples</h2>";
 		my $isolate_record = BIGSdb::IsolateInfoPage->new(
 			(
 				system        => $self->{'system'},
