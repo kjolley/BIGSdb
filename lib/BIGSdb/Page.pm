@@ -692,28 +692,18 @@ sub get_filter {
 }
 
 sub get_user_filter {
-	my ( $self, $field, $table ) = @_;
-	my $qry = "SELECT DISTINCT($field) FROM $table WHERE $field > 0";
+	my ( $self, $field ) = @_;
+	my $qry = "SELECT id,first_name,surname FROM users where status = ? AND id > 0";
 	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute };
-	$logger->error($@) if $@;
-	my @userids;
-	while ( my ($value) = $sql->fetchrow_array ) {
-		push @userids, $value;
-	}
-	$qry = "SELECT id,first_name,surname FROM users where id=?";
-	$sql = $self->{'db'}->prepare($qry);
 	my ( @usernames, %labels );
-	foreach (@userids) {
-		eval { $sql->execute($_) };
-		$logger->error($@) if $@;
-		while ( my @data = $sql->fetchrow_array ) {
-			push @usernames, $data[0];
-			$labels{ $data[0] } = $data[2] eq 'applicable' ? 'not applicable' : "$data[2], $data[1]";
-		}
+	my $status = $field eq 'curator' ? 'curator' : 'user';
+	eval { $sql->execute($status) };
+	$logger->error($@) if $@;
+	while ( my $data = $sql->fetchrow_hashref ) {
+		push @usernames, $data->{'id'};
+		$labels{ $data->{'id'} } = $data->{'surname'} eq 'applicable' ? 'not applicable' : "$data->{'surname'}, $data->{'first_name'}";
 	}
-	@usernames =
-	  sort { lc( $labels{$a} ) cmp lc( $labels{$b} ) } @usernames;
+	@usernames = sort { lc( $labels{$a} ) cmp lc( $labels{$b} ) } @usernames;
 	my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
 	return $self->get_filter(
 		$field,

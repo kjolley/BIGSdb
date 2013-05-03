@@ -380,7 +380,7 @@ sub _print_isolate_filter_fieldset {
 				|| $field eq 'curator'
 				|| ( $thisfield->{'userfield'} && $thisfield->{'userfield'} eq 'yes' ) )
 			{
-				push @filters, $self->get_user_filter( $field, $self->{'system'}->{'view'} );
+				push @filters, $self->get_user_filter($field);
 			} else {
 				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 				if ( $thisfield->{'optlist'} ) {

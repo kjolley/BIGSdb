@@ -229,7 +229,7 @@ sub _print_query_interface {
 			$tooltip =~ s/ - / filter - Select a value to filter your search to only those with the selected attribute. /;
 			if ( ( $att->{'dropdown_query'} && $att->{'dropdown_query'} eq 'yes' ) ) {
 				if ( $att->{'name'} eq 'sender' || $att->{'name'} eq 'curator' || ( $att->{'foreign_key'} // '' ) eq 'users' ) {
-					push @filters, $self->get_user_filter( $att->{'name'}, $table );
+					push @filters, $self->get_user_filter( $att->{'name'} );
 				} elsif ( $att->{'name'} eq 'scheme_id' ) {
 					push @filters, $self->get_scheme_filter;
 				} elsif ( $att->{'name'} eq 'locus' ) {
