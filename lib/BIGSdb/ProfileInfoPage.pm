@@ -100,7 +100,7 @@ sub print_content {
 			next if $_ eq $primary_key;
 			$cleaned =~ tr/_/ /;
 			say "<dl class=\"profile\"><dt>$cleaned</dt>";
-			$data->{ lc($_) } //= '';
+			$data->{ lc($_) } //= '&nbsp;';
 			say "<dd>$data->{lc($_)}</dd></dl>";
 		}
 		say "<dl class=\"data\">";
