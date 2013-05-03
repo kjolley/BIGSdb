@@ -280,7 +280,7 @@ sub _make_artemis_jnlp {
 		$url =
 		    'http://'
 		  . $self->{'cgi'}->virtual_host
-		  . "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=embl&seqbin_id=$seqbin_id";
+		  . "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=embl&amp;seqbin_id=$seqbin_id";
 	}
 	open( my $fh, '>', "$self->{'config'}->{'tmp_dir'}/$jnlp_filename" )
 	  || $logger->error("Can't open $self->{'config'}->{'tmp_dir'}/$jnlp_filename for writing.");
