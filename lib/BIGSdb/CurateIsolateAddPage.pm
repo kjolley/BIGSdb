@@ -282,7 +282,12 @@ sub _print_interface {
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			$required_field = 0 if !$set_id && defined $metaset;    #Field can't be compulsory if part of a metadata collection.
 			if ( $required_field == $required ) {
-				print "<tr><td style=\"text-align:right\">" . ( $metafield // $field ) . ": ";
+				print "<tr><td style=\"text-align:right\">";
+				if ( $thisfield->{'comments'} ) {
+					print "<a class=\"tooltip\" title=\"$thisfield->{'comments'}\">&nbsp;<i>i</i>&nbsp;</a> ";
+				}
+				print $metafield // $field;
+				print ": ";
 				print '!' if $required;
 				print "</td><td style=\"text-align:left\">";
 				if ( $thisfield->{'optlist'} ) {
