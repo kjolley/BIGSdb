@@ -50,39 +50,38 @@ sub print_content {
 	print " (@name)" if $name[1];
 	say "</h1>";
 	my $flanking = $self->{'prefs'}->{'flanking'};
-	my $qry = "SELECT seqbin_id,start_pos,end_pos,reverse,complete,method FROM allele_sequences LEFT JOIN sequence_bin ON "
+	my $qry      = "SELECT seqbin_id,start_pos,end_pos,reverse,complete,method FROM allele_sequences LEFT JOIN sequence_bin ON "
 	  . "allele_sequences.seqbin_id = sequence_bin.id WHERE isolate_id=? AND locus=? ORDER BY complete desc,allele_sequences.datestamp";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute( $isolate_id, $locus ) };
 	$logger->error($@) if $@;
 	my $buffer;
-	my $td = 1;
 
 	while ( my ( $seqbin_id, $start_pos, $end_pos, $reverse, $complete, $method ) = $sql->fetchrow_array ) {
-		$buffer .= "<tr><th colspan=\"3\">sequence bin id#$seqbin_id";
+		$buffer .= "<dl class=\"data\">";
+		$buffer .= "<dt>sequence bin id</dt><dd>$seqbin_id</dd>";
 		if ( $self->{'curate'} ) {
 			$buffer .= "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagUpdate&amp;seqbin_id=$seqbin_id"
 			  . "&amp;locus=$locus&amp;start_pos=$start_pos&amp;end_pos=$end_pos\" class=\"smallbutton\">Update</a>\n";
 		}
-		$buffer .= "</th></tr>\n";
-		$buffer .= "<tr class=\"td$td\"><th>start</th><td>$start_pos</td><td rowspan=\"6\" class=\"seq\" style=\"text-align:left\">";
 		my $translate = ( $locus_info->{'coding_sequence'} || $locus_info->{'data_type'} eq 'peptide' ) ? 1 : 0;
 		my $orf = $locus_info->{'orf'} || 1;
-		my $display = $self->format_seqbin_sequence(
-			{ seqbin_id => $seqbin_id, reverse => $reverse, start => $start_pos, end => $end_pos, translate => $translate, orf => $orf } )
-		  ;
-		$buffer .= $display->{'seq'};
-		$buffer .= "</td></tr>\n";
-		$buffer .= "<tr class=\"td$td\"><th>end</th><td>$end_pos</td></tr>\n";
+		$buffer .= "<dt>start</dt><dd>$start_pos</dd>\n";
+		$buffer .= "<dt>end</dt><dd>$end_pos</dd>\n";
 		my $length = abs( $end_pos - $start_pos + 1 );
-		$buffer .= "<tr class=\"td$td\"><th>length</th><td>$length</td></tr>\n";
+		$buffer .= "<dt>length</dt><dd>$length</dd>\n";
 		my $orientation = $reverse ? '&larr;' : '&rarr;';
-		$buffer .= "<tr class=\"td$td\"><th>orientation</th><td style=\"font-size:2em\">$orientation</td></tr>\n";
-		$buffer .= "<tr class=\"td$td\"><th>complete</th><td>" . ( $complete ? 'yes' : 'no' ) . "</td></tr>\n";
-		$buffer .= "<tr class=\"td$td\"><th>method</th><td>$method</td></tr>\n";
+		$buffer .= "<dt>orientation</dt><dd>$orientation</dd>\n";
+		$buffer .= "<dt>complete</dt><dd>" . ( $complete ? 'yes' : 'no' ) . "</dd>\n";
+		$buffer .= "<dt>method</dt><dd>$method</dd>\n";
+		my $display = $self->format_seqbin_sequence(
+			{ seqbin_id => $seqbin_id, reverse => $reverse, start => $start_pos, end => $end_pos, translate => $translate, orf => $orf } );
+		$buffer .= "</dl>";
+		$buffer .= "<h2>Sequence</h2>\n";
+		$buffer .= "<div class=\"seq\">$display->{'seq'}</div>\n";
 
 		if ($translate) {
-			$buffer .= "<tr class=\"td1\"><th>translation</th><td colspan=\"2\" style=\"text-align:left\">";
+			$buffer .= "<h2>Translation</h2>\n";
 			my @stops = @{ $display->{'internal_stop'} };
 			if (@stops) {
 				my $plural = @stops == 1 ? '' : 's';
@@ -93,14 +92,13 @@ sub print_content {
 			$buffer .= "<pre class=\"sixpack\">\n";
 			$buffer .= $display->{'sixpack'};
 			$buffer .= "</pre>\n";
-			$buffer .= "</td></tr>\n";
 		}
-		$td = 1 ? 2 : 1;
 	}
 	if ($buffer) {
-		say "<div class=\"box\" id=\"resultstable\">\n<div class=\"scrollable\">\n<table class=\"resultstable\">";
+		say "<div class=\"box\" id=\"resultspanel\">\n<div class=\"scrollable\">";
+		say "<h2>Contig position</h2>";
 		say $buffer;
-		say "</table>\n</div>\n</div>";
+		say "</div></div>";
 	} else {
 		say "<div class=\"box\" id=\"statusbad\"><p>This isolate does not have a sequence defined for locus $display_locus.</p></div>";
 	}

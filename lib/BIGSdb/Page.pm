@@ -192,7 +192,7 @@ sub print_page_content {
 				push @javascript,
 				  ( { 'language' => 'Javascript', 'src' => "http://ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/jquery-ui.min.js" } );
 			}
-			push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/bigsdb.js?v20130405" } );
+			push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/bigsdb.js?v20130503" } );
 			if ( $self->{'jQuery.tablesort'} ) {
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.tablesorter.js?v20110725" } );
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.metadata.js" } );
@@ -268,7 +268,7 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system    = $self->{'system'};
-	my $version   = '20130501';
+	my $version   = '20130503';
 	my @filenames = qw(bigsdb.css jquery-ui.css);
 	my @paths;
 	foreach my $filename (@filenames) {
