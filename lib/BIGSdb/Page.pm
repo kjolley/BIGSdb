@@ -233,17 +233,21 @@ sub print_page_content {
 				close $fh;
 			}
 		}
-		my $http_equiv;
+		my $http_equiv = "<meta name=\"viewport\" content=\"width=device-width\" />";
 		if ( $self->{'refresh'} ) {
 			my $refresh_page = $self->{'refresh_page'} ? ";URL='$self->{'refresh_page'}'" : '';
-			$http_equiv = "<meta http-equiv=\"refresh\" content=\"$self->{'refresh'}$refresh_page\" />";
+			$http_equiv .= "<meta http-equiv=\"refresh\" content=\"$self->{'refresh'}$refresh_page\" />";
 		}
 		my $tooltip_display = $self->{'prefs'}->{'tooltips'} ? 'inline' : 'none';
 		my $stylesheets     = $self->get_stylesheets;
 		my @args            = (
-			-title  => $title,
-			-meta   => {%meta_content},
-			-style  => [ { -src => $stylesheets->[0], -code => ".tooltip{display:$tooltip_display}" }, { src => $stylesheets->[1] } ],
+			-title => $title,
+			-meta  => {%meta_content},
+			-style => [
+				{ -src => $stylesheets->[0], -media => 'Screen' },
+				{ -src => $stylesheets->[1], -media => 'Screen' },
+				{ -code  => ".tooltip{display:$tooltip_display}" }
+			],
 			-script => \@javascript
 		);
 		if (%shortcut_icon) {
