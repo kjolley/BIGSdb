@@ -1309,16 +1309,17 @@ sub _print_publication_table {
 		$td = $td == 1 ? 2 : 1;
 	}
 	if ($buffer) {
-		print "<div class=\"box\" id=\"resultstable\">\n";
-		print "<table class=\"resultstable\">\n<thead>\n";
-		print "<tr><th>PubMed id</th><th>Year</th><th>Citation</th><th>Title</th>";
-		print "<th>Isolates in query</th>"
+		say "<div class=\"box\" id=\"resultstable\">";
+		say "<div class=\"scrollable\">";
+		say "<table class=\"resultstable\">\n<thead>";
+		say "<tr><th>PubMed id</th><th>Year</th><th>Citation</th><th>Title</th>";
+		say "<th>Isolates in query</th>"
 		  if defined $q->param('calling_page') && $q->param('calling_page') ne 'browse' && !$q->param('all_records');
-		print "<th>Isolates in database</th></tr>\n</thead>\n<tbody>\n";
-		print "$buffer";
-		print "</tbody></table>\n</div>\n";
+		say "<th>Isolates in database</th></tr>\n</thead>\n<tbody>";
+		say $buffer;
+		say "</tbody></table>\n</div></div>";
 	} else {
-		print "<div class=\"box\" id=\"resultsheader\"><p>No PubMed records have been linked to isolates.</p></div>\n";
+		say "<div class=\"box\" id=\"resultsheader\"><p>No PubMed records have been linked to isolates.</p></div>";
 	}
 	return;
 }
