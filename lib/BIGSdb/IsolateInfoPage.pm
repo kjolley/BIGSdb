@@ -850,7 +850,9 @@ sub _get_pending_designation_tooltip {
 
 sub get_title {
 	my ($self) = @_;
-	my $isolate_id = $self->{'cgi'}->param('id');
+	my $q = $self->{'cgi'};
+	my $isolate_id = $q->param('id');
+	return '' if defined $q->param('scheme_id') || defined $q->param('group_id');
 	return "Invalid isolate id" if !BIGSdb::Utils::is_int($isolate_id);
 	my @name  = $self->get_name($isolate_id);
 	my $title = "Isolate information: id-$isolate_id";

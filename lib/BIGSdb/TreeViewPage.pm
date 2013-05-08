@@ -58,7 +58,7 @@ JS
 	}
 	my $buffer = << "END";
 \$(function () {
-	\$('a[rel=ajax]').click(function(){
+	\$("a[rel~='ajax']").click(function(){
   		\$(this).attr('href', function(){
   			if (this.href.match(/javascript.loadContent/)){
   				return;
@@ -123,7 +123,8 @@ sub get_tree {
 			$buffer .=
 			  $options->{'no_link_out'}
 			  ? "<li><a>$group_info->{'name'}</a>\n"
-			  : "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;group_id=$_\" rel=\"ajax\">$group_info->{'name'}</a>\n";
+			  : "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;group_id=$_\" "
+			  . "rel=\"ajax nofollow\">$group_info->{'name'}</a>\n";
 			$buffer .= $group_scheme_buffer if $group_scheme_buffer;
 			$buffer .= $child_group_buffer  if $child_group_buffer;
 			$buffer .= "</li>\n";
@@ -136,7 +137,8 @@ sub get_tree {
 			$temp_buffer .=
 			  $options->{'no_link_out'}
 			  ? "<li><a>Other schemes</a><ul>"
-			  : "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;group_id=0\" rel=\"ajax\">Other schemes</a><ul>";
+			  : "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;group_id=0\" "
+			  . "rel=\"ajax nofollow\">Other schemes</a><ul>";
 		}
 		foreach (@$schemes_not_in_group) {
 			next if $options->{'isolate_display'} && !$self->{'prefs'}->{'isolate_display_schemes'}->{ $_->{'id'} };
@@ -154,8 +156,8 @@ sub get_tree {
 					my $id = $options->{'select_schemes'} ? " id=\"s_$_->{'id'}\"" : '';
 					$temp_buffer .= "<li$id><a>$_->{'description'}</a>\n";
 				} else {
-					$temp_buffer .=
-"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;scheme_id=$_->{'id'}\" rel=\"ajax\">$_->{'description'}</a>\n";
+					$temp_buffer .= "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
+					  . "page=$page$isolate_clause&amp;scheme_id=$_->{'id'}\" rel=\"ajax nofollow\">$_->{'description'}</a>\n";
 				}
 				$temp_buffer .= $scheme_loci_buffer if $scheme_loci_buffer;
 				$temp_buffer .= "</li>\n";
@@ -175,8 +177,8 @@ sub get_tree {
 				my $id = $options->{'select_schemes'} ? " id=\"s_0\"" : '';
 				$buffer .= "<li$id><a>Loci not in schemes</a>\n";
 			} else {
-				$buffer .=
-"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;scheme_id=0\" rel=\"ajax\">Loci not in schemes</a>\n";
+				$buffer .= "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;"
+				  . "scheme_id=0\" rel=\"ajax nofollow\">Loci not in schemes</a>\n";
 			}
 			$buffer .= $scheme_loci_buffer if $scheme_loci_buffer;
 			$buffer .= "</li>\n";
@@ -188,7 +190,8 @@ sub get_tree {
 		$main_buffer .=
 		  $options->{'no_link_out'}
 		  ? "<li id=\"all_loci\"><a>All loci</a><ul>\n"
-		  : "<li id=\"all_loci\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;scheme_id=-1\" rel=\"ajax\">All loci</a><ul>\n";
+		  : "<li id=\"all_loci\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;"
+		    . "scheme_id=-1\" rel=\"ajax nofollow\">All loci</a><ul>\n";
 		$main_buffer .= $buffer;
 		$main_buffer .= "</ul>\n</li></ul>\n";
 	} else {
@@ -229,7 +232,7 @@ sub _get_group_schemes {
 					  $options->{'no_link_out'}
 					  ? "<li><a>$scheme_info->{'description'}</a>"
 					  : "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;id=$isolate_id&amp;"
-					  . "scheme_id=$scheme_info->{'id'}\" rel=\"ajax\">$scheme_info->{'description'}</a>";
+					  . "scheme_id=$scheme_info->{'id'}\" rel=\"ajax nofollow\">$scheme_info->{'description'}</a>";
 					$buffer .= $scheme_loci_buffer if $scheme_loci_buffer;
 					$buffer .= "</li>\n";
 				}
@@ -239,7 +242,7 @@ sub _get_group_schemes {
 					$buffer .= "<li$id><a>$scheme_info->{'description'}</a>";
 				} else {
 					$buffer .= "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;"
-					  . "scheme_id=$scheme_info->{'id'}\" rel=\"ajax\">$scheme_info->{'description'}</a>";
+					  . "scheme_id=$scheme_info->{'id'}\" rel=\"ajax nofollow\">$scheme_info->{'description'}</a>";
 				}
 				$buffer .= $scheme_loci_buffer if $scheme_loci_buffer;
 				$buffer .= "</li>\n";
@@ -307,12 +310,14 @@ sub _get_child_groups {
 					$buffer .=
 					  $options->{'no_link_out'}
 					  ? "<li><a>$group_info->{'name'}</a>\n"
-					  : "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;id=$isolate_id&amp;group_id=$_\" rel=\"ajax\">$group_info->{'name'}</a>\n";
+					  : "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;id=$isolate_id&amp;"
+					    . "group_id=$_\" rel=\"ajax nofollow\">$group_info->{'name'}</a>\n";
 				} else {
 					$buffer .=
 					  $options->{'no_link_out'}
 					  ? "<li><a>$group_info->{'name'}</a>\n"
-					  : "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;group_id=$_\" rel=\"ajax\">$group_info->{'name'}</a>\n";
+					  : "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;group_id=$_\" "
+					    . "rel=\"ajax nofollow\">$group_info->{'name'}</a>\n";
 				}
 				$buffer .= $group_scheme_buffer if $group_scheme_buffer;
 				$buffer .= $child_group_buffer  if $child_group_buffer;
