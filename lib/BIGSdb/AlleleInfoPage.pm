@@ -119,10 +119,11 @@ HTML
 			  ->run_simple_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key", $scheme->{'id'} );
 			next if ref $pk_ref ne 'ARRAY';
 			my $pk = $pk_ref->[0];
-			$profile_buffer .= "<dt>$scheme_info->{'description'}</dt>";
 			my $profiles =
 			  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM profile_members WHERE scheme_id=? AND locus=? AND allele_id=?",
 				$scheme->{'id'}, $locus, $allele_id )->[0];
+			next if !$profiles;
+			$profile_buffer .= "<dt>$scheme_info->{'description'}</dt>";	
 			my $plural  = $profiles == 1 ? ''         : 's';
 			my $contain = $profiles == 1 ? 'contains' : 'contain';
 			$profile_buffer .= "<dd>";
@@ -156,15 +157,15 @@ sub _print_client_database_data {
 	my $qry = "SELECT client_dbases.*,locus_alias FROM client_dbases LEFT JOIN client_dbase_loci ON "
 	  . "client_dbases.id=client_dbase_id WHERE locus=?";
 	my $client_list = $self->{'datastore'}->run_list_query_hashref( $qry, $locus );
-	if (@$client_list) {
-		say "<h2>Isolate databases</h2>\n<dl class=\"data\">";
+	if (@$client_list) {		
+		my $buffer;
 		foreach my $client (@$client_list) {
 			my $isolate_count =
 			  $self->{'datastore'}->get_client_db( $client->{'id'} )
 			  ->count_isolates_with_allele( $client->{'locus_alias'} || $locus, $allele_id );
 			next if !$isolate_count;
-			say "<dt>$client->{'name'}</dt>";
-			say "<dd>$client->{'description'} ";
+			$buffer .= "<dt>$client->{'name'}</dt>";
+			$buffer .= "<dd>$client->{'description'} ";
 			my $plural = $isolate_count == 1 ? '' : 's';
 			if ( $client->{'url'} ) {
 
@@ -185,13 +186,17 @@ sub _print_client_database_data {
 					push @action_params, "$_=$params{$_}";
 				}
 				local $" = '&';
-				say $q->start_form( -action => "$client->{'url'}?@action_params", -method => 'post', -style => 'display:inline' );
+				$buffer .= $q->start_form( -action => "$client->{'url'}?@action_params", -method => 'post', -style => 'display:inline' );
 				local $" = ' ';
-				say $q->hidden($_) foreach qw (db page ls1 ly1 lt1 order submit);
-				say $q->submit( -label => "$isolate_count isolate$plural", -class => 'smallbutton' );
-				say $q->end_form;
+				$buffer .= $q->hidden($_) foreach qw (db page ls1 ly1 lt1 order submit);
+				$buffer .= $q->submit( -label => "$isolate_count isolate$plural", -class => 'smallbutton' );
+				$buffer .= $q->end_form;
 			}
-			say "</dd></dl>";
+			$buffer .= "</dd></dl>";
+		}
+		if ($buffer){
+			say "<h2>Isolate databases</h2>\n<dl class=\"data\">"; 
+			say $buffer;
 		}
 	}
 	return;
