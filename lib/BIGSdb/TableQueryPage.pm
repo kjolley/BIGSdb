@@ -461,7 +461,7 @@ sub _run_query {
 		$self->_modify_schemes_for_sets( $table, \$qry );
 		if (   ( $q->param('scheme_id_list') // '' ) ne ''
 			&& BIGSdb::Utils::is_int( $q->param('scheme_id_list') )
-			&& any { $table eq $_ } qw (loci scheme_fields schemes scheme_members client_dbase_schemes allele_designations) )
+			&& any { $table eq $_ } qw (loci scheme_fields schemes scheme_members client_dbase_schemes allele_designations allele_sequences) )
 		{
 			my $scheme_id = $q->param('scheme_id_list');
 			my $set_id    = $self->get_set_id;
@@ -469,6 +469,7 @@ sub _run_query {
 			given ($table) {
 				when ('loci')                { ( $identifier, $field ) = ( 'id',        'locus' ) }
 				when ('allele_designations') { ( $identifier, $field ) = ( 'locus',     'locus' ) }
+				when ('allele_sequences')    { ( $identifier, $field ) = ( 'locus',     'locus' ) }
 				when ('schemes')             { ( $identifier, $field ) = ( 'id',        'scheme_id' ) }
 				default                      { ( $identifier, $field ) = ( 'scheme_id', 'scheme_id' ) }
 			}
