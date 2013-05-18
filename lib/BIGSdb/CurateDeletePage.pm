@@ -445,8 +445,7 @@ sub _get_extra_sequences_fields {
 		my $flags = $self->{'datastore'}->get_allele_flags( $q->param('locus'), $q->param('allele_id') );
 		local $" = '</a> <a class="seqflag_tooltip">';
 		if (@$flags) {
-			$buffer .= "<tr ><th style=\"text-align:right\">flags&nbsp;</th><td style=\"text-align:left\">"
-			  . "<a class=\"seqflag_tooltip\">@$flags</a></td></tr>\n";
+			$buffer .= "<dt>flags&nbsp;</dt><dd><a class=\"seqflag_tooltip\">@$flags</a></dd>\n";
 		}
 	}
 	foreach my $databank (DATABANKS) {
@@ -456,7 +455,7 @@ sub _get_extra_sequences_fields {
 			$q->param('locus'), $q->param('allele_id'), $databank );
 		foreach my $accession (@$accessions) {
 			$accession = "<a href=\"http://www.ncbi.nlm.nih.gov/nuccore/$accession\">$accession</a>" if $databank eq 'Genbank';
-			$buffer .= "<tr><th style=\"text-align:right\">$databank&nbsp;</th>" . "<td style=\"text-align:left\">$accession</td></tr>\n";
+			$buffer .= "<dt>$databank&nbsp;</dt><dd>$accession</dd>\n";
 		}
 	}
 	my $pubmed_list =
@@ -465,7 +464,7 @@ sub _get_extra_sequences_fields {
 	my $citations = $self->{'datastore'}->get_citation_hash( $pubmed_list, { formatted => 1, all_authors => 1, link_pubmed => 1 } );
 	foreach my $pmid (@$pubmed_list) {
 		$buffer .=
-		  "<tr><th style=\"text-align:right\">reference&nbsp;</th><td style=\"text-align:left\">" . "$citations->{$pmid}</td></tr>";
+		  "<dt>reference&nbsp;</dt><dd>" . "$citations->{$pmid}</dd>\n";
 	}
 	my $extended_attributes = $self->{'datastore'}->get_allele_extended_attributes( $q->param('locus'), $q->param('allele_id') );
 	foreach my $ext (@$extended_attributes) {
@@ -473,11 +472,9 @@ sub _get_extra_sequences_fields {
 		$cleaned_field =~ tr/_/ /;
 		if ( $cleaned_field =~ /sequence$/ ) {
 			my $seq = BIGSdb::Utils::split_line( $ext->{'value'} );
-			$buffer .= "<tr ><th style=\"text-align:right\">$cleaned_field&nbsp;</th>"
-			  . "<td style=\"text-align:left\" colspan=\"3\" class=\"seq\">$seq</td></tr>\n";
+			$buffer .= "<dt>$cleaned_field&nbsp;</dt><dd class=\"seq\">$seq</dd>\n";
 		} else {
-			$buffer .= "<tr><th style=\"text-align:right\">$cleaned_field&nbsp;</th>"
-			  . "<td style=\"text-align:left\" colspan=\"3\">$ext->{'value'}</td></tr>\n";
+			$buffer .= "<dt>$cleaned_field&nbsp;</dt><dd>$ext->{'value'}</dd>\n";
 		}
 	}
 	return $buffer;
@@ -490,23 +487,23 @@ sub _get_profile_fields {
 	my $buffer;
 	foreach my $locus (@$loci) {
 		my $mapped = $self->{'datastore'}->get_set_locus_label( $locus, $set_id ) // $locus;
-		$buffer .= "<tr ><th style=\"text-align:right\">$mapped&nbsp;</th>";
+		$buffer .= "<dt>$mapped&nbsp;</dt>";
 		my $allele_id =
 		  $self->{'datastore'}->run_simple_query( "SELECT allele_id FROM profile_members WHERE scheme_id=? AND locus=? AND profile_id=?",
 			$scheme_id, $locus, $data->{ $_->{'name'} } )->[0];
-		$buffer .= "<td style=\"text-align:left\">$allele_id</td></tr>\n";
+		$buffer .= "<dd>$allele_id</dd>\n";
 	}
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	foreach my $field (@$scheme_fields) {
 		next if $field eq $primary_key;
-		$buffer .= "<tr><th style=\"text-align:right\">$field&nbsp;</th>";
+		$buffer .= "<dt>$field&nbsp;</dt>";
 		my $value_ref =
 		  $self->{'datastore'}->run_simple_query( "SELECT value FROM profile_fields WHERE scheme_id=? AND scheme_field=? AND profile_id=?",
 			$scheme_id, $field, $data->{ $_->{'name'} } );
 		if ( ref $value_ref eq 'ARRAY' ) {
-			$buffer .= "<td style=\"text-align:left\">$value_ref->[0]</td></tr>\n";
+			$buffer .= "<dd>$value_ref->[0]</dd>\n";
 		} else {
-			$buffer .= "<td /></tr>\n";
+			$buffer .= "<dd>&nbsp;</dd>\n";
 		}
 	}
 	return $buffer;
