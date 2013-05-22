@@ -227,6 +227,7 @@ sub print_content {
 		say "<p><a href=\"$self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'}&amp;id=$isolate_id\">"
 		  . "Back to isolate information</a></p>";
 		say $self->_get_update_history($isolate_id);
+		say "</div>";
 	} else {
 		$self->_print_projects($isolate_id);
 		say "<div class=\"box\" id=\"resultspanel\">";
