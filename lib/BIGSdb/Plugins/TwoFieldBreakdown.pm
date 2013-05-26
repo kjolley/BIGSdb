@@ -214,10 +214,10 @@ sub _breakdown {
 		}
 	}
 	if ($attribute1) {
-		$print_field1 = "$field1..$attribute1";
+		$print_field1 = $attribute1;
 	}
 	if ($attribute2) {
-		$print_field2 = "$field2..$attribute2";
+		$print_field2 = $attribute2;
 	}
 	my ( %datahash, %field1total, %field2total );
 	eval {

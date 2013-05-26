@@ -85,6 +85,7 @@ sub get_plugin_javascript {
 		var display = field;
 		display = display.replace(/^meta_[^:]+:/, "");
 		display = display.replace(/_/g," ");
+		display = display.replace(/^.*\\.\\./, "");
 		
 		\$("#field").empty();
 		\$("#field").append(display);
@@ -181,6 +182,7 @@ sub run {
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			my $display = $metafield // $field;
 			$display =~ tr/_/ /;
+			$display =~ s/^.*\.\.//; #Only show extended attribute name and not parent field
 			my $display_field = $field;
 			my $num_values    = keys %{ $value_frequency->{$field} };
 			my $plural        = $num_values != 1 ? 's' : '';
@@ -191,8 +193,8 @@ sub run {
 
 			if ($first) {
 				$src          = "/tmp/$temp\_$field.png";
-				$display_name = "$display";
-				$name         = "$field";
+				$display_name = $display;
+				$name         = $field;
 				undef $first;
 			}
 			if ( $ENV{'MOD_PERL'} ) {
@@ -210,7 +212,7 @@ sub run {
 				$self->_create_chartdirector_chart( $_, 2, $value_frequency->{$_}, $temp, $query_file );
 				if ($first) {
 					$src          = "/tmp/$temp\_$_.png";
-					$display_name = "$display";
+					$display_name = $display;
 					$name         = $_;
 					undef $first;
 				}
@@ -330,6 +332,7 @@ sub _summary_table {
 	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 	my $display_field = $metafield // $field;
 	$display_field =~ tr/_/ /;
+	$display_field =~ s/^.*\.\.//;
 	if ( $format eq 'html' ) {
 		say "<h1>Breakdown by $display_field</h1>";
 	} else {
