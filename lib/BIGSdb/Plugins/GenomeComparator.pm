@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.5.2',
+		version     => '1.5.3',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/genome_comparator.shtml',
@@ -152,16 +152,27 @@ sub run_job {
 	if ( $accession || $ref_upload ) {
 		my $seq_obj;
 		if ($accession) {
-			my $seq_db = Bio::DB::GenBank->new;
-			$seq_db->verbose(2);    #convert warn to exception
-			try {
-				$seq_obj = $seq_db->get_Seq_by_acc($accession);
+			my @local_annotations = glob("$params->{'dbase_config_dir'}/$params->{'instance'}/annotations/$accession*");
+			if (@local_annotations){
+				try {
+					my $seqio_obj = Bio::SeqIO->new(-file => $local_annotations[0] );
+					$seq_obj = $seqio_obj->next_seq;
+				}
+				catch Bio::Root::Exception with {
+					throw BIGSdb::PluginException("Invalid data in local annotation $local_annotations[0].");
+				};				
+			} else {
+				my $seq_db = Bio::DB::GenBank->new;
+				$seq_db->verbose(2);    #convert warn to exception
+				try {
+					$seq_obj = $seq_db->get_Seq_by_acc($accession);
+				}
+				catch Bio::Root::Exception with {
+					my $err = shift;
+					$logger->debug($err);
+					throw BIGSdb::PluginException("No data returned for accession number $accession.\n");
+				};
 			}
-			catch Bio::Root::Exception with {
-				my $err = shift;
-				$logger->debug($err);
-				throw BIGSdb::PluginException("No data returned for accession number $accession.\n");
-			};
 		} else {
 			if ( $ref_upload =~ /fas$/ || $ref_upload =~ /fasta$/ ) {
 				try {
@@ -249,6 +260,8 @@ sub run {
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		if ($continue) {
 			my $params = $q->Vars;
+			$params->{'dbase_config_dir'} = $self->{'system'}->{'dbase_config_dir'};
+			$params->{'instance'} = $self->{'instance'};
 			my $job_id = $self->{'jobManager'}->add_job(
 				{
 					dbase_config => $self->{'instance'},

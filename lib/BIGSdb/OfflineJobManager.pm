@@ -38,13 +38,13 @@ sub new {
 	$self->{'xmlHandler'}    = undef;
 	$self->{'dataConnector'} = BIGSdb::Dataconnector->new;
 	bless( $self, $class );
-	$self->_initiate( $options->{'config_dir'}, $options->{'$dbase_config_dir'} );
+	$self->_initiate( $options->{'config_dir'} );
 	$self->_db_connect;
 	return $self;
 }
 
 sub _initiate {
-	my ( $self, $config_dir, $dbase_config_dir ) = @_;
+	my ( $self, $config_dir ) = @_;
 	$self->read_config_file($config_dir);
 	return;
 }
@@ -143,19 +143,19 @@ sub update_job_output {
 		$logger->error("status hash not passed as a ref");
 		throw BIGSdb::DataException("status hash not passed as a ref");
 	}
-	if ($output_hash->{'compress'}){
+	if ( $output_hash->{'compress'} ) {
 		my $full_path = "$self->{'config'}->{'tmp_dir'}/$output_hash->{'filename'}";
-		if (-s $full_path > (10 * 1024 * 1024)){ #>10 MB
-			if ($output_hash->{'keep_original'}){
-				system ("gzip -c $full_path > $full_path\.gz");
+		if ( -s $full_path > ( 10 * 1024 * 1024 ) ) {    #>10 MB
+			if ( $output_hash->{'keep_original'} ) {
+				system("gzip -c $full_path > $full_path\.gz");
 			} else {
-				system ('gzip', $full_path);
+				system( 'gzip', $full_path );
 			}
-			if ($? == -1){
+			if ( $? == -1 ) {
 				$logger->error("Can't gzip file $full_path: $!");
 			} else {
-				$output_hash->{'filename'} .= '.gz';
-				$output_hash->{'description'} .= ' [gzipped file]'
+				$output_hash->{'filename'}    .= '.gz';
+				$output_hash->{'description'} .= ' [gzipped file]';
 			}
 		}
 	}
