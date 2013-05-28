@@ -159,8 +159,8 @@ sub print_content {
 
 		if (@$clients) {
 			my $plural = @$clients > 1 ? 's' : '';
-			say "<h2>Client database$plural</h2>";
-			say "<dl class=\"data\">";
+
+			my $buffer;
 			foreach my $client (@$clients) {
 				my ( $client_dbase_id, $client_scheme_id ) = @$client;
 				my $client_info = $self->{'datastore'}->get_client_db_info($client_dbase_id);
@@ -171,7 +171,7 @@ sub print_content {
 					eval { $sql2->execute( $client_dbase_id, $_ ) };
 					$logger->error($@) if $@;
 					while ( my ( $c_locus, $c_alias ) = $sql2->fetchrow_array ) {
-						$alleles{ $c_alias || $c_locus } = $data->{ lc($_) };
+						$alleles{ $c_alias || $c_locus } = $data->{ lc($_) } if $data->{ lc($_) } ne 'N';
 					}
 				}
 				my $count;
@@ -183,8 +183,8 @@ sub print_content {
 				}
 				if ($count) {
 					my $plural = $count == 1 ? '' : 's';
-					say "<dt>$client_info->{'name'}</dt>";
-					say "<dd>$client_info->{'description'} ";
+					$buffer .= "<dt>$client_info->{'name'}</dt>\n";
+					$buffer .= "<dd>$client_info->{'description'} ";
 					my $primary_key;
 					eval {
 						$primary_key =
@@ -212,17 +212,22 @@ sub print_content {
 							push @action_params, "$_=$params{$_}";
 						}
 						local $" = '&';
-						say $q->start_form(
+						$buffer .= $q->start_form(
 							-action => "$client_info->{'url'}?@action_params",
 							-method => 'post',
 							-style  => 'display:inline'
 						);
-						say $q->hidden($_) foreach qw (db page ls1 ly1 lt1 order submit);
-						say $q->submit( -label => "$count isolate$plural", -class => 'smallbutton' );
-						say $q->end_form;
+						$buffer .= $q->hidden($_) foreach qw (db page ls1 ly1 lt1 order submit);
+						$buffer .= $q->submit( -label => "$count isolate$plural", -class => 'smallbutton' );
+						$buffer .= $q->end_form;
 					}
-					say "</dd>";
+					$buffer .= "</dd>\n";
 				}
+			}
+			if ($buffer){
+				say "<h2>Client database$plural</h2>";
+				say "<dl class=\"data\">";
+				say $buffer;
 				say "</dl>";
 			}
 		}
