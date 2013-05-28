@@ -56,14 +56,14 @@ sub run_blast {
 
 			#Create file and BLAST db of all sequences in a cache directory so can be reused.
 			my $set_id = $self->get_set_id // 'all';
-			$set_id = 'all' if ($self->{'system'}->{'sets'} // '') ne 'yes';
+			$set_id = 'all' if ( $self->{'system'}->{'sets'} // '' ) ne 'yes';
 			$temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$set_id/$cleaned_run\_fastafile.txt";
 			my $stale_flag_file = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$set_id/stale";
 			if ( -e $temp_fastafile && !-e $stale_flag_file ) {
 				$already_generated = 1;
 			} else {
 				my $new_path = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$set_id";
-				if (-f $new_path){
+				if ( -f $new_path ) {
 					$logger->error("Can't create directory $new_path for cache files - a filename exists with this name.");
 				} else {
 					eval {
@@ -79,21 +79,21 @@ sub run_blast {
 		}
 		if ( !$already_generated ) {
 			my ( $qry, $sql );
-			if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {				
+			if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
 				$qry = "SELECT locus,allele_id,sequence from sequences WHERE locus=?";
 			} else {
 				if ( $options->{'locus'} =~ /SCHEME_(\d+)/ ) {
 					my $scheme_id = $1;
 					$qry = "SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT locus FROM scheme_members WHERE "
-					. "scheme_id=$scheme_id) AND locus IN (SELECT id FROM loci WHERE data_type=?)";
-				} else {				
+					  . "scheme_id=$scheme_id) AND locus IN (SELECT id FROM loci WHERE data_type=?)";
+				} else {
 					$qry = "SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT id FROM loci WHERE data_type=?)";
 					my $set_id = $self->get_set_id;
 					if ($set_id) {
-						$qry .= " AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
-					  . "set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))";
+						$qry .=
+						    " AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
+						  . "set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))";
 					}
-					
 				}
 			}
 			$sql = $self->{'db'}->prepare($qry);
@@ -164,13 +164,18 @@ sub run_blast {
 				$format     = 6;
 			}
 			if ( $self->{'config'}->{'blast+_path'} ) {
+				$options->{'num_results'} //= 1000000; #effectively return all results
 				system(
-"$self->{'config'}->{'blast+_path'}/$program -num_threads $blast_threads -num_descriptions $options->{'num_results'} -num_alignments $options->{'num_results'} -parse_deflines -word_size $word_size -db $temp_fastafile -query $temp_infile -out $temp_outfile -outfmt $format -$filter no"
+					"$self->{'config'}->{'blast+_path'}/$program", '-num_threads',            $blast_threads,
+					'-max_target_seqs',                            $options->{'num_results'}, '-parse_deflines',
+					'-word_size',                                  $word_size,                '-db',
+					$temp_fastafile,                               '-query',                  $temp_infile,
+					'-out',                                        $temp_outfile,             '-outfmt',
+					$format,                                       "-$filter",                'no'
 				);
 			} else {
-				system(
-"$self->{'config'}->{'blast_path'}/blastall -v $options->{'num_results'} -b $options->{'num_results'} -p $program -d $temp_fastafile -i $temp_infile -o $temp_outfile -F F -m$old_format > /dev/null"
-				);
+				system( "$self->{'config'}->{'blast_path'}/blastall -v $options->{'num_results'} -b $options->{'num_results'} -p $program "
+					  . "-d $temp_fastafile -i $temp_infile -o $temp_outfile -F F -m$old_format > /dev/null" );
 			}
 			if ( $run eq 'DNA' ) {
 				system "mv $temp_outfile $temp_outfile\.1";
@@ -188,5 +193,4 @@ sub run_blast {
 	system "rm -f $temp_infile @files_to_delete" if !$options->{'cache'};
 	return ( $outfile_url, $options->{'job'} );
 }
-
 1;

@@ -154,7 +154,7 @@ sub _run_query {
 		my $seq_type = BIGSdb::Utils::is_valid_DNA($seq) ? 'DNA' : 'peptide';
 		my $qry_type = BIGSdb::Utils::sequence_type($seq);
 		( my $blast_file, $job ) = $self->run_blast(
-			{ 'locus' => $locus, 'seq_ref' => \$seq, 'qry_type' => $qry_type, 'num_results' => 50000, 'cache' => 1, 'job' => $job } );
+			{ locus => $locus, seq_ref => \$seq, qry_type => $qry_type, cache => 1, job => $job } );
 		my $exact_matches = $self->parse_blast_exact( $locus, $blast_file );
 		my $data_ref = {
 			locus                   => $locus,
@@ -205,7 +205,7 @@ sub _run_query {
 				}
 			}
 		}
-		system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$blast_file";
+		unlink "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 		last if ( $page eq 'sequenceQuery' );    #only go round again if this is a batch query
 		$td = $td == 1 ? 2 : 1;
 		if ( $page eq 'batchSequenceQuery' ) {
@@ -217,7 +217,8 @@ sub _run_query {
 			print $batch_buffer if $batch_buffer;
 		}
 	}
-	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$job*";
+	my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/$job*");
+	foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/ }
 	if ( $page eq 'batchSequenceQuery' && $batch_buffer ) {
 		say "</table>";
 		say "<p><a href=\"/tmp/$text_filename\">Text format</a></p></div>";
@@ -347,22 +348,26 @@ sub _output_scheme_fields {
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 		my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		if ( @$scheme_fields && @$scheme_loci ) {
-			my ( @profile, @placeholders );
-			my @cleaned_loci;
+			my @profile;
+			my @temp_qry;
+			my $set_id = $self->get_set_id;
+			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 			foreach (@$scheme_loci) {
-				(my $cleaned_locus = $_) =~ s/'/_PRIME_/g;
-				push @cleaned_loci, $cleaned_locus;
-				push @profile,      $designations->{$_};
-				push @placeholders, '?';
+				( my $cleaned_locus = $_ ) =~ s/'/_PRIME_/g;
+				push @profile, $designations->{$_};
+				if ( defined $designations->{$_} ) {
+					$designations->{$_} =~ s/'/\\'/g;
+					my $temp_qry = "$cleaned_locus=E'$designations->{$_}'";
+					$temp_qry .= " OR $cleaned_locus='N'" if $scheme_info->{'allow_missing_loci'};
+					push @temp_qry, $temp_qry;
+				}
 			}
-			if ( none { !defined $_ } @profile ) {
+			if ( none { !defined $_ } @profile || $scheme_info->{'allow_missing_loci'} ) {
+				local $" = ') AND (';
+				my $temp_qry_string = "@temp_qry";
 				local $" = ',';
 				my $values =
-				  $self->{'datastore'}
-				  ->run_simple_query_hashref( "SELECT @$scheme_fields FROM scheme_$scheme_id WHERE (@cleaned_loci) = (@placeholders)",
-					@profile );
-				my $set_id = $self->get_set_id;
-				my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
+				  $self->{'datastore'}->run_simple_query_hashref("SELECT @$scheme_fields FROM scheme_$scheme_id WHERE ($temp_qry_string)");
 				say "<h2>$scheme_info->{'description'}</h2>\n<table>";
 				my $pks =
 				  $self->{'datastore'}->run_list_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id );
