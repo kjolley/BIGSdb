@@ -84,11 +84,16 @@ sub print_content {
 <dt>status</dt><dd>$seq_ref->{'status'}</dd>
 <dt>date entered</dt><dd>$seq_ref->{'date_entered'}</dd>
 <dt>datestamp</dt><dd>$seq_ref->{'datestamp'}</dd>
-<dt>sender</dt><dd>$sender_info->{'first_name'} $sender_info->{'surname'}, $sender_info->{'affiliation'}$sender_email</dd>
-<dt>curator</dt><dd>$curator_info->{'first_name'} $curator_info->{'surname'}, $curator_info->{'affiliation'} 
-(E-mail: <a href="mailto:$curator_info->{'email'}">$curator_info->{'email'}</a>)</dd>
-
 HTML
+			if ( $sender_info->{'first_name'} || $sender_info->{'surname'} ) {
+				say
+"<dt>sender</dt><dd>$sender_info->{'first_name'} $sender_info->{'surname'}, $sender_info->{'affiliation'}$sender_email</dd>";
+			}
+			if ( $curator_info->{'first_name'} || $curator_info->{'surname'} ) {
+				say "<dt>curator</dt><dd>$curator_info->{'first_name'} $curator_info->{'surname'}, $curator_info->{'affiliation'} ";
+				say "(E-mail: <a href=\"mailto:$curator_info->{'email'}\">$curator_info->{'email'}</a>)" if $curator_info->{'email'};
+				say "</dd>";
+			}
 		}
 	}
 	say "<dt>comments</dt><dd>$seq_ref->{'comments'}</dd>" if $seq_ref->{'comments'};
@@ -123,7 +128,7 @@ HTML
 			  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM profile_members WHERE scheme_id=? AND locus=? AND allele_id=?",
 				$scheme->{'id'}, $locus, $allele_id )->[0];
 			next if !$profiles;
-			$profile_buffer .= "<dt>$scheme_info->{'description'}</dt>";	
+			$profile_buffer .= "<dt>$scheme_info->{'description'}</dt>";
 			my $plural  = $profiles == 1 ? ''         : 's';
 			my $contain = $profiles == 1 ? 'contains' : 'contain';
 			$profile_buffer .= "<dd>";
@@ -157,7 +162,7 @@ sub _print_client_database_data {
 	my $qry = "SELECT client_dbases.*,locus_alias FROM client_dbases LEFT JOIN client_dbase_loci ON "
 	  . "client_dbases.id=client_dbase_id WHERE locus=?";
 	my $client_list = $self->{'datastore'}->run_list_query_hashref( $qry, $locus );
-	if (@$client_list) {		
+	if (@$client_list) {
 		my $buffer;
 		foreach my $client (@$client_list) {
 			my $isolate_count =
@@ -194,8 +199,8 @@ sub _print_client_database_data {
 			}
 			$buffer .= "</dd></dl>";
 		}
-		if ($buffer){
-			say "<h2>Isolate databases</h2>\n<dl class=\"data\">"; 
+		if ($buffer) {
+			say "<h2>Isolate databases</h2>\n<dl class=\"data\">";
 			say $buffer;
 		}
 	}
