@@ -163,8 +163,8 @@ sub run_blast {
 				$old_format = 9;
 				$format     = 6;
 			}
+			$options->{'num_results'} //= 1000000; #effectively return all results
 			if ( $self->{'config'}->{'blast+_path'} ) {
-				$options->{'num_results'} //= 1000000; #effectively return all results
 				system(
 					"$self->{'config'}->{'blast+_path'}/$program", '-num_threads',            $blast_threads,
 					'-max_target_seqs',                            $options->{'num_results'}, '-parse_deflines',

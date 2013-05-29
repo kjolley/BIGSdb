@@ -153,8 +153,8 @@ sub _run_query {
 		$seq = uc($seq);
 		my $seq_type = BIGSdb::Utils::is_valid_DNA($seq) ? 'DNA' : 'peptide';
 		my $qry_type = BIGSdb::Utils::sequence_type($seq);
-		( my $blast_file, $job ) = $self->run_blast(
-			{ locus => $locus, seq_ref => \$seq, qry_type => $qry_type, cache => 1, job => $job } );
+		( my $blast_file, $job ) =
+		  $self->run_blast( { locus => $locus, seq_ref => \$seq, qry_type => $qry_type, cache => 1, job => $job } );
 		my $exact_matches = $self->parse_blast_exact( $locus, $blast_file );
 		my $data_ref = {
 			locus                   => $locus,
@@ -343,52 +343,68 @@ sub _output_single_query_exact {
 
 sub _output_scheme_fields {
 	my ( $self, $locus, $designations ) = @_;
-	if ( $locus =~ /SCHEME_(\d+)/ ) {    #Check for scheme fields
+	if ( !$locus ) {    #all loci
+		my $set_id = $self->get_set_id;
+		my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
+		foreach my $scheme (@$schemes) {
+			my $scheme_loci = $self->{'datastore'}->get_scheme_loci( $scheme->{'id'} );
+			if ( any { defined $designations->{$_} } @$scheme_loci ) {
+				$self->_print_scheme_table( $scheme->{'id'}, $designations );
+			}
+		}
+	} elsif ( $locus =~ /SCHEME_(\d+)/ ) {    #Check for scheme fields
 		my $scheme_id     = $1;
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 		my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		if ( @$scheme_fields && @$scheme_loci ) {
-			my @profile;
-			my @temp_qry;
-			my $set_id = $self->get_set_id;
-			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-			foreach (@$scheme_loci) {
-				( my $cleaned_locus = $_ ) =~ s/'/_PRIME_/g;
-				push @profile, $designations->{$_};
-				if ( defined $designations->{$_} ) {
-					$designations->{$_} =~ s/'/\\'/g;
-					my $temp_qry = "$cleaned_locus=E'$designations->{$_}'";
-					$temp_qry .= " OR $cleaned_locus='N'" if $scheme_info->{'allow_missing_loci'};
-					push @temp_qry, $temp_qry;
-				}
-			}
-			if ( none { !defined $_ } @profile || $scheme_info->{'allow_missing_loci'} ) {
-				local $" = ') AND (';
-				my $temp_qry_string = "@temp_qry";
-				local $" = ',';
-				my $values =
-				  $self->{'datastore'}->run_simple_query_hashref("SELECT @$scheme_fields FROM scheme_$scheme_id WHERE ($temp_qry_string)");
-				say "<h2>$scheme_info->{'description'}</h2>\n<table>";
-				my $pks =
-				  $self->{'datastore'}->run_list_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id );
-				my $td = 1;
-				foreach my $field (@$scheme_fields) {
-					my $value = $values->{ lc($field) } // 'Not defined';
-					my $primary_key = ( any { $field eq $_ } @$pks ) ? 1 : 0;
-					$field =~ tr/_/ /;
-					say "<tr class=\"td$td\"><th>$field</th><td>";
-					say $primary_key && $value ne 'Not defined'
-					  ? "<a href=\"$self->{'system'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;"
-					  . "scheme_id=$scheme_id&amp;profile_id=$value\">$value</a>"
-					  : $value;
-					say "</td></tr>";
-					$td = $td == 1 ? 2 : 1;
-				}
-				say "</table>";
-			}
+			$self->_print_scheme_table( $scheme_id, $designations );
 		}
 	}
 	return;
+}
+
+sub _print_scheme_table {
+	my ( $self, $scheme_id, $designations ) = @_;
+	my ( @profile, @temp_qry );
+	my $set_id = $self->get_set_id;
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
+	return if !defined $scheme_info->{'primary_key'};
+	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+	my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	foreach (@$scheme_loci) {
+		( my $cleaned_locus = $_ ) =~ s/'/_PRIME_/g;
+		push @profile, $designations->{$_};
+		$designations->{$_} //= 0;
+		$designations->{$_} =~ s/'/\\'/g;
+		my $temp_qry = "$cleaned_locus=E'$designations->{$_}'";
+		$temp_qry .= " OR $cleaned_locus='N'" if $scheme_info->{'allow_missing_loci'};
+		push @temp_qry, $temp_qry;
+	}
+	if ( none { !defined $_ } @profile || $scheme_info->{'allow_missing_loci'} ) {
+		local $" = ') AND (';
+		my $temp_qry_string = "@temp_qry";
+		local $" = ',';
+		my $values =
+		  $self->{'datastore'}->run_simple_query_hashref("SELECT @$scheme_fields FROM scheme_$scheme_id WHERE ($temp_qry_string)");
+		my $buffer = "<h2>$scheme_info->{'description'}</h2>\n<table>";
+		my $td     = 1;
+		foreach my $field (@$scheme_fields) {
+			my $value = $values->{ lc($field) } // 'Not defined';
+			my $primary_key = $field eq $scheme_info->{'primary_key'} ? 1 : 0;
+			return if $primary_key && $value eq 'Not defined';
+			$field =~ tr/_/ /;
+			$buffer .= "<tr class=\"td$td\"><th>$field</th><td>";
+			$buffer .=
+			  $primary_key
+			  ? "<a href=\"$self->{'system'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;"
+			  . "scheme_id=$scheme_id&amp;profile_id=$value\">$value</a>"
+			  : $value;
+			$buffer .= "</td></tr>";
+			$td = $td == 1 ? 2 : 1;
+		}
+		$buffer .= "</table>";
+		say $buffer;
+	}
 }
 
 sub _output_batch_query_exact {
