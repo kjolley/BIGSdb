@@ -86,8 +86,9 @@ sub print_content {
 <dt>datestamp</dt><dd>$seq_ref->{'datestamp'}</dd>
 HTML
 			if ( $sender_info->{'first_name'} || $sender_info->{'surname'} ) {
-				say
-"<dt>sender</dt><dd>$sender_info->{'first_name'} $sender_info->{'surname'}, $sender_info->{'affiliation'}$sender_email</dd>";
+				print "<dt>sender</dt><dd>$sender_info->{'first_name'} $sender_info->{'surname'}";
+				print ", $sender_info->{'affiliation'}$sender_email" if $seq_ref->{'sender'} != $seq_ref->{'curator'};
+				say "</dd>";
 			}
 			if ( $curator_info->{'first_name'} || $curator_info->{'surname'} ) {
 				say "<dt>curator</dt><dd>$curator_info->{'first_name'} $curator_info->{'surname'}, $curator_info->{'affiliation'} ";

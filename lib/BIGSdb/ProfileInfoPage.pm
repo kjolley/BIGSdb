@@ -74,7 +74,6 @@ sub print_content {
 		say "<div class=\"box statusbad\"><p>This profile does not exist!</p></div>";
 		return;
 	}
-	
 	if ( $q->param('history') ) {
 		say "<div class=\"box\" id=\"resultstable\">";
 		say "<h2>Update history</h2>";
@@ -89,38 +88,38 @@ sub print_content {
 		say "</dl>";
 		my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-		foreach (@$loci) {
-			my $cleaned = $self->clean_locus($_);
-			( my $cleaned2 = $_ ) =~ s/'/_PRIME_/g;
+		foreach my $locus (@$loci) {
+			my $cleaned = $self->clean_locus($locus);
+			( my $cleaned2 = $locus ) =~ s/'/_PRIME_/g;
 			say "<dl class=\"profile\"><dt>$cleaned</dt><dd><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
-			  . "page=alleleInfo&amp;locus=$_&amp;allele_id=$data->{lc($cleaned2)}\">$data->{lc($cleaned2)}</a></dd></dl>";
+			  . "page=alleleInfo&amp;locus=$locus&amp;allele_id=$data->{lc($cleaned2)}\">$data->{lc($cleaned2)}</a></dd></dl>";
 		}
-		foreach (@$scheme_fields) {
-			my $cleaned = $_;
-			next if $_ eq $primary_key;
+		foreach my $field (@$scheme_fields) {
+			my $cleaned = $field;
+			next if $field eq $primary_key;
 			$cleaned =~ tr/_/ /;
 			say "<dl class=\"profile\"><dt>$cleaned</dt>";
-			$data->{ lc($_) } //= '&nbsp;';
-			say "<dd>$data->{lc($_)}</dd></dl>";
+			$data->{ lc($field) } //= '&nbsp;';
+			say "<dd>$data->{lc($field)}</dd></dl>";
 		}
 		say "<dl class=\"data\">";
-		foreach (qw (sender curator date_entered datestamp)) {
-			my $cleaned = $_;
+		foreach my $field (qw (sender curator date_entered datestamp)) {
+			my $cleaned = $field;
 			$cleaned =~ tr/_/ /;
 			say "<dt>$cleaned</dt>";
-			if ( $_ eq 'sender' || $_ eq 'curator' ) {
-				my $userdata = $self->{'datastore'}->get_user_info( $data->{$_} );
-				my $person   = "$userdata->{'first_name'} $userdata->{'surname'}, $userdata->{'affiliation'}";
-				if ( $_ eq 'curator' || !$self->{'system'}->{'privacy'} ) {
+			if ( $field eq 'sender' || $field eq 'curator' ) {
+				my $userdata = $self->{'datastore'}->get_user_info( $data->{$field} );
+				my $person   = "$userdata->{'first_name'} $userdata->{'surname'}";
+				$person .= ", $userdata->{'affiliation'}" if !( $field eq 'sender' && $data->{'sender'} == $data->{'curator'} );
+				if ( $field eq 'curator' || !$self->{'system'}->{'privacy'} ) {
 					if ( $userdata->{'email'} =~ /\@/ ) {
 						$person .= " (E-mail: <a href=\"mailto:$userdata->{'email'}\">$userdata->{'email'}</a>)";
 					} else {
 						$person .= " (E-mail: $userdata->{'email'})";
 					}
-				} else {
 				}
 				say "<dd>$person</dd>";
-				if ( $_ eq 'curator' ) {
+				if ( $field eq 'curator' ) {
 					my ( $history, $num_changes ) = $self->_get_history( $scheme_id, $profile_id, 10 );
 					if ($num_changes) {
 						my $plural = $num_changes == 1 ? '' : 's';
@@ -145,8 +144,8 @@ sub print_content {
 					}
 				}
 			} else {
-				$data->{ lc($_) } ||= '';
-				say "<dd>$data->{lc($_)}</dd>";
+				$data->{ lc($field) } ||= '';
+				say "<dd>$data->{lc($field)}</dd>";
 			}
 		}
 		say "</dl>";
@@ -159,7 +158,6 @@ sub print_content {
 
 		if (@$clients) {
 			my $plural = @$clients > 1 ? 's' : '';
-
 			my $buffer;
 			foreach my $client (@$clients) {
 				my ( $client_dbase_id, $client_scheme_id ) = @$client;
@@ -224,7 +222,7 @@ sub print_content {
 					$buffer .= "</dd>\n";
 				}
 			}
-			if ($buffer){
+			if ($buffer) {
 				say "<h2>Client database$plural</h2>";
 				say "<dl class=\"data\">";
 				say $buffer;
@@ -273,9 +271,9 @@ sub _get_ref_links {
 
 sub _get_update_history {
 	my ( $self, $scheme_id, $profile_id ) = @_;
-	my ($history, undef) = $self->_get_history( $scheme_id, $profile_id );
+	my ( $history, undef ) = $self->_get_history( $scheme_id, $profile_id );
 	my $buffer;
-	if ( @$history ) {
+	if (@$history) {
 		$buffer .= "<table class=\"resultstable\"><tr><th>Timestamp</th><th>Curator</th><th>Action</th></tr>\n";
 		my $td = 1;
 		foreach (@$history) {

@@ -357,7 +357,7 @@ sub _get_provenance_fields {
 			my $userdata = $self->{'datastore'}->get_user_info($value);
 			my $colspan  = $summary_view ? 5 : 2;
 			my $person   = "$userdata->{first_name} $userdata->{surname}";
-			if ( !$summary_view ) {
+			if ( !$summary_view && !( $field eq 'sender' && $data->{'sender'} == $data->{'curator'} ) ) {
 				$person .= ", $userdata->{affiliation}";
 				if (
 					$field eq 'curator'
@@ -850,8 +850,8 @@ sub _get_pending_designation_tooltip {
 }
 
 sub get_title {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
 	my $isolate_id = $q->param('id');
 	return '' if defined $q->param('scheme_id') || defined $q->param('group_id');
 	return "Invalid isolate id" if !BIGSdb::Utils::is_int($isolate_id);
