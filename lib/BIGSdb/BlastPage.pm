@@ -163,15 +163,20 @@ sub run_blast {
 				$old_format = 9;
 				$format     = 6;
 			}
-			$options->{'num_results'} //= 1000000; #effectively return all results
+			$options->{'num_results'} //= 1000000;    #effectively return all results
 			if ( $self->{'config'}->{'blast+_path'} ) {
+
+				#The num_descriptions and num_alignments options should not be required but they seem to be
+				#if using an older version of BLAST+.
 				system(
 					"$self->{'config'}->{'blast+_path'}/$program", '-num_threads',            $blast_threads,
-					'-max_target_seqs',                            $options->{'num_results'}, '-parse_deflines',
-					'-word_size',                                  $word_size,                '-db',
-					$temp_fastafile,                               '-query',                  $temp_infile,
-					'-out',                                        $temp_outfile,             '-outfmt',
-					$format,                                       "-$filter",                'no'
+					'-max_target_seqs',                            $options->{'num_results'}, '-num_descriptions',
+					$options->{'num_results'},                     '-num_alignments',         $options->{'num_results'},
+					'-parse_deflines',                             '-word_size',              $word_size,
+					'-db',                                         $temp_fastafile,           '-query',
+					$temp_infile,                                  '-out',                    $temp_outfile,
+					'-outfmt',                                     $format,                   "-$filter",
+					'no'
 				);
 			} else {
 				system( "$self->{'config'}->{'blast_path'}/blastall -v $options->{'num_results'} -b $options->{'num_results'} -p $program "
