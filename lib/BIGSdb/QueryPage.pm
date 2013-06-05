@@ -501,13 +501,19 @@ sub _print_isolate_filter_fieldset {
 	}
 	my $linked_seqs = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT id FROM sequence_bin)")->[0];
 	if ($linked_seqs) {
+		my @values = ( 'Any sequence data', 'No sequence data' );
+		if ( $self->{'system'}->{'seqbin_size_threshold'} ) {
+			foreach my $value ( split /,/, $self->{'system'}->{'seqbin_size_threshold'} ) {
+				push @values, "Sequence bin size >= $value Mbp";
+			}
+		}
 		push @filters,
 		  $self->get_filter(
 			'linked_sequences',
-			[ 'with linked sequences', 'without linked sequences' ],
+			\@values,
 			{
-				'text'    => 'Linked sequence',
-				'tooltip' => 'linked sequence filter - Filter by whether sequences have been linked with the isolate record.'
+				'text'    => 'Sequence bin',
+				'tooltip' => 'sequence bin filter - Filter by whether the isolate record has sequence data attached.'
 			}
 		  );
 	}
@@ -1190,14 +1196,18 @@ sub _modify_isolate_query_for_filters {
 		}
 	}
 	if ( $q->param('linked_sequences_list') ) {
-		my $not = '';
-		if ( $q->param('linked_sequences_list') =~ /without/ ) {
+		my $not         = '';
+		my $size_clause = '';
+		if ( $q->param('linked_sequences_list') eq 'No sequence data' ) {
 			$not = ' NOT';
+		} elsif ( $q->param('linked_sequences_list') =~ />= ([\d\.]+) Mbp/ ) {
+			my $size = $1 * 1000000;    #Mbp
+			$size_clause = " GROUP BY isolate_id HAVING SUM(length(sequence)) >= $size";
 		}
 		if ( $qry !~ /WHERE \(\)\s*$/ ) {
-			$qry .= " AND (id$not IN (SELECT isolate_id FROM sequence_bin))";
+			$qry .= " AND ($view.id$not IN (SELECT isolate_id FROM sequence_bin$size_clause))";
 		} else {
-			$qry = "SELECT * FROM $view WHERE ($view.id$not IN (SELECT isolate_id FROM sequence_bin))";
+			$qry = "SELECT * FROM $view WHERE ($view.id$not IN (SELECT isolate_id FROM sequence_bin$size_clause))";
 		}
 	}
 	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
