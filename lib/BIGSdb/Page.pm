@@ -922,6 +922,7 @@ sub extract_scheme_desc {
 sub get_db_description {
 	my ($self) = @_;
 	my $desc   = $self->{'system'}->{'description'};
+	return $desc if $self->{'system'}->{'sets'} && $self->{'system'}->{'set_id'};
 	my $set_id = $self->get_set_id;
 	if ($set_id) {
 		my $desc_ref = $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM sets WHERE id=?", $set_id );

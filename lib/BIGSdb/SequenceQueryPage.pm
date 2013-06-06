@@ -60,39 +60,55 @@ sub print_content {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $page   = $q->param('page');
-	my $locus  = $q->param('locus');
+	my $locus  = $q->param('locus') // 0;
 	$locus =~ s/%27/'/g if $locus;    #Web-escaped locus
 	$q->param( 'locus', $locus );
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>This function is not available in isolate databases.</p></div>";
 		return;
 	}
-	my $desc = $self->get_db_description;
+	my $desc   = $self->get_db_description;
+	my $set_id = $self->get_set_id;
+	if ( $locus && $q->param('simple') ) {
+		if ( $q->param('locus') =~ /^SCHEME_(\d+)$/ ) {
+			my $scheme_info = $self->{'datastore'}->get_scheme_info($1);
+			$desc = $scheme_info->{'description'};
+		} else {
+			$desc = $q->param('locus');
+		}
+	}
 	say $page eq 'sequenceQuery' ? "<h1>Sequence query - $desc</h1>\n" : "<h1>Batch sequence query - $desc</h1>";
 	say "<div class=\"box\" id=\"queryform\">";
-	say "<p>Please paste in your sequence"
-	  . ( $page eq 'batchSequenceQuery' ? 's' : '' )
-	  . " to query against the database.  Query sequences will be checked first for an exact match against the chosen "
-	  . "(or all) loci - they do not need to be trimmed. The nearest partial matches will be identified if an exact "
-	  . "match is not found. You can query using either DNA or peptide sequences.";
-	say " <a class=\"tooltip\" title=\"Query sequence - Your query sequence is assumed to be DNA if it contains "
-	  . "90% or more G,A,T,C or N characters.\">&nbsp;<i>i</i>&nbsp;</a></p>";
-	say $q->start_form;
-	say "<div class=\"scrollable\"><fieldset><legend>Please select locus/scheme</legend>";
-	my $set_id = $self->get_set_id;
-	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
-	my $scheme_list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-
-	foreach ( reverse @$scheme_list ) {
-		unshift @$display_loci, "SCHEME_$_->{'id'}";
-		$cleaned->{"SCHEME_$_->{'id'}"} = $_->{'description'};
+	say "<p>Please paste in your sequence" . ( $page eq 'batchSequenceQuery' ? 's' : '' ) . " to query against the database.";
+	if ( !$q->param('simple') ) {
+		say " Query sequences will be checked first for an exact match against the chosen "
+		  . "(or all) loci - they do not need to be trimmed. The nearest partial matches will be identified if an exact "
+		  . "match is not found. You can query using either DNA or peptide sequences.";
+		say " <a class=\"tooltip\" title=\"Query sequence - Your query sequence is assumed to be DNA if it contains "
+		  . "90% or more G,A,T,C or N characters.\">&nbsp;<i>i</i>&nbsp;</a>";
 	}
-	unshift @$display_loci, 0;
-	$cleaned->{0} = 'All loci';
-	say $q->popup_menu( -name => 'locus', -values => $display_loci, -labels => $cleaned );
-	say "</fieldset>\n<fieldset><legend>Order results by</legend>";
-	say $q->popup_menu( -name => 'order', -values => [ ( 'locus', 'best match' ) ] );
-	say "</fieldset>";
+	say "</p>";
+	say $q->start_form;
+	say "<div class=\"scrollable\">";
+	if ( !$q->param('simple') ) {
+		say "<fieldset><legend>Please select locus/scheme</legend>";
+		my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
+		my $scheme_list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+		foreach ( reverse @$scheme_list ) {
+			unshift @$display_loci, "SCHEME_$_->{'id'}";
+			$cleaned->{"SCHEME_$_->{'id'}"} = $_->{'description'};
+		}
+		unshift @$display_loci, 0;
+		$cleaned->{0} = 'All loci';
+		say $q->popup_menu( -name => 'locus', -values => $display_loci, -labels => $cleaned );
+		say "</fieldset>";
+		say "<fieldset><legend>Order results by</legend>";
+		say $q->popup_menu( -name => 'order', -values => [ ( 'locus', 'best match' ) ] );
+		say "</fieldset>";
+	} else {
+		$q->param( 'order', 'locus' );
+		say $q->hidden($_) foreach qw(locus order simple);
+	}
 	say "<div style=\"clear:both\">";
 	say "<fieldset style=\"float:left\"><legend>"
 	  . (
@@ -101,7 +117,6 @@ sub print_content {
 		: 'Enter query sequences (FASTA format)'
 	  ) . "</legend>";
 	my $sequence;
-
 	if ( $q->param('sequence') ) {
 		$sequence = $q->param('sequence');
 		$q->param( 'sequence', '' );
@@ -139,6 +154,7 @@ sub _run_query {
 	if ( $locus =~ /^cn_(.+)$/ ) {
 		$locus = $1;
 	}
+	$locus //= 0;
 	my $distinct_locus_selected = ( $locus && $locus !~ /SCHEME_\d+/ ) ? 1 : 0;
 	my $cleaned_locus           = $self->clean_locus($locus);
 	my $locus_info              = $self->{'datastore'}->get_locus_info($locus);
