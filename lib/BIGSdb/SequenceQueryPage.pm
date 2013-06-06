@@ -27,6 +27,7 @@ use Error qw(:try);
 use IO::String;
 use Bio::SeqIO;
 my $logger = get_logger('BIGSdb.Page');
+use constant MAX_UPLOAD_SIZE => 32 * 1024 * 1024;    #32Mb
 
 sub get_title {
 	my ($self) = @_;
@@ -60,7 +61,7 @@ sub print_content {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $page   = $q->param('page');
-	my $locus  = $q->param('locus') // 0;
+	my $locus = $q->param('locus') // 0;
 	$locus =~ s/%27/'/g if $locus;    #Web-escaped locus
 	$q->param( 'locus', $locus );
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -123,20 +124,55 @@ sub print_content {
 	}
 	say $q->textarea( -name => 'sequence', -rows => 6, -cols => 70 );
 	say "</fieldset>";
+	say "<fieldset style=\"float:left\">\n<legend>Alternatively upload FASTA file</legend>";
+	say "Select FASTA file:<br />";
+	say $q->filefield( -name => 'fasta_upload', -id => 'fasta_upload', -size => 10, -maxlength => 512 );
+	say "</fieldset>";
 	$self->print_action_fieldset;
 	say "</div></div>";
 	say $q->hidden($_) foreach qw (db page);
 	say $q->end_form;
 	say "</div>";
-	$self->_run_query($sequence) if $q->param('submit') && $sequence;
+
+	if ( $q->param('submit') ) {
+		if ($sequence) {
+			$self->_run_query( \$sequence );
+		} elsif ( $q->param('fasta_upload') ) {
+			my $upload_file = $self->_upload_fasta_file;
+			my $full_path   = "$self->{'config'}->{'secure_tmp_dir'}/$upload_file";
+			if ( -e $full_path ) {
+				open( my $fh, '<', $full_path ) or $logger->error("Can't open sequence file $full_path");
+				$sequence = do { local $/; <$fh> };    #slurp
+				unlink $full_path;
+				$self->_run_query( \$sequence );
+			}
+		}
+	}
 	return;
 }
 
+sub _upload_fasta_file {
+	my ($self)   = @_;
+	my $temp     = BIGSdb::Utils::get_random();
+	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_upload.fas";
+	my $buffer;
+	open( my $fh, '>', $filename ) || $logger->error("Could not open $filename for writing.");
+	my $fh2 = $self->{'cgi'}->upload('fasta_upload');
+	binmode $fh2;
+	binmode $fh;
+	read( $fh2, $buffer, MAX_UPLOAD_SIZE );
+	print $fh $buffer;
+	close $fh;
+	return "$temp\_upload.fas";
+}
+
 sub _run_query {
-	my ( $self, $sequence ) = @_;
+	my ( $self, $seq_ref ) = @_;
 	my $q    = $self->{'cgi'};
 	my $page = $q->param('page');
-	$self->remove_all_identifier_lines( \$sequence ) if $page eq 'sequenceQuery';    #Allows BLAST of multiple contigs
+	$self->remove_all_identifier_lines($seq_ref) if $page eq 'sequenceQuery';    #Allows BLAST of multiple contigs
+	return if ref $seq_ref ne 'SCALAR';
+	my $sequence = $$seq_ref;
 	if ( $sequence !~ /^>/ ) {
 
 		#add identifier line if one missing since newer versions of BioPerl check
