@@ -118,7 +118,8 @@ sub run {
 			( my $list = $q->param('list') ) =~ s/[\r\n]+/\|\|/g;
 			$params->{'list'} = $list;
 			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-			my $job_id    = $self->{'jobManager'}->add_job(
+			$params->{'view'} = $self->{'system'}->{'view'};
+			my $job_id = $self->{'jobManager'}->add_job(
 				{
 					dbase_config => $self->{'instance'},
 					ip_address   => $q->remote_host,

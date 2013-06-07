@@ -161,10 +161,11 @@ sub run {
 			$self->set_scheme_param;
 			my $params = $q->Vars;
 			( my $list = $q->param('list') ) =~ s/[\r\n]+/\|\|/g;
-			$params->{'list'} = $list;
+			$params->{'list'}   = $list;
 			$params->{'set_id'} = $self->get_set_id;
 			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-			my $job_id    = $self->{'jobManager'}->add_job(
+			$params->{'view'} = $self->{'system'}->{'view'};
+			my $job_id = $self->{'jobManager'}->add_job(
 				{
 					dbase_config => $self->{'instance'},
 					ip_address   => $q->remote_host,
@@ -225,6 +226,7 @@ sub run_job {
 	my $number_by_locus   = "$self->{'config'}->{'tmp_dir'}/$job_id\_number_by_locus.txt";
 	my $isolate_sql;
 	my @includes;
+
 	if ( $params->{'includes'} ) {
 		@includes = split /\|\|/, $params->{'includes'};
 		$isolate_sql = $self->{'db'}->prepare("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?");

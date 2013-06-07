@@ -57,8 +57,7 @@ sub set_pref_requirements {
 	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 0 };
 	return;
 }
-
-sub get_plugin_javascript { } #override version in LocusExplorer.pm
+sub get_plugin_javascript { }    #override version in LocusExplorer.pm
 
 sub run {
 	my ($self)     = @_;
@@ -111,7 +110,8 @@ sub run {
 		my $params = $q->Vars;
 		$params->{'alignwidth'} = $self->{'prefs'}->{'alignwidth'};
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-		my $job_id    = $self->{'jobManager'}->add_job(
+		$params->{'view'} = $self->{'system'}->{'view'};
+		my $job_id = $self->{'jobManager'}->add_job(
 			{
 				dbase_config => $self->{'instance'},
 				ip_address   => $q->remote_host,
@@ -148,7 +148,7 @@ sub run_job {
 
 	#Make sure query file is accessible to job host (the web server and job host may not be the same machine)
 	#These machines should share the tmp_dir but not the secure_tmp_dir, so copy this from the tmp_dir.
-	if ( !-e "$self->{'config'}->{'secure_tmp_dir'}/$query_file" ) {
+	if ( $query_file && !-e "$self->{'config'}->{'secure_tmp_dir'}/$query_file" ) {
 		if ( $query_file =~ /^(BIGSdb[\d_]*\.txt)$/ ) {
 			$query_file = $1;    #untaint
 		}

@@ -19,7 +19,7 @@
 package BIGSdb::Offline::RunJobs;
 use strict;
 use warnings;
-use parent qw(BIGSdb::Offline::Script);
+use parent qw(BIGSdb::Offline::Script BIGSdb::Page);
 use Error qw(:try);
 use BIGSdb::OfflineJobManager;
 use BIGSdb::PluginManager;
@@ -74,6 +74,7 @@ sub run_script {
 	my ( $job, $params ) = $self->{'jobManager'}->get_job($job_id);
 	my $instance = $job->{'dbase_config'};
 	$self->_initiate_db($instance);
+	$self->initiate_view( $job->{'username'} );
 	my $plugin = $self->{'pluginManager'}->get_plugin( $job->{'module'} );
 	$self->{'jobManager'}->update_job_status( $job_id, { status => 'started', start_time => 'now' } );
 	try {
