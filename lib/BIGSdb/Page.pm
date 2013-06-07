@@ -301,7 +301,7 @@ sub print_action_fieldset {
 	my $submit_label = $options->{'submit_label'} // 'Submit';
 	my $buffer       = "<fieldset style=\"float:left\"><legend>Action</legend>\n";
 	my $url          = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page";
-	my @fields       = qw (scheme_id table name ruleset locus profile_id);
+	my @fields       = qw (scheme_id table name ruleset locus profile_id simple set_id);
 	if ( $options->{'table'} ) {
 		my $pk_fields = $self->{'datastore'}->get_table_pks( $options->{'table'} );
 		push @fields, @$pk_fields;

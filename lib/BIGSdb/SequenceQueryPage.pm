@@ -23,7 +23,6 @@ use 5.010;
 use parent qw(BIGSdb::BlastPage);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any none);
-use Error qw(:try);
 use IO::String;
 use Bio::SeqIO;
 my $logger = get_logger('BIGSdb.Page');
@@ -128,7 +127,10 @@ sub print_content {
 	say "Select FASTA file:<br />";
 	say $q->filefield( -name => 'fasta_upload', -id => 'fasta_upload', -size => 10, -maxlength => 512 );
 	say "</fieldset>";
-	$self->print_action_fieldset;
+	my $action_args;
+	$action_args->{'simple'} = 1 if $q->param('simple');
+	$action_args->{'set_id'} = $set_id if $set_id;
+	$self->print_action_fieldset($action_args);
 	say "</div></div>";
 	say $q->hidden($_) foreach qw (db page);
 	say $q->end_form;
@@ -171,7 +173,7 @@ sub _run_query {
 	my $q    = $self->{'cgi'};
 	my $page = $q->param('page');
 	$self->remove_all_identifier_lines($seq_ref) if $page eq 'sequenceQuery';    #Allows BLAST of multiple contigs
-	return if ref $seq_ref ne 'SCALAR';
+	throw BIGSdb::DataException "Sequence not a scalar reference" if ref $seq_ref ne 'SCALAR';
 	my $sequence = $$seq_ref;
 	if ( $sequence !~ /^>/ ) {
 
