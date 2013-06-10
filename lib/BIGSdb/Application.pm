@@ -126,7 +126,7 @@ sub _initiate {
 	my $full_path = "$dbase_config_dir/$self->{'instance'}/config.xml";
 	$self->{'xmlHandler'} = BIGSdb::Parser->new;
 	my $parser = XML::Parser::PerlSAX->new( Handler => $self->{'xmlHandler'} );
-	eval { $parser->parse( Source => { SystemId => $full_path } ); };
+	eval { $parser->parse( Source => { SystemId => $full_path } ) };
 
 	if ($@) {
 		$logger->fatal("Invalid XML description: $@") if $self->{'instance'} ne '';
@@ -134,6 +134,7 @@ sub _initiate {
 		return;
 	}
 	$self->{'system'} = $self->{'xmlHandler'}->get_system_hash;
+	$self->_set_system_overrides;
 	if ( !defined $self->{'system'}->{'dbtype'}
 		|| ( $self->{'system'}->{'dbtype'} ne 'sequences' && $self->{'system'}->{'dbtype'} ne 'isolates' ) )
 	{
@@ -183,6 +184,24 @@ sub _initiate {
 	#refdb attribute has been renamed ref_db for consistency with other databases (refdb still works)
 	$self->{'config'}->{'ref_db'} //= $self->{'config'}->{'refdb'};
 	$self->{'config'}->{'ref_db'} = $self->{'system'}->{'ref_db'} if defined $self->{'system'}->{'ref_db'};
+	return;
+}
+
+sub _set_system_overrides {
+	my ($self) = @_;
+	my $override_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/system.overrides";
+	if ( -e $override_file ) {
+		open( my $fh, '<', $override_file ) || get_logger('BIGSdb.Application_Initiate')->error("Can't open $override_file for reading");
+		while ( my $line = <$fh> ) {
+			next if $line =~ /^#/;
+			$line =~ s/^\s+//;
+			$line =~ s/\s+$//;
+			if ( $line =~ /^([^=\s]+)\s*=\s*"([^"]+)"$/ ) {
+				$self->{'system'}->{$1} = $2;
+			}
+		}
+		close $fh;
+	}
 	return;
 }
 
@@ -497,14 +516,14 @@ sub authenticate {
 		};
 	}
 	if ($authenticated) {
-		my $config_access = $self->{'system'}->{'default_access'} ? $self->_user_allowed_access($page_attributes->{'username'}) : 1;
+		my $config_access = $self->{'system'}->{'default_access'} ? $self->_user_allowed_access( $page_attributes->{'username'} ) : 1;
 		$page_attributes->{'permissions'} = $self->{'datastore'}->get_permissions( $page_attributes->{'username'} );
 		if ( $page_attributes->{'permissions'}->{'disable_access'} ) {
 			$page_attributes->{'error'} = 'accessDisabled';
 			my $page = BIGSdb::ErrorPage->new(%$page_attributes);
 			$page->print_page_content;
 			$authenticated = 0;
-		} elsif (!$config_access){
+		} elsif ( !$config_access ) {
 			$page_attributes->{'error'} = 'configAccessDenied';
 			my $page = BIGSdb::ErrorPage->new(%$page_attributes);
 			$page->print_page_content;
@@ -515,31 +534,32 @@ sub authenticate {
 }
 
 sub _user_allowed_access {
-	my ($self, $username) = @_;
-	given ($self->{'system'}->{'default_access'}){
-		when ('deny'){
+	my ( $self, $username ) = @_;
+	given ( $self->{'system'}->{'default_access'} ) {
+		when ('deny') {
 			my $allow_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/users.allow";
-			return 1 if -e $allow_file && $self->_is_name_in_file($username, $allow_file);
+			return 1 if -e $allow_file && $self->_is_name_in_file( $username, $allow_file );
 			return 0;
 		}
-		when ('allow'){
+		when ('allow') {
 			my $deny_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/users.deny";
-			return 0 if -e $deny_file && $self->_is_name_in_file($username, $deny_file);
+			return 0 if -e $deny_file && $self->_is_name_in_file( $username, $deny_file );
 			return 1;
 		}
-		default {return 0}
-	}	
+		default { return 0 }
+	}
 }
 
 sub _is_name_in_file {
-	my ($self, $name, $filename) = @_;
+	my ( $self, $name, $filename ) = @_;
 	throw BIGSdb::FileException("File $filename does not exist") if !-e $filename;
-	open (my $fh, '<', $filename);
-	while (my $line = <$fh>){
+	my $logger = get_logger('BIGSdb.Application_Authentication');
+	open( my $fh, '<', $filename ) || $logger->error("Can't open $filename for reading");
+	while ( my $line = <$fh> ) {
 		next if $line =~ /^#/;
 		$line =~ s/^\s+//;
 		$line =~ s/\s+$//;
-		if ($line eq $name){
+		if ( $line eq $name ) {
 			close $fh;
 			return 1;
 		}
