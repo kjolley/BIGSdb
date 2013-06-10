@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,63 +19,67 @@
 package BIGSdb::ErrorPage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::Page);
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
 
 sub print_content {
-	my ($self)    = @_;
-	my $logger    = get_logger('BIGSdb.Page');
-	my $desc      = $self->get_title;
-	my $show_oops = (any {$self->{'error'} eq $_} qw (userNotAuthenticated accessDisabled)) ? 0 : 1;
-	print "<h1>$desc</h1>\n";
-	print "<p style=\"font-size:5em; color:#A0A0A0; padding-top:1em\">Oops ...</p>\n" if $show_oops;
-	print "<div class=\"box\" id=\"statusbad\">\n";
-
+	my ($self) = @_;
+	my $logger = get_logger('BIGSdb.Page');
+	my $desc   = $self->get_title;
+	my $show_oops = ( any { $self->{'error'} eq $_ } qw (userNotAuthenticated accessDisabled configAccessDenied) ) ? 0 : 1;
+	say "<h1>$desc</h1>";
+	say "<p style=\"font-size:5em; color:#A0A0A0; padding-top:1em\">Oops ...</p>" if $show_oops;
+	say "<div class=\"box\" id=\"statusbad\">";
 	if ( $self->{'error'} eq 'unknown' ) {
 		my $function = $self->{'cgi'}->param('page');
-		print
-"<p>Unknown function '$function' requested - either an incorrect link brought you here or this functionality has not been implemented yet!</p>";
+		say "<p>Unknown function '$function' requested - either an incorrect link brought you here or this functionality has not been "
+		  . "implemented yet!</p>";
 		$logger->info("Unknown function '$function' specified in URL");
 	} elsif ( $self->{'error'} eq 'invalidXML' ) {
-		print "<p>Invalid (or no) database description file specified!</p>";
+		say "<p>Invalid (or no) database description file specified!</p>";
 	} elsif ( $self->{'error'} eq 'invalidDbType' ) {
-		print
-"<p>Invalid database type specified! Please set dbtype to either 'isolates' or 'sequences' in the system attributes of the XML description file for this database.</p>";
+		say "<p>Invalid database type specified! Please set dbtype to either 'isolates' or 'sequences' in the system attributes of the "
+		  . "XML description file for this database.</p>";
 	} elsif ( $self->{'error'} eq 'invalidScriptPath' ) {
-		print "<p>You are attempting to access this database from an invalid script path.</p>";
+		say "<p>You are attempting to access this database from an invalid script path.</p>";
 	} elsif ( $self->{'error'} eq 'invalidCurator' ) {
-		print "<p>You are not a curator for this database.</p>";
+		say "<p>You are not a curator for this database.</p>";
 	} elsif ( $self->{'error'} eq 'noConnect' ) {
-		print "<p>Can not connect to database!</p>";
+		say "<p>Can not connect to database!</p>";
 	} elsif ( $self->{'error'} eq 'noAuth' ) {
-		print "<p>Can not connect to the authentication database!</p>";
+		say "<p>Can not connect to the authentication database!</p>";
 	} elsif ( $self->{'error'} eq 'noPrefs' ) {
 		if ( $self->{'fatal'} ) {
-			print "<p>The preference database can be reached but it appears to be misconfigured!</p>";
+			say "<p>The preference database can be reached but it appears to be misconfigured!</p>";
 		} else {
-			print "<p>Can not connect to the preference database!</p>";
+			say "<p>Can not connect to the preference database!</p>";
 		}
 	} elsif ( $self->{'error'} eq 'userAuthenticationFiles' ) {
-		print "<p>Can not open the user authentication database!</p>";
+		say "<p>Can not open the user authentication database!</p>";
 	} elsif ( $self->{'error'} eq 'noAuthenticationSet' ) {
-		print "<p>No authentication mechanism has been set in the database configuration!</p>";
+		say "<p>No authentication mechanism has been set in the database configuration!</p>";
 	} elsif ( $self->{'error'} eq 'disableUpdates' ) {
-		print "<p>Database updates are currently disabled.</p>";
-		print "<p>$self->{'message'}</p>" if $self->{'message'};
+		say "<p>Database updates are currently disabled.</p>";
+		say "<p>$self->{'message'}</p>" if $self->{'message'};
 	} elsif ( $self->{'error'} eq 'userNotAuthenticated' ) {
-		print "<p>You have been denied access by the server configuration.  Either your login details are
-		invalid or you are trying to connect from an unauthorized IP address.</p>";
+		say "<p>You have been denied access by the server configuration.  Either your login details are invalid or you are trying to "
+		  . "connect from an unauthorized IP address.</p>";
 		$self->print_warning_sign;
 	} elsif ( $self->{'error'} eq 'accessDisabled' ) {
-		print "<p>Your user account has been disabled.  If you believe this to be an error, please contact
-		the system administrator.</p>";
+		say "<p>Your user account has been disabled.  If you believe this to be an error, please contact the system administrator.</p>";
+		$self->print_warning_sign;
+	} elsif ( $self->{'error'} eq 'configAccessDenied' ) {
+		say "<p>Your user account can not access this database configuration.  If you believe this to be an error, please contact "
+		  . "the system administrator.</p>";
 		$self->print_warning_sign;
 	} else {
-		print "<p>An unforeseen error has occurred - please contact the system administrator.</p>";
+		say "<p>An unforeseen error has occurred - please contact the system administrator.</p>";
 		$logger->error("Unforeseen error page displayed to user");
 	}
-	print "</div>\n";
+	say "</div>";
+	return;
 }
 
 sub get_title {
@@ -91,6 +95,7 @@ sub get_title {
 	return "Preference database error - $desc"       if $self->{'error'} eq 'noPrefs';
 	return "No authentication mechanism set - $desc" if $self->{'error'} eq 'noAuthenticationSet';
 	return "Access disabled - $desc"                 if $self->{'error'} eq 'accessDisabled';
+	return "Access denied - $desc"                   if $self->{'error'} eq 'configAccessDenied';
 	return $desc;
 }
 1;

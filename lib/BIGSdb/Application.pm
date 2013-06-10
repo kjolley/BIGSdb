@@ -497,14 +497,54 @@ sub authenticate {
 		};
 	}
 	if ($authenticated) {
+		my $config_access = $self->{'system'}->{'default_access'} ? $self->_user_allowed_access($page_attributes->{'username'}) : 1;
 		$page_attributes->{'permissions'} = $self->{'datastore'}->get_permissions( $page_attributes->{'username'} );
 		if ( $page_attributes->{'permissions'}->{'disable_access'} ) {
 			$page_attributes->{'error'} = 'accessDisabled';
 			my $page = BIGSdb::ErrorPage->new(%$page_attributes);
 			$page->print_page_content;
 			$authenticated = 0;
+		} elsif (!$config_access){
+			$page_attributes->{'error'} = 'configAccessDenied';
+			my $page = BIGSdb::ErrorPage->new(%$page_attributes);
+			$page->print_page_content;
+			$authenticated = 0;
 		}
 	}
 	return ( $authenticated, $auth_cookies_ref );
+}
+
+sub _user_allowed_access {
+	my ($self, $username) = @_;
+	given ($self->{'system'}->{'default_access'}){
+		when ('deny'){
+			my $allow_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/users.allow";
+			return 1 if -e $allow_file && $self->_is_name_in_file($username, $allow_file);
+			return 0;
+		}
+		when ('allow'){
+			my $deny_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/users.deny";
+			return 0 if -e $deny_file && $self->_is_name_in_file($username, $deny_file);
+			return 1;
+		}
+		default {return 0}
+	}	
+}
+
+sub _is_name_in_file {
+	my ($self, $name, $filename) = @_;
+	throw BIGSdb::FileException("File $filename does not exist") if !-e $filename;
+	open (my $fh, '<', $filename);
+	while (my $line = <$fh>){
+		next if $line =~ /^#/;
+		$line =~ s/^\s+//;
+		$line =~ s/\s+$//;
+		if ($line eq $name){
+			close $fh;
+			return 1;
+		}
+	}
+	close $fh;
+	return 0;
 }
 1;
