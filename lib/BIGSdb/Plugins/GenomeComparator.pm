@@ -204,7 +204,8 @@ sub run_job {
 sub run {
 	my ($self) = @_;
 	my $pattern = LOCUS_PATTERN;
-	print "<h1>Genome Comparator</h1>\n";
+	my $desc = $self->get_db_description;
+	print "<h1>Genome Comparator - $desc</h1>\n";
 	my $q = $self->{'cgi'};
 	if ( $q->param('submit') ) {
 		my @ids          = $q->param('isolate_id');
@@ -325,6 +326,7 @@ sub _print_interface {
 		say "<div class=\"box\" id=\"statusbad\"><p>There are no sequences in the sequence bin.</p></div>";
 		return;
 	}
+	$self->print_set_section if $q->param('select_sets');
 	print <<"HTML";
 <div class="box" id="queryform">
 <p>Please select the required isolate ids and loci for comparison - use ctrl or shift to make multiple 

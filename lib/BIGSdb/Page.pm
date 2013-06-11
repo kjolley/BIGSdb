@@ -125,11 +125,31 @@ sub print_banner {
 	return;
 }
 
+sub choose_set {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( $q->param('choose_set') && defined $q->param('sets_list') && BIGSdb::Utils::is_int( $q->param('sets_list') ) ) {
+		my $guid = $self->get_guid;
+		if ($guid) {
+			try {
+				$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, 'set_id', $q->param('sets_list') );
+				$self->{'prefs'}->{'set_id'} = $q->param('sets_list');
+			}
+			catch BIGSdb::PrefstoreConfigurationException with {
+				$logger->error("Can't set set_id in prefs");
+			};
+		} else {
+			$self->{'system'}->{'sets'} = 'no';
+		}
+	}
+	return;
+}
+
 sub print_page_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	$" = ' ';    ##no critic #ensure reset when running under mod_perl
-	if ( $q->param('page') && $q->param('page') eq 'plugin' ) {
+	if ( ( $q->param('page') // '' ) eq 'plugin' ) {
 
 		#need to determine if tooltips should be displayed since this is set in the <HEAD>.  Also need to define set_id
 		#since this is needed to determine page title (other prefs are read later but these are needed early).
@@ -142,7 +162,8 @@ sub print_page_content {
 			}
 			catch BIGSdb::DatabaseNoRecordException with {
 				$self->{'prefs'}->{'tooltips'} = 1;
-			}
+			};
+			$self->choose_set;
 		}
 	} else {
 		$self->initiate_prefs;
@@ -244,9 +265,9 @@ sub print_page_content {
 			-title => $title,
 			-meta  => {%meta_content},
 			-style => [
-				{ -src => $stylesheets->[0], -media => 'Screen' },
-				{ -src => $stylesheets->[1], -media => 'Screen' },
-				{ -code  => ".tooltip{display:$tooltip_display}" }
+				{ -src  => $stylesheets->[0], -media => 'Screen' },
+				{ -src  => $stylesheets->[1], -media => 'Screen' },
+				{ -code => ".tooltip{display:$tooltip_display}" }
 			],
 			-script => \@javascript
 		);
@@ -292,6 +313,50 @@ sub get_stylesheets {
 }
 sub get_title     { return 'BIGSdb' }
 sub print_content { }
+
+sub print_set_section {
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $set_id = $self->get_set_id;
+	return if $self->{'system'}->{'set_id'} && BIGSdb::Utils::is_int( $self->{'system'}->{'set_id'} );
+	my $guid = $self->get_guid;
+	return if !$guid;    #Cookies disabled
+	my $sets =
+	  $self->{'datastore'}
+	  ->run_list_query_hashref("SELECT * FROM sets WHERE NOT hidden OR hidden IS NULL ORDER BY display_order,description");
+	return if !@$sets || ( @$sets == 1 && ( $self->{'system'}->{'only_sets'} // '' ) eq 'yes' );
+	say "<div class=\"box\" id=\"sets\">";
+	print << "SETS";
+<div class="scrollable">	
+<div style="float:left; margin-right:1em">
+<img src="/images/icons/64x64/choose.png" alt="" />
+<h2>Datasets</h2>
+<p>This database contains multiple datasets.  
+SETS
+	print(
+		( $self->{'system'}->{'only_sets'} // '' ) eq 'yes'
+		? '</p>'
+		: 'You can choose to display a single set or the whole database.</p>'
+	);
+	say $q->start_form;
+	say "<label for=\"sets_list\">Please select: </label>";
+	my @set_ids;
+
+	if ( ( $self->{'system'}->{'only_sets'} // '' ) ne 'yes' ) {
+		push @set_ids, 0;
+	}
+	my %labels = ( 0 => 'Whole database' );
+	foreach my $set (@$sets) {
+		push @set_ids, $set->{'id'};
+		$labels{ $set->{'id'} } = $set->{'description'};
+	}
+	say $q->popup_menu( -name => 'sets_list', -id => 'sets_list', -values => \@set_ids, -labels => \%labels, -default => $set_id );
+	say $q->submit( -name => 'choose_set', -label => 'Choose', -class => 'smallbutton' );
+	say $q->hidden($_) foreach qw (db page name set_id select_sets);
+	say $q->end_form;
+	say "</div></div></div>";
+	return;
+}
 
 sub print_action_fieldset {
 	my ( $self, $options ) = @_;
@@ -670,6 +735,9 @@ s/\$lociAdd/<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&a
 			}
 			if ( !$self->{'curate'} && $set_id ) {
 				s/(bigsdb\.pl.*page=.+?)"/$1$set_string"/g;
+				if ( ~/bigsdb\.pl/ && !/page=/ ) {
+					s/(bigsdb\.pl.*)"/$1$set_string"/g;
+				}
 			}
 			print;
 		}
@@ -921,7 +989,7 @@ sub extract_scheme_desc {
 
 sub get_db_description {
 	my ($self) = @_;
-	my $desc   = $self->{'system'}->{'description'};
+	my $desc = $self->{'system'}->{'description'};
 	return $desc if $self->{'system'}->{'sets'} && $self->{'system'}->{'set_id'};
 	my $set_id = $self->get_set_id;
 	if ($set_id) {

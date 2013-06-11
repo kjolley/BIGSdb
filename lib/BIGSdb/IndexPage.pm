@@ -33,14 +33,7 @@ sub set_pref_requirements {
 sub initiate {
 	my ($self) = @_;
 	$self->{'jQuery'} = 1;
-	if ( $self->{'cgi'}->param('choose_set') ) {
-		my $guid = $self->get_guid;
-		if ($guid) {
-			$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, 'set_id', $self->{'cgi'}->param('sets_list') );
-		} else {
-			$self->{'system'}->{'sets'} = 'no';
-		}
-	}
+	$self->choose_set;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $set_id = $self->get_set_id;
 		my $scheme_data = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
@@ -182,50 +175,6 @@ TOOLTIPS
 	return;
 }
 
-sub print_set_section {
-	my ($self) = @_;
-	my $q      = $self->{'cgi'};
-	my $set_id = $self->get_set_id;
-	return if $self->{'system'}->{'set_id'} && BIGSdb::Utils::is_int( $self->{'system'}->{'set_id'} );
-	my $guid = $self->get_guid;
-	return if !$guid;    #Cookies disabled
-	my $sets =
-	  $self->{'datastore'}
-	  ->run_list_query_hashref("SELECT * FROM sets WHERE NOT hidden OR hidden IS NULL ORDER BY display_order,description");
-	return if !@$sets || ( @$sets == 1 && ( $self->{'system'}->{'only_sets'} // '' ) eq 'yes' );
-	say "<div class=\"box\" id=\"sets\">";
-	print << "SETS";
-<div class="scrollable">	
-<div style="float:left; margin-right:1em">
-<img src="/images/icons/64x64/choose.png" alt="" />
-<h2>Datasets</h2>
-<p>This database contains multiple datasets.  
-SETS
-	print(
-		( $self->{'system'}->{'only_sets'} // '' ) eq 'yes'
-		? '</p>'
-		: 'You can choose to display a single set or the whole database.</p>'
-	);
-	say $q->start_form;
-	say "<label for=\"sets_list\">Please select: </label>";
-	my @set_ids;
-
-	if ( ( $self->{'system'}->{'only_sets'} // '' ) ne 'yes' ) {
-		push @set_ids, 0;
-	}
-	my %labels = ( 0 => 'Whole database' );
-	foreach my $set (@$sets) {
-		push @set_ids, $set->{'id'};
-		$labels{ $set->{'id'} } = $set->{'description'};
-	}
-	say $q->popup_menu( -name => 'sets_list', -id => 'sets_list', -values => \@set_ids, -labels => \%labels, -default => $set_id );
-	say $q->submit( -name => 'choose_set', -label => 'Choose', -class => 'smallbutton' );
-	say $q->hidden($_) foreach qw (db page);
-	say $q->end_form;
-	say "</div></div></div>";
-	return;
-}
-
 sub _print_download_section {
 	my ( $self,           $scheme_data ) = @_;
 	my ( $scheme_ids_ref, $desc_ref )    = $self->extract_scheme_desc($scheme_data);
@@ -336,7 +285,8 @@ sub _print_general_info_section {
 	say "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$history_table&amp;"
 	  . "order=timestamp&amp;direction=descending&amp;submit=1$set_string\">"
 	  . ( $self->{'system'}->{'dbtype'} eq 'sequences' ? 'Profile u' : 'U' )
-	  . "pdate history</a></li>" if $history_exists;
+	  . "pdate history</a></li>"
+	  if $history_exists;
 	say "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=version\">About BIGSdb</a></li>";
 	say "</ul>\n</div>";
 	return;

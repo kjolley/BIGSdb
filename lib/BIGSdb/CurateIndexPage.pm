@@ -35,14 +35,7 @@ sub set_pref_requirements {
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (jQuery noCache);
-	if ( $self->{'cgi'}->param('choose_set') ) {
-		my $guid = $self->get_guid;
-		if ($guid) {
-			$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, 'set_id', $self->{'cgi'}->param('sets_list') );
-		} else {
-			$self->{'system'}->{'sets'} = 'no';
-		}
-	}
+	$self->choose_set;
 	$self->{'system'}->{'only_sets'} = 'no' if $self->is_admin;
 	return;
 }
