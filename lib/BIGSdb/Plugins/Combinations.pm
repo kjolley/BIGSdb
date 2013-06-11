@@ -196,7 +196,7 @@ sub run {
 				my ( $cleaned_html, $cleaned_text ) = ( $heading, $heading );
 				if ( $self->{'datastore'}->is_locus($heading) ) {
 					$cleaned_html = $self->clean_locus($heading);
-					$cleaned_text = $self->clean_locus( $heading, { text_output => 1 } );
+					$cleaned_text = $self->clean_locus( $heading, { text_output => 1, no_common_name => 1 } );
 				}
 				say "<th>$cleaned_html</th>";
 				print $fh "$cleaned_text\t";
