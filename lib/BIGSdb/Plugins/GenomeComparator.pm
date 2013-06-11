@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.5.3',
+		version     => '1.5.4',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/genome_comparator.shtml',
@@ -153,14 +153,14 @@ sub run_job {
 		my $seq_obj;
 		if ($accession) {
 			my @local_annotations = glob("$params->{'dbase_config_dir'}/$params->{'instance'}/annotations/$accession*");
-			if (@local_annotations){
+			if (@local_annotations) {
 				try {
-					my $seqio_obj = Bio::SeqIO->new(-file => $local_annotations[0] );
+					my $seqio_obj = Bio::SeqIO->new( -file => $local_annotations[0] );
 					$seq_obj = $seqio_obj->next_seq;
 				}
 				catch Bio::Root::Exception with {
 					throw BIGSdb::PluginException("Invalid data in local annotation $local_annotations[0].");
-				};				
+				};
 			} else {
 				my $seq_db = Bio::DB::GenBank->new;
 				$seq_db->verbose(2);    #convert warn to exception
@@ -202,9 +202,9 @@ sub run_job {
 }
 
 sub run {
-	my ($self) = @_;
+	my ($self)  = @_;
 	my $pattern = LOCUS_PATTERN;
-	my $desc = $self->get_db_description;
+	my $desc    = $self->get_db_description;
 	print "<h1>Genome Comparator - $desc</h1>\n";
 	my $q = $self->{'cgi'};
 	if ( $q->param('submit') ) {
@@ -262,7 +262,7 @@ sub run {
 		if ($continue) {
 			my $params = $q->Vars;
 			$params->{'dbase_config_dir'} = $self->{'system'}->{'dbase_config_dir'};
-			$params->{'instance'} = $self->{'instance'};
+			$params->{'instance'}         = $self->{'instance'};
 			my $job_id = $self->{'jobManager'}->add_job(
 				{
 					dbase_config => $self->{'instance'},
@@ -336,7 +336,7 @@ annotated reference genome and compare using the loci defined in that.</p>
 HTML
 	say $q->start_form;
 	say "<div class=\"scrollable\">";
-	$self->print_seqbin_isolate_fieldset( { use_all => $use_all, selected_ids => $selected_ids} );
+	$self->print_seqbin_isolate_fieldset( { use_all => $use_all, selected_ids => $selected_ids } );
 	$self->print_isolates_locus_fieldset;
 	$self->print_scheme_fieldset;
 	say "<fieldset style=\"float:left\">\n<legend>Reference genome</legend>";
@@ -344,9 +344,14 @@ HTML
 	say $q->textfield( -name => 'accession', -id => 'accession', -size => 10, -maxlength => 20 );
 	say " <a class=\"tooltip\" title=\"Reference genome - Use of a reference genome will override any locus "
 	  . "or scheme settings.\">&nbsp;<i>i</i>&nbsp;</a><br />";
+	my $set_id = $self->get_set_id;
+	my $set_annotation =
+	  ( $set_id && $self->{'system'}->{"set_$set_id\_annotation"} ) ? $self->{'system'}->{"set_$set_id\_annotation"} : '';
 
-	if ( $self->{'system'}->{'annotation'} ) {
-		my @annotations = split /;/, $self->{'system'}->{'annotation'};
+	if ( $self->{'system'}->{'annotation'} || $set_annotation ) {
+		my @annotations = $self->{'system'}->{'annotation'} ? split /;/, $self->{'system'}->{'annotation'} : ();
+		my @set_annotations = $set_annotation ? split /;/, $set_annotation : ();
+		push @annotations, @set_annotations;
 		my @names = ('');
 		my %labels;
 		foreach (@annotations) {
@@ -452,9 +457,9 @@ HTML
  <li>
 HTML
 	say $q->checkbox(
-		-name  => 'calc_distances',
-		-id    => 'calc_distances',
-		-label => 'Calculate mean distances',
+		-name     => 'calc_distances',
+		-id       => 'calc_distances',
+		-label    => 'Calculate mean distances',
 		-onChange => 'enable_seqs()'
 	);
 	print <<"HTML";
