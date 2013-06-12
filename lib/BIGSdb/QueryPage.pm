@@ -1321,6 +1321,7 @@ sub _modify_isolate_query_for_designations {
 	my ( %lqry, @lqry_blank, %combo );
 	my $pattern = LOCUS_PATTERN;
 	my $andor = defined $q->param('c1') && $q->param('c1') eq 'AND' ? ' AND ' : ' OR ';
+	my $qry_started = $qry =~ /\(\)$/ ? 0 : 1;
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		if ( defined $q->param("lt$i") && $q->param("lt$i") ne '' ) {
 			if ( $q->param("ls$i") =~ /$pattern/ ) {
@@ -1499,7 +1500,8 @@ sub _modify_isolate_query_for_designations {
 		if ( $qry =~ /\(\)$/ ) {
 			$qry = "SELECT * FROM $view WHERE $brace@lqry_blank";
 		} else {
-			$qry .= " $modify $brace(@lqry_blank)";
+			$qry .= keys %lqry ? " $modify" : ' AND';
+			$qry .= " $brace(@lqry_blank)";
 		}
 	}
 	if (@sqry) {
@@ -1509,7 +1511,8 @@ sub _modify_isolate_query_for_designations {
 		if ( $qry =~ /\(\)$/ ) {
 			$qry = "SELECT * FROM $view WHERE $sqry";
 		} else {
-			$qry .= " $andor $sqry";
+			$qry .= (keys %lqry || @lqry_blank) ? " $andor" : ' AND';
+			$qry .= " ($sqry)";
 			$qry .= ')' if ( scalar keys %lqry or @lqry_blank );
 		}
 	}
