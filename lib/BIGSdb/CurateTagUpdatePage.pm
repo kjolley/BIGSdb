@@ -97,15 +97,16 @@ sub print_content {
 		my $reverse_flag  = $reverse  ? 'true' : 'false';
 		my $complete_flag = $complete ? 'true' : 'false';
 		my $curator_id    = $self->get_curator_id;
+		(my $clean_locus = $locus) =~ s/'/\\'/g;
 		if ( $start != $q->param('start_pos') || $end != $q->param('end_pos') ) {
-			push @actions, "DELETE FROM allele_sequences WHERE seqbin_id=$seqbin_id AND locus='$locus' AND start_pos=$orig_start "
+			push @actions, "DELETE FROM allele_sequences WHERE seqbin_id=$seqbin_id AND locus=E'$clean_locus' AND start_pos=$orig_start "
 			  . "AND end_pos=$orig_end";
 			push @actions, "INSERT INTO allele_sequences (seqbin_id,locus,start_pos,end_pos,reverse,complete,curator,datestamp) "
-			  . "VALUES ($seqbin_id,'$locus',$start,$end,$reverse_flag,$complete_flag,$curator_id,'now')";
+			  . "VALUES ($seqbin_id,E'$clean_locus',$start,$end,$reverse_flag,$complete_flag,$curator_id,'now')";
 		} else {
 			push @actions,
 			    "UPDATE allele_sequences SET start_pos=$start, end_pos=$end, reverse=$reverse_flag, complete=$complete_flag, "
-			  . "curator=$curator_id, datestamp='today' WHERE seqbin_id='$seqbin_id' AND locus='$locus' AND start_pos=$orig_start AND "
+			  . "curator=$curator_id, datestamp='today' WHERE seqbin_id='$seqbin_id' AND locus=E'$clean_locus' AND start_pos=$orig_start AND "
 			  . "end_pos=$orig_end";
 		}
 		my $existing_flags =
@@ -113,15 +114,16 @@ sub print_content {
 		  ->run_list_query( "SELECT flag FROM sequence_flags WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=? ORDER BY flag",
 			$seqbin_id, $locus, $start, $end );
 		my @new_flags = $q->param('flags');
+		
 		foreach my $new_flag (@new_flags) {
 			if ( !@$existing_flags || none { $new_flag eq $_ } @$existing_flags ) {
 				push @actions, "INSERT INTO sequence_flags (seqbin_id,locus,start_pos,end_pos,flag,datestamp,curator) VALUES "
-				  . "($seqbin_id,'$locus',$start,$end,'$new_flag','now',$curator_id)";
+				  . "($seqbin_id,E'$clean_locus',$start,$end,'$new_flag','now',$curator_id)";
 			}
 		}
 		foreach my $existing_flag (@$existing_flags) {
 			if ( !@new_flags || none { $existing_flag eq $_ } @new_flags ) {
-				push @actions, "DELETE FROM sequence_flags WHERE seqbin_id=$seqbin_id AND locus='$locus' AND start_pos=$start "
+				push @actions, "DELETE FROM sequence_flags WHERE seqbin_id=$seqbin_id AND locus=E'$clean_locus' AND start_pos=$start "
 				  . "AND end_pos=$end AND flag='$existing_flag'";
 			}
 		}
