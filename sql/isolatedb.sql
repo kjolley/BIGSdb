@@ -517,7 +517,7 @@ ON UPDATE CASCADE
 );
 
 CREATE INDEX i_ad1 ON allele_designations (isolate_id);
-CREATE INDEX i_ad2 ON allele_designations (locus);
+-- Index i_ad2 (locus) removed as not necessary
 CREATE INDEX i_ad3 ON allele_designations (locus,allele_id);
 CREATE INDEX i_ad4 ON allele_designations (datestamp);
 GRANT SELECT,UPDATE,INSERT,DELETE ON allele_designations TO apache;
