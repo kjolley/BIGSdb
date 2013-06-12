@@ -193,7 +193,7 @@ sub _write_tab_text {
 			my $is_locus = $field =~ /^(s_\d+_l_|l_)/ ? 1 : 0;
 			$field =~ s/^(s_\d+_l|s_\d+_f|f|l|c|m)_//g;    #strip off prefix for header row
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-			$field =~ s/___/../;
+			$field =~ s/^.*___//;
 			if ($is_locus) {
 				$field = $self->clean_locus( $field, { text_output => 1 } );
 				if ( $prefs{'alleles'} ) {

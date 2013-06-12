@@ -318,7 +318,7 @@ sub print_fields {
 	foreach my $field (@$fields) {
 		my $label = $labels->{$field} || $field;
 		$label =~ s/^[lf]_// if $trim_prefix;
-		$label =~ s/___/../;
+		$label =~ s/^.*___//;          #only show extended field.
 		$label =~ s/^meta_[^:]+://;
 		$label =~ tr/_/ /;
 		my $id = $self->clean_checkbox_id("$prefix\_$field");
