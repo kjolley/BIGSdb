@@ -597,7 +597,7 @@ sub _tag {
 		} else {
 			$self->{'db'}->commit;
 			say "<div class=\"box\" id=\"resultsheader\"><p>Database updated ok.</p>";
-			say "<p><a href=\"$self->{'system'}->{'script_name'}db=$self->{'instance'}\">Back to main page</a> | "
+			say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a> | "
 			  . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;parameters=$scan_job\">"
 			  . "Reload scan form</a></p></div>";
 			say "<div class=\"box\" id=\"resultstable\">";
@@ -625,7 +625,7 @@ sub _tag {
 		}
 	} else {
 		say "<div class=\"box\" id=\"resultsheader\"><p>No updates required.</p>";
-		say "<p><a href=\"$self->{'system'}->{'script_name'}db=$self->{'instance'}\">Back to main page</a> | "
+		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a> | "
 		  . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;parameters=$scan_job\">"
 		  . "Reload scan form</a></p></div>";
 	}
