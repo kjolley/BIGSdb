@@ -22,7 +22,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin);
-use List::MoreUtils qw(none);
+use List::MoreUtils qw(none uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
@@ -127,7 +127,7 @@ sub get_attributes {
 		buttontext  => 'Codons',
 		menutext    => 'Codon usage',
 		module      => 'CodonUsage',
-		version     => '1.1.2',
+		version     => '1.1.3',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -247,6 +247,8 @@ sub run_job {
 	my $no_output     = 1;
 	my $selected_loci = $self->order_selected_loci($params);
 	my @list          = split /\|\|/, $params->{'list'};
+	@list = uniq @list;
+
 	if ( !@list ) {
 		my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
 		@list = @{ $self->{'datastore'}->run_list_query($qry) };

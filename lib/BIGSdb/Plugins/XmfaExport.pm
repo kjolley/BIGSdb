@@ -25,7 +25,7 @@ use 5.010;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
-use List::MoreUtils qw(any none);
+use List::MoreUtils qw(any none uniq);
 use Apache2::Connection ();
 use Bio::Perl;
 use Bio::SeqIO;
@@ -45,7 +45,7 @@ sub get_attributes {
 		buttontext  => 'XMFA',
 		menutext    => 'XMFA export',
 		module      => 'XmfaExport',
-		version     => '1.4.0',
+		version     => '1.4.1',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		section     => 'export,postquery',
@@ -208,6 +208,7 @@ sub run_job {
 	my $no_output     = 1;
 	my $selected_loci = $self->order_selected_loci($params);
 	my @list          = split /\|\|/, $params->{'list'};
+	@list = uniq @list;
 
 	if ( !@list ) {
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {

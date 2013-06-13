@@ -45,7 +45,7 @@ sub get_attributes {
 		buttontext  => 'Concatenate',
 		menutext    => 'Concatenate alleles',
 		module      => 'Concatenate',
-		version     => '1.2.0',
+		version     => '1.2.1',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		help        => 'tooltips',
@@ -92,6 +92,7 @@ sub run {
 		$pk = $pk_ref->[0];
 	}
 	my $list = $self->get_id_list( $pk, $query_file );
+	@$list = uniq @$list if ref $list eq 'ARRAY';
 	if ( $q->param('submit') ) {
 		my $loci_selected = $self->get_selected_loci;
 		my $scheme_ids    = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
