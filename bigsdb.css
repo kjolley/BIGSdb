@@ -692,7 +692,7 @@ fieldset ul {
 	list-style:none;  
 }  
 fieldset li {  
-	padding-bottom:0em;  
+	padding-bottom:0.2em;  
 }
 fieldset label.filter {    
 	float:left;    
@@ -701,7 +701,7 @@ fieldset label.filter {
 	text-align:right;  
 }
 
-fieldset label.form {    
+fieldset label.form { 
 	float:left;    
 	width:12em;    
 	margin-right:0.5em;    

@@ -287,7 +287,7 @@ sub _print_interface {
 					print "<a class=\"tooltip\" title=\"$thisfield->{'comments'}\">&nbsp;<i>i</i>&nbsp;</a> ";
 				}
 				print $label;
-				print ":&nbsp;";
+				print ':';
 				print '!' if $required;
 				say "</label>";
 				if ( $thisfield->{'optlist'} ) {
