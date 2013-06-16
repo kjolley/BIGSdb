@@ -692,7 +692,8 @@ sub get_scheme_list {
 			  . "schemes.display_order,schemes.description";
 		} else {
 			$qry =
-			  "SELECT id,description FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_members) ORDER BY display_order,description";
+			  "SELECT id,description,display_order FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_members) ORDER BY "
+			    . "display_order,description";
 		}
 	}
 	my $list = $self->run_list_query_hashref($qry);

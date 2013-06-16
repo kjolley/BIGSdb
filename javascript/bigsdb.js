@@ -11,7 +11,7 @@ $(function () {
 	$('div.content a.truncated').tooltip({ 
 	    track: false, 
 	});	
-	
+	$('.showhide').show();
 	$("#hidefromnonJS").removeClass("hiddenbydefault");
 	$("#hideonload").slideUp("normal");
 	$('.hideshow').hide();
@@ -35,11 +35,6 @@ $(function () {
 	
 	//Tooltips
 	reloadTooltips();
-	
-	//Fix for IE reset button not recognised within anchor
-	$("input.reset").click(function() { 
-	    location.href = $(this).closest("a").attr("href");
-	});
 	
 	//Add tooltip to truncated definition list titles
 	$('dt').each(function(){

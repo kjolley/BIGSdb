@@ -295,9 +295,7 @@ sub _print_interface {
 		say $q->start_form;
 		$q->param( 'sent', 1 );
 		say $q->hidden($_) foreach qw(page db sent);
-		say "<table>\n<tr><td colspan=\"2\" style=\"text-align:right\">";
-		say $q->submit( -name => 'Update', -class => 'submit' );
-		say "</td></tr>";
+		say "<table>";
 		my $set_id        = $self->get_set_id;
 		my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id, {curate => 1});
 		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
@@ -338,8 +336,8 @@ sub _print_interface {
 							-default => $data->{ lc($field) }
 						);
 					} else {
-						if ( $thisfield->{'length'} && $thisfield->{'length'} > 60 ) {
-							say $q->textarea( -name => $field, -rows => 3, -cols => 60, -default => $data->{ lc($field) } );
+						if ( $thisfield->{'length'} && $thisfield->{'length'} > 40 ) {
+							say $q->textarea( -name => $field, -rows => 3, -cols => 40, -default => $data->{ lc($field) } );
 						} else {
 							say $q->textfield( -name => $field, -size => $thisfield->{'length'}, -default => $data->{ lc($field) } );
 						}
@@ -362,10 +360,9 @@ sub _print_interface {
 		  $self->{'datastore'}
 		  ->run_list_query( "SELECT pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id", $q->param('id') );
 		say $q->textarea( -name => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@$pubmed" );
-		say "</td></tr>\n<tr><td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateUpdate&amp;"
-		  . "id=$data->{'id'}\" class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\">";
-		say $q->submit( -name => 'Update', -class => 'submit' );
-		say "</td></tr>\n</table>";
+		say "</td></tr>";
+		say "</table>";
+		$self->print_action_fieldset({submit_label => 'Update', id => $data->{'id'}});
 		say $q->end_form;
 		say "</td></tr></table></div>";
 	}

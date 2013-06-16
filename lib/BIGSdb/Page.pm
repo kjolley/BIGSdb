@@ -54,6 +54,7 @@ use constant ALLELE_FLAGS => (
 use constant DATABANKS     => qw(Genbank);
 use constant FLANKING      => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
 use constant LOCUS_PATTERN => qr/^(?:l|cn|la)_(.+?)(?:\|\|.+)?$/;
+use constant HTML5         => 0;
 our @EXPORT_OK = qw(SEQ_METHODS SEQ_FLAGS ALLELE_FLAGS DATABANKS FLANKING LOCUS_PATTERN);
 
 sub new {    ## no critic
@@ -213,7 +214,7 @@ sub print_page_content {
 				push @javascript,
 				  ( { 'language' => 'Javascript', 'src' => "http://ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/jquery-ui.min.js" } );
 			}
-			push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/bigsdb.js?v20130503" } );
+			push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/bigsdb.js?v20130615" } );
 			if ( $self->{'jQuery.tablesort'} ) {
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.tablesorter.js?v20110725" } );
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.metadata.js" } );
@@ -276,7 +277,15 @@ sub print_page_content {
 		} else {
 			push @args, ( -head => $http_equiv );
 		}
-		print $q->start_html(@args);
+
+		#		print $q->start_html(@args);
+		my $head = $q->start_html(@args);
+		if (HTML5){
+			my $dtd  = '<!DOCTYPE html>';
+			$head =~ s/<!DOCTYPE.*?>/$dtd/s;    #CGI.pm doesn't support HTML5 DOCTYPE
+			$head =~ s/<html[^>]*>/<html>/;
+		}
+		say $head;                          
 		$self->_print_header;
 		$self->_print_login_details
 		  if ( defined $self->{'system'}->{'read_access'} && $self->{'system'}->{'read_access'} ne 'public' ) || $self->{'curate'};
@@ -293,7 +302,7 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system    = $self->{'system'};
-	my $version   = '20130503';
+	my $version   = '20130615';
 	my @filenames = qw(bigsdb.css jquery-ui.css);
 	my @paths;
 	foreach my $filename (@filenames) {
@@ -366,7 +375,7 @@ sub print_action_fieldset {
 	my $submit_label = $options->{'submit_label'} // 'Submit';
 	my $buffer       = "<fieldset style=\"float:left\"><legend>Action</legend>\n";
 	my $url          = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page";
-	my @fields       = qw (scheme_id table name ruleset locus profile_id simple set_id);
+	my @fields       = qw (id scheme_id table name ruleset locus profile_id simple set_id);
 	if ( $options->{'table'} ) {
 		my $pk_fields = $self->{'datastore'}->get_table_pks( $options->{'table'} );
 		push @fields, @$pk_fields;
@@ -374,12 +383,18 @@ sub print_action_fieldset {
 	foreach ( uniq @fields ) {
 		$url .= "&amp;$_=$options->{$_}" if defined $options->{$_};
 	}
+
+	#use jquery-ui button classes to ensure consistent formatting of reset link and submit button across browsers
 	if ( !$options->{'no_reset'} ) {
-		$buffer .= "<a href=\"$url\" style=\"text-decoration:none\">";
-		$buffer .= $q->button( -name => 'reset', -label => 'Reset', -class => 'reset' );
+		$buffer .= "<a  href=\"$url\" class=\"resetbutton ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only \">"
+		  . "<span class=\"ui-button-text\">Reset</span>";
 		$buffer .= "</a>\n";
 	}
-	$buffer .= $q->submit( -name => 'submit', -label => $submit_label, -class => 'submit' );
+	$buffer .= $q->submit(
+		-name  => 'submit',
+		-label => $submit_label,
+		-class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all'
+	);
 	$buffer .= "</fieldset><div style=\"clear:both\"></div>";
 	return $buffer if $options->{'get_only'};
 	say $buffer;
@@ -753,7 +768,7 @@ sub get_filter {
 	$options = {} if ref $options ne 'HASH';
 	my $class = $options->{'class'} || 'filter';
 	( my $text = $options->{'text'} || $name ) =~ tr/_/ /;
-	my ( $label, $title ) = $self->_get_truncated_label("$text: ");
+	my ( $label, $title ) = $self->get_truncated_label("$text: ");
 	my $title_attribute = $title ? "title=\"$title\"" : '';
 	( my $id = "$name\_list" ) =~ tr/:/_/;
 	my $buffer = "<label for=\"$id\" class=\"$class\" $title_attribute>$label</label>\n";
@@ -913,13 +928,14 @@ sub get_sequence_method_filter {
 	);
 }
 
-sub _get_truncated_label {
-	my ( $self, $label ) = @_;
+sub get_truncated_label {
+	my ( $self, $label, $length ) = @_;
+	$length //= 25;
 	my $title;
-	if ( length $label > 25 ) {
+	if ( length $label > $length ) {
 		$title = $label;
 		$title =~ tr/\"//;
-		$label = substr( $label, 0, 20 ) . "&#133";
+		$label = substr( $label, 0, $length - 5 ) . "&hellip;";
 	}
 	return ( $label, $title );
 }

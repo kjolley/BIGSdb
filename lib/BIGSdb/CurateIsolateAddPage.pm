@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CurateAddPage);
-use List::MoreUtils qw(none uniq);
+use List::MoreUtils qw(any none uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant SUCCESS => 1;
@@ -187,7 +187,7 @@ sub _insert {
 		if ( $q->param("locus:$locus") ) {
 			$qry =
 			    "INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp) "
-			  . "VALUES ($newdata->{'id'},E'$locus',E'$newdata->{\"locus:$locus\"}',$newdata->{'sender'},'$newdata->{\"locus:$locus\_status\"}',"
+			  . "VALUES ($newdata->{'id'},E'$locus',E'$newdata->{\"locus:$locus\"}',$newdata->{'sender'},'confirmed',"
 			  . "'manual',$newdata->{'curator'},'today','today')";
 			push @inserts, $qry;
 		}
@@ -243,9 +243,7 @@ sub _insert {
 sub _print_interface {
 	my ( $self, $newdata ) = @_;
 	my $set_id = $self->get_set_id;
-	my $loci = $self->{'datastore'}->get_loci( { query_pref => 1, set_id => $set_id } );
-	@$loci = uniq @$loci;
-	my $q = $self->{'cgi'};
+	my $q      = $self->{'cgi'};
 	say "<div class=\"box\" id=\"queryform\"><p>Please fill in the fields below - required fields are "
 	  . "marked with an exclamation mark (!).</p>";
 	say "<div class=\"scrollable\">";
@@ -253,7 +251,6 @@ sub _print_interface {
 	my $user_data =
 	  $self->{'datastore'}
 	  ->run_list_query_hashref("SELECT id,user_name,first_name,surname FROM users WHERE id>0 ORDER BY surname, first_name, user_name");
-
 	foreach (@$user_data) {
 		push @users, $_->{'id'};
 		$usernames{ $_->{'id'} } = "$_->{'surname'}, $_->{'first_name'} ($_->{'user_name'})";
@@ -263,16 +260,12 @@ sub _print_interface {
 	say $q->hidden($_) foreach qw(page db sent);
 	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
 	my $field_list = $self->{'xmlHandler'}->get_field_list($metadata_list);
-	if ( @$field_list > 15 ) {
-		say "<span style=\"float:right\">";
-		say $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-		say "</span>";
-	}
-	say "<fieldset><legend>Isolate fields</legend>";
+	say "<fieldset style=\"float:left\"><legend>Isolate fields</legend>";
+	say "<div style=\"white-space:nowrap\">";
 	say "<p><span class=\"metaset\">Metadata</span><span class=\"comment\">: These fields are available in the specified "
 	  . "dataset only.</span></p>"
 	  if !$set_id && @$metadata_list;
-	say "<table>";
+	say "<ul>";
 
 	#Display required fields first
 	foreach my $required ( 1, 0 ) {
@@ -282,24 +275,33 @@ sub _print_interface {
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			$required_field = 0 if !$set_id && defined $metaset;    #Field can't be compulsory if part of a metadata collection.
 			if ( $required_field == $required ) {
-				print "<tr><td style=\"text-align:right\">";
+				( my $cleaned_name = $metafield // $field ) =~ tr/_/ /;
+				my ( $label, $title ) = $self->get_truncated_label( $cleaned_name, 20 );
+				my $title_attribute = $title ? " title=\"$title\"" : '';
+				my $for =
+				  ( none { $field eq $_ } qw (curator date_entered datestamp) )
+				  ? " for=\"$field\""
+				  : '';
+				print "<li><label$for class=\"form\"$title_attribute>";
 				if ( $thisfield->{'comments'} ) {
 					print "<a class=\"tooltip\" title=\"$thisfield->{'comments'}\">&nbsp;<i>i</i>&nbsp;</a> ";
 				}
-				print $metafield // $field;
-				print ": ";
+				print $label;
+				print ":&nbsp;";
 				print '!' if $required;
-				print "</td><td style=\"text-align:left\">";
+				say "</label>";
 				if ( $thisfield->{'optlist'} ) {
 					my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
 					say $q->popup_menu(
 						-name    => $field,
+						-id      => $field,
 						-values  => [ '', @$optlist ],
 						-default => ( $newdata->{$field} // $thisfield->{'default'} )
 					);
 				} elsif ( $thisfield->{'type'} eq 'bool' ) {
 					say $q->popup_menu(
 						-name   => $field,
+						-id     => $field,
 						-values => [ '', 'true', 'false' ],
 						-default => ( $newdata->{$field} // $thisfield->{'default'} )
 					);
@@ -310,6 +312,7 @@ sub _print_interface {
 				} elsif ( lc($field) ~~ [qw(sender sequenced_by)] || ( $thisfield->{'userfield'} // '' ) eq 'yes' ) {
 					say $q->popup_menu(
 						-name    => $field,
+						-id      => $field,
 						-values  => [ '', @users ],
 						-labels  => \%usernames,
 						-default => ( $newdata->{$field} // $thisfield->{'default'} )
@@ -318,6 +321,7 @@ sub _print_interface {
 					if ( ( $thisfield->{'length'} // 0 ) > 60 ) {
 						say $q->textarea(
 							-name    => $field,
+							-id      => $field,
 							-rows    => 3,
 							-cols    => 40,
 							-default => ( $newdata->{$field} // $thisfield->{'default'} )
@@ -325,6 +329,7 @@ sub _print_interface {
 					} else {
 						say $q->textfield(
 							-name    => $field,
+							-id      => $field,
 							-size    => $thisfield->{'length'},
 							-default => ( $newdata->{$field} // $thisfield->{'default'} )
 						);
@@ -334,41 +339,78 @@ sub _print_interface {
 				if ( ( none { lc($field) eq $_ } qw(datestamp date_entered) ) && lc( $thisfield->{'type'} ) eq 'date' ) {
 					say " format: yyyy-mm-dd";
 				}
-				say "</td></tr>";
+				say "</li>";
 			}
 		}
 	}
-	say "<tr><td style=\"text-align:right\">aliases: </td><td>";
-	say $q->textarea( -name => 'aliases', -rows => 2, -cols => 12, -style => 'width:10em' );
-	say "</td></tr>";
-	say "<tr><td style=\"text-align:right\">PubMed ids: </td><td>";
-	say $q->textarea( -name => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em' );
-	say "</td></tr>";
-	my $locus_buffer;
-
-	if ( @$loci <= 100 ) {
-		foreach my $locus (@$loci) {
-			my $cleaned = $self->clean_locus($locus);
-			$locus_buffer .= "<tr><td style=\"text-align:right\">$cleaned: </td><td style=\"white-space: nowrap\">";
-			$locus_buffer .= $q->textfield( -name => "locus:$locus", -size => 10, -default => $newdata->{$locus} );
-			$locus_buffer .=
-			  $q->popup_menu( -name => "locus:$locus\_status", -values => [qw(confirmed provisional)], -default => $newdata->{$locus}, );
-			$locus_buffer .= "</td></tr>";
-		}
-	} else {
-		$locus_buffer .= "<tr><td style=\"text-align:right\">Loci: </td><td style=\"white-space: nowrap\">Too many to display. "
-		  . "You can batch add allele designations after entering isolate provenace data.</td></tr>\n";
-	}
-	say "</table>";
+	say "<li><label for=\"aliases\" class=\"form\">aliases:&nbsp;</label>";
+	say $q->textarea( -name => 'aliases', -id => 'aliases', -rows => 2, -cols => 12, -style => 'width:10em' );
+	say "</li>";
+	say "<li><label for=\"pubmed\" class=\"form\">PubMed ids:&nbsp;</label>";
+	say $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em' );
+	say "</li>";
+	say "</ul></div>";
 	say "</fieldset>";
-	say "<fieldset><legend>Allele designations</legend>\n<table>$locus_buffer</table></fieldset>" if @$loci;
-	say "<div style=\"margin-bottom:2em\">\n<span style=\"float:left\"><a href=\"$self->{'system'}->{'script_name'}?"
-	  . "db=$self->{'instance'}&amp;page=isolateAdd\" class=\"resetbutton\">Reset</a></span><span style=\"float:right\">";
-	say $q->submit( -name => 'submit', -label => 'Submit', -class => 'submit' );
-	say "</span></div>";
+	$self->_print_allele_designation_form_elements($newdata);
+	$self->print_action_fieldset;
 	say $q->end_form;
 	say "</div></div>";
 	return;
+}
+
+sub _print_allele_designation_form_elements {
+	my ( $self, $newdata ) = @_;
+	my $locus_buffer;
+	my $set_id = $self->get_set_id;
+	my $q      = $self->{'cgi'};
+	my $loci   = $self->{'datastore'}->get_loci( { query_pref => 1, set_id => $set_id } );
+	@$loci = uniq @$loci;
+	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+	my $schemes_with_display_order = any { defined $_->{'display_order'} } @$schemes;
+
+	if ( @$loci <= 100 ) {
+		foreach my $scheme (@$schemes) {
+			$locus_buffer .= $self->_print_scheme_form_elements( $scheme->{'id'}, $newdata );
+		}
+		$locus_buffer .= $self->_print_scheme_form_elements( 0, $newdata );
+	} elsif ($schemes_with_display_order) {
+		foreach my $scheme (@$schemes) {
+			next if !defined $scheme->{'display_order'};
+			$locus_buffer .= $self->_print_scheme_form_elements( $scheme->{'id'}, $newdata );
+		}
+	} else {
+		$locus_buffer .= "<p>Too many to display. You can batch add allele designations after entering isolate provenace data.</p>\n";
+	}
+	if (@$loci) {
+		say "<div id=\"scheme_loci_add\" style=\"overflow:auto\">";
+		say "<fieldset style=\"float:left\"><legend>Allele&nbsp;designations</legend>\n$locus_buffer</fieldset>";
+		say "</div>";
+	}
+	return;
+}
+
+sub _print_scheme_form_elements {
+	my ( $self, $scheme_id, $newdata ) = @_;
+	my $q      = $self->{'cgi'};
+	my $set_id = $self->get_set_id;
+	my $loci;
+	my $buffer = '';
+	if ($scheme_id) {
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
+		$loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+		$buffer = @$loci ? "<h3 class=\"scheme\" style=\"clear:both\">$scheme_info->{'description'}</h3>\n" : '';
+	} else {
+		$loci = $self->{'datastore'}->get_loci_in_no_scheme( set_id => $set_id );
+		$buffer = @$loci ? "<h3 class=\"scheme\" style=\"clear:both\">Loci not in a scheme</h3>\n" : '';
+	}
+	foreach my $locus (@$loci) {
+		my $cleaned_name = $self->clean_locus($locus);
+		$buffer .= "<dl class=\"profile\">";
+		$buffer .= "<dt>$cleaned_name</dt><dd>";
+		$buffer .= $q->textfield( -name => "locus:$locus", -id => "locus:$locus", -size => 10, -default => $newdata->{$locus} );
+		$buffer .= "</dd></dl>";
+	}
+	return $buffer;
 }
 
 sub get_title {
