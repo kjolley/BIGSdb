@@ -54,8 +54,8 @@ use constant ALLELE_FLAGS => (
 use constant DATABANKS     => qw(Genbank);
 use constant FLANKING      => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
 use constant LOCUS_PATTERN => qr/^(?:l|cn|la)_(.+?)(?:\|\|.+)?$/;
-use constant HTML5         => 0;
-our @EXPORT_OK = qw(SEQ_METHODS SEQ_FLAGS ALLELE_FLAGS DATABANKS FLANKING LOCUS_PATTERN);
+use constant HTML5         => 1;
+our @EXPORT_OK = qw(SEQ_METHODS SEQ_FLAGS ALLELE_FLAGS DATABANKS FLANKING LOCUS_PATTERN HTML5);
 
 sub new {    ## no critic
 	my $class = shift;
@@ -1895,5 +1895,21 @@ sub get_all_foreign_key_fields_and_labels {
 		$desc{ $data->{'id'} } = $temp;
 	}
 	return ( \@fields, \%desc );
+}
+
+sub textfield {
+	#allow HTML5 attributes (use instead of CGI->textfield)
+	my ($self, %args) = @_;
+	if (($args{'type'} // '') eq 'number'){
+		delete @args{qw(size maxlength)};
+	}
+	$args{'type'} //= 'text';
+	my $args_string;
+	foreach (keys %args){
+		$args{$_} //= '';
+		$args_string.= qq/$_="$args{$_}" /;
+	}
+	my $buffer = "<input $args_string/>";
+	return $buffer;
 }
 1;

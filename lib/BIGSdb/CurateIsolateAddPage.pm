@@ -283,9 +283,7 @@ sub _print_interface {
 				  ? " for=\"$field\""
 				  : '';
 				print "<li><label$for class=\"form\"$title_attribute>";
-				if ( $thisfield->{'comments'} ) {
-					print "<a class=\"tooltip\" title=\"$thisfield->{'comments'}\">&nbsp;<i>i</i>&nbsp;</a> ";
-				}
+
 				print $label;
 				print ':';
 				print '!' if $required;
@@ -336,6 +334,9 @@ sub _print_interface {
 					}
 				}
 				say " <span class=\"metaset\">Metadata: $metaset</span>" if !$set_id && defined $metaset;
+				if ( $thisfield->{'comments'} ) {
+					say "<a class=\"tooltip\" title=\"$thisfield->{'comments'}\">&nbsp;<i>i</i>&nbsp;</a>&nbsp;";
+				}
 				if ( ( none { lc($field) eq $_ } qw(datestamp date_entered) ) && lc( $thisfield->{'type'} ) eq 'date' ) {
 					say " format: yyyy-mm-dd";
 				}
