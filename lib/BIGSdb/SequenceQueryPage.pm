@@ -37,7 +37,7 @@ sub get_title {
 sub get_javascript {
 	my $buffer = << "END";
 \$(function () {
-	\$('a[rel=ajax]').click(function(){
+	\$('a[data-rel=ajax]').click(function(){
   		\$(this).attr('href', function(){
   			if (this.href.match(/javascript.loadContent/)){
   				return;
@@ -698,7 +698,7 @@ sub get_alignment {
 	if ( -e $outfile ) {
 		my $cleaned_file = "$self->{'config'}->{'tmp_dir'}/$outfile_prefix\_cleaned.txt";
 		$self->_cleanup_alignment( $outfile, $cleaned_file );
-		$buffer .= "<p><a href=\"/tmp/$outfile_prefix\_cleaned.txt\" id=\"alignment_link\" rel=\"ajax\">Show alignment</a></p>\n";
+		$buffer .= "<p><a href=\"/tmp/$outfile_prefix\_cleaned.txt\" id=\"alignment_link\" data-rel=\"ajax\">Show alignment</a></p>\n";
 		$buffer .= "<pre style=\"font-size:1.2em\"><span id=\"alignment\"></span></pre>\n";
 	}
 	return $buffer;

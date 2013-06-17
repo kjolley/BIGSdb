@@ -188,7 +188,7 @@ HTML
 				if ( $output->{$_} =~ /\.png$/ ) {
 					my $title = $link_text . ( $comments ? " - $comments" : '' );
 					$text .=
-					    "<br /><a href=\"/tmp/$output->{$_}\" rel=\"lightbox-1\" class=\"lightbox\" title=\"$title\">"
+					    "<br /><a href=\"/tmp/$output->{$_}\" data-rel=\"lightbox-1\" class=\"lightbox\" title=\"$title\">"
 					  . "<img src=\"/tmp/$output->{$_}\" alt=\"\" style=\"max-width:200px;border:1px dashed black\" /></a>"
 					  . " (click to enlarge)";
 				}
