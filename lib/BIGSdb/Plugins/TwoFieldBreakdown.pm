@@ -305,7 +305,7 @@ sub _breakdown {
 	$self->_print_controls;
 	say "<div class=\"scrollable\" style=\"clear:both\">";
 	say "<table class=\"tablesorter\" id=\"sortTable\">\n<thead>";
-	say "<tr><td /><td colspan=\"$numfield2\" class=\"header\">$html_field2</td></tr>";
+	say "<tr><td></td><td colspan=\"$numfield2\" class=\"header\">$html_field2</td></tr>";
 	say $fh "$text_field1\t$text_field2";
 	local $" = "</th><th class=\"{sorter: 'digit'}\">";
 	say "<tr><th>$html_field1</th><th class=\"{sorter: 'digit'}\">@field2values</th><th class=\"{sorter: 'digit'}\">"

@@ -246,7 +246,7 @@ sub _check {
 	}
 	if ($table_rows) {
 		say $buffer;
-		say "</table><p />";
+		say "</table>";
 		open( my $fh, '>', $file ) or $logger->error("Can't open temp file $file for writing");
 		foreach my $i ( 0 .. @rows - 1 ) {
 			say $fh "$id[$i]\t$reverse_mapped{$field[$i]}\t$value[$i]" if $update[$i];
@@ -261,7 +261,7 @@ sub _check {
 	} else {
 		say "<div class=\"box\" id=\"statusbad\"><p>No valid values to update.</p>";
 	}
-	say "<p /><p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p>\n</div>";
+	say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p>\n</div>";
 	return;
 }
 
@@ -367,7 +367,7 @@ sub _update {
 	if ( !$changes ) {
 		say "<p>No changes to be made.</p>";
 	} else {
-		say "<p /><table class=\"resultstable\"><tr><th>$scheme_info->{'primary_key'}</th><th>Field</th><th>Old value</th>"
+		say "<table class=\"resultstable\"><tr><th>$scheme_info->{'primary_key'}</th><th>Field</th><th>Old value</th>"
 		  . "<th>New value</th><th>Status</th></tr>$tablebuffer</table>";
 		if ($update_error) {
 			$self->{'db'}->rollback;

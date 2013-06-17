@@ -398,7 +398,6 @@ sub _print_allele_designations {
 	my $locus_summary = $isolate_record->get_loci_summary( $data->{'id'} );
 	$locus_summary =~ s /<table class=\"resultstable\">\s*<\/table>//;
 	say $locus_summary;
-	say "<p />";
 	say $q->start_form;
 	my $set_id = $self->get_set_id;
 	my ( $loci, $labels ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
@@ -435,7 +434,7 @@ sub _print_samples {
 			)
 		);
 		say $isolate_record->get_sample_summary( $data->{'id'} );
-		say "<p /><p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;"
+		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;"
 		  . "table=samples&amp;isolate_id=$data->{'id'}\" class=\"button\">&nbsp;Add new sample&nbsp;</a></p>";
 		say "</div>";
 	}

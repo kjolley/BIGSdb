@@ -497,7 +497,7 @@ sub _print_isolate_table {
 						eval { $attribute_sql->execute( $thisfieldname, $extended_attribute, $data{$thisfieldname} ) };
 						$logger->error($@) if $@;
 						my ($value) = $attribute_sql->fetchrow_array;
-						print defined $value ? "<td>$value</td>" : '<td />';
+						print defined $value ? "<td>$value</td>" : '<td></td>';
 					}
 				}
 			}
@@ -506,7 +506,7 @@ sub _print_isolate_table {
 					next if $composite_display_pos{$_} ne $thisfieldname;
 					if ( $self->{'prefs'}->{'maindisplayfields'}->{$_} ) {
 						my $value = $self->{'datastore'}->get_composite_value( $id, $_, \%data );
-						print defined $value ? "<td>$value</td>" : '<td />';
+						print defined $value ? "<td>$value</td>" : '<td></td>';
 					}
 				}
 			}
@@ -800,10 +800,10 @@ sub _print_isolate_table_scheme {
 					print $url                 ? "<a href=\"$url\">$values->{lc($field)}</a>" : $values->{ lc($field) };
 					print $provisional_profile ? '</span></td>'                               : '</td>';
 				} else {
-					print '<td />';
+					print '<td></td>';
 				}
 			} else {
-				print "<td />";
+				print "<td></td>";
 			}
 		}
 	}
@@ -892,12 +892,12 @@ sub _print_profile_table {
 		}
 		foreach (@$scheme_fields) {
 			next if $_ eq $primary_key;
-			print defined $data->{ lc($_) } ? "<td>$data->{lc($_)}</td>" : '<td />';
+			print defined $data->{ lc($_) } ? "<td>$data->{lc($_)}</td>" : '<td></td>';
 		}
 		print "</tr>\n";
 		$td = $td == 1 ? 2 : 1;
 	}
-	print "</table></div>\n<p />\n";
+	print "</table></div>\n\n";
 	if ( !$self->{'curate'} ) {
 		$self->_print_plugin_buttons( $qryref, $records );
 	}
@@ -915,7 +915,7 @@ sub _print_plugin_buttons {
 	my $plugin_categories =
 	  $self->{'pluginManager'}->get_plugin_categories( 'postquery', $self->{'system'}->{'dbtype'}, { seqdb_type => $seqdb_type } );
 	if (@$plugin_categories) {
-		print "<p />\n<h2>Analysis tools:</h2>\n<div class=\"scrollable\">\n<table>";
+		print "\n<h2>Analysis tools:</h2>\n<div class=\"scrollable\">\n<table>";
 		my $query_temp_file_written = 0;
 		my ( $filename, $full_file_path );
 		do {
@@ -1155,7 +1155,7 @@ sub _print_record_table {
 				}
 			} elsif ( $table_info->{'type'}->{$field} eq 'bool' ) {
 				if ( $data{ lc($field) } eq '' ) {
-					print "<td />";
+					print "<td></td>";
 				} else {
 					my $value = $data{ lc($field) } ? 'true' : 'false';
 					print "<td>$value</td>";
@@ -1164,7 +1164,7 @@ sub _print_record_table {
 					my $flags =
 					  $self->{'datastore'}->get_sequence_flag( $data{'seqbin_id'}, $data{'locus'}, $data{'start_pos'}, $data{'end_pos'} );
 					local $" = "</a> <a class=\"seqflag_tooltip\">";
-					print @$flags ? "<td><a class=\"seqflag_tooltip\">@$flags</a></td>" : "<td />";
+					print @$flags ? "<td><a class=\"seqflag_tooltip\">@$flags</a></td>" : "<td></td>";
 				}
 			} elsif ( ( $field =~ /sequence$/ || $field =~ /^primer/ ) && $field ne 'coding_sequence' ) {
 				if ( length( $data{ lc($field) } ) > 60 ) {
@@ -1234,19 +1234,19 @@ sub _print_record_table {
 				eval { $ext_sql->execute( $data{'locus'}, $_, $data{'allele_id'} ); };
 				$logger->error($@) if $@;
 				my ($value) = $ext_sql->fetchrow_array;
-				print defined $value ? "<td>$value</td>" : '<td />';
+				print defined $value ? "<td>$value</td>" : '<td></td>';
 			}
 		}
 		if ( $table_info->{'linked_data'} ) {
 			my $field_values = $self->{'datastore'}->get_client_dbase_fields( $data{'locus'}, [ $data{'allele_id'} ] );
-			print defined $field_values ? "<td style=\"text-align:left\">$field_values</td>" : '<td />';
+			print defined $field_values ? "<td style=\"text-align:left\">$field_values</td>" : '<td></td>';
 		}
 		if (   ( ( $q->param('page') eq 'tableQuery' && $q->param('table') eq 'sequences' ) || $q->param('page') eq 'alleleQuery' )
 			&& ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' )
 		{
 			my $flags = $self->{'datastore'}->get_allele_flags( $data{'locus'}, $data{'allele_id'} );
 			local $" = '</a> <a class="seqflag_tooltip">';
-			print @$flags ? "<td><a class=\"seqflag_tooltip\">@$flags</a></td>" : '<td />';
+			print @$flags ? "<td><a class=\"seqflag_tooltip\">@$flags</a></td>" : '<td></td>';
 		}
 		print "</tr>\n";
 		$td = $td == 2 ? 1 : 2;
@@ -1300,7 +1300,7 @@ sub _print_publication_table {
 			  if $refdata->{'volume'};
 			$buffer .= " $refdata->{'pages'}</td>\n";
 		}
-		$buffer .= defined $refdata->{'title'} ? "<td style=\"text-align:left\">$refdata->{'title'}</td>" : '<td />';
+		$buffer .= defined $refdata->{'title'} ? "<td style=\"text-align:left\">$refdata->{'title'}</td>" : '<td></td>';
 		if ( defined $q->param('calling_page') && $q->param('calling_page') ne 'browse' && !$q->param('all_records') ) {
 			$buffer .= "<td>$refdata->{'isolates'}</td>";
 		}

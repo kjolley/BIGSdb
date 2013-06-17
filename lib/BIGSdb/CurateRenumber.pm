@@ -111,7 +111,7 @@ sub print_content {
 		$logger->error($@) if $@;
 		my ($existing) = $existing_sql->fetchrow_array;
 		print "<tr class=\"td$td\"><td>$locus</td>";
-		print defined $existing ? "<td>$existing</td>" : '<td />';
+		print defined $existing ? "<td>$existing</td>" : '<td></td>';
 		print "<td>$pos</td></tr>\n";
 		$td = $td == 1 ? 2 : 1;
 	}

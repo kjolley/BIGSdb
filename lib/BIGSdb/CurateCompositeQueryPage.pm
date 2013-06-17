@@ -85,8 +85,8 @@ sub _create_query_table {
 				$missing .= "<span class=\"text\">$1</span>";
 			}
 		}
-		print defined $value ? "<td>$value</td>" : "<td />";
-		print defined $missing ? "<td>$missing</td>" : "<td />";
+		print defined $value ? "<td>$value</td>" : "<td></td>";
+		print defined $missing ? "<td>$missing</td>" : "<td></td>";
 		print "</tr>\n";
 		$td = $td == 1 ? 2 : 1;    #row stripes
 	}

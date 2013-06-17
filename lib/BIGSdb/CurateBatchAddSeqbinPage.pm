@@ -142,7 +142,7 @@ HTML
 	say $q->reset( -class => 'reset' );
 	say "</td><td style=\"text-align:right\">";
 	say $q->submit( -class => 'submit' );
-	say "</td></tr></table><p />";
+	say "</td></tr></table>";
 	say $q->end_form;
 	say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back</a></p>";
 	say "</div>";
@@ -225,7 +225,7 @@ sub _check_data {
 			}
 			$buffer .= "<tr class=\"td$td\"><td>$designation</td>";
 			$buffer .= "<td>$length</td>";
-			$buffer .= defined $comments ? "<td>$comments</td>" : '<td />';
+			$buffer .= defined $comments ? "<td>$comments</td>" : '<td></td>';
 			$buffer .= "</tr>\n";
 			$td = $td == 1 ? 2 : 1;
 		}

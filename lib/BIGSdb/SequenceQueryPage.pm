@@ -371,14 +371,14 @@ sub _output_single_query_exact {
 			  if $locus && $allele_id;
 		}
 		$buffer .= "$allele</a></td><td>$_->{'length'}</td><td>$_->{'start'}</td><td>$_->{'end'}</td>";
-		$buffer .= defined $field_values ? "<td style=\"text-align:left\">$field_values</td>" : '<td />' if $data->{'linked_data'};
-		$buffer .= defined $attributes ? "<td style=\"text-align:left\">$attributes</td>" : '<td />' if $data->{'extended_attributes'};
+		$buffer .= defined $field_values ? "<td style=\"text-align:left\">$field_values</td>" : '<td></td>' if $data->{'linked_data'};
+		$buffer .= defined $attributes ? "<td style=\"text-align:left\">$attributes</td>" : '<td></td>' if $data->{'extended_attributes'};
 		if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
 			local $" = '</a> <a class="seqflag_tooltip">';
-			$buffer .= @$flags ? "<td style=\"text-align:left\"><a class=\"seqflag_tooltip\">@$flags</a></td>" : '<td />';
+			$buffer .= @$flags ? "<td style=\"text-align:left\"><a class=\"seqflag_tooltip\">@$flags</a></td>" : '<td></td>';
 		}
 		if ( ( $self->{'system'}->{'allele_comments'} // '' ) eq 'yes' ) {
-			$buffer .= $allele_info->{'comments'} ? "<td>$allele_info->{'comments'}</td>" : '<td />';
+			$buffer .= $allele_info->{'comments'} ? "<td>$allele_info->{'comments'}</td>" : '<td></td>';
 		}
 		$buffer .= "</tr>\n";
 		$displayed++;

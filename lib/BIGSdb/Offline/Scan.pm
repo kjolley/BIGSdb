@@ -610,7 +610,7 @@ sub _get_missing_row {
 	$buffer .= "<td>" . ( $labels->{$isolate_id} || $isolate_id ) . "</td><td>missing</td><td>$cleaned_locus";
 	$buffer .= "</td>";
 	$buffer .= "<td>0</td>";
-	$buffer .= "<td /><td /><td /><td /><td /><td /><td /><td /><td /><td /><td>";
+	$buffer .= "<td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>";
 	$cleaned_locus = $self->clean_checkbox_id($locus);
 	$cleaned_locus =~ s/\\/\\\\/g;
 	$buffer .= $q->checkbox(
@@ -622,7 +622,7 @@ sub _get_missing_row {
 	$buffer .= $q->hidden( "id_$isolate_id\_$locus\_allele_id_1", 0 );
 	push @$js,  "\$(\"#id_$isolate_id\_$cleaned_locus\_allele_1\").prop(\"checked\",true)";
 	push @$js2, "\$(\"#id_$isolate_id\_$cleaned_locus\_allele_1\").prop(\"checked\",false)";
-	$buffer .= "</td><td /><td />";
+	$buffer .= "</td><td></td><td></td>";
 	$buffer .= "</tr>\n";
 	return $buffer;
 }
@@ -860,7 +860,7 @@ sub _get_designation_tooltip {
 	if ( $class ne 'existing' ) {
 		my $pending = $self->{'datastore'}->get_pending_allele_designations( $isolate_id, $locus );
 		if (@$pending) {
-			$buffer .= '<p /><h3>pending designations</h3>';
+			$buffer .= '<h3>pending designations</h3>';
 			foreach (@$pending) {
 				my $sender = $self->{'datastore'}->get_user_info( $_->{'sender'} );
 				$buffer .= "allele: $_->{'allele_id'} ";

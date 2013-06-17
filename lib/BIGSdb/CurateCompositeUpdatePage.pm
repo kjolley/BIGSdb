@@ -112,8 +112,8 @@ sub print_content {
 		my $curator = $self->{'datastore'}->get_user_info( $data->{'curator'} );
 		print "<tr class=\"td$td\">";
 		print "<td>$field</td>";
-		print defined $data->{'empty_value'} ? "<td>$data->{'empty_value'}</td>"          : '<td />';
-		print defined $data->{'regex'}       ? "<td class=\"code\">$data->{'regex'}</td>" : '<td />';
+		print defined $data->{'empty_value'} ? "<td>$data->{'empty_value'}</td>"          : '<td></td>';
+		print defined $data->{'regex'}       ? "<td class=\"code\">$data->{'regex'}</td>" : '<td></td>';
 		print "<td>$curator->{'first_name'} $curator->{'surname'}</td><td>$data->{'datestamp'}</td><td>";
 		print $q->submit( -name => "$data->{'field_order'}_delete", -label => 'delete', -class => 'smallbutton' );
 		print "</td><td>";
@@ -224,7 +224,7 @@ sub _print_position_form {
 	print "<tr><td style=\"text-align:right\">curator: </td><td>$curator_info->{'first_name'} $curator_info->{'surname'}</td></tr>\n";
 	print "<tr><td style=\"text-align:right\">datestamp: </td><td>$field_info->[3]</td><td>";
 	print $q->submit( -name => 'update', -label => 'Update', -class => 'submit' );
-	print "</td></tr></table><p />\n";
+	print "</td></tr></table>\n";
 	print $q->hidden($_) foreach qw (db page id);
 	print $q->end_form;
 	return;

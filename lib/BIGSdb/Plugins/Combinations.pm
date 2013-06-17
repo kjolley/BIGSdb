@@ -215,7 +215,7 @@ sub run {
 			}
 			say "</tbody></table></div>";
 			close $fh;
-			say "<p /><p><a href=\"/tmp/$filename\">Download as tab-delimited text.</a></p>";
+			say "<p><a href=\"/tmp/$filename\">Download as tab-delimited text.</a></p>";
 			say "</div>";
 			return;
 		}

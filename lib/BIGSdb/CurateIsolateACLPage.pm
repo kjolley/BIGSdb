@@ -192,7 +192,7 @@ sub _print_access_table {
 		$" = ';';
 		print "<tr class=\"td$td\"><td style=\"text-align:center\">"
 		  . "<input type=\"checkbox\" onclick='if (this.checked) {@js} else {@js2}' />"
-		  . "</td><td /><td style=\"text-align:center\">"
+		  . "</td><td></td><td style=\"text-align:center\">"
 		  . "<input type=\"checkbox\" onclick='if (this.checked) {@js3} else {@js4}' />"
 		  . "</td><td style=\"text-align:center\">"
 		  . "<input type=\"checkbox\" onclick='if (this.checked) {@js5} else {@js6}' />"

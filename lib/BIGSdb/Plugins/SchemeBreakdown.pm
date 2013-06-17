@@ -421,7 +421,7 @@ sub _print_scheme_table {
 				}
 				say "</td>";
 			} else {
-				say "<td /><td />";
+				say "<td></td><td></td>";
 			}
 		}
 		$display = $self->clean_locus( $loci->[$i] );
@@ -443,7 +443,7 @@ sub _print_scheme_table {
 			$display .= " <span class=\"comment\">(@other_display_names)</span>";
 			$display =~ tr/_/ /;
 		}
-		print defined $display ? "<td>$display</td>" : '<td />';
+		print defined $display ? "<td>$display</td>" : '<td></td>';
 		if ( $loci->[$i] ) {
 			my $cleaned_locus = $loci->[$i];
 			$cleaned_locus =~ s/'/\\'/g;
@@ -482,10 +482,10 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 				say $q->end_form;
 				say "</td>";
 			} else {
-				say "<td /><td />";
+				say "<td></td><td></td>";
 			}
 		} else {
-			say "<td /><td />\n";
+			say "<td></td><td></td>\n";
 		}
 		say "</tr>";
 		$td = $td == 1 ? 2 : 1;

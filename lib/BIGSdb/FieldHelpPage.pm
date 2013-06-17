@@ -123,7 +123,7 @@ sub _print_isolate_field {
 		  . "Values are constrained to the following <a href=\"http://en.wikipedia.org/wiki/Regex\">regular expression</a>"
 		  . ": /$attributes->{'regex'}/</td></tr>";
 	}
-	print "</table>\n<p />\n";
+	print "</table>\n\n";
 	my $qry =
 	  defined $metaset
 	  ? "SELECT DISTINCT $metafield FROM meta_$metaset WHERE isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})"
@@ -217,7 +217,7 @@ sub _print_scheme_field {
 		say "<tr class=\"td1\"><th style=\"text-align:right\">Description</th><td style=\"text-align:left\">"
 		  . "$info->{'description'}</td></tr>";
 	}
-	print "</table><p />\n";
+	print "</table>\n";
 	try {
 		$self->{'datastore'}->create_temp_scheme_table($scheme_id);
 	}
@@ -321,7 +321,7 @@ sub _print_locus {
 		  . "class=\"seq\">$truncate</td></tr>";
 		$td = $td == 1 ? 2 : 1;
 	}
-	say "</table><p />";
+	say "</table>";
 	my $allele_id = $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS integer)' : 'allele_id';
 	my $used_list =
 	  $self->{'datastore'}

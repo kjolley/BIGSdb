@@ -233,12 +233,12 @@ HTML
 			}
 		} else {
 			print "<tr class=\"td$td\"><td>$data->{'id'}</td>";
-			print defined $data->{'method'} ? "<td>$data->{'method'}</td>" : '<td />';
-			print defined $data->{'original_designation'} ? "<td>$data->{'original_designation'}</td>" : '<td />';
+			print defined $data->{'method'} ? "<td>$data->{'method'}</td>" : '<td></td>';
+			print defined $data->{'original_designation'} ? "<td>$data->{'original_designation'}</td>" : '<td></td>';
 			print "<td>$data->{'length'}</td>";
-			print defined $data->{'comments'} ? "<td>$data->{'comments'}</td>" : '<td />';
-			print "<td /><td /><td /><td /><td /><td />";
-			print "<td />" if $self->{'curate'};
+			print defined $data->{'comments'} ? "<td>$data->{'comments'}</td>" : '<td></td>';
+			print "<td></td><td></td><td></td><td></td><td></td><td></td>";
+			print "<td></td>" if $self->{'curate'};
 			say "</tr>";
 		}
 		$td = $td == 1 ? 2 : 1;

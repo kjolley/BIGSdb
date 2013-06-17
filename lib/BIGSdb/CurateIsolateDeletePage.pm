@@ -67,7 +67,6 @@ sub print_content {
 	$buffer .= $q->hidden($_) foreach qw (page db id);
 	$buffer .= $q->submit( -name => 'submit', -value => 'Delete!', -class => 'submit' );
 	$buffer .= $q->end_form;
-	$buffer .= "<p />\n";
 	my $isolate_record = BIGSdb::IsolateInfoPage->new(
 		(
 			system        => $self->{'system'},
@@ -85,7 +84,6 @@ sub print_content {
 	);
 	my $record_table = $isolate_record->get_isolate_record($id);
 	$buffer .= $record_table;
-	$buffer .= "<p />\n";
 	$buffer .= $q->start_form;
 	$q->param( 'page', 'isolateDelete' );    #need to set as this may have changed if there is a seqbin display button
 	$buffer .= $q->hidden($_) foreach qw (page db id);

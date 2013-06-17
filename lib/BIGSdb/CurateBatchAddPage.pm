@@ -421,9 +421,9 @@ sub _check_data {
 						local $" = "</a> <a class=\"seqflag_tooltip\">";
 						$display_value = "<a class=\"seqflag_tooltip\">@flags</a>" if @flags;
 					}
-					$rowbuffer .= defined $display_value ? "<td>$display_value</td>" : '<td />';
+					$rowbuffer .= defined $display_value ? "<td>$display_value</td>" : '<td></td>';
 				} else {
-					$rowbuffer .= defined $display_value ? "<td><font color=\"red\">$display_value</font></td>" : '<td />';
+					$rowbuffer .= defined $display_value ? "<td><font color=\"red\">$display_value</font></td>" : '<td></td>';
 					if ($problem) {
 						my $problem_text = "$field $problem<br />";
 						$problems{$pk_combination} .= $problem_text
@@ -579,7 +579,7 @@ sub _report_check {
 	  : '';
 	say "<p>The following table shows your data.  Any field with red text has a problem and needs to be checked. $caveat</p>";
 	say $$table_buffer_ref;
-	say "</div><p />";
+	say "</div>";
 	return;
 }
 
@@ -693,7 +693,7 @@ sub _check_data_isolate_record_locus_fields {
 			}
 		}
 	}
-	return defined $locusbuffer ? "<td>$locusbuffer</td>" : '<td />';
+	return defined $locusbuffer ? "<td>$locusbuffer</td>" : '<td></td>';
 }
 
 sub _check_data_users {

@@ -51,7 +51,7 @@ sub get_javascript {
   	var url = '$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=alleleQuery&locus=' + locus_name;
  	location.href=url;
   });
-  \$('a[rel=ajax]').click(function(){
+  \$('a[data-rel=ajax]').click(function(){
   	\$(this).attr('href', function(){
   		if (this.href.match(/javascript.loadContent/)){
   			return;
@@ -123,7 +123,7 @@ sub print_content {
 			$self->_run_query;
 		}
 	} else {
-		print "<p />\n";
+		print "\n";
 	}
 	return;
 }
@@ -177,9 +177,9 @@ sub _print_table_fields {
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		print "<a id=\"add_table_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
-		  . "page=alleleQuery&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
+		  . "page=alleleQuery&amp;row=$next_row&amp;no_header=1\" data-rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
 		print " <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term 'null'. "
-		  . "<p /><h3>Number of fields</h3>Add more fields by clicking the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>";
+		  . "<h3>Number of fields</h3>Add more fields by clicking the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>";
 	}
 	print "</span>\n";
 	return;
@@ -462,7 +462,7 @@ sub _run_query {
 	} else {
 		$qry2 =~ s/AND \(\)//;
 		$self->paged_display( 'sequences', $qry2, '', \@hidden_attributes );
-		print "<p />\n";
+		print "\n";
 	}
 	return;
 }

@@ -163,7 +163,7 @@ HTML
 		my $n_stats = $self->get_N_stats( $sum, \@single_isolate_lengths );
 		say "<tr class=\"td$td\"><td>$id</td>";
 		say "<td>$isolate</td><td>$contigs</td><td>$sum</td><td>$min</td><td>$max</td><td>$mean</td>";
-		say defined $stddev ? "<td>$stddev</td>" : '<td />';
+		say defined $stddev ? "<td>$stddev</td>" : '<td></td>';
 		say "<td>$n_stats->{'N50'}</td><td>$n_stats->{'N90'}</td><td>$n_stats->{'N95'}</td>"
 		  . "<td>$percent_alleles</td><td>$percent_tagged</td>";
 		say "<td><a href=\"$self->{'system'}->{'script_name'}?page=seqbin&amp;db=$self->{'instance'}&amp;isolate_id=$id\" "

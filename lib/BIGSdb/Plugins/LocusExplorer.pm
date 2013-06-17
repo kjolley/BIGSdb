@@ -840,7 +840,7 @@ sub get_freq_table {
 		foreach my $nuc (@chars) {
 			$freqs->{$_}->{$nuc} ||= 0;
 			my $percent = BIGSdb::Utils::decimal_place( 100 * $freqs->{$_}->{$nuc} / $total, 2 );
-			$buffer .= $percent > 0 ? "<td>$percent</td>" : "<td />";
+			$buffer .= $percent > 0 ? "<td>$percent</td>" : "<td></td>";
 			print $fh $percent > 0 ? "\t$percent" : "\t";
 		}
 		$buffer .= "</tr>\n";
