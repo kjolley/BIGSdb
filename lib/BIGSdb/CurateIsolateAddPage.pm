@@ -275,6 +275,15 @@ sub _print_interface {
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			$required_field = 0 if !$set_id && defined $metaset;    #Field can't be compulsory if part of a metadata collection.
 			if ( $required_field == $required ) {
+				my %html5_args;
+				$html5_args{'required'} = 'required' if $required_field;
+				if ( $field ne 'sender' && $thisfield->{'type'} eq 'int' && !$thisfield->{'optlist'} ) {
+					$html5_args{'type'} = 'number';
+					$html5_args{'min'}  = '1';
+					$html5_args{'step'} = '1';
+				}
+				$html5_args{'pattern'} = $thisfield->{'regex'} if $thisfield->{'regex'};
+				$thisfield->{'length'} = $thisfield->{'length'} // ( $thisfield->{'type'} eq 'int' ? 15 : 50 );
 				( my $cleaned_name = $metafield // $field ) =~ tr/_/ /;
 				my ( $label, $title ) = $self->get_truncated_label( $cleaned_name, 20 );
 				my $title_attribute = $title ? " title=\"$title\"" : '';
@@ -283,18 +292,19 @@ sub _print_interface {
 				  ? " for=\"$field\""
 				  : '';
 				print "<li><label$for class=\"form\"$title_attribute>";
-
 				print $label;
 				print ':';
 				print '!' if $required;
 				say "</label>";
+
 				if ( $thisfield->{'optlist'} ) {
 					my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
 					say $q->popup_menu(
 						-name    => $field,
 						-id      => $field,
 						-values  => [ '', @$optlist ],
-						-default => ( $newdata->{$field} // $thisfield->{'default'} )
+						-default => ( $newdata->{$field} // $thisfield->{'default'} ),
+						%html5_args
 					);
 				} elsif ( $thisfield->{'type'} eq 'bool' ) {
 					say $q->popup_menu(
@@ -313,7 +323,8 @@ sub _print_interface {
 						-id      => $field,
 						-values  => [ '', @users ],
 						-labels  => \%usernames,
-						-default => ( $newdata->{$field} // $thisfield->{'default'} )
+						-default => ( $newdata->{$field} // $thisfield->{'default'} ),
+						%html5_args
 					);
 				} else {
 					if ( ( $thisfield->{'length'} // 0 ) > 60 ) {
@@ -322,14 +333,17 @@ sub _print_interface {
 							-id      => $field,
 							-rows    => 3,
 							-cols    => 40,
-							-default => ( $newdata->{$field} // $thisfield->{'default'} )
+							-default => ( $newdata->{$field} // $thisfield->{'default'} ),
+							%html5_args
 						);
 					} else {
-						say $q->textfield(
-							-name    => $field,
-							-id      => $field,
-							-size    => $thisfield->{'length'},
-							-default => ( $newdata->{$field} // $thisfield->{'default'} )
+						say $self->textfield(
+							name      => $field,
+							id        => $field,
+							size      => $thisfield->{'length'},
+							maxlength => $thisfield->{'length'},
+							value     => ( $newdata->{$field} // $thisfield->{'default'} ),
+							%html5_args
 						);
 					}
 				}

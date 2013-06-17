@@ -24,7 +24,7 @@ use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(none);
 my $logger = get_logger('BIGSdb.Page');
-use BIGSdb::Page qw(SEQ_FLAGS ALLELE_FLAGS DATABANKS HTML5);
+use BIGSdb::Page qw(SEQ_FLAGS ALLELE_FLAGS DATABANKS);
 
 sub initiate {
 	my ($self) = @_;
@@ -90,13 +90,11 @@ sub create_record_table {
 	foreach my $required ( '1', '0' ) {
 		foreach my $att (@$attributes) {
 			my %html5_args;
-			if (HTML5){
-				$html5_args{'required'} = 'required' if $att->{'required'} eq 'yes';
-				if ( $att->{'type'} eq 'int' && !$att->{'dropdown_query'} && !$att->{'optlist'} ) {
-					$html5_args{'type'} = 'number';
-					$html5_args{'min'}  = '1';
-					$html5_args{'step'} = '1';
-				}
+			$html5_args{'required'} = 'required' if $att->{'required'} eq 'yes';
+			if ( $att->{'type'} eq 'int' && !$att->{'dropdown_query'} && !$att->{'optlist'} ) {
+				$html5_args{'type'} = 'number';
+				$html5_args{'min'}  = '1';
+				$html5_args{'step'} = '1';
 			}
 			my $name = $prepend_table_name ? "$table\_$att->{'name'}" : $att->{'name'};
 			if (   ( $att->{'required'} eq 'yes' && $required )

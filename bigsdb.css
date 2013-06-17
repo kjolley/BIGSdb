@@ -824,6 +824,9 @@ h3.scheme {
 
 @media (max-width: 800px) {
 	div#scheme_loci_add {float:left}
+	div#alleles {float:left; width:95%}
+	div#samples {float:left; width:95%}
+	div#isolate_update {width:95%}
 }
 
 .coolfieldset, .coolfieldset.expanded{

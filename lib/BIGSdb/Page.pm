@@ -54,8 +54,7 @@ use constant ALLELE_FLAGS => (
 use constant DATABANKS     => qw(Genbank);
 use constant FLANKING      => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
 use constant LOCUS_PATTERN => qr/^(?:l|cn|la)_(.+?)(?:\|\|.+)?$/;
-use constant HTML5         => 1;
-our @EXPORT_OK = qw(SEQ_METHODS SEQ_FLAGS ALLELE_FLAGS DATABANKS FLANKING LOCUS_PATTERN HTML5);
+our @EXPORT_OK = qw(SEQ_METHODS SEQ_FLAGS ALLELE_FLAGS DATABANKS FLANKING LOCUS_PATTERN);
 
 sub new {    ## no critic
 	my $class = shift;
@@ -277,14 +276,10 @@ sub print_page_content {
 		} else {
 			push @args, ( -head => $http_equiv );
 		}
-
-		#		print $q->start_html(@args);
 		my $head = $q->start_html(@args);
-		if (HTML5){
-			my $dtd  = '<!DOCTYPE html>';
-			$head =~ s/<!DOCTYPE.*?>/$dtd/s;    #CGI.pm doesn't support HTML5 DOCTYPE
-			$head =~ s/<html[^>]*>/<html>/;
-		}
+		my $dtd  = '<!DOCTYPE html>';
+		$head =~ s/<!DOCTYPE.*?>/$dtd/s;    #CGI.pm doesn't support HTML5 DOCTYPE
+		$head =~ s/<html[^>]*>/<html>/;
 		say $head;                          
 		$self->_print_header;
 		$self->_print_login_details
