@@ -293,6 +293,7 @@ sub print_provenance_form_elements {
 			if ( $required_field == $required ) {
 				my %html5_args;
 				$html5_args{'required'} = 'required' if $required_field;
+				$html5_args{'type'} = 'date' if $thisfield->{'type'} eq 'date' && !$thisfield->{'optlist'};
 				if ( $field ne 'sender' && $thisfield->{'type'} eq 'int' && !$thisfield->{'optlist'} ) {
 					$html5_args{'type'} = 'number';
 					$html5_args{'min'}  = '1';
@@ -307,7 +308,7 @@ sub print_provenance_form_elements {
 				  ( none { $field eq $_ } qw (curator date_entered datestamp) )
 				  ? " for=\"$field\""
 				  : '';
-				print "<li><label$for class=\"form\" style=\"width:$width" . "em\"$title_attribute>";
+				print "<li><label$for class=\"form\" style=\"width:${width}em\"$title_attribute>";
 				print $label;
 				print ':';
 				print '!' if $required;
@@ -319,7 +320,7 @@ sub print_provenance_form_elements {
 						-name    => $field,
 						-id      => $field,
 						-values  => [ '', @$optlist ],
-						-default => ( $newdata->{lc($field)} // $thisfield->{'default'} ),
+						-default => ( $newdata->{ lc($field) } // $thisfield->{'default'} ),
 						%html5_args
 					);
 				} elsif ( $thisfield->{'type'} eq 'bool' ) {
@@ -327,11 +328,11 @@ sub print_provenance_form_elements {
 						-name   => $field,
 						-id     => $field,
 						-values => [ '', 'true', 'false' ],
-						-default => ( $newdata->{lc($field)} // $thisfield->{'default'} )
+						-default => ( $newdata->{ lc($field) } // $thisfield->{'default'} )
 					);
 				} elsif ( lc($field) ~~ [qw(datestamp date_entered)] ) {
 					say "<b>" . $self->get_datestamp . "</b>";
-					say $q->hidden('date_entered', $newdata->{'date_entered'}) if $field eq 'date_entered' && $options->{'update'};
+					say $q->hidden( 'date_entered', $newdata->{'date_entered'} ) if $field eq 'date_entered' && $options->{'update'};
 				} elsif ( lc($field) eq 'curator' ) {
 					say "<b>" . $self->get_curator_name . ' (' . $self->{'username'} . ")</b>";
 				} elsif ( lc($field) ~~ [qw(sender sequenced_by)] || ( $thisfield->{'userfield'} // '' ) eq 'yes' ) {
@@ -340,7 +341,7 @@ sub print_provenance_form_elements {
 						-id      => $field,
 						-values  => [ '', @users ],
 						-labels  => \%usernames,
-						-default => ( $newdata->{lc($field)} // $thisfield->{'default'} ),
+						-default => ( $newdata->{ lc($field) } // $thisfield->{'default'} ),
 						%html5_args
 					);
 				} else {
@@ -350,7 +351,7 @@ sub print_provenance_form_elements {
 							-id      => $field,
 							-rows    => 3,
 							-cols    => 40,
-							-default => ( $newdata->{lc($field)} // $thisfield->{'default'} ),
+							-default => ( $newdata->{ lc($field) } // $thisfield->{'default'} ),
 							%html5_args
 						);
 					} else {
@@ -359,7 +360,7 @@ sub print_provenance_form_elements {
 							id        => $field,
 							size      => $thisfield->{'length'},
 							maxlength => $thisfield->{'length'},
-							value     => ( $newdata->{lc($field)} // $thisfield->{'default'} ),
+							value     => ( $newdata->{ lc($field) } // $thisfield->{'default'} ),
 							%html5_args
 						);
 					}
@@ -376,29 +377,28 @@ sub print_provenance_form_elements {
 		}
 	}
 	my $aliases;
-	if ($options->{'update'}){
-		$aliases=  $self->{'datastore'}->run_list_query( "SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias ", $q->param('id') );
+	if ( $options->{'update'} ) {
+		$aliases =
+		  $self->{'datastore'}->run_list_query( "SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias ", $q->param('id') );
 	} else {
 		$aliases = [];
 	}
-	
-	say "<li><label for=\"aliases\" class=\"form\" style=\"width:$width" . "em\">aliases:&nbsp;</label>";
+	say "<li><label for=\"aliases\" class=\"form\" style=\"width:${width}em\">aliases:&nbsp;</label>";
 	local $" = "\n";
-	say $q->textarea( -name => 'aliases', -id => 'aliases', -rows => 2, -cols => 12, -style => 'width:10em',-default => "@$aliases" );
+	say $q->textarea( -name => 'aliases', -id => 'aliases', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@$aliases" );
 	say "</li>";
 	my $pubmed;
-	if ($options->{'update'}){
-	 $pubmed=
-		  $self->{'datastore'}
-		  ->run_list_query( "SELECT pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id", $q->param('id') );
+	if ( $options->{'update'} ) {
+		$pubmed =
+		  $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id", $q->param('id') );
 	} else {
 		$pubmed = [];
 	}
-	say "<li><label for=\"pubmed\" class=\"form\" style=\"width:$width" . "em\">PubMed ids:&nbsp;</label>";
-	say $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em',-default => "@$pubmed" );
+	say "<li><label for=\"pubmed\" class=\"form\" style=\"width:${width}em\">PubMed ids:&nbsp;</label>";
+	say $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@$pubmed" );
 	say "</li>";
 	say "</ul>";
-	if ($options->{'update'}){
+	if ( $options->{'update'} ) {
 		$self->print_action_fieldset( { submit_label => 'Update', id => $newdata->{'id'} } );
 	}
 	say "</div></fieldset>";

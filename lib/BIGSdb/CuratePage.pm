@@ -96,6 +96,7 @@ sub create_record_table {
 				$html5_args{'min'}  = '1';
 				$html5_args{'step'} = '1';
 			}
+			
 			my $name = $prepend_table_name ? "$table\_$att->{'name'}" : $att->{'name'};
 			if (   ( $att->{'required'} eq 'yes' && $required )
 				|| ( ( !$att->{'required'} || $att->{'required'} eq 'no' ) && !$required ) )
@@ -112,7 +113,7 @@ sub create_record_table {
 				  && !( ( $update && $att->{'primary_key'} ) || ( $newdata_readonly && $newdata{ $att->{'name'} } ) )
 				  ? " for=\"$name\""
 				  : '';
-				$buffer .= "<li><label$for class=\"form\" style=\"width:$width" . "em\"$title_attribute>";
+				$buffer .= "<li><label$for class=\"form\" style=\"width:${width}em\"$title_attribute>";
 				$buffer .= "$label:";
 				$buffer .= '!' if $att->{'required'} eq 'yes';
 				$buffer .= "</label>";
@@ -381,7 +382,7 @@ sub _create_extra_fields_for_sequences {
 	my $buffer;
 	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
 		my $list = $self->{'datastore'}->get_allele_flags( $q->param('locus'), $q->param('allele_id') );
-		$buffer .= "<li><label for=\"flags\" class=\"form\" style=\"width:$width" . "em\">Flags:</label>\n";
+		$buffer .= "<li><label for=\"flags\" class=\"form\" style=\"width:${width}em\">Flags:</label>\n";
 		$buffer .= $q->scrolling_list(
 			-name     => 'flags',
 			-id       => 'flags',
@@ -408,13 +409,13 @@ sub _create_extra_fields_for_sequences {
 			$default_databanks->{$_} = $list;
 		}
 	}
-	$buffer .= "<li><label for=\"pubmed\" class=\"form\" style=\"width:$width" . "em\">PubMed ids:</label>";
+	$buffer .= "<li><label for=\"pubmed\" class=\"form\" style=\"width:${width}em\">PubMed ids:</label>";
 	local $" = "\n";
 	$buffer .=
 	  $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@default_pubmed" );
 	$buffer .= "</li>\n";
 	foreach my $databank (@databanks) {
-		$buffer .= "<li><label for=\"databank_$databank\" class=\"form\" style=\"width:$width" . "em\">$databank ids:</label>";
+		$buffer .= "<li><label for=\"databank_$databank\" class=\"form\" style=\"width:${width}em\">$databank ids:</label>";
 		my @default;
 		if ( ref $default_databanks->{$databank} eq 'ARRAY' ) {
 			@default = @{ $default_databanks->{$databank} };
@@ -438,7 +439,7 @@ sub _create_extra_fields_for_sequences {
 		$logger->error($@) if $@;
 		while ( my ( $field, $desc, $format, $required, $length, $optlist ) = $sql->fetchrow_array ) {
 			$buffer .=
-			  "<li><label for=\"$field\" class=\"form\" style=\"width:$width" . "em\">$field:" . ( $required ? '!' : '' ) . "</label>\n";
+			  "<li><label for=\"$field\" class=\"form\" style=\"width:${width}em\">$field:" . ( $required ? '!' : '' ) . "</label>\n";
 			$length = 12 if !$length;
 			my %html5_args;
 			$html5_args{'required'} = 'required' if $required;
@@ -503,7 +504,7 @@ sub _create_extra_fields_for_locus_descriptions {
 		  $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias", $q->param('locus') );
 		@default_aliases = @$alias_list;
 	}
-	$buffer .= "<li><label for=\"aliases\" class=\"form\" style=\"width:$width" . "em\">aliases:&nbsp;</label>";
+	$buffer .= "<li><label for=\"aliases\" class=\"form\" style=\"width:${width}em\">aliases:&nbsp;</label>";
 	local $" = "\n";
 	$buffer .= $q->textarea( -name => 'aliases', -id => 'aliases', -rows => 2, -cols => 12, -default => "@default_aliases" );
 	$buffer .= "</li>\n";
@@ -513,7 +514,7 @@ sub _create_extra_fields_for_locus_descriptions {
 		  $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM locus_refs WHERE locus=? ORDER BY pubmed_id", $q->param('locus') );
 		@default_pubmed = @$pubmed_list;
 	}
-	$buffer .= "<li><label for=\"pubmed\" class=\"form\" style=\"width:$width" . "em\">PubMed ids:&nbsp;</label>";
+	$buffer .= "<li><label for=\"pubmed\" class=\"form\" style=\"width:${width}em\">PubMed ids:&nbsp;</label>";
 	$buffer .= $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -default => "@default_pubmed" );
 	$buffer .= "</li>\n";
 	my @default_links;
@@ -525,8 +526,8 @@ sub _create_extra_fields_for_locus_descriptions {
 			push @default_links, "$url|$desc";
 		}
 	}
-	$buffer .= "<li><label for=\"links\" class=\"form\" style = \"width:$width"
-	  . "em\">links: <br /><span class=\"comment\">(Format: URL|description)</span></label>";
+	$buffer .= "<li><label for=\"links\" class=\"form\" style = \"width:${width}em\">links: <br /><span class=\"comment\">"
+	  . "(Format: URL|description)</span></label>";
 	$buffer .= $q->textarea( -name => 'links', -id => 'links', -rows => 3, -cols => 12, -default => "@default_links" );
 	$buffer .= "</li>";
 	return $buffer;
@@ -549,7 +550,7 @@ sub _create_extra_fields_for_seqbin {
 		$desc{$id} = $desc;
 	}
 	if ( @ids > 1 ) {
-		$buffer .= "<li><label for=\"experiment\" class=\"form\" style=\"width:$width" . "em\">link to experiment:&nbsp;</label>\n";
+		$buffer .= "<li><label for=\"experiment\" class=\"form\" style=\"width:${width}em\">link to experiment:&nbsp;</label>\n";
 		$buffer .= $q->popup_menu(
 			-name    => 'experiment',
 			-id      => 'experiment',
