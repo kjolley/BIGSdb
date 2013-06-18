@@ -415,7 +415,7 @@ sub _print_allele_designation_form_elements {
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	my $schemes_with_display_order = any { defined $_->{'display_order'} } @$schemes;
 
-	if ( @$loci <= 100 ) {
+	if ( @$loci <= 200 ) {
 		foreach my $scheme (@$schemes) {
 			$locus_buffer .= $self->_print_scheme_form_elements( $scheme->{'id'}, $newdata );
 		}
