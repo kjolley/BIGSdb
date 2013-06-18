@@ -92,9 +92,8 @@ sub print_content {
 		my $qry             = "SELECT @$scheme_fields FROM scheme_$scheme_id WHERE ";
 		my @cleaned_loci_db = @$loci;
 		$_ =~ s/'/_PRIME_/g foreach @cleaned_loci_db;
-		
 		local $" = $scheme_info->{'allow_missing_loci'} ? " IN (?, 'N')) AND (" : '=?) AND (';
-		$qry .= "(@cleaned_loci_db=?)";
+		$qry .= $scheme_info->{'allow_missing_loci'} ? "(@cleaned_loci_db IN (?, 'N'))" : "(@cleaned_loci_db=?)";
 		my $sql = $self->{'db'}->prepare($qry);
 		say "</tr>";
 		my $td = 1;
@@ -158,7 +157,7 @@ columns should comprise the allele numbers (order: @cleaned_loci). Click here fo
 example data</a>.  Non-numerical characters will be stripped out of the query.</p>
 HTML
 	say $q->textarea( -name => 'profiles', -rows => 10, -columns => 80, -override => 1 );
-	$self->print_action_fieldset({scheme_id => $scheme_id});
+	$self->print_action_fieldset( { scheme_id => $scheme_id } );
 	say $q->endform;
 	say "</div>";
 	return;
