@@ -242,11 +242,25 @@ sub _insert {
 
 sub _print_interface {
 	my ( $self, $newdata ) = @_;
-	my $set_id = $self->get_set_id;
-	my $q      = $self->{'cgi'};
+	my $q = $self->{'cgi'};
 	say "<div class=\"box\" id=\"queryform\"><p>Please fill in the fields below - required fields are "
 	  . "marked with an exclamation mark (!).</p>";
 	say "<div class=\"scrollable\">";
+	say $q->start_form;
+	$q->param( 'sent', 1 );
+	say $q->hidden($_) foreach qw(page db sent);
+	$self->print_provenance_form_elements($newdata);
+	$self->_print_allele_designation_form_elements($newdata);
+	$self->print_action_fieldset;
+	say $q->end_form;
+	say "</div></div>";
+	return;
+}
+
+sub print_provenance_form_elements {
+	my ( $self, $newdata, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $q = $self->{'cgi'};
 	my ( @users, %usernames );
 	my $user_data =
 	  $self->{'datastore'}
@@ -255,16 +269,18 @@ sub _print_interface {
 		push @users, $_->{'id'};
 		$usernames{ $_->{'id'} } = "$_->{'surname'}, $_->{'first_name'} ($_->{'user_name'})";
 	}
-	say $q->start_form;
-	$q->param( 'sent', 1 );
-	say $q->hidden($_) foreach qw(page db sent);
+	my $set_id        = $self->get_set_id;
 	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
-	my $field_list = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
 	say "<fieldset style=\"float:left\"><legend>Isolate fields</legend>";
 	say "<div style=\"white-space:nowrap\">";
 	say "<p><span class=\"metaset\">Metadata</span><span class=\"comment\">: These fields are available in the specified "
 	  . "dataset only.</span></p>"
 	  if !$set_id && @$metadata_list;
+	my $longest_name = BIGSdb::Utils::get_largest_string_length($field_list);
+	my $width        = int( 0.5 * $longest_name ) + 2;
+	$width = 15 if $width > 15;
+	$width = 6  if $width < 6;
 	say "<ul>";
 
 	#Display required fields first
@@ -285,13 +301,13 @@ sub _print_interface {
 				$html5_args{'pattern'} = $thisfield->{'regex'} if $thisfield->{'regex'};
 				$thisfield->{'length'} = $thisfield->{'length'} // ( $thisfield->{'type'} eq 'int' ? 15 : 50 );
 				( my $cleaned_name = $metafield // $field ) =~ tr/_/ /;
-				my ( $label, $title ) = $self->get_truncated_label( $cleaned_name, 20 );
+				my ( $label, $title ) = $self->get_truncated_label( $cleaned_name, 25 );
 				my $title_attribute = $title ? " title=\"$title\"" : '';
 				my $for =
 				  ( none { $field eq $_ } qw (curator date_entered datestamp) )
 				  ? " for=\"$field\""
 				  : '';
-				print "<li><label$for class=\"form\"$title_attribute>";
+				print "<li><label$for class=\"form\" style=\"width:$width" . "em\"$title_attribute>";
 				print $label;
 				print ':';
 				print '!' if $required;
@@ -303,7 +319,7 @@ sub _print_interface {
 						-name    => $field,
 						-id      => $field,
 						-values  => [ '', @$optlist ],
-						-default => ( $newdata->{$field} // $thisfield->{'default'} ),
+						-default => ( $newdata->{lc($field)} // $thisfield->{'default'} ),
 						%html5_args
 					);
 				} elsif ( $thisfield->{'type'} eq 'bool' ) {
@@ -311,10 +327,11 @@ sub _print_interface {
 						-name   => $field,
 						-id     => $field,
 						-values => [ '', 'true', 'false' ],
-						-default => ( $newdata->{$field} // $thisfield->{'default'} )
+						-default => ( $newdata->{lc($field)} // $thisfield->{'default'} )
 					);
 				} elsif ( lc($field) ~~ [qw(datestamp date_entered)] ) {
 					say "<b>" . $self->get_datestamp . "</b>";
+					say $q->hidden('date_entered', $newdata->{'date_entered'}) if $field eq 'date_entered' && $options->{'update'};
 				} elsif ( lc($field) eq 'curator' ) {
 					say "<b>" . $self->get_curator_name . ' (' . $self->{'username'} . ")</b>";
 				} elsif ( lc($field) ~~ [qw(sender sequenced_by)] || ( $thisfield->{'userfield'} // '' ) eq 'yes' ) {
@@ -323,7 +340,7 @@ sub _print_interface {
 						-id      => $field,
 						-values  => [ '', @users ],
 						-labels  => \%usernames,
-						-default => ( $newdata->{$field} // $thisfield->{'default'} ),
+						-default => ( $newdata->{lc($field)} // $thisfield->{'default'} ),
 						%html5_args
 					);
 				} else {
@@ -333,7 +350,7 @@ sub _print_interface {
 							-id      => $field,
 							-rows    => 3,
 							-cols    => 40,
-							-default => ( $newdata->{$field} // $thisfield->{'default'} ),
+							-default => ( $newdata->{lc($field)} // $thisfield->{'default'} ),
 							%html5_args
 						);
 					} else {
@@ -342,7 +359,7 @@ sub _print_interface {
 							id        => $field,
 							size      => $thisfield->{'length'},
 							maxlength => $thisfield->{'length'},
-							value     => ( $newdata->{$field} // $thisfield->{'default'} ),
+							value     => ( $newdata->{lc($field)} // $thisfield->{'default'} ),
 							%html5_args
 						);
 					}
@@ -358,18 +375,33 @@ sub _print_interface {
 			}
 		}
 	}
-	say "<li><label for=\"aliases\" class=\"form\">aliases:&nbsp;</label>";
-	say $q->textarea( -name => 'aliases', -id => 'aliases', -rows => 2, -cols => 12, -style => 'width:10em' );
+	my $aliases;
+	if ($options->{'update'}){
+		$aliases=  $self->{'datastore'}->run_list_query( "SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias ", $q->param('id') );
+	} else {
+		$aliases = [];
+	}
+	
+	say "<li><label for=\"aliases\" class=\"form\" style=\"width:$width" . "em\">aliases:&nbsp;</label>";
+	local $" = "\n";
+	say $q->textarea( -name => 'aliases', -id => 'aliases', -rows => 2, -cols => 12, -style => 'width:10em',-default => "@$aliases" );
 	say "</li>";
-	say "<li><label for=\"pubmed\" class=\"form\">PubMed ids:&nbsp;</label>";
-	say $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em' );
+	my $pubmed;
+	if ($options->{'update'}){
+	 $pubmed=
+		  $self->{'datastore'}
+		  ->run_list_query( "SELECT pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id", $q->param('id') );
+	} else {
+		$pubmed = [];
+	}
+	say "<li><label for=\"pubmed\" class=\"form\" style=\"width:$width" . "em\">PubMed ids:&nbsp;</label>";
+	say $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em',-default => "@$pubmed" );
 	say "</li>";
-	say "</ul></div>";
-	say "</fieldset>";
-	$self->_print_allele_designation_form_elements($newdata);
-	$self->print_action_fieldset;
-	say $q->end_form;
-	say "</div></div>";
+	say "</ul>";
+	if ($options->{'update'}){
+		$self->print_action_fieldset( { submit_label => 'Update', id => $newdata->{'id'} } );
+	}
+	say "</div></fieldset>";
 	return;
 }
 
