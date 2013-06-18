@@ -414,8 +414,7 @@ sub _print_allele_designation_form_elements {
 	@$loci = uniq @$loci;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	my $schemes_with_display_order = any { defined $_->{'display_order'} } @$schemes;
-
-	if ( @$loci <= 200 ) {
+	if ( @$loci <= 100 ) {
 		foreach my $scheme (@$schemes) {
 			$locus_buffer .= $self->_print_scheme_form_elements( $scheme->{'id'}, $newdata );
 		}
@@ -447,7 +446,7 @@ sub _print_scheme_form_elements {
 		$loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		$buffer = @$loci ? "<h3 class=\"scheme\" style=\"clear:both\">$scheme_info->{'description'}</h3>\n" : '';
 	} else {
-		$loci = $self->{'datastore'}->get_loci_in_no_scheme( set_id => $set_id );
+		$loci = $self->{'datastore'}->get_loci_in_no_scheme( {set_id => $set_id} );
 		$buffer = @$loci ? "<h3 class=\"scheme\" style=\"clear:both\">Loci not in a scheme</h3>\n" : '';
 	}
 	foreach my $locus (@$loci) {
