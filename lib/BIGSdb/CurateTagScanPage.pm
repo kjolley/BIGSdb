@@ -159,7 +159,8 @@ sub _print_interface {
 		-labels   => $labels,
 		-size     => 11,
 		-multiple => 'true',
-		-default  => $selected_ids
+		-default  => $selected_ids,
+		-required => 'required'
 	);
 	say "<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"isolate_id\",true)' value=\"All\" "
 	  . "style=\"margin-top:1em\" class=\"smallbutton\" />";

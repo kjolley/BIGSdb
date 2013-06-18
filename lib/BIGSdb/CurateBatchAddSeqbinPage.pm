@@ -78,10 +78,10 @@ HTML
 	my $id_arrayref = $sql->fetchall_arrayref;
 	say "<p>Please fill in the following fields - required fields are marked with an exclamation mark (!).</p>";
 	say "<fieldset><legend>Attributes</legend>\n<ul>";
-	say "<li><label for=\"isolate_id\" class=\"parameter\">isolate id: !</label>";
 	my %labels;
 
 	if ( $q->param('isolate_id') ) {
+		say "<li><label class=\"parameter\">isolate id: !</label>";
 		my $isolate_id = $q->param('isolate_id');
 		my $isolate_name;
 		if ( BIGSdb::Utils::is_int($isolate_id) ) {
@@ -95,6 +95,7 @@ HTML
 		say "<span id=\"isolate_id\">$isolate_id) $isolate_name</span>";
 		say $q->hidden( 'isolate_id', $isolate_id );
 	} else {
+		say "<li><label for=\"isolate_id\" class=\"parameter\">isolate id: !</label>";
 		my @ids = (0);
 		$labels{'0'} = 'Read identifier from FASTA';
 		foreach (@$id_arrayref) {
@@ -107,7 +108,7 @@ HTML
 		say $q->popup_menu( -name => 'identifier_field', -id => 'identifier_field', -values => $fields );
 	}
 	say "</li><li><label for=\"sender\" class=\"parameter\">sender: !</label>";
-	say $q->popup_menu( -name => 'sender', -id => 'sender', -values => [ '', @users ], -labels => \%usernames );
+	say $q->popup_menu( -name => 'sender', -id => 'sender', -values => [ '', @users ], -labels => \%usernames, -required => 'required' );
 	say "</li><li><label for=\"method\" class=\"parameter\">method: </label>";
 	say $q->popup_menu( -name => 'method', -id => 'method', -values => [ '', SEQ_METHODS ] );
 	say "</li><li><label for=\"run_id\" class=\"parameter\">run id: </label>";
@@ -138,11 +139,8 @@ HTML
 	say "<p>Please paste in sequences in FASTA format:</p>";
 	say $q->hidden($_) foreach qw (page db);
 	say $q->textarea( -name => 'data', -rows => 20, -columns => 120 );
-	say "<table style=\"width:95%\"><tr><td>";
-	say $q->reset( -class => 'reset' );
-	say "</td><td style=\"text-align:right\">";
-	say $q->submit( -class => 'submit' );
-	say "</td></tr></table>";
+	my %args = defined $q->param('isolate_id') ? ( isolate_id => $q->param('isolate_id') ) : ();
+	$self->print_action_fieldset( \%args );
 	say $q->end_form;
 	say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back</a></p>";
 	say "</div>";

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -29,23 +29,23 @@ sub print_content {
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
 	my $accession = $q->param('accession');
-	print "<h1>Scan EMBL/Ganbank record for loci</h1>";
+	say "<h1>Scan EMBL/Ganbank record for loci</h1>";
 	if ( !$self->can_modify_table('loci') ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to add records to the loci table.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to add records to the loci table.</p></div>";
 		return;
 	}
-	print "<div class=\"box\" id=\"queryform\">\n";
-	print
-"<p>This function allows you to scan an EMBL or Genbank (whole genome) file in order to create a batch upload file for setting up new loci.</p>\n";
-	print $q->start_form;
-	print "<table><tr><td>Please enter accession number: </td><td>";
-	print $q->textfield( -name => 'accession', -size => 20 );
-	print "</td><td>\n";
-	print $q->submit( -label => 'Submit', -class => 'submit' );
-	print "</td></tr>\n</table>\n";
-	print $q->hidden($_) foreach qw(db page);
-	print $q->end_form;
-	print "</div>\n";
+	say "<div class=\"box\" id=\"queryform\">";
+	say "<p>This function allows you to scan an EMBL or Genbank (whole genome) file in order to create a batch upload file for "
+	  . "setting up new loci.</p>";
+	say $q->start_form;
+	say "<fieldset style=\"float:left\"><legend>Please enter accession number</legend>";
+	say "<label for=\"accession\">Accession: </label>";
+	say $q->textfield( -name => 'accession', -id => 'accession', -size => 20, -required => 'required' );
+	say "</fieldset>";
+	$self->print_action_fieldset( { no_reset => 1 } );
+	say $q->hidden($_) foreach qw(db page);
+	say $q->end_form;
+	say "</div>\n";
 
 	if ($accession) {
 		my $seq_db = Bio::DB::GenBank->new;
@@ -55,17 +55,18 @@ sub print_content {
 			$seq_obj = $seq_db->get_Seq_by_acc($accession);
 		}
 		catch Bio::Root::Exception with {
-			print "<div class=\"box\" id=\"statusbad\"><p>No data returned.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>No data returned.</p></div>";
 			my $err = shift;
 			$logger->debug($err);
 		};
 		return if !$seq_obj;
-		print "<div class=\"box\" id=\"resultstable\">\n";
+		say "<div class=\"box\" id=\"resultstable\">";
 		my $temp = BIGSdb::Utils::get_random();
 		open( my $fh, '>', "$self->{'config'}->{'tmp_dir'}/$temp.txt" );
-		print
-"<p><a href=\"/tmp/$temp.txt\">Download tab-delimited text</a> (suitable for editing in a spreadsheet or batch upload of loci). Please wait for page to finish loading.</p>\n";
-		print "<table class=\"resultstable\">";
+		say "<p><a href=\"/tmp/$temp.txt\">Download tab-delimited text</a> (suitable for editing in a spreadsheet or batch upload of "
+		  . "loci). Please wait for page to finish loading.</p>";
+		say "<h2>Annotation information</h2>";
+		say "<dl class=\"data\">";
 		my $td = 1;
 		my @cds;
 
@@ -83,14 +84,15 @@ sub print_content {
 		my %abb = ( 'cds' => 'coding regions' );
 		foreach (qw (accession version type length description cds)) {
 			if ( $att{$_} ) {
-				print "<tr class=\"td$td\"><th>" . ( $abb{$_} || $_ ) . "</th><td style=\"text-align:left\">$att{$_}</td></tr>\n";
+				say "<dt>" . ( $abb{$_} || $_ ) . "</dt><dd>$att{$_}</dd>";
 				$td = $td == 1 ? 2 : 1;
 			}
 		}
-		print "<tr><td colspan=\"2\">";
-		print "<table style=\"width:100%\"><tr><th>Locus</th><th>Aliases</th><th>Product</th><th>Length</th></tr>\n";
-		print $fh
-"id\tdata_type\tallele_id_format\tdescription\tlength\tlength_varies\tcoding_sequence\tflag_table\tmain_display\tisolate_display\tquery_field\tanalysis\treference_sequence\n";
+		say "</dl>";
+		say "<h2>Coding sequences</h2>";
+		say "<table class=\"resultstable\"><tr><th>Locus</th><th>Aliases</th><th>Product</th><th>Length</th></tr>";
+		say $fh "id\tdata_type\tallele_id_format\tdescription\tlength\tlength_varies\tcoding_sequence\tflag_table\tmain_display\t"
+		  . "isolate_display\tquery_field\tanalysis\treference_sequence";
 		foreach my $cds (@cds) {
 			local $" = '; ';
 			my @aliases;
@@ -112,19 +114,17 @@ sub print_content {
 			$tags{'product'} //= '';
 			print "<tr class=\"td$td\"><td>$locus</td><td>@aliases</td><td>$tags{'product'} ";
 			print "<a class=\"tooltip\" title=\"$locus - $tags{'note'}\">&nbsp;<i>i</i>&nbsp;</a>" if $tags{'note'};
-			print "</td><td>" . ( $cds->length ) . "</td></tr>";
+			say "</td><td>" . ( $cds->length ) . "</td></tr>";
 			$td = $td == 1 ? 2 : 1;
 			my %type_lookup = ( 'dna' => 'DNA', 'rna' => 'RNA', 'protein' => 'peptide' );
-			print $fh "$locus\t$type_lookup{$att{'type'}}\tinteger\t$tags{'product'}\t"
+			say $fh "$locus\t$type_lookup{$att{'type'}}\tinteger\t$tags{'product'}\t"
 			  . ( $cds->length )
 			  . "\tTRUE\tTRUE\tTRUE\tFALSE\tallele only\tTRUE\tTRUE\t"
-			  . ( $cds->seq->seq ) . "\n";
+			  . ( $cds->seq->seq );
 		}
 		close $fh;
-		print "</table>\n";
-		print "</td></tr>\n";
-		print "</table>";
-		print "</div>\n";
+		say "</table>";
+		say "</div>";
 	}
 	return;
 }
