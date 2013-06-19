@@ -467,6 +467,12 @@ HTML
  &nbsp;<i>i</i>&nbsp;</a></li>
  </ul></fieldset>
 HTML
+	say "<fieldset style=\"float:left\"><legend>Excluded loci</legend>";
+	say "Exclude from distance matrix calculations:";
+	say "<ul><li>";
+	say $q->checkbox( -name => 'exclude_truncated', -id => 'exclude_truncated', -label => 'Truncated alleles', -checked => 'checked' );
+	say "</ul>";
+	say "</fieldset>";
 	$self->print_sequence_filter_fieldset;
 	$self->print_action_fieldset( { name => 'GenomeComparator' } );
 	say $q->hidden($_) foreach qw (page name db);
@@ -507,10 +513,11 @@ sub _analyse_by_loci {
 }
 
 sub _generate_splits {
-	my ( $self, $job_id, $values, $ignore_loci_ref ) = @_;
+	my ( $self, $job_id, $values, $ignore_loci_ref, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => "Generating distance matrix" } );
 	my $dismat = $self->_generate_distance_matrix( $values, $ignore_loci_ref );
-	my $nexus_file = $self->_make_nexus_file( $job_id, $dismat );
+	my $nexus_file = $self->_make_nexus_file( $job_id, $dismat, $options );
 	$self->{'jobManager'}->update_job_output(
 		$job_id,
 		{
@@ -574,7 +581,8 @@ sub _run_splitstree {
 }
 
 sub _make_nexus_file {
-	my ( $self, $job_id, $dismat ) = @_;
+	my ( $self, $job_id, $dismat, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $timestamp = scalar localtime;
 	my @ids = sort { $a <=> $b } keys %$dismat;
 	my %labels;
@@ -590,11 +598,13 @@ sub _make_nexus_file {
 			$labels{$_} = "$_|$name";
 		}
 	}
-	my $num_taxa = @ids;
-	my $header   = <<"NEXUS";
+	my $num_taxa  = @ids;
+	my $truncated = '[Truncated loci ' . ( $options->{'exclude_truncated'} ? 'excluded from' : 'included in' ) . ' analysis]';
+	my $header    = <<"NEXUS";
 #NEXUS
 [Distance matrix calculated by BIGSdb Genome Comparator ($timestamp)]
 [Jolley & Maiden 2010 BMC Bioinformatics 11:595]
+$truncated
 
 BEGIN taxa;
    DIMENSIONS ntax = $num_taxa;	
@@ -975,8 +985,8 @@ sub _print_reports {
 	}
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$html_buffer_ref } );
 	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Main output file' } );
-	my @ignore_loci = keys %{ $locus_class->{'truncated'} };
-	$self->_generate_splits( $job_id, $values, \@ignore_loci );
+	my @ignore_loci = $params->{'exclude_truncated'} ? keys %{ $locus_class->{'truncated'} } : ();
+	$self->_generate_splits( $job_id, $values, \@ignore_loci, { exclude_truncated => $params->{'exclude_truncated'} } );
 	if ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $args->{'by_reference'} ) ) ) {
 		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\.align", description => '30_Alignments', compress => 1 } )
 		  if -e $align_file && !-z $align_file;
