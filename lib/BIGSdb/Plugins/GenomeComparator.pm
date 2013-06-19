@@ -77,11 +77,13 @@ function enable_seqs(){
 		\$("#locus_fieldset").hide(500);
 		\$("#tblastx").prop("disabled", false);
 		\$("#use_tagged").prop("disabled", true);
+		\$("#exclude_paralogous").prop("disabled", false);
 	} else {
 		\$("#scheme_fieldset").show(500);
 		\$("#locus_fieldset").show(500);
 		\$("#tblastx").prop("disabled", true);
 		\$("#use_tagged").prop("disabled", false);
+		\$("#exclude_paralogous").prop("disabled", true);
 	}
 	if (\$("#calc_distances").prop("checked")){
 		\$("#align").prop("checked", true);
@@ -471,6 +473,8 @@ HTML
 	say "Exclude from distance matrix calculations:";
 	say "<ul><li>";
 	say $q->checkbox( -name => 'exclude_truncated', -id => 'exclude_truncated', -label => 'Truncated alleles', -checked => 'checked' );
+	say "</li><li>";
+	say $q->checkbox( -name => 'exclude_paralogous', -id => 'exclude_paralogous', -label => 'Paralogous alleles', -checked => 'checked' );
 	say "</ul>";
 	say "</fieldset>";
 	$self->print_sequence_filter_fieldset;
@@ -598,13 +602,18 @@ sub _make_nexus_file {
 			$labels{$_} = "$_|$name";
 		}
 	}
-	my $num_taxa  = @ids;
-	my $truncated = '[Truncated loci ' . ( $options->{'exclude_truncated'} ? 'excluded from' : 'included in' ) . ' analysis]';
-	my $header    = <<"NEXUS";
+	my $num_taxa   = @ids;
+	my $truncated  = '[Truncated loci ' . ( $options->{'exclude_truncated'} ? 'excluded from' : 'included in' ) . ' analysis]';
+	my $paralogous = '';
+	if ( $options->{'by_reference'} ) {
+		$paralogous = '[Paralogous loci ' . ( $options->{'exclude_paralogous'} ? 'excluded from' : 'included in' ) . ' analysis]';
+	}
+	my $header = <<"NEXUS";
 #NEXUS
 [Distance matrix calculated by BIGSdb Genome Comparator ($timestamp)]
 [Jolley & Maiden 2010 BMC Bioinformatics 11:595]
 $truncated
+$paralogous
 
 BEGIN taxa;
    DIMENSIONS ntax = $num_taxa;	
@@ -980,13 +989,23 @@ sub _print_reports {
 		$$html_buffer_ref = '' if @$ids > MAX_DISPLAY_TAXA || $params->{'disable_html'};
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$html_buffer_ref } );
 	}
+	my @paralogous;
 	if ( $args->{'by_reference'} ) {
-		$self->_print_match_counts( $ids, $html_buffer_ref, $job_file, $loci, $match_count );
+		@paralogous = $self->_print_paralogous_loci( $ids, $html_buffer_ref, $job_file, $loci, $match_count );
 	}
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$html_buffer_ref } );
 	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Main output file' } );
 	my @ignore_loci = $params->{'exclude_truncated'} ? keys %{ $locus_class->{'truncated'} } : ();
-	$self->_generate_splits( $job_id, $values, \@ignore_loci, { exclude_truncated => $params->{'exclude_truncated'} } );
+	push @ignore_loci, @paralogous if $params->{'exclude_paralogous'};
+	$self->_generate_splits(
+		$job_id, $values,
+		\@ignore_loci,
+		{
+			exclude_truncated  => $params->{'exclude_truncated'},
+			exclude_paralogous => $params->{'exclude_paralogous'},
+			by_reference       => $args->{'by_reference'}
+		}
+	);
 	if ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $args->{'by_reference'} ) ) ) {
 		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\.align", description => '30_Alignments', compress => 1 } )
 		  if -e $align_file && !-z $align_file;
@@ -1213,10 +1232,10 @@ sub _scan_by_locus {
 	return ( $match, $value, $extracted_seq );
 }
 
-sub _print_match_counts {
+sub _print_paralogous_loci {
 	my ( $self, $ids, $buffer_ref, $job_file, $loci, $match_count ) = @_;
 	my $td = 1;
-	my ( $table_buffer, $file_table_buffer );
+	my ( $table_buffer, $file_table_buffer, %paralogous_loci );
 	foreach my $locus ( keys %$loci ) {
 		my $paralogous      = 0;
 		my $row_buffer      = "<tr class=\"td$td\"><td>$locus</td>";
@@ -1224,7 +1243,10 @@ sub _print_match_counts {
 		foreach my $id (@$ids) {
 			$row_buffer      .= "<td>$match_count->{$id}->{$locus}</td>";
 			$text_row_buffer .= "\t$match_count->{$id}->{$locus}";
-			$paralogous = 1 if $match_count->{$id}->{$locus} > 1;
+			if ( $match_count->{$id}->{$locus} > 1 ) {
+				$paralogous = 1;
+				$paralogous_loci{$locus} = 1;
+			}
 		}
 		$row_buffer      .= "</tr>\n";
 		$text_row_buffer .= "\n";
@@ -1238,12 +1260,14 @@ sub _print_match_counts {
 		$$buffer_ref .= "<h3>Potentially paralogous loci</h3>\n";
 		$$buffer_ref .= "<P>The table shows the number of matches where there was more than one hit matching the BLAST thresholds in "
 		  . "at least one genome.</p>\n";
+		$$buffer_ref .= "<p>Paralogous: " . (keys %paralogous_loci) . "</p>\n";
 		$$buffer_ref .= "<table class=\"resultstable\"><tr><th>Locus</th>";
 		my $file_buffer = "\n###\n\n";
 		$file_buffer .= "Potentially paralogous loci\n";
 		$file_buffer .= "---------------------------\n";
 		$file_buffer .= "The table shows the number of matches where there was more than one hit matching the BLAST thresholds in "
 		  . "at least one genome.\n\n";
+		$file_buffer .= "Paralogous: " . (keys %paralogous_loci) . "\n\n";
 		$file_buffer .= "Locus";
 
 		foreach my $id (@$ids) {
@@ -1260,7 +1284,7 @@ sub _print_match_counts {
 		say $job_fh $file_buffer;
 		close $job_fh;
 	}
-	return;
+	return ( keys %paralogous_loci );
 }
 
 sub _identify_strains {
