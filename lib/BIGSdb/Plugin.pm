@@ -611,7 +611,8 @@ sub print_seqbin_isolate_fieldset {
 		-labels   => $labels,
 		-size     => 8,
 		-multiple => 'true',
-		-default  => $options->{'selected_ids'}
+		-default  => $options->{'selected_ids'},
+		-required => 'required'
 	);
 	print <<"HTML";
 <div style="text-align:center"><input type="button" onclick='listbox_selectall("isolate_id",true)' value="All" style="margin-top:1em" class="smallbutton" />

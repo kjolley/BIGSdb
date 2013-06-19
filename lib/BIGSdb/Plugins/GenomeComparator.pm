@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.5.4',
+		version     => '1.5.5',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/genome_comparator.shtml',
@@ -374,7 +374,7 @@ HTML
 		say "<br />";
 	}
 	say "or upload Genbank/EMBL/FASTA file:<br />";
-	say $q->filefield( -name => 'ref_upload', -id => 'ref_upload', -size => 10, -maxlength => 512, -onChange => 'enable_seqs()' );
+	say $q->filefield( -name => 'ref_upload', -id => 'ref_upload', -onChange => 'enable_seqs()' );
 	say " <a class=\"tooltip\" title=\"Reference upload - File format is recognised by the extension in the "
 	  . "name.  Make sure your file has a standard extension, e.g. .gb, .embl, .fas.\">&nbsp;<i>i</i>&nbsp;</a><br />";
 	say "</fieldset>\n<fieldset style=\"float:left\">\n<legend>Parameters / options</legend>";
@@ -728,7 +728,7 @@ sub _run_comparison {
 	my ( $progress, $seqs_total, $td, $order_count ) = ( 0, 0, 1, 1 );
 	my $total = ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $by_reference ) ) ) ? ( @$cds * 2 ) : @$cds;
 	my $close_table = '</table></div>';
-	my ( $locus_class, $presence, $order, $values, $word_size, $program );
+	my ( $locus_class, $presence, $order, $values, $match_count, $word_size, $program );
 	my $job_file = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
 	my $prefix   = BIGSdb::Utils::get_random();
 	my %isolate_FASTA;
@@ -806,6 +806,7 @@ sub _run_comparison {
 				$self->_blast( $word_size, $isolate_FASTA{$id}, $ref_seq_file, $out_file, $program );
 				$match = $self->_parse_blast_ref( $seq_ref, $out_file, $params );
 			}
+			$match_count->{$id}->{$locus_name} = $match->{'good_matches'} // 0;
 			my $seqbin_length;
 			if ( ref $match eq 'HASH' && ( $match->{'identity'} || $match->{'allele'} ) ) {
 				$status{'all_missing'} = 0;
@@ -924,6 +925,7 @@ sub _run_comparison {
 			seqs_total      => $seqs_total,
 			ids             => $ids,
 			presence        => $presence,
+			match_count     => $match_count,
 			order           => $order
 		}
 	);
@@ -933,11 +935,12 @@ sub _run_comparison {
 
 sub _print_reports {
 	my ( $self, $params, $ids, $loci, $args ) = @_;
-	my ( $job_id, $values, $locus_class, $job_file, $file_buffer_ref, $html_buffer_ref ) = (
+	my ( $job_id, $values, $locus_class, $job_file, $file_buffer_ref, $html_buffer_ref, $match_count ) = (
 		$args->{'job_id'}, $args->{'values'}, $args->{'locus_class'},
 		$args->{'job_file'},
 		$args->{'file_buffer_ref'},
-		$args->{'html_buffer_ref'}
+		$args->{'html_buffer_ref'},
+		$args->{'match_count'}
 	);
 	my $align_file       = "$self->{'config'}->{'tmp_dir'}/$job_id\.align";
 	my $align_stats_file = "$self->{'config'}->{'tmp_dir'}/$job_id\.align_stats";
@@ -967,6 +970,10 @@ sub _print_reports {
 		$$html_buffer_ref = '' if @$ids > MAX_DISPLAY_TAXA || $params->{'disable_html'};
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$html_buffer_ref } );
 	}
+	if ( $args->{'by_reference'} ) {
+		$self->_print_match_counts( $ids, $html_buffer_ref, $job_file, $loci, $match_count );
+	}
+	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$html_buffer_ref } );
 	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Main output file' } );
 	my @ignore_loci = keys %{ $locus_class->{'truncated'} };
 	$self->_generate_splits( $job_id, $values, \@ignore_loci );
@@ -1194,6 +1201,56 @@ sub _scan_by_locus {
 		$value = $match->{'allele'} if $match->{'exact'};
 	}
 	return ( $match, $value, $extracted_seq );
+}
+
+sub _print_match_counts {
+	my ( $self, $ids, $buffer_ref, $job_file, $loci, $match_count ) = @_;
+	my $td = 1;
+	my ( $table_buffer, $file_table_buffer );
+	foreach my $locus ( keys %$loci ) {
+		my $paralogous      = 0;
+		my $row_buffer      = "<tr class=\"td$td\"><td>$locus</td>";
+		my $text_row_buffer = $locus;
+		foreach my $id (@$ids) {
+			$row_buffer      .= "<td>$match_count->{$id}->{$locus}</td>";
+			$text_row_buffer .= "\t$match_count->{$id}->{$locus}";
+			$paralogous = 1 if $match_count->{$id}->{$locus} > 1;
+		}
+		$row_buffer      .= "</tr>\n";
+		$text_row_buffer .= "\n";
+		if ($paralogous) {
+			$table_buffer      .= $row_buffer;
+			$file_table_buffer .= $text_row_buffer;
+			$td = $td == 1 ? 2 : 1;
+		}
+	}
+	if ($table_buffer) {
+		$$buffer_ref .= "<h3>Potentially paralogous loci</h3>\n";
+		$$buffer_ref .= "<P>The table shows the number of matches where there was more than one hit matching the BLAST thresholds in "
+		  . "at least one genome.</p>\n";
+		$$buffer_ref .= "<table class=\"resultstable\"><tr><th>Locus</th>";
+		my $file_buffer = "\n###\n\n";
+		$file_buffer .= "Potentially paralogous loci\n";
+		$file_buffer .= "---------------------------\n";
+		$file_buffer .= "The table shows the number of matches where there was more than one hit matching the BLAST thresholds in "
+		  . "at least one genome.\n\n";
+		$file_buffer .= "Locus";
+
+		foreach my $id (@$ids) {
+			my $name = $self->_get_isolate_name($id);
+			$$buffer_ref .= "<th>$name</th>";
+			$file_buffer .= "\t$name";
+		}
+		$file_buffer .= "\n";
+		$$buffer_ref .= "</tr>\n";
+		$$buffer_ref .= $table_buffer;
+		$$buffer_ref .= "</table>\n";
+		$file_buffer .= $file_table_buffer;
+		open( my $job_fh, '>>', $job_file ) || $logger->error("Can't open $job_file for appending");
+		say $job_fh $file_buffer;
+		close $job_fh;
+	}
+	return;
 }
 
 sub _identify_strains {
@@ -1652,12 +1709,14 @@ sub _parse_blast_ref {
 	open( my $blast_fh, '<', $blast_file ) || ( $logger->error("Can't open BLAST output file $blast_file. $!"), return \$; );
 	push @blast, $_ foreach <$blast_fh>;    #slurp file to prevent file handle remaining open during database queries.
 	close $blast_fh;
+	$match->{'good_matches'} = 0;
 
 	foreach my $line (@blast) {
 		next if !$line || $line =~ /^#/;
 		my @record = split /\s+/, $line;
 		my $this_quality = $record[3] * $record[2];
 		if ( $this_quality > $quality && $record[3] >= $alignment * 0.01 * $required_alignment && $record[2] >= $identity ) {
+			$match->{'good_matches'}++;
 			$quality              = $this_quality;
 			$match->{'seqbin_id'} = $record[1];
 			$match->{'identity'}  = $record[2];

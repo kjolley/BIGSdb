@@ -192,7 +192,7 @@ HTML
 					  . "<img src=\"/tmp/$output->{$_}\" alt=\"\" style=\"max-width:200px;border:1px dashed black\" /></a>"
 					  . " (click to enlarge)";
 				}
-				$text .= "</li>\n";
+				$text .= "</li>";
 				push @buffer, $text;
 			}
 			my $tar_msg = $include_in_tar < (keys %$output) ? ' (only files <10MB included - download larger files separately)' : '';
