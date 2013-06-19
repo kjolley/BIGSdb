@@ -345,4 +345,14 @@ sub get_style {
 	my $style  = "background:$colour; color:white";
 	return $style;
 }
+
+sub get_largest_string_length {
+	my ($array_ref) = @_;
+	my $length = 0;
+	foreach (@$array_ref){
+		my $this_length = length $_;
+		$length = $this_length if $this_length > $length;
+	}
+	return $length;
+}
 1;

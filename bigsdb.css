@@ -57,7 +57,6 @@ a.th:hover {
 	text-decoration:none
 }
 
-textarea {width: 98%}
 select {font-size: 1em}
 select.filter{max-width:20em}
 select.fieldlist{max-width:12em}
@@ -208,15 +207,6 @@ a.update {
 	width:95%
 }
 
-input.submit:hover {
-	background:#fff;
-	color:black;
-	border-top-color:#9b9;
-	border-left-color:#9b9;
-	border-right-color:#696;
-	border-bottom-color:#696
-}
-
 .fieldsection {
 	width:90%;
 	margin:0px;
@@ -264,19 +254,6 @@ input.submit:hover {
 	border-bottom-color:#669
 }
 
-input.submit {
-	background:#eee;
-	margin:2px;
-	padding: 0 5px 0 5px;
-	color:#333;
-	border:1px solid;
-	border-top-color:#696;
-	border-left-color:#696;
-	border-right-color:#363;
-	border-bottom-color:#363;
-	border-radius: 3px;
-}
-
 input.fieldvaluebutton {
 	margin:1px;
 	padding-left:2px;
@@ -304,34 +281,40 @@ input.pagebar {
 	border-radius: 3px;
 }
 
-a.resetbutton, input.reset{
+input.submit {
 	background:#eee;
 	margin:2px;
-	padding: 0 10px 0 10px;
+	padding: 0 5px 0 5px;
 	color:#333;
 	border:1px solid;
-	border-top-color:#669;
-	border-left-color:#669;
-	border-right-color:#336;
-	border-bottom-color:#336;
-	display:block;
-	float:left;
-	border-radius:3px;
+	border-top-color:#696;
+	border-left-color:#696;
+	border-right-color:#363;
+	border-bottom-color:#363;
+	border-radius: 3px;
 }
 
-a.resetbutton:hover, input.reset:hover {
+input.submit:hover {
 	background:#fff;
 	color:black;
-	text-decoration:none;
-	border-top-color:#99b;
-	border-left-color:#99b;
-	border-right-color:#669;
-	border-bottom-color:#669
+	border-top-color:#9b9;
+	border-left-color:#9b9;
+	border-right-color:#696;
+	border-bottom-color:#696
 }
 
-input.pagebar:hover {
-	border:1px solid #f00
+a.resetbutton { border:1px solid #bbe; color:#333; background:#eee}
+a.resetbutton:hover {border:1px solid #669 }
+
+input.submitbutton {border:1px solid #ada; color:#333; background:#eee}
+input.submitbutton:hover {border:1px solid #696}
+
+a.resetbutton:hover, input.submitbutton:hover {
+	background: #fff;
+	color: #212121;
 }
+
+input.pagebar:hover {border:1px solid #f00; background:#fff}
 
 .td1 {background:#efefff; vertical-align:top}
 .td2 {background:#efefef; vertical-align:top}
@@ -486,57 +469,57 @@ div.queryform, div#queryform {
 	background:#e0e0e0;
 }
 
-div #queryform table {
+div#queryform table {
 	border-collapse:collapse; 
 	border-spacing:0 
 }
 
-div #queryform table.queryform {
+div#queryform table.queryform {
 	border-collapse:separate; 
 	border-spacing:1px;
 }
 
-div #queryform table.queryform td {
+div#queryform table.queryform td {
 	padding:0
 }
 
-div #chart {
+div#chart {
 	background:#f0f0f0;
 }
 
-div #sequence {
+div#sequence {
 	background:#efefff;
 }
 
-div #index {
+div#index {
 	background:#d5e0d5;
 }
 
-div #sets {
+div#sets {
 	background:#e0e0d5;
 }
 
-div #projects {
+div#projects {
 	background:#f0f0e5;
 }
 
-div #index img,#plugins img,#sets img, #restricted img {
+div#index img,#plugins img,#sets img, #restricted img {
 	float:left;
 	margin-right:10px;
 	width:32px;
 }
 
-div #index h2,#plugins h2,#sets h2, #restricted h2{
+div#index h2,#plugins h2,#sets h2, #restricted h2{
 	margin-left:42px;	
 }
 
-div #index ul.toplevel, #plugins ul.toplevel{margin-left:16px}
+div#index ul.toplevel, #plugins ul.toplevel{margin-left:16px}
 
-div #restricted {
+div#restricted {
 	background:#e0d5d5;
 }
 
-div #statusbad, div.statusbad {
+div#statusbad, div.statusbad {
 	background:#e0d5d5;
 	color:#800000
 }
@@ -551,17 +534,17 @@ div.statusgood_no_resize {
 	color:#008000
 }
 
-div #warning {
+div#warning {
 	background:#e0a0a0;
 	color:#000000
 }
 	
-div #resultsheader {
+div#resultsheader {
 	background:#d5e0d5;
 	padding:5px;
 }
 
-div #resultsfooter {
+div#resultsfooter {
 	background:#d5e0d5;
 	padding:5px	
 }
@@ -576,37 +559,37 @@ table.profile {
 	text-align:center;
 }
 
-div #resultstable {
+div#resultstable {
 	background:#e0e0e0;	
 }
 
-div #resultspanel {
+div#resultspanel {
 	background:#f0f0f0;	
 }
 
-div #samples table {border-spacing:1px}
+div#samples table {border-spacing:1px}
 
-div #samples {
+div#samples {
 	background:#f0e0e0	
 }
 
-div #alleles {
+div#alleles {
 	background:#e0e0f0;	
 }
 
-div #alleles table {border-spacing:1px}
+div#alleles table {border-spacing:1px}
 
 div.scrollable {
 	overflow-x:auto;
 }
 
-div #resultstable p.comment {font-size:0.95em}
+div#resultstable p.comment {font-size:0.95em}
 
-div #abstract {
+div#abstract {
 	background:#d5d5e0;
 }
 
-div #banner {
+div#banner {
 	background:#d5d5d5;
 	padding:10px 10px 1px 10px;
 	color:#006;
@@ -616,7 +599,7 @@ div #banner {
 	display:none	
 }
 
-div #pluginoptions, div #curatetools {
+div#pluginoptions, div#curatetools {
 	background:#a5a5b0;
 	float:right;
 	position:absolute;
@@ -630,13 +613,13 @@ div #pluginoptions, div #curatetools {
 	border: 1px solid #666;
 }
 
-div #curatetools { background: #e5e5f0}
+div#curatetools { background: #e5e5f0}
 
 div.pluginoptions table {
 	padding:0.1em;
 }
 
-div #logindetails {
+div#logindetails {
 	background:#ecece9;
 	padding: 0 0.5em;
 	float:left;
@@ -647,7 +630,7 @@ div #logindetails {
 	z-index:4;
 }
 
-div #fieldvalueshelp {
+div#fieldvalueshelp {
 	background:#ecece9;
 	padding: 0 0.5em;
 	float:right;
@@ -676,7 +659,7 @@ div.floatmenu a {
 	cursor:pointer;	
 }
 
-div #plugins {
+div#plugins {
 	background:#d5d5e0;
 }
 
@@ -697,7 +680,7 @@ fieldset {
 	border-top:1px solid #aaa;
 }
 
-div #accordion ul {
+div#accordion ul {
 	margin:0; 
 	padding:0 0 0 0.5em;  
 	list-style:none; 
@@ -709,9 +692,16 @@ fieldset ul {
 	list-style:none;  
 }  
 fieldset li {  
-	padding-bottom:0em;  
+	padding-bottom:0.2em;  
 }
 fieldset label.filter {    
+	float:left;    
+	width:12em;    
+	margin-right:0.5em;    
+	text-align:right;  
+}
+
+fieldset label.form { 
 	float:left;    
 	width:12em;    
 	margin-right:0.5em;    
@@ -829,6 +819,14 @@ h3.scheme {
 	color:white;
 	border-radius:30px;
 	padding: 0 1em;
+}
+
+
+@media (max-width: 800px) {
+	div#scheme_loci_add {float:left}
+	div#alleles {float:left; width:95%}
+	div#samples {float:left; width:95%}
+	div#isolate_update {width:95%}
 }
 
 .coolfieldset, .coolfieldset.expanded{

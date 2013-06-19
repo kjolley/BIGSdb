@@ -102,7 +102,7 @@ sub _print_interface {
 		push @$selected, '' if !@$selected;
 		my $labels = $self->_get_labels($table);
 		print $q->start_form;
-		print "<table><tr><th>Available</th><td /><th>Selected</th></tr>\n<tr><td>";
+		print "<table><tr><th>Available</th><td></td><th>Selected</th></tr>\n<tr><td>";
 		print $q->popup_menu(
 			-name     => 'available',
 			-id       => 'available',
@@ -128,7 +128,7 @@ sub _print_interface {
 		print "<tr><td style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"available\",true)'"
 		  . " value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
 		print "<input type=\"button\" onclick='listbox_selectall(\"available\",false)' value=\"None\" "
-		  . "style=\"margin-top:1em\" class=\"smallbutton\" /></td><td />\n";
+		  . "style=\"margin-top:1em\" class=\"smallbutton\" /></td><td></td>\n";
 		print "<td style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"selected\",true)' "
 		  . "value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
 		print "<input type=\"button\" onclick='listbox_selectall(\"selected\",false)' value=\"None\" "

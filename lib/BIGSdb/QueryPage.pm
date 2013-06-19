@@ -54,7 +54,7 @@ sub get_javascript {
 	my $filter_collapse = $self->_filters_selected               ? 'false' : 'true';
 	my $buffer          = << "END";
 \$(function () {
-	\$('a[rel=ajax]').click(function(){
+	\$('a[data-rel=ajax]').click(function(){
   		\$(this).attr('href', function(){
     		return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1\'\)"));
     	});
@@ -220,9 +220,7 @@ sub print_content {
 		} else {
 			$self->_run_profile_query($scheme_id);
 		}
-	} else {
-		print "<p />\n";
-	}
+	} 
 	return;
 }
 ####START ISOLATE INTERFACE#####################################################
@@ -240,7 +238,7 @@ sub _print_provenance_fields {
 		if ( !$q->param('no_js') ) {
 			my $page = $self->{'curate'} ? 'isolateQuery' : 'query';
 			print "<a id=\"add_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;"
-			  . "fields=provenance&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
+			  . "fields=provenance&amp;row=$next_row&amp;no_header=1\" data-rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
 			print " <a class=\"tooltip\" id=\"prov_tooltip\" title=\"\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
 	}
@@ -261,7 +259,7 @@ sub _print_loci_fields {
 		if ( !$q->param('no_js') ) {
 			my $page = $self->{'curate'} ? 'isolateQuery' : 'query';
 			print "<a id=\"add_loci\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;"
-			  . "fields=loci&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
+			  . "fields=loci&amp;row=$next_row&amp;no_header=1\" data-rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
 			print " <a class=\"tooltip\" id=\"loci_tooltip\" title=\"\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
 	}
@@ -287,7 +285,7 @@ sub _print_locus_tag_fields {
 		if ( !$q->param('no_js') ) {
 			my $page = $self->{'curate'} ? 'isolateQuery' : 'query';
 			print "<a id=\"add_tags\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;"
-			  . "fields=tags&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
+			  . "fields=tags&amp;row=$next_row&amp;no_header=1\" data-rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
 			print " <a class=\"tooltip\" id=\"tag_tooltip\" title=\"\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
 	}
@@ -666,7 +664,7 @@ sub _print_scheme_fields {
 		if ( !$q->param('no_js') ) {
 			my $page = $self->{'curate'} ? 'profileQuery' : 'query';
 			print
-"<a id=\"add_scheme_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;fields=scheme&amp;scheme_id=$scheme_id&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
+"<a id=\"add_scheme_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;fields=scheme&amp;scheme_id=$scheme_id&amp;row=$next_row&amp;no_header=1\" data-rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
 			print " <a class=\"tooltip\" id=\"scheme_field_tooltip\" title=\"\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
 	}
@@ -830,7 +828,6 @@ sub _run_isolate_query {
 		$qry =~ s/ datestamp/ $view\.datestamp/g;     #datestamp exists in other tables and can be ambiguous on complex queries
 		$qry =~ s/\(datestamp/\($view\.datestamp/g;
 		$self->paged_display( $self->{'system'}->{'view'}, $qry, '', \@hidden_attributes );
-		print "<p />\n";
 	} else {
 		say "<div class=\"box\" id=\"statusbad\">Invalid search performed.  Try to <a href=\"$self->{'system'}->{'script_name'}?db="
 		  . "$self->{'instance'}&amp;page=browse\">browse all records</a>.</div>";
@@ -1707,7 +1704,6 @@ sub _run_profile_query {
 		}
 		push @hidden_attributes, qw (publication_list scheme_id no_js);
 		$self->paged_display( 'profiles', $qry, '', \@hidden_attributes );
-		print "<p />\n";
 	} else {
 		say "<div class=\"box\" id=\"statusbad\">Invalid search performed. Try to <a href=\"$self->{'system'}->{'script_name'}?db="
 		  . "$self->{'instance'}&amp;page=browse&amp;scheme_id=$scheme_id\">browse all records</a>.</div>";

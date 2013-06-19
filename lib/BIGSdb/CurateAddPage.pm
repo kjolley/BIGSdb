@@ -649,9 +649,9 @@ sub _print_copy_locus_record_form {
 	my $q = $self->{'cgi'};
 	my ( $locus_list, $locus_labels ) = $self->get_field_selection_list( { 'loci' => 1, 'sort_labels' => 1 } );
 	return if !@$locus_list;
-	print "<div class=\"floatmenu\"><a id=\"toggle1\" class=\"showhide\">Show tools</a>\n";
-	print "<a id=\"toggle2\" class=\"hideshow\">Hide tools</a></div>\n";
-	print "<div class=\"hideshow\">";
+	print "<div class=\"floatmenu\"><a id=\"toggle1\" class=\"showhide\" style=\"display:none\">Show tools</a>\n";
+	print "<a id=\"toggle2\" class=\"hideshow\" style=\"display:none\">Hide tools</a></div>\n";
+	print "<div class=\"hideshow\" style=\"display:none\">";
 	print "<div id=\"curatetools\">\n";
 	print $q->start_form;
 	print "Copy configuration from ";

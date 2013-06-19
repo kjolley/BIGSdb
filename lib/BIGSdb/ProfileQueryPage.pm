@@ -70,9 +70,7 @@ sub print_content {
 		or defined $q->param('submit') )
 	{
 		$self->_run_query($scheme_id);
-	} else {
-		say "<p />";
-	}
+	} 
 	return;
 }
 
@@ -448,7 +446,6 @@ sub _run_query {
 		push @hidden_attributes, 'scheme_id';
 		$self->paged_display( $self->{'system'}->{'dbtype'} eq 'isolates' ? $self->{'system'}->{'view'} : 'profiles',
 			$qry, $msg, \@hidden_attributes, $count );
-		say "<p />";
 	} else {
 		say "<div class=\"box\" id=\"statusbad\">Invalid search performed.</div>";
 	}

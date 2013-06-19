@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -22,6 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
+use List::MoreUtils qw(none);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Page qw(SEQ_FLAGS ALLELE_FLAGS DATABANKS);
 
@@ -62,6 +63,7 @@ sub create_record_table {
 	$logger->error($@) if $@;
 	my @users;
 	my %usernames;
+	local $" = ' ';
 
 	while ( my ( $user_id, $username, $firstname, $surname ) = $sql->fetchrow_array ) {
 		push @users, $user_id;
@@ -73,33 +75,48 @@ sub create_record_table {
 	$buffer .= $q->hidden($_) foreach qw(page table db action );
 	$buffer .= $q->hidden( 'locus', $newdata{'locus'} ) if $table eq 'allele_designations';
 	$buffer .= $q->hidden( 'sent', 1 );
-	$buffer .= "<div class=\"box\" id=\"queryform\">" if !$nodiv;
+	$buffer .= "<div class=\"box\" id=\"queryform\">"                    if !$nodiv;
 	$buffer .= "<p>Please fill in the fields below - required fields are marked with an exclamation mark (!).</p>\n";
-	$buffer .= "<div class=\"scrollable\">"           if !$nodiv;
-	$buffer .= "<table>\n";
+	$buffer .= "<div class=\"scrollable\" style=\"white-space:nowrap\">" if !$nodiv;
+	$buffer .= "<fieldset class=\"form\" style=\"float:left\"><legend>Record</legend><ul>";
+	my @field_names  = map { $_->{'name'} } @$attributes;
+	my $longest_name = BIGSdb::Utils::get_largest_string_length( \@field_names );
+	my $width        = int( 0.5 * $longest_name ) + 2;
+	$width = 15 if $width > 15;
+	$width = 6  if $width < 6;
+	my %width_override = ( user_permissions => 12, loci => 14, pcr => 12, sequences => 10 );
+	$width = $width_override{$table} // $width;
 
-	if ( @$attributes > 15 ) {
-		$buffer .= "<tr><td colspan=\"2\" style=\"text-align:right\">";
-		if ( !$q->param('submit') ) {
-			$buffer .= $q->submit( -name => 'Submit', -class => 'submit' );
-		}
-		$buffer .= "</td></tr>\n";
-	}
 	foreach my $required ( '1', '0' ) {
 		foreach my $att (@$attributes) {
+			my %html5_args;
+			$html5_args{'required'} = 'required' if $att->{'required'} eq 'yes';
+			if ( $att->{'type'} eq 'int' && !$att->{'dropdown_query'} && !$att->{'optlist'} ) {
+				$html5_args{'type'} = 'number';
+				$html5_args{'min'}  = '1';
+				$html5_args{'step'} = '1';
+			}
+			
 			my $name = $prepend_table_name ? "$table\_$att->{'name'}" : $att->{'name'};
 			if (   ( $att->{'required'} eq 'yes' && $required )
 				|| ( ( !$att->{'required'} || $att->{'required'} eq 'no' ) && !$required ) )
 			{
 				my $length = $att->{'length'} || ( $att->{'type'} eq 'int' ? 15 : 50 );
-				$buffer .= "<tr><td style=\"text-align:right\">";
-				if ( $att->{'tooltip'} ) {
-					$buffer .= "<a class=\"tooltip\" title=\"$att->{'tooltip'}\">&nbsp;<i>i</i>&nbsp;</a>";
-				}
 				( my $cleaned_name = $att->{name} ) =~ tr/_/ /;
-				$buffer .= " $cleaned_name:&nbsp;";
+				my ( $label, $title ) = $self->get_truncated_label( $cleaned_name, 24 );
+				my $title_attribute = $title ? " title=\"$title\"" : '';
+
+				#Associate label with form element (element has to exist)
+				my $for =
+				     ( none { $att->{'name'} eq $_ } qw (curator date_entered datestamp) )
+				  && $att->{'type'} ne 'bool'
+				  && !( ( $update && $att->{'primary_key'} ) || ( $newdata_readonly && $newdata{ $att->{'name'} } ) )
+				  ? " for=\"$name\""
+				  : '';
+				$buffer .= "<li><label$for class=\"form\" style=\"width:${width}em\"$title_attribute>";
+				$buffer .= "$label:";
 				$buffer .= '!' if $att->{'required'} eq 'yes';
-				$buffer .= "</td><td style=\"text-align:left\">";
+				$buffer .= "</label>";
 				if (   ( $update && $att->{'primary_key'} )
 					|| ( $newdata_readonly && $newdata{ $att->{'name'} } ) )
 				{
@@ -120,6 +137,7 @@ sub create_record_table {
 					$buffer .= '</b>';
 					$buffer .= $q->hidden( $name, $newdata{ $att->{'name'} } );
 				} elsif ( $q->param('page') eq 'update' && ( $att->{'user_update'} // '' ) eq 'no' ) {
+					$buffer .= "<span id=\"$att->{'name'}\">\n";
 					if ( $att->{'name'} eq 'sequence' ) {
 						my $data_length = length( $newdata{ $att->{'name'} } );
 						if ( $data_length > 5000 ) {
@@ -128,26 +146,48 @@ sub create_record_table {
 							  . BIGSdb::Utils::truncate_seq( \$newdata{ $att->{'name'} }, 40 )
 							  . "</b></span><br />sequence is $data_length characters (too long to display)";
 						} else {
-							$buffer .= "<span class=\"seq\"><b>" . BIGSdb::Utils::split_line( $newdata{ $att->{'name'} } ) . "</b></span>";
+							$buffer .= $q->textarea(
+								-name     => $att->{'name'},
+								-rows     => 6,
+								-cols     => 40,
+								-disabled => 'disabled',
+								-default  => BIGSdb::Utils::split_line( $newdata{ $att->{'name'} } )
+							);
 						}
 					} else {
 						$buffer .= "<b>$newdata{$att->{'name'}}</b>";
 					}
+					$buffer .= "</span>\n";
 				} elsif ( $att->{'name'} eq 'sender' ) {
 					$buffer .= $q->popup_menu(
 						-name    => $name,
+						-id      => $name,
 						-values  => [ '', @users ],
 						-labels  => \%usernames,
-						-default => $newdata{ $att->{'name'} }
+						-default => $newdata{ $att->{'name'} },
+						%html5_args
 					);
 				} elsif ( $table eq 'sequences' && $att->{'name'} eq 'allele_id' && $q->param('locus') ) {
 					my $locus_info = $self->{'datastore'}->get_locus_info( $q->param('locus') );
 					if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
 						my $default = $self->{'datastore'}->get_next_allele_id( $q->param('locus') );
-						$buffer .= $q->textfield( -name => $name, -size => $length, -maxlength => $length, -default => $default );
+						$buffer .= $self->textfield(
+							name      => $name,
+							id        => $name,
+							size      => $length,
+							maxlength => $length,
+							value     => $default,
+							%html5_args
+						);
 					} else {
-						$buffer .=
-						  $q->textfield( -name => $name, -size => $length, -maxlength => $length, -default => $newdata{ $att->{'name'} } );
+						$buffer .= $self->textfield(
+							name      => $name,
+							id        => $name,
+							size      => $length,
+							maxlength => $length,
+							value     => $newdata{ $att->{'name'} },
+							%html5_args
+						);
 					}
 				} elsif ( ( $table eq 'sequences' || $table eq 'sequence_refs' || $table eq 'accession' || $table eq 'locus_descriptions' )
 					&& $att->{'name'} eq 'locus'
@@ -163,7 +203,8 @@ sub create_record_table {
 						-id      => $name,
 						-values  => [ '', @$values ],
 						-labels  => $desc,
-						-default => $newdata{ $att->{'name'} }
+						-default => $newdata{ $att->{'name'} },
+						%html5_args
 					);
 				} elsif ( ( $att->{'dropdown_query'} // '' ) eq 'yes'
 					&& $att->{'foreign_key'} )
@@ -176,11 +217,11 @@ sub create_record_table {
 					} else {
 						push @fields_to_query, 'id';
 					}
-					local $" = ',';
 					my $qry;
 					my $set_id = $self->get_set_id;
 					my $values;
 					if ( $att->{'foreign_key'} eq 'users' ) {
+						local $" = ',';
 						$qry    = "SELECT id FROM users WHERE id>0 ORDER BY @fields_to_query";
 						$values = $self->{'datastore'}->run_list_query($qry);
 					} elsif ( $att->{'foreign_key'} eq 'loci' && $table ne 'set_loci' && $set_id ) {
@@ -189,6 +230,7 @@ sub create_record_table {
 						my $scheme_list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 						push @$values, $_->{'id'} foreach @$scheme_list;
 					} else {
+						local $" = ',';
 						$qry    = "SELECT id FROM $att->{'foreign_key'} ORDER BY @fields_to_query";
 						$values = $self->{'datastore'}->run_list_query($qry);
 					}
@@ -198,7 +240,8 @@ sub create_record_table {
 						-id      => $name,
 						-values  => [ '', @$values ],
 						-labels  => $desc,
-						-default => $newdata{ $att->{'name'} }
+						-default => $newdata{ $att->{'name'} },
+						%html5_args
 					);
 				} elsif ( $att->{'name'} eq 'datestamp' ) {
 					$buffer .= "<b>" . $self->get_datestamp . "</b>\n";
@@ -219,26 +262,50 @@ sub create_record_table {
 					} else {
 						@optlist = split /;/, $att->{'optlist'};
 					}
-					unshift @optlist, '' if !$att->{'default'};
-					$buffer .= $q->popup_menu( -name => $name, -values => [@optlist], -default => $newdata{ $att->{'name'} } );
+					unshift @optlist, '';
+					$buffer .= $q->popup_menu(
+						-name    => $name,
+						-id      => $name,
+						-values  => [@optlist],
+						-default => $newdata{ $att->{'name'} },
+						%html5_args
+					);
 				} else {
 					if ( $length >= 256 ) {
 						$newdata{ $att->{'name'} } = BIGSdb::Utils::split_line( $newdata{ $att->{'name'} } )
 						  if $att->{'name'} eq 'sequence';
-						$buffer .= $q->textarea( -name => $name, -rows => 6, -cols => 70, -default => $newdata{ $att->{'name'} } );
+						$buffer .= $q->textarea(
+							-name    => $name,
+							-id      => $name,
+							-rows    => 6,
+							-cols    => 40,
+							-default => $newdata{ $att->{'name'} },
+							%html5_args
+						);
 					} elsif ( $length >= 120 ) {
 						$newdata{ $att->{'name'} } = BIGSdb::Utils::split_line( $newdata{ $att->{'name'} } )
 						  if $att->{'name'} eq 'sequence';
-						$buffer .= $q->textarea( -name => $name, -rows => 3, -cols => 70, -default => $newdata{ $att->{'name'} } );
+						$buffer .= $q->textarea(
+							-name    => $name,
+							-id      => $name,
+							-rows    => 3,
+							-cols    => 40,
+							-default => $newdata{ $att->{'name'} },
+							%html5_args
+						);
 					} else {
-						$buffer .= $q->textfield(
-							-name      => $name,
-							-id        => $name,
-							-size      => $length,
-							-maxlength => $length,
-							-default   => $newdata{ $att->{'name'} }
+						$buffer .= $self->textfield(
+							name      => $name,
+							id        => $name,
+							size      => ( $length > 40 ? 40 : $length ),
+							maxlength => $length,
+							value     => $newdata{ $att->{'name'} },
+							%html5_args
 						);
 					}
+				}
+				if ( $att->{'tooltip'} ) {
+					$buffer .= "&nbsp;<a class=\"tooltip\" title=\"$att->{'tooltip'}\">&nbsp;<i>i</i>&nbsp;</a>&nbsp;";
 				}
 				if ( $att->{'comments'} ) {
 					my $padding = $att->{'type'} eq 'bool' ? '3em' : '0';
@@ -249,16 +316,16 @@ sub create_record_table {
 				{
 					$buffer .= " <span class=\"comment\">format: yyyy-mm-dd (or 'today')</span>";
 				}
-				$buffer .= "</td></tr>\n";
+				$buffer .= "</li>\n";
 			}
 		}
 	}
 	given ($table) {
-		when ('sequences')          { $buffer .= $self->_create_extra_fields_for_sequences($newdata_ref) }
-		when ('locus_descriptions') { $buffer .= $self->_create_extra_fields_for_locus_descriptions($newdata_ref) }
-		when ('sequence_bin')       { $buffer .= $self->_create_extra_fields_for_seqbin($newdata_ref) }
+		when ('sequences') { $buffer .= $self->_create_extra_fields_for_sequences( $newdata_ref, $width ) }
+		when ('locus_descriptions') { $buffer .= $self->_create_extra_fields_for_locus_descriptions( $newdata_ref, $width ) }
+		when ('sequence_bin') { $buffer .= $self->_create_extra_fields_for_seqbin( $newdata_ref, $width ) }
 	}
-	$buffer .= "</table>\n";
+	$buffer .= "</ul></fieldset>\n";
 	my $page = $q->param('page');
 	my @extra;
 	my $extra_field = '';
@@ -310,13 +377,12 @@ sub _get_boolean_field {
 }
 
 sub _create_extra_fields_for_sequences {
-	my ( $self, $newdata ) = @_;
+	my ( $self, $newdata, $width ) = @_;
 	my $q = $self->{'cgi'};
 	my $buffer;
 	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
 		my $list = $self->{'datastore'}->get_allele_flags( $q->param('locus'), $q->param('allele_id') );
-		$buffer .=
-		  "<tr><td style=\"text-align:right\">Flags: <br /><span class=\"comment\">(Ctrl-click to select multiple)</span></td><td>";
+		$buffer .= "<li><label for=\"flags\" class=\"form\" style=\"width:${width}em\">Flags:</label>\n";
 		$buffer .= $q->scrolling_list(
 			-name     => 'flags',
 			-id       => 'flags',
@@ -325,7 +391,7 @@ sub _create_extra_fields_for_sequences {
 			-multiple => 'true',
 			-default  => $list
 		);
-		$buffer .= "</td></tr>\n";
+		$buffer .= "</li>\n";
 	}
 	my @databanks = DATABANKS;
 	my @default_pubmed;
@@ -343,18 +409,26 @@ sub _create_extra_fields_for_sequences {
 			$default_databanks->{$_} = $list;
 		}
 	}
-	$buffer .= "<tr><td style=\"text-align:right\">PubMed ids: </td><td>";
+	$buffer .= "<li><label for=\"pubmed\" class=\"form\" style=\"width:${width}em\">PubMed ids:</label>";
 	local $" = "\n";
-	$buffer .= $q->textarea( -name => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@default_pubmed" );
-	$buffer .= "</td></tr>\n";
+	$buffer .=
+	  $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@default_pubmed" );
+	$buffer .= "</li>\n";
 	foreach my $databank (@databanks) {
-		$buffer .= "<tr><td style=\"text-align:right\">$databank ids: </td><td>";
+		$buffer .= "<li><label for=\"databank_$databank\" class=\"form\" style=\"width:${width}em\">$databank ids:</label>";
 		my @default;
 		if ( ref $default_databanks->{$databank} eq 'ARRAY' ) {
 			@default = @{ $default_databanks->{$databank} };
 		}
-		$buffer .= $q->textarea( -name => "databank_$databank", -rows => 2, -cols => 12, -style => 'width:10em', -default => "@default" );
-		$buffer .= "</td></tr>\n";
+		$buffer .= $q->textarea(
+			-name    => "databank_$databank",
+			-id      => "databank_$databank",
+			-rows    => 2,
+			-cols    => 12,
+			-style   => 'width:10em',
+			-default => "@default"
+		);
+		$buffer .= "</li>\n";
 	}
 	if ( $q->param('locus') ) {
 		my $sql =
@@ -365,40 +439,63 @@ sub _create_extra_fields_for_sequences {
 		$logger->error($@) if $@;
 		while ( my ( $field, $desc, $format, $required, $length, $optlist ) = $sql->fetchrow_array ) {
 			$buffer .=
-			  "<tr><td style=\"text-align:right\"> $field:&nbsp;" . ( $required ? '!' : '' ) . "</td><td style=\"text-align:left\">";
+			  "<li><label for=\"$field\" class=\"form\" style=\"width:${width}em\">$field:" . ( $required ? '!' : '' ) . "</label>\n";
 			$length = 12 if !$length;
+			my %html5_args;
+			$html5_args{'required'} = 'required' if $required;
+			if ( $format eq 'integer' && !$optlist ) {
+				$html5_args{'type'} = 'number';
+				$html5_args{'min'}  = '1';
+				$html5_args{'step'} = '1';
+			}
 			if ( $format eq 'boolean' ) {
-				$buffer .= $q->popup_menu( -name => $field, -values => [ '', qw (true false) ], -default => $newdata->{$field} );
+				$buffer .= $q->popup_menu(
+					-name    => $field,
+					-id      => $field,
+					-values  => [ '', qw (true false) ],
+					-default => $newdata->{$field},
+					%html5_args
+				);
 			} elsif ($optlist) {
 				my @options = split /\|/, $optlist;
 				unshift @options, '';
-				$buffer .= $q->popup_menu( -name => $field, -values => \@options, -default => $newdata->{$field} );
+				$buffer .=
+				  $q->popup_menu( -name => $field, -id => $field, -values => \@options, -default => $newdata->{$field}, %html5_args );
 			} elsif ( $length > 256 ) {
 				$newdata->{ $_->{'name'} } = BIGSdb::Utils::split_line( $newdata->{ $_->{'name'} } ) if $_->{'name'} eq 'sequence';
-				$buffer .= $q->textarea( -name => $field, -rows => 6, -cols => 70, -default => $newdata->{$field} );
+				$buffer .=
+				  $q->textarea( -name => $field, -id => $field, -rows => 6, -cols => 70, -default => $newdata->{$field}, %html5_args );
 			} elsif ( $length > 60 ) {
 				$newdata->{ $_->{'name'} } = BIGSdb::Utils::split_line( $newdata->{ $_->{'name'} } ) if $_->{'name'} eq 'sequence';
-				$buffer .= $q->textarea( -name => $field, -rows => 3, -cols => 70, -default => $newdata->{$field} );
+				$buffer .=
+				  $q->textarea( -name => $field, -id => $field, -rows => 3, -cols => 70, -default => $newdata->{$field}, %html5_args );
 			} else {
-				$buffer .= $q->textfield( -name => $field, -size => $length, -maxlength => $length, -default => $newdata->{$field} );
+				$buffer .= $self->textfield(
+					name      => $field,
+					id        => $field,
+					size      => $length,
+					maxlength => $length,
+					value     => $newdata->{$field},
+					%html5_args
+				);
 			}
 			$buffer .= "<span class=\"comment\"> $desc</span>\n" if $desc;
-			$buffer .= "</td></tr>\n";
+			$buffer .= "</li>\n";
 		}
 		my $locus_info = $self->{'datastore'}->get_locus_info( $q->param('locus') );
 		if ( ( !$q->param('locus') || ( ref $locus_info eq 'HASH' && $locus_info->{'data_type'} ne 'peptide' ) )
 			&& $q->param('page') ne 'update' )
 		{
-			$buffer .= "<tr><td colspan=\"2\" style=\"padding-top:1em\">";
+			$buffer .= "<li>";
 			$buffer .= $q->checkbox( -name => 'ignore_similarity', -label => 'Override sequence similarity check' );
-			$buffer .= "</td></tr>";
+			$buffer .= "</li>";
 		}
 	}
 	return $buffer;
 }
 
 sub _create_extra_fields_for_locus_descriptions {
-	my ( $self, $newdata_ref ) = @_;
+	my ( $self, $newdata_ref, $width ) = @_;
 	my $q = $self->{'cgi'};
 	my $buffer;
 	my @default_aliases;
@@ -407,19 +504,19 @@ sub _create_extra_fields_for_locus_descriptions {
 		  $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias", $q->param('locus') );
 		@default_aliases = @$alias_list;
 	}
-	$buffer .= "<tr><td style=\"text-align:right\">aliases: </td><td>";
+	$buffer .= "<li><label for=\"aliases\" class=\"form\" style=\"width:${width}em\">aliases:&nbsp;</label>";
 	local $" = "\n";
-	$buffer .= $q->textarea( -name => 'aliases', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@default_aliases" );
-	$buffer .= "</td></tr>\n";
+	$buffer .= $q->textarea( -name => 'aliases', -id => 'aliases', -rows => 2, -cols => 12, -default => "@default_aliases" );
+	$buffer .= "</li>\n";
 	my @default_pubmed;
 	if ( $q->param('page') eq 'update' && $q->param('locus') ) {
 		my $pubmed_list =
 		  $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM locus_refs WHERE locus=? ORDER BY pubmed_id", $q->param('locus') );
 		@default_pubmed = @$pubmed_list;
 	}
-	$buffer .= "<tr><td style=\"text-align:right\">PubMed ids: </td><td>";
-	$buffer .= $q->textarea( -name => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@default_pubmed" );
-	$buffer .= "</td></tr>\n";
+	$buffer .= "<li><label for=\"pubmed\" class=\"form\" style=\"width:${width}em\">PubMed ids:&nbsp;</label>";
+	$buffer .= $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -default => "@default_pubmed" );
+	$buffer .= "</li>\n";
 	my @default_links;
 	if ( $q->param('page') eq 'update' && $q->param('locus') ) {
 		my $sql = $self->{'db'}->prepare("SELECT url,description FROM locus_links WHERE locus=? ORDER BY link_order");
@@ -429,14 +526,15 @@ sub _create_extra_fields_for_locus_descriptions {
 			push @default_links, "$url|$desc";
 		}
 	}
-	$buffer .= "<tr><td style=\"text-align:right\">links: <br /><span class=\"comment\">(Format: URL|description)</span></td><td>";
-	$buffer .= $q->textarea( -name => 'links', -rows => 3, -cols => 12, -default => "@default_links" );
-	$buffer .= "</td></tr>\n";
+	$buffer .= "<li><label for=\"links\" class=\"form\" style = \"width:${width}em\">links: <br /><span class=\"comment\">"
+	  . "(Format: URL|description)</span></label>";
+	$buffer .= $q->textarea( -name => 'links', -id => 'links', -rows => 3, -cols => 12, -default => "@default_links" );
+	$buffer .= "</li>";
 	return $buffer;
 }
 
 sub _create_extra_fields_for_seqbin {
-	my ( $self, $newdata_ref ) = @_;
+	my ( $self, $newdata_ref, $width ) = @_;
 	my $q      = $self->{'cgi'};
 	my $buffer = '';
 	return $buffer if $q->param('page') eq 'update';
@@ -452,9 +550,15 @@ sub _create_extra_fields_for_seqbin {
 		$desc{$id} = $desc;
 	}
 	if ( @ids > 1 ) {
-		$buffer .= "<tr><td style=\"text-align:right\">link to experiment: </td><td style=\"text-align:left\">";
-		$buffer .= $q->popup_menu( -name => 'experiment', -values => \@ids, -default => $newdata_ref->{'experiment'}, -labels => \%desc );
-		$buffer .= "</td></tr>\n";
+		$buffer .= "<li><label for=\"experiment\" class=\"form\" style=\"width:${width}em\">link to experiment:&nbsp;</label>\n";
+		$buffer .= $q->popup_menu(
+			-name    => 'experiment',
+			-id      => 'experiment',
+			-values  => \@ids,
+			-default => $newdata_ref->{'experiment'},
+			-labels  => \%desc
+		);
+		$buffer .= "</li>\n";
 	}
 	return $buffer;
 }

@@ -133,9 +133,8 @@ sub print_content {
 		say "</span></li><li>";
 		say $self->get_number_records_control;
 		say "</li></ul></fieldset>";
-		say "<fieldset style=\"float:left\"><legend>Action</legend>";
-		say $q->submit( -name => 'Browse all records', -class => 'submit' );
-		say "</fieldset></div>";
+		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Browse all records' } );
+		say "</div>";
 		say $q->endform;
 		say "</div>";
 	}

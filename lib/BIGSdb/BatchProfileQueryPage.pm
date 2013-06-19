@@ -129,7 +129,7 @@ sub print_content {
 			my $i = 0;
 			foreach (@$scheme_fields) {
 				if ( exists $field_data[$i] ) {
-					print defined $field_data[$i] ? "<td>$field_data[$i]</td>" : '<td />';
+					print defined $field_data[$i] ? "<td>$field_data[$i]</td>" : '<td></td>';
 				} else {
 					print "<td class=\"statusbad\" style=\"font-size:2em\">-</td>";
 				}

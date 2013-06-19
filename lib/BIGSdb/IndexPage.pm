@@ -94,7 +94,7 @@ HTML
 			say $q->start_form;
 			say "<table>";
 			print << "TOOLTIPS";
-<tr><td />
+<tr><td></td>
 <td style="text-align:center"><a class="tooltip" title="Browse - Peruse all records.">&nbsp;<i>i</i>&nbsp;</a></td>
 <td style="text-align:center"><a class="tooltip" title="Search - Advanced searching.">&nbsp;<i>i</i>&nbsp;</a></td>
 <td style="text-align:center"><a class="tooltip" title="List - Find matches to an entered list.">&nbsp;<i>i</i>&nbsp;</a></td>

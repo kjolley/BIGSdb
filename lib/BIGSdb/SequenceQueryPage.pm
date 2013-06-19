@@ -37,7 +37,7 @@ sub get_title {
 sub get_javascript {
 	my $buffer = << "END";
 \$(function () {
-	\$('a[rel=ajax]').click(function(){
+	\$('a[data-rel=ajax]').click(function(){
   		\$(this).attr('href', function(){
   			if (this.href.match(/javascript.loadContent/)){
   				return;
@@ -371,14 +371,14 @@ sub _output_single_query_exact {
 			  if $locus && $allele_id;
 		}
 		$buffer .= "$allele</a></td><td>$_->{'length'}</td><td>$_->{'start'}</td><td>$_->{'end'}</td>";
-		$buffer .= defined $field_values ? "<td style=\"text-align:left\">$field_values</td>" : '<td />' if $data->{'linked_data'};
-		$buffer .= defined $attributes ? "<td style=\"text-align:left\">$attributes</td>" : '<td />' if $data->{'extended_attributes'};
+		$buffer .= defined $field_values ? "<td style=\"text-align:left\">$field_values</td>" : '<td></td>' if $data->{'linked_data'};
+		$buffer .= defined $attributes ? "<td style=\"text-align:left\">$attributes</td>" : '<td></td>' if $data->{'extended_attributes'};
 		if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
 			local $" = '</a> <a class="seqflag_tooltip">';
-			$buffer .= @$flags ? "<td style=\"text-align:left\"><a class=\"seqflag_tooltip\">@$flags</a></td>" : '<td />';
+			$buffer .= @$flags ? "<td style=\"text-align:left\"><a class=\"seqflag_tooltip\">@$flags</a></td>" : '<td></td>';
 		}
 		if ( ( $self->{'system'}->{'allele_comments'} // '' ) eq 'yes' ) {
-			$buffer .= $allele_info->{'comments'} ? "<td>$allele_info->{'comments'}</td>" : '<td />';
+			$buffer .= $allele_info->{'comments'} ? "<td>$allele_info->{'comments'}</td>" : '<td></td>';
 		}
 		$buffer .= "</tr>\n";
 		$displayed++;
@@ -698,7 +698,7 @@ sub get_alignment {
 	if ( -e $outfile ) {
 		my $cleaned_file = "$self->{'config'}->{'tmp_dir'}/$outfile_prefix\_cleaned.txt";
 		$self->_cleanup_alignment( $outfile, $cleaned_file );
-		$buffer .= "<p><a href=\"/tmp/$outfile_prefix\_cleaned.txt\" id=\"alignment_link\" rel=\"ajax\">Show alignment</a></p>\n";
+		$buffer .= "<p><a href=\"/tmp/$outfile_prefix\_cleaned.txt\" id=\"alignment_link\" data-rel=\"ajax\">Show alignment</a></p>\n";
 		$buffer .= "<pre style=\"font-size:1.2em\"><span id=\"alignment\"></span></pre>\n";
 	}
 	return $buffer;

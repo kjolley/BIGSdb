@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,7 @@ package BIGSdb::CurateIsolateUpdatePage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::CuratePage BIGSdb::TreeViewPage);
+use parent qw(BIGSdb::CurateIsolateAddPage BIGSdb::TreeViewPage);
 use List::MoreUtils qw(none);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -92,10 +92,9 @@ sub _check {
 	my %newdata;
 	my @bad_field_buffer;
 	my $set_id        = $self->get_set_id;
-	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id, {curate => 1});
+	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
 	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
 	foreach my $required ( 1, 0 ) {
-
 		foreach my $field (@$field_list) {
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 			my $required_field = !( ( $thisfield->{'required'} // '' ) eq 'no' );
@@ -136,16 +135,16 @@ sub _update {
 	my @updated_field;
 	my $set_id = $self->get_set_id;
 	my %meta_fields;
-	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id, {curate => 1});
-	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
+	my $field_list = $self->{'xmlHandler'}->get_field_list($metadata_list);
 
 	foreach my $field (@$field_list) {
 		$data->{ lc($field) } //= '';
 		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-		if ($att->{'type'} eq 'bool'){
-			given ($data->{ lc($field) }){
-				when ('1') {$data->{ lc($field) } = 'true'}
-				when ('0') {$data->{ lc($field) } = 'false'}
+		if ( $att->{'type'} eq 'bool' ) {
+			given ( $data->{ lc($field) } ) {
+				when ('1') { $data->{ lc($field) } = 'true' }
+				when ('0') { $data->{ lc($field) } = 'false' }
 			}
 		}
 		if ( $data->{ lc($field) } ne $newdata->{$field} ) {
@@ -155,7 +154,7 @@ sub _update {
 				push @{ $meta_fields{$metaset} }, $metafield;
 			} else {
 				$qry .= $cleaned ne '' ? "$field=E'$cleaned'," : "$field=null,";
-				if ($field ne 'datestamp' && $field ne 'curator'){
+				if ( $field ne 'datestamp' && $field ne 'curator' ) {
 					push @updated_field, "$field: '$data->{lc($field)}' -> '$newdata->{$field}'";
 				}
 			}
@@ -282,105 +281,28 @@ sub _print_interface {
 		push @users, $user_hashref->{'id'};
 		$usernames{ $user_hashref->{'id'} } = "$user_hashref->{'surname'}, $user_hashref->{'first_name'} ($user_hashref->{'user_name'})";
 	}
-	say "<div class=\"scrollable\">";
-	say "<table><tr>";
-	say "<td style=\"vertical-align:top\">";
+	say "<div>";
 	if ( $self->can_modify_table('isolates') ) {
-		say "<div class=\"box\" id=\"queryform\">";
-		if ( !$q->param('sent') ) {
-			say "<h2>Isolate fields:</h2>";
-			say "<p>Update your record as required:</p>";
-		}
-		say "<table><tr><td>";
+		say "<div class=\"box queryform\" id=\"isolate_update\" style=\"float:left;margin-right:0.5em\">";
+		say "<div class=\"scrollable\">";
 		say $q->start_form;
 		$q->param( 'sent', 1 );
 		say $q->hidden($_) foreach qw(page db sent);
-		say "<table>\n<tr><td colspan=\"2\" style=\"text-align:right\">";
-		say $q->submit( -name => 'Update', -class => 'submit' );
-		say "</td></tr>";
-		my $set_id        = $self->get_set_id;
-		my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id, {curate => 1});
-		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
-
-		#Display required fields first
-		foreach my $required ( 1, 0 ) {
-			foreach my $field (@$field_list) {
-				my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-				my $required_field = !( ( $thisfield->{'required'} // '' ) eq 'no' );
-				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-				$required_field = 0 if !$set_id && defined $metaset;    #Field can't be compulsory if part of a metadata collection.
-				if ( $required_field == $required ) {
-					print "<tr><td style=\"text-align:right\">" . ( $metafield // $field ) . ': ';
-					print '!' if $required;
-					print "</td><td style=\"text-align:left; width:90%\">";
-					if ( $thisfield->{'optlist'} ) {
-						my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
-						say $q->popup_menu( -name => $field, -values => [ '', @$optlist ], -default => $data->{ lc($field) } );
-					} elsif ( $thisfield->{'type'} eq 'bool' ) {
-						my $default = $data->{ lc($field) } ~~ [qw (t 1 true)] ? 'true' : 'false';
-						$default = undef if !defined $data->{ lc($field) };
-						say $q->popup_menu( -name => $field, -values => [ '', 'true', 'false' ], -default => $default );
-					} elsif ( $field eq 'id' ) {
-						say "<b>$data->{'id'}</b>";
-						say $q->hidden( 'id', $data->{'id'} );
-					} elsif ( lc($field) eq 'curator' ) {
-						say '<b>' . $self->get_curator_name . ' (' . $self->{'username'} . ")</b>";
-					} elsif ( lc($field) eq 'date_entered' ) {
-						say '<b>' . $data->{ lc($field) } . "</b>";
-						say $q->hidden( 'date_entered', $data->{ lc($field) } );
-					} elsif ( lc($field) eq 'datestamp' ) {
-						say '<b>' . $self->get_datestamp . "</b>";
-					} elsif ( lc($field) ~~ [qw(sender sequenced_by)] || ( $thisfield->{'userfield'} // '' ) eq 'yes' ) {
-						say $q->popup_menu(
-							-name    => $field,
-							-values  => [ '', @users ],
-							-labels  => \%usernames,
-							-default => $data->{ lc($field) }
-						);
-					} else {
-						if ( $thisfield->{'length'} && $thisfield->{'length'} > 60 ) {
-							say $q->textarea( -name => $field, -rows => 3, -cols => 60, -default => $data->{ lc($field) } );
-						} else {
-							say $q->textfield( -name => $field, -size => $thisfield->{'length'}, -default => $data->{ lc($field) } );
-						}
-					}
-					say " <span class=\"metaset\">Metadata: $metaset</span>" if !$set_id && defined $metaset;
-					if ( ( none { lc($field) eq $_ } qw(datestamp date_entered) ) && lc( $thisfield->{'type'} ) eq 'date' ) {
-						say " format: yyyy-mm-dd";
-					}
-					say "</td></tr>";
-				}
-			}
-		}
-		say "<tr><td style=\"text-align:right\">aliases: </td><td>";
-		my $aliases =
-		  $self->{'datastore'}->run_list_query( "SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias ", $q->param('id') );
-		local $" = "\n";
-		say $q->textarea( -name => 'aliases', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@$aliases" );
-		say "</td></tr>\n<tr><td style=\"text-align:right\">PubMed ids: </td><td>";
-		my $pubmed =
-		  $self->{'datastore'}
-		  ->run_list_query( "SELECT pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id", $q->param('id') );
-		say $q->textarea( -name => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@$pubmed" );
-		say "</td></tr>\n<tr><td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateUpdate&amp;"
-		  . "id=$data->{'id'}\" class=\"resetbutton\">Reset</a></td><td style=\"text-align:right\">";
-		say $q->submit( -name => 'Update', -class => 'submit' );
-		say "</td></tr>\n</table>";
+		$self->print_provenance_form_elements( $data, { update => 1 } );
 		say $q->end_form;
-		say "</td></tr></table></div>";
+		say "</div></div>";
 	}
 	$self->_print_samples($data)             if $self->can_modify_table('samples');
 	$self->_print_allele_designations($data) if $self->can_modify_table('allele_designations');
-	say "</td></tr></table></div>";
+	say "</div><div style=\"clear:both\"></div>";
 	return;
 }
 
 sub _print_allele_designations {
 	my ( $self, $data ) = @_;
 	my $q = $self->{'cgi'};
-	say "</td><td style=\"vertical-align:top; padding-left:1em\">"
-	  if $self->can_modify_table('isolates') || $self->can_modify_table('samples');
-	say "<div class=\"box\" id=\"alleles\">\n<h2>Loci:</h2>";
+	say "<div class=\"box\" id=\"alleles\" style=\"overflow:auto\">";
+	say "<fieldset style=\"float:left\"><legend>Loci</legend>";
 	say "<p>Allele designations are handled separately from isolate fields due to the potential "
 	  . "complexity of multiple loci with set and pending designations.</p>";
 	my $isolate_record = BIGSdb::IsolateInfoPage->new(
@@ -399,9 +321,7 @@ sub _print_allele_designations {
 		)
 	);
 	my $locus_summary = $isolate_record->get_loci_summary( $data->{'id'} );
-	$locus_summary =~ s /<table class=\"resultstable\">\s*<\/table>//;
 	say $locus_summary;
-	say "<p />";
 	say $q->start_form;
 	my $set_id = $self->get_set_id;
 	my ( $loci, $labels ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
@@ -412,7 +332,7 @@ sub _print_allele_designations {
 	$q->param( 'isolate_id', $q->param('id') );
 	say $q->hidden($_) foreach qw(db page isolate_id);
 	say $q->end_form;
-	say "</div>";
+	say "</fieldset></div>";
 	return;
 }
 
@@ -420,8 +340,8 @@ sub _print_samples {
 	my ( $self, $data ) = @_;
 	my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
 	if (@$sample_fields) {
-		say "<div class=\"box\" id=\"samples\">";
-		say "<h2>Samples</h2>";
+		say "<div class=\"box\" id=\"samples\" style=\"overflow:auto\">";
+		say "<fieldset style=\"float:left\"><legend>Samples</legend>";
 		my $isolate_record = BIGSdb::IsolateInfoPage->new(
 			(
 				system        => $self->{'system'},
@@ -438,9 +358,9 @@ sub _print_samples {
 			)
 		);
 		say $isolate_record->get_sample_summary( $data->{'id'} );
-		say "<p /><p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;"
+		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;"
 		  . "table=samples&amp;isolate_id=$data->{'id'}\" class=\"button\">&nbsp;Add new sample&nbsp;</a></p>";
-		say "</div>";
+		say "</fieldset></div>";
 	}
 	return;
 }

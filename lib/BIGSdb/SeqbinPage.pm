@@ -129,9 +129,9 @@ HTML
 			my %prefs = ( 'offset_label' => 1, 'x-title' => 'Contig size (bp)', 'y-title' => 'Frequency' );
 			BIGSdb::Charts::barchart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$temp\_large_histogram.png",
 				'large', \%prefs, { no_transparent => 1 } );
-			say "<a href=\"/tmp/$temp\_large_histogram.png\" rel=\"lightbox-1\" class=\"lightbox\" title=\"Contig size distribution\">"
-			  . "<img src=\"/tmp/$temp\_large_histogram.png\" alt=\"Contig size distribution\" style=\"width:200px;border:1px "
-			  . "dashed black\" /></a><br />Click to enlarge";
+			say "<a href=\"/tmp/$temp\_large_histogram.png\" data-rel=\"lightbox-1\" class=\"lightbox\" "
+			  . "title=\"Contig size distribution\"><img src=\"/tmp/$temp\_large_histogram.png\" alt=\"Contig size distribution\" "
+			  . "style=\"width:200px;border:1px dashed black\" /></a><br />Click to enlarge";
 		}
 		say "<ul><li><a href=\"/tmp/$temp.txt\">Download lengths</a></li></ul></div>";
 		if ( $self->{'config'}->{'chartdirector'} ) {
@@ -147,9 +147,9 @@ HTML
 			my %prefs = ( 'offset_label' => 1, 'x-title' => 'Contig number', 'y-title' => 'Cumulative length' );
 			BIGSdb::Charts::linechart( \@contig_labels, \@cumulative, "$self->{'config'}->{'tmp_dir'}/$temp\_cumulative_length.png",
 				'large', \%prefs, { no_transparent => 1 } );
-			say "<a href=\"/tmp/$temp\_cumulative_length.png\" rel=\"lightbox-1\" class=\"lightbox\" title=\"Cumulative contig length\">"
-			  . "<img src=\"/tmp/$temp\_cumulative_length.png\" alt=\"Cumulative contig length\" style=\"width:200px;border:1px "
-			  . "dashed black\" /></a></div>";
+			say "<a href=\"/tmp/$temp\_cumulative_length.png\" data-rel=\"lightbox-1\" class=\"lightbox\" "
+			  . "title=\"Cumulative contig length\"><img src=\"/tmp/$temp\_cumulative_length.png\" alt=\"Cumulative contig length\" "
+			  . "style=\"width:200px;border:1px dashed black\" /></a></div>";
 		}
 	}
 	say "<div style=\"clear:both\"></div>";
@@ -233,12 +233,12 @@ HTML
 			}
 		} else {
 			print "<tr class=\"td$td\"><td>$data->{'id'}</td>";
-			print defined $data->{'method'} ? "<td>$data->{'method'}</td>" : '<td />';
-			print defined $data->{'original_designation'} ? "<td>$data->{'original_designation'}</td>" : '<td />';
+			print defined $data->{'method'} ? "<td>$data->{'method'}</td>" : '<td></td>';
+			print defined $data->{'original_designation'} ? "<td>$data->{'original_designation'}</td>" : '<td></td>';
 			print "<td>$data->{'length'}</td>";
-			print defined $data->{'comments'} ? "<td>$data->{'comments'}</td>" : '<td />';
-			print "<td /><td /><td /><td /><td /><td />";
-			print "<td />" if $self->{'curate'};
+			print defined $data->{'comments'} ? "<td>$data->{'comments'}</td>" : '<td></td>';
+			print "<td></td><td></td><td></td><td></td><td></td><td></td>";
+			print "<td></td>" if $self->{'curate'};
 			say "</tr>";
 		}
 		$td = $td == 1 ? 2 : 1;

@@ -136,7 +136,7 @@ HTML
 		print "</tr>\n";
 		$td = $td == 2 ? 1 : 2;
 	}
-	print "</table><p />\n";
+	print "</table>\n";
 	print "<p>";
 	print " <span class=\"highlight\">* Value updated</span>" if $updated;
 	print " <span class=\"non-default\">&#134; Non-default value (overridden by user selection)</span>"
@@ -267,7 +267,7 @@ sub _process_scheme_fields {
 			} else {
 				$value = $data->{$field};
 			}
-			print defined $value ? "<td>$value</td>" : '<td />';
+			print defined $value ? "<td>$value</td>" : '<td></td>';
 		}
 	}
 	return;
@@ -308,7 +308,7 @@ sub _process_schemes {
 			} else {
 				$value = $data->{$field};
 			}
-			print defined $value ? "<td>$value</td>" : '<td />';
+			print defined $value ? "<td>$value</td>" : '<td></td>';
 		}
 	}
 	return;

@@ -75,10 +75,8 @@ sub print_content {
 		$self->_print_query_interface;
 	}
 	if ( $q->param('submit') || defined $q->param('query') || defined $q->param('t1') ) {
-		$self->_run_query();
-	} else {
-		print "<p />\n";
-	}
+		$self->_run_query;
+	} 
 	return;
 }
 
@@ -143,7 +141,7 @@ sub _print_table_fields {
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		print "<a id=\"add_table_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;"
-		  . "fields=table_fields&amp;table=$table&amp;row=$next_row&amp;no_header=1\" rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>"
+		  . "fields=table_fields&amp;table=$table&amp;row=$next_row&amp;no_header=1\" data-rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>"
 		  . " <a class=\"tooltip\" id=\"field_tooltip\" title=\"\">&nbsp;<i>i</i>&nbsp;</a>";
 	}
 	say "</span>";
@@ -578,7 +576,6 @@ s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bi
 			}
 		}
 		$self->paged_display( $table, $qry2, '', \@hidden_attributes );
-		print "<p />\n";
 	} else {
 		my $qry = "SELECT * FROM $table";
 		if ( $table eq 'sequences' ) {
@@ -597,7 +594,6 @@ s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bi
 		local $" = ",$table.";
 		$qry .= " $dir,$table.@primary_keys;";
 		$self->paged_display( $table, $qry, '', \@hidden_attributes );
-		print "<p />\n";
 	}
 	return;
 }

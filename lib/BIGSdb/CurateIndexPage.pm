@@ -326,7 +326,7 @@ sub _print_experiments {
 sub _print_experiment_sequences {
 	my ( $self, $td, $set_string ) = @_;
 	my $buffer = <<"HTML";
-<tr class="td$td"><td>experiment sequence links</td><td /><td />
+<tr class="td$td"><td>experiment sequence links</td><td></td><td></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=experiment_sequences$set_string">?</a></td>
 <td class="comment" style="text-align:left">Query/delete links associating sequences to experiments.</td></tr>	
 HTML
@@ -339,7 +339,7 @@ sub _print_samples {
 	return if !@$sample_fields;
 	my $buffer = <<"HTML";
 <tr class="td$td"><td>sample storage records</td>
-<td />
+<td></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=samples$set_string">++</a></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=samples$set_string">?</a></td>
 <td class="comment" style="text-align:left">Add sample storage records.  These can also be added and updated from the isolate update page.</td></tr>	
@@ -787,7 +787,7 @@ HTML
 	$buffer .=
 	  $records_exist
 	  ? "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$table$set_string\">?</a></td>"
-	  : '<td />';
+	  : '<td></td>';
 	$buffer .= "<td style=\"text-align:left\" class=\"comment\">$comments</td></tr>";
 	return $buffer;
 }

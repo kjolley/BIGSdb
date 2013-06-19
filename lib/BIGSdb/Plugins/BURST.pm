@@ -435,9 +435,9 @@ sub _recursive_search {
 					say "<tr class=\"td$td\">";
 					say "<td>$profiles[$i][0]$anc</td>";
 					say "<td>$st_freq{$profiles[$i][0]}</td>";
-					say defined $result[0][$i] ? "<td>$result[0][$i]</td>" : '<td />';
-					say defined $result[1][$i] ? "<td>$result[1][$i]</td>" : '<td />';
-					say defined $result[2][$i] ? "<td>$result[2][$i]</td>" : '<td />';
+					say defined $result[0][$i] ? "<td>$result[0][$i]</td>" : '<td></td>';
+					say defined $result[1][$i] ? "<td>$result[1][$i]</td>" : '<td></td>';
+					say defined $result[2][$i] ? "<td>$result[2][$i]</td>" : '<td></td>';
 					say "</tr>";
 					$td = $td == 1 ? 2 : 1;    #row stripes
 					$st[$stCount] = $profiles[$i][0];
