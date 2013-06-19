@@ -530,7 +530,7 @@ HTML
 	say "<p>Please select the sender from the list below:</p>";
 	$usernames{-1} = 'Override with sender field';
 	say "<table><tr><td>";
-	say $q->popup_menu( -name => 'sender', -values => [ '', -1, @users ], -labels => \%usernames );
+	say $q->popup_menu( -name => 'sender', -values => [ '', -1, @users ], -labels => \%usernames, -required => 'required' );
 	say "</td><td class=\"comment\">Value will be overridden if you include a sender field in your pasted data.</td></tr></table>";
 	say "<p>Please paste in tab-delimited text (<strong>include a field header line</strong>).</p>";
 	say $q->hidden($_) foreach qw (page db scheme_id);
