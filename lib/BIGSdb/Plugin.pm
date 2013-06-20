@@ -499,7 +499,7 @@ sub print_sequence_export_form {
 	local $" = "\n";
 	say "<p style=\"padding-right:2em\">Paste in list of ids to include, start a new<br />line for each. "
 	  . "Leave blank to include all ids.</p>";
-	say $q->textarea( -name => 'list', -rows => 5, -columns => 6, -default => "@$list" );
+	say $q->textarea( -name => 'list', -rows => 5, -cols => 25, -default => "@$list" );
 	say "</fieldset>";
 	my ( $locus_list, $locus_labels ) =
 	  $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
