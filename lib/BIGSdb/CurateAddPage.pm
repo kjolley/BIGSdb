@@ -108,6 +108,61 @@ sub print_content {
 	return;
 }
 
+sub _prepare_extra_inserts_for_locus_descriptions {
+	my ( $self, $newdata, $problems, $extra_inserts ) = @_;
+	my $q = $self->{'cgi'};
+	( my $cleaned_locus = $newdata->{'locus'} ) =~ s/'/\\'/g;
+	my $existing_aliases = $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=?", $newdata->{'locus'} );
+	my @new_aliases = split /\r?\n/, $q->param('aliases');
+	foreach my $new (@new_aliases) {
+		chomp $new;
+		next if $new eq '';
+		if ( !@$existing_aliases || none { $new eq $_ } @$existing_aliases ) {
+			push @$extra_inserts,
+			  "INSERT INTO locus_aliases (locus,alias,curator,datestamp) VALUES (E'$cleaned_locus','$new',$newdata->{'curator'},'today')";
+		}
+	}
+	my @new_pubmeds = split /\r?\n/, $q->param('pubmed');
+	foreach my $new (@new_pubmeds) {
+		chomp $new;
+		next if $new eq '';
+		if ( !BIGSdb::Utils::is_int($new) ) {
+			push @$problems, "PubMed ids must be integers.";
+		} else {
+			push @$extra_inserts,
+			  "INSERT INTO locus_refs (locus,pubmed_id,curator,datestamp) VALUES (E'$cleaned_locus',$new,$newdata->{'curator'},'today')";
+		}
+	}
+	my @new_links = split /\r?\n/, $q->param('links');
+	my $i = 1;
+	foreach my $new (@new_links) {
+		chomp $new;
+		next if $new eq '';
+		if ( $new !~ /^(.+?)\|(.+)$/ ) {
+			push @$problems, "Links must have an associated description separated from the URL by a '|'.";
+		} else {
+			my ( $url, $desc ) = ( $1, $2 );
+			$url  =~ s/'/\\'/g;
+			$desc =~ s/'/\\'/g;
+			push @$extra_inserts, "INSERT INTO locus_links (locus,url,description,link_order,curator,datestamp) VALUES "
+			  . "(E'$cleaned_locus',E'$url',E'$desc',$i,$newdata->{'curator'},'today')";
+		}
+		$i++;
+	}
+	return;
+}
+
+sub _prepare_extra_inserts_for_loci {
+	my ( $self, $newdata, $extra_inserts ) = @_;
+	my $q = $self->{'cgi'};
+	( my $cleaned_locus = $newdata->{'locus'} ) =~ s/'/\\'/g;
+	my ( $full_name, $product, $description ) = ( $q->param('full_name'), $q->param('product'), $q->param('description') );
+	s/'/\\'/g foreach ( $full_name, $product, $description );
+	push @$extra_inserts, "INSERT INTO locus_descriptions (locus,full_name,product,description,curator,datestamp) VALUES "
+	  . "(E'$cleaned_locus',E'$full_name',E'$product',E'$description',$newdata->{'curator'},'now')";
+	return;
+}
+
 sub _insert {
 	my ( $self, $table, $newdata ) = @_;
 	my $q          = $self->{'cgi'};
@@ -118,49 +173,21 @@ sub _insert {
 	my @extra_inserts;
 	if ( $table eq 'sequences' ) {
 		$self->_check_allele_data( $newdata, \@problems, \@extra_inserts );
+	} elsif ( $table eq 'loci' ) {
+		if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+			$newdata->{'locus'} = $newdata->{'id'};
+			$self->_prepare_extra_inserts_for_loci( $newdata, \@extra_inserts );
+			$self->_prepare_extra_inserts_for_locus_descriptions( $newdata, \@problems, \@extra_inserts );
+		}
 	} elsif ( $table eq 'locus_descriptions' ) {
-		( my $cleaned_locus = $newdata->{'locus'} ) =~ s/'/\\'/g;
-		my @new_aliases = split /\r?\n/, $q->param('aliases');
-		foreach my $new (@new_aliases) {
-			chomp $new;
-			next if $new eq '';
-			push @extra_inserts,
-			  "INSERT INTO locus_aliases (locus,alias,curator,datestamp) VALUES ('$cleaned_locus','$new',$newdata->{'curator'},'today')";
-		}
-		my @new_pubmeds = split /\r?\n/, $q->param('pubmed');
-		foreach my $new (@new_pubmeds) {
-			chomp $new;
-			next if $new eq '';
-			if ( !BIGSdb::Utils::is_int($new) ) {
-				push @problems, "PubMed ids must be integers.";
-			} else {
-				push @extra_inserts,
-				  "INSERT INTO locus_refs (locus,pubmed_id,curator,datestamp) VALUES ('$cleaned_locus',$new,$newdata->{'curator'},'today')";
-			}
-		}
-		my @new_links = split /\r?\n/, $q->param('links');
-		my $i = 1;
-		foreach my $new (@new_links) {
-			chomp $new;
-			next if $new eq '';
-			if ( $new !~ /^(.+?)\|(.+)$/ ) {
-				push @problems, "Links must have an associated description separated from the URL by a '|'.";
-			} else {
-				my ( $url, $desc ) = ( $1, $2 );
-				$url  =~ s/'/\\'/g;
-				$desc =~ s/'/\\'/g;
-				push @extra_inserts,
-"INSERT INTO locus_links (locus,url,description,link_order,curator,datestamp) VALUES ('$cleaned_locus','$url','$desc',$i,$newdata->{'curator'},'today')";
-			}
-			$i++;
-		}
+		$self->_prepare_extra_inserts_for_locus_descriptions( $newdata, \@problems, \@extra_inserts );
 	} elsif ( $table eq 'sequence_bin' ) {
 		$newdata->{'sequence'} =~ s/[\W]//g;
 		push @problems, "Sequence data invalid." if !length $newdata->{'sequence'};
 		if ( $q->param('experiment') ) {
 			my $experiment = $q->param('experiment');
-			my $insert =
-"INSERT INTO experiment_sequences (experiment_id,seqbin_id,curator,datestamp) VALUES ($experiment,$newdata->{'id'},$newdata->{'curator'},'now')";
+			my $insert     = "INSERT INTO experiment_sequences (experiment_id,seqbin_id,curator,datestamp) VALUES "
+			  . "($experiment,$newdata->{'id'},$newdata->{'curator'},'now')";
 			push @extra_inserts, $insert;
 		}
 	}
@@ -370,7 +397,7 @@ sub _check_allele_data {
 	#Check for sequence length in sequences table, that sequence doesn't already exist and is similar to existing etc.
 	#Prepare extra inserts for PubMed/Genbank records and sequence flags.
 	my ( $self, $newdata, $problems, $extra_inserts ) = @_;
-	my $q = $self->{'cgi'};
+	my $q          = $self->{'cgi'};
 	my $locus_info = $self->{'datastore'}->get_locus_info( $newdata->{'locus'} );
 	$newdata->{'sequence'} = uc $newdata->{'sequence'};
 	if ( $locus_info->{'data_type'} eq 'DNA' ) {

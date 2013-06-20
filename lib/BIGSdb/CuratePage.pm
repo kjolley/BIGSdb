@@ -22,7 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
-use List::MoreUtils qw(none);
+use List::MoreUtils qw(any none);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Page qw(SEQ_FLAGS ALLELE_FLAGS DATABANKS);
 
@@ -48,7 +48,8 @@ sub get_curator_name {
 }
 
 sub create_record_table {
-	my ( $self, $table, $newdata_ref, $update, $nodiv, $prepend_table_name, $newdata_readonly ) = @_;
+	my ( $self, $table, $newdata_ref, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	if ( ref $newdata_ref ne 'HASH' ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>Record doesn't exist.</p></div>";
 		return '';
@@ -57,8 +58,53 @@ sub create_record_table {
 	my $q       = $self->{'cgi'};
 	my $buffer;
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
-	my $qry        = "select id,user_name,first_name,surname from users where id>0 order by surname";
-	my $sql        = $self->{'db'}->prepare($qry);
+	$buffer .= $q->start_form;
+	$q->param( 'action', $options->{'update'} ? 'update' : 'add' );
+	$q->param( 'table', $table );
+	$buffer .= $q->hidden($_) foreach qw(page table db action );
+	$buffer .= $q->hidden( 'locus', $newdata{'locus'} ) if $table eq 'allele_designations';
+	$buffer .= $q->hidden( 'sent', 1 );
+	$buffer .= "<div class=\"box\" id=\"queryform\">" if !$options->{'nodiv'};
+	$buffer .= "<p>Please fill in the fields below - required fields are marked with an exclamation mark (!).</p>\n";
+	$buffer .= "<div class=\"scrollable\" style=\"white-space:nowrap\">" if !$options->{'nodiv'};
+	$buffer .= "<fieldset class=\"form\" style=\"float:left\"><legend>Record</legend><ul>";
+	my @field_names  = map { $_->{'name'} } @$attributes;
+	my $longest_name = BIGSdb::Utils::get_largest_string_length( \@field_names );
+	my $width        = int( 0.5 * $longest_name ) + 2;
+	$width = 15 if $width > 15;
+	$width = 6  if $width < 6;
+	my %width_override = ( user_permissions => 12, loci => 14, pcr => 12, sequences => 10, locus_descriptions => 11 );
+	$width = $width_override{$table} // $width;
+	$buffer .= $self->_get_form_fields( $attributes, $table, $newdata_ref, $options, $width );
+	given ($table) {
+		when ('sequences') { $buffer .= $self->_create_extra_fields_for_sequences( $newdata_ref, $width ) }
+		when ('locus_descriptions') { $buffer .= $self->_create_extra_fields_for_locus_descriptions( $q->param('locus') // '', $width ) }
+		when ('sequence_bin') { $buffer .= $self->_create_extra_fields_for_seqbin( $newdata_ref, $width ) }
+		when ('loci') { $buffer .= $self->_create_extra_fields_for_loci( $newdata_ref, $width ) }
+	}
+	$buffer .= "</ul></fieldset>\n";
+	my $page = $q->param('page');
+	my @extra;
+	my $extra_field = '';
+	if ( $options->{'update'} || $table eq 'pending_allele_designations' ) {
+		my $pk_fields = $self->{'datastore'}->get_table_pks($table);
+		foreach my $pk (@$pk_fields) {
+			push @extra, ( $pk => $newdata{$pk} );
+		}
+	}
+	$buffer .= $self->print_action_fieldset( { get_only => 1, page => $page, table => $table, @extra } );
+	$buffer .= "</div>\n</div>\n" if !$options->{'nodiv'};
+	$buffer .= $q->end_form;
+	return $buffer;
+}
+
+sub _get_form_fields {
+	my ( $self, $attributes, $table, $newdata_ref, $options, $width ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $q       = $self->{'cgi'};
+	my %newdata = %{$newdata_ref};
+	my $qry     = "select id,user_name,first_name,surname from users where id>0 order by surname";
+	my $sql     = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
 	$logger->error($@) if $@;
 	my @users;
@@ -69,26 +115,10 @@ sub create_record_table {
 		push @users, $user_id;
 		$usernames{$user_id} = "$surname, $firstname ($username)";
 	}
-	$buffer .= $q->start_form;
-	$q->param( 'action', $update ? 'update' : 'add' );
-	$q->param( 'table', $table );
-	$buffer .= $q->hidden($_) foreach qw(page table db action );
-	$buffer .= $q->hidden( 'locus', $newdata{'locus'} ) if $table eq 'allele_designations';
-	$buffer .= $q->hidden( 'sent', 1 );
-	$buffer .= "<div class=\"box\" id=\"queryform\">"                    if !$nodiv;
-	$buffer .= "<p>Please fill in the fields below - required fields are marked with an exclamation mark (!).</p>\n";
-	$buffer .= "<div class=\"scrollable\" style=\"white-space:nowrap\">" if !$nodiv;
-	$buffer .= "<fieldset class=\"form\" style=\"float:left\"><legend>Record</legend><ul>";
-	my @field_names  = map { $_->{'name'} } @$attributes;
-	my $longest_name = BIGSdb::Utils::get_largest_string_length( \@field_names );
-	my $width        = int( 0.5 * $longest_name ) + 2;
-	$width = 15 if $width > 15;
-	$width = 6  if $width < 6;
-	my %width_override = ( user_permissions => 12, loci => 14, pcr => 12, sequences => 10 );
-	$width = $width_override{$table} // $width;
-
+	my $buffer = '';
 	foreach my $required ( '1', '0' ) {
 		foreach my $att (@$attributes) {
+			next if ( any { $att->{'name'} eq $_ } @{ $options->{'noshow'} } );
 			my %html5_args;
 			$html5_args{'required'} = 'required' if $att->{'required'} eq 'yes';
 			if ( $att->{'type'} eq 'int' && !$att->{'dropdown_query'} && !$att->{'optlist'} ) {
@@ -96,8 +126,7 @@ sub create_record_table {
 				$html5_args{'min'}  = '1';
 				$html5_args{'step'} = '1';
 			}
-			
-			my $name = $prepend_table_name ? "$table\_$att->{'name'}" : $att->{'name'};
+			my $name = $options->{'prepend_table_name'} ? "$table\_$att->{'name'}" : $att->{'name'};
 			if (   ( $att->{'required'} eq 'yes' && $required )
 				|| ( ( !$att->{'required'} || $att->{'required'} eq 'no' ) && !$required ) )
 			{
@@ -110,15 +139,16 @@ sub create_record_table {
 				my $for =
 				     ( none { $att->{'name'} eq $_ } qw (curator date_entered datestamp) )
 				  && $att->{'type'} ne 'bool'
-				  && !( ( $update && $att->{'primary_key'} ) || ( $newdata_readonly && $newdata{ $att->{'name'} } ) )
+				  && !(( $options->{'update'} && $att->{'primary_key'} )
+					|| ( $options->{'newdata_readonly'} && $newdata{ $att->{'name'} } ) )
 				  ? " for=\"$name\""
 				  : '';
 				$buffer .= "<li><label$for class=\"form\" style=\"width:${width}em\"$title_attribute>";
 				$buffer .= "$label:";
 				$buffer .= '!' if $att->{'required'} eq 'yes';
 				$buffer .= "</label>";
-				if (   ( $update && $att->{'primary_key'} )
-					|| ( $newdata_readonly && $newdata{ $att->{'name'} } ) )
+				if (   ( $options->{'update'} && $att->{'primary_key'} )
+					|| ( $options->{'newdata_readonly'} && $newdata{ $att->{'name'} } ) )
 				{
 					my $desc;
 					if ( !$self->{'curate'}
@@ -320,24 +350,6 @@ sub create_record_table {
 			}
 		}
 	}
-	given ($table) {
-		when ('sequences') { $buffer .= $self->_create_extra_fields_for_sequences( $newdata_ref, $width ) }
-		when ('locus_descriptions') { $buffer .= $self->_create_extra_fields_for_locus_descriptions( $newdata_ref, $width ) }
-		when ('sequence_bin') { $buffer .= $self->_create_extra_fields_for_seqbin( $newdata_ref, $width ) }
-	}
-	$buffer .= "</ul></fieldset>\n";
-	my $page = $q->param('page');
-	my @extra;
-	my $extra_field = '';
-	if ( $update || $table eq 'pending_allele_designations' ) {
-		my $pk_fields = $self->{'datastore'}->get_table_pks($table);
-		foreach my $pk (@$pk_fields) {
-			push @extra, ( $pk => $newdata{$pk} );
-		}
-	}
-	$buffer .= $self->print_action_fieldset( { get_only => 1, page => $page, table => $table, @extra } );
-	$buffer .= "</div>\n</div>\n" if !$nodiv;
-	$buffer .= $q->end_form;
 	return $buffer;
 }
 
@@ -495,13 +507,12 @@ sub _create_extra_fields_for_sequences {
 }
 
 sub _create_extra_fields_for_locus_descriptions {
-	my ( $self, $newdata_ref, $width ) = @_;
+	my ( $self, $locus, $width ) = @_;
 	my $q = $self->{'cgi'};
 	my $buffer;
 	my @default_aliases;
-	if ( $q->param('page') eq 'update' && $q->param('locus') ) {
-		my $alias_list =
-		  $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias", $q->param('locus') );
+	if ( $q->param('page') eq 'update' && $locus ) {
+		my $alias_list = $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias", $locus );
 		@default_aliases = @$alias_list;
 	}
 	$buffer .= "<li><label for=\"aliases\" class=\"form\" style=\"width:${width}em\">aliases:&nbsp;</label>";
@@ -509,18 +520,18 @@ sub _create_extra_fields_for_locus_descriptions {
 	$buffer .= $q->textarea( -name => 'aliases', -id => 'aliases', -rows => 2, -cols => 12, -default => "@default_aliases" );
 	$buffer .= "</li>\n";
 	my @default_pubmed;
-	if ( $q->param('page') eq 'update' && $q->param('locus') ) {
+	if ( $q->param('page') eq 'update' && $locus ) {
 		my $pubmed_list =
-		  $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM locus_refs WHERE locus=? ORDER BY pubmed_id", $q->param('locus') );
+		  $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM locus_refs WHERE locus=? ORDER BY pubmed_id", $locus );
 		@default_pubmed = @$pubmed_list;
 	}
 	$buffer .= "<li><label for=\"pubmed\" class=\"form\" style=\"width:${width}em\">PubMed ids:&nbsp;</label>";
 	$buffer .= $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -default => "@default_pubmed" );
 	$buffer .= "</li>\n";
 	my @default_links;
-	if ( $q->param('page') eq 'update' && $q->param('locus') ) {
+	if ( $q->param('page') eq 'update' && $locus ) {
 		my $sql = $self->{'db'}->prepare("SELECT url,description FROM locus_links WHERE locus=? ORDER BY link_order");
-		eval { $sql->execute( $q->param('locus') ) };
+		eval { $sql->execute($locus) };
 		$logger->error($@) if $@;
 		while ( my ( $url, $desc ) = $sql->fetchrow_array ) {
 			push @default_links, "$url|$desc";
@@ -528,7 +539,7 @@ sub _create_extra_fields_for_locus_descriptions {
 	}
 	$buffer .= "<li><label for=\"links\" class=\"form\" style = \"width:${width}em\">links: <br /><span class=\"comment\">"
 	  . "(Format: URL|description)</span></label>";
-	$buffer .= $q->textarea( -name => 'links', -id => 'links', -rows => 3, -cols => 12, -default => "@default_links" );
+	$buffer .= $q->textarea( -name => 'links', -id => 'links', -rows => 3, -cols => 40, -default => "@default_links" );
 	$buffer .= "</li>";
 	return $buffer;
 }
@@ -560,6 +571,20 @@ sub _create_extra_fields_for_seqbin {
 		);
 		$buffer .= "</li>\n";
 	}
+	return $buffer;
+}
+
+sub _create_extra_fields_for_loci {
+	my ( $self, $newdata_ref, $width ) = @_;
+	my $q      = $self->{'cgi'};
+	my $buffer = '';
+	return $buffer if $self->{'system'}->{'dbtype'} ne 'sequences';
+	my $attributes = $self->{'datastore'}->get_table_field_attributes('locus_descriptions');
+	my $desc_ref = $self->{'datastore'}->run_simple_query_hashref("SELECT * FROM locus_descriptions WHERE locus=?", $newdata_ref->{'id'});
+	($newdata_ref->{$_} = $desc_ref->{$_}) foreach qw(full_name product description);
+	$buffer .=
+	  $self->_get_form_fields( $attributes, 'locus_descriptions', $newdata_ref, { noshow => [qw(locus curator datestamp)] }, $width );
+	$buffer .= $self->_create_extra_fields_for_locus_descriptions( $q->param('id') // '', $width );
 	return $buffer;
 }
 

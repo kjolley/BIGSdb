@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -47,7 +47,7 @@ sub print_content {
 		if ( $table eq 'sequences' && $q->param('locus') ) {
 			my $locus = $q->param('locus');
 			say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update $locus sequences in "
-			 . "the database.</p></div>";
+			  . "the database.</p></div>";
 		} else {
 			say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update this record.</p></div>";
 		}
@@ -112,7 +112,7 @@ sub print_content {
 			$data->{$field} = $value;
 		}
 	}
-	my $buffer = $self->create_record_table( $table, $data, 1 );
+	my $buffer = $self->create_record_table( $table, $data, { update => 1 } );
 	my %newdata;
 	foreach (@$attributes) {
 		if ( defined $q->param( $_->{'name'} ) && $q->param( $_->{'name'} ) ne '' ) {
@@ -141,6 +141,10 @@ sub print_content {
 				$status = $self->_check_locus_descriptions( \%newdata, \@extra_inserts );
 			} elsif ( $table eq 'loci' ) {
 				$status = $self->_check_loci( \%newdata );
+				if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+					$newdata{'locus'} = $newdata{'id'};
+					$self->_prepare_extra_inserts_for_loci( \%newdata, \@extra_inserts );
+				}
 			} elsif ( ( $table eq 'allele_designations' || $table eq 'sequence_bin' )
 				&& !$self->is_allowed_to_view_isolate( $newdata{'isolate_id'} ) )
 			{
@@ -455,6 +459,30 @@ HTML
 	return;
 }
 
+sub _prepare_extra_inserts_for_loci {
+	my ( $self, $newdata, $extra_inserts ) = @_;
+	my $q = $self->{'cgi'};
+	( my $cleaned_locus = $newdata->{'locus'} ) =~ s/'/\\'/g;
+	my $existing_desc =
+	  $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM locus_descriptions WHERE locus=?", $newdata->{'locus'} );
+	my ( $full_name, $product, $description ) = ( $q->param('full_name'), $q->param('product'), $q->param('description') );
+	s/'/\\'/g foreach ( $full_name, $product, $description );
+	if ($existing_desc) {
+		if (   $full_name ne $existing_desc->{'full_name'}
+			|| $product ne $existing_desc->{'product'}
+			|| $description ne $existing_desc->{'description'} )
+		{
+			push @$extra_inserts, "UPDATE locus_descriptions SET full_name=E'$full_name',product=E'$product',description=E'$description',"
+			  . "curator=$newdata->{'curator'},datestamp='now' WHERE locus=E'$cleaned_locus'";
+		}
+	} else {
+		push @$extra_inserts, "INSERT INTO locus_descriptions (locus,full_name,product,description,curator,datestamp) VALUES "
+		  . "(E'$cleaned_locus',E'$full_name',E'$product',E'$description',$newdata->{'curator'},'now')";
+	}
+	$self->_check_locus_descriptions( $newdata, $extra_inserts );
+	return;
+}
+
 sub _check_locus_descriptions {
 	my ( $self, $newdata, $extra_inserts ) = @_;
 	my $q = $self->{'cgi'};
@@ -505,7 +533,7 @@ HTML
 	}
 	my @existing_links;
 	my $sql = $self->{'db'}->prepare("SELECT link_order,url,description FROM locus_links WHERE locus=? ORDER BY link_order");
-	eval { $sql->execute( $q->param('locus') ) };
+	eval { $sql->execute( $newdata->{'locus'} ) };
 	$logger->error($@) if $@;
 	while ( my ( $order, $url, $desc ) = $sql->fetchrow_array ) {
 		push @existing_links, "$order|$url|$desc";

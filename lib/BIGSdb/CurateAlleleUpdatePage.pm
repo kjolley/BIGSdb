@@ -440,11 +440,11 @@ sub _get_allele_designation_form {
 	my $allele = $self->{'datastore'}->get_allele_designation( $isolate_id, $locus );
 	my $buffer;
 	if ( ref $allele eq 'HASH' ) {
-		$buffer = $self->create_record_table( 'allele_designations', $allele, 1, 1, 1 );
+		$buffer = $self->create_record_table( 'allele_designations', $allele, { update => 1, nodiv => 1, prepend_table_name => 1 } );
 	} else {
 		my $datestamp = $self->get_datestamp;
 		$allele = { 'isolate_id' => $isolate_id, 'locus' => $locus, 'date_entered' => $datestamp };
-		$buffer = $self->create_record_table( 'allele_designations', $allele, 0, 1, 1 );
+		$buffer = $self->create_record_table( 'allele_designations', $allele, { update => 0, nodiv => 1, prepend_table_name => 1 } );
 	}
 	return $buffer;
 }
@@ -454,7 +454,9 @@ sub _get_new_pending_designation_form {
 	my $buffer;
 	my $datestamp = $self->get_datestamp;
 	my $allele = { 'isolate_id' => $isolate_id, 'locus' => $locus, 'date_entered' => $datestamp };
-	$buffer = $self->create_record_table( 'pending_allele_designations', $allele, 0, 1, 1, 1 );
+	$buffer =
+	  $self->create_record_table( 'pending_allele_designations', $allele,
+		{ update => 0, nodiv => 1, prepend_table_name => 1, newdata_readonly => 1 } );
 	return $buffer;
 }
 
