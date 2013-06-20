@@ -1403,6 +1403,7 @@ sub get_client_data_linked_to_allele {
 			$proceed = 0;
 		};
 		return if !$proceed;
+		return if !@$field_data;
 		$buffer .= "<dt>$field</dt>";
 		my @values;
 		foreach my $data (@$field_data) {
