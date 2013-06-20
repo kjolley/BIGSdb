@@ -450,7 +450,7 @@ HTML
 	say $q->popup_menu(
 		-name    => 'core_threshold',
 		-id      => 'core_threshold',
-		-values  => [qw (80 85 90 91 92 93 94 95 96 97 98 99 100)],
+		-values  => [qw (80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100)],
 		-default => 90
 	);
 	print <<"HTML";
