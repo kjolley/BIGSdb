@@ -244,8 +244,8 @@ sub _print_accessions {
 	if (@$accession_list) {
 		say "<h2>Accession" . ( @$accession_list > 1 ? 's' : '' ) . " (" . @$accession_list . ")";
 		my $display = @$accession_list > 4 ? 'none' : 'block';
-		say
-"<span style=\"margin-left:1em\"><a id=\"show_accessions\" class=\"smallbutton\" style=\"cursor:pointer\">&nbsp;show/hide&nbsp;</a></span>"
+		say "<span style=\"margin-left:1em\"><a id=\"show_accessions\" class=\"smallbutton\" style=\"cursor:pointer\">&nbsp;"
+		  . "show/hide&nbsp;</a></span>"
 		  if $display eq 'none';
 		say "</h2>\n";
 		my $id = $display eq 'none' ? 'hidden_accessions' : 'accessions';
@@ -255,8 +255,12 @@ sub _print_accessions {
 			say "<dt>$accession->{'databank'}</dt>";
 			given ( $accession->{'databank'} ) {
 				when ('Genbank') {
-					say
-					  "<dd><a href=\"http://www.ncbi.nlm.nih.gov/nuccore/$accession->{'databank_id'}\">$accession->{'databank_id'}</a></dd>"
+					say "<dd><a href=\"http://www.ncbi.nlm.nih.gov/nuccore/$accession->{'databank_id'}\">"
+					  . "$accession->{'databank_id'}</a></dd>"
+				}
+				when ('ENA') {
+					say "<dd><a href=\"http://www.ebi.ac.uk/ena/data/view/$accession->{'databank_id'}\">"
+					  . "$accession->{'databank_id'}</a></dd>"
 				}
 				default { say "<dd>$accession->{'databank_id'}</dd>" };
 			}

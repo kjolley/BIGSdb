@@ -454,7 +454,10 @@ sub _get_extra_sequences_fields {
 		  ->run_list_query( "SELECT databank_id FROM accession WHERE locus=? AND allele_id=? AND databank=? ORDER BY databank_id",
 			$q->param('locus'), $q->param('allele_id'), $databank );
 		foreach my $accession (@$accessions) {
-			$accession = "<a href=\"http://www.ncbi.nlm.nih.gov/nuccore/$accession\">$accession</a>" if $databank eq 'Genbank';
+			given ($databank){
+				when ('Genbank'){$accession = "<a href=\"http://www.ncbi.nlm.nih.gov/nuccore/$accession\">$accession</a>"}
+				when ('ENA'){$accession = "<a href=\"http://www.ebi.ac.uk/ena/data/view/$accession\">$accession</a>"}
+			}
 			$buffer .= "<dt>$databank&nbsp;</dt><dd>$accession</dd>\n";
 		}
 	}
