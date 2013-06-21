@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -48,7 +48,6 @@ sub run_blast {
 	} else {
 		@runs = qw (DNA peptide);
 	}
-	my @files_to_delete;
 	foreach my $run (@runs) {
 		( my $cleaned_run = $run ) =~ s/'/_prime_/g;
 		my $temp_fastafile;
@@ -75,7 +74,6 @@ sub run_blast {
 			}
 		} else {
 			$temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'job'}\_$cleaned_run\_fastafile.txt";
-			push @files_to_delete, $temp_fastafile;
 		}
 		if ( !$already_generated ) {
 			my ( $qry, $sql );
@@ -183,7 +181,7 @@ sub run_blast {
 					  . "-d $temp_fastafile -i $temp_infile -o $temp_outfile -F F -m$old_format > /dev/null" );
 			}
 			if ( $run eq 'DNA' ) {
-				system "mv $temp_outfile $temp_outfile\.1";
+				rename ($temp_outfile, "$temp_outfile\.1");
 			}
 		}
 	}
@@ -194,8 +192,11 @@ sub run_blast {
 	}
 
 	#delete all working files
-	local $" = ' ';
-	system "rm -f $temp_infile @files_to_delete" if !$options->{'cache'};
+	if (!$options->{'cache'}){
+		unlink $temp_infile;
+		my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/$options->{'job'}*");
+		foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/ && !/outfile.txt/}
+	}
 	return ( $outfile_url, $options->{'job'} );
 }
 1;

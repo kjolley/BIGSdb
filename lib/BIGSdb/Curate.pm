@@ -24,6 +24,7 @@ use BIGSdb::ConfigCheckPage;
 use BIGSdb::ConfigRepairPage;
 use BIGSdb::CurateAddPage;
 use BIGSdb::CurateAlleleUpdatePage;
+use BIGSdb::CurateBatchAddFASTAPage;
 use BIGSdb::CurateBatchAddPage;
 use BIGSdb::CurateBatchAddSeqbinPage;
 use BIGSdb::CurateBatchIsolateUpdatePage;
@@ -69,6 +70,7 @@ sub print_page {
 		listQuery          => 'ListQueryPage',
 		isolateDelete      => 'CurateIsolateDeletePage',
 		isolateUpdate      => 'CurateIsolateUpdatePage',
+		batchAddFasta      => 'CurateBatchAddFASTAPage',
 		batchIsolateUpdate => 'CurateBatchIsolateUpdatePage',
 		batchProfileUpdate => 'CurateBatchProfileUpdatePage',
 		batchAdd           => 'CurateBatchAddPage',

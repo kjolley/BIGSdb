@@ -941,6 +941,10 @@ sub get_locus_list {
 		$qry .= ( $qry =~ /loci$/ ) ? ' WHERE ' : ' AND ';
 		$qry .= "loci.id IN (SELECT locus from locus_curators WHERE curator_id = $options->{'locus_curator'})";
 	}
+	if ($options->{'no_extended_attributes'}){
+		$qry .= ( $qry =~ /loci$/ ) ? ' WHERE ' : ' AND ';
+		$qry .= "loci.id NOT IN (SELECT locus from locus_extended_attributes)";		
+	}
 	my $loci = $self->run_list_query_hashref($qry);
 	my $cleaned;
 	my $display_loci;

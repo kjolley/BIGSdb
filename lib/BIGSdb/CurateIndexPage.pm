@@ -363,7 +363,8 @@ sub _print_sequences {
 	my $buffer = <<"HTML";
 <tr class="td$td"><td>sequences (all loci)</td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=sequences$set_string">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=sequences$set_string">++</a></td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=sequences$set_string">++</a> | 
+<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddFasta$set_string">FASTA</a></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=sequences$set_string">?</a></td>
 <td></td></tr>	
 HTML

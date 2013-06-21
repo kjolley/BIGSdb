@@ -665,6 +665,7 @@ sub sequence_similar_to_others {
 		last;
 	}
 	close $blast_fh;
+	unlink $full_path;
 	if ( defined $identity && $identity >= 70 && $alignment >= 0.9 * $length ) {
 		return 1;
 	}
