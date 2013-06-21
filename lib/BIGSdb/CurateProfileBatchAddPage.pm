@@ -533,7 +533,7 @@ HTML
 	$usernames{-1} = 'Override with sender field';
 	say "<fieldset style=\"float:left\"><legend>Please paste in tab-delimited text (<strong>include a field header line</strong>)</legend>";
 	say $q->hidden($_) foreach qw (page db scheme_id);
-	say $q->textarea( -name => 'data', -rows => 20, -columns => 80 );
+	say $q->textarea( -name => 'data', -rows => 20, -columns => 80, -required => 'required' );
 	say "</fieldset>";
 	say "<fieldset style=\"float:left\"><legend>Parameters</legend>";
 	say "<label for=\"sender\" class=\"form\" style=\"width:5em\">Sender:</label>";
