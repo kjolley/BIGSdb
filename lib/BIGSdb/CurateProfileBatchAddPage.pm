@@ -527,14 +527,18 @@ HTML
 		push @users, $userid;
 		$usernames{$userid} = "$surname, $firstname ($username)";
 	}
-	say "<p>Please select the sender from the list below:</p>";
 	$usernames{-1} = 'Override with sender field';
-	say "<table><tr><td>";
-	say $q->popup_menu( -name => 'sender', -values => [ '', -1, @users ], -labels => \%usernames, -required => 'required' );
-	say "</td><td class=\"comment\">Value will be overridden if you include a sender field in your pasted data.</td></tr></table>";
-	say "<p>Please paste in tab-delimited text (<strong>include a field header line</strong>).</p>";
+	
+	say "<fieldset style=\"float:left\"><legend>Please paste in tab-delimited text (<strong>include a field header line</strong>)</legend>";
 	say $q->hidden($_) foreach qw (page db scheme_id);
-	say $q->textarea( -name => 'data', -rows => 20, -columns => 120 );
+	say $q->textarea( -name => 'data', -rows => 20, -columns => 80 );
+	say "</fieldset>";
+	say "<fieldset style=\"float:left\"><legend>Parameters</legend>";
+	say "<label for=\"sender\" class=\"form\" style=\"width:5em\">Sender:</label>";
+	say $q->popup_menu( -name => 'sender', -id => 'sender', -values => [ '', -1, @users ], -labels => \%usernames, -required => 'required' );
+	say "<p class=\"comment\">Value will be overridden if you include a sender field in your pasted data.</p>";
+	say "</fieldset>";
+	
 	$self->print_action_fieldset( { scheme_id => $scheme_id } );
 	say $q->end_form;
 	say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back</a></p>";
