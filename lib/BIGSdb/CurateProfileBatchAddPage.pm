@@ -193,7 +193,8 @@ sub _check {
 	my $first_record = 1;
 	my $header_row;
 	my $record_count;
-	foreach my $record (@records) {
+  RECORD: foreach my $record (@records) {
+		my $row_buffer;
 		$record =~ s/\r//g;
 		next if $record =~ /^\s*$/;
 		my @profile;
@@ -208,7 +209,7 @@ sub _check {
 			$pk = $data[ $fileheaderPos{$primary_key} ];
 		}
 		$record_count++;
-		$table_buffer .= "<tr class=\"td$td\">";
+		$row_buffer .= "<tr class=\"td$td\">";
 		$i = 0;
 		foreach my $field (@fieldorder) {
 			my $value;
@@ -268,9 +269,9 @@ sub _check {
 			}
 			my $display_value = $value;
 			if ( !$problem ) {
-				$table_buffer .= "<td>$display_value</td>";
+				$row_buffer .= "<td>$display_value</td>";
 			} else {
-				$table_buffer .= "<td><font color=\"red\">$display_value</font></td>";
+				$row_buffer .= "<td><font color=\"red\">$display_value</font></td>";
 			}
 			$checked_record .= "$value\t"
 			  if defined $fileheaderPos{$field}
@@ -295,6 +296,7 @@ sub _check {
 			no warnings 'uninitialized';
 			local $" = ',';
 			if ( $profiles_so_far{"@profile"} && none { $_ eq '' } @profile ) {
+				next RECORD if $q->param('ignore_duplicates');
 				$problems{$pk} .= "The profile '@profile' has been included more than once in this submission.<br />";
 			} elsif ( $scheme_info->{'allow_missing_loci'} ) {
 
@@ -318,7 +320,8 @@ sub _check {
 			$profiles_so_far{"@profile"} = 1;
 		}
 		$pks_so_far{$pk} = 1;
-		$table_buffer .= "</tr>\n";
+		$row_buffer   .= "</tr>\n";
+		$table_buffer .= $row_buffer;
 		$td = $td == 1 ? 2 : 1;    #row stripes
 		push @checked_buffer, $header_row if $first_record;
 		$checked_record =~ s/\t$//;
@@ -528,17 +531,17 @@ HTML
 		$usernames{$userid} = "$surname, $firstname ($username)";
 	}
 	$usernames{-1} = 'Override with sender field';
-	
 	say "<fieldset style=\"float:left\"><legend>Please paste in tab-delimited text (<strong>include a field header line</strong>)</legend>";
 	say $q->hidden($_) foreach qw (page db scheme_id);
 	say $q->textarea( -name => 'data', -rows => 20, -columns => 80 );
 	say "</fieldset>";
 	say "<fieldset style=\"float:left\"><legend>Parameters</legend>";
 	say "<label for=\"sender\" class=\"form\" style=\"width:5em\">Sender:</label>";
-	say $q->popup_menu( -name => 'sender', -id => 'sender', -values => [ '', -1, @users ], -labels => \%usernames, -required => 'required' );
+	say $q->popup_menu( -name => 'sender', -id => 'sender', -values => [ '', -1, @users ], -labels => \%usernames,
+		-required => 'required' );
 	say "<p class=\"comment\">Value will be overridden if you include a sender field in your pasted data.</p>";
+	say $q->checkbox( -name => 'ignore_duplicates', -label => 'Ignore duplicate profiles' );
 	say "</fieldset>";
-	
 	$self->print_action_fieldset( { scheme_id => $scheme_id } );
 	say $q->end_form;
 	say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back</a></p>";
