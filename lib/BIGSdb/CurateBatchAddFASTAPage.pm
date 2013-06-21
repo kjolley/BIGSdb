@@ -224,6 +224,9 @@ sub _check_sequence {
 	if ( $self->{'locus_info'}->{'allele_id_format'} eq 'integer' && !BIGSdb::Utils::is_int($allele_id) ) {
 		return ( FAILURE, $allele_id, "Allele id is not an integer." );
 	}
+	if ( $self->{'locus_info'}->{'allele_id_regex'} && $allele_id !~ /$self->{'locus_info'}->{'allele_id_regex'}/ ) {
+		return ( FAILURE, $allele_id, "Allele id does not conform to required format." );
+	}
 
 	#Check id doesn't already exist
 	if ( $self->{'datastore'}->sequence_exists( $locus, $allele_id ) ) {
