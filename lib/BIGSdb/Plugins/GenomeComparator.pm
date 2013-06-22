@@ -1260,14 +1260,14 @@ sub _print_paralogous_loci {
 		$$buffer_ref .= "<h3>Potentially paralogous loci</h3>\n";
 		$$buffer_ref .= "<P>The table shows the number of matches where there was more than one hit matching the BLAST thresholds in "
 		  . "at least one genome.</p>\n";
-		$$buffer_ref .= "<p>Paralogous: " . (keys %paralogous_loci) . "</p>\n";
+		$$buffer_ref .= "<p>Paralogous: " . ( keys %paralogous_loci ) . "</p>\n";
 		$$buffer_ref .= "<table class=\"resultstable\"><tr><th>Locus</th>";
 		my $file_buffer = "\n###\n\n";
 		$file_buffer .= "Potentially paralogous loci\n";
 		$file_buffer .= "---------------------------\n";
 		$file_buffer .= "The table shows the number of matches where there was more than one hit matching the BLAST thresholds in "
 		  . "at least one genome.\n\n";
-		$file_buffer .= "Paralogous: " . (keys %paralogous_loci) . "\n\n";
+		$file_buffer .= "Paralogous: " . ( keys %paralogous_loci ) . "\n\n";
 		$file_buffer .= "Locus";
 
 		foreach my $id (@$ids) {
@@ -1439,9 +1439,8 @@ sub _run_infoalign {
 	if ( -e "$self->{'config'}->{'emboss_path'}/infoalign" ) {
 		my $prefix  = BIGSdb::Utils::get_random();
 		my $outfile = "$self->{'config'}->{'secure_tmp_dir'}/$prefix.infoalign";
-		system(
-"$self->{'config'}->{'emboss_path'}/infoalign -sequence $values->{'alignment'} -outfile $outfile -nousa -nosimcount -noweight -nodescription 2> /dev/null"
-		);
+		system( "$self->{'config'}->{'emboss_path'}/infoalign -sequence $values->{'alignment'} -outfile $outfile -nousa "
+			  . "-nosimcount -noweight -nodescription 2> /dev/null" );
 		open( my $fh_stats, '>>', $values->{'align_stats_file'} )
 		  or $logger->error("Can't open output file $values->{'align_stats_file'} for appending");
 		my $heading_locus = $self->clean_locus( $values->{'locus'}, { text_output => 1 } );
@@ -1463,6 +1462,7 @@ sub _run_infoalign {
 			}
 			my $mean_distance = $total_diff / ( $row * 100 );
 			close $fh;
+			unlink $outfile;
 			return $mean_distance;
 		}
 	}
