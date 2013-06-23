@@ -330,9 +330,15 @@ sub print_provenance_form_elements {
 						-values => [ '', 'true', 'false' ],
 						-default => ( $newdata->{ lc($field) } // $thisfield->{'default'} )
 					);
-				} elsif ( lc($field) ~~ [qw(datestamp date_entered)] ) {
+				} elsif ( lc($field) eq 'datestamp'){
 					say "<b>" . $self->get_datestamp . "</b>";
-					say $q->hidden( 'date_entered', $newdata->{'date_entered'} ) if $field eq 'date_entered' && $options->{'update'};
+				} elsif ( lc($field) eq 'date_entered' ) {
+					if ($options->{'update'}){
+						say "<b>$newdata->{'date_entered'}</b>";
+						say $q->hidden( 'date_entered', $newdata->{'date_entered'} )
+					} else {
+						say "<b>" . $self->get_datestamp . "</b>";
+					}
 				} elsif ( lc($field) eq 'curator' ) {
 					say "<b>" . $self->get_curator_name . ' (' . $self->{'username'} . ")</b>";
 				} elsif ( lc($field) ~~ [qw(sender sequenced_by)] || ( $thisfield->{'userfield'} // '' ) eq 'yes' ) {
