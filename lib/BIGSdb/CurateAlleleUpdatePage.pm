@@ -335,6 +335,7 @@ sub _update {
 			if (   defined $allele->{ lc( $_->{'name'} ) }
 				&& $newdata{ $_->{'name'} } ne $allele->{ lc( $_->{'name'} ) }
 				&& $_->{'name'}             ne 'datestamp'
+				&& $_->{'name'}             ne 'date_entered'
 				&& $_->{'name'}             ne 'curator' )
 			{
 				push @updated_field, "$locus $_->{'name'}: $allele->{lc($_->{'name'})} -> $newdata{ $_->{'name'}}";
