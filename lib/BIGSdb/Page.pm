@@ -280,7 +280,7 @@ sub print_page_content {
 		my $dtd  = '<!DOCTYPE html>';
 		$head =~ s/<!DOCTYPE.*?>/$dtd/s;    #CGI.pm doesn't support HTML5 DOCTYPE
 		$head =~ s/<html[^>]*>/<html>/;
-		say $head;                          
+		say $head;
 		$self->_print_header;
 		$self->_print_login_details
 		  if ( defined $self->{'system'}->{'read_access'} && $self->{'system'}->{'read_access'} ne 'public' ) || $self->{'curate'};
@@ -385,11 +385,8 @@ sub print_action_fieldset {
 		  . "<span class=\"ui-button-text\">Reset</span>";
 		$buffer .= "</a>\n";
 	}
-	$buffer .= $q->submit(
-		-name  => 'submit',
-		-label => $submit_label,
-		-class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all'
-	);
+	$buffer .=
+	  $q->submit( -name => 'submit', -label => $submit_label, -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
 	$buffer .= "</fieldset><div style=\"clear:both\"></div>";
 	return $buffer if $options->{'get_only'};
 	say $buffer;
@@ -760,6 +757,7 @@ s/\$lociAdd/<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&a
 
 sub get_filter {
 	my ( $self, $name, $values, $options ) = @_;
+	my $q = $self->{'cgi'};
 	$options = {} if ref $options ne 'HASH';
 	my $class = $options->{'class'} || 'filter';
 	( my $text = $options->{'text'} || $name ) =~ tr/_/ /;
@@ -768,9 +766,16 @@ sub get_filter {
 	( my $id = "$name\_list" ) =~ tr/:/_/;
 	my $buffer = "<label for=\"$id\" class=\"$class\" $title_attribute>$label</label>\n";
 	unshift @$values, '' if !$options->{'noblank'};
-	$buffer .=
-	  $self->{'cgi'}
-	  ->popup_menu( -name => "$name\_list", -id => $id, -values => $values, -labels => $options->{'labels'}, -class => $class );
+	my %args = ( -name => "$name\_list", -id => $id, -values => $values, -labels => $options->{'labels'}, -class => $class );
+
+	if ( $options->{'multiple'} ) {
+		$args{'multiple'} = 'multiple';
+		$args{'size'} = ( @$values < 4 ) ? @$values : 4;
+		my @selected = $q->param("$name\_list");
+		$args{'default'} = \@selected;	#Not sure why this should be necessary, but only the first selection seems to stick.
+		$args{'override'} = 1;
+	}
+	$buffer .= $q->popup_menu(%args);
 	$options->{'tooltip'} =~ tr/_/ / if $options->{'tooltip'};
 	$buffer .= " <a class=\"tooltip\" title=\"$options->{'tooltip'}\">&nbsp;<i>i</i>&nbsp;</a>" if $options->{'tooltip'};
 	return $buffer;
@@ -870,16 +875,14 @@ sub get_project_filter {
 	}
 	if (@project_ids) {
 		my $class = $options->{'class'} || 'filter';
-		return $self->get_filter(
-			'project',
-			\@project_ids,
-			{
-				'labels'  => \%labels,
-				'text'    => 'Project',
-				'tooltip' => 'project filter - Select a project to filter your query to only those isolates belonging to it.',
-				'class'   => $class
-			}
-		);
+		my $tooltip = 'project filter - <p>Select a project to filter your query to only those isolates belonging to it.</p>';
+		$tooltip .= '<p>Multiple projects can be selected/deselected by holding down Ctrl and clicking.</p>' if $options->{'multiple'};
+		my $args = { labels => \%labels, text => 'Project', tooltip => $tooltip, class => $class, };
+		if ( $options->{'multiple'} ) {
+			$args->{'multiple'} = 1;
+			$args->{'noblank'}  = 1;
+		}
+		return $self->get_filter( 'project', \@project_ids, $args );
 	}
 }
 
@@ -1893,16 +1896,17 @@ sub get_all_foreign_key_fields_and_labels {
 }
 
 sub textfield {
+
 	#allow HTML5 attributes (use instead of CGI->textfield)
-	my ($self, %args) = @_;
-	if (($args{'type'} // '') eq 'number'){
+	my ( $self, %args ) = @_;
+	if ( ( $args{'type'} // '' ) eq 'number' ) {
 		delete @args{qw(size maxlength)};
 	}
 	$args{'type'} //= 'text';
 	my $args_string;
-	foreach (keys %args){
+	foreach ( keys %args ) {
 		$args{$_} //= '';
-		$args_string.= qq/$_="$args{$_}" /;
+		$args_string .= qq/$_="$args{$_}" /;
 	}
 	my $buffer = "<input $args_string/>";
 	return $buffer;

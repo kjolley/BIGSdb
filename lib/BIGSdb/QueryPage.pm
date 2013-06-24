@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::ResultsTablePage);
-use List::MoreUtils qw(any none);
+use List::MoreUtils qw(any none all);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant MAX_ROWS  => 20;
@@ -220,7 +220,7 @@ sub print_content {
 		} else {
 			$self->_run_profile_query($scheme_id);
 		}
-	} 
+	}
 	return;
 }
 ####START ISOLATE INTERFACE#####################################################
@@ -458,7 +458,7 @@ sub _print_isolate_filter_fieldset {
 			  );
 		}
 	}
-	my $buffer = $self->get_project_filter( { 'any' => 1 } );
+	my $buffer = $self->get_project_filter( { any => 1, multiple => 1 } );
 	push @filters, $buffer if $buffer;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	foreach my $scheme (@$schemes) {
@@ -1172,19 +1172,23 @@ sub _modify_isolate_query_for_filters {
 			}
 		}
 	}
-	if ( defined $q->param('project_list') && $q->param('project_list') ne '' ) {
-		my $project_id = $q->param('project_list');
+	if ( ( $q->param('project_list') // '' ) ne '' ) {
+		my @project_id = $q->param('project_list');
 		my $project_qry;
-		if ( $project_id eq 'belonging to any project' ) {
+		if ( any { $_ eq 'belonging to any project' } @project_id ) {
 			$project_qry = "$view.id IN (SELECT isolate_id FROM project_members)";
-		} elsif ( $project_id eq 'not belonging to any project' ) {
-			$project_qry = "$view.id NOT IN (SELECT isolate_id FROM project_members)";
-		} elsif ( BIGSdb::Utils::is_int($project_id) ) {
-			$project_qry = "$view.id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id')";
-		} else {
-			undef $project_id;
 		}
-		if ($project_id) {
+		if ( any { $_ eq 'not belonging to any project' } @project_id ) {
+			$project_qry .= ' OR ' if $project_qry;
+			$project_qry .= "$view.id NOT IN (SELECT isolate_id FROM project_members)";
+		}
+		if ( any { BIGSdb::Utils::is_int($_) } @project_id ) {
+			my @projects = grep {BIGSdb::Utils::is_int($_)} @project_id;
+			$project_qry .= ' OR ' if $project_qry;
+			local $" = ',';
+			$project_qry .= "$view.id IN (SELECT isolate_id FROM project_members WHERE project_id IN (@projects))";
+		}
+		if ($project_qry) {
 			if ( $qry !~ /WHERE \(\)\s*$/ ) {
 				$qry .= " AND ($project_qry)";
 			} else {
@@ -1316,10 +1320,11 @@ sub _modify_isolate_query_for_designations {
 	my $q    = $self->{'cgi'};
 	my $view = $self->{'system'}->{'view'};
 	my ( %lqry, @lqry_blank, %combo );
-	my $pattern = LOCUS_PATTERN;
-	my $andor = defined $q->param('c1') && $q->param('c1') eq 'AND' ? ' AND ' : ' OR ';
+	my $pattern     = LOCUS_PATTERN;
+	my $andor       = defined $q->param('c1') && $q->param('c1') eq 'AND' ? ' AND ' : ' OR ';
 	my $qry_started = $qry =~ /\(\)$/ ? 0 : 1;
 	foreach my $i ( 1 .. MAX_ROWS ) {
+
 		if ( defined $q->param("lt$i") && $q->param("lt$i") ne '' ) {
 			if ( $q->param("ls$i") =~ /$pattern/ ) {
 				my $locus            = $1;
@@ -1508,7 +1513,7 @@ sub _modify_isolate_query_for_designations {
 		if ( $qry =~ /\(\)$/ ) {
 			$qry = "SELECT * FROM $view WHERE $sqry";
 		} else {
-			$qry .= (keys %lqry || @lqry_blank) ? " $andor" : ' AND';
+			$qry .= ( keys %lqry || @lqry_blank ) ? " $andor" : ' AND';
 			$qry .= " ($sqry)";
 			$qry .= ')' if ( scalar keys %lqry or @lqry_blank );
 		}
