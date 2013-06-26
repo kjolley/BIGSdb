@@ -93,7 +93,7 @@ sub get_javascript {
 	#Override by returning javascript code to include in header
 	my $buffer = << "END";
 \$(function () {
-	\$('.multiselect').multiselect({noneSelectedText:'Select multiple...'});
+	\$('.multiselect').multiselect({noneSelectedText:'&nbsp;'});
 });
 END
 	return $buffer;
@@ -305,7 +305,7 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system    = $self->{'system'};
-	my $version   = '20130624';
+	my $version   = '20130626';
 	my @filenames = qw(bigsdb.css jquery-ui.css);
 	my @paths;
 	foreach my $filename (@filenames) {
