@@ -102,7 +102,7 @@ sub _print_interface {
 	my $record_name = $self->get_record_name($table);
 	my $q           = $self->{'cgi'};
 	print << "HTML";
-<div class="box" id="queryform">
+<div class="box" id="queryform"><div class="scrollable">
 <p>This page allows you to upload $record_name data as tab-delimited text or 
 copied from a spreadsheet.</p>
 <ul>
@@ -159,13 +159,14 @@ HTML
 	if ( $table eq 'sequences' ) {
 		$self->_print_interface_sequence_switches;
 	}
-	say "<p>Please paste in tab-delimited text (<strong>include a field header line</strong>).</p>";
+	say "<fieldset style=\"float:left\"><legend>Paste in tab-delimited text (<strong>include a field header line</strong>).</legend>";
+	say $q->textarea( -name => 'data', -rows => 20, -columns => 80 );
+	say "</fieldset>";
 	say $q->hidden($_) foreach qw (page db table locus);
-	say $q->textarea( -name => 'data', -rows => 20, -columns => 120 );
 	$self->print_action_fieldset( { table => $table } );
 	say $q->end_form;
 	say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back</a></p>";
-	say "</div>";
+	say "</div></div>";
 	return;
 }
 
