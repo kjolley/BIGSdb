@@ -948,7 +948,8 @@ sub _run_comparison {
 			order           => $order
 		}
 	);
-	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$prefix\*";
+	my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/$prefix*");
+	foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/ }
 	return;
 }
 
