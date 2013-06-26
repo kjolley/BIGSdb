@@ -131,7 +131,7 @@ sub run {
 
 	foreach my $id (@ids) {
 		my $matches = $self->_blast( $id, \$seq );
-		next if !$q->param('show_no_match') && (ref $matches ne 'ARRAY' || !@$matches);
+		next if !$q->param('show_no_match') && ( ref $matches ne 'ARRAY' || !@$matches );
 		print $header_buffer if $first;
 		my @include_values;
 		if (@includes) {
@@ -221,7 +221,7 @@ sub run {
 			say $fh_output_table $file_buffer;
 			close $fh_output_table;
 		}
-		if (!@$matches){
+		if ( !@$matches ) {
 			say "<tr class=\"td$td\"><td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$id\">"
 			  . "$id</a></td><td>$label</td><td>0</td><td colspan=\"9\" /></tr>";
 			open( my $fh_output_table, '>>', "$self->{'config'}->{'tmp_dir'}/$out_file_table" )
@@ -327,7 +327,7 @@ sub _print_interface {
 	say "<fieldset>";
 	say "<legend>Options</legend>";
 	say "<ul><li>";
-	say $q->checkbox ( -name => 'show_no_match', label => 'Show 0% matches in table');
+	say $q->checkbox( -name => 'show_no_match', label => 'Show 0% matches in table' );
 	say "</li></ul>";
 	say "</fieldset>";
 	say "<fieldset style=\"float:left\">\n<legend>Restrict included sequences by</legend>";
@@ -428,7 +428,8 @@ sub _blast {
 	my $matches = $self->_parse_blast( $outfile_url, $hits );
 
 	#clean up
-	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/*$file_prefix*";
+	my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/*$file_prefix*");
+	foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/ }
 	return $matches;
 }
 

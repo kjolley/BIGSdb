@@ -133,9 +133,7 @@ sub run {
 	} else {
 		say "<p>No similar alleles found.</p>";
 	}
-
-	#delete all working files
-	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$blast_file";
+	unlink "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 	say "</div>";
 	return;
 }

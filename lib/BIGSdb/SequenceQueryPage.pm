@@ -232,11 +232,12 @@ sub _run_query {
 			}
 		} else {
 			if ( defined $locus_info->{'data_type'} && $qry_type ne $locus_info->{'data_type'} && $distinct_locus_selected ) {
-				system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$blast_file";
+				unlink "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 				if ( $page eq 'sequenceQuery' ) {
 					$self->_output_single_query_nonexact_mismatched($data_ref);
 					$blast_file =~ s/_outfile.txt//;
-					system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$blast_file*";
+					my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/$blast_file*");
+					foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/ }
 					say "</div>";
 					return;
 				}
@@ -530,7 +531,8 @@ sub _output_single_query_nonexact_mismatched {
 		say "<p>No results from BLAST.</p>";
 	}
 	$blast_file =~ s/outfile.txt//;
-	system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$blast_file*";
+	my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/$blast_file*");
+	foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/ }
 	return;
 }
 
@@ -661,7 +663,8 @@ sub _output_single_query_nonexact {
 			say "<pre style=\"font-size:1.2em\">";
 			$self->print_file( $outfile, 1 );
 			say "</pre>";
-			system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$temp*";
+			my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/$temp*");
+			foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/ }
 		}
 	} else {
 		my ( $blast_file, undef ) = $self->run_blast(
@@ -686,7 +689,7 @@ sub _output_single_query_nonexact {
 		} else {
 			say "<p>No results from BLAST.</p>";
 		}
-		system "rm -f $self->{'config'}->{'secure_tmp_dir'}/$blast_file";
+		unlink "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 	}
 	say "</div>";
 	return;
