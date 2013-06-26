@@ -91,7 +91,12 @@ sub set_pref_requirements {
 sub get_javascript {
 
 	#Override by returning javascript code to include in header
-	return "";
+	my $buffer = << "END";
+\$(function () {
+	\$('.multiselect').multiselect({noneSelectedText:'Select multiple...'});
+});
+END
+	return $buffer;
 }
 
 sub get_guid {
@@ -232,6 +237,9 @@ sub print_page_content {
 			if ( $self->{'jQuery.columnizer'} ) {
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.columnizer.js" } );
 			}
+			if ( $self->{'jQuery.multiselect'} ) {
+				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.multiselect.js" } );
+			}
 			push @javascript, { 'language' => 'Javascript', 'code' => $page_js } if $page_js;
 		}
 
@@ -297,7 +305,7 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system    = $self->{'system'};
-	my $version   = '20130615';
+	my $version   = '20130624';
 	my @filenames = qw(bigsdb.css jquery-ui.css);
 	my @paths;
 	foreach my $filename (@filenames) {
@@ -772,8 +780,9 @@ sub get_filter {
 		$args{'multiple'} = 'multiple';
 		$args{'size'} = ( @$values < 4 ) ? @$values : 4;
 		my @selected = $q->param("$name\_list");
-		$args{'default'} = \@selected;	#Not sure why this should be necessary, but only the first selection seems to stick.
+		$args{'default'}  = \@selected;      #Not sure why this should be necessary, but only the first selection seems to stick.
 		$args{'override'} = 1;
+		$args{'class'}    = 'multiselect';
 	}
 	$buffer .= $q->popup_menu(%args);
 	$options->{'tooltip'} =~ tr/_/ / if $options->{'tooltip'};
@@ -874,10 +883,9 @@ sub get_project_filter {
 		unshift @project_ids, 'belonging to any project';
 	}
 	if (@project_ids) {
-		my $class = $options->{'class'} || 'filter';
-		my $tooltip = 'project filter - <p>Select a project to filter your query to only those isolates belonging to it.</p>';
-		$tooltip .= '<p>Multiple projects can be selected/deselected by holding down Ctrl and clicking.</p>' if $options->{'multiple'};
-		my $args = { labels => \%labels, text => 'Project', tooltip => $tooltip, class => $class, };
+		my $class   = $options->{'class'} || 'filter';
+		my $tooltip = 'project filter - Select projects to filter your query to only those isolates belonging to them.';
+		my $args    = { labels => \%labels, text => 'Project', tooltip => $tooltip, class => $class };
 		if ( $options->{'multiple'} ) {
 			$args->{'multiple'} = 1;
 			$args->{'noblank'}  = 1;

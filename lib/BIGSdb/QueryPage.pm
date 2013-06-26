@@ -36,7 +36,7 @@ sub initiate {
 		$self->{'type'} = 'no_header';
 		return;
 	}
-	$self->{$_} = 1 foreach qw (field_help tooltips jQuery jQuery.coolfieldset);
+	$self->{$_} = 1 foreach qw (field_help tooltips jQuery jQuery.coolfieldset jQuery.multiselect);
 	return;
 }
 
@@ -52,7 +52,8 @@ sub get_javascript {
 	my $locus_collapse  = $self->_highest_entered_fields('loci') ? 'false' : 'true';
 	my $tag_collapse    = $self->_highest_entered_fields('tags') ? 'false' : 'true';
 	my $filter_collapse = $self->_filters_selected               ? 'false' : 'true';
-	my $buffer          = << "END";
+	my $buffer = $self->SUPER::get_javascript;
+	$buffer          .= << "END";
 \$(function () {
 	\$('a[data-rel=ajax]').click(function(){
   		\$(this).attr('href', function(){
@@ -70,8 +71,6 @@ sub get_javascript {
   		+ "</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms."
   		+ "</p>" });
   	\$('#tag_tooltip').tooltip({ content: "<h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p>" });	
- 
-
  });
 
 function loadContent(url) {
