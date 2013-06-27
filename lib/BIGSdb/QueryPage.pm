@@ -71,7 +71,9 @@ sub get_javascript {
   		+ "</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms."
   		+ "</p>" });
   	\$('#tag_tooltip').tooltip({ content: "<h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p>" });	
-  	\$('.multiselect').multiselect({noneSelectedText:'&nbsp;'});
+  	if (! Modernizr.touch){
+  		\$('.multiselect').multiselect({noneSelectedText:'&nbsp;'});
+  	}
  });
 
 function loadContent(url) {
