@@ -58,13 +58,13 @@ a.th:hover {
 	text-decoration:none
 }
 
-select {font-size: 1em; border: 1px solid #999; border-radius:4px; background:white}
-select.filter{max-width:20em}
+select {font-size: 1em}
+select.filter{max-width:20em; border: 1px solid #999; border-radius:0; background:white}
 select.fieldlist{max-width:12em}
 .value_entry{min-width:12em}
 .allele_entry{min-width:10em}
 .int_entry{width:5em}
-input {font-size: 1em; background:white}
+input {font-size: 1em}
 
 a.downloadbutton {
 	font-size: 0.9em;
@@ -960,6 +960,6 @@ h3.scheme {
 /* remove label borders in IE6 because IE6 does not support transparency */
 * html .ui-multiselect-checkboxes label { border:none }
 
-.ui-multiselect.ui-state-default {background:white; border: 1px solid #999; border-radius:4px }
+.ui-multiselect.ui-state-default {background:white; border: 1px solid #999; border-radius:0 }
 
 

@@ -91,12 +91,7 @@ sub set_pref_requirements {
 sub get_javascript {
 
 	#Override by returning javascript code to include in header
-	my $buffer = << "END";
-\$(function () {
-	\$('.multiselect').multiselect({noneSelectedText:'&nbsp;'});
-});
-END
-	return $buffer;
+	return "";
 }
 
 sub get_guid {

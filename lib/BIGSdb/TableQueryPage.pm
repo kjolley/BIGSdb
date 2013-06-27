@@ -34,7 +34,7 @@ sub initiate {
 		$self->{'type'} = 'no_header';
 		return;
 	}
-	$self->{$_} = 1 foreach (qw (tooltips jQuery jQuery.coolfieldset));
+	$self->{$_} = 1 foreach (qw (tooltips jQuery jQuery.coolfieldset jQuery.multiselect));
 	return;
 }
 
