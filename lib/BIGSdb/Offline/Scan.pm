@@ -363,13 +363,13 @@ sub run_script {
 	if ($match) {
 		open( my $fh, '>>', $table_file ) || $logger->error("Can't open $table_file for appending");
 		local $" = ';';
-		say $fh "<tr class=\"td\"><td colspan=\"14\" /><td>";
+		say $fh "<tr class=\"td\">" . ("<td></td>" x 14) . "<td>";
 		say $fh "<input type=\"button\" value=\"All\" onclick='@js' class=\"smallbutton\" />"   if @js;
 		say $fh "<input type=\"button\" value=\"None\" onclick='@js2' class=\"smallbutton\" />" if @js2;
 		say $fh "</td><td>";
 		say $fh "<input type=\"button\" value=\"All\" onclick='@js3' class=\"smallbutton\" />"  if @js3;
 		say $fh "<input type=\"button\" value=\"None\" onclick='@js4' class=\"smallbutton\" />" if @js4;
-		say $fh "</td></tr>";
+		say $fh "</td><td></td></tr>";
 		close $fh;
 	}
 	my $stop_time = time;

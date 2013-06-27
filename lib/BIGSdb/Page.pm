@@ -259,7 +259,7 @@ sub print_page_content {
 		}
 		my $http_equiv = "<meta name=\"viewport\" content=\"width=device-width\" />";
 		if ( $self->{'refresh'} ) {
-			my $refresh_page = $self->{'refresh_page'} ? ";URL='$self->{'refresh_page'}'" : '';
+			my $refresh_page = $self->{'refresh_page'} ? "; URL=$self->{'refresh_page'}" : '';
 			$http_equiv .= "<meta http-equiv=\"refresh\" content=\"$self->{'refresh'}$refresh_page\" />";
 		}
 		my $tooltip_display = $self->{'prefs'}->{'tooltips'} ? 'inline' : 'none';

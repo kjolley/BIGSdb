@@ -712,8 +712,9 @@ sub _show_results {
 	say "</p>";
 	if ( !$status->{'stop_time'} ) {
 		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;scan=$self->{'scan_job'}&amp;"
-		  . "results=1&amp;stop=1\" class=\"resetbutton\" style=\"margin-top:-0.2em;margin-right:1em\">Stop job!</a> Clicking this will "
-		  . "request that the job finishes allowing new designations to be made.  Please allow a few seconds for it to stop.</p>";
+		  . "results=1&amp;stop=1\" class=\"resetbutton ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only \">"
+		  . "<span class=\"ui-button-text\">Stop job!</span></a> Clicking this will request that the job finishes allowing new "
+		  . "designations to be made.  Please allow a few seconds for it to stop.</p>";
 	}
 	if ( $self->{'refresh'} ) {
 		say "<p>This page will reload in $refresh_time. You can refresh it any time, or bookmark it, close your browser and return "
