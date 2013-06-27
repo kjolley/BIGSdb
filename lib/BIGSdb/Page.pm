@@ -861,6 +861,38 @@ sub get_locus_filter {
 	return $buffer;
 }
 
+sub get_publication_filter {
+	my ( $self, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	if ( $self->{'config'}->{'ref_db'} ) {
+		my $pmid = $self->{'datastore'}->run_list_query("SELECT DISTINCT(pubmed_id) FROM refs");
+		my $buffer;
+		if (@$pmid) {
+			my $labels = $self->{'datastore'}->get_citation_hash($pmid);
+			my @values = sort { $labels->{$a} cmp $labels->{$b} } keys %$labels;
+			if ( @$pmid && $options->{'any'} ) {
+				unshift @values, 'none';
+				$labels->{'none'} = 'not linked to any publication';
+				unshift @values, 'any';
+				$labels->{'any'} = 'linked to any publication';
+			}
+			return $self->get_filter(
+				'publication',
+				\@values,
+				{
+					labels   => $labels,
+					text     => 'Publication',
+					multiple => 1,
+					noblank  => 1,
+					tooltip  => "publication filter - Select publications to filter your search to only those isolates "
+					  . "referred by them."
+				}
+			);
+		}
+	}
+	return '';
+}
+
 sub get_project_filter {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
@@ -875,8 +907,10 @@ sub get_project_filter {
 		$labels{$id} = $desc;
 	}
 	if ( @project_ids && $options->{'any'} ) {
-		unshift @project_ids, 'not belonging to any project';
-		unshift @project_ids, 'belonging to any project';
+		unshift @project_ids, 'none';
+		$labels{'none'} = 'not belonging to any project';		
+		unshift @project_ids, 'any';
+		$labels{'any'} = 'belonging to any project';
 	}
 	if (@project_ids) {
 		my $class   = $options->{'class'} || 'filter';
@@ -888,6 +922,7 @@ sub get_project_filter {
 		}
 		return $self->get_filter( 'project', \@project_ids, $args );
 	}
+	return '';
 }
 
 sub get_experiment_filter {

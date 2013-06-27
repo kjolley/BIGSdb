@@ -52,8 +52,8 @@ sub get_javascript {
 	my $locus_collapse  = $self->_highest_entered_fields('loci') ? 'false' : 'true';
 	my $tag_collapse    = $self->_highest_entered_fields('tags') ? 'false' : 'true';
 	my $filter_collapse = $self->_filters_selected               ? 'false' : 'true';
-	my $buffer = $self->SUPER::get_javascript;
-	$buffer          .= << "END";
+	my $buffer          = $self->SUPER::get_javascript;
+	$buffer .= << "END";
 \$(function () {
 	\$('a[data-rel=ajax]').click(function(){
   		\$(this).attr('href', function(){
@@ -439,28 +439,9 @@ sub _print_isolate_filter_fieldset {
 			}
 		}
 	}
-	if ( $self->{'config'}->{'ref_db'} ) {
-		my $pmid = $self->{'datastore'}->run_list_query("SELECT DISTINCT(pubmed_id) FROM refs");
-		my $buffer;
-		if (@$pmid) {
-			my $labels = $self->{'datastore'}->get_citation_hash($pmid);
-			my @values = sort { $labels->{$a} cmp $labels->{$b} } keys %$labels;
-			unshift @values, 'not linked to any publication';
-			unshift @values, 'linked to any publication';
-			push @filters,
-			  $self->get_filter(
-				'publication',
-				\@values,
-				{
-					'labels'  => $labels,
-					'text'    => 'Publication',
-					'tooltip' => "publication filter - Select a publication to filter your search to only those isolates "
-					  . "that match the selected publication."
-				}
-			  );
-		}
-	}
-	my $buffer = $self->get_project_filter( { any => 1, multiple => 1 } );
+	my $buffer = $self->get_publication_filter( { any => 1, multiple => 1 } );
+	push @filters, $buffer if $buffer;
+	$buffer = $self->get_project_filter( { any => 1, multiple => 1 } );
 	push @filters, $buffer if $buffer;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	foreach my $scheme (@$schemes) {
@@ -1154,50 +1135,8 @@ sub _modify_isolate_query_for_filters {
 			}
 		}
 	}
-	if ( defined $q->param('publication_list') && $q->param('publication_list') ne '' ) {
-		my $pmid = $q->param('publication_list');
-		my $ref_qry;
-		if ( $pmid eq 'linked to any publication' ) {
-			$ref_qry = "$view.id IN (SELECT isolate_id FROM refs)";
-		} elsif ( $pmid eq 'not linked to any publication' ) {
-			$ref_qry = "$view.id NOT IN (SELECT isolate_id FROM refs)";
-		} elsif ( BIGSdb::Utils::is_int($pmid) ) {
-			$ref_qry = "$view.id IN (SELECT isolate_id FROM refs WHERE pubmed_id=$pmid)";
-		} else {
-			undef $pmid;
-		}
-		if ($pmid) {
-			if ( $qry !~ /WHERE \(\)\s*$/ ) {
-				$qry .= " AND ($ref_qry)";
-			} else {
-				$qry = "SELECT * FROM $view WHERE ($ref_qry)";
-			}
-		}
-	}
-	if ( ( $q->param('project_list') // '' ) ne '' ) {
-		my @project_id = $q->param('project_list');
-		my $project_qry;
-		if ( any { $_ eq 'belonging to any project' } @project_id ) {
-			$project_qry = "$view.id IN (SELECT isolate_id FROM project_members)";
-		}
-		if ( any { $_ eq 'not belonging to any project' } @project_id ) {
-			$project_qry .= ' OR ' if $project_qry;
-			$project_qry .= "$view.id NOT IN (SELECT isolate_id FROM project_members)";
-		}
-		if ( any { BIGSdb::Utils::is_int($_) } @project_id ) {
-			my @projects = grep {BIGSdb::Utils::is_int($_)} @project_id;
-			$project_qry .= ' OR ' if $project_qry;
-			local $" = ',';
-			$project_qry .= "$view.id IN (SELECT isolate_id FROM project_members WHERE project_id IN (@projects))";
-		}
-		if ($project_qry) {
-			if ( $qry !~ /WHERE \(\)\s*$/ ) {
-				$qry .= " AND ($project_qry)";
-			} else {
-				$qry = "SELECT * FROM $view WHERE ($project_qry)";
-			}
-		}
-	}
+	$self->_modify_query_by_membership( \$qry, 'refs', 'publication_list', 'isolate_id', $view, 'pubmed_id' );
+	$self->_modify_query_by_membership( \$qry, 'project_members', 'project_list', 'isolate_id', $view, 'project_id' );
 	if ( $q->param('linked_sequences_list') ) {
 		my $not         = '';
 		my $size_clause = '';
@@ -1292,6 +1231,37 @@ sub _modify_isolate_query_for_filters {
 		}
 	}
 	return $qry;
+}
+
+sub _modify_query_by_membership {
+
+	#Modify query for membership of PubMed paper or project
+	my ( $self, $qry_ref, $table, $param, $article, $main_table, $query_field ) = @_;
+	my $q = $self->{'cgi'};
+	return if !$q->param($param);
+	my @list = $q->param($param);
+	my $subqry;
+	if ( any { $_ eq 'any' } @list ) {
+		$subqry = "$main_table.id IN (SELECT isolate_id FROM $table)";
+	}
+	if ( any { $_ eq 'none' } @list ) {
+		$subqry .= ' OR ' if $subqry;
+		$subqry .= "$main_table.id NOT IN (SELECT isolate_id FROM $table)";
+	}
+	if ( any { BIGSdb::Utils::is_int($_) } @list ) {
+		my @int_list = grep { BIGSdb::Utils::is_int($_) } @list;
+		$subqry .= ' OR ' if $subqry;
+		local $" = ',';
+		$subqry .= "$main_table.id IN (SELECT isolate_id FROM $table WHERE $query_field IN (@int_list))";
+	}
+	if ($subqry) {
+		if ( $$qry_ref !~ /WHERE \(\)\s*$/ ) {
+			$$qry_ref .= " AND ($subqry)";
+		} else {
+			$$qry_ref = "SELECT * FROM $main_table WHERE ($subqry)";
+		}
+	}
+	return;
 }
 
 sub _get_scheme_locus_query_clause {
