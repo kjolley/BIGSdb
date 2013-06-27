@@ -185,7 +185,7 @@ sub _print_query_interface {
 		  $self->{'datastore'}->run_simple_query( "SELECT EXISTS(SELECT * FROM loci WHERE allele_id_format=?)", 'text' )->[0];
 		if ($any_text_ids_used) {
 			say "<p>Also note that some loci in this database have allele ids defined as text strings.  Queries using the "
-			  . "'<' or '>' modifiers will work alphabetically rather than numerically unless you filter your search to a locus "
+			  . "'&lt;' or '&gt;' modifiers will work alphabetically rather than numerically unless you filter your search to a locus "
 			  . "that uses integer allele ids using the drop-down list.</p>";
 		}
 	}
