@@ -66,6 +66,16 @@ select.fieldlist{max-width:12em}
 .int_entry{width:5em}
 input {font-size: 1em}
 
+sub, sup {
+	font-size: 75%;
+	line-height: 0;
+	position: relative;
+ 	vertical-align: baseline;
+}
+ 
+sup {top: -0.5em}
+sub {bottom: -0.25em}
+
 a.downloadbutton {
 	font-size: 0.9em;
 	background: #00ff00;
