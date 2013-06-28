@@ -973,8 +973,6 @@ sub _print_reports {
 	if ( $params->{'align'} ) {
 		$distances = $self->_create_alignments( $job_id, $args->{'by_reference'},
 			$align_file, $align_stats_file, $ids, ( $params->{'align_all'} ? $loci : $locus_class->{'varying'} ), $params );
-		open( my $align_fh, '>>', $align_file ) || $logger->error("Can't open $align_file for appending");
-		close $align_fh;
 	}
 	$self->_print_variable_loci( $args->{'by_reference'}, $ids, $html_buffer_ref, $job_file, $locus_class->{'varying'}, $values );
 	$self->_print_missing_in_all( $args->{'by_reference'}, $ids, $html_buffer_ref, $job_file, $locus_class->{'all_missing'}, $values );
