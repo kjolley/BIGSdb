@@ -499,10 +499,6 @@ sub _analyse_by_loci {
 		);
 		return;
 	}
-	my %isolate_FASTA;
-	foreach (@$ids) {
-		$isolate_FASTA{$_} = $self->_create_isolate_FASTA( $_, $job_id, $params );
-	}
 	my $html_buffer = "<h3>Analysis against defined loci</h3>\n";
 	my $file_buffer = "Analysis against defined loci\n";
 	$file_buffer .= "Time: " . ( localtime(time) ) . "\n\n";
@@ -512,8 +508,7 @@ sub _analyse_by_loci {
 	  . "'New#2' etc.\nMissing alleles are marked as 'X'. Truncated alleles (located at end of contig) are marked as 'T'.\n\n";
 	$self->_print_isolate_header( 0, $ids, \$file_buffer, \$html_buffer, );
 	$self->_run_comparison( 0, $job_id, $params, $ids, $loci, \$html_buffer, \$file_buffer );
-	my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/$job_id*");
-	foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/ }
+	$self->_delete_temp_files("$job_id*");
 	return;
 }
 
@@ -752,8 +747,12 @@ sub _run_comparison {
 	my $job_file = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
 	my $prefix   = BIGSdb::Utils::get_random();
 	my %isolate_FASTA;
-	$isolate_FASTA{$_} = $self->_create_isolate_FASTA_db( $_, $prefix ) foreach (@$ids);
 
+	if ($by_reference) {
+		$isolate_FASTA{$_} = $self->_create_isolate_FASTA_db( $_, $prefix ) foreach (@$ids);
+	} else {
+		$isolate_FASTA{$_} = $self->_create_isolate_FASTA( $_, $prefix ) foreach (@$ids);
+	}
 	if ( $by_reference && $params->{'tblastx'} ) {
 		$program   = 'tblastx';
 		$word_size = 3;
@@ -930,6 +929,7 @@ sub _run_comparison {
 			$self->{'jobManager'}
 			  ->update_job_status( $job_id, { percent_complete => $complete, message_html => "$$html_buffer_ref$close_table" } );
 		}
+		$self->_delete_temp_files("$job_id*fastafile*\.txt*") if !$by_reference;
 	}
 	$$html_buffer_ref .= $close_table;
 	$self->_print_reports(
@@ -949,7 +949,13 @@ sub _run_comparison {
 			order           => $order
 		}
 	);
-	my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/$prefix*");
+	$self->_delete_temp_files("$prefix*");
+	return;
+}
+
+sub _delete_temp_files {
+	my ( $self, $wildcard ) = @_;
+	my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/$wildcard");
 	foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/ }
 	return;
 }
