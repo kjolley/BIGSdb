@@ -1720,7 +1720,7 @@ sub search_users {
 		default              { $qry .= "$suffix $operator '$text'" }
 	}
 	my $ids = $self->{'datastore'}->run_list_query($qry);
-	$ids = [0] if !@$ids;
+	$ids = [-999] if !@$ids; #Need to return an integer but not 0 since this is actually the setup user.
 	local $" = "' OR $table.$field = '";
 	return "($table.$field = '@$ids')";
 }
