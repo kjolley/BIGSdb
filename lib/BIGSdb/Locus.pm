@@ -39,7 +39,7 @@ sub new {
 sub DESTROY {
 	my ($self) = @_;
 	foreach ( keys %{ $self->{'sql'} } ) {
-		if ( $self->{'sql'}->{$_} && UNIVERSAL::isa($self->{'sql'}->{$_},'UNIVERSAL')) {
+		if ( $self->{'sql'}->{$_} && UNIVERSAL::isa( $self->{'sql'}->{$_}, 'UNIVERSAL' ) ) {
 			$self->{'sql'}->{$_}->finish;
 			$logger->debug("Locus $self->{'id'} statement handle '$_' finished.");
 		}
@@ -57,8 +57,8 @@ sub get_allele_sequence {
 		my $qry;
 		if ( $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'} ) {
 			$self->{'dbase_id2_value'} =~ s/'/\\'/g if $self->{'dbase_id2_value'} !~ /\\'/;    #only escape if not already escaped
-			$qry =
-"SELECT $self->{'dbase_seq_field'} FROM $self->{'dbase_table'} WHERE $self->{'dbase_id_field'}=? AND $self->{'dbase_id2_field'}=E'$self->{'dbase_id2_value'}'";
+			$qry = "SELECT $self->{'dbase_seq_field'} FROM $self->{'dbase_table'} WHERE $self->{'dbase_id_field'}=? AND "
+			  . "$self->{'dbase_id2_field'}=E'$self->{'dbase_id2_value'}'";
 		} else {
 			$qry = "SELECT $self->{'dbase_seq_field'} FROM $self->{'dbase_table'} WHERE $self->{'dbase_id_field'} = ?";
 		}
@@ -67,12 +67,13 @@ sub get_allele_sequence {
 	}
 	eval { $self->{'sql'}->{'sequence'}->execute($id) };
 	if ($@) {
-		$logger->error(
-"Can't execute 'sequence' query handle. Check database attributes in the locus table for locus '$self->{'id'}'! Statement was '$self->{'sql'}->{sequence}->{Statement}'. id='$id'  $@ "
+		$logger->error( "Can't execute 'sequence' query handle. Check database attributes in the locus table for locus "
+			  . "'$self->{'id'}'! Statement was '$self->{'sql'}->{sequence}->{Statement}'. id='$id'  $@ "
 			  . $self->{'db'}->errstr );
 		throw BIGSdb::DatabaseConfigurationException("Locus configuration error");
 	} else {
 		my ($sequence) = $self->{'sql'}->{'sequence'}->fetchrow_array;
+		$self->{'db'}->rollback;    #Prevent table lock on long offline jobs
 		return \$sequence;
 	}
 }
@@ -97,8 +98,7 @@ sub get_all_sequences {
 	}
 	eval { $self->{'sql'}->{'all_sequences'}->execute };
 	if ($@) {
-		$logger->error(
-"Can't execute 'sequence' query handle. Check database attributes in the locus table for locus '$self->{'id'}'! '. "
+		$logger->error( "Can't execute 'sequence' query handle. Check database attributes in the locus table for locus '$self->{'id'}'! '. "
 			  . $self->{'db'}->errstr );
 		throw BIGSdb::DatabaseConfigurationException("Locus configuration error");
 	}
@@ -141,25 +141,25 @@ sub get_all_sequence_lengths {
 }
 
 sub get_flags {
-	my ($self, $allele_id) = @_;
+	my ( $self, $allele_id ) = @_;
 	if ( !$self->{'db'} ) {
 		$logger->info("No connection to locus $self->{'id'} database");
-		return \@;
+		return \@;;
 	}
-	if (!$self->{'dbase_id2_value'}){
+	if ( !$self->{'dbase_id2_value'} ) {
 		$logger->error("You can only get flags from a BIGSdb seqdef database.");
-		return \@;
+		return \@;;
 	}
-	if (!$self->{'sql'}->{'flags'}){
+	if ( !$self->{'sql'}->{'flags'} ) {
 		$self->{'sql'}->{'flags'} = $self->{'db'}->prepare("SELECT flag FROM allele_flags WHERE locus = ? AND allele_id=?");
 	}
-	eval { $self->{'sql'}->{'flags'}->execute($self->{'dbase_id2_value'}, $allele_id) };
-	if ($@){
+	eval { $self->{'sql'}->{'flags'}->execute( $self->{'dbase_id2_value'}, $allele_id ) };
+	if ($@) {
 		$logger->error($@) if $@;
 		throw BIGSdb::DatabaseConfigurationException("Locus configuration error");
 	}
 	my @flags;
-	while (my ($flag) = $self->{'sql'}->{'flags'}->fetchrow_array){
+	while ( my ($flag) = $self->{'sql'}->{'flags'}->fetchrow_array ) {
 		push @flags, $flag;
 	}
 	return \@flags;
@@ -167,16 +167,17 @@ sub get_flags {
 
 sub get_description {
 	my ($self) = @_;
-		if ( !$self->{'db'} ) {
+	if ( !$self->{'db'} ) {
 		$logger->info("No connection to locus $self->{'id'} database");
-		return \%;
+		return \%;;
 	}
 	my $sql = $self->{'db'}->prepare("SELECT * FROM locus_descriptions WHERE locus=?");
-	eval { $sql->execute($self->{'id'})};
-	if ($@){
+	eval { $sql->execute( $self->{'id'} ) };
+	if ($@) {
 		$logger->info("Can't access locus_description table for locus $self->{'id'}") if $@;
+
 		#Not all locus databases have to have a locus_descriptions table.
-		return \%;
+		return \%;;
 	}
 	return $sql->fetchrow_hashref;
 }
