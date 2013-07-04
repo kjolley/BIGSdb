@@ -449,19 +449,22 @@ sub _print_profiles {
 		$schemes =
 		  $self->{'datastore'}->run_list_query(
 			    "SELECT DISTINCT id FROM schemes RIGHT JOIN scheme_members ON schemes.id=scheme_members.scheme_id JOIN scheme_fields ON "
-			  . "schemes.id=scheme_fields.scheme_id WHERE primary_key ORDER BY id" );
+			  . "schemes.id=scheme_fields.scheme_id WHERE primary_key" );
 	} else {
 		$schemes =
-		  $self->{'datastore'}
-		  ->run_list_query( "SELECT scheme_id FROM scheme_curators WHERE curator_id=? ORDER BY scheme_id", $self->get_curator_id );
+		  $self->{'datastore'}->run_list_query( "SELECT scheme_id FROM scheme_curators WHERE curator_id=?", $self->get_curator_id );
 	}
 	my $buffer;
-	foreach my $scheme_id (@$schemes) {
-		next if $set_id && !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id );
+	my %desc;
+	foreach my $scheme_id (@$schemes) {    #Can only order schemes after retrieval since some can be renamed by set membership
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-		( my $clean_desc = $scheme_info->{'description'} ) =~ s/\&/\&amp;/g;
+		$desc{$scheme_id} = $scheme_info->{'description'};
+	}
+	foreach my $scheme_id ( sort { $desc{$a} cmp $desc{$b} } @$schemes ) {
+		next if $set_id && !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id );
+		$desc{$scheme_id} =~ s/\&/\&amp;/g;
 		$buffer .= <<"HTML";
-<tr class="td$td"><td>$clean_desc profiles</td>
+<tr class="td$td"><td>$desc{$scheme_id} profiles</td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileAdd&amp;scheme_id=$scheme_id$set_string">+</a></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileBatchAdd&amp;scheme_id=$scheme_id$set_string">++</a></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileQuery&amp;scheme_id=$scheme_id$set_string">query</a> | 
