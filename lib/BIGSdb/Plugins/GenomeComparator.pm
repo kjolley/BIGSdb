@@ -1546,6 +1546,7 @@ sub _print_exact_except_ref {
 	return if ref $exacts ne 'HASH';
 	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
 	$$buffer_ref .= "<h3>Loci exactly the same in all compared genomes except the reference</h3>";
+	print $job_fh "\n###\n\n";
 	print $job_fh "Loci exactly the same in all compared genomes except the reference\n";
 	print $job_fh "------------------------------------------------------------------\n\n";
 	$$buffer_ref .= "<p>Matches: " . ( scalar keys %$exacts ) . "</p>";
