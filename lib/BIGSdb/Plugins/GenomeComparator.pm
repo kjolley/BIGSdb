@@ -930,7 +930,7 @@ sub _run_comparison {
 			  ->update_job_status( $job_id, { percent_complete => $complete, message_html => "$$html_buffer_ref$close_table" } );
 		}
 		$self->_delete_temp_files("$job_id*fastafile*\.txt*") if !$by_reference;
-		$self->{'db'}->rollback; #prevent idle in transaction table locks
+		$self->{'db'}->rollback;    #prevent idle in transaction table locks
 	}
 	$$html_buffer_ref .= $close_table;
 	$self->_print_reports(
@@ -1647,7 +1647,10 @@ sub _blast {
 		my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
 		my $filter = $program eq 'blastn' ? 'dust' : 'seg';
 		system(
-"$self->{'config'}->{'blast+_path'}/$program -num_threads $blast_threads -max_target_seqs 10 -parse_deflines -word_size $word_size -db $fasta_file -query $in_file -out $out_file -outfmt 6 -$filter no"
+			"$self->{'config'}->{'blast+_path'}/$program",
+			'-num_threads', $blast_threads, '-max_target_seqs', 10,         '-parse_deflines', '-word_size',
+			$word_size,     '-db',          $fasta_file,        '-query',   $in_file,          '-out',
+			$out_file,      '-outfmt',      6,                  "-$filter", 'no'
 		);
 	} else {
 		system(
