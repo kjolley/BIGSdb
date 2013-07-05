@@ -1135,21 +1135,22 @@ sub _modify_isolate_query_for_filters {
 			}
 		}
 	}
-	$self->_modify_query_by_membership( \$qry, 'refs', 'publication_list', 'isolate_id', $view, 'pubmed_id' );
-	$self->_modify_query_by_membership( \$qry, 'project_members', 'project_list', 'isolate_id', $view, 'project_id' );
+	$self->_modify_query_by_membership( \$qry, 'refs',            'publication_list', 'isolate_id', $view, 'pubmed_id' );
+	$self->_modify_query_by_membership( \$qry, 'project_members', 'project_list',     'isolate_id', $view, 'project_id' );
 	if ( $q->param('linked_sequences_list') ) {
 		my $not         = '';
 		my $size_clause = '';
 		if ( $q->param('linked_sequences_list') eq 'No sequence data' ) {
-			$not = ' NOT';
+			$not = ' NOT ';
 		} elsif ( $q->param('linked_sequences_list') =~ />= ([\d\.]+) Mbp/ ) {
 			my $size = $1 * 1000000;    #Mbp
 			$size_clause = " GROUP BY isolate_id HAVING SUM(length(sequence)) >= $size";
 		}
 		if ( $qry !~ /WHERE \(\)\s*$/ ) {
-			$qry .= " AND ($view.id$not IN (SELECT isolate_id FROM sequence_bin$size_clause))";
+			$qry .= " AND (${not}EXISTS (SELECT 1 FROM sequence_bin WHERE sequence_bin.isolate_id = $view.id$size_clause))";
 		} else {
-			$qry = "SELECT * FROM $view WHERE ($view.id$not IN (SELECT isolate_id FROM sequence_bin$size_clause))";
+			$qry = "SELECT * FROM $view WHERE (${not}EXISTS (SELECT 1 FROM sequence_bin WHERE sequence_bin.isolate_id = "
+			  . "$view.id$size_clause))";
 		}
 	}
 	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
@@ -1720,7 +1721,7 @@ sub search_users {
 		default              { $qry .= "$suffix $operator '$text'" }
 	}
 	my $ids = $self->{'datastore'}->run_list_query($qry);
-	$ids = [-999] if !@$ids; #Need to return an integer but not 0 since this is actually the setup user.
+	$ids = [-999] if !@$ids;    #Need to return an integer but not 0 since this is actually the setup user.
 	local $" = "' OR $table.$field = '";
 	return "($table.$field = '@$ids')";
 }
