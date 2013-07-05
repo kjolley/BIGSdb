@@ -184,10 +184,11 @@ sub _print_interface_sender_field {
 		push @users, $userid;
 		$usernames{$userid} = "$surname, $firstname ($username)";
 	}
-	say "<p>Please select the sender from the list below:</p>";
+	say "<div style=\"margin-bottom:1em\"><p>Please select the sender from the list below:</p>";
 	$usernames{-1} = 'Override with sender field';
 	say $self->{'cgi'}->popup_menu( -name => 'sender', -values => [ '', -1, @users ], -labels => \%usernames );
 	say "<span class=\"comment\"> Value will be overridden if you include a sender field in your pasted data.</span>";
+	say "</div>";
 	return;
 }
 
