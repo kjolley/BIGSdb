@@ -51,7 +51,8 @@ sub _print_interface {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	print <<"HTML";
-<div class="box" id="queryform"><p>This page allows you to upload sequence data for a specified isolate record in FASTA format.</p>
+<div class="box" id="queryform"><div class="scrollable">
+<p>This page allows you to upload sequence data for a specified isolate record in FASTA format.</p>
 <p>If an isolate id is chosen, then all sequences will be associated with that isolate. Alternatively, the isolate id, or any other 
 isolate table field that uniquely defines the isolate, can be named in the identifier rows of the FASTA file.  This allows data 
 for multiple isolates to be uploaded.</p>
@@ -136,14 +137,15 @@ HTML
 		say "</li>";
 	}
 	say "</ul>\n</fieldset>";
-	say "<p>Please paste in sequences in FASTA format:</p>";
+	say "<fieldset style=\"float:left\"><legend>Paste in sequences in FASTA format:</legend>";
 	say $q->hidden($_) foreach qw (page db);
-	say $q->textarea( -name => 'data', -rows => 20, -columns => 120 );
+	say $q->textarea( -name => 'data', -rows => 20, -columns => 80 );
+	say "</fieldset>";
 	my %args = defined $q->param('isolate_id') ? ( isolate_id => $q->param('isolate_id') ) : ();
 	$self->print_action_fieldset( \%args );
 	say $q->end_form;
 	say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back</a></p>";
-	say "</div>";
+	say "</div></div>";
 	return;
 }
 
