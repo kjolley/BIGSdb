@@ -19,11 +19,14 @@
 package BIGSdb::Offline::AutoTag;
 use strict;
 use warnings;
+use 5.010;
 use List::Util qw(shuffle);
 use List::MoreUtils qw(none any uniq);
 use POSIX qw(strftime);
 use parent qw(BIGSdb::Offline::Scan);
 use BIGSdb::Utils;
+use BIGSdb::BIGSException;
+use Error qw(:try);
 use constant TAG_USER     => -1;             #User id for tagger (there needs to be a record in the users table)
 use constant TAG_USERNAME => 'autotagger';
 
@@ -44,7 +47,7 @@ sub run_script {
 	my @exclude_isolates;
 
 	if ( $self->{'options'}->{'I'} ) {
-		@exclude_isolates = split /,/, $self->{'options'}->{'I'}; 
+		@exclude_isolates = split /,/, $self->{'options'}->{'I'};
 	}
 	if ( $self->{'options'}->{'P'} ) {
 		push @exclude_isolates, @{ $self->_get_isolates_excluded_by_project };
@@ -60,11 +63,10 @@ sub run_script {
 	my $loci = $self->get_loci_with_ref_db;
 	die "No valid loci selected.\n" if !@$loci;
 	$self->{'start_time'} = time;
-	my $file_prefix  = BIGSdb::Utils::get_random();
-	my $locus_prefix = BIGSdb::Utils::get_random();
+	my $isolate_prefix = BIGSdb::Utils::get_random();
+	my $locus_prefix   = BIGSdb::Utils::get_random();
 	$self->{'logger'}->info( "Autotagger start ($self->{'options'}->{'d'}): " . strftime( '%d-%b-%Y %H:%M', localtime ) );
-
-	foreach my $isolate_id (@$isolates) {
+  ISOLATE: foreach my $isolate_id (@$isolates) {
 		next if $self->{'options'}->{'n'} && $self->_is_previously_tagged($isolate_id);
 		if ( $self->{'options'}->{'m'} && BIGSdb::Utils::is_int( $self->{'options'}->{'m'} ) ) {
 			my $size = $self->_get_size_of_seqbin($isolate_id);
@@ -82,11 +84,11 @@ sub run_script {
 		next if any { BIGSdb::Utils::is_int($_) && $isolate_id == $_ } @exclude_isolates;
 		$self->{'logger'}->info("$self->{'options'}->{'d'}:Checking isolate $isolate_id");
 		undef $self->{'history'};
-		foreach my $locus (@$loci) {
+	  LOCUS: foreach my $locus (@$loci) {
 			next if defined $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
 			my $allele_seq = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
 			next if ref $allele_seq eq 'ARRAY' && @$allele_seq;
-			my ( $exact_matches, undef ) = $self->blast( $params, $locus, $isolate_id, $file_prefix, $locus_prefix );
+			my ( $exact_matches, undef ) = $self->blast( $params, $locus, $isolate_id, $isolate_prefix, $locus_prefix );
 			if ( ref $exact_matches && @$exact_matches ) {
 				print "Isolate: $isolate_id; Locus: $locus; " if !$self->{'options'}->{'q'};
 				foreach (@$exact_matches) {
@@ -94,18 +96,27 @@ sub run_script {
 						print "Allele: $_->{'allele'} " if !$self->{'options'}->{'q'};
 						my $sender =
 						  $self->{'datastore'}->run_simple_query( "SELECT sender FROM sequence_bin WHERE id=?", $_->{'seqbin_id'} )->[0];
-						$self->_tag_allele(
-							{ isolate_id => $isolate_id, locus => $locus, allele_id => $_->{'allele'}, sender => $sender } );
-						$self->_tag_sequence(
-							{
-								seqbin_id => $_->{'seqbin_id'},
-								locus     => $locus,
-								allele_id => $_->{'allele'},
-								start_pos => $_->{'start'},
-								end_pos   => $_->{'end'},
-								reverse   => $_->{'reverse'}
-							}
-						);
+						my $problem = 0;
+						try {
+							$self->_tag_allele(
+								{ isolate_id => $isolate_id, locus => $locus, allele_id => $_->{'allele'}, sender => $sender } );
+							$self->_tag_sequence(
+								{
+									seqbin_id => $_->{'seqbin_id'},
+									locus     => $locus,
+									allele_id => $_->{'allele'},
+									start_pos => $_->{'start'},
+									end_pos   => $_->{'end'},
+									reverse   => $_->{'reverse'}
+								}
+							);
+						}
+						catch BIGSdb::DatabaseException with {
+							$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$isolate_prefix*");
+							$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");
+							$problem = 1;
+						};
+						last ISOLATE if $problem;
 					}
 				}
 				print "\n" if !$self->{'options'}->{'q'};
@@ -116,12 +127,12 @@ sub run_script {
 			local $" = '<br />';
 			$self->update_history( $isolate_id, "@{$self->{'history'}}" );
 		}
-		$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$file_prefix*");    #delete isolate seqbin FASTA
+		$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$isolate_prefix*");    #delete isolate seqbin FASTA
 		last if $self->_is_time_up;
 	}
-	$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");       #delete locus working files
+	$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");          #delete locus working files
 	if ( $self->_is_time_up && !$self->{'options'}->{'q'} ) {
-		print "Time limit reached ($self->{'options'}->{'t'} minute" . ( $self->{'options'}->{'t'} == 1 ? '' : 's' ) . ")\n";
+		say "Time limit reached ($self->{'options'}->{'t'} minute" . ( $self->{'options'}->{'t'} == 1 ? '' : 's' ) . ")";
 	}
 	$self->{'logger'}->info( "Autotagger stop ($self->{'options'}->{'d'}): " . strftime( '%d-%b-%Y %H:%M', localtime ) );
 	return;
@@ -155,7 +166,8 @@ sub _tag_allele {
 			if ($@) {
 				$self->{'logger'}->error($@) if $@;
 				$self->{'db'}->rollback;
-				die "Can't insert pending designation.\n";
+				say "Can't insert pending designation.";
+				throw BIGSdb::DatabaseException("Can't insert pending designation.");
 			}
 			$self->{'db'}->commit;
 			push @{ $self->{'history'} }, "$values->{'locus'}: new pending designation '$values->{'allele_id'}' (sequence bin scan)";
@@ -174,7 +186,8 @@ sub _tag_allele {
 		if ($@) {
 			$self->{'logger'}->error($@) if $@;
 			$self->{'db'}->rollback;
-			die "Can't insert allele designation.\n";
+			say "Can't insert allele designation.";
+			throw BIGSdb::DatabaseException("Can't insert allele designation.");
 		}
 		$self->{'db'}->commit;
 		push @{ $self->{'history'} }, "$values->{'locus'}: new designation '$values->{'allele_id'}' (sequence bin scan)";
@@ -221,7 +234,8 @@ sub _tag_sequence {
 	if ($@) {
 		$self->{'logger'}->error($@) if $@;
 		$self->{'db'}->rollback;
-		die "Can't insert allele sequence.\n";
+		say "Can't insert allele sequence.";
+		throw BIGSdb::DatabaseException("Can't insert allele sequence.");
 	}
 	$self->{'db'}->commit;
 	push @{ $self->{'history'} },
