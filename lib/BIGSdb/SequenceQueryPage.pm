@@ -125,10 +125,10 @@ sub print_content {
 	say "</fieldset>";
 	say "<fieldset style=\"float:left\">\n<legend>Alternatively upload FASTA file</legend>";
 	say "Select FASTA file:<br />";
-	say $q->filefield( -name => 'fasta_upload', -id => 'fasta_upload', -size => 10, -maxlength => 512 );
+	say $q->filefield( -name => 'fasta_upload', -id => 'fasta_upload' );
 	say "</fieldset>";
 	my $action_args;
-	$action_args->{'simple'} = 1 if $q->param('simple');
+	$action_args->{'simple'} = 1       if $q->param('simple');
 	$action_args->{'set_id'} = $set_id if $set_id;
 	$self->print_action_fieldset($action_args);
 	say "</div></div>";
