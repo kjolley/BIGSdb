@@ -999,6 +999,7 @@ sub _print_reports {
 	my @paralogous;
 	if ( $args->{'by_reference'} ) {
 		@paralogous = $self->_print_paralogous_loci( $ids, $html_buffer_ref, $job_file, $loci, $match_count );
+		$$html_buffer_ref = '' if @$ids > MAX_DISPLAY_TAXA || $params->{'disable_html'};
 	}
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$html_buffer_ref } );
 	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Main output file' } );
