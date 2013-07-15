@@ -22,6 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::CurateAddPage BIGSdb::SeqbinPage);
 use Log::Log4perl qw(get_logger);
+use constant MAX_UPLOAD_SIZE => 32 * 1024 * 1024;    #32Mb
 my $logger = get_logger('BIGSdb.Page');
 use Error qw(:try);
 use BIGSdb::Page 'SEQ_METHODS';
@@ -41,6 +42,15 @@ sub print_content {
 		$self->_upload;
 	} elsif ( $q->param('data') ) {
 		$self->_check_data;
+	} elsif ( $q->param('fasta_upload') ) {
+		my $upload_file = $self->_upload_fasta_file;
+		my $full_path   = "$self->{'config'}->{'secure_tmp_dir'}/$upload_file";
+		if ( -e $full_path ) {
+			open( my $fh, '<', $full_path ) or $logger->error("Can't open sequence file $full_path");
+			my $sequence = do { local $/; <$fh> };    #slurp
+			unlink $full_path;
+			$self->_check_data( \$sequence );
+		}
 	} else {
 		$self->_print_interface;
 	}
@@ -141,6 +151,10 @@ HTML
 	say $q->hidden($_) foreach qw (page db);
 	say $q->textarea( -name => 'data', -rows => 20, -columns => 80 );
 	say "</fieldset>";
+	say "<fieldset style=\"float:left\">\n<legend>Alternatively upload FASTA file</legend>";
+	say "Select FASTA file:<br />";
+	say $q->filefield( -name => 'fasta_upload', -id => 'fasta_upload' );
+	say "</fieldset>";
 	my %args = defined $q->param('isolate_id') ? ( isolate_id => $q->param('isolate_id') ) : ();
 	$self->print_action_fieldset( \%args );
 	say $q->end_form;
@@ -150,7 +164,7 @@ HTML
 }
 
 sub _check_data {
-	my ($self)   = @_;
+	my ( $self, $passed_seq_ref ) = @_;
 	my $q        = $self->{'cgi'};
 	my $continue = 1;
 	if (
@@ -183,7 +197,7 @@ sub _check_data {
 	my $seq_ref;
 	if ($continue) {
 		try {
-			$seq_ref = BIGSdb::Utils::read_fasta( \$q->param('data') );
+			$seq_ref = BIGSdb::Utils::read_fasta( $passed_seq_ref // \$q->param('data') );
 		}
 		catch BIGSdb::DataException with {
 			my $ex = shift;
@@ -440,6 +454,21 @@ sub _upload {
 		  . "Add more</a> | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>";
 	}
 	return;
+}
+
+sub _upload_fasta_file {
+	my ($self)   = @_;
+	my $temp     = BIGSdb::Utils::get_random();
+	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_upload.fas";
+	my $buffer;
+	open( my $fh, '>', $filename ) || $logger->error("Could not open $filename for writing.");
+	my $fh2 = $self->{'cgi'}->upload('fasta_upload');
+	binmode $fh2;
+	binmode $fh;
+	read( $fh2, $buffer, MAX_UPLOAD_SIZE );
+	print $fh $buffer;
+	close $fh;
+	return "$temp\_upload.fas";
 }
 
 sub get_javascript {
