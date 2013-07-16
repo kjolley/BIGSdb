@@ -580,8 +580,8 @@ sub _create_extra_fields_for_loci {
 	my $buffer = '';
 	return $buffer if $self->{'system'}->{'dbtype'} ne 'sequences';
 	my $attributes = $self->{'datastore'}->get_table_field_attributes('locus_descriptions');
-	my $desc_ref = $self->{'datastore'}->run_simple_query_hashref("SELECT * FROM locus_descriptions WHERE locus=?", $newdata_ref->{'id'});
-	($newdata_ref->{$_} = $desc_ref->{$_}) foreach qw(full_name product description);
+	my $desc_ref = $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM locus_descriptions WHERE locus=?", $newdata_ref->{'id'} );
+	( $newdata_ref->{$_} = $desc_ref->{$_} ) foreach qw(full_name product description);
 	$buffer .=
 	  $self->_get_form_fields( $attributes, 'locus_descriptions', $newdata_ref, { noshow => [qw(locus curator datestamp)] }, $width );
 	$buffer .= $self->_create_extra_fields_for_locus_descriptions( $q->param('id') // '', $width );
@@ -1176,20 +1176,16 @@ sub create_scheme_view {
 	#tables was too slow.
 	#Needs to be committed outside of subroutine (to allow creation as part of transaction)
 	my ( $self, $scheme_id ) = @_;
-	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	return if !@$loci || !@$scheme_fields;    #No point creating view if table doesn't have either loci or fields.
-	my $pk_ref = $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key", $scheme_id );
-	my $pk;
-	if ( ref $pk_ref eq 'ARRAY' ) {
-		$pk = $pk_ref->[0];
-	} else {
-		return;                               #No point creating view without a primary key.
-	}
-	my $qry = "CREATE OR REPLACE VIEW scheme_$scheme_id AS SELECT profiles.profile_id AS $pk,profiles.sender,"
+	my $fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+	my $loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	return if !@$loci || !@$fields;    #No point creating view if table doesn't have either loci or fields.
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	return if !$scheme_info->{'primary_key'};    #No point creating view without a primary key.
+	my $qry = "CREATE OR REPLACE VIEW scheme_$scheme_id AS SELECT profiles.profile_id AS $scheme_info->{'primary_key'},profiles.sender,"
 	  . "profiles.curator,profiles.date_entered,profiles.datestamp";
-	foreach (@$scheme_fields) {
-		$qry .= ",$_.value AS $_" if $_ ne $pk;
+
+	foreach (@$fields) {
+		$qry .= ",$_.value AS $_" if $_ ne $scheme_info->{'primary_key'};
 	}
 	foreach (@$loci) {
 		( my $cleaned = $_ ) =~ s/'/_PRIME_/g;
@@ -1199,13 +1195,13 @@ sub create_scheme_view {
 	foreach (@$loci) {
 		( my $cleaned  = $_ ) =~ s/'/_PRIME_/g;
 		( my $cleaned2 = $_ ) =~ s/'/\\'/g;
-		$qry .=
-" INNER JOIN profile_members AS $cleaned ON profiles.profile_id=$cleaned.profile_id AND $cleaned.locus=E'$cleaned2' AND profiles.scheme_id=$cleaned.scheme_id";
+		$qry .= " INNER JOIN profile_members AS $cleaned ON profiles.profile_id=$cleaned.profile_id AND $cleaned.locus=E'$cleaned2' AND "
+		  . "profiles.scheme_id=$cleaned.scheme_id";
 	}
-	foreach (@$scheme_fields) {
-		next if $_ eq $pk;
-		$qry .=
-" LEFT JOIN profile_fields AS $_ ON profiles.profile_id=$_.profile_id AND $_.scheme_field=E'$_' AND profiles.scheme_id=$_.scheme_id";
+	foreach (@$fields) {
+		next if $_ eq $scheme_info->{'primary_key'};
+		$qry .= " LEFT JOIN profile_fields AS $_ ON profiles.profile_id=$_.profile_id AND $_.scheme_field=E'$_' AND "
+		  . "profiles.scheme_id=$_.scheme_id";
 	}
 	$qry .= " WHERE profiles.scheme_id = $scheme_id";
 	eval {
@@ -1213,13 +1209,8 @@ sub create_scheme_view {
 		$self->{'db'}->do("GRANT SELECT ON scheme_$scheme_id TO $self->{'system'}->{'user'}");
 		if ( $self->{'system'}->{'materialized_views'} && $self->{'system'}->{'materialized_views'} eq 'yes' ) {
 			$self->{'db'}->do("SELECT create_matview('mv_scheme_$scheme_id', 'scheme_$scheme_id')");
-			$self->{'db'}->do("CREATE UNIQUE INDEX i_mv$scheme_id\_1 ON mv_scheme_$scheme_id ($pk)");
-			local $" = ',';
-			if ( @$loci <= 32 ) {    #By default PostgreSQL will not allow indexes with more than 32 columns
-				my $locus_string = "@$loci";
-				$locus_string =~ s/'/_PRIME_/g;
-				$self->{'db'}->do("CREATE UNIQUE INDEX i_mv$scheme_id\_2 ON mv_scheme_$scheme_id ($locus_string)");
-			}
+			$self->{'db'}->do("CREATE UNIQUE INDEX i_mv$scheme_id\_1 ON mv_scheme_$scheme_id ($scheme_info->{'primary_key'})");
+			$self->_create_mv_indexes( $scheme_id, $fields, $loci );
 		}
 	};
 	$logger->error($@) if $@;
@@ -1231,30 +1222,42 @@ sub refresh_material_view {
 	#Needs to be committed outside of subroutine (to allow refresh as part of transaction)
 	my ( $self, $scheme_id ) = @_;
 	return if !( ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' );
-	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	return if !@$loci || !@$scheme_fields;
-	my $pk_ref = $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key", $scheme_id );
-	my $pk;
-
-	if ( ref $pk_ref eq 'ARRAY' ) {
-		$pk = $pk_ref->[0];
-	} else {
-		return;
-	}
-	eval {
-		$self->{'db'}->do("DROP INDEX i_mv$scheme_id\_1");
-		$self->{'db'}->do("SELECT refresh_matview('mv_scheme_$scheme_id')");
-		$self->{'db'}->do("CREATE UNIQUE INDEX i_mv$scheme_id\_1 ON mv_scheme_$scheme_id ($pk)");
-		if ( @$loci <= 32 ) {    #By default PostgreSQL will not allow indexes with more than 32 columns
-			local $" = ',';
-			my $locus_string = "@$loci";
-			$locus_string =~ s/'/_PRIME_/g;
-			$self->{'db'}->do("DROP INDEX i_mv$scheme_id\_2");
-			$self->{'db'}->do("CREATE UNIQUE INDEX i_mv$scheme_id\_2 ON mv_scheme_$scheme_id ($locus_string)");
-		}
-	};
+	my $fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+	my $loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	return if !@$loci || !@$fields;
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	return if !$scheme_info->{'primary_key'};    #No point creating view without a primary key.
+	eval { $self->{'db'}->do("SELECT refresh_matview('mv_scheme_$scheme_id')"); };
 	$logger->error($@) if $@;
+	return;
+}
+
+sub _create_mv_indexes {
+	my ( $self, $scheme_id, $fields, $loci ) = @_;
+
+	#Create separate indices consisting of up to 10 loci each
+	my $i     = 0;
+	my $index = 2;
+	my @temp_loci;
+	foreach my $locus (@$loci) {
+		push @temp_loci, $locus;
+		$i++;
+		if ( $i % 10 == 0 || $i == @$loci ) {
+			local $" = ',';
+			my $locus_string = "@temp_loci";
+			$locus_string =~ s/'/_PRIME_/g;
+			eval { $self->{'db'}->do("CREATE INDEX i_mv$scheme_id\_$index ON mv_scheme_$scheme_id ($locus_string)") };
+			$logger->warn("Can't create index $@") if $@;
+			$index++;
+			undef @temp_loci;
+		}
+	}
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	foreach my $field (@$fields) {
+		next if $field eq $scheme_info->{'primary_key'};
+		eval { $self->{'db'}->do("CREATE INDEX i_mv$scheme_id\_$field ON mv_scheme_$scheme_id ($field)") };
+		$logger->warn("Can't create index $@") if $@;
+	}
 	return;
 }
 1;
