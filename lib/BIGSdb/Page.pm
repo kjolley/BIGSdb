@@ -770,6 +770,7 @@ sub get_filter {
 	( my $id = "$name\_list" ) =~ tr/:/_/;
 	my $buffer = "<label for=\"$id\" class=\"$class\" $title_attribute>$label</label>\n";
 	unshift @$values, '' if !$options->{'noblank'};
+	$options->{'labels'}->{''} = ' ';    #Required for HTML5 validation.
 	my %args = ( -name => "$name\_list", -id => $id, -values => $values, -labels => $options->{'labels'}, -class => $class );
 
 	if ( $options->{'multiple'} ) {
@@ -1100,9 +1101,8 @@ sub get_isolate_id_and_name_from_seqbin_id {
 		my $view        = $self->{'system'}->{'view'};
 		my $label_field = $self->{'system'}->{'labelfield'};
 		$self->{'sql'}->{'isolate_id_as'} =
-		  $self->{'db'}
-		  ->prepare("SELECT $view.id,$view.$label_field FROM $view LEFT JOIN sequence_bin ON $view.id = isolate_id WHERE sequence_bin.id=?");
-
+		  $self->{'db'}->prepare(
+			"SELECT $view.id,$view.$label_field FROM $view LEFT JOIN sequence_bin ON $view.id = isolate_id WHERE sequence_bin.id=?");
 	}
 	eval { $self->{'sql'}->{'isolate_id_as'}->execute($seqbin_id) };
 	$logger->error($@) if $@;

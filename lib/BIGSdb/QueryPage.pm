@@ -251,18 +251,20 @@ sub _print_provenance_fields {
 sub _print_loci_fields {
 	my ( $self, $row, $max_rows, $locus_list, $locus_labels ) = @_;
 	unshift @$locus_list, '';
+	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
 	my $q = $self->{'cgi'};
 	print "<span style=\"white-space:nowrap\">\n";
 	print $q->popup_menu( -name => "ls$row", -values => $locus_list, -labels => $locus_labels, -class => 'fieldlist' );
 	print $q->popup_menu( -name => "ly$row", -values => [OPERATORS] );
 	print $q->textfield( -name => "lt$row", -class => 'value_entry' );
+
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		if ( !$q->param('no_js') ) {
 			my $page = $self->{'curate'} ? 'isolateQuery' : 'query';
-			print "<a id=\"add_loci\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;"
-			  . "fields=loci&amp;row=$next_row&amp;no_header=1\" data-rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
-			print " <a class=\"tooltip\" id=\"loci_tooltip\" title=\"\">&nbsp;<i>i</i>&nbsp;</a>";
+			say "<a id=\"add_loci\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;"
+			  . "fields=loci&amp;row=$next_row&amp;no_header=1\" data-rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>"
+			  . " <a class=\"tooltip\" id=\"loci_tooltip\" title=\"\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
 	}
 	print "</span>\n";
@@ -280,15 +282,16 @@ sub _print_locus_tag_fields {
 	my @values = qw(untagged tagged complete incomplete);
 	push @values, "flagged: $_" foreach ( 'any', 'none', SEQ_FLAGS );
 	unshift @values, '';
-	print $q->popup_menu( -name => "tt$row", -values => \@values );
+	my %labels = ( '' => ' ' );    #Required for HTML5 validation.
+	print $q->popup_menu( -name => "tt$row", -values => \@values, -labels => \%labels );
 
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		if ( !$q->param('no_js') ) {
 			my $page = $self->{'curate'} ? 'isolateQuery' : 'query';
-			print "<a id=\"add_tags\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;"
-			  . "fields=tags&amp;row=$next_row&amp;no_header=1\" data-rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
-			print " <a class=\"tooltip\" id=\"tag_tooltip\" title=\"\">&nbsp;<i>i</i>&nbsp;</a>";
+			say "<a id=\"add_tags\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;"
+			  . "fields=tags&amp;row=$next_row&amp;no_header=1\" data-rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>"
+			  . " <a class=\"tooltip\" id=\"tag_tooltip\" title=\"\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
 	}
 	print "</span>\n";
