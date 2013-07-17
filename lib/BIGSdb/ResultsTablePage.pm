@@ -1111,7 +1111,7 @@ sub _print_record_table {
 		my $set_id = $self->get_set_id;
 		my $scheme_info = $data{'scheme_id'} ? $self->{'datastore'}->get_scheme_info( $data{'scheme_id'}, { set_id => $set_id } ) : undef;
 		foreach my $field (@$display) {
-			$data{ lc($field) } = '' if !defined $data{ lc($field) };
+			$data{ lc($field) } //= '';
 			if ( $primary_key{$field} && !$self->{'curate'} ) {
 				my $value;
 				if ( $field eq 'isolate_id' ) {

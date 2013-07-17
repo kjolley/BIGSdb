@@ -908,7 +908,7 @@ sub get_project_filter {
 	}
 	if ( @project_ids && $options->{'any'} ) {
 		unshift @project_ids, 'none';
-		$labels{'none'} = 'not belonging to any project';		
+		$labels{'none'} = 'not belonging to any project';
 		unshift @project_ids, 'any';
 		$labels{'any'} = 'belonging to any project';
 	}
@@ -1084,14 +1084,14 @@ sub get_link_button_to_ref {
 sub get_isolate_name_from_id {
 	my ( $self, $isolate_id ) = @_;
 	if ( !$self->{'sql'}->{'isolate_id'} ) {
-		$self->{'sql'}->{'isolate_id'} =
-		  $self->{'db'}
-		  ->prepare("SELECT $self->{'system'}->{'view'}.$self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?");
+		my $view        = $self->{'system'}->{'view'};
+		my $label_field = $self->{'system'}->{'labelfield'};
+		$self->{'sql'}->{'isolate_id'} = $self->{'db'}->prepare("SELECT $view.$label_field FROM $view WHERE id=?");
 	}
 	eval { $self->{'sql'}->{'isolate_id'}->execute($isolate_id) };
 	$logger->error($@) if $@;
 	my ($isolate) = $self->{'sql'}->{'isolate_id'}->fetchrow_array;
-	return $isolate;
+	return $isolate // '';
 }
 
 sub get_isolate_id_and_name_from_seqbin_id {
