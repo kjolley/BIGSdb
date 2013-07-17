@@ -77,6 +77,9 @@ s/ORDER BY \S+\.allele_id(.*)/ORDER BY \(case when $table.allele_id ~ '^[0-9]+\$
 	} else {
 		my $qrycount = $qry;
 		if ( $table eq 'allele_sequences' ) {
+
+			#PK is seqbin_id, locus, start_pos, end_pos but you need to search for distinct combinations (not just COUNT(*)) because the
+			#query may join the sequence_flags table giving more rows than allele sequences.
 			$qrycount =~
 s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences.locus||allele_sequences.start_pos||allele_sequences.end_pos\)/;
 		}

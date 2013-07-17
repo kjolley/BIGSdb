@@ -292,6 +292,9 @@ s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bi
 		}
 	}
 	if ( $table eq 'allele_sequences' ) {
+
+		#PK is seqbin_id, locus, start_pos, end_pos but you need to search for distinct combinations (not just COUNT(*)) because the
+		#query may join the sequence_flags table giving more rows than allele sequences.
 		$count_qry =~
 s/SELECT \*/SELECT COUNT(DISTINCT allele_sequences.seqbin_id||allele_sequences.locus||allele_sequences.start_pos||allele_sequences.end_pos)/;
 	} else {

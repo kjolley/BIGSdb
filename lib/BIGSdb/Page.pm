@@ -1097,10 +1097,12 @@ sub get_isolate_name_from_id {
 sub get_isolate_id_and_name_from_seqbin_id {
 	my ( $self, $seqbin_id ) = @_;
 	if ( !$self->{'sql'}->{'isolate_id_as'} ) {
+		my $view        = $self->{'system'}->{'view'};
+		my $label_field = $self->{'system'}->{'labelfield'};
 		$self->{'sql'}->{'isolate_id_as'} =
-		  $self->{'db'}->prepare(
-"SELECT $self->{'system'}->{'view'}.id,$self->{'system'}->{'view'}.$self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} LEFT JOIN sequence_bin ON $self->{'system'}->{'view'}.id = isolate_id WHERE sequence_bin.id=?"
-		  );
+		  $self->{'db'}
+		  ->prepare("SELECT $view.id,$view.$label_field FROM $view LEFT JOIN sequence_bin ON $view.id = isolate_id WHERE sequence_bin.id=?");
+
 	}
 	eval { $self->{'sql'}->{'isolate_id_as'}->execute($seqbin_id) };
 	$logger->error($@) if $@;
