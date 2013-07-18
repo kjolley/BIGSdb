@@ -1,6 +1,6 @@
 #RuleQuery.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2012, University of Oxford
+#Copyright (c) 2012-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -26,7 +26,7 @@ use List::MoreUtils qw(uniq);
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use constant MAX_UPLOAD_SIZE  => 32 * 1024 * 1024; #32Mb
+use constant MAX_UPLOAD_SIZE => 32 * 1024 * 1024;    #32Mb
 
 sub get_attributes {
 	my %att = (
@@ -96,22 +96,22 @@ sub run {
 			}
 		}
 	}
-	if (!$sequence && $q->param('fasta_upload')){
-			my $upload_file = $self->_upload_fasta_file;
-			$q->param('upload_file', $upload_file);
+	if ( !$sequence && $q->param('fasta_upload') ) {
+		my $upload_file = $self->_upload_fasta_file;
+		$q->param( 'upload_file', $upload_file );
 	}
-	if ( ($sequence || $q->param('upload_file')) && $ruleset_id && $valid_DNA ) {
+	if ( ( $sequence || $q->param('upload_file') ) && $ruleset_id && $valid_DNA ) {
 		my $params = $q->Vars;
 		$params->{'rule_path'} = $rulesets->{$ruleset_id}->{'path'};
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		my $job_id    = $self->{'jobManager'}->add_job(
 			{
-				'dbase_config' => $self->{'instance'},
-				'ip_address'   => $q->remote_host,
-				'module'       => 'RuleQuery',
-				'parameters'   => $params,
-				'username'     => $self->{'username'},
-				'email'        => $user_info->{'email'},
+				dbase_config => $self->{'instance'},
+				ip_address   => $q->remote_host,
+				module       => 'RuleQuery',
+				parameters   => $params,
+				username     => $self->{'username'},
+				email        => $user_info->{'email'},
 			}
 		);
 		print <<"HTML";
@@ -128,8 +128,8 @@ HTML
 }
 
 sub _upload_fasta_file {
-	my ($self) = @_;
-	my $temp = BIGSdb::Utils::get_random();
+	my ($self)   = @_;
+	my $temp     = BIGSdb::Utils::get_random();
 	my $filename = "$self->{'config'}->{'tmp_dir'}/$temp\_upload.fas";
 	my $buffer;
 	open( my $fh, '>', $filename ) || $logger->error("Could not open $filename for writing.");
@@ -155,7 +155,8 @@ sub _print_interface {
 	} else {
 		$self->_select_ruleset($rulesets);
 	}
-	print "<div><fieldset style=\"float:left\"><legend>Enter query sequence (single or multiple contigs up to whole genome in size)</legend>\n";
+	print
+	  "<div><fieldset style=\"float:left\"><legend>Enter query sequence (single or multiple contigs up to whole genome in size)</legend>\n";
 	print $q->textarea( -name => 'sequence', -rows => 6, -cols => 70 );
 	print "</fieldset>\n";
 	print "<fieldset style=\"float:left\">\n<legend>Alternatively upload FASTA file</legend>\n";
@@ -189,13 +190,13 @@ sub _select_ruleset {
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	my $sequence = '';
-	if ($params->{'sequence'}){
+	if ( $params->{'sequence'} ) {
 		$sequence = $params->{'sequence'};
-	} elsif ($params->{'upload_file'}){
+	} elsif ( $params->{'upload_file'} ) {
 		my $file = "$self->{'config'}->{'tmp_dir'}/$params->{'upload_file'}";
-		if (-e $file){
-			open (my $fh, '<', $file) or $logger->error("Can't open sequence file $file");
-			$sequence = do {local $/; <$fh>}; #slurp
+		if ( -e $file ) {
+			open( my $fh, '<', $file ) or $logger->error("Can't open sequence file $file");
+			$sequence = do { local $/; <$fh> };    #slurp
 		}
 	}
 	$self->remove_all_identifier_lines( \$sequence );
@@ -203,11 +204,9 @@ sub run_job {
 	$self->{'job_id'}   = $job_id;
 	my $code_ref = $self->_read_code( $params->{'rule_path'} );
 	if ( ref $code_ref eq 'SCALAR' ) {
-		eval "$$code_ref";    ## no critic (ProhibitStringyEval)
+		eval "$$code_ref";                         ## no critic (ProhibitStringyEval)
 	}
-	if ($@) {
-		$logger->error($@);
-	}
+	$logger->error($@) if $@;
 
 	#DEBUGGING#
 	#	use autouse 'Data::Dumper' => qw(Dumper);
@@ -262,6 +261,7 @@ sub _scan_locus {
 	  $self->run_blast( { locus => $locus, seq_ref => $self->{'sequence'}, qry_type => 'DNA', num_results => 5, cache => 0 } );
 	my $exact_matches = $self->parse_blast_exact( $locus, $blast_file );
 	$self->{'results'}->{'locus'}->{$locus} = $exact_matches->[0]->{'allele'} if @$exact_matches;    #only use first match
+	unlink "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 	return;
 }
 
@@ -270,6 +270,7 @@ sub _scan_scheme {
 	( my $blast_file, undef ) = $self->run_blast(
 		{ locus => "SCHEME_$scheme_id", seq_ref => $self->{'sequence'}, qry_type => 'DNA', num_results => 50000, cache => 0 } );
 	my $exact_matches = $self->parse_blast_exact( "SCHEME_$scheme_id", $blast_file );
+	unlink "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 	my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my ( %locus_assigned, %allele );
 	foreach my $match (@$exact_matches) {
