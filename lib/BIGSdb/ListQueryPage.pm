@@ -336,7 +336,7 @@ sub _run_isolate_query {
 			} elsif ( $fieldtype eq 'scheme_field' ) {
 				$tempqry .=
 				  $datatype eq 'text'
-				  ? "upper($field)=upper(E'$value')"
+				  ? "upper(scheme_$scheme_id\.$field)=upper(E'$value')"
 				  : "$field=E'$value'";
 			} elsif ( $fieldtype eq 'extended_isolate' ) {
 				$tempqry .= "$view.$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE "
