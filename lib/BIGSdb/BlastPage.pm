@@ -108,25 +108,14 @@ sub run_blast {
 			}
 			close $fasta_fh;
 			if ( !-z $temp_fastafile ) {
-				if ( $self->{'config'}->{'blast+_path'} ) {
-					my $dbtype;
-					if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
-						$dbtype = $locus_info->{'data_type'} eq 'DNA' ? 'nucl' : 'prot';
-					} else {
-						$dbtype = $run eq 'DNA' ? 'nucl' : 'prot';
-					}
-					system(
-"$self->{'config'}->{'blast+_path'}/makeblastdb -in $temp_fastafile -logfile /dev/null -parse_seqids -dbtype $dbtype"
-					);
+				my $dbtype;
+				if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
+					$dbtype = $locus_info->{'data_type'} eq 'DNA' ? 'nucl' : 'prot';
 				} else {
-					my $p;
-					if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
-						$p = $locus_info->{'data_type'} eq 'DNA' ? 'F' : 'T';
-					} else {
-						$p = $run eq 'DNA' ? 'F' : 'T';
-					}
-					system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p $p -o T");
+					$dbtype = $run eq 'DNA' ? 'nucl' : 'prot';
 				}
+				system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
+					'-in', $temp_fastafile, '-logfile', '/dev/null', '-parse_seqids', '-dbtype', $dbtype );
 			}
 		}
 		if ( !-z $temp_fastafile ) {
@@ -162,19 +151,14 @@ sub run_blast {
 				$format     = 6;
 			}
 			$options->{'num_results'} //= 1000000;    #effectively return all results
-			if ( $self->{'config'}->{'blast+_path'} ) {
-				system(
-					"$self->{'config'}->{'blast+_path'}/$program", '-num_threads',            $blast_threads,
-					'-max_target_seqs',                            $options->{'num_results'}, '-parse_deflines',
-					'-word_size',                                  $word_size,                '-db',
-					$temp_fastafile,                               '-query',                  $temp_infile,
-					'-out',                                        $temp_outfile,             '-outfmt',
-					$format,                                       "-$filter",                'no'
-				);
-			} else {
-				system( "$self->{'config'}->{'blast_path'}/blastall -v $options->{'num_results'} -b $options->{'num_results'} -p $program "
-					  . "-d $temp_fastafile -i $temp_infile -o $temp_outfile -F F -m$old_format > /dev/null" );
-			}
+			system(
+				"$self->{'config'}->{'blast+_path'}/$program", '-num_threads',            $blast_threads,
+				'-max_target_seqs',                            $options->{'num_results'}, '-parse_deflines',
+				'-word_size',                                  $word_size,                '-db',
+				$temp_fastafile,                               '-query',                  $temp_infile,
+				'-out',                                        $temp_outfile,             '-outfmt',
+				$format,                                       "-$filter",                'no'
+			);
 			if ( $run eq 'DNA' ) {
 				rename( $temp_outfile, "$temp_outfile\.1" );
 			}
