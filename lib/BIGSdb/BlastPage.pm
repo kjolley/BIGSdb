@@ -163,25 +163,20 @@ sub run_blast {
 			}
 			$options->{'num_results'} //= 1000000;    #effectively return all results
 			if ( $self->{'config'}->{'blast+_path'} ) {
-
-				#The num_descriptions and num_alignments options should not be required but they seem to be
-				#if using an older version of BLAST+.
 				system(
 					"$self->{'config'}->{'blast+_path'}/$program", '-num_threads',            $blast_threads,
-					'-max_target_seqs',                            $options->{'num_results'}, '-num_descriptions',
-					$options->{'num_results'},                     '-num_alignments',         $options->{'num_results'},
-					'-parse_deflines',                             '-word_size',              $word_size,
-					'-db',                                         $temp_fastafile,           '-query',
-					$temp_infile,                                  '-out',                    $temp_outfile,
-					'-outfmt',                                     $format,                   "-$filter",
-					'no'
+					'-max_target_seqs',                            $options->{'num_results'}, '-parse_deflines',
+					'-word_size',                                  $word_size,                '-db',
+					$temp_fastafile,                               '-query',                  $temp_infile,
+					'-out',                                        $temp_outfile,             '-outfmt',
+					$format,                                       "-$filter",                'no'
 				);
 			} else {
 				system( "$self->{'config'}->{'blast_path'}/blastall -v $options->{'num_results'} -b $options->{'num_results'} -p $program "
 					  . "-d $temp_fastafile -i $temp_infile -o $temp_outfile -F F -m$old_format > /dev/null" );
 			}
 			if ( $run eq 'DNA' ) {
-				rename ($temp_outfile, "$temp_outfile\.1");
+				rename( $temp_outfile, "$temp_outfile\.1" );
 			}
 		}
 	}
@@ -192,10 +187,10 @@ sub run_blast {
 	}
 
 	#delete all working files
-	if (!$options->{'cache'}){
+	if ( !$options->{'cache'} ) {
 		unlink $temp_infile;
 		my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/$options->{'job'}*");
-		foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/ && !/outfile.txt/}
+		foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/ && !/outfile.txt/ }
 	}
 	return ( $outfile_url, $options->{'job'} );
 }
