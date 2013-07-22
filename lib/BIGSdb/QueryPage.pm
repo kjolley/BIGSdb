@@ -943,7 +943,7 @@ sub _generate_isolate_query_for_provenance_fields {
 				next;
 			}
 			if ( any { $field =~ /(.*) \($_\)$/ } qw (id surname first_name affiliation) ) {
-				$qry .= $modifier . $self->search_users( $field, $operator, $text, $self->{'system'}->{'view'} );
+				$qry .= $modifier . $self->search_users( $field, $operator, $text, $view );
 			} else {
 				if (@groupedfields) {
 					$qry .=
@@ -952,7 +952,7 @@ sub _generate_isolate_query_for_provenance_fields {
 					next;
 				}
 				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-				$field = $self->{'system'}->{'view'} . '.' . $field if !$extended_isolate_field;
+				$field = "$view.$field" if !$extended_isolate_field;
 				my $args = {
 					field                  => $field,
 					extended_isolate_field => $extended_isolate_field,
@@ -979,14 +979,14 @@ sub _generate_isolate_query_for_provenance_fields {
 				} elsif ( $operator eq '=' ) {
 					$qry .= $self->_provenance_equals_type_operator($args);
 				} else {
-					my $labelfield = $view . '.' . $self->{'system'}->{'labelfield'};
+					my $labelfield = "$view.$self->{'system'}->{'labelfield'}";
 					$qry .= $modifier;
 					if ($extended_isolate_field) {
-						$qry .=
-"$view.$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$extended_isolate_field' AND attribute='$field' AND value $operator E'$text')";
+						$qry .= "$view.$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE "
+						  . "isolate_field='$extended_isolate_field' AND attribute='$field' AND value $operator E'$text')";
 					} elsif ( $field eq $labelfield ) {
-						$qry .=
-"($field $operator '$text' OR $view.id IN (SELECT isolate_id FROM isolate_aliases WHERE alias $operator E'$text'))";
+						$qry .= "($field $operator '$text' OR $view.id IN (SELECT isolate_id FROM isolate_aliases WHERE alias "
+						  . "$operator E'$text'))";
 					} else {
 						if ( $text eq 'null' ) {
 							push @$errors_ref, "$operator is not a valid operator for comparing null values.";
