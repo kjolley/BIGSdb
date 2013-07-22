@@ -1170,19 +1170,20 @@ sub _modify_isolate_query_for_filters {
 					$first = 0;
 				}
 				my $param  = $q->param("scheme_$scheme_id\_profile_status_list");
-				my $clause = "($view.id IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id HAVING "
-				  . "COUNT(isolate_id)";
+				my $clause = "(EXISTS (SELECT isolate_id FROM allele_designations WHERE $view.id=allele_designations.isolate_id AND "
+				  . "($allele_clause) GROUP BY isolate_id HAVING COUNT(isolate_id)";
 				my $locus_count = @$scheme_loci;
 				given ($param) {
 					when ('complete') { $clause .= "=$locus_count))" }
 					when ('partial')  { $clause .= "<$locus_count))" }
 					when ('started')  { $clause .= '>0))' }
 					when ('incomplete') {
-						$clause .= "<$locus_count) OR id NOT IN (SELECT isolate_id FROM allele_designations WHERE "
-						  . "$allele_clause GROUP BY isolate_id ))"
+						$clause .= "<$locus_count) OR NOT (EXISTS (SELECT isolate_id FROM allele_designations WHERE "
+						  . "$view.id=allele_designations.isolate_id AND ($allele_clause) GROUP BY isolate_id )))";
 					}
 					default {
-						$clause = "(id NOT IN (SELECT isolate_id FROM allele_designations WHERE $allele_clause GROUP BY isolate_id ))"
+						$clause = "(NOT (EXISTS (SELECT isolate_id FROM allele_designations WHERE $view.id=allele_designations.isolate_id "
+						  . "AND ($allele_clause) GROUP BY isolate_id )))";
 					}
 				}
 				if ( $qry !~ /WHERE \(\)\s*$/ ) {
