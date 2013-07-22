@@ -1644,20 +1644,14 @@ sub _extract_sequence {
 
 sub _blast {
 	my ( $self, $word_size, $fasta_file, $in_file, $out_file, $program ) = @_;
-	if ( $self->{'config'}->{'blast+_path'} ) {
-		my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
-		my $filter = $program eq 'blastn' ? 'dust' : 'seg';
-		system(
-			"$self->{'config'}->{'blast+_path'}/$program",
-			'-num_threads', $blast_threads, '-max_target_seqs', 10,         '-parse_deflines', '-word_size',
-			$word_size,     '-db',          $fasta_file,        '-query',   $in_file,          '-out',
-			$out_file,      '-outfmt',      6,                  "-$filter", 'no'
-		);
-	} else {
-		system(
-"$self->{'config'}->{'blast_path'}/blastall -b 10 -p $program -W $word_size -d $fasta_file -i $in_file -o $out_file -m8 -F F 2> /dev/null"
-		);
-	}
+	my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
+	my $filter = $program eq 'blastn' ? 'dust' : 'seg';
+	system(
+		"$self->{'config'}->{'blast+_path'}/$program",
+		'-num_threads', $blast_threads, '-max_target_seqs', 10,         '-parse_deflines', '-word_size',
+		$word_size,     '-db',          $fasta_file,        '-query',   $in_file,          '-out',
+		$out_file,      '-outfmt',      6,                  "-$filter", 'no'
+	);
 	return;
 }
 
@@ -1819,16 +1813,9 @@ sub _create_locus_FASTA_db {
 		open( my $fasta_fh, '>', $temp_fastafile ) || $logger->error("Can't open $temp_fastafile for writing");
 		print $fasta_fh $file_buffer if $file_buffer;
 		close $fasta_fh;
-		if ( $self->{'config'}->{'blast+_path'} ) {
-			my $dbtype = $locus_info->{'data_type'} eq 'DNA' ? 'nucl' : 'prot';
-			system("$self->{'config'}->{'blast+_path'}/makeblastdb -in $temp_fastafile -logfile /dev/null -parse_seqids -dbtype $dbtype");
-		} else {
-			if ( $locus_info->{'data_type'} eq 'DNA' ) {
-				system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p F -o T");
-			} else {
-				system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p T -o T");
-			}
-		}
+		my $dbtype = $locus_info->{'data_type'} eq 'DNA' ? 'nucl' : 'prot';
+		system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
+			'-in', $temp_fastafile, '-logfile', '/dev/null', '-parse_seqids', '-dbtype', $dbtype );
 	}
 	return $temp_fastafile;
 }
@@ -1881,11 +1868,8 @@ sub _create_isolate_FASTA {
 sub _create_isolate_FASTA_db {
 	my ( $self, $isolate_id, $prefix ) = @_;
 	my $temp_infile = $self->_create_isolate_FASTA( $isolate_id, $prefix );
-	if ( $self->{'config'}->{'blast+_path'} ) {
-		system("$self->{'config'}->{'blast+_path'}/makeblastdb -in $temp_infile -logfile /dev/null -parse_seqids -dbtype nucl");
-	} else {
-		system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_infile -p F -o T");
-	}
+	system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
+		'-in', $temp_infile, '-logfile', '/dev/null', '-parse_seqids', '-dbtype', 'nucl' );
 	return $temp_infile;
 }
 1;

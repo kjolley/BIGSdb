@@ -324,7 +324,7 @@ sub _print_interface {
 	  . "six-frame translation of the sequences in the sequence bin.\">&nbsp;<i>i</i>&nbsp;</a></li>";
 	say "</ul>";
 	say "</fieldset>";
-	say "<fieldset>";
+	say "<fieldset style=\"float:left\">";
 	say "<legend>Options</legend>";
 	say "<ul><li>";
 	say $q->checkbox( -name => 'show_no_match', label => 'Show 0% matches in table' );
@@ -412,19 +412,16 @@ sub _blast {
 	my $blastn_word_size = $self->{'cgi'}->param('word_size') =~ /(\d+)/ ? $1 : 11;
 	my $hits             = $self->{'cgi'}->param('hits')      =~ /(\d+)/ ? $1 : 1;
 	my $word_size = $program eq 'blastn' ? ($blastn_word_size) : 3;
-	if ( $self->{'config'}->{'blast+_path'} ) {
-		system("$self->{'config'}->{'blast+_path'}/makeblastdb -in $temp_fastafile -logfile /dev/null -parse_seqids -dbtype nucl");
-		my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
-		my $filter = $program eq 'blastn' ? 'dust' : 'seg';
-		system(
-"$self->{'config'}->{'blast+_path'}/$program -num_threads $blast_threads -max_target_seqs 10 -parse_deflines -word_size $word_size -db $temp_fastafile -query $temp_queryfile -out $temp_outfile -outfmt 6 -$filter no"
-		);
-	} else {
-		system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p F -o T");
-		system(
-"$self->{'config'}->{'blast_path'}/blastall -b $hits -p $program -W $word_size -d $temp_fastafile -i $temp_queryfile -o $temp_outfile -m8 -F F 2> /dev/null"
-		);
-	}
+	system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
+		'-in', $temp_fastafile, '-logfile', '/dev/null', '-parse_seqids', '-dbtype', 'nucl' );
+	my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
+	my $filter = $program eq 'blastn' ? 'dust' : 'seg';
+	system(
+		"$self->{'config'}->{'blast+_path'}/$program",
+		'-num_threads', $blast_threads, '-max_target_seqs', $hits,         '-parse_deflines', '-word_size',
+		$word_size,     '-db',          $temp_fastafile,    '-query',   $temp_queryfile,   '-out',
+		$temp_outfile,  '-outfmt',      6,                  "-$filter", 'no'
+	);
 	my $matches = $self->_parse_blast( $outfile_url, $hits );
 
 	#clean up

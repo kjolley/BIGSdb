@@ -70,16 +70,9 @@ sub blast {
 			say $fasta_fh ">ref\n$locus_info->{'reference_sequence'}";
 		}
 		close $fasta_fh;
-		if ( $self->{'config'}->{'blast+_path'} ) {
-			my $dbtype = $locus_info->{'data_type'} eq 'DNA' ? 'nucl' : 'prot';
-			system("$self->{'config'}->{'blast+_path'}/makeblastdb -in $temp_fastafile -logfile /dev/null -parse_seqids -dbtype $dbtype");
-		} else {
-			if ( $locus_info->{'data_type'} eq 'DNA' ) {
-				system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p F -o T");
-			} else {
-				system("$self->{'config'}->{'blast_path'}/formatdb -i $temp_fastafile -p T -o T");
-			}
-		}
+		my $dbtype = $locus_info->{'data_type'} eq 'DNA' ? 'nucl' : 'prot';
+		system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
+			'-in', $temp_fastafile, '-logfile', '/dev/null', '-parse_seqids', '-dbtype', $dbtype );
 	}
 
 	#create query fasta file
@@ -152,22 +145,18 @@ sub blast {
 	if ( -e $temp_fastafile && !-z $temp_fastafile ) {
 		my $blastn_word_size = ( defined $params->{'word_size'} && $params->{'word_size'} =~ /(\d+)/ ) ? $1 : 15;
 		my $word_size = $program eq 'blastn' ? $blastn_word_size : 3;
-		if ( $self->{'config'}->{'blast+_path'} ) {
-			my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
-			my $filter = $program eq 'blastn' ? 'dust' : 'seg';
-			system(
-				"$self->{'config'}->{'blast+_path'}/$program",
-				'-num_threads', $blast_threads, '-max_target_seqs', 1000,       '-parse_deflines', '-word_size',
-				$word_size,     '-db',          $temp_fastafile,    '-query',   $temp_infile,      '-out',
-				$temp_outfile,  '-outfmt',      6,                  "-$filter", 'no'
-			);
-		} else {
-			system( "$self->{'config'}->{'blast_path'}/blastall -B $seq_count -b 1000 -p $program -W $word_size -d $temp_fastafile -i "
-				  . "$temp_infile -o $temp_outfile -m8 -F F 2> /dev/null" );
-		}
+		my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
+		my $filter = $program eq 'blastn' ? 'dust' : 'seg';
+		system(
+			"$self->{'config'}->{'blast+_path'}/$program",
+			'-num_threads', $blast_threads, '-max_target_seqs', 1000,       '-parse_deflines', '-word_size',
+			$word_size,     '-db',          $temp_fastafile,    '-query',   $temp_infile,      '-out',
+			$temp_outfile,  '-outfmt',      6,                  "-$filter", 'no'
+		);
 		my ( $exact_matches, $matched_regions, $partial_matches );
 		my $pcr_filter   = !$params->{'pcr_filter'}   ? 0 : $locus_info->{'pcr_filter'};
 		my $probe_filter = !$params->{'probe_filter'} ? 0 : $locus_info->{'probe_filter'};
+
 		if ( -e "$self->{'config'}->{'secure_tmp_dir'}/$outfile_url" ) {
 			( $exact_matches, $matched_regions ) =
 			  $self->_parse_blast_exact( $locus, $outfile_url, $pcr_filter, $pcr_products, $probe_filter, $probe_matches );
@@ -363,7 +352,7 @@ sub run_script {
 	if ($match) {
 		open( my $fh, '>>', $table_file ) || $logger->error("Can't open $table_file for appending");
 		local $" = ';';
-		say $fh "<tr class=\"td\">" . ("<td></td>" x 14) . "<td>";
+		say $fh "<tr class=\"td\">" . ( "<td></td>" x 14 ) . "<td>";
 		say $fh "<input type=\"button\" value=\"All\" onclick='@js' class=\"smallbutton\" />"   if @js;
 		say $fh "<input type=\"button\" value=\"None\" onclick='@js2' class=\"smallbutton\" />" if @js2;
 		say $fh "</td><td>";
@@ -1010,19 +999,15 @@ sub _simulate_hybridization {
 		$probe_info{ $_->{'id'} } = $_;
 	}
 	close $fh;
-	if ( $self->{'config'}->{'blast+_path'} ) {
-		system("$self->{'config'}->{'blast+_path'}/makeblastdb -in $fasta_file -logfile /dev/null -parse_seqids -dbtype nucl");
-		my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
-		system(
-"$self->{'config'}->{'blast+_path'}/blastn -task blastn -num_threads $blast_threads -max_target_seqs 1000 -parse_deflines -db $fasta_file -out $results_file -query $probe_fasta_file -outfmt 6 -dust no"
-		);
-	} else {
-		my $seq_count = scalar @$probes;
-		system("$self->{'config'}->{'blast_path'}/formatdb -i $fasta_file -p F -o T");
-		system(
-"$self->{'config'}->{'blast_path'}/blastall -B $seq_count -b 1000 -p blastn -d $fasta_file -i $probe_fasta_file -o $results_file -m8 -F F 2> /dev/null"
-		);
-	}
+	system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
+		'-in', $fasta_file, '-logfile', '/dev/null', '-parse_seqids', '-dbtype', 'nucl' );
+	my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
+	system(
+		"$self->{'config'}->{'blast+_path'}/blastn",
+		'-task',           'blastn',  '-num_threads', $blast_threads, '-max_target_seqs', 1000,
+		'-parse_deflines', '-db',     $fasta_file,    '-out',         $results_file,      '-query',
+		$probe_fasta_file, '-outfmt', 6,              '-dust',        'no'
+	);
 	my @matches;
 	if ( -e $results_file ) {
 		open( $fh, '<', $results_file );
