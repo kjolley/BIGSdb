@@ -1,1 +1,2 @@
+DROP INDEX i_ad1;
 DROP INDEX i_ad2;
