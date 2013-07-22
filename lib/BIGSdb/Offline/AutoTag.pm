@@ -32,6 +32,8 @@ use constant TAG_USERNAME => 'autotagger';
 
 sub run_script {
 	my ($self) = @_;
+	my $EXIT = 0;
+	local @SIG{qw (INT TERM HUP)} = ( sub { $EXIT = 1 } ) x 3;    #Allow temp files to be cleaned on kill signals
 	my $params;
 	$params->{$_} = 1 foreach qw(pcr_filter probe_filter);
 	die "No connection to database (check logs).\n" if !defined $self->{'db'} || $self->{'system'}->{'dbtype'} ne 'isolates';
@@ -121,14 +123,14 @@ sub run_script {
 				}
 				print "\n" if !$self->{'options'}->{'q'};
 			}
-			last if $self->_is_time_up;
+			last if $EXIT || $self->_is_time_up;
 		}
 		if ( ref $self->{'history'} eq 'ARRAY' && @{ $self->{'history'} } ) {
 			local $" = '<br />';
 			$self->update_history( $isolate_id, "@{$self->{'history'}}" );
 		}
 		$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$isolate_prefix*");    #delete isolate seqbin FASTA
-		last if $self->_is_time_up;
+		last if $EXIT || $self->_is_time_up;
 	}
 	$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");          #delete locus working files
 	if ( $self->_is_time_up && !$self->{'options'}->{'q'} ) {
