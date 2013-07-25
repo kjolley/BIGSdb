@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CurateAddPage);
+use Digest::MD5;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant SUCCESS => 1;
@@ -210,26 +211,36 @@ sub profile_exists {
 	my $qry = "SELECT profiles.profile_id FROM profiles LEFT JOIN profile_members ON profiles.scheme_id = "
 	  . "profile_members.scheme_id AND profiles.profile_id = profile_members.profile_id WHERE profiles.scheme_id=$scheme_id AND ";
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my @locus_temp;
+	my ( @locus_temp, @values );
 	foreach my $locus (@$loci) {
 		next if $newdata->{"locus:$locus"} eq 'N';    #N can be any allele so can not be used to differentiate profiles
 		( my $cleaned = $locus ) =~ s/'/\\'/g;
-		my $value = $newdata->{"locus:$locus"};
-		$value =~ s/'/\\'/g;
-		push @locus_temp, "(locus=E'$cleaned' AND (allele_id=E'$value' OR allele_id='N'))";
+		push @locus_temp, "(locus=E'$cleaned' AND (allele_id=? OR allele_id='N'))";
+		push @values,     $newdata->{"locus:$locus"};
 	}
 	local $" = ' OR ';
 	$qry .= "(@locus_temp)";
 	$qry .= ' GROUP BY profiles.profile_id having count(*)=' . scalar @locus_temp;
+
+	#This may be called many times for batch inserts so cache query statements
+	my $qry_hash = Digest::MD5::md5_hex($qry);
+	if ( !$self->{'cache'}->{'sql'}->{$qry_hash} ) {
+		$self->{'cache'}->{'sql'}->{$qry_hash} = $self->{'db'}->prepare($qry);
+	}
 	if (@locus_temp) {
-		my $values = $self->{'datastore'}->run_list_query($qry);
+		eval { $self->{'cache'}->{'sql'}->{$qry_hash}->execute(@values) };
+		$logger->error($@) if $@;
+		my @matching_profiles;
+		while ( my ($match) = $self->{'cache'}->{'sql'}->{$qry_hash}->fetchrow_array ) {
+			push @matching_profiles, $match;
+		}
 		$newdata->{"field:$primary_key"} //= '';
-		if (@$values && !(@$values == 1 && $values->[0] eq $newdata->{"field:$primary_key"})) {
+		if ( @matching_profiles && !( @matching_profiles == 1 && $matching_profiles[0] eq $newdata->{"field:$primary_key"} ) ) {
 			if ( @locus_temp < @$loci ) {
 				$msg .= "Profiles containing an arbitrary allele (N) at a particular locus may match profiles with actual values at "
-				  . "that locus and cannot therefore be defined.  This profile matches $primary_key-$values->[0] (possibly others too).";
+				  . "that locus and cannot therefore be defined.  This profile matches $primary_key-$matching_profiles[0] (possibly others too).";
 			} else {
-				$msg .= "This allelic profile has already been defined as $primary_key-$values->[0].";
+				$msg .= "This allelic profile has already been defined as $primary_key-$matching_profiles[0].";
 			}
 			$profile_exists = 1;
 		}
@@ -327,7 +338,10 @@ sub _is_scheme_field_bad {
 
 sub is_locus_field_bad {
 	my ( $self, $scheme_id, $locus, $value ) = @_;
-	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	if ( !$self->{'cache'}->{'locus_info'}->{$locus} ) {    #may be called thousands of time during a batch add so cache.
+		$self->{'cache'}->{'locus_info'}->{$locus} = $self->{'datastore'}->get_locus_info($locus);
+	}
+	my $locus_info = $self->{'cache'}->{'locus_info'}->{$locus};
 	my $set_id     = $self->get_set_id;
 	my $mapped     = $self->{'datastore'}->get_set_locus_label( $locus, $set_id ) // $locus;
 	if ( !defined $value || $value eq '' ) {
@@ -346,8 +360,13 @@ sub is_locus_field_bad {
 		return "Locus '$mapped' must be an integer.";
 	} elsif ( $locus_info->{'allele_id_regex'} && $value !~ /$locus_info->{'allele_id_regex'}/ ) {
 		return "Allele id value is invalid - it must match the regular expression /$locus_info->{'allele_id_regex'}/.";
-	} elsif ( !$self->{'datastore'}->sequence_exists( $locus, $value ) ) {
-		return "Allele $mapped $value has not been defined.";
+	} else {
+		if ( !defined $self->{'cache'}->{'seq_exists'}->{$locus}->{$value} ) {
+			$self->{'cache'}->{'seq_exists'}->{$locus}->{$value} = $self->{'datastore'}->sequence_exists( $locus, $value );
+		}
+		if ( !$self->{'cache'}->{'seq_exists'}->{$locus}->{$value} ) {
+			return "Allele $mapped $value has not been defined.";
+		}
 	}
 	return;
 }
