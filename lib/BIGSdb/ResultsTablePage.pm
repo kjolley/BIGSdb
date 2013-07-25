@@ -821,7 +821,7 @@ sub _print_profile_table {
 	my $qry       = $$qryref;
 	my $qry_limit = $qry;
 	my $scheme_id;
-	if ( $qry =~ /FROM scheme_(\d+)/ || $qry =~ /scheme_id='?(\d+)'?/ ) {
+	if ( $qry =~ /FROM m?v?_?scheme_(\d+)/ || $qry =~ /scheme_id='?(\d+)'?/ ) {
 		$scheme_id = $1;
 	}
 	if ( !$scheme_id ) {

@@ -1567,7 +1567,8 @@ sub _run_profile_query {
 	my $loci        = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 	if ( !defined $q->param('query') ) {
-		$qry = "SELECT * FROM scheme_$scheme_id WHERE (";
+		my $scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
+		$qry = "SELECT * FROM $scheme_view WHERE (";
 		my $andor       = $q->param('c0');
 		my $first_value = 1;
 		foreach my $i ( 1 .. MAX_ROWS ) {
@@ -1640,7 +1641,7 @@ sub _run_profile_query {
 				if ( $qry !~ /WHERE \(\)\s*$/ ) {
 					$qry .= " AND ($primary_key IN ('@$ids'))";
 				} else {
-					$qry = "SELECT * FROM scheme_$scheme_id WHERE ($primary_key IN ('@$ids'))";
+					$qry = "SELECT * FROM $scheme_view WHERE ($primary_key IN ('@$ids'))";
 				}
 			}
 		}
@@ -1652,7 +1653,7 @@ sub _run_profile_query {
 				if ( $qry !~ /WHERE \(\)\s*$/ ) {
 					$qry .= " AND ($_ = '$value')";
 				} else {
-					$qry = "SELECT * FROM scheme_$scheme_id WHERE ($_ = '$value')";
+					$qry = "SELECT * FROM $scheme_view WHERE ($_ = '$value')";
 				}
 			}
 		}

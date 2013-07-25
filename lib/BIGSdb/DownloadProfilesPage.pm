@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -81,8 +81,9 @@ sub print_content {
 	}
 	print "\n";
 	local $" = ',';
+	my $scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
 	my $sql =
-	  $self->{'db'}->prepare( "SELECT @fields FROM scheme_$scheme_id ORDER BY "
+	  $self->{'db'}->prepare( "SELECT @fields FROM $scheme_view ORDER BY "
 		  . ( $pk_info->{'type'} eq 'integer' ? "CAST($primary_key AS int)" : $primary_key ) );
 	eval { $sql->execute };
 	if ($@) {

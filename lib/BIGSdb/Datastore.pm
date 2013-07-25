@@ -691,9 +691,8 @@ sub get_scheme_list {
 			  . "schemes.id=scheme_members.scheme_id JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key ORDER BY "
 			  . "schemes.display_order,schemes.description";
 		} else {
-			$qry =
-			  "SELECT id,description,display_order FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_members) ORDER BY "
-			    . "display_order,description";
+			$qry = "SELECT id,description,display_order FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_members) ORDER BY "
+			  . "display_order,description";
 		}
 	}
 	my $list = $self->run_list_query_hashref($qry);
@@ -941,9 +940,9 @@ sub get_locus_list {
 		$qry .= ( $qry =~ /loci$/ ) ? ' WHERE ' : ' AND ';
 		$qry .= "loci.id IN (SELECT locus from locus_curators WHERE curator_id = $options->{'locus_curator'})";
 	}
-	if ($options->{'no_extended_attributes'}){
+	if ( $options->{'no_extended_attributes'} ) {
 		$qry .= ( $qry =~ /loci$/ ) ? ' WHERE ' : ' AND ';
-		$qry .= "loci.id NOT IN (SELECT locus from locus_extended_attributes)";		
+		$qry .= "loci.id NOT IN (SELECT locus from locus_extended_attributes)";
 	}
 	my $loci = $self->run_list_query_hashref($qry);
 	my $cleaned;
@@ -1426,6 +1425,7 @@ sub get_client_data_linked_to_allele {
 }
 
 sub get_client_dbase_fields {
+
 	#TODO deprecate and use get_client_data_linked_to_allele instead.
 	my ( $self, $locus, $allele_ids_refs ) = @_;
 	return [] if ref $allele_ids_refs ne 'ARRAY';
@@ -1434,6 +1434,7 @@ sub get_client_dbase_fields {
 	$logger->error($@) if $@;
 	my $values;
 	my %db_desc;
+
 	while ( my ( $client_dbase_id, $field ) = $sql->fetchrow_array ) {
 		my $client         = $self->get_client_db($client_dbase_id);
 		my $client_db_desc = $self->get_client_db_info($client_dbase_id)->{'name'};
@@ -1760,10 +1761,10 @@ sub get_table_field_attributes {
 
 	#Returns array ref of attributes for a specific table provided by table-specific helper functions in BIGSdb::TableAttributes.
 	my ( $self, $table ) = @_;
-	my $function   = "BIGSdb::TableAttributes::get_$table\_table_attributes";
+	my $function = "BIGSdb::TableAttributes::get_$table\_table_attributes";
 	my $attributes;
 	eval { $attributes = $self->$function() };
-	$logger->logcarp($@) if $@; 
+	$logger->logcarp($@) if $@;
 	return if ref $attributes ne 'ARRAY';
 	foreach my $att (@$attributes) {
 		foreach (qw(tooltip optlist required default hide public_hide main_display)) {
@@ -1868,5 +1869,17 @@ sub get_metadata_value {
 	$logger->error($@) if $@;
 	my $data = $self->{'sql'}->{"metadata_value_$metaset"}->fetchrow_hashref;
 	return $data->{$metafield} // '';
+}
+
+sub materialized_view_exists {
+	my ( $self, $scheme_id ) = @_;
+	return 0 if ( ( $self->{'system'}->{'materialized_views'} // '' ) ne 'yes' );
+	if ( !$self->{'sql'}->{'materialized_view_exists'} ) {
+		$self->{'sql'}->{'materialized_view_exists'} = $self->{'db'}->prepare("SELECT EXISTS(SELECT * FROM matviews WHERE mv_name = ?)");
+	}
+	eval { $self->{'sql'}->{'materialized_view_exists'}->execute("mv_scheme_$scheme_id") };
+	$logger->error($@) if $@;
+	my ($exists) = $self->{'sql'}->{'materialized_view_exists'}->fetchrow_array;
+	return $exists;
 }
 1;

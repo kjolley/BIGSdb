@@ -198,7 +198,8 @@ sub _run_profile_query {
 		say "<div class=\"box\" id=\"statusbad\"><p>No valid values entered.</p></div>";
 		return;
 	}
-	my $qry = "SELECT * FROM scheme_$scheme_id WHERE $tempqry";
+	my $scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
+	my $qry = "SELECT * FROM $scheme_view WHERE $tempqry";
 	$qry .= " ORDER BY ";
 	if ( $q->param('order') =~ /^la_(.*)\|\|/ || $q->param('order') =~ /^l_(.*)/ ) {
 		my $locus = $1;

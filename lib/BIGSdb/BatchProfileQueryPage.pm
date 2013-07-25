@@ -89,7 +89,8 @@ sub print_content {
 			print "<th>$cleaned</th>";
 		}
 		local $" = ',';
-		my $qry             = "SELECT @$scheme_fields FROM scheme_$scheme_id WHERE ";
+		my $scheme_view     = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
+		my $qry             = "SELECT @$scheme_fields FROM $scheme_view WHERE ";
 		my @cleaned_loci_db = @$loci;
 		$_ =~ s/'/_PRIME_/g foreach @cleaned_loci_db;
 		local $" = $scheme_info->{'allow_missing_loci'} ? " IN (?, 'N')) AND (" : '=?) AND (';
@@ -156,7 +157,9 @@ columns should comprise the allele numbers (order: @cleaned_loci). Click here fo
 <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchProfiles&amp;function=examples&amp;scheme_id=$scheme_id">
 example data</a>.  Non-numerical characters will be stripped out of the query.</p>
 HTML
+	say "<fieldset style=\"float:left\"><legend>Paste in profiles</legend>";
 	say $q->textarea( -name => 'profiles', -rows => 10, -columns => 80, -override => 1 );
+	say "</fieldset>";
 	$self->print_action_fieldset( { scheme_id => $scheme_id } );
 	say $q->endform;
 	say "</div>";
@@ -188,7 +191,8 @@ sub _print_examples {
 	my @cleaned_loci = @$loci;
 	$_ =~ s/'/_PRIME_/g foreach @cleaned_loci;
 	local $" = ',';
-	my $sql = $self->{'db'}->prepare("SELECT @cleaned_loci FROM scheme_$scheme_id ORDER BY random() LIMIT 15");
+	my $scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
+	my $sql = $self->{'db'}->prepare("SELECT @cleaned_loci FROM $scheme_view ORDER BY random() LIMIT 15");
 	eval { $sql->execute };
 	$logger->error($@) if $@;
 	local $" = "\t";

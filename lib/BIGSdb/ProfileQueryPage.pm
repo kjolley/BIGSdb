@@ -70,7 +70,7 @@ sub print_content {
 		or defined $q->param('submit') )
 	{
 		$self->_run_query($scheme_id);
-	} 
+	}
 	return;
 }
 
@@ -117,8 +117,9 @@ sub _print_query_interface {
 					$_ =~ s/'/_PRIME_/g;
 				}
 				local $" = ',';
-				my $qry = "SELECT @cleaned_loci FROM scheme_$scheme_id WHERE $primary_key=?";
-				my $sql = $self->{'db'}->prepare($qry);
+				my $scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
+				my $qry         = "SELECT @cleaned_loci FROM $scheme_view WHERE $primary_key=?";
+				my $sql         = $self->{'db'}->prepare($qry);
 				eval { $sql->execute(@values) };
 				if ($@) {
 					$logger->error("Can't retrieve loci from scheme view $@");
@@ -253,7 +254,7 @@ sub _print_query_interface {
 	say $self->get_number_records_control;
 	say "</li></ul></fieldset>";
 	say "</div>";
-	$self->print_action_fieldset({scheme_id => $scheme_id});
+	$self->print_action_fieldset( { scheme_id => $scheme_id } );
 	say $q->hidden($_) foreach qw (db page scheme_id);
 	say $q->hidden( 'sent', 1 );
 	say $q->end_form;
@@ -274,6 +275,11 @@ sub _run_query {
 	my $msg;
 	my @errors;
 	my $count;
+	my $scheme_view;
+
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		$scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
+	}
 	if ( !defined $q->param('query') ) {
 		my @params = $q->param;
 		my @loci;
@@ -341,7 +347,7 @@ sub _run_query {
 				$lqry =
 				    "(select distinct(profiles.profile_id) FROM profiles LEFT JOIN profile_members ON profiles.profile_id="
 				  . "profile_members.profile_id AND profiles.scheme_id=profile_members.scheme_id AND profile_members.scheme_id=$scheme_id "
-				  . "WHERE scheme_$scheme_id.$primary_key=profiles.profile_id AND (@lqry)";
+				  . "WHERE $scheme_view.$primary_key=profiles.profile_id AND (@lqry)";
 			}
 			if ( $matches == 0 ) {    #Find out the greatest number of matches
 				my $qry;
@@ -388,7 +394,7 @@ sub _run_query {
 				$qry =
 				  $self->{'system'}->{'dbtype'} eq 'isolates'
 				  ? "SELECT * FROM $system->{'view'} WHERE id IN $lqry"
-				  : "SELECT * FROM scheme_$scheme_id WHERE EXISTS $lqry";
+				  : "SELECT * FROM $scheme_view WHERE EXISTS $lqry";
 			} else {
 				$qry .= " AND ($lqry)";
 			}
@@ -421,8 +427,11 @@ sub _run_query {
 					$qry .= "$profile_id_field $dir;";
 				} elsif ( $self->{'datastore'}->is_locus($order_field) ) {
 					my $locus_info = $self->{'datastore'}->get_locus_info($order_field);
-					$order_field =~ s/'/_PRIME_/g;								
-					$qry .= $locus_info->{'allele_id_format'} eq 'integer' ? "to_number(textcat('0', $order_field), text(99999999))" : $order_field;
+					$order_field =~ s/'/_PRIME_/g;
+					$qry .=
+					  $locus_info->{'allele_id_format'} eq 'integer'
+					  ? "to_number(textcat('0', $order_field), text(99999999))"
+					  : $order_field;
 					$qry .= " $dir,$profile_id_field;";
 				} elsif ( $self->{'datastore'}->is_scheme_field( $scheme_id, $order_field ) ) {
 					my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $order_field );

@@ -159,7 +159,8 @@ sub print_content {
 					$order = "to_number(textcat('0', $order), text(99999999))";    #Handle arbitrary allele = 'N'
 				}
 			}
-			$qry .= "SELECT * FROM scheme_$scheme_id ORDER BY "
+			my $scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
+			$qry .= "SELECT * FROM $scheme_view ORDER BY "
 			  . ( $order ne $primary_key ? "$order $dir,$profile_id_field;" : "$profile_id_field $dir;" );
 			$self->paged_display( 'profiles', $qry, '', ['scheme_id'] );
 		}
