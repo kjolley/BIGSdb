@@ -23,6 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::CurateAddPage);
 use Digest::MD5;
 use Log::Log4perl qw(get_logger);
+use List::MoreUtils qw(none any uniq);
 my $logger = get_logger('BIGSdb.Page');
 use constant SUCCESS => 1;
 
@@ -235,10 +236,23 @@ sub profile_exists {
 			push @matching_profiles, $match;
 		}
 		$newdata->{"field:$primary_key"} //= '';
-		if ( @matching_profiles && !( @matching_profiles == 1 && $matching_profiles[0] eq $newdata->{"field:$primary_key"} ) ) {
+		if ( @matching_profiles && !( @matching_profiles == 1 && $matching_profiles[0] eq $newdata->{"field:$primary_key"} )) {
 			if ( @locus_temp < @$loci ) {
+				my $first_match;
+				foreach (@matching_profiles){
+					if ($_ ne $newdata->{"field:$primary_key"}){
+						$first_match = $_;
+						last;
+					}
+				}
 				$msg .= "Profiles containing an arbitrary allele (N) at a particular locus may match profiles with actual values at "
-				  . "that locus and cannot therefore be defined.  This profile matches $primary_key-$matching_profiles[0] (possibly others too).";
+				  . "that locus and cannot therefore be defined.  This profile matches $primary_key-$first_match";
+				my $other_matches = @matching_profiles - 1;
+				$other_matches-- if (any {$newdata->{"field:$primary_key"} eq $_} @matching_profiles  ); #if updating don't match to self
+				if ($other_matches){
+					$msg .= " and $other_matches other" . ($other_matches > 1 ? 's' : '');
+				}
+				$msg .= '.';
 			} else {
 				$msg .= "This allelic profile has already been defined as $primary_key-$matching_profiles[0].";
 			}
