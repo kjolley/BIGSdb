@@ -306,7 +306,7 @@ ON UPDATE CASCADE
 );
 
 CREATE INDEX i_pmid ON refs (pubmed_id);
-CREATE INDEX i_id ON refs (isolate_id);
+--CREATE INDEX i_id ON refs (isolate_id) removed as not necessary (covered by pkey index)
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON refs TO apache;
 
@@ -547,8 +547,8 @@ ON DELETE CASCADE
 ON UPDATE CASCADE
 );
 
-CREATE INDEX i_pad1 ON pending_allele_designations (isolate_id);
-CREATE INDEX i_pad2 ON pending_allele_designations (locus);
+--CREATE INDEX i_pad1 ON pending_allele_designations (isolate_id) removed as not necessary (covered by pkey index)
+--CREATE INDEX i_pad2 ON pending_allele_designations (locus) removed as not necessary (never used)
 GRANT SELECT,UPDATE,INSERT,DELETE ON pending_allele_designations TO apache;
 
 CREATE TABLE schemes (
@@ -726,7 +726,7 @@ ON DELETE CASCADE
 ON UPDATE CASCADE
 );
 
-CREATE INDEX i_h1 ON history (isolate_id);
+--CREATE INDEX i_h1 ON history (isolate_id) removed as not necessary (covered by pkey index)
 GRANT SELECT,UPDATE,INSERT,DELETE ON history TO apache;
 
 CREATE TABLE sets (

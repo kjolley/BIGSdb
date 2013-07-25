@@ -489,7 +489,7 @@ ON UPDATE CASCADE
 );
 
 CREATE INDEX i_sr1 ON sequence_refs (pubmed_id);
-CREATE INDEX i_sr2 ON sequence_refs (locus,allele_id);
+--CREATE INDEX i_sr2 ON sequence_refs (locus,allele_id) removed as not necessary (covered by pkey index)
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON sequence_refs TO apache;
 
@@ -510,7 +510,7 @@ ON UPDATE CASCADE
 );
 
 CREATE INDEX i_a1 ON accession (databank,databank_id);
-CREATE INDEX i_a2 ON accession (locus,allele_id);
+--CREATE INDEX i_a2 ON accession (locus,allele_id) removed as not necessary (covered by pkey index)
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON accession TO apache;
 
@@ -560,8 +560,8 @@ ON UPDATE CASCADE
 );
 
 CREATE INDEX i_pm1 ON profile_members (scheme_id,profile_id);
-CREATE INDEX i_pm2 ON profile_members (scheme_id,locus);
-CREATE INDEX i_pm3 ON profile_members (scheme_id,locus,allele_id);
+--CREATE INDEX i_pm2 ON profile_members (scheme_id,locus) removed as not necessary (covered by pkey index)
+CREATE INDEX i_pm3 ON profile_members (allele_id);
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON profile_members TO apache;
 
@@ -585,8 +585,8 @@ ON UPDATE CASCADE
 );
 
 CREATE INDEX i_pf1 ON profile_fields (scheme_id,profile_id);
-CREATE INDEX i_pf2 ON profile_fields (scheme_id,scheme_field);
-CREATE INDEX i_pf3 ON profile_fields (scheme_id,scheme_field,value);
+--CREATE INDEX i_pf2 ON profile_fields (scheme_id,scheme_field) removed as not necessary (covered by pkey index)
+CREATE INDEX i_pf3 ON profile_fields (value);
 GRANT SELECT,UPDATE,INSERT,DELETE ON profile_fields TO apache;
 
 CREATE TABLE profile_refs (
@@ -605,7 +605,7 @@ ON UPDATE CASCADE
 );
 
 CREATE INDEX i_pr1 ON profile_refs (pubmed_id);
-CREATE INDEX i_pr2 ON profile_refs (scheme_id,profile_id);
+--CREATE INDEX i_pr2 ON profile_refs (scheme_id,profile_id) removed as not necessary (covered by pkey index)
 GRANT SELECT,UPDATE,INSERT,DELETE ON profile_refs TO apache;
 
 CREATE TABLE profile_history (
@@ -623,7 +623,7 @@ ON DELETE CASCADE
 ON UPDATE CASCADE
 );
 
-CREATE INDEX i_ph1 ON profile_history (scheme_id,profile_id);
+--CREATE INDEX i_ph1 ON profile_history (scheme_id,profile_id) removed as not necessary (covered by pkey index)
 GRANT SELECT,UPDATE,INSERT,DELETE ON profile_history TO apache;
 
 CREATE TABLE sets (

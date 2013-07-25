@@ -1,2 +1,6 @@
 DROP INDEX i_ad1;
 DROP INDEX i_ad2;
+DROP INDEX i_h1;
+DROP INDEX i_pad1;
+DROP INDEX i_pad2;
+DROP INDEX i_id;
