@@ -32,7 +32,7 @@ sub print_content {
 	my $query       = $q->param('query');
 	my $record_name = $self->get_record_name($table);
 	say "<h1>Delete multiple $record_name records</h1>";
-	if ( $table eq 'profiles' && $query =~ /SELECT \* FROM scheme_(\d+)/ ) {
+	if ( $table eq 'profiles' && $query =~ /SELECT \* FROM m?v?_?scheme_(\d+)/ ) {
 		my $scheme_id = $1;
 		my $pk_ref =
 		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key", $scheme_id );

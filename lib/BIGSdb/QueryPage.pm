@@ -1606,7 +1606,7 @@ sub _run_profile_query {
 				}
 				$qry .= $modifier;
 				if ( any { $field =~ /(.*) \($_\)$/ } qw (id surname first_name affiliation) ) {
-					$qry .= $self->search_users( $field, $operator, $text, "scheme\_$scheme_id" );
+					$qry .= $self->search_users( $field, $operator, $text, $scheme_view );
 				} else {
 					my $equals =
 					  $text eq 'null'
