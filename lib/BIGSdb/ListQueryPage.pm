@@ -156,7 +156,7 @@ sub _print_query_interface {
 	say "</span></li>\n<li>";
 	say $self->get_number_records_control;
 	say "</li></ul></fieldset>";
-	$self->print_action_fieldset({scheme_id => $scheme_id});
+	$self->print_action_fieldset( { scheme_id => $scheme_id } );
 	say $q->hidden($_) foreach qw (page db scheme_id);
 	say $q->end_form;
 	say "</div></div>";
@@ -228,14 +228,14 @@ sub _run_isolate_query {
 	my $q      = $self->{'cgi'};
 	my $field  = $q->param('attribute');
 	my @groupedfields = $self->get_grouped_fields( $field, { strip_prefix => 1 } );
-	my ( $datatype, $fieldtype, $scheme_id, $joined_table );
+	my ( $datatype, $fieldtype, $scheme_id, $joined_query );
 	my @list = split /\n/, $q->param('list');
 	@list = uniq @list;
 	my $tempqry;
 	my $lqry;
 	my $extended_isolate_field;
 	my $locus_pattern = LOCUS_PATTERN;
-	my $view = $self->{'system'}->{'view'};
+	my $view          = $self->{'system'}->{'view'};
 
 	if ( $field =~ /^f_(.*)$/ ) {
 		$field = $1;
@@ -255,37 +255,25 @@ sub _run_isolate_query {
 		$fieldtype = 'scheme_field';
 		my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
-		$joined_table = "SELECT id FROM $self->{'system'}->{'view'}";
-		foreach (@$scheme_loci) {
-			( my $cleaned_locus = $_ ) =~ s/'/_PRIME_/g;
-			$joined_table .=
-			  " left join allele_designations AS $cleaned_locus on $cleaned_locus.isolate_id = $self->{'system'}->{'view'}.id";
+		$joined_query = "SELECT joined.id FROM (SELECT $view.id";
+		my ( %cleaned, %named, %scheme_named );
+
+		foreach my $locus (@$scheme_loci) {
+			( $cleaned{$locus}      = $locus )     =~ s/'/\\'/g;
+			( $named{$locus}        = "l_$locus" ) =~ s/'/_PRIME_/g;
+			( $scheme_named{$locus} = $locus )     =~ s/'/_PRIME_/g;
+			$joined_query .= ",MAX(CASE WHEN allele_designations.locus=E'$cleaned{$locus}' THEN allele_designations.allele_id "
+			  . "ELSE NULL END) AS $named{$locus}";
 		}
-		$joined_table .= " left join temp_scheme_$scheme_id AS scheme_$scheme_id ON ";
+		$joined_query .= " FROM $view INNER JOIN allele_designations ON $view.id = allele_designations.isolate_id GROUP BY "
+		  . "$view.id) AS joined INNER JOIN temp_scheme_$scheme_id AS scheme_$scheme_id ON ";
 		my @temp;
-		foreach (@$scheme_loci) {
-			( my $cleaned_locus = $_ ) =~ s/'/_PRIME_/g;
-			my $locus_info = $self->{'datastore'}->get_locus_info($_);
-			if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-				if ( $scheme_info->{'allow_missing_loci'} ) {
-					push @temp, "(CAST(COALESCE($cleaned_locus.allele_id,'N') AS text)=CAST(scheme_$scheme_id\.$cleaned_locus AS text) "
-					  . "OR scheme_$scheme_id\.$cleaned_locus='N')";
-				} else {
-					push @temp, "CAST($cleaned_locus.allele_id AS text)=CAST(scheme_$scheme_id\.$cleaned_locus AS text)";
-				}
-			} else {
-				push @temp, " $cleaned_locus.allele_id=scheme_$scheme_id\.$cleaned_locus";
-			}
+		foreach my $locus (@$scheme_loci) {
+			push @temp, $self->get_scheme_locus_query_clause( $scheme_id, $locus, $scheme_named{$locus}, $named{$locus} );
 		}
 		local $" = ' AND ';
-		$joined_table .= " @temp WHERE";
-		undef @temp;
-		foreach (@$scheme_loci) {
-			( my $cleaned_locus = $_ ) =~ s/'/_PRIME_/g;
-			( my $escaped_locus = $_ ) =~ s/'/\\'/g;
-			push @temp, "$cleaned_locus.locus=E'$escaped_locus'";
-		}
-		$joined_table .= " @temp";
+		$joined_query .= " @temp WHERE";
+		$joined_query .= " @temp";
 	} elsif ( $field =~ /^e_(.*)\|\|(.*)/ ) {
 		$extended_isolate_field = $1;
 		$field                  = $2;
@@ -359,7 +347,7 @@ sub _run_isolate_query {
 		$qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE id IN (select distinct($self->{'system'}->{'view'}.id) "
 		  . "FROM $self->{'system'}->{'view'} LEFT JOIN allele_designations ON $self->{'system'}->{'view'}.id=allele_designations.isolate_id WHERE $tempqry)";
 	} elsif ( $fieldtype eq 'scheme_field' ) {
-		$qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE $self->{'system'}->{'view'}.id IN ($joined_table AND ($tempqry))";
+		$qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE $self->{'system'}->{'view'}.id IN ($joined_query AND ($tempqry))";
 	}
 	$qry .= " ORDER BY ";
 	if ( $q->param('order') =~ /$locus_pattern/ ) {

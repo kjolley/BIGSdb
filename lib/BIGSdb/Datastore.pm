@@ -855,7 +855,12 @@ sub create_temp_scheme_table {
 		}
 	}
 	foreach (@$fields) {
-		$self->{'db'}->do("CREATE INDEX i_$id\_$_ ON temp_scheme_$id ($_)");
+		my $field_info = $self->get_scheme_field_info($id, $_);
+		if ($field_info->{'type'} eq 'integer'){
+			$self->{'db'}->do("CREATE INDEX i_$id\_$_ ON temp_scheme_$id ($_)");
+		} else {
+			$self->{'db'}->do("CREATE INDEX i_$id\_$_ ON temp_scheme_$id (UPPER($_))");
+		}
 		$self->{'db'}->do("UPDATE temp_scheme_$id SET $_ = null WHERE $_='-999'")
 		  ;    #Needed as old style profiles database stored null values as '-999'.
 	}
