@@ -789,11 +789,13 @@ sub get_filter {
 
 sub get_user_filter {
 	my ( $self, $field ) = @_;
-	my $qry = "SELECT id,first_name,surname FROM users where status = ? AND id > 0";
+	my $qry = "SELECT id,first_name,surname FROM users ";
+	$qry .= $field eq 'curator' ? "WHERE (status = 'curator' OR status = 'admin') AND " : 'WHERE '; 
+	$qry .= 'id > 0';
 	my $sql = $self->{'db'}->prepare($qry);
 	my ( @usernames, %labels );
 	my $status = $field eq 'curator' ? 'curator' : 'user';
-	eval { $sql->execute($status) };
+	eval { $sql->execute };
 	$logger->error($@) if $@;
 	while ( my $data = $sql->fetchrow_hashref ) {
 		push @usernames, $data->{'id'};
