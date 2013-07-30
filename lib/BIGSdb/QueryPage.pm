@@ -1196,38 +1196,32 @@ sub _modify_isolate_query_for_filters {
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 		foreach my $field (@$scheme_fields) {
 			if ( defined $q->param("scheme_$scheme_id\_$field\_list") && $q->param("scheme_$scheme_id\_$field\_list") ne '' ) {
-				my $value = $q->param("scheme_$scheme_id\_$field\_list");
+				my $temp_table = $self->{'datastore'}->create_temp_isolate_scheme_table($scheme_id);
+				my $value      = $q->param("scheme_$scheme_id\_$field\_list");
 				$value =~ s/'/\\'/g;
 				my $clause;
 				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 				$field = "scheme_$scheme_id\.$field";
-				my $scheme_loci  = $self->{'datastore'}->get_scheme_loci($scheme_id);
-				my $joined_query = "SELECT joined.id FROM (SELECT $view.id";
+				my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 				my ( %cleaned, %named, %scheme_named );
 
 				foreach my $locus (@$scheme_loci) {
-					( $cleaned{$locus}      = $locus )     =~ s/'/\\'/g;
-					( $named{$locus}        = "l_$locus" ) =~ s/'/_PRIME_/g;
-					( $scheme_named{$locus} = $locus )     =~ s/'/_PRIME_/g;
-					$joined_query .= ",MAX(CASE WHEN allele_designations.locus=E'$cleaned{$locus}' THEN allele_designations.allele_id "
-					  . "ELSE NULL END) AS $named{$locus}";
+					( $cleaned{$locus}      = $locus ) =~ s/'/\\'/g;
+					( $named{$locus}        = $locus ) =~ s/'/_PRIME_/g;
+					( $scheme_named{$locus} = $locus ) =~ s/'/_PRIME_/g;
 				}
-				$joined_query .= " FROM $view INNER JOIN allele_designations ON $view.id = allele_designations.isolate_id GROUP BY "
-				  . "$view.id) AS joined INNER JOIN temp_scheme_$scheme_id AS scheme_$scheme_id ON ";
 				my @temp;
 				foreach my $locus (@$scheme_loci) {
-					push @temp, $self->get_scheme_locus_query_clause( $scheme_id, $locus, $scheme_named{$locus}, $named{$locus} );
+					push @temp,
+					  $self->get_scheme_locus_query_clause( $scheme_id, $temp_table, $locus, $scheme_named{$locus}, $named{$locus} );
 				}
 				local $" = ' AND ';
-				$joined_query .= " @temp";
-				undef @temp;
+				my $joined_query = "SELECT $temp_table.id FROM $temp_table INNER JOIN temp_scheme_$scheme_id AS scheme_$scheme_id ON @temp";
 				$value =~ s/'/\\'/g;
 				if ( $scheme_field_info->{'type'} eq 'integer' ) {
-#					$clause = "($view.id IN ($joined_query WHERE CAST($field AS int) = E'$value'))";
-					$clause = "(EXISTS ($joined_query WHERE $view.id = joined.id AND CAST($field AS int) = E'$value'))";
+					$clause = "(EXISTS ($joined_query WHERE $view.id = $temp_table.id AND CAST($field AS int) = E'$value'))";
 				} else {
-#					$clause = "($view.id IN ($joined_query WHERE $field = E'$value'))";
-					$clause = "(EXISTS ($joined_query WHERE $view.id = joined.id AND UPPER($field) = UPPER(E'$value')))"
+					$clause = "(EXISTS ($joined_query WHERE $view.id = $temp_table.id AND UPPER($field) = UPPER(E'$value')))";
 				}
 				if ( $qry !~ /WHERE \(\)\s*$/ ) {
 					$qry .= "AND $clause";
@@ -1272,24 +1266,25 @@ sub _modify_query_by_membership {
 }
 
 sub get_scheme_locus_query_clause {
-	my ( $self, $scheme_id, $locus, $scheme_named, $named ) = @_;
+	my ( $self, $scheme_id, $table, $locus, $scheme_named, $named ) = @_;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 
 	#Use correct cast to ensure that database indexes are used.
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
 		if ( $scheme_info->{'allow_missing_loci'} ) {
-			return "(COALESCE($named,'N')=scheme_$scheme_id\.$scheme_named OR scheme_$scheme_id\.$scheme_named='N')";
-#			return "(CAST(COALESCE($named,'N') AS text)=CAST(scheme_$scheme_id\.$scheme_named AS text) "
-#			  . "OR scheme_$scheme_id\.$scheme_named='N')";
+			return "(COALESCE($table.$named,'N')=scheme_$scheme_id\.$scheme_named OR scheme_$scheme_id\.$scheme_named='N')";
+
+			#			return "(CAST(COALESCE($named,'N') AS text)=CAST(scheme_$scheme_id\.$scheme_named AS text) "
+			#			  . "OR scheme_$scheme_id\.$scheme_named='N')";
 		} else {
-			return "CAST($named AS int)=scheme_$scheme_id\.$scheme_named";
+			return "CAST($table.$named AS int)=scheme_$scheme_id\.$scheme_named";
 		}
 	} else {
 		if ( $scheme_info->{'allow_missing_loci'} ) {
-			return "COALESCE($named,'N')=scheme_$scheme_id\.$scheme_named";
+			return "COALESCE($table.$named,'N')=scheme_$scheme_id\.$scheme_named";
 		} else {
-			return "$named=scheme_$scheme_id\.$scheme_named";
+			return "$table.$named=scheme_$scheme_id\.$scheme_named";
 		}
 	}
 }
@@ -1396,62 +1391,54 @@ sub _modify_isolate_query_for_designations {
 					next;
 				}
 				$field = "scheme_$scheme_id\.$field";
-				my $scheme_loci  = $self->{'datastore'}->get_scheme_loci($scheme_id);
-				
-				
-				
-				my $joined_query = "SELECT joined.id FROM (SELECT $view.id";
+				my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 				my ( %cleaned, %named, %scheme_named );
-
 				foreach my $locus (@$scheme_loci) {
-					( $cleaned{$locus}      = $locus )     =~ s/'/\\'/g;
-					( $named{$locus}        = "l_$locus" ) =~ s/'/_PRIME_/g;
-					( $scheme_named{$locus} = $locus )     =~ s/'/_PRIME_/g;
-					$joined_query .= ",MAX(CASE WHEN allele_designations.locus=E'$cleaned{$locus}' THEN allele_designations.allele_id "
-					  . "ELSE NULL END) AS $named{$locus}";
+					( $cleaned{$locus}      = $locus ) =~ s/'/\\'/g;
+					( $named{$locus}        = $locus ) =~ s/'/_PRIME_/g;
+					( $scheme_named{$locus} = $locus ) =~ s/'/_PRIME_/g;
 				}
-				$joined_query .= " FROM $view INNER JOIN allele_designations ON $view.id = allele_designations.isolate_id GROUP BY "
-				  . "$view.id) AS joined INNER JOIN temp_scheme_$scheme_id AS scheme_$scheme_id ON ";
+				my $temp_table = $self->{'datastore'}->create_temp_isolate_scheme_table($scheme_id);
 				my @temp;
 				foreach my $locus (@$scheme_loci) {
-					push @temp, $self->get_scheme_locus_query_clause( $scheme_id, $locus, $scheme_named{$locus}, $named{$locus} );
+					push @temp,
+					  $self->get_scheme_locus_query_clause( $scheme_id, $temp_table, $locus, $scheme_named{$locus}, $named{$locus} );
 				}
 				local $" = ' AND ';
-				$joined_query .= " @temp";
-
-
+				my $joined_query = "SELECT $temp_table.id FROM $temp_table LEFT JOIN temp_scheme_$scheme_id AS scheme_$scheme_id ON @temp";
+				$text =~ s/'/\\'/g;
 				if ( $operator eq 'NOT' ) {
 					push @sqry, ( $text eq 'null' )
-					  ? "($view.id NOT IN ($joined_query WHERE $field is null))"
-					  : "($view.id NOT IN ($joined_query WHERE $field='$text'))";
+					  ? "($view.id NOT IN ($joined_query WHERE $field is null) AND $view.id IN ($joined_query))"
+					  : "($view.id NOT IN ($joined_query WHERE upper($field)=upper(E'$text') AND $view.id IN ($joined_query)))";
 				} elsif ( $operator eq "contains" ) {
 					push @sqry,
 					  $scheme_field_info->{'type'} eq 'integer'
-					  ? "($view.id IN ($joined_query WHERE CAST($field AS text) ~* '$text'))"
-					  : "($view.id IN ($joined_query WHERE $field ~* '$text'))";
+					  ? "($view.id IN ($joined_query WHERE CAST($field AS text) ~* E'$text'))"
+					  : "($view.id IN ($joined_query WHERE $field ~* E'$text'))";
 				} elsif ( $operator eq "starts with" ) {
 					push @sqry,
 					  $scheme_field_info->{'type'} eq 'integer'
-					  ? "($view.id IN ($joined_query WHERE CAST($field AS text) LIKE '$text\%'))"
-					  : "($view.id IN ($joined_query WHERE $field ILIKE '$text\%'))";
+					  ? "($view.id IN ($joined_query WHERE CAST($field AS text) LIKE E'$text\%'))"
+					  : "($view.id IN ($joined_query WHERE $field ILIKE E'$text\%'))";
 				} elsif ( $operator eq "ends with" ) {
 					push @sqry,
 					  $scheme_field_info->{'type'} eq 'integer'
-					  ? "($view.id IN ($joined_query WHERE CAST($field AS text) LIKE '\%$text'))"
-					  : "($view.id IN ($joined_query WHERE $field ILIKE '\%$text'))";
+					  ? "($view.id IN ($joined_query WHERE CAST($field AS text) LIKE E'\%$text'))"
+					  : "($view.id IN ($joined_query WHERE $field ILIKE E'\%$text'))";
 				} elsif ( $operator eq "NOT contain" ) {
 					push @sqry,
 					  $scheme_field_info->{'type'} eq 'integer'
-					  ? "($view.id IN ($joined_query WHERE CAST($field AS text) !~* '$text'))"
-					  : "($view.id IN ($joined_query WHERE $field !~* '$text'))";
+					  ? "($view.id IN ($joined_query WHERE CAST($field AS text) !~* E'$text'))"
+					  : "($view.id IN ($joined_query WHERE $field !~* E'$text'))";
 				} elsif ( $operator eq '=' ) {
 					if ( $text eq 'null' ) {
-						push @lqry_blank, "($view.id IN ($joined_query WHERE $field is null))";
+						push @lqry_blank, "($view.id IN ($joined_query WHERE $field is null) OR $view.id NOT IN ($joined_query))";
 					} else {
 						push @sqry,
 						  $scheme_field_info->{'type'} eq 'text'
-						  ? "($view.id IN ($joined_query WHERE upper($field)=upper('$text')))"
-						  : "($view.id IN ($joined_query WHERE $field='$text'))";
+						  ? "($view.id IN ($joined_query WHERE upper($field)=upper(E'$text')))"
+						  : "($view.id IN ($joined_query WHERE $field=E'$text'))";
 					}
 				} else {
 					if ( $text eq 'null' ) {
@@ -1459,9 +1446,9 @@ sub _modify_isolate_query_for_designations {
 						next;
 					}
 					if ( $scheme_field_info->{'type'} eq 'integer' ) {
-						push @sqry, "($view.id IN ($joined_query WHERE CAST($field AS int) $operator '$text'))";
+						push @sqry, "($view.id IN ($joined_query WHERE CAST($field AS int) $operator E'$text'))";
 					} else {
-						push @sqry, "($view.id IN ($joined_query WHERE $field $operator '$text'))";
+						push @sqry, "($view.id IN ($joined_query WHERE $field $operator E'$text'))";
 					}
 				}
 			}

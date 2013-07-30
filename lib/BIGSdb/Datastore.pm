@@ -767,6 +767,35 @@ sub is_scheme_field {
 	return any { $_ eq $field } @$fields;
 }
 
+sub create_temp_isolate_scheme_table {
+	my ( $self, $scheme_id ) = @_;
+	my $view  = $self->{'system'}->{'view'};
+	my $table = "temp_$view\_scheme_$scheme_id";
+
+	#Test if table already exists
+	my $exists = $self->run_simple_query( "SELECT EXISTS(SELECT * FROM pg_tables WHERE tablename=?)", $table );
+	return $table if $exists->[0];
+	my $scheme_info  = $self->get_scheme_info($scheme_id);
+	my $loci         = $self->get_scheme_loci($scheme_id);
+	my $joined_query = "SELECT $view.id";
+	my ( %cleaned, %named );
+	foreach my $locus (@$loci) {
+		( $cleaned{$locus} = $locus ) =~ s/'/\\'/g;
+		( $named{$locus}   = $locus ) =~ s/'/_PRIME_/g;
+		$joined_query .= ",MAX(CASE WHEN allele_designations.locus=E'$cleaned{$locus}' THEN allele_designations.allele_id "
+		  . "ELSE NULL END) AS $named{$locus}";
+	}
+
+	#Selecting loci from scheme in join will be quicker where scheme loci << total loci (will be a bit slower otherwise)
+	$joined_query .= " FROM $view INNER JOIN allele_designations ON $view.id = allele_designations.isolate_id AND locus IN (SELECT locus "
+	  . "FROM scheme_members WHERE scheme_id=?) GROUP BY $view.id";
+	eval { $self->{'db'}->do( "CREATE TEMP TABLE $table AS $joined_query; CREATE INDEX i_$table\_id ON $table(id)", undef, $scheme_id ) };
+	$logger->error($@) if $@;
+
+	#Could create indices with $self->_create_profile_indices($table, $scheme_id) but the overhead isn't worth it.
+	return $table;
+}
+
 sub create_temp_scheme_table {
 	my ( $self, $id ) = @_;
 	my $scheme_info = $self->get_scheme_info($id);
@@ -782,9 +811,10 @@ sub create_temp_scheme_table {
 		$logger->debug("Table already exists");
 		return;
 	}
-	my $fields = $self->get_scheme_fields($id);
-	my $loci   = $self->get_scheme_loci($id);
-	my $create = "CREATE TEMP TABLE temp_scheme_$id (";
+	my $fields     = $self->get_scheme_fields($id);
+	my $loci       = $self->get_scheme_loci($id);
+	my $temp_table = "temp_scheme_$id";
+	my $create     = "CREATE TEMP TABLE $temp_table (";
 	my @table_fields;
 	foreach (@$fields) {
 		my $type = $self->get_scheme_field_info( $id, $_ )->{'type'};
@@ -817,7 +847,7 @@ sub create_temp_scheme_table {
 		return;
 	}
 	local $" = ",";
-	eval { $self->{'db'}->do("COPY temp_scheme_$id(@$fields,@$loci) FROM STDIN"); };
+	eval { $self->{'db'}->do("COPY $temp_table(@$fields,@$loci) FROM STDIN"); };
 	if ($@) {
 		$logger->error("Can't start copying data into temp table");
 	}
@@ -838,33 +868,41 @@ sub create_temp_scheme_table {
 		$self->{'db'}->rollback;
 		throw BIGSdb::DatabaseConnectionException("Can't put data into temp table");
 	}
-	local $" = ',';
+	$self->_create_profile_indices( $temp_table, $id );
+	foreach (@$fields) {
+		my $field_info = $self->get_scheme_field_info( $id, $_ );
+		if ( $field_info->{'type'} eq 'integer' ) {
+			$self->{'db'}->do("CREATE INDEX i_$temp_table\_$_ ON $temp_table ($_)");
+		} else {
+			$self->{'db'}->do("CREATE INDEX i_$temp_table\_$_ ON $temp_table (UPPER($_))");
+		}
+		$self->{'db'}->do("UPDATE $temp_table SET $_ = null WHERE $_='-999'")
+		  ;    #Needed as old style profiles database stored null values as '-999'.
+	}
+	return $temp_table;
+}
+
+sub _create_profile_indices {
+	my ( $self, $table, $scheme_id ) = @_;
+	my $loci = $self->get_scheme_loci($scheme_id);
 
 	#Create separate indices consisting of up to 10 loci each
 	my $i     = 0;
 	my $index = 1;
 	my @temp_loci;
+	local $" = ',';
 	foreach my $locus (@$loci) {
+		$locus =~ s/'/_PRIME_/g;
 		push @temp_loci, $locus;
 		$i++;
 		if ( $i % 10 == 0 || $i == @$loci ) {
-			eval { $self->{'db'}->do("CREATE INDEX i_$id\_$index ON temp_scheme_$id (@temp_loci)"); };
+			eval { $self->{'db'}->do("CREATE INDEX i_$table\_$index ON $table (@temp_loci)"); };
 			$logger->warn("Can't create index $@") if $@;
 			$index++;
 			undef @temp_loci;
 		}
 	}
-	foreach (@$fields) {
-		my $field_info = $self->get_scheme_field_info($id, $_);
-		if ($field_info->{'type'} eq 'integer'){
-			$self->{'db'}->do("CREATE INDEX i_$id\_$_ ON temp_scheme_$id ($_)");
-		} else {
-			$self->{'db'}->do("CREATE INDEX i_$id\_$_ ON temp_scheme_$id (UPPER($_))");
-		}
-		$self->{'db'}->do("UPDATE temp_scheme_$id SET $_ = null WHERE $_='-999'")
-		  ;    #Needed as old style profiles database stored null values as '-999'.
-	}
-	return "temp_scheme_$id";
+	return;
 }
 
 sub get_scheme_group_info {

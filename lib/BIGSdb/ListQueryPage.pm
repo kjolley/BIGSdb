@@ -255,25 +255,20 @@ sub _run_isolate_query {
 		$fieldtype = 'scheme_field';
 		my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
-		$joined_query = "SELECT joined.id FROM (SELECT $view.id";
+		my $temp_table  = $self->{'datastore'}->create_temp_isolate_scheme_table($scheme_id);
 		my ( %cleaned, %named, %scheme_named );
 
 		foreach my $locus (@$scheme_loci) {
-			( $cleaned{$locus}      = $locus )     =~ s/'/\\'/g;
-			( $named{$locus}        = "l_$locus" ) =~ s/'/_PRIME_/g;
-			( $scheme_named{$locus} = $locus )     =~ s/'/_PRIME_/g;
-			$joined_query .= ",MAX(CASE WHEN allele_designations.locus=E'$cleaned{$locus}' THEN allele_designations.allele_id "
-			  . "ELSE NULL END) AS $named{$locus}";
+			( $cleaned{$locus}      = $locus ) =~ s/'/\\'/g;
+			( $named{$locus}        = $locus ) =~ s/'/_PRIME_/g;
+			( $scheme_named{$locus} = $locus ) =~ s/'/_PRIME_/g;
 		}
-		$joined_query .= " FROM $view INNER JOIN allele_designations ON $view.id = allele_designations.isolate_id GROUP BY "
-		  . "$view.id) AS joined INNER JOIN temp_scheme_$scheme_id AS scheme_$scheme_id ON ";
 		my @temp;
 		foreach my $locus (@$scheme_loci) {
-			push @temp, $self->get_scheme_locus_query_clause( $scheme_id, $locus, $scheme_named{$locus}, $named{$locus} );
+			push @temp, $self->get_scheme_locus_query_clause( $scheme_id, $temp_table, $locus, $scheme_named{$locus}, $named{$locus} );
 		}
 		local $" = ' AND ';
-		$joined_query .= " @temp WHERE";
-		$joined_query .= " @temp";
+		$joined_query = "SELECT $temp_table.id FROM $temp_table INNER JOIN temp_scheme_$scheme_id AS scheme_$scheme_id ON @temp";
 	} elsif ( $field =~ /^e_(.*)\|\|(.*)/ ) {
 		$extended_isolate_field = $1;
 		$field                  = $2;

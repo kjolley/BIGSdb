@@ -1237,8 +1237,6 @@ sub _create_mv_indexes {
 
 	#Create separate indices consisting of up to 10 loci each 
 	#(max of 2 indices otherwise refresh can take too long and they probably won't all be used anyway)
-	
-	#Maybe index every fifth single column?
 	my $i     = 0;
 	my $index = 2;
 	my @temp_loci;
