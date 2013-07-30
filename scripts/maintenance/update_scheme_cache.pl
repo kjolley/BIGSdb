@@ -68,7 +68,7 @@ foreach (@fields) {
 	$first = 0;
 }
 foreach (@loci) {
-	(my $cleaned_locus = $_) =~ s/'/_PRIME_/g;
+	( my $cleaned_locus = $_ ) =~ s/'/_PRIME_/g;
 	$qry .= ', ' if !$first;
 	$qry .= "$cleaned_locus $locus_type{$_}";
 	$first = 0;
@@ -99,7 +99,22 @@ while ( my @profile = $sql->fetchrow_array ) {
 	}
 	$db2->do("INSERT INTO temp_scheme_$opts{'y'} ($field_string) VALUES (@profile)");
 }
-$db2->do("CREATE INDEX i_ts$opts{'y'}_profile ON temp_scheme_$opts{'y'} (@loci)");
+
+#Create separate indices consisting of up to 10 loci each
+my $i     = 0;
+my $index = 1;
+my @temp_loci;
+local $" = ',';
+foreach my $locus (@loci) {
+	$locus =~ s/'/_PRIME_/g;
+	push @temp_loci, $locus;
+	$i++;
+	if ( $i % 10 == 0 || $i == @loci ) {
+		eval { $db2->do("CREATE INDEX i_ts_$opts{'y'}\_$index ON temp_scheme_$opts{'y'} (@temp_loci)"); };
+		$index++;
+		undef @temp_loci;
+	}
+}
 $db2->do("GRANT SELECT ON temp_scheme_$opts{'y'} TO apache,remote");
 $db2->commit;
 $sql->finish        if $sql;
