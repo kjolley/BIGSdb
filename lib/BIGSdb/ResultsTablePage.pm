@@ -42,6 +42,7 @@ sub paged_display {
 		foreach (@$schemes) {
 			if ( $qry =~ /temp_scheme_$_\s/ || $qry =~ /ORDER BY s_$_\_/ ) {
 				$self->{'datastore'}->create_temp_scheme_table($_);
+				$self->{'datastore'}->create_temp_isolate_scheme_table($_);
 			}
 		}
 	}

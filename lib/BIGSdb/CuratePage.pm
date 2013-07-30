@@ -1235,7 +1235,8 @@ sub refresh_material_view {
 sub _create_mv_indexes {
 	my ( $self, $scheme_id, $fields, $loci ) = @_;
 
-	#Create separate indices consisting of up to 10 loci each
+	#Create separate indices consisting of up to 10 loci each 
+	#(max of 2 indices otherwise refresh can take too long and they probably won't all be used anyway)
 	my $i     = 0;
 	my $index = 2;
 	my @temp_loci;
@@ -1249,6 +1250,7 @@ sub _create_mv_indexes {
 			eval { $self->{'db'}->do("CREATE INDEX i_mv$scheme_id\_$index ON mv_scheme_$scheme_id ($locus_string)") };
 			$logger->warn("Can't create index $@") if $@;
 			$index++;
+			last if $i == 20;
 			undef @temp_loci;
 		}
 	}

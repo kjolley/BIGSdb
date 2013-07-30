@@ -1257,27 +1257,26 @@ sub _create_join_sql_for_scheme {
 		my $scheme_field = $2;
 		my $loci         = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		my $scheme_info  = $self->{'datastore'}->get_scheme_info($scheme_id);
-		foreach (@$loci) {
-			( my $cleaned_locus = $_ ) =~ s/'/_PRIME_/;
-			( my $escaped_locus = $_ ) =~ s/'/\\'/;
-			$qry .= " LEFT JOIN allele_designations AS l_$cleaned_locus ON l_$cleaned_locus\.isolate_id=$self->{'system'}->{'view'}.id "
-			  . "AND l_$cleaned_locus.locus=E'$escaped_locus'";
+		my $isolate_scheme_table = $self->{'datastore'}->create_temp_isolate_scheme_table($scheme_id);
+		my %named;
+		foreach my $locus (@$loci) {
+			( $named{$locus}   = $locus ) =~ s/'/_PRIME_/g;
 		}
+		$qry .= " LEFT JOIN $isolate_scheme_table ON $isolate_scheme_table.id = $self->{'system'}->{'view'}.id";
 		$qry .= " LEFT JOIN temp_scheme_$scheme_id AS ordering ON";
 		my $first = 1;
-		foreach (@$loci) {
-			( my $cleaned_locus = $_ ) =~ s/'/_PRIME_/;
-			my $locus_info = $self->{'datastore'}->get_locus_info($_);
+		foreach my $locus (@$loci) {
+			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 			$qry .= " AND" if !$first;
 			if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
 				if ( $scheme_info->{'allow_missing_loci'} ) {
-					$qry .= " (CAST(COALESCE(l_$cleaned_locus.allele_id,'N') AS text)=CAST(ordering.$cleaned_locus AS text) "
-					  . "OR ordering.$cleaned_locus='N')";
+					$qry .= " (CAST(COALESCE($isolate_scheme_table.$named{$locus},'N') AS text)=CAST(ordering.$named{$locus} AS text) "
+					. "OR ordering.$named{$locus}='N')";
 				} else {
-					$qry .= " CAST(l_$cleaned_locus.allele_id AS integer)=ordering.$cleaned_locus";
+				$qry .= " CAST($isolate_scheme_table.$named{$locus} AS integer)=ordering.$named{$locus}";
 				}
 			} else {
-				$qry .= " l_$cleaned_locus.allele_id=ordering.$cleaned_locus";
+				$qry .= " $isolate_scheme_table.$named{$locus}=ordering.$named{$locus}";
 			}
 			$first = 0;
 		}
