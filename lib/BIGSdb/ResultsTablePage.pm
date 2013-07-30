@@ -994,6 +994,7 @@ sub _get_record_table_info {
 		}
 		push @headers, $cleaned;
 		push @headers, 'isolate id' if $table eq 'experiment_sequences' && $attr->{'name'} eq 'experiment_id';
+		push @headers, 'sequence length' if $q->param('page') eq 'tableQuery' && $table eq 'sequences' && $attr->{'name'} eq 'sequence';
 		push @headers, 'flag' if $table eq 'allele_sequences' && $attr->{'name'} eq 'complete';
 		push @headers, 'citation' if $attr->{'name'} eq 'pubmed_id';
 		$type{ $attr->{'name'} }        = $attr->{'type'};
@@ -1005,6 +1006,7 @@ sub _get_record_table_info {
 	if ( $q->param('page') eq 'alleleQuery' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $locus = $q->param('locus');
 		if ( $self->{'datastore'}->is_locus($locus) ) {
+			push @headers, 'sequence length';
 			$extended_attributes =
 			  $self->{'datastore'}
 			  ->run_list_query( "SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order", $locus );
@@ -1177,6 +1179,7 @@ sub _print_record_table {
 				} else {
 					print "<td class=\"seq\">$data{lc($field)}</td>";
 				}
+				print "<td>". (length $data{ 'sequence' }) . "</td>" if $table eq 'sequences';
 			} elsif ( $field eq 'curator' || $field eq 'sender' ) {
 				my $user_info = $self->{'datastore'}->get_user_info( $data{ lc($field) } );
 				print "<td>$user_info->{'first_name'} $user_info->{'surname'}</td>";
