@@ -1427,9 +1427,8 @@ sub get_next_allele_id {
 sub get_client_data_linked_to_allele {
 	my ( $self, $locus, $allele_id, $td ) = @_;
 	my $sql =
-	  $self->{'db'}->prepare(
-"SELECT client_dbase_id,isolate_field FROM client_dbase_loci_fields WHERE allele_query AND locus = ? ORDER BY client_dbase_id,isolate_field"
-	  );
+	  $self->{'db'}->prepare( "SELECT client_dbase_id,isolate_field FROM client_dbase_loci_fields WHERE allele_query AND "
+		  . "locus = ? ORDER BY client_dbase_id,isolate_field" );
 	eval { $sql->execute($locus) };
 	$logger->error($@) if $@;
 	my $client_field_data = $sql->fetchall_arrayref;
@@ -1448,8 +1447,8 @@ sub get_client_data_linked_to_allele {
 				  . "table is correctly configured.  $@" );
 			$proceed = 0;
 		};
-		return if !$proceed;
-		return if !@$field_data;
+		next if !$proceed;
+		next if !@$field_data;
 		$buffer .= "<dt>$field</dt>";
 		my @values;
 		foreach my $data (@$field_data) {

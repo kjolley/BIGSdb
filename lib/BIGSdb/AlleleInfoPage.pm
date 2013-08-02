@@ -198,11 +198,12 @@ sub _print_client_database_data {
 				$buffer .= $q->submit( -label => "$isolate_count isolate$plural", -class => 'smallbutton' );
 				$buffer .= $q->end_form;
 			}
-			$buffer .= "</dd></dl>";
+			$buffer .= "</dd>";
 		}
 		if ($buffer) {
 			say "<h2>Isolate databases</h2>\n<dl class=\"data\">";
 			say $buffer;
+			say "</dl>";
 		}
 	}
 	return;
