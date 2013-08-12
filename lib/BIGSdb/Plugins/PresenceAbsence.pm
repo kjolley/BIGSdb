@@ -79,7 +79,6 @@ sub run {
 			$params->{'isolate_ids'} = "@$list";
 			$params->{'scheme'}      = "@schemes_selected";
 			$params->{'locus'}       = "@loci_selected";
-			$params->{'view'}        = $self->{'system'}->{'view'};
 			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 			my $job_id    = $self->{'jobManager'}->add_job(
 				{
@@ -204,9 +203,8 @@ sub get_extra_form_elements {
 
 sub _isolate_exists {
 	my ( $self, $params, $id ) = @_;
-	my $view = $params->{'view'} // 'isolates';
 	if ( !$self->{'sql'}->{'id_exists'} ) {
-		$self->{'sql'}->{'id_exists'} = $self->{'db'}->prepare("SELECT EXISTS(SELECT id FROM $view WHERE id=?)");
+		$self->{'sql'}->{'id_exists'} = $self->{'db'}->prepare("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'} WHERE id=?)");
 	}
 	eval { $self->{'sql'}->{'id_exists'}->execute($id) };
 	$logger->error($@) if $@;

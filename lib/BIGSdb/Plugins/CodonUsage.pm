@@ -164,7 +164,6 @@ sub run {
 			$params->{'list'}   = $list;
 			$params->{'set_id'} = $self->get_set_id;
 			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-			$params->{'view'} = $self->{'system'}->{'view'};
 			my $job_id = $self->{'jobManager'}->add_job(
 				{
 					dbase_config => $self->{'instance'},
