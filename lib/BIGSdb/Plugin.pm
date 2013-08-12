@@ -431,7 +431,7 @@ sub get_id_list {
 		return if !$self->create_temp_tables($qry_ref);
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 			my $view = $self->{'system'}->{'view'};
-			$$qry_ref =~ s/SELECT ($view\.\*|\*)/SELECT $pk/;
+			$$qry_ref =~ s/SELECT ($view\.\*|\*)/SELECT $view\.$pk/;
 			$self->rewrite_query_ref_order_by($qry_ref);
 		}
 		$list = $self->{'datastore'}->run_list_query($$qry_ref);
