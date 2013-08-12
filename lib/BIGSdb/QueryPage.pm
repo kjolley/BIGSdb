@@ -952,7 +952,13 @@ sub _generate_isolate_query_for_provenance_fields {
 					next;
 				}
 				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-				$field = "$view.$field" if !$extended_isolate_field;
+				if (!$extended_isolate_field){
+					if (!$self->{'xmlHandler'}->is_field($field)){
+						push @$errors_ref, "$field is an invalid field.";
+						next;
+					}
+					$field = "$view.$field";
+				}
 				my $args = {
 					field                  => $field,
 					extended_isolate_field => $extended_isolate_field,
