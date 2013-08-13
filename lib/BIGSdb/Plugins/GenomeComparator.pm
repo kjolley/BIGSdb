@@ -555,12 +555,13 @@ sub _generate_splits {
 sub _generate_distance_matrix {
 	my ( $self, $values, $ignore_loci_ref ) = @_;
 	my @ids = sort { $a <=> $b } keys %$values;
+	my %ignore_loci = map { $_ => 1 } @$ignore_loci_ref;
 	my $dismat;
 	foreach my $i ( 0 .. @ids - 1 ) {
 		foreach my $j ( 0 .. $i ) {
 			$dismat->{ $ids[$i] }->{ $ids[$j] } = 0;
 			foreach my $locus ( keys %{ $values->{ $ids[$i] } } ) {
-				next if any { $locus eq $_ } @$ignore_loci_ref;
+				next if $ignore_loci{$locus};
 				if ( $values->{ $ids[$i] }->{$locus} ne $values->{ $ids[$j] }->{$locus} ) {
 					$dismat->{ $ids[$i] }->{ $ids[$j] }++;
 				}
@@ -1691,7 +1692,6 @@ sub _parse_blast_by_locus {
 		if (   ( !$match->{'exact'} && $record[2] == 100 && $record[3] == $length )
 			|| ( $this_quality > $quality && $record[3] > $alignment * 0.01 * $length && $record[2] >= $identity ) )
 		{
-
 			#Always score exact match higher than a longer partial match
 			next if $match->{'exact'} && !( $record[2] == 100 && $record[3] == $length );
 			$quality              = $this_quality;
@@ -1702,6 +1702,7 @@ sub _parse_blast_by_locus {
 			$match->{'alignment'} = $record[3];
 			$match->{'start'}     = $record[6];
 			$match->{'end'}       = $record[7];
+
 			if ( ( $record[8] > $record[9] && $record[7] > $record[6] ) || ( $record[8] < $record[9] && $record[7] < $record[6] ) ) {
 				$match->{'reverse'} = 1;
 			} else {
