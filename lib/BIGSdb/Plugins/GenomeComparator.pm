@@ -154,6 +154,7 @@ sub run_job {
 	if ( $accession || $ref_upload ) {
 		my $seq_obj;
 		if ($accession) {
+			$accession =~ s/\s*//g;
 			my @local_annotations = glob("$params->{'dbase_config_dir'}/$params->{'instance'}/annotations/$accession*");
 			if (@local_annotations) {
 				try {
