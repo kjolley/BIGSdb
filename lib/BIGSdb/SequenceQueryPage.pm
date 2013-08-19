@@ -460,6 +460,7 @@ sub _print_scheme_table {
 		$buffer .= "</table>";
 		say $buffer;
 	}
+	return;
 }
 
 sub _output_batch_query_exact {
@@ -846,6 +847,9 @@ sub parse_blast_exact {
 		}
 	}
 	close $blast_fh;
+
+	#Explicitly order by ascending length since this isn't guaranteed by BLASTX (seems that it should be but it isn't).
+	@matches = sort { $b->{'length'} <=> $a->{'length'} } @matches;
 	return \@matches;
 }
 
