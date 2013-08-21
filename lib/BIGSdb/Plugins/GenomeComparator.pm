@@ -1416,22 +1416,28 @@ sub _create_alignments {
 		open( my $fasta_fh, '>', $fasta_file ) || $logger->error("Can't open $fasta_file for writing");
 
 		if ( $by_reference && $params->{'include_ref'} ) {
-			print $fasta_fh ">ref\n";
-			print $fasta_fh "$loci->{$locus}->{'ref'}\n";
+			say $fasta_fh ">ref";
+			say $fasta_fh "$loci->{$locus}->{'ref'}";
 			$seq_count++;
 		}
+		my @names;
 		foreach my $id (@$ids) {
+			my $name = $self->_get_isolate_name($id);
+			$name =~ s/[\(\)]//g;
+			$name =~ s/ /|/;        #replace space separating id and name
+			$name =~ tr/[:, ]/_/;
+			push @names, $name;
 			if ( $loci->{$locus}->{$id} ) {
 				$seq_count++;
-				print $fasta_fh ">$id\n";
-				print $fasta_fh "$loci->{$locus}->{$id}\n";
+				say $fasta_fh ">$name";
+				say $fasta_fh "$loci->{$locus}->{$id}";
 			}
 		}
 		close $fasta_fh;
 		if ( $params->{'align'} ) {
 			$distances->{$locus} = $self->_run_muscle(
 				{
-					ids              => $ids,
+					ids              => \@names,
 					locus            => $locus,
 					seq_count        => $seq_count,
 					muscle_out       => $muscle_out,
@@ -1501,16 +1507,16 @@ sub _run_muscle {
 		my $locus = $self->clean_locus( $values->{'locus'}, { text_output => 1, no_common_name => 1 } );
 		foreach my $seq ( $align->each_seq ) {
 			${ $values->{'xmfa_end_ref'} } = ${ $values->{'xmfa_start_ref'} } + $seq->length - 1;
-			print $fh_xmfa '>' . $seq->id . ":${$values->{'xmfa_start_ref'}}-${$values->{'xmfa_end_ref'}} + $locus\n";
+			say $fh_xmfa '>' . $seq->id . ":${$values->{'xmfa_start_ref'}}-${$values->{'xmfa_end_ref'}} + $locus";
 			my $sequence = BIGSdb::Utils::break_line( $seq->seq, 60 );
-			print $fh_xmfa "$sequence\n";
+			say $fh_xmfa "$sequence";
 			$id_has_seq{ $seq->id } = 1;
 			$seq_length = $seq->length if !$seq_length;
 		}
 		my $missing_seq = BIGSdb::Utils::break_line( ( '-' x $seq_length ), 60 );
 		foreach my $id ( @{ $values->{'ids'} } ) {
 			next if $id_has_seq{$id};
-			print $fh_xmfa ">$id:${$values->{'xmfa_start_ref'}}-${$values->{'xmfa_end_ref'}} + $locus\n$missing_seq\n";
+			say $fh_xmfa ">$id:${$values->{'xmfa_start_ref'}}-${$values->{'xmfa_end_ref'}} + $locus\n$missing_seq";
 		}
 		print $fh_xmfa "=\n";
 		close $fh_xmfa;
