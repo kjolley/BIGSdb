@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.5.5',
+		version     => '1.5.6',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/genome_comparator.shtml',
@@ -953,6 +953,7 @@ sub _run_comparison {
 		}
 	);
 	$self->_delete_temp_files("$prefix*");
+	$self->_touch_output_files("$job_id*");    #Prevents premature deletion by cleanup scripts
 	return;
 }
 
@@ -960,6 +961,13 @@ sub _delete_temp_files {
 	my ( $self, $wildcard ) = @_;
 	my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/$wildcard");
 	foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/ }
+	return;
+}
+
+sub _touch_output_files {
+	my ( $self, $wildcard ) = @_;
+	my @files = glob("$self->{'config'}->{'tmp_dir'}/$wildcard");
+	foreach (@files) { utime( time(), time(), $1 ) if /^(.*BIGSdb.*)$/ }
 	return;
 }
 
