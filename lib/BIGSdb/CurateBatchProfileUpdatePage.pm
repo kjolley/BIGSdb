@@ -73,12 +73,14 @@ ST  field   value
 HTML
 		say $q->start_form;
 		say $q->hidden($_) foreach qw (db page scheme_id);
-		say "<fieldset><legend>Options</legend>";
+		say "<fieldset style=\"float:left\"><legend>Please paste in your data below:</legend>";
+		say $q->textarea( -name => 'data', -rows => 15, -columns => 40, -override => 1 );
+		say "</fieldset>";
+		say "<fieldset style=\"float:left\"><legend>Options</legend>";
 		say "<ul><li>";
 		say $q->checkbox( -name => 'overwrite', -label => 'Overwrite existing data', -checked => 0 );
 		say "</li></ul></fieldset>";
-		say "<p>Please paste in your data below:</p>";
-		say $q->textarea( -name => 'data', -rows => 15, -columns => 40, -override => 1 );
+		
 		$self->print_action_fieldset( { scheme_id => $scheme_id } );
 		say $q->endform;
 		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>";
@@ -192,16 +194,16 @@ sub _check {
 									$new_profile{"locus:$locus"} = $profile_data->{ lc($locus) };
 								}
 								$new_profile{"locus:$reverse_mapped{$field[$i]}"} = $value[$i];
+								$new_profile{"field:$pk"} = $id[$i];
 								my ( $exists, $msg ) = $self->profile_exists( $scheme_id, $pk, \%new_profile );
 								if ($exists) {
-									$msg =~ s/.*defined as //;
-									$problem = "changing this allele would duplicate profile defined by $msg";
+									$problem = "would result in duplicate profile. $msg";
 								}
 							}
 							$locus_changes_for_pk{ $id[$i] }++;
 							if ( $locus_changes_for_pk{ $id[$i] } > 1 ) {
 								$problem = "profile updates are limited to one locus change"
-								  ;    #to difficult to check if new profile already exists otherwise
+								  ;    #too difficult to check if new profile already exists otherwise
 							}
 						} elsif ( $field_type eq 'field' ) {
 							my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field[$i] );
