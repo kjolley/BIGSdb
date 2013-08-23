@@ -80,7 +80,6 @@ HTML
 		say "<ul><li>";
 		say $q->checkbox( -name => 'overwrite', -label => 'Overwrite existing data', -checked => 0 );
 		say "</li></ul></fieldset>";
-		
 		$self->print_action_fieldset( { scheme_id => $scheme_id } );
 		say $q->endform;
 		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>";
@@ -184,7 +183,10 @@ sub _check {
 							my $locus_info = $self->{'datastore'}->get_locus_info( $reverse_mapped{ $field[$i] } );
 							if ( $value[$i] eq '<blank>' ) {
 								$problem = "this is a required field and cannot be left blank";
-							} elsif ( $locus_info->{'allele_id_format'} eq 'integer' && !BIGSdb::Utils::is_int( $value[$i] ) ) {
+							} elsif ( $locus_info->{'allele_id_format'} eq 'integer'
+								&& !BIGSdb::Utils::is_int( $value[$i] )
+								&& !( $scheme_info->{'allow_missing_loci'} && $value[$i] eq 'N' ) )
+							{
 								$problem = "invalid allele id (must be an integer)";
 							} elsif ( !$self->{'datastore'}->sequence_exists( $reverse_mapped{ $field[$i] }, $value[$i] ) ) {
 								$problem = "allele has not been defined";
@@ -194,7 +196,7 @@ sub _check {
 									$new_profile{"locus:$locus"} = $profile_data->{ lc($locus) };
 								}
 								$new_profile{"locus:$reverse_mapped{$field[$i]}"} = $value[$i];
-								$new_profile{"field:$pk"} = $id[$i];
+								$new_profile{"field:$pk"}                         = $id[$i];
 								my ( $exists, $msg ) = $self->profile_exists( $scheme_id, $pk, \%new_profile );
 								if ($exists) {
 									$problem = "would result in duplicate profile. $msg";
