@@ -393,7 +393,7 @@ sub _run_query {
 			if ( !$qry ) {
 				$qry =
 				  $self->{'system'}->{'dbtype'} eq 'isolates'
-				  ? "SELECT * FROM $system->{'view'} WHERE id IN $lqry"
+				  ? "SELECT * FROM $system->{'view'} WHERE $system->{'view'}.id IN $lqry"
 				  : "SELECT * FROM $scheme_view WHERE EXISTS $lqry";
 			} else {
 				$qry .= " AND ($lqry)";
