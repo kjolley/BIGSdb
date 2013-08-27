@@ -42,6 +42,7 @@ sub initiate {
 
 sub _initiate_db {
 	my ( $self, $instance ) = @_;
+	$self->{'instance'} = $instance;
 	my $full_path  = "$self->{'dbase_config_dir'}/$instance/config.xml";
 	my $xmlHandler = BIGSdb::Parser->new();
 	my $parser     = XML::Parser::PerlSAX->new( Handler => $xmlHandler );
@@ -59,6 +60,7 @@ sub _initiate_db {
 		$self->{'system'}->{'view'}       ||= 'isolates';
 		$self->{'system'}->{'labelfield'} ||= 'isolate';
 	}
+	$self->set_system_overrides;
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
 	$self->db_connect;
 	$self->setup_datastore;

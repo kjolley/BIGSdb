@@ -56,7 +56,7 @@ sub new {
 	$self->{'user'}             = $options->{'user'};
 	$self->{'password'}         = $options->{'password'};
 	bless( $self, $class );
-	
+
 	if ( !defined $self->{'logger'} ) {
 		Log::Log4perl->init_once("$self->{'config_dir'}/script_logging.conf");
 		$self->{'logger'} = get_logger('BIGSdb.Script');
@@ -86,11 +86,11 @@ sub initiate {
 		$self->{'system'}->{'view'}       ||= 'isolates';
 		$self->{'system'}->{'labelfield'} ||= 'isolate';
 		if ( !$self->{'xmlHandler'}->is_field( $self->{'system'}->{'labelfield'} ) ) {
-			$self->{'logger'}->error(
-"The defined labelfield '$self->{'system'}->{'labelfield'}' does not exist in the database.  Please set the labelfield attribute in the system tag of the database XML file."
-			);
+			$self->{'logger'}->error( "The defined labelfield '$self->{'system'}->{'labelfield'}' does not exist in the database.  "
+				  . "Please set the labelfield attribute in the system tag of the database XML file." );
 		}
 	}
+	$self->set_system_overrides;
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
 	$self->db_connect;
 	$self->setup_datastore if $self->{'db'};
@@ -115,11 +115,11 @@ sub _go {
 		$self->{'logger'}->fatal("Can't determine load average ... aborting!");
 		exit;
 	};
-	if ($load_average > $max_load){
+	if ( $load_average > $max_load ) {
 		$self->{'logger'}->info("Load average = $load_average. Threshold is set at $max_load. Aborting.");
-		if ($self->{'options'}->{'throw_busy_exception'}){
+		if ( $self->{'options'}->{'throw_busy_exception'} ) {
 			throw BIGSdb::ServerBusyException("Exception: Load average = $load_average");
-		}		
+		}
 		return;
 	}
 	$self->read_host_mapping_file( $self->{'config_dir'} );
@@ -193,9 +193,8 @@ sub delete_temp_files {
 	my ( $self, $wildcard ) = @_;
 	my @file_list = glob($wildcard);
 	foreach my $file (@file_list) {
-		unlink $1 if $file =~ /(.*BIGSdb.*)/;                                                 #untaint
+		unlink $1 if $file =~ /(.*BIGSdb.*)/;    #untaint
 	}
 	return;
 }
-
 1;

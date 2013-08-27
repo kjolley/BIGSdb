@@ -134,7 +134,7 @@ sub _initiate {
 		return;
 	}
 	$self->{'system'} = $self->{'xmlHandler'}->get_system_hash;
-	$self->_set_system_overrides;
+	$self->set_system_overrides;
 	if ( !defined $self->{'system'}->{'dbtype'}
 		|| ( $self->{'system'}->{'dbtype'} ne 'sequences' && $self->{'system'}->{'dbtype'} ne 'isolates' ) )
 	{
@@ -187,7 +187,7 @@ sub _initiate {
 	return;
 }
 
-sub _set_system_overrides {
+sub set_system_overrides {
 	my ($self) = @_;
 	my $override_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/system.overrides";
 	if ( -e $override_file ) {
