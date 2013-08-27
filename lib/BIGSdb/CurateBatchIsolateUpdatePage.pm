@@ -64,7 +64,10 @@ HTML
 		my $fields        = $self->{'xmlHandler'}->get_field_list($metadata_list);
 		say $q->start_form;
 		say $q->hidden($_) foreach qw (db page);
-		say "<fieldset><legend>Options</legend>";
+		say "<fieldset style=\"float:left\"><legend>Please paste in your data below:</legend>";
+		say $q->textarea( -name => 'data', -rows => 15, -columns => 40, -override => 1 );
+		say "</fieldset>";
+		say "<fieldset style=\"float:left\"><legend>Options</legend>";
 		say "<ul><li><label for=\"idfield1\" class=\"filter\">Primary selection field: </label>";
 		say $q->popup_menu( -name => 'idfield1', -id => 'idfield1', -values => $fields );
 		say "</li><li><label for=\"idfield2\" class=\"filter\">Optional selection field: </label>";
@@ -73,8 +76,6 @@ HTML
 		say "</li><li>";
 		say $q->checkbox( -name => 'overwrite', -label => 'Overwrite existing data', -checked => 0 );
 		say "</li></ul></fieldset>";
-		say "<p>Please paste in your data below:</p>";
-		say $q->textarea( -name => 'data', -rows => 15, -columns => 40, -override => 1 );
 		$self->print_action_fieldset;
 		say $q->endform;
 		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p>";
@@ -265,7 +266,7 @@ sub _check {
 						if ($problem) {
 							$action = "<span class=\"statusbad\">no action - $problem</span>";
 						} else {
-							if ( $value[$i] eq $oldvalue || ($value[$i] eq '<blank>' && $oldvalue eq '&lt;blank&gt;') ) {
+							if ( $value[$i] eq $oldvalue || ( $value[$i] eq '<blank>' && $oldvalue eq '&lt;blank&gt;' ) ) {
 								$action = "<span class=\"statusbad\">no action - new value unchanged</span>";
 								$update[$i] = 0;
 							} else {
@@ -404,7 +405,7 @@ sub _update {
 			my @id_args = ($id1);
 			push @id_args, $id2 if $id->{'field2'} ne '<none>';
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-			push @args, ( ($value // '') eq '' ? undef : $value );
+			push @args, ( ( $value // '' ) eq '' ? undef : $value );
 			if ( defined $metaset ) {
 				my $record_exists = $self->{'datastore'}->run_simple_query(
 "SELECT EXISTS(SELECT * FROM meta_$metaset WHERE isolate_id IN (SELECT $self->{'system'}->{'view'}.id FROM $match_table WHERE $match))",
