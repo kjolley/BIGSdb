@@ -593,13 +593,15 @@ sub print_includes_fieldset {
 		}
 	}
 	if (@fields) {
-		say "<fieldset style=\"float:left\">\n<legend>Include in identifier row</legend>";
+		my $title = $options->{'title'} // 'Include in identifier';
+		say "<fieldset style=\"float:left\">\n<legend>$title</legend>";
 		say $q->scrolling_list(
 			-name     => 'includes',
 			-id       => 'includes',
 			-values   => \@fields,
 			-labels   => $labels,
 			-size     => 10,
+			-default  => $options->{'preselect'},
 			-multiple => 'true'
 		);
 		say "</fieldset>";

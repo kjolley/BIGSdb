@@ -123,6 +123,7 @@ sub get_option_list {
 
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
+	$self->{'params'} = $params;
 	my @loci = split /\|\|/, $params->{'locus'} // '';
 	my @ids = split /\|\|/, $params->{'isolate_id'};
 	my $filtered_ids = $self->filter_ids_by_project( \@ids, $params->{'project_list'} );
@@ -341,6 +342,7 @@ HTML
 	say "<div class=\"scrollable\">";
 	$self->print_seqbin_isolate_fieldset( { use_all => $use_all, selected_ids => $selected_ids } );
 	$self->print_isolates_locus_fieldset;
+	$self->print_includes_fieldset({title => 'Include in identifiers', preselect => $self->{'system'}->{'labelfield'}});
 	$self->print_scheme_fieldset;
 	say "<fieldset style=\"float:left\">\n<legend>Reference genome</legend>";
 	say "Enter accession number:<br />";
@@ -357,6 +359,7 @@ HTML
 		push @annotations, @set_annotations;
 		my @names = ('');
 		my %labels;
+		$labels{''} = ' ';
 		foreach (@annotations) {
 			my ( $accession, $name ) = split /\|/, $_;
 			if ( $accession && $name ) {
@@ -553,6 +556,37 @@ sub _generate_splits {
 	return;
 }
 
+sub _get_identifier {
+	my ($self, $id, $options) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $value = $options->{'no_id'} ? '' : $id;
+	my @includes;
+	@includes = split /\|\|/, $self->{'params'}->{'includes'} if $self->{'params'}->{'includes'};
+	if (@includes) {
+		if (!$self->{'sql'}->{'ident'}){
+			$self->{'sql'}->{'ident'} = $self->{'db'}->prepare("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?");
+		}
+		eval { $self->{'sql'}->{'ident'}->execute($id) };
+		$logger->error($@) if $@;
+		my $include_data = $self->{'sql'}->{'ident'}->fetchrow_hashref;
+		my $first = 1;
+		foreach my $field (@includes) {
+			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+			my $field_value;
+			if ( defined $metaset ) {
+				$field_value = $self->{'datastore'}->get_metadata_value( $id, $metaset, $metafield );
+			} else {
+				$field_value = $include_data->{$field} // '';
+			}
+			$field_value =~ tr/[\(\):, ]/_/;
+			$value .= '|' if !$first || !$options->{'no_id'};
+			$first = 0;
+			$value .= "$field_value";
+		}
+	}	
+	return $value;
+}
+
 sub _generate_distance_matrix {
 	my ( $self, $values, $ignore_loci_ref ) = @_;
 	my @ids = sort { $a <=> $b } keys %$values;
@@ -588,16 +622,11 @@ sub _make_nexus_file {
 	my $timestamp = scalar localtime;
 	my @ids = sort { $a <=> $b } keys %$dismat;
 	my %labels;
-	my $sql = $self->{'db'}->prepare("SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?");
-	foreach (@ids) {
-		if ( $_ == 0 ) {
-			$labels{$_} = "ref";
+	foreach my $id (@ids) {
+		if ( $id == 0 ) {
+			$labels{$id} = "ref";
 		} else {
-			eval { $sql->execute($_) };
-			$logger->error($@) if $@;
-			my ($name) = $sql->fetchrow_array;
-			$name =~ tr/[\(\):, ]/_/;
-			$labels{$_} = "$_|$name";
+			$labels{$id} = $self->_get_identifier($id);
 		}
 	}
 	my $num_taxa   = @ids;
@@ -1350,11 +1379,8 @@ sub _identify_strains {
 sub _get_isolate_name {
 	my ( $self, $id ) = @_;
 	my $isolate = $id;
-	my $isolate_ref =
-	  $self->{'datastore'}->run_simple_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?", $id );
-	if ( ref $isolate_ref eq 'ARRAY' ) {
-		$isolate .= ' (' . ( $isolate_ref->[0] ) . ')' if ref $isolate_ref eq 'ARRAY';
-	}
+	my $additional_fields = $self->_get_identifier($id, {no_id => 1});
+	$isolate .= " ($additional_fields)" if $additional_fields;
 	return $isolate;
 }
 

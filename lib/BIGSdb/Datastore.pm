@@ -1910,7 +1910,7 @@ sub get_metadata_value {
 	eval { $self->{'sql'}->{"metadata_value_$metaset"}->execute($isolate_id) };
 	$logger->error($@) if $@;
 	my $data = $self->{'sql'}->{"metadata_value_$metaset"}->fetchrow_hashref;
-	return $data->{$metafield} // '';
+	return $data->{lc ($metafield)} // '';
 }
 
 sub materialized_view_exists {
