@@ -319,7 +319,7 @@ sub print_fields {
 	foreach my $field (@$fields) {
 		my $label = $labels->{$field} || $field;
 		$label =~ s/^[lf]_// if $trim_prefix;
-		$label =~ s/^.*___//;          #only show extended field.
+		$label =~ s/^.*___//;         #only show extended field.
 		$label =~ s/^meta_[^:]+://;
 		$label =~ tr/_/ /;
 		my $id = $self->clean_checkbox_id("$prefix\_$field");
@@ -504,37 +504,8 @@ sub print_sequence_export_form {
 	say "</fieldset>";
 	my ( $locus_list, $locus_labels ) =
 	  $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
-	my ( @fields, $labels );
+	$self->print_includes_fieldset( { scheme_id => $scheme_id } );
 
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		my $set_id        = $self->get_set_id;
-		my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
-		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
-		foreach my $field (@$field_list) {
-			next if any { $field eq $_ } qw (id datestamp date_entered curator sender);
-			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-			push @fields, $field;
-			( $labels->{$field} = $metafield // $field ) =~ tr/_/ /;
-		}
-	} else {
-		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-		foreach (@$scheme_fields) {
-			push @fields, $_ if $_ ne $scheme_info->{'primary_key'};
-		}
-	}
-	if (@fields) {
-		say "<fieldset style=\"float:left\">\n<legend>Include in identifier row</legend>";
-		say $q->scrolling_list(
-			-name     => 'includes',
-			-id       => 'includes',
-			-values   => \@fields,
-			-labels   => $labels,
-			-size     => 10,
-			-multiple => 'true'
-		);
-		say "</fieldset>";
-	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$self->print_isolates_locus_fieldset;
 		$self->print_scheme_fieldset;
@@ -596,6 +567,43 @@ sub print_sequence_export_form {
 	say "<div style=\"clear:both\"></div>";
 	say $q->hidden($_) foreach qw (db page name query_file scheme_id);
 	say $q->end_form;
+	return;
+}
+
+sub print_includes_fieldset {
+	my ( $self, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $q = $self->{'cgi'};
+	my ( @fields, $labels );
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		my $set_id        = $self->get_set_id;
+		my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+		foreach my $field (@$field_list) {
+			next if any { $field eq $_ } qw (id datestamp date_entered curator sender);
+			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+			push @fields, $field;
+			( $labels->{$field} = $metafield // $field ) =~ tr/_/ /;
+		}
+	} else {
+		my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $options->{'scheme_id'} );
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $options->{'scheme_id'}, { get_pk => 1 } );
+		foreach (@$scheme_fields) {
+			push @fields, $_ if $_ ne $scheme_info->{'primary_key'};
+		}
+	}
+	if (@fields) {
+		say "<fieldset style=\"float:left\">\n<legend>Include in identifier row</legend>";
+		say $q->scrolling_list(
+			-name     => 'includes',
+			-id       => 'includes',
+			-values   => \@fields,
+			-labels   => $labels,
+			-size     => 10,
+			-multiple => 'true'
+		);
+		say "</fieldset>";
+	}
 	return;
 }
 
