@@ -417,7 +417,7 @@ sub _update {
 				if ($record_exists) {
 					$qry = "UPDATE meta_$metaset SET $metafield=? WHERE isolate_id=?";
 				} else {
-					$qry = "INSERT INTO meta_$metaset VALUES SET ($metafield, $isolate_id) = (?,?)";
+					$qry = "INSERT INTO meta_$metaset ($metafield, isolate_id) VALUES (?,?)";
 				}
 				push @args, $isolate_id;
 				my $old_value_ref =
