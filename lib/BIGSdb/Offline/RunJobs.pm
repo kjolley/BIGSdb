@@ -76,6 +76,7 @@ sub run_script {
 	my ( $job, $params ) = $self->{'jobManager'}->get_job($job_id);
 	my $instance = $job->{'dbase_config'};
 	$self->_initiate_db($instance);
+	$self->{'system'}->{'set_id'} = $params->{'set_id'};
 	$self->initiate_view( $job->{'username'} );
 	my $plugin = $self->{'pluginManager'}->get_plugin( $job->{'module'} );
 	$self->{'jobManager'}->update_job_status( $job_id, { status => 'started', start_time => 'now' } );

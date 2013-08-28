@@ -39,7 +39,7 @@ sub get_attributes {
 		buttontext  => 'Presence/Absence',
 		menutext    => 'Presence/absence status of loci',
 		module      => 'PresenceAbsence',
-		version     => '1.1.0',
+		version     => '1.1.1',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -79,6 +79,7 @@ sub run {
 			$params->{'isolate_ids'} = "@$list";
 			$params->{'scheme'}      = "@schemes_selected";
 			$params->{'locus'}       = "@loci_selected";
+			$params->{'set_id'}      = $self->get_set_id;
 			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 			my $job_id    = $self->{'jobManager'}->add_job(
 				{
@@ -217,16 +218,18 @@ sub _write_output {
 	my @problem_ids;
 	my $isolate_sql;
 	my @includes;
-	@includes = $params->{'includes'} if $params->{'includes'};
+	@includes = split /\|\|/, $params->{'includes'} if $params->{'includes'};
 	if (@includes) {
-		local $" = ',';
-		$isolate_sql = $self->{'db'}->prepare("SELECT @includes FROM $self->{'system'}->{'view'} WHERE id=?");
+		$isolate_sql = $self->{'db'}->prepare("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?");
 	}
 	open( my $fh, '>', $filename )
 	  or $logger->error("Can't open temp file $filename for writing");
 	my $selected_loci = $self->order_selected_loci($params);
 	print $fh 'id';
-	print $fh "\t$_" foreach (@includes);
+	foreach my $field (@includes) {
+		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+		print $fh "\t" . ( $metafield // $field );
+	}
 	foreach my $locus (@$selected_loci) {
 		my $locus_name = $self->clean_locus( $locus, { text_output => 1 } );
 		print $fh "\t$locus_name";
@@ -255,10 +258,17 @@ sub _write_output {
 		if (@includes) {
 			eval { $isolate_sql->execute($id) };
 			$logger->error($@) if $@;
-			my @include_values = $isolate_sql->fetchrow_array;
-			local $" = "\t";
-			no warnings 'uninitialized';
-			print $fh "\t@include_values";
+			my $include_data = $isolate_sql->fetchrow_hashref;
+			foreach my $field (@includes) {
+				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+				my $value;
+				if ( defined $metaset ) {
+					$value = $self->{'datastore'}->get_metadata_value( $id, $metaset, $metafield );
+				} else {
+					$value = $include_data->{$field} // '';
+				}
+				print $fh defined $value ? "\t$value" : "\t";
+			}
 		}
 		my $present = $params->{'present'} || 'O';
 		my $absent  = $params->{'absent'}  || 'X';
