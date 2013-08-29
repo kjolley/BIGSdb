@@ -675,14 +675,13 @@ sub get_scheme_list {
 			$qry =
 			    "SELECT DISTINCT schemes.id,set_schemes.set_name,schemes.description,schemes.display_order FROM set_schemes "
 			  . "LEFT JOIN schemes ON set_schemes.scheme_id=schemes.id RIGHT JOIN scheme_members ON schemes.id="
-			  . "scheme_members.scheme_id JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key AND schemes.id "
-			  . "IN (SELECT scheme_id FROM set_schemes WHERE set_id=$options->{'set_id'}) ORDER BY schemes.display_order,"
-			  . "schemes.description";
+			  . "scheme_members.scheme_id JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key AND "
+			  . "set_schemes.set_id=$options->{'set_id'} ORDER BY schemes.display_order,schemes.description";
 		} else {
 			$qry =
 			    "SELECT DISTINCT schemes.id,set_schemes.set_name,schemes.description,schemes.display_order FROM set_schemes "
-			  . "LEFT JOIN schemes ON set_schemes.scheme_id=schemes.id AND schemes.id IN (SELECT scheme_id FROM set_schemes WHERE "
-			  . "set_id=$options->{'set_id'}) WHERE schemes.id IS NOT NULL ORDER BY schemes.display_order,schemes.description";
+			  . "LEFT JOIN schemes ON set_schemes.scheme_id=schemes.id AND set_schemes.set_id=$options->{'set_id'} WHERE schemes.id "
+			  . "IS NOT NULL ORDER BY schemes.display_order,schemes.description";
 		}
 	} else {
 		if ( $options->{'with_pk'} ) {
