@@ -144,14 +144,15 @@ sub get_isolates_with_linked_seqs {
 	if ( $self->{'options'}->{'p'} ) {
 		my @projects = split /,/, $self->{'options'}->{'p'};
 		die "Invalid project list.\n" if any { !BIGSdb::Utils::is_int($_) } @projects;
-		$qry =
-"SELECT DISTINCT isolate_id FROM sequence_bin WHERE isolate_id IN (SELECT isolate_id FROM project_members WHERE project_id IN (@projects))";
+		$qry = "SELECT DISTINCT isolate_id FROM sequence_bin WHERE isolate_id IN (SELECT isolate_id FROM project_members WHERE project_id "
+		  . "IN (@projects)) AND isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})";
 	} elsif ( $self->{'options'}->{'i'} ) {
 		my @ids = split /,/, $self->{'options'}->{'i'};
 		die "Invalid isolate id list.\n" if any { !BIGSdb::Utils::is_int($_) } @ids;
-		$qry = "SELECT DISTINCT isolate_id FROM sequence_bin WHERE isolate_id IN (@ids)";
+		$qry = "SELECT DISTINCT isolate_id FROM sequence_bin WHERE isolate_id IN (@ids) AND isolate_id IN (SELECT id FROM "
+		  . "$self->{'system'}->{'view'})";
 	} else {
-		$qry = "SELECT DISTINCT isolate_id FROM sequence_bin";
+		$qry = "SELECT DISTINCT isolate_id FROM sequence_bin WHERE isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})";
 	}
 	$qry .= " ORDER BY isolate_id";
 	return $self->{'datastore'}->run_list_query($qry);
