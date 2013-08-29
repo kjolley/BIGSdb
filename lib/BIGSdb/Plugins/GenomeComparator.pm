@@ -197,10 +197,10 @@ sub run_job {
 			unlink "$self->{'config'}->{'tmp_dir'}/$ref_upload";
 		}
 		return if !$seq_obj;
-		$self->_analyse_by_reference( $job_id, $params, $accession, $seq_obj, $filtered_ids );
+		$self->_analyse_by_reference( $job_id, $accession, $seq_obj, $filtered_ids );
 	} else {
-		$self->_add_scheme_loci( $params, \@loci );
-		$self->_analyse_by_loci( $job_id, $params, \@loci, $filtered_ids );
+		$self->_add_scheme_loci( \@loci );
+		$self->_analyse_by_loci( $job_id, \@loci, $filtered_ids );
 	}
 	return;
 }
@@ -491,7 +491,7 @@ HTML
 }
 
 sub _analyse_by_loci {
-	my ( $self, $job_id, $params, $loci, $ids ) = @_;
+	my ( $self, $job_id, $loci, $ids ) = @_;
 	if ( @$ids < 2 ) {
 		$self->{'jobManager'}->update_job_status(
 			$job_id,
@@ -511,7 +511,7 @@ sub _analyse_by_loci {
 	$file_buffer .= "Allele numbers are used where these have been defined, otherwise sequences will be marked as 'New#1, "
 	  . "'New#2' etc.\nMissing alleles are marked as 'X'. Truncated alleles (located at end of contig) are marked as 'T'.\n\n";
 	$self->_print_isolate_header( 0, $ids, \$file_buffer, \$html_buffer, );
-	$self->_run_comparison( 0, $job_id, $params, $ids, $loci, \$html_buffer, \$file_buffer );
+	$self->_run_comparison( 0, $job_id, $ids, $loci, \$html_buffer, \$file_buffer );
 	$self->_delete_temp_files("$job_id*");
 	return;
 }
@@ -670,7 +670,8 @@ NEXUS
 }
 
 sub _add_scheme_loci {
-	my ( $self, $params, $loci ) = @_;
+	my ( $self, $loci ) = @_;
+	my $params = $self->{'params'};
 	my @scheme_ids = split /\|\|/, ( defined $params->{'scheme_id'} ? $params->{'scheme_id'} : '' );
 	my %locus_selected;
 	$locus_selected{$_} = 1 foreach (@$loci);
@@ -689,7 +690,7 @@ sub _add_scheme_loci {
 }
 
 sub _analyse_by_reference {
-	my ( $self, $job_id, $params, $accession, $seq_obj, $ids ) = @_;
+	my ( $self, $job_id, $accession, $seq_obj, $ids ) = @_;
 	my @cds;
 	foreach ( $seq_obj->get_SeqFeatures ) {
 		push @cds, $_ if $_->primary_tag eq 'CDS';
@@ -730,7 +731,7 @@ sub _analyse_by_reference {
 	$file_buffer .= "Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'. \n"
 	  . "Truncated alleles (located at end of contig) are marked as 'T'.\n\n";
 	$self->_print_isolate_header( 1, $ids, \$file_buffer, \$html_buffer, );
-	$self->_run_comparison( 1, $job_id, $params, $ids, \@cds, \$html_buffer, \$file_buffer );
+	$self->_run_comparison( 1, $job_id, $ids, \@cds, \$html_buffer, \$file_buffer );
 	return;
 }
 
@@ -770,8 +771,9 @@ sub _extract_cds_details {
 }
 
 sub _run_comparison {
-	my ( $self, $by_reference, $job_id, $params, $ids, $cds, $html_buffer_ref, $file_buffer_ref ) = @_;
+	my ( $self, $by_reference, $job_id, $ids, $cds, $html_buffer_ref, $file_buffer_ref ) = @_;
 	my ( $progress, $seqs_total, $td, $order_count ) = ( 0, 0, 1, 1 );
+	my $params = $self->{'params'};
 	my $total = ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $by_reference ) ) ) ? ( @$cds * 2 ) : @$cds;
 	my $close_table = '</table></div>';
 	my ( $locus_class, $presence, $order, $values, $match_count, $word_size, $program );
@@ -840,12 +842,12 @@ sub _run_comparison {
 			my $out_file = "$self->{'config'}->{'secure_tmp_dir'}/$prefix\_isolate_$id\_outfile.txt";
 			my ( $match, $value, $extracted_seq );
 			if ( !$by_reference ) {
-				( $match, $value, $extracted_seq ) = $self->_scan_by_locus( $id, $cds, \%seqs, \%allele_seqs, $params,
+				( $match, $value, $extracted_seq ) = $self->_scan_by_locus( $id, $cds, \%seqs, \%allele_seqs, 
 					{ word_size => $word_size, out_file => $out_file, ref_seq_file => $ref_seq_file, isolate_fasta_ref => \%isolate_FASTA }
 				);
 			} else {
 				$self->_blast( $word_size, $isolate_FASTA{$id}, $ref_seq_file, $out_file, $program );
-				$match = $self->_parse_blast_ref( $seq_ref, $out_file, $params );
+				$match = $self->_parse_blast_ref( $seq_ref, $out_file );
 			}
 			$match_count->{$id}->{$locus_name} = $match->{'good_matches'} // 0;
 			my $seqbin_length;
@@ -956,7 +958,7 @@ sub _run_comparison {
 	}
 	$$html_buffer_ref .= $close_table;
 	$self->_print_reports(
-		$params, $ids, $loci,
+		$ids, $loci,
 		{
 			job_id          => $job_id,
 			job_file        => $job_file,
@@ -992,7 +994,8 @@ sub _touch_output_files {
 }
 
 sub _print_reports {
-	my ( $self, $params, $ids, $loci, $args ) = @_;
+	my ( $self, $ids, $loci, $args ) = @_;
+	my $params = $self->{'params'};
 	my ( $job_id, $values, $locus_class, $job_file, $file_buffer_ref, $html_buffer_ref, $match_count ) = (
 		$args->{'job_id'}, $args->{'values'}, $args->{'locus_class'},
 		$args->{'job_file'},
@@ -1009,12 +1012,11 @@ sub _print_reports {
 
 	if ( $params->{'align'} ) {
 		$distances = $self->_create_alignments( $job_id, $args->{'by_reference'},
-			$align_file, $align_stats_file, $ids, ( $params->{'align_all'} ? $loci : $locus_class->{'varying'} ), $params );
+			$align_file, $align_stats_file, $ids, ( $params->{'align_all'} ? $loci : $locus_class->{'varying'} ) );
 	}
 	$self->_print_variable_loci( $args->{'by_reference'}, $ids, $html_buffer_ref, $job_file, $locus_class->{'varying'}, $values );
 	$self->_print_missing_in_all( $args->{'by_reference'}, $ids, $html_buffer_ref, $job_file, $locus_class->{'all_missing'}, $values );
-	$self->_print_exact_matches( $args->{'by_reference'}, $ids, $html_buffer_ref, $job_file, $locus_class->{'all_exact'}, $params,
-		$values );
+	$self->_print_exact_matches( $args->{'by_reference'}, $ids, $html_buffer_ref, $job_file, $locus_class->{'all_exact'}, $values );
 	if ( $args->{'by_reference'} ) {
 		$self->_print_exact_except_ref( $ids, $html_buffer_ref, $job_file, $locus_class->{'exact_except_ref'}, $values );
 	}
@@ -1068,13 +1070,14 @@ sub _print_reports {
 			};
 		}
 	}
-	$self->_core_analysis( $params, $loci, $distances, $args );
+	$self->_core_analysis( $loci, $distances, $args );
 	return;
 }
 
 sub _core_analysis {
-	my ( $self, $params, $loci, $distances, $args ) = @_;
+	my ( $self, $loci, $distances, $args ) = @_;
 	return if ref $loci ne 'HASH';
+	my $params = $self->{'params'};
 	my $core_count = 0;
 	my @core_loci;
 	my $isolate_count = @{ $args->{'ids'} };
@@ -1235,10 +1238,10 @@ sub _get_largest_distance {
 }
 
 sub _scan_by_locus {
-	my ( $self, $isolate_id, $locus, $seqs_ref, $allele_seqs_ref, $params, $args ) = @_;
+	my ( $self, $isolate_id, $locus, $seqs_ref, $allele_seqs_ref, $args ) = @_;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	my ( $match, $value, $extracted_seq );
-	if ( $params->{'use_tagged'} && $locus_info->{'data_type'} eq 'DNA' ) {
+	if ( $self->{'params'}->{'use_tagged'} && $locus_info->{'data_type'} eq 'DNA' ) {
 		my $allele_id = $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
 		if ( defined $allele_id ) {
 			$match->{'exact'}  = 1;
@@ -1266,7 +1269,7 @@ sub _scan_by_locus {
 		} else {
 			$self->_blast( 3, $args->{'ref_seq_file'}, $args->{'isolate_fasta_ref'}->{$isolate_id}, $args->{'out_file'}, 'blastx' );
 		}
-		$match = $self->_parse_blast_by_locus( $locus, $args->{'out_file'}, $params );
+		$match = $self->_parse_blast_by_locus( $locus, $args->{'out_file'} );
 		$value = $match->{'allele'} if $match->{'exact'};
 	}
 	return ( $match, $value, $extracted_seq );
@@ -1412,7 +1415,8 @@ sub _print_variable_loci {
 }
 
 sub _create_alignments {
-	my ( $self, $job_id, $by_reference, $align_file, $align_stats_file, $ids, $loci, $params ) = @_;
+	my ( $self, $job_id, $by_reference, $align_file, $align_stats_file, $ids, $loci ) = @_;
+	my $params = $self->{'params'};
 	my $count;
 	my $temp       = BIGSdb::Utils::get_random();
 	my $progress   = 0;
@@ -1466,8 +1470,7 @@ sub _create_alignments {
 					xmfa_out         => $xmfa_out,
 					xmfa_start_ref   => \$xmfa_start,
 					xmfa_end_ref     => \$xmfa_end,
-				},
-				$params
+				}
 			);
 		}
 		unlink $fasta_file;
@@ -1478,7 +1481,7 @@ sub _create_alignments {
 sub _run_infoalign {
 
 	#returns mean distance
-	my ( $self, $values, $params ) = @_;
+	my ( $self, $values ) = @_;
 	if ( -e "$self->{'config'}->{'emboss_path'}/infoalign" ) {
 		my $prefix  = BIGSdb::Utils::get_random();
 		my $outfile = "$self->{'config'}->{'secure_tmp_dir'}/$prefix.infoalign";
@@ -1515,7 +1518,7 @@ sub _run_infoalign {
 sub _run_muscle {
 
 	#need values for ($ids, $locus, $seq_count, $muscle_out, $fasta_file, $align_file, $xmfa_out, $xmfa_start_ref, $xmfa_end_ref);
-	my ( $self, $values, $params ) = @_;
+	my ( $self, $values ) = @_;
 	return if $values->{'seq_count'} <= 1;
 	system( $self->{'config'}->{'muscle_path'}, '-in', $values->{'fasta_file'}, '-out', $values->{'muscle_out'}, '-quiet', '-clwstrict' );
 	my $distance;
@@ -1547,14 +1550,14 @@ sub _run_muscle {
 		close $align_fh;
 		BIGSdb::Utils::append( $values->{'muscle_out'}, $values->{'align_file'}, { blank_after => 1 } );
 		$values->{'alignment'} = $values->{'muscle_out'};
-		$distance = $self->_run_infoalign( $values, $params );
+		$distance = $self->_run_infoalign( $values );
 		unlink $values->{'muscle_out'};
 	}
 	return $distance;
 }
 
 sub _print_exact_matches {
-	my ( $self, $by_reference, $ids, $buffer_ref, $job_filename, $exacts, $params, $values ) = @_;
+	my ( $self, $by_reference, $ids, $buffer_ref, $job_filename, $exacts, $values ) = @_;
 	return if ref $exacts ne 'HASH';
 	$$buffer_ref .= "<h3>Exactly matching loci</h3>\n";
 	my $file_buffer = "\n###\n\n";
@@ -1562,7 +1565,7 @@ sub _print_exact_matches {
 	$file_buffer .= "---------------------\n\n";
 	$$buffer_ref .= "<p>These loci are identical in all isolates";
 	$file_buffer .= "These loci are identical in all isolates";
-	if ( $params->{'accession'} ) {
+	if ( $self->{'params'}->{'accession'} ) {
 		$$buffer_ref .= ", including the reference genome";
 		$file_buffer .= ", including the reference genome";
 	}
@@ -1693,7 +1696,8 @@ sub _blast {
 sub _parse_blast_by_locus {
 
 	#return best match
-	my ( $self, $locus, $blast_file, $params ) = @_;
+	my ( $self, $locus, $blast_file ) = @_;
+	my $params = $self->{'params'};
 	my $identity  = BIGSdb::Utils::is_int( $params->{'identity'} )  ? $params->{'identity'}  : 70;
 	my $alignment = BIGSdb::Utils::is_int( $params->{'alignment'} ) ? $params->{'alignment'} : 50;
 	my $full_path = "$blast_file";
@@ -1773,7 +1777,8 @@ sub _parse_blast_by_locus {
 sub _parse_blast_ref {
 
 	#return best match
-	my ( $self, $seq_ref, $blast_file, $params ) = @_;
+	my ( $self, $seq_ref, $blast_file ) = @_;
+	my $params = $self->{'params'};
 	my $identity  = BIGSdb::Utils::is_int( $params->{'identity'} )  ? $params->{'identity'}  : 70;
 	my $alignment = BIGSdb::Utils::is_int( $params->{'alignment'} ) ? $params->{'alignment'} : 50;
 	my $match;
@@ -1865,11 +1870,11 @@ sub _create_reference_FASTA_file {
 }
 
 sub _create_isolate_FASTA {
-	my ( $self, $isolate_id, $prefix, $params ) = @_;
+	my ( $self, $isolate_id, $prefix ) = @_;
 	my $qry = "SELECT DISTINCT id,sequence FROM sequence_bin LEFT JOIN experiment_sequences ON sequence_bin.id=seqbin_id WHERE "
 	  . "sequence_bin.isolate_id=?";
 	my @criteria = ($isolate_id);
-	my $method   = $params->{'seq_method_list'};
+	my $method   = $self->{'params'}->{'seq_method_list'};
 	if ($method) {
 		if ( !any { $_ eq $method } SEQ_METHODS ) {
 			$logger->error("Invalid method $method");
@@ -1878,7 +1883,7 @@ sub _create_isolate_FASTA {
 		$qry .= " AND method=?";
 		push @criteria, $method;
 	}
-	my $experiment = $params->{'experiment_list'};
+	my $experiment = $self->{'params'}->{'experiment_list'};
 	if ($experiment) {
 		if ( !BIGSdb::Utils::is_int($experiment) ) {
 			$logger->error("Invalid experiment $experiment");
