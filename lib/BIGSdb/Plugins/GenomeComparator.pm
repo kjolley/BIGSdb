@@ -798,16 +798,7 @@ sub _run_comparison {
 		my ( $locus_name, $locus_info, $length, $start, $desc, $ref_seq_file );
 		if ($by_reference) {
 			my $continue = 1;
-			try {
-				( $locus_name, $seq_ref, $start, $desc ) = $self->_extract_cds_details( $cds, \$seqs_total, \%seqs );
-			}
-			catch BIGSdb::DataException with {
-				$$html_buffer_ref .= "\n$close_table<p class=\"statusbad\">Error: There are no product tags defined in record with "
-				  . "supplied accession number.</p>\n";
-				$self->{'jobManager'}->update_job_status( $job_id, { status => 'failed', message_html => $$html_buffer_ref } );
-				$continue = 0;
-			};
-			return if !$continue || ref $seq_ref ne 'SCALAR';
+			( $locus_name, $seq_ref, $start, $desc ) = $self->_extract_cds_details( $cds, \$seqs_total, \%seqs );
 			$values->{'0'}->{$locus_name} = 1;
 			$length = length $$seq_ref;
 			$length = int( $length / 3 ) if $params->{'tblastx'};
@@ -1030,6 +1021,8 @@ sub _print_reports {
 	$self->_print_truncated_loci( $args->{'by_reference'}, $ids, $html_buffer_ref, $job_file, $locus_class->{'truncated'}, $values );
 	if ( !$args->{'seqs_total'} && $args->{'by_reference'} ) {
 		$$html_buffer_ref .= "<p class=\"statusbad\">No sequences were extracted from reference file.</p>\n";
+		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$html_buffer_ref } );
+		return;
 	} else {
 		$self->_identify_strains( $ids, $html_buffer_ref, $job_file, $loci, $values );
 		$$html_buffer_ref = '' if @$ids > MAX_DISPLAY_TAXA || $params->{'disable_html'};
