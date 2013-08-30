@@ -39,7 +39,7 @@ sub get_attributes {
 		category         => 'Analysis',
 		menutext         => 'Locus Explorer',
 		module           => 'LocusExplorer',
-		version          => '1.1.1',
+		version          => '1.1.2',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		input            => 'query',
@@ -218,12 +218,12 @@ sub run_job {
 	if ( $locus =~ /^cn_(.+)/ ) {
 		$locus = $1;
 	}
-	$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => -1 } );    #indeterminate length of time
+	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => -1 } );    #indeterminate length of time
 	if ( $params->{'snp'} ) {
 		my @allele_ids = split /\|\|/, $params->{'allele_ids'};
-		my ( $seqs, undef ) = $self->_get_seqs( $params->{'locus'}, \@allele_ids );
+		my ( $seqs, undef, $prefix ) = $self->_get_seqs( $params->{'locus'}, \@allele_ids );
 		if ( !@$seqs ) {
-			$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => "<p>No sequences retrieved for analysis.</p>" } );
+			$self->{'jobManager'}->update_job_status( $job_id, { message_html => "<p>No sequences retrieved for analysis.</p>" } );
 			return;
 		}
 		my $temp      = BIGSdb::Utils::get_random();
@@ -237,8 +237,8 @@ sub run_job {
 		( $buffer, undef ) = $self->get_freq_table( $freqs, $locus_info );
 		print $html_fh $buffer;
 		say $html_fh "</div>\n</body>\n</html>";
-		$self->{'jobManager'}
-		  ->update_job_output( $job_id, { 'filename' => "$temp.html", 'description' => 'Locus schematic (HTML format)' } );
+		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$temp.html", description => 'Locus schematic (HTML format)' } );
+		$self->delete_temp_files("$prefix*");
 	}
 	return;
 }
@@ -336,7 +336,10 @@ sub _get_seqs {
 		$i++;
 	}
 	close $fh;
-	return $i if $options->{'count_only'};
+	if ( $options->{'count_only'} ) {
+		unlink $tempfile;
+		return $i;
+	}
 	my $seq_file;
 	my $muscle_file = "$self->{'config'}->{secure_tmp_dir}/$temp.muscle";
 	if ( $self->{'config'}->{'muscle_path'} && $locus_info->{'length_varies'} && @seqs > 1 ) {
@@ -351,7 +354,7 @@ sub _get_seqs {
 	} else {
 		$seq_file = "$temp.txt";
 	}
-	return \@seqs, $seq_file;
+	return ( \@seqs, $seq_file, $temp );
 }
 
 sub _snp {
@@ -374,17 +377,18 @@ sub _snp {
 		say "<div class=\"box\" id=\"statusbad\"><p>No sequences selected.</p></div>";
 		return;
 	}
-	my $seq_count = $self->_get_seqs( $locus, \@allele_ids, { 'count_only' => 1 } );
+	my $seq_count = $self->_get_seqs( $locus, \@allele_ids, { count_only => 1 } );
 	if ( $seq_count <= 50 || !$locus_info->{'length_varies'} ) {
 		say "<div class=\"box\" id=\"resultsheader\">";
 		my $cleaned = $self->clean_locus($locus);
 		say "<h2>$cleaned</h2>";
-		my ( $seqs, $seq_file ) = $self->_get_seqs( $locus, \@allele_ids, { 'print_status' => 1 } );
+		my ( $seqs, $seq_file, $prefix ) = $self->_get_seqs( $locus, \@allele_ids, { print_status => 1 } );
 		my ( $buffer, $freqs ) = $self->get_snp_schematic( $locus, $seqs, $seq_file, $self->{'prefs'}->{'alignwidth'} );
 		say $buffer;
 		( $buffer, undef ) = $self->get_freq_table( $freqs, $locus_info );
 		say $buffer if $buffer;
 		say "</div>";
+		$self->delete_temp_files("$prefix*");
 	} else {
 		my $params = $q->Vars;
 		$params->{'alignwidth'} = $self->{'prefs'}->{'alignwidth'};
@@ -785,7 +789,8 @@ sub _translate {
 	system("$self->{'config'}->{'emboss_path'}/transeq -sequence $tempfile -outseq $outfile -frame $orf -trim -clean 2> /dev/null");
 	if ( $self->{'config'}->{'muscle_path'} && $locus_info->{'length_varies'} ) {
 		my $muscle_file = "$self->{'config'}->{secure_tmp_dir}/$temp.muscle";
-		system( $self->{'config'}->{'muscle_path'}, '-in', $outfile, '-out', $muscle_file, '-quiet' );
+		system( $self->{'config'}->{'muscle_path'}, '-quiet', ( -in => $outfile, -out => $muscle_file ) );
+		unlink $outfile;
 		$outfile = $muscle_file;
 	}
 	system( "$self->{'config'}->{'emboss_path'}/showalign -nosimilarcase -width $self->{'prefs'}->{'alignwidth'} -sequence $outfile "
@@ -793,8 +798,7 @@ sub _translate {
 	unlink $tempfile;
 	say "<pre style=\"font-size:1.2em\">";
 	$self->print_file($finalfile);
-	say "</pre>";
-	say "</div>";
+	say "</pre></div>";
 	unlink $outfile;
 	unlink $finalfile;
 	return;

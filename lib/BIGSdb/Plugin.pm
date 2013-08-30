@@ -187,6 +187,13 @@ sub create_temp_tables {
 	return $continue;
 }
 
+sub delete_temp_files {
+	my ( $self, $wildcard ) = @_;
+	my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/$wildcard");
+	foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/ }
+	return;
+}
+
 sub print_content {
 	my ($self)      = @_;
 	my $q           = $self->{'cgi'};

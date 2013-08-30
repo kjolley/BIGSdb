@@ -512,7 +512,7 @@ sub _analyse_by_loci {
 	  . "'New#2' etc.\nMissing alleles are marked as 'X'. Truncated alleles (located at end of contig) are marked as 'T'.\n\n";
 	$self->_print_isolate_header( 0, $ids, \$file_buffer, \$html_buffer, );
 	$self->_run_comparison( 0, $job_id, $ids, $loci, \$html_buffer, \$file_buffer );
-	$self->_delete_temp_files("$job_id*");
+	$self->delete_temp_files("$job_id*");
 	return;
 }
 
@@ -953,7 +953,7 @@ sub _run_comparison {
 			$self->{'jobManager'}
 			  ->update_job_status( $job_id, { percent_complete => $complete, message_html => "$$html_buffer_ref$close_table" } );
 		}
-		$self->_delete_temp_files("$job_id*fastafile*\.txt*") if !$by_reference;
+		$self->delete_temp_files("$job_id*fastafile*\.txt*") if !$by_reference;
 		$self->{'db'}->commit;    #prevent idle in transaction table locks
 	}
 	$$html_buffer_ref .= $close_table;
@@ -974,15 +974,8 @@ sub _run_comparison {
 			order           => $order
 		}
 	);
-	$self->_delete_temp_files("$prefix*");
+	$self->delete_temp_files("$prefix*");
 	$self->_touch_output_files("$job_id*");    #Prevents premature deletion by cleanup scripts
-	return;
-}
-
-sub _delete_temp_files {
-	my ( $self, $wildcard ) = @_;
-	my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/$wildcard");
-	foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/ }
 	return;
 }
 
