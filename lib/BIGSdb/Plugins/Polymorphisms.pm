@@ -75,7 +75,8 @@ sub run {
 		return;
 	}
 	my $qry_ref = $self->get_query($query_file);
-	my $ids     = $self->get_ids_from_query($qry_ref);
+	return if ref $qry_ref ne 'SCALAR';
+	my $ids = $self->get_ids_from_query($qry_ref);
 	my %options;
 	$options{'from_bin'}            = $q->param('chooseseq') eq 'seqbin' ? 1 : 0;
 	$options{'unique'}              = $q->param('unique');
@@ -110,7 +111,7 @@ sub run {
 		my $params = $q->Vars;
 		$params->{'alignwidth'} = $self->{'prefs'}->{'alignwidth'};
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-		my $job_id = $self->{'jobManager'}->add_job(
+		my $job_id    = $self->{'jobManager'}->add_job(
 			{
 				dbase_config => $self->{'instance'},
 				ip_address   => $q->remote_host,
@@ -157,7 +158,7 @@ sub run_job {
 	if ( $locus =~ /^cn_(.+)/ ) {
 		$locus = $1;
 	}
-	$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => -1 } );    #indeterminate length of time
+	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => -1 } );    #indeterminate length of time
 	my $qry_ref = $self->get_query($query_file);
 	my $ids     = $self->get_ids_from_query($qry_ref);
 	my %options;
@@ -167,7 +168,7 @@ sub run_job {
 	my $seqs = $self->_get_seqs( $locus, $ids, \%options );
 
 	if ( !@$seqs ) {
-		$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => "<p>No sequences retrieved for analysis.</p>" } );
+		$self->{'jobManager'}->update_job_status( $job_id, { message_html => "<p>No sequences retrieved for analysis.</p>" } );
 		return;
 	}
 	my $temp      = BIGSdb::Utils::get_random();
@@ -181,7 +182,7 @@ sub run_job {
 	( $buffer, undef ) = $self->get_freq_table( $freqs, $locus_info );
 	say $html_fh $buffer;
 	say $html_fh "</div>\n</body>\n</html>";
-	$self->{'jobManager'}->update_job_output( $job_id, { 'filename' => "$temp.html", 'description' => 'Locus schematic (HTML format)' } );
+	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$temp.html", description => 'Locus schematic (HTML format)' } );
 	return;
 }
 
@@ -247,10 +248,13 @@ sub _get_seqs {
 		}
 	}
 	close $fh;
-	return $i if $options->{'count_only'};
+	if ( $options->{'count_only'} ) {
+		unlink $tempfile;
+		return $i;
+	}
 	my $muscle_file = "$self->{'config'}->{secure_tmp_dir}/$temp.muscle";
 	if ( $i > 1 ) {
-		system( $self->{'config'}->{'muscle_path'}, '-in', $tempfile, '-fastaout', $muscle_file, '-quiet' );
+		system( $self->{'config'}->{'muscle_path'}, '-quiet', ( -in => $tempfile, -fastaout => $muscle_file ) );
 	}
 	my $output_file = $i > 1 ? $muscle_file : $tempfile;
 	my @seqs;
@@ -260,6 +264,8 @@ sub _get_seqs {
 			push @seqs, $seq_object->seq;
 		}
 	}
+	unlink $tempfile;
+	unlink $muscle_file;
 	return \@seqs;
 }
 
@@ -290,7 +296,7 @@ sub _print_interface {
 	say "<br /><br />";
 	say "<ul>\n<li>";
 	my %labels =
-	  ( 'seqbin' => 'Use sequences tagged from the bin', 'allele_designation' => 'Use allele sequence retrieved from external database' );
+	  ( seqbin => 'Use sequences tagged from the bin', allele_designation => 'Use allele sequence retrieved from external database' );
 	say $q->radio_group( -name => 'chooseseq', -values => [ 'seqbin', 'allele_designation' ], -labels => \%labels, -linebreak => 'true' );
 	say "</li>\n<li style=\"margin-top:1em\">";
 	say $q->checkbox( -name => 'unique', -label => 'Analyse single example of each unique sequence', -checked => 'checked' );
