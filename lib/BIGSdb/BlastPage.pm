@@ -144,14 +144,19 @@ sub run_blast {
 			my $word_size = $program eq 'blastn' ? 11     : 3;
 			my $format = $options->{'alignment'} ? 0 : 6;
 			$options->{'num_results'} //= 1000000;    #effectively return all results
-			system(
-				"$self->{'config'}->{'blast+_path'}/$program", '-num_threads',            $blast_threads,
-				'-max_target_seqs',                            $options->{'num_results'}, '-parse_deflines',
-				'-word_size',                                  $word_size,                '-db',
-				$temp_fastafile,                               '-query',                  $temp_infile,
-				'-out',                                        $temp_outfile,             '-outfmt',
-				$format,                                       "-$filter",                'no'
+			my %params = (
+				-num_threads     => $blast_threads,
+				-max_target_seqs => $options->{'num_results'},
+				-word_size       => $word_size,
+				-db              => $temp_fastafile,
+				-query           => $temp_infile,
+				-out             => $temp_outfile,
+				-outfmt          => $format,
+				-$filter         => 'no'
 			);
+			$params{'-evalue'} = 100000 if $run eq 'peptide';    #Not always returning matches with low complexity regions otherwise
+			system( "$self->{'config'}->{'blast+_path'}/$program", '-parse_deflines', %params );
+
 			if ( $run eq 'DNA' ) {
 				rename( $temp_outfile, "$temp_outfile\.1" );
 			}
