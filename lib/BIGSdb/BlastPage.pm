@@ -142,14 +142,7 @@ sub run_blast {
 			my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
 			my $filter    = $program eq 'blastn' ? 'dust' : 'seg';
 			my $word_size = $program eq 'blastn' ? 11     : 3;
-			my ( $old_format, $format );
-			if ( $options->{'alignment'} ) {
-				$old_format = 2;
-				$format     = 0;
-			} else {
-				$old_format = 9;
-				$format     = 6;
-			}
+			my $format = $options->{'alignment'} ? 0 : 6;
 			$options->{'num_results'} //= 1000000;    #effectively return all results
 			system(
 				"$self->{'config'}->{'blast+_path'}/$program", '-num_threads',            $blast_threads,
