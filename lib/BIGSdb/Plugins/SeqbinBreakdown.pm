@@ -228,7 +228,7 @@ sub _print_charts {
 		  . "; &sigma;: "
 		  . BIGSdb::Utils::decimal_place( $stats->{'std'}, 1 )
 		  . "<br />";
-		say "<a href=\"/tmp/$prefix\_histogram_$_.png\" rel=\"lightbox-1\" class=\"lightbox\" title=\"$title{$_}\">"
+		say "<a href=\"/tmp/$prefix\_histogram_$_.png\" data-rel=\"lightbox-1\" class=\"lightbox\" title=\"$title{$_}\">"
 		  . "<img src=\"/tmp/$prefix\_histogram_$_.png\" alt=\"$_ histogram\" style=\"width:200px; border:1px dashed black\" /></a>";
 		if ( $_ eq 'lengths' ) {
 			my $filename  = BIGSdb::Utils::get_random() . '.txt';
