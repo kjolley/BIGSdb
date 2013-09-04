@@ -342,7 +342,7 @@ HTML
 	say "<div class=\"scrollable\">";
 	$self->print_seqbin_isolate_fieldset( { use_all => $use_all, selected_ids => $selected_ids } );
 	$self->print_isolates_locus_fieldset;
-	$self->print_includes_fieldset({title => 'Include in identifiers', preselect => $self->{'system'}->{'labelfield'}});
+	$self->print_includes_fieldset( { title => 'Include in identifiers', preselect => $self->{'system'}->{'labelfield'} } );
 	$self->print_scheme_fieldset;
 	say "<fieldset style=\"float:left\">\n<legend>Reference genome</legend>";
 	say "Enter accession number:<br />";
@@ -557,19 +557,19 @@ sub _generate_splits {
 }
 
 sub _get_identifier {
-	my ($self, $id, $options) = @_;
+	my ( $self, $id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $value = $options->{'no_id'} ? '' : $id;
 	my @includes;
 	@includes = split /\|\|/, $self->{'params'}->{'includes'} if $self->{'params'}->{'includes'};
 	if (@includes) {
-		if (!$self->{'sql'}->{'ident'}){
+		if ( !$self->{'sql'}->{'ident'} ) {
 			$self->{'sql'}->{'ident'} = $self->{'db'}->prepare("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?");
 		}
 		eval { $self->{'sql'}->{'ident'}->execute($id) };
 		$logger->error($@) if $@;
 		my $include_data = $self->{'sql'}->{'ident'}->fetchrow_hashref;
-		my $first = 1;
+		my $first        = 1;
 		foreach my $field (@includes) {
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			my $field_value;
@@ -583,7 +583,7 @@ sub _get_identifier {
 			$first = 0;
 			$value .= "$field_value";
 		}
-	}	
+	}
 	return $value;
 }
 
@@ -773,8 +773,8 @@ sub _extract_cds_details {
 sub _run_comparison {
 	my ( $self, $by_reference, $job_id, $ids, $cds, $html_buffer_ref, $file_buffer_ref ) = @_;
 	my ( $progress, $seqs_total, $td, $order_count ) = ( 0, 0, 1, 1 );
-	my $params = $self->{'params'};
-	my $total = ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $by_reference ) ) ) ? ( @$cds * 2 ) : @$cds;
+	my $params      = $self->{'params'};
+	my $total       = ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $by_reference ) ) ) ? ( @$cds * 2 ) : @$cds;
 	my $close_table = '</table></div>';
 	my ( $locus_class, $presence, $order, $values, $match_count, $word_size, $program );
 	my $job_file = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
@@ -842,7 +842,7 @@ sub _run_comparison {
 			my $out_file = "$self->{'config'}->{'secure_tmp_dir'}/$prefix\_isolate_$id\_outfile.txt";
 			my ( $match, $value, $extracted_seq );
 			if ( !$by_reference ) {
-				( $match, $value, $extracted_seq ) = $self->_scan_by_locus( $id, $cds, \%seqs, \%allele_seqs, 
+				( $match, $value, $extracted_seq ) = $self->_scan_by_locus( $id, $cds, \%seqs, \%allele_seqs,
 					{ word_size => $word_size, out_file => $out_file, ref_seq_file => $ref_seq_file, isolate_fasta_ref => \%isolate_FASTA }
 				);
 			} else {
@@ -1070,7 +1070,7 @@ sub _print_reports {
 sub _core_analysis {
 	my ( $self, $loci, $distances, $args ) = @_;
 	return if ref $loci ne 'HASH';
-	my $params = $self->{'params'};
+	my $params     = $self->{'params'};
 	my $core_count = 0;
 	my @core_loci;
 	my $isolate_count = @{ $args->{'ids'} };
@@ -1368,7 +1368,7 @@ sub _identify_strains {
 sub _get_isolate_name {
 	my ( $self, $id ) = @_;
 	my $isolate = $id;
-	my $additional_fields = $self->_get_identifier($id, {no_id => 1});
+	my $additional_fields = $self->_get_identifier( $id, { no_id => 1 } );
 	$isolate .= " ($additional_fields)" if $additional_fields;
 	return $isolate;
 }
@@ -1543,7 +1543,7 @@ sub _run_muscle {
 		close $align_fh;
 		BIGSdb::Utils::append( $values->{'muscle_out'}, $values->{'align_file'}, { blank_after => 1 } );
 		$values->{'alignment'} = $values->{'muscle_out'};
-		$distance = $self->_run_infoalign( $values );
+		$distance = $self->_run_infoalign($values);
 		unlink $values->{'muscle_out'};
 	}
 	return $distance;
@@ -1679,9 +1679,16 @@ sub _blast {
 	my $filter = $program eq 'blastn' ? 'dust' : 'seg';
 	system(
 		"$self->{'config'}->{'blast+_path'}/$program",
-		'-num_threads', $blast_threads, '-max_target_seqs', 10,         '-parse_deflines', '-word_size',
-		$word_size,     '-db',          $fasta_file,        '-query',   $in_file,          '-out',
-		$out_file,      '-outfmt',      6,                  "-$filter", 'no'
+		(
+			-num_threads     => $blast_threads,
+			-max_target_seqs => 10,
+			-word_size       => $word_size,
+			-db              => $fasta_file,
+			-query           => $in_file,
+			-out             => $out_file,
+			-outfmt          => 6,
+			"-$filter"       => 'no'
+		)
 	);
 	return;
 }
@@ -1690,8 +1697,8 @@ sub _parse_blast_by_locus {
 
 	#return best match
 	my ( $self, $locus, $blast_file ) = @_;
-	my $params = $self->{'params'};
-	my $identity  = BIGSdb::Utils::is_int( $params->{'identity'} )  ? $params->{'identity'}  : 70;
+	my $params    = $self->{'params'};
+	my $identity  = BIGSdb::Utils::is_int( $params->{'identity'} ) ? $params->{'identity'} : 70;
 	my $alignment = BIGSdb::Utils::is_int( $params->{'alignment'} ) ? $params->{'alignment'} : 50;
 	my $full_path = "$blast_file";
 	my $match;
@@ -1771,8 +1778,8 @@ sub _parse_blast_ref {
 
 	#return best match
 	my ( $self, $seq_ref, $blast_file ) = @_;
-	my $params = $self->{'params'};
-	my $identity  = BIGSdb::Utils::is_int( $params->{'identity'} )  ? $params->{'identity'}  : 70;
+	my $params    = $self->{'params'};
+	my $identity  = BIGSdb::Utils::is_int( $params->{'identity'} ) ? $params->{'identity'} : 70;
 	my $alignment = BIGSdb::Utils::is_int( $params->{'alignment'} ) ? $params->{'alignment'} : 50;
 	my $match;
 	my $quality    = 0;                  #simple metric of alignment length x percentage identity
@@ -1847,8 +1854,7 @@ sub _create_locus_FASTA_db {
 		print $fasta_fh $file_buffer if $file_buffer;
 		close $fasta_fh;
 		my $dbtype = $locus_info->{'data_type'} eq 'DNA' ? 'nucl' : 'prot';
-		system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
-			'-in', $temp_fastafile, '-logfile', '/dev/null', '-parse_seqids', '-dbtype', $dbtype );
+		system( "$self->{'config'}->{'blast+_path'}/makeblastdb", ( -in => $temp_fastafile, -logfile => '/dev/null', -dbtype => $dbtype ) );
 	}
 	return $temp_fastafile;
 }
@@ -1901,8 +1907,7 @@ sub _create_isolate_FASTA {
 sub _create_isolate_FASTA_db {
 	my ( $self, $isolate_id, $prefix ) = @_;
 	my $temp_infile = $self->_create_isolate_FASTA( $isolate_id, $prefix );
-	system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
-		'-in', $temp_infile, '-logfile', '/dev/null', '-parse_seqids', '-dbtype', 'nucl' );
+	system( "$self->{'config'}->{'blast+_path'}/makeblastdb", ( -in => $temp_infile, -logfile => '/dev/null', -dbtype => 'nucl' ) );
 	return $temp_infile;
 }
 1;

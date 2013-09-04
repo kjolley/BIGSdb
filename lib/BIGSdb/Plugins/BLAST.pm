@@ -412,15 +412,21 @@ sub _blast {
 	my $blastn_word_size = $self->{'cgi'}->param('word_size') =~ /(\d+)/ ? $1 : 11;
 	my $hits             = $self->{'cgi'}->param('hits')      =~ /(\d+)/ ? $1 : 1;
 	my $word_size = $program eq 'blastn' ? ($blastn_word_size) : 3;
-	system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
-		'-in', $temp_fastafile, '-logfile', '/dev/null', '-parse_seqids', '-dbtype', 'nucl' );
+	system( "$self->{'config'}->{'blast+_path'}/makeblastdb", ( -in => $temp_fastafile, -logfile => '/dev/null', -dbtype => 'nucl' ) );
 	my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
 	my $filter = $program eq 'blastn' ? 'dust' : 'seg';
 	system(
 		"$self->{'config'}->{'blast+_path'}/$program",
-		'-num_threads', $blast_threads, '-max_target_seqs', $hits,         '-parse_deflines', '-word_size',
-		$word_size,     '-db',          $temp_fastafile,    '-query',   $temp_queryfile,   '-out',
-		$temp_outfile,  '-outfmt',      6,                  "-$filter", 'no'
+		(
+			-num_threads     => $blast_threads,
+			-max_target_seqs => $hits,
+			-word_size       => $word_size,
+			-db              => $temp_fastafile,
+			-query           => $temp_queryfile,
+			-out             => $temp_outfile,
+			-outfmt          => 6,
+			"-$filter"       => 'no'
+		)
 	);
 	my $matches = $self->_parse_blast( $outfile_url, $hits );
 

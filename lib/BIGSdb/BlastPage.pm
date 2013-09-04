@@ -115,7 +115,7 @@ sub run_blast {
 					$dbtype = $run eq 'DNA' ? 'nucl' : 'prot';
 				}
 				system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
-					'-in', $temp_fastafile, '-logfile', '/dev/null', '-parse_seqids', '-dbtype', $dbtype );
+					( -in => $temp_fastafile, -logfile => '/dev/null', -dbtype => $dbtype ) );
 			}
 		}
 		if ( !-z $temp_fastafile ) {
@@ -155,7 +155,7 @@ sub run_blast {
 				-$filter         => 'no'
 			);
 			$params{'-evalue'} = 100000 if $run eq 'peptide';    #Not always returning matches with low complexity regions otherwise
-			system( "$self->{'config'}->{'blast+_path'}/$program", '-parse_deflines', %params );
+			system( "$self->{'config'}->{'blast+_path'}/$program", %params );
 
 			if ( $run eq 'DNA' ) {
 				rename( $temp_outfile, "$temp_outfile\.1" );

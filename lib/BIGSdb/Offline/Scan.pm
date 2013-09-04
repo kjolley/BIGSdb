@@ -71,8 +71,7 @@ sub blast {
 		}
 		close $fasta_fh;
 		my $dbtype = $locus_info->{'data_type'} eq 'DNA' ? 'nucl' : 'prot';
-		system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
-			'-in', $temp_fastafile, '-logfile', '/dev/null', '-parse_seqids', '-dbtype', $dbtype );
+		system( "$self->{'config'}->{'blast+_path'}/makeblastdb", ( -in => $temp_fastafile, -logfile => '/dev/null', -dbtype => $dbtype ) );
 	}
 
 	#create query fasta file
@@ -149,9 +148,16 @@ sub blast {
 		my $filter = $program eq 'blastn' ? 'dust' : 'seg';
 		system(
 			"$self->{'config'}->{'blast+_path'}/$program",
-			'-num_threads', $blast_threads, '-max_target_seqs', 1000,       '-parse_deflines', '-word_size',
-			$word_size,     '-db',          $temp_fastafile,    '-query',   $temp_infile,      '-out',
-			$temp_outfile,  '-outfmt',      6,                  "-$filter", 'no'
+			(
+				-num_threads     => $blast_threads,
+				-max_target_seqs => 1000,
+				-word_size       => $word_size,
+				-db              => $temp_fastafile,
+				-query           => $temp_infile,
+				-out             => $temp_outfile,
+				-outfmt          => 6,
+				"-$filter"       => 'no'
+			)
 		);
 		my ( $exact_matches, $matched_regions, $partial_matches );
 		my $pcr_filter   = !$params->{'pcr_filter'}   ? 0 : $locus_info->{'pcr_filter'};
@@ -164,10 +170,10 @@ sub blast {
 			  $self->_parse_blast_partial( $params, $locus, $matched_regions, $outfile_url, $pcr_filter, $pcr_products, $probe_filter,
 				$probe_matches )
 			  if !@$exact_matches
-				  || (   $locus_info->{'pcr_filter'}
-					  && !$params->{'pcr_filter'}
-					  && $locus_info->{'probe_filter'}
-					  && !$params->{'probe_filter'} );
+			  || ( $locus_info->{'pcr_filter'}
+				&& !$params->{'pcr_filter'}
+				&& $locus_info->{'probe_filter'}
+				&& !$params->{'probe_filter'} );
 		} else {
 			$logger->debug("$self->{'config'}->{'secure_tmp_dir'}/$outfile_url does not exist");
 		}
@@ -676,8 +682,8 @@ sub _parse_blast_exact {
 					foreach (@$pcr_products) {
 						next
 						  if $match->{'seqbin_id'} != $_->{'seqbin_id'}
-							  || $match->{'start'} < $_->{'start'}
-							  || $match->{'end'} > $_->{'end'};
+						  || $match->{'start'} < $_->{'start'}
+						  || $match->{'end'} > $_->{'end'};
 						$within_amplicon = 1;
 					}
 					next LINE if !$within_amplicon;
@@ -789,8 +795,8 @@ sub _parse_blast_partial {
 				foreach (@$pcr_products) {
 					next
 					  if $match->{'seqbin_id'} != $_->{'seqbin_id'}
-						  || $match->{'start'} < $_->{'start'}
-						  || $match->{'end'} > $_->{'end'};
+					  || $match->{'start'} < $_->{'start'}
+					  || $match->{'end'} > $_->{'end'};
 					$within_amplicon = 1;
 				}
 				next LINE if !$within_amplicon;
@@ -960,7 +966,7 @@ sub _simulate_PCR {
 			$logger->debug("Seqbin_id:$seqbin_id; $start-$end; mismatch1:$mismatch1; mismatch2:$mismatch2");
 			next
 			  if $mismatch1 > $conditions->{$reaction_id}->{'max_primer_mismatch'}
-				  || $mismatch2 > $conditions->{$reaction_id}->{'max_primer_mismatch'};
+			  || $mismatch2 > $conditions->{$reaction_id}->{'max_primer_mismatch'};
 			my $product =
 			  { 'seqbin_id' => $seqbin_id, 'start' => $start, 'end' => $end, 'mismatch1' => $mismatch1, 'mismatch2' => $mismatch2 };
 			push @pcr_products, $product;
@@ -999,14 +1005,20 @@ sub _simulate_hybridization {
 		$probe_info{ $_->{'id'} } = $_;
 	}
 	close $fh;
-	system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
-		'-in', $fasta_file, '-logfile', '/dev/null', '-parse_seqids', '-dbtype', 'nucl' );
+	system( "$self->{'config'}->{'blast+_path'}/makeblastdb", ( -in => $fasta_file, -logfile => '/dev/null', -dbtype => 'nucl' ) );
 	my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
 	system(
 		"$self->{'config'}->{'blast+_path'}/blastn",
-		'-task',           'blastn',  '-num_threads', $blast_threads, '-max_target_seqs', 1000,
-		'-parse_deflines', '-db',     $fasta_file,    '-out',         $results_file,      '-query',
-		$probe_fasta_file, '-outfmt', 6,              '-dust',        'no'
+		(
+			-task            => 'blastn',
+			-num_threads     => $blast_threads,
+			-max_target_seqs => 1000,
+			-db              => $fasta_file,
+			-out             => $results_file,
+			-query           => $probe_fasta_file,
+			-outfmt          => 6,
+			-dust            => 'no'
+		)
 	);
 	my @matches;
 	if ( -e $results_file ) {
