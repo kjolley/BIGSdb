@@ -83,14 +83,14 @@ sub run_blast {
 				if ( $options->{'locus'} =~ /SCHEME_(\d+)/ ) {
 					my $scheme_id = $1;
 					$qry = "SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT locus FROM scheme_members WHERE "
-					  . "scheme_id=$scheme_id) AND locus IN (SELECT id FROM loci WHERE data_type=?)";
+					  . "scheme_id=$scheme_id) AND locus IN (SELECT id FROM loci WHERE data_type=?) AND allele_id != 'N'";
 				} else {
 					$qry = "SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT id FROM loci WHERE data_type=?)";
 					my $set_id = $self->get_set_id;
 					if ($set_id) {
 						$qry .=
 						    " AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
-						  . "set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))";
+						  . "set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id)) AND allele_id != 'N'";
 					}
 				}
 			}
@@ -141,7 +141,7 @@ sub run_blast {
 			}
 			my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
 			my $filter    = $program eq 'blastn' ? 'dust' : 'seg';
-			my $word_size = $program eq 'blastn' ? 11     : 3;
+			my $word_size = $program eq 'blastn' ? ($options->{'word_size'} // 15) : 3;
 			my $format = $options->{'alignment'} ? 0 : 6;
 			$options->{'num_results'} //= 1000000;    #effectively return all results
 			my %params = (

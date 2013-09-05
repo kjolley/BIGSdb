@@ -132,7 +132,7 @@ sub print_content {
 	$action_args->{'set_id'} = $set_id if $set_id;
 	$self->print_action_fieldset($action_args);
 	say "</div></div>";
-	say $q->hidden($_) foreach qw (db page);
+	say $q->hidden($_) foreach qw (db page word_size);
 	say $q->end_form;
 	say "</div>";
 
@@ -197,6 +197,7 @@ sub _run_query {
 	my $cleaned_locus           = $self->clean_locus($locus);
 	my $locus_info              = $self->{'datastore'}->get_locus_info($locus);
 	my $text_filename           = BIGSdb::Utils::get_random() . '.txt';
+	my $word_size = $q->param('word_size') =~ /^(\d+)$/ ? $1 : 15;   #untaint
 	while ( my $seq_object = $seqin->next_seq ) {
 		if ( $ENV{'MOD_PERL'} ) {
 			$self->{'mod_perl_request'}->rflush;
@@ -208,7 +209,7 @@ sub _run_query {
 		my $seq_type = BIGSdb::Utils::is_valid_DNA($seq) ? 'DNA' : 'peptide';
 		my $qry_type = BIGSdb::Utils::sequence_type($seq);
 		( my $blast_file, $job ) =
-		  $self->run_blast( { locus => $locus, seq_ref => \$seq, qry_type => $qry_type, cache => 1, job => $job } );
+		  $self->run_blast( { locus => $locus, seq_ref => \$seq, qry_type => $qry_type, cache => 1, job => $job, word_size => $word_size } );
 		my $exact_matches = $self->parse_blast_exact( $locus, $blast_file );
 		my $data_ref = {
 			locus                   => $locus,
@@ -545,10 +546,10 @@ sub _output_single_query_nonexact {
 	my $seq_ref                 = $data->{'seq_ref'};
 	say "<div class=\"box\" id=\"resultsheader\">";
 	$self->_translate_button( $data->{seq_ref} ) if $data->{'seq_type'} eq 'DNA';
-	say "<p style=\"padding-top:0.5em\">Closest match: ";
+	say "<p>Closest match: ";
 	my $cleaned_match = $partial_match->{'allele'};
 	my $cleaned_locus;
-	my $flags;
+	my ($flags, $field_values);
 
 	if ($distinct_locus_selected) {
 		say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;"
@@ -556,6 +557,7 @@ sub _output_single_query_nonexact {
 		$cleaned_locus = $self->clean_locus($locus);
 		say "$cleaned_locus: ";
 		$flags = $self->{'datastore'}->get_allele_flags( $locus, $cleaned_match );
+		$field_values = $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $cleaned_match );
 	} else {
 		my ( $locus, $allele_id );
 		if ( $cleaned_match =~ /(.*):(.*)/ ) {
@@ -565,6 +567,7 @@ sub _output_single_query_nonexact {
 			say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;"
 			  . "allele_id=$allele_id\">";
 			$flags = $self->{'datastore'}->get_allele_flags( $locus, $allele_id );
+			$field_values = $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $allele_id );
 		}
 	}
 	say "$cleaned_match</a>";
@@ -574,6 +577,10 @@ sub _output_single_query_nonexact {
 		say " (Flag$plural: <a class=\"seqflag_tooltip\">@$flags</a>)" if @$flags;
 	}
 	say "</p>";
+	if ($field_values){
+		say "<p>This match is linked to the following data:</p>";
+		say $field_values;
+	}
 	my ( $data_type, $allele_seq_ref );
 	if ($distinct_locus_selected) {
 		$allele_seq_ref = $self->{'datastore'}->get_sequence( $locus, $partial_match->{'allele'} );
@@ -676,7 +683,7 @@ sub _output_single_query_nonexact {
 				num_results => 5,
 				alignment   => 1,
 				cache       => 1,
-				job         => $data->{'job'}
+				job         => $data->{'job'},
 			}
 		);
 		if ( -e "$self->{'config'}->{'secure_tmp_dir'}/$blast_file" ) {

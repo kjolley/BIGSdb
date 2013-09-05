@@ -1424,7 +1424,7 @@ sub get_next_allele_id {
 }
 
 sub get_client_data_linked_to_allele {
-	my ( $self, $locus, $allele_id, $td ) = @_;
+	my ( $self, $locus, $allele_id ) = @_;
 	my $sql =
 	  $self->{'db'}->prepare( "SELECT client_dbase_id,isolate_field FROM client_dbase_loci_fields WHERE allele_query AND "
 		  . "locus = ? ORDER BY client_dbase_id,isolate_field" );
@@ -1459,7 +1459,7 @@ sub get_client_data_linked_to_allele {
 			push @values, $value;
 		}
 		local $" = '; ';
-		$buffer .= "<dd>@values <span class=\"link\">$client_db_desc</span></dd>";
+		$buffer .= "<dd>@values <span class=\"source\">$client_db_desc</span></dd>";
 	}
 	$buffer = "<dl class=\"data\">\n$buffer\n</dl>" if $buffer;
 	return $buffer;
@@ -1469,7 +1469,7 @@ sub get_client_dbase_fields {
 
 	#TODO deprecate and use get_client_data_linked_to_allele instead.
 	my ( $self, $locus, $allele_ids_refs ) = @_;
-	return [] if ref $allele_ids_refs ne 'ARRAY';
+	return if ref $allele_ids_refs ne 'ARRAY';
 	my $sql = $self->{'db'}->prepare("SELECT client_dbase_id,isolate_field FROM client_dbase_loci_fields WHERE allele_query AND locus = ?");
 	eval { $sql->execute($locus) };
 	$logger->error($@) if $@;

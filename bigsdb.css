@@ -401,6 +401,7 @@ tr.warning {background:#e0a0a0;color:black}
 span.statusgood {color:green}
 span.statusbad {color:red}
 span.link {padding:0 0.5em;font-size:0.8em; background:green; color:white;}
+span.source {padding:0 0.5em;font-size:0.8em; background:green; color:white;}
 span.metaset {padding:0 0.5em;font-size:0.8em; background:blue; color:white;}
 span.highlightvalue {background:#ffffa0; border-bottom:1px solid #e0e000; color: #400000}
 
