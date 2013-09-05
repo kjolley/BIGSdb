@@ -385,29 +385,14 @@ HTML
 	  . "name.  Make sure your file has a standard extension, e.g. .gb, .embl, .fas.\">&nbsp;<i>i</i>&nbsp;</a><br />";
 	say "</fieldset>\n<fieldset style=\"float:left\">\n<legend>Parameters / options</legend>";
 	say "<ul><li><label for =\"identity\" class=\"parameter\">Min % identity:</label>";
-	say $q->popup_menu(
-		-name    => 'identity',
-		-id      => 'identity',
-		-values  => [qw(30 35 40 45 50 55 60 65 70 75 80 85 90 91 92 93 94 95 96 97 98 99 100)],
-		-default => 70
-	);
+	say $q->popup_menu( -name => 'identity', -id => 'identity', -values => [ 30 .. 100 ], -default => 70 );
 	say " <a class=\"tooltip\" title=\"Minimum % identity - Match required for partial matching.\">&nbsp;<i>i</i>&nbsp;</a></li>";
 	say "<li><label for=\"alignment\" class=\"parameter\">Min % alignment:</label>";
-	say $q->popup_menu(
-		-name    => 'alignment',
-		-id      => 'alignment',
-		-values  => [qw(10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 90 91 92 93 94 95 96 97 98 99 100)],
-		-default => 50
-	);
+	say $q->popup_menu( -name => 'alignment', -id => 'alignment', -values => [ 10 .. 100 ], -default => 50 );
 	say " <a class=\"tooltip\" title=\"Minimum % alignment - Percentage of allele sequence length required to be aligned for "
 	  . "partial matching.\">&nbsp;<i>i</i>&nbsp;</a></li>";
 	say "<li><label for=\"word_size\" class=\"parameter\">BLASTN word size:</label>";
-	say $q->popup_menu(
-		-name    => 'word_size',
-		-id      => 'word_size',
-		-values  => [qw(8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28)],
-		-default => 15
-	);
+	say $q->popup_menu( -name => 'word_size', -id => 'word_size', -values => [ 7 .. 30 ], -default => 15 );
 	say " <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. "
 	  . "Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a></li>";
 	say "<li><span class=\"warning\">";
@@ -451,12 +436,7 @@ HTML
 HTML
 	say "</ul></fieldset><fieldset style=\"float:left\"><legend>Core genome analysis</legend><ul>";
 	say "<li><label for=\"core_threshold\">Core threshold (%):</label>";
-	say $q->popup_menu(
-		-name    => 'core_threshold',
-		-id      => 'core_threshold',
-		-values  => [qw (80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100)],
-		-default => 90
-	);
+	say $q->popup_menu( -name => 'core_threshold', -id => 'core_threshold', -values => [ 80 .. 100 ], -default => 90 );
 	print <<"HTML";
  <a class="tooltip" title="Core threshold - Percentage of isolates that locus must be present in to be considered part
  of the core genome.">&nbsp;<i>i</i>&nbsp;</a></li>
