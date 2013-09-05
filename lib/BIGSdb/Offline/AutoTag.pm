@@ -36,6 +36,7 @@ sub run_script {
 	local @SIG{qw (INT TERM HUP)} = ( sub { $EXIT = 1 } ) x 3;    #Allow temp files to be cleaned on kill signals
 	my $params;
 	$params->{$_} = 1 foreach qw(pcr_filter probe_filter);
+	$params->{'word_size'} = 30;                                  #Only looking for exact matches.
 	die "No connection to database (check logs).\n" if !defined $self->{'db'} || $self->{'system'}->{'dbtype'} ne 'isolates';
 	my $tag_user_id = TAG_USER;
 	$self->{'username'} = TAG_USERNAME;
@@ -204,9 +205,9 @@ sub _tag_sequence {
 	if ( defined $existing ) {
 		foreach (@$existing) {
 			return
-			  if $_->{'seqbin_id'} == $values->{'seqbin_id'}
-				  && $_->{'start_pos'} == $values->{'start_pos'}
-				  && $_->{'end_pos'} == $values->{'end_pos'};
+			     if $_->{'seqbin_id'} == $values->{'seqbin_id'}
+			  && $_->{'start_pos'} == $values->{'start_pos'}
+			  && $_->{'end_pos'} == $values->{'end_pos'};
 		}
 	}
 	my $sql =
