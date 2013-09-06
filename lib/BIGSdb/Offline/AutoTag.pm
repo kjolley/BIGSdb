@@ -48,7 +48,10 @@ sub run_script {
 	  if !$user_ok;
 	my $isolates     = $self->get_isolates_with_linked_seqs;
 	my $isolate_list = $self->_filter_and_sort_isolates($isolates);
-	die "No isolates selected.\n" if !@$isolate_list;
+	if (!@$isolate_list){
+		exit(0) if $self->{'options'}->{'n'};
+		die "No isolates selected.\n";
+	}
 	my $loci = $self->get_loci_with_ref_db;
 	die "No valid loci selected.\n" if !@$loci;
 	$self->{'start_time'} = time;
@@ -119,7 +122,7 @@ sub _filter_and_sort_isolates {
 	my ( $self, $isolates, ) = @_;
 	my @exclude_isolates;
 	if ( $self->{'options'}->{'I'} ) {
-		@exclude_isolates = split /\,/, $self->{'options'}->{'I'};
+		@exclude_isolates = split /,/, $self->{'options'}->{'I'};
 	}
 	if ( $self->{'options'}->{'P'} ) {
 		push @exclude_isolates, @{ $self->_get_isolates_excluded_by_project };

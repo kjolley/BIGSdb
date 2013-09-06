@@ -683,7 +683,7 @@ sub _output_single_query_nonexact {
 				num_results => 5,
 				alignment   => 1,
 				cache       => 1,
-				job         => $data->{'job'},
+				job         => $data->{'job'}
 			}
 		);
 		if ( -e "$self->{'config'}->{'secure_tmp_dir'}/$blast_file" ) {
