@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use List::Util qw(shuffle);
-use List::MoreUtils qw(none any uniq);
+use List::MoreUtils qw(none uniq);
 use POSIX qw(strftime);
 use parent qw(BIGSdb::Offline::Scan);
 use BIGSdb::Utils;
@@ -46,46 +46,20 @@ sub run_script {
 	die "Database user '$self->{'username'}' not set.  Enter a user '$self->{'username'}' with id $tag_user_id in the database "
 	  . "to represent the auto tagger.\n"
 	  if !$user_ok;
-	my $isolates = $self->get_isolates_with_linked_seqs;
-	my @exclude_isolates;
-
-	if ( $self->{'options'}->{'I'} ) {
-		@exclude_isolates = split /,/, $self->{'options'}->{'I'};
-	}
-	if ( $self->{'options'}->{'P'} ) {
-		push @exclude_isolates, @{ $self->_get_isolates_excluded_by_project };
-		@exclude_isolates = uniq(@exclude_isolates);
-	}
-	if ( $self->{'options'}->{'r'} ) {
-		@$isolates = shuffle(@$isolates);
-	} elsif ( $self->{'options'}->{'o'} ) {
-		my $tag_date = $self->_get_last_tagged_date($isolates);
-		@$isolates = sort { $tag_date->{$a} cmp $tag_date->{$b} } @$isolates;
-	}
-	die "No isolates selected.\n" if !@$isolates;
+	my $isolates     = $self->get_isolates_with_linked_seqs;
+	my $isolate_list = $self->_filter_and_sort_isolates($isolates);
+	die "No isolates selected.\n" if !@$isolate_list;
 	my $loci = $self->get_loci_with_ref_db;
 	die "No valid loci selected.\n" if !@$loci;
 	$self->{'start_time'} = time;
 	my $isolate_prefix = BIGSdb::Utils::get_random();
 	my $locus_prefix   = BIGSdb::Utils::get_random();
 	$self->{'logger'}->info( "Autotagger start ($self->{'options'}->{'d'}): " . strftime( '%d-%b-%Y %H:%M', localtime ) );
-  ISOLATE: foreach my $isolate_id (@$isolates) {
-		next if $self->{'options'}->{'n'} && $self->_is_previously_tagged($isolate_id);
-		if ( $self->{'options'}->{'m'} && BIGSdb::Utils::is_int( $self->{'options'}->{'m'} ) ) {
-			my $size = $self->_get_size_of_seqbin($isolate_id);
-			next if $size < $self->{'options'}->{'m'};
-		}
-		if (
-			( $self->{'options'}->{'x'} && BIGSdb::Utils::is_int( $self->{'options'}->{'x'} ) && $self->{'options'}->{'x'} > $isolate_id )
-			|| (   $self->{'options'}->{'y'}
-				&& BIGSdb::Utils::is_int( $self->{'options'}->{'y'} )
-				&& $self->{'options'}->{'y'} < $isolate_id )
-		  )
-		{
-			next;
-		}
-		next if any { BIGSdb::Utils::is_int($_) && $isolate_id == $_ } @exclude_isolates;
-		$self->{'logger'}->info("$self->{'options'}->{'d'}:Checking isolate $isolate_id");
+	my $i = 0;
+  ISOLATE: foreach my $isolate_id (@$isolate_list) {
+		$i++;
+		my $complete = BIGSdb::Utils::decimal_place( ( $i * 100 / @$isolate_list ), 1 );
+		$self->{'logger'}->info( "$self->{'options'}->{'d'}:Checking isolate $isolate_id - $i/" . (@$isolate_list) . "($complete%)" );
 		undef $self->{'history'};
 	  LOCUS: foreach my $locus (@$loci) {
 			next if defined $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
@@ -139,6 +113,45 @@ sub run_script {
 	}
 	$self->{'logger'}->info( "Autotagger stop ($self->{'options'}->{'d'}): " . strftime( '%d-%b-%Y %H:%M', localtime ) );
 	return;
+}
+
+sub _filter_and_sort_isolates {
+	my ( $self, $isolates, ) = @_;
+	my @exclude_isolates;
+	if ( $self->{'options'}->{'I'} ) {
+		@exclude_isolates = split /\,/, $self->{'options'}->{'I'};
+	}
+	if ( $self->{'options'}->{'P'} ) {
+		push @exclude_isolates, @{ $self->_get_isolates_excluded_by_project };
+		@exclude_isolates = uniq(@exclude_isolates);
+	}
+	if ( $self->{'options'}->{'r'} ) {
+		@$isolates = shuffle(@$isolates);
+	} elsif ( $self->{'options'}->{'o'} ) {
+		my $tag_date = $self->_get_last_tagged_date($isolates);
+		@$isolates = sort { $tag_date->{$a} cmp $tag_date->{$b} } @$isolates;
+	}
+	my %exclude = map { $_ => 1 } @exclude_isolates;
+	my @list;
+	foreach my $isolate_id (@$isolates) {
+		next if $exclude{$isolate_id};
+		next if $self->{'options'}->{'n'} && $self->_is_previously_tagged($isolate_id);
+		if ( $self->{'options'}->{'m'} && BIGSdb::Utils::is_int( $self->{'options'}->{'m'} ) ) {
+			my $size = $self->_get_size_of_seqbin($isolate_id);
+			next if $size < $self->{'options'}->{'m'};
+		}
+		if (
+			( $self->{'options'}->{'x'} && BIGSdb::Utils::is_int( $self->{'options'}->{'x'} ) && $self->{'options'}->{'x'} > $isolate_id )
+			|| (   $self->{'options'}->{'y'}
+				&& BIGSdb::Utils::is_int( $self->{'options'}->{'y'} )
+				&& $self->{'options'}->{'y'} < $isolate_id )
+		  )
+		{
+			next;
+		}
+		push @list, $isolate_id;
+	}
+	return \@list;
 }
 
 sub _is_time_up {
