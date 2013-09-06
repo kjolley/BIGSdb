@@ -157,7 +157,6 @@ RIGHT_BUFFER
 	}
 	say "<div class=\"box\" id=\"resultstable\">";
 	say "<div class=\"scrollable\"><table><tr><td style=\"vertical-align:top\">";
-	say "<h2>Isolate summary:</h2>";
 	$self->_display_isolate_summary($id);
 	say "<h2>Update other loci:</h2>";
 	print $q->start_form;
