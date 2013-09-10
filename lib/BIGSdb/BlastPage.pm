@@ -154,9 +154,10 @@ sub run_blast {
 				-outfmt          => $format,
 				-$filter         => 'no'
 			);
-			$params{'-evalue'} = 100000 if $run eq 'peptide';    #Not always returning matches with low complexity regions otherwise
-			system( "$self->{'config'}->{'blast+_path'}/$program", %params );
 
+			#Not always returning matches with low complexity regions otherwise, however it takes too long if a long sequence is queried.
+			$params{'-evalue'} = 10000 if $run eq 'peptide' && length ${ $options->{'seq_ref'} } < 10000;
+			system( "$self->{'config'}->{'blast+_path'}/$program", %params );
 			if ( $run eq 'DNA' ) {
 				rename( $temp_outfile, "$temp_outfile\.1" );
 			}

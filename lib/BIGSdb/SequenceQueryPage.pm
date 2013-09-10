@@ -188,16 +188,15 @@ sub _run_query {
 	my $first = 1;
 	my $job   = 0;
 	my $locus = $q->param('locus');
-
-	if ( $locus =~ /^cn_(.+)$/ ) {
-		$locus = $1;
-	}
+	$locus =~ s/^cn_//;
 	$locus //= 0;
 	my $distinct_locus_selected = ( $locus && $locus !~ /SCHEME_\d+/ ) ? 1 : 0;
 	my $cleaned_locus           = $self->clean_locus($locus);
 	my $locus_info              = $self->{'datastore'}->get_locus_info($locus);
 	my $text_filename           = BIGSdb::Utils::get_random() . '.txt';
-	my $word_size = $q->param('word_size') =~ /^(\d+)$/ ? $1 : 15;   #untaint
+	my $word_size               = $q->param('word_size') =~ /^(\d+)$/ ? $1 : undef;    #untaint
+	$word_size //= $locus ? 15 : 30;    #Use big word size when querying 'all loci' as we're mainly interested in exact matches.
+
 	while ( my $seq_object = $seqin->next_seq ) {
 		if ( $ENV{'MOD_PERL'} ) {
 			$self->{'mod_perl_request'}->rflush;
@@ -209,7 +208,8 @@ sub _run_query {
 		my $seq_type = BIGSdb::Utils::is_valid_DNA($seq) ? 'DNA' : 'peptide';
 		my $qry_type = BIGSdb::Utils::sequence_type($seq);
 		( my $blast_file, $job ) =
-		  $self->run_blast( { locus => $locus, seq_ref => \$seq, qry_type => $qry_type, cache => 1, job => $job, word_size => $word_size } );
+		  $self->run_blast(
+			{ locus => $locus, seq_ref => \$seq, qry_type => $qry_type, cache => 1, job => $job, word_size => $word_size } );
 		my $exact_matches = $self->parse_blast_exact( $locus, $blast_file );
 		my $data_ref = {
 			locus                   => $locus,
@@ -549,7 +549,7 @@ sub _output_single_query_nonexact {
 	say "<p>Closest match: ";
 	my $cleaned_match = $partial_match->{'allele'};
 	my $cleaned_locus;
-	my ($flags, $field_values);
+	my ( $flags, $field_values );
 
 	if ($distinct_locus_selected) {
 		say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;"
@@ -577,7 +577,7 @@ sub _output_single_query_nonexact {
 		say " (Flag$plural: <a class=\"seqflag_tooltip\">@$flags</a>)" if @$flags;
 	}
 	say "</p>";
-	if ($field_values){
+	if ($field_values) {
 		say "<p>This match is linked to the following data:</p>";
 		say $field_values;
 	}
