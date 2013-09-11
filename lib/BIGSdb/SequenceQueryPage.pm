@@ -194,9 +194,8 @@ sub _run_query {
 	my $cleaned_locus           = $self->clean_locus($locus);
 	my $locus_info              = $self->{'datastore'}->get_locus_info($locus);
 	my $text_filename           = BIGSdb::Utils::get_random() . '.txt';
-	my $word_size               = $q->param('word_size') =~ /^(\d+)$/ ? $1 : undef;    #untaint
+	my $word_size               = ($q->param('word_size') && $q->param('word_size') =~ /^(\d+)$/) ? $1 : undef;    #untaint
 	$word_size //= $locus ? 15 : 30;    #Use big word size when querying 'all loci' as we're mainly interested in exact matches.
-
 	while ( my $seq_object = $seqin->next_seq ) {
 		if ( $ENV{'MOD_PERL'} ) {
 			$self->{'mod_perl_request'}->rflush;
