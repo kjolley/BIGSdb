@@ -164,6 +164,7 @@ sub _check {
 	my $prefix     = BIGSdb::Utils::get_random();
 	my $file       = "$self->{'config'}->{'secure_tmp_dir'}/$prefix.txt";
 	my $table_rows = 0;
+	my $set_id     = $self->get_set_id;
 
 	foreach my $row (@rows) {
 		my @cols = split /\t/, $row;
@@ -177,17 +178,29 @@ sub _check {
 		$id2[$i] ||= '';
 		$id2[$i] =~ s/%20/ /g;
 		$value[$i] =~ s/\s*$//g if defined $value[$i];
-		my $displayvalue = $value[$i];
-		my $badField     = 0;
-		my $is_locus     = $self->{'datastore'}->is_locus( $field[$i] );
+		my $display_value = $value[$i];
+		my $bad_field     = 0;
+		my $is_locus      = $self->{'datastore'}->is_locus( $field[$i] );
 
 		if ( !( $self->{'xmlHandler'}->is_field( $field[$i] ) || $is_locus ) ) {
-			$badField = 1;
+
+			#Check if there is an extended metadata field
+			my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
+			my $meta_fields = $self->{'xmlHandler'}->get_field_list( $metadata_list, { meta_fields_only => 1 } );
+			my $field_is_metafield = 0;
+			foreach my $meta_field (@$meta_fields) {
+				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($meta_field);
+				if ( $metafield eq $field[$i] ) {
+					$field[$i] = "meta_$metaset:$metafield";
+					$field_is_metafield = 1;
+				}
+			}
+			$bad_field = 1 if !$field_is_metafield;
 		}
 		$update[$i] = 0;
 		my ( $oldvalue, $action );
 		if ( $i && defined $value[$i] && $value[$i] ne '' ) {
-			if ( !$badField ) {
+			if ( !$bad_field ) {
 				my $count;
 				my @args;
 				push @args, $id[$i];
@@ -282,12 +295,13 @@ sub _check {
 				$oldvalue = "<span class=\"statusbad\">field not recognised</span>";
 				$action   = "<span class=\"statusbad\">no action</span>";
 			}
-			$displayvalue =~ s/<blank>/&lt;blank&gt;/;
+			$display_value =~ s/<blank>/&lt;blank&gt;/;
+			( my $display_field = $field[$i] ) =~ s/^meta_.*://;
 			if ( $id->{'field2'} ne '<none>' ) {
-				$buffer .= "<tr class=\"td$td\"><td>$i</td><td>$id[$i]</td><td>$id2[$i]</td><td>$field[$i]</td>"
-				  . "<td>$displayvalue</td><td>$oldvalue</td><td>$action</td></tr>\n";
+				$buffer .= "<tr class=\"td$td\"><td>$i</td><td>$id[$i]</td><td>$id2[$i]</td><td>$display_field</td>"
+				  . "<td>$display_value</td><td>$oldvalue</td><td>$action</td></tr>\n";
 			} else {
-				$buffer .= "<tr class=\"td$td\"><td>$i</td><td>$id[$i]</td><td>$field[$i]</td><td>$displayvalue</td>"
+				$buffer .= "<tr class=\"td$td\"><td>$i</td><td>$id[$i]</td><td>$display_field</td><td>$display_value</td>"
 				  . "<td>$oldvalue</td><td>$action</td></tr>";
 			}
 			$table_rows++;
@@ -438,10 +452,12 @@ sub _update {
 		$tablebuffer .= "<tr class=\"td$td\"><td>$id->{'field1'}='$id1'";
 		$tablebuffer .= " AND $id->{'field2'}='$id2'" if $id->{'field2'} ne '<none>';
 		$value //= '&lt;blank&gt;';
-		$tablebuffer .= "</td><td>$field</td><td>$value</td>";
+		( my $display_field = $field ) =~ s/^meta_.*://;
+		$tablebuffer .= "</td><td>$display_field</td><td>$value</td>";
 		my $update_sql = $self->{'db'}->prepare($qry);
 		eval {
 			$update_sql->execute(@args);
+
 			if ($qry2) {
 				my $delete_sql = $self->{'db'}->prepare($qry2);
 				$delete_sql->execute(@args2);
@@ -456,7 +472,8 @@ sub _update {
 			$tablebuffer .= "<td class=\"statusgood\">done!</td></tr>\n";
 			$old_value //= '';
 			$value = '' if $value eq '&lt;blank&gt;';
-			$self->update_history( $isolate_id, "$field: '$old_value' -> '$value'" ) if $old_value ne $value;
+			( my $display_field = $field ) =~ s/^meta_.*://;
+			$self->update_history( $isolate_id, "$display_field: '$old_value' -> '$value'" ) if $old_value ne $value;
 		}
 		$td = $td == 1 ? 2 : 1;
 	}
