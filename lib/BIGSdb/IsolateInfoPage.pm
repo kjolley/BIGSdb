@@ -358,14 +358,14 @@ sub _get_provenance_fields {
 			my $colspan  = $summary_view ? 5 : 2;
 			my $person   = "$userdata->{first_name} $userdata->{surname}";
 			if ( !$summary_view && !( $field eq 'sender' && $data->{'sender'} == $data->{'curator'} ) ) {
-				$person .= ", $userdata->{affiliation}";
+				$person .= ", $userdata->{affiliation}" if $value > 0;
 				if (
 					$field eq 'curator'
 					|| ( ( $field eq 'sender' || ( ( $thisfield->{'userfield'} // '' ) eq 'yes' ) )
 						&& !$self->{'system'}->{'privacy'} )
 				  )
 				{
-					if ( $userdata->{'email'} ne '' && $userdata->{'email'} ne '-' ) {
+					if ( $value > 0 && $userdata->{'email'} ne '' && $userdata->{'email'} ne '-' ) {
 						$person .= " (E-mail: <a href=\"mailto:$userdata->{'email'}\">$userdata->{'email'}</a>)";
 					}
 				}
