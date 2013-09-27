@@ -237,14 +237,18 @@ sub _print_user_groups {
 
 sub _print_isolates {
 	my ( $self, $td, $set_string ) = @_;
+	my $exists     = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'})")->[0];
+	my $query_cell = $exists
+	  ? qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateQuery$set_string">query</a> | 
+<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=browse$set_string">browse</a> |
+<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=listQuery$set_string">list</a> |
+<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchIsolateUpdate$set_string">batch&nbsp;update</a>)
+	  : '';
 	my $buffer = <<"HTML";
 <tr class="td$td"><td>isolates</td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateAdd$set_string">+</a></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=isolates$set_string">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateQuery$set_string">query</a> | 
-<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=browse$set_string">browse</a> |
-<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=listQuery$set_string">list</a> |
-<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchIsolateUpdate$set_string">batch&nbsp;update</a></td>
+<td>$query_cell</td>
 <td></td></tr>
 HTML
 	return $buffer;
@@ -252,7 +256,8 @@ HTML
 
 sub _print_isolate_aliases {
 	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table( 'isolate_aliases', $td, { comments => 'Add alternative names for isolates.', set_string => $set_string } );
+	return $self->_print_table( 'isolate_aliases', $td,
+		{ comments => 'Add alternative names for isolates.', set_string => $set_string, requires => $self->{'system'}->{'view'} } );
 }
 
 sub _print_isolate_field_extended_attributes {
@@ -284,16 +289,25 @@ sub _print_isolate_value_extended_attributes {
 
 sub _print_refs {
 	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table( 'refs', $td, { title => 'PubMed links', set_string => $set_string } );
+	return $self->_print_table( 'refs', $td,
+		{ title => 'PubMed links', set_string => $set_string, requires => $self->{'system'}->{'view'} } );
 }
 
 sub _print_allele_designations {
 	my ( $self, $td, $set_string ) = @_;
+	my $isolates_exists = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'})")->[0];
+	throw BIGSdb::DataException("No isolates") if !$isolates_exists;
+	my $exists = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT isolate_id FROM allele_designations)")->[0];
+	my $query_cell =
+	  $exists
+	  ? "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=allele_designations"
+	  . "$set_string\">?</a>"
+	  : '';
 	my $buffer = <<"HTML";
 <tr class="td$td"><td>allele designations</td>
 <td></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=allele_designations$set_string">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=allele_designations$set_string">?</a></td>
+<td>$query_cell</td>
 <td class="comment" style="text-align:left">Allele designations can be set within the isolate table functions.</td></tr>
 HTML
 	return $buffer;
@@ -301,11 +315,18 @@ HTML
 
 sub _print_sequence_bin {
 	my ( $self, $td, $set_string ) = @_;
+	my $isolates_exists = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'})")->[0];
+	throw BIGSdb::DataException("No isolates") if !$isolates_exists;
+	my $exists = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT id FROM sequence_bin)")->[0];
+	my $query_cell =
+	  $exists
+	  ? "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=sequence_bin$set_string\">?</a>"
+	  : '';
 	my $buffer = <<"HTML";
 <tr class="td$td"><td>sequences</td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=sequence_bin$set_string">+</a></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin$set_string">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=sequence_bin$set_string">?</a></td>
+<td>$query_cell</td>
 <td class="comment" style="text-align:left">The sequence bin holds sequence contigs from any source.</td></tr>
 HTML
 	return $buffer;
@@ -313,8 +334,16 @@ HTML
 
 sub _print_accession {
 	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table( 'accession', $td,
-		{ title => 'accession number links', comments => 'Tag sequences with Genbank/EMBL accession number.', set_string => $set_string } );
+	return $self->_print_table(
+		'accession',
+		$td,
+		{
+			title      => 'accession number links',
+			comments   => 'Associate sequences with Genbank/EMBL accession number.',
+			set_string => $set_string,
+			requires   => $self->{'system'}->{'dbtype'} eq 'sequences' ? 'sequences' : 'sequence_bin'
+		}
+	);
 }
 
 sub _print_experiments {
@@ -325,12 +354,17 @@ sub _print_experiments {
 
 sub _print_experiment_sequences {
 	my ( $self, $td, $set_string ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>experiment sequence links</td><td></td><td></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=experiment_sequences$set_string">?</a></td>
-<td class="comment" style="text-align:left">Query/delete links associating sequences to experiments.</td></tr>	
-HTML
-	return $buffer;
+	return $self->_print_table(
+		'experiment_sequences',
+		$td,
+		{
+			requires   => 'projects',
+			comments   => 'Add links associating sequences to experiments.',
+			set_string => $set_string,
+			requires   => 'experiments',
+			no_add     => 1
+		}
+	);
 }
 
 sub _print_samples {
@@ -349,10 +383,18 @@ HTML
 
 sub _print_allele_sequences {
 	my ( $self, $td, $set_string ) = @_;
+	my $seqbin_exists = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT id FROM sequence_bin)")->[0];
+	throw BIGSdb::DataException("No sequences in bin") if !$seqbin_exists;
+	my $exists = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT seqbin_id FROM allele_sequences)")->[0];
+	my $query_cell =
+	  $exists
+	  ? "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=allele_sequences"
+	  . "$set_string\">?</a>"
+	  : '';
 	my $buffer = <<"HTML";
 <tr class="td$td"><td>sequence tags</td>
 <td colspan="2"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan$set_string">scan</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=allele_sequences$set_string">?</a></td>
+<td>$query_cell</td>
 <td class="comment" style="text-align:left" >Tag regions of sequences within the sequence bin with locus information.</td></tr>
 HTML
 	return $buffer;
@@ -522,7 +564,8 @@ sub _print_profile_refs {
 sub _print_projects {
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'projects', $td,
-		{ comments => 'Set up projects to which isolates can belong.', set_string => $set_string } );
+		{ comments => 'Set up projects to which isolates can belong.', set_string => $set_string, requires => $self->{'system'}->{'view'} }
+	);
 }
 
 sub _print_project_members {
@@ -534,16 +577,22 @@ sub _print_project_members {
 sub _print_loci {
 	my ( $self, $td, $set_string ) = @_;
 	my $locus_rowspan = $self->{'system'}->{'dbtype'} eq 'isolates' ? 2 : 1;
+	my $exists = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT id FROM loci)")->[0];
+	my $query_cell =
+	  $exists
+	  ? "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=loci$set_string\">?</a>"
+	  : '';
 	my $buffer = <<"HTML";
 <tr class="td$td"><td rowspan="$locus_rowspan">loci</td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=loci$set_string">+</a></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=loci$set_string">++</a></td>
-<td rowspan="$locus_rowspan"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=loci$set_string">?</a></td>
+<td rowspan="$locus_rowspan">$query_cell</td>
 <td style="text-align:left" class="comment" rowspan="$locus_rowspan"></td></tr>
 HTML
 	if ( $locus_rowspan = $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$buffer .= <<"HTML";
-<tr class="td$td"><td colspan="2"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=databankScan$set_string">databank scan</a></td></tr>
+<tr class="td$td"><td colspan="2"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=databankScan$set_string">
+databank scan</a></td></tr>
 HTML
 	}
 	return $buffer;
@@ -688,12 +737,17 @@ sub _print_client_dbase_schemes {
 
 sub _print_composite_fields {
 	my ( $self, $td, $set_string ) = @_;
+	my $exists = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT id FROM composite_fields)")->[0];
+	my $query_cell =
+	  $exists
+	  ? "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=compositeQuery$set_string\">?</a>"
+	  : '';
 	my $buffer = <<"HTML";
 <tr class="td$td"><td>composite fields</td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=composite_fields$set_string">+</a></td>
-<td></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=compositeQuery$set_string">?</a></td>
-<td style="text-align:left" class="comment">Used to construct composite fields consisting of fields from isolate, loci or scheme fields.</td></tr>
+<td></td><td>$query_cell</td>
+<td style="text-align:left" class="comment">Used to construct composite fields consisting of fields from isolate, loci or scheme 
+fields.</td></tr>
 HTML
 	return $buffer;
 }
@@ -782,11 +836,14 @@ sub _print_table {
 	my $title = $values->{'title'} // $table;
 	$title =~ tr/_/ /;
 	my $comments = $values->{'comments'} // '';
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>$title</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=$table$set_string">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=$table$set_string">++</a></td>
-HTML
+	my $buffer = "<tr class=\"td$td\"><td>$title</td>";
+	if ( !$values->{'no_add'} ) {
+		$buffer .= qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=$table$set_string">
+		+</a></td>
+		<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=$table$set_string">++</a></td>);
+	} else {
+		$buffer .= "<td></td>" x 2;
+	}
 	my $records_exist = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT * FROM $table)")->[0];
 	$buffer .=
 	  $records_exist
