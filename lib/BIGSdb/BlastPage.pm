@@ -65,11 +65,9 @@ sub run_blast {
 				if ( -f $new_path ) {
 					$logger->error("Can't create directory $new_path for cache files - a filename exists with this name.");
 				} else {
-					eval {
-						mkpath($new_path);
-						unlink $stale_flag_file;
-					};
+					eval { mkpath($new_path) };
 					$logger->error($@) if $@;
+					unlink $stale_flag_file if $run eq $runs[-1]; #only remove stale flag when creating last BLAST databases
 				}
 			}
 		} else {
@@ -140,8 +138,8 @@ sub run_blast {
 				}
 			}
 			my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
-			my $filter    = $program eq 'blastn' ? 'dust' : 'seg';
-			my $word_size = $program eq 'blastn' ? ($options->{'word_size'} // 15) : 3;
+			my $filter = $program eq 'blastn' ? 'dust' : 'seg';
+			my $word_size = $program eq 'blastn' ? ( $options->{'word_size'} // 15 ) : 3;
 			my $format = $options->{'alignment'} ? 0 : 6;
 			$options->{'num_results'} //= 1000000;    #effectively return all results
 			my %params = (
