@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Page);
+use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -39,7 +40,7 @@ sub initiate {
 	return if !defined $id;
 	my ( $job, undef, undef ) = $self->{'jobManager'}->get_job($id);
 	return if !$job->{'status'};
-	return if $job->{'status'} eq 'finished' || $job->{'status'} eq 'failed';
+	return if any { $job->{'status'} eq $_ } qw (finished failed terminated);
 	my $complete = $job->{'percent_complete'};
 	my $elapsed = $job->{'elapsed'} // 0;
 	if ( $job->{'status'} eq 'started' ) {
@@ -67,7 +68,7 @@ sub get_javascript {
 	my $id     = $q->param('id');
 	my ( $job, $params, $output ) = $self->{'jobManager'}->get_job($id);
 	my $percent = $job->{'percent_complete'} // 0;
-	if ($percent == -1){
+	if ( $percent == -1 ) {
 		my $buffer = << "END";
 \$(function () {
 	\$("html, body").animate({ scrollTop: \$(document).height()-\$(window).height() });	
@@ -180,11 +181,11 @@ HTML
 				my $text = "<li><a href=\"/tmp/$output->{$_}\">$link_text</a>";
 				$text .= " - $comments" if $comments;
 				my $size = -s "$self->{'config'}->{'tmp_dir'}/$output->{$_}" // 0;
-				if ($size > (1024 * 1024)){ #1Mb
-					my $size_in_MB = BIGSdb::Utils::decimal_place($size / (1024*1024),1);
+				if ( $size > ( 1024 * 1024 ) ) {    #1Mb
+					my $size_in_MB = BIGSdb::Utils::decimal_place( $size / ( 1024 * 1024 ), 1 );
 					$text .= " ($size_in_MB MB)";
-				} 
-				$include_in_tar++ if $size < (10 * 1024 * 1024); #10MB
+				}
+				$include_in_tar++ if $size < ( 10 * 1024 * 1024 );    #10MB
 				if ( $output->{$_} =~ /\.png$/ ) {
 					my $title = $link_text . ( $comments ? " - $comments" : '' );
 					$text .=
@@ -195,7 +196,7 @@ HTML
 				$text .= "</li>";
 				push @buffer, $text;
 			}
-			my $tar_msg = $include_in_tar < (keys %$output) ? ' (only files <10MB included - download larger files separately)' : '';
+			my $tar_msg = $include_in_tar < ( keys %$output ) ? ' (only files <10MB included - download larger files separately)' : '';
 			push @buffer,
 			  "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$id&amp;"
 			  . "output=archive\">Tar file containing output files</a>$tar_msg</li>"
@@ -207,7 +208,7 @@ HTML
 		}
 	}
 	print "</div><div class=\"box\" id=\"resultsfooter\">";
-	if ($job->{'status'} eq 'started'){
+	if ( $job->{'status'} eq 'started' ) {
 		say "<p>Progress: $job->{'percent_complete'}%";
 		say "<br />Stage: $job->{'stage'}" if $job->{'stage'};
 		say "</p>";
@@ -236,7 +237,7 @@ sub _tar_archive {
 		my @filenames;
 		foreach my $desc ( sort keys(%$output) ) {
 			my $full_path = "$self->{'config'}->{'tmp_dir'}/$output->{$desc}";
-			if ( -e $full_path && -s $full_path < (10 * 1024 * 1024) ) {  #smaller than 10MB
+			if ( -e $full_path && -s $full_path < ( 10 * 1024 * 1024 ) ) {    #smaller than 10MB
 				push @filenames, $output->{$desc};
 			}
 		}
@@ -244,7 +245,7 @@ sub _tar_archive {
 			local $" = ' ';
 			my $command = "cd $self->{'config'}->{'tmp_dir'} && tar -cf - @filenames";
 			if ( $ENV{'MOD_PERL'} ) {
-				print `$command`; # http://modperlbook.org/html/6-4-8-Output-from-System-Calls.html
+				print `$command`;    # http://modperlbook.org/html/6-4-8-Output-from-System-Calls.html
 			} else {
 				system $command || $logger->error("Can't create tar: $?");
 			}

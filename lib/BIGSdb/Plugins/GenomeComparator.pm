@@ -123,6 +123,8 @@ sub get_option_list {
 
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
+	$self->{'exit'} = 0;
+	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3;    #Allow temp files to be cleaned on kill signals
 	$self->{'params'} = $params;
 	my @loci = split /\|\|/, $params->{'locus'} // '';
 	my @ids = split /\|\|/, $params->{'isolate_id'};
@@ -130,6 +132,7 @@ sub run_job {
 	my @scheme_ids = split /\|\|/, ( defined $params->{'scheme_id'} ? $params->{'scheme_id'} : '' );
 	my $accession = $params->{'accession'} || $params->{'annotation'};
 	my $ref_upload = $params->{'ref_upload'};
+
 	if ( !@$filtered_ids ) {
 		$self->{'jobManager'}->update_job_status(
 			$job_id,
@@ -775,6 +778,7 @@ sub _run_comparison {
 	}
 	my $loci;
 	foreach my $cds (@$cds) {
+		next if $self->{'exit'};
 		my %seqs;
 		my $seq_ref;
 		my ( $locus_name, $locus_info, $length, $start, $desc, $ref_seq_file );
@@ -818,6 +822,7 @@ sub _run_comparison {
 		my %value_colour;
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Analysing locus: $locus_name" } );
 		foreach my $id (@$ids) {
+			next if $self->{'exit'};
 			$id = $1 if $id =~ /(\d*)/;    #avoid taint check
 			my $out_file = "$self->{'config'}->{'secure_tmp_dir'}/$prefix\_isolate_$id\_outfile.txt";
 			my ( $match, $value, $extracted_seq );
@@ -937,6 +942,11 @@ sub _run_comparison {
 		$self->{'db'}->commit;    #prevent idle in transaction table locks
 	}
 	$$html_buffer_ref .= $close_table;
+	if ( $self->{'exit'} ) {
+		$self->{'jobManager'}->update_job_status( $job_id, { status => 'terminated' } );
+		$self->delete_temp_files("$prefix*");
+		return;
+	}
 	$self->_print_reports(
 		$ids, $loci,
 		{

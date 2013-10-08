@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2012, University of Oxford
+#Copyright (c) 2011-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,7 @@
 package BIGSdb::Offline::RunJobs;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::Offline::Script BIGSdb::Page);
 use Error qw(:try);
 use BIGSdb::OfflineJobManager;
@@ -82,14 +83,25 @@ sub run_script {
 	$self->{'jobManager'}->update_job_status( $job_id, { status => 'started', start_time => 'now', pid => $$ } );
 	try {
 		$plugin->run_job( $job_id, $params );
+		my ( $job, $params ) = $self->{'jobManager'}->get_job($job_id);
+		my $status = $job->{'status'} // 'started';
+		$status = 'finished' if $status eq 'started';
 		$self->{'jobManager'}
-		  ->update_job_status( $job_id, { status => 'finished', stage => '', stop_time => 'now', percent_complete => 100, pid => undef } );
+		  ->update_job_status( $job_id, { status => $status, stage => undef, stop_time => 'now', percent_complete => 100, pid => undef } );
 	}
 	catch BIGSdb::PluginException with {
 		my $msg = shift;
 		$self->{'logger'}->debug($msg);
-		$self->{'jobManager'}->update_job_status( $job_id,
-			{ status => 'failed', stop_time => 'now', percent_complete => 100, message_html => "<p class=\"statusbad\">$msg</p>" } );
+		$self->{'jobManager'}->update_job_status(
+			$job_id,
+			{
+				status           => 'failed',
+				stop_time        => 'now',
+				percent_complete => 100,
+				message_html     => "<p class=\"statusbad\">$msg</p>",
+				pid              => undef
+			}
+		);
 	};
 	return;
 }
