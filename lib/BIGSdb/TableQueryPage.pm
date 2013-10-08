@@ -813,10 +813,7 @@ sub _process_allele_sequences_filters {
 			$qry2 .= $q->param('duplicates_list') ne '' ? ' AND' : ' WHERE';
 			$qry2 .= " (@conditions)";
 		}
-		if ($qry) {
-			$qry2 .= $qry =~ /WHERE/ ? ' AND ' : ' WHERE ';
-			$qry2 .= "($qry)";
-		}
+		$qry2 .= " AND ($qry)" if $qry;
 	} else {
 		$qry ||= '';
 		$qry2 = "SELECT * FROM allele_sequences WHERE ($qry)";
