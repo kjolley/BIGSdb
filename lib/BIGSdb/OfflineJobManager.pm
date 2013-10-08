@@ -191,7 +191,6 @@ sub update_job_status {
 		foreach ( keys %$status_hash )
 		{
 			$self->{'db'}->do( "UPDATE jobs SET $_=? WHERE id=?", undef, $status_hash->{$_}, $job_id );
-			$logger->debug("$job_id $_: $status_hash->{$_}");
 		}
 	};
 	if ($@) {

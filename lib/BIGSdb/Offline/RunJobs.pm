@@ -79,11 +79,11 @@ sub run_script {
 	$self->{'system'}->{'set_id'} = $params->{'set_id'};
 	$self->initiate_view( $job->{'username'} );
 	my $plugin = $self->{'pluginManager'}->get_plugin( $job->{'module'} );
-	$self->{'jobManager'}->update_job_status( $job_id, { status => 'started', start_time => 'now' } );
+	$self->{'jobManager'}->update_job_status( $job_id, { status => 'started', start_time => 'now', pid => $$ } );
 	try {
 		$plugin->run_job( $job_id, $params );
 		$self->{'jobManager'}
-		  ->update_job_status( $job_id, { status => 'finished', stage => '', stop_time => 'now', percent_complete => 100 } );
+		  ->update_job_status( $job_id, { status => 'finished', stage => '', stop_time => 'now', percent_complete => 100, pid => undef } );
 	}
 	catch BIGSdb::PluginException with {
 		my $msg = shift;
