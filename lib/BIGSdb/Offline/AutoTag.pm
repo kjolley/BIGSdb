@@ -48,7 +48,8 @@ sub run_script {
 	  if !$user_ok;
 	my $isolates     = $self->get_isolates_with_linked_seqs;
 	my $isolate_list = $self->_filter_and_sort_isolates($isolates);
-	if (!@$isolate_list){
+
+	if ( !@$isolate_list ) {
 		exit(0) if $self->{'options'}->{'n'};
 		die "No isolates selected.\n";
 	}
@@ -57,7 +58,7 @@ sub run_script {
 	$self->{'start_time'} = time;
 	my $isolate_prefix = BIGSdb::Utils::get_random();
 	my $locus_prefix   = BIGSdb::Utils::get_random();
-	$self->{'logger'}->info( "Autotagger start ($self->{'options'}->{'d'}): " . strftime( '%d-%b-%Y %H:%M', localtime ) );
+	$self->{'logger'}->info("$self->{'options'}->{'d'}:Autotagger start");
 	my $i = 0;
   ISOLATE: foreach my $isolate_id (@$isolate_list) {
 		$i++;
@@ -114,7 +115,7 @@ sub run_script {
 	if ( $self->_is_time_up && !$self->{'options'}->{'q'} ) {
 		say "Time limit reached ($self->{'options'}->{'t'} minute" . ( $self->{'options'}->{'t'} == 1 ? '' : 's' ) . ")";
 	}
-	$self->{'logger'}->info( "Autotagger stop ($self->{'options'}->{'d'}): " . strftime( '%d-%b-%Y %H:%M', localtime ) );
+	$self->{'logger'}->info("$self->{'options'}->{'d'}:Autotagger stop");
 	return;
 }
 
