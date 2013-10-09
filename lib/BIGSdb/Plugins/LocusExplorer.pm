@@ -27,6 +27,8 @@ my $logger = get_logger('BIGSdb.Plugins');
 use List::MoreUtils qw(none);
 use Apache2::Connection ();
 use Bio::SeqIO;
+use constant MAX_SNP_SEQUENCES => 200;
+use constant MAX_TRANSLATE_SEQUENCES => 50;
 
 sub get_attributes {
 	my %att = (
@@ -39,7 +41,7 @@ sub get_attributes {
 		category         => 'Analysis',
 		menutext         => 'Locus Explorer',
 		module           => 'LocusExplorer',
-		version          => '1.1.2',
+		version          => '1.1.3',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		input            => 'query',
@@ -266,12 +268,16 @@ sub _print_interface {
 			  . "Further information</a> is available for this locus.</li></ul>";
 		}
 	}
-	say "<fieldset>\n<legend>Select sequences</legend>";
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	my $order = $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST (allele_id AS integer)' : 'allele_id';
 	my $allele_ids =
 	  $self->{'datastore'}
 	  ->run_list_query( "SELECT allele_id FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N') " . "ORDER BY $order", $locus );
+	say "<p>Polymorphic site analysis is limited to "
+	  . MAX_SNP_SEQUENCES
+	  . " sequences for this locus since it requires alignment.</p>"
+	  if $locus_info->{'length_varies'} && @$allele_ids > MAX_SNP_SEQUENCES;
+	say "<fieldset>\n<legend>Select sequences</legend>";
 	say $q->scrolling_list(
 		-name     => 'allele_ids',
 		-id       => 'allele_ids',
@@ -304,7 +310,7 @@ sub _print_interface {
 			say "<tr><td style=\"text-align:right\">";
 			say $q->submit( -name => 'translate', -label => 'Translate', -class => 'submit' );
 			say "</td><td>Translate DNA to peptide sequences";
-			say " (limited to 50 sequences)" if $locus_info->{'length_varies'} && @$allele_ids > 50;
+			say " (limited to " . MAX_TRANSLATE_SEQUENCES . " sequences)" if $locus_info->{'length_varies'} && @$allele_ids > MAX_TRANSLATE_SEQUENCES;
 			say "</td></tr>";
 		}
 	}
@@ -378,7 +384,7 @@ sub _snp {
 		return;
 	}
 	my $seq_count = $self->_get_seqs( $locus, \@allele_ids, { count_only => 1 } );
-	if ( $seq_count <= 50 || !$locus_info->{'length_varies'} ) {
+	if ( $seq_count <= 20 || !$locus_info->{'length_varies'} ) {
 		say "<div class=\"box\" id=\"resultsheader\">";
 		my $cleaned = $self->clean_locus($locus);
 		say "<h2>$cleaned</h2>";
@@ -389,6 +395,14 @@ sub _snp {
 		say $buffer if $buffer;
 		say "</div>";
 		$self->delete_temp_files("$prefix*");
+	} elsif ( $seq_count > MAX_SNP_SEQUENCES && $locus_info->{'length_varies'} ) {
+		say "<div class=\"box\" id=\"statusbad\"><p>This locus is variable length and will therefore require real-time alignment.  "
+		  . "Consequently this function is limited to "
+		  . MAX_SNP_SEQUENCES
+		  . " sequences or fewer - you have selected "
+		  . @allele_ids
+		  . ".</p></div>";
+		return;
 	} else {
 		my $params = $q->Vars;
 		$params->{'alignwidth'} = $self->{'prefs'}->{'alignwidth'};
@@ -745,9 +759,11 @@ sub _translate {
 		return;
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	if ( $locus_info->{'length_varies'} && @allele_ids > 50 ) {
+	if ( $locus_info->{'length_varies'} && @allele_ids > MAX_TRANSLATE_SEQUENCES ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>This locus is variable length and will therefore require real-time alignment.  "
-		  . "Consequently this function is limited to 50 sequences or fewer - you have selected "
+		  . "Consequently this function is limited to "
+		  . MAX_TRANSLATE_SEQUENCES
+		  . " sequences or fewer - you have selected "
 		  . @allele_ids
 		  . ".</p></div>";
 		return;
