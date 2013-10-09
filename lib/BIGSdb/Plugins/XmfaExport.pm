@@ -118,7 +118,7 @@ sub run {
 			( my $list = $q->param('list') ) =~ s/[\r\n]+/\|\|/g;
 			$params->{'list'} = $list;
 			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-			my $job_id = $self->{'jobManager'}->add_job(
+			my $job_id    = $self->{'jobManager'}->add_job(
 				{
 					dbase_config => $self->{'instance'},
 					ip_address   => $q->remote_host,
@@ -169,6 +169,8 @@ HTML
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	$self->set_offline_view($params);
+	$self->{'exit'} = 0;
+	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3;    #Allow temp files to be cleaned on kill signals
 	my $scheme_id = $params->{'scheme_id'};
 	my $pk        = $params->{'pk'};
 	my $filename  = "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa";
@@ -232,6 +234,7 @@ sub run_job {
 	my $progress = 0;
 	my %no_seq;
 	foreach my $locus_name (@$selected_loci) {
+		last if $self->{'exit'};
 		my $locus;
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
 		my $common_length;
@@ -357,8 +360,9 @@ sub run_job {
 			}
 		}
 		close $fh_muscle;
-		system( $self->{'config'}->{'muscle_path'}, '-in', $temp_file, '-out', $muscle_file, '-quiet' );
 		my $output_locus_name = $self->{'datastore'}->get_set_locus_label( $locus_name, $params->{'set_id'} ) // $locus_name;
+		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Aligning $output_locus_name" } );
+		system( $self->{'config'}->{'muscle_path'}, '-in', $temp_file, '-out', $muscle_file, '-quiet' );
 		if ( -e $muscle_file ) {
 			$no_output = 0;
 			my $seq_in = Bio::SeqIO->new( -format => 'fasta', -file => $muscle_file );
@@ -380,6 +384,11 @@ sub run_job {
 		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete } );
 	}
 	close $fh;
+	if ( $self->{'exit'} ) {
+		$self->{'jobManager'}->update_job_status( $job_id, { status => 'terminated' } );
+		unlink $filename;
+		return;
+	}
 	my $message_html;
 	if (@problem_ids) {
 		local $" = ', ';
