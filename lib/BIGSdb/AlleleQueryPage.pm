@@ -25,7 +25,7 @@ use List::MoreUtils qw(any none);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant MAX_ROWS => 10;
-use BIGSdb::Page qw(ALLELE_FLAGS);
+use BIGSdb::Page qw(ALLELE_FLAGS SEQ_STATUS);
 use BIGSdb::QueryPage qw(OPERATORS);
 
 sub initiate {
@@ -232,7 +232,7 @@ sub _print_query_interface {
 	say "</li></ul></fieldset>";
 	say "<fieldset style=\"float:left\"><legend>Filter query by</legend>";
 	say "<ul>\n<li>";
-	say $self->get_filter( 'status', [ 'trace checked', 'trace not checked' ], { class => 'display' } );
+	say $self->get_filter( 'status', [ SEQ_STATUS ], { class => 'display' } );
 	say "</li><li>";
 
 	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {

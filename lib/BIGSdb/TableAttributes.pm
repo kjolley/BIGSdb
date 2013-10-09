@@ -20,7 +20,7 @@ package BIGSdb::TableAttributes;
 use strict;
 use warnings;
 use List::MoreUtils qw(any);
-use BIGSdb::Page qw(SEQ_METHODS DATABANKS SEQ_FLAGS);
+use BIGSdb::Page qw(SEQ_METHODS DATABANKS SEQ_FLAGS SEQ_STATUS);
 
 sub get_isolate_aliases_table_attributes {
 	my $attributes = [
@@ -1140,6 +1140,8 @@ sub get_composite_field_values_table_attributes {
 
 sub get_sequences_table_attributes {
 	my ($self) = @_;
+	my @optlist = SEQ_STATUS;
+	local $" = ';';
 	my $attributes = [
 		{ name => 'locus',     type => 'text', required => 'yes', primary_key => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
 		{ name => 'allele_id', type => 'text', required => 'yes', primary_key => 'yes' },
@@ -1148,7 +1150,7 @@ sub get_sequences_table_attributes {
 			name        => 'status',
 			type        => 'text',
 			required    => 'yes',
-			optlist     => 'trace checked;trace not checked',
+			optlist     => "@optlist",
 			default     => 'trace checked',
 			public_hide => 'yes'
 		},

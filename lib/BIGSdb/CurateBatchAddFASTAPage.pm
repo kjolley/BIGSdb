@@ -29,6 +29,7 @@ use Bio::SeqIO;
 use Digest::MD5;
 use constant SUCCESS => 1;
 use constant FAILURE => 2;
+use BIGSdb::Page qw(SEQ_STATUS);
 my $logger = get_logger('BIGSdb.Page');
 
 sub print_content {
@@ -91,7 +92,7 @@ sub _print_interface {
 	say $q->popup_menu(
 		-name     => 'status',
 		-id       => 'status',
-		-values   => [ '', 'trace checked', 'trace not checked' ],
+		-values   => [ '', SEQ_STATUS ],
 		-required => 'required'
 	);
 	my $sender_data =

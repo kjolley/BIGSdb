@@ -24,7 +24,7 @@ use Digest::MD5 qw(md5);
 use List::MoreUtils qw(any none uniq);
 use parent qw(BIGSdb::CurateAddPage);
 use Log::Log4perl qw(get_logger);
-use BIGSdb::Page qw(ALLELE_FLAGS);
+use BIGSdb::Page qw(ALLELE_FLAGS SEQ_STATUS);
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -133,10 +133,11 @@ HTML
 	my $locus_attribute = '';
 	if ( $table eq 'sequences' ) {
 		$locus_attribute = "&amp;locus=$arg_ref->{'locus'}" if $arg_ref->{'locus'};
+		my @status = SEQ_STATUS;
+		local $" = "', '";
 		say "<li>If the locus uses integer allele ids you can leave the allele_id "
 		  . "field blank and the next available number will be used.</li>"
-		  . "<li>The status value may be either 'trace checked' or 'trace not checked' depending on whether "
-		  . "trace files have been manually assessed or not.</li>";
+		  . "<li>The status defines how the sequence was curated.  Allowed values are: '@status'</li>";
 		if ( $self->{'system'}->{'allele_flags'} ) {
 			say "<li>Sequence flags can be added as a semi-colon (;) separated list</li>";
 		}
