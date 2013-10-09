@@ -106,6 +106,8 @@ sub print_content {
 						$can_do_something = 1;
 					}
 					$td = $returned_td || ( $td == 1 ? 2 : 1 );
+				}
+				catch BIGSdb::DataException with {                      #Do nothing
 				};
 			}
 		}
