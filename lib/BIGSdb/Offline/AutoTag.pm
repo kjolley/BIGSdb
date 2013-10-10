@@ -20,7 +20,6 @@ package BIGSdb::Offline::AutoTag;
 use strict;
 use warnings;
 use 5.010;
-use List::Util qw(shuffle);
 use List::MoreUtils qw(none uniq);
 use POSIX qw(strftime);
 use parent qw(BIGSdb::Offline::Scan);
@@ -47,7 +46,7 @@ sub run_script {
 	  . "to represent the auto tagger.\n"
 	  if !$user_ok;
 	my $isolates     = $self->get_isolates_with_linked_seqs;
-	my $isolate_list = $self->_filter_and_sort_isolates($isolates);
+	my $isolate_list = $self->filter_and_sort_isolates($isolates);
 
 	if ( !@$isolate_list ) {
 		exit(0) if $self->{'options'}->{'n'};
@@ -117,45 +116,6 @@ sub run_script {
 	}
 	$self->{'logger'}->info("$self->{'options'}->{'d'}:Autotagger stop");
 	return;
-}
-
-sub _filter_and_sort_isolates {
-	my ( $self, $isolates, ) = @_;
-	my @exclude_isolates;
-	if ( $self->{'options'}->{'I'} ) {
-		@exclude_isolates = split /,/, $self->{'options'}->{'I'};
-	}
-	if ( $self->{'options'}->{'P'} ) {
-		push @exclude_isolates, @{ $self->_get_isolates_excluded_by_project };
-		@exclude_isolates = uniq(@exclude_isolates);
-	}
-	if ( $self->{'options'}->{'r'} ) {
-		@$isolates = shuffle(@$isolates);
-	} elsif ( $self->{'options'}->{'o'} ) {
-		my $tag_date = $self->_get_last_tagged_date($isolates);
-		@$isolates = sort { $tag_date->{$a} cmp $tag_date->{$b} } @$isolates;
-	}
-	my %exclude = map { $_ => 1 } @exclude_isolates;
-	my @list;
-	foreach my $isolate_id (@$isolates) {
-		next if $exclude{$isolate_id};
-		next if $self->{'options'}->{'n'} && $self->_is_previously_tagged($isolate_id);
-		if ( $self->{'options'}->{'m'} && BIGSdb::Utils::is_int( $self->{'options'}->{'m'} ) ) {
-			my $size = $self->_get_size_of_seqbin($isolate_id);
-			next if $size < $self->{'options'}->{'m'};
-		}
-		if (
-			( $self->{'options'}->{'x'} && BIGSdb::Utils::is_int( $self->{'options'}->{'x'} ) && $self->{'options'}->{'x'} > $isolate_id )
-			|| (   $self->{'options'}->{'y'}
-				&& BIGSdb::Utils::is_int( $self->{'options'}->{'y'} )
-				&& $self->{'options'}->{'y'} < $isolate_id )
-		  )
-		{
-			next;
-		}
-		push @list, $isolate_id;
-	}
-	return \@list;
 }
 
 sub _is_time_up {
@@ -261,55 +221,5 @@ sub _tag_sequence {
 	push @{ $self->{'history'} },
 "$values->{'locus'}: sequence tagged. Seqbin id: $values->{'seqbin_id'}; $values->{'start_pos'}-$values->{'end_pos'} (sequence bin scan)";
 	return;
-}
-
-sub _get_size_of_seqbin {
-	my ( $self, $isolate_id ) = @_;
-	if ( !$self->{'sql'}->{'seqbin_size'} ) {
-		$self->{'sql'}->{'seqbin_size'} = $self->{'db'}->prepare("SELECT SUM(LENGTH(sequence)) FROM sequence_bin WHERE isolate_id=?");
-	}
-	eval { $self->{'sql'}->{'seqbin_size'}->execute($isolate_id) };
-	$self->{'logger'}->error($@) if $@;
-	my ($size) = $self->{'sql'}->{'seqbin_size'}->fetchrow_array;
-	return $size;
-}
-
-sub _get_last_tagged_date {
-	my ( $self, $isolates ) = @_;
-	my $sql = $self->{'db'}->prepare("SELECT MAX(datestamp) FROM allele_designations WHERE isolate_id=?");
-	my %tag_date;
-	foreach (@$isolates) {
-		eval { $sql->execute($_) };
-		$self->{'logger'}->error($@) if $@;
-		my ($date) = $sql->fetchrow_array || '0000-00-00';
-		$tag_date{$_} = $date;
-	}
-	return \%tag_date;
-}
-
-sub _get_isolates_excluded_by_project {
-	my ($self) = @_;
-	my @projects = split /,/, $self->{'options'}->{'P'};
-	my @isolates;
-	foreach (@projects) {
-		next if !BIGSdb::Utils::is_int($_);
-		my $list_ref = $self->get_project_isolates($_);
-		push @isolates, @$list_ref;
-	}
-	@isolates = uniq(@isolates);
-	return \@isolates;
-}
-
-sub _is_previously_tagged {
-	my ( $self, $isolate_id ) = @_;
-	my $designations_set =
-	  $self->{'datastore'}->run_simple_query( "SELECT EXISTS(SELECT isolate_id FROM allele_designations WHERE isolate_id=?)", $isolate_id )
-	  ->[0];
-	my $tagged = $self->{'datastore'}->run_simple_query(
-		"SELECT EXISTS(SELECT isolate_id FROM allele_sequences LEFT JOIN sequence_bin "
-		  . "ON allele_sequences.seqbin_id = sequence_bin.id WHERE isolate_id=?)",
-		$isolate_id
-	)->[0];
-	return ( $tagged || $designations_set ) ? 1 : 0;
 }
 1;

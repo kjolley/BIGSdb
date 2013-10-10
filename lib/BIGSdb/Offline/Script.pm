@@ -25,10 +25,12 @@ use DBI;
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any uniq);
+use List::Util qw(shuffle);
 use BIGSdb::Dataconnector;
 use BIGSdb::Datastore;
 use BIGSdb::BIGSException;
 use BIGSdb::Parser;
+use BIGSdb::Utils;
 $ENV{'PATH'} = '/bin:/usr/bin';              ##no critic #so we don't foul taint check
 delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};    # Make %ENV safer
 
@@ -158,12 +160,107 @@ sub get_isolates_with_linked_seqs {
 	return $self->{'datastore'}->run_list_query($qry);
 }
 
+sub filter_and_sort_isolates {
+	my ( $self, $isolates, ) = @_;
+	my @exclude_isolates;
+	if ( $self->{'options'}->{'I'} ) {
+		@exclude_isolates = split /,/, $self->{'options'}->{'I'};
+	}
+	if ( $self->{'options'}->{'P'} ) {
+		push @exclude_isolates, @{ $self->_get_isolates_excluded_by_project };
+		@exclude_isolates = uniq(@exclude_isolates);
+	}
+	if ( $self->{'options'}->{'r'} ) {
+		@$isolates = shuffle(@$isolates);
+	} elsif ( $self->{'options'}->{'o'} ) {
+		my $tag_date = $self->_get_last_tagged_date($isolates);
+		@$isolates = sort { $tag_date->{$a} cmp $tag_date->{$b} } @$isolates;
+	}
+	my %exclude = map { $_ => 1 } @exclude_isolates;
+	my @list;
+	foreach my $isolate_id (@$isolates) {
+		next if $exclude{$isolate_id};
+		next if $self->{'options'}->{'n'} && $self->_is_previously_tagged($isolate_id);
+		if ( $self->{'options'}->{'m'} && BIGSdb::Utils::is_int( $self->{'options'}->{'m'} ) ) {
+			my $size = $self->_get_size_of_seqbin($isolate_id);
+			next if $size < $self->{'options'}->{'m'};
+		}
+		if (
+			( $self->{'options'}->{'x'} && BIGSdb::Utils::is_int( $self->{'options'}->{'x'} ) && $self->{'options'}->{'x'} > $isolate_id )
+			|| (   $self->{'options'}->{'y'}
+				&& BIGSdb::Utils::is_int( $self->{'options'}->{'y'} )
+				&& $self->{'options'}->{'y'} < $isolate_id )
+		  )
+		{
+			next;
+		}
+		push @list, $isolate_id;
+	}
+	return \@list;
+}
+
+sub _get_isolates_excluded_by_project {
+	my ($self) = @_;
+	my @projects = split /,/, $self->{'options'}->{'P'};
+	my @isolates;
+	foreach (@projects) {
+		next if !BIGSdb::Utils::is_int($_);
+		my $list_ref = $self->get_project_isolates($_);
+		push @isolates, @$list_ref;
+	}
+	@isolates = uniq(@isolates);
+	return \@isolates;
+}
+
+sub _get_last_tagged_date {
+	my ( $self, $isolates ) = @_;
+	my $sql = $self->{'db'}->prepare("SELECT MAX(datestamp) FROM allele_designations WHERE isolate_id=?");
+	my %tag_date;
+	foreach (@$isolates) {
+		eval { $sql->execute($_) };
+		$self->{'logger'}->error($@) if $@;
+		my ($date) = $sql->fetchrow_array || '0000-00-00';
+		$tag_date{$_} = $date;
+	}
+	return \%tag_date;
+}
+
+sub _is_previously_tagged {
+	my ( $self, $isolate_id ) = @_;
+	my $designations_set =
+	  $self->{'datastore'}->run_simple_query( "SELECT EXISTS(SELECT isolate_id FROM allele_designations WHERE isolate_id=?)", $isolate_id )
+	  ->[0];
+	my $tagged = $self->{'datastore'}->run_simple_query(
+		"SELECT EXISTS(SELECT isolate_id FROM allele_sequences LEFT JOIN sequence_bin "
+		  . "ON allele_sequences.seqbin_id = sequence_bin.id WHERE isolate_id=?)",
+		$isolate_id
+	)->[0];
+	return ( $tagged || $designations_set ) ? 1 : 0;
+}
+
+sub _get_size_of_seqbin {
+	my ( $self, $isolate_id ) = @_;
+	if ( !$self->{'sql'}->{'seqbin_size'} ) {
+		$self->{'sql'}->{'seqbin_size'} = $self->{'db'}->prepare("SELECT SUM(LENGTH(sequence)) FROM sequence_bin WHERE isolate_id=?");
+	}
+	eval { $self->{'sql'}->{'seqbin_size'}->execute($isolate_id) };
+	$self->{'logger'}->error($@) if $@;
+	my ($size) = $self->{'sql'}->{'seqbin_size'}->fetchrow_array;
+	return $size;
+}
+
 sub get_loci_with_ref_db {
 
-	#options set in $self->{'options}
-	#$self->{'options}->{'s'}: comma-separated list of schemes
-	#$self->{'options}->{'l'}: comma-separated list of loci (ignored if 's' used)
+	#options set in $self->{'options'}
+	#$self->{'options'}->{'s'}: comma-separated list of schemes
+	#$self->{'options'}->{'l'}: comma-separated list of loci (ignored if 's' used)
+	#$self->{'options'}->{'L'}: comma-separated list of loci to ignore
 	my ($self) = @_;
+	my %ignore;
+	if ($self->{'options'}->{'L'}){
+		my @ignore = split /,/, $self->{'options'}->{'L'};
+		%ignore = map { $_ => 1} @ignore;
+	}
 	my $qry;
 	my $ref_db_loci_qry = "SELECT id FROM loci WHERE dbase_name IS NOT NULL AND dbase_table IS NOT NULL";
 	if ( $self->{'options'}->{'s'} ) {
@@ -181,7 +278,11 @@ sub get_loci_with_ref_db {
 	}
 	my $loci = $self->{'datastore'}->run_list_query($qry);
 	@$loci = uniq @$loci;
-	return $loci;
+	my @filtered_list;
+	foreach my $locus (@$loci){
+		push @filtered_list, $locus if !$ignore{$locus};
+	}
+	return \@filtered_list;
 }
 
 sub get_project_isolates {

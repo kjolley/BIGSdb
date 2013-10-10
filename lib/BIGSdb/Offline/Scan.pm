@@ -290,27 +290,18 @@ sub run_script {
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 			if ( ref $partial_matches && @$partial_matches && !@$exact_matches ) {
 				my %new_matches;
-				foreach (@$partial_matches) {
-					my $match_key = "$_->{'seqbin_id'}\|$_->{'predicted_start'}|$_->{'predicted_end'}";
+				foreach my $match (@$partial_matches) {
+					my $match_key = "$match->{'seqbin_id'}\|$match->{'predicted_start'}|$match->{'predicted_end'}";
 					( my $buffer, $off_end, $new_designation ) =
-					  $self->_get_row( $isolate_id, $labels, $locus, $i, $_, $td, 0, \@js, \@js2, \@js3, \@js4, $new_matches{$match_key} );
+					  $self->_get_row( $isolate_id, $labels, $locus, $i, $match, $td, 0, \@js, \@js2, \@js3, \@js4, $new_matches{$match_key} );
 					$row_buffer .= $buffer;
 					$new_matches{$match_key} = 1;
 					if ($off_end) {
 						$show_key = 1;
 					} else {
-						my $length = $_->{'predicted_end'} - $_->{'predicted_start'} + 1;
-						my $extract_seq_sql =
-						  $self->{'db'}
-						  ->prepare("SELECT substring(sequence from $_->{'predicted_start'} for $length) FROM sequence_bin WHERE id=?");
-						eval { $extract_seq_sql->execute( $_->{'seqbin_id'} ) };
-						$logger->error($@) if $@;
-						my ($seq) = $extract_seq_sql->fetchrow_array;
-						$seq            = BIGSdb::Utils::reverse_complement($seq) if $_->{'reverse'};
-						$seq            = uc($seq);
+						my $seq = $self->extract_seq_from_match($match);
 						$new_seqs_found = 1;
 						my $new = 1;
-
 						foreach ( @{ $new_alleles->{$locus} } ) {
 							if ( $seq eq $_ ) {
 								$new = 0;
@@ -378,6 +369,19 @@ sub run_script {
 	$self->_write_status( $options->{'scan_job'}, "stop_time:$stop_time" );
 	$logger->info("Scan $self->{'instance'}:$options->{'scan_job'} ($options->{'curator_name'}) finished");
 	return;
+}
+
+sub extract_seq_from_match {
+	my ( $self, $match ) = @_;
+	my $length = $match->{'predicted_end'} - $match->{'predicted_start'} + 1;
+	my $extract_seq_sql =
+	  $self->{'db'}->prepare("SELECT substring(sequence from $match->{'predicted_start'} for $length) FROM sequence_bin WHERE id=?");
+	eval { $extract_seq_sql->execute( $match->{'seqbin_id'} ) };
+	$logger->error($@) if $@;
+	my ($seq) = $extract_seq_sql->fetchrow_array;
+	$seq = BIGSdb::Utils::reverse_complement($seq) if $match->{'reverse'};
+	$seq = uc($seq);
+	return $seq;
 }
 
 sub _get_row {
