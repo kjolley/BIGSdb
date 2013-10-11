@@ -28,6 +28,63 @@ use Error qw(:try);
 use Apache2::Connection ();
 use List::MoreUtils qw(any);
 use BIGSdb::Page qw(SEQ_METHODS FLANKING);
+{
+	no warnings 'qw';
+	use constant BLASTN_SCORES => qw(
+	  1,-5,3,3
+	  1,-4,1,2
+	  1,-4,0,2
+	  1,-4,2,1
+	  1,-4,1,1
+	  2,-7,2,4
+	  2,-7,0,4
+	  2,-7,4,2
+	  2,-7,2,2
+	  1,-3,2,2
+	  1,-3,1,2
+	  1,-3,0,2
+	  1,-3,2,1
+	  1,-3,1,1
+	  2,-5,2,4
+	  2,-5,0,4
+	  2,-5,4,2
+	  2,-5,2,2
+	  1,-2,2,2
+	  1,-2,1,2
+	  1,-2,0,2
+	  1,-2,3,1
+	  1,-2,2,1
+	  1,-2,1,1
+	  2,-3,4,4
+	  2,-3,2,4
+	  2,-3,0,4
+	  2,-3,3,3
+	  2,-3,6,2
+	  2,-3,5,2
+	  2,-3,4,2
+	  2,-3,2,2
+	  3,-4,6,3
+	  3,-4,5,3
+	  3,-4,4,3
+	  3,-4,6,2
+	  3,-4,5,2
+	  3,-4,4,2
+	  4,-5,6,5
+	  4,-5,5,5
+	  4,-5,4,5
+	  4,-5,3,5
+	  1,-1,3,2
+	  1,-1,2,2
+	  1,-1,1,2
+	  1,-1,0,2
+	  1,-1,4,1
+	  1,-1,3,1
+	  1,-1,2,1
+	  3,-2,5,5
+	  5,-4,10,6
+	  5,-4,8,6
+	);
+}
 
 sub set_pref_requirements {
 	my ($self) = @_;
@@ -46,7 +103,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.1.2',
+		version     => '1.1.3',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -304,15 +361,21 @@ sub _print_interface {
 	say "</fieldset>";
 	say "<fieldset style=\"float:left\">\n<legend>Parameters</legend>";
 	say "<ul><li><label for=\"word_size\" class=\"parameter\">BLASTN word size:</label>";
-	say $q->popup_menu(
-		-name    => 'word_size',
-		-id      => 'word_size',
-		-values  => [qw(7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28)],
-		-default => 11
-	);
+	say $q->popup_menu( -name => 'word_size', -id => 'word_size', -values => [ 7 .. 28 ], -default => 11 );
 	say " <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an "
 	  . "extension. Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a></li>";
-	say "<li><label for=\"hits\" class=\"parameter\">Hits per isolate:</label>";
+	say "<li><label for=\"scores\" class=\"parameter\">BLASTN scoring:</label>";
+	my %labels;
+
+	foreach (BLASTN_SCORES) {
+		my @values = split /,/, $_;
+		$labels{$_} = "reward:$values[0]; penalty:$values[1]; gap open:$values[2]; gap extend:$values[3]";
+	}
+	say $q->popup_menu( -name => 'scores', -id => 'scores', -values => [BLASTN_SCORES], -labels => \%labels, -default => '2,-3,5,2' );
+	say " <a class=\"tooltip\" title=\"BLASTN scoring - This is a combination of rewards for identically matched nucleotides, "
+	  . "penalties for mismatching nucleotides, gap opening costs and gap extension costs. Only the listed combinations are "
+	  . "supported by the BLASTN algorithm.\">&nbsp;<i>i</i>&nbsp;</a>";
+	say "</li><li><label for=\"hits\" class=\"parameter\">Hits per isolate:</label>";
 	say $q->popup_menu( -name => 'hits', -id => 'hits', -values => [qw(1 2 3 4 5 6 7 8 9 10 20 30 40 50)], -default => 1 );
 	say "</li><li><label for=\"flanking\" class=\"parameter\">Flanking length (bp):</label>";
 	say $q->popup_menu( -name => 'flanking', -id => 'flanking', -values => [FLANKING], -default => $self->{'prefs'}->{'flanking'} );
@@ -349,12 +412,13 @@ sub _print_interface {
 
 sub _blast {
 	my ( $self, $isolate_id, $seq_ref ) = @_;
+	my $q = $self->{'cgi'};
 	$$seq_ref =~ s/>.+\n//g;    #Remove BLAST identifier lines if present
 	my $seq_type = BIGSdb::Utils::sequence_type($$seq_ref);
 	$$seq_ref =~ s/\s//g;
 	my $program;
 	if ( $seq_type eq 'DNA' ) {
-		$program = $self->{'cgi'}->param('tblastx') ? 'tblastx' : 'blastn';
+		$program = $q->param('tblastx') ? 'tblastx' : 'blastn';
 	} else {
 		$program = 'tblastn';
 	}
@@ -373,7 +437,7 @@ sub _blast {
 	my $qry = "SELECT DISTINCT sequence_bin.id,sequence FROM sequence_bin LEFT JOIN experiment_sequences ON sequence_bin.id=seqbin_id "
 	  . "LEFT JOIN project_members ON sequence_bin.isolate_id = project_members.isolate_id WHERE sequence_bin.isolate_id=?";
 	my @criteria = ($isolate_id);
-	my $method   = $self->{'cgi'}->param('seq_method_list');
+	my $method   = $q->param('seq_method_list');
 	if ($method) {
 		if ( !any { $_ eq $method } SEQ_METHODS ) {
 			$logger->error("Invalid method $method");
@@ -382,7 +446,7 @@ sub _blast {
 		$qry .= " AND method=?";
 		push @criteria, $method;
 	}
-	my $project = $self->{'cgi'}->param('project_list');
+	my $project = $q->param('project_list');
 	if ($project) {
 		if ( !BIGSdb::Utils::is_int($project) ) {
 			$logger->error("Invalid project $project");
@@ -391,7 +455,7 @@ sub _blast {
 		$qry .= " AND project_id=?";
 		push @criteria, $project;
 	}
-	my $experiment = $self->{'cgi'}->param('experiment_list');
+	my $experiment = $q->param('experiment_list');
 	if ($experiment) {
 		if ( !BIGSdb::Utils::is_int($experiment) ) {
 			$logger->error("Invalid experiment $experiment");
@@ -409,25 +473,29 @@ sub _blast {
 	}
 	close $fastafile_fh;
 	return if -z $temp_fastafile;
-	my $blastn_word_size = $self->{'cgi'}->param('word_size') =~ /(\d+)/ ? $1 : 11;
-	my $hits             = $self->{'cgi'}->param('hits')      =~ /(\d+)/ ? $1 : 1;
+	my $blastn_word_size = $q->param('word_size') =~ /(\d+)/ ? $1 : 11;
+	my $hits             = $q->param('hits')      =~ /(\d+)/ ? $1 : 1;
 	my $word_size = $program eq 'blastn' ? ($blastn_word_size) : 3;
 	system( "$self->{'config'}->{'blast+_path'}/makeblastdb", ( -in => $temp_fastafile, -logfile => '/dev/null', -dbtype => 'nucl' ) );
 	my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
 	my $filter = $program eq 'blastn' ? 'dust' : 'seg';
-	system(
-		"$self->{'config'}->{'blast+_path'}/$program",
-		(
-			-num_threads     => $blast_threads,
-			-max_target_seqs => $hits,
-			-word_size       => $word_size,
-			-db              => $temp_fastafile,
-			-query           => $temp_queryfile,
-			-out             => $temp_outfile,
-			-outfmt          => 6,
-			"-$filter"       => 'no'
-		)
+	my %params = (
+		-num_threads     => $blast_threads,
+		-max_target_seqs => $hits,
+		-word_size       => $word_size,
+		-db              => $temp_fastafile,
+		-query           => $temp_queryfile,
+		-out             => $temp_outfile,
+		-outfmt          => 6,
+		-$filter         => 'no'
 	);
+
+	if ( $program eq 'blastn' && $q->param('scores') ) {
+		if ( ( any { $q->param('scores') eq $_ } BLASTN_SCORES ) && $q->param('scores') =~ /^(\d,-\d,\d+,\d)$/ ) {
+			( $params{'-reward'}, $params{'-penalty'}, $params{'-gapopen'}, $params{'-gapextend'} ) = split /,/, $1;
+		}
+	}
+	system( "$self->{'config'}->{'blast+_path'}/$program", %params );
 	my $matches = $self->_parse_blast( $outfile_url, $hits );
 
 	#clean up
