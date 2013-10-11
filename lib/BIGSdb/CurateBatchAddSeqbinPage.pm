@@ -267,7 +267,7 @@ sub _check_data {
 			}
 			@lengths = sort { $b <=> $a } @lengths;
 			$mean = int $total / $num if $num;
-			my $n_stats = $self->get_N_stats( $total, \@lengths );
+			my $n_stats = BIGSdb::Utils::get_N_stats( $total, \@lengths );
 			print << "STATS";
 <ul><li>Number of contigs: $num</li>
 <li>Minimum length: $min</li>

@@ -79,7 +79,7 @@ sub print_content {
 		$lengths =
 		  $self->{'datastore'}
 		  ->run_list_query( "SELECT length(sequence) FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) desc", $isolate_id );
-		$n_stats = $self->get_N_stats( $data->[0], $lengths );
+		$n_stats = BIGSdb::Utils::get_N_stats( $data->[0], $lengths );
 		print <<"HTML"
 	<li>Total length: $data->[0]</li>
 	<li>Minimum length: $data->[1]</li>
@@ -332,21 +332,5 @@ sub get_title {
 	return "Sequence bin - $desc";
 }
 
-sub get_N_stats {
 
-	#Array of lengths must be in descending length order.
-	my ( $self, $total_length, $contig_length_arrayref ) = @_;
-	my $n50_target = 0.5 * $total_length;
-	my $n90_target = 0.1 * $total_length;
-	my $n95_target = 0.05 * $total_length;
-	my $stats;
-	my $running_total = $total_length;
-	foreach my $length (@$contig_length_arrayref) {
-		$running_total -= $length;
-		$stats->{'N50'} = $length if !defined $stats->{'N50'} && $running_total <= $n50_target;
-		$stats->{'N90'} = $length if !defined $stats->{'N90'} && $running_total <= $n90_target;
-		$stats->{'N95'} = $length if !defined $stats->{'N95'} && $running_total <= $n95_target;
-	}
-	return $stats;
-}
 1;

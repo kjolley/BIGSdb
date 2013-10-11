@@ -727,7 +727,7 @@ sub _get_scheme_fields {
 			}
 			$locus_value{$locus} .= "</span>"
 			  if $allele_designations->{$locus}->{'status'} eq 'provisional'
-				  && $self->{'prefs'}->{'mark_provisional'};
+			  && $self->{'prefs'}->{'mark_provisional'};
 			if ( $self->{'prefs'}->{'update_details'} && $allele_designations->{$locus}->{'allele_id'} ) {
 				my $update_tooltip = $self->get_update_details_tooltip( $tooltip_name, $allele_designations->{$locus} );
 				$locus_value{$locus} .=
@@ -949,9 +949,17 @@ sub _get_seqbin_link {
 		$buffer .= "<dt class=\"dontend\">contigs</dt>\n";
 		$buffer .= "<dd>$seqbin_count</dd>\n";
 		if ( $seqbin_count > 1 ) {
+			my $lengths =
+			  $self->{'datastore'}
+			  ->run_list_query( "SELECT length(sequence) FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) DESC",
+				$isolate_id );
+			my $n_stats = BIGSdb::Utils::get_N_stats( $length_data->[0], $lengths );
 			$buffer .= "<dt class=\"dontend\">total length</dt><dd>$length_data->[0] bp</dd>\n";
 			$buffer .= "<dt class=\"dontend\">max length</dt><dd>$length_data->[2] bp</dd>\n";
 			$buffer .= "<dt class=\"dontend\">mean length</dt><dd>$length_data->[1] bp</dd>\n";
+			$buffer .= "<dt class=\"dontend\">N50</dt><dd>$n_stats->{'N50'}</dd>\n";
+			$buffer .= "<dt class=\"dontend\">N90</dt><dd>$n_stats->{'N90'}</dd>\n";
+			$buffer .= "<dt class=\"dontend\">N95</dt><dd>$n_stats->{'N95'}</dd>\n";
 		} else {
 			$buffer .= "<dt class=\"dontend\">length</dt>\n";
 			$buffer .= "<dd>$length_data->[0] bp</dd>\n";
