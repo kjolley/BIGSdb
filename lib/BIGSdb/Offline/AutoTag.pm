@@ -26,8 +26,9 @@ use parent qw(BIGSdb::Offline::Scan);
 use BIGSdb::Utils;
 use BIGSdb::BIGSException;
 use Error qw(:try);
-use constant TAG_USER     => -1;             #User id for tagger (there needs to be a record in the users table)
-use constant TAG_USERNAME => 'autotagger';
+use constant TAG_USER          => -1;             #User id for tagger (there needs to be a record in the users table)
+use constant TAG_USERNAME      => 'autotagger';
+use constant DEFAULT_WORD_SIZE => 30;             #Only looking for exact matches
 
 sub run_script {
 	my ($self) = @_;
@@ -35,7 +36,7 @@ sub run_script {
 	local @SIG{qw (INT TERM HUP)} = ( sub { $EXIT = 1 } ) x 3;    #Allow temp files to be cleaned on kill signals
 	my $params;
 	$params->{$_} = 1 foreach qw(pcr_filter probe_filter);
-	$params->{'word_size'} = 30;                                  #Only looking for exact matches.
+	$params->{'word_size'} = BIGSdb::Utils::is_int( $self->{'options'}->{'w'} ) ? $self->{'options'}->{'w'} : DEFAULT_WORD_SIZE;
 	die "No connection to database (check logs).\n" if !defined $self->{'db'} || $self->{'system'}->{'dbtype'} ne 'isolates';
 	my $tag_user_id = TAG_USER;
 	$self->{'username'} = TAG_USERNAME;
