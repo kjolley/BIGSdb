@@ -293,7 +293,8 @@ sub run_script {
 				foreach my $match (@$partial_matches) {
 					my $match_key = "$match->{'seqbin_id'}\|$match->{'predicted_start'}|$match->{'predicted_end'}";
 					( my $buffer, $off_end, $new_designation ) =
-					  $self->_get_row( $isolate_id, $labels, $locus, $i, $match, $td, 0, \@js, \@js2, \@js3, \@js4, $new_matches{$match_key} );
+					  $self->_get_row( $isolate_id, $labels, $locus, $i, $match, $td, 0, \@js, \@js2, \@js3, \@js4,
+						$new_matches{$match_key} );
 					$row_buffer .= $buffer;
 					$new_matches{$match_key} = 1;
 					if ($off_end) {
@@ -447,7 +448,7 @@ sub _get_row {
 
 			if ( ref $seq_ref eq 'ARRAY' ) {
 				$seq_ref->[0] = BIGSdb::Utils::reverse_complement( $seq_ref->[0] ) if $match->{'reverse'};
-				( $complete_gene, $status ) = $self->is_complete_gene( $seq_ref->[0] );
+				( $complete_gene, $status ) = $self->is_complete_gene( $seq_ref->[0], { return_status => 1 } );
 				if ($complete_gene) {
 					$complete_tooltip = "<a class=\"cds\" title=\"CDS - this is a complete coding sequence including start and "
 					  . "terminating stop codons with no internal stop codons.\">CDS</a>";
@@ -873,7 +874,8 @@ sub _get_designation_tooltip {
 }
 
 sub is_complete_gene {
-	my ( $self, $seq ) = @_;
+	my ( $self, $seq, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $status;
 
 	#Check that sequence has an initial start codon,
@@ -894,9 +896,9 @@ sub is_complete_gene {
 		$status->{'no_internal_stops'} = 0 if any { $codon eq $_ } qw (TAA TGA TAG);
 	}
 	if ( $status->{'start'} && $status->{'stop'} && $status->{'in_frame'} && $status->{'no_internal_stops'} ) {
-		return ( 1, $status );
+		return $options->{'return_status'} ? ( 1, $status ) : 1;
 	}
-	return ( 0, $status );
+	return $options->{'return_status'} ? ( 0, $status ) : 0;
 }
 
 sub _write_status {

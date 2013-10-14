@@ -58,7 +58,7 @@ sub run_script {
 			foreach my $match (@$partial_matches) {
 				next if $self->_off_end_of_contig($match);
 				my $seq = $self->extract_seq_from_match($match);
-				my ( $complete_gene, undef ) = $self->is_complete_gene($seq);
+				my $complete_gene = $self->is_complete_gene($seq);
 				next if $self->{'options'}->{'c'} && !$complete_gene;
 				my $seq_hash = Digest::MD5::md5_hex($seq);
 				next if $seqs{$seq_hash};
