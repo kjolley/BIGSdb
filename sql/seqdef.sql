@@ -16,6 +16,7 @@ ON UPDATE CASCADE
 );
 
 INSERT INTO users VALUES (0,'setup','','','','','user','today','today',0);
+INSERT INTO users VALUES (-1,'autodefiner','Definer','Auto','','','curator','now','now',0);
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON users TO apache;
 

@@ -58,7 +58,9 @@ sub print_content {
 	my $sender_info = $self->{'datastore'}->get_user_info( $seq_ref->{'sender'} );
 	$sender_info->{'affiliation'} =~ s/\&/\&amp;/g;
 	my $sender_email =
-	  !$self->{'system'}->{'privacy'} ? "(E-mail: <a href=\"mailto:$sender_info->{'email'}\">$sender_info->{'email'}</a>)" : '';
+	  ( !$self->{'system'}->{'privacy'} && $seq_ref->{'sender'} > 0 )
+	  ? "(E-mail: <a href=\"mailto:$sender_info->{'email'}\">$sender_info->{'email'}</a>)"
+	  : '';
 	my $curator_info = $self->{'datastore'}->get_user_info( $seq_ref->{'curator'} );
 	my $desc_exists = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM locus_descriptions WHERE locus=?", $locus )->[0];
 	my $desc_link =
@@ -66,6 +68,7 @@ sub print_content {
 	  ? "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus\" class=\"info_tooltip\">&nbsp;i&nbsp;</a>"
 	  : '';
 	say "<div class=\"box\" id=\"resultspanel\">";
+	say "<div class=\"scrollable\">";
 	say "<h2>Provenance/meta data</h2>";
 	say "<dl class=\"data\">";
 	say "<dt>locus</dt><dd>$cleaned_locus $desc_link</dd>";
@@ -91,8 +94,10 @@ HTML
 				say "</dd>";
 			}
 			if ( $curator_info->{'first_name'} || $curator_info->{'surname'} ) {
-				say "<dt>curator</dt><dd>$curator_info->{'first_name'} $curator_info->{'surname'}, $curator_info->{'affiliation'} ";
-				say "(E-mail: <a href=\"mailto:$curator_info->{'email'}\">$curator_info->{'email'}</a>)" if $curator_info->{'email'};
+				print "<dt>curator</dt><dd>$curator_info->{'first_name'} $curator_info->{'surname'}";
+				say ", $curator_info->{'affiliation'} " if $curator_info->{'affiliation'} && $curator_info->{'affiliation'} ne ' ';
+				say "(E-mail: <a href=\"mailto:$curator_info->{'email'}\">$curator_info->{'email'}</a>)"
+				  if $curator_info->{'email'} && $seq_ref->{'curator'} > 0;
 				say "</dd>";
 			}
 		}
@@ -153,7 +158,7 @@ HTML
 	$self->_print_client_database_data( $locus, $allele_id );
 	my $client_buffer = $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $allele_id );
 	say "<h2>Linked data</h2>\n$client_buffer" if $client_buffer;
-	say "</div>";
+	say "</div></div>";
 	return;
 }
 
@@ -263,7 +268,7 @@ sub _print_accessions {
 					say "<dd><a href=\"http://www.ebi.ac.uk/ena/data/view/$accession->{'databank_id'}\">"
 					  . "$accession->{'databank_id'}</a></dd>"
 				}
-				default { say "<dd>$accession->{'databank_id'}</dd>" };
+				default { say "<dd>$accession->{'databank_id'}</dd>" }
 			}
 		}
 		say "</dl></div>\n";

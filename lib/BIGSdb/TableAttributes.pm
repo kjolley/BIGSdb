@@ -35,7 +35,7 @@ sub get_isolate_aliases_table_attributes {
 sub get_users_table_attributes {
 	my $attributes = [
 		{ name => 'id',          type => 'int',  required => 'yes', length => 6,  unique         => 'yes', primary_key    => 'yes' },
-		{ name => 'user_name',   type => 'text', required => 'yes', length => 10, unique         => 'yes', dropdown_query => 'yes', },
+		{ name => 'user_name',   type => 'text', required => 'yes', length => 12, unique         => 'yes', dropdown_query => 'yes', },
 		{ name => 'surname',     type => 'text', required => 'yes', length => 40, dropdown_query => 'yes' },
 		{ name => 'first_name',  type => 'text', required => 'yes', length => 40, dropdown_query => 'yes' },
 		{ name => 'email',       type => 'text', required => 'yes', length => 50 },

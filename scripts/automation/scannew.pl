@@ -36,7 +36,7 @@ use lib (LIB_DIR);
 use Getopt::Std;
 use BIGSdb::Offline::ScanNew;
 my %opts;
-getopts( 'd:A:B:i:I:l:L:m:p:P:R:s:t:w:x:y:chnor', \%opts );
+getopts( 'd:A:B:i:I:l:L:m:p:P:R:s:t:w:x:y:achnor', \%opts );
 
 if ( $opts{'h'} ) {
 	show_help();
@@ -69,6 +69,7 @@ Usage scannew.pl -d <database configuration>
 Options
 -------
 -d <name>  Database configuration name.
+-a         Assign new alleles in definitions database
 -A         Percentage alignment (default: 100)
 -B         Percentage identity (default: 99)
 -c         Only return complete coding sequences

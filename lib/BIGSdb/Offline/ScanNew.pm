@@ -22,9 +22,13 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Offline::Scan);
 use Digest::MD5;
+use BIGSdb::BIGSException;
+use Error qw(:try);
 use constant DEFAULT_ALIGNMENT => 100;
 use constant DEFAULT_IDENTITY  => 99;
 use constant DEFAULT_WORD_SIZE => 30;
+use constant DEFINER_USER      => -1;              #User id for tagger (there needs to be a record in the users table)
+use constant DEFINER_USERNAME  => 'autodefiner';
 
 sub run_script {
 	my ($self) = @_;
@@ -35,9 +39,13 @@ sub run_script {
 	$params->{'alignment'} = BIGSdb::Utils::is_int( $self->{'options'}->{'A'} ) ? $self->{'options'}->{'A'} : DEFAULT_ALIGNMENT;
 	$params->{'identity'}  = BIGSdb::Utils::is_int( $self->{'options'}->{'B'} ) ? $self->{'options'}->{'B'} : DEFAULT_IDENTITY;
 	$params->{'word_size'} = BIGSdb::Utils::is_int( $self->{'options'}->{'w'} ) ? $self->{'options'}->{'w'} : DEFAULT_WORD_SIZE;
+	my $loci = $self->get_loci_with_ref_db;
+
+	if ( $self->{'options'}->{'a'} && !$self->_can_define_alleles($loci) ) {
+		exit(1);
+	}
 	my $isolates       = $self->get_isolates_with_linked_seqs;
 	my $isolate_list   = $self->filter_and_sort_isolates($isolates);
-	my $loci           = $self->get_loci_with_ref_db;
 	my $isolate_prefix = BIGSdb::Utils::get_random();
 	my $locus_prefix   = BIGSdb::Utils::get_random();
 	$self->{'start_time'} = time;
@@ -57,17 +65,23 @@ sub run_script {
 			next if ref $exact_matches && @$exact_matches;
 			foreach my $match (@$partial_matches) {
 				next if $self->_off_end_of_contig($match);
-				my $seq = $self->extract_seq_from_match($match);
+				my $seq           = $self->extract_seq_from_match($match);
 				my $complete_gene = $self->is_complete_gene($seq);
 				next if $self->{'options'}->{'c'} && !$complete_gene;
 				my $seq_hash = Digest::MD5::md5_hex($seq);
 				next if $seqs{$seq_hash};
 				$seqs{$seq_hash} = 1;
-				if ($first) {
-					say "locus\tallele_id\tstatus\tsequence";
-					$first = 0;
+				if ( $self->{'options'}->{'a'} ) {
+					my $allele_id = $self->_define_allele( $locus, $seq );
+					say ">$locus-$allele_id";
+					say $seq;
+				} else {
+					if ($first) {
+						say "locus\tallele_id\tstatus\tsequence";
+						$first = 0;
+					}
+					say "$locus\t\ttrace not checked\t$seq";
 				}
-				say "$locus\t\ttrace not checked\t$seq";
 			}
 			last if $EXIT || $self->_is_time_up;
 		}
@@ -81,6 +95,59 @@ sub run_script {
 	$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$isolate_prefix*");
 	$self->{'logger'}->info("$self->{'options'}->{'d'}:ScanNew stop");
 	return;
+}
+
+sub _define_allele {
+	my ( $self, $locus, $seq ) = @_;
+	my $locus_info     = $self->{'datastore'}->get_locus_info($locus);
+	my $data_connector = $self->{'datastore'}->get_data_connector;
+	my $can_define = 1;
+	my $allele_id;
+	try {
+		my $locus_db = $data_connector->get_connection(
+			{
+				host       => $locus_info->{'dbase_host'},
+				port       => $locus_info->{'dbase_port'},
+				user       => $locus_info->{'dbase_user'},
+				password   => $locus_info->{'dbase_password'},
+				dbase_name => $locus_info->{'dbase_name'}
+			}
+		);
+		$allele_id = $self->_get_next_id($locus_db, $locus);
+		my $sql = $locus_db->prepare("INSERT INTO sequences (locus,allele_id,sequence,status,date_entered,datestamp,sender,"
+		  . "curator) VALUES (?,?,?,?,?,?,?,?)");
+		eval {$sql->execute($locus,$allele_id,$seq,'trace not checked','now','now',DEFINER_USER,DEFINER_USER)};
+		if ($@){
+			$self->{'logger'}->error($@);
+			say "Can't add new allele.";
+			$locus_db->rollback;
+			$can_define = 0;			
+		} else {
+			$locus_db->commit;
+			$self->{'logger'}->info("New allele defined: $locus-$allele_id");
+		}
+	}
+	catch BIGSdb::DatabaseConnectionException with {
+		$self->{'logger'}->error("Can not connect to database for locus $locus");
+		say "Can not connect to database for locus $locus";
+		$can_define = 0;
+	};
+	exit (1) if !$can_define;
+	return $allele_id;
+}
+
+sub _get_next_id {
+	my ($self, $db, $locus) = @_;
+	my $sql = $db->prepare("SELECT EXISTS(SELECT allele_id FROM sequences WHERE locus=? AND allele_id=?)");
+	my $allele_id = 0;
+	my $exists;
+	do {
+		$allele_id++;
+		eval {$sql->execute($locus, $allele_id)};
+		$self->{'logger'}->error($@) if $@;
+		($exists) = $sql->fetchrow_array;
+	} while ($exists);
+	return $allele_id;
 }
 
 sub _off_end_of_contig {
@@ -106,5 +173,62 @@ sub _is_time_up {
 		return 1 if time > ( $self->{'start_time'} + $self->{'options'}->{'t'} * 60 );
 	}
 	return;
+}
+
+sub _can_define_alleles {
+	my ( $self, $loci ) = @_;
+	my $data_connector = $self->{'datastore'}->get_data_connector;
+	my $can_define     = 1;
+	foreach my $locus (@$loci) {
+		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+		if ( $locus_info->{'allele_id_format'} ne 'integer' ) {
+			$self->{'logger'}->error("Locus $locus does not use integer identifiers.");
+			say "Locus $locus does not use integer identifiers.";
+			$can_define = 0;
+			last;
+		}
+		try {
+			my $locus_db = $data_connector->get_connection(
+				{
+					host       => $locus_info->{'dbase_host'},
+					port       => $locus_info->{'dbase_port'},
+					user       => $locus_info->{'dbase_user'},
+					password   => $locus_info->{'dbase_password'},
+					dbase_name => $locus_info->{'dbase_name'}
+				}
+			);
+			my $sql = $locus_db->prepare("SELECT EXISTS(SELECT * FROM users WHERE id=? AND user_name=?)");
+			eval { $sql->execute( DEFINER_USER, DEFINER_USERNAME ) };
+			if ($@) {
+				$self->{'logger'}->error($@);
+				$can_define = 0;
+			}
+			my ($user_exists) = $sql->fetchrow_array;
+			if ( !$user_exists ) {
+				$self->{'logger'}->error("Autodefiner user does not exist in database for locus $locus.");
+				say "Autodefiner user does not exist in database for locus $locus.";
+				$can_define = 0;
+			}
+			$sql = $locus_db->prepare("SELECT EXISTS(SELECT * FROM locus_extended_attributes WHERE locus=? AND required)");
+			eval { $sql->execute($locus) };
+			if ($@) {
+				$self->{'logger'}->error($@);
+				$can_define = 0;
+			}
+			my ($extended_attributes) = $sql->fetchrow_array;
+			if ($extended_attributes) {
+				$self->{'logger'}->error("Locus $locus has required extended attributes.");
+				say "Locus $locus has required extended attributes.";
+				$can_define = 0;
+			}
+		}
+		catch BIGSdb::DatabaseConnectionException with {
+			$self->{'logger'}->error("Can not connect to database for locus $locus");
+			say "Can not connect to database for locus $locus";
+			$can_define = 0;
+		};
+		last if !$can_define;
+	}
+	return $can_define;
 }
 1;
