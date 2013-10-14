@@ -447,7 +447,7 @@ sub _get_row {
 
 			if ( ref $seq_ref eq 'ARRAY' ) {
 				$seq_ref->[0] = BIGSdb::Utils::reverse_complement( $seq_ref->[0] ) if $match->{'reverse'};
-				( $complete_gene, $status ) = $self->_is_complete_gene( $seq_ref->[0] );
+				( $complete_gene, $status ) = $self->is_complete_gene( $seq_ref->[0] );
 				if ($complete_gene) {
 					$complete_tooltip = "<a class=\"cds\" title=\"CDS - this is a complete coding sequence including start and "
 					  . "terminating stop codons with no internal stop codons.\">CDS</a>";
@@ -872,7 +872,7 @@ sub _get_designation_tooltip {
 	return " <a class=\"$class\" title=\"$buffer\">$text</a>";
 }
 
-sub _is_complete_gene {
+sub is_complete_gene {
 	my ( $self, $seq ) = @_;
 	my $status;
 

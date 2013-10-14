@@ -41,9 +41,9 @@ sub run_script {
 	my $isolate_prefix = BIGSdb::Utils::get_random();
 	my $locus_prefix   = BIGSdb::Utils::get_random();
 	$self->{'start_time'} = time;
-	my $first = 1;
+	my $first         = 1;
 	my $isolate_count = @$isolate_list;
-	my $plural = $isolate_count == 1 ? '' : 's';
+	my $plural        = $isolate_count == 1 ? '' : 's';
 	$self->{'logger'}->info("$self->{'options'}->{'d'}:ScanNew start ($isolate_count genome$plural)");
 
 	foreach my $locus (@$loci) {
@@ -57,7 +57,9 @@ sub run_script {
 			next if ref $exact_matches && @$exact_matches;
 			foreach my $match (@$partial_matches) {
 				next if $self->_off_end_of_contig($match);
-				my $seq      = $self->extract_seq_from_match($match);
+				my $seq = $self->extract_seq_from_match($match);
+				my ( $complete_gene, undef ) = $self->is_complete_gene($seq);
+				next if $self->{'options'}->{'c'} && !$complete_gene;
 				my $seq_hash = Digest::MD5::md5_hex($seq);
 				next if $seqs{$seq_hash};
 				$seqs{$seq_hash} = 1;

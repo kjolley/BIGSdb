@@ -36,7 +36,7 @@ use lib (LIB_DIR);
 use Getopt::Std;
 use BIGSdb::Offline::ScanNew;
 my %opts;
-getopts( 'd:A:B:i:I:l:L:m:p:P:s:t:w:x:y:hnor', \%opts );
+getopts( 'd:A:B:i:I:l:L:m:p:P:s:t:w:x:y:chnor', \%opts );
 
 if ( $opts{'h'} ) {
 	show_help();
@@ -71,6 +71,7 @@ Options
 -d <name>  Database configuration name.
 -A         Percentage alignment (default: 100)
 -B         Percentage identity (default: 99)
+-c         Only return complete coding sequences
 -h         This help page.
 -i <list>  Isolates - comma-separated list of isolate ids to scan (ignored if
            -p used).
