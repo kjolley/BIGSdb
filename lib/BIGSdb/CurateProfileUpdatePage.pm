@@ -139,7 +139,7 @@ sub _update {
 		$newdata{"field:$field"} = $q->param("field:$field");
 		$self->_clean_field( \$newdata{"field:$field"} );
 		my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
-		if ( $field_info->{'type'} eq 'integer' && !BIGSdb::Utils::is_int( $newdata{"field:$field"} ) ) {
+		if ( $field_info->{'type'} eq 'integer' && $newdata{"field:$field"} ne '' && !BIGSdb::Utils::is_int( $newdata{"field:$field"} ) ) {
 			push @bad_field_buffer, "Field '$field' must be an integer.";
 		}
 		$args->{'field_data'}->{$field} = defined $args->{'field_data'}->{$field} ? $args->{'field_data'}->{$field} : '';
