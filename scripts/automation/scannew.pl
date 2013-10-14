@@ -36,7 +36,7 @@ use lib (LIB_DIR);
 use Getopt::Std;
 use BIGSdb::Offline::ScanNew;
 my %opts;
-getopts( 'd:A:B:i:I:l:L:m:p:P:s:t:w:x:y:chnor', \%opts );
+getopts( 'd:A:B:i:I:l:L:m:p:P:R:s:t:w:x:y:chnor', \%opts );
 
 if ( $opts{'h'} ) {
 	show_help();
@@ -87,6 +87,7 @@ Options
 -P <list>  Exclude projects - comma-separated list of projects whose isolates
            will be excluded.
 -r         Random - shuffle order of isolate ids to scan
+-R         Regex for locus names
 -s <list>  Schemes - comma-separated list of scheme loci to scan.
 -t <mins>  Time limit - Stop after t minutes.
 -w <size>  BLASTN word size

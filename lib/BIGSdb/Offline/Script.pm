@@ -255,6 +255,7 @@ sub get_loci_with_ref_db {
 	#$self->{'options'}->{'s'}: comma-separated list of schemes
 	#$self->{'options'}->{'l'}: comma-separated list of loci (ignored if 's' used)
 	#$self->{'options'}->{'L'}: comma-separated list of loci to ignore
+	#$self->{'options'}->{'R'}: Regex for locus names
 	my ($self) = @_;
 	my %ignore;
 	if ($self->{'options'}->{'L'}){
@@ -280,6 +281,7 @@ sub get_loci_with_ref_db {
 	@$loci = uniq @$loci;
 	my @filtered_list;
 	foreach my $locus (@$loci){
+		next if $self->{'options'}->{'R'} && $locus !~ /$self->{'options'}->{'R'}/;
 		push @filtered_list, $locus if !$ignore{$locus};
 	}
 	return \@filtered_list;
