@@ -37,7 +37,8 @@ sub run_script {
 	my $params;
 	$params->{$_} = 1 foreach qw(pcr_filter probe_filter);
 	$params->{'word_size'} = BIGSdb::Utils::is_int( $self->{'options'}->{'w'} ) ? $self->{'options'}->{'w'} : DEFAULT_WORD_SIZE;
-	die "No connection to database (check logs).\n" if !defined $self->{'db'} || $self->{'system'}->{'dbtype'} ne 'isolates';
+	die "No connection to database (check logs).\n" if !defined $self->{'db'};
+	die "This script can only be run against an isolate database.\n" if ($self->{'system'}->{'dbtype'} // '') ne 'isolates';
 	my $tag_user_id = TAG_USER;
 	$self->{'username'} = TAG_USERNAME;
 	my $user_ok =

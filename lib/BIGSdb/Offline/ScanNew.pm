@@ -34,6 +34,8 @@ sub run_script {
 	my ($self) = @_;
 	my $EXIT = 0;
 	local @SIG{qw (INT TERM HUP)} = ( sub { $EXIT = 1 } ) x 3;    #Allow temp files to be cleaned on kill signals
+	die "No connection to database (check logs).\n" if !defined $self->{'db'};
+	die "This script can only be run against an isolate database.\n" if ($self->{'system'}->{'dbtype'} // '') ne 'isolates';
 	my $params;
 	$params->{$_} = 1 foreach qw(pcr_filter probe_filter);
 	$params->{'alignment'} = BIGSdb::Utils::is_int( $self->{'options'}->{'A'} ) ? $self->{'options'}->{'A'} : DEFAULT_ALIGNMENT;
