@@ -239,7 +239,8 @@ sub get_jobs_ahead_in_queue {
 	my ( $self, $job_id ) = @_;
 	my $sql =
 	  $self->{'db'}
-	  ->prepare( "SELECT count(*) FROM jobs where status='submitted' AND submit_time < " . "(SELECT submit_time FROM jobs WHERE id=?)" );
+	  ->prepare( "SELECT COUNT(j1.id) FROM jobs AS j1 INNER JOIN jobs AS j2 ON (j1.submit_time < j2.submit_time AND "
+	    . "j2.priority <= j1.priority) OR j2.priority > j1.priority WHERE j2.id = ? AND j2.id != j1.id AND j1.status='submitted'");
 	eval { $sql->execute($job_id) };
 	if ($@) {
 		$logger->error($@);
