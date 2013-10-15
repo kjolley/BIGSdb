@@ -56,6 +56,7 @@ sub run_script {
 
 	foreach my $locus (@$loci) {
 		$self->{'logger'}->info("$self->{'options'}->{'d'}:Checking $locus");
+		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		my %seqs;
 		foreach my $isolate_id (@$isolate_list) {
 			next if defined $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
@@ -72,6 +73,7 @@ sub run_script {
 				next if $seqs{$seq_hash};
 				$seqs{$seq_hash} = 1;
 				if ( $self->{'options'}->{'a'} ) {
+					next if $locus_info->{'data_type'} eq 'DNA' && $seq =~ /[^GATC]/;
 					my $allele_id = $self->_define_allele( $locus, $seq );
 					say ">$locus-$allele_id";
 					say $seq;
