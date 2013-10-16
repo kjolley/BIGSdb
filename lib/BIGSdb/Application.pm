@@ -255,6 +255,7 @@ sub _initiate_jobmanager {
 			port             => $self->{'system'}->{'port'},
 			user             => $self->{'system'}->{'user'},
 			password         => $self->{'system'}->{'password'},
+			system			 => $self->{'system'}
 		}
 	);
 	return;

@@ -55,7 +55,8 @@ sub get_attributes {
 		requires    => 'muscle,offline_jobs,js_tree',
 		input       => 'query',
 		help        => 'tooltips',
-		system_flag => 'GenomeComparator'
+		system_flag => 'GenomeComparator',
+		priority    => 1
 	);
 	return \%att;
 }
@@ -143,6 +144,7 @@ sub run_job {
 			}
 		);
 		return;
+		
 	}
 	if ( !$accession && !$ref_upload && !@loci && !@scheme_ids ) {
 		$self->{'jobManager'}->update_job_status(
@@ -270,11 +272,13 @@ sub run {
 			my $params = $q->Vars;
 			$params->{'dbase_config_dir'} = $self->{'system'}->{'dbase_config_dir'};
 			$params->{'instance'}         = $self->{'instance'};
+			my $att = $self->get_attributes;
 			my $job_id = $self->{'jobManager'}->add_job(
 				{
 					dbase_config => $self->{'instance'},
 					ip_address   => $q->remote_host,
-					module       => 'GenomeComparator',
+					module       => $att->{'module'},
+					priority     => $att->{'priority'},
 					parameters   => $params,
 					username     => $self->{'username'},
 					email        => $user_info->{'email'}

@@ -30,7 +30,7 @@ sub new {
 	#The job manager uses its own Dataconnector since it may be called by a stand-alone script.
 	my ( $class, $options ) = @_;
 	my $self = {};
-	$self->{'system'}        = {};
+	$self->{'system'}        = $options->{'system'} // {};
 	$self->{'host'}          = $options->{'host'};
 	$self->{'port'}          = $options->{'port'};
 	$self->{'user'}          = $options->{'user'};
@@ -97,7 +97,13 @@ sub add_job {
 			throw BIGSdb::DataException("Parameter $_ not passed");
 		}
 	}
-	$params->{'priority'} = 5 if !$params->{'priority'};
+	my $priority;
+	if ( $self->{'system'}->{'job_priority'} && BIGSdb::Utils::is_int( $self->{'system'}->{'job_priority'} ) ) {
+		$priority = $self->{'system'}->{'job_priority'};    #Database level priority
+	} else {
+		$priority = 5;
+	}
+	$priority += $params->{'priority'} if $params->{'priority'} && BIGSdb::Utils::is_int( $params->{'priority'} );    #Plugin level priority
 	my $id         = BIGSdb::Utils::get_random();
 	my $cgi_params = $params->{'parameters'};
 	if ( ref $cgi_params ne 'HASH' ) {
@@ -106,7 +112,8 @@ sub add_job {
 	}
 	eval {
 		$self->{'db'}->do(
-"INSERT INTO jobs (id,dbase_config,username,email,ip_address,submit_time,module,status,percent_complete,priority) VALUES (?,?,?,?,?,?,?,?,?,?)",
+			"INSERT INTO jobs (id,dbase_config,username,email,ip_address,submit_time,module,status,percent_complete,"
+			  . "priority) VALUES (?,?,?,?,?,?,?,?,?,?)",
 			undef,
 			$id,
 			$params->{'dbase_config'},
@@ -117,7 +124,7 @@ sub add_job {
 			$params->{'module'},
 			'submitted',
 			0,
-			$params->{'priority'}
+			$priority
 		);
 		my $param_sql = $self->{'db'}->prepare("INSERT INTO params (job_id,key,value) VALUES (?,?,?)");
 		local $" = '||';
@@ -238,9 +245,8 @@ sub get_job {
 sub get_jobs_ahead_in_queue {
 	my ( $self, $job_id ) = @_;
 	my $sql =
-	  $self->{'db'}
-	  ->prepare( "SELECT COUNT(j1.id) FROM jobs AS j1 INNER JOIN jobs AS j2 ON (j1.submit_time < j2.submit_time AND "
-	    . "j2.priority <= j1.priority) OR j2.priority > j1.priority WHERE j2.id = ? AND j2.id != j1.id AND j1.status='submitted'");
+	  $self->{'db'}->prepare( "SELECT COUNT(j1.id) FROM jobs AS j1 INNER JOIN jobs AS j2 ON (j1.submit_time < j2.submit_time AND "
+		  . "j2.priority <= j1.priority) OR j2.priority > j1.priority WHERE j2.id = ? AND j2.id != j1.id AND j1.status='submitted'" );
 	eval { $sql->execute($job_id) };
 	if ($@) {
 		$logger->error($@);
