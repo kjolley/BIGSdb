@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.5.6',
+		version     => '1.5.7',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/genome_comparator.shtml',
@@ -144,7 +144,6 @@ sub run_job {
 			}
 		);
 		return;
-		
 	}
 	if ( !$accession && !$ref_upload && !@loci && !@scheme_ids ) {
 		$self->{'jobManager'}->update_job_status(
@@ -243,13 +242,39 @@ sub run {
 			my $locus_name = $locus =~ /$pattern/ ? $1 : undef;
 			push @cleaned_loci, $locus_name if defined $locus_name;
 		}
+		my @invalid_loci;
+		if ( $q->param('locus_paste_list') ) {
+			my $set_id = $self->get_set_id;
+			my @list = split /\n/, $q->param('locus_paste_list');
+			foreach my $locus (@list) {
+				next if $locus =~ /^\s*$/;
+				$locus =~ s/^\s*//;
+				$locus =~ s/\s*$//;
+				my $real_name;
+				if ($set_id) {
+					$real_name = $self->{'datastore'}->get_set_locus_real_id( $locus, $set_id );
+				} else {
+					$real_name = $locus;
+				}
+				if ( $self->{'datastore'}->is_locus($real_name) ) {
+					push @cleaned_loci, $real_name;
+				} else {
+					push @invalid_loci, $locus;
+				}
+			}
+		}
 		$q->param( 'locus', uniq @cleaned_loci );
 		my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 		push @$scheme_ids, 0;
 		my $accession = $q->param('accession') || $q->param('annotation');
-		if ( !$accession && !$ref_upload && !@loci && ( none { $q->param("s_$_") } @$scheme_ids ) && $continue ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>You must either select one or more loci or schemes, provide "
-			  . "a genome accession number, or upload an annotated genome.</p></div>\n";
+		if (@invalid_loci) {
+			local $" = ', ';
+			say "<div class=\"box\" id=\"statusbad\"><p>The following loci in your pasted list are invalid: @invalid_loci.</p></div>";
+			$continue = 0;
+		}
+		if ( !$accession && !$ref_upload && !@cleaned_loci && ( none { $q->param("s_$_") } @$scheme_ids ) && $continue ) {
+			say "<div class=\"box\" id=\"statusbad\"><p>You must either select one or more loci or schemes, provide "
+			  . "a genome accession number, or upload an annotated genome.</p></div>";
 			$continue = 0;
 		}
 		my @selected_schemes;
@@ -272,7 +297,7 @@ sub run {
 			my $params = $q->Vars;
 			$params->{'dbase_config_dir'} = $self->{'system'}->{'dbase_config_dir'};
 			$params->{'instance'}         = $self->{'instance'};
-			my $att = $self->get_attributes;
+			my $att    = $self->get_attributes;
 			my $job_id = $self->{'jobManager'}->add_job(
 				{
 					dbase_config => $self->{'instance'},
@@ -348,7 +373,7 @@ HTML
 	say $q->start_form;
 	say "<div class=\"scrollable\">";
 	$self->print_seqbin_isolate_fieldset( { use_all => $use_all, selected_ids => $selected_ids } );
-	$self->print_isolates_locus_fieldset;
+	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
 	$self->print_includes_fieldset( { title => 'Include in identifiers', preselect => $self->{'system'}->{'labelfield'} } );
 	$self->print_scheme_fieldset;
 	say "<fieldset style=\"float:left\">\n<legend>Reference genome</legend>";

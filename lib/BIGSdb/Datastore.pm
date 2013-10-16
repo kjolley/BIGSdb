@@ -176,8 +176,8 @@ sub get_composite_value {
 			if ( ref $scheme_fields->{$scheme_id} eq 'HASH' ) {
 				undef $scheme_fields->{$scheme_id}->{$scheme_field}
 				  if defined $scheme_fields->{$scheme_id}->{$scheme_field}
-					  && $scheme_fields->{$scheme_id}->{$scheme_field} eq
-					  '-999';                     #Needed because old style profile databases may use '-999' to denote null values
+				  && $scheme_fields->{$scheme_id}->{$scheme_field} eq
+				  '-999';                         #Needed because old style profile databases may use '-999' to denote null values
 				$field_value = $scheme_fields->{$scheme_id}->{$scheme_field};
 			}
 			if ($regex) {
@@ -266,7 +266,7 @@ sub get_scheme_field_values_by_profile {
 	}
 	return
 	  if ref $profile_ref ne 'ARRAY'
-		  || ( any { !defined $_ } @$profile_ref && !$self->{'cache'}->{'scheme_info'}->{$scheme_id}->{'allow_missing_loci'} );
+	  || ( any { !defined $_ } @$profile_ref && !$self->{'cache'}->{'scheme_info'}->{$scheme_id}->{'allow_missing_loci'} );
 	if ( $self->{'cache'}->{'scheme_info'}->{$scheme_id}->{'allow_missing_loci'} ) {
 		foreach (@$profile_ref) {
 			$_ = 'N' if !defined $_;
@@ -712,6 +712,17 @@ sub is_scheme_in_set {
 	return $is_it;
 }
 
+sub get_set_locus_real_id {
+	my ( $self, $locus, $set_id ) = @_;
+	if ( !$self->{'sql'}->{'set_locus_real_id'} ) {
+		$self->{'sql'}->{'set_locus_real_id'} = $self->{'db'}->prepare("SELECT locus FROM set_loci WHERE set_name=? AND set_id=?");
+	}
+	eval { $self->{'sql'}->{'set_locus_real_id'}->execute( $locus, $set_id ) };
+	$logger->error($@) if $@;
+	my ($real_id) = $self->{'sql'}->{'set_locus_real_id'}->fetchrow_array;
+	return $real_id // $locus;
+}
+
 sub is_locus_in_set {
 	my ( $self, $locus, $set_id ) = @_;
 	if ( !$self->{'sql'}->{'locus_in_set'} ) {
@@ -950,12 +961,12 @@ sub get_loci {
 	foreach (@$array_ref) {
 		next
 		  if $options->{'query_pref'}
-			  && ( !$self->{'prefs'}->{'query_field_loci'}->{ $_->[0] }
-				  || ( defined $_->[1] && !$self->{'prefs'}->{'query_field_schemes'}->{ $_->[1] } ) );
+		  && ( !$self->{'prefs'}->{'query_field_loci'}->{ $_->[0] }
+			|| ( defined $_->[1] && !$self->{'prefs'}->{'query_field_schemes'}->{ $_->[1] } ) );
 		next
 		  if $options->{'analysis_pref'}
-			  && ( !$self->{'prefs'}->{'analysis_loci'}->{ $_->[0] }
-				  || ( defined $_->[1] && !$self->{'prefs'}->{'analysis_schemes'}->{ $_->[1] } ) );
+		  && ( !$self->{'prefs'}->{'analysis_loci'}->{ $_->[0] }
+			|| ( defined $_->[1] && !$self->{'prefs'}->{'analysis_schemes'}->{ $_->[1] } ) );
 		push @query_loci, $_->[0];
 	}
 	@query_loci = uniq(@query_loci);
@@ -1078,7 +1089,7 @@ sub get_locus {
 sub is_locus {
 	my ( $self, $id ) = @_;
 	$id ||= '';
-	my $loci = $self->get_loci( { 'do_not_order' => 1 } );
+	my $loci = $self->get_loci( { do_not_order => 1 } );
 	return any { $_ eq $id } @$loci;
 }
 
@@ -1909,7 +1920,7 @@ sub get_metadata_value {
 	eval { $self->{'sql'}->{"metadata_value_$metaset"}->execute($isolate_id) };
 	$logger->error($@) if $@;
 	my $data = $self->{'sql'}->{"metadata_value_$metaset"}->fetchrow_hashref;
-	return $data->{lc ($metafield)} // '';
+	return $data->{ lc($metafield) } // '';
 }
 
 sub materialized_view_exists {

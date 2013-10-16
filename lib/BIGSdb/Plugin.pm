@@ -112,6 +112,10 @@ function listbox_selectall(listID, isSelect) {
 		listbox.options[count].selected = isSelect;
 	}
 }
+function list_show() {
+	\$("#locus_paste_list_div").show(500);
+	\$("#list_show_button").hide(500);
+}
 
 \$(document).ready(function() 
     { 
@@ -641,12 +645,15 @@ HTML
 }
 
 sub print_isolates_locus_fieldset {
-	my ($self) = @_;
+	my ( $self, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $q = $self->{'cgi'};
 	say "<fieldset id=\"locus_fieldset\" style=\"float:left\">\n<legend>Loci</legend>";
 	my ( $locus_list, $locus_labels ) =
 	  $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
 	if (@$locus_list) {
-		print $self->{'cgi'}->scrolling_list(
+		say "<div style=\"float:left\">";
+		say $q->scrolling_list(
 			-name     => 'locus',
 			-id       => 'locus',
 			-values   => $locus_list,
@@ -654,12 +661,29 @@ sub print_isolates_locus_fieldset {
 			-size     => 8,
 			-multiple => 'true'
 		);
-		print <<"HTML";
+		my $list_button = '';
+		if ( $options->{'locus_paste_list'} ) {
+			$list_button = qq(<input type="button" id="list_show_button" onclick='list_show()' value="Paste list" style="margin-top:1em" 
+				class="smallbutton" />);
+		}
+		say <<"HTML";
 <div style="text-align:center"><input type="button" onclick='listbox_selectall("locus",true)' value="All" style="margin-top:1em" class="smallbutton" />
-<input type="button" onclick='listbox_selectall("locus",false)' value="None" style="margin-top:1em" class="smallbutton" /></div>
+<input type="button" onclick='listbox_selectall("locus",false)' value="None" style="margin-top:1em" class="smallbutton" />$list_button</div></div>
 HTML
+		if ( $options->{'locus_paste_list'} ) {
+			my $display = $q->param('locus_paste_list') ? 'block' : 'none';
+			say "<div id=\"locus_paste_list_div\" style=\"float:left; display:$display\">";
+			say $q->textarea(
+				-name        => 'locus_paste_list',
+				-id          => 'locus_paste_list',
+				-cols        => 12,
+				-rows        => 7,
+				-placeholder => 'Paste list of locus primary names...'
+			);
+			say "</div>";
+		}
 	} else {
-		print "No loci available<br />for analysis";
+		say "No loci available<br />for analysis";
 	}
 	say "</fieldset>";
 	return;
