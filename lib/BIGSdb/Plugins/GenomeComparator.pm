@@ -902,7 +902,7 @@ sub _run_comparison {
 			} else {
 				( $status{'all_exact'}, $status{'exact_except_ref'} ) = ( 0, 0 );
 			}
-			if ( !$value ) {
+			if ( !$value ) {    #Don't use '!defined $value' because allele '0' means missing.
 				if ($extracted_seq) {
 					if ( $allele_seqs{$extracted_seq} ) {
 						$value = $allele_seqs{$extracted_seq};
