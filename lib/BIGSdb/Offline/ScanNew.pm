@@ -55,9 +55,12 @@ sub run_script {
 	my $isolate_count = @$isolate_list;
 	my $plural        = $isolate_count == 1 ? '' : 's';
 	$self->{'logger'}->info("$self->{'options'}->{'d'}:ScanNew start ($isolate_count genome$plural)");
+	my $i = 0;
 
 	foreach my $locus (@$loci) {
-		$self->{'logger'}->info("$self->{'options'}->{'d'}:Checking $locus");
+		$i++;
+		my $complete = BIGSdb::Utils::decimal_place( ( $i * 100 / @$loci ), 1 );
+		$self->{'logger'}->info("$self->{'options'}->{'d'}:Checking $locus - $i/" . (@$loci) . "($complete%)");
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		my %seqs;
 		foreach my $isolate_id (@$isolate_list) {
