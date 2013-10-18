@@ -9,3 +9,6 @@ DROP INDEX i_pf3;
 CREATE INDEX i_pf3 ON profile_fields(value);
 DROP INDEX i_pm3;
 CREATE INDEX i_pm3 ON profile_members(allele_id);
+
+ALTER TABLE scheme_groups ADD seq_query boolean;
+

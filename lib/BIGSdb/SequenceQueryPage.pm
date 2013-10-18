@@ -98,6 +98,14 @@ sub print_content {
 			unshift @$display_loci, "SCHEME_$_->{'id'}";
 			$cleaned->{"SCHEME_$_->{'id'}"} = $_->{'description'};
 		}
+		my $group_list = $self->{'datastore'}->get_group_list( { seq_query => 1 } );
+		foreach ( reverse @$group_list ) {
+			my $group_schemes = $self->{'datastore'}->get_schemes_in_group( $_->{'id'}, { set_id => $set_id, with_members => 1 } );
+			if (@$group_schemes) {
+				unshift @$display_loci, "GROUP_$_->{'id'}";
+				$cleaned->{"GROUP_$_->{'id'}"} = $_->{'name'};
+			}
+		}
 		unshift @$display_loci, 0;
 		$cleaned->{0} = 'All loci';
 		say $q->popup_menu( -name => 'locus', -values => $display_loci, -labels => $cleaned );
@@ -190,12 +198,13 @@ sub _run_query {
 	my $locus = $q->param('locus');
 	$locus =~ s/^cn_//;
 	$locus //= 0;
-	my $distinct_locus_selected = ( $locus && $locus !~ /SCHEME_\d+/ ) ? 1 : 0;
+	my $distinct_locus_selected = ( $locus && $locus !~ /SCHEME_\d+/ && $locus !~ /GROUP_\d+/ ) ? 1 : 0;
 	my $cleaned_locus           = $self->clean_locus($locus);
 	my $locus_info              = $self->{'datastore'}->get_locus_info($locus);
 	my $text_filename           = BIGSdb::Utils::get_random() . '.txt';
-	my $word_size               = ($q->param('word_size') && $q->param('word_size') =~ /^(\d+)$/) ? $1 : undef;    #untaint
+	my $word_size               = ( $q->param('word_size') && $q->param('word_size') =~ /^(\d+)$/ ) ? $1 : undef;    #untaint
 	$word_size //= $locus ? 15 : 30;    #Use big word size when querying 'all loci' as we're mainly interested in exact matches.
+
 	while ( my $seq_object = $seqin->next_seq ) {
 		if ( $ENV{'MOD_PERL'} ) {
 			$self->{'mod_perl_request'}->rflush;
@@ -398,8 +407,8 @@ sub _output_single_query_exact {
 
 sub _output_scheme_fields {
 	my ( $self, $locus, $designations ) = @_;
+	my $set_id = $self->get_set_id;
 	if ( !$locus ) {    #all loci
-		my $set_id = $self->get_set_id;
 		my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
 		foreach my $scheme (@$schemes) {
 			my $scheme_loci = $self->{'datastore'}->get_scheme_loci( $scheme->{'id'} );
@@ -407,12 +416,20 @@ sub _output_scheme_fields {
 				$self->_print_scheme_table( $scheme->{'id'}, $designations );
 			}
 		}
-	} elsif ( $locus =~ /SCHEME_(\d+)/ ) {    #Check for scheme fields
-		my $scheme_id     = $1;
-		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-		my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
-		if ( @$scheme_fields && @$scheme_loci ) {
-			$self->_print_scheme_table( $scheme_id, $designations );
+	} elsif ( $locus =~ /SCHEME_\d+/ || $locus =~ /GROUP_\d+/ ) {    #Check for scheme fields
+		my @schemes;
+		if ( $locus =~ /SCHEME_(\d+)/ ) {
+			push @schemes, $1;
+		} elsif ( $locus =~ /GROUP_(\d+)/ ) {
+			my $group_schemes = $self->{'datastore'}->get_schemes_in_group( $1, { set_id => $set_id, with_members => 1 } );
+			push @schemes, @$group_schemes;
+		}
+		foreach my $scheme_id (@schemes) {
+			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+			my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
+			if ( @$scheme_fields && @$scheme_loci ) {
+				$self->_print_scheme_table( $scheme_id, $designations );
+			}
 		}
 	}
 	return;
@@ -651,7 +668,7 @@ sub _output_single_query_nonexact {
 					say "</p>";
 					if ( $sstart > 1 ) {
 						say "<p>Your query sequence only starts at position $sstart of sequence ";
-						say "$locus: " if $locus && $locus !~ /SCHEME_\d+/;
+						say "$locus: " if $locus && $locus !~ /SCHEME_\d+/ && $locus !~ /GROUP_\d+/;
 						say "$cleaned_match.</p>";
 					} else {
 						say "<p>The locus start point is at position " . ( $qstart - $sstart + 1 ) . " of your query sequence.";
@@ -822,7 +839,7 @@ sub parse_blast_exact {
 		my @record = split /\s+/, $line;
 		if ( $record[2] == 100 ) {    #identity
 			my $seq_ref;
-			if ( $locus && $locus !~ /SCHEME_(\d+)/ ) {
+			if ( $locus && $locus !~ /SCHEME_\d+/ && $locus !~ /GROUP_\d+/ ) {
 				$seq_ref = $self->{'datastore'}->get_sequence( $locus, $record[1] );
 			} else {
 				my ( $locus, $allele ) = split /:/, $record[1];
@@ -947,6 +964,13 @@ sub _data_linked_to_locus {
 		when ('0') { $qry = "SELECT EXISTS (SELECT * FROM $table)" }
 		when (/SCHEME_(\d+)/) {
 			$qry = "SELECT EXISTS (SELECT * FROM $table WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id=$1))"
+		}
+		when (/GROUP_(\d+)/) {
+			my $set_id = $self->get_set_id;
+			my $group_schemes = $self->{'datastore'}->get_schemes_in_group( $1, { set_id => $set_id, with_members => 1 } );
+			local $" = ',';
+			$qry = "SELECT EXISTS (SELECT * FROM $table WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id "
+			  . "IN (@$group_schemes)))";
 		}
 		default {
 			$locus =~ s/'/\\'/g;

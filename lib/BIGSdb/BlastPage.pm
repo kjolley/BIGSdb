@@ -40,7 +40,7 @@ sub run_blast {
 
 	#create fasta index
 	my @runs;
-	if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
+	if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_\d+/ && $options->{'locus'} !~ /GROUP_\d+/ ) {
 		if ( $options->{'locus'} =~ /^((?:(?!\.\.).)*)$/ ) {    #untaint - check for directory traversal
 			$options->{'locus'} = $1;
 		}
@@ -75,16 +75,22 @@ sub run_blast {
 		}
 		if ( !$already_generated ) {
 			my ( $qry, $sql );
-			if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
+			if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_\d+/ && $options->{'locus'} !~ /GROUP_\d+/) {
 				$qry = "SELECT locus,allele_id,sequence from sequences WHERE locus=?";
 			} else {
+				my $set_id = $self->get_set_id;
 				if ( $options->{'locus'} =~ /SCHEME_(\d+)/ ) {
 					my $scheme_id = $1;
 					$qry = "SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT locus FROM scheme_members WHERE "
 					  . "scheme_id=$scheme_id) AND locus IN (SELECT id FROM loci WHERE data_type=?) AND allele_id != 'N'";
+				} elsif ($options->{'locus'} =~ /GROUP_(\d+)/){
+					my $group_id = $1;
+					my $group_schemes = $self->{'datastore'}->get_schemes_in_group($group_id, {set_id => $set_id, with_members => 1});
+					local $" = ',';
+					$qry = "SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT locus FROM scheme_members WHERE "
+					  . "scheme_id IN (@$group_schemes)) AND locus IN (SELECT id FROM loci WHERE data_type=?) AND allele_id != 'N'";
 				} else {
 					$qry = "SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT id FROM loci WHERE data_type=?)";
-					my $set_id = $self->get_set_id;
 					if ($set_id) {
 						$qry .=
 						    " AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
@@ -100,14 +106,14 @@ sub run_blast {
 			foreach (@$seqs_ref) {
 				my ( $returned_locus, $id, $seq ) = @$_;
 				next if !length $seq;
-				print $fasta_fh ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ )
+				print $fasta_fh ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_\d+/ && $options->{'locus'} !~ /GROUP_\d+/)
 				  ? ">$id\n$seq\n"
 				  : ">$returned_locus:$id\n$seq\n";
 			}
 			close $fasta_fh;
 			if ( !-z $temp_fastafile ) {
 				my $dbtype;
-				if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
+				if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_\d+/ && $options->{'locus'} !~ /GROUP_\d+/) {
 					$dbtype = $locus_info->{'data_type'} eq 'DNA' ? 'nucl' : 'prot';
 				} else {
 					$dbtype = $run eq 'DNA' ? 'nucl' : 'prot';
@@ -124,7 +130,7 @@ sub run_blast {
 			print $infile_fh "${$options->{'seq_ref'}}\n";
 			close $infile_fh;
 			my $program;
-			if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_(\d+)/ ) {
+			if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_\d+/ && $options->{'locus'} !~ /GROUP_\d+/ ) {
 				if ( $options->{'qry_type'} eq 'DNA' ) {
 					$program = $locus_info->{'data_type'} eq 'DNA' ? 'blastn' : 'blastx';
 				} else {
@@ -161,7 +167,7 @@ sub run_blast {
 			}
 		}
 	}
-	if ( !$options->{'locus'} || $options->{'locus'} =~ /SCHEME_(\d+)/ ) {
+	if ( !$options->{'locus'} || $options->{'locus'} =~ /SCHEME_\d+/ || $options->{'locus'} =~ /GROUP_\d+/ ) {
 		my $outfile1 = "$temp_outfile\.1";
 		BIGSdb::Utils::append( $outfile1, $temp_outfile ) if -e $outfile1;
 		unlink $outfile1 if -e $outfile1;

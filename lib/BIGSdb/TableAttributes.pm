@@ -163,7 +163,7 @@ sub get_user_permissions_table_attributes {
 
 sub get_history_table_attributes {
 	my $attributes = [
-		{ name => 'isolate_id', type => 'int',       required => 'yes', primary_key => 'yes', foreign_key => 'isolates' },
+		{ name => 'isolate_id', type => 'int',       required => 'yes', primary_key => 'yes', foreign_key     => 'isolates' },
 		{ name => 'timestamp',  type => 'timestamp', required => 'yes', primary_key => 'yes', query_datestamp => 'yes' },
 		{ name => 'action',     type => 'text',      required => 'yes' },
 		{ name => 'curator', type => 'int', required => 'yes', dropdown_query => 'yes' },
@@ -174,10 +174,10 @@ sub get_history_table_attributes {
 sub get_profile_history_table_attributes {
 	my $attributes = [
 		{ name => 'scheme_id', type => 'int', required => 'yes', primary_key => 'yes', foreign_key => 'schemes', dropdown_query => 'yes' },
-		{ name => 'profile_id', type => 'text',      required => 'yes', primary_key    => 'yes' },
-		{ name => 'timestamp',  type => 'timestamp', required => 'yes', primary_key    => 'yes', query_datestamp => 'yes' },
-		{ name => 'action',     type => 'text',      required => 'yes' },
-		{ name => 'curator',    type => 'int',       required => 'yes', dropdown_query => 'yes' },
+		{ name => 'profile_id', type => 'text',      required => 'yes', primary_key => 'yes' },
+		{ name => 'timestamp',  type => 'timestamp', required => 'yes', primary_key => 'yes', query_datestamp => 'yes' },
+		{ name => 'action',  type => 'text', required => 'yes' },
+		{ name => 'curator', type => 'int',  required => 'yes', dropdown_query => 'yes' },
 	];
 	return $attributes;
 }
@@ -1011,6 +1011,7 @@ sub get_scheme_fields_table_attributes {
 }
 
 sub get_scheme_groups_table_attributes {
+	my ($self) = @_;
 	my $attributes = [
 		{ name => 'id', type => 'int', required => 'yes', unique => 'yes', primary_key => 'yes' },
 		{
@@ -1022,10 +1023,23 @@ sub get_scheme_groups_table_attributes {
 			tooltip        => 'name - Ensure this is short since it is used in table headings and drop-down lists.'
 		},
 		{ name => 'description',   type => 'text', length => 256 },
-		{ name => 'display_order', type => 'int' },
+		{ name => 'display_order', type => 'int' }
+	];
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		push @$attributes,
+		  (
+			{
+				name    => 'seq_query',
+				type    => 'bool',
+				tooltip => 'seq_query - Sets whether the group appears in the dropdown list of targets when performing a sequence query.'
+			}
+		  );
+	}
+	push @$attributes,
+	  (
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' }
-	];
+	  );
 	return $attributes;
 }
 
@@ -1146,14 +1160,7 @@ sub get_sequences_table_attributes {
 		{ name => 'locus',     type => 'text', required => 'yes', primary_key => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
 		{ name => 'allele_id', type => 'text', required => 'yes', primary_key => 'yes' },
 		{ name => 'sequence', type => 'text', required => 'yes', length => 32768, user_update => 'no' },
-		{
-			name        => 'status',
-			type        => 'text',
-			required    => 'yes',
-			optlist     => "@optlist",
-			default     => 'trace checked',
-			public_hide => 'yes'
-		},
+		{ name => 'status', type => 'text', required => 'yes', optlist => "@optlist", default => 'trace checked', public_hide => 'yes' },
 		{ name => 'sender',       type => 'int',  required => 'yes', dropdown_query => 'yes', public_hide => 'yes' },
 		{ name => 'curator',      type => 'int',  required => 'yes', dropdown_query => 'yes', public_hide => 'yes' },
 		{ name => 'date_entered', type => 'date', required => 'yes', public_hide    => 'yes' },
