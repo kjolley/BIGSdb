@@ -144,6 +144,18 @@ sub add_job {
 	return $id;
 }
 
+sub cancel_job {
+	my ( $self, $id ) = @_;
+	eval { $self->{'db'}->do( "UPDATE jobs SET status='cancelled',cancel=true WHERE id=?", undef, $id ) };
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+	return;
+}
+
 sub update_job_output {
 	my ( $self, $job_id, $output_hash ) = @_;
 	if ( ref $output_hash ne 'HASH' ) {
@@ -205,6 +217,10 @@ sub update_job_status {
 		$self->{'db'}->rollback;
 	} else {
 		$self->{'db'}->commit;
+	}
+	my ( $job, undef, undef ) = $self->get_job($job_id);
+	if ( $job->{'status'} && $job->{'status'} eq 'cancelled' || $job->{'cancel'} ) {
+		system( 'kill', $job->{'pid'} );
 	}
 	return;
 }

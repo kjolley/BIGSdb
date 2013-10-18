@@ -972,7 +972,10 @@ sub _run_comparison {
 	}
 	$$html_buffer_ref .= $close_table;
 	if ( $self->{'exit'} ) {
-		$self->{'jobManager'}->update_job_status( $job_id, { status => 'terminated' } );
+		my ($job, undef, undef) = $self->{'jobManager'}->get_job($job_id);
+		if ($job->{'status'} && $job->{'status'} ne 'cancelled'){
+			$self->{'jobManager'}->update_job_status( $job_id, { status => 'terminated' } );
+		}
 		$self->delete_temp_files("$prefix*");
 		return;
 	}

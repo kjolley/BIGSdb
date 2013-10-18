@@ -37,7 +37,7 @@ use Getopt::Std;
 use BIGSdb::Offline::AutoTag;
 
 my %opts;
-getopts( 'd:i:I:l:m:p:P:s:t:w:x:y:hnoqr', \%opts );
+getopts( 'd:i:I:l:m:p:P:s:t:w:x:y:hnoqrT', \%opts );
 
 if ($opts{'h'}){
 	show_help();
@@ -89,6 +89,7 @@ Options
 -r         Random - shuffle order of isolate ids to scan
 -s <list>  Schemes - comma-separated list of scheme loci to scan.
 -t <mins>  Time limit - Stop after t minutes.
+-T         Scan even when sequence tagged (no designation)
 -w <size>  BLASTN word size
 -x <id>    Minimum isolate id
 -y <id>    Maximum isolate id

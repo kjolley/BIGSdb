@@ -38,7 +38,7 @@ sub run_script {
 	$params->{$_} = 1 foreach qw(pcr_filter probe_filter);
 	$params->{'word_size'} = BIGSdb::Utils::is_int( $self->{'options'}->{'w'} ) ? $self->{'options'}->{'w'} : DEFAULT_WORD_SIZE;
 	die "No connection to database (check logs).\n" if !defined $self->{'db'};
-	die "This script can only be run against an isolate database.\n" if ($self->{'system'}->{'dbtype'} // '') ne 'isolates';
+	die "This script can only be run against an isolate database.\n" if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
 	my $tag_user_id = TAG_USER;
 	$self->{'username'} = TAG_USERNAME;
 	my $user_ok =
@@ -69,7 +69,7 @@ sub run_script {
 	  LOCUS: foreach my $locus (@$loci) {
 			next if defined $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
 			my $allele_seq = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
-			next if ref $allele_seq eq 'ARRAY' && @$allele_seq;
+			next if ref $allele_seq eq 'ARRAY' && @$allele_seq && !$self->{'options'}->{'T'};
 			my ( $exact_matches, undef ) = $self->blast( $params, $locus, $isolate_id, $isolate_prefix, $locus_prefix );
 			if ( ref $exact_matches && @$exact_matches ) {
 				print "Isolate: $isolate_id; Locus: $locus; " if !$self->{'options'}->{'q'};
@@ -82,16 +82,18 @@ sub run_script {
 						try {
 							$self->_tag_allele(
 								{ isolate_id => $isolate_id, locus => $locus, allele_id => $_->{'allele'}, sender => $sender } );
-							$self->_tag_sequence(
-								{
-									seqbin_id => $_->{'seqbin_id'},
-									locus     => $locus,
-									allele_id => $_->{'allele'},
-									start_pos => $_->{'start'},
-									end_pos   => $_->{'end'},
-									reverse   => $_->{'reverse'}
-								}
-							);
+							if ( !$self->{'options'}->{'T'} || !( ref $allele_seq eq 'ARRAY' && @$allele_seq ) ) {
+								$self->_tag_sequence(
+									{
+										seqbin_id => $_->{'seqbin_id'},
+										locus     => $locus,
+										allele_id => $_->{'allele'},
+										start_pos => $_->{'start'},
+										end_pos   => $_->{'end'},
+										reverse   => $_->{'reverse'}
+									}
+								);
+							}
 						}
 						catch BIGSdb::DatabaseException with {
 							$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$isolate_prefix*");

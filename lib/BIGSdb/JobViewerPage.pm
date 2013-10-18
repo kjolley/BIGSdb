@@ -40,7 +40,7 @@ sub initiate {
 	return if !defined $id;
 	my ( $job, undef, undef ) = $self->{'jobManager'}->get_job($id);
 	return if !$job->{'status'};
-	return if any { $job->{'status'} eq $_ } qw (finished failed terminated);
+	return if any { $job->{'status'} eq $_ } qw (finished failed terminated cancelled);
 	my $complete = $job->{'percent_complete'};
 	my $elapsed = $job->{'elapsed'} // 0;
 	if ( $job->{'status'} eq 'started' ) {
@@ -58,6 +58,9 @@ sub initiate {
 		}
 	} else {
 		$self->{'refresh'} = 5;        #not started
+	}
+	if ( $q->param('cancel') ) {
+		$self->{'refresh'} = 1;
 	}
 	return;
 }
@@ -111,6 +114,11 @@ sub print_content {
 		print "<p>The submitted job does not exist.</p>\n";
 		print "</div>\n";
 		return;
+	}
+	if ( $q->param('cancel') ) {
+		if ( $self->_can_user_cancel_job($job) ) {
+			$self->{'jobManager'}->cancel_job( $job->{'id'} );
+		}
 	}
 	( my $submit_time = $job->{'submit_time'} ) =~ s/\.\d+$//;    #remove fractions of second
 	( my $start_time = $job->{'start_time'} ? $job->{'start_time'} : '' ) =~ s/\.\d+$//;
@@ -213,12 +221,33 @@ HTML
 		say "<br />Stage: $job->{'stage'}" if $job->{'stage'};
 		say "</p>";
 	}
+	$self->_print_cancel_button($job) if $job->{'status'} eq 'started' || $job->{'status'} =~ /^submitted/;
 	print "<p>This page will reload in $refresh. You can refresh it any time, or bookmark it and close your browser if you wish.</p>"
 	  if $self->{'refresh'};
 	if ( $self->{'config'}->{'results_deleted_days'} && BIGSdb::Utils::is_int( $self->{'config'}->{'results_deleted_days'} ) ) {
 		print "<p>Please note that job results will remain on the server for $self->{'config'}->{'results_deleted_days'} days.</p></div>";
 	} else {
 		print "<p>Please note that job results will not be stored on the server indefinitely.</p></div>";
+	}
+	return;
+}
+
+sub _print_cancel_button {
+	my ( $self, $job ) = @_;
+	return if !$self->_can_user_cancel_job($job);
+	say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job->{'id'}&amp;"
+	  . "cancel=1\" class=\"resetbutton ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only \">"
+	  . "<span class=\"ui-button-text\">Cancel job!</span></a> Clicking this will request that the job is cancelled.</p>";
+	return;
+}
+
+sub _can_user_cancel_job {
+	my ( $self, $job ) = @_;
+	if ( $job->{'email'} ) {
+		my $user = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+		return 1 if $user->{'email'} && $user->{'email'} eq $job->{'email'};
+	} elsif ( $job->{'ip_address'} ) {    #public database, no logins.  Allow if IP address matches.
+		return 1 if $ENV{'REMOTE_ADDR'} && $job->{'ip_address'} eq $ENV{'REMOTE_ADDR'};
 	}
 	return;
 }
