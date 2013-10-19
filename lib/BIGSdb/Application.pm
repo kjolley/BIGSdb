@@ -37,6 +37,7 @@ use BIGSdb::ErrorPage;
 use BIGSdb::FieldHelpPage;
 use BIGSdb::IndexPage;
 use BIGSdb::IsolateInfoPage;
+use BIGSdb::JobsListPage;
 use BIGSdb::JobViewerPage;
 use BIGSdb::ListQueryPage;
 use BIGSdb::LocusInfoPage;
@@ -60,6 +61,7 @@ use CGI;
 use DBI;
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
+use List::MoreUtils qw(any);
 use Config::Tiny;
 
 sub new {
@@ -103,8 +105,7 @@ sub new {
 			}
 			$self->_initiate_authdb if $self->{'system'}->{'authentication'} eq 'builtin';
 			$self->_initiate_jobmanager( $config_dir, $dbase_config_dir )
-			  if ( $q->param('page') eq 'plugin'
-				|| $q->param('page') eq 'job' )
+			  if (  any {$q->param('page') eq $_} qw (plugin job jobs index))
 			  && $self->{'config'}->{'jobs_db'};
 			$self->initiate_plugins($lib_dir);
 		}
@@ -402,7 +403,8 @@ sub print_page {
 		extractedSequence  => 'ExtractedSequencePage',
 		alleleQuery        => 'AlleleQueryPage',
 		locusInfo          => 'LocusInfoPage',
-		job                => 'JobViewerPage'
+		job                => 'JobViewerPage',
+		jobs               => 'JobsListPage'
 	);
 	my $page;
 	my %page_attributes = (

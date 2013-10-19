@@ -33,6 +33,9 @@ sub set_pref_requirements {
 sub initiate {
 	my ($self) = @_;
 	$self->{'jQuery'} = 1;
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $self->{'system'}->{'read_access'} ne 'public' ) {
+		$self->{'noCache'} = 1;    #Page will display user's queued/running jobs so should be cached.
+	}
 	$self->choose_set;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $set_id = $self->get_set_id;
@@ -51,6 +54,7 @@ sub print_content {
 	my $desc        = $self->get_db_description;
 	say "<h1>$desc database</h1>";
 	$self->print_banner;
+	$self->_print_jobs;
 	my $set_id = $self->get_set_id;
 	my $set_string = $set_id ? "&amp;set_id=$set_id" : '';    #append to URLs to ensure unique caching.
 
@@ -172,6 +176,37 @@ TOOLTIPS
 	$self->_print_general_info_section($scheme_data);
 	say "</div></div>";
 	$self->_print_plugin_section($scheme_data);
+	return;
+}
+
+sub _print_jobs {
+	my ($self) = @_;
+	return if !$self->{'system'}->{'read_access'} eq 'public' || !$self->{'config'}->{'jobs_db'};
+	return if !defined $self->{'username'};
+	my $days = $self->{'config'}->{'results_deleted_days'} // 7;
+	my $jobs = $self->{'jobManager'}->get_jobs( $self->{'instance'}, $self->{'username'}, $days );
+	return if !@$jobs;
+	my %status_counts;
+	$status_counts{ $_->{'status'} }++ foreach @$jobs;
+	my $days_plural = $days == 1  ? '' : 's';
+	my $jobs_plural = @$jobs == 1 ? '' : 's';
+	say "<div class=\"box\" id=\"jobs\">";
+	say "<h2>Jobs</h2>";
+	say "<p>You have submitted or run "
+	  . @$jobs
+	  . " offline job$jobs_plural in the past "
+	  . ( $days_plural ? $days : '' )
+	  . " day$days_plural. "
+	  . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=jobs\">Show jobs</a></p>";
+	my %replace = ( started => 'running', submitted => 'queued' );
+	my @breakdown;
+
+	foreach my $status (qw (started submitted finished failed cancelled terminated)) {
+		push @breakdown, ( $replace{$status} // $status ) . ": $status_counts{$status}" if $status_counts{$status};
+	}
+	local $" = '; ';
+	say "<p>@breakdown</p>";
+	say "</div>";
 	return;
 }
 

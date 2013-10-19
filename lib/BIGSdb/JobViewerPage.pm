@@ -244,8 +244,7 @@ sub _print_cancel_button {
 sub _can_user_cancel_job {
 	my ( $self, $job ) = @_;
 	if ( $job->{'email'} ) {
-		my $user = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-		return 1 if $user->{'email'} && $user->{'email'} eq $job->{'email'};
+		return 1 if $self->{'username'} && $self->{'username'} eq $job->{'username'};
 	} elsif ( $job->{'ip_address'} ) {    #public database, no logins.  Allow if IP address matches.
 		return 1 if $ENV{'REMOTE_ADDR'} && $job->{'ip_address'} eq $ENV{'REMOTE_ADDR'};
 	}

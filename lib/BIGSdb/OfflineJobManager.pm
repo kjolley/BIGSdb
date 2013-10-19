@@ -258,6 +258,23 @@ sub get_job {
 	return ( $job, $params, $output );
 }
 
+sub get_jobs {
+	my ($self, $instance, $username, $days) = @_;
+	my $sql = $self->{'db'}->prepare("SELECT *,extract(epoch FROM now() - start_time) AS elapsed,extract(epoch FROM stop_time - "
+	  . "start_time) AS total_time FROM jobs WHERE dbase_config=? AND username=? AND (submit_time > now()-interval '$days days' "
+	  . "OR stop_time > now()-interval '$days days') ORDER BY submit_time");
+	eval { $sql->execute($instance, $username)};
+	if ($@){
+		$logger->error($@);
+		return;
+	}
+	my @jobs;
+	while (my $job = $sql->fetchrow_hashref){
+		push @jobs, $job;
+	}
+	return \@jobs;
+}
+
 sub get_jobs_ahead_in_queue {
 	my ( $self, $job_id ) = @_;
 	my $sql =
