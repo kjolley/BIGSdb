@@ -1911,7 +1911,7 @@ sub get_tables {
 		  qw(users user_groups user_group_members sequences sequence_refs accession loci schemes scheme_members scheme_fields profiles
 		  profile_refs user_permissions client_dbases client_dbase_loci client_dbase_schemes locus_extended_attributes scheme_curators locus_curators
 		  locus_descriptions scheme_groups scheme_group_scheme_members scheme_group_group_members client_dbase_loci_fields sets set_loci set_schemes
-		  profile_history);
+		  profile_history locus_aliases);
 	}
 	return @tables;
 }

@@ -134,7 +134,8 @@ HTML
 		if ( $system->{'dbtype'} eq 'isolates' ) {
 			push @tables, qw(locus_aliases pcr pcr_locus probes probe_locus isolate_field_extended_attributes composite_fields);
 		} elsif ( $system->{'dbtype'} eq 'sequences' ) {
-			push @tables, qw(locus_extended_attributes client_dbases client_dbase_loci client_dbase_schemes client_dbase_loci_fields);
+			push @tables, qw(locus_aliases locus_extended_attributes client_dbases client_dbase_loci client_dbase_schemes
+			  client_dbase_loci_fields);
 		}
 		if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
 			push @tables, 'sets';
