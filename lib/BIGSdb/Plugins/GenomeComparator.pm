@@ -1029,6 +1029,7 @@ sub _print_reports {
 		$distances = $self->_create_alignments( $job_id, $args->{'by_reference'},
 			$align_file, $align_stats_file, $ids, ( $params->{'align_all'} ? $loci : $locus_class->{'varying'} ) );
 	}
+	return if $self->{'exit'};
 	$self->_print_variable_loci( $args->{'by_reference'}, $ids, $html_buffer_ref, $job_file, $locus_class->{'varying'}, $values );
 	$self->_print_missing_in_all( $args->{'by_reference'}, $ids, $html_buffer_ref, $job_file, $locus_class->{'all_missing'}, $values );
 	$self->_print_exact_matches( $args->{'by_reference'}, $ids, $html_buffer_ref, $job_file, $locus_class->{'all_exact'}, $values );
@@ -1442,6 +1443,7 @@ sub _create_alignments {
 	my $distances;
 
 	foreach my $locus ( sort keys %$loci ) {
+		last if $self->{'exit'};
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Aligning $locus sequences" } );
 		$progress++;
 		my $complete = 50 + int( 100 * $progress / $total );
