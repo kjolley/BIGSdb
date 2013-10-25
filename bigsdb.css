@@ -563,8 +563,10 @@ div#resultsfooter {
 
 table.resultstable {
 	text-align:center;
-	padding:0.1em;
+	padding:0.1em 
 }
+
+table.resultstable td,th {padding:0 0.2em}
 
 table.profile {
 	background:#e0e0e0;
