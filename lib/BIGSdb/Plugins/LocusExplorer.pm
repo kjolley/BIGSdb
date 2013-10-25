@@ -27,7 +27,7 @@ my $logger = get_logger('BIGSdb.Plugins');
 use List::MoreUtils qw(none);
 use Apache2::Connection ();
 use Bio::SeqIO;
-use constant MAX_SNP_SEQUENCES => 200;
+use constant MAX_SNP_SEQUENCES       => 200;
 use constant MAX_TRANSLATE_SEQUENCES => 50;
 
 sub get_attributes {
@@ -273,9 +273,7 @@ sub _print_interface {
 	my $allele_ids =
 	  $self->{'datastore'}
 	  ->run_list_query( "SELECT allele_id FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N') " . "ORDER BY $order", $locus );
-	say "<p>Polymorphic site analysis is limited to "
-	  . MAX_SNP_SEQUENCES
-	  . " sequences for this locus since it requires alignment.</p>"
+	say "<p>Polymorphic site analysis is limited to " . MAX_SNP_SEQUENCES . " sequences for this locus since it requires alignment.</p>"
 	  if $locus_info->{'length_varies'} && @$allele_ids > MAX_SNP_SEQUENCES;
 	say "<fieldset>\n<legend>Select sequences</legend>";
 	say $q->scrolling_list(
@@ -310,7 +308,8 @@ sub _print_interface {
 			say "<tr><td style=\"text-align:right\">";
 			say $q->submit( -name => 'translate', -label => 'Translate', -class => 'submit' );
 			say "</td><td>Translate DNA to peptide sequences";
-			say " (limited to " . MAX_TRANSLATE_SEQUENCES . " sequences)" if $locus_info->{'length_varies'} && @$allele_ids > MAX_TRANSLATE_SEQUENCES;
+			say " (limited to " . MAX_TRANSLATE_SEQUENCES . " sequences)"
+			  if $locus_info->{'length_varies'} && @$allele_ids > MAX_TRANSLATE_SEQUENCES;
 			say "</td></tr>";
 		}
 	}
@@ -394,7 +393,8 @@ sub _snp {
 		( $buffer, undef ) = $self->get_freq_table( $freqs, $locus_info );
 		say $buffer if $buffer;
 		say "</div>";
-		$self->delete_temp_files("$prefix*");
+
+		#Keep temp files as they are needed for site explorer function.
 	} elsif ( $seq_count > MAX_SNP_SEQUENCES && $locus_info->{'length_varies'} ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>This locus is variable length and will therefore require real-time alignment.  "
 		  . "Consequently this function is limited to "
