@@ -70,8 +70,8 @@ Options
 -------
 -d <name>  Database configuration name.
 -a         Assign new alleles in definitions database
--A         Percentage alignment (default: 100)
--B         Percentage identity (default: 99)
+-A <int>   Percentage alignment (default: 100)
+-B <int>   Percentage identity (default: 99)
 -c         Only return complete coding sequences
 -h         This help page.
 -i <list>  Isolates - comma-separated list of isolate ids to scan (ignored if
@@ -88,7 +88,7 @@ Options
 -P <list>  Exclude projects - comma-separated list of projects whose isolates
            will be excluded.
 -r         Random - shuffle order of isolate ids to scan
--R         Regex for locus names
+-R <regex> Regex for locus names
 -s <list>  Schemes - comma-separated list of scheme loci to scan.
 -t <mins>  Time limit - Stop after t minutes.
 -w <size>  BLASTN word size
