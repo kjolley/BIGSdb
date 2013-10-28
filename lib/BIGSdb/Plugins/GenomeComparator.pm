@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.5.7',
+		version     => '1.5.8',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/genome_comparator.shtml',
@@ -127,14 +127,11 @@ sub run_job {
 	$self->{'exit'} = 0;
 	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3;    #Allow temp files to be cleaned on kill signals
 	$self->{'params'} = $params;
-	my @loci = split /\|\|/, $params->{'locus'} // '';
-	my @ids = split /\|\|/, $params->{'isolate_id'};
-	my $filtered_ids = $self->filter_ids_by_project( \@ids, $params->{'project_list'} );
-	my @scheme_ids = split /\|\|/, ( defined $params->{'scheme_id'} ? $params->{'scheme_id'} : '' );
-	my $accession = $params->{'accession'} || $params->{'annotation'};
-	my $ref_upload = $params->{'ref_upload'};
-
-	if ( !@$filtered_ids ) {
+	my $loci        = $self->{'jobManager'}->get_job_loci($job_id);
+	my $isolate_ids = $self->{'jobManager'}->get_job_isolates($job_id);
+	my $accession   = $params->{'accession'} || $params->{'annotation'};
+	my $ref_upload  = $params->{'ref_upload'};
+	if ( !@$isolate_ids ) {
 		$self->{'jobManager'}->update_job_status(
 			$job_id,
 			{
@@ -145,7 +142,7 @@ sub run_job {
 		);
 		return;
 	}
-	if ( !$accession && !$ref_upload && !@loci && !@scheme_ids ) {
+	if ( !$accession && !$ref_upload && !@$loci ) {
 		$self->{'jobManager'}->update_job_status(
 			$job_id,
 			{
@@ -201,10 +198,9 @@ sub run_job {
 			unlink "$self->{'config'}->{'tmp_dir'}/$ref_upload";
 		}
 		return if !$seq_obj;
-		$self->_analyse_by_reference( $job_id, $accession, $seq_obj, $filtered_ids );
+		$self->_analyse_by_reference( $job_id, $accession, $seq_obj, $isolate_ids );
 	} else {
-		$self->_add_scheme_loci( \@loci );
-		$self->_analyse_by_loci( $job_id, \@loci, $filtered_ids );
+		$self->_analyse_by_loci( $job_id, $loci, $isolate_ids );
 	}
 	return;
 }
@@ -216,10 +212,11 @@ sub run {
 	print "<h1>Genome Comparator - $desc</h1>\n";
 	my $q = $self->{'cgi'};
 	if ( $q->param('submit') ) {
-		my @ids          = $q->param('isolate_id');
-		my $ref_upload   = $q->param('ref_upload') ? $self->_upload_ref_file : undef;
+		my @ids = $q->param('isolate_id');
+		$q->delete('isolate_id');
+		my $ref_upload = $q->param('ref_upload') ? $self->_upload_ref_file : undef;
 		my $filtered_ids = $self->filter_ids_by_project( \@ids, $q->param('project_list') );
-		my $continue     = 1;
+		my $continue = 1;
 		if ( !@$filtered_ids ) {
 			say "<div class=\"box\" id=\"statusbad\"><p>You must include one or more isolates. Make sure your "
 			  . "selected isolates haven't been filtered to none by selecting a project.</p></div>";
@@ -263,34 +260,27 @@ sub run {
 				}
 			}
 		}
-		$q->param( 'locus', uniq @cleaned_loci );
-		my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
-		push @$scheme_ids, 0;
+		$q->delete('locus');
+		@cleaned_loci = uniq @cleaned_loci;
 		my $accession = $q->param('accession') || $q->param('annotation');
 		if (@invalid_loci) {
 			local $" = ', ';
 			say "<div class=\"box\" id=\"statusbad\"><p>The following loci in your pasted list are invalid: @invalid_loci.</p></div>";
 			$continue = 0;
 		}
-		if ( !$accession && !$ref_upload && !@cleaned_loci && ( none { $q->param("s_$_") } @$scheme_ids ) && $continue ) {
+		$self->add_scheme_loci( \@cleaned_loci );
+		
+		if ( !$accession && !$ref_upload && !@cleaned_loci && $continue ) {
 			say "<div class=\"box\" id=\"statusbad\"><p>You must either select one or more loci or schemes, provide "
 			  . "a genome accession number, or upload an annotated genome.</p></div>";
 			$continue = 0;
 		}
-		my @selected_schemes;
-		foreach (@$scheme_ids) {
-			next if !$q->param("s_$_");
-			push @selected_schemes, $_;
-			$q->delete("s_$_");
-		}
-		local $" = '||';
-		my $scheme_string = "@selected_schemes";
-		$q->param( 'scheme_id', $scheme_string );
+
 		$q->param( 'ref_upload', $ref_upload ) if $ref_upload;
 		if ( $q->param('calc_distances') ) {
-			$q->param( 'align',       'on' );
-			$q->param( 'align_all',   'on' );
-			$q->param( 'include_ref', '' );
+			$q->param( align       => 'on' );
+			$q->param( align_all   => 'on' );
+			$q->param( include_ref => '' );
 		}
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		if ($continue) {
@@ -306,7 +296,9 @@ sub run {
 					priority     => $att->{'priority'},
 					parameters   => $params,
 					username     => $self->{'username'},
-					email        => $user_info->{'email'}
+					email        => $user_info->{'email'},
+					isolates     => $filtered_ids,
+					loci         => \@cleaned_loci,
 				}
 			);
 			print <<"HTML";
@@ -681,26 +673,6 @@ NEXUS
 	return "$job_id.nex";
 }
 
-sub _add_scheme_loci {
-	my ( $self, $loci ) = @_;
-	my $params = $self->{'params'};
-	my @scheme_ids = split /\|\|/, ( defined $params->{'scheme_id'} ? $params->{'scheme_id'} : '' );
-	my %locus_selected;
-	$locus_selected{$_} = 1 foreach (@$loci);
-	my $set_id = $self->get_set_id;
-	foreach (@scheme_ids) {
-		my $scheme_loci =
-		  $_ ? $self->{'datastore'}->get_scheme_loci($_) : $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
-		foreach my $locus (@$scheme_loci) {
-			if ( !$locus_selected{$locus} ) {
-				push @$loci, $locus;
-				$locus_selected{$locus} = 1;
-			}
-		}
-	}
-	return;
-}
-
 sub _analyse_by_reference {
 	my ( $self, $job_id, $accession, $seq_obj, $ids ) = @_;
 	my @cds;
@@ -972,8 +944,8 @@ sub _run_comparison {
 	}
 	$$html_buffer_ref .= $close_table;
 	if ( $self->{'exit'} ) {
-		my ($job, undef, undef) = $self->{'jobManager'}->get_job($job_id);
-		if ($job->{'status'} && $job->{'status'} ne 'cancelled'){
+		my ( $job, undef, undef ) = $self->{'jobManager'}->get_job($job_id);
+		if ( $job->{'status'} && $job->{'status'} ne 'cancelled' ) {
 			$self->{'jobManager'}->update_job_status( $job_id, { status => 'terminated' } );
 		}
 		$self->delete_temp_files("$prefix*");

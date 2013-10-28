@@ -39,7 +39,7 @@ sub get_attributes {
 		category         => 'Analysis',
 		menutext         => 'Rule Query',
 		module           => 'RuleQuery',
-		version          => '1.0.1',
+		version          => '1.0.2',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => '',
@@ -84,6 +84,7 @@ sub run {
 	}
 	print $ruleset_id ? "<h1>$rulesets->{$ruleset_id}->{'description'}</h1>\n" : "<h1>Sequence query</h1>\n" if !$q->param('data');
 	my $sequence = $q->param('sequence');
+	$q->delete('sequence');
 	$self->remove_all_identifier_lines( \$sequence ) if $sequence;
 	my $valid_DNA = 1;
 	if ($sequence) {
@@ -95,8 +96,13 @@ sub run {
 				$valid_DNA = 0;
 			}
 		}
-	}
-	if ( !$sequence && $q->param('fasta_upload') ) {
+		my $temp = BIGSdb::Utils::get_random();
+		my $file = "$self->{'config'}->{'tmp_dir'}/$temp.seq";
+		$q->param(upload_file => "$temp.seq");
+		open (my $fh, '>', $file) || $logger->error("Can't open $file for writing");
+		say $fh $sequence;
+		close $fh;
+	} elsif ( $q->param('fasta_upload') ) {
 		my $upload_file = $self->_upload_fasta_file;
 		$q->param( 'upload_file', $upload_file );
 	}
@@ -207,12 +213,6 @@ sub run_job {
 		eval "$$code_ref";                         ## no critic (ProhibitStringyEval)
 	}
 	$logger->error($@) if $@;
-
-	#DEBUGGING#
-	#	use autouse 'Data::Dumper' => qw(Dumper);
-	#	$self->{'html'} .= "<pre>" . Dumper( $self->{'results'} ) . "</pre>";
-	#	$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => $self->{'html'} } );
-	#END#######
 	return;
 }
 

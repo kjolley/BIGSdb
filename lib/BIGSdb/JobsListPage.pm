@@ -48,7 +48,7 @@ sub print_content {
 	my $days = $self->{'config'}->{'results_deleted_days'} // 7;
 	my $days_plural = $days == 1 ? '' : 's';
 	say "<h1>Jobs - $desc database</h1>";
-	my $jobs = $self->{'jobManager'}->get_jobs( $self->{'instance'}, $self->{'username'}, $days );
+	my $jobs = $self->{'jobManager'}->get_user_jobs( $self->{'instance'}, $self->{'username'}, $days );
 	my $user = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	if ( !$user ) {
 		say "<p>No information about current user.</p>";

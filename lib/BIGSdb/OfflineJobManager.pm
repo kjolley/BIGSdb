@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2011-2012, University of Oxford
+#(c) 2011-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -58,11 +58,11 @@ sub _db_connect {
 		return;
 	}
 	my %att = (
-		'dbase_name' => $self->{'config'}->{'jobs_db'},
-		'host'       => $self->{'host'},
-		'port'       => $self->{'port'},
-		'user'       => $self->{'user'},
-		'password'   => $self->{'password'},
+		dbase_name => $self->{'config'}->{'jobs_db'},
+		host       => $self->{'host'},
+		port       => $self->{'port'},
+		user       => $self->{'user'},
+		password   => $self->{'password'},
 	);
 	if ( $options->{'reconnect'} ) {
 		$self->{'db'} = $self->{'dataConnector'}->drop_connection( \%att );
@@ -129,10 +129,27 @@ sub add_job {
 		my $param_sql = $self->{'db'}->prepare("INSERT INTO params (job_id,key,value) VALUES (?,?,?)");
 		local $" = '||';
 		foreach ( keys %$cgi_params ) {
-			if ( defined $cgi_params->{$_} ) {
+			if ( defined $cgi_params->{$_} && $cgi_params->{$_} ne '' ) {
 				my @values = split( "\0", $cgi_params->{$_} );
 				$param_sql->execute( $id, $_, "@values" );
 			}
+		}
+		if ( defined $params->{'isolates'} && ref $params->{'isolates'} eq 'ARRAY' ) {
+
+			#Benchmarked quicker to use single insert rather than multiple inserts, ids are integers so no problem with escaping values.
+			my @checked_list;
+			foreach my $id ( @{ $params->{'isolates'} } ) {
+				push @checked_list, $id if BIGSdb::Utils::is_int($id);
+			}
+			local $" = "),('$id',";
+			my $sql = $self->{'db'}->prepare("INSERT INTO isolates (job_id,isolate_id) VALUES ('$id',@checked_list)");
+			$sql->execute;
+		}
+		if ( defined $params->{'loci'} && ref $params->{'loci'} eq 'ARRAY' ) {
+
+			#Safer to use placeholders and multiple inserts for loci though.
+			my $sql = $self->{'db'}->prepare("INSERT INTO loci (job_id,locus) VALUES (?,?)");
+			$sql->execute( $id, $_ ) foreach @{ $params->{'loci'} };
 		}
 	};
 	if ($@) {
@@ -236,6 +253,8 @@ sub get_job {
 		return;
 	}
 	my $job = $sql->fetchrow_hashref;
+
+	#TODO Return here - use separate methods to return params and output
 	$sql = $self->{'db'}->prepare("SELECT key,value FROM params WHERE job_id=?");
 	my ( $params, $output );
 	eval { $sql->execute( $job->{'id'} ) };
@@ -258,18 +277,43 @@ sub get_job {
 	return ( $job, $params, $output );
 }
 
-sub get_jobs {
-	my ($self, $instance, $username, $days) = @_;
-	my $sql = $self->{'db'}->prepare("SELECT *,extract(epoch FROM now() - start_time) AS elapsed,extract(epoch FROM stop_time - "
-	  . "start_time) AS total_time FROM jobs WHERE dbase_config=? AND username=? AND (submit_time > now()-interval '$days days' "
-	  . "OR stop_time > now()-interval '$days days' OR status='started' OR status='submitted') ORDER BY submit_time");
-	eval { $sql->execute($instance, $username)};
-	if ($@){
+sub get_job_isolates {
+	my ( $self, $job_id ) = @_;
+	my $sql = $self->{'db'}->prepare("SELECT isolate_id FROM isolates WHERE job_id=? ORDER BY isolate_id");
+	eval { $sql->execute($job_id) };
+	$logger->error($@) if $@;
+	my @isolate_ids;
+	while ( my ($isolate_id) = $sql->fetchrow_array ) {
+		push @isolate_ids, $isolate_id;
+	}
+	return \@isolate_ids;
+}
+
+sub get_job_loci {
+	my ( $self, $job_id ) = @_;
+	my $sql = $self->{'db'}->prepare("SELECT locus FROM loci WHERE job_id=? ORDER BY locus");
+	eval { $sql->execute($job_id) };
+	$logger->error($@) if $@;
+	my @loci;
+	while ( my ($locus) = $sql->fetchrow_array ) {
+		push @loci, $locus;
+	}
+	return \@loci;
+}
+
+sub get_user_jobs {
+	my ( $self, $instance, $username, $days ) = @_;
+	my $sql =
+	  $self->{'db'}->prepare( "SELECT *,extract(epoch FROM now() - start_time) AS elapsed,extract(epoch FROM stop_time - "
+		  . "start_time) AS total_time FROM jobs WHERE dbase_config=? AND username=? AND (submit_time > now()-interval '$days days' "
+		  . "OR stop_time > now()-interval '$days days' OR status='started' OR status='submitted') ORDER BY submit_time" );
+	eval { $sql->execute( $instance, $username ) };
+	if ($@) {
 		$logger->error($@);
 		return;
 	}
 	my @jobs;
-	while (my $job = $sql->fetchrow_hashref){
+	while ( my $job = $sql->fetchrow_hashref ) {
 		push @jobs, $job;
 	}
 	return \@jobs;

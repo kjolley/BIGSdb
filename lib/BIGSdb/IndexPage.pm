@@ -184,7 +184,7 @@ sub _print_jobs {
 	return if !$self->{'system'}->{'read_access'} eq 'public' || !$self->{'config'}->{'jobs_db'};
 	return if !defined $self->{'username'};
 	my $days = $self->{'config'}->{'results_deleted_days'} // 7;
-	my $jobs = $self->{'jobManager'}->get_jobs( $self->{'instance'}, $self->{'username'}, $days );
+	my $jobs = $self->{'jobManager'}->get_user_jobs( $self->{'instance'}, $self->{'username'}, $days );
 	return if !@$jobs;
 	my %status_counts;
 	$status_counts{ $_->{'status'} }++ foreach @$jobs;

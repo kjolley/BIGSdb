@@ -796,7 +796,51 @@ sub get_selected_loci {
 	return \@loci_selected;
 }
 
-sub order_selected_loci {
+sub add_scheme_loci {
+
+	#Merge scheme loci into locus arrayref
+	my ( $self, $loci ) = @_;
+	my $q          = $self->{'cgi'};
+	my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+	push @$scheme_ids, 0;
+	my @selected_schemes;
+	foreach my $scheme_id (@$scheme_ids) {
+		next if !$q->param("s_$scheme_id");
+		push @selected_schemes, $scheme_id;
+		$q->delete("s_$scheme_id");
+	}
+	my %locus_selected = map { $_ => 1 } @$loci;
+	my $set_id = $self->get_set_id;
+	foreach my $scheme_id (@selected_schemes) {
+		my $scheme_loci =
+		    $scheme_id
+		  ? $self->{'datastore'}->get_scheme_loci($scheme_id)
+		  : $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
+		foreach my $locus (@$scheme_loci) {
+			if ( !$locus_selected{$locus} ) {
+				push @$loci, $locus;
+				$locus_selected{$locus} = 1;
+			}
+		}
+	}
+	return;
+}
+
+sub order_loci {
+
+	#Reorder loci by genome order then by name (genome order may not be set)
+	my ( $self, $loci ) = @_;
+	my %loci    = map { $_ => 1 } @$loci;
+	my $qry     = "SELECT id FROM loci ORDER BY genome_position,id";
+	my $ordered = $self->{'datastore'}->run_list_query($qry);
+	my @list;
+	foreach my $locus (@$ordered) {
+		push @list, $locus if $loci{$locus};
+	}
+	return \@list;
+}
+
+sub order_selected_loci {    #TODO deprecate once plugins moved to normalized isolate and locus lists
 
 	#Reorder loci by genome order, schemes, then by name (genome order may not be set)
 	#For offline jobs, pass in params from the job database.  Leave undefined for live jobs (will get CGI params).

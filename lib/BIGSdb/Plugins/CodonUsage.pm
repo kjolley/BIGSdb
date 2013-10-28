@@ -146,32 +146,37 @@ sub set_pref_requirements {
 }
 
 sub run {
-	my ($self)     = @_;
-	my $q          = $self->{'cgi'};
-	my $query_file = $q->param('query_file');
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
 	say "<h1>Codon usage analysis</h1>";
-	my $list = $self->get_id_list( 'id', $query_file );
 	if ( $q->param('submit') ) {
 		my $loci_selected = $self->get_selected_loci;
-		my $scheme_ids    = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
-		push @$scheme_ids, 0;
-		if ( !@$loci_selected && none { $q->param("s_$_") } @$scheme_ids ) {
+		$q->delete('locus');
+		$self->add_scheme_loci($loci_selected);
+		if ( !@$loci_selected ) {
 			say "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci or schemes.</p></div>";
 		} else {
 			$self->set_scheme_param;
 			my $params = $q->Vars;
-			( my $list = $q->param('list') ) =~ s/[\r\n]+/\|\|/g;
-			$params->{'list'}   = $list;
+			my @list = split /[\r\n]+/, $q->param('list');
+			@list = uniq @list;
+			if ( !@list ) {
+				my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
+				@list = @{ $self->{'datastore'}->run_list_query($qry) };
+			}
+			$q->delete('list');
 			$params->{'set_id'} = $self->get_set_id;
 			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-			my $job_id = $self->{'jobManager'}->add_job(
+			my $job_id    = $self->{'jobManager'}->add_job(
 				{
 					dbase_config => $self->{'instance'},
 					ip_address   => $q->remote_host,
 					module       => 'CodonUsage',
 					parameters   => $params,
 					username     => $self->{'username'},
-					email        => $user_info->{'email'}
+					email        => $user_info->{'email'},
+					isolates     => \@list,
+					loci         => $loci_selected
 				}
 			);
 			print <<"HTML";
@@ -195,7 +200,9 @@ for which the correct ORF has been set (if they are not in reading frame 1).  Pa
 bin will not be analysed. Please check the loci that you 
 would like to include.</p>
 HTML
-	my $options = { default_select => 0, translate => 0, options_heading => 'Sequence retrieval', ignore_seqflags => 1 };
+	my $options    = { default_select => 0, translate => 0, options_heading => 'Sequence retrieval', ignore_seqflags => 1 };
+	my $query_file = $q->param('query_file');
+	my $list       = $self->get_id_list( 'id', $query_file );
 	$self->print_sequence_export_form( 'id', $list, undef, $options );
 	say "</div>";
 	return;
@@ -209,7 +216,7 @@ sub get_extra_form_elements {
 	$buffer .= $q->radio_group(
 		-name      => 'codonorder',
 		-values    => [ 'alphabetical', 'cg_ending_first' ],
-		-labels    => { 'cg_ending_first' => 'C or G ending codons first' },
+		-labels    => { cg_ending_first => 'C or G ending codons first' },
 		-linebreak => 'true'
 	);
 	$buffer .= "</fieldset>\n";
@@ -227,7 +234,8 @@ sub run_job {
 	my @includes;
 
 	if ( $params->{'includes'} ) {
-		@includes = split /\|\|/, $params->{'includes'};
+		my $delimiter = '||';
+		@includes = split /$delimiter/, $params->{'includes'};
 		$isolate_sql = $self->{'db'}->prepare("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?");
 	}
 	my $ignore_seqflag;
@@ -244,18 +252,14 @@ sub run_job {
 	my $start = 1;
 	my $end;
 	my $no_output     = 1;
-	my $selected_loci = $self->order_selected_loci($params);
-	my @list          = split /\|\|/, $params->{'list'};
-	@list = uniq @list;
-
-	if ( !@list ) {
-		my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
-		@list = @{ $self->{'datastore'}->run_list_query($qry) };
-	}
-	my $progress = 0;
+	my $list          = $self->{'jobManager'}->get_job_isolates($job_id);
+	my $loci          = $self->{'jobManager'}->get_job_loci($job_id);
+	my $selected_loci = $self->order_loci($loci);
+	my $progress      = 0;
 	my ( $locus_codon_count, $locus_aa_count, $total_codon_count, $total_aa_count, $rscu );
 	my %includes;
 	my %bad_ids;
+
 	foreach my $locus_name (@$selected_loci) {
 		my $locus;
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
@@ -270,7 +274,7 @@ sub run_job {
 		my $temp_file = "$self->{'config'}->{secure_tmp_dir}/$temp.txt";
 		my $cusp_file = "$self->{'config'}->{secure_tmp_dir}/$temp.cusp";
 		local $" = '|';
-		foreach my $id (@list) {
+		foreach my $id (@$list) {
 			my @include_values;
 			my $buffer;
 			next if $bad_ids{$id};
@@ -371,7 +375,7 @@ sub run_job {
 	print $fh_number_by_isolate "Isolate\t@codons\n";
 	$progress = 0;
 
-	foreach my $id (@list) {
+	foreach my $id (@$list) {
 		next if $bad_ids{$id};
 		$no_output = 0;
 		$includes{$id} ||= '';
@@ -390,7 +394,7 @@ sub run_job {
 		print $fh_rscu_by_isolate "\n";
 		print $fh_number_by_isolate "\n";
 		$progress++;
-		my $complete = 90 + int( 5 * $progress / scalar @list );    #go up to 95%
+		my $complete = 90 + int( 5 * $progress / @$list );    #go up to 95%
 		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } );
 	}
 	local $" = "\t";

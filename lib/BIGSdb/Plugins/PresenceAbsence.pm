@@ -51,35 +51,26 @@ sub get_attributes {
 }
 
 sub run {
-	my ($self)     = @_;
-	my $q          = $self->{'cgi'};
-	my $query_file = $q->param('query_file');
-	my $desc       = $self->get_db_description;
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $desc   = $self->get_db_description;
 	say "<h1>Export presence/absence status of loci - $desc</h1>";
-	my $list = $self->get_id_list( 'id', $query_file );
 	if ( $q->param('submit') ) {
-		my @loci_selected = $q->param('locus');
-		$q->delete('list');
-		my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
-		push @$scheme_ids, 0;
-		my @schemes_selected;
-		foreach (@$scheme_ids) {
-			next if !$q->param("s_$_");
-			push @schemes_selected, $_;
-			$q->delete("s_$_");
-		}
-		local $" = '||';
-		my $scheme_string = "@schemes_selected";
-		my $locus_string  = "@loci_selected";
-		if ( !@loci_selected && !@schemes_selected ) {
+		my $loci_selected = $self->get_selected_loci;
+		$q->delete('locus');
+		$self->add_scheme_loci($loci_selected);
+		if ( !@$loci_selected ) {
 			say "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci or schemes.</p></div>";
 		} else {
 			my $params = $q->Vars;
-			local $" = '||';
-			$params->{'isolate_ids'} = "@$list";
-			$params->{'scheme'}      = "@schemes_selected";
-			$params->{'locus'}       = "@loci_selected";
-			$params->{'set_id'}      = $self->get_set_id;
+			my @list = split /[\r\n]+/, $q->param('list');
+			@list = uniq @list;
+			if ( !@list ) {
+				my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
+				@list = @{ $self->{'datastore'}->run_list_query($qry) };
+			}
+			$q->delete('list');
+			$params->{'set_id'} = $self->get_set_id;
 			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 			my $job_id    = $self->{'jobManager'}->add_job(
 				{
@@ -89,6 +80,8 @@ sub run {
 					parameters   => $params,
 					username     => $self->{'username'},
 					email        => $user_info->{'email'},
+					isolates     => \@list,
+					loci         => $loci_selected,
 				}
 			);
 			print <<"HTML";
@@ -107,6 +100,8 @@ HTML
 Please check the loci that you would like to include.  Alternatively select one or more schemes to include all loci 
 that are members of the scheme.</p>
 HTML
+	my $query_file = $q->param('query_file');
+	my $list = $self->get_id_list( 'id', $query_file );
 	$self->print_sequence_export_form( 'id', $list, undef, { no_options => 1 } );
 	say "</div>";
 	return;
@@ -114,27 +109,21 @@ HTML
 
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
-	my @ids = split /\|\|/, $params->{'isolate_ids'};
-	if ( !@ids ) {
-		my $qry     = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
-		my $ids_ref = $self->{'datastore'}->run_list_query($qry);
-		@ids = @$ids_ref;
-	}
-	if ( !@ids ) {
+	my $ids = $self->{'jobManager'}->get_job_isolates($job_id);
+	if ( !@$ids ) {
 		$self->{'jobManager'}->update_job_status( $job_id,
 			{ status => 'failed', message_html => "<p class=\"statusbad\">You must include one or more isolates.</p>" } );
 		return;
 	}
-	my @loci       = split /\|\|/, $params->{'locus'};
-	my @scheme_ids = split /\|\|/, $params->{'scheme'};
-	if ( !@loci && !@scheme_ids ) {
+	my $loci          = $self->{'jobManager'}->get_job_loci($job_id);
+	my $selected_loci = $self->order_loci($loci);
+	if ( !@$loci ) {
 		$self->{'jobManager'}->update_job_status( $job_id,
 			{ status => 'failed', message_html => "<p class=\"statusbad\">You must either select one or more loci or schemes.</p>" } );
 		return;
 	}
 	my $full_path = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
-	@ids = uniq @ids;
-	my ( $problem_ids, $values ) = $self->_write_output( $job_id, $params, \@ids, $full_path );
+	my ( $problem_ids, $values ) = $self->_write_output( $job_id, $params, $ids, $selected_loci, $full_path );
 	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Main output file' } );
 	if (@$problem_ids) {
 		local $" = '; ';
@@ -214,7 +203,7 @@ sub _isolate_exists {
 }
 
 sub _write_output {
-	my ( $self, $job_id, $params, $list, $filename, ) = @_;
+	my ( $self, $job_id, $params, $ids, $loci, $filename, ) = @_;
 	my @problem_ids;
 	my $isolate_sql;
 	my @includes;
@@ -224,13 +213,14 @@ sub _write_output {
 	}
 	open( my $fh, '>', $filename )
 	  or $logger->error("Can't open temp file $filename for writing");
-	my $selected_loci = $self->order_selected_loci($params);
+
+	#	my $selected_loci = $self->order_selected_loci($params);
 	print $fh 'id';
 	foreach my $field (@includes) {
 		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 		print $fh "\t" . ( $metafield // $field );
 	}
-	foreach my $locus (@$selected_loci) {
+	foreach my $locus (@$loci) {
 		my $locus_name = $self->clean_locus( $locus, { text_output => 1 } );
 		print $fh "\t$locus_name";
 	}
@@ -238,8 +228,8 @@ sub _write_output {
 	my $values;
 	my $progress    = 0;
 	my $i           = 0;
-	my $max_percent = ( $params->{'dismat'} && @$list <= MAX_DISMAT_TAXA ) ? 50 : 100;
-	foreach my $id (@$list) {
+	my $max_percent = ( $params->{'dismat'} && @$ids <= MAX_DISMAT_TAXA ) ? 50 : 100;
+	foreach my $id (@$ids) {
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Analysing id: $id" } );
 		$id =~ s/[\r\n]//g;
 		if ( !BIGSdb::Utils::is_int($id) ) {
@@ -272,7 +262,7 @@ sub _write_output {
 		}
 		my $present = $params->{'present'} || 'O';
 		my $absent  = $params->{'absent'}  || 'X';
-		foreach my $locus (@$selected_loci) {
+		foreach my $locus (@$loci) {
 			my $value = '';
 			given ( $params->{'presence'} ) {
 				when ('designations') { $value = $allele_ids->{$locus} ? $present : $absent }
@@ -284,7 +274,7 @@ sub _write_output {
 		}
 		print $fh "\n";
 		$i++;
-		my $progress = int( $i * $max_percent / @$list );
+		my $progress = int( $i * $max_percent / @$ids );
 		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $progress } );
 	}
 	close $fh;
