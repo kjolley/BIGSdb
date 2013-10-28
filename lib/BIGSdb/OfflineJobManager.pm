@@ -262,7 +262,7 @@ sub get_jobs {
 	my ($self, $instance, $username, $days) = @_;
 	my $sql = $self->{'db'}->prepare("SELECT *,extract(epoch FROM now() - start_time) AS elapsed,extract(epoch FROM stop_time - "
 	  . "start_time) AS total_time FROM jobs WHERE dbase_config=? AND username=? AND (submit_time > now()-interval '$days days' "
-	  . "OR stop_time > now()-interval '$days days') ORDER BY submit_time");
+	  . "OR stop_time > now()-interval '$days days' OR status='started' OR status='submitted') ORDER BY submit_time");
 	eval { $sql->execute($instance, $username)};
 	if ($@){
 		$logger->error($@);
