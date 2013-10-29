@@ -213,8 +213,6 @@ sub _write_output {
 	}
 	open( my $fh, '>', $filename )
 	  or $logger->error("Can't open temp file $filename for writing");
-
-	#	my $selected_loci = $self->order_selected_loci($params);
 	print $fh 'id';
 	foreach my $field (@includes) {
 		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);

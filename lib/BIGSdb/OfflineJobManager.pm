@@ -235,7 +235,7 @@ sub update_job_status {
 	} else {
 		$self->{'db'}->commit;
 	}
-	my ( $job, undef, undef ) = $self->get_job($job_id);
+	my $job = $self->get_job($job_id);
 	if ( $job->{'status'} && $job->{'status'} eq 'cancelled' || $job->{'cancel'} ) {
 		system( 'kill', $job->{'pid'} );
 	}
@@ -253,11 +253,14 @@ sub get_job {
 		return;
 	}
 	my $job = $sql->fetchrow_hashref;
+	return $job;
+}
 
-	#TODO Return here - use separate methods to return params and output
-	$sql = $self->{'db'}->prepare("SELECT key,value FROM params WHERE job_id=?");
-	my ( $params, $output );
-	eval { $sql->execute( $job->{'id'} ) };
+sub get_job_params {
+	my ( $self, $job_id ) = @_;
+	my $sql = $self->{'db'}->prepare("SELECT key,value FROM params WHERE job_id=?");
+	my $params;
+	eval { $sql->execute($job_id) };
 	if ($@) {
 		$logger->error($@);
 		return;
@@ -265,16 +268,22 @@ sub get_job {
 	while ( my ( $key, $value ) = $sql->fetchrow_array ) {
 		$params->{$key} = $value;
 	}
-	$sql = $self->{'db'}->prepare("SELECT filename,description FROM output WHERE job_id=?");
-	eval { $sql->execute( $job->{'id'} ); };
+	return $params;
+}
+
+sub get_job_output {
+	my ( $self, $job_id ) = @_;
+	my $sql = $self->{'db'}->prepare("SELECT filename,description FROM output WHERE job_id=?");
+	eval { $sql->execute($job_id) };
 	if ($@) {
 		$logger->error($@);
 		return;
 	}
+	my $output;
 	while ( my ( $filename, $desc ) = $sql->fetchrow_array ) {
 		$output->{$desc} = $filename;
 	}
-	return ( $job, $params, $output );
+	return $output;
 }
 
 sub get_job_isolates {

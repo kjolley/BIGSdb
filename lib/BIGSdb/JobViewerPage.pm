@@ -38,7 +38,7 @@ sub initiate {
 		$self->{$_} = 1 foreach qw(jQuery jQuery.slimbox noCache);
 	}
 	return if !defined $id;
-	my ( $job, undef, undef ) = $self->{'jobManager'}->get_job($id);
+	my $job = $self->{'jobManager'}->get_job($id);
 	return if !$job->{'status'};
 	return if any { $job->{'status'} eq $_ } qw (finished failed terminated cancelled);
 	my $complete = $job->{'percent_complete'};
@@ -69,7 +69,7 @@ sub get_javascript {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $id     = $q->param('id');
-	my ( $job, $params, $output ) = $self->{'jobManager'}->get_job($id);
+	my $job = $self->{'jobManager'}->get_job($id);
 	my $percent = $job->{'percent_complete'} // 0;
 	if ( $percent == -1 ) {
 		my $buffer = << "END";
@@ -108,7 +108,7 @@ sub print_content {
 		print "</div>";
 		return;
 	}
-	my ( $job, $params, $output ) = $self->{'jobManager'}->get_job($id);
+	my $job = $self->{'jobManager'}->get_job($id);
 	if ( ref $job ne 'HASH' || !$job->{'id'} ) {
 		print "<div class=\"box\" id=\"statusbad\">\n";
 		print "<p>The submitted job does not exist.</p>\n";
@@ -176,6 +176,7 @@ HTML
 	print "<tr class=\"td$td\"><th style=\"text-align:right\">$field: </th><td style=\"text-align:left\">$value</td></tr>\n"
 	  if $field && $value;
 	print "</table><h2>Output</h2>";
+	my $output = $self->{'jobManager'}->get_job_output($id);
 	if ( !( $job->{'message_html'} || ref $output eq 'HASH' ) ) {
 		print "<p>No output yet.</p>\n";
 	} else {
@@ -260,7 +261,8 @@ sub get_title {
 sub _tar_archive {
 	my ( $self, $id ) = @_;
 	return if !defined $id || $id !~ /BIGSdb_\d+/;
-	my ( $job, $params, $output ) = $self->{'jobManager'}->get_job($id);
+	my $job = $self->{'jobManager'}->get_job($id);
+	my $output = $self->{'jobManager'}->get_job_output($id);
 	if ( ref $output eq 'HASH' ) {
 		my @filenames;
 		foreach my $desc ( sort keys(%$output) ) {

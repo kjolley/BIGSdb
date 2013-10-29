@@ -74,7 +74,8 @@ sub run_script {
 	my $job_id = $self->{'jobManager'}->get_next_job_id;
 	exit if !$job_id;
 	$self->{'logger'}->info("Job:$job_id") if $job_id;
-	my ( $job, $params ) = $self->{'jobManager'}->get_job($job_id);
+	my $job = $self->{'jobManager'}->get_job($job_id);
+	my $params = $self->{'jobManager'}->get_job_params($job_id);
 	my $instance = $job->{'dbase_config'};
 	$self->_initiate_db($instance);
 	$self->{'system'}->{'set_id'} = $params->{'set_id'};
@@ -83,7 +84,7 @@ sub run_script {
 	$self->{'jobManager'}->update_job_status( $job_id, { status => 'started', start_time => 'now', pid => $$ } );
 	try {
 		$plugin->run_job( $job_id, $params );
-		my ( $job, $params ) = $self->{'jobManager'}->get_job($job_id);
+		my $job = $self->{'jobManager'}->get_job($job_id);
 		my $status = $job->{'status'} // 'started';
 		$status = 'finished' if $status eq 'started';
 		$self->{'jobManager'}
