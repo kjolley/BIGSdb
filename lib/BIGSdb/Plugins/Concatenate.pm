@@ -45,7 +45,7 @@ sub get_attributes {
 		buttontext  => 'Concatenate',
 		menutext    => 'Concatenate alleles',
 		module      => 'Concatenate',
-		version     => '1.2.1',
+		version     => '1.2.2',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		help        => 'tooltips',
@@ -76,28 +76,25 @@ sub run {
 			say "<div class=\"box\" id=\"statusbad\"><p>Scheme id must be an integer.</p></div>";
 			return;
 		} else {
-			my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 			if ( !$scheme_info ) {
 				say "<div class=\"box\" id=\"statusbad\">Scheme does not exist.</p></div>";
 				return;
 			}
+			$pk = $scheme_info->{'primary_key'};
 		}
-		my $pk_ref =
-		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key", $scheme_id );
-		if ( ref $pk_ref ne 'ARRAY' ) {
+		if ( !defined $pk ) {
 			say "<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  Profile concatenation "
 			  . "can not be done until this has been set.</p></div>";
 			return;
 		}
-		$pk = $pk_ref->[0];
 	}
 	my $list = $self->get_id_list( $pk, $query_file );
 	@$list = uniq @$list if ref $list eq 'ARRAY';
 	if ( $q->param('submit') ) {
-		my $loci_selected = $self->get_selected_loci;
-		my $scheme_ids    = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
-		push @$scheme_ids, 0;
-		if ( !@$loci_selected && none { $q->param("s_$_") } @$scheme_ids ) {
+		my $loci = $self->get_selected_loci;
+		$self->add_scheme_loci($loci);
+		if ( !@$loci ) {
 			print "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci";
 			print " or schemes" if $self->{'system'}->{'dbtype'} eq 'isolates';
 			say ".</p></div>";
@@ -124,7 +121,7 @@ sub run {
 			print "<p>Output file being generated ...";
 			my $filename    = ( BIGSdb::Utils::get_random() ) . '.txt';
 			my $full_path   = "$self->{'config'}->{'tmp_dir'}/$filename";
-			my $problem_ids = $self->_write_fasta( $list, $loci_selected, $full_path, $pk );
+			my $problem_ids = $self->_write_fasta( $list, $loci, $full_path, $pk );
 			say " done</p>";
 			say "<p><a href=\"/tmp/$filename\">Output file</a> (right-click to save)</p>";
 			say "</div>";
@@ -160,7 +157,7 @@ HTML
 }
 
 sub _write_fasta {
-	my ( $self, $list, $fields, $filename, $pk ) = @_;
+	my ( $self, $list, $loci, $filename, $pk ) = @_;
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
 	$self->escape_params;
@@ -176,9 +173,9 @@ sub _write_fasta {
 		  . "ORDER BY complete desc,allele_sequences.datestamp LIMIT 1" );
 	my @problem_ids;
 	my %most_common;
-	my $i             = 0;
-	my $j             = 0;
-	my $selected_loci = $self->order_selected_loci;
+	my $i            = 0;
+	my $j            = 0;
+	my $ordered_loci = $self->order_loci( $loci, { scheme_id => $scheme_id } );
 
 	foreach my $id (@$list) {
 		print "." if !$i;
@@ -242,7 +239,7 @@ sub _write_fasta {
 		}
 		my %loci;
 		my $seq;
-		foreach my $locus (@$selected_loci) {
+		foreach my $locus (@$ordered_loci) {
 			my $no_seq     = 0;
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 			if ( !$loci{$locus} ) {

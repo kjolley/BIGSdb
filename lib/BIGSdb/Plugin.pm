@@ -798,7 +798,7 @@ sub get_selected_loci {
 
 sub add_scheme_loci {
 
-	#Merge scheme loci into locus arrayref
+	#Merge scheme loci into locus arrayref.  This deletes CGI params so don't call more than once.
 	my ( $self, $loci ) = @_;
 	my $q          = $self->{'cgi'};
 	my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
@@ -828,10 +828,18 @@ sub add_scheme_loci {
 
 sub order_loci {
 
-	#Reorder loci by genome order then by name (genome order may not be set)
-	my ( $self, $loci ) = @_;
-	my %loci    = map { $_ => 1 } @$loci;
-	my $qry     = "SELECT id FROM loci ORDER BY genome_position,id";
+	#Reorder loci by scheme member order (if seqdefdb), genome order then by name (genome order may not be set)
+	my ( $self, $loci, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my %loci = map { $_ => 1 } @$loci;
+	my $qry;
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' || !$options->{'scheme_id'} ) {
+		$qry = "SELECT id FROM loci ORDER BY genome_position,id";
+	} else {
+		$logger->logdie("Invalid scheme_id passed.") if !BIGSdb::Utils::is_int( $options->{'scheme_id'} );
+		$qry = "SELECT id FROM loci INNER JOIN scheme_members ON loci.id=scheme_members.locus AND scheme_id=$options->{'scheme_id'} "
+		  . "ORDER BY field_order,genome_position,id";
+	}
 	my $ordered = $self->{'datastore'}->run_list_query($qry);
 	my @list;
 	foreach my $locus (@$ordered) {
