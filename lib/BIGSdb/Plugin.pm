@@ -447,7 +447,7 @@ sub get_id_list {
 		}
 		$list = $self->{'datastore'}->run_list_query($$qry_ref);
 	} else {
-		$list = \@;;
+		$list = [];
 	}
 	return $list;
 }

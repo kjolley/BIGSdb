@@ -86,22 +86,19 @@ sub run {
 			say "<div class=\"box\" id=\"statusbad\"><p>Scheme id must be an integer.</p></div>";
 			return;
 		} else {
-			my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 			if ( !$scheme_info ) {
 				say "<div class=\"box\" id=\"statusbad\">Scheme does not exist.</p></div>";
 				return;
 			}
+			$pk = $scheme_info->{'primary_key'};
 		}
-		my $pk_ref =
-		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key", $scheme_id );
-		if ( ref $pk_ref ne 'ARRAY' ) {
+		if ( !defined $pk ) {
 			say "<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  Profile concatenation "
 			  . "can not be done until this has been set.</p></div>";
 			return;
 		}
-		$pk = $pk_ref->[0];
 	}
-	my $list = $self->get_id_list( $pk, $query_file );
 	if ( $q->param('submit') ) {
 		my $loci_selected = $self->get_selected_loci;
 		my $scheme_ids    = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
@@ -161,6 +158,7 @@ to generate the output file as the sequences are passed through muscle to align 
 HTML
 	}
 	my $options = { default_select => 0, translate => 1, flanking => 1, ignore_seqflags => 1, ignore_incomplete => 1 };
+	my $list = $self->get_id_list( $pk, $query_file );
 	$self->print_sequence_export_form( $pk, $list, $scheme_id, $options );
 	say "</div>";
 	return;
@@ -180,7 +178,8 @@ sub run_job {
 	my @includes;
 
 	if ( $params->{'includes'} ) {
-		@includes = split /\|\|/, $params->{'includes'};
+		my $separator = '\|\|';
+		@includes = split /$separator/, $params->{'includes'};
 		$isolate_sql = $self->{'db'}->prepare("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?");
 	}
 	my $substring_query;

@@ -234,7 +234,8 @@ sub run_job {
 	my @includes;
 
 	if ( $params->{'includes'} ) {
-		@includes = split /\|\|/, $params->{'includes'};
+		my $separator = '\|\|';
+		@includes = split /$separator/, $params->{'includes'};
 		$isolate_sql = $self->{'db'}->prepare("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?");
 	}
 	my $ignore_seqflag;
