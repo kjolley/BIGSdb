@@ -786,6 +786,7 @@ sub _run_comparison {
 		if ($by_reference) {
 			my $continue = 1;
 			( $locus_name, $seq_ref, $start, $desc ) = $self->_extract_cds_details( $cds, \$seqs_total, \%seqs );
+			next if ref $seq_ref ne 'SCALAR';
 			$values->{'0'}->{$locus_name} = 1;
 			$length = length $$seq_ref;
 			$length = int( $length / 3 ) if $params->{'tblastx'};
