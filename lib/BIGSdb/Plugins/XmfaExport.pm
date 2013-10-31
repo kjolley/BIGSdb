@@ -45,7 +45,7 @@ sub get_attributes {
 		buttontext  => 'XMFA',
 		menutext    => 'XMFA export',
 		module      => 'XmfaExport',
-		version     => '1.4.1',
+		version     => '1.4.2',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		section     => 'export,postquery',
@@ -101,9 +101,9 @@ sub run {
 	}
 	if ( $q->param('submit') ) {
 		my $loci_selected = $self->get_selected_loci;
-		my $scheme_ids    = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
-		push @$scheme_ids, 0;
-		if ( !@$loci_selected && none { $q->param("s_$_") } @$scheme_ids ) {
+		$q->delete('locus');
+		$self->add_scheme_loci($loci_selected);
+		if ( !@$loci_selected ) {
 			print "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci";
 			print " or schemes" if $self->{'system'}->{'dbtype'} eq 'isolates';
 			print ".</p></div>\n";
@@ -112,8 +112,21 @@ sub run {
 			my $params = $q->Vars;
 			$params->{'pk'}     = $pk;
 			$params->{'set_id'} = $self->get_set_id;
-			( my $list = $q->param('list') ) =~ s/[\r\n]+/\|\|/g;
-			$params->{'list'} = $list;
+			my @list = split /[\r\n]+/, $q->param('list');
+			@list = uniq @list;
+			if ( !@list ) {
+				if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+					my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
+					@list = @{ $self->{'datastore'}->run_list_query($qry) };
+				} else {
+					my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $pk );
+					my $qry = "SELECT profile_id FROM profiles WHERE scheme_id=? ORDER BY ";
+					$qry .= $pk_info->{'type'} eq 'integer' ? 'CAST(profile_id AS INT)' : 'profile_id';
+					@list = @{ $self->{'datastore'}->run_list_query( $qry, $scheme_id ) };
+				}
+			}
+			my $list_type = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'isolates' : 'profiles';
+			$q->delete('list');
 			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 			my $job_id    = $self->{'jobManager'}->add_job(
 				{
@@ -122,7 +135,9 @@ sub run {
 					module       => 'XmfaExport',
 					parameters   => $params,
 					username     => $self->{'username'},
-					email        => $user_info->{'email'}
+					email        => $user_info->{'email'},
+					loci         => $loci_selected,
+					$list_type   => \@list
 				}
 			);
 			print <<"HTML";
@@ -174,13 +189,14 @@ sub run_job {
 	my $filename  = "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa";
 	open( my $fh, '>', $filename )
 	  or $logger->error("Can't open output file $filename for writing");
-	my $isolate_sql;
+	my $isolate_sql = $self->{'system'}->{'dbtype'} eq 'isolates' ? $self->{'db'}->prepare("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?")
+		  : undef;
+
 	my @includes;
 
 	if ( $params->{'includes'} ) {
 		my $separator = '\|\|';
 		@includes = split /$separator/, $params->{'includes'};
-		$isolate_sql = $self->{'db'}->prepare("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?");
 	}
 	my $substring_query;
 	if ( $params->{'flanking'} && BIGSdb::Utils::is_int( $params->{'flanking'} ) ) {
@@ -203,37 +219,28 @@ sub run_job {
 		  . "sequence_flags.start_pos AND allele_sequences.end_pos = sequence_flags.end_pos WHERE isolate_id=? AND allele_sequences.locus=? "
 		  . "$ignore_seqflags $ignore_incomplete ORDER BY complete,allele_sequences.datestamp LIMIT 1" );
 	my @problem_ids;
+	my %problem_id_checked;
 	my $start = 1;
 	my $end;
 	my $no_output     = 1;
-	my $selected_loci = $self->order_selected_loci($params);
-	my @list          = split /\|\|/, $params->{'list'};
-	@list = uniq @list;
+	my $loci          = $self->{'jobManager'}->get_job_loci($job_id);
+	my $selected_loci = $self->order_loci($loci);
+	my $ids;
 
-	if ( !@list ) {
-		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-			my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
-			@list = @{ $self->{'datastore'}->run_list_query($qry) };
-		} else {
-			my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $pk );
-			my $qry;
-			if ( $field_info->{'type'} eq 'integer' ) {
-				$qry = "SELECT $pk FROM scheme_$scheme_id ORDER BY CAST($pk AS integer)";
-			} else {
-				$qry = "SELECT $pk FROM scheme_$scheme_id ORDER BY $pk";
-			}
-			@list = @{ $self->{'datastore'}->run_list_query($qry) };
-		}
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		$ids = $self->{'jobManager'}->get_job_isolates($job_id);
+	} else {
+		$ids = $self->{'jobManager'}->get_job_profiles( $job_id, $scheme_id );
 	}
 	my $limit = $self->{'system'}->{'XMFA_limit'} || DEFAULT_LIMIT;
-	if ( @list > $limit ) {
+	if ( @$ids > $limit ) {
 		my $message_html = "<p class=\"statusbad\">Please note that output is limited to the first $limit records.</p>\n";
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
 	}
 	my $progress = 0;
-	my %no_seq;
 	foreach my $locus_name (@$selected_loci) {
 		last if $self->{'exit'};
+		my %no_seq;
 		my $locus;
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
 		my $common_length;
@@ -248,34 +255,35 @@ sub run_job {
 		my $muscle_file = "$self->{'config'}->{secure_tmp_dir}/$temp.muscle";
 		open( my $fh_muscle, '>', "$temp_file" ) or $logger->error("could not open temp file $temp_file");
 		my $count = 0;
-		foreach my $id (@list) {
+		foreach my $id (@$ids) {
 			last if $count == $limit;
 			$count++;
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 				my @include_values;
-				next if !BIGSdb::Utils::is_int($id);
+				eval { $isolate_sql->execute($id) };
+				my $isolate_data = $isolate_sql->fetchrow_hashref;
+				
 				if (@includes) {
-					eval { $isolate_sql->execute($id) };
-					my $include_data = $isolate_sql->fetchrow_hashref;
 					foreach my $field (@includes) {
 						my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 						my $value;
 						if ( defined $metaset ) {
 							$value = $self->{'datastore'}->get_metadata_value( $id, $metaset, $metafield );
 						} else {
-							$value = $include_data->{$field} // '';
+							$value = $isolate_data->{$field} // '';
 						}
 						$value =~ tr/ /_/;
 						push @include_values, $value;
 					}
 				}
-				if ($id) {
+				if ($isolate_data->{'id'}) {
 					print $fh_muscle ">$id";
 					local $" = '|';
 					print $fh_muscle "|@include_values" if @includes;
 					print $fh_muscle "\n";
 				} else {
-					push @problem_ids, $id;
+					push @problem_ids, $id if !$problem_id_checked{$id};
+					$problem_id_checked{$id} = 1;
 					next;
 				}
 				my $allele_id = $self->{'datastore'}->get_allele_id( $id, $locus_name );
@@ -353,7 +361,8 @@ sub run_job {
 						}
 					}
 				} else {
-					push @problem_ids, $id;
+					push @problem_ids, $id if !$problem_id_checked{$id};
+					$problem_id_checked{$id} = 1;
 					next;
 				}
 			}
@@ -361,7 +370,9 @@ sub run_job {
 		close $fh_muscle;
 		my $output_locus_name = $self->{'datastore'}->get_set_locus_label( $locus_name, $params->{'set_id'} ) // $locus_name;
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Aligning $output_locus_name" } );
-		system( $self->{'config'}->{'muscle_path'}, '-in', $temp_file, '-out', $muscle_file, '-quiet' );
+		if (-e $temp_file && -s $temp_file){
+			system( $self->{'config'}->{'muscle_path'}, '-in', $temp_file, '-out', $muscle_file, '-quiet' );
+		}
 		if ( -e $muscle_file ) {
 			$no_output = 0;
 			my $seq_in = Bio::SeqIO->new( -format => 'fasta', -file => $muscle_file );
@@ -370,7 +381,8 @@ sub run_job {
 				$end = $start + $length - 1;
 				print $fh '>' . $seq->id . ":$start-$end + $output_locus_name\n";
 				my $sequence = BIGSdb::Utils::break_line( $seq->seq, 60 );
-				$sequence =~ s/N/-/g if $no_seq{ $seq->id };
+				( my $id = $seq->id ) =~ s/\|.*$//;
+				$sequence =~ s/N/-/g if $no_seq{$id};
 				say $fh $sequence;
 			}
 			$start = $end + 1;

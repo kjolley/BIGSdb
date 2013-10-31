@@ -848,53 +848,6 @@ sub order_loci {
 	return \@list;
 }
 
-sub order_selected_loci {    #TODO deprecate once plugins moved to normalized isolate and locus lists
-
-	#Reorder loci by genome order, schemes, then by name (genome order may not be set)
-	#For offline jobs, pass in params from the job database.  Leave undefined for live jobs (will get CGI params).
-	my ( $self, $params ) = @_;
-	my $locus_qry = "SELECT id,scheme_id from loci left join scheme_members on loci.id = scheme_members.locus "
-	  . "order by genome_position,scheme_members.scheme_id,id";
-	my $locus_sql = $self->{'db'}->prepare($locus_qry);
-	eval { $locus_sql->execute };
-	$logger->error($@) if $@;
-	my @selected;
-	my %picked;
-	my ( @selected_loci, @selected_schemes );
-
-	if ( defined $params ) {
-		@selected_loci    = split /\|\|/, ( $params->{'locus'}  // '' );
-		@selected_schemes = split /\|\|/, ( $params->{'scheme'} // '' );
-	} else {
-		my $q = $self->{'cgi'};
-		@selected_loci = $q->param('locus');
-		my $set_id = $self->get_set_id;
-		my $scheme_list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-		foreach my $scheme (@$scheme_list) {
-			push @selected_schemes, $scheme->{'id'} if $q->param("s_$scheme->{'id'}");
-		}
-		push @selected_schemes, 0 if $q->param('s_0');
-	}
-	my @selected_locus_names;
-	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		@selected_locus_names = @selected_loci;
-	} else {
-		my $pattern = LOCUS_PATTERN;
-		foreach my $locus (@selected_loci) {
-			my $locus_name = $locus =~ /$pattern/ ? $1 : undef;
-			push @selected_locus_names, $locus_name if defined $locus_name;
-		}
-	}
-	while ( my ( $locus, $scheme_id ) = $locus_sql->fetchrow_array ) {
-		$scheme_id //= 0;
-		if ( ( any { $scheme_id eq $_ } @selected_schemes ) || ( any { $locus eq $_ } @selected_locus_names ) ) {
-			push @selected, $locus if !$picked{$locus};
-			$picked{$locus} = 1;
-		}
-	}
-	return \@selected;
-}
-
 sub set_scheme_param {
 
 	#Set CGI param from scheme tree selections for passing to offline job.

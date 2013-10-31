@@ -54,6 +54,18 @@ ON UPDATE CASCADE
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON loci TO apache,bigsdb;
 
+CREATE TABLE profiles (
+job_id text NOT NULL,
+scheme_id int NOT NULL,
+profile_id text NOT NULL,
+PRIMARY KEY (job_id,scheme_id,profile_id),
+CONSTRAINT p_job_id FOREIGN KEY (job_id) REFERENCES jobs
+ON DELETE CASCADE
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON profiles TO apache,bigsdb;
+
 CREATE TABLE output (
 job_id text NOT NULL,
 filename text NOT NULL,

@@ -81,7 +81,7 @@ sub run {
 					username     => $self->{'username'},
 					email        => $user_info->{'email'},
 					isolates     => \@list,
-					loci         => $loci_selected,
+					loci         => $loci_selected
 				}
 			);
 			print <<"HTML";

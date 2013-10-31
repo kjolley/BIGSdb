@@ -145,9 +145,14 @@ sub add_job {
 			my $sql = $self->{'db'}->prepare("INSERT INTO isolates (job_id,isolate_id) VALUES ('$id',@checked_list)");
 			$sql->execute;
 		}
-		if ( defined $params->{'loci'} && ref $params->{'loci'} eq 'ARRAY' ) {
+		if ( defined $params->{'profiles'} && ref $params->{'profiles'} eq 'ARRAY' && $cgi_params->{'scheme_id'} ) {
 
-			#Safer to use placeholders and multiple inserts for loci though.
+			#Safer to use placeholders and multiple inserts for profiles and loci though.
+			my @list = @{ $params->{'profiles'} };
+			my $sql  = $self->{'db'}->prepare("INSERT INTO profiles (job_id,scheme_id,profile_id) VALUES (?,?,?)");
+			$sql->execute( $id, $cgi_params->{'scheme_id'}, $_ ) foreach @{ $params->{'profiles'} };
+		}
+		if ( defined $params->{'loci'} && ref $params->{'loci'} eq 'ARRAY' ) {
 			my $sql = $self->{'db'}->prepare("INSERT INTO loci (job_id,locus) VALUES (?,?)");
 			$sql->execute( $id, $_ ) foreach @{ $params->{'loci'} };
 		}
@@ -296,6 +301,18 @@ sub get_job_isolates {
 		push @isolate_ids, $isolate_id;
 	}
 	return \@isolate_ids;
+}
+
+sub get_job_profiles {
+	my ( $self, $job_id, $scheme_id ) = @_;
+	my $sql = $self->{'db'}->prepare("SELECT profile_id FROM profiles WHERE job_id=? AND scheme_id=? ORDER BY profile_id");
+	eval { $sql->execute( $job_id, $scheme_id ) };
+	$logger->error($@) if $@;
+	my @profile_ids;
+	while ( my ($profile_id) = $sql->fetchrow_array ) {
+		push @profile_ids, $profile_id;
+	}
+	return \@profile_ids;
 }
 
 sub get_job_loci {
