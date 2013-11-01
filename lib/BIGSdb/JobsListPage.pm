@@ -66,8 +66,8 @@ sub print_content {
 	say "<h2>User: $user->{'first_name'} $user->{'surname'}</h2>";
 	say "<p>Click on the job id to see results.  You can also cancel queued and running jobs.</p>";
 	say "<table class=\"tablesorter\" id=\"sortTable\"><thead><tr><th class=\"{sorter: false}\">Job</th><th>Analysis</th>"
-	  . "<th>Submitted</th><th>Started</th><th>Finished</th><th>Duration (seconds)</th>$nice_duration_header"
-	  . "<th>Status</th><th>Progress (%)</th><th>Stage</th></tr></thead>";
+	  . "<th class=\"{sorter: false}\">Size</th><th>Submitted</th><th>Started</th><th>Finished</th><th>Duration (seconds)</th>"
+	  . "$nice_duration_header<th>Status</th><th>Progress (%)</th><th>Stage</th></tr></thead>";
 	say "<tbody>";
 	foreach my $job (@$jobs) {
 
@@ -76,12 +76,15 @@ sub print_content {
 		} elsif ( $job->{'elapsed'} ) {
 			$job->{'duration_s'} = int( $job->{'elapsed'} );
 		}
-		if (defined $job->{'duration_s'} && $use_time_duration) {
+		if ( defined $job->{'duration_s'} && $use_time_duration ) {
 			$job->{'duration'} = duration( $job->{'duration_s'} );
 			$job->{'duration'} = '<1 second' if $job->{'duration'} eq 'just now';
 		}
 		print "<tr>";
-		foreach my $field (qw (id module submit_time start_time stop_time duration_s duration status percent_complete stage)) {
+		my $size_stats = $self->_get_job_size_stats( $job->{'id'} );
+		local $" = '; ';
+		$job->{'size'} = "@$size_stats";
+		foreach my $field (qw (id module size submit_time start_time stop_time duration_s duration status percent_complete stage)) {
 			next if $field eq 'duration' && !$use_time_duration;
 			$job->{$field} //= '';
 			$job->{$field} = substr( $job->{$field}, 0, 16 ) if $field =~ /time$/;
@@ -99,6 +102,21 @@ sub print_content {
 	say "<p>This page will refresh every 60 seconds.</p>";
 	say "</div>";
 	return;
+}
+
+sub _get_job_size_stats {
+	my ( $self, $job_id ) = @_;
+	my $params = $self->{'jobManager'}->get_job_params($job_id);
+	my @size_stats;
+	my $isolates = $self->{'jobManager'}->get_job_isolates($job_id);
+	push @size_stats, @$isolates . " isolate" . ( @$isolates == 1 ? '' : 's' ) if @$isolates;
+	if ( $params->{'scheme_id'} ) {
+		my $profiles = $self->{'jobManager'}->get_job_profiles( $job_id, $params->{'scheme_id'} );
+		push @size_stats, @$profiles . " profile" . ( @$profiles == 1 ? '' : 's' ) if @$profiles;
+	}
+	my $loci = $self->{'jobManager'}->get_job_loci($job_id);
+	push @size_stats, @$loci . " loc" . ( @$loci == 1 ? 'us' : 'i' ) if @$loci;
+	return \@size_stats;
 }
 
 sub get_title {
