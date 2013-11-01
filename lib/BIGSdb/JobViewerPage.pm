@@ -40,7 +40,7 @@ sub initiate {
 	return if !defined $id;
 	my $job = $self->{'jobManager'}->get_job($id);
 	return if !$job->{'status'};
-	return if any { $job->{'status'} eq $_ } qw (finished failed terminated cancelled);
+	return if any { $job->{'status'} =~ /^$_/ } qw (finished failed terminated cancelled rejected);
 	my $complete = $job->{'percent_complete'};
 	my $elapsed = $job->{'elapsed'} // 0;
 	if ( $job->{'status'} eq 'started' ) {
@@ -69,7 +69,7 @@ sub get_javascript {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $id     = $q->param('id');
-	my $job = $self->{'jobManager'}->get_job($id);
+	my $job    = $self->{'jobManager'}->get_job($id);
 	my $percent = $job->{'percent_complete'} // 0;
 	if ( $percent == -1 ) {
 		my $buffer = << "END";
@@ -132,6 +132,9 @@ sub print_content {
 		} else {
 			$job->{'status'} .= " (first in queue)";
 		}
+	} elsif ( $job->{'status'} =~ /^rejected/ ) {
+		$job->{'status'} =~
+		  s/(BIGSdb_\d+_\d+_\d+)/<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$1">$1<\/a>/;
 	}
 	print << "HTML";
 <div class="box" id="resultstable">
@@ -261,7 +264,7 @@ sub get_title {
 sub _tar_archive {
 	my ( $self, $id ) = @_;
 	return if !defined $id || $id !~ /BIGSdb_\d+/;
-	my $job = $self->{'jobManager'}->get_job($id);
+	my $job    = $self->{'jobManager'}->get_job($id);
 	my $output = $self->{'jobManager'}->get_job_output($id);
 	if ( ref $output eq 'HASH' ) {
 		my @filenames;

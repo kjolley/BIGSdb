@@ -80,6 +80,10 @@ sub print_content {
 			$job->{'duration'} = duration( $job->{'duration_s'} );
 			$job->{'duration'} = '<1 second' if $job->{'duration'} eq 'just now';
 		}
+		if ( $job->{'status'} =~ /^rejected/ ) {
+			$job->{'status'} =~
+		  s/(BIGSdb_\d+_\d+_\d+)/<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$1">$1<\/a>/;
+		}
 		print "<tr>";
 		my $size_stats = $self->_get_job_size_stats( $job->{'id'} );
 		local $" = '; ';

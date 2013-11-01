@@ -15,6 +15,7 @@ percent_complete int,
 stage text,
 message_html text,
 priority int NOT NULL,
+fingerprint text,
 PRIMARY KEY(id)
 );
 

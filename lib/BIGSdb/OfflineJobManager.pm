@@ -22,6 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Application);
 use Error qw(:try);
+use Digest::MD5;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Job');
 
@@ -111,10 +112,13 @@ sub add_job {
 		delete $cgi_params->{$key} if BIGSdb::Utils::is_int($key);    #Treeview implementation has integer node ids.
 	}
 	delete $cgi_params->{$_} foreach qw(submit page update_options format dbase_config_dir instance);
+	my $fingerprint = $self->_make_job_fingerprint( $cgi_params, $params );
+	my $duplicate_job = $self->_get_duplicate_job( $fingerprint, $params->{'username'}, $params->{'ip_address'} );
+	my $status = $duplicate_job ? "rejected - duplicate job ($duplicate_job)" : 'submitted';
 	eval {
 		$self->{'db'}->do(
 			"INSERT INTO jobs (id,dbase_config,username,email,ip_address,submit_time,module,status,percent_complete,"
-			  . "priority) VALUES (?,?,?,?,?,?,?,?,?,?)",
+			  . "priority,fingerprint) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
 			undef,
 			$id,
 			$params->{'dbase_config'},
@@ -123,9 +127,10 @@ sub add_job {
 			$params->{'ip_address'},
 			'now',
 			$params->{'module'},
-			'submitted',
+			$status,
 			0,
-			$priority
+			$priority,
+			$fingerprint
 		);
 		my $param_sql = $self->{'db'}->prepare("INSERT INTO params (job_id,key,value) VALUES (?,?,?)");
 		local $" = '||';
@@ -165,6 +170,31 @@ sub add_job {
 		$self->{'db'}->commit;
 	}
 	return $id;
+}
+
+sub _make_job_fingerprint {
+	my ( $self, $cgi_params, $params ) = @_;
+	my $buffer;
+	foreach my $key ( sort keys %$cgi_params ) {
+		$buffer .= "$key:$cgi_params->{$key};" if ( $cgi_params->{$key} // '' ) ne '';
+	}
+	local $" = ',';
+	$buffer .= "isolates:@{ $params->{'isolates'} };" if defined $params->{'isolates'} && ref $params->{'isolates'} eq 'ARRAY';
+	$buffer .= "profiles:@{ $params->{'profiles'} };" if defined $params->{'profiles'} && ref $params->{'profiles'} eq 'ARRAY';
+	$buffer .= "loci:@{ $params->{'loci'} };"         if defined $params->{'loci'}     && ref $params->{'loci'}     eq 'ARRAY';
+	my $fingerprint = Digest::MD5::md5_hex($buffer);
+	return $fingerprint;
+}
+
+sub _get_duplicate_job {
+	my ( $self, $fingerprint, $username, $ip_address ) = @_;
+	my $qry = "SELECT id FROM jobs WHERE fingerprint=? AND (status='started' OR status='submitted') AND ";
+	$qry .= $self->{'system'}->{'read_access'} eq 'public' ? 'ip_address=?' : 'username=?';
+	my $sql = $self->{'db'}->prepare($qry);
+	eval { $sql->execute( $fingerprint, ( $self->{'system'}->{'read_access'} eq 'public' ? $ip_address : $username ) ) };
+	$logger->error($@) if $@;
+	my ($job_id) = $sql->fetchrow_array;
+	return $job_id;
 }
 
 sub cancel_job {

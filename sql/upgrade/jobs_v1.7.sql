@@ -1,5 +1,6 @@
 ALTER TABLE jobs ADD pid integer;
 ALTER TABLE jobs ADD cancel boolean;
+ALTER TABLE jobs ADD fingerprint text;
 
 CREATE TABLE isolates (
 job_id text NOT NULL,
