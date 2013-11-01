@@ -106,10 +106,11 @@ sub add_job {
 	$priority += $params->{'priority'} if $params->{'priority'} && BIGSdb::Utils::is_int( $params->{'priority'} );    #Plugin level priority
 	my $id         = BIGSdb::Utils::get_random();
 	my $cgi_params = $params->{'parameters'};
-	if ( ref $cgi_params ne 'HASH' ) {
-		$logger->error("CGI parameters not passed as a ref");
-		throw BIGSdb::DataException("CGI parameters not passed as a ref");
+	$logger->logdie("CGI parameters not passed as a ref") if ref $cgi_params ne 'HASH';
+	foreach my $key ( keys %$cgi_params ) {
+		delete $cgi_params->{$key} if BIGSdb::Utils::is_int($key);    #Treeview implementation has integer node ids.
 	}
+	delete $cgi_params->{$_} foreach qw(submit page update_options format dbase_config_dir instance);
 	eval {
 		$self->{'db'}->do(
 			"INSERT INTO jobs (id,dbase_config,username,email,ip_address,submit_time,module,status,percent_complete,"
