@@ -463,7 +463,6 @@ sub _tag {
 	  ->prepare("SELECT COUNT(*) FROM pending_allele_designations WHERE isolate_id=? AND locus=? AND allele_id=? AND sender=?");
 	my $sequence_exists_sql =
 	  $self->{'db'}->prepare("SELECT COUNT(*) FROM allele_sequences WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=?");
-	my @params      = $q->param;
 	my @isolate_ids = $q->param('isolate_id_list');
 	my @loci        = $q->param('loci');
 	my @scheme_ids  = $q->param('scheme_id');
@@ -483,22 +482,23 @@ sub _tag {
 			next if $tested_locus{$locus};
 			$tested_locus{$locus} = 1;
 			my @ids;
-			my %used;
 			my $cleaned_locus = $locus;
 			$cleaned_locus =~ s/'/\\'/g;
 			my $allele_id_to_set;
 			my %pending_allele_ids_to_set;
+			my $allele_test = "id_$isolate_id\_$locus\_allele_";
+			my $seq_test    = "id_$isolate_id\_$locus\_sequence_";
+			my $id          = 1;
+			my $match       = 1;
+			do {
 
-			foreach my $id (@params) {
-				next if $id !~ /$locus/;
-				next if $id !~ /\_$isolate_id\_/;
-				my $allele_test = "id_$isolate_id\_$locus\_allele";
-				my $seq_test    = "id_$isolate_id\_$locus\_sequence";
-				if ( $id =~ /\Q$allele_test\E\_(\d+)/ || $id =~ /\Q$seq_test\E\_(\d+)/ ) {
-					push @ids, $1 if !$used{$1};
-					$used{$1} = 1;
+				if ( $q->param("$allele_test$id") || $q->param("$seq_test$id") ) {
+					push @ids, $id;
+				} else {
+					$match = 0;
 				}
-			}
+				$id++;
+			} until !$match;
 			my $display_locus = $self->clean_locus($locus);
 			foreach my $id (@ids) {
 				my $seqbin_id = $q->param("id_$isolate_id\_$locus\_seqbin_id_$id");
@@ -557,7 +557,8 @@ sub _tag {
 						  . "VALUES ($seqbin_id,E'$cleaned_locus',$start,$end,'$reverse','$complete',$curator_id,'today')";
 						push @sequence_updates,
 						  ( $labels->{$isolate_id} || $isolate_id ) . ": $display_locus:  Seqbin id: $seqbin_id; $start-$end";
-						push @{ $history->{$isolate_id} }, "$locus: sequence tagged. Seqbin id: $seqbin_id; $start-$end (sequence bin scan)";
+						push @{ $history->{$isolate_id} },
+						  "$locus: sequence tagged. Seqbin id: $seqbin_id; $start-$end (sequence bin scan)";
 						if ( $q->param("id_$isolate_id\_$locus\_sequence_$id\_flag") ) {
 							my @flags = $q->param("id_$isolate_id\_$locus\_sequence_$id\_flag");
 							foreach my $flag (@flags) {
