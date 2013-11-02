@@ -475,36 +475,36 @@ sub _tag {
 	foreach my $isolate_id (@isolate_ids) {
 		next if !$self->is_allowed_to_view_isolate($isolate_id);
 		my %tested_locus;
-		foreach (@loci) {
-			$_ =~ s/^cn_//;
-			$_ =~ s/^l_//;
-			$_ =~ s/^la_//;
-			$_ =~ s/\|\|.+//;
-			next if $tested_locus{$_};
-			$tested_locus{$_} = 1;
+		foreach my $locus (@loci) {
+			$locus =~ s/^cn_//;
+			$locus =~ s/^l_//;
+			$locus =~ s/^la_//;
+			$locus =~ s/\|\|.+//;
+			next if $tested_locus{$locus};
+			$tested_locus{$locus} = 1;
 			my @ids;
 			my %used;
-			my $cleaned_locus = $_;
+			my $cleaned_locus = $locus;
 			$cleaned_locus =~ s/'/\\'/g;
 			my $allele_id_to_set;
 			my %pending_allele_ids_to_set;
 
 			foreach my $id (@params) {
-				next if $id !~ /$_/;
+				next if $id !~ /$locus/;
 				next if $id !~ /\_$isolate_id\_/;
-				my $allele_test = "id_$isolate_id\_$_\_allele";
-				my $seq_test    = "id_$isolate_id\_$_\_sequence";
+				my $allele_test = "id_$isolate_id\_$locus\_allele";
+				my $seq_test    = "id_$isolate_id\_$locus\_sequence";
 				if ( $id =~ /\Q$allele_test\E\_(\d+)/ || $id =~ /\Q$seq_test\E\_(\d+)/ ) {
 					push @ids, $1 if !$used{$1};
 					$used{$1} = 1;
 				}
 			}
-			my $display_locus = $self->clean_locus($_);
+			my $display_locus = $self->clean_locus($locus);
 			foreach my $id (@ids) {
-				my $seqbin_id = $q->param("id_$isolate_id\_$_\_seqbin_id_$id");
-				if ( $q->param("id_$isolate_id\_$_\_allele_$id") && defined $q->param("id_$isolate_id\_$_\_allele_id_$id") ) {
-					my $allele_id = $q->param("id_$isolate_id\_$_\_allele_id_$id");
-					my $set_allele_id = $self->{'datastore'}->get_allele_id( $isolate_id, $_ );
+				my $seqbin_id = $q->param("id_$isolate_id\_$locus\_seqbin_id_$id");
+				if ( $q->param("id_$isolate_id\_$locus\_allele_$id") && defined $q->param("id_$isolate_id\_$locus\_allele_id_$id") ) {
+					my $allele_id = $q->param("id_$isolate_id\_$locus\_allele_id_$id");
+					my $set_allele_id = $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
 					eval { $sql->execute($seqbin_id) };
 					$logger->error($@) if $@;
 					my $seqbin_info = $sql->fetchrow_hashref;
@@ -517,7 +517,7 @@ sub _tag {
 						  . "'automatic',$curator_id,'today','today','Scanned from sequence bin')";
 						$allele_id_to_set = $allele_id;
 						push @allele_updates, ( $labels->{$isolate_id} || $isolate_id ) . ": $display_locus:  $allele_id";
-						push @{ $history->{$isolate_id} }, "$_: new designation '$allele_id' (sequence bin scan)";
+						push @{ $history->{$isolate_id} }, "$locus: new designation '$allele_id' (sequence bin scan)";
 					} elsif (
 						(
 							   ( defined $set_allele_id && $set_allele_id ne $allele_id )
@@ -526,7 +526,7 @@ sub _tag {
 						&& !$pending_allele_ids_to_set{$allele_id}
 					  )
 					{
-						eval { $pending_sql->execute( $isolate_id, $_, $allele_id, $sender ) };
+						eval { $pending_sql->execute( $isolate_id, $locus, $allele_id, $sender ) };
 						$logger->error($@) if $@;
 						my ($exists) = $pending_sql->fetchrow_array;
 						if ( !$exists ) {
@@ -539,27 +539,27 @@ sub _tag {
 							    ( $labels->{$isolate_id} || $isolate_id )
 							  . ": $display_locus:  $allele_id (conflicts with existing designation '"
 							  . ( ( $set_allele_id // '' ) eq '' ? $allele_id_to_set : $set_allele_id ) . "').";
-							push @{ $history->{$isolate_id} }, "$_: new pending designation '$allele_id' (sequence bin scan)";
+							push @{ $history->{$isolate_id} }, "$locus: new pending designation '$allele_id' (sequence bin scan)";
 						}
 					}
 				}
-				if ( $q->param("id_$isolate_id\_$_\_sequence_$id") ) {
-					my $start = $q->param("id_$isolate_id\_$_\_start_$id");
-					my $end   = $q->param("id_$isolate_id\_$_\_end_$id");
-					eval { $sequence_exists_sql->execute( $seqbin_id, $_, $start, $end ) };
+				if ( $q->param("id_$isolate_id\_$locus\_sequence_$id") ) {
+					my $start = $q->param("id_$isolate_id\_$locus\_start_$id");
+					my $end   = $q->param("id_$isolate_id\_$locus\_end_$id");
+					eval { $sequence_exists_sql->execute( $seqbin_id, $locus, $start, $end ) };
 					$logger->error($@) if $@;
 					my ($exists) = $sequence_exists_sql->fetchrow_array;
 					if ( !$exists ) {
-						my $reverse  = $q->param("id_$isolate_id\_$_\_reverse_$id")  ? 'TRUE' : 'FALSE';
-						my $complete = $q->param("id_$isolate_id\_$_\_complete_$id") ? 'TRUE' : 'FALSE';
+						my $reverse  = $q->param("id_$isolate_id\_$locus\_reverse_$id")  ? 'TRUE' : 'FALSE';
+						my $complete = $q->param("id_$isolate_id\_$locus\_complete_$id") ? 'TRUE' : 'FALSE';
 						push @updates,
 						  "INSERT INTO allele_sequences (seqbin_id,locus,start_pos,end_pos,reverse,complete,curator,datestamp) "
 						  . "VALUES ($seqbin_id,E'$cleaned_locus',$start,$end,'$reverse','$complete',$curator_id,'today')";
 						push @sequence_updates,
 						  ( $labels->{$isolate_id} || $isolate_id ) . ": $display_locus:  Seqbin id: $seqbin_id; $start-$end";
-						push @{ $history->{$isolate_id} }, "$_: sequence tagged. Seqbin id: $seqbin_id; $start-$end (sequence bin scan)";
-						if ( $q->param("id_$isolate_id\_$_\_sequence_$id\_flag") ) {
-							my @flags = $q->param("id_$isolate_id\_$_\_sequence_$id\_flag");
+						push @{ $history->{$isolate_id} }, "$locus: sequence tagged. Seqbin id: $seqbin_id; $start-$end (sequence bin scan)";
+						if ( $q->param("id_$isolate_id\_$locus\_sequence_$id\_flag") ) {
+							my @flags = $q->param("id_$isolate_id\_$locus\_sequence_$id\_flag");
 							foreach my $flag (@flags) {
 								push @updates, "INSERT INTO sequence_flags (seqbin_id,locus,start_pos,end_pos,flag,datestamp,curator) "
 								  . "VALUES ($seqbin_id,E'$cleaned_locus',$start,$end,'$flag','today',$curator_id)";
