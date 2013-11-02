@@ -554,7 +554,7 @@ sub _tag {
 						my $complete = $q->param("id_$isolate_id\_$_\_complete_$id") ? 'TRUE' : 'FALSE';
 						push @updates,
 						  "INSERT INTO allele_sequences (seqbin_id,locus,start_pos,end_pos,reverse,complete,curator,datestamp) "
-						  . "VALUES ($seqbin_id,'$cleaned_locus',$start,$end,'$reverse','$complete',$curator_id,'today')";
+						  . "VALUES ($seqbin_id,E'$cleaned_locus',$start,$end,'$reverse','$complete',$curator_id,'today')";
 						push @sequence_updates,
 						  ( $labels->{$isolate_id} || $isolate_id ) . ": $display_locus:  Seqbin id: $seqbin_id; $start-$end";
 						push @{ $history->{$isolate_id} }, "$_: sequence tagged. Seqbin id: $seqbin_id; $start-$end (sequence bin scan)";
@@ -562,7 +562,7 @@ sub _tag {
 							my @flags = $q->param("id_$isolate_id\_$_\_sequence_$id\_flag");
 							foreach my $flag (@flags) {
 								push @updates, "INSERT INTO sequence_flags (seqbin_id,locus,start_pos,end_pos,flag,datestamp,curator) "
-								  . "VALUES ($seqbin_id,'$cleaned_locus',$start,$end,'$flag','today',$curator_id)";
+								  . "VALUES ($seqbin_id,E'$cleaned_locus',$start,$end,'$flag','today',$curator_id)";
 							}
 						}
 					}
