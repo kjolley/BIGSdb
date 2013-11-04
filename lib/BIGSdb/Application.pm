@@ -105,7 +105,7 @@ sub new {
 			}
 			$self->_initiate_authdb if $self->{'system'}->{'authentication'} eq 'builtin';
 			$self->_initiate_jobmanager( $config_dir, $dbase_config_dir )
-			  if !$self->{'curate'} && (  any {$q->param('page') eq $_} qw (plugin job jobs index logout))
+			  if !$self->{'curate'} && (  any {$q->param('page') eq $_} qw (plugin job jobs index logout options))
 			  && $self->{'config'}->{'jobs_db'};
 			$self->initiate_plugins($lib_dir);
 		}
