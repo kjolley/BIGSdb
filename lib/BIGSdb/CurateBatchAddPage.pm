@@ -291,7 +291,7 @@ sub _check_data {
 	my $sender_message = '';
 	if ( $arg_ref->{'has_sender_field'} ) {
 		my $sender = $q->param('sender');
-		if ( !$sender ) {
+		if ( !$sender || !BIGSdb::Utils::is_int($sender) ) {
 			say "<div class=\"box\" id=\"statusbad\"><p>Please go back and select the sender for this submission.</p></div>";
 			return;
 		} elsif ( $sender == -1 ) {
