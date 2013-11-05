@@ -302,6 +302,7 @@ sub _check_data {
 		}
 	}
 	my %problems;
+	my %advisories;
 	my $tablebuffer = "<div class=\"scrollable\"><table class=\"resultstable\"><tr>" . $self->_get_field_table_header($table) . "</tr>";
 	my @records     = split /\n/, $q->param('data');
 	my $td          = 1;
@@ -319,8 +320,10 @@ sub _check_data {
 	}
 	my $id;
 	my %unique_field;
+	my $label_field_values;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
-		$id = $self->next_id($table);
+		$id                 = $self->next_id($table);
+		$label_field_values = $self->_get_existing_label_field_values;
 	} else {
 		my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 		foreach (@$attributes) {
@@ -436,7 +439,7 @@ sub _check_data {
 				$value = defined $value ? $value : '';
 				$checked_record .= "$value\t"
 				  if defined $file_header_pos{$field}
-					  or ( $field eq 'id' );
+				  or ( $field eq 'id' );
 			}
 			if ( !$continue ) {
 				undef $header_row if $first_record;
@@ -462,6 +465,12 @@ sub _check_data {
 
 				#Check for locus values that can also be uploaded with an isolate record.
 				$tablebuffer .= $self->_check_data_isolate_record_locus_fields( \%args );
+
+				#Check if a record with the same name already exists
+				if ( $label_field_values->{ $data[ $file_header_pos{ $self->{'system'}->{'labelfield'} } ] } ) {
+					$advisories{$pk_combination} .= "$self->{'system'}->{'labelfield'} "
+					  . "'$data[$file_header_pos{$self->{'system'}->{'labelfield'}}]' already exists in the database.";
+				}
 			}
 			$tablebuffer .= "</tr>\n";
 
@@ -547,27 +556,57 @@ sub _check_data {
 		say "<div class=\"box\" id=\"statusbad\"><p>No valid data entered. Make sure you've included the header line.</p></div>";
 		return;
 	}
-	$self->_report_check( $table, \$tablebuffer, \%problems, \@checked_buffer, \$sender_message );
+	$self->_report_check(
+		{
+			table          => $table,
+			buffer         => \$tablebuffer,
+			problems       => \%problems,
+			advisories     => \%advisories,
+			checked_buffer => \@checked_buffer,
+			sender_message => \$sender_message
+		}
+	);
 	return;
 }
 
+sub _get_existing_label_field_values {
+	my ($self) = @_;
+	my $values = $self->{'datastore'}->run_list_query("SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'}");
+	my %hash = map { $_ => 1 } @$values;
+	return \%hash;
+}
+
 sub _report_check {
-	my ( $self, $table, $table_buffer_ref, $problems_ref, $checked_buffer_ref, $sender_message_ref ) = @_;
+	my ( $self, $data ) = @_;
+	my ( $table, $buffer, $problems, $advisories, $checked_buffer, $sender_message ) =
+	  @{$data}{qw (table buffer problems advisories checked_buffer sender_message)};
 	my $q = $self->{'cgi'};
-	if (%$problems_ref) {
+	if (%$problems) {
 		say "<div class=\"box\" id=\"statusbad\"><h2>Import status</h2>";
 		say "<table class=\"resultstable\">";
 		say "<tr><th>Primary key</th><th>Problem(s)</th></tr>";
 		my $td = 1;
-		foreach my $id ( sort keys %$problems_ref ) {
-			say "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">$problems_ref->{$id}</td></tr>";
+		foreach my $id ( sort keys %$problems ) {
+			say "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">$problems->{$id}</td></tr>";
 			$td = $td == 1 ? 2 : 1;    #row stripes
 		}
 		say "</table></div>";
 	} else {
-		say "<div class=\"box\" id=\"resultsheader\"><h2>Import status</h2>$$sender_message_ref<p>No obvious problems "
-		  . "identified so far.</p>";
-		my $filename = $self->make_temp_file(@$checked_buffer_ref);
+		say "<div class=\"box\" id=\"resultsheader\"><h2>Import status</h2>$$sender_message";
+		if (%$advisories) {
+			say "<p>Data can be uploaded but please note the following advisories:</p>";
+			say "<table class=\"resultstable\">";
+			say "<tr><th>Primary key</th><th>Note(s)</th></tr>";
+			my $td = 1;
+			foreach my $id ( sort keys %$advisories ) {
+				say "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">$advisories->{$id}</td></tr>";
+				$td = $td == 1 ? 2 : 1;    #row stripes
+			}
+			say "</table>";
+		} else {
+			say "<p>No obvious problems identified so far.</p>";
+		}
+		my $filename = $self->make_temp_file(@$checked_buffer);
 		say $q->start_form;
 		say $q->hidden($_) foreach qw (page table db sender locus ignore_existing ignore_non_DNA complete_CDS ignore_similarity);
 		say $q->hidden( 'checked_buffer', $filename );
@@ -581,7 +620,7 @@ sub _report_check {
 	  ? '<em>Note: valid sequence flags are displayed with a red background not red text.</em>'
 	  : '';
 	say "<p>The following table shows your data.  Any field with red text has a problem and needs to be checked. $caveat</p>";
-	say $$table_buffer_ref;
+	say $$buffer;
 	say "</div>";
 	return;
 }
