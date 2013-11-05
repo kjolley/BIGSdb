@@ -173,7 +173,7 @@ HTML
 	if ( $self->{'permissions'}->{'modify_loci'} || $self->{'permissions'}->{'modify_schemes'} || $self->is_admin ) {
 		$list_buffer .=
 		    "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configCheck\">"
-		  . "Configuration check</a> - checks database connectivity for loci and schemes and that required helper "
+		  . "Configuration check</a> - Checks database connectivity for loci and schemes and that required helper "
 		  . "applications are properly installed.</li>\n";
 		if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 			$list_buffer .= "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configRepair\">"
