@@ -35,7 +35,7 @@ sub run_script {
 	my $EXIT = 0;
 	local @SIG{qw (INT TERM HUP)} = ( sub { $EXIT = 1 } ) x 3;    #Allow temp files to be cleaned on kill signals
 	die "No connection to database (check logs).\n" if !defined $self->{'db'};
-	die "This script can only be run against an isolate database.\n" if ($self->{'system'}->{'dbtype'} // '') ne 'isolates';
+	die "This script can only be run against an isolate database.\n" if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
 	my $params;
 	$params->{$_} = 1 foreach qw(pcr_filter probe_filter);
 	$params->{'alignment'} = BIGSdb::Utils::is_int( $self->{'options'}->{'A'} ) ? $self->{'options'}->{'A'} : DEFAULT_ALIGNMENT;
@@ -60,14 +60,15 @@ sub run_script {
 	foreach my $locus (@$loci) {
 		$i++;
 		my $complete = BIGSdb::Utils::decimal_place( ( $i * 100 / @$loci ), 1 );
-		$self->{'logger'}->info("$self->{'options'}->{'d'}:Checking $locus - $i/" . (@$loci) . "($complete%)");
+		$self->{'logger'}->info( "$self->{'options'}->{'d'}:Checking $locus - $i/" . (@$loci) . "($complete%)" );
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		my %seqs;
 		foreach my $isolate_id (@$isolate_list) {
 			next if defined $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
 			my $allele_seq = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
 			next if @$allele_seq;
-			my ( $exact_matches, $partial_matches ) = $self->blast( $params, $locus, $isolate_id, $isolate_prefix, $locus_prefix );
+			my ( $exact_matches, $partial_matches ) =
+			  $self->blast( $params, $locus, $isolate_id, "$isolate_prefix\_$isolate_id", $locus_prefix );
 			next if ref $exact_matches && @$exact_matches;
 			foreach my $match (@$partial_matches) {
 				next if $self->_off_end_of_contig($match);
@@ -108,7 +109,7 @@ sub _define_allele {
 	my ( $self, $locus, $seq ) = @_;
 	my $locus_info     = $self->{'datastore'}->get_locus_info($locus);
 	my $data_connector = $self->{'datastore'}->get_data_connector;
-	my $can_define = 1;
+	my $can_define     = 1;
 	my $allele_id;
 	try {
 		my $locus_db = $data_connector->get_connection(
@@ -120,15 +121,15 @@ sub _define_allele {
 				dbase_name => $locus_info->{'dbase_name'}
 			}
 		);
-		$allele_id = $self->_get_next_id($locus_db, $locus);
-		my $sql = $locus_db->prepare("INSERT INTO sequences (locus,allele_id,sequence,status,date_entered,datestamp,sender,"
-		  . "curator) VALUES (?,?,?,?,?,?,?,?)");
-		eval {$sql->execute($locus,$allele_id,$seq,'trace not checked','now','now',DEFINER_USER,DEFINER_USER)};
-		if ($@){
+		$allele_id = $self->_get_next_id( $locus_db, $locus );
+		my $sql = $locus_db->prepare(
+			"INSERT INTO sequences (locus,allele_id,sequence,status,date_entered,datestamp,sender," . "curator) VALUES (?,?,?,?,?,?,?,?)" );
+		eval { $sql->execute( $locus, $allele_id, $seq, 'trace not checked', 'now', 'now', DEFINER_USER, DEFINER_USER ) };
+		if ($@) {
 			$self->{'logger'}->error($@);
 			say "Can't add new allele.";
 			$locus_db->rollback;
-			$can_define = 0;			
+			$can_define = 0;
 		} else {
 			$locus_db->commit;
 			$self->{'logger'}->info("New allele defined: $locus-$allele_id");
@@ -139,18 +140,18 @@ sub _define_allele {
 		say "Can not connect to database for locus $locus";
 		$can_define = 0;
 	};
-	exit (1) if !$can_define;
+	exit(1) if !$can_define;
 	return $allele_id;
 }
 
 sub _get_next_id {
-	my ($self, $db, $locus) = @_;
-	my $sql = $db->prepare("SELECT EXISTS(SELECT allele_id FROM sequences WHERE locus=? AND allele_id=?)");
+	my ( $self, $db, $locus ) = @_;
+	my $sql       = $db->prepare("SELECT EXISTS(SELECT allele_id FROM sequences WHERE locus=? AND allele_id=?)");
 	my $allele_id = 0;
 	my $exists;
 	do {
 		$allele_id++;
-		eval {$sql->execute($locus, $allele_id)};
+		eval { $sql->execute( $locus, $allele_id ) };
 		$self->{'logger'}->error($@) if $@;
 		($exists) = $sql->fetchrow_array;
 	} while ($exists);
