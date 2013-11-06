@@ -37,7 +37,7 @@ use Getopt::Std;
 use BIGSdb::Offline::AutoTag;
 
 my %opts;
-getopts( 'd:i:I:l:m:p:P:s:t:w:x:y:hnoqrT', \%opts );
+getopts( 'd:i:I:l:m:p:P:s:t:w:x:y:0hnoqrT', \%opts );
 
 if ($opts{'h'}){
 	show_help();
@@ -71,6 +71,8 @@ Usage autotag.pl -d <database configuration>
 
 Options
 -------
+-0         Marks missing loci as provisional allele 0.  Sets default word
+           size to 15.
 -d <name>  Database configuration name.
 -h         This help page.
 -i <list>  Isolates - comma-separated list of isolate ids to scan (ignored if
