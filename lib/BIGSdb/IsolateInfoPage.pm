@@ -141,7 +141,7 @@ sub print_content {
 	if ( defined $q->param('group_id') && BIGSdb::Utils::is_int( $q->param('group_id') ) ) {
 		my $group_id = $q->param('group_id');
 		my $scheme_ids;
-		my ( $table_buffer, $buffer );
+		my ($table_buffer);
 		if ( $group_id == 0 ) {
 			$scheme_ids =
 			  $self->{'datastore'}->run_list_query(
@@ -151,33 +151,27 @@ sub print_content {
 				next if none { $scheme_id eq $_ } @$scheme_ids_ref;
 				my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 				$table_buffer = $self->_get_scheme_fields( $scheme_id, $isolate_id, $self->{'curate'} );
-				$buffer .= $table_buffer if $table_buffer;
+				say $table_buffer if $table_buffer;
 			}
 		} else {
 			$table_buffer = $self->_get_group_scheme_tables( $group_id, $isolate_id );
-			$buffer .= $table_buffer if $table_buffer;
+			say $table_buffer if $table_buffer;
 			$table_buffer = $self->_get_child_group_scheme_tables( $group_id, $isolate_id, 1 );
-			$buffer .= $table_buffer if $table_buffer;
-		}
-		if ($buffer) {
-			say $buffer;
+			say $table_buffer if $table_buffer;
 		}
 		return;
 	} elsif ( defined $q->param('scheme_id') && BIGSdb::Utils::is_int( $q->param('scheme_id') ) ) {
 		my $scheme_id = $q->param('scheme_id');
-		my $buffer;
 		if ( $scheme_id == -1 ) {
 			my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
 			foreach ( @$schemes, 0 ) {
 				next if $_ && !$self->{'prefs'}->{'isolate_display_schemes'}->{$_};
 				my $table_buffer = $self->_get_scheme_fields( $_, $isolate_id, $self->{'curate'} );
-				$buffer .= $table_buffer if $table_buffer;
+				say $table_buffer if $table_buffer;
 			}
 		} else {
-			$buffer = $self->_get_scheme_fields( $scheme_id, $isolate_id, $self->{'curate'} );
-		}
-		if ($buffer) {
-			say $buffer;
+			my $table_buffer = $self->_get_scheme_fields( $scheme_id, $isolate_id, $self->{'curate'} );
+			say $table_buffer if $table_buffer;
 		}
 		return;
 	}
@@ -786,7 +780,7 @@ sub _get_scheme_field_display {
 		}
 		$dt_buffer .= "</dt>";
 		my $dd_buffer;
-		$args->{'locus_values'}->{$locus} = '&nbsp' if $args->{'locus_values'}->{$locus} eq '';
+		$args->{'locus_values'}->{$locus} = '&nbsp' if ($args->{'locus_values'}->{$locus} // '') eq '';
 		$dd_buffer = "<dd>" . ( $args->{'locus_values'}->{$locus} ) . "</dd>\n";
 		my $display_seq =
 		  (      $self->{'prefs'}->{'isolate_display_loci'}->{$locus} eq 'sequence'
