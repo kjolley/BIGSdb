@@ -25,6 +25,9 @@ my $logger = get_logger('BIGSdb.Page');
 use Error qw(:try);
 use List::MoreUtils qw(uniq any none);
 use autouse 'Data::Dumper' => qw(Dumper);
+use Memoize;
+memoize('clean_locus');
+memoize('get_seq_detail_tooltips');
 use parent 'Exporter';
 use constant SEQ_METHODS => ( '454', 'Illumina', 'Ion Torrent', 'PacBio', 'Sanger', 'Solexa', 'SOLiD', 'other', 'unknown' );
 use constant SEQ_FLAGS => (

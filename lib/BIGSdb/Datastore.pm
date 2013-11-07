@@ -29,6 +29,8 @@ use BIGSdb::ClientDB;
 use BIGSdb::Locus;
 use BIGSdb::Scheme;
 use BIGSdb::TableAttributes;
+use Memoize;
+memoize('get_locus_info');
 
 sub new {
 	my ( $class, @atr ) = @_;
