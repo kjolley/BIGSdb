@@ -36,7 +36,7 @@ use lib (LIB_DIR);
 use Getopt::Std;
 use BIGSdb::Offline::ScanNew;
 my %opts;
-getopts( 'd:A:B:i:I:l:L:m:p:P:R:s:t:w:x:y:achnor', \%opts );
+getopts( 'd:A:B:i:I:l:L:m:p:P:R:s:t:w:x:y:achnorT', \%opts );
 
 if ( $opts{'h'} ) {
 	show_help();
@@ -91,6 +91,7 @@ Options
 -R <regex> Regex for locus names
 -s <list>  Schemes - comma-separated list of scheme loci to scan.
 -t <mins>  Time limit - Stop after t minutes.
+-T         Scan even when sequence tagged (no designation)
 -w <size>  BLASTN word size
 -x <id>    Minimum isolate id
 -y <id>    Maximum isolate id

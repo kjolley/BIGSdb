@@ -79,7 +79,7 @@ sub run_script {
 	  LOCUS: foreach my $locus (@$loci) {
 			next if defined $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
 			my $allele_seq = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
-			next if ref $allele_seq eq 'ARRAY' && @$allele_seq && !$self->{'options'}->{'T'};
+			next if @$allele_seq && !$self->{'options'}->{'T'};
 			my ( $exact_matches, $partial_matches ) = $self->blast( $params, $locus, $isolate_id, $isolate_prefix, $locus_prefix );
 			my $blast_status_bad = $?;
 			if ( ref $exact_matches && @$exact_matches ) {
@@ -93,7 +93,7 @@ sub run_script {
 						try {
 							$self->_tag_allele(
 								{ isolate_id => $isolate_id, locus => $locus, allele_id => $_->{'allele'}, sender => $sender } );
-							if ( !$self->{'options'}->{'T'} || !( ref $allele_seq eq 'ARRAY' && @$allele_seq ) ) {
+							if ( !$self->{'options'}->{'T'} || !@$allele_seq ) {
 								$self->_tag_sequence(
 									{
 										seqbin_id => $_->{'seqbin_id'},
