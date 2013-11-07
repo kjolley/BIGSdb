@@ -262,7 +262,7 @@ sub _check {
 				if ( $scheme_field_info->{$field}->{'primary_key'} && $value eq '' ) {
 					$problems{$pk} .= "Field $field is required and must not be left blank.<br />";
 					$problem = 1;
-				} elsif ( $scheme_field_info->{$field}->{'type'} eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
+				} elsif ( $scheme_field_info->{$field}->{'type'} eq 'integer' && $value ne '' && !BIGSdb::Utils::is_int($value) ) {
 					$problems{$pk} .= "Field $field must be an integer.<br />";
 					$problem = 1;
 				}
