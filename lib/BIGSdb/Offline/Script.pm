@@ -272,8 +272,11 @@ sub get_loci_with_ref_db {
 		  . "ORDER BY scheme_id,field_order";
 	} elsif ( $self->{'options'}->{'l'} ) {
 		my @loci = split /,/, $self->{'options'}->{'l'};
-		local $" = "','";
-		$qry = "$ref_db_loci_qry AND id IN ('@loci')";
+		foreach (@loci){
+			$_ =~ s/'/\\'/g;
+		}
+		local $" = "',E'";
+		$qry = "$ref_db_loci_qry AND id IN (E'@loci')";
 	} else {
 		$qry = "$ref_db_loci_qry ORDER BY id";
 	}
