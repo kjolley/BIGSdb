@@ -65,8 +65,10 @@ sub run_script {
 		my %seqs;
 		foreach my $isolate_id (@$isolate_list) {
 			next if defined $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
-			my $allele_seq = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
-			next if @$allele_seq && !$self->{'options'}->{'T'};
+			if (!$self->{'options'}->{'T'}){
+				my $allele_seq = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
+				next if @$allele_seq;
+			}	
 			my ( $exact_matches, $partial_matches ) =
 			  $self->blast( $params, $locus, $isolate_id, "$isolate_prefix\_$isolate_id", $locus_prefix );
 			next if ref $exact_matches && @$exact_matches;
