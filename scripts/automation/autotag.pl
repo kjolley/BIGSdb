@@ -37,7 +37,7 @@ use Getopt::Std;
 use BIGSdb::Offline::AutoTag;
 
 my %opts;
-getopts( 'd:i:I:l:m:p:P:s:t:w:x:y:0hnoqrT', \%opts );
+getopts( 'd:i:I:l:m:p:P:R:s:t:w:x:y:0hnoqrT', \%opts );
 
 if ($opts{'h'}){
 	show_help();
@@ -89,6 +89,7 @@ Options
            will be excluded.
 -q         Quiet - only error messages displayed.
 -r         Random - shuffle order of isolate ids to scan
+-R <regex> Regex for locus names
 -s <list>  Schemes - comma-separated list of scheme loci to scan.
 -t <mins>  Time limit - Stop after t minutes.
 -T         Scan even when sequence tagged (no designation)
