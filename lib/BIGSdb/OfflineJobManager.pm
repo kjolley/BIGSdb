@@ -25,6 +25,7 @@ use Error qw(:try);
 use Digest::MD5;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Job');
+use constant DBASE_QUOTA_EXCEEDED => 1;
 
 sub new {
 
@@ -114,7 +115,19 @@ sub add_job {
 	delete $cgi_params->{$_} foreach qw(submit page update_options format dbase_config_dir instance);
 	my $fingerprint = $self->_make_job_fingerprint( $cgi_params, $params );
 	my $duplicate_job = $self->_get_duplicate_job( $fingerprint, $params->{'username'}, $params->{'ip_address'} );
-	my $status = $duplicate_job ? "rejected - duplicate job ($duplicate_job)" : 'submitted';
+	my $quota_exceeded = $self->_is_quota_exceeded($params);
+	my $status;
+	if ($duplicate_job) {
+		$status = "rejected - duplicate job ($duplicate_job)";
+	} elsif ($quota_exceeded) {
+		if ( $quota_exceeded == DBASE_QUOTA_EXCEEDED ) {
+			my $plural = $self->{'system'}->{'dbase_job_quota'} == 1 ? '' : 's';
+			$status = "rejected - database jobs exceeded. This database has a quota of $self->{'system'}->{'dbase_job_quota'} "
+			  . "concurrent job$plural.  Please try again later.";
+		}
+	} else {
+		$status = 'submitted';
+	}
 	eval {
 		$self->{'db'}->do(
 			"INSERT INTO jobs (id,dbase_config,username,email,ip_address,submit_time,module,status,percent_complete,"
@@ -184,6 +197,19 @@ sub _make_job_fingerprint {
 	$buffer .= "loci:@{ $params->{'loci'} };"         if defined $params->{'loci'}     && ref $params->{'loci'}     eq 'ARRAY';
 	my $fingerprint = Digest::MD5::md5_hex($buffer);
 	return $fingerprint;
+}
+
+sub _is_quota_exceeded {
+	my ( $self, $params ) = @_;
+	if ( BIGSdb::Utils::is_int( $self->{'system'}->{'dbase_job_quota'} ) ) {
+		my $qry = "SELECT COUNT(*) FROM jobs WHERE dbase_config=? AND status IN ('submitted','started')";
+		my $sql = $self->{'db'}->prepare($qry);
+		eval { $sql->execute( $params->{'dbase_config'} ) };
+		$logger->error($@) if $@;
+		my ($job_count) = $sql->fetchrow_array;
+		return DBASE_QUOTA_EXCEEDED if $job_count >= $self->{'system'}->{'dbase_job_quota'};
+	}
+	return 0;
 }
 
 sub _get_duplicate_job {
