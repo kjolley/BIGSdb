@@ -122,8 +122,7 @@ sub _get_group_scheme_tables {
 			next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};
 			next if none { $scheme_id eq $_ } @$scheme_ids_ref;
 			if ( !$self->{'scheme_shown'}->{$scheme_id} ) {
-				my $field_buffer = $self->_get_scheme_fields( $scheme_id, $isolate_id, $self->{'curate'} );
-				$buffer .= $field_buffer if $field_buffer;
+				$self->_print_scheme( $scheme_id, $isolate_id, $self->{'curate'} );
 				$self->{'scheme_shown'}->{$scheme_id} = 1;
 			}
 		}
@@ -150,8 +149,7 @@ sub print_content {
 				next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};
 				next if none { $scheme_id eq $_ } @$scheme_ids_ref;
 				my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
-				$table_buffer = $self->_get_scheme_fields( $scheme_id, $isolate_id, $self->{'curate'} );
-				say $table_buffer if $table_buffer;
+				$self->_print_scheme( $scheme_id, $isolate_id, $self->{'curate'} );
 			}
 		} else {
 			$table_buffer = $self->_get_group_scheme_tables( $group_id, $isolate_id );
@@ -166,12 +164,10 @@ sub print_content {
 			my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
 			foreach ( @$schemes, 0 ) {
 				next if $_ && !$self->{'prefs'}->{'isolate_display_schemes'}->{$_};
-				my $table_buffer = $self->_get_scheme_fields( $_, $isolate_id, $self->{'curate'} );
-				say $table_buffer if $table_buffer;
+				$self->_print_scheme( $_, $isolate_id, $self->{'curate'} );
 			}
 		} else {
-			my $table_buffer = $self->_get_scheme_fields( $scheme_id, $isolate_id, $self->{'curate'} );
-			say $table_buffer if $table_buffer;
+			$self->_print_scheme( $scheme_id, $isolate_id, $self->{'curate'} );
 		}
 		return;
 	}
@@ -652,11 +648,11 @@ sub _get_scheme_field_values {
 	return \%values;
 }
 
-sub _get_scheme_fields {
+sub _print_scheme {
 	my ( $self, $scheme_id, $isolate_id, $summary_view ) = @_;
 	my $q = $self->{'cgi'};
 	my ( $locus_display_count, $scheme_fields_count ) = ( 0, 0 );
-	my ( $loci, @profile, $scheme_fields, $scheme_info, $buffer );
+	my ( $loci, $scheme_fields, $scheme_info );
 	my $set_id = $self->get_set_id;
 	if ($scheme_id) {
 		my $should_display = $self->_should_display_scheme( $isolate_id, $scheme_id, $summary_view );
@@ -694,83 +690,76 @@ sub _get_scheme_fields {
 		$hidden_locus_count++
 		  if $self->{'prefs'}->{'isolate_display_loci'}->{$_} eq 'hide';
 	}
-	$buffer .= "<h3 class=\"scheme\" style=\"clear:both\">$scheme_info->{'description'}</h3>\n";
-	my ( %url, %locus_value );
+	say "<h3 class=\"scheme\" style=\"clear:both\">$scheme_info->{'description'}</h3>";
 	my $allele_designations = $self->{'datastore'}->get_scheme_allele_designations( $isolate_id, $scheme_id, { set_id => $set_id } );
-	my %provisional_allele;
-	foreach my $locus (@$loci) {
-		$allele_designations->{$locus}->{'status'} ||= 'confirmed';
-		$provisional_allele{$locus} = 1
-		  if $self->{'prefs'}->{'mark_provisional'} && $allele_designations->{$locus}->{'status'} eq 'provisional';
-		$locus_value{$locus} .= "<span class=\"provisional\">"
-		  if ( $allele_designations->{$locus}->{'status'} && $allele_designations->{$locus}->{'status'} eq 'provisional' )
-		  && $self->{'prefs'}->{'mark_provisional'};
-		my $cleaned_name = $self->clean_locus($locus);
-		my $tooltip_name = $cleaned_name;
-		push @profile, $allele_designations->{$locus}->{'allele_id'};
-		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-		if ( defined $allele_designations->{$locus}->{'allele_id'} ) {
-			my $url;
-			if ( $locus_info->{'url'} && $allele_designations->{$locus}->{'allele_id'} ne 'deleted' ) {
-				$url{$locus} = $locus_info->{'url'};
-				$url{$locus} =~ s/\[\?\]/$allele_designations->{$locus}->{'allele_id'}/g;
-				$url{$locus} =~ s/\&/\&amp;/g;
-				$locus_value{$locus} .= "<a href=\"$url{$locus}\">$allele_designations->{$locus}->{'allele_id'}</a>";
-			} else {
-				$locus_value{$locus} .= "$allele_designations->{$locus}->{'allele_id'}";
-			}
-			$locus_value{$locus} .= "</span>"
-			  if $allele_designations->{$locus}->{'status'} eq 'provisional'
-			  && $self->{'prefs'}->{'mark_provisional'};
-			if ( $self->{'prefs'}->{'update_details'} && $allele_designations->{$locus}->{'allele_id'} ) {
-				my $update_tooltip = $self->get_update_details_tooltip( $tooltip_name, $allele_designations->{$locus} );
-				$locus_value{$locus} .=
-				  "<span style=\"font-size:0.5em\"> </span><a class=\"update_tooltip\" title=\"$update_tooltip\">&nbsp;...&nbsp;</a>";
-			}
-		}
-		$locus_value{$locus} .= $self->get_seq_detail_tooltips( $isolate_id, $locus ) if $self->{'prefs'}->{'sequence_details'};
-		if ( $allele_designations->{$locus}->{'allele_id'} ) {
-			$locus_value{$locus} .= $self->_get_pending_designation_tooltip( $isolate_id, $locus ) || '';
-		}
-		my $action = $allele_designations->{$locus}->{'allele_id'} ? 'update' : 'add';
-		$locus_value{$locus} .=
-		    " <a href=\"$self->{'system'}->{'script_name'}?page=alleleUpdate&amp;db=$self->{'instance'}&amp;"
-		  . "isolate_id=$isolate_id&amp;locus=$locus\" class=\"update\">$action</a>"
-		  if $self->{'curate'};
-	}
-	my $field_values = $scheme_fields_count ? $self->_get_scheme_field_values( $isolate_id, $scheme_id, $scheme_fields, \@profile ) : undef;
-	my $provisional_profile = $self->{'datastore'}->is_profile_provisional( $scheme_id, \@profile, \%provisional_allele );
 	my @args = (
 		{
 			loci                => $loci,
 			locus_aliases       => \%locus_aliases,
-			locus_values        => \%locus_value,
 			allele_designations => $allele_designations,
 			summary_view        => $summary_view,
 			scheme_id           => $scheme_id,
 			scheme_fields_count => $scheme_fields_count,
-			field_values        => $field_values,
-			provisional_profile => $provisional_profile,
+			isolate_id          => $isolate_id
 		}
 	);
-	$buffer .= $self->_get_scheme_field_display(@args);
-	return $buffer;
+	$self->_print_scheme_values(@args);
+	return;
 }
 
-sub _get_scheme_field_display {
+sub _print_scheme_values {
 	my ( $self, $args ) = @_;
-	my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $args->{'scheme_id'} );
-	my $buffer        = '';
-	foreach my $locus ( @{ $args->{'loci'} } ) {
+	my ( $isolate_id, $loci, $scheme_id, $scheme_fields_count, $allele_designations, $locus_aliases ) =
+	  @{$args}{qw ( isolate_id loci scheme_id scheme_fields_count allele_designations locus_aliases)};
+	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+	my @profile;
+	my %provisional_allele;
+	local $| = 1;
+	foreach my $locus (@$loci) {
+		push @profile, $allele_designations->{$locus}->{'allele_id'};
 		next if $self->{'prefs'}->{'isolate_display_loci'}->{$locus} eq 'hide';
+		$allele_designations->{$locus}->{'status'} ||= 'confirmed';
+		$provisional_allele{$locus} = 1
+		  if $self->{'prefs'}->{'mark_provisional'} && $allele_designations->{$locus}->{'status'} eq 'provisional';
+		my $locus_value = '';
+		$locus_value .= "<span class=\"provisional\">" if $provisional_allele{$locus};
+		my $cleaned_name = $self->clean_locus($locus);
+		my $tooltip_name = $cleaned_name;
+		my $locus_info   = $self->{'datastore'}->get_locus_info($locus);
+
+		if ( defined $allele_designations->{$locus}->{'allele_id'} ) {
+			my $url = '';
+			if ( $locus_info->{'url'} && $allele_designations->{$locus}->{'allele_id'} ne 'deleted' ) {
+				$url = $locus_info->{'url'};
+				$url =~ s/\[\?\]/$allele_designations->{$locus}->{'allele_id'}/g;
+				$url =~ s/\&/\&amp;/g;
+				$locus_value .= "<a href=\"$url\">$allele_designations->{$locus}->{'allele_id'}</a>";
+			} else {
+				$locus_value .= "$allele_designations->{$locus}->{'allele_id'}";
+			}
+			$locus_value .= "</span>" if $provisional_allele{$locus};
+			if ( $self->{'prefs'}->{'update_details'} && $allele_designations->{$locus}->{'allele_id'} ) {
+				my $update_tooltip = $self->get_update_details_tooltip( $tooltip_name, $allele_designations->{$locus} );
+				$locus_value .=
+				  "<span style=\"font-size:0.5em\"> </span><a class=\"update_tooltip\" title=\"$update_tooltip\">&nbsp;...&nbsp;</a>";
+			}
+		}
+		$locus_value .= $self->get_seq_detail_tooltips( $isolate_id, $locus ) if $self->{'prefs'}->{'sequence_details'};
+		if ( $allele_designations->{$locus}->{'allele_id'} ) {
+			$locus_value .= $self->_get_pending_designation_tooltip( $isolate_id, $locus ) || '';
+		}
+		my $action = $allele_designations->{$locus}->{'allele_id'} ? 'update' : 'add';
+		$locus_value .=
+		    " <a href=\"$self->{'system'}->{'script_name'}?page=alleleUpdate&amp;db=$self->{'instance'}&amp;"
+		  . "isolate_id=$isolate_id&amp;locus=$locus\" class=\"update\">$action</a>"
+		  if $self->{'curate'};
 		my $cleaned   = $self->clean_locus($locus);
 		my $dt_buffer = "<dt>$cleaned";
 		my @other_display_names;
-		if ( $args->{'locus_aliases'}->{$locus} ) {
-			push @other_display_names, @{ $args->{'locus_aliases'}->{$locus} };
+		if ( $locus_aliases->{$locus} ) {
+			push @other_display_names, @{ $locus_aliases->{$locus} };
 		}
 		local $" = ';nbsp';
-		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		my $alias_display = $self->{'prefs'}->{'locus_alias'} ? 'inline' : 'none';
 		$dt_buffer .= "&nbsp;<span class=\"aliases\" style=\"display:$alias_display\">(@other_display_names)</span>"
 		  if @other_display_names;
@@ -778,21 +767,21 @@ sub _get_scheme_field_display {
 			$locus_info->{'description_url'} =~ s/\&/\&amp;/g;
 			$dt_buffer .= "&nbsp;<a href=\"$locus_info->{'description_url'}\" class=\"info_tooltip\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
-		$dt_buffer .= "</dt>";
+		$dt_buffer .= "</dt>\n";
 		my $dd_buffer;
-		$args->{'locus_values'}->{$locus} = '&nbsp' if ($args->{'locus_values'}->{$locus} // '') eq '';
-		$dd_buffer = "<dd>" . ( $args->{'locus_values'}->{$locus} ) . "</dd>\n";
+		$locus_value = '&nbsp' if $locus_value eq '';
+		$dd_buffer = "<dd>$locus_value</dd>\n";
 		my $display_seq =
 		  (      $self->{'prefs'}->{'isolate_display_loci'}->{$locus} eq 'sequence'
-			  && $args->{'allele_designations'}->{$locus}->{'allele_id'}
+			  && $allele_designations->{$locus}->{'allele_id'}
 			  && !$args->{'summary_view'} )
 		  ? 1
 		  : 0;
-		if ( $display_seq && $args->{'allele_designations'}->{$locus}->{'allele_id'} ) {
+		if ( $display_seq && $allele_designations->{$locus}->{'allele_id'} ) {
 			my $sequence;
 			try {
 				my $sequence_ref =
-				  $self->{'datastore'}->get_locus($locus)->get_allele_sequence( $args->{'allele_designations'}->{$locus}->{'allele_id'} );
+				  $self->{'datastore'}->get_locus($locus)->get_allele_sequence( $allele_designations->{$locus}->{'allele_id'} );
 				$sequence = BIGSdb::Utils::split_line($$sequence_ref);
 			}
 			catch BIGSdb::DatabaseConnectionException with {
@@ -805,23 +794,22 @@ sub _get_scheme_field_display {
 			$dd_buffer .= "<dd class=\"seq\">$sequence</dd>\n" if defined $sequence;
 		}
 		if ($dd_buffer) {
-			$buffer .= "<dl class=\"profile\">\n";
-			$buffer .= "$dt_buffer\n";
-			$buffer .= "$dd_buffer\n";
-			$buffer .= "</dl>\n";
+			say "<dl class=\"profile\">$dt_buffer$dd_buffer</dl>";
 		}
 	}
+	my $field_values = $scheme_fields_count ? $self->_get_scheme_field_values( $isolate_id, $scheme_id, $scheme_fields, \@profile ) : undef;
+	my $provisional_profile = $self->{'datastore'}->is_profile_provisional( $scheme_id, \@profile, \%provisional_allele );
 	foreach my $field (@$scheme_fields) {
-		next if !$self->{'prefs'}->{'isolate_display_scheme_fields'}->{ $args->{'scheme_id'} }->{$field};
+		next if !$self->{'prefs'}->{'isolate_display_scheme_fields'}->{$scheme_id}->{$field};
 		( my $cleaned = $field ) =~ tr/_/ /;
-		$buffer .= "<dl class=\"profile\">\n";
-		$buffer .= "<dt>$cleaned</dt>\n";
-		$buffer .= $args->{'provisional_profile'} ? "<dd><span class=\"provisional\">" : '<dd>';
-		$buffer .= $args->{'field_values'}->{$field} // '-';
-		$buffer .= $args->{'provisional_profile'} ? "</span></dd>\n" : "</dd>\n";
-		$buffer .= "</dl>\n";
+		say "<dl class=\"profile\">";
+		say "<dt>$cleaned</dt>";
+		print $provisional_profile ? "<dd><span class=\"provisional\">" : '<dd>';
+		print $field_values->{$field} // '-';
+		say $provisional_profile ? "</span></dd>" : "</dd>";
+		say "</dl>";
 	}
-	return $buffer;
+	return;
 }
 
 sub _get_pending_designation_tooltip {
