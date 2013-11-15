@@ -154,7 +154,7 @@ sub print_content {
 			local $" = '<br />';
 			my $isolate_id_ref = $self->{'datastore'}->run_simple_query( "SELECT isolate_id FROM sequence_bin WHERE id=?", $seqbin_id );
 			if ( ref $isolate_id_ref eq 'ARRAY' ) {
-				$self->update_history( $isolate_id_ref->[0], "$locus: sequenece tag updated. Seqbin id: $seqbin_id; $start-$end" );
+				$self->update_history( $isolate_id_ref->[0], "$locus: sequence tag updated. Seqbin id: $seqbin_id; $start-$end" );
 			}
 			$q->param( 'start_pos', $q->param('new_start') );
 			$q->param( 'end_pos',   $q->param('new_end') );
