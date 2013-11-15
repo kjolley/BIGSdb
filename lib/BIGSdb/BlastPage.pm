@@ -27,7 +27,6 @@ my $logger = get_logger('BIGSdb.Page');
 sub run_blast {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-
 	#Options are locus, seq_ref, qry_type, num_results, alignment, cache, job
 	#if parameter cache=1, the previously generated FASTA database will be used.
 	#The calling function should clean up the temporary files.
@@ -150,17 +149,20 @@ sub run_blast {
 			$options->{'num_results'} //= 1000000;    #effectively return all results
 			my %params = (
 				-num_threads     => $blast_threads,
-				-max_target_seqs => $options->{'num_results'},
 				-word_size       => $word_size,
 				-db              => $temp_fastafile,
 				-query           => $temp_infile,
 				-out             => $temp_outfile,
 				-outfmt          => $format,
-				-$filter         => 'no'
+				-$filter         => 'no',
+				
 			);
-
-			#Not always returning matches with low complexity regions otherwise, however it takes too long if a long sequence is queried.
-			$params{'-evalue'} = 10000 if $run eq 'peptide' && length ${ $options->{'seq_ref'} } < 10000;
+			if ($options->{'alignment'}){
+				$params{'-num_alignments'} = $options->{'num_results'};
+			} else {
+				$params{'-max_target_seqs'} = $options->{'num_results'};
+			}
+			$params{'-comp_based_stats'} = 0 if $program ne 'blastn';
 			system( "$self->{'config'}->{'blast+_path'}/$program", %params );
 			if ( $run eq 'DNA' ) {
 				rename( $temp_outfile, "$temp_outfile\.1" );
