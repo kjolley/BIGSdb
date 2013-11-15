@@ -27,6 +27,7 @@ my $logger = get_logger('BIGSdb.Page');
 sub run_blast {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
+
 	#Options are locus, seq_ref, qry_type, num_results, alignment, cache, job
 	#if parameter cache=1, the previously generated FASTA database will be used.
 	#The calling function should clean up the temporary files.
@@ -66,7 +67,7 @@ sub run_blast {
 				} else {
 					eval { mkpath($new_path) };
 					$logger->error($@) if $@;
-					unlink $stale_flag_file if $run eq $runs[-1]; #only remove stale flag when creating last BLAST databases
+					unlink $stale_flag_file if $run eq $runs[-1];    #only remove stale flag when creating last BLAST databases
 				}
 			}
 		} else {
@@ -74,7 +75,7 @@ sub run_blast {
 		}
 		if ( !$already_generated ) {
 			my ( $qry, $sql );
-			if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_\d+/ && $options->{'locus'} !~ /GROUP_\d+/) {
+			if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_\d+/ && $options->{'locus'} !~ /GROUP_\d+/ ) {
 				$qry = "SELECT locus,allele_id,sequence from sequences WHERE locus=?";
 			} else {
 				my $set_id = $self->get_set_id;
@@ -82,9 +83,9 @@ sub run_blast {
 					my $scheme_id = $1;
 					$qry = "SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT locus FROM scheme_members WHERE "
 					  . "scheme_id=$scheme_id) AND locus IN (SELECT id FROM loci WHERE data_type=?) AND allele_id != 'N'";
-				} elsif ($options->{'locus'} =~ /GROUP_(\d+)/){
+				} elsif ( $options->{'locus'} =~ /GROUP_(\d+)/ ) {
 					my $group_id = $1;
-					my $group_schemes = $self->{'datastore'}->get_schemes_in_group($group_id, {set_id => $set_id, with_members => 1});
+					my $group_schemes = $self->{'datastore'}->get_schemes_in_group( $group_id, { set_id => $set_id, with_members => 1 } );
 					local $" = ',';
 					$qry = "SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT locus FROM scheme_members WHERE "
 					  . "scheme_id IN (@$group_schemes)) AND locus IN (SELECT id FROM loci WHERE data_type=?) AND allele_id != 'N'";
@@ -105,14 +106,14 @@ sub run_blast {
 			foreach (@$seqs_ref) {
 				my ( $returned_locus, $id, $seq ) = @$_;
 				next if !length $seq;
-				print $fasta_fh ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_\d+/ && $options->{'locus'} !~ /GROUP_\d+/)
+				print $fasta_fh ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_\d+/ && $options->{'locus'} !~ /GROUP_\d+/ )
 				  ? ">$id\n$seq\n"
 				  : ">$returned_locus:$id\n$seq\n";
 			}
 			close $fasta_fh;
 			if ( !-z $temp_fastafile ) {
 				my $dbtype;
-				if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_\d+/ && $options->{'locus'} !~ /GROUP_\d+/) {
+				if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_\d+/ && $options->{'locus'} !~ /GROUP_\d+/ ) {
 					$dbtype = $locus_info->{'data_type'} eq 'DNA' ? 'nucl' : 'prot';
 				} else {
 					$dbtype = $run eq 'DNA' ? 'nucl' : 'prot';
@@ -148,21 +149,20 @@ sub run_blast {
 			my $format = $options->{'alignment'} ? 0 : 6;
 			$options->{'num_results'} //= 1000000;    #effectively return all results
 			my %params = (
-				-num_threads     => $blast_threads,
-				-word_size       => $word_size,
-				-db              => $temp_fastafile,
-				-query           => $temp_infile,
-				-out             => $temp_outfile,
-				-outfmt          => $format,
-				-$filter         => 'no',
-				
+				-num_threads => $blast_threads,
+				-word_size   => $word_size,
+				-db          => $temp_fastafile,
+				-query       => $temp_infile,
+				-out         => $temp_outfile,
+				-outfmt      => $format,
+				-$filter     => 'no'
 			);
-			if ($options->{'alignment'}){
+			if ( $options->{'alignment'} ) {
 				$params{'-num_alignments'} = $options->{'num_results'};
 			} else {
 				$params{'-max_target_seqs'} = $options->{'num_results'};
 			}
-			$params{'-comp_based_stats'} = 0 if $program ne 'blastn';
+			$params{'-comp_based_stats'} = 0 if $program ne 'blastn';   #Will not return some matches with low-complexity regions otherwise.
 			system( "$self->{'config'}->{'blast+_path'}/$program", %params );
 			if ( $run eq 'DNA' ) {
 				rename( $temp_outfile, "$temp_outfile\.1" );
