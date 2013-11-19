@@ -127,7 +127,7 @@ sub print_content {
 			$labels->{'date_entered'} = 'date entered';
 			$labels->{'profile_id'}   = $primary_key;
 		}
-		say $q->popup_menu( -name => 'order', -id => 'order', -values => $order_by, -labels => $labels );
+		say $self->popup_menu( -name => 'order', -id => 'order', -values => $order_by, -labels => $labels );
 		say "</span></li><li><span style=\"white-space:nowrap\">\n<label for=\"direction\" class=\"display\">Direction: </label>";
 		say $q->popup_menu( -name => 'direction', -id => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
 		say "</span></li><li>";

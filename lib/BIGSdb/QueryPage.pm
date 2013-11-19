@@ -254,7 +254,7 @@ sub _print_loci_fields {
 	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
 	my $q = $self->{'cgi'};
 	print "<span style=\"white-space:nowrap\">\n";
-	print $q->popup_menu( -name => "ls$row", -values => $locus_list, -labels => $locus_labels, -class => 'fieldlist' );
+	print $self->popup_menu( -name => "ls$row", -values => $locus_list, -labels => $locus_labels, -class => 'fieldlist' );
 	print $q->popup_menu( -name => "ly$row", -values => [OPERATORS] );
 	print $q->textfield( -name => "lt$row", -class => 'value_entry' );
 
@@ -277,7 +277,7 @@ sub _print_locus_tag_fields {
 	unshift @$locus_list, '';
 	my $q = $self->{'cgi'};
 	print "<span style=\"white-space:nowrap\">\n";
-	print $q->popup_menu( -name => "ts$row", -values => $locus_list, -labels => $locus_labels, -class => 'fieldlist' );
+	print $self->popup_menu( -name => "ts$row", -values => $locus_list, -labels => $locus_labels, -class => 'fieldlist' );
 	print ' is ';
 	my @values = qw(untagged tagged complete incomplete);
 	push @values, "flagged: $_" foreach ( 'any', 'none', SEQ_FLAGS );
@@ -565,9 +565,9 @@ sub _print_isolate_display_fieldset {
 	my $q      = $self->{'cgi'};
 	my $prefs  = $self->{'prefs'};
 	print "<fieldset id=\"display_fieldset\" style=\"float:left\"><legend>Display/sort options</legend>\n";
-	my ( $order_list, $labels ) = $self->get_field_selection_list( { 'isolate_fields' => 1, 'loci' => 1, 'scheme_fields' => 1 } );
+	my ( $order_list, $labels ) = $self->get_field_selection_list( { isolate_fields => 1, loci => 1, scheme_fields => 1 } );
 	print "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>\n";
-	print $q->popup_menu( -name => 'order', -id => 'order', -values => $order_list, -labels => $labels );
+	print $self->popup_menu( -name => 'order', -id => 'order', -values => $order_list, -labels => $labels );
 	print $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
 	print "</span></li>\n<li>";
 	print $self->get_number_records_control;

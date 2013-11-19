@@ -54,12 +54,9 @@ use constant ALLELE_FLAGS => (
 	'truncated',
 	'upstream fusion'
 );
-use constant SEQ_STATUS => (
-	'trace checked',
-	'trace not checked'
-);
-use constant DATABANKS     => qw(ENA Genbank);
-use constant FLANKING      => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
+use constant SEQ_STATUS => ( 'trace checked', 'trace not checked' );
+use constant DATABANKS  => qw(ENA Genbank);
+use constant FLANKING   => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
 use constant LOCUS_PATTERN => qr/^(?:l|cn|la)_(.+?)(?:\|\|.+)?$/;
 our @EXPORT_OK = qw(SEQ_METHODS SEQ_FLAGS ALLELE_FLAGS SEQ_STATUS DATABANKS FLANKING LOCUS_PATTERN);
 
@@ -466,7 +463,7 @@ sub _print_help_panel {
 		  : $q->start_form( -target => '_blank', -style => 'display:inline' );
 		print "<b>Field help: </b>";
 		my ( $values, $labels ) = $self->get_field_selection_list( { isolate_fields => 1, loci => 1, scheme_fields => 1 } );
-		print $q->popup_menu( -name => 'field', -values => $values, -labels => $labels );
+		print $self->popup_menu( -name => 'field', -values => $values, -labels => $labels );
 		print $q->submit( -name => 'Go', -class => 'fieldvaluebutton' );
 		my $refer_page = $q->param('page');
 		$q->param( 'page', 'fieldValues' );
@@ -476,6 +473,27 @@ sub _print_help_panel {
 	}
 	print "</div>\n";
 	return;
+}
+
+sub popup_menu {
+
+	#Faster than CGI::popup_menu when listing thousands of values as it doesn't need to escape all values
+	my ( $self, %args ) = @_;
+	my ( $name, $id, $values, $labels, $default, $class ) = @args{qw ( -name -id -values -labels -default -class)};
+	my $value = $self->{'cgi'}->param($name);
+	my %default = ref $default eq 'ARRAY' ? map { $_ => 1 } @$default : ();
+	$default{$value} = 1 if defined $value;
+	my $buffer = qq(<select name="$name");
+	$buffer .= qq(" class="$class") if defined $class;
+	$buffer .= qq(" id="$id")       if defined $id;
+	$buffer .= ">\n";
+	foreach (@$values) {
+		$labels->{$_} //= $_;
+		my $select = $default{$_} ? qq( selected="selected") : '';
+		$buffer .= qq(<option value="$_"$select>$labels->{$_}</option>\n);
+	}
+	$buffer .= "</select>\n";
+	return $buffer;
 }
 
 sub get_metaset_and_fieldname {
@@ -797,13 +815,14 @@ sub get_filter {
 sub get_user_filter {
 	my ( $self, $field ) = @_;
 	my $qry = "SELECT id,first_name,surname FROM users ";
-	$qry .= $field eq 'curator' ? "WHERE (status = 'curator' OR status = 'admin') AND " : 'WHERE '; 
+	$qry .= $field eq 'curator' ? "WHERE (status = 'curator' OR status = 'admin') AND " : 'WHERE ';
 	$qry .= 'id > 0';
 	my $sql = $self->{'db'}->prepare($qry);
 	my ( @usernames, %labels );
 	my $status = $field eq 'curator' ? 'curator' : 'user';
 	eval { $sql->execute };
 	$logger->error($@) if $@;
+
 	while ( my $data = $sql->fetchrow_hashref ) {
 		push @usernames, $data->{'id'};
 		$labels{ $data->{'id'} } = $data->{'surname'} eq 'applicable' ? 'not applicable' : "$data->{'surname'}, $data->{'first_name'}";
@@ -1260,14 +1279,14 @@ sub _create_join_sql_for_scheme {
 	my ( $self, $field ) = @_;
 	my $qry;
 	if ( $field =~ /s_(\d+)_([^\s;]*)/ ) {
-		my $scheme_id    = $1;
-		my $scheme_field = $2;
-		my $loci         = $self->{'datastore'}->get_scheme_loci($scheme_id);
-		my $scheme_info  = $self->{'datastore'}->get_scheme_info($scheme_id);
+		my $scheme_id            = $1;
+		my $scheme_field         = $2;
+		my $loci                 = $self->{'datastore'}->get_scheme_loci($scheme_id);
+		my $scheme_info          = $self->{'datastore'}->get_scheme_info($scheme_id);
 		my $isolate_scheme_table = $self->{'datastore'}->create_temp_isolate_scheme_table($scheme_id);
 		my %named;
 		foreach my $locus (@$loci) {
-			( $named{$locus}   = $locus ) =~ s/'/_PRIME_/g;
+			( $named{$locus} = $locus ) =~ s/'/_PRIME_/g;
 		}
 		$qry .= " LEFT JOIN $isolate_scheme_table ON $isolate_scheme_table.id = $self->{'system'}->{'view'}.id";
 		$qry .= " LEFT JOIN temp_scheme_$scheme_id AS ordering ON";
@@ -1278,9 +1297,9 @@ sub _create_join_sql_for_scheme {
 			if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
 				if ( $scheme_info->{'allow_missing_loci'} ) {
 					$qry .= " (CAST(COALESCE($isolate_scheme_table.$named{$locus},'N') AS text)=CAST(ordering.$named{$locus} AS text) "
-					. "OR ordering.$named{$locus}='N')";
+					  . "OR ordering.$named{$locus}='N')";
 				} else {
-				$qry .= " CAST($isolate_scheme_table.$named{$locus} AS integer)=ordering.$named{$locus}";
+					$qry .= " CAST($isolate_scheme_table.$named{$locus} AS integer)=ordering.$named{$locus}";
 				}
 			} else {
 				$qry .= " $isolate_scheme_table.$named{$locus}=ordering.$named{$locus}";
@@ -1670,7 +1689,6 @@ sub _initiate_isolatedb_prefs {
 	if (   $params->{'page'} eq 'options'
 		&& $params->{'set'} )
 	{
-
 		#Switches
 		foreach (
 			qw ( update_details sequence_details mark_provisional mark_provisional_main sequence_details_main display_seqbin_main
