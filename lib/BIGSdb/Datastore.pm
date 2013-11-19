@@ -708,46 +708,49 @@ sub get_group_list {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $query_clause = $options->{'seq_query'} ? ' WHERE seq_query' : '';
-	my $qry = "SELECT id,name,display_order FROM scheme_groups$query_clause ORDER BY display_order,name";
-	my $list = $self->run_list_query_hashref($qry);
+	my $qry          = "SELECT id,name,display_order FROM scheme_groups$query_clause ORDER BY display_order,name";
+	my $list         = $self->run_list_query_hashref($qry);
 	return $list;
 }
 
 sub get_groups_in_group {
-	my ($self, $group_id, $level) = @_;
+	my ( $self, $group_id, $level ) = @_;
 	$level //= 0;
 	$self->{'groups_in_group_list'} //= [];
-	my $child_groups = $self->run_list_query("SELECT group_id FROM scheme_group_group_members WHERE parent_group_id=?", $group_id);
-	foreach my $child_group(@$child_groups){
-		push @{$self->{'groups_in_group_list'}}, $child_group;
-		my $new_level  = $level;
+	my $child_groups = $self->run_list_query( "SELECT group_id FROM scheme_group_group_members WHERE parent_group_id=?", $group_id );
+	foreach my $child_group (@$child_groups) {
+		push @{ $self->{'groups_in_group_list'} }, $child_group;
+		my $new_level = $level;
 		last if $new_level == 10;    #prevent runaway if child is set as the parent of a parental group
-		my $grandchild_groups = $self->get_groups_in_group($child_group,++$new_level);
-		push @{$self->{'groups_in_group_list'}}, @$grandchild_groups;
+		my $grandchild_groups = $self->get_groups_in_group( $child_group, ++$new_level );
+		push @{ $self->{'groups_in_group_list'} }, @$grandchild_groups;
 	}
-	my @group_list = @{$self->{'groups_in_group_list'}};
+	my @group_list = @{ $self->{'groups_in_group_list'} };
 	undef $self->{'groups_in_group_list'};
 	return \@group_list;
 }
 
 sub get_schemes_in_group {
-	my ($self, $group_id, $options) = @_;
+	my ( $self, $group_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $set_clause = $options->{'set_id'} ? ' AND scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=?)' : '';
-	my $member_clause = $options->{'with_members'} ? ' AND scheme_id IN (SELECT scheme_id FROM scheme_members)' : '';
-	my @args = ($group_id);
+	my $set_clause    = $options->{'set_id'}       ? ' AND scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=?)' : '';
+	my $member_clause = $options->{'with_members'} ? ' AND scheme_id IN (SELECT scheme_id FROM scheme_members)'             : '';
+	my @args          = ($group_id);
 	push @args, $options->{'set_id'} if $options->{'set_id'};
-	my $schemes = $self->run_list_query("SELECT scheme_id FROM scheme_group_scheme_members WHERE group_id=?$set_clause$member_clause", @args);
+	my $schemes =
+	  $self->run_list_query( "SELECT scheme_id FROM scheme_group_scheme_members WHERE group_id=?$set_clause$member_clause", @args );
 	my $child_groups = $self->get_groups_in_group($group_id);
-	foreach my $child_group (@$child_groups){
+
+	foreach my $child_group (@$child_groups) {
 		my @child_args = ($child_group);
 		push @child_args, $options->{'set_id'} if $options->{'set_id'};
-		my $group_schemes = $self->run_list_query("SELECT scheme_id FROM scheme_group_scheme_members WHERE group_id=?$set_clause$member_clause", @child_args);
+		my $group_schemes =
+		  $self->run_list_query( "SELECT scheme_id FROM scheme_group_scheme_members WHERE group_id=?$set_clause$member_clause",
+			@child_args );
 		push @$schemes, @$group_schemes;
 	}
 	return $schemes;
 }
-
 
 sub is_scheme_in_set {
 	my ( $self, $scheme_id, $set_id ) = @_;
@@ -1194,7 +1197,8 @@ sub get_allele_extended_attributes {
 sub get_all_allele_designations {
 	my ( $self, $isolate_id ) = @_;
 	if ( !$self->{'sql'}->{'all_allele_designation'} ) {
-		$self->{'sql'}->{'all_allele_designation'} = $self->{'db'}->prepare("SELECT * FROM allele_designations WHERE isolate_id=?");
+		$self->{'sql'}->{'all_allele_designation'} =
+		  $self->{'db'}->prepare( "SELECT locus,allele_id,status FROM allele_designations WHERE isolate_id=?" );
 		$logger->info("Statement handle 'all_allele_designation' prepared.");
 	}
 	eval { $self->{'sql'}->{'all_allele_designation'}->execute($isolate_id); };

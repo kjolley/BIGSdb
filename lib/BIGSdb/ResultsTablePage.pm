@@ -534,7 +534,7 @@ sub _print_isolate_table {
 			  if !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id} && $scheme_id;
 			next
 			  if ( $self->{'system'}->{'hide_unused_schemes'} // '' ) eq 'yes'
-			  && !$self->{'scheme_data_present'}->{$scheme_id}
+			  && !$self->{'cache'}->{'scheme_data_present'}->{$scheme_id}
 			  && $scheme_id;
 			$self->_print_isolate_table_scheme( $id, $scheme_id );
 		}
@@ -633,12 +633,12 @@ sub _print_isolate_table_header {
 	foreach my $scheme (@$schemes) {
 		my $scheme_id = $scheme->{'id'};
 		next if !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};
-		if ( $scheme_id && !defined $self->{'scheme_data_present'}->{$scheme_id} ) {
-			$self->{'scheme_data_present'}->{$scheme_id} = $self->_is_scheme_data_present( $limit_qry, $scheme_id );
+		if ( $scheme_id && !defined $self->{'cache'}->{'scheme_data_present'}->{$scheme_id} ) {
+			$self->{'cache'}->{'scheme_data_present'}->{$scheme_id} = $self->_is_scheme_data_present( $limit_qry, $scheme_id );
 		}
 		next
 		  if ( $self->{'system'}->{'hide_unused_schemes'} // '' ) eq 'yes'
-		  && !$self->{'scheme_data_present'}->{$scheme_id};
+		  && !$self->{'cache'}->{'scheme_data_present'}->{$scheme_id};
 		if ( !$self->{'scheme_loci'}->{$scheme_id} ) {
 			$self->{'scheme_loci'}->{$scheme_id} = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		}
