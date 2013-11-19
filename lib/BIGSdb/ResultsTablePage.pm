@@ -533,10 +533,9 @@ sub _print_isolate_table {
 			next
 			  if !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id} && $scheme_id;
 			next
-			  if $self->{'system'}->{'hide_unused_schemes'}
-				  && $self->{'system'}->{'hide_unused_schemes'} eq 'yes'
-				  && !$self->_is_scheme_data_present( $qry_limit, $scheme_id )
-				  && $scheme_id;
+			  if ( $self->{'system'}->{'hide_unused_schemes'} // '' ) eq 'yes'
+			  && !$self->{'scheme_data_present'}->{$scheme_id}
+			  && $scheme_id;
 			$self->_print_isolate_table_scheme( $id, $scheme_id );
 		}
 		print "</tr>\n";
@@ -634,10 +633,12 @@ sub _print_isolate_table_header {
 	foreach my $scheme (@$schemes) {
 		my $scheme_id = $scheme->{'id'};
 		next if !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};
+		if ( $scheme_id && !defined $self->{'scheme_data_present'}->{$scheme_id} ) {
+			$self->{'scheme_data_present'}->{$scheme_id} = $self->_is_scheme_data_present( $limit_qry, $scheme_id );
+		}
 		next
-		  if $self->{'system'}->{'hide_unused_schemes'}
-			  && $self->{'system'}->{'hide_unused_schemes'} eq 'yes'
-			  && !$self->_is_scheme_data_present( $limit_qry, $scheme_id );
+		  if ( $self->{'system'}->{'hide_unused_schemes'} // '' ) eq 'yes'
+		  && !$self->{'scheme_data_present'}->{$scheme_id};
 		if ( !$self->{'scheme_loci'}->{$scheme_id} ) {
 			$self->{'scheme_loci'}->{$scheme_id} = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		}
@@ -740,7 +741,7 @@ sub _print_isolate_table_scheme {
 			print "<td>";
 			print "<span class=\"provisional\">"
 			  if $allele_designations->{$locus}->{'status'} eq 'provisional'
-				  && $self->{'prefs'}->{'mark_provisional_main'};
+			  && $self->{'prefs'}->{'mark_provisional_main'};
 			if (   defined $allele_designations->{$locus}->{'allele_id'}
 				&& defined $self->{'url'}->{$locus}
 				&& $self->{'url'}->{$locus} ne ''
@@ -755,7 +756,7 @@ sub _print_isolate_table_scheme {
 			}
 			print "</span>"
 			  if $allele_designations->{$locus}->{'status'} eq 'provisional'
-				  && $self->{'prefs'}->{'mark_provisional_main'};
+			  && $self->{'prefs'}->{'mark_provisional_main'};
 			print $self->get_seq_detail_tooltips( $isolate_id, $locus ) if $self->{'prefs'}->{'sequence_details_main'};
 			$self->_print_pending_tooltip( $isolate_id, $locus )
 			  if $self->{'prefs'}->{'display_pending_main'} && defined $allele_designations->{$locus}->{'allele_id'};
@@ -771,9 +772,9 @@ sub _print_isolate_table_scheme {
 		}
 	}
 	return
-	  if !$scheme_id
-		  || !@{ $self->{'scheme_fields'}->{$scheme_id} }
-		  || !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};
+	     if !$scheme_id
+	  || !@{ $self->{'scheme_fields'}->{$scheme_id} }
+	  || !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};
 	my $values;
 	if ( ( !$incomplete || $self->{'scheme_info'}->{$scheme_id}->{'allow_missing_loci'} ) && @profile ) {
 		$values = $self->{'datastore'}->get_scheme_field_values_by_profile( $scheme_id, \@profile );
@@ -995,9 +996,9 @@ sub _get_record_table_info {
 		push @headers, $cleaned;
 		push @headers, 'isolate id' if $table eq 'experiment_sequences' && $attr->{'name'} eq 'experiment_id';
 		push @headers, 'sequence length' if $q->param('page') eq 'tableQuery' && $table eq 'sequences' && $attr->{'name'} eq 'sequence';
-		push @headers, 'sequence length' if $q->param('page') eq 'alleleQuery' && $attr->{'name'} eq 'sequence';
-		push @headers, 'flag' if $table eq 'allele_sequences' && $attr->{'name'} eq 'complete';
-		push @headers, 'citation' if $attr->{'name'} eq 'pubmed_id';
+		push @headers, 'sequence length' if $q->param('page') eq 'alleleQuery'      && $attr->{'name'} eq 'sequence';
+		push @headers, 'flag'            if $table            eq 'allele_sequences' && $attr->{'name'} eq 'complete';
+		push @headers, 'citation'        if $attr->{'name'}   eq 'pubmed_id';
 		$type{ $attr->{'name'} }        = $attr->{'type'};
 		$foreign_key{ $attr->{'name'} } = $attr->{'foreign_key'};
 		$labels{ $attr->{'name'} }      = $attr->{'labels'};
@@ -1179,7 +1180,7 @@ sub _print_record_table {
 				} else {
 					print "<td class=\"seq\">$data{lc($field)}</td>";
 				}
-				print "<td>". (length $data{ 'sequence' }) . "</td>" if $table eq 'sequences';
+				print "<td>" . ( length $data{'sequence'} ) . "</td>" if $table eq 'sequences';
 			} elsif ( $field eq 'curator' || $field eq 'sender' ) {
 				my $user_info = $self->{'datastore'}->get_user_info( $data{ lc($field) } );
 				print "<td>$user_info->{'first_name'} $user_info->{'surname'}</td>";
