@@ -305,7 +305,7 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system    = $self->{'system'};
-	my $version   = '20131019';
+	my $version   = '20131120';
 	my @filenames = qw(bigsdb.css jquery-ui.css);
 	my @paths;
 	foreach my $filename (@filenames) {
@@ -367,6 +367,65 @@ SETS
 	say $q->hidden($_) foreach qw (db page name set_id select_sets);
 	say $q->end_form;
 	say "</div></div></div>";
+	return;
+}
+
+sub is_scheme_invalid {
+	my ( $self, $scheme_id, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $set_id = $self->get_set_id;
+	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
+		say "<div class=\"box\" id=\"statusbad\"><p>Scheme id must be an integer.</p></div>";
+		return 1;
+	} elsif ($set_id) {
+		if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
+			say "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is unavailable.</p></div>";
+			return 1;
+		}
+	}
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
+	if ( !$scheme_info && !($scheme_id == 0 && $options->{'all_loci'}) ) {
+		say "<div class=\"box\" id=\"statusbad\">Scheme does not exist.</p></div>";
+		return 1;
+	}
+	if ( $options->{'with_pk'} && !$scheme_info->{'primary_key'} ) {
+		say "<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  This function is unavailable "
+		  . "until this has been set.</p></div>";
+		return 1;
+	}
+	return;
+}
+
+sub print_scheme_section {
+	my ( $self, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $q       = $self->{'cgi'};
+	my $set_id  = $self->get_set_id;
+	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => $options->{'with_pk'} } );
+	$q->param( scheme_id => $schemes->[0]->{'id'} ) if !defined $q->param('scheme_id') && @$schemes;
+	return if @$schemes < 2;
+	say "<div class=\"box\" id=\"schemes\">";
+	say "<div class=\"scrollable\">";
+	say "<h2>Schemes</h2>";
+	say "<p>Please select the scheme you would like to query:</p>";
+	my @ids;
+	my %desc;
+
+	foreach my $scheme (@$schemes) {
+		push @ids, $scheme->{'id'};
+		$desc{ $scheme->{'id'} } = $scheme->{'description'};
+	}
+	if ($options->{'all_loci'}){
+		push @ids, 0;
+		$desc{0} = 'All loci';
+	}
+	my $default = $q->param('scheme_id');
+	say $q->start_form;
+	say $q->popup_menu( -name => 'scheme_id', -values => \@ids, -labels => \%desc, -default => $default );
+	say $q->submit( -class => 'submit', -name => 'Select' );
+	say $q->hidden($_) foreach qw(db page name);
+	say $q->end_form;
+	say "</div></div>";
 	return;
 }
 

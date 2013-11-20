@@ -69,25 +69,13 @@ sub run {
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$pk = 'id';
 	} else {
-		if ( !$scheme_id ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>No scheme id passed.</p></div>";
-			return;
-		} elsif ( !BIGSdb::Utils::is_int($scheme_id) ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>Scheme id must be an integer.</p></div>";
-			return;
-		} else {
-			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-			if ( !$scheme_info ) {
-				say "<div class=\"box\" id=\"statusbad\">Scheme does not exist.</p></div>";
-				return;
-			}
-			$pk = $scheme_info->{'primary_key'};
+		return if defined $scheme_id && $self->is_scheme_invalid( $scheme_id, { with_pk => 1 } );
+		if (!$q->param('submit')){
+			$self->print_scheme_section( { with_pk => 1 } );
+			$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
 		}
-		if ( !defined $pk ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  Profile concatenation "
-			  . "can not be done until this has been set.</p></div>";
-			return;
-		}
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+		$pk = $scheme_info->{'primary_key'};
 	}
 	my $list = $self->get_id_list( $pk, $query_file );
 	@$list = uniq @$list if ref $list eq 'ARRAY';

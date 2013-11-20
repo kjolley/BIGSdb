@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -34,7 +34,7 @@ sub initiate {
 	my ($self) = @_;
 	$self->{'jQuery'} = 1;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $self->{'system'}->{'read_access'} ne 'public' ) {
-		$self->{'noCache'} = 1;    #Page will display user's queued/running jobs so should be cached.
+		$self->{'noCache'} = 1;    #Page will display user's queued/running jobs so should not be cached.
 	}
 	$self->choose_set;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
@@ -71,95 +71,40 @@ sub print_content {
 HTML
 	my $scheme_data =
 	  $self->{'datastore'}->get_scheme_list( { with_pk => ( $self->{'system'}->{'dbtype'} eq 'sequences' ? 1 : 0 ), set_id => $set_id } );
-	my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
 	if ( $system->{'dbtype'} eq 'isolates' ) {
-		say "<li><a href=\"$script_name?db=$instance&amp;page=query$set_string\">Search database</a> - advanced queries.</li>\n"
-		  . "<li><a href=\"$script_name?db=$instance&amp;page=browse$set_string\">Browse database</a> - peruse all records.</li>";
+		say "<li><a href=\"$script_name?db=$instance&amp;page=query$set_string\">Search database</a> - advanced queries.</li>";
+		say "<li><a href=\"$script_name?db=$instance&amp;page=browse$set_string\">Browse database</a> - peruse all records.</li>";
+		my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id, do_not_order => 1 } );
+		if (@$loci) {
+			say "<li><a href=\"$script_name?db=$instance&amp;page=profiles$set_string\">Search by combinations of loci (profiles)</a> - "
+			  . "including partial matching.</li>";
+		}
 	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
-		say
-"<li><a href=\"$script_name?db=$instance&amp;page=sequenceQuery$set_string\">Sequence query</a> - query an allele sequence.</li>\n"
-		  . "<li><a href=\"$script_name?db=$instance&amp;page=batchSequenceQuery$set_string\">Batch sequence query</a> - query multiple sequences "
-		  . "in FASTA format.</li>\n"
-		  . "<li><a href=\"$script_name?db=$instance&amp;page=tableQuery&amp;table=sequences$set_string\">Sequence attribute search</a> - find alleles by matching "
-		  . "attributes.</li>";
-		if ( @$scheme_data == 1 ) {
-			foreach (@$scheme_data) {
-				print <<"HTML";
-<li><a href="$script_name?db=$instance&amp;page=browse&amp;scheme_id=$_->{'id'}$set_string">Browse $_->{'description'} profiles</a></li>
-<li><a href="$script_name?db=$instance&amp;page=query&amp;scheme_id=$_->{'id'}$set_string">Search $_->{'description'} profiles</a></li>
-<li><a href="$script_name?db=$instance&amp;page=listQuery&amp;scheme_id=$_->{'id'}$set_string">List</a> - find $_->{'description'} 
-profiles matched to entered list</li>
-<li><a href="$script_name?db=$instance&amp;page=batchProfiles&amp;scheme_id=$_->{'id'}$set_string">Batch profile query</a> - lookup 
-$_->{'description'} profiles copied from a spreadsheet.</li>
-HTML
-			}
-		} elsif ( @$scheme_data > 1 ) {
-			say "<li>Scheme profile queries:";
-			say $q->start_form;
-			say "<table>";
-			print << "TOOLTIPS";
-<tr><td></td>
-<td style="text-align:center"><a class="tooltip" title="Browse - Peruse all records.">&nbsp;<i>i</i>&nbsp;</a></td>
-<td style="text-align:center"><a class="tooltip" title="Search - Advanced searching.">&nbsp;<i>i</i>&nbsp;</a></td>
-<td style="text-align:center"><a class="tooltip" title="List - Find matches to an entered list.">&nbsp;<i>i</i>&nbsp;</a></td>
-<td style="text-align:center"><a class="tooltip" title="Profile query - Search by combinations of alleles</a> - including partial matching.">&nbsp;<i>i</i>&nbsp;</a></td>
-<td style="text-align:center"><a class="tooltip" title="Batch profile query - Look up multiple profiles copied from a spreadsheet.">&nbsp;<i>i</i>&nbsp;</a></td>
-</tr>				
-TOOLTIPS
-			print "<tr><td>";
-			say $q->popup_menu( -name => 'scheme_id', -values => $scheme_ids_ref, -labels => $desc_ref );
-			say $q->hidden('db');
-			say "</td>";
-			my %labels = ( browse => 'Browse', query => 'Search', listQuery => 'List', profiles => 'Profiles', batchProfiles => 'Batch' );
+		say "<li><a href=\"$script_name?db=$instance&amp;page=sequenceQuery$set_string\">Sequence query</a> - "
+		  . "query an allele sequence.</li>";
+		say "<li><a href=\"$script_name?db=$instance&amp;page=batchSequenceQuery$set_string\">Batch sequence query</a> - "
+		  . "query multiple sequences in FASTA format.</li>";
+		say "<li><a href=\"$script_name?db=$instance&amp;page=tableQuery&amp;table=sequences$set_string\">Sequence attribute search</a> - "
+		  . "find alleles by matching attributes.</li>";
+		if (@$scheme_data) {
+			my $scheme_arg = @$scheme_data == 1 ? "&amp;scheme_id=$scheme_data->[0]->{'id'}" : '';
+			my $desc       = @$scheme_data == 1 ? $scheme_data->[0]->{'description'}         : '';
+			say <<"HTML";
+	<li><a href="$script_name?db=$instance&amp;page=browse$scheme_arg$set_string">Browse $desc profiles</a></li>
+	<li><a href="$script_name?db=$instance&amp;page=query$scheme_arg$set_string">Search $desc profiles</a></li>
+	<li><a href="$script_name?db=$instance&amp;page=listQuery$scheme_arg$set_string">List</a> - find $desc 
+	profiles matched to entered list.</li>
+	<li><a href="$script_name?db=$instance&amp;page=profiles$scheme_arg$set_string">Search by combinations of $desc alleles</a> - 
+	including partial matching.</li>
+	<li><a href="$script_name?db=$instance&amp;page=batchProfiles$scheme_arg$set_string">Batch profile query</a> - lookup 
+	$desc profiles copied from a spreadsheet.</li>
 
-			foreach (qw (browse query listQuery profiles batchProfiles)) {
-				say "<td><button type=\"submit\" name=\"page\" value=\"$_\" class=\"smallbutton\">$labels{$_}</button></td>";
-			}
-			say "</tr>\n</table>";
-			say $q->end_form;
-			say "</li>";
+HTML
 		}
 	}
 	if ( $self->{'config'}->{'jobs_db'} ) {
 		my $query_html_file = "$self->{'system'}->{'dbase_config_dir'}/$self->{'instance'}/contents/job_query.html";
 		$self->print_file($query_html_file) if -e $query_html_file;
-	}
-	if ( $self->_are_loci_defined ) {
-		if ( $system->{'dbtype'} eq 'isolates' ) {
-			print "<li>Search by combinations of loci (profiles) - including partial matching.<ul>";
-			if ( @$scheme_data > 1 ) {
-				say '<li>';
-				say $q->start_form;
-				say $q->popup_menu( -name => 'scheme_id', -values => $scheme_ids_ref, -labels => $desc_ref );
-				say $q->hidden('db');
-				say " <button type=\"submit\" name=\"page\" value=\"profiles\" class=\"smallbutton\">Combinations</button>\n";
-				say $q->end_form;
-				say '</li>';
-			} else {
-				my $i = 0;
-				my $buffer;
-				foreach (@$scheme_data) {
-					$desc =~ s/\&/\&amp;/g;
-					$buffer .= $i ? '| ' : '<li>';
-					$buffer .=
-"<a href=\"$script_name?db=$instance&amp;page=profiles&amp;scheme_id=$_->{'id'}$set_string\">$_->{'description'}</a>\n";
-					$i++;
-				}
-				$buffer .= "</li>" if $buffer;
-				say $buffer if $buffer;
-			}
-			say "<li><a href=\"$script_name?db=$instance&amp;page=profiles&amp;scheme_id=0$set_string\">All loci</a></li>";
-			say "</ul>\n</li>";
-		} elsif ( $system->{'dbtype'} eq 'sequences' && @$scheme_data == 1 ) {
-			my $buffer;
-			my $first = 1;
-			my $i     = 0;
-			$buffer .= "<li><a href=\"$script_name?db=$instance&amp;page=profiles&amp;scheme_id=$scheme_data->[0]->{'id'}$set_string\">"
-			  . "Search by combinations of $scheme_data->[0]->{'description'} alleles</a> - including partial matching.";
-			$buffer .= "</li>" if $buffer;
-			$buffer .= "</ul>\n</li>" if $buffer && @$scheme_data > 1;
-			say $buffer;
-		}
 	}
 	if ( $system->{'dbtype'} eq 'isolates' ) {
 		say "<li><a href=\"$script_name?db=$instance&amp;page=listQuery$set_string\">List query</a> - find isolates by matching "
@@ -338,48 +283,26 @@ sub _print_plugin_section {
 	  ->get_appropriate_plugin_names( 'breakdown|export|analysis|miscellaneous', $self->{'system'}->{'dbtype'}, { set_id => $set_id } );
 	if (@$plugins) {
 		print "<div class=\"box\" id=\"plugins\"><div class=\"scrollable\">\n";
-		my $active_plugin;
 		foreach (qw (breakdown export analysis miscellaneous)) {
 			$q->param( 'page', 'index' );
 			$plugins = $self->{'pluginManager'}->get_appropriate_plugin_names( $_, $self->{'system'}->{'dbtype'}, { set_id => $set_id } );
 			next if !@$plugins;
-			my $buffer = "<div style=\"float:left; margin-right:1em\">\n";
-			$buffer .= "<img src=\"/images/icons/64x64/$_.png\" alt=\"\" />\n";
-			$buffer .= "<h2>" . ucfirst($_) . "</h2>\n<ul class=\"toplevel\">\n";
+			say "<div style=\"float:left; margin-right:1em\">";
+			say "<img src=\"/images/icons/64x64/$_.png\" alt=\"\" />";
+			say "<h2>" . ucfirst($_) . "</h2>\n<ul class=\"toplevel\">";
 			foreach (@$plugins) {
 				my $att      = $self->{'pluginManager'}->get_plugin_attributes($_);
 				my $menuitem = $att->{'menutext'};
-				if ( $self->{'system'}->{'dbtype'} eq 'sequences' && $att->{'seqdb_type'} eq 'schemes' ) {
-					my $temp_buffer;
-					my $first = 1;
-					my $i     = 0;
-					if ( @$scheme_data > 1 ) {
-						$temp_buffer .= "<li>";
-						$temp_buffer .= $q->start_form;
-						$temp_buffer .= $q->popup_menu( -name => 'scheme_id', -values => $scheme_ids_ref, -labels => $desc_ref );
-						$q->param( 'page', 'plugin' );
-						$temp_buffer .= $q->hidden($_) foreach qw (db page);
-						$temp_buffer .=
-						  " <button type=\"submit\" name=\"name\" value=\"$att->{'module'}\" class=\"smallbutton\">$menuitem</button>\n";
-						$temp_buffer .= $q->end_form;
-						$temp_buffer .= "</li>\n";
-						$active_plugin = 1;
-					} elsif ( @$scheme_data == 1 ) {
-						$temp_buffer .= "<li><a href=\"$self->{'system'}->{'script_name'}?page=plugin&amp;name=$att->{'module'}&amp;"
-						  . "db=$self->{'instance'}&amp;scheme_id=$scheme_data->[0]->{'id'}$set_string\">$menuitem</a></li>";
-						$active_plugin = 1;
-					}
-					$buffer .= $temp_buffer if $temp_buffer;
-				} else {
-					$buffer .= "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;"
-					  . "name=$att->{'module'}$set_string\">$menuitem</a>";
-					$buffer .= " - $att->{'menu_description'}" if $att->{'menu_description'};
-					$buffer .= "</li>\n";
-					$active_plugin = 1;
-				}
+				my $scheme_arg =
+				  ( $self->{'system'}->{'dbtype'} eq 'sequences' && $att->{'seqdb_type'} eq 'schemes' && @$scheme_data == 1 )
+				  ? "&amp;scheme_id=$scheme_data->[0]->{'id'}"
+				  : '';
+				say "<li><a href=\"$self->{'system'}->{'script_name'}?page=plugin&amp;name=$att->{'module'}&amp;"
+				  . "db=$self->{'instance'}$scheme_arg$set_string\">$menuitem</a>";
+				say " - $att->{'menu_description'}" if $att->{'menu_description'};
+				say "</li>";
 			}
-			$buffer .= "</ul>\n</div>";
-			say $buffer if $active_plugin;
+			say "</ul>\n</div>";
 		}
 		say "</div>\n</div>";
 	}
@@ -409,20 +332,5 @@ sub _get_allele_count {
 	  . "set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id)"
 	  : '';
 	return $self->{'datastore'}->run_simple_query("SELECT COUNT (*) FROM sequences$set_clause")->[0];
-}
-
-sub _are_loci_defined {
-	my ($self) = @_;
-	my $qry;
-	my $set_id = $self->get_set_id;
-	if ($set_id) {
-		$qry =
-		    "SELECT EXISTS(SELECT loci.id FROM loci LEFT JOIN set_loci ON loci.id = set_loci.locus "
-		  . "WHERE id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
-		  . "set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))";
-	} else {
-		$qry = "SELECT EXISTS(SELECT id FROM loci)";
-	}
-	return $self->{'datastore'}->run_simple_query($qry)->[0];
 }
 1;

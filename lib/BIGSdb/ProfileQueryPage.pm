@@ -44,26 +44,16 @@ sub print_content {
 	my $system    = $self->{'system'};
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
-	$scheme_id = -1 if !BIGSdb::Utils::is_int($scheme_id);
-	my $set_id = $self->get_set_id;
-	my $scheme_info = $scheme_id > 0 ? $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } ) : undef;
-	( $scheme_info->{'description'} //= '' ) =~ s/\&/\&amp;/g;
-	my $desc = $self->get_db_description;
-	say "<h1>Search $desc database by combinations of $scheme_info->{'description'} loci</h1>";
-
-	if ( ( !$scheme_info->{'id'} && $scheme_id ) || ( $self->{'system'}->{'dbtype'} eq 'sequences' && !$scheme_id ) ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Invalid scheme selected.</p></div>";
-		return;
-	} elsif ( $scheme_id && $set_id ) {
-		if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is unavailable.</p></div>";
-			return;
-		}
-	}
-	my $qry;
+	my $desc      = $self->get_db_description;
+	say "<h1>Search $desc database by combinations of loci</h1>";
 	if ( !defined $q->param('currentpage')
 		|| $q->param('First') )
 	{
+		my $with_pk  = $self->{'system'}->{'dbtype'} eq 'sequences' ? 1 : 0;
+		my $all_loci = $self->{'system'}->{'dbtype'} eq 'isolates'  ? 1 : 0;
+		return if defined $scheme_id && $self->is_scheme_invalid( $scheme_id, { with_pk => $with_pk, all_loci => $all_loci } );
+		$self->print_scheme_section( { with_pk => $with_pk, all_loci => $all_loci } );
+		$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
 		$self->_print_query_interface($scheme_id);
 	}
 	if (   defined $q->param('query')

@@ -49,32 +49,21 @@ sub print_content {
 		return;
 	}
 	my $scheme_id = $q->param('scheme_id');
-	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
-		$scheme_id = -1;
-	}
-	my $desc = $self->get_db_description;
+	my $desc      = $self->get_db_description;
 	if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
 		say "<h1>Batch profile query - $desc</h1>";
 		say "<div class=\"box\" id=\"statusbad\"><p>This function is only available for sequence definition databases.</p></div>";
 		return;
 	}
-	my $set_id = $self->get_set_id;
-	my $scheme_info = $scheme_id > 0 ? $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } ) : undef;
-	if ( ( !$scheme_info->{'id'} || !$scheme_id ) ) {
-		say "<h1>Batch profile query - $desc</h1>";
-		say "<div class=\"box\" id=\"statusbad\"><p>Invalid scheme selected.</p></div>";
-		return;
-	} elsif ($set_id) {
-		if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is unavailable.</p></div>";
-			return;
-		}
+	say "<h1>Batch profile query - $desc</h1>";
+	if ( !$q->param('profiles') ) {
+		return if defined $scheme_id && $self->is_scheme_invalid( $scheme_id, { with_pk => 1 } );
+		$self->print_scheme_section( { with_pk => 1 } );
+		$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
 	}
-	my $loci =
-	  $self->{'datastore'}->run_list_query( "SELECT locus FROM scheme_members WHERE scheme_id=? ORDER BY field_order", $scheme_id );
+	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my @cleaned_loci;
 	push @cleaned_loci, $self->clean_locus($_) foreach @$loci;
-	say "<h1>Batch $scheme_info->{'description'} profile query - $desc</h1>";
 	if ( $q->param('profiles') ) {
 		my $profiles = $q->param('profiles');
 		my @rows = split /\n/, $profiles;
@@ -93,6 +82,8 @@ sub print_content {
 		my $qry             = "SELECT @$scheme_fields FROM $scheme_view WHERE ";
 		my @cleaned_loci_db = @$loci;
 		$_ =~ s/'/_PRIME_/g foreach @cleaned_loci_db;
+		my $set_id = $self->get_set_id;
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 		local $" = $scheme_info->{'allow_missing_loci'} ? " IN (?, 'N')) AND (" : '=?) AND (';
 		$qry .= $scheme_info->{'allow_missing_loci'} ? "(@cleaned_loci_db IN (?, 'N'))" : "(@cleaned_loci_db=?)";
 		my $sql = $self->{'db'}->prepare($qry);

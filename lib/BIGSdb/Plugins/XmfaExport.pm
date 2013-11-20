@@ -79,25 +79,13 @@ sub run {
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$pk = 'id';
 	} else {
-		if ( !$scheme_id ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>No scheme id passed.</p></div>";
-			return;
-		} elsif ( !BIGSdb::Utils::is_int($scheme_id) ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>Scheme id must be an integer.</p></div>";
-			return;
-		} else {
-			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-			if ( !$scheme_info ) {
-				say "<div class=\"box\" id=\"statusbad\">Scheme does not exist.</p></div>";
-				return;
-			}
-			$pk = $scheme_info->{'primary_key'};
+		return if defined $scheme_id && $self->is_scheme_invalid( $scheme_id, { with_pk => 1 } );
+		if ( !$q->param('submit') ) {
+			$self->print_scheme_section( { with_pk => 1 } );
+			$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
 		}
-		if ( !defined $pk ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  Profile concatenation "
-			  . "can not be done until this has been set.</p></div>";
-			return;
-		}
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+		$pk = $scheme_info->{'primary_key'};
 	}
 	if ( $q->param('submit') ) {
 		my $loci_selected = $self->get_selected_loci;
@@ -189,9 +177,10 @@ sub run_job {
 	my $filename  = "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa";
 	open( my $fh, '>', $filename )
 	  or $logger->error("Can't open output file $filename for writing");
-	my $isolate_sql = $self->{'system'}->{'dbtype'} eq 'isolates' ? $self->{'db'}->prepare("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?")
-		  : undef;
-
+	my $isolate_sql =
+	    $self->{'system'}->{'dbtype'} eq 'isolates'
+	  ? $self->{'db'}->prepare("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?")
+	  : undef;
 	my @includes;
 
 	if ( $params->{'includes'} ) {
@@ -262,7 +251,6 @@ sub run_job {
 				my @include_values;
 				eval { $isolate_sql->execute($id) };
 				my $isolate_data = $isolate_sql->fetchrow_hashref;
-				
 				if (@includes) {
 					foreach my $field (@includes) {
 						my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
@@ -276,7 +264,7 @@ sub run_job {
 						push @include_values, $value;
 					}
 				}
-				if ($isolate_data->{'id'}) {
+				if ( $isolate_data->{'id'} ) {
 					print $fh_muscle ">$id";
 					local $" = '|';
 					print $fh_muscle "|@include_values" if @includes;
@@ -370,7 +358,7 @@ sub run_job {
 		close $fh_muscle;
 		my $output_locus_name = $self->{'datastore'}->get_set_locus_label( $locus_name, $params->{'set_id'} ) // $locus_name;
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Aligning $output_locus_name" } );
-		if (-e $temp_file && -s $temp_file){
+		if ( -e $temp_file && -s $temp_file ) {
 			system( $self->{'config'}->{'muscle_path'}, '-in', $temp_file, '-out', $muscle_file, '-quiet' );
 		}
 		if ( -e $muscle_file ) {

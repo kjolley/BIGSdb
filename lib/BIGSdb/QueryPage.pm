@@ -164,7 +164,6 @@ sub print_content {
 	my ($self) = @_;
 	my $system = $self->{'system'};
 	my $q      = $self->{'cgi'};
-	my $scheme_id;
 	my $scheme_info;
 	if ( $q->param('no_header') ) {
 		$self->_ajax_content;
@@ -172,31 +171,16 @@ sub print_content {
 	}
 	my $desc = $self->get_db_description;
 	if ( $system->{'dbtype'} eq 'sequences' ) {
-		$scheme_id = $q->param('scheme_id');
-		if ( !$scheme_id ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>No scheme id passed.</p></div>\n";
-			return;
-		} elsif ( !BIGSdb::Utils::is_int($scheme_id) ) {
-			print "<div class=\"box\" id=\"statusbad\">Scheme id must be an integer.</p></div>\n";
-			return;
+		if ( $self->{'curate'} ) {
+			say "<h1>Query/update profiles - $desc</h1>";
 		} else {
-			my $set_id = $self->get_set_id;
-			$scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-			if ( !$scheme_info ) {
-				print "<div class=\"box\" id=\"statusbad\">Scheme does not exist.</p></div>\n";
-				return;
-			}
-			if ( $self->{'curate'} ) {
-				print "<h1>Query/update $scheme_info->{'description'} profiles - $desc</h1>\n";
-			} else {
-				print "<h1>Search $scheme_info->{'description'} profiles - $desc</h1>\n";
-			}
+			say "<h1>Search profiles - $desc</h1>";
 		}
 	} else {
 		if ( $self->{'curate'} ) {
-			print "<h1>Isolate query/update</h1>\n";
+			say "<h1>Isolate query/update</h1>";
 		} else {
-			print "<h1>Search $desc database</h1>\n";
+			say "<h1>Search $desc database</h1>";
 		}
 	}
 	my $qry;
@@ -204,7 +188,8 @@ sub print_content {
 		|| $q->param('First') )
 	{
 		if ( !$q->param('no_js') ) {
-			my $scheme_clause = $system->{'dbtype'} eq 'sequences' ? "&amp;scheme_id=$scheme_id" : '';
+			my $scheme_id = BIGSdb::Utils::is_int( $q->param('scheme_id') ) ? $q->param('scheme_id') : undef;
+			my $scheme_clause = ( $system->{'dbtype'} eq 'sequences' && defined $scheme_id ) ? "&amp;scheme_id=$scheme_id" : '';
 			say "<noscript><div class=\"box statusbad\"><p>The dynamic customisation of this interface requires that you enable "
 			  . "Javascript in your browser. Alternatively, you can use a <a href=\"$self->{'system'}->{'script_name'}?db="
 			  . "$self->{'instance'}&amp;page=query$scheme_clause&amp;no_js=1\">non-Javascript version</a> that has 4 combinations "
@@ -213,14 +198,14 @@ sub print_content {
 		if ( $system->{'dbtype'} eq 'isolates' ) {
 			$self->_print_isolate_query_interface;
 		} else {
-			$self->_print_profile_query_interface($scheme_id);
+			$self->_print_profile_query_interface;
 		}
 	}
 	if ( $q->param('submit') || defined $q->param('query') ) {
 		if ( $system->{'dbtype'} eq 'isolates' ) {
 			$self->_run_isolate_query;
 		} else {
-			$self->_run_profile_query($scheme_id);
+			$self->_run_profile_query;
 		}
 	}
 	return;
@@ -659,40 +644,35 @@ sub _print_scheme_fields {
 }
 
 sub _print_profile_query_interface {
-	my ( $self, $scheme_id ) = @_;
-	my $system = $self->{'system'};
-	my $prefs  = $self->{'prefs'};
-	my $q      = $self->{'cgi'};
+	my ($self)    = @_;
+	my $system    = $self->{'system'};
+	my $prefs     = $self->{'prefs'};
+	my $q         = $self->{'cgi'};
+	my $scheme_id = $q->param('scheme_id');
+	return if defined $scheme_id && $self->is_scheme_invalid( $scheme_id, { with_pk => 1 } );
+	$self->print_scheme_section( { with_pk => 1 } );
+	$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
 	my $set_id = $self->get_set_id;
-	my ( $primary_key, $selectitems, $orderitems, $cleaned ) = $self->_get_profile_select_items($scheme_id);
-	if ( !$primary_key ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  "
-		  . "Profile querying can not be done until this has been set.</p></div>\n";
-		return;
-	} elsif ($set_id) {
-		if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is unavailable.</p></div>\n";
-			return;
-		}
-	}
-	print "<div class=\"box\" id=\"queryform\"><div class=\"scrollable\">\n";
-	print $q->startform;
-	print $q->hidden($_) foreach qw (db page scheme_id no_js);
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
+	say "<div class=\"box\" id=\"queryform\"><div class=\"scrollable\">";
+	say $q->startform;
+	say $q->hidden($_) foreach qw (db page scheme_id no_js);
 	my $scheme_field_count = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('scheme') || 1 );
 	my $scheme_field_heading = $scheme_field_count == 1 ? 'none' : 'inline';
-	print "<div style=\"white-space:nowrap\">";
-	print "<fieldset style=\"float:left\">\n<legend>Locus/scheme fields</legend>\n";
-	print "<span id=\"scheme_field_heading\" style=\"display:$scheme_field_heading\"><label for=\"c0\">Combine searches with: </label>\n";
-	print $q->popup_menu( -name => 'c0', -id => 'c0', -values => [ "AND", "OR" ] );
-	print "</span><ul id=\"scheme_fields\">\n";
+	say "<div style=\"white-space:nowrap\">";
+	say "<fieldset style=\"float:left\">\n<legend>Locus/scheme fields</legend>";
+	say "<span id=\"scheme_field_heading\" style=\"display:$scheme_field_heading\"><label for=\"c0\">Combine searches with: </label>";
+	say $q->popup_menu( -name => 'c0', -id => 'c0', -values => [ "AND", "OR" ] );
+	say "</span><ul id=\"scheme_fields\">";
+	my ( $primary_key, $selectitems, $orderitems, $cleaned ) = $self->_get_profile_select_items($scheme_id);
 
 	foreach my $i ( 1 .. $scheme_field_count ) {
 		print "<li>";
 		$self->_print_scheme_fields( $i, $scheme_field_count, $scheme_id, $selectitems, $cleaned );
-		print "</li>\n";
+		say "</li>";
 	}
-	print "</ul>\n";
-	print "</fieldset>\n";
+	say "</ul>";
+	say "</fieldset>";
 	my @filters;
 	if ( $self->{'config'}->{'ref_db'} ) {
 		my $pmid = $self->{'datastore'}->run_list_query( "SELECT DISTINCT(pubmed_id) FROM profile_refs WHERE scheme_id=?", $scheme_id );
@@ -704,15 +684,14 @@ sub _print_profile_query_interface {
 				'publication',
 				\@values,
 				{
-					'labels' => $labels,
-					'text'   => 'Publication',
-					'tooltip' =>
+					labels => $labels,
+					text   => 'Publication',
+					tooltip =>
 "publication filter - Select a publication to filter your search to only those isolates that match the selected publication."
 				}
 			  );
 		}
 	}
-	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	foreach my $field (@$scheme_fields) {
 		if ( $self->{'prefs'}->{"dropdown\_scheme_fields"}->{$scheme_id}->{$field} ) {
@@ -728,35 +707,35 @@ sub _print_profile_query_interface {
 			  $self->get_filter(
 				$field, $values,
 				{
-					'text' => $field,
-					'tooltip' =>
+					text => $field,
+					tooltip =>
 "$field ($scheme_info->{'description'}) filter - Select $a_or_an $field to filter your search to only those profiles that match the selected $field."
 				}
 			  );
 		}
 	}
-	print "<fieldset id=\"display_fieldset\" style=\"float:left\"><legend>Display/sort options</legend>\n";
-	print "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>\n";
-	print $q->popup_menu( -name => 'order', -id => 'order', -values => $orderitems, -labels => $cleaned );
-	print $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
-	print "</span></li>\n<li>\n";
-	print $self->get_number_records_control;
-	print "</li>\n</ul>\n</fieldset>\n";
-	print "</div>\n<div style=\"clear:both\"></div>";
+	say "<fieldset id=\"display_fieldset\" style=\"float:left\"><legend>Display/sort options</legend>";
+	say "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>";
+	say $q->popup_menu( -name => 'order', -id => 'order', -values => $orderitems, -labels => $cleaned );
+	say $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
+	say "</span></li>\n<li>";
+	say $self->get_number_records_control;
+	say "</li>\n</ul>\n</fieldset>";
+	say "</div>\n<div style=\"clear:both\"></div>";
 
 	if (@filters) {
-		print "<fieldset style=\"float:left\">\n";
-		print "<legend>Filter query by</legend>\n";
-		print "<ul>\n";
+		say "<fieldset style=\"float:left\">";
+		say "<legend>Filter query by</legend>";
+		say "<ul>";
 		foreach (@filters) {
-			print "<li><span style=\"white-space:nowrap\">$_</span></li>";
+			say "<li><span style=\"white-space:nowrap\">$_</span></li>";
 		}
-		print "</ul>\n</fieldset>";
+		say "</ul>\n</fieldset>";
 	}
 	my $page = $self->{'curate'} ? 'profileQuery' : 'query';
 	$self->print_action_fieldset( { page => $page, scheme_id => $scheme_id } );
-	print $q->end_form;
-	print "</div></div>\n";
+	say $q->end_form;
+	say "</div></div>";
 	return;
 }
 ####END PROFILE INTERFACE#######################################################
@@ -952,8 +931,8 @@ sub _generate_isolate_query_for_provenance_fields {
 					next;
 				}
 				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-				if (!$extended_isolate_field){
-					if (!$self->{'xmlHandler'}->is_field($field)){
+				if ( !$extended_isolate_field ) {
+					if ( !$self->{'xmlHandler'}->is_field($field) ) {
 						push @$errors_ref, "$field is an invalid field.";
 						next;
 					}
@@ -1414,7 +1393,8 @@ sub _modify_isolate_query_for_designations {
 				my $joined_query = "SELECT $temp_table.id FROM $temp_table LEFT JOIN temp_scheme_$scheme_id AS scheme_$scheme_id ON @temp";
 				$text =~ s/'/\\'/g;
 				if ( $operator eq 'NOT' ) {
-					push @sqry, ( $text eq 'null' )
+					push @sqry,
+					  ( $text eq 'null' )
 					  ? "($view.id NOT IN ($joined_query WHERE $field is null) AND $view.id IN ($joined_query))"
 					  : "($view.id NOT IN ($joined_query WHERE upper($field)=upper(E'$text') AND $view.id IN ($joined_query)))";
 				} elsif ( $operator eq "contains" ) {
@@ -1562,11 +1542,12 @@ sub _modify_isolate_query_for_tags {
 }
 
 sub _run_profile_query {
-	my ( $self, $scheme_id ) = @_;
+	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $system = $self->{'system'};
 	my $qry;
 	my @errors;
+	my $scheme_id   = BIGSdb::Utils::is_int( $q->param('scheme_id') ) ? $q->param('scheme_id') : 0;
 	my $loci        = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 	if ( !defined $q->param('query') ) {
@@ -1598,7 +1579,7 @@ sub _run_profile_query {
 				$self->process_value( \$text );
 				next
 				  if !( $scheme_info->{'allow_missing_loci'} && $is_locus && $text eq 'N' && $operator ne '<' && $operator ne '>' )
-					  && $self->check_format( { field => $field, text => $text, type => $type, operator => $operator }, \@errors );
+				  && $self->check_format( { field => $field, text => $text, type => $type, operator => $operator }, \@errors );
 				my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
 				$first_value = 0;
 				if ( $field =~ /(.*) \(id\)$/

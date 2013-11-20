@@ -50,34 +50,10 @@ sub print_content {
 	my $desc = $self->get_db_description;
 
 	if ( $system->{'dbtype'} eq 'sequences' ) {
-		if ( !$scheme_id ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>No scheme id passed.</p></div>";
-			return;
-		} elsif ( !BIGSdb::Utils::is_int($scheme_id) ) {
-			say "<div class=\"box\" id=\"statusbad\">Scheme id must be an integer.</p></div>";
-			return;
-		} elsif ($set_id) {
-			if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
-				say "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is unavailable.</p></div>";
-				return;
-			}
-		}
-		$scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-		if ( !$scheme_info ) {
-			say "<div class=\"box\" id=\"statusbad\">Scheme does not exist.</p></div>";
-			return;
-		}
-		say "<h1>Query $scheme_info->{'description'} profiles by matching a field against a list - $desc</h1>";
-		eval {
-			$primary_key =
-			  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )
-			  ->[0];
-		};
-		if ( !$primary_key ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  Profile browsing can not be "
-			  . "done until this has been set.</p></div>";
-			return;
-		}
+		say "<h1>Query profiles by matching a field against a list - $desc</h1>";
+		return if defined $scheme_id && $self->is_scheme_invalid( $scheme_id, { with_pk => 1 } );
+		$self->print_scheme_section( { with_pk => 1 } );
+		$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
 	} else {
 		say "<h1>Query $desc database matching a field against a list</h1>";
 	}
@@ -97,7 +73,7 @@ sub print_content {
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 			$self->_run_isolate_query;
 		} else {
-			$self->_run_profile_query( $scheme_id, $primary_key );
+			$self->_run_profile_query;
 		}
 	}
 	return;
@@ -164,9 +140,12 @@ sub _print_query_interface {
 }
 
 sub _run_profile_query {
-	my ( $self, $scheme_id, $primary_key ) = @_;
-	my $q     = $self->{'cgi'};
-	my $field = $q->param('attribute');
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $scheme_id = BIGSdb::Utils::is_int( $q->param('scheme_id') ) ? $q->param('scheme_id') : 0;
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $primary_key = $scheme_info->{'primary_key'};
+	my $field       = $q->param('attribute');
 	my ( $datatype, $fieldtype );
 	if ( $field =~ /^l_(.*)$/ || $field =~ /^la_(.*)\|\|/ ) {
 		$field     = $1;
@@ -365,13 +344,13 @@ sub _format_value {
 	$$value_ref =~ s/'/\\'/g;
 	return INVALID_VALUE
 	  if lc($data_type) =~ /^int/
-		  && !BIGSdb::Utils::is_int($$value_ref);
+	  && !BIGSdb::Utils::is_int($$value_ref);
 	return INVALID_VALUE
 	  if $field =~ /(.*) \(id\)$/
-		  && !BIGSdb::Utils::is_int($$value_ref);
+	  && !BIGSdb::Utils::is_int($$value_ref);
 	return INVALID_VALUE
 	  if lc($data_type) eq 'date'
-		  && !BIGSdb::Utils::is_date($$value_ref);
+	  && !BIGSdb::Utils::is_date($$value_ref);
 	return 0;
 }
 1;

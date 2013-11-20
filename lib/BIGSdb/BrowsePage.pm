@@ -44,40 +44,16 @@ sub print_content {
 	my $q        = $self->{'cgi'};
 	my $scheme_id;
 	my $scheme_info;
-	my $primary_key;
 	my $set_id = $self->get_set_id;
 	my $desc   = $self->get_db_description;
 
 	if ( $system->{'dbtype'} eq 'sequences' ) {
+		say "<h1>Browse profiles - $desc</h1>";
 		$scheme_id = $q->param('scheme_id');
-		if ( !$scheme_id ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>No scheme id passed.</p></div>";
-			return;
-		} elsif ( !BIGSdb::Utils::is_int($scheme_id) ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>Scheme id must be an integer.</p></div>";
-			return;
-		} elsif ($set_id) {
-			if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
-				say "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is unavailable.</p></div>";
-				return;
-			}
-		}
-		$scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-		if ( !$scheme_info ) {
-			say "<div class=\"box\" id=\"statusbad\">Scheme does not exist.</p></div>";
-			return;
-		}
-		say "<h1>Browse $scheme_info->{'description'} profiles - $desc</h1>";
-		eval {
-			$primary_key =
-			  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )
-			  ->[0];
-		};
-		if ( !$primary_key ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  Profile browsing can not be "
-			  . "done until this has been set.</p></div>";
-			return;
-		}
+		return if defined $scheme_id && $self->is_scheme_invalid( $scheme_id, { with_pk => 1 } );
+		$self->print_scheme_section( { with_pk => 1 } );
+		$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
+		$scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 	} else {
 		say "<h1>Browse $desc database</h1>";
 	}
@@ -98,6 +74,7 @@ sub print_content {
 		if ( $system->{'dbtype'} eq 'isolates' ) {
 			( $order_by, $labels ) = $self->get_field_selection_list( { isolate_fields => 1, loci => 1, scheme_fields => 1 } );
 		} elsif ( $system->{'dbtype'} eq 'sequences' ) {
+			my $primary_key = $scheme_info->{'primary_key'};
 			if ($primary_key) {
 				push @$order_by, $primary_key;
 				my $cleaned = $primary_key;
@@ -150,8 +127,9 @@ sub print_content {
 			my $qry = "SELECT * FROM $system->{'view'} ORDER BY $order $dir,$self->{'system'}->{'view'}.id;";
 			$self->paged_display( $self->{'system'}->{'view'}, $qry );
 		} elsif ( $system->{'dbtype'} eq 'sequences' ) {
-			my $pk_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
-			my $profile_id_field = $pk_field_info->{'type'} eq 'integer' ? "lpad($primary_key,20,'0')" : $primary_key;
+			my $pk_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
+			my $profile_id_field =
+			  $pk_field_info->{'type'} eq 'integer' ? "lpad($scheme_info->{'primary_key'},20,'0')" : $scheme_info->{'primary_key'};
 			$order =~ s/'/_PRIME_/g;
 			if ( $self->{'datastore'}->is_locus($order) ) {
 				my $locus_info = $self->{'datastore'}->get_locus_info($order);
@@ -161,7 +139,7 @@ sub print_content {
 			}
 			my $scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
 			$qry .= "SELECT * FROM $scheme_view ORDER BY "
-			  . ( $order ne $primary_key ? "$order $dir,$profile_id_field;" : "$profile_id_field $dir;" );
+			  . ( $order ne $scheme_info->{'primary_key'} ? "$order $dir,$profile_id_field;" : "$profile_id_field $dir;" );
 			$self->paged_display( 'profiles', $qry, '', ['scheme_id'] );
 		}
 	}
