@@ -20,8 +20,6 @@ package BIGSdb::Offline::AutoTag;
 use strict;
 use warnings;
 use 5.010;
-use List::MoreUtils qw(none uniq);
-use POSIX qw(strftime);
 use parent qw(BIGSdb::Offline::Scan);
 use BIGSdb::Utils;
 use BIGSdb::BIGSException;
