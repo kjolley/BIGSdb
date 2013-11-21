@@ -179,9 +179,19 @@ sub _check {
 		$id2[$i] =~ s/%20/ /g;
 		$value[$i] =~ s/\s*$//g if defined $value[$i];
 		my $display_value = $value[$i];
+		my $display_field = $field[$i];
 		my $bad_field     = 0;
-		my $is_locus      = $self->{'datastore'}->is_locus( $field[$i] );
+		my $is_locus;
 
+		if ($set_id) {
+			my $locus = $self->{'datastore'}->get_set_locus_real_id( $field[$i], $set_id );
+			if ( $self->{'datastore'}->is_locus_in_set( $locus, $set_id ) ) {
+				$field[$i] = $locus;
+				$is_locus = 1;
+			}
+		} else {
+			$is_locus = $self->{'datastore'}->is_locus( $field[$i] );
+		}
 		if ( !( $self->{'xmlHandler'}->is_field( $field[$i] ) || $is_locus ) ) {
 
 			#Check if there is an extended metadata field
@@ -296,7 +306,7 @@ sub _check {
 				$action   = "<span class=\"statusbad\">no action</span>";
 			}
 			$display_value =~ s/<blank>/&lt;blank&gt;/;
-			( my $display_field = $field[$i] ) =~ s/^meta_.*://;
+			$display_field =~ s/^meta_.*://;
 			if ( $id->{'field2'} ne '<none>' ) {
 				$buffer .= "<tr class=\"td$td\"><td>$i</td><td>$id[$i]</td><td>$id2[$i]</td><td>$display_field</td>"
 				  . "<td>$display_value</td><td>$oldvalue</td><td>$action</td></tr>\n";
