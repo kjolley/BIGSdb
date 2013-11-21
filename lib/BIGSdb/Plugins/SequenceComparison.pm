@@ -171,7 +171,7 @@ sub run {
 sub get_plugin_javascript {
 	my $buffer = << "END";
 \$(function () {
-	\$('a[rel=ajax]').click(function(){
+	\$('a[data-rel=ajax]').click(function(){
   		\$(this).attr('href', function(){
   			if (this.href.match(/javascript.loadContent/)){
   				return;
