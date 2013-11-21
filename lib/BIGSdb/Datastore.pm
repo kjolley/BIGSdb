@@ -1145,16 +1145,24 @@ sub is_locus {
 }
 
 sub get_set_locus_label {
-	my ( $self, $locus, $set_id ) = @_;
-	if ( !$self->{'sql'}->{'update_locus_setnames'} ) {
-		$self->{'sql'}->{'update_locus_setnames'} = $self->{'db'}->prepare("SELECT * FROM set_loci WHERE set_id=? AND locus=?");
+	my ( $self, $locus, $set_id, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	if ( !$self->{'sql'}->{'get_set_locus_label'} ) {
+		$self->{'sql'}->{'get_set_locus_label'} = $self->{'db'}->prepare("SELECT * FROM set_loci WHERE set_id=? AND locus=?");
 	}
 	if ($set_id) {
-		eval { $self->{'sql'}->{'update_locus_setnames'}->execute( $set_id, $locus ) };
+		eval { $self->{'sql'}->{'get_set_locus_label'}->execute( $set_id, $locus ) };
 		$logger->error($@) if $@;
-		my $set_loci    = $self->{'sql'}->{'update_locus_setnames'}->fetchrow_hashref;
-		my $set_cleaned = $set_loci->{'set_name'};
-		$set_cleaned .= " ($set_loci->{'set_common_name'})" if $set_loci->{'set_common_name'};
+		my $set_loci    = $self->{'sql'}->{'get_set_locus_label'}->fetchrow_hashref;
+		my $set_cleaned;
+		if ($options->{'text_output'}){
+			$set_cleaned = $set_loci->{'set_name'} // $locus;
+			$set_cleaned .= " ($set_loci->{'set_common_name'})" if $set_loci->{'set_common_name'};
+		} else {
+			$set_cleaned = $set_loci->{'formatted_set_name'} // $set_loci->{'set_name'} // $locus;
+			my $common_name = $set_loci->{'formatted_set_common_name'} // $set_loci->{'set_common_name'};
+			$set_cleaned .= " ($common_name)" if $common_name;
+		}
 		return $set_cleaned;
 	}
 	return;

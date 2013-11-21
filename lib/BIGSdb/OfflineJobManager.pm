@@ -299,7 +299,7 @@ sub update_job_status {
 	}
 	my $job = $self->get_job($job_id);
 	if ( $job->{'status'} && $job->{'status'} eq 'cancelled' || $job->{'cancel'} ) {
-		system( 'kill', $job->{'pid'} );
+		system( 'kill', $job->{'pid'} ) if $job->{'pid'};
 	}
 	return;
 }

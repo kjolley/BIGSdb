@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.5.8',
+		version     => '1.5.9',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/genome_comparator.shtml',
@@ -157,7 +157,7 @@ sub run_job {
 		my $seq_obj;
 		if ($accession) {
 			$accession =~ s/\s*//g;
-			my @local_annotations = glob("$params->{'dbase_config_dir'}/$params->{'instance'}/annotations/$accession*");
+			my @local_annotations = glob("$params->{'dbase_config_dir'}/$params->{'db'}/annotations/$accession*");
 			if (@local_annotations) {
 				try {
 					my $seqio_obj = Bio::SeqIO->new( -file => $local_annotations[0] );
@@ -240,8 +240,8 @@ sub run {
 			push @cleaned_loci, $locus_name if defined $locus_name;
 		}
 		my @invalid_loci;
+		my $set_id = $self->get_set_id;
 		if ( $q->param('locus_paste_list') ) {
-			my $set_id = $self->get_set_id;
 			my @list = split /\n/, $q->param('locus_paste_list');
 			foreach my $locus (@list) {
 				next if $locus =~ /^\s*$/;
@@ -269,13 +269,11 @@ sub run {
 			$continue = 0;
 		}
 		$self->add_scheme_loci( \@cleaned_loci );
-		
 		if ( !$accession && !$ref_upload && !@cleaned_loci && $continue ) {
 			say "<div class=\"box\" id=\"statusbad\"><p>You must either select one or more loci or schemes, provide "
 			  . "a genome accession number, or upload an annotated genome.</p></div>";
 			$continue = 0;
 		}
-
 		$q->param( 'ref_upload', $ref_upload ) if $ref_upload;
 		if ( $q->param('calc_distances') ) {
 			$q->param( align       => 'on' );
@@ -285,8 +283,7 @@ sub run {
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		if ($continue) {
 			my $params = $q->Vars;
-			$params->{'dbase_config_dir'} = $self->{'system'}->{'dbase_config_dir'};
-			$params->{'instance'}         = $self->{'instance'};
+			$params->{'set_id'}           = $set_id if $set_id;
 			my $att    = $self->get_attributes;
 			my $job_id = $self->{'jobManager'}->add_job(
 				{
@@ -808,12 +805,18 @@ sub _run_comparison {
 		my $first             = 1;
 		my $first_seq;
 		my $previous_seq = '';
-		my $cleaned_locus_name = $by_reference ? $locus_name : $self->clean_locus($locus_name);
-		$$html_buffer_ref .= "<tr class=\"td$td\"><td>$cleaned_locus_name</td>";
-		my $text_locus_name = $by_reference ? $locus_name : $self->clean_locus( $locus_name, { text_output => 1 } );
-		$$file_buffer_ref .= "$text_locus_name";
-		my %allele_seqs;
+		my ( $cleaned_locus_name, $text_locus_name );
 
+		if ($by_reference) {
+			$cleaned_locus_name = $locus_name;
+			$text_locus_name    = $locus_name;
+		} else {
+			$cleaned_locus_name = $self->clean_locus($locus_name);
+			$text_locus_name = $self->clean_locus( $locus_name, { text_output => 1 } );
+		}
+		$$html_buffer_ref .= "<tr class=\"td$td\"><td>$cleaned_locus_name</td>";
+		$$file_buffer_ref .= $text_locus_name;
+		my %allele_seqs;
 		if ($by_reference) {
 			$$html_buffer_ref .= "<td>$desc</td><td>$length</td><td>$start</td><td>1</td>";
 			$$file_buffer_ref .= "\t$desc\t$length\t$start\t1";
@@ -966,7 +969,8 @@ sub _run_comparison {
 			ids             => $ids,
 			presence        => $presence,
 			match_count     => $match_count,
-			order           => $order
+			order           => $order,
+			set_id          => $params->{'set_id'}
 		}
 	);
 	$self->delete_temp_files("$prefix*");
@@ -1089,6 +1093,12 @@ sub _core_analysis {
 	my %range;
 
 	foreach my $locus ( sort { $order->{$a} <=> $order->{$b} } keys %$loci ) {
+		my $locus_name;
+		if ( !$args->{'by_reference'} ) {
+			$locus_name = $self->clean_locus( $locus, { text_output => 1 } );
+		} else {
+			$locus_name = $locus;
+		}
 		my $length = $loci->{$locus}->{'length'}   // '';
 		my $pos    = $loci->{$locus}->{'start'}    // '';
 		my $freq   = $args->{'presence'}->{$locus} // 0;
@@ -1101,7 +1111,7 @@ sub _core_analysis {
 			$core = '-';
 		}
 		$core_count++ if $percentage >= $threshold;
-		print $fh "$locus\t$length\t$pos\t$freq\t$percentage\t$core";
+		print $fh "$locus_name\t$length\t$pos\t$freq\t$percentage\t$core";
 		print $fh "\t" . BIGSdb::Utils::decimal_place( ( $distances->{$locus} // 0 ), 3 ) if $params->{'calc_distances'};
 		print $fh "\n";
 		for ( my $upper_range = 5 ; $upper_range <= 100 ; $upper_range += 5 ) {

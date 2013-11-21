@@ -76,6 +76,7 @@ sub run_script {
 	$self->{'logger'}->info("Job:$job_id") if $job_id;
 	my $job = $self->{'jobManager'}->get_job($job_id);
 	my $params = $self->{'jobManager'}->get_job_params($job_id);
+	$params->{'dbase_config_dir'} = $self->{'dbase_config_dir'};
 	my $instance = $job->{'dbase_config'};
 	$self->_initiate_db($instance);
 	$self->{'system'}->{'set_id'} = $params->{'set_id'};
