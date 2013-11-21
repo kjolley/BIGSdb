@@ -1198,7 +1198,7 @@ sub get_all_allele_designations {
 	my ( $self, $isolate_id ) = @_;
 	if ( !$self->{'sql'}->{'all_allele_designation'} ) {
 		$self->{'sql'}->{'all_allele_designation'} =
-		  $self->{'db'}->prepare( "SELECT locus,allele_id,status FROM allele_designations WHERE isolate_id=?" );
+		  $self->{'db'}->prepare("SELECT locus,allele_id,status FROM allele_designations WHERE isolate_id=?");
 		$logger->info("Statement handle 'all_allele_designation' prepared.");
 	}
 	eval { $self->{'sql'}->{'all_allele_designation'}->execute($isolate_id); };
@@ -1487,14 +1487,17 @@ sub get_next_allele_id {
 }
 
 sub get_client_data_linked_to_allele {
-	my ( $self, $locus, $allele_id ) = @_;
+	my ( $self, $locus, $allele_id, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $sql =
 	  $self->{'db'}->prepare( "SELECT client_dbase_id,isolate_field FROM client_dbase_loci_fields WHERE allele_query AND "
 		  . "locus = ? ORDER BY client_dbase_id,isolate_field" );
 	eval { $sql->execute($locus) };
 	$logger->error($@) if $@;
 	my $client_field_data = $sql->fetchall_arrayref;
-	my $buffer;
+	my ( $dl_buffer, $td_buffer );
+	my $i = 0;
+
 	foreach my $client_field (@$client_field_data) {
 		my $field          = $client_field->[1];
 		my $client         = $self->get_client_db( $client_field->[0] );
@@ -1511,7 +1514,7 @@ sub get_client_data_linked_to_allele {
 		};
 		next if !$proceed;
 		next if !@$field_data;
-		$buffer .= "<dt>$field</dt>";
+		$dl_buffer .= "<dt>$field</dt>";
 		my @values;
 		foreach my $data (@$field_data) {
 			my $value = $data->{$field};
@@ -1522,57 +1525,16 @@ sub get_client_data_linked_to_allele {
 			push @values, $value;
 		}
 		local $" = '; ';
-		$buffer .= "<dd>@values <span class=\"source\">$client_db_desc</span></dd>";
+		$dl_buffer .= "<dd>@values <span class=\"source\">$client_db_desc</span></dd>";
+		$td_buffer .= "<br />\n" if $i;
+		$td_buffer .= "<span class=\"source\">$client_db_desc</span> <b>$field:</b> @values";
+		$i++;
 	}
-	$buffer = "<dl class=\"data\">\n$buffer\n</dl>" if $buffer;
-	return $buffer;
-}
-
-sub get_client_dbase_fields {
-
-	#TODO deprecate and use get_client_data_linked_to_allele instead.
-	my ( $self, $locus, $allele_ids_refs ) = @_;
-	return if ref $allele_ids_refs ne 'ARRAY';
-	my $sql = $self->{'db'}->prepare("SELECT client_dbase_id,isolate_field FROM client_dbase_loci_fields WHERE allele_query AND locus = ?");
-	eval { $sql->execute($locus) };
-	$logger->error($@) if $@;
-	my $values;
-	my %db_desc;
-
-	while ( my ( $client_dbase_id, $field ) = $sql->fetchrow_array ) {
-		my $client         = $self->get_client_db($client_dbase_id);
-		my $client_db_desc = $self->get_client_db_info($client_dbase_id)->{'name'};
-		foreach my $allele_id (@$allele_ids_refs) {
-			my $proceed = 1;
-			my $field_data;
-			try {
-				$field_data = $client->get_fields( $field, $locus, $allele_id );
-			}
-			catch BIGSdb::DatabaseConfigurationException with {
-				$logger->error( "Can't extract isolate field '$field' FROM client database, make sure the client_dbase_loci_fields "
-					  . "table is correctly configured.  $@" );
-				$proceed = 0;
-			};
-			return if !$proceed;
-			foreach my $data (@$field_data) {
-				my $value = $data->{$field};
-				if ( any { $field eq $_ } qw (species genus) ) {
-					$value = "<i>$value</i>";
-				}
-				$value .= " [n=$data->{'frequency'}]";
-				push @{ $values->{$field} }, $value;
-				$db_desc{$client_db_desc} = 1;
-			}
-		}
+	$dl_buffer = "<dl class=\"data\">\n$dl_buffer\n</dl>" if $dl_buffer;
+	if ( $options->{'table_format'} ) {
+		return $td_buffer;
 	}
-	my $buffer;
-	if ( keys %$values ) {
-		my @dbs = sort keys %db_desc;
-		local $" = "</span> <span class=\"link\">";
-		$buffer .= "<span class=\"link\">@dbs</span> ";
-		$buffer .= $self->_format_list_values($values);
-	}
-	return $buffer;
+	return $dl_buffer;
 }
 
 sub _format_list_values {

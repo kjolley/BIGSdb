@@ -1246,7 +1246,8 @@ sub _print_record_table {
 			}
 		}
 		if ( $table_info->{'linked_data'} ) {
-			my $field_values = $self->{'datastore'}->get_client_dbase_fields( $data{'locus'}, [ $data{'allele_id'} ] );
+			my $field_values =
+			  $self->{'datastore'}->get_client_data_linked_to_allele( $data{'locus'}, $data{'allele_id'}, { table_format => 1 } );
 			print defined $field_values ? "<td style=\"text-align:left\">$field_values</td>" : '<td></td>';
 		}
 		if (   ( ( $q->param('page') eq 'tableQuery' && $q->param('table') eq 'sequences' ) || $q->param('page') eq 'alleleQuery' )

@@ -352,7 +352,7 @@ sub _output_single_query_exact {
 			$buffer .= "<tr class=\"td$td\"><td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
 			  . "page=alleleInfo&amp;locus=$locus&amp;allele_id=$_->{'allele'}\">";
 			$allele       = "$cleaned: $_->{'allele'}";
-			$field_values = $self->{'datastore'}->get_client_dbase_fields( $locus, [ $_->{'allele'} ] );
+			$field_values = $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $_->{'allele'}, { table_format => 1 } );
 			$attributes   = $self->{'datastore'}->get_allele_attributes( $locus, [ $_->{'allele'} ] );
 			$allele_info =
 			  $self->{'datastore'}
@@ -368,7 +368,7 @@ sub _output_single_query_exact {
 				next if $locus_info->{'match_longest'} && $locus_matches{$locus} > 1;
 				my $cleaned = $self->clean_locus($locus);
 				$allele       = "$cleaned: $allele_id";
-				$field_values = $self->{'datastore'}->get_client_dbase_fields( $locus, [$allele_id] );
+				$field_values = $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $allele_id, { table_format => 1 } );
 				$attributes   = $self->{'datastore'}->get_allele_attributes( $locus, [$allele_id] );
 				$allele_info =
 				  $self->{'datastore'}
