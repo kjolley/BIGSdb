@@ -283,7 +283,7 @@ sub run {
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		if ($continue) {
 			my $params = $q->Vars;
-			$params->{'set_id'}           = $set_id if $set_id;
+			$params->{'set_id'} = $set_id if $set_id;
 			my $att    = $self->get_attributes;
 			my $job_id = $self->{'jobManager'}->add_job(
 				{
@@ -1372,8 +1372,14 @@ sub _identify_strains {
 }
 
 sub _get_isolate_name {
-	my ( $self, $id ) = @_;
+	my ( $self, $id, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $isolate = $id;
+	if ( $options->{'name_only'} ) {
+		my $name = $self->{'datastore'}->get_isolate_field_values($id)->{ $self->{'system'}->{'labelfield'} };
+		$isolate .= "|$name";
+		return $isolate;
+	}
 	my $additional_fields = $self->_get_identifier( $id, { no_id => 1 } );
 	$isolate .= " ($additional_fields)" if $additional_fields;
 	return $isolate;
@@ -1443,13 +1449,13 @@ sub _create_alignments {
 			say $fasta_fh "$loci->{$locus}->{'ref'}";
 			$seq_count++;
 		}
-		my @names;
+		my %names;
 		foreach my $id (@$ids) {
-			my $name = $self->_get_isolate_name($id);
+			my $name = $self->_get_isolate_name( $id, { name_only => 1 } );
 			$name =~ s/[\(\)]//g;
 			$name =~ s/ /|/;        #replace space separating id and name
 			$name =~ tr/[:, ]/_/;
-			push @names, $name;
+			$names{$id} = $name;
 			if ( $loci->{$locus}->{$id} ) {
 				$seq_count++;
 				say $fasta_fh ">$name";
@@ -1460,7 +1466,7 @@ sub _create_alignments {
 		if ( $params->{'align'} ) {
 			$distances->{$locus} = $self->_run_muscle(
 				{
-					ids              => \@names,
+					ids              => $ids,
 					locus            => $locus,
 					seq_count        => $seq_count,
 					muscle_out       => $muscle_out,
@@ -1470,6 +1476,7 @@ sub _create_alignments {
 					xmfa_out         => $xmfa_out,
 					xmfa_start_ref   => \$xmfa_start,
 					xmfa_end_ref     => \$xmfa_end,
+					names            => \%names
 				}
 			);
 		}
@@ -1516,42 +1523,43 @@ sub _run_infoalign {
 }
 
 sub _run_muscle {
-
-	#need values for ($ids, $locus, $seq_count, $muscle_out, $fasta_file, $align_file, $xmfa_out, $xmfa_start_ref, $xmfa_end_ref);
-	my ( $self, $values ) = @_;
-	return if $values->{'seq_count'} <= 1;
-	system( $self->{'config'}->{'muscle_path'}, '-in', $values->{'fasta_file'}, '-out', $values->{'muscle_out'}, '-quiet', '-clwstrict' );
+	my ( $self, $args ) = @_;
+	my ( $ids, $names, $locus, $seq_count, $muscle_out, $fasta_file, $align_file, $xmfa_out, $xmfa_start_ref, $xmfa_end_ref ) =
+	  @{$args}{qw (ids names locus seq_count muscle_out fasta_file align_file xmfa_out xmfa_start_ref xmfa_end_ref )};
+	return if $seq_count <= 1;
+	system( $self->{'config'}->{'muscle_path'}, -in => $fasta_file, -out => $muscle_out, '-quiet', '-clwstrict' );
 	my $distance;
-	if ( -e $values->{'muscle_out'} ) {
-		my $align = Bio::AlignIO->new( -format => 'clustalw', -file => $values->{'muscle_out'} )->next_aln;
+	if ( -e $muscle_out ) {
+		my $align = Bio::AlignIO->new( -format => 'clustalw', -file => $muscle_out )->next_aln;
 		my ( %id_has_seq, $seq_length );
-		open( my $fh_xmfa, '>>', $values->{'xmfa_out'} ) or $logger->error("Can't open output file $values->{'xmfa_out'} for appending");
-		my $locus = $self->clean_locus( $values->{'locus'}, { text_output => 1, no_common_name => 1 } );
+		open( my $fh_xmfa, '>>', $xmfa_out ) or $logger->error("Can't open output file $xmfa_out for appending");
+		my $locus = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
 		foreach my $seq ( $align->each_seq ) {
-			${ $values->{'xmfa_end_ref'} } = ${ $values->{'xmfa_start_ref'} } + $seq->length - 1;
-			say $fh_xmfa '>' . $seq->id . ":${$values->{'xmfa_start_ref'}}-${$values->{'xmfa_end_ref'}} + $locus";
+			$$xmfa_end_ref = $$xmfa_start_ref + $seq->length - 1;
+			say $fh_xmfa '>' . $seq->id . ":$$xmfa_start_ref-$$xmfa_end_ref + $locus";
 			my $sequence = BIGSdb::Utils::break_line( $seq->seq, 60 );
 			say $fh_xmfa "$sequence";
-			$id_has_seq{ $seq->id } = 1;
+			my ($id) = split /\|/, $seq->id;
+			$id_has_seq{$id} = 1;
 			$seq_length = $seq->length if !$seq_length;
 		}
 		my $missing_seq = BIGSdb::Utils::break_line( ( '-' x $seq_length ), 60 );
-		foreach my $id ( @{ $values->{'ids'} } ) {
+		foreach my $id (@$ids) {
 			next if $id_has_seq{$id};
-			say $fh_xmfa ">$id:${$values->{'xmfa_start_ref'}}-${$values->{'xmfa_end_ref'}} + $locus\n$missing_seq";
+			say $fh_xmfa ">$names->{$id}:$$xmfa_start_ref-$$xmfa_end_ref + $locus\n$missing_seq";
 		}
-		print $fh_xmfa "=\n";
+		say $fh_xmfa "=";
 		close $fh_xmfa;
-		${ $values->{'xmfa_start_ref'} } = ${ $values->{'xmfa_end_ref'} } + 1;
-		open( my $align_fh, '>>', $values->{'align_file'} ) || $logger->error("Can't open $values->{'align_file'} for appending");
-		my $heading_locus = $self->clean_locus( $values->{'locus'}, { text_output => 1 } );
-		print $align_fh "$heading_locus\n";
-		print $align_fh '-' x ( length $heading_locus ) . "\n\n";
+		$$xmfa_start_ref = $$xmfa_end_ref + 1;
+		open( my $align_fh, '>>', $align_file ) || $logger->error("Can't open $align_file for appending");
+		my $heading_locus = $self->clean_locus( $locus, { text_output => 1 } );
+		say $align_fh "$heading_locus";
+		say $align_fh '-' x ( length $heading_locus ) . "\n";
 		close $align_fh;
-		BIGSdb::Utils::append( $values->{'muscle_out'}, $values->{'align_file'}, { blank_after => 1 } );
-		$values->{'alignment'} = $values->{'muscle_out'};
-		$distance = $self->_run_infoalign($values);
-		unlink $values->{'muscle_out'};
+		BIGSdb::Utils::append( $muscle_out, $align_file, { blank_after => 1 } );
+		$args->{'alignment'} = $muscle_out;
+		$distance = $self->_run_infoalign($args);
+		unlink $muscle_out;
 	}
 	return $distance;
 }
