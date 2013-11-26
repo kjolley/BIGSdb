@@ -149,7 +149,9 @@ sub _print_interface {
 	if ($guid) {
 		$general_prefs = $self->{'prefstore'}->get_all_general_prefs( $guid, $self->{'system'}->{'db'} );
 	}
-	my $selected_ids = $q->param('query') ? $self->_get_ids( $q->param('query') ) : [];
+	my $query_file   = $q->param('query_file');
+	my $query        = $self->get_query_from_temp_file($query_file);
+	my $selected_ids = $query ? $self->_get_ids($query) : [];
 	say $q->start_form;
 	say "<div class=\"scrollable\"><fieldset>\n<legend>Isolates</legend>";
 	say $q->scrolling_list(

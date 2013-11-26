@@ -29,7 +29,8 @@ sub print_content {
 	my ($self)      = @_;
 	my $q           = $self->{'cgi'};
 	my $table       = $q->param('table');
-	my $query       = $q->param('query');
+	my $query_file  = $q->param('query_file');
+	my $query       = $self->get_query_from_temp_file($query_file);
 	my $record_name = $self->get_record_name($table);
 	say "<h1>Delete multiple $record_name records</h1>";
 	if ( $table eq 'profiles' && $query =~ /SELECT \* FROM m?v?_?scheme_(\d+)/ ) {
@@ -77,15 +78,16 @@ sub print_content {
 		}
 	}
 	if ( $q->param('deleteAll') ) {
-		$self->_delete( $table, $query );
+		$self->_delete( $table, $query_file );
 	} else {
-		$self->_print_interface( $table, $query );
+		$self->_print_interface( $table, $query_file );
 	}
 	return;
 }
 
 sub _delete {
-	my ( $self, $table, $query ) = @_;
+	my ( $self, $table, $query_file ) = @_;
+	my $query      = $self->get_query_from_temp_file($query_file);
 	my $delete_qry = $query;
 	my $q          = $self->{'cgi'};
 	if (
@@ -263,8 +265,9 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 }
 
 sub _print_interface {
-	my ( $self, $table, $query ) = @_;
-	my $q = $self->{'cgi'};
+	my ( $self, $table, $query_file ) = @_;
+	my $query = $self->get_query_from_temp_file($query_file);
+	my $q     = $self->{'cgi'};
 	if (   ( $table eq 'scheme_fields' || $table eq 'scheme_members' )
 		&& $self->{'system'}->{'dbtype'} eq 'sequences'
 		&& !$q->param('sent') )
@@ -309,7 +312,7 @@ s/SELECT \*/SELECT COUNT(DISTINCT allele_sequences.seqbin_id||allele_sequences.l
 	say "<p>If you proceed, you will delete $count $record_name record$plural.  Please confirm that this is your intention.</p>";
 	say $q->start_form;
 	$q->param( 'deleteAll', 1 );
-	say $q->hidden($_) foreach qw (page db query deleteAll table delete_pending delete_tags scheme_id);
+	say $q->hidden($_) foreach qw (page db query_file deleteAll table delete_pending delete_tags scheme_id);
 	say $q->submit( -label => 'Confirm deletion!', -class => 'submit' );
 	say $q->end_form;
 	$self->print_warning_sign;

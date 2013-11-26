@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2012, University of Oxford
+#Copyright (c) 2012-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,7 @@
 package BIGSdb::CurateBatchSetAlleleFlagsPage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::CuratePage);
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
@@ -28,24 +29,24 @@ use BIGSdb::Page qw(ALLELE_FLAGS);
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	print "<h1>Batch set allele flags</h1>\n";
-	my $filename = $q->param('filename');
-	if ( !$filename ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>No query file passed.</p>\n";
+	say "<h1>Batch set allele flags</h1>";
+	my $query_file = $q->param('query_file');
+	if ( !$query_file ) {
+		say "<div class=\"box\" id=\"statusbad\"><p>No query file passed.</p>";
 		return;
 	}
-	my $qry_ref = $self->get_query_from_file($filename);
-	if ( !$$qry_ref ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>No query passed.</p>\n";
+	my $qry = $self->get_query_from_temp_file($query_file);
+	if ( !$qry ) {
+		say "<div class=\"box\" id=\"statusbad\"><p>No query passed.</p>";
 		return;
 	}
-	my $alleles    = $self->{'datastore'}->run_list_query_hashref($$qry_ref);
+	my $alleles    = $self->{'datastore'}->run_list_query_hashref($qry);
 	my $loci       = $self->_get_loci_from_alleles($alleles);
 	my $curator_id = $self->get_curator_id;
 	if ( !$self->is_admin ) {
 		foreach my $locus ( keys %$loci ) {
 			if ( !$self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $curator_id ) ) {
-				print "<div class=\"box\" id=\"statusbad\"><p>Your user account isn't allowed to modify $locus sequences.</p>\n";
+				say "<div class=\"box\" id=\"statusbad\"><p>Your user account isn't allowed to modify $locus sequences.</p>";
 				return;
 			}
 		}
@@ -67,16 +68,16 @@ sub get_title {
 sub _print_interface {
 	my ( $self, $alleles ) = @_;
 	my $q = $self->{'cgi'};
-	print "<div class=\"box\" id=\"queryform\">\n";
-	print "<p>Select the flags to set - this will override all existing flags on these alleles. "
+	say "<div class=\"box\" id=\"queryform\">";
+	say "<p>Select the flags to set - this will override all existing flags on these alleles. "
 	  . "Clear all checkboxes to remove existing flags.</p>";
-	print "<p>" . @$alleles . " allele" . ( @$alleles > 1 ? 's' : '' ) . " selected.</p>\n";
-	print $q->start_form;
-	print $q->checkbox_group( -name => 'flags', -values => [ALLELE_FLAGS], -linebreak => 'true' );
-	print $q->submit( -name => 'set', -class => 'submit', -label => 'Set' );
-	print $q->hidden($_) foreach qw (db page filename);
-	print $q->end_form;
-	print "</div>\n";
+	say "<p>" . @$alleles . " allele" . ( @$alleles > 1 ? 's' : '' ) . " selected.</p>";
+	say $q->start_form;
+	say $q->checkbox_group( -name => 'flags', -values => [ALLELE_FLAGS], -linebreak => 'true' );
+	say $q->submit( -name => 'set', -class => 'submit', -label => 'Set' );
+	say $q->hidden($_) foreach qw (db page query_file);
+	say $q->end_form;
+	say "</div>";
 	return;
 }
 
@@ -96,12 +97,12 @@ sub _update {
 		}
 	};
 	if ($@) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Update failed.</p></div>\n";
+		say "<div class=\"box\" id=\"statusbad\"><p>Update failed.</p></div>";
 		$logger->error($@);
 		$self->{'db'}->rollback;
 	} else {
-		print "<div class=\"box\" id=\"resultsheader\"><p>Flags updated.</p>\n";
-		print "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
+		say "<div class=\"box\" id=\"resultsheader\"><p>Flags updated.</p>";
+		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>";
 		$self->{'db'}->commit;
 	}
 	return;

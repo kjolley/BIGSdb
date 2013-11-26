@@ -86,6 +86,11 @@ sub print_content {
 		}
 	}
 	my $args_ref = { table => $table, uses_integer_id => $uses_integer_id, has_sender_field => $has_sender_field, locus => $locus };
+	if ( $q->param('query_file') && !defined $q->param('query') ) {
+		my $query_file = $q->param('query_file');
+		my $query      = $self->get_query_from_temp_file($query_file);
+		$q->param( query => $query );
+	}
 	if ( $q->param('checked_buffer') ) {
 		$self->_upload_data($args_ref);
 	} elsif ( $q->param('data') || $q->param('query') ) {

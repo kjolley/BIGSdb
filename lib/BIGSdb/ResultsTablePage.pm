@@ -31,8 +31,16 @@ sub paged_display {
 	# $count is optional - if not provided it will be calculated, but this may not be the most
 	# efficient algorithm, so if it has already been calculated prior to passing to this subroutine
 	# it is better to not recalculate it.
-	my ( $self, $table, $qry, $message, $hidden_attributes, $count, $passed_qry ) = @_;
-	$passed_qry = $qry if !$passed_qry;    #query can get rewritten on route to this page - this enables the original query to be passed on
+	my ( $self, $table, $qry, $message, $hidden_attributes, $count, $passed_qry_file ) = @_;
+	my $passed_qry;
+	if ($passed_qry_file) {
+		$passed_qry = $self->get_query_from_temp_file($passed_qry_file);
+	} else {
+
+		#query can get rewritten on route to this page - this enables the original query to be passed on
+		$passed_qry_file = $self->make_temp_file($qry);
+		$passed_qry      = $qry;
+	}
 	if ( $table eq 'allele_sequences' && $passed_qry =~ /sequence_flags/ ) {
 		$self->{'db'}->do("SET enable_nestloop = off");
 	}
@@ -88,7 +96,7 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 		$qrycount =~ s/ORDER BY.*//;
 		$records = $self->{'datastore'}->run_simple_query($qrycount)->[0];
 	}
-	$q->param( 'query',       $passed_qry );
+	$q->param( 'query_file',  $passed_qry_file );
 	$q->param( 'currentpage', $currentpage );
 	$q->param( 'displayrecs', $self->{'prefs'}->{'displayrecs'} );
 	if ( $self->{'prefs'}->{'displayrecs'} > 0 ) {
@@ -99,7 +107,7 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 	}
 	$bar_buffer .= $q->start_form;
 	$q->param( 'table', $table );
-	$bar_buffer .= $q->hidden($_) foreach qw (query currentpage page db displayrecs order table direction sent);
+	$bar_buffer .= $q->hidden($_) foreach qw (query_file currentpage page db displayrecs order table direction sent);
 	$bar_buffer .= $q->hidden( 'message', $message ) if $message;
 
 	#Make sure hidden_attributes don't duplicate the above
@@ -171,9 +179,8 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 			print " Click the hyperlink$plural for detailed information.";
 		}
 		print "</p>\n";
-		my $qry_filename = $self->make_temp_file($qry);
-		$self->_print_curate_headerbar_functions( $table, $qry_filename ) if $self->{'curate'};
-		$self->print_additional_headerbar_functions($qry_filename);
+		$self->_print_curate_headerbar_functions( $table, $passed_qry_file ) if $self->{'curate'};
+		$self->print_additional_headerbar_functions($passed_qry_file);
 	} else {
 		$logger->debug("Query: $qry");
 		print "<p>No records found!</p>\n";
@@ -205,8 +212,7 @@ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences
 
 sub _print_curate_headerbar_functions {
 	my ( $self, $table, $qry_filename ) = @_;
-	my $q = $self->{'cgi'};
-	$q->param( 'filename', $qry_filename );
+	my $q    = $self->{'cgi'};
 	my $page = $q->param('page');
 	if ( $self->can_modify_table($table) ) {
 		$self->_print_delete_all_function($table);
@@ -223,7 +229,7 @@ sub _print_curate_headerbar_functions {
 		$self->_print_tag_scanning_function           if $self->can_modify_table('allele_sequences');
 		$self->_print_modify_project_members_function if $self->can_modify_table('project_members');
 	}
-	$q->param( 'page', $page );    #reset
+	$q->param( page => $page );    #reset
 	return;
 }
 
@@ -233,14 +239,12 @@ sub print_additional_headerbar_functions {
 }
 
 sub _print_delete_all_function {
-
-	#TODO Use secure_tmp_dir to pass query
 	my ( $self, $table ) = @_;
 	my $q = $self->{'cgi'};
 	print "<fieldset><legend>Delete</legend>\n";
 	print $q->start_form;
 	$q->param( 'page', 'deleteAll' );
-	print $q->hidden($_) foreach qw (db page table query scheme_id);
+	print $q->hidden($_) foreach qw (db page table query_file scheme_id);
 	if ( $table eq 'allele_designations' ) {
 		print "<ul><li>\n";
 		if ( $self->can_modify_table('allele_sequences') ) {
@@ -257,8 +261,6 @@ sub _print_delete_all_function {
 }
 
 sub _print_link_seq_to_experiment_function {
-
-	#TODO Use secure_tmp_dir to pass query
 	my ($self)      = @_;
 	my $q           = $self->{'cgi'};
 	my $experiments = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM experiments")->[0];
@@ -266,7 +268,7 @@ sub _print_link_seq_to_experiment_function {
 		print "<fieldset><legend>Experiments</legend>\n";
 		print $q->start_form;
 		$q->param( 'page', 'linkToExperiment' );
-		print $q->hidden($_) foreach qw (db page query);
+		print $q->hidden($_) foreach qw (db page query_file);
 		print $q->submit( -name => 'Link to experiment', -class => 'submit' );
 		print $q->end_form;
 		print "</fieldset>";
@@ -275,15 +277,13 @@ sub _print_link_seq_to_experiment_function {
 }
 
 sub _print_access_control_function {
-
-	#TODO Use secure_tmp_dir to pass query
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	if ( $self->{'system'}->{'read_access'} eq 'acl' && $self->can_modify_table('isolate_user_acl') ) {
 		print "<fieldset><legend>Access control</legend>\n";
 		print $q->start_form;
 		$q->param( 'page', 'isolateACL' );
-		print $q->hidden($_) foreach qw (db page table query);
+		print $q->hidden($_) foreach qw (db page table query_file);
 		print $q->submit( -name => 'Modify access', -class => 'submit' );
 		print $q->end_form;
 		print "</fieldset>";
@@ -292,8 +292,6 @@ sub _print_access_control_function {
 }
 
 sub _print_export_configuration_function {
-
-	#TODO Use secure_tmp_dir to pass query
 	my ( $self, $table ) = @_;
 	my $q = $self->{'cgi'};
 	if (
@@ -308,7 +306,7 @@ sub _print_export_configuration_function {
 		print "<fieldset><legend>Database configuration</legend>\n";
 		print $q->start_form;
 		$q->param( 'page', 'exportConfig' );
-		print $q->hidden($_) foreach qw (db page table query);
+		print $q->hidden($_) foreach qw (db page table query_file);
 		print $q->submit( -name => 'Export configuration/data', -class => 'submit' );
 		print $q->end_form;
 		print "</fieldset>\n";
@@ -317,14 +315,12 @@ sub _print_export_configuration_function {
 }
 
 sub _print_tag_scanning_function {
-
-	#TODO Use secure_tmp_dir to pass query
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	print "<fieldset style=\"text-align:center\"><legend>Tag scanning</legend>\n";
 	print $q->start_form;
 	$q->param( 'page', 'tagScan' );
-	print $q->hidden($_) foreach qw (db page table query);
+	print $q->hidden($_) foreach qw (db page table query_file);
 	print $q->submit( -name => 'Scan', -class => 'submit' );
 	print $q->end_form;
 	print "</fieldset>\n";
@@ -332,8 +328,6 @@ sub _print_tag_scanning_function {
 }
 
 sub _print_modify_project_members_function {
-
-	#TODO Use secure_tmp_dir to pass query
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my @projects;
@@ -354,7 +348,7 @@ sub _print_modify_project_members_function {
 		print $q->start_form;
 		$q->param( 'page',  'batchAdd' );
 		$q->param( 'table', 'project_members' );
-		print $q->hidden($_) foreach qw (db page table query);
+		print $q->hidden($_) foreach qw (db page table query_file);
 		print $q->popup_menu( -name => 'project', -values => \@projects, -labels => \%labels );
 		print $q->submit( -name => 'Link', -class => 'submit' );
 		print $q->end_form;
@@ -368,8 +362,8 @@ sub _print_set_sequence_flags_function {
 	my $q = $self->{'cgi'};
 	print "<fieldset><legend>Flags</legend>\n";
 	print $q->start_form;
-	$q->param( 'page', 'setAlleleFlags' );
-	print $q->hidden($_) foreach qw (db page filename);
+	$q->param( page => 'setAlleleFlags' );
+	print $q->hidden($_) foreach qw (db page query_file);
 	print $q->submit( -name => 'Batch set', -class => 'submit' );
 	print $q->end_form;
 	print "</fieldset>\n";
@@ -551,7 +545,7 @@ sub _print_isolate_table {
 		}
 	}
 	print "</table></div>\n";
-	$self->_print_plugin_buttons( $qryref, $records ) if !$self->{'curate'};
+	$self->_print_plugin_buttons($records) if !$self->{'curate'};
 	print "</div>\n";
 	$sql->finish if $sql;
 	return;
@@ -904,7 +898,7 @@ sub _print_profile_table {
 	}
 	print "</table></div>\n\n";
 	if ( !$self->{'curate'} ) {
-		$self->_print_plugin_buttons( $qryref, $records );
+		$self->_print_plugin_buttons($records);
 	}
 	print "</div>\n";
 	$sql->finish if $sql;
@@ -912,7 +906,7 @@ sub _print_profile_table {
 }
 
 sub _print_plugin_buttons {
-	my ( $self, $qry_ref, $records ) = @_;
+	my ( $self, $records ) = @_;
 	my $q = $self->{'cgi'};
 	return if $q->param('page') eq 'customize';
 	return if $q->param('page') eq 'tableQuery' && any { $q->param('table') eq $_ } qw(sequences samples history profile_history);
@@ -920,13 +914,7 @@ sub _print_plugin_buttons {
 	my $plugin_categories =
 	  $self->{'pluginManager'}->get_plugin_categories( 'postquery', $self->{'system'}->{'dbtype'}, { seqdb_type => $seqdb_type } );
 	if (@$plugin_categories) {
-		print "\n<h2>Analysis tools:</h2>\n<div class=\"scrollable\">\n<table>";
-		my $query_temp_file_written = 0;
-		my ( $filename, $full_file_path );
-		do {
-			$filename       = BIGSdb::Utils::get_random() . '.txt';
-			$full_file_path = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
-		} until ( !-e $full_file_path );
+		say "\n<h2>Analysis tools:</h2>\n<div class=\"scrollable\">\n<table>";
 		my $set_id = $self->get_set_id;
 		foreach (@$plugin_categories) {
 			my $cat_buffer;
@@ -938,13 +926,6 @@ sub _print_plugin_buttons {
 			);
 			if (@$plugin_names) {
 				my $plugin_buffer;
-				if ( !$query_temp_file_written ) {
-					open( my $fh, '>', $full_file_path );
-					local $" = "\n";
-					print $fh $$qry_ref;
-					close $fh;
-					$query_temp_file_written = 1;
-				}
 				$q->param( 'calling_page', $q->param('page') );
 				foreach (@$plugin_names) {
 					my $att = $self->{'pluginManager'}->get_plugin_attributes($_);
@@ -955,8 +936,7 @@ sub _print_plugin_buttons {
 					$q->param( 'page', 'plugin' );
 					$q->param( 'name', $att->{'module'} );
 					$plugin_buffer .= $q->hidden($_) foreach qw (db page name calling_page scheme_id locus);
-					$plugin_buffer .= $q->hidden( 'query_file', $filename )
-					  if ( $att->{'input'} // '' ) eq 'query';
+					$plugin_buffer .= $q->hidden('query_file') if ( $att->{'input'} // '' ) eq 'query';
 					$plugin_buffer .= $q->submit( -label => ( $att->{'buttontext'} || $att->{'menutext'} ), -class => 'pagebar' );
 					$plugin_buffer .= $q->end_form;
 					$plugin_buffer .= '</td>';
@@ -968,9 +948,9 @@ sub _print_plugin_buttons {
 					$cat_buffer .= "</tr>\n";
 				}
 			}
-			print "$cat_buffer</table></td></tr>\n" if $cat_buffer;
+			say "$cat_buffer</table></td></tr>" if $cat_buffer;
 		}
-		print "</table></div>\n";
+		say "</table></div>";
 	}
 	return;
 }
@@ -1297,8 +1277,8 @@ sub _print_publication_table {
 		my $author_filter = $q->param('author');
 		next if ( $author_filter && $author_filter ne 'All authors' && $refdata->{'authors'} !~ /$author_filter/ );
 		$refdata->{'year'} ||= '';
-		$buffer .=
-"<tr class=\"td$td\"><td><a href='http://www.ncbi.nlm.nih.gov/pubmed/$refdata->{'pmid'}'>$refdata->{'pmid'}</a></td><td>$refdata->{'year'}</td><td style=\"text-align:left\">";
+		$buffer .= "<tr class=\"td$td\"><td><a href='http://www.ncbi.nlm.nih.gov/pubmed/$refdata->{'pmid'}'>$refdata->{'pmid'}</a></td>"
+		  . "<td>$refdata->{'year'}</td><td style=\"text-align:left\">";
 		if ( !$refdata->{'authors'} && !$refdata->{'title'} ) {
 			$buffer .= "No details available.</td>\n";
 		} else {

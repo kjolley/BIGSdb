@@ -201,7 +201,7 @@ sub print_content {
 			$self->_print_profile_query_interface;
 		}
 	}
-	if ( $q->param('submit') || defined $q->param('query') ) {
+	if ( $q->param('submit') || defined $q->param('query_file') ) {
 		if ( $system->{'dbtype'} eq 'isolates' ) {
 			$self->_run_isolate_query;
 		} else {

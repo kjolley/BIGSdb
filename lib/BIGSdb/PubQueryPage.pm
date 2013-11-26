@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,7 @@
 package BIGSdb::PubQueryPage;
 use strict;
 use warnings;
+use 5.010;
 use Error qw(:try);
 use parent qw(BIGSdb::ResultsTablePage);
 use Log::Log4perl qw(get_logger);
@@ -30,27 +31,27 @@ sub print_content {
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
 	my %att       = (
-		'dbase_name' => $self->{'config'}->{'ref_db'},
-		'host'       => $system->{'host'},
-		'port'       => $system->{'port'},
-		'user'       => $system->{'user'},
-		'password'   => $system->{'pass'}
+		dbase_name => $self->{'config'}->{'ref_db'},
+		host       => $system->{'host'},
+		port       => $system->{'port'},
+		user       => $system->{'user'},
+		password   => $system->{'pass'}
 	);
-	print "<h1>Publications cited in the $system->{'description'} database</h1>\n";
+	say "<h1>Publications cited in the $system->{'description'} database</h1>";
 	my $dbr;
 	my $continue = 1;
 	try {
 		$dbr = $self->{'dataConnector'}->get_connection( \%att );
-	} catch BIGSdb::DatabaseConnectionException with {
-		print "<div class=\"box\" id=\"statusbad\"><p>No connection to reference database</p></div>\n";
+	}
+	catch BIGSdb::DatabaseConnectionException with {
+		say "<div class=\"box\" id=\"statusbad\"><p>No connection to reference database</p></div>";
 		$continue = 0;
 	};
 	return if !$continue;
-	
 	if ( $system->{'dbtype'} eq 'isolates' ) {
 		my $ref_count = $self->{'datastore'}->run_simple_query("SELECT COUNT (DISTINCT pubmed_id) FROM refs")->[0];
 		if ( !$ref_count ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>No isolates have been linked to PubMed records.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>No isolates have been linked to PubMed records.</p></div>";
 			return;
 		}
 	} else {
@@ -58,18 +59,28 @@ sub print_content {
 		  $self->{'datastore'}->run_simple_query( "SELECT COUNT (DISTINCT pubmed_id) FROM profile_refs WHERE scheme_id=?", $scheme_id )
 		  ->[0];
 		if ( !$ref_count ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>No profiles have been linked to PubMed records.</p></div>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>No profiles have been linked to PubMed records.</p></div>";
 			return;
 		}
 	}
-	if ( !$q->param('query') ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>No query has been passed.</p></div>\n";
+	my $pmid = $q->param('pmid');
+	if ( !$pmid ) {
+		say "<div class=\"box\" id=\"statusbad\"><p>No pmid passed.</p>";
 		return;
 	}
-	$q->param('query') =~ /pubmed_id=\'(\d*)\'/;
-	my $pmid = $q->param('pmid') || $1;
-	print "<h2>Citation query (PubMed id: $pmid)</h2>\n";
-	print "<div class=\"box\" id=\"abstract\">\n";
+	my $qry;
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		$qry = "SELECT * FROM $self->{'system'}->{'view'} LEFT JOIN refs on refs.isolate_id=$self->{'system'}->{'view'}.id "
+		  . "WHERE pubmed_id=$pmid ORDER BY $self->{'system'}->{'view'}.id;";
+	} else {
+		my $scheme_id = $q->param('scheme_id') // 0;
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+		my $primary_key = $scheme_info->{'primary_key'};
+		$qry = "SELECT * FROM profile_refs LEFT JOIN scheme_$scheme_id on profile_refs.profile_id=scheme_$scheme_id\.$primary_key "
+		  . "WHERE pubmed_id=$pmid AND profile_refs.scheme_id=$scheme_id ORDER BY $primary_key";
+	}
+	say "<h2>Citation query (PubMed id: $pmid)</h2>";
+	say "<div class=\"box\" id=\"abstract\">";
 	my $sql  = $dbr->prepare("SELECT year,journal,volume,pages,title,abstract FROM refs WHERE pmid=?");
 	my $sql2 = $dbr->prepare("SELECT surname,initials FROM authors WHERE id=?");
 	my $sql3 = $dbr->prepare("SELECT author FROM refauthors WHERE pmid=? ORDER BY position");
@@ -91,23 +102,23 @@ sub print_content {
 		$temp .= "$surname $initials, ";
 	}
 	$temp =~ s/, $// if $temp;
-	$abstract = "No abstract available" if !$abstract; 
-	print "<p>\n";
-	print "$temp\n" if $temp;
-	print " ($year)\n" if $year;
-	print " <i>$journal</i> <b>$volume:</b>$pages<br />\n" if $journal && $volume && $pages; 	
+	$abstract = "No abstract available" if !$abstract;
+	say "<p>";
+	say "$temp"                                        if $temp;
+	say " ($year)"                                     if $year;
+	say " <i>$journal</i> <b>$volume:</b>$pages<br />" if $journal && $volume && $pages;
 	if ($title) {
-		print "<b>$title</b><br />\n";
-		print "$abstract</p>\n";
+		say "<b>$title</b><br />";
+		say "$abstract</p>";
 	} else {
-		print "No details available for this publication.</p>";
+		say "No details available for this publication.</p>";
 	}
-	print "</div>\n";
+	say "</div>";
 	$sql->finish;
 	$sql2->finish;
-	$q->param( 'curate', 1 ) if $self->{'curate'};
+	$q->param( curate => 1 ) if $self->{'curate'};
 	$self->paged_display( $system->{'dbtype'} eq 'isolates' ? $self->{'system'}->{'view'} : 'profiles',
-		$q->param('query'), '', [qw (curate scheme_id)] );
+		$qry, '', [qw (curate scheme_id pmid)] );
 	return;
 }
 

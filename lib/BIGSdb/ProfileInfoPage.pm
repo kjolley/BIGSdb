@@ -334,12 +334,9 @@ sub get_link_button_to_ref {
 	$logger->error($@) if $@;
 	my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
 	my $order_by = $pk_info->{'type'} eq 'integer' ? "lpad($primary_key,20,'0')" : $primary_key;
-	$q->param( 'query',
-		    "SELECT * FROM profile_refs LEFT JOIN scheme_$scheme_id on profile_refs.profile_id=scheme_$scheme_id\.$primary_key "
-		  . "WHERE pubmed_id='$ref' AND profile_refs.scheme_id='$scheme_id' ORDER BY $order_by" );
-	$q->param( 'pmid', $ref );
-	$q->param( 'page', 'pubquery' );
-	$buffer .= $q->hidden($_) foreach qw (db query pmid page curate scheme_id);
+	$q->param( pmid => $ref );
+	$q->param( page => 'pubquery' );
+	$buffer .= $q->hidden($_) foreach qw (db pmid page curate scheme_id);
 	my $plural = $count == 1 ? '' : 's';
 	$buffer .= $q->submit( -value => "$count profile$plural", -class => 'smallbutton' );
 	$buffer .= $q->end_form;

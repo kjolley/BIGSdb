@@ -384,7 +384,7 @@ sub is_scheme_invalid {
 		}
 	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
-	if ( !$scheme_info && !($scheme_id == 0 && $options->{'all_loci'}) ) {
+	if ( !$scheme_info && !( $scheme_id == 0 && $options->{'all_loci'} ) ) {
 		say "<div class=\"box\" id=\"statusbad\">Scheme does not exist.</p></div>";
 		return 1;
 	}
@@ -415,7 +415,7 @@ sub print_scheme_section {
 		push @ids, $scheme->{'id'};
 		$desc{ $scheme->{'id'} } = $scheme->{'description'};
 	}
-	if ($options->{'all_loci'}){
+	if ( $options->{'all_loci'} ) {
 		push @ids, 0;
 		$desc{0} = 'All loci';
 	}
@@ -1156,16 +1156,13 @@ sub get_link_button_to_ref {
 	my $plural = $count == 1 ? '' : 's';
 	my $q = $self->{'cgi'};
 	$buffer .= $q->start_form( -style => 'display:inline' );
-	$q->param( 'curate', 1 ) if $self->{'curate'};
-	$q->param( 'query',
-		    "SELECT * FROM $self->{'system'}->{'view'} LEFT JOIN refs on refs.isolate_id=$self->{'system'}->{'view'}.id "
-		  . "WHERE pubmed_id='$ref' ORDER BY $self->{'system'}->{'view'}.id;" );
-	$q->param( 'pmid', $ref );
-	$q->param( 'page', 'pubquery' );
-	$buffer .= $q->hidden($_) foreach qw(db page query curate pmid);
+	$q->param( curate => 1 ) if $self->{'curate'};
+	$q->param( pmid => $ref );
+	$q->param( page => 'pubquery' );
+	$buffer .= $q->hidden($_) foreach qw(db page curate pmid);
 	$buffer .= $q->submit( -value => "$count isolate$plural", -class => $options->{'class'} // 'smallbutton' );
 	$buffer .= $q->end_form;
-	$q->param( 'page', 'info' );
+	$q->param( page => 'info' );
 	return $buffer;
 }
 
@@ -1485,6 +1482,18 @@ sub make_temp_file {
 	print $fh "@list";
 	close $fh;
 	return $filename;
+}
+
+sub get_query_from_temp_file {
+	my ( $self, $file ) = @_;
+	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$file";
+	if ( -e $full_path ) {
+		open( my $fh, '<', $full_path ) || $logger->error("Can't open $full_path for reading");
+		my $qry = <$fh>;
+		close $fh;
+		return $qry;
+	}
+	return;
 }
 
 sub mark_cache_stale {
@@ -1978,19 +1987,6 @@ sub clean_checkbox_id {
 	$var =~ s/\>/_GT_/g;
 	$var =~ tr/:/_/;
 	return $var;
-}
-
-sub get_query_from_file {
-	my ( $self, $filename ) = @_;
-	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
-	my $qry;
-	if ( -e $full_path ) {
-		if ( open( my $fh, '<', $full_path ) ) {
-			$qry = <$fh>;
-			close $fh;
-		}
-	}
-	return \$qry;
 }
 
 sub get_all_foreign_key_fields_and_labels {

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011, University of Oxford
+#Copyright (c) 2011-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,7 @@
 package BIGSdb::CurateExportConfig;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::CuratePage);
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
@@ -27,23 +28,25 @@ my $logger = get_logger('BIGSdb.Page');
 sub initiate {
 	my ($self) = @_;
 	$self->{'type'} = 'text';
+	return;
 }
 
 sub print_content {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $table  = $q->param('table');
-	if ( !$self->{'datastore'}->is_table($table) && !($table eq 'samples' && @{$self->{'xmlHandler'}->get_sample_field_list})) {
-		print "Table '$table' is not defined.\n";
+	if ( !$self->{'datastore'}->is_table($table) && !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) ) {
+		say "Table '$table' is not defined.";
 		return;
 	}
-	my $qry = $q->param('query');
+	my $query_file = $q->param('query_file');
+	my $qry        = $self->get_query_from_temp_file($query_file);
 	if ( !$qry ) {
-		print "No query passed.\n";
+		say "No query passed.";
 		return;
 	}
 	if ( any { lc($qry) =~ /;\s*$_\s/ } (qw (insert delete update alter create drop)) ) {
-		print "Invalid query passed.\n";
+		say "Invalid query passed.";
 		$logger->warn("Malicious SQL injection attempt '$qry'");
 		return;
 	}
@@ -96,6 +99,7 @@ sub print_content {
 			$self->_print_table_data( 'client_dbase_schemes', $qry );
 		}
 	}
+	return;
 }
 
 sub _print_table_data {
@@ -110,22 +114,23 @@ sub _print_table_data {
 		push @header, $_->{'name'};
 		push @fields, "$table.$_->{'name'}";
 	}
-	$" = "\t";
-	print "$table\n";
+	local $" = "\t";
+	say "$table";
 	print '-' x length $table;
 	print "\n";
-	print "@header\n";
-	$" = ',';
+	say "@header";
+	local $" = ',';
 	my $fields = "@fields";
 	$qry =~ s/\*/$fields/;
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
 	$logger->error($@) if $@;
-	$" = "\t";
+	local $" = "\t";
 
 	while ( my @data = $sql->fetchrow_array ) {
 		no warnings 'uninitialized';
-		print "@data\n";
+		say "@data";
 	}
+	return;
 }
 1;

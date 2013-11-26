@@ -1,6 +1,6 @@
 #PublicationBreakdown.pm - PublicationBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -56,22 +56,26 @@ sub set_pref_requirements {
 }
 
 sub run {
-	my ($self)     = @_;
-	my $q          = $self->{'cgi'};
-	my $query_file = $q->param('query_file');
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
 	say "<h1>Publication breakdown of dataset</h1>";
 	if ( !$self->{'config'}->{'ref_db'} ) {
 		say "<div class=\"box\" id=\"statusbad\">No reference database has been defined.</p></div>";
 		return;
 	}
 	my %prefs;
+	my $query_file = $q->param('query_file');
+	if ( !$query_file ) {
+		$query_file = $self->make_temp_file("SELECT * FROM $self->{'system'}->{'view'}");
+		$q->param( query_file => $query_file );
+	}
 	my $qry_ref = $self->get_query($query_file);
 	return if ref $qry_ref ne 'SCALAR';
 	my $qry = $$qry_ref;
 	$qry =~ s/ORDER BY.*$//g;
 	my $isolate_qry = $qry;
 	$logger->debug("Breakdown query: $qry");
-	return if !$self->create_temp_tables($qry_ref);
+	return if !$self->create_temp_tables( \$qry );
 	$qry =~ s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT id FROM $self->{'system'}->{'view'}/;
 	my $new_qry = "SELECT DISTINCT(refs.pubmed_id) FROM refs WHERE refs.isolate_id IN ($qry)";
 	my $sql     = $self->{'db'}->prepare($new_qry);
@@ -87,7 +91,7 @@ sub run {
 		say "<div class=\"box\" id=\"queryform\">";
 		say $q->startform;
 		$q->param( 'all_records', 1 ) if !$query_file;
-		say $q->hidden($_) foreach qw (db name query_file page all_records);
+		say $q->hidden($_) foreach qw (db name page all_records);
 		say "<fieldset style=\"float:left\"><legend>Filter query by</legend>";
 		my $author_list = $self->_get_author_list;
 		say "<ul><li><label for=\"author_list\" class=\"display\">Author:</label>";
@@ -95,7 +99,7 @@ sub run {
 		say "</li>\n<li><label for=\"year_list\" class=\"display\">Year:</label>";
 		my $year_list = $self->{'datastore'}->run_list_query("SELECT DISTINCT year FROM temp_refs ORDER BY year");
 		unshift @$year_list, 'All years';
-		print $q->popup_menu( -name => 'year_list', -id => 'year_list', -values => $year_list );
+		say $q->popup_menu( -name => 'year_list', -id => 'year_list', -values => $year_list );
 		say "</li>\n</ul>\n</fieldset>";
 		say "<fieldset style=\"float:left\"><legend>Display</legend>";
 		say "<ul><li><label for=\"order\" class=\"display\">Order by: </label>";
@@ -105,7 +109,7 @@ sub run {
 		say $q->popup_menu(
 			-name    => 'direction',
 			-values  => [qw (asc desc)],
-			-labels  => { 'asc' => 'ascending', 'desc' => 'descending' },
+			-labels  => { asc => 'ascending', desc => 'descending' },
 			-default => 'desc'
 		);
 		say "</li>\n<li><label for=\"displayrecs\" class=\"display\">Display: </label>";
@@ -117,7 +121,7 @@ sub run {
 			-default => $self->{'prefs'}->{'displayrecs'}
 		);
 		say " records per page</li>\n</ul></fieldset>";
-		$self->print_action_fieldset( { no_reset => 1 } );	
+		$self->print_action_fieldset( { no_reset => 1 } );
 		say $q->endform;
 		say "</div>";
 		my @filters;
@@ -134,8 +138,8 @@ sub run {
 		my $order = ( any { defined $q->param('order') && $q->param('order') eq $_ } @order_list ) ? $q->param('order') : 'isolates';
 		my $dir = ( any { defined $q->param('direction') && $q->param('direction') eq $_ } qw(desc asc) ) ? $q->param('direction') : 'desc';
 		my $refquery          = "SELECT * FROM temp_refs$filter_string ORDER BY $order $dir;";
-		my @hidden_attributes = qw (name all_records author_list year_list query_file);
-		$self->paged_display( 'refs', $refquery, '', \@hidden_attributes );
+		my @hidden_attributes = qw (name all_records author_list year_list);
+		$self->paged_display( 'refs', $refquery, '', \@hidden_attributes, undef, $query_file );
 		return;
 	}
 }
