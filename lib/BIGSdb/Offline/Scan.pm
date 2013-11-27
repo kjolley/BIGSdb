@@ -146,19 +146,18 @@ sub blast {
 		my $word_size = $program eq 'blastn' ? $blastn_word_size : 3;
 		my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
 		my $filter = $program eq 'blastn' ? 'dust' : 'seg';
-		system(
-			"$self->{'config'}->{'blast+_path'}/$program",
-			(
-				-num_threads     => $blast_threads,
-				-max_target_seqs => 1000,
-				-word_size       => $word_size,
-				-db              => $temp_fastafile,
-				-query           => $temp_infile,
-				-out             => $temp_outfile,
-				-outfmt          => 6,
-				"-$filter"       => 'no'
-			)
+		my %params = (
+			-num_threads     => $blast_threads,
+			-max_target_seqs => 1000,
+			-word_size       => $word_size,
+			-db              => $temp_fastafile,
+			-query           => $temp_infile,
+			-out             => $temp_outfile,
+			-outfmt          => 6,
+			-$filter         => 'no'
 		);
+		$params{'-comp_based_stats'} = 0 if $program ne 'blastn';    #Will not return some matches with low-complexity regions otherwise.
+		system( "$self->{'config'}->{'blast+_path'}/$program", %params );
 		my ( $exact_matches, $matched_regions, $partial_matches );
 		my $pcr_filter   = !$params->{'pcr_filter'}   ? 0 : $locus_info->{'pcr_filter'};
 		my $probe_filter = !$params->{'probe_filter'} ? 0 : $locus_info->{'probe_filter'};
