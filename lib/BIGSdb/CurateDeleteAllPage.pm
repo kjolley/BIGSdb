@@ -137,7 +137,6 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 	}
 	$delete_qry =~ s/^SELECT \*/DELETE/;
 	my $scheme_ids;
-	my $profiles_affected;
 	my $schemes_affected;
 	if ( $table eq 'loci' && $delete_qry =~ /JOIN scheme_members/ && $delete_qry !~ /scheme_id is null/ ) {
 		$schemes_affected = 1;
@@ -156,23 +155,6 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 		$scheme_qry =~ s/SELECT \*/SELECT id/;
 		$scheme_qry =~ s/ORDER BY.*//;
 		$scheme_ids = $self->{'datastore'}->run_list_query($scheme_qry);
-	} elsif ( $table eq 'sequences' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		my $seq_qry = $query;
-		$seq_qry =~ s/SELECT \*/SELECT locus,allele_id/;
-		$seq_qry =~ s/ORDER BY.*//;
-		my $seq_sql = $self->{'db'}->prepare($seq_qry);
-		eval { $seq_sql->execute };
-		$logger->error($@) if $@;
-		my @alleles;
-		while ( my ( $locus, $allele_id ) = $seq_sql->fetchrow_array ) {
-			$locus =~ s/'/\\'/g;
-			push @alleles, "locus='$locus' AND allele_id='$allele_id'";
-		}
-		if (@alleles) {
-			local $" = ') OR (';
-			$profiles_affected =
-			  $self->{'datastore'}->run_simple_query("SELECT COUNT (DISTINCT profile_id) FROM profile_members WHERE (@alleles)")->[0];
-		}
 	} elsif ( $table eq 'allele_designations' ) {
 
 		#Update isolate history if removing allele_designations, allele_sequences, aliases
@@ -186,12 +168,7 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 			push @allele_designations, "$isolate_id|$locus";
 		}
 	}
-	if ($profiles_affected) {
-		my $plural = $profiles_affected == 1 ? '' : 's';
-		say "<div class=\"box\" id=\"statusbad\"><p>Alleles are referenced by $profiles_affected allelic profile$plural - "
-		  . "can not delete!</p></div>";
-		return;
-	} elsif ($schemes_affected) {
+	if ($schemes_affected) {
 		say "<div class=\"box\" id=\"statusbad\"><p>Deleting these loci would affect scheme definitions - can not delete!</p></div>\n";
 		return;
 	}
@@ -217,7 +194,11 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 	if ($@) {
 		say "<div class=\"box\" id=\"statusbad\"><p>Delete failed - transaction cancelled - no records have been touched.</p>";
 		if ( $@ =~ /foreign key/ ) {
-			say "<p>Selected records are referred to by other tables and can not be deleted.</p></div>";
+			say "<p>Selected records are referred to by other tables and can not be deleted.</p>";
+			if ( $table eq 'sequences' ) {
+				say "<p>Alleles can belong to profiles so check these.</p>";
+			}
+			say "</div>";
 			$logger->debug($@);
 		} else {
 			say "<p>This is a bug in the software or database structure.  Please report this to the database administrator. "
