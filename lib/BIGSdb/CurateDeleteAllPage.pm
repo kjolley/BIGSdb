@@ -78,7 +78,7 @@ sub print_content {
 		}
 	}
 	if ( $q->param('deleteAll') ) {
-		$self->_delete( $table, $query_file );
+		$self->_delete( $table, $query );
 	} else {
 		$self->_print_interface( $table, $query_file );
 	}
@@ -86,8 +86,7 @@ sub print_content {
 }
 
 sub _delete {
-	my ( $self, $table, $query_file ) = @_;
-	my $query      = $self->get_query_from_temp_file($query_file);
+	my ( $self, $table, $query ) = @_;
 	my $delete_qry = $query;
 	my $q          = $self->{'cgi'};
 	if (
