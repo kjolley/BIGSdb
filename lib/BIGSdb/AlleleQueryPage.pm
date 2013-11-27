@@ -461,7 +461,9 @@ sub _run_query {
 		print "<p>@errors</p></div>\n";
 	} else {
 		$qry2 =~ s/AND \(\)//;
-		$self->paged_display( { table => 'sequences', query => $qry2, hidden_attributes => \@hidden_attributes } );
+		my $args = { table => 'sequences', query => $qry2, hidden_attributes => \@hidden_attributes };
+		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
+		$self->paged_display($args);
 		print "\n";
 	}
 	return;

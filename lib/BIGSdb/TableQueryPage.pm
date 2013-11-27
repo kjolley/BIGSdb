@@ -576,7 +576,9 @@ s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bi
 				  || $qry =~ s/FROM $table/FROM $table WHERE isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})/;
 			}
 		}
-		$self->paged_display( { table => $table, query => $qry2, hidden_attributes => \@hidden_attributes } );
+		my $args = { table => $table, query => $qry2, hidden_attributes => \@hidden_attributes };
+		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
+		$self->paged_display($args);
 	} else {
 		my $qry = "SELECT * FROM $table";
 		if ( $table eq 'sequences' ) {
@@ -594,7 +596,9 @@ s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bi
 		my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
 		local $" = ",$table.";
 		$qry .= " $dir,$table.@primary_keys;";
-		$self->paged_display( { table => $table, query => $qry, hidden_attributes => \@hidden_attributes } );
+		my $args = { table => $table, query => $qry, hidden_attributes => \@hidden_attributes };
+		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
+		$self->paged_display($args);
 	}
 	return;
 }

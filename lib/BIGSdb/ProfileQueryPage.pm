@@ -444,8 +444,9 @@ sub _run_query {
 		push @hidden_attributes, "l_$_" foreach @$loci;
 		push @hidden_attributes, qw(scheme_id matches_list);
 		my $table = $self->{'system'}->{'dbtype'} eq 'isolates' ? $self->{'system'}->{'view'} : 'profiles';
-		$self->paged_display(
-			{ table => $table, query => $qry, message => $msg, hidden_attributes => \@hidden_attributes, count => $count } );
+		my $args = { table => $table, query => $qry, message => $msg, hidden_attributes => \@hidden_attributes, count => $count };
+		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
+		$self->paged_display($args);
 	} else {
 		say "<div class=\"box\" id=\"statusbad\">Invalid search performed.</div>";
 	}

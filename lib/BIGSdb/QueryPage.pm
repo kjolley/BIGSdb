@@ -792,7 +792,9 @@ sub _run_isolate_query {
 		my $view = $self->{'system'}->{'view'};
 		$qry =~ s/ datestamp/ $view\.datestamp/g;     #datestamp exists in other tables and can be ambiguous on complex queries
 		$qry =~ s/\(datestamp/\($view\.datestamp/g;
-		$self->paged_display( { table => $self->{'system'}->{'view'}, query => $qry, hidden_attributes => \@hidden_attributes } );
+		my $args = { table => $self->{'system'}->{'view'}, query => $qry, hidden_attributes => \@hidden_attributes };
+		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
+		$self->paged_display($args);
 	} else {
 		say "<div class=\"box\" id=\"statusbad\">Invalid search performed.  Try to <a href=\"$self->{'system'}->{'script_name'}?db="
 		  . "$self->{'instance'}&amp;page=browse\">browse all records</a>.</div>";
@@ -1670,7 +1672,9 @@ sub _run_profile_query {
 			push @hidden_attributes, $_ . '_list';
 		}
 		push @hidden_attributes, qw (publication_list scheme_id no_js);
-		$self->paged_display( { table => 'profiles', query => $qry, hidden_attributes => \@hidden_attributes } );
+		my $args = { table => 'profiles', query => $qry, hidden_attributes => \@hidden_attributes };
+		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
+		$self->paged_display($args);
 	} else {
 		say "<div class=\"box\" id=\"statusbad\">Invalid search performed. Try to <a href=\"$self->{'system'}->{'script_name'}?db="
 		  . "$self->{'instance'}&amp;page=browse&amp;scheme_id=$scheme_id\">browse all records</a>.</div>";

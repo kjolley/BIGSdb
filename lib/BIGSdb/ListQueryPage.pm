@@ -198,7 +198,9 @@ sub _run_profile_query {
 	my $profile_id_field = $pk_field_info->{'type'} eq 'integer' ? "lpad($primary_key,20,'0')" : $primary_key;
 	$qry .= " $dir,$profile_id_field;";
 	my @hidden_attributes = qw(list attribute scheme_id);
-	$self->paged_display( { table => 'profiles', query => $qry, hidden_attributes => \@hidden_attributes } );
+	my $args = { table => 'profiles', query => $qry, hidden_attributes => \@hidden_attributes };
+	$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
+	$self->paged_display($args);
 	return;
 }
 
@@ -332,7 +334,9 @@ sub _run_isolate_query {
 	my $dir = $q->param('direction') eq 'descending' ? 'desc' : 'asc';
 	$qry .= " $dir,$self->{'system'}->{'view'}.id;";
 	my @hidden_attributes = qw(list attribute);
-	$self->paged_display( { table => $self->{'system'}->{'view'}, query => $qry, hidden_attributes => \@hidden_attributes } );
+	my $args = { table => $self->{'system'}->{'view'}, query => $qry, hidden_attributes => \@hidden_attributes };
+	$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
+	$self->paged_display($args);
 	return;
 }
 

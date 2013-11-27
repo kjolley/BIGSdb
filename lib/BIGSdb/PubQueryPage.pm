@@ -118,7 +118,9 @@ sub print_content {
 	$sql2->finish;
 	$q->param( curate => 1 ) if $self->{'curate'};
 	my $table = $system->{'dbtype'} eq 'isolates' ? $self->{'system'}->{'view'} : 'profiles';
-	$self->paged_display( { table => $table, query => $qry, hidden_attributes => [qw (curate scheme_id pmid)] } );
+	my $args = { table => $table, query => $qry, hidden_attributes => [qw (curate scheme_id pmid)] };
+	$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
+	$self->paged_display($args);
 	return;
 }
 
