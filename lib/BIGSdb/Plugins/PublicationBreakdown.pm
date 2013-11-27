@@ -139,7 +139,8 @@ sub run {
 		my $dir = ( any { defined $q->param('direction') && $q->param('direction') eq $_ } qw(desc asc) ) ? $q->param('direction') : 'desc';
 		my $refquery          = "SELECT * FROM temp_refs$filter_string ORDER BY $order $dir;";
 		my @hidden_attributes = qw (name all_records author_list year_list);
-		$self->paged_display( 'refs', $refquery, '', \@hidden_attributes, undef, $query_file );
+		$self->paged_display(
+			{ table => 'refs', query => $refquery, hidden_attributes => \@hidden_attributes, passed_qry_file => $query_file } );
 		return;
 	}
 }

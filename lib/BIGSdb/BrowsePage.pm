@@ -125,7 +125,7 @@ sub print_content {
 		my $dir = $q->param('direction') && $q->param('direction') eq 'descending' ? 'desc' : 'asc';
 		if ( $system->{'dbtype'} eq 'isolates' ) {
 			my $qry = "SELECT * FROM $system->{'view'} ORDER BY $order $dir,$self->{'system'}->{'view'}.id;";
-			$self->paged_display( $self->{'system'}->{'view'}, $qry );
+			$self->paged_display( { table => $self->{'system'}->{'view'}, query => $qry } );
 		} elsif ( $system->{'dbtype'} eq 'sequences' ) {
 			my $pk_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
 			my $profile_id_field =
@@ -140,7 +140,7 @@ sub print_content {
 			my $scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
 			$qry .= "SELECT * FROM $scheme_view ORDER BY "
 			  . ( $order ne $scheme_info->{'primary_key'} ? "$order $dir,$profile_id_field;" : "$profile_id_field $dir;" );
-			$self->paged_display( 'profiles', $qry, '', ['scheme_id'] );
+			$self->paged_display( { table => 'profiles', query => $qry, hidden_attributes => ['scheme_id'] } );
 		}
 	}
 	return;

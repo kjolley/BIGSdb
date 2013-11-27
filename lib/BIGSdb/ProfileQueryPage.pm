@@ -56,7 +56,7 @@ sub print_content {
 		$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
 		$self->_print_query_interface($scheme_id);
 	}
-	if (   defined $q->param('query')
+	if (   defined $q->param('query_file')
 		or defined $q->param('submit') )
 	{
 		$self->_run_query($scheme_id);
@@ -442,9 +442,10 @@ sub _run_query {
 		push @hidden_attributes, $_ foreach qw(scheme matches project_list);
 		my $loci = $self->{'datastore'}->get_scheme_loci( $q->param('scheme_id') );
 		push @hidden_attributes, "l_$_" foreach @$loci;
-		push @hidden_attributes, 'scheme_id';
-		$self->paged_display( $self->{'system'}->{'dbtype'} eq 'isolates' ? $self->{'system'}->{'view'} : 'profiles',
-			$qry, $msg, \@hidden_attributes, $count );
+		push @hidden_attributes, qw(scheme_id matches_list);
+		my $table = $self->{'system'}->{'dbtype'} eq 'isolates' ? $self->{'system'}->{'view'} : 'profiles';
+		$self->paged_display(
+			{ table => $table, query => $qry, message => $msg, hidden_attributes => \@hidden_attributes, count => $count } );
 	} else {
 		say "<div class=\"box\" id=\"statusbad\">Invalid search performed.</div>";
 	}

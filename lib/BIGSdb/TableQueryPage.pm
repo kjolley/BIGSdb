@@ -76,7 +76,7 @@ sub print_content {
 	}
 	if ( $q->param('submit') || defined $q->param('query') || defined $q->param('t1') ) {
 		$self->_run_query;
-	} 
+	}
 	return;
 }
 
@@ -459,7 +459,8 @@ sub _run_query {
 		$self->_modify_schemes_for_sets( $table, \$qry );
 		if (   ( $q->param('scheme_id_list') // '' ) ne ''
 			&& BIGSdb::Utils::is_int( $q->param('scheme_id_list') )
-			&& any { $table eq $_ } qw (loci scheme_fields schemes scheme_members client_dbase_schemes allele_designations allele_sequences) )
+			&& any { $table eq $_ }
+			qw (loci scheme_fields schemes scheme_members client_dbase_schemes allele_designations allele_sequences) )
 		{
 			my $scheme_id = $q->param('scheme_id_list');
 			my $set_id    = $self->get_set_id;
@@ -575,7 +576,7 @@ s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bi
 				  || $qry =~ s/FROM $table/FROM $table WHERE isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})/;
 			}
 		}
-		$self->paged_display( $table, $qry2, '', \@hidden_attributes );
+		$self->paged_display( { table => $table, query => $qry2, hidden_attributes => \@hidden_attributes } );
 	} else {
 		my $qry = "SELECT * FROM $table";
 		if ( $table eq 'sequences' ) {
@@ -593,7 +594,7 @@ s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bi
 		my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
 		local $" = ",$table.";
 		$qry .= " $dir,$table.@primary_keys;";
-		$self->paged_display( $table, $qry, '', \@hidden_attributes );
+		$self->paged_display( { table => $table, query => $qry, hidden_attributes => \@hidden_attributes } );
 	}
 	return;
 }

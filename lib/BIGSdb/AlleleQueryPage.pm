@@ -232,7 +232,7 @@ sub _print_query_interface {
 	say "</li></ul></fieldset>";
 	say "<fieldset style=\"float:left\"><legend>Filter query by</legend>";
 	say "<ul>\n<li>";
-	say $self->get_filter( 'status', [ SEQ_STATUS ], { class => 'display' } );
+	say $self->get_filter( 'status', [SEQ_STATUS], { class => 'display' } );
 	say "</li><li>";
 
 	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
@@ -240,7 +240,7 @@ sub _print_query_interface {
 		say $self->get_filter( 'allele_flag', \@flag_values, { class => 'display' } );
 	}
 	say "</li></ul>\n</fieldset>";
-	$self->print_action_fieldset( {locus => $locus} );
+	$self->print_action_fieldset( { locus => $locus } );
 	say $q->endform;
 	say "</div></div>";
 	return;
@@ -461,7 +461,7 @@ sub _run_query {
 		print "<p>@errors</p></div>\n";
 	} else {
 		$qry2 =~ s/AND \(\)//;
-		$self->paged_display( 'sequences', $qry2, '', \@hidden_attributes );
+		$self->paged_display( { table => 'sequences', query => $qry2, hidden_attributes => \@hidden_attributes } );
 		print "\n";
 	}
 	return;

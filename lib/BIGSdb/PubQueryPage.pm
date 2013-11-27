@@ -117,8 +117,8 @@ sub print_content {
 	$sql->finish;
 	$sql2->finish;
 	$q->param( curate => 1 ) if $self->{'curate'};
-	$self->paged_display( $system->{'dbtype'} eq 'isolates' ? $self->{'system'}->{'view'} : 'profiles',
-		$qry, '', [qw (curate scheme_id pmid)] );
+	my $table = $system->{'dbtype'} eq 'isolates' ? $self->{'system'}->{'view'} : 'profiles';
+	$self->paged_display( { table => $table, query => $qry, hidden_attributes => [qw (curate scheme_id pmid)] } );
 	return;
 }
 
