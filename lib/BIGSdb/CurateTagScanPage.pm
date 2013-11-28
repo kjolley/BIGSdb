@@ -760,8 +760,7 @@ sub _add_scheme_loci {
 	my $q          = $self->{'cgi'};
 	my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY id");
 	push @$scheme_ids, 0;    #loci not belonging to a scheme.
-	my %locus_selected;
-	$locus_selected{$_} = 1 foreach @$loci_ref;
+	my %locus_selected = map { $_ => 1 } @$loci_ref;
 	my $set_id = $self->get_set_id;
 	foreach (@$scheme_ids) {
 		next if !$q->param("s_$_");
