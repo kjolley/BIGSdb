@@ -762,9 +762,11 @@ sub _add_scheme_loci {
 	push @$scheme_ids, 0;    #loci not belonging to a scheme.
 	my %locus_selected;
 	$locus_selected{$_} = 1 foreach @$loci_ref;
+	my $set_id = $self->get_set_id;
 	foreach (@$scheme_ids) {
 		next if !$q->param("s_$_");
-		my $scheme_loci = $_ ? $self->{'datastore'}->get_scheme_loci($_) : $self->{'datastore'}->get_loci_in_no_scheme;
+		my $scheme_loci =
+		  $_ ? $self->{'datastore'}->get_scheme_loci($_) : $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 		foreach my $locus (@$scheme_loci) {
 			if ( !$locus_selected{$locus} ) {
 				push @$loci_ref, "l_$locus";
