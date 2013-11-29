@@ -223,7 +223,7 @@ sub run {
 			$continue = 0;
 		}
 		my $max_genomes =
-		  ( $self->{'system'}->{'genome_comparator_limit'} && BIGSdb::Utils::is_int( $self->{'system'}->{'genome_comparator_limit'} ) )
+		  ( BIGSdb::Utils::is_int( $self->{'system'}->{'genome_comparator_limit'} ) )
 		  ? $self->{'system'}->{'genome_comparator_limit'}
 		  : MAX_GENOMES;
 		if ( @$filtered_ids > $max_genomes ) {
@@ -233,43 +233,19 @@ sub run {
 			  . ".</p></div>";
 			$continue = 0;
 		}
-		my @loci = $q->param('locus');
-		my @cleaned_loci;
-		foreach my $locus (@loci) {
-			my $locus_name = $locus =~ /$pattern/ ? $1 : undef;
-			push @cleaned_loci, $locus_name if defined $locus_name;
-		}
-		my @invalid_loci;
-		my $set_id = $self->get_set_id;
-		if ( $q->param('locus_paste_list') ) {
-			my @list = split /\n/, $q->param('locus_paste_list');
-			foreach my $locus (@list) {
-				next if $locus =~ /^\s*$/;
-				$locus =~ s/^\s*//;
-				$locus =~ s/\s*$//;
-				my $real_name;
-				if ($set_id) {
-					$real_name = $self->{'datastore'}->get_set_locus_real_id( $locus, $set_id );
-				} else {
-					$real_name = $locus;
-				}
-				if ( $self->{'datastore'}->is_locus($real_name) ) {
-					push @cleaned_loci, $real_name;
-				} else {
-					push @invalid_loci, $locus;
-				}
-			}
-		}
+		my $loci_selected = $self->get_selected_loci;
+		my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list;
 		$q->delete('locus');
-		@cleaned_loci = uniq @cleaned_loci;
-		my $accession = $q->param('accession') || $q->param('annotation');
-		if (@invalid_loci) {
+		push @$loci_selected, @$pasted_cleaned_loci;
+		@$loci_selected = uniq @$loci_selected;
+		if (@$invalid_loci) {
 			local $" = ', ';
-			say "<div class=\"box\" id=\"statusbad\"><p>The following loci in your pasted list are invalid: @invalid_loci.</p></div>";
+			say "<div class=\"box\" id=\"statusbad\"><p>The following loci in your pasted list are invalid: @$invalid_loci.</p></div>";
 			$continue = 0;
 		}
-		$self->add_scheme_loci( \@cleaned_loci );
-		if ( !$accession && !$ref_upload && !@cleaned_loci && $continue ) {
+		$self->add_scheme_loci($loci_selected);
+		my $accession = $q->param('accession') || $q->param('annotation');
+		if ( !$accession && !$ref_upload && !@$loci_selected && $continue ) {
 			say "<div class=\"box\" id=\"statusbad\"><p>You must either select one or more loci or schemes, provide "
 			  . "a genome accession number, or upload an annotated genome.</p></div>";
 			$continue = 0;
@@ -283,6 +259,7 @@ sub run {
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		if ($continue) {
 			my $params = $q->Vars;
+			my $set_id = $self->get_set_id;
 			$params->{'set_id'} = $set_id if $set_id;
 			my $att    = $self->get_attributes;
 			my $job_id = $self->{'jobManager'}->add_job(
@@ -295,7 +272,7 @@ sub run {
 					username     => $self->{'username'},
 					email        => $user_info->{'email'},
 					isolates     => $filtered_ids,
-					loci         => \@cleaned_loci,
+					loci         => $loci_selected
 				}
 			);
 			print <<"HTML";

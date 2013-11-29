@@ -127,7 +127,7 @@ sub get_attributes {
 		buttontext  => 'Codons',
 		menutext    => 'Codon usage',
 		module      => 'CodonUsage',
-		version     => '1.1.3',
+		version     => '1.1.4',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -151,9 +151,15 @@ sub run {
 	say "<h1>Codon usage analysis</h1>";
 	if ( $q->param('submit') ) {
 		my $loci_selected = $self->get_selected_loci;
+		my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list;
 		$q->delete('locus');
+		push @$loci_selected, @$pasted_cleaned_loci;
+		@$loci_selected = uniq @$loci_selected;
 		$self->add_scheme_loci($loci_selected);
-		if ( !@$loci_selected ) {
+		if (@$invalid_loci) {
+			local $" = ', ';
+			say "<div class=\"box\" id=\"statusbad\"><p>The following loci in your pasted list are invalid: @$invalid_loci.</p></div>";
+		} elsif ( !@$loci_selected ) {
 			say "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci or schemes.</p></div>";
 		} else {
 			$self->set_scheme_param;

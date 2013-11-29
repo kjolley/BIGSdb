@@ -45,7 +45,7 @@ sub get_attributes {
 		buttontext  => 'Concatenate',
 		menutext    => 'Concatenate alleles',
 		module      => 'Concatenate',
-		version     => '1.2.3',
+		version     => '1.2.4',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		help        => 'tooltips',
@@ -70,7 +70,7 @@ sub run {
 		$pk = 'id';
 	} else {
 		return if defined $scheme_id && $self->is_scheme_invalid( $scheme_id, { with_pk => 1 } );
-		if (!$q->param('submit')){
+		if ( !$q->param('submit') ) {
 			$self->print_scheme_section( { with_pk => 1 } );
 			$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
 		}
@@ -80,12 +80,17 @@ sub run {
 	my $list = $self->get_id_list( $pk, $query_file );
 	@$list = uniq @$list if ref $list eq 'ARRAY';
 	if ( $q->param('submit') ) {
-		my $loci = $self->get_selected_loci;
-		$self->add_scheme_loci($loci);
-		if ( !@$loci ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci";
-			print " or schemes" if $self->{'system'}->{'dbtype'} eq 'isolates';
-			say ".</p></div>";
+		my $loci_selected = $self->get_selected_loci;
+		my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list;
+		$q->delete('locus');
+		push @$loci_selected, @$pasted_cleaned_loci;
+		@$loci_selected = uniq @$loci_selected;
+		$self->add_scheme_loci($loci_selected);
+		if (@$invalid_loci) {
+			local $" = ', ';
+			say "<div class=\"box\" id=\"statusbad\"><p>The following loci in your pasted list are invalid: @$invalid_loci.</p></div>";
+		} elsif ( !@$loci_selected ) {
+			say "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci or schemes.</p></div>";
 		} else {
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 				if ( !@$list ) {
@@ -109,7 +114,7 @@ sub run {
 			print "<p>Output file being generated ...";
 			my $filename    = ( BIGSdb::Utils::get_random() ) . '.txt';
 			my $full_path   = "$self->{'config'}->{'tmp_dir'}/$filename";
-			my $problem_ids = $self->_write_fasta( $list, $loci, $full_path, $pk );
+			my $problem_ids = $self->_write_fasta( $list, $loci_selected, $full_path, $pk );
 			say " done</p>";
 			say "<p><a href=\"/tmp/$filename\">Output file</a> (right-click to save)</p>";
 			say "</div>";

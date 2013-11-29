@@ -502,6 +502,34 @@ sub get_selected_fields {
 	return \@fields_selected;
 }
 
+sub get_loci_from_pasted_list {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my ( @cleaned_loci, @invalid_loci );
+	if ( $q->param('locus_paste_list') ) {
+		my @list = split /\n/, $q->param('locus_paste_list');
+		foreach my $locus (@list) {
+			next if $locus =~ /^\s*$/;
+			$locus =~ s/^\s*//;
+			$locus =~ s/\s*$//;
+			my $real_name;
+			my $set_id = $self->get_set_id;
+			if ($set_id) {
+				$real_name = $self->{'datastore'}->get_set_locus_real_id( $locus, $set_id );
+			} else {
+				$real_name = $locus;
+			}
+			if ( $self->{'datastore'}->is_locus($real_name) ) {
+				push @cleaned_loci, $real_name;
+			} else {
+				push @invalid_loci, $locus;
+			}
+		}
+		$q->delete('locus_paste_list');
+	}
+	return ( \@cleaned_loci, \@invalid_loci );
+}
+
 sub print_sequence_export_form {
 	my ( $self, $pk, $list, $scheme_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
@@ -518,7 +546,7 @@ sub print_sequence_export_form {
 	$self->print_includes_fieldset( { scheme_id => $scheme_id } );
 
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		$self->print_isolates_locus_fieldset;
+		$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
 		$self->print_scheme_fieldset;
 	} else {
 		$self->print_scheme_locus_fieldset( $scheme_id, $options );
@@ -637,8 +665,9 @@ sub print_seqbin_isolate_fieldset {
 		-required => 'required'
 	);
 	print <<"HTML";
-<div style="text-align:center"><input type="button" onclick='listbox_selectall("isolate_id",true)' value="All" style="margin-top:1em" class="smallbutton" />
-<input type="button" onclick='listbox_selectall("isolate_id",false)' value="None" style="margin-top:1em" class="smallbutton" /></div>
+<div style="text-align:center"><input type="button" onclick='listbox_selectall("isolate_id",true)' value="All" style="margin-top:1em" 
+class="smallbutton" /><input type="button" onclick='listbox_selectall("isolate_id",false)' value="None" style="margin-top:1em" 
+class="smallbutton" /></div>
 </fieldset>
 HTML
 	return;

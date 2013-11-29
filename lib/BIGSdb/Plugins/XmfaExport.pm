@@ -45,7 +45,7 @@ sub get_attributes {
 		buttontext  => 'XMFA',
 		menutext    => 'XMFA export',
 		module      => 'XmfaExport',
-		version     => '1.4.3',
+		version     => '1.4.4',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		section     => 'export,postquery',
@@ -89,12 +89,18 @@ sub run {
 	}
 	if ( $q->param('submit') ) {
 		my $loci_selected = $self->get_selected_loci;
+		my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list;
 		$q->delete('locus');
+		push @$loci_selected, @$pasted_cleaned_loci;
+		@$loci_selected = uniq @$loci_selected;
 		$self->add_scheme_loci($loci_selected);
-		if ( !@$loci_selected ) {
+		if (@$invalid_loci) {
+			local $" = ', ';
+			say "<div class=\"box\" id=\"statusbad\"><p>The following loci in your pasted list are invalid: @$invalid_loci.</p></div>";
+		} elsif ( !@$loci_selected ) {
 			print "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci";
 			print " or schemes" if $self->{'system'}->{'dbtype'} eq 'isolates';
-			print ".</p></div>\n";
+			say ".</p></div>\n";
 		} else {
 			$self->set_scheme_param;
 			my $params = $q->Vars;
