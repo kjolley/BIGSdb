@@ -238,6 +238,19 @@ sub get_loci_table_attributes {
 		}
 	  );
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		my %defaults;
+		if ( $self->{'system'}->{'default_seqdef_dbase'} ) {
+			$defaults{'dbase_name'} = $self->{'system'}->{'default_seqdef_dbase'};
+		}
+		if ( $self->{'system'}->{'default_seqdef_config'} ) {
+			@defaults{qw(dbase_table dbase_id_field dbase_id2_field dbase_seq_field)} = qw(sequences allele_id locus sequence);
+			$defaults{'dbase_id2_value'} = 'PUT_LOCUS_NAME_HERE';
+			my $default_script = $self->{'system'}->{'default_seqdef_script'} // '/cgi-bin/bigsdb/bigsdb.pl';
+			$defaults{'description_url'} =
+			  "$default_script?db=$self->{'system'}->{'default_seqdef_config'}&page=locusInfo&locus=PUT_LOCUS_NAME_HERE";
+			$defaults{'url'} = "$default_script?db=$self->{'system'}->{'default_seqdef_config'}&page=alleleInfo&locus=PUT_LOCUS_NAME_HERE"
+			  . "&allele_id=[?]";
+		}
 		push @$attributes,
 		  (
 			{
@@ -264,7 +277,8 @@ sub get_loci_table_attributes {
 				type     => 'text',
 				hide     => 'yes',
 				length   => 60,
-				comments => 'Name of the database holding allele sequences'
+				comments => 'Name of the database holding allele sequences',
+				default  => $defaults{'dbase_name'}
 			},
 			{
 				name     => 'dbase_host',
@@ -296,13 +310,15 @@ sub get_loci_table_attributes {
 				name     => 'dbase_table',
 				type     => 'text',
 				hide     => 'yes',
-				comments => 'Database table that holds sequence information for this locus'
+				comments => 'Database table that holds sequence information for this locus',
+				default  => $defaults{'dbase_table'}
 			},
 			{
 				name     => 'dbase_id_field',
 				type     => 'text',
 				hide     => 'yes',
-				comments => 'Primary field in sequence database that defines allele, e.g. \'allele_id\''
+				comments => 'Primary field in sequence database that defines allele, e.g. \'allele_id\'',
+				default  => $defaults{'dbase_id_field'}
 			},
 			{
 				name     => 'dbase_id2_field',
@@ -311,7 +327,8 @@ sub get_loci_table_attributes {
 				comments => 'Secondary field that defines allele, e.g. \'locus\'',
 				tooltip  => 'dbase id2 field - Use where the sequence database table requires more than the id to define the allele. '
 				  . 'This could, for example, be something like \'locus\' where the database table holds the sequences for multiple loci '
-				  . 'and therefore has a \'locus\' field.  Leave blank if a secondary id field is not used.'
+				  . 'and therefore has a \'locus\' field.  Leave blank if a secondary id field is not used.',
+				default => $defaults{'dbase_id2_field'}
 			},
 			{
 				name     => 'dbase_id2_value',
@@ -319,13 +336,15 @@ sub get_loci_table_attributes {
 				hide     => 'yes',
 				comments => 'Secondary field value, e.g. locus name',
 				tooltip  => 'dbase id2 value - Set the value that the secondary id field must include to select this locus.  This will '
-				  . 'probably be the name of the locus.  Leave blank if a secondary id field is not used.'
+				  . 'probably be the name of the locus.  Leave blank if a secondary id field is not used.',
+				default => $defaults{'dbase_id2_value'}
 			},
 			{
 				name     => 'dbase_seq_field',
 				type     => 'text',
 				hide     => 'yes',
-				comments => 'Field in sequence database containing allele sequence'
+				comments => 'Field in sequence database containing allele sequence',
+				default  => $defaults{'dbase_seq_field'}
 			},
 			{
 				name     => 'flag_table',
@@ -334,14 +353,15 @@ sub get_loci_table_attributes {
 				default  => 'true',
 				comments => 'Seqdef database supports allele flags',
 				tooltip  => 'flag_table - Set to true to specify that the seqdef database contains an allele flag table (which is the '
-				  . 'case for BIGSdb versions 1.4 onwards).'
+				  . 'case for BIGSdb versions 1.4 onwards).',
 			},
 			{
 				name    => 'description_url',
 				type    => 'text',
 				length  => 150,
 				hide    => 'yes',
-				tooltip => 'description url - The URL used to hyperlink to locus information in the isolate information page.'
+				tooltip => 'description url - The URL used to hyperlink to locus information in the isolate information page.',
+				default => $defaults{'description_url'}
 			},
 			{
 				name    => 'url',
@@ -349,7 +369,8 @@ sub get_loci_table_attributes {
 				length  => 150,
 				hide    => 'yes',
 				tooltip => 'url - The URL used to hyperlink allele numbers in the isolate information page.  Instances of [?] within '
-				  . 'the URL will be substituted with the allele id.'
+				  . 'the URL will be substituted with the allele id.',
+				default => $defaults{'url'}
 			},
 			{
 				name     => 'isolate_display',

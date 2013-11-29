@@ -688,7 +688,7 @@ sub _print_copy_locus_record_form {
 	print $q->hidden($_) foreach qw(db page table);
 	print $q->end_form;
 	print "<p class=\"comment\">All parameters will be copied except id, common name, reference sequence, "
-	  . "genome<br />position and length. The copied locus id will be substituted for 'LOCUS' in fields that "
+	  . "genome<br />position and length. The copied locus id will be substituted for 'PUT_LOCUS_NAME_HERE'<br />in fields that "
 	  . "include it.</p>";
 	print "</div></div>";
 	return;
@@ -702,9 +702,9 @@ sub _copy_locus_config {
 	return if !defined $locus;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	foreach my $field ( keys %$locus_info ) {
-		next if any { $field eq $_ } qw (id reference_sequence genome_position length orf common_name);
+		next if any { $field eq $_ } qw (id reference_sequence genome_position length orf common_name formatted_name formatted_common_name);
 		my $value = $locus_info->{$field} || '';
-		$value =~ s/$locus/LOCUS/
+		$value =~ s/$locus/PUT_LOCUS_NAME_HERE/
 		  if any { $field eq $_ } qw(dbase_table dbase_id_field dbase_id2_field dbase_id2_value description_url url);
 		if ( any { $field eq $_ } qw (length_varies coding_sequence main_display query_field analysis flag_table) ) {
 			$value = $locus_info->{$field} ? 'true' : 'false';
