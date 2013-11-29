@@ -76,7 +76,12 @@ sub print_content {
 	if ( $table eq 'scheme_fields' && $self->{'system'}->{'dbtype'} eq 'sequences' && !$q->param('sent') ) {
 		say "<div class=\"box\" id=\"warning\"><p>Please be aware that any changes to the structure of a scheme will "
 		  . " result in all data being removed from it.  This will happen if you modify the type or change whether "
-		  . " the field is a primary key.  All other changes are ok.</p></div>";
+		  . " the field is a primary key.  All other changes are ok.</p>";
+		if (($self->{'system'}->{'materialized_views'} // '') eq 'yes'){
+			say "<p>If you change the index status of a field you will also need to rebuild the scheme table to reflect this change. "
+			  . "This can be done by selecting 'Configuration repair' on the main curation page.</p>";
+		}
+		 say "</div>";
 	}
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my @query_values;

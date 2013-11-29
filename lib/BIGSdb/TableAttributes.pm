@@ -989,6 +989,18 @@ sub get_scheme_fields_table_attributes {
 			}
 		  );
 	} else {
+		if ( ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ) {
+			push @$attributes,
+			  (
+				{
+					name     => 'index',
+					type     => 'bool',
+					required => 'no',
+					tooltip  => 'index - Sets whether the field is indexed in the database.  This setting is ignored for primary key '
+					  . 'fields which are always indexed.'
+				}
+			  );
+		}
 		push @$attributes,
 		  (
 			{
@@ -1000,7 +1012,8 @@ sub get_scheme_fields_table_attributes {
 				  . 'overridden by user preference).'
 			}
 		  );
-		push @$attributes, ( { name => 'value_regex', type => 'text', comments => 'Regular expression that constrains value of field' } );
+		push @$attributes,
+		  ( { name => 'value_regex', type => 'text', tooltip => 'value regex - Regular expression that constrains value of field' } );
 	}
 	push @$attributes,
 	  (

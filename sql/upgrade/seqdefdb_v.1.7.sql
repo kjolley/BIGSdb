@@ -12,3 +12,4 @@ CREATE INDEX i_pm3 ON profile_members(allele_id);
 
 ALTER TABLE scheme_groups ADD seq_query boolean;
 
+ALTER TABLE scheme_fields ADD index boolean;
