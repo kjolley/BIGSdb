@@ -299,6 +299,8 @@ sub print_provenance_form_elements {
 					$html5_args{'min'}  = '1';
 					$html5_args{'step'} = '1';
 				}
+				$html5_args{'min'} = $thisfield->{'min'} if $thisfield->{'type'} eq 'int' && defined $thisfield->{'min'};
+				$html5_args{'max'} = $thisfield->{'max'} if $thisfield->{'type'} eq 'int' && defined $thisfield->{'min'};
 				$html5_args{'pattern'} = $thisfield->{'regex'} if $thisfield->{'regex'};
 				$thisfield->{'length'} = $thisfield->{'length'} // ( $thisfield->{'type'} eq 'int' ? 15 : 50 );
 				( my $cleaned_name = $metafield // $field ) =~ tr/_/ /;
@@ -330,12 +332,12 @@ sub print_provenance_form_elements {
 						-values => [ '', 'true', 'false' ],
 						-default => ( $newdata->{ lc($field) } // $thisfield->{'default'} )
 					);
-				} elsif ( lc($field) eq 'datestamp'){
+				} elsif ( lc($field) eq 'datestamp' ) {
 					say "<b>" . $self->get_datestamp . "</b>";
 				} elsif ( lc($field) eq 'date_entered' ) {
-					if ($options->{'update'}){
+					if ( $options->{'update'} ) {
 						say "<b>$newdata->{'date_entered'}</b>";
-						say $q->hidden( 'date_entered', $newdata->{'date_entered'} )
+						say $q->hidden( 'date_entered', $newdata->{'date_entered'} );
 					} else {
 						say "<b>" . $self->get_datestamp . "</b>";
 					}
@@ -420,6 +422,7 @@ sub _print_allele_designation_form_elements {
 	@$loci = uniq @$loci;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	my $schemes_with_display_order = any { defined $_->{'display_order'} } @$schemes;
+
 	if ( @$loci <= 100 ) {
 		foreach my $scheme (@$schemes) {
 			$locus_buffer .= $self->_print_scheme_form_elements( $scheme->{'id'}, $newdata );
@@ -452,7 +455,7 @@ sub _print_scheme_form_elements {
 		$loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		$buffer = @$loci ? "<h3 class=\"scheme\" style=\"clear:both\">$scheme_info->{'description'}</h3>\n" : '';
 	} else {
-		$loci = $self->{'datastore'}->get_loci_in_no_scheme( {set_id => $set_id} );
+		$loci = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 		$buffer = @$loci ? "<h3 class=\"scheme\" style=\"clear:both\">Loci not in a scheme</h3>\n" : '';
 	}
 	foreach my $locus (@$loci) {

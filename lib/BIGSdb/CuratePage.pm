@@ -661,7 +661,6 @@ sub check_record {
 		} elsif ( ( $table eq 'allele_designations' || $table eq 'pending_allele_designations' )
 			&& $_->{'name'} eq 'allele_id' )
 		{
-
 			#special case to check for allele id format and regex which is defined in loci table
 			my $format =
 			  $self->{'datastore'}->run_simple_query("SELECT allele_id_format,allele_id_regex FROM loci WHERE id=E'$newdata{'locus'}'");
@@ -680,7 +679,6 @@ sub check_record {
 		} elsif ( ( $table eq 'isolate_value_extended_attributes' )
 			&& $_->{'name'} eq 'value' )
 		{
-
 			#special case to check for extended attribute value format and regex which is defined in isolate_field_extended_attributes table
 			my $format = $self->{'datastore'}->run_simple_query(
 				"SELECT value_format,value_regex,length FROM isolate_field_extended_attributes WHERE isolate_field=? AND attribute=?",
@@ -829,9 +827,11 @@ sub _is_field_bad_isolates {
 		return "must be set to the currently logged in curator id (" . $self->get_curator_id . ").";
 	}
 
-	#Make sure int fields really are integers
-	if ( $thisfield->{'type'} eq 'int' && !BIGSdb::Utils::is_int($value) ) {
-		return 'must be an integer';
+	#Make sure int fields really are integers and obey min/max values if set
+	if ( $thisfield->{'type'} eq 'int' ) {
+		if ( !BIGSdb::Utils::is_int($value) ) { return 'must be an integer' }
+		elsif ( defined $thisfield->{'min'} && $value < $thisfield->{'min'} ) { return "must be equal or larger than $thisfield->{'min'}" }
+		elsif ( defined $thisfield->{'max'} && $value > $thisfield->{'max'} ) { return "must be equal or smaller than $thisfield->{'max'}" }
 	}
 
 	#Make sure sender is in database
@@ -887,7 +887,6 @@ sub _is_field_bad_isolates {
 		&& $flag eq 'insert'
 		&& ( $fieldname eq 'id' ) )
 	{
-
 		#Make sure id number has not been used previously
 		my $qry;
 		$qry = "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE id=?";
@@ -1003,7 +1002,6 @@ sub _is_field_bad_other {
 	if ( $flag eq 'insert'
 		&& ( $thisfield->{'unique'} ) )
 	{
-
 		#Make sure unique field values have not been used previously
 		my $qry = "SELECT DISTINCT $thisfield->{'name'} FROM $table";
 		my $sql = $self->{'db'}->prepare($qry) or die 'cannot prepare';
@@ -1235,7 +1233,7 @@ sub refresh_material_view {
 sub _create_mv_indexes {
 	my ( $self, $scheme_id, $fields, $loci ) = @_;
 
-	#Create separate indices consisting of up to 10 loci each 
+	#Create separate indices consisting of up to 10 loci each
 	#(max of 2 indices otherwise refresh can take too long and they probably won't all be used anyway)
 	my $i     = 0;
 	my $index = 2;
