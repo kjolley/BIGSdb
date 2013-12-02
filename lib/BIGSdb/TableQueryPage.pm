@@ -141,7 +141,7 @@ sub _print_table_fields {
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		print "<a id=\"add_table_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;"
-		  . "fields=table_fields&amp;table=$table&amp;row=$next_row&amp;no_header=1\" data-rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>"
+		  . "fields=table_fields&amp;table=$table&amp;row=$next_row&amp;no_header=1\" data-rel=\"ajax\" class=\"button\">+</a>"
 		  . " <a class=\"tooltip\" id=\"field_tooltip\" title=\"\">&nbsp;<i>i</i>&nbsp;</a>";
 	}
 	say "</span>";

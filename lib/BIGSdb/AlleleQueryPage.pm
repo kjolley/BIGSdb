@@ -177,7 +177,7 @@ sub _print_table_fields {
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		print "<a id=\"add_table_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
-		  . "page=alleleQuery&amp;row=$next_row&amp;no_header=1\" data-rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
+		  . "page=alleleQuery&amp;row=$next_row&amp;no_header=1\" data-rel=\"ajax\" class=\"button\">+</a>\n";
 		print " <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term 'null'. "
 		  . "<h3>Number of fields</h3>Add more fields by clicking the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>";
 	}

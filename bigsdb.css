@@ -234,6 +234,7 @@ a.update {
 
 .button {
 	border:1px solid;
+	padding:0 0.5em;
 	margin:5px;
 	border-radius:3px;
 }
@@ -388,6 +389,41 @@ div.menu a:hover {
 }
 
 div.menu a.logo:hover {background:transparent}
+
+div.panel {
+	position: absolute;
+	top: 7em;
+	right: 0;
+	display: none;
+	padding: 1em 8em 1em 1em;
+	border:1px solid #999;
+	border-right:0;
+	border-bottom-left-radius:10px;
+	border-top-left-radius:10px;
+	background: #d5d5e0;
+	box-shadow: 3px 3px 3px #aaa;
+}
+
+div.panel li {padding-bottom: 0.5em}
+
+a#panel_trigger{
+	position: absolute;
+	text-decoration: none;
+	top: 7em; right: 0;
+	color:#fff;
+	background: #448;
+	padding: 0.5em;
+	border-bottom-left-radius:10px;
+	border-top-left-radius:10px;
+	display: block;
+	box-shadow: 3px 3px 3px #aaa;
+}
+
+a#close_trigger {
+ 	color:black;
+ 	font-weight:600;
+ 	text-decoration:none;
+}
 
 p.statusgood {color:green}
 p.statusbad {color:red}
@@ -734,7 +770,6 @@ fieldset label.parameter {
 }
 
 fieldset.display {
-	border:0;
 	padding-top:2em;
 	background:transparent	
 }
