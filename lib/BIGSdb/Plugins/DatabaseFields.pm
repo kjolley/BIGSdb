@@ -1,6 +1,6 @@
 #DatabaseFields.pm - Database field description plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -34,7 +34,7 @@ sub get_attributes {
 		description => 'Display description of fields defined for the current database',
 		menutext    => 'Description of database fields',
 		module      => 'DatabaseFields',
-		version     => '1.0.1',
+		version     => '1.0.2',
 		section     => 'miscellaneous',
 		order       => 10,
 		dbtype      => 'isolates'
@@ -79,6 +79,10 @@ sub _print_fields {
 		if ( $thisfield->{'optlist'} ) {
 			my $option_list = $self->{'xmlHandler'}->get_field_option_list($field);
 			say "$_<br />" foreach @$option_list;
+		} elsif ( defined $thisfield->{'min'} || defined $thisfield->{'min'} ){
+			print "min: $thisfield->{'min'}" if defined $thisfield->{'min'};
+			print "; " if defined $thisfield->{'min'} && defined $thisfield->{'max'};
+			say "max: $thisfield->{'max'}" if defined $thisfield->{'max'};
 		} elsif ( $field eq 'sender' || $field eq 'sequenced_by' || ( $thisfield->{'userfield'} // '' ) eq 'yes' ) {
 			say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=fieldValues&amp;field=f_sender\" "
 			  . "target=\"_blank\">Click for list of sender ids</a>";

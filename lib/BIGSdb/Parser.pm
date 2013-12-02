@@ -1,6 +1,6 @@
 #Parser.pm
 #Written by Keith Jolley
-#Copyright (c) 2010-2011, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -116,6 +116,7 @@ sub characters {
 	} elsif ( $self->{'_in_field'} ) {
 		$self->{'field_name'} = $element->{'Data'};
 		push @{ $self->{'fields'} }, $self->{'field_name'};
+		$self->_process_special_values($self->{'these'});
 		$self->{'attributes'}->{ $self->{'field_name'} } = $self->{'these'};
 		$self->{'_in_field'} = 0;
 	} elsif ( $self->{'_in_optlist'} ) {
@@ -147,6 +148,16 @@ sub end_element {
 		when ('field')   { $self->{'_in_field'}   = 0 }
 		when ('optlist') { $self->{'_in_optlist'} = 0 }
 		when ('sample')  { $self->{'_in_sample'}  = 0 }
+	}
+	return;
+}
+
+sub _process_special_values {
+	my ($self, $attributes) = @_;
+	foreach my $value (values %$attributes){
+		if ($value eq 'CURRENT_YEAR'){
+			$value = (localtime)[5] + 1900;
+		}
 	}
 	return;
 }
