@@ -1486,6 +1486,7 @@ sub make_temp_file {
 
 sub get_query_from_temp_file {
 	my ( $self, $file ) = @_;
+	return if !defined $file;
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$file";
 	if ( -e $full_path ) {
 		open( my $fh, '<', $full_path ) || $logger->error("Can't open $full_path for reading");
