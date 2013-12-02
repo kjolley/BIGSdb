@@ -168,7 +168,7 @@ sub blast {
 			$partial_matches =
 			  $self->_parse_blast_partial( $params, $locus, $matched_regions, $outfile_url, $pcr_filter, $pcr_products, $probe_filter,
 				$probe_matches )
-			  if !@$exact_matches
+			  if (!@$exact_matches || $params->{'partial_when_exact'})
 			  || ( $locus_info->{'pcr_filter'}
 				&& !$params->{'pcr_filter'}
 				&& $locus_info->{'probe_filter'}
@@ -287,7 +287,7 @@ sub run_script {
 				$isolates_to_tag{$isolate_id} = 1;
 			}
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-			if ( ref $partial_matches && @$partial_matches && !@$exact_matches ) {
+			if ( ref $partial_matches && @$partial_matches && (!@$exact_matches || $params->{'partial_when_exact'} )) {
 				my %new_matches;
 				foreach my $match (@$partial_matches) {
 					my $match_key = "$match->{'seqbin_id'}\|$match->{'predicted_start'}|$match->{'predicted_end'}";

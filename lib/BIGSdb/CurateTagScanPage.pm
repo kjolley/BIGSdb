@@ -29,17 +29,18 @@ use Error qw(:try);
 use BIGSdb::Page qw(SEQ_METHODS SEQ_FLAGS LOCUS_PATTERN);
 use BIGSdb::Offline::Scan;
 ##DEFAUT SCAN PARAMETERS#############
-my $MIN_IDENTITY    = 70;
-my $MIN_ALIGNMENT   = 50;
-my $WORD_SIZE       = 20;
-my $PARTIAL_MATCHES = 1;
-my $LIMIT_MATCHES   = 200;
-my $LIMIT_TIME      = 5;
-my $TBLASTX         = 'off';
-my $HUNT            = 'off';
-my $RESCAN_ALLELES  = 'off';
-my $RESCAN_SEQS     = 'off';
-my $MARK_MISSING    = 'off';
+my $MIN_IDENTITY       = 70;
+my $MIN_ALIGNMENT      = 50;
+my $WORD_SIZE          = 20;
+my $PARTIAL_MATCHES    = 1;
+my $LIMIT_MATCHES      = 200;
+my $LIMIT_TIME         = 5;
+my $PARTIAL_WHEN_EXACT = 'off';
+my $TBLASTX            = 'off';
+my $HUNT               = 'off';
+my $RESCAN_ALLELES     = 'off';
+my $RESCAN_SEQS        = 'off';
+my $MARK_MISSING       = 'off';
 
 sub get_javascript {
 	my ($self) = @_;
@@ -66,6 +67,7 @@ function use_defaults() {
 	\$("#limit_time").val($LIMIT_TIME);
 	\$("#tblastx").prop(\"checked\",$check_values{$TBLASTX});
 	\$("#hunt").prop(\"checked\",$check_values{$HUNT});
+	\$("#partial_when_exact").prop(\"checked\",$check_values{$PARTIAL_WHEN_EXACT});
 	\$("#rescan_alleles").prop(\"checked\",$check_values{$RESCAN_ALLELES});
 	\$("#rescan_seqs").prop(\"checked\",$check_values{$RESCAN_SEQS});
 	\$("#mark_missing").prop(\"checked\",$check_values{$MARK_MISSING});
@@ -340,6 +342,13 @@ sub _print_parameter_fieldset {
 	  . "option will hunt for these by walking in and out from the ends in complete codons for up to 6 amino acids.\">"
 	  . "&nbsp;<i>i</i>&nbsp;</a>"
 	  . "</li><li>";
+	say $q->checkbox(
+		-name    => 'partial_when_exact',
+		-id      => 'partial_when_exact',
+		-label   => 'Return partial matches even when exact matches are found',
+		-checked => ( $general_prefs->{'partial_when_exact'} && $general_prefs->{'partial_when_exact'} eq 'on' ) ? 'checked' : ''
+	);
+	say "</li><li>";
 	say $q->checkbox(
 		-name    => 'rescan_alleles',
 		-id      => 'rescan_alleles',
