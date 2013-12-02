@@ -67,7 +67,7 @@ sub _print_interface {
 isolate table field that uniquely defines the isolate, can be named in the identifier rows of the FASTA file.  This allows data 
 for multiple isolates to be uploaded.</p>
 <p><em>Please note that you can reach this page for a specific isolate by 
-<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateQuery">querying isolates</a> 
+<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query">querying isolates</a> 
 and then clicking 'Upload' within the isolate table.</em></p>
 HTML
 	say $q->start_form( -onMouseMove => 'enable_identifier_field()' );

@@ -223,8 +223,7 @@ sub _print_provenance_fields {
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		if ( !$q->param('no_js') ) {
-			my $page = $self->{'curate'} ? 'isolateQuery' : 'query';
-			print "<a id=\"add_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;"
+			print "<a id=\"add_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;"
 			  . "fields=provenance&amp;row=$next_row&amp;no_header=1\" data-rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>\n";
 			print " <a class=\"tooltip\" id=\"prov_tooltip\" title=\"\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
@@ -246,8 +245,7 @@ sub _print_loci_fields {
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		if ( !$q->param('no_js') ) {
-			my $page = $self->{'curate'} ? 'isolateQuery' : 'query';
-			say "<a id=\"add_loci\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;"
+			say "<a id=\"add_loci\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;"
 			  . "fields=loci&amp;row=$next_row&amp;no_header=1\" data-rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>"
 			  . " <a class=\"tooltip\" id=\"loci_tooltip\" title=\"\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
@@ -273,8 +271,7 @@ sub _print_locus_tag_fields {
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		if ( !$q->param('no_js') ) {
-			my $page = $self->{'curate'} ? 'isolateQuery' : 'query';
-			say "<a id=\"add_tags\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;"
+				say "<a id=\"add_tags\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;"
 			  . "fields=tags&amp;row=$next_row&amp;no_header=1\" data-rel=\"ajax\" class=\"button\">&nbsp;+&nbsp;</a>"
 			  . " <a class=\"tooltip\" id=\"tag_tooltip\" title=\"\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
@@ -313,8 +310,7 @@ sub _print_isolate_query_interface {
 	$self->_print_isolate_locus_fieldset;
 	$self->_print_isolate_tag_fieldset;
 	$self->_print_isolate_filter_fieldset;
-	my $page = $self->{'curate'} ? 'isolateQuery' : 'query';
-	$self->print_action_fieldset( { page => $page } );
+	$self->print_action_fieldset;
 	say "</div>";
 	say $q->end_form;
 	say "</div>\n</div>";

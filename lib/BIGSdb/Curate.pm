@@ -65,7 +65,7 @@ sub print_page {
 		deleteAll          => 'CurateDeleteAllPage',
 		update             => 'CurateUpdatePage',
 		isolateAdd         => 'CurateIsolateAddPage',
-		isolateQuery       => 'QueryPage',
+		query              => 'QueryPage',
 		browse             => 'BrowsePage',
 		listQuery          => 'ListQueryPage',
 		isolateDelete      => 'CurateIsolateDeletePage',

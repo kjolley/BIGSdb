@@ -242,7 +242,7 @@ sub _print_isolates {
 	my ( $self, $td, $set_string ) = @_;
 	my $exists     = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'})")->[0];
 	my $query_cell = $exists
-	  ? qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateQuery$set_string">query</a> | 
+	  ? qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query$set_string">query</a> | 
 <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=browse$set_string">browse</a> |
 <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=listQuery$set_string">list</a> |
 <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchIsolateUpdate$set_string">batch&nbsp;update</a>)
