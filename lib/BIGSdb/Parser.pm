@@ -39,13 +39,13 @@ sub get_system_hash {
 }
 
 sub get_field_list {
-	my ($self, $metadata_arrayref, $options) = @_;
-	$options = {} if ref $options ne 'HASH';
+	my ( $self, $metadata_arrayref, $options ) = @_;
+	$options           = {} if ref $options           ne 'HASH';
 	$metadata_arrayref = [] if ref $metadata_arrayref ne 'ARRAY';
 	my @fields;
-	foreach my $field (@{$self->{'fields'}}){
-		if ($field =~ /^(meta_[^:]+):.+/){
-			foreach my $metadata (@$metadata_arrayref){
+	foreach my $field ( @{ $self->{'fields'} } ) {
+		if ( $field =~ /^(meta_[^:]+):.+/ ) {
+			foreach my $metadata (@$metadata_arrayref) {
 				push @fields, $field if $metadata eq $1;
 			}
 		} else {
@@ -116,7 +116,7 @@ sub characters {
 	} elsif ( $self->{'_in_field'} ) {
 		$self->{'field_name'} = $element->{'Data'};
 		push @{ $self->{'fields'} }, $self->{'field_name'};
-		$self->_process_special_values($self->{'these'});
+		$self->_process_special_values( $self->{'these'} );
 		$self->{'attributes'}->{ $self->{'field_name'} } = $self->{'these'};
 		$self->{'_in_field'} = 0;
 	} elsif ( $self->{'_in_optlist'} ) {
@@ -132,30 +132,26 @@ sub characters {
 
 sub start_element {
 	my ( $self, $element ) = @_;
-	given ( $element->{'Name'} ) {
-		when ('system') { $self->{'_in_system'} = 1; $self->{'system'} = $element->{'Attributes'} }
-		when ('field')  { $self->{'_in_field'}  = 1; $self->{'these'}  = $element->{'Attributes'} }
-		when ('optlist') { $self->{'_in_optlist'} = 1 }
-		when ('sample') { $self->{'_in_sample'} = 1; $self->{'these'} = $element->{'Attributes'} }
-	}
+	if    ( $element->{'Name'} eq 'system' ) { $self->{'_in_system'} = 1; $self->{'system'} = $element->{'Attributes'} }
+	elsif ( $element->{'Name'} eq 'field' )  { $self->{'_in_field'}  = 1; $self->{'these'}  = $element->{'Attributes'} }
+	elsif ( $element->{'Name'} eq 'optlist' ) { $self->{'_in_optlist'} = 1 }
+	elsif ( $element->{'Name'} eq 'sample' ) { $self->{'_in_sample'} = 1; $self->{'these'} = $element->{'Attributes'} }
 	return;
 }
 
 sub end_element {
 	my ( $self, $element ) = @_;
-	given ( $element->{'Name'} ) {
-		when ('system')  { $self->{'_in_system'}  = 0 }
-		when ('field')   { $self->{'_in_field'}   = 0 }
-		when ('optlist') { $self->{'_in_optlist'} = 0 }
-		when ('sample')  { $self->{'_in_sample'}  = 0 }
-	}
+	if    ( $element->{'Name'} eq 'system' )  { $self->{'_in_system'}  = 0 }
+	elsif ( $element->{'Name'} eq 'field' )   { $self->{'_in_field'}   = 0 }
+	elsif ( $element->{'Name'} eq 'optlist' ) { $self->{'_in_optlist'} = 0 }
+	elsif ( $element->{'Name'} eq 'sample' )  { $self->{'_in_sample'}  = 0 }
 	return;
 }
 
 sub _process_special_values {
-	my ($self, $attributes) = @_;
-	foreach my $value (values %$attributes){
-		if ($value eq 'CURRENT_YEAR'){
+	my ( $self, $attributes ) = @_;
+	foreach my $value ( values %$attributes ) {
+		if ( $value eq 'CURRENT_YEAR' ) {
 			$value = (localtime)[5] + 1900;
 		}
 	}
@@ -165,7 +161,7 @@ sub _process_special_values {
 sub get_metadata_list {
 	my ($self) = @_;
 	my %list;
-	foreach my $field (@{$self->{'fields'}}){
+	foreach my $field ( @{ $self->{'fields'} } ) {
 		$list{$1} = 1 if $field =~ /^(meta_[^:]+):/;
 	}
 	my @list = sort keys %list;
