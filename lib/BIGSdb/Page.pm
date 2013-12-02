@@ -543,8 +543,8 @@ sub popup_menu {
 	my %default = ref $default eq 'ARRAY' ? map { $_ => 1 } @$default : ();
 	$default{$value} = 1 if defined $value;
 	my $buffer = qq(<select name="$name");
-	$buffer .= qq(" class="$class") if defined $class;
-	$buffer .= qq(" id="$id")       if defined $id;
+	$buffer .= qq( class="$class") if defined $class;
+	$buffer .= qq( id="$id")       if defined $id;
 	$buffer .= ">\n";
 	foreach (@$values) {
 		$labels->{$_} //= $_;
