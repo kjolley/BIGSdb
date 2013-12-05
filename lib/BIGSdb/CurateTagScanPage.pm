@@ -481,6 +481,7 @@ sub _tag {
 	@loci = uniq @loci;
 	my $sql        = $self->{'db'}->prepare("SELECT sender FROM sequence_bin WHERE id=?");
 	my $curator_id = $self->get_curator_id;
+	my $param_list = $q->Vars;
 
 	foreach my $isolate_id (@isolate_ids) {
 		next if !$self->is_allowed_to_view_isolate($isolate_id);
@@ -492,26 +493,16 @@ sub _tag {
 			$locus =~ s/\|\|.+//;
 			next if $tested_locus{$locus};
 			$tested_locus{$locus} = 1;
-			my @ids;
 			my $cleaned_locus = $locus;
 			$cleaned_locus =~ s/'/\\'/g;
 			my $allele_id_to_set;
 			my %pending_allele_ids_to_set;
-			my $allele_test = "id_$isolate_id\_$locus\_allele_";
-			my $seq_test    = "id_$isolate_id\_$locus\_sequence_";
-			my $id          = 1;
-			my $match       = 1;
-			do {
-
-				if ( $q->param("$allele_test$id") || $q->param("$seq_test$id") ) {
-					push @ids, $id;
-				} else {
-					$match = 0;
-				}
-				$id++;
-			} until !$match;
+			my @matching_params = grep { /id_$isolate_id\_$locus\_(allele|sequence)_\d+$/ } keys %$param_list;
+			my %ids;
+			foreach (@matching_params) { $ids{$1} = 1 if /_(\d+)$/ }
 			my $display_locus = $self->clean_locus($locus);
-			foreach my $id (@ids) {
+
+			foreach my $id ( sort keys %ids ) {
 				my $seqbin_id = $q->param("id_$isolate_id\_$locus\_seqbin_id_$id");
 				if ( $q->param("id_$isolate_id\_$locus\_allele_$id") && defined $q->param("id_$isolate_id\_$locus\_allele_id_$id") ) {
 					my $allele_id = $q->param("id_$isolate_id\_$locus\_allele_id_$id");
