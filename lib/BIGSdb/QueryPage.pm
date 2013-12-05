@@ -49,10 +49,11 @@ sub set_pref_requirements {
 sub get_javascript {
 	my ($self) = @_;
 	my $max_rows = MAX_ROWS;
-	my $locus_fieldset_display  = $self->_highest_entered_fields('loci') ? 'inline' : 'none';
-	my $tag_fieldset_display    = $self->_highest_entered_fields('tags') ? 'inline' : 'none';
-	my $filter_fieldset_display = $self->_filters_selected               ? 'inline' : 'none';
-	my $buffer                  = $self->SUPER::get_javascript;
+	my $locus_fieldset_display         = $self->_highest_entered_fields('loci')          ? 'inline' : 'none';
+	my $allele_status_fieldset_display = $self->_highest_entered_fields('allele_status') ? 'inline' : 'none';
+	my $tag_fieldset_display           = $self->_highest_entered_fields('tags')          ? 'inline' : 'none';
+	my $filter_fieldset_display        = $self->_filters_selected                        ? 'inline' : 'none';
+	my $buffer                         = $self->SUPER::get_javascript;
 	$buffer .= << "END";
 \$(function () {
 	\$('a[data-rel=ajax]').click(function(){
@@ -62,13 +63,15 @@ sub get_javascript {
   	});
   	\$('#query_modifier').css({display:"block"});
    	\$('#locus_fieldset').css({display:"$locus_fieldset_display"});
+   	\$('#allele_status_fieldset').css({display:"$allele_status_fieldset_display"});
    	\$('#tag_fieldset').css({display:"$tag_fieldset_display"});
    	\$('#filter_fieldset').css({display:"$filter_fieldset_display"});
   	\$('#prov_tooltip,#loci_tooltip,#scheme_field_tooltip,#field_tooltip').tooltip({ content: "<h3>Search values</h3><p>Empty field "
   		+ "values can be searched using the term 'null'. </p><h3>Number of fields</h3><p>Add more fields by clicking the '+' button."
   		+ "</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms."
   		+ "</p>" });
-  	\$('#tag_tooltip').tooltip({ content: "<h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p>" });	
+  	\$('#tag_tooltip,#allele_status_tooltip').tooltip({ content: "<h3>Number of fields</h3><p>Add more fields by clicking the '+' "
+  		+ "button.</p>" });	
   	if (! Modernizr.touch){
   	 	\$('.multiselect').multiselect({noneSelectedText:'&nbsp;'});
   	}
@@ -76,6 +79,12 @@ sub get_javascript {
   	\$("#show_allele_designations").click(function() {
   		if(\$(this).text() == 'Hide'){\$('[id^="lt"]').val('')}
 		\$("#locus_fieldset").toggle(100);
+		\$(this).text(\$(this).text() == 'Show' ? 'Hide' : 'Show');
+		return false;
+	});
+	 \$("#show_allele_status").click(function() {
+  		if(\$(this).text() == 'Hide'){\$('[id^="ast"]').val('')}
+		\$("#allele_status_fieldset").toggle(100);
 		\$(this).text(\$(this).text() == 'Show' ? 'Hide' : 'Show');
 		return false;
 	});
@@ -106,11 +115,13 @@ sub get_javascript {
  
 function loadContent(url) {
 	var row = parseInt(url.match(/row=(\\d+)/)[1]);
-	var fields = url.match(/fields=([provenance|loci|scheme|table_fields|tags]+)/)[1];
+	var fields = url.match(/fields=([provenance|loci|allele_status|scheme|table_fields|tags]+)/)[1];
 	if (fields == 'provenance'){			
 		add_rows(url,fields,'fields',row,'prov_field_heading','add_fields');
 	} else if (fields == 'loci'){
 		add_rows(url,fields,'locus',row,'loci_field_heading','add_loci');
+	} else if (fields == 'allele_status'){
+		add_rows(url,fields,'allele_status',row,'allele_status_field_heading','add_allele_status');		
 	} else if (fields == 'scheme'){
 		add_rows(url,fields,'scheme_field',row,'scheme_field_heading','add_scheme_fields');
 	} else if (fields == 'table_fields'){
@@ -148,6 +159,9 @@ sub _ajax_content {
 		} elsif ( $q->param('fields') eq 'loci' ) {
 			my ( $locus_list, $locus_labels ) = $self->get_field_selection_list( { loci => 1, scheme_fields => 1, sort_labels => 1 } );
 			$self->_print_loci_fields( $row, 0, $locus_list, $locus_labels );
+		} elsif ( $q->param('fields') eq 'allele_status' ) {
+			my ( $locus_list, $locus_labels ) = $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
+			$self->_print_allele_status_fields( $row, 0, $locus_list, $locus_labels );
 		} elsif ( $q->param('fields') eq 'tags' ) {
 			my ( $locus_list, $locus_labels ) = $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
 			$self->_print_locus_tag_fields( $row, 0, $locus_list, $locus_labels );
@@ -221,7 +235,7 @@ sub _print_provenance_fields {
 	say "<span style=\"white-space:nowrap\">";
 	say $q->popup_menu( -name => "s$row", -values => $select_items, -labels => $labels, -class => 'fieldlist' );
 	say $q->popup_menu( -name => "y$row", -values => [OPERATORS] );
-	say $q->textfield( -name => "t$row", -class => 'value_entry' );
+	say $q->textfield( -name => "t$row", -class => 'value_entry',-placeholder => 'Enter value...' );
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		if ( !$q->param('no_js') ) {
@@ -242,7 +256,7 @@ sub _print_loci_fields {
 	say "<span style=\"white-space:nowrap\">";
 	say $self->popup_menu( -name => "ls$row", -values => $locus_list, -labels => $locus_labels, -class => 'fieldlist' );
 	say $q->popup_menu( -name => "ly$row", -values => [OPERATORS] );
-	say $q->textfield( -name => "lt$row", -id => "lt$row", -class => 'value_entry' );
+	say $q->textfield( -name => "lt$row", -id => "lt$row", -class => 'value_entry', -placeholder => 'Enter value...' );
 
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
@@ -250,6 +264,30 @@ sub _print_loci_fields {
 			say "<a id=\"add_loci\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;"
 			  . "fields=loci&amp;row=$next_row&amp;no_header=1\" data-rel=\"ajax\" class=\"button\">+</a>"
 			  . " <a class=\"tooltip\" id=\"loci_tooltip\" title=\"\">&nbsp;<i>i</i>&nbsp;</a>";
+		}
+	}
+	say "</span>";
+	return;
+}
+
+sub _print_allele_status_fields {
+	my ( $self, $row, $max_rows, $locus_list, $locus_labels ) = @_;
+	unshift @$locus_list, '';
+	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
+	my $q = $self->{'cgi'};
+	say "<span style=\"white-space:nowrap\">";
+	say $self->popup_menu( -name => "ass$row", -values => $locus_list, -labels => $locus_labels, -class => 'fieldlist' );
+	print ' is ';
+	my $values = ['', 'provisional', 'confirmed'];
+	my %labels = ( '' => ' ' );    #Required for HTML5 validation.
+	say $q->popup_menu( -name => "ast$row", -id => "ast$row", -values => $values, -labels => \%labels );
+
+	if ( $row == 1 ) {
+		my $next_row = $max_rows ? $max_rows + 1 : 2;
+		if ( !$q->param('no_js') ) {
+			say "<a id=\"add_allele_status\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;"
+			  . "fields=allele_status&amp;row=$next_row&amp;no_header=1\" data-rel=\"ajax\" class=\"button\">+</a>"
+			  . " <a class=\"tooltip\" id=\"allele_status_tooltip\" title=\"\">&nbsp;<i>i</i>&nbsp;</a>";
 		}
 	}
 	say "</span>";
@@ -310,6 +348,7 @@ sub _print_isolate_query_interface {
 	$self->_print_isolate_display_fieldset;
 	say "<div style=\"clear:both\"></div>";
 	$self->_print_isolate_locus_fieldset;
+	$self->_print_isolate_allele_status_fieldset;
 	$self->_print_isolate_tag_fieldset;
 	$self->_print_isolate_filter_fieldset;
 	$self->print_action_fieldset;
@@ -330,13 +369,17 @@ sub _print_modify_search_fieldset {
 	say "<ul>";
 	my $locus_fieldset_display = $self->_highest_entered_fields('loci') ? 'Hide' : 'Show';
 	say "<li><a href=\"\" class=\"button\" id=\"show_allele_designations\">$locus_fieldset_display</a>";
-	say "Allele designations/scheme fields</li>";
-	if ($self->{'tag_fieldset_exists'}){
+	say "Allele designations/scheme field values</li>";
+	my $allele_status_fieldset_display = $self->_highest_entered_fields('allele_status') ? 'Hide' : 'Show';
+	say "<li><a href=\"\" class=\"button\" id=\"show_allele_status\">$locus_fieldset_display</a>";
+	say "Allele designation status</li>";
+
+	if ( $self->{'tag_fieldset_exists'} ) {
 		my $tag_fieldset_display = $self->_highest_entered_fields('tags') ? 'Hide' : 'Show';
 		print "<li><a href=\"\" class=\"button\" id=\"show_tags\">$tag_fieldset_display</a>";
-		say "Tagged sequences</li>";
+		say "Tagged sequence status</li>";
 	}
-	if ($self->{'filter_fieldset_exists'}){
+	if ( $self->{'filter_fieldset_exists'} ) {
 		my $filter_fieldset_display = $self->_filters_selected('tags') ? 'Hide' : 'Show';
 		print "<li><a href=\"\" class=\"button\" id=\"show_filters\">$filter_fieldset_display</a>";
 		say "Filters</li>";
@@ -542,7 +585,31 @@ sub _print_isolate_locus_fieldset {
 			$self->_print_loci_fields( $_, $locus_fields, $locus_list, $locus_labels );
 			say "</li>";
 		}
-		print "</ul>\n</div></fieldset>\n";
+		say "</ul>\n</div></fieldset>";
+	}
+	return;
+}
+
+sub _print_isolate_allele_status_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my ( $locus_list, $locus_labels ) = $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
+	if (@$locus_list) {
+		my $display = $q->param('no_js') ? 'block' : 'none';
+		print "<fieldset id=\"allele_status_fieldset\" style=\"float:left;display:$display\" >\n";
+		print "<legend>Allele designation status</legend><div>\n";
+		my $locus_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('allele_status') || 1 );
+		my $heading_display = $locus_fields == 0 ? 'none' : 'inline';
+		print "<span id=\"allele_status_field_heading\" style=\"display:$heading_display\"><label for=\"c1\">Combine with: </label>\n";
+		print $q->popup_menu( -name => 'c3', -id => 'c3', -values => [qw (AND OR)], );
+		print "</span>\n<ul id=\"allele_status\">\n";
+
+		for ( 1 .. $locus_fields ) {
+			say "<li>";
+			$self->_print_allele_status_fields( $_, $locus_fields, $locus_list, $locus_labels );
+			say "</li>";
+		}
+		say "</ul>\n</div></fieldset>";
 	}
 	return;
 }
@@ -555,7 +622,7 @@ sub _print_isolate_tag_fieldset {
 	if (@$locus_list) {
 		my $display = $q->param('no_js') ? 'block' : 'none';
 		say "<fieldset id=\"tag_fieldset\" style=\"float:left;display:$display\">";
-		say "<legend>Tagged sequences</legend><div>";
+		say "<legend>Tagged sequence status</legend><div>";
 		my $locus_tag_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('tags') || 1 );
 		my $locus_tags_heading = $locus_tag_fields == 1 ? 'none' : 'inline';
 		say "<span id=\"locus_tags_heading\" style=\"display:$locus_tags_heading\"><label for=\"c1\">Combine with: </label>";
@@ -595,6 +662,8 @@ sub _highest_entered_fields {
 		$param_name = 't';
 	} elsif ( $type eq 'loci' ) {
 		$param_name = 'lt';
+	} elsif ( $type eq 'allele_status' ) {
+		$param_name = 'ast';
 	} elsif ( $type eq 'tags' ) {
 		$param_name = 'tt';
 	}
