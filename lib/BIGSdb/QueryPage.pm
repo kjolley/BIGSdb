@@ -226,7 +226,7 @@ sub print_content {
 	}
 	return;
 }
-####START ISOLATE INTERFACE#####################################################
+
 sub _print_provenance_fields {
 
 	#split so single row can be added by AJAX call
@@ -235,7 +235,7 @@ sub _print_provenance_fields {
 	say "<span style=\"white-space:nowrap\">";
 	say $q->popup_menu( -name => "s$row", -values => $select_items, -labels => $labels, -class => 'fieldlist' );
 	say $q->popup_menu( -name => "y$row", -values => [OPERATORS] );
-	say $q->textfield( -name => "t$row", -class => 'value_entry',-placeholder => 'Enter value...' );
+	say $q->textfield( -name => "t$row", -class => 'value_entry', -placeholder => 'Enter value...' );
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		if ( !$q->param('no_js') ) {
@@ -272,13 +272,14 @@ sub _print_loci_fields {
 
 sub _print_allele_status_fields {
 	my ( $self, $row, $max_rows, $locus_list, $locus_labels ) = @_;
+	unshift @$locus_list, 'any locus';
 	unshift @$locus_list, '';
 	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
 	my $q = $self->{'cgi'};
 	say "<span style=\"white-space:nowrap\">";
 	say $self->popup_menu( -name => "ass$row", -values => $locus_list, -labels => $locus_labels, -class => 'fieldlist' );
 	print ' is ';
-	my $values = ['', 'provisional', 'confirmed'];
+	my $values = [ '', 'provisional', 'confirmed' ];
 	my %labels = ( '' => ' ' );    #Required for HTML5 validation.
 	say $q->popup_menu( -name => "ast$row", -id => "ast$row", -values => $values, -labels => \%labels );
 
@@ -371,7 +372,7 @@ sub _print_modify_search_fieldset {
 	say "<li><a href=\"\" class=\"button\" id=\"show_allele_designations\">$locus_fieldset_display</a>";
 	say "Allele designations/scheme field values</li>";
 	my $allele_status_fieldset_display = $self->_highest_entered_fields('allele_status') ? 'Hide' : 'Show';
-	say "<li><a href=\"\" class=\"button\" id=\"show_allele_status\">$locus_fieldset_display</a>";
+	say "<li><a href=\"\" class=\"button\" id=\"show_allele_status\">$allele_status_fieldset_display</a>";
 	say "Allele designation status</li>";
 
 	if ( $self->{'tag_fieldset_exists'} ) {
@@ -380,7 +381,7 @@ sub _print_modify_search_fieldset {
 		say "Tagged sequence status</li>";
 	}
 	if ( $self->{'filter_fieldset_exists'} ) {
-		my $filter_fieldset_display = $self->_filters_selected('tags') ? 'Hide' : 'Show';
+		my $filter_fieldset_display = $self->_filters_selected ? 'Hide' : 'Show';
 		print "<li><a href=\"\" class=\"button\" id=\"show_filters\">$filter_fieldset_display</a>";
 		say "Filters</li>";
 	}
@@ -575,7 +576,7 @@ sub _print_isolate_locus_fieldset {
 		print "<fieldset id=\"locus_fieldset\" style=\"float:left;display:$display\" >\n";
 		print "<legend>Allele designations/scheme fields</legend><div>\n";
 		my $locus_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('loci') || 1 );
-		my $loci_field_heading = $locus_fields == 0 ? 'none' : 'inline';
+		my $loci_field_heading = $locus_fields == 1 ? 'none' : 'inline';
 		print "<span id=\"loci_field_heading\" style=\"display:$loci_field_heading\"><label for=\"c1\">Combine with: </label>\n";
 		print $q->popup_menu( -name => 'c1', -id => 'c1', -values => [qw (AND OR)], );
 		print "</span>\n<ul id=\"loci\">\n";
@@ -599,7 +600,7 @@ sub _print_isolate_allele_status_fieldset {
 		print "<fieldset id=\"allele_status_fieldset\" style=\"float:left;display:$display\" >\n";
 		print "<legend>Allele designation status</legend><div>\n";
 		my $locus_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('allele_status') || 1 );
-		my $heading_display = $locus_fields == 0 ? 'none' : 'inline';
+		my $heading_display = $locus_fields == 1 ? 'none' : 'inline';
 		print "<span id=\"allele_status_field_heading\" style=\"display:$heading_display\"><label for=\"c1\">Combine with: </label>\n";
 		print $q->popup_menu( -name => 'c3', -id => 'c3', -values => [qw (AND OR)], );
 		print "</span>\n<ul id=\"allele_status\">\n";
@@ -674,8 +675,7 @@ sub _highest_entered_fields {
 	}
 	return $highest;
 }
-####END ISOLATE INTERFACE#######################################################
-####START PROFILE INTERFACE#####################################################
+
 sub _get_profile_select_items {
 	my ( $self, $scheme_id ) = @_;
 	my ( @selectitems, @orderitems, %cleaned );
@@ -835,7 +835,7 @@ sub _print_profile_query_interface {
 	say "</div></div>";
 	return;
 }
-####END PROFILE INTERFACE#######################################################
+
 sub _run_isolate_query {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
@@ -849,6 +849,7 @@ sub _run_isolate_query {
 		$qry = $self->_modify_isolate_query_for_filters( $qry, $extended );
 		$qry = $self->_modify_isolate_query_for_designations( $qry, \@errors );
 		$qry = $self->_modify_isolate_query_for_tags( $qry, \@errors );
+		$qry = $self->_modify_isolate_query_for_designation_status( $qry, \@errors );
 		$qry .= " ORDER BY ";
 		if ( defined $q->param('order') && ( $q->param('order') =~ /^la_(.+)\|\|/ || $q->param('order') =~ /^cn_(.+)/ ) ) {
 			$qry .= "l_$1";
@@ -1358,9 +1359,6 @@ sub get_scheme_locus_query_clause {
 	if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
 		if ( $scheme_info->{'allow_missing_loci'} ) {
 			return "(COALESCE($table.$named,'N')=scheme_$scheme_id\.$scheme_named OR scheme_$scheme_id\.$scheme_named='N')";
-
-			#			return "(CAST(COALESCE($named,'N') AS text)=CAST(scheme_$scheme_id\.$scheme_named AS text) "
-			#			  . "OR scheme_$scheme_id\.$scheme_named='N')";
 		} else {
 			return "CAST($table.$named AS int)=scheme_$scheme_id\.$scheme_named";
 		}
@@ -1586,6 +1584,12 @@ sub _modify_isolate_query_for_tags {
 	my $view = $self->{'system'}->{'view'};
 	my @tag_queries;
 	my $pattern = LOCUS_PATTERN;
+	my $set_id = $self->get_set_id;
+	my $set_clause =
+		  $set_id
+		  ? "AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes "
+		  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
+		  : '';
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		if ( defined $q->param("ts$i") && $q->param("ts$i") ne '' && defined $q->param("tt$i") && $q->param("tt$i") ne '' ) {
 			my $action = $q->param("tt$i");
@@ -1595,7 +1599,7 @@ sub _modify_isolate_query_for_tags {
 					$locus = $1;
 				}
 				if ( !$self->{'datastore'}->is_locus($locus) ) {
-					push @$errors_ref, "'$locus' is an invalid locus.";
+					push @$errors_ref, "Invalid locus selected.";
 					next;
 				}
 			} else {
@@ -1604,7 +1608,7 @@ sub _modify_isolate_query_for_tags {
 			$locus =~ s/'/\\'/g;
 			my $temp_qry;
 			my $seq_joined_table = "allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id";
-			my $locus_clause = $locus eq 'any locus' ? 'locus IS NOT NULL' : "locus=E'$locus'";
+			my $locus_clause = $locus eq 'any locus' ? "(locus IS NOT NULL $set_clause)" : "(locus=E'$locus' $set_clause)";
 			if ( $action eq 'untagged' ) {
 				$temp_qry = "$view.id NOT IN (SELECT DISTINCT isolate_id FROM $seq_joined_table WHERE $locus_clause)";
 			} elsif ( $action eq 'tagged' ) {
@@ -1619,8 +1623,12 @@ sub _modify_isolate_query_for_tags {
 				if ( $flag eq 'any' ) {
 					$temp_qry = "$view.id IN (SELECT isolate_id FROM $flag_joined_table WHERE $locus_clause)";
 				} elsif ( $flag eq 'none' ) {
-					$temp_qry = "$view.id IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause) AND id NOT IN "
+					if ($locus eq 'any locus'){
+						push @$errors_ref, "Searching for any locus not flagged is not supported.  Choose a specific locus.";
+					} else {
+						$temp_qry = "$view.id IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause) AND id NOT IN "
 					  . "(SELECT isolate_id FROM $flag_joined_table WHERE $locus_clause)";
+					}
 				} else {
 					$temp_qry = "$view.id IN (SELECT isolate_id FROM $flag_joined_table WHERE $locus_clause AND flag='$flag')";
 				}
@@ -1635,6 +1643,57 @@ sub _modify_isolate_query_for_tags {
 			$qry .= " AND (@tag_queries)";
 		} else {
 			$qry = "SELECT * FROM $view WHERE (@tag_queries)";
+		}
+	}
+	return $qry;
+}
+
+sub _modify_isolate_query_for_designation_status {
+	my ( $self, $qry, $errors_ref ) = @_;
+	my $q    = $self->{'cgi'};
+	my $view = $self->{'system'}->{'view'};
+	my @status_queries;
+	my $pattern = LOCUS_PATTERN;
+	my $set_id = $self->get_set_id;
+	my $set_clause =
+		  $set_id
+		  ? "AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes "
+		  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
+		  : '';
+	foreach my $i ( 1 .. MAX_ROWS ) {
+		if ( defined $q->param("ass$i") && $q->param("ass$i") ne '' && defined $q->param("ast$i") && $q->param("ast$i") ne '' ) {
+			my $action = $q->param("ass$i");
+			my $locus;
+			if ( $q->param("ass$i") ne 'any locus' ) {
+				if ( $q->param("ass$i") =~ /$pattern/ ) {
+					$locus = $1;
+				}
+				if ( !$self->{'datastore'}->is_locus($locus) ) {
+					push @$errors_ref, "Invalid locus selected.";
+					next;
+				}
+			} else {
+				$locus = 'any locus';
+			}
+			my $status = $q->param("ast$i");
+			if ( none { $status eq $_ } qw (provisional confirmed) ) {
+				push @$errors_ref, "Invalid status selected.";
+				next;
+			}
+			$locus =~ s/'/\\'/g;
+			my $temp_qry;
+			my $locus_clause = $locus eq 'any locus' ? 'locus IS NOT NULL' : "locus=E'$locus'";
+			push @status_queries, "$view.id IN (SELECT isolate_id FROM allele_designations WHERE (allele_designations.$locus_clause "
+			  . "AND status='$status' $set_clause))";
+		}
+	}
+	if (@status_queries) {
+		my $andor = ( any { $q->param('c3') eq $_ } qw (AND OR) ) ? $q->param('c3') : '';
+		local $" = " $andor ";
+		if ( $qry !~ /WHERE \(\)\s*$/ ) {
+			$qry .= " AND (@status_queries)";
+		} else {
+			$qry = "SELECT * FROM $view WHERE (@status_queries)";
 		}
 	}
 	return $qry;
