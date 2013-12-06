@@ -47,7 +47,7 @@ use BIGSdb::Parser;
 use BIGSdb::PluginManager;
 use BIGSdb::Preferences;
 use BIGSdb::ProfileInfoPage;
-use BIGSdb::ProfileQueryPage;
+use BIGSdb::CombinationQueryPage;
 use BIGSdb::PubQueryPage;
 use BIGSdb::QueryPage;
 use BIGSdb::RecordInfoPage;
@@ -382,7 +382,7 @@ sub print_page {
 		info               => 'IsolateInfoPage',
 		tableQuery         => 'TableQueryPage',
 		options            => 'OptionsPage',
-		profiles           => 'ProfileQueryPage',
+		profiles           => 'CombinationQueryPage',
 		batchProfiles      => 'BatchProfileQueryPage',
 		sequenceQuery      => 'SequenceQueryPage',
 		batchSequenceQuery => 'SequenceQueryPage',
