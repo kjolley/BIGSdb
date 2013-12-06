@@ -89,13 +89,27 @@ sub get_title {
 
 sub get_javascript {
 	my ($self) = @_;
-	my $filter_collapse = $self->_filters_selected ? 'false' : 'true';
+	my $filter_collapse = $self->filters_selected ? 'false' : 'true';
 	my $buffer = $self->SUPER::get_javascript;
 	$buffer .= << "END";
 \$(function () {
   	\$('#filters_fieldset').coolfieldset({speed:"fast", collapsed:$filter_collapse});
   	\$('#filters_fieldset').show();
- });
+  	
+  	\$('#field_tooltip').tooltip({ content: "<h3>Search values</h3><p>Empty field "
+  		+ "values can be searched using the term 'null'. </p><h3>Number of fields</h3><p>Add more fields by clicking the '+' button."
+  		+ "</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms."
+  		+ "</p>" });
+   });
+  	
+function loadContent(url) {
+	var row = parseInt(url.match(/row=(\\d+)/)[1]);
+	var fields = url.match(/fields=([table_fields]+)/)[1];
+	if (fields == 'table_fields'){
+		add_rows(url,fields,'table_field',row,'table_field_heading','add_table_fields');
+	}
+}
+ 
 END
 	return $buffer;
 }
@@ -167,7 +181,7 @@ sub _print_query_interface {
 	my $table  = $q->param('table');
 	my ( $select_items, $labels, $order_by, $attributes ) = $self->_get_select_items($table);
 	say "<div class=\"box\" id=\"queryform\"><div class=\"scrollable\">";
-	my $table_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('table_fields') || 1 );
+	my $table_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields || 1 );
 	my $cleaned = $table;
 	$cleaned =~ tr/_/ /;
 
@@ -320,8 +334,8 @@ sub _print_query_interface {
 	}
 	if (@filters) {
 		if ( @filters > 2 ) {
-			say
-"<fieldset id=\"filters_fieldset\" style=\"float:left;display:none\" class=\"coolfieldset\">\n<legend>Filter query by</legend>";
+			say "<fieldset id=\"filters_fieldset\" style=\"float:left;display:none\" class=\"coolfieldset\">\n"
+			  . "<legend>Filter query by</legend>";
 		} else {
 			say "<fieldset style=\"float:left\">\n<legend>Filter query by</legend>";
 		}
@@ -332,13 +346,6 @@ sub _print_query_interface {
 	$self->print_action_fieldset( { page => 'tableQuery', table => $table } );
 	say $q->endform;
 	say "</div></div>";
-	return;
-}
-
-sub _filters_selected {
-	my ($self) = @_;
-	my %params = $self->{'cgi'}->Vars;
-	return 1 if any { $_ =~ /_list$/ && $params{$_} ne '' } keys %params;
 	return;
 }
 
@@ -487,8 +494,8 @@ sub _run_query {
 		{
 			my $experiment = $q->param('experiment_list');
 			if ( BIGSdb::Utils::is_int($experiment) ) {
-				$qry2 =
-"SELECT * FROM sequence_bin LEFT JOIN experiment_sequences ON sequence_bin.id = experiment_sequences.seqbin_id WHERE experiment_id = $experiment";
+				$qry2 = "SELECT * FROM sequence_bin LEFT JOIN experiment_sequences ON sequence_bin.id = "
+				  . "experiment_sequences.seqbin_id WHERE experiment_id = $experiment";
 				$qry2 .= " AND ($qry)" if $qry;
 			} else {
 				$qry2 = "SELECT * FROM $table WHERE ($qry)";
@@ -496,8 +503,8 @@ sub _run_query {
 		} elsif ( $table eq 'locus_descriptions' && $q->param('common_name_list') ne '' ) {
 			my $common_name = $q->param('common_name_list');
 			$common_name =~ s/'/\\'/g;
-			$qry2 =
-			  "SELECT * FROM locus_descriptions LEFT JOIN loci ON loci.id = locus_descriptions.locus WHERE common_name = E'$common_name'";
+			$qry2 = "SELECT * FROM locus_descriptions LEFT JOIN loci ON loci.id = locus_descriptions.locus "
+			  . "WHERE common_name = E'$common_name'";
 			$qry2 .= " AND ($qry)" if $qry;
 		} elsif ( $table eq 'allele_sequences' ) {
 			$qry2 = $self->_process_allele_sequences_filters($qry);
@@ -680,8 +687,8 @@ sub print_additional_headerbar_functions {
 
 sub _search_by_isolate_id {
 	my ( $self, $table, $operator, $text ) = @_;
-	my $qry =
-"$table.seqbin_id IN (SELECT sequence_bin.id FROM sequence_bin LEFT JOIN $self->{'system'}->{'view'} ON isolate_id = $self->{'system'}->{'view'}.id WHERE ";
+	my $qry = "$table.seqbin_id IN (SELECT sequence_bin.id FROM sequence_bin LEFT JOIN $self->{'system'}->{'view'} ON "
+	  . "isolate_id = $self->{'system'}->{'view'}.id WHERE ";
 	if ( $operator eq 'NOT' ) {
 		$qry .= "NOT $self->{'system'}->{'view'}.id = $text";
 	} elsif ( $operator eq "contains" ) {
@@ -701,11 +708,11 @@ sub _search_by_isolate {
 	my $field = $self->{'system'}->{'labelfield'};
 	my $qry;
 	if ( $table eq 'allele_sequences' || $table eq 'experiment_sequences' ) {
-		$qry =
-"$table.seqbin_id IN (SELECT sequence_bin.id FROM sequence_bin LEFT JOIN $self->{'system'}->{'view'} ON isolate_id = $self->{'system'}->{'view'}.id WHERE ";
+		$qry = "$table.seqbin_id IN (SELECT sequence_bin.id FROM sequence_bin LEFT JOIN $self->{'system'}->{'view'} ON "
+		  . "isolate_id = $self->{'system'}->{'view'}.id WHERE ";
 	} elsif ( $table eq 'sequence_bin' ) {
-		$qry =
-"sequence_bin.id IN (SELECT sequence_bin.id FROM sequence_bin LEFT JOIN $self->{'system'}->{'view'} ON isolate_id = $self->{'system'}->{'view'}.id WHERE ";
+		$qry = "sequence_bin.id IN (SELECT sequence_bin.id FROM sequence_bin LEFT JOIN $self->{'system'}->{'view'} ON "
+		  . "isolate_id = $self->{'system'}->{'view'}.id WHERE ";
 	} elsif (
 		any {
 			$table eq $_;
@@ -725,30 +732,31 @@ sub _search_by_isolate {
 			if ( $att->{'type'} eq 'int' ) {
 				$qry .= "NOT CAST($field AS text) = '$text'";
 			} else {
-				$qry .=
-"NOT upper($field) = upper('$text') AND $self->{'system'}->{'view'}.id NOT IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper('$text'))";
+				$qry .= "NOT upper($field) = upper('$text') AND $self->{'system'}->{'view'}.id NOT IN "
+				  . "(SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper('$text'))";
 			}
 		}
 	} elsif ( $operator eq "contains" ) {
 		if ( $att->{'type'} eq 'int' ) {
 			$qry .= "CAST($field AS text) LIKE '\%$text\%'";
 		} else {
-			$qry .=
-"upper($field) LIKE upper('\%$text\%') OR $self->{'system'}->{'view'}.id IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) LIKE upper('\%$text\%'))";
+			$qry .= "upper($field) LIKE upper('\%$text\%') OR $self->{'system'}->{'view'}.id IN (SELECT isolate_id FROM "
+			  . "isolate_aliases WHERE upper(alias) LIKE upper('\%$text\%'))";
 		}
 	} elsif ( $operator eq "NOT contain" ) {
 		if ( $att->{'type'} eq 'int' ) {
 			$qry .= "NOT CAST($field AS text) LIKE '\%$text\%'";
 		} else {
-			$qry .=
-"NOT upper($field) LIKE upper('\%$text\%') AND $self->{'system'}->{'view'}.id NOT IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) LIKE upper('\%$text\%'))";
+			$qry .= "NOT upper($field) LIKE upper('\%$text\%') AND $self->{'system'}->{'view'}.id NOT IN "
+			  . "(SELECT isolate_id FROM isolate_aliases WHERE upper(alias) LIKE upper('\%$text\%'))";
 		}
 	} elsif ( $operator eq '=' ) {
 		if ( lc( $att->{'type'} ) eq 'text' ) {
 			$qry .= (
 				( $text eq '<blank>' || $text eq 'null' )
 				? "$field is null"
-				: "upper($field) = upper('$text') OR $self->{'system'}->{'view'}.id IN (SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper('$text'))"
+				: "upper($field) = upper('$text') OR $self->{'system'}->{'view'}.id IN "
+				  . "(SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper('$text'))"
 			);
 		} else {
 			$qry .= ( ( $text eq '<blank>' || $text eq 'null' ) ? "$field is null" : "$field = '$text'" );
@@ -835,8 +843,8 @@ sub _process_sequences_filters {
 			$qry2 = "SELECT * FROM sequences LEFT JOIN allele_flags ON allele_flags.locus = sequences.locus AND "
 			  . "allele_flags.allele_id = sequences.allele_id WHERE flag IS NULL";
 		} else {
-			$qry2 =
-"SELECT * FROM sequences WHERE EXISTS (SELECT 1 FROM allele_flags WHERE sequences.locus=allele_flags.locus AND sequences.allele_id=allele_flags.allele_id";
+			$qry2 = "SELECT * FROM sequences WHERE EXISTS (SELECT 1 FROM allele_flags WHERE sequences.locus=allele_flags.locus "
+			  . "AND sequences.allele_id=allele_flags.allele_id";
 			if ( any { $q->param('allele_flag_list') eq $_ } ALLELE_FLAGS ) {
 				$qry2 .= " AND flag = '" . $q->param('allele_flag_list') . "'";
 			}
@@ -873,5 +881,15 @@ sub _search_timestamp_by_date {
 		return "(NOT date($table.$field) = '$text')";
 	}
 	return "(date($table.$field) $operator '$text')";
+}
+
+sub _highest_entered_fields {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $highest;
+	for ( 1 .. MAX_ROWS ) {
+		$highest = $_ if defined $q->param("t$_") && $q->param("t$_") ne '';
+	}
+	return $highest;
 }
 1;

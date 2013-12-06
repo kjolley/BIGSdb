@@ -196,13 +196,13 @@ sub print_content {
 						#but separately for stand-alone CGI.
 						my $c_scheme_id = $client_scheme_id // $scheme_id;
 						my %params = (
-							db     => $client_info->{'dbase_config_name'},
-							page   => 'query',
-							ls1    => "s_$c_scheme_id\_$primary_key",
-							ly1    => '=',
-							lt1    => $profile_id,
-							order  => 'id',
-							submit => 1
+							db                    => $client_info->{'dbase_config_name'},
+							page                  => 'query',
+							designation_field1    => "s_$c_scheme_id\_$primary_key",
+							designation_operator1 => '=',
+							designation_value1    => $profile_id,
+							order                 => 'id',
+							submit                => 1
 						);
 						my @action_params;
 						foreach ( keys %params ) {
@@ -215,7 +215,8 @@ sub print_content {
 							-method => 'post',
 							-style  => 'display:inline'
 						);
-						$buffer .= $q->hidden($_) foreach qw (db page ls1 ly1 lt1 order submit);
+						$buffer .= $q->hidden($_)
+						  foreach qw (db page designation_field1 designation_operator1 designation_value1 order submit);
 						$buffer .= $q->submit( -label => "$count isolate$plural", -class => 'smallbutton' );
 						$buffer .= $q->end_form;
 					}

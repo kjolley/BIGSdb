@@ -411,7 +411,7 @@ sub _confirm {
 		my $scheme_id = $q->param('scheme_id');
 		$self->refresh_material_view($scheme_id);
 		$self->{'db'}->commit;
-		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileQuery&amp;scheme_id=$scheme_id\">"
+		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;scheme_id=$scheme_id\">"
 		  . "Query another</a>";
 	} else {
 		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$table\">"

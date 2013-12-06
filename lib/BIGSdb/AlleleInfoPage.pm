@@ -139,13 +139,13 @@ HTML
 			my $contain = $profiles == 1 ? 'contains' : 'contain';
 			$profile_buffer .= "<dd>";
 			$profile_buffer .= $q->start_form;
-			$q->param( 'page',      'query' );
-			$q->param( 'scheme_id', $scheme->{'id'} );
-			$q->param( 's1',        $locus );
-			$q->param( 'y1',        '=' );
-			$q->param( 't1',        $allele_id );
-			$q->param( 'order',     $pk );
-			$q->param( 'submit',    1 );
+			$q->param( page      => 'query' );
+			$q->param( scheme_id => $scheme->{'id'} );
+			$q->param( s1        => $locus );
+			$q->param( y1        => '=' );
+			$q->param( t1        => $allele_id );
+			$q->param( 'order',  $pk );
+			$q->param( 'submit', 1 );
 			$profile_buffer .= $q->hidden($_) foreach qw (db page scheme_id s1 y1 t1 order submit);
 			$profile_buffer .= $q->submit( -label => "$profiles profile$plural", -class => 'smallbutton' );
 			$profile_buffer .= $q->end_form;
@@ -183,13 +183,13 @@ sub _print_client_database_data {
 				#it seems we have to pass the parameters in the action clause for mod_perl2
 				#but separately for stand-alone CGI.
 				my %params = (
-					db     => $client->{'dbase_config_name'},
-					page   => 'query',
-					ls1    => 'l_' . ( $client->{'locus_alias'} || $locus ),
-					ly1    => '=',
-					lt1    => $allele_id,
-					order  => 'id',
-					submit => 1
+					db                    => $client->{'dbase_config_name'},
+					page                  => 'query',
+					designation_field1    => 'l_' . ( $client->{'locus_alias'} || $locus ),
+					designation_operator1 => '=',
+					designation_value1    => $allele_id,
+					order                 => 'id',
+					submit                => 1
 				);
 				my @action_params;
 				foreach ( keys %params ) {
@@ -199,7 +199,7 @@ sub _print_client_database_data {
 				local $" = '&';
 				$buffer .= $q->start_form( -action => "$client->{'url'}?@action_params", -method => 'post', -style => 'display:inline' );
 				local $" = ' ';
-				$buffer .= $q->hidden($_) foreach qw (db page ls1 ly1 lt1 order submit);
+				$buffer .= $q->hidden($_) foreach qw (db page designation_field1 designation_operator1 designation_value1 order submit);
 				$buffer .= $q->submit( -label => "$isolate_count isolate$plural", -class => 'smallbutton' );
 				$buffer .= $q->end_form;
 			}

@@ -209,7 +209,7 @@ sub _print_query_interface {
 		}
 	}
 	say "<p>Please enter your search criteria below (or leave blank and submit to return all records).</p>";
-	my $table_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('table_fields') || 1 );
+	my $table_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields || 1 );
 	say "<fieldset style=\"float:left\">\n<legend>Locus fields</legend>";
 	my $table_field_heading = $table_fields == 1 ? 'none' : 'inline';
 	say "<span id=\"table_field_heading\" style=\"display:$table_field_heading\"><label for=\"c0\">Combine searches with: </label>";
@@ -260,7 +260,7 @@ sub _run_query {
 		return;
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	if ( !defined $q->param('query') ) {
+	if ( !defined $q->param('query_file') ) {
 		my $andor       = $q->param('c0');
 		my $first_value = 1;
 		my $extatt_sql  = $self->{'db'}->prepare("SELECT * FROM locus_extended_attributes WHERE locus=? AND field=?");
@@ -445,7 +445,7 @@ sub _run_query {
 		my $dir = $q->param('direction') eq 'descending' ? 'desc' : 'asc';
 		$qry2 .= " $dir;";
 	} else {
-		$qry2 = $q->param('query');
+		$qry2 = $self->get_query_from_temp_file($q->param('query_file'));
 	}
 	my @hidden_attributes;
 	push @hidden_attributes, 'c0';
@@ -487,5 +487,21 @@ sub _process_flags {
 		}
 	}
 	return $buffer;
+}
+
+sub _highest_entered_fields {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $highest;
+	for ( 1 .. MAX_ROWS ) {
+		$highest = $_ if defined $q->param("t$_") && $q->param("t$_") ne '';
+	}
+	return $highest;
+}
+
+sub get_title {
+	my ($self) = @_;
+	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
+	return "Allele query - $desc";
 }
 1;

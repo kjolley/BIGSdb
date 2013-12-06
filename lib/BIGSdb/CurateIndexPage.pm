@@ -512,7 +512,7 @@ sub _print_profiles {
 <tr class="td$td"><td>$desc{$scheme_id} profiles</td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileAdd&amp;scheme_id=$scheme_id$set_string">+</a></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileBatchAdd&amp;scheme_id=$scheme_id$set_string">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileQuery&amp;scheme_id=$scheme_id$set_string">query</a> | 
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;scheme_id=$scheme_id$set_string">query</a> | 
 <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=browse&amp;scheme_id=$scheme_id$set_string">browse</a> |
 <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=listQuery&amp;scheme_id=$scheme_id$set_string">list</a> |
 <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchProfileUpdate&amp;scheme_id=$scheme_id$set_string">batch update</a></td>

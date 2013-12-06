@@ -37,6 +37,7 @@ use BIGSdb::ErrorPage;
 use BIGSdb::FieldHelpPage;
 use BIGSdb::IndexPage;
 use BIGSdb::IsolateInfoPage;
+use BIGSdb::IsolateQueryPage;
 use BIGSdb::JobsListPage;
 use BIGSdb::JobViewerPage;
 use BIGSdb::ListQueryPage;
@@ -47,6 +48,7 @@ use BIGSdb::Parser;
 use BIGSdb::PluginManager;
 use BIGSdb::Preferences;
 use BIGSdb::ProfileInfoPage;
+use BIGSdb::ProfileQueryPage;
 use BIGSdb::CombinationQueryPage;
 use BIGSdb::PubQueryPage;
 use BIGSdb::QueryPage;
@@ -376,7 +378,7 @@ sub print_page {
 	my %classes = (
 		index              => 'IndexPage',
 		browse             => 'BrowsePage',
-		query              => 'QueryPage',
+		query              => ( $self->{'system'}->{'dbtype'} eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage' ),
 		pubquery           => 'PubQueryPage',
 		listQuery          => 'ListQueryPage',
 		info               => 'IsolateInfoPage',
