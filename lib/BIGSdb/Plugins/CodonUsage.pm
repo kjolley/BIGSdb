@@ -26,6 +26,7 @@ use List::MoreUtils qw(none uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
+use constant DEFAULT_LIMIT => 500;
 my %codons_per_aa = (
 	A   => 4,
 	C   => 2,
@@ -127,7 +128,7 @@ sub get_attributes {
 		buttontext  => 'Codons',
 		menutext    => 'Codon usage',
 		module      => 'CodonUsage',
-		version     => '1.1.4',
+		version     => '1.1.5',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -197,6 +198,7 @@ HTML
 			return;
 		}
 	}
+	my $limit = $self->{'system'}->{'codon_usage_limit'} || DEFAULT_LIMIT;
 	print <<"HTML";
 <div class="box" id="queryform">
 <p>This plugin will analyse the codon usage for individual loci and overall for an isolate.  Only loci that 
@@ -204,7 +206,7 @@ have a corresponding database containing sequences, or with sequences tagged,
 can be included.  It is important to note that correct identification of codons can only be achieved for loci
 for which the correct ORF has been set (if they are not in reading frame 1).  Partial sequnces from the sequence
 bin will not be analysed. Please check the loci that you 
-would like to include.</p>
+would like to include. Output is limited to $limit records.</p>
 HTML
 	my $options    = { default_select => 0, translate => 0, options_heading => 'Sequence retrieval', ignore_seqflags => 1 };
 	my $query_file = $q->param('query_file');
@@ -263,9 +265,14 @@ sub run_job {
 	my $selected_loci = $self->order_loci($loci);
 	my $progress      = 0;
 	my ( $locus_codon_count, $locus_aa_count, $total_codon_count, $total_aa_count, $rscu );
+	my $limit = $self->{'system'}->{'codon_usage_limit'} || DEFAULT_LIMIT;
+
+	if ( @$list > $limit ) {
+		my $message_html = "<p class=\"statusbad\">Please note that output is limited to the first $limit records.</p>\n";
+		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
+	}
 	my %includes;
 	my %bad_ids;
-
 	foreach my $locus_name (@$selected_loci) {
 		my $locus;
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
@@ -280,7 +287,10 @@ sub run_job {
 		my $temp_file = "$self->{'config'}->{secure_tmp_dir}/$temp.txt";
 		my $cusp_file = "$self->{'config'}->{secure_tmp_dir}/$temp.cusp";
 		local $" = '|';
+		my $count = 0;
 		foreach my $id (@$list) {
+			last if $count == $limit;
+			$count++;
 			my @include_values;
 			my $buffer;
 			next if $bad_ids{$id};
@@ -380,8 +390,11 @@ sub run_job {
 	print $fh_rscu_by_isolate "Isolate\t@codons\n";
 	print $fh_number_by_isolate "Isolate\t@codons\n";
 	$progress = 0;
+	my $count = 0;
 
 	foreach my $id (@$list) {
+		last if $count == $limit;
+		$count++;
 		next if $bad_ids{$id};
 		$no_output = 0;
 		$includes{$id} ||= '';
