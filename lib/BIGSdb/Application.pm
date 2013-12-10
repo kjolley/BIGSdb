@@ -378,7 +378,7 @@ sub print_page {
 	my %classes = (
 		index              => 'IndexPage',
 		browse             => 'BrowsePage',
-		query              => ( $self->{'system'}->{'dbtype'} eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage' ),
+		query              => ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage' ),
 		pubquery           => 'PubQueryPage',
 		listQuery          => 'ListQueryPage',
 		info               => 'IsolateInfoPage',
