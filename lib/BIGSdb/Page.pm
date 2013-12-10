@@ -534,27 +534,6 @@ sub _print_help_panel {
 	return;
 }
 
-sub popup_menu {
-
-	#Faster than CGI::popup_menu when listing thousands of values as it doesn't need to escape all values
-	my ( $self, %args ) = @_;
-	my ( $name, $id, $values, $labels, $default, $class ) = @args{qw ( -name -id -values -labels -default -class)};
-	my $value = $self->{'cgi'}->param($name);
-	my %default = ref $default eq 'ARRAY' ? map { $_ => 1 } @$default : ();
-	$default{$value} = 1 if defined $value;
-	my $buffer = qq(<select name="$name");
-	$buffer .= qq( class="$class") if defined $class;
-	$buffer .= qq( id="$id")       if defined $id;
-	$buffer .= ">\n";
-	foreach (@$values) {
-		$labels->{$_} //= $_;
-		my $select = $default{$_} ? qq( selected="selected") : '';
-		$buffer .= qq(<option value="$_"$select>$labels->{$_}</option>\n);
-	}
-	$buffer .= "</select>\n";
-	return $buffer;
-}
-
 sub get_metaset_and_fieldname {
 	my ( $self, $field ) = @_;
 	my ( $metaset, $metafield ) = $field =~ /meta_([^:]+):(.*)/ ? ( $1, $2 ) : ( undef, undef );
@@ -1157,8 +1136,8 @@ sub get_link_button_to_ref {
 	my $q = $self->{'cgi'};
 	$buffer .= $q->start_form( -style => 'display:inline' );
 	$q->param( curate => 1 ) if $self->{'curate'};
-	$q->param( pmid => $ref );
-	$q->param( page => 'pubquery' );
+	$q->param( pmid   => $ref );
+	$q->param( page   => 'pubquery' );
 	$buffer .= $q->hidden($_) foreach qw(db page curate pmid);
 	$buffer .= $q->submit( -value => "$count isolate$plural", -class => $options->{'class'} // 'smallbutton' );
 	$buffer .= $q->end_form;
@@ -2022,6 +2001,10 @@ sub textfield {
 
 	#allow HTML5 attributes (use instead of CGI->textfield)
 	my ( $self, %args ) = @_;
+	foreach ( keys %args ) {
+		( my $stripped_key = $_ ) =~ s/^\-//;
+		$args{$stripped_key} = delete $args{$_};    #strip off initial dash in key so can be used as drop-in replacement for CGI->textfield
+	}
 	if ( ( $args{'type'} // '' ) eq 'number' ) {
 		delete @args{qw(size maxlength)};
 	}
@@ -2032,6 +2015,27 @@ sub textfield {
 		$args_string .= qq/$_="$args{$_}" /;
 	}
 	my $buffer = "<input $args_string/>";
+	return $buffer;
+}
+
+sub popup_menu {
+
+	#Faster than CGI::popup_menu when listing thousands of values as it doesn't need to escape all values
+	my ( $self, %args ) = @_;
+	my ( $name, $id, $values, $labels, $default, $class ) = @args{qw ( -name -id -values -labels -default -class)};
+	my $value = $self->{'cgi'}->param($name);
+	my %default = ref $default eq 'ARRAY' ? map { $_ => 1 } @$default : ();
+	$default{$value} = 1 if defined $value;
+	my $buffer = qq(<select name="$name");
+	$buffer .= qq( class="$class") if defined $class;
+	$buffer .= qq( id="$id")       if defined $id;
+	$buffer .= ">\n";
+	foreach (@$values) {
+		$labels->{$_} //= $_;
+		my $select = $default{$_} ? qq( selected="selected") : '';
+		$buffer .= qq(<option value="$_"$select>$labels->{$_}</option>\n);
+	}
+	$buffer .= "</select>\n";
 	return $buffer;
 }
 1;
