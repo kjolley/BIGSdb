@@ -293,11 +293,13 @@ sub _get_form_fields {
 						@optlist = split /;/, $att->{'optlist'};
 					}
 					unshift @optlist, '';
+					my $labels = { '' => ' ' };    #Required for HTML5 validation
 					$buffer .= $q->popup_menu(
 						-name    => $name,
 						-id      => $name,
 						-values  => [@optlist],
 						-default => $newdata{ $att->{'name'} },
+						-labels  => $labels,
 						%html5_args
 					);
 				} else {
@@ -1205,7 +1207,7 @@ sub create_scheme_view {
 	eval {
 		$self->{'db'}->do($qry);
 		$self->{'db'}->do("GRANT SELECT ON scheme_$scheme_id TO $self->{'system'}->{'user'}");
-		if ( ($self->{'system'}->{'materialized_views'} // '') eq 'yes' ) {
+		if ( ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ) {
 			$self->{'db'}->do("SELECT create_matview('mv_scheme_$scheme_id', 'scheme_$scheme_id')");
 			$self->{'db'}->do("CREATE UNIQUE INDEX i_mv$scheme_id\_1 ON mv_scheme_$scheme_id ($scheme_info->{'primary_key'})");
 			$self->_create_mv_indexes( $scheme_id, $fields, $loci );
@@ -1255,8 +1257,8 @@ sub _create_mv_indexes {
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	foreach my $field (@$fields) {
 		next if $field eq $scheme_info->{'primary_key'};
-		my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info($scheme_id, $field);
-		if ($scheme_field_info->{'index'}){
+		my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+		if ( $scheme_field_info->{'index'} ) {
 			eval { $self->{'db'}->do("CREATE INDEX i_mv$scheme_id\_$field ON mv_scheme_$scheme_id ($field)") };
 			$logger->warn("Can't create index $@") if $@;
 		}
