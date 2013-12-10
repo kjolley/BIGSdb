@@ -259,66 +259,97 @@ sub get_title {
 
 sub _print_interface {
 	my ( $self, $args ) = @_;
-	my $q = $self->{'cgi'};
-	say "<div class=\"box\" id=\"queryform\"><div class=\"scrollable\">";
-	if ( !$q->param('sent') ) {
-		say "<p>Update your record as required - required fields are marked with an exclamation mark (!):</p>";
-	}
+	my ( $scheme_id, $profile_id, $profile_data, $field_data, $primary_key, $allele_data ) =
+	  @{$args}{qw(scheme_id profile_id profile_data field_data primary_key allele_data)};
+	my $q           = $self->{'cgi'};
+	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+	say qq(<div class="box" id="queryform">);
+	say qq(<div class="scrollable" style="white-space:nowrap">);
 	my $qry = "select id,user_name,first_name,surname from users WHERE id>0 order by surname";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
 	$logger->error($@) if $@;
 	my @users;
 	my %usernames;
+
 	while ( my ( $userid, $username, $firstname, $surname ) = $sql->fetchrow_array ) {
 		push @users, $userid;
 		$usernames{$userid} = "$surname, $firstname ($username)";
 	}
+	$usernames{''} = ' ';    #Required for HTML5 validation.
+	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+	my $longest_name  = BIGSdb::Utils::get_largest_string_length( [ @$loci, @$scheme_fields ] );
+	my $width         = int( 0.5 * $longest_name ) + 2;
+	$width = 15 if $width > 15;
+	$width = 6  if $width < 6;
 	print $q->start_form;
-	$q->param( 'sent', 1 );
+	say qq(<fieldset class="form" style="float:left"><legend>Record</legend>);
+
+	if ( !$q->param('sent') ) {
+		say "<p>Update your record as required - required fields are marked with an exclamation mark (!):</p>";
+	}
+	$q->param( sent => 1 );
 	print $q->hidden($_) foreach qw (page db sent scheme_id profile_id);
-	say "<table>";
-	say "<tr><td style=\"text-align:right\">$args->{'primary_key'}: !</td><td><b>$args->{'profile_id'}</b></td></tr>";
-	my $loci          = $self->{'datastore'}->get_scheme_loci( $args->{'scheme_id'} );
-	my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $args->{'scheme_id'} );
-	my $set_id        = $self->get_set_id;
+	say "<ul>";
+	my ( $label, $title ) = $self->get_truncated_label( $primary_key, 24 );
+	my $title_attribute = $title ? " title=\"$title\"" : '';
+	say qq(<li><label class="form" style="width:${width}em"$title_attribute>$label: !</label>);
+	say "<b>$profile_id</b></li>";
+	my $set_id = $self->get_set_id;
 
 	foreach my $locus (@$loci) {
-		my $mapped = $self->{'datastore'}->get_set_locus_label( $locus, $set_id ) // $locus;
-		say "<tr><td style=\"text-align:right\">$mapped: !</td><td>";
+		my %html5_args = ( required => 'required' );
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-		print $q->textfield(
-			-name    => "locus:$locus",
-			-size    => $locus_info->{'allele_id_format'} eq 'integer' ? 10 : 20,
-			-default => $args->{'allele_data'}->{$locus}
+		$html5_args{'type'} = 'number' if $locus_info->{'allele_id_format'} eq 'integer' && !$scheme_info->{'allow_missing_loci'};
+		my $mapped = $self->{'datastore'}->get_set_locus_label( $locus, $set_id ) // $locus;
+		my ( $label, $title ) = $self->get_truncated_label( $mapped, 24 );
+		my $title_attribute = $title ? " title=\"$title\"" : '';
+		say qq(<li><label for="locus:$locus" class="form" style="width:${width}em"$title_attribute>$label: !</label>);
+		say $self->textfield(
+			-name => "locus:$locus",
+			-id   => "locus:$locus",
+			-size => $locus_info->{'allele_id_format'} eq 'integer' ? 10 : 20,
+			-value => $q->param("locus:$locus") // $allele_data->{$locus},
+			%html5_args
 		);
-		print "</td></tr>\n";
+		say "</li>";
 	}
 	foreach my $field (@$scheme_fields) {
-		next if $field eq $args->{'primary_key'};
-		say "<tr><td style=\"text-align:right\">$field: </td><td>";
-		my $field_info = $self->{'datastore'}->get_scheme_field_info( $args->{'scheme_id'}, $field );
+		next if $field eq $primary_key;
+		my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+		my %html5_args;
+		$html5_args{'type'} = 'number' if $field_info->{'type'} eq 'integer';
+		my ( $label, $title ) = $self->get_truncated_label( $field, 24 );
+		my $title_attribute = $title ? " title=\"$title\"" : '';
+		say qq(<li><label for="field:$field" class="form" style="width:${width}em"$title_attribute>$label: </label>);
 		say $q->textfield(
-			-name    => "field:$field",
-			-size    => $field_info->{'type'} eq 'integer' ? 10 : 50,
-			-default => $args->{'field_data'}->{$field}
+			-name => "field:$field",
+			-id   => "field:$field",
+			-size => $field_info->{'type'} eq 'integer' ? 10 : 50,
+			-value => $q->param("field:$field") // $field_data->{$field},
+			%html5_args
 		);
-		say "</td></tr>";
+		say "</li>";
 	}
-	say "<tr><td style=\"text-align:right\">sender: !</td><td>";
+	say qq(<li><label for="field:sender" class="form" style="width:${width}em">sender: !</label>);
 	say $q->popup_menu(
 		-name    => 'field:sender',
+		-id      => 'field:sender',
 		-values  => [ '', @users ],
 		-labels  => \%usernames,
-		-default => $args->{'profile_data'}->{'sender'}
+		-default => $q->param('field:sender') // $profile_data->{'sender'}
 	);
-	say "</td></tr>";
-	say "<tr><td style=\"text-align:right\">curator: !</td><td><b>";
-	say $self->get_curator_name() . ' (' . $self->{'username'} . ")</b></td></tr>";
-	say "<tr><td style=\"text-align:right\">date_entered: !</td><td><b>$args->{'profile_data'}->{'date_entered'}</b></td></tr>";
-	say "<tr><td style=\"text-align:right\">datestamp: !</td><td><b>" . $self->get_datestamp . "</b></td></tr>";
-	say "</table>";
-	$self->print_action_fieldset( { scheme_id => $args->{'scheme_id'}, profile_id => $args->{'profile_id'} } );
+	say "</li>";
+	say qq(<li><label class="form" style="width:${width}em">curator: !</label><b>);
+	say $self->get_curator_name() . ' (' . $self->{'username'} . ")</b></li>";
+	say qq(<li><label class="form" style="width:${width}em">date_entered: !</label><b>);
+	say "$profile_data->{'date_entered'}</b></li>";
+	say qq(<li><label class="form" style="width:${width}em">datestamp: !</label><b>);
+	say $self->get_datestamp . "</b></li>";
+	say "</ul>";
+	say "</fieldset>";
+	$self->print_action_fieldset( { scheme_id => $scheme_id, profile_id => $profile_id } );
 	say $q->end_form;
 	say "</div></div>";
 	return;

@@ -324,7 +324,13 @@ sub _print_interface {
 		my ( $label, $title ) = $self->get_truncated_label( $cleaned, 24 );
 		my $title_attribute = $title ? " title=\"$title\"" : '';
 		say qq(<li><label for="locus:$locus" class="form" style="width:${width}em"$title_attribute>$label: !</label>);
-		say $self->textfield( -name => "locus:$locus", -id => "locus:$locus", -size => 10, -value => $newdata->{$locus}, %html5_args );
+		say $self->textfield(
+			-name  => "locus:$locus",
+			-id    => "locus:$locus",
+			-size  => 10,
+			-value => $newdata->{"locus:$locus"},
+			%html5_args
+		);
 		say "</li>";
 	}
 	say qq(<li><label for="field:sender" class="form" style="width:${width}em">sender: !</label>);
@@ -333,7 +339,7 @@ sub _print_interface {
 		-id      => 'field:sender',
 		-values  => [ '', @users ],
 		-labels  => \%usernames,
-		-default => $newdata->{'sender'}
+		-default => $newdata->{'field:sender'}
 	);
 	say "</li>";
 	foreach my $field (@$fields) {
@@ -348,17 +354,17 @@ sub _print_interface {
 			-name  => "field:$field",
 			-id    => "field:$field",
 			-size  => $scheme_field_info->{'type'} eq 'integer' ? 10 : 50,
-			-value => $newdata->{$field},
+			-value => $newdata->{"field:$field"},
 			%html5_args
 		);
 		say "</li>";
 	}
-	say qq(<li><label class="form" style="width:${width}em">curator: </label><b>)
+	say qq(<li><label class="form" style="width:${width}em">curator: !</label><b>)
 	  . $self->get_curator_name . ' ('
 	  . $self->{'username'}
 	  . ")</b></li>";
-	say qq(<li><label class="form" style="width:${width}em">date_entered: </label><b>) . $self->get_datestamp . "</b></li>";
-	say qq(<li><label class="form" style="width:${width}em">datestamp: </label><b>) . $self->get_datestamp . "</b></li></ul>";
+	say qq(<li><label class="form" style="width:${width}em">date_entered: !</label><b>) . $self->get_datestamp . "</b></li>";
+	say qq(<li><label class="form" style="width:${width}em">datestamp: !</label><b>) . $self->get_datestamp . "</b></li></ul>";
 	$self->print_action_fieldset( { scheme_id => $scheme_id } );
 	say $q->end_form;
 	say "</fieldset>";
