@@ -1194,7 +1194,7 @@ sub get_sequences_table_attributes {
 		{ name => 'locus',     type => 'text', required => 'yes', primary_key => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
 		{ name => 'allele_id', type => 'text', required => 'yes', primary_key => 'yes' },
 		{ name => 'sequence', type => 'text', required => 'yes', length => 32768, user_update => 'no' },
-		{ name => 'status', type => 'text', required => 'yes', optlist => "@optlist", default => 'trace checked', public_hide => 'yes' },
+		{ name => 'status', type => 'text', required => 'yes', optlist => "@optlist", public_hide => 'yes' },
 		{ name => 'sender',       type => 'int',  required => 'yes', dropdown_query => 'yes', public_hide => 'yes' },
 		{ name => 'curator',      type => 'int',  required => 'yes', dropdown_query => 'yes', public_hide => 'yes' },
 		{ name => 'date_entered', type => 'date', required => 'yes', public_hide    => 'yes' },

@@ -54,7 +54,7 @@ use constant ALLELE_FLAGS => (
 	'truncated',
 	'upstream fusion'
 );
-use constant SEQ_STATUS => ( 'trace checked', 'trace not checked' );
+use constant SEQ_STATUS => ( 'Sanger trace checked', 'WGS: manual extract', 'WGS: automated extract', 'unchecked' );
 use constant DATABANKS  => qw(ENA Genbank);
 use constant FLANKING   => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
 use constant LOCUS_PATTERN => qr/^(?:l|cn|la)_(.+?)(?:\|\|.+)?$/;

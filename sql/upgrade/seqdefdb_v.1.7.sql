@@ -13,3 +13,6 @@ CREATE INDEX i_pm3 ON profile_members(allele_id);
 ALTER TABLE scheme_groups ADD seq_query boolean;
 
 ALTER TABLE scheme_fields ADD index boolean;
+
+UPDATE sequences SET status='unchecked' WHERE status='trace not checked';
+UPDATE sequences SET status='Sanger trace checked' WHERE status='trace checked';

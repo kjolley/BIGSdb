@@ -90,7 +90,7 @@ sub run_script {
 						say "locus\tallele_id\tstatus\tsequence";
 						$first = 0;
 					}
-					say "$locus\t\ttrace not checked\t$seq";
+					say "$locus\t\tWGS: automated extract\t$seq";
 				}
 			}
 			last if $EXIT || $self->_is_time_up;
@@ -126,7 +126,7 @@ sub _define_allele {
 		$allele_id = $self->_get_next_id( $locus_db, $locus );
 		my $sql = $locus_db->prepare(
 			"INSERT INTO sequences (locus,allele_id,sequence,status,date_entered,datestamp,sender," . "curator) VALUES (?,?,?,?,?,?,?,?)" );
-		eval { $sql->execute( $locus, $allele_id, $seq, 'trace not checked', 'now', 'now', DEFINER_USER, DEFINER_USER ) };
+		eval { $sql->execute( $locus, $allele_id, $seq, 'WGS: automated extract', 'now', 'now', DEFINER_USER, DEFINER_USER ) };
 		if ($@) {
 			$self->{'logger'}->error($@);
 			say "Can't add new allele.";

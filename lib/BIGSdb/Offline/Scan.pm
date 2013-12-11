@@ -310,7 +310,7 @@ sub run_script {
 						if ($new) {
 							push @{ $new_alleles->{$locus} }, $seq;
 							open( my $seqs_fh, '>>', $seq_filename ) or $logger->error("Can't open $seq_filename for appending");
-							say $seqs_fh "$locus\t\ttrace not checked\t$seq";
+							say $seqs_fh "$locus\t\tWGS: automated extract\t$seq";
 							close $seqs_fh;
 						}
 					}
