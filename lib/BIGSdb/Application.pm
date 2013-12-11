@@ -296,8 +296,9 @@ sub read_config_file {
 
 sub read_host_mapping_file {
 	my ( $self, $config_dir ) = @_;
-	if ( -e "$config_dir/host_mapping.conf" ) {
-		open( my $fh, '<', "$config_dir/host_mapping.conf" );
+	my $mapping_file = "$config_dir/host_mapping.conf";
+	if ( -e $mapping_file ) {
+		open( my $fh, '<', $mapping_file ) || get_logger('BIGSdb.Application_Initiate')->error("Can't open $mapping_file for reading");
 		while (<$fh>) {
 			next if /^\s+$/ || /^#/;
 			my ( $host, $mapped ) = split /\s+/, $_;
@@ -326,20 +327,18 @@ sub _setup_prefstore {
 		my $logger = get_logger('BIGSdb.Prefs');
 		$logger->fatal("Can not connect to preferences database '$self->{'config'}->{'prefs_db'}'");
 	};
-	$self->{'prefstore'} = BIGSdb::Preferences->new( ( 'db' => $pref_db ) );
+	$self->{'prefstore'} = BIGSdb::Preferences->new( db => $pref_db );
 	return;
 }
 
 sub setup_datastore {
 	my ($self) = @_;
 	$self->{'datastore'} = BIGSdb::Datastore->new(
-		(
-			db            => $self->{'db'},
-			dataConnector => $self->{'dataConnector'},
-			system        => $self->{'system'},
-			config        => $self->{'config'},
-			xmlHandler    => $self->{'xmlHandler'}
-		)
+		db            => $self->{'db'},
+		dataConnector => $self->{'dataConnector'},
+		system        => $self->{'system'},
+		config        => $self->{'config'},
+		xmlHandler    => $self->{'xmlHandler'}
 	);
 	return;
 }
