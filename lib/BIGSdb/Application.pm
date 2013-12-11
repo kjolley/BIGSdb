@@ -280,12 +280,12 @@ sub read_config_file {
 	}
 	$self->{'config'}->{'intranet'} ||= 'no';
 	if ( $self->{'config'}->{'chartdirector'} ) {
-		eval "use perlchartdir;";
+		eval "use perlchartdir;";    ## no critic (ProhibitStringyEval)
 		if ($@) {
 			$logger->error("Chartdirector not installed! - Either install or set 'chartdirector=0' in bigsdb.conf");
 			$self->{'config'}->{'chartdirector'} = 0;
 		} else {
-			eval "use BIGSdb::Charts;";
+			eval "use BIGSdb::Charts;";    ## no critic (ProhibitStringyEval)
 			if ($@) {
 				$logger->error("Charts.pm not installed!");
 			}
