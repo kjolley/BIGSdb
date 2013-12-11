@@ -171,24 +171,25 @@ sub _upload {
 			say "<div class=\"box\" id=\"statusbad\"><p>Invalid sender set.</p></div>";
 			$insert = 0;
 		}
+		( my $cleaned_profile_id = $newdata->{"field:$primary_key"} ) =~ s/'/\\'/g;
 		if ($insert) {
 			my @inserts;
 			my $qry;
 			$qry = "INSERT INTO profiles (scheme_id,profile_id,sender,curator,date_entered,datestamp) VALUES "
-			  . "($scheme_id,'$newdata->{\"field:$primary_key\"}',$newdata->{'field:sender'},$newdata->{'field:curator'},'today','today')";
+			  . "($scheme_id,E'$cleaned_profile_id',$newdata->{'field:sender'},$newdata->{'field:curator'},'today','today')";
 			push @inserts, $qry;
 			foreach my $locus (@$loci) {
 				( my $cleaned = $locus ) =~ s/'/\\'/g;
 				$qry =
 				    "INSERT INTO profile_members (scheme_id,locus,profile_id,allele_id,curator,datestamp) VALUES "
-				  . "($scheme_id,E'$cleaned','$newdata->{\"field:$primary_key\"}',E'$newdata->{\"locus:$locus\"}',"
+				  . "($scheme_id,E'$cleaned',E'$cleaned_profile_id',E'$newdata->{\"locus:$locus\"}',"
 				  . "$newdata->{'field:curator'},'today')";
 				push @inserts, $qry;
 			}
 			foreach my $field (@fields_with_values) {
 				$qry =
 				    "INSERT INTO profile_fields(scheme_id,scheme_field,profile_id,value,curator,datestamp) VALUES "
-				  . "($scheme_id,E'$field','$newdata->{\"field:$primary_key\"}',E'$newdata->{\"field:$field\"}',"
+				  . "($scheme_id,E'$field',E'$cleaned_profile_id',E'$newdata->{\"field:$field\"}',"
 				  . "$newdata->{'field:curator'},'today')";
 				push @inserts, $qry;
 			}
@@ -209,9 +210,8 @@ sub _upload {
 				say "</div>";
 				$self->{'db'}->rollback;
 			} else {
-				$newdata->{"field:$primary_key"} =~ s/\\'/'/g;
 				$self->{'db'}->commit
-				  && say "<div class=\"box\" id=\"resultsheader\"><p>$primary_key-$newdata->{\"field:$primary_key\"} added!</p>";
+				  && say "<div class=\"box\" id=\"resultsheader\"><p>$primary_key-$cleaned_profile_id added!</p>";
 				say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileAdd&amp;scheme_id="
 				  . "$scheme_id\">Add another</a> | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">"
 				  . "Back to main page</a></p></div>";
@@ -383,7 +383,7 @@ sub _print_interface {
 	say qq(<li><label class="form" style="width:${width}em">date_entered: !</label><b>) . $self->get_datestamp . "</b></li>";
 	say qq(<li><label class="form" style="width:${width}em">datestamp: !</label><b>) . $self->get_datestamp . "</b></li>";
 	say qq(<li><label for="pubmed" class="form" style="width:${width}em">PubMed ids:</label>);
-	say $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em');
+	say $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em' );
 	say "</li></ul>";
 	$self->print_action_fieldset( { scheme_id => $scheme_id } );
 	say $q->end_form;
