@@ -636,18 +636,17 @@ sub _modify_loci_for_sets {
 	my ( $self, $table, $qry_ref ) = @_;
 	my $set_id = $self->get_set_id;
 	my $identifier;
-	given ($table) {
-		when ('loci')                { $identifier = 'id' }
-		when ('locus_aliases')       { $identifier = 'locus' }
-		when ('scheme_members')      { $identifier = 'locus' }
-		when ('allele_designations') { $identifier = 'locus' }
-		default                      { return }
-	}
+	if    ( $table eq 'loci' )                { $identifier = 'id' }
+	elsif ( $table eq 'locus_aliases' )       { $identifier = 'locus' }
+	elsif ( $table eq 'scheme_members' )      { $identifier = 'locus' }
+	elsif ( $table eq 'allele_designations' ) { $identifier = 'locus' }
+	elsif ( $table eq 'sequences' )           { $identifier = 'locus' }
+	else                                      { return }
+
 	if ($set_id) {
 		$$qry_ref .= ' AND ' if $$qry_ref;
-		$$qry_ref .=
-		    " ($table.$identifier IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
-		  . "set_id=$set_id)) OR $table.$identifier IN (SELECT locus FROM set_loci WHERE set_id=$set_id))";
+		$$qry_ref .= " ($table.$identifier IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes "
+		  . "WHERE set_id=$set_id)) OR $table.$identifier IN (SELECT locus FROM set_loci WHERE set_id=$set_id))";
 	}
 	return;
 }
