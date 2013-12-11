@@ -110,7 +110,7 @@ sub print_content {
 			  . "$self->{'instance'}&amp;page=alleleQuery$locus_clause&amp;no_js=1\">non-Javascript version</a> that has 4 combinations "
 			  . "of fields.</p></div></noscript>";
 		}
-		$self->_print_query_interface();
+		$self->_print_interface();
 	}
 	if (   defined $q->param('query')
 		|| defined $q->param('t1') )
@@ -132,17 +132,21 @@ sub _get_select_items {
 	my ( $self, $locus ) = @_;
 	my $attributes = $self->{'datastore'}->get_table_field_attributes('sequences');
 	my ( @select_items, @order_by );
-	foreach (@$attributes) {
-		next if $_->{'name'} eq 'locus';
-		if ( $_->{'name'} eq 'sender' || $_->{'name'} eq 'curator' || $_->{'name'} eq 'user_id' ) {
-			push @select_items, "$_->{'name'} (id)";
-			push @select_items, "$_->{'name'} (surname)";
-			push @select_items, "$_->{'name'} (first_name)";
-			push @select_items, "$_->{'name'} (affiliation)";
+	foreach my $att (@$attributes) {
+		next if $att->{'name'} eq 'locus';
+		if ( $att->{'name'} eq 'sender' || $att->{'name'} eq 'curator' || $att->{'name'} eq 'user_id' ) {
+			push @select_items, "$att->{'name'} (id)";
+			push @select_items, "$att->{'name'} (surname)";
+			push @select_items, "$att->{'name'} (first_name)";
+			push @select_items, "$att->{'name'} (affiliation)";
 		} else {
-			push @select_items, $_->{'name'};
+			push @select_items, $att->{'name'};
 		}
-		push @order_by, $_->{'name'};
+		push @order_by, $att->{'name'};
+		if ( $att->{'name'} eq 'sequence' ) {
+			push @select_items, 'sequence_length';
+			push @order_by, 'sequence_length';
+		}
 	}
 	my %labels;
 	foreach my $item (@select_items) {
@@ -185,7 +189,7 @@ sub _print_table_fields {
 	return;
 }
 
-sub _print_query_interface {
+sub _print_interface {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $locus  = $q->param('locus');
@@ -346,6 +350,7 @@ sub _run_query {
 							last;
 						}
 					}
+					$thisfield->{'type'} = 'int' if $field eq 'sequence_length';
 					$thisfield->{'type'} ||= 'text';    # sender/curator surname, firstname, affiliation
 					$thisfield->{'type'} = $locus_info->{'allele_id_format'} // 'text' if ( $thisfield->{'name'} // '' ) eq 'allele_id';
 					if ( none { $field =~ /\($_\)$/ } qw (surname first_name affiliation) ) {
@@ -372,27 +377,27 @@ sub _run_query {
 								$qry .=
 								  $thisfield->{'type'} eq 'text'
 								  ? "NOT upper($field) = upper(E'$text')"
-								  : "NOT upper($field) = upper(E'$text')";
+								  : "NOT $field = E'$text'";
 							}
 						} elsif ( $operator eq "contains" ) {
 							$qry .=
 							  $thisfield->{'type'} eq 'text'
-							  ? "upper($field) LIKE upper(E'\%$text\%')"
-							  : "upper($field) LIKE upper(E'\%$text\%')";
+							  ? "$field ILIKE E'\%$text\%'"
+							  : "CAST($field AS text) ILIKE E'\%$text\%'";
 						} elsif ( $operator eq "starts with" ) {
 							$qry .=
 							  $thisfield->{'type'} eq 'text'
-							  ? "upper($field) LIKE upper(E'$text\%')"
-							  : "upper($field) LIKE upper(E'$text\%')";
+							  ? "$field ILIKE E'$text\%'"
+							  : "CAST($field AS text) ILIKE E'$text\%'";
 						} elsif ( $operator eq "ends with" ) {
 							$qry .=
 							  $thisfield->{'type'} eq 'text'
-							  ? "upper($field) LIKE upper(E'\%$text')"
-							  : "upper($field) LIKE upper(E'\%$text')";
+							  ? "$field ILIKE E'\%$text'"
+							  : "CAST($field AS text) ILIKE E'\%$text'";
 						} elsif ( $operator eq "NOT contain" ) {
 							$qry .=
 							  $thisfield->{'type'} eq 'text'
-							  ? "NOT upper($field) LIKE upper(E'\%$text\%')"
+							  ? "NOT $field ILIKE E'\%$text\%'"
 							  : "NOT CAST($field AS text) LIKE E'\%$text\%'";
 						} elsif ( $operator eq '=' ) {
 							if ( $text eq 'null' ) {
@@ -420,6 +425,7 @@ sub _run_query {
 		}
 		$locus =~ s/'/\\'/g;
 		$qry ||= '';
+		$qry =~ s/sequence_length/length(sequence)/g;
 		$qry2 = "SELECT * FROM sequences WHERE locus=E'$locus' AND ($qry)";
 		foreach (@$attributes) {
 			my $param = $_->{'name'} . '_list';
@@ -444,8 +450,9 @@ sub _run_query {
 		}
 		my $dir = $q->param('direction') eq 'descending' ? 'desc' : 'asc';
 		$qry2 .= " $dir;";
+		$qry2 =~ s/sequence_length/length(sequence)/g;
 	} else {
-		$qry2 = $self->get_query_from_temp_file($q->param('query_file'));
+		$qry2 = $self->get_query_from_temp_file( $q->param('query_file') );
 	}
 	my @hidden_attributes;
 	push @hidden_attributes, 'c0';

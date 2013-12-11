@@ -72,7 +72,7 @@ sub print_content {
 			  . "$self->{'instance'}&amp;page=tableQuery&amp;table=$table&amp;no_js=1\">non-Javascript version</a> that has 4 "
 			  . "combinations of fields.</p></div></noscript>";
 		}
-		$self->_print_query_interface;
+		$self->_print_interface;
 	}
 	if ( $q->param('submit') || defined $q->param('query') || defined $q->param('t1') ) {
 		$self->_run_query;
@@ -136,6 +136,10 @@ sub _get_select_items {
 		if ( $att->{'name'} eq 'isolate_id' ) {
 			push @select_items, $self->{'system'}->{'labelfield'};
 		}
+		if ( $table eq 'sequences' && $att->{'name'} eq 'sequence' ) {
+			push @select_items, 'sequence_length';
+			push @order_by, 'sequence_length';
+		}
 	}
 	foreach my $item (@select_items) {
 		( $labels{$item} = $item ) =~ tr/_/ / if !defined $labels{$item};
@@ -173,7 +177,7 @@ sub _ajax_content {
 	return;
 }
 
-sub _print_query_interface {
+sub _print_interface {
 	my ($self) = @_;
 	my $system = $self->{'system'};
 	my $prefs  = $self->{'prefs'};
@@ -359,7 +363,7 @@ sub _run_query {
 	my @errors;
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 
-	if ( !defined $q->param('query') ) {
+	if ( !defined $q->param('query_file') ) {
 		my $andor       = $q->param('c0');
 		my $first_value = 1;
 		foreach my $i ( 1 .. MAX_ROWS ) {
@@ -375,6 +379,7 @@ sub _run_query {
 						last;
 					}
 				}
+				$thisfield->{'type'} = 'int' if $field eq 'sequence_length';
 				if ( $field =~ / \(date\)$/ ) {
 					$thisfield->{'type'} = 'date';    #Timestamps are too awkward to search with so only search on date component
 				}
@@ -460,6 +465,9 @@ sub _run_query {
 				}
 			}
 		}
+		if ( $table eq 'sequences' && $qry ) {
+			$qry =~ s/sequences.sequence_length/length(sequences.sequence)/g;
+		}
 		$self->_modify_isolates_for_view( $table, \$qry );
 		$self->_modify_seqbin_for_view( $table, \$qry );
 		$self->_modify_loci_for_sets( $table, \$qry );
@@ -538,18 +546,17 @@ sub _run_query {
 		}
 		$qry2 .= " ORDER BY $table.";
 		my $default_order;
-		given ($table) {
-			when ('sequences') { $default_order = 'locus' }
-			when ('history')   { $default_order = 'timestamp' }
-			default            { $default_order = 'id' }
-		}
+		if    ( $table eq 'sequences' ) { $default_order = 'locus' }
+		elsif ( $table eq 'history' )   { $default_order = 'timestamp' }
+		else                            { $default_order = 'id' }
 		$qry2 .= $q->param('order') || $default_order;
+		$qry2 =~ s/sequences.sequence_length/length(sequences.sequence)/g if $table eq 'sequences';
 		my $dir = ( $q->param('direction') // '' ) eq 'descending' ? 'desc' : 'asc';
 		my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
 		local $" = ",$table.";
 		$qry2 .= " $dir,$table.@primary_keys;";
 	} else {
-		$qry2 = $q->param('query');
+		$qry2 = $self->get_query_from_temp_file( $q->param('query_file') );
 	}
 	my @hidden_attributes;
 	push @hidden_attributes, 'c0';
@@ -603,6 +610,7 @@ s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bi
 		my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
 		local $" = ",$table.";
 		$qry .= " $dir,$table.@primary_keys;";
+		$qry =~ s/sequences.sequence_length/length(sequences.sequence)/g;
 		my $args = { table => $table, query => $qry, hidden_attributes => \@hidden_attributes };
 		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
 		$self->paged_display($args);
