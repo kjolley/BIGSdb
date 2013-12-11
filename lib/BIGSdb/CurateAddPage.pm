@@ -19,6 +19,7 @@
 package BIGSdb::CurateAddPage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::CuratePage BIGSdb::BlastPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -276,8 +277,8 @@ sub _insert {
 		my $isolate_id =
 		  $self->{'datastore'}->run_simple_query( "SELECT isolate_id FROM sequence_bin WHERE id=?", $newdata->{'seqbin_id'} )->[0];
 		if ( !$self->is_allowed_to_view_isolate($isolate_id) ) {
-			push @problems,
-"The sequence you are trying to add an accession to belongs to an isolate to which your user account is not allowed to access.";
+			push @problems, "The sequence you are trying to add an accession to belongs to an isolate to which your user account "
+			  . "is not allowed to access.";
 		}
 	} elsif (
 		!@problems
@@ -317,8 +318,8 @@ sub _insert {
 		local $" = ',';
 		my $qry = "INSERT INTO $table (@table_fields) VALUES ($valuestring)";
 		if ( $table eq 'users' ) {
-			$qry .=
-";INSERT INTO user_group_members (user_id,user_group,curator,datestamp) VALUES ($newdata->{'id'},0,$newdata->{'curator'},'today')";
+			$qry .= ";INSERT INTO user_group_members (user_id,user_group,curator,datestamp) VALUES ($newdata->{'id'},0,"
+			  . "$newdata->{'curator'},'today')";
 		}
 		eval {
 			$self->{'db'}->do($qry);
@@ -345,36 +346,36 @@ sub _insert {
 			}
 		};
 		if ($@) {
-			print "<div class=\"box\" id=\"statusbad\"><p>Insert failed - transaction cancelled - no records have been touched.</p>\n";
+			say "<div class=\"box\" id=\"statusbad\"><p>Insert failed - transaction cancelled - no records have been touched.</p>";
 			if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
-				print "<p>Data entry would have resulted in records with either duplicate ids or another unique field with duplicate "
+				say "<p>Data entry would have resulted in records with either duplicate ids or another unique field with duplicate "
 				  . "values.  This can result from another curator adding data at the same time.  Try pressing the browser back button "
-				  . "and then re-submit the records.</p>\n";
+				  . "and then re-submit the records.</p>";
 			} else {
-				print "<p>Error message: $@</p>\n";
+				say "<p>Error message: $@</p>";
 				$logger->error("Insert failed: $@");
 			}
-			print "</div>\n";
+			say "</div>";
 			$self->{'db'}->rollback;
 		} else {
 			$self->{'db'}->commit;
 			if ( $table eq 'sequences' ) {
 				my $cleaned_locus = $self->clean_locus( $newdata->{'locus'} );
 				$cleaned_locus =~ s/\\'/'/g;
-				print "<div class=\"box\" id=\"resultsheader\"><p>Sequence $cleaned_locus: $newdata->{'allele_id'} added!</p>";
+				say "<div class=\"box\" id=\"resultsheader\"><p>Sequence $cleaned_locus: $newdata->{'allele_id'} added!</p>";
 			} else {
 				my $record_name = $self->get_record_name($table);
-				print "<div class=\"box\" id=\"resultsheader\"><p>$record_name added!</p>";
+				say "<div class=\"box\" id=\"resultsheader\"><p>$record_name added!</p>";
 			}
 			if ( $table eq 'composite_fields' ) {
-				print "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=compositeUpdate&amp;"
+				say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=compositeUpdate&amp;"
 				  . "id=$newdata->{'id'}\">Add values and fully customize this composite field</a>.</p>";
 			}
-			print "<p>";
+			say "<p>";
 			if ( $table eq 'samples' ) {
-				print "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;"
+				say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;"
 				  . "table=samples&isolate_id=$newdata->{'isolate_id'}\">Add another</a>";
-				print " | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateUpdate&amp;"
+				say " | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateUpdate&amp;"
 				  . "id=$newdata->{'isolate_id'}\">Back to isolate update</a>";
 			} else {
 				my $locus_clause = '';
@@ -382,10 +383,18 @@ sub _insert {
 					$newdata->{'locus'} =~ s/\\//g;
 					$locus_clause = "&amp;locus=$newdata->{'locus'}&amp;status=$newdata->{'status'}&amp;sender=$newdata->{'sender'}";
 				}
-				print "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;"
+				say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;"
 				  . "table=$table$locus_clause\">Add another</a>";
 			}
-			print " | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
+			if ( $table eq 'users' ) {
+				if ( $self->{'system'}->{'authentication'} eq 'builtin'
+					&& ( $self->{'permissions'}->{'set_user_passwords'} || $self->is_admin ) )
+				{
+					say " | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=setPassword&amp;"
+					  . "user=$newdata->{'user_name'}\">Set password";
+				}
+			}
+			say " | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
 			return SUCCESS;
 		}
 	}
