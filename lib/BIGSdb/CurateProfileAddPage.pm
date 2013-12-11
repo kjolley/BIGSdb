@@ -128,6 +128,22 @@ sub _upload {
 		my $field_bad = $self->is_locus_field_bad( $scheme_id, $locus, $newdata->{"locus:$locus"} );
 		push @bad_field_buffer, $field_bad if $field_bad;
 	}
+	my @extra_inserts;
+	my @new_pubmeds = split /\r?\n/, $q->param('pubmed');
+	my $pubmed_error = 0;
+	foreach my $new (@new_pubmeds) {
+		chomp $new;
+		next if $new eq '';
+		if ( !BIGSdb::Utils::is_int($new) ) {
+			push @bad_field_buffer, "PubMed ids must be integers" if !$pubmed_error;
+			$pubmed_error = 1;
+		} else {
+			my $profile_id = $newdata->{"field:$primary_key"};
+			$profile_id =~ s/'/\\'/g;
+			push @extra_inserts, "INSERT INTO profile_refs (scheme_id,profile_id,pubmed_id,curator,datestamp) VALUES "
+			  . "($scheme_id,E'$profile_id',$new,$newdata->{'field:curator'},'today')";
+		}
+	}
 	if (@bad_field_buffer) {
 		say "<div class=\"box\" id=\"statusbad\"><p>There are problems with your record submission.  Please address the following:</p>";
 		local $" = '<br />';
@@ -176,6 +192,7 @@ sub _upload {
 				  . "$newdata->{'field:curator'},'today')";
 				push @inserts, $qry;
 			}
+			push @inserts, @extra_inserts;
 			local $" = ';';
 			eval {
 				$self->{'db'}->do("@inserts");
@@ -364,7 +381,10 @@ sub _print_interface {
 	  . $self->{'username'}
 	  . ")</b></li>";
 	say qq(<li><label class="form" style="width:${width}em">date_entered: !</label><b>) . $self->get_datestamp . "</b></li>";
-	say qq(<li><label class="form" style="width:${width}em">datestamp: !</label><b>) . $self->get_datestamp . "</b></li></ul>";
+	say qq(<li><label class="form" style="width:${width}em">datestamp: !</label><b>) . $self->get_datestamp . "</b></li>";
+	say qq(<li><label for="pubmed" class="form" style="width:${width}em">PubMed ids:</label>);
+	say $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em');
+	say "</li></ul>";
 	$self->print_action_fieldset( { scheme_id => $scheme_id } );
 	say $q->end_form;
 	say "</fieldset>";
