@@ -561,16 +561,6 @@ sub _create_session {
 	return;
 }
 
-sub _get_session_start_time {
-	my ( $self, $session ) = @_;
-	return if !$session;
-	my $sql = $self->{'auth_db'}->prepare("SELECT start_time FROM sessions WHERE dbase=? AND session=?");
-	eval { $sql->execute( $self->{'system'}->{'db'}, $session ) };
-	$logger->error($@) if $@;
-	my ($start_time) = $sql->fetchrow_array;
-	return $start_time;
-}
-
 sub _clean_session_database {
 	my ($self) = @_;
 	my $sql = $self->{'auth_db'}->prepare("DELETE FROM sessions WHERE dbase=? AND start_time<?");
