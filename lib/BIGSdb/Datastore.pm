@@ -152,7 +152,7 @@ sub get_composite_value {
 			my $text_value    = $isolate_fields_hashref->{ lc($isolate_field) };
 			if ($regex) {
 				my $expression = "\$text_value =~ $regex";
-				eval "$expression";
+				eval "$expression";    ## no critic (ProhibitStringyEval)
 			}
 			$value .= $text_value || $empty_value;
 		} elsif ( $field =~ /^l_(.+)/ ) {
@@ -164,7 +164,7 @@ sub get_composite_value {
 			$allele = '&Delta;' if defined $allele && $allele =~ /^del/i;
 			if ($regex) {
 				my $expression = "\$allele =~ $regex";
-				eval "$expression";
+				eval "$expression";    ## no critic (ProhibitStringyEval)
 			}
 			$value .= $allele || $empty_value;
 		} elsif ( $field =~ /^s_(\d+)_(.+)/ ) {
@@ -185,7 +185,7 @@ sub get_composite_value {
 			if ($regex) {
 				$field_value = defined $field_value ? $field_value : '';
 				my $expression = "\$field_value =~ $regex";
-				eval "$expression";
+				eval "$expression";               ## no critic (ProhibitStringyEval)
 			}
 			$value .=
 			  defined $scheme_fields->{$scheme_id}->{$scheme_field} && $scheme_fields->{$scheme_id}->{$scheme_field} ne ''
@@ -1153,9 +1153,9 @@ sub get_set_locus_label {
 	if ($set_id) {
 		eval { $self->{'sql'}->{'get_set_locus_label'}->execute( $set_id, $locus ) };
 		$logger->error($@) if $@;
-		my $set_loci    = $self->{'sql'}->{'get_set_locus_label'}->fetchrow_hashref;
+		my $set_loci = $self->{'sql'}->{'get_set_locus_label'}->fetchrow_hashref;
 		my $set_cleaned;
-		if ($options->{'text_output'}){
+		if ( $options->{'text_output'} ) {
 			$set_cleaned = $set_loci->{'set_name'} // $locus;
 			$set_cleaned .= " ($set_loci->{'set_common_name'})" if $set_loci->{'set_common_name'};
 		} else {

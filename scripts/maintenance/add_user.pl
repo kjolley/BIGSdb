@@ -10,7 +10,7 @@ my $dbase = 'bigsdb_auth';
 my %opts;
 getopts( 'ad:n:p:', \%opts );
 
-if ( !$opts{'d'} or !$opts{'n'} or !$opts{'n'} ) {
+if ( !$opts{'d'} || !$opts{'n'} || !$opts{'n'} ) {
 	print "\nusage: add_user.pl [-a] -d <dbase> -n <username> -p <password>\n\n";
 	exit;
 }

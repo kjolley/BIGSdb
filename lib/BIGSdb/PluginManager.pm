@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2011, University of Oxford
+#Copyright (c) 2010-2013, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -23,7 +23,7 @@ use List::MoreUtils qw(any none);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 
-sub new {
+sub new {    ## no critic (RequireArgUnpacking)
 	my $class = shift;
 	my $self  = {@_};
 	$self->{'plugins'}    = {};
@@ -44,7 +44,7 @@ sub initiate {
 	foreach (@plugins) {
 		my $plugin_name = ~/^(\w*)$/ ? $1 : undef;    #untaint
 		$plugin_name = "$plugin_name";
-		eval "use BIGSdb::Plugins::$plugin_name";
+		eval "use BIGSdb::Plugins::$plugin_name";     ## no critic (ProhibitStringyEval)
 		if ($@) {
 			$logger->warn("$plugin_name plugin not installed properly!  $@");
 		} else {
@@ -125,22 +125,22 @@ sub get_appropriate_plugin_names {
 		if ( $attr->{'requires'} ) {
 			next
 			  if !$self->{'config'}->{'chartdirector'}
-				  && $attr->{'requires'} =~ /chartdirector/;
+			  && $attr->{'requires'} =~ /chartdirector/;
 			next
 			  if !$self->{'config'}->{'ref_db'}
-				  && $attr->{'requires'} =~ /ref_?db/;
+			  && $attr->{'requires'} =~ /ref_?db/;
 			next
 			  if !$self->{'config'}->{'emboss_path'}
-				  && $attr->{'requires'} =~ /emboss/;
+			  && $attr->{'requires'} =~ /emboss/;
 			next
 			  if !$self->{'config'}->{'muscle_path'}
-				  && $attr->{'requires'} =~ /muscle/;
+			  && $attr->{'requires'} =~ /muscle/;
 			next
 			  if !$self->{'config'}->{'mogrify_path'}
-				  && $attr->{'requires'} =~ /mogrify/;
+			  && $attr->{'requires'} =~ /mogrify/;
 			next
 			  if !$self->{'config'}->{'jobs_db'}
-				  && $attr->{'requires'} =~ /offline_jobs/;
+			  && $attr->{'requires'} =~ /offline_jobs/;
 			next if !@$pk_scheme_list && $attr->{'requires'} =~ /pk_scheme/;    #must be a scheme with primary key and loci defined
 		}
 		next

@@ -33,6 +33,7 @@ sub new {
 }
 1;
 
+## no critic (ProhibitMultiplePackages)
 #Database exceptions
 package BIGSdb::DatabaseException;
 use parent qw(BIGSdb::BIGSException);
