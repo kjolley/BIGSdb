@@ -350,6 +350,10 @@ sub _check_data {
 		my $checked_record;
 		if ($record) {
 			my @data = split /\t/, $record;
+			foreach (@data) {    #remove trailing spaces from each value
+				s/^\s*//;
+				s/\s*$//;
+			}
 			my $first = 1;
 			if ( $arg_ref->{'uses_integer_id'} && !$first_record ) {
 				do { $id++ } while ( $self->_is_id_used( $table, $id ) );
@@ -416,7 +420,7 @@ sub _check_data {
 				#Display field - highlight in red if invalid.
 				my $display_value;
 				if ( $field =~ /sequence/ && $field ne 'coding_sequence' ) {
-					$value ||= '';
+					$value //= '';
 					$display_value = "<span class=\"seq\">" . ( BIGSdb::Utils::truncate_seq( \$value, 40 ) ) . "</span>";
 				} else {
 					$display_value = $value;
@@ -472,7 +476,9 @@ sub _check_data {
 				$tablebuffer .= $self->_check_data_isolate_record_locus_fields( \%args );
 
 				#Check if a record with the same name already exists
-				if ( $label_field_values->{ $data[ $file_header_pos{ $self->{'system'}->{'labelfield'} } ] } ) {
+				if ( defined $file_header_pos{ $self->{'system'}->{'labelfield'} }
+					&& $label_field_values->{ $data[ $file_header_pos{ $self->{'system'}->{'labelfield'} } ] } )
+				{
 					$advisories{$pk_combination} .= "$self->{'system'}->{'labelfield'} "
 					  . "'$data[$file_header_pos{$self->{'system'}->{'labelfield'}}]' already exists in the database.";
 				}
