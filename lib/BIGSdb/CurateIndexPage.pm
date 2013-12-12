@@ -132,7 +132,8 @@ HTML
 		my @tables = qw (loci);
 		my @skip_table;
 		if ( $system->{'dbtype'} eq 'isolates' ) {
-			push @tables, qw(locus_aliases pcr pcr_locus probes probe_locus isolate_field_extended_attributes composite_fields);
+			push @tables, qw(locus_aliases pcr pcr_locus probes probe_locus isolate_field_extended_attributes composite_fields 
+				sequence_attributes);
 		} elsif ( $system->{'dbtype'} eq 'sequences' ) {
 			push @tables, qw(locus_aliases locus_extended_attributes client_dbases client_dbase_loci client_dbase_schemes
 			  client_dbase_loci_fields);
@@ -331,6 +332,25 @@ sub _print_sequence_bin {
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin$set_string">++</a></td>
 <td>$query_cell</td>
 <td class="comment" style="text-align:left">The sequence bin holds sequence contigs from any source.</td></tr>
+HTML
+	return $buffer;
+}
+
+sub _print_sequence_attributes {
+	my ( $self, $td, $set_string ) = @_;
+	my $exists = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT key FROM sequence_attributes)")->[0];
+	my $query_cell =
+	  $exists
+	  ? "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=sequence_attributes"
+	    . "$set_string\">?</a>"
+	  : '';
+	my $buffer = <<"HTML";
+<tr class="td$td"><td>sequence attributes</td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=sequence_attributes$set_string">+</a></td>
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=sequence_attributes$set_string">++
+</a></td>
+<td>$query_cell</td>
+<td class="comment" style="text-align:left">Define attributes that can be set for contigs in the sequence bin.</td></tr>
 HTML
 	return $buffer;
 }

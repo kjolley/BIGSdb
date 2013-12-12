@@ -1340,6 +1340,30 @@ sub get_locus_curators_table_attributes {
 	return $attributes;
 }
 
+sub get_sequence_attributes_table_attributes {
+	my ($self) = @_;
+	my $attributes = [
+		{ name => 'key',  type => 'text', required => 'yes', primary_key => 'yes' },
+		{ name => 'type', type => 'text', required => 'yes', optlist     => 'text;integer;date', default => 'text' },
+		{ name => 'description', type => 'text' },
+		{ name => 'curator',     type => 'int', required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' }
+	];
+	return $attributes;
+}
+
+sub get_sequence_attribute_values_table_attributes {
+	my ($self) = @_;
+	my $attributes = [
+		{ name => 'seqbin_id', type => 'int',  required => 'yes', primary_key => 'yes', foreign_key => 'sequence_bin' },
+		{ name => 'key',       type => 'text', required => 'yes', primary_key => 'yes', foreign_key => 'sequence_attributes' },
+		{ name => 'value',     type => 'text', required => 'yes' },
+		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' }
+	];
+	return $attributes;
+}
+
 sub get_sequence_bin_table_attributes {
 	my ($self) = @_;
 	my @methods = SEQ_METHODS;

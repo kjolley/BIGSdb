@@ -1867,20 +1867,21 @@ sub get_tables {
 	my @tables;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		@tables =
-		  qw(users user_groups user_group_members allele_sequences sequence_bin accession refs allele_designations pending_allele_designations loci
-		  locus_aliases schemes scheme_members scheme_fields composite_fields composite_field_values isolate_aliases user_permissions isolate_user_acl
-		  isolate_usergroup_acl projects project_members experiments experiment_sequences isolate_field_extended_attributes
-		  isolate_value_extended_attributes scheme_groups scheme_group_scheme_members scheme_group_group_members pcr pcr_locus probes probe_locus
-		  sets set_loci set_schemes set_metadata set_view samples isolates history);
+		  qw(users user_groups user_group_members allele_sequences sequence_bin accession refs allele_designations 
+		  pending_allele_designations loci locus_aliases schemes scheme_members scheme_fields composite_fields composite_field_values
+		  isolate_aliases user_permissions isolate_user_acl isolate_usergroup_acl projects project_members experiments experiment_sequences
+		  isolate_field_extended_attributes isolate_value_extended_attributes scheme_groups scheme_group_scheme_members
+		  scheme_group_group_members pcr pcr_locus probes probe_locus sets set_loci set_schemes set_metadata set_view samples isolates
+		  history sequence_attributes);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		@tables =
 		  qw(users user_groups user_group_members sequences sequence_refs accession loci schemes scheme_members scheme_fields profiles
-		  profile_refs user_permissions client_dbases client_dbase_loci client_dbase_schemes locus_extended_attributes scheme_curators locus_curators
-		  locus_descriptions scheme_groups scheme_group_scheme_members scheme_group_group_members client_dbase_loci_fields sets set_loci set_schemes
-		  profile_history locus_aliases);
+		  profile_refs user_permissions client_dbases client_dbase_loci client_dbase_schemes locus_extended_attributes scheme_curators
+		  locus_curators locus_descriptions scheme_groups scheme_group_scheme_members scheme_group_group_members client_dbase_loci_fields
+		  sets set_loci set_schemes profile_history locus_aliases);
 	}
 	return @tables;
 }
@@ -1893,7 +1894,7 @@ sub get_tables_with_curator {
 		  qw(users user_groups user_group_members allele_sequences sequence_bin refs allele_designations pending_allele_designations loci schemes scheme_members
 		  locus_aliases scheme_fields composite_fields composite_field_values isolate_aliases projects project_members experiments experiment_sequences
 		  isolate_field_extended_attributes isolate_value_extended_attributes scheme_groups scheme_group_scheme_members scheme_group_group_members pcr pcr_locus
-		  probes probe_locus accession sequence_flags);
+		  probes probe_locus accession sequence_flags sequence_attributes);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';

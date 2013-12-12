@@ -1254,7 +1254,8 @@ sub get_record_name {
 		set_metadata                      => 'set metadata',
 		set_view                          => 'database view linked to set',
 		history                           => 'update record',
-		profile_history                   => 'profile update record'
+		profile_history                   => 'profile update record',
+		sequence_attributes               => 'sequence attribute'
 	);
 	return $names{$table};
 }
