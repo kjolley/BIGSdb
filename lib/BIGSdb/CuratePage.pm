@@ -832,8 +832,11 @@ sub _is_field_bad_isolates {
 	#Make sure int fields really are integers and obey min/max values if set
 	if ( $thisfield->{'type'} eq 'int' ) {
 		if ( !BIGSdb::Utils::is_int($value) ) { return 'must be an integer' }
-		elsif ( defined $thisfield->{'min'} && $value < $thisfield->{'min'} ) { return "must be equal or larger than $thisfield->{'min'}" }
-		elsif ( defined $thisfield->{'max'} && $value > $thisfield->{'max'} ) { return "must be equal or smaller than $thisfield->{'max'}" }
+		elsif ( defined $thisfield->{'min'} && $value < $thisfield->{'min'} ) {
+			return "must be equal to or larger than $thisfield->{'min'}.";
+		} elsif ( defined $thisfield->{'max'} && $value > $thisfield->{'max'} ) {
+			return "must be equal to or smaller than $thisfield->{'max'}.";
+		}
 	}
 
 	#Make sure sender is in database
