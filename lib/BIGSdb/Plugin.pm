@@ -482,7 +482,6 @@ sub get_selected_fields {
 	foreach (@$composites) {
 		push @fields_selected, "c_$_" if $q->param("c_$_");
 	}
-	my %picked;
 	foreach (@$schemes) {
 		my $scheme_members = $self->{'datastore'}->get_scheme_loci($_);
 		foreach my $member (@$scheme_members) {
@@ -720,7 +719,6 @@ HTML
 
 sub print_scheme_locus_fieldset {
 	my ( $self, $scheme_id, $options ) = @_;
-	my ( @scheme_js, @scheme_js2 );
 	my $locus_list = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $set_id     = $self->get_set_id;
 	my %labels;

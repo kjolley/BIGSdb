@@ -159,10 +159,8 @@ sub _check {
 		my ( $old_value, $action );
 		if ( $i && defined $value[$i] && $value[$i] ne '' ) {
 			if ( !$bad_field ) {
-				my $count;
 				my @args;
 				push @args, $id[$i];
-				my $error;
 				eval { $sql->execute( $id[$i] ) };
 				$logger->error($@) if $@;
 				my $profile_data = $sql->fetchrow_hashref;

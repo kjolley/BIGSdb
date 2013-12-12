@@ -238,7 +238,6 @@ sub run_job {
 		my %no_seq;
 		my $locus;
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
-		my $common_length;
 		try {
 			$locus = $self->{'datastore'}->get_locus($locus_name);
 		}

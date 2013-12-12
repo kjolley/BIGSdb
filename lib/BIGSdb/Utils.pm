@@ -200,7 +200,6 @@ sub read_fasta {
 	my @lines = split /\n/, $$data_ref;
 	my %seqs;
 	my $header;
-	my $sequence;
 	foreach (@lines) {
 		$_ =~ s/\r//g;
 		if ( $_ =~ /^>/ ) {

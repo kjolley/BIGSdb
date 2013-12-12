@@ -681,7 +681,6 @@ sub _analyse_by_reference {
 	}
 	$html_buffer .= "</table>";
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
-	my %loci;
 	$html_buffer .= "<h3>All loci</h3>\n";
 	$file_buffer .= "\n\nAll loci\n--------\n\n";
 	$html_buffer .= "<p>Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'. "
@@ -780,7 +779,6 @@ sub _run_comparison {
 		my $seqbin_length_sql = $self->{'db'}->prepare("SELECT length(sequence) FROM sequence_bin where id=?");
 		my %status            = ( all_exact => 1, all_missing => 1, exact_except_ref => 1, truncated => 0 );
 		my $first             = 1;
-		my $first_seq;
 		my $previous_seq = '';
 		my ( $cleaned_locus_name, $text_locus_name );
 
@@ -1399,7 +1397,6 @@ sub _print_variable_loci {
 sub _create_alignments {
 	my ( $self, $job_id, $by_reference, $align_file, $align_stats_file, $ids, $loci ) = @_;
 	my $params = $self->{'params'};
-	my $count;
 	my $temp       = BIGSdb::Utils::get_random();
 	my $progress   = 0;
 	my $total      = 2 * ( scalar keys %$loci );                      #need to show progress from 50 - 100%

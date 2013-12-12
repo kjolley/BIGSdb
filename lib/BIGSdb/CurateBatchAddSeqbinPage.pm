@@ -299,7 +299,6 @@ STATS
 		say "<th>Sequence length</th><th>Comments</th><th>Status</th></tr>";
 		my $td       = 1;
 		my $min_size = 0;
-		my $problem_css;
 
 		if ( $q->param('size_filter') && BIGSdb::Utils::is_int( $q->param('size') ) ) {
 			$min_size = $q->param('size_filter') && $q->param('size');

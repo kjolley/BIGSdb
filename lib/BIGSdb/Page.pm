@@ -1410,7 +1410,7 @@ sub get_seq_detail_tooltips {
 		push @all_flags, @$designation_flags;
 		$flag_from_designation{$_} = 1 foreach @$designation_flags;
 	}
-	my ( @seqs, @flags_foreach_alleleseq, $complete );
+	my ( @flags_foreach_alleleseq, $complete );
 	if (@$alleleseq_ref) {
 		foreach my $alleleseq (@$alleleseq_ref) {
 			my $flaglist_ref =

@@ -405,7 +405,6 @@ sub _scan {
 	}
 	$self->_add_scheme_loci( \@loci );
 	my $limit = BIGSdb::Utils::is_int( $q->param('limit_matches') ) ? $q->param('limit_matches') : $LIMIT_MATCHES;
-	my ( %allele_designation_set, %allele_sequence_tagged );
 	my $scan_job = $self->{'scan_job'} =~ /^(BIGSdb_[0-9_]+)$/ ? $1 : undef;
 	$self->_save_parameters($scan_job);
 	my $project_id = $q->param('project_list');

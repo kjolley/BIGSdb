@@ -217,7 +217,6 @@ sub _check {
 				push @args, $id2[$i] if $id->{'field2'} ne '<none>';
 
 				#check if allowed to edit
-				my $error;
 				eval { $sql_id->execute(@args) };
 				if ($@) {
 					if ( $@ =~ /integer/ ) {

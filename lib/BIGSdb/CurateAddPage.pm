@@ -76,7 +76,6 @@ sub print_content {
 	}
 	my $buffer;
 	my %newdata;
-	my @missing;
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	foreach (@$attributes) {
 		$newdata{ $_->{'name'} } = $q->param( $_->{'name'} );

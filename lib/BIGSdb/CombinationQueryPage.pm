@@ -291,7 +291,7 @@ sub _run_query {
 				}
 			}
 		}
-		my ( @lqry, @lqry_blank );
+		my @lqry;
 		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 		foreach my $locus (@loci) {
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);

@@ -258,7 +258,6 @@ sub run_job {
 		  . "sequence_flags.start_pos AND allele_sequences.end_pos = sequence_flags.end_pos WHERE isolate_id=? AND "
 		  . "allele_sequences.locus=? AND complete $ignore_seqflag ORDER BY allele_sequences.datestamp LIMIT 1" );
 	my $start = 1;
-	my $end;
 	my $no_output     = 1;
 	my $list          = $self->{'jobManager'}->get_job_isolates($job_id);
 	my $loci          = $self->{'jobManager'}->get_job_loci($job_id);
@@ -276,7 +275,6 @@ sub run_job {
 	foreach my $locus_name (@$selected_loci) {
 		my $locus;
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
-		my $common_length;
 		try {
 			$locus = $self->{'datastore'}->get_locus($locus_name);
 		}

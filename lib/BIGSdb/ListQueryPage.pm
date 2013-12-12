@@ -213,7 +213,6 @@ sub _run_isolate_query {
 	my @list = split /\n/, $q->param('list');
 	@list = uniq @list;
 	my $tempqry;
-	my $lqry;
 	my $extended_isolate_field;
 	my $locus_pattern = LOCUS_PATTERN;
 	my $view          = $self->{'system'}->{'view'};

@@ -176,7 +176,6 @@ sub _print_examples {
 		print "Invalid scheme selected.\n";
 		return;
 	}
-	my @ids;
 	my $loci =
 	  $self->{'datastore'}->run_list_query( "SELECT locus FROM scheme_members WHERE scheme_id=? ORDER BY field_order", $scheme_id );
 	my @cleaned_loci = @$loci;

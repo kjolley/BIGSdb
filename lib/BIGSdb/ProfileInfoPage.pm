@@ -318,7 +318,6 @@ sub get_title {
 sub get_link_button_to_ref {
 	my ( $self, $ref ) = @_;
 	my $count;
-	my @reffields;
 	my $buffer;
 	my $qry = "SELECT COUNT(profile_refs.profile_id) FROM profile_refs RIGHT JOIN profiles on profile_refs.profile_id=profiles.profile_id "
 	  . "AND profile_refs.scheme_id=profiles.scheme_id WHERE pubmed_id=?";

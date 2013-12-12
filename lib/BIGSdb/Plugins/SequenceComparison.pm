@@ -85,7 +85,6 @@ sub run {
 	say $q->endform;
 	say "</div>";
 	return if !$sent;
-	my @seq;
 	my $displaylocus = $self->clean_locus($locus);
 	my $allele1      = $q->param('allele1');
 	my $allele2      = $q->param('allele2');

@@ -113,7 +113,7 @@ sub get_tree {
 	  $self->{'datastore'}->run_list_query_hashref(
 "SELECT id,description FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) $set_clause ORDER BY display_order,description"
 	  );
-	my ( $buffer, $scheme_nodes );
+	my $buffer;
 
 	foreach (@$groups_with_no_parent) {
 		my $group_info          = $self->{'datastore'}->get_scheme_group_info($_);

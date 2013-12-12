@@ -63,7 +63,6 @@ sub run {
 		say "<div class=\"box\" id=\"statusbad\">No reference database has been defined.</p></div>";
 		return;
 	}
-	my %prefs;
 	my $query_file = $q->param('query_file');
 	if ( !$query_file ) {
 		$query_file = $self->make_temp_file("SELECT * FROM $self->{'system'}->{'view'}");

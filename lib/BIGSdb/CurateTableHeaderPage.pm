@@ -61,7 +61,6 @@ sub print_content {
 
 		push @headers, $primary_key;
 		my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-		my %labels;
 		foreach my $locus (@$loci){
 			my $label = $self->{'datastore'}->get_set_locus_label($locus, $set_id);
 			push @headers, $label // $locus;

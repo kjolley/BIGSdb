@@ -39,7 +39,6 @@ sub print_content {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $id     = $q->param('id');
-	my $sql;
 	my $buffer;
 	say "<h1>Delete isolate</h1>";
 	if ( !$id ) {
