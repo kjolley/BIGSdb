@@ -42,7 +42,7 @@ use LWP::Simple;
 use XML::Parser;
 use Bio::Biblio::IO;
 use List::MoreUtils qw(uniq);
-## no critic (RequireCarping)
+use Carp;
 
 my %tablelist;
 my @refs;
@@ -73,10 +73,10 @@ foreach my $dbase ( keys %tablelist ) {
 	my @tables = split /,/, $tablelist{$dbase};
 	foreach (@tables) {
 		$_ =~ s/\s//g;
-		my $db = DBI->connect( "DBI:Pg:dbname=$dbase", 'postgres' ) or die "couldn't open db" . DBI->errstr;
+		my $db = DBI->connect( "DBI:Pg:dbname=$dbase", 'postgres' ) or croak "couldn't open db" . DBI->errstr;
 		my $sql;
 		my $qry = "SELECT DISTINCT pubmed_id FROM $_;";
-		$sql = $db->prepare($qry) or die "couldn't prepare";
+		$sql = $db->prepare($qry) or croak "couldn't prepare";
 		$sql->execute;
 		while ( my ($ref) = $sql->fetchrow_array() ) {
 			push @refs, $ref;
@@ -88,7 +88,7 @@ foreach my $dbase ( keys %tablelist ) {
 
 @refs = uniq @refs;
 
-my $db = DBI->connect( 'DBI:Pg:dbname=refs', 'postgres' ) or die "couldn't open template db" . DBI->errstr;
+my $db = DBI->connect( 'DBI:Pg:dbname=refs', 'postgres' ) or croak "couldn't open template db" . DBI->errstr;
 
 #Here we query website and extract reference data
 foreach my $refid (@refs) {
@@ -189,7 +189,7 @@ sub getauthors {
 
 sub runquery {
 	my ($qry) = @_;
-	my $sql = $db->prepare($qry) or die "couldn't prepare" . $db->errstr;
+	my $sql = $db->prepare($qry) or croak "couldn't prepare" . $db->errstr;
 	$sql->execute;
 	return $sql->fetchrow_array;
 }

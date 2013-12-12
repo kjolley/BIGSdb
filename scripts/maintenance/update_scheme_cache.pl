@@ -24,7 +24,7 @@ use warnings;
 use 5.010;
 use Getopt::Std;
 use DBI;
-##no critic (RequireCarping)
+use Carp;
 my %opts;
 getopts( 'd:x:i:y:', \%opts );
 
@@ -34,9 +34,9 @@ if ( !$opts{'d'} || !$opts{'x'} || !$opts{'i'} || !$opts{'y'} ) {
 	exit;
 }
 my $db1 = DBI->connect( "DBI:Pg:dbname=$opts{'d'}", 'postgres', '', { AutoCommit => 0 } )
-  or die "couldn't open database";
+  or croak "couldn't open database";
 my $db2 = DBI->connect( "DBI:Pg:dbname=$opts{'i'}", 'postgres', '', { AutoCommit => 0 } )
-  or die "couldn't open database";
+  or croak "couldn't open database";
 my $sql = $db2->prepare("SELECT field,type,primary_key FROM scheme_fields WHERE scheme_id=? ORDER BY field_order");
 $sql->execute( $opts{'y'} );
 my ( @fields, %field_type );

@@ -6,6 +6,7 @@ use 5.010;
 use Digest::MD5;
 use Getopt::Std;
 use DBI;
+use Carp;
 my $dbase = 'bigsdb_auth';
 my %opts;
 getopts( 'ad:n:p:', \%opts );
@@ -15,7 +16,7 @@ if ( !$opts{'d'} || !$opts{'n'} || !$opts{'n'} ) {
 	exit;
 }
 my $db = DBI->connect( "DBI:Pg:dbname=$dbase", 'postgres', '', { AutoCommit => 0, RaiseError => 1, PrintError => 0 } )
-  || die "couldn't open database";    ## no critic (RequireCarping)
+  || croak "couldn't open database"; 
 my $qry;
 if ( $opts{'a'} ) {
 	$qry = "INSERT INTO users (password,name,dbase) VALUES (?,?,?)";
