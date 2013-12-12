@@ -894,23 +894,6 @@ sub set_scheme_param {
 	return;
 }
 
-sub _print_tree {
-	my ( $self, $include_scheme_fields ) = @_;
-	say "<p style=\"clear:both\">Click within the tree to select loci belonging to schemes or groups of schemes.</p>"
-	  . "<p>If the tree is slow to update, you can try modifying your locus and 	scheme preferences by setting 'analysis' "
-	  . "to false for any <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;"
-	  . "table=schemes\">schemes</a> or <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;",
-	  "table=loci\">loci</a> for which you do not plan to use in analysis tools.</p>";
-	say "<noscript><p class=\"highlight\">Javascript needs to be enabled.</p></noscript>";
-	say "<div id=\"tree\" class=\"tree\">";
-	my $set_id = $self->get_set_id;
-	my $options = { no_link_out => 1, list_loci => 1, analysis_pref => 1, set_id => $set_id };
-	$options->{'scheme_fields'} = 1 if $include_scheme_fields;
-	say $self->get_tree( undef, $options );
-	say "</div>\n";
-	return;
-}
-
 sub _print_all_none_buttons {
 	my ( $self, $js1, $js2, $class ) = @_;
 	if ( ref $js1 && ref $js2 ) {
