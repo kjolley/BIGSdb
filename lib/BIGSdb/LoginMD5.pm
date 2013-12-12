@@ -492,7 +492,7 @@ sub _get_password_hash {
 	return $password;
 }
 
-sub _set_password_hash {
+sub set_password_hash {
 	my ( $self, $name, $hash ) = @_;
 	return if !$name;
 

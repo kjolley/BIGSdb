@@ -75,7 +75,7 @@ sub print_content {
 				say "<div class=\"box\" id=\"statusbad\"><p>The password was not re-typed the same as the first time.</p></div>";
 			} else {
 				my $username = $q->param('page') eq 'changePassword' ? $self->{'username'} : $q->param('user');
-				if ( $self->_set_password_hash( $username, $q->param('new_password1') ) ) {
+				if ( $self->set_password_hash( $username, $q->param('new_password1') ) ) {
 					say "<div class=\"box\" id=\"resultsheader\"><p>"
 					  . ( $q->param('page') eq 'changePassword' ? "Password updated ok." : "Password set for user '$username'." )
 					  . "</p>";
