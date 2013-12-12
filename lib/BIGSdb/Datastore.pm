@@ -133,7 +133,7 @@ sub get_composite_value {
 	my $allele_ids;
 	my $scheme_fields;
 	while ( my ( $field, $empty_value, $regex ) = $self->{'sql'}->{'composite_field_values'}->fetchrow_array ) {
-		$empty_value = '' if !defined $empty_value;
+		$empty_value //= '';
 		if (
 			defined $regex
 			&& (
@@ -142,9 +142,9 @@ sub get_composite_value {
 			)
 		  )
 		{
-			$logger->warn(
-"Regex for field '$field' in composite field '$composite_field' contains non-valid characters.  This is potentially dangerous as it may allow somebody to include a command that could be executed by the web server daemon.  The regex was '$regex'.  This regex has been disabled."
-			);
+			$logger->warn( "Regex for field '$field' in composite field '$composite_field' contains non-valid characters.  "
+				  . "This is potentially dangerous as it may allow somebody to include a command that could be executed by the "
+				  . "web server daemon.  The regex was '$regex'.  This regex has been disabled." );
 			undef $regex;
 		}
 		if ( $field =~ /^f_(.+)/ ) {
@@ -183,12 +183,12 @@ sub get_composite_value {
 				$field_value = $scheme_fields->{$scheme_id}->{$scheme_field};
 			}
 			if ($regex) {
-				$field_value = defined $field_value ? $field_value : '';
+				$field_value //= '';
 				my $expression = "\$field_value =~ $regex";
 				eval "$expression";               ## no critic (ProhibitStringyEval)
 			}
 			$value .=
-			  defined $scheme_fields->{$scheme_id}->{$scheme_field} && $scheme_fields->{$scheme_id}->{$scheme_field} ne ''
+			  ( $scheme_fields->{$scheme_id}->{$scheme_field} // '' ) ne ''
 			  ? $field_value
 			  : $empty_value;
 		} elsif ( $field =~ /^t_(.+)/ ) {
