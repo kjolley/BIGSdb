@@ -1532,7 +1532,7 @@ sub get_client_data_linked_to_allele {
 			$value .= " [n=$data->{'frequency'}]";
 			push @values, $value;
 		}
-		local $" = '; ';
+		local $" = @values > 10 ? "<br />\n" : '; ';
 		$dl_buffer .= "<dd>@values <span class=\"source\">$client_db_desc</span></dd>";
 		$td_buffer .= "<br />\n" if $i;
 		$td_buffer .= "<span class=\"source\">$client_db_desc</span> <b>$field:</b> @values";

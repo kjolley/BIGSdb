@@ -73,33 +73,30 @@ sub print_content {
 	say "<dl class=\"data\">";
 	say "<dt>locus</dt><dd>$cleaned_locus $desc_link</dd>";
 	say "<dt>allele</dt><dd>$allele_id</dd>";
-	given ($allele_id) {
-		when ('0') {
-			say "<dt>description</dt><dd>This is a null allele. When included in a profile it means that this locus is missing.</dd>"
-		}
-		when ('N') {
-			say "<dt>description</dt><dd>This is an arbitrary allele.  When included in a profile it means that this locus is ignored.</dd>"
-		}
-		default {
-			print << "HTML";
+
+	if ( $allele_id eq '0' ) {
+		say "<dt>description</dt><dd>This is a null allele. When included in a profile it means that this locus is missing.</dd>";
+	} elsif ( $allele_id eq 'N' ) {
+		say "<dt>description</dt><dd>This is an arbitrary allele.  When included in a profile it means that this locus is ignored.</dd>";
+	} else {
+		print << "HTML";
 <dt>sequences</dt><dd style="text-align:left" class="seq">$seq</dd>
 <dt>length</dt><dd>$length</dd>			
 <dt>status</dt><dd>$seq_ref->{'status'}</dd>
 <dt>date entered</dt><dd>$seq_ref->{'date_entered'}</dd>
 <dt>datestamp</dt><dd>$seq_ref->{'datestamp'}</dd>
 HTML
-			if ( $sender_info->{'first_name'} || $sender_info->{'surname'} ) {
-				print "<dt>sender</dt><dd>$sender_info->{'first_name'} $sender_info->{'surname'}";
-				print ", $sender_info->{'affiliation'}$sender_email" if $seq_ref->{'sender'} != $seq_ref->{'curator'};
-				say "</dd>";
-			}
-			if ( $curator_info->{'first_name'} || $curator_info->{'surname'} ) {
-				print "<dt>curator</dt><dd>$curator_info->{'first_name'} $curator_info->{'surname'}";
-				say ", $curator_info->{'affiliation'} " if $curator_info->{'affiliation'} && $curator_info->{'affiliation'} ne ' ';
-				say "(E-mail: <a href=\"mailto:$curator_info->{'email'}\">$curator_info->{'email'}</a>)"
-				  if $curator_info->{'email'} && $seq_ref->{'curator'} > 0;
-				say "</dd>";
-			}
+		if ( $sender_info->{'first_name'} || $sender_info->{'surname'} ) {
+			print "<dt>sender</dt><dd>$sender_info->{'first_name'} $sender_info->{'surname'}";
+			print ", $sender_info->{'affiliation'}$sender_email" if $seq_ref->{'sender'} != $seq_ref->{'curator'};
+			say "</dd>";
+		}
+		if ( $curator_info->{'first_name'} || $curator_info->{'surname'} ) {
+			print "<dt>curator</dt><dd>$curator_info->{'first_name'} $curator_info->{'surname'}";
+			say ", $curator_info->{'affiliation'} " if $curator_info->{'affiliation'} && $curator_info->{'affiliation'} ne ' ';
+			say "(E-mail: <a href=\"mailto:$curator_info->{'email'}\">$curator_info->{'email'}</a>)"
+			  if $curator_info->{'email'} && $seq_ref->{'curator'} > 0;
+			say "</dd>";
 		}
 	}
 	say "<dt>comments</dt><dd>$seq_ref->{'comments'}</dd>" if $seq_ref->{'comments'};

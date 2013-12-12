@@ -89,7 +89,7 @@ sub get_fields {
 		$self->{'sql'}->{$field} =
 		  $self->{'db'}->prepare( "SELECT $field, count(*) AS frequency FROM isolates LEFT JOIN allele_designations ON isolates.id "
 			  . "= allele_designations.isolate_id WHERE allele_designations.locus=? AND allele_designations.allele_id=? AND $field IS "
-			  . "NOT NULL GROUP BY $field ORDER BY frequency desc" );
+			  . "NOT NULL GROUP BY $field ORDER BY frequency desc,$field" );
 	}
 	eval { $self->{'sql'}->{$field}->execute( $locus, $allele_id ) };
 	if ($@) {
