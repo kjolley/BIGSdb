@@ -1178,7 +1178,7 @@ sub _print_record_table {
 					$fields_to_query->{$field} = \@fields_to_query;
 					local $" = ',';
 					my $qry = "select @fields_to_query from $table_info->{'foreign_key'}->{$field} WHERE id=?";
-					$foreign_key_sql{$field} = $self->{'db'}->prepare($qry) or die;
+					$foreign_key_sql{$field} = $self->{'db'}->prepare($qry);
 				}
 				eval { $foreign_key_sql{$field}->execute( $data{ lc($field) } ) };
 				$logger->error($@) if $@;

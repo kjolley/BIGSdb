@@ -963,7 +963,7 @@ sub _is_field_bad_other {
 	#Make sure sender is in database
 	if ( $fieldname eq 'sender' or $fieldname eq 'sequenced_by' ) {
 		my $qry = "SELECT DISTINCT id FROM users";
-		my $sql = $self->{'db'}->prepare($qry) or die 'cannot prepare';
+		my $sql = $self->{'db'}->prepare($qry);
 		eval { $sql->execute };
 		$logger->error($@) if $@;
 		while ( my ($senderid) = $sql->fetchrow_array ) {
@@ -1009,7 +1009,7 @@ sub _is_field_bad_other {
 	{
 		#Make sure unique field values have not been used previously
 		my $qry = "SELECT DISTINCT $thisfield->{'name'} FROM $table";
-		my $sql = $self->{'db'}->prepare($qry) or die 'cannot prepare';
+		my $sql = $self->{'db'}->prepare($qry);
 		eval { $sql->execute };
 		$logger->error($@) if $@;
 		while ( my ($id) = $sql->fetchrow_array ) {
@@ -1044,7 +1044,7 @@ sub _is_field_bad_other {
 	#Make sure a foreign key value exists in foreign table
 	if ( $thisfield->{'foreign_key'} ) {
 		my $qry = "SELECT COUNT(*) FROM $thisfield->{'foreign_key'} WHERE id=?";
-		my $sql = $self->{'db'}->prepare($qry) or die 'cannot prepare';
+		my $sql = $self->{'db'}->prepare($qry);
 		$value = $self->map_locus_name($value) if $fieldname eq 'locus';
 		eval { $sql->execute($value) };
 		$logger->error($@) if $@;

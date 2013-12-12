@@ -183,7 +183,7 @@ sub _display_record {
 			}
 			local $" = ',';
 			my $qry = "select @fields_to_query from $_->{'foreign_key'} WHERE id=?";
-			my $foreign_key_sql = $self->{'db'}->prepare($qry) or die;
+			my $foreign_key_sql = $self->{'db'}->prepare($qry);
 			eval { $foreign_key_sql->execute($value) };
 			$logger->error($@) if $@;
 			while ( my @labels = $foreign_key_sql->fetchrow_array() ) {
