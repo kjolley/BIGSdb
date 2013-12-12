@@ -24,6 +24,7 @@ use warnings;
 use 5.010;
 use Getopt::Std;
 use DBI;
+##no critic (RequireCarping)
 my %opts;
 getopts( 'd:x:i:y:', \%opts );
 

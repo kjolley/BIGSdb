@@ -42,6 +42,7 @@ use LWP::Simple;
 use XML::Parser;
 use Bio::Biblio::IO;
 use List::MoreUtils qw(uniq);
+## no critic (RequireCarping)
 
 my %tablelist;
 my @refs;
