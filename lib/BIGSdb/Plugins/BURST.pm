@@ -85,7 +85,7 @@ sub run {
 			}
 		}
 	}
-	if ($scheme_id && BIGSdb::Utils::is_int($scheme_id)){
+	if ( $scheme_id && BIGSdb::Utils::is_int($scheme_id) ) {
 		my $pk_ref =
 		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key", $scheme_id );
 		if ( ref $pk_ref ne 'ARRAY' ) {
@@ -136,7 +136,7 @@ HTML
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $set_id = $self->get_set_id;
 		my $scheme_data = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
-		if (!@$scheme_data){
+		if ( !@$scheme_data ) {
 			say $q->end_form;
 			say "<p class=\"statusbad\">No schemes available.</p></div>";
 			return;
@@ -188,7 +188,16 @@ sub _run_burst {
 		say "<div class=\"box\" id=\"statusbad\"><p>No complete profiles were returned for the selected scheme.</p></div>";
 		return;
 	}
-	$self->_recursive_search( $loci, $num_profiles, $profiles_ref, $matrix_ref, $profile_freq_ref, $pk );
+	$self->_recursive_search(
+		{
+			loci             => $loci,
+			num_profiles     => $num_profiles,
+			profiles_ref     => $profiles_ref,
+			matrix_ref       => $matrix_ref,
+			profile_freq_ref => $profile_freq_ref,
+			primary_key      => $pk
+		}
+	);
 	return;
 }
 
@@ -291,13 +300,16 @@ sub _generate_distance_matrix {
 }
 
 sub _recursive_search {
-	my ( $self, $loci, $num_profiles, $profiles_ref, $matrix_ref, $profile_freq_ref, $pk ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $loci, $num_profiles, $profiles_ref, $matrix_ref, $profile_freq_ref, $pk ) =
+	  @{$args}{qw (loci num_profiles profiles_ref matrix_ref profile_freq_ref primary_key)};
 	$pk //= 'ST';
 	my @profiles = @{$profiles_ref};
 	my @matrix   = @{$matrix_ref};
 	my %st_freq  = %$profile_freq_ref;
 	my @result;
 	my $grpdef = $self->{'cgi'}->param('grpdef') || 'n-2';
+
 	if ( $grpdef =~ /n\-(\d+)/ ) {
 		$grpdef = @$loci - $1;
 	}
@@ -313,7 +325,8 @@ sub _recursive_search {
 	for ( my $search = 0 ; $search < $num_profiles ; $search++ ) {
 		if ( !defined $grp[$search] || $grp[$search] == 0 ) {
 			$g++;
-			$self->_dfs( $num_profiles, $search, $matrix_ref, \@grp, $grpdef, $g );
+			$self->_dfs(
+				{ profile_count => $num_profiles, x => $search, matrix_ref => $matrix_ref, grp_ref => \@grp, grpdef => $grpdef, g => $g } );
 		}
 	}
 	my $ng = $g + 1;
@@ -501,15 +514,25 @@ sub _recursive_search {
 }
 
 sub _dfs {
-	my ( $self, $profile_count, $x, $matrix_ref, $grp_ref, $grpdef, $g ) = @_;
-	for ( my $y = 0 ; $y < $profile_count ; $y++ ) {
+	my ( $self, $args ) = @_;
+	my ( $profile_count, $x, $matrix_ref, $grp_ref, $grpdef, $g ) = @{$args}{qw(profile_count x matrix_ref grp_ref grpdef g)};
+	for my $y ( 0 .. $profile_count - 1 ) {
 		if (   ( !defined $$grp_ref[$y] || $$grp_ref[$y] == 0 )
 			&& ( $$matrix_ref[$x][$y] > ( $grpdef - 1 ) ) )
 		{
 			$$grp_ref[$y] = $g;
 			{
 				no warnings 'recursion';
-				$self->_dfs( $profile_count, $y, $matrix_ref, $grp_ref, $grpdef, $g );
+				$self->_dfs(
+					{
+						profile_count => $profile_count,
+						x             => $y,
+						matrix_ref    => $matrix_ref,
+						grp_ref       => $grp_ref,
+						grpdef        => $grpdef,
+						g             => $g
+					}
+				);
 			}
 		}
 	}
