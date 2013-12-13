@@ -125,13 +125,20 @@ HTML
 		push @js,  "\$(\"#$cleaned_id\").prop(\"checked\",true)";
 		push @js2, "\$(\"#$cleaned_id\").prop(\"checked\",false)";
 		print "</td>";
-		my @args = ( \@display, $data, $prefstore, $guid, \$updated, \$not_default );
+		my $args = {
+			display         => \@display,
+			data            => $data,
+			prefstore       => $prefstore,
+			guid            => $guid,
+			updated_ref     => \$updated,
+			not_default_ref => \$not_default
+		};
 		if ( $table eq 'loci' ) {
-			$self->_process_loci(@args);
+			$self->_process_loci($args);
 		} elsif ( $table eq 'scheme_fields' ) {
-			$self->_process_scheme_fields(@args);
+			$self->_process_scheme_fields($args);
 		} elsif ( $table eq 'schemes' ) {
-			$self->_process_schemes(@args);
+			$self->_process_schemes($args);
 		}
 		print "</tr>\n";
 		$td = $td == 2 ? 1 : 2;
@@ -152,8 +159,8 @@ HTML
 	foreach my $att (@$attributes) {
 		next
 		  if $att->{'hide'} eq 'yes'
-			  || ( ( none { $att->{'name'} eq $_ } qw (main_display isolate_display query_field analysis) )
-				  && !( $att->{'name'} eq 'dropdown' && $table eq 'scheme_fields' ) );
+		  || ( ( none { $att->{'name'} eq $_ } qw (main_display isolate_display query_field analysis) )
+			&& !( $att->{'name'} eq 'dropdown' && $table eq 'scheme_fields' ) );
 		print "<tr><td style=\"text-align:right\">";
 		my $cleaned = $att->{'name'};
 		$cleaned =~ tr/_/ /;
@@ -182,7 +189,9 @@ HTML
 }
 
 sub _process_loci {
-	my ( $self, $display, $data, $prefstore, $guid, $updated_ref, $not_default_ref ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $display, $data, $prefstore, $guid, $updated_ref, $not_default_ref ) =
+	  @{$args}{qw (display data prefstore guid updated_ref not_default_ref)};
 	my $q = $self->{'cgi'};
 	foreach my $field (@$display) {
 		if ( $q->param("$field\_change") && $q->param("id_$data->{'id'}") ) {
@@ -233,7 +242,9 @@ sub _process_loci {
 }
 
 sub _process_scheme_fields {
-	my ( $self, $display, $data, $prefstore, $guid, $updated_ref, $not_default_ref ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $display, $data, $prefstore, $guid, $updated_ref, $not_default_ref ) =
+	  @{$args}{qw (display data prefstore guid updated_ref not_default_ref)};
 	my $q = $self->{'cgi'};
 	foreach my $field (@$display) {
 		if (   $q->param("$field\_change")
@@ -274,7 +285,9 @@ sub _process_scheme_fields {
 }
 
 sub _process_schemes {
-	my ( $self, $display, $data, $prefstore, $guid, $updated_ref, $not_default_ref ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $display, $data, $prefstore, $guid, $updated_ref, $not_default_ref ) =
+	  @{$args}{qw (display data prefstore guid updated_ref not_default_ref)};
 	my $q = $self->{'cgi'};
 	foreach my $field (@$display) {
 		if (   $q->param("$field\_change")
