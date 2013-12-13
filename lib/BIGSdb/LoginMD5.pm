@@ -578,7 +578,7 @@ sub _clean_session_database {
 # Cookies Code
 #############################################################################
 sub logout {
-	( my $self ) = @_;
+	my ($self) = @_;
 	my $cookies_ref = $self->_clear_cookies( $passString, $userCookieName );
 	$self->{'logged_out'} = 1;
 	return $cookies_ref;
@@ -595,9 +595,9 @@ sub _get_cookies {
 }
 
 sub _clear_cookies {
-	my $self = shift;
+	my ($self, @entries) = @_;
 	my @cookies;
-	foreach my $entry (@_) {
+	foreach my $entry (@entries) {
 		push( @cookies, $entry );
 		push( @cookies, 'x' );
 	}
@@ -614,7 +614,10 @@ sub _set_cookies {
 	return \@Cookie_objects;
 }
 
-sub _shift2 { return splice( @{ $_[0] }, 0, 2 ); }
+sub _shift2 { 
+	my ($cookie_ref) = @_;
+	return splice( @$cookie_ref, 0, 2 ); 
+}
 
 sub _make_cookie {
 	my ( $self, $query, $cookie, $value, $expires ) = @_;

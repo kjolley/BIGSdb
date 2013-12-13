@@ -168,10 +168,11 @@ sub is_int {
 }
 
 sub is_float {
+	my ($value) = @_;
 
 	#From Data::Types (c) 2002-2008 David Wheeler
-	return unless defined $_[0] && $_[0] ne '';
-	return unless $_[0] =~ /^([+-]?)(?=\d|\.\d)\d*(\.\d*)?([Ee]([+-]?\d+))?$/;
+	return unless defined $value && $value ne '';
+	return unless $value =~ /^([+-]?)(?=\d|\.\d)\d*(\.\d*)?([Ee]([+-]?\d+))?$/;
 	return 1;
 }
 
@@ -313,8 +314,8 @@ sub fasta2genbank {
 	my $concat_seq = '';
 	my @features;
 	while ( my $seq_obj = $in->next_seq ) {
-		my $id  = $seq_obj->primary_id;
-		my $seq = ($seq_obj->primary_seq->seq =~ /(.*)/) ? $1: undef; #untaint
+		my $id = $seq_obj->primary_id;
+		my $seq = ( $seq_obj->primary_seq->seq =~ /(.*)/ ) ? $1 : undef;    #untaint
 		$seq =~ s/-//g;
 		$concat_seq .= $seq;
 		my $length = length($seq);
@@ -348,7 +349,7 @@ sub get_style {
 sub get_largest_string_length {
 	my ($array_ref) = @_;
 	my $length = 0;
-	foreach (@$array_ref){
+	foreach (@$array_ref) {
 		my $this_length = length $_;
 		$length = $this_length if $this_length > $length;
 	}
