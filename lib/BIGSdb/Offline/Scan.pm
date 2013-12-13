@@ -163,16 +163,37 @@ sub blast {
 		my $probe_filter = !$params->{'probe_filter'} ? 0 : $locus_info->{'probe_filter'};
 
 		if ( -e "$self->{'config'}->{'secure_tmp_dir'}/$outfile_url" ) {
-			( $exact_matches, $matched_regions ) =
-			  $self->_parse_blast_exact( $locus, $outfile_url, $pcr_filter, $pcr_products, $probe_filter, $probe_matches );
-			$partial_matches =
-			  $self->_parse_blast_partial( $params, $locus, $matched_regions, $outfile_url, $pcr_filter, $pcr_products, $probe_filter,
-				$probe_matches )
-			  if (!@$exact_matches || $params->{'partial_when_exact'})
-			  || ( $locus_info->{'pcr_filter'}
-				&& !$params->{'pcr_filter'}
-				&& $locus_info->{'probe_filter'}
-				&& !$params->{'probe_filter'} );
+			( $exact_matches, $matched_regions ) = $self->_parse_blast_exact(
+				{
+					locus         => $locus,
+					blast_file    => $outfile_url,
+					pcr_filter    => $pcr_filter,
+					pcr_products  => $pcr_products,
+					probe_filter  => $probe_filter,
+					probe_matches => $probe_matches
+				}
+			);
+			if (
+				( !@$exact_matches || $params->{'partial_when_exact'} )
+				|| (   $locus_info->{'pcr_filter'}
+					&& !$params->{'pcr_filter'}
+					&& $locus_info->{'probe_filter'}
+					&& !$params->{'probe_filter'} )
+			  )
+			{
+				$partial_matches = $self->_parse_blast_partial(
+					{
+						params                => $params,
+						locus                 => $locus,
+						exact_matched_regions => $matched_regions,
+						blast_file            => $outfile_url,
+						pcr_filter            => $pcr_filter,
+						pcr_products          => $pcr_products,
+						probe_filter          => $probe_filter,
+						probe_matches         => $probe_matches
+					}
+				);
+			}
 		} else {
 			$logger->debug("$self->{'config'}->{'secure_tmp_dir'}/$outfile_url does not exist");
 		}
@@ -274,10 +295,24 @@ sub run_script {
 			my $new_designation;
 			if ( ref $exact_matches && @$exact_matches ) {
 				my %new_matches;
-				foreach (@$exact_matches) {
-					my $match_key = "$_->{'seqbin_id'}\|$_->{'predicted_start'}|$_->{'predicted_end'}";
-					( my $buffer, $off_end, $new_designation ) =
-					  $self->_get_row( $isolate_id, $labels, $locus, $i, $_, $td, 1, \@js, \@js2, \@js3, \@js4, $new_matches{$match_key} );
+				foreach my $match (@$exact_matches) {
+					my $match_key = "$match->{'seqbin_id'}\|$match->{'predicted_start'}|$match->{'predicted_end'}";
+					( my $buffer, $off_end, $new_designation ) = $self->_get_row(
+						{
+							isolate_id => $isolate_id,
+							labels     => $labels,
+							locus      => $locus,
+							id         => $i,
+							match      => $match,
+							td         => $td,
+							exact      => 1,
+							js         => \@js,
+							js2        => \@js2,
+							js3        => \@js3,
+							js4        => \@js4,
+							warning    => $new_matches{$match_key}
+						}
+					);
 					$row_buffer .= $buffer;
 					$new_matches{$match_key} = 1;
 					$show_key = 1 if $off_end;
@@ -287,13 +322,26 @@ sub run_script {
 				$isolates_to_tag{$isolate_id} = 1;
 			}
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-			if ( ref $partial_matches && @$partial_matches && (!@$exact_matches || $params->{'partial_when_exact'} )) {
+			if ( ref $partial_matches && @$partial_matches && ( !@$exact_matches || $params->{'partial_when_exact'} ) ) {
 				my %new_matches;
 				foreach my $match (@$partial_matches) {
 					my $match_key = "$match->{'seqbin_id'}\|$match->{'predicted_start'}|$match->{'predicted_end'}";
-					( my $buffer, $off_end, $new_designation ) =
-					  $self->_get_row( $isolate_id, $labels, $locus, $i, $match, $td, 0, \@js, \@js2, \@js3, \@js4,
-						$new_matches{$match_key} );
+					( my $buffer, $off_end, $new_designation ) = $self->_get_row(
+						{
+							isolate_id => $isolate_id,
+							labels     => $labels,
+							locus      => $locus,
+							id         => $i,
+							match      => $match,
+							td         => $td,
+							exact      => 0,
+							js         => \@js,
+							js2        => \@js2,
+							js3        => \@js3,
+							js4        => \@js4,
+							warning    => $new_matches{$match_key}
+						}
+					);
 					$row_buffer .= $buffer;
 					$new_matches{$match_key} = 1;
 					if ($off_end) {
@@ -385,13 +433,16 @@ sub extract_seq_from_match {
 }
 
 sub _get_row {
-	my ( $self, $isolate_id, $labels, $locus, $id, $match, $td, $exact, $js, $js2, $js3, $js4, $warning ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $isolate_id, $labels, $locus, $id, $match, $td, $exact, $js, $js2, $js3, $js4, $warning ) =
+	  @{$args}{qw (isolate_id labels locus id match td exact js js2 js3 js4 warning)};
 	my $q      = $self->{'cgi'};
 	my $params = $self->{'params'};
 	my $class  = $exact ? '' : " class=\"partialmatch\"";
 	my $tooltip;
 	my $new_designation = 0;
 	my $existing_allele = $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
+
 	if ( defined $existing_allele && $match->{'allele'} eq $existing_allele ) {
 		$tooltip = $self->_get_designation_tooltip( $isolate_id, $locus, 'existing' );
 	} elsif ( $match->{'allele'} && defined $existing_allele && $existing_allele ne $match->{'allele'} ) {
@@ -627,7 +678,9 @@ sub _get_missing_row {
 }
 
 sub _parse_blast_exact {
-	my ( $self, $locus, $blast_file, $pcr_filter, $pcr_products, $probe_filter, $probe_matches ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $locus, $blast_file, $pcr_filter, $pcr_products, $probe_filter, $probe_matches ) =
+	  @{$args}{qw (locus blast_file pcr_filter pcr_products probe_filter probe_matches)};
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 	open( my $blast_fh, '<', $full_path ) || ( $logger->error("Can't open BLAST output file $full_path. $!"), return \@; );
 	my @matches;
@@ -716,7 +769,9 @@ sub _parse_blast_exact {
 }
 
 sub _parse_blast_partial {
-	my ( $self, $params, $locus, $exact_matched_regions, $blast_file, $pcr_filter, $pcr_products, $probe_filter, $probe_matches ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $params, $locus, $exact_matched_regions, $blast_file, $pcr_filter, $pcr_products, $probe_filter, $probe_matches ) =
+	  @{$args}{qw (params locus exact_matched_regions blast_file pcr_filter pcr_products probe_filter probe_matches)};
 	my @matches;
 	my $identity  = $params->{'identity'};
 	my $alignment = $params->{'alignment'};
