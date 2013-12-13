@@ -39,10 +39,13 @@ sub new {    ## no critic (RequireArgUnpacking)
 sub DESTROY {
 	my ($self) = @_;
 	foreach ( keys %{ $self->{'sql'} } ) {
-		if ( $self->{'sql'}->{$_} && UNIVERSAL::isa( $self->{'sql'}->{$_}, 'UNIVERSAL' ) ) {
-			$self->{'sql'}->{$_}->finish;
-			$logger->debug("Locus $self->{'id'} statement handle '$_' finished.");
-		}
+		eval {
+			if ( $self->{'sql'}->{$_} && $self->{'sql'}->{$_}->isa('UNIVERSAL') )
+			{
+				$self->{'sql'}->{$_}->finish;
+				$logger->info("Locus $self->{'id'} statement handle '$_' finished.");
+			}
+		};
 	}
 	$logger->info("Locus $self->{'id'} destroyed.");
 	return;

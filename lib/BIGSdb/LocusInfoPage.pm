@@ -42,10 +42,10 @@ sub print_content {
 		print "<h1>Locus information</h1>\n";
 		print "<div class=\"box\" id=\"statusbad\"><p>Invalid locus selected.</p></div>\n";
 		return;
-	} elsif ( $set_id && !$self->{'datastore'}->is_locus_in_set( $locus, $set_id )) {
+	} elsif ( $set_id && !$self->{'datastore'}->is_locus_in_set( $locus, $set_id ) ) {
 		print "<h1>Locus information</h1>\n";
 		print "<div class=\"box\" id=\"statusbad\"><p>The selected locus is unavailable.</p></div>\n";
-		return;			
+		return;
 	}
 	my $locus_info    = $self->{'datastore'}->get_locus_info($locus);
 	my $cleaned_locus = $self->clean_locus($locus);
@@ -83,7 +83,7 @@ sub print_content {
 		print "</li>\n";
 	}
 	print "</ul>\n";
-	if ($desc->{'description'}){
+	if ( $desc->{'description'} ) {
 		$desc->{'description'} =~ s/\n/<br \/>/g;
 		print "<p>$desc->{'description'}</p>";
 	}
