@@ -519,8 +519,6 @@ sub _print_locus_tag_fields {
 sub _run_query {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
-	my $system = $self->{'system'};
-	my $view   = $system->{'view'};
 	my $qry;
 	my @errors;
 	my $extended = $self->get_extended_attributes;

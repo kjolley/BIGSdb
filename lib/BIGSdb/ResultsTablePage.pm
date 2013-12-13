@@ -31,7 +31,7 @@ sub paged_display {
 	# $count is optional - if not provided it will be calculated, but this may not be the most
 	# efficient algorithm, so if it has already been calculated prior to passing to this subroutine
 	# it is better to not recalculate it.
-	my ($self, $args) = @_;
+	my ( $self, $args ) = @_;
 	my ( $table, $qry, $message, $hidden_attributes, $count, $passed_qry_file ) =
 	  @{$args}{qw (table query message hidden_attributes count passed_qry_file)};
 	my $passed_qry;
@@ -375,7 +375,6 @@ sub _print_set_sequence_flags_function {
 sub _print_isolate_table {
 	my ( $self, $qryref, $page, $records ) = @_;
 	my $pagesize  = $self->{'prefs'}->{'displayrecs'};
-	my $logger    = get_logger('BIGSdb.Page');
 	my $q         = $self->{'cgi'};
 	my $qry       = $$qryref;
 	my $qry_limit = $qry;
@@ -814,7 +813,6 @@ sub _print_isolate_table_scheme {
 sub _print_profile_table {
 	my ( $self, $qryref, $page, $records ) = @_;
 	my $pagesize  = $self->{'prefs'}->{'displayrecs'};
-	my $logger    = get_logger('BIGSdb.Page');
 	my $q         = $self->{'cgi'};
 	my $qry       = $$qryref;
 	my $qry_limit = $qry;
@@ -1124,8 +1122,6 @@ sub _print_record_table {
 						}
 					}
 					when ('profile_history') {
-						my $set_id = $self->get_set_id;
-						my $scheme_info = $self->{'datastore'}->get_scheme_info( $data{'scheme_id'}, { set_id => $set_id } );
 						if ( $field eq 'profile_id' ) {
 							print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileInfo&amp;"
 							  . "scheme_id=$data{'scheme_id'}&amp;profile_id=$data{'profile_id'}\">$value</a></td>";
@@ -1177,8 +1173,8 @@ sub _print_record_table {
 					}
 					$fields_to_query->{$field} = \@fields_to_query;
 					local $" = ',';
-					my $qry = "select @fields_to_query from $table_info->{'foreign_key'}->{$field} WHERE id=?";
-					$foreign_key_sql{$field} = $self->{'db'}->prepare($qry);
+					$foreign_key_sql{$field} =
+					  $self->{'db'}->prepare( "select @fields_to_query from $table_info->{'foreign_key'}->{$field} WHERE id=?" );
 				}
 				eval { $foreign_key_sql{$field}->execute( $data{ lc($field) } ) };
 				$logger->error($@) if $@;

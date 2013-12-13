@@ -424,7 +424,6 @@ sub _get_value_frequency_hash {
 	if ($use_composites) {
 		$composite_fields = $self->{'datastore'}->run_list_query("SELECT id FROM composite_fields");
 	}
-	my $value;
 	my @field_list;
 	my $format = $self->{'cgi'}->param('format');
 	if ( $query_field && $query_field !~ /^meta_[^:]+:/ ) {
@@ -433,6 +432,7 @@ sub _get_value_frequency_hash {
 		@field_list = @$fields;
 	}
 	while ( $sql->fetchrow_arrayref ) {
+		my $value;
 		foreach my $field (@field_list) {
 			if ( !$field_is_composite ) {
 				$data{$field} = defined $data{$field} ? $data{$field} : '';
