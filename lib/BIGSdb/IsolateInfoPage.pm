@@ -185,16 +185,7 @@ sub print_content {
 		say "<div class=\"box\" id=\"statusbad\"><p>This function can only be called for isolate databases.</p></div>";
 		return;
 	}
-	my $qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?";
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute($isolate_id) };
-	if ($@) {
-		say "<h1>Isolate information: id-$isolate_id</h1>";
-		say "<div class=\"box\" id=\"statusbad\"><p>Invalid search performed.</p></div>";
-		$logger->debug("Can't execute $qry: $@\n");
-		return;
-	}
-	my $data = $sql->fetchrow_hashref;
+	my $data = $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id );
 	if ( !$data ) {
 		say "<h1>Isolate information: id-$isolate_id</h1>";
 		say "<div class=\"box\" id=\"statusbad\"><p>The database contains no record of this isolate.</p></div>";
@@ -266,7 +257,6 @@ sub get_loci_summary {
 sub get_isolate_record {
 	my ( $self, $id, $summary_view ) = @_;
 	$summary_view ||= 0;
-	my $sql;
 	my $buffer;
 	my $q = $self->{'cgi'};
 	my $data = $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $id );
@@ -841,24 +831,16 @@ sub _get_history {
 	my ( $self, $isolate_id, $limit ) = @_;
 	my $limit_clause = $limit ? " LIMIT $limit" : '';
 	my $count;
-	my $qry = "SELECT timestamp,action,curator FROM history where isolate_id=? ORDER BY timestamp desc$limit_clause";
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute($isolate_id); };
-	if ($@) {
-		$logger->error("Can't execute $qry value:$isolate_id $@");
-	}
-	my @history;
-	while ( my $data = $sql->fetchrow_hashref ) {
-		push @history, $data;
-	}
-	if ($limit) {
-
-		#need to count total
+	my $history =
+	  $self->{'datastore'}
+	  ->run_list_query_hashref( "SELECT timestamp,action,curator FROM history where isolate_id=? ORDER BY timestamp desc$limit_clause",
+		$isolate_id );
+	if ($limit) {    #need to count total
 		$count = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM history WHERE isolate_id=?", $isolate_id )->[0];
 	} else {
-		$count = @history;
+		$count = @$history;
 	}
-	return \@history, $count;
+	return $history, $count;
 }
 
 sub get_name {
