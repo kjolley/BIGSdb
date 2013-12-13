@@ -1,0 +1,16 @@
+severity = stern
+
+[-ErrorHandling::RequireCheckingReturnValueOfEval]
+[-InputOutput::RequireBriefOpen]
+[-TestingAndDebugging::ProhibitNoWarnings]
+[-ValuesAndExpressions::ProhibitConstantPragma]
+
+[Subroutines::ProhibitManyArgs]
+severity = stern
+max_arguments = 6
+
+[Subroutines::ProtectPrivateSubs]
+severity = stern
+
+[Variables::ProhibitUnusedVariables]
+severity = stern
