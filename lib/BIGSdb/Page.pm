@@ -55,12 +55,12 @@ use constant ALLELE_FLAGS => (
 	'upstream fusion'
 );
 use constant SEQ_STATUS => ( 'Sanger trace checked', 'WGS: manual extract', 'WGS: automated extract', 'unchecked' );
-use constant DATABANKS  => qw(ENA Genbank);
-use constant FLANKING   => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
+use constant DATABANKS => qw(ENA Genbank);
+use constant FLANKING      => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
 use constant LOCUS_PATTERN => qr/^(?:l|cn|la)_(.+?)(?:\|\|.+)?$/;
 our @EXPORT_OK = qw(SEQ_METHODS SEQ_FLAGS ALLELE_FLAGS SEQ_STATUS DATABANKS FLANKING LOCUS_PATTERN);
 
-sub new {    ## no critic
+sub new {    ## no critic (RequireArgUnpacking)
 	my $class = shift;
 	my $self  = {@_};
 	$self->{'prefs'} = {};
@@ -152,7 +152,7 @@ sub choose_set {
 sub print_page_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	$" = ' ';    ##no critic #ensure reset when running under mod_perl
+	$" = ' ';    ## no critic (RequireLocalizedPunctuationVars) #ensure reset when running under mod_perl
 	if ( ( $q->param('page') // '' ) eq 'plugin' ) {
 
 		#need to determine if tooltips should be displayed since this is set in the <HEAD>.  Also need to define set_id

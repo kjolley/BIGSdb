@@ -98,7 +98,7 @@ sub get_grouped_fields {
 	return \@list;
 }
 
-sub new {    ##no critic
+sub new {    ## no critic (RequireArgUnpacking)
 	my $class = shift;
 	my $self  = {@_};
 	bless( $self, $class );

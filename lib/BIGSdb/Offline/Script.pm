@@ -31,7 +31,7 @@ use BIGSdb::Datastore;
 use BIGSdb::BIGSException;
 use BIGSdb::Parser;
 use BIGSdb::Utils;
-$ENV{'PATH'} = '/bin:/usr/bin';              ##no critic #so we don't foul taint check
+$ENV{'PATH'} = '/bin:/usr/bin';              ## no critic (RequireLocalizedPunctuationVars) #so we don't foul taint check
 delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};    # Make %ENV safer
 
 sub new {
@@ -258,9 +258,9 @@ sub get_loci_with_ref_db {
 	#$self->{'options'}->{'R'}: Regex for locus names
 	my ($self) = @_;
 	my %ignore;
-	if ($self->{'options'}->{'L'}){
+	if ( $self->{'options'}->{'L'} ) {
 		my @ignore = split /,/, $self->{'options'}->{'L'};
-		%ignore = map { $_ => 1} @ignore;
+		%ignore = map { $_ => 1 } @ignore;
 	}
 	my $qry;
 	my $ref_db_loci_qry = "SELECT id FROM loci WHERE dbase_name IS NOT NULL AND dbase_table IS NOT NULL";
@@ -272,7 +272,7 @@ sub get_loci_with_ref_db {
 		  . "ORDER BY scheme_id,field_order";
 	} elsif ( $self->{'options'}->{'l'} ) {
 		my @loci = split /,/, $self->{'options'}->{'l'};
-		foreach (@loci){
+		foreach (@loci) {
 			$_ =~ s/'/\\'/g;
 		}
 		local $" = "',E'";
@@ -283,7 +283,7 @@ sub get_loci_with_ref_db {
 	my $loci = $self->{'datastore'}->run_list_query($qry);
 	@$loci = uniq @$loci;
 	my @filtered_list;
-	foreach my $locus (@$loci){
+	foreach my $locus (@$loci) {
 		next if $self->{'options'}->{'R'} && $locus !~ /$self->{'options'}->{'R'}/;
 		push @filtered_list, $locus if !$ignore{$locus};
 	}

@@ -22,7 +22,7 @@ use warnings;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Scheme');
 
-sub new {    ## no critic
+sub new {    ## no critic (RequireArgUnpacking)
 	my $class = shift;
 	my $self  = {@_};
 	$self->{'sql'} = {};
