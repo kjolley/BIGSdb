@@ -144,12 +144,12 @@ sub get_isolates_with_linked_seqs {
 	my $qry;
 	local $" = ',';
 	if ( $self->{'options'}->{'p'} ) {
-		my @projects = split /,/, $self->{'options'}->{'p'};
+		my @projects = split (',', $self->{'options'}->{'p'});
 		die "Invalid project list.\n" if any { !BIGSdb::Utils::is_int($_) } @projects;
 		$qry = "SELECT DISTINCT isolate_id FROM sequence_bin WHERE isolate_id IN (SELECT isolate_id FROM project_members WHERE project_id "
 		  . "IN (@projects)) AND isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})";
 	} elsif ( $self->{'options'}->{'i'} ) {
-		my @ids = split /,/, $self->{'options'}->{'i'};
+		my @ids = split (',', $self->{'options'}->{'i'});
 		die "Invalid isolate id list.\n" if any { !BIGSdb::Utils::is_int($_) } @ids;
 		$qry = "SELECT DISTINCT isolate_id FROM sequence_bin WHERE isolate_id IN (@ids) AND isolate_id IN (SELECT id FROM "
 		  . "$self->{'system'}->{'view'})";
@@ -164,7 +164,7 @@ sub filter_and_sort_isolates {
 	my ( $self, $isolates, ) = @_;
 	my @exclude_isolates;
 	if ( $self->{'options'}->{'I'} ) {
-		@exclude_isolates = split /,/, $self->{'options'}->{'I'};
+		@exclude_isolates = split (',', $self->{'options'}->{'I'});
 	}
 	if ( $self->{'options'}->{'P'} ) {
 		push @exclude_isolates, @{ $self->_get_isolates_excluded_by_project };
@@ -201,7 +201,7 @@ sub filter_and_sort_isolates {
 
 sub _get_isolates_excluded_by_project {
 	my ($self) = @_;
-	my @projects = split /,/, $self->{'options'}->{'P'};
+	my @projects = split (',', $self->{'options'}->{'P'});
 	my @isolates;
 	foreach (@projects) {
 		next if !BIGSdb::Utils::is_int($_);
@@ -259,19 +259,19 @@ sub get_loci_with_ref_db {
 	my ($self) = @_;
 	my %ignore;
 	if ( $self->{'options'}->{'L'} ) {
-		my @ignore = split /,/, $self->{'options'}->{'L'};
+		my @ignore = split (',', $self->{'options'}->{'L'});
 		%ignore = map { $_ => 1 } @ignore;
 	}
 	my $qry;
 	my $ref_db_loci_qry = "SELECT id FROM loci WHERE dbase_name IS NOT NULL AND dbase_table IS NOT NULL";
 	if ( $self->{'options'}->{'s'} ) {
-		my @schemes = split /,/, $self->{'options'}->{'s'};
+		my @schemes = split (',', $self->{'options'}->{'s'});
 		die "Invalid scheme list.\n" if any { !BIGSdb::Utils::is_int($_) } @schemes;
 		local $" = ',';
 		$qry = "SELECT locus FROM scheme_members WHERE scheme_id IN (@schemes) AND locus IN ($ref_db_loci_qry) "
 		  . "ORDER BY scheme_id,field_order";
 	} elsif ( $self->{'options'}->{'l'} ) {
-		my @loci = split /,/, $self->{'options'}->{'l'};
+		my @loci = split (',', $self->{'options'}->{'l'});
 		foreach (@loci) {
 			$_ =~ s/'/\\'/g;
 		}
