@@ -152,8 +152,7 @@ sub run {
 	my ( %composites, %composite_display_pos );
 
 	if ( $prefs{'breakdown_composites'} ) {
-		my $qry = "SELECT id,position_after FROM composite_fields";
-		my $sql = $self->{'db'}->prepare($qry);
+		my $sql = $self->{'db'}->prepare("SELECT id,position_after FROM composite_fields");
 		eval { $sql->execute };
 		if ($@) {
 			$logger->error($@);

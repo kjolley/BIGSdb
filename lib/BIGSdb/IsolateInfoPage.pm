@@ -400,25 +400,16 @@ sub _get_provenance_fields {
 			@$field_with_extended_attributes
 		  )
 		{
-			my $sql_attord =
-			  $self->{'db'}->prepare("SELECT attribute,field_order FROM isolate_field_extended_attributes WHERE isolate_field=?");
-			eval { $sql_attord->execute($field) };
-			if ($@) {
-				$logger->error("Can't execute $@");
-			}
-			my %order;
-			while ( my ( $att, $order ) = $sql_attord->fetchrow_array ) {
-				$order{$att} = $order;
-			}
-			my $sql_att =
-			  $self->{'db'}
-			  ->prepare("SELECT attribute,value FROM isolate_value_extended_attributes WHERE isolate_field=? AND field_value=?");
-			eval { $sql_att->execute( $field, $value ) };
-			$logger->error($@) if $@;
-			my %attributes;
-			while ( my ( $attribute, $value ) = $sql_att->fetchrow_array ) {
-				$attributes{$attribute} = $value;
-			}
+			my $attribute_order =
+			  $self->{'datastore'}
+			  ->run_list_query_hashref( "SELECT attribute,field_order FROM isolate_field_extended_attributes WHERE isolate_field=?",
+				$field );
+			my %order = map { $_->{'attribute'} => $_->{'field_order'} } @$attribute_order;
+			my $attribute_list =
+			  $self->{'datastore'}->run_list_query_hashref(
+				"SELECT attribute,value FROM isolate_value_extended_attributes WHERE isolate_field=? AND field_value=?",
+				$field, $value );
+			my %attributes = map { $_->{'attribute'} => $_->{'value'} } @$attribute_list;
 			if ( keys %attributes ) {
 				my $rows = keys %attributes || 1;
 				foreach ( sort { $order{$a} <=> $order{$b} } keys(%attributes) ) {
