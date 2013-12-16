@@ -77,11 +77,11 @@ sub print_content {
 		say "<div class=\"box\" id=\"warning\"><p>Please be aware that any changes to the structure of a scheme will "
 		  . " result in all data being removed from it.  This will happen if you modify the type or change whether "
 		  . " the field is a primary key.  All other changes are ok.</p>";
-		if (($self->{'system'}->{'materialized_views'} // '') eq 'yes'){
+		if ( ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ) {
 			say "<p>If you change the index status of a field you will also need to rebuild the scheme table to reflect this change. "
 			  . "This can be done by selecting 'Configuration repair' on the main curation page.</p>";
 		}
-		 say "</div>";
+		say "</div>";
 	}
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my @query_values;
@@ -148,8 +148,11 @@ sub print_content {
 				$status = $self->_check_loci( \%newdata );
 				if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 					$newdata{'locus'} = $newdata{'id'};
-					$self->_prepare_extra_inserts_for_loci( \%newdata, \@extra_inserts );
+					my $desc_status = $self->_prepare_extra_inserts_for_loci( \%newdata, \@extra_inserts );
+					$status = $desc_status if !$status;
 				}
+			} elsif ( $table eq 'sequence_bin' ) {
+				$status = $self->_prepare_extra_inserts_for_seqbin( \%newdata, \@extra_inserts );
 			} elsif ( ( $table eq 'allele_designations' || $table eq 'sequence_bin' )
 				&& !$self->is_allowed_to_view_isolate( $newdata{'isolate_id'} ) )
 			{
@@ -484,8 +487,7 @@ sub _prepare_extra_inserts_for_loci {
 		push @$extra_inserts, "INSERT INTO locus_descriptions (locus,full_name,product,description,curator,datestamp) VALUES "
 		  . "(E'$cleaned_locus',E'$full_name',E'$product',E'$description',$newdata->{'curator'},'now')";
 	}
-	$self->_check_locus_descriptions( $newdata, $extra_inserts );
-	return;
+	return $self->_check_locus_descriptions( $newdata, $extra_inserts );
 }
 
 sub _check_locus_descriptions {
@@ -570,6 +572,49 @@ HTML
 				  . "VALUES (E'$cleaned_locus','$url','$desc',$field_order,$newdata->{'curator'},'today')";
 			}
 		}
+	}
+	return;
+}
+
+sub _prepare_extra_inserts_for_seqbin {
+	my ( $self, $newdata, $extra_inserts ) = @_;
+	my $q              = $self->{'cgi'};
+	my $seq_attributes = $self->{'datastore'}->run_list_query_hashref("SELECT key,type FROM sequence_attributes ORDER BY key");
+	my $existing_values =
+	  $self->{'datastore'}->run_list_query_hashref( "SELECT key,value FROM sequence_attribute_values WHERE seqbin_id=?", $newdata->{'id'} );
+	my %existing_value = map { $_->{'key'} => $_->{'value'} } @$existing_values;
+	my @type_errors;
+	foreach my $attribute (@$seq_attributes) {
+		next if !defined $q->param( $attribute->{'key'} );
+		( my $value = $q->param( $attribute->{'key'} ) ) =~ s/'/\\'/g;
+		if ( $value ne '' ) {
+			if ( $attribute->{'type'} eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
+				push @type_errors, "$attribute->{'key'} must be an integer.";
+			} elsif ( $attribute->{'type'} eq 'date' && !BIGSdb::Utils::is_date($value) ) {
+				push @type_errors, "$attribute->{'key'} must be a valid date in yyyy-mm-dd format.";
+			}
+		}
+		if ( defined $existing_value{ $attribute->{'key'} } ) {
+			if ( $value eq '' ) {
+				push @$extra_inserts,
+				  "DELETE FROM sequence_attribute_values WHERE seqbin_id=$newdata->{'id'} AND key='$attribute->{'key'}'";
+			} else {
+				if ( $value ne $existing_value{ $attribute->{'key'} } ) {
+					push @$extra_inserts, "UPDATE sequence_attribute_values SET value=E'$value',curator=$newdata->{'curator'},"
+					  . "datestamp='now' WHERE seqbin_id=$newdata->{'id'} AND key='$attribute->{'key'}'";
+				}
+			}
+		} else {
+			if ( $value ne '' ) {
+				push @$extra_inserts, "INSERT INTO sequence_attribute_values (seqbin_id,key,value,curator,datestamp) VALUES "
+				  . "($newdata->{'id'},'$attribute->{'key'}',E'$value',$newdata->{'curator'},'now')";
+			}
+		}
+	}
+	if (@type_errors) {
+		local $" = '<br />';
+		say qq(<div class="box" id="statusbad"><p>@type_errors</p></div>);
+		return FAILURE;
 	}
 	return;
 }

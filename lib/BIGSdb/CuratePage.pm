@@ -76,11 +76,13 @@ sub create_record_table {
 	my %width_override = ( user_permissions => 12, loci => 14, pcr => 12, sequences => 10, locus_descriptions => 11 );
 	$width = $width_override{$table} // $width;
 	$buffer .= $self->_get_form_fields( $attributes, $table, $newdata_ref, $options, $width );
-	given ($table) {
-		when ('sequences') { $buffer .= $self->_create_extra_fields_for_sequences( $newdata_ref, $width ) }
-		when ('locus_descriptions') { $buffer .= $self->_create_extra_fields_for_locus_descriptions( $q->param('locus') // '', $width ) }
-		when ('sequence_bin') { $buffer .= $self->_create_extra_fields_for_seqbin( $newdata_ref, $width ) }
-		when ('loci') { $buffer .= $self->_create_extra_fields_for_loci( $newdata_ref, $width ) }
+	if ( $table eq 'sequences' ) { $buffer .= $self->_create_extra_fields_for_sequences( $newdata_ref, $width ) }
+	elsif ( $table eq 'locus_descriptions' ) {
+		$buffer .= $self->_create_extra_fields_for_locus_descriptions( $q->param('locus') // '', $width );
+	} elsif ( $table eq 'sequence_bin' ) {
+		$buffer .= $self->_create_extra_fields_for_seqbin( $newdata_ref, $width );
+	} elsif ( $table eq 'loci' ) {
+		$buffer .= $self->_create_extra_fields_for_loci( $newdata_ref, $width );
 	}
 	$buffer .= "</ul></fieldset>\n";
 	my $page = $q->param('page');
@@ -109,6 +111,7 @@ sub _get_form_fields {
 	$logger->error($@) if $@;
 	my @users;
 	my %usernames;
+	$usernames{''} = ' ';    #Required for HTML5 validation
 	local $" = ' ';
 
 	while ( my ( $user_id, $username, $firstname, $surname ) = $sql->fetchrow_array ) {
@@ -310,7 +313,7 @@ sub _get_form_fields {
 							-name    => $name,
 							-id      => $name,
 							-rows    => 6,
-							-cols    => 40,
+							-cols    => 75,
 							-default => $newdata{ $att->{'name'} },
 							%html5_args
 						);
@@ -321,7 +324,7 @@ sub _get_form_fields {
 							-name    => $name,
 							-id      => $name,
 							-rows    => 3,
-							-cols    => 40,
+							-cols    => 75,
 							-default => $newdata{ $att->{'name'} },
 							%html5_args
 						);
@@ -329,7 +332,7 @@ sub _get_form_fields {
 						$buffer .= $self->textfield(
 							name      => $name,
 							id        => $name,
-							size      => ( $length > 40 ? 40 : $length ),
+							size      => ( $length > 75 ? 75 : $length ),
 							maxlength => $length,
 							value     => $newdata{ $att->{'name'} },
 							%html5_args
@@ -550,28 +553,46 @@ sub _create_extra_fields_for_seqbin {
 	my ( $self, $newdata_ref, $width ) = @_;
 	my $q      = $self->{'cgi'};
 	my $buffer = '';
-	return $buffer if $q->param('page') eq 'update';
-	my $sql = $self->{'db'}->prepare("SELECT id,description FROM experiments ORDER BY description");
-	eval { $sql->execute };
-	$logger->error($@) if $@;
-	my @ids = (0);
-	my %desc;
-	$desc{0} = '';
-
-	while ( my ( $id, $desc ) = $sql->fetchrow_array ) {
-		push @ids, $id;
-		$desc{$id} = $desc;
+	if ( $q->param('page') ne 'update' ) {
+		my $experiments = $self->{'datastore'}->run_list_query_hashref("SELECT id,description FROM experiments ORDER BY description");
+		my @ids         = (0);
+		my %desc;
+		$desc{0} = ' ';
+		foreach my $experiment (@$experiments) {
+			push @ids, $experiment->{'id'};
+			$desc{ $experiment->{'id'} } = $experiment->{'description'};
+		}
+		if ( @ids > 1 ) {
+			$buffer .= qq(<li><label for="experiment" class="form" style="width:${width}em">link to experiment:&nbsp;</label>\n);
+			$buffer .= $q->popup_menu(
+				-name    => 'experiment',
+				-id      => 'experiment',
+				-values  => \@ids,
+				-default => $newdata_ref->{'experiment'},
+				-labels  => \%desc
+			);
+			$buffer .= "</li>\n";
+		}
 	}
-	if ( @ids > 1 ) {
-		$buffer .= "<li><label for=\"experiment\" class=\"form\" style=\"width:${width}em\">link to experiment:&nbsp;</label>\n";
-		$buffer .= $q->popup_menu(
-			-name    => 'experiment',
-			-id      => 'experiment',
-			-values  => \@ids,
-			-default => $newdata_ref->{'experiment'},
-			-labels  => \%desc
-		);
-		$buffer .= "</li>\n";
+	my $seq_attributes = $self->{'datastore'}->run_list_query_hashref("SELECT key,type,description FROM sequence_attributes ORDER BY key");
+	if ( $q->param('page') eq 'update' ) {
+		my $attribute_values =
+		  $self->{'datastore'}
+		  ->run_list_query_hashref( "SELECT key,value FROM sequence_attribute_values WHERE seqbin_id=?", $newdata_ref->{'id'} );
+		foreach my $att_value (@$attribute_values){
+			$newdata_ref->{$att_value->{'key'}} = $att_value->{'value'};
+		}
+	}
+	if (@$seq_attributes) {
+		foreach my $attribute (@$seq_attributes) {
+			( my $label = $attribute->{'key'} ) =~ s/_/ /;
+			$buffer .= qq(<li><label for="$attribute->{'key'}" class="form" style="width:${width}em">$label:</label>\n);
+			$buffer .=
+			  $q->textfield( -name => $attribute->{'key'}, -id => $attribute->{'key'}, -value => $newdata_ref->{ $attribute->{'key'} } );
+			if ( $attribute->{'description'} ) {
+				$buffer .= qq( <a class="tooltip" title="$attribute->{'key'} - $attribute->{'description'}">&nbsp;<i>i</i>&nbsp;</a>);
+			}
+		}
 	}
 	return $buffer;
 }

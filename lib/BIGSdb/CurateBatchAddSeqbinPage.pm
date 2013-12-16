@@ -77,6 +77,7 @@ HTML
 	$logger->error($@) if $@;
 	my @users;
 	my %usernames;
+	$usernames{''} = ' ';
 
 	while ( my ( $userid, $username, $firstname, $surname ) = $sql->fetchrow_array ) {
 		push @users, $userid;
@@ -88,11 +89,14 @@ HTML
 	$logger->error($@) if $@;
 	my $id_arrayref = $sql->fetchall_arrayref;
 	say "<p>Please fill in the following fields - required fields are marked with an exclamation mark (!).</p>";
-	say "<fieldset><legend>Attributes</legend>\n<ul>";
-	my %labels;
+	say qq(<fieldset style="float:left"><legend>Paste in sequences in FASTA format:</legend>);
+	say $q->hidden($_) foreach qw (page db);
+	say $q->textarea( -name => 'data', -rows => 20, -columns => 80 );
+	say "</fieldset>";
+	say qq(<fieldset style="float:left"><legend>Attributes</legend>\n<ul>);
 
 	if ( $q->param('isolate_id') ) {
-		say "<li><label class=\"parameter\">isolate id: !</label>";
+		say qq(<li><label class="parameter">isolate id: !</label>);
 		my $isolate_id = $q->param('isolate_id');
 		my $isolate_name;
 		if ( BIGSdb::Utils::is_int($isolate_id) ) {
@@ -103,30 +107,44 @@ HTML
 		} else {
 			$isolate_name = 'Invalid isolate';
 		}
-		say "<span id=\"isolate_id\">$isolate_id) $isolate_name</span>";
+		say qq{<span id="isolate_id">$isolate_id) $isolate_name</span>};
 		say $q->hidden( 'isolate_id', $isolate_id );
 	} else {
-		say "<li><label for=\"isolate_id\" class=\"parameter\">isolate id: !</label>";
+		say qq(<li><label for="isolate_id" class="parameter">isolate id: !</label>);
 		my @ids = (0);
+		my %labels;
 		$labels{'0'} = 'Read identifier from FASTA';
 		foreach (@$id_arrayref) {
 			push @ids, $_->[0];
 			$labels{ $_->[0] } = "$_->[0]) $_->[1]";
 		}
 		say $q->popup_menu( -name => 'isolate_id', -id => 'isolate_id', -values => \@ids, -labels => \%labels );
-		say "</li><li><label for=\"identifier_field\" class=\"parameter\">identifier field: </label>";
+		say qq(</li><li><label for="identifier_field" class="parameter">identifier field: </label>);
 		my $fields = $self->{'xmlHandler'}->get_field_list;
 		say $q->popup_menu( -name => 'identifier_field', -id => 'identifier_field', -values => $fields );
 	}
-	say "</li><li><label for=\"sender\" class=\"parameter\">sender: !</label>";
+	say qq(</li><li><label for="sender" class="parameter">sender: !</label>);
 	say $q->popup_menu( -name => 'sender', -id => 'sender', -values => [ '', @users ], -labels => \%usernames, -required => 'required' );
-	say "</li><li><label for=\"method\" class=\"parameter\">method: </label>";
-	say $q->popup_menu( -name => 'method', -id => 'method', -values => [ '', SEQ_METHODS ] );
-	say "</li><li><label for=\"run_id\" class=\"parameter\">run id: </label>";
+	say qq(</li><li><label for="method" class="parameter">method: </label>);
+	my $method_labels = { '' => ' ' };
+	say $q->popup_menu( -name => 'method', -id => 'method', -values => [ '', SEQ_METHODS ], -labels => $method_labels );
+	say qq(</li><li><label for="run_id" class="parameter">run id: </label>);
 	say $q->textfield( -name => 'run_id', -id => 'run_id', -size => 32 );
-	say "</li><li><label for=\"assembly_id\" class=\"parameter\">assembly id: </label>";
+	say qq(</li><li><label for="assembly_id" class="parameter">assembly id: </label>);
 	say $q->textfield( -name => 'assembly_id', -id => 'assembly_id', -size => 32 );
-	say "</li>\n</ul>\n</fieldset>\n<fieldset>\n<legend>Options</legend>";
+	my $seq_attributes = $self->{'datastore'}->run_list_query_hashref("SELECT key,type,description FROM sequence_attributes ORDER BY key");
+
+	if (@$seq_attributes) {
+		foreach my $attribute (@$seq_attributes) {
+			( my $label = $attribute->{'key'} ) =~ s/_/ /;
+			say qq(<li><label for="$attribute->{'key'}" class="parameter">$label:</label>\n);
+			say $q->textfield( -name => $attribute->{'key'}, -id => $attribute->{'key'} );
+			if ( $attribute->{'description'} ) {
+				say qq( <a class="tooltip" title="$attribute->{'key'} - $attribute->{'description'}">&nbsp;<i>i</i>&nbsp;</a>);
+			}
+		}
+	}
+	say qq(</li>\n</ul>\n</fieldset>\n<fieldset style="float:left">\n<legend>Options</legend>);
 	say "<ul><li>";
 	say $q->checkbox( -name => 'size_filter', -label => "Don't insert sequences shorter than " );
 	say $q->popup_menu( -name => 'size', -values => [qw(25 50 100 250 500 1000)], -default => 250 );
@@ -136,29 +154,26 @@ HTML
 	$sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
 	$logger->error($@) if $@;
+	my $exp_labels = { '' => ' ' };
 
 	while ( my @data = $sql->fetchrow_array ) {
 		push @experiments, $data[0];
-		$labels{ $data[0] } = $data[1];
+		$exp_labels->{ $data[0] } = $data[1];
 	}
 	if ( @experiments > 1 ) {
-		say "<li><label for=\"experiment\" class=\"parameter\">Link to experiment: </label>";
-		say $q->popup_menu( -name => 'experiment', -id => 'experiment', -values => \@experiments, -labels => \%labels );
+		say qq(<li><label for="experiment" class="parameter">Link to experiment: </label>);
+		say $q->popup_menu( -name => 'experiment', -id => 'experiment', -values => \@experiments, -labels => $exp_labels );
 		say "</li>";
 	}
 	say "</ul>\n</fieldset>";
-	say "<fieldset style=\"float:left\"><legend>Paste in sequences in FASTA format:</legend>";
-	say $q->hidden($_) foreach qw (page db);
-	say $q->textarea( -name => 'data', -rows => 20, -columns => 80 );
-	say "</fieldset>";
-	say "<fieldset style=\"float:left\">\n<legend>Alternatively upload FASTA file</legend>";
+	say qq(<fieldset style="float:left">\n<legend>Alternatively upload FASTA file</legend>);
 	say "Select FASTA file:<br />";
 	say $q->filefield( -name => 'fasta_upload', -id => 'fasta_upload' );
 	say "</fieldset>";
 	my %args = defined $q->param('isolate_id') ? ( isolate_id => $q->param('isolate_id') ) : ();
 	$self->print_action_fieldset( \%args );
 	say $q->end_form;
-	say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back</a></p>";
+	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back</a></p>);
 	say "</div></div>";
 	return;
 }
@@ -192,6 +207,22 @@ sub _check_data {
 		|| !$self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM users WHERE id=?", $q->param('sender') )->[0] )
 	{
 		say "<div class=\"box\" id=\"statusbad\"><p>Sender is required and must exist in the users table.</p></div>";
+		$continue = 0;
+	}
+	my $seq_attributes = $self->{'datastore'}->run_list_query_hashref("SELECT key,type FROM sequence_attributes ORDER BY key");
+	my @att_problems;
+	foreach my $attribute (@$seq_attributes) {
+		my $value = $q->param( $attribute->{'key'} );
+		next if !defined $value || $value eq '';
+		if ( $attribute->{'type'} eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
+			push @att_problems, "$attribute->{'key'} must be an integer.";
+		} elsif ( $attribute->{'type'} eq 'date' && !BIGSdb::Utils::is_date($value) ) {
+			push @att_problems, "$attribute->{'key'} must be a valid date in yyyy-mm-dd format.";
+		}
+	}
+	if (@att_problems) {
+		local $" = '<br />';
+		say qq(<div class="box" id="statusbad"><p>@att_problems</p></div>);
 		$continue = 0;
 	}
 	my $seq_ref;
@@ -283,6 +314,7 @@ STATS
 			my $filename = $self->make_temp_file(@checked_buffer);
 			$q->param( 'checked_buffer', $filename );
 			say $q->hidden($_) foreach qw (db page checked_buffer isolate_id sender method run_id assembly_id comments experiment);
+			say $q->hidden( $_->{'key'} ) foreach (@$seq_attributes);
 			say $q->end_form;
 			say "</td></tr></table>";
 		} else {
@@ -414,9 +446,21 @@ sub _upload {
 	my $experiment     = BIGSdb::Utils::is_int( $q->param('experiment') ) ? $q->param('experiment') : undef;
 	my $curator        = $self->get_curator_id;
 	my $sender         = $q->param('sender');
+	my $seq_attributes = $self->{'datastore'}->run_list_query_hashref("SELECT key,type FROM sequence_attributes ORDER BY key");
+	my @attribute_sql;
+
+	if (@$seq_attributes) {
+		foreach my $attribute (@$seq_attributes) {
+			if ( $q->param( $attribute->{'key'} ) ) {
+				( my $value = $q->param( $attribute->{'key'} ) ) =~ s/'/\\'/g;
+				$qry = "INSERT INTO sequence_attribute_values (seqbin_id,key,value,curator,datestamp) VALUES "
+				  . "(?,'$attribute->{'key'}',E'$value',$curator,'now')";
+				push @attribute_sql, $self->{'db'}->prepare($qry);
+			}
+		}
+	}
 	eval {
 		my $id;
-
 		foreach ( keys %$seq_ref ) {
 			$id = $self->next_id( 'sequence_bin', 0, $id );
 			my ( $designation, $comments );
@@ -432,6 +476,9 @@ sub _upload {
 			);
 			$sql->execute(@values);
 			$sql_experiment->execute( $experiment, $id, $curator, 'today' ) if $experiment;
+			foreach (@attribute_sql) {
+				$_->execute($id);
+			}
 		}
 	};
 	if ($@) {

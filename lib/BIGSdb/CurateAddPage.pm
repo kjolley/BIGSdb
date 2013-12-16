@@ -163,6 +163,33 @@ sub _prepare_extra_inserts_for_loci {
 	return;
 }
 
+sub _prepare_extra_inserts_for_seqbin {
+	my ( $self, $newdata, $problems, $extra_inserts ) = @_;
+	my $q = $self->{'cgi'};
+	if ( $q->param('experiment') ) {
+		my $experiment = $q->param('experiment');
+		my $insert     = "INSERT INTO experiment_sequences (experiment_id,seqbin_id,curator,datestamp) VALUES "
+		  . "($experiment,$newdata->{'id'},$newdata->{'curator'},'now')";
+		push @$extra_inserts, $insert;
+	}
+	my $seq_attributes = $self->{'datastore'}->run_list_query_hashref("SELECT key,type FROM sequence_attributes ORDER BY key");
+	foreach my $attribute (@$seq_attributes){
+		my $value = $q->param($attribute->{'key'});
+		next if !defined $value || $value eq '';
+		
+		if ($attribute->{'type'} eq 'integer' && !BIGSdb::Utils::is_int($value)){
+			push @$problems,"$attribute->{'key'} must be an integer.";
+		} elsif ($attribute->{'type'} eq 'date' && !BIGSdb::Utils::is_date($value)){
+			push @$problems,"$attribute->{'key'} must be a valid date in yyyy-mm-dd format.";
+		}
+		$value =~ s/'/\\'/g;
+		my $insert = "INSERT INTO sequence_attribute_values(seqbin_id,key,value,curator,datestamp) VALUES "
+		  . "($newdata->{'id'},'$attribute->{'key'}',E'$value',$newdata->{'curator'},'now')";
+		  push @$extra_inserts, $insert;
+	}
+	return;
+}
+
 sub _insert {
 	my ( $self, $table, $newdata ) = @_;
 	my $q          = $self->{'cgi'};
@@ -184,12 +211,7 @@ sub _insert {
 	} elsif ( $table eq 'sequence_bin' ) {
 		$newdata->{'sequence'} =~ s/[\W]//g;
 		push @problems, "Sequence data invalid." if !length $newdata->{'sequence'};
-		if ( $q->param('experiment') ) {
-			my $experiment = $q->param('experiment');
-			my $insert     = "INSERT INTO experiment_sequences (experiment_id,seqbin_id,curator,datestamp) VALUES "
-			  . "($experiment,$newdata->{'id'},$newdata->{'curator'},'now')";
-			push @extra_inserts, $insert;
-		}
+		$self->_prepare_extra_inserts_for_seqbin( $newdata, \@problems, \@extra_inserts );
 	}
 	if ( $table eq 'sequences' ) {
 		my $locus_info = $self->{'datastore'}->get_locus_info( $newdata->{'locus'} );
@@ -198,17 +220,17 @@ sub _insert {
 			&& !BIGSdb::Utils::is_int( $newdata->{'allele_id'} )
 			&& $locus_info->{'allele_id_format'} eq 'integer' )
 		{
-			push @problems, "The allele id must be an integer for this locus.<br />";
+			push @problems, "The allele id must be an integer for this locus.";
 		} elsif ( $locus_info->{'allele_id_regex'} ) {
 			my $regex = $locus_info->{'allele_id_regex'};
 			if ( $regex && $newdata->{'allele_id'} !~ /$regex/ ) {
-				push @problems, "Allele id value is invalid - it must match the regular expression /$regex/<br />";
+				push @problems, "Allele id value is invalid - it must match the regular expression /$regex/.";
 			}
 		}
 
 		#Make sure sequence bin data marked as DNA is valid
 	} elsif ( $table eq 'sequence_bin' && !BIGSdb::Utils::is_valid_DNA( \( $newdata->{'sequence'} ), { allow_ambiguous => 1 } ) ) {
-		push @problems, "Sequence contains non nucleotide (G|A|T|C + ambiguity code R|Y|W|S|M|K|V|H|D|B|X|N) characters.<br />";
+		push @problems, "Sequence contains non nucleotide (G|A|T|C + ambiguity code R|Y|W|S|M|K|V|H|D|B|X|N) characters.";
 
 		#special case to check that start_pos is less than end_pos for allele_sequence
 	} elsif ( $table eq 'allele_sequences' && $newdata->{'end_pos'} < $newdata->{'start_pos'} ) {

@@ -1343,7 +1343,7 @@ sub get_locus_curators_table_attributes {
 sub get_sequence_attributes_table_attributes {
 	my ($self) = @_;
 	my $attributes = [
-		{ name => 'key',  type => 'text', required => 'yes', primary_key => 'yes' },
+		{ name => 'key',  type => 'text', required => 'yes', primary_key => 'yes', regex => '^[A-z]\w*$' },
 		{ name => 'type', type => 'text', required => 'yes', optlist     => 'text;integer;date', default => 'text' },
 		{ name => 'description', type => 'text' },
 		{ name => 'curator',     type => 'int', required => 'yes', dropdown_query => 'yes' },
@@ -1375,7 +1375,7 @@ sub get_sequence_bin_table_attributes {
 		{ name => 'method',     type => 'text', required => 'yes', optlist     => "@methods" },
 		{ name => 'run_id',               type => 'text', length   => 32 },
 		{ name => 'assembly_id',          type => 'text', length   => 32 },
-		{ name => 'original_designation', type => 'text', length   => 32 },
+		{ name => 'original_designation', type => 'text', length   => 100 },
 		{ name => 'comments',             type => 'text', length   => 64 },
 		{ name => 'sender',               type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'curator',              type => 'int',  required => 'yes', dropdown_query => 'yes' },
