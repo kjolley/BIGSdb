@@ -264,7 +264,6 @@ sub _run_query {
 	my $qry;
 	my $msg;
 	my @errors;
-	my $count;
 	my $scheme_view;
 
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
@@ -303,8 +302,8 @@ sub _run_query {
 			if ( ( $values{$locus} ne '' && $locus_info->{'allele_id_format'} eq 'integer' && !BIGSdb::Utils::is_int( $values{$locus} ) )
 				&& !( $scheme_info->{'allow_missing_loci'} && $values{$locus} eq 'N' ) )
 			{
-				my $msg = $scheme_info->{'allow_missing_loci'} ? ' Arbitrary values (N) may also be used.' : '';
-				push @errors, "$locus is an integer field.$msg";
+				my $arbitrary_msg = $scheme_info->{'allow_missing_loci'} ? ' Arbitrary values (N) may also be used.' : '';
+				push @errors, "$locus is an integer field.$arbitrary_msg";
 				next;
 			}
 			next if $values{$locus} eq '';
@@ -340,7 +339,6 @@ sub _run_query {
 				  . "WHERE $scheme_view.$primary_key=profiles.profile_id AND (@lqry)";
 			}
 			if ( $matches == 0 ) {    #Find out the greatest number of matches
-				my $qry;
 				if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 					$qry = "SELECT COUNT(id) FROM $system->{'view'} LEFT JOIN allele_designations ON $system->{'view'}.id=isolate_id "
 					  . "WHERE (@lqry)";
@@ -444,7 +442,7 @@ sub _run_query {
 		push @hidden_attributes, "l_$_" foreach @$loci;
 		push @hidden_attributes, qw(scheme_id matches_list);
 		my $table = $self->{'system'}->{'dbtype'} eq 'isolates' ? $self->{'system'}->{'view'} : 'profiles';
-		my $args = { table => $table, query => $qry, message => $msg, hidden_attributes => \@hidden_attributes, count => $count };
+		my $args = { table => $table, query => $qry, message => $msg, hidden_attributes => \@hidden_attributes };
 		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
 		$self->paged_display($args);
 	} else {

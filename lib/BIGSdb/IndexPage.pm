@@ -87,17 +87,17 @@ HTML
 		say "<li><a href=\"$script_name?db=$instance&amp;page=tableQuery&amp;table=sequences$set_string\">Sequence attribute search</a> - "
 		  . "find alleles by matching attributes.</li>";
 		if (@$scheme_data) {
-			my $scheme_arg = @$scheme_data == 1 ? "&amp;scheme_id=$scheme_data->[0]->{'id'}" : '';
-			my $desc       = @$scheme_data == 1 ? $scheme_data->[0]->{'description'}         : '';
+			my $scheme_arg  = @$scheme_data == 1 ? "&amp;scheme_id=$scheme_data->[0]->{'id'}" : '';
+			my $scheme_desc = @$scheme_data == 1 ? $scheme_data->[0]->{'description'}         : '';
 			say <<"HTML";
-	<li><a href="$script_name?db=$instance&amp;page=browse$scheme_arg$set_string">Browse $desc profiles</a></li>
-	<li><a href="$script_name?db=$instance&amp;page=query$scheme_arg$set_string">Search $desc profiles</a></li>
-	<li><a href="$script_name?db=$instance&amp;page=listQuery$scheme_arg$set_string">List</a> - find $desc 
+	<li><a href="$script_name?db=$instance&amp;page=browse$scheme_arg$set_string">Browse $scheme_desc profiles</a></li>
+	<li><a href="$script_name?db=$instance&amp;page=query$scheme_arg$set_string">Search $scheme_desc profiles</a></li>
+	<li><a href="$script_name?db=$instance&amp;page=listQuery$scheme_arg$set_string">List</a> - find $scheme_desc 
 	profiles matched to entered list.</li>
-	<li><a href="$script_name?db=$instance&amp;page=profiles$scheme_arg$set_string">Search by combinations of $desc alleles</a> - 
+	<li><a href="$script_name?db=$instance&amp;page=profiles$scheme_arg$set_string">Search by combinations of $scheme_desc alleles</a> - 
 	including partial matching.</li>
 	<li><a href="$script_name?db=$instance&amp;page=batchProfiles$scheme_arg$set_string">Batch profile query</a> - lookup 
-	$desc profiles copied from a spreadsheet.</li>
+	$scheme_desc profiles copied from a spreadsheet.</li>
 
 HTML
 		}

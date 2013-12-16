@@ -359,26 +359,27 @@ sub _output_single_query_exact {
 			  ->run_simple_query_hashref( "SELECT * FROM sequences WHERE locus=? AND allele_id=?", $locus, $_->{'allele'} );
 			$flags = $self->{'datastore'}->get_allele_flags( $locus, $_->{'allele'} );
 		} else {    #either all loci or a scheme selected
-			my ( $locus, $allele_id );
+			my ( $extracted_locus, $allele_id );
 			if ( $_->{'allele'} =~ /(.*):(.*)/ ) {
-				( $locus, $allele_id ) = ( $1, $2 );
-				$designations{$locus} = $allele_id;
-				my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-				$locus_matches{$locus}++;
-				next if $locus_info->{'match_longest'} && $locus_matches{$locus} > 1;
-				my $cleaned = $self->clean_locus($locus);
-				$allele       = "$cleaned: $allele_id";
-				$field_values = $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $allele_id, { table_format => 1 } );
-				$attributes   = $self->{'datastore'}->get_allele_attributes( $locus, [$allele_id] );
+				( $extracted_locus, $allele_id ) = ( $1, $2 );
+				$designations{$extracted_locus} = $allele_id;
+				my $locus_info = $self->{'datastore'}->get_locus_info($extracted_locus);
+				$locus_matches{$extracted_locus}++;
+				next if $locus_info->{'match_longest'} && $locus_matches{$extracted_locus} > 1;
+				my $cleaned = $self->clean_locus($extracted_locus);
+				$allele = "$cleaned: $allele_id";
+				$field_values =
+				  $self->{'datastore'}->get_client_data_linked_to_allele( $extracted_locus, $allele_id, { table_format => 1 } );
+				$attributes = $self->{'datastore'}->get_allele_attributes( $extracted_locus, [$allele_id] );
 				$allele_info =
 				  $self->{'datastore'}
-				  ->run_simple_query_hashref( "SELECT * FROM sequences WHERE locus=? AND allele_id=?", $locus, $allele_id );
-				$flags = $self->{'datastore'}->get_allele_flags( $locus, $allele_id );
+				  ->run_simple_query_hashref( "SELECT * FROM sequences WHERE locus=? AND allele_id=?", $extracted_locus, $allele_id );
+				$flags = $self->{'datastore'}->get_allele_flags( $extracted_locus, $allele_id );
 			}
 			$buffer .=
 			    "<tr class=\"td$td\"><td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
-			  . "page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id\">"
-			  if $locus && $allele_id;
+			  . "page=alleleInfo&amp;locus=$extracted_locus&amp;allele_id=$allele_id\">"
+			  if $extracted_locus && $allele_id;
 		}
 		$buffer .= "$allele</a></td><td>$_->{'length'}</td><td>$_->{'start'}</td><td>$_->{'end'}</td>";
 		$buffer .= defined $field_values ? "<td style=\"text-align:left\">$field_values</td>" : '<td></td>' if $data->{'linked_data'};
@@ -575,15 +576,15 @@ sub _output_single_query_nonexact {
 		$flags = $self->{'datastore'}->get_allele_flags( $locus, $cleaned_match );
 		$field_values = $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $cleaned_match );
 	} else {
-		my ( $locus, $allele_id );
+		my ( $extracted_locus, $allele_id );
 		if ( $cleaned_match =~ /(.*):(.*)/ ) {
-			( $locus, $allele_id ) = ( $1, $2 );
-			$cleaned_locus = $self->clean_locus($locus);
+			( $extracted_locus, $allele_id ) = ( $1, $2 );
+			$cleaned_locus = $self->clean_locus($extracted_locus);
 			$cleaned_match = "$cleaned_locus: $allele_id";
-			say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;"
+			say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$extracted_locus&amp;"
 			  . "allele_id=$allele_id\">";
-			$flags = $self->{'datastore'}->get_allele_flags( $locus, $allele_id );
-			$field_values = $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $allele_id );
+			$flags = $self->{'datastore'}->get_allele_flags( $extracted_locus, $allele_id );
+			$field_values = $self->{'datastore'}->get_client_data_linked_to_allele( $extracted_locus, $allele_id );
 		}
 	}
 	say "$cleaned_match</a>";
@@ -597,16 +598,16 @@ sub _output_single_query_nonexact {
 		say "<p>This match is linked to the following data:</p>";
 		say $field_values;
 	}
-	my ( $data_type, $allele_seq_ref );
+	my ( $locus_data_type, $allele_seq_ref );
 	if ($distinct_locus_selected) {
 		$allele_seq_ref = $self->{'datastore'}->get_sequence( $locus, $partial_match->{'allele'} );
-		$data_type = $data->{'locus_info'}->{'data_type'};
+		$locus_data_type = $data->{'locus_info'}->{'data_type'};
 	} else {
-		my ( $locus, $allele ) = split /:/, $partial_match->{'allele'};
-		$allele_seq_ref = $self->{'datastore'}->get_sequence( $locus, $allele );
-		$data_type = $self->{'datastore'}->get_locus_info($locus)->{'data_type'};
+		my ( $extracted_locus, $allele ) = split /:/, $partial_match->{'allele'};
+		$allele_seq_ref = $self->{'datastore'}->get_sequence( $extracted_locus, $allele );
+		$locus_data_type = $self->{'datastore'}->get_locus_info($extracted_locus)->{'data_type'};
 	}
-	if ( $data_type eq $data->{'qry_type'} ) {
+	if ( $locus_data_type eq $data->{'qry_type'} ) {
 		my $temp        = BIGSdb::Utils::get_random();
 		my $seq1_infile = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_file1.txt";
 		my $seq2_infile = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_file2.txt";
@@ -648,14 +649,8 @@ sub _output_single_query_nonexact {
 				if (@$diffs) {
 					my $plural = @$diffs > 1 ? 's' : '';
 					say "<p>" . @$diffs . " difference$plural found. ";
-					my $data_type;
-					if ( defined $data->{'locus_info'}->{'data_type'} ) {
-						$data_type = $data->{'locus_info'}->{'data_type'} eq 'DNA' ? 'nucleotide' : 'residue';
-					} else {
-						$data_type = 'identity';
-					}
-					say "<a class=\"tooltip\" title=\"differences - The information to the left of the arrow$plural shows the $data_type "
-					  . "and position on the reference sequence and the information to the right shows the corresponding $data_type and "
+					say "<a class=\"tooltip\" title=\"differences - The information to the left of the arrow$plural shows the identity "
+					  . "and position on the reference sequence and the information to the right shows the corresponding identity and "
 					  . "position on your query sequence.\">&nbsp;<i>i</i>&nbsp;</a>";
 					say "</p><p>";
 					foreach (@$diffs) {
@@ -740,8 +735,8 @@ sub _output_batch_query_nonexact {
 	if ($distinct_locus_selected) {
 		$allele_seq_ref = $self->{'datastore'}->get_sequence( $locus, $partial_match->{'allele'} );
 	} else {
-		my ( $locus, $allele ) = split /:/, $partial_match->{'allele'};
-		$allele_seq_ref = $self->{'datastore'}->get_sequence( $locus, $allele );
+		my ( $extracted_locus, $allele ) = split /:/, $partial_match->{'allele'};
+		$allele_seq_ref = $self->{'datastore'}->get_sequence( $extracted_locus, $allele );
 	}
 	if ( !$partial_match->{'gaps'} ) {
 		my $qstart = $partial_match->{'qstart'};
@@ -785,12 +780,12 @@ sub _output_batch_query_nonexact {
 		$text_allele = "$text_locus-$partial_match->{'allele'}";
 	} else {
 		if ( $partial_match->{'allele'} =~ /(.*):(.*)/ ) {
-			my ( $locus, $allele_id ) = ( $1, $2 );
-			$cleaned_locus = $self->clean_locus($locus);
-			$text_locus = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
+			my ( $extracted_locus, $allele_id ) = ( $1, $2 );
+			$cleaned_locus = $self->clean_locus($extracted_locus);
+			$text_locus = $self->clean_locus( $extracted_locus, { text_output => 1, no_common_name => 1 } );
 			$partial_match->{'allele'} =~ s/:/: /;
-			$allele = "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;"
-			  . "allele_id=$allele_id\">$cleaned_locus: $allele_id</a>";
+			$allele = "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus="
+			  . "$extracted_locus&amp;allele_id=$allele_id\">$cleaned_locus: $allele_id</a>";
 			$text_allele = "$text_locus-$allele_id";
 		}
 	}
@@ -842,8 +837,8 @@ sub parse_blast_exact {
 			if ( $locus && $locus !~ /SCHEME_\d+/ && $locus !~ /GROUP_\d+/ ) {
 				$seq_ref = $self->{'datastore'}->get_sequence( $locus, $record[1] );
 			} else {
-				my ( $locus, $allele ) = split /:/, $record[1];
-				$seq_ref = $self->{'datastore'}->get_sequence( $locus, $allele );
+				my ( $extracted_locus, $allele ) = split /:/, $record[1];
+				$seq_ref = $self->{'datastore'}->get_sequence( $extracted_locus, $allele );
 			}
 			my $length = length $$seq_ref;
 			if (

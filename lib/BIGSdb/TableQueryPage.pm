@@ -237,7 +237,6 @@ sub _print_interface {
 	say "</li></ul></fieldset>";
 	say "<div style=\"clear:both\"></div>";
 	my @filters;
-	my %labels;
 
 	foreach my $att (@$attributes) {
 		if ( $att->{'optlist'} || $att->{'type'} eq 'bool' || ( $att->{'dropdown_query'} && $att->{'dropdown_query'} eq 'yes' ) ) {
@@ -273,10 +272,10 @@ sub _print_interface {
 						  @{ $self->{'datastore'}->run_list_query("SELECT id FROM $att->{'foreign_key'} ORDER BY @fields_to_query") };
 						next if !@values;
 					} else {
-						my $order_by     = $att->{'type'} eq 'text' ? "lower($att->{'name'})"       : $att->{'name'};
+						my $order     = $att->{'type'} eq 'text' ? "lower($att->{'name'})"       : $att->{'name'};
 						my $empty_clause = $att->{'type'} eq 'text' ? " WHERE $att->{'name'} <> ''" : '';
 						@values =
-						  @{ $self->{'datastore'}->run_list_query("SELECT $att->{'name'} FROM $table$empty_clause ORDER BY $order_by") };
+						  @{ $self->{'datastore'}->run_list_query("SELECT $att->{'name'} FROM $table$empty_clause ORDER BY $order") };
 						@values = uniq @values;
 					}
 					push @filters, $self->get_filter( $att->{'name'}, \@values, { labels => $desc } );
@@ -313,7 +312,7 @@ sub _print_interface {
 		my $common_names = $self->{'datastore'}->run_list_query("SELECT DISTINCT common_name FROM loci ORDER BY common_name");
 		push @filters,
 		  $self->get_filter( 'common_name', $common_names,
-			{ 'tooltip' => 'common names filter - Select a name to filter your search to only those loci with the selected common name.' }
+			{ tooltip => 'common names filter - Select a name to filter your search to only those loci with the selected common name.' }
 		  );
 	} elsif ( $table eq 'allele_sequences' ) {
 		push @filters, $self->get_scheme_filter;
@@ -321,17 +320,17 @@ sub _print_interface {
 		  $self->get_filter(
 			'sequence_flag',
 			[ 'any flag', 'no flag', SEQ_FLAGS ],
-			{ 'tooltip' => 'sequence flag filter - Select the appropriate value to filter tags to only those flagged accordingly.' }
+			{ tooltip => 'sequence flag filter - Select the appropriate value to filter tags to only those flagged accordingly.' }
 		  );
 		push @filters,
 		  $self->get_filter(
 			'duplicates',
 			[qw (1 2 5 10 25 50)],
 			{
-				'text' => 'tags per isolate/locus',
-				'labels' =>
+				text => 'tags per isolate/locus',
+				labels =>
 				  { 1 => 'no duplicates', 2 => '2 or more', 5 => '5 or more', 10 => '10 or more', 25 => '25 or more', 50 => '50 or more' },
-				'tooltip' =>
+				tooltip =>
 				  'Duplicates filter - Filter search to only those loci that have been tagged a specified number of times per isolate.'
 			}
 		  );

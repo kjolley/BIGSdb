@@ -85,7 +85,7 @@ sub run_script {
 	$self->{'jobManager'}->update_job_status( $job_id, { status => 'started', start_time => 'now', pid => $$ } );
 	try {
 		$plugin->run_job( $job_id, $params );
-		my $job = $self->{'jobManager'}->get_job($job_id);
+		$job = $self->{'jobManager'}->get_job($job_id);
 		my $status = $job->{'status'} // 'started';
 		$status = 'finished' if $status eq 'started';
 		$self->{'jobManager'}

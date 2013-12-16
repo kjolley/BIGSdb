@@ -330,16 +330,15 @@ sub _print_interface {
 		-value => $newdata->{$primary_key},
 		%html5_args
 	);
-	undef %html5_args;
 	say "</li>";
 
 	foreach my $locus (@$loci) {
-		my %html5_args = ( required => 'required' );
+		%html5_args = ( required => 'required' );
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		$html5_args{'type'} = 'number' if $locus_info->{'allele_id_format'} eq 'integer' && !$scheme_info->{'allow_missing_loci'};
 		my $cleaned = $self->clean_locus($locus);
-		my ( $label, $title ) = $self->get_truncated_label( $cleaned, 24 );
-		my $title_attribute = $title ? " title=\"$title\"" : '';
+		( $label, $title ) = $self->get_truncated_label( $cleaned, 24 );
+		$title_attribute = $title ? " title=\"$title\"" : '';
 		say qq(<li><label for="locus:$locus" class="form" style="width:${width}em"$title_attribute>$label: !</label>);
 		say $self->textfield(
 			-name  => "locus:$locus",
@@ -362,10 +361,10 @@ sub _print_interface {
 	foreach my $field (@$fields) {
 		next if $field eq $primary_key;
 		my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
-		my %html5_args;
+		%html5_args = ();
 		$html5_args{'type'} = 'number' if $scheme_field_info->{'type'} eq 'integer';
-		my ( $label, $title ) = $self->get_truncated_label( $field, 24 );
-		my $title_attribute = $title ? " title=\"$title\"" : '';
+		( $label, $title ) = $self->get_truncated_label( $field, 24 );
+		$title_attribute = $title ? " title=\"$title\"" : '';
 		say qq(<li><label for="field:$field" class="form" style="width:${width}em"$title_attribute>$label: </label>);
 		say $self->textfield(
 			-name  => "field:$field",

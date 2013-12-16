@@ -259,7 +259,6 @@ sub print_content {
 			}
 		}
 		if ( !$cookies_disabled ) {
-			my $att = $self->{'pluginManager'}->get_plugin_attributes($plugin_name);
 			say $q->start_form;
 			$q->param( 'update_options', 1 );
 			say $q->hidden($_) foreach @{ $plugin->get_hidden_attributes() };

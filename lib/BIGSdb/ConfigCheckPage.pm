@@ -159,11 +159,9 @@ sub print_content {
 					print '<span class="statusbad">X</span>';
 				}
 				print "</td><td>";
-				my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+				my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 				my @values;
-				foreach (@$loci) {
-					push @values, '1';
-				}
+				push @values, '1' foreach @$scheme_loci;
 				eval { $self->{'datastore'}->get_scheme($scheme_id)->get_field_values_by_profile( \@values ); };
 				if ($@) {
 					print '<span class="statusbad">X</span>';

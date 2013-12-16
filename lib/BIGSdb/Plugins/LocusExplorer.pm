@@ -176,12 +176,12 @@ sub run {
 		return;
 	}
 	if ( !$q->param('locus') ) {
-		$q->param( 'locus', $display_loci->[0] );
+		$q->param( locus => $display_loci->[0] );
 	}
 	my $locus = $q->param('locus');
 	if ( $locus =~ /^cn_(.+)/ ) {
 		$locus = $1;
-		$q->param( 'locus', $locus );
+		$q->param( locus => $locus );
 	}
 	if ( $q->param('snp') ) {
 		$self->_snp           if $q->param('function') eq 'snp';
@@ -259,14 +259,12 @@ sub _print_interface {
 	say "<p><b>Locus: </b>";
 	say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $display_loci, -labels => $cleaned );
 	say " <span class=\"comment\">Page will reload when changed</span></p>";
+	my $desc_exists =
+	  $self->{'datastore'}->run_simple_query( "SELECT EXISTS(SELECT * FROM locus_descriptions WHERE locus=?)", $locus )->[0];
 
-	if ( $q->param('locus') ) {
-		my $locus = $q->param('locus');
-		my $desc_exists = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM locus_descriptions WHERE locus=?", $locus )->[0];
-		if ($desc_exists) {
-			say "<ul><li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus\">"
-			  . "Further information</a> is available for this locus.</li></ul>";
-		}
+	if ($desc_exists) {
+		say "<ul><li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus\">"
+		  . "Further information</a> is available for this locus.</li></ul>";
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	my $order = $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST (allele_id AS integer)' : 'allele_id';

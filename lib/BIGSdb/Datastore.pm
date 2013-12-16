@@ -1677,11 +1677,11 @@ sub get_citation_hash {
 sub create_temp_ref_table {
 	my ( $self, $list, $qry_ref ) = @_;
 	my %att = (
-		'dbase_name' => $self->{'config'}->{'ref_db'},
-		'host'       => $self->{'system'}->{'host'},
-		'port'       => $self->{'system'}->{'port'},
-		'user'       => $self->{'system'}->{'user'},
-		'password'   => $self->{'system'}->{'pass'}
+		dbase_name => $self->{'config'}->{'ref_db'},
+		host       => $self->{'system'}->{'host'},
+		port       => $self->{'system'}->{'port'},
+		user       => $self->{'system'}->{'user'},
+		password   => $self->{'system'}->{'pass'}
 	);
 	my $dbr;
 	my $continue = 1;
@@ -1694,23 +1694,20 @@ sub create_temp_ref_table {
 		$logger->error->("Can't connect to reference database");
 	};
 	return if !$continue;
-	my $create =
-"CREATE TEMP TABLE temp_refs (pmid int, year int, journal text, volume text, pages text, title text, abstract text, authors text, isolates int);";
+	my $create = "CREATE TEMP TABLE temp_refs (pmid int, year int, journal text, volume text, pages text, title text, "
+	  . "abstract text, authors text, isolates int);";
 	eval { $self->{'db'}->do($create); };
 	if ($@) {
 		$logger->error("Can't create temporary reference table. $@");
 		return;
 	}
-	my $qry1 = "SELECT pmid,year,journal,volume,pages,title,abstract FROM refs WHERE pmid=?";
-	my $sql1 = $dbr->prepare($qry1);
-	my $qry2 = "SELECT author FROM refauthors WHERE pmid=? ORDER BY position";
-	my $sql2 = $dbr->prepare($qry2);
-	my $qry3 = "SELECT id,surname,initials FROM authors";
-	my $sql3 = $dbr->prepare($qry3);
+	my $sql1 = $dbr->prepare("SELECT pmid,year,journal,volume,pages,title,abstract FROM refs WHERE pmid=?");
+	my $sql2 = $dbr->prepare("SELECT author FROM refauthors WHERE pmid=? ORDER BY position");
+	my $sql3 = $dbr->prepare("SELECT id,surname,initials FROM authors");
 	eval { $sql3->execute; };
 	$logger->error($@) if $@;
 	my $all_authors = $sql3->fetchall_hashref('id');
-	my ( $qry4, $isolates );
+	my $qry4;
 
 	if ($qry_ref) {
 		my $isolate_qry = $$qry_ref;
@@ -1721,15 +1718,11 @@ sub create_temp_ref_table {
 	}
 	my $sql4 = $self->{'db'}->prepare($qry4);
 	foreach my $pmid (@$list) {
-		eval { $sql1->execute($pmid); };
-		if ($@) {
-			$logger->error("Can't execute $qry1, value:$pmid $@");
-		}
+		eval { $sql1->execute($pmid) };
+		$logger->error($@) if $@;
 		my @refdata = $sql1->fetchrow_array;
-		eval { $sql2->execute($pmid); };
-		if ($@) {
-			$logger->error("Can't execute $qry2, value:$pmid $@");
-		}
+		eval { $sql2->execute($pmid) };
+		$logger->error($@) if $@;
 		my @authors;
 		my $author_arrayref = $sql2->fetchall_arrayref;
 		foreach (@$author_arrayref) {

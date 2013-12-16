@@ -149,9 +149,9 @@ sub _print_controls {
 	say "</div>\n<div style=\"float:left\">";
 	say $q->startform;
 	say $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc);
-	my %toggle =
+	my %display_toggle =
 	  ( 'values only' => 'values and percentages', 'values and percentages' => 'percentages only', 'percentages only' => 'values only' );
-	say $q->submit( -name => 'toggledisplay', -label => ( 'Show ' . $toggle{ $q->param('display') } ), -class => 'submit' );
+	say $q->submit( -name => 'toggledisplay', -label => ( 'Show ' . $display_toggle{ $q->param('display') } ), -class => 'submit' );
 	say $q->endform;
 	say "</div>";
 
@@ -159,8 +159,8 @@ sub _print_controls {
 		say "<div style=\"float:left\">";
 		say $q->startform;
 		say $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc);
-		my %toggle = ( 'dataset' => 'row', 'row' => 'column', 'column' => 'dataset' );
-		say $q->submit( -name => 'togglepc', -label => ( 'Calculate percentages by ' . $toggle{ $q->param('calcpc') } ),
+		my %pc_toggle = ( dataset => 'row', row => 'column', column => 'dataset' );
+		say $q->submit( -name => 'togglepc', -label => ( 'Calculate percentages by ' . $pc_toggle{ $q->param('calcpc') } ),
 			-class => 'submit' );
 		say $q->endform;
 		say "</div>";

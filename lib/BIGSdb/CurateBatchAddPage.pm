@@ -1429,10 +1429,10 @@ sub _prepare_metaset_insert {
 	my @inserts;
 	my $isolate_id = $data->[ $fieldorder->{'id'} ];
 	foreach my $metaset (@metasets) {
-		my $fields = $self->{'xmlHandler'}->get_field_list( ["meta_$metaset"], { meta_fields_only => 1 } );
+		my $meta_fields = $self->{'xmlHandler'}->get_field_list( ["meta_$metaset"], { meta_fields_only => 1 } );
 		local $" = ',';
-		my $qry = "INSERT INTO meta_$metaset (isolate_id,@$fields) VALUES ($isolate_id";
-		foreach my $field (@$fields) {
+		my $qry = "INSERT INTO meta_$metaset (isolate_id,@$meta_fields) VALUES ($isolate_id";
+		foreach my $field (@$meta_fields) {
 			$qry .= ',';
 			my $value = $data->[ $fieldorder->{$field} ] // 'null';
 			my $cleaned = $self->clean_value($value);

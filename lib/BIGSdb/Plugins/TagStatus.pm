@@ -239,8 +239,7 @@ sub _print_schematic {
 
 		foreach my $scheme_id (@$scheme_ids_ref) {
 			next if !$selected_schemes{$scheme_id};
-			my @loci = @{ $scheme_loci{$scheme_id} };
-			foreach my $locus (@loci) {
+			foreach my $locus (@{ $scheme_loci{$scheme_id} }) {
 				my $value = defined $allele_ids->{$locus} ? 1 : 0;
 				$value += defined $tags->{$locus} ? 2 : 0;
 				$value = defined $flags->{$locus} ? 4 : $value;

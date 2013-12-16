@@ -340,8 +340,8 @@ sub _print_interface {
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		$html5_args{'type'} = 'number' if $locus_info->{'allele_id_format'} eq 'integer' && !$scheme_info->{'allow_missing_loci'};
 		my $mapped = $self->{'datastore'}->get_set_locus_label( $locus, $set_id ) // $locus;
-		my ( $label, $title ) = $self->get_truncated_label( $mapped, 24 );
-		my $title_attribute = $title ? " title=\"$title\"" : '';
+		( $label, $title ) = $self->get_truncated_label( $mapped, 24 );
+		$title_attribute = $title ? " title=\"$title\"" : '';
 		say qq(<li><label for="locus:$locus" class="form" style="width:${width}em"$title_attribute>$label: !</label>);
 		say $self->textfield(
 			-name => "locus:$locus",
@@ -357,8 +357,8 @@ sub _print_interface {
 		my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 		my %html5_args;
 		$html5_args{'type'} = 'number' if $field_info->{'type'} eq 'integer';
-		my ( $label, $title ) = $self->get_truncated_label( $field, 24 );
-		my $title_attribute = $title ? " title=\"$title\"" : '';
+		( $label, $title ) = $self->get_truncated_label( $field, 24 );
+		$title_attribute = $title ? " title=\"$title\"" : '';
 		say qq(<li><label for="field:$field" class="form" style="width:${width}em"$title_attribute>$label: </label>);
 		say $q->textfield(
 			-name => "field:$field",

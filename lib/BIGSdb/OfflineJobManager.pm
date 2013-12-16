@@ -54,9 +54,9 @@ sub _initiate {
 sub _db_connect {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $logger = get_logger('BIGSdb.Application_Initiate');
+	my $initiate_logger = get_logger('BIGSdb.Application_Initiate');
 	if ( !$self->{'config'}->{'jobs_db'} ) {
-		$logger->fatal("jobs_db not set in config file.");
+		$initiate_logger->fatal("jobs_db not set in config file.");
 		return;
 	}
 	my %att = (
@@ -73,8 +73,7 @@ sub _db_connect {
 		$self->{'db'} = $self->{'dataConnector'}->get_connection( \%att );
 	}
 	catch BIGSdb::DatabaseConnectionException with {
-		my $logger = get_logger('BIGSdb.Application_Initiate');
-		$logger->error("Can not connect to database '$self->{'config'}->{'jobs_db'}'");
+		$initiate_logger->error("Can not connect to database '$self->{'config'}->{'jobs_db'}'");
 		return;
 	};
 	return;

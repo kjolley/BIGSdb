@@ -227,9 +227,9 @@ sub _check {
 					}
 				}
 				my @not_allowed;
-				while ( my ($id) = $sql_id->fetchrow_array ) {
-					if ( !$self->is_allowed_to_view_isolate($id) ) {
-						push @not_allowed, $id;
+				while ( my ($isolate_id) = $sql_id->fetchrow_array ) {
+					if ( !$self->is_allowed_to_view_isolate($isolate_id) ) {
+						push @not_allowed, $isolate_id;
 					}
 				}
 				if (@not_allowed) {
@@ -255,8 +255,7 @@ sub _check {
 					$oldvalue .= "</span>";
 					$action = "<span class=\"statusbad\">no action</span>";
 				} else {
-					my $qry;
-					my @args;
+					@args = ();
 					my $table = $self->_get_field_and_match_joined_table( $field[$i] );
 					if ($is_locus) {
 						$qry = "SELECT allele_id FROM allele_designations LEFT JOIN $table ON "

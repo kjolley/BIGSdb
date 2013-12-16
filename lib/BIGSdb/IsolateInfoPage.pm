@@ -530,8 +530,8 @@ sub _get_samples {
 						$info .= "$clean: $sample->{$field}&nbsp;<br />"
 						  if defined $sample->{$field};    #nbsp added to stop Firefox truncating text
 					}
-					$row .=
-"<td>$sample->{$field}<span style=\"font-size:0.5em\"> </span><a class=\"update_tooltip\" title=\"$info\">&nbsp;...&nbsp;</a></td>";
+					$row .= "<td>$sample->{$field}<span style=\"font-size:0.5em\"> </span><a class=\"update_tooltip\" "
+					  . "title=\"$info\">&nbsp;...&nbsp;</a></td>";
 				} else {
 					$row .= "<td>$sample->{$field}</td>";
 				}

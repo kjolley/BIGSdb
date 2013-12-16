@@ -588,8 +588,7 @@ sub get_field_selection_list {
 	if ( $options->{'loci'} ) {
 		if ( !$self->{'cache'}->{'loci'} ) {
 			my @locus_list;
-			my $qry    = "SELECT id,common_name FROM loci WHERE common_name IS NOT NULL";
-			my $cn_sql = $self->{'db'}->prepare($qry);
+			my $cn_sql = $self->{'db'}->prepare("SELECT id,common_name FROM loci WHERE common_name IS NOT NULL");
 			eval { $cn_sql->execute };
 			$logger->error($@) if $@;
 			my $common_names = $cn_sql->fetchall_hashref('id');
@@ -633,8 +632,7 @@ sub get_field_selection_list {
 				}
 			}
 			if ( $self->{'prefs'}->{'locus_alias'} ) {
-				my $qry       = "SELECT locus,alias FROM locus_aliases";
-				my $alias_sql = $self->{'db'}->prepare($qry);
+				my $alias_sql = $self->{'db'}->prepare("SELECT locus,alias FROM locus_aliases");
 				eval { $alias_sql->execute };
 				if ($@) {
 					$logger->error($@);
@@ -1614,12 +1612,11 @@ sub print_warning_sign {
 	my ($self) = @_;
 	my $image = "$ENV{'DOCUMENT_ROOT'}$self->{'system'}->{'webroot'}/images/warning_sign.gif";
 	if ( -e $image ) {
-		print
-"<div style=\"text-align:center\"><img src=\"$self->{'system'}->{'webroot'}/images/warning_sign.gif\" alt=\"Warning!\" /></div>\n";
+		say qq(<div style="text-align:center"><img src="$self->{'system'}->{'webroot'}/images/warning_sign.gif" alt="Warning!" /></div>);
 	} else {
-		my $image = "$ENV{'DOCUMENT_ROOT'}/images/warning_sign.gif";
+		$image = "$ENV{'DOCUMENT_ROOT'}/images/warning_sign.gif";
 		if ( -e $image ) {
-			print "<div style=\"text-align:center\"><img src=\"/images/warning_sign.gif\" alt=\"Access Denied!\" /></div>\n";
+			say qq(<div style="text-align:center"><img src="/images/warning_sign.gif" alt="Warning!" /></div>);
 		}
 	}
 	return;
@@ -1701,7 +1698,6 @@ sub initiate_prefs {
 
 	#Set dropdown status for scheme fields
 	if ( $self->{'pref_requirements'}->{'query_field'} ) {
-		my $guid                       = $self->get_guid || 1;
 		my $dbname                     = $self->{'system'}->{'db'};
 		my $scheme_ids                 = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 		my $scheme_fields              = $self->{'datastore'}->get_all_scheme_fields;

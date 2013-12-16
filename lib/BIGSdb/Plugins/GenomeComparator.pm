@@ -1507,10 +1507,10 @@ sub _run_muscle {
 		my $align = Bio::AlignIO->new( -format => 'clustalw', -file => $muscle_out )->next_aln;
 		my ( %id_has_seq, $seq_length );
 		open( my $fh_xmfa, '>>', $xmfa_out ) or $logger->error("Can't open output file $xmfa_out for appending");
-		my $locus = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
+		my $clean_locus = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
 		foreach my $seq ( $align->each_seq ) {
 			$$xmfa_end_ref = $$xmfa_start_ref + $seq->length - 1;
-			say $fh_xmfa '>' . $seq->id . ":$$xmfa_start_ref-$$xmfa_end_ref + $locus";
+			say $fh_xmfa '>' . $seq->id . ":$$xmfa_start_ref-$$xmfa_end_ref + $clean_locus";
 			my $sequence = BIGSdb::Utils::break_line( $seq->seq, 60 );
 			say $fh_xmfa "$sequence";
 			my ($id) = split /\|/, $seq->id;
@@ -1520,7 +1520,7 @@ sub _run_muscle {
 		my $missing_seq = BIGSdb::Utils::break_line( ( '-' x $seq_length ), 60 );
 		foreach my $id (@$ids) {
 			next if $id_has_seq{$id};
-			say $fh_xmfa ">$names->{$id}:$$xmfa_start_ref-$$xmfa_end_ref + $locus\n$missing_seq";
+			say $fh_xmfa ">$names->{$id}:$$xmfa_start_ref-$$xmfa_end_ref + $clean_locus\n$missing_seq";
 		}
 		say $fh_xmfa "=";
 		close $fh_xmfa;

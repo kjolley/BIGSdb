@@ -47,7 +47,7 @@ sub print_content {
 			return;
 		}
 	}
-	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 	if ( !$scheme_info ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>Scheme $scheme_id does not exist.</p></div>";
 		return;
@@ -55,8 +55,7 @@ sub print_content {
 		say "<div class=\"box\" id=\"statusbad\"><p>This function is not available within an isolate database.</p></div>";
 		return;
 	}
-	my $primary_key =
-	  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )->[0];
+	my $primary_key = $scheme_info->{'primary_key'};
 	if ( !$primary_key ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>There is no primary key defined for this scheme.</p></div>";
 		return;
@@ -157,12 +156,10 @@ sub print_content {
 		my $clients = $sql->fetchall_arrayref;
 
 		if (@$clients) {
-			my $plural = @$clients > 1 ? 's' : '';
 			my $buffer;
 			foreach my $client (@$clients) {
 				my ( $client_dbase_id, $client_scheme_id ) = @$client;
 				my $client_info = $self->{'datastore'}->get_client_db_info($client_dbase_id);
-				my $loci = $self->{'datastore'}->run_list_query( "SELECT locus FROM scheme_members WHERE scheme_id=?", $scheme_id );
 				my $sql2 = $self->{'db'}->prepare("SELECT locus,locus_alias FROM client_dbase_loci WHERE client_dbase_id=? AND locus=?");
 				my %alleles;
 				foreach (@$loci) {
@@ -183,13 +180,6 @@ sub print_content {
 					my $plural = $count == 1 ? '' : 's';
 					$buffer .= "<dt>$client_info->{'name'}</dt>\n";
 					$buffer .= "<dd>$client_info->{'description'} ";
-					my $primary_key;
-					eval {
-						$primary_key =
-						  $self->{'datastore'}
-						  ->run_list_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )->[0];
-					};
-					$logger->error($@) if $@;
 					if ( $client_info->{'url'} ) {
 
 						#it seems we have to pass the parameters in the action clause for mod_perl2
@@ -224,6 +214,7 @@ sub print_content {
 				}
 			}
 			if ($buffer) {
+				my $plural = @$clients > 1 ? 's' : '';
 				say "<h2>Client database$plural</h2>";
 				say "<dl class=\"data\">";
 				say $buffer;

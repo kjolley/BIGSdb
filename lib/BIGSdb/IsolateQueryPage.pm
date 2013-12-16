@@ -1022,7 +1022,7 @@ sub _modify_query_for_designations {
 	my $view = $self->{'system'}->{'view'};
 	my ( %lqry, @lqry_blank, %combo );
 	my $pattern     = LOCUS_PATTERN;
-	my $andor       = defined $q->param('designation_andor') && $q->param('designation_andor') eq 'AND' ? ' AND ' : ' OR ';
+	my $andor       = ($q->param('designation_andor') // '') eq 'AND' ? ' AND ' : ' OR ';
 	my $qry_started = $qry =~ /\(\)$/ ? 0 : 1;
 	foreach my $i ( 1 .. MAX_ROWS ) {
 
@@ -1209,7 +1209,6 @@ sub _modify_query_for_designations {
 		}
 	}
 	if (@sqry) {
-		my $andor = $q->param('designation_andor') || '';
 		local $" = " $andor ";
 		my $sqry = "@sqry";
 		if ( $qry =~ /\(\)$/ ) {
