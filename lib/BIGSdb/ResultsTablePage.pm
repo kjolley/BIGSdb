@@ -1000,6 +1000,11 @@ sub _get_record_table_info {
 			$linked_data = $self->_data_linked_to_locus($locus);
 			push @headers, 'linked data values' if $linked_data;
 		}
+	} elsif ($table eq 'sequence_bin'){
+		$extended_attributes     = $self->{'datastore'}->run_list_query("SELECT key FROM sequence_attributes ORDER BY key");
+		my @cleaned = @$extended_attributes;
+		tr/_/ / foreach @cleaned;
+		push @headers, @cleaned;
 	}
 	if (   ( ( $q->param('page') eq 'tableQuery' && $q->param('table') eq 'sequences' ) || $q->param('page') eq 'alleleQuery' )
 		&& ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' )
@@ -1070,6 +1075,13 @@ sub _print_record_table {
 	my $td = 1;
 	my ( %foreign_key_sql, $fields_to_query );
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
+	my $ext_sql;
+	if ( $q->param('page') eq 'alleleQuery' && ref $extended_attributes eq 'ARRAY' ) {
+		$ext_sql =
+		 $self->{'db'}->prepare("SELECT value FROM sequence_extended_attributes WHERE locus=? AND field=? AND allele_id=?");
+	} elsif ($table eq 'sequence_bin'){
+		$ext_sql = $self->{'db'}->prepare("SELECT key,value FROM sequence_attribute_values WHERE seqbin_id=?")				
+	}
 	while ( $sql->fetchrow_arrayref ) {
 		my @query_values;
 		my %primary_key;
@@ -1214,13 +1226,23 @@ sub _print_record_table {
 			}
 		}
 		if ( $q->param('page') eq 'alleleQuery' && ref $extended_attributes eq 'ARRAY' ) {
-			my $ext_sql =
-			  $self->{'db'}->prepare("SELECT value FROM sequence_extended_attributes WHERE locus=? AND field=? AND allele_id=?");
 			foreach (@$extended_attributes) {
 				eval { $ext_sql->execute( $data{'locus'}, $_, $data{'allele_id'} ); };
 				$logger->error($@) if $@;
 				my ($value) = $ext_sql->fetchrow_array;
 				print defined $value ? "<td>$value</td>" : '<td></td>';
+			}
+		} elsif ($table eq 'sequence_bin'){
+			eval { $ext_sql->execute($data{'id'})};
+			$logger->error($@) if $@;
+			my %ext_data;
+			while (my $data = $ext_sql->fetchrow_hashref){
+				$ext_data{$data->{'key'}} = $data->{'value'};
+			}
+			foreach (@$extended_attributes) {
+				my $value = $ext_data{$_} // '';
+				print "<td>$value</td>";
+				
 			}
 		}
 		if ( $table_info->{'linked_data'} ) {

@@ -155,11 +155,17 @@ HTML
 	say "<div style=\"clear:both\"></div>";
 	say "</div><div class=\"box\" id=\"resultstable\">";
 	say "<div class=\"scrollable\">";
+	my $seq_attributes     = $self->{'datastore'}->run_list_query("SELECT key FROM sequence_attributes ORDER BY key");
+	my @cleaned_attributes = @$seq_attributes;
+	s/_/ / foreach @cleaned_attributes;
+	local $" = '</th><th>';
+	my $att_headings = @cleaned_attributes ? "<th>@cleaned_attributes</th>" : '';
 	say "<table class=\"resultstable\"><tr><th>Sequence</th><th>Sequencing method</th><th>Original designation</th><th>Length</th>"
-	  . "<th>Comments</th><th>Locus</th><th>Start</th><th>End</th><th>Direction</th><th>EMBL format</th><th>Artemis <a class=\"tooltip\" "
+	  . "<th>Comments</th>$att_headings<th>Locus</th><th>Start</th><th>End</th><th>Direction</th><th>EMBL format</th><th>Artemis <a class=\"tooltip\" "
 	  . "title=\"Artemis - This will launch Artemis using Java WebStart.  The contig annotations should open within Artemis but this "
 	  . "may depend on your operating system and version of Java.  If the annotations do not open within Artemis, download the EMBL "
 	  . "file locally and load manually in to Artemis.\">&nbsp;<i>i</i>&nbsp;</a></th>";
+
 	if ( $self->{'curate'} && ( $self->{'permissions'}->{'modify_loci'} || $self->is_admin ) ) {
 		say "<th>Renumber <a class=\"tooltip\" title=\"Renumber - You can use the numbering of the sequence tags to automatically "
 		  . "set the genome order position for each locus. This will be used to order the sequences when exporting FASTA or XMFA files."
@@ -173,9 +179,9 @@ HTML
 	  ? "AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes "
 	  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 	  : '';
-	$qry = "SELECT * FROM allele_sequences WHERE seqbin_id = ? $set_clause ORDER BY start_pos";
-	my $seq_sql = $self->{'db'}->prepare($qry);
-	local $" = 1;
+	my $seq_sql = $self->{'db'}->prepare("SELECT * FROM allele_sequences WHERE seqbin_id = ? $set_clause ORDER BY start_pos");
+	my $att_sql = $self->{'db'}->prepare("SELECT key,value FROM sequence_attribute_values WHERE seqbin_id=?");
+	local $| = 1;
 
 	foreach my $data (@$length_data) {
 		eval { $seq_sql->execute( $data->{'id'} ) };
@@ -194,7 +200,13 @@ HTML
 			print "$open_td$data->{'length'}</td>";
 			$data->{'comments'} ||= '';
 			print "$open_td$data->{'comments'}</td>";
+			eval { $att_sql->execute( $data->{'id'} ) };
+			my $att_values = $att_sql->fetchall_hashref('key');
 
+			foreach my $att (@$seq_attributes) {
+				$att_values->{$att}->{'value'} //= '';
+				print "$open_td$att_values->{$att}->{'value'}</td>";
+			}
 			while ( my $allele_seq = $seq_sql->fetchrow_hashref ) {
 				print "<tr class=\"td$td\">" if !$first;
 				my $cleaned_locus = $self->clean_locus( $allele_seq->{'locus'} );
@@ -237,6 +249,12 @@ HTML
 			print defined $data->{'original_designation'} ? "<td>$data->{'original_designation'}</td>" : '<td></td>';
 			print "<td>$data->{'length'}</td>";
 			print defined $data->{'comments'} ? "<td>$data->{'comments'}</td>" : '<td></td>';
+			eval { $att_sql->execute( $data->{'id'} ) };
+			my $att_values = $att_sql->fetchall_hashref('key');
+			foreach my $att (@$seq_attributes) {
+				$att_values->{$att}->{'value'} //= '';
+				print "<td>$att_values->{$att}->{'value'}</td>";
+			}
 			print "<td></td><td></td><td></td><td></td><td></td><td></td>";
 			print "<td></td>" if $self->{'curate'};
 			say "</tr>";
@@ -331,6 +349,4 @@ sub get_title {
 	}
 	return "Sequence bin - $desc";
 }
-
-
 1;

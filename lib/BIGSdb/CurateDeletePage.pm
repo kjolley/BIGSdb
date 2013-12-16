@@ -156,7 +156,7 @@ sub _display_record {
 			$value =~ s/\&/\&amp;/g if defined $value;
 		}
 		if ( $_->{'name'} =~ /sequence$/ && $_->{'name'} ne 'coding_sequence' ) {
-			$value ||= '';
+			$value //= ' ';
 			my $value_length = length($value);
 			if ( $value_length > 5000 ) {
 				$value = BIGSdb::Utils::truncate_seq( \$value, 30 );
@@ -167,8 +167,8 @@ sub _display_record {
 			}
 		} elsif ( $_->{'name'} eq 'curator' or $_->{'name'} eq 'sender' ) {
 			my $user = $self->{'datastore'}->get_user_info($value);
-			$user->{'first_name'} ||= '';
-			$user->{'surname'}    ||= '';
+			$user->{'first_name'} //= '';
+			$user->{'surname'}    //= '';
 			$buffer .= "<dd>$user->{'first_name'} $user->{'surname'}</dd>\n";
 		} elsif ( $_->{'name'} eq 'scheme_id' ) {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info($value);
@@ -182,11 +182,10 @@ sub _display_record {
 				}
 			}
 			local $" = ',';
-			my $qry = "select @fields_to_query from $_->{'foreign_key'} WHERE id=?";
-			my $foreign_key_sql = $self->{'db'}->prepare($qry);
+			my $foreign_key_sql = $self->{'db'}->prepare("SELECT @fields_to_query FROM $_->{'foreign_key'} WHERE id=?");
 			eval { $foreign_key_sql->execute($value) };
 			$logger->error($@) if $@;
-			while ( my @labels = $foreign_key_sql->fetchrow_array() ) {
+			while ( my @labels = $foreign_key_sql->fetchrow_array ) {
 				my $label_value = $_->{'labels'};
 				my $i           = 0;
 				foreach (@fields_to_query) {
@@ -200,6 +199,7 @@ sub _display_record {
 			$value = $self->clean_locus($value);
 			$buffer .= defined $value ? "<dd>$value</dd>\n" : '<dd>&nbsp;</dd>';
 		} else {
+			$value = '&nbsp;' if !defined $value || $value eq '';
 			$buffer .= defined $value ? "<dd>$value</dd>\n" : '<dd>&nbsp;</dd>';
 		}
 		if ( $table eq 'profiles' && $_->{'name'} eq 'profile_id' ) {
@@ -207,9 +207,8 @@ sub _display_record {
 			$buffer .= $self->_get_profile_fields( $scheme_id, $primary_key, $data );
 		}
 	}
-	if ( $table eq 'sequences' ) {
-		$buffer .= $self->_get_extra_sequences_fields($data);
-	}
+	if    ( $table eq 'sequences' )    { $buffer .= $self->_get_extra_sequences_fields($data) }
+	elsif ( $table eq 'sequence_bin' ) { $buffer .= $self->_get_extra_seqbin_fields($data) }
 	$buffer .= "</dl></div></div>\n";
 	if ( $table eq 'allele_designations' ) {
 		$buffer .= "<div><fieldset>\n<legend>Options</legend>\n<ul>\n<li>\n";
@@ -300,8 +299,8 @@ sub _delete {
 
 			#cascade deletion of locus
 			next if $table eq 'loci' && any { $table_to_check eq $_ } qw (locus_aliases locus_descriptions
-				  allele_designations pending_allele_designations allele_sequences locus_curators
-				  client_dbase_loci locus_extended_attributes);
+			  allele_designations pending_allele_designations allele_sequences locus_curators
+			  client_dbase_loci locus_extended_attributes);
 
 			#cascade deletion of user
 			next if $table eq 'users' && any { $table_to_check eq $_ } qw ( user_permissions user_group_members);
@@ -454,10 +453,8 @@ sub _get_extra_sequences_fields {
 		  ->run_list_query( "SELECT databank_id FROM accession WHERE locus=? AND allele_id=? AND databank=? ORDER BY databank_id",
 			$q->param('locus'), $q->param('allele_id'), $databank );
 		foreach my $accession (@$accessions) {
-			given ($databank){
-				when ('Genbank'){$accession = "<a href=\"http://www.ncbi.nlm.nih.gov/nuccore/$accession\">$accession</a>"}
-				when ('ENA'){$accession = "<a href=\"http://www.ebi.ac.uk/ena/data/view/$accession\">$accession</a>"}
-			}
+			if    ( $databank eq 'Genbank' ) { $accession = "<a href=\"http://www.ncbi.nlm.nih.gov/nuccore/$accession\">$accession</a>" }
+			elsif ( $databank eq 'ENA' )     { $accession = "<a href=\"http://www.ebi.ac.uk/ena/data/view/$accession\">$accession</a>" }
 			$buffer .= "<dt>$databank&nbsp;</dt><dd>$accession</dd>\n";
 		}
 	}
@@ -466,8 +463,7 @@ sub _get_extra_sequences_fields {
 		$q->param('locus'), $q->param('allele_id') );
 	my $citations = $self->{'datastore'}->get_citation_hash( $pubmed_list, { formatted => 1, all_authors => 1, link_pubmed => 1 } );
 	foreach my $pmid (@$pubmed_list) {
-		$buffer .=
-		  "<dt>reference&nbsp;</dt><dd>" . "$citations->{$pmid}</dd>\n";
+		$buffer .= "<dt>reference&nbsp;</dt><dd>" . "$citations->{$pmid}</dd>\n";
 	}
 	my $extended_attributes = $self->{'datastore'}->get_allele_extended_attributes( $q->param('locus'), $q->param('allele_id') );
 	foreach my $ext (@$extended_attributes) {
@@ -479,6 +475,20 @@ sub _get_extra_sequences_fields {
 		} else {
 			$buffer .= "<dt>$cleaned_field&nbsp;</dt><dd>$ext->{'value'}</dd>\n";
 		}
+	}
+	return $buffer;
+}
+
+sub _get_extra_seqbin_fields {
+	my ( $self, $data ) = @_;
+	my $q = $self->{'cgi'};
+	my $attributes =
+	  $self->{'datastore'}
+	  ->run_list_query_hashref( "SELECT key,value FROM sequence_attribute_values WHERE seqbin_id=? ORDER BY key", $data->{'id'} );
+	my $buffer = '';
+	foreach my $att (@$attributes) {
+		( my $cleaned_field = $att->{'key'} ) =~ tr/_/ /;
+		$buffer .= "<dt>$cleaned_field</dt><dd>$att->{'value'}</dd>\n";
 	}
 	return $buffer;
 }
