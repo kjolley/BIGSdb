@@ -138,7 +138,14 @@ sub _get_select_items {
 		}
 		if ( $table eq 'sequences' && $att->{'name'} eq 'sequence' ) {
 			push @select_items, 'sequence_length';
-			push @order_by, 'sequence_length';
+			push @order_by,     'sequence_length';
+		} elsif ( $table eq 'sequence_bin' && $att->{'name'} eq 'comments' ) {
+			my $seq_attributes = $self->{'datastore'}->run_list_query("SELECT key FROM sequence_attributes ORDER BY key");
+			foreach my $key (@$seq_attributes) {
+				push @select_items, "ext_$key";
+				( my $label = $key ) =~ tr/_/ /;
+				$labels{"ext_$key"} = $label;
+			}
 		}
 	}
 	foreach my $item (@select_items) {
@@ -272,7 +279,7 @@ sub _print_interface {
 						  @{ $self->{'datastore'}->run_list_query("SELECT id FROM $att->{'foreign_key'} ORDER BY @fields_to_query") };
 						next if !@values;
 					} else {
-						my $order     = $att->{'type'} eq 'text' ? "lower($att->{'name'})"       : $att->{'name'};
+						my $order        = $att->{'type'} eq 'text' ? "lower($att->{'name'})"       : $att->{'name'};
 						my $empty_clause = $att->{'type'} eq 'text' ? " WHERE $att->{'name'} <> ''" : '';
 						@values =
 						  @{ $self->{'datastore'}->run_list_query("SELECT $att->{'name'} FROM $table$empty_clause ORDER BY $order") };
@@ -312,8 +319,7 @@ sub _print_interface {
 		my $common_names = $self->{'datastore'}->run_list_query("SELECT DISTINCT common_name FROM loci ORDER BY common_name");
 		push @filters,
 		  $self->get_filter( 'common_name', $common_names,
-			{ tooltip => 'common names filter - Select a name to filter your search to only those loci with the selected common name.' }
-		  );
+			{ tooltip => 'common names filter - Select a name to filter your search to only those loci with the selected common name.' } );
 	} elsif ( $table eq 'allele_sequences' ) {
 		push @filters, $self->get_scheme_filter;
 		push @filters,
@@ -379,13 +385,27 @@ sub _run_query {
 					}
 				}
 				$thisfield->{'type'} = 'int' if $field eq 'sequence_length';
+				my $clean_fieldname;
+				if ( $table eq 'sequence_bin' && $field =~ /^ext_(.*)/ ) {
+					$clean_fieldname = $1;
+					my $type_ref = $self->{'datastore'}->run_simple_query( "SELECT type FROM sequence_attributes WHERE key=?", $1 );
+					$thisfield->{'type'} = ref $type_ref eq 'ARRAY' && @$type_ref ? $type_ref->[0] : 'text';
+				}
 				if ( $field =~ / \(date\)$/ ) {
 					$thisfield->{'type'} = 'date';    #Timestamps are too awkward to search with so only search on date component
 				}
 				if ( $thisfield->{'type'} ) {         #field may not actually exist in table (e.g. isolate_id in allele_sequences)
 					next
-					  if $self->check_format( { field => $field, text => $text, type => lc( $thisfield->{'type'} ), operator => $operator },
-						\@errors );
+					  if $self->check_format(
+						{
+							field           => $field,
+							text            => $text,
+							type            => lc( $thisfield->{'type'} ),
+							operator        => $operator,
+							clean_fieldname => $clean_fieldname
+						},
+						\@errors
+					  );
 				} elsif ( $field =~ /(.*) \(id\)$/ || $field eq 'isolate_id' ) {
 					next if $self->check_format( { field => $field, text => $text, type => 'int', operator => $operator }, \@errors );
 				}
@@ -393,6 +413,8 @@ sub _run_query {
 				$first_value = 0;
 				if ( ( $table eq 'allele_sequences' || $table eq 'experiment_sequences' ) && $field eq 'isolate_id' ) {
 					$qry .= $modifier . $self->_search_by_isolate_id( $table, $operator, $text );
+				} elsif ( $table eq 'sequence_bin' && $field =~ /^ext_/ ) {
+					$qry .= $modifier . $self->_modify_search_by_sequence_attributes( $field, $thisfield->{'type'}, $operator, $text );
 				} elsif (
 					(
 						any {
@@ -479,13 +501,12 @@ sub _run_query {
 			my $scheme_id = $q->param('scheme_id_list');
 			my $set_id    = $self->get_set_id;
 			my ( $identifier, $field );
-			given ($table) {
-				when ('loci')                { ( $identifier, $field ) = ( 'id',        'locus' ) }
-				when ('allele_designations') { ( $identifier, $field ) = ( 'locus',     'locus' ) }
-				when ('allele_sequences')    { ( $identifier, $field ) = ( 'locus',     'locus' ) }
-				when ('schemes')             { ( $identifier, $field ) = ( 'id',        'scheme_id' ) }
-				default                      { ( $identifier, $field ) = ( 'scheme_id', 'scheme_id' ) }
-			}
+			if    ( $table eq 'loci' )                { ( $identifier, $field ) = ( 'id',        'locus' ) }
+			elsif ( $table eq 'allele_designations' ) { ( $identifier, $field ) = ( 'locus',     'locus' ) }
+			elsif ( $table eq 'allele_sequences' )    { ( $identifier, $field ) = ( 'locus',     'locus' ) }
+			elsif ( $table eq 'schemes' )             { ( $identifier, $field ) = ( 'id',        'scheme_id' ) }
+			else                                      { ( $identifier, $field ) = ( 'scheme_id', 'scheme_id' ) }
+
 			if ( $q->param('scheme_id_list') eq '0' ) {
 				my $set_clause = $set_id ? "WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : '';
 				$qry2 = "SELECT * FROM $table WHERE $identifier NOT IN (SELECT $field FROM scheme_members $set_clause)";
@@ -695,14 +716,29 @@ sub _search_by_isolate_id {
 	my ( $self, $table, $operator, $text ) = @_;
 	my $qry = "$table.seqbin_id IN (SELECT sequence_bin.id FROM sequence_bin LEFT JOIN $self->{'system'}->{'view'} ON "
 	  . "isolate_id = $self->{'system'}->{'view'}.id WHERE ";
-	if ( $operator eq 'NOT' ) {
-		$qry .= "NOT $self->{'system'}->{'view'}.id = $text";
-	} elsif ( $operator eq "contains" ) {
-		$qry .= "CAST($self->{'system'}->{'view'}.id AS text) LIKE '\%$text\%'";
-	} elsif ( $operator eq "NOT contain" ) {
-		$qry .= "NOT CAST($self->{'system'}->{'view'}.id AS text) LIKE '\%$text\%'";
-	} else {
-		$qry .= "$self->{'system'}->{'view'}.id $operator $text";
+	if    ( $operator eq 'NOT' )         { $qry .= "NOT $self->{'system'}->{'view'}.id = $text" }
+	elsif ( $operator eq "contains" )    { $qry .= "CAST($self->{'system'}->{'view'}.id AS text) LIKE '\%$text\%'" }
+	elsif ( $operator eq "starts with" ) { $qry .= "CAST($self->{'system'}->{'view'}.id AS text) LIKE '$text\%'" }
+	elsif ( $operator eq "ends with" )   { $qry .= "CAST($self->{'system'}->{'view'}.id AS text) LIKE '\%$text'" }
+	elsif ( $operator eq "NOT contain" ) { $qry .= "NOT CAST($self->{'system'}->{'view'}.id AS text) LIKE '\%$text\%'" }
+	else                                 { $qry .= "$self->{'system'}->{'view'}.id $operator $text" }
+	$qry .= ')';
+	return $qry;
+}
+
+sub _modify_search_by_sequence_attributes {
+	my ( $self, $field, $type, $operator, $text ) = @_;
+	$field =~ s/^ext_//;
+	$text  =~ s/'/\\'/g;
+	my $not = $operator =~ /NOT/ ? ' NOT' : '';
+	my $qry = "sequence_bin.id$not IN (SELECT seqbin_id FROM sequence_attribute_values WHERE ";
+	if ( $operator =~ /contain/ ) { $qry .= "key = '$field' AND value ILIKE E'%$text%'" }
+	elsif ( $operator eq "starts with" ) { $qry .= "key = '$field' AND value ILIKE E'$text%'" }
+	elsif ( $operator eq "ends with" )   { $qry .= "key = '$field' AND value ILIKE E'%$text'" }
+	elsif ( $operator eq 'NOT' || $operator eq '=' ) { $qry .= "key = '$field' AND UPPER(value) = UPPER(E'$text')" }
+	else {
+		if   ( $type eq 'integer' ) { $qry .= "key = '$field' AND CAST(value AS INT) $operator CAST(E'$text' AS INT)" }
+		else                        { $qry .= "key = '$field' AND UPPER(value) $operator UPPER(E'$text')" }
 	}
 	$qry .= ')';
 	return $qry;
@@ -748,6 +784,20 @@ sub _search_by_isolate {
 		} else {
 			$qry .= "upper($field) LIKE upper('\%$text\%') OR $self->{'system'}->{'view'}.id IN (SELECT isolate_id FROM "
 			  . "isolate_aliases WHERE upper(alias) LIKE upper('\%$text\%'))";
+		}
+	} elsif ( $operator eq "starts with" ) {
+		if ( $att->{'type'} eq 'int' ) {
+			$qry .= "CAST($field AS text) LIKE '$text\%'";
+		} else {
+			$qry .= "upper($field) LIKE upper('$text\%') OR $self->{'system'}->{'view'}.id IN (SELECT isolate_id FROM "
+			  . "isolate_aliases WHERE upper(alias) LIKE upper('$text\%'))";
+		}
+	} elsif ( $operator eq "ends with" ) {
+		if ( $att->{'type'} eq 'int' ) {
+			$qry .= "CAST($field AS text) LIKE '\%$text'";
+		} else {
+			$qry .= "upper($field) LIKE upper('\%$text') OR $self->{'system'}->{'view'}.id IN (SELECT isolate_id FROM "
+			  . "isolate_aliases WHERE upper(alias) LIKE upper('\%$text'))";
 		}
 	} elsif ( $operator eq "NOT contain" ) {
 		if ( $att->{'type'} eq 'int' ) {
