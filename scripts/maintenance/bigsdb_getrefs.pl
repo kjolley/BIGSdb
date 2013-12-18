@@ -55,7 +55,7 @@ if ( !$ARGV[0] ) {
 
 #Read in database list from getrefs.conf
 if ( -e $conflist ) {
-	open( my $fh, '<', $conflist );
+	open( my $fh, '<', $conflist ) || croak "Can't open $conflist for reading";
 	while ( my $line = <$fh> ) {
 		next if !$line || $line =~ /^#/;
 		my ( $dbase, $list ) = split /\s+/, $line;

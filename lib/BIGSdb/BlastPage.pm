@@ -101,7 +101,7 @@ sub run_blast {
 			$sql = $self->{'db'}->prepare($qry);
 			eval { $sql->execute($run) };
 			$logger->error($@) if $@;
-			open( my $fasta_fh, '>', $temp_fastafile );
+			open( my $fasta_fh, '>', $temp_fastafile ) || $logger->error("Can't open $temp_fastafile for writing");
 			my $seqs_ref = $sql->fetchall_arrayref;
 			foreach (@$seqs_ref) {
 				my ( $returned_locus, $id, $seq ) = @$_;
@@ -125,7 +125,7 @@ sub run_blast {
 		if ( !-z $temp_fastafile ) {
 
 			#create query fasta file
-			open( my $infile_fh, '>', $temp_infile );
+			open( my $infile_fh, '>', $temp_infile ) || $logger->error("Can't open $temp_infile for writing");
 			print $infile_fh ">Query\n";
 			print $infile_fh "${$options->{'seq_ref'}}\n";
 			close $infile_fh;

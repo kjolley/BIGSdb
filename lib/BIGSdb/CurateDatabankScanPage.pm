@@ -62,7 +62,7 @@ sub print_content {
 		return if !$seq_obj;
 		say "<div class=\"box\" id=\"resultstable\">";
 		my $temp = BIGSdb::Utils::get_random();
-		open( my $fh, '>', "$self->{'config'}->{'tmp_dir'}/$temp.txt" );
+		my $temp_file = "$self->{'config'}->{'tmp_dir'}/$temp.txt";
 		say "<p><a href=\"/tmp/$temp.txt\">Download tab-delimited text</a> (suitable for editing in a spreadsheet or batch upload of "
 		  . "loci). Please wait for page to finish loading.</p>";
 		say "<h2>Annotation information</h2>";
@@ -91,6 +91,7 @@ sub print_content {
 		say "</dl>";
 		say "<h2>Coding sequences</h2>";
 		say "<table class=\"resultstable\"><tr><th>Locus</th><th>Aliases</th><th>Product</th><th>Length</th></tr>";
+		open( my $fh, '>', $temp_file ) || $logger->error("Can't open $temp_file for writing");
 		say $fh "id\tdata_type\tallele_id_format\tdescription\tlength\tlength_varies\tcoding_sequence\tflag_table\tmain_display\t"
 		  . "isolate_display\tquery_field\tanalysis\treference_sequence";
 		foreach my $cds (@cds) {

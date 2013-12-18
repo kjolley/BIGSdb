@@ -353,7 +353,7 @@ sub run_job {
 			close $fh_cusp_in;
 			system("$self->{'config'}->{'emboss_path'}/cusp -sequence $temp_file -outfile $cusp_file -warning false 2>/dev/null");
 			if ( -e $cusp_file ) {
-				open( my $fh_cusp, '<', $cusp_file );
+				open( my $fh_cusp, '<', $cusp_file ) || $logger->error("Can't open $cusp_file for reading");
 				while (<$fh_cusp>) {
 					next if $_ =~ /^#/ || $_ eq '';
 					my ( $codon, $aa, undef, undef, $number ) = split /\s+/, $_;

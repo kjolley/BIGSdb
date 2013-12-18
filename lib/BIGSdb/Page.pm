@@ -1455,7 +1455,7 @@ sub make_temp_file {
 		$filename       = BIGSdb::Utils::get_random() . '.txt';
 		$full_file_path = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
 	} until ( !-e $full_file_path );
-	open( my $fh, '>', $full_file_path );
+	open( my $fh, '>', $full_file_path ) || $logger->error("Can't open $full_file_path for writing");
 	local $" = "\n";
 	print $fh "@list";
 	close $fh;

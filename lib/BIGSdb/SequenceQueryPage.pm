@@ -612,20 +612,24 @@ sub _output_single_query_nonexact {
 		my $seq1_infile = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_file1.txt";
 		my $seq2_infile = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_file2.txt";
 		my $outfile     = "$self->{'config'}->{'tmp_dir'}/$temp\_outfile.txt";
-		open( my $seq1_fh, '>', $seq2_infile );
+		open( my $seq1_fh, '>', $seq2_infile ) || $logger->error("Can't open $seq2_infile for writing");
 		say $seq1_fh ">Ref\n$$allele_seq_ref";
 		close $seq1_fh;
-		open( my $seq2_fh, '>', $seq1_infile );
+		open( my $seq2_fh, '>', $seq1_infile ) || $logger->error("Can't open $seq1_infile for writing");
 		say $seq2_fh ">Query\n$$seq_ref";
 		close $seq2_fh;
 		my $start = $partial_match->{'qstart'} =~ /(\d+)/ ? $1 : undef;    #untaint
 		my $end   = $partial_match->{'qend'}   =~ /(\d+)/ ? $1 : undef;
 		my $reverse = $partial_match->{'reverse'} ? 1 : 0;
 		my @args = (
-			'-aformat', 'markx2', '-awidth', $self->{'prefs'}->{'alignwidth'},
-			'-asequence', $seq1_infile, '-bsequence', $seq2_infile, '-sreverse1', $reverse, '-outfile', $outfile
+			-aformat   => 'markx2',
+			-awidth    => $self->{'prefs'}->{'alignwidth'},
+			-asequence => $seq1_infile,
+			-bsequence => $seq2_infile,
+			-sreverse1 => $reverse,
+			-outfile   => $outfile
 		);
-		push @args, ( '-sbegin1', $start, '-send1', $end ) if length $$seq_ref > 10000;
+		push @args, ( -sbegin1 => $start, -send1 => $end ) if length $$seq_ref > 10000;
 		system("$self->{'config'}->{'emboss_path'}/stretcher @args 2>/dev/null");
 		unlink $seq1_infile, $seq2_infile;
 
@@ -941,8 +945,8 @@ sub _get_differences {
 
 sub _cleanup_alignment {
 	my ( $self, $infile, $outfile ) = @_;
-	open( my $in_fh,  '<', $infile );
-	open( my $out_fh, '>', $outfile );
+	open( my $in_fh,  '<', $infile )  || $logger->error("Can't open $infile for reading");
+	open( my $out_fh, '>', $outfile ) || $logger->error("Can't open $outfile for writing");
 	while (<$in_fh>) {
 		next if $_ =~ /^#/;
 		print $out_fh $_;

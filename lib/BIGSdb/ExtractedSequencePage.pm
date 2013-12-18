@@ -138,7 +138,7 @@ sub format_sequence {
 		my $seq_infile = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_infile.txt";
 		my $outfile    = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_sixpack.txt";
 		my $outseq     = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_outseq.txt";
-		open( my $seq_fh, '>', $seq_infile );
+		open( my $seq_fh, '>', $seq_infile ) || $logger->("Can't open $seq_infile for writing");
 		say $seq_fh ">seq";
 		say $seq_fh ( $options->{'reverse'} ? $seq_ref->{'downstream'} : $seq_ref->{'upstream'} ) . "$seq1$seq2$downstream1$downstream2";
 		close $seq_fh;
@@ -186,7 +186,7 @@ sub format_sequence {
 		}
 		system( "$self->{'config'}->{'emboss_path'}/sixpack -sequence $seq_infile -outfile $outfile -outseq $outseq -width "
 			  . "$self->{'prefs'}->{'alignwidth'} -noreverse -noname -html $highlight 2>/dev/null" );
-		open( my $sixpack_fh, '<', $outfile );
+		open( my $sixpack_fh, '<', $outfile ) || $logger->error("Can't open $outfile for reading");
 		while ( my $line = <$sixpack_fh> ) {
 			last if $line =~ /^########/;
 			$line =~ s/<H3><\/H3>//;

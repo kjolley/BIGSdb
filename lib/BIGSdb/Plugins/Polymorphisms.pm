@@ -174,7 +174,7 @@ sub run_job {
 	my $temp      = BIGSdb::Utils::get_random();
 	my $html_file = "$self->{'config'}->{tmp_dir}/$temp.html";
 	my ( $buffer, $freqs ) = $self->get_snp_schematic( $locus, $seqs, undef, $params->{'alignwidth'} );
-	open( my $html_fh, '>', $html_file );
+	open( my $html_fh, '>', $html_file ) || $logger->error("Can't open $html_file for writing");
 	say $html_fh $self->get_html_header($locus);
 	say $html_fh "<h1>Polymorphic site analysis</h1>\n<div class=\"box\" id=\"resultsheader\">";
 	say $html_fh $buffer;

@@ -27,6 +27,8 @@ use Bio::SeqIO;
 use Bio::SeqFeature::Generic;
 use autouse 'Time::Local'  => qw(timelocal);
 use constant MAX_4BYTE_INT => 2147483647;
+use Log::Log4perl qw(get_logger);
+my $logger = get_logger('BIGSdb.Page');
 
 sub reverse_complement {
 	my ($seq) = @_;
@@ -260,8 +262,8 @@ sub round_to_nearest {
 sub append {
 	my ( $source_file, $destination_file, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	open( my $fh1, '<',  $source_file );
-	open( my $fh,  '>>', $destination_file );
+	open( my $fh1, '<',  $source_file )      || $logger->error("Can't open $source_file for reading");
+	open( my $fh,  '>>', $destination_file ) || $logger->error("Can't open $destination_file for writing");
 	print $fh "\n"      if $options->{'blank_before'};
 	print $fh "<pre>\n" if $options->{'preformatted'};
 	print $fh $_ while <$fh1>;

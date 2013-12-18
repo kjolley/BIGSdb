@@ -994,7 +994,7 @@ sub _simulate_PCR {
 	my $temp          = BIGSdb::Utils::get_random();
 	my $reaction_file = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_reactions.txt";
 	my $results_file  = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_results.txt";
-	open( my $fh, '>', $reaction_file );
+	open( my $fh, '>', $reaction_file ) || $logger->error("Can't open $reaction_file for writing");
 	my $max_primer_mismatch = 0;
 	my $conditions;
 
@@ -1018,7 +1018,7 @@ sub _simulate_PCR {
 "$self->{'config'}->{'ipcress_path'} --input $reaction_file --sequence $fasta_file --mismatch $max_primer_mismatch --pretty false > $results_file 2> /dev/null"
 	);
 	my @pcr_products;
-	open( $fh, '<', $results_file );
+	open( $fh, '<', $results_file ) || $logger->error("Can't open $results_file for reading");
 	while (<$fh>) {
 		if ( $_ =~ /^ipcress:/ ) {
 			my ( undef, $seq_id, $reaction_id, $length, undef, $start, $mismatch1, undef, $end, $mismatch2, $desc ) = split /\s+/, $_;
@@ -1083,7 +1083,7 @@ sub _simulate_hybridization {
 	);
 	my @matches;
 	if ( -e $results_file ) {
-		open( $fh, '<', $results_file );
+		open( $fh, '<', $results_file ) || $logger->error("Can't open $results_file for reading");
 		while (<$fh>) {
 			my @record = split /\t/, $_;
 			my $match;

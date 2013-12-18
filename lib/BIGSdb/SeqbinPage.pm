@@ -282,16 +282,17 @@ sub _make_artemis_jnlp {
 	my $url;
 	if ( $self->{'system'}->{'read_access'} ne 'public' || $self->{'curate'} ) {
 		my $embl_filename = "$temp\_$seqbin_id.embl";
-		open( my $fh_embl, '>', "$self->{'config'}->{'tmp_dir'}/$embl_filename" );
+		my $full_path = "$self->{'config'}->{'tmp_dir'}/$embl_filename";
+		open( my $fh_embl, '>', $full_path ) || $logger->error("Can't open $full_path for writing");
 		my %page_attributes = (
-			'system'    => $self->{'system'},
-			'cgi'       => $self->{'cgi'},
-			'instance'  => $self->{'instance'},
-			'datastore' => $self->{'datastore'},
-			'db'        => $self->{'db'},
+			system    => $self->{'system'},
+			cgi       => $self->{'cgi'},
+			instance  => $self->{'instance'},
+			datastore => $self->{'datastore'},
+			db        => $self->{'db'},
 		);
 		my $seqbin_to_embl = BIGSdb::SeqbinToEMBL->new(%page_attributes);
-		print $fh_embl $seqbin_to_embl->write_embl( [$seqbin_id], { 'get_buffer' => 1 } );
+		print $fh_embl $seqbin_to_embl->write_embl( [$seqbin_id], { get_buffer => 1 } );
 		close $fh_embl;
 		$url = "http://" . $self->{'cgi'}->virtual_host . "/tmp/$embl_filename";
 	} else {

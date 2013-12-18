@@ -418,8 +418,8 @@ sub _scan {
 		if ($grandkid) {
 			CORE::exit(0);
 		} else {
-			open STDIN,  '<', '/dev/null';
-			open STDOUT, '>', '/dev/null';
+			open STDIN,  '<', '/dev/null' || $logger->error("Can't read /dev/null: $!");
+			open STDOUT, '>', '/dev/null' || $logger->error("Can't write to /dev/null: $!");
 			my $options = {
 				labels               => $labels,
 				limit                => $limit,

@@ -68,8 +68,8 @@ sub run {
 	say "<h1>BURST analysis</h1>";
 	my $list;
 	my $pk;
-
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+
 		if ( !$scheme_id ) {
 			say "<div class=\"box\" id=\"statusbad\"><p>No scheme id passed.</p></div>";
 			return;
@@ -709,11 +709,13 @@ SVG
 		}
 	);
 	$buffer .= "</svg>\n";
-	open( my $fh, '>', "$self->{'config'}->{'tmp_dir'}/$filename.svg" );
+	my $svg_filename = "$self->{'config'}->{'tmp_dir'}/$filename.svg";
+	open( my $fh, '>', $svg_filename ) || $logger->error("Can't open $svg_filename for writing");
 	print $fh $buffer;
 	close $fh;
-	system(
-"$self->{'config'}->{'mogrify_path'} -format png $self->{'config'}->{'tmp_dir'}/$filename.svg $self->{'config'}->{'tmp_dir'}/$filename.png"
+	system( $self->{'config'}->{'mogrify_path'},
+		-format => 'png',
+		"$self->{'config'}->{'tmp_dir'}/$filename.svg", "$self->{'config'}->{'tmp_dir'}/$filename.png"
 	);
 	return $filename;
 }
