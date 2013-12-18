@@ -265,11 +265,10 @@ sub _run_query {
 	my $msg;
 	my @errors;
 	my $scheme_view;
-
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		$scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
 	}
-	if ( !defined $q->param('query') ) {
+	if ( !defined $q->param('query_file') ) {
 		my @params = $q->param;
 		my @loci;
 		my %values;
@@ -339,28 +338,25 @@ sub _run_query {
 				  . "WHERE $scheme_view.$primary_key=profiles.profile_id AND (@lqry)";
 			}
 			if ( $matches == 0 ) {    #Find out the greatest number of matches
+				my $match_qry;
 				if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-					$qry = "SELECT COUNT(id) FROM $system->{'view'} LEFT JOIN allele_designations ON $system->{'view'}.id=isolate_id "
+					$match_qry = "SELECT COUNT(id) FROM $system->{'view'} LEFT JOIN allele_designations ON $system->{'view'}.id=isolate_id "
 					  . "WHERE (@lqry)";
-					if (   $qry
-						&& $self->{'system'}->{'dbtype'} eq 'isolates'
-						&& $q->param('project_list')
-						&& $q->param('project_list') ne '' )
-					{
+					if ( ( $q->param('project_list') // '' ) ne '' ) {
 						my $project_id = $q->param('project_list');
 						if ($project_id) {
 							local $" = "','";
-							$qry .= " AND id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id')";
+							$match_qry .= " AND id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id')";
 						}
 					}
-					$qry .= "GROUP BY $system->{'view'}.id ORDER BY count(id) desc LIMIT 1";
+					$match_qry .= "GROUP BY $system->{'view'}.id ORDER BY count(id) desc LIMIT 1";
 				} else {
-					$qry =
+					$match_qry =
 					    "SELECT COUNT(profiles.profile_id) FROM profiles LEFT JOIN profile_members ON profiles.profile_id="
 					  . "profile_members.profile_id AND profiles.scheme_id=profile_members.scheme_id AND profile_members.scheme_id="
 					  . "$scheme_id WHERE @lqry GROUP BY profiles.profile_id ORDER BY COUNT(profiles.profile_id) desc LIMIT 1";
 				}
-				my $match_sql = $self->{'db'}->prepare($qry);
+				my $match_sql = $self->{'db'}->prepare($match_qry);
 				eval { $match_sql->execute };
 				$logger->error($@) if $@;
 				my $count = 0;
@@ -378,16 +374,12 @@ sub _run_query {
 			  $self->{'system'}->{'dbtype'} eq 'isolates'
 			  ? " GROUP BY $system->{'view'}.id HAVING count($system->{'view'}.id)>=$matches)"
 			  : " GROUP BY profiles.profile_id HAVING count(profiles.profile_id)>=$matches)";
-			if ( !$qry ) {
-				$qry =
-				  $self->{'system'}->{'dbtype'} eq 'isolates'
-				  ? "SELECT * FROM $system->{'view'} WHERE $system->{'view'}.id IN $lqry"
-				  : "SELECT * FROM $scheme_view WHERE EXISTS $lqry";
-			} else {
-				$qry .= " AND ($lqry)";
-			}
+			$qry =
+			  $self->{'system'}->{'dbtype'} eq 'isolates'
+			  ? "SELECT * FROM $system->{'view'} WHERE $system->{'view'}.id IN $lqry"
+			  : "SELECT * FROM $scheme_view WHERE EXISTS $lqry";
 		}
-		if ( $qry && $self->{'system'}->{'dbtype'} eq 'isolates' && $q->param('project_list') && $q->param('project_list') ne '' ) {
+		if ( $qry && $self->{'system'}->{'dbtype'} eq 'isolates' && ( $q->param('project_list') // '' ) ne '' ) {
 			my $project_id = $q->param('project_list');
 			if ($project_id) {
 				local $" = "','";
@@ -429,7 +421,7 @@ sub _run_query {
 			}
 		}
 	} else {
-		$qry = $q->param('query');
+		$qry = $self->get_query_from_temp_file($q->param('query_file'));
 	}
 	if (@errors) {
 		local $" = '<br />';
