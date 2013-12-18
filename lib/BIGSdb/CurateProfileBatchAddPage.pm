@@ -337,7 +337,7 @@ sub _check {
 		say "<div class=\"box\" id=\"statusbad\"><h2>Import status</h2>";
 		say "<table class=\"resultstable\">";
 		say "<tr><th>$primary_key</th><th>Problem(s)</th></tr>";
-		my $td = 1;
+		$td = 1;
 		{
 			no warnings 'numeric';
 			foreach my $id ( sort { $a <=> $b || $a cmp $b } keys %problems ) {

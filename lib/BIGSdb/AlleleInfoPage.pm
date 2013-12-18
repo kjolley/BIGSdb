@@ -106,8 +106,8 @@ HTML
 		my $cleaned_field = $ext->{'field'};
 		$cleaned_field =~ tr/_/ /;
 		if ( $cleaned_field =~ /sequence$/ ) {
-			my $seq = BIGSdb::Utils::split_line( $ext->{'value'} );
-			say "<dt>$cleaned_field</dt><dd class=\"seq\">$seq</dd>";
+			my $ext_seq = BIGSdb::Utils::split_line( $ext->{'value'} );
+			say "<dt>$cleaned_field</dt><dd class=\"seq\">$ext_seq</dd>";
 		} else {
 			say "<dt>$cleaned_field</dt><dd>$ext->{'value'}</dd>";
 		}

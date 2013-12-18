@@ -108,7 +108,6 @@ sub get_extra_fields {
 sub run {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
-	my $query_file = $q->param('query_file');
 	say "<h1>Export dataset</h1>";
 	if ( $q->param('submit') ) {
 		my $selected_fields = $self->get_selected_fields;

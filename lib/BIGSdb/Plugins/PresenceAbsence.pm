@@ -278,7 +278,7 @@ sub _write_output {
 		}
 		print $fh "\n";
 		$i++;
-		my $progress = int( $i * $max_percent / @$ids );
+		$progress = int( $i * $max_percent / @$ids );
 		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $progress } );
 	}
 	close $fh;

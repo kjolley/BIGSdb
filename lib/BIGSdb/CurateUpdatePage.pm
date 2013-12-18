@@ -98,19 +98,16 @@ sub print_content {
 		return;
 	}
 	local $" = ' AND ';
-	my $qry = "SELECT * FROM $table WHERE @query_values";
-	my $sql = $self->{'db'}->prepare($qry);
+	my $sql = $self->{'db'}->prepare("SELECT * FROM $table WHERE @query_values");
 	eval { $sql->execute };
 	if ($@) {
 		$logger->error($@);
 		say "<div class=\"box\" id=\"statusbad\"><p>No identifying attributes sent.</p>";
 		return;
-	} else {
-		$logger->debug("Query: $qry");
-	}
+	} 
 	my $data = $sql->fetchrow_hashref;
 	if ( $table eq 'sequences' ) {
-		my $sql = $self->{'db'}->prepare("SELECT field,value FROM sequence_extended_attributes WHERE locus=? AND allele_id=?");
+		$sql = $self->{'db'}->prepare("SELECT field,value FROM sequence_extended_attributes WHERE locus=? AND allele_id=?");
 		eval { $sql->execute( $data->{'locus'}, $data->{'allele_id'} ) };
 		$logger->error($@) if $@;
 		while ( my ( $field, $value ) = $sql->fetchrow_array ) {

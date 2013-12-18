@@ -134,8 +134,7 @@ sub _print_isolate_field {
 	$used->{$_} = 1 foreach @$used_list;
 	if ( $field eq 'sender' || $field eq 'curator' || ( $attributes->{'userfield'} && $attributes->{'userfield'} eq 'yes' ) ) {
 		my $filter = $field eq 'curator' ? "WHERE (status = 'curator' or status = 'admin') AND id>0" : 'WHERE id>0';
-		my $qry    = "SELECT id, user_name, surname, first_name, affiliation FROM users $filter ORDER BY id";
-		my $sql    = $self->{'db'}->prepare($qry);
+		my $sql    = $self->{'db'}->prepare("SELECT id, user_name, surname, first_name, affiliation FROM users $filter ORDER BY id");
 		eval { $sql->execute };
 		$logger->error($@) if $@;
 		my $buffer;

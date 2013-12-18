@@ -51,7 +51,6 @@ sub print_content {
 		return;
 	}
 	$self->_print_table_data( $table, $qry );
-	my $parent_query;
 	if ( any { $table eq $_ } qw (user_groups projects experiments pcr probes schemes scheme_groups client_dbases) ) {
 		my $parent_query = $qry;
 		$parent_query =~ s/\*/id/;

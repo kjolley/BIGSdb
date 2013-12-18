@@ -263,7 +263,7 @@ sub run_job {
 	my $loci          = $self->{'jobManager'}->get_job_loci($job_id);
 	my $selected_loci = $self->order_loci($loci);
 	my $progress      = 0;
-	my ( $locus_codon_count, $locus_aa_count, $total_codon_count, $total_aa_count, $rscu );
+	my ( $locus_codon_count, $locus_aa_count, $total_codon_count, $total_aa_count );
 	my $limit = $self->{'system'}->{'codon_usage_limit'} || DEFAULT_LIMIT;
 
 	if ( @$list > $limit ) {

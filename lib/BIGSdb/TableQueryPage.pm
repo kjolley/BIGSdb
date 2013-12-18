@@ -614,7 +614,7 @@ s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bi
 		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
 		$self->paged_display($args);
 	} else {
-		my $qry = "SELECT * FROM $table";
+		$qry = "SELECT * FROM $table";
 		if ( $table eq 'sequences' ) {
 			$qry .= " WHERE $table.allele_id NOT IN ('0', 'N')";    #Alleles can be set to 0 or N for arbitrary profile definitions
 		}

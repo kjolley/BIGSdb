@@ -107,7 +107,6 @@ sub _print_query_interface {
 			push @$field_list, "l_$locus";
 			$labels->{"l_$locus"} = $locus;
 			$labels->{"l_$locus"} .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
-			my $set_id = $self->get_set_id;
 			if ($set_id) {
 				my $set_cleaned = $self->{'datastore'}->get_set_locus_label( $locus, $set_id );
 				$labels->{"l_$locus"} = $set_cleaned if $set_cleaned;

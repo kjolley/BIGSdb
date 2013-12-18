@@ -350,8 +350,8 @@ HTML
 			push @js,  "\$(\"#$id\").prop(\"checked\",true)";
 			push @js2, "\$(\"#$id\").prop(\"checked\",false)";
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-			my $value = ( $thisfield->{'maindisplay'} // '' ) eq 'no' ? 'false' : 'true';
-			push @js3, "\$(\"#$id\").prop(\"checked\",$value)";
+			my $maindisplay_value = ( $thisfield->{'maindisplay'} // '' ) eq 'no' ? 'false' : 'true';
+			push @js3, "\$(\"#$id\").prop(\"checked\",$maindisplay_value)";
 			my $extatt = $self->{'extended'}->{$field};
 
 			if ( ref $extatt eq 'ARRAY' ) {

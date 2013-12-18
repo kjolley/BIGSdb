@@ -308,7 +308,6 @@ sub _scan_scheme {
 	}
 	if ( !$missing_data ) {
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-		my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		my @placeholders;
 		push @placeholders, '?' foreach (@$scheme_loci);
 		if ( @$scheme_fields && $scheme_loci ) {

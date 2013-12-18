@@ -67,7 +67,6 @@ sub run {
 	my $scheme_id  = $q->param('scheme_id');
 	say "<h1>BURST analysis</h1>";
 	my $list;
-	my $qry_ref;
 	my $pk;
 
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
@@ -236,8 +235,6 @@ sub _get_profile_array {
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 		my $i             = 0;
 		my $field_pos;
-		my $pk =
-		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key", $scheme_id )->[0];
 		foreach ($scheme_fields) {
 			if ( $scheme_fields->[$i] eq $pk ) {
 				$field_pos = $i;

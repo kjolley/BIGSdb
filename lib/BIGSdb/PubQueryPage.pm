@@ -29,7 +29,7 @@ sub print_content {
 	my ($self)    = @_;
 	my $system    = $self->{'system'};
 	my $q         = $self->{'cgi'};
-	my $scheme_id = $q->param('scheme_id');
+	my $scheme_id = $q->param('scheme_id') // 0;
 	my %att       = (
 		dbase_name => $self->{'config'}->{'ref_db'},
 		host       => $system->{'host'},
@@ -73,7 +73,6 @@ sub print_content {
 		$qry = "SELECT * FROM $self->{'system'}->{'view'} LEFT JOIN refs on refs.isolate_id=$self->{'system'}->{'view'}.id "
 		  . "WHERE pubmed_id=$pmid ORDER BY $self->{'system'}->{'view'}.id;";
 	} else {
-		my $scheme_id = $q->param('scheme_id') // 0;
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 		my $primary_key = $scheme_info->{'primary_key'};
 		$qry = "SELECT * FROM profile_refs LEFT JOIN scheme_$scheme_id on profile_refs.profile_id=scheme_$scheme_id\.$primary_key "

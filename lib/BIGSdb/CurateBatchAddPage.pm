@@ -1330,8 +1330,7 @@ sub _upload_data {
 					}
 				}
 				if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-					my $qry = "INSERT INTO locus_descriptions (locus,curator,datestamp) VALUES ('$id',$curator,'now')";
-					push @inserts, $qry;
+					push @inserts, "INSERT INTO locus_descriptions (locus,curator,datestamp) VALUES ('$id',$curator,'now')";
 				}
 			} elsif ( $table eq 'users' ) {
 				$qry = "INSERT INTO user_group_members (user_id,user_group,curator,datestamp) VALUES ($id,0,$curator,'today')";

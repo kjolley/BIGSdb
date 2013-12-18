@@ -265,7 +265,7 @@ sub run_script {
 		my %locus_checked;
 		my $pattern = LOCUS_PATTERN;
 		foreach my $locus_id (@$loci) {
-			my $status = $self->_read_status( $options->{'scan_job'} );
+			$status = $self->_read_status( $options->{'scan_job'} );
 			last if $status->{'request_stop'};
 			my $row_buffer;
 			my $locus = $locus_id =~ /$pattern/ ? $1 : undef;
@@ -916,11 +916,11 @@ sub _get_designation_tooltip {
 		if (@$pending) {
 			$buffer .= '<h3>pending designations</h3>';
 			foreach (@$pending) {
-				my $sender = $self->{'datastore'}->get_user_info( $_->{'sender'} );
+				my $pending_sender = $self->{'datastore'}->get_user_info( $_->{'sender'} );
 				$buffer .= "allele: $_->{'allele_id'} ";
 				$buffer .= "($_->{'comments'}) "
 				  if $_->{'comments'};
-				$buffer .= "[$sender->{'first_name'} $sender->{'surname'}; $_->{'method'}; $_->{'datestamp'}]<br />";
+				$buffer .= "[$pending_sender->{'first_name'} $pending_sender->{'surname'}; $_->{'method'}; $_->{'datestamp'}]<br />";
 			}
 		}
 	}

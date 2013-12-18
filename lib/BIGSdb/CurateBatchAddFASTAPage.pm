@@ -128,7 +128,7 @@ sub _print_interface {
 sub _check {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my ( $locus, $status, $sender, $sequence ) = ( $q->param('locus'), $q->param('status'), $q->param('sender'), $q->param('sequence') );
+	my ( $locus, $sender, $sequence ) = ( $q->param('locus'), $q->param('sender'), $q->param('sequence') );
 	if (   !$sender
 		|| !BIGSdb::Utils::is_int($sender)
 		|| !$self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM users WHERE id=?", $sender )->[0] )

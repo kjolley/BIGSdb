@@ -105,8 +105,7 @@ sub _get_form_fields {
 	$options = {} if ref $options ne 'HASH';
 	my $q       = $self->{'cgi'};
 	my %newdata = %{$newdata_ref};
-	my $qry     = "select id,user_name,first_name,surname from users where id>0 order by surname";
-	my $sql     = $self->{'db'}->prepare($qry);
+	my $sql     = $self->{'db'}->prepare("select id,user_name,first_name,surname from users where id>0 order by surname");
 	eval { $sql->execute };
 	$logger->error($@) if $@;
 	my @users;

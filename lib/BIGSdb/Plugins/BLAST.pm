@@ -131,9 +131,9 @@ sub run {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $view   = $self->{'system'}->{'view'};
-	my $qry    = "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM $view WHERE $view.id IN (SELECT isolate_id FROM "
-	  . "sequence_bin) ORDER BY $view.id";
-	my $sql = $self->{'db'}->prepare($qry);
+	my $sql =
+	  $self->{'db'}->prepare( "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM $view WHERE $view.id IN "
+		  . "(SELECT isolate_id FROM sequence_bin) ORDER BY $view.id" );
 	eval { $sql->execute };
 	$logger->error($@) if $@;
 	my @ids;

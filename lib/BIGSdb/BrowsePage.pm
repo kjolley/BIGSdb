@@ -57,7 +57,6 @@ sub print_content {
 	} else {
 		say "<h1>Browse $desc database</h1>";
 	}
-	my $qry;
 	if ( !defined $q->param('currentpage')
 		|| $q->param('First') )
 	{
@@ -140,7 +139,7 @@ sub print_content {
 				}
 			}
 			my $scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
-			$qry .= "SELECT * FROM $scheme_view ORDER BY "
+			my $qry = "SELECT * FROM $scheme_view ORDER BY "
 			  . ( $order ne $scheme_info->{'primary_key'} ? "$order $dir,$profile_id_field;" : "$profile_id_field $dir;" );
 			my $args = { table => 'profiles', query => $qry, hidden_attributes => ['scheme_id'] };
 			$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');

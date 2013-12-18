@@ -179,19 +179,17 @@ sub _handle_pending {
 	my ( $self, $id, $locus, ) = @_;
 	my $q      = $self->{'cgi'};
 	my $buffer = '';
-	my $qry    = "SELECT * FROM pending_allele_designations WHERE isolate_id=? AND locus=? ORDER BY datestamp";
-	my $sql    = $self->{'db'}->prepare($qry);
-	eval { $sql->execute( $id, $locus ) };
+	my $sql_pending = $self->{'db'}->prepare("SELECT * FROM pending_allele_designations WHERE isolate_id=? AND locus=? ORDER BY datestamp");
+	eval { $sql_pending->execute( $id, $locus ) };
 	$logger->error($@) if $@;
-	while ( my $allele = $sql->fetchrow_hashref ) {
+	while ( my $allele = $sql_pending->fetchrow_hashref ) {
 		my $pk = "$allele->{'allele_id'}\_$allele->{'sender'}\_$allele->{'method'}";
 		if ( $q->param("$pk\_promote") ) {
 			my $to_be_promoted = $allele;
-			my $qry            = "SELECT * FROM allele_designations WHERE isolate_id=? AND locus=?";
-			my $sql            = $self->{'db'}->prepare($qry);
-			eval { $sql->execute( $id, $locus ) };
+			my $sql_ad            = $self->{'db'}->prepare("SELECT * FROM allele_designations WHERE isolate_id=? AND locus=?");
+			eval { $sql_ad->execute( $id, $locus ) };
 			$logger->error($@) if $@;
-			my $to_be_demoted = $sql->fetchrow_hashref;
+			my $to_be_demoted = $sql_ad->fetchrow_hashref;
 
 			#Swap designation with pending
 			my $curator_id = $self->get_curator_id;
