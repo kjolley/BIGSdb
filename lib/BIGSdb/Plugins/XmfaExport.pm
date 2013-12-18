@@ -361,6 +361,7 @@ sub run_job {
 			}
 		}
 		close $fh_muscle;
+		$self->{'db'}->commit;    #prevent idle in transaction table locks
 		my $output_locus_name = $self->{'datastore'}->get_set_locus_label( $locus_name, $params->{'set_id'} ) // $locus_name;
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Aligning $output_locus_name" } );
 		if ( -e $temp_file && -s $temp_file ) {

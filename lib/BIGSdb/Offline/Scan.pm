@@ -141,6 +141,7 @@ sub blast {
 		}
 		return if !@$probe_matches;
 	}
+	$self->{'db'}->commit;    #prevent idle in transaction table locks
 	if ( -e $temp_fastafile && !-z $temp_fastafile ) {
 		my $blastn_word_size = ( defined $params->{'word_size'} && $params->{'word_size'} =~ /(\d+)/ ) ? $1 : 15;
 		my $word_size = $program eq 'blastn' ? $blastn_word_size : 3;
