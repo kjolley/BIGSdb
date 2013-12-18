@@ -5,6 +5,9 @@ severity = stern
 [-TestingAndDebugging::ProhibitNoWarnings]
 [-ValuesAndExpressions::ProhibitConstantPragma]
 
+[InputOutput::RequireCheckedOpen]
+severity = stern
+
 [Subroutines::ProhibitManyArgs]
 severity = stern
 max_arguments = 6
