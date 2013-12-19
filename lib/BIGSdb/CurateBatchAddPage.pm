@@ -846,6 +846,7 @@ sub _check_data_duplicates {
 	my ( $self, $arg_ref ) = @_;
 	my $field          = $arg_ref->{'field'};
 	my $value          = ${ $arg_ref->{'value'} };
+	return if !defined $value;
 	my $pk_combination = $arg_ref->{'pk_combination'};
 	if ( $arg_ref->{'unique_field'}->{$field} ) {
 		if ( $self->{'unique_values'}->{$field}->{$value} ) {
