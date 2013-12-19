@@ -69,7 +69,7 @@ sub print_content {
 	my $flanking = $self->{'prefs'}->{'flanking'};
 	my $qry =
 	    "SELECT seqbin_id,start_pos,end_pos,reverse,complete,method,length(sequence) AS seqlength FROM allele_sequences LEFT "
-	  . "JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE isolate_id=? AND locus=? ORDER BY "
+	  . "JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE sequence_bin.isolate_id=? AND locus=? ORDER BY "
 	  . "complete desc,allele_sequences.datestamp";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute( $isolate_id, $locus ) };
