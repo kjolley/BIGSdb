@@ -16,3 +16,5 @@ ALTER TABLE scheme_fields ADD index boolean;
 
 UPDATE sequences SET status='unchecked' WHERE status='trace not checked';
 UPDATE sequences SET status='Sanger trace checked' WHERE status='trace checked';
+
+ALTER TABLE client_dbases ADD dbase_view text;
