@@ -491,6 +491,7 @@ start_pos int NOT NULL,
 end_pos int NOT NULL,
 reverse boolean NOT NULL,
 complete boolean NOT NULL,
+isolate_id int NOT NULL,
 PRIMARY KEY (seqbin_id,locus,start_pos,end_pos),
 CONSTRAINT as_loci FOREIGN KEY (locus) REFERENCES loci
 ON DELETE CASCADE
@@ -500,11 +501,45 @@ ON DELETE CASCADE
 ON UPDATE CASCADE,
 CONSTRAINT as_curator FOREIGN KEY (curator) REFERENCES users
 ON DELETE NO ACTION
+ON UPDATE CASCADE,
+CONSTRAINT as_isolate_id FOREIGN KEY (isolate_id) REFERENCES isolates
+ON DELETE CASCADE
 ON UPDATE CASCADE
 );
 
 CREATE INDEX i_as1 ON allele_sequences (locus);
 CREATE INDEX i_as2 ON allele_sequences (datestamp);
+CREATE INDEX i_as3 ON allele_sequences(isolate_id);
+
+CREATE LANGUAGE 'plpgsql';
+
+-- Set isolate_id in allele_sequences table when adding or updating allele_sequences.
+CREATE OR REPLACE FUNCTION set_allele_sequences_isolate_id_field() RETURNS TRIGGER AS $set_allele_sequences_isolate_id_field$
+	DECLARE set_isolate_id integer;		
+	BEGIN
+		SELECT isolate_id INTO set_isolate_id FROM sequence_bin WHERE id=NEW.seqbin_id;
+		NEW.isolate_id := set_isolate_id;
+		RETURN NEW;
+	END; 
+$set_allele_sequences_isolate_id_field$ LANGUAGE plpgsql;
+
+CREATE TRIGGER set_allele_sequences_isolate_id_field BEFORE INSERT OR UPDATE ON allele_sequences
+	FOR EACH ROW
+	EXECUTE PROCEDURE set_allele_sequences_isolate_id_field();
+	
+-- Update isolate_id in allele_sequences table after updating sequence bin record.
+CREATE OR REPLACE FUNCTION set_allele_sequences_isolate_id_field2() RETURNS TRIGGER AS $set_allele_sequences_isolate_id_field2$
+	BEGIN
+		IF (NEW.isolate_id != OLD.isolate_id) THEN
+			UPDATE allele_sequences SET isolate_id=NEW.isolate_id WHERE seqbin_id=NEW.id;
+		END IF;
+		RETURN NULL;
+	END; 
+$set_allele_sequences_isolate_id_field2$ LANGUAGE plpgsql;
+	
+CREATE TRIGGER set_allele_sequences_isolate_id_field2 AFTER UPDATE ON sequence_bin
+	FOR EACH ROW
+	EXECUTE PROCEDURE set_allele_sequences_isolate_id_field2();
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON allele_sequences TO apache;
 

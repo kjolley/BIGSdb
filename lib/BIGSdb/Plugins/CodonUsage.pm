@@ -255,7 +255,7 @@ sub run_job {
 		  . "allele_sequences.end_pos-allele_sequences.start_pos+1),reverse FROM allele_sequences LEFT JOIN sequence_bin ON "
 		  . "allele_sequences.seqbin_id = sequence_bin.id LEFT JOIN sequence_flags ON allele_sequences.seqbin_id = "
 		  . "sequence_flags.seqbin_id AND allele_sequences.locus = sequence_flags.locus AND allele_sequences.start_pos = "
-		  . "sequence_flags.start_pos AND allele_sequences.end_pos = sequence_flags.end_pos WHERE isolate_id=? AND "
+		  . "sequence_flags.start_pos AND allele_sequences.end_pos = sequence_flags.end_pos WHERE sequence_bin.isolate_id=? AND "
 		  . "allele_sequences.locus=? AND complete $ignore_seqflag ORDER BY allele_sequences.datestamp LIMIT 1" );
 	my $start = 1;
 	my $no_output     = 1;

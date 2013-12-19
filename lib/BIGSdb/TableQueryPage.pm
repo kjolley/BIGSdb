@@ -604,10 +604,11 @@ sub _run_query {
 			if ( $table eq 'accession' || $table eq 'allele_sequences' ) {
 				$qry2 =~ s/WHERE/AND/;
 				$qry2 =~
-s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bin.id WHERE isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})/;
+s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bin.id WHERE sequence_bin.isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})/;
+				$logger->error($qry2);
 			} else {
 				$qry2 =~ s/WHERE/WHERE isolate_id IN (SELECT id FROM $self->{'system'}->{'view'}) AND/
-				  || $qry =~ s/FROM $table/FROM $table WHERE isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})/;
+				  || $qry =~ s/FROM $table/FROM $table WHERE $table.isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})/;
 			}
 		}
 		my $args = { table => $table, query => $qry2, hidden_attributes => \@hidden_attributes };
@@ -852,10 +853,8 @@ sub _process_allele_sequences_filters {
 			my $not = $match == 1 ? 'NOT' : '';
 			$match = 2 if $match == 1;    #no dups == NOT 2 or more
 			my $dup_qry =
-			    " LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE "
-			  . "(allele_sequences.locus,sequence_bin.isolate_id) $not IN (SELECT allele_sequences.locus,sequence_bin.isolate_id "
-			  . "FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id GROUP BY "
-			  . "allele_sequences.locus,sequence_bin.isolate_id HAVING count(*)>=$match)";
+			    " WHERE (allele_sequences.locus,allele_sequences.isolate_id) $not IN (SELECT locus,isolate_id FROM allele_sequences "
+			  . "GROUP BY locus,isolate_id HAVING count(*)>=$match)";
 			if ($qry2) {
 				$qry2 .= $dup_qry;
 			} else {

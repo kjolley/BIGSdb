@@ -1252,16 +1252,15 @@ sub _modify_query_for_tags {
 			}
 			$locus =~ s/'/\\'/g;
 			my $temp_qry;
-			my $seq_joined_table = "allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id";
 			my $locus_clause = $locus eq 'any locus' ? "(locus IS NOT NULL $set_clause)" : "(locus=E'$locus' $set_clause)";
 			if ( $action eq 'untagged' ) {
-				$temp_qry = "$view.id NOT IN (SELECT DISTINCT isolate_id FROM $seq_joined_table WHERE $locus_clause)";
+				$temp_qry = "$view.id NOT IN (SELECT DISTINCT isolate_id FROM allele_sequences WHERE $locus_clause)";
 			} elsif ( $action eq 'tagged' ) {
-				$temp_qry = "$view.id IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause)";
+				$temp_qry = "$view.id IN (SELECT isolate_id FROM allele_sequences WHERE $locus_clause)";
 			} elsif ( $action eq 'complete' ) {
-				$temp_qry = "$view.id IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause AND complete)";
+				$temp_qry = "$view.id IN (SELECT isolate_id FROM allele_sequences WHERE $locus_clause AND complete)";
 			} elsif ( $action eq 'incomplete' ) {
-				$temp_qry = "$view.id IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause AND NOT complete)";
+				$temp_qry = "$view.id IN (SELECT isolate_id FROM allele_sequences WHERE $locus_clause AND NOT complete)";
 			} elsif ( $action =~ /^flagged: ([\w\s:]+)$/ ) {
 				my $flag              = $1;
 				my $flag_joined_table = "sequence_flags LEFT JOIN sequence_bin ON sequence_flags.seqbin_id = sequence_bin.id";
@@ -1271,7 +1270,7 @@ sub _modify_query_for_tags {
 					if ( $locus eq 'any locus' ) {
 						push @$errors_ref, "Searching for any locus not flagged is not supported.  Choose a specific locus.";
 					} else {
-						$temp_qry = "$view.id IN (SELECT isolate_id FROM $seq_joined_table WHERE $locus_clause) AND id NOT IN "
+						$temp_qry = "$view.id IN (SELECT isolate_id FROM allele_sequences WHERE $locus_clause) AND id NOT IN "
 						  . "(SELECT isolate_id FROM $flag_joined_table WHERE $locus_clause)";
 					}
 				} else {

@@ -107,7 +107,7 @@ sub _delete {
 		} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' && ( $table eq 'allele_sequences' || $table eq 'accession' ) ) {
 			$delete_qry =~ s/WHERE/AND/;
 			$delete_qry =~
-s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bin.id WHERE isolate_id IN (SELECT id FROM $self->{'system'}->{'view'}))/;
+s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bin.id WHERE sequence_bin.isolate_id IN (SELECT id FROM $self->{'system'}->{'view'}))/;
 		} elsif ( $table eq 'user_groups' ) {
 
 			#don't delete 'All users' table (id=0)
@@ -272,7 +272,7 @@ sub _print_interface {
 		} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' && ( $table eq 'allele_sequences' || $table eq 'accession' ) ) {
 			$count_qry =~ s/WHERE/AND/;
 			$count_qry =~
-s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bin.id WHERE isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})/;
+s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bin.id WHERE sequence_bin.isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})/;
 		}
 	}
 	if ( $table eq 'allele_sequences' ) {

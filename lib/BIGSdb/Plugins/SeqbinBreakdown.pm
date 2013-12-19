@@ -110,8 +110,7 @@ sub run {
 	  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 	  : '';
 	my $sql_tagged =
-	  $self->{'db'}->prepare( "SELECT COUNT(DISTINCT locus) FROM allele_sequences LEFT JOIN sequence_bin ON seqbin_id = "
-		  . "sequence_bin.id WHERE isolate_id=? $set_clause" );
+	  $self->{'db'}->prepare( "SELECT COUNT(DISTINCT locus) FROM allele_sequences WHERE isolate_id=? $set_clause" );
 	my $labelfield = ucfirst( $self->{'system'}->{'labelfield'} );
 	my $temp       = BIGSdb::Utils::get_random();
 	open( my $fh, '>', "$self->{'config'}->{'tmp_dir'}/$temp.txt" )

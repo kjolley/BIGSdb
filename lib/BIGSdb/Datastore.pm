@@ -1245,9 +1245,7 @@ sub get_all_allele_sequences {
 	my ( $self, $isolate_id ) = @_;
 	if ( !$self->{'sql'}->{'all_allele_sequences'} ) {
 		$self->{'sql'}->{'all_allele_sequences'} =
-		  $self->{'db'}->prepare(
-"SELECT allele_sequences.* FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE isolate_id=?"
-		  );
+		  $self->{'db'}->prepare("SELECT allele_sequences.* FROM allele_sequences WHERE isolate_id=?");
 		$logger->info("Statement handle 'all_allele_sequences' prepared.");
 	}
 	eval { $self->{'sql'}->{'all_allele_sequences'}->execute($isolate_id); };
@@ -1359,9 +1357,7 @@ sub get_allele_sequence {
 	my ( $self, $isolate_id, $locus ) = @_;
 	if ( !$self->{'sql'}->{'allele_sequence'} ) {
 		$self->{'sql'}->{'allele_sequence'} =
-		  $self->{'db'}->prepare(
-"SELECT allele_sequences.* FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE isolate_id=? AND locus=? ORDER BY complete desc"
-		  );
+		  $self->{'db'}->prepare("SELECT * FROM allele_sequences WHERE isolate_id=? AND locus=? ORDER BY complete desc");
 		$logger->info("Statement handle 'allele_sequence' prepared.");
 	}
 	eval { $self->{'sql'}->{'allele_sequence'}->execute( $isolate_id, $locus ) };
@@ -1379,8 +1375,7 @@ sub allele_sequence_exists {
 	my ( $self, $isolate_id, $locus ) = @_;
 	if ( !$self->{'sql'}->{'allele_sequence_exists'} ) {
 		$self->{'sql'}->{'allele_sequence_exists'} =
-		  $self->{'db'}->prepare( "SELECT EXISTS(SELECT allele_sequences.seqbin_id FROM allele_sequences LEFT JOIN sequence_bin ON "
-			  . "allele_sequences.seqbin_id = sequence_bin.id WHERE isolate_id=? AND locus=?)" );
+		  $self->{'db'}->prepare("SELECT EXISTS(SELECT allele_sequences.seqbin_id FROM allele_sequences WHERE isolate_id=? AND locus=?)");
 	}
 	eval { $self->{'sql'}->{'allele_sequence_exists'}->execute( $isolate_id, $locus ) };
 	$logger->error($@) if $@;
@@ -1866,8 +1861,7 @@ sub get_tables {
 	my ($self) = @_;
 	my @tables;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		@tables =
-		  qw(users user_groups user_group_members allele_sequences sequence_bin accession refs allele_designations 
+		@tables = qw(users user_groups user_group_members allele_sequences sequence_bin accession refs allele_designations
 		  pending_allele_designations loci locus_aliases schemes scheme_members scheme_fields composite_fields composite_field_values
 		  isolate_aliases user_permissions isolate_user_acl isolate_usergroup_acl projects project_members experiments experiment_sequences
 		  isolate_field_extended_attributes isolate_value_extended_attributes scheme_groups scheme_group_scheme_members

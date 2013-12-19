@@ -211,8 +211,8 @@ sub run_job {
 	  $self->{'db'}->prepare( "SELECT $substring_query,reverse FROM allele_sequences LEFT JOIN sequence_bin ON "
 		  . "allele_sequences.seqbin_id = sequence_bin.id LEFT JOIN sequence_flags ON allele_sequences.seqbin_id = "
 		  . "sequence_flags.seqbin_id AND allele_sequences.locus = sequence_flags.locus AND allele_sequences.start_pos = "
-		  . "sequence_flags.start_pos AND allele_sequences.end_pos = sequence_flags.end_pos WHERE isolate_id=? AND allele_sequences.locus=? "
-		  . "$ignore_seqflags $ignore_incomplete ORDER BY complete,allele_sequences.datestamp LIMIT 1" );
+		  . "sequence_flags.start_pos AND allele_sequences.end_pos = sequence_flags.end_pos WHERE sequence_bin.isolate_id=? "
+		  . "AND allele_sequences.locus=? $ignore_seqflags $ignore_incomplete ORDER BY complete,allele_sequences.datestamp LIMIT 1" );
 	my @problem_ids;
 	my %problem_id_checked;
 	my $start = 1;

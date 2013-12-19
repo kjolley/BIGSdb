@@ -156,7 +156,8 @@ sub get_tree {
 					my $id = $options->{'select_schemes'} ? " id=\"s_$_->{'id'}\"" : '';
 					$temp_buffer .= "<li$id><a>$_->{'description'}</a>\n";
 				} else {
-					$temp_buffer .= "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
+					$temp_buffer .=
+					    "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
 					  . "page=$page$isolate_clause&amp;scheme_id=$_->{'id'}\" rel=\"nofollow\" data-rel=\"ajax\">$_->{'description'}"
 					  . "</a>\n";
 				}
@@ -192,7 +193,7 @@ sub get_tree {
 		  $options->{'no_link_out'}
 		  ? "<li id=\"all_loci\"><a>All loci</a><ul>\n"
 		  : "<li id=\"all_loci\"><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;"
-		    . "scheme_id=-1\" rel=\"nofollow\" data-rel=\"ajax\">All loci</a><ul>\n";
+		  . "scheme_id=-1\" rel=\"nofollow\" data-rel=\"ajax\">All loci</a><ul>\n";
 		$main_buffer .= $buffer;
 		$main_buffer .= "</ul>\n</li></ul>\n";
 	} else {
@@ -312,13 +313,13 @@ sub _get_child_groups {
 					  $options->{'no_link_out'}
 					  ? "<li><a>$group_info->{'name'}</a>\n"
 					  : "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;id=$isolate_id&amp;"
-					    . "group_id=$_\" rel=\"nofollow\" data-rel=\"ajax\">$group_info->{'name'}</a>\n";
+					  . "group_id=$_\" rel=\"nofollow\" data-rel=\"ajax\">$group_info->{'name'}</a>\n";
 				} else {
 					$buffer .=
 					  $options->{'no_link_out'}
 					  ? "<li><a>$group_info->{'name'}</a>\n"
 					  : "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page&amp;group_id=$_\" "
-					    . "rel=\"nofollow\" data-rel=\"ajax\">$group_info->{'name'}</a>\n";
+					  . "rel=\"nofollow\" data-rel=\"ajax\">$group_info->{'name'}</a>\n";
 				}
 				$buffer .= $group_scheme_buffer if $group_scheme_buffer;
 				$buffer .= $child_group_buffer  if $child_group_buffer;
@@ -334,9 +335,8 @@ sub _scheme_data_present {
 	my ( $self, $scheme_id, $isolate_id ) = @_;
 	if ( !$self->{'sql'}->{'scheme_data_designations'} ) {
 		$self->{'sql'}->{'scheme_data_designations'} =
-		  $self->{'db'}->prepare(
-"SELECT EXISTS(SELECT * FROM allele_designations LEFT JOIN scheme_members ON allele_designations.locus=scheme_members.locus WHERE isolate_id=? AND scheme_id=?)"
-		  );
+		  $self->{'db'}->prepare( "SELECT EXISTS(SELECT * FROM allele_designations LEFT JOIN scheme_members ON allele_designations.locus="
+			  . "scheme_members.locus WHERE isolate_id=? AND scheme_id=?)" );
 	}
 	eval { $self->{'sql'}->{'scheme_data_designations'}->execute( $isolate_id, $scheme_id ) };
 	$logger->error($@) if $@;
@@ -344,9 +344,8 @@ sub _scheme_data_present {
 	return 1 if $designations_present;
 	if ( !$self->{'sql'}->{'scheme_data_sequences'} ) {
 		$self->{'sql'}->{'scheme_data_sequences'} =
-		  $self->{'db'}->prepare(
-"SELECT EXISTS(SELECT * FROM allele_sequences LEFT JOIN scheme_members ON allele_sequences.locus=scheme_members.locus LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id WHERE isolate_id=? AND scheme_id=?)"
-		  );
+		  $self->{'db'}->prepare( "SELECT EXISTS(SELECT * FROM allele_sequences LEFT JOIN scheme_members ON allele_sequences.locus="
+			  . "scheme_members.locus WHERE isolate_id=? AND scheme_id=?)" );
 	}
 	eval { $self->{'sql'}->{'scheme_data_sequences'}->execute( $isolate_id, $scheme_id ) };
 	$logger->error($@) if $@;
@@ -367,8 +366,7 @@ sub _data_not_in_scheme_present {
 		$isolate_id )->[0];
 	return 1 if $designations;
 	my $sequences = $self->{'datastore'}->run_simple_query(
-		"SELECT EXISTS(SELECT * FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id WHERE "
-		  . "isolate_id=? AND locus NOT IN ($set_clause))",
+		"SELECT EXISTS(SELECT * FROM allele_sequences WHERE isolate_id=? AND locus NOT IN ($set_clause))",
 		$isolate_id
 	)->[0];
 	return $sequences ? 1 : 0;

@@ -197,8 +197,8 @@ sub _get_seqs {
 	my $exclude_clause = $options->{'exclude_incompletes'} ? ' AND complete ' : '';
 	my $seqbin_sql =
 	  $self->{'db'}->prepare( "SELECT substring(sequence from start_pos for end_pos-start_pos+1),reverse FROM allele_sequences "
-		  . "LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE isolate_id=? AND locus=? $exclude_clause "
-		  . "ORDER BY complete desc,allele_sequences.datestamp LIMIT 1" );
+		  . "LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE sequence_bin.isolate_id=? AND locus=? "
+		  . "$exclude_clause ORDER BY complete desc,allele_sequences.datestamp LIMIT 1" );
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
 	my $locus;
 	try {

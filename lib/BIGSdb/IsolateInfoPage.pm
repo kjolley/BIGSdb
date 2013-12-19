@@ -569,9 +569,7 @@ sub _get_loci_not_in_schemes {
 		  $self->{'datastore'}->run_list_query( "SELECT locus FROM allele_designations WHERE isolate_id=?", $isolate_id );
 		my %designations = map { $_ => 1 } @$loci_with_designations;
 		my $loci_with_tags =
-		  $self->{'datastore'}->run_list_query(
-			"SELECT DISTINCT locus FROM allele_sequences LEFT JOIN sequence_bin ON seqbin_id=sequence_bin.id WHERE isolate_id=?",
-			$isolate_id );
+		  $self->{'datastore'}->run_list_query( "SELECT DISTINCT locus FROM allele_sequences WHERE isolate_id=?", $isolate_id );
 		my %tags = map { $_ => 1 } @$loci_with_tags;
 		foreach my $locus (@$loci_in_no_scheme) {
 			next if !$designations{$locus} && !$tags{$locus};
@@ -595,9 +593,8 @@ sub _should_display_scheme {
 		$isolate_id, $scheme_id
 	)->[0];
 	my $sequences_exist = $self->{'datastore'}->run_simple_query(
-		"SELECT EXISTS(SELECT isolate_id FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id="
-		  . "sequence_bin.id LEFT JOIN scheme_members ON allele_sequences.locus=scheme_members.locus WHERE isolate_id=? "
-		  . "AND scheme_id=?)",
+		"SELECT EXISTS(SELECT isolate_id FROM allele_sequences LEFT JOIN scheme_members ON allele_sequences.locus=scheme_members.locus "
+		  . "WHERE isolate_id=? AND scheme_id=?)",
 		$isolate_id, $scheme_id
 	)->[0];
 	my $should_display = ( $designations_exist || $sequences_exist ) ? 1 : 0;
@@ -926,8 +923,7 @@ sub _get_seqbin_link {
 		  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 		  : '';
 		my $tagged = $self->{'datastore'}->run_simple_query(
-			"SELECT COUNT(DISTINCT locus) FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id "
-			  . "WHERE sequence_bin.isolate_id=? $set_clause",
+			"SELECT COUNT(DISTINCT locus) FROM allele_sequences WHERE isolate_id=? $set_clause",
 			$isolate_id
 		)->[0];
 		$plural = $tagged == 1 ? 'us' : 'i';
