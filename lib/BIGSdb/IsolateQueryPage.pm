@@ -604,7 +604,7 @@ sub _generate_query_for_provenance_fields {
 				$thisfield->{'type'} = $att_info->{'value_format'};
 				$thisfield->{'type'} = 'int' if $thisfield->{'type'} eq 'integer';
 			}
-			my $operator = $q->param("prov_operator$i");
+			my $operator = $q->param("prov_operator$i") // '=';
 			my $text     = $q->param("prov_value$i");
 			$self->process_value( \$text );
 			next
@@ -691,7 +691,7 @@ sub _generate_query_for_provenance_fields {
 sub _grouped_field_query {
 	my ( $self, $groupedfields, $data, $errors_ref ) = @_;
 	my $text     = $data->{'text'};
-	my $operator = $data->{'operator'};
+	my $operator = $data->{'operator'} // '=';
 	my $view     = $self->{'system'}->{'view'};
 	my $buffer   = "$data->{'modifier'} (";
 	if ( $operator eq 'NOT' ) {
@@ -1032,7 +1032,7 @@ sub _modify_query_for_designations {
 				my $locus_info       = $self->{'datastore'}->get_locus_info($locus);
 				my $unmodified_locus = $locus;
 				$locus =~ s/'/\\'/g;
-				my $operator = $q->param("designation_operator$i");
+				my $operator = $q->param("designation_operator$i") // '=';
 				my $text     = $q->param("designation_value$i");
 				next if $combo{"$locus\_$operator\_$text"};    #prevent duplicates
 				$combo{"$locus\_$operator\_$text"} = 1;
@@ -1102,7 +1102,7 @@ sub _modify_query_for_designations {
 		if ( defined $q->param("designation_value$i") && $q->param("designation_value$i") ne '' ) {
 			if ( $q->param("designation_field$i") =~ /^s_(\d+)_(.*)/ ) {
 				my ( $scheme_id, $field ) = ( $1, $2 );
-				my $operator          = $q->param("designation_operator$i");
+				my $operator          = $q->param("designation_operator$i") // '=';
 				my $text              = $q->param("designation_value$i");
 				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 				my $scheme_info       = $self->{'datastore'}->get_scheme_info($scheme_id);

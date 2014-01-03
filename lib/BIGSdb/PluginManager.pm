@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -143,6 +143,7 @@ sub get_appropriate_plugin_names {
 			  && $attr->{'requires'} =~ /offline_jobs/;
 			next if !@$pk_scheme_list && $attr->{'requires'} =~ /pk_scheme/;    #must be a scheme with primary key and loci defined
 		}
+		next if !@$pk_scheme_list && ($attr->{'seqdb_type'} // '') eq 'schemes';
 		next
 		  if (
 			   !( ( $self->{'system'}->{'all_plugins'} // '' ) eq 'yes' )

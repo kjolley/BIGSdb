@@ -530,6 +530,7 @@ sub get_loci_from_pasted_list {
 
 sub print_sequence_export_form {
 	my ( $self, $pk, $list, $scheme_id, $options ) = @_;
+	$logger->error("No primary key passed") if !defined $pk;
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
 	say $q->start_form;

@@ -271,7 +271,7 @@ sub _run_query {
 				} elsif ( $field =~ /^date/ ) {
 					$type = 'date';
 				}
-				my $operator = $q->param("y$i");
+				my $operator = $q->param("y$i") // '=';
 				my $text     = $q->param("t$i");
 				$self->process_value( \$text );
 				next

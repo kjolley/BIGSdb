@@ -374,7 +374,7 @@ sub _run_query {
 		foreach my $i ( 1 .. MAX_ROWS ) {
 			if ( defined $q->param("t$i") && $q->param("t$i") ne '' ) {
 				my $field    = $q->param("s$i");
-				my $operator = $q->param("y$i");
+				my $operator = $q->param("y$i") // '=';
 				my $text     = $q->param("t$i");
 				$self->process_value( \$text );
 				my $thisfield;

@@ -1,6 +1,6 @@
 #XmfaExport.pm - Export XMFA file plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -45,7 +45,7 @@ sub get_attributes {
 		buttontext  => 'XMFA',
 		menutext    => 'XMFA export',
 		module      => 'XmfaExport',
-		version     => '1.4.4',
+		version     => '1.4.5',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		section     => 'export,postquery',
@@ -83,6 +83,10 @@ sub run {
 		if ( !$q->param('submit') ) {
 			$self->print_scheme_section( { with_pk => 1 } );
 			$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
+		}
+		if (!defined $scheme_id){
+			say qq(<div class="box" id="statusbad"><p>Invalid scheme selected.</p></div>);
+			return;
 		}
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 		$pk = $scheme_info->{'primary_key'};
