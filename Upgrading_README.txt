@@ -9,6 +9,7 @@ Version 1.3: Change of isolate and seqdef database structures.  Ensure
 Version 1.4: Change of isolate, seqdef, and job database structures.
 Version 1.5: Change of isolate and seqdef database structures.
 Version 1.6: Change of isolate and seqdef database structures.
+Version 1.7: Change of isolate, seqdef, and job database structures.
 
 Details can be found below.
 
@@ -145,3 +146,25 @@ required since its functionality is now available using CSS.
 There are also stylesheet changes so update bigsdb.css and ensure the new 
 jquery-ui.css is copied to the same location.
 
+Version 1.7
+-----------
+There are changes to the isolate, sequence definition and jobs database
+structures.  Please run the isolatedb_v1.7.sql, seqdefdb_v1.7.sql and
+jobs_v1.7.sql scripts, found in the sql/upgrade directory, against your
+databases.
+
+Changes to the database structures are detailed below:
+1) New tables in the isolate database for setting contigsequence attributes.
+2) New isolate_id column in the isolate database allele_sequences table. This
+is set automatically by triggers on adding/updating this table or updating
+the sequence_bin table.
+3) New field 'seq_query' in the seqdef scheme_groups table to specify whether
+the group should be selectable for sequence queries.
+4) New field 'index' in the seqdef scheme_fields table to specify if an index
+should be set up for a field when materialized views are used.
+5) The jobs database has new fields in the jobs table needed for cancelling
+running jobs - these store the process id, status, and a fingerprint of the
+parameters (used to detect duplicate jobs).
+6) The jobs database has new tables for isolates, loci and profiles so that
+these can be stored in a normalized fashion rather than as concatenated lists.
+This makes determining the job size much easier.
