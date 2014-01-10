@@ -22,7 +22,7 @@
 # Neil Winton <N.Winton@axion.bt.co.uk> and is maintained by
 # Gisle Aas <gisle@ActiveState.com>
 #
-# Modified extensively by Keith Jolley for use in BIGSdb, 2009-2012
+# Modified extensively by Keith Jolley for use in BIGSdb, 2009-2014
 # Uses DBI rather than DB_FILE
 # IP address set in sub initiate rather than at head of file as
 # this wasn't being seen after the first mod_perl iteration.
@@ -363,7 +363,7 @@ sub login_from_cookie {
 	foreach ( keys %Cookies ) {
 		$logger->debug("cookie $_ = $Cookies{$_}") if defined $Cookies{$_};
 	}
-	my $savedPasswordHash = $self->_get_password_hash( $Cookies{$userCookieName} ) || '';
+	my $savedPasswordHash = $self->get_password_hash( $Cookies{$userCookieName} ) || '';
 	my $saved_IP_address  = $self->_get_IP_address( $Cookies{$userCookieName} );
 	my $cookieString      = Digest::MD5::md5_hex( $self->{'ip_addr'} . $savedPasswordHash . $uniqueString );
 	##############################################################
@@ -416,7 +416,7 @@ sub _check_password {
 	my ($self) = @_;
 	if ( !$self->{'vars'}->{'user'} )     { $self->_error_exit("The name field was missing."); }
 	if ( !$self->{'vars'}->{'password'} ) { $self->_error_exit("The password field was missing."); }
-	my $savedPasswordHash = $self->_get_password_hash( $self->{'vars'}->{'user'} ) || '';
+	my $savedPasswordHash = $self->get_password_hash( $self->{'vars'}->{'user'} ) || '';
 	my $hashedPassSession = Digest::MD5::md5_hex( $savedPasswordHash . $self->{'vars'}->{'session'} );
 	$logger->debug("using session ID = $self->{'vars'}->{'session'}");
 	$logger->debug("Saved password hash for $self->{'vars'}->{'user'} = $savedPasswordHash");
@@ -482,7 +482,7 @@ sub _error_exit {
 #############################################################################
 # Authentication Database Code
 #############################################################################
-sub _get_password_hash {
+sub get_password_hash {
 	my ( $self, $name ) = @_;
 	return if !$name;
 	my $sql = $self->{'auth_db'}->prepare("SELECT password FROM users WHERE dbase=? AND name=?");

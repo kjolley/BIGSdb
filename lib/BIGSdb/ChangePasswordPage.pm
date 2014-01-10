@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -59,7 +59,7 @@ sub print_content {
 			} else {
 
 				#existing password not set when admin setting user passwords
-				my $stored_hash = $self->_get_password_hash( $self->{'username'} );
+				my $stored_hash = $self->get_password_hash( $self->{'username'} );
 				if ( $stored_hash ne $q->param('existing_password') ) {
 					say "<div class=\"box\" id=\"statusbad\"><p>Your existing password was entered incorrectly. The password has not "
 					  . "been updated.</p></div>";
@@ -93,9 +93,9 @@ sub print_content {
 	  . "Javascript prior to transmitting to the server.</p></noscript>";
 	say $q->start_form( -onSubmit => "existing_password.value=existing.value; existing.value='';new_length.value=new1.value.length;"
 	  . "new_password1.value=new1.value;new1.value='';new_password2.value=new2.value;new2.value='';"
-	  . "existing_password.value=calcMD5(existing_password.value+user.value);"
-	  . "new_password1.value=calcMD5(new_password1.value+user.value);"
-	  . "new_password2.value=calcMD5(new_password2.value+user.value);"
+	  . "existing_password.value=calcMD5(existing_password.value+document.getElementById('user').value);"
+	  . "new_password1.value=calcMD5(new_password1.value+document.getElementById('user').value);"
+	  . "new_password2.value=calcMD5(new_password2.value+document.getElementById('user').value);"
 	  . "return true"
 	);
 	say "<table>";
@@ -113,13 +113,13 @@ sub print_content {
 			$labels{$username} = "$surname, $first_name ($username)";
 		}
 		say "<tr><td style=\"text-align:right\">User: </td><td>";
-		say $q->popup_menu( -name => 'user', -values => [@users], -labels => \%labels );
+		say $q->popup_menu( -name => 'user', -id => 'user', -values => [@users], -labels => \%labels );
 		say $q->hidden( 'existing', '' );
 	}
 	say "</td></tr>\n<tr><td style=\"text-align:right\">New password: </td><td>";
-	say $q->password_field( -name => 'new1' );
+	say $q->password_field( -name => 'new1', -id => 'new1' );
 	say "</td></tr>\n<tr><td style=\"text-align:right\">Retype password: </td><td>";
-	say $q->password_field( -name => 'new2' );
+	say $q->password_field( -name => 'new2', -id => 'new2' );
 	say "</td></tr>\n<tr><td colspan=\"2\" style=\"text-align:right\">";
 	say $q->submit( -class => 'submit', -label => 'Set password' );
 	say "</td></tr>";
