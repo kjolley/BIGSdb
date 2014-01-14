@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -104,7 +104,7 @@ sub print_content {
 		$logger->error($@);
 		say "<div class=\"box\" id=\"statusbad\"><p>No identifying attributes sent.</p>";
 		return;
-	} 
+	}
 	my $data = $sql->fetchrow_hashref;
 	if ( $table eq 'sequences' ) {
 		$sql = $self->{'db'}->prepare("SELECT field,value FROM sequence_extended_attributes WHERE locus=? AND allele_id=?");
@@ -311,7 +311,7 @@ sub _check_loci {
 		if ( $newdata->{'allele_id_format'} eq 'integer' ) {
 			my $ids = $self->{'datastore'}->run_list_query( "SELECT allele_id FROM sequences WHERE locus=?", $newdata->{'id'} );
 			foreach (@$ids) {
-				if ( !BIGSdb::Utils::is_int($_) && $_ ne 'N') {
+				if ( !BIGSdb::Utils::is_int($_) && $_ ne 'N' ) {
 					$non_int = 1;
 					last;
 				}
@@ -473,9 +473,9 @@ sub _prepare_extra_inserts_for_loci {
 	my ( $full_name, $product, $description ) = ( $q->param('full_name'), $q->param('product'), $q->param('description') );
 	s/'/\\'/g foreach ( $full_name, $product, $description );
 	if ($existing_desc) {
-		if (   $full_name ne $existing_desc->{'full_name'}
-			|| $product ne $existing_desc->{'product'}
-			|| $description ne $existing_desc->{'description'} )
+		if (   $full_name ne ( $existing_desc->{'full_name'} // '' )
+			|| $product ne ( $existing_desc->{'product'} // '' )
+			|| $description ne ( $existing_desc->{'description'} // '' ) )
 		{
 			push @$extra_inserts, "UPDATE locus_descriptions SET full_name=E'$full_name',product=E'$product',description=E'$description',"
 			  . "curator=$newdata->{'curator'},datestamp='now' WHERE locus=E'$cleaned_locus'";
