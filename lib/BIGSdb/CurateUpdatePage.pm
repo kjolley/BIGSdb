@@ -311,7 +311,7 @@ sub _check_loci {
 		if ( $newdata->{'allele_id_format'} eq 'integer' ) {
 			my $ids = $self->{'datastore'}->run_list_query( "SELECT allele_id FROM sequences WHERE locus=?", $newdata->{'id'} );
 			foreach (@$ids) {
-				if ( !BIGSdb::Utils::is_int($_) ) {
+				if ( !BIGSdb::Utils::is_int($_) && $_ ne 'N') {
 					$non_int = 1;
 					last;
 				}
