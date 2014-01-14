@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -316,7 +316,10 @@ sub print_provenance_form_elements {
 				print '!' if $required;
 				say "</label>";
 
-				if ( $thisfield->{'optlist'} ) {
+				if ( $field eq 'id' && $q->param('page') eq 'isolateUpdate' ) {
+					say "<b>$newdata->{'id'}</b>";
+					say $q->hidden('id');
+				} elsif ( $thisfield->{'optlist'} ) {
 					my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
 					say $q->popup_menu(
 						-name    => $field,

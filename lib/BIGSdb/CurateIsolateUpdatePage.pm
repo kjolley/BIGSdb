@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -59,6 +59,9 @@ sub print_content {
 	my $sql = $self->{'db'}->prepare($qry);
 	if ( !$q->param('id') ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>No id passed.</p></div>";
+		return;
+	} elsif (!BIGSdb::Utils::is_int($q->param('id'))){
+		say "<div class=\"box\" id=\"statusbad\"><p>Invalid id passed.</p></div>";
 		return;
 	} elsif ( !$self->can_modify_table('isolates')
 		&& !$self->can_modify_table('allele_designations')
