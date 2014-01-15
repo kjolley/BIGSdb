@@ -23,8 +23,8 @@ CREATE TABLE refauthors (
 pmid INTEGER NOT NULL,
 author INTEGER NOT NULL,
 position INTEGER NOT NULL,
-PRIMARY KEY (pmid,author),
-CONSTRAINT pmid FOREIGN KEY (pmid) references refs ON DELETE NO ACTION ON UPDATE CASCADE,
+PRIMARY KEY (pmid,author,position),
+CONSTRAINT pmid FOREIGN KEY (pmid) references refs ON DELETE CASCADE ON UPDATE CASCADE,
 CONSTRAINT author FOREIGN KEY (author) references authors ON DELETE NO ACTION ON UPDATE CASCADE
 );
 

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -80,7 +80,7 @@ sub get_connection {
 		my $db;
 		eval {
 			$db = DBI->connect( "DBI:Pg:host=$host;port=$port;dbname=$attributes->{'dbase_name'}",
-				$user, $password, { AutoCommit => 0, RaiseError => 1, PrintError => 0 } );
+				$user, $password, { AutoCommit => 0, RaiseError => 1, PrintError => 0, pg_enable_utf8 => 1 } );
 			$self->{'db'}->{"$host|$attributes->{'dbase_name'}"} = $db;
 		};
 		if ($@) {

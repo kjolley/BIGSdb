@@ -59,7 +59,7 @@ use BIGSdb::SequenceQueryPage;
 use BIGSdb::SequenceTranslatePage;
 use BIGSdb::TableQueryPage;
 use BIGSdb::VersionPage;
-use CGI;
+use BIGSdb::CGI::as_utf8;
 use DBI;
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);

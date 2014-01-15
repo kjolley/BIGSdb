@@ -2,7 +2,7 @@
 #
 #bigsdb_getrefs.pl
 #Written by Keith Jolley
-#Copyright (c) 2003, 2009, 2012 University of Oxford
+#Copyright (c) 2003, 2009, 2012, 2014 University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #Find out which references are cited in the databases
@@ -22,7 +22,6 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
-
 #Databases are defined in a conf file with each database on a single
 #line separated by white space and then a comma-separated list of tables
 #that can contain reference information.
@@ -33,7 +32,6 @@
 #
 #
 #Run the script from CRON as bigsdb_getrefs.pl <conf file>
-
 use strict;
 use warnings;
 use 5.010;
@@ -43,7 +41,8 @@ use XML::Parser;
 use Bio::Biblio::IO;
 use List::MoreUtils qw(uniq);
 use Carp;
-
+binmode( STDOUT, ":encoding(UTF-8)" );
+my $refs_db = 'refs';
 my %tablelist;
 my @refs;
 my $conflist = $ARGV[0];
@@ -64,7 +63,7 @@ if ( -e $conflist ) {
 	}
 	close $fh;
 } else {
-	print "Configuration file '$conflist' does not exist!\n";
+	say "Configuration file '$conflist' does not exist!";
 	exit(1);
 }
 
@@ -78,48 +77,51 @@ foreach my $dbase ( keys %tablelist ) {
 		my $qry = "SELECT DISTINCT pubmed_id FROM $_;";
 		$sql = $db->prepare($qry) or croak "couldn't prepare";
 		$sql->execute;
-		while ( my ($ref) = $sql->fetchrow_array() ) {
+		while ( my ($ref) = $sql->fetchrow_array ) {
+			if ( length $ref < 4 ) {
+				say "$dbase: Unlikely PMID $ref.";
+				exit;
+			}
 			push @refs, $ref;
 		}
 		$sql->finish;
 		$db->disconnect;
 	}
 }
-
 @refs = uniq @refs;
-
-my $db = DBI->connect( 'DBI:Pg:dbname=refs', 'postgres' ) or croak "couldn't open template db" . DBI->errstr;
+my $db = DBI->connect( "DBI:Pg:dbname=$refs_db", 'postgres', undef, { pg_enable_utf8 => 1 } )
+  or croak "couldn't open db" . DBI->errstr;
 
 #Here we query website and extract reference data
 foreach my $refid (@refs) {
 
 	#Check whether the reference is already in the database
-	my $retval = ( runquery("SELECT pmid FROM refs WHERE pmid=$refid;") );
+	my $retval = ( runquery( "SELECT pmid FROM refs WHERE pmid=?", $refid ) );
 	if ( !$retval ) {
 		my $url = "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=PubMed&id=$refid&report=medline&retmode=xml";
 		if ( my $citationxml = get $url) {
 			if ( $citationxml !~ /\*\*\* No Documents Found \*\*\*/ ) {
-				my $io = Bio::Biblio::IO->new( '-data' => $citationxml, '-format' => 'pubmedxml' );
+				my $io = Bio::Biblio::IO->new( -data => $citationxml, -format => 'pubmedxml' );
 				sleep 10;    #Let's be nice to the remote server.
-				my $bibref  = $io->next_bibref;
+				my $bibref = $io->next_bibref;
 				next if !$bibref;
 				my $pmid    = $bibref->pmid;
 				my $title   = $bibref->title;
-				my @authors = &getauthors($bibref);
+				my @authors = getauthors($bibref);
 				my @authorlist;
+
 				foreach my $author (@authors) {
 					my ( $surname, $initials );
 					if ( $author =~ /([\w\s'-]+),(\w+)/ ) {
 						$surname  = $1;
 						$initials = $2;
-						$surname =~ s/'/&#39;/g;
 					}
-					my $qry = "SELECT id FROM authors WHERE surname='$surname' AND initials='$initials';";
-					my ($authorid) = runquery($qry);
+					my $qry = "SELECT id FROM authors WHERE surname=? AND initials=?";
+					my ($authorid) = runquery( $qry, $surname, $initials );
 					if ( !$authorid ) {
 						print "surname: $surname; initials: $initials\n";
-						$db->do("INSERT INTO authors (surname,initials) VALUES ('$surname', '$initials')");
-						($authorid) = runquery($qry);
+						$db->do( "INSERT INTO authors (surname,initials) VALUES (?,?)", undef, $surname, $initials );
+						($authorid) = runquery( $qry, $surname, $initials );
 					}
 					push @authorlist, $authorid;
 				}
@@ -138,60 +140,55 @@ foreach my $refid (@refs) {
 				}
 				my $abstract = $bibref->abstract;
 				$abstract //= '';
-				$abstract =~ s/\'//g;
-				$title    =~ s/\'//g;
-				$journal  =~ s/\'//g;
-				my $qry  = "SELECT pmid FROM refs WHERE pmid='$pmid';";
-				my $indb = runquery($qry);
+				my $qry = "SELECT pmid FROM refs WHERE pmid=?";
+				my $indb = runquery( $qry, $pmid );
 				if ( !$indb ) {
 					local $" = '; ';
-					print "pmid : $pmid\n";
-					print "authors: @authors\n";
-					print "@authorlist\n";
-					print "year: $year\n";
-					print "journal: $journal\n";
-					print "volume: $volume\n";
-					print "pages: $pages\n";
-					print "title: $title\n";
-					print "abstract: $abstract\n";
-					print "\n\n";
-					$db->do(
-"INSERT INTO refs (pmid,year,journal,volume,pages,title,abstract) VALUES ('$pmid','$year','$journal','$volume','$pages','$title','$abstract')"
-					  )
-					  or print "Failed to insert id: $pmid!\n";
+					say "pmid : $pmid";
+					say "authors: @authors";
+					say "@authorlist";
+					say "year: $year";
+					say "journal: $journal";
+					say "volume: $volume";
+					say "pages: $pages";
+					say "title: $title";
+					say "abstract: $abstract";
+					say "\n";
+					$db->do( "INSERT INTO refs (pmid,year,journal,volume,pages,title,abstract) VALUES (?,?,?,?,?,?,?)",
+						undef, $pmid, $year, $journal, $volume, $pages, $title, $abstract )
+					  or say "Failed to insert id: $pmid!";
 					my $pos = 1;
 
 					foreach my $authorid (@authorlist) {
-						$db->do("INSERT INTO refauthors (pmid,author,position) VALUES ($pmid,$authorid,$pos)")
-						  or print "Failed to insert ref author: $pmid - $authorid!\n";
+						$db->do( "INSERT INTO refauthors (pmid,author,position) VALUES (?,?,?)", undef, $pmid, $authorid, $pos )
+						  or say "Failed to insert ref author: $pmid - $authorid!";
 						$pos++;
 					}
 				}
 			}
 		} else {
-			print "Ref $refid could not be retrieved.\n";
+			say "Ref $refid could not be retrieved.";
 		}
 	}
 }
 
 sub getauthors {
 	my ($bibref) = @_;
-	my $authors  = $bibref->authors;
-	my @people   = @$authors;          #array ref of Bio::Biblio::Provider
+	my $authors = $bibref->authors;
+	my @people = ref $authors eq 'ARRAY' ? @$authors : ();    #array ref of Bio::Biblio::Provider
 	my @authors;
 	foreach my $person (@people) {
-		my $value = $person->lastname . ',' . $person->initials;
-		$value =~ s/\'//g;
-		push @authors, $value;
+		eval {
+			my $value = $person->lastname . ',' . $person->initials;
+			push @authors, $value;
+		};
 	}
 	return @authors;
 }
 
 sub runquery {
-	my ($qry) = @_;
+	my ( $qry, @args ) = @_;
 	my $sql = $db->prepare($qry) or croak "couldn't prepare" . $db->errstr;
-	$sql->execute;
+	$sql->execute(@args);
 	return $sql->fetchrow_array;
 }
-
-

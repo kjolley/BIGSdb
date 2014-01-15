@@ -1721,7 +1721,6 @@ sub create_temp_ref_table {
 		my @authors;
 		my $author_arrayref = $sql2->fetchall_arrayref;
 		foreach (@$author_arrayref) {
-			$all_authors->{ $_->[0] }->{'surname'} =~ s/'/\\'/g;
 			push @authors, "$all_authors->{$_->[0]}->{'surname'} $all_authors->{$_->[0]}->{'initials'}";
 		}
 		local $" = ', ';
@@ -1731,11 +1730,12 @@ sub create_temp_ref_table {
 		my ($isolates) = $sql4->fetchrow_array;
 		local $" = "','";
 		eval {
-			if ( $refdata[0] )
-			{
-				$self->{'db'}->do("INSERT INTO temp_refs VALUES ('@refdata',E'$author_string',$isolates)");
+			my $qry = "INSERT INTO temp_refs VALUES (?,?,?,?,?,?,?,?,?)";
+
+			if ( $refdata[0] ) {
+				$self->{'db'}->do( $qry, undef, @refdata, $author_string, $isolates );
 			} else {
-				$self->{'db'}->do("INSERT INTO temp_refs VALUES ($pmid,null,null,null,null,null,null,null,$isolates)");
+				$self->{'db'}->do( $qry, undef, $pmid, undef, undef, undef, undef, undef, undef, undef, $isolates );
 			}
 		};
 		$logger->error($@) if $@;
