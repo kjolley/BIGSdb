@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -518,7 +518,7 @@ sub _print_locus_tag_fields {
 
 sub _run_query {
 	my ($self) = @_;
-	my $q      = $self->{'cgi'};
+	my $q = $self->{'cgi'};
 	my $qry;
 	my @errors;
 	my $extended = $self->get_extended_attributes;
@@ -537,7 +537,7 @@ sub _run_query {
 		my $dir = ( defined $q->param('direction') && $q->param('direction') eq 'descending' ) ? 'desc' : 'asc';
 		$qry .= " $dir,$self->{'system'}->{'view'}.id;";
 	} else {
-		$qry = $self->get_query_from_temp_file($q->param('query_file'));
+		$qry = $self->get_query_from_temp_file( $q->param('query_file') );
 	}
 	if (@errors) {
 		local $" = '<br />';
@@ -605,7 +605,7 @@ sub _generate_query_for_provenance_fields {
 				$thisfield->{'type'} = 'int' if $thisfield->{'type'} eq 'integer';
 			}
 			my $operator = $q->param("prov_operator$i") // '=';
-			my $text     = $q->param("prov_value$i");
+			my $text = $q->param("prov_value$i");
 			$self->process_value( \$text );
 			next
 			  if $self->check_format( { field => $field, text => $text, type => lc( $thisfield->{'type'} // '' ), operator => $operator },
@@ -717,6 +717,26 @@ sub _grouped_field_query {
 				$buffer .= "CAST($view.$_ AS text) LIKE E'\%$text\%'";
 			} else {
 				$buffer .= "upper($view.$_) LIKE upper(E'\%$text\%')";
+			}
+		}
+	} elsif ( $operator eq "starts with" ) {
+		foreach (@$groupedfields) {
+			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
+			$buffer .= ' OR ' if $_ ne $groupedfields->[0];
+			if ( $thisfield->{'type'} ne 'text' ) {
+				$buffer .= "CAST($view.$_ AS text) LIKE E'$text\%'";
+			} else {
+				$buffer .= "upper($view.$_) LIKE upper(E'$text\%')";
+			}
+		}
+	} elsif ( $operator eq "ends with" ) {
+		foreach (@$groupedfields) {
+			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
+			$buffer .= ' OR ' if $_ ne $groupedfields->[0];
+			if ( $thisfield->{'type'} ne 'text' ) {
+				$buffer .= "CAST($view.$_ AS text) LIKE E'\%$text'";
+			} else {
+				$buffer .= "upper($view.$_) LIKE upper(E'\%$text')";
 			}
 		}
 	} elsif ( $operator eq "NOT contain" ) {
@@ -1022,7 +1042,7 @@ sub _modify_query_for_designations {
 	my $view = $self->{'system'}->{'view'};
 	my ( %lqry, @lqry_blank, %combo );
 	my $pattern     = LOCUS_PATTERN;
-	my $andor       = ($q->param('designation_andor') // '') eq 'AND' ? ' AND ' : ' OR ';
+	my $andor       = ( $q->param('designation_andor') // '' ) eq 'AND' ? ' AND ' : ' OR ';
 	my $qry_started = $qry =~ /\(\)$/ ? 0 : 1;
 	foreach my $i ( 1 .. MAX_ROWS ) {
 
@@ -1033,7 +1053,7 @@ sub _modify_query_for_designations {
 				my $unmodified_locus = $locus;
 				$locus =~ s/'/\\'/g;
 				my $operator = $q->param("designation_operator$i") // '=';
-				my $text     = $q->param("designation_value$i");
+				my $text = $q->param("designation_value$i");
 				next if $combo{"$locus\_$operator\_$text"};    #prevent duplicates
 				$combo{"$locus\_$operator\_$text"} = 1;
 				$self->process_value( \$text );
@@ -1438,7 +1458,13 @@ sub _get_select_items {
 		push @grouped_fields, "f_$_";
 		( $labels->{"f_$_"} = $_ ) =~ tr/_/ /;
 	}
-	my @select_items = ( @grouped_fields, @$field_list );
+	my @select_items;
+	foreach my $field (@$field_list) {
+		push @select_items, $field;
+		if ( $field eq "f_$self->{'system'}->{'labelfield'}" ) {
+			push @select_items, @grouped_fields;
+		}
+	}
 	return \@select_items, $labels;
 }
 
