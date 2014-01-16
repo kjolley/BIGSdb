@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -129,7 +129,13 @@ sub _print_isolate_field {
 	  ? "SELECT DISTINCT $metafield FROM meta_$metaset WHERE isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})"
 	  : "SELECT DISTINCT $field FROM $self->{'system'}->{'view'} ORDER BY $field";
 	my $used_list = $self->{'datastore'}->run_list_query($qry);
-	my $cols = $attributes->{'type'} eq 'int' ? 10 : 6;
+	my $longest = 0;
+	
+	foreach (@$used_list){
+		$longest = length($_) if length($_) > $longest;
+	}
+	my $text_cols = $longest > 120 ? 2 : 6;
+	my $cols = $attributes->{'type'} eq 'int' ? 10 : $text_cols;
 	my $used;
 	$used->{$_} = 1 foreach @$used_list;
 	if ( $field eq 'sender' || $field eq 'curator' || ( $attributes->{'userfield'} && $attributes->{'userfield'} eq 'yes' ) ) {
@@ -178,18 +184,25 @@ sub _print_list {
 	my ( $self, $list, $cols, $used ) = @_;
 	return if !$cols;
 	my $items_per_column = scalar @$list / $cols;
-	say "<table><tr><td style=\"vertical-align:top\">";
+	say qq(<div class="scrollable"><table><tr><td style="vertical-align:top">);
 	my $i = 0;
+	say "<ul>";
 	foreach (@$list) {
-		print $used->{$_} ? "<span class=\"highlightvalue\">$_</span><br />" : "$_<br />";
+		s/&/&amp;/g;
+		s/</&lt;/g;
+		s/>/&gt;/g;
+		print $used->{$_} ? "<li><span class=\"highlightvalue\">$_</span></li>" : "<li>$_</li>";
 		$i++;
 		if ( $i > $items_per_column ) {
 			$i = 0;
-			print "</td><td style=\"vertical-align:top; padding-left:20px\">"
-			  if $i != scalar @$list;
+			if ($i != scalar @$list){
+				say "</ul>";
+				say "</td><td style=\"vertical-align:top; padding-left:20px\">";
+			  	say "<ul>";
+			}
 		}
 	}
-	say "</td></tr></table>";
+	say "</ul></td></tr></table></div>";
 	return;
 }
 
