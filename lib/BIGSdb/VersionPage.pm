@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -36,7 +36,7 @@ sub print_content {
 <div class="box" id="resultstable">
 <h2>Version $BIGSdb::main::VERSION</h2>
 <p>Written by Keith Jolley<br />
-Copyright &copy; University of Oxford, 2010-2013.<br />
+Copyright &copy; University of Oxford, 2010-2014.<br />
 <a href="http://www.biomedcentral.com/1471-2105/11/595">Jolley &amp; Maiden <i>BMC Bioinformatics</i> 2010, <b>11:</b>595</a></p>
 <p>
 BIGSdb is free software: you can redistribute it and/or modify
