@@ -199,8 +199,9 @@ sub print_page_content {
 			$self->{'setOptions'} = 1;
 		}
 		$q->charset('UTF-8');
-		my %header_options = ( -cookie => $self->{'cookies'} );
-		$header_options{'expires'} = '+1h' if !$self->{'noCache'};
+		my %header_options;
+		$header_options{'-cookie'} = $self->{'cookies'} if $self->{'cookies'};
+		$header_options{'-expires'} = '+1h' if !$self->{'noCache'};
 		print $q->header(%header_options);
 		my $title   = $self->get_title;
 		my $page_js = $self->get_javascript;
