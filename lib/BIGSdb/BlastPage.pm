@@ -51,7 +51,13 @@ sub run_blast {
 	foreach my $run (@runs) {
 		( my $cleaned_run = $run ) =~ s/'/_prime_/g;
 		my $temp_fastafile;
-		if ( !$options->{'locus'} ) {
+		if ( !$options->{'locus'} ) {                           # 'All loci'
+			if ( $run eq 'DNA' && defined $self->{'config'}->{'cache_days'} ) {
+				my $cache_age = $self->_get_cache_age;
+				if ( $cache_age > $self->{'config'}->{'cache_days'} ) {
+					$self->mark_cache_stale;
+				}
+			}
 
 			#Create file and BLAST db of all sequences in a cache directory so can be reused.
 			my $set_id = $self->get_set_id // 'all';
@@ -182,5 +188,14 @@ sub run_blast {
 		foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/ && !/outfile.txt/ }
 	}
 	return ( $outfile_url, $options->{'job'} );
+}
+
+sub _get_cache_age {
+	my ($self) = @_;
+	my $set_id = $self->get_set_id // 'all';
+	$set_id = 'all' if ( $self->{'system'}->{'sets'} // '' ) ne 'yes';
+	my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$set_id/DNA_fastafile.txt";
+	return 0 if !-e $temp_fastafile;
+	return -M $temp_fastafile;
 }
 1;
