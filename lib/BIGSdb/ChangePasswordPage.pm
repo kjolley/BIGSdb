@@ -92,10 +92,12 @@ sub print_content {
 	say "<noscript><p class=\"highlight\">Please note that Javascript must be enabled in order to login.  Passwords are encrypted using "
 	  . "Javascript prior to transmitting to the server.</p></noscript>";
 	say $q->start_form( -onSubmit => "existing_password.value=existing.value; existing.value='';new_length.value=new1.value.length;"
+	  . "var username;"
+	  . "if (\$('#user').length){username=document.getElementById('user').value} else {username=user.value}"
 	  . "new_password1.value=new1.value;new1.value='';new_password2.value=new2.value;new2.value='';"
-	  . "existing_password.value=calcMD5(existing_password.value+document.getElementById('user').value);"
-	  . "new_password1.value=calcMD5(new_password1.value+document.getElementById('user').value);"
-	  . "new_password2.value=calcMD5(new_password2.value+document.getElementById('user').value);"
+	  . "existing_password.value=calcMD5(existing_password.value+username);"
+	  . "new_password1.value=calcMD5(new_password1.value+username);"
+	  . "new_password2.value=calcMD5(new_password2.value+username);"
 	  . "return true"
 	);
 	say "<table>";
