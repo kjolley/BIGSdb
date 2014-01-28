@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -139,11 +139,9 @@ sub print_page {
 	}
 	return if !$continue;
 	my $user_status;
-	eval {
-		$user_status =
-		  $self->{'datastore'}->run_simple_query( "SELECT status FROM users WHERE user_name=?", $page_attributes{'username'} )->[0];
-	};
-	$logger->error($@) if $@;
+	my $user_status_ref =
+	  $self->{'datastore'}->run_simple_query( "SELECT status FROM users WHERE user_name=?", $page_attributes{'username'} );
+	$user_status = $user_status_ref->[0] if ref $user_status_ref eq 'ARRAY';
 	if ( !defined $user_status || ( $user_status ne 'admin' && $user_status ne 'curator' ) ) {
 		$page_attributes{'error'} = 'invalidCurator';
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
