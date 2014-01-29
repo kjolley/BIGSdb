@@ -1,6 +1,6 @@
 #GenomeComparator.pm - Genome comparison plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.5.9',
+		version     => '1.5.10',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/genome_comparator.shtml',
@@ -779,7 +779,7 @@ sub _run_comparison {
 		my $seqbin_length_sql = $self->{'db'}->prepare("SELECT length(sequence) FROM sequence_bin where id=?");
 		my %status            = ( all_exact => 1, all_missing => 1, exact_except_ref => 1, truncated => 0 );
 		my $first             = 1;
-		my $previous_seq = '';
+		my $previous_seq      = '';
 		my ( $cleaned_locus_name, $text_locus_name );
 
 		if ($by_reference) {
@@ -867,16 +867,14 @@ sub _run_comparison {
 				}
 			}
 			my $style;
-			given ($value) {
-				when ('T') { $style = 'background:green; color:white' }
-				when ('X') { $style = 'background:black; color:white' }
-				default {
-					if ( !$value_colour{$value} ) {
-						$colour++;
-						$value_colour{$value} = $colour;
-					}
-					$style = BIGSdb::Utils::get_style( $value_colour{$value}, scalar @$ids );
+			if    ( $value eq 'T' ) { $style = 'background:green; color:white' }
+			elsif ( $value eq 'X' ) { $style = 'background:black; color:white' }
+			else {
+				if ( !$value_colour{$value} ) {
+					$colour++;
+					$value_colour{$value} = $colour;
 				}
+				$style = BIGSdb::Utils::get_style( $value_colour{$value}, scalar @$ids );
 			}
 			$presence->{$locus_name}++ if $value ne 'X';
 			$self->{'style'}->{$locus_name}->{$value} = $style;
@@ -1396,7 +1394,7 @@ sub _print_variable_loci {
 
 sub _create_alignments {
 	my ( $self, $job_id, $by_reference, $align_file, $align_stats_file, $ids, $loci ) = @_;
-	my $params = $self->{'params'};
+	my $params     = $self->{'params'};
 	my $temp       = BIGSdb::Utils::get_random();
 	my $progress   = 0;
 	my $total      = 2 * ( scalar keys %$loci );                      #need to show progress from 50 - 100%
