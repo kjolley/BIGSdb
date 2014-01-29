@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2010-2013, University of Oxford
+#(c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -541,18 +541,16 @@ sub authenticate {
 
 sub _user_allowed_access {
 	my ( $self, $username ) = @_;
-	given ( $self->{'system'}->{'default_access'} ) {
-		when ('deny') {
-			my $allow_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/users.allow";
-			return 1 if -e $allow_file && $self->_is_name_in_file( $username, $allow_file );
-			return 0;
-		}
-		when ('allow') {
-			my $deny_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/users.deny";
-			return 0 if -e $deny_file && $self->_is_name_in_file( $username, $deny_file );
-			return 1;
-		}
-		default { return 0 }
+	if ( $self->{'system'}->{'default_access'} eq 'deny' ) {
+		my $allow_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/users.allow";
+		return 1 if -e $allow_file && $self->_is_name_in_file( $username, $allow_file );
+		return 0;
+	} elsif ( $self->{'system'}->{'default_access'} eq 'allow' ) {
+		my $deny_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/users.deny";
+		return 0 if -e $deny_file && $self->_is_name_in_file( $username, $deny_file );
+		return 1;
+	} else {
+		return 0;
 	}
 }
 

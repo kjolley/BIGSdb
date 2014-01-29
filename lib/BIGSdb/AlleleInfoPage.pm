@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -256,16 +256,14 @@ sub _print_accessions {
 		say $buffer .= "<dl class=\"data\">\n";
 		foreach my $accession (@$accession_list) {
 			say "<dt>$accession->{'databank'}</dt>";
-			given ( $accession->{'databank'} ) {
-				when ('Genbank') {
-					say "<dd><a href=\"http://www.ncbi.nlm.nih.gov/nuccore/$accession->{'databank_id'}\">"
-					  . "$accession->{'databank_id'}</a></dd>"
-				}
-				when ('ENA') {
-					say "<dd><a href=\"http://www.ebi.ac.uk/ena/data/view/$accession->{'databank_id'}\">"
-					  . "$accession->{'databank_id'}</a></dd>"
-				}
-				default { say "<dd>$accession->{'databank_id'}</dd>" }
+			if ( $accession->{'databank'} eq 'Genbank' ) {
+				say "<dd><a href=\"http://www.ncbi.nlm.nih.gov/nuccore/$accession->{'databank_id'}\">"
+				  . "$accession->{'databank_id'}</a></dd>";
+			} elsif ( $accession->{'databank'} eq 'ENA' ) {
+				say "<dd><a href=\"http://www.ebi.ac.uk/ena/data/view/$accession->{'databank_id'}\">"
+				  . "$accession->{'databank_id'}</a></dd>";
+			} else {
+				say "<dd>$accession->{'databank_id'}</dd>";
 			}
 		}
 		say "</dl></div>\n";

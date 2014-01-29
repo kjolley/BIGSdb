@@ -60,7 +60,7 @@ sub print_content {
 	if ( !$q->param('id') ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>No id passed.</p></div>";
 		return;
-	} elsif (!BIGSdb::Utils::is_int($q->param('id'))){
+	} elsif ( !BIGSdb::Utils::is_int( $q->param('id') ) ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>Invalid id passed.</p></div>";
 		return;
 	} elsif ( !$self->can_modify_table('isolates')
@@ -145,10 +145,8 @@ sub _update {
 		$data->{ lc($field) } //= '';
 		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
 		if ( $att->{'type'} eq 'bool' ) {
-			given ( $data->{ lc($field) } ) {
-				when ('1') { $data->{ lc($field) } = 'true' }
-				when ('0') { $data->{ lc($field) } = 'false' }
-			}
+			if    ( $data->{ lc($field) } eq '1' ) { $data->{ lc($field) } = 'true' }
+			elsif ( $data->{ lc($field) } eq '0' ) { $data->{ lc($field) } = 'false' }
 		}
 		if ( $data->{ lc($field) } ne $newdata->{$field} ) {
 			my $cleaned = $self->clean_value( $newdata->{$field} ) // '';
