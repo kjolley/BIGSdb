@@ -1,6 +1,6 @@
 #FieldBreakdown.pm - TwoFieldBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -38,7 +38,7 @@ sub get_attributes {
 		buttontext  => 'Two Field',
 		menutext    => 'Two field',
 		module      => 'TwoFieldBreakdown',
-		version     => '1.1.1',
+		version     => '1.1.2',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/two_field_breakdown.shtml',
@@ -118,7 +118,6 @@ sub _print_interface {
 		-linebreak => 'true'
 	);
 	say "</fieldset>";
-	
 	say "<fieldset style=\"float:left\"><legend>Calculate percentages by</legend>";
 	say $q->radio_group( -name => 'calcpc', -values => [ 'dataset', 'row', 'column' ], -default => 'dataset', -linebreak => 'true' );
 	say "</fieldset>";
@@ -160,8 +159,11 @@ sub _print_controls {
 		say $q->startform;
 		say $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc);
 		my %pc_toggle = ( dataset => 'row', row => 'column', column => 'dataset' );
-		say $q->submit( -name => 'togglepc', -label => ( 'Calculate percentages by ' . $pc_toggle{ $q->param('calcpc') } ),
-			-class => 'submit' );
+		say $q->submit(
+			-name  => 'togglepc',
+			-label => ( 'Calculate percentages by ' . $pc_toggle{ $q->param('calcpc') } ),
+			-class => 'submit'
+		);
 		say $q->endform;
 		say "</div>";
 	}
@@ -509,8 +511,8 @@ sub _print_charts {
 				$chart->makeChart("$self->{'config'}->{'tmp_dir'}\/$filename");
 				say "<fieldset><legend>Percentages</legend>";
 				say "<a href=\"/tmp/$filename\" rel=\"lightbox-1\" class=\"lightbox\"  title=\"$text_field1 vs $text_field2 "
-				 . "percentage chart\"><img src=\"/tmp/$filename\" alt=\"$text_field1 vs $text_field2 percentage chart\"  "
-				 . "style=\"width:200px;border:1px dashed black\" /></a></fieldset>";
+				  . "percentage chart\"><img src=\"/tmp/$filename\" alt=\"$text_field1 vs $text_field2 percentage chart\"  "
+				  . "style=\"width:200px;border:1px dashed black\" /></a></fieldset>";
 			}
 		}
 		say "</div>";
@@ -543,21 +545,21 @@ sub _get_value_frequency_hashes {
 	foreach ( $field1, $field2 ) {
 		if ( $self->{'xmlHandler'}->is_field( $clean{$_} ) ) {
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($_);
-			$field_type{ $_ } = defined $metaset ? 'metafield' : 'field';
+			$field_type{$_} = defined $metaset ? 'metafield' : 'field';
 			$metafield =~ tr/_/ / if defined $metafield;
 			$print{$_} = $metafield // $clean{$_};
 		} elsif ( $self->{'datastore'}->is_locus( $clean{$_} ) ) {
-			$field_type{ $_ } = 'locus';
-			$print{$_} = $clean{$_};
+			$field_type{$_} = 'locus';
+			$print{$_}      = $clean{$_};
 		} else {
 			if ( $_ =~ /^s_(\d+)_(.*)/ ) {
 				my $scheme_id = $1;
 				my $field     = $2;
 				if ( $self->{'datastore'}->is_scheme_field( $scheme_id, $field ) ) {
-					$clean{$_}                = $field;
-					$print{$_}                = $clean{$_};
-					$field_type{ $_ } = 'scheme_field';
-					$scheme_id{ $_ }  = $scheme_id;
+					$clean{$_}      = $field;
+					$print{$_}      = $clean{$_};
+					$field_type{$_} = 'scheme_field';
+					$scheme_id{$_}  = $scheme_id;
 					my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 					$print{$_} .= " ($scheme_info->{'description'})";
 				}
@@ -565,8 +567,16 @@ sub _get_value_frequency_hashes {
 		}
 	}
 	foreach my $id (@$id_list) {
-		my @values = $self->_get_values( $id, [ $field1, $field2] , \%clean,
-			\%field_type, \%scheme_id, { fetchall => ( @$id_list / $total_isolates >= 0.5 ? 1 : 0 ) } );
+		my @values = $self->_get_values(
+			{
+				isolate_id   => $id,
+				fields       => [ $field1, $field2 ],
+				clean_fields => \%clean,
+				field_type   => \%field_type,
+				scheme_id    => \%scheme_id,
+				options      => { fetchall => ( @$id_list / $total_isolates >= 0.5 ? 1 : 0 ) }
+			}
+		);
 		foreach (qw (0 1)) {
 			$values[$_] = 'No value' if !defined $values[$_] || $values[$_] eq '';
 		}
@@ -581,77 +591,101 @@ sub _get_value_frequency_hashes {
 sub _get_values {
 
 	#If number of records is >=50% of total records, query database and fetch all rows, otherwise call for each record in turn.
-	my ( $self, $isolate_id, $fields, $clean_fields, $field_type, $scheme_id, $options ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $isolate_id, $fields, $clean_fields, $field_type, $scheme_id, $options ) =
+	  @{$args}{qw(isolate_id fields clean_fields field_type scheme_id options)};
 	$options = {} if ref $options ne 'HASH';
 	my @values;
 	foreach my $field (@$fields) {
 		my $value;
-		given ( $field_type->{$field} ) {
-			when ('field') {
-				if ( $options->{'fetchall'} ) {
-					if ( !$self->{'cache'}->{$field} ) {
-						my $sql = $self->{'db'}->prepare("SELECT id, $clean_fields->{$field} FROM $self->{'system'}->{'view'}");
-						eval { $sql->execute };
-						$logger->error($@) if $@;
-						$self->{'cache'}->{$field} = $sql->fetchall_hashref('id');
-					}
-					$value = $self->{'cache'}->{$field}->{$isolate_id}->{$clean_fields->{$field}};
-				} else {
-					if ( !$self->{'sql'}->{'field_value'}->{$field} ) {
-						$self->{'sql'}->{'field_value'}->{$field} =
-						  $self->{'db'}->prepare("SELECT $clean_fields->{$field} FROM $self->{'system'}->{'view'} WHERE id=?");
-						  
-					}
-					eval { $self->{'sql'}->{'field_value'}->{$field}->execute($isolate_id) };
-					$logger->error($@) if $@;
-					($value) = $self->{'sql'}->{'field_value'}->{$field}->fetchrow_array;
-				}
-			}
-			when ('locus') {
-				if ( $options->{'fetchall'} ) {
-					if ( !$self->{'cache'}->{$field} ) {
-						my $sql = $self->{'db'}->prepare("SELECT isolate_id, allele_id FROM allele_designations WHERE locus=?");
-						eval { $sql->execute($clean_fields->{$field}) };
-						$logger->error($@) if $@;
-						$self->{'cache'}->{$field} = $sql->fetchall_hashref('isolate_id');
-					}
-					$value = $self->{'cache'}->{$field}->{$isolate_id}->{'allele_id'};
-				} else {
-					$value = $self->{'datastore'}->get_allele_id( $isolate_id, $clean_fields->{$field} );
-				}
-			}
-			when ('scheme_field') {
-				my $scheme_values = $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id->{$field} );
-				if ( ref $scheme_values eq 'HASH' ) {
-					$value = $scheme_values->{ lc($clean_fields->{$field}) };
-				}
-			}
-			when ('metafield') {
-				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($clean_fields->{$field});
-				if ( $options->{'fetchall'} ) {
-					if ( !$self->{'cache'}->{$field} ) {					
-						my $sql =
-						  $self->{'db'}->prepare( "SELECT isolate_id, $metafield FROM meta_$metaset WHERE isolate_id IN "
-							  . "(SELECT id FROM $self->{'system'}->{'view'})" );
-						eval { $sql->execute };
-						$logger->error($@) if $@;
-						$self->{'cache'}->{$field} = $sql->fetchall_hashref('isolate_id');
-					}
-					$value = $self->{'cache'}->{$field}->{$isolate_id}->{$metafield};					
-				} else {
-					if ( !$self->{'sql'}->{'field_value'}->{$field} ) {
-						$self->{'sql'}->{'field_value'}->{$field} =
-						  $self->{'db'}->prepare("SELECT $metafield FROM meta_$metaset WHERE isolate_id=?");
-					}
-					eval { $self->{'sql'}->{'field_value'}->{$field}->execute($isolate_id) };
-					$logger->error($@) if $@;
-					($value) = $self->{'sql'}->{'field_value'}->{$field}->fetchrow_array;
-				}
-			}
-		}
+		my $sub_args =
+		  { isolate_id => $isolate_id, field => $field, clean_fields => $clean_fields, scheme_id => $scheme_id, options => $options };
+		if    ( $field_type->{$field} eq 'field' )        { $value = $self->_get_field_value($sub_args) }
+		elsif ( $field_type->{$field} eq 'locus' )        { $value = $self->_get_locus_value($sub_args) }
+		elsif ( $field_type->{$field} eq 'scheme_field' ) { $value = $self->_get_scheme_field_value($sub_args) }
+		elsif ( $field_type->{$field} eq 'metafield' )    { $value = $self->_get_metafield_value($sub_args) }
 		push @values, $value;
 	}
 	return @values;
+}
+
+sub _get_field_value {
+	my ( $self, $args ) = @_;
+	my ( $isolate_id, $field, $clean_fields, $options ) = @{$args}{qw(isolate_id field clean_fields options)};
+	my $value;
+	if ( $options->{'fetchall'} ) {
+		if ( !$self->{'cache'}->{$field} ) {
+			my $sql = $self->{'db'}->prepare("SELECT id, $clean_fields->{$field} FROM $self->{'system'}->{'view'}");
+			eval { $sql->execute };
+			$logger->error($@) if $@;
+			$self->{'cache'}->{$field} = $sql->fetchall_hashref('id');
+		}
+		$value = $self->{'cache'}->{$field}->{$isolate_id}->{ $clean_fields->{$field} };
+	} else {
+		if ( !$self->{'sql'}->{'field_value'}->{$field} ) {
+			$self->{'sql'}->{'field_value'}->{$field} =
+			  $self->{'db'}->prepare("SELECT $clean_fields->{$field} FROM $self->{'system'}->{'view'} WHERE id=?");
+		}
+		eval { $self->{'sql'}->{'field_value'}->{$field}->execute($isolate_id) };
+		$logger->error($@) if $@;
+		($value) = $self->{'sql'}->{'field_value'}->{$field}->fetchrow_array;
+	}
+	return $value;
+}
+
+sub _get_locus_value {
+	my ( $self, $args ) = @_;
+	my ( $isolate_id, $field, $clean_fields, $options ) = @{$args}{qw(isolate_id field clean_fields options)};
+	my $value;
+	if ( $options->{'fetchall'} ) {
+		if ( !$self->{'cache'}->{$field} ) {
+			my $sql = $self->{'db'}->prepare("SELECT isolate_id, allele_id FROM allele_designations WHERE locus=?");
+			eval { $sql->execute( $clean_fields->{$field} ) };
+			$logger->error($@) if $@;
+			$self->{'cache'}->{$field} = $sql->fetchall_hashref('isolate_id');
+		}
+		$value = $self->{'cache'}->{$field}->{$isolate_id}->{'allele_id'};
+	} else {
+		$value = $self->{'datastore'}->get_allele_id( $isolate_id, $clean_fields->{$field} );
+	}
+	return $value;
+}
+
+sub _get_scheme_field_value {
+	my ( $self, $args ) = @_;
+	my ( $isolate_id, $field, $clean_fields, $scheme_id, $options ) = @{$args}{qw(isolate_id field clean_fields scheme_id options)};
+	my $value;
+	my $scheme_values = $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id->{$field} );
+	if ( ref $scheme_values eq 'HASH' ) {
+		$value = $scheme_values->{ lc( $clean_fields->{$field} ) };
+	}
+	return $value;
+}
+
+sub _get_metafield_value {
+	my ( $self, $args ) = @_;
+	my ( $isolate_id, $field, $clean_fields, $options ) = @{$args}{qw(isolate_id field clean_fields options)};
+	my $value;
+	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname( $clean_fields->{$field} );
+	if ( $options->{'fetchall'} ) {
+		if ( !$self->{'cache'}->{$field} ) {
+			my $sql =
+			  $self->{'db'}->prepare(
+				"SELECT isolate_id, $metafield FROM meta_$metaset WHERE isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})");
+			eval { $sql->execute };
+			$logger->error($@) if $@;
+			$self->{'cache'}->{$field} = $sql->fetchall_hashref('isolate_id');
+		}
+		$value = $self->{'cache'}->{$field}->{$isolate_id}->{$metafield};
+	} else {
+		if ( !$self->{'sql'}->{'field_value'}->{$field} ) {
+			$self->{'sql'}->{'field_value'}->{$field} = $self->{'db'}->prepare("SELECT $metafield FROM meta_$metaset WHERE isolate_id=?");
+		}
+		eval { $self->{'sql'}->{'field_value'}->{$field}->execute($isolate_id) };
+		$logger->error($@) if $@;
+		($value) = $self->{'sql'}->{'field_value'}->{$field}->fetchrow_array;
+	}
+	return $value;
 }
 
 sub _recalculate_for_attributes {
