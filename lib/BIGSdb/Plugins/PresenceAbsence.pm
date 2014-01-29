@@ -1,6 +1,6 @@
 #PresenceAbsence.pm - Presence/Absence export plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -39,7 +39,7 @@ sub get_attributes {
 		buttontext  => 'Presence/Absence',
 		menutext    => 'Presence/absence status of loci',
 		module      => 'PresenceAbsence',
-		version     => '1.1.2',
+		version     => '1.1.3',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -268,11 +268,9 @@ sub _write_output {
 		my $absent  = $params->{'absent'}  || 'X';
 		foreach my $locus (@$loci) {
 			my $value = '';
-			given ( $params->{'presence'} ) {
-				when ('designations') { $value = $allele_ids->{$locus} ? $present : $absent }
-				when ('tags')         { $value = $tags->{$locus}       ? $present : $absent }
-				default { $value = ( $allele_ids->{$locus} || $tags->{$locus} ) ? $present : $absent }
-			}
+			if    ( $params->{'presence'} eq 'designations' ) { $value = $allele_ids->{$locus} ? $present : $absent }
+			elsif ( $params->{'presence'} eq 'tags' )         { $value = $tags->{$locus}       ? $present : $absent }
+			else                                              { $value = ( $allele_ids->{$locus} || $tags->{$locus} ) ? $present : $absent }
 			print $fh "\t$value";
 			$values->{$id}->{$locus} = $value;
 		}
