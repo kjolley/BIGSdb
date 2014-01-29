@@ -1,6 +1,6 @@
 #BURST.pm - BURST plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -46,7 +46,7 @@ sub get_attributes {
 		buttontext  => 'BURST',
 		menutext    => 'BURST',
 		module      => 'BURST',
-		version     => '1.0.3',
+		version     => '1.0.4',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		section     => 'postquery',
@@ -591,11 +591,9 @@ sub _create_group_graphic {
 
 	# You can get three ATs in a diagonal with a group defined as an SLV of a SLV.
 	# We can only make the canvas medium sized therefore when there is one auxiliary AT.
-	given ($noAT) {
-		when (0) { $size = 11 * $unit }
-		when (1) { $size = 21 * $unit }
-		default  { $size = 29 * $unit }
-	}
+	if    ( $noAT == 0 ) { $size = 11 * $unit }
+	elsif ( $noAT == 1 ) { $size = 21 * $unit }
+	else                 { $size = 29 * $unit }
 	my $buffer = <<"SVG";
 <?xml version="1.0" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
@@ -815,11 +813,9 @@ sub _draw_ring_sts {
 						my $y = int( $posnY->[ $atPosn_ref->[$at] ] + sin( $angle * $k + $angle_offset ) * $unit * $distance );
 						if ( $self->{'cgi'}->param('hide') ) {
 							my $colour;
-							given ($distance) {
-								when (1) { $colour = 'red' }
-								when (2) { $colour = 'blue' }
-								default  { $colour = 'black' }
-							}
+							if    ( $distance == 1 ) { $colour = 'red' }
+							elsif ( $distance == 2 ) { $colour = 'blue' }
+							else                     { $colour = 'black' }
 							$buffer .= "<circle fill=\"$colour\" stroke=\"$colour\" cx=\"$x\" cy=\"$y\" r=\"2\" \/>";
 						} else {
 							$x -= length( $st_ref->[$j] ) * 2;
@@ -856,13 +852,11 @@ sub _draw_spokes {
 
 		for my $run ( 0 .. 4 ) {
 			my ( $anchor, $satellite );
-			given ($run) {
-				when (0) { $anchor = 2; $satellite = 1 }
-				when (1) { $anchor = 1; $satellite = 2 }
-				when (2) { $anchor = 2; $satellite = 2 }
-				when (3) { $anchor = 3; $satellite = 1 }
-				default  { $anchor = 3; $satellite = 2 }
-			}
+			if    ( $run == 0 ) { $anchor = 2; $satellite = 1 }
+			elsif ( $run == 1 ) { $anchor = 1; $satellite = 2 }
+			elsif ( $run == 2 ) { $anchor = 2; $satellite = 2 }
+			elsif ( $run == 3 ) { $anchor = 3; $satellite = 1 }
+			else                { $anchor = 3; $satellite = 2 }
 			my ( @thisgo, $distance );
 			for my $k ( 0 .. $num_sts - 1 ) {
 				my ( $textOffset, $xOffset, $yOffset ) = ( 0, 0, 0 );
