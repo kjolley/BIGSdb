@@ -944,18 +944,15 @@ sub _modify_query_for_filters {
 				my $clause = "(EXISTS (SELECT isolate_id FROM allele_designations WHERE $view.id=allele_designations.isolate_id AND "
 				  . "($allele_clause) GROUP BY isolate_id HAVING COUNT(isolate_id)";
 				my $locus_count = @$scheme_loci;
-				given ($param) {
-					when ('complete') { $clause .= "=$locus_count))" }
-					when ('partial')  { $clause .= "<$locus_count))" }
-					when ('started')  { $clause .= '>0))' }
-					when ('incomplete') {
-						$clause .= "<$locus_count) OR NOT (EXISTS (SELECT isolate_id FROM allele_designations WHERE "
-						  . "$view.id=allele_designations.isolate_id AND ($allele_clause) GROUP BY isolate_id )))";
-					}
-					default {
-						$clause = "(NOT (EXISTS (SELECT isolate_id FROM allele_designations WHERE $view.id=allele_designations.isolate_id "
-						  . "AND ($allele_clause) GROUP BY isolate_id )))";
-					}
+				if    ( $param eq 'complete' ) { $clause .= "=$locus_count))" }
+				elsif ( $param eq 'partial' )  { $clause .= "<$locus_count))" }
+				elsif ( $param eq 'started' )  { $clause .= '>0))' }
+				elsif ( $param eq 'incomplete' ) {
+					$clause .= "<$locus_count) OR NOT (EXISTS (SELECT isolate_id FROM allele_designations WHERE "
+					  . "$view.id=allele_designations.isolate_id AND ($allele_clause) GROUP BY isolate_id )))";
+				} else {
+					$clause = "(NOT (EXISTS (SELECT isolate_id FROM allele_designations WHERE $view.id=allele_designations.isolate_id "
+					  . "AND ($allele_clause) GROUP BY isolate_id )))";
 				}
 				if ( $qry !~ /WHERE \(\)\s*$/ ) {
 					$qry .= "AND $clause";

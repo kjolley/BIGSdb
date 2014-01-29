@@ -80,13 +80,14 @@ sub _print_interface {
 		my $set_clause = '';
 		my $set_id     = $self->get_set_id;
 		if ($set_id) {
-			given ($table) {
-				when ('locus_curators') {
-					#make sure 'id IN' has a space before it - used in the substitution a few lines on (also matches scheme_id otherwise).
-					$set_clause = "AND ( id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM "
-					. "set_schemes WHERE set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))";
-				}
-				when ('scheme_curators'){ $set_clause = "AND ( id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id))" }
+
+			if ( $table eq 'locus_curators' ) {
+
+				#make sure 'id IN' has a space before it - used in the substitution a few lines on (also matches scheme_id otherwise).
+				$set_clause = "AND ( id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM "
+				  . "set_schemes WHERE set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))";
+			} elsif ( $table eq 'scheme_curators' ) {
+				$set_clause = "AND ( id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id))";
 			}
 		}
 		my $available = $self->{'datastore'}->run_list_query(
@@ -159,20 +160,22 @@ sub _perform_action {
 	my $table_data = $self->_get_table_data($table);
 	my $qry;
 	if ( $q->param('add') ) {
-		given ($table) {
-			when ('locus_curators')     { $qry = "INSERT INTO locus_curators(locus,curator_id,hide_public) VALUES (?,?,?)" }
-			when ('scheme_curators')    { $qry = "INSERT INTO scheme_curators(scheme_id,curator_id) VALUES (?,?)" }
-			when ('user_group_members') { $qry = "INSERT INTO user_group_members(user_group,user_id,curator,datestamp) VALUES (?,?,?,?)" }
+		if    ( $table eq 'locus_curators' )  { $qry = "INSERT INTO locus_curators(locus,curator_id,hide_public) VALUES (?,?,?)" }
+		elsif ( $table eq 'scheme_curators' ) { $qry = "INSERT INTO scheme_curators(scheme_id,curator_id) VALUES (?,?)" }
+		elsif ( $table eq 'user_group_members' ) {
+			$qry = "INSERT INTO user_group_members(user_group,user_id,curator,datestamp) VALUES (?,?,?,?)";
 		}
 		my $sql_add = $self->{'db'}->prepare($qry);
 		eval {
 			foreach my $record ( $q->param('available') )
 			{
 				next if $record eq '';
-				given ($table) {
-					when ('locus_curators') { $sql_add->execute( $record, $user_id, ( $q->param('hide_public') ? 'true' : 'false' ) ) }
-					when ('scheme_curators') { $sql_add->execute( $record, $user_id ) }
-					when ('user_group_members') { $sql_add->execute( $record, $user_id, $self->get_curator_id, 'now' ) }
+				if ( $table eq 'locus_curators' ) {
+					$sql_add->execute( $record, $user_id, ( $q->param('hide_public') ? 'true' : 'false' ) );
+				} elsif ( $table eq 'scheme_curators' ) {
+					$sql_add->execute( $record, $user_id );
+				} elsif ( $table eq 'user_group_members' ) {
+					$sql_add->execute( $record, $user_id, $self->get_curator_id, 'now' );
 				}
 			}
 		};
@@ -228,30 +231,26 @@ sub _print_sender_form {
 sub _get_table_data {
 	my ( $self, $table ) = @_;
 	my %values;
-	given ($table) {
-		when ('user_group_members') {
-			%values = (
-				parent     => 'user_groups',
-				plural     => 'user groups',
-				id         => 'id',
-				foreign    => 'user_group',
-				order      => 'description',
-				user_field => 'user_id'
-			  )
-		}
-		when ('locus_curators') {
-			%values = ( parent => 'loci', plural => 'loci', id => 'id', foreign => 'locus', order => 'id', user_field => 'curator_id' )
-		}
-		when ('scheme_curators') {
-			%values = (
-				parent     => 'schemes',
-				plural     => 'schemes',
-				id         => 'id',
-				foreign    => 'scheme_id',
-				order      => 'description',
-				user_field => 'curator_id'
-			  )
-		}
+	if ( $table eq 'user_group_members' ) {
+		%values = (
+			parent     => 'user_groups',
+			plural     => 'user groups',
+			id         => 'id',
+			foreign    => 'user_group',
+			order      => 'description',
+			user_field => 'user_id'
+		);
+	} elsif ( $table eq 'locus_curators' ) {
+		%values = ( parent => 'loci', plural => 'loci', id => 'id', foreign => 'locus', order => 'id', user_field => 'curator_id' );
+	} elsif ( $table eq 'scheme_curators' ) {
+		%values = (
+			parent     => 'schemes',
+			plural     => 'schemes',
+			id         => 'id',
+			foreign    => 'scheme_id',
+			order      => 'description',
+			user_field => 'curator_id'
+		);
 	}
 	return \%values;
 }

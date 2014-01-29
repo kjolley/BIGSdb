@@ -176,18 +176,17 @@ sub print_page_content {
 	}
 	if ( $self->{'type'} ne 'xhtml' ) {
 		my %atts;
-		given ( $self->{'type'} ) {
-			when ('embl') {
-				$atts{'type'} = 'chemical/x-embl-dl-nucleotide';
-				my $id = $q->param('seqbin_id') || $q->param('isolate_id') || '';
-				$atts{'attachment'} = "sequence$id.embl";
-			}
-			when ('tar') {
-				$atts{'type'}       = 'application/x-tar';
-				$atts{'attachment'} = $self->{'attachment'};
-			}
-			when ('no_header') { $atts{'type'} = 'text/html' }
-			default            { $atts{'type'} = 'text/plain' }
+		if ( $self->{'type'} eq 'embl' ) {
+			$atts{'type'} = 'chemical/x-embl-dl-nucleotide';
+			my $id = $q->param('seqbin_id') || $q->param('isolate_id') || '';
+			$atts{'attachment'} = "sequence$id.embl";
+		} elsif ( $self->{'type'} eq 'tar' ) {
+			$atts{'type'}       = 'application/x-tar';
+			$atts{'attachment'} = $self->{'attachment'};
+		} elsif ( $self->{'type'} eq 'no_header' ) {
+			$atts{'type'} = 'text/html';
+		} else {
+			$atts{'type'} = 'text/plain';
 		}
 		$atts{'expires'} = '+1h' if !$self->{'noCache'};
 		print $q->header( \%atts );

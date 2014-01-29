@@ -444,11 +444,9 @@ sub is_locus_field_bad {
 sub define_missing_allele {
 	my ( $self, $locus, $allele ) = @_;
 	my $seq;
-	given ($allele) {
-		when ('0') { $seq = 'null allele' }
-		when ('N') { $seq = 'arbitrary allele' }
-		default    { return }
-	}
+	if    ( $allele eq '0' ) { $seq = 'null allele' }
+	elsif ( $allele eq 'N' ) { $seq = 'arbitrary allele' }
+	else                     { return }
 	my $sql =
 	  $self->{'db'}->prepare( "INSERT INTO sequences (locus, allele_id, sequence, sender, curator, date_entered, datestamp, "
 		  . "status) VALUES (?,?,?,?,?,?,?,?)" );
