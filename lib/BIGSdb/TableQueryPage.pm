@@ -74,7 +74,7 @@ sub print_content {
 		}
 		$self->_print_interface;
 	}
-	if ( $q->param('submit') || defined $q->param('query') || defined $q->param('t1') ) {
+	if ( $q->param('submit') || defined $q->param('query_file') || defined $q->param('t1') ) {
 		$self->_run_query;
 	}
 	return;

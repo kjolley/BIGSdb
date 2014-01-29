@@ -67,7 +67,7 @@ sub print_content {
 			$self->_print_query_interface($scheme_id);
 		}
 	}
-	if ( defined $q->param('query')
+	if ( defined $q->param('query_file')
 		or ( $q->param('attribute') && $q->param('list') ) )
 	{
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {

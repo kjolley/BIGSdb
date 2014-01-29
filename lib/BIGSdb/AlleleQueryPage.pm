@@ -110,9 +110,9 @@ sub print_content {
 			  . "$self->{'instance'}&amp;page=alleleQuery$locus_clause&amp;no_js=1\">non-Javascript version</a> that has 4 combinations "
 			  . "of fields.</p></div></noscript>";
 		}
-		$self->_print_interface();
+		$self->_print_interface;
 	}
-	if (   defined $q->param('query')
+	if (   defined $q->param('query_file')
 		|| defined $q->param('t1') )
 	{
 		if ( $q->param('locus') eq '' ) {
