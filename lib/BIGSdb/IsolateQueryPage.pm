@@ -909,8 +909,9 @@ sub _modify_query_for_filters {
 			}
 		}
 	}
-	$self->_modify_query_by_membership( \$qry, 'refs',            'publication_list', 'isolate_id', $view, 'pubmed_id' );
-	$self->_modify_query_by_membership( \$qry, 'project_members', 'project_list',     'isolate_id', $view, 'project_id' );
+	$self->_modify_query_by_membership( { qry_ref => \$qry, table => 'refs', param => 'publication_list', query_field => 'pubmed_id' } );
+	$self->_modify_query_by_membership(
+		{ qry_ref => \$qry, table => 'project_members', param => 'project_list', query_field => 'project_id' } );
 	if ( $q->param('linked_sequences_list') ) {
 		my $not         = '';
 		my $size_clause = '';
@@ -1005,29 +1006,31 @@ sub _modify_query_for_filters {
 sub _modify_query_by_membership {
 
 	#Modify query for membership of PubMed paper or project
-	my ( $self, $qry_ref, $table, $param, $article, $main_table, $query_field ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $qry_ref, $table, $param, $query_field ) = @{$args}{qw(qry_ref table param query_field)};
 	my $q = $self->{'cgi'};
 	return if !$q->param($param);
 	my @list = $q->param($param);
 	my $subqry;
+	my $view = $self->{'system'}->{'view'};
 	if ( any { $_ eq 'any' } @list ) {
-		$subqry = "$main_table.id IN (SELECT isolate_id FROM $table)";
+		$subqry = "$view.id IN (SELECT isolate_id FROM $table)";
 	}
 	if ( any { $_ eq 'none' } @list ) {
 		$subqry .= ' OR ' if $subqry;
-		$subqry .= "$main_table.id NOT IN (SELECT isolate_id FROM $table)";
+		$subqry .= "$view.id NOT IN (SELECT isolate_id FROM $table)";
 	}
 	if ( any { BIGSdb::Utils::is_int($_) } @list ) {
 		my @int_list = grep { BIGSdb::Utils::is_int($_) } @list;
 		$subqry .= ' OR ' if $subqry;
 		local $" = ',';
-		$subqry .= "$main_table.id IN (SELECT isolate_id FROM $table WHERE $query_field IN (@int_list))";
+		$subqry .= "$view.id IN (SELECT isolate_id FROM $table WHERE $query_field IN (@int_list))";
 	}
 	if ($subqry) {
 		if ( $$qry_ref !~ /WHERE \(\)\s*$/ ) {
 			$$qry_ref .= " AND ($subqry)";
 		} else {
-			$$qry_ref = "SELECT * FROM $main_table WHERE ($subqry)";
+			$$qry_ref = "SELECT * FROM $view WHERE ($subqry)";
 		}
 	}
 	return;
