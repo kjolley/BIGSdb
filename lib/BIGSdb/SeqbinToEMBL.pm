@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -85,11 +85,9 @@ sub write_embl {
 
 			#BIGSdb stored ORF as 1-6.  BioPerl expects 0-2.
 			$locus_info->{'orf'} ||= 0;
-			given ( $locus_info->{'orf'} ) {
-				when ( 2 || 5 ) { $frame = 1 };
-				when ( 3 || 6 ) { $frame = 2 };
-				default { $frame = 0 };
-			}
+			if    ( $locus_info->{'orf'} == 2 || $locus_info->{'orf'} == 5 ) { $frame = 1 }
+			elsif ( $locus_info->{'orf'} == 3 || $locus_info->{'orf'} == 6 ) { $frame = 2 }
+			else                                                             { $frame = 0 }
 			$allele_sequence->{'start_pos'} = 1 if $allele_sequence->{'start_pos'} < 1;
 			my ( $product, $desc );
 			if ( $locus_info->{'dbase_name'} && ( $locus_info->{'description_url'} // '' ) =~ /bigsdb/ ) {

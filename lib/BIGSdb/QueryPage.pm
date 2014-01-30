@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -130,15 +130,13 @@ sub search_users {
 	my $contains    = $suffix ne 'id' ? "upper($suffix) LIKE upper('\%$text\%')" : "CAST($suffix AS text) LIKE ('\%$text\%')";
 	my $starts_with = $suffix ne 'id' ? "upper($suffix) LIKE upper('$text\%')" : "CAST($suffix AS text) LIKE ('$text\%')";
 	my $ends_with   = $suffix ne 'id' ? "upper($suffix) LIKE upper('\%$text')" : "CAST($suffix AS text) LIKE ('\%$text')";
-	given ($operator) {
-		when ('NOT')         { $qry .= "NOT $equals" }
-		when ('contains')    { $qry .= $contains }
-		when ('starts with') { $qry .= $starts_with }
-		when ('ends with')   { $qry .= $ends_with }
-		when ('NOT contain') { $qry .= "NOT $contains" }
-		when ('=')           { $qry .= $equals }
-		default              { $qry .= "$suffix $operator '$text'" }
-	}
+	if    ( $operator eq 'NOT' )         { $qry .= "NOT $equals" }
+	elsif ( $operator eq 'contains' )    { $qry .= $contains }
+	elsif ( $operator eq 'starts with' ) { $qry .= $starts_with }
+	elsif ( $operator eq 'ends with' )   { $qry .= $ends_with }
+	elsif ( $operator eq 'NOT contain' ) { $qry .= "NOT $contains" }
+	elsif ( $operator eq '=' )           { $qry .= $equals }
+	else                                 { $qry .= "$suffix $operator '$text'" }
 	my $ids = $self->{'datastore'}->run_list_query($qry);
 	$ids = [-999] if !@$ids;    #Need to return an integer but not 0 since this is actually the setup user.
 	local $" = "' OR $table.$field = '";

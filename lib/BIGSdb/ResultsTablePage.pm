@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1000,8 +1000,8 @@ sub _get_record_table_info {
 			$linked_data = $self->_data_linked_to_locus($locus);
 			push @headers, 'linked data values' if $linked_data;
 		}
-	} elsif ($table eq 'sequence_bin'){
-		$extended_attributes     = $self->{'datastore'}->run_list_query("SELECT key FROM sequence_attributes ORDER BY key");
+	} elsif ( $table eq 'sequence_bin' ) {
+		$extended_attributes = $self->{'datastore'}->run_list_query("SELECT key FROM sequence_attributes ORDER BY key");
 		my @cleaned = @$extended_attributes;
 		tr/_/ / foreach @cleaned;
 		push @headers, @cleaned;
@@ -1077,10 +1077,9 @@ sub _print_record_table {
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my $ext_sql;
 	if ( $q->param('page') eq 'alleleQuery' && ref $extended_attributes eq 'ARRAY' ) {
-		$ext_sql =
-		 $self->{'db'}->prepare("SELECT value FROM sequence_extended_attributes WHERE locus=? AND field=? AND allele_id=?");
-	} elsif ($table eq 'sequence_bin'){
-		$ext_sql = $self->{'db'}->prepare("SELECT key,value FROM sequence_attribute_values WHERE seqbin_id=?")				
+		$ext_sql = $self->{'db'}->prepare("SELECT value FROM sequence_extended_attributes WHERE locus=? AND field=? AND allele_id=?");
+	} elsif ( $table eq 'sequence_bin' ) {
+		$ext_sql = $self->{'db'}->prepare("SELECT key,value FROM sequence_attribute_values WHERE seqbin_id=?");
 	}
 	while ( $sql->fetchrow_arrayref ) {
 		my @query_values;
@@ -1119,36 +1118,29 @@ sub _print_record_table {
 					$value = $data{ lc($field) };
 				}
 				$value = $self->clean_locus($value);
-				given ($table) {
-					when ('sequences') {
-						print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;"
-						  . "@query_values\">$value</a></td>";
+				if ( $table eq 'sequences' ) {
+					print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;"
+					  . "@query_values\">$value</a></td>";
+				} elsif ( $table eq 'history' ) {
+					if ( $field eq 'isolate_id' ) {
+						print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;"
+						  . "id=$data{'isolate_id'}\">$value</a></td>";
+					} else {
+						$value =~ s/\..*$//;    #Remove fractions of second from output
+						print "<td>$value</td>";
 					}
-					when ('history') {
-						if ( $field eq 'isolate_id' ) {
-							print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;"
-							  . "id=$data{'isolate_id'}\">$value</a></td>";
-						} else {
-							$value =~ s/\..*$//;    #Remove fractions of second from output
-							print "<td>$value</td>";
-						}
+				} elsif ( $table eq 'profile_history' ) {
+					if ( $field eq 'profile_id' ) {
+						print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileInfo&amp;"
+						  . "scheme_id=$data{'scheme_id'}&amp;profile_id=$data{'profile_id'}\">$value</a></td>";
+					} else {
+						if ( $field eq 'timestamp' ) { $value =~ s/\..*$// }
+						elsif ( $field eq 'scheme_id' ) { $value = $scheme_info->{'description'} }
+						print "<td>$value</td>";
 					}
-					when ('profile_history') {
-						if ( $field eq 'profile_id' ) {
-							print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileInfo&amp;"
-							  . "scheme_id=$data{'scheme_id'}&amp;profile_id=$data{'profile_id'}\">$value</a></td>";
-						} else {
-							given ($field) {
-								when ('timestamp') { $value =~ s/\..*$// }
-								when ('scheme_id') { $value = $scheme_info->{'description'} }
-							}
-							print "<td>$value</td>";
-						}
-					}
-					default {
-						print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=recordInfo&amp;"
-						  . "table=$table&amp;@query_values\">$value</a></td>";
-					}
+				} else {
+					print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=recordInfo&amp;"
+					  . "table=$table&amp;@query_values\">$value</a></td>";
 				}
 			} elsif ( $table_info->{'type'}->{$field} eq 'bool' ) {
 				if ( $data{ lc($field) } eq '' ) {
@@ -1186,7 +1178,7 @@ sub _print_record_table {
 					$fields_to_query->{$field} = \@fields_to_query;
 					local $" = ',';
 					$foreign_key_sql{$field} =
-					  $self->{'db'}->prepare( "select @fields_to_query from $table_info->{'foreign_key'}->{$field} WHERE id=?" );
+					  $self->{'db'}->prepare("select @fields_to_query from $table_info->{'foreign_key'}->{$field} WHERE id=?");
 				}
 				eval { $foreign_key_sql{$field}->execute( $data{ lc($field) } ) };
 				$logger->error($@) if $@;
@@ -1232,17 +1224,16 @@ sub _print_record_table {
 				my ($value) = $ext_sql->fetchrow_array;
 				print defined $value ? "<td>$value</td>" : '<td></td>';
 			}
-		} elsif ($table eq 'sequence_bin'){
-			eval { $ext_sql->execute($data{'id'})};
+		} elsif ( $table eq 'sequence_bin' ) {
+			eval { $ext_sql->execute( $data{'id'} ) };
 			$logger->error($@) if $@;
 			my %ext_data;
-			while (my $data = $ext_sql->fetchrow_hashref){
-				$ext_data{$data->{'key'}} = $data->{'value'};
+			while ( my $data = $ext_sql->fetchrow_hashref ) {
+				$ext_data{ $data->{'key'} } = $data->{'value'};
 			}
 			foreach (@$extended_attributes) {
 				my $value = $ext_data{$_} // '';
 				print "<td>$value</td>";
-				
 			}
 		}
 		if ( $table_info->{'linked_data'} ) {

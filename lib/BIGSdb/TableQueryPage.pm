@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -621,11 +621,9 @@ s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bi
 		}
 		$qry .= " ORDER BY $table.";
 		my $default_order;
-		given ($table) {
-			when ('sequences') { $default_order = 'locus' }
-			when ('history')   { $default_order = 'timestamp' }
-			default            { $default_order = 'id' }
-		}
+		if    ( $table eq 'sequences' ) { $default_order = 'locus' }
+		elsif ( $table eq 'history' )   { $default_order = 'timestamp' }
+		else                            { $default_order = 'id' }
 		$qry .= $q->param('order') || $default_order;
 		my $dir = $q->param('direction') eq 'descending' ? 'desc' : 'asc';
 		my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
@@ -684,11 +682,9 @@ sub _modify_schemes_for_sets {
 	my ( $self, $table, $qry_ref ) = @_;
 	my $set_id = $self->get_set_id;
 	my $identifier;
-	given ($table) {
-		when ('schemes')        { $identifier = 'id' }
-		when ('scheme_members') { $identifier = 'scheme_id' }
-		default                 { return }
-	}
+	if    ( $table eq 'schemes' )        { $identifier = 'id' }
+	elsif ( $table eq 'scheme_members' ) { $identifier = 'scheme_id' }
+	else                                 { return }
 	if ($set_id) {
 		$$qry_ref .= ' AND ' if $$qry_ref;
 		$$qry_ref .= " ($table.$identifier IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id))";

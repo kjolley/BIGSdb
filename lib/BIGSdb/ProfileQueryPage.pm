@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -272,7 +272,7 @@ sub _run_query {
 					$type = 'date';
 				}
 				my $operator = $q->param("y$i") // '=';
-				my $text     = $q->param("t$i");
+				my $text = $q->param("t$i");
 				$self->process_value( \$text );
 				next
 				  if !( $scheme_info->{'allow_missing_loci'} && $is_locus && $text eq 'N' && $operator ne '<' && $operator ne '>' )
@@ -294,17 +294,15 @@ sub _run_query {
 					  ? "$cleaned is null"
 					  : ( $type eq 'text' ? "upper($cleaned) = upper('$text')" : "$cleaned = '$text'" );
 					$equals .= " OR $cleaned = 'N'" if $is_locus && $scheme_info->{'allow_missing_loci'};
-					given ($operator) {
-						when ('NOT') { $qry .= $text eq 'null' ? "(not $equals)" : "((NOT $equals) OR $cleaned IS NULL)" }
-						when ('contains')    { $qry .= "(upper($cleaned) LIKE upper('\%$text\%'))" }
-						when ('starts with') { $qry .= "(upper($cleaned) LIKE upper('$text\%'))" }
-						when ('ends with')   { $qry .= "(upper($cleaned) LIKE upper('\%$text'))" }
-						when ('NOT contain') { $qry .= "(NOT upper($cleaned) LIKE upper('\%$text\%') OR $cleaned IS NULL)" }
-						when ('=')           { $qry .= "($equals)" }
-						default {
-							$qry .= ( $type eq 'integer' ? "(to_number(textcat('0', $cleaned), text(99999999))" : "($cleaned" )
-							  . " $operator '$text')"
-						}
+					if ( $operator eq 'NOT' ) { $qry .= $text eq 'null' ? "(not $equals)" : "((NOT $equals) OR $cleaned IS NULL)" }
+					elsif ( $operator eq 'contains' )    { $qry .= "(upper($cleaned) LIKE upper('\%$text\%'))" }
+					elsif ( $operator eq 'starts with' ) { $qry .= "(upper($cleaned) LIKE upper('$text\%'))" }
+					elsif ( $operator eq 'ends with' )   { $qry .= "(upper($cleaned) LIKE upper('\%$text'))" }
+					elsif ( $operator eq 'NOT contain' ) { $qry .= "(NOT upper($cleaned) LIKE upper('\%$text\%') OR $cleaned IS NULL)" }
+					elsif ( $operator eq '=' )           { $qry .= "($equals)" }
+					else {
+						$qry .= ( $type eq 'integer' ? "(to_number(textcat('0', $cleaned), text(99999999))" : "($cleaned" )
+						  . " $operator '$text')";
 					}
 				}
 			}
@@ -351,7 +349,7 @@ sub _run_query {
 		}
 		$qry .= " ORDER BY" . ( $order ne $primary_key ? " $order $dir,$profile_id_field;" : " $profile_id_field $dir;" );
 	} else {
-		$qry = $self->get_query_from_temp_file($q->param('query_file'));
+		$qry = $self->get_query_from_temp_file( $q->param('query_file') );
 	}
 	if (@errors) {
 		local $" = '<br />';
