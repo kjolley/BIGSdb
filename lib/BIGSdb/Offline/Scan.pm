@@ -241,6 +241,7 @@ sub run_script {
 	say $seqs_fh "locus\tallele_id\tstatus\tsequence";
 	close $seqs_fh;
 	$self->_write_status( $options->{'scan_job'}, "start_time:$start_time", { reset => 1 } );
+	$self->_write_match( $options->{'scan_job'}, undef, { reset => 1 });
 	$logger->info("Scan $self->{'instance'}:$options->{'scan_job'} ($options->{'curator_name'}) started");
 	my $table_file = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'scan_job'}_table.html";
 	unlink $table_file;    #delete file if scan restarted
@@ -318,6 +319,7 @@ sub run_script {
 					$new_matches{$match_key} = 1;
 					$show_key = 1 if $off_end;
 					$td = $td == 1 ? 2 : 1;
+					$self->_write_match( $options->{'scan_job'}, "$isolate_id:$locus:$i" );
 					$i++;
 				}
 				$isolates_to_tag{$isolate_id} = 1;
@@ -364,6 +366,7 @@ sub run_script {
 						}
 					}
 					$td = $td == 1 ? 2 : 1;
+					$self->_write_match( $options->{'scan_job'}, "$isolate_id:$locus:$i" );
 					$i++;
 				}
 				$isolates_to_tag{$isolate_id} = 1;
@@ -376,6 +379,7 @@ sub run_script {
 					$new_designation              = 1;
 					$td                           = $td == 1 ? 2 : 1;
 					$isolates_to_tag{$isolate_id} = 1;
+					$self->_write_match( $options->{'scan_job'}, "$isolate_id:$locus:$i" );
 				}
 			}
 			if ($row_buffer) {
@@ -982,6 +986,19 @@ sub _read_status {
 	}
 	close $fh;
 	return \%data;
+}
+
+sub _write_match {
+	#Write matches to a file in secure_tmp that can be read by tagging page.
+	my ( $self, $scan_job, $data, $options ) = @_;
+	$data //= '';
+	$options = {} if ref $options ne 'HASH';
+	my $match_file = "$self->{'config'}->{'secure_tmp_dir'}/$scan_job\_matches.txt";
+	unlink $match_file if $options->{'reset'};
+	open( my $fh, '>>', $match_file ) || $logger->error("Can't open $match_file for appending");
+	say $fh $data;
+	close $fh;
+	return;
 }
 
 sub _simulate_PCR {
