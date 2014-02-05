@@ -65,7 +65,7 @@ sub print_page {
 		deleteAll          => 'CurateDeleteAllPage',
 		update             => 'CurateUpdatePage',
 		isolateAdd         => 'CurateIsolateAddPage',
-		query              => ( $self->{'system'}->{'dbtype'} eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage' ),
+		query              => ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage' ),
 		browse             => 'BrowsePage',
 		listQuery          => 'ListQueryPage',
 		isolateDelete      => 'CurateIsolateDeletePage',
