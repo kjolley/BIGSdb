@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,7 @@
 package BIGSdb::CurateTableHeaderPage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::Page);
 use List::MoreUtils qw(none);
 use Log::Log4perl qw(get_logger);
@@ -35,7 +36,7 @@ sub print_content {
 	my @headers;
 	my $table = $self->{'cgi'}->param('table') || '';
 	if ( !$self->{'datastore'}->is_table($table) && !@{ $self->{'xmlHandler'}->get_sample_field_list } ) {
-		print "Table $table does not exist!\n";
+		say "Table $table does not exist!";
 		return;
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
@@ -48,6 +49,8 @@ sub print_content {
 				push @headers, qw(aliases references);
 			}
 		}
+		my $isolate_loci = $self->_get_isolate_loci;
+		push @headers, @$isolate_loci;
 	} elsif ( $table eq 'profiles' ) {
 		my $scheme_id = $self->{'cgi'}->param('scheme') || 0;
 		my $primary_key;
@@ -58,11 +61,11 @@ sub print_content {
 		};
 		$logger->error($@) if $@;
 		my $set_id = $self->get_set_id;
-
 		push @headers, $primary_key;
 		my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-		foreach my $locus (@$loci){
-			my $label = $self->{'datastore'}->get_set_locus_label($locus, $set_id);
+
+		foreach my $locus (@$loci) {
+			my $label = $self->{'datastore'}->get_set_locus_label( $locus, $set_id );
 			push @headers, $label // $locus;
 		}
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
@@ -96,7 +99,46 @@ sub print_content {
 		}
 	}
 	local $" = "\t";
-	print "@headers";
+	say "@headers";
 	return;
+}
+
+sub _get_isolate_loci {
+	my ($self) = @_;
+	my $set_id = $self->get_set_id;
+	my @headers;
+	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
+	if ( @$loci < 20 ) {
+		my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+		my %locus_used;
+		foreach my $scheme (@$schemes) {
+			my $scheme_loci = $self->{'datastore'}->get_scheme_loci( $scheme->{'id'} );
+			foreach my $locus (@$scheme_loci) {
+				if ( !$locus_used{$locus} ) {
+					my $cleaned_name = $self->clean_locus( $locus, { no_common_name => 1, text_output => 1 } );
+					push @headers, $cleaned_name;
+					$locus_used{$locus} = 1;
+				}
+			}
+		}
+		my $loci_in_no_scheme = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
+		foreach my $locus (@$loci_in_no_scheme) {
+			if ( !$locus_used{$locus} ) {
+				my $cleaned_name = $self->clean_locus( $locus, { no_common_name => 1, text_output => 1 } );
+				push @headers, $cleaned_name;
+				$locus_used{$locus} = 1;
+			}
+		}
+	} else {    #Just list MLST loci
+		my $scheme_id_ref = $self->{'datastore'}->run_simple_query("SELECT id FROM schemes WHERE description = 'MLST'");
+		if ( ref $scheme_id_ref eq 'ARRAY' ) {
+			my $scheme_loci = $self->{'datastore'}->get_scheme_loci( $scheme_id_ref->[0] );
+			foreach my $locus (@$scheme_loci) {
+				my $cleaned_name = $self->clean_locus( $locus, { no_common_name => 1, text_output => 1 } );
+				push @headers, $cleaned_name;
+			}
+		}
+	}
+	return \@headers;
 }
 1;
