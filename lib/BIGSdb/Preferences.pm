@@ -94,8 +94,8 @@ sub get_new_guid {
 		$self->{'db'}->commit;
 	};
 	if ($@) {
-		$logger->error("Can't create new guid");
-		throw BIGSdb::PrefstoreConfigurationException("Can't create new guid");
+		$logger->error($@);
+		throw BIGSdb::PrefstoreConfigurationException("Can't create new guid. $@");
 	}
 	return $guid;
 }
