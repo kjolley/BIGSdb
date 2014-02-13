@@ -412,7 +412,7 @@ sub _insert {
 					&& ( $self->{'permissions'}->{'set_user_passwords'} || $self->is_admin ) )
 				{
 					say " | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=setPassword&amp;"
-					  . "user=$newdata->{'user_name'}\">Set password";
+					  . "user=$newdata->{'user_name'}\">Set password</a>";
 				}
 			}
 			say " | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
