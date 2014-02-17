@@ -96,6 +96,8 @@ sub print_content {
 					push @headers, @$extended_attributes;
 				}
 			}
+		} elsif ($table eq 'loci' && $self->{'system'}->{'dbtype'} eq 'sequences'){
+			push @headers, qw(full_name product description);
 		}
 	}
 	local $" = "\t";

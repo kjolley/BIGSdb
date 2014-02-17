@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -291,6 +291,8 @@ sub _check_data {
 			$required_extended_exist =
 			  $self->{'datastore'}->run_list_query("SELECT DISTINCT locus FROM locus_extended_attributes WHERE required");
 		}
+	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' && $table eq 'loci' ) {
+		push @fieldorder, qw(full_name product description);
 	}
 	my ( $firstname, $surname, $userid );
 	my $sender_message = '';
@@ -844,8 +846,8 @@ sub _check_data_duplicates {
 
 	#check if unique value exists twice in submission
 	my ( $self, $arg_ref ) = @_;
-	my $field          = $arg_ref->{'field'};
-	my $value          = ${ $arg_ref->{'value'} };
+	my $field = $arg_ref->{'field'};
+	my $value = ${ $arg_ref->{'value'} };
 	return if !defined $value;
 	my $pk_combination = $arg_ref->{'pk_combination'};
 	if ( $arg_ref->{'unique_field'}->{$field} ) {
@@ -1331,7 +1333,13 @@ sub _upload_data {
 					}
 				}
 				if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-					push @inserts, "INSERT INTO locus_descriptions (locus,curator,datestamp) VALUES ('$id',$curator,'now')";
+					my $full_name =
+					  defined $fieldorder{'full_name'} && $data[ $fieldorder{'full_name'} ] ? $data[ $fieldorder{'full_name'} ] : '';
+					my $product = defined $fieldorder{'product'} && $data[ $fieldorder{'product'} ] ? $data[ $fieldorder{'product'} ] : '';
+					my $description =
+					  defined $fieldorder{'description'} && $data[ $fieldorder{'description'} ] ? $data[ $fieldorder{'description'} ] : '';
+					push @inserts, "INSERT INTO locus_descriptions (locus,curator,datestamp,full_name,product,description) VALUES "
+					  . "('$id',$curator,'now','$full_name','$product','$description')";
 				}
 			} elsif ( $table eq 'users' ) {
 				$qry = "INSERT INTO user_group_members (user_id,user_group,curator,datestamp) VALUES ($id,0,$curator,'today')";
@@ -1516,6 +1524,8 @@ sub _get_field_table_header {
 					push @headers, @$extended_attributes_ref;
 				}
 			}
+		} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' && $table eq 'loci' ) {
+			push @headers, qw(full_name product description);
 		}
 	}
 	local $" = "</th><th>";
