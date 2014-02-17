@@ -1244,7 +1244,7 @@ sub _upload_data {
 					}
 				} elsif ( $table eq 'sequences' && !defined $fieldorder{$field} && $locus ) {
 					( my $cleaned_locus = $locus ) =~ s/'/\\'/g;
-					push @value_list, "'$cleaned_locus'";
+					push @value_list, "E'$cleaned_locus'";
 				} else {
 					push @value_list, 'null';
 				}
