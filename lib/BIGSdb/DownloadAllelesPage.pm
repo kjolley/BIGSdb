@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -461,7 +461,7 @@ sub _print_locus_row {
 sub _print_alphabetical_list {
 	my ($self) = @_;
 	my $locus_pattern = LOCUS_PATTERN;
-	foreach my $letter ( 0 .. 9, 'A' .. 'Z' ) {
+	foreach my $letter ( 0 .. 9, 'A' .. 'Z', "'" ) {
 		if ( $ENV{'MOD_PERL'} ) {
 			return if $self->{'mod_perl_request'}->connection->aborted;
 			$self->{'mod_perl_request'}->rflush;
@@ -473,17 +473,20 @@ sub _print_alphabetical_list {
 			$names{"l_$_"}                            = $self->clean_locus($_)             foreach @$main;
 			$names{"cn_$_->{'id'}"}                   = "$_->{'common_name'} [$_->{'id'}]" foreach @$common;
 			$names{"la_$_->{'locus'}||$_->{'alias'}"} = "$_->{'alias'} [$_->{'locus'}]"    foreach @$aliases;
-			my $descs_exist =
-			  $self->{'datastore'}->run_simple_query( "SELECT 1 WHERE EXISTS(SELECT locus FROM locus_descriptions "
-				  . "WHERE locus IN (SELECT id FROM loci WHERE UPPER(id) LIKE E'$qry_letter%' OR upper(common_name) LIKE E'$qry_letter%') "
-				  . "OR locus IN (SELECT locus FROM locus_aliases WHERE UPPER(alias) LIKE E'$qry_letter%'))" );
+			my $descs_exist = $self->{'datastore'}->run_simple_query(
+				"SELECT 1 WHERE EXISTS(SELECT locus FROM locus_descriptions WHERE locus IN (SELECT id FROM loci WHERE UPPER(id) LIKE ? OR "
+				  . "upper(common_name) LIKE ?) OR locus IN (SELECT locus FROM locus_aliases WHERE UPPER(alias) LIKE ?))",
+				("$qry_letter%") x 3
+			);
 			my $aliases_exist =
 			  $self->{'datastore'}
-			  ->run_simple_query( "SELECT 1 WHERE EXISTS(SELECT locus FROM locus_aliases " . "WHERE alias LIKE E'$qry_letter%')" );
-			my $curators_exist =
-			  $self->{'datastore'}->run_simple_query( "SELECT 1 WHERE EXISTS(SELECT locus FROM locus_curators "
-				  . "WHERE (locus IN (SELECT id FROM loci WHERE UPPER(id) LIKE E'$qry_letter%' OR upper(common_name) LIKE E'$qry_letter%') "
-				  . "OR locus IN (SELECT locus FROM locus_aliases WHERE UPPER(alias) LIKE E'$qry_letter%')) AND NOT hide_public)" );
+			  ->run_simple_query( "SELECT 1 WHERE EXISTS(SELECT locus FROM locus_aliases WHERE alias LIKE ?)", "$qry_letter%" );
+			my $curators_exist = $self->{'datastore'}->run_simple_query(
+				"SELECT 1 WHERE EXISTS(SELECT locus FROM locus_curators WHERE (locus IN (SELECT id FROM loci WHERE UPPER(id) LIKE ? OR "
+				  . "upper(common_name) LIKE ?) OR locus IN (SELECT locus FROM locus_aliases WHERE UPPER(alias) LIKE ?)) AND NOT "
+				  . "hide_public)",
+				("$qry_letter%") x 3
+			);
 			print "<h2>$letter</h2>\n";
 			print "<table class=\"resultstable\">";
 			$self->_print_table_header_row(
@@ -514,12 +517,13 @@ sub _get_loci_by_letter {
 	  ? "AND ( id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
 	  . "set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 	  : '';
-	my $main = $self->{'datastore'}->run_list_query("SELECT id FROM loci WHERE UPPER(id) LIKE E'$letter%' $set_clause");
+	my $main = $self->{'datastore'}->run_list_query( "SELECT id FROM loci WHERE UPPER(id) LIKE ? $set_clause", "$letter%" );
 	my $common =
-	  $self->{'datastore'}->run_list_query_hashref("SELECT id,common_name FROM loci WHERE UPPER(common_name) LIKE E'$letter%' $set_clause");
+	  $self->{'datastore'}
+	  ->run_list_query_hashref( "SELECT id,common_name FROM loci WHERE UPPER(common_name) LIKE ? $set_clause", "$letter%" );
 	$set_clause =~ s/ id IN/ locus IN/g;
 	my $aliases =
-	  $self->{'datastore'}->run_list_query_hashref("SELECT locus,alias FROM locus_aliases WHERE alias ILIKE E'$letter%' $set_clause");
+	  $self->{'datastore'}->run_list_query_hashref( "SELECT locus,alias FROM locus_aliases WHERE alias ILIKE ? $set_clause", "$letter%" );
 	return ( $main, $common, $aliases );
 }
 1;
