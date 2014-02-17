@@ -1,6 +1,6 @@
 #SchemeBreakdown.pm - SchemeBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -37,7 +37,7 @@ sub get_attributes {
 		buttontext  => 'Schemes/alleles',
 		menutext    => 'Scheme and alleles',
 		module      => 'SchemeBreakdown',
-		version     => '1.1.2',
+		version     => '1.1.3',
 		section     => 'breakdown,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/scheme_breakdown.shtml',
 		input       => 'query',
@@ -383,7 +383,7 @@ sub _print_scheme_table {
 			$scheme_query =~ s/FROM $self->{'system'}->{'view'}/FROM $self->{'system'}->{'view'} LEFT JOIN refs ON refs.isolate_id=id/;
 		}
 		if ( $$qry_ref =~ /WHERE (.*)$/ ) {
-			$scheme_query .= " AND ($1)";
+			$scheme_query .= " WHERE ($1)";
 		}
 		local $" = ",scheme_$scheme_id.";
 		my $field_string = "scheme_$scheme_id.@$fields";
