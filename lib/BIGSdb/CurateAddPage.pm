@@ -503,9 +503,10 @@ sub _check_allele_data {
 			push @$problems, "Field '$field' does not conform to specified format.\n";
 		} else {
 			$field =~ s/'/\\'/g;
+			$newdata->{$field} =~ s/'/\\'/g;
 			if ( $newdata->{$field} ne '' ) {
 				my $insert = "INSERT INTO sequence_extended_attributes(locus,field,allele_id,value,datestamp,curator) "
-				  . "VALUES (E'$cleaned_locus','$field','$newdata->{'allele_id'}','$newdata->{$field}','now',$newdata->{'curator'})";
+				  . "VALUES (E'$cleaned_locus','$field','$newdata->{'allele_id'}',E'$newdata->{$field}','now',$newdata->{'curator'})";
 				push @$extra_inserts, $insert;
 			}
 		}
