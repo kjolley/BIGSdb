@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.5.10',
+		version     => '1.6.0',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/genome_comparator.shtml',
@@ -451,13 +451,31 @@ HTML
  &nbsp;<i>i</i>&nbsp;</a></li>
  </ul></fieldset>
 HTML
-	say "<fieldset style=\"float:left\"><legend>Excluded loci</legend>";
-	say "Exclude from distance matrix calculations:";
+	say "<fieldset style=\"float:left\"><legend>Truncated loci</legend>";
+	say "In distance matrix calculations:";
 	say "<ul><li>";
-	say $q->checkbox( -name => 'exclude_truncated', -id => 'exclude_truncated', -label => 'Truncated alleles', -checked => 'checked' );
+	my $labels = {
+		exclude       => 'Completely exclude from analysis',
+		include_as_T  => 'Treat as distinct allele',
+		pairwise_same => 'Ignore in pairwise comparison'
+	};
+	say $q->radio_group(
+		-name      => 'truncated',
+		-id        => 'truncated',
+		-values    => [qw (exclude include_as_T pairwise_same)],
+		-labels    => $labels,
+		-linebreak => 'true'
+	);
 	say "</li><li>";
-	say $q->checkbox( -name => 'exclude_paralogous', -id => 'exclude_paralogous', -label => 'Paralogous alleles', -checked => 'checked' );
 	say "</ul>";
+	say "</fieldset>";
+	say "<fieldset style=\"float:left\"><legend>Paralogous loci</legend>";
+	say $q->checkbox(
+		-name    => 'exclude_paralogous',
+		-id      => 'exclude_paralogous',
+		-label   => 'Exclude paralogous alleles',
+		-checked => 'checked'
+	);
 	say "</fieldset>";
 	$self->print_sequence_filter_fieldset;
 	$self->print_action_fieldset( { name => 'GenomeComparator' } );
@@ -489,7 +507,16 @@ sub _analyse_by_loci {
 	$file_buffer .= "Allele numbers are used where these have been defined, otherwise sequences will be marked as 'New#1, "
 	  . "'New#2' etc.\nMissing alleles are marked as 'X'. Truncated alleles (located at end of contig) are marked as 'T'.\n\n";
 	$self->_print_isolate_header( 0, $ids, \$file_buffer, \$html_buffer, );
-	$self->_run_comparison( 0, $job_id, $ids, $loci, \$html_buffer, \$file_buffer );
+	$self->_run_comparison(
+		{
+			by_reference    => 0,
+			job_id          => $job_id,
+			ids             => $ids,
+			cds             => $loci,
+			html_buffer_ref => \$html_buffer,
+			file_buffer_ref => \$file_buffer
+		}
+	);
 	$self->delete_temp_files("$job_id*");
 	return;
 }
@@ -498,7 +525,7 @@ sub _generate_splits {
 	my ( $self, $job_id, $values, $ignore_loci_ref, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => "Generating distance matrix" } );
-	my $dismat = $self->_generate_distance_matrix( $values, $ignore_loci_ref );
+	my $dismat = $self->_generate_distance_matrix( $values, $ignore_loci_ref, $options );
 	my $nexus_file = $self->_make_nexus_file( $job_id, $dismat, $options );
 	$self->{'jobManager'}->update_job_output(
 		$job_id,
@@ -566,7 +593,7 @@ sub _get_identifier {
 }
 
 sub _generate_distance_matrix {
-	my ( $self, $values, $ignore_loci_ref ) = @_;
+	my ( $self, $values, $ignore_loci_ref, $options ) = @_;
 	my @ids = sort { $a <=> $b } keys %$values;
 	my %ignore_loci = map { $_ => 1 } @$ignore_loci_ref;
 	my $dismat;
@@ -576,7 +603,16 @@ sub _generate_distance_matrix {
 			foreach my $locus ( keys %{ $values->{ $ids[$i] } } ) {
 				next if $ignore_loci{$locus};
 				if ( $values->{ $ids[$i] }->{$locus} ne $values->{ $ids[$j] }->{$locus} ) {
-					$dismat->{ $ids[$i] }->{ $ids[$j] }++;
+					if ( ( $options->{'truncated'} // '' ) eq 'pairwise_same' ) {
+						if (   ( $values->{ $ids[$i] }->{$locus} eq 'T' && $values->{ $ids[$j] }->{$locus} eq 'X' )
+							|| ( $values->{ $ids[$i] }->{$locus} eq 'X' && $values->{ $ids[$j] }->{$locus} eq 'T' )
+							|| ( $values->{ $ids[$i] }->{$locus} ne 'T' && $values->{ $ids[$j] }->{$locus} ne 'T' ) )
+						{
+							$dismat->{ $ids[$i] }->{ $ids[$j] }++;
+						}
+					} else {
+						$dismat->{ $ids[$i] }->{ $ids[$j] }++;
+					}
 				}
 			}
 		}
@@ -607,8 +643,13 @@ sub _make_nexus_file {
 			$labels{$id} = $self->_get_identifier($id);
 		}
 	}
-	my $num_taxa   = @ids;
-	my $truncated  = '[Truncated loci ' . ( $options->{'exclude_truncated'} ? 'excluded from' : 'included in' ) . ' analysis]';
+	my $num_taxa         = @ids;
+	my $truncated_labels = {
+		exclude       => 'completely excluded from analysis',
+		include_as_T  => "included as a special allele indistinguishable from other truncated alleles",
+		pairwise_same => 'ignored in pairwise comparisons unless locus is missing in one isolate'
+	};
+	my $truncated  = "[Truncated loci are $truncated_labels->{$options->{'truncated'}}]";
 	my $paralogous = '';
 	if ( $options->{'by_reference'} ) {
 		$paralogous = '[Paralogous loci ' . ( $options->{'exclude_paralogous'} ? 'excluded from' : 'included in' ) . ' analysis]';
@@ -688,7 +729,16 @@ sub _analyse_by_reference {
 	$file_buffer .= "Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'. \n"
 	  . "Truncated alleles (located at end of contig) are marked as 'T'.\n\n";
 	$self->_print_isolate_header( 1, $ids, \$file_buffer, \$html_buffer, );
-	$self->_run_comparison( 1, $job_id, $ids, \@cds, \$html_buffer, \$file_buffer );
+	$self->_run_comparison(
+		{
+			by_reference    => 1,
+			job_id          => $job_id,
+			ids             => $ids,
+			cds             => \@cds,
+			html_buffer_ref => \$html_buffer,
+			file_buffer_ref => \$file_buffer
+		}
+	);
 	return;
 }
 
@@ -728,7 +778,9 @@ sub _extract_cds_details {
 }
 
 sub _run_comparison {
-	my ( $self, $by_reference, $job_id, $ids, $cds, $html_buffer_ref, $file_buffer_ref ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $by_reference, $job_id, $ids, $cds, $html_buffer_ref, $file_buffer_ref ) =
+	  @{$args}{qw(by_reference job_id ids cds html_buffer_ref file_buffer_ref)};
 	my ( $progress, $seqs_total, $td, $order_count ) = ( 0, 0, 1, 1 );
 	my $params      = $self->{'params'};
 	my $total       = ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $by_reference ) ) ) ? ( @$cds * 2 ) : @$cds;
@@ -976,17 +1028,33 @@ sub _print_reports {
 	my $distances;
 
 	if ( $params->{'align'} ) {
-		$distances = $self->_create_alignments( $job_id, $args->{'by_reference'},
-			$align_file, $align_stats_file, $ids, ( $params->{'align_all'} ? $loci : $locus_class->{'varying'} ) );
+		$distances = $self->_create_alignments(
+			{
+				job_id           => $job_id,
+				by_reference     => $args->{'by_reference'},
+				align_file       => $align_file,
+				align_stats_file => $align_stats_file,
+				ids              => $ids,
+				loci             => ( $params->{'align_all'} ? $loci : $locus_class->{'varying'} )
+			}
+		);
 	}
 	return if $self->{'exit'};
-	$self->_print_variable_loci( $args->{'by_reference'}, $ids, $html_buffer_ref, $job_file, $locus_class->{'varying'}, $values );
-	$self->_print_missing_in_all( $args->{'by_reference'}, $ids, $html_buffer_ref, $job_file, $locus_class->{'all_missing'}, $values );
-	$self->_print_exact_matches( $args->{'by_reference'}, $ids, $html_buffer_ref, $job_file, $locus_class->{'all_exact'}, $values );
+	my %table_args = (
+		by_reference => $args->{'by_reference'},
+		ids          => $ids,
+		buffer_ref   => $html_buffer_ref,
+		job_filename => $job_file,
+		values       => $values
+	);
+	##no critic (ProhibitCommaSeparatedStatements) #false positives below
+	$self->_print_variable_loci( { %table_args, loci => $locus_class->{'varying'} } );
+	$self->_print_missing_in_all( { %table_args, loci => $locus_class->{'all_missing'} } );
+	$self->_print_exact_matches( { %table_args, loci => $locus_class->{'all_exact'} } );
 	if ( $args->{'by_reference'} ) {
-		$self->_print_exact_except_ref( $ids, $html_buffer_ref, $job_file, $locus_class->{'exact_except_ref'}, $values );
+		$self->_print_exact_except_ref( { %table_args, loci => $locus_class->{'exact_except_ref'} } );
 	}
-	$self->_print_truncated_loci( $args->{'by_reference'}, $ids, $html_buffer_ref, $job_file, $locus_class->{'truncated'}, $values );
+	$self->_print_truncated_loci( { %table_args, loci => $locus_class->{'truncated'}, truncated_param => $params->{'truncated'} } );
 	if ( !$args->{'seqs_total'} && $args->{'by_reference'} ) {
 		$$html_buffer_ref .= "<p class=\"statusbad\">No sequences were extracted from reference file.</p>\n";
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$html_buffer_ref } );
@@ -1003,13 +1071,14 @@ sub _print_reports {
 	}
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$html_buffer_ref } );
 	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Main output file' } );
-	my @ignore_loci = $params->{'exclude_truncated'} ? keys %{ $locus_class->{'truncated'} } : ();
+	my @ignore_loci;
+	push @ignore_loci, keys %{ $locus_class->{'truncated'} } if ( $params->{'truncated'} // '' ) eq 'exclude';
 	push @ignore_loci, @paralogous if $params->{'exclude_paralogous'};
 	$self->_generate_splits(
 		$job_id, $values,
 		\@ignore_loci,
 		{
-			exclude_truncated  => $params->{'exclude_truncated'},
+			truncated          => $params->{'truncated'},
 			exclude_paralogous => $params->{'exclude_paralogous'},
 			by_reference       => $args->{'by_reference'}
 		}
@@ -1377,7 +1446,9 @@ sub _print_isolate_header {
 }
 
 sub _print_variable_loci {
-	my ( $self, $by_reference, $ids, $buffer_ref, $job_filename, $loci, $values ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $by_reference, $ids, $buffer_ref, $job_filename, $loci, $values ) =
+	  @{$args}{qw(by_reference ids buffer_ref job_filename loci values)};
 	return if ref $loci ne 'HASH';
 	$$buffer_ref .= "<h3>Loci with sequence differences among isolates:</h3>";
 	my $file_buffer = "\n###\n\n";
@@ -1387,13 +1458,16 @@ sub _print_variable_loci {
 	$file_buffer .= "Variable loci: " . ( scalar keys %$loci ) . "\n\n";
 	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
 	print $job_fh $file_buffer;
-	$self->_print_locus_table( $by_reference, $ids, $buffer_ref, $job_fh, $loci, $values );
+	$self->_print_locus_table(
+		{ by_reference => $by_reference, ids => $ids, buffer_ref => $buffer_ref, fh => $job_fh, loci => $loci, values => $values } );
 	close $job_fh;
 	return;
 }
 
 sub _create_alignments {
-	my ( $self, $job_id, $by_reference, $align_file, $align_stats_file, $ids, $loci ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $job_id, $by_reference, $align_file, $align_stats_file, $ids, $loci ) =
+	  @{$args}{qw(job_id by_reference align_file align_stats_file ids loci)};
 	my $params     = $self->{'params'};
 	my $temp       = BIGSdb::Utils::get_random();
 	my $progress   = 0;
@@ -1537,7 +1611,9 @@ sub _run_muscle {
 }
 
 sub _print_exact_matches {
-	my ( $self, $by_reference, $ids, $buffer_ref, $job_filename, $exacts, $values ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $by_reference, $ids, $buffer_ref, $job_filename, $exacts, $values ) =
+	  @{$args}{qw(by_reference ids buffer_ref job_filename loci values)};
 	return if ref $exacts ne 'HASH';
 	$$buffer_ref .= "<h3>Exactly matching loci</h3>\n";
 	my $file_buffer = "\n###\n\n";
@@ -1555,13 +1631,16 @@ sub _print_exact_matches {
 	$file_buffer .= "Matches: " . ( scalar keys %$exacts ) . "\n\n";
 	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
 	print $job_fh $file_buffer;
-	$self->_print_locus_table( $by_reference, $ids, $buffer_ref, $job_fh, $exacts, $values );
+	$self->_print_locus_table(
+		{ by_reference => $by_reference, ids => $ids, buffer_ref => $buffer_ref, fh => $job_fh, loci => $exacts, values => $values } );
 	close $job_fh;
 	return;
 }
 
 sub _print_exact_except_ref {
-	my ( $self, $ids, $buffer_ref, $job_filename, $exacts, $values ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $by_reference, $ids, $buffer_ref, $job_filename, $exacts, $values ) =
+	  @{$args}{qw(by_reference ids buffer_ref job_filename loci values)};
 	return if ref $exacts ne 'HASH';
 	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
 	$$buffer_ref .= "<h3>Loci exactly the same in all compared genomes except the reference</h3>";
@@ -1570,13 +1649,16 @@ sub _print_exact_except_ref {
 	print $job_fh "------------------------------------------------------------------\n\n";
 	$$buffer_ref .= "<p>Matches: " . ( scalar keys %$exacts ) . "</p>";
 	print $job_fh "Matches: " . ( scalar keys %$exacts ) . "\n\n";
-	$self->_print_locus_table( 1, $ids, $buffer_ref, $job_fh, $exacts, $values );
+	$self->_print_locus_table(
+		{ by_reference => 1, ids => $ids, buffer_ref => $buffer_ref, fh => $job_fh, loci => $exacts, values => $values } );
 	close $job_fh;
 	return;
 }
 
 sub _print_missing_in_all {
-	my ( $self, $by_reference, $ids, $buffer_ref, $job_filename, $missing, $values ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $by_reference, $ids, $buffer_ref, $job_filename, $missing, $values ) =
+	  @{$args}{qw(by_reference ids buffer_ref job_filename loci values)};
 	return if ref $missing ne 'HASH';
 	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
 	$$buffer_ref .= "<h3>Loci missing in all isolates</h3>";
@@ -1585,13 +1667,16 @@ sub _print_missing_in_all {
 	print $job_fh "----------------------------\n\n";
 	$$buffer_ref .= "<p>Missing loci: " . ( scalar keys %$missing ) . "</p>";
 	print $job_fh "Missing loci: " . ( scalar keys %$missing ) . "\n\n";
-	$self->_print_locus_table( $by_reference, $ids, $buffer_ref, $job_fh, $missing, $values );
+	$self->_print_locus_table(
+		{ by_reference => $by_reference, ids => $ids, buffer_ref => $buffer_ref, fh => $job_fh, loci => $missing, values => $values } );
 	close $job_fh;
 	return;
 }
 
 sub _print_truncated_loci {
-	my ( $self, $by_reference, $ids, $buffer_ref, $job_filename, $truncated, $values ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $by_reference, $ids, $buffer_ref, $job_filename, $truncated, $truncated_param, $values ) =
+	  @{$args}{qw(by_reference ids buffer_ref job_filename loci truncated_param values)};
 	return if ref $truncated ne 'HASH';
 	$$buffer_ref .= "<h3>Loci that are truncated in some isolates</h3>";
 	my $file_buffer = "\n###\n\n";
@@ -1599,18 +1684,23 @@ sub _print_truncated_loci {
 	$file_buffer .= "----------------------------------------\n\n";
 	$$buffer_ref .= "<p>Truncated: " . ( scalar keys %$truncated ) . "</p>";
 	$file_buffer .= "Truncated: " . ( scalar keys %$truncated ) . "\n\n";
-	$$buffer_ref .= "<p>These loci are incomplete and located at the ends of contigs in at least one isolate. "
-	  . "They have been excluded from the distance matrix calculation.</p>";
+	$$buffer_ref .= "<p>These loci are incomplete and located at the ends of contigs in at least one isolate. ";
+	if ( $truncated_param eq 'exclude' ) {
+		$$buffer_ref .= "They have been excluded from the distance matrix calculation.";
+	}
+	$$buffer_ref .= "</p>";
 	$file_buffer .= "These loci are incomplete and located at the ends of contigs in at least one isolate.\n\n";
 	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
 	print $job_fh $file_buffer;
-	$self->_print_locus_table( $by_reference, $ids, $buffer_ref, $job_fh, $truncated, $values );
+	$self->_print_locus_table(
+		{ by_reference => $by_reference, ids => $ids, buffer_ref => $buffer_ref, fh => $job_fh, loci => $truncated, values => $values } );
 	close $job_fh;
 	return;
 }
 
 sub _print_locus_table {
-	my ( $self, $by_reference, $ids, $buffer_ref, $fh, $loci, $values ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $by_reference, $ids, $buffer_ref, $fh, $loci, $values ) = @{$args}{qw(by_reference ids buffer_ref fh loci values)};
 	my $file_buffer;
 	$self->_print_isolate_header( $by_reference, $ids, \$file_buffer, $buffer_ref );
 	print $fh $file_buffer;
@@ -1674,7 +1764,7 @@ sub _blast {
 			-query           => $in_file,
 			-out             => $out_file,
 			-outfmt          => 6,
-			"-$filter"       => 'no'
+			-$filter         => 'no'
 		)
 	);
 	return;
