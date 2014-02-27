@@ -1047,14 +1047,13 @@ sub _print_reports {
 		job_filename => $job_file,
 		values       => $values
 	);
-	##no critic (ProhibitCommaSeparatedStatements) #false positives below
-	$self->_print_variable_loci( { %table_args, loci => $locus_class->{'varying'} } );
-	$self->_print_missing_in_all( { %table_args, loci => $locus_class->{'all_missing'} } );
-	$self->_print_exact_matches( { %table_args, loci => $locus_class->{'all_exact'} } );
+	$self->_print_variable_loci( { loci => $locus_class->{'varying'}, %table_args } );
+	$self->_print_missing_in_all( { loci => $locus_class->{'all_missing'}, %table_args } );
+	$self->_print_exact_matches( { loci => $locus_class->{'all_exact'}, %table_args } );
 	if ( $args->{'by_reference'} ) {
-		$self->_print_exact_except_ref( { %table_args, loci => $locus_class->{'exact_except_ref'} } );
+		$self->_print_exact_except_ref( { loci => $locus_class->{'exact_except_ref'}, %table_args } );
 	}
-	$self->_print_truncated_loci( { %table_args, loci => $locus_class->{'truncated'}, truncated_param => $params->{'truncated'} } );
+	$self->_print_truncated_loci( { loci => $locus_class->{'truncated'}, truncated_param => $params->{'truncated'}, %table_args } );
 	if ( !$args->{'seqs_total'} && $args->{'by_reference'} ) {
 		$$html_buffer_ref .= "<p class=\"statusbad\">No sequences were extracted from reference file.</p>\n";
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$html_buffer_ref } );
