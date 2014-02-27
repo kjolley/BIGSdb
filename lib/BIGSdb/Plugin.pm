@@ -112,17 +112,31 @@ function listbox_selectall(listID, isSelect) {
 		listbox.options[count].selected = isSelect;
 	}
 }
-function list_show() {
-	\$("#locus_paste_list_div").show(500);
-	\$("#list_show_button").hide(0);
-	\$("#list_hide_button").show(0);
+
+function isolate_list_show() {
+	\$("#isolate_paste_list_div").show(500);
+	\$("#isolate_list_show_button").hide(0);
+	\$("#isolate_list_hide_button").show(0);
 }
 
-function list_hide() {
+function isolate_list_hide() {
+	\$("#isolate_paste_list_div").hide(500);
+	\$("#isolate_paste_list").val('');
+	\$("#isolate_list_show_button").show(0);
+	\$("#isolate_list_hide_button").hide(0);
+}
+
+function locus_list_show() {
+	\$("#locus_paste_list_div").show(500);
+	\$("#locus_list_show_button").hide(0);
+	\$("#locus_list_hide_button").show(0);
+}
+
+function locus_list_hide() {
 	\$("#locus_paste_list_div").hide(500);
 	\$("#locus_paste_list").val('');
-	\$("#list_show_button").show(0);
-	\$("#list_hide_button").hide(0);
+	\$("#locus_list_show_button").show(0);
+	\$("#locus_list_hide_button").hide(0);
 }
 
 \$(document).ready(function() 
@@ -509,7 +523,8 @@ sub get_selected_fields {
 }
 
 sub get_loci_from_pasted_list {
-	my ($self) = @_;
+	my ($self, $options) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
 	my ( @cleaned_loci, @invalid_loci );
 	if ( $q->param('locus_paste_list') ) {
@@ -531,9 +546,42 @@ sub get_loci_from_pasted_list {
 				push @invalid_loci, $locus;
 			}
 		}
-		$q->delete('locus_paste_list');
+		$q->delete('locus_paste_list') if !@invalid_loci && !$options->{'dont_clear'};
 	}
 	return ( \@cleaned_loci, \@invalid_loci );
+}
+
+sub get_ids_from_pasted_list {
+	my ($self, $options) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $q = $self->{'cgi'};
+	my ( @cleaned_ids, @invalid_ids );
+	if ( $q->param('isolate_paste_list') ) {
+		my @list = split /\n/, $q->param('isolate_paste_list');
+		foreach my $id (@list) {
+			next if $id =~ /^\s*$/;
+			$id =~ s/^\s*//;
+			$id =~ s/\s*$//;
+			if ( BIGSdb::Utils::is_int($id) && $self->isolate_exists($id) ) {
+				push @cleaned_ids, $id;
+			} else {
+				push @invalid_ids, $id;
+			}
+		}
+		$q->delete('isolate_paste_list') if !@invalid_ids && !$options->{'dont_clear'};
+	}
+	return ( \@cleaned_ids, \@invalid_ids );
+}
+
+sub isolate_exists {
+	my ( $self, $id ) = @_;
+	if ( !$self->{'sql'}->{'id_exists'} ) {
+		$self->{'sql'}->{'id_exists'} = $self->{'db'}->prepare("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'} WHERE id=?)");
+	}
+	eval { $self->{'sql'}->{'id_exists'}->execute($id) };
+	$logger->error($@) if $@;
+	my $exists = $self->{'sql'}->{'id_exists'}->fetchrow_array;
+	return $exists;
 }
 
 sub print_sequence_export_form {
@@ -661,22 +709,48 @@ sub print_seqbin_isolate_fieldset {
 	my $q = $self->{'cgi'};
 	my ( $ids, $labels ) = $self->get_isolates_with_seqbin($options);
 	say "<fieldset style=\"float:left\">\n<legend>Isolates</legend>";
-	say $q->scrolling_list(
-		-name     => 'isolate_id',
-		-id       => 'isolate_id',
-		-values   => $ids,
-		-labels   => $labels,
-		-size     => 8,
-		-multiple => 'true',
-		-default  => $options->{'selected_ids'},
-		-required => 'required'
-	);
-	print <<"HTML";
-<div style="text-align:center"><input type="button" onclick='listbox_selectall("isolate_id",true)' value="All" style="margin-top:1em" 
-class="smallbutton" /><input type="button" onclick='listbox_selectall("isolate_id",false)' value="None" style="margin-top:1em" 
-class="smallbutton" /></div>
-</fieldset>
+	if (@$ids) {
+		say "<div style=\"float:left\">";
+		say $q->scrolling_list(
+			-name     => 'isolate_id',
+			-id       => 'isolate_id',
+			-values   => $ids,
+			-labels   => $labels,
+			-size     => 8,
+			-multiple => 'true',
+			-default  => $options->{'selected_ids'},
+		);
+		my $list_button = '';
+		if ( $options->{'isolate_paste_list'} ) {
+			my $show_button_display = $q->param('isolate_paste_list') ? 'none'    : 'display';
+			my $hide_button_display = $q->param('isolate_paste_list') ? 'display' : 'none';
+			$list_button =
+			    qq(<input type="button" id="isolate_list_show_button" onclick='isolate_list_show()' value="Paste list" )
+			  . qq(style="margin-top:1em; display:$show_button_display" class="smallbutton" />)
+			  . qq(<input type="button" id="isolate_list_hide_button" onclick='isolate_list_hide()' value="Hide list" )
+			  . qq(style="margin-top:1em; display:$hide_button_display" class="smallbutton" />);
+		}
+		print <<"HTML";
+	<div style="text-align:center"><input type="button" onclick='listbox_selectall("isolate_id",true)' value="All" style="margin-top:1em" 
+	class="smallbutton" /><input type="button" onclick='listbox_selectall("isolate_id",false)' value="None" style="margin-top:1em" 
+	class="smallbutton" />$list_button</div></div>
 HTML
+		if ( $options->{'isolate_paste_list'} ) {
+			my $display = $q->param('isolate_paste_list') ? 'block' : 'none';
+			say "<div id=\"isolate_paste_list_div\" style=\"float:left; display:$display\">";
+			say $q->textarea(
+				-name        => 'isolate_paste_list',
+				-id          => 'isolate_paste_list',
+				-cols        => 12,
+				-rows        => 7,
+				-placeholder => 'Paste list of isolate ids...'
+			);
+			say "</div>";
+		}
+	} else {
+		say "No isolates available<br />for analysis";
+	}
+	say "</fieldset>";
 	return;
 }
 
@@ -699,10 +773,13 @@ sub print_isolates_locus_fieldset {
 		);
 		my $list_button = '';
 		if ( $options->{'locus_paste_list'} ) {
-			$list_button = 
-			    qq(<input type="button" id="list_show_button" onclick='list_show()' value="Paste list" style="margin-top:1em" )
-			  . qq(class="smallbutton" /><input type="button" id="list_hide_button" onclick='list_hide()' value="Hide list" )
-			  . qq(style="margin-top:1em; display:none" class="smallbutton" />);
+			my $show_button_display = $q->param('locus_paste_list') ? 'none'    : 'display';
+			my $hide_button_display = $q->param('locus_paste_list') ? 'display' : 'none';
+			$list_button =
+			    qq(<input type="button" id="locus_list_show_button" onclick='locus_list_show()' value="Paste list" )
+			  . qq(style="margin-top:1em; display:$show_button_display" class="smallbutton" />)
+			  . qq(<input type="button" id="locus_list_hide_button" onclick='locus_list_hide()' value="Hide list" )
+			  . qq(style="margin-top:1em; display:$hide_button_display" class="smallbutton" />);
 		}
 		say <<"HTML";
 <div style="text-align:center"><input type="button" onclick='listbox_selectall("locus",true)' value="All" style="margin-top:1em" class="smallbutton" />

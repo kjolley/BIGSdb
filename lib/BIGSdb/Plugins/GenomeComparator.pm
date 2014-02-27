@@ -214,12 +214,21 @@ sub run {
 	if ( $q->param('submit') ) {
 		my @ids = $q->param('isolate_id');
 		$q->delete('isolate_id');
+		my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list( { dont_clear => 1 } );
+		push @ids, @$pasted_cleaned_ids;
+		@ids = uniq @ids;
+		my $continue = 1;
+		my $error;
+		if (@$invalid_ids) {
+			local $" = ', ';
+			$error    = "<p>The following isolates in your pasted list are invalid: @$invalid_ids.</p>\n";
+			$continue = 0;
+		}
 		my $ref_upload = $q->param('ref_upload') ? $self->_upload_ref_file : undef;
 		my $filtered_ids = $self->filter_ids_by_project( \@ids, $q->param('project_list') );
-		my $continue = 1;
 		if ( !@$filtered_ids ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>You must include one or more isolates. Make sure your "
-			  . "selected isolates haven't been filtered to none by selecting a project.</p></div>";
+			$error .= "<p>You must include one or more isolates. Make sure your selected isolates haven't been filtered to none by "
+			  . "selecting a project.</p>\n";
 			$continue = 0;
 		}
 		my $max_genomes =
@@ -227,28 +236,29 @@ sub run {
 		  ? $self->{'system'}->{'genome_comparator_limit'}
 		  : MAX_GENOMES;
 		if ( @$filtered_ids > $max_genomes ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>Genome Comparator analysis is limited to $max_genomes isolates.  You have "
-			  . "selected "
-			  . @$filtered_ids
-			  . ".</p></div>";
+			$error .=
+			  "<p>Genome Comparator analysis is limited to $max_genomes isolates.  You have " . "selected " . @$filtered_ids . ".</p>\n";
 			$continue = 0;
 		}
 		my $loci_selected = $self->get_selected_loci;
-		my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list;
+		my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list( { dont_clear => 1 } );
 		$q->delete('locus');
 		push @$loci_selected, @$pasted_cleaned_loci;
 		@$loci_selected = uniq @$loci_selected;
 		if (@$invalid_loci) {
 			local $" = ', ';
-			say "<div class=\"box\" id=\"statusbad\"><p>The following loci in your pasted list are invalid: @$invalid_loci.</p></div>";
+			$error .= "<p>The following loci in your pasted list are invalid: @$invalid_loci.</p>\n";
 			$continue = 0;
 		}
 		$self->add_scheme_loci($loci_selected);
 		my $accession = $q->param('accession') || $q->param('annotation');
 		if ( !$accession && !$ref_upload && !@$loci_selected && $continue ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>You must either select one or more loci or schemes, provide "
-			  . "a genome accession number, or upload an annotated genome.</p></div>";
+			$error .= "<p>You must either select one or more loci or schemes, provide "
+			  . "a genome accession number, or upload an annotated genome.</p>\n";
 			$continue = 0;
+		}
+		if ($error) {
+			say "<div class=\"box statusbad\">$error</div>";
 		}
 		$q->param( 'ref_upload', $ref_upload ) if $ref_upload;
 		if ( $q->param('calc_distances') ) {
@@ -258,6 +268,8 @@ sub run {
 		}
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		if ($continue) {
+			$q->delete('isolate_paste_list');
+			$q->delete('locus_paste_list');
 			my $params = $q->Vars;
 			my $set_id = $self->get_set_id;
 			$params->{'set_id'} = $set_id if $set_id;
@@ -338,7 +350,7 @@ annotated reference genome and compare using the loci defined in that.</p>
 HTML
 	say $q->start_form;
 	say "<div class=\"scrollable\">";
-	$self->print_seqbin_isolate_fieldset( { use_all => $use_all, selected_ids => $selected_ids } );
+	$self->print_seqbin_isolate_fieldset( { use_all => $use_all, selected_ids => $selected_ids, isolate_paste_list => 1 } );
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
 	$self->print_includes_fieldset( { title => 'Include in identifiers', preselect => $self->{'system'}->{'labelfield'} } );
 	$self->print_scheme_fieldset;

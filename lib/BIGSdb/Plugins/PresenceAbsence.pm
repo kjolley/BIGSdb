@@ -197,16 +197,7 @@ sub get_extra_form_elements {
 	return;
 }
 
-sub _isolate_exists {
-	my ( $self, $params, $id ) = @_;
-	if ( !$self->{'sql'}->{'id_exists'} ) {
-		$self->{'sql'}->{'id_exists'} = $self->{'db'}->prepare("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'} WHERE id=?)");
-	}
-	eval { $self->{'sql'}->{'id_exists'}->execute($id) };
-	$logger->error($@) if $@;
-	my $exists = $self->{'sql'}->{'id_exists'}->fetchrow_array;
-	return $exists;
-}
+
 
 sub _write_output {
 	my ( $self, $job_id, $params, $ids, $loci, $filename, ) = @_;
@@ -240,7 +231,7 @@ sub _write_output {
 			push @problem_ids, $id;
 			next;
 		} else {
-			my $id_exists = $self->_isolate_exists( $params, $id );
+			my $id_exists = $self->isolate_exists( $id );
 			if ( !$id_exists ) {
 				push @problem_ids, $id;
 				next;
