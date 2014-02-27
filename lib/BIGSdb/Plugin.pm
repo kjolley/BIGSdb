@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -114,7 +114,15 @@ function listbox_selectall(listID, isSelect) {
 }
 function list_show() {
 	\$("#locus_paste_list_div").show(500);
-	\$("#list_show_button").hide(500);
+	\$("#list_show_button").hide(0);
+	\$("#list_hide_button").show(0);
+}
+
+function list_hide() {
+	\$("#locus_paste_list_div").hide(500);
+	\$("#locus_paste_list").val('');
+	\$("#list_show_button").show(0);
+	\$("#list_hide_button").hide(0);
 }
 
 \$(document).ready(function() 
@@ -691,8 +699,10 @@ sub print_isolates_locus_fieldset {
 		);
 		my $list_button = '';
 		if ( $options->{'locus_paste_list'} ) {
-			$list_button = qq(<input type="button" id="list_show_button" onclick='list_show()' value="Paste list" style="margin-top:1em" 
-				class="smallbutton" />);
+			$list_button = 
+			    qq(<input type="button" id="list_show_button" onclick='list_show()' value="Paste list" style="margin-top:1em" )
+			  . qq(class="smallbutton" /><input type="button" id="list_hide_button" onclick='list_hide()' value="Hide list" )
+			  . qq(style="margin-top:1em; display:none" class="smallbutton" />);
 		}
 		say <<"HTML";
 <div style="text-align:center"><input type="button" onclick='listbox_selectall("locus",true)' value="All" style="margin-top:1em" class="smallbutton" />
