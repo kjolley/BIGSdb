@@ -35,7 +35,7 @@ sub initiate {
 		$self->{'noCache'}    = 1;
 		return;
 	} else {
-		$self->{$_} = 1 foreach qw(jQuery jQuery.slimbox noCache);
+		$self->{$_} = 1 foreach qw(jQuery jQuery.slimbox jQuery.tablesort noCache);
 	}
 	return if !defined $id;
 	my $job = $self->{'jobManager'}->get_job($id);
@@ -88,6 +88,7 @@ END
 		.children('.ui-progressbar-value')
     	.html($percent + '%')
     	.css("display", "block");
+    \$("#sortTable").tablesorter({widgets:['zebra']});     
 });
 END
 	return $buffer;
