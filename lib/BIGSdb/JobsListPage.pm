@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2013, University of Oxford
+#Copyright (c) 2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -27,7 +27,7 @@ my $logger = get_logger('BIGSdb.Page');
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw(jQuery jQuery.tablesort);
+	$self->{$_} = 1 foreach qw(jQuery jQuery.tablesort noCache);
 	$self->{'refresh'} = 60;
 	return;
 }
