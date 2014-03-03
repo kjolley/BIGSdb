@@ -151,7 +151,6 @@ sub choose_set {
 
 sub print_page_content {
 	my ($self) = @_;
-	binmode STDOUT, ":encoding(utf8)";
 	my $q = $self->{'cgi'};
 	$" = ' ';    ## no critic (RequireLocalizedPunctuationVars) #ensure reset when running under mod_perl
 	if ( ( $q->param('page') // '' ) eq 'plugin' ) {
@@ -193,6 +192,7 @@ sub print_page_content {
 		print $q->header( \%atts );
 		$self->print_content;
 	} else {
+		binmode STDOUT, ":encoding(utf8)";
 		if ( !$q->cookie( -name => 'guid' ) && $self->{'prefstore'} ) {
 			my $guid = $self->{'prefstore'}->get_new_guid;
 			push @{ $self->{'cookies'} }, $q->cookie( -name => 'guid', -value => $guid, -expires => '+10y' );
