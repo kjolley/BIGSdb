@@ -174,6 +174,7 @@ sub print_page_content {
 		$self->initiate_prefs;
 		$self->initiate_view( $self->{'username'}, $self->{'curate'} );
 	}
+	$q->charset('UTF-8');
 	if ( $self->{'type'} ne 'xhtml' ) {
 		my %atts;
 		if ( $self->{'type'} eq 'embl' ) {
@@ -196,8 +197,7 @@ sub print_page_content {
 			my $guid = $self->{'prefstore'}->get_new_guid;
 			push @{ $self->{'cookies'} }, $q->cookie( -name => 'guid', -value => $guid, -expires => '+10y' );
 			$self->{'setOptions'} = 1;
-		}
-		$q->charset('UTF-8');
+		}		
 		my %header_options;
 		$header_options{'-cookie'} = $self->{'cookies'} if $self->{'cookies'};
 		$header_options{'-expires'} = '+1h' if !$self->{'noCache'};
