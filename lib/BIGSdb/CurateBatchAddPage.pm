@@ -417,6 +417,8 @@ sub _check_data {
 					$self->_check_data_users( \%args );
 				} elsif ( $table eq 'scheme_group_group_members' ) {
 					$self->_check_data_scheme_group_group_members( \%args );
+				} elsif ( $table eq 'isolates' ) {
+					$self->_check_data_refs( \%args );
 				}
 
 				#Display field - highlight in red if invalid.
@@ -759,11 +761,34 @@ sub _check_data_users {
 	my $value          = ${ $arg_ref->{'value'} };
 	my $pk_combination = $arg_ref->{'pk_combination'};
 	if ( $field eq 'status' ) {
-		if ( defined $value && $value ne 'user' && !$self->is_admin() ) {
-			my $problem_text = "Only a user with admin status can add a user with a status other than 'user'<br />";
+		if ( defined $value && $value ne 'user' && !$self->is_admin ) {
+			my $problem_text = "Only a user with admin status can add a user with a status other than 'user'.<br />";
 			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text
 			  if !defined $arg_ref->{'problems'}->{$pk_combination} || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/;
 			${ $arg_ref->{'special_problem'} } = 1;
+		}
+	}
+	return;
+}
+
+sub _check_data_refs {
+
+	#special case to check that references are added as list of integers
+	my ( $self, $arg_ref ) = @_;
+	my $field          = $arg_ref->{'field'};
+	my $value          = ${ $arg_ref->{'value'} };
+	my $pk_combination = $arg_ref->{'pk_combination'};
+	if ( $field eq 'references' ) {
+		if ( defined $value ) {
+			$value =~ s/\s//g;
+			my @refs = split /;/, $value;
+			foreach my $ref (@refs) {
+				if ( !BIGSdb::Utils::is_int($ref) ) {
+					my $problem_text = "References are PubMed ids - $ref is not an integer.<br />";
+					$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
+					${ $arg_ref->{'special_problem'} } = 1;
+				}
+			}
 		}
 	}
 	return;
