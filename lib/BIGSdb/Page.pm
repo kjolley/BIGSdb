@@ -183,6 +183,9 @@ sub print_page_content {
 		} elsif ( $self->{'type'} eq 'tar' ) {
 			$atts{'type'}       = 'application/x-tar';
 			$atts{'attachment'} = $self->{'attachment'};
+		} elsif ($self->{'type'} eq 'xlsx'){
+			$atts{'type'}       = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+			$atts{'attachment'} = $self->{'attachment'};
 		} elsif ( $self->{'type'} eq 'no_header' ) {
 			$atts{'type'} = 'text/html';
 		} else {

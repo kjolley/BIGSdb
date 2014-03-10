@@ -33,13 +33,22 @@ sub initiate {
 
 sub print_content {
 	my ($self) = @_;
-	my @headers;
+	
 	my $table = $self->{'cgi'}->param('table') || '';
 	if ( !$self->{'datastore'}->is_table($table) && !@{ $self->{'xmlHandler'}->get_sample_field_list } ) {
 		say "Table $table does not exist!";
 		return;
 	}
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
+	my $headers = $self->get_headers($table);
+	local $" = "\t";
+	say "@$headers";
+	return;
+}
+
+sub get_headers {
+	my ($self, $table) = @_;
+	my @headers;
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		my $set_id        = $self->get_set_id;
 		my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
 		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
@@ -49,7 +58,7 @@ sub print_content {
 				push @headers, qw(aliases references);
 			}
 		}
-		my $isolate_loci = $self->_get_isolate_loci;
+		my $isolate_loci = $self->get_isolate_loci;
 		push @headers, @$isolate_loci;
 	} elsif ( $table eq 'profiles' ) {
 		my $scheme_id = $self->{'cgi'}->param('scheme') || 0;
@@ -100,12 +109,10 @@ sub print_content {
 			push @headers, qw(full_name product description);
 		}
 	}
-	local $" = "\t";
-	say "@headers";
-	return;
+	return \@headers;
 }
 
-sub _get_isolate_loci {
+sub get_isolate_loci {
 	my ($self) = @_;
 	my $set_id = $self->get_set_id;
 	my @headers;
