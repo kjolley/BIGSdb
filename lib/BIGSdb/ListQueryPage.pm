@@ -313,15 +313,15 @@ sub _run_isolate_query {
 	}
 	my $qry;
 	if ( $fieldtype eq 'isolate' || $extended_isolate_field ) {
-		$qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE ($tempqry)";
+		$qry = "SELECT * FROM $view WHERE ($tempqry)";
 	} elsif ( $fieldtype eq 'metafield' ) {
 		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-		$qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE id IN (SELECT isolate_id FROM meta_$metaset WHERE $tempqry)";
+		$qry = "SELECT * FROM $view WHERE $view.id IN (SELECT isolate_id FROM meta_$metaset WHERE $tempqry)";
 	} elsif ( $fieldtype eq 'locus' ) {
-		$qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE id IN (select distinct($self->{'system'}->{'view'}.id) "
-		  . "FROM $self->{'system'}->{'view'} LEFT JOIN allele_designations ON $self->{'system'}->{'view'}.id=allele_designations.isolate_id WHERE $tempqry)";
+		$qry = "SELECT * FROM $view WHERE $view.id IN (SELECT distinct($view.id) FROM $view LEFT JOIN allele_designations "
+		  . "ON $view.id=allele_designations.isolate_id WHERE $tempqry)";
 	} elsif ( $fieldtype eq 'scheme_field' ) {
-		$qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE $self->{'system'}->{'view'}.id IN ($joined_query AND ($tempqry))";
+		$qry = "SELECT * FROM $view WHERE $view.id IN ($joined_query AND ($tempqry))";
 	}
 	$qry .= " ORDER BY ";
 	if ( $q->param('order') =~ /$locus_pattern/ ) {
