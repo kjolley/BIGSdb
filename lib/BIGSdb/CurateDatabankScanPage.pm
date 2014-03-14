@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -34,99 +34,128 @@ sub print_content {
 		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to add records to the loci table.</p></div>";
 		return;
 	}
-	say "<div class=\"box\" id=\"queryform\">";
+	$self->_print_interface;
+	if ($accession) {
+		$self->_print_results($accession);
+	}
+	return;
+}
+
+sub _print_interface {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say qq(<div class="box" id="queryform">);
 	say "<p>This function allows you to scan an EMBL or Genbank (whole genome) file in order to create a batch upload file for "
 	  . "setting up new loci.</p>";
 	say $q->start_form;
-	say "<fieldset style=\"float:left\"><legend>Please enter accession number</legend>";
-	say "<label for=\"accession\">Accession: </label>";
+	say qq(<fieldset style="float:left"><legend>Please enter accession number</legend>);
+	say qq(<label for="accession">Accession: </label>);
 	say $q->textfield( -name => 'accession', -id => 'accession', -size => 20, -required => 'required' );
+	say "</fieldset>";
+	say qq(<fieldset style="float:left"><legend>Primary identifier</legend>);
+	my %labels = ( gene => 'gene name', locus_tag => 'locus tag' );
+	say $q->radio_group( -name => 'identifier', -values => [qw(locus_tag gene)], -labels => \%labels, -linebreak => 'true' );
 	say "</fieldset>";
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say $q->hidden($_) foreach qw(db page);
 	say $q->end_form;
 	say "</div>\n";
+	return;
+}
 
-	if ($accession) {
-		my $seq_db = Bio::DB::GenBank->new;
-		$seq_db->verbose(2);    #convert warn to exception
-		my $seq_obj;
-		try {
-			$seq_obj = $seq_db->get_Seq_by_acc($accession);
-		}
-		catch Bio::Root::Exception with {
-			say "<div class=\"box\" id=\"statusbad\"><p>No data returned.</p></div>";
-			my $err = shift;
-			$logger->debug($err);
-		};
-		return if !$seq_obj;
-		say "<div class=\"box\" id=\"resultstable\">";
-		my $temp = BIGSdb::Utils::get_random();
-		my $temp_file = "$self->{'config'}->{'tmp_dir'}/$temp.txt";
-		say "<p><a href=\"/tmp/$temp.txt\">Download tab-delimited text</a> (suitable for editing in a spreadsheet or batch upload of "
-		  . "loci). Please wait for page to finish loading.</p>";
-		say "<h2>Annotation information</h2>";
-		say "<dl class=\"data\">";
-		my $td = 1;
-		my @cds;
+sub _print_results {
+	my ( $self, $accession ) = @_;
+	my $seq_db = Bio::DB::GenBank->new;
+	$seq_db->verbose(2);    #convert warn to exception
+	my $seq_obj;
+	try {
+		$seq_obj = $seq_db->get_Seq_by_acc($accession);
+	}
+	catch Bio::Root::Exception with {
+		my $err = shift;
+		$logger->debug($err);
+	};
+	if ( !$seq_obj ) {
+		say "<div class=\"box\" id=\"statusbad\"><p>No data returned.</p></div>";
+		return;
+	}
+	say "<div class=\"box\" id=\"resultstable\">";
+	my $temp      = BIGSdb::Utils::get_random();
+	my $temp_file = "$self->{'config'}->{'tmp_dir'}/$temp.txt";
+	say "<p><a href=\"/tmp/$temp.txt\">Download tab-delimited text</a> (suitable for editing in a spreadsheet or batch upload of "
+	  . "loci). Please wait for page to finish loading.</p>";
+	say "<h2>Annotation information</h2>";
+	say "<dl class=\"data\">";
+	my $td = 1;
+	my @cds;
 
-		foreach ( $seq_obj->get_SeqFeatures ) {
-			push @cds, $_ if $_->primary_tag eq 'CDS';
+	foreach ( $seq_obj->get_SeqFeatures ) {
+		push @cds, $_ if $_->primary_tag eq 'CDS';
+	}
+	my %att = (
+		accession   => $accession,
+		version     => $seq_obj->seq_version,
+		type        => $seq_obj->alphabet,
+		length      => $seq_obj->length,
+		description => $seq_obj->description,
+		cds         => scalar @cds
+	);
+	my %abb = ( cds => 'coding regions' );
+	foreach (qw (accession version type length description cds)) {
+		if ( $att{$_} ) {
+			say "<dt>" . ( $abb{$_} || $_ ) . "</dt><dd>$att{$_}</dd>";
+			$td = $td == 1 ? 2 : 1;
 		}
-		my %att = (
-			'accession'   => $accession,
-			'version'     => $seq_obj->seq_version,
-			'type'        => $seq_obj->alphabet,
-			'length'      => $seq_obj->length,
-			'description' => $seq_obj->description,
-			'cds'         => scalar @cds
-		);
-		my %abb = ( 'cds' => 'coding regions' );
-		foreach (qw (accession version type length description cds)) {
-			if ( $att{$_} ) {
-				say "<dt>" . ( $abb{$_} || $_ ) . "</dt><dd>$att{$_}</dd>";
-				$td = $td == 1 ? 2 : 1;
-			}
-		}
-		say "</dl>";
-		say "<h2>Coding sequences</h2>";
-		say "<table class=\"resultstable\"><tr><th>Locus</th><th>Aliases</th><th>Product</th><th>Length</th></tr>";
-		open( my $fh, '>', $temp_file ) || $logger->error("Can't open $temp_file for writing");
-		say $fh "id\tdata_type\tallele_id_format\tdescription\tlength\tlength_varies\tcoding_sequence\tflag_table\tmain_display\t"
-		  . "isolate_display\tquery_field\tanalysis\treference_sequence";
-		foreach my $cds (@cds) {
-			local $" = '; ';
-			my @aliases;
-			my $locus;
-			foreach (qw (gene gene_synonym locus_tag old_locus_tag)) {
-				my @values = $cds->has_tag($_) ? $cds->get_tag_values($_) : ();
-				foreach my $value (@values) {
-					if ($locus) {
-						push @aliases, $value;
-					} else {
-						$locus = $value;
-					}
+	}
+	say "</dl>";
+	say "<h2>Coding sequences</h2>";
+	say "<table class=\"resultstable\"><tr><th>Locus</th><th>Aliases</th><th>Product</th><th>Length</th></tr>";
+	open( my $fh, '>', $temp_file ) || $logger->error("Can't open $temp_file for writing");
+	say $fh "id\tdata_type\tallele_id_format\tdescription\tlength\tlength_varies\tcoding_sequence\tflag_table\tmain_display\t"
+	  . "isolate_display\tquery_field\tanalysis\treference_sequence";
+	local $| = 1;
+	foreach my $cds (@cds) {
+		local $" = '; ';
+		my @aliases;
+		my $locus;
+		my @tags =
+		  $self->{'cgi'}->param('identifier') eq 'locus_tag'
+		  ? qw (locus_tag old_locus_tag gene gene_synonym)
+		  : qw (gene gene_synonym locus_tag old_locus_tag);
+		foreach (@tags) {
+			my @values = $cds->has_tag($_) ? $cds->get_tag_values($_) : ();
+			foreach my $value (@values) {
+				if ($locus) {
+					push @aliases, $value;
+				} else {
+					$locus = $value;
 				}
 			}
-			my %tags;
-			foreach (qw (product note location primary_tag)) {
-				( $tags{$_} ) = $cds->get_tag_values($_) if $cds->has_tag($_);
-			}
-			$tags{'product'} //= '';
-			print "<tr class=\"td$td\"><td>$locus</td><td>@aliases</td><td>$tags{'product'} ";
-			print "<a class=\"tooltip\" title=\"$locus - $tags{'note'}\">&nbsp;<i>i</i>&nbsp;</a>" if $tags{'note'};
-			say "</td><td>" . ( $cds->length ) . "</td></tr>";
-			$td = $td == 1 ? 2 : 1;
-			my %type_lookup = ( 'dna' => 'DNA', 'rna' => 'RNA', 'protein' => 'peptide' );
-			say $fh "$locus\t$type_lookup{$att{'type'}}\tinteger\t$tags{'product'}\t"
-			  . ( $cds->length )
-			  . "\tTRUE\tTRUE\tTRUE\tFALSE\tallele only\tTRUE\tTRUE\t"
-			  . ( $cds->seq->seq );
 		}
-		close $fh;
-		say "</table>";
-		say "</div>";
+		$locus //= 'undefined';
+		my %tags;
+		foreach (qw (product note location primary_tag)) {
+			( $tags{$_} ) = $cds->get_tag_values($_) if $cds->has_tag($_);
+		}
+		$tags{'product'} //= '';
+		print "<tr class=\"td$td\"><td>$locus</td><td>@aliases</td><td>$tags{'product'} ";
+		print "<a class=\"tooltip\" title=\"$locus - $tags{'note'}\">&nbsp;<i>i</i>&nbsp;</a>" if $tags{'note'};
+		say "</td><td>" . ( $cds->length ) . "</td></tr>";
+		$td = $td == 1 ? 2 : 1;
+		my %type_lookup = ( dna => 'DNA', rna => 'RNA', protein => 'peptide' );
+		say $fh "$locus\t$type_lookup{$att{'type'}}\tinteger\t$tags{'product'}\t"
+		  . ( $cds->length )
+		  . "\tTRUE\tTRUE\tTRUE\tFALSE\tallele only\tTRUE\tTRUE\t"
+		  . ( $cds->seq->seq );
+
+		if ( $ENV{'MOD_PERL'} ) {
+			$self->{'mod_perl_request'}->rflush;
+			return if $self->{'mod_perl_request'}->connection->aborted;
+		}
 	}
+	close $fh;
+	say "</table>";
+	say "</div>";
 	return;
 }
 
