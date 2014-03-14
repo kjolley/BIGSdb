@@ -27,6 +27,7 @@ use BIGSdb::BatchProfileQueryPage;
 use BIGSdb::BIGSException;
 use BIGSdb::BrowsePage;
 use BIGSdb::ChangePasswordPage;
+use BIGSdb::CurateSubmissionExcelPage;
 use BIGSdb::CustomizePage;
 use BIGSdb::Dataconnector;
 use BIGSdb::Datastore;
@@ -407,7 +408,8 @@ sub print_page {
 		alleleQuery        => 'AlleleQueryPage',
 		locusInfo          => 'LocusInfoPage',
 		job                => 'JobViewerPage',
-		jobs               => 'JobsListPage'
+		jobs               => 'JobsListPage',
+		excelTemplate      => 'CurateSubmissionExcelPage'
 	);
 	my $page;
 	my %page_attributes = (
