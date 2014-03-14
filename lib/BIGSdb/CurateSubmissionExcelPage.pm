@@ -92,8 +92,8 @@ sub _set_isolate_validation {
 	if ( $self->{'xmlHandler'}->is_field($field) ) {
 		my $options = $self->{'xmlHandler'}->get_field_option_list($field);
 		if (@$options) {
-			my $range_top = xl_rowcol_to_cell( 1, $self->{'allowed'}->{$field}->{'col'} );
-			my $range_bottom = xl_rowcol_to_cell( $self->{'allowed'}->{$field}->{'row'}, $self->{'allowed'}->{$field}->{'col'} );
+			my $range_top = xl_rowcol_to_cell( 1, $self->{'allowed'}->{$field}->{'col'}, 1, 1 );
+			my $range_bottom = xl_rowcol_to_cell( $self->{'allowed'}->{$field}->{'row'}, $self->{'allowed'}->{$field}->{'col'}, 1, 1 );
 			$worksheet->data_validation( 1, $col, 500, $col, { validate => 'list', source => "allowed_values!$range_top:$range_bottom" } );
 		}
 	}
