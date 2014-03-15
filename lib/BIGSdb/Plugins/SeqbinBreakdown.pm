@@ -140,7 +140,7 @@ sub run_job {
 	my $row_with_data = 0;
 	my $disabled_html = @$isolate_ids > MAX_HTML_OUTPUT ? 1 : 0;
 
-	if ( $disabled_html ) {
+	if ($disabled_html) {
 		$self->{'jobManager'}
 		  ->update_job_status( $job_id, { message_html => "HTML output disabled as more than " . MAX_HTML_OUTPUT . " records selected." } );
 	}
@@ -160,7 +160,7 @@ sub run_job {
 		my $complete     = int( $row * 100 / @$isolate_ids );
 
 		if ( $row % 20 == 0 || $row == @$isolate_ids ) {
-			if ( $disabled_html ) {
+			if ($disabled_html) {
 				$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete } );
 			} else {
 				$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete, message_html => $html_message } );
@@ -185,6 +185,11 @@ sub run_job {
 		close $job_fh;
 		$self->{'jobManager'}
 		  ->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Output in tab-delimited text format' } );
+		my $excel_file = BIGSdb::Utils::text2excel( $job_file, { worksheet => 'sequence bin stats' } );
+		if (-e $excel_file){
+			$self->{'jobManager'}
+		  ->update_job_output( $job_id, { filename => "$job_id.xlsx", description => '02_Output in Excel format' } );
+		}
 		my $file_order = 10;
 		foreach my $type (qw (contigs sum mean lengths)) {
 			my $prefix = BIGSdb::Utils::get_random();
@@ -256,8 +261,8 @@ sub _print_table {
 	my $data             = {};
 	my $header_displayed = 0;
 	say qq(<div class="box" id="resultstable">);
-	open( my $fh, '>', "$self->{'config'}->{'tmp_dir'}/$temp.txt" )
-	  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$temp.txt for writing");
+	my $text_file = "$self->{'config'}->{'tmp_dir'}/$temp.txt";
+	open( my $fh, '>', $text_file ) or $logger->error("Can't open temp file $text_file for writing");
 
 	foreach my $id (@$ids) {
 		my $contig_info = $self->_get_isolate_contig_data($id);
@@ -282,7 +287,12 @@ sub _print_table {
 	close $fh;
 	if ($header_displayed) {
 		say "</tbody></table>";
-		say "<p><a href=\"/tmp/$temp.txt\">Download in tab-delimited text format</a></p>";
+		say qq(<ul><li><a href="/tmp/$temp.txt">Download in tab-delimited text format</a></li>);
+		my $excel_file = BIGSdb::Utils::text2excel( $text_file, { worksheet => 'sequence bin stats' } );
+		if ( -e $excel_file ) {
+			say qq(<li><a href="/tmp/$temp.xlsx">Download in Excel format</a></li>);
+		}
+		say "</ul>";
 	} else {
 		say "<p>There are no records with contigs matching your criteria.</p>";
 	}

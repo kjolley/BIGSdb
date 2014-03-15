@@ -25,6 +25,8 @@ use warnings;
 use POSIX qw(ceil);
 use Bio::SeqIO;
 use Bio::SeqFeature::Generic;
+use Excel::Writer::XLSX;
+use Excel::Writer::XLSX::Utility;
 use autouse 'Time::Local'  => qw(timelocal);
 use constant MAX_4BYTE_INT => 2147483647;
 use Log::Log4perl qw(get_logger);
@@ -305,6 +307,46 @@ sub xmfa2fasta {
 		print $fasta_fh "$$seq_ref\n";
 	}
 	return $fasta_file;
+}
+
+sub text2excel {
+	my ( $text_file, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	( my $excel_file = $text_file ) =~ s/txt$/xlsx/;
+	my $workbook = Excel::Writer::XLSX->new($excel_file);
+	if ( !defined $workbook ) {
+		$logger->error("Can't create Excel file $excel_file");
+		return;
+	}
+	my $worksheet_name = $options->{'worksheet'} // 'output';
+	my $worksheet      = $workbook->add_worksheet($worksheet_name);
+	my $header_format  = $workbook->add_format;
+	$header_format->set_align('center');
+	$header_format->set_bold;
+	my $cell_format = $workbook->add_format;
+	$cell_format->set_align('center');
+	open( my $text_fh, '<', $text_file ) || throw BIGSdb::CannotOpenFileException("Can't open $text_file for reading");
+	my ( $row, $col ) = ( 0, 0 );
+	my %widths;
+
+	while ( my $line = <$text_fh> ) {
+		my $format = !$options->{'no_header'} && $row == 0 ? $header_format : $cell_format;
+		my @values = split /\t/, $line;
+		foreach my $value (@values) {
+			$worksheet->write( $row, $col, $value, $format );
+			$widths{$col} = length $value if length $value > ( $widths{$col} // 0 );
+			$col++;
+		}
+		$col = 0;
+		$row++;
+	}
+	foreach my $col ( keys %widths ) {
+		my $width = my $value_width = int( 0.9 * ( $widths{$col} ) + 2 );
+		$worksheet->set_column( $col, $col, $width );
+	}
+	$worksheet->freeze_panes( 1, 0 ) if !$options->{'no_header'};
+	close $text_fh;
+	return $excel_file;
 }
 
 sub fasta2genbank {
