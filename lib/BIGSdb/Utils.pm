@@ -26,7 +26,6 @@ use POSIX qw(ceil);
 use Bio::SeqIO;
 use Bio::SeqFeature::Generic;
 use Excel::Writer::XLSX;
-use Excel::Writer::XLSX::Utility;
 use autouse 'Time::Local'  => qw(timelocal);
 use constant MAX_4BYTE_INT => 2147483647;
 use Log::Log4perl qw(get_logger);
