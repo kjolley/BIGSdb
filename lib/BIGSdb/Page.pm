@@ -190,6 +190,7 @@ sub print_page_content {
 			$atts{'type'} = 'text/html';
 		} else {
 			$atts{'type'} = 'text/plain';
+			$atts{'attachment'} = $self->{'attachment'};
 		}
 		$atts{'expires'} = '+1h' if !$self->{'noCache'};
 		print $q->header( \%atts );

@@ -28,10 +28,13 @@ use BIGSdb::Page qw(LOCUS_PATTERN);
 
 sub initiate {
 	my ($self) = @_;
-	if ( $self->{'cgi'}->param('locus') ) {
+	my $q = $self->{'cgi'};
+	if ( $q->param('locus') ) {
 		$self->{'type'} = 'text';
+		my $locus = $q->param('locus') // 'alleles';
+		$self->{'attachment'} = "$locus.fas";
 		return;
-	} elsif ( $self->{'cgi'}->param('no_header') ) {
+	} elsif ( $q->param('no_header') ) {
 		$self->{'type'}    = 'no_header';
 		$self->{'noCache'} = 1;
 		return;
