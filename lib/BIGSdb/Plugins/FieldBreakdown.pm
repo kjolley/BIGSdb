@@ -1,6 +1,6 @@
 #FieldBreakdown.pm - FieldBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -27,23 +27,28 @@ my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 
 sub get_attributes {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $field = $q->param('field') // 'field';
 	my %att = (
-		name        => 'Field Breakdown',
-		author      => 'Keith Jolley',
-		affiliation => 'University of Oxford, UK',
-		email       => 'keith.jolley@zoo.ox.ac.uk',
-		description => 'Breakdown of query results by field',
-		category    => 'Breakdown',
-		buttontext  => 'Fields',
-		menutext    => 'Single field',
-		module      => 'FieldBreakdown',
-		version     => '1.0.3',
-		dbtype      => 'isolates',
-		section     => 'breakdown,postquery',
-		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/field_breakdown.shtml',
-		input       => 'query',
-		requires    => 'chartdirector',
-		order       => 10
+		name          => 'Field Breakdown',
+		author        => 'Keith Jolley',
+		affiliation   => 'University of Oxford, UK',
+		email         => 'keith.jolley@zoo.ox.ac.uk',
+		description   => 'Breakdown of query results by field',
+		category      => 'Breakdown',
+		buttontext    => 'Fields',
+		menutext      => 'Single field',
+		module        => 'FieldBreakdown',
+		version       => '1.1.0',
+		dbtype        => 'isolates',
+		section       => 'breakdown,postquery',
+		url           => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/field_breakdown.shtml',
+		input         => 'query',
+		requires      => 'chartdirector',
+		text_filename => "$field\_breakdown.txt",
+		xlsx_filename => "$field\_breakdown.xlsx",
+		order         => 10
 	);
 	return \%att;
 }
@@ -90,7 +95,12 @@ sub get_plugin_javascript {
 		\$("#field").empty();
 		\$("#field").append(display);
 		\$("#links").empty();
-		\$("#links").append("<p><a href='$script_name?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;function=summary_table$query_clause&amp;field=" + field + "&amp;format=html'>Display table</a> | <a href='$script_name?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;function=summary_table$query_clause&amp;field=" + field + "&amp;format=text'>Tab-delimited text</a></p>");
+		\$("#links").append("<p><a href='$script_name?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;"
+		  + "function=summary_table$query_clause&amp;field=" + field + "&amp;format=html'>Display table</a> | "
+		  + "<a href='$script_name?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;function=summary_table"
+		  + "$query_clause&amp;field=" + field + "&amp;format=text'>Tab-delimited text</a> | "
+		  + "<a href='$script_name?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;function=summary_table"
+		  + "$query_clause&amp;field=" + field + "&amp;format=xlsx'>Excel format</a></p>");
 	});		
 });
 END
@@ -131,7 +141,7 @@ sub run {
 	return if !$self->create_temp_tables($qry_ref);
 	$self->{'extended'} = $self->get_extended_attributes;
 
-	if ( defined $q->param('function') && $q->param('function') eq 'summary_table' ) {
+	if ( ( $q->param('function') // '' ) eq 'summary_table' ) {
 		$self->_summary_table($qry);
 		return;
 	}
@@ -181,7 +191,7 @@ sub run {
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			my $display = $metafield // $field;
 			$display =~ tr/_/ /;
-			$display =~ s/^.*\.\.//; #Only show extended attribute name and not parent field
+			$display =~ s/^.*\.\.//;    #Only show extended attribute name and not parent field
 			my $display_field = $field;
 			my $num_values    = keys %{ $value_frequency->{$field} };
 			my $plural        = $num_values != 1 ? 's' : '';
@@ -226,7 +236,9 @@ sub run {
 	say "<p id=\"links\"><a href='$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;"
 	  . "function=summary_table$query_clause&amp;field=$name&amp;format=html'>Display table</a> | "
 	  . "<a href='$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;"
-	  . "function=summary_table$query_clause&amp;field=$name&amp;format=text'>Tab-delimited text</a></p>";
+	  . "function=summary_table$query_clause&amp;field=$name&amp;format=text'>Tab-delimited text</a> | "
+	  . "<a href='$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;"
+	  . "function=summary_table$query_clause&amp;field=$name&amp;format=xlsx'>Excel format</a></p>";
 	return;
 }
 
@@ -298,11 +310,12 @@ sub _summary_table {
 	my $q      = $self->{'cgi'};
 	my $field  = $q->param('field');
 	my $format = $q->param('format') || 'html';
+	my $text_buffer;
 	if ( !$field ) {
 		if ( $format ne 'text' ) {
 			say "<div class=\"box\" id=\"statusbad\"><p>No field selected.</p></div>";
 		} else {
-			say "No field selected.";
+			$text_buffer .= "No field selected.\n";
 		}
 		return;
 	}
@@ -314,7 +327,7 @@ sub _summary_table {
 		if ( $format ne 'text' ) {
 			say "<div class=\"box\" id=\"statusbad\"><p>Invalid field selected.</p></div>";
 		} else {
-			say "Invalid file selected.";
+			$text_buffer .= "Invalid file selected.\n";
 		}
 		return;
 	}
@@ -322,7 +335,7 @@ sub _summary_table {
 		if ( $format ne 'text' ) {
 			say "<div class=\"box\" id=\"statusbad\"><p>No query selected.</p></div>";
 		} else {
-			say "No query selected.";
+			$text_buffer .= "No query selected.\n";
 		}
 		return;
 	}
@@ -335,7 +348,7 @@ sub _summary_table {
 	if ( $format eq 'html' ) {
 		say "<h1>Breakdown by $display_field</h1>";
 	} else {
-		say "Breakdown for $display_field\n";
+		$text_buffer .= "Breakdown for $display_field\n" if $format eq 'text';
 	}
 	$logger->debug("Breakdown query: $qry");
 	my ( $num_records, $frequency ) = $self->_get_value_frequency_hash( \$qry, $isolate_field );
@@ -352,15 +365,14 @@ sub _summary_table {
 		say "<table class=\"tablesorter\" id=\"sortTable\"><thead><tr><th>$display_field</th><th>Frequency</th><th>Percentage</th></tr>"
 		  . "</thead><tbody>";
 	} else {
-		say "$num_values value$plural.\n";
-		say "$display_field\tfrequency\tpercentage";
+		$text_buffer .= "$num_values value$plural.\n\n" if $format eq 'text';
+		$text_buffer .= "$display_field\tfrequency\tpercentage\n";
 	}
 	if (   $field =~ /^age_/
 		or $field =~ /^age$/
 		or $field =~ /^year_/
 		or $field =~ /^year$/ )
 	{
-
 		#sort keys numerically
 		no warnings 'numeric';    #might complain about numeric comparison with non-numeric data
 		foreach my $key ( sort { $a <=> $b } keys %$value_frequency ) {
@@ -369,12 +381,12 @@ sub _summary_table {
 				say "<tr class=\"td$td\"><td>$key</td><td>$value_frequency->{$key}</td><td style=\"text-align:center\">"
 				  . "$percentage%</td></tr>";
 			} else {
-				say "$key\t$value_frequency->{$key}\t$percentage";
+				$text_buffer .= "$key\t$value_frequency->{$key}\t$percentage\n";
 			}
 			$td = $td == 1 ? 2 : 1;    #row stripes
 		}
 	} else {
-		no warnings 'numeric';    #might complain about numeric comparison with non-numeric data
+		no warnings 'numeric';         #might complain about numeric comparison with non-numeric data
 		foreach
 		  my $key ( sort { $value_frequency->{$b} <=> $value_frequency->{$a} || ( $a <=> $b ) || ( $a cmp $b ) } keys %$value_frequency )
 		{
@@ -385,13 +397,22 @@ sub _summary_table {
 				say "<tr class=\"td$td\"><td>$key</td><td style=\"text-align:center\">$value_frequency->{$key}</td>"
 				  . "<td style=\"text-align:center\">$percentage%</td></tr>";
 			} else {
-				say "$key\t$value_frequency->{$key}\t$percentage";
+				$text_buffer .= "$key\t$value_frequency->{$key}\t$percentage\n";
 			}
 			$td = $td == 1 ? 2 : 1;    #row stripes
 		}
 	}
 	if ( $format eq 'html' ) {
 		say "</tbody></table></div>";
+	} else {
+		if ( $q->param('format') eq 'xlsx' ) {
+			my $temp_file = $self->make_temp_file($text_buffer);
+			my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$temp_file";
+			BIGSdb::Utils::text2excel( $full_path, { stdout => 1, worksheet => "$field breakdown" } );
+			unlink $full_path;
+		} else {
+			say $text_buffer;
+		}
 	}
 	return;
 }

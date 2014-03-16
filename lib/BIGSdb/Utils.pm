@@ -311,7 +311,13 @@ sub xmfa2fasta {
 sub text2excel {
 	my ( $text_file, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	( my $excel_file = $text_file ) =~ s/txt$/xlsx/;
+	my $excel_file;
+	if ( $options->{'stdout'} ) {
+		binmode(STDOUT);
+		$excel_file = \*STDOUT;
+	} else {
+		( $excel_file = $text_file ) =~ s/txt$/xlsx/;
+	}
 	my $workbook = Excel::Writer::XLSX->new($excel_file);
 	if ( !defined $workbook ) {
 		$logger->error("Can't create Excel file $excel_file");

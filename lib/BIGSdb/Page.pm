@@ -149,11 +149,37 @@ sub choose_set {
 	return;
 }
 
+sub _initiate_plugin {
+	my ( $self, $plugin_name ) = @_;
+	my $q = $self->{'cgi'};
+	$q->param( format => 'html' ) if !defined $q->param('format');
+	try {
+		my $plugin = $self->{'pluginManager'}->get_plugin($plugin_name);
+		my $att    = $plugin->get_attributes;
+		if ( $q->param('format') eq 'text' ) {
+			$self->{'type'}       = 'text';
+			$self->{'attachment'} = $att->{'text_filename'};
+		} elsif ( $q->param('format') eq 'xlsx' ) {
+			$self->{'type'}       = 'xlsx';
+			$self->{'attachment'} = $att->{'xlsx_filename'};
+		} else {
+			$self->{$_} = 1 foreach qw(jQuery jQuery.tablesort jQuery.jstree jQuery.slimbox);
+		}
+	}
+	catch BIGSdb::InvalidPluginException with {
+
+		#ignore
+	};
+	return;
+}
+
 sub print_page_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	$" = ' ';    ## no critic (RequireLocalizedPunctuationVars) #ensure reset when running under mod_perl
 	if ( ( $q->param('page') // '' ) eq 'plugin' ) {
+		my $plugin_name = $q->param('name');
+		$self->_initiate_plugin($plugin_name);
 
 		#need to determine if tooltips should be displayed since this is set in the <HEAD>.  Also need to define set_id
 		#since this is needed to determine page title (other prefs are read later but these are needed early).
@@ -183,13 +209,13 @@ sub print_page_content {
 		} elsif ( $self->{'type'} eq 'tar' ) {
 			$atts{'type'}       = 'application/x-tar';
 			$atts{'attachment'} = $self->{'attachment'};
-		} elsif ($self->{'type'} eq 'xlsx'){
+		} elsif ( $self->{'type'} eq 'xlsx' ) {
 			$atts{'type'}       = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 			$atts{'attachment'} = $self->{'attachment'};
 		} elsif ( $self->{'type'} eq 'no_header' ) {
 			$atts{'type'} = 'text/html';
 		} else {
-			$atts{'type'} = 'text/plain';
+			$atts{'type'}       = 'text/plain';
 			$atts{'attachment'} = $self->{'attachment'};
 		}
 		$atts{'expires'} = '+1h' if !$self->{'noCache'};
@@ -201,7 +227,7 @@ sub print_page_content {
 			my $guid = $self->{'prefstore'}->get_new_guid;
 			push @{ $self->{'cookies'} }, $q->cookie( -name => 'guid', -value => $guid, -expires => '+10y' );
 			$self->{'setOptions'} = 1;
-		}		
+		}
 		my %header_options;
 		$header_options{'-cookie'} = $self->{'cookies'} if $self->{'cookies'};
 		$header_options{'-expires'} = '+1h' if !$self->{'noCache'};

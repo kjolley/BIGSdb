@@ -28,18 +28,6 @@ use BIGSdb::Page qw(FLANKING LOCUS_PATTERN);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_TREE_NODES => 1000;
 
-sub initiate {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	$q->param( 'format', 'html' ) if !defined $q->param('format');
-	if ( $q->param('format') eq 'text' ) {
-		$self->{'type'} = 'text';
-	} else {
-		$self->{$_} = 1 foreach qw(jQuery jQuery.tablesort jQuery.jstree jQuery.slimbox);
-	}
-	return;
-}
-
 sub get_attributes {
 
 	#override in subclass
@@ -249,7 +237,7 @@ sub print_content {
 	return if !$continue;
 	my $option_list = $plugin->get_option_list();
 	my $cookies_disabled;
-	if ( @$option_list && $q->param('format') ne 'text' ) {
+	if ( @$option_list && $q->param('format') eq 'html' ) {
 		if ( $q->param('update_options') ) {
 			my $guid = $self->get_guid;
 			if ($guid) {
@@ -523,7 +511,7 @@ sub get_selected_fields {
 }
 
 sub get_loci_from_pasted_list {
-	my ($self, $options) = @_;
+	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
 	my ( @cleaned_loci, @invalid_loci );
@@ -552,7 +540,7 @@ sub get_loci_from_pasted_list {
 }
 
 sub get_ids_from_pasted_list {
-	my ($self, $options) = @_;
+	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
 	my ( @cleaned_ids, @invalid_ids );
