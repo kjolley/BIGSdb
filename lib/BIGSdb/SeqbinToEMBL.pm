@@ -111,6 +111,7 @@ sub write_embl {
 		my $str;
 		my $stringfh_out = IO::String->new( \$str );
 		my $seq_out = Bio::SeqIO->new( -fh => $stringfh_out, -format => 'embl' );
+		$seq_out->verbose(-1);    #Otherwise apache error log can fill rapidly on old version of BioPerl.
 		$seq_out->write_seq($seq_object);
 		if ( $options->{'get_buffer'} ) {
 			$buffer .= $str;
