@@ -802,11 +802,6 @@ sub _run_comparison {
 	my $prefix   = BIGSdb::Utils::get_random();
 	my %isolate_FASTA;
 
-	if ($by_reference) {
-		$isolate_FASTA{$_} = $self->_create_isolate_FASTA_db( $_, $prefix ) foreach (@$ids);
-	} else {
-		$isolate_FASTA{$_} = $self->_create_isolate_FASTA( $_, $prefix ) foreach (@$ids);
-	}
 	if ( $by_reference && $params->{'tblastx'} ) {
 		$program   = 'tblastx';
 		$word_size = 3;
@@ -868,6 +863,13 @@ sub _run_comparison {
 		foreach my $id (@$ids) {
 			next if $self->{'exit'};
 			$id = $1 if $id =~ /(\d*)/;    #avoid taint check
+			if ( !-e "$self->{'config'}->{'secure_tmp_dir'}/$prefix\_isolate_$id.txt" ) {
+				if ($by_reference) {
+					$isolate_FASTA{$id} = $self->_create_isolate_FASTA_db( $id, $prefix );
+				} else {
+					$isolate_FASTA{$id} = $self->_create_isolate_FASTA( $id, $prefix );
+				}
+			}
 			my $out_file = "$self->{'config'}->{'secure_tmp_dir'}/$prefix\_isolate_$id\_outfile.txt";
 			my ( $match, $value, $extracted_seq );
 			if ( !$by_reference ) {
@@ -981,7 +983,8 @@ sub _run_comparison {
 			  ->update_job_status( $job_id, { percent_complete => $complete, message_html => "$$html_buffer_ref$close_table" } );
 		}
 		$self->delete_temp_files("$job_id*fastafile*\.txt*") if !$by_reference;
-		$self->{'db'}->commit;    #prevent idle in transaction table locks
+		$self->_touch_temp_files("$prefix*");    #Prevent removal of isolate FASTA db by cleanup script
+		$self->{'db'}->commit;                   #prevent idle in transaction table locks
 	}
 	$$html_buffer_ref .= $close_table;
 	if ( $self->{'exit'} ) {
@@ -1018,6 +1021,13 @@ sub _run_comparison {
 sub _touch_output_files {
 	my ( $self, $wildcard ) = @_;
 	my @files = glob("$self->{'config'}->{'tmp_dir'}/$wildcard");
+	foreach (@files) { utime( time(), time(), $1 ) if /^(.*BIGSdb.*)$/ }
+	return;
+}
+
+sub _touch_temp_files {
+	my ( $self, $wildcard ) = @_;
+	my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/$wildcard");
 	foreach (@files) { utime( time(), time(), $1 ) if /^(.*BIGSdb.*)$/ }
 	return;
 }
