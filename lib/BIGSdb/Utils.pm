@@ -388,11 +388,14 @@ sub fasta2genbank {
 sub get_style {
 
 	#Heatmap colour given value and max value
-	my ( $value, $max_value ) = @_;
+	my ( $value, $max_value, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $normalised = $value / $max_value;
 	my $colour = sprintf( "#%02x%02x%02x", $normalised * 201 + 54, abs( 0.5 - $normalised ) * 201 + 54, ( 1 - $normalised ) * 201 + 54 );
-	my $style  = "background:$colour; color:white";
-	return $style;
+	if ( $options->{'excel'} ) {
+		return { bg_color => $colour, color => 'white', align => 'center', border => 1,border_color=>'white' };
+	}
+	return "background:$colour; color:white";
 }
 
 sub get_largest_string_length {

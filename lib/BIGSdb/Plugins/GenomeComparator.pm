@@ -30,6 +30,7 @@ use Bio::SeqIO;
 use Bio::AlignIO;
 use List::MoreUtils qw(uniq any none);
 use Digest::MD5;
+use Excel::Writer::XLSX;
 use BIGSdb::Page qw(SEQ_METHODS LOCUS_PATTERN);
 use constant MAX_UPLOAD_SIZE  => 32 * 1024 * 1024;    #32Mb
 use constant MAX_SPLITS_TAXA  => 200;
@@ -153,6 +154,17 @@ sub run_job {
 		);
 		return;
 	}
+	open( my $excel_fh, '>', \my $excel ) or $logger->error("Failed to open excel filehandle: $!");    #Store Excel file in scalar $excel
+	$self->{'excel'}    = \$excel;
+	$self->{'workbook'} = Excel::Writer::XLSX->new($excel_fh);
+	my $worksheet = $self->{'workbook'}->add_worksheet('all');
+	$self->{'excel_format'}->{'header'} =
+	  $self->{'workbook'}
+	  ->add_format( bg_color => 'navy', color => 'white', bold => 1, align => 'center', border => 1, border_color => 'white' );
+	$self->{'excel_format'}->{'locus'} =
+	  $self->{'workbook'}->add_format( bg_color => '#D0D0D0', color => 'black', align => 'center', border => 1, border_color => '#A0A0A0' );
+	$self->{'excel_format'}->{'normal'} = $self->{'workbook'}->add_format( align => 'center' );
+
 	if ( $accession || $ref_upload ) {
 		my $seq_obj;
 		if ($accession) {
@@ -198,9 +210,10 @@ sub run_job {
 			unlink "$self->{'config'}->{'tmp_dir'}/$ref_upload";
 		}
 		return if !$seq_obj;
-		$self->_analyse_by_reference( $job_id, $accession, $seq_obj, $isolate_ids );
+		$self->_analyse_by_reference(
+			{ job_id => $job_id, accession => $accession, seq_obj => $seq_obj, ids => $isolate_ids, worksheet => $worksheet } );
 	} else {
-		$self->_analyse_by_loci( $job_id, $loci, $isolate_ids );
+		$self->_analyse_by_loci( { job_id => $job_id, loci => $loci, ids => $isolate_ids, worksheet => $worksheet } );
 	}
 	return;
 }
@@ -236,8 +249,7 @@ sub run {
 		  ? $self->{'system'}->{'genome_comparator_limit'}
 		  : MAX_GENOMES;
 		if ( @$filtered_ids > $max_genomes ) {
-			$error .=
-			  "<p>Genome Comparator analysis is limited to $max_genomes isolates.  You have " . "selected " . @$filtered_ids . ".</p>\n";
+			$error .= "<p>Genome Comparator analysis is limited to $max_genomes isolates.  You have selected " . @$filtered_ids . ".</p>\n";
 			$continue = 0;
 		}
 		my $loci_selected = $self->get_selected_loci;
@@ -499,7 +511,8 @@ HTML
 }
 
 sub _analyse_by_loci {
-	my ( $self, $job_id, $loci, $ids ) = @_;
+	my ( $self, $data ) = @_;
+	my ( $job_id, $loci, $ids, $worksheet ) = @{$data}{qw(job_id loci ids worksheet)};
 	if ( @$ids < 2 ) {
 		$self->{'jobManager'}->update_job_status(
 			$job_id,
@@ -511,24 +524,15 @@ sub _analyse_by_loci {
 		);
 		return;
 	}
-	my $html_buffer = "<h3>Analysis against defined loci</h3>\n";
-	my $file_buffer = "Analysis against defined loci\n";
-	$file_buffer .= "Time: " . ( localtime(time) ) . "\n\n";
-	$html_buffer .= "<p>Allele numbers are used where these have been defined, otherwise sequences will be marked as 'New#1, "
+	$self->{'html_buffer'} = "<h3>Analysis against defined loci</h3>\n";
+	$self->{'file_buffer'} = "Analysis against defined loci\n";
+	$self->{'file_buffer'} .= "Time: " . ( localtime(time) ) . "\n\n";
+	$self->{'html_buffer'} .= "<p>Allele numbers are used where these have been defined, otherwise sequences will be marked as 'New#1, "
 	  . "'New#2' etc. Missing alleles are marked as 'X'. Truncated alleles (located at end of contig) are marked as 'T'.</p>";
-	$file_buffer .= "Allele numbers are used where these have been defined, otherwise sequences will be marked as 'New#1, "
+	$self->{'file_buffer'} .= "Allele numbers are used where these have been defined, otherwise sequences will be marked as 'New#1, "
 	  . "'New#2' etc.\nMissing alleles are marked as 'X'. Truncated alleles (located at end of contig) are marked as 'T'.\n\n";
-	$self->_print_isolate_header( 0, $ids, \$file_buffer, \$html_buffer, );
-	$self->_run_comparison(
-		{
-			by_reference    => 0,
-			job_id          => $job_id,
-			ids             => $ids,
-			cds             => $loci,
-			html_buffer_ref => \$html_buffer,
-			file_buffer_ref => \$file_buffer
-		}
-	);
+	$self->_print_isolate_header( 0, $ids, $worksheet );
+	$self->_run_comparison( { by_reference => 0, job_id => $job_id, ids => $ids, cds => $loci, worksheet => $worksheet } );
 	$self->delete_temp_files("$job_id*");
 	return;
 }
@@ -539,6 +543,7 @@ sub _generate_splits {
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => "Generating distance matrix" } );
 	my $dismat = $self->_generate_distance_matrix( $values, $ignore_loci_ref, $options );
 	my $nexus_file = $self->_make_nexus_file( $job_id, $dismat, $options );
+	$self->_add_distance_matrix_worksheet($dismat);
 	$self->{'jobManager'}->update_job_output(
 		$job_id,
 		{
@@ -700,13 +705,65 @@ NEXUS
 	return "$job_id.nex";
 }
 
+sub _add_distance_matrix_worksheet {
+	my ( $self, $dismat ) = @_;
+	my %labels;
+	my @ids = sort { $a <=> $b } keys %$dismat;
+	foreach my $id (@ids) {
+		if ( $id == 0 ) {
+			$labels{$id} = "ref";
+		} else {
+			$labels{$id} = $self->_get_identifier($id);
+		}
+	}
+	my $worksheet = $self->{'workbook'}->add_worksheet('distance matrix');
+	my $max       = $self->_get_max_from_dismat($dismat);
+	my $col       = 1;
+	foreach my $i ( 0 .. @ids - 1 ) {
+		$worksheet->write( 0, $col, $labels{ $ids[$i] } );
+		$col++;
+	}
+	my $row = 1;
+	$col = 0;
+	foreach my $i ( 0 .. @ids - 1 ) {
+		$worksheet->write( $row, $col, $labels{ $ids[$i] } );
+		foreach my $j ( 0 .. $i ) {
+			$col++;
+			my $value = $dismat->{ $ids[$i] }->{ $ids[$j] };
+			if ( !$self->{'excel_format'}->{"d$value"} ) {
+				my $excel_style = BIGSdb::Utils::get_style( $value, $max, { excel => 1 } );
+				$self->{'excel_format'}->{"d$value"} = $self->{'workbook'}->add_format(%$excel_style);
+			}
+			$worksheet->write( $row, $col, $dismat->{ $ids[$i] }->{ $ids[$j] }, $self->{'excel_format'}->{"d$value"} );
+		}
+		$col = 0;
+		$row++;
+	}
+	$worksheet->freeze_panes( 1, 1 );
+	return;
+}
+
+sub _get_max_from_dismat {
+	my ( $self, $dismat ) = @_;
+	my $max = 0;
+	my @ids = sort { $a <=> $b } keys %$dismat;
+	foreach my $i ( 0 .. @ids - 1 ) {
+		foreach my $j ( 0 .. $i ) {
+			my $value = $dismat->{ $ids[$i] }->{ $ids[$j] };
+			$max = $value if $value > $max;
+		}
+	}
+	return $max;
+}
+
 sub _analyse_by_reference {
-	my ( $self, $job_id, $accession, $seq_obj, $ids ) = @_;
+	my ( $self, $data ) = @_;
+	my ( $job_id, $accession, $seq_obj, $ids, $worksheet ) = @{$data}{qw(job_id accession seq_obj ids worksheet)};
 	my @cds;
 	foreach ( $seq_obj->get_SeqFeatures ) {
 		push @cds, $_ if $_->primary_tag eq 'CDS';
 	}
-	my $html_buffer = "<h3>Analysis by reference genome</h3>";
+	$self->{'html_buffer'} = "<h3>Analysis by reference genome</h3>";
 	my %att;
 	eval {
 		%att = (
@@ -715,42 +772,34 @@ sub _analyse_by_reference {
 			type        => $seq_obj->alphabet,
 			length      => $seq_obj->length,
 			description => $seq_obj->description,
-			cds         => scalar @cds
+			cds         => scalar @cds,
 		);
 	};
 	if ($@) {
 		throw BIGSdb::PluginException("Invalid data in reference genome.");
 	}
 	my %abb = ( cds => 'coding regions' );
-	$html_buffer .= "<table class=\"resultstable\">";
+	$self->{'html_buffer'} .= "<table class=\"resultstable\">";
 	my $td = 1;
-	my $file_buffer = "Analysis by reference genome\n\nTime: " . ( localtime(time) ) . "\n\n";
+	$self->{'file_buffer'} = "Analysis by reference genome\n\nTime: " . ( localtime(time) ) . "\n\n";
 	foreach (qw (accession version type length description cds)) {
 		if ( $att{$_} ) {
-			$html_buffer .= "<tr class=\"td$td\"><th>" . ( $abb{$_} || $_ ) . "</th><td style=\"text-align:left\">$att{$_}</td></tr>";
-			$file_buffer .= ( $abb{$_} || $_ ) . ": $att{$_}\n";
+			$self->{'html_buffer'} .=
+			  "<tr class=\"td$td\"><th>" . ( $abb{$_} || $_ ) . "</th><td style=\"text-align:left\">$att{$_}</td></tr>";
+			$self->{'file_buffer'} .= ( $abb{$_} || $_ ) . ": $att{$_}\n";
 			$td = $td == 1 ? 2 : 1;
 		}
 	}
-	$html_buffer .= "</table>";
-	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
-	$html_buffer .= "<h3>All loci</h3>\n";
-	$file_buffer .= "\n\nAll loci\n--------\n\n";
-	$html_buffer .= "<p>Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'. "
+	$self->{'html_buffer'} .= "</table>";
+	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $self->{'html_buffer'} } );
+	$self->{'html_buffer'} .= "<h3>All loci</h3>\n";
+	$self->{'file_buffer'} .= "\n\nAll loci\n--------\n\n";
+	$self->{'html_buffer'} .= "<p>Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'. "
 	  . "Truncated alleles (located at end of contig) are marked as 'T'.</p>";
-	$file_buffer .= "Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'. \n"
+	$self->{'file_buffer'} .= "Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'. \n"
 	  . "Truncated alleles (located at end of contig) are marked as 'T'.\n\n";
-	$self->_print_isolate_header( 1, $ids, \$file_buffer, \$html_buffer, );
-	$self->_run_comparison(
-		{
-			by_reference    => 1,
-			job_id          => $job_id,
-			ids             => $ids,
-			cds             => \@cds,
-			html_buffer_ref => \$html_buffer,
-			file_buffer_ref => \$file_buffer
-		}
-	);
+	$self->_print_isolate_header( 1, $ids, $worksheet );
+	$self->_run_comparison( { by_reference => 1, job_id => $job_id, ids => $ids, cds => \@cds, worksheet => $worksheet } );
 	return;
 }
 
@@ -791,8 +840,7 @@ sub _extract_cds_details {
 
 sub _run_comparison {
 	my ( $self, $args ) = @_;
-	my ( $by_reference, $job_id, $ids, $cds, $html_buffer_ref, $file_buffer_ref ) =
-	  @{$args}{qw(by_reference job_id ids cds html_buffer_ref file_buffer_ref)};
+	my ( $by_reference, $job_id, $ids, $cds, $worksheet ) = @{$args}{qw(by_reference job_id ids cds worksheet)};
 	my ( $progress, $seqs_total, $td, $order_count ) = ( 0, 0, 1, 1 );
 	my $params      = $self->{'params'};
 	my $total       = ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $by_reference ) ) ) ? ( @$cds * 2 ) : @$cds;
@@ -810,8 +858,12 @@ sub _run_comparison {
 		$word_size = $params->{'word_size'} =~ /^(\d+)$/ ? $1 : 15;
 	}
 	my $loci;
+	my $row          = 0;
+	my $num_isolates = @$ids;
+	$num_isolates++ if $by_reference;    #Need to include the reference genome
 	foreach my $cds (@$cds) {
 		next if $self->{'exit'};
+		$row++;
 		my %seqs;
 		my $seq_ref;
 		my ( $locus_name, $locus_info, $length, $start, $desc, $ref_seq_file );
@@ -848,20 +900,45 @@ sub _run_comparison {
 			$cleaned_locus_name = $self->clean_locus($locus_name);
 			$text_locus_name = $self->clean_locus( $locus_name, { text_output => 1 } );
 		}
-		$$html_buffer_ref .= "<tr class=\"td$td\"><td>$cleaned_locus_name</td>";
-		$$file_buffer_ref .= $text_locus_name;
+		$self->{'html_buffer'} .= "<tr class=\"td$td\"><td>$cleaned_locus_name</td>";
+		$self->{'file_buffer'} .= $text_locus_name;
+		my $col = 0;
+		$worksheet->write( $row, $col, $text_locus_name, $self->{'excel_format'}->{'locus'} );
+		$self->{'col_max_width'}->{$col} = length($text_locus_name)
+		  if length($text_locus_name) > ( $self->{'col_max_width'}->{$col} // 0 );
 		my %allele_seqs;
-		if ($by_reference) {
-			$$html_buffer_ref .= "<td>$desc</td><td>$length</td><td>$start</td><td>1</td>";
-			$$file_buffer_ref .= "\t$desc\t$length\t$start\t1";
-			$allele_seqs{$$seq_ref} = 1;
-		}
-		my $allele = $by_reference ? 1 : 0;
 		my $colour = 0;
 		my %value_colour;
+
+		if ($by_reference) {
+			my @locus_desc = ( $desc, $length, $start );
+			foreach my $locus_value (@locus_desc) {
+				$self->{'html_buffer'} .= "<td>$locus_value</td>";
+				$self->{'file_buffer'} .= "\t$locus_value";
+				$col++;
+				$worksheet->write( $row, $col, $locus_value, $self->{'excel_format'}->{'locus'} );
+				$self->{'col_max_width'}->{$col} = length($locus_value)
+				  if length($locus_value) > ( $self->{'col_max_width'}->{$col} // 0 );
+			}
+			$allele_seqs{$$seq_ref} = 1;
+			$col++;
+			$colour++;
+			$value_colour{1} = $colour;
+			my $style = BIGSdb::Utils::get_style( $value_colour{1}, $num_isolates );
+			$self->{'html_buffer'} .= "<td style=\"$style\">1</td>";
+			$self->{'file_buffer'} .= "\t1";
+
+			if ( !$self->{'excel_format'}->{$colour} ) {
+				my $excel_style = BIGSdb::Utils::get_style( $value_colour{1}, $num_isolates, { excel => 1 } );
+				$self->{'excel_format'}->{$colour} = $self->{'workbook'}->add_format(%$excel_style);
+			}
+			$worksheet->write( $row, $col, 1, $self->{'excel_format'}->{$colour} );
+		}
+		my $allele = $by_reference ? 1 : 0;
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Analysing locus: $locus_name" } );
 		foreach my $id (@$ids) {
 			next if $self->{'exit'};
+			$col++;
 			$id = $1 if $id =~ /(\d*)/;    #avoid taint check
 			if ( !-e "$self->{'config'}->{'secure_tmp_dir'}/$prefix\_isolate_$id.txt" ) {
 				if ($by_reference) {
@@ -933,26 +1010,46 @@ sub _run_comparison {
 				}
 			}
 			my $style;
-			if    ( $value eq 'T' ) { $style = 'background:green; color:white' }
-			elsif ( $value eq 'X' ) { $style = 'background:black; color:white' }
-			else {
+			if ( $value eq 'T' ) {
+				$style = 'background:green; color:white';
+				$value_colour{'T'} = 'T';
+				if ( !$self->{'excel_format'}->{'T'} ) {
+					$self->{'excel_format'}->{'T'} =
+					  $self->{'workbook'}
+					  ->add_format( bg_color => 'green', color => 'white', align => 'center', border => 1, border_color => 'white' );
+				}
+				$value_colour{$value} = 'T';
+			} elsif ( $value eq 'X' ) {
+				$style = 'background:black; color:white';
+				$value_colour{'X'} = 'X';
+				if ( !$self->{'excel_format'}->{'X'} ) {
+					$self->{'excel_format'}->{'X'} =
+					  $self->{'workbook'}
+					  ->add_format( bg_color => 'black', color => 'white', align => 'center', border => 1, border_color => 'white' );
+				}
+			} else {
 				if ( !$value_colour{$value} ) {
 					$colour++;
 					$value_colour{$value} = $colour;
 				}
-				$style = BIGSdb::Utils::get_style( $value_colour{$value}, scalar @$ids );
+				$style = BIGSdb::Utils::get_style( $value_colour{$value}, $num_isolates );
+				if ( !$self->{'excel_format'}->{$colour} ) {
+					my $excel_style = BIGSdb::Utils::get_style( $value_colour{$value}, $num_isolates, { excel => 1 } );
+					$self->{'excel_format'}->{$colour} = $self->{'workbook'}->add_format(%$excel_style);
+				}
 			}
 			$presence->{$locus_name}++ if $value ne 'X';
 			$self->{'style'}->{$locus_name}->{$value} = $style;
-			$$html_buffer_ref .= "<td style=\"$style\">$value</td>";
-			$$file_buffer_ref .= "\t$value";
+			$self->{'html_buffer'} .= "<td style=\"$style\">$value</td>";
+			$self->{'file_buffer'} .= "\t$value";
+			$worksheet->write( $row, $col, $value, $self->{'excel_format'}->{ $value_colour{$value} } );
 			$first                        = 0;
 			$values->{$id}->{$locus_name} = $value;
 			$loci->{$locus_name}->{$id}   = $seqs{$id};
 		}
 		$td = $td == 1 ? 2 : 1;
-		$$html_buffer_ref .= "</tr>\n";
-		$$file_buffer_ref .= "\n";
+		$self->{'html_buffer'} .= "</tr>\n";
+		$self->{'file_buffer'} .= "\n";
 		if ( !$by_reference ) {
 			$status{'all_exact'} = 0 if ( uniq values %seqs ) > 1;
 		}
@@ -980,13 +1077,13 @@ sub _run_comparison {
 			$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete, message_html => $message } );
 		} else {
 			$self->{'jobManager'}
-			  ->update_job_status( $job_id, { percent_complete => $complete, message_html => "$$html_buffer_ref$close_table" } );
+			  ->update_job_status( $job_id, { percent_complete => $complete, message_html => "$self->{'html_buffer'}$close_table" } );
 		}
 		$self->delete_temp_files("$job_id*fastafile*\.txt*") if !$by_reference;
 		$self->_touch_temp_files("$prefix*");    #Prevent removal of isolate FASTA db by cleanup script
 		$self->{'db'}->commit;                   #prevent idle in transaction table locks
 	}
-	$$html_buffer_ref .= $close_table;
+	$self->{'html_buffer'} .= $close_table;
 	if ( $self->{'exit'} ) {
 		my $job = $self->{'jobManager'}->get_job($job_id);
 		if ( $job->{'status'} && $job->{'status'} ne 'cancelled' ) {
@@ -995,22 +1092,23 @@ sub _run_comparison {
 		$self->delete_temp_files("$prefix*");
 		return;
 	}
+	foreach my $col ( keys %{ $self->{'col_max_width'} } ) {
+		$worksheet->set_column( $col, $col, $self->_excel_col_width( $self->{'col_max_width'}->{$col} ) );
+	}
 	$self->_print_reports(
 		$ids, $loci,
 		{
-			job_id          => $job_id,
-			job_file        => $job_file,
-			by_reference    => $by_reference,
-			locus_class     => $locus_class,
-			values          => $values,
-			file_buffer_ref => $file_buffer_ref,
-			html_buffer_ref => $html_buffer_ref,
-			seqs_total      => $seqs_total,
-			ids             => $ids,
-			presence        => $presence,
-			match_count     => $match_count,
-			order           => $order,
-			set_id          => $params->{'set_id'}
+			job_id       => $job_id,
+			job_file     => $job_file,
+			by_reference => $by_reference,
+			locus_class  => $locus_class,
+			values       => $values,
+			seqs_total   => $seqs_total,
+			ids          => $ids,
+			presence     => $presence,
+			match_count  => $match_count,
+			order        => $order,
+			set_id       => $params->{'set_id'},
 		}
 	);
 	$self->delete_temp_files("$prefix*");
@@ -1035,17 +1133,11 @@ sub _touch_temp_files {
 sub _print_reports {
 	my ( $self, $ids, $loci, $args ) = @_;
 	my $params = $self->{'params'};
-	my ( $job_id, $values, $locus_class, $job_file, $file_buffer_ref, $html_buffer_ref, $match_count ) = (
-		$args->{'job_id'}, $args->{'values'}, $args->{'locus_class'},
-		$args->{'job_file'},
-		$args->{'file_buffer_ref'},
-		$args->{'html_buffer_ref'},
-		$args->{'match_count'}
-	);
+	my ( $job_id, $values, $locus_class, $job_file, $match_count ) = @{$args}{qw (job_id values locus_class job_file match_count )};
 	my $align_file       = "$self->{'config'}->{'tmp_dir'}/$job_id\.align";
 	my $align_stats_file = "$self->{'config'}->{'tmp_dir'}/$job_id\.align_stats";
 	open( my $job_fh, '>', $job_file ) || $logger->error("Can't open $job_file for writing");
-	print $job_fh $$file_buffer_ref;
+	print $job_fh $self->{'file_buffer'};
 	close $job_fh;
 	my $distances;
 
@@ -1062,13 +1154,7 @@ sub _print_reports {
 		);
 	}
 	return if $self->{'exit'};
-	my %table_args = (
-		by_reference => $args->{'by_reference'},
-		ids          => $ids,
-		buffer_ref   => $html_buffer_ref,
-		job_filename => $job_file,
-		values       => $values
-	);
+	my %table_args = ( by_reference => $args->{'by_reference'}, ids => $ids, job_filename => $job_file, values => $values );
 	$self->_print_variable_loci( { loci => $locus_class->{'varying'}, %table_args } );
 	$self->_print_missing_in_all( { loci => $locus_class->{'all_missing'}, %table_args } );
 	$self->_print_exact_matches( { loci => $locus_class->{'all_exact'}, %table_args } );
@@ -1077,21 +1163,21 @@ sub _print_reports {
 	}
 	$self->_print_truncated_loci( { loci => $locus_class->{'truncated'}, truncated_param => $params->{'truncated'}, %table_args } );
 	if ( !$args->{'seqs_total'} && $args->{'by_reference'} ) {
-		$$html_buffer_ref .= "<p class=\"statusbad\">No sequences were extracted from reference file.</p>\n";
-		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$html_buffer_ref } );
+		$self->{'html_buffer'} .= "<p class=\"statusbad\">No sequences were extracted from reference file.</p>\n";
+		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $self->{'html_buffer'} } );
 		return;
 	} else {
-		$self->_identify_strains( $ids, $html_buffer_ref, $job_file, $loci, $values );
-		$$html_buffer_ref = '' if @$ids > MAX_DISPLAY_TAXA || $params->{'disable_html'};
-		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$html_buffer_ref } );
+		$self->_identify_strains( $ids, $job_file, $loci, $values );
+		$self->{'html_buffer'} = '' if @$ids > MAX_DISPLAY_TAXA || $params->{'disable_html'};
+		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $self->{'html_buffer'} } );
 	}
 	my @paralogous;
 	if ( $args->{'by_reference'} ) {
-		@paralogous = $self->_print_paralogous_loci( $ids, $html_buffer_ref, $job_file, $loci, $match_count );
-		$$html_buffer_ref = '' if @$ids > MAX_DISPLAY_TAXA || $params->{'disable_html'};
+		@paralogous = $self->_print_paralogous_loci( $ids, $job_file, $loci, $match_count );
+		$self->{'html_buffer'} = '' if @$ids > MAX_DISPLAY_TAXA || $params->{'disable_html'};
 	}
-	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$html_buffer_ref } );
-	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Main output file' } );
+	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $self->{'html_buffer'} } );
+	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Text output file' } );
 	my @ignore_loci;
 	push @ignore_loci, keys %{ $locus_class->{'truncated'} } if ( $params->{'truncated'} // '' ) eq 'exclude';
 	push @ignore_loci, @paralogous if $params->{'exclude_paralogous'};
@@ -1127,7 +1213,23 @@ sub _print_reports {
 		}
 	}
 	$self->_core_analysis( $loci, $distances, $args );
+	$self->{'workbook'}->close;
+	my $excel_file = "$self->{'config'}->{'tmp_dir'}/$job_id.xlsx";
+	open( my $excel_fh, '>', $excel_file ) || $logger->error("Can't open $excel_file for writing.");
+	binmode $excel_fh;
+	print $excel_fh ${ $self->{'excel'} };
+	close $excel_fh;
+	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.xlsx", description => '02_Excel format' } )
+	  if -e $excel_file;
 	return;
+}
+
+sub _excel_col_width {
+	my ( $self, $length ) = @_;
+	my $width = int( 0.9 * ($length) + 2 );
+	$width = 50 if $width > 50;
+	$width = 5  if $width < 5;
+	return $width;
 }
 
 sub _core_analysis {
@@ -1338,10 +1440,10 @@ sub _scan_by_locus {
 }
 
 sub _print_paralogous_loci {
-	my ( $self, $ids, $buffer_ref, $job_file, $loci, $match_count ) = @_;
+	my ( $self, $ids, $job_file, $loci, $match_count ) = @_;
 	my $td = 1;
 	my ( $table_buffer, $file_table_buffer, %paralogous_loci );
-	foreach my $locus ( keys %$loci ) {
+	foreach my $locus ( sort keys %$loci ) {
 		my $paralogous      = 0;
 		my $row_buffer      = "<tr class=\"td$td\"><td>$locus</td>";
 		my $text_row_buffer = $locus;
@@ -1362,11 +1464,12 @@ sub _print_paralogous_loci {
 		}
 	}
 	if ($table_buffer) {
-		$$buffer_ref .= "<h3>Potentially paralogous loci</h3>\n";
-		$$buffer_ref .= "<P>The table shows the number of matches where there was more than one hit matching the BLAST thresholds in "
+		$self->{'html_buffer'} .= "<h3>Potentially paralogous loci</h3>\n";
+		$self->{'html_buffer'} .=
+		    "<P>The table shows the number of matches where there was more than one hit matching the BLAST thresholds in "
 		  . "at least one genome.</p>\n";
-		$$buffer_ref .= "<p>Paralogous: " . ( keys %paralogous_loci ) . "</p>\n";
-		$$buffer_ref .= "<table class=\"resultstable\"><tr><th>Locus</th>";
+		$self->{'html_buffer'} .= "<p>Paralogous: " . ( keys %paralogous_loci ) . "</p>\n";
+		$self->{'html_buffer'} .= "<table class=\"resultstable\"><tr><th>Locus</th>";
 		my $file_buffer = "\n###\n\n";
 		$file_buffer .= "Potentially paralogous loci\n";
 		$file_buffer .= "---------------------------\n";
@@ -1374,26 +1477,46 @@ sub _print_paralogous_loci {
 		  . "at least one genome.\n\n";
 		$file_buffer .= "Paralogous: " . ( keys %paralogous_loci ) . "\n\n";
 		$file_buffer .= "Locus";
+		my $worksheet = $self->{'workbook'}->add_worksheet('paralogous loci');
+		$worksheet->write( 0, 0, 'Locus', $self->{'excel_format'}->{'header'} );
+		my $col       = 1;
+		my $max_width = 5;
 
 		foreach my $id (@$ids) {
 			my $name = $self->_get_isolate_name($id);
-			$$buffer_ref .= "<th>$name</th>";
+			$self->{'html_buffer'} .= "<th>$name</th>";
 			$file_buffer .= "\t$name";
+			$worksheet->write( 0, $col, $name, $self->{'excel_format'}->{'header'} );
+			$max_width = length $name if length $name > $max_width;
+			$col++;
 		}
-		$file_buffer .= "\n";
-		$$buffer_ref .= "</tr>\n";
-		$$buffer_ref .= $table_buffer;
-		$$buffer_ref .= "</table>\n";
-		$file_buffer .= $file_table_buffer;
+		$file_buffer           .= "\n";
+		$self->{'html_buffer'} .= "</tr>\n";
+		$self->{'html_buffer'} .= $table_buffer;
+		$self->{'html_buffer'} .= "</table>\n";
+		$file_buffer           .= $file_table_buffer;
 		open( my $job_fh, '>>', $job_file ) || $logger->error("Can't open $job_file for appending");
 		say $job_fh $file_buffer;
 		close $job_fh;
+		my $row = 1;
+
+		foreach my $locus ( sort keys %paralogous_loci ) {
+			$worksheet->write( $row, 0, $locus, $self->{'excel_format'}->{'header'} );
+			$col = 1;
+			foreach my $id (@$ids) {
+				$worksheet->write( $row, $col, $match_count->{$id}->{$locus}, $self->{'excel_format'}->{'normal'} );
+				$col++;
+			}
+			$row++;
+		}
+		$worksheet->set_column( 0, 0, $self->_excel_col_width($max_width) );
+		$worksheet->freeze_panes( 1, 0 );
 	}
 	return ( keys %paralogous_loci );
 }
 
 sub _identify_strains {
-	my ( $self, $ids, $buffer_ref, $job_file, $loci, $values ) = @_;
+	my ( $self, $ids, $job_file, $loci, $values ) = @_;
 	my %strains;
 	my $strain_isolates;
 	foreach my $id (@$ids) {
@@ -1405,32 +1528,50 @@ sub _identify_strains {
 		$strains{$profile_hash}++;
 		push @{ $strain_isolates->{$profile_hash} }, $self->_get_isolate_name($id);
 	}
-	$$buffer_ref .= "<h3>Unique strains</h3>";
+	$self->{'html_buffer'} .= "<h3>Unique strains</h3>";
 	my $file_buffer = "\n###\n\n";
 	$file_buffer .= "Unique strains\n";
 	$file_buffer .= "--------------\n\n";
 	my $num_strains = keys %strains;
-	$$buffer_ref .= "<p>Unique strains: $num_strains</p>\n";
-	$file_buffer .= "Unique strains: $num_strains\n";
-	$$buffer_ref .= "<div class=\"scrollable\"><table><tr>";
-	$$buffer_ref .= "<th>Strain $_</th>" foreach ( 1 .. $num_strains );
-	$$buffer_ref .= "</tr>\n<tr>";
+	$self->{'html_buffer'} .= "<p>Unique strains: $num_strains</p>\n";
+	$file_buffer           .= "Unique strains: $num_strains\n";
+	$self->{'html_buffer'} .= "<div class=\"scrollable\"><table><tr>";
+	$self->{'html_buffer'} .= "<th>Strain $_</th>" foreach ( 1 .. $num_strains );
+	$self->{'html_buffer'} .= "</tr>\n<tr>";
 	my $td        = 1;
 	my $strain_id = 1;
+	my $worksheet = $self->{'workbook'}->add_worksheet('unique strains');
+	my $col       = 0;
 
+	foreach ( 1 .. $num_strains ) {
+		$worksheet->write( 0, $col, "Strain $_", $self->{'excel_format'}->{'header'} );
+		$col++;
+	}
+	$col = 0;
 	foreach my $strain ( sort { $strains{$b} <=> $strains{$a} } keys %strains ) {
-		$$buffer_ref .= "<td class=\"td$td\" style=\"vertical-align:top\">";
-		$$buffer_ref .= "$_<br />\n" foreach @{ $strain_isolates->{$strain} };
-		$$buffer_ref .= "</td>\n";
+		$self->{'html_buffer'} .= "<td class=\"td$td\" style=\"vertical-align:top\">";
+		$self->{'html_buffer'} .= "$_<br />\n" foreach @{ $strain_isolates->{$strain} };
+		$self->{'html_buffer'} .= "</td>\n";
 		$td = $td == 1 ? 2 : 1;
 		$file_buffer .= "\nStrain $strain_id:\n";
 		$file_buffer .= "$_\n" foreach @{ $strain_isolates->{$strain} };
+		my $row        = 1;
+		my $max_length = 5;
+
+		foreach my $isolate ( @{ $strain_isolates->{$strain} } ) {
+			$worksheet->write( $row, $col, $isolate, $self->{'excel_format'}->{'normal'} );
+			$max_length = length $isolate if length $isolate > $max_length;
+			$row++;
+		}
+		$worksheet->set_column( $col, $col, $self->_excel_col_width($max_length) );
+		$col++;
 		$strain_id++;
 	}
-	$$buffer_ref .= "</tr></table></div>\n";
+	$self->{'html_buffer'} .= "</tr></table></div>\n";
 	open( my $job_fh, '>>', $job_file ) || $logger->error("Can't open $job_file for appending");
 	print $job_fh $file_buffer;
 	close $job_fh;
+	$worksheet->freeze_panes( 1, 0 );
 	return;
 }
 
@@ -1449,39 +1590,46 @@ sub _get_isolate_name {
 }
 
 sub _print_isolate_header {
-	my ( $self, $by_reference, $ids, $file_buffer_ref, $html_buffer_ref ) = @_;
-	$$html_buffer_ref .= "<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Locus</th>";
-	$$file_buffer_ref .= "Locus";
+	my ( $self, $by_reference, $ids, $worksheet ) = @_;
+	my @header = 'Locus';
+	$self->{'html_buffer'} .= "<div class=\"scrollable\"><table class=\"resultstable\"><tr>";
 	if ($by_reference) {
-		$$html_buffer_ref .= "<th>Product</th><th>Sequence length</th><th>Genome position</th><th>Reference genome</th>";
-		$$file_buffer_ref .= "\tProduct\tSequence length\tGenome position\tReference genome";
+		push @header, ( 'Product', 'Sequence length', ' Genome position', 'Reference genome' );
 	}
 	foreach my $id (@$ids) {
 		my $isolate = $self->_get_isolate_name($id);
-		$$html_buffer_ref .= "<th>$isolate</th>";
-		$$file_buffer_ref .= "\t$isolate";
+		push @header, $isolate;
 	}
-	$$html_buffer_ref .= "</tr>";
-	$$file_buffer_ref .= "\n";
+	local $" = '</th><th>';
+	$self->{'html_buffer'} .= "<th>@header</th></tr>";
+	local $" = "\t";
+	$self->{'file_buffer'} .= "@header\n";
+	my $col = 0;
+	return if !defined $worksheet;
+	foreach my $heading (@header) {
+		$worksheet->write( 0, $col, $heading, $self->{'excel_format'}->{'header'} );
+		$self->{'col_max_width'}->{$col} = length $heading if length $heading > ( $self->{'col_max_width'}->{$col} // 0 );
+		$col++;
+	}
+	$worksheet->freeze_panes( 1, 1 );
 	return;
 }
 
 sub _print_variable_loci {
 	my ( $self, $args ) = @_;
-	my ( $by_reference, $ids, $buffer_ref, $job_filename, $loci, $values ) =
-	  @{$args}{qw(by_reference ids buffer_ref job_filename loci values)};
+	my ( $by_reference, $ids, $job_filename, $loci, $values ) = @{$args}{qw(by_reference ids job_filename loci values)};
 	return if ref $loci ne 'HASH';
-	$$buffer_ref .= "<h3>Loci with sequence differences among isolates:</h3>";
+	$self->{'html_buffer'} .= "<h3>Loci with sequence differences among isolates:</h3>";
 	my $file_buffer = "\n###\n\n";
 	$file_buffer .= "Loci with sequence differences among isolates\n";
 	$file_buffer .= "---------------------------------------------\n\n";
-	$$buffer_ref .= "<p>Variable loci: " . ( scalar keys %$loci ) . "</p>";
+	$self->{'html_buffer'} .= "<p>Variable loci: " . ( scalar keys %$loci ) . "</p>";
 	$file_buffer .= "Variable loci: " . ( scalar keys %$loci ) . "\n\n";
 	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
 	print $job_fh $file_buffer;
-	$self->_print_locus_table(
-		{ by_reference => $by_reference, ids => $ids, buffer_ref => $buffer_ref, fh => $job_fh, loci => $loci, values => $values } );
 	close $job_fh;
+	my $worksheet = $self->{'workbook'}->add_worksheet('variable');
+	$self->_print_locus_table( { worksheet => $worksheet, %$args } );
 	return;
 }
 
@@ -1633,121 +1781,163 @@ sub _run_muscle {
 
 sub _print_exact_matches {
 	my ( $self, $args ) = @_;
-	my ( $by_reference, $ids, $buffer_ref, $job_filename, $exacts, $values ) =
-	  @{$args}{qw(by_reference ids buffer_ref job_filename loci values)};
+	my ( $by_reference, $ids, $job_filename, $exacts, $values ) = @{$args}{qw(by_reference ids job_filename loci values)};
 	return if ref $exacts ne 'HASH';
-	$$buffer_ref .= "<h3>Exactly matching loci</h3>\n";
+	$self->{'html_buffer'} .= "<h3>Exactly matching loci</h3>\n";
 	my $file_buffer = "\n###\n\n";
-	$file_buffer .= "Exactly matching loci\n";
-	$file_buffer .= "---------------------\n\n";
-	$$buffer_ref .= "<p>These loci are identical in all isolates";
-	$file_buffer .= "These loci are identical in all isolates";
+	$file_buffer           .= "Exactly matching loci\n";
+	$file_buffer           .= "---------------------\n\n";
+	$self->{'html_buffer'} .= "<p>These loci are identical in all isolates";
+	$file_buffer           .= "These loci are identical in all isolates";
 	if ( $self->{'params'}->{'accession'} ) {
-		$$buffer_ref .= ", including the reference genome";
+		$self->{'html_buffer'} .= ", including the reference genome";
 		$file_buffer .= ", including the reference genome";
 	}
-	$$buffer_ref .= ".</p>";
-	$file_buffer .= ".\n\n";
-	$$buffer_ref .= "<p>Matches: " . ( scalar keys %$exacts ) . "</p>";
+	$self->{'html_buffer'} .= ".</p>";
+	$file_buffer           .= ".\n\n";
+	$self->{'html_buffer'} .= "<p>Matches: " . ( scalar keys %$exacts ) . "</p>";
 	$file_buffer .= "Matches: " . ( scalar keys %$exacts ) . "\n\n";
 	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
 	print $job_fh $file_buffer;
-	$self->_print_locus_table(
-		{ by_reference => $by_reference, ids => $ids, buffer_ref => $buffer_ref, fh => $job_fh, loci => $exacts, values => $values } );
 	close $job_fh;
+	my $worksheet = $self->{'workbook'}->add_worksheet('same in all');
+	$self->_print_locus_table( { worksheet => $worksheet, %$args } );
 	return;
 }
 
 sub _print_exact_except_ref {
 	my ( $self, $args ) = @_;
-	my ( $by_reference, $ids, $buffer_ref, $job_filename, $exacts, $values ) =
-	  @{$args}{qw(by_reference ids buffer_ref job_filename loci values)};
+	my ( $by_reference, $ids, $job_filename, $exacts, $values ) = @{$args}{qw(by_reference ids job_filename loci values)};
 	return if ref $exacts ne 'HASH';
 	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
-	$$buffer_ref .= "<h3>Loci exactly the same in all compared genomes except the reference</h3>";
+	$self->{'html_buffer'} .= "<h3>Loci exactly the same in all compared genomes except the reference</h3>";
 	print $job_fh "\n###\n\n";
 	print $job_fh "Loci exactly the same in all compared genomes except the reference\n";
 	print $job_fh "------------------------------------------------------------------\n\n";
-	$$buffer_ref .= "<p>Matches: " . ( scalar keys %$exacts ) . "</p>";
+	$self->{'html_buffer'} .= "<p>Matches: " . ( scalar keys %$exacts ) . "</p>";
 	print $job_fh "Matches: " . ( scalar keys %$exacts ) . "\n\n";
-	$self->_print_locus_table(
-		{ by_reference => 1, ids => $ids, buffer_ref => $buffer_ref, fh => $job_fh, loci => $exacts, values => $values } );
 	close $job_fh;
+	my $worksheet = $self->{'workbook'}->add_worksheet('same except ref');
+	$self->_print_locus_table( { worksheet => $worksheet, %$args } );
 	return;
 }
 
 sub _print_missing_in_all {
 	my ( $self, $args ) = @_;
-	my ( $by_reference, $ids, $buffer_ref, $job_filename, $missing, $values ) =
-	  @{$args}{qw(by_reference ids buffer_ref job_filename loci values)};
+	my ( $by_reference, $ids, $job_filename, $missing, $values ) = @{$args}{qw(by_reference ids job_filename loci values)};
 	return if ref $missing ne 'HASH';
 	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
-	$$buffer_ref .= "<h3>Loci missing in all isolates</h3>";
+	$self->{'html_buffer'} .= "<h3>Loci missing in all isolates</h3>";
 	print $job_fh "\n###\n\n";
 	print $job_fh "Loci missing in all isolates\n";
 	print $job_fh "----------------------------\n\n";
-	$$buffer_ref .= "<p>Missing loci: " . ( scalar keys %$missing ) . "</p>";
+	$self->{'html_buffer'} .= "<p>Missing loci: " . ( scalar keys %$missing ) . "</p>";
 	print $job_fh "Missing loci: " . ( scalar keys %$missing ) . "\n\n";
-	$self->_print_locus_table(
-		{ by_reference => $by_reference, ids => $ids, buffer_ref => $buffer_ref, fh => $job_fh, loci => $missing, values => $values } );
 	close $job_fh;
+	my $worksheet = $self->{'workbook'}->add_worksheet('missing in all');
+	$self->_print_locus_table( { worksheet => $worksheet, %$args } );
 	return;
 }
 
 sub _print_truncated_loci {
 	my ( $self, $args ) = @_;
-	my ( $by_reference, $ids, $buffer_ref, $job_filename, $truncated, $truncated_param, $values ) =
-	  @{$args}{qw(by_reference ids buffer_ref job_filename loci truncated_param values)};
+	my ( $by_reference, $ids, $job_filename, $truncated, $truncated_param, $values ) =
+	  @{$args}{qw(by_reference ids job_filename loci truncated_param values)};
 	return if ref $truncated ne 'HASH';
-	$$buffer_ref .= "<h3>Loci that are truncated in some isolates</h3>";
+	$self->{'html_buffer'} .= "<h3>Loci that are truncated in some isolates</h3>";
 	my $file_buffer = "\n###\n\n";
 	$file_buffer .= "Loci that are truncated in some isolates\n";
 	$file_buffer .= "----------------------------------------\n\n";
-	$$buffer_ref .= "<p>Truncated: " . ( scalar keys %$truncated ) . "</p>";
+	$self->{'html_buffer'} .= "<p>Truncated: " . ( scalar keys %$truncated ) . "</p>";
 	$file_buffer .= "Truncated: " . ( scalar keys %$truncated ) . "\n\n";
-	$$buffer_ref .= "<p>These loci are incomplete and located at the ends of contigs in at least one isolate. ";
+	$self->{'html_buffer'} .= "<p>These loci are incomplete and located at the ends of contigs in at least one isolate. ";
+
 	if ( $truncated_param eq 'exclude' ) {
-		$$buffer_ref .= "They have been excluded from the distance matrix calculation.";
+		$self->{'html_buffer'} .= "They have been excluded from the distance matrix calculation.";
 	}
-	$$buffer_ref .= "</p>";
+	$self->{'html_buffer'} .= "</p>";
 	$file_buffer .= "These loci are incomplete and located at the ends of contigs in at least one isolate.\n\n";
 	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
 	print $job_fh $file_buffer;
-	$self->_print_locus_table(
-		{ by_reference => $by_reference, ids => $ids, buffer_ref => $buffer_ref, fh => $job_fh, loci => $truncated, values => $values } );
 	close $job_fh;
+	my $worksheet = $self->{'workbook'}->add_worksheet('truncated');
+	$self->_print_locus_table( { worksheet => $worksheet, %$args } );
 	return;
 }
 
 sub _print_locus_table {
 	my ( $self, $args ) = @_;
-	my ( $by_reference, $ids, $buffer_ref, $fh, $loci, $values ) = @{$args}{qw(by_reference ids buffer_ref fh loci values)};
-	my $file_buffer;
-	$self->_print_isolate_header( $by_reference, $ids, \$file_buffer, $buffer_ref );
-	print $fh $file_buffer;
+	my ( $by_reference, $ids, $job_filename, $loci, $values, $worksheet ) =
+	  @{$args}{qw(by_reference ids job_filename loci values worksheet)};
+	$self->_print_isolate_header( $by_reference, $ids, $worksheet );
 	my $td = 1;
+	my $text_buffer;
+	my $row          = 0;
+	my $num_isolates = @$ids;
+	$num_isolates++ if $by_reference;
+	my %excel_format;
+
 	foreach my $locus ( sort keys %$loci ) {
+		my $col = 0;
+		$row++;
 		my $cleaned_locus = $self->clean_locus($locus);
-		$$buffer_ref .= "<tr class=\"td$td\"><td>$cleaned_locus</td>";
+		$self->{'html_buffer'} .= "<tr class=\"td$td\"><td>$cleaned_locus</td>";
 		my $text_locus = $self->clean_locus( $locus, { text_output => 1 } );
-		print $fh $text_locus;
+		$text_buffer .= $text_locus;
+		$worksheet->write( $row, $col, $text_locus, $self->{'excel_format'}->{'locus'} );
+		my $colour = 0;
+		my %value_colour;
+		$value_colour{'X'} = 'X';
+		$value_colour{'T'} = 'T';
+
 		if ($by_reference) {
-			my $length = $loci->{$locus}->{'length'};
-			my $start  = $loci->{$locus}->{'start'};
-			$$buffer_ref .= "<td>$loci->{$locus}->{'desc'}</td><td>$length</td><td>$start</td><td>1</td>";
-			print $fh "\t$loci->{$locus}->{'desc'}\t$length\t$start\t1";
+			foreach my $locus_value (qw(desc length start)) {
+				$self->{'html_buffer'} .= "<td>$loci->{$locus}->{$locus_value}</td>";
+				$text_buffer .= "\t$loci->{$locus}->{$locus_value}";
+				$col++;
+				$worksheet->write( $row, $col, $loci->{$locus}->{$locus_value}, $self->{'excel_format'}->{'locus'} );
+			}
+			$col++;
+			$colour++;
+			$value_colour{1} = $colour;
+			my $style = BIGSdb::Utils::get_style( $value_colour{1}, $num_isolates );
+			$self->{'html_buffer'} .= "<td style=\"$style\">1</td>";
+			$self->{'file_buffer'} .= "\t1";
+			if ( !$excel_format{$colour} ) {
+				my $excel_style = BIGSdb::Utils::get_style( $value_colour{1}, $num_isolates, { excel => 1 } );
+				$excel_format{$colour} = $self->{'workbook'}->add_format(%$excel_style);
+			}
+			$worksheet->write( $row, $col, 1, $excel_format{$colour} );
 		}
 		foreach my $id (@$ids) {
+			$col++;
 			my $style = $self->{'style'}->{$locus}->{ $values->{$id}->{$locus} };
-			$$buffer_ref .= "<td style=\"$style\">$values->{$id}->{$locus}</td>";
-			print $fh "\t$values->{$id}->{$locus}";
+			$self->{'html_buffer'} .= "<td style=\"$style\">$values->{$id}->{$locus}</td>";
+			$text_buffer .= "\t$values->{$id}->{$locus}";
+			if ( !$value_colour{ $values->{$id}->{$locus} } ) {
+				$colour++;
+				$value_colour{ $values->{$id}->{$locus} } = $colour;
+			}
+			$worksheet->write(
+				$row, $col,
+				$values->{$id}->{$locus},
+				$self->{'excel_format'}->{ $value_colour{ $values->{$id}->{$locus} } }
+			);
 		}
-		$$buffer_ref .= "</tr>\n";
-		print $fh "\n";
+		$self->{'html_buffer'} .= "</tr>\n";
+		$text_buffer .= "\n";
 		$td = $td == 1 ? 2 : 1;
 	}
-	$$buffer_ref .= "</table>\n";
-	$$buffer_ref .= "</div>\n";
+	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
+	print $job_fh $text_buffer;
+	close $job_fh;
+	$self->{'html_buffer'} .= "</table>\n";
+	$self->{'html_buffer'} .= "</div>\n";
+	if ($worksheet) {
+		foreach my $col ( keys %{ $self->{'col_max_width'} } ) {
+			$worksheet->set_column( $col, $col, $self->_excel_col_width( $self->{'col_max_width'}->{$col} ) );
+		}
+	}
 	return;
 }
 
