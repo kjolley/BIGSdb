@@ -129,10 +129,15 @@ sub _initiate {
 	my $db = $self->{'cgi'}->param('db') || '';
 	$self->{'instance'} = $db =~ /^([\w\d\-_]+)$/ ? $1 : '';
 	my $full_path = "$dbase_config_dir/$self->{'instance'}/config.xml";
+
+	if ( !-e $full_path ) {
+		$logger->fatal("Database config file for '$self->{'instance'}' does not exist.");
+		$self->{'error'} = 'invalidXML';
+		return;
+	}
 	$self->{'xmlHandler'} = BIGSdb::Parser->new;
 	my $parser = XML::Parser::PerlSAX->new( Handler => $self->{'xmlHandler'} );
 	eval { $parser->parse( Source => { SystemId => $full_path } ) };
-
 	if ($@) {
 		$logger->fatal("Invalid XML description: $@") if $self->{'instance'} ne '';
 		$self->{'error'} = 'invalidXML';
