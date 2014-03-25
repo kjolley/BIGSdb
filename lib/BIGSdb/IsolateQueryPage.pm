@@ -1155,10 +1155,14 @@ sub _modify_query_for_designations {
 				my $joined_query = "SELECT $temp_table.id FROM $temp_table LEFT JOIN temp_scheme_$scheme_id AS scheme_$scheme_id ON @temp";
 				$text =~ s/'/\\'/g;
 				if ( $operator eq 'NOT' ) {
-					push @sqry,
-					  ( $text eq 'null' )
-					  ? "($view.id NOT IN ($joined_query WHERE $field is null) AND $view.id IN ($joined_query))"
-					  : "($view.id NOT IN ($joined_query WHERE upper($field)=upper(E'$text') AND $view.id IN ($joined_query)))";
+					if ( $text eq 'null' ) {
+						push @sqry, "($view.id NOT IN ($joined_query WHERE $field is null) AND $view.id IN ($joined_query))";
+					} else {
+						push @sqry,
+						  $scheme_field_info->{'type'} eq 'integer'
+						  ? "($view.id NOT IN ($joined_query WHERE CAST($field AS text)= E'$text' AND $view.id IN ($joined_query)))"
+						  : "($view.id NOT IN ($joined_query WHERE upper($field)=upper(E'$text') AND $view.id IN ($joined_query)))";
+					}
 				} elsif ( $operator eq "contains" ) {
 					push @sqry,
 					  $scheme_field_info->{'type'} eq 'integer'
