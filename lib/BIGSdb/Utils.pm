@@ -390,10 +390,10 @@ sub get_style {
 	#Heatmap colour given value and max value
 	my ( $value, $max_value, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $normalised = $value / $max_value;
+	my $normalised = $max_value ? ( $value / $max_value ) : 0;    #Don't divide by zero.
 	my $colour = sprintf( "#%02x%02x%02x", $normalised * 201 + 54, abs( 0.5 - $normalised ) * 201 + 54, ( 1 - $normalised ) * 201 + 54 );
 	if ( $options->{'excel'} ) {
-		return { bg_color => $colour, color => 'white', align => 'center', border => 1,border_color=>'white' };
+		return { bg_color => $colour, color => 'white', align => 'center', border => 1, border_color => 'white' };
 	}
 	return "background:$colour; color:white";
 }
