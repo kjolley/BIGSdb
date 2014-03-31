@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -619,8 +619,9 @@ sub get_client_dbases_table_attributes {
 			hide    => 'yes',
 			tooltip => 'dbase_password - Depending on configuration of the database engine you may be able to leave this blank.'
 		},
-		{ name => 'url',       type => 'text', length   => 80,    required       => 'no', comments => 'Web URL to database script' },
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'dbase_view', type => 'text', required => 'no',  comments       => 'View of isolates table to use' },
+		{ name => 'url',        type => 'text', length   => 80,    required       => 'no', comments => 'Web URL to database script' },
+		{ name => 'curator',    type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' }
 	];
 	return $attributes;
@@ -1343,10 +1344,10 @@ sub get_locus_curators_table_attributes {
 sub get_sequence_attributes_table_attributes {
 	my ($self) = @_;
 	my $attributes = [
-		{ name => 'key',  type => 'text', required => 'yes', primary_key => 'yes', regex => '^[A-z]\w*$' },
-		{ name => 'type', type => 'text', required => 'yes', optlist     => 'text;integer;date', default => 'text' },
+		{ name => 'key',         type => 'text', required => 'yes', primary_key => 'yes',               regex   => '^[A-z]\w*$' },
+		{ name => 'type',        type => 'text', required => 'yes', optlist     => 'text;integer;date', default => 'text' },
 		{ name => 'description', type => 'text' },
-		{ name => 'curator',     type => 'int', required => 'yes', dropdown_query => 'yes' },
+		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' }
 	];
 	return $attributes;

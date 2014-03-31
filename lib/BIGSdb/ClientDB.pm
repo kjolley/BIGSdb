@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2011, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -46,8 +46,10 @@ sub DESTROY {
 sub count_isolates_with_allele {
 	my ( $self, $locus, $allele_id ) = @_;
 	if ( !$self->{'sql'}->{'isolate_allele_count'} ) {
+		my $view = $self->{'dbase_view'} // 'isolates';
 		$self->{'sql'}->{'isolate_allele_count'} =
-		  $self->{'db'}->prepare("SELECT COUNT(*) FROM allele_designations WHERE locus=? AND allele_id=?");
+		  $self->{'db'}->prepare( "SELECT COUNT(*) FROM allele_designations RIGHT JOIN $view ON $view.id=allele_designations.isolate_id "
+			  . "WHERE locus=? AND allele_id=?" );
 		$logger->info("Statement handle 'isolate_allele_count' prepared.");
 	}
 	eval { $self->{'sql'}->{'isolate_allele_count'}->execute( $locus, $allele_id ) };
@@ -63,7 +65,7 @@ sub count_matching_profiles {
 	my $first       = 1;
 	my $temp;
 	foreach ( keys %$alleles_hashref ) {
-		if (!defined $alleles_hashref->{$_}){
+		if ( !defined $alleles_hashref->{$_} ) {
 			$logger->error("Invalid loci passed to client database#$self->{'id'} for profile check.");
 			return 0;
 		}
@@ -71,8 +73,11 @@ sub count_matching_profiles {
 		$temp .= "(locus='$_' AND allele_id='$alleles_hashref->{$_}')";
 		$first = 0;
 	}
-	my $qry = "SELECT COUNT(distinct isolate_id) FROM allele_designations WHERE isolate_id IN (SELECT isolate_id "
-	  . "FROM allele_designations WHERE $temp GROUP BY isolate_id HAVING COUNT(isolate_id) = $locus_count)";
+	my $view = $self->{'dbase_view'} // 'isolates';
+	my $qry =
+	    "SELECT COUNT(distinct isolate_id) FROM allele_designations WHERE isolate_id IN (SELECT isolate_id FROM allele_designations "
+	  . "RIGHT JOIN $view ON $view.id=allele_designations.isolate_id WHERE $temp GROUP BY isolate_id HAVING COUNT(isolate_id) = "
+	  . "$locus_count)";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
 	if ($@) {

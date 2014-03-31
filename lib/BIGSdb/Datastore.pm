@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -405,11 +405,11 @@ sub get_client_db {
 		my $attributes = $self->get_client_db_info($id);
 		if ( $attributes->{'dbase_name'} ) {
 			my %att = (
-				'dbase_name' => $attributes->{'dbase_name'},
-				'host'       => $attributes->{'dbase_host'},
-				'port'       => $attributes->{'dbase_port'},
-				'user'       => $attributes->{'dbase_user'},
-				'password'   => $attributes->{'dbase_password'}
+				dbase_name => $attributes->{'dbase_name'},
+				host       => $attributes->{'dbase_host'},
+				port       => $attributes->{'dbase_port'},
+				user       => $attributes->{'dbase_user'},
+				password   => $attributes->{'dbase_password'},
 			);
 			try {
 				$attributes->{'db'} = $self->{'dataConnector'}->get_connection( \%att );
