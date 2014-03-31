@@ -385,7 +385,7 @@ sub fasta2genbank {
 	return $genbank_file;
 }
 
-sub get_style {
+sub get_heatmap_colour_style {
 
 	#Heatmap colour given value and max value
 	my ( $value, $max_value, $options ) = @_;

@@ -731,7 +731,7 @@ sub _add_distance_matrix_worksheet {
 			$col++;
 			my $value = $dismat->{ $ids[$i] }->{ $ids[$j] };
 			if ( !$self->{'excel_format'}->{"d$value"} ) {
-				my $excel_style = BIGSdb::Utils::get_style( $value, $max, { excel => 1 } );
+				my $excel_style = BIGSdb::Utils::get_heatmap_colour_style( $value, $max, { excel => 1 } );
 				$self->{'excel_format'}->{"d$value"} = $self->{'workbook'}->add_format(%$excel_style);
 			}
 			$worksheet->write( $row, $col, $dismat->{ $ids[$i] }->{ $ids[$j] }, $self->{'excel_format'}->{"d$value"} );
@@ -924,12 +924,12 @@ sub _run_comparison {
 			$col++;
 			$colour++;
 			$value_colour{1} = $colour;
-			my $style = BIGSdb::Utils::get_style( $value_colour{1}, $num_isolates );
+			my $style = BIGSdb::Utils::get_heatmap_colour_style( $value_colour{1}, $num_isolates );
 			$self->{'html_buffer'} .= "<td style=\"$style\">1</td>";
 			$self->{'file_buffer'} .= "\t1";
 
 			if ( !$self->{'excel_format'}->{$colour} ) {
-				my $excel_style = BIGSdb::Utils::get_style( $value_colour{1}, $num_isolates, { excel => 1 } );
+				my $excel_style = BIGSdb::Utils::get_heatmap_colour_style( $value_colour{1}, $num_isolates, { excel => 1 } );
 				$self->{'excel_format'}->{$colour} = $self->{'workbook'}->add_format(%$excel_style);
 			}
 			$worksheet->write( $row, $col, 1, $self->{'excel_format'}->{$colour} );
@@ -1032,9 +1032,9 @@ sub _run_comparison {
 					$colour++;
 					$value_colour{$value} = $colour;
 				}
-				$style = BIGSdb::Utils::get_style( $value_colour{$value}, $num_isolates );
+				$style = BIGSdb::Utils::get_heatmap_colour_style( $value_colour{$value}, $num_isolates );
 				if ( !$self->{'excel_format'}->{$colour} ) {
-					my $excel_style = BIGSdb::Utils::get_style( $value_colour{$value}, $num_isolates, { excel => 1 } );
+					my $excel_style = BIGSdb::Utils::get_heatmap_colour_style( $value_colour{$value}, $num_isolates, { excel => 1 } );
 					$self->{'excel_format'}->{$colour} = $self->{'workbook'}->add_format(%$excel_style);
 				}
 			}
@@ -1900,11 +1900,11 @@ sub _print_locus_table {
 			$col++;
 			$colour++;
 			$value_colour{1} = $colour;
-			my $style = BIGSdb::Utils::get_style( $value_colour{1}, $num_isolates );
+			my $style = BIGSdb::Utils::get_heatmap_colour_style( $value_colour{1}, $num_isolates );
 			$self->{'html_buffer'} .= "<td style=\"$style\">1</td>";
 			$self->{'file_buffer'} .= "\t1";
 			if ( !$excel_format{$colour} ) {
-				my $excel_style = BIGSdb::Utils::get_style( $value_colour{1}, $num_isolates, { excel => 1 } );
+				my $excel_style = BIGSdb::Utils::get_heatmap_colour_style( $value_colour{1}, $num_isolates, { excel => 1 } );
 				$excel_format{$colour} = $self->{'workbook'}->add_format(%$excel_style);
 			}
 			$worksheet->write( $row, $col, 1, $excel_format{$colour} );
