@@ -483,6 +483,7 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON probe_locus TO apache;
 
 
 CREATE TABLE allele_sequences (
+id bigserial NOT NULL,
 seqbin_id int NOT NULL,
 locus text NOT NULL,
 curator int NOT NULL,
@@ -492,7 +493,8 @@ end_pos int NOT NULL,
 reverse boolean NOT NULL,
 complete boolean NOT NULL,
 isolate_id int NOT NULL,
-PRIMARY KEY (seqbin_id,locus,start_pos,end_pos),
+PRIMARY KEY (id),
+UNIQUE (seqbin_id,locus,start_pos,end_pos),
 CONSTRAINT as_loci FOREIGN KEY (locus) REFERENCES loci
 ON DELETE CASCADE
 ON UPDATE CASCADE,
@@ -544,15 +546,12 @@ CREATE TRIGGER set_allele_sequences_isolate_id_field2 AFTER UPDATE ON sequence_b
 GRANT SELECT,UPDATE,INSERT,DELETE ON allele_sequences TO apache;
 
 CREATE TABLE sequence_flags (
-seqbin_id int NOT NULL,
-locus text NOT NULL,
-start_pos int NOT NULL,
-end_pos int NOT NULL,
+id bigint NOT NULL,
 flag text NOT NULL,
 datestamp date NOT NULL,
 curator int NOT NULL,
-PRIMARY KEY (seqbin_id,locus,start_pos,end_pos,flag),
-CONSTRAINT sf_fkeys FOREIGN KEY(seqbin_id,locus,start_pos,end_pos) REFERENCES allele_sequences
+PRIMARY KEY (id,flag),
+CONSTRAINT sf_fkeys FOREIGN KEY(id) REFERENCES allele_sequences
 ON DELETE CASCADE
 ON UPDATE CASCADE
 );

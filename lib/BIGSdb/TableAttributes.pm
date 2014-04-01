@@ -1234,16 +1234,11 @@ sub get_accession_table_attributes {
 
 sub get_allele_sequences_table_attributes {
 	my $attributes = [
-		{ name => 'seqbin_id', type => 'int',  required => 'yes', primary_key => 'yes', foreign_key => 'sequence_bin' },
-		{ name => 'locus',     type => 'text', required => 'yes', primary_key => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
-		{
-			name        => 'start_pos',
-			type        => 'int',
-			required    => 'yes',
-			primary_key => 'yes',
-			comments    => 'start position of locus within sequence'
-		},
-		{ name => 'end_pos', type => 'int', required => 'yes', primary_key => 'yes', comments => 'end position of locus within sequence' },
+		{ name => 'id',        type => 'int',  required => 'yes', primary_key => 'yes' },
+		{ name => 'seqbin_id', type => 'int',  required => 'yes', foreign_key => 'sequence_bin' },
+		{ name => 'locus',     type => 'text', required => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
+		{ name => 'start_pos', type => 'int',  required => 'yes', comments    => 'start position of locus within sequence' },
+		{ name => 'end_pos',   type => 'int',  required => 'yes', comments    => 'end position of locus within sequence' },
 		{
 			name     => 'reverse',
 			type     => 'bool',
@@ -1253,7 +1248,7 @@ sub get_allele_sequences_table_attributes {
 		},
 		{ name => 'complete', type => 'bool', required => 'yes', comments => 'true if complete locus represented', default => 'true' },
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' }
 	];
 	return $attributes;
 }
@@ -1262,20 +1257,10 @@ sub get_sequence_flags_table_attributes {
 	my @flags = SEQ_FLAGS;
 	local $" = ';';
 	my $attributes = [
-		{ name => 'seqbin_id', type => 'int',  required => 'yes', primary_key => 'yes', foreign_key => 'sequence_bin' },
-		{ name => 'locus',     type => 'text', required => 'yes', primary_key => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
-		{
-			name        => 'start_pos',
-			type        => 'int',
-			required    => 'yes',
-			primary_key => 'yes',
-			comments    => 'start position of locus within sequence'
-		},
-		{ name => 'end_pos', type => 'int', required => 'yes', primary_key => 'yes', comments => 'end position of locus within sequence' },
-		{ name => 'flag',     type => 'text', required => 'yes', optlist  => "@flags" },
-		{ name => 'complete', type => 'bool', required => 'yes', comments => 'true if complete locus represented', default => 'true' },
+		{ name => 'id',        type => 'int',  required => 'yes', primary_key    => 'yes', foreign_key => 'allele_sequences' },
+		{ name => 'flag',      type => 'text', required => 'yes', optlist        => "@flags" },
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' }
 	];
 	return $attributes;
 }
@@ -1493,7 +1478,7 @@ sub get_projects_table_attributes {
 			 . 'HTML markup here.  If you don't enter anything here then the project will not be listed on the isolate record page."
 		},
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' }
 	];
 	return $attributes;
 }
@@ -1511,7 +1496,7 @@ sub get_project_members_table_attributes {
 		},
 		{ name => 'isolate_id', type => 'int',  required => 'yes', primary_key    => 'yes', foreign_key => 'isolates' },
 		{ name => 'curator',    type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp',  type => 'date', required => 'yes' },
+		{ name => 'datestamp',  type => 'date', required => 'yes' }
 	];
 	return $attributes;
 }
@@ -1529,7 +1514,7 @@ sub get_sets_table_attributes {
 			  . "only be used by specifying the set_id in the database configuration file."
 		},
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' }
 	];
 	return $attributes;
 }
@@ -1551,7 +1536,7 @@ sub get_set_loci_table_attributes {
 		{ name => 'set_common_name',           type => 'text', length   => 40 },
 		{ name => 'formatted_set_common_name', type => 'text', length   => 60 },
 		{ name => 'curator',                   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp',                 type => 'date', required => 'yes' },
+		{ name => 'datestamp',                 type => 'date', required => 'yes' }
 	];
 	return $attributes;
 }
@@ -1578,7 +1563,7 @@ sub get_set_schemes_table_attributes {
 		},
 		{ name => 'set_name',  type => 'text', length   => 40 },
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' }
 	];
 	return $attributes;
 }
@@ -1606,7 +1591,7 @@ sub get_set_metadata_table_attributes {
 			dropdown_query => 'yes'
 		},
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' }
 	];
 	return $attributes;
 }
@@ -1627,7 +1612,7 @@ sub get_set_view_table_attributes {
 		},
 		{ name => 'view',      type => 'text', required => 'yes', optlist        => "@views", dropdown_query => 'yes' },
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' }
 	];
 	return $attributes;
 }
