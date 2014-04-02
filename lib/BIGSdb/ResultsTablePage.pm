@@ -88,12 +88,9 @@ s/ORDER BY \S+\.allele_id(.*)/ORDER BY \(case when $table.allele_id ~ '^[0-9]+\$
 	} else {
 		my $qrycount = $qry;
 		if ( $table eq 'allele_sequences' ) {
-			#TODO should be able to use 'DISTINCT allele_sequences.id' now that we use sequentially key
-			
-			#PK is seqbin_id, locus, start_pos, end_pos but you need to search for distinct combinations (not just COUNT(*)) because the
+
 			#query may join the sequence_flags table giving more rows than allele sequences.
-			$qrycount =~
-s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.seqbin_id||allele_sequences.locus||allele_sequences.start_pos||allele_sequences.end_pos\)/;
+			$qrycount =~ s/SELECT \*/SELECT COUNT \(DISTINCT allele_sequences.id\)/;
 		}
 		$qrycount =~ s/SELECT \*/SELECT COUNT \(\*\)/;
 		$qrycount =~ s/ORDER BY.*//;
@@ -961,7 +958,7 @@ sub _get_record_table_info {
 	my $q = $self->{'cgi'};
 	my ( @headers, @display, @qry_fields, %type, %foreign_key, %labels );
 	my $user_variable_fields = 0;
-	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
+	my $attributes           = $self->{'datastore'}->get_table_field_attributes($table);
 	foreach my $attr (@$attributes) {
 		next if $table eq 'sequence_bin' && $attr->{'name'} eq 'sequence';
 		next if $attr->{'hide'} eq 'yes' || ( $attr->{'hide_public'} eq 'yes' && !$self->{'curate'} ) || $attr->{'main_display'} eq 'no';
@@ -973,7 +970,7 @@ sub _get_record_table_info {
 			$cleaned .= '*';
 			$user_variable_fields = 1;
 		}
-		if ($attr->{'hide_query'} ne 'yes'){
+		if ( $attr->{'hide_query'} ne 'yes' ) {
 			push @headers, $cleaned;
 			push @headers, 'isolate id' if $table eq 'experiment_sequences' && $attr->{'name'} eq 'experiment_id';
 			push @headers, 'sequence length' if $q->param('page') eq 'tableQuery' && $table eq 'sequences' && $attr->{'name'} eq 'sequence';
@@ -1096,7 +1093,7 @@ sub _print_record_table {
 				$value =~ s/\+/%2B/g;
 				push @query_values, "$_->{'name'}=$value";
 			}
-			$hide_field{$_->{'name'}} = 1 if $_->{'hide_query'} eq 'yes';
+			$hide_field{ $_->{'name'} } = 1 if $_->{'hide_query'} eq 'yes';
 		}
 		print "<tr class=\"td$td\">";
 		if ( $self->{'curate'} ) {
@@ -1155,7 +1152,7 @@ sub _print_record_table {
 					print "<td>$value</td>";
 				}
 				if ( $table eq 'allele_sequences' && $field eq 'complete' ) {
-					my $flags = $self->{'datastore'}->get_sequence_flags( $data{'id'});
+					my $flags = $self->{'datastore'}->get_sequence_flags( $data{'id'} );
 					local $" = "</a> <a class=\"seqflag_tooltip\">";
 					print @$flags ? "<td><a class=\"seqflag_tooltip\">@$flags</a></td>" : "<td></td>";
 				}

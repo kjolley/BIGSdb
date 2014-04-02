@@ -124,7 +124,7 @@ sub _get_select_items {
 	}
 	my %labels;
 	foreach my $att (@$attributes) {
-		next if ($att->{'hide_query'} // '') eq 'yes';
+		next if ( $att->{'hide_query'} // '' ) eq 'yes';
 		if ( any { $att->{'name'} eq $_ } qw (sender curator user_id) ) {
 			push @select_items, "$att->{'name'} (id)", "$att->{'name'} (surname)", "$att->{'name'} (first_name)",
 			  "$att->{'name'} (affiliation)";
@@ -602,7 +602,7 @@ sub _run_query {
 			&& any { $table eq $_ } qw (allele_designations sequence_bin isolate_aliases accession allele_sequences samples)
 		  )
 		{
-			if ( $table eq 'accession' || $table eq 'allele_sequences' ) { #TODO should be able to remove allele_sequences here
+			if ( $table eq 'accession' || $table eq 'allele_sequences' ) {    #TODO should be able to remove allele_sequences here
 				$qry2 =~ s/WHERE/AND/;
 				$qry2 =~
 s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bin.id WHERE sequence_bin.isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})/;
@@ -830,16 +830,10 @@ sub _process_allele_sequences_filters {
 	if ( any { $q->param($_) ne '' } qw (sequence_flag_list duplicates_list scheme_id_list) ) {
 		if ( $q->param('sequence_flag_list') ne '' ) {
 			if ( $q->param('sequence_flag_list') eq 'no flag' ) {
-				$qry2 =
-				    "SELECT * FROM allele_sequences LEFT JOIN sequence_flags ON sequence_flags.seqbin_id = "
-				  . "allele_sequences.seqbin_id AND sequence_flags.locus = allele_sequences.locus AND sequence_flags.start_pos = "
-				  . "allele_sequences.start_pos AND sequence_flags.end_pos = allele_sequences.end_pos";
+				$qry2 = "SELECT * FROM allele_sequences LEFT JOIN sequence_flags ON sequence_flags.id = allele_sequences.id";
 				push @conditions, 'flag IS NULL';
 			} else {
-				$qry2 =
-				    "SELECT * FROM allele_sequences INNER JOIN sequence_flags ON sequence_flags.seqbin_id = "
-				  . "allele_sequences.seqbin_id AND sequence_flags.locus = allele_sequences.locus AND sequence_flags.start_pos = "
-				  . "allele_sequences.start_pos AND sequence_flags.end_pos = allele_sequences.end_pos";
+				$qry2 = "SELECT * FROM allele_sequences INNER JOIN sequence_flags ON sequence_flags.id = allele_sequences.id";
 				if ( any { $q->param('sequence_flag_list') eq $_ } SEQ_FLAGS ) {
 					push @conditions, "flag = '" . $q->param('sequence_flag_list') . "'";
 				}
