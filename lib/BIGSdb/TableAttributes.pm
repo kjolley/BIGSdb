@@ -22,6 +22,10 @@ use warnings;
 use List::MoreUtils qw(any);
 use BIGSdb::Page qw(SEQ_METHODS DATABANKS SEQ_FLAGS SEQ_STATUS);
 
+#Attributes
+#hide => 'yes': Do not display in results table and do not return field values in query
+#hide_public =>'yes': Only display in results table in curation interface
+#hide_query => 'yes': Do not display in results table or allow querying but do return field values in query
 sub get_isolate_aliases_table_attributes {
 	my $attributes = [
 		{ name => 'isolate_id', type => 'int',  required => 'yes', primary_key => 'yes', foreign_key => 'isolates' },
@@ -186,10 +190,20 @@ sub get_loci_table_attributes {
 	my ($self) = @_;
 	my $attributes = [
 		{ name => 'id', type => 'text', length => 50, required => 'yes', unique => 'yes', primary_key => 'yes' },
-		{ name => 'formatted_name',        type => 'text', tooltip  => 'formatted name - Name with HTML formatting.' },
-		{ name => 'common_name',           type => 'text', tooltip  => 'common name - Name that the locus is commonly known as.' },
-		{ name => 'formatted_common_name', type => 'text', tooltip  => 'formatted common name - Common name with HTML formatting.' },
-		{ name => 'data_type',             type => 'text', required => 'yes', optlist => 'DNA;peptide', default => 'DNA' },
+		{ name => 'formatted_name', type => 'text', hide_public => 'yes', tooltip => 'formatted name - Name with HTML formatting.' },
+		{
+			name        => 'common_name',
+			type        => 'text',
+			hide_public => 'yes',
+			tooltip     => 'common name - Name that the locus is commonly known as.'
+		},
+		{
+			name        => 'formatted_common_name',
+			type        => 'text',
+			hide_public => 'yes',
+			tooltip     => 'formatted common name - Common name with HTML formatting.'
+		},
+		{ name => 'data_type', type => 'text', required => 'yes', optlist => 'DNA;peptide', default => 'DNA' },
 		{
 			name     => 'allele_id_format',
 			type     => 'text',
@@ -198,8 +212,13 @@ sub get_loci_table_attributes {
 			default  => 'integer',
 			tooltip  => 'allele id format - Format for allele identifiers'
 		},
-		{ name => 'allele_id_regex', type => 'text', tooltip => 'allele id regex - Regular expression that constrains allele id values.' },
-		{ name => 'length',          type => 'int',  tooltip => 'length - Standard or most common length of sequences at this locus.' },
+		{
+			name        => 'allele_id_regex',
+			type        => 'text',
+			hide_public => 'yes',
+			tooltip     => 'allele id regex - Regular expression that constrains allele id values.'
+		},
+		{ name => 'length', type => 'int', tooltip => 'length - Standard or most common length of sequences at this locus.' },
 		{
 			name     => 'length_varies',
 			type     => 'bool',
@@ -231,9 +250,10 @@ sub get_loci_table_attributes {
 			tooltip => 'genome position - starting position in reference genome.  This is used to order concatenated output functions.'
 		},
 		{
-			name    => 'match_longest',
-			type    => 'bool',
-			tooltip => 'match longest - Only select the longest exact match when tagging/querying.  This is useful when there may be '
+			name        => 'match_longest',
+			type        => 'bool',
+			hide_public => 'yes',
+			tooltip     => 'match longest - Only select the longest exact match when tagging/querying.  This is useful when there may be '
 			  . 'overlapping alleles that are identical apart from one lacking an end sequence.'
 		}
 	  );
@@ -254,22 +274,25 @@ sub get_loci_table_attributes {
 		push @$attributes,
 		  (
 			{
-				name    => 'reference_sequence',
-				type    => 'text',
-				length  => 30000,
-				tooltip => 'reference_sequence - Used by the automated sequence comparison algorithms to identify sequences '
+				name        => 'reference_sequence',
+				type        => 'text',
+				length      => 30000,
+				hide_public => 'yes',
+				tooltip     => 'reference_sequence - Used by the automated sequence comparison algorithms to identify sequences '
 				  . 'matching this locus.'
 			},
 			{
-				name    => 'pcr_filter',
-				type    => 'bool',
-				tooltip => 'pcr filter - Set to true to specify that sequences used for tagging are filtered to only include regions '
+				name        => 'pcr_filter',
+				type        => 'bool',
+				hide_public => 'yes',
+				tooltip     => 'pcr filter - Set to true to specify that sequences used for tagging are filtered to only include regions '
 				  . 'that are amplified by in silico PCR reaction.'
 			},
 			{
-				name    => 'probe_filter',
-				type    => 'bool',
-				tooltip => 'probe filter - Set to true to specify that sequences used for tagging are filtered to only include regions '
+				name        => 'probe_filter',
+				type        => 'bool',
+				hide_public => 'yes',
+				tooltip     => 'probe filter - Set to true to specify that sequences used for tagging are filtered to only include regions '
 				  . 'within a specified distance of a hybdridization probe.'
 			},
 			{
@@ -347,12 +370,13 @@ sub get_loci_table_attributes {
 				default  => $defaults{'dbase_seq_field'}
 			},
 			{
-				name     => 'flag_table',
-				type     => 'bool',
-				required => 'yes',
-				default  => 'true',
-				comments => 'Seqdef database supports allele flags',
-				tooltip  => 'flag_table - Set to true to specify that the seqdef database contains an allele flag table (which is the '
+				name        => 'flag_table',
+				type        => 'bool',
+				required    => 'yes',
+				hide_public => 'yes',
+				default     => 'true',
+				comments    => 'Seqdef database supports allele flags',
+				tooltip     => 'flag_table - Set to true to specify that the seqdef database contains an allele flag table (which is the '
 				  . 'case for BIGSdb versions 1.4 onwards).',
 			},
 			{
@@ -829,19 +853,22 @@ sub get_schemes_table_attributes {
 		push @$attributes,
 		  (
 			{
-				name    => 'dbase_name',
-				type    => 'text',
-				tooltip => 'dbase_name - Name of the database holding profile or field information for this scheme',
-				length  => 60
+				name        => 'dbase_name',
+				type        => 'text',
+				hide_public => 'yes',
+				tooltip     => 'dbase_name - Name of the database holding profile or field information for this scheme',
+				length      => 60
 			},
 			{
-				name    => 'dbase_host',
-				type    => 'text',
+				name        => 'dbase_host',
+				type        => 'text',
+				hide_public => 'yes',
 				tooltip => 'dbase_host - Leave this blank if your database engine is running on the same machine as the webserver software.'
 			},
 			{
-				name    => 'dbase_port',
-				type    => 'int',
+				name        => 'dbase_port',
+				type        => 'int',
+				hide_public => 'yes',
 				tooltip => 'dbase_port - Leave this blank if your database engine is running on the same machine as the webserver software.'
 			},
 			{
@@ -857,9 +884,10 @@ sub get_schemes_table_attributes {
 				tooltip => 'dbase_password - Depending on configuration of the database engine you may be able to leave this blank.'
 			},
 			{
-				name    => 'dbase_table',
-				type    => 'text',
-				tooltip => 'dbase_table - Database table that holds profile or field information for this scheme.'
+				name        => 'dbase_table',
+				type        => 'text',
+				hide_public => 'yes',
+				tooltip     => 'dbase_table - Database table that holds profile or field information for this scheme.'
 			},
 			{
 				name     => 'isolate_display',
@@ -904,15 +932,16 @@ sub get_schemes_table_attributes {
 	}
 	push @$attributes,
 	  (
-		{ name => 'display_order', type => 'int', tooltip => 'display_order - order of appearance in interface.' },
+		{ name => 'display_order', type => 'int', hide_public => 'yes', tooltip => 'display_order - order of appearance in interface.' },
 		{
-			name    => 'allow_missing_loci',
-			type    => 'bool',
-			tooltip => "allow_missing_loci - Allow profiles to contain '0' (locus missing) or 'N' (any allele)."
+			name        => 'allow_missing_loci',
+			type        => 'bool',
+			hide_public => 'yes',
+			tooltip     => "allow_missing_loci - Allow profiles to contain '0' (locus missing) or 'N' (any allele)."
 		},
-		{ name => 'curator',      type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp',    type => 'date', required => 'yes' },
-		{ name => 'date_entered', type => 'date', required => 'yes' }
+		{ name => 'curator',      type => 'int',  hide_public => 'yes', required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp',    type => 'date', hide_public => 'yes', required => 'yes' },
+		{ name => 'date_entered', type => 'date', hide_public => 'yes', required => 'yes' }
 	  );
 	return $attributes;
 }
@@ -1195,11 +1224,11 @@ sub get_sequences_table_attributes {
 		{ name => 'locus',     type => 'text', required => 'yes', primary_key => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
 		{ name => 'allele_id', type => 'text', required => 'yes', primary_key => 'yes' },
 		{ name => 'sequence',     type => 'text', required => 'yes', length         => 32768,      user_update => 'no' },
-		{ name => 'status',       type => 'text', required => 'yes', optlist        => "@optlist", public_hide => 'yes' },
-		{ name => 'sender',       type => 'int',  required => 'yes', dropdown_query => 'yes',      public_hide => 'yes' },
-		{ name => 'curator',      type => 'int',  required => 'yes', dropdown_query => 'yes',      public_hide => 'yes' },
-		{ name => 'date_entered', type => 'date', required => 'yes', public_hide    => 'yes' },
-		{ name => 'datestamp',    type => 'date', required => 'yes', public_hide    => 'yes' }
+		{ name => 'status',       type => 'text', required => 'yes', optlist        => "@optlist", hide_public => 'yes' },
+		{ name => 'sender',       type => 'int',  required => 'yes', dropdown_query => 'yes',      hide_public => 'yes' },
+		{ name => 'curator',      type => 'int',  required => 'yes', dropdown_query => 'yes',      hide_public => 'yes' },
+		{ name => 'date_entered', type => 'date', required => 'yes', hide_public    => 'yes' },
+		{ name => 'datestamp',    type => 'date', required => 'yes', hide_public    => 'yes' }
 	];
 	if ( ( $self->{'system'}->{'allele_comments'} // '' ) eq 'yes' ) {
 		push @$attributes, ( { name => 'comments', type => 'text', required => 'no', length => 120 } );
@@ -1234,11 +1263,12 @@ sub get_accession_table_attributes {
 
 sub get_allele_sequences_table_attributes {
 	my $attributes = [
-		{ name => 'id',        type => 'int',  required => 'yes', primary_key => 'yes' },
-		{ name => 'seqbin_id', type => 'int',  required => 'yes', foreign_key => 'sequence_bin' },
-		{ name => 'locus',     type => 'text', required => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
-		{ name => 'start_pos', type => 'int',  required => 'yes', comments    => 'start position of locus within sequence' },
-		{ name => 'end_pos',   type => 'int',  required => 'yes', comments    => 'end position of locus within sequence' },
+		{ name => 'id',         type => 'int',  hide_query => 'yes', primary_key => 'yes' },
+		{ name => 'isolate_id', type => 'int',  required   => 'yes', foreign_key => 'isolates' },
+		{ name => 'seqbin_id',  type => 'int',  required   => 'yes', foreign_key => 'sequence_bin' },
+		{ name => 'locus',      type => 'text', required   => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
+		{ name => 'start_pos',  type => 'int',  required   => 'yes', comments    => 'start position of locus within sequence' },
+		{ name => 'end_pos',    type => 'int',  required   => 'yes', comments    => 'end position of locus within sequence' },
 		{
 			name     => 'reverse',
 			type     => 'bool',

@@ -118,12 +118,13 @@ sub _get_select_items {
 	my ( $self, $table ) = @_;
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my ( @select_items, @order_by );
-	if ( $table eq 'allele_sequences' || $table eq 'experiment_sequences' ) {
+	if ( $table eq 'experiment_sequences' ) {
 		push @select_items, 'isolate_id';
 		push @select_items, $self->{'system'}->{'labelfield'};
 	}
 	my %labels;
 	foreach my $att (@$attributes) {
+		next if ($att->{'hide_query'} // '') eq 'yes';
 		if ( any { $att->{'name'} eq $_ } qw (sender curator user_id) ) {
 			push @select_items, "$att->{'name'} (id)", "$att->{'name'} (surname)", "$att->{'name'} (first_name)",
 			  "$att->{'name'} (affiliation)";
@@ -601,7 +602,7 @@ sub _run_query {
 			&& any { $table eq $_ } qw (allele_designations sequence_bin isolate_aliases accession allele_sequences samples)
 		  )
 		{
-			if ( $table eq 'accession' || $table eq 'allele_sequences' ) {
+			if ( $table eq 'accession' || $table eq 'allele_sequences' ) { #TODO should be able to remove allele_sequences here
 				$qry2 =~ s/WHERE/AND/;
 				$qry2 =~
 s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bin.id WHERE sequence_bin.isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})/;

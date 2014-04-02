@@ -88,7 +88,8 @@ s/ORDER BY \S+\.allele_id(.*)/ORDER BY \(case when $table.allele_id ~ '^[0-9]+\$
 	} else {
 		my $qrycount = $qry;
 		if ( $table eq 'allele_sequences' ) {
-
+			#TODO should be able to use 'DISTINCT allele_sequences.id' now that we use sequentially key
+			
 			#PK is seqbin_id, locus, start_pos, end_pos but you need to search for distinct combinations (not just COUNT(*)) because the
 			#query may join the sequence_flags table giving more rows than allele sequences.
 			$qrycount =~
@@ -960,11 +961,10 @@ sub _get_record_table_info {
 	my $q = $self->{'cgi'};
 	my ( @headers, @display, @qry_fields, %type, %foreign_key, %labels );
 	my $user_variable_fields = 0;
-	push @headers, 'isolate id' if $table eq 'allele_sequences';
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	foreach my $attr (@$attributes) {
 		next if $table eq 'sequence_bin' && $attr->{'name'} eq 'sequence';
-		next if $attr->{'hide'} eq 'yes' || ( $attr->{'public_hide'} eq 'yes' && !$self->{'curate'} ) || $attr->{'main_display'} eq 'no';
+		next if $attr->{'hide'} eq 'yes' || ( $attr->{'hide_public'} eq 'yes' && !$self->{'curate'} ) || $attr->{'main_display'} eq 'no';
 		push @display,    $attr->{'name'};
 		push @qry_fields, "$table.$attr->{'name'}";
 		my $cleaned = $attr->{'name'};
@@ -973,12 +973,14 @@ sub _get_record_table_info {
 			$cleaned .= '*';
 			$user_variable_fields = 1;
 		}
-		push @headers, $cleaned;
-		push @headers, 'isolate id' if $table eq 'experiment_sequences' && $attr->{'name'} eq 'experiment_id';
-		push @headers, 'sequence length' if $q->param('page') eq 'tableQuery' && $table eq 'sequences' && $attr->{'name'} eq 'sequence';
-		push @headers, 'sequence length' if $q->param('page') eq 'alleleQuery'      && $attr->{'name'} eq 'sequence';
-		push @headers, 'flag'            if $table            eq 'allele_sequences' && $attr->{'name'} eq 'complete';
-		push @headers, 'citation'        if $attr->{'name'}   eq 'pubmed_id';
+		if ($attr->{'hide_query'} ne 'yes'){
+			push @headers, $cleaned;
+			push @headers, 'isolate id' if $table eq 'experiment_sequences' && $attr->{'name'} eq 'experiment_id';
+			push @headers, 'sequence length' if $q->param('page') eq 'tableQuery' && $table eq 'sequences' && $attr->{'name'} eq 'sequence';
+			push @headers, 'sequence length' if $q->param('page') eq 'alleleQuery'      && $attr->{'name'} eq 'sequence';
+			push @headers, 'flag'            if $table            eq 'allele_sequences' && $attr->{'name'} eq 'complete';
+			push @headers, 'citation'        if $attr->{'name'}   eq 'pubmed_id';
+		}
 		$type{ $attr->{'name'} }        = $attr->{'type'};
 		$foreign_key{ $attr->{'name'} } = $attr->{'foreign_key'};
 		$labels{ $attr->{'name'} }      = $attr->{'labels'};
@@ -1081,6 +1083,7 @@ sub _print_record_table {
 	} elsif ( $table eq 'sequence_bin' ) {
 		$ext_sql = $self->{'db'}->prepare("SELECT key,value FROM sequence_attribute_values WHERE seqbin_id=?");
 	}
+	my %hide_field;
 	while ( $sql->fetchrow_arrayref ) {
 		my @query_values;
 		my %primary_key;
@@ -1093,6 +1096,7 @@ sub _print_record_table {
 				$value =~ s/\+/%2B/g;
 				push @query_values, "$_->{'name'}=$value";
 			}
+			$hide_field{$_->{'name'}} = 1 if $_->{'hide_query'} eq 'yes';
 		}
 		print "<tr class=\"td$td\">";
 		if ( $self->{'curate'} ) {
@@ -1109,6 +1113,7 @@ sub _print_record_table {
 		my $set_id = $self->get_set_id;
 		my $scheme_info = $data{'scheme_id'} ? $self->{'datastore'}->get_scheme_info( $data{'scheme_id'}, { set_id => $set_id } ) : undef;
 		foreach my $field (@$display) {
+			next if $hide_field{$field};
 			$data{ lc($field) } //= '';
 			if ( $primary_key{$field} && !$self->{'curate'} ) {
 				my $value;
@@ -1150,8 +1155,7 @@ sub _print_record_table {
 					print "<td>$value</td>";
 				}
 				if ( $table eq 'allele_sequences' && $field eq 'complete' ) {
-					my $flags =
-					  $self->{'datastore'}->get_sequence_flag( $data{'seqbin_id'}, $data{'locus'}, $data{'start_pos'}, $data{'end_pos'} );
+					my $flags = $self->{'datastore'}->get_sequence_flag( $data{'id'});
 					local $" = "</a> <a class=\"seqflag_tooltip\">";
 					print @$flags ? "<td><a class=\"seqflag_tooltip\">@$flags</a></td>" : "<td></td>";
 				}
@@ -1199,7 +1203,7 @@ sub _print_record_table {
 				  $self->{'datastore'}->get_citation_hash( [ $data{'pubmed_id'} ], { formatted => 1, no_title => 1, link_pubmed => 1 } );
 				print "<td>$citation->{$data{ 'pubmed_id'}}</td>";
 			} else {
-				if ( ( $table eq 'allele_sequences' || $table eq 'experiment_sequences' ) && $field eq 'seqbin_id' ) {
+				if ( ( $table eq 'experiment_sequences' ) && $field eq 'seqbin_id' ) {
 					my ( $isolate_id, $isolate ) = $self->get_isolate_id_and_name_from_seqbin_id( $data{'seqbin_id'} );
 					print "<td>$isolate_id) $isolate</td>";
 				}

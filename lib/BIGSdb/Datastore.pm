@@ -1270,13 +1270,11 @@ sub get_all_sequence_flags {
 }
 
 sub get_sequence_flag {
-	my ( $self, $seqbin_id, $locus, $start, $end ) = @_;
+	my ( $self, $id ) = @_;
 	if ( !$self->{'sql'}->{'sequence_flag'} ) {
-		$self->{'sql'}->{'sequence_flag'} =
-		  $self->{'db'}
-		  ->prepare("SELECT sequence_flags.flag FROM sequence_flags WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=?");
+		$self->{'sql'}->{'sequence_flag'} =  $self->{'db'}->prepare("SELECT flag FROM sequence_flags WHERE id=?");
 	}
-	eval { $self->{'sql'}->{'sequence_flag'}->execute( $seqbin_id, $locus, $start, $end ) };
+	eval { $self->{'sql'}->{'sequence_flag'}->execute( $id ) };
 	$logger->error($@) if $@;
 	my @flags;
 	while ( my ($flag) = $self->{'sql'}->{'sequence_flag'}->fetchrow_array ) {
@@ -1829,7 +1827,7 @@ sub get_table_field_attributes {
 	$logger->logcarp($@) if $@;
 	return if ref $attributes ne 'ARRAY';
 	foreach my $att (@$attributes) {
-		foreach (qw(tooltip optlist required default hide public_hide main_display)) {
+		foreach (qw(tooltip optlist required default hide hide_public hide_query main_display)) {
 			$att->{$_} = '' if !defined( $att->{$_} );
 		}
 	}

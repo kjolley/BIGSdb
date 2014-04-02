@@ -511,7 +511,7 @@ ON UPDATE CASCADE
 
 CREATE INDEX i_as1 ON allele_sequences (locus);
 CREATE INDEX i_as2 ON allele_sequences (datestamp);
-CREATE INDEX i_as3 ON allele_sequences(isolate_id);
+CREATE INDEX i_as3 ON allele_sequences (isolate_id);
 
 CREATE LANGUAGE 'plpgsql';
 

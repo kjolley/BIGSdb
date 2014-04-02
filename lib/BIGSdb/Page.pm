@@ -1444,9 +1444,7 @@ sub get_seq_detail_tooltips {
 	my ( @flags_foreach_alleleseq, $complete );
 	if (@$alleleseq_ref) {
 		foreach my $alleleseq (@$alleleseq_ref) {
-			my $flaglist_ref =
-			  $self->{'datastore'}
-			  ->get_sequence_flag( $alleleseq->{'seqbin_id'}, $alleleseq->{'locus'}, $alleleseq->{'start_pos'}, $alleleseq->{'end_pos'} );
+			my $flaglist_ref = $self->{'datastore'}->get_sequence_flag( $alleleseq->{'id'} );
 			push @flags_foreach_alleleseq, $flaglist_ref;
 			push @all_flags,               @$flaglist_ref;
 			$flag_from_alleleseq{$_} = 1 foreach @$flaglist_ref;
