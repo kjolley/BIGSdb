@@ -1,6 +1,6 @@
 #TagStatus.pm - Tag status plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2011-2012, University of Oxford
+#Copyright (c) 2011-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -40,7 +40,7 @@ sub get_attributes {
 		buttontext  => 'Tag status',
 		menutext    => 'Tag status',
 		module      => 'TagStatus',
-		version     => '1.1.0',
+		version     => '1.1.1',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		requires    => 'mogrify',
@@ -99,12 +99,12 @@ sub _breakdown_isolate {
 	}
 	say "<h1>Tag status: Isolate id#$id ($isolate->{$self->{'system'}->{'labelfield'}})</h1>";
 	say "<div class=\"box\" id=\"resultstable\">";
-	my $allele_ids   = $self->{'datastore'}->get_all_allele_ids($id);
-	my $tags         = $self->{'datastore'}->get_all_allele_sequences($id);
-	my $flags        = $self->{'datastore'}->get_all_sequence_flags($id);
-	my @flagged_loci = keys %{$flags};
-	my $set_id       = $self->get_set_id;
-	my $scheme_data  = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+	my $allele_ids      = $self->{'datastore'}->get_all_allele_ids($id);
+	my $tags            = $self->{'datastore'}->get_all_allele_sequences($id);
+	my $flags           = $self->_get_loci_with_sequence_flags($id);
+	my $loci_with_flags = $self->_get_loci_with_sequence_flags($id);
+	my $set_id          = $self->get_set_id;
+	my $scheme_data     = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
 	print "<table class=\"resultstable\">\n<tr>";
 	print "<th>$_</th>" foreach ( 'Scheme', 'Locus', 'Allele designation', 'Sequence tag' );
@@ -123,7 +123,7 @@ sub _breakdown_isolate {
 			print "<td>$cleaned</td>";
 			print defined $allele_ids->{$locus} ? "<td style=\"$tagged\">$allele_ids->{$locus}</td>" : "<td style=\"$untagged\" />";
 			print defined $tags->{$locus} ? "<td style=\"$tagged\">" : "<td style=\"$untagged\">";
-			$self->_get_flags( $id, $locus ) if any { $locus eq $_ } @flagged_loci;
+			$self->_get_flags( $id, $locus ) if any { $locus eq $_ } @$loci_with_flags;
 			say "</td></tr>";
 			$first = 0;
 		}
@@ -139,7 +139,7 @@ sub _breakdown_isolate {
 			print "<td>$cleaned</td>";
 			print defined $allele_ids->{$locus} ? "<td style=\"$tagged\">$allele_ids->{$locus}</td>" : "<td style=\"$untagged\" />";
 			print defined $tags->{$locus} ? "<td style=\"$tagged\">" : "<td style=\"$untagged\">";
-			$self->_get_flags( $id, $locus ) if any { $locus eq $_ } @flagged_loci;
+			$self->_get_flags( $id, $locus ) if any { $locus eq $_ } @$loci_with_flags;
 			say "</td></tr>";
 			$first = 0;
 		}
@@ -148,12 +148,29 @@ sub _breakdown_isolate {
 	return;
 }
 
+sub _get_loci_with_sequence_flags {
+	my ( $self, $isolate_id ) = @_;
+	if ( !$self->{'sql'}->{'all_sequence_flags'} ) {
+		$self->{'sql'}->{'all_sequence_flags'} =
+		  $self->{'db'}->prepare( "SELECT allele_sequences.locus FROM sequence_flags LEFT JOIN "
+			  . "allele_sequences ON sequence_flags.id = allele_sequences.id WHERE isolate_id=?" );
+		$logger->info("Statement handle 'all_sequence_flags' prepared.");
+	}
+	eval { $self->{'sql'}->{'all_sequence_flags'}->execute($isolate_id) };
+	$logger->error($@) if $@;
+	my @loci;
+	while ( my ($locus) = $self->{'sql'}->{'all_sequence_flags'}->fetchrow_array ) {
+		push @loci, $locus;
+	}
+	return \@loci;
+}
+
 sub _get_flags {
 	my ( $self, $isolate_id, $locus ) = @_;
 	if ( !$self->{'sql'}->{'flag'} ) {
 		$self->{'sql'}->{'flag'} =
-		  $self->{'db'}->prepare( "SELECT flag FROM sequence_flags LEFT JOIN "
-			  . "sequence_bin ON seqbin_id = sequence_bin.id WHERE isolate_id=? AND locus=? ORDER BY flag" );
+		  $self->{'db'}->prepare( "SELECT flag FROM sequence_flags LEFT JOIN allele_sequences ON sequence_flags.id=allele_sequences.id "
+			  . "WHERE isolate_id=? AND locus=? ORDER BY flag" );
 	}
 	eval { $self->{'sql'}->{'flag'}->execute( $isolate_id, $locus ) };
 	$logger->error($@) if $@;
@@ -230,19 +247,20 @@ sub _print_schematic {
 		my @designations;
 		eval { $isolate_sql->execute($id) };
 		$logger->error($@) if $@;
-		my ($isolate)  = $isolate_sql->fetchrow_array;
-		my $allele_ids = $self->{'datastore'}->get_all_allele_ids($id);
-		my $tags       = $self->{'datastore'}->get_all_allele_sequences($id);
-		my $flags      = $self->{'datastore'}->get_all_sequence_flags($id);
-		my $url        = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=TagStatus&amp;isolate_id=$id";
+		my ($isolate)       = $isolate_sql->fetchrow_array;
+		my $allele_ids      = $self->{'datastore'}->get_all_allele_ids($id);
+		my $tags            = $self->{'datastore'}->get_all_allele_sequences($id);
+		my $loci_with_flags = $self->_get_loci_with_sequence_flags($id);
+		my %loci_with_flags = map { $_ => 1 } @$loci_with_flags;
+		my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=TagStatus&amp;isolate_id=$id";
 		print "<tr class=\"td$td\"><td><a href=\"$url\">$id</a></td><td>$isolate</td>";
 
 		foreach my $scheme_id (@$scheme_ids_ref) {
 			next if !$selected_schemes{$scheme_id};
-			foreach my $locus (@{ $scheme_loci{$scheme_id} }) {
+			foreach my $locus ( @{ $scheme_loci{$scheme_id} } ) {
 				my $value = defined $allele_ids->{$locus} ? 1 : 0;
 				$value += defined $tags->{$locus} ? 2 : 0;
-				$value = defined $flags->{$locus} ? 4 : $value;
+				$value = $loci_with_flags{$locus} ? 4 : $value;
 				push @designations, $value;
 			}
 		}
@@ -250,7 +268,7 @@ sub _print_schematic {
 			next if !$selected_schemes{0};
 			my $value = defined $allele_ids->{$locus} ? 1 : 0;
 			$value += defined $tags->{$locus} ? 2 : 0;
-			$value = defined $flags->{$locus} ? 4 : $value;
+			$value = $loci_with_flags{$locus} ? 4 : $value;
 			push @designations, $value;
 		}
 		my $designation_filename = "$self->{'config'}->{'tmp_dir'}/$prefix\_$id\_designation.svg";
@@ -309,7 +327,7 @@ sub _make_svg {
    <svg xmlns="http://www.w3.org/2000/svg"
      xmlns:xlink="http://www.w3.org/1999/xlink" width="$width" height="20" viewBox="0 0 $width 10">
 SVG
-	my $pos     = int (0.5 * $bar_width);
+	my $pos     = int( 0.5 * $bar_width );
 	my @colours = COLOURS;
 	foreach (@$values) {
 		say $fh "<line x1=\"$pos\" y1=\"0\" x2=\"$pos\" y2=\"20\" style=\"stroke-width: $bar_width; stroke: #$colours[$_];\" />";

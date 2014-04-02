@@ -128,9 +128,8 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 	} elsif ( $table eq 'allele_sequences'
 		&& ( $delete_qry =~ /JOIN sequence_flags/ || $delete_qry =~ /JOIN sequence_bin/ || $delete_qry =~ /JOIN scheme_members/ ) )
 	{
-		$delete_qry =~
-		  s/SELECT \*/SELECT allele_sequences.seqbin_id,allele_sequences.locus,allele_sequences.start_pos,allele_sequences.end_pos/;
-		$delete_qry = "DELETE FROM allele_sequences WHERE (seqbin_id,locus,start_pos,end_pos) IN ($delete_qry)";
+		$delete_qry =~ s/SELECT \*/SELECT allele_sequences.id/;
+		$delete_qry = "DELETE FROM allele_sequences WHERE id IN ($delete_qry)";
 	} elsif ( $table eq 'allele_designations' && ( $delete_qry =~ /JOIN scheme_members/ ) ) {
 		$delete_qry =~ s/SELECT \*/SELECT allele_designations.isolate_id,allele_designations.locus,allele_designations.allele_id/;
 		$delete_qry = "DELETE FROM allele_designations WHERE (isolate_id,locus,allele_id) IN ($delete_qry)";

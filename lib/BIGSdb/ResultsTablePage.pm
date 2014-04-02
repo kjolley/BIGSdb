@@ -243,7 +243,7 @@ sub _print_delete_all_function {
 	my $q = $self->{'cgi'};
 	print "<fieldset><legend>Delete</legend>\n";
 	print $q->start_form;
-	$q->param( 'page', 'deleteAll' );
+	$q->param( page => 'deleteAll' );
 	print $q->hidden($_) foreach qw (db page table query_file scheme_id);
 	if ( $table eq 'allele_designations' ) {
 		print "<ul><li>\n";
@@ -254,7 +254,7 @@ sub _print_delete_all_function {
 		print $q->checkbox( -name => 'delete_pending', -label => 'Delete corresponding pending designations' );
 		print "</li></ul>\n";
 	}
-	print $q->submit( -name => 'Delete ALL', -class => 'submit' );
+	print $q->submit( -name => 'Delete ALL', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
 	print $q->end_form;
 	print "</fieldset>";
 	return;
@@ -267,9 +267,9 @@ sub _print_link_seq_to_experiment_function {
 	if ($experiments) {
 		print "<fieldset><legend>Experiments</legend>\n";
 		print $q->start_form;
-		$q->param( 'page', 'linkToExperiment' );
+		$q->param( page => 'linkToExperiment' );
 		print $q->hidden($_) foreach qw (db page query_file);
-		print $q->submit( -name => 'Link to experiment', -class => 'submit' );
+		print $q->submit( -name => 'Link to experiment', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
 		print $q->end_form;
 		print "</fieldset>";
 	}
@@ -282,9 +282,9 @@ sub _print_access_control_function {
 	if ( $self->{'system'}->{'read_access'} eq 'acl' && $self->can_modify_table('isolate_user_acl') ) {
 		print "<fieldset><legend>Access control</legend>\n";
 		print $q->start_form;
-		$q->param( 'page', 'isolateACL' );
+		$q->param( page => 'isolateACL' );
 		print $q->hidden($_) foreach qw (db page table query_file);
-		print $q->submit( -name => 'Modify access', -class => 'submit' );
+		print $q->submit( -name => 'Modify access', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
 		print $q->end_form;
 		print "</fieldset>";
 	}
@@ -305,9 +305,9 @@ sub _print_export_configuration_function {
 	{
 		print "<fieldset><legend>Database configuration</legend>\n";
 		print $q->start_form;
-		$q->param( 'page', 'exportConfig' );
+		$q->param( page => 'exportConfig' );
 		print $q->hidden($_) foreach qw (db page table query_file);
-		print $q->submit( -name => 'Export configuration/data', -class => 'submit' );
+		print $q->submit( -name => 'Export configuration/data', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
 		print $q->end_form;
 		print "</fieldset>\n";
 	}
@@ -319,9 +319,9 @@ sub _print_tag_scanning_function {
 	my $q = $self->{'cgi'};
 	print "<fieldset style=\"text-align:center\"><legend>Tag scanning</legend>\n";
 	print $q->start_form;
-	$q->param( 'page', 'tagScan' );
+	$q->param( page => 'tagScan' );
 	print $q->hidden($_) foreach qw (db page table query_file);
-	print $q->submit( -name => 'Scan', -class => 'submit' );
+	print $q->submit( -name => 'Scan', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
 	print $q->end_form;
 	print "</fieldset>\n";
 	return;
@@ -346,11 +346,11 @@ sub _print_modify_project_members_function {
 		unshift @projects, '';
 		$labels{''} = "Select project...";
 		print $q->start_form;
-		$q->param( 'page',  'batchAdd' );
-		$q->param( 'table', 'project_members' );
+		$q->param( page =>  'batchAdd' );
+		$q->param( table => 'project_members' );
 		print $q->hidden($_) foreach qw (db page table query_file);
 		print $q->popup_menu( -name => 'project', -values => \@projects, -labels => \%labels );
-		print $q->submit( -name => 'Link', -class => 'submit' );
+		print $q->submit( -name => 'Link', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
 		print $q->end_form;
 		print "</fieldset>\n";
 	}
@@ -364,7 +364,7 @@ sub _print_set_sequence_flags_function {
 	print $q->start_form;
 	$q->param( page => 'setAlleleFlags' );
 	print $q->hidden($_) foreach qw (db page query_file);
-	print $q->submit( -name => 'Batch set', -class => 'submit' );
+	print $q->submit( -name => 'Batch set', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
 	print $q->end_form;
 	print "</fieldset>\n";
 	return;

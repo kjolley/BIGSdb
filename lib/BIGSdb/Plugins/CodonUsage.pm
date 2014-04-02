@@ -1,6 +1,6 @@
 #CodonUsage.pm - Codon usage plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2011-2013, University of Oxford
+#Copyright (c) 2011-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -128,7 +128,7 @@ sub get_attributes {
 		buttontext  => 'Codons',
 		menutext    => 'Codon usage',
 		module      => 'CodonUsage',
-		version     => '1.1.5',
+		version     => '1.1.6',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -251,12 +251,10 @@ sub run_job {
 		$ignore_seqflag = 'AND flag IS NULL';
 	}
 	my $seqbin_sql =
-	  $self->{'db'}->prepare( "SELECT substring(sequence from allele_sequences.start_pos for "
-		  . "allele_sequences.end_pos-allele_sequences.start_pos+1),reverse FROM allele_sequences LEFT JOIN sequence_bin ON "
-		  . "allele_sequences.seqbin_id = sequence_bin.id LEFT JOIN sequence_flags ON allele_sequences.seqbin_id = "
-		  . "sequence_flags.seqbin_id AND allele_sequences.locus = sequence_flags.locus AND allele_sequences.start_pos = "
-		  . "sequence_flags.start_pos AND allele_sequences.end_pos = sequence_flags.end_pos WHERE sequence_bin.isolate_id=? AND "
-		  . "allele_sequences.locus=? AND complete $ignore_seqflag ORDER BY allele_sequences.datestamp LIMIT 1" );
+	  $self->{'db'}->prepare( "SELECT substring(sequence from allele_sequences.start_pos for allele_sequences.end_pos-allele_sequences."
+	      . "start_pos+1),reverse FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id LEFT JOIN "
+	      . "sequence_flags ON allele_sequences.id=sequence_flags.id WHERE allele_sequences.isolate_id=? AND allele_sequences.locus=? "
+	      . "AND complete $ignore_seqflag ORDER BY allele_sequences.datestamp LIMIT 1" );
 	my $start = 1;
 	my $no_output     = 1;
 	my $list          = $self->{'jobManager'}->get_job_isolates($job_id);

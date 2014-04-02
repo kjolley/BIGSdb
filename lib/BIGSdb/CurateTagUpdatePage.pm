@@ -80,12 +80,11 @@ sub print_content {
 		my $complete_flag = $complete ? 'true' : 'false';
 		my $curator_id    = $self->get_curator_id;
 		( my $clean_locus = $locus ) =~ s/'/\\'/g;
-		my $complete_bool = $complete ? 'true' : 'false';
 		push @actions,
 		  {
 			statement => "UPDATE allele_sequences SET (start_pos,end_pos,reverse,complete,curator,datestamp) = "
 			  . "(?,?,?,?,?,?) WHERE id=?",
-			arguments => [ $start, $end, $reverse_flag, $complete_bool, $curator_id, 'now', $id ]
+			arguments => [ $start, $end, $reverse_flag, $complete_flag, $curator_id, 'now', $id ]
 		  };
 		my $existing_flags = $self->{'datastore'}->get_sequence_flags($id);
 		my @new_flags      = $q->param('flags');

@@ -212,10 +212,8 @@ sub run_job {
 	my $ignore_seqflags   = $params->{'ignore_seqflags'}   ? 'AND flag IS NULL' : '';
 	my $ignore_incomplete = $params->{'ignore_incomplete'} ? 'AND complete'     : '';
 	my $seqbin_sql =
-	  $self->{'db'}->prepare( "SELECT $substring_query,reverse FROM allele_sequences LEFT JOIN sequence_bin ON "
-		  . "allele_sequences.seqbin_id = sequence_bin.id LEFT JOIN sequence_flags ON allele_sequences.seqbin_id = "
-		  . "sequence_flags.seqbin_id AND allele_sequences.locus = sequence_flags.locus AND allele_sequences.start_pos = "
-		  . "sequence_flags.start_pos AND allele_sequences.end_pos = sequence_flags.end_pos WHERE sequence_bin.isolate_id=? "
+	  $self->{'db'}->prepare( "SELECT $substring_query,reverse FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id="
+	      . "sequence_bin.id LEFT JOIN sequence_flags ON allele_sequences.id=sequence_flags.id WHERE allele_sequences.isolate_id=? "
 		  . "AND allele_sequences.locus=? $ignore_seqflags $ignore_incomplete ORDER BY complete,allele_sequences.datestamp LIMIT 1" );
 	my @problem_ids;
 	my %problem_id_checked;

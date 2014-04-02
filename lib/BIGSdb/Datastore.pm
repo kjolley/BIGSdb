@@ -1254,27 +1254,12 @@ sub get_all_allele_sequences {
 	return $sequences;
 }
 
-sub get_all_sequence_flags {
-	my ( $self, $isolate_id ) = @_;
-	if ( !$self->{'sql'}->{'all_sequence_flags'} ) {
-		$self->{'sql'}->{'all_sequence_flags'} =
-		  $self->{'db'}->prepare(
-"SELECT sequence_flags.* FROM sequence_flags LEFT JOIN sequence_bin ON sequence_flags.seqbin_id = sequence_bin.id WHERE isolate_id=?"
-		  );
-		$logger->info("Statement handle 'all_sequence_flags' prepared.");
-	}
-	eval { $self->{'sql'}->{'all_sequence_flags'}->execute($isolate_id); };
-	$logger->error($@) if $@;
-	my $flags = $self->{'sql'}->{'all_sequence_flags'}->fetchall_hashref( [qw(locus seqbin_id start_pos end_pos flag)] );
-	return $flags;
-}
-
 sub get_sequence_flags {
 	my ( $self, $id ) = @_;
 	if ( !$self->{'sql'}->{'sequence_flag'} ) {
-		$self->{'sql'}->{'sequence_flag'} =  $self->{'db'}->prepare("SELECT flag FROM sequence_flags WHERE id=?");
+		$self->{'sql'}->{'sequence_flag'} = $self->{'db'}->prepare("SELECT flag FROM sequence_flags WHERE id=?");
 	}
-	eval { $self->{'sql'}->{'sequence_flag'}->execute( $id ) };
+	eval { $self->{'sql'}->{'sequence_flag'}->execute($id) };
 	$logger->error($@) if $@;
 	my @flags;
 	while ( my ($flag) = $self->{'sql'}->{'sequence_flag'}->fetchrow_array ) {
