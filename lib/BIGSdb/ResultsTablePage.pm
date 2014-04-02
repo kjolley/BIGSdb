@@ -1155,7 +1155,7 @@ sub _print_record_table {
 					print "<td>$value</td>";
 				}
 				if ( $table eq 'allele_sequences' && $field eq 'complete' ) {
-					my $flags = $self->{'datastore'}->get_sequence_flag( $data{'id'});
+					my $flags = $self->{'datastore'}->get_sequence_flags( $data{'id'});
 					local $" = "</a> <a class=\"seqflag_tooltip\">";
 					print @$flags ? "<td><a class=\"seqflag_tooltip\">@$flags</a></td>" : "<td></td>";
 				}

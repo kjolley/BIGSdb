@@ -1269,7 +1269,7 @@ sub get_all_sequence_flags {
 	return $flags;
 }
 
-sub get_sequence_flag {
+sub get_sequence_flags {
 	my ( $self, $id ) = @_;
 	if ( !$self->{'sql'}->{'sequence_flag'} ) {
 		$self->{'sql'}->{'sequence_flag'} =  $self->{'db'}->prepare("SELECT flag FROM sequence_flags WHERE id=?");

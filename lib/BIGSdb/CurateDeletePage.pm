@@ -140,6 +140,7 @@ sub _display_record {
 		$logger->error($@) if $@;
 	}
 	foreach (@$attributes) {
+		next if $_->{'hide_query'} eq 'yes';
 		( my $field_name = $_->{'name'} ) =~ tr/_/ /;
 		if ( $table eq 'profiles' && $_->{'name'} eq 'profile_id' ) {
 			$buffer .= "<dt>$primary_key</dt>";
