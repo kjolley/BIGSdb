@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2013, University of Oxford
+#Copyright (c) 2011-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -199,8 +199,8 @@ sub _tag_sequence {
 	  $self->{'db'}->prepare( "INSERT INTO allele_sequences (seqbin_id,locus,start_pos,"
 		  . "end_pos,reverse,complete,curator,datestamp) VALUES (?,?,?,?,?,?,?,?)" );
 	my $sql_flag =
-	  $self->{'db'}
-	  ->prepare("INSERT INTO sequence_flags (seqbin_id,locus,start_pos,end_pos,flag,datestamp,curator) VALUES (?,?,?,?,?,?,?)");
+	  $self->{'db'}->prepare( "INSERT INTO sequence_flags (id,flag,datestamp,curator) SELECT allele_sequences.id, "
+		  . "?,?,? FROM allele_sequences WHERE (seqbin_id,locus,start_pos,end_pos)=(?,?,?,?)" );
 	eval {
 		$sql->execute(
 			$values->{'seqbin_id'},
@@ -212,9 +212,9 @@ sub _tag_sequence {
 			my $flags = $self->{'datastore'}->get_locus( $values->{'locus'} )->get_flags( $values->{'allele_id'} );
 			foreach my $flag (@$flags) {
 				$sql_flag->execute(
-					$values->{'seqbin_id'},
+					$flag, 'now', TAG_USER, $values->{'seqbin_id'},
 					$values->{'locus'}, $values->{'start_pos'},
-					$values->{'end_pos'}, $flag, 'now', TAG_USER
+					$values->{'end_pos'}
 				);
 			}
 		}
