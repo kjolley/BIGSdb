@@ -241,7 +241,7 @@ sub run_script {
 	say $seqs_fh "locus\tallele_id\tstatus\tsequence";
 	close $seqs_fh;
 	$self->_write_status( $options->{'scan_job'}, "start_time:$start_time", { reset => 1 } );
-	$self->_write_match( $options->{'scan_job'}, undef, { reset => 1 });
+	$self->_write_match( $options->{'scan_job'}, undef, { reset => 1 } );
 	$logger->info("Scan $self->{'instance'}:$options->{'scan_job'} ($options->{'curator_name'}) started");
 	my $table_file = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'scan_job'}_table.html";
 	unlink $table_file;    #delete file if scan restarted
@@ -589,11 +589,11 @@ sub _get_row {
 		$buffer .= $q->checkbox( -name => "id_$isolate_id\_$locus\_allele_$id", -label => '', disabled => 'disabled' );
 	}
 	$buffer .= "</td><td>";
-	my $allele_sequence_exists =
+	my $existing_allele_sequence =
 	  $self->{'datastore'}
-	  ->run_simple_query( "SELECT COUNT(*) FROM allele_sequences WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=?",
-		$match->{'seqbin_id'}, $locus, $predicted_start, $predicted_end )->[0];
-	if ( !$allele_sequence_exists ) {
+	  ->run_simple_query_hashref( "SELECT * FROM allele_sequences WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=?",
+		$match->{'seqbin_id'}, $locus, $predicted_start, $predicted_end );
+	if ( !$existing_allele_sequence ) {
 		$buffer .= $q->checkbox(
 			-name    => "id_$isolate_id\_$locus\_sequence_$id",
 			-id      => "id_$isolate_id\_$cleaned_locus\_sequence_$id",
@@ -628,10 +628,8 @@ sub _get_row {
 		$buffer .= $q->checkbox( -name => "id_$isolate_id\_$locus\_sequence_$id", -label => '', disabled => 'disabled' );
 		$seq_disabled = 1;
 		$buffer .= "</td><td>";
-		my $flags =
-		  $self->{'datastore'}
-		  ->run_list_query( "SELECT flag FROM sequence_flags WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=? ORDER BY flag",
-			$match->{'seqbin_id'}, $locus, $predicted_start, $predicted_end );
+		$logger->error( $existing_allele_sequence->{'id'} );
+		my $flags = $self->{'datastore'}->get_sequence_flags( $existing_allele_sequence->{'id'} );
 		foreach (@$flags) {
 			$buffer .= " <a class=\"seqflag_tooltip\">$_</a>";
 		}
@@ -989,6 +987,7 @@ sub _read_status {
 }
 
 sub _write_match {
+
 	#Write matches to a file in secure_tmp that can be read by tagging page.
 	my ( $self, $scan_job, $data, $options ) = @_;
 	$data //= '';

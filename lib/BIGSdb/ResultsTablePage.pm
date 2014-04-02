@@ -96,9 +96,9 @@ s/ORDER BY \S+\.allele_id(.*)/ORDER BY \(case when $table.allele_id ~ '^[0-9]+\$
 		$qrycount =~ s/ORDER BY.*//;
 		$records = $self->{'datastore'}->run_simple_query($qrycount)->[0];
 	}
-	$q->param( 'query_file',  $passed_qry_file );
-	$q->param( 'currentpage', $currentpage );
-	$q->param( 'displayrecs', $self->{'prefs'}->{'displayrecs'} );
+	$q->param( query_file  => $passed_qry_file );
+	$q->param( currentpage => $currentpage );
+	$q->param( displayrecs => $self->{'prefs'}->{'displayrecs'} );
 	if ( $self->{'prefs'}->{'displayrecs'} > 0 ) {
 		$totalpages = $records / $self->{'prefs'}->{'displayrecs'};
 	} else {

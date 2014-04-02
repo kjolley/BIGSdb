@@ -1,4 +1,5 @@
 CREATE sequence allele_sequences_id_seq;
+GRANT USAGE, SELECT ON SEQUENCE allele_sequences_id_seq TO apache;
 ALTER TABLE allele_sequences ADD id bigint;
 ALTER TABLE allele_sequences ALTER COLUMN id SET DEFAULT NEXTVAL('allele_sequences_id_seq');
 

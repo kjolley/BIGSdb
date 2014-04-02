@@ -484,8 +484,6 @@ sub _tag {
 		if ( $match =~ /^(\d+):(.+):(\d+)$/ ) {
 			my ( $isolate_id, $locus, $id ) = ( $1, $2, $3 );
 			next if !$self->is_allowed_to_view_isolate($isolate_id);
-			my $cleaned_locus = $locus;
-			$cleaned_locus =~ s/'/\\'/g;
 			my %pending_allele_ids_to_set;
 			my $display_locus = $self->clean_locus($locus);
 			my $seqbin_id     = $q->param("id_$isolate_id\_$locus\_seqbin_id_$id");
@@ -499,16 +497,20 @@ sub _tag {
 				my $status      = $allele_id ? 'confirmed' : 'provisional';
 				if ( !defined $set_allele_id && !$designation_added->{$isolate_id}->{$locus} ) {
 					push @updates,
-					    "INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,"
-					  . "date_entered,datestamp,comments) VALUES ($isolate_id,E'$cleaned_locus','$allele_id',$sender,'$status',"
-					  . "'automatic',$curator_id,'today','today','Scanned from sequence bin')";
+					  {
+						statement => "INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,"
+						  . "date_entered,datestamp,comments) VALUES (?,?,?,?,?,?,?,?,?,?)",
+						arguments => [
+							$isolate_id, $locus, $allele_id, $sender, $status, 'automatic', $curator_id, 'now', 'now',
+							'Scanned from sequence bin'
+						]
+					  };
 					push @allele_updates, ( $labels->{$isolate_id} || $isolate_id ) . ": $display_locus:  $allele_id";
 					push @{ $history->{$isolate_id} }, "$locus: new designation '$allele_id' (sequence bin scan)";
 					$designation_added->{$isolate_id}->{$locus} = $allele_id;
 				} elsif (
 					(
-						( defined $set_allele_id && $set_allele_id ne $allele_id )
-						|| ( defined $designation_added->{$isolate_id}->{$locus}
+						( defined $set_allele_id && $set_allele_id ne $allele_id ) || ( defined $designation_added->{$isolate_id}->{$locus}
 							&& $designation_added->{$isolate_id}->{$locus} ne $allele_id )
 					)
 					&& !$pending_allele_ids_to_set{$allele_id}
@@ -519,9 +521,14 @@ sub _tag {
 					my ($exists) = $pending_sql->fetchrow_array;
 					if ( !$exists && !$pending_designation_added->{$isolate_id}->{$locus}->{$allele_id}->{$sender} ) {
 						push @updates,
-						    "INSERT INTO pending_allele_designations (isolate_id,locus,allele_id,sender,method,curator,"
-						  . "date_entered,datestamp,comments) VALUES ($isolate_id,E'$cleaned_locus','$allele_id',$sender,'automatic',"
-						  . "$curator_id,'today','today','Scanned from sequence bin')";
+						  {
+							statement => "INSERT INTO pending_allele_designations (isolate_id,locus,allele_id,sender,method,curator,"
+							  . "date_entered,datestamp,comments) VALUES (?,?,?,?,?,?,?,?,?)",
+							arguments => [
+								$isolate_id, $locus, $allele_id, $sender, 'automatic', $curator_id, 'now', 'now',
+								'Scanned from sequence bin'
+							]
+						  };
 						$pending_allele_ids_to_set{$allele_id} = 1;
 						push @pending_allele_updates,
 						    ( $labels->{$isolate_id} || $isolate_id )
@@ -542,16 +549,25 @@ sub _tag {
 					my $reverse  = $q->param("id_$isolate_id\_$locus\_reverse_$id")  ? 'TRUE' : 'FALSE';
 					my $complete = $q->param("id_$isolate_id\_$locus\_complete_$id") ? 'TRUE' : 'FALSE';
 					push @updates,
-					  "INSERT INTO allele_sequences (seqbin_id,locus,start_pos,end_pos,reverse,complete,curator,datestamp) "
-					  . "VALUES ($seqbin_id,E'$cleaned_locus',$start,$end,'$reverse','$complete',$curator_id,'today')";
+					  {
+						statement => "INSERT INTO allele_sequences (seqbin_id,locus,start_pos,end_pos,reverse,complete,curator,datestamp) "
+						  . "VALUES (?,?,?,?,?,?,?,?)",
+						arguments => [ $seqbin_id, $locus, $start, $end, $reverse, $complete, $curator_id, 'now' ]
+					  };
 					push @sequence_updates,
 					  ( $labels->{$isolate_id} || $isolate_id ) . ": $display_locus:  Seqbin id: $seqbin_id; $start-$end";
 					push @{ $history->{$isolate_id} }, "$locus: sequence tagged. Seqbin id: $seqbin_id; $start-$end (sequence bin scan)";
 					if ( $q->param("id_$isolate_id\_$locus\_sequence_$id\_flag") ) {
 						my @flags = $q->param("id_$isolate_id\_$locus\_sequence_$id\_flag");
 						foreach my $flag (@flags) {
-							push @updates, "INSERT INTO sequence_flags (seqbin_id,locus,start_pos,end_pos,flag,datestamp,curator) "
-							  . "VALUES ($seqbin_id,E'$cleaned_locus',$start,$end,'$flag','today',$curator_id)";
+
+							#Need to find out the autoincrementing id for the just added tag
+							push @updates,
+							  {
+								statement => "INSERT INTO sequence_flags (id,flag,datestamp,curator) SELECT allele_sequences.id, "
+								  . "?,?,? FROM allele_sequences WHERE (seqbin_id,locus,start_pos,end_pos)=(?,?,?,?)",
+								arguments => [ $flag, 'now', $curator_id, $seqbin_id, $locus, $start, $end ]
+							  };
 						}
 					}
 				}
@@ -559,22 +575,18 @@ sub _tag {
 		}
 	}
 	if (@updates) {
-		my $query;
 		eval {
-			foreach (@updates)
+			foreach my $update (@updates)
 			{
-				$query = $_;
-				$self->{'db'}->do($_);
+				$self->{'db'}->do( $update->{'statement'}, undef, @{ $update->{'arguments'} } );
 			}
 		};
 		if ($@) {
 			my $err = $@;
-			say "<div class=\"box\" id=\"statusbad\"><p>Database update failed - transaction cancelled - no records have been "
-			  . "touched.</p>";
+			say qq(<div class="box" id="statusbad"><p>Database update failed - transaction cancelled - no records have been touched.</p>);
 			if ( $err =~ /duplicate/ && $err =~ /unique/ ) {
 				say "<p>Data entry would have resulted in records with either duplicate ids or another unique field with "
 				  . "duplicate values.</p>";
-				$logger->debug("$err $query");
 			} else {
 				say "<p>Error message: $err</p>";
 				$logger->error($err);
@@ -672,7 +684,13 @@ sub _show_results {
 			say $q->hidden($_) foreach qw(isolate_id_list loci);
 		}
 		say $q->hidden($_) foreach qw(db page scan);
-		say $q->submit( -name => 'tag', -label => 'Tag alleles/sequences', -class => 'submit' );
+		say qq(<fieldset style="float:left"><legend>Action</legend>);
+		say $q->submit(
+			-name  => 'tag',
+			-label => 'Tag alleles/sequences',
+			-class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all'
+		);
+		say qq(</fieldset><div style="clear:both"></div>);
 	}
 	say $q->end_form;
 	say "</div>";

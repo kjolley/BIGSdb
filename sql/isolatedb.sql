@@ -544,6 +544,7 @@ CREATE TRIGGER set_allele_sequences_isolate_id_field2 AFTER UPDATE ON sequence_b
 	EXECUTE PROCEDURE set_allele_sequences_isolate_id_field2();
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON allele_sequences TO apache;
+GRANT USAGE, SELECT ON SEQUENCE allele_sequences_id_seq TO apache;
 
 CREATE TABLE sequence_flags (
 id bigint NOT NULL,
