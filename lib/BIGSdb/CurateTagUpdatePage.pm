@@ -81,26 +81,34 @@ sub print_content {
 		my $curator_id    = $self->get_curator_id;
 		( my $clean_locus = $locus ) =~ s/'/\\'/g;
 		my $complete_bool = $complete ? 'true' : 'false';
-		push @actions, "UPDATE allele_sequences SET (start_pos,end_pos,reverse,complete,curator,datestamp) = "
-		  . "($start, $end, $reverse_flag, $complete_bool, $curator_id, 'now') WHERE id=$id";
+		push @actions,
+		  {
+			statement => "UPDATE allele_sequences SET (start_pos,end_pos,reverse,complete,curator,datestamp) = "
+			  . "(?,?,?,?,?,?) WHERE id=?",
+			arguments => [ $start, $end, $reverse_flag, $complete_bool, $curator_id, 'now', $id ]
+		  };
 		my $existing_flags = $self->{'datastore'}->get_sequence_flags($id);
 		my @new_flags      = $q->param('flags');
 
 		foreach my $new_flag (@new_flags) {
 			if ( !@$existing_flags || none { $new_flag eq $_ } @$existing_flags ) {
-				push @actions, "INSERT INTO sequence_flags (id,flag,datestamp,curator) VALUES ($id,'$new_flag','now',$curator_id)";
+				push @actions,
+				  {
+					statement => "INSERT INTO sequence_flags (id,flag,datestamp,curator) VALUES (?,?,?,?)",
+					arguments => [ $id, $new_flag, 'now', $curator_id ]
+				  };
 			}
 		}
 		foreach my $existing_flag (@$existing_flags) {
 			if ( !@new_flags || none { $existing_flag eq $_ } @new_flags ) {
-				push @actions, "DELETE FROM sequence_flags WHERE id=$id AND flag='$existing_flag'";
+				push @actions, { statement => "DELETE FROM sequence_flags WHERE id=? AND flag=?", arguments => [ $id, $existing_flag ] };
 			}
 		}
 		local $" = '<br />';
 		eval {
-			foreach my $qry (@actions)
+			foreach my $action (@actions)
 			{
-				$self->{'db'}->do($qry);
+				$self->{'db'}->do( $action->{'statement'}, undef, @{ $action->{'arguments'} } );
 			}
 		};
 		if ($@) {
@@ -124,8 +132,8 @@ sub print_content {
 			if ( ref $isolate_id_ref eq 'ARRAY' ) {
 				$self->update_history( $isolate_id_ref->[0], "$locus: sequence tag updated. Seqbin id: $seqbin_id; $start-$end" );
 			}
-			$q->param( 'start_pos', $q->param('new_start') );
-			$q->param( 'end_pos',   $q->param('new_end') );
+			$q->param( 'start_pos' => $q->param('new_start') );
+			$q->param( 'end_pos'   => $q->param('new_end') );
 			$orig_start = $q->param('new_start');
 			$orig_end   = $q->param('new_end');
 		}
