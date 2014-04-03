@@ -1287,9 +1287,9 @@ sub _modify_query_for_tags {
 				$temp_qry = "$view.id IN (SELECT isolate_id FROM allele_sequences WHERE $locus_clause AND NOT complete)";
 			} elsif ( $action =~ /^flagged: ([\w\s:]+)$/ ) {
 				my $flag              = $1;
-				my $flag_joined_table = "sequence_flags LEFT JOIN sequence_bin ON sequence_flags.seqbin_id = sequence_bin.id";
+				my $flag_joined_table = "sequence_flags LEFT JOIN allele_sequences ON sequence_flags.id = allele_sequences.id";
 				if ( $flag eq 'any' ) {
-					$temp_qry = "$view.id IN (SELECT isolate_id FROM $flag_joined_table WHERE $locus_clause)";
+					$temp_qry = "$view.id IN (SELECT allele_sequences.isolate_id FROM $flag_joined_table WHERE $locus_clause)";
 				} elsif ( $flag eq 'none' ) {
 					if ( $locus eq 'any locus' ) {
 						push @$errors_ref, "Searching for any locus not flagged is not supported.  Choose a specific locus.";
@@ -1298,7 +1298,8 @@ sub _modify_query_for_tags {
 						  . "(SELECT isolate_id FROM $flag_joined_table WHERE $locus_clause)";
 					}
 				} else {
-					$temp_qry = "$view.id IN (SELECT isolate_id FROM $flag_joined_table WHERE $locus_clause AND flag='$flag')";
+					$temp_qry =
+					  "$view.id IN (SELECT allele_sequences.isolate_id FROM $flag_joined_table WHERE $locus_clause AND flag='$flag')";
 				}
 			}
 			push @tag_queries, $temp_qry if $temp_qry;

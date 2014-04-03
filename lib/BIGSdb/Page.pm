@@ -1458,7 +1458,9 @@ sub get_seq_detail_tooltips {
 	if (@$alleleseq_ref) {
 		my $sequence_class = $complete ? 'sequence_tooltip' : 'sequence_tooltip_incomplete';
 		$buffer .=
-"<span style=\"font-size:0.2em\"> </span><a class=\"$sequence_class\" title=\"$sequence_tooltip\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleSequence&amp;id=$isolate_id&amp;locus=$locus\">&nbsp;S&nbsp;</a>";
+		    qq(<span style="font-size:0.2em"> </span><a class="$sequence_class" title="$sequence_tooltip" )
+		  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleSequence&amp;id=$isolate_id&amp;)
+		  . qq(locus=$locus">&nbsp;S&nbsp;</a>);
 	}
 	if (@all_flags) {
 		my $text = "Flags - ";

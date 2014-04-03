@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -274,12 +274,8 @@ sub _print_interface {
 s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bin.id WHERE sequence_bin.isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})/;
 		}
 	}
-	if ( $table eq 'allele_sequences' ) {
-
-		#PK is seqbin_id, locus, start_pos, end_pos but you need to search for distinct combinations (not just COUNT(*)) because the
-		#query may join the sequence_flags table giving more rows than allele sequences.
-		$count_qry =~
-s/SELECT \*/SELECT COUNT(DISTINCT allele_sequences.seqbin_id||allele_sequences.locus||allele_sequences.start_pos||allele_sequences.end_pos)/;
+	if ( $table eq 'allele_sequences' ) {    #Query may join the sequence_flags table giving more rows than allele sequences.
+		$count_qry =~ s/SELECT \*/SELECT COUNT(DISTINCT allele_sequences.id)/;
 	} else {
 		$count_qry =~ s/SELECT \*/SELECT COUNT\(\*\)/;
 	}

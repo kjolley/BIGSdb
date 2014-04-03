@@ -564,7 +564,7 @@ sub _tag {
 							#Need to find out the autoincrementing id for the just added tag
 							push @updates,
 							  {
-								statement => "INSERT INTO sequence_flags (id,flag,datestamp,curator) SELECT allele_sequences.id, "
+								statement => "INSERT INTO sequence_flags (id,flag,datestamp,curator) SELECT allele_sequences.id,"
 								  . "?,?,? FROM allele_sequences WHERE (seqbin_id,locus,start_pos,end_pos)=(?,?,?,?)",
 								arguments => [ $flag, 'now', $curator_id, $seqbin_id, $locus, $start, $end ]
 							  };

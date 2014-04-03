@@ -43,9 +43,6 @@ sub paged_display {
 		$passed_qry_file = $self->make_temp_file($qry);
 		$passed_qry      = $qry;
 	}
-	if ( $table eq 'allele_sequences' && $passed_qry =~ /sequence_flags/ ) {
-		$self->{'db'}->do("SET enable_nestloop = off");
-	}
 	my $schemes  = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 	my $continue = 1;
 	try {

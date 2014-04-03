@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2012-2013, University of Oxford
+#Copyright (c) 2012-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -46,12 +46,12 @@ sub print_content {
 	if ( !$self->is_admin ) {
 		foreach my $locus ( keys %$loci ) {
 			if ( !$self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $curator_id ) ) {
-				say "<div class=\"box\" id=\"statusbad\"><p>Your user account isn't allowed to modify $locus sequences.</p>";
+				say qq(<div class="box" id="statusbad"><p>Your user account isn't allowed to modify $locus sequences.</p>);
 				return;
 			}
 		}
 	}
-	if ( $q->param('set') ) {
+	if ( $q->param('submit') ) {
 		$self->_update($alleles);
 		return;
 	}
@@ -73,8 +73,10 @@ sub _print_interface {
 	  . "Clear all checkboxes to remove existing flags.</p>";
 	say "<p>" . @$alleles . " allele" . ( @$alleles > 1 ? 's' : '' ) . " selected.</p>";
 	say $q->start_form;
+	say qq(<fieldset style="float:left"><legend>Flags</legend>);
 	say $q->checkbox_group( -name => 'flags', -values => [ALLELE_FLAGS], -linebreak => 'true' );
-	say $q->submit( -name => 'set', -class => 'submit', -label => 'Set' );
+	say "</fieldset>";
+	$self->print_action_fieldset({no_reset => 1, submit_label => 'Set'});
 	say $q->hidden($_) foreach qw (db page query_file);
 	say $q->end_form;
 	say "</div>";
