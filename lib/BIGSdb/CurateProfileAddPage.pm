@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -291,10 +291,10 @@ sub _print_interface {
 	  ? " This scheme allows profile definitions to contain missing alleles (designate "
 	  . "these as '0') or ignored alleles (designate these as 'N')."
 	  : '';
-	say qq(<div class="box" id="queryform"><div class="scrollable">);
-	say qq(<div class="scrollable" style="white-space:nowrap">);
-	say qq(<fieldset class="form" style="float:left"><legend>Record</legend>);
+	say qq(<div class="box" id="queryform">);
+	say qq(<div class="scrollable">);
 	say "<p>Please fill in the fields below - required fields are marked with an exclamation mark (!).$msg</p>";
+	say qq(<fieldset class="form" style="float:left"><legend>Record</legend>);
 	my $qry = "select id,user_name,first_name,surname from users where id>0 order by surname";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
@@ -314,9 +314,9 @@ sub _print_interface {
 	}
 	$usernames{''} = ' ';    #Required for HTML5 validation.
 	print $q->start_form;
-	$q->param( 'sent', 1 );
+	$q->param( sent => 1 );
 	say $q->hidden($_) foreach qw (page db sent scheme_id);
-	say "<ul>";
+	say qq(<ul style="white-space:nowrap">);
 	my ( $label, $title ) = $self->get_truncated_label( $primary_key, 24 );
 	my $title_attribute = $title ? " title=\"$title\"" : '';
 	say qq(<li><label for="field:$primary_key" class="form" style="width:${width}em"$title_attribute>$label: !</label>);
@@ -387,7 +387,7 @@ sub _print_interface {
 	$self->print_action_fieldset( { scheme_id => $scheme_id } );
 	say $q->end_form;
 	say "</fieldset>";
-	say "</div></div></div>";
+	say "</div></div>";
 	return;
 }
 
