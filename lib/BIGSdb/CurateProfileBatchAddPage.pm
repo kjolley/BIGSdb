@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -181,7 +181,8 @@ sub _check {
 		$pk_included = 1 if $field eq $primary_key;
 	}
 	my $pk;
-	$pk = $self->next_id( 'profiles', $scheme_id );
+	my $integer_pk = $self->_is_integer_primary_key($scheme_id);
+	$pk = $self->next_id( 'profiles', $scheme_id ) if $integer_pk;
 	my $qry                   = "SELECT profile_id FROM profiles WHERE scheme_id=? AND profile_id=?";
 	my $primary_key_check_sql = $self->{'db'}->prepare($qry);
 	my %locus_format;
@@ -201,13 +202,13 @@ sub _check {
 		my %newdata;
 		my $checked_record;
 		my @data = split /\t/, $record;
-		if ( $self->_is_integer_primary_key($scheme_id) && !$first_record && !$pk_included ) {
+		if ( $integer_pk && !$first_record && !$pk_included ) {
 			do {
 				$pk++;
 			} while ( $self->_is_pk_used( $scheme_id, $pk ) );
 		} elsif ($pk_included) {
 			$pk = $data[ $fileheaderPos{$primary_key} ];
-		}
+		} 
 		$record_count++;
 		$row_buffer .= "<tr class=\"td$td\">";
 		$i = 0;
@@ -260,7 +261,7 @@ sub _check {
 				}
 			} elsif ( $is_field{$field} && defined $value ) {
 				if ( $scheme_field_info->{$field}->{'primary_key'} && $value eq '' ) {
-					$problems{$pk} .= "Field $field is required and must not be left blank.<br />";
+					$problems{$pk // ''} .= "Field $field is required and must not be left blank.<br />";
 					$problem = 1;
 				} elsif ( $scheme_field_info->{$field}->{'type'} eq 'integer' && $value ne '' && !BIGSdb::Utils::is_int($value) ) {
 					$problems{$pk} .= "Field $field must be an integer.<br />";
@@ -289,7 +290,7 @@ sub _check {
 		if ($exists) {
 			$problems{$pk} .= "The primary key '$primary_key-$pk' already exists in the database.<br />";
 		}
-		if ( $pks_so_far{$pk} ) {
+		if ( $pks_so_far{$pk // ''} ) {
 			$problems{$pk} .= "This primary key has been included more than once in this submission.<br />";
 		}
 		{
@@ -319,7 +320,7 @@ sub _check {
 			}
 			$profiles_so_far{"@profile"} = 1;
 		}
-		$pks_so_far{$pk} = 1;
+		$pks_so_far{$pk // ''} = 1;
 		$row_buffer   .= "</tr>\n";
 		$table_buffer .= $row_buffer;
 		$td = $td == 1 ? 2 : 1;    #row stripes
