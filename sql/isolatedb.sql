@@ -560,6 +560,7 @@ ON UPDATE CASCADE
 GRANT SELECT,UPDATE,INSERT,DELETE ON sequence_flags TO apache;
 
 CREATE TABLE allele_designations (
+id bigserial NOT NULL,
 isolate_id int NOT NULL,
 locus text NOT NULL,
 allele_id text NOT NULL,
@@ -570,7 +571,8 @@ curator integer NOT NULL,
 date_entered date NOT NULL,
 datestamp date NOT NULL,
 comments text,
-PRIMARY KEY (isolate_id,locus),
+PRIMARY KEY (id),
+UNIQUE (isolate_id,locus,allele_id),
 CONSTRAINT ad_curator FOREIGN KEY (curator) REFERENCES users
 ON DELETE NO ACTION
 ON UPDATE CASCADE,
@@ -590,35 +592,6 @@ ON UPDATE CASCADE
 CREATE INDEX i_ad3 ON allele_designations (locus,allele_id);
 CREATE INDEX i_ad4 ON allele_designations (datestamp);
 GRANT SELECT,UPDATE,INSERT,DELETE ON allele_designations TO apache;
-
-CREATE TABLE pending_allele_designations (
-isolate_id int NOT NULL,
-locus text NOT NULL,
-allele_id text NOT NULL,
-sender integer NOT NULL,
-method text NOT NULL,
-curator integer NOT NULL,
-date_entered date NOT NULL,
-datestamp date NOT NULL,
-comments text,
-PRIMARY KEY (isolate_id,locus,allele_id,sender,method),
-CONSTRAINT pad_curator FOREIGN KEY (curator) REFERENCES users
-ON DELETE NO ACTION
-ON UPDATE CASCADE,
-CONSTRAINT pad_sender FOREIGN KEY (sender) REFERENCES users
-ON DELETE NO ACTION
-ON UPDATE CASCADE,
-CONSTRAINT pad_isolate FOREIGN KEY (isolate_id) REFERENCES isolates
-ON DELETE CASCADE
-ON UPDATE CASCADE,
-CONSTRAINT pad_loci FOREIGN KEY (locus) REFERENCES loci
-ON DELETE CASCADE
-ON UPDATE CASCADE
-);
-
---CREATE INDEX i_pad1 ON pending_allele_designations (isolate_id) removed as not necessary (covered by pkey index)
---CREATE INDEX i_pad2 ON pending_allele_designations (locus) removed as not necessary (never used)
-GRANT SELECT,UPDATE,INSERT,DELETE ON pending_allele_designations TO apache;
 
 CREATE TABLE schemes (
 id int NOT NULL UNIQUE,
