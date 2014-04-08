@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -255,7 +255,7 @@ sub _print_general_info_section {
 		}
 	} else {
 		my $isolate_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}")->[0];
-		my @tables        = qw (isolates isolate_aliases allele_designations pending_allele_designations allele_sequences refs);
+		my @tables        = qw (isolates isolate_aliases allele_designations allele_sequences refs);
 		$max_date = $self->_get_max_date( \@tables );
 		print "<li>Isolates: $isolate_count</li>";
 	}

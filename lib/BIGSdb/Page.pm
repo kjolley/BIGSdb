@@ -1428,7 +1428,7 @@ sub _get_seq_detail_tooltip_text {
 	return $buffer;
 }
 
-sub get_seq_detail_tooltips {
+sub get_seq_detail_tooltips { #TODO Show all designation values
 	my ( $self, $isolate_id, $locus ) = @_;
 	my $buffer          = '';
 	my $alleleseq_ref   = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );      #ref to array of hashrefs

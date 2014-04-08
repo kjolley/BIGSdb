@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,7 @@
 package BIGSdb::Scheme;
 use strict;
 use warnings;
+use 5.010;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Scheme');
 
@@ -116,6 +117,50 @@ sub get_field_values_by_profile {
 		my @values = $self->{'sql'}->{'scheme_fields'}->fetchrow_array;
 		return \@values;
 	}
+}
+
+sub get_field_values_by_designations {
+	my ( $self, $designations ) = @_;    #$designations is a hashref containing arrayref of allele_designations for each locus
+	my ( @allele_count, @allele_ids );
+	my $loci       = $self->{'loci'};
+	my $fields     = $self->{'fields'};
+	my $field_data = [];
+	foreach my $locus (@$loci) {
+		push @allele_count, scalar @{ $designations->{$locus} };    #We need a different query depending on number of designations at loci.
+		push @allele_ids, $_->{'allele_id'} foreach @{ $designations->{$locus} };
+	}
+	local $" = ',';
+	my $query_key = "@allele_count";
+	if ( !$self->{'sql'}->{"field_values_$query_key"} ) {
+		my @locus_terms;
+		my $i = 0;
+		foreach my $locus (@$loci) {
+			$locus =~ s/'/_PRIME_/g;
+			my @temp_terms;
+			push @temp_terms, ("$locus=?") x $allele_count[$i];
+			push @temp_terms, "$locus='N'" if $self->{'allow_missing_loci'};
+			local $" = ' OR ';
+			push @locus_terms, "(@temp_terms)";
+			$i++;
+		}
+		local $" = ' AND ';
+		my $locus_term_string = "@locus_terms";
+		local $" = ',';
+		$self->{'sql'}->{"field_values_$query_key"} =
+		  $self->{'db'}->prepare("SELECT @$loci,@$fields FROM $self->{'dbase_table'} WHERE $locus_term_string");
+	}
+	eval { $self->{'sql'}->{"field_values_$query_key"}->execute(@allele_ids) };
+	if ($@) {
+		$logger->warn( "Can't execute 'field_values_$query_key' query handle. Check database attributes in the scheme_fields table for "
+			  . "scheme#$self->{'id'} ($self->{'description'})! Statement was '"
+			  . $self->{'sql'}->{"field_values_$query_key"}->{'Statement'} . "'. "
+			  . $self->{'db'}->errstr );
+		throw BIGSdb::DatabaseConfigurationException("Scheme configuration error");
+	}
+	while ( my $data = $self->{'sql'}->{"field_values_$query_key"}->fetchrow_hashref ) {
+		push @$field_data, $data;
+	}
+	return $field_data;
 }
 
 sub get_distinct_fields {

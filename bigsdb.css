@@ -104,11 +104,12 @@ a.sequence_tooltip_incomplete {
 }
 
 a.tooltip {border:1px solid black}
-a.tooltip,a.info_tooltip {font:600 0.8em serif}
+a.tooltip,a.info_tooltip {font:600 0.8em serif; padding: 0 0.2em}
 
 a.tooltip,a.update_tooltip,a.pending_tooltip,a.existing_tooltip,a.clashing_tooltip {
 	cursor:help;
-	text-decoration:none
+	text-decoration:none;
+	padding: 0 0.2em
 }
 
 a.sequence_tooltip,a.sequence_tooltip_incomplete,a.extract_tooltip,a.info_tooltip,a.cds,a.seqflag_tooltip {

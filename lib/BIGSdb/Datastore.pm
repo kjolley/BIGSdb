@@ -214,12 +214,14 @@ sub is_profile_provisional {
 	#If the scheme allows missing loci, then a locus may be 'N' in the profile.  The tested profile is only provisional if an allele is
 	#provisional at a position that is not a N is the profile definition.
 	my ( $self, $scheme_id, $profile, $provisional_alleles ) = @_;
+	$logger->logcarp("Datastore::is_profile_provisional is deprecated");    #TODO remove
 	my $scheme_info = $self->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	return 1 if %$provisional_alleles && !$scheme_info->{'allow_missing_loci'};
 	my $scheme_field_values = $self->get_scheme_field_values_by_profile( $scheme_id, $profile );
 	return if !$scheme_field_values;
 	my $profile_id = $scheme_field_values->{ lc( $scheme_info->{'primary_key'} ) };
 	my $ambiguous_loci = $self->get_ambiguous_loci( $scheme_id, $profile_id );
+
 	foreach my $locus ( keys %$provisional_alleles ) {
 		return 1 if !$ambiguous_loci->{$locus};
 	}
@@ -252,8 +254,104 @@ sub get_profile_by_primary_key {
 	return;
 }
 
+sub get_scheme_field_values_by_designations {
+	my ( $self, $scheme_id, $designations ) = @_;    #$designations is a hashref containing arrayref of allele_designations for each locus
+	my $values     = {};
+	my $loci       = $self->get_scheme_loci($scheme_id);
+	my $fields     = $self->get_scheme_fields($scheme_id);
+	my $field_data = [];
+	if ( ( $self->{'system'}->{'use_temp_scheme_table'} // '' ) eq 'yes' ) {
+
+		#Import all profiles from seqdef database into indexed scheme table.  Under some circumstances
+		#this can be considerably quicker than querying the seqdef scheme view (a few ms compared to
+		#>10s if the seqdef database contains multiple schemes with an uneven distribution of a large
+		#number of profiles so that the Postgres query planner picks a sequential rather than index scan).
+		#
+		#This scheme table can also be generated periodically using the update_scheme_cache.pl
+		#script to create a persistent cache.  This is particularly useful for large schemes (>10000
+		#profiles) but data will only be as fresh as the cache so ensure that the update script
+		#is run periodically.
+		if ( !$self->{'cache'}->{'scheme_cache'}->{$scheme_id} ) {
+			try {
+				$self->create_temp_scheme_table($scheme_id);
+				$self->{'cache'}->{'scheme_cache'}->{$scheme_id} = 1;
+			}
+			catch BIGSdb::DatabaseConnectionException with {
+				$logger->error("Can't create temporary table");
+			};
+		}
+		my ( @allele_count, @allele_ids );
+		foreach my $locus (@$loci) {
+			push @allele_count, scalar @{ $designations->{$locus} }; #We need a different query depending on number of designations at loci.
+			push @allele_ids, $_->{'allele_id'} foreach @{ $designations->{$locus} };
+		}
+		local $" = ',';
+		my $query_key = "@allele_count";
+		if ( !$self->{'sql'}->{"field_values_$scheme_id\_$query_key"} ) {
+			my $scheme_info = $self->get_scheme_info($scheme_id);
+			my @locus_terms;
+			my $i = 0;
+			foreach my $locus (@$loci) {
+				$locus =~ s/'/_PRIME_/g;
+				my @temp_terms;
+				push @temp_terms, ("$locus=?") x $allele_count[$i];
+				push @temp_terms, "$locus='N'" if $scheme_info->{'allow_missing_loci'};
+				local $" = ' OR ';
+				push @locus_terms, "(@temp_terms)";
+				$i++;
+			}
+			local $" = ' AND ';
+			my $locus_term_string = "@locus_terms";
+			local $" = ',';
+			$self->{'sql'}->{"field_values_$scheme_id\_$query_key"} =
+			  $self->{'db'}->prepare("SELECT @$loci,@$fields FROM temp_scheme_$scheme_id WHERE $locus_term_string");
+		}
+		eval { $self->{'sql'}->{"field_values_$scheme_id\_$query_key"}->execute(@allele_ids) };
+		$logger->error($@) if $@;
+		while ( my $data = $self->{'sql'}->{"field_values_$scheme_id\_$query_key"}->fetchrow_hashref ) {
+			push @$field_data, $data;
+		}
+	} else {
+		my $scheme = $self->get_scheme($scheme_id);
+		local $" = ',';
+		{
+			try {
+				$field_data = $scheme->get_field_values_by_designations($designations);
+			}
+			catch BIGSdb::DatabaseConfigurationException with {
+				$logger->warn("Scheme database $scheme_id is not configured correctly");
+			};
+		}
+	}
+	foreach my $data (@$field_data) {
+		my $status = 'confirmed';
+	  LOCUS: foreach my $locus (@$loci) {
+			next if $data->{ lc $locus } eq 'N';
+			my $locus_status;
+		  DESIGNATION: foreach my $designation ( @{ $designations->{$locus} } ) {
+				next DESIGNATION if $designation->{'allele_id'} ne $data->{ lc $locus };
+				if ( $designation->{'status'} eq 'confirmed' ) {
+					$locus_status = 'confirmed';
+					next LOCUS;
+				}
+			}
+			$status = 'provisional';    #Locus is provisional
+			last LOCUS;
+		}
+		foreach my $field (@$fields) {
+			$data->{ lc $field } //= '';
+
+			#Allow status to change from privisional -> confirmed but not vice versa
+			$values->{ lc $field }->{ $data->{ lc $field } } = $status
+			  if ( $values->{ lc $field }->{ $data->{ lc $field } } // '' ) ne 'confirmed';
+		}
+	}
+	return $values;
+}
+
 sub get_scheme_field_values_by_profile {
 	my ( $self, $scheme_id, $profile_ref ) = @_;
+	$logger->logcarp("Datastore::get_scheme_field_values_by_profile is deprecated");    #TODO Remove
 	my $values;
 	if ( !$self->{'cache'}->{'scheme_fields'}->{$scheme_id} ) {
 		$self->{'cache'}->{'scheme_fields'}->{$scheme_id} = $self->get_scheme_fields($scheme_id);
@@ -534,27 +632,19 @@ sub get_scheme_loci {
 	return \@loci;
 }
 
-sub get_scheme_locus_aliases {
-	my ( $self, $scheme_id ) = @_;
-	if ($scheme_id) {
-		if ( !$self->{'sql'}->{'locus_scheme_aliases'} ) {
-			$self->{'sql'}->{'locus_scheme_aliases'} =
-			  $self->{'db'}->prepare( "SELECT locus,alias FROM locus_aliases WHERE use_alias AND "
-				  . "locus IN (SELECT locus FROM scheme_members WHERE scheme_id=?)" );
-		}
-		eval { $self->{'sql'}->{'locus_scheme_aliases'}->execute($scheme_id) };
-		$logger->error($@) if $@;
-		return $self->{'sql'}->{'locus_scheme_aliases'}->fetchall_hashref( [qw(locus alias)] );
-	} else {    #loci not in scheme
-		if ( !$self->{'sql'}->{'locus_noscheme_aliases'} ) {
-			$self->{'sql'}->{'locus_noscheme_aliases'} =
-			  $self->{'db'}
-			  ->prepare("SELECT locus,alias FROM locus_aliases WHERE use_alias AND locus NOT IN (SELECT locus FROM scheme_members)");
-		}
-		eval { $self->{'sql'}->{'locus_noscheme_aliases'}->execute };
-		$logger->error($@) if $@;
-		return $self->{'sql'}->{'locus_noscheme_aliases'}->fetchall_hashref( [qw(locus alias)] );
+sub get_locus_aliases {
+	my ( $self, $locus ) = @_;
+	if ( !$self->{'sql'}->{'locus_aliases'} ) {
+		$self->{'sql'}->{'locus_aliases'} =
+		  $self->{'db'}->prepare("SELECT alias FROM locus_aliases WHERE use_alias AND locus=? ORDER BY alias");
 	}
+	eval { $self->{'sql'}->{'locus_aliases'}->execute($locus) };
+	$logger->error($@) if $@;
+	my @aliases;
+	while ( my ($alias) = $self->{'sql'}->{'locus_aliases'}->fetchrow_array ) {
+		push @aliases, $alias;
+	}
+	return \@aliases;
 }
 
 sub get_loci_in_no_scheme {
@@ -1217,15 +1307,18 @@ sub get_all_allele_designations {
 
 sub get_scheme_allele_designations {
 	my ( $self, $isolate_id, $scheme_id, $options ) = @_;
+	my $designations;
 	if ($scheme_id) {
 		if ( !$self->{'sql'}->{'scheme_allele_designations'} ) {
 			$self->{'sql'}->{'scheme_allele_designations'} =
-			  $self->{'db'}->prepare( "SELECT * FROM allele_designations "
-				  . "WHERE isolate_id=? AND locus IN (SELECT locus FROM scheme_members WHERE scheme_id=?)" );
+			  $self->{'db'}->prepare( "SELECT * FROM allele_designations WHERE isolate_id=? AND locus IN "
+				  . "(SELECT locus FROM scheme_members WHERE scheme_id=?) ORDER BY status,date_entered,allele_id" );
 		}
 		eval { $self->{'sql'}->{'scheme_allele_designations'}->execute( $isolate_id, $scheme_id ) };
 		$logger->error($@) if $@;
-		return $self->{'sql'}->{'scheme_allele_designations'}->fetchall_hashref('locus');
+		while ( my $designation = $self->{'sql'}->{'scheme_allele_designations'}->fetchrow_hashref ) {
+			push @{ $designations->{ $designation->{'locus'} } }, $designation;
+		}
 	} else {
 		if ( !$self->{'sql'}->{'noscheme_allele_designations'} ) {
 			my $set_clause =
@@ -1233,12 +1326,16 @@ sub get_scheme_allele_designations {
 			  ? "SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$options->{'set_id'})"
 			  : "SELECT locus FROM scheme_members";
 			$self->{'sql'}->{'noscheme_allele_designations'} =
-			  $self->{'db'}->prepare("SELECT * FROM allele_designations WHERE isolate_id=? AND locus NOT IN ($set_clause)");
+			  $self->{'db'}->prepare( "SELECT * FROM allele_designations WHERE isolate_id=? AND locus NOT IN ($set_clause) "
+				  . "ORDER BY status,date_entered,allele_id" );
 		}
 		eval { $self->{'sql'}->{'noscheme_allele_designations'}->execute($isolate_id) };
 		$logger->error($@) if $@;
-		return $self->{'sql'}->{'noscheme_allele_designations'}->fetchall_hashref('locus');
+		while ( my $designation = $self->{'sql'}->{'noscheme_allele_designations'}->fetchrow_hashref ) {
+			push @{ $designations->{ $designation->{'locus'} } }, $designation;
+		}
 	}
+	return $designations;
 }
 
 sub get_all_allele_sequences {
@@ -1318,22 +1415,6 @@ sub get_all_allele_ids {
 		$allele_ids{$locus} = $allele_id;
 	}
 	return \%allele_ids;
-}
-
-sub get_pending_allele_designations {
-	my ( $self, $isolate_id, $locus ) = @_;
-	if ( !$self->{'sql'}->{'pending_allele_designation'} ) {
-		$self->{'sql'}->{'pending_allele_designation'} =
-		  $self->{'db'}->prepare("SELECT * FROM pending_allele_designations WHERE isolate_id=? AND locus=? ORDER BY datestamp");
-		$logger->info("Statement handle 'pending_allele_designation' prepared.");
-	}
-	eval { $self->{'sql'}->{'pending_allele_designation'}->execute( $isolate_id, $locus ) };
-	$logger->error($@) if $@;
-	my @designations;
-	while ( my $allele = $self->{'sql'}->{'pending_allele_designation'}->fetchrow_hashref ) {
-		push @designations, $allele;
-	}
-	return \@designations;
 }
 
 sub get_allele_sequence {
