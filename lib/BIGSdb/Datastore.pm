@@ -1271,7 +1271,7 @@ sub get_allele_designations {
 	}
 	eval { $self->{'sql'}->{'allele_designations'}->execute( $isolate_id, $locus ); };
 	$logger->error($@) if $@;
-	my $data = $self->{'sql'}->{'allele_designations'}->fetchall_arrayref( {} );
+	return $self->{'sql'}->{'allele_designations'}->fetchall_arrayref( {} );
 }
 
 sub get_allele_extended_attributes {

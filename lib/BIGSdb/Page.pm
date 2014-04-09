@@ -1410,11 +1410,14 @@ sub get_update_details_tooltip {
 }
 
 sub _get_seq_detail_tooltip_text {
-	my ( $self, $locus, $allele_ref, $alleleseq_ref, $flags_ref ) = @_;
-	my $buffer = defined $allele_ref->{'allele_id'} ? "$locus:$allele_ref->{'allele_id'} - " : "$locus - ";
+	my ( $self, $locus, $allele_designations, $allele_sequences, $flags_ref ) = @_;
+	my @allele_ids;
+	push @allele_ids, $_->{'allele_id'} foreach @$allele_designations;
+	local $" = ', ';
+	my $buffer = @allele_ids ? "$locus:@allele_ids - " : "$locus - ";
 	my $i = 0;
 	local $" = '; ';
-	foreach (@$alleleseq_ref) {
+	foreach (@$allele_sequences) {
 		$buffer .= '<br />'      if $i;
 		$buffer .= "Seqbin id:$_->{'seqbin_id'}: $_->{'start_pos'} &rarr; $_->{'end_pos'}";
 		$buffer .= " (reverse)"  if $_->{'reverse'};
@@ -1428,22 +1431,25 @@ sub _get_seq_detail_tooltip_text {
 	return $buffer;
 }
 
-sub get_seq_detail_tooltips { #TODO Show all designation values
+sub get_seq_detail_tooltips {
 	my ( $self, $isolate_id, $locus ) = @_;
-	my $buffer          = '';
-	my $alleleseq_ref   = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );      #ref to array of hashrefs
-	my $designation_ref = $self->{'datastore'}->get_allele_designation( $isolate_id, $locus );
-	my $locus_info      = $self->{'datastore'}->get_locus_info($locus);
+	my $buffer            = '';
+	my $alleles_sequences = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
+	my $designations      = $self->{'datastore'}->get_allele_designations( $isolate_id, $locus );
+	my $locus_info        = $self->{'datastore'}->get_locus_info($locus);
 	my $designation_flags;
 	my ( @all_flags, %flag_from_designation, %flag_from_alleleseq );
-	if ( $locus_info->{'flag_table'} && defined $designation_ref->{'allele_id'} ) {
-		$designation_flags = $self->{'datastore'}->get_locus($locus)->get_flags( $designation_ref->{'allele_id'} );
-		push @all_flags, @$designation_flags;
-		$flag_from_designation{$_} = 1 foreach @$designation_flags;
+	if ( $locus_info->{'flag_table'} ) {
+
+		foreach my $designation (@$designations) {
+			$designation_flags = $self->{'datastore'}->get_locus($locus)->get_flags( $designation->{'allele_id'} );
+			push @all_flags, @$designation_flags;
+			$flag_from_designation{$_} = 1 foreach @$designation_flags;
+		}
 	}
 	my ( @flags_foreach_alleleseq, $complete );
-	if (@$alleleseq_ref) {
-		foreach my $alleleseq (@$alleleseq_ref) {
+	if (@$alleles_sequences) {
+		foreach my $alleleseq (@$alleles_sequences) {
 			my $flaglist_ref = $self->{'datastore'}->get_sequence_flags( $alleleseq->{'id'} );
 			push @flags_foreach_alleleseq, $flaglist_ref;
 			push @all_flags,               @$flaglist_ref;
@@ -1454,8 +1460,8 @@ sub get_seq_detail_tooltips { #TODO Show all designation values
 	@all_flags = uniq sort @all_flags;
 	my $cleaned_locus = $self->clean_locus($locus);
 	my $sequence_tooltip =
-	  $self->_get_seq_detail_tooltip_text( $cleaned_locus, $designation_ref, $alleleseq_ref, \@flags_foreach_alleleseq );
-	if (@$alleleseq_ref) {
+	  $self->_get_seq_detail_tooltip_text( $cleaned_locus, $designations, $alleles_sequences, \@flags_foreach_alleleseq );
+	if (@$alleles_sequences) {
 		my $sequence_class = $complete ? 'sequence_tooltip' : 'sequence_tooltip_incomplete';
 		$buffer .=
 		    qq(<span style="font-size:0.2em"> </span><a class="$sequence_class" title="$sequence_tooltip" )
