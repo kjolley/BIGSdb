@@ -1211,7 +1211,7 @@ sub _modify_query_for_designations {
 		local $" = ' OR ';
 		my $modify = '';
 		if ( ( $q->param('designation_andor') // '' ) eq 'AND' ) {
-			$modify = "GROUP BY id HAVING count(id)=" . scalar keys %lqry;
+			$modify = "GROUP BY $view.id HAVING count($view.id)=" . scalar keys %lqry;
 		}
 		my @lqry = values %lqry;
 		my $lqry = "$view.id IN (select distinct($view.id) FROM $view LEFT JOIN allele_designations ON $view.id="

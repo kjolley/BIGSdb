@@ -115,8 +115,8 @@ sub set_options {
 		}
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 			foreach (
-				qw (mark_provisional_main mark_provisional display_pending_main sequence_details_main display_seqbin_main locus_alias
-				display_pending update_details sequence_details sample_details undesignated_alleles)
+				qw (mark_provisional_main mark_provisional sequence_details_main display_seqbin_main locus_alias
+				update_details sequence_details sample_details undesignated_alleles)
 			  )
 			{
 				$prefstore->set_general( $guid, $dbname, $_, $prefs->{$_} ? 'on' : 'off' );
@@ -233,7 +233,6 @@ sub _print_main_results_options {
 			-checked => $prefs->{'mark_provisional_main'},
 			-label   => 'Differentiate provisional allele designations.'
 		},
-		{ -name => 'display_pending_main', -checked => $prefs->{'display_pending_main'}, -label => 'Display pending allele designations.' },
 		{
 			-name    => 'sequence_details_main',
 			-checked => $prefs->{'sequence_details_main'},
@@ -266,9 +265,6 @@ sub _print_isolate_record_options {
 		-checked => $prefs->{'mark_provisional'},
 		-label   => 'Differentiate provisional allele designations.'
 	);
-	say "</li><li>";
-	say $q->checkbox( -name => 'display_pending', -checked => $prefs->{'display_pending'},
-		-label => 'Display pending allele designations.' );
 	say "</li><li>";
 	say $q->checkbox(
 		-name    => 'update_details',

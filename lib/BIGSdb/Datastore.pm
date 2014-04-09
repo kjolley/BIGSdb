@@ -210,25 +210,6 @@ sub get_ambiguous_loci {
 	return \%ambiguous;
 }
 
-sub is_profile_provisional {
-
-	#If the scheme allows missing loci, then a locus may be 'N' in the profile.  The tested profile is only provisional if an allele is
-	#provisional at a position that is not a N is the profile definition.
-	my ( $self, $scheme_id, $profile, $provisional_alleles ) = @_;
-	$logger->logcarp("Datastore::is_profile_provisional is deprecated");    #TODO remove
-	my $scheme_info = $self->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	return 1 if %$provisional_alleles && !$scheme_info->{'allow_missing_loci'};
-	my $scheme_field_values = $self->get_scheme_field_values_by_profile( $scheme_id, $profile );
-	return if !$scheme_field_values;
-	my $profile_id = $scheme_field_values->{ lc( $scheme_info->{'primary_key'} ) };
-	my $ambiguous_loci = $self->get_ambiguous_loci( $scheme_id, $profile_id );
-
-	foreach my $locus ( keys %$provisional_alleles ) {
-		return 1 if !$ambiguous_loci->{$locus};
-	}
-	return;
-}
-
 sub get_profile_by_primary_key {
 	my ( $self, $scheme_id, $profile_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
@@ -262,6 +243,7 @@ sub get_scheme_field_values_by_designations {
 	my $fields     = $self->get_scheme_fields($scheme_id);
 	my $field_data = [];
 	if ( ( $self->{'system'}->{'use_temp_scheme_table'} // '' ) eq 'yes' ) {
+		#TODO This almost identical to code in Scheme.pm - look at refactoring
 
 		#Import all profiles from seqdef database into indexed scheme table.  Under some circumstances
 		#this can be considerably quicker than querying the seqdef scheme view (a few ms compared to
@@ -283,8 +265,16 @@ sub get_scheme_field_values_by_designations {
 		}
 		my ( @allele_count, @allele_ids );
 		foreach my $locus (@$loci) {
-			push @allele_count, scalar @{ $designations->{$locus} }; #We need a different query depending on number of designations at loci.
-			push @allele_ids, $_->{'allele_id'} foreach @{ $designations->{$locus} };
+			if (!defined $designations->{$locus}){
+				#Define a null designation if one doesn't exist for the purposes of looking up profile.
+				#We can't just abort the query because some schemes allow missing loci, but we don't want to match based
+				#on an incomplete set of designations.
+				push @allele_ids, '-999';
+				push @allele_count,1;
+			} else {
+				push @allele_count, scalar @{ $designations->{$locus} }; #We need a different query depending on number of designations at loci.
+				push @allele_ids, $_->{'allele_id'} foreach @{ $designations->{$locus} };
+			}		
 		}
 		local $" = ',';
 		my $query_key = "@allele_count";
@@ -911,7 +901,8 @@ sub is_scheme_field {
 }
 
 sub create_temp_isolate_scheme_table {
-	my ( $self, $scheme_id ) = @_;
+	my ( $self, $scheme_id ) = @_;  #Doesn't work with multiple designations. 
+	$logger->logcarp("Datastore::create_temp_isolate_scheme_table is deprecated"); #TODO remove
 	my $view  = $self->{'system'}->{'view'};
 	my $table = "temp_$view\_scheme_$scheme_id";
 
@@ -934,7 +925,6 @@ sub create_temp_isolate_scheme_table {
 	  . "FROM scheme_members WHERE scheme_id=?) GROUP BY $view.id";
 	eval { $self->{'db'}->do( "CREATE TEMP TABLE $table AS $joined_query; CREATE INDEX i_$table\_id ON $table(id)", undef, $scheme_id ) };
 	$logger->error($@) if $@;
-
 	#Could create indices with $self->_create_profile_indices($table, $scheme_id) but the overhead isn't worth it.
 	return $table;
 }

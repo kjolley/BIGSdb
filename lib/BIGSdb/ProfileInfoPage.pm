@@ -136,7 +136,7 @@ sub print_content {
 						}
 						say "<dt>update history</dt>";
 						my $refer_page = $self->{'cgi'}->param('page');
-						say "<dd><a title=\"$title\" class=\"pending_tooltip\">$num_changes update$plural</a>";
+						say "<dd><a title=\"$title\" class=\"update_tooltip\">$num_changes update$plural</a>";
 						say " <a href=\"$self->{'system'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;"
 						  . "scheme_id=$scheme_id&amp;profile_id=$profile_id&amp;history=1&amp;refer=$refer_page\">show details</a>"
 						  . "</dd>";

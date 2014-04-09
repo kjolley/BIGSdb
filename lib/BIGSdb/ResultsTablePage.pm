@@ -304,7 +304,8 @@ sub _print_export_configuration_function {
 		print $q->start_form;
 		$q->param( page => 'exportConfig' );
 		print $q->hidden($_) foreach qw (db page table query_file);
-		print $q->submit( -name => 'Export configuration/data', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
+		print $q->submit( -name => 'Export configuration/data',
+			-class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
 		print $q->end_form;
 		print "</fieldset>\n";
 	}
@@ -343,7 +344,7 @@ sub _print_modify_project_members_function {
 		unshift @projects, '';
 		$labels{''} = "Select project...";
 		print $q->start_form;
-		$q->param( page =>  'batchAdd' );
+		$q->param( page  => 'batchAdd' );
 		$q->param( table => 'project_members' );
 		print $q->hidden($_) foreach qw (db page table query_file);
 		print $q->popup_menu( -name => 'project', -values => \@projects, -labels => \%labels );
@@ -711,7 +712,6 @@ sub _print_isolate_table_scheme {
 	if ( !$self->{'scheme_info'}->{$scheme_id} ) {
 		$self->{'scheme_info'}->{$scheme_id} = $self->{'datastore'}->get_scheme_info($scheme_id);
 	}
-	my ( @profile, $incomplete );
 	if ( !$self->{'urls_defined'} && $self->{'prefs'}->{'hyperlink_loci'} ) {
 		$self->_initiate_urls_for_loci;
 	}
@@ -748,58 +748,43 @@ sub _print_isolate_table_scheme {
 			  if $allele_designations->{$locus}->{'status'} eq 'provisional'
 			  && $self->{'prefs'}->{'mark_provisional_main'};
 			print $self->get_seq_detail_tooltips( $isolate_id, $locus ) if $self->{'prefs'}->{'sequence_details_main'};
-			$self->_print_pending_tooltip( $isolate_id, $locus )
-			  if $self->{'prefs'}->{'display_pending_main'} && defined $allele_designations->{$locus}->{'allele_id'};
 			my $action = exists $allele_designations->{$locus}->{'allele_id'} ? 'update' : 'add';
 			print
 " <a href=\"$self->{'system'}->{'script_name'}?page=alleleUpdate&amp;db=$self->{'instance'}&amp;isolate_id=$isolate_id&amp;locus=$locus\" class=\"update\">$action</a>"
 			  if $self->{'curate'};
 			print "</td>";
 		}
-		if ($scheme_id) {
-			push @profile, $allele_designations->{$locus}->{'allele_id'};
-			$incomplete = 1 if !defined $allele_designations->{$locus}->{'allele_id'};
-		}
 	}
 	return
 	     if !$scheme_id
 	  || !@{ $self->{'scheme_fields'}->{$scheme_id} }
 	  || !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};
-	my $values;
-	if ( ( !$incomplete || $self->{'scheme_info'}->{$scheme_id}->{'allow_missing_loci'} ) && @profile ) {
-		$values = $self->{'datastore'}->get_scheme_field_values_by_profile( $scheme_id, \@profile );
-	}
 	my $scheme_fields = $self->{'scheme_fields'}->{$scheme_id};
-	my $provisional_profile = $self->{'datastore'}->is_profile_provisional( $scheme_id, \@profile, \%provisional_allele );
+	my $scheme_field_values = $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id );
 	foreach my $field (@$scheme_fields) {
 		if ( $self->{'prefs'}->{'main_display_scheme_fields'}->{$scheme_id}->{$field} ) {
-			if ( ref $values eq 'HASH' ) {
-				$values->{ lc($field) } = '' if !defined $values->{ lc($field) };
-				if ( !$self->{'scheme_fields_info'}->{$scheme_id}->{$field} ) {
-					$self->{'scheme_fields_info'}->{$scheme_id}->{$field} =
-					  $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
-				}
-				my $url;
-				if (   $self->{'prefs'}->{'hyperlink_loci'}
-					&& $self->{'scheme_fields_info'}->{$scheme_id}->{$field}->{'url'} )
-				{
-					$url = $self->{'scheme_fields_info'}->{$scheme_id}->{$field}->{'url'};
-					$url =~ s/\[\?\]/$values->{lc($field)}/g;
+			my @values;
+			my @field_values = keys %{ $scheme_field_values->{ lc($field) } };
+			my $att = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+			foreach my $value (@field_values) {
+				$value = defined $value ? $value : '';
+				$value = 'Not defined' if $value eq '-999' || $value eq '';
+				my $formatted_value;
+				my $provisional = ( $scheme_field_values->{ lc($field) }->{$value} // '' ) eq 'provisional' ? 1 : 0;
+				$formatted_value .= qq(<span class="provisional">) if $provisional;
+				if ( $self->{'prefs'}->{'hyperlink_loci'} && $att->{'url'} && $value ne '' ) {
+					my $url = $att->{'url'};
+					$url =~ s/\[\?\]/$value/g;
 					$url =~ s/\&/\&amp;/g;
-				}
-				if ( $values->{ lc($field) } eq '-999' ) {
-					$values->{ lc($field) } = '';
-				}
-				if ( defined $values->{ lc($field) } && $values->{ lc($field) } ne '' ) {
-					print $provisional_profile ? "<td><span class=\"provisional\">"           : '<td>';
-					print $url                 ? "<a href=\"$url\">$values->{lc($field)}</a>" : $values->{ lc($field) };
-					print $provisional_profile ? '</span></td>'                               : '</td>';
+					$formatted_value .= "<a href=\"$url\">$value</a>";
 				} else {
-					print '<td></td>';
+					$formatted_value .= $value;
 				}
-			} else {
-				print "<td></td>";
+				$formatted_value .= '</span>' if $provisional;
+				push @values, $formatted_value;
 			}
+			local $" = ', ';
+			print "<td>@values</td>";
 		}
 	}
 	return;
@@ -1374,23 +1359,6 @@ sub _initiate_urls_for_loci {
 		$self->{'url'}->{$locus} =~ s/\&/\&amp;/g if $url;
 	}
 	$self->{'urls_defined'} = 1;
-	return;
-}
-
-sub _print_pending_tooltip {
-	my ( $self, $id, $locus ) = @_;
-	my $pending = $self->{'datastore'}->get_pending_allele_designations( $id, $locus );
-	if (@$pending) {
-		my $pending_buffer = 'pending designations - ';
-		foreach (@$pending) {
-			my $sender = $self->{'datastore'}->get_user_info( $_->{'sender'} );
-			$pending_buffer .= "allele: $_->{'allele_id'} ";
-			$pending_buffer .= "($_->{'comments'}) "
-			  if $_->{'comments'};
-			$pending_buffer .= "[$sender->{'first_name'} $sender->{'surname'}; $_->{'method'}; $_->{'datestamp'}]<br />";
-		}
-		print " <a class=\"pending_tooltip\" title=\"$pending_buffer\">pending</a>";
-	}
 	return;
 }
 1;
