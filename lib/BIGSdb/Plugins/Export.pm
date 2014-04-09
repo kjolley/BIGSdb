@@ -385,7 +385,7 @@ sub _write_scheme_field {
 	my ( $self, $fh, $scheme_id, $display_scheme_field, $isolate_id, $first, $prefs ) = @_;
 	my $scheme_info  = $self->{'datastore'}->get_scheme_info($scheme_id);
 	my $scheme_field = lc($display_scheme_field);
-	my $field_values = $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id );
+	my $field_values = $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id );#TODO return value structure has changed
 	my $value        = ref $field_values eq 'HASH' ? $field_values->{$scheme_field} : undef;
 	undef $value if ( $value // '' ) eq '-999';    #old null code from mlstdbNet databases
 	if ( $prefs->{'oneline'} ) {

@@ -162,7 +162,7 @@ sub run {
 						my $scheme_field = lc($2);
 						if ( ref $scheme_field_values->{$scheme_id} ne 'HASH' ) {
 							$scheme_field_values->{$scheme_id} =
-							  $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $data{'id'}, $scheme_id );
+							  $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $data{'id'}, $scheme_id );#TODO return value structure has changed
 						}
 						my $value = $scheme_field_values->{$scheme_id}->{$scheme_field};
 						undef $value

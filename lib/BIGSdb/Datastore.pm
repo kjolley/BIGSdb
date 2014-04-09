@@ -22,7 +22,6 @@ use warnings;
 use 5.010;
 use List::MoreUtils qw(any uniq);
 use Error qw(:try);
-use Carp;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Datastore');
 use BIGSdb::ClientDB;
@@ -130,8 +129,6 @@ sub get_composite_value {
 	}
 	eval { $self->{'sql'}->{'composite_field_values'}->execute($composite_field) };
 	$logger->error($@) if $@;
-	my $allele_ids;
-	my $scheme_fields;
 	while ( my ( $field, $empty_value, $regex ) = $self->{'sql'}->{'composite_field_values'}->fetchrow_array ) {
 		$empty_value //= '';
 		if (
@@ -157,36 +154,40 @@ sub get_composite_value {
 			$value .= $text_value || $empty_value;
 		} elsif ( $field =~ /^l_(.+)/ ) {
 			my $locus = $1;
-			if ( ref $allele_ids ne 'HASH' ) {
-				$allele_ids = $self->get_all_allele_ids($isolate_id);
+			my $designations = $self->get_allele_designations( $isolate_id, $locus );
+			my @allele_values;
+			foreach my $designation (@$designations) {
+				my $allele_id = $designation->{'allele_id'};
+				$allele_id = '&Delta;' if $allele_id =~ /^del/i;
+				if ($regex) {
+					my $expression = "\$allele_id =~ $regex";
+					eval "$expression";    ## no critic (ProhibitStringyEval)
+				}
+				$allele_id = qq(<span class="provisional">$allele_id</span>) if $designation->{'status'} eq 'provisional';
+				push @allele_values, $allele_id;
 			}
-			my $allele = $allele_ids->{$locus};
-			$allele = '&Delta;' if defined $allele && $allele =~ /^del/i;
-			if ($regex) {
-				my $expression = "\$allele =~ $regex";
-				eval "$expression";    ## no critic (ProhibitStringyEval)
-			}
-			$value .= $allele || $empty_value;
+			local $" = ',';
+			$value .= "@allele_values" || $empty_value;
 		} elsif ( $field =~ /^s_(\d+)_(.+)/ ) {
 			my $scheme_id    = $1;
 			my $scheme_field = $2;
-			if ( ref $scheme_fields->{$scheme_id} ne 'HASH' ) {
-				$scheme_fields->{$scheme_id} = $self->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id );
-			}
-			my $field_value;
+			my $scheme_fields->{$scheme_id} = $self->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id );
+			my @field_values;
 			$scheme_field = lc($scheme_field);    # hashref keys returned as lower case from db.
-			if ( ref $scheme_fields->{$scheme_id} eq 'HASH' ) {
-				undef $scheme_fields->{$scheme_id}->{$scheme_field}
-				  if defined $scheme_fields->{$scheme_id}->{$scheme_field}
-				  && $scheme_fields->{$scheme_id}->{$scheme_field} eq
-				  '-999';                         #Needed because old style profile databases may use '-999' to denote null values
-				$field_value = $scheme_fields->{$scheme_id}->{$scheme_field};
+			if ( defined $scheme_fields->{$scheme_id}->{$scheme_field} ) {
+				foreach my $value ( keys %{ $scheme_fields->{$scheme_id}->{$scheme_field} } ) {
+					my $provisional = $scheme_fields->{$scheme_id}->{$scheme_field}->{$value} eq 'provisional' ? 1 : 0;
+					if ($regex) {
+						my $expression = "\$value =~ $regex";
+						eval "$expression";       ## no critic (ProhibitStringyEval)
+					}
+					$value = qq(<span class="provisional">$value</span>)
+					  if $provisional;
+					push @field_values, $value;
+				}
 			}
-			if ($regex) {
-				$field_value //= '';
-				my $expression = "\$field_value =~ $regex";
-				eval "$expression";               ## no critic (ProhibitStringyEval)
-			}
+			local $" = ',';
+			my $field_value = "@field_values";
 			$value .=
 			  ( $scheme_fields->{$scheme_id}->{$scheme_field} // '' ) ne ''
 			  ? $field_value
@@ -439,18 +440,9 @@ sub get_scheme_field_values_by_profile {
 }
 
 sub get_scheme_field_values_by_isolate_id {
-
-	#Returns a hashref of field values
 	my ( $self, $isolate_id, $scheme_id ) = @_;
-	if ( !$self->{'cache'}->{'scheme_loci'}->{$scheme_id} ) {
-
-		#cache this because this sub may be called thousands of times by some plugins.
-		$self->{'cache'}->{'scheme_loci'}->{$scheme_id} = $self->get_scheme_loci($scheme_id);
-	}
-	my @profile;
-	my $allele_ids = $self->get_all_allele_ids($isolate_id);
-	push @profile, $allele_ids->{$_} foreach @{ $self->{'cache'}->{'scheme_loci'}->{$scheme_id} };
-	return $self->get_scheme_field_values_by_profile( $scheme_id, \@profile );
+	my $designations = $self->get_scheme_allele_designations( $isolate_id, $scheme_id );
+	return $self->get_scheme_field_values_by_designations( $scheme_id, $designations );
 }
 
 sub get_samples {
@@ -1260,6 +1252,7 @@ sub get_set_locus_label {
 ##############ALLELES##################################################################
 sub get_allele_designation {
 	my ( $self, $isolate_id, $locus ) = @_;
+	$logger->logcarp("Datastore::get_allele_designation is deprecated");    #TODO remove
 	if ( !$self->{'sql'}->{'allele_designation'} ) {
 		$self->{'sql'}->{'allele_designation'} = $self->{'db'}->prepare("SELECT * FROM allele_designations WHERE isolate_id=? AND locus=?");
 		$logger->info("Statement handle 'allele_designation' prepared.");
@@ -1268,6 +1261,17 @@ sub get_allele_designation {
 	$logger->error($@) if $@;
 	my $allele = $self->{'sql'}->{'allele_designation'}->fetchrow_hashref;
 	return $allele;
+}
+
+sub get_allele_designations {
+	my ( $self, $isolate_id, $locus ) = @_;
+	if ( !$self->{'sql'}->{'allele_designations'} ) {
+		$self->{'sql'}->{'allele_designations'} =
+		  $self->{'db'}->prepare("SELECT allele_id,status FROM allele_designations WHERE isolate_id=? AND locus=?");
+	}
+	eval { $self->{'sql'}->{'allele_designations'}->execute( $isolate_id, $locus ); };
+	$logger->error($@) if $@;
+	my $data = $self->{'sql'}->{'allele_designations'}->fetchall_arrayref( {} );
 }
 
 sub get_allele_extended_attributes {
@@ -1384,6 +1388,7 @@ sub get_allele_id {
 
 	#quicker than get_allele_designation if you only want the allele_id field
 	my ( $self, $isolate_id, $locus ) = @_;
+	$logger->logcarp("Datastore::get_allele_id is deprecated");    #TODO remove
 	if ( !$self->{'sql'}->{'allele_id'} ) {
 		$self->{'sql'}->{'allele_id'} = $self->{'db'}->prepare("SELECT allele_id FROM allele_designations WHERE isolate_id=? AND locus=?");
 		$logger->info("Statement handle 'allele_designation' prepared.");

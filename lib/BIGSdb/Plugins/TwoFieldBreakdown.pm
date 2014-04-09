@@ -655,7 +655,7 @@ sub _get_scheme_field_value {
 	my ( $self, $args ) = @_;
 	my ( $isolate_id, $field, $clean_fields, $scheme_id, $options ) = @{$args}{qw(isolate_id field clean_fields scheme_id options)};
 	my $value;
-	my $scheme_values = $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id->{$field} );
+	my $scheme_values = $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id->{$field} );#TODO return value structure has changed
 	if ( ref $scheme_values eq 'HASH' ) {
 		$value = $scheme_values->{ lc( $clean_fields->{$field} ) };
 	}
