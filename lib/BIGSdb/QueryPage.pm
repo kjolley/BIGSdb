@@ -100,17 +100,13 @@ sub get_scheme_locus_query_clause {
 
 	#Use correct cast to ensure that database indexes are used.
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-		if ( $scheme_info->{'allow_missing_loci'} ) {
-			return "(COALESCE($table.$named,'N')=scheme_$scheme_id\.$scheme_named OR scheme_$scheme_id\.$scheme_named='N')";
-		} else {
-			return "CAST($table.$named AS int)=scheme_$scheme_id\.$scheme_named";
-		}
+	if ( $scheme_info->{'allow_missing_loci'} ) {
+		return "scheme_$scheme_id\.$scheme_named=ANY($table.$named || 'N'::text)";
 	} else {
-		if ( $scheme_info->{'allow_missing_loci'} ) {
-			return "COALESCE($table.$named,'N')=scheme_$scheme_id\.$scheme_named";
+		if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
+			return "scheme_$scheme_id\.$scheme_named=ANY(CAST($table.$named AS int[]))";
 		} else {
-			return "$table.$named=scheme_$scheme_id\.$scheme_named";
+			return "scheme_$scheme_id\.$scheme_named=ANY($table.$named)";
 		}
 	}
 }

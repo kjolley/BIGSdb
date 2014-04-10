@@ -901,8 +901,7 @@ sub is_scheme_field {
 }
 
 sub create_temp_isolate_scheme_table {
-	my ( $self, $scheme_id ) = @_;  #Doesn't work with multiple designations. 
-	$logger->logcarp("Datastore::create_temp_isolate_scheme_table is deprecated"); #TODO remove
+	my ( $self, $scheme_id ) = @_;  
 	my $view  = $self->{'system'}->{'view'};
 	my $table = "temp_$view\_scheme_$scheme_id";
 
@@ -916,14 +915,16 @@ sub create_temp_isolate_scheme_table {
 	foreach my $locus (@$loci) {
 		( $cleaned{$locus} = $locus ) =~ s/'/\\'/g;
 		( $named{$locus}   = $locus ) =~ s/'/_PRIME_/g;
-		$joined_query .= ",MAX(CASE WHEN allele_designations.locus=E'$cleaned{$locus}' THEN allele_designations.allele_id "
-		  . "ELSE NULL END) AS $named{$locus}";
+		$joined_query .= ",ARRAY_AGG(DISTINCT(CASE WHEN allele_designations.locus=E'$cleaned{$locus}' THEN allele_designations.allele_id "
+		  . "ELSE NULL END)) AS $named{$locus}";
 	}
 
 	#Selecting loci from scheme in join will be quicker where scheme loci << total loci (will be a bit slower otherwise)
 	$joined_query .= " FROM $view INNER JOIN allele_designations ON $view.id = allele_designations.isolate_id AND locus IN (SELECT locus "
 	  . "FROM scheme_members WHERE scheme_id=?) GROUP BY $view.id";
+
 	eval { $self->{'db'}->do( "CREATE TEMP TABLE $table AS $joined_query; CREATE INDEX i_$table\_id ON $table(id)", undef, $scheme_id ) };
+	
 	$logger->error($@) if $@;
 	#Could create indices with $self->_create_profile_indices($table, $scheme_id) but the overhead isn't worth it.
 	return $table;

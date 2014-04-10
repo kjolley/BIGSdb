@@ -606,7 +606,7 @@ sub _get_scheme_field_values {
 	my %values;
 	my $scheme_field_values = $self->{'datastore'}->get_scheme_field_values_by_designations( $scheme_id, $designations );
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-	if ( defined $scheme_field_values && ref $scheme_field_values eq 'HASH' ) {
+	if ( keys %$scheme_field_values ) {
 		foreach my $field (@$scheme_fields) {
 			my @field_values = keys %{ $scheme_field_values->{ lc($field) } };
 			my $att = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
