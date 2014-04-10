@@ -768,7 +768,7 @@ sub _print_isolate_table_scheme {
 			my $att = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 			foreach my $value (@field_values) {
 				$value = defined $value ? $value : '';
-				$value = 'Not defined' if $value eq '-999' || $value eq '';
+				$value = '' if $value eq '-999';
 				my $formatted_value;
 				my $provisional = ( $scheme_field_values->{ lc($field) }->{$value} // '' ) eq 'provisional' ? 1 : 0;
 				$formatted_value .= qq(<span class="provisional">) if $provisional;

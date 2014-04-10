@@ -906,7 +906,7 @@ sub create_temp_isolate_scheme_table {
 	my $table = "temp_$view\_scheme_$scheme_id";
 
 	#Test if table already exists
-	my $exists = $self->run_simple_query( "SELECT EXISTS(SELECT * FROM pg_tables WHERE tablename=?)", $table );
+	my $exists = $self->run_simple_query( "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)", $table );
 	return $table if $exists->[0];
 	my $scheme_info  = $self->get_scheme_info($scheme_id);
 	my $loci         = $self->get_scheme_loci($scheme_id);
@@ -940,7 +940,7 @@ sub create_temp_scheme_table {
 	}
 
 	#Test if table already exists
-	my ($exists) = $self->run_simple_query( "SELECT COUNT(*) FROM pg_tables WHERE tablename=?", "temp_scheme_$id" );
+	my ($exists) = $self->run_simple_query( "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)", "temp_scheme_$id" );
 	if ( $exists->[0] ) {
 		$logger->debug("Table already exists");
 		return;
