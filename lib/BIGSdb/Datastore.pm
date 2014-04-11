@@ -299,9 +299,7 @@ sub get_scheme_field_values_by_designations {
 		}
 		eval { $self->{'sql'}->{"field_values_$scheme_id\_$query_key"}->execute(@allele_ids) };
 		$logger->error($@) if $@;
-		while ( my $data = $self->{'sql'}->{"field_values_$scheme_id\_$query_key"}->fetchrow_hashref ) {
-			push @$field_data, $data;
-		}
+		$field_data = $self->{'sql'}->{"field_values_$scheme_id\_$query_key"}->fetchall_arrayref({});
 	} else {
 		my $scheme = $self->get_scheme($scheme_id);
 		local $" = ',';
@@ -317,7 +315,7 @@ sub get_scheme_field_values_by_designations {
 	foreach my $data (@$field_data) {
 		my $status = 'confirmed';
 	  LOCUS: foreach my $locus (@$loci) {
-			next if $data->{ lc $locus } eq 'N';
+			next if !defined $data->{lc $locus} || $data->{ lc $locus } eq 'N';
 			my $locus_status;
 		  DESIGNATION: foreach my $designation ( @{ $designations->{$locus} } ) {
 				next DESIGNATION if $designation->{'allele_id'} ne $data->{ lc $locus };
@@ -905,28 +903,28 @@ sub create_temp_isolate_scheme_table {
 	my $view  = $self->{'system'}->{'view'};
 	my $table = "temp_$view\_scheme_$scheme_id";
 
-	#Test if table already exists
+	#Test if view already exists
 	my $exists = $self->run_simple_query( "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)", $table );
 	return $table if $exists->[0];
 	my $scheme_info  = $self->get_scheme_info($scheme_id);
 	my $loci         = $self->get_scheme_loci($scheme_id);
 	my $joined_query = "SELECT $view.id";
-	my ( %cleaned, %named );
+	my ( %cleaned, @cleaned, %named );
 	foreach my $locus (@$loci) {
 		( $cleaned{$locus} = $locus ) =~ s/'/\\'/g;
+		push @cleaned, $cleaned{$locus};
 		( $named{$locus}   = $locus ) =~ s/'/_PRIME_/g;
 		$joined_query .= ",ARRAY_AGG(DISTINCT(CASE WHEN allele_designations.locus=E'$cleaned{$locus}' THEN allele_designations.allele_id "
 		  . "ELSE NULL END)) AS $named{$locus}";
 	}
 
-	#Selecting loci from scheme in join will be quicker where scheme loci << total loci (will be a bit slower otherwise)
-	$joined_query .= " FROM $view INNER JOIN allele_designations ON $view.id = allele_designations.isolate_id AND locus IN (SELECT locus "
-	  . "FROM scheme_members WHERE scheme_id=?) GROUP BY $view.id";
-
-	eval { $self->{'db'}->do( "CREATE TEMP TABLE $table AS $joined_query; CREATE INDEX i_$table\_id ON $table(id)", undef, $scheme_id ) };
+	#Listing scheme loci rather than testing for scheme membership within query is quicker!
+	local $" = "',E'";
+	$joined_query .= " FROM $view INNER JOIN allele_designations ON $view.id = allele_designations.isolate_id AND locus IN (E'@cleaned' "
+	  . ") GROUP BY $view.id";
+	eval { $self->{'db'}->do( "CREATE TEMP VIEW $table AS $joined_query" ) }; #View seems quicker than temp table.
 	
 	$logger->error($@) if $@;
-	#Could create indices with $self->_create_profile_indices($table, $scheme_id) but the overhead isn't worth it.
 	return $table;
 }
 
@@ -1835,11 +1833,7 @@ sub run_list_query_hashref {
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute(@values) };
 	$logger->logcarp("$qry $@") if $@;
-	my @list;
-	while ( my $data = $sql->fetchrow_hashref ) {
-		push @list, $data;
-	}
-	return \@list;
+	return $sql->fetchall_arrayref({});
 }
 
 sub run_list_query {
