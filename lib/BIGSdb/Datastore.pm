@@ -243,8 +243,8 @@ sub get_scheme_field_values_by_designations {
 	my $fields     = $self->get_scheme_fields($scheme_id);
 	my $field_data = [];
 	if ( ( $self->{'system'}->{'use_temp_scheme_table'} // '' ) eq 'yes' ) {
-		#TODO This almost identical to code in Scheme.pm - look at refactoring
 
+		#TODO This almost identical to code in Scheme.pm - look at refactoring
 		#Import all profiles from seqdef database into indexed scheme table.  Under some circumstances
 		#this can be considerably quicker than querying the seqdef scheme view (a few ms compared to
 		#>10s if the seqdef database contains multiple schemes with an uneven distribution of a large
@@ -265,16 +265,18 @@ sub get_scheme_field_values_by_designations {
 		}
 		my ( @allele_count, @allele_ids );
 		foreach my $locus (@$loci) {
-			if (!defined $designations->{$locus}){
+			if ( !defined $designations->{$locus} ) {
+
 				#Define a null designation if one doesn't exist for the purposes of looking up profile.
 				#We can't just abort the query because some schemes allow missing loci, but we don't want to match based
 				#on an incomplete set of designations.
-				push @allele_ids, '-999';
-				push @allele_count,1;
+				push @allele_ids,   '-999';
+				push @allele_count, 1;
 			} else {
-				push @allele_count, scalar @{ $designations->{$locus} }; #We need a different query depending on number of designations at loci.
+				push @allele_count,
+				  scalar @{ $designations->{$locus} };    #We need a different query depending on number of designations at loci.
 				push @allele_ids, $_->{'allele_id'} foreach @{ $designations->{$locus} };
-			}		
+			}
 		}
 		local $" = ',';
 		my $query_key = "@allele_count";
@@ -299,7 +301,7 @@ sub get_scheme_field_values_by_designations {
 		}
 		eval { $self->{'sql'}->{"field_values_$scheme_id\_$query_key"}->execute(@allele_ids) };
 		$logger->error($@) if $@;
-		$field_data = $self->{'sql'}->{"field_values_$scheme_id\_$query_key"}->fetchall_arrayref({});
+		$field_data = $self->{'sql'}->{"field_values_$scheme_id\_$query_key"}->fetchall_arrayref( {} );
 	} else {
 		my $scheme = $self->get_scheme($scheme_id);
 		local $" = ',';
@@ -315,7 +317,7 @@ sub get_scheme_field_values_by_designations {
 	foreach my $data (@$field_data) {
 		my $status = 'confirmed';
 	  LOCUS: foreach my $locus (@$loci) {
-			next if !defined $data->{lc $locus} || $data->{ lc $locus } eq 'N';
+			next if !defined $data->{ lc $locus } || $data->{ lc $locus } eq 'N';
 			my $locus_status;
 		  DESIGNATION: foreach my $designation ( @{ $designations->{$locus} } ) {
 				next DESIGNATION if $designation->{'allele_id'} ne $data->{ lc $locus };
@@ -899,7 +901,7 @@ sub is_scheme_field {
 }
 
 sub create_temp_isolate_scheme_table {
-	my ( $self, $scheme_id ) = @_;  
+	my ( $self, $scheme_id ) = @_;
 	my $view  = $self->{'system'}->{'view'};
 	my $table = "temp_$view\_scheme_$scheme_id";
 
@@ -913,7 +915,7 @@ sub create_temp_isolate_scheme_table {
 	foreach my $locus (@$loci) {
 		( $cleaned{$locus} = $locus ) =~ s/'/\\'/g;
 		push @cleaned, $cleaned{$locus};
-		( $named{$locus}   = $locus ) =~ s/'/_PRIME_/g;
+		( $named{$locus} = $locus ) =~ s/'/_PRIME_/g;
 		$joined_query .= ",ARRAY_AGG(DISTINCT(CASE WHEN allele_designations.locus=E'$cleaned{$locus}' THEN allele_designations.allele_id "
 		  . "ELSE NULL END)) AS $named{$locus}";
 	}
@@ -922,8 +924,7 @@ sub create_temp_isolate_scheme_table {
 	local $" = "',E'";
 	$joined_query .= " FROM $view INNER JOIN allele_designations ON $view.id = allele_designations.isolate_id AND locus IN (E'@cleaned' "
 	  . ") GROUP BY $view.id";
-	eval { $self->{'db'}->do( "CREATE TEMP VIEW $table AS $joined_query" ) }; #View seems quicker than temp table.
-	
+	eval { $self->{'db'}->do("CREATE TEMP VIEW $table AS $joined_query") };    #View seems quicker than temp table.
 	$logger->error($@) if $@;
 	return $table;
 }
@@ -938,7 +939,8 @@ sub create_temp_scheme_table {
 	}
 
 	#Test if table already exists
-	my ($exists) = $self->run_simple_query( "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)", "temp_scheme_$id" );
+	my ($exists) =
+	  $self->run_simple_query( "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)", "temp_scheme_$id" );
 	if ( $exists->[0] ) {
 		$logger->debug("Table already exists");
 		return;
@@ -1018,21 +1020,14 @@ sub _create_profile_indices {
 	my ( $self, $table, $scheme_id ) = @_;
 	my $loci = $self->get_scheme_loci($scheme_id);
 
-	#Create separate indices consisting of up to 10 loci each
-	my $i     = 0;
-	my $index = 1;
-	my @temp_loci;
-	local $" = ',';
+	#We don't need to index every field.  The first three will do.
+	my $i = 0;
 	foreach my $locus (@$loci) {
-		$locus =~ s/'/_PRIME_/g;
-		push @temp_loci, $locus;
 		$i++;
-		if ( $i % 10 == 0 || $i == @$loci ) {
-			eval { $self->{'db'}->do("CREATE INDEX i_$table\_$index ON $table (@temp_loci)"); };
-			$logger->warn("Can't create index $@") if $@;
-			$index++;
-			undef @temp_loci;
-		}
+		$locus =~ s/'/_PRIME_/g;
+		eval { $self->{'db'}->do("CREATE INDEX i_$table\_$locus ON $table ($locus)"); };
+		$logger->warn("Can't create index $@") if $@;
+		last if $i == 3;
 	}
 	return;
 }
@@ -1833,7 +1828,7 @@ sub run_list_query_hashref {
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute(@values) };
 	$logger->logcarp("$qry $@") if $@;
-	return $sql->fetchall_arrayref({});
+	return $sql->fetchall_arrayref( {} );
 }
 
 sub run_list_query {

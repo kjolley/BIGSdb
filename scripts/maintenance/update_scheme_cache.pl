@@ -2,7 +2,7 @@
 #Create a scheme profile cache in an isolate database
 #
 #Written by Keith Jolley
-#Copyright (c) 2011-2013, University of Oxford
+#Copyright (c) 2011-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -101,20 +101,13 @@ while ( my @profile = $sql->fetchrow_array ) {
 	$db2->do("INSERT INTO temp_scheme_$opts{'y'} ($field_string) VALUES (@profile)");
 }
 
-#Create separate indices consisting of up to 10 loci each
+#Index up to three profile fields - no need for more
 my $i     = 0;
-my $index = 1;
-my @temp_loci;
-local $" = ',';
 foreach my $locus (@loci) {
 	$locus =~ s/'/_PRIME_/g;
-	push @temp_loci, $locus;
 	$i++;
-	if ( $i % 10 == 0 || $i == @loci ) {
-		eval { $db2->do("CREATE INDEX i_ts_$opts{'y'}\_$index ON temp_scheme_$opts{'y'} (@temp_loci)"); };
-		$index++;
-		undef @temp_loci;
-	}
+	eval { $db2->do("CREATE INDEX i_ts_$opts{'y'}\_$locus ON temp_scheme_$opts{'y'} ($locus)") };
+	last if $i == 3;
 }
 $db2->do("GRANT SELECT ON temp_scheme_$opts{'y'} TO apache,remote");
 $db2->commit;
