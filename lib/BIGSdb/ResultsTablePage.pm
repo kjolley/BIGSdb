@@ -34,6 +34,8 @@ sub paged_display {
 	my ( $self, $args ) = @_;
 	my ( $table, $qry, $message, $hidden_attributes, $count, $passed_qry_file ) =
 	  @{$args}{qw (table query message hidden_attributes count passed_qry_file)};
+	my $q = $self->{'cgi'};
+	$count //= $q->param('records');
 	my $passed_qry;
 	if ($passed_qry_file) {
 		$passed_qry = $self->get_query_from_temp_file($passed_qry_file);
@@ -59,7 +61,6 @@ sub paged_display {
 		$continue = 0;
 	};
 	return if !$continue;
-	my $q = $self->{'cgi'};
 	$message = $q->param('message') if !$message;
 
 	#sort allele_id integers numerically
@@ -96,6 +97,7 @@ s/ORDER BY \S+\.allele_id(.*)/ORDER BY \(case when $table.allele_id ~ '^[0-9]+\$
 	$q->param( query_file  => $passed_qry_file );
 	$q->param( currentpage => $currentpage );
 	$q->param( displayrecs => $self->{'prefs'}->{'displayrecs'} );
+	$q->param( records     => $records );
 	if ( $self->{'prefs'}->{'displayrecs'} > 0 ) {
 		$totalpages = $records / $self->{'prefs'}->{'displayrecs'};
 	} else {
@@ -104,7 +106,7 @@ s/ORDER BY \S+\.allele_id(.*)/ORDER BY \(case when $table.allele_id ~ '^[0-9]+\$
 	}
 	$bar_buffer .= $q->start_form;
 	$q->param( 'table', $table );
-	$bar_buffer .= $q->hidden($_) foreach qw (query_file currentpage page db displayrecs order table direction sent);
+	$bar_buffer .= $q->hidden($_) foreach qw (query_file currentpage page db displayrecs order table direction sent records);
 	$bar_buffer .= $q->hidden( 'message', $message ) if $message;
 
 	#Make sure hidden_attributes don't duplicate the above
