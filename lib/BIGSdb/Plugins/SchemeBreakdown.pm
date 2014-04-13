@@ -132,7 +132,7 @@ sub _do_analysis {
 				try {
 					$scheme_fields_qry = $self->_get_scheme_fields_sql($scheme_id);
 					$self->{'datastore'}->create_temp_scheme_table($scheme_id);
-					$self->{'datastore'}->create_temp_isolate_scheme_table($scheme_id);
+					$self->{'datastore'}->create_temp_isolate_scheme_loci_view($scheme_id);
 				}
 				catch BIGSdb::DatabaseConnectionException with {
 					say "<div class=\"box\" id=\"statusbad\"><p>The database for scheme $scheme_id is not accessible.  This may be a "
@@ -354,7 +354,7 @@ sub _print_scheme_table {
 		try {
 			$scheme_fields_qry = $self->_get_scheme_fields_sql($scheme_id);
 			$self->{'datastore'}->create_temp_scheme_table($scheme_id);
-			$self->{'datastore'}->create_temp_isolate_scheme_table($scheme_id);
+			$self->{'datastore'}->create_temp_isolate_scheme_loci_view($scheme_id);
 		}
 		catch BIGSdb::DatabaseConnectionException with {
 			say "</table>\n</div>";

@@ -900,10 +900,10 @@ sub is_scheme_field {
 	return any { $_ eq $field } @$fields;
 }
 
-sub create_temp_isolate_scheme_table {
+sub create_temp_isolate_scheme_loci_view {
 	my ( $self, $scheme_id ) = @_;
 	my $view  = $self->{'system'}->{'view'};
-	my $table = "temp_$view\_scheme_$scheme_id";
+	my $table = "temp_$view\_scheme_loci_$scheme_id";
 
 	#Test if view already exists
 	my $exists = $self->run_simple_query( "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)", $table );
@@ -929,6 +929,64 @@ sub create_temp_isolate_scheme_table {
 	return $table;
 }
 
+sub create_temp_isolate_scheme_fields_view {
+	my ( $self, $scheme_id, $options ) = @_;
+
+	#Create view containing isolate_id and scheme_fields.
+	#This view can instead be created as a persistent indexed table using the update_scheme_cache.pl script.
+	#This should be done once the scheme size/number of isolates results in a slowdown of queries.
+	$options = {} if ref $options ne 'HASH';
+	my $view  = $self->{'system'}->{'view'};
+	my $table = "temp_$view\_scheme_fields_$scheme_id";
+	if ( !$options->{'cache'} ) {
+		my $exists = $self->run_simple_query( "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)", $table )->[0];
+		return $table if $exists;
+	}
+	my $scheme_table  = $self->create_temp_scheme_table($scheme_id);
+	my $loci_table    = $self->create_temp_isolate_scheme_loci_view($scheme_id);
+	my $scheme_loci   = $self->get_scheme_loci($scheme_id);
+	my $scheme_fields = $self->get_scheme_fields($scheme_id);
+	my $scheme_info   = $self->get_scheme_info($scheme_id);
+	my @temp;
+	foreach my $locus (@$scheme_loci) {
+		( my $cleaned = $locus ) =~ s/'/\\'/g;
+		( my $named   = $locus ) =~ s/'/_PRIME_/g;
+
+		#Use correct cast to ensure that database indexes are used.
+		my $locus_info = $self->get_locus_info($locus);
+		if ( $scheme_info->{'allow_missing_loci'} ) {
+			push @temp, "$scheme_table.$named=ANY($loci_table.$named || 'N'::text)";
+		} else {
+			if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
+				push @temp, "$scheme_table.$named=ANY(CAST($loci_table.$named AS int[]))";
+			} else {
+				push @temp, "$scheme_table.$named=ANY($loci_table.$named)";
+			}
+		}
+	}
+	local $" = ",$scheme_table.";
+	s/'/\\'/g foreach @$scheme_fields;
+	my $table_type = 'TEMP VIEW';
+	if ( $options->{'cache'} ) {
+		$table_type = 'TABLE';
+		eval { $self->{'db'}->do("DROP TABLE IF EXISTS $table") };
+		$logger->error($@) if $@;
+	}
+	my $qry =
+	  "CREATE $table_type $table AS SELECT $loci_table.id,$scheme_table.@$scheme_fields FROM $loci_table LEFT JOIN $scheme_table ON ";
+	local $" = ' AND ';
+	$qry .= "@temp";
+	eval { $self->{'db'}->do($qry) };
+	$logger->error($@) if $@;
+	if ( $options->{'cache'} ) {
+		foreach my $field (@$scheme_fields) {
+			$self->{'db'}->do("CREATE INDEX i_$table\_$field ON $table ($field)");
+		}
+		$self->{'db'}->commit;
+	}
+	return $table;
+}
+
 sub create_temp_scheme_table {
 	my ( $self, $id ) = @_;
 	my $scheme_info = $self->get_scheme_info($id);
@@ -937,18 +995,17 @@ sub create_temp_scheme_table {
 		$logger->error("No scheme database for scheme $id");
 		throw BIGSdb::DatabaseConnectionException("Database does not exist");
 	}
+	my $temp_table = "temp_scheme_$id";
 
 	#Test if table already exists
-	my ($exists) =
-	  $self->run_simple_query( "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)", "temp_scheme_$id" );
+	my ($exists) = $self->run_simple_query( "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)", $temp_table );
 	if ( $exists->[0] ) {
 		$logger->debug("Table already exists");
-		return;
+		return $temp_table;
 	}
-	my $fields     = $self->get_scheme_fields($id);
-	my $loci       = $self->get_scheme_loci($id);
-	my $temp_table = "temp_scheme_$id";
-	my $create     = "CREATE TEMP TABLE $temp_table (";
+	my $fields = $self->get_scheme_fields($id);
+	my $loci   = $self->get_scheme_loci($id);
+	my $create = "CREATE TEMP TABLE $temp_table (";
 	my @table_fields;
 	foreach (@$fields) {
 		my $type = $self->get_scheme_field_info( $id, $_ )->{'type'};

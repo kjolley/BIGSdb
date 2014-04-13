@@ -234,7 +234,7 @@ sub _run_isolate_query {
 		$fieldtype = 'scheme_field';
 		my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
-		my $temp_table  = $self->{'datastore'}->create_temp_isolate_scheme_table($scheme_id);
+		my $temp_table  = $self->{'datastore'}->create_temp_isolate_scheme_loci_view($scheme_id);
 		my ( %cleaned, %named, %scheme_named );
 
 		foreach my $locus (@$scheme_loci) {

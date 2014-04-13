@@ -96,6 +96,7 @@ sub get_grouped_fields {
 
 sub get_scheme_locus_query_clause {
 	my ( $self, $scheme_id, $table, $locus, $scheme_named, $named ) = @_;
+	$logger->logcarp("QueryPage::get_scheme_locus_query_clause is deprecated");    #TODO Remove
 	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 
 	#Use correct cast to ensure that database indexes are used.

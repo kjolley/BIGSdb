@@ -1349,7 +1349,7 @@ sub _create_join_sql_for_scheme {
 		my $scheme_field         = $2;
 		my $loci                 = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		my $scheme_info          = $self->{'datastore'}->get_scheme_info($scheme_id);
-		my $isolate_scheme_table = $self->{'datastore'}->create_temp_isolate_scheme_table($scheme_id);
+		my $isolate_scheme_table = $self->{'datastore'}->create_temp_isolate_scheme_loci_view($scheme_id);
 		my %named;
 		foreach my $locus (@$loci) {
 			( $named{$locus} = $locus ) =~ s/'/_PRIME_/g;

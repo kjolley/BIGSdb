@@ -67,7 +67,7 @@ sub print_content {
 			if ( $query =~ /temp_scheme_$_\s/ ) {
 				try {
 					$self->{'datastore'}->create_temp_scheme_table($_);
-					$self->{'datastore'}->create_temp_isolate_scheme_table($_);
+					$self->{'datastore'}->create_temp_isolate_scheme_loci_view($_);
 				}
 				catch BIGSdb::DatabaseConnectionException with {
 					say "<div class=\"box\" id=\"statusbad\"><p>Can't copy data into temporary table - please check scheme configuration "
