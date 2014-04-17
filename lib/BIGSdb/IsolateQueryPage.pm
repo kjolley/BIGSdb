@@ -941,7 +941,10 @@ sub _modify_query_for_filters {
 					$allele_clause .= "(locus=E'$locus')";
 					$first = 0;
 				}
-				my $param  = $q->param("scheme_$scheme_id\_profile_status_list");
+				my $param = $q->param("scheme_$scheme_id\_profile_status_list");
+
+				#TODO This will have to take account that a locus may have multiple alleles so a count may not indicate
+				#that every locus has a value.
 				my $clause = "(EXISTS (SELECT isolate_id FROM allele_designations WHERE $view.id=allele_designations.isolate_id AND "
 				  . "($allele_clause) GROUP BY isolate_id HAVING COUNT(isolate_id)";
 				my $locus_count = @$scheme_loci;
@@ -964,34 +967,20 @@ sub _modify_query_for_filters {
 		}
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 		foreach my $field (@$scheme_fields) {
-			if ( defined $q->param("scheme_$scheme_id\_$field\_list") && $q->param("scheme_$scheme_id\_$field\_list") ne '' ) {
-				my $temp_table = $self->{'datastore'}->create_temp_isolate_scheme_loci_view($scheme_id);
-				my $value      = $q->param("scheme_$scheme_id\_$field\_list");
+			if ( ( $q->param("scheme_$scheme_id\_$field\_list") // '' ) ne '' ) {
+				my $value = $q->param("scheme_$scheme_id\_$field\_list");
 				$value =~ s/'/\\'/g;
-				my $clause;
 				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
-				$field = "scheme_$scheme_id\.$field";
-				my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-				my ( %cleaned, %named, %scheme_named );
-
-				foreach my $locus (@$scheme_loci) {
-					( $cleaned{$locus}      = $locus ) =~ s/'/\\'/g;
-					( $named{$locus}        = $locus ) =~ s/'/_PRIME_/g;
-					( $scheme_named{$locus} = $locus ) =~ s/'/_PRIME_/g;
-				}
-				my @temp;
-				foreach my $locus (@$scheme_loci) {
-					push @temp,
-					  $self->get_scheme_locus_query_clause( $scheme_id, $temp_table, $locus, $scheme_named{$locus}, $named{$locus} );
-				}
+				my $isolate_scheme_field_view = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+				$field = "$isolate_scheme_field_view\.$field";
 				local $" = ' AND ';
-				my $joined_query = "SELECT $temp_table.id FROM $temp_table INNER JOIN temp_scheme_$scheme_id AS scheme_$scheme_id ON @temp";
+				my $temp_qry = "SELECT $isolate_scheme_field_view.id FROM $isolate_scheme_field_view";
 				$value =~ s/'/\\'/g;
-				if ( $scheme_field_info->{'type'} eq 'integer' ) {
-					$clause = "(EXISTS ($joined_query WHERE $view.id = $temp_table.id AND CAST($field AS int) = E'$value'))";
-				} else {
-					$clause = "(EXISTS ($joined_query WHERE $view.id = $temp_table.id AND UPPER($field) = UPPER(E'$value')))";
-				}
+				my $clause =
+				  $scheme_field_info->{'type'} eq 'text'
+				  ? "($view.id IN ($temp_qry WHERE UPPER($field) = UPPER(E'$value')))"
+				  : "($view.id IN  ($temp_qry WHERE CAST($field AS int) = E'$value'))";
+
 				if ( $qry !~ /WHERE \(\)\s*$/ ) {
 					$qry .= "AND $clause";
 				} else {
@@ -1140,12 +1129,6 @@ sub _modify_query_for_designations {
 				my $isolate_scheme_field_view = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 				$field = "$isolate_scheme_field_view.$field";
 				my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-				my ( %cleaned, %named, %scheme_named );
-				foreach my $locus (@$scheme_loci) {
-					( $cleaned{$locus}      = $locus ) =~ s/'/\\'/g;
-					( $named{$locus}        = $locus ) =~ s/'/_PRIME_/g;
-					( $scheme_named{$locus} = $locus ) =~ s/'/_PRIME_/g;
-				}
 				my $temp_qry = "SELECT $isolate_scheme_field_view.id FROM $isolate_scheme_field_view";
 				$text =~ s/'/\\'/g;
 				if ( $operator eq 'NOT' ) {
