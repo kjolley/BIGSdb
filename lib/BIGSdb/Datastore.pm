@@ -942,7 +942,7 @@ sub create_temp_isolate_scheme_fields_view {
 		my $exists = $self->run_simple_query( "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)", $table )->[0];
 		return $table if $exists;
 	}
-	my $scheme_table  = $self->create_temp_scheme_table($scheme_id);
+	my $scheme_table  = $self->create_temp_scheme_table( $scheme_id, $options );
 	my $loci_table    = $self->create_temp_isolate_scheme_loci_view($scheme_id);
 	my $scheme_loci   = $self->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->get_scheme_fields($scheme_id);
@@ -988,24 +988,33 @@ sub create_temp_isolate_scheme_fields_view {
 }
 
 sub create_temp_scheme_table {
-	my ( $self, $id ) = @_;
+	my ( $self, $id, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $scheme_info = $self->get_scheme_info($id);
 	my $scheme_db   = $self->get_scheme($id)->get_db;
 	if ( !$scheme_db ) {
 		$logger->error("No scheme database for scheme $id");
 		throw BIGSdb::DatabaseConnectionException("Database does not exist");
 	}
-	my $temp_table = "temp_scheme_$id";
+	my $table = "temp_scheme_$id";
 
 	#Test if table already exists
-	my ($exists) = $self->run_simple_query( "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)", $temp_table );
-	if ( $exists->[0] ) {
-		$logger->debug("Table already exists");
-		return $temp_table;
+	if ( !$options->{'cache'} ) {
+		my $exists = $self->run_simple_query( "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)", $table )->[0];
+		if ($exists) {
+			$logger->debug("Table already exists");
+			return $table;
+		}
 	}
-	my $fields = $self->get_scheme_fields($id);
-	my $loci   = $self->get_scheme_loci($id);
-	my $create = "CREATE TEMP TABLE $temp_table (";
+	my $fields     = $self->get_scheme_fields($id);
+	my $loci       = $self->get_scheme_loci($id);
+	my $table_type = 'TEMP TABLE';
+	if ( $options->{'cache'} ) {
+		$table_type = 'TABLE';
+		eval { $self->{'db'}->do("DROP TABLE IF EXISTS $table") };
+		$logger->error($@) if $@;
+	}
+	my $create = "CREATE $table_type $table (";
 	my @table_fields;
 	foreach (@$fields) {
 		my $type = $self->get_scheme_field_info( $id, $_ )->{'type'};
@@ -1028,8 +1037,8 @@ sub create_temp_scheme_table {
 	$create .= "@table_fields";
 	$create .= ")";
 	$self->{'db'}->do($create);
-	my $table = $self->get_scheme_info($id)->{'dbase_table'};
-	$qry = "SELECT @$fields,@query_loci FROM $table";
+	my $seqdef_table = $self->get_scheme_info($id)->{'dbase_table'};
+	$qry = "SELECT @$fields,@query_loci FROM $seqdef_table";
 	my $scheme_sql = $scheme_db->prepare($qry);
 	eval { $scheme_sql->execute };
 
@@ -1038,7 +1047,7 @@ sub create_temp_scheme_table {
 		return;
 	}
 	local $" = ",";
-	eval { $self->{'db'}->do("COPY $temp_table(@$fields,@$loci) FROM STDIN"); };
+	eval { $self->{'db'}->do("COPY $table(@$fields,@$loci) FROM STDIN"); };
 	if ($@) {
 		$logger->error("Can't start copying data into temp table");
 	}
@@ -1059,18 +1068,21 @@ sub create_temp_scheme_table {
 		$self->{'db'}->rollback;
 		throw BIGSdb::DatabaseConnectionException("Can't put data into temp table");
 	}
-	$self->_create_profile_indices( $temp_table, $id );
-	foreach (@$fields) {
-		my $field_info = $self->get_scheme_field_info( $id, $_ );
+	$self->_create_profile_indices( $table, $id );
+	foreach my $field (@$fields) {
+		my $field_info = $self->get_scheme_field_info( $id, $field );
 		if ( $field_info->{'type'} eq 'integer' ) {
-			$self->{'db'}->do("CREATE INDEX i_$temp_table\_$_ ON $temp_table ($_)");
+			$self->{'db'}->do("CREATE INDEX i_$table\_$field ON $table ($field)");
 		} else {
-			$self->{'db'}->do("CREATE INDEX i_$temp_table\_$_ ON $temp_table (UPPER($_))");
+			$self->{'db'}->do("CREATE INDEX i_$table\_$field ON $table (UPPER($field))");
 		}
-		$self->{'db'}->do("UPDATE $temp_table SET $_ = null WHERE $_='-999'")
+		$self->{'db'}->do("UPDATE $table SET $field = null WHERE $field='-999'")
 		  ;    #Needed as old style profiles database stored null values as '-999'.
 	}
-	return $temp_table;
+	if ( $options->{'cache'} ) {
+		$self->{'db'}->commit;
+	}
+	return $table;
 }
 
 sub _create_profile_indices {
@@ -1968,7 +1980,7 @@ sub get_tables {
 	my @tables;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		@tables = qw(users user_groups user_group_members allele_sequences sequence_bin accession refs allele_designations
-		  pending_allele_designations loci locus_aliases schemes scheme_members scheme_fields composite_fields composite_field_values
+		  loci locus_aliases schemes scheme_members scheme_fields composite_fields composite_field_values
 		  isolate_aliases user_permissions isolate_user_acl isolate_usergroup_acl projects project_members experiments experiment_sequences
 		  isolate_field_extended_attributes isolate_value_extended_attributes scheme_groups scheme_group_scheme_members
 		  scheme_group_group_members pcr pcr_locus probes probe_locus sets set_loci set_schemes set_metadata set_view samples isolates
@@ -1990,11 +2002,10 @@ sub get_tables_with_curator {
 	my ($self) = @_;
 	my @tables;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		@tables =
-		  qw(users user_groups user_group_members allele_sequences sequence_bin refs allele_designations pending_allele_designations loci schemes scheme_members
+		@tables = qw(users user_groups user_group_members allele_sequences sequence_bin refs allele_designations loci schemes scheme_members
 		  locus_aliases scheme_fields composite_fields composite_field_values isolate_aliases projects project_members experiments experiment_sequences
 		  isolate_field_extended_attributes isolate_value_extended_attributes scheme_groups scheme_group_scheme_members scheme_group_group_members pcr pcr_locus
-		  probes probe_locus accession sequence_flags sequence_attributes);
+		  probes probe_locus accession sequence_flags sequence_attributes history);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';
@@ -2002,7 +2013,7 @@ sub get_tables_with_curator {
 		@tables = qw(users user_groups sequences profile_refs sequence_refs accession loci schemes
 		  scheme_members scheme_fields scheme_groups scheme_group_scheme_members scheme_group_group_members
 		  client_dbases client_dbase_loci client_dbase_schemes locus_links locus_descriptions locus_aliases
-		  locus_extended_attributes sequence_extended_attributes locus_refs );
+		  locus_extended_attributes sequence_extended_attributes locus_refs profile_history);
 	}
 	return @tables;
 }
