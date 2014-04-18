@@ -37,7 +37,7 @@ sub get_attributes {
 		buttontext  => 'Schemes/alleles',
 		menutext    => 'Scheme and alleles',
 		module      => 'SchemeBreakdown',
-		version     => '1.1.3',
+		version     => '1.1.4',
 		section     => 'breakdown,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/scheme_breakdown.shtml',
 		input       => 'query',
@@ -116,7 +116,10 @@ sub _do_analysis {
 	my $field_query = $$qry_ref;
 	my $field_type  = 'text';
 	my ( $field, $scheme_id );
+	my $temp_table;
+	my $view = $self->{'system'}->{'view'};
 	if ( $q->param('type') eq 'field' ) {
+
 		if ( $q->param('field') =~ /^(\d+)_(.*)$/ ) {
 			$scheme_id = $1;
 			$field     = $2;
@@ -130,9 +133,8 @@ sub _do_analysis {
 			if ( $scheme_info->{'dbase_name'} ) {
 				my $continue = 1;
 				try {
-					$scheme_fields_qry = $self->_get_scheme_fields_sql($scheme_id);
-					$self->{'datastore'}->create_temp_scheme_table($scheme_id);
-					$self->{'datastore'}->create_temp_isolate_scheme_loci_view($scheme_id);
+					$temp_table        = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+					$scheme_fields_qry = "SELECT * FROM $view LEFT JOIN $temp_table ON $view.id=$temp_table.id";
 				}
 				catch BIGSdb::DatabaseConnectionException with {
 					say "<div class=\"box\" id=\"statusbad\"><p>The database for scheme $scheme_id is not accessible.  This may be a "
@@ -141,21 +143,21 @@ sub _do_analysis {
 				};
 				return if !$continue;
 			}
-			$field_query = $$scheme_fields_qry;
+			$field_query = $scheme_fields_qry;
 			my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 			$field_type = $scheme_field_info->{'type'};
 			if ( $field_type eq 'integer' ) {
-				$field_query =~ s/\*/DISTINCT(CAST(scheme_$scheme_id\.$field AS int)),COUNT(scheme_$scheme_id\.$field)/;
+				$field_query =~ s/\*/DISTINCT(CAST($temp_table\.$field AS int)),COUNT($temp_table\.$field)/;
 			} else {
-				$field_query =~ s/\*/DISTINCT(scheme_$scheme_id\.$field),COUNT(scheme_$scheme_id\.$field)/;
+				$field_query =~ s/\*/DISTINCT($temp_table\.$field),COUNT($temp_table\.$field)/;
 			}
-			if ( $$qry_ref =~ /SELECT \* FROM refs/ || $$qry_ref =~ /SELECT \* FROM $self->{'system'}->{'view'} LEFT JOIN refs/ ) {
-				$field_query =~ s/FROM $self->{'system'}->{'view'}/FROM $self->{'system'}->{'view'} LEFT JOIN refs ON refs.isolate_id=id/;
+			if ( $$qry_ref =~ /SELECT \* FROM refs/ || $$qry_ref =~ /SELECT \* FROM $view LEFT JOIN refs/ ) {
+				$field_query =~ s/FROM $view/FROM $view LEFT JOIN refs ON refs.isolate_id=id/;
 			}
 			if ( $$qry_ref =~ /WHERE (.*)$/ ) {
 				$field_query .= " AND $1";
 			}
-			$field_query .= " GROUP BY scheme_$scheme_id.$field";
+			$field_query .= " GROUP BY $temp_table.$field";
 		} else {
 			say "<div class=\"box\" id=\"statusbad\"><p>Invalid field passed for analysis!</p></div>";
 			$logger->error( "Invalid field passed for analysis. Field is set as '" . $q->param('field') . "'." );
@@ -171,8 +173,7 @@ sub _do_analysis {
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		$locus =~ s/'/\\'/g;
 		$field_type = $locus_info->{'allele_id_format'};
-		$field_query =~
-s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT \* FROM $self->{'system'}->{'view'} LEFT JOIN allele_designations ON isolate_id=id/;
+		$field_query =~ s/SELECT \* FROM $view/SELECT \* FROM $view LEFT JOIN allele_designations ON isolate_id=$view\.id/;
 		if ( $field_type eq 'integer' ) {
 			$field_query =~ s/\*/DISTINCT(CAST(allele_id AS int)),COUNT(allele_id)/;
 		} else {
@@ -184,8 +185,7 @@ s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT \* FROM $self->{'system'}->{
 		} else {
 			$field_query .= " WHERE locus=E'$locus'";
 		}
-		$field_query =~
-s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}->{'view'} LEFT JOIN allele_designations ON isolate_id=id/;
+		$field_query =~ s/refs RIGHT JOIN $view/refs RIGHT JOIN $view LEFT JOIN allele_designations ON isolate_id=$view\.id/;
 		$field_query .= " GROUP BY allele_id";
 	} else {
 		say "<div class=\"box\" id=\"statusbad\"><p>Invalid field passed for analysis!</p></div>";
@@ -198,7 +198,7 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 	if ( $q->param('type') eq 'locus' ) {
 		$temp_fieldname = 'allele_id';
 	} else {
-		$temp_fieldname = defined $scheme_id ? "scheme_$scheme_id\.$field" : $field;
+		$temp_fieldname = defined $scheme_id ? "$temp_table\.$field" : $field;
 	}
 	try {
 		$order = $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'SchemeBreakdown', 'order' );
@@ -328,11 +328,11 @@ sub _print_scheme_table {
 	my $set_id = $self->get_set_id;
 	return
 	  if !$self->{'prefs'}->{'analysis_schemes'}->{$scheme_id}
-		  && $scheme_id;
+	  && $scheme_id;
 	my ( $fields, $loci );
 	if ($scheme_id) {
 		$fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-		$loci = $self->{'datastore'}->get_scheme_loci( $scheme_id, ( { 'profile_name' => 0, 'analysis_pref' => 1 } ) );
+		$loci = $self->{'datastore'}->get_scheme_loci( $scheme_id, ( { profile_name => 0, analysis_pref => 1 } ) );
 	} else {
 		$loci = $self->{'datastore'}->get_loci_in_no_scheme( { analyse_pref => 1, set_id => $set_id } );
 		$fields = \@;;
@@ -349,12 +349,13 @@ sub _print_scheme_table {
 		$scheme_info->{'description'} = 'Loci not in schemes';
 	}
 	my $scheme_fields_qry;
+	my $temp_table;
+	my $view = $self->{'system'}->{'view'};
 	if ( $scheme_id && $scheme_info->{'dbase_name'} && @$fields ) {
 		my $continue = 1;
 		try {
-			$scheme_fields_qry = $self->_get_scheme_fields_sql($scheme_id);
-			$self->{'datastore'}->create_temp_scheme_table($scheme_id);
-			$self->{'datastore'}->create_temp_isolate_scheme_loci_view($scheme_id);
+			$temp_table        = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+			$scheme_fields_qry = "SELECT * FROM $view LEFT JOIN $temp_table ON $view.id=$temp_table.id";
 		}
 		catch BIGSdb::DatabaseConnectionException with {
 			say "</table>\n</div>";
@@ -378,15 +379,15 @@ sub _print_scheme_table {
 	my $field_values;
 
 	if ( $scheme_info->{'dbase_name'} && @$fields ) {
-		my $scheme_query = $$scheme_fields_qry;
-		if ( $$qry_ref =~ /SELECT \* FROM refs/ || $$qry_ref =~ /SELECT \* FROM $self->{'system'}->{'view'} LEFT JOIN refs/ ) {
-			$scheme_query =~ s/FROM $self->{'system'}->{'view'}/FROM $self->{'system'}->{'view'} LEFT JOIN refs ON refs.isolate_id=id/;
+		my $scheme_query = $scheme_fields_qry;
+		if ( $$qry_ref =~ /SELECT \* FROM refs/ || $$qry_ref =~ /SELECT \* FROM $view LEFT JOIN refs/ ) {
+			$scheme_query =~ s/FROM $view/FROM $view LEFT JOIN refs ON refs.isolate_id=id/;
 		}
 		if ( $$qry_ref =~ /WHERE (.*)$/ ) {
 			$scheme_query .= " WHERE ($1)";
 		}
-		local $" = ",scheme_$scheme_id.";
-		my $field_string = "scheme_$scheme_id.@$fields";
+		local $" = ",$temp_table.";
+		my $field_string = "$temp_table.@$fields";
 		$scheme_query =~ s/\*/$field_string/;
 		my $sql = $self->{'db'}->prepare($scheme_query);
 		$logger->debug($scheme_query);
@@ -415,9 +416,9 @@ sub _print_scheme_table {
 				if ($value) {
 					say $q->start_form;
 					say $q->submit( -label => 'Breakdown', -class => 'smallbutton' );
-					$q->param( 'field',           "$scheme_id\_$fields->[$i]" );
-					$q->param( 'type',            'field' );
-					$q->param( 'field_breakdown', 1 );
+					$q->param( field           => "$scheme_id\_$fields->[$i]" );
+					$q->param( type            => 'field' );
+					$q->param( field_breakdown => 1 );
 					say $q->hidden($_) foreach qw (page name db query_file type field field_breakdown);
 					say $q->end_form;
 				}
@@ -451,7 +452,7 @@ sub _print_scheme_table {
 			$cleaned_locus =~ s/'/\\'/g;
 			my $locus_query = $$qry_ref;
 			$locus_query =~
-s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT \* FROM $self->{'system'}->{'view'} LEFT JOIN allele_designations ON isolate_id=id/;
+			  s/SELECT \* FROM $view/SELECT \* FROM $view LEFT JOIN allele_designations ON allele_designations.isolate_id=$view.id/;
 			$locus_query =~ s/\*/COUNT (DISTINCT(allele_id))/;
 			if ( $locus_query =~ /WHERE/ ) {
 				$locus_query =~ s/WHERE (.*)$/WHERE \($1\)/;
@@ -460,7 +461,7 @@ s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT \* FROM $self->{'system'}->{
 				$locus_query .= " WHERE locus=E'$cleaned_locus'";
 			}
 			$locus_query =~
-s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}->{'view'} LEFT JOIN allele_designations ON isolate_id=id/;
+			  s/refs RIGHT JOIN $view/refs RIGHT JOIN $view LEFT JOIN allele_designations ON allele_designations.isolate_id=$view.id/;
 			my $sql = $self->{'db'}->prepare($locus_query);
 			eval { $sql->execute };
 			$logger->error($@) if $@;
@@ -470,16 +471,16 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 				say "<td>";
 				say $q->start_form;
 				say $q->submit( -label => 'Breakdown', -class => 'smallbutton' );
-				$q->param( 'field', $loci->[$i] );
-				$q->param( 'type',  'locus' );
-				say $q->hidden( 'field_breakdown', 1 );
+				$q->param( field => $loci->[$i] );
+				$q->param( type  => 'locus' );
+				say $q->hidden( field_breakdown => 1 );
 				say $q->hidden($_) foreach qw (page name db query_file field type);
 				say $q->end_form;
 				say "</td><td>";
 				say $q->start_form;
 				say $q->submit( -label => 'Download', -class => 'smallbutton' );
-				say $q->hidden( 'download', 1 );
-				$q->param( 'format', 'text' );
+				say $q->hidden( download => 1 );
+				$q->param( format => 'text' );
 				say $q->hidden($_) foreach qw (page name db query_file field type format);
 				say $q->end_form;
 				say "</td>";
@@ -487,7 +488,7 @@ s/refs RIGHT JOIN $self->{'system'}->{'view'}/refs RIGHT JOIN $self->{'system'}-
 				say "<td></td><td></td>";
 			}
 		} else {
-			say "<td></td><td></td>\n";
+			say "<td></td><td></td>";
 		}
 		say "</tr>";
 		$td = $td == 1 ? 2 : 1;
@@ -515,43 +516,7 @@ sub _download_alleles {
 	return;
 }
 
-sub _get_scheme_fields_sql {
-	my ( $self, $scheme_id ) = @_;
-	my $scheme_loci  = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $scheme_info  = $self->{'datastore'}->get_scheme_info($scheme_id);
-	my $joined_table = "SELECT * FROM $self->{'system'}->{'view'}";
-	foreach (@$scheme_loci) {
-		( my $cleaned_locus = $_ ) =~ s/'/_PRIME_/g;
-		( my $escaped_locus = $_ ) =~ s/'/\\'/g;
-		$joined_table .= " left join allele_designations AS $cleaned_locus on $cleaned_locus.isolate_id = $self->{'system'}->{'view'}.id "
-		  . "AND $cleaned_locus.locus=E'$escaped_locus'";
-	}
-	$joined_table .= " left join temp_scheme_$scheme_id AS scheme_$scheme_id ON ";
-	my @temp;
-	foreach (@$scheme_loci) {
-		my $locus_info = $self->{'datastore'}->get_locus_info($_);
-		( my $locus = $_ ) =~ s/'/_PRIME_/g;
-		if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-			if ( $scheme_info->{'allow_missing_loci'} ) {
-				push @temp, "(CAST(COALESCE($locus.allele_id,'N') AS text)=CAST(scheme_$scheme_id\.$locus AS text) "
-				  . "OR scheme_$scheme_id\.$locus='N')";
-			} else {
-				push @temp, "CAST($locus.allele_id AS int)=scheme_$scheme_id\.$locus";
-			}
-		} else {
-			if ( $scheme_info->{'allow_missing_loci'} ) {
-				push @temp, "COALESCE($locus.allele_id,'N')=scheme_$scheme_id\.$locus";
-			} else {
-				push @temp, "$locus.allele_id=scheme_$scheme_id\.$locus";
-			}
-		}
-	}
-	local $" = ' AND ';
-	$joined_table .= " @temp ";
-	return \$joined_table;
-}
-
-sub _print_tree {
+sub _print_tree { 
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say $q->start_form;
