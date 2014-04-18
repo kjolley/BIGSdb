@@ -94,24 +94,6 @@ sub get_grouped_fields {
 	return @groupedfields;
 }
 
-sub get_scheme_locus_query_clause {
-	my ( $self, $scheme_id, $table, $locus, $scheme_named, $named ) = @_;
-	$logger->logcarp("QueryPage::get_scheme_locus_query_clause is deprecated");    #TODO Remove
-	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
-
-	#Use correct cast to ensure that database indexes are used.
-	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	if ( $scheme_info->{'allow_missing_loci'} ) {
-		return "scheme_$scheme_id\.$scheme_named=ANY($table.$named || 'N'::text)";
-	} else {
-		if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-			return "scheme_$scheme_id\.$scheme_named=ANY(CAST($table.$named AS int[]))";
-		} else {
-			return "scheme_$scheme_id\.$scheme_named=ANY($table.$named)";
-		}
-	}
-}
-
 sub is_valid_operator {
 	my ( $self, $value ) = @_;
 	my @operators = OPERATORS;

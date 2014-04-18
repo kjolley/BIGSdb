@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -208,7 +208,7 @@ sub _run_isolate_query {
 	my $q      = $self->{'cgi'};
 	my $field  = $q->param('attribute');
 	my @groupedfields = $self->get_grouped_fields( $field, { strip_prefix => 1 } );
-	my ( $datatype, $fieldtype, $scheme_id, $joined_query );
+	my ( $datatype, $fieldtype, $scheme_id );
 	my @list = split /\n/, $q->param('list');
 	@list = uniq @list;
 	my $tempqry;
@@ -232,22 +232,6 @@ sub _run_isolate_query {
 		$field     = $2;
 		$datatype  = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field )->{'type'};
 		$fieldtype = 'scheme_field';
-		my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
-		my $temp_table  = $self->{'datastore'}->create_temp_isolate_scheme_loci_view($scheme_id);
-		my ( %cleaned, %named, %scheme_named );
-
-		foreach my $locus (@$scheme_loci) {
-			( $cleaned{$locus}      = $locus ) =~ s/'/\\'/g;
-			( $named{$locus}        = $locus ) =~ s/'/_PRIME_/g;
-			( $scheme_named{$locus} = $locus ) =~ s/'/_PRIME_/g;
-		}
-		my @temp;
-		foreach my $locus (@$scheme_loci) {
-			push @temp, $self->get_scheme_locus_query_clause( $scheme_id, $temp_table, $locus, $scheme_named{$locus}, $named{$locus} );
-		}
-		local $" = ' AND ';
-		$joined_query = "SELECT $temp_table.id FROM $temp_table INNER JOIN temp_scheme_$scheme_id AS scheme_$scheme_id ON @temp";
 	} elsif ( $field =~ /^e_(.*)\|\|(.*)/ ) {
 		$extended_isolate_field = $1;
 		$field                  = $2;
@@ -299,7 +283,7 @@ sub _run_isolate_query {
 			} elsif ( $fieldtype eq 'scheme_field' ) {
 				$tempqry .=
 				  $datatype eq 'text'
-				  ? "upper(scheme_$scheme_id\.$field)=upper(E'$value')"
+				  ? "upper($field)=upper(E'$value')"
 				  : "$field=E'$value'";
 			} elsif ( $fieldtype eq 'extended_isolate' ) {
 				$tempqry .= "$view.$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE "
@@ -321,7 +305,9 @@ sub _run_isolate_query {
 		$qry = "SELECT * FROM $view WHERE $view.id IN (SELECT distinct($view.id) FROM $view LEFT JOIN allele_designations "
 		  . "ON $view.id=allele_designations.isolate_id WHERE $tempqry)";
 	} elsif ( $fieldtype eq 'scheme_field' ) {
-		$qry = "SELECT * FROM $view WHERE $view.id IN ($joined_query AND ($tempqry))";
+		my $isolate_scheme_field_view = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+		$qry = "SELECT * FROM $view WHERE $view.id IN (SELECT $isolate_scheme_field_view.id FROM $isolate_scheme_field_view WHERE "
+		  . "$tempqry)";
 	}
 	$qry .= " ORDER BY ";
 	if ( $q->param('order') =~ /$locus_pattern/ ) {
