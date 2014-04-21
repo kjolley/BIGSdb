@@ -75,6 +75,10 @@ sub run_script {
 	exit if !$job_id;
 	$self->{'logger'}->info("Job:$job_id") if $job_id;
 	my $job = $self->{'jobManager'}->get_job($job_id);
+	if ($job->{'cancel'}){
+		$self->{'jobManager'}->update_job_status( $job_id, { status => 'cancelled' } );
+		exit;
+	}
 	my $params = $self->{'jobManager'}->get_job_params($job_id);
 	$params->{'dbase_config_dir'} = $self->{'dbase_config_dir'};
 	my $instance = $job->{'dbase_config'};
