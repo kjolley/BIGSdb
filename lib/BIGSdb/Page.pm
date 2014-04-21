@@ -718,7 +718,7 @@ sub _get_provenance_fields {
 	foreach my $field (@$fields) {
 
 		if (   ( $options->{'sender_attributes'} )
-			&& ( $field ~~ [qw(sender curator)] || ( $attributes->{$field}->{'userfield'} // '' ) eq 'yes' ) )
+			&& ( $field eq 'sender' || $field eq 'curator' || ( $attributes->{$field}->{'userfield'} // '' ) eq 'yes' ) )
 		{
 			foreach my $user_attribute (qw (id surname first_name affiliation)) {
 				push @isolate_list, "f_$field ($user_attribute)";
