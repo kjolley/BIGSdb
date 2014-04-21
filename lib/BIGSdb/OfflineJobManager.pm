@@ -160,8 +160,10 @@ sub add_job {
 				push @checked_list, $id if BIGSdb::Utils::is_int($id);
 			}
 			local $" = "),('$id',";
-			my $sql = $self->{'db'}->prepare("INSERT INTO isolates (job_id,isolate_id) VALUES ('$id',@checked_list)");
-			$sql->execute;
+			if (@checked_list){
+				my $sql = $self->{'db'}->prepare("INSERT INTO isolates (job_id,isolate_id) VALUES ('$id',@checked_list)");
+				$sql->execute;
+			}
 		}
 		if ( defined $params->{'profiles'} && ref $params->{'profiles'} eq 'ARRAY' && $cgi_params->{'scheme_id'} ) {
 
@@ -308,7 +310,7 @@ sub get_job {
 	my $sql =
 	  $self->{'db'}->prepare( "SELECT *,extract(epoch FROM now() - start_time) AS elapsed,extract(epoch FROM "
 		  . "stop_time - start_time) AS total_time FROM jobs WHERE id=?" );
-	eval { $sql->execute($job_id); };
+	eval { $sql->execute($job_id) };
 	if ($@) {
 		$logger->error($@);
 		return;
@@ -418,7 +420,7 @@ sub get_jobs_ahead_in_queue {
 sub get_next_job_id {
 	my ($self) = @_;
 	my $sql = $self->{'db'}->prepare("SELECT id FROM jobs WHERE status='submitted' ORDER BY priority asc,submit_time asc LIMIT 1");
-	eval { $sql->execute; };
+	eval { $sql->execute };
 	if ($@) {
 		$logger->error($@);
 		return;

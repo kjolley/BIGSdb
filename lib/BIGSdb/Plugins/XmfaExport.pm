@@ -259,6 +259,7 @@ sub run_job {
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 				my @include_values;
 				eval { $isolate_sql->execute($id) };
+				$logger->error($@) if $@;
 				my $isolate_data = $isolate_sql->fetchrow_hashref;
 				if (@includes) {
 					foreach my $field (@includes) {
