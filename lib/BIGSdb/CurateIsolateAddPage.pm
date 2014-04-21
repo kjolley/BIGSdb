@@ -74,7 +74,7 @@ sub _check {
 			if ( $required_field == $required ) {
 				if ( $field eq 'curator' ) {
 					$newdata->{$field} = $self->get_curator_id;
-				} elsif ( $field ~~ [qw(datestamp date_entered)] ) {
+				} elsif ( $field eq 'datestamp' || $field eq 'date_entered' ) {
 					$newdata->{$field} = $self->get_datestamp;
 				} else {
 					$newdata->{$field} = $q->param($field);
@@ -346,7 +346,7 @@ sub print_provenance_form_elements {
 					}
 				} elsif ( lc($field) eq 'curator' ) {
 					say "<b>" . $self->get_curator_name . ' (' . $self->{'username'} . ")</b>";
-				} elsif ( lc($field) ~~ [qw(sender sequenced_by)] || ( $thisfield->{'userfield'} // '' ) eq 'yes' ) {
+				} elsif ( lc($field) eq 'sender' || lc($field) eq 'sequenced_by' || ( $thisfield->{'userfield'} // '' ) eq 'yes' ) {
 					say $q->popup_menu(
 						-name    => $field,
 						-id      => $field,

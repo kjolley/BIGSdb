@@ -837,7 +837,7 @@ sub _is_field_bad_isolates {
 	                                                                          #If field is null make sure it's not a required field
 
 	if ( $value eq '' ) {
-		if ( $fieldname ~~ [qw(aliases references)] || ( ( $thisfield->{'required'} // '' ) eq 'no' ) ) {
+		if ( $fieldname eq 'aliases' || $fieldname eq 'references' || ( ( $thisfield->{'required'} // '' ) eq 'no' ) ) {
 			return 0;
 		} else {
 			return 'is a required field and cannot be left blank.';
