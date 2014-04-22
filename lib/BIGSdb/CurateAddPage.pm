@@ -714,7 +714,7 @@ sub _print_copy_locus_record_form {
 	print "<div id=\"curatetools\">\n";
 	print $q->start_form;
 	print "Copy configuration from ";
-	print $q->popup_menu( -name => 'locus', values => $locus_list, labels => $locus_labels );
+	print $q->popup_menu( -name => 'locus', -values => $locus_list, -labels => $locus_labels );
 	print $q->submit( -name => 'Copy', -class => 'submit' );
 	print $q->hidden($_) foreach qw(db page table);
 	print $q->end_form;
