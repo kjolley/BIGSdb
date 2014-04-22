@@ -867,12 +867,12 @@ sub get_filter {
 	my %args = ( -name => "$name\_list", -id => $id, -values => $values, -labels => $options->{'labels'}, -class => $class );
 
 	if ( $options->{'multiple'} ) {
-		$args{'multiple'} = 'multiple';
-		$args{'size'} = ( @$values < 4 ) ? @$values : 4;
+		$args{'-multiple'} = 'multiple';
+		$args{'-size'} = ( @$values < 4 ) ? @$values : 4;
 		my @selected = $q->param("$name\_list");
-		$args{'default'}  = \@selected;      #Not sure why this should be necessary, but only the first selection seems to stick.
-		$args{'override'} = 1;
-		$args{'class'}    = 'multiselect';
+		$args{'-default'}  = \@selected;      #Not sure why this should be necessary, but only the first selection seems to stick.
+		$args{'-override'} = 1;
+		$args{'-class'}    = 'multiselect';
 	}
 	$buffer .= $q->popup_menu(%args);
 	$options->{'tooltip'} =~ tr/_/ / if $options->{'tooltip'};
