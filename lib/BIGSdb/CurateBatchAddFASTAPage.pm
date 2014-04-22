@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2013, University of Oxford
+#Copyright (c) 2013-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -145,7 +145,7 @@ sub _check {
 		$seqin = Bio::SeqIO->new( -fh => $stringfh_in, -format => 'fasta' );
 		while ( my $seq_object = $seqin->next_seq ) {
 			my $seq = $seq_object->seq // '';
-			$seq =~ s/\s//g;
+			$seq =~ s/[\-\.\s]//g;
 			$seq = uc($seq);
 			push @seq_data, { id => $seq_object->id, seq => $seq };
 		}
