@@ -368,6 +368,7 @@ sub _run_query {
 	my ( $qry, $qry2 );
 	my @errors;
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
+	my $set_id     = $self->get_set_id;
 
 	if ( !defined $q->param('query_file') ) {
 		my $andor       = $q->param('c0');
@@ -377,6 +378,9 @@ sub _run_query {
 				my $field    = $q->param("s$i");
 				my $operator = $q->param("y$i") // '=';
 				my $text     = $q->param("t$i");
+				if ( $field eq 'locus' && $set_id ) {
+					$text = $self->{'datastore'}->get_set_locus_real_id( $text, $set_id );
+				}
 				$self->process_value( \$text );
 				my $thisfield;
 				foreach (@$attributes) {
@@ -500,14 +504,12 @@ sub _run_query {
 			qw (loci scheme_fields schemes scheme_members client_dbase_schemes allele_designations allele_sequences) )
 		{
 			my $scheme_id = $q->param('scheme_id_list');
-			my $set_id    = $self->get_set_id;
 			my ( $identifier, $field );
 			if    ( $table eq 'loci' )                { ( $identifier, $field ) = ( 'id',        'locus' ) }
 			elsif ( $table eq 'allele_designations' ) { ( $identifier, $field ) = ( 'locus',     'locus' ) }
 			elsif ( $table eq 'allele_sequences' )    { ( $identifier, $field ) = ( 'locus',     'locus' ) }
 			elsif ( $table eq 'schemes' )             { ( $identifier, $field ) = ( 'id',        'scheme_id' ) }
 			else                                      { ( $identifier, $field ) = ( 'scheme_id', 'scheme_id' ) }
-
 			if ( $q->param('scheme_id_list') eq '0' ) {
 				my $set_clause = $set_id ? "WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : '';
 				$qry2 = "SELECT * FROM $table WHERE $identifier NOT IN (SELECT $field FROM scheme_members $set_clause)";
