@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -259,8 +259,7 @@ sub _print_query_interface {
 
 sub _run_query {
 	my ( $self, $scheme_id ) = @_;
-	my $q      = $self->{'cgi'};
-	my $system = $self->{'system'};
+	my $q = $self->{'cgi'};
 	my $qry;
 	my $msg;
 	my @errors;
@@ -320,14 +319,15 @@ sub _run_query {
 			$locus_qry .= $self->{'system'}->{'dbtype'} eq 'isolates' ? ')' : " AND profile_members.scheme_id=$scheme_id)";
 			push @lqry, $locus_qry;
 		}
+		my $view = $self->{'system'}->{'view'};
 		if (@lqry) {
 			local $" = ' OR ';
 			my $matches = $q->param('matches_list');
 			$matches = @lqry if $matches == @loci;
 			my $lqry;
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-				$lqry = "(select distinct($system->{'view'}.id) FROM $system->{'view'} LEFT JOIN allele_designations ON "
-				  . "$system->{'view'}.id=allele_designations.isolate_id WHERE @lqry";
+				$lqry = "(select distinct($view.id) FROM $view LEFT JOIN allele_designations ON "
+				  . "$view.id=allele_designations.isolate_id WHERE @lqry";
 			} else {
 				my $primary_key =
 				  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )
@@ -340,16 +340,14 @@ sub _run_query {
 			if ( $matches == 0 ) {    #Find out the greatest number of matches
 				my $match_qry;
 				if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-					$match_qry = "SELECT COUNT(id) FROM $system->{'view'} LEFT JOIN allele_designations ON $system->{'view'}.id=isolate_id "
-					  . "WHERE (@lqry)";
+					$match_qry = "SELECT COUNT($view.id) FROM $view LEFT JOIN allele_designations ON $view.id=isolate_id WHERE (@lqry) ";
 					if ( ( $q->param('project_list') // '' ) ne '' ) {
 						my $project_id = $q->param('project_list');
-						if ($project_id) {
-							local $" = "','";
-							$match_qry .= " AND id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id')";
+						if ( $project_id && BIGSdb::Utils::is_int($project_id) ) {
+							$match_qry .= " AND $view.id IN (SELECT isolate_id FROM project_members WHERE project_id=$project_id) ";
 						}
 					}
-					$match_qry .= "GROUP BY $system->{'view'}.id ORDER BY count(id) desc LIMIT 1";
+					$match_qry .= "GROUP BY $view.id ORDER BY count($view.id) desc LIMIT 1";
 				} else {
 					$match_qry =
 					    "SELECT COUNT(profiles.profile_id) FROM profiles LEFT JOIN profile_members ON profiles.profile_id="
@@ -372,11 +370,11 @@ sub _run_query {
 			}
 			$lqry .=
 			  $self->{'system'}->{'dbtype'} eq 'isolates'
-			  ? " GROUP BY $system->{'view'}.id HAVING count($system->{'view'}.id)>=$matches)"
+			  ? " GROUP BY $view.id HAVING count($view.id)>=$matches)"
 			  : " GROUP BY profiles.profile_id HAVING count(profiles.profile_id)>=$matches)";
 			$qry =
 			  $self->{'system'}->{'dbtype'} eq 'isolates'
-			  ? "SELECT * FROM $system->{'view'} WHERE $system->{'view'}.id IN $lqry"
+			  ? "SELECT * FROM $view WHERE $view.id IN $lqry"
 			  : "SELECT * FROM $scheme_view WHERE EXISTS $lqry";
 		}
 		if ( $qry && $self->{'system'}->{'dbtype'} eq 'isolates' && ( $q->param('project_list') // '' ) ne '' ) {
@@ -394,7 +392,7 @@ sub _run_query {
 			} else {
 				$qry .= $q->param('order');
 			}
-			$qry .= " $dir,$self->{'system'}->{'view'}.id;";
+			$qry .= " $dir,$view.id;";
 		} else {
 			my $primary_key =
 			  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )
@@ -421,7 +419,7 @@ sub _run_query {
 			}
 		}
 	} else {
-		$qry = $self->get_query_from_temp_file($q->param('query_file'));
+		$qry = $self->get_query_from_temp_file( $q->param('query_file') );
 	}
 	if (@errors) {
 		local $" = '<br />';
