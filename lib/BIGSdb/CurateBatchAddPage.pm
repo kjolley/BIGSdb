@@ -550,15 +550,11 @@ sub _check_data {
 				&& $self->{'system'}->{'dbtype'} eq 'sequences'
 				&& !$self->is_admin )
 			{
-				if (
-					!$self->{'datastore'}->is_allowed_to_modify_locus_sequences(
-						( $locus ? $locus : $data[ $file_header_pos{'locus'} ] ),
-						$self->get_curator_id
-					)
-				  )
-				{
-					$problems{$pk_combination} .= "Your user account is not allowed to add or modify sequences for locus "
-					  . ( $locus || $data[ $file_header_pos{'locus'} ] ) . ".";
+				if ( !defined $locus && defined $file_header_pos{'locus'} && $data[ $file_header_pos{'locus'} ] ) {
+					$locus = $data[ $file_header_pos{'locus'} ];
+				}
+				if ( defined $locus && !$self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $self->get_curator_id ) ) {
+					$problems{$pk_combination} .= "Your user account is not allowed to add or modify sequences for locus $locus.";
 				}
 			}
 		}
