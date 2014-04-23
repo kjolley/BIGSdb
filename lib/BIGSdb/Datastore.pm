@@ -890,7 +890,7 @@ sub create_temp_isolate_scheme_fields_view {
 	eval { $self->{'db'}->do($qry) };
 	$logger->error($@) if $@;
 	if ( $options->{'cache'} ) {
-		foreach my $field (@$scheme_fields) {
+		foreach my $field ( @$scheme_fields, 'id' ) {
 			$self->{'db'}->do("CREATE INDEX i_$table\_$field ON $table ($field)");
 		}
 		$self->{'db'}->commit;
@@ -1361,6 +1361,20 @@ sub get_allele_id {
 	$logger->error($@) if $@;
 	my ($allele_id) = $self->{'sql'}->{'allele_id'}->fetchrow_array;
 	return $allele_id;
+}
+
+sub get_allele_ids {
+	my ( $self, $isolate_id, $locus ) = @_;
+	if ( !$self->{'sql'}->{'allele_ids'} ) {
+		$self->{'sql'}->{'allele_ids'} = $self->{'db'}->prepare("SELECT allele_id FROM allele_designations WHERE isolate_id=? AND locus=?");
+	}
+	eval { $self->{'sql'}->{'allele_ids'}->execute( $isolate_id, $locus ) };
+	$logger->error($@) if $@;
+	my @allele_ids;
+	while ( my ($allele_id) = $self->{'sql'}->{'allele_ids'}->fetchrow_array ) {
+		push @allele_ids, $allele_id;
+	}
+	return \@allele_ids;
 }
 
 sub get_all_allele_ids {
