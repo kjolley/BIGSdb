@@ -367,7 +367,7 @@ sub _get_isolate_contig_data {
 	if ( $data->{'contigs'} ) {
 		$data->{'lengths'}      = $self->_get_contig_lengths($isolate_id);
 		$data->{'isolate_name'} = $self->get_isolate_name_from_id($isolate_id);
-		my $allele_designations = $self->{'datastore'}->get_all_allele_ids( $isolate_id, { set_id => $set_id } );#TODO return value format has changed.
+		my $allele_designations = $self->{'datastore'}->get_all_allele_ids( $isolate_id, { set_id => $set_id } );
 		$data->{'percent_alleles'} =
 		  BIGSdb::Utils::decimal_place( 100 * ( scalar keys %$allele_designations ) / @{ $self->{'cache'}->{'loci'} }, 1 );
 		my $tagged = $self->_get_tagged($isolate_id);
