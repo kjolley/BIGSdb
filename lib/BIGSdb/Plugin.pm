@@ -1021,8 +1021,11 @@ sub get_scheme_field_values {
 	}
 	eval { $self->{'sql'}->{'scheme_field_values'}->{$field}->execute($isolate_id) };
 	$logger->error($@) if $@;
+	my %used;
 	while ( my ($value) = $self->{'sql'}->{'scheme_field_values'}->{$field}->fetchrow_array ) {
-		push @values, $value;
+		next if !defined $value;
+		push @values, $value if !$used{$value};
+		$used{$value} = 1;
 	}
 	return \@values;
 }

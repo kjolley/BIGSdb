@@ -119,7 +119,8 @@ sub get_isolate_field_values {
 }
 
 sub get_composite_value {
-	my ( $self, $isolate_id, $composite_field, $isolate_fields_hashref ) = @_;
+	my ( $self, $isolate_id, $composite_field, $isolate_fields_hashref, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $value = '';
 	if ( !$self->{'sql'}->{'composite_field_values'} ) {
 		$self->{'sql'}->{'composite_field_values'} =
@@ -163,7 +164,8 @@ sub get_composite_value {
 					my $expression = "\$allele_id =~ $regex";
 					eval "$expression";    ## no critic (ProhibitStringyEval)
 				}
-				$allele_id = qq(<span class="provisional">$allele_id</span>) if $designation->{'status'} eq 'provisional';
+				$allele_id = qq(<span class="provisional">$allele_id</span>)
+				  if $designation->{'status'} eq 'provisional' && !$options->{'no_format'};
 				push @allele_values, $allele_id;
 			}
 			local $" = ',';
@@ -182,7 +184,7 @@ sub get_composite_value {
 						eval "$expression";       ## no critic (ProhibitStringyEval)
 					}
 					$value = qq(<span class="provisional">$value</span>)
-					  if $provisional;
+					  if $provisional && !$options->{'no_format'};
 					push @field_values, $value;
 				}
 			}

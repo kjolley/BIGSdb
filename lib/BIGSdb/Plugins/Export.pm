@@ -1,6 +1,6 @@
 #Export.pm - Export plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -39,7 +39,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.1.1',
+		version     => '1.2.0',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/export_isolates.shtml',
@@ -106,8 +106,8 @@ sub get_extra_fields {
 }
 
 sub run {
-	my ($self)     = @_;
-	my $q          = $self->{'cgi'};
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
 	say "<h1>Export dataset</h1>";
 	if ( $q->param('submit') ) {
 		my $selected_fields = $self->get_selected_fields;
@@ -244,22 +244,20 @@ sub _write_tab_text {
 			return if $self->{'mod_perl_request'}->connection->aborted;
 		}
 		my $first      = 1;
-		my $allele_ids = $self->{'datastore'}->get_all_allele_ids( $data{'id'} );#TODO return value format has changed.
+		my $allele_ids = $self->{'datastore'}->get_all_allele_ids( $data{'id'} );    #TODO return value format has changed.
 		foreach (@$fields) {
-			if ( $prefs{'oneline'} ) {
-				print $fh "$data{'id'}\t";
-				print $fh "$data{$self->{'system'}->{'labelfield'}}\t" if $prefs{'labelfield'};
-			}
 			if ( $_ =~ /^f_(.*)/ ) {
 				$self->_write_field( $fh, $1, \%data, $first, \%prefs );
 			} elsif ( $_ =~ /^(s_\d+_l_|l_)(.*)/ ) {
-				$self->_write_allele( $fh, $2, \%data, $allele_ids, $first, \%prefs );
+				$self->_write_allele(
+					{ fh => $fh, locus => $2, data => \%data, allele_ids => $allele_ids, first => $first, prefs => \%prefs } );
 			} elsif ( $_ =~ /^s_(\d+)_f_(.*)/ ) {
-				$self->_write_scheme_field( $fh, $1, $2, $data{'id'}, $first, \%prefs );
+				$self->_write_scheme_field(
+					{ fh => $fh, scheme_id => $1, field => $2, data => \%data, first => $first, prefs => \%prefs } );
 			} elsif ( $_ =~ /^c_(.*)/ ) {
 				$self->_write_composite( $fh, $1, \%data, $first, \%prefs );
 			} elsif ( $_ =~ /^m_references/ ) {
-				$self->_write_ref( $fh, $data{'id'}, $first, \%prefs );
+				$self->_write_ref( $fh, \%data, $first, \%prefs );
 			}
 			$first = 0;
 		}
@@ -275,12 +273,20 @@ sub _write_tab_text {
 	return;
 }
 
+sub _get_id_one_line {
+	my ( $self, $data, $prefs, ) = @_;
+	my $buffer = "$data->{'id'}\t";
+	$buffer .= "$data->{$self->{'system'}->{'labelfield'}}\t" if $prefs->{'labelfield'};
+	return $buffer;
+}
+
 sub _write_field {
 	my ( $self, $fh, $field, $data, $first, $prefs ) = @_;
 	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-	if (defined $metaset){
-		my $value = $self->{'datastore'}->get_metadata_value($data->{'id'},$metaset,$metafield);
+	if ( defined $metaset ) {
+		my $value = $self->{'datastore'}->get_metadata_value( $data->{'id'}, $metaset, $metafield );
 		if ( $prefs->{'oneline'} ) {
+			print $fh $self->_get_id_one_line( $data, $prefs );
 			print $fh "$metafield\t";
 			print $fh $value;
 			print $fh "\n";
@@ -300,6 +306,7 @@ sub _write_field {
 		}
 		local $" = '; ';
 		if ( $prefs->{'oneline'} ) {
+			print $fh $self->_get_id_one_line( $data, $prefs );
 			print $fh "aliases\t@aliases\n";
 		} else {
 			print $fh "\t" if !$first;
@@ -316,6 +323,7 @@ sub _write_field {
 		$logger->error($@) if $@;
 		my ($value) = $self->{'sql'}->{'attribute'}->fetchrow_array;
 		if ( $prefs->{'oneline'} ) {
+			print $fh $self->_get_id_one_line( $data, $prefs );
 			print $fh "$isolate_field..$attribute\t";
 			print $fh $value if defined $value;
 			print $fh "\n";
@@ -325,6 +333,7 @@ sub _write_field {
 		}
 	} else {
 		if ( $prefs->{'oneline'} ) {
+			print $fh $self->_get_id_one_line( $data, $prefs );
 			print $fh "$field\t";
 			print $fh "$data->{$field}" if defined $data->{$field};
 			print $fh "\n";
@@ -337,72 +346,99 @@ sub _write_field {
 }
 
 sub _write_allele {
-	my ( $self, $fh, $locus, $data, $allele_ids, $first, $prefs ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $fh, $locus, $data, $allele_ids, $first_col, $prefs ) = @{$args}{qw(fh locus data allele_ids first prefs)};
+	my @allele_ids = defined $allele_ids->{$locus} ? @{ $allele_ids->{$locus} } : ('');
 	if ( $prefs->{'alleles'} ) {
-		if ( $prefs->{'oneline'} ) {
-			print $fh "$locus\t";
-			print $fh $allele_ids->{$locus} if defined $allele_ids->{$locus};
-			if ( $prefs->{'info'} ) {
-				if ( !$self->{'sql'}->{'allele'} ) {
-					$self->{'sql'}->{'allele'} =
-					  $self->{'db'}->prepare( "SELECT allele_designations.datestamp AS des_datestamp,first_name,surname,comments FROM "
-						  . "allele_designations LEFT JOIN users ON allele_designations.curator = users.id WHERE isolate_id=? AND locus=?"
-					  );
+		my $first_allele = 1;
+		foreach my $allele_id (@allele_ids) {
+			if ( $prefs->{'oneline'} ) {
+				print $fh $self->_get_id_one_line( $data, $prefs );
+				print $fh "$locus\t";
+				print $fh $allele_id;
+				if ( $prefs->{'info'} ) {
+					if ( !$self->{'sql'}->{'allele'} ) {
+						$self->{'sql'}->{'allele'} =
+						  $self->{'db'}->prepare( "SELECT allele_designations.datestamp AS des_datestamp,first_name,surname,comments FROM "
+							  . "allele_designations LEFT JOIN users ON allele_designations.curator = users.id WHERE isolate_id=? AND locus=?"
+						  );
+					}
+					eval { $self->{'sql'}->{'allele'}->execute( $data->{'id'}, $locus ) };
+					$logger->error($@) if $@;
+					my $allele_info = $self->{'sql'}->{'allele'}->fetchrow_hashref;
+					if ( defined $allele_info ) {
+						print $fh "\t$allele_info->{'first_name'} $allele_info->{'surname'}\t";
+						print $fh "$allele_info->{'des_datestamp'}\t";
+						print $fh $allele_info->{'comments'} if defined $allele_info->{'comments'};
+					}
 				}
-				eval { $self->{'sql'}->{'allele'}->execute( $data->{'id'}, $locus ) };
-				$logger->error($@) if $@;
-				my $allele_info = $self->{'sql'}->{'allele'}->fetchrow_hashref;
-				if ( defined $allele_info ) {
-					print $fh "\t$allele_info->{'first_name'} $allele_info->{'surname'}\t";
-					print $fh "$allele_info->{'des_datestamp'}\t";
-					print $fh $allele_info->{'comments'} if defined $allele_info->{'comments'};
+				print $fh "\n";
+			} else {
+				if ( !$first_allele ) {
+					print $fh ';';
+				} elsif ( !$first_col ) {
+					print $fh "\t";
 				}
+				print $fh "$allele_id";
 			}
-			print $fh "\n";
-		} else {
-			print $fh "\t" if !$first;
-			print $fh $allele_ids->{$locus} if defined $allele_ids->{$locus};
+			$first_allele = 0;
 		}
 	}
 	if ( $prefs->{'molwt'} ) {
-		if ( $prefs->{'oneline'} ) {
-			if ( $prefs->{'alleles'} ) {
-				print $fh "$data->{'id'}\t";
-				print $fh "$data->{$self->{'system'}->{'labelfield'}}\t" if $prefs->{'labelfield'};
+		my $first_allele = 1;
+		foreach my $allele_id (@allele_ids) {
+			if ( $prefs->{'oneline'} ) {
+				print $fh $self->_get_id_one_line( $data, $prefs );
+				print $fh "$locus MolWt\t";
+				print $fh $self->_get_molwt( $locus, $allele_id, $prefs->{'met'} );
+				print $fh "\n";
+			} else {
+				if ( !$first_allele ) {
+					print $fh ',';
+				} elsif ( !$first_col ) {
+					print $fh "\t";
+				}
+				print $fh $self->_get_molwt( $locus, $allele_id, $prefs->{'met'} );
 			}
-			print $fh "$locus MolWt\t";
-			print $fh $self->_get_molwt( $locus, $allele_ids->{$locus}, $prefs->{'met'} );
-			print $fh "\n";
-		} else {
-			print $fh "\t" if !$first;
-			print $fh $self->_get_molwt( $locus, $allele_ids->{$locus}, $prefs->{'met'} );
+			$first_allele = 0;
 		}
 	}
 	return;
 }
 
 sub _write_scheme_field {
-	my ( $self, $fh, $scheme_id, $display_scheme_field, $isolate_id, $first, $prefs ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $fh, $scheme_id, $field, $data, $first_col, $prefs ) = @{$args}{qw(fh scheme_id field data first prefs)};
 	my $scheme_info  = $self->{'datastore'}->get_scheme_info($scheme_id);
-	my $scheme_field = lc($display_scheme_field);
-	my $field_values = $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id );#TODO return value structure has changed
-	my $value        = ref $field_values eq 'HASH' ? $field_values->{$scheme_field} : undef;
-	undef $value if ( $value // '' ) eq '-999';    #old null code from mlstdbNet databases
-	if ( $prefs->{'oneline'} ) {
-		print $fh "$display_scheme_field ($scheme_info->{'description'})\t";
-		print $fh $value if defined $value;
-		print $fh "\n";
-	} else {
-		print $fh "\t"   if !$first;
-		print $fh $value if defined $value;
+	my $scheme_field = lc($field);
+	my $values       = $self->get_scheme_field_values( { isolate_id => $data->{'id'}, scheme_id => $scheme_id, field => $field } );
+	@$values = ('') if !@$values;
+	my $first_allele = 1;
+	foreach my $value (@$values) {
+
+		if ( $prefs->{'oneline'} ) {
+			print $fh $self->_get_id_one_line( $data, $prefs );
+			print $fh "$field ($scheme_info->{'description'})\t";
+			print $fh $value if defined $value;
+			print $fh "\n";
+		} else {
+			if ( !$first_allele ) {
+				print $fh ';';
+			} elsif ( !$first_col ) {
+				print $fh "\t";
+			}
+			print $fh $value if defined $value;
+		}
+		$first_allele = 0;
 	}
 	return;
 }
 
 sub _write_composite {
 	my ( $self, $fh, $composite_field, $data, $first, $prefs ) = @_;
-	my $value = $self->{'datastore'}->get_composite_value( $data->{'id'}, $composite_field, $data );
+	my $value = $self->{'datastore'}->get_composite_value( $data->{'id'}, $composite_field, $data, { no_format => 1 } );
 	if ( $prefs->{'oneline'} ) {
+		print $fh $self->_get_id_one_line( $data, $prefs );
 		print $fh "$composite_field\t";
 		print $fh $value if defined $value;
 		print $fh "\n";
@@ -414,22 +450,25 @@ sub _write_composite {
 }
 
 sub _write_ref {
-	my ( $self, $fh, $isolate_id, $first, $prefs ) = @_;
-	my $value = $self->_get_refs($isolate_id);
+	my ( $self, $fh, $data, $first, $prefs ) = @_;
+	my $values = $self->_get_refs( $data->{'id'} );
 	if ( ( $self->{'cgi'}->param('ref_type') // '' ) eq 'Full citation' ) {
-		my $citation_hash = $self->{'datastore'}->get_citation_hash($value);
+		my $citation_hash = $self->{'datastore'}->get_citation_hash($values);
 		my @citations;
-		push @citations, $citation_hash->{$_} foreach @$value;
-		$value = \@citations;
+		push @citations, $citation_hash->{$_} foreach @$values;
+		$values = \@citations;
 	}
-	local $" = '; ';
 	if ( $prefs->{'oneline'} ) {
-		print $fh "references\t";
-		print $fh "@$value";
-		print $fh "\n";
+		foreach my $value (@$values) {
+			print $fh $self->_get_id_one_line( $data, $prefs );
+			print $fh "references\t";
+			print $fh "$value";
+			print $fh "\n";
+		}
 	} else {
 		print $fh "\t" if !$first;
-		print $fh "@$value";
+		local $" = ';';
+		print $fh "@$values";
 	}
 	return;
 }
