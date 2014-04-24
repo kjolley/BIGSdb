@@ -115,14 +115,15 @@ sub run {
 		if ( !@$selected_fields ) {
 			say "<div class=\"box\" id=\"statusbad\"><p>No fields have been selected!</p></div>";
 		} else {
-			my $filename   = BIGSdb::Utils::get_random() . '.txt';
+			my $prefix     = BIGSdb::Utils::get_random();
+			my $filename   = "$prefix.txt";
 			my $query_file = $q->param('query_file');
 			my $qry_ref    = $self->get_query($query_file);
 			return if ref $qry_ref ne 'SCALAR';
 			my $view = $self->{'system'}->{'view'};
 			say "<div class=\"box\" id=\"resultstable\">";
 			say "<p>Please wait for processing to finish (do not refresh page).</p>";
-			print "<p>Output file being generated ...";
+			print "<p>Output files being generated ...";
 			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
 			return if !$self->create_temp_tables($qry_ref);
 			my $fields = $self->{'xmlHandler'}->get_field_list;
@@ -132,7 +133,10 @@ sub run {
 			$self->rewrite_query_ref_order_by($qry_ref);
 			$self->_write_tab_text( $qry_ref, $selected_fields, $full_path );
 			say " done</p>";
-			say "<p><a href=\"/tmp/$filename\">Output file</a> (right-click to save)</p>";
+			say "<p>Download: <a href=\"/tmp/$filename\">Text file</a>";
+			my $excel = BIGSdb::Utils::text2excel( $full_path, { worksheet => "Export" } );
+			say qq( | <a href="/tmp/$prefix.xlsx">Excel file</a>) if -e $excel;
+			say " (right-click to save)</p>";
 			say "</div>";
 			return;
 		}
