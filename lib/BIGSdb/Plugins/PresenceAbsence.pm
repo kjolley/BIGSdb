@@ -237,7 +237,7 @@ sub _write_output {
 				next;
 			}
 		}
-		my $allele_ids = $self->{'datastore'}->get_all_allele_ids($id);
+		my $allele_ids = $self->{'datastore'}->get_all_allele_ids($id);#TODO return value format has changed.
 		my $tags       = $self->{'datastore'}->get_all_allele_sequences($id);
 		print $fh $id;
 		if (@includes) {

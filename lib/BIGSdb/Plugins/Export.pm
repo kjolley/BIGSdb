@@ -244,7 +244,7 @@ sub _write_tab_text {
 			return if $self->{'mod_perl_request'}->connection->aborted;
 		}
 		my $first      = 1;
-		my $allele_ids = $self->{'datastore'}->get_all_allele_ids( $data{'id'} );
+		my $allele_ids = $self->{'datastore'}->get_all_allele_ids( $data{'id'} );#TODO return value format has changed.
 		foreach (@$fields) {
 			if ( $prefs{'oneline'} ) {
 				print $fh "$data{'id'}\t";

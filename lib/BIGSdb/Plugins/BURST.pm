@@ -243,7 +243,7 @@ sub _get_profile_array {
 		}
 		$i = 0;
 		foreach (@$list) {
-			my $alleles = $self->{'datastore'}->get_all_allele_ids($_);
+			my $alleles = $self->{'datastore'}->get_all_allele_ids($_); #TODO return value format has changed.
 			my @profile;
 			foreach my $locus (@$loci) {
 				push @profile, $alleles->{$locus};

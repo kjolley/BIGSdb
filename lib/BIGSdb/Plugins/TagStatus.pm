@@ -99,7 +99,7 @@ sub _breakdown_isolate {
 	}
 	say "<h1>Tag status: Isolate id#$id ($isolate->{$self->{'system'}->{'labelfield'}})</h1>";
 	say "<div class=\"box\" id=\"resultstable\">";
-	my $allele_ids      = $self->{'datastore'}->get_all_allele_ids($id);
+	my $allele_ids      = $self->{'datastore'}->get_all_allele_ids($id);#TODO return value format has changed.
 	my $tags            = $self->{'datastore'}->get_all_allele_sequences($id);
 	my $flags           = $self->_get_loci_with_sequence_flags($id);
 	my $loci_with_flags = $self->_get_loci_with_sequence_flags($id);
@@ -248,7 +248,7 @@ sub _print_schematic {
 		eval { $isolate_sql->execute($id) };
 		$logger->error($@) if $@;
 		my ($isolate)       = $isolate_sql->fetchrow_array;
-		my $allele_ids      = $self->{'datastore'}->get_all_allele_ids($id);
+		my $allele_ids      = $self->{'datastore'}->get_all_allele_ids($id);#TODO return value format has changed.
 		my $tags            = $self->{'datastore'}->get_all_allele_sequences($id);
 		my $loci_with_flags = $self->_get_loci_with_sequence_flags($id);
 		my %loci_with_flags = map { $_ => 1 } @$loci_with_flags;

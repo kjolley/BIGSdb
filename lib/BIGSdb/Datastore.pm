@@ -1380,7 +1380,7 @@ sub get_allele_ids {
 sub get_all_allele_ids {
 	my ( $self, $isolate_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my %allele_ids;
+	my $allele_ids = {};
 	if ( !$self->{'sql'}->{'all_allele_ids'} ) {
 		my $set_clause =
 		  $options->{'set_id'}
@@ -1395,9 +1395,9 @@ sub get_all_allele_ids {
 	eval { $self->{'sql'}->{'all_allele_ids'}->execute($isolate_id) };
 	$logger->error($@) if $@;
 	while ( my ( $locus, $allele_id ) = $self->{'sql'}->{'all_allele_ids'}->fetchrow_array ) {
-		$allele_ids{$locus} = $allele_id;
+		push @{ $allele_ids->{$locus} }, $allele_id;
 	}
-	return \%allele_ids;
+	return $allele_ids;
 }
 
 sub get_allele_sequence {

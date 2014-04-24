@@ -1,6 +1,6 @@
 #Combinations.pm - Unique combinations plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -43,7 +43,7 @@ sub get_attributes {
 		buttontext  => 'Combinations',
 		menutext    => 'Unique combinations',
 		module      => 'Combinations',
-		version     => '1.0.4',
+		version     => '1.1.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -55,8 +55,8 @@ sub get_attributes {
 }
 
 sub run {
-	my ($self)     = @_;
-	my $q          = $self->{'cgi'};
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
 	say "<h1>Frequencies of field combinations</h1>";
 	if ( $q->param('submit') ) {
 		my $selected_fields = $self->get_selected_fields;
@@ -115,11 +115,11 @@ sub run {
 			  ->prepare("SELECT value FROM isolate_value_extended_attributes WHERE isolate_field=? AND attribute=? AND field_value=?");
 			my %combs;
 			say "<div class=\"box\" id=\"resultstable\">";
-			print "<p class=\"comment\">Calculating... ";
+			print qq(<p class="comment" id="calculating">Calculating... );
 			my $total;
+			my $values = {};
 
 			while ( $sql->fetchrow_arrayref ) {
-				my $first = 1;
 				$total++;
 				print "." if !$i;
 				print " " if !$j;
@@ -128,16 +128,15 @@ sub run {
 					return if $self->{'mod_perl_request'}->connection->aborted;
 				}
 				my $allele_ids = $self->{'datastore'}->get_all_allele_ids( $data{'id'} );
-				my $scheme_field_values;
-				my $key;
-				foreach (@$selected_fields) {
-					$key .= '_|_' if !$first;
-					if ( $_ =~ /^f_(.*)/ ) {
-						my $field = $1;
-						my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+				foreach my $field (@$selected_fields) {
+					if ( $field =~ /^f_(.*)/ ) {
+						my $prov_field = $1;
+						my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($prov_field);
 						if ( defined $metaset ) {
-							$key .= $self->{'datastore'}->get_metadata_value( $data{'id'}, $metaset, $metafield ) || '-';
-						} elsif ( $field eq 'aliases' ) {
+							my $value = $self->{'datastore'}->get_metadata_value( $data{'id'}, $metaset, $metafield );
+							$value = '-' if $value eq '';
+							$values->{ $data{'id'} }->{$field} = [$value];
+						} elsif ( $prov_field eq 'aliases' ) {
 							eval { $alias_sql->execute( $data{'id'} ) };
 							$logger->error($@) if $@;
 							my @aliases;
@@ -145,36 +144,37 @@ sub run {
 								push @aliases, $alias;
 							}
 							local $" = '; ';
-							$key .= "@aliases" ? "@aliases" : '-';
-						} elsif ( $field =~ /(.*)___(.*)/ ) {
+							my $value = "@aliases" ? "@aliases" : '-';
+							$values->{ $data{'id'} }->{$field} = [$value];
+						} elsif ( $prov_field =~ /(.*)___(.*)/ ) {
 							my ( $isolate_field, $attribute ) = ( $1, $2 );
 							eval { $attribute_sql->execute( $isolate_field, $attribute, $data{$isolate_field} ) };
 							$logger->error($@) if $@;
 							my ($value) = $attribute_sql->fetchrow_array;
-							$key .= ( defined $value && $value ne '' ) ? $value : '-';
+							$value = '-' if !defined $value || $value eq '';
+							$values->{ $data{'id'} }->{$field} = [$value];
 						} else {
-							$key .= ( defined $data{$field} && $data{$field} ne '' ) ? $data{$field} : '-';
+							my $value = ( defined $data{$prov_field} && $data{$prov_field} ne '' ) ? $data{$prov_field} : '-';
+							$values->{ $data{'id'} }->{$field} = [$value];
 						}
-					} elsif ( $_ =~ /^(s_\d+_l_|l_)(.*)/ ) {
-						$key .= ( defined $allele_ids->{$2} && $allele_ids->{$2} ne '' ) ? $allele_ids->{$2} : '-';
-					} elsif ( $_ =~ /^s_(\d+)_f_(.*)/ ) {
+					} elsif ( $field =~ /^(s_\d+_l_|l_)(.*)/ ) {
+						my $locus = $2;
+						$values->{ $data{'id'} }->{$field} =
+						  ( defined $allele_ids->{$locus} && $allele_ids->{$locus} ne '' ) ? $allele_ids->{$locus} : ['-'];
+					} elsif ( $field =~ /^s_(\d+)_f_(.*)/ ) {
 						my $scheme_id    = $1;
 						my $scheme_field = lc($2);
-						if ( ref $scheme_field_values->{$scheme_id} ne 'HASH' ) {
-							$scheme_field_values->{$scheme_id} =
-							  $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $data{'id'}, $scheme_id );#TODO return value structure has changed
+						my $scheme_field_values =
+						  $self->get_scheme_field_values( { isolate_id => $data{'id'}, scheme_id => $scheme_id, field => $scheme_field } );
+						foreach (@$scheme_field_values) {
+							$_ = '-' if !defined || $_ eq '';
 						}
-						my $value = $scheme_field_values->{$scheme_id}->{$scheme_field};
-						undef $value
-						  if defined $value && $value eq '-999';    #old null code from mlstdbNet databases
-						$key .= ( defined $value && $value ne '' ) ? $value : '-';
-					} elsif ( $_ =~ /^c_(.*)/ ) {
+						$values->{ $data{'id'} }->{$field} = @$scheme_field_values ? $scheme_field_values : ['-'];
+					} elsif ( $field =~ /^c_(.*)/ ) {
 						my $value = $self->{'datastore'}->get_composite_value( $data{'id'}, $1, \%data );
-						$key .= $value;
+						$values->{ $data{'id'} }->{$field} = $value;
 					}
-					$first = 0;
 				}
-				$combs{$key}++;
 				$i++;
 				if ( $i == 200 ) {
 					$i = 0;
@@ -182,8 +182,11 @@ sub run {
 				}
 				$j = 0 if $j == 10;
 			}
+			$self->_update_combinations( \%combs, $selected_fields, $values );
 			say "</p>";
 			say "<p>Number of unique combinations: " . ( keys %combs ) . "</p>";
+			say "<p>The percentages may add up to more than 100% if you have selected loci or scheme fields with multiple values "
+			  . "for an isolate.</p>";
 			my $filename  = BIGSdb::Utils::get_random() . '.txt';
 			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
 			open( my $fh, '>', $full_path )
@@ -228,5 +231,57 @@ HTML
 	$self->print_field_export_form( 0, { include_composites => 1, extended_attributes => 1 } );
 	say "</div>";
 	return;
+}
+
+sub _update_combinations {
+	my ( $self, $combs, $fields, $values ) = @_;
+	foreach my $isolate_id ( keys %$values ) {
+		my @keys;
+		my @fields_to_check = @$fields;
+		my $current_field   = shift @fields_to_check;
+		$self->_append_keys( \@keys, \@fields_to_check, $current_field, $values->{$isolate_id} );
+		$combs->{$_}++ foreach @keys;
+	}
+	return;
+}
+
+sub _append_keys {
+	my ( $self, $keys, $fields_to_check, $current_field, $values ) = @_;
+	if ( !@$keys ) {
+		foreach my $value ( @{ $values->{$current_field} } ) {
+			push @$keys, $value;
+		}
+	} else {
+		foreach my $i ( 0 .. @$keys - 1 ) {
+			my $existing_value = $keys->[$i];
+			my $j              = 0;
+			my %used;
+			foreach my $value ( @{ $values->{$current_field} } ) {
+				next if $used{$value};
+				if ($j) {
+					my $new_value = "$existing_value\_|_$value";
+					push @$keys, $new_value;
+				} else {
+					$keys->[$i] .= "_|_$value";
+					$j = 1;
+				}
+				$used{$value} = 1;
+			}
+		}
+	}
+	return if !@$fields_to_check;
+	$current_field = shift @$fields_to_check;
+	$self->_append_keys( $keys, $fields_to_check, $current_field, $values );
+	return;
+}
+
+sub get_plugin_javascript {
+	my ($self) = @_;
+	my $js = << "END";
+\$(function () {
+	\$("#calculating").css('display','none');
+});
+END
+	return $js;
 }
 1;

@@ -1009,4 +1009,21 @@ sub escape_params {
 	}
 	return;
 }
+
+sub get_scheme_field_values {
+	my ( $self, $args ) = @_;
+	my ( $isolate_id, $field, $scheme_id ) = @{$args}{qw(isolate_id field scheme_id )};
+	my @values;
+	if ( !$self->{'sql'}->{'scheme_field_values'}->{$field} ) {
+		my $isolate_scheme_field_view = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+		$self->{'sql'}->{'scheme_field_values'}->{$field} =
+		  $self->{'db'}->prepare("SELECT $field FROM $isolate_scheme_field_view WHERE id=?");
+	}
+	eval { $self->{'sql'}->{'scheme_field_values'}->{$field}->execute($isolate_id) };
+	$logger->error($@) if $@;
+	while ( my ($value) = $self->{'sql'}->{'scheme_field_values'}->{$field}->fetchrow_array ) {
+		push @values, $value;
+	}
+	return \@values;
+}
 1;
