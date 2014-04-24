@@ -248,7 +248,7 @@ sub _write_tab_text {
 			return if $self->{'mod_perl_request'}->connection->aborted;
 		}
 		my $first      = 1;
-		my $allele_ids = $self->{'datastore'}->get_all_allele_ids( $data{'id'} );    #TODO return value format has changed.
+		my $allele_ids = $self->{'datastore'}->get_all_allele_ids( $data{'id'} );
 		foreach (@$fields) {
 			if ( $_ =~ /^f_(.*)/ ) {
 				$self->_write_field( $fh, $1, \%data, $first, \%prefs );
