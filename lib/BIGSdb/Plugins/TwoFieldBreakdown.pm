@@ -607,10 +607,14 @@ sub _get_values {
 		my $values;
 		my $sub_args =
 		  { isolate_id => $isolate_id, field => $field, clean_fields => $clean_fields, scheme_id => $scheme_id, options => $options };
-		if    ( $field_type->{$field} eq 'field' )        { $values = [ $self->_get_field_value($sub_args) ] }
-		elsif ( $field_type->{$field} eq 'locus' )        { $values = $self->_get_locus_values($sub_args) }
-		elsif ( $field_type->{$field} eq 'scheme_field' ) { $values = $self->_get_scheme_field_values($sub_args) }
-		elsif ( $field_type->{$field} eq 'metafield' )    { $values = [ $self->_get_metafield_value($sub_args) ] }
+		if    ( $field_type->{$field} eq 'field' ) { $values = [ $self->_get_field_value($sub_args) ] }
+		elsif ( $field_type->{$field} eq 'locus' ) { $values = $self->_get_locus_values($sub_args) }
+		elsif ( $field_type->{$field} eq 'scheme_field' ) {
+			$values = $self->get_scheme_field_values(
+				{ isolate_id => $isolate_id, scheme_id => $scheme_id->{$field}, field => $clean_fields->{$field} } );
+		} elsif ( $field_type->{$field} eq 'metafield' ) {
+			$values = [ $self->_get_metafield_value($sub_args) ];
+		}
 		push @values, $values;
 	}
 	return @values;
@@ -658,23 +662,6 @@ sub _get_locus_values {
 		$values = $self->{'datastore'}->get_allele_ids( $isolate_id, $clean_fields->{$field} );
 	}
 	return $values;
-}
-
-sub _get_scheme_field_values {
-	my ( $self, $args ) = @_;
-	my ( $isolate_id, $field, $clean_fields, $scheme_id ) = @{$args}{qw(isolate_id field clean_fields scheme_id )};
-	my @values;
-	if ( !$self->{'sql'}->{'scheme_field_values'}->{$field} ) {
-		my $isolate_scheme_field_view = $self->{'datastore'}->create_temp_isolate_scheme_fields_view( $scheme_id->{$field} );
-		$self->{'sql'}->{'scheme_field_values'}->{$field} =
-		  $self->{'db'}->prepare("SELECT $clean_fields->{$field} FROM $isolate_scheme_field_view WHERE id=?");
-	}
-	eval { $self->{'sql'}->{'scheme_field_values'}->{$field}->execute($isolate_id) };
-	$logger->error($@) if $@;
-	while ( my ($value) = $self->{'sql'}->{'scheme_field_values'}->{$field}->fetchrow_array ) {
-		push @values, $value;
-	}
-	return \@values;
 }
 
 sub _get_metafield_value {
