@@ -330,15 +330,15 @@ sub get_title {
 	return $desc;
 }
 
-sub print_fields {
-	my ( $self, $fields, $prefix, $num_columns, $trim_prefix, $labels, $default_select ) = @_;
+sub _print_fields {
+	my ( $self, $args ) = @_;
+	my ( $fields, $prefix, $num_columns, $labels, $default_select ) = @{$args}{qw(fields prefix num_columns labels default_select)};
 	my $q                 = $self->{'cgi'};
 	my $fields_per_column = BIGSdb::Utils::round_up( @$fields / $num_columns );
 	say "<div style=\"float:left;margin-bottom:1em\"><ul>";
 	my $i = 0;
 	foreach my $field (@$fields) {
 		my $label = $labels->{$field} || $field;
-		$label =~ s/^[lf]_// if $trim_prefix;
 		$label =~ s/^.*___//;         #only show extended field.
 		$label =~ s/^meta_[^:]+://;
 		$label =~ tr/_/ /;
@@ -394,7 +394,8 @@ sub print_field_export_form {
 	say $q->start_form;
 	say "<fieldset style=\"float:left\"><legend>Isolate fields</legend>";
 	my %labels;
-	$self->print_fields( \@display_fields, 'f', 3, 0, \%labels, $default_select );
+	$self->_print_fields(
+		{ fields => \@display_fields, prefix => 'f', num_columns => 3, labels => \%labels, default_select => $default_select } );
 	$self->_print_all_none_buttons( \@isolate_js, \@isolate_js2, 'smallbutton' );
 	say "</fieldset>";
 	if ( $options->{'include_composites'} ) {
@@ -411,7 +412,7 @@ sub print_field_export_form {
 			print " <a class=\"tooltip\" title=\"Composite fields - These are constructed from combinations of other fields "
 			  . "(some of which may come from external databases).  Including composite fields will slow down the processing.\">&nbsp;<i>i</i>&nbsp;</a>";
 			say "</legend>";
-			$self->print_fields( $composites, 'c', 1, 0, \%labels, 0 );
+			$self->_print_fields( { fields => $composites, prefix => 'c', num_columns => 1, labels => \%labels, default_select => 0 } );
 			$self->_print_all_none_buttons( \@com_js, \@com_js2, 'smallbutton' );
 			say "</fieldset>";
 		}
