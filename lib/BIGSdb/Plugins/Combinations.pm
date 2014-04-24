@@ -24,7 +24,6 @@ use 5.010;
 use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use Error qw(:try);
 
 sub set_pref_requirements {
 	my ($self) = @_;
@@ -187,7 +186,8 @@ sub run {
 			say "<p>Number of unique combinations: " . ( keys %combs ) . "</p>";
 			say "<p>The percentages may add up to more than 100% if you have selected loci or scheme fields with multiple values "
 			  . "for an isolate.</p>";
-			my $filename  = BIGSdb::Utils::get_random() . '.txt';
+			my $prefix    = BIGSdb::Utils::get_random();
+			my $filename  = "$prefix.txt";
 			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
 			open( my $fh, '>', $full_path )
 			  or $logger->error("Can't open temp file $filename for writing");
@@ -217,8 +217,10 @@ sub run {
 			}
 			say "</tbody></table></div>";
 			close $fh;
-			say "<p><a href=\"/tmp/$filename\">Download as tab-delimited text.</a></p>";
-			say "</div>";
+			say "<ul><li><a href=\"/tmp/$filename\">Download as tab-delimited text</a></li>";
+			my $excel = BIGSdb::Utils::text2excel( $full_path, { worksheet => "Unique combinations" } );
+			say qq(<li><a href="/tmp/$prefix.xlsx">Download in Excel format</a></li>) if -e $excel;
+			say "</ul></div>";
 			return;
 		}
 	}
