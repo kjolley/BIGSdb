@@ -140,32 +140,34 @@ sub _reverse {
 sub _print_controls {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say "<div style=\"float:left\">";
 	say $q->startform;
+	say qq(<fieldset style="float:left"><legend>Axes</legend>);
 	say $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc);
-	say $q->submit( -name => 'reverse', -value => 'Reverse axes', -class => 'submit' );
+	say $q->submit( -name => 'reverse', -value => 'Reverse', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all');
+	say "</fieldset>";
 	say $q->endform;
-	say "</div>\n<div style=\"float:left\">";
 	say $q->startform;
+	say qq(<fieldset style="float:left"><legend>Show</legend>);
 	say $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc);
 	my %display_toggle =
-	  ( 'values only' => 'values and percentages', 'values and percentages' => 'percentages only', 'percentages only' => 'values only' );
-	say $q->submit( -name => 'toggledisplay', -label => ( 'Show ' . $display_toggle{ $q->param('display') } ), -class => 'submit' );
+	  ( 'values only' => 'Values and percentages', 'values and percentages' => 'Percentages only', 'percentages only' => 'Values only' );
+	say $q->submit( -name => 'toggledisplay', -label => $display_toggle{ $q->param('display') } , -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
+	say "</fieldset>";
 	say $q->endform;
-	say "</div>";
 
 	if ( $q->param('display') ne 'values only' ) {
-		say "<div style=\"float:left\">";
 		say $q->startform;
+		say qq(<fieldset style="float:left"><legend>Calculate percentages</legend>);
 		say $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc);
 		my %pc_toggle = ( dataset => 'row', row => 'column', column => 'dataset' );
+		say qq(<span style="text-align:center; display:block">);
 		say $q->submit(
 			-name  => 'togglepc',
-			-label => ( 'Calculate percentages by ' . $pc_toggle{ $q->param('calcpc') } ),
-			-class => 'submit'
+			-label => ( 'By ' . $pc_toggle{ $q->param('calcpc') } ),
+			-class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all',
 		);
+		say "</span></fieldset>";
 		say $q->endform;
-		say "</div>";
 	}
 	return;
 }
@@ -255,12 +257,12 @@ sub _breakdown {
 		return;
 	}
 	if ( $q->param('toggledisplay') ) {
-		if ( $q->param('toggledisplay') eq 'Show values only' ) {
-			$q->param( 'display', 'values only' );
-		} elsif ( $q->param('toggledisplay') eq 'Show values and percentages' ) {
-			$q->param( 'display', 'values and percentages' );
-		} elsif ( $q->param('toggledisplay') eq 'Show percentages only' ) {
-			$q->param( 'display', 'percentages only' );
+		if ( $q->param('toggledisplay') eq 'Values only' ) {
+			$q->param( display => 'values only' );
+		} elsif ( $q->param('toggledisplay') eq 'Values and percentages' ) {
+			$q->param( display => 'values and percentages' );
+		} elsif ( $q->param('toggledisplay') eq 'Percentages only' ) {
+			$q->param( display => 'percentages only' );
 		}
 	}
 	if ( $q->param('display') ) {
@@ -269,11 +271,11 @@ sub _breakdown {
 		$display = 'values only';
 	}
 	if ( $q->param('togglepc') ) {
-		if ( $q->param('togglepc') eq 'Calculate percentages by row' ) {
+		if ( $q->param('togglepc') eq 'By row' ) {
 			$q->param( 'calcpc', 'row' );
-		} elsif ( $q->param('togglepc') eq 'Calculate percentages by column' ) {
+		} elsif ( $q->param('togglepc') eq 'By column' ) {
 			$q->param( 'calcpc', 'column' );
-		} elsif ( $q->param('togglepc') eq 'Calculate percentages by dataset' ) {
+		} elsif ( $q->param('togglepc') eq 'By dataset' ) {
 			$q->param( 'calcpc', 'dataset' );
 		}
 	}
@@ -499,7 +501,7 @@ sub _print_charts {
 				}
 				$chart->makeChart("$self->{'config'}->{'tmp_dir'}\/$filename");
 				say "<fieldset><legend>Values</legend>";
-				say "<a href=\"/tmp/$filename\" rel=\"lightbox-1\" class=\"lightbox\" title=\"$text_field1 vs $text_field2\">"
+				say "<a href=\"/tmp/$filename\" data-rel=\"lightbox-1\" class=\"lightbox\" title=\"$text_field1 vs $text_field2\">"
 				  . "<img src=\"/tmp/$filename\" alt=\"$text_field1 vs $text_field2\" style=\"width:200px; border: 1px dashed black\" /></a>";
 				say "</fieldset>";
 			} else {
@@ -510,7 +512,7 @@ sub _print_charts {
 				}
 				$chart->makeChart("$self->{'config'}->{'tmp_dir'}\/$filename");
 				say "<fieldset><legend>Percentages</legend>";
-				say "<a href=\"/tmp/$filename\" rel=\"lightbox-1\" class=\"lightbox\"  title=\"$text_field1 vs $text_field2 "
+				say "<a href=\"/tmp/$filename\" data-rel=\"lightbox-1\" class=\"lightbox\"  title=\"$text_field1 vs $text_field2 "
 				  . "percentage chart\"><img src=\"/tmp/$filename\" alt=\"$text_field1 vs $text_field2 percentage chart\"  "
 				  . "style=\"width:200px;border:1px dashed black\" /></a></fieldset>";
 			}
