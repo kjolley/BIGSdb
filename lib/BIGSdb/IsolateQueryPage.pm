@@ -26,6 +26,7 @@ my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(any none);
 use BIGSdb::QueryPage qw(MAX_ROWS OPERATORS);
 use BIGSdb::Page qw(LOCUS_PATTERN SEQ_FLAGS);
+use constant WARN_IF_TAKES_LONGER_THAN_X_SECONDS => 5;
 
 sub _ajax_content {
 	my ($self) = @_;
@@ -521,7 +522,8 @@ sub _run_query {
 	my $q = $self->{'cgi'};
 	my $qry;
 	my @errors;
-	my $extended = $self->get_extended_attributes;
+	my $extended   = $self->get_extended_attributes;
+	my $start_time = time;
 	if ( !defined $q->param('query_file') ) {
 		$qry = $self->_generate_query_for_provenance_fields( \@errors );
 		$qry = $self->_modify_query_for_filters( $qry, $extended );
@@ -576,6 +578,11 @@ sub _run_query {
 	} else {
 		say "<div class=\"box\" id=\"statusbad\">Invalid search performed.  Try to <a href=\"$self->{'system'}->{'script_name'}?db="
 		  . "$self->{'instance'}&amp;page=browse\">browse all records</a>.</div>";
+	}
+	my $elapsed = time - $start_time;
+	if ( $elapsed > WARN_IF_TAKES_LONGER_THAN_X_SECONDS && $self->{'datastore'}->{'scheme_not_cached'} ) {
+		$logger->warn( "$self->{'instance'}: Query took $elapsed seconds.  Schemes are not cached for this database.  You should "
+			  . "consider running the update_scheme_caches.pl script regularly against this database to create these caches." );
 	}
 	return;
 }
@@ -1129,7 +1136,7 @@ sub _modify_query_for_designations {
 				my $isolate_scheme_field_view = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 				$field = "$isolate_scheme_field_view.$field";
 				my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-				my $temp_qry = "SELECT $isolate_scheme_field_view.id FROM $isolate_scheme_field_view";
+				my $temp_qry    = "SELECT $isolate_scheme_field_view.id FROM $isolate_scheme_field_view";
 				$text =~ s/'/\\'/g;
 				if ( $operator eq 'NOT' ) {
 					if ( $text eq 'null' ) {

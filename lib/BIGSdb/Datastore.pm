@@ -894,6 +894,8 @@ sub create_temp_isolate_scheme_fields_view {
 			$self->{'db'}->do("CREATE INDEX i_$table\_$field ON $table ($field)");
 		}
 		$self->{'db'}->commit;
+	} else {
+		$self->{'scheme_not_cached'} = 1;
 	}
 	return $table;
 }
