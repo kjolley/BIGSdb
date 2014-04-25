@@ -239,6 +239,8 @@ sub run_job {
 	my $progress = 0;
 	foreach my $locus_name (@$selected_loci) {
 		last if $self->{'exit'};
+		my $output_locus_name = $self->{'datastore'}->get_set_locus_label( $locus_name, $params->{'set_id'} ) // $locus_name;
+		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Processing $output_locus_name" } );
 		my %no_seq;
 		my $locus;
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
@@ -289,6 +291,7 @@ sub run_job {
 				if ( $locus_info->{'data_type'} eq 'DNA' ) {
 					try {
 						foreach my $allele_id (sort @$allele_ids){
+							next if $allele_id eq '0' || $allele_id eq 'N';
 							$allele_seq .= ${$locus->get_allele_sequence($allele_id)};
 						}
 					}
@@ -373,8 +376,8 @@ sub run_job {
 		}
 		close $fh_muscle;
 		$self->{'db'}->commit;    #prevent idle in transaction table locks
-		my $output_locus_name = $self->{'datastore'}->get_set_locus_label( $locus_name, $params->{'set_id'} ) // $locus_name;
-		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Aligning $output_locus_name" } );
+		
+		
 		my $output_file;
 		if ( $params->{'align'} && -e $temp_file && -s $temp_file ) {
 			system( $self->{'config'}->{'muscle_path'}, '-in', $temp_file, '-out', $muscle_file, '-quiet' );
