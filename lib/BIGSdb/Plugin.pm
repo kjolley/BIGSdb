@@ -635,6 +635,10 @@ sub print_sequence_export_form {
 				say "<br />";
 			}
 		}
+		if ( $options->{'align'} ) {
+			say $q->checkbox( -name => 'align', -label => 'Align sequences' );
+			say "<br />";
+		}
 		if ( $options->{'translate'} ) {
 			say $q->checkbox( -name => 'translate', -label => 'Translate sequences' );
 			say "<br />";

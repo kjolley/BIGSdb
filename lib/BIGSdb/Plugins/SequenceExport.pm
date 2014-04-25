@@ -1,4 +1,4 @@
-#XmfaExport.pm - Export XMFA file plugin for BIGSdb
+#SequenceExport.pm - Export concatenated sequences/XMFA file plugin for BIGSdb
 #Written by Keith Jolley
 #Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
@@ -17,7 +17,7 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
-package BIGSdb::Plugins::XmfaExport;
+package BIGSdb::Plugins::SequenceExport;
 use strict;
 use warnings;
 use parent qw(BIGSdb::Plugin);
@@ -31,29 +31,30 @@ use Bio::Perl;
 use Bio::SeqIO;
 use Bio::AlignIO;
 use BIGSdb::Utils;
-use constant DEFAULT_LIMIT => 200;
+use constant DEFAULT_ALIGN_LIMIT => 200;
 use BIGSdb::Page qw(LOCUS_PATTERN);
 
 sub get_attributes {
 	my %att = (
-		name        => 'Xmfa Export',
-		author      => 'Keith Jolley',
-		affiliation => 'University of Oxford, UK',
-		email       => 'keith.jolley@zoo.ox.ac.uk',
-		description => 'Export allele sequences in XMFA format',
-		category    => 'Export',
-		buttontext  => 'XMFA',
-		menutext    => 'XMFA export',
-		module      => 'XmfaExport',
-		version     => '1.4.5',
-		dbtype      => 'isolates,sequences',
-		seqdb_type  => 'schemes',
-		section     => 'export,postquery',
-		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/xmfa.shtml',
-		input       => 'query',
-		help        => 'tooltips',
-		requires    => 'muscle,offline_jobs,js_tree',
-		order       => 22,
+		name             => 'Sequence Export',
+		author           => 'Keith Jolley',
+		affiliation      => 'University of Oxford, UK',
+		email            => 'keith.jolley@zoo.ox.ac.uk',
+		description      => 'Export concatenated allele sequences in XMFA and FASTA formats',
+		menu_description => 'XMFA / concatenated FASTA formats',
+		category         => 'Export',
+		buttontext       => 'Sequences',
+		menutext         => 'Sequences',
+		module           => 'SequenceExport',
+		version          => '1.5.0',
+		dbtype           => 'isolates,sequences',
+		seqdb_type       => 'schemes',
+		section          => 'export,postquery',
+		url              => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/xmfa.shtml',
+		input            => 'query',
+		help             => 'tooltips',
+		requires         => 'muscle,offline_jobs,js_tree',
+		order            => 22,
 	);
 	return \%att;
 }
@@ -70,7 +71,7 @@ sub run {
 	my $query_file = $q->param('query_file');
 	my $scheme_id  = $q->param('scheme_id');
 	my $desc       = $self->get_db_description;
-	say "<h1>Export allele sequences in XMFA format - $desc</h1>";
+	say "<h1>Export allele sequences in XMFA/concatenated FASTA formats - $desc</h1>";
 	if ( !-e $self->{'config'}->{'muscle_path'} || !-x $self->{'config'}->{'muscle_path'} ) {
 		$logger->error( "This plugin requires MUSCLE to be installed and it is not.  Please install MUSCLE "
 			  . "or check the settings in bigsdb.conf." );
@@ -84,7 +85,7 @@ sub run {
 			$self->print_scheme_section( { with_pk => 1 } );
 			$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
 		}
-		if (!defined $scheme_id){
+		if ( !defined $scheme_id ) {
 			say qq(<div class="box" id="statusbad"><p>Invalid scheme selected.</p></div>);
 			return;
 		}
@@ -130,7 +131,7 @@ sub run {
 				{
 					dbase_config => $self->{'instance'},
 					ip_address   => $q->remote_host,
-					module       => 'XmfaExport',
+					module       => 'SequenceExport',
 					parameters   => $params,
 					username     => $self->{'username'},
 					email        => $user_info->{'email'},
@@ -151,28 +152,29 @@ HTML
 			return;
 		}
 	}
-	my $limit = $self->{'system'}->{'XMFA_limit'} || DEFAULT_LIMIT;
+	my $limit = $self->{'system'}->{'XMFA_limit'} // $self->{'system'}->{'align_limit'} // DEFAULT_ALIGN_LIMIT;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		print <<"HTML";
 <div class="box" id="queryform">
 <p>This script will export allele sequences in Extended Multi-FASTA (XMFA) format suitable for loading into third-party
-applications, such as ClonalFrame.  Only loci that have a corresponding database containing sequences, or with sequences tagged,  
-can be included.  Please check the loci that you would like to include.  Alternatively select one or more schemes to include
+applications, such as ClonalFrame.  It will also produce concatenated FASTA files. Only DNA loci that have a corresponding 
+database containing allele sequence identifiers, or DNA and peptide loci with genome sequences tagged, can be included.  
+Please check the loci that you would like to include.  Alternatively select one or more schemes to include
 all loci that are members of the scheme.  If a sequence does not exist in the remote database, it will be replaced with 
-'-'s. Output is limited to $limit records. Please be aware that it may take a long time to generate the output file as the 
-sequences are passed through muscle to align them.</p>
+gap characters. Aligned output is limited to $limit records. Please be aware that if you select the alignment option it may 
+take a long time to generate the output file as the sequences are passed through MUSCLE to align them.</p>
 HTML
 	} else {
 		print <<"HTML";
 <div class="box" id="queryform">
 <p>This script will export allele sequences in Extended Multi-FASTA (XMFA) format suitable for loading into third-party
-applications, such as ClonalFrame.  Output is limited to $limit records. Please be aware that it may take a long time 
-to generate the output file as the sequences are passed through muscle to align them.</p>
+applications, such as ClonalFrame.  Aligned Output is limited to $limit records. Please be aware that if you select the
+alignment option it may take a long time to generate the output file as the sequences are passed through MUSCLE to align them.</p>
 HTML
 	}
-	my $options = { default_select => 0, translate => 1, flanking => 1, ignore_seqflags => 1, ignore_incomplete => 1 };
 	my $list = $self->get_id_list( $pk, $query_file );
-	$self->print_sequence_export_form( $pk, $list, $scheme_id, $options );
+	$self->print_sequence_export_form( $pk, $list, $scheme_id,
+		{ default_select => 0, translate => 1, flanking => 1, ignore_seqflags => 1, ignore_incomplete => 1, align => 1, in_frame => 1 } );
 	say "</div>";
 	return;
 }
@@ -213,7 +215,7 @@ sub run_job {
 	my $ignore_incomplete = $params->{'ignore_incomplete'} ? 'AND complete'     : '';
 	my $seqbin_sql =
 	  $self->{'db'}->prepare( "SELECT $substring_query,reverse FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id="
-	      . "sequence_bin.id LEFT JOIN sequence_flags ON allele_sequences.id=sequence_flags.id WHERE allele_sequences.isolate_id=? "
+		  . "sequence_bin.id LEFT JOIN sequence_flags ON allele_sequences.id=sequence_flags.id WHERE allele_sequences.isolate_id=? "
 		  . "AND allele_sequences.locus=? $ignore_seqflags $ignore_incomplete ORDER BY complete,allele_sequences.datestamp LIMIT 1" );
 	my @problem_ids;
 	my %problem_id_checked;
@@ -229,8 +231,8 @@ sub run_job {
 	} else {
 		$ids = $self->{'jobManager'}->get_job_profiles( $job_id, $scheme_id );
 	}
-	my $limit = $self->{'system'}->{'XMFA_limit'} || DEFAULT_LIMIT;
-	if ( @$ids > $limit ) {
+	my $limit = $self->{'system'}->{'XMFA_limit'} // $self->{'system'}->{'align_limit'} // DEFAULT_ALIGN_LIMIT;
+	if ( $params->{'align'} && @$ids > $limit ) {
 		my $message_html = "<p class=\"statusbad\">Please note that output is limited to the first $limit records.</p>\n";
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
 	}
@@ -252,7 +254,7 @@ sub run_job {
 		open( my $fh_muscle, '>', "$temp_file" ) or $logger->error("could not open temp file $temp_file");
 		my $count = 0;
 		foreach my $id (@$ids) {
-			last if $count == $limit;
+			last if $count == $limit && $params->{'align'};
 			$count++;
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 				my @include_values;
@@ -315,8 +317,10 @@ sub run_job {
 					$seq = 'N';
 					$no_seq{$id} = 1;
 				}
-				if ( $params->{'translate'} ) {
+				if ( $params->{'in_frame'} || $params->{'translate'} ) {
 					$seq = BIGSdb::Utils::chop_seq( $seq, $locus_info->{'orf'} || 1 );
+				}
+				if ( $params->{'translate'} ) {
 					my $peptide = $seq ? Bio::Perl::translate_as_string($seq) : 'X';
 					say $fh_muscle $peptide;
 				} else {
@@ -348,8 +352,10 @@ sub run_job {
 						$no_seq{$id} = 1;
 					} else {
 						my $allele_seq = $$allele_seq_ref;
-						if ( $params->{'translate'} && $locus_info->{'data_type'} eq 'DNA' ) {
+						if ( ( $params->{'in_frame'} || $params->{'translate'} ) && $locus_info->{'data_type'} eq 'DNA' ) {
 							$allele_seq = BIGSdb::Utils::chop_seq( $allele_seq, $locus_info->{'orf'} || 1 );
+						}
+						if ( $params->{'translate'} && $locus_info->{'data_type'} eq 'DNA' ) {
 							my $peptide = $allele_seq ? Bio::Perl::translate_as_string($allele_seq) : 'X';
 							say $fh_muscle $peptide;
 						} else {
@@ -367,12 +373,16 @@ sub run_job {
 		$self->{'db'}->commit;    #prevent idle in transaction table locks
 		my $output_locus_name = $self->{'datastore'}->get_set_locus_label( $locus_name, $params->{'set_id'} ) // $locus_name;
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Aligning $output_locus_name" } );
-		if ( -e $temp_file && -s $temp_file ) {
+		my $output_file;
+		if ( $params->{'align'} && -e $temp_file && -s $temp_file ) {
 			system( $self->{'config'}->{'muscle_path'}, '-in', $temp_file, '-out', $muscle_file, '-quiet' );
+			$output_file = $muscle_file;
+		} else {
+			$output_file = $temp_file;
 		}
-		if ( -e $muscle_file ) {
+		if ( -e $output_file ) {
 			$no_output = 0;
-			my $seq_in = Bio::SeqIO->new( -format => 'fasta', -file => $muscle_file );
+			my $seq_in = Bio::SeqIO->new( -format => 'fasta', -file => $output_file );
 			while ( my $seq = $seq_in->next_seq ) {
 				my $length = $seq->length;
 				$end = $start + $length - 1;
@@ -385,7 +395,7 @@ sub run_job {
 			$start = $end + 1;
 			print $fh "=\n";
 		}
-		unlink $muscle_file;
+		unlink $output_file;
 		unlink $temp_file;
 		$progress++;
 		my $complete = int( 100 * $progress / scalar @$selected_loci );
@@ -405,13 +415,15 @@ sub run_job {
 	if ($no_output) {
 		$message_html .= "<p>No output generated.  Please ensure that your sequences have been defined for these isolates.</p>\n";
 	} else {
-		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.xmfa", description => '10_XMFA output file' } );
+		my $align_qualifier = $params->{'align'} ? '(aligned)' : '(not aligned)';
+		$self->{'jobManager'}
+		  ->update_job_output( $job_id, { filename => "$job_id.xmfa", description => "10_XMFA output file $align_qualifier" } );
 		try {
 			$self->{'jobManager'}->update_job_status( $job_id, { stage => "Converting XMFA to FASTA" } );
 			my $fasta_file = BIGSdb::Utils::xmfa2fasta("$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa");
 			if ( -e $fasta_file ) {
-				$self->{'jobManager'}->update_job_output( $job_id,
-					{ filename => "$job_id.fas", description => '20_Concatenated aligned sequences (FASTA format)' } );
+				$self->{'jobManager'}
+				  ->update_job_output( $job_id, { filename => "$job_id.fas", description => "20_Concatenated FASTA $align_qualifier" } );
 			}
 		}
 		catch BIGSdb::CannotOpenFileException with {
