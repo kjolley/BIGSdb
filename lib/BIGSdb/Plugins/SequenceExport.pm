@@ -284,11 +284,13 @@ sub run_job {
 					$problem_id_checked{$id} = 1;
 					next;
 				}
-				my $allele_id = $self->{'datastore'}->get_allele_id( $id, $locus_name );
+				my $allele_ids = $self->{'datastore'}->get_allele_ids( $id, $locus_name );
 				my $allele_seq;
 				if ( $locus_info->{'data_type'} eq 'DNA' ) {
 					try {
-						$allele_seq = $locus->get_allele_sequence($allele_id);
+						foreach my $allele_id (sort @$allele_ids){
+							$allele_seq .= ${$locus->get_allele_sequence($allele_id)};
+						}
 					}
 					catch BIGSdb::DatabaseConnectionException with {
 
@@ -307,10 +309,10 @@ sub run_job {
 					}
 				}
 				my $seq;
-				if ( ref $allele_seq && $$allele_seq && $seqbin_seq ) {
-					$seq = $params->{'chooseseq'} eq 'seqbin' ? $seqbin_seq : $$allele_seq;
-				} elsif ( ref $allele_seq && $$allele_seq && !$seqbin_seq ) {
-					$seq = $$allele_seq;
+				if ( $allele_seq && $seqbin_seq ) {
+					$seq = $params->{'chooseseq'} eq 'seqbin' ? $seqbin_seq : $allele_seq;
+				} elsif ( $allele_seq && !$seqbin_seq ) {
+					$seq = $allele_seq;
 				} elsif ($seqbin_seq) {
 					$seq = $seqbin_seq;
 				} else {
@@ -415,7 +417,7 @@ sub run_job {
 	if ($no_output) {
 		$message_html .= "<p>No output generated.  Please ensure that your sequences have been defined for these isolates.</p>\n";
 	} else {
-		my $align_qualifier = $params->{'align'} ? '(aligned)' : '(not aligned)';
+		my $align_qualifier = ($params->{'align'} || $params->{'translate'}) ? '(aligned)' : '(not aligned)';
 		$self->{'jobManager'}
 		  ->update_job_output( $job_id, { filename => "$job_id.xmfa", description => "10_XMFA output file $align_qualifier" } );
 		try {
