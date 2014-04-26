@@ -57,6 +57,7 @@ can be found at <a href="http://www.gnu.org/licenses/gpl.html">http://www.gnu.or
 http://pubmlst.org/software/database/bigsdb/</a>.</p>
 HTML
 	$self->_print_plugins;
+	$self->_print_software_versions;
 	say "</div>";
 	return;
 }
@@ -84,22 +85,22 @@ sub _print_plugins {
 		if ( $attr->{'requires'} ) {
 			$disabled_reason{$_} = 'Chartdirector not installed.'
 			  if !$self->{'config'}->{'chartdirector'}
-				  && $attr->{'requires'} =~ /chartdirector/;
+			  && $attr->{'requires'} =~ /chartdirector/;
 			$disabled_reason{$_} = 'Reference database not configured.'
 			  if !$self->{'config'}->{'ref_db'}
-				  && $attr->{'requires'} =~ /ref_?db/;
+			  && $attr->{'requires'} =~ /ref_?db/;
 			$disabled_reason{$_} = 'EMBOSS not installed.'
 			  if !$self->{'config'}->{'emboss_path'}
-				  && $attr->{'requires'} =~ /emboss/;
+			  && $attr->{'requires'} =~ /emboss/;
 			$disabled_reason{$_} = 'MUSCLE not installed.'
 			  if !$self->{'config'}->{'muscle_path'}
-				  && $attr->{'requires'} =~ /muscle/;
+			  && $attr->{'requires'} =~ /muscle/;
 			$disabled_reason{$_} = 'ImageMagick mogrify not installed.'
 			  if !$self->{'config'}->{'mogrify_path'}
-				  && $attr->{'requires'} =~ /mogrify/;
+			  && $attr->{'requires'} =~ /mogrify/;
 			$disabled_reason{$_} = 'Offline job manager not running.'
 			  if !$self->{'config'}->{'jobs_db'}
-				  && $attr->{'requires'} =~ /offline_jobs/;
+			  && $attr->{'requires'} =~ /offline_jobs/;
 		}
 		$disabled_reason{$_} = 'Not specifically enabled for this database.'
 		  if (
@@ -118,8 +119,7 @@ sub _print_plugins {
 		} elsif ( defined $attr->{'max'} ) {
 			$comments .= "Limited to queries with fewer than $attr->{'max'} results.";
 		}
-		my $author =
-		  defined $attr->{'email'}
+		my $author = defined $attr->{'email'}
 		  && $attr->{'email'} ne '' ? "<a href=\"mailto:$attr->{'email'}\">$attr->{'author'}</a>" : $attr->{'author'};
 		$author .= " ($attr->{'affiliation'})" if $attr->{'affiliation'};
 		my $name = defined $attr->{'url'} ? "<a href=\"$attr->{'url'}\">$attr->{'name'}</a>" : $attr->{'name'};
@@ -146,6 +146,20 @@ sub _print_plugins {
 		}
 		say "</table>";
 	}
+	return;
+}
+
+sub _print_software_versions {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say "<h2>Software versions</h2>";
+	my $pg_version = $self->{'datastore'}->run_simple_query("SELECT version()")->[0];
+	say "<ul>";
+	say "<li>Perl $]</li>";
+	say "<li>$pg_version</li>";
+	my $apache = $q->server_software;
+	say "<li>$apache</li>";
+	say "</ul>";
 	return;
 }
 1;
