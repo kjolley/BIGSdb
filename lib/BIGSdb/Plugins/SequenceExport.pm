@@ -291,7 +291,7 @@ sub run_job {
 				if ( $locus_info->{'data_type'} eq 'DNA' ) {
 					try {
 						foreach my $allele_id (sort @$allele_ids){
-							next if $allele_id eq '0' || $allele_id eq 'N';
+							next if $allele_id eq '0';
 							$allele_seq .= ${$locus->get_allele_sequence($allele_id)};
 						}
 					}
