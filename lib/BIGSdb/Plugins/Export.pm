@@ -328,7 +328,7 @@ sub _write_field {
 		my ($value) = $self->{'sql'}->{'attribute'}->fetchrow_array;
 		if ( $prefs->{'oneline'} ) {
 			print $fh $self->_get_id_one_line( $data, $prefs );
-			print $fh "$isolate_field..$attribute\t";
+			print $fh "$attribute\t";
 			print $fh $value if defined $value;
 			print $fh "\n";
 		} else {
