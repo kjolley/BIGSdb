@@ -197,8 +197,6 @@ sub get_extra_form_elements {
 	return;
 }
 
-
-
 sub _write_output {
 	my ( $self, $job_id, $params, $ids, $loci, $filename, ) = @_;
 	my @problem_ids;
@@ -231,13 +229,13 @@ sub _write_output {
 			push @problem_ids, $id;
 			next;
 		} else {
-			my $id_exists = $self->isolate_exists( $id );
+			my $id_exists = $self->isolate_exists($id);
 			if ( !$id_exists ) {
 				push @problem_ids, $id;
 				next;
 			}
 		}
-		my $allele_ids = $self->{'datastore'}->get_all_allele_ids($id);#TODO return value format has changed.
+		my $allele_ids = $self->{'datastore'}->get_all_allele_ids($id);
 		my $tags       = $self->{'datastore'}->get_all_allele_sequences($id);
 		print $fh $id;
 		if (@includes) {
@@ -259,9 +257,18 @@ sub _write_output {
 		my $absent  = $params->{'absent'}  || 'X';
 		foreach my $locus (@$loci) {
 			my $value = '';
-			if    ( $params->{'presence'} eq 'designations' ) { $value = $allele_ids->{$locus} ? $present : $absent }
-			elsif ( $params->{'presence'} eq 'tags' )         { $value = $tags->{$locus}       ? $present : $absent }
-			else                                              { $value = ( $allele_ids->{$locus} || $tags->{$locus} ) ? $present : $absent }
+			my $designations_set =
+			  ( $allele_ids->{$locus} && !( @{ $allele_ids->{$locus} } == 1 && $allele_ids->{$locus}->[0] eq '0' ) ) ? 1 : 0;
+			if ( $params->{'presence'} eq 'designations' ) {
+				$value = $designations_set ? $present : $absent;
+			} elsif ( $params->{'presence'} eq 'tags' ) {
+				$value = $tags->{$locus} ? $present : $absent;
+			} else {
+				$value =
+				  ( $designations_set || $tags->{$locus} )
+				  ? $present
+				  : $absent;
+			}
 			print $fh "\t$value";
 			$values->{$id}->{$locus} = $value;
 		}
