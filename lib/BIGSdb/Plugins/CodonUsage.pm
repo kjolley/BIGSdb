@@ -128,7 +128,7 @@ sub get_attributes {
 		buttontext  => 'Codons',
 		menutext    => 'Codon usage',
 		module      => 'CodonUsage',
-		version     => '1.1.6',
+		version     => '1.2.0',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -252,10 +252,10 @@ sub run_job {
 	}
 	my $seqbin_sql =
 	  $self->{'db'}->prepare( "SELECT substring(sequence from allele_sequences.start_pos for allele_sequences.end_pos-allele_sequences."
-	      . "start_pos+1),reverse FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id LEFT JOIN "
-	      . "sequence_flags ON allele_sequences.id=sequence_flags.id WHERE allele_sequences.isolate_id=? AND allele_sequences.locus=? "
-	      . "AND complete $ignore_seqflag ORDER BY allele_sequences.datestamp LIMIT 1" );
-	my $start = 1;
+		  . "start_pos+1),reverse FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id LEFT JOIN "
+		  . "sequence_flags ON allele_sequences.id=sequence_flags.id WHERE allele_sequences.isolate_id=? AND allele_sequences.locus=? "
+		  . "AND complete $ignore_seqflag ORDER BY allele_sequences.datestamp LIMIT 1" );
+	my $start         = 1;
 	my $no_output     = 1;
 	my $list          = $self->{'jobManager'}->get_job_isolates($job_id);
 	my $loci          = $self->{'jobManager'}->get_job_loci($job_id);
@@ -312,40 +312,40 @@ sub run_job {
 					$includes{$id} = "|@include_values";
 				}
 			}
-			my $allele_id = $self->{'datastore'}->get_allele_id( $id, $locus_name );
+			my $allele_ids = $self->{'datastore'}->get_allele_ids( $id, $locus_name );
 			my $allele_seq;
 			if ( $locus_info->{'data_type'} eq 'DNA' ) {
-				try {
-					$allele_seq = $locus->get_allele_sequence($allele_id);
+				foreach my $allele_id (@$allele_ids) {
+					try {
+						my $seq = $locus->get_allele_sequence($allele_id);
+						$allele_seq .= BIGSdb::Utils::chop_seq( $$seq, $locus_info->{'orf'} || 1 );
+					}
+					catch BIGSdb::DatabaseConnectionException with {    #do nothing
+					};
 				}
-				catch BIGSdb::DatabaseConnectionException with {
-
-					#do nothing
-				};
 			}
 			my $seqbin_seq;
 			eval { $seqbin_sql->execute( $id, $locus_name ) };
 			if ($@) {
 				$logger->error($@) if $@;
 			} else {
-				my $reverse;
-				( $seqbin_seq, $reverse ) = $seqbin_sql->fetchrow_array;
-				if ($reverse) {
-					$seqbin_seq = BIGSdb::Utils::reverse_complement($seqbin_seq);
+				while ( my ( $seq, $reverse ) = $seqbin_sql->fetchrow_array ) {
+					if ($reverse) {
+						$seq = BIGSdb::Utils::reverse_complement($seq);
+					}
+					$seqbin_seq .= BIGSdb::Utils::chop_seq( $seq, $locus_info->{'orf'} || 1 );
 				}
 			}
 			my $seq;
-			if ( ref $allele_seq && $$allele_seq && $seqbin_seq ) {
-				$seq = $params->{'chooseseq'} eq 'seqbin' ? $seqbin_seq : $$allele_seq;
-			} elsif ( ref $allele_seq && $$allele_seq && !$seqbin_seq ) {
-				$seq = $$allele_seq;
+			if ( $allele_seq && $seqbin_seq ) {
+				$seq = $params->{'chooseseq'} eq 'seqbin' ? $seqbin_seq : $allele_seq;
+			} elsif ( $allele_seq && !$seqbin_seq ) {
+				$seq = $allele_seq;
 			} elsif ($seqbin_seq) {
 				$seq = $seqbin_seq;
-			} else {
-
-				#no sequence
+			} else {    #no sequence
 			}
-			$seq = BIGSdb::Utils::chop_seq( $seq, $locus_info->{'orf'} || 1 );
+			$seq //= '';
 			open( my $fh_cusp_in, '>', "$temp_file" ) or $logger->error("could not open temp file $temp_file");
 			print $fh_cusp_in ">$id\n$seq\n";
 			close $fh_cusp_in;
