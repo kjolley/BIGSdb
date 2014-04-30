@@ -90,9 +90,10 @@ sub count_matching_profiles {
 
 sub get_fields {
 	my ( $self, $field, $locus, $allele_id ) = @_;
+	my $view = $self->{'dbase_view'} // 'isolates';
 	if ( !$self->{'sql'}->{$field} ) {
 		$self->{'sql'}->{$field} =
-		  $self->{'db'}->prepare( "SELECT $field, count(*) AS frequency FROM isolates LEFT JOIN allele_designations ON isolates.id "
+		  $self->{'db'}->prepare( "SELECT $field, count(*) AS frequency FROM $view LEFT JOIN allele_designations ON $view.id "
 			  . "= allele_designations.isolate_id WHERE allele_designations.locus=? AND allele_designations.allele_id=? AND $field IS "
 			  . "NOT NULL GROUP BY $field ORDER BY frequency desc,$field" );
 	}
