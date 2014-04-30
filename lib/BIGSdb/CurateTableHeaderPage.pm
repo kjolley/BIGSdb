@@ -33,7 +33,6 @@ sub initiate {
 
 sub print_content {
 	my ($self) = @_;
-	
 	my $table = $self->{'cgi'}->param('table') || '';
 	if ( !$self->{'datastore'}->is_table($table) && !@{ $self->{'xmlHandler'}->get_sample_field_list } ) {
 		say "Table $table does not exist!";
@@ -46,9 +45,9 @@ sub print_content {
 }
 
 sub get_headers {
-	my ($self, $table) = @_;
+	my ( $self, $table ) = @_;
 	my @headers;
-		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		my $set_id        = $self->get_set_id;
 		my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
 		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
@@ -64,15 +63,15 @@ sub get_headers {
 		my $scheme_id = $self->{'cgi'}->param('scheme') || 0;
 		my $primary_key;
 		eval {
-			$primary_key =
-			  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )
-			  ->[0];
+			my $pk_ref =
+			  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id );
+			return if ref $pk_ref ne 'ARRAY';
+			$primary_key = $pk_ref->[0];
 		};
 		$logger->error($@) if $@;
 		my $set_id = $self->get_set_id;
 		push @headers, $primary_key;
 		my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-
 		foreach my $locus (@$loci) {
 			my $label = $self->{'datastore'}->get_set_locus_label( $locus, $set_id );
 			push @headers, $label // $locus;
@@ -105,7 +104,7 @@ sub get_headers {
 					push @headers, @$extended_attributes;
 				}
 			}
-		} elsif ($table eq 'loci' && $self->{'system'}->{'dbtype'} eq 'sequences'){
+		} elsif ( $table eq 'loci' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 			push @headers, qw(full_name product description);
 		}
 	}
