@@ -46,7 +46,7 @@ sub get_attributes {
 		buttontext  => 'BURST',
 		menutext    => 'BURST',
 		module      => 'BURST',
-		version     => '1.0.4',
+		version     => '1.1.0',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		section     => 'postquery',
@@ -108,7 +108,7 @@ sub run {
 		say "<p>No query has been passed.</p>";
 		say "</div>";
 	}
-	if ( $q->param('Submit') ) {
+	if ( $q->param('submit') ) {
 		$self->_run_burst( $scheme_id, $pk, $list );
 		return;
 	}
@@ -132,6 +132,7 @@ HTML
 	say $q->start_form;
 	say $q->hidden($_) foreach qw (db page name query_file);
 	my $locus_count;
+	say qq(<fieldset style="float:left"><legend>Options</legend>);
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $set_id = $self->get_set_id;
 		my $scheme_data = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
@@ -158,9 +159,9 @@ HTML
 		$q->param( 'scheme_id', $scheme_id );
 		say $q->hidden('scheme_id');
 	}
-	print "<p>Group definition: profiles match at \n";
+	say "<p>Group definition: profiles match at ";
 	my @values;
-	for ( my $i = 1 ; $i < $locus_count ; $i++ ) {
+	for my $i ( 1 .. $locus_count - 1 ) {
 		push @values, "n-$i";
 	}
 	say $q->popup_menu( -name => 'grpdef', -value => [@values], -default => 'n-2' );
@@ -168,8 +169,8 @@ HTML
 	say $q->checkbox( -name => 'shade', -label => 'Shade variant rings', -checked => 1 );
 	say "<br />";
 	say $q->checkbox( -name => 'hide', -label => 'Hide variant names (useful for overview if names start to overlap)', -checked => 0 );
-	say "</p>";
-	say $q->submit( -name => 'Submit', -class => 'submit' );
+	say "</fieldset>";
+	$self->print_action_fieldset( { no_reset => 1 } );
 	say $q->end_form;
 	say "</div>";
 	return;
@@ -242,25 +243,20 @@ sub _get_profile_array {
 			$i++;
 		}
 		$i = 0;
-		foreach (@$list) {
-			my $alleles = $self->{'datastore'}->get_all_allele_ids($_); #TODO return value format has changed.
-			my @profile;
-			foreach my $locus (@$loci) {
-				push @profile, $alleles->{$locus};
-			}
-			my $scheme_field_values = $scheme->get_field_values_by_profile( \@profile );
-			my $st                  = $scheme_field_values->[$field_pos];
-			if ($st) {
-				unshift @profile, $st;
+		foreach my $id (@$list) {
+			my $scheme_field_values = $self->get_scheme_field_values( { isolate_id => $id, field => $pk, scheme_id => $scheme_id } );
+			foreach my $st (@$scheme_field_values) {
+				my $profile = $self->{'datastore'}->get_profile_by_primary_key( $scheme_id, $st );
+				unshift @$profile, $st;
 				my $j = 0;
-				if ( $st_frequency{ $profile[0] } ) {
-					$st_frequency{ $profile[0] }++;
+				if ( $st_frequency{$st} ) {
+					$st_frequency{$st}++;
 				} else {
-					foreach (@profile) {
-						$profiles[$i][$j] = $profile[$j];
+					foreach (@$profile) {
+						$profiles[$i][$j] = $profile->[$j];
 						$j++;
 					}
-					$st_frequency{ $profile[0] } = 1;
+					$st_frequency{$st} = 1;
 					$num_profiles++;
 					$i++;
 				}

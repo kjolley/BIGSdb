@@ -127,12 +127,13 @@ sub get_field_values_by_designations {
 	my $fields     = $self->{'fields'};
 	my $field_data = [];
 	foreach my $locus (@$loci) {
-		if (!defined $designations->{$locus}){
+		if ( !defined $designations->{$locus} ) {
+
 			#Define a null designation if one doesn't exist for the purposes of looking up profile.
 			#We can't just abort the query because some schemes allow missing loci, but we don't want to match based
 			#on an incomplete set of designations.
-			push @allele_ids, '-999';
-			push @allele_count,1;
+			push @allele_ids,   '-999';
+			push @allele_count, 1;
 		} else {
 			push @allele_count, scalar @{ $designations->{$locus} }; #We need a different query depending on number of designations at loci.
 			push @allele_ids, $_->{'allele_id'} foreach @{ $designations->{$locus} };
