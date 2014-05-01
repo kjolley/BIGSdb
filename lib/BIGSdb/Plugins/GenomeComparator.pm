@@ -48,7 +48,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.6.0',
+		version     => '1.6.1',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/genome_comparator.shtml',
@@ -1404,22 +1404,30 @@ sub _get_largest_distance {
 sub _scan_by_locus {
 	my ( $self, $isolate_id, $locus, $seqs_ref, $allele_seqs_ref, $args ) = @_;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	my ( $match, $value, $extracted_seq );
+	my ( $match, @values, $extracted_seq );
 	if ( $self->{'params'}->{'use_tagged'} && $locus_info->{'data_type'} eq 'DNA' ) {
-		my $allele_id = $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
-		if ( defined $allele_id ) {
+		my $allele_ids = $self->{'datastore'}->get_allele_ids( $isolate_id, $locus );
+		@$allele_ids = sort @$allele_ids;
+		if (@$allele_ids){
 			$match->{'exact'}  = 1;
-			$match->{'allele'} = $allele_id;
-			$value             = $allele_id;
-			try {
-				my $seq_ref = $self->{'datastore'}->get_locus($locus)->get_allele_sequence($allele_id);
-				$extracted_seq = $$seq_ref if ref $seq_ref eq 'SCALAR';
-				$seqs_ref->{$isolate_id}       = $extracted_seq;
-				$allele_seqs_ref->{$allele_id} = $extracted_seq;
+			local $" = ',';
+			@{$match->{'allele'}} = @$allele_ids;
+		}
+		foreach my $allele_id ( @$allele_ids ) {
+			
+			
+			push @values, $allele_id;
+			if ($allele_id ne '0'){
+				try {					
+					my $seq_ref = $self->{'datastore'}->get_locus($locus)->get_allele_sequence($allele_id);
+					$extracted_seq = $$seq_ref if ref $seq_ref eq 'SCALAR';
+					$seqs_ref->{$isolate_id}       .= $extracted_seq;
+					$allele_seqs_ref->{$allele_id} .= $extracted_seq;
+				}
+				catch BIGSdb::DatabaseConnectionException with {
+					$logger->debug("No connection to $locus database");    #ignore
+				};
 			}
-			catch BIGSdb::DatabaseConnectionException with {
-				$logger->debug("No connection to $locus database");    #ignore
-			};
 		}
 	}
 	if ( !$match->{'exact'} && !-z $args->{'ref_seq_file'} ) {
@@ -1434,9 +1442,10 @@ sub _scan_by_locus {
 			$self->_blast( 3, $args->{'ref_seq_file'}, $args->{'isolate_fasta_ref'}->{$isolate_id}, $args->{'out_file'}, 'blastx' );
 		}
 		$match = $self->_parse_blast_by_locus( $locus, $args->{'out_file'} );
-		$value = $match->{'allele'} if $match->{'exact'};
+		@values = ($match->{'allele'}) if $match->{'exact'};
 	}
-	return ( $match, $value, $extracted_seq );
+	local $" = ',';
+	return ( $match, "@values", $extracted_seq );
 }
 
 sub _print_paralogous_loci {
