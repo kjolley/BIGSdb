@@ -416,7 +416,8 @@ sub set_scheme {
 }
 
 sub set_scheme_field {
-	my ( $self, $guid, $dbase, $scheme_id, $field, $action, $value ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $guid, $dbase, $scheme_id, $field, $action, $value ) = @{$args}{qw(guid dbase scheme_id field action value)};
 	local $" = ', ';
 	if ( !$self->_guid_exists($guid) ) {
 		$self->_add_existing_guid($guid);

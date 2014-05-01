@@ -251,7 +251,16 @@ sub _process_scheme_fields {
 			&& $q->param("field_$data->{'scheme_id'}\_$data->{'field'}") )
 		{
 			my $value = $q->param($field);
-			$prefstore->set_scheme_field( $guid, $self->{'system'}->{'db'}, $data->{'scheme_id'}, $data->{'field'}, $field, $value );
+			$prefstore->set_scheme_field(
+				{
+					guid      => $guid,
+					dbase     => $self->{'system'}->{'db'},
+					scheme_id => $data->{'scheme_id'},
+					field     => $data->{'field'},
+					action    => $field,
+					value     => $value
+				}
+			);
 			print "<td>$value <span class=\"highlight\">*</span></td>";
 			$$updated_ref = 1;
 		} elsif ( $q->param("$field\_default")
