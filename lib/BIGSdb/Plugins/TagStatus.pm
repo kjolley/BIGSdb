@@ -40,7 +40,7 @@ sub get_attributes {
 		buttontext  => 'Tag status',
 		menutext    => 'Tag status',
 		module      => 'TagStatus',
-		version     => '1.1.1',
+		version     => '1.2.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		requires    => 'mogrify',
@@ -99,16 +99,16 @@ sub _breakdown_isolate {
 	}
 	say "<h1>Tag status: Isolate id#$id ($isolate->{$self->{'system'}->{'labelfield'}})</h1>";
 	say "<div class=\"box\" id=\"resultstable\">";
-	my $allele_ids      = $self->{'datastore'}->get_all_allele_ids($id);#TODO return value format has changed.
+	my $allele_ids      = $self->{'datastore'}->get_all_allele_ids($id);
 	my $tags            = $self->{'datastore'}->get_all_allele_sequences($id);
 	my $flags           = $self->_get_loci_with_sequence_flags($id);
 	my $loci_with_flags = $self->_get_loci_with_sequence_flags($id);
 	my $set_id          = $self->get_set_id;
 	my $scheme_data     = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
-	print "<table class=\"resultstable\">\n<tr>";
-	print "<th>$_</th>" foreach ( 'Scheme', 'Locus', 'Allele designation', 'Sequence tag' );
-	print "</tr>\n";
+	say "<table class=\"resultstable\">\n<tr>";
+	say "<th>$_</th>" foreach ( 'Scheme', 'Locus', 'Allele designation(s)', 'Sequence tag' );
+	say "</tr>";
 	my $td       = 1;
 	my $tagged   = "background:#aaf; color:white";
 	my $untagged = "background:red";
@@ -121,7 +121,8 @@ sub _breakdown_isolate {
 			print "<tr class=\"td$td\">" if !$first;
 			my $cleaned = $self->clean_locus($locus);
 			print "<td>$cleaned</td>";
-			print defined $allele_ids->{$locus} ? "<td style=\"$tagged\">$allele_ids->{$locus}</td>" : "<td style=\"$untagged\" />";
+			local $" = ',';
+			print defined $allele_ids->{$locus} ? "<td style=\"$tagged\">@{$allele_ids->{$locus}}</td>" : "<td style=\"$untagged\" />";
 			print defined $tags->{$locus} ? "<td style=\"$tagged\">" : "<td style=\"$untagged\">";
 			$self->_get_flags( $id, $locus ) if any { $locus eq $_ } @$loci_with_flags;
 			say "</td></tr>";
@@ -137,7 +138,8 @@ sub _breakdown_isolate {
 			print "<tr class=\"td$td\">" if !$first;
 			my $cleaned = $self->clean_locus($locus);
 			print "<td>$cleaned</td>";
-			print defined $allele_ids->{$locus} ? "<td style=\"$tagged\">$allele_ids->{$locus}</td>" : "<td style=\"$untagged\" />";
+			local $" = ',';
+			print defined $allele_ids->{$locus} ? "<td style=\"$tagged\">@{$allele_ids->{$locus}}</td>" : "<td style=\"$untagged\" />";
 			print defined $tags->{$locus} ? "<td style=\"$tagged\">" : "<td style=\"$untagged\">";
 			$self->_get_flags( $id, $locus ) if any { $locus eq $_ } @$loci_with_flags;
 			say "</td></tr>";
@@ -248,7 +250,7 @@ sub _print_schematic {
 		eval { $isolate_sql->execute($id) };
 		$logger->error($@) if $@;
 		my ($isolate)       = $isolate_sql->fetchrow_array;
-		my $allele_ids      = $self->{'datastore'}->get_all_allele_ids($id);#TODO return value format has changed.
+		my $allele_ids      = $self->{'datastore'}->get_all_allele_ids($id);
 		my $tags            = $self->{'datastore'}->get_all_allele_sequences($id);
 		my $loci_with_flags = $self->_get_loci_with_sequence_flags($id);
 		my %loci_with_flags = map { $_ => 1 } @$loci_with_flags;
