@@ -1273,7 +1273,10 @@ sub get_all_allele_designations {
 	}
 	eval { $self->{'sql'}->{'all_allele_designation'}->execute($isolate_id); };
 	$logger->error($@) if $@;
-	my $alleles = $self->{'sql'}->{'all_allele_designation'}->fetchall_hashref('locus');
+	my $alleles = {};
+	while (my $data = $self->{'sql'}->{'all_allele_designation'}->fetchrow_hashref){
+		$alleles->{$data->{'locus'}}->{$data->{'allele_id'}} = $data->{'status'};
+	}
 	return $alleles;
 }
 

@@ -724,40 +724,42 @@ sub _print_isolate_table_scheme {
 		$self->{'designations_retrieved'}->{$isolate_id} = 1;
 	}
 	my $allele_designations = $self->{'designations'}->{$isolate_id};
-	my %provisional_allele;
-	my $loci = $self->{'scheme_loci'}->{$scheme_id};
+	my $loci                = $self->{'scheme_loci'}->{$scheme_id};
 	foreach my $locus (@$loci) {
-		$allele_designations->{$locus}->{'status'} ||= 'confirmed';
-		$provisional_allele{$locus} = 1
-		  if $self->{'prefs'}->{'mark_provisional_main'} && $allele_designations->{$locus}->{'status'} eq 'provisional';
-		next if !$self->{'prefs'}->{'main_display_loci'}->{$locus} && ( !$scheme_id || !@{ $self->{'scheme_fields'}->{$scheme_id} } );
-		if ( $self->{'prefs'}->{'main_display_loci'}->{$locus} ) {
-			print "<td>";
-			print "<span class=\"provisional\">"
-			  if $allele_designations->{$locus}->{'status'} eq 'provisional'
-			  && $self->{'prefs'}->{'mark_provisional_main'};
-			if (   defined $allele_designations->{$locus}->{'allele_id'}
-				&& defined $self->{'url'}->{$locus}
+		next if !$self->{'prefs'}->{'main_display_loci'}->{$locus};
+		my @display_values;
+		no warnings 'numeric';    #might complain about numeric comparison with non-numeric data
+		foreach my $allele_id (
+			sort { $allele_designations->{$locus}->{$a} cmp $allele_designations->{$locus}->{$b} || $a <=> $b || $a cmp $b }
+			keys %{ $allele_designations->{$locus} }
+		  )
+		{
+			my $provisional =
+			  ( $allele_designations->{$locus}->{$allele_id} // '' ) eq 'provisional' && $self->{'prefs'}->{'mark_provisional_main'};
+			my $display = '';
+			$display .= "<span class=\"provisional\">" if $provisional;
+			if (   defined $self->{'url'}->{$locus}
 				&& $self->{'url'}->{$locus} ne ''
 				&& $self->{'prefs'}->{'main_display_loci'}->{$locus}
 				&& $self->{'prefs'}->{'hyperlink_loci'} )
 			{
 				my $url = $self->{'url'}->{$locus};
-				$url =~ s/\[\?\]/$allele_designations->{$locus}->{'allele_id'}/g;
-				print "<a href=\"$url\">$allele_designations->{$locus}->{'allele_id'}</a>";
+				$url =~ s/\[\?\]/$allele_id/g;
+				$display .= "<a href=\"$url\">$allele_id</a>";
 			} else {
-				print defined $allele_designations->{$locus}->{'allele_id'} ? $allele_designations->{$locus}->{'allele_id'} : '';
+				$display .= $allele_id;
 			}
-			print "</span>"
-			  if $allele_designations->{$locus}->{'status'} eq 'provisional'
-			  && $self->{'prefs'}->{'mark_provisional_main'};
-			print $self->get_seq_detail_tooltips( $isolate_id, $locus ) if $self->{'prefs'}->{'sequence_details_main'};
-			my $action = exists $allele_designations->{$locus}->{'allele_id'} ? 'update' : 'add';
-			print
-" <a href=\"$self->{'system'}->{'script_name'}?page=alleleUpdate&amp;db=$self->{'instance'}&amp;isolate_id=$isolate_id&amp;locus=$locus\" class=\"update\">$action</a>"
-			  if $self->{'curate'};
-			print "</td>";
+			$display .= "</span>" if $provisional;
+			push @display_values, $display;
 		}
+		local $" = ',';
+		print "<td>@display_values";
+		print $self->get_seq_detail_tooltips( $isolate_id, $locus ) if $self->{'prefs'}->{'sequence_details_main'};
+		my $action = @display_values ? 'update' : 'add';
+		print
+" <a href=\"$self->{'system'}->{'script_name'}?page=alleleUpdate&amp;db=$self->{'instance'}&amp;isolate_id=$isolate_id&amp;locus=$locus\" class=\"update\">$action</a>"
+		  if $self->{'curate'};
+		print "</td>";
 	}
 	return
 	     if !$scheme_id
@@ -770,7 +772,12 @@ sub _print_isolate_table_scheme {
 			my @values;
 			my @field_values = keys %{ $scheme_field_values->{ lc($field) } };
 			my $att = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
-			foreach my $value (@field_values) {
+			no warnings 'numeric';    #might complain about numeric comparison with non-numeric data
+			foreach my $value (
+				sort { $scheme_field_values->{ lc($field) }->{$a} cmp $scheme_field_values->{ lc($field) }->{$b} || $a <=> $b || $a cmp $b }
+				@field_values
+			  )
+			{
 				$value = defined $value ? $value : '';
 				$value = '' if $value eq '-999';
 				my $formatted_value;
