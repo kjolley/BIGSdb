@@ -20,15 +20,10 @@ package BIGSdb::CurateAlleleUpdatePage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::CuratePage BIGSdb::TreeViewPage);
+use parent qw(BIGSdb::CuratePage);
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-
-sub get_javascript {
-	my ($self) = @_;
-	return $self->get_tree_javascript;
-}
 
 sub initiate {
 	my ($self) = @_;
@@ -37,15 +32,14 @@ sub initiate {
 		$self->{'noCache'} = 1;
 		return;
 	}
-	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree);
+	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree noCache);
 	return;
 }
 
 sub print_content {
-	my ($self)    = @_;
-	my $q         = $self->{'cgi'};
-	my $clear_pad = 1;
-	my $locus     = $q->param('locus');
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $locus  = $q->param('locus');
 	$locus =~ s/^cn_//;
 	my $isolate_id = $q->param('isolate_id') // $q->param('allele_designations_isolate_id');
 	if ( !$isolate_id ) {
@@ -90,7 +84,7 @@ sub print_content {
 	}
 	if ( $q->param('sent') ) {
 		$right_buffer .= $self->_update( $isolate_id, $locus, $data );
-		if ( $right_buffer =~ /statusbad/ ) {
+		if ( $right_buffer =~ /statusbad/ && $q->param('update_id') ) {
 			$update = 1;
 			$id     = $q->param('update_id');
 		}
@@ -105,10 +99,11 @@ sub print_content {
 		  $self->create_record_table( 'allele_designations', $designation, { update => 1, nodiv => 1, prepend_table_name => 1 } );
 	} else {
 		$right_buffer .= "<h3>Add new allele designation</h3>\n";
+		$q->delete('update_id');
 		my $designation = { isolate_id => $isolate_id, locus => $locus, date_entered => $datestamp, method => 'manual' };
 		$right_buffer .=
 		  $self->create_record_table( 'allele_designations', $designation,
-			{ update => 0, nodiv => 1, prepend_table_name => 1, newdata_readonly => 1 } );
+			{ update => 0, reset_params => 1, nodiv => 1, prepend_table_name => 1, newdata_readonly => 1 } );
 	}
 	$right_buffer .= $self->_get_existing_designations( $isolate_id, $locus );
 	say "<div class=\"box\" id=\"resultstable\">";
@@ -142,15 +137,15 @@ sub _get_existing_designations {
 		$buffer .= qq(<table class="resultstable"><tr><th>Update</th><th>Delete</th><th>allele id</th><th>sender</th>)
 		  . qq(<th>status</th><th>method</th><th>comments</th></tr>\n);
 		my $td = 1;
-		foreach my $des (@$designations) {
-			my $sender = $self->{'datastore'}->get_user_info( $des->{'sender'} );
-			$des->{'comments'} //= '';
+		foreach my $designation (@$designations) {
+			my $sender = $self->{'datastore'}->get_user_info( $designation->{'sender'} );
+			$designation->{'comments'} //= '';
 			$buffer .= qq(<tr class="td$td"><td>);
-			$buffer .= $q->submit( -name => "$des->{'id'}\_update", -label => 'Update', -class => 'smallbutton' );
+			$buffer .= $q->submit( -name => "$designation->{'id'}\_update", -label => 'Update', -class => 'smallbutton' );
 			$buffer .= '</td><td>';
-			$buffer .= $q->submit( -name => "$des->{'id'}\_delete", -label => 'Delete', -class => 'smallbutton' );
-			$buffer .= "</td><td>$des->{'allele_id'}</td><td>$sender->{'first_name'} $sender->{'surname'}</td>"
-			  . "<td>$des->{'status'}</td><td>$des->{'method'}</td><td>$des->{'comments'}</td></tr>";
+			$buffer .= $q->submit( -name => "$designation->{'id'}\_delete", -label => 'Delete', -class => 'smallbutton' );
+			$buffer .= "</td><td>$designation->{'allele_id'}</td><td>$sender->{'first_name'} $sender->{'surname'}</td>"
+			  . "<td>$designation->{'status'}</td><td>$designation->{'method'}</td><td>$designation->{'comments'}</td></tr>";
 			$td = $td == 1 ? 2 : 1;
 		}
 		$buffer .= "</table>\n";
@@ -169,7 +164,7 @@ sub _delete {
 	foreach my $param (@params) {
 		if ( $param =~ /^(\d+)_delete/ ) {
 			my $id = $1;
-			my $des = $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM allele_designations WHERE id=?", $id );
+			my $designation = $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM allele_designations WHERE id=?", $id );
 
 			#Although id is the PK, include isolate_id and locus to prevent somebody from easily modifying CGI params.
 			eval {
@@ -180,7 +175,7 @@ sub _delete {
 				$self->{'db'}->rollback;
 			} else {
 				$self->{'db'}->commit;
-				$self->update_history( $isolate_id, "$locus: designation '$des->{'allele_id'}' deleted" );
+				$self->update_history( $isolate_id, "$locus: designation '$designation->{'allele_id'}' deleted" );
 			}
 		}
 	}
@@ -191,58 +186,66 @@ sub _delete {
 sub _update {
 	my ( $self, $isolate_id, $locus, $data ) = @_;
 	my @problems;
-	my $buffer = '';
-	my $q      = $self->{'cgi'};
-	my %newdata;
+	my $buffer     = '';
+	my $q          = $self->{'cgi'};
+	my $newdata    = {};
 	my $attributes = $self->{'datastore'}->get_table_field_attributes('allele_designations');
 	foreach (@$attributes) {
 		my $param = "allele_designations\_$_->{'name'}";
 		if ( defined $q->param($param) && $q->param($param) ne '' ) {
-			$newdata{ $_->{'name'} } = $q->param($param);
+			$newdata->{ $_->{'name'} } = $q->param($param);
 		}
 	}
-	$newdata{'datestamp'}    = $self->get_datestamp;
-	$newdata{'curator'}      = $self->get_curator_id;
-	$newdata{'date_entered'} = $q->param('action') eq 'update' ? $data->{'date_entered'} : $self->get_datestamp;
-	@problems = $self->check_record( 'allele_designations', \%newdata, 1, $data );
-	my $des;
-	if ( $q->param('update_id') ) {
-		$des = $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM allele_designations WHERE id=?", $q->param('update_id') );
+	$newdata->{'datestamp'}    = $self->get_datestamp;
+	$newdata->{'curator'}      = $self->get_curator_id;
+	$newdata->{'date_entered'} = $q->param('action') eq 'update' ? $data->{'date_entered'} : $self->get_datestamp;
+	@problems = $self->check_record( 'allele_designations', $newdata, 1, $data );
+	my $existing_designation;
+	if ( $q->param('update_id') ) {    #Update existing allele
+		$existing_designation =
+		  $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM allele_designations WHERE id=?", $q->param('update_id') );
+	} else {                           #Add new allele
+		$existing_designation =
+		  $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM allele_designations WHERE (isolate_id,locus,allele_id)=(?,?,?)",
+			$isolate_id, $locus, $newdata->{'allele_id'} );
 	}
-	if ( $des && $newdata{'allele_id'} ne $des->{'allele_id'} ) {
+	if ( $q->param('update_id') && $existing_designation && $newdata->{'allele_id'} ne $existing_designation->{'allele_id'} ) {
 		my $allele_id_exists =
 		  $self->{'datastore'}
 		  ->run_simple_query( "SELECT EXISTS (SELECT * FROM allele_designations WHERE isolate_id=? AND locus=? AND allele_id=?)",
-			$isolate_id, $locus, $newdata{'allele_id'} )->[0];
+			$isolate_id, $locus, $newdata->{'allele_id'} )->[0];
 		if ($allele_id_exists) {
-			push @problems, "Allele designation '$newdata{'allele_id'}' already exists.\n";
+			push @problems, "Allele designation '$newdata->{'allele_id'}' already exists.\n";
 		}
+	} elsif ( !$q->param('update_id') && $existing_designation ) {
+		push @problems, "Allele designation '$newdata->{'allele_id'}' already exists.\n";
 	}
 	if (@problems) {
 		local $" = "<br />\n";
 		$buffer .= "<div class=\"statusbad_no_resize\"><p>@problems</p></div>\n";
 	} else {
 		my ( @values, @add_values, @fields, @updated_field );
-		foreach (@$attributes) {
-			push @fields, $_->{'name'};
-			$newdata{ $_->{'name'} } = '' if !defined $newdata{ $_->{'name'} };
-			if ( ( $newdata{ $_->{'name'} } // '' ) ne '' ) {
-				my $escaped = $newdata{ $_->{'name'} };
+		foreach my $attribute (@$attributes) {
+			push @fields, $attribute->{'name'};
+			$newdata->{ $attribute->{'name'} } = '' if !defined $newdata->{ $attribute->{'name'} };
+			if ( ( $newdata->{ $attribute->{'name'} } // '' ) ne '' ) {
+				my $escaped = $newdata->{ $attribute->{'name'} };
 				$escaped =~ s/\\/\\\\/g;
 				$escaped =~ s/'/\\'/g;
-				push @values,     "$_->{'name'} = E'$escaped'";
+				push @values,     "$attribute->{'name'} = E'$escaped'";
 				push @add_values, "E'$escaped'";
 			} else {
-				push @values,     "$_->{'name'} = null";
+				push @values,     "$attribute->{'name'} = null";
 				push @add_values, 'null';
 			}
-			if (   defined $des->{ lc( $_->{'name'} ) }
-				&& $newdata{ $_->{'name'} } ne $des->{ lc( $_->{'name'} ) }
-				&& $_->{'name'}             ne 'datestamp'
-				&& $_->{'name'}             ne 'date_entered'
-				&& $_->{'name'}             ne 'curator' )
+			if (   defined $existing_designation->{ lc( $attribute->{'name'} ) }
+				&& $newdata->{ $attribute->{'name'} } ne $existing_designation->{ lc( $attribute->{'name'} ) }
+				&& $attribute->{'name'}               ne 'datestamp'
+				&& $attribute->{'name'}               ne 'date_entered'
+				&& $attribute->{'name'}               ne 'curator' )
 			{
-				push @updated_field, "$locus $_->{'name'}: $des->{lc($_->{'name'})} -> $newdata{ $_->{'name'}}";
+				push @updated_field,
+				  "$locus $attribute->{'name'}: $existing_designation->{lc($attribute->{'name'})} -> $newdata->{ $attribute->{'name'}}";
 			}
 		}
 		local $" = ',';
@@ -270,13 +273,13 @@ sub _update {
 			eval { $self->{'db'}->do($qry) };
 			if ($@) {
 				$results_buffer .=
-				  "<div class=\"statusbad_no_resize\"><p>Update failed - transaction cancelled - " . "no records have been touched.</p>\n";
+				  "<div class=\"statusbad_no_resize\"><p>Update failed - transaction cancelled - no records have been touched.</p></div>\n";
 				$logger->error("$qry $@");
 				$self->{'db'}->rollback;
 			} else {
 				$self->{'db'}->commit;
 				$results_buffer .= "<div class=\"statusgood_no_resize\"><p>allele designation added!</p></div>";
-				$self->update_history( $isolate_id, "$locus: new designation '$newdata{'allele_id'}'" );
+				$self->update_history( $isolate_id, "$locus: new designation '$newdata->{'allele_id'}'" );
 			}
 			$buffer .= $results_buffer;
 		}
@@ -309,8 +312,8 @@ sub get_title {
 	my ($self) = @_;
 	my $desc  = $self->{'system'}->{'description'} || 'BIGSdb';
 	my $q     = $self->{'cgi'};
-	my $locus = $q->param('locus') || $q->param('allele_designations_locus') || $q->param('pending_allele_designations_locus');
-	my $id = $q->param('isolate_id') || $q->param('allele_designations_isolate_id') || $q->param('pending_allele_designations_isolate_id');
+	my $locus = $q->param('locus') || $q->param('allele_designations_locus');
+	my $id    = $q->param('isolate_id') || $q->param('allele_designations_isolate_id');
 	$id    //= '';
 	$locus //= '';
 	$locus =~ s/^cn_//;

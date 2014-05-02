@@ -91,10 +91,10 @@ sub create_record_table {
 	my $page = $q->param('page');
 	my @extra;
 	my $extra_field = '';
-	if ( $options->{'update'} ) {
+	if ( $options->{'update'} || $options->{'reset_params'} ) {
 		my $pk_fields = $self->{'datastore'}->get_table_pks($table);
 		foreach my $pk (@$pk_fields) {
-			push @extra, ( $pk => $newdata->{$pk} );
+			push @extra, ( $pk => $newdata->{$pk} ) if $newdata->{$pk};
 		}
 	}
 	$buffer .= $self->print_action_fieldset( { get_only => 1, page => $page, table => $table, @extra } );

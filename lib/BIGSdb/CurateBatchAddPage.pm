@@ -53,10 +53,7 @@ sub print_content {
 		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to add records to the $table table.</p></div>";
 		return;
 	}
-	if ( $table eq 'pending_allele_designations' ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>You can not use this interface to add pending allele designations.</p></div>";
-		return;
-	} elsif ( $table eq 'sequence_bin' ) {
+	if ( $table eq 'sequence_bin' ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>You can not use this interface to add sequences to the bin.</p></div>";
 		return;
 	} elsif ( $table eq 'allele_sequences' ) {

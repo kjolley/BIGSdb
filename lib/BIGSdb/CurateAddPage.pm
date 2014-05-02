@@ -61,7 +61,7 @@ sub print_content {
 			  . " for this locus.</p></div>\n";
 			return;
 		}
-	} elsif ( $table eq 'pending_allele_designations' || $table eq 'allele_designations' ) {
+	} elsif ( $table eq 'allele_designations' ) {
 		print "<div class=\"box\" id=\"statusbad\"><p>Please add allele designations using the isolate update interface.</p></div>\n";
 		return;
 	} elsif ( $table eq 'allele_sequences' ) {
