@@ -177,7 +177,7 @@ sub get_composite_value {
 			my @field_values;
 			$scheme_field = lc($scheme_field);    # hashref keys returned as lower case from db.
 			if ( defined $scheme_fields->{$scheme_id}->{$scheme_field} ) {
-				foreach my $value ( keys %{ $scheme_fields->{$scheme_id}->{$scheme_field} } ) {
+				foreach my $value ( keys %{ $scheme_fields->{$scheme_id}->{$scheme_field} } ) {  #TODO sort these
 					my $provisional = $scheme_fields->{$scheme_id}->{$scheme_field}->{$value} eq 'provisional' ? 1 : 0;
 					if ($regex) {
 						my $expression = "\$value =~ $regex";
@@ -1235,8 +1235,8 @@ sub get_allele_designations {
 	my ( $self, $isolate_id, $locus ) = @_;
 	if ( !$self->{'sql'}->{'allele_designations'} ) {
 		$self->{'sql'}->{'allele_designations'} =
-		  $self->{'db'}->prepare( "SELECT allele_id,status FROM allele_designations WHERE isolate_id=? AND locus=? ORDER BY "
-			  . "(substring (allele_id, '^[0-9]+'))::int, allele_id" );
+		  $self->{'db'}->prepare( "SELECT * FROM allele_designations WHERE isolate_id=? AND locus=? ORDER BY "
+			  . "status,(substring (allele_id, '^[0-9]+'))::int, allele_id" );
 	}
 	eval { $self->{'sql'}->{'allele_designations'}->execute( $isolate_id, $locus ); };
 	$logger->error($@) if $@;

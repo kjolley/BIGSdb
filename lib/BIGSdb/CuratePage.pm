@@ -48,13 +48,12 @@ sub get_curator_name {
 }
 
 sub create_record_table {
-	my ( $self, $table, $newdata_ref, $options ) = @_;
+	my ( $self, $table, $newdata, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	if ( ref $newdata_ref ne 'HASH' ) {
+	if ( ref $newdata ne 'HASH' ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>Record doesn't exist.</p></div>";
 		return '';
 	}
-	my %newdata = %{$newdata_ref};
 	my $q       = $self->{'cgi'};
 	my $buffer;
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
@@ -62,8 +61,11 @@ sub create_record_table {
 	$q->param( 'action', $options->{'update'} ? 'update' : 'add' );
 	$q->param( 'table', $table );
 	$buffer .= $q->hidden($_) foreach qw(page table db action );
-	$buffer .= $q->hidden( 'locus', $newdata{'locus'} ) if $table eq 'allele_designations';
-	$buffer .= $q->hidden( 'sent', 1 );
+	if ($table eq 'allele_designations'){
+		$buffer .= $q->hidden( locus => $newdata->{'locus'} );
+		$buffer .= $q->hidden( 'update_id');
+	}
+	$buffer .= $q->hidden( sent => 1 );
 	$buffer .= "<div class=\"box\" id=\"queryform\">" if !$options->{'nodiv'};
 	$buffer .= "<p>Please fill in the fields below - required fields are marked with an exclamation mark (!).</p>\n";
 	$buffer .= "<div class=\"scrollable\" style=\"white-space:nowrap\">" if !$options->{'nodiv'};
@@ -75,23 +77,24 @@ sub create_record_table {
 	$width = 6  if $width < 6;
 	my %width_override = ( user_permissions => 12, loci => 14, pcr => 12, sequences => 10, locus_descriptions => 11 );
 	$width = $width_override{$table} // $width;
-	$buffer .= $self->_get_form_fields( $attributes, $table, $newdata_ref, $options, $width );
-	if ( $table eq 'sequences' ) { $buffer .= $self->_create_extra_fields_for_sequences( $newdata_ref, $width ) }
-	elsif ( $table eq 'locus_descriptions' ) {
+	$buffer .= $self->_get_form_fields( $attributes, $table, $newdata, $options, $width );
+	if ( $table eq 'sequences' ) { 
+		$buffer .= $self->_create_extra_fields_for_sequences( $newdata, $width ) 
+	} elsif ( $table eq 'locus_descriptions' ) {
 		$buffer .= $self->_create_extra_fields_for_locus_descriptions( $q->param('locus') // '', $width );
 	} elsif ( $table eq 'sequence_bin' ) {
-		$buffer .= $self->_create_extra_fields_for_seqbin( $newdata_ref, $width );
+		$buffer .= $self->_create_extra_fields_for_seqbin( $newdata, $width );
 	} elsif ( $table eq 'loci' ) {
-		$buffer .= $self->_create_extra_fields_for_loci( $newdata_ref, $width );
+		$buffer .= $self->_create_extra_fields_for_loci( $newdata, $width );
 	}
 	$buffer .= "</ul></fieldset>\n";
 	my $page = $q->param('page');
 	my @extra;
 	my $extra_field = '';
-	if ( $options->{'update'} || $table eq 'pending_allele_designations' ) {
+	if ( $options->{'update'} ) {
 		my $pk_fields = $self->{'datastore'}->get_table_pks($table);
 		foreach my $pk (@$pk_fields) {
-			push @extra, ( $pk => $newdata{$pk} );
+			push @extra, ( $pk => $newdata->{$pk} );
 		}
 	}
 	$buffer .= $self->print_action_fieldset( { get_only => 1, page => $page, table => $table, @extra } );
