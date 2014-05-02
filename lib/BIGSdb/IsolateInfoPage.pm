@@ -608,7 +608,10 @@ sub _get_scheme_field_values {
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	if ( keys %$scheme_field_values ) {
 		foreach my $field (@$scheme_fields) {
-			my @field_values = keys %{ $scheme_field_values->{ lc($field) } };
+			no warnings 'numeric';    #might complain about numeric comparison with non-numeric data
+			my @field_values =
+			  sort { $scheme_field_values->{ lc($field) }->{$a} cmp $scheme_field_values->{ lc($field) }->{$b} || $a <=> $b || $a cmp $b }
+			  keys %{ $scheme_field_values->{ lc($field) } };
 			my $att = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 			foreach my $value (@field_values) {
 				$value = defined $value ? $value : '';

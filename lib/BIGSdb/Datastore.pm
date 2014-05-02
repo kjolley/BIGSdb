@@ -1235,7 +1235,8 @@ sub get_allele_designations {
 	my ( $self, $isolate_id, $locus ) = @_;
 	if ( !$self->{'sql'}->{'allele_designations'} ) {
 		$self->{'sql'}->{'allele_designations'} =
-		  $self->{'db'}->prepare("SELECT allele_id,status FROM allele_designations WHERE isolate_id=? AND locus=?");
+		  $self->{'db'}->prepare( "SELECT allele_id,status FROM allele_designations WHERE isolate_id=? AND locus=? ORDER BY "
+			  . "(substring (allele_id, '^[0-9]+'))::int, allele_id" );
 	}
 	eval { $self->{'sql'}->{'allele_designations'}->execute( $isolate_id, $locus ); };
 	$logger->error($@) if $@;
@@ -1274,8 +1275,8 @@ sub get_all_allele_designations {
 	eval { $self->{'sql'}->{'all_allele_designation'}->execute($isolate_id); };
 	$logger->error($@) if $@;
 	my $alleles = {};
-	while (my $data = $self->{'sql'}->{'all_allele_designation'}->fetchrow_hashref){
-		$alleles->{$data->{'locus'}}->{$data->{'allele_id'}} = $data->{'status'};
+	while ( my $data = $self->{'sql'}->{'all_allele_designation'}->fetchrow_hashref ) {
+		$alleles->{ $data->{'locus'} }->{ $data->{'allele_id'} } = $data->{'status'};
 	}
 	return $alleles;
 }
@@ -1287,7 +1288,8 @@ sub get_scheme_allele_designations {
 		if ( !$self->{'sql'}->{'scheme_allele_designations'} ) {
 			$self->{'sql'}->{'scheme_allele_designations'} =
 			  $self->{'db'}->prepare( "SELECT * FROM allele_designations WHERE isolate_id=? AND locus IN "
-				  . "(SELECT locus FROM scheme_members WHERE scheme_id=?) ORDER BY status,date_entered,allele_id" );
+				  . "(SELECT locus FROM scheme_members WHERE scheme_id=?) ORDER BY status,(substring (allele_id, '^[0-9]+'))::int, "
+				  . "allele_id" );
 		}
 		eval { $self->{'sql'}->{'scheme_allele_designations'}->execute( $isolate_id, $scheme_id ) };
 		$logger->error($@) if $@;
