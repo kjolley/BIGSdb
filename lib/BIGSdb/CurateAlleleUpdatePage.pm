@@ -175,7 +175,7 @@ sub _delete {
 				$self->{'db'}->rollback;
 			} else {
 				$self->{'db'}->commit;
-				$self->update_history( $isolate_id, "$locus: designation '$designation->{'allele_id'}' deleted" );
+				$self->update_history( $isolate_id, "$locus: designation '$designation->{'allele_id'}' deleted" ) if defined $designation->{'allele_id'};
 			}
 		}
 	}

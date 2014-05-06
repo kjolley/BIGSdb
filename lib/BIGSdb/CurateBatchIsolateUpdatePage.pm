@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,16 +21,17 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage);
+use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	print "<h1>Batch isolate update</h1>\n";
+	say "<h1>Batch isolate update</h1>";
 	if ( !$self->can_modify_table('isolates') || !$self->can_modify_table('allele_designations') ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update "
-		  . "either isolate records or allele designations.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Your user account is not allowed to update either isolate records or allele )
+		  . qq(designations.</p></div>);
 		return;
 	}
 	if ( $q->param('update') ) {
@@ -64,21 +65,29 @@ HTML
 		my $fields        = $self->{'xmlHandler'}->get_field_list($metadata_list);
 		say $q->start_form;
 		say $q->hidden($_) foreach qw (db page);
-		say "<fieldset style=\"float:left\"><legend>Please paste in your data below:</legend>";
+		say qq(<fieldset style="float:left"><legend>Please paste in your data below:</legend>);
 		say $q->textarea( -name => 'data', -rows => 15, -columns => 40, -override => 1 );
 		say "</fieldset>";
-		say "<fieldset style=\"float:left\"><legend>Options</legend>";
-		say "<ul><li><label for=\"idfield1\" class=\"filter\">Primary selection field: </label>";
+		say qq(<fieldset style="float:left"><legend>Options</legend>);
+		say qq(<ul><li><label for="idfield1" class="filter">Primary selection field: </label>);
 		say $q->popup_menu( -name => 'idfield1', -id => 'idfield1', -values => $fields );
-		say "</li><li><label for=\"idfield2\" class=\"filter\">Optional selection field: </label>";
+		say qq(</li><li><label for="idfield2" class="filter">Optional selection field: </label>);
 		unshift @$fields, '<none>';
 		say $q->popup_menu( -name => 'idfield2', -id => 'idfield2', -values => $fields );
 		say "</li><li>";
-		say $q->checkbox( -name => 'overwrite', -label => 'Overwrite existing data', -checked => 0 );
+		say $q->checkbox( -name => 'overwrite', -label => 'Update existing values', -checked => 0 );
 		say "</li></ul></fieldset>";
+		say qq(<fieldset style="float:left"><legend>Allele designations</legend>);
+		say $q->radio_group(
+			-name      => 'designations',
+			-values    => [qw(add replace)],
+			-labels    => { add => 'Add additional new designation', replace => 'Replace existing designations' },
+			-linebreak => 'true'
+		);
+		say "</fieldset>";
 		$self->print_action_fieldset;
 		say $q->endform;
-		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p>";
+		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p>);
 		say "</div>";
 	}
 	return;
@@ -124,9 +133,10 @@ sub _get_field_and_match_joined_table {
 
 sub _get_match_criteria {
 	my ($self) = @_;
-	my $id = $self->_get_id_fields;
-	my $match = ( defined $id->{'metaset1'} ? "meta_$id->{'metaset1'}.$id->{'metafield1'}" : $id->{'field1'} ) . "=?";
-	$match .= " AND " . ( defined $id->{'metaset2'} ? "meta_$id->{'metaset2'}.$id->{'metafield2'}" : $id->{'field2'} ) . "=?"
+	my $id     = $self->_get_id_fields;
+	my $view   = $self->{'system'}->{'view'};
+	my $match = ( defined $id->{'metaset1'} ? "meta_$id->{'metaset1'}.$id->{'metafield1'}" : "$view.$id->{'field1'}" ) . "=?";
+	$match .= " AND " . ( defined $id->{'metaset2'} ? "meta_$id->{'metaset2'}.$id->{'metafield2'}" : "$view.$id->{'field2'}" ) . "=?"
 	  if $id->{'field2'} ne '<none>';
 	return $match;
 }
@@ -137,21 +147,21 @@ sub _check {
 	my $data   = $q->param('data');
 	my @rows = split /\n/, $data;
 	if ( @rows < 2 ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Nothing entered.  Make sure you include a header line.</p>";
-		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchIsolateUpdate\">Back</a></p></div>";
+		say qq(<div class="box" id="statusbad"><p>Nothing entered.  Make sure you include a header line.</p>);
+		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchIsolateUpdate">Back</a></p></div>);
 		return;
 	}
 	if ( $q->param('idfield1') eq $q->param('idfield2') ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Please select different id fields.<p></div>";
+		say qq(<div class="box" id="statusbad"><p>Please select different id fields.<p></div>);
 		return;
 	}
-	my $buffer = "<div class=\"box\" id=\"resultstable\">\n";
+	my $buffer = qq(<div class="box" id="resultstable">\n);
 	my $id     = $self->_get_id_fields;
 	$buffer .= "<p>The following changes will be made to the database.  Please check that this is what you intend and "
-	  . "then press 'Submit'.  If you do not wish to make these changes, press your browser's back button.</p>\n";
+	  . "then press 'Upload'.  If you do not wish to make these changes, press your browser's back button.</p>\n";
 	my $extraheader = $id->{'field2'} ne '<none>' ? "<th>$id->{'field2'}</th>" : '';
-	$buffer .= "<table class=\"resultstable\"><tr><th>Transaction</th><th>$id->{'field1'}</th>$extraheader<th>Field</th>"
-	  . "<th>New value</th><th>Value currently in database</th><th>Action</th></tr>\n";
+	$buffer .= qq(<table class="resultstable"><tr><th>Transaction</th><th>$id->{'field1'}</th>$extraheader<th>Field</th>)
+	  . qq(<th>New value</th><th>Value(s) currently in database</th><th>Action</th></tr>\n);
 	my $i = 0;
 	my ( @id, @id2, @field, @value, @update );
 	my $td          = 1;
@@ -208,7 +218,7 @@ sub _check {
 			$bad_field = 1 if !$field_is_metafield;
 		}
 		$update[$i] = 0;
-		my ( $oldvalue, $action );
+		my ( $old_value, $action );
 		if ( $i && defined $value[$i] && $value[$i] ne '' ) {
 			if ( !$bad_field ) {
 				my $count;
@@ -220,8 +230,8 @@ sub _check {
 				eval { $sql_id->execute(@args) };
 				if ($@) {
 					if ( $@ =~ /integer/ ) {
-						say "<div class=\"box\" id=\"statusbad\"><p>Your id field(s) contain text characters but the "
-						  . "field can only contain integers.</p></div>";
+						say qq(<div class="box" id="statusbad"><p>Your id field(s) contain text characters but the )
+						  . qq(field can only contain integers.</p></div>);
 						$logger->debug($@);
 						return;
 					}
@@ -234,8 +244,8 @@ sub _check {
 				}
 				if (@not_allowed) {
 					local $" = ', ';
-					say "<div class=\"box\" id=\"statusbad\"><p>You are not allowed to edit the following isolate "
-					  . "records: @not_allowed.</p></div>";
+					say qq(<div class="box" id="statusbad"><p>You are not allowed to edit the following isolate records: )
+					  . qq(@not_allowed.</p></div>);
 					return;
 				}
 
@@ -245,15 +255,15 @@ sub _check {
 					($count) = $sql->fetchrow_array;
 				};
 				if ( $@ || $count == 0 ) {
-					$oldvalue = "<span class=\"statusbad\">no editable record with $id->{'field1'}='$id[$i]'";
-					$oldvalue .= " and $id->{'field2'}='$id2[$i]'" if $id->{'field2'} ne '<none>';
-					$oldvalue .= "</span>";
-					$action = "<span class=\"statusbad\">no action</span>";
+					$old_value = qq(<span class="statusbad">no editable record with $id->{'field1'}='$id[$i]');
+					$old_value .= " and $id->{'field2'}='$id2[$i]'" if $id->{'field2'} ne '<none>';
+					$old_value .= "</span>";
+					$action = qq(<span class="statusbad">no action</span>);
 				} elsif ( $count > 1 ) {
-					$oldvalue = "<span class=\"statusbad\">duplicate records with $id->{'field1'}='$id[$i]'";
-					$oldvalue .= " and $id->{'field2'}='$id2[$i]'" if $id->{'field2'} ne '<none>';
-					$oldvalue .= "</span>";
-					$action = "<span class=\"statusbad\">no action</span>";
+					$old_value = qq(<span class="statusbad">duplicate records with $id->{'field1'}='$id[$i]');
+					$old_value .= " and $id->{'field2'}='$id2[$i]'" if $id->{'field2'} ne '<none>';
+					$old_value .= "</span>";
+					$action = qq(<span class="statusbad">no action</span>);
 				} else {
 					@args = ();
 					my $table = $self->_get_field_and_match_joined_table( $field[$i] );
@@ -270,13 +280,20 @@ sub _check {
 					push @args, $id2[$i] if $id->{'field2'} ne '<none>';
 					eval { $sql2->execute(@args) };
 					$logger->error($@) if $@;
-					$oldvalue = $sql2->fetchrow_array;
-					if (   !defined $oldvalue
-						|| $oldvalue eq ''
+					my @old_values;
+					while ( my $value = $sql2->fetchrow_array ) {
+						push @old_values, $value;
+					}
+					no warnings 'numeric';
+					@old_values = sort { $a <=> $b || $a cmp $b } @old_values;
+					local $" = ',';
+					$old_value = "@old_values";
+					if (   !defined $old_value
+						|| $old_value eq ''
 						|| $q->param('overwrite') )
 					{
-						$oldvalue = "&lt;blank&gt;"
-						  if !defined $oldvalue || $oldvalue eq '';
+						$old_value = "&lt;blank&gt;"
+						  if !defined $old_value || $old_value eq '';
 						my $problem = $self->is_field_bad( 'isolates', $field[$i], $value[$i], 'update' );
 						if ($is_locus) {
 							my $locus_info = $self->{'datastore'}->get_locus_info( $field[$i] );
@@ -285,32 +302,45 @@ sub _check {
 							}
 						}
 						if ($problem) {
-							$action = "<span class=\"statusbad\">no action - $problem</span>";
+							$action = qq(<span class="statusbad">no action - $problem</span>);
 						} else {
-							if ( $value[$i] eq $oldvalue || ( $value[$i] eq '<blank>' && $oldvalue eq '&lt;blank&gt;' ) ) {
-								$action = "<span class=\"statusbad\">no action - new value unchanged</span>";
+							if ( ( any { $value[$i] eq $_ } @old_values ) || ( $value[$i] eq '<blank>' && $old_value eq '&lt;blank&gt;' ) )
+							{
+								if ($is_locus) {
+									$action = qq(<span class="statusbad">no action - designation already set</span>);
+								} else {
+									$action = qq(<span class="statusbad">no action - new value unchanged</span>);
+								}
 								$update[$i] = 0;
 							} else {
-								$action = "<span class=\"statusgood\">update field with new value</span>";
+								if ($is_locus) {
+									if ( $q->param('designations') eq 'add' ) {
+										$action = qq(<span class="statusgood">add new designation</span>);
+									} else {
+										$action = qq(<span class="statusgood">replace designation(s)</span>);
+									}
+								} else {
+									$action = qq(<span class="statusgood">update field with new value</span>);
+								}
 								$update[$i] = 1;
 							}
 						}
 					} else {
-						$action = "<span class=\"statusbad\">no action - value already in db</span>";
+						$action = qq(<span class="statusbad">no action - value already in db</span>);
 					}
 				}
 			} else {
-				$oldvalue = "<span class=\"statusbad\">field not recognised</span>";
-				$action   = "<span class=\"statusbad\">no action</span>";
+				$old_value = qq(<span class="statusbad">field not recognised</span>);
+				$action    = qq(<span class="statusbad">no action</span>);
 			}
 			$display_value =~ s/<blank>/&lt;blank&gt;/;
 			$display_field =~ s/^meta_.*://;
 			if ( $id->{'field2'} ne '<none>' ) {
-				$buffer .= "<tr class=\"td$td\"><td>$i</td><td>$id[$i]</td><td>$id2[$i]</td><td>$display_field</td>"
-				  . "<td>$display_value</td><td>$oldvalue</td><td>$action</td></tr>\n";
+				$buffer .= qq(<tr class="td$td"><td>$i</td><td>$id[$i]</td><td>$id2[$i]</td><td>$display_field</td>)
+				  . qq(<td>$display_value</td><td>$old_value</td><td>$action</td></tr>\n);
 			} else {
-				$buffer .= "<tr class=\"td$td\"><td>$i</td><td>$id[$i]</td><td>$display_field</td><td>$display_value</td>"
-				  . "<td>$oldvalue</td><td>$action</td></tr>";
+				$buffer .= qq(<tr class="td$td"><td>$i</td><td>$id[$i]</td><td>$display_field</td><td>$display_value</td>)
+				  . qq(<td>$old_value</td><td>$action</td></tr>);
 			}
 			$table_rows++;
 			$td = $td == 1 ? 2 : 1;
@@ -329,17 +359,17 @@ sub _check {
 		}
 		close $fh;
 		say $q->start_form;
-		$q->param( 'idfield1', $id->{'field1'} );
-		$q->param( 'idfield2', $id->{'field2'} );
-		$q->param( 'update',   1 );
-		$q->param( 'file',     "$prefix.txt" );
-		say $q->hidden($_) foreach qw (db page idfield1 idfield2 update file);
-		say $q->submit( -label => 'Submit', -class => 'submit' );
+		$q->param( idfield1 => $id->{'field1'} );
+		$q->param( idfield2 => $id->{'field2'} );
+		$q->param( update   => 1 );
+		$q->param( file     => "$prefix.txt" );
+		say $q->hidden($_) foreach qw (db page idfield1 idfield2 update file designations);
+		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Upload' } );
 		say $q->endform;
 	} else {
-		say "<div class=\"box\" id=\"statusbad\"><p>No valid values to update.</p>";
+		say qq(<div class="box" id="statusbad"><p>No valid values to update.</p>);
 	}
-	say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p>\n</div>";
+	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p>\n</div>);
 	return;
 }
 
@@ -348,17 +378,12 @@ sub _update {
 	my $q      = $self->{'cgi'};
 	my $id     = $self->_get_id_fields;
 	my $file   = $q->param('file');
-	my $transaction;
-	my $i = 1;
+	my @records;
 	open( my $fh, '<', "$self->{'config'}->{'secure_tmp_dir'}/$file" ) or $logger->error("Can't open $file for reading");
 	while ( my $line = <$fh> ) {
 		chomp $line;
 		my @record = split /\t/, $line;
-		$transaction->{$i}->{'id'}    = $record[0];
-		$transaction->{$i}->{'id2'}   = $record[1];
-		$transaction->{$i}->{'field'} = $record[2];
-		$transaction->{$i}->{'value'} = $record[3];
-		$i++;
+		push @records, \@record;
 	}
 	close $fh;
 	say "<div class=\"box\" id=\"resultsheader\">";
@@ -369,73 +394,50 @@ sub _update {
 	say "User: $curator_name<br />";
 	my $datestamp = $self->get_datestamp;
 	say "Datestamp: $datestamp<br />";
-	my $tablebuffer;
+	my $tablebuffer = '';
 	my $td          = 1;
 	my $match_table = $self->_get_match_joined_table;
 	my $match       = $self->_get_match_criteria;
+	my $view        = $self->{'system'}->{'view'};
 
-	foreach my $i ( sort { $a <=> $b } keys %$transaction ) {
-		my ( $id1, $id2, $field, $value ) =
-		  ( $transaction->{$i}->{'id'}, $transaction->{$i}->{'id2'}, $transaction->{$i}->{'field'}, $transaction->{$i}->{'value'} );
+	foreach my $record ( @records ) {
+		my ( $id1, $id2, $field, $value ) = @$record;
 		my ( $isolate_id, $old_value );
 		$nochange = 0;
-		my ( $qry, $qry2 );
+		my ( $qry, $delete_qry );
 		my $is_locus = $self->{'datastore'}->is_locus($field);
-		my ( @args, @args2 );
+		my ( @args, @delete_args, @deleted_designations );
 		if ($is_locus) {
-			my @id_args;
-			my $id_qry = "SELECT $self->{'system'}->{'view'}.id FROM $match_table WHERE $match";
-			push @id_args, $id1;
+			my @id_args = ($id1);
 			push @id_args, $id2 if $id->{'field2'} ne '<none>';
-			my $sql_id = $self->{'db'}->prepare($id_qry);
-			eval { $sql_id->execute(@id_args) };
-			$logger->error($@) if $@;
-			($isolate_id) = $sql_id->fetchrow_array;
-
-			#if existing designation set, demote it to pending
-			my $existing_ref = $self->{'datastore'}->get_allele_designation( $isolate_id, $field );
-			if ( ref $existing_ref eq 'HASH' ) {
-				$old_value = $existing_ref->{'allele_id'};
-
-				#delete existing pending designations with same allele_id
-				my $pending_designations = $self->{'datastore'}->get_pending_allele_designations( $isolate_id, $field );
-				foreach (@$pending_designations) {
-					if (   $_->{'allele_id'} eq $existing_ref->{'allele_id'}
-						&& $_->{'sender'} eq $existing_ref->{'sender'}
-						&& $_->{'method'} eq 'manual' )
-					{
-						my $delete_sql =
-						  $self->{'db'}->prepare("DELETE FROM pending_allele_designations WHERE isolate_id=? and locus=? AND allele_id=?");
-						eval { $delete_sql->execute( $isolate_id, $field, $value ) };
-						$logger->error($@) if $@;
-					}
-				}
-				my $delete_sql = $self->{'db'}->prepare("DELETE FROM allele_designations WHERE isolate_id=? and locus=?");
-				eval { $delete_sql->execute( $isolate_id, $field ) };
-				$logger->error($@) if $@;
-			}
-			my $isolate_ref =
-			  $self->{'datastore'}->run_simple_query( "SELECT sender FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id );
+			$isolate_id = $self->{'datastore'}->run_simple_query( "SELECT $view.id FROM $match_table WHERE $match", @id_args )->[0];
+			my $isolate_ref = $self->{'datastore'}->run_simple_query( "SELECT sender FROM $view WHERE id=?", $isolate_id );
 			$qry = "INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp) "
 			  . "VALUES (?,?,?,?,?,?,?,?,?)";
 			push @args, ( $isolate_id, $field, $value, $isolate_ref->[0], 'confirmed', 'manual', $curator_id, 'now', 'now' );
+			if ( $q->param('designations') eq 'replace' ) {
 
-			#delete from pending if it matches the new designation
-			$qry2 .= ";DELETE FROM pending_allele_designations WHERE isolate_id=? AND locus=? AND allele_id=? AND sender=? AND method=?";
-			push @args2, ( $isolate_id, $field, $value, $isolate_ref->[0], 'manual' );
+				#Prepare allele deletion query
+				$delete_qry = "DELETE FROM allele_designations WHERE (isolate_id,locus)=(?,?)";
+				push @delete_args, ( $isolate_id, $field );
+
+				#Determine which alleles will be deleted for reporting in history
+				my $existing_designations = $self->{'datastore'}->get_allele_designations( $isolate_id, $field );
+				foreach my $designation (@$existing_designations) {
+					push @deleted_designations, $designation->{'allele_id'} if $designation->{'allele_id'} ne $value;
+				}
+			}
 		} else {
 			my @id_args = ($id1);
 			push @id_args, $id2 if $id->{'field2'} ne '<none>';
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			push @args, ( ( $value // '' ) eq '' ? undef : $value );
 			if ( defined $metaset ) {
-				my $record_exists = $self->{'datastore'}->run_simple_query(
-"SELECT EXISTS(SELECT * FROM meta_$metaset WHERE isolate_id IN (SELECT $self->{'system'}->{'view'}.id FROM $match_table WHERE $match))",
-					@id_args
-				)->[0];
-				$isolate_id =
-				  $self->{'datastore'}->run_simple_query( "SELECT $self->{'system'}->{'view'}.id FROM $match_table WHERE $match", @id_args )
-				  ->[0];
+				my $record_exists =
+				  $self->{'datastore'}->run_simple_query(
+					"SELECT EXISTS(SELECT * FROM meta_$metaset WHERE isolate_id IN (SELECT $view.id FROM $match_table WHERE $match))",
+					@id_args )->[0];
+				$isolate_id = $self->{'datastore'}->run_simple_query( "SELECT $view.id FROM $match_table WHERE $match", @id_args )->[0];
 				if ($record_exists) {
 					$qry = "UPDATE meta_$metaset SET $metafield=? WHERE isolate_id=?";
 				} else {
@@ -446,8 +448,7 @@ sub _update {
 				  $self->{'datastore'}->run_simple_query( "SELECT $metafield FROM meta_$metaset WHERE isolate_id=?", $isolate_id );
 				$old_value = ref $old_value_ref eq 'ARRAY' ? $old_value_ref->[0] : undef;
 			} else {
-				$qry = "UPDATE isolates SET $field=?,datestamp=?,curator=? WHERE id IN (SELECT $self->{'system'}->{'view'}.id "
-				  . "FROM $match_table WHERE $match)";
+				$qry = "UPDATE isolates SET $field=?,datestamp=?,curator=? WHERE id IN (SELECT $view.id FROM $match_table WHERE $match)";
 				push @args, ( 'now', $curator_id, @id_args );
 				my $id_qry = $qry;
 				$id_qry =~ s/UPDATE isolates .*? WHERE/SELECT id,$field FROM isolates WHERE/;
@@ -457,41 +458,50 @@ sub _update {
 				( $isolate_id, $old_value ) = $sql_id->fetchrow_array;
 			}
 		}
-		$tablebuffer .= "<tr class=\"td$td\"><td>$id->{'field1'}='$id1'";
+		$tablebuffer .= qq(<tr class="td$td"><td>$id->{'field1'}='$id1');
 		$tablebuffer .= " AND $id->{'field2'}='$id2'" if $id->{'field2'} ne '<none>';
 		$value //= '&lt;blank&gt;';
 		( my $display_field = $field ) =~ s/^meta_.*://;
 		$tablebuffer .= "</td><td>$display_field</td><td>$value</td>";
 		my $update_sql = $self->{'db'}->prepare($qry);
 		eval {
-			$update_sql->execute(@args);
-
-			if ($qry2) {
-				my $delete_sql = $self->{'db'}->prepare($qry2);
-				$delete_sql->execute(@args2);
+			if ($delete_qry)
+			{
+				my $delete_sql = $self->{'db'}->prepare($delete_qry);
+				$delete_sql->execute(@delete_args);
 			}
+			$update_sql->execute(@args);
 		};
 		if ($@) {
-			$logger->error($@);
-			$tablebuffer .= "<td class=\"statusbad\">can't update!</td></tr>\n";
+			$logger->error($@) if $@ !~ /duplicate/;    #Designation submitted twice in update - ignore if so
+			$tablebuffer .= qq(<td class="statusbad">can't update!</td></tr>\n);
 			$self->{'db'}->rollback;
 		} else {
 			$self->{'db'}->commit;
-			$tablebuffer .= "<td class=\"statusgood\">done!</td></tr>\n";
+			$tablebuffer .= qq(<td class="statusgood">done!</td></tr>\n);
 			$old_value //= '';
 			$value = '' if $value eq '&lt;blank&gt;';
 			( my $display_field = $field ) =~ s/^meta_.*://;
-			$self->update_history( $isolate_id, "$display_field: '$old_value' -> '$value'" ) if $old_value ne $value;
+			if ($is_locus) {
+				if ( $q->param('designations') eq 'replace' ) {
+					my $plural = @deleted_designations == 1 ? '' : 's';
+					local $" = ',';
+					$self->update_history( $isolate_id, "$display_field: designation$plural '@deleted_designations' deleted" )
+					  if @deleted_designations;
+				}
+				$self->update_history( $isolate_id, "$display_field: new designation '$value'" );
+			} else {
+				$self->update_history( $isolate_id, "$display_field: '$old_value' -> '$value'" ) if $old_value ne $value;
+			}
 		}
 		$td = $td == 1 ? 2 : 1;
 	}
 	if ($nochange) {
 		say "<p>No changes to be made.</p>";
 	} else {
-		say "<table class=\"resultstable\"><tr><th>Condition</th><th>Field</th><th>New value</th>"
-		  . "<th>Status</th></tr>$tablebuffer</table>";
+		say qq(<table class="resultstable"><tr><th>Condition</th><th>Field</th><th>New value</th><th>Status</th></tr>$tablebuffer</table>);
 	}
-	say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p>\n</div>";
+	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p>\n</div>);
 	return;
 }
 
