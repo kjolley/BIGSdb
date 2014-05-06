@@ -177,11 +177,20 @@ sub get_composite_value {
 			my @field_values;
 			$scheme_field = lc($scheme_field);    # hashref keys returned as lower case from db.
 			if ( defined $scheme_fields->{$scheme_id}->{$scheme_field} ) {
-				foreach my $value ( keys %{ $scheme_fields->{$scheme_id}->{$scheme_field} } ) {  #TODO sort these
+				my @unprocessed_values = keys %{ $scheme_fields->{$scheme_id}->{$scheme_field} };
+				no warnings 'numeric';
+				foreach my $value (
+					sort {
+						$scheme_fields->{$scheme_id}->{$scheme_field}->{$a} cmp $scheme_fields->{$scheme_id}->{$scheme_field}->{$b}
+						  || $a <=> $b
+						  || $a cmp $b
+					} @unprocessed_values
+				  )
+				{
 					my $provisional = $scheme_fields->{$scheme_id}->{$scheme_field}->{$value} eq 'provisional' ? 1 : 0;
 					if ($regex) {
 						my $expression = "\$value =~ $regex";
-						eval "$expression";       ## no critic (ProhibitStringyEval)
+						eval "$expression";    ## no critic (ProhibitStringyEval)
 					}
 					$value = qq(<span class="provisional">$value</span>)
 					  if $provisional && !$options->{'no_format'};
