@@ -466,36 +466,31 @@ sub _scan {
 
 sub _tag {
 	my ( $self, $labels ) = @_;
-	my ( @updates, @allele_updates, @pending_allele_updates, @sequence_updates, $history );
+	my ( @updates, @allele_updates, @sequence_updates, $history );
 	my $q = $self->{'cgi'};
-	my $pending_sql =
-	  $self->{'db'}
-	  ->prepare("SELECT COUNT(*) FROM pending_allele_designations WHERE isolate_id=? AND locus=? AND allele_id=? AND sender=?");
 	my $sequence_exists_sql =
 	  $self->{'db'}->prepare("SELECT COUNT(*) FROM allele_sequences WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=?");
-	my $sql                       = $self->{'db'}->prepare("SELECT sender FROM sequence_bin WHERE id=?");
-	my $curator_id                = $self->get_curator_id;
-	my $scan_job                  = $q->param('scan');
-	my $match_list                = $self->_read_matches($scan_job);
-	my $designation_added         = {};
-	my $pending_designation_added = {};
-
+	my $sql               = $self->{'db'}->prepare("SELECT sender FROM sequence_bin WHERE id=?");
+	my $curator_id        = $self->get_curator_id;
+	my $scan_job          = $q->param('scan');
+	my $match_list        = $self->_read_matches($scan_job);
+	my $designation_added = {};
 	foreach my $match (@$match_list) {
+
 		if ( $match =~ /^(\d+):(.+):(\d+)$/ ) {
 			my ( $isolate_id, $locus, $id ) = ( $1, $2, $3 );
 			next if !$self->is_allowed_to_view_isolate($isolate_id);
-			my %pending_allele_ids_to_set;
 			my $display_locus = $self->clean_locus($locus);
 			my $seqbin_id     = $q->param("id_$isolate_id\_$locus\_seqbin_id_$id");
 			if ( $q->param("id_$isolate_id\_$locus\_allele_$id") && defined $q->param("id_$isolate_id\_$locus\_allele_id_$id") ) {
 				my $allele_id = $q->param("id_$isolate_id\_$locus\_allele_id_$id");
-				my $set_allele_id = $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
+				my $set_allele_ids = $self->{'datastore'}->get_allele_ids( $isolate_id, $locus );
 				eval { $sql->execute($seqbin_id) };
 				$logger->error($@) if $@;
 				my $seqbin_info = $sql->fetchrow_hashref;
 				my $sender      = $allele_id ? $seqbin_info->{'sender'} : $self->get_curator_id;
 				my $status      = $allele_id ? 'confirmed' : 'provisional';
-				if ( !defined $set_allele_id && !$designation_added->{$isolate_id}->{$locus} ) {
+				if ( ( none { $allele_id eq $_ } @$set_allele_ids ) && !$designation_added->{$isolate_id}->{$locus}->{$allele_id} ) {
 					push @updates,
 					  {
 						statement => "INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,"
@@ -507,36 +502,7 @@ sub _tag {
 					  };
 					push @allele_updates, ( $labels->{$isolate_id} || $isolate_id ) . ": $display_locus:  $allele_id";
 					push @{ $history->{$isolate_id} }, "$locus: new designation '$allele_id' (sequence bin scan)";
-					$designation_added->{$isolate_id}->{$locus} = $allele_id;
-				} elsif (
-					(
-						( defined $set_allele_id && $set_allele_id ne $allele_id ) || ( defined $designation_added->{$isolate_id}->{$locus}
-							&& $designation_added->{$isolate_id}->{$locus} ne $allele_id )
-					)
-					&& !$pending_allele_ids_to_set{$allele_id}
-				  )
-				{
-					eval { $pending_sql->execute( $isolate_id, $locus, $allele_id, $sender ) };
-					$logger->error($@) if $@;
-					my ($exists) = $pending_sql->fetchrow_array;
-					if ( !$exists && !$pending_designation_added->{$isolate_id}->{$locus}->{$allele_id}->{$sender} ) {
-						push @updates,
-						  {
-							statement => "INSERT INTO pending_allele_designations (isolate_id,locus,allele_id,sender,method,curator,"
-							  . "date_entered,datestamp,comments) VALUES (?,?,?,?,?,?,?,?,?)",
-							arguments => [
-								$isolate_id, $locus, $allele_id, $sender, 'automatic', $curator_id, 'now', 'now',
-								'Scanned from sequence bin'
-							]
-						  };
-						$pending_allele_ids_to_set{$allele_id} = 1;
-						push @pending_allele_updates,
-						    ( $labels->{$isolate_id} || $isolate_id )
-						  . ": $display_locus:  $allele_id (conflicts with existing designation '"
-						  . ( ( $set_allele_id // '' ) eq '' ? $designation_added->{$isolate_id}->{$locus} : $set_allele_id ) . "').";
-						push @{ $history->{$isolate_id} }, "$locus: new pending designation '$allele_id' (sequence bin scan)";
-						$pending_designation_added->{$isolate_id}->{$locus}->{$allele_id}->{$sender} = 1;
-					}
+					$designation_added->{$isolate_id}->{$locus}->{$allele_id} = 1;
 				}
 			}
 			if ( $q->param("id_$isolate_id\_$locus\_sequence_$id") ) {
@@ -605,10 +571,6 @@ sub _tag {
 			if (@allele_updates) {
 				say "<h2>Allele designations set</h2>";
 				say "<p>@allele_updates</p>";
-			}
-			if (@pending_allele_updates) {
-				say "<h2>Pending allele designations set</h2>";
-				say "<p>@pending_allele_updates</p>";
 			}
 			if (@sequence_updates) {
 				say "<h2>Allele sequences set</h2>";

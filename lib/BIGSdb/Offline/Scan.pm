@@ -289,12 +289,14 @@ sub run_script {
 				$self->_write_status( $options->{'scan_job'}, "last_isolate:$isolate_id" );
 				last;
 			}
-			next if !$params->{'rescan_alleles'} && defined $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
+			my $existing_allele_ids = $self->{'datastore'}->get_allele_ids( $isolate_id, $locus );
+			next if !$params->{'rescan_alleles'} && @$existing_allele_ids;
 			next if !$params->{'rescan_seqs'} && $self->{'datastore'}->allele_sequence_exists( $isolate_id, $locus );
 			my ( $exact_matches, $partial_matches ) = $self->blast( $params, $locus, $isolate_id, $file_prefix, $locus_prefix );
 			my $off_end;
 			my $i = 1;
 			my $new_designation;
+
 			if ( ref $exact_matches && @$exact_matches ) {
 				my %new_matches;
 				foreach my $match (@$exact_matches) {
@@ -446,11 +448,19 @@ sub _get_row {
 	my $class  = $exact ? '' : " class=\"partialmatch\"";
 	my $tooltip;
 	my $new_designation = 0;
-	my $existing_allele = $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
+	my $existing_alleles = $self->{'datastore'}->get_allele_ids( $isolate_id, $locus );
 
-	if ( defined $existing_allele && $match->{'allele'} eq $existing_allele ) {
+	if ( @$existing_alleles && ( any { $match->{'allele'} eq $_ } @$existing_alleles ) ) {
 		$tooltip = $self->_get_designation_tooltip( $isolate_id, $locus, 'existing' );
-	} elsif ( $match->{'allele'} && defined $existing_allele && $existing_allele ne $match->{'allele'} ) {
+	} elsif (
+		$match->{'allele'} && @$existing_alleles && (
+			none {
+				$match->{'allele'} eq $_;
+			}
+			@$existing_alleles
+		)
+	  )
+	{
 		$tooltip = $self->_get_designation_tooltip( $isolate_id, $locus, 'clashing' );
 	}
 	my $seqbin_length =
@@ -560,18 +570,13 @@ sub _get_row {
 	  . "$complete_tooltip</td>";
 	$buffer .= "<td style=\"font-size:2em\">" . ( $match->{'reverse'} ? '&larr;' : '&rarr;' ) . "</td><td>";
 	my $sender = $self->{'datastore'}->run_simple_query( "SELECT sender FROM sequence_bin WHERE id=?", $match->{'seqbin_id'} )->[0];
-	my $matching_pending =
-	  $self->{'datastore'}->run_simple_query(
-		"SELECT COUNT(*) FROM pending_allele_designations WHERE isolate_id=? AND locus=? AND allele_id=? AND sender=? AND method=?",
-		$isolate_id, $locus, $match->{'allele'}, $sender, 'automatic' )->[0];
 	my $seq_disabled = 0;
 	$cleaned_locus = $self->clean_checkbox_id($locus);
 	$cleaned_locus =~ s/\\/\\\\/g;
 	$exact = 0 if $warning;
 
 	if (   $exact
-		&& ( !defined $existing_allele || $match->{'allele'} ne $existing_allele )
-		&& !$matching_pending
+		&& ( !@$existing_alleles || ( none { $match->{'allele'} eq $_ } @$existing_alleles ) )
 		&& $match->{'allele'} ne 'ref'
 		&& !$params->{'tblastx'} )
 	{
@@ -651,11 +656,11 @@ sub _get_row {
 sub _get_missing_row {
 	my ( $self, $isolate_id, $labels, $locus, $js, $js2, ) = @_;
 	my $q                  = $self->{'cgi'};
-	my $existing_allele    = $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
+	my $existing_alleles   = $self->{'datastore'}->get_allele_ids( $isolate_id, $locus );
 	my $existing_sequences = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
 	my $cleaned_locus      = $self->clean_locus($locus);
 	my $buffer;
-	if ( defined $existing_allele || @$existing_sequences ) {
+	if ( @$existing_alleles || @$existing_sequences ) {
 		print ' ';    #try to prevent time-out.
 		return $buffer;
 	}
@@ -907,25 +912,15 @@ sub _get_designation_tooltip {
 		$class = 'clashing_tooltip';
 		$text  = 'conflict';
 	}
-	my $buffer = 'Existing designation - ';
-	my $allele = $self->{'datastore'}->get_allele_designation( $isolate_id, $locus );
-	my $sender = $self->{'datastore'}->get_user_info( $allele->{'sender'} );
-	$buffer .= "allele: $allele->{'allele_id'} ";
-	$buffer .= "($allele->{'comments'}) "
-	  if $_->{'comments'};
-	$buffer .= "[$sender->{'first_name'} $sender->{'surname'}; $allele->{'method'}; $allele->{'datestamp'}]";
-	if ( $class ne 'existing' ) {
-		my $pending = $self->{'datastore'}->get_pending_allele_designations( $isolate_id, $locus );
-		if (@$pending) {
-			$buffer .= '<h3>pending designations</h3>';
-			foreach (@$pending) {
-				my $pending_sender = $self->{'datastore'}->get_user_info( $_->{'sender'} );
-				$buffer .= "allele: $_->{'allele_id'} ";
-				$buffer .= "($_->{'comments'}) "
-				  if $_->{'comments'};
-				$buffer .= "[$pending_sender->{'first_name'} $pending_sender->{'surname'}; $_->{'method'}; $_->{'datestamp'}]<br />";
-			}
-		}
+	my $designations = $self->{'datastore'}->get_allele_designations( $isolate_id, $locus );
+	my $plural = @$designations == 1 ? '' : 's';
+	my $buffer = "Existing designation$plural - ";
+	foreach my $designation (@$designations) {
+		my $sender = $self->{'datastore'}->get_user_info( $designation->{'sender'} );
+		$buffer .= "allele: $designation->{'allele_id'} ";
+		$buffer .= "($designation->{'comments'}) "
+		  if $designation->{'comments'};
+		$buffer .= "[$sender->{'first_name'} $sender->{'surname'}; $designation->{'method'}; $designation->{'datestamp'}]<br />";
 	}
 	return " <a class=\"$class\" title=\"$buffer\">$text</a>";
 }
