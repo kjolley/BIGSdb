@@ -633,7 +633,6 @@ sub _get_row {
 		$buffer .= $q->checkbox( -name => "id_$isolate_id\_$locus\_sequence_$id", -label => '', disabled => 'disabled' );
 		$seq_disabled = 1;
 		$buffer .= "</td><td>";
-		$logger->error( $existing_allele_sequence->{'id'} );
 		my $flags = $self->{'datastore'}->get_sequence_flags( $existing_allele_sequence->{'id'} );
 		foreach (@$flags) {
 			$buffer .= " <a class=\"seqflag_tooltip\">$_</a>";

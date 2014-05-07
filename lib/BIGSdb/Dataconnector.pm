@@ -19,6 +19,7 @@
 package BIGSdb::Dataconnector;
 use strict;
 use warnings;
+use feature "state";
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Dataconnector');
 
@@ -33,19 +34,21 @@ sub new {
 sub DESTROY {
 	my ($self) = @_;
 	foreach my $db ( keys %{ $self->{'db'} } ) {
-		$self->_log_active_statement_handles( $self->{'db'}->{$db}, 1 );
+		$self->_finish_active_statement_handles( $self->{'db'}->{$db}, 1 );
 		eval { $self->{'db'}->{$db}->disconnect and $logger->info("Disconnected from database $self->{'db'}->{$db}->{'Name'}") };
 		$logger->debug("Database $self->{'db'}->{$db}->{'Name'}: $@") if $@;
 	}
 	return;
 }
 
-sub _log_active_statement_handles {
+sub _finish_active_statement_handles {
 	my ( $self, $h, $level ) = @_;
 	if ( $h->{'Active'} && $h->{'Type'} eq 'st' ) {
-		$logger->logwarn("Active statement: $h->{'Statement'}");
+		eval { $h->finish };
+		$logger->error($@) if $@;
+		$logger->debug("Active statement: $h->{'Statement'}");
 	}
-	$self->_log_active_statement_handles( $_, $level + 1 ) for ( grep { defined } @{ $h->{'ChildHandles'} } );
+	$self->_finish_active_statement_handles( $_, $level + 1 ) for ( grep { defined } @{ $h->{'ChildHandles'} } );
 	return;
 }
 
@@ -76,6 +79,8 @@ sub get_connection {
 	my $password = $attributes->{'password'} || $self->{'system'}->{'password'};
 	$host = $self->{'config'}->{'host_map'}->{$host} || $host;
 	throw BIGSdb::DatabaseConnectionException("No database name passed") if !$attributes->{'dbase_name'};
+	state $pid = $$;
+
 	if ( !$self->{'db'}->{"$host|$attributes->{'dbase_name'}"} ) {
 		my $db;
 		eval {
@@ -91,6 +96,9 @@ sub get_connection {
 			$logger->debug("dbase: $attributes->{'dbase_name'}; host: $host; port: $port: user: $user; password: $password");
 		}
 	}
+
+	#Properly handle forked environment (used for scanning)
+	$self->{'db'}->{"$host|$attributes->{'dbase_name'}"}->{'InactiveDestroy'} = $pid == $$ ? 1 : 0;
 	return $self->{'db'}->{"$host|$attributes->{'dbase_name'}"};
 }
 1;
