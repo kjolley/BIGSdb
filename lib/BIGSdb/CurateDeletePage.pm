@@ -215,11 +215,9 @@ sub _display_record {
 		$buffer .= "<div><fieldset>\n<legend>Options</legend>\n<ul>\n<li>\n";
 		if ( $self->can_modify_table('allele_sequences') ) {
 			$buffer .= $q->checkbox( -name => 'delete_tags', -label => 'Also delete all sequence tags for this isolate/locus combination' );
-			$buffer .= "</li>\n<li>\n";
+			$buffer .= "</li>\n";
 		}
-		$buffer .=
-		  $q->checkbox( -name => 'delete_pending', -label => 'Also delete all pending designations for this isolate/locus combination' );
-		$buffer .= "</li>\n</ul>\n</fieldset>\n</div>\n";
+		$buffer .= "</ul>\n</fieldset>\n</div>\n";
 	}
 	$buffer .= $q->submit( -name => 'submit', -value => 'Delete!', -class => 'submit' );
 	$buffer .= "</div>\n";
@@ -299,9 +297,8 @@ sub _delete {
 		foreach my $table_to_check ( keys %tables_to_check ) {
 
 			#cascade deletion of locus
-			next if $table eq 'loci' && any { $table_to_check eq $_ } qw (locus_aliases locus_descriptions
-			  allele_designations pending_allele_designations allele_sequences locus_curators
-			  client_dbase_loci locus_extended_attributes);
+			next if $table eq 'loci' && any { $table_to_check eq $_ } qw (locus_aliases locus_descriptions allele_designations
+			  allele_sequences locus_curators client_dbase_loci locus_extended_attributes);
 
 			#cascade deletion of user
 			next if $table eq 'users' && any { $table_to_check eq $_ } qw ( user_permissions user_group_members);
@@ -422,15 +419,6 @@ sub _confirm {
 	if ( $table eq 'allele_designations' ) {
 		my $deltags = $q->param('delete_tags') ? "<br />$data->{'locus'}: sequence tag(s) deleted" : '';
 		$self->update_history( $data->{'isolate_id'}, "$data->{'locus'}: designation '$data->{'allele_id'}' deleted$deltags" );
-
-		#check if pending designation exists as this needs to be promoted.
-		if ( $q->param('delete_pending') ) {
-			$self->delete_pending_designations( $data->{'isolate_id'}, $data->{'locus'} );
-		} else {
-			$self->promote_pending_allele_designation( $data->{'isolate_id'}, $data->{'locus'} );
-		}
-	} elsif ( $table eq 'pending_allele_designations' ) {
-		$self->update_history( $data->{'isolate_id'}, "$data->{'locus'}: pending designation '$data->{'allele_id'}' deleted" );
 	} elsif ( $table eq 'sequences' ) {
 		$self->mark_cache_stale;
 	}

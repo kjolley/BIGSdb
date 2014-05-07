@@ -304,8 +304,6 @@ sub _print_allele_designations {
 	my $q = $self->{'cgi'};
 	say "<div class=\"box\" id=\"alleles\" style=\"overflow:auto\">";
 	say "<fieldset style=\"float:left\"><legend>Loci</legend>";
-	say "<p>Allele designations are handled separately from isolate fields due to the potential "
-	  . "complexity of multiple loci with set and pending designations.</p>";
 	my $isolate_record = BIGSdb::IsolateInfoPage->new(
 		(
 			system        => $self->{'system'},

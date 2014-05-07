@@ -1239,7 +1239,6 @@ sub get_record_name {
 		loci                              => 'locus',
 		refs                              => 'PubMed link',
 		allele_designations               => 'allele designation',
-		pending_allele_designations       => 'pending allele designation',
 		scheme_members                    => 'scheme member',
 		schemes                           => 'scheme',
 		scheme_fields                     => 'scheme field',
@@ -1566,7 +1565,7 @@ sub can_modify_table {
 		return 1;
 	} elsif ( ( $table eq 'isolate_user_acl' || $table eq 'isolate_usergroup_acl' ) && $self->{'permissions'}->{'modify_isolates_acl'} ) {
 		return 1;
-	} elsif ( ( $table eq 'allele_designations' || $table eq 'pending_allele_designations' )
+	} elsif ( ( $table eq 'allele_designations' )
 		&& $self->{'permissions'}->{'designate_alleles'} )
 	{
 		return 1;
@@ -1775,7 +1774,7 @@ sub _initiate_isolatedb_prefs {
 		#Switches
 		foreach (
 			qw ( update_details sequence_details mark_provisional mark_provisional_main sequence_details_main display_seqbin_main
-			display_pending display_pending_main locus_alias scheme_members_alias sample_details undesignated_alleles)
+			 locus_alias scheme_members_alias sample_details undesignated_alleles)
 		  )
 		{
 			$self->{'prefs'}->{$_} = $params->{$_} ? 1 : 0;
@@ -1819,7 +1818,7 @@ sub _initiate_isolatedb_prefs {
 
 			#default on
 			foreach (
-				qw (sequence_details sample_details mark_provisional mark_provisional_main display_pending display_pending_main locus_alias)
+				qw (sequence_details sample_details mark_provisional mark_provisional_main locus_alias)
 			  )
 			{
 				$general_prefs->{$_} ||= 'on';

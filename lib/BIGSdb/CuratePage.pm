@@ -54,16 +54,17 @@ sub create_record_table {
 		say "<div class=\"box\" id=\"statusbad\"><p>Record doesn't exist.</p></div>";
 		return '';
 	}
-	my $q       = $self->{'cgi'};
+	my $q = $self->{'cgi'};
 	my $buffer;
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	$buffer .= $q->start_form;
 	$q->param( 'action', $options->{'update'} ? 'update' : 'add' );
 	$q->param( 'table', $table );
 	$buffer .= $q->hidden($_) foreach qw(page table db action );
-	if ($table eq 'allele_designations'){
+
+	if ( $table eq 'allele_designations' ) {
 		$buffer .= $q->hidden( locus => $newdata->{'locus'} );
-		$buffer .= $q->hidden( 'update_id');
+		$buffer .= $q->hidden('update_id');
 	}
 	$buffer .= $q->hidden( sent => 1 );
 	$buffer .= "<div class=\"box\" id=\"queryform\">" if !$options->{'nodiv'};
@@ -78,8 +79,9 @@ sub create_record_table {
 	my %width_override = ( user_permissions => 12, loci => 14, pcr => 12, sequences => 10, locus_descriptions => 11 );
 	$width = $width_override{$table} // $width;
 	$buffer .= $self->_get_form_fields( $attributes, $table, $newdata, $options, $width );
-	if ( $table eq 'sequences' ) { 
-		$buffer .= $self->_create_extra_fields_for_sequences( $newdata, $width ) 
+
+	if ( $table eq 'sequences' ) {
+		$buffer .= $self->_create_extra_fields_for_sequences( $newdata, $width );
 	} elsif ( $table eq 'locus_descriptions' ) {
 		$buffer .= $self->_create_extra_fields_for_locus_descriptions( $q->param('locus') // '', $width );
 	} elsif ( $table eq 'sequence_bin' ) {
@@ -581,8 +583,8 @@ sub _create_extra_fields_for_seqbin {
 		my $attribute_values =
 		  $self->{'datastore'}
 		  ->run_list_query_hashref( "SELECT key,value FROM sequence_attribute_values WHERE seqbin_id=?", $newdata_ref->{'id'} );
-		foreach my $att_value (@$attribute_values){
-			$newdata_ref->{$att_value->{'key'}} = $att_value->{'value'};
+		foreach my $att_value (@$attribute_values) {
+			$newdata_ref->{ $att_value->{'key'} } = $att_value->{'value'};
 		}
 	}
 	if (@$seq_attributes) {
@@ -683,7 +685,7 @@ sub check_record {
 			if ( !$retval->[0] ) {
 				push @problems, "$_->{'name'} should refer to a record within the $_->{'foreign_key'} table, but it doesn't.";
 			}
-		} elsif ( ( $table eq 'allele_designations' || $table eq 'pending_allele_designations' )
+		} elsif ( ( $table eq 'allele_designations' )
 			&& $_->{'name'} eq 'allele_id' )
 		{
 			#special case to check for allele id format and regex which is defined in loci table
@@ -1113,55 +1115,6 @@ sub update_history {
 		$self->{'db'}->rollback;
 	} else {
 		$self->{'db'}->commit;
-	}
-	return;
-}
-
-sub promote_pending_allele_designation {
-	my ( $self, $isolate_id, $locus ) = @_;
-
-	#Promote earliest pending designation if it exists
-	my $pending_designations_ref = $self->{'datastore'}->get_pending_allele_designations( $isolate_id, $locus );
-	return if !@$pending_designations_ref;
-	my $pending    = $pending_designations_ref->[0];
-	my $curator_id = $self->get_curator_id;
-	$locus =~ s/'/\\'/g;
-	$pending->{'comments'} //= '';
-	eval {
-		$self->{'db'}->do( "INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,"
-			  . "datestamp,comments) VALUES ($pending->{'isolate_id'},E'$pending->{'locus'}','$pending->{'allele_id'}',$pending->{'sender'},"
-			  . "'provisional','$pending->{'method'}',$curator_id,'$pending->{'date_entered'}','now','$pending->{'comments'}')" );
-		$self->{'db'}->do( "DELETE FROM pending_allele_designations WHERE isolate_id=$isolate_id AND locus=E'$locus' AND "
-			  . "allele_id='$pending->{'allele_id'}' AND sender=$pending->{'sender'} AND method='$pending->{'method'}'" );
-	};
-	if ($@) {
-		$logger->error($@);
-		$self->{'db'}->rollback;
-	} else {
-		$self->{'db'}->commit;
-		$self->update_history( $pending->{'isolate_id'},
-			"$pending->{'locus'}: new designation '$pending->{'allele_id'}' (promoted from pending)" );
-	}
-	return;
-}
-
-sub delete_pending_designations {
-	my ( $self, $isolate_id, $locus ) = @_;
-	my $pending_designations_ref = $self->{'datastore'}->get_pending_allele_designations( $isolate_id, $locus );
-	return if !@$pending_designations_ref;
-	my $rows;
-	eval {
-		$rows = $self->{'db'}->do( "DELETE FROM pending_allele_designations WHERE isolate_id=? AND locus=?", undef, $isolate_id, $locus );
-	};
-	if ($@) {
-		$logger->error($@);
-		$self->{'db'}->rollback;
-	} else {
-		$self->{'db'}->commit;
-		if ($rows) {
-			my $plural = $rows == 1 ? '' : 's';
-			$self->update_history( $isolate_id, "$locus: $rows pending designation$plural deleted" );
-		}
 	}
 	return;
 }

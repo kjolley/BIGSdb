@@ -247,13 +247,12 @@ sub _print_delete_all_function {
 	$q->param( page => 'deleteAll' );
 	print $q->hidden($_) foreach qw (db page table query_file scheme_id);
 	if ( $table eq 'allele_designations' ) {
-		print "<ul><li>\n";
+		
 		if ( $self->can_modify_table('allele_sequences') ) {
-			print $q->checkbox( -name => 'delete_tags', -label => 'Delete corresponding sequence tags' );
-			print "</li>\n<li>\n";
+			say "<ul><li>";
+			say $q->checkbox( -name => 'delete_tags', -label => 'Delete corresponding sequence tags' );
+			say "</li></ul>";
 		}
-		print $q->checkbox( -name => 'delete_pending', -label => 'Delete corresponding pending designations' );
-		print "</li></ul>\n";
 	}
 	print $q->submit( -name => 'Delete ALL', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
 	print $q->end_form;

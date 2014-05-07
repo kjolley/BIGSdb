@@ -66,10 +66,7 @@ sub print_content {
 		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to modify data for this isolate.</p></div>";
 		return;
 	}
-	if ( $table eq 'pending_allele_designations' ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Pending designations cannot be updated using this function.</p></div>";
-		return;
-	} elsif ( $table eq 'allele_sequences' ) {
+	if ( $table eq 'allele_sequences' ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>Sequence tags cannot be updated using this function.</p></div>";
 		return;
 	}

@@ -218,11 +218,6 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 			  ->prepare("DELETE FROM allele_sequences WHERE seqbin_id IN (SELECT id FROM sequence_bin WHERE isolate_id=?) AND locus=?");
 			foreach (@allele_designations) {
 				my ( $isolate_id, $locus ) = split /\|/, $_;
-				if ( $q->param('delete_pending') ) {
-					$self->delete_pending_designations( $isolate_id, $locus );
-				} else {
-					$self->promote_pending_allele_designation( $isolate_id, $locus );
-				}
 				if ( $self->can_modify_table('allele_sequences') && $q->param('delete_tags') ) {
 					eval { $seqtag_sql->execute( $isolate_id, $locus ); };
 					if ($@) {
@@ -287,7 +282,7 @@ s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bi
 	say "<p>If you proceed, you will delete $count $record_name record$plural.  Please confirm that this is your intention.</p>";
 	say $q->start_form;
 	$q->param( 'deleteAll', 1 );
-	say $q->hidden($_) foreach qw (page db query_file deleteAll table delete_pending delete_tags scheme_id);
+	say $q->hidden($_) foreach qw (page db query_file deleteAll table delete_tags scheme_id);
 	say $q->submit( -label => 'Confirm deletion!', -class => 'submit' );
 	say $q->end_form;
 	$self->print_warning_sign;
