@@ -948,12 +948,9 @@ sub _modify_query_for_filters {
 					$allele_clause .= "(locus=E'$locus')";
 					$first = 0;
 				}
-				my $param = $q->param("scheme_$scheme_id\_profile_status_list");
-
-				#TODO This will have to take account that a locus may have multiple alleles so a count may not indicate
-				#that every locus has a value.
+				my $param  = $q->param("scheme_$scheme_id\_profile_status_list");
 				my $clause = "(EXISTS (SELECT isolate_id FROM allele_designations WHERE $view.id=allele_designations.isolate_id AND "
-				  . "($allele_clause) GROUP BY isolate_id HAVING COUNT(isolate_id)";
+				  . "($allele_clause) GROUP BY isolate_id HAVING COUNT(DISTINCT (locus))";
 				my $locus_count = @$scheme_loci;
 				if    ( $param eq 'complete' ) { $clause .= "=$locus_count))" }
 				elsif ( $param eq 'partial' )  { $clause .= "<$locus_count))" }
