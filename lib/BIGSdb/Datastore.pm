@@ -181,7 +181,7 @@ sub get_composite_value {
 				no warnings 'numeric';
 				foreach my $value (
 					sort {
-						$scheme_fields->{$scheme_id}->{$scheme_field}->{$a} cmp $scheme_fields->{$scheme_id}->{$scheme_field}->{$b}
+						     $scheme_fields->{$scheme_id}->{$scheme_field}->{$a} cmp $scheme_fields->{$scheme_id}->{$scheme_field}->{$b}
 						  || $a <=> $b
 						  || $a cmp $b
 					} @unprocessed_values
@@ -1227,19 +1227,6 @@ sub get_set_locus_label {
 	return;
 }
 ##############ALLELES##################################################################
-sub get_allele_designation {
-	my ( $self, $isolate_id, $locus ) = @_;
-	$logger->logcarp("Datastore::get_allele_designation is deprecated");    #TODO remove
-	if ( !$self->{'sql'}->{'allele_designation'} ) {
-		$self->{'sql'}->{'allele_designation'} = $self->{'db'}->prepare("SELECT * FROM allele_designations WHERE isolate_id=? AND locus=?");
-		$logger->info("Statement handle 'allele_designation' prepared.");
-	}
-	eval { $self->{'sql'}->{'allele_designation'}->execute( $isolate_id, $locus ); };
-	$logger->error($@) if $@;
-	my $allele = $self->{'sql'}->{'allele_designation'}->fetchrow_hashref;
-	return $allele;
-}
-
 sub get_allele_designations {
 	my ( $self, $isolate_id, $locus ) = @_;
 	if ( !$self->{'sql'}->{'allele_designations'} ) {
@@ -1364,21 +1351,6 @@ sub get_allele_flags {
 		push @flags, $flag;
 	}
 	return \@flags;
-}
-
-sub get_allele_id {
-
-	#quicker than get_allele_designation if you only want the allele_id field
-	my ( $self, $isolate_id, $locus ) = @_;
-	$logger->logcarp("Datastore::get_allele_id is deprecated");    #TODO remove
-	if ( !$self->{'sql'}->{'allele_id'} ) {
-		$self->{'sql'}->{'allele_id'} = $self->{'db'}->prepare("SELECT allele_id FROM allele_designations WHERE isolate_id=? AND locus=?");
-		$logger->info("Statement handle 'allele_designation' prepared.");
-	}
-	eval { $self->{'sql'}->{'allele_id'}->execute( $isolate_id, $locus ) };
-	$logger->error($@) if $@;
-	my ($allele_id) = $self->{'sql'}->{'allele_id'}->fetchrow_array;
-	return $allele_id;
 }
 
 sub get_allele_ids {

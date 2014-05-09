@@ -1,6 +1,6 @@
 #Polymorphisms.pm - Plugin for BIGSdb (requires LocusExplorer plugin)
 #Written by Keith Jolley
-#Copyright (c) 2011-2013, University of Oxford
+#Copyright (c) 2011-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -40,7 +40,7 @@ sub get_attributes {
 		category    => 'Breakdown',
 		menutext    => 'Polymorphic sites',
 		module      => 'Polymorphisms',
-		version     => '1.0.2',
+		version     => '1.0.3',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		requires    => 'muscle,offline_jobs',
@@ -214,17 +214,6 @@ sub _get_seqs {
 	open( my $fh, '>', $tempfile ) or $logger->error("could not open temp file $tempfile");
 	my $i = 0;
 	foreach my $id (@$isolate_ids) {
-		my $allele_id = $self->{'datastore'}->get_allele_id( $id, $locus_name );
-		my $allele_seq;
-		if ( $locus_info->{'data_type'} eq 'DNA' ) {
-			try {
-				$allele_seq = $locus->get_allele_sequence($allele_id);
-			}
-			catch BIGSdb::DatabaseConnectionException with {
-
-				#do nothing
-			};
-		}
 		my $seqbin_seq;
 		my $reverse;
 		eval { $seqbin_sql->execute( $id, $locus_name ); };
@@ -233,18 +222,34 @@ sub _get_seqs {
 		if ($reverse) {
 			$seqbin_seq = BIGSdb::Utils::reverse_complement($seqbin_seq);
 		}
-		my $seq;
-		if ( ref $allele_seq && $$allele_seq && $seqbin_seq ) {
-			$seq = $options->{'from_bin'} ? $seqbin_seq : $$allele_seq;
-		} elsif ( ref $allele_seq && $$allele_seq && !$seqbin_seq ) {
-			$seq = $$allele_seq;
-		} elsif ($seqbin_seq) {
-			$seq = $seqbin_seq;
-		}
-		if ( $seq && !$used{$seq} ) {
-			$i++;
-			say $fh ">seq$i\n$seq" if !$used{$seq};
-			$used{$seq} = 1 if $options->{'unique'};
+
+		#TODO Only a single seqbin sequence is compared against each allele designation.  Ideally we would use every
+		#sequence, but this may need to wait until we can link designations with sequence bin tags.
+		my $allele_ids = $self->{'datastore'}->get_allele_ids( $id, $locus_name );
+		my $allele_seq;
+		foreach my $allele_id (@$allele_ids) {
+			if ( $locus_info->{'data_type'} eq 'DNA' ) {
+				try {
+					$allele_seq = $locus->get_allele_sequence($allele_id);
+				}
+				catch BIGSdb::DatabaseConnectionException with {
+
+					#do nothing
+				};
+			}
+			my $seq;
+			if ( ref $allele_seq && $$allele_seq && $seqbin_seq ) {
+				$seq = $options->{'from_bin'} ? $seqbin_seq : $$allele_seq;
+			} elsif ( ref $allele_seq && $$allele_seq && !$seqbin_seq ) {
+				$seq = $$allele_seq;
+			} elsif ($seqbin_seq) {
+				$seq = $seqbin_seq;
+			}
+			if ( $seq && !$used{$seq} ) {
+				$i++;
+				say $fh ">seq$i\n$seq" if !$used{$seq};
+				$used{$seq} = 1 if $options->{'unique'};
+			}
 		}
 	}
 	close $fh;
@@ -297,16 +302,14 @@ sub _print_interface {
 	say "<ul>\n<li>";
 	my %labels =
 	  ( seqbin => 'Use sequences tagged from the bin', allele_designation => 'Use allele sequence retrieved from external database' );
-	say $q->radio_group( -name => 'chooseseq', -values => [ 'seqbin', 'allele_designation' ], -labels => \%labels, -linebreak => 'true' );
+	say $q->radio_group( -name => 'chooseseq', -values => [qw(allele_designation seqbin)], -labels => \%labels, -linebreak => 'true' );
 	say "</li>\n<li style=\"margin-top:1em\">";
 	say $q->checkbox( -name => 'unique', -label => 'Analyse single example of each unique sequence', -checked => 'checked' );
 	say "</li>\n<li>";
 	say $q->checkbox( -name => 'exclude_incompletes', -label => 'Exclude incomplete sequences', -checked => 'checked' );
 	say "</li></ul>";
 	say "</fieldset>";
-	say "<fieldset class=\"display\">";
-	say $q->submit( -name => 'submit', -label => 'Analyse', -class => 'submit' );
-	say "</fieldset>";
+	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Analyse' } );
 	say $q->hidden($_) foreach qw (page name db query_file);
 	say $q->end_form;
 	say "</div>\n</div>";

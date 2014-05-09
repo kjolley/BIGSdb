@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2013, University of Oxford
+#Copyright (c) 2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -64,7 +64,8 @@ sub run_script {
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		my %seqs;
 		foreach my $isolate_id (@$isolate_list) {
-			next if defined $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
+			my $allele_ids = $self->{'datastore'}->get_allele_ids( $isolate_id, $locus );
+			next if @$allele_ids;
 			if (!$self->{'options'}->{'T'}){
 				my $allele_seq = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
 				next if @$allele_seq;

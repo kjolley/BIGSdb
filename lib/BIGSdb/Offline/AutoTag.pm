@@ -75,7 +75,8 @@ sub run_script {
 		$self->{'logger'}->info( "$self->{'options'}->{'d'}:Checking isolate $isolate_id - $i/" . (@$isolate_list) . "($complete%)" );
 		undef $self->{'history'};
 	  LOCUS: foreach my $locus (@$loci) {
-			next if defined $self->{'datastore'}->get_allele_id( $isolate_id, $locus );
+	  		my $existing_allele_ids = $self->{'datastore'}->get_allele_ids( $isolate_id, $locus );
+			next if @$existing_allele_ids;
 			my $allele_seq = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
 			next if @$allele_seq && !$self->{'options'}->{'T'};
 			my ( $exact_matches, $partial_matches ) = $self->blast( $params, $locus, $isolate_id, $isolate_prefix, $locus_prefix );
@@ -159,8 +160,8 @@ sub _is_time_up {
 
 sub _tag_allele {
 	my ( $self, $values ) = @_;
-	my $existing = $self->{'datastore'}->get_allele_designation( $values->{'isolate_id'}, $values->{'locus'} );
-	return if defined $existing;
+	my $existing_designations = $self->{'datastore'}->get_allele_designations( $values->{'isolate_id'}, $values->{'locus'} );
+	return if  @$existing_designations;
 	my $sql =
 	  $self->{'db'}->prepare( "INSERT INTO allele_designations (isolate_id,locus,allele_id,"
 		  . "sender,status,method,curator,date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?)" );
