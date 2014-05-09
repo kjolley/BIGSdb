@@ -33,9 +33,12 @@ UPDATE allele_designations SET id=NEXTVAL('allele_designations_id_seq');
 ALTER TABLE allele_designations ADD PRIMARY KEY(id);
 
 INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp,comments)
-	SELECT isolate_id,locus,allele_id,sender,'provisional',method,curator,date_entered,datestamp,comments FROM pending_allele_designations
-	WHERE (isolate_id,locus,allele_id) NOT IN (SELECT isolate_id,locus,allele_id FROM allele_designations);
-	
+	SELECT pending_allele_designations.isolate_id,pending_allele_designations.locus,pending_allele_designations.allele_id,
+	pending_allele_designations.sender,'provisional',pending_allele_designations.method,pending_allele_designations.curator,
+	pending_allele_designations.date_entered,pending_allele_designations.datestamp,pending_allele_designations.comments FROM 
+	pending_allele_designations LEFT JOIN allele_designations ON pending_allele_designations.isolate_id = 
+	allele_designations.isolate_id AND pending_allele_designations.locus = allele_designations.locus AND 
+	pending_allele_designations.allele_id = allele_designations.allele_id WHERE allele_designations.isolate_id IS NULL;		
 DROP TABLE pending_allele_designations;
 
 
