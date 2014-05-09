@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -159,10 +159,7 @@ sub print_content {
 					print '<span class="statusbad">X</span>';
 				}
 				print "</td><td>";
-				my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-				my @values;
-				push @values, '1' foreach @$scheme_loci;
-				eval { $self->{'datastore'}->get_scheme($scheme_id)->get_field_values_by_profile( \@values ); };
+				eval { $self->{'datastore'}->get_scheme($scheme_id)->get_field_values_by_designations( {} ) };
 				if ($@) {
 					print '<span class="statusbad">X</span>';
 				} else {

@@ -74,52 +74,6 @@ sub get_profile_by_primary_keys {
 	}
 }
 
-sub get_field_values_by_profile {
-	my ( $self, $profile, $options ) = @_;
-	$logger->logcarp("Scheme::get_field_values_by_profile is deprecated");    #TODO remove
-	$options = {} if ref $options ne 'HASH';
-
-	#Note that when returning a hashref that field names will always be lower-case!
-	if ( !$self->{'db'} ) {
-		$logger->debug("No connection to scheme database");
-		return;
-	}
-	if ( !$self->{'dbase_table'} ) {
-		$logger->warn("No scheme database table set.  Can not retrieve field values.");
-		return;
-	}
-	my $fields = $self->{'fields'};
-	my $loci   = $self->{'loci'};
-	my @locus_terms;
-	if ( !$self->{'sql'}->{'scheme_fields'} ) {
-		foreach my $locus (@$loci) {
-			$locus =~ s/'/_PRIME_/g;
-			my $temp = "$locus=?";
-			$temp .= " OR $locus='N'" if $self->{'allow_missing_loci'};
-			push @locus_terms, "($temp)";
-		}
-		local $" = ' AND ';
-		my $locus_term_string = "@locus_terms";
-		local $" = ',';
-		my $qry = "SELECT @$fields FROM $self->{'dbase_table'} WHERE $locus_term_string";
-		$self->{'sql'}->{'scheme_fields'} = $self->{'db'}->prepare($qry);
-		$logger->debug("Scheme#$self->{'id'} ($self->{'description'}) statement handle 'scheme_fields' prepared. $qry");
-	}
-	eval { $self->{'sql'}->{'scheme_fields'}->execute(@$profile) };
-	if ($@) {
-		$logger->warn( "Can't execute 'scheme_fields' query handle. Check database attributes in the scheme_fields table for "
-			  . "scheme#$self->{'id'} ($self->{'description'})! Statement was '$self->{'sql'}->{scheme_fields}->{Statement}'. "
-			  . $self->{'db'}->errstr );
-		throw BIGSdb::DatabaseConfigurationException("Scheme configuration error");
-	} else {
-		if ( $options->{'return_hashref'} ) {
-			return $self->{'sql'}->{'scheme_fields'}->fetchrow_hashref;
-		}
-		my @values = $self->{'sql'}->{'scheme_fields'}->fetchrow_array;
-		return \@values;
-	}
-}
-
 sub get_field_values_by_designations {
 	my ( $self, $designations ) = @_;    #$designations is a hashref containing arrayref of allele_designations for each locus
 	my ( @allele_count, @allele_ids );
@@ -156,6 +110,7 @@ sub get_field_values_by_designations {
 		local $" = ' AND ';
 		my $locus_term_string = "@locus_terms";
 		local $" = ',';
+		$self->{'dbase_table'} //= '';
 		$self->{'sql'}->{"field_values_$query_key"} =
 		  $self->{'db'}->prepare("SELECT @$loci,@$fields FROM $self->{'dbase_table'} WHERE $locus_term_string");
 	}
