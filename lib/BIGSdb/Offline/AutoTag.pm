@@ -161,7 +161,9 @@ sub _is_time_up {
 sub _tag_allele {
 	my ( $self, $values ) = @_;
 	my $existing_designations = $self->{'datastore'}->get_allele_designations( $values->{'isolate_id'}, $values->{'locus'} );
-	return if  @$existing_designations;
+	foreach my $designation (@$existing_designations){
+		return if $designation->{'allele_id'} eq $values->{'allele_id'};
+	}
 	my $sql =
 	  $self->{'db'}->prepare( "INSERT INTO allele_designations (isolate_id,locus,allele_id,"
 		  . "sender,status,method,curator,date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?)" );
