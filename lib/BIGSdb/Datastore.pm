@@ -315,7 +315,7 @@ sub get_scheme_field_values_by_designations {
 		$field_data = $self->{'sql'}->{"field_values_$scheme_id\_$query_key"}->fetchall_arrayref( {} );
 	} else {
 		my $scheme = $self->get_scheme($scheme_id);
-		local $" = ',';
+		$self->_convert_designations_to_profile_names( $scheme_id, $designations );
 		{
 			try {
 				$field_data = $scheme->get_field_values_by_designations($designations);
@@ -349,6 +349,21 @@ sub get_scheme_field_values_by_designations {
 		}
 	}
 	return $values;
+}
+
+sub _convert_designations_to_profile_names {
+	my ( $self, $scheme_id, $designations ) = @_;
+	if ( !$self->{'sql'}->{'convert_designations'} ) {
+		$self->{'sql'}->{'convert_designations'} =
+		  $self->{'db'}->prepare("SELECT locus, profile_name FROM scheme_members WHERE scheme_id=?");
+	}
+	eval { $self->{'sql'}->{'convert_designations'}->execute($scheme_id) };
+	while ( my ( $locus, $profile_name ) = $self->{'sql'}->{'convert_designations'}->fetchrow_array ) {
+		next if !defined $profile_name;
+		next if $locus eq $profile_name;
+		$designations->{$profile_name} = delete $designations->{$locus};
+	}
+	return;
 }
 
 sub get_scheme_field_values_by_isolate_id {
