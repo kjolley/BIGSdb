@@ -863,6 +863,14 @@ sub create_temp_isolate_scheme_fields_view {
 	if ( !$options->{'cache'} ) {
 		my $exists = $self->run_simple_query( "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)", $table )->[0];
 		return $table if $exists;
+
+		#Check if cache of whole isolate table exists
+		if ( $view ne 'isolates' ) {
+			my $full_table = "temp_isolates\_scheme_fields_$scheme_id";
+			$exists =
+			  $self->run_simple_query( "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)", $full_table )->[0];
+			return $full_table if $exists;
+		}
 	}
 	my $scheme_table  = $self->create_temp_scheme_table( $scheme_id, $options );
 	my $loci_table    = $self->create_temp_isolate_scheme_loci_view($scheme_id);
