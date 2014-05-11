@@ -239,8 +239,11 @@ sub _write_tab_text {
 	my $i = 0;
 	my $j = 0;
 	local $| = 1;
+	my %id_used;
 
 	while ( $sql->fetchrow_arrayref ) {
+		next if $id_used{ $data{'id'} }; #Ordering by scheme field/locus can result in multiple rows per isolate if multiple values defined.
+		$id_used{ $data{'id'} } = 1;
 		print "." if !$i;
 		print " " if !$j;
 		if ( !$i && $ENV{'MOD_PERL'} ) {

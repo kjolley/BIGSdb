@@ -1294,9 +1294,10 @@ sub get_record_name {
 sub rewrite_query_ref_order_by {
 	my ( $self, $qry_ref ) = @_;
 	my $view = $self->{'system'}->{'view'};
-	if ( $$qry_ref =~ /ORDER BY (s_\d+_\S+)\s/ ) {
+	if ( $$qry_ref =~ /ORDER BY s_(\d+)_\S+\s/ ) {
 		my $scheme_id   = $1;
-		my $scheme_join = $self->_create_join_sql_for_scheme($scheme_id);
+		my $isolate_scheme_table = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+		my $scheme_join = "LEFT JOIN $isolate_scheme_table AS ordering ON $view.id=ordering.id";
 		$$qry_ref =~ s/(SELECT \.* FROM $view)/$1 $scheme_join/;
 		$$qry_ref =~ s/FROM $view/FROM $view $scheme_join/;
 		$$qry_ref =~ s/ORDER BY s_(\d+)_/ORDER BY ordering\./;
@@ -1338,41 +1339,6 @@ sub is_allowed_to_view_isolate {
 	$logger->error($@) if $@;
 	my $allowed_to_view = $self->{'sql'}->{'allowed_to_view'}->fetchrow_array;
 	return $allowed_to_view;
-}
-
-sub _create_join_sql_for_scheme {
-	my ( $self, $field ) = @_;
-	my $qry;
-	if ( $field =~ /s_(\d+)_([^\s;]*)/ ) {
-		my $scheme_id            = $1;
-		my $scheme_field         = $2;
-		my $loci                 = $self->{'datastore'}->get_scheme_loci($scheme_id);
-		my $scheme_info          = $self->{'datastore'}->get_scheme_info($scheme_id);
-		my $isolate_scheme_table = $self->{'datastore'}->create_temp_isolate_scheme_loci_view($scheme_id);
-		my %named;
-		foreach my $locus (@$loci) {
-			( $named{$locus} = $locus ) =~ s/'/_PRIME_/g;
-		}
-		$qry .= " LEFT JOIN $isolate_scheme_table ON $isolate_scheme_table.id = $self->{'system'}->{'view'}.id";
-		$qry .= " LEFT JOIN temp_scheme_$scheme_id AS ordering ON";
-		my $first = 1;
-		foreach my $locus (@$loci) {
-			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-			$qry .= " AND" if !$first;
-			if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-				if ( $scheme_info->{'allow_missing_loci'} ) {
-					$qry .= " (CAST(COALESCE($isolate_scheme_table.$named{$locus},'N') AS text)=CAST(ordering.$named{$locus} AS text) "
-					  . "OR ordering.$named{$locus}='N')";
-				} else {
-					$qry .= " CAST($isolate_scheme_table.$named{$locus} AS integer)=ordering.$named{$locus}";
-				}
-			} else {
-				$qry .= " $isolate_scheme_table.$named{$locus}=ordering.$named{$locus}";
-			}
-			$first = 0;
-		}
-	}
-	return $qry;
 }
 
 sub _create_join_sql_for_locus {

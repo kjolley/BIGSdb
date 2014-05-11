@@ -247,7 +247,6 @@ sub _print_delete_all_function {
 	$q->param( page => 'deleteAll' );
 	print $q->hidden($_) foreach qw (db page table query_file scheme_id);
 	if ( $table eq 'allele_designations' ) {
-		
 		if ( $self->can_modify_table('allele_sequences') ) {
 			say "<ul><li>";
 			say $q->checkbox( -name => 'delete_tags', -label => 'Delete corresponding sequence tags' );
@@ -431,8 +430,11 @@ sub _print_isolate_table {
 	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
 	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
 	local $| = 1;
+	my %id_used;
 
 	while ( $limit_sql->fetchrow_arrayref ) {
+		next if $id_used{ $data{'id'} }; #Ordering by scheme field/locus can result in multiple rows per isolate if multiple values defined.
+		$id_used{ $data{'id'} } = 1;
 		my $profcomplete = 1;
 		my $id;
 		print "<tr class=\"td$td\">";

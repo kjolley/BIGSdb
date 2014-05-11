@@ -568,7 +568,7 @@ sub _get_value_frequency_hashes {
 			}
 		}
 	}
-	foreach my $id (@$id_list) {
+	foreach my $id (uniq @$id_list) {
 		my @values = $self->_get_values(
 			{
 				isolate_id   => $id,

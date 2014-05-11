@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::TreeViewPage);
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
-use List::MoreUtils qw(any);
+use List::MoreUtils qw(any uniq);
 use BIGSdb::Page qw(FLANKING LOCUS_PATTERN);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_TREE_NODES => 1000;
@@ -583,6 +583,7 @@ sub print_sequence_export_form {
 	local $" = "\n";
 	say "<p style=\"padding-right:2em\">Paste in list of ids to include, start a new<br />line for each. "
 	  . "Leave blank to include all ids.</p>";
+	@$list = uniq @$list;
 	say $q->textarea( -name => 'list', -rows => 5, -cols => 25, -default => "@$list" );
 	say "</fieldset>";
 	my ( $locus_list, $locus_labels ) =
