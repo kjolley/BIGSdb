@@ -1023,6 +1023,7 @@ sub get_scheme_field_values {
 	my ( $self, $args ) = @_;
 	my ( $isolate_id, $field, $scheme_id ) = @{$args}{qw(isolate_id field scheme_id )};
 	my $data = $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id );
+	no warnings 'numeric';
 	my @values = sort { $a <=> $b || $a cmp $b } keys %{ $data->{ lc $field } };
 	return \@values;
 }
