@@ -183,10 +183,13 @@ sub create_temp_tables {
 	my $continue = 1;
 	try {
 		foreach (@$schemes) {
+			if ($qry =~ /temp_isolates_scheme_fields_$_\s/){
+				$self->{'datastore'}->create_temp_isolate_scheme_fields_view($_);
+			} 
 			if ( $qry =~ /temp_scheme_$_\s/ || $qry =~ /ORDER BY s_$_\_/ ) {
 				$self->{'datastore'}->create_temp_scheme_table($_);
 				$self->{'datastore'}->create_temp_isolate_scheme_loci_view($_);
-			}
+			}			
 		}
 	}
 	catch BIGSdb::DatabaseConnectionException with {
