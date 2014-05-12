@@ -34,6 +34,8 @@ use constant {
 #######End Local configuration################################
 use lib (LIB_DIR);
 use Getopt::Long qw(:config no_ignore_case);
+use POSIX;
+use Parallel::ForkManager;
 use BIGSdb::Offline::AutoTag;
 my %opts;
 GetOptions(
@@ -48,6 +50,7 @@ GetOptions(
 	'R|locus_regex=s'      => \$opts{'R'},
 	's|schemes=s'          => \$opts{'s'},
 	't|time=i'             => \$opts{'t'},
+	'threads=i'            => \$opts{'threads'},
 	'w|word_size=i'        => \$opts{'w'},
 	'x|min=i'              => \$opts{'x'},
 	'y|max=i'              => \$opts{'y'},
@@ -69,6 +72,71 @@ if ( !$opts{'d'} ) {
 	say "Help: autotag.pl -h";
 	exit;
 }
+if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
+	my $script;
+	$script = BIGSdb::Offline::AutoTag->new(    #Create script object to use methods to determine isolate list
+		{
+			config_dir       => CONFIG_DIR,
+			lib_dir          => LIB_DIR,
+			dbase_config_dir => DBASE_CONFIG_DIR,
+			host             => HOST,
+			port             => PORT,
+			user             => USER,
+			password         => PASSWORD,
+			options          => { query_only => 1, %opts },
+			instance         => $opts{'d'},
+		}
+	);
+	die "Script initialization failed - check logs (server may be too busy).\n" if !defined $script->{'db'};
+	my $isolates = $script->get_isolates_with_linked_seqs;
+	$isolates = $script->filter_and_sort_isolates($isolates);
+	my $ids_per_list = floor( @$isolates / $opts{'threads'} );
+	$ids_per_list++ if @$isolates % $opts{'threads'};
+	my $lists = [];
+	my $list  = 0;
+	my $i     = 0;
+	foreach my $id (@$isolates) {
+		push @{ $lists->[$list] }, $id;
+		$i++;
+		if ( $i == $ids_per_list ) {
+			$list++;
+			$i = 0;
+		}
+	}
+	delete $opts{$_} foreach qw(i I p P x y);    #Remove options that impact isolate list
+	$script->{'logger'}->info("$opts{'d'}: Running Autotagger (up to $opts{'threads'} threads)");
+	my $pm = Parallel::ForkManager->new( $opts{'threads'} );
+	$list = 0;
+	$pm->run_on_start(
+		sub {
+			my ( $pid, $ident ) = @_;
+			$list++;
+		}
+	);
+	foreach my $list (@$lists) {
+		$pm->start and next;                     #Forks
+		local $" = ',';
+		BIGSdb::Offline::AutoTag->new(
+			{
+				config_dir       => CONFIG_DIR,
+				lib_dir          => LIB_DIR,
+				dbase_config_dir => DBASE_CONFIG_DIR,
+				host             => HOST,
+				port             => PORT,
+				user             => USER,
+				password         => PASSWORD,
+				options          => { i => "@$list", %opts },
+				instance         => $opts{'d'},
+			}
+		);
+		$pm->finish;    #Terminates child process
+	}
+	$pm->wait_all_children;
+	$script->{'logger'}->info("$opts{'d'}: All Autotagger threads finished");
+	exit;
+}
+
+#Run non-threaded job
 BIGSdb::Offline::AutoTag->new(
 	{
 		config_dir       => CONFIG_DIR,
@@ -140,6 +208,8 @@ Options
 
 -t <mins>                 Stop after t minutes.
 --time <mins>
+
+--threads <threads>       Maximum number of threads to use.
 
 -T                        Scan even when sequence tagged (no designation).
 --already_tagged

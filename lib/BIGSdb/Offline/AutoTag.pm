@@ -32,6 +32,7 @@ use constant MISSING_ALLELE_IDENTITY  => 50;
 
 sub run_script {
 	my ($self) = @_;
+	return $self if $self->{'options'}->{'query_only'};    #Return script object to allow access to methods
 	my $EXIT = 0;
 	local @SIG{qw (INT TERM HUP)} = ( sub { $EXIT = 1 } ) x 3;    #Allow temp files to be cleaned on kill signals
 	my $params;
@@ -67,15 +68,15 @@ sub run_script {
 	$self->{'start_time'} = time;
 	my $isolate_prefix = BIGSdb::Utils::get_random();
 	my $locus_prefix   = BIGSdb::Utils::get_random();
-	$self->{'logger'}->info("$self->{'options'}->{'d'}:Autotagger start");
+	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autotagger start");
 	my $i = 0;
   ISOLATE: foreach my $isolate_id (@$isolate_list) {
 		$i++;
 		my $complete = BIGSdb::Utils::decimal_place( ( $i * 100 / @$isolate_list ), 1 );
-		$self->{'logger'}->info( "$self->{'options'}->{'d'}:Checking isolate $isolate_id - $i/" . (@$isolate_list) . "($complete%)" );
+		$self->{'logger'}->info( "$self->{'options'}->{'d'}#pid$$:Checking isolate $isolate_id - $i/" . (@$isolate_list) . "($complete%)" );
 		undef $self->{'history'};
 	  LOCUS: foreach my $locus (@$loci) {
-	  		my $existing_allele_ids = $self->{'datastore'}->get_allele_ids( $isolate_id, $locus );
+			my $existing_allele_ids = $self->{'datastore'}->get_allele_ids( $isolate_id, $locus );
 			next if @$existing_allele_ids;
 			my $allele_seq = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
 			next if @$allele_seq && !$self->{'options'}->{'T'};
@@ -146,7 +147,7 @@ sub run_script {
 	if ( $self->_is_time_up && !$self->{'options'}->{'q'} ) {
 		say "Time limit reached ($self->{'options'}->{'t'} minute" . ( $self->{'options'}->{'t'} == 1 ? '' : 's' ) . ")";
 	}
-	$self->{'logger'}->info("$self->{'options'}->{'d'}:Autotagger stop");
+	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autotagger stop");
 	return;
 }
 
@@ -161,7 +162,7 @@ sub _is_time_up {
 sub _tag_allele {
 	my ( $self, $values ) = @_;
 	my $existing_designations = $self->{'datastore'}->get_allele_designations( $values->{'isolate_id'}, $values->{'locus'} );
-	foreach my $designation (@$existing_designations){
+	foreach my $designation (@$existing_designations) {
 		return if $designation->{'allele_id'} eq $values->{'allele_id'};
 	}
 	my $sql =

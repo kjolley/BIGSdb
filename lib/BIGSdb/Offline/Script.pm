@@ -161,7 +161,7 @@ sub get_isolates_with_linked_seqs {
 }
 
 sub filter_and_sort_isolates {
-	my ( $self, $isolates, ) = @_;
+	my ( $self, $isolates ) = @_;
 	my @exclude_isolates;
 	if ( $self->{'options'}->{'I'} ) {
 		@exclude_isolates = split( ',', $self->{'options'}->{'I'} );
