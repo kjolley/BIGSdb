@@ -65,8 +65,8 @@ if ( $opts{'h'} ) {
 	exit;
 }
 if ( !$opts{'d'} ) {
-	print "\nUsage: autotag.pl -d <database configuration>\n\n";
-	print "Help: autotag.pl -h\n";
+	say "\nUsage: autotag.pl -d <database configuration>\n";
+	say "Help: autotag.pl -h";
 	exit;
 }
 BIGSdb::Offline::AutoTag->new(
@@ -124,7 +124,7 @@ Options
 --projects <list>
 
 -P <list>                 Comma-separated list of projects whose isolates will
---exclude_projects        be excluded.
+--exclude_projects <list> be excluded.
            
 -q                        Only error messages displayed.
 --quiet
