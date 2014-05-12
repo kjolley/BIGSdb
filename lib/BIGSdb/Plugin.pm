@@ -1019,20 +1019,8 @@ sub escape_params {
 sub get_scheme_field_values {
 	my ( $self, $args ) = @_;
 	my ( $isolate_id, $field, $scheme_id ) = @{$args}{qw(isolate_id field scheme_id )};
-	my @values;
-	if ( !$self->{'sql'}->{'scheme_field_values'}->{$field} ) {
-		my $isolate_scheme_field_view = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
-		$self->{'sql'}->{'scheme_field_values'}->{$field} =
-		  $self->{'db'}->prepare("SELECT $field FROM $isolate_scheme_field_view WHERE id=?");
-	}
-	eval { $self->{'sql'}->{'scheme_field_values'}->{$field}->execute($isolate_id) };
-	$logger->error($@) if $@;
-	my %used;
-	while ( my ($value) = $self->{'sql'}->{'scheme_field_values'}->{$field}->fetchrow_array ) {
-		next if !defined $value;
-		push @values, $value if !$used{$value};
-		$used{$value} = 1;
-	}
+	my $data = $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id );
+	my @values = sort { $a <=> $b || $a cmp $b } keys %{ $data->{ lc $field } };
 	return \@values;
 }
 1;

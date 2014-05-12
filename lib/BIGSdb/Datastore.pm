@@ -343,7 +343,7 @@ sub get_scheme_field_values_by_designations {
 		foreach my $field (@$fields) {
 			$data->{ lc $field } //= '';
 
-			#Allow status to change from privisional -> confirmed but not vice versa
+			#Allow status to change from provisional -> confirmed but not vice versa
 			$values->{ lc $field }->{ $data->{ lc $field } } = $status
 			  if ( $values->{ lc $field }->{ $data->{ lc $field } } // '' ) ne 'confirmed';
 		}
