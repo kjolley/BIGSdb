@@ -1214,24 +1214,14 @@ sub refresh_material_view {
 sub _create_mv_indexes {
 	my ( $self, $scheme_id, $fields, $loci ) = @_;
 
-	#Create separate indices consisting of up to 10 loci each
-	#(max of 2 indices otherwise refresh can take too long and they probably won't all be used anyway)
-	my $i     = 0;
-	my $index = 2;
-	my @temp_loci;
+	#We don't need to index every loci.  The first three will do.
+	my $i = 0;
 	foreach my $locus (@$loci) {
-		push @temp_loci, $locus;
 		$i++;
-		if ( $i % 10 == 0 || $i == @$loci ) {
-			local $" = ',';
-			my $locus_string = "@temp_loci";
-			$locus_string =~ s/'/_PRIME_/g;
-			eval { $self->{'db'}->do("CREATE INDEX i_mv$scheme_id\_$index ON mv_scheme_$scheme_id ($locus_string)") };
-			$logger->warn("Can't create index $@") if $@;
-			$index++;
-			last if $i == 20;
-			undef @temp_loci;
-		}
+		$locus =~ s/'/_PRIME_/g;
+		eval { $self->{'db'}->do("CREATE INDEX i_mv$scheme_id\_$locus ON mv_scheme_$scheme_id ($locus)"); };
+		$logger->warn("Can't create index $@") if $@;
+		last if $i == 3;
 	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	foreach my $field (@$fields) {
