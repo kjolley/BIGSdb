@@ -1395,16 +1395,7 @@ sub _upload_data {
 				$self->mark_cache_stale;
 			}
 			local $" = ';';
-			eval {
-				$self->{'db'}->do("@inserts");
-				if ( ( $table eq 'scheme_members' || $table eq 'scheme_fields' ) && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-					foreach ( keys %schemes ) {
-						$self->remove_profile_data($_);
-						$self->drop_scheme_view($_);
-						$self->create_scheme_view($_);
-					}
-				}
-			};
+			eval { $self->{'db'}->do("@inserts"); };
 			if ($@) {
 				my $err = $@;
 				say "<div class=\"box\" id=\"statusbad\"><p>Database update failed - transaction cancelled - no records "
@@ -1421,6 +1412,13 @@ sub _upload_data {
 				$self->{'db'}->rollback;
 				return;
 			}
+		}
+	}
+	if ( ( $table eq 'scheme_members' || $table eq 'scheme_fields' ) && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		foreach ( keys %schemes ) {
+			$self->remove_profile_data($_);
+			$self->drop_scheme_view($_);
+			$self->create_scheme_view($_);
 		}
 	}
 	$self->{'db'}->commit
