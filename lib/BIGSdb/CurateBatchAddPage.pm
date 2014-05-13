@@ -26,6 +26,7 @@ use parent qw(BIGSdb::CurateAddPage);
 use Log::Log4perl qw(get_logger);
 use BIGSdb::Page qw(ALLELE_FLAGS SEQ_STATUS);
 use Error qw(:try);
+use constant MAX_POSTGRES_COLS => 1664;
 my $logger = get_logger('BIGSdb.Page');
 
 sub print_content {
@@ -1415,10 +1416,21 @@ sub _upload_data {
 		}
 	}
 	if ( ( $table eq 'scheme_members' || $table eq 'scheme_fields' ) && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		foreach ( keys %schemes ) {
-			$self->remove_profile_data($_);
-			$self->drop_scheme_view($_);
-			$self->create_scheme_view($_);
+		foreach my $scheme_id ( keys %schemes ) {
+			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+			my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
+			my $field_count   = @$scheme_fields + @$scheme_loci;
+			if ( $field_count >= MAX_POSTGRES_COLS ) {
+				say qq(<div class="box" id="statusbad"><p>Indexed scheme tables are limited to a maximum of )
+				  . MAX_POSTGRES_COLS
+				  . qq( columns - yours would have $field_count.  This is a limitation of PostgreSQL, but it's not really sensible )
+				  . qq(to have indexed schemes (those with a primary key field) to have so many fields. Update failed.</p></div);
+				$self->{'db'}->rollback;
+				return;
+			}
+			$self->remove_profile_data($scheme_id);
+			$self->drop_scheme_view($scheme_id);
+			$self->create_scheme_view($scheme_id);
 		}
 	}
 	$self->{'db'}->commit
