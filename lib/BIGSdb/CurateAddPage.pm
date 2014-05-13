@@ -179,6 +179,8 @@ sub _prepare_extra_inserts_for_seqbin {
 		
 		if ($attribute->{'type'} eq 'integer' && !BIGSdb::Utils::is_int($value)){
 			push @$problems,"$attribute->{'key'} must be an integer.";
+		} elsif ($attribute->{'type'} eq 'float' && !BIGSdb::Utils::is_float($value)){
+			push @$problems,"$attribute->{'key'} must be a floating point value.";	
 		} elsif ($attribute->{'type'} eq 'date' && !BIGSdb::Utils::is_date($value)){
 			push @$problems,"$attribute->{'key'} must be a valid date in yyyy-mm-dd format.";
 		}

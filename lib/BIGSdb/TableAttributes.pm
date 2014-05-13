@@ -1344,8 +1344,8 @@ sub get_locus_curators_table_attributes {
 sub get_sequence_attributes_table_attributes {
 	my ($self) = @_;
 	my $attributes = [
-		{ name => 'key',         type => 'text', required => 'yes', primary_key => 'yes',               regex   => '^[A-z]\w*$' },
-		{ name => 'type',        type => 'text', required => 'yes', optlist     => 'text;integer;date', default => 'text' },
+		{ name => 'key',         type => 'text', required => 'yes', primary_key => 'yes',                     regex   => '^[A-z]\w*$' },
+		{ name => 'type',        type => 'text', required => 'yes', optlist     => 'text;integer;float;date', default => 'text' },
 		{ name => 'description', type => 'text' },
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' }

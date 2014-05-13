@@ -216,6 +216,8 @@ sub _check_data {
 		next if !defined $value || $value eq '';
 		if ( $attribute->{'type'} eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
 			push @att_problems, "$attribute->{'key'} must be an integer.";
+		} elsif ($attribute->{'type'} eq 'float' && !BIGSdb::Utils::is_float($value)){
+			push @att_problems,"$attribute->{'key'} must be a floating point value.";	
 		} elsif ( $attribute->{'type'} eq 'date' && !BIGSdb::Utils::is_date($value) ) {
 			push @att_problems, "$attribute->{'key'} must be a valid date in yyyy-mm-dd format.";
 		}

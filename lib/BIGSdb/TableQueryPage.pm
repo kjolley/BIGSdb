@@ -737,8 +737,9 @@ sub _modify_search_by_sequence_attributes {
 	elsif ( $operator eq "ends with" )   { $qry .= "key = '$field' AND value ILIKE E'%$text'" }
 	elsif ( $operator eq 'NOT' || $operator eq '=' ) { $qry .= "key = '$field' AND UPPER(value) = UPPER(E'$text')" }
 	else {
-		if   ( $type eq 'integer' ) { $qry .= "key = '$field' AND CAST(value AS INT) $operator CAST(E'$text' AS INT)" }
-		else                        { $qry .= "key = '$field' AND UPPER(value) $operator UPPER(E'$text')" }
+		if    ( $type eq 'integer' ) { $qry .= "key = '$field' AND CAST(value AS INT) $operator CAST(E'$text' AS INT)" }
+		elsif ( $type eq 'float' )   { $qry .= "key = '$field' AND CAST(value AS FLOAT) $operator CAST(E'$text' AS FLOAT)" }
+		else                         { $qry .= "key = '$field' AND UPPER(value) $operator UPPER(E'$text')" }
 	}
 	$qry .= ')';
 	return $qry;
