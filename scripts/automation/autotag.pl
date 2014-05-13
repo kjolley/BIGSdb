@@ -87,6 +87,8 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 			instance         => $opts{'d'},
 		}
 	);
+	local @SIG{qw (INT TERM HUP)} =
+	  ( sub { $script->{'logger'}->info("$opts{'d'}:Autotagger kill signal detected.  Waiting for child processes.") } ) x 3;
 	die "Script initialization failed - check logs (server may be too busy).\n" if !defined $script->{'db'};
 	my $isolates = $script->get_isolates_with_linked_seqs;
 	$isolates = $script->filter_and_sort_isolates($isolates);
@@ -104,7 +106,7 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 		}
 	}
 	delete $opts{$_} foreach qw(i I p P x y);    #Remove options that impact isolate list
-	$script->{'logger'}->info("$opts{'d'}: Running Autotagger (up to $opts{'threads'} threads)");
+	$script->{'logger'}->info("$opts{'d'}:Running Autotagger (up to $opts{'threads'} threads)");
 	my $pm = Parallel::ForkManager->new( $opts{'threads'} );
 	$list = 0;
 	$pm->run_on_start(
@@ -132,7 +134,7 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 		$pm->finish;    #Terminates child process
 	}
 	$pm->wait_all_children;
-	$script->{'logger'}->info("$opts{'d'}: All Autotagger threads finished");
+	$script->{'logger'}->info("$opts{'d'}:All Autotagger threads finished");
 	exit;
 }
 

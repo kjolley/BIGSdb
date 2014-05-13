@@ -274,7 +274,7 @@ sub get_loci_with_ref_db {
 			$_ =~ s/'/\\'/g;
 		}
 		local $" = "',E'";
-		$qry = "$ref_db_loci_qry AND id IN (E'@loci')";
+		$qry = "$ref_db_loci_qry AND id IN (E'@loci') ORDER BY id";
 	} else {
 		$qry = "$ref_db_loci_qry ORDER BY id";
 	}

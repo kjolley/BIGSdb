@@ -34,6 +34,8 @@ use constant {
 #######End Local configuration################################
 use lib (LIB_DIR);
 use Getopt::Long qw(:config no_ignore_case);
+use POSIX;
+use Parallel::ForkManager;
 use BIGSdb::Offline::ScanNew;
 my %opts;
 GetOptions(
@@ -50,6 +52,7 @@ GetOptions(
 	'R|locus_regex=s'      => \$opts{'R'},
 	's|schemes=s'          => \$opts{'s'},
 	't|time=i'             => \$opts{'t'},
+	'threads=i'            => \$opts{'threads'},
 	'w|word_size=i'        => \$opts{'w'},
 	'x|min=i'              => \$opts{'x'},
 	'y|max=i'              => \$opts{'y'},
@@ -71,6 +74,73 @@ if ( !$opts{'d'} ) {
 	say "Help: scannew.pl -h";
 	exit;
 }
+if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
+	my $script;
+	$script = BIGSdb::Offline::ScanNew->new(    #Create script object to use methods to determine isolate list
+		{
+			config_dir       => CONFIG_DIR,
+			lib_dir          => LIB_DIR,
+			dbase_config_dir => DBASE_CONFIG_DIR,
+			host             => HOST,
+			port             => PORT,
+			user             => USER,
+			password         => PASSWORD,
+			options          => { query_only => 1, %opts },
+			instance         => $opts{'d'},
+		}
+	);
+	local @SIG{qw (INT TERM HUP)} =
+	  ( sub { $script->{'logger'}->info("$opts{'d'}:Autodefiner kill signal detected.  Waiting for child processes.") } ) x 3;
+	die "Script initialization failed - check logs (server may be too busy).\n" if !defined $script->{'db'};
+	my $loci          = $script->get_loci_with_ref_db;
+	my $loci_per_list = floor( @$loci / $opts{'threads'} );
+	$loci_per_list++ if @$loci % $opts{'threads'};
+	my $lists = [];
+	my $list  = 0;
+	my $i     = 0;
+
+	foreach my $locus (@$loci) {
+		push @{ $lists->[$list] }, $locus;
+		$i++;
+		if ( $i == $loci_per_list ) {
+			$list++;
+			$i = 0;
+		}
+	}
+	delete $opts{$_} foreach qw(l L R s);    #Remove options that impact locus list
+	$script->{'logger'}->info("$opts{'d'}:Running Autodefiner (up to $opts{'threads'} threads)");
+	my $pm = Parallel::ForkManager->new( $opts{'threads'} );
+	$list = 0;
+	$pm->run_on_start(
+		sub {
+			my ( $pid, $ident ) = @_;
+			$list++;
+		}
+	);
+	foreach my $list (@$lists) {
+		$pm->start and next;                 #Forks
+		local $" = ',';
+		BIGSdb::Offline::ScanNew->new(
+			{
+				config_dir       => CONFIG_DIR,
+				lib_dir          => LIB_DIR,
+				dbase_config_dir => DBASE_CONFIG_DIR,
+				host             => HOST,
+				port             => PORT,
+				user             => USER,
+				password         => PASSWORD,
+				options          => { l => "@$list", %opts },
+				instance         => $opts{'d'},
+			}
+		);
+		$pm->finish;    #Terminates child process
+	}
+	$pm->wait_all_children;
+	$script->{'logger'}->info("$opts{'d'}:All Autodefiner threads finished");
+	exit;
+}
+
+#Run non-threaded job
 my $script = BIGSdb::Offline::ScanNew->new(
 	{
 		config_dir       => CONFIG_DIR,
@@ -148,6 +218,8 @@ Options
 
 -t <mins>                 Stop after t minutes.
 --time <mins>
+
+--threads <threads>       Maximum number of threads to use.
 
 -T                        Scan even when sequence tagged (no designation).
 --already_tagged

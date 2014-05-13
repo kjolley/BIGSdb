@@ -32,6 +32,7 @@ use constant DEFINER_USERNAME  => 'autodefiner';
 
 sub run_script {
 	my ($self) = @_;
+	return $self if $self->{'options'}->{'query_only'};    #Return script object to allow access to methods
 	my $EXIT = 0;
 	local @SIG{qw (INT TERM HUP)} = ( sub { $EXIT = 1 } ) x 3;    #Allow temp files to be cleaned on kill signals
 	die "No connection to database (check logs).\n" if !defined $self->{'db'};
@@ -54,22 +55,22 @@ sub run_script {
 	my $first         = 1;
 	my $isolate_count = @$isolate_list;
 	my $plural        = $isolate_count == 1 ? '' : 's';
-	$self->{'logger'}->info("$self->{'options'}->{'d'}:ScanNew start ($isolate_count genome$plural)");
+	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autodefiner start ($isolate_count genome$plural)");
 	my $i = 0;
 
 	foreach my $locus (@$loci) {
 		$i++;
 		my $complete = BIGSdb::Utils::decimal_place( ( $i * 100 / @$loci ), 1 );
-		$self->{'logger'}->info( "$self->{'options'}->{'d'}:Checking $locus - $i/" . (@$loci) . "($complete%)" );
+		$self->{'logger'}->info( "$self->{'options'}->{'d'}#pid$$:Checking $locus - $i/" . (@$loci) . "($complete%)" );
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		my %seqs;
 		foreach my $isolate_id (@$isolate_list) {
 			my $allele_ids = $self->{'datastore'}->get_allele_ids( $isolate_id, $locus );
 			next if @$allele_ids;
-			if (!$self->{'options'}->{'T'}){
+			if ( !$self->{'options'}->{'T'} ) {
 				my $allele_seq = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
 				next if @$allele_seq;
-			}	
+			}
 			my ( $exact_matches, $partial_matches ) =
 			  $self->blast( $params, $locus, $isolate_id, "$isolate_prefix\_$isolate_id", $locus_prefix );
 			next if ref $exact_matches && @$exact_matches;
@@ -104,7 +105,7 @@ sub run_script {
 
 	#Delete isolate working files
 	$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$isolate_prefix*");
-	$self->{'logger'}->info("$self->{'options'}->{'d'}:ScanNew stop");
+	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autodefiner stop");
 	return;
 }
 
