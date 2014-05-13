@@ -1419,8 +1419,9 @@ sub _upload_data {
 		foreach my $scheme_id ( keys %schemes ) {
 			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 			my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
+			my $scheme_info   = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 			my $field_count   = @$scheme_fields + @$scheme_loci;
-			if ( $field_count >= MAX_POSTGRES_COLS ) {
+			if ( $scheme_info->{'primary_key'} && $field_count >= MAX_POSTGRES_COLS ) {
 				say qq(<div class="box" id="statusbad"><p>Indexed scheme tables are limited to a maximum of )
 				  . MAX_POSTGRES_COLS
 				  . qq( columns - yours would have $field_count.  This is a limitation of PostgreSQL, but it's not really sensible )
