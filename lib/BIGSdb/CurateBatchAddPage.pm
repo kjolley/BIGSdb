@@ -1374,11 +1374,16 @@ sub _upload_data {
 				}
 				if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 					my $full_name =
-					  defined $fieldorder{'full_name'} && $data[ $fieldorder{'full_name'} ] ? $data[ $fieldorder{'full_name'} ] : '';
+					     defined $fieldorder{'full_name'}
+					  && $data[ $fieldorder{'full_name'} ]
+					  && $data[ $fieldorder{'full_name'} ] ne 'null' ? $data[ $fieldorder{'full_name'} ] : '';
 					my $product = defined $fieldorder{'product'} && $data[ $fieldorder{'product'} ] ? $data[ $fieldorder{'product'} ] : '';
 					my $description =
-					  defined $fieldorder{'description'} && $data[ $fieldorder{'description'} ] ? $data[ $fieldorder{'description'} ] : '';
-					push @inserts, "INSERT INTO locus_descriptions (locus,curator,datestamp,full_name,product,description) VALUES "
+					     defined $fieldorder{'description'}
+					  && $data[ $fieldorder{'description'} ]
+					  && $data[ $fieldorder{'description'} ] ne 'null' ? $data[ $fieldorder{'description'} ] : '';
+					push @inserts,
+					  "INSERT INTO locus_descriptions (locus,curator,datestamp,full_name,product,description) VALUES "
 					  . "('$id',$curator,'now','$full_name','$product','$description')";
 				}
 			} elsif ( $table eq 'users' ) {
