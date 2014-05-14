@@ -49,9 +49,9 @@ sub paged_display {
 	my $continue = 1;
 	try {
 		foreach my $scheme_id (@$schemes) {
-			if ( $qry =~ /temp_isolates_scheme_fields_$scheme_id\_/ ) {
+			if ( $qry =~ /temp_isolates_scheme_fields_$scheme_id\D/ ) {
 				$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
-			} elsif ( $qry =~ /temp_scheme_$scheme_id\s/ || $qry =~ /ORDER BY s_$scheme_id\_/ ) {
+			} elsif ( $qry =~ /temp_scheme_$scheme_id\D/ || $qry =~ /ORDER BY s_$scheme_id\D/ ) {
 				$self->{'datastore'}->create_temp_scheme_table($scheme_id);
 				$self->{'datastore'}->create_temp_isolate_scheme_loci_view($scheme_id);
 			}
