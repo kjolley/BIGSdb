@@ -1075,6 +1075,10 @@ sub get_truncated_label {
 		$title =~ tr/\"//;
 		$label = substr( $label, 0, $length - 5 ) . "&hellip;";
 	}
+	if ( $label =~ /^[a-z]+\s+/ ) {    #only if first word is all lower case
+		$label = ucfirst $label;
+		$title = ucfirst $title if $title;
+	}
 	return ( $label, $title );
 }
 
