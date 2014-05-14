@@ -25,7 +25,9 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(any none);
 use BIGSdb::Page qw(DATABANKS LOCUS_PATTERN ALLELE_FLAGS);
-use constant SUCCESS => 1;
+use constant SUCCESS           => 1;
+use constant MAX_POSTGRES_COLS => 1664;
+our @EXPORT_OK = qw(MAX_POSTGRES_COLS);
 
 sub initiate {
 	my ($self) = @_;
@@ -173,21 +175,20 @@ sub _prepare_extra_inserts_for_seqbin {
 		push @$extra_inserts, $insert;
 	}
 	my $seq_attributes = $self->{'datastore'}->run_list_query_hashref("SELECT key,type FROM sequence_attributes ORDER BY key");
-	foreach my $attribute (@$seq_attributes){
-		my $value = $q->param($attribute->{'key'});
+	foreach my $attribute (@$seq_attributes) {
+		my $value = $q->param( $attribute->{'key'} );
 		next if !defined $value || $value eq '';
-		
-		if ($attribute->{'type'} eq 'integer' && !BIGSdb::Utils::is_int($value)){
-			push @$problems,"$attribute->{'key'} must be an integer.";
-		} elsif ($attribute->{'type'} eq 'float' && !BIGSdb::Utils::is_float($value)){
-			push @$problems,"$attribute->{'key'} must be a floating point value.";	
-		} elsif ($attribute->{'type'} eq 'date' && !BIGSdb::Utils::is_date($value)){
-			push @$problems,"$attribute->{'key'} must be a valid date in yyyy-mm-dd format.";
+		if ( $attribute->{'type'} eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
+			push @$problems, "$attribute->{'key'} must be an integer.";
+		} elsif ( $attribute->{'type'} eq 'float' && !BIGSdb::Utils::is_float($value) ) {
+			push @$problems, "$attribute->{'key'} must be a floating point value.";
+		} elsif ( $attribute->{'type'} eq 'date' && !BIGSdb::Utils::is_date($value) ) {
+			push @$problems, "$attribute->{'key'} must be a valid date in yyyy-mm-dd format.";
 		}
 		$value =~ s/'/\\'/g;
 		my $insert = "INSERT INTO sequence_attribute_values(seqbin_id,key,value,curator,datestamp) VALUES "
 		  . "($newdata->{'id'},'$attribute->{'key'}',E'$value',$newdata->{'curator'},'now')";
-		  push @$extra_inserts, $insert;
+		push @$extra_inserts, $insert;
 	}
 	return;
 }
@@ -275,15 +276,9 @@ sub _insert {
 
 	#special case to check that only one primary key field is set for a scheme field
 	elsif ( $table eq 'scheme_fields' && $newdata->{'primary_key'} eq 'true' && !@problems ) {
-		my $primary_key;
-		my $primary_key_ref =
-		  $self->{'datastore'}
-		  ->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $newdata->{'scheme_id'} );
-		if ( ref $primary_key_ref eq 'ARRAY' ) {
-			$primary_key = $primary_key_ref->[0];
-		}
-		if ($primary_key) {
-			push @problems, "This scheme already has a primary key field set ($primary_key).";
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $newdata->{'scheme_id'}, { get_pk => 1 } );
+		if ( $scheme_info->{'primary_key'} ) {
+			push @problems, "This scheme already has a primary key field set ($scheme_info->{'primary_key'}).";
 		}
 	} elsif ( $table eq 'scheme_group_group_members' && $newdata->{'parent_group_id'} == $newdata->{'group_id'} ) {
 		push @problems, "A scheme group can't be a member of itself.";
@@ -344,6 +339,7 @@ sub _insert {
 			$qry .= ";INSERT INTO user_group_members (user_id,user_group,curator,datestamp) VALUES ($newdata->{'id'},0,"
 			  . "$newdata->{'curator'},'today')";
 		}
+		my $continue = 1;
 		eval {
 			$self->{'db'}->do($qry);
 			foreach (@extra_inserts) {
@@ -351,23 +347,27 @@ sub _insert {
 			}
 			if ( $table eq 'schemes' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 				$self->create_scheme_view( $newdata->{'id'} );
-			} elsif (
-				(
-					any {
-						$table eq $_;
-					}
-					qw (scheme_members scheme_fields)
-				)
-				&& $self->{'system'}->{'dbtype'} eq 'sequences'
-			  )
-			{
-				$self->remove_profile_data( $newdata->{'scheme_id'} );
-				$self->drop_scheme_view( $newdata->{'scheme_id'} );
-				$self->create_scheme_view( $newdata->{'scheme_id'} );
+			} elsif ( ( $table eq 'scheme_members' || $table eq 'scheme_fields' ) && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+				my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $newdata->{'scheme_id'} );
+				my $scheme_loci   = $self->{'datastore'}->get_scheme_loci( $newdata->{'scheme_id'} );
+				my $scheme_info   = $self->{'datastore'}->get_scheme_info( $newdata->{'scheme_id'}, { get_pk => 1 } );
+				my $field_count   = @$scheme_fields + @$scheme_loci;
+				if ( $scheme_info->{'primary_key'} && $field_count > MAX_POSTGRES_COLS ) {
+					say qq(<div class="box" id="statusbad"><p>Indexed scheme tables are limited to a maximum of )
+					  . MAX_POSTGRES_COLS
+					  . qq( columns - yours would have $field_count.  This is a limitation of PostgreSQL, but it's not really sensible )
+					  . qq(to have indexed schemes (those with a primary key field) to have so many fields. Update failed.</p></div);
+					$continue = 0;
+				} else {
+					$self->remove_profile_data( $newdata->{'scheme_id'} );
+					$self->drop_scheme_view( $newdata->{'scheme_id'} );
+					$self->create_scheme_view( $newdata->{'scheme_id'} );
+				}
 			} elsif ( $table eq 'sequences' ) {
 				$self->mark_cache_stale;
 			}
 		};
+		return if !$continue;
 		if ($@) {
 			say "<div class=\"box\" id=\"statusbad\"><p>Insert failed - transaction cancelled - no records have been touched.</p>";
 			if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {

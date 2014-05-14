@@ -25,8 +25,8 @@ use List::MoreUtils qw(any none uniq);
 use parent qw(BIGSdb::CurateAddPage);
 use Log::Log4perl qw(get_logger);
 use BIGSdb::Page qw(ALLELE_FLAGS SEQ_STATUS);
+use BIGSdb::CurateAddPage qw(MAX_POSTGRES_COLS);
 use Error qw(:try);
-use constant MAX_POSTGRES_COLS => 1664;
 my $logger = get_logger('BIGSdb.Page');
 
 sub print_content {
@@ -1421,7 +1421,7 @@ sub _upload_data {
 			my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
 			my $scheme_info   = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 			my $field_count   = @$scheme_fields + @$scheme_loci;
-			if ( $scheme_info->{'primary_key'} && $field_count >= MAX_POSTGRES_COLS ) {
+			if ( $scheme_info->{'primary_key'} && $field_count > MAX_POSTGRES_COLS ) {
 				say qq(<div class="box" id="statusbad"><p>Indexed scheme tables are limited to a maximum of )
 				  . MAX_POSTGRES_COLS
 				  . qq( columns - yours would have $field_count.  This is a limitation of PostgreSQL, but it's not really sensible )
