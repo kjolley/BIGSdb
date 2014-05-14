@@ -149,6 +149,7 @@ sub set_options {
 				my $field = "scheme_$_\_profile_status";
 				$prefstore->set_field( $guid, $dbname, $field, 'dropdown', $prefs->{'dropdownfields'}->{$field} ? 'true' : 'false' );
 			}
+			$prefstore->set_field( $guid, $dbname, 'Publications', 'dropdown', $prefs->{'dropdownfields'}->{'Publications'} ? 'true' : 'false' );
 		}
 		$prefstore->update_datestamp($guid);
 	} elsif ( $q->param('reset') ) {
@@ -438,6 +439,7 @@ HTML
 			push @checkfields, $field;
 			$labels{$field} = "$scheme->{'description'} profile completion";
 		}
+		push @checkfields, 'Publications';
 	}
 	my ( @js, @js2, @js3 );
 	say "<div><ul>";

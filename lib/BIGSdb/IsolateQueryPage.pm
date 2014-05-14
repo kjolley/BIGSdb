@@ -291,9 +291,12 @@ sub _print_filter_fieldset {
 			}
 		}
 	}
-	my $buffer = $self->get_isolate_publication_filter( { any => 1, multiple => 1 } );
-	push @filters, $buffer if $buffer;
-	$buffer = $self->get_project_filter( { any => 1, multiple => 1 } );
+	if ($self->{'prefs'}->{'dropdownfields'}->{'Publications'}){
+		my $buffer = $self->get_isolate_publication_filter( { any => 1, multiple => 1 } );
+		push @filters, $buffer if $buffer;
+	}
+	
+	my $buffer = $self->get_project_filter( { any => 1, multiple => 1 } );
 	push @filters, $buffer if $buffer;
 	my $profile_filters = $self->_get_profile_filters;
 	push @filters, @$profile_filters;

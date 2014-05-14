@@ -1770,6 +1770,7 @@ sub _initiate_isolatedb_prefs {
 			$self->{'prefs'}->{'maindisplayfields'}->{$_} = $params->{"field_$_"} ? 1 : 0;
 		}
 		my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+		$self->{'prefs'}->{'dropdownfields'}->{'Publications'} = $params->{"dropfield_Publications"} ? 1 : 0;
 		foreach (@$schemes) {
 			my $field = "scheme_$_\_profile_status";
 			$self->{'prefs'}->{'dropdownfields'}->{$field} = $params->{"dropfield_$field"} ? 1 : 0;
@@ -1812,6 +1813,12 @@ sub _initiate_isolatedb_prefs {
 						}
 					}
 				}
+			}
+			if ( defined $field_prefs->{'Publications'}->{'dropdown'} ) {
+				$self->{'prefs'}->{'dropdownfields'}->{'Publications'} = $field_prefs->{'Publications'}->{'dropdown'};
+			} else {
+				$self->{'prefs'}->{'dropdownfields'}->{'Publications'} =
+				  ( $self->{'system'}->{'no_publication_filter'} // '' ) eq 'yes' ? 0 : 1;
 			}
 		}
 		if ( $self->{'pref_requirements'}->{'main_display'} ) {
