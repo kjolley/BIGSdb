@@ -419,6 +419,8 @@ sub _check_data {
 					$self->_check_data_scheme_group_group_members( \%args );
 				} elsif ( $table eq 'isolates' ) {
 					$self->_check_data_refs( \%args );
+				} elsif ( $table eq 'scheme_fields' ) {
+					$self->_check_data_scheme_fields( \%args );
 				}
 
 				#Display field - highlight in red if invalid.
@@ -763,6 +765,23 @@ sub _check_data_users {
 			  if !defined $arg_ref->{'problems'}->{$pk_combination} || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/;
 			${ $arg_ref->{'special_problem'} } = 1;
 		}
+	}
+	return;
+}
+
+sub _check_data_scheme_fields {
+
+	#special case to prevent a new user with curator or admin status unless user is admin themselves
+	my ( $self, $arg_ref ) = @_;
+	my $field          = $arg_ref->{'field'};
+	my $value          = ${ $arg_ref->{'value'} };
+	my $pk_combination = $arg_ref->{'pk_combination'};
+	if ( $field eq 'field' && $value eq 'id' ) {
+		my $problem_text = "Scheme fields can not be called 'id'.<br />";
+		if ( !defined $arg_ref->{'problems'}->{$pk_combination} || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/ ) {
+			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
+		}
+		${ $arg_ref->{'special_problem'} } = 1;
 	}
 	return;
 }

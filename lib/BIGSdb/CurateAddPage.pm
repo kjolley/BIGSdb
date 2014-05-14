@@ -272,14 +272,8 @@ sub _insert {
 	#special case to ensure that a locus alias is not the same as the locus name
 	elsif ( $table eq 'locus_aliases' && $newdata->{'locus'} eq $newdata->{'alias'} ) {
 		push @problems, "Locus alias can not be set the same as the locus name.";
-	}
-
-	#special case to check that only one primary key field is set for a scheme field
-	elsif ( $table eq 'scheme_fields' && $newdata->{'primary_key'} eq 'true' && !@problems ) {
-		my $scheme_info = $self->{'datastore'}->get_scheme_info( $newdata->{'scheme_id'}, { get_pk => 1 } );
-		if ( $scheme_info->{'primary_key'} ) {
-			push @problems, "This scheme already has a primary key field set ($scheme_info->{'primary_key'}).";
-		}
+	} elsif ( $table eq 'scheme_fields' ) {
+		$self->_check_scheme_fields( $newdata, \@problems );
 	} elsif ( $table eq 'scheme_group_group_members' && $newdata->{'parent_group_id'} == $newdata->{'group_id'} ) {
 		push @problems, "A scheme group can't be a member of itself.";
 	} elsif (
@@ -546,6 +540,24 @@ sub _check_allele_data {
 			  "INSERT INTO accession (locus,allele_id,databank,databank_id,curator,datestamp) VALUES (E'$cleaned_locus',"
 			  . "'$newdata->{'allele_id'}','$databank','$clean_new',$newdata->{'curator'},'today')";
 		}
+	}
+	return;
+}
+
+sub _check_scheme_fields {
+	my ( $self, $newdata, $problems ) = @_;
+
+	#special case to check that only one primary key field is set for a scheme field
+	if ( $newdata->{'primary_key'} eq 'true' && !@$problems ) {
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $newdata->{'scheme_id'}, { get_pk => 1 } );
+		if ( $scheme_info->{'primary_key'} ) {
+			push @$problems, "This scheme already has a primary key field set ($scheme_info->{'primary_key'}).";
+		}
+	}
+
+	#special case to check that scheme field is not called 'id' (this causes problems when joining tables)
+	if ($newdata->{'field'} eq 'id'){
+		push @$problems, "Scheme fields can not be called 'id'.";
 	}
 	return;
 }

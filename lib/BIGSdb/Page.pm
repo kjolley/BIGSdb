@@ -858,7 +858,7 @@ sub get_filter {
 	$options = {} if ref $options ne 'HASH';
 	my $class = $options->{'class'} || 'filter';
 	( my $text = $options->{'text'} || $name ) =~ tr/_/ /;
-	my ( $label, $title ) = $self->get_truncated_label("$text: ");
+	my ( $label, $title ) = $self->get_truncated_label( "$text: ", undef, { capitalize_first => 1 } );
 	my $title_attribute = $title ? "title=\"$title\"" : '';
 	( my $id = "$name\_list" ) =~ tr/:/_/;
 	my $buffer = "<label for=\"$id\" class=\"$class\" $title_attribute>$label</label>\n";
@@ -1067,7 +1067,8 @@ sub get_sequence_method_filter {
 }
 
 sub get_truncated_label {
-	my ( $self, $label, $length ) = @_;
+	my ( $self, $label, $length, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	$length //= 25;
 	my $title;
 	if ( length $label > $length ) {
@@ -1075,7 +1076,7 @@ sub get_truncated_label {
 		$title =~ tr/\"//;
 		$label = substr( $label, 0, $length - 5 ) . "&hellip;";
 	}
-	if ( $label =~ /^[a-z]+\s+/ ) {    #only if first word is all lower case
+	if ( $options->{'capitalize_first'} && $label =~ /^[a-z]+\s+/ ) {    #only if first word is all lower case
 		$label = ucfirst $label;
 		$title = ucfirst $title if $title;
 	}
