@@ -874,7 +874,9 @@ sub get_filter {
 		$args{'-override'} = 1;
 		$args{'-class'}    = 'multiselect';
 	}
-	$buffer .= $q->popup_menu(%args);
+
+	#Page::popup_menu faster than CGI::popup_menu as it doesn't escape values.
+	$buffer .= ( $args{'-class'} // '' ) eq 'multiselect' ? $q->popup_menu(%args) : $self->popup_menu(%args);
 	$options->{'tooltip'} =~ tr/_/ / if $options->{'tooltip'};
 	$buffer .= " <a class=\"tooltip\" title=\"$options->{'tooltip'}\">&nbsp;<i>i</i>&nbsp;</a>" if $options->{'tooltip'};
 	return $buffer;
@@ -1785,7 +1787,7 @@ sub _initiate_isolatedb_prefs {
 			}
 
 			#default on
-			foreach ( qw (sequence_details sample_details mark_provisional mark_provisional_main locus_alias) ) {
+			foreach (qw (sequence_details sample_details mark_provisional mark_provisional_main locus_alias)) {
 				$general_prefs->{$_} ||= 'on';
 				$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'off' ? 0 : 1;
 			}
