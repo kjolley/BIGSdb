@@ -958,11 +958,13 @@ sub get_locus_filter {
 	return $buffer;
 }
 
-sub get_publication_filter {
+sub get_isolate_publication_filter {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	if ( $self->{'config'}->{'ref_db'} ) {
-		my $pmid = $self->{'datastore'}->run_list_query("SELECT DISTINCT(pubmed_id) FROM refs");
+		my $view = $self->{'system'}->{'view'};
+		my $pmid =
+		  $self->{'datastore'}->run_list_query("SELECT DISTINCT(pubmed_id) FROM refs RIGHT JOIN $view ON refs.isolate_id = $view.id");
 		my $buffer;
 		if (@$pmid) {
 			my $labels = $self->{'datastore'}->get_citation_hash($pmid);
@@ -1295,9 +1297,9 @@ sub rewrite_query_ref_order_by {
 	my ( $self, $qry_ref ) = @_;
 	my $view = $self->{'system'}->{'view'};
 	if ( $$qry_ref =~ /ORDER BY s_(\d+)_\S+\s/ ) {
-		my $scheme_id   = $1;
+		my $scheme_id            = $1;
 		my $isolate_scheme_table = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
-		my $scheme_join = "LEFT JOIN $isolate_scheme_table AS ordering ON $view.id=ordering.id";
+		my $scheme_join          = "LEFT JOIN $isolate_scheme_table AS ordering ON $view.id=ordering.id";
 		$$qry_ref =~ s/(SELECT \.* FROM $view)/$1 $scheme_join/;
 		$$qry_ref =~ s/FROM $view/FROM $view $scheme_join/;
 		$$qry_ref =~ s/ORDER BY s_(\d+)_/ORDER BY ordering\./;
@@ -1740,7 +1742,7 @@ sub _initiate_isolatedb_prefs {
 		#Switches
 		foreach (
 			qw ( update_details sequence_details mark_provisional mark_provisional_main sequence_details_main display_seqbin_main
-			 locus_alias scheme_members_alias sample_details undesignated_alleles)
+			locus_alias scheme_members_alias sample_details undesignated_alleles)
 		  )
 		{
 			$self->{'prefs'}->{$_} = $params->{$_} ? 1 : 0;
@@ -1783,10 +1785,7 @@ sub _initiate_isolatedb_prefs {
 			}
 
 			#default on
-			foreach (
-				qw (sequence_details sample_details mark_provisional mark_provisional_main locus_alias)
-			  )
-			{
+			foreach ( qw (sequence_details sample_details mark_provisional mark_provisional_main locus_alias) ) {
 				$general_prefs->{$_} ||= 'on';
 				$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'off' ? 0 : 1;
 			}

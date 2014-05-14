@@ -291,7 +291,7 @@ sub _print_filter_fieldset {
 			}
 		}
 	}
-	my $buffer = $self->get_publication_filter( { any => 1, multiple => 1 } );
+	my $buffer = $self->get_isolate_publication_filter( { any => 1, multiple => 1 } );
 	push @filters, $buffer if $buffer;
 	$buffer = $self->get_project_filter( { any => 1, multiple => 1 } );
 	push @filters, $buffer if $buffer;
