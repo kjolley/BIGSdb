@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -110,7 +110,7 @@ sub print_content {
 	return;
 }
 
-sub _prepare_extra_inserts_for_locus_descriptions {
+sub _check_locus_descriptions {
 	my ( $self, $newdata, $problems, $extra_inserts ) = @_;
 	my $q = $self->{'cgi'};
 	( my $cleaned_locus = $newdata->{'locus'} ) =~ s/'/\\'/g;
@@ -119,6 +119,7 @@ sub _prepare_extra_inserts_for_locus_descriptions {
 	foreach my $new (@new_aliases) {
 		chomp $new;
 		next if $new eq '';
+		next if $new eq $newdata->{'locus'};
 		if ( !@$existing_aliases || none { $new eq $_ } @$existing_aliases ) {
 			push @$extra_inserts,
 			  "INSERT INTO locus_aliases (locus,alias,curator,datestamp) VALUES (E'$cleaned_locus','$new',$newdata->{'curator'},'today')";
@@ -154,45 +155,6 @@ sub _prepare_extra_inserts_for_locus_descriptions {
 	return;
 }
 
-sub _prepare_extra_inserts_for_loci {
-	my ( $self, $newdata, $extra_inserts ) = @_;
-	my $q = $self->{'cgi'};
-	( my $cleaned_locus = $newdata->{'locus'} ) =~ s/'/\\'/g;
-	my ( $full_name, $product, $description ) = ( $q->param('full_name'), $q->param('product'), $q->param('description') );
-	s/'/\\'/g foreach ( $full_name, $product, $description );
-	push @$extra_inserts, "INSERT INTO locus_descriptions (locus,full_name,product,description,curator,datestamp) VALUES "
-	  . "(E'$cleaned_locus',E'$full_name',E'$product',E'$description',$newdata->{'curator'},'now')";
-	return;
-}
-
-sub _prepare_extra_inserts_for_seqbin {
-	my ( $self, $newdata, $problems, $extra_inserts ) = @_;
-	my $q = $self->{'cgi'};
-	if ( $q->param('experiment') ) {
-		my $experiment = $q->param('experiment');
-		my $insert     = "INSERT INTO experiment_sequences (experiment_id,seqbin_id,curator,datestamp) VALUES "
-		  . "($experiment,$newdata->{'id'},$newdata->{'curator'},'now')";
-		push @$extra_inserts, $insert;
-	}
-	my $seq_attributes = $self->{'datastore'}->run_list_query_hashref("SELECT key,type FROM sequence_attributes ORDER BY key");
-	foreach my $attribute (@$seq_attributes) {
-		my $value = $q->param( $attribute->{'key'} );
-		next if !defined $value || $value eq '';
-		if ( $attribute->{'type'} eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
-			push @$problems, "$attribute->{'key'} must be an integer.";
-		} elsif ( $attribute->{'type'} eq 'float' && !BIGSdb::Utils::is_float($value) ) {
-			push @$problems, "$attribute->{'key'} must be a floating point value.";
-		} elsif ( $attribute->{'type'} eq 'date' && !BIGSdb::Utils::is_date($value) ) {
-			push @$problems, "$attribute->{'key'} must be a valid date in yyyy-mm-dd format.";
-		}
-		$value =~ s/'/\\'/g;
-		my $insert = "INSERT INTO sequence_attribute_values(seqbin_id,key,value,curator,datestamp) VALUES "
-		  . "($newdata->{'id'},'$attribute->{'key'}',E'$value',$newdata->{'curator'},'now')";
-		push @$extra_inserts, $insert;
-	}
-	return;
-}
-
 sub _insert {
 	my ( $self, $table, $newdata ) = @_;
 	my $q          = $self->{'cgi'};
@@ -201,81 +163,12 @@ sub _insert {
 	$self->_format_data( $table, $newdata );
 	@problems = $self->check_record( $table, $newdata );
 	my @extra_inserts;
-	if ( $table eq 'sequences' ) {
-		$self->_check_allele_data( $newdata, \@problems, \@extra_inserts );
-	} elsif ( $table eq 'loci' ) {
-		if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-			$newdata->{'locus'} = $newdata->{'id'};
-			$self->_prepare_extra_inserts_for_loci( $newdata, \@extra_inserts );
-			$self->_prepare_extra_inserts_for_locus_descriptions( $newdata, \@problems, \@extra_inserts );
-		}
-	} elsif ( $table eq 'locus_descriptions' ) {
-		$self->_prepare_extra_inserts_for_locus_descriptions( $newdata, \@problems, \@extra_inserts );
-	} elsif ( $table eq 'sequence_bin' ) {
-		$newdata->{'sequence'} =~ s/[\W]//g;
-		push @problems, "Sequence data invalid." if !length $newdata->{'sequence'};
-		$self->_prepare_extra_inserts_for_seqbin( $newdata, \@problems, \@extra_inserts );
-	}
-	if ( $table eq 'sequences' ) {
-		my $locus_info = $self->{'datastore'}->get_locus_info( $newdata->{'locus'} );
-		if (   defined $newdata->{'allele_id'}
-			&& $newdata->{'allele_id'} ne ''
-			&& !BIGSdb::Utils::is_int( $newdata->{'allele_id'} )
-			&& $locus_info->{'allele_id_format'} eq 'integer' )
-		{
-			push @problems, "The allele id must be an integer for this locus.";
-		} elsif ( $locus_info->{'allele_id_regex'} ) {
-			my $regex = $locus_info->{'allele_id_regex'};
-			if ( $regex && $newdata->{'allele_id'} !~ /$regex/ ) {
-				push @problems, "Allele id value is invalid - it must match the regular expression /$regex/.";
-			}
-		}
+	my @tables = qw(accession loci locus_aliases locus_descriptions profile_refs scheme_fields scheme_group_group_members
+	  sequences sequence_bin sequence_refs);
 
-		#Make sure sequence bin data marked as DNA is valid
-	} elsif ( $table eq 'sequence_bin' && !BIGSdb::Utils::is_valid_DNA( \( $newdata->{'sequence'} ), { allow_ambiguous => 1 } ) ) {
-		push @problems, "Sequence contains non nucleotide (G|A|T|C + ambiguity code R|Y|W|S|M|K|V|H|D|B|X|N) characters.";
-
-		#special case to check that start_pos is less than end_pos for allele_sequence
-	} elsif ( $table eq 'allele_sequences' && $newdata->{'end_pos'} < $newdata->{'start_pos'} ) {
-		push @problems,
-		  "Sequence end position must be greater than the start position - set reverse = 'true' if sequence is reverse complemented.";
-	}
-
-	#special case to check that sequence exists when adding accession or PubMed number
-	elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' && ( $table eq 'accession' || $table eq 'sequence_refs' ) ) {
-		if ( !$self->{'datastore'}->sequence_exists( $newdata->{'locus'}, $newdata->{'allele_id'} ) ) {
-			push @problems, "Sequence $newdata->{'locus'}-$newdata->{'allele_id'} does not exist.";
-		}
-
-		#special case to check that profile exists when adding PubMed number
-	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' && $table eq 'profile_refs' ) {
-		if ( !$self->{'datastore'}->profile_exists( $newdata->{'scheme_id'}, $newdata->{'profile_id'} ) ) {
-			push @problems, "Profile $newdata->{'profile_id'} does not exist.";
-		}
-
-		#special case to ensure that a locus length is set is it is not marked as variable length
-	} elsif ( $table eq 'loci' ) {
-		if ( $newdata->{'length_varies'} ne 'true' && !$newdata->{'length'} ) {
-			push @problems,
-			  "Locus set as non variable length but no length is set. Either set 'length_varies' to false, or enter a length.";
-		}
-		if ( $newdata->{'id'} =~ /^\d/ ) {
-			push @problems,
-			  "Locus names can not start with a digit.  Try prepending an underscore (_) which will get hidden in the query interface.";
-		}
-		if ( $newdata->{'id'} =~ /[^\w_']/ ) {
-			push @problems,
-			  "Locus names can only contain alphanumeric, underscore (_) and prime (') characters (no spaces or other symbols).";
-		}
-	}
-
-	#special case to ensure that a locus alias is not the same as the locus name
-	elsif ( $table eq 'locus_aliases' && $newdata->{'locus'} eq $newdata->{'alias'} ) {
-		push @problems, "Locus alias can not be set the same as the locus name.";
-	} elsif ( $table eq 'scheme_fields' ) {
-		$self->_check_scheme_fields( $newdata, \@problems );
-	} elsif ( $table eq 'scheme_group_group_members' && $newdata->{'parent_group_id'} == $newdata->{'group_id'} ) {
-		push @problems, "A scheme group can't be a member of itself.";
+	if ( any { $table eq $_ } @tables ) {
+		my $method = "_check_$table";
+		$self->$method( $newdata, \@problems, \@extra_inserts );
 	} elsif (
 		!@problems
 		&& ( $self->{'system'}->{'read_access'} eq 'acl'
@@ -418,7 +311,41 @@ sub _insert {
 	return;
 }
 
-sub _check_allele_data {
+sub _check_accession {
+	my ( $self, $newdata, $problems ) = @_;
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		if ( !$self->{'datastore'}->sequence_exists( $newdata->{'locus'}, $newdata->{'allele_id'} ) ) {
+			push @$problems, "Sequence $newdata->{'locus'}-$newdata->{'allele_id'} does not exist.";
+		}
+	}
+	return;
+}
+
+sub _check_sequence_refs {
+	my ( $self, $newdata, $problems ) = @_;
+	if ( !$self->{'datastore'}->sequence_exists( $newdata->{'locus'}, $newdata->{'allele_id'} ) ) {
+		push @$problems, "Sequence $newdata->{'locus'}-$newdata->{'allele_id'} does not exist.";
+	}
+	return;
+}
+
+sub _check_profile_refs {
+	my ( $self, $newdata, $problems ) = @_;
+	if ( !$self->{'datastore'}->profile_exists( $newdata->{'scheme_id'}, $newdata->{'profile_id'} ) ) {
+		push @$problems, "Profile $newdata->{'profile_id'} does not exist.";
+	}
+	return;
+}
+
+sub _check_scheme_group_group_members {
+	my ( $self, $newdata, $problems ) = @_;
+	if ( $newdata->{'parent_group_id'} == $newdata->{'group_id'} ) {
+		push @$problems, "A scheme group can't be a member of itself.";
+	}
+	return;
+}
+
+sub _check_sequences {
 
 	#Check for sequence length in sequences table, that sequence doesn't already exist and is similar to existing etc.
 	#Prepare extra inserts for PubMed/Genbank records and sequence flags.
@@ -471,6 +398,18 @@ sub _check_allele_data {
 		  . "than 90% its length).  Similarity is determined by the output of the best match from the BLAST algorithm - this "
 		  . "may be conservative.  If you're sure you want to add this sequence then make sure that the 'Override sequence "
 		  . "similarity check' box is ticked.<br />";
+	}
+	if (   defined $newdata->{'allele_id'}
+		&& $newdata->{'allele_id'} ne ''
+		&& !BIGSdb::Utils::is_int( $newdata->{'allele_id'} )
+		&& $locus_info->{'allele_id_format'} eq 'integer' )
+	{
+		push @$problems, "The allele id must be an integer for this locus.";
+	} elsif ( $locus_info->{'allele_id_regex'} ) {
+		my $regex = $locus_info->{'allele_id_regex'};
+		if ( $regex && $newdata->{'allele_id'} !~ /$regex/ ) {
+			push @$problems, "Allele id value is invalid - it must match the regular expression /$regex/.";
+		}
 	}
 
 	#check extended attributes if they exist
@@ -556,8 +495,74 @@ sub _check_scheme_fields {
 	}
 
 	#special case to check that scheme field is not called 'id' (this causes problems when joining tables)
-	if ($newdata->{'field'} eq 'id'){
+	if ( $newdata->{'field'} eq 'id' ) {
 		push @$problems, "Scheme fields can not be called 'id'.";
+	}
+	return;
+}
+
+sub _check_locus_aliases {
+	my ( $self, $newdata, $problems ) = @_;
+	if ( $newdata->{'locus'} eq $newdata->{'alias'} ) {
+		push @$problems, "Locus alias can not be set the same as the locus name.";
+	}
+	return;
+}
+
+sub _check_loci {
+	my ( $self, $newdata, $problems, $extra_inserts ) = @_;
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		$newdata->{'locus'} = $newdata->{'id'};
+		my $q = $self->{'cgi'};
+		( my $cleaned_locus = $newdata->{'locus'} ) =~ s/'/\\'/g;
+		my ( $full_name, $product, $description ) = ( $q->param('full_name'), $q->param('product'), $q->param('description') );
+		s/'/\\'/g foreach ( $full_name, $product, $description );
+		push @$extra_inserts, "INSERT INTO locus_descriptions (locus,full_name,product,description,curator,datestamp) VALUES "
+		  . "(E'$cleaned_locus',E'$full_name',E'$product',E'$description',$newdata->{'curator'},'now')";
+		$self->_check_locus_descriptions( $newdata, $problems, $extra_inserts );
+	}
+	if ( $newdata->{'length_varies'} ne 'true' && !$newdata->{'length'} ) {
+		push @$problems, "Locus set as non variable length but no length is set. Either set 'length_varies' to false, or enter a length.";
+	}
+	if ( $newdata->{'id'} =~ /^\d/ ) {
+		push @$problems,
+		  "Locus names can not start with a digit.  Try prepending an underscore (_) which will get hidden in the query interface.";
+	}
+	if ( $newdata->{'id'} =~ /[^\w_']/ ) {
+		push @$problems, "Locus names can only contain alphanumeric, underscore (_) and prime (') characters (no spaces or other symbols).";
+	}
+	return;
+}
+
+sub _check_sequence_bin {
+	my ( $self, $newdata, $problems, $extra_inserts ) = @_;
+	$newdata->{'sequence'} =~ s/[\W]//g;
+	push @$problems, "Sequence data invalid." if !length $newdata->{'sequence'};
+	my $q = $self->{'cgi'};
+	if ( $q->param('experiment') ) {
+		my $experiment = $q->param('experiment');
+		my $insert     = "INSERT INTO experiment_sequences (experiment_id,seqbin_id,curator,datestamp) VALUES "
+		  . "($experiment,$newdata->{'id'},$newdata->{'curator'},'now')";
+		push @$extra_inserts, $insert;
+	}
+	my $seq_attributes = $self->{'datastore'}->run_list_query_hashref("SELECT key,type FROM sequence_attributes ORDER BY key");
+	foreach my $attribute (@$seq_attributes) {
+		my $value = $q->param( $attribute->{'key'} );
+		next if !defined $value || $value eq '';
+		if ( $attribute->{'type'} eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
+			push @$problems, "$attribute->{'key'} must be an integer.";
+		} elsif ( $attribute->{'type'} eq 'float' && !BIGSdb::Utils::is_float($value) ) {
+			push @$problems, "$attribute->{'key'} must be a floating point value.";
+		} elsif ( $attribute->{'type'} eq 'date' && !BIGSdb::Utils::is_date($value) ) {
+			push @$problems, "$attribute->{'key'} must be a valid date in yyyy-mm-dd format.";
+		}
+		$value =~ s/'/\\'/g;
+		my $insert = "INSERT INTO sequence_attribute_values(seqbin_id,key,value,curator,datestamp) VALUES "
+		  . "($newdata->{'id'},'$attribute->{'key'}',E'$value',$newdata->{'curator'},'now')";
+		push @$extra_inserts, $insert;
+	}
+	if ( !BIGSdb::Utils::is_valid_DNA( \( $newdata->{'sequence'} ), { allow_ambiguous => 1 } ) ) {
+		push @$problems, "Sequence contains non nucleotide (G|A|T|C + ambiguity code R|Y|W|S|M|K|V|H|D|B|X|N) characters.";
 	}
 	return;
 }

@@ -493,6 +493,7 @@ sub _check_locus_descriptions {
 	foreach my $new (@new_aliases) {
 		chomp $new;
 		next if $new eq '';
+		next if $new eq $newdata->{'locus'};
 		if ( !@$existing_aliases || none { $new eq $_ } @$existing_aliases ) {
 			push @$extra_inserts, "INSERT INTO locus_aliases (locus,alias,curator,datestamp) VALUES "
 			  . "(E'$cleaned_locus','$new',$newdata->{'curator'},'today')";
