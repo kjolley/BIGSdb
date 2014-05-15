@@ -208,7 +208,7 @@ sub _check {
 			} while ( $self->_is_pk_used( $scheme_id, $pk ) );
 		} elsif ($pk_included) {
 			$pk = $data[ $fileheaderPos{$primary_key} ];
-		} 
+		}
 		$record_count++;
 		$row_buffer .= "<tr class=\"td$td\">";
 		$i = 0;
@@ -261,7 +261,7 @@ sub _check {
 				}
 			} elsif ( $is_field{$field} && defined $value ) {
 				if ( $scheme_field_info->{$field}->{'primary_key'} && $value eq '' ) {
-					$problems{$pk // ''} .= "Field $field is required and must not be left blank.<br />";
+					$problems{ $pk // '' } .= "Field $field is required and must not be left blank.<br />";
 					$problem = 1;
 				} elsif ( $scheme_field_info->{$field}->{'type'} eq 'integer' && $value ne '' && !BIGSdb::Utils::is_int($value) ) {
 					$problems{$pk} .= "Field $field must be an integer.<br />";
@@ -276,7 +276,7 @@ sub _check {
 			}
 			$checked_record .= "$value\t"
 			  if defined $fileheaderPos{$field}
-				  or ( $field eq $primary_key );
+			  or ( $field eq $primary_key );
 		}
 
 		#check if profile exists
@@ -290,7 +290,7 @@ sub _check {
 		if ($exists) {
 			$problems{$pk} .= "The primary key '$primary_key-$pk' already exists in the database.<br />";
 		}
-		if ( $pks_so_far{$pk // ''} ) {
+		if ( $pks_so_far{ $pk // '' } ) {
 			$problems{$pk} .= "This primary key has been included more than once in this submission.<br />";
 		}
 		{
@@ -320,7 +320,7 @@ sub _check {
 			}
 			$profiles_so_far{"@profile"} = 1;
 		}
-		$pks_so_far{$pk // ''} = 1;
+		$pks_so_far{ $pk // '' } = 1;
 		$row_buffer   .= "</tr>\n";
 		$table_buffer .= $row_buffer;
 		$td = $td == 1 ? 2 : 1;    #row stripes
@@ -516,6 +516,8 @@ HTML
 <ul>
 <li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;table=profiles&amp;scheme=$scheme_id">
 Download tab-delimited header for your spreadsheet</a> - use Paste special &rarr; text to paste the data.</li>
+<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;table=profiles&amp;scheme_id=$scheme_id">
+Download submission template (xlsx format)</a></li>
 </ul>
 HTML
 	say $q->start_form;

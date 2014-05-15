@@ -40,13 +40,36 @@ sub print_content {
 	$self->{'header_format'}->set_align('center');
 	$self->{'header_format'}->set_bold;
 	my $table = $self->{'cgi'}->param('table') || '';
+	my $scheme_id = $self->{'cgi'}->param('scheme_id');
 
 	if ( !$self->{'datastore'}->is_table($table) && !@{ $self->{'xmlHandler'}->get_sample_field_list } ) {
 		$worksheet->write( 'A1', "Table $table does not exist!" );
 		return;
 	}
-	my $headers = $self->get_headers($table);
-	my $col     = 0;
+	my $headers = [];
+	if ( $table eq 'profiles' ) {
+		if ( $self->{'system'}->{'dbtype'} eq 'sequences' && BIGSdb::Utils::is_int($scheme_id) ) {
+			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+			if ($scheme_info) {
+				push @$headers, $scheme_info->{'primary_key'} if $scheme_info->{'primary_key'};
+				my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+				push @$headers, @$loci;
+				my $fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+				foreach my $field (@$fields) {
+					push @$headers, $field if $field ne $scheme_info->{'primary_key'};
+				}
+			} else {
+				$worksheet->write( 'A1', "Invalid scheme!" );
+				return;
+			}
+		} else {
+			$worksheet->write( 'A1', "Invalid scheme!" );
+			return;
+		}
+	} else {
+		$headers = $self->get_headers($table);
+	}
+	my $col = 0;
 	my $allowed_values_worksheet;
 	if ( $table eq 'isolates' ) {
 		$allowed_values_worksheet = $workbook->add_worksheet('allowed_values');
