@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -424,5 +424,14 @@ sub get_N_stats {
 		$stats->{'N95'} = $length if !defined $stats->{'N95'} && $running_total <= $n95_target;
 	}
 	return $stats;
+}
+
+sub escape_html {
+	my ($string) = @_;
+	return if !defined $string;
+	$string =~ s/"/\&quot;/g;
+	$string =~ s/</\&lt;/g;
+	$string =~ s/>/\&gt;/g;
+	return $string;
 }
 1;

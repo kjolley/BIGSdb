@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -126,6 +126,7 @@ sub _get_form_fields {
 	foreach my $required ( '1', '0' ) {
 		foreach my $att (@$attributes) {
 			next if ( any { $att->{'name'} eq $_ } @{ $options->{'noshow'} } );
+			$newdata{ $att->{'name'} } = BIGSdb::Utils::escape_html( $newdata{ $att->{'name'} } );
 			my %html5_args;
 			$html5_args{'required'} = 'required' if $att->{'required'} eq 'yes';
 			if ( $att->{'type'} eq 'int' && !$att->{'dropdown_query'} && !$att->{'optlist'} ) {

@@ -153,9 +153,7 @@ sub _display_record {
 		} else {
 			$value = $data->{ $_->{'name'} };
 		}
-		if ( $_->{'name'} =~ /url$/ ) {
-			$value =~ s/\&/\&amp;/g if defined $value;
-		}
+		$value = BIGSdb::Utils::escape_html($value);
 		if ( $_->{'name'} =~ /sequence$/ && $_->{'name'} ne 'coding_sequence' ) {
 			$value //= ' ';
 			my $value_length = length($value);

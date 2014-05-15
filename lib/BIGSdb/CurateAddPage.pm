@@ -217,8 +217,17 @@ sub _insert {
 			}
 			push @values, $newdata->{ $_->{'name'} };
 		}
+		
+		
 		local $" = ',';
 		my $qry = "INSERT INTO $table (@table_fields) VALUES (@placeholders)";
+		
+		$logger->error($qry);
+		foreach my $value (@values){
+			$logger->error($value);
+		}
+		
+		
 		if ( $table eq 'users' ) {
 			push @$extra_inserts,
 			  {
