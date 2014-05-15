@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::CuratePage BIGSdb::BlastPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use List::MoreUtils qw(any none);
+use List::MoreUtils qw(any none uniq);
 use BIGSdb::Page qw(DATABANKS LOCUS_PATTERN ALLELE_FLAGS);
 use constant SUCCESS           => 1;
 use constant MAX_POSTGRES_COLS => 1664;
@@ -80,7 +80,7 @@ sub print_content {
 	my %newdata;
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	foreach (@$attributes) {
-		$newdata{ $_->{'name'} } = $q->param( $_->{'name'} );
+		$newdata{ $_->{'name'} } = $q->param( $_->{'name'} ) if ( $q->param( $_->{'name'} ) // '' ) ne '';
 		if (  !$newdata{ $_->{'name'} }
 			&& $_->{'name'} eq 'id'
 			&& $_->{'type'} eq 'int' )
@@ -112,17 +112,19 @@ sub print_content {
 
 sub _check_locus_descriptions {
 	my ( $self, $newdata, $problems, $extra_inserts ) = @_;
-	my $q = $self->{'cgi'};
-	( my $cleaned_locus = $newdata->{'locus'} ) =~ s/'/\\'/g;
+	my $q                = $self->{'cgi'};
 	my $existing_aliases = $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=?", $newdata->{'locus'} );
-	my @new_aliases = split /\r?\n/, $q->param('aliases');
+	my @new_aliases      = split /\r?\n/, $q->param('aliases');
 	foreach my $new (@new_aliases) {
 		chomp $new;
 		next if $new eq '';
 		next if $new eq $newdata->{'locus'};
 		if ( !@$existing_aliases || none { $new eq $_ } @$existing_aliases ) {
 			push @$extra_inserts,
-			  "INSERT INTO locus_aliases (locus,alias,curator,datestamp) VALUES (E'$cleaned_locus','$new',$newdata->{'curator'},'today')";
+			  {
+				statement => 'INSERT INTO locus_aliases (locus,alias,curator,datestamp) VALUES (?,?,?,?)',
+				arguments => [ $newdata->{'locus'}, $new, $newdata->{'curator'}, 'now' ]
+			  };
 		}
 	}
 	my @new_pubmeds = split /\r?\n/, $q->param('pubmed');
@@ -133,7 +135,10 @@ sub _check_locus_descriptions {
 			push @$problems, "PubMed ids must be integers.";
 		} else {
 			push @$extra_inserts,
-			  "INSERT INTO locus_refs (locus,pubmed_id,curator,datestamp) VALUES (E'$cleaned_locus',$new,$newdata->{'curator'},'today')";
+			  {
+				statement => 'INSERT INTO locus_refs (locus,pubmed_id,curator,datestamp) VALUES (?,?,?,?)',
+				arguments => [ $newdata->{'locus'}, $new, $newdata->{'curator'}, 'now' ]
+			  };
 		}
 	}
 	my @new_links = split /\r?\n/, $q->param('links');
@@ -145,10 +150,11 @@ sub _check_locus_descriptions {
 			push @$problems, "Links must have an associated description separated from the URL by a '|'.";
 		} else {
 			my ( $url, $desc ) = ( $1, $2 );
-			$url  =~ s/'/\\'/g;
-			$desc =~ s/'/\\'/g;
-			push @$extra_inserts, "INSERT INTO locus_links (locus,url,description,link_order,curator,datestamp) VALUES "
-			  . "(E'$cleaned_locus',E'$url',E'$desc',$i,$newdata->{'curator'},'today')";
+			push @$extra_inserts,
+			  {
+				statement => 'INSERT INTO locus_links (locus,url,description,link_order,curator,datestamp) VALUES (?,?,?,?,?,?)',
+				arguments => [ $newdata->{'locus'}, $url, $desc, $i, $newdata->{'curator'}, 'now' ]
+			  };
 		}
 		$i++;
 	}
@@ -162,13 +168,13 @@ sub _insert {
 	my @problems;
 	$self->_format_data( $table, $newdata );
 	@problems = $self->check_record( $table, $newdata );
-	my @extra_inserts;
-	my @tables = qw(accession loci locus_aliases locus_descriptions profile_refs scheme_fields scheme_group_group_members
+	my $extra_inserts = [];
+	my @tables        = qw(accession loci locus_aliases locus_descriptions profile_refs scheme_fields scheme_group_group_members
 	  sequences sequence_bin sequence_refs);
 
 	if ( any { $table eq $_ } @tables ) {
 		my $method = "_check_$table";
-		$self->$method( $newdata, \@problems, \@extra_inserts );
+		$self->$method( $newdata, \@problems, $extra_inserts );
 	} elsif (
 		!@problems
 		&& ( $self->{'system'}->{'read_access'} eq 'acl'
@@ -201,36 +207,30 @@ sub _insert {
 		local $" = "<br />\n";
 		print "<div class=\"box\" id=\"statusbad\"><p>@problems</p></div>\n";
 	} else {
-		my ( @table_fields, @values );
+		my ( @table_fields, @placeholders, @values );
 		foreach (@$attributes) {
 			push @table_fields, $_->{'name'};
-			$newdata->{ $_->{'name'} } //= '';
-			$newdata->{ $_->{'name'} } =~ s/\\/\\\\/g;
-			$newdata->{ $_->{'name'} } =~ s/'/\\'/g;
+			push @placeholders, '?';
 			if ( $_->{'name'} =~ /sequence$/ ) {
 				$newdata->{ $_->{'name'} } = uc( $newdata->{ $_->{'name'} } );
 				$newdata->{ $_->{'name'} } =~ s/\s//g;
 			}
 			push @values, $newdata->{ $_->{'name'} };
 		}
-		my $valuestring;
-		my $first = 1;
-		foreach (@values) {
-			$valuestring .= ',' if !$first;
-			$valuestring .= $_ ne '' ? "E'$_'" : "null";
-			$first = 0;
-		}
 		local $" = ',';
-		my $qry = "INSERT INTO $table (@table_fields) VALUES ($valuestring)";
+		my $qry = "INSERT INTO $table (@table_fields) VALUES (@placeholders)";
 		if ( $table eq 'users' ) {
-			$qry .= ";INSERT INTO user_group_members (user_id,user_group,curator,datestamp) VALUES ($newdata->{'id'},0,"
-			  . "$newdata->{'curator'},'today')";
+			push @$extra_inserts,
+			  {
+				statement => 'INSERT INTO user_group_members (user_id,user_group,curator,datestamp) VALUES (?,?,?,?)',
+				arguments => [ $newdata->{'id'}, 0, $newdata->{'curator'}, 'now' ]
+			  };
 		}
 		my $continue = 1;
 		eval {
-			$self->{'db'}->do($qry);
-			foreach (@extra_inserts) {
-				$self->{'db'}->do($_);
+			$self->{'db'}->do( $qry, undef, @values );
+			foreach (@$extra_inserts) {
+				$self->{'db'}->do( $_->{'statement'}, undef, @{ $_->{'arguments'} } );
 			}
 			if ( $table eq 'schemes' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 				$self->create_scheme_view( $newdata->{'id'} );
@@ -418,7 +418,6 @@ sub _check_sequences {
 	eval { $sql->execute( $newdata->{'locus'} ) };
 	$logger->error($@) if $@;
 	my @missing_field;
-	( my $cleaned_locus = $newdata->{'locus'} ) =~ s/'/\\'/g;
 	while ( my ( $field, $required, $format, $regex, $option_list ) = $sql->fetchrow_array ) {
 		my @optlist;
 		my %options;
@@ -437,12 +436,13 @@ sub _check_sequences {
 		} elsif ( $newdata->{$field} ne '' && $regex && $newdata->{$field} !~ /$regex/ ) {
 			push @$problems, "Field '$field' does not conform to specified format.\n";
 		} else {
-			$field =~ s/'/\\'/g;
-			$newdata->{$field} =~ s/'/\\'/g;
 			if ( $newdata->{$field} ne '' ) {
-				my $insert = "INSERT INTO sequence_extended_attributes(locus,field,allele_id,value,datestamp,curator) "
-				  . "VALUES (E'$cleaned_locus','$field','$newdata->{'allele_id'}',E'$newdata->{$field}','now',$newdata->{'curator'})";
-				push @$extra_inserts, $insert;
+				push @$extra_inserts,
+				  {
+					statement => 'INSERT INTO sequence_extended_attributes(locus,field,allele_id,value,datestamp,curator) VALUES '
+					  . '(?,?,?,?,?,?)',
+					arguments => [ $newdata->{'locus'}, $field, $newdata->{'allele_id'}, $newdata->{$field}, 'now', $newdata->{'curator'} ]
+				  };
 			}
 		}
 	}
@@ -454,30 +454,37 @@ sub _check_sequences {
 	my @flags = $q->param('flags');
 	foreach my $flag (@flags) {
 		next if none { $flag eq $_ } ALLELE_FLAGS;
-		push @$extra_inserts, "INSERT INTO allele_flags (locus,allele_id,flag,curator,datestamp) VALUES (E'$cleaned_locus',"
-		  . "'$newdata->{'allele_id'}','$flag',$newdata->{'curator'},'today')";
+		push @$extra_inserts,
+		  {
+			statement => 'INSERT INTO allele_flags (locus,allele_id,flag,curator,datestamp) VALUES (?,?,?,?,?)',
+			arguments => [ $newdata->{'locus'}, $newdata->{'allele_id'}, $flag, $newdata->{'curator'}, 'now' ]
+		  };
 	}
 	my @new_pubmeds = split /\r?\n/, $q->param('pubmed');
-	foreach my $new (@new_pubmeds) {
+	foreach my $new ( uniq @new_pubmeds ) {
 		chomp $new;
 		next if $new eq '';
 		if ( !BIGSdb::Utils::is_int($new) ) {
 			push @$problems, "PubMed ids must be integers";
 		} else {
-			push @$extra_inserts, "INSERT INTO sequence_refs (locus,allele_id,pubmed_id,curator,datestamp) VALUES "
-			  . "(E'$cleaned_locus','$newdata->{'allele_id'}',$new,$newdata->{'curator'},'today')";
+			push @$extra_inserts,
+			  {
+				statement => 'INSERT INTO sequence_refs (locus,allele_id,pubmed_id,curator,datestamp) VALUES (?,?,?,?,?)',
+				arguments => [ $newdata->{'locus'}, $newdata->{'allele_id'}, $new, $newdata->{'curator'}, 'now' ]
+			  };
 		}
 	}
 	my @databanks = DATABANKS;
 	foreach my $databank (@databanks) {
 		my @new_accessions = split /\r?\n/, $q->param("databank_$databank");
-		foreach my $new (@new_accessions) {
+		foreach my $new ( uniq @new_accessions ) {
 			chomp $new;
 			next if $new eq '';
-			( my $clean_new = $new ) =~ s/'/\\'/g;
 			push @$extra_inserts,
-			  "INSERT INTO accession (locus,allele_id,databank,databank_id,curator,datestamp) VALUES (E'$cleaned_locus',"
-			  . "'$newdata->{'allele_id'}','$databank','$clean_new',$newdata->{'curator'},'today')";
+			  {
+				statement => 'INSERT INTO accession (locus,allele_id,databank,databank_id,curator,datestamp) VALUES (?,?,?,?,?,?)',
+				arguments => [ $newdata->{'locus'}, $newdata->{'allele_id'}, $databank, $new, $newdata->{'curator'}, 'now' ]
+			  };
 		}
 	}
 	return;
@@ -514,11 +521,12 @@ sub _check_loci {
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		$newdata->{'locus'} = $newdata->{'id'};
 		my $q = $self->{'cgi'};
-		( my $cleaned_locus = $newdata->{'locus'} ) =~ s/'/\\'/g;
-		my ( $full_name, $product, $description ) = ( $q->param('full_name'), $q->param('product'), $q->param('description') );
-		s/'/\\'/g foreach ( $full_name, $product, $description );
-		push @$extra_inserts, "INSERT INTO locus_descriptions (locus,full_name,product,description,curator,datestamp) VALUES "
-		  . "(E'$cleaned_locus',E'$full_name',E'$product',E'$description',$newdata->{'curator'},'now')";
+		push @$extra_inserts,
+		  {
+			statement => 'INSERT INTO locus_descriptions (locus,full_name,product,description,curator,datestamp) VALUES (?,?,?,?,?,?)',
+			arguments =>
+			  [ $newdata->{'locus'}, $q->param('full_name'), $q->param('product'), $q->param('description'), $newdata->{'curator'}, 'now' ]
+		  };
 		$self->_check_locus_descriptions( $newdata, $problems, $extra_inserts );
 	}
 	if ( $newdata->{'length_varies'} ne 'true' && !$newdata->{'length'} ) {
@@ -541,9 +549,11 @@ sub _check_sequence_bin {
 	my $q = $self->{'cgi'};
 	if ( $q->param('experiment') ) {
 		my $experiment = $q->param('experiment');
-		my $insert     = "INSERT INTO experiment_sequences (experiment_id,seqbin_id,curator,datestamp) VALUES "
-		  . "($experiment,$newdata->{'id'},$newdata->{'curator'},'now')";
-		push @$extra_inserts, $insert;
+		push @$extra_inserts,
+		  {
+			statement => 'INSERT INTO experiment_sequences (experiment_id,seqbin_id,curator,datestamp) VALUES (?,?,?,?)',
+			arguments => [ $experiment, $newdata->{'id'}, $newdata->{'curator'}, 'now' ]
+		  };
 	}
 	my $seq_attributes = $self->{'datastore'}->run_list_query_hashref("SELECT key,type FROM sequence_attributes ORDER BY key");
 	foreach my $attribute (@$seq_attributes) {
@@ -556,10 +566,11 @@ sub _check_sequence_bin {
 		} elsif ( $attribute->{'type'} eq 'date' && !BIGSdb::Utils::is_date($value) ) {
 			push @$problems, "$attribute->{'key'} must be a valid date in yyyy-mm-dd format.";
 		}
-		$value =~ s/'/\\'/g;
-		my $insert = "INSERT INTO sequence_attribute_values(seqbin_id,key,value,curator,datestamp) VALUES "
-		  . "($newdata->{'id'},'$attribute->{'key'}',E'$value',$newdata->{'curator'},'now')";
-		push @$extra_inserts, $insert;
+		push @$extra_inserts,
+		  {
+			statement => 'INSERT INTO sequence_attribute_values(seqbin_id,key,value,curator,datestamp) VALUES (?,?,?,?,?)',
+			arguments => [ $newdata->{'id'}, $attribute->{'key'}, $value, $newdata->{'curator'}, 'now' ]
+		  };
 	}
 	if ( !BIGSdb::Utils::is_valid_DNA( \( $newdata->{'sequence'} ), { allow_ambiguous => 1 } ) ) {
 		push @$problems, "Sequence contains non nucleotide (G|A|T|C + ambiguity code R|Y|W|S|M|K|V|H|D|B|X|N) characters.";
