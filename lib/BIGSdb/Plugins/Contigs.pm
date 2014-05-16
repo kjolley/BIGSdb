@@ -92,6 +92,7 @@ sub run {
 		return;
 	}
 	say "<h1>Contig analysis and export</h1>";
+	return if $self->has_set_changed;
 	$self->_print_interface;
 	if ( $q->param('submit') ) {
 		my @ids = $q->param('isolate_id');
@@ -267,7 +268,7 @@ HTML
 	$self->_print_options_fieldset;
 	$self->print_sequence_filter_fieldset( { min_length => 1 } );
 	$self->print_action_fieldset( { name => 'Contigs' } );
-	say $q->hidden($_) foreach qw (page name db);
+	say $q->hidden($_) foreach qw (page name db set_id);
 	say "</div>";
 	say $q->end_form;
 	say "</div>";

@@ -123,6 +123,7 @@ sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say "<h1>Export dataset</h1>";
+	return if $self->has_set_changed;
 	if ( $q->param('submit') ) {
 		my $selected_fields = $self->get_selected_fields;
 		push @$selected_fields, "m_references" if $q->param('m_references');

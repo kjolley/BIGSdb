@@ -75,6 +75,7 @@ sub run {
 		return;
 	} else {
 		say "<h1>Tag status</h1>";
+		return if $self->has_set_changed;
 		print "<div class=\"box\" id=\"queryform\" style=\"display:none\">\n";
 		$self->_print_tree;
 		print "</div>\n";
@@ -355,7 +356,7 @@ HTML
 	print $self->get_tree( undef, { no_link_out => 1, select_schemes => 1, analysis_pref => 1 } );
 	print "</div>\n";
 	print $q->submit( -name => 'selected', -label => 'Select', -class => 'submit' );
-	print $q->hidden($_) foreach qw(db page name query_file);
+	print $q->hidden($_) foreach qw(db page name query_file set_id);
 	print $q->end_form;
 	return;
 }

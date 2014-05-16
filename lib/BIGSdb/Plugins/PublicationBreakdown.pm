@@ -59,6 +59,7 @@ sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say "<h1>Publication breakdown of dataset</h1>";
+	return if $self->has_set_changed;
 	if ( !$self->{'config'}->{'ref_db'} ) {
 		say "<div class=\"box\" id=\"statusbad\">No reference database has been defined.</p></div>";
 		return;

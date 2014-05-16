@@ -78,6 +78,7 @@ sub run {
 	} else {
 		say "<h1>Scheme field and allele breakdown of dataset</h1>";
 	}
+	return if $self->has_set_changed;
 	my $loci = $self->{'datastore'}->run_list_query("SELECT id FROM loci ORDER BY id");
 	if ( !scalar @$loci ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>No loci are defined for this database.</p></div>";
@@ -516,7 +517,7 @@ sub _download_alleles {
 	return;
 }
 
-sub _print_tree { 
+sub _print_tree {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say $q->start_form;
@@ -531,7 +532,9 @@ HTML
 	say $self->get_tree( undef, { no_link_out => 1, select_schemes => 1, analysis_pref => 1 } );
 	say "</div>";
 	say $q->submit( -name => 'selected', -label => 'Select', -class => 'submit' );
-	say $q->hidden($_) foreach qw(db page name query_file);
+	my $set_id = $self->get_set_id;
+	$q->param( set_id => $set_id );
+	say $q->hidden($_) foreach qw(db page name query_file set_id);
 	say $q->end_form;
 	return;
 }

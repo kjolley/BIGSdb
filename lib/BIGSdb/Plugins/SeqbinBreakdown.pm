@@ -62,6 +62,7 @@ sub set_pref_requirements {
 sub run {
 	my ($self) = @_;
 	say "<h1>Breakdown of sequence bin contig properties</h1>";
+	return if $self->has_set_changed;
 	my $q = $self->{'cgi'};
 	if ( $q->param('submit') ) {
 		my @ids = $q->param('isolate_id');
@@ -244,7 +245,7 @@ sub _print_interface {
 	$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids, isolate_paste_list => 1 } );
 	$self->print_sequence_filter_fieldset;
 	$self->print_action_fieldset( { name => 'SeqbinBreakdown' } );
-	say $q->hidden($_) foreach qw (page name db );
+	say $q->hidden($_) foreach qw (page name db set_id);
 	say $q->end_form;
 	say "</div></div>";
 	return;

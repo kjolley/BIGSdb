@@ -57,6 +57,7 @@ sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say "<h1>Frequencies of field combinations</h1>";
+	return if $self->has_set_changed;
 	if ( $q->param('submit') ) {
 		my $selected_fields = $self->get_selected_fields;
 		if ( !@$selected_fields ) {

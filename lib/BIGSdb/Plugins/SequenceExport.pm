@@ -72,6 +72,7 @@ sub run {
 	my $scheme_id  = $q->param('scheme_id');
 	my $desc       = $self->get_db_description;
 	say "<h1>Export allele sequences in XMFA/concatenated FASTA formats - $desc</h1>";
+	return if $self->has_set_changed;
 	if ( !-e $self->{'config'}->{'muscle_path'} || !-x $self->{'config'}->{'muscle_path'} ) {
 		$logger->error( "This plugin requires MUSCLE to be installed and it is not.  Please install MUSCLE "
 			  . "or check the settings in bigsdb.conf." );

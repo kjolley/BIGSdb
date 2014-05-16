@@ -439,7 +439,8 @@ sub print_field_export_form {
 	$self->print_extra_options;
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say "<div style=\"clear:both\"></div>";
-	say $q->hidden($_) foreach qw (db page name query_file);
+	$q->param( set_id => $set_id );
+	say $q->hidden($_) foreach qw (db page name query_file set_id);
 	say $q->end_form;
 	return;
 }
@@ -670,8 +671,24 @@ sub print_sequence_export_form {
 	say $self->get_extra_form_elements;
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say "<div style=\"clear:both\"></div>";
-	say $q->hidden($_) foreach qw (db page name query_file scheme_id);
+	my $set_id = $self->get_set_id;
+	$q->param( set_id => $set_id );
+	say $q->hidden($_) foreach qw (db page name query_file scheme_id set_id);
 	say $q->end_form;
+	return;
+}
+
+sub has_set_changed {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $set_id = $self->get_set_id;
+	if ( $q->param('set_id') && $set_id ) {
+		if ( $q->param('set_id') != $set_id ) {
+			say qq(<div class="box" id="statusbad"><p>The dataset has been changed since this plugin was started.  Please )
+			  . qq(repeat the query.</p></div>);
+			return 1;
+		}
+	}
 	return;
 }
 
