@@ -39,7 +39,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.2.0',
+		version     => '1.2.1',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/export_isolates.shtml',
@@ -70,23 +70,6 @@ END
 	return $js;
 }
 
-sub get_option_list {
-	my ($self) = @_;
-	my @list = (
-		{ name => 'alleles', description => 'Export allele numbers',                 default => 1 },
-		{ name => 'molwt',   description => 'Export protein molecular weights',      default => 0 },
-		{ name => 'met',     description => 'GTG/TTG at start codes for methionine', default => 1 },
-		{ name => 'oneline', description => 'Use one row per field',                 default => 0 },
-		{
-			name        => 'labelfield',
-			description => "Include $self->{'system'}->{'labelfield'} field in row (used only with 'one row' option)",
-			default     => 0
-		},
-		{ name => 'info', description => "Export full allele designation record (used only with 'one row' option)", default => 0 }
-	);
-	return \@list;
-}
-
 sub print_extra_fields {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
@@ -108,7 +91,30 @@ sub print_options {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say qq(<fieldset style="float:left"><legend>Options</legend><ul></li>);
-	say $q->checkbox( -name => 'common_names', -id => 'common_names', -label => 'Include locus common names', );
+	say $q->checkbox( -name => 'common_names', -id => 'common_names', -label => 'Include locus common names' );
+	say "</li><li>";
+	say $q->checkbox( -name => 'alleles', -id => 'alleles', -label => 'Export allele numbers', -checked => 'checked' );
+	say "</li><li>";
+	say $q->checkbox( -name => 'oneline', -id => 'oneline', -label => 'Use one row per field' );
+	say "</li><li>";
+	say $q->checkbox(
+		-name  => 'labelfield',
+		-id    => 'labelfield',
+		-label => "Include $self->{'system'}->{'labelfield'} field in row (used only with 'one row' option)"
+	);
+	say "</li><li>";
+	say $q->checkbox( -name => 'info', -id => 'info', -label => "Export full allele designation record (used only with 'one row' option)" );
+	say "</li></ul></fieldset>";
+	return;
+}
+
+sub print_extra_options {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say qq(<fieldset style="float:left"><legend>Molecular weights</legend><ul></li>);
+	say $q->checkbox( -name => 'molwt', -id => 'molwt', -label => 'Export protein molecular weights' );
+	say "</li><li>";
+	say $q->checkbox( -name => 'met', -id => 'met', -label => 'GTG/TTG at start codes for methionine', -checked => 'checked' );
 	say "</li></ul></fieldset>";
 	return;
 }
@@ -170,27 +176,15 @@ HTML
 
 sub _write_tab_text {
 	my ( $self, $qry_ref, $fields, $filename ) = @_;
-	my $q    = $self->{'cgi'};
-	my $guid = $self->get_guid;
-	my %prefs;
-	my %default_prefs = ( alleles => 1, molwt => 0, met => 1, oneline => 0, labelfield => 0, info => 0 );
+	my $q      = $self->{'cgi'};
 	my $set_id = $self->get_set_id;
-	foreach (qw (alleles molwt met oneline labelfield info)) {
-		try {
-			$prefs{$_} = $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'Export', $_ );
-			$prefs{$_} = $prefs{$_} eq 'true' ? 1 : 0;
-		}
-		catch BIGSdb::DatabaseNoRecordException with {
-			$prefs{$_} = $default_prefs{$_};
-		};
-	}
 	open( my $fh, '>', $filename )
 	  or $logger->error("Can't open temp file $filename for writing");
-	if ( $prefs{'oneline'} ) {
+	if ( $q->param('oneline') ) {
 		print $fh "id\t";
-		print $fh $self->{'system'}->{'labelfield'} . "\t" if $prefs{'labelfield'};
+		print $fh $self->{'system'}->{'labelfield'} . "\t" if $q->param('labelfield');
 		print $fh "Field\tValue";
-		print $fh "\tCurator\tDatestamp\tComments" if $prefs{'info'};
+		print $fh "\tCurator\tDatestamp\tComments" if $q->param('info');
 	} else {
 		my $first = 1;
 		my %schemes;
@@ -208,12 +202,12 @@ sub _write_tab_text {
 			$field =~ s/^.*___//;
 			if ($is_locus) {
 				$field = $self->clean_locus( $field, { text_output => 1, ( no_common_name => $q->param('common_names') ? 0 : 1 ) } );
-				if ( $prefs{'alleles'} ) {
+				if ( $q->param('alleles') ) {
 					print $fh "\t" if !$first;
 					print $fh $field;
 					$first = 0;
 				}
-				if ( $prefs{'molwt'} ) {
+				if ( $q->param('molwt') ) {
 					print $fh "\t" if !$first;
 					print $fh "$field Mwt";
 					$first = 0;
@@ -263,21 +257,19 @@ sub _write_tab_text {
 		my $allele_ids = $self->{'datastore'}->get_all_allele_ids( $data{'id'} );
 		foreach (@$fields) {
 			if ( $_ =~ /^f_(.*)/ ) {
-				$self->_write_field( $fh, $1, \%data, $first, \%prefs );
+				$self->_write_field( $fh, $1, \%data, $first );
 			} elsif ( $_ =~ /^(s_\d+_l_|l_)(.*)/ ) {
-				$self->_write_allele(
-					{ fh => $fh, locus => $2, data => \%data, allele_ids => $allele_ids, first => $first, prefs => \%prefs } );
+				$self->_write_allele( { fh => $fh, locus => $2, data => \%data, allele_ids => $allele_ids, first => $first } );
 			} elsif ( $_ =~ /^s_(\d+)_f_(.*)/ ) {
-				$self->_write_scheme_field(
-					{ fh => $fh, scheme_id => $1, field => $2, data => \%data, first => $first, prefs => \%prefs } );
+				$self->_write_scheme_field( { fh => $fh, scheme_id => $1, field => $2, data => \%data, first => $first } );
 			} elsif ( $_ =~ /^c_(.*)/ ) {
-				$self->_write_composite( $fh, $1, \%data, $first, \%prefs );
+				$self->_write_composite( $fh, $1, \%data, $first );
 			} elsif ( $_ =~ /^m_references/ ) {
-				$self->_write_ref( $fh, \%data, $first, \%prefs );
+				$self->_write_ref( $fh, \%data, $first );
 			}
 			$first = 0;
 		}
-		print $fh "\n" if !$prefs{'oneline'};
+		print $fh "\n" if !$q->param('oneline');
 		$i++;
 		if ( $i == 50 ) {
 			$i = 0;
@@ -290,19 +282,21 @@ sub _write_tab_text {
 }
 
 sub _get_id_one_line {
-	my ( $self, $data, $prefs, ) = @_;
+	my ( $self, $data ) = @_;
+	my $q      = $self->{'cgi'};
 	my $buffer = "$data->{'id'}\t";
-	$buffer .= "$data->{$self->{'system'}->{'labelfield'}}\t" if $prefs->{'labelfield'};
+	$buffer .= "$data->{$self->{'system'}->{'labelfield'}}\t" if $q->param('labelfield');
 	return $buffer;
 }
 
 sub _write_field {
-	my ( $self, $fh, $field, $data, $first, $prefs ) = @_;
+	my ( $self, $fh, $field, $data, $first ) = @_;
+	my $q = $self->{'cgi'};
 	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 	if ( defined $metaset ) {
 		my $value = $self->{'datastore'}->get_metadata_value( $data->{'id'}, $metaset, $metafield );
-		if ( $prefs->{'oneline'} ) {
-			print $fh $self->_get_id_one_line( $data, $prefs );
+		if ( $q->param('oneline') ) {
+			print $fh $self->_get_id_one_line($data);
 			print $fh "$metafield\t";
 			print $fh $value;
 			print $fh "\n";
@@ -321,8 +315,8 @@ sub _write_field {
 			push @aliases, $alias;
 		}
 		local $" = '; ';
-		if ( $prefs->{'oneline'} ) {
-			print $fh $self->_get_id_one_line( $data, $prefs );
+		if ( $q->param('oneline') ) {
+			print $fh $self->_get_id_one_line($data);
 			print $fh "aliases\t@aliases\n";
 		} else {
 			print $fh "\t" if !$first;
@@ -338,8 +332,8 @@ sub _write_field {
 		eval { $self->{'sql'}->{'attribute'}->execute( $isolate_field, $attribute, $data->{$isolate_field} ) };
 		$logger->error($@) if $@;
 		my ($value) = $self->{'sql'}->{'attribute'}->fetchrow_array;
-		if ( $prefs->{'oneline'} ) {
-			print $fh $self->_get_id_one_line( $data, $prefs );
+		if ( $q->param('oneline') ) {
+			print $fh $self->_get_id_one_line($data);
 			print $fh "$attribute\t";
 			print $fh $value if defined $value;
 			print $fh "\n";
@@ -348,8 +342,8 @@ sub _write_field {
 			print $fh $value if defined $value;
 		}
 	} else {
-		if ( $prefs->{'oneline'} ) {
-			print $fh $self->_get_id_one_line( $data, $prefs );
+		if ( $q->param('oneline') ) {
+			print $fh $self->_get_id_one_line($data);
 			print $fh "$field\t";
 			print $fh "$data->{$field}" if defined $data->{$field};
 			print $fh "\n";
@@ -363,16 +357,17 @@ sub _write_field {
 
 sub _write_allele {
 	my ( $self, $args ) = @_;
-	my ( $fh, $locus, $data, $allele_ids, $first_col, $prefs ) = @{$args}{qw(fh locus data allele_ids first prefs)};
+	my ( $fh, $locus, $data, $allele_ids, $first_col ) = @{$args}{qw(fh locus data allele_ids first )};
 	my @allele_ids = defined $allele_ids->{$locus} ? @{ $allele_ids->{$locus} } : ('');
-	if ( $prefs->{'alleles'} ) {
+	my $q = $self->{'cgi'};
+	if ( $q->param('alleles') ) {
 		my $first_allele = 1;
 		foreach my $allele_id (@allele_ids) {
-			if ( $prefs->{'oneline'} ) {
-				print $fh $self->_get_id_one_line( $data, $prefs );
+			if ( $q->param('oneline') ) {
+				print $fh $self->_get_id_one_line($data);
 				print $fh "$locus\t";
 				print $fh $allele_id;
-				if ( $prefs->{'info'} ) {
+				if ( $q->param('info') ) {
 					if ( !$self->{'sql'}->{'allele'} ) {
 						$self->{'sql'}->{'allele'} =
 						  $self->{'db'}->prepare( "SELECT allele_designations.datestamp AS des_datestamp,first_name,surname,comments FROM "
@@ -400,13 +395,13 @@ sub _write_allele {
 			$first_allele = 0;
 		}
 	}
-	if ( $prefs->{'molwt'} ) {
+	if ( $q->param('molwt') ) {
 		my $first_allele = 1;
 		foreach my $allele_id (@allele_ids) {
-			if ( $prefs->{'oneline'} ) {
-				print $fh $self->_get_id_one_line( $data, $prefs );
+			if ( $q->param('oneline') ) {
+				print $fh $self->_get_id_one_line($data);
 				print $fh "$locus MolWt\t";
-				print $fh $self->_get_molwt( $locus, $allele_id, $prefs->{'met'} );
+				print $fh $self->_get_molwt( $locus, $allele_id, $q->param('met') );
 				print $fh "\n";
 			} else {
 				if ( !$first_allele ) {
@@ -414,7 +409,7 @@ sub _write_allele {
 				} elsif ( !$first_col ) {
 					print $fh "\t";
 				}
-				print $fh $self->_get_molwt( $locus, $allele_id, $prefs->{'met'} );
+				print $fh $self->_get_molwt( $locus, $allele_id, $q->param('met') );
 			}
 			$first_allele = 0;
 		}
@@ -424,16 +419,17 @@ sub _write_allele {
 
 sub _write_scheme_field {
 	my ( $self, $args ) = @_;
-	my ( $fh, $scheme_id, $field, $data, $first_col, $prefs ) = @{$args}{qw(fh scheme_id field data first prefs)};
+	my ( $fh, $scheme_id, $field, $data, $first_col ) = @{$args}{qw(fh scheme_id field data first )};
+	my $q            = $self->{'cgi'};
 	my $scheme_info  = $self->{'datastore'}->get_scheme_info($scheme_id);
 	my $scheme_field = lc($field);
 	my $values       = $self->get_scheme_field_values( { isolate_id => $data->{'id'}, scheme_id => $scheme_id, field => $field } );
 	@$values = ('') if !@$values;
 	my $first_allele = 1;
-	foreach my $value (@$values) {
 
-		if ( $prefs->{'oneline'} ) {
-			print $fh $self->_get_id_one_line( $data, $prefs );
+	foreach my $value (@$values) {
+		if ( $q->param('oneline') ) {
+			print $fh $self->_get_id_one_line($data);
 			print $fh "$field ($scheme_info->{'description'})\t";
 			print $fh $value if defined $value;
 			print $fh "\n";
@@ -451,10 +447,11 @@ sub _write_scheme_field {
 }
 
 sub _write_composite {
-	my ( $self, $fh, $composite_field, $data, $first, $prefs ) = @_;
+	my ( $self, $fh, $composite_field, $data, $first ) = @_;
+	my $q = $self->{'cgi'};
 	my $value = $self->{'datastore'}->get_composite_value( $data->{'id'}, $composite_field, $data, { no_format => 1 } );
-	if ( $prefs->{'oneline'} ) {
-		print $fh $self->_get_id_one_line( $data, $prefs );
+	if ( $q->param('oneline') ) {
+		print $fh $self->_get_id_one_line($data);
 		print $fh "$composite_field\t";
 		print $fh $value if defined $value;
 		print $fh "\n";
@@ -466,17 +463,18 @@ sub _write_composite {
 }
 
 sub _write_ref {
-	my ( $self, $fh, $data, $first, $prefs ) = @_;
+	my ( $self, $fh, $data, $first ) = @_;
+	my $q      = $self->{'cgi'};
 	my $values = $self->_get_refs( $data->{'id'} );
-	if ( ( $self->{'cgi'}->param('ref_type') // '' ) eq 'Full citation' ) {
+	if ( ( $q->param('ref_type') // '' ) eq 'Full citation' ) {
 		my $citation_hash = $self->{'datastore'}->get_citation_hash($values);
 		my @citations;
 		push @citations, $citation_hash->{$_} foreach @$values;
 		$values = \@citations;
 	}
-	if ( $prefs->{'oneline'} ) {
+	if ( $q->param('oneline') ) {
 		foreach my $value (@$values) {
-			print $fh $self->_get_id_one_line( $data, $prefs );
+			print $fh $self->_get_id_one_line($data);
 			print $fh "references\t";
 			print $fh "$value";
 			print $fh "\n";

@@ -58,6 +58,12 @@ sub print_options {
 	return '';
 }
 
+sub print_extra_options {
+
+	#override in subclass
+	return '';
+}
+
 sub get_hidden_attributes {
 
 	#override in subclass
@@ -430,6 +436,7 @@ sub print_field_export_form {
 	$self->print_isolates_locus_fieldset;
 	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
 	$self->print_options;
+	$self->print_extra_options;
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say "<div style=\"clear:both\"></div>";
 	say $q->hidden($_) foreach qw (db page name query_file);
