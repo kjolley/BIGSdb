@@ -87,11 +87,11 @@ sub get_option_list {
 	return \@list;
 }
 
-sub get_extra_fields {
+sub print_extra_fields {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say "<fieldset style=\"float:left\"><legend>References</legend><ul><li>";
-	print $q->checkbox(
+	say qq(<fieldset style="float:left"><legend>References</legend><ul><li>);
+	say $q->checkbox(
 		-name     => 'm_references',
 		-id       => 'm_references',
 		-value    => 'checked',
@@ -99,8 +99,16 @@ sub get_extra_fields {
 		-onChange => 'enable_controls()'
 	);
 	say "</li><li>";
-	print $q->radio_group( -name => 'ref_type', -values => [ 'PubMed id', 'Full citation' ], -default => 'PubMed id',
-		-linebreak => 'true' );
+	say $q->radio_group( -name => 'ref_type', -values => [ 'PubMed id', 'Full citation' ], -default => 'PubMed id', -linebreak => 'true' );
+	say "</li></ul></fieldset>";
+	return;
+}
+
+sub print_options {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say qq(<fieldset style="float:left"><legend>Options</legend><ul></li>);
+	say $q->checkbox( -name => 'common_names', -id => 'common_names', -label => 'Include locus common names', );
 	say "</li></ul></fieldset>";
 	return;
 }
@@ -162,6 +170,7 @@ HTML
 
 sub _write_tab_text {
 	my ( $self, $qry_ref, $fields, $filename ) = @_;
+	my $q    = $self->{'cgi'};
 	my $guid = $self->get_guid;
 	my %prefs;
 	my %default_prefs = ( alleles => 1, molwt => 0, met => 1, oneline => 0, labelfield => 0, info => 0 );
@@ -198,7 +207,7 @@ sub _write_tab_text {
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			$field =~ s/^.*___//;
 			if ($is_locus) {
-				$field = $self->clean_locus( $field, { text_output => 1 } );
+				$field = $self->clean_locus( $field, { text_output => 1, ( no_common_name => $q->param('common_names') ? 0 : 1 ) } );
 				if ( $prefs{'alleles'} ) {
 					print $fh "\t" if !$first;
 					print $fh $field;

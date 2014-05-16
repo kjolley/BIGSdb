@@ -46,7 +46,13 @@ sub get_extra_form_elements {
 	return '';
 }
 
-sub get_extra_fields {
+sub print_extra_fields {
+
+	#override in subclass
+	return '';
+}
+
+sub print_options {
 
 	#override in subclass
 	return '';
@@ -183,13 +189,13 @@ sub create_temp_tables {
 	my $continue = 1;
 	try {
 		foreach (@$schemes) {
-			if ($qry =~ /temp_isolates_scheme_fields_$_\s/){
+			if ( $qry =~ /temp_isolates_scheme_fields_$_\s/ ) {
 				$self->{'datastore'}->create_temp_isolate_scheme_fields_view($_);
-			} 
+			}
 			if ( $qry =~ /temp_scheme_$_\s/ || $qry =~ /ORDER BY s_$_\_/ ) {
 				$self->{'datastore'}->create_temp_scheme_table($_);
 				$self->{'datastore'}->create_temp_isolate_scheme_loci_view($_);
-			}			
+			}
 		}
 	}
 	catch BIGSdb::DatabaseConnectionException with {
@@ -420,9 +426,10 @@ sub print_field_export_form {
 			say "</fieldset>";
 		}
 	}
-	$self->get_extra_fields;
+	$self->print_extra_fields;
 	$self->print_isolates_locus_fieldset;
 	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
+	$self->print_options;
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say "<div style=\"clear:both\"></div>";
 	say $q->hidden($_) foreach qw (db page name query_file);
