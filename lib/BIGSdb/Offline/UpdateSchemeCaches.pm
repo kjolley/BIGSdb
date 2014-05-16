@@ -29,12 +29,16 @@ sub run_script {
 	my ($self) = @_;
 	die "No connection to database (check logs).\n" if !defined $self->{'db'};
 	die "This script can only be run against an isolate database.\n" if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
-	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes WHERE dbase_name IS NOT NULL AND dbase_table IS NOT NULL");
+	my $schemes =
+	  $self->{'datastore'}
+	  ->run_list_query( "SELECT id FROM schemes WHERE dbase_name IS NOT NULL AND dbase_table IS NOT NULL ORDER BY id" );
 	foreach my $scheme_id (@$schemes) {
-		if ( !$self->{'options'}->{'q'} ) {
-			my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
-			say "Updating scheme $scheme_id cache ($scheme_info->{'description'})";
+		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id, {get_pk => 1});
+		if (!defined $scheme_info->{'primary_key'}){
+			say "Scheme $scheme_id ($scheme_info->{'description'}) does not have a primary key - skipping.";
+			next;
 		}
+		say "Updating scheme $scheme_id cache ($scheme_info->{'description'})" if !$self->{'options'}->{'q'};
 		$self->{'datastore'}->create_temp_isolate_scheme_fields_view( $scheme_id, { cache => 1 } );
 	}
 	return;
