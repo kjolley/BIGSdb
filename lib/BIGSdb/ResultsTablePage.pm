@@ -783,6 +783,7 @@ sub _print_isolate_table_scheme {
 				$value = '' if $value eq '-999';
 				my $formatted_value;
 				my $provisional = ( $scheme_field_values->{ lc($field) }->{$value} // '' ) eq 'provisional' ? 1 : 0;
+				$provisional = 0 if $value eq '';
 				$formatted_value .= qq(<span class="provisional">) if $provisional;
 				if ( $self->{'prefs'}->{'hyperlink_loci'} && $att->{'url'} && $value ne '' ) {
 					my $url = $att->{'url'};
@@ -925,9 +926,10 @@ sub _print_plugin_buttons {
 					next if $att->{'max'} && $att->{'max'} < $records;
 					$plugin_buffer .= '<td>';
 					$plugin_buffer .= $q->start_form;
-					$q->param( 'page', 'plugin' );
-					$q->param( 'name', $att->{'module'} );
-					$plugin_buffer .= $q->hidden($_) foreach qw (db page name calling_page scheme_id locus);
+					$q->param( page => 'plugin' );
+					$q->param( name => $att->{'module'} );
+					$q->param( set_id => $set_id);
+					$plugin_buffer .= $q->hidden($_) foreach qw (db page name calling_page scheme_id locus set_id);
 					$plugin_buffer .= $q->hidden('query_file') if ( $att->{'input'} // '' ) eq 'query';
 					$plugin_buffer .= $q->submit( -label => ( $att->{'buttontext'} || $att->{'menutext'} ), -class => 'pagebar' );
 					$plugin_buffer .= $q->end_form;
