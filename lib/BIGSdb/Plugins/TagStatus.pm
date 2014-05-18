@@ -356,7 +356,7 @@ HTML
 	print $self->get_tree( undef, { no_link_out => 1, select_schemes => 1, analysis_pref => 1 } );
 	print "</div>\n";
 	print $q->submit( -name => 'selected', -label => 'Select', -class => 'submit' );
-	print $q->hidden($_) foreach qw(db page name query_file set_id);
+	print $q->hidden($_) foreach qw(db page name query_file set_id list_file datatype);
 	print $q->end_form;
 	return;
 }

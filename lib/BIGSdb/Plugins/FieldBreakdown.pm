@@ -78,9 +78,13 @@ sub get_plugin_javascript {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
-	my $query_clause = defined $query_file ? "&amp;query_file=$query_file" : '';
-	my $script_name  = $self->{'system'}->{'script_name'};
-	my $js           = << "END";
+	my $list_file  = $q->param('list_file');
+	my $datatype   = $q->param('datatype');
+	my $query_clause    = defined $query_file ? "&amp;query_file=$query_file" : '';
+	my $listfile_clause = defined $list_file  ? "&amp;list_file=$list_file"   : '';
+	my $datatype_clause = defined $datatype   ? "&amp;datatype=$datatype"     : '';
+	my $script_name     = $self->{'system'}->{'script_name'};
+	my $js              = << "END";
 \$(function () {
 	\$("#imagegallery a").click(function(event){
 		event.preventDefault();
@@ -96,11 +100,11 @@ sub get_plugin_javascript {
 		\$("#field").append(display);
 		\$("#links").empty();
 		\$("#links").append("<p><a href='$script_name?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;"
-		  + "function=summary_table$query_clause&amp;field=" + field + "&amp;format=html'>Display table</a> | "
+		  + "function=summary_table$query_clause$listfile_clause$datatype_clause&amp;field=" + field + "&amp;format=html'>Display table</a> | "
 		  + "<a href='$script_name?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;function=summary_table"
-		  + "$query_clause&amp;field=" + field + "&amp;format=text'>Tab-delimited text</a> | "
+		  + "$query_clause$listfile_clause$datatype_clause&amp;field=" + field + "&amp;format=text'>Tab-delimited text</a> | "
 		  + "<a href='$script_name?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;function=summary_table"
-		  + "$query_clause&amp;field=" + field + "&amp;format=xlsx'>Excel format</a></p>");
+		  + "$query_clause$listfile_clause$datatype_clause&amp;field=" + field + "&amp;format=xlsx'>Excel format</a></p>");
 	});		
 });
 END
@@ -232,13 +236,18 @@ sub run {
 	say "<noscript><p class=\"highlight\">Please enable Javascript to view breakdown charts in place.</p></noscript>";
 	say "<h2 id=\"field\">$display_name</h2>";
 	say "<div class=\"box\" id=\"chart\"><img id=\"placeholder\" src=\"$src\" alt=\"breakdown chart\" /></div>";
-	my $query_clause = defined $query_file ? "&amp;query_file=$query_file" : '';
-	say "<p id=\"links\"><a href='$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;"
-	  . "function=summary_table$query_clause&amp;field=$name&amp;format=html'>Display table</a> | "
+	my $query_clause    = defined $query_file ? "&amp;query_file=$query_file" : '';
+	my $list_file       = $q->param('list_file');
+	my $datatype        = $q->param('datatype');
+	my $listfile_clause = defined $list_file ? "&amp;list_file=$list_file" : '';
+	my $datatype_clause = defined $datatype ? "&amp;datatype=$datatype" : '';
+	say
+	  "<p id=\"links\"><a href='$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;"
+	  . "function=summary_table$query_clause$listfile_clause$datatype_clause&amp;field=$name&amp;format=html'>Display table</a> | "
 	  . "<a href='$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;"
-	  . "function=summary_table$query_clause&amp;field=$name&amp;format=text'>Tab-delimited text</a> | "
+	  . "function=summary_table$query_clause$listfile_clause$datatype_clause&amp;field=$name&amp;format=text'>Tab-delimited text</a> | "
 	  . "<a href='$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;"
-	  . "function=summary_table$query_clause&amp;field=$name&amp;format=xlsx'>Excel format</a></p>";
+	  . "function=summary_table$query_clause$listfile_clause$datatype_clause&amp;field=$name&amp;format=xlsx'>Excel format</a></p>";
 	return;
 }
 

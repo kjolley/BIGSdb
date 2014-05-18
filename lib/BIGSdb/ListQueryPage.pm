@@ -148,7 +148,7 @@ sub _run_profile_query {
 	my ( $datatype, $fieldtype );
 	if ( $field =~ /^l_(.*)$/ || $field =~ /^la_(.*)\|\|/ ) {
 		$field     = $1;
-		$datatype  = $self->{'datastore'}->get_locus_info($field)->{'allele_id_format'};
+		$datatype  = $scheme_info->{'allow_missing_loci'} ? 'text' : $self->{'datastore'}->get_locus_info($field)->{'allele_id_format'};
 		$fieldtype = 'locus';
 	} elsif ( $field =~ /^s_(\d+)\_(.*)$/ ) {
 		$scheme_id = $1;
@@ -156,47 +156,63 @@ sub _run_profile_query {
 		$datatype  = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field )->{'type'};
 		$fieldtype = 'scheme_field';
 	}
-	my @list = split /\n/, $q->param('list');
-	my $tempqry;
-	@list = uniq @list;
-	foreach my $value (@list) {
-		next if $self->_format_value( $field, $datatype, \$value ) == INVALID_VALUE;
-		if ($value) {
-			$tempqry .= " OR " if $tempqry;
-			if ( $fieldtype eq 'scheme_field' || $fieldtype eq 'locus' ) {
-				( my $cleaned = $field ) =~ s/'/_PRIME_/g;
-				$tempqry .=
-				  $datatype eq 'text'
-				  ? "upper($cleaned)=upper(E'$value')"
-				  : "$cleaned=E'$value'";
+	my $qry;
+	my $query_file = $q->param('query_file') ? "$self->{'config'}->{'secure_tmp_dir'}/" . $q->param('query_file') : undef;
+	my $list_file  = $q->param('list_file')  ? "$self->{'config'}->{'secure_tmp_dir'}/" . $q->param('list_file')  : undef;
+	if ( !( defined $query_file && -e $query_file && defined $list_file && -e $list_file && defined $q->param('datatype') ) ) {
+		$q->delete($_) foreach qw(query_file list_file datatype);    #Clear if temp files have been deleted.
+		my @list = split /\n/, $q->param('list');
+		@list = uniq @list;
+		$self->{'db'}->do("CREATE TEMP TABLE temp_list (value $datatype)");
+		$list_file = BIGSdb::Utils::get_random() . '.list';
+		my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$list_file";
+		open( my $list_fh, '>', $full_path ) || $logger->error("Can't open $list_file for writing");
+		my $valid_values = 0;
+		foreach my $value (@list) {
+			next if $self->_format_value( $field, $datatype, \$value ) == INVALID_VALUE;
+			next if !defined $value;
+			say $list_fh $value;
+			$self->{'db'}->do( 'INSERT INTO temp_list VALUES (?)', undef, ($value) );
+			$valid_values++;
+		}
+		close $list_fh;
+		if ( !$valid_values ) {
+			say "<div class=\"box\" id=\"statusbad\"><p>No valid values entered.</p></div>";
+			return;
+		}
+		my $scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
+		$qry =
+"SELECT * FROM $scheme_view WHERE $scheme_view.$primary_key IN (SELECT $scheme_view.$primary_key FROM $scheme_view INNER JOIN temp_list ON ";
+		( my $cleaned = $field ) =~ s/'/_PRIME_/g;
+		$qry .=
+		  $datatype eq 'text' || ( $fieldtype eq 'locus' && $scheme_info->{'allow_missing_loci'} )
+		  ? "UPPER($scheme_view.$cleaned) = UPPER(temp_list.value))"
+		  : "CAST($scheme_view.$cleaned AS INT) = temp_list.value)";
+		$qry .= " ORDER BY ";
+		if ( $q->param('order') =~ /^la_(.*)\|\|/ || $q->param('order') =~ /^l_(.*)/ ) {
+			my $locus = $1;
+			( my $cleaned = $locus ) =~ s/'/_PRIME_/;
+			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+			if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
+				$qry .= "to_number(textcat('0', $cleaned), text(99999999))";
+			} else {
+				$qry .= "$cleaned";
 			}
+		} elsif ( $q->param('order') =~ /s_\d+_(.*)/ ) {
+			my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $1 );
+			$qry .= $field_info->{'type'} eq 'integer' ? "CAST($1 AS int)" : $1;
 		}
+		my $dir = $q->param('direction') eq 'descending' ? 'desc' : 'asc';
+		my $pk_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
+		my $profile_id_field = $pk_field_info->{'type'} eq 'integer' ? "lpad($primary_key,20,'0')" : $primary_key;
+		$qry .= " $dir,$profile_id_field;";
+		$q->param( datatype  => $datatype );
+		$q->param( list_file => $list_file );
+	} else {
+		$qry = $self->get_query_from_temp_file( $q->param('query_file') );
+		$self->{'datastore'}->create_temp_list_table( $q->param('datatype'), $q->param('list_file') );
 	}
-	if ( !$tempqry ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No valid values entered.</p></div>";
-		return;
-	}
-	my $scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
-	my $qry = "SELECT * FROM $scheme_view WHERE $tempqry";
-	$qry .= " ORDER BY ";
-	if ( $q->param('order') =~ /^la_(.*)\|\|/ || $q->param('order') =~ /^l_(.*)/ ) {
-		my $locus = $1;
-		( my $cleaned = $locus ) =~ s/'/_PRIME_/;
-		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-		if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-			$qry .= "to_number(textcat('0', $cleaned), text(99999999))";
-		} else {
-			$qry .= "$cleaned";
-		}
-	} elsif ( $q->param('order') =~ /s_\d+_(.*)/ ) {
-		my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $1 );
-		$qry .= $field_info->{'type'} eq 'integer' ? "CAST($1 AS int)" : $1;
-	}
-	my $dir = $q->param('direction') eq 'descending' ? 'desc' : 'asc';
-	my $pk_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
-	my $profile_id_field = $pk_field_info->{'type'} eq 'integer' ? "lpad($primary_key,20,'0')" : $primary_key;
-	$qry .= " $dir,$profile_id_field;";
-	my @hidden_attributes = qw(list attribute scheme_id);
+	my @hidden_attributes = qw(list attribute scheme_id list_file datatype);
 	my $args = { table => 'profiles', query => $qry, hidden_attributes => \@hidden_attributes };
 	$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
 	$self->paged_display($args);
@@ -208,6 +224,7 @@ sub _run_isolate_query {
 	my $q      = $self->{'cgi'};
 	my $field  = $q->param('attribute');
 	my @groupedfields = $self->get_grouped_fields( $field, { strip_prefix => 1 } );
+	my $label_field = $self->{'system'}->{'labelfield'};
 	my ( $datatype, $fieldtype, $scheme_id );
 	my @list = split /\n/, $q->param('list');
 	@list = uniq @list;
@@ -215,34 +232,54 @@ sub _run_isolate_query {
 	my $extended_isolate_field;
 	my $locus_pattern = LOCUS_PATTERN;
 	my $view          = $self->{'system'}->{'view'};
+	my $qry;
+	my $query_file = $q->param('query_file') ? "$self->{'config'}->{'secure_tmp_dir'}/" . $q->param('query_file') : undef;
+	my $list_file  = $q->param('list_file')  ? "$self->{'config'}->{'secure_tmp_dir'}/" . $q->param('list_file')  : undef;
 
-	if ( $field =~ /^f_(.*)$/ ) {
-		$field = $1;
-		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-		$datatype = $thisfield->{'type'};
-		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-		$fieldtype = defined $metaset ? 'metafield' : 'isolate';
-	} elsif ( $field =~ /$locus_pattern/ ) {
-		$field    = $1;
-		$datatype = $self->{'datastore'}->get_locus_info($field)->{'allele_id_format'};
-		$field =~ s/\'/\\'/g;
-		$fieldtype = 'locus';
-	} elsif ( $field =~ /^s_(\d+)\_(.*)$/ ) {
-		$scheme_id = $1;
-		$field     = $2;
-		$datatype  = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field )->{'type'};
-		$fieldtype = 'scheme_field';
-	} elsif ( $field =~ /^e_(.*)\|\|(.*)/ ) {
-		$extended_isolate_field = $1;
-		$field                  = $2;
-		$datatype               = 'text';
-		$fieldtype              = 'extended_isolate';
-	}
-	foreach my $value (@list) {
-		next if $self->_format_value( $field, $datatype, \$value ) == INVALID_VALUE;
-		if ($value) {
+	if ( !( defined $query_file && -e $query_file && defined $list_file && -e $list_file && defined $q->param('datatype') ) ) {
+		$q->delete($_) foreach qw(query_file list_file datatype);    #Clear if temp files have been deleted.
+		if ( $field =~ /^f_(.*)$/ ) {
+			$field = $1;
+			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+			$datatype = $thisfield->{'type'};
+			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+			$fieldtype = defined $metaset ? 'metafield' : 'isolate';
+		} elsif ( $field =~ /$locus_pattern/ ) {
+			$field    = $1;
+			$datatype = $self->{'datastore'}->get_locus_info($field)->{'allele_id_format'};
+			$field =~ s/\'/\\'/g;
+			$fieldtype = 'locus';
+		} elsif ( $field =~ /^s_(\d+)\_(.*)$/ ) {
+			$scheme_id = $1;
+			$field     = $2;
+			$datatype  = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field )->{'type'};
+			$fieldtype = 'scheme_field';
+		} elsif ( $field =~ /^e_(.*)\|\|(.*)/ ) {
+			$extended_isolate_field = $1;
+			$field                  = $2;
+			$datatype               = 'text';
+			$fieldtype              = 'extended_isolate';
+		}
+		$datatype //= 'text';
+
+		#Create a temporary table of values.  This will be used for querying some fields, e.g. id, isolate name,
+		#loci and scheme fields.  These are the ones where a user is likely to paste in a long list. Other
+		#(more complicated field types) will use a built-up query.
+		$self->{'db'}->do("CREATE TEMP TABLE temp_list (value $datatype)");
+		$list_file = BIGSdb::Utils::get_random() . '.list';
+		my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$list_file";
+		open( my $list_fh, '>', $full_path ) || $logger->error("Can't open $list_file for writing");
+		my $valid_values = 0;
+		my $do_not_use_table;
+		foreach my $value (@list) {
+			next if $self->_format_value( $field, $datatype, \$value ) == INVALID_VALUE;
+			next if !defined $value;
+			say $list_fh $value;
+			$self->{'db'}->do( 'INSERT INTO temp_list VALUES (?)', undef, ($value) );
+			$valid_values++;
 			$tempqry .= " OR " if $tempqry;
 			if ( $fieldtype eq 'isolate' ) {
+				$do_not_use_table = 1;
 				if (   $field =~ /(.*) \(id\)$/
 					|| $field =~ /(.*) \(surname\)$/
 					|| $field =~ /(.*) \(first_name\)$/
@@ -264,60 +301,71 @@ sub _run_isolate_query {
 						$first = 0;
 					}
 					$tempqry .= ')';
-				} elsif ( $field eq $self->{'system'}->{'labelfield'} ) {
-					$tempqry .= "(upper($self->{'system'}->{'labelfield'}) = upper('$value') OR $view.id IN "
-					  . "(SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper(E'$value')))";
-				} elsif ( $datatype eq 'text' ) {
-					$tempqry .= "upper($view.$field) = upper(E'$value')";
 				} else {
-					$tempqry .= "$view.$field = E'$value'";
+					$do_not_use_table = 0;
 				}
 			} elsif ( $fieldtype eq 'metafield' ) {
 				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 				$tempqry .= $datatype eq 'text' ? "upper($metafield) = upper(E'$value')" : "$metafield = E'$value'";
-			} elsif ( $fieldtype eq 'locus' ) {
-				$tempqry .=
-				  $datatype eq 'text'
-				  ? "(allele_designations.locus=E'$field' AND upper(allele_designations.allele_id) = upper(E'$value'))"
-				  : "(allele_designations.locus=E'$field' AND allele_designations.allele_id = E'$value')";
-			} elsif ( $fieldtype eq 'scheme_field' ) {
-				$tempqry .=
-				  $datatype eq 'text'
-				  ? "upper($field)=upper(E'$value')"
-				  : "$field=E'$value'";
 			} elsif ( $fieldtype eq 'extended_isolate' ) {
 				$tempqry .= "$view.$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE "
 				  . "isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) = upper(E'$value'))";
 			}
 		}
-	}
-	if ( !$tempqry ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No valid values entered.</p></div>";
-		return;
-	}
-	my $qry;
-	if ( $fieldtype eq 'isolate' || $extended_isolate_field ) {
-		$qry = "SELECT * FROM $view WHERE ($tempqry)";
-	} elsif ( $fieldtype eq 'metafield' ) {
-		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-		$qry = "SELECT * FROM $view WHERE $view.id IN (SELECT isolate_id FROM meta_$metaset WHERE $tempqry)";
-	} elsif ( $fieldtype eq 'locus' ) {
-		$qry = "SELECT * FROM $view WHERE $view.id IN (SELECT distinct($view.id) FROM $view LEFT JOIN allele_designations "
-		  . "ON $view.id=allele_designations.isolate_id WHERE $tempqry)";
-	} elsif ( $fieldtype eq 'scheme_field' ) {
-		my $isolate_scheme_field_view = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
-		$qry = "SELECT * FROM $view WHERE $view.id IN (SELECT $isolate_scheme_field_view.id FROM $isolate_scheme_field_view WHERE "
-		  . "$tempqry)";
-	}
-	$qry .= " ORDER BY ";
-	if ( $q->param('order') =~ /$locus_pattern/ ) {
-		$qry .= "l_$1";
+		close $list_fh;
+		if ( !$valid_values ) {
+			say "<div class=\"box\" id=\"statusbad\"><p>No valid values entered.</p></div>";
+			return;
+		}
+		if ( $fieldtype eq 'isolate' || $extended_isolate_field ) {
+			if ( $field eq $label_field ) {    #use temp table
+				$qry =
+				    "SELECT * FROM $view WHERE ($view.id IN (SELECT $view.id FROM $view INNER JOIN temp_list ON UPPER($view.$label_field) "
+				  . "= UPPER(temp_list.value)) OR $view.id IN (SELECT isolate_aliases.isolate_id FROM isolate_aliases INNER JOIN temp_list "
+				  . "ON UPPER(isolate_aliases.alias) = UPPER(temp_list.value)))";
+			} elsif ($do_not_use_table) {
+				$qry = "SELECT * FROM $view WHERE ($tempqry)";    #use list query
+			} else {                                              #use temp table
+				$qry = "SELECT * FROM $view WHERE ($view.id IN (SELECT $view.id FROM $view INNER JOIN temp_list ON ";
+				$qry .=
+				  $datatype =~ /int/
+				  ? "$view.$field = temp_list.value))"
+				  : "UPPER($view.$field) = UPPER(temp_list.value)))";
+			}
+		} elsif ( $fieldtype eq 'metafield' ) {    #use list query
+			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+			$qry = "SELECT * FROM $view WHERE $view.id IN (SELECT isolate_id FROM meta_$metaset WHERE $tempqry)";
+		} elsif ( $fieldtype eq 'locus' ) {        #use temp table
+			$qry = "SELECT * FROM $view WHERE $view.id IN (SELECT DISTINCT($view.id) FROM $view INNER JOIN allele_designations ON $view.id="
+			  . "allele_designations.isolate_id INNER JOIN temp_list ON allele_designations.locus = E'$field' AND ";
+			$qry .=
+			  $datatype eq 'text'
+			  ? "UPPER(allele_designations.allele_id) = UPPER(temp_list.value))"
+			  : "allele_designations.allele_id = CAST(temp_list.value AS text))";
+		} elsif ( $fieldtype eq 'scheme_field' ) {    #use temp table
+			my $isolate_scheme_field_view = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+			$qry =
+			  $datatype eq 'text'
+			  ? "SELECT * FROM $view WHERE $view.id IN (SELECT $isolate_scheme_field_view.id FROM $isolate_scheme_field_view INNER JOIN "
+			  . "temp_list ON UPPER($isolate_scheme_field_view.$field) = UPPER(temp_list.value))"
+			  : "SELECT * FROM $view WHERE $view.id IN (SELECT $isolate_scheme_field_view.id FROM $isolate_scheme_field_view INNER JOIN "
+			  . "temp_list ON $isolate_scheme_field_view.$field = temp_list.value)";
+		}
+		$qry .= " ORDER BY ";
+		if ( $q->param('order') =~ /$locus_pattern/ ) {
+			$qry .= "l_$1";
+		} else {
+			$qry .= $q->param('order');
+		}
+		my $dir = $q->param('direction') eq 'descending' ? 'desc' : 'asc';
+		$qry .= " $dir,$self->{'system'}->{'view'}.id;";
+		$q->param( datatype  => $datatype );
+		$q->param( list_file => $list_file );
 	} else {
-		$qry .= $q->param('order');
+		$qry = $self->get_query_from_temp_file( $q->param('query_file') );
+		$self->{'datastore'}->create_temp_list_table( $q->param('datatype'), $q->param('list_file') );
 	}
-	my $dir = $q->param('direction') eq 'descending' ? 'desc' : 'asc';
-	$qry .= " $dir,$self->{'system'}->{'view'}.id;";
-	my @hidden_attributes = qw(list attribute);
+	my @hidden_attributes = qw(list attribute list_file datatype);
 	my $args = { table => $self->{'system'}->{'view'}, query => $qry, hidden_attributes => \@hidden_attributes };
 	$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
 	$self->paged_display($args);

@@ -91,7 +91,7 @@ sub run {
 		say "<div class=\"box\" id=\"queryform\">";
 		say $q->startform;
 		$q->param( 'all_records', 1 ) if !$query_file;
-		say $q->hidden($_) foreach qw (db name page all_records);
+		say $q->hidden($_) foreach qw (db name page all_records query_file list_file datatype);
 		say "<fieldset style=\"float:left\"><legend>Filter query by</legend>";
 		my $author_list = $self->_get_author_list;
 		say "<ul><li><label for=\"author_list\" class=\"display\">Author:</label>";
@@ -138,7 +138,7 @@ sub run {
 		my $order = ( any { defined $q->param('order') && $q->param('order') eq $_ } @order_list ) ? $q->param('order') : 'isolates';
 		my $dir = ( any { defined $q->param('direction') && $q->param('direction') eq $_ } qw(desc asc) ) ? $q->param('direction') : 'desc';
 		my $refquery          = "SELECT * FROM temp_refs$filter_string ORDER BY $order $dir;";
-		my @hidden_attributes = qw (name all_records author_list year_list);
+		my @hidden_attributes = qw (name all_records author_list year_list list_file datatype);
 		$self->paged_display(
 			{ table => 'refs', query => $refquery, hidden_attributes => \@hidden_attributes, passed_qry_file => $query_file } );
 		return;

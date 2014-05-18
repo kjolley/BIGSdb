@@ -226,7 +226,6 @@ sub _print_interface {
 	my $qry = $$qry_ref;
 	$qry =~ s/ORDER BY.*$//g;
 	$logger->debug("Breakdown query: $qry");
-	return if !$self->create_temp_tables($qry_ref);
 	my $view = $self->{'system'}->{'view'};
 	$qry =~ s/SELECT ($view\.\*|\*)/SELECT id/;
 	$qry .= " ORDER BY id";

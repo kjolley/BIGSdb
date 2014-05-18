@@ -245,7 +245,7 @@ sub _print_delete_all_function {
 	print "<fieldset><legend>Delete</legend>\n";
 	print $q->start_form;
 	$q->param( page => 'deleteAll' );
-	print $q->hidden($_) foreach qw (db page table query_file scheme_id);
+	print $q->hidden($_) foreach qw (db page table query_file scheme_id list_file datatype);
 	if ( $table eq 'allele_designations' ) {
 		if ( $self->can_modify_table('allele_sequences') ) {
 			say "<ul><li>";
@@ -267,7 +267,7 @@ sub _print_link_seq_to_experiment_function {
 		print "<fieldset><legend>Experiments</legend>\n";
 		print $q->start_form;
 		$q->param( page => 'linkToExperiment' );
-		print $q->hidden($_) foreach qw (db page query_file);
+		print $q->hidden($_) foreach qw (db page query_file list_file datatype);
 		print $q->submit( -name => 'Link to experiment', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
 		print $q->end_form;
 		print "</fieldset>";
@@ -282,7 +282,7 @@ sub _print_access_control_function {
 		print "<fieldset><legend>Access control</legend>\n";
 		print $q->start_form;
 		$q->param( page => 'isolateACL' );
-		print $q->hidden($_) foreach qw (db page table query_file);
+		print $q->hidden($_) foreach qw (db page table query_file list_file datatype);
 		print $q->submit( -name => 'Modify access', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
 		print $q->end_form;
 		print "</fieldset>";
@@ -305,7 +305,7 @@ sub _print_export_configuration_function {
 		print "<fieldset><legend>Database configuration</legend>\n";
 		print $q->start_form;
 		$q->param( page => 'exportConfig' );
-		print $q->hidden($_) foreach qw (db page table query_file);
+		print $q->hidden($_) foreach qw (db page table query_file list_file datatype);
 		print $q->submit( -name => 'Export configuration/data',
 			-class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
 		print $q->end_form;
@@ -320,7 +320,7 @@ sub _print_tag_scanning_function {
 	print "<fieldset style=\"text-align:center\"><legend>Tag scanning</legend>\n";
 	print $q->start_form;
 	$q->param( page => 'tagScan' );
-	print $q->hidden($_) foreach qw (db page table query_file);
+	print $q->hidden($_) foreach qw (db page table query_file list_file datatype);
 	print $q->submit( -name => 'Scan', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
 	print $q->end_form;
 	print "</fieldset>\n";
@@ -348,7 +348,7 @@ sub _print_modify_project_members_function {
 		print $q->start_form;
 		$q->param( page  => 'batchAdd' );
 		$q->param( table => 'project_members' );
-		print $q->hidden($_) foreach qw (db page table query_file);
+		print $q->hidden($_) foreach qw (db page table query_file list_file datatype);
 		print $q->popup_menu( -name => 'project', -values => \@projects, -labels => \%labels );
 		print $q->submit( -name => 'Link', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
 		print $q->end_form;
@@ -363,7 +363,7 @@ sub _print_set_sequence_flags_function {
 	print "<fieldset><legend>Flags</legend>\n";
 	print $q->start_form;
 	$q->param( page => 'setAlleleFlags' );
-	print $q->hidden($_) foreach qw (db page query_file);
+	print $q->hidden($_) foreach qw (db page query_file list_file datatype);
 	print $q->submit( -name => 'Batch set', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
 	print $q->end_form;
 	print "</fieldset>\n";
@@ -929,7 +929,7 @@ sub _print_plugin_buttons {
 					$q->param( page => 'plugin' );
 					$q->param( name => $att->{'module'} );
 					$q->param( set_id => $set_id);
-					$plugin_buffer .= $q->hidden($_) foreach qw (db page name calling_page scheme_id locus set_id);
+					$plugin_buffer .= $q->hidden($_) foreach qw (db page name calling_page scheme_id locus set_id list_file datatype);
 					$plugin_buffer .= $q->hidden('query_file') if ( $att->{'input'} // '' ) eq 'query';
 					$plugin_buffer .= $q->submit( -label => ( $att->{'buttontext'} || $att->{'menutext'} ), -class => 'pagebar' );
 					$plugin_buffer .= $q->end_form;

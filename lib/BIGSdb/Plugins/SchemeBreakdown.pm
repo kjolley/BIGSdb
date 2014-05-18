@@ -289,7 +289,7 @@ sub _breakdown_field {
 		say $q->start_form;
 		say $q->submit( -name => 'field_breakdown', -label => 'Tab-delimited text', -class => 'smallbutton' );
 		$q->param( 'format', 'text' );
-		say $q->hidden($_) foreach qw (query_file field type page name db format);
+		say $q->hidden($_) foreach qw (query_file field type page name db format list_file datatype);
 		say $q->end_form;
 
 		if ( $self->{'config'}->{'chartdirector'} ) {
@@ -420,7 +420,7 @@ sub _print_scheme_table {
 					$q->param( field           => "$scheme_id\_$fields->[$i]" );
 					$q->param( type            => 'field' );
 					$q->param( field_breakdown => 1 );
-					say $q->hidden($_) foreach qw (page name db query_file type field field_breakdown);
+					say $q->hidden($_) foreach qw (page name db query_file type field field_breakdown list_file datatype);
 					say $q->end_form;
 				}
 				say "</td>";
@@ -475,14 +475,14 @@ sub _print_scheme_table {
 				$q->param( field => $loci->[$i] );
 				$q->param( type  => 'locus' );
 				say $q->hidden( field_breakdown => 1 );
-				say $q->hidden($_) foreach qw (page name db query_file field type);
+				say $q->hidden($_) foreach qw (page name db query_file field type list_file datatype);
 				say $q->end_form;
 				say "</td><td>";
 				say $q->start_form;
 				say $q->submit( -label => 'Download', -class => 'smallbutton' );
 				say $q->hidden( download => 1 );
 				$q->param( format => 'text' );
-				say $q->hidden($_) foreach qw (page name db query_file field type format);
+				say $q->hidden($_) foreach qw (page name db query_file field type format list_file datatype);
 				say $q->end_form;
 				say "</td>";
 			} else {
@@ -534,7 +534,7 @@ HTML
 	say $q->submit( -name => 'selected', -label => 'Select', -class => 'submit' );
 	my $set_id = $self->get_set_id;
 	$q->param( set_id => $set_id );
-	say $q->hidden($_) foreach qw(db page name query_file set_id);
+	say $q->hidden($_) foreach qw(db page name query_file set_id list_file datatype);
 	say $q->end_form;
 	return;
 }

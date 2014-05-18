@@ -151,6 +151,9 @@ sub _print_interface {
 	if ($guid) {
 		$general_prefs = $self->{'prefstore'}->get_all_general_prefs( $guid, $self->{'system'}->{'db'} );
 	}
+	if ( $q->param('datatype') && $q->param('list_file') ) {
+		$self->{'datastore'}->create_temp_list_table( $q->param('datatype'), $q->param('list_file') );
+	}
 	my $query_file   = $q->param('query_file');
 	my $query        = $self->get_query_from_temp_file($query_file);
 	my $selected_ids = $query ? $self->_get_ids($query) : [];

@@ -90,7 +90,7 @@ sub _print_interface {
 	say "<p>Here you can create a table breaking down one field by another, e.g. breakdown of serogroup by year.</p>";
 	say $q->startform;
 	$q->param( 'function', 'breakdown' );
-	say $q->hidden($_) foreach qw (db page name function query_file);
+	say $q->hidden($_) foreach qw (db page name function query_file list_file datatype);
 	my $set_id = $self->get_set_id;
 	my ( $headings, $labels ) = $self->get_field_selection_list(
 		{
@@ -142,13 +142,13 @@ sub _print_controls {
 	my $q = $self->{'cgi'};
 	say $q->startform;
 	say qq(<fieldset style="float:left"><legend>Axes</legend>);
-	say $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc);
+	say $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc list_file datatype);
 	say $q->submit( -name => 'reverse', -value => 'Reverse', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all');
 	say "</fieldset>";
 	say $q->endform;
 	say $q->startform;
 	say qq(<fieldset style="float:left"><legend>Show</legend>);
-	say $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc);
+	say $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc list_file datatype);
 	my %display_toggle =
 	  ( 'values only' => 'Values and percentages', 'values and percentages' => 'Percentages only', 'percentages only' => 'Values only' );
 	say $q->submit( -name => 'toggledisplay', -label => $display_toggle{ $q->param('display') } , -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
@@ -158,7 +158,7 @@ sub _print_controls {
 	if ( $q->param('display') ne 'values only' ) {
 		say $q->startform;
 		say qq(<fieldset style="float:left"><legend>Calculate percentages</legend>);
-		say $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc);
+		say $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc list_file datatype);
 		my %pc_toggle = ( dataset => 'row', row => 'column', column => 'dataset' );
 		say qq(<span style="text-align:center; display:block">);
 		say $q->submit(

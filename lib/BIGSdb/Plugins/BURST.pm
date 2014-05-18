@@ -130,7 +130,7 @@ image format that can be manipulated and scaled in drawing packages, including t
 available <a href="http://www.inkscape.org">Inkscape</a>. </p>
 HTML
 	say $q->start_form;
-	say $q->hidden($_) foreach qw (db page name query_file);
+	say $q->hidden($_) foreach qw (db page name query_file list_file datatype);
 	my $locus_count;
 	say qq(<fieldset style="float:left"><legend>Options</legend>);
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -156,7 +156,7 @@ HTML
 			  . "scheme_fields WHERE primary_key) GROUP BY scheme_id ORDER BY COUNT(*) desc LIMIT 1" )->[0];
 	} else {
 		$locus_count = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM scheme_members WHERE scheme_id=?", $scheme_id )->[0];
-		$q->param( 'scheme_id', $scheme_id );
+		$q->param( scheme_id => $scheme_id );
 		say $q->hidden('scheme_id');
 	}
 	say "<p>Group definition: profiles match at ";

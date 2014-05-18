@@ -189,8 +189,10 @@ sub get_query {
 
 sub create_temp_tables {
 	my ( $self, $qry_ref ) = @_;
+	return if $self->{'temp_tables_created'};
 	my $qry      = $$qry_ref;
-	my $format   = $self->{'cgi'}->param('format') || 'html';
+	my $q = $self->{'cgi'};
+	my $format   = $q->param('format') || 'html';
 	my $schemes  = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 	my $continue = 1;
 	try {
@@ -213,6 +215,10 @@ sub create_temp_tables {
 		$logger->error("Can't connect to remote database.");
 		$continue = 0;
 	};
+	if ($q->param('list_file') && $q->param('datatype')){
+		$self->{'datastore'}->create_temp_list_table($q->param('datatype'), $q->param('list_file'));
+	}
+	$self->{'temp_tables_created'} = 1;
 	return $continue;
 }
 
@@ -440,7 +446,7 @@ sub print_field_export_form {
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say "<div style=\"clear:both\"></div>";
 	$q->param( set_id => $set_id );
-	say $q->hidden($_) foreach qw (db page name query_file set_id);
+	say $q->hidden($_) foreach qw (db page name query_file set_id list_file datatype);
 	say $q->end_form;
 	return;
 }
@@ -673,7 +679,7 @@ sub print_sequence_export_form {
 	say "<div style=\"clear:both\"></div>";
 	my $set_id = $self->get_set_id;
 	$q->param( set_id => $set_id );
-	say $q->hidden($_) foreach qw (db page name query_file scheme_id set_id);
+	say $q->hidden($_) foreach qw (db page name query_file scheme_id set_id list_file datatype);
 	say $q->end_form;
 	return;
 }

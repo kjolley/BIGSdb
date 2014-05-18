@@ -61,6 +61,9 @@ sub print_content {
 		say "<div class=\"box\" id=\"statusbad\"><p>Only administrators can batch delete from the $table table.</p></div>";
 		return;
 	}
+	if ( $q->param('datatype') && $q->param('list_file') ) {
+		$self->{'datastore'}->create_temp_list_table( $q->param('datatype'), $q->param('list_file') );
+	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 		foreach (@$schemes) {
@@ -282,7 +285,7 @@ s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bi
 	say "<p>If you proceed, you will delete $count $record_name record$plural.  Please confirm that this is your intention.</p>";
 	say $q->start_form;
 	$q->param( 'deleteAll', 1 );
-	say $q->hidden($_) foreach qw (page db query_file deleteAll table delete_tags scheme_id);
+	say $q->hidden($_) foreach qw (page db query_file deleteAll table delete_tags scheme_id list_file datatype);
 	say $q->submit( -label => 'Confirm deletion!', -class => 'submit' );
 	say $q->end_form;
 	$self->print_warning_sign;

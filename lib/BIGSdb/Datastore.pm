@@ -1032,6 +1032,19 @@ sub create_temp_scheme_table {
 	return $table;
 }
 
+sub create_temp_list_table {
+	my ( $self, $datatype, $list_file ) = @_;
+	$self->{'db'}->do("CREATE TEMP TABLE temp_list (value $datatype)");
+	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$list_file";
+	open( my $fh, '<', $full_path ) || $logger->error("Can't open $full_path for reading");
+	while ( my $value = <$fh> ) {
+		chomp $value;
+		$self->{'db'}->do( 'INSERT INTO temp_list VALUES (?)', undef, ($value) );
+	}
+	close $fh;
+	return;
+}
+
 sub _create_profile_indices {
 	my ( $self, $table, $scheme_id ) = @_;
 	my $loci = $self->get_scheme_loci($scheme_id);

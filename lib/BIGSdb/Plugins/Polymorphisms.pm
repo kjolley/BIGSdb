@@ -28,6 +28,7 @@ use Error qw(:try);
 use List::MoreUtils qw(none);
 use Apache2::Connection ();
 use Bio::SeqIO;
+use File::Copy;
 use constant MAX_SEQS => 2000;
 
 sub get_attributes {
@@ -63,6 +64,8 @@ sub run {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
+	my $list_file  = $q->param('list_file');
+	my $datatype   = $q->param('datatype');
 	say "<h1>Polymorphic site analysis</h1>";
 	my $locus = $q->param('locus') || '';
 	if ( $locus =~ /^cn_(.+)/ ) {
@@ -106,7 +109,15 @@ sub run {
 			if ( $query_file =~ /^(BIGSdb[\d_]*\.txt)$/ ) {
 				$query_file = $1;    #untaint
 			}
-			system( 'cp', "$self->{'config'}->{'secure_tmp_dir'}/$query_file", "$self->{'config'}->{'tmp_dir'}/$query_file" );
+			copy( "$self->{'config'}->{'secure_tmp_dir'}/$query_file", "$self->{'config'}->{'tmp_dir'}/$query_file" )
+			  || $logger->error("Can't copy $query_file");
+		}
+		if ( defined $list_file && !-e "$self->{'config'}->{'tmp_dir'}/$list_file" ) {
+			if ( $list_file =~ /^(BIGSdb[\d_]*\.list)$/ ) {
+				$list_file = $1;     #untaint
+			}
+			copy( "$self->{'config'}->{'secure_tmp_dir'}/$list_file", "$self->{'config'}->{'tmp_dir'}/$list_file" )
+			  || $logger->error("Can't copy $list_file");
 		}
 		my $params = $q->Vars;
 		$params->{'alignwidth'} = $self->{'prefs'}->{'alignwidth'};
@@ -145,6 +156,7 @@ HTML
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	my $query_file = $params->{'query_file'};
+	my $list_file  = $params->{'list_file'};
 
 	#Make sure query file is accessible to job host (the web server and job host may not be the same machine)
 	#These machines should share the tmp_dir but not the secure_tmp_dir, so copy this from the tmp_dir.
@@ -152,7 +164,18 @@ sub run_job {
 		if ( $query_file =~ /^(BIGSdb[\d_]*\.txt)$/ ) {
 			$query_file = $1;    #untaint
 		}
-		system( 'cp', "$self->{'config'}->{'tmp_dir'}/$query_file", "$self->{'config'}->{'secure_tmp_dir'}/$query_file" );
+		copy( "$self->{'config'}->{'tmp_dir'}/$query_file", "$self->{'config'}->{'secure_tmp_dir'}/$query_file" )
+		  || $logger->error("Can't copy $query_file");
+	}
+	if ( $list_file && !-e "$self->{'config'}->{'secure_tmp_dir'}/$list_file" ) {
+		if ( $list_file =~ /^(BIGSdb[\d_]*\.list)$/ ) {
+			$list_file = $1;     #untaint
+		}
+		copy( "$self->{'config'}->{'tmp_dir'}/$list_file", "$self->{'config'}->{'secure_tmp_dir'}/$list_file" )
+		  || $logger->error("Can't copy $list_file");
+	}
+	if ( $params->{'datatype'} && $params->{'list_file'} ) {
+		$self->{'datastore'}->create_temp_list_table( $params->{'datatype'}, $params->{'list_file'} );
 	}
 	my $locus = $params->{'locus'};
 	if ( $locus =~ /^cn_(.+)/ ) {
@@ -310,7 +333,7 @@ sub _print_interface {
 	say "</li></ul>";
 	say "</fieldset>";
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Analyse' } );
-	say $q->hidden($_) foreach qw (page name db query_file);
+	say $q->hidden($_) foreach qw (page name db query_file list_file datatype);
 	say $q->end_form;
 	say "</div>\n</div>";
 	return;

@@ -29,6 +29,9 @@ sub print_content {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
+	if ( $q->param('datatype') && $q->param('list_file') ) {
+		$self->{'datastore'}->create_temp_list_table( $q->param('datatype'), $q->param('list_file') );
+	}
 	my $query      = $self->get_query_from_temp_file($query_file);
 	if ($query) {
 		$query =~ s/SELECT \*/SELECT id/;
@@ -162,7 +165,7 @@ sub _print_interface {
 	say "</td><td>Select name(s):<br />";
 	$self->_print_selector_list( 'User', $isolate_id );
 	say "</td></tr></table>\n";
-	say $q->hidden($_) foreach qw (db page id query_file);
+	say $q->hidden($_) foreach qw (db page id query_file list_file datatype);
 	say $q->end_form;
 	return;
 }
