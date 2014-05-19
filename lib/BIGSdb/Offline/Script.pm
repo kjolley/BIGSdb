@@ -143,8 +143,7 @@ sub get_isolates_with_linked_seqs {
 	my ($self) = @_;
 	local $" = ',';
 	my $view = $self->{'system'}->{'view'};
-	my $qry = "SELECT DISTINCT $view.id FROM $view INNER JOIN sequence_bin ON $view.id=sequence_bin.isolate_id";
-	 
+	my $qry  = "SELECT DISTINCT $view.id FROM $view INNER JOIN sequence_bin ON $view.id=sequence_bin.isolate_id";
 	if ( $self->{'options'}->{'p'} ) {
 		my @projects = split( ',', $self->{'options'}->{'p'} );
 		die "Invalid project list.\n" if any { !BIGSdb::Utils::is_int($_) } @projects;
@@ -153,7 +152,7 @@ sub get_isolates_with_linked_seqs {
 		my @ids = split( ',', $self->{'options'}->{'i'} );
 		die "Invalid isolate id list.\n" if any { !BIGSdb::Utils::is_int($_) } @ids;
 		$qry .= " WHERE isolate_id IN (@ids)";
-	} 
+	}
 	$qry .= " ORDER BY $view.id";
 	return $self->{'datastore'}->run_list_query($qry);
 }
@@ -246,35 +245,41 @@ sub _get_size_of_seqbin {
 }
 
 sub get_loci_with_ref_db {
+	my ($self) = @_;
+	return $self->get_selected_loci( { with_ref_db => 1 } );
+}
 
+sub get_selected_loci {
 	#options set in $self->{'options'}
 	#$self->{'options'}->{'s'}: comma-separated list of schemes
 	#$self->{'options'}->{'l'}: comma-separated list of loci (ignored if 's' used)
 	#$self->{'options'}->{'L'}: comma-separated list of loci to ignore
 	#$self->{'options'}->{'R'}: Regex for locus names
-	my ($self) = @_;
+	my ( $self, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my %ignore;
 	if ( $self->{'options'}->{'L'} ) {
 		my @ignore = split( ',', $self->{'options'}->{'L'} );
 		%ignore = map { $_ => 1 } @ignore;
 	}
 	my $qry;
-	my $ref_db_loci_qry = "SELECT id FROM loci WHERE dbase_name IS NOT NULL AND dbase_table IS NOT NULL";
+	my $loci_qry = "SELECT id FROM loci";
+	$loci_qry .= " WHERE dbase_name IS NOT NULL AND dbase_table IS NOT NULL" if $options->{'with_ref_db'};
 	if ( $self->{'options'}->{'s'} ) {
 		my @schemes = split( ',', $self->{'options'}->{'s'} );
 		die "Invalid scheme list.\n" if any { !BIGSdb::Utils::is_int($_) } @schemes;
 		local $" = ',';
-		$qry = "SELECT locus FROM scheme_members WHERE scheme_id IN (@schemes) AND locus IN ($ref_db_loci_qry) "
-		  . "ORDER BY scheme_id,field_order";
+		$qry = "SELECT locus FROM scheme_members WHERE scheme_id IN (@schemes) AND locus IN ($loci_qry) ORDER BY scheme_id,field_order";
 	} elsif ( $self->{'options'}->{'l'} ) {
 		my @loci = split( ',', $self->{'options'}->{'l'} );
 		foreach (@loci) {
 			$_ =~ s/'/\\'/g;
 		}
 		local $" = "',E'";
-		$qry = "$ref_db_loci_qry AND id IN (E'@loci') ORDER BY id";
+		my $and_or = $loci_qry =~ /WHERE/ ? 'AND' : 'WHERE';
+		$qry = "$loci_qry $and_or id IN (E'@loci') ORDER BY id";
 	} else {
-		$qry = "$ref_db_loci_qry ORDER BY id";
+		$qry = "$loci_qry ORDER BY id";
 	}
 	my $loci = $self->{'datastore'}->run_list_query($qry);
 	@$loci = uniq @$loci;
