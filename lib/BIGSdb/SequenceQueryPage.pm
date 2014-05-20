@@ -618,8 +618,9 @@ sub _output_single_query_nonexact {
 		open( my $seq2_fh, '>', $seq1_infile ) || $logger->error("Can't open $seq1_infile for writing");
 		say $seq2_fh ">Query\n$$seq_ref";
 		close $seq2_fh;
-		my $start = $partial_match->{'qstart'} =~ /(\d+)/ ? $1 : undef;    #untaint
-		my $end   = $partial_match->{'qend'}   =~ /(\d+)/ ? $1 : undef;
+		my $start      = $partial_match->{'qstart'} =~ /(\d+)/ ? $1 : undef;    #untaint
+		my $end        = $partial_match->{'qend'}   =~ /(\d+)/ ? $1 : undef;
+		my $seq_length = ( length $$seq_ref )       =~ /(\d+)/ ? $1 : undef;
 		my $reverse = $partial_match->{'reverse'} ? 1 : 0;
 		my @args = (
 			-aformat   => 'markx2',
@@ -629,7 +630,7 @@ sub _output_single_query_nonexact {
 			-sreverse1 => $reverse,
 			-outfile   => $outfile
 		);
-		push @args, ( -sbegin1 => $start, -send1 => $end ) if length $$seq_ref > 10000;
+		push @args, ( -sbegin1 => $start, -send1 => $end ) if $seq_length > 10000;
 		system("$self->{'config'}->{'emboss_path'}/stretcher @args 2>/dev/null");
 		unlink $seq1_infile, $seq2_infile;
 
