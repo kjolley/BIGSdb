@@ -191,11 +191,12 @@ sub create_temp_tables {
 	my ( $self, $qry_ref ) = @_;
 	return if $self->{'temp_tables_created'};
 	my $qry      = $$qry_ref;
-	my $q = $self->{'cgi'};
+	my $q        = $self->{'cgi'};
 	my $format   = $q->param('format') || 'html';
 	my $schemes  = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 	my $continue = 1;
 	try {
+
 		foreach (@$schemes) {
 			if ( $qry =~ /temp_isolates_scheme_fields_$_\s/ ) {
 				$self->{'datastore'}->create_temp_isolate_scheme_fields_view($_);
@@ -215,8 +216,8 @@ sub create_temp_tables {
 		$logger->error("Can't connect to remote database.");
 		$continue = 0;
 	};
-	if ($q->param('list_file') && $q->param('datatype')){
-		$self->{'datastore'}->create_temp_list_table($q->param('datatype'), $q->param('list_file'));
+	if ( $q->param('list_file') && $q->param('datatype') ) {
+		$self->{'datastore'}->create_temp_list_table( $q->param('datatype'), $q->param('list_file') );
 	}
 	$self->{'temp_tables_created'} = 1;
 	return $continue;
@@ -661,8 +662,17 @@ sub print_sequence_export_form {
 			}
 		}
 		if ( $options->{'align'} ) {
-			say $q->checkbox( -name => 'align', -label => 'Align sequences' );
+			say $q->checkbox( -name => 'align', -id => 'align', -label => 'Align sequences' );
 			say "<br />";
+			my @aligners;
+			foreach my $aligner (qw(mafft muscle)) {
+				push @aligners, uc($aligner) if $self->{'config'}->{"$aligner\_path"};
+			}
+			if (@aligners) {
+				say "Aligner: ";
+				say $q->popup_menu( -name => 'aligner', -id => 'aligner', -values => \@aligners );
+				say "<br />";
+			}
 		}
 		if ( $options->{'translate'} ) {
 			say $q->checkbox( -name => 'translate', -label => 'Translate sequences' );
@@ -686,7 +696,7 @@ sub print_sequence_export_form {
 
 sub has_set_changed {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my $q      = $self->{'cgi'};
 	my $set_id = $self->get_set_id;
 	if ( $q->param('set_id') && $set_id ) {
 		if ( $q->param('set_id') != $set_id ) {

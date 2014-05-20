@@ -278,7 +278,7 @@ sub read_config_file {
 	$config = Config::Tiny->read("$config_dir/bigsdb.conf");
 	foreach (
 		qw ( prefs_db auth_db jobs_db max_load emboss_path tmp_dir secure_tmp_dir blast+_path blast_threads
-		muscle_path	mogrify_path ipcress_path splitstree_path reference refdb ref_db chartdirector
+		muscle_path	mafft_path mogrify_path ipcress_path splitstree_path reference refdb ref_db chartdirector
 		disable_updates disable_update_message intranet debug results_deleted_days cache_days)
 	  )
 	{
@@ -298,6 +298,7 @@ sub read_config_file {
 			}
 		}
 	}
+	$self->{'config'}->{'aligner'} = 1 if $self->{'config'}->{'muscle_path'} || $self->{'config'}->{'mafft_path'};
 	return;
 }
 

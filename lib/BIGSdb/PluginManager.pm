@@ -136,6 +136,9 @@ sub get_appropriate_plugin_names {
 			  if !$self->{'config'}->{'muscle_path'}
 			  && $attr->{'requires'} =~ /muscle/;
 			next
+			  if !$self->{'config'}->{'aligner'}
+			  && $attr->{'requires'} =~ /aligner/;
+			next
 			  if !$self->{'config'}->{'mogrify_path'}
 			  && $attr->{'requires'} =~ /mogrify/;
 			next

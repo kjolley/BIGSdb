@@ -53,7 +53,7 @@ sub get_attributes {
 		url              => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/xmfa.shtml',
 		input            => 'query',
 		help             => 'tooltips',
-		requires         => 'muscle,offline_jobs,js_tree',
+		requires         => 'aligner,offline_jobs,js_tree',
 		order            => 22,
 	);
 	return \%att;
@@ -73,9 +73,12 @@ sub run {
 	my $desc       = $self->get_db_description;
 	say "<h1>Export allele sequences in XMFA/concatenated FASTA formats - $desc</h1>";
 	return if $self->has_set_changed;
-	if ( !-e $self->{'config'}->{'muscle_path'} || !-x $self->{'config'}->{'muscle_path'} ) {
-		$logger->error( "This plugin requires MUSCLE to be installed and it is not.  Please install MUSCLE "
+	my $allow_alignment = 1;
+
+	if ( !-x $self->{'config'}->{'muscle_path'} && !-x $self->{'config'}->{'mafft_path'} ) {
+		$logger->error( "This plugin requires an aligner (MAFFT or MUSCLE) to be installed and one isn't.  Please install one of these "
 			  . "or check the settings in bigsdb.conf." );
+		$allow_alignment = 0;
 	}
 	my $pk;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -163,19 +166,30 @@ database containing allele sequence identifiers, or DNA and peptide loci with ge
 Please check the loci that you would like to include.  Alternatively select one or more schemes to include
 all loci that are members of the scheme.  If a sequence does not exist in the remote database, it will be replaced with 
 gap characters. Aligned output is limited to $limit records. Please be aware that if you select the alignment option it may 
-take a long time to generate the output file as the sequences are passed through MUSCLE to align them.</p>
+take a long time to generate the output file.</p>
 HTML
 	} else {
 		print <<"HTML";
 <div class="box" id="queryform">
 <p>This script will export allele sequences in Extended Multi-FASTA (XMFA) format suitable for loading into third-party
 applications, such as ClonalFrame.  Aligned Output is limited to $limit records. Please be aware that if you select the
-alignment option it may take a long time to generate the output file as the sequences are passed through MUSCLE to align them.</p>
+alignment option it may take a long time to generate the output file.</p>
 HTML
 	}
 	my $list = $self->get_id_list( $pk, $query_file );
-	$self->print_sequence_export_form( $pk, $list, $scheme_id,
-		{ default_select => 0, translate => 1, flanking => 1, ignore_seqflags => 1, ignore_incomplete => 1, align => 1, in_frame => 1 } );
+	$self->print_sequence_export_form(
+		$pk, $list,
+		$scheme_id,
+		{
+			default_select    => 0,
+			translate         => 1,
+			flanking          => 1,
+			ignore_seqflags   => 1,
+			ignore_incomplete => 1,
+			align             => $allow_alignment,
+			in_frame          => 1
+		}
+	);
 	say "</div>";
 	return;
 }
@@ -251,10 +265,10 @@ sub run_job {
 		catch BIGSdb::DataException with {
 			$logger->warn("Invalid locus '$locus_name' passed.");
 		};
-		my $temp        = BIGSdb::Utils::get_random();
-		my $temp_file   = "$self->{'config'}->{secure_tmp_dir}/$temp.txt";
-		my $muscle_file = "$self->{'config'}->{secure_tmp_dir}/$temp.muscle";
-		open( my $fh_muscle, '>', "$temp_file" ) or $logger->error("could not open temp file $temp_file");
+		my $temp         = BIGSdb::Utils::get_random();
+		my $temp_file    = "$self->{'config'}->{secure_tmp_dir}/$temp.txt";
+		my $aligned_file = "$self->{'config'}->{secure_tmp_dir}/$temp.aligned";
+		open( my $fh_unaligned, '>', "$temp_file" ) or $logger->error("could not open temp file $temp_file");
 		my $count = 0;
 		foreach my $id (@$ids) {
 			last if $count == $limit && $params->{'align'};
@@ -278,10 +292,10 @@ sub run_job {
 					}
 				}
 				if ( $isolate_data->{'id'} ) {
-					print $fh_muscle ">$id";
+					print $fh_unaligned ">$id";
 					local $" = '|';
-					print $fh_muscle "|@include_values" if @includes;
-					print $fh_muscle "\n";
+					print $fh_unaligned "|@include_values" if @includes;
+					print $fh_unaligned "\n";
 				} else {
 					push @problem_ids, $id if !$problem_id_checked{$id};
 					$problem_id_checked{$id} = 1;
@@ -291,9 +305,9 @@ sub run_job {
 				my $allele_seq;
 				if ( $locus_info->{'data_type'} eq 'DNA' ) {
 					try {
-						foreach my $allele_id (sort @$allele_ids){
+						foreach my $allele_id ( sort @$allele_ids ) {
 							next if $allele_id eq '0';
-							$allele_seq .= ${$locus->get_allele_sequence($allele_id)};
+							$allele_seq .= ${ $locus->get_allele_sequence($allele_id) };
 						}
 					}
 					catch BIGSdb::DatabaseConnectionException with {
@@ -328,9 +342,9 @@ sub run_job {
 				}
 				if ( $params->{'translate'} ) {
 					my $peptide = $seq ? Bio::Perl::translate_as_string($seq) : 'X';
-					say $fh_muscle $peptide;
+					say $fh_unaligned $peptide;
 				} else {
-					say $fh_muscle $seq;
+					say $fh_unaligned $seq;
 				}
 			} else {
 				my $profile_sql = $self->{'db'}->prepare("SELECT * FROM scheme_$scheme_id WHERE $pk=?");
@@ -352,9 +366,9 @@ sub run_job {
 				if ($profile_id) {
 					my $allele_id = $self->{'datastore'}->get_profile_allele_designation( $scheme_id, $id, $locus_name )->{'allele_id'};
 					my $allele_seq_ref = $self->{'datastore'}->get_sequence( $locus_name, $allele_id );
-					say $fh_muscle $header;
+					say $fh_unaligned $header;
 					if ( $allele_id eq '0' || $allele_id eq 'N' ) {
-						say $fh_muscle 'N';
+						say $fh_unaligned 'N';
 						$no_seq{$id} = 1;
 					} else {
 						my $allele_seq = $$allele_seq_ref;
@@ -363,9 +377,9 @@ sub run_job {
 						}
 						if ( $params->{'translate'} && $locus_info->{'data_type'} eq 'DNA' ) {
 							my $peptide = $allele_seq ? Bio::Perl::translate_as_string($allele_seq) : 'X';
-							say $fh_muscle $peptide;
+							say $fh_unaligned $peptide;
 						} else {
-							say $fh_muscle $allele_seq;
+							say $fh_unaligned $allele_seq;
 						}
 					}
 				} else {
@@ -375,14 +389,15 @@ sub run_job {
 				}
 			}
 		}
-		close $fh_muscle;
+		close $fh_unaligned;
 		$self->{'db'}->commit;    #prevent idle in transaction table locks
-		
-		
 		my $output_file;
-		if ( $params->{'align'} && -e $temp_file && -s $temp_file ) {
-			system( $self->{'config'}->{'muscle_path'}, '-in', $temp_file, '-out', $muscle_file, '-quiet' );
-			$output_file = $muscle_file;
+		if ( $params->{'align'} && $params->{'aligner'} eq 'MAFFT' && -e $temp_file && -s $temp_file ) {
+			system("$self->{'config'}->{'mafft_path'} --quiet --preservecase $temp_file > $aligned_file");
+			$output_file = $aligned_file;
+		} elsif ( $params->{'align'} && $params->{'aligner'} eq 'MUSCLE' && -e $temp_file && -s $temp_file ) {
+			system( $self->{'config'}->{'muscle_path'}, -in => $temp_file, -out => $aligned_file, '-quiet' );
+			$output_file = $aligned_file;
 		} else {
 			$output_file = $temp_file;
 		}
@@ -421,7 +436,7 @@ sub run_job {
 	if ($no_output) {
 		$message_html .= "<p>No output generated.  Please ensure that your sequences have been defined for these isolates.</p>\n";
 	} else {
-		my $align_qualifier = ($params->{'align'} || $params->{'translate'}) ? '(aligned)' : '(not aligned)';
+		my $align_qualifier = ( $params->{'align'} || $params->{'translate'} ) ? '(aligned)' : '(not aligned)';
 		$self->{'jobManager'}
 		  ->update_job_output( $job_id, { filename => "$job_id.xmfa", description => "10_XMFA output file $align_qualifier" } );
 		try {
@@ -438,5 +453,27 @@ sub run_job {
 	}
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } ) if $message_html;
 	return;
+}
+
+sub get_plugin_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+function enable_aligner(){
+	if (\$("#align").prop("checked")){
+		\$("#aligner").prop("disabled", false);
+	} else {
+		\$("#aligner").prop("disabled", true);
+	}
+}
+	
+\$(function () {
+	enable_aligner();
+	\$("#align").change(function(e) {
+		enable_aligner();
+	});
+});
+END
+
+	return $buffer;
 }
 1;

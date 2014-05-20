@@ -48,6 +48,7 @@ sub print_content {
 			'blastx'           => $self->{'config'}->{'blast+_path'} . '/blastx',
 			'tblastx'          => $self->{'config'}->{'blast+_path'} . '/tblastx',
 			'makeblastdb'      => $self->{'config'}->{'blast+_path'} . '/makeblastdb',
+			'mafft'            => $self->{'config'}->{'mafft_path'},
 			'muscle'           => $self->{'config'}->{'muscle_path'},
 			'ipcress'          => $self->{'config'}->{'ipcress_path'},
 			'mogrify'          => $self->{'config'}->{'mogrify_path'},
@@ -102,7 +103,7 @@ sub print_content {
 				  . ( $locus_info->{'dbase_seq_field'} || '' )
 				  . "</td><td>";
 				my $locus_db = $self->{'datastore'}->get_locus($_)->{'db'};
-				if (!$locus_db) {
+				if ( !$locus_db ) {
 					say '<span class="statusbad">X</span>';
 				} else {
 					say '<span class="statusgood">ok</span>';

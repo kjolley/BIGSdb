@@ -29,7 +29,8 @@ use List::MoreUtils qw(none);
 use Apache2::Connection ();
 use Bio::SeqIO;
 use File::Copy;
-use constant MAX_SEQS => 2000;
+use constant ONLINE_MAX_SEQS => 50;     #Number of sequences before we start an offline job
+use constant MAX_SEQS        => 2000;
 
 sub get_attributes {
 	my %att = (
@@ -41,10 +42,10 @@ sub get_attributes {
 		category    => 'Breakdown',
 		menutext    => 'Polymorphic sites',
 		module      => 'Polymorphisms',
-		version     => '1.0.3',
+		version     => '1.1.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
-		requires    => 'muscle,offline_jobs',
+		requires    => 'aligner,offline_jobs',
 		input       => 'query',
 		help        => 'tooltips',
 		order       => 15,
@@ -87,7 +88,7 @@ sub run {
 	$options{'count_only'}          = 1;
 	my $seq_count = $self->_get_seqs( $locus, $ids, \%options );
 
-	if ( $seq_count <= 50 ) {
+	if ( $seq_count <= ONLINE_MAX_SEQS ) {
 		$options{'count_only'} = 0;
 		my $seqs = $self->_get_seqs( $locus, $ids, \%options );
 		if ( !@$seqs ) {
@@ -280,11 +281,15 @@ sub _get_seqs {
 		unlink $tempfile;
 		return $i;
 	}
-	my $muscle_file = "$self->{'config'}->{secure_tmp_dir}/$temp.muscle";
+	my $aligned_file = "$self->{'config'}->{secure_tmp_dir}/$temp.aligned";
 	if ( $i > 1 ) {
-		system( $self->{'config'}->{'muscle_path'}, '-quiet', ( -in => $tempfile, -fastaout => $muscle_file ) );
+		if ( -x $self->{'config'}->{'mafft_path'} ) {
+			system("$self->{'config'}->{'mafft_path'} --quiet --preservecase $tempfile > $aligned_file");
+		} elsif ( -x $self->{'config'}->{'muscle_path'} ) {
+			system( $self->{'config'}->{'muscle_path'}, '-quiet', ( -in => $tempfile, -fastaout => $aligned_file ) );
+		}
 	}
-	my $output_file = $i > 1 ? $muscle_file : $tempfile;
+	my $output_file = $i > 1 ? $aligned_file : $tempfile;
 	my @seqs;
 	if ( -e $output_file ) {
 		my $seqio_object = Bio::SeqIO->new( -file => $output_file, -format => 'Fasta' );
@@ -293,7 +298,7 @@ sub _get_seqs {
 		}
 	}
 	unlink $tempfile;
-	unlink $muscle_file;
+	unlink $aligned_file;
 	return \@seqs;
 }
 
