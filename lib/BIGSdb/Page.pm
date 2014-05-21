@@ -1114,10 +1114,18 @@ sub clean_locus {
 			$locus .= $common_name;
 		}
 	}
-	if ( !$options->{'text_output'} && ( $self->{'system'}->{'locus_superscript_prefix'} // '' ) eq 'yes' ) {
-		$locus =~ s/^([A-Za-z]{1,3})_/<sup>$1<\/sup>/;
+	if ( !$options->{'text_output'} ) {
+		if (( $self->{'system'}->{'locus_superscript_prefix'} // '' ) eq 'yes'){
+			$locus =~ s/^([A-Za-z]{1,3})_/<sup>$1<\/sup>/;
+		}
+		$locus =~ tr/_/ / ;
+		if ($options->{'strip_links'}){
+			$locus =~ s/<[a|A]\s+[href|HREF].+?>//g;
+			$locus =~ s/<\/[a|A]>//g;
+		}
 	}
-	$locus =~ tr/_/ / if !$options->{'text_output'};
+
+	
 	return $locus;
 }
 

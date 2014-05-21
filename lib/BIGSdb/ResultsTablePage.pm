@@ -926,9 +926,9 @@ sub _print_plugin_buttons {
 					next if $att->{'max'} && $att->{'max'} < $records;
 					$plugin_buffer .= '<td>';
 					$plugin_buffer .= $q->start_form;
-					$q->param( page => 'plugin' );
-					$q->param( name => $att->{'module'} );
-					$q->param( set_id => $set_id);
+					$q->param( page   => 'plugin' );
+					$q->param( name   => $att->{'module'} );
+					$q->param( set_id => $set_id );
 					$plugin_buffer .= $q->hidden($_) foreach qw (db page name calling_page scheme_id locus set_id list_file datatype);
 					$plugin_buffer .= $q->hidden('query_file') if ( $att->{'input'} // '' ) eq 'query';
 					$plugin_buffer .= $q->submit( -label => ( $att->{'buttontext'} || $att->{'menutext'} ), -class => 'pagebar' );
@@ -1115,7 +1115,7 @@ sub _print_record_table {
 				} else {
 					$value = $data{ lc($field) };
 				}
-				$value = $self->clean_locus($value);
+				$value = $self->clean_locus( $value, { strip_links => 1 } );
 				if ( $table eq 'sequences' ) {
 					print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;"
 					  . "@query_values\">$value</a></td>";
@@ -1124,7 +1124,7 @@ sub _print_record_table {
 						print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;"
 						  . "id=$data{'isolate_id'}\">$value</a></td>";
 					} else {
-						$value =~ s/\..*$//;    #Remove fractions of second from output
+						$value =~ s/\..*$//;                                    #Remove fractions of second from output
 						print "<td>$value</td>";
 					}
 				} elsif ( $table eq 'profile_history' ) {

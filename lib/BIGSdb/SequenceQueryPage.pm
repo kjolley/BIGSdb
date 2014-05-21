@@ -348,7 +348,7 @@ sub _output_single_query_exact {
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 			$locus_matches{$locus}++;
 			next if $locus_info->{'match_longest'} && $locus_matches{$locus} > 1;
-			my $cleaned = $self->clean_locus($locus);
+			my $cleaned = $self->clean_locus( $locus, { strip_links => 1 } );
 			$buffer .= "<tr class=\"td$td\"><td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
 			  . "page=alleleInfo&amp;locus=$locus&amp;allele_id=$_->{'allele'}\">";
 			$allele       = "$cleaned: $_->{'allele'}";
@@ -366,7 +366,7 @@ sub _output_single_query_exact {
 				my $locus_info = $self->{'datastore'}->get_locus_info($extracted_locus);
 				$locus_matches{$extracted_locus}++;
 				next if $locus_info->{'match_longest'} && $locus_matches{$extracted_locus} > 1;
-				my $cleaned = $self->clean_locus($extracted_locus);
+				my $cleaned = $self->clean_locus( $extracted_locus, { strip_links => 1 } );
 				$allele = "$cleaned: $allele_id";
 				$field_values =
 				  $self->{'datastore'}->get_client_data_linked_to_allele( $extracted_locus, $allele_id, { table_format => 1 } );
@@ -516,7 +516,7 @@ sub _output_batch_query_exact {
 			$buffer      .= '; ';
 			$text_buffer .= '; ';
 		}
-		my $cleaned_locus = $self->clean_locus($locus);
+		my $cleaned_locus = $self->clean_locus( $locus, { strip_links => 1 } );
 		my $text_locus = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
 		$buffer .= "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;"
 		  . "allele_id=$allele_id\">$cleaned_locus: $allele_id</a>";
@@ -571,7 +571,7 @@ sub _output_single_query_nonexact {
 	if ($distinct_locus_selected) {
 		say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;"
 		  . "allele_id=$cleaned_match\">";
-		$cleaned_locus = $self->clean_locus($locus);
+		$cleaned_locus = $self->clean_locus( $locus, { strip_links => 1 } );
 		say "$cleaned_locus: ";
 		$flags = $self->{'datastore'}->get_allele_flags( $locus, $cleaned_match );
 		$field_values = $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $cleaned_match );
@@ -579,7 +579,7 @@ sub _output_single_query_nonexact {
 		my ( $extracted_locus, $allele_id );
 		if ( $cleaned_match =~ /(.*):(.*)/ ) {
 			( $extracted_locus, $allele_id ) = ( $1, $2 );
-			$cleaned_locus = $self->clean_locus($extracted_locus);
+			$cleaned_locus = $self->clean_locus( $extracted_locus, { strip_links => 1 } );
 			$cleaned_match = "$cleaned_locus: $allele_id";
 			say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$extracted_locus&amp;"
 			  . "allele_id=$allele_id\">";
@@ -778,15 +778,15 @@ sub _output_batch_query_nonexact {
 	}
 	my ( $allele, $text_allele, $cleaned_locus, $text_locus );
 	if ($distinct_locus_selected) {
-		$cleaned_locus = $self->clean_locus($locus);
-		$text_locus    = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
-		$allele        = "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;"
+		$cleaned_locus = $self->clean_locus( $locus, { strip_links => 1 } );
+		$text_locus = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
+		$allele = "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;"
 		  . "allele_id=$partial_match->{'allele'}\">$cleaned_locus: $partial_match->{'allele'}</a>";
 		$text_allele = "$text_locus-$partial_match->{'allele'}";
 	} else {
 		if ( $partial_match->{'allele'} =~ /(.*):(.*)/ ) {
 			my ( $extracted_locus, $allele_id ) = ( $1, $2 );
-			$cleaned_locus = $self->clean_locus($extracted_locus);
+			$cleaned_locus = $self->clean_locus( $extracted_locus, { strip_links => 1 } );
 			$text_locus = $self->clean_locus( $extracted_locus, { text_output => 1, no_common_name => 1 } );
 			$partial_match->{'allele'} =~ s/:/: /;
 			$allele = "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus="
