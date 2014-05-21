@@ -64,13 +64,15 @@ sub count_matching_profiles {
 	my $locus_count = scalar keys %$alleles_hashref;
 	my $first       = 1;
 	my $temp;
+	my @args;
 	foreach ( keys %$alleles_hashref ) {
 		if ( !defined $alleles_hashref->{$_} ) {
 			$logger->error("Invalid loci passed to client database#$self->{'id'} for profile check.");
 			return 0;
 		}
 		$temp .= ' OR ' if !$first;
-		$temp .= "(locus='$_' AND allele_id='$alleles_hashref->{$_}')";
+		$temp .= "(locus=? AND allele_id=?)";
+		push @args, $_, $alleles_hashref->{$_};
 		$first = 0;
 	}
 	my $view = $self->{'dbase_view'} // 'isolates';
@@ -79,7 +81,7 @@ sub count_matching_profiles {
 	  . "RIGHT JOIN $view ON $view.id=allele_designations.isolate_id WHERE $temp GROUP BY isolate_id HAVING COUNT(isolate_id) = "
 	  . "$locus_count)";
 	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute };
+	eval { $sql->execute(@args) };
 	if ($@) {
 		$logger->error($@);
 		return 0;
