@@ -159,7 +159,7 @@ sub _print_interface {
 	my $selected_ids = $query ? $self->_get_ids($query) : [];
 	say $q->start_form;
 	say "<div class=\"scrollable\"><fieldset>\n<legend>Isolates</legend>";
-	say $q->scrolling_list(
+	say $self->popup_menu(
 		-name     => 'isolate_id',
 		-id       => 'isolate_id',
 		-values   => $ids,
@@ -175,7 +175,7 @@ sub _print_interface {
 	  . "class=\"smallbutton\" /></div>";
 	say "</fieldset>";
 	say "<fieldset>\n<legend>Loci</legend>";
-	say $q->scrolling_list( -name => 'locus', -id => 'locus', -values => $loci, -labels => $locus_labels, -size => 11,
+	say $self->popup_menu( -name => 'locus', -id => 'locus', -values => $loci, -labels => $locus_labels, -size => 11,
 		-multiple => 'true' );
 	say "<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"locus\",true)' value=\"All\" "
 	  . "style=\"margin-top:1em\" class=\"smallbutton\" />";

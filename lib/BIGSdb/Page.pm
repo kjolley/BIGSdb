@@ -1115,17 +1115,15 @@ sub clean_locus {
 		}
 	}
 	if ( !$options->{'text_output'} ) {
-		if (( $self->{'system'}->{'locus_superscript_prefix'} // '' ) eq 'yes'){
+		if ( ( $self->{'system'}->{'locus_superscript_prefix'} // '' ) eq 'yes' ) {
 			$locus =~ s/^([A-Za-z]{1,3})_/<sup>$1<\/sup>/;
 		}
-		$locus =~ tr/_/ / ;
-		if ($options->{'strip_links'}){
+		$locus =~ tr/_/ /;
+		if ( $options->{'strip_links'} ) {
 			$locus =~ s/<[a|A]\s+[href|HREF].+?>//g;
 			$locus =~ s/<\/[a|A]>//g;
 		}
 	}
-
-	
 	return $locus;
 }
 
@@ -1228,10 +1226,10 @@ sub get_isolates_with_seqbin {
 	my $view = $self->{'system'}->{'view'};
 	my $qry;
 	if ( $options->{'use_all'} ) {
-		$qry = "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM $view ORDER BY $view.id";
+		$qry = "SELECT $view.id,$view.$self->{'system'}->{'labelfield'} FROM $view ORDER BY $view.id";
 	} else {
-		$qry = "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM $view WHERE $view.id IN (SELECT isolate_id FROM "
-		  . "sequence_bin) ORDER BY $view.id";
+		$qry = "SELECT $view.id,$view.$self->{'system'}->{'labelfield'} FROM $view WHERE EXISTS (SELECT * FROM sequence_bin WHERE "
+		  . "$view.id=sequence_bin.isolate_id) ORDER BY $view.id";
 	}
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
@@ -2043,14 +2041,18 @@ sub popup_menu {
 
 	#Faster than CGI::popup_menu when listing thousands of values as it doesn't need to escape all values
 	my ( $self, %args ) = @_;
-	my ( $name, $id, $values, $labels, $default, $class ) = @args{qw ( -name -id -values -labels -default -class)};
+	my ( $name, $id, $values, $labels, $default, $class, $multiple, $size ) =
+	  @args{qw ( -name -id -values -labels -default -class -multiple -size)};
 	my $value = $self->{'cgi'}->param($name);
 	my %default = ref $default eq 'ARRAY' ? map { $_ => 1 } @$default : ();
 	$default{$value} = 1 if defined $value;
 	my $buffer = qq(<select name="$name");
-	$buffer .= qq( class="$class") if defined $class;
-	$buffer .= qq( id="$id")       if defined $id;
+	$buffer .= qq( class="$class")      if defined $class;
+	$buffer .= qq( id="$id")            if defined $id;
+	$buffer .= qq( size="$size")        if defined $size;
+	$buffer .= qq( multiple='multiple') if ( $multiple // '' ) eq 'true';
 	$buffer .= ">\n";
+
 	foreach (@$values) {
 		$labels->{$_} //= $_;
 		my $select = $default{$_} ? qq( selected="selected") : '';

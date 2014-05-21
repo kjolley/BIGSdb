@@ -755,7 +755,7 @@ sub print_seqbin_isolate_fieldset {
 	say "<fieldset style=\"float:left\">\n<legend>Isolates</legend>";
 	if (@$ids) {
 		say "<div style=\"float:left\">";
-		say $q->scrolling_list(
+		say $self->popup_menu(
 			-name     => 'isolate_id',
 			-id       => 'isolate_id',
 			-values   => $ids,
@@ -807,7 +807,7 @@ sub print_isolates_locus_fieldset {
 	  $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
 	if (@$locus_list) {
 		say "<div style=\"float:left\">";
-		say $q->scrolling_list(
+		say $self->popup_menu(
 			-name     => 'locus',
 			-id       => 'locus',
 			-values   => $locus_list,
