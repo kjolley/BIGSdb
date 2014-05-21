@@ -1,6 +1,6 @@
 #LocusExplorer.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -41,12 +41,12 @@ sub get_attributes {
 		category         => 'Analysis',
 		menutext         => 'Locus Explorer',
 		module           => 'LocusExplorer',
-		version          => '1.1.3',
+		version          => '1.2.0',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		input            => 'query',
 		section          => 'postquery,analysis',
-		requires         => 'muscle,offline_jobs',
+		requires         => 'aligner,offline_jobs',
 		order            => 15
 	);
 	return \%att;
@@ -290,8 +290,9 @@ sub _print_interface {
 	say "</fieldset>";
 	say "<fieldset>\n<legend>Analysis functions</legend>";
 	say "<table>";
+	my $aligner_available = ( $self->{'config'}->{'muscle_path'} || $self->{'config'}->{'mafft_path'} ) ? 1 : 0;
 
-	if ( !$locus_info->{'length_varies'} || $self->{'config'}->{'muscle_path'} ) {
+	if ( !$locus_info->{'length_varies'} || $aligner_available ) {
 		say "<tr><td style=\"text-align:right\">";
 		say $q->submit( -name => 'snp', -label => 'Polymorphic sites', -class => 'submit' );
 		say "</td><td>Display polymorphic site frequencies and sequence schematic</td></tr>";
@@ -302,7 +303,7 @@ sub _print_interface {
 		say "</td><td>\nCalculate G+C content";
 		say " and codon usage" if $locus_info->{'coding_sequence'};
 		say "</td></tr>";
-		if ( $locus_info->{'coding_sequence'} && ( !$locus_info->{'length_varies'} || $self->{'config'}->{'muscle_path'} ) ) {
+		if ( $locus_info->{'coding_sequence'} && ( !$locus_info->{'length_varies'} || $aligner_available ) ) {
 			say "<tr><td style=\"text-align:right\">";
 			say $q->submit( -name => 'translate', -label => 'Translate', -class => 'submit' );
 			say "</td><td>Translate DNA to peptide sequences";
@@ -344,16 +345,22 @@ sub _get_seqs {
 		return $i;
 	}
 	my $seq_file;
-	my $muscle_file = "$self->{'config'}->{secure_tmp_dir}/$temp.muscle";
-	if ( $self->{'config'}->{'muscle_path'} && $locus_info->{'length_varies'} && @seqs > 1 ) {
-		print "<p>Please wait - aligning (do not refresh) ...</p>\n" if $options->{'print_status'};
-		system( $self->{'config'}->{'muscle_path'}, '-in', $tempfile, '-fastaout', $muscle_file, '-quiet' );
-		my $seqio_object = Bio::SeqIO->new( -file => $muscle_file, -format => 'Fasta' );
+	my $aligned_file = "$self->{'config'}->{secure_tmp_dir}/$temp.aligned";
+	if ( $locus_info->{'length_varies'} && @seqs > 1 ) {
+		say "<p>Please wait - aligning (do not refresh) ...</p>" if $options->{'print_status'};
+		if ( -x $self->{'config'}->{'mafft_path'} ) {
+			system("$self->{'config'}->{'mafft_path'} --quiet --preservecase $tempfile > $aligned_file");
+		} elsif ( -x $self->{'config'}->{'muscle_path'} ) {
+			system( $self->{'config'}->{'muscle_path'}, '-in', $tempfile, '-fastaout', $aligned_file, '-quiet' );
+		} else {
+			$logger->error("No aligner available");
+		}
+		my $seqio_object = Bio::SeqIO->new( -file => $aligned_file, -format => 'Fasta' );
 		undef @seqs;
 		while ( my $seq_object = $seqio_object->next_seq ) {
 			push @seqs, $seq_object->seq;
 		}
-		$seq_file = "$temp.muscle";
+		$seq_file = "$temp.aligned";
 	} else {
 		$seq_file = "$temp.txt";
 	}
@@ -801,11 +808,15 @@ sub _translate {
 	}
 	close $fh;
 	system("$self->{'config'}->{'emboss_path'}/transeq -sequence $tempfile -outseq $outfile -frame $orf -trim -clean 2> /dev/null");
-	if ( $self->{'config'}->{'muscle_path'} && $locus_info->{'length_varies'} ) {
-		my $muscle_file = "$self->{'config'}->{secure_tmp_dir}/$temp.muscle";
-		system( $self->{'config'}->{'muscle_path'}, '-quiet', ( -in => $outfile, -out => $muscle_file ) );
+	if ( $locus_info->{'length_varies'} ) {
+		my $aligned_file = "$self->{'config'}->{secure_tmp_dir}/$temp.aligned";
+		if ( -x $self->{'config'}->{'mafft_path'} ) {
+			system("$self->{'config'}->{'mafft_path'} --quiet --preservecase $outfile > $aligned_file");
+		} elsif ( -x $self->{'config'}->{'muscle_path'} ) {
+			system( $self->{'config'}->{'muscle_path'}, '-quiet', ( -in => $outfile, -out => $aligned_file ) );
+		}
 		unlink $outfile;
-		$outfile = $muscle_file;
+		$outfile = $aligned_file;
 	}
 	system( "$self->{'config'}->{'emboss_path'}/showalign -nosimilarcase -width $self->{'prefs'}->{'alignwidth'} -sequence $outfile "
 		  . "-outfile $finalfile 2> /dev/null" );

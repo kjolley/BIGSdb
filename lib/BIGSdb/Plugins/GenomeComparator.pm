@@ -48,12 +48,12 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.6.1',
+		version     => '1.6.2',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/genome_comparator.shtml',
 		order       => 30,
-		requires    => 'muscle,offline_jobs,js_tree',
+		requires    => 'aligner,offline_jobs,js_tree',
 		input       => 'query',
 		help        => 'tooltips',
 		system_flag => 'GenomeComparator',
@@ -96,8 +96,10 @@ function enable_seqs(){
 	}
 	if (\$("#align").prop("checked")){
 		\$("#align_all").prop("disabled", false);
+		\$("#aligner").prop("disabled", false);
 	} else {
 		\$("#align_all").prop("disabled", true);
+		\$("#aligner").prop("disabled", true);
 	}
 
 	if ((\$("#accession").val() || \$("#ref_upload").val() || \$("#annotation").val()) && \$("#align").prop('checked')){
@@ -425,9 +427,9 @@ query against the six-frame translation of the sequences in the sequence bin (se
 result in the same translated sequence even if the nucleotide sequence is different).  This is SLOWER than BLASTN. Use with
 caution.">&nbsp;<i>i</i>&nbsp;</a></span></li><li>
 HTML
-	say $q->checkbox( -name => 'align', -id => 'align', -label => 'Produce alignments (Clustal + XMFA)', -onChange => "enable_seqs()" );
+	say $q->checkbox( -name => 'align', -id => 'align', -label => 'Produce alignments', -onChange => "enable_seqs()" );
 	print <<"HTML";
- <a class="tooltip" title="Alignments - Alignments will be produced in muscle for 
+ <a class="tooltip" title="Alignments - Alignments will be produced in clustal format using the selected aligner for 
 any loci that vary between isolates. This may slow the analysis considerably.">&nbsp;<i>i</i>&nbsp;</a></li><li>
 HTML
 	say $q->checkbox(
@@ -445,6 +447,16 @@ HTML
 		-onChange => "enable_seqs()"
 	);
 	say "</li><li>";
+	my @aligners;
+
+	foreach my $aligner (qw(mafft muscle)) {
+		push @aligners, uc($aligner) if $self->{'config'}->{"$aligner\_path"};
+	}
+	if (@aligners) {
+		say "Aligner: ";
+		say $q->popup_menu( -name => 'aligner', -id => 'aligner', -values => \@aligners );
+		say "</li><li>";
+	}
 	say $q->checkbox( -name => 'use_tagged', -id => 'use_tagged', -label => 'Use tagged designations if available', -checked => 1 );
 	print <<"HTML";
  <a class="tooltip" title="Tagged desginations - Allele sequences will be extracted from the definition database based on allele 
@@ -1408,17 +1420,15 @@ sub _scan_by_locus {
 	if ( $self->{'params'}->{'use_tagged'} && $locus_info->{'data_type'} eq 'DNA' ) {
 		my $allele_ids = $self->{'datastore'}->get_allele_ids( $isolate_id, $locus );
 		@$allele_ids = sort @$allele_ids;
-		if (@$allele_ids){
-			$match->{'exact'}  = 1;
+		if (@$allele_ids) {
+			$match->{'exact'} = 1;
 			local $" = ',';
-			@{$match->{'allele'}} = @$allele_ids;
+			@{ $match->{'allele'} } = @$allele_ids;
 		}
-		foreach my $allele_id ( @$allele_ids ) {
-			
-			
+		foreach my $allele_id (@$allele_ids) {
 			push @values, $allele_id;
-			if ($allele_id ne '0'){
-				try {					
+			if ( $allele_id ne '0' ) {
+				try {
 					my $seq_ref = $self->{'datastore'}->get_locus($locus)->get_allele_sequence($allele_id);
 					$extracted_seq = $$seq_ref if ref $seq_ref eq 'SCALAR';
 					$seqs_ref->{$isolate_id}       .= $extracted_seq;
@@ -1442,7 +1452,7 @@ sub _scan_by_locus {
 			$self->_blast( 3, $args->{'ref_seq_file'}, $args->{'isolate_fasta_ref'}->{$isolate_id}, $args->{'out_file'}, 'blastx' );
 		}
 		$match = $self->_parse_blast_by_locus( $locus, $args->{'out_file'} );
-		@values = ($match->{'allele'}) if $match->{'exact'};
+		@values = ( $match->{'allele'} ) if $match->{'exact'};
 	}
 	local $" = ',';
 	return ( $match, "@values", $extracted_seq );
@@ -1663,9 +1673,9 @@ sub _create_alignments {
 		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete } );
 		( my $escaped_locus = $locus ) =~ s/[\/\|]/_/g;
 		$escaped_locus =~ tr/ /_/;
-		my $fasta_file = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.fasta";
-		my $muscle_out = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.muscle";
-		my $seq_count  = 0;
+		my $fasta_file  = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.fasta";
+		my $aligned_out = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.aligned";
+		my $seq_count   = 0;
 		open( my $fasta_fh, '>', $fasta_file ) || $logger->error("Can't open $fasta_file for writing");
 
 		if ( $by_reference && $params->{'include_ref'} ) {
@@ -1688,12 +1698,12 @@ sub _create_alignments {
 		}
 		close $fasta_fh;
 		if ( $params->{'align'} ) {
-			$distances->{$locus} = $self->_run_muscle(
+			$distances->{$locus} = $self->_run_alignment(
 				{
 					ids              => $ids,
 					locus            => $locus,
 					seq_count        => $seq_count,
-					muscle_out       => $muscle_out,
+					aligned_out      => $aligned_out,
 					fasta_file       => $fasta_file,
 					align_file       => $align_file,
 					align_stats_file => $align_stats_file,
@@ -1746,15 +1756,22 @@ sub _run_infoalign {
 	return;
 }
 
-sub _run_muscle {
+sub _run_alignment {
 	my ( $self, $args ) = @_;
-	my ( $ids, $names, $locus, $seq_count, $muscle_out, $fasta_file, $align_file, $xmfa_out, $xmfa_start_ref, $xmfa_end_ref ) =
-	  @{$args}{qw (ids names locus seq_count muscle_out fasta_file align_file xmfa_out xmfa_start_ref xmfa_end_ref )};
+	my ( $ids, $names, $locus, $seq_count, $aligned_out, $fasta_file, $align_file, $xmfa_out, $xmfa_start_ref, $xmfa_end_ref ) =
+	  @{$args}{qw (ids names locus seq_count aligned_out fasta_file align_file xmfa_out xmfa_start_ref xmfa_end_ref )};
 	return if $seq_count <= 1;
-	system( $self->{'config'}->{'muscle_path'}, -in => $fasta_file, -out => $muscle_out, '-quiet', '-clwstrict' );
+	my $params = $self->{'params'};
+	if ( $params->{'aligner'} eq 'MAFFT' && $self->{'config'}->{'mafft_path'} && -e $fasta_file && -s $fasta_file ) {
+		system("$self->{'config'}->{'mafft_path'} --quiet --preservecase --clustalout $fasta_file > $aligned_out");
+	} elsif ( $params->{'aligner'} eq 'MUSCLE' && $self->{'config'}->{'muscle_path'} && -e $fasta_file && -s $fasta_file ) {
+		system( $self->{'config'}->{'muscle_path'}, -in => $fasta_file, -out => $aligned_out, '-quiet', '-clwstrict' );
+	} else {
+		$logger->error('No aligner selected');
+	}
 	my $distance;
-	if ( -e $muscle_out ) {
-		my $align = Bio::AlignIO->new( -format => 'clustalw', -file => $muscle_out )->next_aln;
+	if ( -e $aligned_out ) {
+		my $align = Bio::AlignIO->new( -format => 'clustalw', -file => $aligned_out )->next_aln;
 		my ( %id_has_seq, $seq_length );
 		open( my $fh_xmfa, '>>', $xmfa_out ) or $logger->error("Can't open output file $xmfa_out for appending");
 		my $clean_locus = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
@@ -1780,10 +1797,10 @@ sub _run_muscle {
 		say $align_fh "$heading_locus";
 		say $align_fh '-' x ( length $heading_locus ) . "\n";
 		close $align_fh;
-		BIGSdb::Utils::append( $muscle_out, $align_file, { blank_after => 1 } );
-		$args->{'alignment'} = $muscle_out;
+		BIGSdb::Utils::append( $aligned_out, $align_file, { blank_after => 1 } );
+		$args->{'alignment'} = $aligned_out;
 		$distance = $self->_run_infoalign($args);
-		unlink $muscle_out;
+		unlink $aligned_out;
 	}
 	return $distance;
 }

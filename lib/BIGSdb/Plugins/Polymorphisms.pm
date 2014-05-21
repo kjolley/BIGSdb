@@ -251,8 +251,9 @@ sub _get_seqs {
 		#sequence, but this may need to wait until we can link designations with sequence bin tags.
 		my $allele_ids = $self->{'datastore'}->get_allele_ids( $id, $locus_name );
 		my $allele_seq;
+		push @$allele_ids, 0 if !@$allele_ids;    #We still need to get the seqbin seqs if no allele ids are set.
 		foreach my $allele_id (@$allele_ids) {
-			if ( $locus_info->{'data_type'} eq 'DNA' ) {
+			if ( $allele_id ne '0' && $locus_info->{'data_type'} eq 'DNA' ) {
 				try {
 					$allele_seq = $locus->get_allele_sequence($allele_id);
 				}

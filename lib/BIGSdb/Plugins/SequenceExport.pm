@@ -413,7 +413,7 @@ sub run_job {
 				$sequence =~ s/N/-/g if $no_seq{$id};
 				say $fh $sequence;
 			}
-			$start = $end + 1;
+			$start = ($end // 0) + 1;
 			print $fh "=\n";
 		}
 		unlink $output_file;
