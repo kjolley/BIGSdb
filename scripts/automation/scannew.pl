@@ -91,8 +91,9 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 	);
 	local @SIG{qw (INT TERM HUP)} =
 	  ( sub { $script->{'logger'}->info("$opts{'d'}:Autodefiner kill signal detected.  Waiting for child processes.") } ) x 3;
-	die "Script initialization failed - check logs (server may be too busy).\n" if !defined $script->{'db'};
-	my $loci          = $script->get_loci_with_ref_db;
+	die "Script initialization failed - check logs (authentication problems or server too busy?).\n" if !defined $script->{'db'};
+	my $loci = $script->get_loci_with_ref_db;
+	$script->{'db'}->commit;    #Prevent idle in transaction table locks
 	my $loci_per_list = floor( @$loci / $opts{'threads'} );
 	$loci_per_list++ if @$loci % $opts{'threads'};
 	my $lists = [];

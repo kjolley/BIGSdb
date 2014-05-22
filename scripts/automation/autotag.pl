@@ -89,14 +89,16 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 	);
 	local @SIG{qw (INT TERM HUP)} =
 	  ( sub { $script->{'logger'}->info("$opts{'d'}:Autotagger kill signal detected.  Waiting for child processes.") } ) x 3;
-	die "Script initialization failed - check logs (server may be too busy).\n" if !defined $script->{'db'};
+	die "Script initialization failed - check logs (authentication problems or server too busy?).\n" if !defined $script->{'db'};
 	my $isolates = $script->get_isolates_with_linked_seqs;
 	$isolates = $script->filter_and_sort_isolates($isolates);
+	$script->{'db'}->commit;    #Prevent idle in transaction table locks
 	my $ids_per_list = floor( @$isolates / $opts{'threads'} );
 	$ids_per_list++ if @$isolates % $opts{'threads'};
 	my $lists = [];
 	my $list  = 0;
 	my $i     = 0;
+
 	foreach my $id (@$isolates) {
 		push @{ $lists->[$list] }, $id;
 		$i++;

@@ -2050,7 +2050,7 @@ sub popup_menu {
 	$buffer .= qq( class="$class")      if defined $class;
 	$buffer .= qq( id="$id")            if defined $id;
 	$buffer .= qq( size="$size")        if defined $size;
-	$buffer .= qq( multiple='multiple') if ( $multiple // '' ) eq 'true';
+	$buffer .= qq( multiple="multiple") if ( $multiple // '' ) eq 'true';
 	$buffer .= ">\n";
 
 	foreach (@$values) {
