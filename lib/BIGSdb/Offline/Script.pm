@@ -143,15 +143,15 @@ sub get_isolates_with_linked_seqs {
 	my ($self) = @_;
 	local $" = ',';
 	my $view = $self->{'system'}->{'view'};
-	my $qry  = "SELECT DISTINCT $view.id FROM $view INNER JOIN sequence_bin ON $view.id=sequence_bin.isolate_id";
+	my $qry = "SELECT $view.id FROM $view WHERE EXISTS (SELECT * FROM sequence_bin WHERE $view.id=sequence_bin.isolate_id)";
 	if ( $self->{'options'}->{'p'} ) {
 		my @projects = split( ',', $self->{'options'}->{'p'} );
 		die "Invalid project list.\n" if any { !BIGSdb::Utils::is_int($_) } @projects;
-		$qry .= " WHERE $view.id IN (SELECT isolate_id FROM project_members WHERE project_id IN (@projects))";
+		$qry .= " AND $view.id IN (SELECT isolate_id FROM project_members WHERE project_id IN (@projects))";
 	} elsif ( $self->{'options'}->{'i'} ) {
 		my @ids = split( ',', $self->{'options'}->{'i'} );
 		die "Invalid isolate id list.\n" if any { !BIGSdb::Utils::is_int($_) } @ids;
-		$qry .= " WHERE isolate_id IN (@ids)";
+		$qry .= " AND $view.id IN (@ids)";
 	}
 	$qry .= " ORDER BY $view.id";
 	return $self->{'datastore'}->run_list_query($qry);
