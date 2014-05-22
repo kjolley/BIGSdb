@@ -1,6 +1,6 @@
 #Contigs.pm - Contig export and analysis plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2013, University of Oxford
+#Copyright (c) 2013-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -24,29 +24,31 @@ use 5.010;
 use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use Error qw(:try);
 use List::MoreUtils qw(any none);
 use constant MAX_ISOLATES => 1000;
 use BIGSdb::Page qw(SEQ_METHODS);
+use constant BLOCK   => 512;
+use constant TAR_END => "\0" x BLOCK;    #From Tar::Archive::Constant (not used directly because Archive::Tar is an optional module)
 
 sub get_attributes {
 	my %att = (
-		name        => 'Contig export',
-		author      => 'Keith Jolley',
-		affiliation => 'University of Oxford, UK',
-		email       => 'keith.jolley@zoo.ox.ac.uk',
-		description => 'Analyse and export contigs selected from query results',
-		category    => 'Export',
-		buttontext  => 'Contigs',
-		menutext    => 'Contigs',
-		module      => 'Contigs',
-		version     => '1.0.0',
-		dbtype      => 'isolates',
-		section     => 'export,postquery',
-		input       => 'query',
-		help        => 'tooltips',
-		order       => 20,
-		system_flag => 'ContigExport'
+		name         => 'Contig export',
+		author       => 'Keith Jolley',
+		affiliation  => 'University of Oxford, UK',
+		email        => 'keith.jolley@zoo.ox.ac.uk',
+		description  => 'Analyse and export contigs selected from query results',
+		category     => 'Export',
+		buttontext   => 'Contigs',
+		menutext     => 'Contigs',
+		module       => 'Contigs',
+		version      => '1.1.0',
+		dbtype       => 'isolates',
+		section      => 'export,postquery',
+		input        => 'query',
+		help         => 'tooltips',
+		order        => 20,
+		system_flag  => 'ContigExport',
+		tar_filename => 'contigs.tar'
 	);
 	return \%att;
 }
@@ -57,38 +59,46 @@ sub set_pref_requirements {
 	return;
 }
 
-sub _download_contigs {
-	my ($self)     = @_;
-	my $q          = $self->{'cgi'};
-	my $isolate_id = $q->param('isolate_id');
+sub _get_contigs {
+	my ( $self, $args ) = @_;
+	my ( $isolate_id, $pc_untagged, $match ) = @{$args}{qw (isolate_id pc_untagged match  )};
+	my $buffer;
 	if ( !defined $isolate_id || !BIGSdb::Utils::is_int($isolate_id) ) {
 		say "Invalid isolate id passed.";
 	}
-	my $pc_untagged = $q->param('pc_untagged') // 0;
+	$pc_untagged //= 0;
 	if ( !defined $pc_untagged || !BIGSdb::Utils::is_int($pc_untagged) ) {
 		say "Invalid percentage tagged threshold value passed.";
 		return;
 	}
-	$pc_untagged = $1 if $pc_untagged =~ /^(\d+)$/;    #untaint
 	my $data = $self->_calculate( $isolate_id, { pc_untagged => $pc_untagged, get_contigs => 1 } );
-	my $export_seq = $q->param('match') ? $data->{'match_seq'} : $data->{'non_match_seq'};
+	my $export_seq = $match ? $data->{'match_seq'} : $data->{'non_match_seq'};
 	if ( !@$export_seq ) {
 		say "No sequences matching selected criteria.";
 		return;
 	}
 	foreach (@$export_seq) {
-		say ">$_->{'seqbin_id'}";
+		$buffer .= ">$_->{'seqbin_id'}\n";
 		my $cleaned_seq = BIGSdb::Utils::break_line( $_->{'sequence'}, 60 ) || '';
-		say $cleaned_seq;
+		$buffer .= "$cleaned_seq\n";
 	}
-	return;
+	return \$buffer;
 }
 
 sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
+	eval "use Archive::Tar";    ## no critic (ProhibitStringyEval)
+	if ($@) {
+		$self->{'no_archive'} = 1;
+		$logger->warn("Install Archive::Tar to allow batch contig downloads.");
+	}
 	if ( $q->param('format') eq 'text' ) {
-		$self->_download_contigs;
+		my $contigs = $self->_get_contigs( { $q->Vars } );
+		say $$contigs;
+		return;
+	} elsif ( $q->param('batchDownload') && ( $q->param('format') // '' ) eq 'tar' && !$self->{'no_archive'} ) {
+		$self->_batchDownload;
 		return;
 	}
 	say "<h1>Contig analysis and export</h1>";
@@ -119,7 +129,8 @@ sub run {
 
 sub _run_analysis {
 	my ( $self, $filtered_ids ) = @_;
-	my $q = $self->{'cgi'};
+	my $list_file = $self->make_temp_file(@$filtered_ids);
+	my $q         = $self->{'cgi'};
 	say "<div class=\"box\" id=\"resultstable\">";
 	my $pc_untagged = $q->param('pc_untagged');
 	$pc_untagged = 0 if !defined $pc_untagged || !BIGSdb::Utils::is_int($pc_untagged);
@@ -180,8 +191,13 @@ TEXTFILE
 	open( my $fh, '>', $filename ) || $logger->error("Can't open $filename for writing");
 	say $fh $filebuffer;
 	close $fh;
-	print "<p style=\"margin-top:1em\"><a href=\"/tmp/$prefix.txt\">Tab-delimited text format</a></p>";
-	say "</div>";
+	say qq(<ul><li><a href="/tmp/$prefix.txt">Download table in tab-delimited text format</a></li>);
+
+	if ( !$self->{'no_archive'} ) {
+		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=Contigs&amp;)
+		  . qq(batchDownload=$list_file&amp;format=tar">Batch download all contigs from selected isolates</a></li>);
+	}
+	say "</ul></div>";
 	return;
 }
 
@@ -249,7 +265,15 @@ sub _print_interface {
 	my $view       = $self->{'system'}->{'view'};
 	my $query_file = $q->param('query_file');
 	my $qry_ref    = $self->get_query($query_file);
-	my $selected_ids = defined $query_file ? $self->get_ids_from_query($qry_ref) : [];
+	my $selected_ids;
+	if ( $q->param('isolate_id') ) {
+		my @ids = $q->param('isolate_id');
+		$selected_ids = \@ids;
+	} elsif ( defined $query_file ) {
+		$selected_ids = $self->get_ids_from_query($qry_ref);
+	} else {
+		$selected_ids = [];
+	}
 	my $seqbin_values = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT id FROM sequence_bin)");
 	if ( !$seqbin_values->[0] ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>There are no sequences in the sequence bin.</p></div>";
@@ -295,6 +319,66 @@ sub _print_options_fieldset {
 	  . "&nbsp;<i>i</i>&nbsp;</a>";
 	say "</li></ul>";
 	say "</fieldset>";
+	return;
+}
+
+sub _batchDownload {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	binmode STDOUT;
+	my @list;
+	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/" . $q->param('batchDownload');
+	local $| = 1;
+	if ( !-e $filename ) {
+		$logger->error("File $filename does not exist");
+		my $error_file = 'error.txt';
+		my $tar = Archive::Tar->new;
+		$tar->add_data($error_file,"No record list passed.  Please repeat query.");
+		if ( $ENV{'MOD_PERL'} ) {
+			my $tf = $tar->write;
+			$self->{'mod_perl_request'}->print($tf);
+			$self->{'mod_perl_request'}->rflush;
+		} else {
+			$tar->write( \*STDOUT );
+		}
+	} else {
+		open( my $fh, '<', $filename ) || $logger->error("Can't open $filename for reading");
+		while (<$fh>) {
+			chomp;
+			push @list, $_ if BIGSdb::Utils::is_int($_);
+		}
+		close $fh;
+		foreach my $id (@list) {
+			if ( $id =~ /(\d+)/ ) {
+				$id = $1;
+			} else {
+				next;
+			}
+			my $contig_file = "$id.fas";
+			my $data = $self->_get_contigs( { isolate_id => $id, pc_untagged => 0, match => 1 } );
+
+			#Modified from Archive::Tar::Streamed to allow mod_perl support.
+			my $tar = Archive::Tar->new;
+			$tar->add_data( $contig_file, $$data );
+
+			#Write out tar file except EOF block so that we can add additional files.
+			my $tf = $tar->write;
+			if ( $ENV{'MOD_PERL'} ) {
+				$self->{'mod_perl_request'}->print( substr $tf, 0, length($tf) - ( BLOCK * 2 ) );
+				$self->{'mod_perl_request'}->rflush;
+			} else {
+				syswrite STDOUT, $tf, length($tf) - ( BLOCK * 2 );
+			}
+		}
+
+		#Add EOF block
+		if ( $ENV{'MOD_PERL'} ) {
+			$self->{'mod_perl_request'}->print(TAR_END);
+			$self->{'mod_perl_request'}->rflush;
+		} else {
+			syswrite STDOUT, TAR_END;
+		}
+	}
 	return;
 }
 1;

@@ -162,6 +162,9 @@ sub _initiate_plugin {
 		} elsif ( $q->param('format') eq 'xlsx' ) {
 			$self->{'type'}       = 'xlsx';
 			$self->{'attachment'} = $att->{'xlsx_filename'};
+		} elsif ( $q->param('format') eq 'tar' ) {
+			$self->{'type'}       = 'tar';
+			$self->{'attachment'} = $att->{'tar_filename'};
 		} else {
 			$self->{$_} = 1 foreach qw(jQuery jQuery.tablesort jQuery.jstree jQuery.slimbox);
 		}
