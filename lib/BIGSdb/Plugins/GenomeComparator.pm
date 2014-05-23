@@ -228,7 +228,7 @@ sub run {
 	my $q = $self->{'cgi'};
 	if ( $q->param('submit') ) {
 		my @ids = $q->param('isolate_id');
-		$q->delete('isolate_id');
+#		$q->delete('isolate_id');
 		my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list( { dont_clear => 1 } );
 		push @ids, @$pasted_cleaned_ids;
 		@ids = uniq @ids;
@@ -284,6 +284,7 @@ sub run {
 		if ($continue) {
 			$q->delete('isolate_paste_list');
 			$q->delete('locus_paste_list');
+			$q->delete('isolate_id');
 			my $params = $q->Vars;
 			my $set_id = $self->get_set_id;
 			$params->{'set_id'} = $set_id if $set_id;
@@ -338,7 +339,15 @@ sub _print_interface {
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
 	my $qry_ref    = $self->get_query($query_file);
-	my $selected_ids = defined $query_file ? $self->get_ids_from_query($qry_ref) : [];
+	my $selected_ids;
+	if ($q->param('isolate_id')){
+		my @ids = $q->param('isolate_id');
+		$selected_ids = \@ids;
+	} elsif (defined $query_file){
+		$selected_ids = $self->get_ids_from_query($qry_ref);
+	} else {
+		$selected_ids = [];
+	}
 	my $guid = $self->get_guid;
 	my $qry;
 	my $use_all;
