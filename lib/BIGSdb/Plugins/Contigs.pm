@@ -25,10 +25,10 @@ use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use List::MoreUtils qw(any none);
+use Archive::Tar;
+use Archive::Tar::Constant;
 use constant MAX_ISOLATES => 1000;
 use BIGSdb::Page qw(SEQ_METHODS);
-use constant BLOCK   => 512;
-use constant TAR_END => "\0" x BLOCK;    #From Tar::Archive::Constant (not used directly because Archive::Tar is an optional module)
 
 sub get_attributes {
 	my %att = (
@@ -88,11 +88,6 @@ sub _get_contigs {
 sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	eval "use Archive::Tar";    ## no critic (ProhibitStringyEval)
-	if ($@) {
-		$self->{'no_archive'} = 1;
-		$logger->warn("Install Archive::Tar to allow batch contig downloads.");
-	}
 	if ( $q->param('format') eq 'text' ) {
 		my $contigs = $self->_get_contigs( { $q->Vars } );
 		say $$contigs;
