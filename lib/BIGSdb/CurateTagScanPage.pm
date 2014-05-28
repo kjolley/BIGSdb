@@ -126,6 +126,7 @@ sub initiate {
 				$q->param( $key, $temp_q->param($key) );
 			}
 		}
+		my @ids = $q->param('isolate_id');
 	}
 	return;
 }
@@ -154,9 +155,17 @@ sub _print_interface {
 	if ( $q->param('datatype') && $q->param('list_file') ) {
 		$self->{'datastore'}->create_temp_list_table( $q->param('datatype'), $q->param('list_file') );
 	}
-	my $query_file   = $q->param('query_file');
-	my $query        = $self->get_query_from_temp_file($query_file);
-	my $selected_ids = $query ? $self->_get_ids($query) : [];
+	my $query_file = $q->param('query_file');
+	my $query      = $self->get_query_from_temp_file($query_file);
+	my $selected_ids;
+	if ( $q->param('isolate_id') ) {
+		my @ids = $q->param('isolate_id');
+		$selected_ids = \@ids;
+	} elsif ( defined $query ) {
+		$selected_ids = $self->_get_ids($query);
+	} else {
+		$selected_ids = [];
+	}
 	say $q->start_form;
 	say "<div class=\"scrollable\"><fieldset>\n<legend>Isolates</legend>";
 	say $self->popup_menu(
@@ -175,8 +184,7 @@ sub _print_interface {
 	  . "class=\"smallbutton\" /></div>";
 	say "</fieldset>";
 	say "<fieldset>\n<legend>Loci</legend>";
-	say $self->popup_menu( -name => 'locus', -id => 'locus', -values => $loci, -labels => $locus_labels, -size => 11,
-		-multiple => 'true' );
+	say $self->popup_menu( -name => 'locus', -id => 'locus', -values => $loci, -labels => $locus_labels, -size => 11, -multiple => 'true' );
 	say "<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"locus\",true)' value=\"All\" "
 	  . "style=\"margin-top:1em\" class=\"smallbutton\" />";
 	say "<input type=\"button\" onclick='listbox_selectall(\"locus\",false)' value=\"None\" style=\"margin-top:1em\" "
