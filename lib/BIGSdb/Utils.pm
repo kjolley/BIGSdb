@@ -117,15 +117,9 @@ sub break_line {
 	my ( $string, $length ) = @_;
 	my $orig_string = ref $string eq 'SCALAR' ? $$string : $string;
 	my $seq;
-	my $pos = 1;
-	for ( my $i = 0 ; $i < length($orig_string) ; $i++ ) {
-		$seq .= substr $orig_string, $i, 1;
-		if ( $pos == $length ) {
-			$seq .= "\n" if $i != length($orig_string) - 1;
-			$pos = 0;
-		}
-		$pos++;
-	}
+	my $s;
+	$seq .= "$s\n" while $s = substr $orig_string, 0, $length, '';
+	$seq =~ s/\n$//;
 	return ref $string eq 'SCALAR' ? \$seq : $seq;
 }
 
