@@ -199,8 +199,7 @@ TEXTFILE
 sub _calculate {
 	my ( $self, $isolate_id, $options ) = @_;
 	my $q        = $self->{'cgi'};
-	my $add_seq  = $options->{'get_contigs'} ? ',sequence' : '';
-	my $qry      = "SELECT id,length(sequence) AS seq_length,original_designation$add_seq FROM sequence_bin WHERE isolate_id=?";
+	my $qry      = "SELECT id,length(sequence) AS seq_length,original_designation FROM sequence_bin WHERE isolate_id=?";
 	my @criteria = ($isolate_id);
 	my $method   = $q->param('seq_method_list') // $q->param('seq_method');
 	if ($method) {
@@ -225,8 +224,13 @@ sub _calculate {
 	eval { $sql->execute(@criteria); };
 	my ( $total, $pc_untagged ) = ( 0, 0 );
 	my $tagged_sql = $self->{'db'}->prepare("SELECT sum(abs(end_pos-start_pos)) FROM allele_sequences WHERE seqbin_id=?");
+
+	#While $seq_sql query could be incorporated in to the $sql query, doing so seems to cause a memory leak, where the process
+	#grows by the size of the sequence on each iteration.  When downloading hundreds of genomes this can use up all the memory
+	#on the server.
+	my $seq_sql = $self->{'db'}->prepare("SELECT sequence FROM sequence_bin WHERE id=?");
 	my ( @match_seq, @non_match_seq );
-	while ( my ( $seqbin_id, $seq_length, $orig_designation, $seq ) = $sql->fetchrow_array ) {
+	while ( my ( $seqbin_id, $seq_length, $orig_designation ) = $sql->fetchrow_array ) {
 		my $min_length = $q->param('min_length_list') // $q->param('min_length');
 		next if ( $min_length && BIGSdb::Utils::is_int($min_length) && $seq_length < $min_length );
 		my $match = 1;
@@ -243,6 +247,9 @@ sub _calculate {
 		}
 		if ( $options->{'get_contigs'} ) {
 			my $header = ( $q->param('header') // 1 ) == 1 ? ( $orig_designation || $seqbin_id ) : $seqbin_id;
+			eval { $seq_sql->execute($seqbin_id) };
+			$logger->error($@) if $@;
+			my ($seq) = $seq_sql->fetchrow_array;
 			if ($match) {
 				push @match_seq, { seqbin_id => $header, sequence => $seq };
 			} else {
@@ -327,8 +334,8 @@ sub _batchDownload {
 	if ( !-e $filename ) {
 		$logger->error("File $filename does not exist");
 		my $error_file = 'error.txt';
-		my $tar = Archive::Tar->new;
-		$tar->add_data($error_file,"No record list passed.  Please repeat query.");
+		my $tar        = Archive::Tar->new;
+		$tar->add_data( $error_file, "No record list passed.  Please repeat query." );
 		if ( $ENV{'MOD_PERL'} ) {
 			my $tf = $tar->write;
 			$self->{'mod_perl_request'}->print($tf);
