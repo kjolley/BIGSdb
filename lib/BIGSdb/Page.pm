@@ -556,7 +556,8 @@ sub _print_help_panel {
 		  ? $q->start_form( -style => 'display:inline' )
 		  : $q->start_form( -target => '_blank', -style => 'display:inline' );
 		print "<b>Field help: </b>";
-		my ( $values, $labels ) = $self->get_field_selection_list( { isolate_fields => 1, loci => 1, scheme_fields => 1 } );
+		my ( $values, $labels ) =
+		  $self->get_field_selection_list( { isolate_fields => 1, loci => 1, locus_limit => 100, scheme_fields => 1 } );
 		print $self->popup_menu( -name => 'field', -values => $values, -labels => $labels );
 		print $q->submit( -name => 'Go', -class => 'fieldvaluebutton' );
 		my $refer_page = $q->param('page');
@@ -607,6 +608,7 @@ sub get_field_selection_list {
 	#isolate_fields: include isolate fields, prefix with f_
 	#extended_attributes: include isolate field extended attributes, named e_FIELDNAME||EXTENDED-FIELDNAME
 	#loci: include loci, prefix with either l_ or cn_ (common name)
+	#locus_limit: don't include loci if there are more than the set value
 	#query_pref: only the loci for which the user has a query field preference selected will be returned
 	#analysis_pref: only the loci for which the user has an analysis preference selected will be returned
 	#scheme_fields: include scheme fields, prefix with s_SCHEME-ID_
@@ -690,7 +692,9 @@ sub get_field_selection_list {
 			@locus_list = uniq @locus_list;
 			$self->{'cache'}->{'loci'} = \@locus_list;
 		}
-		push @values, @{ $self->{'cache'}->{'loci'} };
+		if ( !$options->{'locus_limit'} || @{ $self->{'cache'}->{'loci'} } < $options->{'locus_limit'} ) {
+			push @values, @{ $self->{'cache'}->{'loci'} };
+		}
 	}
 	if ( $options->{'scheme_fields'} ) {
 		my $scheme_fields = $self->_get_scheme_fields($options);
