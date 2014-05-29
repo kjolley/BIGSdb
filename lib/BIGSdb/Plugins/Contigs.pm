@@ -189,8 +189,10 @@ TEXTFILE
 	say qq(<ul><li><a href="/tmp/$prefix.txt">Download table in tab-delimited text format</a></li>);
 
 	if ( !$self->{'no_archive'} ) {
+		my $header = $q->param('header_list') // 1;
 		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=Contigs&amp;)
-		  . qq(batchDownload=$list_file&amp;format=tar">Batch download all contigs from selected isolates</a></li>);
+		  . qq(batchDownload=$list_file&amp;format=tar&amp;header=$header">Batch download all contigs from selected )
+		  . qq(isolates (tar format)</a></li>);
 	}
 	say "</ul></div>";
 	return;
@@ -356,7 +358,9 @@ sub _batchDownload {
 			} else {
 				next;
 			}
-			my $contig_file = "$id.fas";
+			my $isolate_name = $self->get_isolate_name_from_id($id);
+			$isolate_name =~ s/\W/_/g;
+			my $contig_file = "$id\_$isolate_name.fas";
 			my $data = $self->_get_contigs( { isolate_id => $id, pc_untagged => 0, match => 1 } );
 
 			#Modified from Archive::Tar::Streamed to allow mod_perl support.
