@@ -135,6 +135,7 @@ sub print_content {
 	$self->{'outfile'} = "$self->{'config'}->{'tmp_dir'}/$self->{'prefix'}.txt";
 	if ( defined $q->param('scheme_id') ) {
 		my $scheme_id = $q->param('scheme_id');
+		$self->_create_temp_allele_count_table( { scheme_id => $scheme_id } );
 		if ( !BIGSdb::Utils::is_int($scheme_id) ) {
 			$logger->warn("Invalid scheme selected - $scheme_id");
 			return;
@@ -163,6 +164,7 @@ sub print_content {
 			$logger->warn("Invalid group selected - $group_id");
 			return;
 		}
+		$self->_create_temp_allele_count_table;
 		my $scheme_ids;
 		if ( $group_id == 0 ) {
 			my $set_clause = $set_id ? " AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : '';
@@ -210,6 +212,7 @@ sub print_content {
 		  . " | Alphabetical list"
 		  . " | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles\">"
 		  . "All loci by scheme</a></p>";
+		$self->_create_temp_allele_count_table;
 		$self->_print_alphabetical_list;
 	} else {
 		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;tree=1\">"
@@ -217,6 +220,7 @@ sub print_content {
 		  . " | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;list=1\">"
 		  . "Alphabetical list</a>"
 		  . " | All loci by scheme</p>";
+		$self->_create_temp_allele_count_table;
 		$self->_print_all_loci_by_scheme;
 	}
 	say "</div>";
@@ -345,13 +349,10 @@ sub _print_locus_row {
 	my ( $self, $locus, $display_name, $options ) = @_;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( !$self->{'sql'}->{'count'} ) {
-		$self->{'sql'}->{'count'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N')");
+		$self->{'sql'}->{'count'} = $self->{'db'}->prepare("SELECT allele_count FROM allele_count WHERE locus=?");
 	}
 	if ( !$self->{'sql'}->{'desc'} ) {
-		$self->{'sql'}->{'desc'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM locus_descriptions WHERE locus=?");
-	}
-	if ( !$self->{'sql'}->{'name'} ) {
-		$self->{'sql'}->{'name'} = $self->{'db'}->prepare("SELECT full_name,product FROM locus_descriptions WHERE locus=?");
+		$self->{'sql'}->{'desc'} = $self->{'db'}->prepare("SELECT full_name,product FROM locus_descriptions WHERE locus=?");
 	}
 	if ( !$self->{'sql'}->{'alias'} ) {
 		$self->{'sql'}->{'alias'} = $self->{'db'}->prepare("SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias");
@@ -363,12 +364,13 @@ sub _print_locus_row {
 	eval { $self->{'sql'}->{'count'}->execute($locus) };
 	$logger->($@) if $@;
 	my ($count) = $self->{'sql'}->{'count'}->fetchrow_array;
+	$count //= 0;
 	print "<tr class=\"td$options->{'td'}\"><td>$display_name ";
 	eval { $self->{'sql'}->{'desc'}->execute($locus) };
 	$logger->($@) if $@;
-	my ($desc_exists) = $self->{'sql'}->{'desc'}->fetchrow_array;
+	my $desc = $self->{'sql'}->{'desc'}->fetchrow_hashref;
 
-	if ($desc_exists) {
+	if ($desc) {
 		print " <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus\" "
 		  . "class=\"info_tooltip\">&nbsp;i&nbsp;</a>";
 	}
@@ -394,12 +396,9 @@ sub _print_locus_row {
 	}
 	my $products;
 	if ( $options->{'descs_exist'} ) {
-		eval { $self->{'sql'}->{'name'}->execute($locus) };
-		$logger->($@) if $@;
-		my ( $name, $product ) = $self->{'sql'}->{'name'}->fetchrow_array;
 		my @names_product;
-		push @names_product, $name    if $name;
-		push @names_product, $product if $product;
+		push @names_product, $desc->{'full_name'} if $desc->{'full_name'};
+		push @names_product, $desc->{'product'}   if $desc->{'product'};
 		local $" = ' / ';
 		$products = "@names_product";
 		print "<td>$products</td>";
@@ -528,5 +527,20 @@ sub _get_loci_by_letter {
 	my $aliases =
 	  $self->{'datastore'}->run_list_query_hashref( "SELECT locus,alias FROM locus_aliases WHERE alias ILIKE ? $set_clause", "$letter%" );
 	return ( $main, $common, $aliases );
+}
+
+sub _create_temp_allele_count_table {
+	my ( $self, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $scheme_clause = '';
+	my $scheme_id     = $options->{'scheme_id'};
+	if ( $scheme_id && BIGSdb::Utils::is_int($scheme_id) ) {
+		$scheme_clause = "AND EXISTS (SELECT * FROM scheme_members WHERE sequences.locus=scheme_members.locus AND scheme_id=$scheme_id)";
+	}
+	my $qry = "CREATE TEMP TABLE allele_count AS (SELECT locus, COUNT(allele_id) AS allele_count FROM sequences WHERE allele_id NOT IN "
+	  . "('N','0') $scheme_clause GROUP BY locus); CREATE INDEX i_tac ON allele_count (locus)";
+	eval { $self->{'db'}->do($qry) };
+	$logger->error($@) if $@;
+	return;
 }
 1;
