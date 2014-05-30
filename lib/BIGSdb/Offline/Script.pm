@@ -269,7 +269,7 @@ sub get_selected_loci {
 		my @schemes = split( ',', $self->{'options'}->{'s'} );
 		die "Invalid scheme list.\n" if any { !BIGSdb::Utils::is_int($_) } @schemes;
 		local $" = ',';
-		$qry = "SELECT locus FROM scheme_members WHERE scheme_id IN (@schemes) AND locus IN ($loci_qry) ORDER BY scheme_id,field_order";
+		$qry = "SELECT locus FROM scheme_members WHERE scheme_id IN (@schemes) AND locus IN ($loci_qry) ORDER BY scheme_id,field_order,locus";
 	} elsif ( $self->{'options'}->{'l'} ) {
 		my @loci = split( ',', $self->{'options'}->{'l'} );
 		foreach (@loci) {
