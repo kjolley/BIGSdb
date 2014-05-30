@@ -50,6 +50,18 @@ sub _ajax_content {
 	return;
 }
 
+sub _save_options {
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $guid   = $self->get_guid;
+	return if !$guid;
+	foreach my $attribute (qw (allele_designations allele_status tag filter)) {
+		my $value = $q->param($attribute) ? 'on' : 'off';
+		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, "$attribute\_fieldset", $value );
+	}
+	return;
+}
+
 sub get_title {
 	my ($self) = @_;
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
@@ -61,7 +73,8 @@ sub print_content {
 	my $system = $self->{'system'};
 	my $q      = $self->{'cgi'};
 	my $scheme_info;
-	if ( $q->param('no_header') ) { $self->_ajax_content; return }
+	if    ( $q->param('no_header') )    { $self->_ajax_content; return }
+	elsif ( $q->param('save_options') ) { $self->_save_options; return }
 	my $desc = $self->get_db_description;
 	say $self->{'curate'} ? "<h1>Isolate query/update</h1>" : "<h1>Search $desc database</h1>";
 	my $qry;
@@ -291,17 +304,15 @@ sub _print_filter_fieldset {
 			}
 		}
 	}
-	if ($self->{'prefs'}->{'dropdownfields'}->{'Publications'}){
+	if ( $self->{'prefs'}->{'dropdownfields'}->{'Publications'} ) {
 		my $buffer = $self->get_isolate_publication_filter( { any => 1, multiple => 1 } );
 		push @filters, $buffer if $buffer;
 	}
-	
 	my $buffer = $self->get_project_filter( { any => 1, multiple => 1 } );
 	push @filters, $buffer if $buffer;
 	my $profile_filters = $self->_get_profile_filters;
 	push @filters, @$profile_filters;
 	my $linked_seqs = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT id FROM sequence_bin)")->[0];
-
 	if ($linked_seqs) {
 		my @values = ( 'Any sequence data', 'No sequence data' );
 		if ( $self->{'system'}->{'seqbin_size_threshold'} ) {
@@ -333,31 +344,35 @@ sub _print_filter_fieldset {
 sub _print_modify_search_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say "<div class=\"panel\">";
-	say "<a class=\"trigger\" id=\"close_trigger\" href=\"#\">[X]</a>";
+	say qq(<div class="panel">);
+	say qq(<a class="trigger" id="close_trigger" href="#">[X]</a>);
 	say "<h2>Modify form parameters</h2>";
 	say "<p>Click to add or remove additional query terms:</p>";
 	say "<ul>";
-	my $locus_fieldset_display = $self->_highest_entered_fields('loci') ? 'Hide' : 'Show';
-	say "<li><a href=\"\" class=\"button\" id=\"show_allele_designations\">$locus_fieldset_display</a>";
+	my $locus_fieldset_display = $self->{'prefs'}->{'allele_designations_fieldset'}
+	  || $self->_highest_entered_fields('loci') ? 'Hide' : 'Show';
+	say qq(<li><a href="" class="button" id="show_allele_designations">$locus_fieldset_display</a>);
 	say "Allele designations/scheme field values</li>";
-	my $allele_status_fieldset_display = $self->_highest_entered_fields('allele_status') ? 'Hide' : 'Show';
-	say "<li><a href=\"\" class=\"button\" id=\"show_allele_status\">$allele_status_fieldset_display</a>";
+	my $allele_status_fieldset_display = $self->{'prefs'}->{'allele_status_fieldset'}
+	  || $self->_highest_entered_fields('allele_status') ? 'Hide' : 'Show';
+	say qq(<li><a href="" class="button" id="show_allele_status">$allele_status_fieldset_display</a>);
 	say "Allele designation status</li>";
 
 	if ( $self->{'tag_fieldset_exists'} ) {
-		my $tag_fieldset_display = $self->_highest_entered_fields('tags') ? 'Hide' : 'Show';
-		print "<li><a href=\"\" class=\"button\" id=\"show_tags\">$tag_fieldset_display</a>";
+		my $tag_fieldset_display = $self->{'prefs'}->{'tag_fieldset'} || $self->_highest_entered_fields('tags') ? 'Hide' : 'Show';
+		say qq(<li><a href="" class="button" id="show_tags">$tag_fieldset_display</a>);
 		say "Tagged sequence status</li>";
 	}
 	if ( $self->{'filter_fieldset_exists'} ) {
-		my $filter_fieldset_display = $self->filters_selected ? 'Hide' : 'Show';
-		print "<li><a href=\"\" class=\"button\" id=\"show_filters\">$filter_fieldset_display</a>";
+		my $filter_fieldset_display = $self->{'prefs'}->{'filter_fieldset'} || $self->filters_selected ? 'Hide' : 'Show';
+		say qq(<li><a href="" class="button" id="show_filters">$filter_fieldset_display</a>);
 		say "Filters</li>";
 	}
 	say "</ul>";
+	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
+	  . qq(save_options=1" style="display:none">Save options</a><br />);
 	say "</div>";
-	say "<a class=\"trigger\" id=\"panel_trigger\" href=\"\" style=\"display:none\">Modify<br />form<br />options</a>";
+	say qq(<a class="trigger" id="panel_trigger" href="" style="display:none">Modify<br />form<br />options</a>);
 	return;
 }
 
@@ -1358,11 +1373,13 @@ sub _modify_query_for_designation_status {
 
 sub get_javascript {
 	my ($self) = @_;
-	my $locus_fieldset_display         = $self->_highest_entered_fields('loci')          ? 'inline' : 'none';
-	my $allele_status_fieldset_display = $self->_highest_entered_fields('allele_status') ? 'inline' : 'none';
-	my $tag_fieldset_display           = $self->_highest_entered_fields('tags')          ? 'inline' : 'none';
-	my $filter_fieldset_display        = $self->filters_selected                         ? 'inline' : 'none';
-	my $buffer                         = $self->SUPER::get_javascript;
+	my $locus_fieldset_display = $self->{'prefs'}->{'allele_designations_fieldset'}
+	  || $self->_highest_entered_fields('loci') ? 'inline' : 'none';
+	my $allele_status_fieldset_display = $self->{'prefs'}->{'allele_status_fieldset'}
+	  || $self->_highest_entered_fields('allele_status') ? 'inline' : 'none';
+	my $tag_fieldset_display    = $self->{'prefs'}->{'tag_fieldset'}    || $self->_highest_entered_fields('tags') ? 'inline' : 'none';
+	my $filter_fieldset_display = $self->{'prefs'}->{'filter_fieldset'} || $self->filters_selected                ? 'inline' : 'none';
+	my $buffer                  = $self->SUPER::get_javascript;
 	$buffer .= << "END";
 \$(function () {
   	\$('#query_modifier').css({display:"block"});
@@ -1384,18 +1401,21 @@ sub get_javascript {
   		if(\$(this).text() == 'Hide'){\$('[id^="designation"]').val('')}
 		\$("#locus_fieldset").toggle(100);
 		\$(this).text(\$(this).text() == 'Show' ? 'Hide' : 'Show');
+		\$("a#save_options").fadeIn();
 		return false;
 	});
 	 \$("#show_allele_status").click(function() {
   		if(\$(this).text() == 'Hide'){\$('[id^="allele_sequence"]').val('')}
 		\$("#allele_status_fieldset").toggle(100);
 		\$(this).text(\$(this).text() == 'Show' ? 'Hide' : 'Show');
+		\$("a#save_options").fadeIn();
 		return false;
 	});
 	\$("#show_tags").click(function() {
   		if(\$(this).text() == 'Hide'){\$('[id^="tag"]').val('')}
 		\$("#tag_fieldset").toggle(100);
 		\$(this).text(\$(this).text() == 'Show' ? 'Hide' : 'Show');
+		\$("a#save_options").fadeIn();
 		return false;
 	});
 	\$("#show_filters").click(function() {
@@ -1407,14 +1427,35 @@ sub get_javascript {
 		}
  		\$("#filter_fieldset").toggle(100);
 		\$(this).text(\$(this).text() == 'Show' ? 'Hide' : 'Show');
+		\$("a#save_options").fadeIn();
 		return false;
 	});
 	\$(".trigger").click(function(){		
 		\$(".panel").toggle("slide",{direction:"right"},"fast");
 		\$("#panel_trigger").show().animate({backgroundColor: "#448"},100).animate({backgroundColor: "#99d"},100);
+		
 		return false;
 	});
 	\$("#panel_trigger").show().animate({backgroundColor: "#99d"},500);
+	\$("a#save_options").click(function(event){		
+		event.preventDefault();
+		var allele_designations = \$("#show_allele_designations").text() == 'Show' ? 0 : 1;
+		var allele_status = \$("#show_allele_status").text() == 'Show' ? 0 : 1;
+		var tag = \$("#show_tags").text() == 'Show' ? 0 : 1;
+		var filter = \$("#show_filters").text() == 'Show' ? 0 : 1;
+	  	\$(this).attr('href', function(){  	
+	  		\$("a#save_options").text('Saving ...');
+	  		var new_url = this.href + "&allele_designations=" + allele_designations + "&allele_status=" + allele_status 
+	  		  + "&tag=" + tag + "&filter=" + filter;
+		  		\$.ajax({
+	  			url : new_url,
+	  			success: function () {	  				
+	  				\$("a#save_options").hide();
+	  				\$("a#save_options").text('Save options');
+	  			}
+	  		});
+	   	});
+	});
  });
  
 function loadContent(url) {
@@ -1474,5 +1515,21 @@ sub _highest_entered_fields {
 		$highest = $_ if defined $q->param("$param_name$_") && $q->param("$param_name$_") ne '';
 	}
 	return $highest;
+}
+
+sub initiate {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	$self->SUPER::initiate;
+	$self->{'noCache'} = 1;
+	if ( !$self->{'cgi'}->param('save_options') ) {
+		my $guid = $self->get_guid;
+		return if !$guid;
+		foreach my $attribute (qw (allele_designations allele_status tag filter)) {
+			my $value = $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, "$attribute\_fieldset" );
+			$self->{'prefs'}->{"$attribute\_fieldset"} = ( $value // '' ) eq 'on' ? 1 : 0;
+		}
+	}
+	return;
 }
 1;
