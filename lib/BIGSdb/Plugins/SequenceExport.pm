@@ -347,7 +347,8 @@ sub run_job {
 					say $fh_unaligned $seq;
 				}
 			} else {
-				my $profile_sql = $self->{'db'}->prepare("SELECT * FROM scheme_$scheme_id WHERE $pk=?");
+				my $scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
+				my $profile_sql = $self->{'db'}->prepare("SELECT * FROM $scheme_view WHERE $pk=?"); 
 				eval { $profile_sql->execute($id) };
 				$logger->error($@) if $@;
 				my $profile_data = $profile_sql->fetchrow_hashref;
