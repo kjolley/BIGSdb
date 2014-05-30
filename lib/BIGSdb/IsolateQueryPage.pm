@@ -204,7 +204,7 @@ sub _print_allele_status_fieldset {
 sub _print_tag_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	return if !$self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM allele_sequences")->[0];
+	return if !$self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT * FROM allele_sequences)")->[0];
 	my ( $locus_list, $locus_labels ) = $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
 	if (@$locus_list) {
 		my $display = $q->param('no_js') ? 'block' : 'none';
