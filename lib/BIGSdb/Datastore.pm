@@ -1461,7 +1461,7 @@ sub sequences_exist {
 	#used for profile/sequence definitions databases
 	my ( $self, $locus ) = @_;
 	if ( !$self->{'sql'}->{'sequences_exist'} ) {
-		$self->{'sql'}->{'sequences_exist'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM sequences WHERE locus=?");
+		$self->{'sql'}->{'sequences_exist'} = $self->{'db'}->prepare("SELECT EXISTS(SELECT * FROM sequences WHERE locus=?)");
 		$logger->info("Statement handle 'sequences_exist' prepared.");
 	}
 	eval { $self->{'sql'}->{'sequences_exist'}->execute($locus) };
