@@ -100,7 +100,16 @@ sub initiate {
 }
 
 sub get_load_average {
-	my $uptime = `uptime`;
+	if ( -e '/proc/loadavg' ) {    #Faster to read from /proc/loadavg if available.
+		my $loadavg;
+		open( my $fh, '<', '/proc/loadavg' ) or die "Can't open /proc/loadavg";
+		while (<$fh>) {
+			($loadavg) = split /\s/, $_;
+		}
+		close $fh;
+		return $loadavg;
+	}
+	my $uptime = `uptime`;         #/proc/loadavg not available on BSD.
 	return $1 if $uptime =~ /load average:\s+([\d\.]+)/;
 	throw BIGSdb::DataException("Can't determine load average");
 }
@@ -143,7 +152,7 @@ sub get_isolates_with_linked_seqs {
 	my ($self) = @_;
 	local $" = ',';
 	my $view = $self->{'system'}->{'view'};
-	my $qry = "SELECT $view.id FROM $view WHERE EXISTS (SELECT * FROM sequence_bin WHERE $view.id=sequence_bin.isolate_id)";
+	my $qry  = "SELECT $view.id FROM $view WHERE EXISTS (SELECT * FROM sequence_bin WHERE $view.id=sequence_bin.isolate_id)";
 	if ( $self->{'options'}->{'p'} ) {
 		my @projects = split( ',', $self->{'options'}->{'p'} );
 		die "Invalid project list.\n" if any { !BIGSdb::Utils::is_int($_) } @projects;
@@ -250,6 +259,7 @@ sub get_loci_with_ref_db {
 }
 
 sub get_selected_loci {
+
 	#options set in $self->{'options'}
 	#$self->{'options'}->{'s'}: comma-separated list of schemes
 	#$self->{'options'}->{'l'}: comma-separated list of loci (ignored if 's' used)
@@ -269,7 +279,8 @@ sub get_selected_loci {
 		my @schemes = split( ',', $self->{'options'}->{'s'} );
 		die "Invalid scheme list.\n" if any { !BIGSdb::Utils::is_int($_) } @schemes;
 		local $" = ',';
-		$qry = "SELECT locus FROM scheme_members WHERE scheme_id IN (@schemes) AND locus IN ($loci_qry) ORDER BY scheme_id,field_order,locus";
+		$qry =
+		  "SELECT locus FROM scheme_members WHERE scheme_id IN (@schemes) AND locus IN ($loci_qry) ORDER BY scheme_id,field_order,locus";
 	} elsif ( $self->{'options'}->{'l'} ) {
 		my @loci = split( ',', $self->{'options'}->{'l'} );
 		foreach (@loci) {
