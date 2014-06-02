@@ -1306,9 +1306,10 @@ sub get_all_allele_designations {
 	}
 	eval { $self->{'sql'}->{'all_allele_designation'}->execute($isolate_id); };
 	$logger->error($@) if $@;
+	my $data    = $self->{'sql'}->{'all_allele_designation'}->fetchall_arrayref;
 	my $alleles = {};
-	while ( my $data = $self->{'sql'}->{'all_allele_designation'}->fetchrow_hashref ) {
-		$alleles->{ $data->{'locus'} }->{ $data->{'allele_id'} } = $data->{'status'};
+	foreach my $designation (@$data) {
+		$alleles->{ $data->[0] }->{ $data->[1] } = $data->[2];
 	}
 	return $alleles;
 }
@@ -1385,7 +1386,7 @@ sub get_all_sequence_flags {
 	}
 	eval { $self->{'sql'}->{'all_sequence_flags'}->execute($isolate_id) };
 	$logger->error($@) if $@;
-	return $self->{'sql'}->{'all_sequence_flags'}->fetchall_hashref([qw(id flag)]);
+	return $self->{'sql'}->{'all_sequence_flags'}->fetchall_hashref( [qw(id flag)] );
 }
 
 sub get_allele_flags {
