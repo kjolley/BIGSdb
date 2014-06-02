@@ -1419,15 +1419,52 @@ sub _get_seq_detail_tooltip_text {
 }
 
 sub get_seq_detail_tooltips {
-	my ( $self, $isolate_id, $locus ) = @_;
-	my $buffer            = '';
-	my $alleles_sequences = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
-	my $designations      = $self->{'datastore'}->get_allele_designations( $isolate_id, $locus );
-	my $locus_info        = $self->{'datastore'}->get_locus_info($locus);
+
+	#With 'get_all' passed as an option, all the designations and tags are retrieved (once only) and cached for future use.
+	#This is much more efficient when this method is called hundreds or thousands of times for a particular isolate, e.g. for
+	#the isolate info page.  It will be slower if the results for only a few loci are required, especially if this involves
+	#multiple isolates e.g. for a query results table.
+	my ( $self, $isolate_id, $locus, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $buffer           = '';
+	my $allele_sequences = [];
+	if ( $options->{'get_all'} ) {
+		if ( !$self->{'cache'}->{'allele_sequences'}->{$isolate_id} ) {
+			$self->{'cache'}->{'allele_sequences'}->{$isolate_id} =
+			  $self->{'datastore'}->get_all_allele_sequences( $isolate_id, { keys => [qw(locus id)] } );
+		}
+		my $locus_allele_sequences = $self->{'cache'}->{'allele_sequences'}->{$isolate_id}->{$locus};
+		foreach my $allele_sequence_id (
+			sort { $locus_allele_sequences->{$a}->{'complete'} cmp $locus_allele_sequences->{$b}->{'complete'} }
+			keys %$locus_allele_sequences
+		  )
+		{
+			push @$allele_sequences, $locus_allele_sequences->{$allele_sequence_id};
+		}
+	} else {
+		$allele_sequences = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
+	}
+	my $designations = [];
+	if ( $options->{'get_all'} ) {
+		if ( !$self->{'cache'}->{'allele_designations'}->{$isolate_id} ) {
+			$self->{'cache'}->{'allele_designations'}->{$isolate_id} = $self->{'datastore'}->get_all_allele_designations($isolate_id);
+		}
+		my $locus_allele_designations = $self->{'cache'}->{'allele_designations'}->{$isolate_id}->{$locus};
+		no warnings 'numeric';    #sort by status, then by numeric values, then by alphabetical value.
+		foreach my $allele_id (
+			sort { $locus_allele_designations->{$a} cmp $locus_allele_designations->{$b} || $a <=> $b || $a cmp $b }
+			keys %$locus_allele_designations
+		  )
+		{
+			push @$designations, { allele_id => $allele_id };
+		}
+	} else {
+		$designations = $self->{'datastore'}->get_allele_designations( $isolate_id, $locus );
+	}
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	my $designation_flags;
 	my ( @all_flags, %flag_from_designation, %flag_from_alleleseq );
-	if ( $locus_info->{'flag_table'} ) {
-
+	if ( $options->{'allele_flags'} && $locus_info->{'flag_table'} ) {
 		foreach my $designation (@$designations) {
 			$designation_flags = $self->{'datastore'}->get_locus($locus)->get_flags( $designation->{'allele_id'} );
 			push @all_flags, @$designation_flags;
@@ -1435,20 +1472,36 @@ sub get_seq_detail_tooltips {
 		}
 	}
 	my ( @flags_foreach_alleleseq, $complete );
-	if (@$alleles_sequences) {
-		foreach my $alleleseq (@$alleles_sequences) {
-			my $flaglist_ref = $self->{'datastore'}->get_sequence_flags( $alleleseq->{'id'} );
-			push @flags_foreach_alleleseq, $flaglist_ref;
-			push @all_flags,               @$flaglist_ref;
-			$flag_from_alleleseq{$_} = 1 foreach @$flaglist_ref;
-			$complete = 1 if $alleleseq->{'complete'};
+	if (@$allele_sequences) {
+		if ( $options->{'get_all'} ) {
+			if ( !$self->{'sequence_flags_returned'} ) {
+				$self->{'cache'}->{'sequence_flags'}->{$isolate_id} = $self->{'datastore'}->get_all_sequence_flags($isolate_id);
+				$self->{'sequence_flags_returned'} = 1;
+			}
+			my $isolate_flags = $self->{'cache'}->{'sequence_flags'}->{$isolate_id};
+			foreach my $alleleseq (@$allele_sequences) {
+				foreach my $flag ( keys %{ $isolate_flags->{ $alleleseq->{'id'} } } ) {
+					push @flags_foreach_alleleseq, $flag;
+					push @all_flags,               $flag;
+					$flag_from_alleleseq{$flag} = 1;
+				}
+				$complete = 1 if $alleleseq->{'complete'};
+			}
+		} else {
+			foreach my $alleleseq (@$allele_sequences) {
+				my $flaglist_ref = $self->{'datastore'}->get_sequence_flags( $alleleseq->{'id'} );
+				push @flags_foreach_alleleseq, $flaglist_ref;
+				push @all_flags,               @$flaglist_ref;
+				$flag_from_alleleseq{$_} = 1 foreach @$flaglist_ref;
+				$complete = 1 if $alleleseq->{'complete'};
+			}
 		}
 	}
 	@all_flags = uniq sort @all_flags;
-	my $cleaned_locus = $self->clean_locus($locus);
+	my $cleaned_locus = $self->clean_locus( $locus, { text_output => 1 } );
 	my $sequence_tooltip =
-	  $self->_get_seq_detail_tooltip_text( $cleaned_locus, $designations, $alleles_sequences, \@flags_foreach_alleleseq );
-	if (@$alleles_sequences) {
+	  $self->_get_seq_detail_tooltip_text( $cleaned_locus, $designations, $allele_sequences, \@flags_foreach_alleleseq );
+	if (@$allele_sequences) {
 		my $sequence_class = $complete ? 'sequence_tooltip' : 'sequence_tooltip_incomplete';
 		$buffer .=
 		    qq(<span style="font-size:0.2em"> </span><a class="$sequence_class" title="$sequence_tooltip" )
@@ -1459,12 +1512,16 @@ sub get_seq_detail_tooltips {
 		my $text = "Flags - ";
 		foreach my $flag (@all_flags) {
 			$text .= "$flag";
-			if ( $flag_from_designation{$flag} && !$flag_from_alleleseq{$flag} ) {
-				$text .= " (allele designation)<br />";
-			} elsif ( !$flag_from_designation{$flag} && $flag_from_alleleseq{$flag} ) {
-				$text .= " (sequence tag)<br />";
+			if ( $options->{'allele_flags'} ) {
+				if ( $flag_from_designation{$flag} && !$flag_from_alleleseq{$flag} ) {
+					$text .= " (allele designation)<br />";
+				} elsif ( !$flag_from_designation{$flag} && $flag_from_alleleseq{$flag} ) {
+					$text .= " (sequence tag)<br />";
+				} else {
+					$text .= " (designation + tag)<br />";
+				}
 			} else {
-				$text .= " (designation + tag)<br />";
+				$text .= '<br />';
 			}
 		}
 		local $" = "</a> <a class=\"seqflag_tooltip\" title=\"$text\">";
@@ -1761,8 +1818,8 @@ sub _initiate_isolatedb_prefs {
 	{
 		#Switches
 		foreach (
-			qw ( update_details sequence_details mark_provisional mark_provisional_main sequence_details_main display_seqbin_main
-			locus_alias scheme_members_alias sample_details undesignated_alleles)
+			qw ( update_details sequence_details allele_flags mark_provisional mark_provisional_main sequence_details_main
+			display_seqbin_main locus_alias scheme_members_alias sample_details undesignated_alleles)
 		  )
 		{
 			$self->{'prefs'}->{$_} = $params->{$_} ? 1 : 0;
@@ -1800,7 +1857,7 @@ sub _initiate_isolatedb_prefs {
 		if ( $self->{'pref_requirements'}->{'general'} ) {
 
 			#default off
-			foreach (qw (update_details undesignated_alleles scheme_members_alias sequence_details_main display_seqbin_main)) {
+			foreach (qw (update_details allele_flags undesignated_alleles scheme_members_alias sequence_details_main display_seqbin_main)) {
 				$general_prefs->{$_} ||= 'off';
 				$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'on' ? 1 : 0;
 			}

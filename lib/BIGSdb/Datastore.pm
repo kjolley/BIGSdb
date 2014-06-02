@@ -1348,7 +1348,9 @@ sub get_scheme_allele_designations {
 }
 
 sub get_all_allele_sequences {
-	my ( $self, $isolate_id ) = @_;
+	my ( $self, $isolate_id, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $keys = $options->{'keys'} // [qw (locus seqbin_id start_pos end_pos)];
 	if ( !$self->{'sql'}->{'all_allele_sequences'} ) {
 		$self->{'sql'}->{'all_allele_sequences'} =
 		  $self->{'db'}->prepare("SELECT allele_sequences.* FROM allele_sequences WHERE isolate_id=?");
@@ -1356,7 +1358,7 @@ sub get_all_allele_sequences {
 	}
 	eval { $self->{'sql'}->{'all_allele_sequences'}->execute($isolate_id); };
 	$logger->error($@) if $@;
-	my $sequences = $self->{'sql'}->{'all_allele_sequences'}->fetchall_hashref( [qw(locus seqbin_id start_pos end_pos)] );
+	my $sequences = $self->{'sql'}->{'all_allele_sequences'}->fetchall_hashref($keys);
 	return $sequences;
 }
 
@@ -1372,6 +1374,18 @@ sub get_sequence_flags {
 		push @flags, $flag;
 	}
 	return \@flags;
+}
+
+sub get_all_sequence_flags {
+	my ( $self, $isolate_id ) = @_;
+	if ( !$self->{'sql'}->{'all_sequence_flags'} ) {
+		$self->{'sql'}->{'all_sequence_flags'} =
+		  $self->{'db'}->prepare( "SELECT sequence_flags.id,sequence_flags.flag FROM sequence_flags RIGHT JOIN allele_sequences ON "
+			  . "sequence_flags.id=allele_sequences.id WHERE isolate_id=?" );
+	}
+	eval { $self->{'sql'}->{'all_sequence_flags'}->execute($isolate_id) };
+	$logger->error($@) if $@;
+	return $self->{'sql'}->{'all_sequence_flags'}->fetchall_hashref([qw(id flag)]);
 }
 
 sub get_allele_flags {

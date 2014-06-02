@@ -116,7 +116,7 @@ sub set_options {
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 			foreach (
 				qw (mark_provisional_main mark_provisional sequence_details_main display_seqbin_main locus_alias
-				update_details sequence_details sample_details undesignated_alleles)
+				update_details sequence_details allele_flags sample_details undesignated_alleles)
 			  )
 			{
 				$prefstore->set_general( $guid, $dbname, $_, $prefs->{$_} ? 'on' : 'off' );
@@ -149,7 +149,8 @@ sub set_options {
 				my $field = "scheme_$_\_profile_status";
 				$prefstore->set_field( $guid, $dbname, $field, 'dropdown', $prefs->{'dropdownfields'}->{$field} ? 'true' : 'false' );
 			}
-			$prefstore->set_field( $guid, $dbname, 'Publications', 'dropdown', $prefs->{'dropdownfields'}->{'Publications'} ? 'true' : 'false' );
+			$prefstore->set_field( $guid, $dbname, 'Publications', 'dropdown',
+				$prefs->{'dropdownfields'}->{'Publications'} ? 'true' : 'false' );
 		}
 		$prefstore->update_datestamp($guid);
 	} elsif ( $q->param('reset') ) {
@@ -277,6 +278,13 @@ sub _print_isolate_record_options {
 		-name    => 'sequence_details',
 		-checked => $prefs->{'sequence_details'},
 		-label   => 'Display information about sequence bin records tagged with locus information (tooltip).'
+	);
+	say "</li><li>";
+	say $q->checkbox(
+		-name    => 'allele_flags',
+		-checked => $prefs->{'allele_flags'},
+		-label   => 'Display information about whether alleles have flags defined in sequence definition database (shown in sequence '
+		  . 'detail tooltip).'
 	);
 	say "</li><li>";
 	say $q->checkbox(

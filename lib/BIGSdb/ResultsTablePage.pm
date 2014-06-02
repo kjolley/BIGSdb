@@ -755,7 +755,8 @@ sub _print_isolate_table_scheme {
 		}
 		local $" = ',';
 		print "<td>@display_values";
-		print $self->get_seq_detail_tooltips( $isolate_id, $locus ) if $self->{'prefs'}->{'sequence_details_main'};
+		print $self->get_seq_detail_tooltips( $isolate_id, $locus, { allele_flags => 1 } )
+		  if $self->{'prefs'}->{'sequence_details_main'};
 		my $action = @display_values ? 'update' : 'add';
 		print
 " <a href=\"$self->{'system'}->{'script_name'}?page=alleleUpdate&amp;db=$self->{'instance'}&amp;isolate_id=$isolate_id&amp;locus=$locus\" class=\"update\">$action</a>"
@@ -1124,7 +1125,7 @@ sub _print_record_table {
 						print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;"
 						  . "id=$data{'isolate_id'}\">$value</a></td>";
 					} else {
-						$value =~ s/\..*$//;                                    #Remove fractions of second from output
+						$value =~ s/\..*$//;    #Remove fractions of second from output
 						print "<td>$value</td>";
 					}
 				} elsif ( $table eq 'profile_history' ) {
@@ -1339,12 +1340,21 @@ sub _is_scheme_data_present {
 		}
 		my $allele_designations = $self->{'designations'}->{$isolate_id};
 		if ( !$self->{'sequences_retrieved'}->{$isolate_id} ) {
-			$self->{'allele_sequences'}->{$isolate_id}    = $self->{'datastore'}->get_all_allele_sequences($isolate_id);
+			$self->{'allele_sequences'}->{$isolate_id} = $self->{'datastore'}->get_all_allele_sequences( $isolate_id, { keys => 'locus' } );
 			$self->{'sequences_retrieved'}->{$isolate_id} = 1;
 		}
 		my $allele_seqs = $self->{'allele_sequences'}->{$isolate_id};
-		foreach (@$scheme_loci) {
-			if ( $allele_designations->{$_} || $allele_seqs->{$_} ) {
+		foreach my $locus (@$scheme_loci) {
+
+			#Don't count allele_id '0' if it is the only designation.
+			if (
+				(
+					$allele_designations->{$locus}
+					&& !( keys %{ $allele_designations->{$locus} } == 1 && $allele_designations->{$locus}->{'0'} )
+				)
+				|| $allele_seqs->{$locus}
+			  )
+			{
 				$self->{'cache'}->{$qry}->{$scheme_id} = 1;
 				return 1;
 			}

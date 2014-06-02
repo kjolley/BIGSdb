@@ -749,7 +749,8 @@ sub _get_locus_value {
 		$buffer .= "</span>" if $designation->{'status'} eq 'provisional';
 		$first = 0;
 	}
-	$buffer .= $self->get_seq_detail_tooltips( $isolate_id, $locus ) if $self->{'prefs'}->{'sequence_details'};
+	$buffer .= $self->get_seq_detail_tooltips( $isolate_id, $locus, { get_all => 1, allele_flags => $self->{'prefs'}->{'allele_flags'} } )
+	  if $self->{'prefs'}->{'sequence_details'};
 	my $action = @$designations ? 'update' : 'add';
 	$buffer .=
 	    qq( <a href="$self->{'system'}->{'script_name'}?page=alleleUpdate&amp;db=$self->{'instance'}&amp;isolate_id=$isolate_id)
