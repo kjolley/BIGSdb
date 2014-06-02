@@ -1304,12 +1304,12 @@ sub get_all_allele_designations {
 		  $self->{'db'}->prepare("SELECT locus,allele_id,status FROM allele_designations WHERE isolate_id=?");
 		$logger->info("Statement handle 'all_allele_designation' prepared.");
 	}
-	eval { $self->{'sql'}->{'all_allele_designation'}->execute($isolate_id); };
+	eval { $self->{'sql'}->{'all_allele_designation'}->execute($isolate_id) };
 	$logger->error($@) if $@;
 	my $data    = $self->{'sql'}->{'all_allele_designation'}->fetchall_arrayref;
 	my $alleles = {};
 	foreach my $designation (@$data) {
-		$alleles->{ $data->[0] }->{ $data->[1] } = $data->[2];
+		$alleles->{ $designation->[0] }->{ $designation->[1] } = $designation->[2];
 	}
 	return $alleles;
 }
@@ -1831,6 +1831,7 @@ sub create_temp_ref_table {
 	return 1;
 }
 ##############SQL######################################################################
+
 sub run_simple_query {
 
 	#runs simple query (single row returned) against current database
