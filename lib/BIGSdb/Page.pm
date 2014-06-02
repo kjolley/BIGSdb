@@ -1819,7 +1819,7 @@ sub _initiate_isolatedb_prefs {
 		#Switches
 		foreach (
 			qw ( update_details sequence_details allele_flags mark_provisional mark_provisional_main sequence_details_main
-			display_seqbin_main locus_alias scheme_members_alias sample_details undesignated_alleles)
+			display_seqbin_main locus_alias scheme_members_alias sample_details)
 		  )
 		{
 			$self->{'prefs'}->{$_} = $params->{$_} ? 1 : 0;
@@ -1857,7 +1857,7 @@ sub _initiate_isolatedb_prefs {
 		if ( $self->{'pref_requirements'}->{'general'} ) {
 
 			#default off
-			foreach (qw (update_details allele_flags undesignated_alleles scheme_members_alias sequence_details_main display_seqbin_main)) {
+			foreach (qw (update_details allele_flags scheme_members_alias sequence_details_main display_seqbin_main)) {
 				$general_prefs->{$_} ||= 'off';
 				$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'on' ? 1 : 0;
 			}

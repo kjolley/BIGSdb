@@ -116,7 +116,7 @@ sub set_options {
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 			foreach (
 				qw (mark_provisional_main mark_provisional sequence_details_main display_seqbin_main locus_alias
-				update_details sequence_details allele_flags sample_details undesignated_alleles)
+				update_details sequence_details allele_flags sample_details)
 			  )
 			{
 				$prefstore->set_general( $guid, $dbname, $_, $prefs->{$_} ? 'on' : 'off' );
@@ -291,13 +291,6 @@ sub _print_isolate_record_options {
 		-name    => 'sample_details',
 		-checked => $prefs->{'sample_details'},
 		-label   => 'Display full information about sample records (tooltip).'
-	);
-	say "</li><li>";
-	say $q->checkbox(
-		-name    => 'undesignated_alleles',
-		-checked => $prefs->{'undesignated_alleles'},
-		-label =>
-'Display all loci even where no allele is designated or sequence tagged (this may slow down display where hundreds of loci are defined).'
 	);
 	say "</li></ul>";
 	say $q->submit( -name => 'set', -label => 'Set options', -class => 'submit' );

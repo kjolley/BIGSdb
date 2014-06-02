@@ -562,19 +562,16 @@ sub _get_loci_not_in_schemes {
 	my $set_id = $self->get_set_id;
 	my $loci;
 	my $loci_in_no_scheme = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
-	if ( $self->{'prefs'}->{'undesignated_alleles'} ) {
-		$loci = $loci_in_no_scheme;
-	} else {
-		my $loci_with_designations =
-		  $self->{'datastore'}->run_list_query( "SELECT locus FROM allele_designations WHERE isolate_id=?", $isolate_id );
-		my %designations = map { $_ => 1 } @$loci_with_designations;
-		my $loci_with_tags =
-		  $self->{'datastore'}->run_list_query( "SELECT DISTINCT locus FROM allele_sequences WHERE isolate_id=?", $isolate_id );
-		my %tags = map { $_ => 1 } @$loci_with_tags;
-		foreach my $locus (@$loci_in_no_scheme) {
-			next if !$designations{$locus} && !$tags{$locus};
-			push @$loci, $locus;
-		}
+	my $loci_with_designations =
+	  $self->{'datastore'}->run_list_query( "SELECT locus FROM allele_designations WHERE isolate_id=?", $isolate_id );
+	my %designations = map { $_ => 1 } @$loci_with_designations;
+	my $loci_with_tags =
+	  $self->{'datastore'}->run_list_query( "SELECT locus FROM allele_sequences WHERE isolate_id=?", $isolate_id );
+	my %tags = map { $_ => 1 } @$loci_with_tags;
+
+	foreach my $locus (@$loci_in_no_scheme) {
+		next if !$designations{$locus} && !$tags{$locus};
+		push @$loci, $locus;
 	}
 	return $loci // [];
 }
