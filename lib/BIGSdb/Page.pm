@@ -639,19 +639,20 @@ sub get_field_selection_list {
 					set_id        => $set_id
 				}
 			);
-			my $set_sql;
+			my $set_loci = {};
 
 			if ($set_id) {
-				$set_sql = $self->{'db'}->prepare("SELECT * FROM set_loci WHERE set_id=? AND locus=?");
+				my $set_loci_sql = $self->{'db'}->prepare("SELECT * FROM set_loci WHERE set_id=?");
+				eval {$set_loci_sql->execute($set_id)};
+				$logger->error($@) if $@;
+				$set_loci = $set_loci_sql->fetchall_hashref('locus');
 			}
 			foreach my $locus (@$loci) {
 				push @locus_list, "l_$locus";
 				$self->{'cache'}->{'labels'}->{"l_$locus"} = $locus;
 				my $set_name_is_set;
 				if ($set_id) {
-					eval { $set_sql->execute( $set_id, $locus ) };
-					$logger->error($@) if $@;
-					my $set_locus = $set_sql->fetchrow_hashref;
+					my $set_locus = $set_loci->{$locus};
 					if ( $set_locus->{'set_name'} ) {
 						$self->{'cache'}->{'labels'}->{"l_$locus"} = $set_locus->{'set_name'};
 						if ( $set_locus->{'set_common_name'} ) {
