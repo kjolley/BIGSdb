@@ -1591,6 +1591,7 @@ sub run_query {
 
 sub run_simple_query {
 
+	#Deprecated!  Use run_query instead.
 	#runs simple query (single row returned) against current database
 	my ( $self, $qry, @values ) = @_;
 	$logger->debug("Query: $qry");
@@ -1603,6 +1604,7 @@ sub run_simple_query {
 
 sub run_simple_query_hashref {
 
+	#Deprecated!  Use run_query instead.
 	#runs simple query (single row returned) against current database
 	my ( $self, $qry, @values ) = @_;
 	$logger->debug("Query: $qry");
@@ -1615,6 +1617,7 @@ sub run_simple_query_hashref {
 
 sub run_list_query_hashref {
 
+	#Deprecated!  Use run_query instead.
 	#runs query against current database (arrayref of hashrefs returned)
 	my ( $self, $qry, @values ) = @_;
 	$logger->debug("Query: $qry");
@@ -1626,6 +1629,7 @@ sub run_list_query_hashref {
 
 sub run_list_query {
 
+	#Deprecated!  Use run_query instead.
 	#runs query against current database (multiple row of single value returned)
 	my ( $self, $qry, @values ) = @_;
 	$logger->debug("Query: $qry");
@@ -1634,6 +1638,7 @@ sub run_list_query {
 	$logger->logcarp("$qry $@") if $@;
 	my @list;
 	while ( ( my $data ) = $sql->fetchrow_array ) {
+
 		if ( defined $data && $data ne '-999' && $data ne '0001-01-01' ) {
 			push @list, $data;
 		}
