@@ -166,7 +166,7 @@ sub _get_next_id {
 		$exists = $self->{'datastore'}->run_query(
 			"SELECT EXISTS(SELECT allele_id FROM sequences WHERE locus=? AND allele_id=?)",
 			[ $locus, $allele_id ],
-			{ db => $db, fetch => 'row_array', cache => 'get_next_id' }
+			{ db => $db, fetch => 'row_array', cache => 'ScanNew::get_next_id' }
 		);
 	} while ($exists);
 	return $allele_id;
@@ -231,7 +231,7 @@ sub _can_define_alleles {
 			}
 			my $extended_attributes =
 			  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM locus_extended_attributes WHERE locus=? AND required)",
-				$locus, { db => $locus_db, cache => 'can_define_alleles_attributes' } );
+				$locus, { db => $locus_db, cache => 'ScanNew::can_define_alleles_attributes' } );
 			if ($extended_attributes) {
 				$self->{'logger'}->error("Locus $locus has required extended attributes.");
 				say "Locus $locus has required extended attributes.";

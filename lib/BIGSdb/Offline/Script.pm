@@ -220,13 +220,11 @@ sub _get_isolates_excluded_by_project {
 
 sub _get_last_tagged_date {
 	my ( $self, $isolates ) = @_;
-	my $sql = $self->{'db'}->prepare("SELECT MAX(datestamp) FROM allele_designations WHERE isolate_id=?");
 	my %tag_date;
-	foreach (@$isolates) {
-		eval { $sql->execute($_) };
-		$self->{'logger'}->error($@) if $@;
-		my ($date) = $sql->fetchrow_array || '0000-00-00';
-		$tag_date{$_} = $date;
+	foreach my $isolate_id (@$isolates) {
+		my $date = $self->{'datastore'}->run_query( "SELECT MAX(datestamp) FROM allele_designations WHERE isolate_id=?",
+			$isolate_id, { cache => 'Script::get_last_tagged_date' } ) // '0000-00-00';
+		$tag_date{$isolate_id} = $date;
 	}
 	return \%tag_date;
 }
@@ -244,12 +242,8 @@ sub _is_previously_tagged {
 
 sub _get_size_of_seqbin {
 	my ( $self, $isolate_id ) = @_;
-	if ( !$self->{'sql'}->{'seqbin_size'} ) {
-		$self->{'sql'}->{'seqbin_size'} = $self->{'db'}->prepare("SELECT SUM(LENGTH(sequence)) FROM sequence_bin WHERE isolate_id=?");
-	}
-	eval { $self->{'sql'}->{'seqbin_size'}->execute($isolate_id) };
-	$self->{'logger'}->error($@) if $@;
-	my ($size) = $self->{'sql'}->{'seqbin_size'}->fetchrow_array;
+	my $size = $self->{'datastore'}->run_query( "SELECT SUM(LENGTH(sequence)) FROM sequence_bin WHERE isolate_id=?",
+		$isolate_id, { cache => 'Script::get_size_of_seqbin' } );
 	return $size;
 }
 
