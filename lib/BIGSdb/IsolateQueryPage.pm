@@ -275,9 +275,10 @@ sub _print_filter_fieldset {
 					$dropdownlist,
 					{
 						text => $metafield // undef,
-						'labels'  => \%dropdownlabels,
-						'tooltip' => "$display_field filter - Select $a_or_an $display_field to filter your search to only those "
-						  . "isolates that match the selected $display_field."
+						labels  => \%dropdownlabels,
+						tooltip => "$display_field filter - Select $a_or_an $display_field to filter your search to only those "
+						  . "isolates that match the selected $display_field.",
+						capitalize_first => 1
 					}
 				  );
 			}
@@ -296,7 +297,7 @@ sub _print_filter_fieldset {
 						"$field\..$extended_attribute",
 						$values,
 						{
-							    'tooltip' => "$field\..$extended_attribute filter - Select $a_or_an $extended_attribute to filter your "
+							tooltip => "$field\..$extended_attribute filter - Select $a_or_an $extended_attribute to filter your "
 							  . "search to only those isolates that match the selected $field."
 						}
 					  );
@@ -321,13 +322,8 @@ sub _print_filter_fieldset {
 			}
 		}
 		push @filters,
-		  $self->get_filter(
-			'linked_sequences',
-			\@values,
-			{
-				'text'    => 'Sequence bin',
-				'tooltip' => 'sequence bin filter - Filter by whether the isolate record has sequence data attached.'
-			}
+		  $self->get_filter( 'linked_sequences', \@values,
+			{ text => 'Sequence bin', tooltip => 'sequence bin filter - Filter by whether the isolate record has sequence data attached.' }
 		  );
 	}
 	if (@filters) {
@@ -389,9 +385,10 @@ sub _get_profile_filters {
 				$field,
 				[ 'complete', 'incomplete', 'partial', 'started', 'not started' ],
 				{
-					'text'    => "$scheme->{'description'} profiles",
-					'tooltip' => "$scheme->{'description'} profile completion filter - Select whether the isolates should "
-					  . "have complete, partial, or unstarted profiles."
+					text    => "$scheme->{'description'} profiles",
+					tooltip => "$scheme->{'description'} profile completion filter - Select whether the isolates should "
+					  . "have complete, partial, or unstarted profiles.",
+					capitalize_first => 1
 				}
 			  );
 		}
@@ -409,9 +406,10 @@ sub _get_profile_filters {
 					"scheme\_$scheme->{'id'}\_$field",
 					$values,
 					{
-						'text'    => "$field ($scheme->{'description'})",
-						'tooltip' => "$field ($scheme->{'description'}) filter - Select $a_or_an $field to filter your search "
-						  . "to only those isolates that match the selected $field."
+						text    => "$field ($scheme->{'description'})",
+						tooltip => "$field ($scheme->{'description'}) filter - Select $a_or_an $field to filter your search "
+						  . "to only those isolates that match the selected $field.",
+						capitalize_first => 1
 					}
 				  ) if @$values;
 			}

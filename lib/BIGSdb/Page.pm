@@ -866,7 +866,7 @@ sub get_filter {
 	$options = {} if ref $options ne 'HASH';
 	my $class = $options->{'class'} || 'filter';
 	( my $text = $options->{'text'} || $name ) =~ tr/_/ /;
-	my ( $label, $title ) = $self->get_truncated_label( "$text: ", undef, { capitalize_first => 1 } );
+	my ( $label, $title ) = $self->get_truncated_label( "$text: ", undef, { capitalize_first => $options->{'capitalize_first'} } );
 	my $title_attribute = $title ? "title=\"$title\"" : '';
 	( my $id = "$name\_list" ) =~ tr/:/_/;
 	my $buffer = "<label for=\"$id\" class=\"$class\" $title_attribute>$label</label>\n";

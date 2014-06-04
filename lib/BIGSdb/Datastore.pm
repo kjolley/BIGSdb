@@ -846,21 +846,13 @@ sub create_temp_scheme_table {
 	$create .= ")";
 	$self->{'db'}->do($create);
 	my $seqdef_table = $self->get_scheme_info($id)->{'dbase_table'};
-	my $qry          = "SELECT @$fields,@query_loci FROM $seqdef_table";
-	my $scheme_sql   = $scheme_db->prepare($qry);
-	eval { $scheme_sql->execute };
-
-	if ($@) {
-		$logger->error($@);
-		return;
-	}
-	local $" = ",";
+	my $data = $self->run_query( "SELECT @$fields,@query_loci FROM $seqdef_table", undef, { db => $scheme_db, fetch => 'all_arrayref' } );
 	eval { $self->{'db'}->do("COPY $table(@$fields,@$loci) FROM STDIN"); };
+
 	if ($@) {
 		$logger->error("Can't start copying data into temp table");
 	}
 	local $" = "\t";
-	my $data = $scheme_sql->fetchall_arrayref;
 	foreach (@$data) {
 		foreach (@$_) {
 			$_ = '\N' if !defined $_ || $_ eq '';
@@ -1087,34 +1079,26 @@ sub is_locus {
 ##############ALLELES##################################################################
 sub get_allele_designations {
 	my ( $self, $isolate_id, $locus ) = @_;
-	if ( !$self->{'sql'}->{'allele_designations'} ) {
-		$self->{'sql'}->{'allele_designations'} =
-		  $self->{'db'}->prepare( "SELECT * FROM allele_designations WHERE isolate_id=? AND locus=? ORDER BY "
-			  . "status,(substring (allele_id, '^[0-9]+'))::int, allele_id" );
-	}
-	eval { $self->{'sql'}->{'allele_designations'}->execute( $isolate_id, $locus ); };
-	$logger->error($@) if $@;
-	return $self->{'sql'}->{'allele_designations'}->fetchall_arrayref( {} );
+	return $self->run_query(
+		"SELECT * FROM allele_designations WHERE isolate_id=? AND locus=? ORDER BY status,(substring (allele_id, '^[0-9]+'))::int, "
+		  . "allele_id",
+		[ $isolate_id, $locus ],
+		{ fetch => 'all_arrayref', slice => {}, cache => 'get_allele_designations' }
+	);
 }
 
 sub get_allele_extended_attributes {
 	my ( $self, $locus, $allele_id ) = @_;
-	if ( !$self->{'sql'}->{'locus_extended_attributes'} ) {
-		$self->{'sql'}->{'locus_extended_attributes'} =
-		  $self->{'db'}->prepare("SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order");
-	}
-	eval { $self->{'sql'}->{'locus_extended_attributes'}->execute($locus) };
-	$logger->logcarp($@) if $@;
-	if ( !$self->{'sql'}->{'sequence_extended_attributes'} ) {
-		$self->{'sql'}->{'sequence_extended_attributes'} =
-		  $self->{'db'}->prepare("SELECT field,value FROM sequence_extended_attributes WHERE locus=? AND field=? AND allele_id=?");
-	}
+	my $ext_att = $self->run_query( "SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order",
+		$locus, { fetch => 'col_arrayref', cache => 'get_allele_extended_attributes_field' } );
 	my @values;
-	while ( my ($field) = $self->{'sql'}->{'locus_extended_attributes'}->fetchrow_array ) {
-		eval { $self->{'sql'}->{'sequence_extended_attributes'}->execute( $locus, $field, $allele_id ) };
-		$logger->logcarp($@) if $@;
-		my $values_ref = $self->{'sql'}->{'sequence_extended_attributes'}->fetchrow_hashref;
-		push @values, $values_ref if $values_ref;
+	foreach my $field (@$ext_att) {
+		my $data = $self->run_query(
+			"SELECT field,value FROM sequence_extended_attributes WHERE locus=? AND field=? AND allele_id=?",
+			[ $locus, $field, $allele_id ],
+			{ fetch => 'row_hashref', cache => 'get_allele_extended_attributes_value' }
+		);
+		push @values, $data if $data;
 	}
 	return \@values;
 }
@@ -1132,6 +1116,7 @@ sub get_all_allele_designations {
 
 sub get_scheme_allele_designations {
 	my ( $self, $isolate_id, $scheme_id, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $designations;
 	if ($scheme_id) {
 		my $data = $self->run_query(
@@ -1162,90 +1147,58 @@ sub get_all_allele_sequences {
 	my ( $self, $isolate_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $keys = $options->{'keys'} // [qw (locus seqbin_id start_pos end_pos)];
-	if ( !$self->{'sql'}->{'all_allele_sequences'} ) {
-		$self->{'sql'}->{'all_allele_sequences'} =
-		  $self->{'db'}->prepare("SELECT allele_sequences.* FROM allele_sequences WHERE isolate_id=?");
-		$logger->info("Statement handle 'all_allele_sequences' prepared.");
-	}
-	eval { $self->{'sql'}->{'all_allele_sequences'}->execute($isolate_id); };
-	$logger->error($@) if $@;
-	my $sequences = $self->{'sql'}->{'all_allele_sequences'}->fetchall_hashref($keys);
-	return $sequences;
+	return $self->run_query( "SELECT allele_sequences.* FROM allele_sequences WHERE isolate_id=?",
+		$isolate_id, { fetch => 'all_hashref', key => $keys, cache => 'get_all_allele_sequences' } );
 }
 
 sub get_sequence_flags {
 	my ( $self, $id ) = @_;
-	if ( !$self->{'sql'}->{'sequence_flag'} ) {
-		$self->{'sql'}->{'sequence_flag'} = $self->{'db'}->prepare("SELECT flag FROM sequence_flags WHERE id=?");
-	}
-	eval { $self->{'sql'}->{'sequence_flag'}->execute($id) };
-	$logger->error($@) if $@;
-	my @flags;
-	while ( my ($flag) = $self->{'sql'}->{'sequence_flag'}->fetchrow_array ) {
-		push @flags, $flag;
-	}
-	return \@flags;
+	return $self->run_query( "SELECT flag FROM sequence_flags WHERE id=?", $id,
+		{ fetch => 'col_arrayref', cache => 'get_sequence_flags' } );
 }
 
 sub get_all_sequence_flags {
 	my ( $self, $isolate_id ) = @_;
-	if ( !$self->{'sql'}->{'all_sequence_flags'} ) {
-		$self->{'sql'}->{'all_sequence_flags'} =
-		  $self->{'db'}->prepare( "SELECT sequence_flags.id,sequence_flags.flag FROM sequence_flags RIGHT JOIN allele_sequences ON "
-			  . "sequence_flags.id=allele_sequences.id WHERE isolate_id=?" );
-	}
-	eval { $self->{'sql'}->{'all_sequence_flags'}->execute($isolate_id) };
-	$logger->error($@) if $@;
-	return $self->{'sql'}->{'all_sequence_flags'}->fetchall_hashref( [qw(id flag)] );
+	return $self->run_query(
+		"SELECT sequence_flags.id,sequence_flags.flag FROM sequence_flags RIGHT JOIN allele_sequences ON sequence_flags.id="
+		  . "allele_sequences.id WHERE isolate_id=?",
+		$isolate_id,
+		{ fetch => 'all_hashref', key => [qw(id flag)], cache => 'get_all_sequence_flags' }
+	);
 }
 
 sub get_allele_flags {
 	my ( $self, $locus, $allele_id ) = @_;
-	if ( !$self->{'sql'}->{'allele_flags'} ) {
-		$self->{'sql'}->{'allele_flags'} =
-		  $self->{'db'}->prepare("SELECT flag FROM allele_flags WHERE locus=? AND allele_id=? ORDER BY flag");
-	}
-	eval { $self->{'sql'}->{'allele_flags'}->execute( $locus, $allele_id ) };
-	$logger->error($@) if $@;
-	my @flags;
-	while ( my ($flag) = $self->{'sql'}->{'allele_flags'}->fetchrow_array ) {
-		push @flags, $flag;
-	}
-	return \@flags;
+	return $self->run_query(
+		"SELECT flag FROM allele_flags WHERE locus=? AND allele_id=? ORDER BY flag",
+		[ $locus, $allele_id ],
+		{ fetch => 'col_arrayref', cache => 'get_allele_flags' }
+	);
 }
 
 sub get_allele_ids {
 	my ( $self, $isolate_id, $locus ) = @_;
-	if ( !$self->{'sql'}->{'allele_ids'} ) {
-		$self->{'sql'}->{'allele_ids'} = $self->{'db'}->prepare("SELECT allele_id FROM allele_designations WHERE isolate_id=? AND locus=?");
-	}
-	eval { $self->{'sql'}->{'allele_ids'}->execute( $isolate_id, $locus ) };
-	$logger->error($@) if $@;
-	my @allele_ids;
-	while ( my ($allele_id) = $self->{'sql'}->{'allele_ids'}->fetchrow_array ) {
-		push @allele_ids, $allele_id;
-	}
-	return \@allele_ids;
+	return $self->run_query(
+		"SELECT allele_id FROM allele_designations WHERE isolate_id=? AND locus=?",
+		[ $isolate_id, $locus ],
+		{ fetch => 'col_arrayref', cache => 'get_allele_ids' }
+	);
 }
 
 sub get_all_allele_ids {
 	my ( $self, $isolate_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $allele_ids = {};
-	if ( !$self->{'sql'}->{'all_allele_ids'} ) {
-		my $set_clause =
-		  $options->{'set_id'}
-		  ? "AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT "
-		  . "scheme_id FROM set_schemes WHERE set_id=$options->{'set_id'})) OR locus IN (SELECT locus FROM set_loci WHERE "
-		  . "set_id=$options->{'set_id'}))"
-		  : '';
-		$self->{'sql'}->{'all_allele_ids'} =
-		  $self->{'db'}->prepare("SELECT locus,allele_id FROM allele_designations WHERE isolate_id=? $set_clause");
-		$logger->info("Statement handle 'all_allele_ids' prepared.");
-	}
-	eval { $self->{'sql'}->{'all_allele_ids'}->execute($isolate_id) };
-	$logger->error($@) if $@;
-	while ( my ( $locus, $allele_id ) = $self->{'sql'}->{'all_allele_ids'}->fetchrow_array ) {
+	my $set_clause =
+	  $options->{'set_id'}
+	  ? "AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT "
+	  . "scheme_id FROM set_schemes WHERE set_id=$options->{'set_id'})) OR locus IN (SELECT locus FROM set_loci WHERE "
+	  . "set_id=$options->{'set_id'}))"
+	  : '';
+	my $data = $self->run_query( "SELECT locus,allele_id FROM allele_designations WHERE isolate_id=? $set_clause",
+		$isolate_id, { fetch => 'all_arrayref', cache => 'get_all_allele_ids' } );
+	foreach (@$data) {
+		my ( $locus, $allele_id ) = @$_;
 		push @{ $allele_ids->{$locus} }, $allele_id;
 	}
 	return $allele_ids;
@@ -1253,86 +1206,61 @@ sub get_all_allele_ids {
 
 sub get_allele_sequence {
 	my ( $self, $isolate_id, $locus ) = @_;
-	if ( !$self->{'sql'}->{'allele_sequence'} ) {
-		$self->{'sql'}->{'allele_sequence'} =
-		  $self->{'db'}->prepare("SELECT * FROM allele_sequences WHERE isolate_id=? AND locus=? ORDER BY complete desc");
-		$logger->info("Statement handle 'allele_sequence' prepared.");
-	}
-	eval { $self->{'sql'}->{'allele_sequence'}->execute( $isolate_id, $locus ) };
-	$logger->error($@) if $@;
-	my @allele_sequences;
-	while ( my $allele_sequence = $self->{'sql'}->{'allele_sequence'}->fetchrow_hashref ) {
-		push @allele_sequences, $allele_sequence;
-	}
-	return \@allele_sequences;
+	return $self->run_query(
+		"SELECT * FROM allele_sequences WHERE isolate_id=? AND locus=? ORDER BY complete desc",
+		[ $isolate_id, $locus ],
+		{ fetch => 'all_arrayref', slice => {}, cache => 'get_allele_sequence' }
+	);
 }
 
 sub allele_sequence_exists {
 
 	#Marginally quicker than get_allele_sequence if you just want to check presence of tag.
 	my ( $self, $isolate_id, $locus ) = @_;
-	if ( !$self->{'sql'}->{'allele_sequence_exists'} ) {
-		$self->{'sql'}->{'allele_sequence_exists'} =
-		  $self->{'db'}->prepare("SELECT EXISTS(SELECT allele_sequences.seqbin_id FROM allele_sequences WHERE isolate_id=? AND locus=?)");
-	}
-	eval { $self->{'sql'}->{'allele_sequence_exists'}->execute( $isolate_id, $locus ) };
-	$logger->error($@) if $@;
-	my ($exists) = $self->{'sql'}->{'allele_sequence_exists'}->fetchrow_array;
-	return $exists;
+	return $self->run_query(
+		"SELECT EXISTS(SELECT allele_sequences.seqbin_id FROM allele_sequences WHERE isolate_id=? AND locus=?)",
+		[ $isolate_id, $locus ],
+		{ fetch => 'row_array', cache => 'allele_sequence_exists' }
+	);
 }
 
 sub sequences_exist {
 
 	#used for profile/sequence definitions databases
 	my ( $self, $locus ) = @_;
-	if ( !$self->{'sql'}->{'sequences_exist'} ) {
-		$self->{'sql'}->{'sequences_exist'} = $self->{'db'}->prepare("SELECT EXISTS(SELECT * FROM sequences WHERE locus=?)");
-		$logger->info("Statement handle 'sequences_exist' prepared.");
-	}
-	eval { $self->{'sql'}->{'sequences_exist'}->execute($locus) };
-	$logger->error($@) if $@;
-	my ($exists) = $self->{'sql'}->{'sequences_exist'}->fetchrow_array;
-	return $exists;
+	return $self->run_query( "SELECT EXISTS(SELECT * FROM sequences WHERE locus=?)",
+		$locus, { fetch => 'row_array', cache => 'sequences_exist' } );
 }
 
 sub sequence_exists {
 
 	#used for profile/sequence definitions databases
 	my ( $self, $locus, $allele_id ) = @_;
-	if ( !$self->{'sql'}->{'sequence_exists'} ) {
-		$self->{'sql'}->{'sequence_exists'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM sequences WHERE locus=? AND allele_id=?");
-		$logger->info("Statement handle 'sequence_exists' prepared.");
-	}
-	eval { $self->{'sql'}->{'sequence_exists'}->execute( $locus, $allele_id ) };
-	$logger->error($@) if $@;
-	my ($exists) = $self->{'sql'}->{'sequence_exists'}->fetchrow_array;
-	return $exists;
+	return $self->run_query(
+		"SELECT COUNT(*) FROM sequences WHERE locus=? AND allele_id=?",
+		[ $locus, $allele_id ],
+		{ fetch => 'row_array', cache => 'sequence_exists' }
+	);
 }
 
 sub get_profile_allele_designation {
 	my ( $self, $scheme_id, $profile_id, $locus ) = @_;
-	if ( !$self->{'sql'}->{'profile_allele_designation'} ) {
-		$self->{'sql'}->{'profile_allele_designation'} =
-		  $self->{'db'}->prepare("SELECT * FROM profile_members WHERE scheme_id=? AND profile_id=? AND locus=?");
-		$logger->info("Statement handle 'profile_allele_designation' prepared.");
-	}
-	eval { $self->{'sql'}->{'profile_allele_designation'}->execute( $scheme_id, $profile_id, $locus ) };
-	$logger->error($@) if $@;
-	my $allele = $self->{'sql'}->{'profile_allele_designation'}->fetchrow_hashref;
-	return $allele;
+	return $self->run_query(
+		"SELECT * FROM profile_members WHERE scheme_id=? AND profile_id=? AND locus=?",
+		[ $scheme_id, $profile_id, $locus ],
+		{ fetch => 'row_hashref', cache => 'get_profile_allele_designation' }
+	);
 }
 
 sub get_sequence {
 
 	#used for profile/sequence definitions databases
 	my ( $self, $locus, $allele_id ) = @_;
-	if ( !$self->{'sql'}->{'sequence'} ) {
-		$self->{'sql'}->{'sequence'} = $self->{'db'}->prepare("SELECT sequence FROM sequences WHERE locus=? AND allele_id=?");
-		$logger->info("Statement handle 'sequence' prepared.");
-	}
-	eval { $self->{'sql'}->{'sequence'}->execute( $locus, $allele_id ) };
-	$logger->error($@) if $@;
-	my ($seq) = $self->{'sql'}->{'sequence'}->fetchrow_array;
+	my $seq = $self->run_query(
+		"SELECT sequence FROM sequences WHERE locus=? AND allele_id=?",
+		[ $locus, $allele_id ],
+		{ fetch => 'row_array', cache => 'get_sequence' }
+	);
 	return \$seq;
 }
 
@@ -1340,14 +1268,11 @@ sub is_allowed_to_modify_locus_sequences {
 
 	#used for profile/sequence definitions databases
 	my ( $self, $locus, $curator_id ) = @_;
-	if ( !$self->{'sql'}->{'allow_locus'} ) {
-		$self->{'sql'}->{'allow_locus'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM locus_curators WHERE locus=? AND curator_id=?");
-		$logger->info("Statement handle 'allow_locus' prepared.");
-	}
-	eval { $self->{'sql'}->{'allow_locus'}->execute( $locus, $curator_id ) };
-	$logger->error($@) if $@;
-	my ($allowed) = $self->{'sql'}->{'allow_locus'}->fetchrow_array;
-	return $allowed;
+	return $self->run_query(
+		"SELECT EXISTS(SELECT * FROM locus_curators WHERE locus=? AND curator_id=?)",
+		[ $locus, $curator_id ],
+		{ fetch => 'row_array', cache => 'is_allowed_to_modify_locus_sequences' }
+	);
 }
 
 sub get_next_allele_id {
@@ -1355,24 +1280,16 @@ sub get_next_allele_id {
 	#used for profile/sequence definitions databases
 	#finds the lowest unused id.
 	my ( $self, $locus ) = @_;
-	if ( !$self->{'sql'}->{'next_allele_id'} ) {
-		$self->{'sql'}->{'next_allele_id'} =
-		  $self->{'db'}->prepare( "SELECT DISTINCT CAST(allele_id AS int) FROM sequences WHERE locus = ? AND allele_id != 'N' ORDER BY "
-			  . "CAST(allele_id AS int)" );
-		$logger->info("Statement handle 'next_allele_id' prepared.");
-	}
-	eval { $self->{'sql'}->{'next_allele_id'}->execute($locus) };
-	if ($@) {
-		$logger->error("Can't execute 'next_allele_id' query $@");
-		return;
-	}
+	my $existing_alleles =
+	  $self->run_query( "SELECT CAST(allele_id AS int) FROM sequences WHERE locus=? AND allele_id !='N' ORDER BY CAST(allele_id AS int)",
+		$locus, { fetch => 'col_arrayref', cache => 'get_next_allele_id' } );
 	my $test = 0;
 	my $next = 0;
 	my $id   = 0;
-	while ( my @data = $self->{'sql'}->{'next_allele_id'}->fetchrow_array() ) {
-		if ( $data[0] != 0 ) {
+	foreach my $allele_id (@$existing_alleles) {
+		if ( $allele_id != 0 ) {
 			$test++;
-			$id = $data[0];
+			$id = $allele_id;
 			if ( $test != $id ) {
 				$next = $test;
 				$logger->debug("Next id: $next");
@@ -1383,22 +1300,20 @@ sub get_next_allele_id {
 	if ( $next == 0 ) {
 		$next = $id + 1;
 	}
-	$logger->debug("Next id: $next");
 	return $next;
 }
 
 sub get_client_data_linked_to_allele {
 	my ( $self, $locus, $allele_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $sql =
-	  $self->{'db'}->prepare( "SELECT client_dbase_id,isolate_field FROM client_dbase_loci_fields WHERE allele_query AND "
-		  . "locus = ? ORDER BY client_dbase_id,isolate_field" );
-	eval { $sql->execute($locus) };
-	$logger->error($@) if $@;
-	my $client_field_data = $sql->fetchall_arrayref;
+	my $client_field_data = $self->run_query(
+		"SELECT client_dbase_id,isolate_field FROM client_dbase_loci_fields WHERE allele_query AND locus=? ORDER BY "
+		  . "client_dbase_id,isolate_field",
+		$locus,
+		{ fetch => 'all_arrayref' }
+	);
 	my ( $dl_buffer, $td_buffer );
 	my $i = 0;
-
 	foreach my $client_field (@$client_field_data) {
 		my $field          = $client_field->[1];
 		my $client         = $self->get_client_db( $client_field->[0] );
@@ -1454,20 +1369,20 @@ sub _format_list_values {
 }
 
 sub get_allele_attributes {
-	my ( $self, $locus, $allele_ids_refs ) = @_;
-	return [] if ref $allele_ids_refs ne 'ARRAY';
-	my $fields = $self->run_list_query( "SELECT field FROM locus_extended_attributes WHERE locus=?", $locus );
-	my $sql = $self->{'db'}->prepare("SELECT value FROM sequence_extended_attributes WHERE locus=? AND field=? AND allele_id=?");
+	my ( $self, $locus, $allele_ids ) = @_;
+	return [] if ref $allele_ids ne 'ARRAY';
+	my $fields = $self->run_query( "SELECT field FROM locus_extended_attributes WHERE locus=?", $locus, { fetch => 'col_arrayref' } );
 	my $values;
 	return if !@$fields;
 	foreach my $field (@$fields) {
-		foreach (@$allele_ids_refs) {
-			eval { $sql->execute( $locus, $field, $_ ) };
-			$logger->error($@) if $@;
-			while ( my ($value) = $sql->fetchrow_array ) {
-				next if !defined $value || $value eq '';
-				push @{ $values->{$field} }, $value;
-			}
+		foreach my $allele_id (@$allele_ids) {
+			my $value = $self->run_query(
+				"SELECT value FROM sequence_extended_attributes WHERE locus=? AND field=? AND allele_id=?",
+				[ $locus, $field, $allele_id ],
+				{ cache => 'get_allele_attributes_value' }
+			);
+			next if !defined $value || $value eq '';
+			push @{ $values->{$field} }, $value;
 		}
 		if ( ref $values->{$field} eq 'ARRAY' && @{ $values->{$field} } ) {
 			my @list = @{ $values->{$field} };
@@ -1479,14 +1394,14 @@ sub get_allele_attributes {
 }
 ##############REFERENCES###############################################################
 sub get_citation_hash {
-	my ( $self, $pmid_ref, $options ) = @_;
+	my ( $self, $pmids, $options ) = @_;
 	my $citation_ref;
 	my %att = (
-		'dbase_name' => $self->{'config'}->{'ref_db'},
-		'host'       => $self->{'system'}->{'host'},
-		'port'       => $self->{'system'}->{'port'},
-		'user'       => $self->{'system'}->{'user'},
-		'password'   => $self->{'system'}->{'pass'}
+		dbase_name => $self->{'config'}->{'ref_db'},
+		host       => $self->{'system'}->{'host'},
+		port       => $self->{'system'}->{'port'},
+		user       => $self->{'system'}->{'user'},
+		password   => $self->{'system'}->{'pass'}
 	);
 	my $dbr;
 	try {
@@ -1496,74 +1411,69 @@ sub get_citation_hash {
 		$logger->error("Can't connect to reference database");
 	};
 	return $citation_ref if !$self->{'config'}->{'ref_db'} || !$dbr;
-	my $sqlr  = $dbr->prepare("SELECT year,journal,title,volume,pages FROM refs WHERE pmid=?");
-	my $sqlr2 = $dbr->prepare("SELECT surname,initials FROM authors WHERE id=?");
-	my $sqlr3 = $dbr->prepare("SELECT author FROM refauthors WHERE pmid=? ORDER BY position");
-	foreach (@$pmid_ref) {
-		eval { $sqlr->execute($_) };
-		$logger->error($@) if $@;
-		eval { $sqlr3->execute($_) };
-		$logger->error($@) if $@;
-		my ( $year, $journal, $title, $volume, $pages ) = $sqlr->fetchrow_array;
+	foreach my $pmid (@$pmids) {
+		my ( $year, $journal, $title, $volume, $pages ) = $self->run_query( "SELECT year,journal,title,volume,pages FROM refs WHERE pmid=?",
+			$pmid, { db => $dbr, fetch => 'row_array', cache => 'get_citation_hash_paper' } );
 		if ( !defined $year && !defined $journal ) {
-			$citation_ref->{$_} .= "<a href=\"http://www.ncbi.nlm.nih.gov/pubmed/$_\">" if $options->{'link_pubmed'};
-			$citation_ref->{$_} .= "Pubmed id#$_";
-			$citation_ref->{$_} .= "</a>"                                               if $options->{'link_pubmed'};
-			$citation_ref->{$_} .= ": No details available."                            if $options->{'state_if_unavailable'};
+			$citation_ref->{$pmid} .= "<a href=\"http://www.ncbi.nlm.nih.gov/pubmed/$pmid\">" if $options->{'link_pubmed'};
+			$citation_ref->{$pmid} .= "Pubmed id#$pmid";
+			$citation_ref->{$pmid} .= "</a>"                                                  if $options->{'link_pubmed'};
+			$citation_ref->{$pmid} .= ": No details available."                               if $options->{'state_if_unavailable'};
 			next;
 		}
-		my @authors;
-		while ( my ($authorid) = $sqlr3->fetchrow_array ) {
-			push @authors, $authorid;
-		}
+		my $authors = $self->run_query(
+			"SELECT author FROM refauthors WHERE pmid=? ORDER BY position",
+			$pmid,
+			{ db => $dbr, fetch => 'col_arrayref' },
+			cache => 'get_citation_hash_author_id'
+		);
 		my ( $author, @author_list );
 		if ( $options->{'all_authors'} ) {
-			foreach (@authors) {
-				eval { $sqlr2->execute($_) };
-				$logger->error($@) if $@;
-				my ( $surname, $initials ) = $sqlr2->fetchrow_array;
+			foreach my $author_id (@$authors) {
+				my ( $surname, $initials ) = $self->run_query( "SELECT surname,initials FROM authors WHERE id=?",
+					$author_id, { db => $dbr, cache => 'get_citation_hash_paper_author_name' } );
 				$author = "$surname $initials";
 				push @author_list, $author;
 			}
 			local $" = ', ';
 			$author = "@author_list";
 		} else {
-			eval { $sqlr2->execute( $authors[0] ) };
-			$logger->error($@) if $@;
-			my ( $surname, undef ) = $sqlr2->fetchrow_array;
-			$author .= ( $surname || 'Unknown' );
-			if ( scalar @authors > 1 ) {
-				$author .= ' et al.';
+			if (@$authors) {
+				my ( $surname, undef ) = $self->run_query( "SELECT surname,initials FROM authors WHERE id=?",
+					$authors->[0], { db => $dbr, cache => 'get_citation_hash_paper_author_name' } );
+				$author .= ( $surname || 'Unknown' );
+				if ( @$authors > 1 ) {
+					$author .= ' et al.';
+				}
 			}
 		}
+		$author ||= 'No authors listed';
 		$volume .= ':' if $volume;
 		my $citation;
 		{
 			no warnings 'uninitialized';
 			if ( $options->{'formatted'} ) {
 				$citation = "$author ($year). ";
-				$citation .= "$title "                                            if !$options->{'no_title'};
-				$citation .= "<a href=\"http://www.ncbi.nlm.nih.gov/pubmed/$_\">" if $options->{'link_pubmed'};
+				$citation .= "$title "                                               if !$options->{'no_title'};
+				$citation .= "<a href=\"http://www.ncbi.nlm.nih.gov/pubmed/$pmid\">" if $options->{'link_pubmed'};
 				$citation .= "<i>$journal</i> <b>$volume</b>$pages";
-				$citation .= "</a>"                                               if $options->{'link_pubmed'};
+				$citation .= "</a>"                                                  if $options->{'link_pubmed'};
 			} else {
 				$citation = "$author $year $journal $volume$pages";
 			}
 		}
-		if ($author) {
-			$citation_ref->{$_} = $citation;
+		if ($citation) {
+			$citation_ref->{$pmid} = $citation;
 		} else {
 			if ( $options->{'state_if_unavailable'} ) {
-				$citation_ref->{$_} .= 'No details available.';
+				$citation_ref->{$pmid} .= 'No details available.';
 			} else {
-				$citation_ref->{$_} .= "Pubmed id#";
-				$citation_ref->{$_} .= $options->{'link_pubmed'} ? "<a href=\"http://www.ncbi.nlm.nih.gov/pubmed/$_\">$_</a>" : $_;
+				$citation_ref->{$pmid} .= "Pubmed id#";
+				$citation_ref->{$pmid} .=
+				  $options->{'link_pubmed'} ? "<a href=\"http://www.ncbi.nlm.nih.gov/pubmed/$pmid\">$pmid</a>" : $pmid;
 			}
 		}
 	}
-	$sqlr->finish  if $sqlr;
-	$sqlr2->finish if $sqlr2;
-	$sqlr3->finish if $sqlr3;
 	return $citation_ref;
 }
 
@@ -1588,50 +1498,39 @@ sub create_temp_ref_table {
 	};
 	return if !$continue;
 	my $create = "CREATE TEMP TABLE temp_refs (pmid int, year int, journal text, volume text, pages text, title text, "
-	  . "abstract text, authors text, isolates int);";
+	  . "abstract text, authors text, isolates int, PRIMARY KEY (pmid))";
 	eval { $self->{'db'}->do($create); };
 	if ($@) {
 		$logger->error("Can't create temporary reference table. $@");
 		return;
 	}
-	my $sql1 = $dbr->prepare("SELECT pmid,year,journal,volume,pages,title,abstract FROM refs WHERE pmid=?");
-	my $sql2 = $dbr->prepare("SELECT author FROM refauthors WHERE pmid=? ORDER BY position");
-	my $sql3 = $dbr->prepare("SELECT id,surname,initials FROM authors");
-	eval { $sql3->execute; };
-	$logger->error($@) if $@;
-	my $all_authors = $sql3->fetchall_hashref('id');
-	my $qry4;
-
+	my $all_authors =
+	  $self->run_query( "SELECT id,surname,initials FROM authors", undef, { db => $dbr, fetch => 'all_hashref', key => 'id' } );
+	my $count_qry;
 	if ($qry_ref) {
 		my $isolate_qry = $$qry_ref;
 		$isolate_qry =~ s/\*/id/;
-		$qry4 = "SELECT COUNT(*) FROM refs WHERE isolate_id IN ($isolate_qry) AND refs.pubmed_id=?";
+		$count_qry = "SELECT COUNT(*) FROM refs WHERE isolate_id IN ($isolate_qry) AND refs.pubmed_id=?";
 	} else {
-		$qry4 = "SELECT COUNT(*) FROM refs WHERE refs.pubmed_id=?";
+		$count_qry = "SELECT COUNT(*) FROM refs WHERE refs.pubmed_id=?";
 	}
-	my $sql4 = $self->{'db'}->prepare($qry4);
 	foreach my $pmid (@$list) {
-		eval { $sql1->execute($pmid) };
-		$logger->error($@) if $@;
-		my @refdata = $sql1->fetchrow_array;
-		eval { $sql2->execute($pmid) };
-		$logger->error($@) if $@;
+		my $paper = $self->run_query( "SELECT pmid,year,journal,volume,pages,title,abstract FROM refs WHERE pmid=?",
+			$pmid, { db => $dbr, fetch => 'row_arrayref', cache => 'create_temp_ref_table_paper' } );
 		my @authors;
-		my $author_arrayref = $sql2->fetchall_arrayref;
-		foreach (@$author_arrayref) {
+		my $author_list = $self->run_query( "SELECT author FROM refauthors WHERE pmid=? ORDER BY position",
+			$pmid, { db => $dbr, fetch => 'all_arrayref', cache => 'create_temp_ref_table_author_list' } );
+		foreach (@$author_list) {
 			push @authors, "$all_authors->{$_->[0]}->{'surname'} $all_authors->{$_->[0]}->{'initials'}";
 		}
 		local $" = ', ';
 		my $author_string = "@authors";
-		eval { $sql4->execute($pmid) };
-		$logger->error($@) if $@;
-		my ($isolates) = $sql4->fetchrow_array;
+		my $isolates = $self->run_query( $count_qry, $pmid, { cache => 'create_temp_ref_table_count' } );
 		local $" = "','";
 		eval {
 			my $qry = "INSERT INTO temp_refs VALUES (?,?,?,?,?,?,?,?,?)";
-
-			if ( $refdata[0] ) {
-				$self->{'db'}->do( $qry, undef, @refdata, $author_string, $isolates );
+			if ($paper) {
+				$self->{'db'}->do( $qry, undef, @$paper, $author_string, $isolates );
 			} else {
 				$self->{'db'}->do( $qry, undef, $pmid, undef, undef, undef, undef, undef, undef, undef, $isolates );
 			}
@@ -1646,8 +1545,9 @@ sub run_query {
 	#Ultimately replace run_simple_query, run_simple_query_hashref, run_list_query_hashref and run_list_query
 	#$options->{'fetch'}: row_arrayref, row_array, row_hashref, col_arrayref, all_arrayref, all_hashref
 	#$options->{'cache'}: Name to cache the statement handle under.  Statement not cached if absent.
-	#$options->{'key'}: Key field(s) to use for returning all as hashrefs.  Should be an arrayref.
+	#$options->{'key'}:   Key field(s) to use for returning all as hashrefs.  Should be an arrayref.
 	#$options->{'slice'}: Slice to return for all_arrayrefs.
+	#$options->{'db}:     Database handle.  Only pass if not accessing the database defined in config.xml (e.g. refs)
 	my ( $self, $qry, $values, $options ) = @_;
 	if ( defined $values ) {
 		$values = [$values] if ref $values ne 'ARRAY';
@@ -1655,19 +1555,20 @@ sub run_query {
 		$values = [];
 	}
 	$options = {} if ref $options ne 'HASH';
+	my $db = $options->{'db'} // $self->{'db'};
 	my $sql;
 	if ( $options->{'cache'} ) {
 		if ( !$self->{'sql'}->{ $options->{'cache'} } ) {
-			$self->{'sql'}->{ $options->{'cache'} } = $self->{'db'}->prepare($qry);
+			$self->{'sql'}->{ $options->{'cache'} } = $db->prepare($qry);
 		}
 		$sql = $self->{'sql'}->{ $options->{'cache'} };
 	} else {
-		$sql = $self->{'db'}->prepare($qry);
+		$sql = $db->prepare($qry);
 	}
 	$options->{'fetch'} //= 'row_array';
 	if ( $options->{'fetch'} eq 'col_arrayref' ) {
 		my $data;
-		eval { $data = $self->{'db'}->selectcol_arrayref( $sql, undef, @$values ) };
+		eval { $data = $db->selectcol_arrayref( $sql, undef, @$values ) };
 		$logger->logcarp($@) if $@;
 		return $data;
 	}
@@ -1738,26 +1639,6 @@ sub run_list_query {
 		}
 	}
 	return \@list;
-}
-
-sub run_simple_ref_query {
-
-	#runs simple query (single row returned) against ref database
-	my ( $self, $qry, @values ) = @_;
-	my %att = (
-		'dbase_name' => $self->{'config'}->{'ref_db'},
-		'host'       => $self->{'system'}->{'host'},
-		'port'       => $self->{'system'}->{'port'},
-		'user'       => $self->{'system'}->{'user'},
-		'password'   => $self->{'system'}->{'pass'}
-	);
-	my $dbr = $self->{'dataConnector'}->get_connection( \%att );
-	$logger->debug("Ref query: $qry");
-	my $sql = $dbr->prepare($qry);
-	eval { $sql->execute(@values); };
-	$logger->logcarp("$qry $@") if $@;
-	my $data = $sql->fetchrow_arrayref;
-	return $data;
 }
 
 sub get_table_field_attributes {
@@ -1864,24 +1745,15 @@ sub get_set_metadata {
 
 sub get_metadata_value {
 	my ( $self, $isolate_id, $metaset, $metafield ) = @_;
-	if ( !$self->{'sql'}->{"metadata_value_$metaset"} ) {
-		$self->{'sql'}->{"metadata_value_$metaset"} = $self->{'db'}->prepare("SELECT * FROM meta_$metaset WHERE isolate_id = ?");
-	}
-	eval { $self->{'sql'}->{"metadata_value_$metaset"}->execute($isolate_id) };
-	$logger->error($@) if $@;
-	my $data = $self->{'sql'}->{"metadata_value_$metaset"}->fetchrow_hashref;
+	my $data = $self->run_query( "SELECT * FROM meta_$metaset WHERE isolate_id=?",
+		$isolate_id, { fetch => 'row_hashref', cache => "get_metadata_value_$metaset" } );
 	return $data->{ lc($metafield) } // '';
 }
 
 sub materialized_view_exists {
 	my ( $self, $scheme_id ) = @_;
 	return 0 if ( ( $self->{'system'}->{'materialized_views'} // '' ) ne 'yes' );
-	if ( !$self->{'sql'}->{'materialized_view_exists'} ) {
-		$self->{'sql'}->{'materialized_view_exists'} = $self->{'db'}->prepare("SELECT EXISTS(SELECT * FROM matviews WHERE mv_name = ?)");
-	}
-	eval { $self->{'sql'}->{'materialized_view_exists'}->execute("mv_scheme_$scheme_id") };
-	$logger->error($@) if $@;
-	my ($exists) = $self->{'sql'}->{'materialized_view_exists'}->fetchrow_array;
-	return $exists;
+	return $self->run_query( "SELECT EXISTS(SELECT * FROM matviews WHERE mv_name=?)",
+		"mv_scheme_$scheme_id", { cache => 'materialized_view_exists' } );
 }
 1;
