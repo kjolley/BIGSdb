@@ -116,7 +116,7 @@ sub break_line {
 	#Pass string either as a scalar or as a reference to a scalar.  It will be returned the same way.
 	my ( $string, $length ) = @_;
 	my $orig_string = ref $string eq 'SCALAR' ? $$string : $string;
-	my $seq;
+	my $seq = '';
 	my $s;
 	$seq .= "$s\n" while $s = substr $orig_string, 0, $length, '';
 	$seq =~ s/\n$//;
