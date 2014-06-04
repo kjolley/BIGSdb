@@ -336,7 +336,7 @@ sub _print_interface {
 		%html5_args = ( required => 'required' );
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		$html5_args{'type'} = 'number' if $locus_info->{'allele_id_format'} eq 'integer' && !$scheme_info->{'allow_missing_loci'};
-		my $cleaned = $self->clean_locus($locus);
+		my $cleaned = $self->clean_locus( $locus, { strip_links => 1 } );
 		( $label, $title ) = $self->get_truncated_label( $cleaned, 24 );
 		$title_attribute = $title ? " title=\"$title\"" : '';
 		say qq(<li><label for="locus:$locus" class="form" style="width:${width}em"$title_attribute>$label: !</label>);

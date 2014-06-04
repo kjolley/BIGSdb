@@ -91,7 +91,7 @@ sub run_blast {
 					  . "scheme_id=$scheme_id) AND locus IN (SELECT id FROM loci WHERE data_type=?) AND allele_id != 'N'";
 				} elsif ( $options->{'locus'} =~ /GROUP_(\d+)/ ) {
 					my $group_id = $1;
-					my $group_schemes = $self->{'datastore'}->get_schemes_in_group( $group_id, { set_id => $set_id, with_members => 1 } );
+					my $group_schemes = $self->{'datastore'}->get_schemes_in_group( $group_id, { set_id => $set_id } );
 					local $" = ',';
 					$qry = "SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT locus FROM scheme_members WHERE "
 					  . "scheme_id IN (@$group_schemes)) AND locus IN (SELECT id FROM loci WHERE data_type=?) AND allele_id != 'N'";

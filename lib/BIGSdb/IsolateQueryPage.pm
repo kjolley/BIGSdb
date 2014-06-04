@@ -988,7 +988,8 @@ sub _modify_query_for_filters {
 			}
 		}
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-		foreach my $field (@$scheme_fields) {
+		foreach (@$scheme_fields) {
+			my $field = $_;    #Copy field value rather than use reference directly since we modify it and it may be needed elsewhere.
 			if ( ( $q->param("scheme_$scheme_id\_$field\_list") // '' ) ne '' ) {
 				my $value = $q->param("scheme_$scheme_id\_$field\_list");
 				$value =~ s/'/\\'/g;

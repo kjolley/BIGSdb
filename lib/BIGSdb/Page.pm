@@ -514,23 +514,23 @@ sub _print_login_details {
 	my ($self) = @_;
 	return if !$self->{'datastore'};
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	print "<div id=\"logindetails\">";
+	say qq(<div id="logindetails">);
 	if ( !$user_info ) {
 		if ( !$self->{'username'} ) {
-			print "<i>Not logged in.</i>\n";
+			say "<i>Not logged in.</i>";
 		} else {
-			print "<i>Logged in: <b>Unregistered user.</b></i>\n";
+			say "<i>Logged in: <b>Unregistered user.</b></i>";
 		}
 	} else {
-		print "<i>Logged in: <b>$user_info->{'first_name'} $user_info->{'surname'} ($self->{'username'}).</b></i>\n";
+		say "<i>Logged in: <b>$user_info->{'first_name'} $user_info->{'surname'} ($self->{'username'}).</b></i>";
 	}
 	if ( $self->{'system'}->{'authentication'} eq 'builtin' ) {
 		if ( $self->{'username'} ) {
-			print " <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=logout\">Log out</a> | ";
-			print " <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=changePassword\">Change password</a>";
+			say qq( <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=logout">Log out</a> | );
+			say qq( <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=changePassword">Change password</a>);
 		}
 	}
-	print "</div>\n";
+	say "</div>";
 	return;
 }
 

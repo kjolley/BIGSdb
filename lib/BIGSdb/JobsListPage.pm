@@ -50,7 +50,7 @@ sub print_content {
 	say "<h1>Jobs - $desc database</h1>";
 	my $jobs = $self->{'jobManager'}->get_user_jobs( $self->{'instance'}, $self->{'username'}, $days );
 	my $user = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	if ( !$user ) {
+	if ( !keys %$user ) {
 		say "<p>No information about current user.</p>";
 		return;
 	}

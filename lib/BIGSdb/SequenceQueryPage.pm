@@ -100,7 +100,7 @@ sub print_content {
 		}
 		my $group_list = $self->{'datastore'}->get_group_list( { seq_query => 1 } );
 		foreach ( reverse @$group_list ) {
-			my $group_schemes = $self->{'datastore'}->get_schemes_in_group( $_->{'id'}, { set_id => $set_id, with_members => 1 } );
+			my $group_schemes = $self->{'datastore'}->get_schemes_in_group( $_->{'id'}, { set_id => $set_id } );
 			if (@$group_schemes) {
 				unshift @$display_loci, "GROUP_$_->{'id'}";
 				$cleaned->{"GROUP_$_->{'id'}"} = $_->{'name'};
@@ -422,7 +422,7 @@ sub _output_scheme_fields {
 		if ( $locus =~ /SCHEME_(\d+)/ ) {
 			push @schemes, $1;
 		} elsif ( $locus =~ /GROUP_(\d+)/ ) {
-			my $group_schemes = $self->{'datastore'}->get_schemes_in_group( $1, { set_id => $set_id, with_members => 1 } );
+			my $group_schemes = $self->{'datastore'}->get_schemes_in_group( $1, { set_id => $set_id } );
 			push @schemes, @$group_schemes;
 		}
 		foreach my $scheme_id (@schemes) {
@@ -965,7 +965,7 @@ sub _data_linked_to_locus {
 		$qry = "SELECT EXISTS (SELECT * FROM $table WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id=$1))";
 	} elsif ( $locus =~ /GROUP_(\d+)/ ) {
 		my $set_id = $self->get_set_id;
-		my $group_schemes = $self->{'datastore'}->get_schemes_in_group( $1, { set_id => $set_id, with_members => 1 } );
+		my $group_schemes = $self->{'datastore'}->get_schemes_in_group( $1, { set_id => $set_id } );
 		local $" = ',';
 		$qry = "SELECT EXISTS (SELECT * FROM $table WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id "
 		  . "IN (@$group_schemes)))";

@@ -75,62 +75,39 @@ sub get_data_connector {
 
 sub get_user_info {
 	my ( $self, $id ) = @_;
-	if ( !$self->{'sql'}->{'user_info'} ) {
-		$self->{'sql'}->{'user_info'} = $self->{'db'}->prepare("SELECT first_name,surname,affiliation,email FROM users WHERE id=?");
-		$logger->info("Statement handle 'user_info' prepared.");
-	}
-	eval { $self->{'sql'}->{'user_info'}->execute($id) };
-	$logger->error($@) if $@;
-	return $self->{'sql'}->{'user_info'}->fetchrow_hashref;
+	return $self->run_query( "SELECT first_name,surname,affiliation,email FROM users WHERE id=?",
+		$id, { fetch => 'row_hashref', cache => 'get_user_info' } );
 }
 
 sub get_user_info_from_username {
-	my ( $self, $id ) = @_;
-	if ( !$self->{'sql'}->{'user_info_from_username'} ) {
-		$self->{'sql'}->{'user_info_from_username'} =
-		  $self->{'db'}->prepare("SELECT first_name,surname,affiliation,email FROM users WHERE user_name=?");
-		$logger->info("Statement handle 'user_info_from_username' prepared.");
-	}
-	eval { $self->{'sql'}->{'user_info_from_username'}->execute($id) };
-	$logger->error($@) if $@;
-	return $self->{'sql'}->{'user_info_from_username'}->fetchrow_hashref;
+	my ( $self, $user_name ) = @_;
+	return if !defined $user_name;
+	return $self->run_query( "SELECT first_name,surname,affiliation,email FROM users WHERE user_name=?",
+		$user_name, { fetch => 'row_hashref', cache => 'get_user_info_from_username' } );
 }
 
 sub get_permissions {
-
-	#don't bother caching query handle as this should only be called once
-	my ( $self, $username ) = @_;
-	my $sql =
-	  $self->{'db'}
-	  ->prepare("SELECT user_permissions.* FROM user_permissions LEFT JOIN users ON user_permissions.user_id = users.id WHERE user_name=?");
-	eval { $sql->execute($username) };
-	$logger->error($@) if $@;
-	return $sql->fetchrow_hashref;
+	my ( $self, $user_name ) = @_;
+	return $self->run_query(
+		"SELECT user_permissions.* FROM user_permissions LEFT JOIN users ON user_permissions.user_id = users.id WHERE user_name=?",
+		$user_name, { fetch => 'row_hashref' } );
 }
 
 sub get_isolate_field_values {
 	my ( $self, $isolate_id ) = @_;
-	if ( !$self->{'sql'}->{'isolate_field_values'} ) {
-		$self->{'sql'}->{'isolate_field_values'} = $self->{'db'}->prepare("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?");
-	}
-	eval { $self->{'sql'}->{'isolate_field_values'}->execute($isolate_id) };
-	$logger->error($@) if $@;
-	return $self->{'sql'}->{'isolate_field_values'}->fetchrow_hashref;
+	return $self->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?",
+		$isolate_id, { fetch => 'row_hashref', cache => 'get_isolate_field_values' } );
 }
 
 sub get_composite_value {
 	my ( $self, $isolate_id, $composite_field, $isolate_fields_hashref, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $value = '';
-	if ( !$self->{'sql'}->{'composite_field_values'} ) {
-		$self->{'sql'}->{'composite_field_values'} =
-		  $self->{'db'}
-		  ->prepare("SELECT field,empty_value,regex FROM composite_field_values WHERE composite_field_id=? ORDER BY field_order");
-		$logger->info("Statement handle 'composite_field_values' prepared.");
-	}
-	eval { $self->{'sql'}->{'composite_field_values'}->execute($composite_field) };
-	$logger->error($@) if $@;
-	while ( my ( $field, $empty_value, $regex ) = $self->{'sql'}->{'composite_field_values'}->fetchrow_array ) {
+	my $field_values =
+	  $self->run_query( "SELECT field,empty_value,regex FROM composite_field_values WHERE composite_field_id=? ORDER BY field_order",
+		$composite_field, { fetch => 'all_arrayref', cache => 'get_composite_value' } );
+	foreach my $field_value_arrayref (@$field_values) {
+		my ( $field, $empty_value, $regex ) = @$field_value_arrayref;
 		$empty_value //= '';
 		if (
 			defined $regex
@@ -291,7 +268,9 @@ sub get_scheme_field_values_by_designations {
 		}
 		local $" = ',';
 		my $query_key = "@allele_count";
-		if ( !$self->{'sql'}->{"field_values_$scheme_id\_$query_key"} ) {
+		my $qry;
+		my $cache_key = "field_values_$scheme_id\_$query_key";
+		if ( !$self->{'sql'}->{$cache_key} ) {            #Will be defined by Datastore::run_query
 			my $scheme_info = $self->get_scheme_info($scheme_id);
 			my @locus_terms;
 			my $i = 0;
@@ -307,12 +286,9 @@ sub get_scheme_field_values_by_designations {
 			local $" = ' AND ';
 			my $locus_term_string = "@locus_terms";
 			local $" = ',';
-			$self->{'sql'}->{"field_values_$scheme_id\_$query_key"} =
-			  $self->{'db'}->prepare("SELECT @$loci,@$fields FROM temp_scheme_$scheme_id WHERE $locus_term_string");
+			$qry = "SELECT @$loci,@$fields FROM temp_scheme_$scheme_id WHERE $locus_term_string";
 		}
-		eval { $self->{'sql'}->{"field_values_$scheme_id\_$query_key"}->execute(@allele_ids) };
-		$logger->error($@) if $@;
-		$field_data = $self->{'sql'}->{"field_values_$scheme_id\_$query_key"}->fetchall_arrayref( {} );
+		$field_data = $self->run_query( $qry, \@allele_ids, { fetch => 'all_arrayref', slice => {}, cache => $cache_key } );
 	} else {
 		my $scheme = $self->get_scheme($scheme_id);
 		$self->_convert_designations_to_profile_names( $scheme_id, $designations );
@@ -353,12 +329,10 @@ sub get_scheme_field_values_by_designations {
 
 sub _convert_designations_to_profile_names {
 	my ( $self, $scheme_id, $designations ) = @_;
-	if ( !$self->{'sql'}->{'convert_designations'} ) {
-		$self->{'sql'}->{'convert_designations'} =
-		  $self->{'db'}->prepare("SELECT locus, profile_name FROM scheme_members WHERE scheme_id=?");
-	}
-	eval { $self->{'sql'}->{'convert_designations'}->execute($scheme_id) };
-	while ( my ( $locus, $profile_name ) = $self->{'sql'}->{'convert_designations'}->fetchrow_array ) {
+	my $data = $self->run_query( "SELECT locus, profile_name FROM scheme_members WHERE scheme_id=?",
+		$scheme_id, { fetch => 'all_arrayref', cache => 'convert_designations_to_profile_names' } );
+	foreach (@$data) {
+		my ( $locus, $profile_name ) = @$_;
 		next if !defined $profile_name;
 		next if $locus eq $profile_name;
 		$designations->{$profile_name} = delete $designations->{$locus};
@@ -376,44 +350,27 @@ sub get_samples {
 
 	#return all sample fields except isolate_id
 	my ( $self, $id ) = @_;
-	if ( !$self->{'sql'}->{'get_samples'} ) {
-		my $fields = $self->{'xmlHandler'}->get_sample_field_list;
-		if ( !@$fields ) {
-			return \@;;
-		}
-		local $" = ',';
-		$self->{'sql'}->{'get_samples'} = $self->{'db'}->prepare("SELECT @$fields FROM samples WHERE isolate_id=? ORDER BY sample_id");
-		$logger->info("Statement handle 'get_samples' prepared.");
-	}
-	eval { $self->{'sql'}->{'get_samples'}->execute($id) };
-	$logger->error($@) if $@;
-	return $self->{'sql'}->{'get_samples'}->fetchall_arrayref( {} );
+	my $fields = $self->{'xmlHandler'}->get_sample_field_list;
+	return [] if !@$fields;
+	local $" = ',';
+	return $self->run_query( "SELECT @$fields FROM samples WHERE isolate_id=? ORDER BY sample_id",
+		$id, { fetch => 'all_arrayref', slice => {} } );
 }
 
 sub profile_exists {
 
 	#used for profile/sequence definitions databases
 	my ( $self, $scheme_id, $profile_id ) = @_;
-	return if !BIGSdb::Utils::is_int($scheme_id);
-	if ( !$self->{'sql'}->{'profile_exists'} ) {
-		$self->{'sql'}->{'profile_exists'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM profiles WHERE scheme_id=? AND profile_id=?");
-		$logger->info("Statement handle 'profile_exists' prepared.");
-	}
-	eval { $self->{'sql'}->{'profile_exists'}->execute( $scheme_id, $profile_id ) };
-	$logger->error($@) if $@;
-	my ($exists) = $self->{'sql'}->{'profile_exists'}->fetchrow_array;
-	return $exists;
+	return $self->run_query(
+		"SELECT EXISTS (SELECT * FROM profiles WHERE scheme_id=? AND profile_id=?)",
+		[ $scheme_id, $profile_id ],
+		{ fetch => 'row_array' }
+	);
 }
 ##############ISOLATE CLIENT DATABASE ACCESS FROM SEQUENCE DATABASE####################
 sub get_client_db_info {
 	my ( $self, $id ) = @_;
-	if ( !$self->{'sql'}->{'client_db_info'} ) {
-		$self->{'sql'}->{'client_db_info'} = $self->{'db'}->prepare("SELECT * FROM client_dbases WHERE id=?");
-		$logger->info("Statement handle 'client_db_info' prepared.");
-	}
-	eval { $self->{'sql'}->{'client_db_info'}->execute($id) };
-	$logger->error($@) if $@;
-	return $self->{'sql'}->{'client_db_info'}->fetchrow_hashref;
+	return $self->run_query( "SELECT * FROM client_dbases WHERE id=?", $id, { fetch => 'row_hashref', cache => 'get_client_db_info' } );
 }
 
 sub get_client_db {
@@ -443,71 +400,33 @@ sub get_client_db {
 sub scheme_exists {
 	my ( $self, $id ) = @_;
 	return 0 if !BIGSdb::Utils::is_int($id);
-	if ( !$self->{'sql'}->{'scheme_exists'} ) {
-		$self->{'sql'}->{'scheme_exists'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM schemes WHERE id=?");
-		$logger->info("Statement handle 'scheme_exists' prepared.");
-	}
-	eval { $self->{'sql'}->{'scheme_exists'}->execute($id) };
-	my ($exists) = $self->{'sql'}->{'scheme_exists'}->fetchrow_array;
-	return $exists;
+	return $self->run_query( "SELECT EXISTS(SELECT * FROM schemes WHERE id=?)", $id, { fetch => 'row_array' } );
 }
 
 sub get_scheme_info {
 	my ( $self, $scheme_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	if ( !$self->{'sql'}->{'scheme_info'} ) {
-		$self->{'sql'}->{'scheme_info'} = $self->{'db'}->prepare("SELECT * FROM schemes WHERE id=?");
-	}
-	eval { $self->{'sql'}->{'scheme_info'}->execute($scheme_id) };
-	$logger->error($@) if $@;
-	my $scheme_info = $self->{'sql'}->{'scheme_info'}->fetchrow_hashref;
+	my $scheme_info =
+	  $self->run_query( "SELECT * FROM schemes WHERE id=?", $scheme_id, { fetch => 'row_hashref', cache => 'get_scheme_info' } );
 	if ( $options->{'set_id'} ) {
-		if ( !$self->{'sql'}->{'set_scheme_info'} ) {
-			$self->{'sql'}->{'set_scheme_info'} = $self->{'db'}->prepare("SELECT set_name FROM set_schemes WHERE set_id=? AND scheme_id=?");
-		}
-		eval { $self->{'sql'}->{'set_scheme_info'}->execute( $options->{'set_id'}, $scheme_id ) };
-		$logger->error($@) if $@;
-		my ($desc) = $self->{'sql'}->{'set_scheme_info'}->fetchrow_array;
+		my ($desc) = $self->run_query(
+			"SELECT set_name FROM set_schemes WHERE set_id=? AND scheme_id=?",
+			[ $options->{'set_id'}, $scheme_id ],
+			{ fetch => 'row_array', cache => 'get_scheme_info_set_name' }
+		);
 		$scheme_info->{'description'} = $desc if defined $desc;
 	}
 	if ( $options->{'get_pk'} ) {
-		if ( !$self->{'sql'}->{'scheme_info_get_pk'} ) {
-			$self->{'sql'}->{'scheme_info_get_pk'} =
-			  $self->{'db'}->prepare("SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key");
-		}
-		eval { $self->{'sql'}->{'scheme_info_get_pk'}->execute($scheme_id) };
-		$logger->error($@) if $@;
-		my ($pk) = $self->{'sql'}->{'scheme_info_get_pk'}->fetchrow_array;
+		my ($pk) = $self->run_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key",
+			$scheme_id, { fetch => 'row_array', cache => 'get_scheme_info_pk' } );
 		$scheme_info->{'primary_key'} = $pk if $pk;
 	}
 	return $scheme_info;
 }
 
 sub get_all_scheme_info {
-
-	#NOTE: Data are returned in a cached reference that may be needed more than once.  If calling code needs to modify returned
-	#values then you MUST make a local copy.
 	my ($self) = @_;
-	if ( !$self->{'all_scheme_info'} ) {
-		my $sql = $self->{'db'}->prepare("SELECT * FROM schemes");
-		eval { $sql->execute };
-		$logger->error($@) if $@;
-		$self->{'all_scheme_info'} = $sql->fetchall_hashref('id');
-	}
-	return $self->{'all_scheme_info'};
-}
-
-sub get_all_scheme_loci {
-	my ($self) = @_;
-	my $sql = $self->{'db'}->prepare("SELECT scheme_id,locus FROM scheme_members ORDER BY field_order,locus");
-	eval { $sql->execute };
-	$logger->error($@) if $@;
-	my $loci;
-	my $data = $sql->fetchall_arrayref;
-	foreach ( @{$data} ) {
-		push @{ $loci->{ $_->[0] } }, $_->[1];
-	}
-	return $loci;
+	return $self->run_query( "SELECT * FROM schemes", undef, { fetch => 'all_hashref', key => 'id', cache => 'get_all_scheme_info' } );
 }
 
 sub get_scheme_loci {
@@ -516,23 +435,22 @@ sub get_scheme_loci {
 	#analyse_pref: only the loci for which the user has a analysis preference selected will be returned
 	#profile_name: to substitute profile field value in query
 	#	({profile_name => 1, analysis_pref => 1})
-	my ( $self, $id, $options ) = @_;
+	my ( $self, $scheme_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my @field_names = 'locus';
-	push @field_names, 'profile_name' if $self->{'system'}->{'dbtype'} eq 'isolates';
-	if ( !$self->{'sql'}->{'scheme_loci'} ) {
-		local $" = ',';
-		$self->{'sql'}->{'scheme_loci'} =
-		  $self->{'db'}->prepare("SELECT @field_names FROM scheme_members WHERE scheme_id=? ORDER BY field_order,locus");
-		$logger->info("Statement handle 'scheme_loci' prepared.");
+	if ( !$self->{'cache'}->{'scheme_loci'}->{$scheme_id} ) {
+		my $qry =
+		    'SELECT locus'
+		  . ( $self->{'system'}->{'dbtype'} eq 'isolates' ? ',profile_name' : '' )
+		  . ' FROM scheme_members WHERE scheme_id=? ORDER BY field_order,locus';
+		$self->{'cache'}->{'scheme_loci'}->{$scheme_id} =
+		  $self->run_query( $qry, $scheme_id, { fetch => 'all_arrayref', cache => 'get_scheme_loci' } );
 	}
-	eval { $self->{'sql'}->{'scheme_loci'}->execute($id) };
-	$logger->error($@) if $@;
 	my @loci;
-	while ( my ( $locus, $profile_name ) = $self->{'sql'}->{'scheme_loci'}->fetchrow_array ) {
+	foreach ( @{ $self->{'cache'}->{'scheme_loci'}->{$scheme_id} } ) {
+		my ( $locus, $profile_name ) = @$_;
 		if ( $options->{'analysis_pref'} ) {
 			if (   $self->{'prefs'}->{'analysis_loci'}->{$locus}
-				&& $self->{'prefs'}->{'analysis_schemes'}->{$id} )
+				&& $self->{'prefs'}->{'analysis_schemes'}->{$scheme_id} )
 			{
 				if ( $options->{'profile_name'} ) {
 					push @loci, $profile_name || $locus;
@@ -553,17 +471,8 @@ sub get_scheme_loci {
 
 sub get_locus_aliases {
 	my ( $self, $locus ) = @_;
-	if ( !$self->{'sql'}->{'locus_aliases'} ) {
-		$self->{'sql'}->{'locus_aliases'} =
-		  $self->{'db'}->prepare("SELECT alias FROM locus_aliases WHERE use_alias AND locus=? ORDER BY alias");
-	}
-	eval { $self->{'sql'}->{'locus_aliases'}->execute($locus) };
-	$logger->error($@) if $@;
-	my @aliases;
-	while ( my ($alias) = $self->{'sql'}->{'locus_aliases'}->fetchrow_array ) {
-		push @aliases, $alias;
-	}
-	return \@aliases;
+	return $self->run_query( "SELECT alias FROM locus_aliases WHERE use_alias AND locus=? ORDER BY alias",
+		$locus, { fetch => 'col_arrayref', cache => 'get_locus_aliases' } );
 }
 
 sub get_loci_in_no_scheme {
@@ -579,53 +488,26 @@ sub get_loci_in_no_scheme {
 	} else {
 		$qry = "SELECT id FROM loci LEFT JOIN scheme_members ON loci.id = scheme_members.locus where scheme_id is null ORDER BY id";
 	}
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute };
-	$logger->error($@) if $@;
+	my $data = $self->run_query( $qry, undef, { fetch => 'col_arrayref', cache => 'get_loci_in_no_scheme' } );
+	return $data if !$options->{'analyse_pref'};
 	my @loci;
-	while ( my ($locus) = $sql->fetchrow_array ) {
-		if ( $options->{'analyse_pref'} ) {
-			if ( $self->{'prefs'}->{'analysis_loci'}->{$locus} ) {
-				push @loci, $locus;
-			}
-		} else {
-			push @loci, $locus;
-		}
+	foreach my $locus (@$data) {
+		push @loci, $locus if $self->{'prefs'}->{'analysis_loci'}->{$locus};
 	}
 	return \@loci;
 }
 
-sub are_sequences_displayed_in_scheme {
-	my ( $self, $id ) = @_;
-	if ( !$self->{'sql'}->{'seq_display'} ) {
-		$self->{'sql'}->{'seq_display'} =
-		  $self->{'db'}->prepare("SELECT id FROM loci LEFT JOIN scheme_members ON scheme_members.locus = loci.id WHERE scheme_id=?");
-		$logger->info("Statement handle 'seq_display' prepared.");
-	}
-	eval { $self->{'sql'}->{'seq_display'}->execute($id) };
-	$logger->error($@) if $@;
-	my $value;
-	while ( my ($locus) = $self->{'sql'}->{'seq_display'}->fetchrow_array ) {
-		$value++
-		  if $self->{'prefs'}->{'isolate_display_loci'}->{$locus} eq 'sequence';
-	}
-	return $value ? 1 : 0;
-}
-
 sub get_scheme_fields {
-	my ( $self, $id ) = @_;
-	if ( !$self->{'sql'}->{'scheme_fields'} ) {
-		$self->{'sql'}->{'scheme_fields'} =
-		  $self->{'db'}->prepare("SELECT field FROM scheme_fields WHERE scheme_id=? ORDER BY field_order");
-		$logger->info("Statement handle 'scheme_fields' prepared.");
+
+	#NOTE: Data are returned in a cached reference that may be needed more than once.  If calling code needs to modify returned
+	#values then you MUST make a local copy.
+	my ( $self, $scheme_id ) = @_;
+	if ( !$self->{'cache'}->{'scheme_fields'}->{$scheme_id} ) {
+		$self->{'cache'}->{'scheme_fields'}->{$scheme_id} =
+		  $self->run_query( "SELECT field FROM scheme_fields WHERE scheme_id=? ORDER BY field_order",
+			$scheme_id, { fetch => 'col_arrayref', cache => 'get_scheme_fields' } );
 	}
-	eval { $self->{'sql'}->{'scheme_fields'}->execute($id) };
-	$logger->error($@) if $@;
-	my @fields;
-	while ( my ($field) = $self->{'sql'}->{'scheme_fields'}->fetchrow_array ) {
-		push @fields, $field;
-	}
-	return \@fields;
+	return $self->{'cache'}->{'scheme_fields'}->{$scheme_id};
 }
 
 sub get_all_scheme_fields {
@@ -633,28 +515,22 @@ sub get_all_scheme_fields {
 	#NOTE: Data are returned in a cached reference that may be needed more than once.  If calling code needs to modify returned
 	#values then you MUST make a local copy.
 	my ($self) = @_;
-	if ( !$self->{'all_scheme_fields'} ) {
-		my $sql = $self->{'db'}->prepare("SELECT scheme_id,field FROM scheme_fields ORDER BY field_order");
-		eval { $sql->execute; };
-		$logger->error($@) if $@;
-		my $data = $sql->fetchall_arrayref;
-		foreach ( @{$data} ) {
-			push @{ $self->{'all_scheme_fields'}->{ $_->[0] } }, $_->[1];
+	if ( !$self->{'cache'}->{'all_scheme_fields'} ) {
+		my $data = $self->run_query( "SELECT scheme_id,field FROM scheme_fields ORDER BY field_order", undef, { fetch => 'all_arrayref' } );
+		foreach (@$data) {
+			push @{ $self->{'cache'}->{'all_scheme_fields'}->{ $_->[0] } }, $_->[1];
 		}
 	}
-	return $self->{'all_scheme_fields'};
+	return $self->{'cache'}->{'all_scheme_fields'};
 }
 
 sub get_scheme_field_info {
 	my ( $self, $id, $field ) = @_;
-	if ( !$self->{'sql'}->{'scheme_field_info'} ) {
-		$self->{'sql'}->{'scheme_field_info'} = $self->{'db'}->prepare("SELECT * FROM scheme_fields WHERE scheme_id=? AND field=?");
-		$logger->info("Statement handle 'scheme_field_info' prepared.");
-	}
-	eval { $self->{'sql'}->{'scheme_field_info'}->execute( $id, $field ) };
-	$logger->error($@) if $@;
-	my $data = $self->{'sql'}->{'scheme_field_info'}->fetchrow_hashref;
-	return $data;
+	return $self->run_query(
+		"SELECT * FROM scheme_fields WHERE scheme_id=? AND field=?",
+		[ $id, $field ],
+		{ fetch => 'row_hashref', cache => 'get_scheme_field_info' }
+	);
 }
 
 sub get_all_scheme_field_info {
@@ -662,20 +538,17 @@ sub get_all_scheme_field_info {
 	#NOTE: Data are returned in a cached reference that may be needed more than once.  If calling code needs to modify returned
 	#values then you MUST make a local copy.
 	my ($self) = @_;
-	if ( !$self->{'all_scheme_field_info'} ) {
+	if ( !$self->{'cache'}->{'all_scheme_field_info'} ) {
 		my @fields = $self->{'system'}->{'dbtype'} eq 'isolates' ? qw(main_display isolate_display query_field dropdown url) : 'dropdown';
 		local $" = ',';
-		my $sql = $self->{'db'}->prepare("SELECT scheme_id,field,@fields FROM scheme_fields");
-		eval { $sql->execute };
-		$logger->error($@) if $@;
-		my $data_ref = $sql->fetchall_arrayref;
-		foreach ( @{$data_ref} ) {
-			for my $i ( 0 .. ( scalar @fields - 1 ) ) {
-				$self->{'all_scheme_field_info'}->{ $_->[0] }->{ $_->[1] }->{ $fields[$i] } = $_->[ $i + 2 ];
+		my $data = $self->run_query( "SELECT scheme_id,field,@fields FROM scheme_fields", undef, { fetch => 'all_arrayref' } );
+		foreach (@$data) {
+			for my $i ( 0 .. ( @fields - 1 ) ) {
+				$self->{'cache'}->{'all_scheme_field_info'}->{ $_->[0] }->{ $_->[1] }->{ $fields[$i] } = $_->[ $i + 2 ];
 			}
 		}
 	}
-	return $self->{'all_scheme_field_info'};
+	return $self->{'cache'}->{'all_scheme_field_info'};
 }
 
 sub get_scheme_list {
@@ -706,7 +579,7 @@ sub get_scheme_list {
 			  . "display_order,description";
 		}
 	}
-	my $list = $self->run_list_query_hashref($qry);
+	my $list = $self->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	foreach (@$list) {
 		$_->{'description'} = $_->{'set_name'} if $_->{'set_name'};
 	}
@@ -717,21 +590,21 @@ sub get_group_list {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $query_clause = $options->{'seq_query'} ? ' WHERE seq_query' : '';
-	my $qry          = "SELECT id,name,display_order FROM scheme_groups$query_clause ORDER BY display_order,name";
-	my $list         = $self->run_list_query_hashref($qry);
-	return $list;
+	return $self->run_query( "SELECT id,name,display_order FROM scheme_groups$query_clause ORDER BY display_order,name",
+		undef, { fetch => 'all_arrayref', slice => {} } );
 }
 
-sub get_groups_in_group {
+sub _get_groups_in_group {
 	my ( $self, $group_id, $level ) = @_;
 	$level //= 0;
 	$self->{'groups_in_group_list'} //= [];
-	my $child_groups = $self->run_list_query( "SELECT group_id FROM scheme_group_group_members WHERE parent_group_id=?", $group_id );
+	my $child_groups = $self->run_query( "SELECT group_id FROM scheme_group_group_members WHERE parent_group_id=?",
+		$group_id, { fetch => 'col_arrayref', cache => 'get_groups_in_group' } );
 	foreach my $child_group (@$child_groups) {
 		push @{ $self->{'groups_in_group_list'} }, $child_group;
 		my $new_level = $level;
 		last if $new_level == 10;    #prevent runaway if child is set as the parent of a parental group
-		my $grandchild_groups = $self->get_groups_in_group( $child_group, ++$new_level );
+		my $grandchild_groups = $self->_get_groups_in_group( $child_group, ++$new_level );
 		push @{ $self->{'groups_in_group_list'} }, @$grandchild_groups;
 	}
 	my @group_list = @{ $self->{'groups_in_group_list'} };
@@ -742,20 +615,18 @@ sub get_groups_in_group {
 sub get_schemes_in_group {
 	my ( $self, $group_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $set_clause    = $options->{'set_id'}       ? ' AND scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=?)' : '';
-	my $member_clause = $options->{'with_members'} ? ' AND scheme_id IN (SELECT scheme_id FROM scheme_members)'             : '';
-	my @args          = ($group_id);
+	my $set_clause = $options->{'set_id'} ? ' AND scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=?)' : '';
+	my @args = ($group_id);
 	push @args, $options->{'set_id'} if $options->{'set_id'};
-	my $schemes =
-	  $self->run_list_query( "SELECT scheme_id FROM scheme_group_scheme_members WHERE group_id=?$set_clause$member_clause", @args );
-	my $child_groups = $self->get_groups_in_group($group_id);
+	my $qry =
+"SELECT scheme_id FROM scheme_group_scheme_members WHERE group_id=?$set_clause AND scheme_id IN (SELECT scheme_id FROM scheme_members)";
+	my $schemes = $self->run_query( $qry, \@args, { fetch => 'col_arrayref', cache => 'get_schemes_in_group' } );
+	my $child_groups = $self->_get_groups_in_group($group_id);
 
 	foreach my $child_group (@$child_groups) {
 		my @child_args = ($child_group);
 		push @child_args, $options->{'set_id'} if $options->{'set_id'};
-		my $group_schemes =
-		  $self->run_list_query( "SELECT scheme_id FROM scheme_group_scheme_members WHERE group_id=?$set_clause$member_clause",
-			@child_args );
+		my $group_schemes = $self->run_query( $qry, \@child_args, { fetch => 'col_arrayref', cache => 'get_schemes_in_group' } );
 		push @$schemes, @$group_schemes;
 	}
 	return $schemes;
@@ -763,35 +634,31 @@ sub get_schemes_in_group {
 
 sub is_scheme_in_set {
 	my ( $self, $scheme_id, $set_id ) = @_;
-	if ( !$self->{'sql'}->{'scheme_in_set'} ) {
-		$self->{'sql'}->{'scheme_in_set'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM set_schemes WHERE scheme_id=? AND set_id=?");
-	}
-	eval { $self->{'sql'}->{'scheme_in_set'}->execute( $scheme_id, $set_id ) };
-	$logger->error($@) if $@;
-	my ($is_it) = $self->{'sql'}->{'scheme_in_set'}->fetchrow_array;
-	return $is_it;
+	return $self->run_query(
+		"SELECT EXISTS(SELECT * FROM set_schemes WHERE scheme_id=? AND set_id=?)",
+		[ $scheme_id, $set_id ],
+		{ fetch => 'row_array', cache => 'is_scheme_in_set' }
+	);
 }
 
 sub get_set_locus_real_id {
 	my ( $self, $locus, $set_id ) = @_;
-	if ( !$self->{'sql'}->{'set_locus_real_id'} ) {
-		$self->{'sql'}->{'set_locus_real_id'} = $self->{'db'}->prepare("SELECT locus FROM set_loci WHERE set_name=? AND set_id=?");
-	}
-	eval { $self->{'sql'}->{'set_locus_real_id'}->execute( $locus, $set_id ) };
-	$logger->error($@) if $@;
-	my ($real_id) = $self->{'sql'}->{'set_locus_real_id'}->fetchrow_array;
+	my $real_id = $self->run_query(
+		"SELECT locus FROM set_loci WHERE set_name=? AND set_id=?",
+		[ $locus, $set_id ],
+		{ fetch => 'row_array', cache => 'get_set_locus_real_id' }
+	);
 	return $real_id // $locus;
 }
 
 sub is_locus_in_set {
 	my ( $self, $locus, $set_id ) = @_;
-	if ( !$self->{'sql'}->{'locus_in_set'} ) {
-		$self->{'sql'}->{'locus_in_set'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM set_loci WHERE locus=? AND set_id=?");
-	}
-	eval { $self->{'sql'}->{'locus_in_set'}->execute( $locus, $set_id ) };
-	$logger->error($@) if $@;
-	my ($is_it) = $self->{'sql'}->{'locus_in_set'}->fetchrow_array;
-	return 1 if $is_it;
+	return 1
+	  if $self->run_query(
+		"SELECT EXISTS(SELECT * FROM set_loci WHERE locus=? AND set_id=?)",
+		[ $locus, $set_id ],
+		{ fetch => 'row_array', cache => 'is_locus_in_set' }
+	  );
 
 	#Also check if locus is in schemes within set
 	my $schemes = $self->get_scheme_list( { set_id => $set_id } );
@@ -803,9 +670,9 @@ sub is_locus_in_set {
 }
 
 sub get_scheme {
-	my ( $self, $id ) = @_;
-	if ( !$self->{'scheme'}->{$id} ) {
-		my $attributes = $self->get_scheme_info($id);
+	my ( $self, $scheme_id ) = @_;
+	if ( !$self->{'scheme'}->{$scheme_id} ) {
+		my $attributes = $self->get_scheme_info($scheme_id);
 		if ( $attributes->{'dbase_name'} ) {
 			my %att = (
 				dbase_name         => $attributes->{'dbase_name'},
@@ -822,13 +689,14 @@ sub get_scheme {
 				$logger->warn("Can not connect to database '$attributes->{'dbase_name'}'");
 			};
 		}
-		$attributes->{'fields'} = $self->get_scheme_fields($id);
-		$attributes->{'loci'} = $self->get_scheme_loci( $id, ( { profile_name => 1, analysis_pref => 0 } ) );
+		$attributes->{'fields'} = $self->get_scheme_fields($scheme_id);
+		$attributes->{'loci'} = $self->get_scheme_loci( $scheme_id, ( { profile_name => 1, analysis_pref => 0 } ) );
 		$attributes->{'primary_keys'} =
-		  $self->run_list_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key ORDER BY field_order", $id );
-		$self->{'scheme'}->{$id} = BIGSdb::Scheme->new(%$attributes);
+		  $self->run_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key ORDER BY field_order",
+			$scheme_id, { fetch => 'col_arrayref', cache => 'get_scheme_primary_keys' } );
+		$self->{'scheme'}->{$scheme_id} = BIGSdb::Scheme->new(%$attributes);
 	}
-	return $self->{'scheme'}->{$id};
+	return $self->{'scheme'}->{$scheme_id};
 }
 
 sub is_scheme_field {
@@ -843,8 +711,7 @@ sub create_temp_isolate_scheme_loci_view {
 	my $table = "temp_$view\_scheme_loci_$scheme_id";
 
 	#Test if view already exists
-	my $exists = $self->run_simple_query( "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)", $table );
-	return $table if $exists->[0];
+	return $table if $self->run_query( "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)", $table );
 	my $scheme_info  = $self->get_scheme_info($scheme_id);
 	my $loci         = $self->get_scheme_loci($scheme_id);
 	my $joined_query = "SELECT $view.id";
@@ -876,15 +743,13 @@ sub create_temp_isolate_scheme_fields_view {
 	my $view  = $self->{'system'}->{'view'};
 	my $table = "temp_$view\_scheme_fields_$scheme_id";
 	if ( !$options->{'cache'} ) {
-		my $exists = $self->run_simple_query( "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)", $table )->[0];
-		return $table if $exists;
+		return $table if $self->run_query( "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)", $table );
 
 		#Check if cache of whole isolate table exists
 		if ( $view ne 'isolates' ) {
 			my $full_table = "temp_isolates\_scheme_fields_$scheme_id";
-			$exists =
-			  $self->run_simple_query( "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)", $full_table )->[0];
-			return $full_table if $exists;
+			return $full_table
+			  if $self->run_query( "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)", $full_table );
 		}
 	}
 	my $scheme_table  = $self->create_temp_scheme_table( $scheme_id, $options );
@@ -947,11 +812,7 @@ sub create_temp_scheme_table {
 
 	#Test if table already exists
 	if ( !$options->{'cache'} ) {
-		my $exists = $self->run_simple_query( "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)", $table )->[0];
-		if ($exists) {
-			$logger->debug("Table already exists");
-			return $table;
-		}
+		return $table if $self->run_query( "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)", $table );
 	}
 	my $fields     = $self->get_scheme_fields($id);
 	my $loci       = $self->get_scheme_loci($id);
@@ -967,14 +828,14 @@ sub create_temp_scheme_table {
 		my $type = $self->get_scheme_field_info( $id, $_ )->{'type'};
 		push @table_fields, "$_ $type";
 	}
-	my $qry = "SELECT profile_name FROM scheme_members WHERE locus=? AND scheme_id=?";
-	my $sql = $self->{'db'}->prepare($qry);
 	my @query_loci;
 	foreach my $locus (@$loci) {
 		my $type = $scheme_info->{'allow_missing_loci'} ? 'text' : $self->get_locus_info($locus)->{'allele_id_format'};
-		eval { $sql->execute( $locus, $id ) };
-		$logger->error($@) if $@;
-		my ($profile_name) = $sql->fetchrow_array;
+		my $profile_name = $self->run_query(
+			"SELECT profile_name FROM scheme_members WHERE locus=? AND scheme_id=?",
+			[ $locus, $id ],
+			{ cache => 'create_temp_scheme_table_profile_name' }
+		);
 		$locus =~ s/'/_PRIME_/g;
 		$profile_name =~ s/'/_PRIME_/g if defined $profile_name;
 		push @table_fields, "$locus $type";
@@ -985,8 +846,8 @@ sub create_temp_scheme_table {
 	$create .= ")";
 	$self->{'db'}->do($create);
 	my $seqdef_table = $self->get_scheme_info($id)->{'dbase_table'};
-	$qry = "SELECT @$fields,@query_loci FROM $seqdef_table";
-	my $scheme_sql = $scheme_db->prepare($qry);
+	my $qry          = "SELECT @$fields,@query_loci FROM $seqdef_table";
+	my $scheme_sql   = $scheme_db->prepare($qry);
 	eval { $scheme_sql->execute };
 
 	if ($@) {
@@ -1062,14 +923,9 @@ sub _create_profile_indices {
 }
 
 sub get_scheme_group_info {
-	my ( $self, $locus ) = @_;
-	if ( !$self->{'sql'}->{'scheme_group_info'} ) {
-		$self->{'sql'}->{'scheme_group_info'} = $self->{'db'}->prepare("SELECT * FROM scheme_groups WHERE id=?");
-		$logger->info("Statement handle 'scheme_group_info' prepared.");
-	}
-	eval { $self->{'sql'}->{'scheme_group_info'}->execute($locus); };
-	$logger->error($@) if $@;
-	return $self->{'sql'}->{'scheme_group_info'}->fetchrow_hashref();
+	my ( $self, $group_id ) = @_;
+	return $self->run_query( "SELECT * FROM scheme_groups WHERE id=?", $group_id,
+		{ fetch => 'row_hashref', cache => 'get_scheme_group_info' } );
 }
 ##############LOCI#####################################################################
 sub get_loci {
@@ -1099,12 +955,9 @@ sub get_loci {
 		$qry = "SELECT id,scheme_id from loci left join scheme_members on loci.id = scheme_members.locus $defined_clause $set_clause "
 		  . "order by scheme_members.scheme_id,id";
 	}
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute };
-	$logger->error($@) if $@;
 	my @query_loci;
-	my $array_ref = $sql->fetchall_arrayref;
-	foreach (@$array_ref) {
+	my $data = $self->run_query( $qry, undef, { fetch => 'all_arrayref' } );
+	foreach (@$data) {
 		next
 		  if $options->{'query_pref'}
 		  && ( !$self->{'prefs'}->{'query_field_loci'}->{ $_->[0] }
@@ -1143,7 +996,7 @@ sub get_locus_list {
 		$qry .= ( $qry =~ /loci$/ ) ? ' WHERE ' : ' AND ';
 		$qry .= "loci.id NOT IN (SELECT locus from locus_extended_attributes)";
 	}
-	my $loci = $self->run_list_query_hashref($qry);
+	my $loci = $self->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	my $cleaned;
 	my $display_loci;
 	foreach my $locus (@$loci) {
@@ -1188,20 +1041,13 @@ sub get_locus_list {
 sub get_locus_info {
 	my ( $self, $locus, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	if ( !$self->{'sql'}->{'locus_info'} ) {
-		$self->{'sql'}->{'locus_info'} = $self->{'db'}->prepare("SELECT * FROM loci WHERE id=?");
-		$logger->info("Statement handle 'locus_info' prepared.");
-	}
-	eval { $self->{'sql'}->{'locus_info'}->execute($locus) };
-	$logger->error($@) if $@;
-	my $locus_info = $self->{'sql'}->{'locus_info'}->fetchrow_hashref;
+	my $locus_info = $self->run_query( "SELECT * FROM loci WHERE id=?", $locus, { fetch => 'row_hashref', cache => 'get_locus_info' } );
 	if ( $options->{'set_id'} ) {
-		if ( !$self->{'sql'}->{'set_locus_info'} ) {
-			$self->{'sql'}->{'set_locus_info'} = $self->{'db'}->prepare("SELECT * FROM set_loci WHERE set_id=? AND locus=?");
-		}
-		eval { $self->{'sql'}->{'set_locus_info'}->execute( $options->{'set_id'}, $locus ) };
-		$logger->error($@) if $@;
-		my $set_locus = $self->{'sql'}->{'set_locus_info'}->fetchrow_hashref;
+		my $set_locus = $self->run_query(
+			"SELECT * FROM set_loci WHERE set_id=? AND locus=?",
+			[ $options->{'set_id'}, $locus ],
+			{ fetch => 'row_hashref', cache => 'get_locus_info_set_loci' }
+		);
 		$locus_info->{'set_name'}        = $set_locus->{'set_name'};
 		$locus_info->{'set_common_name'} = $set_locus->{'set_common_name'};
 	}
@@ -1299,14 +1145,8 @@ sub get_allele_extended_attributes {
 
 sub get_all_allele_designations {
 	my ( $self, $isolate_id ) = @_;
-	if ( !$self->{'sql'}->{'all_allele_designation'} ) {
-		$self->{'sql'}->{'all_allele_designation'} =
-		  $self->{'db'}->prepare("SELECT locus,allele_id,status FROM allele_designations WHERE isolate_id=?");
-		$logger->info("Statement handle 'all_allele_designation' prepared.");
-	}
-	eval { $self->{'sql'}->{'all_allele_designation'}->execute($isolate_id) };
-	$logger->error($@) if $@;
-	my $data    = $self->{'sql'}->{'all_allele_designation'}->fetchall_arrayref;
+	my $data = $self->run_query( "SELECT locus,allele_id,status FROM allele_designations WHERE isolate_id=?",
+		$isolate_id, { fetch => 'all_arrayref', cache => 'get_all_allele_designations' } );
 	my $alleles = {};
 	foreach my $designation (@$data) {
 		$alleles->{ $designation->[0] }->{ $designation->[1] } = $designation->[2];
@@ -1318,30 +1158,24 @@ sub get_scheme_allele_designations {
 	my ( $self, $isolate_id, $scheme_id, $options ) = @_;
 	my $designations;
 	if ($scheme_id) {
-		if ( !$self->{'sql'}->{'scheme_allele_designations'} ) {
-			$self->{'sql'}->{'scheme_allele_designations'} =
-			  $self->{'db'}->prepare( "SELECT * FROM allele_designations WHERE isolate_id=? AND locus IN "
-				  . "(SELECT locus FROM scheme_members WHERE scheme_id=?) ORDER BY status,(substring (allele_id, '^[0-9]+'))::int, "
-				  . "allele_id" );
-		}
-		eval { $self->{'sql'}->{'scheme_allele_designations'}->execute( $isolate_id, $scheme_id ) };
-		$logger->error($@) if $@;
-		while ( my $designation = $self->{'sql'}->{'scheme_allele_designations'}->fetchrow_hashref ) {
+		my $data = $self->run_query(
+			"SELECT * FROM allele_designations WHERE isolate_id=? AND locus IN (SELECT locus FROM scheme_members WHERE scheme_id=?) "
+			  . "ORDER BY status,(substring (allele_id, '^[0-9]+'))::int,allele_id",
+			[ $isolate_id, $scheme_id ],
+			{ fetch => 'all_arrayref', slice => {}, cache => 'get_scheme_allele_designations_scheme' }
+		);
+		foreach my $designation (@$data) {
 			push @{ $designations->{ $designation->{'locus'} } }, $designation;
 		}
 	} else {
-		if ( !$self->{'sql'}->{'noscheme_allele_designations'} ) {
-			my $set_clause =
-			  $options->{'set_id'}
-			  ? "SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$options->{'set_id'})"
-			  : "SELECT locus FROM scheme_members";
-			$self->{'sql'}->{'noscheme_allele_designations'} =
-			  $self->{'db'}->prepare( "SELECT * FROM allele_designations WHERE isolate_id=? AND locus NOT IN ($set_clause) "
-				  . "ORDER BY status,date_entered,allele_id" );
-		}
-		eval { $self->{'sql'}->{'noscheme_allele_designations'}->execute($isolate_id) };
-		$logger->error($@) if $@;
-		while ( my $designation = $self->{'sql'}->{'noscheme_allele_designations'}->fetchrow_hashref ) {
+		my $set_clause =
+		  $options->{'set_id'}
+		  ? "SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$options->{'set_id'})"
+		  : "SELECT locus FROM scheme_members";
+		my $data = $self->run_query(
+			"SELECT * FROM allele_designations WHERE isolate_id=? AND locus NOT IN ($set_clause) ORDER BY status,date_entered,allele_id",
+			$isolate_id, { fetch => 'all_arrayref', slice => {}, cache => 'get_scheme_allele_designations_noscheme' } );
+		foreach my $designation (@$data) {
 			push @{ $designations->{ $designation->{'locus'} } }, $designation;
 		}
 	}
@@ -1831,6 +1665,52 @@ sub create_temp_ref_table {
 	return 1;
 }
 ##############SQL######################################################################
+sub run_query {
+
+	#Ultimately replace run_simple_query, run_simple_query_hashref, run_list_query_hashref and run_list_query
+	#$options->{'fetch'}: row_arrayref, row_array, row_hashref, col_arrayref, all_arrayref, all_hashref
+	#$options->{'cache'}: Name to cache the statement handle under.  Statement not cached if absent.
+	#$options->{'key'}: Key field(s) to use for returning all as hashrefs.  Should be an arrayref.
+	#$options->{'slice'}: Slice to return for all_arrayrefs.
+	my ( $self, $qry, $values, $options ) = @_;
+	if ( defined $values ) {
+		$values = [$values] if ref $values ne 'ARRAY';
+	} else {
+		$values = [];
+	}
+	$options = {} if ref $options ne 'HASH';
+	my $sql;
+	if ( $options->{'cache'} ) {
+		if ( !$self->{'sql'}->{ $options->{'cache'} } ) {
+			$self->{'sql'}->{ $options->{'cache'} } = $self->{'db'}->prepare($qry);
+		}
+		$sql = $self->{'sql'}->{ $options->{'cache'} };
+	} else {
+		$sql = $self->{'db'}->prepare($qry);
+	}
+	$options->{'fetch'} //= 'row_array';
+	if ( $options->{'fetch'} eq 'col_arrayref' ) {
+		my $data;
+		eval { $data = $self->{'db'}->selectcol_arrayref( $sql, undef, @$values ) };
+		$logger->logcluck($@) if $@;
+		return $data;
+	}
+	eval { $sql->execute(@$values) };
+	$logger->logcluck($@) if $@;
+	if    ( $options->{'fetch'} eq 'row_arrayref' ) { return $sql->fetchrow_arrayref }    #returns undef when no rows
+	elsif ( $options->{'fetch'} eq 'row_array' )    { return $sql->fetchrow_array }       #returns () when no rows
+	elsif ( $options->{'fetch'} eq 'row_hashref' )  { return $sql->fetchrow_hashref }     #returns undef when no rows
+	elsif ( $options->{'fetch'} eq 'all_hashref' ) {
+		if ( !defined $options->{'key'} ) {
+			$logger->logcluck("Key field(s) needs to be passed.");
+		}
+		return $sql->fetchall_hashref( $options->{'key'} );                               #returns {} when no rows
+	} elsif ( $options->{'fetch'} eq 'all_arrayref' ) {
+		return $sql->fetchall_arrayref( $options->{'slice'} );                            #returns [] when no rows
+	}
+	$logger->logcluck("Query failed - invalid fetch method specified.");
+	return;
+}
 
 sub run_simple_query {
 
