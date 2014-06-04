@@ -126,14 +126,23 @@ sub _define_allele {
 			}
 		);
 		$allele_id = $self->_get_next_id( $locus_db, $locus );
-		my $sql = $locus_db->prepare(
-			"INSERT INTO sequences (locus,allele_id,sequence,status,date_entered,datestamp,sender," . "curator) VALUES (?,?,?,?,?,?,?,?)" );
-		eval { $sql->execute( $locus, $allele_id, $seq, 'WGS: automated extract', 'now', 'now', DEFINER_USER, DEFINER_USER ) };
-		if ($@) {
-			$self->{'logger'}->error($@);
-			say "Can't add new allele.";
+		eval {
+			$locus_db->do(
+				"INSERT INTO sequences (locus,allele_id,sequence,status,date_entered,datestamp,sender,curator) VALUES (?,?,?,?,?,?,?,?)",
+				undef, $locus, $allele_id, $seq, 'WGS: automated extract',
+				'now', 'now', DEFINER_USER, DEFINER_USER
+			);
+		};
+		if ($@) {			
+			if ( $@ =~ /duplicate key value/ ) {
+				$self->{'logger'}->info("Duplicate allele: $locus-$allele_id (can't define)");
+				say "Can't add new allele - duplicate. Somebody else has probably defined allele in the past few minutes.";
+			} else {
+				$self->{'logger'}->error($@);
+				say "Can't add new allele. Error: $@";
+				$can_define = 0;
+			}
 			$locus_db->rollback;
-			$can_define = 0;
 		} else {
 			$locus_db->commit;
 			$self->{'logger'}->info("New allele defined: $locus-$allele_id");
@@ -150,14 +159,15 @@ sub _define_allele {
 
 sub _get_next_id {
 	my ( $self, $db, $locus ) = @_;
-	my $sql       = $db->prepare("SELECT EXISTS(SELECT allele_id FROM sequences WHERE locus=? AND allele_id=?)");
 	my $allele_id = 0;
 	my $exists;
 	do {
 		$allele_id++;
-		eval { $sql->execute( $locus, $allele_id ) };
-		$self->{'logger'}->error($@) if $@;
-		($exists) = $sql->fetchrow_array;
+		$exists = $self->{'datastore'}->run_query(
+			"SELECT EXISTS(SELECT allele_id FROM sequences WHERE locus=? AND allele_id=?)",
+			[ $locus, $allele_id ],
+			{ db => $db, fetch => 'row_array', cache => 'get_next_id' }
+		);
 	} while ($exists);
 	return $allele_id;
 }
@@ -209,25 +219,19 @@ sub _can_define_alleles {
 					dbase_name => $locus_info->{'dbase_name'}
 				}
 			);
-			my $sql = $locus_db->prepare("SELECT EXISTS(SELECT * FROM users WHERE id=? AND user_name=?)");
-			eval { $sql->execute( DEFINER_USER, DEFINER_USERNAME ) };
-			if ($@) {
-				$self->{'logger'}->error($@);
-				$can_define = 0;
-			}
-			my ($user_exists) = $sql->fetchrow_array;
+			my $user_exists = $self->{'datastore'}->run_query(
+				"SELECT EXISTS(SELECT * FROM users WHERE id=? AND user_name=?)",
+				[ DEFINER_USER, DEFINER_USERNAME ],
+				{ db => $locus_db }
+			);
 			if ( !$user_exists ) {
 				$self->{'logger'}->error("Autodefiner user does not exist in database for locus $locus.");
 				say "Autodefiner user does not exist in database for locus $locus.";
 				$can_define = 0;
 			}
-			$sql = $locus_db->prepare("SELECT EXISTS(SELECT * FROM locus_extended_attributes WHERE locus=? AND required)");
-			eval { $sql->execute($locus) };
-			if ($@) {
-				$self->{'logger'}->error($@);
-				$can_define = 0;
-			}
-			my ($extended_attributes) = $sql->fetchrow_array;
+			my $extended_attributes =
+			  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM locus_extended_attributes WHERE locus=? AND required)",
+				$locus, { db => $locus_db, cache => 'can_define_alleles_attributes' } );
 			if ($extended_attributes) {
 				$self->{'logger'}->error("Locus $locus has required extended attributes.");
 				say "Locus $locus has required extended attributes.";
