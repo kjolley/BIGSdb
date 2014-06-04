@@ -103,11 +103,10 @@ sub blast {
 			$qry .= " AND experiment_id=?";
 			push @criteria, $experiment;
 		}
-		my $sql = $self->{'db'}->prepare($qry);
-		eval { $sql->execute(@criteria) };
-		$logger->error($@) if $@;
+		my $seq_data = $self->{'datastore'}->run_query( $qry, \@criteria, { fetch => 'all_arrayref', cache => 'Scan::blast' } );
 		open( my $infile_fh, '>', $temp_infile ) or $logger->error("Can't open temp file $temp_infile for writing");
-		while ( my ( $id, $seq ) = $sql->fetchrow_array ) {
+		foreach (@$seq_data) {
+			my ( $id, $seq ) = @$_;
 			$seq_count++;
 			say $infile_fh ">$id\n$seq";
 		}
@@ -429,11 +428,10 @@ sub run_script {
 sub extract_seq_from_match {
 	my ( $self, $match ) = @_;
 	my $length = $match->{'predicted_end'} - $match->{'predicted_start'} + 1;
-	my $extract_seq_sql =
-	  $self->{'db'}->prepare("SELECT substring(sequence from $match->{'predicted_start'} for $length) FROM sequence_bin WHERE id=?");
-	eval { $extract_seq_sql->execute( $match->{'seqbin_id'} ) };
-	$logger->error($@) if $@;
-	my ($seq) = $extract_seq_sql->fetchrow_array;
+	my $seq =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT substring(sequence from $match->{'predicted_start'} for $length) FROM sequence_bin WHERE id=?",
+		$match->{'seqbin_id'} );
 	$seq = BIGSdb::Utils::reverse_complement($seq) if $match->{'reverse'};
 	$seq = uc($seq);
 	return $seq;
@@ -691,7 +689,6 @@ sub _parse_blast_exact {
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 	open( my $blast_fh, '<', $full_path ) || ( $logger->error("Can't open BLAST output file $full_path. $!"), return \@; );
 	my @matches;
-	my $ref_seq_sql = $self->{'db'}->prepare("SELECT length(reference_sequence) FROM loci WHERE id=?");
 	my $lengths;
 	my $matched_already;
 	my $region_matched_already;
@@ -704,11 +701,8 @@ sub _parse_blast_exact {
 			my $length;
 			if ( ref $lengths ne 'HASH' ) {
 				if ( $record[1] eq 'ref' ) {
-					eval {
-						$ref_seq_sql->execute($locus);
-						( $lengths->{'ref'} ) = $ref_seq_sql->fetchrow_array;
-					};
-					$logger->error($@) if $@;
+					$lengths->{'ref'} = $self->{'datastore'}->run_query( "SELECT length(reference_sequence) FROM loci WHERE id=?",
+						$locus, { cache => 'Scan::parse_blast_exact' } );
 				} else {
 					$lengths = $self->{'datastore'}->get_locus($locus)->get_all_sequence_lengths;
 				}
@@ -786,18 +780,16 @@ sub _parse_blast_partial {
 	$alignment = 50 if !BIGSdb::Utils::is_int($alignment);
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 	open( my $blast_fh, '<', $full_path ) || ( $logger->error("Can't open BLAST output file $full_path. $!"), return \$; );
-	my $ref_seq_sql = $self->{'db'}->prepare("SELECT length(reference_sequence) FROM loci WHERE id=?");
 	my %lengths;
   LINE: while ( my $line = <$blast_fh> ) {
 		next if !$line || $line =~ /^#/;
 		my @record = split /\s+/, $line;
 		if ( !$lengths{ $record[1] } ) {
 			if ( $record[1] eq 'ref' ) {
-				eval {
-					$ref_seq_sql->execute($locus);
-					( $lengths{ $record[1] } ) = $ref_seq_sql->fetchrow_array;
-				};
-				$logger->error($@) if $@;
+				$lengths{ $record[1] } = $self->{'datastore'}->run_query(
+					"SELECT length(reference_sequence) FROM loci WHERE id=?",
+					$locus, { cache => 'Scan::parse_blast_partial' }
+				);
 			} else {
 				my $seq_ref = $self->{'datastore'}->get_locus($locus)->get_allele_sequence( $record[1] );
 				next if !$$seq_ref;
