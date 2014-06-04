@@ -122,9 +122,8 @@ sub _check {
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_info   = $self->{'datastore'}->get_scheme_info($scheme_id);
 	my @mapped_loci;
-	my $set_id = $self->get_set_id;
 	foreach my $locus (@$loci) {
-		my $mapped = $self->{'datastore'}->get_set_locus_label( $locus, $set_id ) // $locus;
+		my $mapped = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
 		push @mapped_loci, $mapped;
 	}
 	my $q = $self->{'cgi'};

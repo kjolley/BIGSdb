@@ -73,7 +73,7 @@ sub get_headers {
 		push @headers, $primary_key;
 		my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		foreach my $locus (@$loci) {
-			my $label = $self->{'datastore'}->get_set_locus_label( $locus, $set_id );
+			my $label = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
 			push @headers, $label // $locus;
 		}
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);

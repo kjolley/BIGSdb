@@ -210,14 +210,7 @@ sub _get_select_items {
 	push @selectitems, $primary_key;
 	push @orderitems,  $primary_key;
 	foreach my $locus (@$loci) {
-		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-		$cleaned{$locus} = $locus;
-		$cleaned{$locus} .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
-		my $set_id = $self->get_set_id;
-		if ($set_id) {
-			my $set_cleaned = $self->{'datastore'}->get_set_locus_label( $locus, $set_id );
-			$cleaned{$locus} = $set_cleaned if $set_cleaned;
-		}
+		$cleaned{$locus} = $self->clean_locus( $locus, { text_output => 1 } );
 		push @selectitems, $locus;
 		push @orderitems,  $locus;
 	}

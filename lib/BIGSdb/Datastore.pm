@@ -1084,30 +1084,6 @@ sub is_locus {
 	my $loci = $self->get_loci( { do_not_order => 1 } );
 	return any { $_ eq $id } @$loci;
 }
-
-sub get_set_locus_label {
-	my ( $self, $locus, $set_id, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
-	if ( !$self->{'sql'}->{'get_set_locus_label'} ) {
-		$self->{'sql'}->{'get_set_locus_label'} = $self->{'db'}->prepare("SELECT * FROM set_loci WHERE set_id=? AND locus=?");
-	}
-	if ($set_id) {
-		eval { $self->{'sql'}->{'get_set_locus_label'}->execute( $set_id, $locus ) };
-		$logger->error($@) if $@;
-		my $set_loci = $self->{'sql'}->{'get_set_locus_label'}->fetchrow_hashref;
-		my $set_cleaned;
-		if ( $options->{'text_output'} ) {
-			$set_cleaned = $set_loci->{'set_name'} // $locus;
-			$set_cleaned .= " ($set_loci->{'set_common_name'})" if $set_loci->{'set_common_name'};
-		} else {
-			$set_cleaned = $set_loci->{'formatted_set_name'} // $set_loci->{'set_name'} // $locus;
-			my $common_name = $set_loci->{'formatted_set_common_name'} // $set_loci->{'set_common_name'};
-			$set_cleaned .= " ($common_name)" if $common_name;
-		}
-		return $set_cleaned;
-	}
-	return;
-}
 ##############ALLELES##################################################################
 sub get_allele_designations {
 	my ( $self, $isolate_id, $locus ) = @_;
@@ -1692,23 +1668,23 @@ sub run_query {
 	if ( $options->{'fetch'} eq 'col_arrayref' ) {
 		my $data;
 		eval { $data = $self->{'db'}->selectcol_arrayref( $sql, undef, @$values ) };
-		$logger->logcluck($@) if $@;
+		$logger->logcarp($@) if $@;
 		return $data;
 	}
 	eval { $sql->execute(@$values) };
-	$logger->logcluck($@) if $@;
+	$logger->logcarp($@) if $@;
 	if    ( $options->{'fetch'} eq 'row_arrayref' ) { return $sql->fetchrow_arrayref }    #returns undef when no rows
 	elsif ( $options->{'fetch'} eq 'row_array' )    { return $sql->fetchrow_array }       #returns () when no rows
 	elsif ( $options->{'fetch'} eq 'row_hashref' )  { return $sql->fetchrow_hashref }     #returns undef when no rows
 	elsif ( $options->{'fetch'} eq 'all_hashref' ) {
 		if ( !defined $options->{'key'} ) {
-			$logger->logcluck("Key field(s) needs to be passed.");
+			$logger->logcarp("Key field(s) needs to be passed.");
 		}
 		return $sql->fetchall_hashref( $options->{'key'} );                               #returns {} when no rows
 	} elsif ( $options->{'fetch'} eq 'all_arrayref' ) {
 		return $sql->fetchall_arrayref( $options->{'slice'} );                            #returns [] when no rows
 	}
-	$logger->logcluck("Query failed - invalid fetch method specified.");
+	$logger->logcarp("Query failed - invalid fetch method specified.");
 	return;
 }
 

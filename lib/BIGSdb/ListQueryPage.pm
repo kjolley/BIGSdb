@@ -100,17 +100,11 @@ sub _print_query_interface {
 			push @$field_list, "s_$scheme_id\_$_";
 			( $labels->{"s_$scheme_id\_$_"} = $_ ) =~ tr/_/ /;
 		}
-		my $set_id = $self->get_set_id;
 		my $loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		foreach my $locus (@$loci) {
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 			push @$field_list, "l_$locus";
-			$labels->{"l_$locus"} = $locus;
-			$labels->{"l_$locus"} .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
-			if ($set_id) {
-				my $set_cleaned = $self->{'datastore'}->get_set_locus_label( $locus, $set_id );
-				$labels->{"l_$locus"} = $set_cleaned if $set_cleaned;
-			}
+			$labels->{"l_$locus"} = $self->clean_locus( $locus, { text_output => 1 } );
 		}
 		$order_list   = $field_list;
 		$order_labels = $labels;

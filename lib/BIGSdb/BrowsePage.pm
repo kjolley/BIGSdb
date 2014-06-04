@@ -82,14 +82,8 @@ sub print_content {
 			}
 			my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 			foreach my $locus (@$loci) {
-				my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 				push @$order_by, $locus;
-				my $cleaned = $locus;
-				$cleaned .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
-				$cleaned =~ tr/_/ /;
-				my $set_cleaned = $self->{'datastore'}->get_set_locus_label( $locus, $set_id );
-				$cleaned = $set_cleaned if $set_cleaned;
-				$labels->{$locus} = $cleaned;
+				$labels->{$locus} = $self->clean_locus( $locus, { text_output => 1 } );
 			}
 			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 			foreach my $field (@$scheme_fields) {

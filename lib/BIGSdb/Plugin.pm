@@ -853,7 +853,7 @@ sub print_scheme_locus_fieldset {
 	my $locus_list = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $set_id     = $self->get_set_id;
 	my %labels;
-	( $labels{$_} = $self->{'datastore'}->get_set_locus_label( $_, $set_id ) ) foreach (@$locus_list);
+	( $labels{$_} = $self->clean_locus( $_, { text_output => 1 } ) ) foreach @$locus_list;
 	say "<fieldset style=\"float:left\"><legend>Select loci</legend>";
 	if (@$locus_list) {
 		print $self->{'cgi'}->scrolling_list(

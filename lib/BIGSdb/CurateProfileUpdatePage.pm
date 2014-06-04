@@ -333,13 +333,12 @@ sub _print_interface {
 	my $title_attribute = $title ? " title=\"$title\"" : '';
 	say qq(<li><label class="form" style="width:${width}em"$title_attribute>$label: !</label>);
 	say "<b>$profile_id</b></li>";
-	my $set_id = $self->get_set_id;
 
 	foreach my $locus (@$loci) {
 		my %html5_args = ( required => 'required' );
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		$html5_args{'type'} = 'number' if $locus_info->{'allele_id_format'} eq 'integer' && !$scheme_info->{'allow_missing_loci'};
-		my $mapped = $self->{'datastore'}->get_set_locus_label( $locus, $set_id ) // $locus;
+		my $mapped = $self->clean_locus( $locus, { no_common_name => 1 } );
 		( $label, $title ) = $self->get_truncated_label( $mapped, 24 );
 		$title_attribute = $title ? " title=\"$title\"" : '';
 		say qq(<li><label for="locus:$locus" class="form" style="width:${width}em"$title_attribute>$label: !</label>);

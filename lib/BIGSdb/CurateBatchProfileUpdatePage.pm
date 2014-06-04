@@ -116,7 +116,7 @@ sub _check {
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my ( %mapped, %reverse_mapped );
 	foreach my $locus (@$scheme_loci) {
-		my $mapped = $self->{'datastore'}->get_set_locus_label( $locus, $set_id ) // $locus;
+		my $mapped = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
 		$mapped{$locus}          = $mapped;
 		$reverse_mapped{$mapped} = $locus;
 	}
@@ -284,14 +284,12 @@ sub _update {
 		$i++;
 	}
 	close $fh;
-	my $set_id        = $self->get_set_id;
 	my $scheme_info   = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my %mapped;
 	foreach my $locus (@$scheme_loci) {
-		my $mapped = $self->{'datastore'}->get_set_locus_label( $locus, $set_id ) // $locus;
-		$mapped{$locus} = $mapped;
+		$mapped{$locus} = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
 	}
 	map { $mapped{$_} = $_ } @$scheme_fields;
 	say "<div class=\"box\" id=\"resultsheader\">";

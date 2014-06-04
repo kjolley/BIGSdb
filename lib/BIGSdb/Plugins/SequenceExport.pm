@@ -254,7 +254,7 @@ sub run_job {
 	my $progress = 0;
 	foreach my $locus_name (@$selected_loci) {
 		last if $self->{'exit'};
-		my $output_locus_name = $self->{'datastore'}->get_set_locus_label( $locus_name, $params->{'set_id'} ) // $locus_name;
+		my $output_locus_name = $self->clean_locus( $locus_name, { text_output => 1, no_common_name => 1 } );
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Processing $output_locus_name" } );
 		my %no_seq;
 		my $locus;

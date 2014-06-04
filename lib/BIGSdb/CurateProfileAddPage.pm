@@ -413,7 +413,7 @@ sub is_locus_field_bad {
 	}
 	my $locus_info = $self->{'cache'}->{'locus_info'}->{$locus};
 	my $set_id     = $self->get_set_id;
-	my $mapped     = $self->{'datastore'}->get_set_locus_label( $locus, $set_id ) // $locus;
+	my $mapped     = $self->clean_locus( $locus, { no_common_name => 1 } );
 	if ( !defined $value || $value eq '' ) {
 		return "Locus '$mapped' requires a value.";
 	} elsif ( $value eq '0' || $value eq 'N' ) {

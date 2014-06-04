@@ -225,17 +225,15 @@ sub _print_query_interface {
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		( $order_by, $dropdown_labels ) = $self->get_field_selection_list( { isolate_fields => 1, loci => 1, scheme_fields => 1 } );
 	} else {
-		my $order_by_temp;
-		push @$order_by_temp, $primary_key;
-		foreach ( @$loci, @$scheme_fields ) {
-			push @$order_by_temp, $_ if $_ ne $primary_key;
+		push @$order_by, "f_$primary_key";
+		foreach my $field (@$scheme_fields) {
+			push @$order_by, "f_$field" if $field ne $primary_key;
+			$dropdown_labels->{"f_$field"} = $field;
+			$dropdown_labels->{"f_$field"} =~ tr/_/ /;
 		}
-		foreach my $item (@$order_by_temp) {
-			$dropdown_labels->{"f_$item"} = $item;
-			push @$order_by, "f_$item";
-			my $locus_info = $self->{'datastore'}->get_locus_info($item);
-			$dropdown_labels->{"f_$item"} .= " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
-			$dropdown_labels->{"f_$item"} =~ tr/_/ /;
+		foreach my $locus (@$loci) {
+			push @$order_by, "f_$locus";
+			$dropdown_labels->{"f_$locus"} = $self->clean_locus( $locus, { text_output => 1 } );
 		}
 	}
 	say $q->popup_menu( -name => 'order', -id => 'order', -values => $order_by, -labels => $dropdown_labels );

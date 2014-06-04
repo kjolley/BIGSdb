@@ -483,10 +483,9 @@ sub _get_extra_seqbin_fields {
 sub _get_profile_fields {
 	my ( $self, $scheme_id, $primary_key, $data ) = @_;
 	my $loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $set_id = $self->get_set_id;
 	my $buffer;
 	foreach my $locus (@$loci) {
-		my $mapped = $self->{'datastore'}->get_set_locus_label( $locus, $set_id ) // $locus;
+		my $mapped = $self->clean_locus( $locus, { no_common_name => 1 } );
 		$buffer .= "<dt>$mapped&nbsp;</dt>";
 		my $allele_id =
 		  $self->{'datastore'}->run_simple_query( "SELECT allele_id FROM profile_members WHERE scheme_id=? AND locus=? AND profile_id=?",
