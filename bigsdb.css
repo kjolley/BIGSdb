@@ -51,9 +51,9 @@ a:hover {
 }
 
 th {background:#404090}
-th,a.th {color:#fff}
+th,th a {color:#fff}
 
-a.th:hover {
+th a:hover {
 	color:#bbf;
 	text-decoration:none
 }
