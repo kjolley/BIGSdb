@@ -194,29 +194,30 @@ sub create_temp_tables {
 	my $q        = $self->{'cgi'};
 	my $format   = $q->param('format') || 'html';
 	my $schemes  = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
-	my $view = $self->{'system'}->{'view'};
 	my $continue = 1;
-	try {
-
-		foreach (@$schemes) {
-			if ( $qry =~ /temp_$view\_scheme_fields_$_\s/ ) {
-				$self->{'datastore'}->create_temp_isolate_scheme_fields_view($_);
-			}
-			if ( $qry =~ /temp_scheme_$_\s/ || $qry =~ /ORDER BY s_$_\_/ ) {
-				$self->{'datastore'}->create_temp_scheme_table($_);
-				$self->{'datastore'}->create_temp_isolate_scheme_loci_view($_);
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		my $view = $self->{'system'}->{'view'};
+		try {
+			foreach (@$schemes) {
+				if ( $qry =~ /temp_$view\_scheme_fields_$_\s/ ) {
+					$self->{'datastore'}->create_temp_isolate_scheme_fields_view($_);
+				}
+				if ( $qry =~ /temp_scheme_$_\s/ || $qry =~ /ORDER BY s_$_\_/ ) {
+					$self->{'datastore'}->create_temp_scheme_table($_);
+					$self->{'datastore'}->create_temp_isolate_scheme_loci_view($_);
+				}
 			}
 		}
+		catch BIGSdb::DatabaseConnectionException with {
+			if ( $format ne 'text' ) {
+				say "<div class=\"box\" id=\"statusbad\"><p>Can not connect to remote database.  The query can not be performed.</p></div>";
+			} else {
+				say "Can not connect to remote database.  The query can not be performed.";
+			}
+			$logger->error("Can't connect to remote database.");
+			$continue = 0;
+		};
 	}
-	catch BIGSdb::DatabaseConnectionException with {
-		if ( $format ne 'text' ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>Can not connect to remote database.  The query can not be performed.</p></div>";
-		} else {
-			say "Can not connect to remote database.  The query can not be performed.";
-		}
-		$logger->error("Can't connect to remote database.");
-		$continue = 0;
-	};
 	if ( $q->param('list_file') && $q->param('datatype') ) {
 		$self->{'datastore'}->create_temp_list_table( $q->param('datatype'), $q->param('list_file') );
 	}
