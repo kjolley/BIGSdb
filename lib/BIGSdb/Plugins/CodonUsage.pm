@@ -128,7 +128,7 @@ sub get_attributes {
 		buttontext  => 'Codons',
 		menutext    => 'Codon usage',
 		module      => 'CodonUsage',
-		version     => '1.2.0',
+		version     => '1.2.1',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -238,23 +238,15 @@ sub run_job {
 	my $number_by_isolate = "$self->{'config'}->{'tmp_dir'}/$job_id\_number_by_isolate.txt";
 	my $rscu_by_locus     = "$self->{'config'}->{'tmp_dir'}/$job_id\_rscu_by_locus.txt";
 	my $number_by_locus   = "$self->{'config'}->{'tmp_dir'}/$job_id\_number_by_locus.txt";
-	my $isolate_sql;
 	my @includes;
-
 	if ( $params->{'includes'} ) {
 		my $separator = '\|\|';
 		@includes = split /$separator/, $params->{'includes'};
-		$isolate_sql = $self->{'db'}->prepare("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?");
 	}
 	my $ignore_seqflag;
 	if ( $params->{'ignore_seqflags'} ) {
 		$ignore_seqflag = 'AND flag IS NULL';
 	}
-	my $seqbin_sql =
-	  $self->{'db'}->prepare( "SELECT substring(sequence from allele_sequences.start_pos for allele_sequences.end_pos-allele_sequences."
-		  . "start_pos+1),reverse FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id LEFT JOIN "
-		  . "sequence_flags ON allele_sequences.id=sequence_flags.id WHERE allele_sequences.isolate_id=? AND allele_sequences.locus=? "
-		  . "AND complete $ignore_seqflag ORDER BY allele_sequences.datestamp LIMIT 1" );
 	my $start         = 1;
 	my $no_output     = 1;
 	my $list          = $self->{'jobManager'}->get_job_isolates($job_id);
@@ -270,6 +262,7 @@ sub run_job {
 	}
 	my %includes;
 	my %bad_ids;
+	my $view = $self->{'system'}->{'view'};
 	foreach my $locus_name (@$selected_loci) {
 		my $locus;
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
@@ -291,14 +284,17 @@ sub run_job {
 			my $buffer;
 			next if $bad_ids{$id};
 			if (   !BIGSdb::Utils::is_int($id)
-				|| !$self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE id=?", $id )->[0] )
+				|| !$self->{'datastore'}
+				->run_query( "SELECT EXISTS(SELECT * FROM $view WHERE id=?)", $id, { cache => 'CodonUsage::run_job_id_exists' } )
+			  )
 			{
 				$bad_ids{$id} = 1;
 				next;
 			}
 			if (@includes) {
-				eval { $isolate_sql->execute($id) };
-				my $include_data = $isolate_sql->fetchrow_hashref;
+				my $include_data =
+				  $self->{'datastore'}
+				  ->run_query( "SELECT * FROM $view WHERE id=?", $id, { fetch => 'row_hashref', cache => 'CodonUsage::run_job_includes' } );
 				foreach my $field (@includes) {
 					my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 					my $value;
@@ -325,16 +321,20 @@ sub run_job {
 				}
 			}
 			my $seqbin_seq;
-			eval { $seqbin_sql->execute( $id, $locus_name ) };
-			if ($@) {
-				$logger->error($@) if $@;
-			} else {
-				while ( my ( $seq, $reverse ) = $seqbin_sql->fetchrow_array ) {
-					if ($reverse) {
-						$seq = BIGSdb::Utils::reverse_complement($seq);
-					}
-					$seqbin_seq .= BIGSdb::Utils::chop_seq( $seq, $locus_info->{'orf'} || 1 );
+			my $data = $self->{'datastore'}->run_query(
+				"SELECT substring(sequence from allele_sequences.start_pos for allele_sequences.end_pos-allele_sequences."
+				  . "start_pos+1),reverse FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id LEFT JOIN "
+				  . "sequence_flags ON allele_sequences.id=sequence_flags.id WHERE allele_sequences.isolate_id=? AND allele_sequences.locus=? "
+				  . "AND complete $ignore_seqflag ORDER BY allele_sequences.datestamp LIMIT 1",
+				[ $id, $locus_name ],
+				{ fetch => 'all_arrayref', cache => 'CodonUsage::run_job_seqbin' }
+			);
+			foreach (@$data) {
+				my ( $seq, $reverse ) = @$_;
+				if ($reverse) {
+					$seq = BIGSdb::Utils::reverse_complement($seq);
 				}
+				$seqbin_seq .= BIGSdb::Utils::chop_seq( $seq, $locus_info->{'orf'} || 1 );
 			}
 			my $seq;
 			if ( $allele_seq && $seqbin_seq ) {
