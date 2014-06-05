@@ -228,7 +228,6 @@ sub run {
 	my $q = $self->{'cgi'};
 	if ( $q->param('submit') ) {
 		my @ids = $q->param('isolate_id');
-#		$q->delete('isolate_id');
 		my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list( { dont_clear => 1 } );
 		push @ids, @$pasted_cleaned_ids;
 		@ids = uniq @ids;
