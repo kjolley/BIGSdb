@@ -231,7 +231,7 @@ sub run {
 			my $length = abs( $end - $start + 1 );
 			my $qry    = "SELECT substring(sequence from $start for $length) AS seq,substring(sequence from ($start-$flanking) "
 			  . "for $flanking) AS upstream,substring(sequence from ($end+1) for $flanking) AS downstream FROM sequence_bin WHERE id=?";
-			my $seq_ref = $self->{'datastore'}->run_simple_query_hashref( $qry, $match->{'seqbin_id'} );
+			my $seq_ref = $self->{'datastore'}->run_query( $qry, $match->{'seqbin_id'}, { fetch => 'row_hashref' } );
 			$seq_ref->{'seq'}        = BIGSdb::Utils::reverse_complement( $seq_ref->{'seq'} )        if $match->{'reverse'};
 			$seq_ref->{'upstream'}   = BIGSdb::Utils::reverse_complement( $seq_ref->{'upstream'} )   if $match->{'reverse'};
 			$seq_ref->{'downstream'} = BIGSdb::Utils::reverse_complement( $seq_ref->{'downstream'} ) if $match->{'reverse'};

@@ -241,8 +241,7 @@ sub run {
 	my $datatype        = $q->param('datatype');
 	my $listfile_clause = defined $list_file ? "&amp;list_file=$list_file" : '';
 	my $datatype_clause = defined $datatype ? "&amp;datatype=$datatype" : '';
-	say
-	  "<p id=\"links\"><a href='$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;"
+	say "<p id=\"links\"><a href='$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;"
 	  . "function=summary_table$query_clause$listfile_clause$datatype_clause&amp;field=$name&amp;format=html'>Display table</a> | "
 	  . "<a href='$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;"
 	  . "function=summary_table$query_clause$listfile_clause$datatype_clause&amp;field=$name&amp;format=text'>Tab-delimited text</a> | "
@@ -310,7 +309,7 @@ sub _create_chartdirector_chart {
 
 sub _is_composite_field {
 	my ( $self, $field ) = @_;
-	my $is_composite = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM composite_fields WHERE id=?", $field )->[0];
+	my $is_composite = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM composite_fields WHERE id=?)", $field );
 	return $is_composite;
 }
 

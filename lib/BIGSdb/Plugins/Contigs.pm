@@ -278,8 +278,8 @@ sub _print_interface {
 	} else {
 		$selected_ids = [];
 	}
-	my $seqbin_values = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT id FROM sequence_bin)");
-	if ( !$seqbin_values->[0] ) {
+	my $seqbin_values = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM sequence_bin)");
+	if ( !$seqbin_values ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>There are no sequences in the sequence bin.</p></div>";
 		return;
 	}

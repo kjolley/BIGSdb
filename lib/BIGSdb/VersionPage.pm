@@ -153,7 +153,7 @@ sub _print_software_versions {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say "<h2>Software versions</h2>";
-	my $pg_version = $self->{'datastore'}->run_simple_query("SELECT version()")->[0];
+	my $pg_version = $self->{'datastore'}->run_query("SELECT version()");
 	say "<ul>";
 	say "<li>Perl $]</li>";
 	say "<li>$pg_version</li>";

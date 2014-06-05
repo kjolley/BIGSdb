@@ -461,8 +461,7 @@ sub _get_row {
 	{
 		$tooltip = $self->_get_designation_tooltip( $isolate_id, $locus, 'clashing' );
 	}
-	my $seqbin_length =
-	  $self->{'datastore'}->run_simple_query( "SELECT length(sequence) FROM sequence_bin WHERE id=?", $match->{'seqbin_id'} )->[0];
+	my $seqbin_length = $self->{'datastore'}->run_query( "SELECT length(sequence) FROM sequence_bin WHERE id=?", $match->{'seqbin_id'} );
 	my $off_end;
 	my $hunt_for_start_end = ( !$exact && $params->{'hunt'} ) ? 1 : 0;
 	my $original_start     = $match->{'predicted_start'};
@@ -504,14 +503,14 @@ sub _get_row {
 			$predicted_end =~ s/\*//;
 			my $predicted_length = $predicted_end - $predicted_start + 1;
 			$predicted_length = 1 if $predicted_length < 1;
-			my $seq_ref =
+			my $seq =
 			  $self->{'datastore'}
-			  ->run_simple_query( "SELECT substring(sequence from $predicted_start for $predicted_length) FROM sequence_bin WHERE id=?",
+			  ->run_query( "SELECT substring(sequence from $predicted_start for $predicted_length) FROM sequence_bin WHERE id=?",
 				$match->{'seqbin_id'} );
 
-			if ( ref $seq_ref eq 'ARRAY' ) {
-				$seq_ref->[0] = BIGSdb::Utils::reverse_complement( $seq_ref->[0] ) if $match->{'reverse'};
-				( $complete_gene, $status ) = $self->is_complete_gene( $seq_ref->[0], { return_status => 1 } );
+			if ($seq) {
+				$seq = BIGSdb::Utils::reverse_complement($seq) if $match->{'reverse'};
+				( $complete_gene, $status ) = $self->is_complete_gene( $seq, { return_status => 1 } );
 				if ($complete_gene) {
 					$complete_tooltip = "<a class=\"cds\" title=\"CDS - this is a complete coding sequence including start and "
 					  . "terminating stop codons with no internal stop codons.\">CDS</a>";
@@ -567,7 +566,6 @@ sub _get_row {
 	  . "end=$predicted_end&amp;reverse=$match->{'reverse'}&amp;translate=$translate&amp;orf=$orf\">extract&nbsp;&rarr;</a>"
 	  . "$complete_tooltip</td>";
 	$buffer .= "<td style=\"font-size:2em\">" . ( $match->{'reverse'} ? '&larr;' : '&rarr;' ) . "</td><td>";
-	my $sender = $self->{'datastore'}->run_simple_query( "SELECT sender FROM sequence_bin WHERE id=?", $match->{'seqbin_id'} )->[0];
 	my $seq_disabled = 0;
 	$cleaned_locus = $self->clean_checkbox_id($locus);
 	$cleaned_locus =~ s/\\/\\\\/g;
