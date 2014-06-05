@@ -1,6 +1,6 @@
 #BLAST.pm - BLAST plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -103,7 +103,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.1.3',
+		version     => '1.1.4',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -131,26 +131,10 @@ sub run {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $view   = $self->{'system'}->{'view'};
-	my $sql =
-	  $self->{'db'}->prepare( "SELECT DISTINCT $view.id,$view.$self->{'system'}->{'labelfield'} FROM $view WHERE $view.id IN "
-		  . "(SELECT isolate_id FROM sequence_bin) ORDER BY $view.id" );
-	eval { $sql->execute };
-	$logger->error($@) if $@;
-	my @ids;
-	my %labels;
-
-	while ( my ( $id, $isolate ) = $sql->fetchrow_array ) {
-		push @ids, $id;
-		$labels{$id} = "$id) $isolate";
-	}
-	print "<h1>BLAST</h1>\n";
-	if ( !@ids ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>There are no sequences in the sequence bin.</p></div>";
-		return;
-	}
-	$self->_print_interface( \@ids, \%labels );
+	say "<h1>BLAST</h1>";
+	$self->_print_interface;
 	return if !( $q->param('submit') && $q->param('sequence') );
-	@ids = $q->param('isolate_id');
+	my @ids = $q->param('isolate_id');
 	if ( !@ids ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>You must select one or more isolates.</p></div>";
 		return;
@@ -161,8 +145,7 @@ sub run {
 		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 		$meta_labels{$field} = $metafield;
 	}
-	my $isolate_sql = $self->{'db'}->prepare("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?");
-	my $seq         = $q->param('sequence');
+	my $seq = $q->param('sequence');
 	print "<div class=\"box\" id=\"resultstable\">\n";
 	my $header_buffer = "<table class=\"resultstable\">\n";
 	my $labelfield    = $self->{'system'}->{'labelfield'};
@@ -171,16 +154,16 @@ sub run {
 	$header_buffer .= "<th>" . ( $meta_labels{$_} // $_ ) . '</th>' foreach @includes;
 	$header_buffer .= "<th>% identity</th><th>Alignment length</th><th>Mismatches</th><th>Gaps</th><th>Seqbin id</th><th>Start</th>"
 	  . "<th>End</th><th>Orientation</th><th>E-value</th><th>Bit score</th></tr>\n";
-	my $first        = 1;
-	my $some_results = 0;
-	$sql = $self->{'db'}->prepare("SELECT $labelfield FROM $self->{'system'}->{'view'} WHERE id=?");
-	my $td                = 1;
-	my $temp              = BIGSdb::Utils::get_random();
-	my $out_file          = "$temp.txt";
-	my $out_file_flanking = "$temp\_flanking.txt";
-	my $out_file_table    = "$temp\_table.txt";
-	open( my $fh_output_table, '>>', "$self->{'config'}->{'tmp_dir'}/$out_file_table" )
-	  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$out_file_table for writing");
+	my $first                    = 1;
+	my $some_results             = 0;
+	my $td                       = 1;
+	my $prefix                   = BIGSdb::Utils::get_random();
+	my $out_file                 = "$prefix.txt";
+	my $out_file_flanking        = "$prefix\_flanking.txt";
+	my $out_file_table           = "$prefix\_table.txt";
+	my $out_file_table_full_path = "$self->{'config'}->{'tmp_dir'}/$out_file_table";
+	open( my $fh_output_table, '>', $out_file_table_full_path )
+	  or $logger->error("Can't open temp file $out_file_table_full_path for writing");
 	print $fh_output_table "Isolate id\t$display_label\t";
 	print $fh_output_table ( $meta_labels{$_} // $_ ) . "\t" foreach @includes;
 	say $fh_output_table "% identity\tAlignment length\tMismatches\tGaps\tSeqbin id\tStart\tEnd\tOrientation\tE-value\tBit score";
@@ -192,9 +175,9 @@ sub run {
 		print $header_buffer if $first;
 		my @include_values;
 		if (@includes) {
-			eval { $isolate_sql->execute($id) };
-			$logger->error($@) if $@;
-			my $include_data = $isolate_sql->fetchrow_hashref;
+			my $include_data =
+			  $self->{'datastore'}
+			  ->run_query( "SELECT * FROM $view WHERE id=?", $id, { fetch => 'row_hashref', cache => 'BLAST::run_isolates' } );
 			foreach my $field (@includes) {
 				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 				my $value;
@@ -207,13 +190,10 @@ sub run {
 			}
 		}
 		$some_results = 1;
-		eval { $sql->execute($id) };
-		$logger->error($@) if $@;
-		my ($label)     = $sql->fetchrow_array;
-		my $rows        = @$matches;
+		my $label = $self->{'datastore'}->run_query( "SELECT $labelfield FROM $view WHERE id=?", $id, { cache => 'BLAST::run_label' } );
+		my $rows = @$matches;
 		my $first_match = 1;
 		my $flanking = $q->param('flanking') // $self->{'prefs'}->{'flanking'};
-
 		foreach my $match (@$matches) {
 			my $file_buffer;
 			if ($first_match) {
@@ -300,6 +280,8 @@ sub run {
 		say " <a class=\"tooltip\" title=\"Flanking sequence - You can change the amount of flanking sequence exported by selecting "
 		  . "the appropriate length in the options page.\">&nbsp;<i>i</i>&nbsp;</a> | ";
 		say "<a href=\"/tmp/$out_file_table\">Table (tab-delimited text)</a>";
+		my $excel = BIGSdb::Utils::text2excel( $out_file_table_full_path, { worksheet => "BLAST" } );
+		say qq(| <a href=/tmp/$prefix\_table.xlsx>Excel format</a></li>) if -e $excel;
 		say "</p>";
 	} else {
 		say "<p>No matches found.</p>";
@@ -309,31 +291,25 @@ sub run {
 }
 
 sub _print_interface {
-	my ( $self, $ids, $labels ) = @_;
-	my $q            = $self->{'cgi'};
-	my $query_file   = $q->param('query_file');
-	my $qry_ref      = $self->get_query($query_file);
-	my $selected_ids = defined $query_file ? $self->get_ids_from_query($qry_ref) : [];
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
+	my $query_file = $q->param('query_file');
+	my $qry_ref    = $self->get_query($query_file);
+	my $selected_ids;
+	if ( $q->param('isolate_id') ) {
+		my @ids = $q->param('isolate_id');
+		$selected_ids = \@ids;
+	} elsif ( defined $query_file ) {
+		$selected_ids = $self->get_ids_from_query($qry_ref);
+	} else {
+		$selected_ids = [];
+	}
 	say "<div class=\"box\" id=\"queryform\">";
 	say "<p>Please select the required isolate ids to BLAST against (use ctrl or shift to make multiple selections) and paste in your "
 	  . "query sequence.  Nucleotide or peptide sequences can be queried.</p>";
 	say $q->start_form;
 	say "<div class=\"scrollable\">";
-	say "<fieldset style=\"float:left\">\n<legend>Isolates</legend>";
-	say $q->scrolling_list(
-		-name     => 'isolate_id',
-		-id       => 'isolate_id',
-		-values   => $ids,
-		-labels   => $labels,
-		-size     => 8,
-		-multiple => 'true',
-		-default  => $selected_ids
-	);
-	say "<div style=\"text-align:center\"><input type=\"button\" onclick='listbox_selectall(\"isolate_id\",true)' "
-	  . "value=\"All\" style=\"margin-top:1em\" class=\"smallbutton\" />\n";
-	say "<input type=\"button\" onclick='listbox_selectall(\"isolate_id\",false)' value=\"None\" "
-	  . "style=\"margin-top:1em\" class=\"smallbutton\" /></div>\n";
-	say "</fieldset>";
+	$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids } );
 	say "<fieldset style=\"float:left\"><legend>Paste sequence</legend>";
 	say $q->textarea( -name => 'sequence', -rows => 8, -cols => 70 );
 	say "</fieldset>";
@@ -342,6 +318,7 @@ sub _print_interface {
 	my $set_id        = $self->get_set_id;
 	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
 	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $labels        = {};
 
 	foreach my $field (@$field_list) {
 		next if $field eq $self->{'system'}->{'labelfield'};
@@ -464,12 +441,11 @@ sub _blast {
 		$qry .= " AND experiment_id=?";
 		push @criteria, $experiment;
 	}
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute(@criteria); };
-	$logger->error($@) if $@;
+	my $data = $self->{'datastore'}->run_query( $qry, \@criteria, { fetch => 'all_arrayref', cache => 'BLAST::blast' } );
 	open( my $fastafile_fh, '>', $temp_fastafile ) or $logger->error("Can't open temp file $temp_fastafile for writing");
-	while ( my ( $id, $seq ) = $sql->fetchrow_array ) {
-		print $fastafile_fh ">$id\n$seq\n";
+	foreach (@$data) {
+		my ( $id, $seq ) = @$_;
+		say $fastafile_fh ">$id\n$seq";
 	}
 	close $fastafile_fh;
 	return if -z $temp_fastafile;
