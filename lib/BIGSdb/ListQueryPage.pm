@@ -100,7 +100,7 @@ sub _print_query_interface {
 			push @$field_list, "s_$scheme_id\_$_";
 			( $labels->{"s_$scheme_id\_$_"} = $_ ) =~ tr/_/ /;
 		}
-		my $loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
+		my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		foreach my $locus (@$loci) {
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 			push @$field_list, "l_$locus";
@@ -162,6 +162,7 @@ sub _run_profile_query {
 		my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$list_file";
 		open( my $list_fh, '>', $full_path ) || $logger->error("Can't open $list_file for writing");
 		my $valid_values = 0;
+
 		foreach my $value (@list) {
 			next if $self->_format_value( $field, $datatype, \$value ) == INVALID_VALUE;
 			next if !defined $value;
@@ -304,6 +305,7 @@ sub _run_isolate_query {
 			} elsif ( $fieldtype eq 'extended_isolate' ) {
 				$tempqry .= "$view.$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE "
 				  . "isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) = upper(E'$value'))";
+				$do_not_use_table = 1;
 			}
 		}
 		close $list_fh;
