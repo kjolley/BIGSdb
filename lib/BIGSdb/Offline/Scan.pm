@@ -592,10 +592,11 @@ sub _get_row {
 		$buffer .= $q->checkbox( -name => "id_$isolate_id\_$locus\_allele_$id", -label => '', disabled => 'disabled' );
 	}
 	$buffer .= "</td><td>";
-	my $existing_allele_sequence =
-	  $self->{'datastore'}
-	  ->run_simple_query_hashref( "SELECT * FROM allele_sequences WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=?",
-		$match->{'seqbin_id'}, $locus, $predicted_start, $predicted_end );
+	my $existing_allele_sequence = $self->{'datastore'}->run_query(
+		"SELECT id FROM allele_sequences WHERE seqbin_id=? AND locus=? AND start_pos=? AND end_pos=?",
+		[ $match->{'seqbin_id'}, $locus, $predicted_start, $predicted_end ],
+		{ fetch => 'row_hashref', cache => 'Scan::get_row_existing_allele_sequence' }
+	);
 	if ( !$existing_allele_sequence ) {
 		$buffer .= $q->checkbox(
 			-name    => "id_$isolate_id\_$locus\_sequence_$id",
@@ -786,10 +787,9 @@ sub _parse_blast_partial {
 		my @record = split /\s+/, $line;
 		if ( !$lengths{ $record[1] } ) {
 			if ( $record[1] eq 'ref' ) {
-				$lengths{ $record[1] } = $self->{'datastore'}->run_query(
-					"SELECT length(reference_sequence) FROM loci WHERE id=?",
-					$locus, { cache => 'Scan::parse_blast_partial' }
-				);
+				$lengths{ $record[1] } =
+				  $self->{'datastore'}
+				  ->run_query( "SELECT length(reference_sequence) FROM loci WHERE id=?", $locus, { cache => 'Scan::parse_blast_partial' } );
 			} else {
 				my $seq_ref = $self->{'datastore'}->get_locus($locus)->get_allele_sequence( $record[1] );
 				next if !$$seq_ref;
@@ -1118,26 +1118,26 @@ sub _simulate_hybridization {
 sub _probe_filter_match {
 	my ( $self, $locus, $blast_match, $probe_matches ) = @_;
 	my $good_match = 0;
-	my %probe_info;
-	foreach (@$probe_matches) {
-		if ( !$probe_info{ $_->{'probe_id'} } ) {
-			$probe_info{ $_->{'probe_id'} } =
-			  $self->{'datastore'}
-			  ->run_simple_query_hashref( "SELECT * FROM probe_locus WHERE locus=? AND probe_id=?", $locus, $_->{'probe_id'} );
+	foreach my $match (@$probe_matches) {
+		if ( !$self->{'probe_locus'}->{$locus}->{ $match->{'probe_id'} } ) {
+			$self->{'probe_locus'}->{$locus}->{ $match->{'probe_id'} } = $self->{'datastore'}->run_query(
+				"SELECT * FROM probe_locus WHERE locus=? AND probe_id=?",
+				[ $locus, $match->{'probe_id'} ],
+				{ fetch => 'row_hashref' }
+			);
 		}
-		next if $blast_match->{'seqbin_id'} != $_->{'seqbin_id'};
+		next if $blast_match->{'seqbin_id'} != $match->{'seqbin_id'};
 		my $probe_distance = -1;
-		if ( $blast_match->{'start'} > $_->{'end'} ) {
-			$probe_distance = $blast_match->{'start'} - $_->{'end'};
+		if ( $blast_match->{'start'} > $match->{'end'} ) {
+			$probe_distance = $blast_match->{'start'} - $match->{'end'};
 		}
-		if ( $blast_match->{'end'} < $_->{'start'} ) {
-			my $end_distance = $_->{'start'} - $blast_match->{'end'};
+		if ( $blast_match->{'end'} < $match->{'start'} ) {
+			my $end_distance = $match->{'start'} - $blast_match->{'end'};
 			if ( ( $end_distance < $probe_distance ) || ( $probe_distance == -1 ) ) {
 				$probe_distance = $end_distance;
 			}
 		}
-		next if ( $probe_distance > $probe_info{ $_->{'probe_id'} }->{'max_distance'} ) || $probe_distance == -1;
-		$logger->debug("Probe distance: $probe_distance");
+		next if ( $probe_distance > $self->{'probe_locus'}->{$locus}->{ $match->{'probe_id'} }->{'max_distance'} ) || $probe_distance == -1;
 		return 1;
 	}
 	return 0;
