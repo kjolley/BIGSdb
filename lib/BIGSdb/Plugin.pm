@@ -194,11 +194,12 @@ sub create_temp_tables {
 	my $q        = $self->{'cgi'};
 	my $format   = $q->param('format') || 'html';
 	my $schemes  = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+	my $view = $self->{'system'}->{'view'};
 	my $continue = 1;
 	try {
 
 		foreach (@$schemes) {
-			if ( $qry =~ /temp_isolates_scheme_fields_$_\s/ ) {
+			if ( $qry =~ /temp_$view\_scheme_fields_$_\s/ ) {
 				$self->{'datastore'}->create_temp_isolate_scheme_fields_view($_);
 			}
 			if ( $qry =~ /temp_scheme_$_\s/ || $qry =~ /ORDER BY s_$_\_/ ) {

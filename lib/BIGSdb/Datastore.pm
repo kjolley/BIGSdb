@@ -1498,7 +1498,7 @@ sub create_temp_ref_table {
 	};
 	return if !$continue;
 	my $create = "CREATE TEMP TABLE temp_refs (pmid int, year int, journal text, volume text, pages text, title text, "
-	  . "abstract text, authors text, isolates int, PRIMARY KEY (pmid))";
+	  . "abstract text, authors text, isolates int)";
 	eval { $self->{'db'}->do($create); };
 	if ($@) {
 		$logger->error("Can't create temporary reference table. $@");
@@ -1537,6 +1537,8 @@ sub create_temp_ref_table {
 		};
 		$logger->error($@) if $@;
 	}
+	eval { $self->{'db'}->do("CREATE INDEX i_tr1 ON temp_refs(pmid)") };
+	$logger->error($@) if $@;
 	return 1;
 }
 ##############SQL######################################################################

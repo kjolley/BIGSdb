@@ -47,21 +47,24 @@ sub paged_display {
 	}
 	my $schemes  = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 	my $continue = 1;
-	try {
-		foreach my $scheme_id (@$schemes) {
-			if ( $qry =~ /temp_isolates_scheme_fields_$scheme_id\D/ ) {
-				$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
-			} elsif ( $qry =~ /temp_scheme_$scheme_id\D/ || $qry =~ /ORDER BY s_$scheme_id\D/ ) {
-				$self->{'datastore'}->create_temp_scheme_table($scheme_id);
-				$self->{'datastore'}->create_temp_isolate_scheme_loci_view($scheme_id);
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		my $view = $self->{'system'}->{'view'};
+		try {
+			foreach my $scheme_id (@$schemes) {
+				if ( $qry =~ /temp_$view\_scheme_fields_$scheme_id\D/ ) {
+					$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+				} elsif ( $qry =~ /temp_scheme_$scheme_id\D/ || $qry =~ /ORDER BY s_$scheme_id\D/ ) {
+					$self->{'datastore'}->create_temp_scheme_table($scheme_id);
+					$self->{'datastore'}->create_temp_isolate_scheme_loci_view($scheme_id);
+				}
 			}
 		}
+		catch BIGSdb::DatabaseConnectionException with {
+			say "<div class=\"box\" id=\"statusbad\"><p>Can not connect to remote database.  The query can not be performed.</p></div>";
+			$logger->error("Can't create temporary table");
+			$continue = 0;
+		};
 	}
-	catch BIGSdb::DatabaseConnectionException with {
-		print "<div class=\"box\" id=\"statusbad\"><p>Can not connect to remote database.  The query can not be performed.</p></div>\n";
-		$logger->error("Can't create temporary table");
-		$continue = 0;
-	};
 	return if !$continue;
 	$message = $q->param('message') if !$message;
 
