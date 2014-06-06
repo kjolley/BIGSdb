@@ -643,7 +643,7 @@ sub get_field_selection_list {
 
 			if ($set_id) {
 				my $set_loci_sql = $self->{'db'}->prepare("SELECT * FROM set_loci WHERE set_id=?");
-				eval {$set_loci_sql->execute($set_id)};
+				eval { $set_loci_sql->execute($set_id) };
 				$logger->error($@) if $@;
 				$set_loci = $set_loci_sql->fetchall_hashref('locus');
 			}
@@ -1099,7 +1099,8 @@ sub clean_locus {
 	my $set_id     = $self->get_set_id;
 	if ($set_id) {
 		my $set_locus =
-		  $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM set_loci WHERE set_id=? AND locus=?", $set_id, $locus );
+		  $self->{'datastore'}
+		  ->run_query( "SELECT * FROM set_loci WHERE set_id=? AND locus=?", [ $set_id, $locus ], { fetch => 'row_hashref' } );
 		if ( $set_locus->{'set_name'} ) {
 			$locus = $set_locus->{'set_name'};
 			$locus = $set_locus->{'formatted_set_name'} if !$options->{'text_output'} && $set_locus->{'formatted_set_name'};
@@ -1166,7 +1167,7 @@ sub get_db_description {
 	return $desc if $self->{'system'}->{'sets'} && $self->{'system'}->{'set_id'};
 	my $set_id = $self->get_set_id;
 	if ($set_id) {
-		my $desc_ref = $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM sets WHERE id=?", $set_id );
+		my $desc_ref = $self->{'datastore'}->run_query( "SELECT * FROM sets WHERE id=?", $set_id, { fetch => 'row_hashref' } );
 		$desc .= ' (' . $desc_ref->{'description'} . ')' if $desc_ref->{'description'} && !$desc_ref->{'hidden'};
 	}
 	$desc =~ s/\&/\&amp;/g;

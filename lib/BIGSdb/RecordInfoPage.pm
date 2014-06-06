@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -58,7 +58,7 @@ sub print_content {
 	local $" = '=? AND ';
 	my $qry = "SELECT * FROM $table WHERE @primary_keys=?";
 	local $" = ' ';
-	my $data = $self->{'datastore'}->run_simple_query_hashref( $qry, @values );
+	my $data = $self->{'datastore'}->run_query( $qry, \@values, {fetch=>'row_hashref'} );
 	if ( !$data ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>Record does not exist.</p></div>";
 		return;

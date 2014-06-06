@@ -1609,6 +1609,7 @@ sub run_simple_query_hashref {
 	#Deprecated!  Use run_query instead.
 	#runs simple query (single row returned) against current database
 	my ( $self, $qry, @values ) = @_;
+	$logger->logcarp("Datastore::run_simple_query_hashref is deprecated!  Use Datastore::run_query instead.");  #TODO remove method
 	$logger->debug("Query: $qry");
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute(@values) };

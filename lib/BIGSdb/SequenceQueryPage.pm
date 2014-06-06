@@ -355,8 +355,8 @@ sub _output_single_query_exact {
 			$field_values = $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $_->{'allele'}, { table_format => 1 } );
 			$attributes   = $self->{'datastore'}->get_allele_attributes( $locus, [ $_->{'allele'} ] );
 			$allele_info =
-			  $self->{'datastore'}
-			  ->run_simple_query_hashref( "SELECT * FROM sequences WHERE locus=? AND allele_id=?", $locus, $_->{'allele'} );
+			  $self->{'datastore'}->run_query( "SELECT * FROM sequences WHERE locus=? AND allele_id=?", [ $locus, $_->{'allele'} ],
+				{ fetch => 'row_hashref' } );
 			$flags = $self->{'datastore'}->get_allele_flags( $locus, $_->{'allele'} );
 		} else {    #either all loci or a scheme selected
 			my ( $extracted_locus, $allele_id );
@@ -371,9 +371,11 @@ sub _output_single_query_exact {
 				$field_values =
 				  $self->{'datastore'}->get_client_data_linked_to_allele( $extracted_locus, $allele_id, { table_format => 1 } );
 				$attributes = $self->{'datastore'}->get_allele_attributes( $extracted_locus, [$allele_id] );
-				$allele_info =
-				  $self->{'datastore'}
-				  ->run_simple_query_hashref( "SELECT * FROM sequences WHERE locus=? AND allele_id=?", $extracted_locus, $allele_id );
+				$allele_info = $self->{'datastore'}->run_query(
+					"SELECT * FROM sequences WHERE locus=? AND allele_id=?",
+					[ $extracted_locus, $allele_id ],
+					{ fetch => 'row_hashref' }
+				);
 				$flags = $self->{'datastore'}->get_allele_flags( $extracted_locus, $allele_id );
 			}
 			$buffer .=
@@ -458,7 +460,8 @@ sub _print_scheme_table {
 		my $temp_qry_string = "@temp_qry";
 		local $" = ',';
 		my $values =
-		  $self->{'datastore'}->run_simple_query_hashref("SELECT @$scheme_fields FROM scheme_$scheme_id WHERE ($temp_qry_string)");
+		  $self->{'datastore'}
+		  ->run_query( "SELECT @$scheme_fields FROM scheme_$scheme_id WHERE ($temp_qry_string)", undef, { fetch => 'row_hashref' } );
 		my $buffer = "<h2>$scheme_info->{'description'}</h2>\n<table>";
 		my $td     = 1;
 		foreach my $field (@$scheme_fields) {
