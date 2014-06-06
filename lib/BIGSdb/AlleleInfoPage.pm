@@ -48,8 +48,9 @@ sub print_content {
 		return;
 	}
 	my $seq_ref =
-	  $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM sequences WHERE locus=? AND allele_id=?", $locus, $allele_id );
-	if ( !defined $seq_ref->{'allele_id'} ) {
+	  $self->{'datastore'}
+	  ->run_query( "SELECT * FROM sequences WHERE locus=? AND allele_id=?", [ $locus, $allele_id ], { fetch => 'row_hashref' } );
+	if ( !$seq_ref ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>This sequence does not exist.</p></div>";
 		return;
 	}

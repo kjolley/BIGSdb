@@ -100,7 +100,7 @@ sub format_seqbin_sequence {
 	my $length = abs( $args->{'end'} - $args->{'start'} + 1 );
 	my $qry    = "SELECT substring(sequence from $args->{'start'} for $length) AS seq,substring(sequence from ($args->{'start'}-$flanking) "
 	  . "for $flanking) AS upstream,substring(sequence from ($args->{'end'}+1) for $flanking) AS downstream FROM sequence_bin WHERE id=?";
-	my $seq_ref = $self->{'datastore'}->run_simple_query_hashref( $qry, $args->{'seqbin_id'} );
+	my $seq_ref = $self->{'datastore'}->run_query( $qry, $args->{'seqbin_id'}, { fetch => 'row_hashref' } );
 	$seq_ref->{'seq'}        = BIGSdb::Utils::reverse_complement( $seq_ref->{'seq'} )        if $args->{'reverse'};
 	$seq_ref->{'upstream'}   = BIGSdb::Utils::reverse_complement( $seq_ref->{'upstream'} )   if $args->{'reverse'};
 	$seq_ref->{'downstream'} = BIGSdb::Utils::reverse_complement( $seq_ref->{'downstream'} ) if $args->{'reverse'};

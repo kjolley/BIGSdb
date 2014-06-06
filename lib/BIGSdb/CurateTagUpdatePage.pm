@@ -35,7 +35,8 @@ sub print_content {
 		say qq(<div class="box" id="statusbad"><p>Tag id must be an integer.</p></div>);
 		return;
 	}
-	my $existing_tag = $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM allele_sequences WHERE id=?", $id );
+	my $existing_tag =
+	  $self->{'datastore'}->run_query( "SELECT * FROM allele_sequences WHERE id=?", $id, { fetch => 'row_hashref' } );
 	if ( !$existing_tag ) {
 		say qq(<div class="box" id="statusbad"><p>Tag does not exist.</p></div>);
 		return;

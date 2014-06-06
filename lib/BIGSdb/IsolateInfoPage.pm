@@ -185,7 +185,8 @@ sub print_content {
 		say "<div class=\"box\" id=\"statusbad\"><p>This function can only be called for isolate databases.</p></div>";
 		return;
 	}
-	my $data = $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id );
+	my $data =
+	  $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id, { fetch => 'row_hashref' } );
 	if ( !$data ) {
 		say "<h1>Isolate information: id-$isolate_id</h1>";
 		say "<div class=\"box\" id=\"statusbad\"><p>The database contains no record of this isolate.</p></div>";
@@ -259,7 +260,7 @@ sub get_isolate_record {
 	$summary_view ||= 0;
 	my $buffer;
 	my $q = $self->{'cgi'};
-	my $data = $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $id );
+	my $data = $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $id, { fetch => 'row_hashref' } );
 	if ( !$data ) {
 		$logger->error("Record $id does not exist");
 		throw BIGSdb::DatabaseNoRecordException("Record $id does not exist");
@@ -565,8 +566,7 @@ sub _get_loci_not_in_schemes {
 	my $loci_with_designations =
 	  $self->{'datastore'}->run_list_query( "SELECT locus FROM allele_designations WHERE isolate_id=?", $isolate_id );
 	my %designations = map { $_ => 1 } @$loci_with_designations;
-	my $loci_with_tags =
-	  $self->{'datastore'}->run_list_query( "SELECT locus FROM allele_sequences WHERE isolate_id=?", $isolate_id );
+	my $loci_with_tags = $self->{'datastore'}->run_list_query( "SELECT locus FROM allele_sequences WHERE isolate_id=?", $isolate_id );
 	my %tags = map { $_ => 1 } @$loci_with_tags;
 
 	foreach my $locus (@$loci_in_no_scheme) {

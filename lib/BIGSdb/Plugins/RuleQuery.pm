@@ -1,6 +1,6 @@
 #RuleQuery.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2012-2013, University of Oxford
+#Copyright (c) 2012-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -39,7 +39,7 @@ sub get_attributes {
 		category         => 'Analysis',
 		menutext         => 'Rule Query',
 		module           => 'RuleQuery',
-		version          => '1.0.2',
+		version          => '1.0.3',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => '',
@@ -98,8 +98,8 @@ sub run {
 		}
 		my $temp = BIGSdb::Utils::get_random();
 		my $file = "$self->{'config'}->{'tmp_dir'}/$temp.seq";
-		$q->param(upload_file => "$temp.seq");
-		open (my $fh, '>', $file) || $logger->error("Can't open $file for writing");
+		$q->param( upload_file => "$temp.seq" );
+		open( my $fh, '>', $file ) || $logger->error("Can't open $file for writing");
 		say $fh $sequence;
 		close $fh;
 	} elsif ( $q->param('fasta_upload') ) {
@@ -313,9 +313,8 @@ sub _scan_scheme {
 		if ( @$scheme_fields && $scheme_loci ) {
 			local $" = ',';
 			my $field_values =
-			  $self->{'datastore'}
-			  ->run_simple_query_hashref( "SELECT @$scheme_fields FROM scheme_$scheme_id WHERE (@$scheme_loci) = (@placeholders)",
-				@profiles );
+			  $self->{'datastore'}->run_query( "SELECT @$scheme_fields FROM scheme_$scheme_id WHERE (@$scheme_loci) = (@placeholders)",
+				\@profiles, { fetch => 'row_hashref' } );
 			foreach my $field (@$scheme_fields) {
 				$self->{'results'}->{'scheme'}->{$scheme_id}->{$field} = $field_values->{ lc($field) }
 				  if defined $field_values->{ lc($field) };
@@ -331,7 +330,8 @@ sub _scan_group {
 	push @groups, @{ $self->_get_child_groups($group_id) };
 	foreach my $group (@groups) {
 		my $group_schemes =
-		  $self->{'datastore'}->run_list_query( "SELECT scheme_id FROM scheme_group_scheme_members WHERE group_id=?", $group );
+		  $self->{'datastore'}
+		  ->run_query( "SELECT scheme_id FROM scheme_group_scheme_members WHERE group_id=?", $group, { fetch => 'col_arrayref' } );
 		foreach my $scheme_id (@$group_schemes) {
 			$self->_scan_scheme( $scheme_id, $self->{'sequence'} );
 		}
@@ -347,7 +347,8 @@ sub _get_child_groups {
 		my @temp_groups;
 		foreach my $group (@groups_to_test) {
 			my $groups =
-			  $self->{'datastore'}->run_list_query( "SELECT group_id FROM scheme_group_group_members WHERE parent_group_id=?", $group );
+			  $self->{'datastore'}
+			  ->run_query( "SELECT group_id FROM scheme_group_group_members WHERE parent_group_id=?", $group, { fetch => 'col_arrayref' } );
 			push @temp_groups, @$groups;
 		}
 		last if !@temp_groups;

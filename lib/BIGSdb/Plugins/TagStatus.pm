@@ -92,8 +92,8 @@ sub run {
 
 sub _breakdown_isolate {
 	my ( $self, $id ) = @_;
-	my $isolate = $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $id );
-	if ( !defined $isolate ) {
+	my $isolate = $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $id, {fetch=>'row_hashref'} );
+	if ( !$isolate ) {
 		say "<h1>Tag status</h1>";
 		say "<div class=\"box statusbad\"><p>Invalid isolate passed.</p></div>";
 		return;

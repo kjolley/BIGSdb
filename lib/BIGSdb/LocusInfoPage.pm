@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,7 @@
 package BIGSdb::LocusInfoPage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
@@ -39,29 +40,29 @@ sub print_content {
 	$locus =~ s/%27/'/g;    #Web-escaped locus
 	my $set_id = $self->get_set_id;
 	if ( !$self->{'datastore'}->is_locus($locus) ) {
-		print "<h1>Locus information</h1>\n";
-		print "<div class=\"box\" id=\"statusbad\"><p>Invalid locus selected.</p></div>\n";
+		say "<h1>Locus information</h1>";
+		say qq(<div class="box" id="statusbad"><p>Invalid locus selected.</p></div>);
 		return;
 	} elsif ( $set_id && !$self->{'datastore'}->is_locus_in_set( $locus, $set_id ) ) {
-		print "<h1>Locus information</h1>\n";
-		print "<div class=\"box\" id=\"statusbad\"><p>The selected locus is unavailable.</p></div>\n";
+		say "<h1>Locus information</h1>";
+		say qq(<div class="box" id="statusbad"><p>The selected locus is unavailable.</p></div>);
 		return;
 	}
 	my $locus_info    = $self->{'datastore'}->get_locus_info($locus);
 	my $cleaned_locus = $self->clean_locus($locus);
-	print "<h1>Locus information - $cleaned_locus</h1>\n";
-	my $desc = $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM locus_descriptions WHERE locus=?", $locus );
-	if ( ref $desc ne 'HASH' ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>No description is available for this locus.</p></div>\n";
+	say "<h1>Locus information - $cleaned_locus</h1>";
+	my $desc = $self->{'datastore'}->run_query( "SELECT * FROM locus_descriptions WHERE locus=?", $locus, { fetch => 'row_hashref' } );
+	if ( !$desc ) {
+		say qq(<div class="box" id="statusbad"><p>No description is available for this locus.</p></div>);
 		return;
 	}
-	print "<div class=\"box\" id=\"resultstable\">\n";
-	print "<h2>Description</h2>\n";
-	print "<ul>\n";
-	print "<li>Common name: $locus_info->{'common_name'}</li>\n" if $locus_info->{'common_name'};
-	print "<li>Full name: $desc->{'full_name'}</li>\n"           if $desc->{'full_name'};
-	print "<li>Product: $desc->{'product'}</li>\n"               if $desc->{'product'};
-	print "<li>Data type: $locus_info->{'data_type'}</li>\n";
+	say qq(<div class="box" id="resultstable">);
+	say "<h2>Description</h2>";
+	say "<ul>";
+	say "<li>Common name: $locus_info->{'common_name'}</li>" if $locus_info->{'common_name'};
+	say "<li>Full name: $desc->{'full_name'}</li>"           if $desc->{'full_name'};
+	say "<li>Product: $desc->{'product'}</li>"               if $desc->{'product'};
+	say "<li>Data type: $locus_info->{'data_type'}</li>";
 
 	if ( $locus_info->{'length_varies'} ) {
 		print "<li>Variable length: ";
@@ -74,41 +75,41 @@ sub print_content {
 		} else {
 			print "No limits set";
 		}
-		print "</li>\n";
+		say "</li>";
 	} else {
-		print "<li>Fixed length: $locus_info->{'length'} " . ( $locus_info->{'data_type'} eq 'DNA' ? 'bp' : 'aa' ) . "</li>\n";
+		say "<li>Fixed length: $locus_info->{'length'} " . ( $locus_info->{'data_type'} eq 'DNA' ? 'bp' : 'aa' ) . "</li>";
 	}
 	if ( $locus_info->{'data_type'} eq 'DNA' ) {
 		print "<li>" . ( $locus_info->{'coding_sequence'} ? 'Coding sequence' : 'Not coding sequence' );
-		print "</li>\n";
+		say "</li>";
 	}
-	print "</ul>\n";
+	say "</ul>";
 	if ( $desc->{'description'} ) {
 		$desc->{'description'} =~ s/\n/<br \/>/g;
-		print "<p>$desc->{'description'}</p>";
+		say "<p>$desc->{'description'}</p>";
 	}
 	my $aliases = $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=?", $locus );
 	if (@$aliases) {
-		print "<h2>Aliases</h2>\n";
-		print "<p>This locus is also known as:</p><ul>\n";
+		say "<h2>Aliases</h2>";
+		say "<p>This locus is also known as:</p><ul>";
 		foreach (@$aliases) {
-			print "<li>$_</li>\n";
+			say "<li>$_</li>";
 		}
-		print "</ul>\n";
+		say "</ul>";
 	}
 	my $refs = $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM locus_refs WHERE locus=?", $locus );
 	if (@$refs) {
-		print "<h2>References</h2>\n<ul>\n";
+		say "<h2>References</h2>\n<ul>";
 		my $citations = $self->{'datastore'}->get_citation_hash( $refs, { all_authors => 1, formatted => 1, link_pubmed => 1 } );
 		foreach (@$refs) {
-			print "<li>$citations->{$_}</li>\n";
+			say "<li>$citations->{$_}</li>";
 		}
-		print "</ul>\n";
+		say "</ul>";
 	}
 	my $links =
 	  $self->{'datastore'}->run_list_query_hashref( "SELECT url,description FROM locus_links WHERE locus=? ORDER BY link_order", $locus );
 	if (@$links) {
-		print "<h2>Links</h2>\n<ul>\n";
+		say "<h2>Links</h2>\n<ul>";
 		foreach (@$links) {
 			$_->{'url'} =~ s/\&/&amp;/g;
 			my $domain;
@@ -117,13 +118,13 @@ sub print_content {
 			}
 			print "<li><a href=\"$_->{'url'}\">$_->{'description'}</a>";
 			if ( $domain && $domain ne $q->virtual_host ) {
-				print " <span class=\"link\"><span style=\"font-size:1.2em\">&rarr;</span> $domain</span>";
+				say " <span class=\"link\"><span style=\"font-size:1.2em\">&rarr;</span> $domain</span>";
 			}
-			print "</li>\n";
+			say "</li>";
 		}
-		print "</ul>\n";
+		say "</ul>";
 	}
-	print "</div>\n";
+	say "</div>";
 	return;
 }
 1;

@@ -466,10 +466,11 @@ sub _prepare_extra_inserts_for_loci {
 	my $q = $self->{'cgi'};
 	( my $cleaned_locus = $newdata->{'locus'} ) =~ s/'/\\'/g;
 	my $existing_desc =
-	  $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM locus_descriptions WHERE locus=?", $newdata->{'locus'} );
+	  $self->{'datastore'}->run_query( "SELECT * FROM locus_descriptions WHERE locus=?", $newdata->{'locus'}, { fetch => 'row_hashref' } );
 	my ( $full_name, $product, $description ) = ( $q->param('full_name'), $q->param('product'), $q->param('description') );
 	s/'/\\'/g foreach ( $full_name, $product, $description );
 	if ($existing_desc) {
+
 		if (   $full_name ne ( $existing_desc->{'full_name'} // '' )
 			|| $product ne ( $existing_desc->{'product'} // '' )
 			|| $description ne ( $existing_desc->{'description'} // '' ) )
@@ -585,8 +586,8 @@ sub _prepare_extra_inserts_for_seqbin {
 		if ( $value ne '' ) {
 			if ( $attribute->{'type'} eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
 				push @type_errors, "$attribute->{'key'} must be an integer.";
-			} elsif ($attribute->{'type'} eq 'float' && !BIGSdb::Utils::is_float($value)){
-				push @type_errors, "$attribute->{'key'} must be a floating point value.";	
+			} elsif ( $attribute->{'type'} eq 'float' && !BIGSdb::Utils::is_float($value) ) {
+				push @type_errors, "$attribute->{'key'} must be a floating point value.";
 			} elsif ( $attribute->{'type'} eq 'date' && !BIGSdb::Utils::is_date($value) ) {
 				push @type_errors, "$attribute->{'key'} must be a valid date in yyyy-mm-dd format.";
 			}

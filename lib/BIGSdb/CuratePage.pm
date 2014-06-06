@@ -373,9 +373,11 @@ sub _get_foreign_key_label {
 		}
 	}
 	local $" = ',';
-	my $data =
-	  $self->{'datastore'}
-	  ->run_simple_query_hashref( "select id,@fields_to_query from $att->{'foreign_key'} WHERE id=?", $newdata_ref->{ $att->{'name'} } );
+	my $data = $self->{'datastore'}->run_query(
+		"select id,@fields_to_query from $att->{'foreign_key'} WHERE id=?",
+		$newdata_ref->{ $att->{'name'} },
+		{ fetch => 'row_hashref' }
+	);
 	my $desc = $att->{'labels'};
 	$desc =~ s/$_/$data->{$_}/ foreach @fields_to_query;
 	$desc =~ s/[\|\$]//g;
@@ -608,8 +610,12 @@ sub _create_extra_fields_for_loci {
 	my $buffer = '';
 	return $buffer if $self->{'system'}->{'dbtype'} ne 'sequences';
 	my $attributes = $self->{'datastore'}->get_table_field_attributes('locus_descriptions');
-	my $desc_ref = $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM locus_descriptions WHERE locus=?", $newdata_ref->{'id'} );
-	( $newdata_ref->{$_} = $desc_ref->{$_} ) foreach qw(full_name product description);
+	if (defined $newdata_ref->{'id'}) {
+		my $desc_ref =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT * FROM locus_descriptions WHERE locus=?", $newdata_ref->{'id'}, { fetch => 'row_hashref' } );
+		( $newdata_ref->{$_} = $desc_ref->{$_} ) foreach qw(full_name product description);
+	}
 	$buffer .=
 	  $self->_get_form_fields( $attributes, 'locus_descriptions', $newdata_ref, { noshow => [qw(locus curator datestamp)] }, $width );
 	$buffer .= $self->_create_extra_fields_for_locus_descriptions( $q->param('id') // '', $width );

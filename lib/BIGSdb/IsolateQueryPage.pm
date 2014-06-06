@@ -620,10 +620,11 @@ sub _generate_query_for_provenance_fields {
 			if ( $field =~ /^e_(.*)\|\|(.*)/ ) {
 				$extended_isolate_field = $1;
 				$field                  = $2;
-				my $att_info =
-				  $self->{'datastore'}
-				  ->run_simple_query_hashref( "SELECT * FROM isolate_field_extended_attributes WHERE isolate_field=? AND attribute=?",
-					$extended_isolate_field, $field );
+				my $att_info = $self->{'datastore'}->run_query(
+					"SELECT * FROM isolate_field_extended_attributes WHERE isolate_field=? AND attribute=?",
+					[ $extended_isolate_field, $field ],
+					{ fetch => 'row_hashref' }
+				);
 				$thisfield->{'type'} = $att_info->{'value_format'};
 				$thisfield->{'type'} = 'int' if $thisfield->{'type'} eq 'integer';
 			}

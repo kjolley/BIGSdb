@@ -44,12 +44,12 @@ sub print_content {
 	if ( !$id ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>No id passed.</p></div>";
 		return;
-	} elsif (!BIGSdb::Utils::is_int($id)){
+	} elsif ( !BIGSdb::Utils::is_int($id) ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>Isolate id must be an integer.</p></div>";
 		return;
 	}
-	my $data = $self->{'datastore'}->run_simple_query_hashref("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $id);
-	if ( !$data->{'id'} ) {
+	my $data = $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $id, { fetch => 'row_hashref' } );
+	if ( !$data ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>No record with id = $id exists.</p></div>";
 		return;
 	}

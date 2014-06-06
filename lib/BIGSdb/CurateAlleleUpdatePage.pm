@@ -64,8 +64,9 @@ sub print_content {
 		  . "for this isolate.</p></div>";
 		return;
 	}
-	my $data = $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id );
-	if ( !$data->{'id'} ) {
+	my $data =
+	  $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id, { fetch => 'row_hashref' } );
+	if ( !$data ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>No record with id = $isolate_id exists.</p></div>";
 		return;
 	}
@@ -94,7 +95,8 @@ sub print_content {
 	my $datestamp = $self->get_datestamp;
 	if ($update) {
 		$right_buffer .= "<h3>Update allele designation</h3>\n";
-		my $designation = $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM allele_designations WHERE id=?", $id );
+		my $designation =
+		  $self->{'datastore'}->run_query( "SELECT * FROM allele_designations WHERE id=?", $id, { fetch => 'row_hashref' } );
 		$right_buffer .=
 		  $self->create_record_table( 'allele_designations', $designation, { update => 1, nodiv => 1, prepend_table_name => 1 } );
 	} else {
@@ -164,7 +166,8 @@ sub _delete {
 	foreach my $param (@params) {
 		if ( $param =~ /^(\d+)_delete/ ) {
 			my $id = $1;
-			my $designation = $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM allele_designations WHERE id=?", $id );
+			my $designation =
+			  $self->{'datastore'}->run_query( "SELECT * FROM allele_designations WHERE id=?", $id, { fetch => 'row_hashref' } );
 
 			#Although id is the PK, include isolate_id and locus to prevent somebody from easily modifying CGI params.
 			eval {
@@ -175,7 +178,8 @@ sub _delete {
 				$self->{'db'}->rollback;
 			} else {
 				$self->{'db'}->commit;
-				$self->update_history( $isolate_id, "$locus: designation '$designation->{'allele_id'}' deleted" ) if defined $designation->{'allele_id'};
+				$self->update_history( $isolate_id, "$locus: designation '$designation->{'allele_id'}' deleted" )
+				  if defined $designation->{'allele_id'};
 			}
 		}
 	}
@@ -201,13 +205,16 @@ sub _update {
 	$newdata->{'date_entered'} = $q->param('action') eq 'update' ? $data->{'date_entered'} : $self->get_datestamp;
 	@problems = $self->check_record( 'allele_designations', $newdata, 1, $data );
 	my $existing_designation;
-	if ( $q->param('update_id') ) {    #Update existing allele
+	if ( $q->param('update_id') ) {                                                                                  #Update existing allele
 		$existing_designation =
-		  $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM allele_designations WHERE id=?", $q->param('update_id') );
-	} else {                           #Add new allele
-		$existing_designation =
-		  $self->{'datastore'}->run_simple_query_hashref( "SELECT * FROM allele_designations WHERE (isolate_id,locus,allele_id)=(?,?,?)",
-			$isolate_id, $locus, $newdata->{'allele_id'} );
+		  $self->{'datastore'}
+		  ->run_query( "SELECT * FROM allele_designations WHERE id=?", $q->param('update_id'), { fetch => 'row_hashref' } );
+	} else {                                                                                                         #Add new allele
+		$existing_designation = $self->{'datastore'}->run_query(
+			"SELECT * FROM allele_designations WHERE (isolate_id,locus,allele_id)=(?,?,?)",
+			[ $isolate_id, $locus, $newdata->{'allele_id'} ],
+			{ fetch => 'row_hashref' }
+		);
 	}
 	if ( $q->param('update_id') && $existing_designation && $newdata->{'allele_id'} ne $existing_designation->{'allele_id'} ) {
 		my $allele_id_exists =
