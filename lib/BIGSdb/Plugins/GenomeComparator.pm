@@ -1679,7 +1679,7 @@ sub _create_alignments {
 		$progress++;
 		my $complete = 50 + int( 100 * $progress / $total );
 		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete } );
-		( my $escaped_locus = $locus ) =~ s/[\/\|]/_/g;
+		( my $escaped_locus = $locus ) =~ s/[\/\|\']/_/g;
 		$escaped_locus =~ tr/ /_/;
 		my $fasta_file  = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.fasta";
 		my $aligned_out = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.aligned";

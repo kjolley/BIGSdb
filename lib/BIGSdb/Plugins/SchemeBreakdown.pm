@@ -504,8 +504,8 @@ sub _print_scheme_table {
 
 sub _download_alleles {
 	my ( $self, $locus_name, $query_ref ) = @_;
-	my $allele_ids = $self->{'datastore'}->run_list_query_hashref($$query_ref);
-	my $locus      = $self->{'datastore'}->get_locus($locus_name);
+	my $allele_ids = $self->{'datastore'}->run_query( $$query_ref, undef, { fetch => 'all_arrayref', slice => {} } );
+	my $locus = $self->{'datastore'}->get_locus($locus_name);
 	foreach (@$allele_ids) {
 		my $seq_ref = $locus->get_allele_sequence( $_->{'allele_id'} );
 		if ( ref $seq_ref eq 'SCALAR' && defined $$seq_ref ) {

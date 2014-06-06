@@ -117,7 +117,7 @@ HTML
 	$self->_print_accessions( $locus, $allele_id );
 	$self->_print_ref_links( $locus, $allele_id );
 	my $qry         = "SELECT schemes.* FROM schemes LEFT JOIN scheme_members ON schemes.id=scheme_id WHERE locus=?";
-	my $scheme_list = $self->{'datastore'}->run_list_query_hashref( $qry, $locus );
+	my $scheme_list = $self->{'datastore'}->run_query( $qry, $locus, { fetch => 'all_arrayref', slice => {} } );
 	my $set_id      = $self->get_set_id;
 	if (@$scheme_list) {
 		my $profile_buffer;
@@ -165,7 +165,7 @@ sub _print_client_database_data {
 	my $q   = $self->{'cgi'};
 	my $qry = "SELECT client_dbases.*,locus_alias FROM client_dbases LEFT JOIN client_dbase_loci ON "
 	  . "client_dbases.id=client_dbase_id WHERE locus=?";
-	my $client_list = $self->{'datastore'}->run_list_query_hashref( $qry, $locus );
+	my $client_list = $self->{'datastore'}->run_query( $qry, $locus, { fetch => 'all_arrayref', slice => {} } );
 	if (@$client_list) {
 		my $buffer;
 		foreach my $client (@$client_list) {
@@ -242,9 +242,10 @@ sub initiate {
 
 sub _print_accessions {
 	my ( $self, $locus, $allele_id ) = @_;
-	my $qry            = "SELECT databank, databank_id FROM accession WHERE locus=? and allele_id=? ORDER BY databank,databank_id";
-	my $accession_list = $self->{'datastore'}->run_list_query_hashref( $qry, $locus, $allele_id );
-	my $buffer         = '';
+	my $qry = "SELECT databank, databank_id FROM accession WHERE locus=? and allele_id=? ORDER BY databank,databank_id";
+	my $accession_list =
+	  $self->{'datastore'}->run_query( $qry, [ $locus, $allele_id ], { fetch => 'all_arrayref', slice => {} } );
+	my $buffer = '';
 	if (@$accession_list) {
 		say "<h2>Accession" . ( @$accession_list > 1 ? 's' : '' ) . " (" . @$accession_list . ")";
 		my $display = @$accession_list > 4 ? 'none' : 'block';
