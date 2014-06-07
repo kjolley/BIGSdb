@@ -160,7 +160,7 @@ sub add_job {
 				push @checked_list, $id if BIGSdb::Utils::is_int($id);
 			}
 			local $" = "),('$id',";
-			if (@checked_list){
+			if (@checked_list) {
 				my $sql = $self->{'db'}->prepare("INSERT INTO isolates (job_id,isolate_id) VALUES ('$id',@checked_list)");
 				$sql->execute;
 			}
@@ -298,25 +298,36 @@ sub update_job_status {
 	} else {
 		$self->{'db'}->commit;
 	}
-	my $job = $self->get_job($job_id);
+	my $job = $self->get_job_status($job_id);
 	if ( $job->{'status'} && $job->{'status'} eq 'cancelled' || $job->{'cancel'} ) {
 		system( 'kill', $job->{'pid'} ) if $job->{'pid'};
 	}
 	return;
 }
 
+sub get_job_status {
+	my ( $self, $job_id ) = @_;
+	if ( !$self->{'sql'}->{'get_job_status'} ) {
+		$self->{'sql'}->{'get_job_status'} = $self->{'db'}->prepare("SELECT status,cancel,pid FROM jobs WHERE id=?");
+	}
+	eval { $self->{'sql'}->{'get_job_status'}->execute($job_id) };
+	$logger->error($@) if $@;
+	return $self->{'sql'}->{'get_job_status'}->fetchrow_hashref;
+}
+
 sub get_job {
 	my ( $self, $job_id ) = @_;
-	my $sql =
-	  $self->{'db'}->prepare( "SELECT *,extract(epoch FROM now() - start_time) AS elapsed,extract(epoch FROM "
-		  . "stop_time - start_time) AS total_time FROM jobs WHERE id=?" );
-	eval { $sql->execute($job_id) };
+	if ( !$self->{'sql'}->{'get_job'} ) {
+		$self->{'sql'}->{'get_job'} =
+		  $self->{'db'}->prepare( "SELECT *,extract(epoch FROM now() - start_time) AS elapsed,extract(epoch FROM "
+			  . "stop_time - start_time) AS total_time FROM jobs WHERE id=?" );
+	}
+	eval { $self->{'sql'}->{'get_job'}->execute($job_id) };
 	if ($@) {
 		$logger->error($@);
 		return;
 	}
-	my $job = $sql->fetchrow_hashref;
-	return $job;
+	return $self->{'sql'}->{'get_job'}->fetchrow_hashref;
 }
 
 sub get_job_params {
