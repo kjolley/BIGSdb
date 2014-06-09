@@ -103,12 +103,13 @@ sub blast {
 			$qry .= " AND experiment_id=?";
 			push @criteria, $experiment;
 		}
-		my $seq_data = $self->{'datastore'}->run_query( $qry, \@criteria, { fetch => 'all_arrayref', cache => 'Scan::blast' } );
+		my $sql = $self->{'db'}->prepare($qry);
+		eval { $sql->execute(@criteria) };
+		$logger->error($@) if $@;
 		open( my $infile_fh, '>', $temp_infile ) or $logger->error("Can't open temp file $temp_infile for writing");
-		foreach (@$seq_data) {
-			my ( $id, $seq ) = @$_;
+		while ( my $seq_data = $sql->fetchrow_arrayref ) {
 			$seq_count++;
-			say $infile_fh ">$id\n$seq";
+			say $infile_fh ">$seq_data->[0]\n$seq_data->[1]";
 		}
 		close $infile_fh;
 		open( my $seqcount_fh, '>', "$temp_infile\_seqcount" ) or $logger->error("Can't open temp file $temp_infile\_seqcount for writing");
