@@ -298,6 +298,7 @@ sub update_job_status {
 	} else {
 		$self->{'db'}->commit;
 	}
+	return if ($status_hash->{'status'} // '') eq 'failed';
 	my $job = $self->get_job_status($job_id);
 	if ( $job->{'status'} && $job->{'status'} eq 'cancelled' || $job->{'cancel'} ) {
 		system( 'kill', $job->{'pid'} ) if $job->{'pid'};
