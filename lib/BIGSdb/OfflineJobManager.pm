@@ -286,11 +286,14 @@ sub update_job_status {
 	#Exceptions in BioPerl appear to sometimes cause the connection to the jobs database to be broken
 	#No idea why - so reconnect if status is 'failed'.
 	$self->_db_connect( { reconnect => 1 } ) if ( $status_hash->{'status'} // '' ) eq 'failed';
+	my (@keys, @values);
+	foreach my $key ( keys %$status_hash ){
+		push @keys, $key;
+		push @values, $status_hash->{$key};
+	}
 	eval {
-		foreach ( keys %$status_hash )
-		{
-			$self->{'db'}->do( "UPDATE jobs SET $_=? WHERE id=?", undef, $status_hash->{$_}, $job_id );
-		}
+		local $" = '=?,';
+		$self->{'db'}->do( "UPDATE jobs SET @keys=? WHERE id=?", undef, @values, $job_id );
 	};
 	if ($@) {
 		$logger->logcarp($@);

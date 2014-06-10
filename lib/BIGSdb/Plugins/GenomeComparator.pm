@@ -21,6 +21,7 @@ package BIGSdb::Plugins::GenomeComparator;
 use strict;
 use warnings;
 use 5.010;
+use feature 'state';
 use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -159,6 +160,7 @@ sub run_job {
 	open( my $excel_fh, '>', \my $excel ) or $logger->error("Failed to open excel filehandle: $!");    #Store Excel file in scalar $excel
 	$self->{'excel'}    = \$excel;
 	$self->{'workbook'} = Excel::Writer::XLSX->new($excel_fh);
+	$self->{'workbook'}->set_tempdir( $self->{'config'}->{'secure_tmp_dir'} );
 	$self->{'workbook'}->set_optimization;                                                             #Reduce memory usage
 	my $worksheet = $self->{'workbook'}->add_worksheet('all');
 	$self->{'excel_format'}->{'header'} =
@@ -825,7 +827,7 @@ sub _analyse_by_reference {
 }
 
 sub _extract_cds_details {
-	my ( $self, $cds, $seqs_total_ref, $seqs_ref ) = @_;
+	my ( $self, $cds, $seqs_total_ref ) = @_;
 	my ( $locus_name, $length, $start, $desc );
 	my @aliases;
 	my $locus;
@@ -845,7 +847,6 @@ sub _extract_cds_details {
 	my $seq = $cds->seq->seq;
 	return if !$seq;
 	$$seqs_total_ref++;
-	$seqs_ref->{'ref'} = $seq;
 	my @tags;
 	try {
 		push @tags, $_ foreach ( $cds->each_tag_value('product') );
@@ -864,11 +865,14 @@ sub _run_comparison {
 	my ( $by_reference, $job_id, $ids, $cds, $worksheet ) = @{$args}{qw(by_reference job_id ids cds worksheet)};
 	my ( $progress, $seqs_total, $td, $order_count ) = ( 0, 0, 1, 1 );
 	my $params      = $self->{'params'};
-	my $total       = ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $by_reference ) ) ) ? ( @$cds * 2 ) : @$cds;
+	my $total       = @$cds;
 	my $close_table = '</table></div>';
 	my ( $locus_class, $presence, $order, $values, $match_count, $word_size, $program );
-	my $job_file = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
-	my $prefix   = BIGSdb::Utils::get_random();
+	my $job_file         = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
+	my $align_file       = "$self->{'config'}->{'tmp_dir'}/$job_id\.align";
+	my $align_stats_file = "$self->{'config'}->{'tmp_dir'}/$job_id\.align_stats";
+	my $xmfa_file        = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
+	my $prefix           = BIGSdb::Utils::get_random();
 	my %isolate_FASTA;
 
 	if ( $by_reference && $params->{'tblastx'} ) {
@@ -890,13 +894,12 @@ sub _run_comparison {
 		my ( $locus_name, $locus_info, $length, $start, $desc, $ref_seq_file );
 		if ($by_reference) {
 			my $continue = 1;
-			( $locus_name, $seq_ref, $start, $desc ) = $self->_extract_cds_details( $cds, \$seqs_total, \%seqs );
+			( $locus_name, $seq_ref, $start, $desc ) = $self->_extract_cds_details( $cds, \$seqs_total );
 			next if ref $seq_ref ne 'SCALAR';
 			$values->{'0'}->{$locus_name} = 1;
 			$length = length $$seq_ref;
 			$length = int( $length / 3 ) if $params->{'tblastx'};
 			$ref_seq_file = $self->_create_reference_FASTA_file( $seq_ref, $prefix );
-			$loci->{$locus_name}->{'ref'}    = $$seq_ref;
 			$loci->{$locus_name}->{'length'} = $length;
 			$loci->{$locus_name}->{'start'}  = $start;
 		} else {
@@ -1064,9 +1067,8 @@ sub _run_comparison {
 			$self->{'html_buffer'} .= "<td style=\"$style\">$value</td>";
 			$self->{'file_buffer'} .= "\t$value";
 			$worksheet->write( $row, $col, $value, $self->{'excel_format'}->{ $value_colour{$value} } );
-			$first                        = 0;
+			$first = 0;
 			$values->{$id}->{$locus_name} = $value;
-			$loci->{$locus_name}->{$id}   = $seqs{$id};
 		}
 		$td = $td == 1 ? 2 : 1;
 		$self->{'html_buffer'} .= "</tr>\n";
@@ -1074,20 +1076,31 @@ sub _run_comparison {
 		if ( !$by_reference ) {
 			$status{'all_exact'} = 0 if ( uniq values %seqs ) > 1;
 		}
+		my $variable_locus = 0;
 		foreach my $class (qw (all_exact all_missing exact_except_ref truncated varying)) {
 			next if !$status{$class} && $class ne 'varying';
 			next if $class eq 'exact_except_ref' && !$by_reference;
 			$locus_class->{$class}->{$locus_name}->{'length'} = length $$seq_ref if $by_reference;
 			$locus_class->{$class}->{$locus_name}->{'desc'}   = $desc;
 			$locus_class->{$class}->{$locus_name}->{'start'}  = $start;
-			if ( $class eq 'varying' ) {
-				foreach my $id (@$ids) {
-					$locus_class->{$class}->{$locus_name}->{$id} = $seqs{$id};
-				}
-			}
-			$locus_class->{$class}->{$locus_name}->{'ref'} = $$seq_ref if $by_reference;
+			$variable_locus = 1 if $class eq 'varying';
 			last;
 		}
+		if ( $params->{'align'} && ( $variable_locus || $params->{'align_all'} ) ) {
+			$seqs{'ref'} = $$seq_ref if $by_reference;
+			$self->_align(
+				{
+					job_id           => $job_id,
+					locus            => $locus_name,
+					seqs             => \%seqs,
+					align_file       => $align_file,
+					align_stats_file => $align_stats_file,
+					xmfa_file        => $xmfa_file,
+					locus            => $locus_name
+				}
+			);
+		}
+		%seqs = ();
 		$progress++;
 		my $complete = int( 100 * $progress / $total );
 		if ( @$ids > MAX_DISPLAY_TAXA || $params->{'disable_html'} ) {
@@ -1097,8 +1110,8 @@ sub _run_comparison {
 			  : "<p>Dynamically updated output disabled as >" . MAX_DISPLAY_TAXA . " taxa selected.</p>";
 			$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete, message_html => $message } );
 		} else {
-			$self->{'jobManager'}
-			  ->update_job_status( $job_id, { percent_complete => $complete, message_html => "$self->{'html_buffer'}$close_table" } );
+			my $msg = "$self->{'html_buffer'}$close_table";
+			$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete, message_html => $msg } );
 		}
 		$self->delete_temp_files("$job_id*fastafile*\.txt*") if !$by_reference;
 		$self->_touch_temp_files("$prefix*");    #Prevent removal of isolate FASTA db by cleanup script
@@ -1106,7 +1119,7 @@ sub _run_comparison {
 	}
 	$self->{'html_buffer'} .= $close_table;
 	if ( $self->{'exit'} ) {
-		my $job = $self->{'jobManager'}->get_job($job_id);
+		my $job = $self->{'jobManager'}->get_job_status($job_id);
 		if ( $job->{'status'} && $job->{'status'} ne 'cancelled' ) {
 			$self->{'jobManager'}->update_job_status( $job_id, { status => 'terminated' } );
 		}
@@ -1160,25 +1173,12 @@ sub _print_reports {
 	open( my $job_fh, '>', $job_file ) || $logger->error("Can't open $job_file for writing");
 	print $job_fh $self->{'file_buffer'};
 	close $job_fh;
-	my $distances;
-
-	if ( $params->{'align'} ) {
-		$distances = $self->_create_alignments(
-			{
-				job_id           => $job_id,
-				by_reference     => $args->{'by_reference'},
-				align_file       => $align_file,
-				align_stats_file => $align_stats_file,
-				ids              => $ids,
-				loci             => ( $params->{'align_all'} ? $loci : $locus_class->{'varying'} )
-			}
-		);
-	}
 	return if $self->{'exit'};
 	my %table_args = ( by_reference => $args->{'by_reference'}, ids => $ids, job_filename => $job_file, values => $values );
 	$self->_print_variable_loci( { loci => $locus_class->{'varying'}, %table_args } );
 	$self->_print_missing_in_all( { loci => $locus_class->{'all_missing'}, %table_args } );
 	$self->_print_exact_matches( { loci => $locus_class->{'all_exact'}, %table_args } );
+
 	if ( $args->{'by_reference'} ) {
 		$self->_print_exact_except_ref( { loci => $locus_class->{'exact_except_ref'}, %table_args } );
 	}
@@ -1233,7 +1233,7 @@ sub _print_reports {
 			};
 		}
 	}
-	$self->_core_analysis( $loci, $distances, $args );
+	$self->_core_analysis( $loci, $args );
 	$self->{'workbook'}->close;
 	my $excel_file = "$self->{'config'}->{'tmp_dir'}/$job_id.xlsx";
 	open( my $excel_fh, '>', $excel_file ) || $logger->error("Can't open $excel_file for writing.");
@@ -1254,7 +1254,7 @@ sub _excel_col_width {
 }
 
 sub _core_analysis {
-	my ( $self, $loci, $distances, $args ) = @_;
+	my ( $self, $loci, $args ) = @_;
 	return if ref $loci ne 'HASH';
 	my $params     = $self->{'params'};
 	my $core_count = 0;
@@ -1298,7 +1298,7 @@ sub _core_analysis {
 		}
 		$core_count++ if $percentage >= $threshold;
 		print $fh "$locus_name\t$length\t$pos\t$freq\t$percentage\t$core";
-		print $fh "\t" . BIGSdb::Utils::decimal_place( ( $distances->{$locus} // 0 ), 3 ) if $params->{'calc_distances'};
+		print $fh "\t" . BIGSdb::Utils::decimal_place( ( $self->{'distances'}->{$locus} // 0 ), 3 ) if $params->{'calc_distances'};
 		print $fh "\n";
 		for ( my $upper_range = 5 ; $upper_range <= 100 ; $upper_range += 5 ) {
 			$range{$upper_range}++ if $percentage >= ( $upper_range - 5 ) && $percentage < $upper_range;
@@ -1322,7 +1322,7 @@ sub _core_analysis {
 	push @labels, 100;
 	push @values, $range{'all_isolates'};
 	close $fh;
-	$self->_core_mean_distance( $args, $out_file, \@core_loci, $loci, $distances ) if $params->{'calc_distances'};
+	$self->_core_mean_distance( $args, $out_file, \@core_loci, $loci ) if $params->{'calc_distances'};
 
 	if ( -e $out_file ) {
 		$self->{'jobManager'}->update_job_output( $args->{'job_id'},
@@ -1344,10 +1344,10 @@ sub _core_analysis {
 }
 
 sub _core_mean_distance {
-	my ( $self, $args, $out_file, $core_loci, $loci, $distances ) = @_;
+	my ( $self, $args, $out_file, $core_loci, $loci ) = @_;
 	return if !@$core_loci;
 	my $file_buffer = "\nMean distances of core loci\n---------------------------\n\n";
-	my $largest_distance = $self->_get_largest_distance( $core_loci, $loci, $distances );
+	my $largest_distance = $self->_get_largest_distance( $core_loci, $loci );
 	my ( @labels, @values );
 	if ( !$largest_distance ) {
 		$file_buffer .= "All loci are identical.\n";
@@ -1365,8 +1365,8 @@ sub _core_mean_distance {
 		my %upper_range;
 		foreach my $locus (@$core_loci) {
 			my $range = 0;
-			if ( $distances->{$locus} ) {
-				my $distance = $distances->{$locus} =~ /^([\d\.]+)$/ ? $1 : 0;    #untaint
+			if ( $self->{'distances'}->{$locus} ) {
+				my $distance = $self->{'distances'}->{$locus} =~ /^([\d\.]+)$/ ? $1 : 0;    #untaint
 				do( $range += $increment ) until $range >= $distance;
 			}
 			$upper_range{$range}++;
@@ -1414,10 +1414,10 @@ sub _core_mean_distance {
 }
 
 sub _get_largest_distance {
-	my ( $self, $core_loci, $loci, $distances ) = @_;
+	my ( $self, $core_loci, $loci ) = @_;
 	my $largest = 0;
 	foreach my $locus (@$core_loci) {
-		$largest = $distances->{$locus} if $distances->{$locus} > $largest;
+		$largest = $self->{'distances'}->{$locus} if $self->{'distances'}->{$locus} > $largest;
 	}
 	return $largest;
 }
@@ -1661,71 +1661,59 @@ sub _print_variable_loci {
 	return;
 }
 
-sub _create_alignments {
+sub _align {
 	my ( $self, $args ) = @_;
-	my ( $job_id, $by_reference, $align_file, $align_stats_file, $ids, $loci ) =
-	  @{$args}{qw(job_id by_reference align_file align_stats_file ids loci)};
-	my $params     = $self->{'params'};
-	my $temp       = BIGSdb::Utils::get_random();
-	my $progress   = 0;
-	my $total      = 2 * ( scalar keys %$loci );                      #need to show progress from 50 - 100%
-	my $xmfa_out   = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
-	my $xmfa_start = 1;
-	my $xmfa_end;
-	my $distances;
+	my ( $job_id, $locus, $seqs, $align_file, $align_stats_file, $xmfa_file ) =
+	  @{$args}{qw(job_id locus seqs align_file align_stats_file xmfa_file)};
+	my $params = $self->{'params'};
+	state $xmfa_start = 1;
+	state $xmfa_end   = 1;
+	my $temp = BIGSdb::Utils::get_random();
+	( my $escaped_locus = $locus ) =~ s/[\/\|\']/_/g;
+	$escaped_locus =~ tr/ /_/;
+	my $fasta_file  = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.fasta";
+	my $aligned_out = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.aligned";
+	my $seq_count   = 0;
+	open( my $fasta_fh, '>', $fasta_file ) || $logger->error("Can't open $fasta_file for writing");
+	no warnings 'numeric';
+	my @ids = sort { $a <=> $b || $a cmp $b } keys %$seqs;
+	my %names;
+	my @ids_to_align;
 
-	foreach my $locus ( sort keys %$loci ) {
-		last if $self->{'exit'};
-		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Aligning $locus sequences" } );
-		$progress++;
-		my $complete = 50 + int( 100 * $progress / $total );
-		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete } );
-		( my $escaped_locus = $locus ) =~ s/[\/\|\']/_/g;
-		$escaped_locus =~ tr/ /_/;
-		my $fasta_file  = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.fasta";
-		my $aligned_out = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.aligned";
-		my $seq_count   = 0;
-		open( my $fasta_fh, '>', $fasta_file ) || $logger->error("Can't open $fasta_file for writing");
-
-		if ( $by_reference && $params->{'include_ref'} ) {
-			say $fasta_fh ">ref";
-			say $fasta_fh "$loci->{$locus}->{'ref'}";
+	foreach my $id (@ids) {
+		next if $id eq 'ref' && !$self->{'params'}->{'include_ref'};
+		push @ids_to_align, $id;
+		my $name = $id ne 'ref' ? $self->_get_isolate_name( $id, { name_only => 1 } ) : 'ref';
+		$name =~ s/[\(\)]//g;
+		$name =~ s/ /|/;        #replace space separating id and name
+		$name =~ tr/[:, ]/_/;
+		$names{$id} = $name;
+		if ( $seqs->{$id} ) {
 			$seq_count++;
+			say $fasta_fh ">$name";
+			say $fasta_fh "$seqs->{$id}";
 		}
-		my %names;
-		foreach my $id (@$ids) {
-			my $name = $self->_get_isolate_name( $id, { name_only => 1 } );
-			$name =~ s/[\(\)]//g;
-			$name =~ s/ /|/;        #replace space separating id and name
-			$name =~ tr/[:, ]/_/;
-			$names{$id} = $name;
-			if ( $loci->{$locus}->{$id} ) {
-				$seq_count++;
-				say $fasta_fh ">$name";
-				say $fasta_fh "$loci->{$locus}->{$id}";
-			}
-		}
-		close $fasta_fh;
-		if ( $params->{'align'} ) {
-			$distances->{$locus} = $self->_run_alignment(
-				{
-					ids              => $ids,
-					locus            => $locus,
-					seq_count        => $seq_count,
-					aligned_out      => $aligned_out,
-					fasta_file       => $fasta_file,
-					align_file       => $align_file,
-					align_stats_file => $align_stats_file,
-					xmfa_out         => $xmfa_out,
-					xmfa_start_ref   => \$xmfa_start,
-					xmfa_end_ref     => \$xmfa_end,
-					names            => \%names
-				}
-			);
-		}
-		unlink $fasta_file;
 	}
-	return $distances;
+	close $fasta_fh;
+	if ( $params->{'align'} ) {
+		$self->{'distances'}->{$locus} = $self->_run_alignment(
+			{
+				ids              => \@ids_to_align,
+				locus            => $locus,
+				seq_count        => $seq_count,
+				aligned_out      => $aligned_out,
+				fasta_file       => $fasta_file,
+				align_file       => $align_file,
+				align_stats_file => $align_stats_file,
+				xmfa_out         => $xmfa_file,
+				xmfa_start_ref   => \$xmfa_start,
+				xmfa_end_ref     => \$xmfa_end,
+				names            => \%names
+			}
+		);
+	}
+	unlink $fasta_file;
+	return;
 }
 
 sub _run_infoalign {
