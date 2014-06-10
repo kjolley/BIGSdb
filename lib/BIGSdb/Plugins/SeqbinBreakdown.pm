@@ -186,10 +186,10 @@ sub run_job {
 		close $job_fh;
 		$self->{'jobManager'}
 		  ->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Output in tab-delimited text format' } );
-		my $excel_file = BIGSdb::Utils::text2excel( $job_file, { worksheet => 'sequence bin stats' } );
-		if (-e $excel_file){
-			$self->{'jobManager'}
-		  ->update_job_output( $job_id, { filename => "$job_id.xlsx", description => '02_Output in Excel format' } );
+		my $excel_file =
+		  BIGSdb::Utils::text2excel( $job_file, { worksheet => 'sequence bin stats', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
+		if ( -e $excel_file ) {
+			$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.xlsx", description => '02_Output in Excel format' } );
 		}
 		my $file_order = 10;
 		foreach my $type (qw (contigs sum mean lengths)) {
@@ -288,7 +288,9 @@ sub _print_table {
 	if ($header_displayed) {
 		say "</tbody></table>";
 		say qq(<ul><li><a href="/tmp/$temp.txt">Download in tab-delimited text format</a></li>);
-		my $excel_file = BIGSdb::Utils::text2excel( $text_file, { worksheet => 'sequence bin stats' } );
+		my $excel_file =
+		  BIGSdb::Utils::text2excel( $text_file, { worksheet => 'sequence bin stats', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } )
+		  ;
 		if ( -e $excel_file ) {
 			say qq(<li><a href="/tmp/$temp.xlsx">Download in Excel format</a></li>);
 		}

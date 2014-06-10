@@ -219,7 +219,9 @@ sub run {
 			say "</tbody></table></div>";
 			close $fh;
 			say "<ul><li><a href=\"/tmp/$filename\">Download as tab-delimited text</a></li>";
-			my $excel = BIGSdb::Utils::text2excel( $full_path, { worksheet => "Unique combinations" } );
+			my $excel =
+			  BIGSdb::Utils::text2excel( $full_path,
+				{ worksheet => 'Unique combinations', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
 			say qq(<li><a href="/tmp/$prefix.xlsx">Download in Excel format</a></li>) if -e $excel;
 			say "</ul></div>";
 			return;

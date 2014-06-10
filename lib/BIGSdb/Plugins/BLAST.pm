@@ -280,7 +280,9 @@ sub run {
 		say " <a class=\"tooltip\" title=\"Flanking sequence - You can change the amount of flanking sequence exported by selecting "
 		  . "the appropriate length in the options page.\">&nbsp;<i>i</i>&nbsp;</a> | ";
 		say "<a href=\"/tmp/$out_file_table\">Table (tab-delimited text)</a>";
-		my $excel = BIGSdb::Utils::text2excel( $out_file_table_full_path, { worksheet => "BLAST" } );
+		my $excel =
+		  BIGSdb::Utils::text2excel( $out_file_table_full_path,
+			{ worksheet => 'BLAST', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
 		say qq(| <a href=/tmp/$prefix\_table.xlsx>Excel format</a></li>) if -e $excel;
 		say "</p>";
 	} else {

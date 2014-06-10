@@ -149,7 +149,7 @@ sub run {
 			$self->_write_tab_text( $qry_ref, $selected_fields, $full_path );
 			say " done</p>";
 			say "<p>Download: <a href=\"/tmp/$filename\">Text file</a>";
-			my $excel = BIGSdb::Utils::text2excel( $full_path, { worksheet => "Export" } );
+			my $excel = BIGSdb::Utils::text2excel( $full_path, { worksheet => 'Export', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
 			say qq( | <a href="/tmp/$prefix.xlsx">Excel file</a>) if -e $excel;
 			say " (right-click to save)</p>";
 			say "</div>";

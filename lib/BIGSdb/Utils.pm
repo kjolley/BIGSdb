@@ -313,6 +313,7 @@ sub text2excel {
 		( $excel_file = $text_file ) =~ s/txt$/xlsx/;
 	}
 	my $workbook = Excel::Writer::XLSX->new($excel_file);
+	$workbook->set_tempdir($options->{'tmp_dir'}) if $options->{'tmp_dir'};
 	if ( !defined $workbook ) {
 		$logger->error("Can't create Excel file $excel_file");
 		return;

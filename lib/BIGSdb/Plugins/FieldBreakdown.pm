@@ -416,7 +416,8 @@ sub _summary_table {
 		if ( $q->param('format') eq 'xlsx' ) {
 			my $temp_file = $self->make_temp_file($text_buffer);
 			my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$temp_file";
-			BIGSdb::Utils::text2excel( $full_path, { stdout => 1, worksheet => "$field breakdown" } );
+			BIGSdb::Utils::text2excel( $full_path,
+				{ stdout => 1, worksheet => "$field breakdown", tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
 			unlink $full_path;
 		} else {
 			say $text_buffer;
