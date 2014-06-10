@@ -10,6 +10,7 @@ Version 1.4: Change of isolate, seqdef, and job database structures.
 Version 1.5: Change of isolate and seqdef database structures.
 Version 1.6: Change of isolate and seqdef database structures.
 Version 1.7: Change of isolate, seqdef, and job database structures.
+Version 1.8: Change of isolate database structures.
 
 Details can be found below.
 
@@ -168,3 +169,26 @@ parameters (used to detect duplicate jobs).
 6) The jobs database has new tables for isolates, loci and profiles so that
 these can be stored in a normalized fashion rather than as concatenated lists.
 This makes determining the job size much easier.
+
+Version 1.8
+-----------
+There are changes to the isolate database structure.  Please run the 
+isolatedb_v.1.8.sql script, found in the sql/upgrade direcotory, against your
+isolate databases.
+
+There are also minor stylesheet changes so update bigsdb.css
+
+MAFFT is now the default sequence aligner (MUSCLE is still supported). This
+is significantly faster.  To use this, make sure it is installed (v6.840+) and
+set the mafft_path attribute in bigsdb.conf to point to the mafft executable.
+
+You can also cache scheme field values within isolate databases.  This can be
+done by running the update_scheme_caches.pl script regularly (at least once per
+day).  This is used for querying isolates by scheme fields (e.g. ST) and is
+required for large databases since the introduction of multiple allele
+designations for a locus - resulting in potentially multiple scheme field
+values per isolate and significantly more complicated database queries. Small
+databases (<10,000 isolates) don't normally require this caching.  A warning
+message will appear in bigsdb.log if caching isn't used and an isolate query
+that would benefit from the cache takes longer than 5 seconds.  Unless you see
+these messages, you probably don't need it.

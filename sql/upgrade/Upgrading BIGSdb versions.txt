@@ -2,7 +2,8 @@ Upgrading BIGSdb versions
 -------------------------
 Occasionally a version upgrade may require a small change to the underlying
 database structure.  These changes will be noted here and a SQL script to 
-perform the change included.
+perform the change included.  Database changes will only occur between major
+version changes, e.g. 1.7 -> 1.8.  
 
 To run the script 'script.sql' against database 'dbase', as the postgres user
 type:
@@ -130,4 +131,17 @@ parameters (used to detect duplicate jobs).
 these can be stored in a normalized fashion rather than as concatenated lists.
 This makes determining the job size much easier.
 
+Version 1.8
+-----------
+There are changes to the isolate database structure.  
 
+Please run the following upgrade script against your databases:
+isolatedb_v1.8.sql against isolate databases.
+
+This script can be found in the sql/upgrade directory.
+
+Changes to the database structures are detailed below:
+1) New id field on allele_designations, allele_sequences and sequence_flags
+tables.
+2) Change of primary key to use new id field on the above.
+3) Removal of pending_allele_designations table.
