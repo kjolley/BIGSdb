@@ -51,10 +51,10 @@ sub run_script {
 	my $tag_user_id = TAG_USER;
 	$self->{'username'} = TAG_USERNAME;
 	my $user_ok =
-	  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM users WHERE id=? AND user_name=?", $tag_user_id, $self->{'username'} )
-	  ->[0];
-	die "Database user '$self->{'username'}' not set.  Enter a user '$self->{'username'}' with id $tag_user_id in the database "
-	  . "to represent the auto tagger.\n"
+	  $self->{'datastore'}
+	  ->run_query( "SELECT EXISTS(SELECT * FROM users WHERE id=? AND user_name=?)", [ $tag_user_id, $self->{'username'} ] );
+	die "Database user '$self->{'username'}' not set.  Enter a user '$self->{'username'}' with id $tag_user_id\n"
+	  . "in the database to represent the auto tagger.\n"
 	  if !$user_ok;
 	my $isolates     = $self->get_isolates_with_linked_seqs;
 	my $isolate_list = $self->filter_and_sort_isolates($isolates);
@@ -87,8 +87,7 @@ sub run_script {
 				foreach (@$exact_matches) {
 					if ( $_->{'allele'} ) {
 						print "Allele: $_->{'allele'} " if !$self->{'options'}->{'q'};
-						my $sender =
-						  $self->{'datastore'}->run_simple_query( "SELECT sender FROM sequence_bin WHERE id=?", $_->{'seqbin_id'} )->[0];
+						my $sender = $self->{'datastore'}->run_query( "SELECT sender FROM sequence_bin WHERE id=?", $_->{'seqbin_id'} );
 						my $problem = 0;
 						try {
 							$self->_tag_allele(
@@ -165,12 +164,14 @@ sub _tag_allele {
 	foreach my $designation (@$existing_designations) {
 		return if $designation->{'allele_id'} eq $values->{'allele_id'};
 	}
-	my $sql =
-	  $self->{'db'}->prepare( "INSERT INTO allele_designations (isolate_id,locus,allele_id,"
-		  . "sender,status,method,curator,date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?)" );
+	if ( !$self->{'sql'}->{'tag_allele'} ) {
+		$self->{'sql'}->{'tag_allele'} =
+		  $self->{'db'}->prepare( "INSERT INTO allele_designations (isolate_id,locus,allele_id,"
+			  . "sender,status,method,curator,date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?)" );
+	}
 	my $status = $values->{'status'} // 'confirmed';
 	eval {
-		$sql->execute(
+		$self->{'sql'}->{'tag_allele'}->execute(
 			$values->{'isolate_id'}, $values->{'locus'}, $values->{'allele_id'}, $values->{'sender'},
 			$status,                 'automatic',        TAG_USER,               'now',
 			'now'
@@ -199,14 +200,18 @@ sub _tag_sequence {
 			  && $_->{'end_pos'} == $values->{'end_pos'};
 		}
 	}
-	my $sql =
-	  $self->{'db'}->prepare( "INSERT INTO allele_sequences (seqbin_id,locus,start_pos,"
-		  . "end_pos,reverse,complete,curator,datestamp) VALUES (?,?,?,?,?,?,?,?)" );
-	my $sql_flag =
-	  $self->{'db'}->prepare( "INSERT INTO sequence_flags (id,flag,datestamp,curator) SELECT allele_sequences.id, "
-		  . "?,?,? FROM allele_sequences WHERE (seqbin_id,locus,start_pos,end_pos)=(?,?,?,?)" );
+	if ( !$self->{'sql'}->{'tag_sequence'} ) {
+		$self->{'sql'}->{'tag_sequence'} =
+		  $self->{'db'}->prepare( "INSERT INTO allele_sequences (seqbin_id,locus,start_pos,"
+			  . "end_pos,reverse,complete,curator,datestamp) VALUES (?,?,?,?,?,?,?,?)" );
+	}
+	if ( !$self->{'sql'}->{'tag_flag'} ) {
+		$self->{'sql'}->{'tag_flag'} =
+		  $self->{'db'}->prepare( "INSERT INTO sequence_flags (id,flag,datestamp,curator) SELECT allele_sequences.id, "
+			  . "?,?,? FROM allele_sequences WHERE (seqbin_id,locus,start_pos,end_pos)=(?,?,?,?)" );
+	}
 	eval {
-		$sql->execute(
+		$self->{'sql'}->{'tag_sequence'}->execute(
 			$values->{'seqbin_id'},
 			$values->{'locus'}, $values->{'start_pos'},
 			$values->{'end_pos'}, ( $values->{'reverse'} ? 'true' : 'false' ),
@@ -215,7 +220,7 @@ sub _tag_sequence {
 		if ( $locus_info->{'flag_table'} ) {
 			my $flags = $self->{'datastore'}->get_locus( $values->{'locus'} )->get_flags( $values->{'allele_id'} );
 			foreach my $flag (@$flags) {
-				$sql_flag->execute(
+				$self->{'sql'}->{'tag_flag'}->execute(
 					$flag, 'now', TAG_USER, $values->{'seqbin_id'},
 					$values->{'locus'}, $values->{'start_pos'},
 					$values->{'end_pos'}
@@ -230,8 +235,8 @@ sub _tag_sequence {
 		throw BIGSdb::DatabaseException("Can't insert allele sequence.");
 	}
 	$self->{'db'}->commit;
-	push @{ $self->{'history'} },
-"$values->{'locus'}: sequence tagged. Seqbin id: $values->{'seqbin_id'}; $values->{'start_pos'}-$values->{'end_pos'} (sequence bin scan)";
+	push @{ $self->{'history'} }, "$values->{'locus'}: sequence tagged. Seqbin id: $values->{'seqbin_id'}; "
+	  . "$values->{'start_pos'}-$values->{'end_pos'} (sequence bin scan)";
 	return;
 }
 1;

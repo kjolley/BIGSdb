@@ -163,7 +163,7 @@ sub get_isolates_with_linked_seqs {
 		$qry .= " AND $view.id IN (@ids)";
 	}
 	$qry .= " ORDER BY $view.id";
-	return $self->{'datastore'}->run_list_query($qry);
+	return $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 }
 
 sub filter_and_sort_isolates {
@@ -231,12 +231,10 @@ sub _get_last_tagged_date {
 
 sub _is_previously_tagged {
 	my ( $self, $isolate_id ) = @_;
-	my $designations_set =
-	  $self->{'datastore'}->run_simple_query( "SELECT EXISTS(SELECT isolate_id FROM allele_designations WHERE isolate_id=?)", $isolate_id )
-	  ->[0];
-	my $tagged =
-	  $self->{'datastore'}->run_simple_query( "SELECT EXISTS(SELECT isolate_id FROM allele_sequences WHERE isolate_id=?)", $isolate_id )
-	  ->[0];
+	my $designations_set = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT isolate_id FROM allele_designations WHERE isolate_id=?)",
+		$isolate_id, { cache => 'Script::is_previously_tagged_designations' } );
+	my $tagged = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT isolate_id FROM allele_sequences WHERE isolate_id=?)",
+		$isolate_id, { cache => 'Script::is_previously_tagged_tags' } );
 	return ( $tagged || $designations_set ) ? 1 : 0;
 }
 
