@@ -1110,8 +1110,9 @@ sub _run_comparison {
 			  : "<p>Dynamically updated output disabled as >" . MAX_DISPLAY_TAXA . " taxa selected.</p>";
 			$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete, message_html => $message } );
 		} else {
-			my $msg = "$self->{'html_buffer'}$close_table";
+			my $msg = $self->{'html_buffer'}.$close_table;
 			$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete, message_html => $msg } );
+			undef $msg;
 		}
 		$self->delete_temp_files("$job_id*fastafile*\.txt*") if !$by_reference;
 		$self->_touch_temp_files("$prefix*");    #Prevent removal of isolate FASTA db by cleanup script

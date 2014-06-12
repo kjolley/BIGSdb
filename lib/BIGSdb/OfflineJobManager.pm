@@ -286,22 +286,26 @@ sub update_job_status {
 	#Exceptions in BioPerl appear to sometimes cause the connection to the jobs database to be broken
 	#No idea why - so reconnect if status is 'failed'.
 	$self->_db_connect( { reconnect => 1 } ) if ( $status_hash->{'status'} // '' ) eq 'failed';
-	my (@keys, @values);
-	foreach my $key ( keys %$status_hash ){
-		push @keys, $key;
+	my ( @keys, @values );
+	foreach my $key ( sort keys %$status_hash ) {
+		push @keys,   $key;
 		push @values, $status_hash->{$key};
 	}
-	eval {
-		local $" = '=?,';
-		$self->{'db'}->do( "UPDATE jobs SET @keys=? WHERE id=?", undef, @values, $job_id );
-	};
+	local $" = '=?,';
+	my $qry = "UPDATE jobs SET @keys=? WHERE id=?";
+	if ( !$self->{'sql'}->{$qry} ) {
+
+		#Prepare and cache statement handle.  Previously, using DBI::do resulted in continuously increasing memory use.
+		$self->{'sql'}->{$qry} = $self->{'db'}->prepare($qry);
+	}
+	eval { $self->{'sql'}->{$qry}->execute( @values, $job_id ) };
 	if ($@) {
 		$logger->logcarp($@);
 		$self->{'db'}->rollback;
 	} else {
 		$self->{'db'}->commit;
 	}
-	return if ($status_hash->{'status'} // '') eq 'failed';
+	return if ( $status_hash->{'status'} // '' ) eq 'failed';
 	my $job = $self->get_job_status($job_id);
 	if ( $job->{'status'} && $job->{'status'} eq 'cancelled' || $job->{'cancel'} ) {
 		system( 'kill', $job->{'pid'} ) if $job->{'pid'};
