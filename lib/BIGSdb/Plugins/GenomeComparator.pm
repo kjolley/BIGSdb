@@ -1110,7 +1110,7 @@ sub _run_comparison {
 			  : "<p>Dynamically updated output disabled as >" . MAX_DISPLAY_TAXA . " taxa selected.</p>";
 			$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete, message_html => $message } );
 		} else {
-			my $msg = $self->{'html_buffer'}.$close_table;
+			my $msg = $self->{'html_buffer'} . $close_table;
 			$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete, message_html => $msg } );
 			undef $msg;
 		}
@@ -1577,6 +1577,11 @@ sub _identify_strains {
 		$col++;
 	}
 	$col = 0;
+
+	#With Excel::Writer::XLSX->set_optimization() switched on, rows need to be written in sequential order
+	#So we need to calculate them first, then write them afterwards.
+	my $excel_values        = [];
+	my $excel_col_max_width = [];
 	foreach my $strain ( sort { $strains{$b} <=> $strains{$a} } keys %strains ) {
 		$self->{'html_buffer'} .= "<td class=\"td$td\" style=\"vertical-align:top\">";
 		$self->{'html_buffer'} .= "$_<br />\n" foreach @{ $strain_isolates->{$strain} };
@@ -1588,13 +1593,21 @@ sub _identify_strains {
 		my $max_length = 5;
 
 		foreach my $isolate ( @{ $strain_isolates->{$strain} } ) {
-			$worksheet->write( $row, $col, $isolate, $self->{'excel_format'}->{'normal'} );
+			$excel_values->[$row]->[$col] = $isolate;
 			$max_length = length $isolate if length $isolate > $max_length;
 			$row++;
 		}
-		$worksheet->set_column( $col, $col, $self->_excel_col_width($max_length) );
+		$excel_col_max_width->[$col] = $self->_excel_col_width($max_length);
 		$col++;
 		$strain_id++;
+	}
+	for my $row ( 1 .. @$excel_values - 1 ) {
+		for my $col ( 0 .. @{ $excel_values->[$row] } - 1 ) {
+			$worksheet->write( $row, $col, $excel_values->[$row]->[$col], $self->{'excel_format'}->{'normal'} );
+		}
+	}
+	for my $col ( 0 .. @$excel_col_max_width - 1 ) {
+		$worksheet->set_column( $col, $col, $excel_col_max_width->[$col] );
 	}
 	$self->{'html_buffer'} .= "</tr></table></div>\n";
 	open( my $job_fh, '>>', $job_file ) || $logger->error("Can't open $job_file for appending");
