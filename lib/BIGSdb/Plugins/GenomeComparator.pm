@@ -1070,6 +1070,7 @@ sub _run_comparison {
 			$first = 0;
 			$values->{$id}->{$locus_name} = $value;
 		}
+		$self->{'datastore'}->finish_with_locus($locus_name);
 		$td = $td == 1 ? 2 : 1;
 		$self->{'html_buffer'} .= "</tr>\n";
 		$self->{'file_buffer'} .= "\n";

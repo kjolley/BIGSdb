@@ -97,6 +97,7 @@ sub run_script {
 			}
 			last if $EXIT || $self->_is_time_up;
 		}
+		$self->{'datastore'}->finish_with_locus($locus);
 
 		#Delete locus working files
 		$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");
@@ -133,7 +134,7 @@ sub _define_allele {
 				'now', 'now', DEFINER_USER, DEFINER_USER
 			);
 		};
-		if ($@) {			
+		if ($@) {
 			if ( $@ =~ /duplicate key value/ ) {
 				$self->{'logger'}->info("Duplicate allele: $locus-$allele_id (can't define)");
 				say "Can't add new allele - duplicate. Somebody else has probably defined allele in the past few minutes.";

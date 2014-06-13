@@ -1052,11 +1052,11 @@ sub get_locus {
 		my $attributes = $self->get_locus_info($id);
 		if ( $attributes->{'dbase_name'} ) {
 			my %att = (
-				'dbase_name' => $attributes->{'dbase_name'},
-				'host'       => $attributes->{'dbase_host'},
-				'port'       => $attributes->{'dbase_port'},
-				'user'       => $attributes->{'dbase_user'},
-				'password'   => $attributes->{'dbase_password'}
+				dbase_name => $attributes->{'dbase_name'},
+				host       => $attributes->{'dbase_host'},
+				port       => $attributes->{'dbase_port'},
+				user       => $attributes->{'dbase_user'},
+				password   => $attributes->{'dbase_password'}
 			);
 			try {
 				$attributes->{'db'} = $self->{'dataConnector'}->get_connection( \%att );
@@ -1068,6 +1068,14 @@ sub get_locus {
 		$self->{'locus'}->{$id} = BIGSdb::Locus->new(%$attributes);
 	}
 	return $self->{'locus'}->{$id};
+}
+
+sub finish_with_locus {
+
+	#Free up memory associated with Locus object if we no longer need it.
+	my ( $self, $id ) = @_;
+	delete $self->{'locus'}->{$id};
+	return;
 }
 
 sub is_locus {
@@ -1609,7 +1617,7 @@ sub run_simple_query_hashref {
 	#Deprecated!  Use run_query instead.
 	#runs simple query (single row returned) against current database
 	my ( $self, $qry, @values ) = @_;
-	$logger->logcarp("Datastore::run_simple_query_hashref is deprecated!  Use Datastore::run_query instead.");  #TODO remove method
+	$logger->logcarp("Datastore::run_simple_query_hashref is deprecated!  Use Datastore::run_query instead.");    #TODO remove method
 	$logger->debug("Query: $qry");
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute(@values) };
