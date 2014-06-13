@@ -56,9 +56,19 @@ sub blast {
 			try {
 				my $seqs_ref = $self->{'datastore'}->get_locus($locus)->get_all_sequences;
 				return if !keys %$seqs_ref;
-				foreach ( keys %$seqs_ref ) {
-					next if !length $seqs_ref->{$_};
-					say $fasta_fh ">$_\n$seqs_ref->{$_}";
+				foreach my $allele_id ( keys %$seqs_ref ) {
+					next if !length $seqs_ref->{$allele_id};
+					say $fasta_fh ">$allele_id\n$seqs_ref->{$allele_id}";
+					my $allele_length = length $seqs_ref->{$allele_id};
+					if (
+						   $allele_id ne '0'
+						&& $allele_id ne 'N'
+						&& ( !defined $self->{'min_allele_length'}->{$locus}
+							|| $allele_length < $self->{'min_allele_length'}->{$locus} )
+					  )
+					{
+						$self->{'min_allele_length'}->{$locus} = $allele_length;
+					}
 				}
 			}
 			catch BIGSdb::DatabaseConfigurationException with {
@@ -146,18 +156,23 @@ sub blast {
 	$self->{'db'}->commit;    #prevent idle in transaction table locks
 	if ( -e $temp_fastafile && !-z $temp_fastafile ) {
 		my $blastn_word_size = ( defined $params->{'word_size'} && $params->{'word_size'} =~ /(\d+)/ ) ? $1 : 15;
+
+		#If we're looking for exact matches only we can set the word size to the smallest length of an allele
+		if ( $params->{'exact_matches_only'} && defined $self->{'min_allele_length'}->{$locus} ) {
+			$blastn_word_size = $self->{'min_allele_length'}->{$locus} if $self->{'min_allele_length'}->{$locus} > $blastn_word_size;
+		}
 		my $word_size = $program eq 'blastn' ? $blastn_word_size : 3;
 		my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
 		my $filter = $program eq 'blastn' ? 'dust' : 'seg';
 		my %params = (
-			-num_threads => $blast_threads,
-			-max_target_seqs => 1000,   #Set high for longer alleles that partially match and score higher than exact short alleles
-			-word_size => $word_size,
-			-db        => $temp_fastafile,
-			-query     => $temp_infile,
-			-out       => $temp_outfile,
-			-outfmt    => 6,
-			-$filter   => 'no'
+			-num_threads     => $blast_threads,
+			-max_target_seqs => 1000,            #Set high for longer alleles that partially match and score higher than exact short alleles
+			-word_size       => $word_size,
+			-db              => $temp_fastafile,
+			-query           => $temp_infile,
+			-out             => $temp_outfile,
+			-outfmt          => 6,
+			-$filter         => 'no'
 		);
 		$params{'-comp_based_stats'} = 0 if $program ne 'blastn';    #Will not return some matches with low-complexity regions otherwise.
 		system( "$self->{'config'}->{'blast+_path'}/$program", %params );

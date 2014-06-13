@@ -40,7 +40,12 @@ sub run_script {
 	if ( BIGSdb::Utils::is_int( $self->{'options'}->{'w'} ) ) {
 		$params->{'word_size'} = $self->{'options'}->{'w'};
 	} else {
-		$params->{'word_size'} = $self->{'options'}->{'0'} ? 15 : DEFAULT_WORD_SIZE;    #More stringent if checking for missing loci
+		if ( $self->{'options'}->{'0'} ) {
+			$params->{'word_size'} = 15;                          #More stringent if checking for missing loci
+		} else {
+			$params->{'word_size'} = DEFAULT_WORD_SIZE;
+			$params->{'exact_matches_only'} = 1; 
+		}
 	}
 	if ( $self->{'options'}->{'0'} ) {
 		$params->{'alignment'} = MISSING_ALLELE_ALIGNMENT;
