@@ -147,11 +147,11 @@ sub get_flags {
 	my ( $self, $allele_id ) = @_;
 	if ( !$self->{'db'} ) {
 		$logger->info("No connection to locus $self->{'id'} database");
-		return \@;;
+		return [];
 	}
 	if ( !$self->{'dbase_id2_value'} ) {
 		$logger->error("You can only get flags from a BIGSdb seqdef database.");
-		return \@;;
+		return [];
 	}
 	if ( !$self->{'sql'}->{'flags'} ) {
 		$self->{'sql'}->{'flags'} = $self->{'db'}->prepare("SELECT flag FROM allele_flags WHERE locus = ? AND allele_id=?");

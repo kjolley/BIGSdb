@@ -1709,20 +1709,24 @@ sub print_warning_sign {
 
 sub get_curator_id {
 	my ($self) = @_;
-	if ( $self->{'username'} ) {
-		my $qry = "SELECT id,status FROM users WHERE user_name=?";
-		my $values = $self->{'datastore'}->run_simple_query( $qry, $self->{'username'} );
-		return 0 if ref $values ne 'ARRAY';
-		if (   $values->[1]
-			&& $values->[1] ne 'curator'
-			&& $values->[1] ne 'admin' )
-		{
-			return 0;
+	if ( !$self->{'cache'}->{'curator_id'} ) {
+		if ( $self->{'username'} ) {
+			my $qry = "SELECT id,status FROM users WHERE user_name=?";
+			my $values = $self->{'datastore'}->run_query( $qry, $self->{'username'}, { fetch => 'row_hashref' } );
+			return 0 if ref $values ne 'HASH';
+			if (   $values->{'status'}
+				&& $values->{'status'} ne 'curator'
+				&& $values->{'status'} ne 'admin' )
+			{
+				$self->{'cache'}->{'curator_id'} = 0;
+			} else {
+				$self->{'cache'}->{'curator_id'} = $values->{'id'};
+			}
+		} else {
+			$self->{'cache'}->{'curator_id'} = 0;
 		}
-		return $values->[0];
-	} else {
-		return 0;
 	}
+	return $self->{'cache'}->{'curator_id'};
 }
 
 sub initiate_prefs {

@@ -610,7 +610,7 @@ sub _create_extra_fields_for_loci {
 	my $buffer = '';
 	return $buffer if $self->{'system'}->{'dbtype'} ne 'sequences';
 	my $attributes = $self->{'datastore'}->get_table_field_attributes('locus_descriptions');
-	if (defined $newdata_ref->{'id'}) {
+	if ( defined $newdata_ref->{'id'} ) {
 		my $desc_ref =
 		  $self->{'datastore'}
 		  ->run_query( "SELECT * FROM locus_descriptions WHERE locus=?", $newdata_ref->{'id'}, { fetch => 'row_hashref' } );
@@ -1111,11 +1111,17 @@ sub update_history {
 	my ( $self, $isolate_id, $action ) = @_;
 	return if !$action || !$isolate_id;
 	my $curator_id = $self->get_curator_id;
-	my $sql        = $self->{'db'}->prepare("INSERT INTO history (isolate_id,timestamp,action,curator) VALUES (?,?,?,?)");
-	my $sql_time   = $self->{'db'}->prepare("UPDATE isolates SET (datestamp,curator) = (?,?) WHERE id=?");
+	if ( !$self->{'sql'}->{'CuratePage::update_history'} ) {
+		$self->{'sql'}->{'CuratePage::update_history'} =
+		  $self->{'db'}->prepare("INSERT INTO history (isolate_id,timestamp,action,curator) VALUES (?,?,?,?)");
+	}
+	if ( !$self->{'sql'}->{'CuratePage::update_history_time'} ) {
+		$self->{'sql'}->{'CuratePage::update_history_time'} =
+		  $self->{'db'}->prepare("UPDATE isolates SET (datestamp,curator) = (?,?) WHERE id=?");
+	}
 	eval {
-		$sql->execute( $isolate_id, 'now', $action, $curator_id );
-		$sql_time->execute( 'now', $curator_id, $isolate_id );
+		$self->{'sql'}->{'CuratePage::update_history'}->execute( $isolate_id, 'now', $action, $curator_id );
+		$self->{'sql'}->{'CuratePage::update_history_time'}->execute( 'now', $curator_id, $isolate_id );
 	};
 	if ($@) {
 		$logger->error("Can't update history for isolate $isolate_id '$action' $@");

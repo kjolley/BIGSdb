@@ -103,11 +103,13 @@ sub blast {
 			$qry .= " AND experiment_id=?";
 			push @criteria, $experiment;
 		}
-		my $sql = $self->{'db'}->prepare($qry);
-		eval { $sql->execute(@criteria) };
+		if ( !$self->{'sql'}->{$qry} ) {
+			$self->{'sql'}->{$qry} = $self->{'db'}->prepare($qry);
+		}
+		eval { $self->{'sql'}->{$qry}->execute(@criteria) };
 		$logger->error($@) if $@;
 		open( my $infile_fh, '>', $temp_infile ) or $logger->error("Can't open temp file $temp_infile for writing");
-		while ( my $seq_data = $sql->fetchrow_arrayref ) {
+		while ( my $seq_data = $self->{'sql'}->{$qry}->fetchrow_arrayref ) {
 			$seq_count++;
 			say $infile_fh ">$seq_data->[0]\n$seq_data->[1]";
 		}
@@ -148,21 +150,20 @@ sub blast {
 		my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
 		my $filter = $program eq 'blastn' ? 'dust' : 'seg';
 		my %params = (
-			-num_threads     => $blast_threads,
-			-max_target_seqs => 1000,
-			-word_size       => $word_size,
-			-db              => $temp_fastafile,
-			-query           => $temp_infile,
-			-out             => $temp_outfile,
-			-outfmt          => 6,
-			-$filter         => 'no'
+			-num_threads => $blast_threads,
+			-max_target_seqs => 1000,   #Set high for longer alleles that partially match and score higher than exact short alleles
+			-word_size => $word_size,
+			-db        => $temp_fastafile,
+			-query     => $temp_infile,
+			-out       => $temp_outfile,
+			-outfmt    => 6,
+			-$filter   => 'no'
 		);
 		$params{'-comp_based_stats'} = 0 if $program ne 'blastn';    #Will not return some matches with low-complexity regions otherwise.
 		system( "$self->{'config'}->{'blast+_path'}/$program", %params );
 		my ( $exact_matches, $matched_regions, $partial_matches );
 		my $pcr_filter   = !$params->{'pcr_filter'}   ? 0 : $locus_info->{'pcr_filter'};
 		my $probe_filter = !$params->{'probe_filter'} ? 0 : $locus_info->{'probe_filter'};
-
 		if ( -e "$self->{'config'}->{'secure_tmp_dir'}/$outfile_url" ) {
 			( $exact_matches, $matched_regions ) = $self->_parse_blast_exact(
 				{

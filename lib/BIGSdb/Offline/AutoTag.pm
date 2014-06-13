@@ -87,7 +87,8 @@ sub run_script {
 				foreach (@$exact_matches) {
 					if ( $_->{'allele'} ) {
 						print "Allele: $_->{'allele'} " if !$self->{'options'}->{'q'};
-						my $sender = $self->{'datastore'}->run_query( "SELECT sender FROM sequence_bin WHERE id=?", $_->{'seqbin_id'} );
+						my $sender = $self->{'datastore'}->run_query( "SELECT sender FROM sequence_bin WHERE id=?",
+							$_->{'seqbin_id'}, { cache => 'AutoTag::run_script_sender' } );
 						my $problem = 0;
 						try {
 							$self->_tag_allele(
