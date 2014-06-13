@@ -33,10 +33,11 @@ use List::MoreUtils qw(uniq any none);
 use Digest::MD5;
 use Excel::Writer::XLSX;
 use BIGSdb::Page qw(SEQ_METHODS LOCUS_PATTERN);
-use constant MAX_UPLOAD_SIZE  => 32 * 1024 * 1024;    #32Mb
+use constant MAX_UPLOAD_SIZE  => 32 * 1024 * 1024;    #32MB
 use constant MAX_SPLITS_TAXA  => 200;
 use constant MAX_DISPLAY_TAXA => 150;
 use constant MAX_GENOMES      => 1000;
+use constant MAX_MUSCLE_MB    => 4 * 1024;            #4GB
 
 sub get_attributes {
 	my %att = (
@@ -49,7 +50,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.6.3',
+		version     => '1.6.4',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/genome_comparator.shtml',
@@ -1777,7 +1778,8 @@ sub _run_alignment {
 	if ( $params->{'aligner'} eq 'MAFFT' && $self->{'config'}->{'mafft_path'} && -e $fasta_file && -s $fasta_file ) {
 		system("$self->{'config'}->{'mafft_path'} --quiet --preservecase --clustalout $fasta_file > $aligned_out");
 	} elsif ( $params->{'aligner'} eq 'MUSCLE' && $self->{'config'}->{'muscle_path'} && -e $fasta_file && -s $fasta_file ) {
-		system( $self->{'config'}->{'muscle_path'}, -in => $fasta_file, -out => $aligned_out, '-quiet', '-clwstrict' );
+		my $max_mb = $self->{'config'}->{'max_muscle_mb'} // MAX_MUSCLE_MB;
+		system( $self->{'config'}->{'muscle_path'}, -in => $fasta_file, -out => $aligned_out, -maxmb => $max_mb, '-quiet', '-clwstrict' );
 	} else {
 		$logger->error('No aligner selected');
 	}
