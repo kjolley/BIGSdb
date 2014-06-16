@@ -35,6 +35,7 @@ use constant {
 use lib (LIB_DIR);
 use Getopt::Long qw(:config no_ignore_case);
 use POSIX;
+use Term::Cap;
 use Parallel::ForkManager;
 use BIGSdb::Offline::ScanNew;
 my %opts;
@@ -157,83 +158,92 @@ my $script = BIGSdb::Offline::ScanNew->new(
 );
 
 sub show_help {
-	print << "HELP";
+	my $termios = POSIX::Termios->new;
+	$termios->getattr;
+	my $ospeed = $termios->getospeed;
+	my $t = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
+	my ( $norm, $bold, $under ) = map { $t->Tputs( $_, 1 ) } qw/me md us/;
+	say << "HELP";
+${bold}NAME$norm
+    ${bold}scannew.pl$norm - BIGSdb automated allele definer
 
-Usage scannew.pl -d <database configuration>
+${bold}SYNOPSIS$norm
+    ${bold}scannew.pl --database$norm ${under}NAME$norm [${under}options$norm]
 
-Options
--------
--a                        Assign new alleles in definitions database.
---assign
+${bold}OPTIONS$norm
+${bold}-a, --assign$norm
+    Assign new alleles in definitions database.
 
--A <int>                  Percentage alignment (default: 100).
---alignment
+${bold}-A, --alignment$norm ${under}INT$norm
+    Percentage alignment (default: 100).
 
--B <int>                  Percentage identity (default: 99).
---identity
+${bold}-B, --identity$norm ${under}INT$norm
+    Percentage identity (default: 99).
 
--c                        Only return complete coding sequences.
---coding_sequences
+${bold}-c, --coding_sequences$norm
+    Only return complete coding sequences.
 
--d <name>                 Database configuration name.
---database	
+${bold}-d, --database$norm ${under}NAME$norm
+    Database configuration name.
 
--h                        This help page.
---help
+${bold}-h, --help$norm
+    This help page.
 
--i <list>                 Comma-separated list of isolate ids to scan (ignored
---isolates <list>         if -p used).
+${bold}-i, --isolates$norm ${under}LIST$norm
+    Comma-separated list of isolate ids to scan (ignored if -p used).
            
--I <list>                 Comma-separated list of isolate ids to ignore.
---exclude_isolates <list>
+${bold}-I, --exclude_isolates$norm ${under}LIST$norm
+    Comma-separated list of isolate ids to ignore.
 
--l <list>                 Comma-separated list of loci to scan (ignored if -s
---loci <list>             used).
+${bold}-l, --loci$norm ${under}LIST$norm
+    Comma-separated list of loci to scan (ignored if -s used).
 
--L <list>                 Comma-separated list of loci to exclude
---exclude_loci <list>
+${bold}-L, --exclude_loci$norm ${under}LIST$norm
+    Comma-separated list of loci to exclude.
 
--m <size>                 Minimum size of seqbin (bp) - limit search to
---min_size <size>         isolates with at least this much sequence.
+${bold}-m, --min_size$norm ${under}SIZE$norm
+    Minimum size of seqbin (bp) - limit search to isolates with at least this
+    much sequence.
            
--n                        New (previously untagged) isolates only
---new_only
+${bold}-n, --new_only$norm
+    New (previously untagged) isolates only.
 
--o                        Order so that isolates last tagged the longest time
---order                   ago get scanned first (ignored if -r used).
+${bold}-o, --order$norm
+    Order so that isolates last tagged the longest time ago get scanned first
+    (ignored if -r used).
            
--p <list>                 Comma-separated list of project isolates to scan.
---projects <list>
+${bold}-p, --projects$norm ${under}LIST$norm
+    Comma-separated list of project isolates to scan.
 
--P <list>                 Comma-separated list of projects whose isolates will
---exclude_projects        be excluded.
+${bold}-P, --exclude_projects$norm ${under}LIST$norm
+    Comma-separated list of projects whose isolates will be excluded.
            
--r                        Shuffle order of isolate ids to scan.
---random
+${bold}-r, --random$norm
+    Shuffle order of isolate ids to scan.
 
--R <regex>                Regex for locus names
---locus_regex <regex>
+${bold}-R, --locus_regex$norm ${under}REGEX$norm
+    Regex for locus names.
 
--s <list>                 Comma-separated list of scheme loci to scan.
---schemes <list>
+${bold}-s, --schemes$norm ${under}LIST$norm
+    Comma-separated list of scheme loci to scan.
 
--t <mins>                 Stop after t minutes.
---time <mins>
+${bold}-t, --time$norm ${under}MINS$norm
+    Stop after t minutes.
 
---threads <threads>       Maximum number of threads to use.
+${bold}--threads$norm ${under}THREADS$norm
+    Maximum number of threads to use.
 
--T                        Scan even when sequence tagged (no designation).
---already_tagged
+${bold}-T, --already_tagged$norm
+    Scan even when sequence tagged (no designation).
 
--w <size>                 BLASTN word size.
---word_size <size>
+${bold}-w, --word_size$norm ${under}SIZE$norm
+    BLASTN word size.
 
--x <id>                   Minimum isolate id.
---min <id>
+${bold}-x, --min$norm ${under}ID$norm
+    Minimum isolate id.
 
--y <id>                   Maximum isolate id.
---max <id>
-
+${bold}-y, --max$norm ${under}ID$norm
+    Maximum isolate id.
 HELP
 	return;
 }
