@@ -50,7 +50,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.6.4',
+		version     => '1.6.5',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/genome_comparator.shtml',
@@ -361,8 +361,8 @@ sub _print_interface {
 	catch BIGSdb::DatabaseNoRecordException with {
 		$use_all = 0;
 	};
-	my $seqbin_values = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT id FROM sequence_bin)");
-	if ( !$seqbin_values->[0] ) {
+	my $seqbin_values = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM sequence_bin)");
+	if ( !$seqbin_values ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>There are no sequences in the sequence bin.</p></div>";
 		return;
 	}
@@ -609,13 +609,9 @@ sub _get_identifier {
 	my @includes;
 	@includes = split /\|\|/, $self->{'params'}->{'includes'} if $self->{'params'}->{'includes'};
 	if (@includes) {
-		if ( !$self->{'sql'}->{'ident'} ) {
-			$self->{'sql'}->{'ident'} = $self->{'db'}->prepare("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?");
-		}
-		eval { $self->{'sql'}->{'ident'}->execute($id) };
-		$logger->error($@) if $@;
-		my $include_data = $self->{'sql'}->{'ident'}->fetchrow_hashref;
-		my $first        = 1;
+		my $include_data = $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?",
+			$id, { fetch => 'row_hashref', cache => 'GenomeComparator::get_identifier' } );
+		my $first = 1;
 		foreach my $field (@includes) {
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			my $field_value;
@@ -912,12 +908,10 @@ sub _run_comparison {
 		}
 		$order->{$locus_name} = $order_count;
 		$order_count++;
-		my $seqbin_length_sql = $self->{'db'}->prepare("SELECT length(sequence) FROM sequence_bin where id=?");
-		my %status            = ( all_exact => 1, all_missing => 1, exact_except_ref => 1, truncated => 0 );
-		my $first             = 1;
-		my $previous_seq      = '';
+		my %status       = ( all_exact => 1, all_missing => 1, exact_except_ref => 1, truncated => 0 );
+		my $first        = 1;
+		my $previous_seq = '';
 		my ( $cleaned_locus_name, $text_locus_name );
-
 		if ($by_reference) {
 			$cleaned_locus_name = $locus_name;
 			$text_locus_name    = $locus_name;
@@ -983,7 +977,6 @@ sub _run_comparison {
 				$match = $self->_parse_blast_ref( $seq_ref, $out_file );
 			}
 			$match_count->{$id}->{$locus_name} = $match->{'good_matches'} // 0;
-			my $seqbin_length;
 			if ( ref $match eq 'HASH' && ( $match->{'identity'} || $match->{'allele'} ) ) {
 				$status{'all_missing'} = 0;
 				if ($by_reference) {
@@ -993,10 +986,11 @@ sub _run_comparison {
 						$status{'all_exact'} = 0;
 					}
 				}
-				eval { $seqbin_length_sql->execute( $match->{'seqbin_id'} ); };
-				$logger->error($@) if $@;
-				($seqbin_length) = $seqbin_length_sql->fetchrow_array;
 				if ( !$match->{'exact'} && $match->{'predicted_start'} && $match->{'predicted_end'} ) {
+					my $seqbin_length = $self->{'datastore'}->run_query(
+						"SELECT length(sequence) FROM sequence_bin where id=?",
+						$match->{'seqbin_id'}, { cache => 'GenomeComparator::run_comparison_seqbin_length' }
+					);
 					foreach (qw (predicted_start predicted_end)) {
 						if ( $match->{$_} < 1 ) {
 							( $match->{$_}, $status{'truncated'}, $value ) = ( 1, 1, 'T' );
@@ -1990,15 +1984,13 @@ sub _extract_sequence {
 	if ( $end < $start ) {
 		$start = $end;
 	}
-	my $seq_ref =
+	my $seq =
 	  $self->{'datastore'}
-	  ->run_simple_query( "SELECT substring(sequence from $start for $length) FROM sequence_bin WHERE id=?", $match->{'seqbin_id'} );
-	if ( ref $seq_ref eq 'ARRAY' ) {
-		if ( $match->{'reverse'} ) {
-			return BIGSdb::Utils::reverse_complement( $seq_ref->[0] );
-		}
-		return $seq_ref->[0];
+	  ->run_query( "SELECT substring(sequence from $start for $length) FROM sequence_bin WHERE id=?", $match->{'seqbin_id'} );
+	if ( $match->{'reverse'} ) {
+		return BIGSdb::Utils::reverse_complement($seq);
 	}
+	return $seq;
 }
 
 sub _blast {
@@ -2219,14 +2211,13 @@ sub _create_isolate_FASTA {
 		$qry .= " AND experiment_id=?";
 		push @criteria, $experiment;
 	}
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute(@criteria); };
-	$logger->error($@) if $@;
+	my $contigs =
+	  $self->{'datastore'}->run_query( $qry, \@criteria, { fetch => 'all_arrayref', cache => 'GenomeComparator::create_isolate_FASTA' } );
 	$isolate_id = $1 if $isolate_id =~ /(\d*)/;    #avoid taint check
 	my $temp_infile = "$self->{'config'}->{'secure_tmp_dir'}/$prefix\_isolate_$isolate_id.txt";
 	open( my $infile_fh, '>', $temp_infile ) || $logger->error("Can't open $temp_infile for writing");
-	while ( my ( $id, $seq ) = $sql->fetchrow_array ) {
-		print $infile_fh ">$id\n$seq\n";
+	foreach (@$contigs) {
+		say $infile_fh ">$_->[0]\n$_->[1]";
 	}
 	close $infile_fh;
 	return $temp_infile;
