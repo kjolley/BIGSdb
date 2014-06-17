@@ -87,7 +87,6 @@ sub blast {
 	#create query fasta file
 	#only need to create this once for each isolate (per run), so check if file exists first
 	#this should then be deleted by the calling function!
-	my $seq_count = 0;
 	if ( !-e $temp_infile ) {
 		my $experiment      = $params->{'experiment_list'};
 		my $distinct_clause = $experiment ? ' DISTINCT' : '';
@@ -113,24 +112,12 @@ sub blast {
 			$qry .= " AND experiment_id=?";
 			push @criteria, $experiment;
 		}
-		if ( !$self->{'sql'}->{$qry} ) {
-			$self->{'sql'}->{$qry} = $self->{'db'}->prepare($qry);
-		}
-		eval { $self->{'sql'}->{$qry}->execute(@criteria) };
-		$logger->error($@) if $@;
+		my $contigs = $self->{'datastore'}->run_query( $qry, \@criteria, { fetch => 'all_arrayref', cache => 'Scan::blast_create_fasta' } );
 		open( my $infile_fh, '>', $temp_infile ) or $logger->error("Can't open temp file $temp_infile for writing");
-		while ( my $seq_data = $self->{'sql'}->{$qry}->fetchrow_arrayref ) {
-			$seq_count++;
-			say $infile_fh ">$seq_data->[0]\n$seq_data->[1]";
+		foreach (@$contigs) {
+			say $infile_fh ">$_->[0]\n$_->[1]";
 		}
 		close $infile_fh;
-		open( my $seqcount_fh, '>', "$temp_infile\_seqcount" ) or $logger->error("Can't open temp file $temp_infile\_seqcount for writing");
-		say $seqcount_fh $seq_count;
-		close $seqcount_fh;
-	} else {
-		open( my $seqcount_fh, '<', "$temp_infile\_seqcount" ) or $logger->error("Can't open temp file $temp_infile\_seqcount for reading");
-		$seq_count = $1 if <$seqcount_fh> =~ /(\d+)/;
-		close $seqcount_fh;
 	}
 	my ( $pcr_products, $probe_matches );
 	if ( $locus_info->{'pcr_filter'} && $params->{'pcr_filter'} ) {
