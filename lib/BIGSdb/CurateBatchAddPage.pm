@@ -965,25 +965,14 @@ sub _check_data_sequences {
 	my @data            = @{ $arg_ref->{'data'} };
 	my $q               = $self->{'cgi'};
 	my $buffer;
-
-	if ( !$self->{'sql'}->{'sequence_exists'} ) {
-		$self->{'sql'}->{'sequence_exists'} = $self->{'db'}->prepare("SELECT allele_id FROM sequences WHERE locus=? AND sequence=?");
-	}
-	if ( !$self->{'sql'}->{'allele_id_exists'} ) {
-		$self->{'sql'}->{'allele_id_exists'} = $self->{'db'}->prepare("SELECT COUNT(*) FROM sequences WHERE locus=? AND allele_id=?");
-	}
 	if ( $field eq 'locus' && $q->param('locus') ) {
 		${ $arg_ref->{'value'} } = $q->param('locus');
 	}
-	if ( $field eq 'allele_id' ) {
-		if ( $q->param('locus') ) {
-			$locus = $q->param('locus');
-		} else {
-			$locus =
-			  ( defined $file_header_pos{'locus'} && defined $data[ $file_header_pos{'locus'} ] )
-			  ? $data[ $file_header_pos{'locus'} ]
-			  : undef;
-		}
+	$locus //=
+	  ( defined $file_header_pos{'locus'} && defined $data[ $file_header_pos{'locus'} ] )
+	  ? $data[ $file_header_pos{'locus'} ]
+	  : undef;
+	if ( defined $locus && $field eq 'allele_id' ) {
 		if (   defined $file_header_pos{'locus'}
 			&& $data[ $file_header_pos{'locus'} ]
 			&& any { $_ eq $data[ $file_header_pos{'locus'} ] } @{ $arg_ref->{'required_extended_exist'} } )
@@ -1007,12 +996,11 @@ sub _check_data_sequences {
 			my $exists;
 			do {
 				${ $arg_ref->{'value'} }++;
-				eval { $self->{'sql'}->{'allele_id_exists'}->execute( $locus, ${ $arg_ref->{'value'} } ) };
-				if ($@) {
-					$logger->error("Can't execute allele id exists check. values $locus,${$arg_ref->{'value'}} $@");
-					last;
-				}
-				($exists) = $self->{'sql'}->{'allele_id_exists'}->fetchrow_array;
+				$exists = $self->{'datastore'}->run_query(
+					"SELECT EXISTS(SELECT * FROM sequences WHERE locus=? AND allele_id=?)",
+					[ $locus, ${ $arg_ref->{'value'} } ],
+					{ cache => 'CurateBatchAddPage::allele_id_exists' }
+				);
 			} while $exists;
 			$arg_ref->{'last_id'}->{$locus} = ${ $arg_ref->{'value'} };
 		} elsif ( defined $file_header_pos{'allele_id'}
@@ -1024,21 +1012,23 @@ sub _check_data_sequences {
 		}
 		my $regex = $locus_info->{'allele_id_regex'};
 		if ( $regex && $data[ $file_header_pos{'allele_id'} ] !~ /$regex/ ) {
-			$buffer .= "Allele id value is invalid - it must match the regular expression /$regex/<br />";
+			$buffer .= "Allele id value is invalid - it must match the regular expression /$regex/.<br />";
+		}
+		if ( $data[ $file_header_pos{'allele_id'} ] ) {
+			my $exists = $self->{'datastore'}->run_query(
+				"SELECT EXISTS(SELECT * FROM sequences WHERE locus=? AND allele_id=?)",
+				[ $locus, $data[ $file_header_pos{'allele_id'} ] ],
+				{ cache => 'CurateBatchAddPage::allele_id_exists' }
+			);
+			if ($exists) {
+				$buffer .= "Allele id already exists.<br />";
+			}
 		}
 	}
 
 	#special case to check for sequence length in sequences table, and that sequence doesn't already exist
 	#and is similar to existing.
-	if ( $field eq 'sequence' ) {
-		if ( $q->param('locus') ) {
-			$locus = $q->param('locus');
-		} else {
-			$locus =
-			  ( defined $file_header_pos{'locus'} && defined $data[ $file_header_pos{'locus'} ] )
-			  ? $data[ $file_header_pos{'locus'} ]
-			  : undef;
-		}
+	if ( defined $locus && $field eq 'sequence' ) {
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		${ $arg_ref->{'value'} } //= '';
 		${ $arg_ref->{'value'} } =~ s/ //g;
@@ -1081,9 +1071,11 @@ sub _check_data_sequences {
 					$buffer .= "Sequence appears more than once in this submission.<br />";
 				}
 			}
-			eval { $self->{'sql'}->{'sequence_exists'}->execute( $locus, ${ $arg_ref->{'value'} } ) };
-			$logger->error($@) if $@;
-			my ($exists) = $self->{'sql'}->{'sequence_exists'}->fetchrow_array;
+			my $exists = $self->{'datastore'}->run_query(
+				"SELECT allele_id FROM sequences WHERE locus=? AND sequence=?",
+				[ $locus, ${ $arg_ref->{'value'} } ],
+				{ cache => 'CurateBatchAddPage::sequence_exists' }
+			);
 			if ($exists) {
 				if ( $q->param('complete_CDS') || $q->param('ignore_existing') ) {
 					${ $arg_ref->{'continue'} } = 0;
