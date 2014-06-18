@@ -1639,14 +1639,12 @@ sub can_modify_table {
 		return 1;
 	} elsif ( $table eq 'profile_refs' ) {
 		my $allowed =
-		  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM scheme_curators WHERE curator_id=?", $self->get_curator_id )->[0];
+		  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM scheme_curators WHERE curator_id=?)", $self->get_curator_id );
 		return $allowed;
 	} elsif ( ( $table eq 'profiles' || $table eq 'profile_fields' || $table eq 'profile_members' ) ) {
 		return 0 if !$scheme_id;
-		my $allowed =
-		  $self->{'datastore'}
-		  ->run_simple_query( "SELECT COUNT(*) FROM scheme_curators WHERE scheme_id=? AND curator_id=?", $scheme_id, $self->get_curator_id )
-		  ->[0];
+		my $allowed = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM scheme_curators WHERE scheme_id=? AND curator_id=?)",
+			[ $scheme_id, $self->get_curator_id ] );
 		return $allowed;
 	} elsif (
 		(
@@ -1672,7 +1670,7 @@ sub can_modify_table {
 		return 1;
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' && ( $table eq 'sequence_refs' || $table eq 'accession' ) ) {
 		my $allowed =
-		  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM locus_curators WHERE curator_id=?", $self->get_curator_id )->[0];
+		  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM locus_curators WHERE curator_id=?)", $self->get_curator_id );
 		return $allowed;
 	} elsif ( $table eq 'isolate_field_extended_attributes' && $self->{'permissions'}->{'modify_field_attributes'} ) {
 		return 1;
