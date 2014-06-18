@@ -375,12 +375,30 @@ by selecting the appropriate scheme description. Alternatively, you can enter th
 annotated reference genome and compare using the loci defined in that.</p>
 HTML
 	say $q->start_form;
-	say "<div class=\"scrollable\">";
+	say qq(<div class="scrollable">);
 	$self->print_seqbin_isolate_fieldset( { use_all => $use_all, selected_ids => $selected_ids, isolate_paste_list => 1 } );
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
 	$self->print_includes_fieldset( { title => 'Include in identifiers', preselect => $self->{'system'}->{'labelfield'} } );
 	$self->print_scheme_fieldset;
-	say "<fieldset style=\"float:left\">\n<legend>Reference genome</legend>";
+	say qq(<div style="clear:both"></div>);
+	$self->_print_reference_genome_fieldset;
+	$self->_print_parameters_fieldset;
+	$self->_print_distance_matrix_fieldset;
+	$self->_print_alignment_fieldset;
+	$self->_print_core_genome_fieldset;
+	$self->print_sequence_filter_fieldset;
+	$self->print_action_fieldset( { name => 'GenomeComparator' } );
+	say $q->hidden($_) foreach qw (page name db);
+	say "</div>";
+	say $q->end_form;
+	say "</div>";
+	return;
+}
+
+sub _print_reference_genome_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say qq(<fieldset style="float:left; height:12em"><legend>Reference genome</legend>);
 	say "Enter accession number:<br />";
 	say $q->textfield( -name => 'accession', -id => 'accession', -size => 10, -maxlength => 20 );
 	say " <a class=\"tooltip\" title=\"Reference genome - Use of a reference genome will override any locus "
@@ -417,91 +435,104 @@ HTML
 	}
 	say "or upload Genbank/EMBL/FASTA file:<br />";
 	say $q->filefield( -name => 'ref_upload', -id => 'ref_upload', -onChange => 'enable_seqs()' );
-	say " <a class=\"tooltip\" title=\"Reference upload - File format is recognised by the extension in the "
-	  . "name.  Make sure your file has a standard extension, e.g. .gb, .embl, .fas.\">&nbsp;<i>i</i>&nbsp;</a><br />";
-	say "</fieldset>\n<fieldset style=\"float:left\">\n<legend>Parameters / options</legend>";
-	say "<ul><li><label for =\"identity\" class=\"parameter\">Min % identity:</label>";
+	say qq( <a class="tooltip" title="Reference upload - File format is recognised by the extension in the )
+	  . qq(name.  Make sure your file has a standard extension, e.g. .gb, .embl, .fas.">&nbsp;<i>i</i>&nbsp;</a>);
+	say "</fieldset>";
+	return;
+}
+
+sub _print_parameters_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say qq(<fieldset style="float:left;height:12em">\n<legend>Parameters / options</legend>);
+	say qq(<ul><li><label for ="identity" class="parameter">Min % identity:</label>);
 	say $q->popup_menu( -name => 'identity', -id => 'identity', -values => [ 30 .. 100 ], -default => 70 );
-	say " <a class=\"tooltip\" title=\"Minimum % identity - Match required for partial matching.\">&nbsp;<i>i</i>&nbsp;</a></li>";
-	say "<li><label for=\"alignment\" class=\"parameter\">Min % alignment:</label>";
+	say qq( <a class="tooltip" title="Minimum % identity - Match required for partial matching.">&nbsp;<i>i</i>&nbsp;</a></li>);
+	say qq(<li><label for="alignment" class="parameter">Min % alignment:</label>);
 	say $q->popup_menu( -name => 'alignment', -id => 'alignment', -values => [ 10 .. 100 ], -default => 50 );
-	say " <a class=\"tooltip\" title=\"Minimum % alignment - Percentage of allele sequence length required to be aligned for "
-	  . "partial matching.\">&nbsp;<i>i</i>&nbsp;</a></li>";
-	say "<li><label for=\"word_size\" class=\"parameter\">BLASTN word size:</label>";
+	say qq( <a class="tooltip" title="Minimum % alignment - Percentage of allele sequence length required to be aligned for )
+	  . qq(partial matching.">&nbsp;<i>i</i>&nbsp;</a></li>);
+	say qq(<li><label for="word_size" class="parameter">BLASTN word size:</label>);
 	say $q->popup_menu( -name => 'word_size', -id => 'word_size', -values => [ 7 .. 30 ], -default => 15 );
-	say " <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an extension. "
-	  . "Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a></li>";
-	say "<li><span class=\"warning\">";
+	say qq( <a class="tooltip" title="BLASTN word size - This is the length of an exact match required to initiate an extension. )
+	  . qq(Larger values increase speed at the expense of sensitivity.">&nbsp;<i>i</i>&nbsp;</a></li>);
+	say qq(<li><span class="warning">);
 	say $q->checkbox( -name => 'tblastx', -id => 'tblastx', -label => 'Use TBLASTX' );
-	print <<"HTML";
- <a class="tooltip" title="TBLASTX (analysis by reference genome only) - Compares the six-frame translation of your nucleotide 
-query against the six-frame translation of the sequences in the sequence bin (sequences will be classed as identical if they 
-result in the same translated sequence even if the nucleotide sequence is different).  This is SLOWER than BLASTN. Use with
-caution.">&nbsp;<i>i</i>&nbsp;</a></span></li><li>
-HTML
-	say $q->checkbox( -name => 'align', -id => 'align', -label => 'Produce alignments', -onChange => "enable_seqs()" );
-	print <<"HTML";
- <a class="tooltip" title="Alignments - Alignments will be produced in clustal format using the selected aligner for 
-any loci that vary between isolates. This may slow the analysis considerably.">&nbsp;<i>i</i>&nbsp;</a></li><li>
-HTML
+	say qq( <a class="tooltip" title="TBLASTX (analysis by reference genome only) - Compares the six-frame translation of your nucleotide )
+	  . qq(query against the six-frame translation of the sequences in the sequence bin (sequences will be classed as identical if they )
+	  . qq(result in the same translated sequence even if the nucleotide sequence is different).  This is SLOWER than BLASTN. Use with )
+	  . qq(caution.">&nbsp;<i>i</i>&nbsp;</a></span></li><li>);
+	say $q->checkbox( -name => 'use_tagged', -id => 'use_tagged', -label => 'Use tagged designations if available', -checked => 1 );
+	say qq( <a class="tooltip" title="Tagged desginations - Allele sequences will be extracted from the definition database based on )
+	  . qq(allele designation rather than by BLAST.  This should be much quicker. Peptide loci, however, are always extracted using )
+	  . qq(BLAST.">&nbsp;<i>i</i>&nbsp;</a></li><li>);
+	say $q->checkbox( -name => 'disable_html', -id => 'disable_html', -label => 'Disable HTML output' );
+	say qq( <a class="tooltip" title="Disable HTML - Select this option if you are analysing very large numbers of loci which may cause )
+	  . qq(your browser problems in rendering the output table.">&nbsp;<i>i</i>&nbsp;</a></li></ul></fieldset>);
+	return;
+}
+
+sub _print_alignment_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say qq(<fieldset style="float:left;height:12em"><legend>Alignments</legend><ul><li>);
+	say $q->checkbox( -name => 'align', -id => 'align', -label => 'Produce alignments', -onChange => 'enable_seqs()' );
+	say qq( <a class="tooltip" title="Alignments - Alignments will be produced in clustal format using the selected aligner for )
+	  . qq(any loci that vary between isolates. This may slow the analysis considerably.">&nbsp;<i>i</i>&nbsp;</a></li><li>);
 	say $q->checkbox(
 		-name     => 'include_ref',
 		-id       => 'include_ref',
 		-label    => 'Include ref sequences in alignment',
 		-checked  => 1,
-		-onChange => "enable_seqs()"
+		-onChange => 'enable_seqs()'
 	);
-	say "</li><li>";
+	say '</li><li>';
 	say $q->checkbox(
 		-name     => 'align_all',
 		-id       => 'align_all',
 		-label    => 'Align all loci (not only variable)',
-		-onChange => "enable_seqs()"
+		-onChange => 'enable_seqs()'
 	);
-	say "</li><li>";
+	say '</li><li>';
 	my @aligners;
 
 	foreach my $aligner (qw(mafft muscle)) {
 		push @aligners, uc($aligner) if $self->{'config'}->{"$aligner\_path"};
 	}
 	if (@aligners) {
-		say "Aligner: ";
+		say 'Aligner: ';
 		say $q->popup_menu( -name => 'aligner', -id => 'aligner', -values => \@aligners );
 		say "</li><li>";
 	}
-	say $q->checkbox( -name => 'use_tagged', -id => 'use_tagged', -label => 'Use tagged designations if available', -checked => 1 );
-	print <<"HTML";
- <a class="tooltip" title="Tagged desginations - Allele sequences will be extracted from the definition database based on allele 
-designation rather than by BLAST.  This should be much quicker. Peptide loci, however, are always extracted using BLAST.">
-&nbsp;<i>i</i>&nbsp;</a></li><li>
-HTML
-	say $q->checkbox( -name => 'disable_html', -id => 'disable_html', -label => 'Disable HTML output' );
-	print <<"HTML";
- <a class="tooltip" title="Disable HTML - Select this option if you are analysing very large numbers of loci which may cause your
- browser problems in rendering the output table.">&nbsp;<i>i</i>&nbsp;</a></li>
-HTML
-	say "</ul></fieldset><fieldset style=\"float:left\"><legend>Core genome analysis</legend><ul>";
-	say "<li><label for=\"core_threshold\">Core threshold (%):</label>";
+	say '</ul></fieldset>';
+	return;
+}
+
+sub _print_core_genome_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say qq(<fieldset style="float:left;height:12em"><legend>Core genome analysis</legend><ul>);
+	say qq(<li><label for="core_threshold">Core threshold (%):</label>);
 	say $q->popup_menu( -name => 'core_threshold', -id => 'core_threshold', -values => [ 80 .. 100 ], -default => 90 );
-	print <<"HTML";
- <a class="tooltip" title="Core threshold - Percentage of isolates that locus must be present in to be considered part
- of the core genome.">&nbsp;<i>i</i>&nbsp;</a></li>
- <li>
-HTML
+	say qq( <a class="tooltip" title="Core threshold - Percentage of isolates that locus must be present in to be considered part )
+	  . qq(of the core genome.">&nbsp;<i>i</i>&nbsp;</a></li><li>);
 	say $q->checkbox(
 		-name     => 'calc_distances',
 		-id       => 'calc_distances',
 		-label    => 'Calculate mean distances',
 		-onChange => 'enable_seqs()'
 	);
-	print <<"HTML";
- <a class="tooltip" title="Mean distance - This requires performing alignments of sequences so will take longer to perform.">
- &nbsp;<i>i</i>&nbsp;</a></li>
- </ul></fieldset>
-HTML
-	say "<fieldset style=\"float:left\"><legend>Truncated loci</legend>";
-	say "In distance matrix calculations:";
-	say "<ul><li>";
+	say qq( <a class="tooltip" title="Mean distance - This requires performing alignments of sequences so will take longer to perform.">)
+	  . qq(&nbsp;<i>i</i>&nbsp;</a></li></ul></fieldset>);
+	return;
+}
+
+sub _print_distance_matrix_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say qq(<fieldset style="float:left;height:12em"><legend>Distance matrix calculation</legend>);
+	say "With truncated loci:";
+	say '<ul><li>';
 	my $labels = {
 		exclude       => 'Completely exclude from analysis',
 		include_as_T  => 'Treat as distinct allele',
@@ -509,28 +540,18 @@ HTML
 	};
 	say $q->radio_group(
 		-name      => 'truncated',
-		-id        => 'truncated',
 		-values    => [qw (exclude include_as_T pairwise_same)],
 		-labels    => $labels,
 		-linebreak => 'true'
 	);
-	say "</li><li>";
-	say "</ul>";
-	say "</fieldset>";
-	say "<fieldset style=\"float:left\"><legend>Paralogous loci</legend>";
+	say qq(</li><li style="border-top:1px dashed #999;padding-top:0.2em">);
 	say $q->checkbox(
 		-name    => 'exclude_paralogous',
 		-id      => 'exclude_paralogous',
 		-label   => 'Exclude paralogous alleles',
 		-checked => 'checked'
 	);
-	say "</fieldset>";
-	$self->print_sequence_filter_fieldset;
-	$self->print_action_fieldset( { name => 'GenomeComparator' } );
-	say $q->hidden($_) foreach qw (page name db);
-	say "</div>";
-	say $q->end_form;
-	say "</div>";
+	say '</li><li></ul></fieldset>';
 	return;
 }
 
@@ -987,10 +1008,8 @@ sub _run_comparison {
 					}
 				}
 				if ( !$match->{'exact'} && $match->{'predicted_start'} && $match->{'predicted_end'} ) {
-					my $seqbin_length = $self->{'datastore'}->run_query(
-						"SELECT length(sequence) FROM sequence_bin where id=?",
-						$match->{'seqbin_id'}, { cache => 'GenomeComparator::run_comparison_seqbin_length' }
-					);
+					my $seqbin_length = $self->{'datastore'}->run_query( "SELECT length(sequence) FROM sequence_bin where id=?",
+						$match->{'seqbin_id'}, { cache => 'GenomeComparator::run_comparison_seqbin_length' } );
 					foreach (qw (predicted_start predicted_end)) {
 						if ( $match->{$_} < 1 ) {
 							( $match->{$_}, $status{'truncated'}, $value ) = ( 1, 1, 'T' );

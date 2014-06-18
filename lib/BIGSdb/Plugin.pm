@@ -734,7 +734,7 @@ sub print_includes_fieldset {
 	}
 	if (@fields) {
 		my $title = $options->{'title'} // 'Include in identifier';
-		say "<fieldset style=\"float:left\">\n<legend>$title</legend>";
+		say qq(<fieldset style="float:left"><legend>$title</legend>);
 		say $q->scrolling_list(
 			-name     => 'includes',
 			-id       => 'includes',
@@ -886,7 +886,7 @@ sub print_scheme_fieldset {
 	print <<"HTML";
 <fieldset id="scheme_fieldset" style="float:left"><legend>Schemes</legend>
 <noscript><p class="highlight">Enable Javascript to select schemes.</p></noscript>
-<div id="tree" class="tree" style="height:150px; width:20em">
+<div id="tree" class="tree" style="height:13em; width:20em">
 HTML
 	say $self->get_tree( undef, { no_link_out => 1, select_schemes => 1 } );
 	say "</div>";
