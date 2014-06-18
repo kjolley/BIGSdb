@@ -965,13 +965,18 @@ sub _check_data_sequences {
 	my @data            = @{ $arg_ref->{'data'} };
 	my $q               = $self->{'cgi'};
 	my $buffer;
+
 	if ( $field eq 'locus' && $q->param('locus') ) {
 		${ $arg_ref->{'value'} } = $q->param('locus');
 	}
-	$locus //=
-	  ( defined $file_header_pos{'locus'} && defined $data[ $file_header_pos{'locus'} ] )
-	  ? $data[ $file_header_pos{'locus'} ]
-	  : undef;
+	if ( $q->param('locus') ) {
+		$locus = $q->param('locus');
+	} else {
+		$locus =
+		  ( defined $file_header_pos{'locus'} && defined $data[ $file_header_pos{'locus'} ] )
+		  ? $data[ $file_header_pos{'locus'} ]
+		  : undef;
+	}
 	if ( defined $locus && $field eq 'allele_id' ) {
 		if (   defined $file_header_pos{'locus'}
 			&& $data[ $file_header_pos{'locus'} ]
