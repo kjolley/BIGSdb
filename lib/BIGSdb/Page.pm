@@ -1581,10 +1581,11 @@ sub mark_cache_stale {
 sub is_admin {
 	my ($self) = @_;
 	if ( $self->{'username'} ) {
-		my $qry = "SELECT status FROM users WHERE user_name=?";
-		my $status = $self->{'datastore'}->run_simple_query( $qry, $self->{'username'} );
-		return 0 if ref $status ne 'ARRAY';
-		return 1 if $status->[0] eq 'admin';
+		my $status =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT status FROM users WHERE user_name=?", $self->{'username'}, { cache => 'Page::is_admin' } );
+		return 0 if !$status;
+		return 1 if $status eq 'admin';
 	}
 	return 0;
 }
