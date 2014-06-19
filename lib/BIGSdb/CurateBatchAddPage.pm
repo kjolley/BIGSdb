@@ -278,12 +278,14 @@ sub _check_data {
 			push @fieldorder, 'flags';
 		}
 		if ($locus) {
-			my $sql =
-			  $self->{'db'}->prepare( "SELECT field,value_format,value_regex,required,option_list FROM "
-				  . "locus_extended_attributes WHERE locus=? ORDER BY field_order" );
-			eval { $sql->execute($locus) };
-			$logger->error($@) if $@;
-			while ( my ( $field, $format, $regex, $required, $optlist ) = $sql->fetchrow_array ) {
+			my $ext_att = $self->{'datastore'}->run_query(
+				"SELECT field,value_format,value_regex,required,option_list FROM "
+				  . "locus_extended_attributes WHERE locus=? ORDER BY field_order",
+				$locus,
+				{ fetch => 'all_arrayref' }
+			);
+			foreach (@$ext_att) {
+				my ( $field, $format, $regex, $required, $optlist ) = @$_;
 				push @fieldorder, $field;
 				$extended_attributes->{$field}->{'format'}      = $format;
 				$extended_attributes->{$field}->{'regex'}       = $regex;
@@ -958,13 +960,13 @@ sub _check_data_scheme_group_group_members {
 
 sub _check_data_sequences {
 	my ( $self, $arg_ref ) = @_;
-	my $locus           = $arg_ref->{'locus'};
 	my $field           = $arg_ref->{'field'};
 	my $pk_combination  = $arg_ref->{'pk_combination'};
 	my %file_header_pos = %{ $arg_ref->{'file_header_pos'} };
 	my @data            = @{ $arg_ref->{'data'} };
 	my $q               = $self->{'cgi'};
 	my $buffer;
+	my $locus;
 
 	if ( $field eq 'locus' && $q->param('locus') ) {
 		${ $arg_ref->{'value'} } = $q->param('locus');
