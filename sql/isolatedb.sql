@@ -243,6 +243,65 @@ ON UPDATE CASCADE
 CREATE INDEX i_isolate_id on sequence_bin (isolate_id);
 GRANT SELECT,UPDATE,INSERT,DELETE ON sequence_bin TO apache;
 
+CREATE TABLE seqbin_stats (
+isolate_id int NOT NULL,
+contigs int NOT NULL,
+total_length int NOT NULL,
+PRIMARY KEY (isolate_id),
+CONSTRAINT ss_isolate_id FOREIGN KEY (isolate_id) REFERENCES isolates
+ON DELETE CASCADE
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,INSERT,UPDATE,DELETE ON seqbin_stats TO apache;
+
+CREATE LANGUAGE 'plpgsql';
+
+CREATE OR REPLACE FUNCTION maint_seqbin_stats() RETURNS TRIGGER AS $maint_seqbin_stats$
+	DECLARE
+		delta_isolate_id	integer;
+		delta_contigs		integer;
+		delta_total_length	integer;
+	BEGIN
+		IF (TG_OP = 'DELETE') THEN
+			PERFORM id FROM isolates WHERE id=OLD.isolate_id;
+			IF NOT FOUND THEN  --The isolate record itself has been deleted.
+				RETURN NULL;
+			END IF;
+			delta_isolate_id = OLD.isolate_id;
+			delta_contigs = - 1;
+			delta_total_length = - length(OLD.sequence);		
+		ELSIF (TG_OP = 'UPDATE') THEN
+			delta_isolate_id = OLD.isolate_id;
+			delta_total_length = length(NEW.sequence) - length(OLD.sequence);
+			delta_contigs = 0;
+		ELSIF (TG_OP = 'INSERT') THEN
+			delta_isolate_id = NEW.isolate_id;
+			delta_contigs = + 1;
+			delta_total_length = + length(NEW.sequence);
+		END IF;
+		
+		<<insert_update>>
+		LOOP
+			DELETE FROM seqbin_stats WHERE isolate_id = delta_isolate_id AND contigs + delta_contigs = 0;
+			EXIT insert_update WHEN found;
+			UPDATE seqbin_stats SET contigs = contigs + delta_contigs,total_length = total_length + delta_total_length 
+				WHERE isolate_id = delta_isolate_id;
+			EXIT insert_update WHEN found;
+			INSERT INTO seqbin_stats (isolate_id,contigs,total_length)
+				VALUES (delta_isolate_id,delta_contigs,delta_total_length);
+			EXIT insert_update;
+		END LOOP insert_update;
+	
+		RETURN NULL;
+	END;
+$maint_seqbin_stats$ LANGUAGE plpgsql;
+
+CREATE TRIGGER maint_seqbin_stats AFTER INSERT OR UPDATE OR DELETE ON sequence_bin
+	FOR EACH ROW
+	EXECUTE PROCEDURE maint_seqbin_stats();
+
+
 CREATE TABLE experiments (
 id integer NOT NULL,
 description text NOT NULL UNIQUE,
@@ -512,8 +571,6 @@ ON UPDATE CASCADE
 CREATE INDEX i_as1 ON allele_sequences (locus);
 CREATE INDEX i_as2 ON allele_sequences (datestamp);
 CREATE INDEX i_as3 ON allele_sequences (isolate_id);
-
-CREATE LANGUAGE 'plpgsql';
 
 -- Set isolate_id in allele_sequences table when adding or updating allele_sequences.
 CREATE OR REPLACE FUNCTION set_allele_sequences_isolate_id_field() RETURNS TRIGGER AS $set_allele_sequences_isolate_id_field$
