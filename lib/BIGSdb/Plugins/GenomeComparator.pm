@@ -1083,6 +1083,7 @@ sub _run_comparison {
 			$worksheet->write( $row, $col, $value, $self->{'excel_format'}->{ $value_colour{$value} } );
 			$first = 0;
 			$values->{$id}->{$locus_name} = $value;
+			$seqs{$id} //= undef;    #Ensure key exists even if sequence doesn't.
 		}
 		$self->{'datastore'}->finish_with_locus($locus_name);
 		$td = $td == 1 ? 2 : 1;
