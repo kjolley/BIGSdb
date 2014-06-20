@@ -1090,7 +1090,8 @@ sub _run_comparison {
 		$self->{'html_buffer'} .= "</tr>\n";
 		$self->{'file_buffer'} .= "\n";
 		if ( !$by_reference ) {
-			$status{'all_exact'} = 0 if ( uniq values %seqs ) > 1;
+			my @values = grep {defined} values %seqs;
+			$status{'all_exact'} = 0 if ( uniq @values ) > 1;
 		}
 		my $variable_locus = 0;
 		foreach my $class (qw (all_exact all_missing exact_except_ref truncated varying)) {
