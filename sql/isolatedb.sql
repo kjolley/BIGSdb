@@ -283,8 +283,10 @@ CREATE OR REPLACE FUNCTION maint_seqbin_stats() RETURNS TRIGGER AS $maint_seqbin
 		
 		<<insert_update>>
 		LOOP
-			DELETE FROM seqbin_stats WHERE isolate_id = delta_isolate_id AND contigs + delta_contigs = 0;
-			EXIT insert_update WHEN found;
+			IF (TG_OP = 'DELETE') THEN
+				DELETE FROM seqbin_stats WHERE isolate_id = delta_isolate_id AND contigs + delta_contigs = 0;
+				EXIT insert_update WHEN found;
+			END IF;
 			UPDATE seqbin_stats SET contigs = contigs + delta_contigs,total_length = total_length + delta_total_length 
 				WHERE isolate_id = delta_isolate_id;
 			EXIT insert_update WHEN found;
@@ -292,7 +294,7 @@ CREATE OR REPLACE FUNCTION maint_seqbin_stats() RETURNS TRIGGER AS $maint_seqbin
 				VALUES (delta_isolate_id,delta_contigs,delta_total_length);
 			EXIT insert_update;
 		END LOOP insert_update;
-	
+
 		RETURN NULL;
 	END;
 $maint_seqbin_stats$ LANGUAGE plpgsql;
@@ -300,7 +302,6 @@ $maint_seqbin_stats$ LANGUAGE plpgsql;
 CREATE TRIGGER maint_seqbin_stats AFTER INSERT OR UPDATE OR DELETE ON sequence_bin
 	FOR EACH ROW
 	EXECUTE PROCEDURE maint_seqbin_stats();
-
 
 CREATE TABLE experiments (
 id integer NOT NULL,

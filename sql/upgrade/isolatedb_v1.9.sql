@@ -42,8 +42,10 @@ CREATE OR REPLACE FUNCTION maint_seqbin_stats() RETURNS TRIGGER AS $maint_seqbin
 		
 		<<insert_update>>
 		LOOP
-			DELETE FROM seqbin_stats WHERE isolate_id = delta_isolate_id AND contigs + delta_contigs = 0;
-			EXIT insert_update WHEN found;
+			IF (TG_OP = 'DELETE') THEN
+				DELETE FROM seqbin_stats WHERE isolate_id = delta_isolate_id AND contigs + delta_contigs = 0;
+				EXIT insert_update WHEN found;
+			END IF;
 			UPDATE seqbin_stats SET contigs = contigs + delta_contigs,total_length = total_length + delta_total_length 
 				WHERE isolate_id = delta_isolate_id;
 			EXIT insert_update WHEN found;
