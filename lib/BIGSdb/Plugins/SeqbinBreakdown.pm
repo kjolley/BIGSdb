@@ -229,17 +229,25 @@ sub _print_interface {
 	my $view = $self->{'system'}->{'view'};
 	$qry =~ s/SELECT ($view\.\*|\*)/SELECT id/;
 	$qry .= " ORDER BY id";
-	my $selected_ids = defined $query_file ? $self->get_ids_from_query($qry_ref) : [];
-	my $seqbin_count = $self->{'datastore'}->run_list_query("SELECT COUNT(*) FROM sequence_bin WHERE isolate_id IN ($qry)")->[0];
+	my $selected_ids;
 
-	if ( !$seqbin_count ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>There are no sequences stored for any of the selected isolates generated with "
-		  . "the sequence method (set in options).</p></div>";
+	if ( $q->param('isolate_id') ) {
+		my @ids = $q->param('isolate_id');
+		$selected_ids = \@ids;
+	} elsif ( defined $query_file ) {
+		$selected_ids = $self->get_ids_from_query($qry_ref);
+	} else {
+		$selected_ids = [];
+	}
+	my $seqbin_exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM sequence_bin WHERE isolate_id IN ($qry))");
+	if ( !$seqbin_exists ) {
+		say qq(<div class="box" id="statusbad"><p>There are no sequences stored for any of the selected isolates generated with )
+		  . qq(the sequence method (set in options).</p></div>);
 		return;
 	}
 	say qq(<div class="box" id="queryform">);
-	say "<p>Please select the required isolate ids for comparison - use Ctrl or Shift to make multiple selections.</p>";
-	say "<div class=\"scrollable\">";
+	say qq(<p>Please select the required isolate ids for comparison - use Ctrl or Shift to make multiple selections.</p>);
+	say qq(<div class="scrollable">);
 	say $q->start_form;
 	$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids, isolate_paste_list => 1 } );
 	$self->print_sequence_filter_fieldset;
@@ -260,7 +268,7 @@ sub _print_table {
 	local $| = 1;
 	my $data             = {};
 	my $header_displayed = 0;
-	say qq(<div class="box" id="resultstable">);
+	say qq(<div class="box" id="resultstable"><div class="scrollable">);
 	my $text_file = "$self->{'config'}->{'tmp_dir'}/$temp.txt";
 	open( my $fh, '>', $text_file ) or $logger->error("Can't open temp file $text_file for writing");
 
@@ -289,8 +297,7 @@ sub _print_table {
 		say "</tbody></table>";
 		say qq(<ul><li><a href="/tmp/$temp.txt">Download in tab-delimited text format</a></li>);
 		my $excel_file =
-		  BIGSdb::Utils::text2excel( $text_file, { worksheet => 'sequence bin stats', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } )
-		  ;
+		  BIGSdb::Utils::text2excel( $text_file, { worksheet => 'sequence bin stats', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
 		if ( -e $excel_file ) {
 			say qq(<li><a href="/tmp/$temp.xlsx">Download in Excel format</a></li>);
 		}
@@ -298,7 +305,7 @@ sub _print_table {
 	} else {
 		say "<p>There are no records with contigs matching your criteria.</p>";
 	}
-	say "</div>";
+	say "</div></div>";
 	$self->_print_charts( $data, $temp ) if $self->{'config'}->{'chartdirector'} && $header_displayed;
 	return;
 }
