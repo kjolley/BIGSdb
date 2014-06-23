@@ -84,11 +84,15 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON user_group_members TO apache;
 CREATE TABLE isolates (
 id integer NOT NULL UNIQUE,
 isolate text NOT NULL,
+new_version integer,
 sender integer NOT NULL,
 curator integer NOT NULL,
 date_entered date NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY (id),
+CONSTRAINT i_new_version FOREIGN KEY (new_version) REFERENCES isolates
+ON DELETE NO ACTION
+ON UPDATE NO ACTION,
 CONSTRAINT i_curator FOREIGN KEY (curator) REFERENCES users
 ON DELETE NO ACTION
 ON UPDATE CASCADE,
