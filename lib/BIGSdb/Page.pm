@@ -1214,17 +1214,11 @@ sub get_isolate_name_from_id {
 
 sub get_isolate_id_and_name_from_seqbin_id {
 	my ( $self, $seqbin_id ) = @_;
-	if ( !$self->{'sql'}->{'isolate_id_as'} ) {
-		my $view        = $self->{'system'}->{'view'};
-		my $label_field = $self->{'system'}->{'labelfield'};
-		$self->{'sql'}->{'isolate_id_as'} =
-		  $self->{'db'}->prepare(
-			"SELECT $view.id,$view.$label_field FROM $view LEFT JOIN sequence_bin ON $view.id = isolate_id WHERE sequence_bin.id=?");
-	}
-	eval { $self->{'sql'}->{'isolate_id_as'}->execute($seqbin_id) };
-	$logger->error($@) if $@;
-	my ( $isolate_id, $isolate ) = $self->{'sql'}->{'isolate_id_as'}->fetchrow_array;
-	return ( $isolate_id, $isolate );
+	my $view        = $self->{'system'}->{'view'};
+	my $label_field = $self->{'system'}->{'labelfield'};
+	return $self->{'datastore'}
+	  ->run_query( "SELECT $view.id,$view.$label_field FROM $view LEFT JOIN sequence_bin ON $view.id = isolate_id WHERE sequence_bin.id=?",
+		$seqbin_id, { cache => 'Page::get_isolate_id_and_name_from_seqbin_id' } );
 }
 
 sub get_isolates_with_seqbin {
@@ -1237,16 +1231,14 @@ sub get_isolates_with_seqbin {
 	if ( $options->{'use_all'} ) {
 		$qry = "SELECT $view.id,$view.$self->{'system'}->{'labelfield'} FROM $view ORDER BY $view.id";
 	} else {
-		$qry = "SELECT $view.id,$view.$self->{'system'}->{'labelfield'} FROM $view WHERE EXISTS (SELECT * FROM sequence_bin WHERE "
-		  . "$view.id=sequence_bin.isolate_id) ORDER BY $view.id";
+		$qry = "SELECT $view.id,$view.$self->{'system'}->{'labelfield'} FROM $view WHERE EXISTS (SELECT * FROM seqbin_stats WHERE "
+		  . "$view.id=seqbin_stats.isolate_id) ORDER BY $view.id";
 	}
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute };
-	$logger->error($@) if $@;
+	my $data = $self->{'datastore'}->run_query($qry, undef, {fetch=>'all_arrayref'});
 	my @ids;
 	my %labels;
-	while ( my ( $id, $isolate ) = $sql->fetchrow_array ) {
-		next if !defined $id;
+	foreach (@$data){
+		my ( $id, $isolate ) = @$_;
 		push @ids, $id;
 		$labels{$id} = "$id) $isolate";
 	}

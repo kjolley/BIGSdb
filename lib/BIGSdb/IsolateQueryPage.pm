@@ -943,12 +943,12 @@ sub _modify_query_for_filters {
 			$not = ' NOT ';
 		} elsif ( $q->param('linked_sequences_list') =~ />= ([\d\.]+) Mbp/ ) {
 			my $size = $1 * 1000000;    #Mbp
-			$size_clause = " GROUP BY isolate_id HAVING SUM(length(sequence)) >= $size";
+			$size_clause = " AND seqbin_stats.total_length >= $size";
 		}
 		if ( $qry !~ /WHERE \(\)\s*$/ ) {
-			$qry .= " AND (${not}EXISTS (SELECT 1 FROM sequence_bin WHERE sequence_bin.isolate_id = $view.id$size_clause))";
+			$qry .= " AND (${not}EXISTS (SELECT 1 FROM seqbin_stats WHERE seqbin_stats.isolate_id = $view.id$size_clause))";
 		} else {
-			$qry = "SELECT * FROM $view WHERE (${not}EXISTS (SELECT 1 FROM sequence_bin WHERE sequence_bin.isolate_id = "
+			$qry = "SELECT * FROM $view WHERE (${not}EXISTS (SELECT 1 FROM seqbin_stats WHERE seqbin_stats.isolate_id = "
 			  . "$view.id$size_clause))";
 		}
 	}

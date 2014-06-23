@@ -152,7 +152,7 @@ sub get_isolates_with_linked_seqs {
 	my ($self) = @_;
 	local $" = ',';
 	my $view = $self->{'system'}->{'view'};
-	my $qry  = "SELECT $view.id FROM $view WHERE EXISTS (SELECT * FROM sequence_bin WHERE $view.id=sequence_bin.isolate_id)";
+	my $qry  = "SELECT $view.id FROM $view WHERE EXISTS(SELECT * FROM seqbin_stats WHERE $view.id=seqbin_stats.isolate_id)";
 	if ( $self->{'options'}->{'p'} ) {
 		my @projects = split( ',', $self->{'options'}->{'p'} );
 		die "Invalid project list.\n" if any { !BIGSdb::Utils::is_int($_) } @projects;
@@ -240,9 +240,9 @@ sub _is_previously_tagged {
 
 sub _get_size_of_seqbin {
 	my ( $self, $isolate_id ) = @_;
-	my $size = $self->{'datastore'}->run_query( "SELECT SUM(LENGTH(sequence)) FROM sequence_bin WHERE isolate_id=?",
+	my $size = $self->{'datastore'}->run_query( "SELECT total_length FROM seqbin_stats WHERE isolate_id=?",
 		$isolate_id, { cache => 'Script::get_size_of_seqbin' } );
-	return $size;
+	return $size || 0;
 }
 
 sub get_loci_with_ref_db {

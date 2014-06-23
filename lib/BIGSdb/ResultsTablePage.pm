@@ -558,13 +558,8 @@ sub _print_isolate_table {
 
 sub _get_seqbin_size {
 	my ( $self, $isolate_id ) = @_;
-	if ( !$self->{'sql'}->{'seqbin_size'} ) {
-		$self->{'sql'}->{'seqbin_size'} = $self->{'db'}->prepare("SELECT SUM(length(sequence)) FROM sequence_bin WHERE isolate_id=?");
-	}
-	eval { $self->{'sql'}->{'seqbin_size'}->execute($isolate_id); };
-	$logger->error($@) if $@;
-	my ($size) = $self->{'sql'}->{'seqbin_size'}->fetchrow_array // 0;
-	return $size;
+	return $self->{'datastore'}->run_query( "SELECT total_length FROM seqbin_stats WHERE isolate_id=?",
+		$isolate_id, { cache => 'ResultsTablePage::get_seqbin_stats' } ) // 0;
 }
 
 sub _print_isolate_table_header {
