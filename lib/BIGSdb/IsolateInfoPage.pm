@@ -862,35 +862,32 @@ sub get_refs {
 
 sub _get_seqbin_link {
 	my ( $self, $isolate_id ) = @_;
-	my $seqbin_count = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM sequence_bin WHERE isolate_id=?", $isolate_id )->[0];
-	my $buffer       = '';
-	my $q            = $self->{'cgi'};
+	my ( $seqbin_count, $total_length ) =
+	  $self->{'datastore'}->run_query( "SELECT contigs,total_length FROM seqbin_stats WHERE isolate_id=?", $isolate_id );
+	my $buffer = '';
+	my $q      = $self->{'cgi'};
 	if ($seqbin_count) {
-		my $length_data =
-		  $self->{'datastore'}->run_simple_query(
-			"SELECT SUM(length(sequence)), CEIL(AVG(length(sequence))), MAX(length (sequence)) FROM sequence_bin WHERE isolate_id=?",
-			$isolate_id );
+		my ( $mean_length, $max_length ) =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT CEIL(AVG(length(sequence))), MAX(length (sequence)) FROM sequence_bin WHERE isolate_id=?", $isolate_id );
 		my $plural = $seqbin_count == 1 ? '' : 's';
-		$buffer .= "<h2>Sequence bin</h2>\n";
-		$buffer .= "<div id=\"seqbin\">";
-		$buffer .= "<dl class=\"data\">\n";
-		$buffer .= "<dt class=\"dontend\">contigs</dt>\n";
-		$buffer .= "<dd>$seqbin_count</dd>\n";
+		$buffer .= qq(<h2>Sequence bin</h2>\n);
+		$buffer .= qq(<div id="seqbin">);
+		$buffer .= qq(<dl class="data">\n);
+		$buffer .= qq(<dt class="dontend">contigs</dt>\n);
+		$buffer .= qq(<dd>$seqbin_count</dd>\n);
 		if ( $seqbin_count > 1 ) {
 			my $lengths =
 			  $self->{'datastore'}
-			  ->run_list_query( "SELECT length(sequence) FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) DESC",
-				$isolate_id );
-			my $n_stats = BIGSdb::Utils::get_N_stats( $length_data->[0], $lengths );
-			$buffer .= "<dt class=\"dontend\">total length</dt><dd>$length_data->[0] bp</dd>\n";
-			$buffer .= "<dt class=\"dontend\">max length</dt><dd>$length_data->[2] bp</dd>\n";
-			$buffer .= "<dt class=\"dontend\">mean length</dt><dd>$length_data->[1] bp</dd>\n";
-			$buffer .= "<dt class=\"dontend\">N50</dt><dd>$n_stats->{'N50'}</dd>\n";
-			$buffer .= "<dt class=\"dontend\">N90</dt><dd>$n_stats->{'N90'}</dd>\n";
-			$buffer .= "<dt class=\"dontend\">N95</dt><dd>$n_stats->{'N95'}</dd>\n";
+			  ->run_query( "SELECT length(sequence) FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) DESC",
+				$isolate_id, { fetch => 'col_arrayref' } );
+			my $n_stats = BIGSdb::Utils::get_N_stats( $total_length, $lengths );
+			$buffer .= qq(<dt class="dontend">total length</dt><dd>$total_length bp</dd>\n);
+			$buffer .= qq(<dt class="dontend">max length</dt><dd>$max_length bp</dd>\n);
+			$buffer .= qq(<dt class="dontend">mean length</dt><dd>$mean_length bp</dd>\n);
+			$buffer .= qq(<dt class="dontend">$_</dt><dd>$n_stats->{$_}</dd>\n) foreach qw(N50 N90 N95);
 		} else {
-			$buffer .= "<dt class=\"dontend\">length</dt>\n";
-			$buffer .= "<dd>$length_data->[0] bp</dd>\n";
+			$buffer .= qq(<dt class="dontend">length</dt><dd>$total_length bp</dd>);
 		}
 		my $set_id = $self->get_set_id;
 		my $set_clause =
@@ -900,19 +897,19 @@ sub _get_seqbin_link {
 		  : '';
 		my $tagged =
 		  $self->{'datastore'}
-		  ->run_simple_query( "SELECT COUNT(DISTINCT locus) FROM allele_sequences WHERE isolate_id=? $set_clause", $isolate_id )->[0];
+		  ->run_query( "SELECT COUNT(DISTINCT locus) FROM allele_sequences WHERE isolate_id=? $set_clause", $isolate_id );
 		$plural = $tagged == 1 ? 'us' : 'i';
-		$buffer .= "<dt class=\"dontend\">loci tagged</dt><dd>$tagged</dd>\n";
-		$buffer .= "<dt class=\"dontend\">detailed breakdown</dt><dd>";
+		$buffer .= qq(<dt class="dontend">loci tagged</dt><dd>$tagged</dd>\n);
+		$buffer .= qq(<dt class="dontend">detailed breakdown</dt><dd>\n);
 		$buffer .= $q->start_form;
-		$q->param( 'curate', 1 ) if $self->{'curate'};
-		$q->param( 'page', 'seqbin' );
-		$q->param( 'isolate_id', $isolate_id );
+		$q->param( curate => 1 ) if $self->{'curate'};
+		$q->param( page => 'seqbin' );
+		$q->param( isolate_id => $isolate_id );
 		$buffer .= $q->hidden($_) foreach qw (db page curate isolate_id);
 		$buffer .= $q->submit( -value => 'Display', -class => 'smallbutton' );
 		$buffer .= $q->end_form;
 		$buffer .= "</dd></dl>\n";
-		$q->param( 'page', 'info' );
+		$q->param( page => 'info' );
 		$buffer .= "</div>";
 	}
 	return $buffer;
