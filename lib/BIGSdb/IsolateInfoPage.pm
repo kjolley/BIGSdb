@@ -791,10 +791,10 @@ sub get_title {
 	my $isolate_id = $q->param('id');
 	return '' if defined $q->param('scheme_id') || defined $q->param('group_id');
 	return "Invalid isolate id" if !BIGSdb::Utils::is_int($isolate_id);
-	my @name  = $self->get_name($isolate_id);
+	my $name  = $self->get_name($isolate_id);
 	my $title = "Isolate information: id-$isolate_id";
 	local $" = ' ';
-	$title .= " (@name)" if $name[1];
+	$title .= " ($name)" if $name;
 	$title .= ' - ';
 	$title .= "$self->{'system'}->{'description'}";
 	return $title;
@@ -806,10 +806,10 @@ sub _get_history {
 	my $count;
 	my $history =
 	  $self->{'datastore'}
-	  ->run_list_query_hashref( "SELECT timestamp,action,curator FROM history where isolate_id=? ORDER BY timestamp desc$limit_clause",
-		$isolate_id );
-	if ($limit) {    #need to count total
-		$count = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM history WHERE isolate_id=?", $isolate_id )->[0];
+	  ->run_query( "SELECT timestamp,action,curator FROM history where isolate_id=? ORDER BY timestamp desc$limit_clause",
+		$isolate_id, { fetch => 'all_arrayref', slice => {} } );
+	if ($limit) {     #need to count total
+		$count = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM history WHERE isolate_id=?", $isolate_id );
 	} else {
 		$count = @$history;
 	}
@@ -819,19 +819,15 @@ sub _get_history {
 sub get_name {
 	my ( $self, $isolate_id ) = @_;
 	return if $self->{'system'}->{'dbtype'} ne 'isolates';
-	my $name_ref =
-	  $self->{'datastore'}
-	  ->run_simple_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id );
-	if ( ref $name_ref eq 'ARRAY' ) {
-		return ( $self->{'system'}->{'labelfield'}, $name_ref->[0] );
-	}
-	return;
+	return $self->{'datastore'}
+	  ->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id );
 }
 
 sub _get_ref_links {
 	my ( $self, $isolate_id ) = @_;
 	my $pmids =
-	  $self->{'datastore'}->run_list_query( "SELECT refs.pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id", $isolate_id );
+	  $self->{'datastore'}
+	  ->run_query( "SELECT refs.pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id", $isolate_id, { fetch => 'col_arrayref' } );
 	return $self->get_refs($pmids);
 }
 
@@ -842,7 +838,8 @@ sub get_refs {
 		$buffer .= "<h2>Publication" . ( @$pmids > 1 ? 's' : '' ) . " (" . @$pmids . ")";
 		my $display = @$pmids > 4 ? 'none' : 'block';
 		$buffer .=
-"<span style=\"margin-left:1em\"><a id=\"show_refs\" class=\"smallbutton\" style=\"cursor:pointer\">&nbsp;show/hide&nbsp;</a></span>"
+		    qq(<span style="margin-left:1em"><a id="show_refs" class="smallbutton" style="cursor:pointer">)
+		  . qq(&nbsp;show/hide&nbsp;</a></span>)
 		  if $display eq 'none';
 		$buffer .= "</h2>\n";
 		my $id = $display eq 'none' ? 'hidden_references' : 'references';
@@ -851,7 +848,7 @@ sub get_refs {
 		  $self->{'datastore'}
 		  ->get_citation_hash( $pmids, { formatted => 1, all_authors => 1, state_if_unavailable => 1, link_pubmed => 1 } );
 		foreach my $pmid ( sort { $citations->{$a} cmp $citations->{$b} } @$pmids ) {
-			$buffer .= "<li style=\"padding-bottom:1em\">$citations->{$pmid}";
+			$buffer .= qq(<li style="padding-bottom:1em">$citations->{$pmid});
 			$buffer .= $self->get_link_button_to_ref($pmid);
 			$buffer .= "</li>\n";
 		}
@@ -917,17 +914,18 @@ sub _get_seqbin_link {
 
 sub _print_projects {
 	my ( $self, $isolate_id ) = @_;
-	my $projects = $self->{'datastore'}->run_list_query_hashref(
-		"SELECT * FROM projects WHERE full_description IS NOT NULL AND id IN "
-		  . "(SELECT project_id FROM project_members WHERE isolate_id=?) ORDER BY id",
-		$isolate_id
+	my $projects = $self->{'datastore'}->run_query(
+		"SELECT * FROM projects WHERE full_description IS NOT NULL AND id IN (SELECT project_id FROM project_members "
+		  . "WHERE isolate_id=?) ORDER BY id",
+		$isolate_id,
+		{ fetch => 'all_arrayref', slice => {} }
 	);
 	if (@$projects) {
-		say "<div class=\"box\" id=\"projects\"><div class=\"scrollable\">";
+		say qq(<div class="box" id="projects"><div class="scrollable">);
 		say "<h2>Projects</h2>";
 		my $plural = @$projects == 1 ? '' : 's';
 		say "<p>This isolate is a member of the following project$plural:</p>";
-		say "<dl class=\"projects\">";
+		say qq(<dl class="projects">);
 		foreach my $project (@$projects) {
 			say "<dt>$project->{'short_description'}</dt>";
 			say "<dd>$project->{'full_description'}</dd>";
