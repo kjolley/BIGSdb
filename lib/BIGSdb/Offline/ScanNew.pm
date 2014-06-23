@@ -175,8 +175,8 @@ sub _get_next_id {
 
 sub _off_end_of_contig {
 	my ( $self, $match ) = @_;
-	my $seqbin_length =
-	  $self->{'datastore'}->run_simple_query( "SELECT length(sequence) FROM sequence_bin WHERE id=?", $match->{'seqbin_id'} )->[0];
+	my $seqbin_length = $self->{'datastore'}->run_query( "SELECT length(sequence) FROM sequence_bin WHERE id=?",
+		$match->{'seqbin_id'}, { cache => 'ScanNew::off_end_of_contig' } );
 	if ( BIGSdb::Utils::is_int( $match->{'predicted_start'} ) && $match->{'predicted_start'} < 1 ) {
 		$match->{'predicted_start'} = '1';
 		$match->{'incomplete'}      = 1;
