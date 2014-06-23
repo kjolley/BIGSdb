@@ -1083,13 +1083,15 @@ sub _run_comparison {
 			$worksheet->write( $row, $col, $value, $self->{'excel_format'}->{ $value_colour{$value} } );
 			$first = 0;
 			$values->{$id}->{$locus_name} = $value;
+			$seqs{$id} //= undef;    #Ensure key exists even if sequence doesn't.
 		}
 		$self->{'datastore'}->finish_with_locus($locus_name);
 		$td = $td == 1 ? 2 : 1;
 		$self->{'html_buffer'} .= "</tr>\n";
 		$self->{'file_buffer'} .= "\n";
 		if ( !$by_reference ) {
-			$status{'all_exact'} = 0 if ( uniq values %seqs ) > 1;
+			my @values = grep {defined} values %seqs;
+			$status{'all_exact'} = 0 if ( uniq @values ) > 1;
 		}
 		my $variable_locus = 0;
 		foreach my $class (qw (all_exact all_missing exact_except_ref truncated varying)) {
