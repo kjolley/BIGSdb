@@ -14,8 +14,6 @@ INSERT INTO seqbin_stats (isolate_id,contigs,total_length)
 SELECT isolate_id,COUNT(id),SUM(length(sequence)) 
 FROM sequence_bin GROUP BY isolate_id ORDER BY isolate_id;
 
-CREATE LANGUAGE 'plpgsql';
-
 CREATE OR REPLACE FUNCTION maint_seqbin_stats() RETURNS TRIGGER AS $maint_seqbin_stats$
 	DECLARE
 		delta_isolate_id	integer;
