@@ -1,6 +1,6 @@
 #FastaExport.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2012-2013, University of Oxford
+#Copyright (c) 2012-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -22,7 +22,6 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin);
-use BIGSdb::Page qw(LOCUS_PATTERN);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 
@@ -53,10 +52,9 @@ sub _get_id_list {
 		my $qry_ref = $self->get_query($query_file);
 		return if ref $qry_ref ne 'SCALAR';
 		$$qry_ref =~ s/\*/allele_id/;
-		my $ids = $self->{'datastore'}->run_list_query($$qry_ref);
-		return $ids;
+		return $self->{'datastore'}->run_query( $$qry_ref, undef, { fetch => 'col_arrayref' } );
 	}
-	return \@;;
+	return [];
 }
 
 sub run {
@@ -66,45 +64,45 @@ sub run {
 	my $locus = $q->param('locus');
 	$locus =~ s/^cn_//;
 	if ( !$locus ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No locus passed.</p></div>\n";
+		say qq(<div class="box" id="statusbad"><p>No locus passed.</p></div>);
 		$logger->error("No locus passed.");
 		return;
 	}
 	my $query_file = $q->param('query_file');
 	my $list       = $self->_get_id_list($query_file);
 	if ( !@$list ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No sequences available from query.</p></div>\n";
+		say qq(<div class="box" id="statusbad"><p>No sequences available from query.</p></div>);
 		$logger->error("No sequences available.");
 		return;
 	}
-	my $sql       = $self->{'db'}->prepare("SELECT allele_id,sequence FROM sequences WHERE locus=? AND allele_id=?");
 	my $temp      = BIGSdb::Utils::get_random();
 	my $filename  = "$temp.fas";
 	my $full_path = $self->{'config'}->{'tmp_dir'} . "/$filename";
 	open( my $fh, '>', $full_path ) or $logger->error("Can't open $full_path for writing.");
 	foreach my $allele_id (@$list) {
-		eval { $sql->execute( $locus, $allele_id ) };
-		$logger->error($@) if $@;
-		my $seq_data = $sql->fetchrow_hashref;
+		my $seq_data = $self->{'datastore'}->run_query(
+			"SELECT allele_id,sequence FROM sequences WHERE locus=? AND allele_id=?",
+			[ $locus, $allele_id ],
+			{ fetch => 'row_hashref', cache => 'FastaExport::run' }
+		);
 		say $fh ">$locus\_$seq_data->{'allele_id'}";
 		my $seq = BIGSdb::Utils::break_line( $seq_data->{'sequence'}, 60 );
 		say $fh $seq;
 	}
 	close $fh;
 	if ( !-e $full_path ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Sequence file could not be generated.</p></div>\n";
+		say qq(<div class="box" id="statusbad"><p>Sequence file could not be generated.</p></div>);
 		$logger->error("Sequence file can not be generated");
 		return;
 	}
-	say "<div class=\"box\" id=\"resultsheader\">";
+	say qq(<div class="box" id="resultsheader">);
 	say "<p>Sequences have been exported in FASTA format:</p>";
 	my $cleaned_name = $self->clean_locus($locus);
 	say "<ul><li>Locus: $cleaned_name</li>";
 	my $plural = @$list == 1 ? '' : 's';
 	say "<li>" . (@$list) . " sequence$plural</li>";
-	say "<li><a href=\"/tmp/$filename\">Download</a></li>";
-	say "</ul>";
-	say "</div>";
+	say qq(<li><a href="/tmp/$filename">Download</a></li>);
+	say "</ul></div>";
 	return;
 }
 1;

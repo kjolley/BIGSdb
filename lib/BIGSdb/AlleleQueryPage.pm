@@ -444,7 +444,7 @@ sub _run_query {
 		$qry2 .= " AND sequences.allele_id NOT IN ('0', 'N')";
 		$qry2 .= " ORDER BY ";
 		if ( $q->param('order') eq 'allele_id' && $locus_info->{'allele_id_format'} eq 'integer' ) {
-			$qry2 .= "CAST (" . ( $q->param('order') ) . " AS integer)";
+			$qry2 .= "CAST (allele_id AS integer)";
 		} else {
 			$qry2 .= $q->param('order');
 		}

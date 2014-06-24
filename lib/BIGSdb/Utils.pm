@@ -343,6 +343,9 @@ sub text2excel {
 	}
 	foreach my $col ( keys %widths ) {
 		my $width = my $value_width = int( 0.9 * ( $widths{$col} ) + 2 );
+		if ( $options->{'max_width'} ) {
+			$width = $options->{'max_width'} if $width > $options->{'max_width'};
+		}
 		$worksheet->set_column( $col, $col, $width );
 	}
 	$worksheet->freeze_panes( 1, 0 ) if !$options->{'no_header'};
