@@ -461,12 +461,12 @@ sub _get_composite_field_rows {
 
 sub _get_tree {
 	my ( $self, $isolate_id ) = @_;
-	my $buffer = "<div class=\"scrollable\"><div id=\"tree\" class=\"scheme_tree\" style=\"float:left\">\n";
-	$buffer .= "<noscript><p class=\"highlight\">Enable Javascript to enhance your viewing experience.</p></noscript>\n";
+	my $buffer = qq(<div class="scrollable"><div id="tree" class="scheme_tree" style="float:left">\n);
+	$buffer .= qq(<noscript><p class="highlight">Enable Javascript to enhance your viewing experience.</p></noscript>\n);
 	$buffer .= $self->get_tree( $isolate_id, { isolate_display => $self->{'curate'} ? 0 : 1 } );
 	$buffer .= "</div>\n";
-	$buffer .= "<div id=\"scheme_table\" style=\"float:left\">Navigate and select schemes within tree to display allele "
-	  . "designations</div><div style=\"clear:both\"></div></div>\n";
+	$buffer .= qq(<div id="scheme_table" style="float:left">Navigate and select schemes within tree to display allele )
+	  . qq(designations</div><div style="clear:both"></div></div>\n) if $buffer !~ /No loci available/;
 	return $buffer;
 }
 
