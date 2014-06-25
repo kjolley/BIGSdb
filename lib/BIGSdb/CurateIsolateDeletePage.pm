@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,18 +20,19 @@ package BIGSdb::CurateIsolateDeletePage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::CuratePage BIGSdb::TreeViewPage);
+use parent qw(BIGSdb::IsolateInfoPage BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
 sub get_javascript {
 	my ($self) = @_;
-	return $self->get_tree_javascript;
+	my $buffer = $self->SUPER::get_javascript;    #Javascript from IsolateInfoPage.
+	return $buffer;
 }
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree);
+	$self->{$_} = 1 foreach qw(jQuery jQuery.columnizer);
 	return;
 }
 
@@ -64,7 +65,6 @@ sub print_content {
 	$buffer .= "<p>You have selected to delete the following record:</p>";
 	$buffer .= $q->start_form;
 	$buffer .= $q->hidden($_) foreach qw (page db id);
-	$buffer .= $q->submit( -name => 'submit', -value => 'Delete!', -class => 'submit' );
 	$buffer .= $q->end_form;
 	my $isolate_record = BIGSdb::IsolateInfoPage->new(
 		(
@@ -84,9 +84,9 @@ sub print_content {
 	my $record_table = $isolate_record->get_isolate_record($id);
 	$buffer .= $record_table;
 	$buffer .= $q->start_form;
-	$q->param( 'page', 'isolateDelete' );    #need to set as this may have changed if there is a seqbin display button
+	$q->param( page => 'isolateDelete' );    #need to set as this may have changed if there is a seqbin display button
 	$buffer .= $q->hidden($_) foreach qw (page db id);
-	$buffer .= $q->submit( -name => 'submit', -value => 'Delete!', -class => 'submit' );
+	$buffer .=$self->print_action_fieldset({get_only=>1, no_reset=>1, submit_label=>'Delete'});
 	$buffer .= $q->end_form;
 	$buffer .= "</div>\n";
 
