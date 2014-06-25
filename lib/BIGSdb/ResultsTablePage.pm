@@ -380,6 +380,7 @@ sub _print_isolate_table {
 	my $qry       = $$qryref;
 	my $qry_limit = $qry;
 	my $fields    = $self->{'xmlHandler'}->get_field_list;
+	push $fields, 'new_version';
 	my $view      = $self->{'system'}->{'view'};
 	local $" = ",$view.";
 	my $field_string = "$view.@$fields";
@@ -452,34 +453,27 @@ sub _print_isolate_table {
 					$id =~ s/ /\%20/g;
 					$id =~ s/\+/\%2B/g;
 					if ( $self->{'curate'} ) {
-						print "<td><a href=\""
-						  . $q->script_name
-						  . "?db=$self->{'instance'}&amp;page=isolateDelete&amp;id=$id\">Delete</a></td><td><a href=\""
-						  . $q->script_name
-						  . "?db=$self->{'instance'}&amp;page=isolateUpdate&amp;id=$id\">Update</a></td>";
+						say qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateDelete&amp;id=$id">)
+						  . qq(Delete</a></td><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=)
+						  . qq(isolateUpdate&amp;id=$id">Update</a></td>);
 						if ( $self->can_modify_table('sequence_bin') ) {
-							print "<td><a href=\""
-							  . $q->script_name
-							  . "?db=$self->{'instance'}&amp;page=batchAddSeqbin&amp;isolate_id=$id\">Upload</a></td>";
+							say qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin&amp;)
+							  . qq(isolate_id=$id">Upload</a></td>);
 						}
 						if ( $self->{'system'}->{'read_access'} eq 'acl' && $self->{'permissions'}->{'modify_isolates_acl'} ) {
-							print "<td><a href=\""
-							  . $q->script_name
-							  . "?db=$self->{'instance'}&amp;page=isolateACL&amp;id=$id\">Modify</a></td>";
+							say qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateACL&amp;)
+							  . qq(id=$id">Modify</a></td>);
 						}
+						print $data{'new_version'}
+						  ? qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'})
+						  . qq(&amp;page=info&amp;id=$data{'new_version'}">$data{'new_version'}</a></td>)
+						  : '<td></td>';
 					}
-					print
-"<td><a href=\"$self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'}&amp;id=$id\">$data{$thisfieldname}</a></td>";
-				} elsif ( $data{$thisfieldname} eq '-999'
-					|| $data{$thisfieldname} eq '0001-01-01' )
-				{
-					print "<td>.</td>";
-				} elsif (
-					$thisfieldname eq 'sender'
+					say qq(<td><a href="$self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'}&amp;id=$id">)
+					  . qq($data{$thisfieldname}</a></td>);
+				} elsif ( $thisfieldname eq 'sender'
 					|| $thisfieldname eq 'curator'
-					|| (   $field_attributes->{'thisfieldname'}->{'userfield'}
-						&& $field_attributes->{'thisfieldname'}->{'userfield'} eq 'yes' )
-				  )
+					|| ( ( $field_attributes->{'thisfieldname'}->{'userfield'} // '' ) eq 'yes' ) )
 				{
 					my $user_info = $self->{'datastore'}->get_user_info( $data{$thisfieldname} );
 					print "<td>$user_info->{'first_name'} $user_info->{'surname'}</td>";
@@ -514,8 +508,8 @@ sub _print_isolate_table {
 				}
 			}
 			if ( $thisfieldname eq $self->{'system'}->{'labelfield'} && $self->{'prefs'}->{'maindisplayfields'}->{'aliases'} ) {
-				my $aliases =
-				  $self->{'datastore'}->run_list_query( "SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias", $id );
+				my $aliases = $self->{'datastore'}->run_query( "SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias",
+					$id, { fetch => 'col_arrayref', cache => 'ResultsTablePage::print_isolate_table_aliases' } );
 				local $" = '; ';
 				print "<td>@$aliases</td>";
 			}
@@ -549,9 +543,9 @@ sub _print_isolate_table {
 			return if $self->{'mod_perl_request'}->connection->aborted;
 		}
 	}
-	print "</table></div>\n";
+	say "</table></div>";
 	$self->_print_plugin_buttons($records) if !$self->{'curate'};
-	print "</div>\n";
+	say "</div>";
 	$sql->finish if $sql;
 	return;
 }
@@ -607,19 +601,20 @@ sub _print_isolate_table_header {
 	}
 	my $fieldtype_header = "<tr>";
 	if ( $self->{'curate'} ) {
-		$fieldtype_header .= "<th rowspan=\"2\">Delete</th><th rowspan=\"2\">Update</th>";
+		$fieldtype_header .= qq(<th rowspan="2">Delete</th><th rowspan="2">Update</th>);
 		if ( $self->can_modify_table('sequence_bin') ) {
-			$fieldtype_header .= "<th rowspan=\"2\">Sequence bin</th>";
+			$fieldtype_header .= qq(<th rowspan="2">Sequence bin</th>);
 		}
 		if ( $self->{'system'}->{'read_access'} eq 'acl' && $self->{'permissions'}->{'modify_isolates_acl'} ) {
-			$fieldtype_header .= "<th rowspan=\"2\">Access control</th>";
+			$fieldtype_header .= qq(<th rowspan="2">Access control</th>);
 		}
+		$fieldtype_header .= qq(<th rowspan="2">New version</th>);
 	}
-	$fieldtype_header .= "<th colspan=\"$col_count\">Isolate fields";
-	$fieldtype_header .= " <a class=\"tooltip\" title=\"Isolate fields - You can select the isolate fields that are displayed here "
-	  . "by going to the options page.\">&nbsp;<i>i</i>&nbsp;</a>";
+	$fieldtype_header .= qq(<th colspan="$col_count">Isolate fields);
+	$fieldtype_header .= qq( <a class="tooltip" title="Isolate fields - You can select the isolate fields that are displayed here )
+	  . qq(by going to the options page.">&nbsp;<i>i</i>&nbsp;</a>);
 	$fieldtype_header .= "</th>";
-	$fieldtype_header .= "<th rowspan=\"2\">Seqbin size (bp)</th>" if $self->{'prefs'}->{'display_seqbin_main'};
+	$fieldtype_header .= qq(<th rowspan="2">Seqbin size (bp)</th>) if $self->{'prefs'}->{'display_seqbin_main'};
 	my $alias_sql = $self->{'db'}->prepare("SELECT alias FROM locus_aliases WHERE locus=?");
 	$logger->error($@) if $@;
 	local $" = '; ';
@@ -651,7 +646,7 @@ sub _print_isolate_table_header {
 						}
 					}
 					local $" = ', ';
-					$locus_header .= " <span class=\"comment\">(@aliases)</span>" if @aliases;
+					$locus_header .= qq( <span class="comment">(@aliases)</span>) if @aliases;
 				}
 				push @scheme_header, $locus_header;
 			}
@@ -669,7 +664,7 @@ sub _print_isolate_table_header {
 			}
 		}
 		if ( scalar @scheme_header ) {
-			$fieldtype_header .= "<th colspan=\"" . scalar @scheme_header . "\">$scheme->{'description'}</th>";
+			$fieldtype_header .= qq(<th colspan=") . scalar @scheme_header . qq(">$scheme->{'description'}</th>);
 		}
 		local $" = '</th><th>';
 		$header_buffer .= "<th>@scheme_header</th>" if @scheme_header;
@@ -692,11 +687,11 @@ sub _print_isolate_table_header {
 			}
 			my $cleaned_locus = $self->clean_locus($_);
 			local $" = ', ';
-			push @locus_header, "$cleaned_locus" . ( @aliases ? " <span class=\"comment\">(@aliases)</span>" : '' );
+			push @locus_header, $cleaned_locus . ( @aliases ? qq( <span class="comment">(@aliases)</span>) : '' );
 		}
 	}
 	if (@locus_header) {
-		$fieldtype_header .= "<th colspan=\"" . scalar @locus_header . "\">Loci</th>";
+		$fieldtype_header .= qq(<th colspan=") . scalar @locus_header . qq(">Loci</th>);
 	}
 	local $" = '</th><th>';
 	$header_buffer .= "<th>@locus_header</th>" if @locus_header;
