@@ -177,12 +177,38 @@ a.cds {
 	font-size:0.8em	
 }
 
+a.action {
+	color:black;
+	border:1px solid #c0c0c0;	
+	text-decoration:none;
+	background:#d5e0d5;
+}
+
+a.action:hover {
+	background:#d0f5d0;
+}
+
+a.delete {
+	color:black;
+	border:1px solid #c0c0c0;	
+	text-decoration:none;
+	background:#e0d5d5;
+}
+
+a.delete:hover {
+	background:#f0d0d0;
+}
+
 a.update {
 	color:black;
 	border:1px solid #c0c0c0;	
 	font-size:0.8em;
 	text-decoration:none;
-	background:#e0d5d5;
+	background:#d5e0d5;
+}
+
+a.update:hover {
+	background:#d0f5d0;
 }
 
 .provisional {	

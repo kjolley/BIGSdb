@@ -589,17 +589,6 @@ sub get_ids_from_pasted_list {
 	return ( \@cleaned_ids, \@invalid_ids );
 }
 
-sub isolate_exists {
-	my ( $self, $id ) = @_;
-	if ( !$self->{'sql'}->{'id_exists'} ) {
-		$self->{'sql'}->{'id_exists'} = $self->{'db'}->prepare("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'} WHERE id=?)");
-	}
-	eval { $self->{'sql'}->{'id_exists'}->execute($id) };
-	$logger->error($@) if $@;
-	my $exists = $self->{'sql'}->{'id_exists'}->fetchrow_array;
-	return $exists;
-}
-
 sub print_sequence_export_form {
 	my ( $self, $pk, $list, $scheme_id, $options ) = @_;
 	$logger->error("No primary key passed") if !defined $pk;

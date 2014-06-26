@@ -24,12 +24,6 @@ use parent qw(BIGSdb::IsolateInfoPage BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
-sub get_javascript {
-	my ($self) = @_;
-	my $buffer = $self->SUPER::get_javascript;    #Javascript from IsolateInfoPage.
-	return $buffer;
-}
-
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw(jQuery jQuery.columnizer);

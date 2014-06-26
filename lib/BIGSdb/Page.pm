@@ -340,7 +340,7 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system    = $self->{'system'};
-	my $version   = '20140604';
+	my $version   = '20140626';
 	my @filenames = qw(bigsdb.css jquery-ui.css);
 	my @paths;
 	foreach my $filename (@filenames) {
@@ -1234,10 +1234,10 @@ sub get_isolates_with_seqbin {
 		$qry = "SELECT $view.id,$view.$self->{'system'}->{'labelfield'} FROM $view WHERE EXISTS (SELECT * FROM seqbin_stats WHERE "
 		  . "$view.id=seqbin_stats.isolate_id) ORDER BY $view.id";
 	}
-	my $data = $self->{'datastore'}->run_query($qry, undef, {fetch=>'all_arrayref'});
+	my $data = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref' } );
 	my @ids;
 	my %labels;
-	foreach (@$data){
+	foreach (@$data) {
 		my ( $id, $isolate ) = @$_;
 		push @ids, $id;
 		$labels{$id} = "$id) $isolate";
@@ -1718,6 +1718,13 @@ sub get_curator_id {
 		}
 	}
 	return $self->{'cache'}->{'curator_id'};
+}
+
+sub isolate_exists {
+	my ( $self, $id ) = @_;
+	return $self->{'datastore'}
+	  ->run_query( "SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'} WHERE id=?)", $id, { cache => 'Page::isolate_exists' } )
+	  ;
 }
 
 sub initiate_prefs {

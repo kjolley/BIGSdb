@@ -453,21 +453,22 @@ sub _print_isolate_table {
 					$id =~ s/ /\%20/g;
 					$id =~ s/\+/\%2B/g;
 					if ( $self->{'curate'} ) {
-						say qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateDelete&amp;id=$id">)
-						  . qq(Delete</a></td><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=)
-						  . qq(isolateUpdate&amp;id=$id">Update</a></td>);
+						say qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateDelete&amp;id=$id)
+						  . qq(" class="delete">delete</a></td><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+						  . qq(page=isolateUpdate&amp;id=$id" class="action">update</a></td>);
 						if ( $self->can_modify_table('sequence_bin') ) {
 							say qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin&amp;)
-							  . qq(isolate_id=$id">Upload</a></td>);
+							  . qq(isolate_id=$id" class="action">upload</a></td>);
 						}
 						if ( $self->{'system'}->{'read_access'} eq 'acl' && $self->{'permissions'}->{'modify_isolates_acl'} ) {
 							say qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateACL&amp;)
-							  . qq(id=$id">Modify</a></td>);
+							  . qq(id=$id" class="action">Modify</a></td>);
 						}
 						print $data{'new_version'}
 						  ? qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'})
 						  . qq(&amp;page=info&amp;id=$data{'new_version'}">$data{'new_version'}</a></td>)
-						  : '<td></td>';
+						  : qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'})
+						  . qq(&amp;page=newVersion&amp;id=$id" class="action">create</a></td>);
 					}
 					say qq(<td><a href="$self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'}&amp;id=$id">)
 					  . qq($data{$thisfieldname}</a></td>);
