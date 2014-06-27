@@ -102,6 +102,7 @@ ON UPDATE CASCADE
 );
 
 CREATE INDEX i_i1 ON isolates (datestamp);
+CREATE INDEX i_i2 ON isolates(new_version);
 GRANT SELECT,UPDATE,INSERT,DELETE ON isolates TO apache;
 
 CREATE TABLE isolate_aliases (

@@ -64,4 +64,6 @@ CREATE TRIGGER maint_seqbin_stats AFTER INSERT OR UPDATE OR DELETE ON sequence_b
 ALTER TABLE isolates ADD new_version int;
 ALTER TABLE isolates ADD CONSTRAINT i_new_version FOREIGN KEY (new_version) REFERENCES isolates(id) 
 ON UPDATE NO ACTION ON DELETE NO ACTION;
+CREATE INDEX i_i2 ON isolates(new_version);
+
 
