@@ -140,6 +140,7 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 	$delete_qry =~ s/^SELECT \*/DELETE/;
 	my $scheme_ids;
 	my $schemes_affected;
+	my $ids_affected;
 	if ( $table eq 'loci' && $delete_qry =~ /JOIN scheme_members/ && $delete_qry !~ /scheme_id is null/ ) {
 		$schemes_affected = 1;
 	}
@@ -169,12 +170,29 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 			push @history,             "$isolate_id|$locus: designation '$allele_id' deleted";
 			push @allele_designations, "$isolate_id|$locus";
 		}
+	} elsif ( $table eq 'isolates' ) {
+		( my $id_qry = $delete_qry ) =~ s/DELETE/SELECT id/;
+		$ids_affected = $self->{'datastore'}->run_query( $id_qry, undef, { fetch => 'col_arrayref' } );
 	}
 	if ($schemes_affected) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Deleting these loci would affect scheme definitions - can not delete!</p></div>\n";
+		say qq(<div class="box" id="statusbad"><p>Deleting these loci would affect scheme definitions - can not delete!</p></div>);
 		return;
 	}
 	eval {
+		if ( ref $ids_affected eq 'ARRAY' )
+		{
+			foreach my $isolate_id (@$ids_affected) {
+				my $old_version = $self->{'datastore'}->run_query( "SELECT id FROM $self->{'system'}->{'view'} WHERE new_version=?",
+					$isolate_id, { cache => 'CurateIsolateDeletePage::get_old_version' } );
+				my $field_values = $self->{'datastore'}->get_isolate_field_values($isolate_id);
+				my $new_version  = $field_values->{'new_version'};
+				if ( $new_version && $old_version ) {    #Deleting intermediate version - update old version to point to newer version
+					$self->{'db'}->do( 'UPDATE isolates SET new_version=? WHERE id=?', undef, $new_version, $old_version );
+				} elsif ($old_version) {                 #Deleting latest version - remove link to this version in old version
+					$self->{'db'}->do( 'UPDATE isolates SET new_version=NULL WHERE id=?', undef, $old_version );
+				}
+			}
+		}
 		$self->{'db'}->do($delete_qry);
 		if ( ( $table eq 'scheme_members' || $table eq 'scheme_fields' ) && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 			foreach (@$scheme_ids) {
@@ -194,7 +212,7 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 		}
 	};
 	if ($@) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Delete failed - transaction cancelled - no records have been touched.</p>";
+		say qq(<div class="box" id="statusbad"><p>Delete failed - transaction cancelled - no records have been touched.</p>);
 		if ( $@ =~ /foreign key/ ) {
 			say "<p>Selected records are referred to by other tables and can not be deleted.</p>";
 			if ( $table eq 'sequences' ) {
@@ -235,8 +253,8 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 				$self->{'db'}->rollback;
 			}
 		}
-		say "<div class=\"box\" id=\"resultsheader\"><p>Records deleted.</p>";
-		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Return to index</a></p></div>";
+		say qq(<div class="box" id="resultsheader"><p>Records deleted.</p>);
+		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Return to index</a></p></div>);
 	}
 	return;
 }
@@ -249,9 +267,9 @@ sub _print_interface {
 		&& $self->{'system'}->{'dbtype'} eq 'sequences'
 		&& !$q->param('sent') )
 	{
-		say "<div class=\"box\" id=\"warning\"><p>Please be aware that any modifications to the structure of this scheme will "
-		  . "result in the removal of all data from it. This is done to ensure data integrity.  This does not affect allele designations, "
-		  . "but any profiles will have to be reloaded.</p></div>";
+		say qq(<div class="box" id="warning"><p>Please be aware that any modifications to the structure of this scheme will )
+		  . qq(result in the removal of all data from it. This is done to ensure data integrity.  This does not affect allele designations, )
+		  . qq(but any profiles will have to be reloaded.</p></div>);
 	}
 	my $count_qry = $query;
 	if (
