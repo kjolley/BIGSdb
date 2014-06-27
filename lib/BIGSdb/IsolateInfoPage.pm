@@ -272,6 +272,7 @@ sub get_isolate_record {
 	} else {
 		$buffer .= $self->_get_provenance_fields( $id, $data, $summary_view );
 		if ( !$summary_view ) {
+			$buffer .= $self->_get_version_links($id);
 			$buffer .= $self->_get_ref_links($id);
 			$buffer .= $self->_get_seqbin_link($id);
 			$buffer .= $self->get_sample_summary( $id, { hide => 1 } );
@@ -428,6 +429,7 @@ sub _get_provenance_fields {
 			}
 		}
 		if ( $field eq $self->{'system'}->{'labelfield'} ) {
+
 			#TODO Use Datastore::get_isolate_aliases instead
 			my $aliases =
 			  $self->{'datastore'}->run_list_query( "SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias", $isolate_id );
@@ -466,8 +468,10 @@ sub _get_tree {
 	$buffer .= qq(<noscript><p class="highlight">Enable Javascript to enhance your viewing experience.</p></noscript>\n);
 	$buffer .= $self->get_tree( $isolate_id, { isolate_display => $self->{'curate'} ? 0 : 1 } );
 	$buffer .= "</div>\n";
-	$buffer .= qq(<div id="scheme_table" style="float:left">Navigate and select schemes within tree to display allele )
-	  . qq(designations</div><div style="clear:both"></div></div>\n) if $buffer !~ /No loci available/;
+	$buffer .=
+	    qq(<div id="scheme_table" style="float:left">Navigate and select schemes within tree to display allele )
+	  . qq(designations</div><div style="clear:both"></div></div>\n)
+	  if $buffer !~ /No loci available/;
 	return $buffer;
 }
 
@@ -809,7 +813,7 @@ sub _get_history {
 	  $self->{'datastore'}
 	  ->run_query( "SELECT timestamp,action,curator FROM history where isolate_id=? ORDER BY timestamp desc$limit_clause",
 		$isolate_id, { fetch => 'all_arrayref', slice => {} } );
-	if ($limit) {     #need to count total
+	if ($limit) {    #need to count total
 		$count = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM history WHERE isolate_id=?", $isolate_id );
 	} else {
 		$count = @$history;
@@ -824,12 +828,85 @@ sub get_name {
 	  ->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id );
 }
 
+sub _get_version_links {
+	my ( $self, $isolate_id ) = @_;
+	my $buffer       = '';
+	my $old_versions = $self->_get_old_versions($isolate_id);
+	my $new_versions = $self->_get_new_versions($isolate_id);
+	if ( @$old_versions || @$new_versions ) {
+		$buffer .= "<h2>Versions</h2>\n";
+		$buffer .= "<p>More than one version of this isolate record exist.</p>\n";
+		$buffer .= qq(<dl class="data">);
+	}
+	if (@$old_versions) {
+		my @version_links;
+		foreach my $version ( reverse @$old_versions ) {
+			push @version_links,
+			  qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$version">$version</a>);
+		}
+		local $" = ', ';
+		$buffer .= qq(<dt>Older versions</dt><dd>@version_links</dd>\n);
+	}
+	if (@$new_versions) {
+		my @version_links;
+		foreach my $version (@$new_versions) {
+			push @version_links,
+			  qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$version">$version</a>);
+		}
+		local $" = ', ';
+		$buffer .= qq(<dt>Newer versions</dt><dd>@version_links</dd>\n);
+	}
+	if ( @$old_versions || @$new_versions ) {
+		$buffer .= "</dl>\n";
+	}
+	return $buffer;
+}
+
+sub _get_old_versions {
+	my ( $self, $isolate_id ) = @_;
+	state @old_versions;
+	my $next_id = $isolate_id;
+	my %used;
+	while (
+		my $old_version = $self->{'datastore'}->run_query(
+			"SELECT id FROM $self->{'system'}->{'view'} WHERE new_version=?",
+			$next_id,
+			{ cache => 'IsolateInfoPage::get_old_versions' }
+		)
+	  )
+	{
+		last if $used{$old_version};    #Prevent circular references locking up server.
+		push @old_versions, $old_version;
+		$next_id = $old_version;
+		$used{$old_version} = 1;
+	}
+	return \@old_versions;
+}
+
+sub _get_new_versions {
+	my ( $self, $isolate_id ) = @_;
+	state @new_versions;
+	my $next_id = $isolate_id;
+	my %used;
+	while (
+		my $new_version = $self->{'datastore'}->run_query(
+			"SELECT new_version FROM $self->{'system'}->{'view'} WHERE id=?",
+			$next_id,
+			{ cache => 'IsolateInfoPage::get_new_versions' }
+		)
+	  )
+	{
+		last if $used{$new_version};    #Prevent circular references locking up server.
+		push @new_versions, $new_version;
+		$next_id = $new_version;
+		$used{$new_version} = 1;
+	}
+	return \@new_versions;
+}
+
 sub _get_ref_links {
 	my ( $self, $isolate_id ) = @_;
-	#TODO Use Datastore::get_isolate_refs instead
-	my $pmids =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT refs.pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id", $isolate_id, { fetch => 'col_arrayref' } );
+	my $pmids = $self->{'datastore'}->get_isolate_refs($isolate_id);
 	return $self->get_refs($pmids);
 }
 

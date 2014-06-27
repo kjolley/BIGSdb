@@ -65,7 +65,10 @@ sub print_content {
 			$self->_print_interface;
 			return;
 		} 
-		say qq(<div class="box" id="resultspanel"><div class="scrollable"><p>The new record shown below has been created.</p>);
+		say qq(<div class="box" id="resultsheader"><p>The new record shown below has been created.</p>);
+		say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin&amp;isolate_id=$new_id">)
+		  . qq(Upload contigs</a></li></ul></div>);
+		say qq(<div class="box" id="resultspanel"><div class="scrollable">);
 		say $self->{'isolate_record'}->get_isolate_record($new_id);
 		say '</div></div>';
 		return;
