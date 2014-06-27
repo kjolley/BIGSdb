@@ -165,6 +165,7 @@ sub _update {
 	$qry = "UPDATE isolates SET $qry WHERE id=$data->{'id'}" if $qry;
 	my $metadata_updates = $self->_prepare_metaset_updates( \%meta_fields, $data, $newdata, \@updated_field );
 	my @alias_update;
+	#TODO Use Datastore::get_isolate_aliases instead
 	my $existing_aliases =
 	  $self->{'datastore'}->run_list_query( "SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY isolate_id", $data->{'id'} );
 	my @new_aliases = split /\r?\n/, $q->param('aliases');
@@ -186,6 +187,7 @@ sub _update {
 		}
 	}
 	my @pubmed_update;
+	#TODO Use Datastore::get_isolate_refs instead
 	my $existing_pubmeds = $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM refs WHERE isolate_id=?", $data->{'id'} );
 	my @new_pubmeds = split /\r?\n/, $q->param('pubmed');
 	foreach my $new (@new_pubmeds) {

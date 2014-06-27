@@ -109,6 +109,7 @@ sub run {
 			$sql->bind_columns( map { \$data{$_} } @$fields_to_bind );    #quicker binding hash to arrayref than to use hashref
 			my $i         = 1;
 			my $j         = 0;
+			#TODO Use Datastore::get_isolate_aliases instead
 			my $alias_sql = $self->{'db'}->prepare("SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias");
 			my $attribute_sql =
 			  $self->{'db'}

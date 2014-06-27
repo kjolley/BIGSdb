@@ -428,6 +428,7 @@ sub _get_provenance_fields {
 			}
 		}
 		if ( $field eq $self->{'system'}->{'labelfield'} ) {
+			#TODO Use Datastore::get_isolate_aliases instead
 			my $aliases =
 			  $self->{'datastore'}->run_list_query( "SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias", $isolate_id );
 			if (@$aliases) {
@@ -825,6 +826,7 @@ sub get_name {
 
 sub _get_ref_links {
 	my ( $self, $isolate_id ) = @_;
+	#TODO Use Datastore::get_isolate_refs instead
 	my $pmids =
 	  $self->{'datastore'}
 	  ->run_query( "SELECT refs.pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id", $isolate_id, { fetch => 'col_arrayref' } );

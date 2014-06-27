@@ -389,6 +389,7 @@ sub print_provenance_form_elements {
 	}
 	my $aliases;
 	if ( $options->{'update'} ) {
+		#TODO Use Datastore::get_isolate_aliases instead
 		$aliases =
 		  $self->{'datastore'}->run_list_query( "SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias ", $q->param('id') );
 	} else {
@@ -400,6 +401,7 @@ sub print_provenance_form_elements {
 	say "</li>";
 	my $pubmed;
 	if ( $options->{'update'} ) {
+		#TODO Use Datastore::get_isolate_refs instead
 		$pubmed =
 		  $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id", $q->param('id') );
 	} else {

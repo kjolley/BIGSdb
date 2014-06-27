@@ -43,9 +43,31 @@ sub print_content {
 		say qq(<div class="box" id="statusbad"><p>Your user account is not allowed to access this isolate record.</p></div>);
 		return;
 	}
-	if ( $q->param('new_id') ) {
+	$self->{'isolate_record'} = BIGSdb::IsolateInfoPage->new(
+		(
+			system        => $self->{'system'},
+			cgi           => $self->{'cgi'},
+			instance      => $self->{'instance'},
+			prefs         => $self->{'prefs'},
+			prefstore     => $self->{'prefstore'},
+			config        => $self->{'config'},
+			datastore     => $self->{'datastore'},
+			db            => $self->{'db'},
+			xmlHandler    => $self->{'xmlHandler'},
+			dataConnector => $self->{'dataConnector'},
+			curate        => 1
+		)
+	);
+	my $new_id = $q->param('new_id');
+	if ( $new_id ) {
 		my $ret_val = $self->_create_new_version;
-		$self->_print_interface if $ret_val == ERROR;
+		if ($ret_val){
+			$self->_print_interface;
+			return;
+		} 
+		say qq(<div class="box" id="resultspanel"><div class="scrollable"><p>The new record shown below has been created.</p>);
+		say $self->{'isolate_record'}->get_isolate_record($new_id);
+		say '</div></div>';
 		return;
 	}
 	$self->_print_interface;
@@ -72,22 +94,8 @@ sub _print_interface {
 	say $q->end_form;
 	say '</div></div>';
 	say qq(<div class="box" id="resultspanel"><div class="scrollable">);
-	my $isolate_record = BIGSdb::IsolateInfoPage->new(
-		(
-			system        => $self->{'system'},
-			cgi           => $self->{'cgi'},
-			instance      => $self->{'instance'},
-			prefs         => $self->{'prefs'},
-			prefstore     => $self->{'prefstore'},
-			config        => $self->{'config'},
-			datastore     => $self->{'datastore'},
-			db            => $self->{'db'},
-			xmlHandler    => $self->{'xmlHandler'},
-			dataConnector => $self->{'dataConnector'},
-			curate        => 1
-		)
-	);
-	say $isolate_record->get_isolate_record($existing_id);
+
+	say $self->{'isolate_record'}->get_isolate_record($existing_id);
 	say '</div></div>';
 	return;
 }
@@ -106,6 +114,47 @@ sub _create_new_version {
 	if ( !BIGSdb::Utils::is_int($new_id) ) {
 		say qq(<div class="box" id="statusbad"><p>Invalid new record id.</p></div>);
 		return ERROR;
+	}
+
+	#Don't use Page::isolate_exists as that only checks current view, but we need to check whole isolates table.
+	my $exists = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM isolates WHERE id=?)", $new_id );
+	if ($exists) {
+		say qq(<div class="box" id="statusbad"><p>An isolate record already exists with id-$new_id.</p></div>);
+		return ERROR;
+	}
+	my $fields       = $self->{'xmlHandler'}->get_field_list;
+	my $field_values = $self->{'datastore'}->get_isolate_field_values($existing_id);
+	my (@values);
+	my $curator_id = $self->get_curator_id;
+	foreach my $field (@$fields) {
+		$field_values->{$field} = $new_id if $field eq 'id';
+		$field_values->{$field} = $self->get_datestamp if $field eq 'date_entered' || $field eq 'datestamp';
+		$field_values->{$field} = $curator_id if $field eq 'curator';
+		push @values, $field_values->{ lc($field) };
+	}
+	my @placeholders = ('?') x @values;
+	local $" = ',';
+	my $insert  = "INSERT INTO isolates (@$fields) VALUES (@placeholders)";
+	my $aliases = $self->{'datastore'}->get_isolate_aliases($existing_id);
+	my $refs    = $self->{'datastore'}->get_isolate_refs($existing_id);
+	eval {
+		$self->{'db'}->do( $insert, undef, @values );
+		$self->{'db'}->do( "INSERT INTO isolate_aliases (isolate_id,alias,curator,datestamp) VALUES (?,?,?,?)",
+			undef, $new_id, $_, $curator_id, 'now' )
+		  foreach @$aliases;
+		$self->{'db'}
+		  ->do( "INSERT INTO refs (isolate_id,pubmed_id,curator,datestamp) VALUES (?,?,?,?)", undef, $new_id, $_, $curator_id, 'now' )
+		  foreach @$refs;
+		$self->{'db'}->do( "UPDATE isolates SET new_version=? WHERE id=?", undef, $new_id, $existing_id );
+	};
+	if ($@) {
+		say qq(<div class="box" id="statusbad"><p>New record creation failed.  More details will be in the error log.</p></div>);
+		$logger->error($@);
+		$self->{'db'}->rollback;
+		return ERROR;
+	} else {
+		$self->update_history( $new_id, "Isolate record copied from id-$existing_id." );
+		$self->{'db'}->commit;
 	}
 	return;
 }

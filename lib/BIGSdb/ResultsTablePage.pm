@@ -509,6 +509,7 @@ sub _print_isolate_table {
 				}
 			}
 			if ( $thisfieldname eq $self->{'system'}->{'labelfield'} && $self->{'prefs'}->{'maindisplayfields'}->{'aliases'} ) {
+				#TODO Use Datastore::get_isolate_aliases instead
 				my $aliases = $self->{'datastore'}->run_query( "SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias",
 					$id, { fetch => 'col_arrayref', cache => 'ResultsTablePage::print_isolate_table_aliases' } );
 				local $" = '; ';
