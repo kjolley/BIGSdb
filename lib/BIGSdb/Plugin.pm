@@ -152,8 +152,9 @@ JS
 sub get_query {
 	my ( $self, $query_file ) = @_;
 	my $qry;
+	my $view = $self->{'system'}->{'view'};
 	if ( !$query_file ) {
-		$qry = "SELECT * FROM $self->{'system'}->{'view'} ORDER BY id";
+		$qry = "SELECT * $view WHERE new_version IS NULL ORDER BY id";
 	} else {
 		if ( -e "$self->{'config'}->{'secure_tmp_dir'}/$query_file" ) {
 			my $fh;
@@ -164,7 +165,7 @@ sub get_query {
 				if ( $self->{'cgi'}->param('format') eq 'text' ) {
 					say "Can not open temporary file.";
 				} else {
-					say "<div class=\"box\" id=\"statusbad\"><p>Can not open temporary file.</p></div>";
+					say qq(<div class="box" id="statusbad"><p>Can not open temporary file.</p></div>);
 				}
 				$logger->error("can't open temporary file $query_file. $@");
 				return;
@@ -173,14 +174,13 @@ sub get_query {
 			if ( $self->{'cgi'}->param('format') eq 'text' ) {
 				say "The temporary file containing your query does not exist. Please repeat your query.";
 			} else {
-				say "<div class=\"box\" id=\"statusbad\"><p>The temporary file containing your query does not exist. "
-				  . "Please repeat your query.</p></div>";
+				say qq(<div class="box" id="statusbad"><p>The temporary file containing your query does not exist. )
+				  . qq(Please repeat your query.</p></div>);
 			}
 			return;
 		}
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		my $view = $self->{'system'}->{'view'};
 		$qry =~ s/([\s\(])datestamp/$1$view.datestamp/g;
 		$qry =~ s/([\s\(])date_entered/$1$view.date_entered/g;
 	}
