@@ -105,6 +105,9 @@ sub _print_interface {
 	say qq(<label for="new_id">id:</label>);
 	say $self->textfield( name => 'new_id', id => 'new_id', value => $next_id, type => 'number', min => 1, step => 1 );
 	say '</fieldset>';
+	say qq(<fieldset style="float:left"><legend>Options</legend);
+	say $q->checkbox( -name => 'copy_projects', -label => 'Add new version to projects', -checked => 'checked' );
+	say '</fieldset>';
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Create' } );
 	say $q->hidden($_) foreach qw(db page id);
 	say $q->end_form;
@@ -152,11 +155,18 @@ sub _create_new_version {
 	my $insert  = "INSERT INTO isolates (@$fields) VALUES (@placeholders)";
 	my $aliases = $self->{'datastore'}->get_isolate_aliases($existing_id);
 	my $refs    = $self->{'datastore'}->get_isolate_refs($existing_id);
+	my $projects =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT project_id FROM project_members WHERE isolate_id=?", $existing_id, { fetch => 'col_arrayref' } );
 	eval {
 		$self->{'db'}->do( $insert, undef, @values );
 		$self->{'db'}->do( "INSERT INTO isolate_aliases (isolate_id,alias,curator,datestamp) VALUES (?,?,?,?)",
 			undef, $new_id, $_, $curator_id, 'now' )
 		  foreach @$aliases;
+		if ( $q->param('copy_projects') ) {
+			$self->{'db'}->do( "INSERT INTO project_members (project_id,isolate_id,curator,datestamp) VALUES (?,?,?,?)",
+				undef, $_, $new_id, $curator_id, 'now' ) foreach @$projects;
+		}
 		$self->{'db'}
 		  ->do( "INSERT INTO refs (isolate_id,pubmed_id,curator,datestamp) VALUES (?,?,?,?)", undef, $new_id, $_, $curator_id, 'now' )
 		  foreach @$refs;
