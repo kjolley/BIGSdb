@@ -75,8 +75,10 @@ END
 
 sub filters_selected {
 	my ($self) = @_;
-	my %params = $self->{'cgi'}->Vars;
+	my $q = $self->{'cgi'};
+	my %params = $q->Vars;
 	return 1 if any { $_ =~ /_list$/ && $params{$_} ne '' } keys %params;
+	return 1 if $q->param('include_old');
 	return;
 }
 
