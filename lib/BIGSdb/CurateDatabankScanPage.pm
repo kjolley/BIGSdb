@@ -29,9 +29,9 @@ sub print_content {
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
 	my $accession = $q->param('accession');
-	say "<h1>Scan EMBL/Ganbank record for loci</h1>";
+	say "<h1>Scan EMBL/Genbank record for loci</h1>";
 	if ( !$self->can_modify_table('loci') ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to add records to the loci table.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Your user account is not allowed to add records to the loci table.</p></div>);
 		return;
 	}
 	$self->_print_interface;
