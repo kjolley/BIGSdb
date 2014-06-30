@@ -968,6 +968,12 @@ sub get_locus_filter {
 	return $buffer;
 }
 
+sub get_old_version_filter {
+	my ($self) = @_;
+	my $buffer = $self->{'cgi'}->checkbox( -name => 'include_old', -id => 'include_old', -label => 'Include old record versions' );
+	return $buffer;
+}
+
 sub get_isolate_publication_filter {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
@@ -1723,8 +1729,7 @@ sub get_curator_id {
 sub isolate_exists {
 	my ( $self, $id ) = @_;
 	return $self->{'datastore'}
-	  ->run_query( "SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'} WHERE id=?)", $id, { cache => 'Page::isolate_exists' } )
-	  ;
+	  ->run_query( "SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'} WHERE id=?)", $id, { cache => 'Page::isolate_exists' } );
 }
 
 sub initiate_prefs {
