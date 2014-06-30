@@ -42,6 +42,19 @@ sub print_content {
 	} elsif ( !$self->is_allowed_to_view_isolate($existing_id) ) {
 		say qq(<div class="box" id="statusbad"><p>Your user account is not allowed to access this isolate record.</p></div>);
 		return;
+	} else {
+		my $new_version = $self->{'datastore'}->run_query( "SELECT new_version FROM isolates WHERE id=?", $existing_id );
+		if ($new_version) {
+			if ( $self->isolate_exists($new_version) ) {
+				say qq(<div class="box" id="statusbad"><p>This isolate already has a newer version defined. See )
+				  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$new_version">)
+				  . qq(isolate id-$new_version</a>.</p></div>);
+			} else {
+				say qq(<div class="box" id="statusbad"><p>This isolate already has a newer version defined. It is not, however, )
+				  . qq(accessible from the current database view.</p></div>);
+			}
+			return;
+		}
 	}
 	$self->{'isolate_record'} = BIGSdb::IsolateInfoPage->new(
 		(
@@ -59,12 +72,12 @@ sub print_content {
 		)
 	);
 	my $new_id = $q->param('new_id');
-	if ( $new_id ) {
+	if ($new_id) {
 		my $ret_val = $self->_create_new_version;
-		if ($ret_val){
+		if ($ret_val) {
 			$self->_print_interface;
 			return;
-		} 
+		}
 		say qq(<div class="box" id="resultsheader"><p>The new record shown below has been created.</p>);
 		say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin&amp;isolate_id=$new_id">)
 		  . qq(Upload contigs</a></li></ul></div>);
@@ -97,7 +110,6 @@ sub _print_interface {
 	say $q->end_form;
 	say '</div></div>';
 	say qq(<div class="box" id="resultspanel"><div class="scrollable">);
-
 	say $self->{'isolate_record'}->get_isolate_record($existing_id);
 	say '</div></div>';
 	return;
