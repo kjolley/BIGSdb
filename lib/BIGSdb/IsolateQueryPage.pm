@@ -932,13 +932,6 @@ sub _modify_query_for_filters {
 			}
 		}
 	}
-	if (!$q->param('include_old')){
-		if ( $qry !~ /WHERE \(\)\s*$/ ) {
-			$qry .= " AND ($view.new_version IS NULL)";
-		} else{
-			$qry .= "SELECT * FROM VIEW WHERE ($view.new_version IS NULL)";
-		}
-	}
 	$self->_modify_query_by_membership( { qry_ref => \$qry, table => 'refs', param => 'publication_list', query_field => 'pubmed_id' } );
 	$self->_modify_query_by_membership(
 		{ qry_ref => \$qry, table => 'project_members', param => 'project_list', query_field => 'project_id' } );
@@ -1015,6 +1008,13 @@ sub _modify_query_for_filters {
 					$qry = "SELECT * FROM $view WHERE $clause";
 				}
 			}
+		}
+	}
+	if ( !$q->param('include_old') ) {
+		if ( $qry !~ /WHERE \(\)\s*$/ ) {
+			$qry .= " AND ($view.new_version IS NULL)";
+		} else {
+			$qry .= "SELECT * FROM VIEW WHERE ($view.new_version IS NULL)";
 		}
 	}
 	return $qry;
