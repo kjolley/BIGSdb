@@ -43,6 +43,7 @@ use BIGSdb::CurateIsolateDeletePage;
 use BIGSdb::CurateIsolateUpdatePage;
 use BIGSdb::CurateLinkToExperimentPage;
 use BIGSdb::CurateMembersPage;
+use BIGSdb::CurateNewVersionPage;
 use BIGSdb::CuratePage;
 use BIGSdb::CurateProfileAddPage;
 use BIGSdb::CurateProfileBatchAddPage;
@@ -109,7 +110,8 @@ sub print_page {
 		exportConfig       => 'CurateExportConfig',
 		setAlleleFlags     => 'CurateBatchSetAlleleFlagsPage',
 		memberUpdate       => 'CurateMembersPage',
-		excelTemplate      => 'CurateSubmissionExcelPage'
+		excelTemplate      => 'CurateSubmissionExcelPage',
+		newVersion         => 'CurateNewVersionPage'
 	);
 	my %page_attributes = (
 		system           => $self->{'system'},

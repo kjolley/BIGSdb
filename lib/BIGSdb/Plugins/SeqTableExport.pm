@@ -141,7 +141,7 @@ sub _create_table {
 		foreach my $ext_attribute (@$extended_attributes) {
 			push @results, $ext_data->{$ext_attribute}->{'value'} // '';
 		}
-		local $" = ", ";
+		local $" = ', ';
 		my $flags = $self->{'datastore'}->get_allele_flags( $locus, $allele_id );
 		push @results, "@$flags";
 		local $" = "\t";

@@ -340,7 +340,7 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system    = $self->{'system'};
-	my $version   = '20140604';
+	my $version   = '20140626';
 	my @filenames = qw(bigsdb.css jquery-ui.css);
 	my @paths;
 	foreach my $filename (@filenames) {
@@ -968,6 +968,12 @@ sub get_locus_filter {
 	return $buffer;
 }
 
+sub get_old_version_filter {
+	my ($self) = @_;
+	my $buffer = $self->{'cgi'}->checkbox( -name => 'include_old', -id => 'include_old', -label => 'Include old record versions' );
+	return $buffer;
+}
+
 sub get_isolate_publication_filter {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
@@ -1229,18 +1235,18 @@ sub get_isolates_with_seqbin {
 	my $view = $self->{'system'}->{'view'};
 	my $qry;
 	if ( $options->{'use_all'} ) {
-		$qry = "SELECT $view.id,$view.$self->{'system'}->{'labelfield'} FROM $view ORDER BY $view.id";
+		$qry = "SELECT $view.id,$view.$self->{'system'}->{'labelfield'},new_version FROM $view ORDER BY $view.id";
 	} else {
-		$qry = "SELECT $view.id,$view.$self->{'system'}->{'labelfield'} FROM $view WHERE EXISTS (SELECT * FROM seqbin_stats WHERE "
-		  . "$view.id=seqbin_stats.isolate_id) ORDER BY $view.id";
+		$qry = "SELECT $view.id,$view.$self->{'system'}->{'labelfield'},new_version FROM $view WHERE EXISTS (SELECT * FROM seqbin_stats "
+		  . "WHERE $view.id=seqbin_stats.isolate_id) ORDER BY $view.id";
 	}
-	my $data = $self->{'datastore'}->run_query($qry, undef, {fetch=>'all_arrayref'});
+	my $data = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref' } );
 	my @ids;
 	my %labels;
-	foreach (@$data){
-		my ( $id, $isolate ) = @$_;
+	foreach (@$data) {
+		my ( $id, $isolate, $new_version ) = @$_;
 		push @ids, $id;
-		$labels{$id} = "$id) $isolate";
+		$labels{$id} = $new_version ? "$id) $isolate [old version]" : "$id) $isolate";
 	}
 	return ( \@ids, \%labels );
 }
@@ -1718,6 +1724,12 @@ sub get_curator_id {
 		}
 	}
 	return $self->{'cache'}->{'curator_id'};
+}
+
+sub isolate_exists {
+	my ( $self, $id ) = @_;
+	return $self->{'datastore'}
+	  ->run_query( "SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'} WHERE id=?)", $id, { cache => 'Page::isolate_exists' } );
 }
 
 sub initiate_prefs {

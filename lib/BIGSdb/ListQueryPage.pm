@@ -109,20 +109,26 @@ sub _print_query_interface {
 		$order_list   = $field_list;
 		$order_labels = $labels;
 	}
-	say "<div class=\"box\" id=\"queryform\">\n<div class=\"scrollable\">";
+	say qq(<div class="box" id="queryform"><div class="scrollable">);
 	say $q->start_form;
-	say "<fieldset id=\"attribute_fieldset\" style=\"float:left\"><legend>Please select attribute</legend>";
+	say qq(<fieldset id="attribute_fieldset" style="float:left"><legend>Please select attribute</legend>);
 	my @select_items = ( @grouped_fields, @$field_list );
 	say $q->popup_menu( -name => 'attribute', -values => \@select_items, -labels => $labels );
-	say "</fieldset><div style=\"clear:both\"></div>";
-	say "<fieldset id=\"list_fieldset\" style=\"float:left\"><legend>Enter your list of attribute values below (one per line)</legend>";
+	say qq(</fieldset><div style="clear:both"></div>);
+	say qq(<fieldset id="list_fieldset" style="float:left"><legend>Enter your list of attribute values below (one per line)</legend>);
 	say $q->textarea( -name => 'list', -rows => 8, -cols => 40 );
 	say "</fieldset>";
-	say "<fieldset id=\"display_fieldset\" style=\"float:left\"><legend>Display/sort options</legend>";
-	say "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>";
+
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		say qq(<fieldset style="float:left"><legend>Filters</legend>);
+		say $self->get_old_version_filter;
+		say '</fieldset>';
+	}
+	say qq(<fieldset id="display_fieldset" style="float:left"><legend>Display/sort options</legend>);
+	say qq(<ul><li><span style="white-space:nowrap"><label for="order" class="display">Order by: </label>);
 	say $q->popup_menu( -name => 'order', -id => 'order', -values => $order_list, -labels => $order_labels );
-	say $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
-	say "</span></li>\n<li>";
+	say $q->popup_menu( -name => 'direction', -values => [qw(ascending descending)], -default => 'ascending' );
+	say "</span></li><li>";
 	say $self->get_number_records_control;
 	say "</li></ul></fieldset>";
 	$self->print_action_fieldset( { scheme_id => $scheme_id } );
@@ -346,6 +352,9 @@ sub _run_isolate_query {
 			  . "temp_list ON UPPER($isolate_scheme_field_view.$field) = UPPER(temp_list.value))"
 			  : "SELECT * FROM $view WHERE $view.id IN (SELECT $isolate_scheme_field_view.id FROM $isolate_scheme_field_view INNER JOIN "
 			  . "temp_list ON $isolate_scheme_field_view.$field = temp_list.value)";
+		}
+		if ( !$q->param('include_old') ) {
+			$qry .= ' AND (new_version IS NULL)';
 		}
 		$qry .= " ORDER BY ";
 		if ( $q->param('order') =~ /$locus_pattern/ ) {

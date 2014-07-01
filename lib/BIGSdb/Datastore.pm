@@ -99,6 +99,18 @@ sub get_isolate_field_values {
 		$isolate_id, { fetch => 'row_hashref', cache => 'get_isolate_field_values' } );
 }
 
+sub get_isolate_aliases {
+	my ( $self, $isolate_id ) = @_;
+	return $self->run_query( "SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias",
+		$isolate_id, { fetch => 'col_arrayref', cache => 'get_isolate_aliases' } );
+}
+
+sub get_isolate_refs {
+	my ( $self, $isolate_id ) = @_;
+	return $self->run_query( "SELECT pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id",
+		$isolate_id, { fetch => 'col_arrayref', cache => 'get_isolate_refs' } );
+}
+
 sub get_composite_value {
 	my ( $self, $isolate_id, $composite_field, $isolate_fields_hashref, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';

@@ -306,6 +306,7 @@ sub _write_field {
 			print $fh $value;
 		}
 	} elsif ( $field eq 'aliases' ) {
+		#TODO Use Datastore::get_isolate_aliases instead
 		if ( !$self->{'sql'}->{'alias'} ) {
 			$self->{'sql'}->{'alias'} = $self->{'db'}->prepare("SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias");
 		}
@@ -490,6 +491,7 @@ sub _write_ref {
 
 sub _get_refs {
 	my ( $self, $isolate_id ) = @_;
+	#TODO Use Datastore::get_isolate_refs instead
 	if ( !$self->{'sql'}->{'get_refs'} ) {
 		$self->{'sql'}->{'get_refs'} = $self->{'db'}->prepare("SELECT pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id");
 	}

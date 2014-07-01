@@ -67,13 +67,12 @@ sub print_content {
 sub _print_query_interface {
 	my ( $self, $scheme_id ) = @_;
 	my $q = $self->{'cgi'};
-	say "<div class=\"box\" id=\"queryform\">";
+	say qq(<div class="box" id="queryform">);
 	my $primary_key;
 	if ($scheme_id) {
-		my $primary_key_ref =
+		$primary_key =
 		  $self->{'datastore'}
-		  ->run_simple_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key ORDER BY field_order", $scheme_id );
-		$primary_key = $primary_key_ref->[0] if ref $primary_key_ref eq 'ARRAY';
+		  ->run_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key ORDER BY field_order", $scheme_id );
 	}
 	my $set_id = $self->get_set_id;
 	my $loci =
@@ -84,16 +83,17 @@ sub _print_query_interface {
 	$scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id) if $scheme_id;
 	my @errors;
 	if ( $primary_key && $q->param('Autofill') ) {
-		my @values;
+
+		#		my @values;
 		my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
 		if ( $scheme_field_info->{'type'} eq 'integer' && !BIGSdb::Utils::is_int( $q->param($primary_key) ) ) {
 			push @errors, "$primary_key is an integer field.";
 		}
-		push @values, $q->param($primary_key);
+		my $pk_value = $q->param($primary_key);
 		if ( !@errors ) {
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 				try {
-					my $loci_values = $self->{'datastore'}->get_scheme($scheme_id)->get_profile_by_primary_keys( \@values );
+					my $loci_values = $self->{'datastore'}->get_scheme($scheme_id)->get_profile_by_primary_keys( [$pk_value] );
 					foreach my $i ( 0 .. @$loci - 1 ) {
 						$q->param( "l_$loci->[$i]", $loci_values->[$i] );
 					}
@@ -109,25 +109,19 @@ sub _print_query_interface {
 				local $" = ',';
 				my $scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
 				my $qry         = "SELECT @cleaned_loci FROM $scheme_view WHERE $primary_key=?";
-				my $sql         = $self->{'db'}->prepare($qry);
-				eval { $sql->execute(@values) };
-				if ($@) {
-					$logger->error("Can't retrieve loci from scheme view $@");
-				} else {
-					my $loci_values = $sql->fetchrow_hashref;
-					foreach (@$loci) {
-						( my $cleaned = $_ ) =~ s/'/_PRIME_/g;
-						$q->param( "l_$_", $loci_values->{ lc($cleaned) } );
-					}
+				my $loci_values = $self->{'datastore'}->run_query( $qry, $pk_value, { fetch => 'row_hashref' } );
+				foreach (@$loci) {
+					( my $cleaned = $_ ) =~ s/'/_PRIME_/g;
+					$q->param( "l_$_", $loci_values->{ lc($cleaned) } );
 				}
 			}
 		}
 	}
-	say "<div class=\"scrollable\">";
+	say qq(<div class="scrollable">);
 	say $q->start_form;
-	say "<fieldset id=\"profile_fieldset\" style=\"float:left\"><legend>Please enter your allelic profile below.  Blank loci "
-	  . "will be ignored.</legend>";
-	say "<table class=\"queryform\">";
+	say qq(<fieldset id="profile_fieldset" style="float:left"><legend>Please enter your allelic profile below.  Blank loci )
+	  . qq(will be ignored.</legend>);
+	say qq(<table class="queryform">);
 	my $i = 0;
 	my ( $header_row, $form_row );
 	my $all_integers = 1;
@@ -164,7 +158,7 @@ sub _print_query_interface {
 					my $value = "la_$_||$alias";
 					push @display_loci, $value;
 					$alias =~ tr/_/ /;
-					$label{$value} = "$alias<br /><span class=\"comment\">[$cleaned_locus]</span>";
+					$label{$value} = qq($alias<br /><span class="comment">[$cleaned_locus]</span>);
 				}
 			}
 		}
@@ -178,7 +172,7 @@ sub _print_query_interface {
 			$i = 0;
 		}
 		my $class = $all_integers ? 'int_entry' : 'allele_entry';
-		$header_row .= "<th class=\"$class\">$label{$_}</th>";
+		$header_row .= qq(<th class="$class">$label{$_}</th>);
 		$form_row   .= "<td>";
 		$form_row   .= $q->textfield( -name => "$_", -class => $class, -style => 'text-align:center' );
 		$form_row   .= "</td>\n";
@@ -190,24 +184,26 @@ sub _print_query_interface {
 	say "</fieldset>";
 	if ($primary_key) {
 		my $remote = $self->{'system'}->{'dbtype'} eq 'isolates' ? ' by searching remote database' : '';
-		say "<fieldset id=\"autofill_fieldset\" style=\"float:left\"><legend>Autofill profile$remote</legend>\n<ul>";
+		say qq(<fieldset id="autofill_fieldset" style="float:left"><legend>Autofill profile$remote</legend><ul>);
 		my $first = 1;
-		say "<li><label for=\"$primary_key\" class=\"display\">$primary_key: </label>";
+		say qq(<li><label for="$primary_key" class="display">$primary_key: </label>);
 		say $q->textfield( -name => $primary_key, -id => $primary_key, -class => "allele_entry" );
 		say $q->submit( -name => 'Autofill', -class => 'submit' ) if $first;
 		$first = 0;
 		say "</li>";
 		say "</ul></fieldset>";
 	}
-	say "<div style=\"clear:both\">";
+	say qq(<div style="clear:both">);
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		say qq(<fieldset style="float:left"><legend>Filters</legend><ul>);
 		my $buffer = $self->get_project_filter( { class => 'display' } );
-		if ($buffer) {
-			say "<fieldset>\n<legend>Restrict included sequences by</legend>";
-			say "<ul><li>$buffer</li></ul></fieldset>";
-		}
+		say "<li>$buffer</li>" if $buffer;
+		say '<li>';
+		say $self->get_old_version_filter;
+		say '</li>';
+		say "</ul></fieldset>";
 	}
-	say "<fieldset id=\"options_fieldset\" style=\"float:left\"><legend>Options</legend>";
+	say qq(<fieldset id="options_fieldset" style="float:left"><legend>Options</legend>);
 	my ( @values, %labels );
 	push @values, 0;
 	foreach my $i ( reverse 1 .. @$loci ) {
@@ -218,8 +214,8 @@ sub _print_query_interface {
 	$labels{ scalar @$loci } = 'Exact match only';
 	say $self->get_filter( 'matches', \@values, { labels => \%labels, text => 'Search', noblank => 1, class => 'display' } );
 	say "</fieldset>";
-	say "<fieldset id=\"display_fieldset\" style=\"float:left\"><legend>Display/sort options</legend>";
-	say "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>";
+	say qq(<fieldset id="display_fieldset" style="float:left"><legend>Display/sort options</legend>);
+	say qq(<ul><li><span style="white-space:nowrap"><label for="order" class="display">Order by: </label>);
 	my ( $order_by, $dropdown_labels );
 
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -244,13 +240,13 @@ sub _print_query_interface {
 	say "</div>";
 	$self->print_action_fieldset( { scheme_id => $scheme_id } );
 	say $q->hidden($_) foreach qw (db page scheme_id);
-	say $q->hidden( 'sent', 1 );
+	say $q->hidden( sent => 1 );
 	say $q->end_form;
 	say "</div></div>";
 
 	if (@errors) {
 		local $" = '<br />';
-		say "<div class=\"box\" id=\"statusbad\"><p>Problem with search criteria:</p><p>@errors</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Problem with search criteria:</p><p>@errors</p></div>);
 	}
 	return;
 }
@@ -375,11 +371,16 @@ sub _run_query {
 			  ? "SELECT * FROM $view WHERE $view.id IN $lqry"
 			  : "SELECT * FROM $scheme_view WHERE EXISTS $lqry";
 		}
-		if ( $qry && $self->{'system'}->{'dbtype'} eq 'isolates' && ( $q->param('project_list') // '' ) ne '' ) {
-			my $project_id = $q->param('project_list');
-			if ($project_id) {
-				local $" = "','";
-				$qry .= " AND id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id')";
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+			if ( $qry && ( $q->param('project_list') // '' ) ne '' ) {
+				my $project_id = $q->param('project_list');
+				if ($project_id) {
+					local $" = "','";
+					$qry .= " AND id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id')";
+				}
+			}
+			if ( $qry && !$q->param('include_old') ) {
+				$qry .= " AND ($view.new_version IS NULL)";
 			}
 		}
 		$qry .= " ORDER BY ";

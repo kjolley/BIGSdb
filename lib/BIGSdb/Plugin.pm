@@ -152,8 +152,9 @@ JS
 sub get_query {
 	my ( $self, $query_file ) = @_;
 	my $qry;
+	my $view = $self->{'system'}->{'view'};
 	if ( !$query_file ) {
-		$qry = "SELECT * FROM $self->{'system'}->{'view'} ORDER BY id";
+		$qry = "SELECT * FROM $view WHERE new_version IS NULL ORDER BY id";
 	} else {
 		if ( -e "$self->{'config'}->{'secure_tmp_dir'}/$query_file" ) {
 			my $fh;
@@ -164,7 +165,7 @@ sub get_query {
 				if ( $self->{'cgi'}->param('format') eq 'text' ) {
 					say "Can not open temporary file.";
 				} else {
-					say "<div class=\"box\" id=\"statusbad\"><p>Can not open temporary file.</p></div>";
+					say qq(<div class="box" id="statusbad"><p>Can not open temporary file.</p></div>);
 				}
 				$logger->error("can't open temporary file $query_file. $@");
 				return;
@@ -173,14 +174,13 @@ sub get_query {
 			if ( $self->{'cgi'}->param('format') eq 'text' ) {
 				say "The temporary file containing your query does not exist. Please repeat your query.";
 			} else {
-				say "<div class=\"box\" id=\"statusbad\"><p>The temporary file containing your query does not exist. "
-				  . "Please repeat your query.</p></div>";
+				say qq(<div class="box" id="statusbad"><p>The temporary file containing your query does not exist. )
+				  . qq(Please repeat your query.</p></div>);
 			}
 			return;
 		}
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		my $view = $self->{'system'}->{'view'};
 		$qry =~ s/([\s\(])datestamp/$1$view.datestamp/g;
 		$qry =~ s/([\s\(])date_entered/$1$view.date_entered/g;
 	}
@@ -589,17 +589,6 @@ sub get_ids_from_pasted_list {
 	return ( \@cleaned_ids, \@invalid_ids );
 }
 
-sub isolate_exists {
-	my ( $self, $id ) = @_;
-	if ( !$self->{'sql'}->{'id_exists'} ) {
-		$self->{'sql'}->{'id_exists'} = $self->{'db'}->prepare("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'} WHERE id=?)");
-	}
-	eval { $self->{'sql'}->{'id_exists'}->execute($id) };
-	$logger->error($@) if $@;
-	my $exists = $self->{'sql'}->{'id_exists'}->fetchrow_array;
-	return $exists;
-}
-
 sub print_sequence_export_form {
 	my ( $self, $pk, $list, $scheme_id, $options ) = @_;
 	$logger->error("No primary key passed") if !defined $pk;
@@ -904,7 +893,7 @@ HTML
 sub print_sequence_filter_fieldset {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	say "<fieldset style=\"float:left\"><legend>Restrict included sequences by</legend><ul>";
+	say qq(<fieldset style="float:left"><legend>Filter by</legend><ul>);
 	my $buffer = $self->get_sequence_method_filter( { class => 'parameter' } );
 	say "<li>$buffer</li>" if $buffer;
 	$buffer = $self->get_project_filter( { class => 'parameter' } );
@@ -924,7 +913,7 @@ sub print_sequence_filter_fieldset {
 		);
 		say "<li>$buffer</li>";
 	}
-	say "</ul>\n</fieldset>\n";
+	say "</ul></fieldset>\n";
 	return;
 }
 

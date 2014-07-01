@@ -24,12 +24,6 @@ use parent qw(BIGSdb::IsolateInfoPage BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
-sub get_javascript {
-	my ($self) = @_;
-	my $buffer = $self->SUPER::get_javascript;    #Javascript from IsolateInfoPage.
-	return $buffer;
-}
-
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw(jQuery jQuery.columnizer);
@@ -43,25 +37,25 @@ sub print_content {
 	my $buffer;
 	say "<h1>Delete isolate</h1>";
 	if ( !$id ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No id passed.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>No id passed.</p></div>);
 		return;
 	} elsif ( !BIGSdb::Utils::is_int($id) ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Isolate id must be an integer.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Isolate id must be an integer.</p></div>);
 		return;
 	}
-	my $data = $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $id, { fetch => 'row_hashref' } );
+	my $data = $self->{'datastore'}->get_isolate_field_values($id);
 	if ( !$data ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No record with id = $id exists.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>No record with id = $id exists.</p></div>);
 		return;
 	}
 	if ( !$self->can_modify_table('isolates') ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to delete records to the isolates table.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Your user account is not allowed to delete records to the isolates table.</p></div>);
 		return;
 	} elsif ( !$self->is_allowed_to_view_isolate($id) ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to delete this isolate record.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Your user account is not allowed to delete this isolate record.</p></div>);
 		return;
 	}
-	$buffer .= "<div class=\"box\" id=\"resultstable\">\n";
+	$buffer .= qq(<div class="box" id="resultstable">\n);
 	$buffer .= "<p>You have selected to delete the following record:</p>";
 	$buffer .= $q->start_form;
 	$buffer .= $q->hidden($_) foreach qw (page db id);
@@ -86,30 +80,48 @@ sub print_content {
 	$buffer .= $q->start_form;
 	$q->param( page => 'isolateDelete' );    #need to set as this may have changed if there is a seqbin display button
 	$buffer .= $q->hidden($_) foreach qw (page db id);
-	$buffer .=$self->print_action_fieldset({get_only=>1, no_reset=>1, submit_label=>'Delete'});
+	$buffer .= $self->print_action_fieldset( { get_only => 1, no_reset => 1, submit_label => 'Delete' } );
 	$buffer .= $q->end_form;
 	$buffer .= "</div>\n";
 
 	if ( $q->param('submit') ) {
-		my @qry;
-		push @qry, "DELETE FROM isolates WHERE id = '$$data{'id'}'";
-		foreach (@qry) {
-			eval { $self->{'db'}->do($_) };
-			if ($@) {
-				say "<div class=\"box\" id=\"statusbad\"><p>Delete failed - transaction cancelled - no records have been touched.</p>";
-				say "<p>Failed SQL: $_</p>";
-				say "<p>Error message: $@</p></div>";
-				$logger->error("Delete failed: $_ $@");
-				$self->{'db'}->rollback;
-				return;
-			}
-		}
-		$self->{'db'}->commit
-		  && say "<div class=\"box\" id=\"resultsheader\"><p>Isolate id:$data->{'id'} deleted!</p>";
-		print "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>";
+		$self->_delete( $data->{'id'} );
 		return;
 	}
 	print $buffer;
+	return;
+}
+
+sub _delete {
+	my ( $self, $isolate_id ) = @_;
+	my @actions;
+	my $old_version = $self->{'datastore'}->run_query( "SELECT id FROM $self->{'system'}->{'view'} WHERE new_version=?",
+		$isolate_id, { cache => 'CurateIsolateDeletePage::get_old_version' } );
+	my $field_values = $self->{'datastore'}->get_isolate_field_values($isolate_id);
+	my $new_version  = $field_values->{'new_version'};
+	if ( $new_version && $old_version ) {    #Deleting intermediate version - update old version to point to newer version
+		push @actions, { statement => 'UPDATE isolates SET new_version=? WHERE id=?', arguments => [ $new_version, $old_version ] };
+	} elsif ($old_version) {                 #Deleting latest version - remove link to this version in old version
+		push @actions, { statement => 'UPDATE isolates SET new_version=NULL WHERE id=?', arguments => [$old_version] };
+	}
+	push @actions, { statement => 'DELETE FROM isolates WHERE id=?', arguments => [$isolate_id] };
+	eval {
+		foreach my $action (@actions)
+		{
+			$self->{'db'}->do( $action->{'statement'}, undef, @{ $action->{'arguments'} } );
+		}
+	};
+	if ($@) {
+		say qq(<div class="box" id="statusbad"><p>Delete failed - transaction cancelled - no records have been touched.</p>);
+		say "<p>Failed SQL: $_</p>";
+		say "<p>Error message: $@</p></div>";
+		$logger->error("Delete failed: $_ $@");
+		$self->{'db'}->rollback;
+		return;
+	}
+	$self->{'db'}->commit
+	  && say qq(<div class="box" id="resultsheader"><p>Isolate id:$isolate_id deleted!</p>);
+	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>);
 	return;
 }
 

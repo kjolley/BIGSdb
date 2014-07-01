@@ -326,14 +326,13 @@ sub _print_filter_fieldset {
 			{ text => 'Sequence bin', tooltip => 'sequence bin filter - Filter by whether the isolate record has sequence data attached.' }
 		  );
 	}
-	if (@filters) {
-		my $display = $q->param('no_js') ? 'block' : 'none';
-		print "<fieldset id=\"filter_fieldset\" style=\"float:left;display:$display\"><legend>Filters</legend>\n";
-		print "<div><ul>\n";
-		print "<li><span style=\"white-space:nowrap\">$_</span></li>" foreach (@filters);
-		print "</ul></div>\n</fieldset>";
-		$self->{'filter_fieldset_exists'} = 1;
-	}
+	push @filters, $self->get_old_version_filter;
+	my $display = $q->param('no_js') ? 'block' : 'none';
+	say qq(<fieldset id="filter_fieldset" style="float:left;display:$display"><legend>Filters</legend>);
+	say "<div><ul>";
+	say qq(<li><span style="white-space:nowrap">$_</span></li>) foreach (@filters);
+	say "</ul></div></fieldset>";
+	$self->{'filter_fieldset_exists'} = 1;
 	return;
 }
 
@@ -578,7 +577,7 @@ sub _run_query {
 				}
 			}
 		}
-		push @hidden_attributes, qw(no_js publication_list project_list linked_sequences_list);
+		push @hidden_attributes, qw(no_js publication_list project_list linked_sequences_list include_old);
 		my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 		foreach my $scheme_id (@$schemes) {
 			push @hidden_attributes, "scheme_$scheme_id\_profile_status_list";
@@ -931,6 +930,13 @@ sub _modify_query_for_filters {
 					}
 				}
 			}
+		}
+	}
+	if (!$q->param('include_old')){
+		if ( $qry !~ /WHERE \(\)\s*$/ ) {
+			$qry .= " AND ($view.new_version IS NULL)";
+		} else{
+			$qry .= "SELECT * FROM VIEW WHERE ($view.new_version IS NULL)";
 		}
 	}
 	$self->_modify_query_by_membership( { qry_ref => \$qry, table => 'refs', param => 'publication_list', query_field => 'pubmed_id' } );

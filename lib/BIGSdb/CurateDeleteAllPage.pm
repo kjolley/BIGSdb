@@ -35,30 +35,28 @@ sub print_content {
 	say "<h1>Delete multiple $record_name records</h1>";
 	if ( $table eq 'profiles' && $query =~ /SELECT \* FROM m?v?_?scheme_(\d+)/ ) {
 		my $scheme_id = $1;
-		my $pk_ref =
-		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key", $scheme_id );
-		if ( ref $pk_ref eq 'ARRAY' ) {
-			my $pk = $pk_ref->[0];
+		my $pk = $self->{'datastore'}->run_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key", $scheme_id );
+		if ($pk) {
 			$query =~ s/SELECT \*/SELECT $pk/;
 			$query =~ s/ORDER BY .*//;
 			$query = "SELECT \* FROM profiles WHERE scheme_id=$scheme_id AND profile_id IN ($query)";
 		}
 	}
 	if ( !$self->{'datastore'}->is_table($table) && !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Table $table does not exist!</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Table $table does not exist!</p></div>);
 		return;
 	} elsif ( !$query ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No selection query passed!</p></div>";
+		say qq(<div class="box" id="statusbad"><p>No selection query passed!</p></div>);
 		return;
 	} elsif ( $query !~ /SELECT \* FROM $table/ ) {
 		$logger->error("Table: $table; Query:$query");
-		say "<div class=\"box\" id=\"statusbad\"><p>Invalid query passed!</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Invalid query passed!</p></div>);
 		return;
 	} elsif ( !$self->can_modify_table($table) ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to delete records from the $table table.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Your user account is not allowed to delete records from the $table table.</p></div>);
 		return;
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' && !$self->is_admin && ( $table eq 'sequences' || $table eq 'sequence_refs' ) ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Only administrators can batch delete from the $table table.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Only administrators can batch delete from the $table table.</p></div>);
 		return;
 	}
 	if ( $q->param('datatype') && $q->param('list_file') ) {
@@ -73,8 +71,8 @@ sub print_content {
 					$self->{'datastore'}->create_temp_isolate_scheme_loci_view($_);
 				}
 				catch BIGSdb::DatabaseConnectionException with {
-					say "<div class=\"box\" id=\"statusbad\"><p>Can't copy data into temporary table - please check scheme configuration "
-					  . "(more details will be in the log file).</p></div>";
+					say qq(<div class="box" id="statusbad"><p>Can't copy data into temporary table - please check scheme configuration )
+					  . qq[(more details will be in the log file).</p></div>];
 					$logger->error("Can't copy data to temporary table.");
 				};
 			}
@@ -140,6 +138,7 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 	$delete_qry =~ s/^SELECT \*/DELETE/;
 	my $scheme_ids;
 	my $schemes_affected;
+	my $ids_affected;
 	if ( $table eq 'loci' && $delete_qry =~ /JOIN scheme_members/ && $delete_qry !~ /scheme_id is null/ ) {
 		$schemes_affected = 1;
 	}
@@ -151,12 +150,12 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 		my $scheme_qry = $query;
 		$scheme_qry =~ s/SELECT \*/SELECT scheme_id/;
 		$scheme_qry =~ s/ORDER BY.*//;
-		$scheme_ids = $self->{'datastore'}->run_list_query($scheme_qry);
+		$scheme_ids = $self->{'datastore'}->run_query( $scheme_qry, undef, { fetch => 'col_arrayref' } );
 	} elsif ( $table eq 'schemes' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $scheme_qry = $query;
 		$scheme_qry =~ s/SELECT \*/SELECT id/;
 		$scheme_qry =~ s/ORDER BY.*//;
-		$scheme_ids = $self->{'datastore'}->run_list_query($scheme_qry);
+		$scheme_ids = $self->{'datastore'}->run_query( $scheme_qry, undef, { fetch => 'col_arrayref' } );
 	} elsif ( $table eq 'allele_designations' ) {
 
 		#Update isolate history if removing allele_designations, allele_sequences, aliases
@@ -169,12 +168,29 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 			push @history,             "$isolate_id|$locus: designation '$allele_id' deleted";
 			push @allele_designations, "$isolate_id|$locus";
 		}
+	} elsif ( $table eq 'isolates' ) {
+		( my $id_qry = $delete_qry ) =~ s/DELETE/SELECT id/;
+		$ids_affected = $self->{'datastore'}->run_query( $id_qry, undef, { fetch => 'col_arrayref' } );
 	}
 	if ($schemes_affected) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Deleting these loci would affect scheme definitions - can not delete!</p></div>\n";
+		say qq(<div class="box" id="statusbad"><p>Deleting these loci would affect scheme definitions - can not delete!</p></div>);
 		return;
 	}
 	eval {
+		if ( ref $ids_affected eq 'ARRAY' )
+		{
+			foreach my $isolate_id (@$ids_affected) {
+				my $old_version = $self->{'datastore'}->run_query( "SELECT id FROM $self->{'system'}->{'view'} WHERE new_version=?",
+					$isolate_id, { cache => 'CurateIsolateDeletePage::get_old_version' } );
+				my $field_values = $self->{'datastore'}->get_isolate_field_values($isolate_id);
+				my $new_version  = $field_values->{'new_version'};
+				if ( $new_version && $old_version ) {    #Deleting intermediate version - update old version to point to newer version
+					$self->{'db'}->do( 'UPDATE isolates SET new_version=? WHERE id=?', undef, $new_version, $old_version );
+				} elsif ($old_version) {                 #Deleting latest version - remove link to this version in old version
+					$self->{'db'}->do( 'UPDATE isolates SET new_version=NULL WHERE id=?', undef, $old_version );
+				}
+			}
+		}
 		$self->{'db'}->do($delete_qry);
 		if ( ( $table eq 'scheme_members' || $table eq 'scheme_fields' ) && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 			foreach (@$scheme_ids) {
@@ -194,7 +210,7 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 		}
 	};
 	if ($@) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Delete failed - transaction cancelled - no records have been touched.</p>";
+		say qq(<div class="box" id="statusbad"><p>Delete failed - transaction cancelled - no records have been touched.</p>);
 		if ( $@ =~ /foreign key/ ) {
 			say "<p>Selected records are referred to by other tables and can not be deleted.</p>";
 			if ( $table eq 'sequences' ) {
@@ -235,8 +251,8 @@ s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT 
 				$self->{'db'}->rollback;
 			}
 		}
-		say "<div class=\"box\" id=\"resultsheader\"><p>Records deleted.</p>";
-		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Return to index</a></p></div>";
+		say qq(<div class="box" id="resultsheader"><p>Records deleted.</p>);
+		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Return to index</a></p></div>);
 	}
 	return;
 }
@@ -249,9 +265,9 @@ sub _print_interface {
 		&& $self->{'system'}->{'dbtype'} eq 'sequences'
 		&& !$q->param('sent') )
 	{
-		say "<div class=\"box\" id=\"warning\"><p>Please be aware that any modifications to the structure of this scheme will "
-		  . "result in the removal of all data from it. This is done to ensure data integrity.  This does not affect allele designations, "
-		  . "but any profiles will have to be reloaded.</p></div>";
+		say qq(<div class="box" id="warning"><p>Please be aware that any modifications to the structure of this scheme will )
+		  . qq(result in the removal of all data from it. This is done to ensure data integrity.  This does not affect allele designations, )
+		  . qq(but any profiles will have to be reloaded.</p></div>);
 	}
 	my $count_qry = $query;
 	if (
@@ -278,9 +294,9 @@ s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bi
 		$count_qry =~ s/SELECT \*/SELECT COUNT\(\*\)/;
 	}
 	$count_qry =~ s/ORDER BY.*//;
-	my ($count) = $self->{'datastore'}->run_simple_query($count_qry)->[0];
+	my $count = $self->{'datastore'}->run_query($count_qry);
 	my $plural = $count == 1 ? '' : 's';
-	say "<div class=\"box\" id=\"statusbad\">";
+	say qq(<div class="box" id="statusbad">);
 	my $record_name = $self->get_record_name($table);
 	say "<p>If you proceed, you will delete $count $record_name record$plural.  Please confirm that this is your intention.</p>";
 	say $q->start_form;

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2010-2013, University of Oxford
+#(c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -60,13 +60,13 @@ sub print_content {
 	if ( !defined $q->param('currentpage')
 		|| $q->param('First') )
 	{
-		say "<div class=\"box\" id=\"queryform\">";
+		say qq(<div class="box" id="queryform">);
 		say $q->startform;
-		say "<div class=\"scrollable\">";
-		say "<fieldset id=\"browse_fieldset\" style=\"float:left\"><legend>Browse criteria</legend>";
-		say $q->hidden( 'sent', 1 );
+		say qq(<div class="scrollable">);
+		say qq(<fieldset id="browse_fieldset" style="float:left"><legend>Browse criteria</legend>);
+		say $q->hidden( sent => 1 );
 		say $q->hidden($_) foreach qw (db page sent scheme_id);
-		say "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>";
+		say qq(<ul><li><span style="white-space:nowrap">\n<label for="order" class="display">Order by: </label>);
 		my $labels;
 		my $order_by;
 
@@ -102,6 +102,10 @@ sub print_content {
 		say $q->popup_menu( -name => 'direction', -id => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
 		say "</span></li><li>";
 		say $self->get_number_records_control;
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+			say "</li><li>";
+			say $self->get_old_version_filter;
+		}
 		say "</li></ul></fieldset>";
 		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Browse all records' } );
 		say "</div>";
@@ -117,8 +121,9 @@ sub print_content {
 		}
 		my $dir = $q->param('direction') && $q->param('direction') eq 'descending' ? 'desc' : 'asc';
 		if ( $system->{'dbtype'} eq 'isolates' ) {
-			my $qry = "SELECT * FROM $system->{'view'} ORDER BY $order $dir,$self->{'system'}->{'view'}.id;";
-			my $args = { table => $self->{'system'}->{'view'}, query => $qry };
+			my $include_old = $q->param('include_old') ? '' : 'WHERE new_version IS NULL ';
+			my $qry         = "SELECT * FROM $system->{'view'} ${include_old}ORDER BY $order $dir,$self->{'system'}->{'view'}.id;";
+			my $args        = { table => $self->{'system'}->{'view'}, query => $qry };
 			$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
 			$self->paged_display($args);
 		} elsif ( $system->{'dbtype'} eq 'sequences' ) {
