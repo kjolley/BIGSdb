@@ -211,6 +211,7 @@ sub print_content {
 		say $self->_get_update_history($isolate_id);
 		say "</div>";
 	} else {
+		$self->_print_action_panel($isolate_id) if $self->{'curate'};
 		$self->_print_projects($isolate_id);
 		say "<div class=\"box\" id=\"resultspanel\">";
 		say $self->get_isolate_record($isolate_id);
@@ -220,6 +221,30 @@ sub print_content {
 		say $self->_get_tree($isolate_id);
 		say "</div>";
 	}
+	return;
+}
+
+sub _print_action_panel {
+	my ( $self, $isolate_id ) = @_;
+	my $q = $self->{'cgi'};
+	say qq(<div class="box" id="resultsheader"><div class="scrollable">);
+	my %titles =
+	  ( isolateDelete => 'Delete record', isolateUpdate => 'Update record', batchAddSeqbin => 'Sequence bin', newVersion => 'New version' )
+	  ;
+	my %labels = ( isolateDelete => 'Delete', isolateUpdate => 'Update', batchAddSeqbin => 'Upload contigs', newVersion => 'Create' );
+	$q->param( isolate_id => $isolate_id );
+	foreach my $action (qw (isolateDelete isolateUpdate batchAddSeqbin newVersion)) {
+		say qq(<fieldset style="float:left"><legend>$titles{$action}</legend>);
+		say $q->start_form;
+		$q->param( page => $action );
+		say $q->hidden($_) foreach qw (db page id isolate_id);
+		say qq(<div style="text-align:center">);
+		say $q->submit( -name => $labels{$action}, -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
+		say '</div>';
+		say $q->end_form;
+		say "</fieldset>";
+	}
+	say '</div></div>';
 	return;
 }
 

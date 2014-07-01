@@ -154,7 +154,7 @@ sub get_query {
 	my $qry;
 	my $view = $self->{'system'}->{'view'};
 	if ( !$query_file ) {
-		$qry = "SELECT * $view WHERE new_version IS NULL ORDER BY id";
+		$qry = "SELECT * FROM $view WHERE new_version IS NULL ORDER BY id";
 	} else {
 		if ( -e "$self->{'config'}->{'secure_tmp_dir'}/$query_file" ) {
 			my $fh;
@@ -893,7 +893,7 @@ HTML
 sub print_sequence_filter_fieldset {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	say "<fieldset style=\"float:left\"><legend>Restrict included sequences by</legend><ul>";
+	say qq(<fieldset style="float:left"><legend>Filter by</legend><ul>);
 	my $buffer = $self->get_sequence_method_filter( { class => 'parameter' } );
 	say "<li>$buffer</li>" if $buffer;
 	$buffer = $self->get_project_filter( { class => 'parameter' } );
@@ -913,7 +913,7 @@ sub print_sequence_filter_fieldset {
 		);
 		say "<li>$buffer</li>";
 	}
-	say "</ul>\n</fieldset>\n";
+	say "</ul></fieldset>\n";
 	return;
 }
 

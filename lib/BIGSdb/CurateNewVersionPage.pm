@@ -80,7 +80,9 @@ sub print_content {
 		}
 		say qq(<div class="box" id="resultsheader"><p>The new record shown below has been created.</p>);
 		say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin&amp;isolate_id=$new_id">)
-		  . qq(Upload contigs</a></li></ul></div>);
+		  . qq(Upload contigs</a></li>);
+		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateUpdate&amp;id=$new_id">)
+		  . qq(Update record</a></li></ul></div>);
 		say qq(<div class="box" id="resultspanel"><div class="scrollable">);
 		say $self->{'isolate_record'}->get_isolate_record($new_id);
 		say '</div></div>';
@@ -165,7 +167,8 @@ sub _create_new_version {
 		  foreach @$aliases;
 		if ( $q->param('copy_projects') ) {
 			$self->{'db'}->do( "INSERT INTO project_members (project_id,isolate_id,curator,datestamp) VALUES (?,?,?,?)",
-				undef, $_, $new_id, $curator_id, 'now' ) foreach @$projects;
+				undef, $_, $new_id, $curator_id, 'now' )
+			  foreach @$projects;
 		}
 		$self->{'db'}
 		  ->do( "INSERT INTO refs (isolate_id,pubmed_id,curator,datestamp) VALUES (?,?,?,?)", undef, $new_id, $_, $curator_id, 'now' )

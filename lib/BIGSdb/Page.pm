@@ -1235,18 +1235,18 @@ sub get_isolates_with_seqbin {
 	my $view = $self->{'system'}->{'view'};
 	my $qry;
 	if ( $options->{'use_all'} ) {
-		$qry = "SELECT $view.id,$view.$self->{'system'}->{'labelfield'} FROM $view ORDER BY $view.id";
+		$qry = "SELECT $view.id,$view.$self->{'system'}->{'labelfield'},new_version FROM $view ORDER BY $view.id";
 	} else {
-		$qry = "SELECT $view.id,$view.$self->{'system'}->{'labelfield'} FROM $view WHERE EXISTS (SELECT * FROM seqbin_stats WHERE "
-		  . "$view.id=seqbin_stats.isolate_id) ORDER BY $view.id";
+		$qry = "SELECT $view.id,$view.$self->{'system'}->{'labelfield'},new_version FROM $view WHERE EXISTS (SELECT * FROM seqbin_stats "
+		  . "WHERE $view.id=seqbin_stats.isolate_id) ORDER BY $view.id";
 	}
 	my $data = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref' } );
 	my @ids;
 	my %labels;
 	foreach (@$data) {
-		my ( $id, $isolate ) = @$_;
+		my ( $id, $isolate, $new_version ) = @$_;
 		push @ids, $id;
-		$labels{$id} = "$id) $isolate";
+		$labels{$id} = $new_version ? "$id) $isolate [old version]" : "$id) $isolate";
 	}
 	return ( \@ids, \%labels );
 }
