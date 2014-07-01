@@ -380,7 +380,7 @@ sub _print_isolate_table {
 	my $qry       = $$qryref;
 	my $qry_limit = $qry;
 	my $fields    = $self->{'xmlHandler'}->get_field_list;
-	push $fields, 'new_version';
+	push @$fields, 'new_version';
 	my $view      = $self->{'system'}->{'view'};
 	local $" = ",$view.";
 	my $field_string = "$view.@$fields";
