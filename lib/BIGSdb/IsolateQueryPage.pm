@@ -1014,7 +1014,7 @@ sub _modify_query_for_filters {
 		if ( $qry !~ /WHERE \(\)\s*$/ ) {
 			$qry .= " AND ($view.new_version IS NULL)";
 		} else {
-			$qry .= "SELECT * FROM VIEW WHERE ($view.new_version IS NULL)";
+			$qry = "SELECT * FROM $view WHERE ($view.new_version IS NULL)";
 		}
 	}
 	return $qry;
