@@ -52,7 +52,7 @@ my @refs;
 my $conflist = $ARGV[0];
 
 if ( !$ARGV[0] ) {
-	print "Usage getrefs.pl <conf file>\n";
+	say "Usage getrefs.pl <conf file>";
 	exit(1);
 }
 
