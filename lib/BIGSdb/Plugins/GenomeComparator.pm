@@ -458,10 +458,10 @@ sub _print_parameters_fieldset {
 	  . qq(Larger values increase speed at the expense of sensitivity.">&nbsp;<i>i</i>&nbsp;</a></li>);
 	say qq(<li><span class="warning">);
 	say $q->checkbox( -name => 'tblastx', -id => 'tblastx', -label => 'Use TBLASTX' );
-	say qq( <a class="tooltip" title="TBLASTX (analysis by reference genome only) - Compares the six-frame translation of your nucleotide )
-	  . qq(query against the six-frame translation of the sequences in the sequence bin (sequences will be classed as identical if they )
-	  . qq(result in the same translated sequence even if the nucleotide sequence is different).  This is SLOWER than BLASTN. Use with )
-	  . qq(caution.">&nbsp;<i>i</i>&nbsp;</a></span></li><li>);
+	say qq[ <a class="tooltip" title="TBLASTX (analysis by reference genome only) - Compares the six-frame translation of your nucleotide ]
+	  . qq[query against the six-frame translation of the sequences in the sequence bin (sequences will be classed as identical if they ]
+	  . qq[result in the same translated sequence even if the nucleotide sequence is different).  This is SLOWER than BLASTN. Use with ]
+	  . qq[caution.">&nbsp;<i>i</i>&nbsp;</a></span></li><li>];
 	say $q->checkbox( -name => 'use_tagged', -id => 'use_tagged', -label => 'Use tagged designations if available', -checked => 1 );
 	say qq( <a class="tooltip" title="Tagged desginations - Allele sequences will be extracted from the definition database based on )
 	  . qq(allele designation rather than by BLAST.  This should be much quicker. Peptide loci, however, are always extracted using )
