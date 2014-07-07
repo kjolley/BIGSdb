@@ -1090,7 +1090,7 @@ sub _run_comparison {
 		$self->{'html_buffer'} .= "</tr>\n";
 		$self->{'file_buffer'} .= "\n";
 		if ( !$by_reference ) {
-			my @values = grep {defined} values %seqs;
+			my @values = grep { defined } values %seqs;
 			$status{'all_exact'} = 0 if ( uniq @values ) > 1;
 		}
 		my $variable_locus = 0;
@@ -1240,7 +1240,8 @@ sub _print_reports {
 				{ filename => "$job_id.xmfa", description => '35_Extracted sequences (XMFA format)', compress => 1, keep_original => 1 } );
 			try {
 				$self->{'jobManager'}->update_job_status( $job_id, { stage => "Converting XMFA to FASTA" } );
-				my $fasta_file = BIGSdb::Utils::xmfa2fasta("$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa");
+				my $fasta_file =
+				  BIGSdb::Utils::xmfa2fasta( "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa", { integer_ids => 1 } );
 				if ( -e $fasta_file ) {
 					$self->{'jobManager'}->update_job_output( $job_id,
 						{ filename => "$job_id.fas", description => '36_Concatenated aligned sequences (FASTA format)', compress => 1 } );

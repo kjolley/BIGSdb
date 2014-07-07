@@ -270,17 +270,31 @@ sub append {
 }
 
 sub xmfa2fasta {
-	my ($xmfa_file) = @_;
+	my ( $xmfa_file, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my %seq;
 	my @ids;
 	my $temp_seq   = '';
 	my $current_id = '';
 	open( my $xmfa_fh, '<', $xmfa_file ) || throw BIGSdb::CannotOpenFileException("Can't open $xmfa_file for reading");
+	my %labels;
+
 	while ( my $line = <$xmfa_fh> ) {
 		next if $line =~ /^=/;
 		if ( $line =~ /^>\s*([\d\w\s\|\-\\\/\.\(\)]+):/ ) {
 			$seq{$current_id} .= $temp_seq;
-			$current_id = $1;
+			if ( $options->{'integer_ids'} ) {
+				my $extracted_id = $1;
+				if ( $extracted_id =~ /^(\d+)/ ) {
+					$current_id = $1;
+					$labels{$current_id} = $extracted_id
+					  if !defined $labels{$current_id} || length $extracted_id > length $labels{$current_id};
+				} else {
+					$current_id = $extracted_id;
+				}
+			} else {
+				$current_id = $1;
+			}
 			if ( !$seq{$current_id} ) {
 				push @ids, $current_id;
 			}
@@ -294,10 +308,11 @@ sub xmfa2fasta {
 	close $xmfa_fh;
 	( my $fasta_file = $xmfa_file ) =~ s/xmfa$/fas/;
 	open( my $fasta_fh, '>', $fasta_file ) || throw BIGSdb::CannotOpenFileException("Can't open $fasta_file for writing");
-	foreach (@ids) {
-		print $fasta_fh ">$_\n";
-		my $seq_ref = break_line( \$seq{$_}, 60 );
-		print $fasta_fh "$$seq_ref\n";
+	foreach my $id (@ids) {
+		my $label = $labels{$id} // $id;
+		say $fasta_fh ">$label";
+		my $seq_ref = break_line( \$seq{$id}, 60 );
+		say $fasta_fh $$seq_ref;
 	}
 	return $fasta_file;
 }
