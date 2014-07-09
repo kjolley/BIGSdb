@@ -76,16 +76,21 @@ sub _print_results {
 		$logger->debug($err);
 	};
 	if ( !$seq_obj ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No data returned.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>No data returned.</p></div>);
 		return;
 	}
-	say "<div class=\"box\" id=\"resultstable\">";
-	my $temp      = BIGSdb::Utils::get_random();
-	my $temp_file = "$self->{'config'}->{'tmp_dir'}/$temp.txt";
-	say "<p><a href=\"/tmp/$temp.txt\">Download tab-delimited text</a> (suitable for editing in a spreadsheet or batch upload of "
-	  . "loci). Please wait for page to finish loading.</p>";
+	my $prefix      = BIGSdb::Utils::get_random();
+	my $table_file  = "$self->{'config'}->{'tmp_dir'}/$prefix.txt";
+	my $allele_file = "$self->{'config'}->{'tmp_dir'}/def_$prefix.txt";
+	say qq(<div class="box" id="resultsheader" style="display:none">);
+	say qq(<p>Download table: <a href="/tmp/$prefix.txt">tab-delimited text</a> | <a href="/tmp/$prefix.xlsx">Excel format</a> )
+	  . qq[(suitable for batch upload of loci).</p>];
+	say qq(<p>Download alleles: <a href="/tmp/def_$prefix.txt">tab-delimited text</a> | <a href="/tmp/def_$prefix.xlsx">Excel format</a> )
+	  . qq[(suitable for defining the first allele in the seqdef database).</p>];
+	say "</div>";
+	say qq(<div class="box" id="resultstable">);
 	say "<h2>Annotation information</h2>";
-	say "<dl class=\"data\">";
+	say qq(<dl class="data">);
 	my $td = 1;
 	my @cds;
 
@@ -110,10 +115,13 @@ sub _print_results {
 	say "</dl>";
 	say "<h2>Coding sequences</h2>";
 	say "<table class=\"resultstable\"><tr><th>Locus</th><th>Aliases</th><th>Product</th><th>Length</th></tr>";
-	open( my $fh, '>', $temp_file ) || $logger->error("Can't open $temp_file for writing");
+	open( my $fh, '>', $table_file ) || $logger->error("Can't open $table_file for writing");
 	say $fh "id\tdata_type\tallele_id_format\tdescription\tlength\tlength_varies\tcoding_sequence\tflag_table\tmain_display\t"
 	  . "isolate_display\tquery_field\tanalysis\treference_sequence";
+	open( my $fh_allele, '>', $allele_file ) || $logger->error("Can't open $allele_file for writing");
+	say $fh_allele "locus\tallele_id\tsequence\tstatus";
 	local $| = 1;
+
 	foreach my $cds (@cds) {
 		local $" = '; ';
 		my @aliases;
@@ -143,20 +151,34 @@ sub _print_results {
 		say "</td><td>" . ( $cds->length ) . "</td></tr>";
 		$td = $td == 1 ? 2 : 1;
 		my %type_lookup = ( dna => 'DNA', rna => 'RNA', protein => 'peptide' );
+		my $sequence = $cds->seq->seq;
 		say $fh "$locus\t$type_lookup{$att{'type'}}\tinteger\t$tags{'product'}\t"
 		  . ( $cds->length )
-		  . "\tTRUE\tTRUE\tTRUE\tFALSE\tallele only\tTRUE\tTRUE\t"
-		  . ( $cds->seq->seq );
+		  . "\tTRUE\tTRUE\tTRUE\tFALSE\tallele only\tTRUE\tTRUE\t$sequence";
+		say $fh_allele "$locus\t1\t$sequence\tunchecked";
 
 		if ( $ENV{'MOD_PERL'} ) {
 			$self->{'mod_perl_request'}->rflush;
 			return if $self->{'mod_perl_request'}->connection->aborted;
 		}
 	}
+	print $fh_allele "\n";    #Seems to be needed for Excel conversion.
 	close $fh;
-	say "</table>";
-	say "</div>";
+	close $fh_allele;
+	say "</table></div>";
+	BIGSdb::Utils::text2excel( $table_file,  { max_width => 30 } );
+	BIGSdb::Utils::text2excel( $allele_file, { max_width => 30 } );
 	return;
+}
+
+sub get_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+\$(function () {
+ \$("#resultsheader").css('display','block');
+});
+END
+	return $buffer;
 }
 
 sub get_title {
