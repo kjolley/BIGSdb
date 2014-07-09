@@ -599,25 +599,20 @@ sub _print_project_members {
 
 sub _print_loci {
 	my ( $self, $td, $set_string ) = @_;
-	my $locus_rowspan = $self->{'system'}->{'dbtype'} eq 'isolates' ? 2 : 1;
 	my $exists = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT id FROM loci)")->[0];
 	my $query_cell =
 	  $exists
 	  ? "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=loci$set_string\">?</a>"
 	  : '';
 	my $buffer = <<"HTML";
-<tr class="td$td"><td rowspan="$locus_rowspan">loci</td>
+<tr class="td$td"><td rowspan="2">loci</td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=loci$set_string">+</a></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=loci$set_string">++</a></td>
-<td rowspan="$locus_rowspan">$query_cell</td>
-<td style="text-align:left" class="comment" rowspan="$locus_rowspan"></td></tr>
-HTML
-	if ( $locus_rowspan = $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		$buffer .= <<"HTML";
+<td rowspan="2">$query_cell</td>
+<td style="text-align:left" class="comment" rowspan="2"></td></tr>
 <tr class="td$td"><td colspan="2"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=databankScan$set_string">
 databank scan</a></td></tr>
 HTML
-	}
 	return $buffer;
 }
 
