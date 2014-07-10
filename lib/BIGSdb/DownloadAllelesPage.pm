@@ -155,8 +155,7 @@ sub print_content {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 		my $desc = $scheme_id ? $scheme_info->{'description'} : 'Other loci';
 		$self->_print_scheme_table( $scheme_id, $desc );
-		say "<p style=\"margin-top:1em\"><a href=\"/tmp/$self->{'prefix'}.txt\">Download in tab-delimited text format</a></p>"
-		  if -e $self->{'outfile'};
+		$self->_print_table_link;
 		return;
 	} elsif ( defined $q->param('group_id') ) {
 		my $group_id = $q->param('group_id');
@@ -180,8 +179,7 @@ sub print_content {
 			$self->_print_group_scheme_tables( $group_id, $scheme_shown_ref );
 			$self->_print_child_group_scheme_tables( $group_id, 1, $scheme_shown_ref );
 		}
-		say "<p style=\"margin-top:1em\"><a href=\"/tmp/$self->{'prefix'}.txt\">Download in tab-delimited text format</a></p>"
-		  if -e $self->{'outfile'};
+		$self->_print_table_link;
 		return;
 	}
 	say "<h1>Download allele sequences</h1>";
@@ -227,6 +225,19 @@ sub print_content {
 	return;
 }
 
+sub _print_table_link {
+	my ($self) = @_;
+	if ( -e $self->{'outfile'} ) {
+		say qq(<p style="margin-top:1em">Download table: <a href="/tmp/$self->{'prefix'}.txt">tab-delimited text</a>);
+		my $excel = BIGSdb::Utils::text2excel( $self->{'outfile'} );
+		if ( -e $excel ) {
+			say qq( | <a href="/tmp/$self->{'prefix'}.xlsx">Excel format</a>);
+		}
+		say "</p>";
+	}
+	return;
+}
+
 sub _print_all_loci_by_scheme {
 	my ($self) = @_;
 	my $set_id = $self->get_set_id;
@@ -239,8 +250,7 @@ sub _print_all_loci_by_scheme {
 		$self->_print_scheme_table( $scheme->{'id'}, $scheme->{'description'} );
 	}
 	$self->_print_scheme_table( 0, 'Other loci' );
-	say "<p style=\"margin-top:1em\"><a href=\"/tmp/$self->{'prefix'}.txt\">Download in tab-delimited text format</a></p>"
-	  if -e $self->{'outfile'};
+	$self->_print_table_link;
 	return;
 }
 
@@ -504,8 +514,7 @@ sub _print_alphabetical_list {
 			print "</table>\n";
 		}
 	}
-	say "<p style=\"margin-top:1em\"><a href=\"/tmp/$self->{'prefix'}.txt\">Download in tab-delimited text format</a></p>"
-	  if -e $self->{'outfile'};
+	$self->_print_table_link;
 	return;
 }
 
