@@ -17,3 +17,6 @@ loci can be defined, with alleles assigned by reference to sequence definition
 databases (which can also be set up with BIGSdb). Loci can also be grouped into
 schemes so that types can be defined by combinations of allelic profiles, a
 concept analagous to MLST.
+
+The latest version of the BIGSdb documentation can be found at 
+http://bigsdb.readthedocs.org.
