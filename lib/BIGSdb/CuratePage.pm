@@ -126,7 +126,9 @@ sub _get_form_fields {
 	foreach my $required ( '1', '0' ) {
 		foreach my $att (@$attributes) {
 			next if ( any { $att->{'name'} eq $_ } @{ $options->{'noshow'} } );
-			$newdata{ $att->{'name'} } = BIGSdb::Utils::escape_html( $newdata{ $att->{'name'} } );
+
+			#Project description can include HTML - don't escape.   We may need to exclude other tables too.
+			$newdata{ $att->{'name'} } = BIGSdb::Utils::escape_html( $newdata{ $att->{'name'} } ) if $table ne 'projects';
 			my %html5_args;
 			$html5_args{'required'} = 'required' if $att->{'required'} eq 'yes';
 			if ( $att->{'type'} eq 'int' && !$att->{'dropdown_query'} && !$att->{'optlist'} ) {
