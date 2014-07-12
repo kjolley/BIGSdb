@@ -889,8 +889,8 @@ sub _get_version_links {
 
 sub _get_old_versions {
 	my ( $self, $isolate_id ) = @_;
-	state @old_versions;
 	my $next_id = $isolate_id;
+	my @old_version;
 	my %used;
 	while (
 		my $old_version = $self->{'datastore'}->run_query(
@@ -901,17 +901,17 @@ sub _get_old_versions {
 	  )
 	{
 		last if $used{$old_version};    #Prevent circular references locking up server.
-		push @old_versions, $old_version;
+		push @old_version, $old_version;
 		$next_id = $old_version;
 		$used{$old_version} = 1;
 	}
-	return \@old_versions;
+	return \@old_version;
 }
 
 sub _get_new_versions {
 	my ( $self, $isolate_id ) = @_;
-	state @new_versions;
 	my $next_id = $isolate_id;
+	my @new_version;
 	my %used;
 	while (
 		my $new_version = $self->{'datastore'}->run_query(
@@ -922,11 +922,11 @@ sub _get_new_versions {
 	  )
 	{
 		last if $used{$new_version};    #Prevent circular references locking up server.
-		push @new_versions, $new_version;
+		push @new_version, $new_version;
 		$next_id = $new_version;
 		$used{$new_version} = 1;
 	}
-	return \@new_versions;
+	return \@new_version;
 }
 
 sub _get_ref_links {
