@@ -53,17 +53,13 @@ sub DESTROY {
 	my ($self) = @_;
 	foreach ( keys %{ $self->{'sql'} } ) {
 		$self->{'sql'}->{$_}->finish if $self->{'sql'}->{$_};
-		$logger->info("Statement handle '$_' destroyed.");
 	}
 	foreach ( keys %{ $self->{'scheme'} } ) {
 		undef $self->{'scheme'}->{$_};
-		$logger->info("Scheme $_ destroyed.");
 	}
 	foreach ( keys %{ $self->{'locus'} } ) {
 		undef $self->{'locus'}->{$_};
-		$logger->info("locus $_ destroyed.");
 	}
-	$logger->info("Datastore destroyed.");
 	return;
 }
 
