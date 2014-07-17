@@ -124,7 +124,7 @@ sub get_attributes {
 		affiliation => 'University of Oxford, UK',
 		email       => 'keith.jolley@zoo.ox.ac.uk',
 		description => 'Determine codon usage for specified loci for an isolate database query',
-		category    => 'Breakdown',
+		category    => 'Analysis',
 		buttontext  => 'Codons',
 		menutext    => 'Codon usage',
 		module      => 'CodonUsage',
