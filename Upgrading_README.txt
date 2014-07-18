@@ -11,9 +11,12 @@ Version 1.5: Change of isolate and seqdef database structures.
 Version 1.6: Change of isolate and seqdef database structures.
 Version 1.7: Change of isolate, seqdef, and job database structures.
 Version 1.8: Change of isolate database structures.
+Version 1.9: Change of isolate database structures.
 
 Details can be found below.
 
+More details about the upgrade process can be found at
+http://bigsdb.readthedocs.org/en/latest/installation.html#upgrading-bigsdb.
 
 Version 1.1
 -----------
@@ -192,3 +195,17 @@ databases (<10,000 isolates) don't normally require this caching.  A warning
 message will appear in bigsdb.log if caching isn't used and an isolate query
 that would benefit from the cache takes longer than 5 seconds.  Unless you see
 these messages, you probably don't need it.
+
+Version 1.9
+-----------
+There are changes to the isolate database structure.  Please run the 
+isolatedb_v.1.9.sql script, found in the sql/upgrade direcotory, against your
+isolate databases.
+
+The main change is a new table called seqbin_stats that contains a count of
+contigs and the sum of lengths of contigs for each isolate.  This table is
+automatically updated by database triggers.  
+
+There is also an additional field, new_version, that needs to be added to
+the isolates table of an isolate database.  This is to support record
+versioning.
