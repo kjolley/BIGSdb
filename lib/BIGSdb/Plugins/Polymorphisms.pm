@@ -44,6 +44,7 @@ sub get_attributes {
 		module      => 'Polymorphisms',
 		version     => '1.1.0',
 		dbtype      => 'isolates',
+		url         => 'http://bigsdb.readthedocs.org/en/latest/data_analysis.html#polymorphisms',
 		section     => 'breakdown,postquery',
 		requires    => 'aligner,offline_jobs',
 		input       => 'query',

@@ -41,6 +41,7 @@ sub get_attributes {
 		buttontext   => 'Contigs',
 		menutext     => 'Contigs',
 		module       => 'Contigs',
+		url          => 'http://bigsdb.readthedocs.org/en/latest/data_export.html#contig-export',
 		version      => '1.1.0',
 		dbtype       => 'isolates',
 		section      => 'export,postquery',

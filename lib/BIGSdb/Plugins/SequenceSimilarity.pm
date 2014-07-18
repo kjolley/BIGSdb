@@ -1,7 +1,7 @@
 #SequenceSimilarity.pm - Plugin for BIGSdb
 #This requires the SequenceComparison plugin
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -39,6 +39,7 @@ sub get_attributes {
 		category         => 'Analysis',
 		menutext         => 'Sequence similarity',
 		module           => 'SequenceSimilarity',
+		url              => 'http://bigsdb.readthedocs.org/en/latest/data_query.html#sequence-similarity',
 		version          => '1.0.2',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
@@ -78,7 +79,7 @@ sub run {
 	say "</li><li><label for=\"allele\" class=\"parameter\">Allele: </label>";
 	say $q->textfield( -name => 'allele', -id => 'allele', -size => 4 );
 	say "</li><li><label for=\"num_results\" class=\"parameter\">Number of results:</label>";
-	say $q->popup_menu( -name => 'num_results', -id =>'num_results', -values => [ 5, 10, 25, 50, 100, 200 ], -default => $num_results );
+	say $q->popup_menu( -name => 'num_results', -id => 'num_results', -values => [ 5, 10, 25, 50, 100, 200 ], -default => $num_results );
 	say "</li></ul></fieldset>";
 	$self->print_action_fieldset( { name => 'SequenceSimilarity' } );
 	say $q->end_form;

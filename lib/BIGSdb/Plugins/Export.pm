@@ -42,7 +42,7 @@ sub get_attributes {
 		version     => '1.2.1',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
-		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/export_isolates.shtml',
+		url         => 'http://bigsdb.readthedocs.org/en/latest/data_export.html#isolate-record-export',
 		input       => 'query',
 		requires    => 'ref_db,js_tree',
 		help        => 'tooltips',

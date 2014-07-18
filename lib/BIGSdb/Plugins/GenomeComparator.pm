@@ -53,7 +53,7 @@ sub get_attributes {
 		version     => '1.6.5',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
-		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/genome_comparator.shtml',
+		url         => 'http://bigsdb.readthedocs.org/en/latest/data_analysis.html#genome-comparator',
 		order       => 30,
 		requires    => 'aligner,offline_jobs,js_tree',
 		input       => 'query',

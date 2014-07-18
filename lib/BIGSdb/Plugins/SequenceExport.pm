@@ -50,7 +50,7 @@ sub get_attributes {
 		dbtype           => 'isolates,sequences',
 		seqdb_type       => 'schemes',
 		section          => 'export,postquery',
-		url              => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/xmfa.shtml',
+		url              => 'http://bigsdb.readthedocs.org/en/latest/data_export.html#sequence-export',
 		input            => 'query',
 		help             => 'tooltips',
 		requires         => 'aligner,offline_jobs,js_tree',

@@ -109,7 +109,8 @@ sub get_attributes {
 		input       => 'query',
 		order       => 32,
 		help        => 'tooltips',
-		system_flag => 'BLAST'
+		system_flag => 'BLAST',
+		url         => 'http://bigsdb.readthedocs.org/en/latest/data_analysis.html#blast'
 	);
 	return \%att;
 }

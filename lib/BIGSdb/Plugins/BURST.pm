@@ -54,6 +54,7 @@ sub get_attributes {
 		system_flag => 'BURST',
 		input       => 'query',
 		requires    => 'mogrify,pk_scheme',
+		url         => 'http://bigsdb.readthedocs.org/en/latest/data_analysis.html#burst',
 		min         => 2,
 		max         => 1000
 	);

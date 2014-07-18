@@ -42,6 +42,7 @@ sub get_attributes {
 		buttontext  => 'Combinations',
 		menutext    => 'Unique combinations',
 		module      => 'Combinations',
+		url         => 'http://bigsdb.readthedocs.org/en/latest/data_analysis.html#unique-combinations',
 		version     => '1.1.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
@@ -107,8 +108,9 @@ sub run {
 			my %data           = ();
 			my $fields_to_bind = $self->{'xmlHandler'}->get_field_list;
 			$sql->bind_columns( map { \$data{$_} } @$fields_to_bind );    #quicker binding hash to arrayref than to use hashref
-			my $i         = 1;
-			my $j         = 0;
+			my $i = 1;
+			my $j = 0;
+
 			#TODO Use Datastore::get_isolate_aliases instead
 			my $alias_sql = $self->{'db'}->prepare("SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias");
 			my $attribute_sql =

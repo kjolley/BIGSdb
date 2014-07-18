@@ -39,7 +39,7 @@ sub get_attributes {
 		module      => 'SchemeBreakdown',
 		version     => '1.1.4',
 		section     => 'breakdown,postquery',
-		url         => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/scheme_breakdown.shtml',
+		url         => 'http://bigsdb.readthedocs.org/en/latest/data_analysis.html#scheme-and-allele-breakdown',
 		input       => 'query',
 		requires    => 'js_tree',
 		order       => 20,

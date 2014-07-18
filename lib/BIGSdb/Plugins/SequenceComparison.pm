@@ -1,6 +1,6 @@
 #SequenceComparison.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -38,6 +38,7 @@ sub get_attributes {
 		category         => 'Analysis',
 		menutext         => 'Sequence comparison',
 		module           => 'SequenceComparison',
+		url              => 'http://bigsdb.readthedocs.org/en/latest/data_query.html#sequence-comparison',
 		version          => '1.0.3',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
@@ -75,6 +76,7 @@ sub run {
 	say "<label for=\"locus\" class=\"display\">Locus: </label>";
 	say $q->popup_menu( -name => 'locus', -id => 'locus', values => $display_loci, -labels => $cleaned );
 	say "</li>";
+
 	foreach (qw(1 2)) {
 		say "<li><label for=\"allele$_\" class=\"display\">Allele #$_: </label>";
 		say $q->textfield( -name => "allele$_", -id => "allele$_", -size => 8 );

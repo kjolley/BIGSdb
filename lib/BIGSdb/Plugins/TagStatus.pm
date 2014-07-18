@@ -40,6 +40,7 @@ sub get_attributes {
 		buttontext  => 'Tag status',
 		menutext    => 'Tag status',
 		module      => 'TagStatus',
+		url         => 'http://bigsdb.readthedocs.org/en/latest/data_analysis.html#tag-status',
 		version     => '1.2.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
@@ -92,7 +93,8 @@ sub run {
 
 sub _breakdown_isolate {
 	my ( $self, $id ) = @_;
-	my $isolate = $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $id, {fetch=>'row_hashref'} );
+	my $isolate =
+	  $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $id, { fetch => 'row_hashref' } );
 	if ( !$isolate ) {
 		say "<h1>Tag status</h1>";
 		say "<div class=\"box statusbad\"><p>Invalid isolate passed.</p></div>";

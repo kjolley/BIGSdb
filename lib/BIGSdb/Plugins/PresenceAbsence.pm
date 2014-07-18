@@ -39,6 +39,7 @@ sub get_attributes {
 		buttontext  => 'Presence/Absence',
 		menutext    => 'Presence/absence status of loci',
 		module      => 'PresenceAbsence',
+		url         => 'http://bigsdb.readthedocs.org/en/latest/data_analysis.html#presence-absence',
 		version     => '1.1.3',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',

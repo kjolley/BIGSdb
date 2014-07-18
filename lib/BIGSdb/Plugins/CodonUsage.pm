@@ -128,6 +128,7 @@ sub get_attributes {
 		buttontext  => 'Codons',
 		menutext    => 'Codon usage',
 		module      => 'CodonUsage',
+		url         => 'http://bigsdb.readthedocs.org/en/latest/data_analysis.html#codon-usage-plugin',
 		version     => '1.2.1',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
@@ -285,8 +286,7 @@ sub run_job {
 			next if $bad_ids{$id};
 			if (   !BIGSdb::Utils::is_int($id)
 				|| !$self->{'datastore'}
-				->run_query( "SELECT EXISTS(SELECT * FROM $view WHERE id=?)", $id, { cache => 'CodonUsage::run_job_id_exists' } )
-			  )
+				->run_query( "SELECT EXISTS(SELECT * FROM $view WHERE id=?)", $id, { cache => 'CodonUsage::run_job_id_exists' } ) )
 			{
 				$bad_ids{$id} = 1;
 				next;

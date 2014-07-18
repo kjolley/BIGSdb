@@ -41,6 +41,7 @@ sub get_attributes {
 		category         => 'Analysis',
 		menutext         => 'Locus Explorer',
 		module           => 'LocusExplorer',
+		url              => 'http://bigsdb.readthedocs.org/en/latest/data_analysis.html#locus-explorer',
 		version          => '1.2.0',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',

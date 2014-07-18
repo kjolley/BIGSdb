@@ -43,7 +43,7 @@ sub get_attributes {
 		version       => '1.1.0',
 		dbtype        => 'isolates',
 		section       => 'breakdown,postquery',
-		url           => 'http://pubmlst.org/software/database/bigsdb/userguide/isolates/field_breakdown.shtml',
+		url           => 'http://bigsdb.readthedocs.org/en/latest/data_analysis.html#field-breakdown',
 		input         => 'query',
 		requires      => 'chartdirector',
 		text_filename => "$field\_breakdown.txt",

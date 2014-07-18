@@ -42,6 +42,7 @@ sub get_attributes {
 		buttontext  => 'Sequence bin',
 		menutext    => 'Sequence bin',
 		module      => 'SeqbinBreakdown',
+		url         => 'http://bigsdb.readthedocs.org/en/latest/data_analysis.html#sequence-bin-breakdown',
 		version     => '1.1.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
