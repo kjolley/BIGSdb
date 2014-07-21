@@ -543,7 +543,7 @@ sub _create_temp_allele_count_table {
 	$options = {} if ref $options ne 'HASH';
 	my $scheme_clause = '';
 	my $scheme_id     = $options->{'scheme_id'};
-	if ( $scheme_id && BIGSdb::Utils::is_int($scheme_id) ) {
+	if ( $scheme_id && $scheme_id > 0 && BIGSdb::Utils::is_int($scheme_id) ) {
 		$scheme_clause = "AND EXISTS (SELECT * FROM scheme_members WHERE sequences.locus=scheme_members.locus AND scheme_id=$scheme_id)";
 	}
 	my $qry = "CREATE TEMP TABLE allele_count AS (SELECT locus, COUNT(allele_id) AS allele_count FROM sequences WHERE allele_id NOT IN "
