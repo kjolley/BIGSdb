@@ -25,6 +25,8 @@ my $logger = get_logger('BIGSdb.Page');
 
 sub initiate {
 	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	$self->{'attachment'} = BIGSdb::Utils::is_int( $q->param('isolate_id') ) ? ( 'id-' . $q->param('isolate_id') . '.fas' ) : 'isolate.fas';
 	$self->{'type'} = 'text';
 	return;
 }
@@ -65,5 +67,4 @@ sub print_content {
 	}
 	return;
 }
-
 1;
