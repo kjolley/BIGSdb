@@ -46,7 +46,7 @@ use Bio::Biblio::IO;
 use List::MoreUtils qw(uniq);
 use Carp;
 binmode( STDOUT, ":encoding(UTF-8)" );
-my $refs_db = 'refs';
+my $refs_db = 'bigsdb_refs';
 my %tablelist;
 my @refs;
 my $conflist = $ARGV[0];
