@@ -155,7 +155,7 @@ HTML
 <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;table=$table$locus_attribute">
 Download tab-delimited header for your spreadsheet</a> - use Paste special &rarr; text to paste the data.</li>
 HTML
-	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;table=$table")
+	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;table=$table)
 	  . qq($locus_attribute">Download submission template (xlsx format)</a>);
 	if ( $table eq 'sequences' && !$q->param('locus') ) {
 		$self->_print_interface_locus_selection;
