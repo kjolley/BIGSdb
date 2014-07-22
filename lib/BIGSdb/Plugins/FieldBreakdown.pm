@@ -40,7 +40,7 @@ sub get_attributes {
 		buttontext    => 'Fields',
 		menutext      => 'Single field',
 		module        => 'FieldBreakdown',
-		version       => '1.1.0',
+		version       => '1.1.1',
 		dbtype        => 'isolates',
 		section       => 'breakdown,postquery',
 		url           => 'http://bigsdb.readthedocs.org/en/latest/data_analysis.html#field-breakdown',
@@ -190,6 +190,7 @@ sub run {
 			}
 		}
 	}
+	my $field_count = 0;
 	foreach my $field (@expanded_list) {
 		if ( !$noshow{$field} ) {
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
@@ -210,6 +211,7 @@ sub run {
 				$name         = $field;
 				undef $first;
 			}
+			$field_count++;
 			if ( $ENV{'MOD_PERL'} ) {
 				$self->{'mod_perl_request'}->rflush;
 			}
@@ -229,13 +231,18 @@ sub run {
 					$name         = $_;
 					undef $first;
 				}
+				$field_count++;
 			}
 		}
 	}
 	say "</p></div>";
-	say "<noscript><p class=\"highlight\">Please enable Javascript to view breakdown charts in place.</p></noscript>";
-	say "<h2 id=\"field\">$display_name</h2>";
-	say "<div class=\"box\" id=\"chart\"><img id=\"placeholder\" src=\"$src\" alt=\"breakdown chart\" /></div>";
+	say qq(<noscript><p class="highlight">Please enable Javascript to view breakdown charts in place.</p></noscript>);
+	if ( !$field_count ) {
+		say qq(<div class="box" id="statusbad"><p>There are no displayable fields defined.</p></div>);
+		return;
+	}
+	say qq(<h2 id="field">$display_name</h2>);
+	say qq(<div class="box" id="chart"><img id="placeholder" src="$src" alt="breakdown chart" /></div>);
 	my $query_clause    = defined $query_file ? "&amp;query_file=$query_file" : '';
 	my $list_file       = $q->param('list_file');
 	my $datatype        = $q->param('datatype');
