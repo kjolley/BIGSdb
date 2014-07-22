@@ -279,7 +279,7 @@ sub read_config_file {
 	foreach (
 		qw ( prefs_db auth_db jobs_db max_load emboss_path tmp_dir secure_tmp_dir blast+_path blast_threads
 		muscle_path	max_muscle_mb mafft_path mogrify_path ipcress_path splitstree_path reference refdb ref_db chartdirector
-		disable_updates disable_update_message intranet debug results_deleted_days cache_days)
+		disable_updates disable_update_message intranet debug results_deleted_days cache_days doclink)
 	  )
 	{
 		$self->{'config'}->{$_} = $config->{_}->{$_};
@@ -299,6 +299,7 @@ sub read_config_file {
 		}
 	}
 	$self->{'config'}->{'aligner'} = 1 if $self->{'config'}->{'muscle_path'} || $self->{'config'}->{'mafft_path'};
+	$self->{'config'}->{'doclink'} //= 'http://bigsdb.readthedocs.org/en/latest';
 	return;
 }
 

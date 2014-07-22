@@ -749,6 +749,7 @@ span.text { color: black }
 span.locus { color: green }
 span.scheme { color: red}
 span.aliases {font-size: 0.9em}
+span.context_help a {background:#66f; color:white; margin-right:2em; padding: 0 0.5em; text-decoration:none}
 
 pre.sixpack {
 	font-size:1.3em	

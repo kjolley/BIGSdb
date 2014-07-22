@@ -34,6 +34,13 @@ sub get_title {
 	return $self->{'cgi'}->param('page') eq 'sequenceQuery' ? "Sequence query - $desc" : "Batch sequence query - $desc";
 }
 
+sub get_help_url {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	return if $q->param('page') eq 'batchSequenceQuery';
+	return "$self->{'config'}->{'doclink'}/data_query.html#querying-sequences-to-determine-allele-identity";
+}
+
 sub get_javascript {
 	my $buffer = << "END";
 \$(function () {

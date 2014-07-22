@@ -40,6 +40,7 @@ use constant MAX_GENOMES      => 1000;
 use constant MAX_MUSCLE_MB    => 4 * 1024;            #4GB
 
 sub get_attributes {
+	my ($self) = @_;
 	my %att = (
 		name        => 'Genome Comparator',
 		author      => 'Keith Jolley',
@@ -53,7 +54,7 @@ sub get_attributes {
 		version     => '1.6.5',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
-		url         => 'http://bigsdb.readthedocs.org/en/latest/data_analysis.html#genome-comparator',
+		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
 		order       => 30,
 		requires    => 'aligner,offline_jobs,js_tree',
 		input       => 'query',

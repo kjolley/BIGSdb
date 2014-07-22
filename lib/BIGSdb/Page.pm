@@ -340,7 +340,7 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system    = $self->{'system'};
-	my $version   = '20140626';
+	my $version   = '20140722';
 	my @filenames = qw(bigsdb.css jquery-ui.css);
 	my @paths;
 	foreach my $filename (@filenames) {
@@ -534,14 +534,31 @@ sub _print_login_details {
 	return;
 }
 
+sub get_help_url {
+
+	#Override in subclass.
+}
+
 sub _print_help_panel {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	print "<div id=\"fieldvalueshelp\">";
 	if ( $q->param('page') && $q->param('page') eq 'plugin' && defined $self->{'pluginManager'} ) {
 		my $plugin_att = $self->{'pluginManager'}->get_plugin_attributes( $q->param('name') );
-		if ( ref $plugin_att eq 'HASH' && defined $plugin_att->{'help'} && $plugin_att->{'help'} =~ /tooltips/ ) {
-			$self->{'tooltips'} = 1;
+		if ( ref $plugin_att eq 'HASH' ) {
+			if ( $plugin_att->{'url'} && ( $self->{'config'}->{'intranet'} // '' ) ne 'yes' ) {
+				say qq(<span class="context_help"><a href="$plugin_att->{'url'}" target="_blank">Help )
+				  . qq(<img src="/images/external_link.png" alt="" title="Open help in new window" /></a></span>);
+			}
+			if ( ( $plugin_att->{'help'} // '' ) =~ /tooltips/ ) {
+				$self->{'tooltips'} = 1;
+			}
+		}
+	} else {
+		my $url = $self->get_help_url;
+		if ($url && ( $self->{'config'}->{'intranet'} // '' ) ne 'yes') {
+			say qq(<span class="context_help"><a href="$url" target="_blank">Help )
+			  . qq(<img src="/images/external_link.png" alt="" title="Open help in new window" /></a></span>);
 		}
 	}
 	if ( $self->{'tooltips'} ) {

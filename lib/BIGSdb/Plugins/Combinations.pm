@@ -32,6 +32,7 @@ sub set_pref_requirements {
 }
 
 sub get_attributes {
+	my ($self) = @_;
 	my %att = (
 		name        => 'Unique Combinations',
 		author      => 'Keith Jolley',
@@ -42,7 +43,7 @@ sub get_attributes {
 		buttontext  => 'Combinations',
 		menutext    => 'Unique combinations',
 		module      => 'Combinations',
-		url         => 'http://bigsdb.readthedocs.org/en/latest/data_analysis.html#unique-combinations',
+		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#unique-combinations",
 		version     => '1.1.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',

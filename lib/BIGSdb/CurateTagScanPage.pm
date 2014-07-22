@@ -78,6 +78,11 @@ END
 	return $buffer;
 }
 
+sub get_help_url {
+	my ($self) = @_;
+	return "$self->{'config'}->{'doclink'}/curator_guide.html#automated-web-based-sequence-tagging";
+}
+
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.jstree noCache);

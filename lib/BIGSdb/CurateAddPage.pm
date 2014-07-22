@@ -35,6 +35,19 @@ sub initiate {
 	return;
 }
 
+sub get_help_url {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $table = $q->param('table');
+	return if !defined $table;
+	if ($table eq 'users'){
+		return "$self->{'config'}->{'doclink'}/curator_guide.html#adding-new-sender-details";
+	} elsif ($table eq 'sequences'){
+		return "$self->{'config'}->{'doclink'}/curator_guide.html#adding-new-allele-sequence-definitions";
+	}
+	return;
+}
+
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};

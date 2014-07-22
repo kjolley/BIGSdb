@@ -35,6 +35,7 @@ use constant DEFAULT_ALIGN_LIMIT => 200;
 use BIGSdb::Page qw(LOCUS_PATTERN);
 
 sub get_attributes {
+	my ($self) = @_;
 	my %att = (
 		name             => 'Sequence Export',
 		author           => 'Keith Jolley',
@@ -50,7 +51,7 @@ sub get_attributes {
 		dbtype           => 'isolates,sequences',
 		seqdb_type       => 'schemes',
 		section          => 'export,postquery',
-		url              => 'http://bigsdb.readthedocs.org/en/latest/data_export.html#sequence-export',
+		url              => "$self->{'config'}->{'doclink'}/data_export.html#sequence-export",
 		input            => 'query',
 		help             => 'tooltips',
 		requires         => 'aligner,offline_jobs,js_tree',
@@ -348,7 +349,7 @@ sub run_job {
 				}
 			} else {
 				my $scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
-				my $profile_sql = $self->{'db'}->prepare("SELECT * FROM $scheme_view WHERE $pk=?"); 
+				my $profile_sql = $self->{'db'}->prepare("SELECT * FROM $scheme_view WHERE $pk=?");
 				eval { $profile_sql->execute($id) };
 				$logger->error($@) if $@;
 				my $profile_data = $profile_sql->fetchrow_hashref;
@@ -414,7 +415,7 @@ sub run_job {
 				$sequence =~ s/N/-/g if $no_seq{$id};
 				say $fh $sequence;
 			}
-			$start = ($end // 0) + 1;
+			$start = ( $end // 0 ) + 1;
 			print $fh "=\n";
 		}
 		unlink $output_file;
@@ -474,7 +475,6 @@ function enable_aligner(){
 	});
 });
 END
-
 	return $buffer;
 }
 1;

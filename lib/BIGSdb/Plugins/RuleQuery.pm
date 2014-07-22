@@ -29,6 +29,7 @@ my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_UPLOAD_SIZE => 32 * 1024 * 1024;    #32Mb
 
 sub get_attributes {
+	my ($self) = @_;
 	my %att = (
 		name             => 'Rule Query',
 		author           => 'Keith Jolley',
@@ -43,7 +44,7 @@ sub get_attributes {
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => '',
-		url              => 'http://bigsdb.readthedocs.org/en/latest/administration.html#rule-based-sequence-queries',
+		url              => "$self->{'config'}->{'doclink'}/administration.html#rule-based-sequence-queries",
 		requires         => 'offline_jobs',
 		order            => 15
 	);

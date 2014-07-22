@@ -93,6 +93,7 @@ sub set_pref_requirements {
 }
 
 sub get_attributes {
+	my ($self) = @_;
 	my %att = (
 		name        => 'BLAST',
 		author      => 'Keith Jolley',
@@ -110,7 +111,7 @@ sub get_attributes {
 		order       => 32,
 		help        => 'tooltips',
 		system_flag => 'BLAST',
-		url         => 'http://bigsdb.readthedocs.org/en/latest/data_analysis.html#blast'
+		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#blast"
 	);
 	return \%att;
 }

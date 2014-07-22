@@ -26,6 +26,11 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant SUCCESS => 1;
 
+sub get_help_url {
+	my ($self) = @_;
+	return "$self->{'config'}->{'doclink'}/curator_guide.html#adding-isolate-records";
+}
+
 sub print_content {
 	my ($self) = @_;
 	say "<h1>Add new isolate</h1>";

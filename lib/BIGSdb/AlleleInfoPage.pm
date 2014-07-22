@@ -26,6 +26,11 @@ use Log::Log4perl qw(get_logger);
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
 
+sub get_help_url {
+	my ($self) = @_;
+	return "$self->{'config'}->{'doclink'}/data_records.html#allele-definition-records";
+}
+
 sub print_content {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};

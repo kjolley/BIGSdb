@@ -29,6 +29,7 @@ use Apache2::Connection ();
 use Bio::Tools::SeqStats;
 
 sub get_attributes {
+	my ($self) = @_;
 	my %att = (
 		name        => 'Export',
 		author      => 'Keith Jolley',
@@ -42,7 +43,7 @@ sub get_attributes {
 		version     => '1.2.1',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
-		url         => 'http://bigsdb.readthedocs.org/en/latest/data_export.html#isolate-record-export',
+		url         => "$self->{'config'}->{'doclink'}/data_export.html#isolate-record-export",
 		input       => 'query',
 		requires    => 'ref_db,js_tree',
 		help        => 'tooltips',

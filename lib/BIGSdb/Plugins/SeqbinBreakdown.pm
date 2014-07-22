@@ -32,6 +32,7 @@ use constant MAX_INSTANT_RUN => 100;
 use constant MAX_HTML_OUTPUT => 2000;
 
 sub get_attributes {
+	my ($self) = @_;
 	my %att = (
 		name        => 'Sequence Bin Breakdown',
 		author      => 'Keith Jolley',
@@ -42,7 +43,7 @@ sub get_attributes {
 		buttontext  => 'Sequence bin',
 		menutext    => 'Sequence bin',
 		module      => 'SeqbinBreakdown',
-		url         => 'http://bigsdb.readthedocs.org/en/latest/data_analysis.html#sequence-bin-breakdown',
+		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#sequence-bin-breakdown",
 		version     => '1.1.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',

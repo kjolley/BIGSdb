@@ -28,6 +28,7 @@ my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 
 sub get_attributes {
+	my ($self) = @_;
 	my %att = (
 		name        => 'Publication Breakdown',
 		author      => 'Keith Jolley',
@@ -41,7 +42,7 @@ sub get_attributes {
 		version     => '1.1.1',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
-		url         => 'http://bigsdb.readthedocs.org/en/latest/data_query.html#retrieving-isolates-by-linked-publication',
+		url         => "$self->{'config'}->{'doclink'}/data_query.html#retrieving-isolates-by-linked-publication",
 		input       => 'query',
 		requires    => 'ref_db',
 		order       => 30,

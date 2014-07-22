@@ -29,6 +29,17 @@ use BIGSdb::CurateAddPage qw(MAX_POSTGRES_COLS);
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
 
+sub get_help_url {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $table = $q->param('table');
+	return if !defined $table;
+	if ($table eq 'sequences'){
+		return "$self->{'config'}->{'doclink'}/curator_guide.html#batch-adding-multiple-alleles";
+	}
+	return;
+}
+
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};

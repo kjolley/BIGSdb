@@ -27,6 +27,7 @@ my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 
 sub get_attributes {
+	my ($self) = @_;
 	my %att = (
 		name        => 'Scheme Breakdown',
 		author      => 'Keith Jolley',
@@ -39,7 +40,7 @@ sub get_attributes {
 		module      => 'SchemeBreakdown',
 		version     => '1.1.4',
 		section     => 'breakdown,postquery',
-		url         => 'http://bigsdb.readthedocs.org/en/latest/data_analysis.html#scheme-and-allele-breakdown',
+		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#scheme-and-allele-breakdown",
 		input       => 'query',
 		requires    => 'js_tree',
 		order       => 20,

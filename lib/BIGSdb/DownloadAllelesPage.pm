@@ -44,6 +44,11 @@ sub initiate {
 	return;
 }
 
+sub get_help_url {
+	my ($self) = @_;
+	return "$self->{'config'}->{'doclink'}/data_downloads.html#allele-sequence-definitions";
+}
+
 sub get_javascript {
 	my ($self) = @_;
 	return $self->get_tree_javascript;

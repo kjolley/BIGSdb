@@ -36,6 +36,7 @@ sub set_pref_requirements {
 }
 
 sub get_attributes {
+	my ($self) = @_;
 	my %att = (
 		name        => 'BURST',
 		author      => 'Keith Jolley',
@@ -54,7 +55,7 @@ sub get_attributes {
 		system_flag => 'BURST',
 		input       => 'query',
 		requires    => 'mogrify,pk_scheme',
-		url         => 'http://bigsdb.readthedocs.org/en/latest/data_analysis.html#burst',
+		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#burst",
 		min         => 2,
 		max         => 1000
 	);

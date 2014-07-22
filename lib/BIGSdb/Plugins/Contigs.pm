@@ -31,6 +31,7 @@ use constant MAX_ISOLATES => 1000;
 use BIGSdb::Page qw(SEQ_METHODS);
 
 sub get_attributes {
+	my ($self) = @_;
 	my %att = (
 		name         => 'Contig export',
 		author       => 'Keith Jolley',
@@ -41,7 +42,7 @@ sub get_attributes {
 		buttontext   => 'Contigs',
 		menutext     => 'Contigs',
 		module       => 'Contigs',
-		url          => 'http://bigsdb.readthedocs.org/en/latest/data_export.html#contig-export',
+		url          => "$self->{'config'}->{'doclink'}/data_export.html#contig-export",
 		version      => '1.1.0',
 		dbtype       => 'isolates',
 		section      => 'export,postquery',

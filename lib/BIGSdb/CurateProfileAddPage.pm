@@ -33,6 +33,11 @@ sub get_title {
 	return "Add new profile - $desc";
 }
 
+sub get_help_url {
+	my ($self) = @_;
+	return "$self->{'config'}->{'doclink'}/curator_guide.html#adding-new-scheme-profile-definitions";
+}
+
 sub print_content {
 	my ($self)    = @_;
 	my $scheme_id = $self->{'cgi'}->param('scheme_id');

@@ -39,6 +39,11 @@ sub get_title {
 	return "Search database by combinations of scheme loci - $desc";
 }
 
+sub get_help_url {
+	my ($self) = @_;
+	return "$self->{'config'}->{'doclink'}/data_query.html#querying-by-allelic-profile";
+}
+
 sub print_content {
 	my ($self)    = @_;
 	my $system    = $self->{'system'};

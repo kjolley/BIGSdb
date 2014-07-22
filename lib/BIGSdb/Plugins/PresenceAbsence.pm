@@ -29,6 +29,7 @@ use constant MAX_DISMAT_TAXA => 1000;
 my $logger = get_logger('BIGSdb.Plugins');
 
 sub get_attributes {
+	my ($self) = @_;
 	my %att = (
 		name        => 'Presence/Absence',
 		author      => 'Keith Jolley',
@@ -39,7 +40,7 @@ sub get_attributes {
 		buttontext  => 'Presence/Absence',
 		menutext    => 'Presence/absence status of loci',
 		module      => 'PresenceAbsence',
-		url         => 'http://bigsdb.readthedocs.org/en/latest/data_analysis.html#presence-absence',
+		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#presence-absence",
 		version     => '1.1.3',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',

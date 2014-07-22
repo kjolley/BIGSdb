@@ -43,7 +43,7 @@ sub get_attributes {
 		version       => '1.1.1',
 		dbtype        => 'isolates',
 		section       => 'breakdown,postquery',
-		url           => 'http://bigsdb.readthedocs.org/en/latest/data_analysis.html#field-breakdown',
+		url           => "$self->{'config'}->{'doclink'}/data_analysis.html#field-breakdown",
 		input         => 'query',
 		requires      => 'chartdirector',
 		text_filename => "$field\_breakdown.txt",

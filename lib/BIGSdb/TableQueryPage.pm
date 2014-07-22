@@ -38,6 +38,26 @@ sub initiate {
 	return;
 }
 
+sub get_help_url {
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $table  = $q->param('table');
+	return if !defined $table;
+	if ( $self->{'curate'} ) {
+		if ($table eq 'sequences'){
+			return "$self->{'config'}->{'doclink'}/curator_guide.html#updating-and-deleting-allele-sequence-definitions";
+		}
+	} else {
+		if ( $table eq 'sequences' ) {
+			return "$self->{'config'}->{'doclink'}/data_query.html#searching-for-specific-allele-definitions";
+		}
+		if ( $table eq 'loci' || $table eq 'schemes' || $table eq 'scheme_fields' ) {
+			return "$self->{'config'}->{'doclink'}/data_query.html#modifying-locus-and-scheme-display-options";
+		}
+	}
+	return;
+}
+
 sub set_pref_requirements {
 	my ($self) = @_;
 	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
@@ -460,10 +480,14 @@ sub _run_query {
 						  : "$table.$field ILIKE E'\%$text\%'";
 					} elsif ( $operator eq "starts with" ) {
 						$qry .=
-						  $thisfield->{'type'} ne 'text' ? "CAST($table.$field AS text) LIKE '$text\%'" : "$table.$field ILIKE E'$text\%'";
+						  $thisfield->{'type'} ne 'text'
+						  ? "CAST($table.$field AS text) LIKE '$text\%'"
+						  : "$table.$field ILIKE E'$text\%'";
 					} elsif ( $operator eq "ends with" ) {
 						$qry .=
-						  $thisfield->{'type'} ne 'text' ? "CAST($table.$field AS text) LIKE '\%$text'" : "$table.$field ILIKE E'\%$text'";
+						  $thisfield->{'type'} ne 'text'
+						  ? "CAST($table.$field AS text) LIKE '\%$text'"
+						  : "$table.$field ILIKE E'\%$text'";
 					} elsif ( $operator eq "NOT contain" ) {
 						$qry .=
 						  $thisfield->{'type'} ne 'text'

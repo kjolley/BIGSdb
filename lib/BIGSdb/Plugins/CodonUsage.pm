@@ -118,6 +118,7 @@ my %translate = (
 );
 
 sub get_attributes {
+	my ($self) = @_;
 	my %att = (
 		name        => 'Codon Usage',
 		author      => 'Keith Jolley',
@@ -128,7 +129,7 @@ sub get_attributes {
 		buttontext  => 'Codons',
 		menutext    => 'Codon usage',
 		module      => 'CodonUsage',
-		url         => 'http://bigsdb.readthedocs.org/en/latest/data_analysis.html#codon-usage-plugin',
+		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#codon-usage-plugin",
 		version     => '1.2.1',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',

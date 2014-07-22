@@ -50,6 +50,15 @@ sub _ajax_content {
 	return;
 }
 
+sub get_help_url {
+	my ($self) = @_;
+	if ($self->{'curate'}){
+		return "$self->{'config'}->{'doclink'}/curator_guide.html#updating-and-deleting-single-isolate-records";
+	} else {
+		return "$self->{'config'}->{'doclink'}/data_query.html#querying-isolate-data";
+	}
+}
+
 sub _save_options {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};

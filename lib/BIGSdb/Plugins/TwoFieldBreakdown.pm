@@ -28,6 +28,7 @@ use Error qw(:try);
 use List::MoreUtils qw(uniq any);
 
 sub get_attributes {
+	my ($self) = @_;
 	my %att = (
 		name        => 'Two Field Breakdown',
 		author      => 'Keith Jolley',
@@ -41,7 +42,7 @@ sub get_attributes {
 		version     => '1.2.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
-		url         => 'http://bigsdb.readthedocs.org/en/latest/data_analysis.html#two-field-breakdown',
+		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#two-field-breakdown",
 		input       => 'query',
 		requires    => 'chartdirector',
 		order       => 12

@@ -33,6 +33,7 @@ use constant ONLINE_MAX_SEQS => 50;     #Number of sequences before we start an 
 use constant MAX_SEQS        => 2000;
 
 sub get_attributes {
+	my ($self) = @_;
 	my %att = (
 		name        => 'Polymorphisms',
 		author      => 'Keith Jolley',
@@ -44,7 +45,7 @@ sub get_attributes {
 		module      => 'Polymorphisms',
 		version     => '1.1.0',
 		dbtype      => 'isolates',
-		url         => 'http://bigsdb.readthedocs.org/en/latest/data_analysis.html#polymorphisms',
+		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#polymorphisms",
 		section     => 'breakdown,postquery',
 		requires    => 'aligner,offline_jobs',
 		input       => 'query',

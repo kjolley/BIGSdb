@@ -34,6 +34,11 @@ sub set_pref_requirements {
 	return;
 }
 
+sub get_help_url {
+	my ($self) = @_;
+	return "$self->{'config'}->{'doclink'}/data_records.html#isolate-records";
+}
+
 sub initiate {
 	my ($self) = @_;
 	if ( $self->{'cgi'}->param('no_header') ) {

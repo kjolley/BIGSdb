@@ -30,6 +30,7 @@ use Apache2::Connection ();
 use constant COLOURS => qw(eee c22 22c c4c 000);    #none; designations only; tags only; both; flags
 
 sub get_attributes {
+	my ($self) = @_;
 	my %att = (
 		name        => 'Tag Status',
 		author      => 'Keith Jolley',
@@ -40,7 +41,7 @@ sub get_attributes {
 		buttontext  => 'Tag status',
 		menutext    => 'Tag status',
 		module      => 'TagStatus',
-		url         => 'http://bigsdb.readthedocs.org/en/latest/data_analysis.html#tag-status',
+		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#tag-status",
 		version     => '1.2.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',

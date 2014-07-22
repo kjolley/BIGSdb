@@ -40,6 +40,14 @@ sub _ajax_content {
 	return;
 }
 
+sub get_help_url {
+	my ($self) = @_;
+	if ($self->{'curate'}){
+		return "$self->{'config'}->{'doclink'}/curator_guide.html#updating-and-deleting-scheme-profile-definitions";
+	}
+	return;
+}
+
 sub get_title {
 	my ($self) = @_;
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';

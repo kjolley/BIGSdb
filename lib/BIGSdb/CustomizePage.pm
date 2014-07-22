@@ -30,6 +30,11 @@ sub initiate {
 	return;
 }
 
+sub get_help_url {
+	my ($self) = @_;
+	return "$self->{'config'}->{'doclink'}/data_query.html#modifying-locus-and-scheme-display-options";
+}
+
 sub print_content {
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};

@@ -39,6 +39,11 @@ sub get_title {
 	return "List query - $desc";
 }
 
+sub get_help_url {
+	my ($self) = @_;
+	return "$self->{'config'}->{'doclink'}/data_query.html#retrieving-list-of-isolates-or-profiles";
+}
+
 sub print_content {
 	my ($self)    = @_;
 	my $system    = $self->{'system'};

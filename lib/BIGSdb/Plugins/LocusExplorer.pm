@@ -31,6 +31,7 @@ use constant MAX_SNP_SEQUENCES       => 200;
 use constant MAX_TRANSLATE_SEQUENCES => 50;
 
 sub get_attributes {
+	my ($self) = @_;
 	my %att = (
 		name             => 'Locus Explorer',
 		author           => 'Keith Jolley',
@@ -41,7 +42,7 @@ sub get_attributes {
 		category         => 'Analysis',
 		menutext         => 'Locus Explorer',
 		module           => 'LocusExplorer',
-		url              => 'http://bigsdb.readthedocs.org/en/latest/data_analysis.html#locus-explorer',
+		url              => "$self->{'config'}->{'doclink'}/data_analysis.html#locus-explorer",
 		version          => '1.2.0',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',

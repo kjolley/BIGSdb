@@ -29,6 +29,7 @@ use Error qw(:try);
 use Apache2::Connection ();
 
 sub get_attributes {
+	my ($self) = @_;
 	my %att = (
 		name             => 'Sequence Similarity',
 		author           => 'Keith Jolley',
@@ -39,7 +40,7 @@ sub get_attributes {
 		category         => 'Analysis',
 		menutext         => 'Sequence similarity',
 		module           => 'SequenceSimilarity',
-		url              => 'http://bigsdb.readthedocs.org/en/latest/data_query.html#sequence-similarity',
+		url              => "$self->{'config'}->{'doclink'}/data_query.html#sequence-similarity",
 		version          => '1.0.2',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
