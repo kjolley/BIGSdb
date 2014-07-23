@@ -72,23 +72,22 @@ sub print_content {
 	print " (@name)" if $name[1];
 	say "</h1>";
 	my $flanking = $self->{'prefs'}->{'flanking'};
-	my $qry =
-	    "SELECT seqbin_id,start_pos,end_pos,reverse,complete,method,length(sequence) AS seqlength FROM allele_sequences LEFT "
-	  . "JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE sequence_bin.isolate_id=? AND locus=? ORDER BY "
-	  . "complete desc,allele_sequences.datestamp";
+	my $qry = "SELECT allele_sequences.id,seqbin_id,start_pos,end_pos,reverse,complete,method,length(sequence) AS seqlength FROM "
+	  . "allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE sequence_bin.isolate_id=? "
+	  . "AND locus=? ORDER BY complete desc,allele_sequences.datestamp";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute( $isolate_id, $locus ) };
 	$logger->error($@) if $@;
 	my $buffer;
 	my $update_buffer = '';
 
-	while ( my ( $seqbin_id, $start_pos, $end_pos, $reverse, $complete, $method, $seqlength ) = $sql->fetchrow_array ) {
+	while ( my ( $id, $seqbin_id, $start_pos, $end_pos, $reverse, $complete, $method, $seqlength ) = $sql->fetchrow_array ) {
 		$buffer .= "<dl class=\"data\">";
 		$buffer .= "<dt class=\"dontend\">sequence bin id</dt><dd>$seqbin_id</dd>";
 		$buffer .= "<dt class=\"dontend\">contig length</dt><dd>$seqlength</dd>";
 		if ( $self->{'curate'} ) {
-			$update_buffer = " <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagUpdate&amp;seqbin_id="
-			  . "$seqbin_id&amp;locus=$locus&amp;start_pos=$start_pos&amp;end_pos=$end_pos\" class=\"smallbutton\">Update</a>\n";
+			$update_buffer = qq( <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagUpdate&amp;id=)
+			  . qq($id" class=\"smallbutton">Update</a>\n);
 		}
 		my $translate = ( $locus_info->{'coding_sequence'} || $locus_info->{'data_type'} eq 'peptide' ) ? 1 : 0;
 		my $orf = $locus_info->{'orf'} || 1;
