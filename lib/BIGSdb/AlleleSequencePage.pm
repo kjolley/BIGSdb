@@ -87,7 +87,7 @@ sub print_content {
 		$buffer .= "<dt class=\"dontend\">contig length</dt><dd>$seqlength</dd>";
 		if ( $self->{'curate'} ) {
 			$update_buffer = qq( <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagUpdate&amp;id=)
-			  . qq($id" class=\"smallbutton">Update</a>\n);
+			  . qq($id" class="smallbutton">Update</a>\n);
 		}
 		my $translate = ( $locus_info->{'coding_sequence'} || $locus_info->{'data_type'} eq 'peptide' ) ? 1 : 0;
 		my $orf = $locus_info->{'orf'} || 1;
