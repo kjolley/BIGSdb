@@ -60,6 +60,7 @@ sub write_embl {
 		my $seq =
 		  $self->{'datastore'}->run_simple_query(
 			"SELECT isolate_id,sequence,method,comments,sender,curator,date_entered,datestamp FROM sequence_bin WHERE id=?", $seqbin_id );
+		my $seq_length = length $seq->[1];
 		my $stringfh_in = IO::String->new( ">$seqbin_id\n" . $seq->[1] . "\n" );
 		my $seqin       = Bio::SeqIO->new( -fh => $stringfh_in, -format => 'fasta' );
 		my $seq_object  = $seqin->next_seq;
@@ -98,9 +99,11 @@ sub write_embl {
 				$desc .= $locus_desc->{'description'} // '';
 			}
 			$allele_sequence->{'locus'} = $self->clean_locus( $allele_sequence->{'locus'}, { text_output => 1 } );
+			my $end = $allele_sequence->{'end_pos'};
+			$end = $seq_length if $end > $seq_length;
 			my $feature = Bio::SeqFeature::Generic->new(
 				-start       => $allele_sequence->{'start_pos'},
-				-end         => $allele_sequence->{'end_pos'},
+				-end         => $end,
 				-primary_tag => 'CDS',
 				-strand      => ( $allele_sequence->{'reverse'} ? -1 : 1 ),
 				-frame       => $frame,
