@@ -24,7 +24,7 @@ use Digest::MD5 qw(md5);
 use List::MoreUtils qw(any none uniq);
 use parent qw(BIGSdb::CurateAddPage);
 use Log::Log4perl qw(get_logger);
-use BIGSdb::Page qw(ALLELE_FLAGS SEQ_STATUS);
+use BIGSdb::Page qw(ALLELE_FLAGS SEQ_STATUS DIPLOID HAPLOID);
 use BIGSdb::CurateAddPage qw(MAX_POSTGRES_COLS);
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
@@ -1120,12 +1120,14 @@ sub _check_data_sequences {
 		}
 		if ( ${ $arg_ref->{'continue'} } ) {
 			if ( ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' )
-				&& !BIGSdb::Utils::is_valid_DNA( ${ $arg_ref->{'value'} } ) )
+				&& !BIGSdb::Utils::is_valid_DNA( ${ $arg_ref->{'value'} },{ diploid => ( ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? 1 : 0 ) } ) )
 			{
 				if ( $q->param('complete_CDS') || $q->param('ignore_non_DNA') ) {
 					${ $arg_ref->{'continue'} } = 0;
 				} else {
-					$buffer .= "Sequence contains non nucleotide (G|A|T|C) characters.<br />";
+					my @chars = ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? DIPLOID : HAPLOID;
+					local $" = '|';
+					$buffer .= "Sequence contains non nucleotide (@chars) characters.<br />";
 				}
 			} elsif ( ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' )
 				&& $self->{'datastore'}->sequences_exist($locus)

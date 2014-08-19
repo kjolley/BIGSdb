@@ -29,7 +29,7 @@ use Bio::SeqIO;
 use Digest::MD5;
 use constant SUCCESS => 1;
 use constant FAILURE => 2;
-use BIGSdb::Page qw(SEQ_STATUS);
+use BIGSdb::Page qw(SEQ_STATUS HAPLOID DIPLOID);
 my $logger = get_logger('BIGSdb.Page');
 
 sub get_help_url {
@@ -94,12 +94,7 @@ sub _print_interface {
 	say "<li><label for=\"locus\" class=\"form\" style=\"width:5em\">locus:!</label>";
 	say $q->popup_menu( -name => 'locus', -id => 'locus', -values => [ '', @$values ], -labels => $desc, -required => 'required' );
 	say "</li><li><label for=\"status\" class=\"form\" style=\"width:5em\">status:!</label>";
-	say $q->popup_menu(
-		-name     => 'status',
-		-id       => 'status',
-		-values   => [ '', SEQ_STATUS ],
-		-required => 'required'
-	);
+	say $q->popup_menu( -name => 'status', -id => 'status', -values => [ '', SEQ_STATUS ], -required => 'required' );
 	my $sender_data =
 	  $self->{'datastore'}->run_list_query_hashref("SELECT id,user_name,first_name,surname from users WHERE id>0 ORDER BY surname");
 	my ( @users, %usernames );
@@ -245,8 +240,12 @@ sub _check_sequence {
 	}
 
 	#Check invalid characters
-	if ( $self->{'locus_info'}->{'data_type'} eq 'DNA' && !BIGSdb::Utils::is_valid_DNA( $data->{'seq'} ) ) {
-		return ( FAILURE, $allele_id, "Sequence contains non nucleotide (G|A|T|C) characters." );
+	if ( $self->{'locus_info'}->{'data_type'} eq 'DNA'
+		&& !BIGSdb::Utils::is_valid_DNA( $data->{'seq'}, { diploid => ( ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? 1 : 0 ) } ) )
+	{
+		my @chars = ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? DIPLOID : HAPLOID;
+		local $" = '|';
+		return ( FAILURE, $allele_id, "Sequence contains non nucleotide (@chars) characters." );
 	} elsif ( $self->{'locus_info'}->{'data_type'} eq 'peptide' && $data->{'seq'} =~ /[^GPAVLIMCFYWHKRQNEDST\*]/ ) {
 		return ( FAILURE, $allele_id, "Sequence contains non AA characters." );
 	}

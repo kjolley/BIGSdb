@@ -55,10 +55,12 @@ use constant ALLELE_FLAGS => (
 	'upstream fusion'
 );
 use constant SEQ_STATUS => ( 'Sanger trace checked', 'WGS: manual extract', 'WGS: automated extract', 'unchecked' );
-use constant DATABANKS => qw(ENA Genbank);
+use constant DIPLOID    => qw(A C G T R Y W S M K);
+use constant HAPLOID    => qw(A C G T);
+use constant DATABANKS  => qw(ENA Genbank);
 use constant FLANKING      => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
 use constant LOCUS_PATTERN => qr/^(?:l|cn|la)_(.+?)(?:\|\|.+)?$/;
-our @EXPORT_OK = qw(SEQ_METHODS SEQ_FLAGS ALLELE_FLAGS SEQ_STATUS DATABANKS FLANKING LOCUS_PATTERN);
+our @EXPORT_OK = qw(SEQ_METHODS SEQ_FLAGS ALLELE_FLAGS SEQ_STATUS DIPLOID HAPLOID DATABANKS FLANKING LOCUS_PATTERN);
 
 sub new {    ## no critic (RequireArgUnpacking)
 	my $class = shift;
@@ -556,7 +558,7 @@ sub _print_help_panel {
 		}
 	} else {
 		my $url = $self->get_help_url;
-		if ($url && ( $self->{'config'}->{'intranet'} // '' ) ne 'yes') {
+		if ( $url && ( $self->{'config'}->{'intranet'} // '' ) ne 'yes' ) {
 			say qq(<span class="context_help"><a href="$url" target="_blank">Help )
 			  . qq(<img src="/images/external_link.png" alt="" title="Open help in new window" /></a></span>);
 		}

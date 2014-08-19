@@ -24,7 +24,7 @@ use parent qw(BIGSdb::CuratePage BIGSdb::BlastPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(any none uniq);
-use BIGSdb::Page qw(DATABANKS LOCUS_PATTERN ALLELE_FLAGS);
+use BIGSdb::Page qw(DATABANKS LOCUS_PATTERN ALLELE_FLAGS DIPLOID HAPLOID);
 use constant SUCCESS           => 1;
 use constant MAX_POSTGRES_COLS => 1664;
 our @EXPORT_OK = qw(MAX_POSTGRES_COLS);
@@ -37,12 +37,12 @@ sub initiate {
 
 sub get_help_url {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	my $table = $q->param('table');
+	my $q      = $self->{'cgi'};
+	my $table  = $q->param('table');
 	return if !defined $table;
-	if ($table eq 'users'){
+	if ( $table eq 'users' ) {
 		return "$self->{'config'}->{'doclink'}/curator_guide.html#adding-new-sender-details";
-	} elsif ($table eq 'sequences'){
+	} elsif ( $table eq 'sequences' ) {
 		return "$self->{'config'}->{'doclink'}/curator_guide.html#adding-new-allele-sequence-definitions";
 	}
 	return;
@@ -397,8 +397,17 @@ sub _check_sequences {
 			push @$problems, "Sequence already exists in the database ($cleaned_locus: $exists).<br />";
 		}
 	}
-	if ( $locus_info->{'data_type'} && $locus_info->{'data_type'} eq 'DNA' && !BIGSdb::Utils::is_valid_DNA( $newdata->{'sequence'} ) ) {
-		push @$problems, "Sequence contains non nucleotide (G|A|T|C) characters.<br />";
+	if (
+		   $locus_info->{'data_type'}
+		&& $locus_info->{'data_type'} eq 'DNA'
+		&& !BIGSdb::Utils::is_valid_DNA(
+			$newdata->{'sequence'}, { diploid => ( ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? 1 : 0 ) }
+		)
+	  )
+	{
+		my @chars = ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? DIPLOID : HAPLOID;
+		local $" = '|';
+		push @$problems, "Sequence contains non nucleotide (@chars) characters.<br />";
 	} elsif ( !@$problems
 		&& $locus_info->{'data_type'}
 		&& $locus_info->{'data_type'} eq 'DNA'
