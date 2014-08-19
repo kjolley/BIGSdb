@@ -218,14 +218,21 @@ sub _run_query {
 			return if $self->{'mod_perl_request'}->connection->aborted;
 		}
 		my $seq = $seq_object->seq;
-		$seq =~ s/\s//g if $seq;
-		$seq = uc($seq);
+		if ($seq) {
+			$seq =~ s/[\s|-]//g;
+			$seq = uc($seq);
+		}
 		my $seq_type = BIGSdb::Utils::is_valid_DNA($seq) ? 'DNA' : 'peptide';
 		my $qry_type = BIGSdb::Utils::sequence_type($seq);
 		( my $blast_file, $job ) =
 		  $self->run_blast(
 			{ locus => $locus, seq_ref => \$seq, qry_type => $qry_type, cache => 1, job => $job, word_size => $word_size } );
-		my $exact_matches = $self->parse_blast_exact( $locus, $blast_file );
+		my $exact_matches;
+		if ( ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ) {
+			$exact_matches = $self->parse_blast_diploid_exact( \$seq, $locus, $blast_file );
+		} else {
+			$exact_matches = $self->parse_blast_exact( $locus, $blast_file );
+		}
 		my $data_ref = {
 			locus                   => $locus,
 			locus_info              => $locus_info,
@@ -239,7 +246,6 @@ sub _run_query {
 			linked_data             => $self->_data_linked_to_locus( $locus, 'client_dbase_loci_fields' ),
 			extended_attributes     => $self->_data_linked_to_locus( $locus, 'locus_extended_attributes' ),
 		};
-
 		if ( ref $exact_matches eq 'ARRAY' && @$exact_matches ) {
 			if ( $page eq 'sequenceQuery' ) {
 				$self->_output_single_query_exact( $exact_matches, $data_ref );
@@ -837,12 +843,46 @@ sub _format_difference {
 	return $buffer;
 }
 
+sub parse_blast_diploid_exact {
+
+	#BLAST+ treats ambiguous bases as mismatches - we'll use the the BLAST+ results file and check each match using
+	#regular expressions instead.
+	my ( $self, $qry_seq, $locus, $blast_file ) = @_;
+	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
+	return if !-e $full_path;
+	my @matches;
+	open( my $blast_fh, '<', $full_path ) || ( $logger->error("Can't open BLAST output file $full_path. $!"), return \@matches );
+	while ( my $line = <$blast_fh> ) {
+		next if !$line || $line =~ /^#/;
+		my @record = split /\s+/, $line;
+		my $match;
+		my $allele_seq;
+		if ( $locus && $locus !~ /SCHEME_\d+/ && $locus !~ /GROUP_\d+/ ) {
+			$allele_seq = $self->{'datastore'}->get_sequence( $locus, $record[1] );
+		} else {
+			my ( $extracted_locus, $allele ) = split /:/, $record[1];
+			$allele_seq = $self->{'datastore'}->get_sequence( $extracted_locus, $allele );
+		}
+		if ( $$allele_seq =~ /$$qry_seq/ ) {
+			my $length = length $$allele_seq;
+			$match->{'allele'}  = $record[1];
+			$match->{'length'}  = $length;
+			$match->{'start'}   = $-[0] + 1;
+			$match->{'end'}     = $+[0];
+			$match->{'reverse'} = 1 if ( $record[8] > $record[9] || $record[7] < $record[6] );
+			push @matches, $match;
+		}
+	}
+	close $blast_fh;
+	return \@matches;
+}
+
 sub parse_blast_exact {
 	my ( $self, $locus, $blast_file ) = @_;
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 	return if !-e $full_path;
-	open( my $blast_fh, '<', $full_path ) || ( $logger->error("Can't open BLAST output file $full_path. $!"), return \@; );
 	my @matches;
+	open( my $blast_fh, '<', $full_path ) || ( $logger->error("Can't open BLAST output file $full_path. $!"), return \@matches );
 	while ( my $line = <$blast_fh> ) {
 		my $match;
 		next if !$line || $line =~ /^#/;
