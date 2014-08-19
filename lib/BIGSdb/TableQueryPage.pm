@@ -44,7 +44,7 @@ sub get_help_url {
 	my $table  = $q->param('table');
 	return if !defined $table;
 	if ( $self->{'curate'} ) {
-		if ($table eq 'sequences'){
+		if ( $table eq 'sequences' ) {
 			return "$self->{'config'}->{'doclink'}/curator_guide.html#updating-and-deleting-allele-sequence-definitions";
 		}
 	} else {
@@ -709,9 +709,10 @@ sub _modify_schemes_for_sets {
 	my ( $self, $table, $qry_ref ) = @_;
 	my $set_id = $self->get_set_id;
 	my $identifier;
-	if    ( $table eq 'schemes' )        { $identifier = 'id' }
-	elsif ( $table eq 'scheme_members' ) { $identifier = 'scheme_id' }
-	else                                 { return }
+	if    ( $table eq 'schemes' )         { $identifier = 'id' }
+	elsif ( $table eq 'scheme_members' )  { $identifier = 'scheme_id' }
+	elsif ( $table eq 'profile_history' ) { $identifier = 'scheme_id' }
+	else                                  { return }
 	if ($set_id) {
 		$$qry_ref .= ' AND ' if $$qry_ref;
 		$$qry_ref .= " ($table.$identifier IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id))";
