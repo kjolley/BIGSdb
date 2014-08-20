@@ -222,7 +222,6 @@ sub _run_query {
 			$seq =~ s/[\s|-]//g;
 			$seq = uc($seq);
 		}
-		my $seq_type = BIGSdb::Utils::is_valid_DNA($seq) ? 'DNA' : 'peptide';
 		my $qry_type = BIGSdb::Utils::sequence_type($seq);
 		( my $blast_file, $job ) =
 		  $self->run_blast(
@@ -236,7 +235,6 @@ sub _run_query {
 		my $data_ref = {
 			locus                   => $locus,
 			locus_info              => $locus_info,
-			seq_type                => $seq_type,
 			qry_type                => $qry_type,
 			distinct_locus_selected => $distinct_locus_selected,
 			td                      => $td,
@@ -268,7 +266,7 @@ sub _run_query {
 			if ( ref $partial_match ne 'HASH' || !defined $partial_match->{'allele'} ) {
 				if ( $page eq 'sequenceQuery' ) {
 					say "<div class=\"box\" id=\"statusbad\"><p>No matches found.</p>";
-					$self->_translate_button( \$seq ) if $seq_type eq 'DNA';
+					$self->_translate_button( \$seq ) if $qry_type eq 'DNA';
 					say "</div>";
 				} else {
 					my $id = defined $seq_object->id ? $seq_object->id : '';
@@ -320,17 +318,17 @@ sub _translate_button {
 sub _output_single_query_exact {
 	my ( $self, $exact_matches, $data ) = @_;
 	my $data_type               = $data->{'locus_info'}->{'data_type'};
-	my $seq_type                = $data->{'seq_type'};
 	my $locus                   = $data->{'locus'};
+	my $qry_type                = $data->{'qry_type'};
 	my $distinct_locus_selected = $data->{'distinct_locus_selected'};
 	my $q                       = $self->{'cgi'};
 	my %designations;
 	my $buffer = "<div class=\"box\" id=\"resultstable\">\n";
 
-	if ( defined $data_type && $data_type eq 'peptide' && $seq_type eq 'DNA' ) {
+	if ( defined $data_type && $data_type eq 'peptide' && $qry_type eq 'DNA' ) {
 		$buffer .= "<p>Please note that as this is a peptide locus, the length corresponds to the peptide translated from your "
 		  . "query sequence.</p>";
-	} elsif ( defined $data_type && $data_type eq 'DNA' && $seq_type eq 'peptide' ) {
+	} elsif ( defined $data_type && $data_type eq 'DNA' && $qry_type eq 'peptide' ) {
 		$buffer .= "<p>Please note that as this is a DNA locus, the length corresponds to the matching nucleotide sequence that "
 		  . "was translated to align against your peptide query sequence.</p>";
 	}
@@ -413,7 +411,7 @@ sub _output_single_query_exact {
 	$buffer .= "</table></div>\n";
 	say "<div class=\"box\" id=\"resultsheader\"><p>";
 	say "$displayed exact match" . ( $displayed > 1 ? 'es' : '' ) . " found.</p>";
-	$self->_translate_button( $data->{seq_ref} ) if $seq_type eq 'DNA';
+	$self->_translate_button( $data->{'seq_ref'} ) if $qry_type eq 'DNA';
 	say "</div>";
 	say $buffer;
 	$self->_output_scheme_fields( $locus, \%designations );
@@ -578,7 +576,7 @@ sub _output_single_query_nonexact {
 	my $qry_type                = $data->{'qry_type'};
 	my $seq_ref                 = $data->{'seq_ref'};
 	say "<div class=\"box\" id=\"resultsheader\">";
-	$self->_translate_button( $data->{seq_ref} ) if $data->{'seq_type'} eq 'DNA';
+	$self->_translate_button( $data->{'seq_ref'} ) if $qry_type eq 'DNA';
 	say "<p>Closest match: ";
 	my $cleaned_match = $partial_match->{'allele'};
 	my $cleaned_locus;
