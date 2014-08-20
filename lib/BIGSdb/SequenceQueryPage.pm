@@ -317,22 +317,18 @@ sub _translate_button {
 
 sub _output_single_query_exact {
 	my ( $self, $exact_matches, $data ) = @_;
-	my $data_type               = $data->{'locus_info'}->{'data_type'};
-	my $locus                   = $data->{'locus'};
-	my $qry_type                = $data->{'qry_type'};
-	my $distinct_locus_selected = $data->{'distinct_locus_selected'};
-	my $q                       = $self->{'cgi'};
+	my ( $locus, $qry_type, $distinct_locus_selected, $locus_info ) = @{$data}{qw(locus qry_type distinct_locus_selected locus_info)};
+	my $q = $self->{'cgi'};
 	my %designations;
-	my $buffer = "<div class=\"box\" id=\"resultstable\">\n";
-
-	if ( defined $data_type && $data_type eq 'peptide' && $qry_type eq 'DNA' ) {
+	my $buffer = qq(<div class="box" id="resultstable">\n);
+	if ( ( $locus_info->{'data_type'} // '' ) eq 'peptide' && $qry_type eq 'DNA' ) {
 		$buffer .= "<p>Please note that as this is a peptide locus, the length corresponds to the peptide translated from your "
 		  . "query sequence.</p>";
-	} elsif ( defined $data_type && $data_type eq 'DNA' && $qry_type eq 'peptide' ) {
+	} elsif ( ( $locus_info->{'data_type'} // '' ) eq 'DNA' && $qry_type eq 'peptide' ) {
 		$buffer .= "<p>Please note that as this is a DNA locus, the length corresponds to the matching nucleotide sequence that "
 		  . "was translated to align against your peptide query sequence.</p>";
 	}
-	$buffer .= "<div class=\"scrollable\">\n";
+	$buffer .= qq(<div class="scrollable">\n);
 	$buffer .=
 	    "<table class=\"resultstable\"><tr><th>Allele</th><th>Length</th><th>Start position</th>"
 	  . "<th>End position</th>"
@@ -356,12 +352,11 @@ sub _output_single_query_exact {
 		my $allele;
 		my ( $field_values, $attributes, $allele_info, $flags );
 		if ($distinct_locus_selected) {
-			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 			$locus_matches{$locus}++;
 			next if $locus_info->{'match_longest'} && $locus_matches{$locus} > 1;
 			my $cleaned = $self->clean_locus( $locus, { strip_links => 1 } );
-			$buffer .= "<tr class=\"td$td\"><td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
-			  . "page=alleleInfo&amp;locus=$locus&amp;allele_id=$_->{'allele'}\">";
+			$buffer .= qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=alleleInfo&amp;locus=$locus&amp;allele_id=$_->{'allele'}">);
 			$allele       = "$cleaned: $_->{'allele'}";
 			$field_values = $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $_->{'allele'}, { table_format => 1 } );
 			$attributes   = $self->{'datastore'}->get_allele_attributes( $locus, [ $_->{'allele'} ] );
@@ -374,7 +369,7 @@ sub _output_single_query_exact {
 			if ( $_->{'allele'} =~ /(.*):(.*)/ ) {
 				( $extracted_locus, $allele_id ) = ( $1, $2 );
 				$designations{$extracted_locus} = $allele_id;
-				my $locus_info = $self->{'datastore'}->get_locus_info($extracted_locus);
+				$locus_info = $self->{'datastore'}->get_locus_info($extracted_locus);
 				$locus_matches{$extracted_locus}++;
 				next if $locus_info->{'match_longest'} && $locus_matches{$extracted_locus} > 1;
 				my $cleaned = $self->clean_locus( $extracted_locus, { strip_links => 1 } );
@@ -390,8 +385,8 @@ sub _output_single_query_exact {
 				$flags = $self->{'datastore'}->get_allele_flags( $extracted_locus, $allele_id );
 			}
 			$buffer .=
-			    "<tr class=\"td$td\"><td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
-			  . "page=alleleInfo&amp;locus=$extracted_locus&amp;allele_id=$allele_id\">"
+			    qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=alleleInfo&amp;locus=$extracted_locus&amp;allele_id=$allele_id">)
 			  if $extracted_locus && $allele_id;
 		}
 		$buffer .= "$allele</a></td><td>$_->{'length'}</td><td>$_->{'start'}</td><td>$_->{'end'}</td>";
@@ -496,13 +491,10 @@ sub _print_scheme_table {
 }
 
 sub _output_batch_query_exact {
-	my ( $self, $exact_matches, $data, $filename ) = @_;
-	my $locus                   = $data->{'locus'};
-	my $distinct_locus_selected = $data->{'distinct_locus_selected'};
-	my $td                      = $data->{'td'};
-	my $id                      = $data->{'id'};
-	my $q                       = $self->{'cgi'};
-	my $buffer                  = '';
+	my ( $self,  $exact_matches,           $data, $filename ) = @_;
+	my ( $locus, $distinct_locus_selected, $td,   $id )       = @{$data}{qw(locus distinct_locus_selected td id)};
+	my $q      = $self->{'cgi'};
+	my $buffer = '';
 	if ( !$distinct_locus_selected && $q->param('order') eq 'locus' ) {
 		my %locus_values;
 		foreach (@$exact_matches) {
@@ -571,10 +563,7 @@ sub _output_single_query_nonexact_mismatched {
 
 sub _output_single_query_nonexact {
 	my ( $self, $partial_match, $data ) = @_;
-	my $distinct_locus_selected = $data->{'distinct_locus_selected'};
-	my $locus                   = $data->{'locus'};
-	my $qry_type                = $data->{'qry_type'};
-	my $seq_ref                 = $data->{'seq_ref'};
+	my ( $locus, $qry_type, $distinct_locus_selected, $seq_ref ) = @{$data}{qw(locus qry_type distinct_locus_selected seq_ref)};
 	say "<div class=\"box\" id=\"resultsheader\">";
 	$self->_translate_button( $data->{'seq_ref'} ) if $qry_type eq 'DNA';
 	say "<p>Closest match: ";
@@ -747,8 +736,7 @@ sub get_alignment {
 
 sub _output_batch_query_nonexact {
 	my ( $self, $partial_match, $data, $filename ) = @_;
-	my $locus                   = $data->{'locus'};
-	my $distinct_locus_selected = $data->{'distinct_locus_selected'};
+	my ( $locus, $distinct_locus_selected ) = @{$data}{qw(locus distinct_locus_selected )};
 	my ( $batch_buffer, $buffer, $text_buffer );
 	my $allele_seq_ref;
 	if ($distinct_locus_selected) {
