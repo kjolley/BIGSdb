@@ -79,7 +79,7 @@ sub _print_fields {
 		if ( $thisfield->{'optlist'} ) {
 			my $option_list = $self->{'xmlHandler'}->get_field_option_list($field);
 			say "$_<br />" foreach @$option_list;
-		} elsif ( defined $thisfield->{'min'} || defined $thisfield->{'min'} ){
+		} elsif ( defined $thisfield->{'min'} || defined $thisfield->{'max'} ){
 			print "min: $thisfield->{'min'}" if defined $thisfield->{'min'};
 			print "; " if defined $thisfield->{'min'} && defined $thisfield->{'max'};
 			say "max: $thisfield->{'max'}" if defined $thisfield->{'max'};
