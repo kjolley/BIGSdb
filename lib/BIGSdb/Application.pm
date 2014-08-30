@@ -194,6 +194,9 @@ sub _initiate {
 	#refdb attribute has been renamed ref_db for consistency with other databases (refdb still works)
 	$self->{'config'}->{'ref_db'} //= $self->{'config'}->{'refdb'};
 	$self->{'config'}->{'ref_db'} = $self->{'system'}->{'ref_db'} if defined $self->{'system'}->{'ref_db'};
+	
+	#dbase_job_quota attribute has been renamed job_quota for consistency (dbase_job_quota still works)
+	$self->{'system'}->{'job_quota'} //= $self->{'system'}->{'dbase_job_quota'};
 	return;
 }
 

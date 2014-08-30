@@ -120,8 +120,8 @@ sub add_job {
 		$status = "rejected - duplicate job ($duplicate_job)";
 	} elsif ($quota_exceeded) {
 		if ( $quota_exceeded == DBASE_QUOTA_EXCEEDED ) {
-			my $plural = $self->{'system'}->{'dbase_job_quota'} == 1 ? '' : 's';
-			$status = "rejected - database jobs exceeded. This database has a quota of $self->{'system'}->{'dbase_job_quota'} "
+			my $plural = $self->{'system'}->{'job_quota'} == 1 ? '' : 's';
+			$status = "rejected - database jobs exceeded. This database has a quota of $self->{'system'}->{'job_quota'} "
 			  . "concurrent job$plural.  Please try again later.";
 		}
 	} else {
@@ -202,13 +202,13 @@ sub _make_job_fingerprint {
 
 sub _is_quota_exceeded {
 	my ( $self, $params ) = @_;
-	if ( BIGSdb::Utils::is_int( $self->{'system'}->{'dbase_job_quota'} ) ) {
+	if ( BIGSdb::Utils::is_int( $self->{'system'}->{'job_quota'} ) ) {
 		my $qry = "SELECT COUNT(*) FROM jobs WHERE dbase_config=? AND status IN ('submitted','started')";
 		my $sql = $self->{'db'}->prepare($qry);
 		eval { $sql->execute( $params->{'dbase_config'} ) };
 		$logger->error($@) if $@;
 		my ($job_count) = $sql->fetchrow_array;
-		return DBASE_QUOTA_EXCEEDED if $job_count >= $self->{'system'}->{'dbase_job_quota'};
+		return DBASE_QUOTA_EXCEEDED if $job_count >= $self->{'system'}->{'job_quota'};
 	}
 	return 0;
 }
