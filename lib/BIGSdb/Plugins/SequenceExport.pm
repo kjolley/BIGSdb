@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext       => 'Sequences',
 		menutext         => 'Sequences',
 		module           => 'SequenceExport',
-		version          => '1.5.0',
+		version          => '1.5.1',
 		dbtype           => 'isolates,sequences',
 		seqdb_type       => 'schemes',
 		section          => 'export,postquery',
@@ -111,6 +111,8 @@ sub run {
 			print "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci";
 			print " or schemes" if $self->{'system'}->{'dbtype'} eq 'isolates';
 			say ".</p></div>\n";
+		} elsif ($self->attempted_spam(\($q->param('list')))){
+			say qq(<div class="box" id="statusbad"><p>Invalid data detected in list.</p></div>);
 		} else {
 			$self->set_scheme_param;
 			my $params = $q->Vars;
