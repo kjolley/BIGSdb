@@ -62,14 +62,14 @@ get '/db/:db/isolates/:id' => sub {
 	my ( $db, $id ) = ( params->{'db'}, params->{'id'} );
 	if ( !BIGSdb::Utils::is_int($id) ) {
 		status(400);
-		return { status => 400, error => 'id must be an integer' };
+		return { status => 400, error => 'Id must be an integer.' };
 	}
 	my $values = [];
 	my $field_values =
 	  $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $id, { fetch => 'row_hashref' } );
 	if ( !defined $field_values->{'id'} ) {
 		status(404);
-		return { status => 404, error => "Isolate $id does not exist" };
+		return { status => 404, error => "Isolate $id does not exist." };
 	}
 	my $field_list = $self->{'xmlHandler'}->get_field_list;
 	foreach my $field (@$field_list) {
@@ -79,11 +79,34 @@ get '/db/:db/isolates/:id' => sub {
 			push @$values, { $field => $field_values->{ lc $field } } if defined $field_values->{ lc $field };
 		}
 	}
-	my $pubmed_ids = $self->{'datastore'}->run_query("SELECT pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id", $id, {fetch => 'col_arrayref'});
-	if (@$pubmed_ids){
+	my $pubmed_ids =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id", $id, { fetch => 'col_arrayref' } );
+	if (@$pubmed_ids) {
 		my @refs;
 		push @refs, "http://www.ncbi.nlm.nih.gov/pubmed/$_" foreach @$pubmed_ids;
-		push @$values, {publications => \@refs};
+		push @$values, { publications => \@refs };
+	}
+	return $values;
+};
+get '/db/:db/fields' => sub {
+	my $self = setting('self');
+	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
+		status(400);
+		return { status => 400, error => "Fields can only be defined in isolate databases." };
+	}
+	my $fields = $self->{'xmlHandler'}->get_field_list;
+	my $values = [];
+	foreach my $field (@$fields) {
+		my $value = [ { name => $field } ];
+		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+		foreach (qw ( type required length min max regex comments)) {
+			push @$value, { $_ => $thisfield->{$_} } if defined $thisfield->{$_};
+		}
+		if ( ( $thisfield->{'optlist'} // '' ) eq 'yes' ) {
+			push @$value, { allowed_values => $self->{'xmlHandler'}->get_field_option_list($field) };
+		}
+		push @$values, $value;
 	}
 	return $values;
 };
