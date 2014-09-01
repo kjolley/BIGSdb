@@ -356,6 +356,7 @@ sub _print_table_header_row {
 	say "<th>Full name/product</th>" if $options->{'descs_exist'};
 	say "<th>Aliases</th>"           if $options->{'aliases_exist'};
 	say "<th>Curator(s)</th>"        if $options->{'curators_exist'};
+	say "<th>Last updated</th>";
 	say "</tr>";
 	return;
 }
@@ -364,7 +365,7 @@ sub _print_locus_row {
 	my ( $self, $locus, $display_name, $options ) = @_;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( !$self->{'sql'}->{'count'} ) {
-		$self->{'sql'}->{'count'} = $self->{'db'}->prepare("SELECT allele_count FROM allele_count WHERE locus=?");
+		$self->{'sql'}->{'count'} = $self->{'db'}->prepare("SELECT allele_count, last_updated FROM allele_count WHERE locus=?");
 	}
 	if ( !$self->{'sql'}->{'desc'} ) {
 		$self->{'sql'}->{'desc'} = $self->{'db'}->prepare("SELECT full_name,product FROM locus_descriptions WHERE locus=?");
@@ -378,7 +379,7 @@ sub _print_locus_row {
 	}
 	eval { $self->{'sql'}->{'count'}->execute($locus) };
 	$logger->($@) if $@;
-	my ($count) = $self->{'sql'}->{'count'}->fetchrow_array;
+	my ( $count, $last_updated ) = $self->{'sql'}->{'count'}->fetchrow_array;
 	$count //= 0;
 	print "<tr class=\"td$options->{'td'}\"><td>$display_name ";
 	eval { $self->{'sql'}->{'desc'}->execute($locus) };
@@ -455,7 +456,8 @@ sub _print_locus_row {
 		}
 		print "</td>";
 	}
-	print "</tr>\n";
+	$last_updated //= '';
+	say "<td>$last_updated</td></tr>";
 	open( my $fh, '>>', $self->{'outfile'} ) || $logger->error("Can't open $self->{'outfile'} for appending");
 	if ( !-s $self->{'outfile'} ) {
 		say $fh ( $options->{'scheme'} ? "scheme\t" : '' )
@@ -551,8 +553,8 @@ sub _create_temp_allele_count_table {
 	if ( $scheme_id && $scheme_id > 0 && BIGSdb::Utils::is_int($scheme_id) ) {
 		$scheme_clause = "AND EXISTS (SELECT * FROM scheme_members WHERE sequences.locus=scheme_members.locus AND scheme_id=$scheme_id)";
 	}
-	my $qry = "CREATE TEMP TABLE allele_count AS (SELECT locus, COUNT(allele_id) AS allele_count FROM sequences WHERE allele_id NOT IN "
-	  . "('N','0') $scheme_clause GROUP BY locus); CREATE INDEX i_tac ON allele_count (locus)";
+	my $qry = "CREATE TEMP TABLE allele_count AS (SELECT locus, COUNT(allele_id) AS allele_count, MAX(datestamp) AS last_updated FROM "
+	  . "sequences WHERE allele_id NOT IN ('N','0') $scheme_clause GROUP BY locus); CREATE INDEX i_tac ON allele_count (locus)";
 	eval { $self->{'db'}->do($qry) };
 	$logger->error($@) if $@;
 	return;
