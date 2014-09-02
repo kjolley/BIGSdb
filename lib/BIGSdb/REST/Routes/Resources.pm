@@ -48,7 +48,7 @@ get '/db/:db' => sub {
 	my $db   = params->{'db'};
 	if ( !$self->{'system'}->{'db'} ) {
 		status(404);
-		return { status => 404, error => "Database '$db' does not exist" };
+		return { error => "Database '$db' does not exist" };
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
