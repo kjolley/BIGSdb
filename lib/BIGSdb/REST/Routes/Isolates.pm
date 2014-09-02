@@ -50,7 +50,7 @@ get '/db/:db/isolates' => sub {
 		if ( $page != $pages ) {
 			push @$paging, { last => request->uri_base . "/db/$db/isolates?page=$pages&page_size=$self->{'page_size'}" };
 		}
-		push @$values, { paging => $paging };
+		push @$values, { paging => $paging } if $pages > 1;
 		my @links;
 		push @links, request->uri_for("/db/$db/isolates/$_")->as_string foreach @$ids;
 		push @$values, { isolates => \@links };
@@ -62,14 +62,14 @@ get '/db/:db/isolates/:id' => sub {
 	my ( $db, $id ) = ( params->{'db'}, params->{'id'} );
 	if ( !BIGSdb::Utils::is_int($id) ) {
 		status(400);
-		return { status => 400, error => 'Id must be an integer.' };
+		return { error => 'Id must be an integer.' };
 	}
 	my $values = [];
 	my $field_values =
 	  $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $id, { fetch => 'row_hashref' } );
 	if ( !defined $field_values->{'id'} ) {
 		status(404);
-		return { status => 404, error => "Isolate $id does not exist." };
+		return { error => "Isolate $id does not exist." };
 	}
 	my $field_list = $self->{'xmlHandler'}->get_field_list;
 	foreach my $field (@$field_list) {
@@ -93,7 +93,7 @@ get '/db/:db/fields' => sub {
 	my $self = setting('self');
 	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
 		status(400);
-		return { status => 400, error => "Fields can only be defined in isolate databases." };
+		return { error => "Fields can only be defined in isolate databases." };
 	}
 	my $fields = $self->{'xmlHandler'}->get_field_list;
 	my $values = [];

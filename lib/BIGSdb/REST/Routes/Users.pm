@@ -31,12 +31,12 @@ get '/db/:db/users/:user' => sub {
 	my $user_id = param('user');
 	if ( !BIGSdb::Utils::is_int($user_id) ) {
 		status(400);
-		return { status => 400, error => 'User id must be an integer.' };
+		return { error => 'User id must be an integer.' };
 	}
 	my $user = $self->{'datastore'}->run_query( "SELECT * FROM users WHERE id=?", $user_id, { fetch => 'row_hashref' } );
 	if ( !defined $user->{'id'} ) {
 		status(404);
-		return { status => 404, error => "User $user_id does not exist." };
+		return { error => "User $user_id does not exist." };
 	}
 	my $values = [];
 	foreach my $field (qw(id first_name surname affiliation email)) {
