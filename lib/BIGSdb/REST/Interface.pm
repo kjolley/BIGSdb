@@ -106,8 +106,8 @@ hook before => sub {
 	}
 	$self->db_connect;
 	$self->setup_datastore;
-	$self->{'page_size'} =
-	  ( BIGSdb::Utils::is_int( param('page_size') ) && param('page_size') > 0 ) ? param('page_size') : PAGE_SIZE;
+	$self->_initiate_view;
+	$self->{'page_size'} = ( BIGSdb::Utils::is_int( param('page_size') ) && param('page_size') > 0 ) ? param('page_size') : PAGE_SIZE;
 	return;
 };
 
@@ -117,6 +117,29 @@ hook after => sub {
 	my $self = setting('self');
 	$self->{'dataConnector'}->drop_connection( { host => $self->{'system'}->{'host'}, dbase_name => $self->{'system'}->{'db'} } );
 };
+
+sub get_set_id {
+	my ($self) = @_;
+	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
+		my $set_id = $self->{'system'}->{'set_id'};
+		return $set_id if $set_id && BIGSdb::Utils::is_int($set_id);
+	}
+	return;
+}
+
+#Set view if defined in set.
+sub _initiate_view {
+	my ($self) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'isolates';
+	my $set_id = $self->get_set_id;
+	if ( defined $self->{'system'}->{'view'} && $set_id ) {
+		if ( $self->{'system'}->{'views'} && BIGSdb::Utils::is_int($set_id) ) {
+			my $view = $self->{'datastore'}->run_query( "SELECT view FROM set_view WHERE set_id=?", $set_id );
+			$self->{'system'}->{'view'} = $view if defined $view;
+		}
+	}
+	return;
+}
 
 #Get the contents of the rest_db database.
 sub get_resources {
