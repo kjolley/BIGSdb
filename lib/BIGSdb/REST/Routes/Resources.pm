@@ -52,13 +52,13 @@ get '/db/:db' => sub {
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
-		return {
-			records  => $count,
-			isolates => request->uri_for("/db/$db/isolates")->as_string,
-			fields   => request->uri_for("/db/$db/fields")->as_string,
-			schemes  => request->uri_for("/db/$db/schemes")->as_string,
-			loci     => request->uri_for("/db/$db/loci")->as_string,
-		};
+		return [
+			{ records  => $count },
+			{ isolates => request->uri_for("/db/$db/isolates")->as_string },
+			{ fields   => request->uri_for("/db/$db/fields")->as_string },
+			{ schemes  => request->uri_for("/db/$db/schemes")->as_string },
+			{ loci     => request->uri_for("/db/$db/loci")->as_string }
+		];
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 	} else {
 		return { title => 'Database configuration is invalid' };
