@@ -64,8 +64,10 @@ sub drop_connection {
 	my ( $self, $attributes ) = @_;
 	my $host = $attributes->{'host'} || $self->{'system'}->{'host'};
 	return if !$attributes->{'dbase_name'};
-	$self->{'db'}->{"$attributes->{'host'}|$attributes->{'dbase_name'}"}->disconnect
-	  if $self->{'db'}->{"$attributes->{'host'}|$attributes->{'dbase_name'}"};
+	if ($self->{'db'}->{"$attributes->{'host'}|$attributes->{'dbase_name'}"}){
+		$self->_finish_active_statement_handles( $self->{'db'}->{"$attributes->{'host'}|$attributes->{'dbase_name'}"}, 1 );
+		$self->{'db'}->{"$attributes->{'host'}|$attributes->{'dbase_name'}"}->disconnect
+	}
 	undef $self->{'db'}->{"$attributes->{'host'}|$attributes->{'dbase_name'}"};
 	return;
 }

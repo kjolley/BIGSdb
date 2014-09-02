@@ -21,9 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
-use Log::Log4perl qw(get_logger);
 use BIGSdb::Utils;
-my $logger = get_logger('BIGSdb.Rest');
 
 #Isolate database routes
 get '/db/:db/isolates' => sub {
@@ -39,17 +37,7 @@ get '/db/:db/isolates' => sub {
 	my $values = [];
 
 	if (@$ids) {
-		my $paging = [];
-		if ( $page > 1 ) {
-			push @$paging, { first => request->uri_base . "/db/$db/isolates?page=1&page_size=$self->{'page_size'}" };
-			push @$paging, { previous => request->uri_base . "/db/$db/isolates?page=" . ( $page - 1 ) . "&page_size=$self->{'page_size'}" };
-		}
-		if ( $page < $pages ) {
-			push @$paging, { next => request->uri_base . "/db/$db/isolates?page=" . ( $page + 1 ) . "&page_size=$self->{'page_size'}" };
-		}
-		if ( $page != $pages ) {
-			push @$paging, { last => request->uri_base . "/db/$db/isolates?page=$pages&page_size=$self->{'page_size'}" };
-		}
+		my $paging = $self->get_paging( "/db/$db/isolates", $pages, $page );
 		push @$values, { paging => $paging } if $pages > 1;
 		my @links;
 		push @links, request->uri_for("/db/$db/isolates/$_")->as_string foreach @$ids;
