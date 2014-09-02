@@ -27,6 +27,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Application_Initiate');
 use BIGSdb::Utils;
 use BIGSdb::REST::Routes::Isolates;
+use BIGSdb::REST::Routes::Loci;
 use BIGSdb::REST::Routes::Resources;
 use BIGSdb::REST::Routes::Users;
 use constant PAGE_SIZE => 100;
@@ -117,7 +118,6 @@ hook after => sub {
 	my $self = setting('self');
 	$self->{'dataConnector'}->drop_connection( { host => $self->{'system'}->{'host'}, dbase_name => $self->{'system'}->{'db'} } );
 };
-
 sub get_set_id {
 	my ($self) = @_;
 	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
@@ -130,7 +130,7 @@ sub get_set_id {
 #Set view if defined in set.
 sub _initiate_view {
 	my ($self) = @_;
-	return if $self->{'system'}->{'dbtype'} ne 'isolates';
+	return if ($self->{'system'}->{'dbtype'} // '') ne 'isolates';
 	my $set_id = $self->get_set_id;
 	if ( defined $self->{'system'}->{'view'} && $set_id ) {
 		if ( $self->{'system'}->{'views'} && BIGSdb::Utils::is_int($set_id) ) {
@@ -147,5 +147,37 @@ sub get_resources {
 	my $dbases =
 	  $self->{'datastore'}->run_query( "SELECT * FROM resources ORDER BY name", undef, { fetch => 'all_arrayref', slice => {} } );
 	return $dbases;
+}
+
+sub get_paging {
+	my ( $self, $route, $pages, $page ) = @_;
+	my $paging = [];
+	if ( $page > 1 ) {
+		push @$paging, { first => request->uri_base . "$route?page=1&page_size=$self->{'page_size'}" };
+		push @$paging, { previous => request->uri_base . "$route?page=" . ( $page - 1 ) . "&page_size=$self->{'page_size'}" };
+	}
+	if ( $page < $pages ) {
+		push @$paging, { next => request->uri_base . "$route?page=" . ( $page + 1 ) . "&page_size=$self->{'page_size'}" };
+	}
+	if ( $page != $pages ) {
+		push @$paging, { last => request->uri_base . "$route?page=$pages&page_size=$self->{'page_size'}" };
+	}
+	return $paging;
+}
+
+sub clean_locus {
+	my ( $self, $locus ) = @_;
+	return if !defined $locus;
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	my $set_id     = $self->get_set_id;
+	if ($set_id) {
+		my $set_name = $self->{'datastore'}->run_query(
+			"SELECT set_name FROM set_loci WHERE set_id=? AND locus=?",
+			[ $set_id, $locus ],
+			{ fetch => 'row_array', cache => 'clean_locus' }
+		);
+		return $set_name if $set_name;
+	}
+	return $locus;
 }
 1;

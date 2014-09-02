@@ -21,9 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
-use Log::Log4perl qw(get_logger);
 use BIGSdb::Utils;
-my $logger = get_logger('BIGSdb.Rest');
 
 #User routes
 get '/db/:db/users/:user' => sub {
