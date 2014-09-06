@@ -180,7 +180,7 @@ sub _write_tab_text {
 	my ( $self, $qry_ref, $fields, $filename ) = @_;
 	my $q      = $self->{'cgi'};
 	my $set_id = $self->get_set_id;
-	open( my $fh, '>', $filename )
+	open( my $fh, '>:encoding(utf8)', $filename )
 	  or $logger->error("Can't open temp file $filename for writing");
 	if ( $q->param('oneline') ) {
 		print $fh "id\t";
