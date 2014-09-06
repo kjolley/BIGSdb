@@ -1556,7 +1556,7 @@ sub make_temp_file {
 		$filename       = BIGSdb::Utils::get_random() . '.txt';
 		$full_file_path = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
 	} until ( !-e $full_file_path );
-	open( my $fh, '>', $full_file_path ) || $logger->error("Can't open $full_file_path for writing");
+	open( my $fh, '>:encoding(utf8)', $full_file_path ) || $logger->error("Can't open $full_file_path for writing");
 	local $" = "\n";
 	print $fh "@list";
 	close $fh;
@@ -1568,7 +1568,7 @@ sub get_query_from_temp_file {
 	return if !defined $file;
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$file";
 	if ( -e $full_path ) {
-		open( my $fh, '<', $full_path ) || $logger->error("Can't open $full_path for reading");
+		open( my $fh, '<:encoding(utf8)', $full_path ) || $logger->error("Can't open $full_path for reading");
 		my $qry = <$fh>;
 		close $fh;
 		return $qry;
