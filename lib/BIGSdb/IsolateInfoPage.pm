@@ -56,6 +56,7 @@ sub get_javascript {
 \$(function () {
 	\$(document).ajaxComplete(function() {
 		reloadTooltips();
+		\$("span#tree_button").css('display', 'inline');
 		if (\$("span").hasClass('aliases')){
 			\$("span#aliases_button").css('display', 'inline');
 		} else {
@@ -74,6 +75,10 @@ sub get_javascript {
 	});
 	\$( "#show_aliases" ).click(function() {
 		\$( "span.aliases" ).toggle( 'highlight', {} , 500 );
+		return false;
+	});
+	\$( "#show_tree" ).click(function() {
+		\$( "div#tree" ).toggle( 'highlight', {} , 500 );
 		return false;
 	});
 	\$("#provenance").columnize({width:400});
@@ -220,9 +225,11 @@ sub print_content {
 		$self->_print_projects($isolate_id);
 		say "<div class=\"box\" id=\"resultspanel\">";
 		say $self->get_isolate_record($isolate_id);
+		my $tree_button = " <span id=\"tree_button\" style=\"margin-left:1em;display:none\">"
+		  . "<a id=\"show_tree\" class=\"smallbutton\" style=\"cursor:pointer\">&nbsp;show/hide tree&nbsp;</a></span>";
 		my $aliases_button = " <span id=\"aliases_button\" style=\"margin-left:1em;display:none\">"
 		  . "<a id=\"show_aliases\" class=\"smallbutton\" style=\"cursor:pointer\">&nbsp;show/hide locus aliases&nbsp;</a></span>";
-		say "<h2>Schemes and loci$aliases_button</h2>";
+		say "<h2>Schemes and loci$tree_button$aliases_button</h2>";
 		say $self->_get_tree($isolate_id);
 		say "</div>";
 	}
@@ -494,12 +501,12 @@ sub _get_composite_field_rows {
 
 sub _get_tree {
 	my ( $self, $isolate_id ) = @_;
-	my $buffer = qq(<div class="scrollable"><div id="tree" class="scheme_tree" style="float:left">\n);
+	my $buffer = qq(<div class="scrollable"><div id="tree" class="scheme_tree" style="float:left;max-height:initial">\n);
 	$buffer .= qq(<noscript><p class="highlight">Enable Javascript to enhance your viewing experience.</p></noscript>\n);
 	$buffer .= $self->get_tree( $isolate_id, { isolate_display => $self->{'curate'} ? 0 : 1 } );
 	$buffer .= "</div>\n";
 	$buffer .=
-	    qq(<div id="scheme_table" style="float:left">Navigate and select schemes within tree to display allele )
+	    qq(<div id="scheme_table" style="overflow:hidden; min-width:60%">Navigate and select schemes within tree to display allele )
 	  . qq(designations</div><div style="clear:both"></div></div>\n)
 	  if $buffer !~ /No loci available/;
 	return $buffer;
@@ -698,7 +705,7 @@ sub _print_scheme {
 		}
 	}
 	return if !( $locus_display_count + $scheme_fields_count );
-	say "<h3 class=\"scheme\" style=\"clear:both\">$scheme_info->{'description'}</h3>";
+	say qq(<div style="float:left"><h3 class="scheme" style="clear:both">$scheme_info->{'description'}</h3>);
 	my @args = (
 		{
 			loci                => $loci,
@@ -709,6 +716,7 @@ sub _print_scheme {
 		}
 	);
 	$self->_print_scheme_values(@args);
+	say "</div>";
 	return;
 }
 
