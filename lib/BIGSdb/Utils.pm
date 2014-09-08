@@ -341,7 +341,7 @@ sub text2excel {
 	$header_format->set_bold;
 	my $cell_format = $workbook->add_format;
 	$cell_format->set_align('center');
-	open( my $text_fh, '<', $text_file ) || throw BIGSdb::CannotOpenFileException("Can't open $text_file for reading");
+	open( my $text_fh, '<:encoding(utf8)', $text_file ) || throw BIGSdb::CannotOpenFileException("Can't open $text_file for reading");
 	my ( $row, $col ) = ( 0, 0 );
 	my %widths;
 

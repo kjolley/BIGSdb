@@ -1065,4 +1065,11 @@ sub get_scheme_field_values {
 	my @values = sort { $a <=> $b || $a cmp $b } keys %{ $data->{ lc $field } };
 	return \@values;
 }
+
+sub attempted_spam {
+	my ( $self, $str ) = @_;
+	return if !$str || !ref $str;
+	return 1 if $$str =~ /<\s*a\s*href/i;    #Test for HTML links in submitted data
+	return;
+}
 1;

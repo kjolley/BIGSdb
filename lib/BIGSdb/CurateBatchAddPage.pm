@@ -1222,7 +1222,7 @@ sub _upload_data {
 	my @records;
 
 	if ( -e $tmp_file ) {
-		open( my $tmp_fh, '<', $tmp_file ) or $logger->error("Can't open $tmp_file");
+		open( my $tmp_fh, '<:encoding(utf8)', $tmp_file ) or $logger->error("Can't open $tmp_file");
 		@records = <$tmp_fh>;
 		close $tmp_fh;
 	}
