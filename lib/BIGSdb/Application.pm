@@ -27,6 +27,7 @@ use BIGSdb::BatchProfileQueryPage;
 use BIGSdb::BIGSException;
 use BIGSdb::BrowsePage;
 use BIGSdb::ChangePasswordPage;
+use BIGSdb::CombinationQueryPage;
 use BIGSdb::CurateSubmissionExcelPage;
 use BIGSdb::CustomizePage;
 use BIGSdb::Dataconnector;
@@ -50,7 +51,7 @@ use BIGSdb::PluginManager;
 use BIGSdb::Preferences;
 use BIGSdb::ProfileInfoPage;
 use BIGSdb::ProfileQueryPage;
-use BIGSdb::CombinationQueryPage;
+use BIGSdb::ProjectsPage;
 use BIGSdb::PubQueryPage;
 use BIGSdb::QueryPage;
 use BIGSdb::RecordInfoPage;
@@ -194,7 +195,7 @@ sub _initiate {
 	#refdb attribute has been renamed ref_db for consistency with other databases (refdb still works)
 	$self->{'config'}->{'ref_db'} //= $self->{'config'}->{'refdb'};
 	$self->{'config'}->{'ref_db'} = $self->{'system'}->{'ref_db'} if defined $self->{'system'}->{'ref_db'};
-	
+
 	#dbase_job_quota attribute has been renamed job_quota for consistency (dbase_job_quota still works)
 	$self->{'system'}->{'job_quota'} //= $self->{'system'}->{'dbase_job_quota'};
 	return;
@@ -387,39 +388,40 @@ sub print_page {
 	my $set_options = 0;
 	my $cookies;
 	my %classes = (
-		index              => 'IndexPage',
-		browse             => 'BrowsePage',
-		query              => ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage' ),
-		pubquery           => 'PubQueryPage',
-		listQuery          => 'ListQueryPage',
-		info               => 'IsolateInfoPage',
-		tableQuery         => 'TableQueryPage',
-		options            => 'OptionsPage',
-		profiles           => 'CombinationQueryPage',
+		alleleInfo         => 'AlleleInfoPage',
+		alleleQuery        => 'AlleleQueryPage',
+		alleleSequence     => 'AlleleSequencePage',
 		batchProfiles      => 'BatchProfileQueryPage',
-		sequenceQuery      => 'SequenceQueryPage',
 		batchSequenceQuery => 'SequenceQueryPage',
-		sequenceTranslate  => 'SequenceTranslatePage',
+		browse             => 'BrowsePage',
+		changePassword     => 'ChangePasswordPage',
 		customize          => 'CustomizePage',
-		recordInfo         => 'RecordInfoPage',
-		version            => 'VersionPage',
-		plugin             => 'Plugin',
-		profileInfo        => 'ProfileInfoPage',
 		downloadAlleles    => 'DownloadAllelesPage',
 		downloadProfiles   => 'DownloadProfilesPage',
 		downloadSeqbin     => 'DownloadSeqbinPage',
-		seqbin             => 'SeqbinPage',
 		embl               => 'SeqbinToEMBL',
-		alleleSequence     => 'AlleleSequencePage',
-		changePassword     => 'ChangePasswordPage',
-		alleleInfo         => 'AlleleInfoPage',
-		fieldValues        => 'FieldHelpPage',
+		excelTemplate      => 'CurateSubmissionExcelPage',
 		extractedSequence  => 'ExtractedSequencePage',
-		alleleQuery        => 'AlleleQueryPage',
-		locusInfo          => 'LocusInfoPage',
+		fieldValues        => 'FieldHelpPage',
+		index              => 'IndexPage',
+		info               => 'IsolateInfoPage',
 		job                => 'JobViewerPage',
 		jobs               => 'JobsListPage',
-		excelTemplate      => 'CurateSubmissionExcelPage'
+		listQuery          => 'ListQueryPage',
+		locusInfo          => 'LocusInfoPage',
+		options            => 'OptionsPage',
+		pubquery           => 'PubQueryPage',
+		query              => ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage' ),
+		plugin             => 'Plugin',
+		profileInfo        => 'ProfileInfoPage',
+		profiles           => 'CombinationQueryPage',
+		projects           => 'ProjectsPage',
+		recordInfo         => 'RecordInfoPage',
+		seqbin             => 'SeqbinPage',
+		sequenceQuery      => 'SequenceQueryPage',
+		sequenceTranslate  => 'SequenceTranslatePage',
+		tableQuery         => 'TableQueryPage',
+		version            => 'VersionPage'
 	);
 	my $page;
 	my %page_attributes = (
@@ -443,7 +445,6 @@ sub print_page {
 	);
 	my $continue = 1;
 	my $auth_cookies_ref;
-
 	if ( $self->{'error'} ) {
 		$page_attributes{'error'} = $self->{'error'};
 		$page = BIGSdb::ErrorPage->new(%page_attributes);

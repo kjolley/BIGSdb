@@ -1499,9 +1499,9 @@ sub get_projects_table_attributes {
 			  . 'to be entered).'
 		},
 		{
-			name    => 'selectable_view',
+			name    => 'list',
 			type    => 'bool',
-			tooltip => 'selectable view - Select to enable selection of project as a specific database view on contents page.'
+			tooltip => 'list - Select to include in list of projects linked from the contents page.'
 		},
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' }
