@@ -229,8 +229,20 @@ sub print_content {
 		  . "<a id=\"show_tree\" class=\"smallbutton\" style=\"cursor:pointer\">&nbsp;show/hide tree&nbsp;</a></span>";
 		my $aliases_button = " <span id=\"aliases_button\" style=\"margin-left:1em;display:none\">"
 		  . "<a id=\"show_aliases\" class=\"smallbutton\" style=\"cursor:pointer\">&nbsp;show/hide locus aliases&nbsp;</a></span>";
-		say "<h2>Schemes and loci$tree_button$aliases_button</h2>";
-		say $self->_get_tree($isolate_id);
+		my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
+		if (@$loci) {
+			say "<h2>Schemes and loci$tree_button$aliases_button</h2>";
+			if ( @$scheme_data < 3 && @$loci <= 100 ) {
+				my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
+				foreach ( @$schemes, 0 ) {
+					next if $_ && !$self->{'prefs'}->{'isolate_display_schemes'}->{$_};
+					$self->_print_scheme( $_, $isolate_id, $self->{'curate'} );
+					say qq(<div style="clear:both"></div>);
+				}
+			} else {
+				say $self->_get_tree($isolate_id);
+			}
+		}
 		say "</div>";
 	}
 	return;
@@ -241,8 +253,7 @@ sub _print_action_panel {
 	my $q = $self->{'cgi'};
 	say qq(<div class="box" id="resultsheader"><div class="scrollable">);
 	my %titles =
-	  ( isolateDelete => 'Delete record', isolateUpdate => 'Update record', batchAddSeqbin => 'Sequence bin', newVersion => 'New version' )
-	  ;
+	  ( isolateDelete => 'Delete record', isolateUpdate => 'Update record', batchAddSeqbin => 'Sequence bin', newVersion => 'New version' );
 	my %labels = ( isolateDelete => 'Delete', isolateUpdate => 'Update', batchAddSeqbin => 'Upload contigs', newVersion => 'Create' );
 	$q->param( isolate_id => $isolate_id );
 	foreach my $action (qw (isolateDelete isolateUpdate batchAddSeqbin newVersion)) {
