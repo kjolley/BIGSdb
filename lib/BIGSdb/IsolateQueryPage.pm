@@ -52,7 +52,7 @@ sub _ajax_content {
 
 sub get_help_url {
 	my ($self) = @_;
-	if ($self->{'curate'}){
+	if ( $self->{'curate'} ) {
 		return "$self->{'config'}->{'doclink'}/curator_guide.html#updating-and-deleting-single-isolate-records";
 	} else {
 		return "$self->{'config'}->{'doclink'}/data_query.html#querying-isolate-data";
@@ -273,7 +273,9 @@ sub _print_filter_fieldset {
 					push @$dropdownlist, @$list;
 				} else {
 					my $list =
-					  $self->{'datastore'}->run_list_query("SELECT DISTINCT($field) FROM $self->{'system'}->{'view'} ORDER BY $field");
+					  $self->{'datastore'}
+					  ->run_query( "SELECT DISTINCT($field) FROM $self->{'system'}->{'view'} WHERE $field IS NOT NULL ORDER BY $field",
+						undef, { fetch => 'col_arrayref' } );
 					push @$dropdownlist, @$list;
 				}
 				my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
@@ -289,7 +291,7 @@ sub _print_filter_fieldset {
 						  . "isolates that match the selected $display_field.",
 						capitalize_first => 1
 					}
-				  );
+				  ) if @$dropdownlist;
 			}
 		}
 		my $extatt = $extended->{$field};
