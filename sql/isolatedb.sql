@@ -191,6 +191,8 @@ CREATE TABLE projects (
 id integer NOT NULL,
 short_description text NOT NULL,
 full_description text,
+isolate_display boolean,
+selectable_view boolean,
 curator integer NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY (id),

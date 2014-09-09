@@ -1032,7 +1032,7 @@ sub _get_seqbin_link {
 sub _print_projects {
 	my ( $self, $isolate_id ) = @_;
 	my $projects = $self->{'datastore'}->run_query(
-		"SELECT * FROM projects WHERE full_description IS NOT NULL AND id IN (SELECT project_id FROM project_members "
+		"SELECT * FROM projects WHERE full_description IS NOT NULL AND isolate_display AND id IN (SELECT project_id FROM project_members "
 		  . "WHERE isolate_id=?) ORDER BY id",
 		$isolate_id,
 		{ fetch => 'all_arrayref', slice => {} }
