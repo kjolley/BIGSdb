@@ -25,8 +25,9 @@ use Log::Log4perl qw(get_logger);
 use Error qw(:try);
 use List::MoreUtils qw(any none);
 my $logger = get_logger('BIGSdb.Page');
-use constant ISOLATE_SUMMARY => 1;
-use constant LOCUS_SUMMARY   => 2;
+use constant ISOLATE_SUMMARY       => 1;
+use constant LOCUS_SUMMARY         => 2;
+use constant SCHEME_VALUES_PRESENT => 3;
 
 sub set_pref_requirements {
 	my ($self) = @_;
@@ -225,19 +226,25 @@ sub print_content {
 		$self->_print_projects($isolate_id);
 		say "<div class=\"box\" id=\"resultspanel\">";
 		say $self->get_isolate_record($isolate_id);
-		my $tree_button = " <span id=\"tree_button\" style=\"margin-left:1em;display:none\">"
-		  . "<a id=\"show_tree\" class=\"smallbutton\" style=\"cursor:pointer\">&nbsp;show/hide tree&nbsp;</a></span>";
-		my $aliases_button = " <span id=\"aliases_button\" style=\"margin-left:1em;display:none\">"
-		  . "<a id=\"show_aliases\" class=\"smallbutton\" style=\"cursor:pointer\">&nbsp;show/hide locus aliases&nbsp;</a></span>";
+		my $tree_button = qq( <span id="tree_button" style="margin-left:1em;display:none">)
+		  . qq(<a id="show_tree" class="smallbutton" style="cursor:pointer">&nbsp;show/hide tree&nbsp;</a></span>);
+		my $aliases_button = qq( <span id="aliases_button" style="margin-left:1em;display:none">)
+		  . qq(<a id="show_aliases" class="smallbutton" style="cursor:pointer">&nbsp;show/hide locus aliases&nbsp;</a></span>);
 		my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
 		if (@$loci) {
 			say "<h2>Schemes and loci$tree_button$aliases_button</h2>";
 			if ( @$scheme_data < 3 && @$loci <= 100 ) {
 				my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
+				my $values_present;
 				foreach ( @$schemes, 0 ) {
 					next if $_ && !$self->{'prefs'}->{'isolate_display_schemes'}->{$_};
-					$self->_print_scheme( $_, $isolate_id, $self->{'curate'} );
-					say qq(<div style="clear:both"></div>);
+					if ( $self->_print_scheme( $_, $isolate_id, $self->{'curate'} ) ) {
+						say qq(<div style="clear:both"></div>);
+						$values_present = 1;
+					}
+				}
+				if ( !$values_present ) {
+					say "<p>No alleles designated.</p>";
 				}
 			} else {
 				say $self->_get_tree($isolate_id);
@@ -728,7 +735,7 @@ sub _print_scheme {
 	);
 	$self->_print_scheme_values(@args);
 	say "</div>";
-	return;
+	return SCHEME_VALUES_PRESENT;
 }
 
 sub _print_scheme_values {
@@ -765,7 +772,7 @@ sub _get_locus_value {
 	my $buffer        = qq(<dl class="profile"><dt>$cleaned);
 	my $locus_info    = $self->{'datastore'}->get_locus_info($locus);
 	my $locus_aliases = $self->{'datastore'}->get_locus_aliases($locus);
-	local $" = ';nbsp';
+	local $" = ';&nbsp;';
 	my $alias_display = $self->{'prefs'}->{'locus_alias'} ? 'inline' : 'none';
 	$buffer .= qq(&nbsp;<span class="aliases" style="display:$alias_display">(@$locus_aliases)</span>) if @$locus_aliases;
 
