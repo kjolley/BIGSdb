@@ -66,19 +66,47 @@ sub get_javascript {
 	});
 	\$( "#hidden_references" ).css('display', 'none');
 	\$( "#show_refs" ).click(function() {
+		if (\$("span#show_refs_text").css('display') == 'none'){
+			\$("span#show_refs_text").css('display', 'inline');
+			\$("span#hide_refs_text").css('display', 'none');
+		} else {
+			\$("span#show_refs_text").css('display', 'none');
+			\$("span#hide_refs_text").css('display', 'inline');
+		}
 		\$( "#hidden_references" ).toggle( 'blind', {} , 500 );
 		return false;
 	});
 	\$( "#sample_table" ).css('display', 'none');
 	\$( "#show_samples" ).click(function() {
+		if (\$("span#show_samples_text").css('display') == 'none'){
+			\$("span#show_samples_text").css('display', 'inline');
+			\$("span#hide_samples_text").css('display', 'none');
+		} else {
+			\$("span#show_samples_text").css('display', 'none');
+			\$("span#hide_samples_text").css('display', 'inline');
+		}
 		\$( "#sample_table" ).toggle( 'blind', {} , 500 );
 		return false;
 	});
 	\$( "#show_aliases" ).click(function() {
+		if (\$("span#show_aliases_text").css('display') == 'none'){
+			\$("span#show_aliases_text").css('display', 'inline');
+			\$("span#hide_aliases_text").css('display', 'none');
+		} else {
+			\$("span#show_aliases_text").css('display', 'none');
+			\$("span#hide_aliases_text").css('display', 'inline');
+		}
 		\$( "span.aliases" ).toggle( 'highlight', {} , 500 );
 		return false;
 	});
-	\$( "#show_tree" ).click(function() {
+	\$( "#show_tree" ).click(function() {		
+		if (\$("span#show_tree_text").css('display') == 'none'){
+			\$("span#show_tree_text").css('display', 'inline');
+			\$("span#hide_tree_text").css('display', 'none');
+		} else {
+			\$("span#show_tree_text").css('display', 'none');
+			\$("span#hide_tree_text").css('display', 'inline');
+		}
 		\$( "div#tree" ).toggle( 'highlight', {} , 500 );
 		return false;
 	});
@@ -226,11 +254,18 @@ sub print_content {
 		$self->_print_projects($isolate_id);
 		say "<div class=\"box\" id=\"resultspanel\">";
 		say $self->get_isolate_record($isolate_id);
-		my $tree_button = qq( <span id="tree_button" style="margin-left:1em;display:none">)
-		  . qq(<a id="show_tree" class="smallbutton" style="cursor:pointer">show/hide tree</a></span>);
-		my $aliases_button = qq( <span id="aliases_button" style="margin-left:1em;display:none">)
-		  . qq(<a id="show_aliases" class="smallbutton" style="cursor:pointer">show/hide locus aliases</a></span>);
+		my $tree_button =
+		    qq( <span id="tree_button" style="margin-left:1em;display:none">)
+		  . qq(<a id="show_tree" class="smallbutton" style="cursor:pointer"><span id="show_tree_text" style="display:none">show</span>)
+		  . qq(<span id="hide_tree_text" style="display:inline">hide</span> tree</a></span>);
+		my $show_aliases = $self->{'prefs'}->{'locus_alias'} ? 'none'   : 'inline';
+		my $hide_aliases = $self->{'prefs'}->{'locus_alias'} ? 'inline' : 'none';
+		my $aliases_button =
+		    qq( <span id="aliases_button" style="margin-left:1em;display:none">)
+		  . qq(<a id="show_aliases" class="smallbutton" style="cursor:pointer"><span id="show_aliases_text" style="display:$show_aliases">)
+		  . qq(show</span><span id="hide_aliases_text" style="display:$hide_aliases">hide</span> locus aliases</a></span>);
 		my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
+
 		if (@$loci) {
 			say "<h2>Schemes and loci$tree_button$aliases_button</h2>";
 			if ( @$scheme_data < 3 && @$loci <= 100 ) {
@@ -364,11 +399,11 @@ sub _get_provenance_fields {
 		$displayfield .= " <span class=\"metaset\">Metadata: $metaset</span>" if !$set_id && defined $metaset;
 		$displayfield =~ tr/_/ /;
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-		next if ($thisfield->{'curate_only'} // '') eq 'yes' && !$self->{'curate'};
+		next if ( $thisfield->{'curate_only'} // '' ) eq 'yes' && !$self->{'curate'};
 		my $web;
 		my $value = $data->{ lc($field) };
-		if ( !defined $value ) {
 
+		if ( !defined $value ) {
 			if ( $composites{$field} ) {
 				$buffer .= $self->_get_composite_field_rows( $isolate_id, $data, $field, \%composite_display_pos );
 			}
@@ -537,13 +572,17 @@ sub get_sample_summary {
 	my ($sample_buffer) = $self->_get_samples($id);
 	my $buffer = '';
 	if ($sample_buffer) {
-		my $display = $options->{'hide'} ? 'none' : 'block';
+		my $display      = $options->{'hide'} ? 'none'   : 'inline';
+		my $show_samples = $options->{'hide'} ? 'inline' : 'none';
+		my $hide_samples = $options->{'hide'} ? 'none'   : 'inline';
 		if ( $options->{'hide'} ) {
 			$buffer .= "<h2>Samples";
-			$buffer .= "<span style=\"margin-left:1em\"><a id=\"show_samples\" class=\"smallbutton\" style=\"cursor:pointer;display:none\">"
-			  . "&nbsp;show/hide&nbsp;</a></span></h2>\n";
+			$buffer .=
+			    qq(<span style="margin-left:1em"><a id="show_samples" class="smallbutton" style="cursor:pointer;display:none">)
+			  . qq(<span id="show_samples_text" style="display:$show_samples">show</span>)
+			  . qq(<span id="hide_samples_text" style="display:$hide_samples">hide</span></a></span></h2>\n);
 		}
-		$buffer .= "<table class=\"resultstable\" id=\"sample_table\">\n";
+		$buffer .= qq(<table class="resultstable" id="sample_table">\n);
 		$buffer .= $sample_buffer;
 		$buffer .= "</table>\n";
 	}
@@ -976,7 +1015,8 @@ sub get_refs {
 		my $display = @$pmids > 4 ? 'none' : 'block';
 		$buffer .=
 		    qq(<span style="margin-left:1em"><a id="show_refs" class="smallbutton" style="cursor:pointer">)
-		  . qq(&nbsp;show/hide&nbsp;</a></span>)
+		  . qq(<span id="show_refs_text" style="display:inline">show</span><span id="hide_refs_text" style="display:none">hide</span></a>)
+		  . qq(</span>)
 		  if $display eq 'none';
 		$buffer .= "</h2>\n";
 		my $id = $display eq 'none' ? 'hidden_references' : 'references';
