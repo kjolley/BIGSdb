@@ -896,13 +896,32 @@ div.scheme_tree {
 }
 
 h3.scheme {
+	clear:both;
+	margin-bottom:0.2em;
 	text-align:center;
 	background: #404080;
 	color:white;
 	border-radius:30px;
-	padding: 0 1em;
+	padding: 0 0.2em;
 }
 
+h3.group {
+	clear:both;
+	margin-bottom:-0.8em;
+	text-align:center;
+	background:#BFFFBF;
+	color:black;
+	border-radius:30px;
+	padding: 0 0.2em;	
+}
+
+h3.group0 {color:white;background:#002000}
+h3.group1 {color:white;background:#004000}
+h3.group2 {color:white;background:#206000}
+h3.group3 {color:white;background:#408040}
+h3.group4 {color:white;background:#60A060}
+h3.group5 {background:#80C080}
+h3.group6 {background:#A0E0A0}
 
 @media (max-width: 800px) {
 	div#scheme_loci_add {float:left}

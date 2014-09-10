@@ -25,9 +25,8 @@ use Log::Log4perl qw(get_logger);
 use Error qw(:try);
 use List::MoreUtils qw(any none);
 my $logger = get_logger('BIGSdb.Page');
-use constant ISOLATE_SUMMARY       => 1;
-use constant LOCUS_SUMMARY         => 2;
-use constant SCHEME_VALUES_PRESENT => 3;
+use constant ISOLATE_SUMMARY => 1;
+use constant LOCUS_SUMMARY   => 2;
 
 sub set_pref_requirements {
 	my ($self) = @_;
@@ -124,44 +123,77 @@ END
 }
 
 sub _get_child_group_scheme_tables {
-	my ( $self, $id, $isolate_id, $level ) = @_;
-	my $child_groups = $self->{'datastore'}->run_list_query(
-		"SELECT id FROM scheme_groups LEFT JOIN scheme_group_group_members ON "
-		  . "scheme_groups.id=group_id WHERE parent_group_id=? ORDER BY display_order",
-		$id
+	my ( $self, $group_id, $isolate_id, $level ) = @_;
+	$self->{'level'}     //= 1;
+	$self->{'open_divs'} //= 0;
+	my $child_groups = $self->{'datastore'}->run_query(
+		"SELECT id FROM scheme_groups LEFT JOIN scheme_group_group_members ON scheme_groups.id=group_id WHERE parent_group_id=? ORDER BY "
+		  . "display_order,name",
+		$group_id,
+		{ fetch => 'col_arrayref', cache => 'IsolateInfoPage::_get_child_group_scheme_tables' }
 	);
-	my $buffer;
-	if (@$child_groups) {
-		foreach (@$child_groups) {
-			my $group_info = $self->{'datastore'}->get_scheme_group_info($_);
-			my $new_level  = $level;
-			last if $new_level == 10;    #prevent runaway if child is set as the parent of a parental group
-			my $field_buffer = $self->_get_group_scheme_tables( $_, $isolate_id );
-			$buffer .= $field_buffer if $field_buffer;
-			$field_buffer = $self->_get_child_group_scheme_tables( $_, $isolate_id, ++$new_level );
-			$buffer .= $field_buffer if $field_buffer;
+	my $parent_buffer;
+	my $parent_group_info = $self->{'datastore'}->get_scheme_group_info($group_id);
+	if ( $self->{'groups_with_data'}->{$group_id} ) {
+		my $parent_level = $level - 1;
+		if ( $self->{'open_divs'} > $parent_level ) {
+			my $divs_to_close = $self->{'open_divs'} - $parent_level;
+			for ( 0 .. $divs_to_close ) {
+				$parent_buffer .= '</div>';
+				$self->{'open_divs'}--;
+			}
 		}
+		$parent_buffer .=
+		  qq(<div style="float:left;padding-right:0.5em"><h3 class="group group$parent_level">$parent_group_info->{'name'}</h3>);
+		$self->{'open_divs'}++;
 	}
-	return $buffer;
+	my $group_buffer = '';
+	if (@$child_groups) {
+		foreach my $child_group (@$child_groups) {
+			if ( $self->{'groups_with_data'}->{$child_group} ) {
+				my $group_info = $self->{'datastore'}->get_scheme_group_info($child_group);
+				my $new_level  = $level;
+				last if $new_level == 10;    #prevent runaway if child is set as the parent of a parental group
+				if ( $new_level == $self->{'level'} ) {
+					$group_buffer .= '</div>';
+					$self->{'open_divs'}--;
+				}
+				my $buffer = $self->_get_child_group_scheme_tables( $child_group, $isolate_id, ++$new_level );
+				$buffer .= $self->_get_group_scheme_tables( $child_group, $isolate_id );
+				$self->{'level'} = $level;
+				$group_buffer .= $parent_buffer if $parent_buffer;
+				undef $parent_buffer;
+				if ($buffer) {
+					$group_buffer .= $buffer;
+				}
+			}
+		}
+	} else {
+		my $buffer = $self->_get_group_scheme_tables( $group_id, $isolate_id );
+		$group_buffer .= $parent_buffer if $parent_buffer;
+		$group_buffer .= $buffer;
+	}
+	return $group_buffer;
 }
 
 sub _get_group_scheme_tables {
-	my ( $self, $id, $isolate_id ) = @_;
+	my ( $self, $group_id, $isolate_id ) = @_;
 	my $set_id = $self->get_set_id;
 	my $scheme_data = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
-	my $schemes = $self->{'datastore'}->run_list_query(
-		"SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON "
-		  . "schemes.id=scheme_id WHERE group_id=? ORDER BY display_order",
-		$id
+	my $schemes = $self->{'datastore'}->run_query(
+		"SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON schemes.id=scheme_id WHERE group_id=? ORDER BY "
+		  . "display_order,description",
+		$group_id,
+		{ fetch => 'col_arrayref', cache => 'IsolateInfoPage::_get_group_scheme_tables' }
 	);
-	my $buffer;
+	my $buffer = '';
 	if (@$schemes) {
 		foreach my $scheme_id (@$schemes) {
 			next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};
 			next if none { $scheme_id eq $_ } @$scheme_ids_ref;
 			if ( !$self->{'scheme_shown'}->{$scheme_id} ) {
-				$self->_print_scheme( $scheme_id, $isolate_id, $self->{'curate'} );
+				$buffer .= $self->_get_scheme( $scheme_id, $isolate_id, $self->{'curate'} );
 				$self->{'scheme_shown'}->{$scheme_id} = 1;
 			}
 		}
@@ -175,38 +207,25 @@ sub print_content {
 	my $isolate_id = $q->param('id');
 	my $set_id     = $self->get_set_id;
 	my $scheme_data = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-	my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
 	if ( defined $q->param('group_id') && BIGSdb::Utils::is_int( $q->param('group_id') ) ) {
+		$self->{'groups_with_data'} = $self->get_tree( $isolate_id, { isolate_display => $self->{'curate'} ? 0 : 1, get_groups => 1 } );
 		my $group_id = $q->param('group_id');
 		my $scheme_ids;
-		my ($table_buffer);
-		if ( $group_id == 0 ) {
-			$scheme_ids =
-			  $self->{'datastore'}->run_list_query(
-				"SELECT id FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) ORDER BY display_order");
-			foreach my $scheme_id (@$scheme_ids) {
-				next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};
-				next if none { $scheme_id eq $_ } @$scheme_ids_ref;
-				my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
-				$self->_print_scheme( $scheme_id, $isolate_id, $self->{'curate'} );
-			}
-		} else {
-			$table_buffer = $self->_get_group_scheme_tables( $group_id, $isolate_id );
-			say $table_buffer if $table_buffer;
-			$table_buffer = $self->_get_child_group_scheme_tables( $group_id, $isolate_id, 1 );
-			say $table_buffer if $table_buffer;
+		if ( $group_id == 0 ) {    #Other schemes (not part of a scheme group)
+			$self->_print_other_schemes($isolate_id);
+		} else {                   #Scheme group
+			say $self->_get_child_group_scheme_tables( $group_id, $isolate_id, 1 );
+			say $self->_get_group_scheme_tables( $group_id, $isolate_id );
+			$self->_close_divs;
 		}
 		return;
 	} elsif ( defined $q->param('scheme_id') && BIGSdb::Utils::is_int( $q->param('scheme_id') ) ) {
 		my $scheme_id = $q->param('scheme_id');
-		if ( $scheme_id == -1 ) {
-			my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
-			foreach ( @$schemes, 0 ) {
-				next if $_ && !$self->{'prefs'}->{'isolate_display_schemes'}->{$_};
-				$self->_print_scheme( $_, $isolate_id, $self->{'curate'} );
-			}
+		if ( $scheme_id == -1 ) {    #All schemes/loci
+			$self->{'groups_with_data'} = $self->get_tree( $isolate_id, { isolate_display => $self->{'curate'} ? 0 : 1, get_groups => 1 } );
+			$self->_print_all_loci($isolate_id);
 		} else {
-			$self->_print_scheme( $scheme_id, $isolate_id, $self->{'curate'} );
+			say $self->_get_scheme( $scheme_id, $isolate_id, $self->{'curate'} );
 		}
 		return;
 	}
@@ -273,7 +292,9 @@ sub print_content {
 				my $values_present;
 				foreach ( @$schemes, 0 ) {
 					next if $_ && !$self->{'prefs'}->{'isolate_display_schemes'}->{$_};
-					if ( $self->_print_scheme( $_, $isolate_id, $self->{'curate'} ) ) {
+					my $buffer = $self->_get_scheme( $_, $isolate_id, $self->{'curate'} );
+					if ($buffer) {
+						say $buffer;
 						say qq(<div style="clear:both"></div>);
 						$values_present = 1;
 					}
@@ -286,6 +307,55 @@ sub print_content {
 			}
 		}
 		say "</div>";
+	}
+	return;
+}
+
+sub _close_divs {
+	my ($self) = @_;
+	if ( $self->{'open_divs'} ) {
+		for ( 0 .. $self->{'open_divs'} ) {
+			say '</div>';
+		}
+		$self->{'open_divs'} = 0;
+	}
+	return;
+}
+
+sub _print_other_schemes {
+	my ( $self, $isolate_id ) = @_;
+	my $scheme_ids =
+	  $self->{'datastore'}->run_list_query(
+		"SELECT id FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) ORDER BY display_order,description");
+	foreach my $scheme_id (@$scheme_ids) {
+		next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};
+		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+		say $self->_get_scheme( $scheme_id, $isolate_id, $self->{'curate'} );
+	}
+	return;
+}
+
+sub _print_all_loci {
+	my ( $self, $isolate_id ) = @_;
+	my $groups_with_no_parents =
+	  $self->{'datastore'}->run_query(
+		"SELECT id FROM scheme_groups WHERE id NOT IN (SELECT group_id FROM scheme_group_group_members) ORDER BY display_order,name",
+		undef, { fetch => 'col_arrayref' } );
+	foreach my $group_id (@$groups_with_no_parents) {
+		say $self->_get_child_group_scheme_tables( $group_id, $isolate_id, 1 );
+		say $self->_get_group_scheme_tables( $group_id, $isolate_id );
+		$self->_close_divs;
+	}
+	if ( $self->{'groups_with_data'}->{0} ) {    #Schemes not in groups
+		say qq(<div style="float:left;padding-right:0.5em"><h3 class="group group0">Other schemes</h3>);
+		$self->_print_other_schemes($isolate_id);
+		say '</div>';
+	}
+	my $no_scheme_data =  $self->_get_scheme( 0, $isolate_id, $self->{'curate'} );
+	if ($no_scheme_data){	#Loci not in schemes
+		say qq(<div style="float:left;padding-right:0.5em"><h3 class="group group0">Miscellaneous loci</h3>);
+		say $no_scheme_data;
+		say '</div>';
 	}
 	return;
 }
@@ -520,10 +590,7 @@ sub _get_provenance_fields {
 			}
 		}
 		if ( $field eq $self->{'system'}->{'labelfield'} ) {
-
-			#TODO Use Datastore::get_isolate_aliases instead
-			my $aliases =
-			  $self->{'datastore'}->run_list_query( "SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias", $isolate_id );
+			my $aliases = $self->{'datastore'}->get_isolate_aliases($isolate_id);
 			if (@$aliases) {
 				local $" = '; ';
 				my $plural = @$aliases > 1 ? 'es' : '';
@@ -734,15 +801,16 @@ sub _get_scheme_field_values {
 	return \%values;
 }
 
-sub _print_scheme {
+sub _get_scheme {
 	my ( $self, $scheme_id, $isolate_id, $summary_view ) = @_;
 	my $q = $self->{'cgi'};
 	my ( $locus_display_count, $scheme_fields_count ) = ( 0, 0 );
 	my ( $loci, $scheme_fields, $scheme_info );
 	my $set_id = $self->get_set_id;
+	my $buffer = '';
 	if ($scheme_id) {
 		my $should_display = $self->_should_display_scheme( $isolate_id, $scheme_id, $summary_view );
-		return if !$should_display;
+		return '' if !$should_display;
 		$scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 		$loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		foreach (@$loci) {
@@ -762,9 +830,8 @@ sub _print_scheme {
 			$scheme_info->{'description'} = 'Loci not in schemes';
 		}
 	}
-	return if !( $locus_display_count + $scheme_fields_count );
-	say qq(<div style="float:left;padding-right:0.5em"><h3 class="scheme" style="clear:both;margin-bottom:0.2em">)
-	  . qq($scheme_info->{'description'}</h3>);
+	return '' if !( $locus_display_count + $scheme_fields_count );
+	$buffer .= qq(<div style="float:left;padding-right:0.5em"><h3 class="scheme">$scheme_info->{'description'}</h3>);
 	my @args = (
 		{
 			loci                => $loci,
@@ -774,12 +841,12 @@ sub _print_scheme {
 			isolate_id          => $isolate_id
 		}
 	);
-	$self->_print_scheme_values(@args);
-	say "</div>";
-	return SCHEME_VALUES_PRESENT;
+	$buffer .= $self->_get_scheme_values(@args);
+	$buffer .= "</div>";
+	return $buffer;
 }
 
-sub _print_scheme_values {
+sub _get_scheme_values {
 	my ( $self, $args ) = @_;
 	my ( $isolate_id, $loci, $scheme_id, $scheme_fields_count, $summary_view ) =
 	  @{$args}{qw ( isolate_id loci scheme_id scheme_fields_count summary_view )};
@@ -787,23 +854,24 @@ sub _print_scheme_values {
 	my $allele_designations = $self->{'datastore'}->get_scheme_allele_designations( $isolate_id, $scheme_id, { set_id => $set_id } );
 	my $scheme_fields       = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	local $| = 1;
+	my $buffer;
 	foreach my $locus (@$loci) {
 		my $designations = $allele_designations->{$locus};
 		next if $self->{'prefs'}->{'isolate_display_loci'}->{$locus} eq 'hide';
-		say $self->_get_locus_value(
+		$buffer .= $self->_get_locus_value(
 			{ isolate_id => $isolate_id, locus => $locus, designations => $designations, summary_view => $summary_view } );
 	}
 	my $field_values = $scheme_fields_count ? $self->_get_scheme_field_values( $scheme_id, $allele_designations ) : undef;
 	foreach my $field (@$scheme_fields) {
 		next if !$self->{'prefs'}->{'isolate_display_scheme_fields'}->{$scheme_id}->{$field};
 		( my $cleaned = $field ) =~ tr/_/ /;
-		say "<dl class=\"profile\">";
-		say "<dt>$cleaned</dt><dd>";
+		$buffer .= "<dl class=\"profile\">";
+		$buffer .= "<dt>$cleaned</dt><dd>";
 		local $" = ', ';
-		print "@{$field_values->{$field}}" // '-';
-		say "</dd></dl>";
+		$buffer .= "@{$field_values->{$field}}" // '-';
+		$buffer .= "</dd></dl>";
 	}
-	return;
+	return $buffer;
 }
 
 sub _get_locus_value {
