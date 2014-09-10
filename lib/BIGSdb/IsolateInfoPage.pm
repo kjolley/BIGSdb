@@ -364,6 +364,7 @@ sub _get_provenance_fields {
 		$displayfield .= " <span class=\"metaset\">Metadata: $metaset</span>" if !$set_id && defined $metaset;
 		$displayfield =~ tr/_/ /;
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+		next if ($thisfield->{'curate_only'} // '') eq 'yes' && !$self->{'curate'};
 		my $web;
 		my $value = $data->{ lc($field) };
 		if ( !defined $value ) {
