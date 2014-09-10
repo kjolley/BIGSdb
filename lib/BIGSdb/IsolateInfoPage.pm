@@ -227,9 +227,9 @@ sub print_content {
 		say "<div class=\"box\" id=\"resultspanel\">";
 		say $self->get_isolate_record($isolate_id);
 		my $tree_button = qq( <span id="tree_button" style="margin-left:1em;display:none">)
-		  . qq(<a id="show_tree" class="smallbutton" style="cursor:pointer">&nbsp;show/hide tree&nbsp;</a></span>);
+		  . qq(<a id="show_tree" class="smallbutton" style="cursor:pointer">show/hide tree</a></span>);
 		my $aliases_button = qq( <span id="aliases_button" style="margin-left:1em;display:none">)
-		  . qq(<a id="show_aliases" class="smallbutton" style="cursor:pointer">&nbsp;show/hide locus aliases&nbsp;</a></span>);
+		  . qq(<a id="show_aliases" class="smallbutton" style="cursor:pointer">show/hide locus aliases</a></span>);
 		my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
 		if (@$loci) {
 			say "<h2>Schemes and loci$tree_button$aliases_button</h2>";
@@ -723,7 +723,8 @@ sub _print_scheme {
 		}
 	}
 	return if !( $locus_display_count + $scheme_fields_count );
-	say qq(<div style="float:left"><h3 class="scheme" style="clear:both">$scheme_info->{'description'}</h3>);
+	say qq(<div style="float:left;padding-right:0.5em"><h3 class="scheme" style="clear:both;margin-bottom:0.2em">)
+	  . qq($scheme_info->{'description'}</h3>);
 	my @args = (
 		{
 			loci                => $loci,
