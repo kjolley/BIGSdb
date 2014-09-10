@@ -364,12 +364,12 @@ sub get_title     { return 'BIGSdb' }
 sub print_content { }
 
 sub print_set_section {
-	my ($self)   = @_;
-	my $q        = $self->{'cgi'};
-	my $set_id   = $self->get_set_id;
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $set_id = $self->get_set_id;
 	return if $self->{'system'}->{'set_id'} && BIGSdb::Utils::is_int( $self->{'system'}->{'set_id'} );
 	my $guid = $self->get_guid;
-	return if !$guid;                                             #Cookies disabled
+	return if !$guid;    #Cookies disabled
 	my $sets =
 	  $self->{'datastore'}
 	  ->run_list_query_hashref("SELECT * FROM sets WHERE NOT hidden OR hidden IS NULL ORDER BY display_order,description");
@@ -1885,13 +1885,14 @@ sub _initiate_isolatedb_prefs {
 		if ( $self->{'pref_requirements'}->{'general'} ) {
 
 			#default off
-			foreach (qw (update_details allele_flags scheme_members_alias sequence_details_main display_seqbin_main)) {
+			foreach (qw (update_details allele_flags scheme_members_alias sequence_details_main display_seqbin_main locus_alias))
+			{
 				$general_prefs->{$_} ||= 'off';
 				$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'on' ? 1 : 0;
 			}
 
 			#default on
-			foreach (qw (sequence_details sample_details mark_provisional mark_provisional_main locus_alias)) {
+			foreach (qw (sequence_details sample_details mark_provisional mark_provisional_main)) {
 				$general_prefs->{$_} ||= 'on';
 				$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'off' ? 0 : 1;
 			}
