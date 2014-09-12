@@ -341,18 +341,26 @@ sub _print_all_loci {
 	  $self->{'datastore'}->run_query(
 		"SELECT id FROM scheme_groups WHERE id NOT IN (SELECT group_id FROM scheme_group_group_members) ORDER BY display_order,name",
 		undef, { fetch => 'col_arrayref' } );
-	foreach my $group_id (@$groups_with_no_parents) {
-		say $self->_get_child_group_scheme_tables( $group_id, $isolate_id, 1 );
-		say $self->_get_group_scheme_tables( $group_id, $isolate_id );
-		$self->_close_divs;
+	if ( keys %{$self->{'groups_with_data'}} ) {
+		foreach my $group_id (@$groups_with_no_parents) {
+			say $self->_get_child_group_scheme_tables( $group_id, $isolate_id, 1 );
+			say $self->_get_group_scheme_tables( $group_id, $isolate_id );
+			$self->_close_divs;
+		}
+		if ( $self->{'groups_with_data'}->{0} ) {    #Schemes not in groups
+			say qq(<div style="float:left;padding-right:0.5em"><h3 class="group group0">Other schemes</h3>);
+			$self->_print_other_schemes($isolate_id);
+			say '</div>';
+		}
+	} else {
+		my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
+		foreach (@$schemes) {
+			next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$_};
+			say $self->_get_scheme( $_, $isolate_id, $self->{'curate'} );
+		}
 	}
-	if ( $self->{'groups_with_data'}->{0} ) {    #Schemes not in groups
-		say qq(<div style="float:left;padding-right:0.5em"><h3 class="group group0">Other schemes</h3>);
-		$self->_print_other_schemes($isolate_id);
-		say '</div>';
-	}
-	my $no_scheme_data =  $self->_get_scheme( 0, $isolate_id, $self->{'curate'} );
-	if ($no_scheme_data){	#Loci not in schemes
+	my $no_scheme_data = $self->_get_scheme( 0, $isolate_id, $self->{'curate'} );
+	if ($no_scheme_data) {    #Loci not in schemes
 		say qq(<div style="float:left;padding-right:0.5em"><h3 class="group group0">&nbsp;</h3>);
 		say $no_scheme_data;
 		say '</div>';
