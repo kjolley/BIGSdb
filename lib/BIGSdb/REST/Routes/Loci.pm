@@ -52,4 +52,96 @@ get '/db/:db/loci' => sub {
 	}
 	return $values;
 };
+get '/db/:db/loci/:locus' => sub {
+	my $self = setting('self');
+	my ( $db, $locus ) = ( params->{'db'}, params->{'locus'} );
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	if ( !$locus_info ) {
+		status(404);
+		return { error => "Locus $locus does not exist." };
+	}
+	my $values = [];
+	my %boolean_field = map { $_ => 1 } qw(length_varies coding_sequence);
+	foreach my $field (
+		qw(id data_type allele_id_format allele_id_regex common_name length length_varies min_length max_length
+		coding_sequence genome_position orf reference_sequence)
+	  )
+	{
+		if ( $boolean_field{$field} ) {
+			push @$values, { $field => $locus_info->{$field} ? 'true' : 'false' };
+		} else {
+			push @$values, { $field => $locus_info->{$field} } if defined $locus_info->{$field};
+		}
+	}
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+
+		#Extended attributes
+		my $extended_attributes =
+		  $self->{'datastore'}->run_query( "SELECT * FROM locus_extended_attributes WHERE locus=? ORDER BY field_order,field",
+			$locus, { fetch => 'all_arrayref', slice => {} } );
+		my @attributes;
+		foreach my $attribute (@$extended_attributes) {
+			my @attribute;
+			foreach (qw(field value_format value_regex description length)) {
+				push @attribute, { $_ => $attribute->{$_} } if defined $attribute->{$_};
+			}
+			push @attribute, { required => $attribute->{'required'} ? 'true' : 'false' };
+			if ( $attribute->{'option_list'} ) {
+				my @values = split /\|/, $attribute->{'option_list'};
+				push @attribute, { allowed_values => \@values };
+			}
+			push @attributes, \@attribute;
+		}
+		push @$values, { extended_attributes => \@attributes } if @attributes;
+	}
+
+	#Aliases
+	my $aliases =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias", $locus, { fetch => 'col_arrayref' } );
+	push @$values, { aliases => $aliases } if @$aliases;
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+
+		#Description
+		my $description =
+		  $self->{'datastore'}->run_query( "SELECT * FROM locus_descriptions WHERE locus=?", $locus, { fetch => 'row_hashref' } );
+		foreach (qw(full_name product description)) {
+			push @$values, { $_ => $description->{$_} } if defined $description->{$_};
+		}
+		my $pubmed_ids =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT pubmed_id FROM locus_refs WHERE locus=? ORDER BY pubmed_id", $locus, { fetch => 'col_arrayref' } );
+		my @refs;
+		push @refs, $self->get_pubmed_link($_) foreach @$pubmed_ids;
+		push @$values, { publications => \@refs } if @refs;
+
+		#Curators
+		my $curators =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT curator_id FROM locus_curators WHERE locus=? ORDER BY curator_id", $locus, { fetch => 'col_arrayref' } );
+		my @curator_links;
+		foreach my $user_id (@$curators) {
+			push @curator_links, request->uri_for("/db/$db/users/$user_id")->as_string;
+		}
+		push @$values, { curators => \@curator_links } if @curator_links;
+	} else {
+
+	 #Isolate databases - attempt to link to seqdef definitions
+	 #We probably need to have a specific field in the loci table to define this as there are too many cases where this won't work.
+		if (
+			   $locus_info->{'description_url'}
+			&& $locus_info->{'description_url'} =~ /page=locusInfo/
+			&& $locus_info->{'description_url'} =~ /^\//              #Relative URL so on same server
+			&& $locus_info->{'description_url'} =~ /locus=(\w+)/
+		  )
+		{
+			my $seqdef_locus = $1;
+			if ( $locus_info->{'description_url'} =~ /db=(\w+)/ ) {
+				my $seqdef_config = $1;
+				push @$values, { seqdef_defintions => request->uri_for("/db/$seqdef_config/loci/$seqdef_locus")->as_string };
+			}
+		}
+	}
+	return $values;
+};
 1;
