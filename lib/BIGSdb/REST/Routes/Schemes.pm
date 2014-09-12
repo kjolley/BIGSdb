@@ -30,10 +30,13 @@ get '/db/:db/schemes' => sub {
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	my $values  = [];
 	foreach my $scheme (@$schemes) {
-		my $scheme_data = [];
-		push @$scheme_data, { $_ => $scheme->{$_} } foreach (qw(id description));
-		push @$values, $scheme_data;
+		push @$values, [
+			{ href        => request->uri_for("/db/$db/scheme/$scheme->{'id'}")->as_string },
+			{ description => $scheme->{'description'} }
+		];
 	}
 	return $values;
 };
+
+
 1;
