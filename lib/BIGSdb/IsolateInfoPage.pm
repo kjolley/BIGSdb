@@ -353,7 +353,7 @@ sub _print_all_loci {
 	}
 	my $no_scheme_data =  $self->_get_scheme( 0, $isolate_id, $self->{'curate'} );
 	if ($no_scheme_data){	#Loci not in schemes
-		say qq(<div style="float:left;padding-right:0.5em"><h3 class="group group0">Miscellaneous loci</h3>);
+		say qq(<div style="float:left;padding-right:0.5em"><h3 class="group group0">&nbsp;</h3>);
 		say $no_scheme_data;
 		say '</div>';
 	}
