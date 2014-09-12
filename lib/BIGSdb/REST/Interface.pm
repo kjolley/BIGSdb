@@ -105,6 +105,11 @@ hook before => sub {
 				  . "Please set the labelfield attribute in the system tag of the database XML file." );
 		}
 	}
+	if ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' || ( $self->{'system'}->{'dbtype'} // '' ) eq 'sequences' ) {
+		if ( ( $self->{'system'}->{'read_access'} // '' ) ne 'public' ) {
+			send_error( 'Unauthorized', 401 );
+		}
+	}
 	$self->db_connect;
 	$self->setup_datastore;
 	$self->_initiate_view;
@@ -118,6 +123,7 @@ hook after => sub {
 	my $self = setting('self');
 	$self->{'dataConnector'}->drop_connection( { host => $self->{'system'}->{'host'}, dbase_name => $self->{'system'}->{'db'} } );
 };
+
 sub get_set_id {
 	my ($self) = @_;
 	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
@@ -130,7 +136,7 @@ sub get_set_id {
 #Set view if defined in set.
 sub _initiate_view {
 	my ($self) = @_;
-	return if ($self->{'system'}->{'dbtype'} // '') ne 'isolates';
+	return if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
 	my $set_id = $self->get_set_id;
 	if ( defined $self->{'system'}->{'view'} && $set_id ) {
 		if ( $self->{'system'}->{'views'} && BIGSdb::Utils::is_int($set_id) ) {
@@ -179,5 +185,11 @@ sub clean_locus {
 		return $set_name if $set_name;
 	}
 	return $locus;
+}
+
+#Use method in case URL changes so we only need to change in one place.
+sub get_pubmed_link {
+	my ( $self, $pubmed_id ) = @_;
+	return "http://www.ncbi.nlm.nih.gov/pubmed/$pubmed_id";
 }
 1;

@@ -72,7 +72,7 @@ get '/db/:db/isolates/:id' => sub {
 	  ->run_query( "SELECT pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id", $id, { fetch => 'col_arrayref' } );
 	if (@$pubmed_ids) {
 		my @refs;
-		push @refs, "http://www.ncbi.nlm.nih.gov/pubmed/$_" foreach @$pubmed_ids;
+		push @refs, $self->get_pubmed_link($_) foreach @$pubmed_ids;
 		push @$values, { publications => \@refs };
 	}
 	return $values;
