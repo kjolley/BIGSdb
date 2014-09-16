@@ -1,4 +1,4 @@
-#!/usr/bin/perl -T
+#!/usr/bin/perl
 #bigsrest.pl  REST interface for BIGSdb
 #Written by Keith Jolley
 #Copyright (c) 2014, University of Oxford
@@ -30,21 +30,24 @@ use constant {
 	HOST             => 'localhost',
 	PORT             => 5432,
 	USER             => 'apache',
-	PASSWORD         => ''
+	PASSWORD         => '',
+	URI_BASE	     => 'http://rest.pubmlst.org/'
 };
 #######End Local configuration################################
 use Log::Log4perl qw(get_logger);    #Also need Log::Dispatch::File
 use lib (LIB_DIR);
 use BIGSdb::REST::Interface;
 Log::Log4perl->init_once( CONFIG_DIR . '/rest_logging.conf' );
-BIGSdb::REST::Interface->new(
+my $app = BIGSdb::REST::Interface->new(
 	{
 		config_dir       => CONFIG_DIR,
 		lib_dir          => LIB_DIR,
 		dbase_config_dir => DBASE_CONFIG_DIR,
+		uri_base		 => URI_BASE,
 		host             => HOST,
 		port             => PORT,
 		user             => USER,
 		password         => PASSWORD
 	}
 );
+$app->dance;
