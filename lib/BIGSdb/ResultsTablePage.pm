@@ -381,7 +381,7 @@ sub _print_isolate_table {
 	my $qry_limit = $qry;
 	my $fields    = $self->{'xmlHandler'}->get_field_list;
 	push @$fields, 'new_version';
-	my $view      = $self->{'system'}->{'view'};
+	my $view = $self->{'system'}->{'view'};
 	local $" = ",$view.";
 	my $field_string = "$view.@$fields";
 	$qry_limit =~ s/SELECT ($view\.\*|\*)/SELECT $field_string/;
@@ -509,6 +509,7 @@ sub _print_isolate_table {
 				}
 			}
 			if ( $thisfieldname eq $self->{'system'}->{'labelfield'} && $self->{'prefs'}->{'maindisplayfields'}->{'aliases'} ) {
+
 				#TODO Use Datastore::get_isolate_aliases instead
 				my $aliases = $self->{'datastore'}->run_query( "SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias",
 					$id, { fetch => 'col_arrayref', cache => 'ResultsTablePage::print_isolate_table_aliases' } );
@@ -958,7 +959,9 @@ sub _get_record_table_info {
 		push @qry_fields, "$table.$attr->{'name'}";
 		my $cleaned = $attr->{'name'};
 		$cleaned =~ tr/_/ /;
-		if ( any { $attr->{'name'} eq $_ } qw (isolate_display main_display query_field query_status dropdown analysis) ) {
+		if ( ( any { $attr->{'name'} eq $_ } qw (isolate_display main_display query_field query_status dropdown analysis) )
+			&& $table ne 'projects' )
+		{
 			$cleaned .= '*';
 			$user_variable_fields = 1;
 		}

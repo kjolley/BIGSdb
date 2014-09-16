@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2012, University of Oxford
+#Copyright (c) 2011-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -199,6 +199,11 @@ sub get_tree {
 	} else {
 		$main_buffer = "<ul><li><a>No loci available for analysis.</a></li></ul>\n";
 	}
+	if ( $options->{'get_groups'} ) {    #Just return a list of groups containing data
+		my @groups = $main_buffer =~ /group_id=(\d+)/g;
+		my %groups = map { $_ => 1 } @groups;
+		return \%groups;
+	}
 	return $main_buffer;
 }
 
@@ -365,10 +370,10 @@ sub _data_not_in_scheme_present {
 	  ->run_simple_query( "SELECT EXISTS(SELECT * FROM allele_designations WHERE isolate_id=? AND locus NOT IN ($set_clause))",
 		$isolate_id )->[0];
 	return 1 if $designations;
-	my $sequences = $self->{'datastore'}->run_simple_query(
-		"SELECT EXISTS(SELECT * FROM allele_sequences WHERE isolate_id=? AND locus NOT IN ($set_clause))",
-		$isolate_id
-	)->[0];
+	my $sequences =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT EXISTS(SELECT * FROM allele_sequences WHERE isolate_id=? AND locus NOT IN ($set_clause))", $isolate_id )
+	  ;
 	return $sequences ? 1 : 0;
 }
 1;

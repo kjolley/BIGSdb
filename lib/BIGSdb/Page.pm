@@ -342,7 +342,7 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system    = $self->{'system'};
-	my $version   = '20140722';
+	my $version   = '20140911';
 	my @filenames = qw(bigsdb.css jquery-ui.css);
 	my @paths;
 	foreach my $filename (@filenames) {
@@ -1885,13 +1885,14 @@ sub _initiate_isolatedb_prefs {
 		if ( $self->{'pref_requirements'}->{'general'} ) {
 
 			#default off
-			foreach (qw (update_details allele_flags scheme_members_alias sequence_details_main display_seqbin_main)) {
+			foreach (qw (update_details allele_flags scheme_members_alias sequence_details_main display_seqbin_main locus_alias))
+			{
 				$general_prefs->{$_} ||= 'off';
 				$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'on' ? 1 : 0;
 			}
 
 			#default on
-			foreach (qw (sequence_details sample_details mark_provisional mark_provisional_main locus_alias)) {
+			foreach (qw (sequence_details sample_details mark_provisional mark_provisional_main)) {
 				$general_prefs->{$_} ||= 'on';
 				$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'off' ? 0 : 1;
 			}

@@ -65,19 +65,47 @@ sub get_javascript {
 	});
 	\$( "#hidden_references" ).css('display', 'none');
 	\$( "#show_refs" ).click(function() {
+		if (\$("span#show_refs_text").css('display') == 'none'){
+			\$("span#show_refs_text").css('display', 'inline');
+			\$("span#hide_refs_text").css('display', 'none');
+		} else {
+			\$("span#show_refs_text").css('display', 'none');
+			\$("span#hide_refs_text").css('display', 'inline');
+		}
 		\$( "#hidden_references" ).toggle( 'blind', {} , 500 );
 		return false;
 	});
 	\$( "#sample_table" ).css('display', 'none');
 	\$( "#show_samples" ).click(function() {
+		if (\$("span#show_samples_text").css('display') == 'none'){
+			\$("span#show_samples_text").css('display', 'inline');
+			\$("span#hide_samples_text").css('display', 'none');
+		} else {
+			\$("span#show_samples_text").css('display', 'none');
+			\$("span#hide_samples_text").css('display', 'inline');
+		}
 		\$( "#sample_table" ).toggle( 'blind', {} , 500 );
 		return false;
 	});
 	\$( "#show_aliases" ).click(function() {
+		if (\$("span#show_aliases_text").css('display') == 'none'){
+			\$("span#show_aliases_text").css('display', 'inline');
+			\$("span#hide_aliases_text").css('display', 'none');
+		} else {
+			\$("span#show_aliases_text").css('display', 'none');
+			\$("span#hide_aliases_text").css('display', 'inline');
+		}
 		\$( "span.aliases" ).toggle( 'highlight', {} , 500 );
 		return false;
 	});
-	\$( "#show_tree" ).click(function() {
+	\$( "#show_tree" ).click(function() {		
+		if (\$("span#show_tree_text").css('display') == 'none'){
+			\$("span#show_tree_text").css('display', 'inline');
+			\$("span#hide_tree_text").css('display', 'none');
+		} else {
+			\$("span#show_tree_text").css('display', 'none');
+			\$("span#hide_tree_text").css('display', 'inline');
+		}
 		\$( "div#tree" ).toggle( 'highlight', {} , 500 );
 		return false;
 	});
@@ -95,44 +123,77 @@ END
 }
 
 sub _get_child_group_scheme_tables {
-	my ( $self, $id, $isolate_id, $level ) = @_;
-	my $child_groups = $self->{'datastore'}->run_list_query(
-		"SELECT id FROM scheme_groups LEFT JOIN scheme_group_group_members ON "
-		  . "scheme_groups.id=group_id WHERE parent_group_id=? ORDER BY display_order",
-		$id
+	my ( $self, $group_id, $isolate_id, $level ) = @_;
+	$self->{'level'}     //= 1;
+	$self->{'open_divs'} //= 0;
+	my $child_groups = $self->{'datastore'}->run_query(
+		"SELECT id FROM scheme_groups LEFT JOIN scheme_group_group_members ON scheme_groups.id=group_id WHERE parent_group_id=? ORDER BY "
+		  . "display_order,name",
+		$group_id,
+		{ fetch => 'col_arrayref', cache => 'IsolateInfoPage::_get_child_group_scheme_tables' }
 	);
-	my $buffer;
-	if (@$child_groups) {
-		foreach (@$child_groups) {
-			my $group_info = $self->{'datastore'}->get_scheme_group_info($_);
-			my $new_level  = $level;
-			last if $new_level == 10;    #prevent runaway if child is set as the parent of a parental group
-			my $field_buffer = $self->_get_group_scheme_tables( $_, $isolate_id );
-			$buffer .= $field_buffer if $field_buffer;
-			$field_buffer = $self->_get_child_group_scheme_tables( $_, $isolate_id, ++$new_level );
-			$buffer .= $field_buffer if $field_buffer;
+	my $parent_buffer;
+	my $parent_group_info = $self->{'datastore'}->get_scheme_group_info($group_id);
+	if ( $self->{'groups_with_data'}->{$group_id} ) {
+		my $parent_level = $level - 1;
+		if ( $self->{'open_divs'} > $parent_level ) {
+			my $divs_to_close = $self->{'open_divs'} - $parent_level;
+			for ( 0 .. $divs_to_close ) {
+				$parent_buffer .= '</div>';
+				$self->{'open_divs'}--;
+			}
 		}
+		$parent_buffer .=
+		  qq(<div style="float:left;padding-right:0.5em"><h3 class="group group$parent_level">$parent_group_info->{'name'}</h3>);
+		$self->{'open_divs'}++;
 	}
-	return $buffer;
+	my $group_buffer = '';
+	if (@$child_groups) {
+		foreach my $child_group (@$child_groups) {
+			if ( $self->{'groups_with_data'}->{$child_group} ) {
+				my $group_info = $self->{'datastore'}->get_scheme_group_info($child_group);
+				my $new_level  = $level;
+				last if $new_level == 10;    #prevent runaway if child is set as the parent of a parental group
+				if ( $new_level == $self->{'level'} ) {
+					$group_buffer .= '</div>';
+					$self->{'open_divs'}--;
+				}
+				my $buffer = $self->_get_child_group_scheme_tables( $child_group, $isolate_id, ++$new_level );
+				$buffer .= $self->_get_group_scheme_tables( $child_group, $isolate_id );
+				$self->{'level'} = $level;
+				$group_buffer .= $parent_buffer if $parent_buffer;
+				undef $parent_buffer;
+				if ($buffer) {
+					$group_buffer .= $buffer;
+				}
+			}
+		}
+	} else {
+		my $buffer = $self->_get_group_scheme_tables( $group_id, $isolate_id );
+		$group_buffer .= $parent_buffer if $parent_buffer;
+		$group_buffer .= $buffer;
+	}
+	return $group_buffer;
 }
 
 sub _get_group_scheme_tables {
-	my ( $self, $id, $isolate_id ) = @_;
+	my ( $self, $group_id, $isolate_id ) = @_;
 	my $set_id = $self->get_set_id;
 	my $scheme_data = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
-	my $schemes = $self->{'datastore'}->run_list_query(
-		"SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON "
-		  . "schemes.id=scheme_id WHERE group_id=? ORDER BY display_order",
-		$id
+	my $schemes = $self->{'datastore'}->run_query(
+		"SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON schemes.id=scheme_id WHERE group_id=? ORDER BY "
+		  . "display_order,description",
+		$group_id,
+		{ fetch => 'col_arrayref', cache => 'IsolateInfoPage::_get_group_scheme_tables' }
 	);
-	my $buffer;
+	my $buffer = '';
 	if (@$schemes) {
 		foreach my $scheme_id (@$schemes) {
 			next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};
 			next if none { $scheme_id eq $_ } @$scheme_ids_ref;
 			if ( !$self->{'scheme_shown'}->{$scheme_id} ) {
-				$self->_print_scheme( $scheme_id, $isolate_id, $self->{'curate'} );
+				$buffer .= $self->_get_scheme( $scheme_id, $isolate_id, $self->{'curate'} );
 				$self->{'scheme_shown'}->{$scheme_id} = 1;
 			}
 		}
@@ -146,38 +207,25 @@ sub print_content {
 	my $isolate_id = $q->param('id');
 	my $set_id     = $self->get_set_id;
 	my $scheme_data = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-	my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
 	if ( defined $q->param('group_id') && BIGSdb::Utils::is_int( $q->param('group_id') ) ) {
+		$self->{'groups_with_data'} = $self->get_tree( $isolate_id, { isolate_display => $self->{'curate'} ? 0 : 1, get_groups => 1 } );
 		my $group_id = $q->param('group_id');
 		my $scheme_ids;
-		my ($table_buffer);
-		if ( $group_id == 0 ) {
-			$scheme_ids =
-			  $self->{'datastore'}->run_list_query(
-				"SELECT id FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) ORDER BY display_order");
-			foreach my $scheme_id (@$scheme_ids) {
-				next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};
-				next if none { $scheme_id eq $_ } @$scheme_ids_ref;
-				my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
-				$self->_print_scheme( $scheme_id, $isolate_id, $self->{'curate'} );
-			}
-		} else {
-			$table_buffer = $self->_get_group_scheme_tables( $group_id, $isolate_id );
-			say $table_buffer if $table_buffer;
-			$table_buffer = $self->_get_child_group_scheme_tables( $group_id, $isolate_id, 1 );
-			say $table_buffer if $table_buffer;
+		if ( $group_id == 0 ) {    #Other schemes (not part of a scheme group)
+			$self->_print_other_schemes($isolate_id);
+		} else {                   #Scheme group
+			say $self->_get_child_group_scheme_tables( $group_id, $isolate_id, 1 );
+			say $self->_get_group_scheme_tables( $group_id, $isolate_id );
+			$self->_close_divs;
 		}
 		return;
 	} elsif ( defined $q->param('scheme_id') && BIGSdb::Utils::is_int( $q->param('scheme_id') ) ) {
 		my $scheme_id = $q->param('scheme_id');
-		if ( $scheme_id == -1 ) {
-			my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
-			foreach ( @$schemes, 0 ) {
-				next if $_ && !$self->{'prefs'}->{'isolate_display_schemes'}->{$_};
-				$self->_print_scheme( $_, $isolate_id, $self->{'curate'} );
-			}
+		if ( $scheme_id == -1 ) {    #All schemes/loci
+			$self->{'groups_with_data'} = $self->get_tree( $isolate_id, { isolate_display => $self->{'curate'} ? 0 : 1, get_groups => 1 } );
+			$self->_print_all_loci($isolate_id);
 		} else {
-			$self->_print_scheme( $scheme_id, $isolate_id, $self->{'curate'} );
+			say $self->_get_scheme( $scheme_id, $isolate_id, $self->{'curate'} );
 		}
 		return;
 	}
@@ -225,13 +273,97 @@ sub print_content {
 		$self->_print_projects($isolate_id);
 		say "<div class=\"box\" id=\"resultspanel\">";
 		say $self->get_isolate_record($isolate_id);
-		my $tree_button = " <span id=\"tree_button\" style=\"margin-left:1em;display:none\">"
-		  . "<a id=\"show_tree\" class=\"smallbutton\" style=\"cursor:pointer\">&nbsp;show/hide tree&nbsp;</a></span>";
-		my $aliases_button = " <span id=\"aliases_button\" style=\"margin-left:1em;display:none\">"
-		  . "<a id=\"show_aliases\" class=\"smallbutton\" style=\"cursor:pointer\">&nbsp;show/hide locus aliases&nbsp;</a></span>";
-		say "<h2>Schemes and loci$tree_button$aliases_button</h2>";
-		say $self->_get_tree($isolate_id);
+		my $tree_button =
+		    qq( <span id="tree_button" style="margin-left:1em;display:none">)
+		  . qq(<a id="show_tree" class="smallbutton" style="cursor:pointer"><span id="show_tree_text" style="display:none">show</span>)
+		  . qq(<span id="hide_tree_text" style="display:inline">hide</span> tree</a></span>);
+		my $show_aliases = $self->{'prefs'}->{'locus_alias'} ? 'none'   : 'inline';
+		my $hide_aliases = $self->{'prefs'}->{'locus_alias'} ? 'inline' : 'none';
+		my $aliases_button =
+		    qq( <span id="aliases_button" style="margin-left:1em;display:none">)
+		  . qq(<a id="show_aliases" class="smallbutton" style="cursor:pointer"><span id="show_aliases_text" style="display:$show_aliases">)
+		  . qq(show</span><span id="hide_aliases_text" style="display:$hide_aliases">hide</span> locus aliases</a></span>);
+		my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
+
+		if (@$loci) {
+			say "<h2>Schemes and loci$tree_button$aliases_button</h2>";
+			if ( @$scheme_data < 3 && @$loci <= 100 ) {
+				my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
+				my $values_present;
+				foreach ( @$schemes, 0 ) {
+					next if $_ && !$self->{'prefs'}->{'isolate_display_schemes'}->{$_};
+					my $buffer = $self->_get_scheme( $_, $isolate_id, $self->{'curate'} );
+					if ($buffer) {
+						say $buffer;
+						say qq(<div style="clear:both"></div>);
+						$values_present = 1;
+					}
+				}
+				if ( !$values_present ) {
+					say "<p>No alleles designated.</p>";
+				}
+			} else {
+				say $self->_get_tree($isolate_id);
+			}
+		}
 		say "</div>";
+	}
+	return;
+}
+
+sub _close_divs {
+	my ($self) = @_;
+	if ( $self->{'open_divs'} ) {
+		for ( 0 .. $self->{'open_divs'} ) {
+			say '</div>';
+		}
+		$self->{'open_divs'} = 0;
+	}
+	return;
+}
+
+sub _print_other_schemes {
+	my ( $self, $isolate_id ) = @_;
+	my $scheme_ids =
+	  $self->{'datastore'}->run_list_query(
+		"SELECT id FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) ORDER BY display_order,description");
+	foreach my $scheme_id (@$scheme_ids) {
+		next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};
+		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+		say $self->_get_scheme( $scheme_id, $isolate_id, $self->{'curate'} );
+	}
+	return;
+}
+
+sub _print_all_loci {
+	my ( $self, $isolate_id ) = @_;
+	my $groups_with_no_parents =
+	  $self->{'datastore'}->run_query(
+		"SELECT id FROM scheme_groups WHERE id NOT IN (SELECT group_id FROM scheme_group_group_members) ORDER BY display_order,name",
+		undef, { fetch => 'col_arrayref' } );
+	if ( keys %{$self->{'groups_with_data'}} ) {
+		foreach my $group_id (@$groups_with_no_parents) {
+			say $self->_get_child_group_scheme_tables( $group_id, $isolate_id, 1 );
+			say $self->_get_group_scheme_tables( $group_id, $isolate_id );
+			$self->_close_divs;
+		}
+		if ( $self->{'groups_with_data'}->{0} ) {    #Schemes not in groups
+			say qq(<div style="float:left;padding-right:0.5em"><h3 class="group group0">Other schemes</h3>);
+			$self->_print_other_schemes($isolate_id);
+			say '</div>';
+		}
+	} else {
+		my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
+		foreach (@$schemes) {
+			next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$_};
+			say $self->_get_scheme( $_, $isolate_id, $self->{'curate'} );
+		}
+	}
+	my $no_scheme_data = $self->_get_scheme( 0, $isolate_id, $self->{'curate'} );
+	if ($no_scheme_data) {    #Loci not in schemes
+		say qq(<div style="float:left;padding-right:0.5em"><h3 class="group group0">&nbsp;</h3>);
+		say $no_scheme_data;
+		say '</div>';
 	}
 	return;
 }
@@ -241,8 +373,7 @@ sub _print_action_panel {
 	my $q = $self->{'cgi'};
 	say qq(<div class="box" id="resultsheader"><div class="scrollable">);
 	my %titles =
-	  ( isolateDelete => 'Delete record', isolateUpdate => 'Update record', batchAddSeqbin => 'Sequence bin', newVersion => 'New version' )
-	  ;
+	  ( isolateDelete => 'Delete record', isolateUpdate => 'Update record', batchAddSeqbin => 'Sequence bin', newVersion => 'New version' );
 	my %labels = ( isolateDelete => 'Delete', isolateUpdate => 'Update', batchAddSeqbin => 'Upload contigs', newVersion => 'Create' );
 	$q->param( isolate_id => $isolate_id );
 	foreach my $action (qw (isolateDelete isolateUpdate batchAddSeqbin newVersion)) {
@@ -346,10 +477,11 @@ sub _get_provenance_fields {
 		$displayfield .= " <span class=\"metaset\">Metadata: $metaset</span>" if !$set_id && defined $metaset;
 		$displayfield =~ tr/_/ /;
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+		next if ( $thisfield->{'curate_only'} // '' ) eq 'yes' && !$self->{'curate'};
 		my $web;
 		my $value = $data->{ lc($field) };
-		if ( !defined $value ) {
 
+		if ( !defined $value ) {
 			if ( $composites{$field} ) {
 				$buffer .= $self->_get_composite_field_rows( $isolate_id, $data, $field, \%composite_display_pos );
 			}
@@ -466,10 +598,7 @@ sub _get_provenance_fields {
 			}
 		}
 		if ( $field eq $self->{'system'}->{'labelfield'} ) {
-
-			#TODO Use Datastore::get_isolate_aliases instead
-			my $aliases =
-			  $self->{'datastore'}->run_list_query( "SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias", $isolate_id );
+			my $aliases = $self->{'datastore'}->get_isolate_aliases($isolate_id);
 			if (@$aliases) {
 				local $" = '; ';
 				my $plural = @$aliases > 1 ? 'es' : '';
@@ -518,13 +647,17 @@ sub get_sample_summary {
 	my ($sample_buffer) = $self->_get_samples($id);
 	my $buffer = '';
 	if ($sample_buffer) {
-		my $display = $options->{'hide'} ? 'none' : 'block';
+		my $display      = $options->{'hide'} ? 'none'   : 'inline';
+		my $show_samples = $options->{'hide'} ? 'inline' : 'none';
+		my $hide_samples = $options->{'hide'} ? 'none'   : 'inline';
 		if ( $options->{'hide'} ) {
 			$buffer .= "<h2>Samples";
-			$buffer .= "<span style=\"margin-left:1em\"><a id=\"show_samples\" class=\"smallbutton\" style=\"cursor:pointer;display:none\">"
-			  . "&nbsp;show/hide&nbsp;</a></span></h2>\n";
+			$buffer .=
+			    qq(<span style="margin-left:1em"><a id="show_samples" class="smallbutton" style="cursor:pointer;display:none">)
+			  . qq(<span id="show_samples_text" style="display:$show_samples">show</span>)
+			  . qq(<span id="hide_samples_text" style="display:$hide_samples">hide</span></a></span></h2>\n);
 		}
-		$buffer .= "<table class=\"resultstable\" id=\"sample_table\">\n";
+		$buffer .= qq(<table class="resultstable" id="sample_table">\n);
 		$buffer .= $sample_buffer;
 		$buffer .= "</table>\n";
 	}
@@ -676,15 +809,16 @@ sub _get_scheme_field_values {
 	return \%values;
 }
 
-sub _print_scheme {
+sub _get_scheme {
 	my ( $self, $scheme_id, $isolate_id, $summary_view ) = @_;
 	my $q = $self->{'cgi'};
 	my ( $locus_display_count, $scheme_fields_count ) = ( 0, 0 );
 	my ( $loci, $scheme_fields, $scheme_info );
 	my $set_id = $self->get_set_id;
+	my $buffer = '';
 	if ($scheme_id) {
 		my $should_display = $self->_should_display_scheme( $isolate_id, $scheme_id, $summary_view );
-		return if !$should_display;
+		return '' if !$should_display;
 		$scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 		$loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		foreach (@$loci) {
@@ -704,8 +838,8 @@ sub _print_scheme {
 			$scheme_info->{'description'} = 'Loci not in schemes';
 		}
 	}
-	return if !( $locus_display_count + $scheme_fields_count );
-	say qq(<div style="float:left"><h3 class="scheme" style="clear:both">$scheme_info->{'description'}</h3>);
+	return '' if !( $locus_display_count + $scheme_fields_count );
+	$buffer .= qq(<div style="float:left;padding-right:0.5em"><h3 class="scheme">$scheme_info->{'description'}</h3>);
 	my @args = (
 		{
 			loci                => $loci,
@@ -715,12 +849,12 @@ sub _print_scheme {
 			isolate_id          => $isolate_id
 		}
 	);
-	$self->_print_scheme_values(@args);
-	say "</div>";
-	return;
+	$buffer .= $self->_get_scheme_values(@args);
+	$buffer .= "</div>";
+	return $buffer;
 }
 
-sub _print_scheme_values {
+sub _get_scheme_values {
 	my ( $self, $args ) = @_;
 	my ( $isolate_id, $loci, $scheme_id, $scheme_fields_count, $summary_view ) =
 	  @{$args}{qw ( isolate_id loci scheme_id scheme_fields_count summary_view )};
@@ -728,23 +862,24 @@ sub _print_scheme_values {
 	my $allele_designations = $self->{'datastore'}->get_scheme_allele_designations( $isolate_id, $scheme_id, { set_id => $set_id } );
 	my $scheme_fields       = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	local $| = 1;
+	my $buffer;
 	foreach my $locus (@$loci) {
 		my $designations = $allele_designations->{$locus};
 		next if $self->{'prefs'}->{'isolate_display_loci'}->{$locus} eq 'hide';
-		say $self->_get_locus_value(
+		$buffer .= $self->_get_locus_value(
 			{ isolate_id => $isolate_id, locus => $locus, designations => $designations, summary_view => $summary_view } );
 	}
 	my $field_values = $scheme_fields_count ? $self->_get_scheme_field_values( $scheme_id, $allele_designations ) : undef;
 	foreach my $field (@$scheme_fields) {
 		next if !$self->{'prefs'}->{'isolate_display_scheme_fields'}->{$scheme_id}->{$field};
 		( my $cleaned = $field ) =~ tr/_/ /;
-		say "<dl class=\"profile\">";
-		say "<dt>$cleaned</dt><dd>";
+		$buffer .= "<dl class=\"profile\">";
+		$buffer .= "<dt>$cleaned</dt><dd>";
 		local $" = ', ';
-		print "@{$field_values->{$field}}" // '-';
-		say "</dd></dl>";
+		$buffer .= "@{$field_values->{$field}}" // '-';
+		$buffer .= "</dd></dl>";
 	}
-	return;
+	return $buffer;
 }
 
 sub _get_locus_value {
@@ -754,7 +889,7 @@ sub _get_locus_value {
 	my $buffer        = qq(<dl class="profile"><dt>$cleaned);
 	my $locus_info    = $self->{'datastore'}->get_locus_info($locus);
 	my $locus_aliases = $self->{'datastore'}->get_locus_aliases($locus);
-	local $" = ';nbsp';
+	local $" = ';&nbsp;';
 	my $alias_display = $self->{'prefs'}->{'locus_alias'} ? 'inline' : 'none';
 	$buffer .= qq(&nbsp;<span class="aliases" style="display:$alias_display">(@$locus_aliases)</span>) if @$locus_aliases;
 
@@ -956,7 +1091,8 @@ sub get_refs {
 		my $display = @$pmids > 4 ? 'none' : 'block';
 		$buffer .=
 		    qq(<span style="margin-left:1em"><a id="show_refs" class="smallbutton" style="cursor:pointer">)
-		  . qq(&nbsp;show/hide&nbsp;</a></span>)
+		  . qq(<span id="show_refs_text" style="display:inline">show</span><span id="hide_refs_text" style="display:none">hide</span></a>)
+		  . qq(</span>)
 		  if $display eq 'none';
 		$buffer .= "</h2>\n";
 		my $id = $display eq 'none' ? 'hidden_references' : 'references';
@@ -1032,7 +1168,7 @@ sub _get_seqbin_link {
 sub _print_projects {
 	my ( $self, $isolate_id ) = @_;
 	my $projects = $self->{'datastore'}->run_query(
-		"SELECT * FROM projects WHERE full_description IS NOT NULL AND id IN (SELECT project_id FROM project_members "
+		"SELECT * FROM projects WHERE full_description IS NOT NULL AND isolate_display AND id IN (SELECT project_id FROM project_members "
 		  . "WHERE isolate_id=?) ORDER BY id",
 		$isolate_id,
 		{ fetch => 'all_arrayref', slice => {} }

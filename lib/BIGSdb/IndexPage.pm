@@ -61,45 +61,34 @@ sub print_content {
 	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
 		$self->print_set_section;
 	}
-	print << "HTML";
-<div class="box" id="index">
-<div class="scrollable">
-<div style="float:left;margin-right:1em">
-<img src="/images/icons/64x64/search.png" alt="" />
-<h2>Query database</h2>
-<ul class="toplevel">
-HTML
+	say qq(<div class="box" id="index"><div class="scrollable"><div style="float:left;margin-right:1em">);
+	say qq(<img src="/images/icons/64x64/search.png" alt="" /><h2>Query database</h2><ul class="toplevel">);
 	my $scheme_data =
 	  $self->{'datastore'}->get_scheme_list( { with_pk => ( $self->{'system'}->{'dbtype'} eq 'sequences' ? 1 : 0 ), set_id => $set_id } );
+	my $url_root = "$self->{'system'}->{'script_name'}?db=$instance$set_string&amp;";
 	if ( $system->{'dbtype'} eq 'isolates' ) {
-		say "<li><a href=\"$script_name?db=$instance&amp;page=query$set_string\">Search database</a> - advanced queries.</li>";
-		say "<li><a href=\"$script_name?db=$instance&amp;page=browse$set_string\">Browse database</a> - peruse all records.</li>";
+		say qq(<li><a href="${url_root}page=query">Search database</a> - advanced queries.</li>);
+		say qq(<li><a href="${url_root}page=browse">Browse database</a> - peruse all records.</li>);
 		my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id, do_not_order => 1 } );
 		if (@$loci) {
-			say "<li><a href=\"$script_name?db=$instance&amp;page=profiles$set_string\">Search by combinations of loci (profiles)</a> - "
-			  . "including partial matching.</li>";
+			say qq(<li><a href="${url_root}page=profiles">Search by combinations of loci (profiles)</a> - )
+			  . qq(including partial matching.</li>);
 		}
 	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
-		say "<li><a href=\"$script_name?db=$instance&amp;page=sequenceQuery$set_string\">Sequence query</a> - "
-		  . "query an allele sequence.</li>";
-		say "<li><a href=\"$script_name?db=$instance&amp;page=batchSequenceQuery$set_string\">Batch sequence query</a> - "
-		  . "query multiple sequences in FASTA format.</li>";
-		say "<li><a href=\"$script_name?db=$instance&amp;page=tableQuery&amp;table=sequences$set_string\">Sequence attribute search</a> - "
-		  . "find alleles by matching attributes.</li>";
+		say qq(<li><a href="${url_root}page=sequenceQuery">Sequence query</a> - query an allele sequence.</li>);
+		say qq(<li><a href="${url_root}page=batchSequenceQuery">Batch sequence query</a> - query multiple sequences in FASTA format.</li>);
+		say qq(<li><a href="${url_root}page=tableQuery&amp;table=sequences">Sequence attribute search</a> - )
+		  . qq(find alleles by matching attributes.</li>);
 		if (@$scheme_data) {
 			my $scheme_arg  = @$scheme_data == 1 ? "&amp;scheme_id=$scheme_data->[0]->{'id'}" : '';
 			my $scheme_desc = @$scheme_data == 1 ? $scheme_data->[0]->{'description'}         : '';
-			say <<"HTML";
-	<li><a href="$script_name?db=$instance&amp;page=browse$scheme_arg$set_string">Browse $scheme_desc profiles</a></li>
-	<li><a href="$script_name?db=$instance&amp;page=query$scheme_arg$set_string">Search $scheme_desc profiles</a></li>
-	<li><a href="$script_name?db=$instance&amp;page=listQuery$scheme_arg$set_string">List</a> - find $scheme_desc 
-	profiles matched to entered list.</li>
-	<li><a href="$script_name?db=$instance&amp;page=profiles$scheme_arg$set_string">Search by combinations of $scheme_desc alleles</a> - 
-	including partial matching.</li>
-	<li><a href="$script_name?db=$instance&amp;page=batchProfiles$scheme_arg$set_string">Batch profile query</a> - lookup 
-	$scheme_desc profiles copied from a spreadsheet.</li>
-
-HTML
+			say qq(<li><a href="${url_root}page=browse$scheme_arg">Browse $scheme_desc profiles</a></li>);
+			say qq(<li><a href="${url_root}page=query$scheme_arg">Search $scheme_desc profiles</a></li>);
+			say qq(<li><a href="${url_root}page=listQuery$scheme_arg">List</a> - find $scheme_desc profiles matched to entered list.</li>);
+			say qq(<li><a href="${url_root}page=profiles$scheme_arg">Search by combinations of $scheme_desc alleles</a> - )
+			  . qq(including partial matching.</li>);
+			say qq(<li><a href="${url_root}page=batchProfiles$scheme_arg">Batch profile query</a> - lookup 	$scheme_desc profiles copied )
+			  . qq(from a spreadsheet.</li>);
 		}
 	}
 	if ( $self->{'config'}->{'jobs_db'} ) {
@@ -107,12 +96,12 @@ HTML
 		$self->print_file($query_html_file) if -e $query_html_file;
 	}
 	if ( $system->{'dbtype'} eq 'isolates' ) {
-		say "<li><a href=\"$script_name?db=$instance&amp;page=listQuery$set_string\">List query</a> - find isolates by matching "
-		  . "a field to an entered list.</li>";
+		say qq(<li><a href="${url_root}page=listQuery">List query</a> - find isolates by matching a field to an entered list.</li>);
+		my $projects = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM projects WHERE list");
+		say qq(<li><a href="${url_root}page=projects">Projects</a> - main projects defined in database.) if $projects;
 		my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
 		if (@$sample_fields) {
-			say "<li><a href=\"$script_name?db=$instance&amp;page=tableQuery&amp;table=samples\">"
-			  . "Sample management</a> - culture/DNA storage tracking</li>";
+			say qq(<li><a href="${url_root}page=tableQuery&amp;table=samples">Sample management</a> - culture/DNA storage tracking</li>);
 		}
 	}
 	say "</ul></div>";
@@ -210,13 +199,14 @@ sub _print_options_section {
 <li><a href="$self->{'system'}->{'script_name'}?page=options&amp;db=$self->{'instance'}$set_string">
 Set general options</a>
 OPTIONS
-	say " - including isolate table field handling" if $self->{'system'}->{'dbtype'} eq 'isolates';
+	say " - including isolate table field handling." if $self->{'system'}->{'dbtype'} eq 'isolates';
 	say "</li>";
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		say "<li>Set display and query options for <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
-		  . "page=tableQuery&amp;table=loci$set_string\">locus</a>, <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
-		  . "page=tableQuery&amp;table=schemes$set_string\">schemes</a> or <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
-		  . "page=tableQuery&amp;table=scheme_fields$set_string\">scheme fields</a>.</li>";
+		my $url_root = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;";
+		say qq(<li>Set display and query options for )
+		  . qq(<a href="${url_root}table=loci$set_string">locus</a>, )
+		  . qq(<a href="${url_root}table=schemes$set_string">schemes</a> or )
+		  . qq(<a href="${url_root}table=scheme_fields$set_string">scheme fields</a>.</li>);
 	}
 	say "</ul>\n</div>";
 	return;

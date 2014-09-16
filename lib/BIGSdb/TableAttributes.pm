@@ -1492,6 +1492,17 @@ sub get_projects_table_attributes {
 			tooltip => "full description - This text will appear on the record pages of isolates belonging to the project.  You can use '
 			 . 'HTML markup here.  If you don't enter anything here then the project will not be listed on the isolate record page."
 		},
+		{
+			name    => 'isolate_display',
+			type    => 'bool',
+			tooltip => 'isolate display - Select to list this project on an isolate information page (also requires a full description '
+			  . 'to be entered).'
+		},
+		{
+			name    => 'list',
+			type    => 'bool',
+			tooltip => 'list - Select to include in list of projects linked from the contents page.'
+		},
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' }
 	];
