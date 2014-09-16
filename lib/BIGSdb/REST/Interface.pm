@@ -32,6 +32,7 @@ use BIGSdb::REST::Routes::Resources;
 use BIGSdb::REST::Routes::Schemes;
 use BIGSdb::REST::Routes::Users;
 use constant PAGE_SIZE => 100;
+set behind_proxy       => 1;
 
 sub new {
 	my ( $class, $options ) = @_;
