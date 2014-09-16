@@ -138,7 +138,7 @@ get '/db/:db/loci/:locus' => sub {
 			my $seqdef_locus = $1;
 			if ( $locus_info->{'description_url'} =~ /db=(\w+)/ ) {
 				my $seqdef_config = $1;
-				push @$values, { seqdef_defintions => request->uri_for("/db/$seqdef_config/loci/$seqdef_locus")->as_string };
+				push @$values, { seqdef_definition => request->uri_for("/db/$seqdef_config/loci/$seqdef_locus")->as_string };
 			}
 		}
 	}
