@@ -30,13 +30,41 @@ get '/db/:db/schemes' => sub {
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	my $values  = [];
 	foreach my $scheme (@$schemes) {
-		push @$values, [
-			{ href        => request->uri_for("/db/$db/scheme/$scheme->{'id'}")->as_string },
-			{ description => $scheme->{'description'} }
-		];
+		push @$values,
+		  [ { href => request->uri_for("/db/$db/schemes/$scheme->{'id'}")->as_string }, { description => $scheme->{'description'} } ];
 	}
 	return $values;
 };
+get '/db/:db/schemes/:scheme' => sub {
+	my $self = setting('self');
+	my ( $db, $scheme_id ) = ( params->{'db'}, params->{'scheme'} );
+	my $set_id      = $self->get_set_id;
+	my $values      = [];
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
+	if ( !$scheme_info ) {
+		status(404);
+		return { error => "Scheme $scheme_id does not exist." };
+	}
+	push @$values, { description => $scheme_info->{'description'} };
+	push @$values, { has_primary_key_field => $scheme_info->{'primary_key'} ? 'true' : 'false' };
 
-
+	#TODO Route for scheme field
+	push @$values, { primary_key_field => request->uri_for("/db/$db/schemes/$scheme_id/fields/$scheme_info->{'primary_key'}")->as_string }
+	  if $scheme_info->{'primary_key'};
+	my $scheme_fields      = $self->{'datastore'}->get_scheme_fields($scheme_id);
+	my $scheme_field_links = [];
+	foreach my $field (@$scheme_fields) {
+		push @$scheme_field_links, request->uri_for("/db/$db/schemes/$scheme_id/fields/$field")->as_string;
+	}
+	push @$values, { fields => $scheme_field_links } if @$scheme_field_links;
+	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	push @$values, { locus_count => scalar @$loci };
+	my $locus_links = [];
+	foreach my $locus (@$loci) {
+		my $cleaned_locus = $self->clean_locus($locus);
+		push @$locus_links, request->uri_for("/db/$db/loci/$cleaned_locus")->as_string;
+	}
+	push @$values, { loci => $locus_links } if @$locus_links;
+	return $values;
+};
 1;

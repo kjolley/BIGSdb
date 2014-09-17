@@ -158,7 +158,7 @@ get '/db/:db/loci/:locus' => sub {
 		);
 		if ($is_member) {
 			push @$scheme_member_list,
-			  [ { href => request->uri_for("/db/$db/scheme/$scheme->{'id'}")->as_string }, { description => $scheme->{'description'} } ];
+			  [ { href => request->uri_for("/db/$db/schemes/$scheme->{'id'}")->as_string }, { description => $scheme->{'description'} } ];
 		}
 	}
 	if (@$scheme_member_list) {
