@@ -20,6 +20,7 @@ package BIGSdb::REST::Routes::Isolates;
 use strict;
 use warnings;
 use 5.010;
+use POSIX qw(ceil);
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 use BIGSdb::Utils;
 
@@ -29,7 +30,7 @@ get '/db/:db/isolates' => sub {
 	my ($db)          = params->{'db'};
 	my $page          = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
 	my $isolate_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
-	my $pages         = int( $isolate_count / $self->{'page_size'} ) + 1;
+	my $pages         = ceil( $isolate_count / $self->{'page_size'} ) ;
 	my $offset        = ( $page - 1 ) * $self->{'page_size'};
 	my $ids =
 	  $self->{'datastore'}->run_query( "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id OFFSET $offset LIMIT $self->{'page_size'}",

@@ -20,6 +20,7 @@ package BIGSdb::REST::Routes::Loci;
 use strict;
 use warnings;
 use 5.010;
+use POSIX qw(ceil);
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Locus routes
@@ -34,7 +35,7 @@ get '/db/:db/loci' => sub {
 	  . "WHERE set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 	  : '';
 	my $locus_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM loci$set_clause");
-	my $pages       = int( $locus_count / $self->{'page_size'} ) + 1;
+	my $pages       = ceil( $locus_count / $self->{'page_size'} );
 	my $offset      = ( $page - 1 ) * $self->{'page_size'};
 	my $loci = $self->{'datastore'}->run_query( "SELECT id FROM loci$set_clause ORDER BY id OFFSET $offset LIMIT $self->{'page_size'}",
 		undef, { fetch => 'col_arrayref' } );
@@ -126,8 +127,8 @@ get '/db/:db/loci/:locus' => sub {
 		push @$values, { curators => \@curator_links } if @curator_links;
 	} else {
 
-	 #Isolate databases - attempt to link to seqdef definitions
-	 #We probably need to have a specific field in the loci table to define this as there are too many cases where this won't work.
+		#Isolate databases - attempt to link to seqdef definitions
+		#We probably need to have a specific field in the loci table to define this as there are too many cases where this won't work.
 		if (
 			   $locus_info->{'description_url'}
 			&& $locus_info->{'description_url'} =~ /page=locusInfo/
