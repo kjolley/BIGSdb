@@ -31,7 +31,6 @@ use constant {
 	PORT             => 5432,
 	USER             => 'apache',
 	PASSWORD         => '',
-	URI_BASE	     => 'http://rest.pubmlst.org/'
 };
 #######End Local configuration################################
 use Log::Log4perl qw(get_logger);    #Also need Log::Dispatch::File
@@ -43,11 +42,10 @@ my $app = BIGSdb::REST::Interface->new(
 		config_dir       => CONFIG_DIR,
 		lib_dir          => LIB_DIR,
 		dbase_config_dir => DBASE_CONFIG_DIR,
-		uri_base		 => URI_BASE,
 		host             => HOST,
 		port             => PORT,
 		user             => USER,
-		password         => PASSWORD
+		password         => PASSWORD,
 	}
 );
 $app->dance;
