@@ -56,7 +56,12 @@ get '/db/:db/loci' => sub {
 get '/db/:db/loci/:locus' => sub {
 	my $self = setting('self');
 	my ( $db, $locus ) = ( params->{'db'}, params->{'locus'} );
-	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	my $set_id     = $self->get_set_id;
+	my $locus_name = $locus;
+	if ($set_id) {
+		$locus_name = $self->{'datastore'}->get_set_locus_real_id( $locus, $set_id );
+	}
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
 	if ( !$locus_info ) {
 		status(404);
 		return { error => "Locus $locus does not exist." };
@@ -79,7 +84,7 @@ get '/db/:db/loci/:locus' => sub {
 		#Extended attributes
 		my $extended_attributes =
 		  $self->{'datastore'}->run_query( "SELECT * FROM locus_extended_attributes WHERE locus=? ORDER BY field_order,field",
-			$locus, { fetch => 'all_arrayref', slice => {} } );
+			$locus_name, { fetch => 'all_arrayref', slice => {} } );
 		my @attributes;
 		foreach my $attribute (@$extended_attributes) {
 			my @attribute;
@@ -99,27 +104,27 @@ get '/db/:db/loci/:locus' => sub {
 	#Aliases
 	my $aliases =
 	  $self->{'datastore'}
-	  ->run_query( "SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias", $locus, { fetch => 'col_arrayref' } );
+	  ->run_query( "SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias", $locus_name, { fetch => 'col_arrayref' } );
 	push @$values, { aliases => $aliases } if @$aliases;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 
 		#Description
 		my $description =
-		  $self->{'datastore'}->run_query( "SELECT * FROM locus_descriptions WHERE locus=?", $locus, { fetch => 'row_hashref' } );
+		  $self->{'datastore'}->run_query( "SELECT * FROM locus_descriptions WHERE locus=?", $locus_name, { fetch => 'row_hashref' } );
 		foreach (qw(full_name product description)) {
-			push @$values, { $_ => $description->{$_} } if defined $description->{$_};
+			push @$values, { $_ => $description->{$_} } if defined $description->{$_} && $description->{$_} ne '';
 		}
 		my $pubmed_ids =
 		  $self->{'datastore'}
-		  ->run_query( "SELECT pubmed_id FROM locus_refs WHERE locus=? ORDER BY pubmed_id", $locus, { fetch => 'col_arrayref' } );
+		  ->run_query( "SELECT pubmed_id FROM locus_refs WHERE locus=? ORDER BY pubmed_id", $locus_name, { fetch => 'col_arrayref' } );
 		my @refs;
 		push @refs, $self->get_pubmed_link($_) foreach @$pubmed_ids;
 		push @$values, { publications => \@refs } if @refs;
 
 		#Curators
 		my $curators =
-		  $self->{'datastore'}
-		  ->run_query( "SELECT curator_id FROM locus_curators WHERE locus=? ORDER BY curator_id", $locus, { fetch => 'col_arrayref' } );
+		  $self->{'datastore'}->run_query( "SELECT curator_id FROM locus_curators WHERE locus=? ORDER BY curator_id", $locus_name,
+			{ fetch => 'col_arrayref' } );
 		my @curator_links;
 		foreach my $user_id (@$curators) {
 			push @curator_links, request->uri_for("/db/$db/users/$user_id")->as_string;
@@ -142,6 +147,22 @@ get '/db/:db/loci/:locus' => sub {
 				push @$values, { seqdef_definition => request->uri_for("/db/$seqdef_config/loci/$seqdef_locus")->as_string };
 			}
 		}
+	}
+	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+	my $scheme_member_list = [];
+	foreach my $scheme (@$schemes) {
+		my $is_member = $self->{'datastore'}->run_query(
+			"SELECT EXISTS(SELECT * FROM scheme_members WHERE scheme_id=? AND locus=?)",
+			[ $scheme->{'id'}, $locus_name ],
+			{ cache => 'Loci::scheme_member' }
+		);
+		if ($is_member) {
+			push @$scheme_member_list,
+			  [ { href => request->uri_for("/db/$db/scheme/$scheme->{'id'}")->as_string }, { description => $scheme->{'description'} } ];
+		}
+	}
+	if (@$scheme_member_list) {
+		push @$values, { scheme_member => $scheme_member_list };
 	}
 	return $values;
 };
