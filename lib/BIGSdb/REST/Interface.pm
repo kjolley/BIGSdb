@@ -32,7 +32,6 @@ use BIGSdb::REST::Routes::Resources;
 use BIGSdb::REST::Routes::Schemes;
 use BIGSdb::REST::Routes::Users;
 use constant PAGE_SIZE => 100;
-set behind_proxy       => 1;
 
 sub new {
 	my ( $class, $options ) = @_;
@@ -54,9 +53,9 @@ sub new {
 	bless( $self, $class );
 	$self->_initiate;
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
+	set behind_proxy => $self->{'config'}->{'rest_behind_proxy'} ? 1 : 0;
 	set serializer => 'JSON';    #Mutable isn't working with Dancer2.
 	set self       => $self;
-	dance;
 	return $self;
 }
 
