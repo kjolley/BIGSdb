@@ -38,8 +38,12 @@ get '/db/:db/schemes' => sub {
 get '/db/:db/schemes/:scheme' => sub {
 	my $self = setting('self');
 	my ( $db, $scheme_id ) = ( params->{'db'}, params->{'scheme'} );
-	my $set_id      = $self->get_set_id;
-	my $values      = [];
+	my $set_id = $self->get_set_id;
+	my $values = [];
+	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
+		status(400);
+		return { error => 'Scheme id must be an integer.' };
+	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 	if ( !$scheme_info ) {
 		status(404);
@@ -47,9 +51,8 @@ get '/db/:db/schemes/:scheme' => sub {
 	}
 	push @$values, { description => $scheme_info->{'description'} };
 	push @$values, { has_primary_key_field => $scheme_info->{'primary_key'} ? 'true' : 'false' };
-
-	#TODO Route for scheme field
-	push @$values, { primary_key_field => request->uri_for("/db/$db/schemes/$scheme_id/fields/$scheme_info->{'primary_key'}")->as_string }
+	push @$values,
+	  { primary_key_field => request->uri_for("/db/$db/schemes/$scheme_id/fields/$scheme_info->{'primary_key'}")->as_string }
 	  if $scheme_info->{'primary_key'};
 	my $scheme_fields      = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $scheme_field_links = [];
@@ -65,6 +68,26 @@ get '/db/:db/schemes/:scheme' => sub {
 		push @$locus_links, request->uri_for("/db/$db/loci/$cleaned_locus")->as_string;
 	}
 	push @$values, { loci => $locus_links } if @$locus_links;
+	return $values;
+};
+get '/db/:db/schemes/:scheme/fields/:field' => sub {
+	my $self   = setting('self');
+	my $params = params;
+	my ( $db, $scheme_id, $field ) = @{$params}{qw(db scheme field)};
+	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
+		status(400);
+		return { error => 'Scheme id must be an integer.' };
+	}
+	my $values = [];
+	my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+	if ( !$field_info ) {
+		status(404);
+		return { error => "Scheme field $field does not exist in scheme $scheme_id." };
+	}
+	foreach my $attribute (qw(field type description)) {
+		push @$values, { $attribute => $field_info->{$attribute} } if defined $field_info->{$attribute};
+	}
+	push @$values, { primary_key => $field_info->{'primary_key'} ? 'true' : 'false' };
 	return $values;
 };
 1;
