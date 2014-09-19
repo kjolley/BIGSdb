@@ -26,6 +26,7 @@ use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Application_Initiate');
 use BIGSdb::Utils;
+use BIGSdb::REST::Routes::Alleles;
 use BIGSdb::REST::Routes::Isolates;
 use BIGSdb::REST::Routes::Loci;
 use BIGSdb::REST::Routes::Resources;
