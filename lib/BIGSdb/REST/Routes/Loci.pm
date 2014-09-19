@@ -162,7 +162,12 @@ get '/db/:db/loci/:locus' => sub {
 		}
 	}
 	if (@$scheme_member_list) {
-		push @$values, { scheme_member => $scheme_member_list };
+		push @$values, { schemes => $scheme_member_list };
+	}
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		if ( $self->{'datastore'}->sequences_exist($locus_name) ) {
+			push @$values, { alleles => request->uri_for("/db/$db/alleles/$locus_name")->as_string };
+		}
 	}
 	return $values;
 };
