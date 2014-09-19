@@ -29,6 +29,7 @@ use BIGSdb::Utils;
 use BIGSdb::REST::Routes::Alleles;
 use BIGSdb::REST::Routes::Isolates;
 use BIGSdb::REST::Routes::Loci;
+use BIGSdb::REST::Routes::Profiles;
 use BIGSdb::REST::Routes::Resources;
 use BIGSdb::REST::Routes::Schemes;
 use BIGSdb::REST::Routes::Users;

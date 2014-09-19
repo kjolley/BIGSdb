@@ -51,8 +51,7 @@ get '/db/:db/schemes/:scheme' => sub {
 	}
 	push @$values, { description => $scheme_info->{'description'} };
 	push @$values, { has_primary_key_field => $scheme_info->{'primary_key'} ? 'true' : 'false' };
-	push @$values,
-	  { primary_key_field => request->uri_for("/db/$db/schemes/$scheme_id/fields/$scheme_info->{'primary_key'}")->as_string }
+	push @$values, { primary_key_field => request->uri_for("/db/$db/schemes/$scheme_id/fields/$scheme_info->{'primary_key'}")->as_string }
 	  if $scheme_info->{'primary_key'};
 	my $scheme_fields      = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $scheme_field_links = [];
@@ -68,6 +67,12 @@ get '/db/:db/schemes/:scheme' => sub {
 		push @$locus_links, request->uri_for("/db/$db/loci/$cleaned_locus")->as_string;
 	}
 	push @$values, { loci => $locus_links } if @$locus_links;
+	if ( $scheme_info->{'primary_key'} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		my $profile_view = ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
+		my $profile_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $profile_view");
+		push @$values, { profile_count => $profile_count };
+		push @$values, { profiles      => request->uri_for("/db/$db/schemes/$scheme_id/profiles")->as_string };
+	}
 	return $values;
 };
 get '/db/:db/schemes/:scheme/fields/:field' => sub {

@@ -93,7 +93,7 @@ get '/db/:db/alleles/:locus/:allele_id' => sub {
 	my $values = [];
 	foreach my $attribute (qw(locus allele_id sequence status comments date_entered datestamp sender curator)) {
 		if ( $attribute eq 'locus' ) {
-			push @$values, { $attribute => request->uri_for("/db/$db/loci/$locus_name")->as_string };
+			push @$values, { $attribute => request->uri_for("/db/$db/loci/$locus")->as_string };
 		} elsif ( $attribute eq 'sender' || $attribute eq 'curator' ) {
 
 			#Don't link to user 0 (setup user)
