@@ -68,7 +68,7 @@ get '/db/:db/schemes/:scheme_id/profiles' => sub {
 	foreach my $profile_id (@$profiles) {
 		push @$profile_links, request->uri_for("/db/$db/schemes/$scheme_id/profiles/$profile_id")->as_string;
 	}
-	push @$values, [ profiles => $profile_links ];
+	push @$values, { profiles => $profile_links };
 	return $values;
 };
 get '/db/:db/schemes/:scheme_id/profiles/:profile_id' => sub {
