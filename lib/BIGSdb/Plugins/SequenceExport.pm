@@ -348,7 +348,7 @@ sub run_job {
 				} else {
 					$seq = 'N';
 					$no_seq{$id} = 1;
-					push @include_values, 'no_seq' if $params->{'includes'} =~ /seqbin id/;
+					push @include_values, 'no_seq' if $field_included{&SEQ_SOURCE};
 				}
 				if ( $params->{'in_frame'} || $params->{'translate'} ) {
 					$seq = BIGSdb::Utils::chop_seq( $seq, $locus_info->{'orf'} || 1 );
