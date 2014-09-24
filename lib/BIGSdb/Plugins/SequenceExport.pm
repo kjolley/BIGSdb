@@ -33,6 +33,7 @@ use Bio::AlignIO;
 use BIGSdb::Utils;
 use constant DEFAULT_ALIGN_LIMIT => 200;
 use BIGSdb::Page qw(LOCUS_PATTERN);
+use BIGSdb::Plugin qw(SEQ_SOURCE);
 
 sub get_attributes {
 	my ($self) = @_;
@@ -47,7 +48,7 @@ sub get_attributes {
 		buttontext       => 'Sequences',
 		menutext         => 'Sequences',
 		module           => 'SequenceExport',
-		version          => '1.5.1',
+		version          => '1.5.2',
 		dbtype           => 'isolates,sequences',
 		seqdb_type       => 'schemes',
 		section          => 'export,postquery',
@@ -111,7 +112,7 @@ sub run {
 			print "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci";
 			print " or schemes" if $self->{'system'}->{'dbtype'} eq 'isolates';
 			say ".</p></div>\n";
-		} elsif ($self->attempted_spam(\($q->param('list')))){
+		} elsif ( $self->attempted_spam( \( $q->param('list') ) ) ) {
 			say qq(<div class="box" id="statusbad"><p>Invalid data detected in list.</p></div>);
 		} else {
 			$self->set_scheme_param;
@@ -190,7 +191,8 @@ HTML
 			ignore_seqflags   => 1,
 			ignore_incomplete => 1,
 			align             => $allow_alignment,
-			in_frame          => 1
+			in_frame          => 1,
+			include_seqbin_id => 1
 		}
 	);
 	say "</div>";
@@ -211,11 +213,12 @@ sub run_job {
 	    $self->{'system'}->{'dbtype'} eq 'isolates'
 	  ? $self->{'db'}->prepare("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?")
 	  : undef;
-	my @includes;
+	my ( @includes, %field_included );
 
 	if ( $params->{'includes'} ) {
 		my $separator = '\|\|';
 		@includes = split /$separator/, $params->{'includes'};
+		%field_included = map { $_ => 1 } @includes;
 	}
 	my $substring_query;
 	if ( $params->{'flanking'} && BIGSdb::Utils::is_int( $params->{'flanking'} ) ) {
@@ -231,10 +234,10 @@ sub run_job {
 	}
 	my $ignore_seqflags   = $params->{'ignore_seqflags'}   ? 'AND flag IS NULL' : '';
 	my $ignore_incomplete = $params->{'ignore_incomplete'} ? 'AND complete'     : '';
-	my $seqbin_sql =
-	  $self->{'db'}->prepare( "SELECT $substring_query,reverse FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id="
-		  . "sequence_bin.id LEFT JOIN sequence_flags ON allele_sequences.id=sequence_flags.id WHERE allele_sequences.isolate_id=? "
-		  . "AND allele_sequences.locus=? $ignore_seqflags $ignore_incomplete ORDER BY complete,allele_sequences.datestamp LIMIT 1" );
+	my $seqbin_qry =
+	    "SELECT $substring_query,reverse, seqbin_id, start_pos FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id="
+	  . "sequence_bin.id LEFT JOIN sequence_flags ON allele_sequences.id=sequence_flags.id WHERE allele_sequences.isolate_id=? "
+	  . "AND allele_sequences.locus=? $ignore_seqflags $ignore_incomplete ORDER BY complete,allele_sequences.datestamp LIMIT 1";
 	my @problem_ids;
 	my %problem_id_checked;
 	my $start = 1;
@@ -283,6 +286,7 @@ sub run_job {
 				my $isolate_data = $isolate_sql->fetchrow_hashref;
 				if (@includes) {
 					foreach my $field (@includes) {
+						next if $field eq SEQ_SOURCE;
 						my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 						my $value;
 						if ( defined $metaset ) {
@@ -294,12 +298,7 @@ sub run_job {
 						push @include_values, $value;
 					}
 				}
-				if ( $isolate_data->{'id'} ) {
-					print $fh_unaligned ">$id";
-					local $" = '|';
-					print $fh_unaligned "|@include_values" if @includes;
-					print $fh_unaligned "\n";
-				} else {
+				if ( !$isolate_data->{'id'} ) {
 					push @problem_ids, $id if !$problem_id_checked{$id};
 					$problem_id_checked{$id} = 1;
 					next;
@@ -319,30 +318,45 @@ sub run_job {
 					};
 				}
 				my $seqbin_seq;
-				eval { $seqbin_sql->execute( $id, $locus_name ) };
+				my $seqbin_pos = '';
 				if ($@) {
 					$logger->error($@);
 				} else {
-					my $reverse;
-					( $seqbin_seq, $reverse ) = $seqbin_sql->fetchrow_array;
+					my ( $reverse, $seqbin_id, $start_pos );
+					( $seqbin_seq, $reverse, $seqbin_id, $start_pos ) =
+					  $self->{'datastore'}->run_query( $seqbin_qry, [ $id, $locus_name ], { cache => 'SequenceExport::run_job' } );
 					if ($reverse) {
 						$seqbin_seq = BIGSdb::Utils::reverse_complement($seqbin_seq);
 					}
+					$seqbin_pos = "$seqbin_id\_$start_pos" if $seqbin_seq;
 				}
 				my $seq;
 				if ( $allele_seq && $seqbin_seq ) {
-					$seq = $params->{'chooseseq'} eq 'seqbin' ? $seqbin_seq : $allele_seq;
+					if ( $params->{'chooseseq'} eq 'seqbin' ) {
+						$seq = $seqbin_seq;
+						push @include_values, $seqbin_pos if $field_included{&SEQ_SOURCE};
+					} else {
+						$seq = $allele_seq;
+						push @include_values, 'defined_allele' if $field_included{&SEQ_SOURCE};
+					}
 				} elsif ( $allele_seq && !$seqbin_seq ) {
 					$seq = $allele_seq;
+					push @include_values, 'defined_allele' if $field_included{&SEQ_SOURCE};
 				} elsif ($seqbin_seq) {
 					$seq = $seqbin_seq;
+					push @include_values, $seqbin_pos if $field_included{&SEQ_SOURCE};
 				} else {
 					$seq = 'N';
 					$no_seq{$id} = 1;
+					push @include_values, 'no_seq' if $params->{'includes'} =~ /seqbin id/;
 				}
 				if ( $params->{'in_frame'} || $params->{'translate'} ) {
 					$seq = BIGSdb::Utils::chop_seq( $seq, $locus_info->{'orf'} || 1 );
 				}
+				print $fh_unaligned ">$id";
+				local $" = '|';
+				print $fh_unaligned "|@include_values" if @includes;
+				print $fh_unaligned "\n";
 				if ( $params->{'translate'} ) {
 					my $peptide = $seq ? Bio::Perl::translate_as_string($seq) : 'X';
 					say $fh_unaligned $peptide;

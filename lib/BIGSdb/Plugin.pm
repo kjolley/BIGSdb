@@ -27,6 +27,8 @@ use List::MoreUtils qw(any uniq);
 use BIGSdb::Page qw(FLANKING LOCUS_PATTERN);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_TREE_NODES => 1000;
+use constant SEQ_SOURCE     => 'seqbin id + position';
+our @EXPORT_OK = qw(SEQ_SOURCE);
 
 sub get_attributes {
 
@@ -604,7 +606,7 @@ sub print_sequence_export_form {
 	say "</fieldset>";
 	my ( $locus_list, $locus_labels ) =
 	  $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
-	$self->print_includes_fieldset( { scheme_id => $scheme_id } );
+	$self->print_includes_fieldset( { scheme_id => $scheme_id, include_seqbin_id => $options->{'include_seqbin_id'} } );
 
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
@@ -713,6 +715,9 @@ sub print_includes_fieldset {
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			push @fields, $field;
 			( $labels->{$field} = $metafield // $field ) =~ tr/_/ /;
+		}
+		if ( $options->{'include_seqbin_id'} ) {
+			push @fields, SEQ_SOURCE;
 		}
 	} else {
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $options->{'scheme_id'} );
