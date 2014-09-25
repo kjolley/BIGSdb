@@ -39,8 +39,9 @@ sub print_content {
 	$self->{'header_format'} = $workbook->add_format;
 	$self->{'header_format'}->set_align('center');
 	$self->{'header_format'}->set_bold;
-	my $table = $self->{'cgi'}->param('table') || '';
-	my $scheme_id = $self->{'cgi'}->param('scheme_id');
+	my $q         = $self->{'cgi'};
+	my $table     = $q->param('table') || '';
+	my $scheme_id = $q->param('scheme_id');
 
 	if ( !$self->{'datastore'}->is_table($table) && !@{ $self->{'xmlHandler'}->get_sample_field_list } ) {
 		$worksheet->write( 'A1', "Table $table does not exist!" );
@@ -68,6 +69,10 @@ sub print_content {
 		}
 	} else {
 		$headers = $self->get_headers($table);
+		if ( $table eq 'isolates' && $q->param('addCols') ) {
+			my @cols = split /,/, $q->param('addCols');
+			push @$headers, @cols;
+		}
 	}
 	my $col = 0;
 	my $allowed_values_worksheet;
