@@ -70,8 +70,8 @@ get '/db/:db/schemes/:scheme' => sub {
 	if ( $scheme_info->{'primary_key'} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $profile_view = ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
 		my $profile_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $profile_view");
-		push @$values, { profile_count => $profile_count };
-		push @$values, { profiles      => request->uri_for("/db/$db/schemes/$scheme_id/profiles")->as_string };
+		push @$values, { profile_count => int($profile_count) };    #Force integer output (non-quoted)
+		push @$values, { profiles => request->uri_for("/db/$db/schemes/$scheme_id/profiles")->as_string };
 	}
 	return $values;
 };
