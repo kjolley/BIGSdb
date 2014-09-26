@@ -56,7 +56,7 @@ get '/db/:db' => sub {
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $count  = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
 		my $routes = [
-			{ records  => $count },
+			{ records  => int($count) },                                       #Force integer output (non-quoted)
 			{ isolates => request->uri_for("/db/$db/isolates")->as_string },
 			{ fields   => request->uri_for("/db/$db/fields")->as_string },
 		];
