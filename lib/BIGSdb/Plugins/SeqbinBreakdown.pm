@@ -44,7 +44,7 @@ sub get_attributes {
 		menutext    => 'Sequence bin',
 		module      => 'SeqbinBreakdown',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#sequence-bin-breakdown",
-		version     => '1.1.0',
+		version     => '1.1.1',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -149,11 +149,8 @@ sub run_job {
 	}
 	foreach my $id (@$isolate_ids) {
 		my $contig_info = $self->_get_isolate_contig_data($id);
-		my ( $isolate_name, $contigs, $sum, $min, $max, $mean, $stddev, $single_isolate_lengths, $percent_alleles, $percent_tagged,
-			$n_stats )
-		  = @{$contig_info}{qw(isolate_name contigs sum min max mean stddev lengths percent_alleles percent_tagged n_stats)};
 		$row++;
-		next if !$contigs;
+		next if !$contig_info->{'contigs'};
 		$row_with_data++;
 		$html_buffer .= $self->_get_html_table_row( $id, $contig_info, $td ) . "\n";
 		$text_buffer .= $self->_get_text_table_row( $id, $contig_info ) . "\n";
@@ -276,10 +273,7 @@ sub _print_table {
 
 	foreach my $id (@$ids) {
 		my $contig_info = $self->_get_isolate_contig_data($id);
-		my ( $isolate_name, $contigs, $sum, $min, $max, $mean, $stddev, $single_isolate_lengths, $percent_alleles, $percent_tagged,
-			$n_stats )
-		  = @{$contig_info}{qw(isolate_name contigs sum min max mean stddev lengths percent_alleles percent_tagged n_stats)};
-		next if !$contigs;
+		next if !$contig_info->{'contigs'};
 		if ( !$header_displayed ) {
 			say $fh $self->_get_text_table_header;
 			say $self->_get_html_table_header;
@@ -329,7 +323,8 @@ sub _get_html_table_header {
 <table class="tablesorter" id="sortTable">
 <thead>
 <tr><th>Isolate id</th><th>$labelfield</th><th>Contigs</th><th>Total length</th><th>Min</th><th>Max</th><th>Mean</th><th>&sigma;</th>
-<th>N50</th><th>N90</th><th>N95</th><th>% Alleles designated</th><th>% Loci tagged</th><th>Sequence bin</th></tr>
+<th>N50</th><th>N90</th><th>N95</th><th>Alleles designated</th><th>% Alleles designated</th><th>Loci tagged</th><th>% Loci tagged</th>
+<th>Sequence bin</th></tr>
 </thead>
 <tbody>
 HTML
@@ -338,31 +333,38 @@ HTML
 
 sub _get_html_table_row {
 	my ( $self, $isolate_id, $contig_info, $td ) = @_;
-	my ( $isolate_name, $contigs, $sum, $min, $max, $mean, $stddev, $single_isolate_lengths, $percent_alleles, $percent_tagged, $n_stats ) =
-	  @{$contig_info}{qw(isolate_name contigs sum min max mean stddev lengths percent_alleles percent_tagged n_stats)};
+	my ( $isolate_name, $contigs, $sum, $min, $max, $mean, $stddev, $single_isolate_lengths, $allele_designations, $percent_alleles,
+		$tagged, $percent_tagged, $n_stats )
+	  = @{$contig_info}
+	  {qw(isolate_name contigs sum min max mean stddev lengths allele_designations percent_alleles tagged percent_tagged n_stats)};
 	my $buffer = "<tr class=\"td$td\"><td>$isolate_id</td><td>$isolate_name</td><td>$contigs</td><td>$sum</td><td>$min</td>"
 	  . "<td>$max</td><td>$mean</td>";
 	$buffer .= defined $stddev ? "<td>$stddev</td>" : '<td></td>';
 	$buffer .=
-	    "<td>$n_stats->{'N50'}</td><td>$n_stats->{'N90'}</td><td>$n_stats->{'N95'}</td><td>$percent_alleles</td>"
-	  . "<td>$percent_tagged</td><td><a href=\"$self->{'system'}->{'script_name'}?page=seqbin&amp;db=$self->{'instance'}&amp;"
-	  . "isolate_id=$isolate_id\" class=\"extract_tooltip\" target=\"_blank\">Display &rarr;</a></td></tr>";
+	    "<td>$n_stats->{'N50'}</td><td>$n_stats->{'N90'}</td><td>$n_stats->{'N95'}</td><td>$allele_designations</td>"
+	  . "<td>$percent_alleles</td><td>$tagged</td><td>$percent_tagged</td><td>"
+	  . "<a href=\"$self->{'system'}->{'script_name'}?page=seqbin&amp;db=$self->{'instance'}&amp;isolate_id=$isolate_id\" "
+	  . "class=\"extract_tooltip\" target=\"_blank\">Display &rarr;</a></td></tr>";
 	return $buffer;
 }
 
 sub _get_text_table_header {
 	my ($self) = @_;
 	my $labelfield = ucfirst( $self->{'system'}->{'labelfield'} );
-	return "Isolate id\t$labelfield\tContigs\tTotal length\tMin\tMax\tMean\tStdDev\tN50\tN90\tN95\t%Allele designated\t%Loci tagged";
+	return "Isolate id\t$labelfield\tContigs\tTotal length\tMin\tMax\tMean\tStdDev\tN50\tN90\tN95\tAlleles designated\t"
+	  . "%Alleles designated\tLoci tagged\t%Loci tagged";
 }
 
 sub _get_text_table_row {
 	my ( $self, $isolate_id, $contig_info ) = @_;
-	my ( $isolate_name, $contigs, $sum, $min, $max, $mean, $stddev, $single_isolate_lengths, $percent_alleles, $percent_tagged, $n_stats ) =
-	  @{$contig_info}{qw(isolate_name contigs sum min max mean stddev lengths percent_alleles percent_tagged n_stats)};
+	my ( $isolate_name, $contigs, $sum, $min, $max, $mean, $stddev, $single_isolate_lengths, $allele_designations, $percent_alleles,
+		$tagged, $percent_tagged, $n_stats )
+	  = @{$contig_info}
+	  {qw(isolate_name contigs sum min max mean stddev lengths allele_designations percent_alleles tagged percent_tagged n_stats)};
 	my $buffer = "$isolate_id\t$isolate_name\t$contigs\t$sum\t$min\t$max\t$mean\t";
 	$buffer .= "$stddev" if defined $stddev;
-	$buffer .= "\t$n_stats->{'N50'}\t$n_stats->{'N90'}\t$n_stats->{'N95'}\t$percent_alleles\t$percent_tagged";
+	$buffer .=
+	  "\t$n_stats->{'N50'}\t$n_stats->{'N90'}\t$n_stats->{'N95'}\t$allele_designations\t$percent_alleles\t$tagged\t" . "$percent_tagged";
 	return $buffer;
 }
 
@@ -379,11 +381,13 @@ sub _get_isolate_contig_data {
 		$data->{'lengths'}      = $self->_get_contig_lengths($isolate_id);
 		$data->{'isolate_name'} = $self->get_isolate_name_from_id($isolate_id);
 		my $allele_designations = $self->{'datastore'}->get_all_allele_ids( $isolate_id, { set_id => $set_id } );
+		$data->{'allele_designations'} = scalar keys %$allele_designations;
 		$data->{'percent_alleles'} =
 		  BIGSdb::Utils::decimal_place( 100 * ( scalar keys %$allele_designations ) / @{ $self->{'cache'}->{'loci'} }, 1 );
 		my $tagged = $self->_get_tagged($isolate_id);
+		$data->{'tagged'}         = $tagged;
 		$data->{'percent_tagged'} = BIGSdb::Utils::decimal_place( 100 * ( $tagged / @{ $self->{'cache'}->{'loci'} } ), 1 );
-		$data->{'n_stats'} = BIGSdb::Utils::get_N_stats( $data->{'sum'}, $data->{'lengths'} );
+		$data->{'n_stats'}        = BIGSdb::Utils::get_N_stats( $data->{'sum'}, $data->{'lengths'} );
 	}
 	return $data;
 }
