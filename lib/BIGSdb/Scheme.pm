@@ -97,12 +97,15 @@ sub get_field_values_by_designations {
 	my $query_key = "@allele_count";
 	if ( !$self->{'sql'}->{"field_values_$query_key"} ) {
 		my @locus_terms;
+		my @locus_list;
 		my $i = 0;
 		foreach my $locus (@$loci) {
-			$locus =~ s/'/_PRIME_/g;
+			my $locus_name = $locus;                                 #Don't nobble $locus - make a copy and use that.
+			$locus_name =~ s/'/_PRIME_/g;
+			push @locus_list, $locus_name;
 			my @temp_terms;
-			push @temp_terms, ("$locus=?") x $allele_count[$i];
-			push @temp_terms, "$locus='N'" if $self->{'allow_missing_loci'};
+			push @temp_terms, ("$locus_name=?") x $allele_count[$i];
+			push @temp_terms, "$locus_name='N'" if $self->{'allow_missing_loci'};
 			local $" = ' OR ';
 			push @locus_terms, "(@temp_terms)";
 			$i++;
@@ -112,7 +115,7 @@ sub get_field_values_by_designations {
 		local $" = ',';
 		$self->{'dbase_table'} //= '';
 		$self->{'sql'}->{"field_values_$query_key"} =
-		  $self->{'db'}->prepare("SELECT @$loci,@$fields FROM $self->{'dbase_table'} WHERE $locus_term_string");
+		  $self->{'db'}->prepare("SELECT @locus_list,@$fields FROM $self->{'dbase_table'} WHERE $locus_term_string");
 	}
 	eval { $self->{'sql'}->{"field_values_$query_key"}->execute(@allele_ids) };
 	if ($@) {
