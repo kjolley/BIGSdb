@@ -517,9 +517,10 @@ sub _print_isolate_table {
 				print "<td>@$aliases</td>";
 			}
 		}
-		if ( $self->{'prefs'}->{'display_seqbin_main'} ) {
-			my $size = $self->_get_seqbin_size($id);
-			print "<td>$size</td>";
+		if ( $self->{'prefs'}->{'display_seqbin_main'} || $self->{'prefs'}->{'display_contig_count'} ) {
+			my $stats = $self->_get_seqbin_stats($id);
+			print "<td>$stats->{'total_length'}</td>" if $self->{'prefs'}->{'display_seqbin_main'};
+			print "<td>$stats->{'contigs'}</td>"      if $self->{'prefs'}->{'display_contig_count'};
 		}
 
 		#Print loci and scheme fields
@@ -553,10 +554,12 @@ sub _print_isolate_table {
 	return;
 }
 
-sub _get_seqbin_size {
+sub _get_seqbin_stats {
 	my ( $self, $isolate_id ) = @_;
-	return $self->{'datastore'}->run_query( "SELECT total_length FROM seqbin_stats WHERE isolate_id=?",
-		$isolate_id, { cache => 'ResultsTablePage::get_seqbin_stats' } ) // 0;
+	my $stats = $self->{'datastore'}->run_query( "SELECT contigs,total_length FROM seqbin_stats WHERE isolate_id=?",
+		$isolate_id, { fetch => 'row_hashref', cache => 'ResultsTablePage::get_seqbin_stats' } );
+	$stats = { contigs => 0, total_length => 0 } if !$stats;
+	return $stats;
 }
 
 sub _print_isolate_table_header {
@@ -618,6 +621,7 @@ sub _print_isolate_table_header {
 	  . qq(by going to the options page.">&nbsp;<i>i</i>&nbsp;</a>);
 	$fieldtype_header .= "</th>";
 	$fieldtype_header .= qq(<th rowspan="2">Seqbin size (bp)</th>) if $self->{'prefs'}->{'display_seqbin_main'};
+	$fieldtype_header .= qq(<th rowspan="2">Contigs</th>) if $self->{'prefs'}->{'display_contig_count'};
 	my $alias_sql = $self->{'db'}->prepare("SELECT alias FROM locus_aliases WHERE locus=?");
 	$logger->error($@) if $@;
 	local $" = '; ';
