@@ -76,6 +76,11 @@ get '/db/:db/isolates/:id' => sub {
 		push @refs, $self->get_pubmed_link($_) foreach @$pubmed_ids;
 		push @$values, { publications => \@refs };
 	}
+	my $contig_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM sequence_bin WHERE isolate_id=?", $id);
+	if ($contig_count){
+	
+		push @$values , {sequence_bin => [ {contig_count => $contig_count}, {sequence_bin => request->uri_for("/db/$db/isolates/$id/contigs")->as_string}]};
+	}
 	return $values;
 };
 get '/db/:db/fields' => sub {
