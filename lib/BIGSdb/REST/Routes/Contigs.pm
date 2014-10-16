@@ -46,7 +46,8 @@ get '/db/:db/isolates/:id/contigs' => sub {
 	my $offset = ( $page - 1 ) * $self->{'page_size'};
 	my $contigs =
 	  $self->{'datastore'}
-	  ->run_query( "SELECT id FROM sequence_bin WHERE isolate_id=? ORDER BY id", $isolate_id, { fetch => 'col_arrayref' } );
+	  ->run_query( "SELECT id FROM sequence_bin WHERE isolate_id=? ORDER BY id OFFSET $offset LIMIT $self->{'page_size'}",
+		$isolate_id, { fetch => 'col_arrayref' } );
 	if ( !@$contigs ) {
 		status(404);
 		return { error => "No contigs for isolate id-$isolate_id are defined." };
