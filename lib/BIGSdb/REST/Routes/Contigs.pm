@@ -33,7 +33,7 @@ get '/db/:db/isolates/:id/contigs' => sub {
 		status(400);
 		return { error => 'Id must be an integer.' };
 	}
-	my $values = [];
+	my $values = {};
 	my $field_values =
 	  $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id, { fetch => 'row_hashref' } );
 	if ( !defined $field_values->{'id'} ) {
@@ -53,12 +53,12 @@ get '/db/:db/isolates/:id/contigs' => sub {
 		return { error => "No contigs for isolate id-$isolate_id are defined." };
 	}
 	my $paging = $self->get_paging( "/db/$db/isolates/$isolate_id/contigs", $pages, $page );
-	push @$values, { paging => $paging } if $pages > 1;
+	$values->{'paging'} = $paging if $pages > 1;
 	my $contig_links = [];
 	foreach my $contig_id (@$contigs) {
 		push @$contig_links, request->uri_for("/db/$db/contigs/$contig_id")->as_string;
 	}
-	push @$values, { contigs => $contig_links };
+	$values->{'contigs'} = $contig_links;
 	return $values;
 };
 get '/db/:db/contigs/:contig' => sub {
@@ -87,7 +87,7 @@ get '/db/:db/contigs/:contig' => sub {
 		} elsif ( $field eq 'sender' || $field eq 'curator' ) {
 			push @$values, { $field => request->uri_for("/db/$db/users/$contig->{$field}")->as_string };
 		} else {
-			push @$values, { $field => $contig->{ lc $field } } if defined $contig->{ lc $field };
+			push @$values, { $field => $contig->{ lc $field } } if defined $contig->{ lc $field } && $contig->{ lc $field } ne '';
 		}
 	}
 	my $attributes = $self->{'datastore'}->run_query( "SELECT * FROM sequence_attribute_values WHERE seqbin_id=? ORDER BY key",

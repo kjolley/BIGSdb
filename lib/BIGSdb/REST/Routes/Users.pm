@@ -36,12 +36,12 @@ get '/db/:db/users/:user' => sub {
 		status(404);
 		return { error => "User $user_id does not exist." };
 	}
-	my $values = [];
+	my $values = {};
 	foreach my $field (qw(id first_name surname affiliation email)) {
 
 		#Only include E-mail for curators/admins
 		next if $field eq 'email' && !$self->{'system'}->{'privacy'} && $user->{'status'} eq 'user';
-		push @$values, { $field => $user->{$field} };
+		$values->{$field} = $user->{$field};
 	}
 	return $values;
 };

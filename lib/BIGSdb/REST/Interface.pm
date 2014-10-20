@@ -26,6 +26,7 @@ use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Application_Initiate');
 use BIGSdb::Utils;
+use BIGSdb::REST::Routes::AlleleDesignations;
 use BIGSdb::REST::Routes::Alleles;
 use BIGSdb::REST::Routes::Contigs;
 use BIGSdb::REST::Routes::Isolates;
@@ -161,16 +162,16 @@ sub get_resources {
 
 sub get_paging {
 	my ( $self, $route, $pages, $page ) = @_;
-	my $paging = [];
+	my $paging = {};
 	if ( $page > 1 ) {
-		push @$paging, { first => request->uri_base . "$route?page=1&page_size=$self->{'page_size'}" };
-		push @$paging, { previous => request->uri_base . "$route?page=" . ( $page - 1 ) . "&page_size=$self->{'page_size'}" };
+		$paging->{'first'} = request->uri_base . "$route?page=1&page_size=$self->{'page_size'}";
+		$paging->{'previous'} = request->uri_base . "$route?page=" . ( $page - 1 ) . "&page_size=$self->{'page_size'}";
 	}
 	if ( $page < $pages ) {
-		push @$paging, { next => request->uri_base . "$route?page=" . ( $page + 1 ) . "&page_size=$self->{'page_size'}" };
+		$paging->{'next'} = request->uri_base . "$route?page=" . ( $page + 1 ) . "&page_size=$self->{'page_size'}";
 	}
 	if ( $page != $pages ) {
-		push @$paging, { last => request->uri_base . "$route?page=$pages&page_size=$self->{'page_size'}" };
+		$paging->{'last'} = request->uri_base . "$route?page=$pages&page_size=$self->{'page_size'}";
 	}
 	return $paging;
 }
