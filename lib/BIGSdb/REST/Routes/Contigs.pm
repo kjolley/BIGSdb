@@ -77,17 +77,17 @@ get '/db/:db/contigs/:contig' => sub {
 		status(404);
 		return { error => "Contig id-$contig_id does not exist." };
 	}
-	my $values = [];
+	my $values = {};
 	foreach my $field (qw (id isolate_id sequence method orignal_designation comments sender curator date_entered datestamp)) {
 		if ( $field eq 'isolate_id' ) {
-			push @$values, { $field => request->uri_for("/db/$db/isolates/$contig->{$field}")->as_string };
+			$values->{$field} = request->uri_for("/db/$db/isolates/$contig->{$field}")->as_string;
 		} elsif ( $field eq 'sequence' ) {
-			push @$values, { $field => $contig->{'sequence'} };
-			push @$values, { length => length $contig->{'sequence'} };
+			$values->{$field} = $contig->{'sequence'};
+			$values->{'length'} = length $contig->{'sequence'};
 		} elsif ( $field eq 'sender' || $field eq 'curator' ) {
-			push @$values, { $field => request->uri_for("/db/$db/users/$contig->{$field}")->as_string };
+			$values->{$field} = request->uri_for("/db/$db/users/$contig->{$field}")->as_string;
 		} else {
-			push @$values, { $field => $contig->{ lc $field } } if defined $contig->{ lc $field } && $contig->{ lc $field } ne '';
+			$values->{$field} = $contig->{ lc $field } if defined $contig->{ lc $field } && $contig->{ lc $field } ne '';
 		}
 	}
 	my $attributes = $self->{'datastore'}->run_query( "SELECT * FROM sequence_attribute_values WHERE seqbin_id=? ORDER BY key",

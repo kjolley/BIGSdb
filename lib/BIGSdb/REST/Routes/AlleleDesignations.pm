@@ -107,22 +107,20 @@ get '/db/:db/isolates/:id/allele_designations/:locus' => sub {
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
 	foreach my $designation (@$designations) {
-		my $returned_designation = [];
+		my $returned_designation = {};
 		foreach my $attribute (qw(locus allele_id status method comments sender curator)) {
 			next if !defined $designation->{$attribute} || $designation->{$attribute} eq '';
 			if ( $attribute eq 'locus' ) {
-				push @$returned_designation, { locus => request->uri_for("/db/$db/loci/$locus")->as_string };
+				$returned_designation->{'locus'} = request->uri_for("/db/$db/loci/$locus")->as_string;
 			} elsif ( $attribute eq 'allele_id' ) {
-				push @$returned_designation,
-				  {
-					allele_id => $locus_info->{'allele_id_format'} eq 'integer'
-					? int( $designation->{'allele_id'} )
-					: $designation->{'allele_id'}
-				  };
+				$returned_designation->{'allele_id'} =
+				  $locus_info->{'allele_id_format'} eq 'integer'
+				  ? int( $designation->{'allele_id'} )
+				  : $designation->{'allele_id'};
 			} elsif ( $attribute eq 'sender' || $attribute eq 'curator' ) {
-				push @$returned_designation, { $attribute => request->uri_for("/db/$db/users/$designation->{$attribute}")->as_string };
+				$returned_designation->{$attribute} = request->uri_for("/db/$db/users/$designation->{$attribute}")->as_string;
 			} else {
-				push @$returned_designation, { $attribute => $designation->{$attribute} };
+				$returned_designation->{$attribute} = $designation->{$attribute};
 			}
 		}
 		push @$values, $returned_designation;
