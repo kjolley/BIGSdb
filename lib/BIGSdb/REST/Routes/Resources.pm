@@ -51,22 +51,22 @@ get '/db/:db' => sub {
 	my $set_id       = $self->get_set_id;
 	my $schemes      = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	my $loci         = $self->{'datastore'}->get_loci( { set_id => $set_id } );
-	my $scheme_route = @$schemes ? { schemes => request->uri_for("/db/$db/schemes")->as_string } : undef;
-	my $loci_route   = @$loci ? { loci => request->uri_for("/db/$db/loci")->as_string } : undef;
+	my $scheme_route = @$schemes ? request->uri_for("/db/$db/schemes")->as_string : undef;
+	my $loci_route   = @$loci ? request->uri_for("/db/$db/loci")->as_string : undef;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $count  = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
-		my $routes = [
-			{ records  => int($count) },                                       #Force integer output (non-quoted)
-			{ isolates => request->uri_for("/db/$db/isolates")->as_string },
-			{ fields   => request->uri_for("/db/$db/fields")->as_string },
-		];
-		push @$routes, $scheme_route if $scheme_route;
-		push @$routes, $loci_route   if $loci_route;
+		my $routes = {
+			records  => int($count),                                       #Force integer output (non-quoted)
+			isolates => request->uri_for("/db/$db/isolates")->as_string,
+			fields   => request->uri_for("/db/$db/fields")->as_string
+		};
+		$routes->{'schemes'} = $scheme_route if $scheme_route;
+		$routes->{'loci'}    = $loci_route   if $loci_route;
 		return $routes;
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		my $routes = [];
-		push @$routes, $scheme_route if $scheme_route;
-		push @$routes, $loci_route   if $loci_route;
+		my $routes = {};
+		$routes->{'schemes'} = $scheme_route if $scheme_route;
+		$routes->{'loci'}    = $loci_route   if $loci_route;
 		return $routes;
 	} else {
 		return { title => 'Database configuration is invalid' };

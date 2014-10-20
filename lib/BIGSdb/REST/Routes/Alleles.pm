@@ -90,16 +90,16 @@ get '/db/:db/alleles/:locus/:allele_id' => sub {
 		status(404);
 		return { error => "Allele $locus-$allele_id does not exist." };
 	}
-	my $values = [];
+	my $values = {};
 	foreach my $attribute (qw(locus allele_id sequence status comments date_entered datestamp sender curator)) {
 		if ( $attribute eq 'locus' ) {
-			push @$values, { $attribute => request->uri_for("/db/$db/loci/$locus")->as_string };
+			$values->{$attribute} = request->uri_for("/db/$db/loci/$locus")->as_string;
 		} elsif ( $attribute eq 'sender' || $attribute eq 'curator' ) {
 
 			#Don't link to user 0 (setup user)
-			push @$values, { $attribute => request->uri_for("/db/$db/users/$allele->{$attribute}")->as_string } if $allele->{$attribute};
+			$values->{$attribute} = request->uri_for("/db/$db/users/$allele->{$attribute}")->as_string if $allele->{$attribute};
 		} else {
-			push @$values, { $attribute => $allele->{$attribute} } if defined $allele->{$attribute} && $allele->{$attribute} ne '';
+			$values->{$attribute} = $allele->{$attribute} if defined $allele->{$attribute} && $allele->{$attribute} ne '';
 		}
 	}
 	my $extended_attributes =
@@ -111,10 +111,10 @@ get '/db/:db/alleles/:locus/:allele_id' => sub {
 			[ $locus_name, $attribute, $allele_id ],
 			{ cache => 'Alleles:extended_attributes' }
 		);
-		push @$values, { $attribute => $extended_value } if defined $extended_value && $extended_value ne '';
+		$values->{$attribute} = $extended_value if defined $extended_value && $extended_value ne '';
 	}
 	my $flags = $self->{'datastore'}->get_allele_flags( $locus_name, $allele_id );
-	push @$values, { flags => $flags } if @$flags;
+	$values->{'flags'} = $flags if @$flags;
 
 	#TODO scheme members
 	return $values;

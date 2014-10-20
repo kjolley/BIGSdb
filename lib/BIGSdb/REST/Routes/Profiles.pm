@@ -61,14 +61,14 @@ get '/db/:db/schemes/:scheme_id/profiles' => sub {
 		status(404);
 		return { error => "No profiles for scheme $scheme_id are defined." };
 	}
-	my $values = [];
+	my $values = {};
 	my $paging = $self->get_paging( "/db/$db/schemes/$scheme_id/profiles", $pages, $page );
-	push @$values, { paging => $paging } if $pages > 1;
+	$values->{'paging'} = $paging if $pages > 1;
 	my $profile_links = [];
 	foreach my $profile_id (@$profiles) {
 		push @$profile_links, request->uri_for("/db/$db/schemes/$scheme_id/profiles/$profile_id")->as_string;
 	}
-	push @$values, { profiles => $profile_links };
+	$values->{'profiles'} = $profile_links;
 	return $values;
 };
 get '/db/:db/schemes/:scheme_id/profiles/:profile_id' => sub {
@@ -101,8 +101,7 @@ get '/db/:db/schemes/:scheme_id/profiles/:profile_id' => sub {
 		status(404);
 		return { error => "Profile $scheme_info->{'primary_key'}-$profile_id does not exist." };
 	}
-	my $values = [];
-	push @$values, { $scheme_info->{'primary_key'} => $profile->{ lc( $scheme_info->{'primary_key'} ) } };
+	my $values       = {};
 	my $loci         = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $allele_links = [];
 	foreach my $locus (@$loci) {
@@ -111,11 +110,16 @@ get '/db/:db/schemes/:scheme_id/profiles/:profile_id' => sub {
 		my $allele_id = $profile->{ lc($profile_name) };
 		push @$allele_links, request->uri_for("/db/$db/alleles/$cleaned_locus/$allele_id")->as_string;
 	}
-	push @$values, { alleles => $allele_links };
+	$values->{'alleles'} = $allele_links;
 	my $fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	foreach my $field (@$fields) {
-		push @$values, { $field => $profile->{ lc($field) } }
-		  if defined $profile->{ lc($field) } && $field ne $scheme_info->{'primary_key'};
+		next if !defined $profile->{ lc($field) };
+		my $field_info = $self->{'datastore'}->get_scheme_field_info($scheme_id,$field);
+		if ($field_info->{'type'} eq 'integer'){
+			$values->{$field} = int($profile->{ lc($field) });
+		} else {
+			$values->{$field} = $profile->{ lc($field) };
+		} 
 	}
 	my $profile_info =
 	  $self->{'datastore'}
@@ -124,10 +128,10 @@ get '/db/:db/schemes/:scheme_id/profiles/:profile_id' => sub {
 		if ( $attribute eq 'sender' || $attribute eq 'curator' ) {
 
 			#Don't link to user 0 (setup user)
-			push @$values, { $attribute => request->uri_for("/db/$db/users/$profile_info->{$attribute}")->as_string }
+			$values->{$attribute} = request->uri_for("/db/$db/users/$profile_info->{$attribute}")->as_string
 			  if $profile_info->{$attribute};
 		} else {
-			push @$values, { $attribute => $profile_info->{$attribute} };
+			$values->{$attribute} = $profile_info->{$attribute};
 		}
 	}
 	return $values;

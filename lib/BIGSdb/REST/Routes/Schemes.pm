@@ -31,7 +31,7 @@ get '/db/:db/schemes' => sub {
 	my $values  = [];
 	foreach my $scheme (@$schemes) {
 		push @$values,
-		  [ { href => request->uri_for("/db/$db/schemes/$scheme->{'id'}")->as_string }, { description => $scheme->{'description'} } ];
+		  { scheme => request->uri_for("/db/$db/schemes/$scheme->{'id'}")->as_string, description => $scheme->{'description'} };
 	}
 	return $values;
 };
@@ -39,7 +39,7 @@ get '/db/:db/schemes/:scheme' => sub {
 	my $self = setting('self');
 	my ( $db, $scheme_id ) = ( params->{'db'}, params->{'scheme'} );
 	my $set_id = $self->get_set_id;
-	my $values = [];
+	my $values = {};
 	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
 		status(400);
 		return { error => 'Scheme id must be an integer.' };
@@ -49,29 +49,29 @@ get '/db/:db/schemes/:scheme' => sub {
 		status(404);
 		return { error => "Scheme $scheme_id does not exist." };
 	}
-	push @$values, { description => $scheme_info->{'description'} };
-	push @$values, { has_primary_key_field => $scheme_info->{'primary_key'} ? 'true' : 'false' };
-	push @$values, { primary_key_field => request->uri_for("/db/$db/schemes/$scheme_id/fields/$scheme_info->{'primary_key'}")->as_string }
+	$values->{'description'}           = $scheme_info->{'description'};
+	$values->{'has_primary_key_field'} = $scheme_info->{'primary_key'} ? 'true' : 'false';
+	$values->{'primary_key_field'}     = request->uri_for("/db/$db/schemes/$scheme_id/fields/$scheme_info->{'primary_key'}")->as_string
 	  if $scheme_info->{'primary_key'};
 	my $scheme_fields      = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $scheme_field_links = [];
 	foreach my $field (@$scheme_fields) {
 		push @$scheme_field_links, request->uri_for("/db/$db/schemes/$scheme_id/fields/$field")->as_string;
 	}
-	push @$values, { fields => $scheme_field_links } if @$scheme_field_links;
+	$values->{'fields'} = $scheme_field_links if @$scheme_field_links;
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	push @$values, { locus_count => scalar @$loci };
+	$values->{'locus_count'} = scalar @$loci;
 	my $locus_links = [];
 	foreach my $locus (@$loci) {
 		my $cleaned_locus = $self->clean_locus($locus);
 		push @$locus_links, request->uri_for("/db/$db/loci/$cleaned_locus")->as_string;
 	}
-	push @$values, { loci => $locus_links } if @$locus_links;
+	$values->{'loci'} = $locus_links if @$locus_links;
 	if ( $scheme_info->{'primary_key'} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $profile_view = ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
 		my $profile_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $profile_view");
-		push @$values, { profile_count => int($profile_count) };    #Force integer output (non-quoted)
-		push @$values, { profiles => request->uri_for("/db/$db/schemes/$scheme_id/profiles")->as_string };
+		$values->{'profile_count'} = int($profile_count);                                                 #Force integer output (non-quoted)
+		$values->{'profiles'}      = request->uri_for("/db/$db/schemes/$scheme_id/profiles")->as_string;
 	}
 	return $values;
 };
@@ -83,16 +83,16 @@ get '/db/:db/schemes/:scheme/fields/:field' => sub {
 		status(400);
 		return { error => 'Scheme id must be an integer.' };
 	}
-	my $values = [];
+	my $values = {};
 	my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 	if ( !$field_info ) {
 		status(404);
 		return { error => "Scheme field $field does not exist in scheme $scheme_id." };
 	}
 	foreach my $attribute (qw(field type description)) {
-		push @$values, { $attribute => $field_info->{$attribute} } if defined $field_info->{$attribute};
+		$values->{$attribute} = $field_info->{$attribute} if defined $field_info->{$attribute};
 	}
-	push @$values, { primary_key => $field_info->{'primary_key'} ? 'true' : 'false' };
+	$values->{'primary_key'} = $field_info->{'primary_key'} ? 'true' : 'false';
 	return $values;
 };
 1;
