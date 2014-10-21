@@ -35,14 +35,14 @@ get '/db/:db/isolates' => sub {
 	my $ids =
 	  $self->{'datastore'}->run_query( "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id OFFSET $offset LIMIT $self->{'page_size'}",
 		undef, { fetch => 'col_arrayref' } );
-	my $values = [];
+	my $values = {};
 
 	if (@$ids) {
 		my $paging = $self->get_paging( "/db/$db/isolates", $pages, $page );
-		push @$values, { paging => $paging } if $pages > 1;
+		$values->{'paging'} = $paging if $pages > 1;
 		my @links;
 		push @links, request->uri_for("/db/$db/isolates/$_")->as_string foreach @$ids;
-		push @$values, { isolates => \@links };
+		$values->{'isolates'} = \@links;
 	}
 	return $values;
 };
