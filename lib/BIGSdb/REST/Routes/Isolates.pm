@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use POSIX qw(ceil);
+use JSON;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 use BIGSdb::Utils;
 
@@ -122,10 +123,13 @@ get '/db/:db/fields' => sub {
 		my $value = {};
 		$value->{'name'} = $field;
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+		$thisfield->{'required'} //= 'yes';    #This is the default and may not be specified in config.xml.
 		foreach (qw ( type required length min max regex comments)) {
 			next if !defined $thisfield->{$_};
 			if ( $_ eq 'min' || $_ eq 'max' || $_ eq 'length' ) {
 				$value->{$_} = int( $thisfield->{$_} );
+			} elsif ( $_ eq 'required' ) {
+				$value->{$_} = $thisfield->{$_} eq 'yes' ? JSON::true : JSON::false;
 			} else {
 				$value->{$_} = $thisfield->{$_};
 			}

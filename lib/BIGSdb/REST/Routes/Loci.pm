@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use POSIX qw(ceil);
+use JSON;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Locus routes
@@ -74,7 +75,7 @@ get '/db/:db/loci/:locus' => sub {
 	  )
 	{
 		if ( $boolean_field{$field} ) {
-			$values->{$field} = $locus_info->{$field} ? 'true' : 'false';
+			$values->{$field} = $locus_info->{$field} ? JSON::true : JSON::false;
 		} else {
 			$values->{$field} = $locus_info->{$field} if defined $locus_info->{$field};
 		}
@@ -91,7 +92,7 @@ get '/db/:db/loci/:locus' => sub {
 			foreach (qw(field value_format value_regex description length)) {
 				$attribute_list->{$_} = $attribute->{$_} if defined $attribute->{$_};
 			}
-			$attribute_list->{'required'} = $attribute->{'required'} ? 'true' : 'false';
+			$attribute_list->{'required'} = $attribute->{'required'} ? JSON::true : JSON::false;
 			if ( $attribute->{'option_list'} ) {
 				my @values = split /\|/, $attribute->{'option_list'};
 				$attribute_list->{'allowed_values'} = \@values;

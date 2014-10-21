@@ -20,6 +20,7 @@ package BIGSdb::REST::Routes::Schemes;
 use strict;
 use warnings;
 use 5.010;
+use JSON;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Scheme routes
@@ -50,7 +51,7 @@ get '/db/:db/schemes/:scheme' => sub {
 		return { error => "Scheme $scheme_id does not exist." };
 	}
 	$values->{'description'}           = $scheme_info->{'description'};
-	$values->{'has_primary_key_field'} = $scheme_info->{'primary_key'} ? 'true' : 'false';
+	$values->{'has_primary_key_field'} = $scheme_info->{'primary_key'} ? JSON::true : JSON::false;
 	$values->{'primary_key_field'}     = request->uri_for("/db/$db/schemes/$scheme_id/fields/$scheme_info->{'primary_key'}")->as_string
 	  if $scheme_info->{'primary_key'};
 	my $scheme_fields      = $self->{'datastore'}->get_scheme_fields($scheme_id);
@@ -92,7 +93,7 @@ get '/db/:db/schemes/:scheme/fields/:field' => sub {
 	foreach my $attribute (qw(field type description)) {
 		$values->{$attribute} = $field_info->{$attribute} if defined $field_info->{$attribute};
 	}
-	$values->{'primary_key'} = $field_info->{'primary_key'} ? 'true' : 'false';
+	$values->{'primary_key'} = $field_info->{'primary_key'} ? JSON::true : JSON::false;
 	return $values;
 };
 1;
