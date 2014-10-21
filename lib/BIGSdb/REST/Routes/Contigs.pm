@@ -81,6 +81,8 @@ get '/db/:db/contigs/:contig' => sub {
 	foreach my $field (qw (id isolate_id sequence method orignal_designation comments sender curator date_entered datestamp)) {
 		if ( $field eq 'isolate_id' ) {
 			$values->{$field} = request->uri_for("/db/$db/isolates/$contig->{$field}")->as_string;
+		} elsif ( $field eq 'id' ) {
+			$values->{'id'} = int( $contig->{'id'} );
 		} elsif ( $field eq 'sequence' ) {
 			$values->{$field} = $contig->{'sequence'};
 			$values->{'length'} = length $contig->{'sequence'};
