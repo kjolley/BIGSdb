@@ -55,14 +55,14 @@ get '/db/:db/alleles/:locus' => sub {
 		status(404);
 		return { error => "No alleles for locus $locus are defined." };
 	}
-	my $values = [];
+	my $values = {};
 	my $paging = $self->get_paging( "/db/$db/alleles/$locus_name", $pages, $page );
-	push @$values, { paging => $paging } if $pages > 1;
+	$values->{'paging'} = $paging if $pages > 1;
 	my $allele_links = [];
 	foreach my $allele_id (@$allele_ids) {
 		push @$allele_links, request->uri_for("/db/$db/alleles/$locus_name/$allele_id")->as_string;
 	}
-	push @$values, [ alleles => $allele_links ];
+	$values->{'alleles'} = $allele_links;
 	return $values;
 };
 get '/db/:db/alleles/:locus/:allele_id' => sub {
