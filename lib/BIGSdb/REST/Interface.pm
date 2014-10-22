@@ -225,4 +225,17 @@ sub check_seqdef_database {
 	}
 	return;
 }
+
+sub check_scheme {
+	my ( $self, $scheme_id ) = @_;
+	my $set_id = $self->get_set_id;
+	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
+		send_error( 'Scheme id must be an integer.', 400 );
+	}
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
+	if ( !$scheme_info ) {
+		send_error( "Scheme $scheme_id does not exist.", 404 );
+	}
+	return;
+}
 1;

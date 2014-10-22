@@ -47,8 +47,7 @@ get '/db/:db/isolates/:id/allele_designations' => sub {
 	);
 
 	if ( !@$loci ) {
-		status(404);
-		return { error => "No more allele_designations for isolate id-$isolate_id defined." };
+		send_error( "No more allele_designations for isolate id-$isolate_id defined.", 404 );
 	}
 	my $paging = $self->get_paging( "/db/$db/isolates/$isolate_id/allele_designations", $pages, $page );
 	$values->{'paging'} = $paging if $pages > 1;
@@ -70,14 +69,12 @@ get '/db/:db/isolates/:id/allele_designations/:locus' => sub {
 		$locus_name = $self->{'datastore'}->get_set_locus_real_id( $locus, $set_id );
 	}
 	if ( !$self->{'datastore'}->is_locus($locus_name) || ( $set_id && !$self->{'datastore'}->is_locus_in_set( $locus_name, $set_id ) ) ) {
-		status(404);
-		return { error => "Locus $locus does not exist." };
+		send_error( "Locus $locus does not exist.", 404 );
 	}
 	my $values = [];
 	my $designations = $self->{'datastore'}->get_allele_designations( $isolate_id, $locus_name );
 	if ( !@$designations ) {
-		status(404);
-		return { error => "Isolate $isolate_id has no designations defined for locus $locus." };
+		send_error( "Isolate $isolate_id has no designations defined for locus $locus.", 404 );
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
 	foreach my $designation (@$designations) {
@@ -124,8 +121,7 @@ get '/db/:db/isolates/:id/allele_ids' => sub {
 	);
 
 	if ( !@$loci ) {
-		status(404);
-		return { error => "No more allele_designations for isolate id-$isolate_id defined." };
+		send_error( "No more allele_designations for isolate id-$isolate_id defined.", 404 );
 	}
 	my $paging = $self->get_paging( "/db/$db/isolates/$isolate_id/allele_ids", $pages, $page );
 	$values->{'paging'} = $paging if $pages > 1;

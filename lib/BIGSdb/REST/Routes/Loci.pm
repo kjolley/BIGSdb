@@ -64,8 +64,7 @@ get '/db/:db/loci/:locus' => sub {
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
 	if ( !$locus_info ) {
-		status(404);
-		return { error => "Locus $locus does not exist." };
+		send_error( "Locus $locus does not exist.", 404 );
 	}
 	my $values = {};
 	my %boolean_field = map { $_ => 1 } qw(length_varies coding_sequence);
