@@ -26,22 +26,9 @@ use Dancer2 appname => 'BIGSdb::REST::Interface';
 #Allele designation routes
 get '/db/:db/isolates/:id/allele_designations' => sub {
 	my $self = setting('self');
-	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
-		status(404);
-		return { error => "This is not an isolates database." };
-	}
 	my ( $db, $isolate_id ) = ( params->{'db'}, params->{'id'} );
-	if ( !BIGSdb::Utils::is_int($isolate_id) ) {
-		status(400);
-		return { error => 'Id must be an integer.' };
-	}
+	$self->check_isolate_is_valid($isolate_id);
 	my $values = {};
-	my $field_values =
-	  $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id, { fetch => 'row_hashref' } );
-	if ( !defined $field_values->{'id'} ) {
-		status(404);
-		return { error => "Isolate $isolate_id does not exist." };
-	}
 	my $set_id = $self->get_set_id;
 	my $set_clause =
 	  $set_id
@@ -75,15 +62,8 @@ get '/db/:db/isolates/:id/allele_designations' => sub {
 };
 get '/db/:db/isolates/:id/allele_designations/:locus' => sub {
 	my $self = setting('self');
-	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
-		status(404);
-		return { error => "This is not an isolates database." };
-	}
 	my ( $db, $isolate_id, $locus ) = ( params->{'db'}, params->{'id'}, params->{'locus'} );
-	if ( !BIGSdb::Utils::is_int($isolate_id) ) {
-		status(400);
-		return { error => 'Id must be an integer.' };
-	}
+	$self->check_isolate_is_valid($isolate_id);
 	my $set_id     = $self->get_set_id;
 	my $locus_name = $locus;
 	if ($set_id) {
@@ -94,12 +74,6 @@ get '/db/:db/isolates/:id/allele_designations/:locus' => sub {
 		return { error => "Locus $locus does not exist." };
 	}
 	my $values = [];
-	my $field_values =
-	  $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id, { fetch => 'row_hashref' } );
-	if ( !defined $field_values->{'id'} ) {
-		status(404);
-		return { error => "Isolate $isolate_id does not exist." };
-	}
 	my $designations = $self->{'datastore'}->get_allele_designations( $isolate_id, $locus_name );
 	if ( !@$designations ) {
 		status(404);
@@ -129,22 +103,9 @@ get '/db/:db/isolates/:id/allele_designations/:locus' => sub {
 };
 get '/db/:db/isolates/:id/allele_ids' => sub {
 	my $self = setting('self');
-	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
-		status(404);
-		return { error => "This is not an isolates database." };
-	}
 	my ( $db, $isolate_id ) = ( params->{'db'}, params->{'id'} );
-	if ( !BIGSdb::Utils::is_int($isolate_id) ) {
-		status(400);
-		return { error => 'Id must be an integer.' };
-	}
+	$self->check_isolate_is_valid($isolate_id);
 	my $values = {};
-	my $field_values =
-	  $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id, { fetch => 'row_hashref' } );
-	if ( !defined $field_values->{'id'} ) {
-		status(404);
-		return { error => "Isolate $isolate_id does not exist." };
-	}
 	my $set_id = $self->get_set_id;
 	my $set_clause =
 	  $set_id

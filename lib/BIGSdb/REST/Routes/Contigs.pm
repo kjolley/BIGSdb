@@ -24,22 +24,9 @@ use POSIX qw(ceil);
 use Dancer2 appname                => 'BIGSdb::REST::Interface';
 get '/db/:db/isolates/:id/contigs' => sub {
 	my $self = setting('self');
-	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
-		status(404);
-		return { error => "This is not an isolates database." };
-	}
 	my ( $db, $isolate_id ) = ( params->{'db'}, params->{'id'} );
-	if ( !BIGSdb::Utils::is_int($isolate_id) ) {
-		status(400);
-		return { error => 'Id must be an integer.' };
-	}
+	$self->check_isolate_is_valid($isolate_id);
 	my $values = {};
-	my $field_values =
-	  $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id, { fetch => 'row_hashref' } );
-	if ( !defined $field_values->{'id'} ) {
-		status(404);
-		return { error => "Isolate $isolate_id does not exist." };
-	}
 	my $contig_count = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM sequence_bin WHERE isolate_id=?", $isolate_id );
 	my $page   = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
 	my $pages  = ceil( $contig_count / $self->{'page_size'} );
@@ -63,10 +50,7 @@ get '/db/:db/isolates/:id/contigs' => sub {
 };
 get '/db/:db/contigs/:contig' => sub {
 	my $self = setting('self');
-	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
-		status(404);
-		return { error => "This is not an isolates database." };
-	}
+	$self->check_isolate_database;
 	my ( $db, $contig_id ) = ( params->{'db'}, params->{'contig'} );
 	if ( !BIGSdb::Utils::is_int($contig_id) ) {
 		status(400);

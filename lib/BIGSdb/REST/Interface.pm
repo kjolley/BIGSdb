@@ -80,8 +80,7 @@ hook before => sub {
 		undef $self->{'system'};
 		$self->{'system'}->{'db'} = $self->{'config'}->{'rest_db'};
 	} elsif ( !-e $full_path ) {
-		undef $self->{'system'};
-		return;
+		send_error( "Database $self->{'instance'} has not been defined", 404 );
 	} else {
 		$self->{'xmlHandler'} = BIGSdb::Parser->new;
 		my $parser = XML::Parser::PerlSAX->new( Handler => $self->{'xmlHandler'} );
@@ -196,5 +195,34 @@ sub clean_locus {
 sub get_pubmed_link {
 	my ( $self, $pubmed_id ) = @_;
 	return "http://www.ncbi.nlm.nih.gov/pubmed/$pubmed_id";
+}
+
+sub check_isolate_is_valid {
+	my ( $self, $isolate_id ) = @_;
+	$self->check_isolate_database;
+	if ( !BIGSdb::Utils::is_int($isolate_id) ) {
+		send_error( 'Isolate id must be an integer', 400 );
+	}
+	my $exists = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)", $isolate_id );
+	if ( !$exists ) {
+		send_error( "Isolate $isolate_id does not exist.", 404 );
+	}
+	return;
+}
+
+sub check_isolate_database {
+	my ($self) = @_;
+	if ( ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates' ) {
+		send_error( 'This is not an isolates database', 400 );
+	}
+	return;
+}
+
+sub check_seqdef_database {
+	my ($self) = @_;
+	if ( ( $self->{'system'}->{'dbtype'} // '' ) ne 'sequences' ) {
+		send_error( 'This is not a sequence definition database', 400 );
+	}
+	return;
 }
 1;

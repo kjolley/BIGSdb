@@ -26,10 +26,7 @@ use Dancer2 appname => 'BIGSdb::REST::Interface';
 #Profile routes
 get '/db/:db/schemes/:scheme_id/profiles' => sub {
 	my $self = setting('self');
-	if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
-		status(404);
-		return { error => "This is not a sequence definition database." };
-	}
+	$self->check_seqdef_database;
 	my $params = params;
 	my ( $db, $scheme_id ) = @{$params}{qw(db scheme_id)};
 	my $page = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
@@ -73,10 +70,7 @@ get '/db/:db/schemes/:scheme_id/profiles' => sub {
 };
 get '/db/:db/schemes/:scheme_id/profiles/:profile_id' => sub {
 	my $self = setting('self');
-	if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
-		status(404);
-		return { error => "This is not a sequence definition database." };
-	}
+	$self->check_seqdef_database;
 	my $params = params;
 	my ( $db, $scheme_id, $profile_id ) = @{$params}{qw(db scheme_id profile_id)};
 	my $page = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
