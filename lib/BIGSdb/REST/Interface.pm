@@ -194,7 +194,8 @@ sub clean_locus {
 #Use method in case URL changes so we only need to change in one place.
 sub get_pubmed_link {
 	my ( $self, $pubmed_id ) = @_;
-	return "http://www.ncbi.nlm.nih.gov/pubmed/$pubmed_id";
+#	return "http://www.ncbi.nlm.nih.gov/pubmed/$pubmed_id";
+	return "http://www.ebi.ac.uk/europepmc/webservices/rest/search/query=EXT_ID:$pubmed_id&format=JSON&resulttype=core";
 }
 
 sub check_isolate_is_valid {
