@@ -213,7 +213,7 @@ sub check_isolate_is_valid {
 sub check_isolate_database {
 	my ($self) = @_;
 	if ( ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates' ) {
-		send_error( 'This is not an isolates database', 400 );
+		send_error( 'This is not an isolates database.', 400 );
 	}
 	return;
 }
@@ -221,7 +221,7 @@ sub check_isolate_database {
 sub check_seqdef_database {
 	my ($self) = @_;
 	if ( ( $self->{'system'}->{'dbtype'} // '' ) ne 'sequences' ) {
-		send_error( 'This is not a sequence definition database', 400 );
+		send_error( 'This is not a sequence definition database.', 400 );
 	}
 	return;
 }
