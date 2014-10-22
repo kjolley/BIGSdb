@@ -26,18 +26,18 @@ get '/db/:db/isolates/:id/contigs' => sub {
 	my $self = setting('self');
 	my ( $db, $isolate_id ) = ( params->{'db'}, params->{'id'} );
 	$self->check_isolate_is_valid($isolate_id);
-	my $values = {};
+	my $values       = {};
 	my $contig_count = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM sequence_bin WHERE isolate_id=?", $isolate_id );
-	my $page   = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
-	my $pages  = ceil( $contig_count / $self->{'page_size'} );
-	my $offset = ( $page - 1 ) * $self->{'page_size'};
+	my $page         = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
+	my $pages        = ceil( $contig_count / $self->{'page_size'} );
+	my $offset       = ( $page - 1 ) * $self->{'page_size'};
 	my $contigs =
 	  $self->{'datastore'}
 	  ->run_query( "SELECT id FROM sequence_bin WHERE isolate_id=? ORDER BY id OFFSET $offset LIMIT $self->{'page_size'}",
 		$isolate_id, { fetch => 'col_arrayref' } );
+
 	if ( !@$contigs ) {
-		status(404);
-		return { error => "No contigs for isolate id-$isolate_id are defined." };
+		send_error( "No contigs for isolate id-$isolate_id are defined.", 404 );
 	}
 	my $paging = $self->get_paging( "/db/$db/isolates/$isolate_id/contigs", $pages, $page );
 	$values->{'paging'} = $paging if $pages > 1;
@@ -53,13 +53,11 @@ get '/db/:db/contigs/:contig' => sub {
 	$self->check_isolate_database;
 	my ( $db, $contig_id ) = ( params->{'db'}, params->{'contig'} );
 	if ( !BIGSdb::Utils::is_int($contig_id) ) {
-		status(400);
-		return { error => 'Contig id must be an integer.' };
+		send_error( 'Contig id must be an integer.', 400 );
 	}
 	my $contig = $self->{'datastore'}->run_query( "SELECT * FROM sequence_bin WHERE id=?", $contig_id, { fetch => 'row_hashref' } );
 	if ( !$contig ) {
-		status(404);
-		return { error => "Contig id-$contig_id does not exist." };
+		send_error( "Contig id-$contig_id does not exist.", 404 );
 	}
 	my $values = {};
 	foreach my $field (qw (id isolate_id sequence method orignal_designation comments sender curator date_entered datestamp)) {

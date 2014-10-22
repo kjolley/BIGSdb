@@ -39,23 +39,17 @@ get '/db/:db/schemes' => sub {
 get '/db/:db/schemes/:scheme' => sub {
 	my $self = setting('self');
 	my ( $db, $scheme_id ) = ( params->{'db'}, params->{'scheme'} );
-	my $set_id = $self->get_set_id;
-	my $values = {};
-	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
-		status(400);
-		return { error => 'Scheme id must be an integer.' };
-	}
+	$self->check_scheme($scheme_id);
+	my $values      = {};
+	my $set_id      = $self->get_set_id;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
-	if ( !$scheme_info ) {
-		status(404);
-		return { error => "Scheme $scheme_id does not exist." };
-	}
 	$values->{'description'}           = $scheme_info->{'description'};
 	$values->{'has_primary_key_field'} = $scheme_info->{'primary_key'} ? JSON::true : JSON::false;
 	$values->{'primary_key_field'}     = request->uri_for("/db/$db/schemes/$scheme_id/fields/$scheme_info->{'primary_key'}")->as_string
 	  if $scheme_info->{'primary_key'};
 	my $scheme_fields      = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $scheme_field_links = [];
+
 	foreach my $field (@$scheme_fields) {
 		push @$scheme_field_links, request->uri_for("/db/$db/schemes/$scheme_id/fields/$field")->as_string;
 	}
@@ -80,15 +74,11 @@ get '/db/:db/schemes/:scheme/fields/:field' => sub {
 	my $self   = setting('self');
 	my $params = params;
 	my ( $db, $scheme_id, $field ) = @{$params}{qw(db scheme field)};
-	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
-		status(400);
-		return { error => 'Scheme id must be an integer.' };
-	}
+	$self->check_scheme($scheme_id);
 	my $values = {};
 	my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 	if ( !$field_info ) {
-		status(404);
-		return { error => "Scheme field $field does not exist in scheme $scheme_id." };
+		send_error( "Scheme field $field does not exist in scheme $scheme_id.", 404 );
 	}
 	foreach my $attribute (qw(field type description)) {
 		$values->{$attribute} = $field_info->{$attribute} if defined $field_info->{$attribute};

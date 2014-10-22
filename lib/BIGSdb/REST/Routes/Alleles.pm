@@ -26,10 +26,7 @@ use Dancer2 appname => 'BIGSdb::REST::Interface';
 #Allele routes
 get '/db/:db/alleles/:locus' => sub {
 	my $self = setting('self');
-	if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
-		status(404);
-		return { error => "This is not a sequence definition database." };
-	}
+	$self->check_seqdef_database;
 	my $params = params;
 	my ( $db, $locus ) = @{$params}{qw(db locus)};
 	my $page       = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
@@ -40,8 +37,7 @@ get '/db/:db/alleles/:locus' => sub {
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
 	if ( !$locus_info ) {
-		status(404);
-		return { error => "Locus $locus does not exist." };
+		send_error( "Locus $locus does not exist.", 404 );
 	}
 	my $allele_count = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM sequences WHERE locus=?", $locus_name );
 	my $pages        = ceil( $allele_count / $self->{'page_size'} );
@@ -52,8 +48,7 @@ get '/db/:db/alleles/:locus' => sub {
 	  . " LIMIT $self->{'page_size'} OFFSET $offset";
 	my $allele_ids = $self->{'datastore'}->run_query( $qry, $locus, { fetch => 'col_arrayref' } );
 	if ( !@$allele_ids ) {
-		status(404);
-		return { error => "No alleles for locus $locus are defined." };
+		send_error( "No alleles for locus $locus are defined.", 404 );
 	}
 	my $values = {};
 	my $paging = $self->get_paging( "/db/$db/alleles/$locus_name", $pages, $page );
@@ -67,10 +62,7 @@ get '/db/:db/alleles/:locus' => sub {
 };
 get '/db/:db/alleles/:locus/:allele_id' => sub {
 	my $self = setting('self');
-	if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
-		status(404);
-		return { error => "This is not a sequence definition database." };
-	}
+	$self->check_seqdef_database;
 	my $params = params;
 	my ( $db, $locus, $allele_id ) = @{$params}{qw(db locus allele_id)};
 	my $set_id     = $self->get_set_id;
@@ -80,15 +72,13 @@ get '/db/:db/alleles/:locus/:allele_id' => sub {
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
 	if ( !$locus_info ) {
-		status(404);
-		return { error => "Locus $locus does not exist." };
+		send_error( "Locus $locus does not exist.", 404 );
 	}
 	my $allele =
 	  $self->{'datastore'}
 	  ->run_query( "SELECT * FROM sequences WHERE locus=? AND allele_id=?", [ $locus_name, $allele_id ], { fetch => 'row_hashref' } );
 	if ( !$allele ) {
-		status(404);
-		return { error => "Allele $locus-$allele_id does not exist." };
+		send_error( "Allele $locus-$allele_id does not exist.", 404 );
 	}
 	my $values = {};
 	foreach my $attribute (qw(locus allele_id sequence status comments date_entered datestamp sender curator)) {

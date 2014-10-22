@@ -45,8 +45,7 @@ get '/db/:db' => sub {
 	my $self = setting('self');
 	my $db   = params->{'db'};
 	if ( !$self->{'system'}->{'db'} ) {
-		status(404);
-		return { error => "Database '$db' does not exist" };
+		send_error( "Database '$db' does not exist", 404 );
 	}
 	my $set_id       = $self->get_set_id;
 	my $schemes      = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
