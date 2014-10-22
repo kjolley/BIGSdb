@@ -27,8 +27,9 @@ use BIGSdb::Utils;
 
 #Isolate database routes
 get '/db/:db/isolates' => sub {
-	my $self          = setting('self');
-	my ($db)          = params->{'db'};
+	my $self = setting('self');
+	$self->check_isolate_database;
+	my ($db) = params->{'db'};
 	my $page          = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
 	my $isolate_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
 	my $pages         = ceil( $isolate_count / $self->{'page_size'} );
@@ -50,20 +51,14 @@ get '/db/:db/isolates' => sub {
 get '/db/:db/isolates/:id' => sub {
 	my $self = setting('self');
 	my ( $db, $id ) = ( params->{'db'}, params->{'id'} );
-	if ( !BIGSdb::Utils::is_int($id) ) {
-		status(400);
-		return { error => 'Id must be an integer.' };
-	}
+	$self->check_isolate_is_valid($id);
 	my $values = {};
 	my $field_values =
 	  $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $id, { fetch => 'row_hashref' } );
-	if ( !defined $field_values->{'id'} ) {
-		status(404);
-		return { error => "Isolate $id does not exist." };
-	}
 	my $field_list = $self->{'xmlHandler'}->get_field_list;
 	my $provenance = {};
 	foreach my $field (@$field_list) {
+
 		if ( $field eq 'sender' || $field eq 'curator' ) {
 			$provenance->{$field} = request->uri_for("/db/$db/users/$field_values->{$field}")->as_string;
 		} else {
@@ -113,10 +108,7 @@ get '/db/:db/isolates/:id' => sub {
 };
 get '/db/:db/fields' => sub {
 	my $self = setting('self');
-	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
-		status(400);
-		return { error => "Fields can only be defined in isolate databases." };
-	}
+	$self->check_isolate_database;
 	my $fields = $self->{'xmlHandler'}->get_field_list;
 	my $values = [];
 	foreach my $field (@$fields) {
