@@ -67,6 +67,10 @@ sub _initiate {
 	my ( $self, ) = @_;
 	$self->read_config_file( $self->{'config_dir'} );
 	$self->read_host_mapping_file( $self->{'config_dir'} );
+	$self->{'system'}->{'host'}        ||= 'localhost';
+	$self->{'system'}->{'port'}        ||= 5432;
+	$self->{'system'}->{'user'}        ||= 'apache';
+	$self->{'system'}->{'password'}    ||= 'remote';
 	return;
 }
 

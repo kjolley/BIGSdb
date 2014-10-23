@@ -104,6 +104,48 @@ get '/db/:db/isolates/:id' => sub {
 			allele_ids        => request->uri_for("/db/$db/isolates/$id/allele_ids")->as_string
 		};
 	}
+	my $scheme_list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+	my $scheme_links = [];
+	foreach my $scheme (@$scheme_list) {
+		my $allele_designations = $self->{'datastore'}->get_scheme_allele_designations( $id, $scheme->{'id'}, { set_id => $set_id } );
+		if ($allele_designations) {
+			my $scheme_object = {
+				description       => $scheme->{'description'},
+				designation_count => scalar keys %$allele_designations,
+				allele_designations =>
+				  request->uri_for("/db/$db/isolates/$id/schemes/$scheme->{'id'}/allele_designations")->as_string
+			};
+			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'}, { set_id => $set_id, get_pk => 1 } );
+			my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $scheme->{'id'} );
+			if ( defined $scheme_info->{'primary_key'} ) {
+				my $scheme_field_values =
+				  $self->{'datastore'}->get_scheme_field_values_by_designations( $scheme->{'id'}, $allele_designations );
+				$field_values = {};
+				foreach my $field (@$scheme_fields) {
+					if ( defined $scheme_field_values->{ lc $field } ) {
+						my @field_values = keys $scheme_field_values->{ lc $field };
+						my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme->{'id'}, $field );
+						if ( $scheme_field_info->{'type'} eq 'integer' ) {
+							foreach (@field_values) {
+								$_ = int($_) if BIGSdb::Utils::is_int($_);    #Force unquoted integers in output.
+							}
+						}
+						if ( @field_values == 1 ) {
+							$field_values->{$field} = $field_values[0];
+						} else {
+							$field_values->{$field} = \@field_values;
+						}
+					}
+				}
+				$scheme_object->{'fields'} = $field_values if keys %$field_values;
+			}
+			push @$scheme_links, $scheme_object;
+		}
+	}
+	$values->{'schemes'} = $scheme_links if @$scheme_links;
+
+	#TODO projects
+	#TODO versions
 	return $values;
 };
 get '/db/:db/fields' => sub {
