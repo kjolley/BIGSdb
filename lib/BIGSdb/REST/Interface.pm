@@ -56,7 +56,6 @@ sub new {
 	$self->{'password'}         = $options->{'password'};
 	bless( $self, $class );
 	$self->_initiate;
-	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
 	set behind_proxy => $self->{'config'}->{'rest_behind_proxy'} ? 1 : 0;
 	set serializer => 'JSON';    #Mutable isn't working with Dancer2.
 	set self       => $self;
@@ -67,10 +66,6 @@ sub _initiate {
 	my ( $self, ) = @_;
 	$self->read_config_file( $self->{'config_dir'} );
 	$self->read_host_mapping_file( $self->{'config_dir'} );
-	$self->{'system'}->{'host'}        ||= 'localhost';
-	$self->{'system'}->{'port'}        ||= 5432;
-	$self->{'system'}->{'user'}        ||= 'apache';
-	$self->{'system'}->{'password'}    ||= 'remote';
 	return;
 }
 
@@ -104,7 +99,6 @@ hook before => sub {
 	$self->{'system'}->{'port'}        ||= $self->{'port'} || 5432;
 	$self->{'system'}->{'user'}        ||= $self->{'user'} || 'apache';
 	$self->{'system'}->{'password'}    ||= $self->{'password'} || 'remote';
-
 	if ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ) {
 		$self->{'system'}->{'view'}       ||= 'isolates';
 		$self->{'system'}->{'labelfield'} ||= 'isolate';
@@ -118,6 +112,7 @@ hook before => sub {
 			send_error( 'Unauthorized', 401 );
 		}
 	}
+	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
 	$self->db_connect;
 	$self->setup_datastore;
 	$self->_initiate_view;
@@ -198,7 +193,8 @@ sub clean_locus {
 #Use method in case URL changes so we only need to change in one place.
 sub get_pubmed_link {
 	my ( $self, $pubmed_id ) = @_;
-#	return "http://www.ncbi.nlm.nih.gov/pubmed/$pubmed_id";
+
+	#	return "http://www.ncbi.nlm.nih.gov/pubmed/$pubmed_id";
 	return "http://www.ebi.ac.uk/europepmc/webservices/rest/search/query=EXT_ID:$pubmed_id&format=JSON&resulttype=core";
 }
 

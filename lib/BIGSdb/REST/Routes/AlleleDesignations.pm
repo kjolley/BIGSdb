@@ -146,4 +146,81 @@ get '/db/:db/isolates/:id/allele_ids' => sub {
 	$values->{'allele_ids'} = $designations;
 	return $values;
 };
+get '/db/:db/isolates/:id/schemes/:scheme/allele_ids' => sub {
+	my $self = setting('self');
+	my ( $db, $isolate_id, $scheme_id ) = ( params->{'db'}, params->{'id'}, params->{'scheme'} );
+	$self->check_isolate_is_valid($isolate_id);
+	$self->check_scheme($scheme_id);
+	my $values              = {};
+	my $set_id              = $self->get_set_id;
+	my $allele_designations = $self->{'datastore'}->get_scheme_allele_designations( $isolate_id, $scheme_id, { set_id => $set_id } );
+	if ( !$allele_designations ) {
+		send_error( "Isolate $isolate_id has no alleles defined for scheme $scheme_id.", 404 );
+	}
+	my $loci         = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $designations = [];
+	foreach my $locus (@$loci) {
+		my $locus_name = $self->clean_locus($locus);
+		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+		my $allele_ids = $self->{'datastore'}->get_allele_ids( $isolate_id, $locus );
+		next if !@$allele_ids;
+		if ( @$allele_ids == 1 ) {
+			push @$designations,
+			  { $locus_name => $locus_info->{'allele_id_format'} eq 'integer' ? int( $allele_ids->[0] ) : $allele_ids->[0] };
+		} else {
+			if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
+				my @int_allele_ids;
+				push @int_allele_ids, int($_) foreach @$allele_ids;
+				push @$designations, { $locus_name => \@int_allele_ids };
+			} else {
+				push @$designations, { $locus_name => $allele_ids };
+			}
+		}
+	}
+	$values->{'allele_ids'} = $designations;
+	return $values;
+};
+get '/db/:db/isolates/:id/schemes/:scheme/allele_designations' => sub {
+	my $self = setting('self');
+	my ( $db, $isolate_id, $scheme_id ) = ( params->{'db'}, params->{'id'}, params->{'scheme'} );
+	$self->check_isolate_is_valid($isolate_id);
+	$self->check_scheme($scheme_id);
+	my $values              = [];
+	my $set_id              = $self->get_set_id;
+	my $allele_designations = $self->{'datastore'}->get_scheme_allele_designations( $isolate_id, $scheme_id, { set_id => $set_id } );
+	if ( !$allele_designations ) {
+		send_error( "Isolate $isolate_id has no alleles defined for scheme $scheme_id.", 404 );
+	}
+	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	foreach my $locus (@$loci) {
+		next if !$allele_designations->{$locus};
+		my $locus_info   = $self->{'datastore'}->get_locus_info($locus);
+		my $locus_values = [];
+		my $locus_name   = $self->clean_locus($locus);
+		foreach my $designation ( @{ $allele_designations->{$locus} } ) {
+			my $value = {};
+			foreach my $field (qw ( locus allele_id sender status method curator date_entered datestamp)) {
+				if ( $field eq 'locus' ) {
+					$value->{'locus'} = request->uri_for("/db/$db/loci/$locus_name")->as_string;
+				} elsif ( $field eq 'allele_id'
+					&& $locus_info->{'allele_id_format'} eq 'integer'
+					&& BIGSdb::Utils::is_int( $designation->{'allele_id'} ) )
+				{
+					$value->{'allele_id'} = int( $designation->{'allele_id'} );
+				} elsif ( $field eq 'sender' || $field eq 'curator' ) {
+					$value->{$field} = request->uri_for("/db/$db/users/$designation->{$field}")->as_string;
+				} else {
+					$value->{$field} = $designation->{$field} if defined $designation->{$field};
+				}
+			}
+			push @$locus_values, $value;
+		}
+		if ( @$locus_values > 1 ) {
+			push @$values, { $locus_name => $locus_values };
+		} else {
+			push @$values, { $locus_name => $locus_values->[0] };
+		}
+	}
+	return $values;
+};
 1;
