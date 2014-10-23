@@ -110,10 +110,10 @@ get '/db/:db/isolates/:id' => sub {
 		my $allele_designations = $self->{'datastore'}->get_scheme_allele_designations( $id, $scheme->{'id'}, { set_id => $set_id } );
 		if ($allele_designations) {
 			my $scheme_object = {
-				description       => $scheme->{'description'},
-				designation_count => scalar keys %$allele_designations,
-				allele_designations =>
-				  request->uri_for("/db/$db/isolates/$id/schemes/$scheme->{'id'}/allele_designations")->as_string
+				description           => $scheme->{'description'},
+				loci_designated_count => scalar keys %$allele_designations,
+				full_designations => request->uri_for("/db/$db/isolates/$id/schemes/$scheme->{'id'}/allele_designations")->as_string,
+				allele_ids        => request->uri_for("/db/$db/isolates/$id/schemes/$scheme->{'id'}/allele_ids")->as_string
 			};
 			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'}, { set_id => $set_id, get_pk => 1 } );
 			my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $scheme->{'id'} );
@@ -123,7 +123,7 @@ get '/db/:db/isolates/:id' => sub {
 				$field_values = {};
 				foreach my $field (@$scheme_fields) {
 					if ( defined $scheme_field_values->{ lc $field } ) {
-						my @field_values = keys $scheme_field_values->{ lc $field };
+						my @field_values = keys %{$scheme_field_values->{ lc $field }};
 						my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme->{'id'}, $field );
 						if ( $scheme_field_info->{'type'} eq 'integer' ) {
 							foreach (@field_values) {
