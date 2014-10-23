@@ -131,7 +131,7 @@ get '/db/:db/isolates/:id' => sub {
 							}
 						}
 						if ( @field_values == 1 ) {
-							$field_values->{$field} = $field_values[0];
+							$field_values->{$field} = $field_values[0] if $field_values[0];
 						} else {
 							$field_values->{$field} = \@field_values;
 						}
