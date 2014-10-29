@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::CurateAddPage);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
-use List::MoreUtils qw(any none);
+use List::MoreUtils 0.28 qw(any none);
 use IO::String;
 use Bio::SeqIO;
 use Digest::MD5;

@@ -22,7 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage BIGSdb::IndexPage);
 use Error qw(:try);
-use List::MoreUtils qw(uniq none);
+use List::MoreUtils 0.28 qw(uniq none);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 

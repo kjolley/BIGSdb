@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::QueryPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use List::MoreUtils qw(any none);
+use List::MoreUtils 0.28 qw(any none);
 use BIGSdb::QueryPage qw(MAX_ROWS OPERATORS);
 use BIGSdb::Page qw(LOCUS_PATTERN SEQ_FLAGS);
 use constant WARN_IF_TAKES_LONGER_THAN_X_SECONDS => 5;

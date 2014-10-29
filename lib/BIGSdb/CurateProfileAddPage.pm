@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::CurateAddPage);
 use Digest::MD5;
 use Log::Log4perl qw(get_logger);
-use List::MoreUtils qw(none any uniq);
+use List::MoreUtils 0.28 qw(none any uniq);
 my $logger = get_logger('BIGSdb.Page');
 use constant SUCCESS => 1;
 

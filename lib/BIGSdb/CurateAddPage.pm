@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::CuratePage BIGSdb::BlastPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use List::MoreUtils qw(any none uniq);
+use List::MoreUtils 0.28 qw(any none uniq);
 use BIGSdb::Page qw(DATABANKS LOCUS_PATTERN ALLELE_FLAGS DIPLOID HAPLOID);
 use constant SUCCESS           => 1;
 use constant MAX_POSTGRES_COLS => 1664;

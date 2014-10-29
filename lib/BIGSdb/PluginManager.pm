@@ -19,7 +19,7 @@
 package BIGSdb::PluginManager;
 use strict;
 use warnings;
-use List::MoreUtils qw(any none);
+use List::MoreUtils 0.28 qw(any none);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 

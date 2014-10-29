@@ -22,7 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::CurateProfileAddPage);
 use Log::Log4perl qw(get_logger);
-use List::MoreUtils qw(none);
+use List::MoreUtils 0.28 qw(none);
 my $logger = get_logger('BIGSdb.Page');
 
 sub print_content {

@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CurateIsolateAddPage BIGSdb::TreeViewPage);
-use List::MoreUtils qw(none);
+use List::MoreUtils 0.28 qw(none);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant SUCCESS => 1;

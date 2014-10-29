@@ -24,7 +24,7 @@ use 5.010;
 use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use List::MoreUtils qw(any none);
+use List::MoreUtils 0.28 qw(any none);
 use Archive::Tar;
 use Archive::Tar::Constant;
 use constant MAX_ISOLATES => 1000;

@@ -24,7 +24,7 @@ use parent qw(BIGSdb::CuratePage BIGSdb::ExtractedSequencePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Page qw(SEQ_FLAGS);
-use List::MoreUtils qw(none);
+use List::MoreUtils 0.28 qw(none);
 
 sub print_content {
 	my ($self) = @_;

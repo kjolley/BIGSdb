@@ -24,7 +24,7 @@ use 5.010;
 use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use List::MoreUtils qw(none);
+use List::MoreUtils 0.28 qw(none);
 use Apache2::Connection ();
 use Bio::SeqIO;
 use constant MAX_SNP_SEQUENCES       => 200;

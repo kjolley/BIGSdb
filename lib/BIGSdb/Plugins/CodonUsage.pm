@@ -22,7 +22,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin);
-use List::MoreUtils qw(none uniq);
+use List::MoreUtils 0.28 qw(none uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
