@@ -22,7 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::BlastPage);
 use Log::Log4perl qw(get_logger);
-use List::MoreUtils 0.28 qw(any none);
+use List::MoreUtils qw(any none);
 use IO::String;
 use Bio::SeqIO;
 my $logger = get_logger('BIGSdb.Page');

@@ -22,7 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
-use List::MoreUtils 0.28 qw(any none);
+use List::MoreUtils qw(any none);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Page qw(SEQ_FLAGS ALLELE_FLAGS DATABANKS);
 

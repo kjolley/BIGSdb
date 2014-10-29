@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use Digest::MD5 qw(md5);
-use List::MoreUtils 0.28 qw(any none uniq);
+use List::MoreUtils qw(any none uniq);
 use parent qw(BIGSdb::CurateAddPage);
 use Log::Log4perl qw(get_logger);
 use BIGSdb::Page qw(ALLELE_FLAGS SEQ_STATUS DIPLOID HAPLOID);

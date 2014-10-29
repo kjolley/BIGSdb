@@ -29,7 +29,7 @@ use Error qw(:try);
 use Apache2::Connection ();
 use Bio::SeqIO;
 use Bio::AlignIO;
-use List::MoreUtils 0.28 qw(uniq any none);
+use List::MoreUtils qw(uniq any none);
 use Digest::MD5;
 use Excel::Writer::XLSX;
 use BIGSdb::Page qw(SEQ_METHODS LOCUS_PATTERN);

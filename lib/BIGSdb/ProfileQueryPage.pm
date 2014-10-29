@@ -22,7 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::QueryPage);
 use BIGSdb::QueryPage qw(MAX_ROWS OPERATORS);
-use List::MoreUtils qw(any);
+use List::MoreUtils qw(any );
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -42,7 +42,7 @@ sub _ajax_content {
 
 sub get_help_url {
 	my ($self) = @_;
-	if ( $self->{'curate'} ) {
+	if ($self->{'curate'}){
 		return "$self->{'config'}->{'doclink'}/curator_guide.html#updating-and-deleting-scheme-profile-definitions";
 	}
 	return;

@@ -23,7 +23,7 @@ use 5.010;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use Error qw(:try);
-use List::MoreUtils 0.28 qw(uniq any none);
+use List::MoreUtils qw(uniq any none);
 use autouse 'Data::Dumper' => qw(Dumper);
 use Memoize;
 memoize('clean_locus');

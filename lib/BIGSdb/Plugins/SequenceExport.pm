@@ -25,7 +25,7 @@ use 5.010;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
-use List::MoreUtils 0.28 qw(any none uniq);
+use List::MoreUtils qw(any none uniq);
 use Apache2::Connection ();
 use Bio::Perl;
 use Bio::SeqIO;

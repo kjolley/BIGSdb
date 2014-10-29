@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::TreeViewPage);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
-use List::MoreUtils 0.28 qw(any none);
+use List::MoreUtils qw(any none);
 my $logger = get_logger('BIGSdb.Page');
 use constant ISOLATE_SUMMARY => 1;
 use constant LOCUS_SUMMARY   => 2;

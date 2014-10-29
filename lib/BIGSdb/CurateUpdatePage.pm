@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage);
-use List::MoreUtils 0.28 qw(any none);
+use List::MoreUtils qw(any none);
 use BIGSdb::Page qw(DATABANKS ALLELE_FLAGS);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');

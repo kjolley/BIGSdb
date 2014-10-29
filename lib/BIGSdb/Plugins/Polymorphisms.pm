@@ -25,7 +25,7 @@ use parent qw(BIGSdb::Plugins::LocusExplorer);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
-use List::MoreUtils 0.28 qw(none);
+use List::MoreUtils qw(none);
 use Apache2::Connection ();
 use Bio::SeqIO;
 use File::Copy;

@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CurateAddPage);
-use List::MoreUtils 0.28 qw(any none uniq);
+use List::MoreUtils qw(any none uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant SUCCESS => 1;

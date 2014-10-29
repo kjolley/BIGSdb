@@ -23,7 +23,7 @@ no warnings 'io';    #Prevent false warning message about STDOUT being reopened.
 use parent qw(BIGSdb::Offline::Script BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Scan');
-use List::MoreUtils 0.28 qw( any none);
+use List::MoreUtils qw( any none);
 use Error qw(:try);
 use BIGSdb::Page qw(SEQ_METHODS SEQ_FLAGS LOCUS_PATTERN);
 
