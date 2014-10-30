@@ -83,6 +83,14 @@ sub print_content {
 		print "<li>" . ( $locus_info->{'coding_sequence'} ? 'Coding sequence' : 'Not coding sequence' );
 		say "</li>";
 	}
+	my $allele_count = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM sequences WHERE locus=?", $locus );
+	if ($allele_count) {
+		my $seq_type = $locus_info->{'data_type'} eq 'DNA' ? 'allele' : 'variant';
+		my $plural = $allele_count > 1 ? 's' : '';
+		say
+		  qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=sequences&amp;)
+		  . qq(locus_list=$locus&amp;submit=1">$allele_count $seq_type$plural</a></li>);
+	}
 	say "</ul>";
 	if ( $desc->{'description'} ) {
 		$desc->{'description'} =~ s/\n/<br \/>/g;
