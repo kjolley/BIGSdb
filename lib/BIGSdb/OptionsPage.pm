@@ -120,7 +120,7 @@ sub set_options {
 		}
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 			foreach (
-				qw (mark_provisional_main mark_provisional sequence_details_main display_seqbin_main locus_alias
+				qw (mark_provisional_main mark_provisional sequence_details_main display_seqbin_main display_contig_count locus_alias
 				update_details sequence_details allele_flags sample_details)
 			  )
 			{
@@ -245,9 +245,11 @@ sub _print_main_results_options {
 			-checked => $prefs->{'sequence_details_main'},
 			-label   => 'Display information about sequence bin records tagged with locus information (tooltip).'
 		},
-		{ -name => 'display_seqbin_main', -checked => $prefs->{'display_seqbin_main'}, -label => 'Display sequence bin size.' }
+		{ -name => 'display_seqbin_main',  -checked => $prefs->{'display_seqbin_main'},  -label => 'Display sequence bin size.' },
+		{ -name => 'display_contig_count', -checked => $prefs->{'display_contig_count'}, -label => 'Display contig count.' }
 	];
 	say "<ul id=\"main_results\">";
+
 	foreach my $option (@$options) {
 		say "<li>";
 		say $q->checkbox(%$option);

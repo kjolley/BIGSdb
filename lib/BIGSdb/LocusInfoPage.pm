@@ -52,10 +52,6 @@ sub print_content {
 	my $cleaned_locus = $self->clean_locus($locus);
 	say "<h1>Locus information - $cleaned_locus</h1>";
 	my $desc = $self->{'datastore'}->run_query( "SELECT * FROM locus_descriptions WHERE locus=?", $locus, { fetch => 'row_hashref' } );
-	if ( !$desc ) {
-		say qq(<div class="box" id="statusbad"><p>No description is available for this locus.</p></div>);
-		return;
-	}
 	say qq(<div class="box" id="resultstable">);
 	say "<h2>Description</h2>";
 	say "<ul>";
@@ -82,6 +78,13 @@ sub print_content {
 	if ( $locus_info->{'data_type'} eq 'DNA' ) {
 		print "<li>" . ( $locus_info->{'coding_sequence'} ? 'Coding sequence' : 'Not coding sequence' );
 		say "</li>";
+	}
+	my $allele_count = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM sequences WHERE locus=?", $locus );
+	if ($allele_count) {
+		my $seq_type = $locus_info->{'data_type'} eq 'DNA' ? 'allele' : 'variant';
+		my $plural = $allele_count > 1 ? 's' : '';
+		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=sequences&amp;)
+		  . qq(locus_list=$locus&amp;submit=1">$allele_count $seq_type$plural</a></li>);
 	}
 	say "</ul>";
 	if ( $desc->{'description'} ) {
@@ -121,6 +124,21 @@ sub print_content {
 				say " <span class=\"link\"><span style=\"font-size:1.2em\">&rarr;</span> $domain</span>";
 			}
 			say "</li>";
+		}
+		say "</ul>";
+	}
+	my $curators =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT curator_id FROM locus_curators WHERE locus=? AND (NOT hide_public OR hide_public IS NULL) ORDER BY curator_id",
+		$locus, { fetch => 'col_arrayref' } );
+	if (@$curators) {
+		my $plural = @$curators > 1 ? 's' : '';
+		say "<h2>Curator$plural</h2>";
+		say "<p>This locus is curated by:</p>";
+		say "<ul>";
+		foreach my $user_id (@$curators) {
+			my $curator_info = $self->{'datastore'}->get_user_string( $user_id, { affiliation => 1, email => 1 } );
+			say "<li>$curator_info</li>";
 		}
 		say "</ul>";
 	}

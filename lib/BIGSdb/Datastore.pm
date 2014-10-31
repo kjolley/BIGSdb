@@ -75,6 +75,26 @@ sub get_user_info {
 		$id, { fetch => 'row_hashref', cache => 'get_user_info' } );
 }
 
+sub get_user_string {
+	my ( $self, $id, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $info = $self->get_user_info($id);
+	return "Undefined user" if !$info;
+	my $user = '';
+	my $use_email = ( $options->{'email'} && $info->{'email'} =~ /@/ )
+	  ? 1
+	  : 0;    #Not intended to be foolproof check of valid Email but will differentiate 'N/A', ' ', etc.
+	$user .= qq(<a href="mailto:$info->{'email'}">) if $use_email;
+	$user .= "$info->{'first_name'} "               if $info->{'first_name'};
+	$user .= $info->{'surname'}                     if $info->{'surname'};
+	$user .= '</a>'                                 if $use_email;
+
+	if ( $options->{'affiliation'} && $info->{'affiliation'} ) {
+		$user .= ", $info->{'affiliation'}";
+	}
+	return $user;
+}
+
 sub get_user_info_from_username {
 	my ( $self, $user_name ) = @_;
 	return if !defined $user_name;
