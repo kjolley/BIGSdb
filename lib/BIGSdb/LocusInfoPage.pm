@@ -55,11 +55,15 @@ sub print_content {
 	say qq(<div class="box" id="resultstable">);
 	say "<h2>Description</h2>";
 	say "<ul>";
-	say "<li>Common name: $locus_info->{'common_name'}</li>" if $locus_info->{'common_name'};
-	say "<li>Full name: $desc->{'full_name'}</li>"           if $desc->{'full_name'};
-	say "<li>Product: $desc->{'product'}</li>"               if $desc->{'product'};
-	say "<li>Data type: $locus_info->{'data_type'}</li>";
 
+	if ( $locus_info->{'formatted_common_name'} ) {
+		say "<li>Common name: $locus_info->{'formatted_common_name'}</li>";
+	} elsif ( $locus_info->{'common_name'} ) {
+		say "<li>Common name: $locus_info->{'common_name'}</li>";
+	}
+	say "<li>Full name: $desc->{'full_name'}</li>" if $desc->{'full_name'};
+	say "<li>Product: $desc->{'product'}</li>" if $desc->{'product'};
+	say "<li>Data type: $locus_info->{'data_type'}</li>";
 	if ( $locus_info->{'length_varies'} ) {
 		print "<li>Variable length: ";
 		if ( $locus_info->{'min_length'} || $locus_info->{'max_length'} ) {
