@@ -2139,7 +2139,9 @@ sub popup_menu {
 	my ( $self, %args ) = @_;
 	my ( $name, $id, $values, $labels, $default, $class, $multiple, $size ) =
 	  @args{qw ( -name -id -values -labels -default -class -multiple -size)};
-	my $value = $self->{'cgi'}->param($name);
+	my $q     = $self->{'cgi'};
+	my $value = $q->param($name);
+	$value =~ s/"/&quot;/g;
 	my %default = ref $default eq 'ARRAY' ? map { $_ => 1 } @$default : ();
 	$default{$value} = 1 if defined $value;
 	my $buffer = qq(<select name="$name");
@@ -2150,6 +2152,7 @@ sub popup_menu {
 	$buffer .= ">\n";
 
 	foreach (@$values) {
+		s/"/&quot;/g;
 		$labels->{$_} //= $_;
 		my $select = $default{$_} ? qq( selected="selected") : '';
 		$buffer .= qq(<option value="$_"$select>$labels->{$_}</option>\n);
