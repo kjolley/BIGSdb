@@ -432,9 +432,15 @@ sub _print_provenance_fields {
 	my ( $self, $row, $max_rows, $select_items, $labels ) = @_;
 	my $q = $self->{'cgi'};
 	say "<span style=\"white-space:nowrap\">";
-	say $q->popup_menu( -name => "prov_field$row", -values => $select_items, -labels => $labels, -class => 'fieldlist' );
+	say $q->popup_menu(
+		-name   => "prov_field$row",
+		-id     => "prov_field$row",
+		-values => $select_items,
+		-labels => $labels,
+		-class  => 'fieldlist'
+	);
 	say $q->popup_menu( -name => "prov_operator$row", -values => [OPERATORS] );
-	say $q->textfield( -name => "prov_value$row", -class => 'value_entry', -placeholder => 'Enter value...' );
+	say $q->textfield( -name => "prov_value$row", -id => "prov_value$row", -class => 'value_entry', -placeholder => 'Enter value...' );
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		if ( !$q->param('no_js') ) {
@@ -1491,6 +1497,78 @@ function loadContent(url) {
 	}
 }
 END
+	my $fields = $self->{'xmlHandler'}->get_field_list;
+	my $autocomplete_js;
+
+	if (@$fields) {
+		my $first = 1;
+		foreach my $field (@$fields) {
+			my $options = $self->{'xmlHandler'}->get_field_option_list($field);
+			if (@$options) {
+				$autocomplete_js .= ",\n" if !$first;
+				$autocomplete_js .= "       f_$field: [\n";
+				foreach my $value (@$options) {
+					$value =~ s/"/\\"/g;
+					$autocomplete_js .= qq(		  "$value");
+					$autocomplete_js .= ',' if $value ne $options->[-1];
+					$autocomplete_js .= "\n";
+				}
+				$autocomplete_js .= "       ]";
+				$first = 0;
+			}
+		}
+		my $ext_att = $self->get_extended_attributes;
+		foreach my $field ( keys %$ext_att ) {
+			foreach my $attribute ( @{ $ext_att->{$field} } ) {
+				$autocomplete_js .= ",\n" if !$first;
+				$autocomplete_js .= qq(       "e_$field||$attribute": [\n);
+				my $values = $self->{'datastore'}->run_query(
+					"SELECT DISTINCT value FROM isolate_value_extended_attributes WHERE isolate_field=? AND attribute=? ORDER BY value",
+					[ $field, $attribute ],
+					{ fetch => 'col_arrayref', cache => 'IsolateQuery::extended_attribute_values' }
+				);
+				foreach my $value (@$values) {
+					$value =~ s/"/\\"/g;
+					$autocomplete_js .= qq(		  "$value");
+					$autocomplete_js .= ',' if $value ne $values->[-1];
+					$autocomplete_js .= "\n";
+				}
+				$autocomplete_js .= "       ]";
+				$first = 0;
+			}
+		}
+	}
+	if ($autocomplete_js) {
+		$buffer .= << "END";
+\$(function() {
+	var fieldLists = {
+  	$autocomplete_js
+	};
+	\$("#provenance").on("change", "[name^='prov_field']", function () {
+		var valueField = \$(this).attr('name').replace("field","value");		
+		if (!fieldLists[\$(this).val()]){
+			\$('#' + valueField).autocomplete({ disabled: true });
+		} else {
+			\$('#' + valueField).autocomplete({
+				disabled: false,
+ 				source: fieldLists[\$(this).val()]
+			});
+		}		
+	});
+	\$("[name^='prov_field']").each(function (i){
+		var valueField = \$(this).attr('name').replace("field","value");		
+		if (!fieldLists[\$(this).val()]){
+			\$('#' + valueField).autocomplete({ disabled: true });
+		} else {
+			\$('#' + valueField).autocomplete({
+				disabled: false,
+ 				source: fieldLists[\$(this).val()]
+			});
+		}	
+	});
+});
+END
+	}
 	return $buffer;
 }
 

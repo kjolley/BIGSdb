@@ -342,7 +342,7 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system    = $self->{'system'};
-	my $version   = '20140911';
+	my $version   = '20141211';
 	my @filenames = qw(bigsdb.css jquery-ui.css);
 	my @paths;
 	foreach my $filename (@filenames) {
@@ -2141,7 +2141,7 @@ sub popup_menu {
 	  @args{qw ( -name -id -values -labels -default -class -multiple -size)};
 	my $q     = $self->{'cgi'};
 	my $value = $q->param($name);
-	$value =~ s/"/&quot;/g;
+	$value =~ s/"/&quot;/g if defined $value;
 	my %default = ref $default eq 'ARRAY' ? map { $_ => 1 } @$default : ();
 	$default{$value} = 1 if defined $value;
 	my $buffer = qq(<select name="$name");
