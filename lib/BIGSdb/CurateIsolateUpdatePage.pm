@@ -165,6 +165,7 @@ sub _update {
 	$qry = "UPDATE isolates SET $qry WHERE id=$data->{'id'}" if $qry;
 	my $metadata_updates = $self->_prepare_metaset_updates( \%meta_fields, $data, $newdata, \@updated_field );
 	my @alias_update;
+
 	#TODO Use Datastore::get_isolate_aliases instead
 	my $existing_aliases =
 	  $self->{'datastore'}->run_list_query( "SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY isolate_id", $data->{'id'} );
@@ -187,6 +188,7 @@ sub _update {
 		}
 	}
 	my @pubmed_update;
+
 	#TODO Use Datastore::get_isolate_refs instead
 	my $existing_pubmeds = $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM refs WHERE isolate_id=?", $data->{'id'} );
 	my @new_pubmeds = split /\r?\n/, $q->param('pubmed');
@@ -278,7 +280,7 @@ sub _print_interface {
 	my ( $self, $data ) = @_;
 	my $q         = $self->{'cgi'};
 	my $qry       = "select id,user_name,first_name,surname from users WHERE id>0 order by surname";
-	my $user_data = $self->{'datastore'}->run_list_query_hashref($qry);
+	my $user_data = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	my ( @users, %usernames );
 	foreach my $user_hashref (@$user_data) {
 		push @users, $user_hashref->{'id'};

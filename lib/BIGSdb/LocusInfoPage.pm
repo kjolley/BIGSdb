@@ -62,7 +62,7 @@ sub print_content {
 		say "<li>Common name: $locus_info->{'common_name'}</li>";
 	}
 	say "<li>Full name: $desc->{'full_name'}</li>" if $desc->{'full_name'};
-	say "<li>Product: $desc->{'product'}</li>" if $desc->{'product'};
+	say "<li>Product: $desc->{'product'}</li>"     if $desc->{'product'};
 	say "<li>Data type: $locus_info->{'data_type'}</li>";
 	if ( $locus_info->{'length_varies'} ) {
 		print "<li>Variable length: ";
@@ -113,8 +113,8 @@ sub print_content {
 		}
 		say "</ul>";
 	}
-	my $links =
-	  $self->{'datastore'}->run_list_query_hashref( "SELECT url,description FROM locus_links WHERE locus=? ORDER BY link_order", $locus );
+	my $links = $self->{'datastore'}->run_query( "SELECT url,description FROM locus_links WHERE locus=? ORDER BY link_order",
+		$locus, { fetch => 'all_arrayref', slice => {} } );
 	if (@$links) {
 		say "<h2>Links</h2>\n<ul>";
 		foreach (@$links) {

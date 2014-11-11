@@ -577,7 +577,9 @@ sub _check_sequence_bin {
 			arguments => [ $experiment, $newdata->{'id'}, $newdata->{'curator'}, 'now' ]
 		  };
 	}
-	my $seq_attributes = $self->{'datastore'}->run_list_query_hashref("SELECT key,type FROM sequence_attributes ORDER BY key");
+	my $seq_attributes =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT key,type FROM sequence_attributes ORDER BY key", undef, { fetch => 'all_arrayref', slice => {} } );
 	foreach my $attribute (@$seq_attributes) {
 		my $value = $q->param( $attribute->{'key'} );
 		next if !defined $value || $value eq '';

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -468,10 +468,9 @@ sub _get_extra_sequences_fields {
 
 sub _get_extra_seqbin_fields {
 	my ( $self, $data ) = @_;
-	my $q = $self->{'cgi'};
-	my $attributes =
-	  $self->{'datastore'}
-	  ->run_list_query_hashref( "SELECT key,value FROM sequence_attribute_values WHERE seqbin_id=? ORDER BY key", $data->{'id'} );
+	my $q          = $self->{'cgi'};
+	my $attributes = $self->{'datastore'}->run_query( "SELECT key,value FROM sequence_attribute_values WHERE seqbin_id=? ORDER BY key",
+		$data->{'id'}, { fetch => 'all_arrayref', slice => {} } );
 	my $buffer = '';
 	foreach my $att (@$attributes) {
 		( my $cleaned_field = $att->{'key'} ) =~ tr/_/ /;
@@ -482,7 +481,7 @@ sub _get_extra_seqbin_fields {
 
 sub _get_profile_fields {
 	my ( $self, $scheme_id, $primary_key, $data ) = @_;
-	my $loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $buffer;
 	foreach my $locus (@$loci) {
 		my $mapped = $self->clean_locus( $locus, { no_common_name => 1 } );

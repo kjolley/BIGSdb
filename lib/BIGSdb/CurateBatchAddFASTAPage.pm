@@ -95,8 +95,8 @@ sub _print_interface {
 	say $q->popup_menu( -name => 'locus', -id => 'locus', -values => [ '', @$values ], -labels => $desc, -required => 'required' );
 	say "</li><li><label for=\"status\" class=\"form\" style=\"width:5em\">status:!</label>";
 	say $q->popup_menu( -name => 'status', -id => 'status', -values => [ '', SEQ_STATUS ], -required => 'required' );
-	my $sender_data =
-	  $self->{'datastore'}->run_list_query_hashref("SELECT id,user_name,first_name,surname from users WHERE id>0 ORDER BY surname");
+	my $sender_data = $self->{'datastore'}->run_query( "SELECT id,user_name,first_name,surname from users WHERE id>0 ORDER BY surname",
+		undef, { fetch => 'all_arrayref', slice => {} } );
 	my ( @users, %usernames );
 
 	foreach my $sender (@$sender_data) {

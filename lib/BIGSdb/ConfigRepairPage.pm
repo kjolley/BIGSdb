@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2012, University of Oxford
+#Copyright (c) 2011-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -44,10 +44,12 @@ sub print_content {
 	  . "is especially likely if loci that belong to schemes are renamed.</p>";
 	print "<p>As materialized views are enabled for this database, these will also be (re)created.</p>"
 	  if $self->{'system'}->{'materialized_views'} && $self->{'system'}->{'materialized_views'} eq 'yes';
-	my $scheme_ids =
-	  $self->{'datastore'}
-	  ->run_list_query_hashref( "SELECT id,description FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_fields WHERE primary_key) "
-		  . "AND id IN (SELECT scheme_id FROM scheme_members) ORDER BY id" );
+	my $scheme_ids = $self->{'datastore'}->run_query(
+		"SELECT id,description FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_fields "
+		  . "WHERE primary_key) AND id IN (SELECT scheme_id FROM scheme_members) ORDER BY id",
+		undef,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
 	if ( !@$scheme_ids ) {
 		print "<p class=\"statusbad\">No schemes with a primary key and locus members have been defined.</p>\n";
 	} else {

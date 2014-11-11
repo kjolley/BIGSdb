@@ -990,10 +990,9 @@ sub _write_match {
 
 sub _simulate_PCR {
 	my ( $self, $fasta_file, $locus ) = @_;
-	my $q = $self->{'cgi'};
-	my $reactions =
-	  $self->{'datastore'}
-	  ->run_list_query_hashref( "SELECT pcr.* FROM pcr LEFT JOIN pcr_locus ON pcr.id = pcr_locus.pcr_id WHERE locus=?", $locus );
+	my $q         = $self->{'cgi'};
+	my $reactions = $self->{'datastore'}->run_query( "SELECT pcr.* FROM pcr LEFT JOIN pcr_locus ON pcr.id = pcr_locus.pcr_id WHERE locus=?",
+		$locus, { fetch => 'all_arrayref', slice => {}, cache => 'Scan::simulate_PCR' } );
 	return if !@$reactions;
 	my $temp          = BIGSdb::Utils::get_random();
 	my $reaction_file = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_reactions.txt";
@@ -1045,9 +1044,11 @@ sub _simulate_PCR {
 sub _simulate_hybridization {
 	my ( $self, $fasta_file, $locus ) = @_;
 	my $q      = $self->{'cgi'};
-	my $probes = $self->{'datastore'}->run_list_query_hashref(
-"SELECT probes.id,probes.sequence,probe_locus.* FROM probes LEFT JOIN probe_locus ON probes.id = probe_locus.probe_id WHERE locus=?",
-		$locus
+	my $probes = $self->{'datastore'}->run_query(
+		"SELECT probes.id,probes.sequence,probe_locus.* FROM probes LEFT JOIN probe_locus ON "
+		  . "probes.id = probe_locus.probe_id WHERE locus=?",
+		$locus,
+		{ fetch => 'all_arrayref', slice => {} }
 	);
 	return if !@$probes;
 	my $file_prefix      = BIGSdb::Utils::get_random();

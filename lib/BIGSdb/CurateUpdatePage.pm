@@ -470,7 +470,6 @@ sub _prepare_extra_inserts_for_loci {
 	my ( $full_name, $product, $description ) = ( $q->param('full_name'), $q->param('product'), $q->param('description') );
 	s/'/\\'/g foreach ( $full_name, $product, $description );
 	if ($existing_desc) {
-
 		if (   $full_name ne ( $existing_desc->{'full_name'} // '' )
 			|| $product ne ( $existing_desc->{'product'} // '' )
 			|| $description ne ( $existing_desc->{'description'} // '' ) )
@@ -574,10 +573,12 @@ HTML
 
 sub _prepare_extra_inserts_for_seqbin {
 	my ( $self, $newdata, $extra_inserts ) = @_;
-	my $q              = $self->{'cgi'};
-	my $seq_attributes = $self->{'datastore'}->run_list_query_hashref("SELECT key,type FROM sequence_attributes ORDER BY key");
-	my $existing_values =
-	  $self->{'datastore'}->run_list_query_hashref( "SELECT key,value FROM sequence_attribute_values WHERE seqbin_id=?", $newdata->{'id'} );
+	my $q = $self->{'cgi'};
+	my $seq_attributes =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT key,type FROM sequence_attributes ORDER BY key", undef, { fetch => 'all_arrayref', slice => {} } );
+	my $existing_values = $self->{'datastore'}->run_query( "SELECT key,value FROM sequence_attribute_values WHERE seqbin_id=?",
+		$newdata->{'id'}, { fetch => 'all_arrayref', slice => {} } );
 	my %existing_value = map { $_->{'key'} => $_->{'value'} } @$existing_values;
 	my @type_errors;
 	foreach my $attribute (@$seq_attributes) {

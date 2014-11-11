@@ -341,7 +341,7 @@ sub _print_all_loci {
 	  $self->{'datastore'}->run_query(
 		"SELECT id FROM scheme_groups WHERE id NOT IN (SELECT group_id FROM scheme_group_group_members) ORDER BY display_order,name",
 		undef, { fetch => 'col_arrayref' } );
-	if ( keys %{$self->{'groups_with_data'}} ) {
+	if ( keys %{ $self->{'groups_with_data'} } ) {
 		foreach my $group_id (@$groups_with_no_parents) {
 			say $self->_get_child_group_scheme_tables( $group_id, $isolate_id, 1 );
 			say $self->_get_group_scheme_tables( $group_id, $isolate_id );
@@ -460,7 +460,8 @@ sub _get_provenance_fields {
 	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => $self->{'curate'} } );
 	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
 	my ( %composites, %composite_display_pos );
-	my $composite_data = $self->{'datastore'}->run_list_query_hashref("SELECT id,position_after FROM composite_fields");
+	my $composite_data =
+	  $self->{'datastore'}->run_query( "SELECT id,position_after FROM composite_fields", undef, { fetch => 'all_arrayref', slice => {} } );
 
 	foreach (@$composite_data) {
 		$composite_display_pos{ $_->{'id'} }  = $_->{'position_after'};
@@ -562,14 +563,14 @@ sub _get_provenance_fields {
 		  )
 		{
 			my $attribute_order =
-			  $self->{'datastore'}
-			  ->run_list_query_hashref( "SELECT attribute,field_order FROM isolate_field_extended_attributes WHERE isolate_field=?",
-				$field );
+			  $self->{'datastore'}->run_query( "SELECT attribute,field_order FROM isolate_field_extended_attributes WHERE isolate_field=?",
+				$field, { fetch => 'all_arrayref', slice => {} } );
 			my %order = map { $_->{'attribute'} => $_->{'field_order'} } @$attribute_order;
-			my $attribute_list =
-			  $self->{'datastore'}->run_list_query_hashref(
+			my $attribute_list = $self->{'datastore'}->run_query(
 				"SELECT attribute,value FROM isolate_value_extended_attributes WHERE isolate_field=? AND field_value=?",
-				$field, $value );
+				[ $field, $value ],
+				{ fetch => 'all_arrayref', slice => {} }
+			);
 			my %attributes = map { $_->{'attribute'} => $_->{'value'} } @$attribute_list;
 			if ( keys %attributes ) {
 				my $rows = keys %attributes || 1;
