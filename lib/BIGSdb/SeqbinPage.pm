@@ -64,7 +64,7 @@ sub print_content {
 	}
 	my $qry = "SELECT id,length(sequence) AS length,original_designation,method,comments,sender,curator,date_entered,datestamp "
 	  . "FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) desc";
-	my $length_data = $self->{'datastore'}->run_list_query_hashref( $qry, $isolate_id );
+	my $length_data = $self->{'datastore'}->run_query( $qry, $isolate_id, { fetch => 'all_arrayref', slice => {} } );
 	my $count = @$length_data;
 	if ( !$count ) {
 		say "<div class=\"box statusbad\"><p>This isolate has no sequence data attached.</p></div>";
@@ -287,7 +287,7 @@ sub _make_artemis_jnlp {
 	my $url;
 	if ( $self->{'system'}->{'read_access'} ne 'public' || $self->{'curate'} ) {
 		my $embl_filename = "$temp\_$seqbin_id.embl";
-		my $full_path = "$self->{'config'}->{'tmp_dir'}/$embl_filename";
+		my $full_path     = "$self->{'config'}->{'tmp_dir'}/$embl_filename";
 		open( my $fh_embl, '>', $full_path ) || $logger->error("Can't open $full_path for writing");
 		my %page_attributes = (
 			system    => $self->{'system'},

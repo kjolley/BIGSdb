@@ -207,9 +207,9 @@ sub _perform_action {
 
 sub _print_sender_form {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	my $list =
-	  $self->{'datastore'}->run_list_query_hashref("SELECT id,user_name,first_name,surname from users WHERE id>0 order by surname");
+	my $q      = $self->{'cgi'};
+	my $list   = $self->{'datastore'}->run_query( "SELECT id,user_name,first_name,surname from users WHERE id>0 order by surname",
+		undef, { fetch => 'all_arrayref', slice => {} } );
 	my ( @users, %usernames );
 	foreach (@$list) {
 		push @users, $_->{'id'};
@@ -260,7 +260,9 @@ sub _get_labels {
 	my %labels;
 	my $table_data = $self->_get_table_data($table);
 	if ( $table ne 'locus_curators' ) {
-		my $data = $self->{'datastore'}->run_list_query_hashref("SELECT id, description FROM $table_data->{'parent'}");
+		my $data =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT id, description FROM $table_data->{'parent'}", undef, { fetch => 'all_arrayref', slice => {} } );
 		$labels{ $_->{'id'} } = $_->{'description'} foreach @$data;
 	}
 	return \%labels;

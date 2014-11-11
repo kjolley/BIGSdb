@@ -342,7 +342,7 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system    = $self->{'system'};
-	my $version   = '20140911';
+	my $version   = '20141211';
 	my @filenames = qw(bigsdb.css jquery-ui.css);
 	my @paths;
 	foreach my $filename (@filenames) {
@@ -370,9 +370,8 @@ sub print_set_section {
 	return if $self->{'system'}->{'set_id'} && BIGSdb::Utils::is_int( $self->{'system'}->{'set_id'} );
 	my $guid = $self->get_guid;
 	return if !$guid;    #Cookies disabled
-	my $sets =
-	  $self->{'datastore'}
-	  ->run_list_query_hashref("SELECT * FROM sets WHERE NOT hidden OR hidden IS NULL ORDER BY display_order,description");
+	my $sets = $self->{'datastore'}->run_query( "SELECT * FROM sets WHERE NOT hidden OR hidden IS NULL ORDER BY display_order,description",
+		undef, { fetch => 'all_arrayref', slice => {} } );
 	return if !@$sets || ( @$sets == 1 && ( $self->{'system'}->{'only_sets'} // '' ) eq 'yes' );
 	say "<div class=\"box\" id=\"sets\">";
 	print << "SETS";
@@ -599,7 +598,9 @@ sub add_existing_metadata_to_hashref {
 	my ( $self, $data ) = @_;
 	my $metadata_list = $self->{'xmlHandler'}->get_metadata_list;
 	foreach my $metadata_set (@$metadata_list) {
-		my $metadata = $self->{'datastore'}->run_list_query_hashref( "SELECT * FROM $metadata_set WHERE isolate_id=?", $data->{'id'} );
+		my $metadata =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT * FROM $metadata_set WHERE isolate_id=?", $data->{'id'}, { fetch => 'all_arrayref', slice => {} } );
 		foreach my $metadata_ref (@$metadata) {
 			foreach my $field ( keys %$metadata_ref ) {
 				$data->{"$metadata_set:$field"} = $metadata_ref->{$field};
@@ -1062,7 +1063,10 @@ sub get_project_filter {
 sub get_experiment_filter {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $experiment_list = $self->{'datastore'}->run_list_query_hashref("SELECT id,description FROM experiments ORDER BY description");
+	my $experiment_list =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT id,description FROM experiments ORDER BY description", undef, { fetch => 'all_arrayref', slice => {} } )
+	  ;
 	my @experiments;
 	my %labels;
 	foreach (@$experiment_list) {
@@ -2139,7 +2143,9 @@ sub popup_menu {
 	my ( $self, %args ) = @_;
 	my ( $name, $id, $values, $labels, $default, $class, $multiple, $size ) =
 	  @args{qw ( -name -id -values -labels -default -class -multiple -size)};
-	my $value = $self->{'cgi'}->param($name);
+	my $q     = $self->{'cgi'};
+	my $value = $q->param($name);
+	$value =~ s/"/&quot;/g if defined $value;
 	my %default = ref $default eq 'ARRAY' ? map { $_ => 1 } @$default : ();
 	$default{$value} = 1 if defined $value;
 	my $buffer = qq(<select name="$name");
@@ -2150,6 +2156,7 @@ sub popup_menu {
 	$buffer .= ">\n";
 
 	foreach (@$values) {
+		s/"/&quot;/g;
 		$labels->{$_} //= $_;
 		my $select = $default{$_} ? qq( selected="selected") : '';
 		$buffer .= qq(<option value="$_"$select>$labels->{$_}</option>\n);

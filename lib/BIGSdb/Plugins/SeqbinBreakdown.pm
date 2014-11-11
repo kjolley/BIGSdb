@@ -240,8 +240,7 @@ sub _print_interface {
 	}
 	my $seqbin_exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM sequence_bin WHERE isolate_id IN ($qry))");
 	if ( !$seqbin_exists ) {
-		say qq(<div class="box" id="statusbad"><p>There are no sequences stored for any of the selected isolates generated with )
-		  . qq(the sequence method (set in options).</p></div>);
+		say qq(<div class="box" id="statusbad"><p>There are no available sequences stored for any of the selected isolates.</p></div>);
 		return;
 	}
 	say qq(<div class="box" id="queryform">);

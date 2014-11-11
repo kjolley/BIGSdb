@@ -536,12 +536,11 @@ sub _get_loci_by_letter {
 	  . "set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 	  : '';
 	my $main = $self->{'datastore'}->run_list_query( "SELECT id FROM loci WHERE UPPER(id) LIKE ? $set_clause", "$letter%" );
-	my $common =
-	  $self->{'datastore'}
-	  ->run_list_query_hashref( "SELECT id,common_name FROM loci WHERE UPPER(common_name) LIKE ? $set_clause", "$letter%" );
+	my $common = $self->{'datastore'}->run_query( "SELECT id,common_name FROM loci WHERE UPPER(common_name) LIKE ? $set_clause",
+		"$letter%", { fetch => 'all_arrayref', slice => {} } );
 	$set_clause =~ s/ id IN/ locus IN/g;
-	my $aliases =
-	  $self->{'datastore'}->run_list_query_hashref( "SELECT locus,alias FROM locus_aliases WHERE alias ILIKE ? $set_clause", "$letter%" );
+	my $aliases = $self->{'datastore'}->run_query( "SELECT locus,alias FROM locus_aliases WHERE alias ILIKE ? $set_clause",
+		"$letter%", { fetch => 'all_arrayref', slice => {} } );
 	return ( $main, $common, $aliases );
 }
 

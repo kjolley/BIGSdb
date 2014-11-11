@@ -107,12 +107,14 @@ sub get_tree {
 	my $groups_with_no_parent =
 	  $self->{'datastore'}->run_list_query(
 		"SELECT id FROM scheme_groups WHERE id NOT IN (SELECT group_id FROM scheme_group_group_members) ORDER BY display_order,name");
-	my $set_id = $self->get_set_id;
-	my $set_clause = $set_id ? " AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : '';
-	my $schemes_not_in_group =
-	  $self->{'datastore'}->run_list_query_hashref(
-"SELECT id,description FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) $set_clause ORDER BY display_order,description"
-	  );
+	my $set_id               = $self->get_set_id;
+	my $set_clause           = $set_id ? " AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : '';
+	my $schemes_not_in_group = $self->{'datastore'}->run_query(
+		"SELECT id,description FROM schemes WHERE id NOT IN (SELECT scheme_id FROM "
+		  . "scheme_group_scheme_members) $set_clause ORDER BY display_order,description",
+		undef,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
 	my $buffer;
 
 	foreach (@$groups_with_no_parent) {
@@ -372,8 +374,7 @@ sub _data_not_in_scheme_present {
 	return 1 if $designations;
 	my $sequences =
 	  $self->{'datastore'}
-	  ->run_query( "SELECT EXISTS(SELECT * FROM allele_sequences WHERE isolate_id=? AND locus NOT IN ($set_clause))", $isolate_id )
-	  ;
+	  ->run_query( "SELECT EXISTS(SELECT * FROM allele_sequences WHERE isolate_id=? AND locus NOT IN ($set_clause))", $isolate_id );
 	return $sequences ? 1 : 0;
 }
 1;

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -232,8 +232,8 @@ sub _print_position_form {
 
 sub _get_field_data {
 	my ( $self, $id ) = @_;
-	return $self->{'datastore'}
-	  ->run_list_query_hashref( "SELECT * FROM composite_field_values WHERE composite_field_id=? ORDER BY field_order", $id );
+	return $self->{'datastore'}->run_query( "SELECT * FROM composite_field_values WHERE composite_field_id=? ORDER BY field_order",
+		$id, { fetch => 'all_arrayref', slice => {} } );
 }
 
 sub _swap_positions {

@@ -132,7 +132,9 @@ HTML
 	say $q->textfield( -name => 'run_id', -id => 'run_id', -size => 32 );
 	say qq(</li><li><label for="assembly_id" class="parameter">assembly id: </label>);
 	say $q->textfield( -name => 'assembly_id', -id => 'assembly_id', -size => 32 );
-	my $seq_attributes = $self->{'datastore'}->run_list_query_hashref("SELECT key,type,description FROM sequence_attributes ORDER BY key");
+	my $seq_attributes =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT key,type,description FROM sequence_attributes ORDER BY key", undef, { fetch => 'all_arrayref', slice => {} } );
 
 	if (@$seq_attributes) {
 		foreach my $attribute (@$seq_attributes) {
@@ -209,15 +211,17 @@ sub _check_data {
 		say "<div class=\"box\" id=\"statusbad\"><p>Sender is required and must exist in the users table.</p></div>";
 		$continue = 0;
 	}
-	my $seq_attributes = $self->{'datastore'}->run_list_query_hashref("SELECT key,type FROM sequence_attributes ORDER BY key");
+	my $seq_attributes =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT key,type FROM sequence_attributes ORDER BY key", undef, { fetch => 'all_arrayref', slice => {} } );
 	my @att_problems;
 	foreach my $attribute (@$seq_attributes) {
 		my $value = $q->param( $attribute->{'key'} );
 		next if !defined $value || $value eq '';
 		if ( $attribute->{'type'} eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
 			push @att_problems, "$attribute->{'key'} must be an integer.";
-		} elsif ($attribute->{'type'} eq 'float' && !BIGSdb::Utils::is_float($value)){
-			push @att_problems,"$attribute->{'key'} must be a floating point value.";	
+		} elsif ( $attribute->{'type'} eq 'float' && !BIGSdb::Utils::is_float($value) ) {
+			push @att_problems, "$attribute->{'key'} must be a floating point value.";
 		} elsif ( $attribute->{'type'} eq 'date' && !BIGSdb::Utils::is_date($value) ) {
 			push @att_problems, "$attribute->{'key'} must be a valid date in yyyy-mm-dd format.";
 		}
@@ -448,7 +452,9 @@ sub _upload {
 	my $experiment     = BIGSdb::Utils::is_int( $q->param('experiment') ) ? $q->param('experiment') : undef;
 	my $curator        = $self->get_curator_id;
 	my $sender         = $q->param('sender');
-	my $seq_attributes = $self->{'datastore'}->run_list_query_hashref("SELECT key,type FROM sequence_attributes ORDER BY key");
+	my $seq_attributes =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT key,type FROM sequence_attributes ORDER BY key", undef, { fetch => 'all_arrayref', slice => {} } );
 	my @attribute_sql;
 
 	if (@$seq_attributes) {

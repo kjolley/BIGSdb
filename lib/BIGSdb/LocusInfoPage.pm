@@ -55,11 +55,15 @@ sub print_content {
 	say qq(<div class="box" id="resultstable">);
 	say "<h2>Description</h2>";
 	say "<ul>";
-	say "<li>Common name: $locus_info->{'common_name'}</li>" if $locus_info->{'common_name'};
-	say "<li>Full name: $desc->{'full_name'}</li>"           if $desc->{'full_name'};
-	say "<li>Product: $desc->{'product'}</li>"               if $desc->{'product'};
-	say "<li>Data type: $locus_info->{'data_type'}</li>";
 
+	if ( $locus_info->{'formatted_common_name'} ) {
+		say "<li>Common name: $locus_info->{'formatted_common_name'}</li>";
+	} elsif ( $locus_info->{'common_name'} ) {
+		say "<li>Common name: $locus_info->{'common_name'}</li>";
+	}
+	say "<li>Full name: $desc->{'full_name'}</li>" if $desc->{'full_name'};
+	say "<li>Product: $desc->{'product'}</li>"     if $desc->{'product'};
+	say "<li>Data type: $locus_info->{'data_type'}</li>";
 	if ( $locus_info->{'length_varies'} ) {
 		print "<li>Variable length: ";
 		if ( $locus_info->{'min_length'} || $locus_info->{'max_length'} ) {
@@ -109,8 +113,8 @@ sub print_content {
 		}
 		say "</ul>";
 	}
-	my $links =
-	  $self->{'datastore'}->run_list_query_hashref( "SELECT url,description FROM locus_links WHERE locus=? ORDER BY link_order", $locus );
+	my $links = $self->{'datastore'}->run_query( "SELECT url,description FROM locus_links WHERE locus=? ORDER BY link_order",
+		$locus, { fetch => 'all_arrayref', slice => {} } );
 	if (@$links) {
 		say "<h2>Links</h2>\n<ul>";
 		foreach (@$links) {
@@ -135,14 +139,43 @@ sub print_content {
 		my $plural = @$curators > 1 ? 's' : '';
 		say "<h2>Curator$plural</h2>";
 		say "<p>This locus is curated by:</p>";
-		say "<ul>";
+		say '<ul>';
 		foreach my $user_id (@$curators) {
 			my $curator_info = $self->{'datastore'}->get_user_string( $user_id, { affiliation => 1, email => 1 } );
 			say "<li>$curator_info</li>";
 		}
-		say "</ul>";
+		say '</ul>';
+	}
+	my $schemes =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT scheme_id FROM scheme_members WHERE locus=? ORDER BY scheme_id", $locus, { fetch => 'col_arrayref' } );
+	my @valid_schemes;
+	if ($set_id) {
+		foreach my $scheme_id (@$schemes) {
+			push @valid_schemes, $scheme_id if $self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id );
+		}
+	} else {
+		@valid_schemes = @$schemes;
+	}
+	if (@valid_schemes) {
+		my $plural = @valid_schemes > 1 ? 's' : '';
+		say "<h2>Scheme$plural</h2>";
+		say "<p>This locus is a member of the following scheme$plural:</p>";
+		$self->_print_schemes( \@valid_schemes );
 	}
 	say "</div>";
+	return;
+}
+
+sub _print_schemes {    #TODO Display scheme list in hierarchical tree.
+	my ( $self, $scheme_list ) = @_;
+	my $set_id = $self->get_set_id;
+	say '<ul>';
+	foreach my $scheme_id (@$scheme_list) {
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
+		say "<li>$scheme_info->{'description'}</li>";
+	}
+	say '</ul>';
 	return;
 }
 1;

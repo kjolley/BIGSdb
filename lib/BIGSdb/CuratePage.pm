@@ -563,8 +563,10 @@ sub _create_extra_fields_for_seqbin {
 	my $q      = $self->{'cgi'};
 	my $buffer = '';
 	if ( $q->param('page') ne 'update' ) {
-		my $experiments = $self->{'datastore'}->run_list_query_hashref("SELECT id,description FROM experiments ORDER BY description");
-		my @ids         = (0);
+		my $experiments =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT id,description FROM experiments ORDER BY description", undef, { fetch => 'all_arrayref', slice => {} } );
+		my @ids = (0);
 		my %desc;
 		$desc{0} = ' ';
 		foreach my $experiment (@$experiments) {
@@ -583,11 +585,12 @@ sub _create_extra_fields_for_seqbin {
 			$buffer .= "</li>\n";
 		}
 	}
-	my $seq_attributes = $self->{'datastore'}->run_list_query_hashref("SELECT key,type,description FROM sequence_attributes ORDER BY key");
+	my $seq_attributes =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT key,type,description FROM sequence_attributes ORDER BY key", undef, { fetch => 'all_arrayref', slice => {} } );
 	if ( $q->param('page') eq 'update' ) {
-		my $attribute_values =
-		  $self->{'datastore'}
-		  ->run_list_query_hashref( "SELECT key,value FROM sequence_attribute_values WHERE seqbin_id=?", $newdata_ref->{'id'} );
+		my $attribute_values = $self->{'datastore'}->run_query( "SELECT key,value FROM sequence_attribute_values WHERE seqbin_id=?",
+			$newdata_ref->{'id'}, { fetch => 'all_arrayref', slice => {} } );
 		foreach my $att_value (@$attribute_values) {
 			$newdata_ref->{ $att_value->{'key'} } = $att_value->{'value'};
 		}

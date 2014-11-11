@@ -40,7 +40,7 @@ sub print_content {
 		say "<div class=\"box\" id=\"statusbad\"><p>No query passed.</p>";
 		return;
 	}
-	my $alleles    = $self->{'datastore'}->run_list_query_hashref($qry);
+	my $alleles    = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	my $loci       = $self->_get_loci_from_alleles($alleles);
 	my $curator_id = $self->get_curator_id;
 	if ( !$self->is_admin ) {
@@ -76,7 +76,7 @@ sub _print_interface {
 	say qq(<fieldset style="float:left"><legend>Flags</legend>);
 	say $q->checkbox_group( -name => 'flags', -values => [ALLELE_FLAGS], -linebreak => 'true' );
 	say "</fieldset>";
-	$self->print_action_fieldset({no_reset => 1, submit_label => 'Set'});
+	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Set' } );
 	say $q->hidden($_) foreach qw (db page query_file);
 	say $q->end_form;
 	say "</div>";
