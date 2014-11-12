@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.6.5',
+		version     => '1.6.6',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -891,6 +891,7 @@ sub _run_comparison {
 	my $align_file       = "$self->{'config'}->{'tmp_dir'}/$job_id\.align";
 	my $align_stats_file = "$self->{'config'}->{'tmp_dir'}/$job_id\.align_stats";
 	my $xmfa_file        = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
+	my $core_xmfa_file   = "$self->{'config'}->{'tmp_dir'}/$job_id\_core.xmfa";
 	my $prefix           = BIGSdb::Utils::get_random();
 	my %isolate_FASTA;
 
@@ -1106,6 +1107,8 @@ sub _run_comparison {
 		}
 		if ( $params->{'align'} && ( $variable_locus || $params->{'align_all'} ) ) {
 			$seqs{'ref'} = $$seq_ref if $by_reference;
+			my $core_threshold = BIGSdb::Utils::is_int( $params->{'core_threshold'} ) ? $params->{'core_threshold'} : 100;
+			my $core_locus = ( $presence->{$locus_name} * 100 / @$ids ) >= $core_threshold ? 1 : 0;
 			$self->_align(
 				{
 					job_id           => $job_id,
@@ -1114,7 +1117,9 @@ sub _run_comparison {
 					align_file       => $align_file,
 					align_stats_file => $align_stats_file,
 					xmfa_file        => $xmfa_file,
-					locus            => $locus_name
+					core_xmfa_file   => $core_xmfa_file,
+					locus            => $locus_name,
+					core_locus       => $core_locus
 				}
 			);
 		}
@@ -1241,8 +1246,7 @@ sub _print_reports {
 				{ filename => "$job_id.xmfa", description => '35_Extracted sequences (XMFA format)', compress => 1, keep_original => 1 } );
 			try {
 				$self->{'jobManager'}->update_job_status( $job_id, { stage => "Converting XMFA to FASTA" } );
-				my $fasta_file =
-				  BIGSdb::Utils::xmfa2fasta( "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa", { integer_ids => 1 } );
+				my $fasta_file = BIGSdb::Utils::xmfa2fasta( "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa", { integer_ids => 1 } );
 				if ( -e $fasta_file ) {
 					$self->{'jobManager'}->update_job_output( $job_id,
 						{ filename => "$job_id.fas", description => '36_Concatenated aligned sequences (FASTA format)', compress => 1 } );
@@ -1250,6 +1254,34 @@ sub _print_reports {
 			}
 			catch BIGSdb::CannotOpenFileException with {
 				$logger->error("Can't create FASTA file from XMFA.");
+			};
+		}
+		if ( -e "$self->{'config'}->{'tmp_dir'}/$job_id\_core.xmfa" ) {
+			$self->{'jobManager'}->update_job_output(
+				$job_id,
+				{
+					filename      => "$job_id\_core.xmfa",
+					description   => '37_Extracted core sequences (XMFA format)',
+					compress      => 1,
+					keep_original => 1
+				}
+			);
+			try {
+				$self->{'jobManager'}->update_job_status( $job_id, { stage => "Converting core XMFA to FASTA" } );
+				my $fasta_file = BIGSdb::Utils::xmfa2fasta( "$self->{'config'}->{'tmp_dir'}/$job_id\_core.xmfa", { integer_ids => 1 } );
+				if ( -e $fasta_file ) {
+					$self->{'jobManager'}->update_job_output(
+						$job_id,
+						{
+							filename    => "$job_id\_core.fas",
+							description => '38_Concatenated core aligned sequences (FASTA format)',
+							compress    => 1
+						}
+					);
+				}
+			}
+			catch BIGSdb::CannotOpenFileException with {
+				$logger->error("Can't create core FASTA file from XMFA.");
 			};
 		}
 	}
@@ -1696,8 +1728,8 @@ sub _print_variable_loci {
 
 sub _align {
 	my ( $self, $args ) = @_;
-	my ( $job_id, $locus, $seqs, $align_file, $align_stats_file, $xmfa_file ) =
-	  @{$args}{qw(job_id locus seqs align_file align_stats_file xmfa_file)};
+	my ( $job_id, $locus, $seqs, $align_file, $align_stats_file, $xmfa_file, $core_locus, $core_xmfa_file ) =
+	  @{$args}{qw(job_id locus seqs align_file align_stats_file xmfa_file core_locus core_xmfa_file)};
 	my $params = $self->{'params'};
 	state $xmfa_start = 1;
 	state $xmfa_end   = 1;
@@ -1737,8 +1769,10 @@ sub _align {
 				aligned_out      => $aligned_out,
 				fasta_file       => $fasta_file,
 				align_file       => $align_file,
+				core_locus       => $core_locus,
 				align_stats_file => $align_stats_file,
 				xmfa_out         => $xmfa_file,
+				core_xmfa_out    => $core_xmfa_file,
 				xmfa_start_ref   => \$xmfa_start,
 				xmfa_end_ref     => \$xmfa_end,
 				names            => \%names
@@ -1788,8 +1822,12 @@ sub _run_infoalign {
 
 sub _run_alignment {
 	my ( $self, $args ) = @_;
-	my ( $ids, $names, $locus, $seq_count, $aligned_out, $fasta_file, $align_file, $xmfa_out, $xmfa_start_ref, $xmfa_end_ref ) =
-	  @{$args}{qw (ids names locus seq_count aligned_out fasta_file align_file xmfa_out xmfa_start_ref xmfa_end_ref )};
+	my (
+		$ids,        $names,    $locus,          $seq_count,    $aligned_out, $fasta_file,
+		$align_file, $xmfa_out, $xmfa_start_ref, $xmfa_end_ref, $core_locus,  $core_xmfa_out
+	  )
+	  = @{$args}
+	  {qw (ids names locus seq_count aligned_out fasta_file align_file xmfa_out xmfa_start_ref xmfa_end_ref core_locus core_xmfa_out )};
 	return if $seq_count <= 1;
 	my $params = $self->{'params'};
 	if ( $params->{'aligner'} eq 'MAFFT' && $self->{'config'}->{'mafft_path'} && -e $fasta_file && -s $fasta_file ) {
@@ -1804,13 +1842,13 @@ sub _run_alignment {
 	if ( -e $aligned_out ) {
 		my $align = Bio::AlignIO->new( -format => 'clustalw', -file => $aligned_out )->next_aln;
 		my ( %id_has_seq, $seq_length );
-		open( my $fh_xmfa, '>>', $xmfa_out ) or $logger->error("Can't open output file $xmfa_out for appending");
+		my $xmfa_buffer;
 		my $clean_locus = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
 		foreach my $seq ( $align->each_seq ) {
 			$$xmfa_end_ref = $$xmfa_start_ref + $seq->length - 1;
-			say $fh_xmfa '>' . $seq->id . ":$$xmfa_start_ref-$$xmfa_end_ref + $clean_locus";
+			$xmfa_buffer .= '>' . $seq->id . ":$$xmfa_start_ref-$$xmfa_end_ref + $clean_locus\n";
 			my $sequence = BIGSdb::Utils::break_line( $seq->seq, 60 );
-			say $fh_xmfa "$sequence";
+			$xmfa_buffer .= "$sequence\n";
 			my ($id) = split /\|/, $seq->id;
 			$id_has_seq{$id} = 1;
 			$seq_length = $seq->length if !$seq_length;
@@ -1818,10 +1856,17 @@ sub _run_alignment {
 		my $missing_seq = BIGSdb::Utils::break_line( ( '-' x $seq_length ), 60 );
 		foreach my $id (@$ids) {
 			next if $id_has_seq{$id};
-			say $fh_xmfa ">$names->{$id}:$$xmfa_start_ref-$$xmfa_end_ref + $clean_locus\n$missing_seq";
+			$xmfa_buffer .= ">$names->{$id}:$$xmfa_start_ref-$$xmfa_end_ref + $clean_locus\n$missing_seq\n";
 		}
-		say $fh_xmfa "=";
+		$xmfa_buffer .= '=';
+		open( my $fh_xmfa, '>>', $xmfa_out ) or $logger->error("Can't open output file $xmfa_out for appending");
+		say $fh_xmfa $xmfa_buffer if $xmfa_buffer;
 		close $fh_xmfa;
+		if ($core_locus) {
+			open( my $fh_core_xmfa, '>>', $core_xmfa_out ) or $logger->error("Can't open output file $core_xmfa_out for appending");
+			say $fh_core_xmfa $xmfa_buffer if $xmfa_buffer;
+			close $fh_core_xmfa;
+		}
 		$$xmfa_start_ref = $$xmfa_end_ref + 1;
 		open( my $align_fh, '>>', $align_file ) || $logger->error("Can't open $align_file for appending");
 		my $heading_locus = $self->clean_locus( $locus, { text_output => 1 } );
