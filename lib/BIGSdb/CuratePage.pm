@@ -533,6 +533,7 @@ sub _create_extra_fields_for_locus_descriptions {
 	local $" = "\n";
 	$buffer .= $q->textarea( -name => 'aliases', -id => 'aliases', -rows => 2, -cols => 12, -default => "@default_aliases" );
 	$buffer .= "</li>\n";
+	return $buffer if $self->{'system'}->{'dbtype'} eq 'isolates';
 	my @default_pubmed;
 	if ( $q->param('page') eq 'update' && $locus ) {
 		my $pubmed_list =
@@ -613,16 +614,17 @@ sub _create_extra_fields_for_loci {
 	my ( $self, $newdata_ref, $width ) = @_;
 	my $q      = $self->{'cgi'};
 	my $buffer = '';
-	return $buffer if $self->{'system'}->{'dbtype'} ne 'sequences';
-	my $attributes = $self->{'datastore'}->get_table_field_attributes('locus_descriptions');
-	if ( defined $newdata_ref->{'id'} ) {
-		my $desc_ref =
-		  $self->{'datastore'}
-		  ->run_query( "SELECT * FROM locus_descriptions WHERE locus=?", $newdata_ref->{'id'}, { fetch => 'row_hashref' } );
-		( $newdata_ref->{$_} = $desc_ref->{$_} ) foreach qw(full_name product description);
+	if ($self->{'system'}->{'dbtype'} eq 'sequences'){
+		my $attributes = $self->{'datastore'}->get_table_field_attributes('locus_descriptions');
+		if ( defined $newdata_ref->{'id'} ) {
+			my $desc_ref =
+			  $self->{'datastore'}
+			  ->run_query( "SELECT * FROM locus_descriptions WHERE locus=?", $newdata_ref->{'id'}, { fetch => 'row_hashref' } );
+			( $newdata_ref->{$_} = $desc_ref->{$_} ) foreach qw(full_name product description);
+		}
+		$buffer .=
+		  $self->_get_form_fields( $attributes, 'locus_descriptions', $newdata_ref, { noshow => [qw(locus curator datestamp)] }, $width );
 	}
-	$buffer .=
-	  $self->_get_form_fields( $attributes, 'locus_descriptions', $newdata_ref, { noshow => [qw(locus curator datestamp)] }, $width );
 	$buffer .= $self->_create_extra_fields_for_locus_descriptions( $q->param('id') // '', $width );
 	return $buffer;
 }

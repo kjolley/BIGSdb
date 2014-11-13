@@ -145,6 +145,7 @@ sub print_content {
 					my $desc_status = $self->_prepare_extra_inserts_for_loci( \%newdata, \@extra_inserts );
 					$status = $desc_status if !$status;
 				}
+				$self->_check_locus_aliases_when_updating_other_table( $newdata{'id'}, \%newdata, \@extra_inserts );
 			} elsif ( $table eq 'sequence_bin' ) {
 				$status = $self->_prepare_extra_inserts_for_seqbin( \%newdata, \@extra_inserts );
 			} elsif ( ( $table eq 'allele_designations' || $table eq 'sequence_bin' )
@@ -484,26 +485,42 @@ sub _prepare_extra_inserts_for_loci {
 	return $self->_check_locus_descriptions( $newdata, $extra_inserts );
 }
 
-sub _check_locus_descriptions {
-	my ( $self, $newdata, $extra_inserts ) = @_;
+sub _check_locus_aliases_when_updating_other_table {
+	my ( $self, $locus, $newdata, $extra_inserts ) = @_;
 	my $q = $self->{'cgi'};
-	( my $cleaned_locus = $newdata->{'locus'} ) =~ s/'/\\'/g;
-	my $existing_aliases = $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=?", $newdata->{'locus'} );
+	( my $cleaned_locus = $locus ) =~ s/'/\\'/g;
+	my $existing_aliases = $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=?", $locus );
 	my @new_aliases = split /\r?\n/, $q->param('aliases');
 	foreach my $new (@new_aliases) {
 		chomp $new;
 		next if $new eq '';
+		$new =~ s/'/\\'/g;
 		next if $new eq $newdata->{'locus'};
 		if ( !@$existing_aliases || none { $new eq $_ } @$existing_aliases ) {
-			push @$extra_inserts, "INSERT INTO locus_aliases (locus,alias,curator,datestamp) VALUES "
-			  . "(E'$cleaned_locus','$new',$newdata->{'curator'},'today')";
+			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+				push @$extra_inserts, "INSERT INTO locus_aliases (locus,alias,use_alias,curator,datestamp) VALUES "
+				  . "(E'$cleaned_locus',E'$new','true',$newdata->{'curator'},'today')";
+			} else {
+				push @$extra_inserts, "INSERT INTO locus_aliases (locus,alias,curator,datestamp) VALUES "
+				  . "(E'$cleaned_locus',E'$new',$newdata->{'curator'},'today')";
+			}
 		}
 	}
 	foreach my $existing (@$existing_aliases) {
+		$existing =~ s/'/\\'/g;
 		if ( !@new_aliases || none { $existing eq $_ } @new_aliases ) {
-			push @$extra_inserts, "DELETE FROM locus_aliases WHERE locus=E'$cleaned_locus' AND alias='$existing'";
+			push @$extra_inserts, "DELETE FROM locus_aliases WHERE locus=E'$cleaned_locus' AND alias=E'$existing'";
 		}
 	}
+	return;
+}
+
+sub _check_locus_descriptions {
+	my ( $self, $newdata, $extra_inserts ) = @_;
+	( my $cleaned_locus = $newdata->{'locus'} ) =~ s/'/\\'/g;
+	my $q = $self->{'cgi'};
+	$self->_check_locus_aliases_when_updating_other_table( $newdata->{'locus'}, $newdata, $extra_inserts )
+	  if $q->param('table') eq 'locus_descriptions';
 	my $existing_pubmeds = $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM locus_refs WHERE locus=?", $newdata->{'locus'} );
 	my @new_pubmeds = split /\r?\n/, $q->param('pubmed');
 	foreach my $new (@new_pubmeds) {
