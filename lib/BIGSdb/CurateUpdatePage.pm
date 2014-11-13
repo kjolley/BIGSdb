@@ -122,7 +122,7 @@ sub print_content {
 	$newdata{'curator'}      = $self->get_curator_id();
 	$newdata{'date_entered'} = $data->{'date_entered'};
 	my @problems;
-	my @extra_inserts;
+	my $extra_inserts = [];
 	if ( $q->param('sent') ) {
 		@problems = $self->check_record( $table, \%newdata, 1, $data );
 		if (@problems) {
@@ -135,19 +135,19 @@ sub print_content {
 			} elsif ( $table eq 'scheme_fields' ) {
 				$status = $self->_check_scheme_fields( \%newdata );
 			} elsif ( $table eq 'sequences' ) {
-				$status = $self->_check_allele_data( \%newdata, \@extra_inserts );
+				$status = $self->_check_allele_data( \%newdata, $extra_inserts );
 			} elsif ( $table eq 'locus_descriptions' ) {
-				$status = $self->_check_locus_descriptions( \%newdata, \@extra_inserts );
+				$status = $self->_check_locus_descriptions( \%newdata, $extra_inserts );
 			} elsif ( $table eq 'loci' ) {
 				$status = $self->_check_loci( \%newdata );
 				if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 					$newdata{'locus'} = $newdata{'id'};
-					my $desc_status = $self->_prepare_extra_inserts_for_loci( \%newdata, \@extra_inserts );
+					my $desc_status = $self->_prepare_extra_inserts_for_loci( \%newdata, $extra_inserts );
 					$status = $desc_status if !$status;
 				}
-				$self->_check_locus_aliases_when_updating_other_table( $newdata{'id'}, \%newdata, \@extra_inserts );
+				$self->_check_locus_aliases_when_updating_other_table( $newdata{'id'}, \%newdata, $extra_inserts );
 			} elsif ( $table eq 'sequence_bin' ) {
-				$status = $self->_prepare_extra_inserts_for_seqbin( \%newdata, \@extra_inserts );
+				$status = $self->_prepare_extra_inserts_for_seqbin( \%newdata, $extra_inserts );
 			} elsif ( ( $table eq 'allele_designations' || $table eq 'sequence_bin' )
 				&& !$self->is_allowed_to_view_isolate( $newdata{'isolate_id'} ) )
 			{
@@ -176,11 +176,13 @@ HTML
 				}
 			}
 			if ( ( $status // 0 ) != FAILURE ) {
-				my (@values);
+				my ( @table_fields, @placeholders, @values );
 				my %new_value;
 				my $scheme_structure_changed = 0;
 				foreach my $att (@$attributes) {
 					next if $att->{'user_update'} && $att->{'user_update'} eq 'no';
+					push @table_fields, $att->{'name'};
+					push @placeholders, '?';
 					if ( $self->{'system'}->{'dbtype'} eq 'sequences' && $table eq 'scheme_fields' && any { $att->{'name'} eq $_ }
 						qw(type primary_key) )
 					{
@@ -191,28 +193,25 @@ HTML
 							$scheme_structure_changed = 1;
 						}
 					}
-					$newdata{ $att->{'name'} } = defined $newdata{ $att->{'name'} } ? $newdata{ $att->{'name'} } : '';
-					$newdata{ $att->{'name'} } =~ s/\\/\\\\/g;
-					$newdata{ $att->{'name'} } =~ s/'/\\'/g;
-					if ( $att->{'name'} =~ /sequence$/ ) {
+					if ( $att->{'name'} =~ /sequence$/ && $newdata{ $att->{'name'} } ) {
 						$newdata{ $att->{'name'} } = uc( $newdata{ $att->{'name'} } );
 						$newdata{ $att->{'name'} } =~ s/\s//g;
 					}
-					if ( $newdata{ $att->{'name'} } ne '' ) {
-						push @values, "$att->{'name'} = E'$newdata{ $att->{'name'}}'";
+					if ( ( $newdata{ $att->{'name'} } // '' ) ne '' ) {
+						push @values, $newdata{ $att->{'name'} };
 						$new_value{ $att->{'name'} } = $newdata{ $att->{'name'} };
 					} else {
-						push @values, "$att->{'name'} = null";
+						push @values, undef;
 					}
 				}
 				local $" = ',';
-				my $qry = "UPDATE $table SET @values WHERE ";
+				my $qry = "UPDATE $table SET (@table_fields) = (@placeholders) WHERE ";
 				local $" = ' AND ';
 				$qry .= "@query_values";
 				eval {
-					$self->{'db'}->do($qry);
-					foreach (@extra_inserts) {
-						$self->{'db'}->do($_);
+					$self->{'db'}->do( $qry, undef, @values );
+					foreach (@$extra_inserts) {
+						$self->{'db'}->do( $_->{'statement'}, undef, @{ $_->{'arguments'} } );
 					}
 					if ( $table eq 'scheme_fields' && $self->{'system'}->{'dbtype'} eq 'sequences' && $scheme_structure_changed ) {
 						$self->remove_profile_data( $data->{'scheme_id'} );
@@ -221,23 +220,19 @@ HTML
 					}
 				};
 				if ($@) {
-					print
-					  "<div class=\"box\" id=\"statusbad\"><p>Update failed - transaction cancelled - no records have been touched.</p>\n";
+					say qq(<div class="box" id="statusbad"><p>Update failed - transaction cancelled - no records have been touched.</p>);
 					if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
-						print
-"<p>Data entry would have resulted in records with either duplicate ids or another unique field with duplicate values.</p></div>\n";
+						say qq(<p>Data entry would have resulted in records with either duplicate ids or another unique field with )
+						  . qq(duplicate values.</p></div>);
 					} else {
-						print "<p>Error message: $@</p></div>\n";
+						say "<p>Error message: $@</p></div>";
 					}
 					$self->{'db'}->rollback;
 				} else {
-					$self->{'db'}->commit
-					  && say "<div class=\"box\" id=\"resultsheader\"><p>$record_name updated!</p>";
-					say "<p><a href=\""
-					  . $q->script_name
-					  . "?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$table\">Update another</a> | <a href=\""
-					  . $q->script_name
-					  . "?db=$self->{'instance'}\">Back to main page</a></p></div>";
+					$self->{'db'}->commit && say qq(<div class="box" id="resultsheader"><p>$record_name updated!</p>);
+					say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$table">)
+					  . qq(Update another</a> | <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a>)
+					  . qq(</p></div>);
 					if ( $table eq 'allele_designations' ) {
 						$self->update_history( $data->{'isolate_id'}, "$data->{'locus'}: $data->{'allele_id'} -> $new_value{'allele_id'}" );
 					}
@@ -361,25 +356,37 @@ HTML
 HTML
 			return FAILURE;
 		} else {
-			( my $cleaned_field = $field )              =~ s/'/\\'/g;
-			( my $cleaned_locus = $newdata->{'locus'} ) =~ s/'/\\'/g;
-			( my $cleaned_value = $newdata->{$field} )  =~ s/'/\\'/g;
-			my $insert;
-			if ( $cleaned_value ne '' ) {
+			if ( $newdata->{$field} ne '' ) {
 				if (
-					$self->{'datastore'}
-					->run_simple_query( "SELECT COUNT(*) FROM sequence_extended_attributes WHERE locus=? AND field=? AND allele_id=?",
-						$newdata->{'locus'}, $field, $newdata->{'allele_id'} )->[0]
+					$self->{'datastore'}->run_query(
+						"SELECT EXISTS(SELECT * FROM sequence_extended_attributes WHERE locus=? AND field=? AND allele_id=?)",
+						[ $newdata->{'locus'}, $field, $newdata->{'allele_id'} ],
+						{ cache => 'CurateUpdatePage::check_allele_data' }
+					)
 				  )
 				{
-					$insert =
-					    "UPDATE sequence_extended_attributes SET value=E'$cleaned_value',datestamp='now',curator=$newdata->{'curator'} "
-					  . "WHERE locus=E'$cleaned_locus' AND field=E'$cleaned_field' AND allele_id='$newdata->{'allele_id'}'";
+					push @$extra_inserts,
+					  {
+						statement => 'UPDATE sequence_extended_attributes SET (value,datestamp,curator) = (?,?,?) WHERE '
+						  . '(locus,field,allele_id) = (?,?,?)',
+						arguments =>
+						  [ $newdata->{$field}, 'now', $newdata->{'curator'}, $newdata->{'locus'}, $field, $newdata->{'allele_id'} ]
+					  };
 				} else {
-					$insert = "INSERT INTO sequence_extended_attributes(locus,field,allele_id,value,datestamp,curator) VALUES "
-					  . "(E'$cleaned_locus',E'$cleaned_field','$newdata->{'allele_id'}',E'$cleaned_value','now',$newdata->{'curator'})";
+					push @$extra_inserts,
+					  {
+						statement => 'INSERT INTO sequence_extended_attributes(locus,field,allele_id,value,datestamp,curator) VALUES '
+						  . '(?,?,?,?,?,?)',
+						arguments =>
+						  [ $newdata->{'locus'}, $field, $newdata->{'allele_id'}, $newdata->{$field}, 'now', $newdata->{'curator'} ]
+					  };
 				}
-				push @$extra_inserts, $insert;
+			} else {
+				push @$extra_inserts,
+				  {
+					statement => 'DELETE FROM sequence_extended_attributes WHERE (locus,field,allele_id) = (?,?,?)',
+					arguments => [ $newdata->{'locus'}, $field, $newdata->{'allele_id'} ]
+				  };
 			}
 		}
 	}
@@ -391,29 +398,38 @@ HTML
 HTML
 		return FAILURE;
 	}
-	( my $cleaned_locus = $newdata->{'locus'} ) =~ s/'/\\'/g;
 	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
-		my $existing_flags =
-		  $self->{'datastore'}
-		  ->run_list_query( "SELECT flag FROM allele_flags WHERE locus=? AND allele_id=?", $newdata->{'locus'}, $newdata->{'allele_id'} );
+		my $existing_flags = $self->{'datastore'}->run_query(
+			"SELECT flag FROM allele_flags WHERE locus=? AND allele_id=?",
+			[ $newdata->{'locus'}, $newdata->{'allele_id'} ],
+			{ fetch => 'col_arrayref' }
+		);
 		my @new_flags = $q->param('flags');
 		foreach my $new (@new_flags) {
 			next if none { $new eq $_ } ALLELE_FLAGS;
 			if ( !@$existing_flags || none { $new eq $_ } @$existing_flags ) {
-				push @$extra_inserts, "INSERT INTO allele_flags (locus,allele_id,flag,curator,datestamp) VALUES "
-				  . "(E'$cleaned_locus','$newdata->{'allele_id'}','$new',$newdata->{'curator'},'today')";
+				push @$extra_inserts,
+				  {
+					statement => 'INSERT INTO allele_flags (locus,allele_id,flag,curator,datestamp) VALUES (?,?,?,?,?)',
+					arguments => [ $newdata->{'locus'}, $newdata->{'allele_id'}, $new, $newdata->{'curator'}, 'today' ]
+				  };
 			}
 		}
 		foreach my $existing (@$existing_flags) {
 			if ( !@new_flags || none { $existing eq $_ } @new_flags ) {
 				push @$extra_inserts,
-				  "DELETE FROM allele_flags WHERE locus=E'$cleaned_locus' AND allele_id='$newdata->{'allele_id'}' AND flag='$existing'";
+				  {
+					statement => 'DELETE FROM allele_flags WHERE (locus,allele_id,flag) = (?,?,?)',
+					arguments => [ $newdata->{'locus'}, $newdata->{'allele_id'}, $existing ]
+				  };
 			}
 		}
 	}
-	my $existing_pubmeds =
-	  $self->{'datastore'}
-	  ->run_list_query( "SELECT pubmed_id FROM sequence_refs WHERE locus=? AND allele_id=?", $newdata->{'locus'}, $newdata->{'allele_id'} );
+	my $existing_pubmeds = $self->{'datastore'}->run_query(
+		"SELECT pubmed_id FROM sequence_refs WHERE locus=? AND allele_id=?",
+		[ $newdata->{'locus'}, $newdata->{'allele_id'} ],
+		{ fetch => 'col_arrayref' }
+	);
 	my @new_pubmeds = split /\r?\n/, $q->param('pubmed');
 	foreach my $new (@new_pubmeds) {
 		chomp $new;
@@ -426,14 +442,20 @@ HTML
 HTML
 				return FAILURE;
 			}
-			push @$extra_inserts, "INSERT INTO sequence_refs (locus,allele_id,pubmed_id,curator,datestamp) "
-			  . "VALUES (E'$cleaned_locus','$newdata->{'allele_id'}',$new,$newdata->{'curator'},'today')";
+			push @$extra_inserts,
+			  {
+				statement => 'INSERT INTO sequence_refs (locus,allele_id,pubmed_id,curator,datestamp) VALUES (?,?,?,?,?)',
+				arguments => [ $newdata->{'locus'}, $newdata->{'allele_id'}, $new, $newdata->{'curator'}, 'now' ]
+			  };
 		}
 	}
 	foreach my $existing (@$existing_pubmeds) {
 		if ( !@new_pubmeds || none { $existing eq $_ } @new_pubmeds ) {
-			push @$extra_inserts, "DELETE FROM sequence_refs WHERE locus=E'$cleaned_locus' AND "
-			  . "allele_id='$newdata->{'allele_id'}' AND pubmed_id='$existing'";
+			push @$extra_inserts,
+			  {
+				statement => 'DELETE FROM sequence_refs WHERE (locus,allele_id,pubmed_id) = (?,?,?)',
+				arguments => [ $newdata->{'locus'}, $newdata->{'allele_id'}, $existing ]
+			  };
 		}
 	}
 	my @databanks = DATABANKS;
@@ -445,17 +467,21 @@ HTML
 		foreach my $new (@new_accessions) {
 			chomp $new;
 			next if $new eq '';
-			( my $clean_new = $new ) =~ s/'/\\'/g;
-			if ( !@$existing_accessions || none { $clean_new eq $_ } @$existing_accessions ) {
-				push @$extra_inserts, "INSERT INTO accession (locus,allele_id,databank,databank_id,curator,datestamp) "
-				  . "VALUES ('$cleaned_locus','$newdata->{'allele_id'}','$databank','$clean_new',$newdata->{'curator'},'today')";
+			if ( !@$existing_accessions || none { $new eq $_ } @$existing_accessions ) {
+				push @$extra_inserts,
+				  {
+					statement => 'INSERT INTO accession (locus,allele_id,databank,databank_id,curator,datestamp) VALUES (?,?,?,?,?,?)',
+					arguments => [ $newdata->{'locus'}, $newdata->{'allele_id'}, $databank, $new, $newdata->{'curator'}, 'now' ]
+				  };
 			}
 		}
 		foreach my $existing (@$existing_accessions) {
-			( my $clean_existing = $existing ) =~ s/'/\\'/g;
-			if ( !@new_accessions || none { $clean_existing eq $_ } @new_accessions ) {
-				push @$extra_inserts, "DELETE FROM accession WHERE locus=E'$cleaned_locus' AND "
-				  . "allele_id='$newdata->{'allele_id'}' AND databank='$databank' AND databank_id='$clean_existing'";
+			if ( !@new_accessions || none { $existing eq $_ } @new_accessions ) {
+				push @$extra_inserts,
+				  {
+					statement => 'DELETE FROM accession WHERE (locus,allele_id,databank,databank_id) = (?,?,?,?)',
+					arguments => [ $newdata->{'locus'}, $newdata->{'allele_id'}, $databank, $existing ]
+				  };
 			}
 		}
 	}
@@ -465,22 +491,26 @@ HTML
 sub _prepare_extra_inserts_for_loci {
 	my ( $self, $newdata, $extra_inserts ) = @_;
 	my $q = $self->{'cgi'};
-	( my $cleaned_locus = $newdata->{'locus'} ) =~ s/'/\\'/g;
 	my $existing_desc =
 	  $self->{'datastore'}->run_query( "SELECT * FROM locus_descriptions WHERE locus=?", $newdata->{'locus'}, { fetch => 'row_hashref' } );
 	my ( $full_name, $product, $description ) = ( $q->param('full_name'), $q->param('product'), $q->param('description') );
-	s/'/\\'/g foreach ( $full_name, $product, $description );
 	if ($existing_desc) {
 		if (   $full_name ne ( $existing_desc->{'full_name'} // '' )
 			|| $product ne ( $existing_desc->{'product'} // '' )
 			|| $description ne ( $existing_desc->{'description'} // '' ) )
 		{
-			push @$extra_inserts, "UPDATE locus_descriptions SET full_name=E'$full_name',product=E'$product',description=E'$description',"
-			  . "curator=$newdata->{'curator'},datestamp='now' WHERE locus=E'$cleaned_locus'";
+			push @$extra_inserts,
+			  {
+				statement => 'UPDATE locus_descriptions SET (full_name,product,description,curator,datestamp) = (?,?,?,?,?) WHERE locus=?',
+				arguments => [ $full_name, $product, $description, $newdata->{'curator'}, 'now', $newdata->{'locus'} ]
+			  };
 		}
 	} else {
-		push @$extra_inserts, "INSERT INTO locus_descriptions (locus,full_name,product,description,curator,datestamp) VALUES "
-		  . "(E'$cleaned_locus',E'$full_name',E'$product',E'$description',$newdata->{'curator'},'now')";
+		push @$extra_inserts,
+		  {
+			statement => 'INSERT INTO locus_descriptions (locus,full_name,product,description,curator,datestamp) VALUES (?,?,?,?,?,?)',
+			arguments => [ $newdata->{'locus'}, $full_name, $product, $description, $newdata->{'curator'}, 'now' ]
+		  };
 	}
 	return $self->_check_locus_descriptions( $newdata, $extra_inserts );
 }
@@ -488,28 +518,33 @@ sub _prepare_extra_inserts_for_loci {
 sub _check_locus_aliases_when_updating_other_table {
 	my ( $self, $locus, $newdata, $extra_inserts ) = @_;
 	my $q = $self->{'cgi'};
-	( my $cleaned_locus = $locus ) =~ s/'/\\'/g;
-	my $existing_aliases = $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=?", $locus );
+	my $existing_aliases =
+	  $self->{'datastore'}->run_query( "SELECT alias FROM locus_aliases WHERE locus=?", $locus, { fetch => 'col_arrayref' } );
 	my @new_aliases = split /\r?\n/, $q->param('aliases');
 	foreach my $new (@new_aliases) {
 		chomp $new;
 		next if $new eq '';
-		$new =~ s/'/\\'/g;
-		next if $new eq $newdata->{'locus'};
+		next if $new eq $locus;
 		if ( !@$existing_aliases || none { $new eq $_ } @$existing_aliases ) {
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-				push @$extra_inserts, "INSERT INTO locus_aliases (locus,alias,use_alias,curator,datestamp) VALUES "
-				  . "(E'$cleaned_locus',E'$new','true',$newdata->{'curator'},'today')";
+				push @$extra_inserts,
+				  {
+					statement => 'INSERT INTO locus_aliases (locus,alias,use_alias,curator,datestamp) VALUES (?,?,?,?,?)',
+					arguments => [ $locus, $new, 'true', $newdata->{'curator'}, 'now' ]
+				  };
 			} else {
-				push @$extra_inserts, "INSERT INTO locus_aliases (locus,alias,curator,datestamp) VALUES "
-				  . "(E'$cleaned_locus',E'$new',$newdata->{'curator'},'today')";
+				push @$extra_inserts,
+				  {
+					statement => 'INSERT INTO locus_aliases (locus,alias,curator,datestamp) VALUES (?,?,?,?)',
+					arguments => [ $locus, $new, $newdata->{'curator'}, 'now' ]
+				  };
 			}
 		}
 	}
 	foreach my $existing (@$existing_aliases) {
-		$existing =~ s/'/\\'/g;
 		if ( !@new_aliases || none { $existing eq $_ } @new_aliases ) {
-			push @$extra_inserts, "DELETE FROM locus_aliases WHERE locus=E'$cleaned_locus' AND alias=E'$existing'";
+			push @$extra_inserts,
+			  { statement => 'DELETE FROM locus_aliases WHERE (locus,alias) = (?,?)', arguments => [ $locus, $existing ] };
 		}
 	}
 	return;
@@ -517,7 +552,6 @@ sub _check_locus_aliases_when_updating_other_table {
 
 sub _check_locus_descriptions {
 	my ( $self, $newdata, $extra_inserts ) = @_;
-	( my $cleaned_locus = $newdata->{'locus'} ) =~ s/'/\\'/g;
 	my $q = $self->{'cgi'};
 	$self->_check_locus_aliases_when_updating_other_table( $newdata->{'locus'}, $newdata, $extra_inserts )
 	  if $q->param('table') eq 'locus_descriptions';
@@ -534,13 +568,17 @@ sub _check_locus_descriptions {
 HTML
 				return FAILURE;
 			}
-			push @$extra_inserts, "INSERT INTO locus_refs (locus,pubmed_id,curator,datestamp) VALUES "
-			  . "(E'$cleaned_locus',$new,$newdata->{'curator'},'today')";
+			push @$extra_inserts,
+			  {
+				statement => 'INSERT INTO locus_refs (locus,pubmed_id,curator,datestamp) VALUES (?,?,?,?)',
+				arguments => [ $newdata->{'locus'}, $new, $newdata->{'curator'}, 'now' ]
+			  };
 		}
 	}
 	foreach my $existing (@$existing_pubmeds) {
 		if ( !@new_pubmeds || none { $existing eq $_ } @new_pubmeds ) {
-			push @$extra_inserts, "DELETE FROM locus_refs WHERE locus=E'$cleaned_locus' AND pubmed_id='$existing'";
+			push @$extra_inserts,
+			  { statement => 'DELETE FROM locus_refs WHERE (locus,pubmed_id) = (?,?)', arguments => [ $newdata->{'locus'}, $existing ] };
 		}
 	}
 	my @new_links;
@@ -561,8 +599,8 @@ HTML
 		if ( !@new_links || none { $existing eq $_ } @new_links ) {
 			if ( $existing =~ /^\d+\|(.+?)\|.+$/ ) {
 				my $url = $1;
-				$url =~ s/'/\\'/g;
-				push @$extra_inserts, "DELETE FROM locus_links WHERE locus=E'$cleaned_locus' AND url='$url'";
+				push @$extra_inserts,
+				  { statement => 'DELETE FROM locus_links WHERE (locus,url) = (?,?)', arguments => [ $newdata->{'locus'}, $url ] };
 			}
 		}
 	}
@@ -578,10 +616,11 @@ HTML
 				return FAILURE;
 			} else {
 				my ( $field_order, $url, $desc ) = ( $1, $2, $3 );
-				$url  =~ s/'/\\'/g;
-				$desc =~ s/'/\\'/g;
-				push @$extra_inserts, "INSERT INTO locus_links (locus,url,description,link_order,curator,datestamp) "
-				  . "VALUES (E'$cleaned_locus','$url','$desc',$field_order,$newdata->{'curator'},'today')";
+				push @$extra_inserts,
+				  {
+					statement => 'INSERT INTO locus_links (locus,url,description,link_order,curator,datestamp) VALUES (?,?,?,?,?,?)',
+					arguments => [ $newdata->{'locus'}, $url, $desc, $field_order, $newdata->{'curator'}, 'now' ]
+				  };
 			}
 		}
 	}
@@ -613,17 +652,27 @@ sub _prepare_extra_inserts_for_seqbin {
 		if ( defined $existing_value{ $attribute->{'key'} } ) {
 			if ( $value eq '' ) {
 				push @$extra_inserts,
-				  "DELETE FROM sequence_attribute_values WHERE seqbin_id=$newdata->{'id'} AND key='$attribute->{'key'}'";
+				  {
+					statement => 'DELETE FROM sequence_attribute_values WHERE (seqbin_id,key) = (?,?)',
+					arguments => [ $newdata->{'id'}, $attribute->{'key'} ]
+				  };
 			} else {
 				if ( $value ne $existing_value{ $attribute->{'key'} } ) {
-					push @$extra_inserts, "UPDATE sequence_attribute_values SET value=E'$value',curator=$newdata->{'curator'},"
-					  . "datestamp='now' WHERE seqbin_id=$newdata->{'id'} AND key='$attribute->{'key'}'";
+					push @$extra_inserts,
+					  {
+						statement =>
+						  'UPDATE sequence_attribute_values SET (value,curator,datestamp) = (?,?,?) WHERE (seqbin_id,key) = (?,?)',
+						arguments => [ $value, $newdata->{'curator'}, 'now', $newdata->{'id'}, $attribute->{'key'} ]
+					  };
 				}
 			}
 		} else {
 			if ( $value ne '' ) {
-				push @$extra_inserts, "INSERT INTO sequence_attribute_values (seqbin_id,key,value,curator,datestamp) VALUES "
-				  . "($newdata->{'id'},'$attribute->{'key'}',E'$value',$newdata->{'curator'},'now')";
+				push @$extra_inserts,
+				  {
+					statement => 'INSERT INTO sequence_attribute_values (seqbin_id,key,value,curator,datestamp) VALUES (?,?,?,?,?)',
+					arguments => [ $newdata->{'id'}, $attribute->{'key'}, $value, $newdata->{'curator'}, 'now' ]
+				  };
 			}
 		}
 	}
