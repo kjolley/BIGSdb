@@ -81,7 +81,8 @@ sub get_user_string {
 	my $info = $self->get_user_info($id);
 	return "Undefined user" if !$info;
 	my $user = '';
-	my $use_email = ( $options->{'email'} && $info->{'email'} =~ /@/ )
+	my $use_email =
+	  ( $options->{'email'} && $info->{'email'} =~ /@/ )
 	  ? 1
 	  : 0;    #Not intended to be foolproof check of valid Email but will differentiate 'N/A', ' ', etc.
 	$user .= qq(<a href="mailto:$info->{'email'}">) if $use_email;
@@ -805,10 +806,11 @@ sub create_temp_isolate_scheme_fields_view {
 	local $" = ",$scheme_table.";
 	s/'/\\'/g foreach @$scheme_fields;
 	my $table_type = 'TEMP VIEW';
+	my $rename_table;
 	if ( $options->{'cache'} ) {
-		$table_type = 'TABLE';
-		eval { $self->{'db'}->do("DROP TABLE IF EXISTS $table") };
-		$logger->error($@) if $@;
+		$table_type   = 'TABLE';
+		$rename_table = $table;
+		$table        = $table . '_' . int( rand(99999) );
 	}
 	my $qry =
 	  "CREATE $table_type $table AS SELECT $loci_table.id,$scheme_table.@$scheme_fields FROM $loci_table LEFT JOIN $scheme_table ON ";
@@ -820,7 +822,12 @@ sub create_temp_isolate_scheme_fields_view {
 		foreach my $field ( @$scheme_fields, 'id' ) {
 			$self->{'db'}->do("CREATE INDEX i_$table\_$field ON $table ($field)");
 		}
+
+		#Create new temp table, then drop old and rename the new - this should minimize the time that the table is unavailable.
+		eval { $self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table") };
+		$logger->error($@) if $@;
 		$self->{'db'}->commit;
+		$table = $rename_table;
 	} else {
 		$self->{'scheme_not_cached'} = 1;
 	}
@@ -845,10 +852,11 @@ sub create_temp_scheme_table {
 	my $fields     = $self->get_scheme_fields($id);
 	my $loci       = $self->get_scheme_loci($id);
 	my $table_type = 'TEMP TABLE';
+	my $rename_table;
 	if ( $options->{'cache'} ) {
-		$table_type = 'TABLE';
-		eval { $self->{'db'}->do("DROP TABLE IF EXISTS $table") };
-		$logger->error($@) if $@;
+		$table_type   = 'TABLE';
+		$rename_table = $table;
+		$table        = $table . '_' . int( rand(99999) );
 	}
 	my $create = "CREATE $table_type $table (";
 	my @table_fields;
@@ -908,7 +916,12 @@ sub create_temp_scheme_table {
 		  ;    #Needed as old style profiles database stored null values as '-999'.
 	}
 	if ( $options->{'cache'} ) {
+
+		#Create new temp table, then drop old and rename the new - this should minimize the time that the table is unavailable.
+		eval { $self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table") };
+		$logger->error($@) if $@;
 		$self->{'db'}->commit;
+		$table = $rename_table;
 	}
 	return $table;
 }
