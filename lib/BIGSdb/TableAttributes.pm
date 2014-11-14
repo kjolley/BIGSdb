@@ -812,7 +812,7 @@ sub get_allele_designations_table_attributes {
 		{ name => 'locus',      type => 'text', required => 'yes', primary_key => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
 		{ name => 'allele_id', type => 'text', required => 'yes' },
 		{ name => 'sender',    type => 'int',  required => 'yes', foreign_key => 'users', dropdown_query => 'yes' },
-		{ name => 'status',    type => 'text', required => 'yes', optlist => 'confirmed;provisional', default => 'confirmed' },
+		{ name => 'status',    type => 'text', required => 'yes', optlist => 'confirmed;provisional;ignore', default => 'confirmed' },
 		{ name => 'method',    type => 'text', required => 'yes', optlist => 'manual;automatic', default => 'manual' },
 		{ name => 'curator',      type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp',    type => 'date', required => 'yes' },

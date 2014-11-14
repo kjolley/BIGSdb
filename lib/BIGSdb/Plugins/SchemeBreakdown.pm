@@ -38,7 +38,7 @@ sub get_attributes {
 		buttontext  => 'Schemes/alleles',
 		menutext    => 'Scheme and alleles',
 		module      => 'SchemeBreakdown',
-		version     => '1.1.4',
+		version     => '1.1.5',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#scheme-and-allele-breakdown",
 		input       => 'query',
@@ -462,6 +462,7 @@ sub _print_scheme_table {
 			} else {
 				$locus_query .= " WHERE locus=E'$cleaned_locus'";
 			}
+			$locus_query .= " AND status != 'ignore'";
 			$locus_query =~
 			  s/refs RIGHT JOIN $view/refs RIGHT JOIN $view LEFT JOIN allele_designations ON allele_designations.isolate_id=$view.id/;
 			my $sql = $self->{'db'}->prepare($locus_query);
@@ -469,6 +470,7 @@ sub _print_scheme_table {
 			$logger->error($@) if $@;
 			my ($value) = $sql->fetchrow_array;
 			say "<td>$value</td>";
+
 			if ($value) {
 				say "<td>";
 				say $q->start_form;

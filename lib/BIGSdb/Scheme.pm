@@ -90,7 +90,9 @@ sub get_field_values_by_designations {
 			push @allele_count, 1;
 		} else {
 			push @allele_count, scalar @{ $designations->{$locus} }; #We need a different query depending on number of designations at loci.
-			push @allele_ids, $_->{'allele_id'} foreach @{ $designations->{$locus} };
+			foreach my $designation ( @{ $designations->{$locus} } ) {
+				push @allele_ids, $designation->{'status'} eq 'ignore' ? '-999' : $designation->{'allele_id'};
+			}
 		}
 	}
 	local $" = ',';

@@ -39,7 +39,7 @@ sub get_attributes {
 		buttontext  => 'Two Field',
 		menutext    => 'Two field',
 		module      => 'TwoFieldBreakdown',
-		version     => '1.2.0',
+		version     => '1.2.1',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#two-field-breakdown",
@@ -653,7 +653,7 @@ sub _get_locus_values {
 	my $values = [];
 	if ( $options->{'fetchall'} ) {
 		if ( !$self->{'cache'}->{$field} ) {
-			my $sql = $self->{'db'}->prepare("SELECT isolate_id, allele_id FROM allele_designations WHERE locus=?");
+			my $sql = $self->{'db'}->prepare("SELECT isolate_id, allele_id FROM allele_designations WHERE locus=? AND status != 'ignore'");
 			eval { $sql->execute( $clean_fields->{$field} ) };
 			$logger->error($@) if $@;
 			while ( my $data = $sql->fetchrow_arrayref ) {
