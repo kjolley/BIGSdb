@@ -171,7 +171,8 @@ sub run {
 			@list = uniq @list;
 			if ( !@list ) {
 				my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
-				@list = @{ $self->{'datastore'}->run_list_query($qry) };
+				my $id_list = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+				@list = @$id_list;
 			}
 			$q->delete('list');
 			$params->{'set_id'} = $self->get_set_id;

@@ -458,7 +458,8 @@ sub _get_value_frequency_hash {
 	}
 	my $composite_fields;
 	if ($use_composites) {
-		$composite_fields = $self->{'datastore'}->run_list_query("SELECT id FROM composite_fields");
+		$composite_fields =
+		  $self->{'datastore'}->run_query( "SELECT id FROM composite_fields", undef, { fetch => 'col_arrayref' } );
 	}
 	my @field_list;
 	my $format = $self->{'cgi'}->param('format');

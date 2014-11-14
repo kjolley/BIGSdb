@@ -41,7 +41,7 @@ sub get_attributes {
 		menutext    => 'Presence/absence status of loci',
 		module      => 'PresenceAbsence',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#presence-absence",
-		version     => '1.1.3',
+		version     => '1.1.4',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -75,7 +75,8 @@ sub run {
 			@list = uniq @list;
 			if ( !@list ) {
 				my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
-				@list = @{ $self->{'datastore'}->run_list_query($qry) };
+				my $id_list = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+				@list = @$id_list;
 			}
 			$q->delete('list');
 			$params->{'set_id'} = $self->get_set_id;

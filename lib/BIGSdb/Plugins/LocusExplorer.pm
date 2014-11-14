@@ -43,7 +43,7 @@ sub get_attributes {
 		menutext         => 'Locus Explorer',
 		module           => 'LocusExplorer',
 		url              => "$self->{'config'}->{'doclink'}/data_analysis.html#locus-explorer",
-		version          => '1.2.0',
+		version          => '1.2.1',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		input            => 'query',
@@ -210,7 +210,7 @@ sub _get_id_list {
 		my $qry_ref = $self->get_query($query_file);
 		return if ref $qry_ref ne 'SCALAR';
 		$$qry_ref =~ s/\*/allele_id/;
-		my $ids = $self->{'datastore'}->run_list_query($$qry_ref);
+		my $ids = $self->{'datastore'}->run_query( $$qry_ref, undef, { fetch => 'col_arrayref' } );
 		return $ids;
 	}
 	return \@;;
@@ -222,7 +222,7 @@ sub run_job {
 	if ( $locus =~ /^cn_(.+)/ ) {
 		$locus = $1;
 	}
-	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => -1 } );    #indeterminate length of time
+	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => -1 } );                   #indeterminate length of time
 	if ( $params->{'snp'} ) {
 		my @allele_ids = split /\|\|/, $params->{'allele_ids'};
 		my ( $seqs, undef, $prefix ) = $self->_get_seqs( $params->{'locus'}, \@allele_ids );
@@ -250,10 +250,8 @@ sub run_job {
 sub _print_interface {
 	my ( $self, $locus, $display_loci, $cleaned, $list_ref ) = @_;
 	my $q = $self->{'cgi'};
-	my $coding_loci =
-	  $self->{'datastore'}->run_list_query( "SELECT id FROM loci WHERE data_type=? AND coding_sequence ORDER BY id", 'DNA' );
 	my $desc = $self->get_db_description;
-	say "<h1>Locus Explorer - $desc</h1>\n<div class=\"box\" id=\"queryform\">";
+	say qq(<h1>Locus Explorer - $desc</h1>\n<div class="box" id="queryform">);
 	say $q->start_form;
 	$q->param( 'function', 'snp' );
 	say $q->hidden($_) foreach qw (db page function name);
@@ -261,18 +259,17 @@ sub _print_interface {
 	say "<p><b>Locus: </b>";
 	say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $display_loci, -labels => $cleaned );
 	say " <span class=\"comment\">Page will reload when changed</span></p>";
-	my $desc_exists =
-	  $self->{'datastore'}->run_simple_query( "SELECT EXISTS(SELECT * FROM locus_descriptions WHERE locus=?)", $locus )->[0];
+	my $desc_exists = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM locus_descriptions WHERE locus=?)", $locus );
 
 	if ($desc_exists) {
-		say "<ul><li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus\">"
-		  . "Further information</a> is available for this locus.</li></ul>";
+		say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus">)
+		  . qq(Further information</a> is available for this locus.</li></ul>);
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	my $order = $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST (allele_id AS integer)' : 'allele_id';
 	my $allele_ids =
-	  $self->{'datastore'}
-	  ->run_list_query( "SELECT allele_id FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N') " . "ORDER BY $order", $locus );
+	  $self->{'datastore'}->run_query( "SELECT allele_id FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N') ORDER BY $order",
+		$locus, { fetch => 'col_arrayref' } );
 	say "<p>Polymorphic site analysis is limited to " . MAX_SNP_SEQUENCES . " sequences for this locus since it requires alignment.</p>"
 	  if $locus_info->{'length_varies'} && @$allele_ids > MAX_SNP_SEQUENCES;
 	say "<fieldset>\n<legend>Select sequences</legend>";
@@ -285,10 +282,10 @@ sub _print_interface {
 		-multiple => 'true',
 		-default  => $list_ref
 	);
-	say "<br /><input type=\"button\" onclick='listbox_selectall(\"allele_ids\",true)' value=\"All\" "
-	  . "style=\"margin-top:1em\" class=\"smallbutton\" />";
-	say "<input type=\"button\" onclick='listbox_selectall(\"allele_ids\",false)' value=\"None\" "
-	  . "style=\"margin-top:1em\" class=\"smallbutton\" />";
+	say qq(<br /><input type="button" onclick='listbox_selectall("allele_ids",true)' value="All" style="margin-top:1em" )
+	  . qq(class="smallbutton" />);
+	say qq(<input type="button" onclick='listbox_selectall("allele_ids",false)' value="None" style="margin-top:1em" )
+	  . qq(class="smallbutton" />);
 	say "</fieldset>";
 	say "<fieldset>\n<legend>Analysis functions</legend>";
 	say "<table>";
@@ -379,14 +376,14 @@ sub _snp {
 		return;
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	my $total_seq_count = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM sequences WHERE locus=?", $locus )->[0];
+	my $total_seq_count = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM sequences WHERE locus=?", $locus );
 	if ( !$total_seq_count ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No sequences defined for this locus.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>No sequences defined for this locus.</p></div>);
 		return;
 	}
 	my @allele_ids = $q->param('allele_ids');
 	if ( !@allele_ids ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No sequences selected.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>No sequences selected.</p></div>);
 		return;
 	}
 	my $seq_count = $self->_get_seqs( $locus, \@allele_ids, { count_only => 1 } );
@@ -625,8 +622,8 @@ sub _site_explorer {
 		local $" = "' OR $locus='";
 		foreach (@schemes) {
 			my $qry      = "SELECT COUNT(*) FROM scheme_$_ WHERE $locus='@allelelist'";
-			my $numSTs   = $self->{'datastore'}->run_simple_query($qry)->[0];
-			my $totalSTs = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM scheme_$_")->[0];
+			my $numSTs   = $self->{'datastore'}->run_query($qry);
+			my $totalSTs = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM scheme_$_");
 			print "<td>$numSTs / $totalSTs";
 			my $pcST;
 			if ( $totalSTs == 0 ) {
@@ -656,19 +653,19 @@ sub _codon {
 		say "<div class=\"box\" id=\"statusbad\"><p>Invalid locus.</p></div>";
 		return;
 	}
-	my $total_seq_count = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM sequences WHERE locus=?", $locus )->[0];
+	my $total_seq_count = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM sequences WHERE locus=?", $locus );
 	if ( !$total_seq_count ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No sequences defined for this locus.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>No sequences defined for this locus.</p></div>);
 		return;
 	}
 	my @allele_ids = $q->param('allele_ids');
 	if ( !@allele_ids ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No sequences selected.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>No sequences selected.</p></div>);
 		return;
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	my $orf = $locus_info->{'orf'} || 1;
-	say "<div class=\"box\" id=\"resultsheader\">";
+	say qq(<div class="box" id="resultsheader">);
 	my $cleaned = $self->clean_locus($locus);
 	say "<h2>$cleaned</h2>";
 	say "<p>ORF used: $orf</p>";
@@ -747,27 +744,27 @@ sub _translate {
 	my $q = $self->{'cgi'};
 	say "<h1>Translate - aligned protein sequences</h1>";
 	if ( !$self->{'config'}->{'emboss_path'} ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>EMBOSS is not installed - function unavailable.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>EMBOSS is not installed - function unavailable.</p></div>);
 		return;
 	}
 	my $locus = $q->param('locus');
 	if ( !$self->{'datastore'}->is_locus($locus) ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Invalid locus.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Invalid locus.</p></div>);
 		return;
 	}
-	my $total_seq_count = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM sequences WHERE locus=?", $locus )->[0];
+	my $total_seq_count = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM sequences WHERE locus=?", $locus );
 	if ( !$total_seq_count ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No sequences defined for this locus.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>No sequences defined for this locus.</p></div>);
 		return;
 	}
 	my @allele_ids = $q->param('allele_ids');
 	if ( !@allele_ids ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No sequences selected.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>No sequences selected.</p></div>);
 		return;
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( $locus_info->{'length_varies'} && @allele_ids > MAX_TRANSLATE_SEQUENCES ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>This locus is variable length and will therefore require real-time alignment.  "
+		say qq(<div class="box" id="statusbad"><p>This locus is variable length and will therefore require real-time alignment.  )
 		  . "Consequently this function is limited to "
 		  . MAX_TRANSLATE_SEQUENCES
 		  . " sequences or fewer - you have selected "
@@ -776,7 +773,7 @@ sub _translate {
 		return;
 	}
 	my $orf = $locus_info->{'orf'} || 1;
-	say "<div class=\"box\" id=\"resultsheader\">";
+	say qq(<div class="box" id="resultsheader">);
 	my $cleaned = $self->clean_locus($locus);
 	say "<h2>$cleaned</h2>";
 	say "<p>ORF used: $orf</p>";

@@ -39,7 +39,7 @@ sub get_attributes {
 		buttontext  => 'Two Field',
 		menutext    => 'Two field',
 		module      => 'TwoFieldBreakdown',
-		version     => '1.2.1',
+		version     => '1.2.2',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#two-field-breakdown",
@@ -77,7 +77,8 @@ sub run {
 	my $query_file = $q->param('query_file');
 	my $id_list = $self->get_id_list( 'id', $query_file );
 	if ( !@$id_list ) {
-		$id_list = $self->{'datastore'}->run_list_query("SELECT id FROM $self->{'system'}->{'view'}");
+		$id_list =
+		  $self->{'datastore'}->run_query( "SELECT id FROM $self->{'system'}->{'view'}", undef, { fetch => 'col_arrayref' } );
 	}
 	$self->_breakdown($id_list) if $q->param('function') eq 'breakdown';
 	return;
@@ -144,7 +145,7 @@ sub _print_controls {
 	say $q->startform;
 	say qq(<fieldset style="float:left"><legend>Axes</legend>);
 	say $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc list_file datatype);
-	say $q->submit( -name => 'reverse', -value => 'Reverse', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all');
+	say $q->submit( -name => 'reverse', -value => 'Reverse', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
 	say "</fieldset>";
 	say $q->endform;
 	say $q->startform;
@@ -152,7 +153,11 @@ sub _print_controls {
 	say $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc list_file datatype);
 	my %display_toggle =
 	  ( 'values only' => 'Values and percentages', 'values and percentages' => 'Percentages only', 'percentages only' => 'Values only' );
-	say $q->submit( -name => 'toggledisplay', -label => $display_toggle{ $q->param('display') } , -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
+	say $q->submit(
+		-name  => 'toggledisplay',
+		-label => $display_toggle{ $q->param('display') },
+		-class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all'
+	);
 	say "</fieldset>";
 	say $q->endform;
 
@@ -525,7 +530,7 @@ sub _print_charts {
 
 sub _get_value_frequency_hashes {
 	my ( $self, $field1, $field2, $id_list ) = @_;
-	my $total_isolates = $self->{'datastore'}->run_simple_query("SELECT COUNT(id) FROM $self->{'system'}->{'view'}")->[0];
+	my $total_isolates = $self->{'datastore'}->run_query("SELECT COUNT(id) FROM $self->{'system'}->{'view'}");
 	my $datahash;
 	my $grandtotal = 0;
 
@@ -569,7 +574,7 @@ sub _get_value_frequency_hashes {
 			}
 		}
 	}
-	foreach my $id (uniq @$id_list) {
+	foreach my $id ( uniq @$id_list ) {
 		my @values = $self->_get_values(
 			{
 				isolate_id   => $id,

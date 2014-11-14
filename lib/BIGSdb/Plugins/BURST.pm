@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext  => 'BURST',
 		menutext    => 'BURST',
 		module      => 'BURST',
-		version     => '1.1.0',
+		version     => '1.1.1',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		section     => 'postquery',
@@ -87,14 +87,12 @@ sub run {
 		}
 	}
 	if ( $scheme_id && BIGSdb::Utils::is_int($scheme_id) ) {
-		my $pk_ref =
-		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key", $scheme_id );
-		if ( ref $pk_ref ne 'ARRAY' ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  Profile concatenation "
-			  . "can not be done until this has been set.</p></div>\n";
+		$pk = $self->{'datastore'}->run_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key", $scheme_id );
+		if ( !$pk ) {
+			say qq(<div class="box" id="statusbad"><p>No primary key field has been set for this scheme.  Profile concatenation )
+			  . qq(can not be done until this has been set.</p></div>);
 			return;
 		}
-		$pk = $pk_ref->[0];
 	}
 	if ($query_file) {
 		my $qry_ref = $self->get_query($query_file);
@@ -104,7 +102,7 @@ sub run {
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 			$self->rewrite_query_ref_order_by($qry_ref);
 		}
-		$list = $self->{'datastore'}->run_list_query($$qry_ref);
+		$list = $self->{'datastore'}->run_query( $$qry_ref, undef, { fetch => 'col_arrayref' } );
 	} else {
 		say "<div class=\"box\" id=\"statusbad\">";
 		say "<p>No query has been passed.</p>";
@@ -154,10 +152,10 @@ HTML
 			say $q->hidden('scheme_id');
 		}
 		$locus_count =
-		  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM "
-			  . "scheme_fields WHERE primary_key) GROUP BY scheme_id ORDER BY COUNT(*) desc LIMIT 1" )->[0];
+		  $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM "
+			  . "scheme_fields WHERE primary_key) GROUP BY scheme_id ORDER BY COUNT(*) desc LIMIT 1" );
 	} else {
-		$locus_count = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM scheme_members WHERE scheme_id=?", $scheme_id )->[0];
+		$locus_count = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM scheme_members WHERE scheme_id=?", $scheme_id );
 		$q->param( scheme_id => $scheme_id );
 		say $q->hidden('scheme_id');
 	}
