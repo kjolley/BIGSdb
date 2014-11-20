@@ -58,6 +58,7 @@ GetOptions(
 	'0|missing'            => \$opts{'0'},
 	'h|help'               => \$opts{'h'},
 	'n|new_only'           => \$opts{'n'},
+	'new_max_alleles=i'    => \$opts{'new_max_alleles'},
 	'o|order'              => \$opts{'o'},
 	'q|quiet'              => \$opts{'q'},
 	'r|random'             => \$opts{'r'},
@@ -196,7 +197,13 @@ ${bold}-m, --min_size$norm ${under}SIZE$norm
     much sequence.
            
 ${bold}-n, --new_only$norm
-    New (previously untagged) isolates only.
+    New (previously untagged) isolates only.  Combine with --new_max_alleles
+    if required.
+    
+${bold}--new_max_alleles$norm
+    Set the maximum number of alleles that can be designated or sequences
+    tagged before an isolate is not considered new when using the --new_only
+    option.    
 
 ${bold}-o, --order$norm
     Order so that isolates last tagged the longest time ago get scanned first

@@ -186,7 +186,7 @@ sub filter_and_sort_isolates {
 	my @list;
 	foreach my $isolate_id (@$isolates) {
 		next if $exclude{$isolate_id};
-		next if $self->{'options'}->{'n'} && $self->_is_previously_tagged($isolate_id);
+		next if $self->{'options'}->{'n'} && $self->_is_previously_tagged( $isolate_id, $self->{'options'}->{'new_max_alleles'} // 0 );
 		if ( $self->{'options'}->{'m'} && BIGSdb::Utils::is_int( $self->{'options'}->{'m'} ) ) {
 			my $size = $self->_get_size_of_seqbin($isolate_id);
 			next if $size < $self->{'options'}->{'m'};
@@ -230,18 +230,20 @@ sub _get_last_tagged_date {
 }
 
 sub _is_previously_tagged {
-	my ( $self, $isolate_id ) = @_;
-	my $designations_set = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT isolate_id FROM allele_designations WHERE isolate_id=?)",
+	my ( $self, $isolate_id, $max_alleles ) = @_;
+	my $designations_set = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM allele_designations WHERE isolate_id=?",
 		$isolate_id, { cache => 'Script::is_previously_tagged_designations' } );
-	my $tagged = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT isolate_id FROM allele_sequences WHERE isolate_id=?)",
+	my $tagged = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM allele_sequences WHERE isolate_id=?",
 		$isolate_id, { cache => 'Script::is_previously_tagged_tags' } );
-	return ( $tagged || $designations_set ) ? 1 : 0;
+	return 1 if $designations_set > $max_alleles || $tagged > $max_alleles;
+	return;
 }
 
 sub _get_size_of_seqbin {
 	my ( $self, $isolate_id ) = @_;
-	my $size = $self->{'datastore'}->run_query( "SELECT total_length FROM seqbin_stats WHERE isolate_id=?",
-		$isolate_id, { cache => 'Script::get_size_of_seqbin' } );
+	my $size =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT total_length FROM seqbin_stats WHERE isolate_id=?", $isolate_id, { cache => 'Script::get_size_of_seqbin' } );
 	return $size || 0;
 }
 
