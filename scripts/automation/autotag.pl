@@ -200,7 +200,7 @@ ${bold}-n, --new_only$norm
     New (previously untagged) isolates only.  Combine with --new_max_alleles
     if required.
     
-${bold}--new_max_alleles$norm
+${bold}--new_max_alleles$norm ${under}ALLELES$norm
     Set the maximum number of alleles that can be designated or sequences
     tagged before an isolate is not considered new when using the --new_only
     option.    
