@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -40,7 +40,10 @@ sub print_content {
 	}
 	if ( $q->param('checked_buffer') ) {
 		$self->_upload;
-	} elsif ( $q->param('data') ) {
+		return;
+	}
+	$self->_print_seqbin_warnings( $q->param('isolate_id') );
+	if ( $q->param('data') ) {
 		$self->_check_data;
 	} elsif ( $q->param('fasta_upload') ) {
 		my $upload_file = $self->_upload_fasta_file;
@@ -53,6 +56,20 @@ sub print_content {
 		}
 	} else {
 		$self->_print_interface;
+	}
+	return;
+}
+
+sub _print_seqbin_warnings {
+	my ( $self, $isolate_id ) = @_;
+	if ( $isolate_id && BIGSdb::Utils::is_int($isolate_id) ) {
+		my $seqbin =
+		  $self->{'datastore'}->run_query( "SELECT * FROM seqbin_stats WHERE isolate_id=?", $isolate_id, { fetch => 'row_hashref' } );
+		if ($seqbin) {
+			say qq(<div class="box" id="warning"><p>Sequences have already been uploaded for this isolate.</p>)
+			  . qq(<ul><li>Contigs: $seqbin->{'contigs'}</li><li>Total length: $seqbin->{'total_length'} bp</li></ul>)
+			  . qq(<p>Please make sure that you intend to add new sequences for this isolate.</p></div>);
+		}
 	}
 	return;
 }
@@ -100,10 +117,10 @@ HTML
 		my $isolate_id = $q->param('isolate_id');
 		my $isolate_name;
 		if ( BIGSdb::Utils::is_int($isolate_id) ) {
-			my $isolate_name_ref =
+			$isolate_name =
 			  $self->{'datastore'}
-			  ->run_simple_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id );
-			$isolate_name = ref $isolate_name_ref eq 'ARRAY' ? $isolate_name_ref->[0] : 'Invalid isolate';
+			  ->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id );
+			$isolate_name //= 'Invalid isolate';
 		} else {
 			$isolate_name = 'Invalid isolate';
 		}
