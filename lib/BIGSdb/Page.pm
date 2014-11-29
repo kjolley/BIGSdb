@@ -26,7 +26,7 @@ use Error qw(:try);
 use List::MoreUtils qw(uniq any none);
 use autouse 'Data::Dumper' => qw(Dumper);
 use Memoize;
-memoize('clean_locus');
+memoize( 'clean_locus', NORMALIZER => '_normalize_clean_locus' );
 memoize('get_seq_detail_tooltips');
 use parent 'Exporter';
 use constant SEQ_METHODS => ( '454', 'Illumina', 'Ion Torrent', 'PacBio', 'Sanger', 'Solexa', 'SOLiD', 'other', 'unknown' );
@@ -1065,8 +1065,7 @@ sub get_experiment_filter {
 	$options = {} if ref $options ne 'HASH';
 	my $experiment_list =
 	  $self->{'datastore'}
-	  ->run_query( "SELECT id,description FROM experiments ORDER BY description", undef, { fetch => 'all_arrayref', slice => {} } )
-	  ;
+	  ->run_query( "SELECT id,description FROM experiments ORDER BY description", undef, { fetch => 'all_arrayref', slice => {} } );
 	my @experiments;
 	my %labels;
 	foreach (@$experiment_list) {
@@ -1118,6 +1117,12 @@ sub get_truncated_label {
 		$title = ucfirst $title if $title;
 	}
 	return ( $label, $title );
+}
+
+sub _normalize_clean_locus {
+	my ( $self, $locus, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	return join( ',', $locus, ( map { $_ => $options->{$_} } sort keys %$options ) );
 }
 
 sub clean_locus {
