@@ -39,7 +39,7 @@ sub get_attributes {
 		buttontext  => 'Publications',
 		menutext    => 'Publications',
 		module      => 'PublicationBreakdown',
-		version     => '1.1.1',
+		version     => '1.1.2',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_query.html#retrieving-isolates-by-linked-publication",
@@ -98,7 +98,9 @@ sub run {
 		say "<ul><li><label for=\"author_list\" class=\"display\">Author:</label>";
 		say $q->popup_menu( -name => 'author_list', -id => 'author_list', -values => $author_list );
 		say "</li>\n<li><label for=\"year_list\" class=\"display\">Year:</label>";
-		my $year_list = $self->{'datastore'}->run_list_query("SELECT DISTINCT year FROM temp_refs ORDER BY year");
+		my $year_list =
+		  $self->{'datastore'}->run_query( "SELECT DISTINCT year FROM temp_refs ORDER BY year", undef, { fetch => 'col_arrayref' } )
+		  ;
 		unshift @$year_list, 'All years';
 		say $q->popup_menu( -name => 'year_list', -id => 'year_list', -values => $year_list );
 		say "</li>\n</ul>\n</fieldset>";

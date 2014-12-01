@@ -721,7 +721,7 @@ sub _print_isolate_table_scheme {
 		$self->_initiate_urls_for_loci;
 	}
 	if ( !$self->{'designations_retrieved'}->{$isolate_id} ) {
-		$self->{'designations'}->{$isolate_id}           = $self->{'datastore'}->get_all_allele_designations($isolate_id);
+		$self->{'designations'}->{$isolate_id}           = $self->{'datastore'}->get_all_allele_designations($isolate_id, {show_ignored => $self->{'curate'}});
 		$self->{'designations_retrieved'}->{$isolate_id} = 1;
 	}
 	my $allele_designations = $self->{'designations'}->{$isolate_id};
@@ -735,10 +735,14 @@ sub _print_isolate_table_scheme {
 			keys %{ $allele_designations->{$locus} }
 		  )
 		{
-			my $provisional =
-			  ( $allele_designations->{$locus}->{$allele_id} // '' ) eq 'provisional' && $self->{'prefs'}->{'mark_provisional_main'};
+			my $status;
+			if (( $allele_designations->{$locus}->{$allele_id} // '' ) eq 'provisional' && $self->{'prefs'}->{'mark_provisional_main'}){
+				$status = 'provisional';
+			} elsif (( $allele_designations->{$locus}->{$allele_id} // '' ) eq 'ignore'){
+				$status = 'ignore';
+			}
 			my $display = '';
-			$display .= "<span class=\"provisional\">" if $provisional;
+			$display .= qq(<span class="$status">) if $status;
 			if (   defined $self->{'url'}->{$locus}
 				&& $self->{'url'}->{$locus} ne ''
 				&& $self->{'prefs'}->{'main_display_loci'}->{$locus}
@@ -750,7 +754,7 @@ sub _print_isolate_table_scheme {
 			} else {
 				$display .= $allele_id;
 			}
-			$display .= "</span>" if $provisional;
+			$display .= "</span>" if $status;
 			push @display_values, $display;
 		}
 		local $" = ',';
@@ -1337,7 +1341,7 @@ sub _is_scheme_data_present {
 		#because even though the latter is faster, the former will need to be called to display
 		#the data in the table and the results can be cached.
 		if ( !$self->{'designations_retrieved'}->{$isolate_id} ) {
-			$self->{'designations'}->{$isolate_id}           = $self->{'datastore'}->get_all_allele_designations($isolate_id);
+			$self->{'designations'}->{$isolate_id}           = $self->{'datastore'}->get_all_allele_designations($isolate_id,{show_ignored=>$self->{'curate'}});
 			$self->{'designations_retrieved'}->{$isolate_id} = 1;
 		}
 		my $allele_designations = $self->{'designations'}->{$isolate_id};

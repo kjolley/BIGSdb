@@ -38,7 +38,7 @@ sub get_attributes {
 		buttontext  => 'Schemes/alleles',
 		menutext    => 'Scheme and alleles',
 		module      => 'SchemeBreakdown',
-		version     => '1.1.4',
+		version     => '1.1.6',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#scheme-and-allele-breakdown",
 		input       => 'query',
@@ -80,9 +80,9 @@ sub run {
 		say "<h1>Scheme field and allele breakdown of dataset</h1>";
 	}
 	return if $self->has_set_changed;
-	my $loci = $self->{'datastore'}->run_list_query("SELECT id FROM loci ORDER BY id");
+	my $loci = $self->{'datastore'}->run_query( "SELECT id FROM loci ORDER BY id", undef, { fetch => 'col_arrayref' } );
 	if ( !scalar @$loci ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No loci are defined for this database.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>No loci are defined for this database.</p></div>);
 		return;
 	}
 	my $qry_ref = $self->get_query($query_file);
@@ -98,7 +98,8 @@ sub run {
 	say "<div class=\"box\" id=\"queryform\">";
 	$self->_print_tree;
 	say "</div>";
-	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,description");
+	my $schemes =
+	  $self->{'datastore'}->run_query( "SELECT id FROM schemes ORDER BY display_order,description", undef, { fetch => 'col_arrayref' } );
 	my @selected_schemes;
 	foreach ( @$schemes, 0 ) {
 		push @selected_schemes, $_ if $q->param("s_$_");
@@ -238,22 +239,22 @@ sub _breakdown_field {
 		my $locus = $q->param('field');
 		my @other_display_names;
 		local $" = '; ';
-		my $aliases = $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias", $locus );
+		my $aliases = $self->{'datastore'}->get_locus_aliases($locus);
 		push @other_display_names, @$aliases if @$aliases;
 		$html_heading .= " <span class=\"comment\">(@other_display_names)</span>" if @other_display_names;
 	}
 	my $td = 1;
 	$qry =~ s/\*/COUNT(\*)/;
-	my $total  = $self->{'datastore'}->run_simple_query($qry)->[0];
+	my $total  = $self->{'datastore'}->run_query($qry);
 	my $format = $q->param('format');
 	if ( $format eq 'text' ) {
 		say "Total: $total isolates\n";
 		say "$heading\tFrequency\tPercentage";
 	} else {
-		say "<div class=\"box\" id=\"resultstable\"><div class=\"scrollable\">";
-		say "<table><tr><td style=\"vertical-align:top\">";
+		say qq(<div class="box" id="resultstable"><div class="scrollable">);
+		say qq(<table><tr><td style="vertical-align:top">);
 		say "<p>Total: $total isolates</p>";
-		say "<table class=\"tablesorter\" id=\"sortTable\">";
+		say qq(<table class="tablesorter" id="sortTable">);
 		$heading = $self->clean_locus($heading) if $q->param('type') eq 'locus';
 		say "<thead><tr><th>$heading$html_heading</th><th>Frequency</th><th>Percentage</th></tr></thead>";
 	}
@@ -285,7 +286,7 @@ sub _breakdown_field {
 	}
 	if ( $format ne 'text' ) {
 		say "</table>";
-		say "</td><td style=\"vertical-align:top; padding-left:2em\">";
+		say qq(</td><td style="vertical-align:top; padding-left:2em">);
 		my $query_file_att = $q->param('query_file') ? ( "&amp;query_file=" . $q->param('query_file') ) : undef;
 		say $q->start_form;
 		say $q->submit( -name => 'field_breakdown', -label => 'Tab-delimited text', -class => 'smallbutton' );
@@ -462,6 +463,7 @@ sub _print_scheme_table {
 			} else {
 				$locus_query .= " WHERE locus=E'$cleaned_locus'";
 			}
+			$locus_query .= " AND status != 'ignore'";
 			$locus_query =~
 			  s/refs RIGHT JOIN $view/refs RIGHT JOIN $view LEFT JOIN allele_designations ON allele_designations.isolate_id=$view.id/;
 			my $sql = $self->{'db'}->prepare($locus_query);
@@ -469,6 +471,7 @@ sub _print_scheme_table {
 			$logger->error($@) if $@;
 			my ($value) = $sql->fetchrow_array;
 			say "<td>$value</td>";
+
 			if ($value) {
 				say "<td>";
 				say $q->start_form;

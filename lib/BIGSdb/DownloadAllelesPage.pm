@@ -462,7 +462,7 @@ sub _print_locus_row {
 	if ( !-s $self->{'outfile'} ) {
 		say $fh ( $options->{'scheme'} ? "scheme\t" : '' )
 		  . "locus\tdata type\talleles\tlength varies\tstandard length\tmin length\t"
-		  . "max_length\tfull name/product\taliases\tcurators";
+		  . "max length\tfull name/product\taliases\tcurators";
 	}
 	say $fh ( $options->{'scheme'} ? "$options->{'scheme'}\t" : '' )
 	  . "$locus\t$locus_info->{'data_type'}\t$count\t"

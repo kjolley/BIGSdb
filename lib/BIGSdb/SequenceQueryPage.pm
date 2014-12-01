@@ -524,8 +524,8 @@ sub _output_batch_query_exact {
 		}
 		my $cleaned_locus = $self->clean_locus( $locus, { strip_links => 1 } );
 		my $text_locus = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
-		$buffer .= "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;"
-		  . "allele_id=$allele_id\">$cleaned_locus: $allele_id</a>";
+		$buffer .= qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;)
+		  . qq(allele_id=$allele_id">$cleaned_locus: $allele_id</a>);
 		$text_buffer .= "$text_locus-$allele_id";
 		$displayed++;
 		undef $locus if !$distinct_locus_selected;

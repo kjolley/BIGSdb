@@ -376,6 +376,7 @@ sub _print_action_panel {
 	  ( isolateDelete => 'Delete record', isolateUpdate => 'Update record', batchAddSeqbin => 'Sequence bin', newVersion => 'New version' );
 	my %labels = ( isolateDelete => 'Delete', isolateUpdate => 'Update', batchAddSeqbin => 'Upload contigs', newVersion => 'Create' );
 	$q->param( isolate_id => $isolate_id );
+	my $page = $q->param('page');
 	foreach my $action (qw (isolateDelete isolateUpdate batchAddSeqbin newVersion)) {
 		say qq(<fieldset style="float:left"><legend>$titles{$action}</legend>);
 		say $q->start_form;
@@ -387,6 +388,7 @@ sub _print_action_panel {
 		say $q->end_form;
 		say "</fieldset>";
 	}
+	$q->param( page => $page );    #Reset
 	say '</div></div>';
 	return;
 }
@@ -859,9 +861,11 @@ sub _get_scheme_values {
 	my ( $self, $args ) = @_;
 	my ( $isolate_id, $loci, $scheme_id, $scheme_fields_count, $summary_view ) =
 	  @{$args}{qw ( isolate_id loci scheme_id scheme_fields_count summary_view )};
-	my $set_id              = $self->get_set_id;
-	my $allele_designations = $self->{'datastore'}->get_scheme_allele_designations( $isolate_id, $scheme_id, { set_id => $set_id } );
-	my $scheme_fields       = $self->{'datastore'}->get_scheme_fields($scheme_id);
+	my $set_id = $self->get_set_id;
+	my $allele_designations =
+	  $self->{'datastore'}
+	  ->get_scheme_allele_designations( $isolate_id, $scheme_id, { set_id => $set_id, show_ignored => $self->{'curate'} } );
+	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	local $| = 1;
 	my $buffer;
 	foreach my $locus (@$loci) {
@@ -902,7 +906,13 @@ sub _get_locus_value {
 	my $first = 1;
 	foreach my $designation (@$designations) {
 		$buffer .= ', ' if !$first;
-		$buffer .= "<span class=\"provisional\">" if $designation->{'status'} eq 'provisional';
+		my $status;
+		if ( $designation->{'status'} eq 'provisional' ) {
+			$status = 'provisional';
+		} elsif ( $designation->{'status'} eq 'ignore' ) {
+			$status = 'ignore';
+		}
+		$buffer .= qq(<span class=\"$status\">) if $status;
 		my $url = '';
 		my @anchor_att;
 		my $update_tooltip = '';
@@ -910,7 +920,7 @@ sub _get_locus_value {
 			$update_tooltip = $self->get_update_details_tooltip( $cleaned, $designation );
 			push @anchor_att, qq(title="$update_tooltip");
 		}
-		if ( $locus_info->{'url'} && $designation->{'allele_id'} ne 'deleted' ) {
+		if ( $locus_info->{'url'} && $designation->{'allele_id'} ne 'deleted' && ( $status // '' ) ne 'ignore' ) {
 			$url = $locus_info->{'url'};
 			$url =~ s/\[\?\]/$designation->{'allele_id'}/g;
 			$url =~ s/\&/\&amp;/g;
@@ -922,7 +932,7 @@ sub _get_locus_value {
 		} else {
 			$buffer .= $designation->{'allele_id'};
 		}
-		$buffer .= "</span>" if $designation->{'status'} eq 'provisional';
+		$buffer .= "</span>" if $status;
 		$first = 0;
 	}
 	$buffer .= $self->get_seq_detail_tooltips( $isolate_id, $locus, { get_all => 1, allele_flags => $self->{'prefs'}->{'allele_flags'} } )

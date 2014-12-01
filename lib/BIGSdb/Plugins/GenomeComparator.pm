@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.6.5',
+		version     => '1.6.7',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -532,7 +532,7 @@ sub _print_distance_matrix_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say qq(<fieldset style="float:left;height:12em"><legend>Distance matrix calculation</legend>);
-	say "With truncated loci:";
+	say "With incomplete loci:";
 	say '<ul><li>';
 	my $labels = {
 		exclude       => 'Completely exclude from analysis',
@@ -573,10 +573,11 @@ sub _analyse_by_loci {
 	$self->{'html_buffer'} = "<h3>Analysis against defined loci</h3>\n";
 	$self->{'file_buffer'} = "Analysis against defined loci\n";
 	$self->{'file_buffer'} .= "Time: " . ( localtime(time) ) . "\n\n";
-	$self->{'html_buffer'} .= "<p>Allele numbers are used where these have been defined, otherwise sequences will be marked as 'New#1, "
-	  . "'New#2' etc. Missing alleles are marked as 'X'. Truncated alleles (located at end of contig) are marked as 'T'.</p>";
+	$self->{'html_buffer'} .= qq(<p>Allele numbers are used where these have been defined, otherwise sequences will be marked as 'New#1, )
+	  . qq('New#2' etc. Missing alleles are marked as <span style="background:black; color:white; padding: 0 0.5em">'X'</span>. Incomplete )
+	  . qq(alleles (located at end of contig) are marked as <span style="background:green; color:white; padding: 0 0.5em">'I'</span>.</p>);
 	$self->{'file_buffer'} .= "Allele numbers are used where these have been defined, otherwise sequences will be marked as 'New#1, "
-	  . "'New#2' etc.\nMissing alleles are marked as 'X'. Truncated alleles (located at end of contig) are marked as 'T'.\n\n";
+	  . "'New#2' etc.\nMissing alleles are marked as 'X'. Incomplete alleles (located at end of contig) are marked as 'I'.\n\n";
 	$self->_print_isolate_header( 0, $ids, $worksheet );
 	$self->_run_comparison( { by_reference => 0, job_id => $job_id, ids => $ids, cds => $loci, worksheet => $worksheet } );
 	$self->delete_temp_files("$job_id*");
@@ -663,9 +664,9 @@ sub _generate_distance_matrix {
 				next if $ignore_loci{$locus};
 				if ( $values->{ $ids[$i] }->{$locus} ne $values->{ $ids[$j] }->{$locus} ) {
 					if ( ( $options->{'truncated'} // '' ) eq 'pairwise_same' ) {
-						if (   ( $values->{ $ids[$i] }->{$locus} eq 'T' && $values->{ $ids[$j] }->{$locus} eq 'X' )
-							|| ( $values->{ $ids[$i] }->{$locus} eq 'X' && $values->{ $ids[$j] }->{$locus} eq 'T' )
-							|| ( $values->{ $ids[$i] }->{$locus} ne 'T' && $values->{ $ids[$j] }->{$locus} ne 'T' ) )
+						if (   ( $values->{ $ids[$i] }->{$locus} eq 'I' && $values->{ $ids[$j] }->{$locus} eq 'X' )
+							|| ( $values->{ $ids[$i] }->{$locus} eq 'X' && $values->{ $ids[$j] }->{$locus} eq 'I' )
+							|| ( $values->{ $ids[$i] }->{$locus} ne 'I' && $values->{ $ids[$j] }->{$locus} ne 'I' ) )
 						{
 							$dismat->{ $ids[$i] }->{ $ids[$j] }++;
 						}
@@ -705,10 +706,10 @@ sub _make_nexus_file {
 	my $num_taxa         = @ids;
 	my $truncated_labels = {
 		exclude       => 'completely excluded from analysis',
-		include_as_T  => "included as a special allele indistinguishable from other truncated alleles",
+		include_as_T  => "included as a special allele indistinguishable from other incomplete alleles",
 		pairwise_same => 'ignored in pairwise comparisons unless locus is missing in one isolate'
 	};
-	my $truncated  = "[Truncated loci are $truncated_labels->{$options->{'truncated'}}]";
+	my $truncated  = "[Incomplete loci are $truncated_labels->{$options->{'truncated'}}]";
 	my $paralogous = '';
 	if ( $options->{'by_reference'} ) {
 		$paralogous = '[Paralogous loci ' . ( $options->{'exclude_paralogous'} ? 'excluded from' : 'included in' ) . ' analysis]';
@@ -836,10 +837,12 @@ sub _analyse_by_reference {
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $self->{'html_buffer'} } );
 	$self->{'html_buffer'} .= "<h3>All loci</h3>\n";
 	$self->{'file_buffer'} .= "\n\nAll loci\n--------\n\n";
-	$self->{'html_buffer'} .= "<p>Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'. "
-	  . "Truncated alleles (located at end of contig) are marked as 'T'.</p>";
+	$self->{'html_buffer'} .=
+	    qq(<p>Each unique allele is defined a number starting at 1. Missing alleles are marked as <span )
+	  . qq(style="background:black; color:white; padding: 0 0.5em">'X'</span>. Incomplete alleles (located at end of contig) are marked )
+	  . qq(as <span style="background:green; color:white; padding: 0 0.5em">'I'</span>.</p>);
 	$self->{'file_buffer'} .= "Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'. \n"
-	  . "Truncated alleles (located at end of contig) are marked as 'T'.\n\n";
+	  . "Incomplete alleles (located at end of contig) are marked as 'I'.\n\n";
 	$self->_print_isolate_header( 1, $ids, $worksheet );
 	$self->_run_comparison( { by_reference => 1, job_id => $job_id, ids => $ids, cds => \@cds, worksheet => $worksheet } );
 	return;
@@ -891,6 +894,7 @@ sub _run_comparison {
 	my $align_file       = "$self->{'config'}->{'tmp_dir'}/$job_id\.align";
 	my $align_stats_file = "$self->{'config'}->{'tmp_dir'}/$job_id\.align_stats";
 	my $xmfa_file        = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
+	my $core_xmfa_file   = "$self->{'config'}->{'tmp_dir'}/$job_id\_core.xmfa";
 	my $prefix           = BIGSdb::Utils::get_random();
 	my %isolate_FASTA;
 
@@ -1013,9 +1017,9 @@ sub _run_comparison {
 						$match->{'seqbin_id'}, { cache => 'GenomeComparator::run_comparison_seqbin_length' } );
 					foreach (qw (predicted_start predicted_end)) {
 						if ( $match->{$_} < 1 ) {
-							( $match->{$_}, $status{'truncated'}, $value ) = ( 1, 1, 'T' );
+							( $match->{$_}, $status{'truncated'}, $value ) = ( 1, 1, 'I' );
 						} elsif ( $match->{$_} > $seqbin_length ) {
-							( $match->{$_}, $status{'truncated'}, $value ) = ( $seqbin_length, 1, 'T' );
+							( $match->{$_}, $status{'truncated'}, $value ) = ( $seqbin_length, 1, 'I' );
 						}
 					}
 				}
@@ -1049,15 +1053,15 @@ sub _run_comparison {
 				}
 			}
 			my $style;
-			if ( $value eq 'T' ) {
+			if ( $value eq 'I' ) {
 				$style = 'background:green; color:white';
-				$value_colour{'T'} = 'T';
-				if ( !$self->{'excel_format'}->{'T'} ) {
-					$self->{'excel_format'}->{'T'} =
+				$value_colour{'I'} = 'I';
+				if ( !$self->{'excel_format'}->{'I'} ) {
+					$self->{'excel_format'}->{'I'} =
 					  $self->{'workbook'}
 					  ->add_format( bg_color => 'green', color => 'white', align => 'center', border => 1, border_color => 'white' );
 				}
-				$value_colour{$value} = 'T';
+				$value_colour{$value} = 'I';
 			} elsif ( $value eq 'X' ) {
 				$style = 'background:black; color:white';
 				$value_colour{'X'} = 'X';
@@ -1106,6 +1110,8 @@ sub _run_comparison {
 		}
 		if ( $params->{'align'} && ( $variable_locus || $params->{'align_all'} ) ) {
 			$seqs{'ref'} = $$seq_ref if $by_reference;
+			my $core_threshold = BIGSdb::Utils::is_int( $params->{'core_threshold'} ) ? $params->{'core_threshold'} : 100;
+			my $core_locus = ( $presence->{$locus_name} * 100 / @$ids ) >= $core_threshold ? 1 : 0;
 			$self->_align(
 				{
 					job_id           => $job_id,
@@ -1114,7 +1120,9 @@ sub _run_comparison {
 					align_file       => $align_file,
 					align_stats_file => $align_stats_file,
 					xmfa_file        => $xmfa_file,
-					locus            => $locus_name
+					core_xmfa_file   => $core_xmfa_file,
+					locus            => $locus_name,
+					core_locus       => $core_locus
 				}
 			);
 		}
@@ -1241,8 +1249,7 @@ sub _print_reports {
 				{ filename => "$job_id.xmfa", description => '35_Extracted sequences (XMFA format)', compress => 1, keep_original => 1 } );
 			try {
 				$self->{'jobManager'}->update_job_status( $job_id, { stage => "Converting XMFA to FASTA" } );
-				my $fasta_file =
-				  BIGSdb::Utils::xmfa2fasta( "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa", { integer_ids => 1 } );
+				my $fasta_file = BIGSdb::Utils::xmfa2fasta( "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa", { integer_ids => 1 } );
 				if ( -e $fasta_file ) {
 					$self->{'jobManager'}->update_job_output( $job_id,
 						{ filename => "$job_id.fas", description => '36_Concatenated aligned sequences (FASTA format)', compress => 1 } );
@@ -1250,6 +1257,34 @@ sub _print_reports {
 			}
 			catch BIGSdb::CannotOpenFileException with {
 				$logger->error("Can't create FASTA file from XMFA.");
+			};
+		}
+		if ( -e "$self->{'config'}->{'tmp_dir'}/$job_id\_core.xmfa" ) {
+			$self->{'jobManager'}->update_job_output(
+				$job_id,
+				{
+					filename      => "$job_id\_core.xmfa",
+					description   => '37_Extracted core sequences (XMFA format)',
+					compress      => 1,
+					keep_original => 1
+				}
+			);
+			try {
+				$self->{'jobManager'}->update_job_status( $job_id, { stage => "Converting core XMFA to FASTA" } );
+				my $fasta_file = BIGSdb::Utils::xmfa2fasta( "$self->{'config'}->{'tmp_dir'}/$job_id\_core.xmfa", { integer_ids => 1 } );
+				if ( -e $fasta_file ) {
+					$self->{'jobManager'}->update_job_output(
+						$job_id,
+						{
+							filename    => "$job_id\_core.fas",
+							description => '38_Concatenated core aligned sequences (FASTA format)',
+							compress    => 1
+						}
+					);
+				}
+			}
+			catch BIGSdb::CannotOpenFileException with {
+				$logger->error("Can't create core FASTA file from XMFA.");
 			};
 		}
 	}
@@ -1696,8 +1731,8 @@ sub _print_variable_loci {
 
 sub _align {
 	my ( $self, $args ) = @_;
-	my ( $job_id, $locus, $seqs, $align_file, $align_stats_file, $xmfa_file ) =
-	  @{$args}{qw(job_id locus seqs align_file align_stats_file xmfa_file)};
+	my ( $job_id, $locus, $seqs, $align_file, $align_stats_file, $xmfa_file, $core_locus, $core_xmfa_file ) =
+	  @{$args}{qw(job_id locus seqs align_file align_stats_file xmfa_file core_locus core_xmfa_file)};
 	my $params = $self->{'params'};
 	state $xmfa_start = 1;
 	state $xmfa_end   = 1;
@@ -1737,8 +1772,10 @@ sub _align {
 				aligned_out      => $aligned_out,
 				fasta_file       => $fasta_file,
 				align_file       => $align_file,
+				core_locus       => $core_locus,
 				align_stats_file => $align_stats_file,
 				xmfa_out         => $xmfa_file,
+				core_xmfa_out    => $core_xmfa_file,
 				xmfa_start_ref   => \$xmfa_start,
 				xmfa_end_ref     => \$xmfa_end,
 				names            => \%names
@@ -1788,8 +1825,12 @@ sub _run_infoalign {
 
 sub _run_alignment {
 	my ( $self, $args ) = @_;
-	my ( $ids, $names, $locus, $seq_count, $aligned_out, $fasta_file, $align_file, $xmfa_out, $xmfa_start_ref, $xmfa_end_ref ) =
-	  @{$args}{qw (ids names locus seq_count aligned_out fasta_file align_file xmfa_out xmfa_start_ref xmfa_end_ref )};
+	my (
+		$ids,        $names,    $locus,          $seq_count,    $aligned_out, $fasta_file,
+		$align_file, $xmfa_out, $xmfa_start_ref, $xmfa_end_ref, $core_locus,  $core_xmfa_out
+	  )
+	  = @{$args}
+	  {qw (ids names locus seq_count aligned_out fasta_file align_file xmfa_out xmfa_start_ref xmfa_end_ref core_locus core_xmfa_out )};
 	return if $seq_count <= 1;
 	my $params = $self->{'params'};
 	if ( $params->{'aligner'} eq 'MAFFT' && $self->{'config'}->{'mafft_path'} && -e $fasta_file && -s $fasta_file ) {
@@ -1804,13 +1845,13 @@ sub _run_alignment {
 	if ( -e $aligned_out ) {
 		my $align = Bio::AlignIO->new( -format => 'clustalw', -file => $aligned_out )->next_aln;
 		my ( %id_has_seq, $seq_length );
-		open( my $fh_xmfa, '>>', $xmfa_out ) or $logger->error("Can't open output file $xmfa_out for appending");
+		my $xmfa_buffer;
 		my $clean_locus = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
 		foreach my $seq ( $align->each_seq ) {
 			$$xmfa_end_ref = $$xmfa_start_ref + $seq->length - 1;
-			say $fh_xmfa '>' . $seq->id . ":$$xmfa_start_ref-$$xmfa_end_ref + $clean_locus";
+			$xmfa_buffer .= '>' . $seq->id . ":$$xmfa_start_ref-$$xmfa_end_ref + $clean_locus\n";
 			my $sequence = BIGSdb::Utils::break_line( $seq->seq, 60 );
-			say $fh_xmfa "$sequence";
+			$xmfa_buffer .= "$sequence\n";
 			my ($id) = split /\|/, $seq->id;
 			$id_has_seq{$id} = 1;
 			$seq_length = $seq->length if !$seq_length;
@@ -1818,10 +1859,17 @@ sub _run_alignment {
 		my $missing_seq = BIGSdb::Utils::break_line( ( '-' x $seq_length ), 60 );
 		foreach my $id (@$ids) {
 			next if $id_has_seq{$id};
-			say $fh_xmfa ">$names->{$id}:$$xmfa_start_ref-$$xmfa_end_ref + $clean_locus\n$missing_seq";
+			$xmfa_buffer .= ">$names->{$id}:$$xmfa_start_ref-$$xmfa_end_ref + $clean_locus\n$missing_seq\n";
 		}
-		say $fh_xmfa "=";
+		$xmfa_buffer .= '=';
+		open( my $fh_xmfa, '>>', $xmfa_out ) or $logger->error("Can't open output file $xmfa_out for appending");
+		say $fh_xmfa $xmfa_buffer if $xmfa_buffer;
 		close $fh_xmfa;
+		if ($core_locus) {
+			open( my $fh_core_xmfa, '>>', $core_xmfa_out ) or $logger->error("Can't open output file $core_xmfa_out for appending");
+			say $fh_core_xmfa $xmfa_buffer if $xmfa_buffer;
+			close $fh_core_xmfa;
+		}
 		$$xmfa_start_ref = $$xmfa_end_ref + 1;
 		open( my $align_fh, '>>', $align_file ) || $logger->error("Can't open $align_file for appending");
 		my $heading_locus = $self->clean_locus( $locus, { text_output => 1 } );
@@ -1901,12 +1949,12 @@ sub _print_truncated_loci {
 	my ( $by_reference, $ids, $job_filename, $truncated, $truncated_param, $values ) =
 	  @{$args}{qw(by_reference ids job_filename loci truncated_param values)};
 	return if ref $truncated ne 'HASH';
-	$self->{'html_buffer'} .= "<h3>Loci that are truncated in some isolates</h3>";
+	$self->{'html_buffer'} .= "<h3>Loci that are incomplete in some isolates</h3>";
 	my $file_buffer = "\n###\n\n";
-	$file_buffer .= "Loci that are truncated in some isolates\n";
-	$file_buffer .= "----------------------------------------\n\n";
-	$self->{'html_buffer'} .= "<p>Truncated: " . ( scalar keys %$truncated ) . "</p>";
-	$file_buffer .= "Truncated: " . ( scalar keys %$truncated ) . "\n\n";
+	$file_buffer .= "Loci that are incomplete in some isolates\n";
+	$file_buffer .= "-----------------------------------------\n\n";
+	$self->{'html_buffer'} .= "<p>Incomplete: " . ( scalar keys %$truncated ) . "</p>";
+	$file_buffer .= "Incomplete: " . ( scalar keys %$truncated ) . "\n\n";
 	$self->{'html_buffer'} .= "<p>These loci are incomplete and located at the ends of contigs in at least one isolate. ";
 
 	if ( $truncated_param eq 'exclude' ) {
@@ -1917,7 +1965,7 @@ sub _print_truncated_loci {
 	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
 	print $job_fh $file_buffer;
 	close $job_fh;
-	my $worksheet = $self->{'workbook'}->add_worksheet('truncated');
+	my $worksheet = $self->{'workbook'}->add_worksheet('incomplete');
 	$self->_print_locus_table( { worksheet => $worksheet, %$args } );
 	return;
 }
@@ -1945,7 +1993,7 @@ sub _print_locus_table {
 		my $colour = 0;
 		my %value_colour;
 		$value_colour{'X'} = 'X';
-		$value_colour{'T'} = 'T';
+		$value_colour{'I'} = 'I';
 
 		if ($by_reference) {
 			foreach my $locus_value (qw(desc length start)) {

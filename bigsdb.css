@@ -217,6 +217,8 @@ a.update:hover {
 	color:black
 }
 
+.ignore {color:#aaa; border: 1px solid #aaa}
+
 .seq {font-family:Courier New,monospace}
 .flanking {color:#aaa}
 .coding {background:#ccf}

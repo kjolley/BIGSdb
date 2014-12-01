@@ -132,8 +132,8 @@ HTML
 		my @tables = qw (loci);
 		my @skip_table;
 		if ( $system->{'dbtype'} eq 'isolates' ) {
-			push @tables, qw(locus_aliases pcr pcr_locus probes probe_locus isolate_field_extended_attributes composite_fields 
-				sequence_attributes);
+			push @tables, qw(locus_aliases pcr pcr_locus probes probe_locus isolate_field_extended_attributes composite_fields
+			  sequence_attributes);
 		} elsif ( $system->{'dbtype'} eq 'sequences' ) {
 			push @tables, qw(locus_aliases locus_extended_attributes client_dbases client_dbase_loci client_dbase_schemes
 			  client_dbase_loci_fields);
@@ -342,7 +342,7 @@ sub _print_sequence_attributes {
 	my $query_cell =
 	  $exists
 	  ? "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=sequence_attributes"
-	    . "$set_string\">?</a>"
+	  . "$set_string\">?</a>"
 	  : '';
 	my $buffer = <<"HTML";
 <tr class="td$td"><td>sequence attributes</td>
@@ -433,15 +433,10 @@ sub _print_sequences {
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=sequences$set_string">?</a></td>
 <td></td></tr>	
 HTML
-	my $loci;
-	if ( $self->is_admin ) {
-		$loci = $self->{'datastore'}->get_loci;
-	} else {
-		my $qry = "SELECT locus_curators.locus from locus_curators LEFT JOIN loci ON locus=id LEFT JOIN scheme_members on loci.id = "
-		  . "scheme_members.locus WHERE locus_curators.curator_id=? ORDER BY scheme_members.scheme_id,locus_curators.locus";
-		$loci = $self->{'datastore'}->run_list_query( "$qry", $self->get_curator_id );
-		@$loci = uniq @$loci;
-	}
+
+	my $locus_curator = $self->is_admin ? undef : $self->get_curator_id;
+	my $set_id = $self->get_set_id;
+	my ( $loci, undef ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, locus_curator => $locus_curator } );
 	return ( '', $td ) if !@$loci;
 	$td = $td == 1 ? 2 : 1;
 	if ( scalar @$loci < 15 ) {

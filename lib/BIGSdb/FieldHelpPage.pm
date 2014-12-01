@@ -129,9 +129,8 @@ sub _print_isolate_field {
 	  ? "SELECT DISTINCT $metafield FROM meta_$metaset WHERE isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})"
 	  : "SELECT DISTINCT $field FROM $self->{'system'}->{'view'} ORDER BY $field";
 	my $used_list = $self->{'datastore'}->run_list_query($qry);
-	my $longest = 0;
-	
-	foreach (@$used_list){
+	my $longest   = 0;
+	foreach (@$used_list) {
 		$longest = length($_) if length($_) > $longest;
 	}
 	my $text_cols = $longest > 120 ? 2 : 6;
@@ -140,7 +139,7 @@ sub _print_isolate_field {
 	$used->{$_} = 1 foreach @$used_list;
 	if ( $field eq 'sender' || $field eq 'curator' || ( $attributes->{'userfield'} && $attributes->{'userfield'} eq 'yes' ) ) {
 		my $filter = $field eq 'curator' ? "WHERE (status = 'curator' or status = 'admin') AND id>0" : 'WHERE id>0';
-		my $sql    = $self->{'db'}->prepare("SELECT id, user_name, surname, first_name, affiliation FROM users $filter ORDER BY id");
+		my $sql = $self->{'db'}->prepare("SELECT id, user_name, surname, first_name, affiliation FROM users $filter ORDER BY id");
 		eval { $sql->execute };
 		$logger->error($@) if $@;
 		my $buffer;
@@ -195,10 +194,10 @@ sub _print_list {
 		$i++;
 		if ( $i > $items_per_column ) {
 			$i = 0;
-			if ($i != scalar @$list){
+			if ( $i != scalar @$list ) {
 				say "</ul>";
 				say "</td><td style=\"vertical-align:top; padding-left:20px\">";
-			  	say "<ul>";
+				say "<ul>";
 			}
 		}
 	}
@@ -230,58 +229,21 @@ sub _print_scheme_field {
 		  . "$info->{'description'}</td></tr>";
 	}
 	print "</table>\n";
+	my $temp_table;
 	try {
-		$self->{'datastore'}->create_temp_scheme_table($scheme_id);
+		$temp_table = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 	}
 	catch BIGSdb::DatabaseConnectionException with {
-		say "<p class=\"statusbad\">Can't copy data into temporary table - please check scheme configuration "
-		  . "(more details will be in the log file).</p>";
+		say qq(<div class="box" id="statusbad"><p>The database for scheme $scheme_id is not accessible. This may be a configuration )
+		  . qq(problem.</p></div>);
 		$logger->error("Can't copy data to temporary table.");
 	};
-	say "<p>The field has a list of allowable values retrieved from an external database (values present in this "
-	  . "database are <span class=\"highlightvalue\">highlighted</span>):</p>";
+	say "<p>The field has a list of values retrieved from an external database.  Values present in this database are shown.";
 	my $cols = $info->{'type'} eq 'integer' ? 10 : 6;
 	my $list =
-	  $self->{'datastore'}->run_list_query("SELECT DISTINCT $field FROM temp_scheme_$scheme_id WHERE $field IS NOT NULL ORDER BY $field");
-	my $scheme_loci  = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $joined_table = "SELECT DISTINCT scheme_$scheme_id.$field FROM $self->{'system'}->{'view'}";
-	foreach (@$scheme_loci) {
-		( my $cleaned_locus = $_ ) =~ s/'/_PRIME_/g;
-		$joined_table .= " left join allele_designations AS $cleaned_locus on $cleaned_locus.isolate_id = $self->{'system'}->{'view'}.id";
-	}
-	$joined_table .= " left join temp_scheme_$scheme_id AS scheme_$scheme_id ON";
-	my @temp;
-	foreach (@$scheme_loci) {
-		my $locus_info = $self->{'datastore'}->get_locus_info($_);
-		( my $locus = $_ ) =~ s/'/_PRIME_/g;
-		if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-			if ( $scheme_info->{'allow_missing_loci'} ) {
-				push @temp, "(CAST(COALESCE($locus.allele_id,'N') AS text)=CAST(scheme_$scheme_id\.$locus AS text) "
-				  . "OR scheme_$scheme_id\.$locus='N')";
-			} else {
-				push @temp, "CAST($locus.allele_id AS int)=scheme_$scheme_id\.$locus";
-			}
-		} else {
-			if ( $scheme_info->{'allow_missing_loci'} ) {
-				push @temp, "COALESCE($locus.allele_id,'N')=scheme_$scheme_id\.$locus";
-			} else {
-				push @temp, "$locus.allele_id=scheme_$scheme_id\.$locus";
-			}
-		}
-	}
-	local $" = ' AND ';
-	$joined_table .= " @temp WHERE";
-	undef @temp;
-	foreach (@$scheme_loci) {
-		( my $cleaned_locus = $_ ) =~ s/'/_PRIME_/g;
-		( my $escaped_locus = $_ ) =~ s/'/\\'/g;
-		push @temp, "$cleaned_locus.locus=E'$escaped_locus'";
-	}
-	$joined_table .= " @temp";
-	my $used_list = $self->{'datastore'}->run_list_query($joined_table);
-	my $used;
-	$used->{$_} = 1 foreach @$used_list;
-	$self->_print_list( $list, $cols, $used );
+	  $self->{'datastore'}
+	  ->run_query( "SELECT DISTINCT $field FROM $temp_table WHERE $field IS NOT NULL ORDER BY $field", undef, { fetch => 'col_arrayref' } );
+	$self->_print_list( $list, $cols );
 	say "</div>";
 	return;
 }

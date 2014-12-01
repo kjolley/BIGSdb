@@ -78,10 +78,12 @@ sub run {
 	} else {
 		say "<h1>Tag status</h1>";
 		return if $self->has_set_changed;
-		print "<div class=\"box\" id=\"queryform\" style=\"display:none\">\n";
+		say qq(<div class="box" id="queryform" style="display:none">);
 		$self->_print_tree;
 		print "</div>\n";
-		my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,description");
+		my $schemes =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT id FROM schemes ORDER BY display_order,description", undef, { fetch => 'col_arrayref' } );
 		my @selected_schemes;
 		foreach ( @$schemes, 0 ) {
 			push @selected_schemes, $_ if $q->param("s_$_");

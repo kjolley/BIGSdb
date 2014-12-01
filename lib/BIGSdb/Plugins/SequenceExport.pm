@@ -124,12 +124,14 @@ sub run {
 			if ( !@list ) {
 				if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 					my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
-					@list = @{ $self->{'datastore'}->run_list_query($qry) };
+					my $id_list = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+					@list = @$id_list;
 				} else {
 					my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $pk );
 					my $qry = "SELECT profile_id FROM profiles WHERE scheme_id=? ORDER BY ";
 					$qry .= $pk_info->{'type'} eq 'integer' ? 'CAST(profile_id AS INT)' : 'profile_id';
-					@list = @{ $self->{'datastore'}->run_list_query( $qry, $scheme_id ) };
+					my $id_list = $self->{'datastore'}->run_query( $qry, $scheme_id, { fetch => 'col_arrayref' } );
+					@list = @$id_list;
 				}
 			}
 			my $list_type = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'isolates' : 'profiles';

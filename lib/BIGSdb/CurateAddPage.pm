@@ -125,21 +125,9 @@ sub print_content {
 
 sub _check_locus_descriptions {
 	my ( $self, $newdata, $problems, $extra_inserts ) = @_;
-	my $q                = $self->{'cgi'};
-	my $existing_aliases = $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=?", $newdata->{'locus'} );
-	my @new_aliases      = split /\r?\n/, $q->param('aliases');
-	foreach my $new (@new_aliases) {
-		chomp $new;
-		next if $new eq '';
-		next if $new eq $newdata->{'locus'};
-		if ( !@$existing_aliases || none { $new eq $_ } @$existing_aliases ) {
-			push @$extra_inserts,
-			  {
-				statement => 'INSERT INTO locus_aliases (locus,alias,curator,datestamp) VALUES (?,?,?,?)',
-				arguments => [ $newdata->{'locus'}, $new, $newdata->{'curator'}, 'now' ]
-			  };
-		}
-	}
+	my $q = $self->{'cgi'};
+	$self->_check_locus_aliases_when_updating_other_table( $newdata->{'locus'}, $newdata, $problems, $extra_inserts )
+	  if $q->param('table') eq 'locus_descriptions';
 	my @new_pubmeds = split /\r?\n/, $q->param('pubmed');
 	foreach my $new (@new_pubmeds) {
 		chomp $new;
@@ -224,7 +212,7 @@ sub _insert {
 		foreach (@$attributes) {
 			push @table_fields, $_->{'name'};
 			push @placeholders, '?';
-			if ( $_->{'name'} =~ /sequence$/ ) {
+			if ( $_->{'name'} =~ /sequence$/ && $newdata->{ $_->{'name'} } ) {
 				$newdata->{ $_->{'name'} } = uc( $newdata->{ $_->{'name'} } );
 				$newdata->{ $_->{'name'} } =~ s/\s//g;
 			}
@@ -538,6 +526,34 @@ sub _check_locus_aliases {
 	return;
 }
 
+sub _check_locus_aliases_when_updating_other_table {
+	my ( $self, $locus, $newdata, $problems, $extra_inserts ) = @_;
+	my $q                = $self->{'cgi'};
+	my $existing_aliases = $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=?", $locus );
+	my @new_aliases      = split /\r?\n/, $q->param('aliases');
+	foreach my $new (@new_aliases) {
+		chomp $new;
+		next if $new eq '';
+		next if $new eq $locus;
+		if ( !@$existing_aliases || none { $new eq $_ } @$existing_aliases ) {
+			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+				push @$extra_inserts,
+				  {
+					statement => 'INSERT INTO locus_aliases (locus,alias,use_alias,curator,datestamp) VALUES (?,?,?,?,?)',
+					arguments => [ $locus, $new, 'true', $newdata->{'curator'}, 'now' ]
+				  };
+			} else {
+				push @$extra_inserts,
+				  {
+					statement => 'INSERT INTO locus_aliases (locus,alias,curator,datestamp) VALUES (?,?,?,?)',
+					arguments => [ $locus, $new, $newdata->{'curator'}, 'now' ]
+				  };
+			}
+		}
+	}
+	return;
+}
+
 sub _check_loci {
 	my ( $self, $newdata, $problems, $extra_inserts ) = @_;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
@@ -551,6 +567,7 @@ sub _check_loci {
 		  };
 		$self->_check_locus_descriptions( $newdata, $problems, $extra_inserts );
 	}
+	$self->_check_locus_aliases_when_updating_other_table( $newdata->{'id'}, $newdata, $problems, $extra_inserts );
 	if ( $newdata->{'length_varies'} ne 'true' && !$newdata->{'length'} ) {
 		push @$problems, "Locus set as non variable length but no length is set. Either set 'length_varies' to false, or enter a length.";
 	}

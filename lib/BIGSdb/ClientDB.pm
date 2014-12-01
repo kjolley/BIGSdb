@@ -49,7 +49,7 @@ sub count_isolates_with_allele {
 		my $view = $self->{'dbase_view'} // 'isolates';
 		$self->{'sql'}->{'isolate_allele_count'} =
 		  $self->{'db'}->prepare( "SELECT COUNT(*) FROM allele_designations RIGHT JOIN $view ON $view.id=allele_designations.isolate_id "
-			  . "WHERE locus=? AND allele_id=?" );
+			  . "WHERE locus=? AND allele_id=? AND status != 'ignore'" );
 		$logger->info("Statement handle 'isolate_allele_count' prepared.");
 	}
 	eval { $self->{'sql'}->{'isolate_allele_count'}->execute( $locus, $allele_id ) };
@@ -96,8 +96,8 @@ sub get_fields {
 	if ( !$self->{'sql'}->{$field} ) {
 		$self->{'sql'}->{$field} =
 		  $self->{'db'}->prepare( "SELECT $field, count(*) AS frequency FROM $view LEFT JOIN allele_designations ON $view.id "
-			  . "= allele_designations.isolate_id WHERE allele_designations.locus=? AND allele_designations.allele_id=? AND $field IS "
-			  . "NOT NULL GROUP BY $field ORDER BY frequency desc,$field" );
+			  . "= allele_designations.isolate_id WHERE allele_designations.locus=? AND allele_designations.allele_id=? AND "
+			  . "allele_designations.status != 'ignore' AND $field IS NOT NULL GROUP BY $field ORDER BY frequency desc,$field" );
 	}
 	eval { $self->{'sql'}->{$field}->execute( $locus, $allele_id ) };
 	if ($@) {

@@ -41,7 +41,7 @@ sub get_attributes {
 		menutext         => 'Sequence similarity',
 		module           => 'SequenceSimilarity',
 		url              => "$self->{'config'}->{'doclink'}/data_query.html#sequence-similarity",
-		version          => '1.0.2',
+		version          => '1.0.3',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => 'analysis',
@@ -88,19 +88,19 @@ sub run {
 	return if !$locus || !defined $allele || $allele eq '';
 
 	if ( !$self->{'datastore'}->is_locus($locus) ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Invalid locus entered.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Invalid locus entered.</p></div>);
 		return;
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( $locus_info->{'allele_id_format'} eq 'integer' && !BIGSdb::Utils::is_int($allele) ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Allele must be an integer.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Allele must be an integer.</p></div>);
 		return;
 	}
 	my ($valid) =
 	  $self->{'datastore'}
-	  ->run_simple_query( "SELECT COUNT(*) FROM sequences WHERE locus=? AND allele_id=? AND allele_id != '0'", $locus, $allele )->[0];
+	  ->run_query( "SELECT EXISTS(SELECT * FROM sequences WHERE locus=? AND allele_id=? AND allele_id != '0')", [ $locus, $allele ] );
 	if ( !$valid ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Allele $locus-$allele does not exist.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Allele $locus-$allele does not exist.</p></div>);
 		return;
 	}
 	my $cleanlocus = $self->clean_locus($locus);
@@ -108,7 +108,7 @@ sub run {
 	my ( $blast_file, undef ) = $self->run_blast(
 		{ 'locus' => $locus, 'seq_ref' => $seq_ref, 'qry_type' => $locus_info->{'data_type'}, 'num_results' => $num_results + 1 } );
 	my $matches_ref = $self->_parse_blast_partial($blast_file);
-	say "<div class=\"box\" id=\"resultsheader\">";
+	say qq(<div class="box" id="resultsheader">);
 	say "<h2>$cleanlocus-$allele</h2>";
 	if ( ref $matches_ref eq 'ARRAY' && scalar @$matches_ref > 0 ) {
 		say "<table class=\"resultstable\"><tr><th>Allele</th><th>% Identity</th><th>Mismatches</th><th>Gaps</th><th>Alignment</th>"
