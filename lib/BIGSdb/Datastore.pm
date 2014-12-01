@@ -105,9 +105,11 @@ sub get_user_info_from_username {
 
 sub get_permissions {
 	my ( $self, $user_name ) = @_;
-	return $self->run_query(
-		"SELECT user_permissions.* FROM user_permissions LEFT JOIN users ON user_permissions.user_id = users.id WHERE user_name=?",
-		$user_name, { fetch => 'row_hashref' } );
+	my $permission_list = $self->run_query(
+		"SELECT permission FROM curator_permissions LEFT JOIN users ON curator_permissions.user_id = users.id WHERE user_name=?",
+		$user_name, { fetch => 'col_arrayref', cache => 'get_permissions' } );
+	my %permission_hash = map { $_ => 1 } @$permission_list;
+	return \%permission_hash;
 }
 
 sub get_isolate_field_values {
@@ -254,7 +256,8 @@ sub get_profile_by_primary_key {
 }
 
 sub get_scheme_field_values_by_designations {
-	my ( $self, $scheme_id, $designations, $options ) = @_;    #$designations is a hashref containing arrayref of allele_designations for each locus
+	my ( $self, $scheme_id, $designations, $options ) =
+	  @_;    #$designations is a hashref containing arrayref of allele_designations for each locus
 	$options = {} if ref $options ne 'HASH';
 	my $values     = {};
 	my $loci       = $self->get_scheme_loci($scheme_id);
@@ -293,10 +296,9 @@ sub get_scheme_field_values_by_designations {
 			} else {
 				push @allele_count,
 				  scalar @{ $designations->{$locus} };    #We need a different query depending on number of designations at loci.
-				  foreach my $designation (@{ $designations->{$locus} }){
-				  		push @allele_ids, $designation->{'status'} eq 'ignore' ? '-999' : $designation->{'allele_id'};
-				  }
-
+				foreach my $designation ( @{ $designations->{$locus} } ) {
+					push @allele_ids, $designation->{'status'} eq 'ignore' ? '-999' : $designation->{'allele_id'};
+				}
 			}
 		}
 		local $" = ',';
@@ -1739,7 +1741,7 @@ sub get_tables {
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		@tables = qw(users user_groups user_group_members allele_sequences sequence_bin accession refs allele_designations
 		  loci locus_aliases schemes scheme_members scheme_fields composite_fields composite_field_values
-		  isolate_aliases user_permissions isolate_user_acl isolate_usergroup_acl projects project_members experiments experiment_sequences
+		  isolate_aliases curator_permissions isolate_user_acl isolate_usergroup_acl projects project_members experiments experiment_sequences
 		  isolate_field_extended_attributes isolate_value_extended_attributes scheme_groups scheme_group_scheme_members
 		  scheme_group_group_members pcr pcr_locus probes probe_locus sets set_loci set_schemes set_metadata set_view samples isolates
 		  history sequence_attributes);
@@ -1749,7 +1751,7 @@ sub get_tables {
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		@tables =
 		  qw(users user_groups user_group_members sequences sequence_refs accession loci schemes scheme_members scheme_fields profiles
-		  profile_refs user_permissions client_dbases client_dbase_loci client_dbase_schemes locus_extended_attributes scheme_curators
+		  profile_refs curator_permissions client_dbases client_dbase_loci client_dbase_schemes locus_extended_attributes scheme_curators
 		  locus_curators locus_descriptions scheme_groups scheme_group_scheme_members scheme_group_group_members client_dbase_loci_fields
 		  sets set_loci set_schemes profile_history locus_aliases);
 	}

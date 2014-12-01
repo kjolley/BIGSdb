@@ -87,8 +87,14 @@ sub get_user_group_members_table_attributes {
 	return $attributes;
 }
 
-sub get_user_permissions_table_attributes {
+sub get_curator_permissions_table_attributes {
 	my ($self) = @_;
+	my @optlist = $self->{'system'}->{'dbtype'} eq 'isolates'
+	  ? qw (disable_access modify_users modify_usergroups set_user_passwords modify_isolates modify_projects modify_loci modify_schemes
+	  modify_composites modify_field_attributes modify_value_attributes modify_probes modify_sequences tag_sequences designate_alleles
+	  sample_management)
+	  : qw(disable_access modify_users modify_usergroups set_user_passwords modify_loci modify_schemes);
+	local $" = ';';
 	my $attributes = [
 		{
 			name           => 'user_id',
@@ -99,69 +105,10 @@ sub get_user_permissions_table_attributes {
 			dropdown_query => 'yes',
 			labels         => '|$surname|, |$first_name|'
 		},
-		{ name => 'disable_access', type => 'bool', required => 'no', comments => 'disable all access to this user.' },
-		{ name => 'modify_users',   type => 'bool', required => 'no', comments => 'allow user to add or modify users.' },
-		{
-			name     => 'modify_usergroups',
-			type     => 'bool',
-			required => 'no',
-			comments => 'allow user to create or modify user groups and add users to these groups.'
-		},
-		{ name => 'set_user_passwords', type => 'bool', required => 'no', comments => 'allow user to modify other users\' password.' },
-		{ name => 'modify_loci',        type => 'bool', required => 'no', comments => 'allow user to add or modify loci.' },
-		{ name => 'modify_schemes',     type => 'bool', required => 'no', comments => 'allow user to add or modify schemes.' },
+		{ name => 'permission', type => 'text', required => 'yes', optlist        => "@optlist", primary_key => 'yes' },
+		{ name => 'curator',    type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp',  type => 'date', required => 'yes' },
 	];
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		push @$attributes,
-		  (
-			{ name => 'modify_sequences', type => 'bool', required => 'no', comments => 'allow user to add sequences to the database.' },
-			{ name => 'modify_isolates',  type => 'bool', required => 'no', comments => 'allow user to add or modify isolate records.' },
-			{
-				name     => 'modify_isolates_acl',
-				type     => 'bool',
-				required => 'no',
-				comments => 'allow user to control who accesses isolate records.'
-			},
-			{ name => 'modify_projects', type => 'bool', required => 'no', comments => 'allow user to add isolates to project groups.' },
-			{
-				name     => 'modify_composites',
-				type     => 'bool',
-				required => 'no',
-				comments => 'allow user to add or modify composite fields (fields made up of other fields, including scheme fields).'
-			},
-			{
-				name     => 'modify_field_attributes',
-				type     => 'bool',
-				required => 'no',
-				comments => 'allow user to setup or modify secondary attributes for isolate record fields.'
-			},
-			{
-				name     => 'modify_value_attributes',
-				type     => 'bool',
-				required => 'no',
-				comments => 'allow user to add or modify secondary attribute values for isolate record fields.'
-			},
-			{
-				name     => 'modify_probes',
-				type     => 'bool',
-				required => 'no',
-				comments => 'allow user to define PCR or hybridization reactions to filter tag scanning.'
-			},
-			{
-				name     => 'tag_sequences',
-				type     => 'bool',
-				required => 'no',
-				comments => 'allow user to tag sequences with locus information.'
-			},
-			{ name => 'designate_alleles', type => 'bool', required => 'no', comments => 'allow user to designate locus allele numbers.' },
-			{
-				name     => 'sample_management',
-				type     => 'bool',
-				required => 'no',
-				comments => 'allow user to add or modify sample storage location records.'
-			}
-		  );
-	}
 	return $attributes;
 }
 
@@ -1498,11 +1445,7 @@ sub get_projects_table_attributes {
 			tooltip => 'isolate display - Select to list this project on an isolate information page (also requires a full description '
 			  . 'to be entered).'
 		},
-		{
-			name    => 'list',
-			type    => 'bool',
-			tooltip => 'list - Select to include in list of projects linked from the contents page.'
-		},
+		{ name => 'list',      type => 'bool', tooltip  => 'list - Select to include in list of projects linked from the contents page.' },
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' }
 	];

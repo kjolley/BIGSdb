@@ -76,7 +76,7 @@ sub create_record_table {
 	my $width        = int( 0.5 * $longest_name ) + 2;
 	$width = 15 if $width > 15;
 	$width = 6  if $width < 6;
-	my %width_override = ( user_permissions => 12, loci => 14, pcr => 12, sequences => 10, locus_descriptions => 11 );
+	my %width_override = ( loci => 14, pcr => 12, sequences => 10, locus_descriptions => 11 );
 	$width = $width_override{$table} // $width;
 	$buffer .= $self->_get_form_fields( $attributes, $table, $newdata, $options, $width );
 

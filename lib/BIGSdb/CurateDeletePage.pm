@@ -299,7 +299,7 @@ sub _delete {
 			  allele_sequences locus_curators client_dbase_loci locus_extended_attributes);
 
 			#cascade deletion of user
-			next if $table eq 'users' && any { $table_to_check eq $_ } qw ( user_permissions user_group_members);
+			next if $table eq 'users' && any { $table_to_check eq $_ } qw ( curator_permissions user_group_members);
 
 			#cascade deletion of sequence bin records
 			next if $table eq 'sequence_bin' && $table_to_check eq 'allele_sequences';

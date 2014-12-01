@@ -20,32 +20,21 @@ INSERT INTO users VALUES (-1,'autotagger','Tagger','Auto','','','curator','now',
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON users TO apache;
 
-CREATE TABLE user_permissions (
+CREATE TABLE curator_permissions (
 user_id integer NOT NULL,
-disable_access boolean,
-modify_users boolean,
-modify_usergroups boolean,
-set_user_passwords boolean,
-modify_isolates boolean,
-modify_isolates_acl boolean,
-modify_projects boolean,
-modify_loci boolean,
-modify_schemes boolean,
-modify_composites boolean,
-modify_field_attributes boolean,
-modify_value_attributes boolean,
-modify_probes boolean,
-modify_sequences boolean,
-tag_sequences boolean,
-designate_alleles boolean,
-sample_management boolean,
-PRIMARY KEY (user_id),
-CONSTRAINT up_user_id FOREIGN KEY (user_id) REFERENCES users
+permission text NOT NULL,
+curator integer NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY (user_id,permission),
+CONSTRAINT cp_user_id FOREIGN KEY (user_id) REFERENCES users
 ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT cp_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE NO ACTION
 ON UPDATE CASCADE
 );
 
-GRANT SELECT,UPDATE,INSERT,DELETE ON user_permissions TO apache;
+GRANT SELECT,UPDATE,INSERT,DELETE ON curator_permissions TO apache;
 
 CREATE TABLE user_groups (
 id integer NOT NULL UNIQUE,

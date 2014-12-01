@@ -1303,7 +1303,7 @@ sub get_record_name {
 		allele_sequences                  => 'allele sequence tag',
 		isolate_aliases                   => 'isolate alias',
 		locus_aliases                     => 'locus alias',
-		user_permissions                  => 'user permission record',
+		curator_permissions               => 'curator permission record',
 		isolate_user_acl                  => 'isolate access control record',
 		isolate_usergroup_acl             => 'isolate group access control record',
 		client_dbases                     => 'client database',
@@ -1575,6 +1575,7 @@ sub make_temp_file {
 sub get_query_from_temp_file {
 	my ( $self, $file ) = @_;
 	return if !defined $file;
+	$file = $file =~ /([\w\.]+)/ ? $1 : undef;    #untaint
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$file";
 	if ( -e $full_path ) {
 		open( my $fh, '<:encoding(utf8)', $full_path ) || $logger->error("Can't open $full_path for reading");

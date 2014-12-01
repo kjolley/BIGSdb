@@ -298,7 +298,7 @@ sub _print_export_configuration_function {
 	my $q = $self->{'cgi'};
 	if (
 		any { $table eq $_ }
-		qw (schemes users user_groups user_group_members user_permissions projects project_members isolate_aliases
+		qw (schemes users user_groups user_group_members curator_permissions projects project_members isolate_aliases
 		accession experiments experiment_sequences allele_sequences samples loci locus_aliases pcr probes isolate_field_extended_attributes
 		isolate_value_extended_attributes scheme_fields scheme_members scheme_groups scheme_group_scheme_members scheme_group_group_members
 		locus_descriptions scheme_curators locus_curators sequences sequence_refs profile_refs locus_extended_attributes client_dbases

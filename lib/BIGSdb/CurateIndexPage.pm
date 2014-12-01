@@ -59,7 +59,7 @@ sub print_content {
 	my $set_string = $set_id ? "&amp;set_id=$set_id" : '';    #append to URLs to ensure unique caching.
 
 	#Display links for updating database records. Most curators will have access to most of these (but not curator permissions).
-	foreach (qw (users user_groups user_group_members user_permissions)) {
+	foreach (qw (users user_groups user_group_members curator_permissions)) {
 		if ( $self->can_modify_table($_) ) {
 			my $function = "_print_$_";
 			try {
@@ -220,17 +220,12 @@ sub _print_user_group_members {
 		{ comments => 'Add users to groups for setting access permissions.', set_string => $set_string } );
 }
 
-sub _print_user_permissions {
+sub _print_curator_permissions {
 	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table(
-		'user_permissions',
-		$td,
-		{
-			comments => "Set curator permissions for individual users - these are only active for users with a status of 'curator' "
-			  . "in the users table.",
-			, set_string => $set_string
-		}
-	);
+	return
+	    qq(<tr class="td$td"><td>curator permissions<td></td><td><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'})
+	  . qq(&amp;page=curatorPermissions$set_string">?</td><td class="comment" style="text-align:left">Set curator permissions for )
+	  . qq(individual users - these are only active for users with a status of 'curator' in the users table.</td></tr>);
 }
 
 sub _print_user_groups {
@@ -433,13 +428,13 @@ sub _print_sequences {
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=sequences$set_string">?</a></td>
 <td></td></tr>	
 HTML
-
 	my $locus_curator = $self->is_admin ? undef : $self->get_curator_id;
 	my $set_id = $self->get_set_id;
 	my ( $loci, undef ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, locus_curator => $locus_curator } );
 	return ( '', $td ) if !@$loci;
 	$td = $td == 1 ? 2 : 1;
 	if ( scalar @$loci < 15 ) {
+
 		foreach (@$loci) {
 			my $cleaned = $self->clean_locus($_);
 			$buffer .= <<"HTML";
