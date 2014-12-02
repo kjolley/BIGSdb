@@ -924,9 +924,9 @@ sub _modify_query_for_filters {
 			if ( defined $metaset ) {
 				$qry .= (
 					( $value eq '<blank>' || $value eq 'null' )
-					? "(id IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield IS NULL) OR id NOT IN (SELECT isolate_id FROM "
-					  . "meta_$metaset))"
-					: "(id IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield = E'$value'))"
+					? "($view.id IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield IS NULL) OR $view.id NOT IN (SELECT isolate_id "
+					  . "FROM meta_$metaset))"
+					: "($view.id IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield = E'$value'))"
 				);
 			} else {
 				$qry .= ( ( $value eq '<blank>' || $value eq 'null' ) ? "$view.$field is null" : "$view.$field = '$value'" );
@@ -1127,7 +1127,7 @@ sub _modify_query_for_designations {
 					  "(allele_designations.locus=E'$locus' AND NOT upper(allele_designations.allele_id) LIKE upper(E'\%$text\%'))";
 				} elsif ( $operator eq '=' ) {
 					if ( $text eq 'null' ) {
-						push @lqry_blank, "(id NOT IN (SELECT isolate_id FROM allele_designations WHERE locus=E'$locus'))";
+						push @lqry_blank, "($view.id NOT IN (SELECT isolate_id FROM allele_designations WHERE locus=E'$locus'))";
 					} else {
 						$lqry{$locus} .= $andor if $lqry{$locus};
 						$lqry{$locus} .=
