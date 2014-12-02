@@ -170,7 +170,7 @@ sub _insert {
 			}
 		}
 	}
-	my @inserts;
+	my @inserts;  #TODO Rewrite to use placeholders
 	local $" = ',';
 	my $qry = "INSERT INTO isolates (@fields_with_values) VALUES (";
 	foreach my $field (@fields_with_values) {
@@ -182,12 +182,6 @@ sub _insert {
 	push @inserts, $qry;
 	my $metadata_inserts = $self->_prepare_metaset_insert( \%meta_fields, $newdata );
 	push @inserts, @$metadata_inserts;
-
-	#Set read ACL for 'All users' group
-	push @inserts, "INSERT INTO isolate_usergroup_acl (isolate_id,user_group_id,read,write) VALUES ($newdata->{'id'},0,true,false)";
-
-	#Set read/write ACL for curator
-	push @inserts, "INSERT INTO isolate_user_acl (isolate_id,user_id,read,write) VALUES ($newdata->{'id'},$newdata->{'curator'},true,true)";
 	foreach my $locus (@$loci) {
 		if ( $q->param("locus:$locus") ) {
 			$qry =

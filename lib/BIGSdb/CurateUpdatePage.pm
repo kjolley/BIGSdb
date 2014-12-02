@@ -52,19 +52,6 @@ sub print_content {
 			say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update this record.</p></div>";
 		}
 		return;
-	} elsif (
-		(
-			$self->{'system'}->{'read_access'} eq 'acl'
-			|| ( $self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl' )
-		)
-		&& $self->{'username'}
-		&& !$self->is_admin
-		&& $q->param('isolate_id')
-		&& !$self->is_allowed_to_view_isolate( $q->param('isolate_id') )
-	  )
-	{
-		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to modify data for this isolate.</p></div>";
-		return;
 	}
 	if ( $table eq 'allele_sequences' ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>Sequence tags cannot be updated using this function.</p></div>";
@@ -157,23 +144,6 @@ sub print_content {
 <p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
 HTML
 				$status = FAILURE;
-			} elsif ( $self->{'system'}->{'read_access'} eq 'acl'
-				&& $self->{'username'}
-				&& !$self->is_admin
-				&& ( $table eq 'accession' || $table eq 'allele_sequences' )
-				&& $self->{'system'}->{'dbtype'} eq 'isolates' )
-			{
-				my $isolate_id_ref =
-				  $self->{'datastore'}->run_simple_query( "SELECT isolate_id FROM sequence_bin WHERE id=?", $newdata{'seqbin_id'} );
-				if ( ref $isolate_id_ref eq 'ARRAY' && !$self->is_allowed_to_view_isolate( $isolate_id_ref->[0] ) ) {
-					my $record_type = $self->get_record_name($table);
-					print <<"HTML";
-<div class="box" id="statusbad"><p>The $record_type you are trying to update belongs to an isolate to which your user account
-is not allowed to access.</p>
-<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
-HTML
-					$status = FAILURE;
-				}
 			}
 			if ( ( $status // 0 ) != FAILURE ) {
 				my ( @table_fields, @placeholders, @values );

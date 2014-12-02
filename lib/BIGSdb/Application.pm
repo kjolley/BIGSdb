@@ -103,9 +103,8 @@ sub new {
 			$self->_setup_prefstore;
 			if ( !$self->{'system'}->{'authentication'} ) {
 				my $logger = get_logger('BIGSdb.Application_Authentication');
-				$logger->logdie(
-"No authentication attribute set - set to either 'apache' or 'builtin' in the system tag of the XML database description."
-				);
+				$logger->logdie( "No authentication attribute set - set to either 'apache' or 'builtin' in the system tag of the XML "
+					  . "database description." );
 			}
 			$self->_initiate_authdb if $self->{'system'}->{'authentication'} eq 'builtin';
 			$self->_initiate_jobmanager( $config_dir, $dbase_config_dir )

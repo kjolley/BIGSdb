@@ -176,33 +176,6 @@ sub _insert {
 	if ( any { $table eq $_ } @tables ) {
 		my $method = "_check_$table";
 		$self->$method( $newdata, \@problems, $extra_inserts );
-	} elsif (
-		!@problems
-		&& ( $self->{'system'}->{'read_access'} eq 'acl'
-			|| ( $self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl' ) )
-		&& $self->{'username'}
-		&& !$self->is_admin
-		&& $table eq 'accession'
-		&& $self->{'system'}->{'dbtype'} eq 'isolates'
-	  )
-	{
-		my $isolate_id =
-		  $self->{'datastore'}->run_simple_query( "SELECT isolate_id FROM sequence_bin WHERE id=?", $newdata->{'seqbin_id'} )->[0];
-		if ( !$self->is_allowed_to_view_isolate($isolate_id) ) {
-			push @problems, "The sequence you are trying to add an accession to belongs to an isolate to which your user account "
-			  . "is not allowed to access.";
-		}
-	} elsif (
-		!@problems
-		&& ( $self->{'system'}->{'read_access'} eq 'acl'
-			|| ( $self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl' ) )
-		&& $self->{'username'}
-		&& !$self->is_admin
-		&& $q->param('isolate_id')
-		&& !$self->is_allowed_to_view_isolate( $q->param('isolate_id') )
-	  )
-	{
-		push @problems, "Your user account is not allowed to modify this isolate.\n";
 	}
 	if (@problems) {
 		local $" = "<br />\n";

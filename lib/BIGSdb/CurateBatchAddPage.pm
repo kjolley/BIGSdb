@@ -31,10 +31,10 @@ my $logger = get_logger('BIGSdb.Page');
 
 sub get_help_url {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	my $table = $q->param('table');
+	my $q      = $self->{'cgi'};
+	my $table  = $q->param('table');
 	return if !defined $table;
-	if ($table eq 'sequences'){
+	if ( $table eq 'sequences' ) {
 		return "$self->{'config'}->{'doclink'}/curator_guide.html#batch-adding-multiple-alleles";
 	}
 	return;
@@ -525,43 +525,9 @@ sub _check_data {
 				}
 			} elsif ( $table eq 'loci' ) {
 				$self->_check_data_loci( \%args );
-
-				#check that user is allowed to access this sequence bin record (controlled by isolate ACL)
-			} elsif (
-				(
-					$self->{'system'}->{'read_access'} eq 'acl'
-					|| ( $self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl' )
-				)
-				&& $self->{'username'}
-				&& !$self->is_admin
-				&& $table eq 'accession'
-				&& $self->{'system'}->{'dbtype'} eq 'isolates'
-			  )
-			{
-				my $isolate_id_ref =
-				  $self->{'datastore'}
-				  ->run_simple_query( "SELECT isolate_id FROM sequence_bin WHERE id=?", $data[ $file_header_pos{'seqbin_id'} ] );
-				if ( ref $isolate_id_ref eq 'ARRAY' && !$self->is_allowed_to_view_isolate( $isolate_id_ref->[0] ) ) {
-					$problems{$pk_combination} .= "The sequence you are trying to add an accession to belongs to an isolate "
-					  . "to which your user account is not allowed to access.";
-				}
-
-				#check that user is allowed to access this isolate record
-			} elsif (
-				(
-					$self->{'system'}->{'read_access'} eq 'acl'
-					|| ( $self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl' )
-				)
-				&& $self->{'username'}
-				&& !$self->is_admin
-				&& ( $table eq 'allele_designations' || $table eq 'sequence_bin' || $table eq 'isolate_aliases' )
-				&& !$self->is_allowed_to_view_isolate( $data[ $file_header_pos{'isolate_id'} ] )
-			  )
-			{
-				$problems{$pk_combination} .= "Your user account is not allowed to modify data for this isolate.";
-
-				#check that user is allowed to add sequences for this locus
 			}
+
+			#check that user is allowed to add sequences for this locus
 			if (   ( $table eq 'sequences' || $table eq 'sequence_refs' || $table eq 'accession' )
 				&& $self->{'system'}->{'dbtype'} eq 'sequences'
 				&& !$self->is_admin )
@@ -1119,8 +1085,13 @@ sub _check_data_sequences {
 			}
 		}
 		if ( ${ $arg_ref->{'continue'} } ) {
-			if ( ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' )
-				&& !BIGSdb::Utils::is_valid_DNA( ${ $arg_ref->{'value'} },{ diploid => ( ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? 1 : 0 ) } ) )
+			if (
+				( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' )
+				&& !BIGSdb::Utils::is_valid_DNA(
+					${ $arg_ref->{'value'} },
+					{ diploid => ( ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? 1 : 0 ) }
+				)
+			  )
 			{
 				if ( $q->param('complete_CDS') || $q->param('ignore_non_DNA') ) {
 					${ $arg_ref->{'continue'} } = 0;
@@ -1323,12 +1294,6 @@ sub _upload_data {
 			$logger->debug("INSERT: $qry");
 			my $curator = $self->get_curator_id;
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
-
-				#Set read ACL for 'All users' group
-				push @inserts, "INSERT INTO isolate_usergroup_acl (isolate_id,user_group_id,read,write) VALUES ($id,0,true,false)";
-
-				#Set read/write ACL for curator
-				push @inserts, "INSERT INTO isolate_user_acl (isolate_id,user_id,read,write) VALUES ($id,$curator,true,true)";
 				my $meta_inserts = $self->_prepare_metaset_insert( \@metafields, \%fieldorder, \@data );
 				push @inserts, @$meta_inserts;
 

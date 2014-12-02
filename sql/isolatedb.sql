@@ -144,38 +144,6 @@ ON UPDATE CASCADE
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON isolate_value_extended_attributes TO apache;
 
-CREATE TABLE isolate_user_acl (
-isolate_id integer NOT NULL,
-user_id integer NOT NULL,
-read boolean NOT NULL,
-write boolean NOT NULL,
-PRIMARY KEY (isolate_id,user_id),
-CONSTRAINT iua_isolate_id FOREIGN KEY (isolate_id) REFERENCES isolates
-ON DELETE CASCADE
-ON UPDATE CASCADE,
-CONSTRAINT iua_user_id FOREIGN KEY (user_id) REFERENCES users
-ON DELETE CASCADE
-ON UPDATE CASCADE
-);
-
-GRANT SELECT,UPDATE,INSERT,DELETE ON isolate_user_acl TO apache;
-
-CREATE TABLE isolate_usergroup_acl (
-isolate_id integer NOT NULL,
-user_group_id integer NOT NULL,
-read boolean NOT NULL,
-write boolean NOT NULL,
-PRIMARY KEY (isolate_id,user_group_id),
-CONSTRAINT iua2_isolate_id FOREIGN KEY (isolate_id) REFERENCES isolates
-ON DELETE CASCADE
-ON UPDATE CASCADE,
-CONSTRAINT iua2_user_group_id FOREIGN KEY (user_group_id) REFERENCES user_groups
-ON DELETE CASCADE
-ON UPDATE CASCADE
-);
-
-GRANT SELECT,UPDATE,INSERT,DELETE ON isolate_usergroup_acl TO apache;
-
 CREATE TABLE projects (
 id integer NOT NULL,
 short_description text NOT NULL,

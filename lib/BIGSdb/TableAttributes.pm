@@ -1333,24 +1333,6 @@ sub get_sequence_bin_table_attributes {
 	return $attributes;
 }
 
-sub get_isolate_user_acl_table_attributes {
-	my $attributes = [
-		{ name => 'isolate_id', type => 'int', required => 'yes', primary_key => 'yes', foreign_key => 'isolates' },
-		{
-			name           => 'user_id',
-			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
-			foreign_key    => 'users',
-			dropdown_query => 'yes',
-			labels         => '|$surname|, |$first_name|'
-		},
-		{ name => 'read',  type => 'bool', required => 'yes', default => 'true' },
-		{ name => 'write', type => 'bool', required => 'yes', default => 'false' }
-	];
-	return $attributes;
-}
-
 sub get_isolate_field_extended_attributes_table_attributes {
 	my ($self) = @_;
 	my $fields = $self->{'xmlHandler'}->get_field_list;
@@ -1399,24 +1381,6 @@ sub get_isolate_value_extended_attributes_table_attributes {
 		{ name => 'value',         type => 'text', required => 'yes' },
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' }
-	];
-	return $attributes;
-}
-
-sub get_isolate_usergroup_acl_table_attributes {
-	my $attributes = [
-		{ name => 'isolate_id', type => 'int', required => 'yes', primary_key => 'yes', foreign_key => 'isolates' },
-		{
-			name           => 'user_group_id',
-			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
-			foreign_key    => 'user_groups',
-			dropdown_query => 'yes',
-			labels         => '|$id|) |$description|'
-		},
-		{ name => 'read',  type => 'bool', required => 'yes', default => 'true' },
-		{ name => 'write', type => 'bool', required => 'yes', default => 'false' }
 	];
 	return $attributes;
 }

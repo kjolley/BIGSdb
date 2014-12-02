@@ -1304,8 +1304,6 @@ sub get_record_name {
 		isolate_aliases                   => 'isolate alias',
 		locus_aliases                     => 'locus alias',
 		curator_permissions               => 'curator permission record',
-		isolate_user_acl                  => 'isolate access control record',
-		isolate_usergroup_acl             => 'isolate group access control record',
 		client_dbases                     => 'client database',
 		client_dbase_loci                 => 'locus to client database definition',
 		client_dbase_schemes              => 'scheme to client database definition',
@@ -1379,7 +1377,7 @@ s/FROM $view/FROM $view LEFT JOIN allele_designations AS ordering ON ordering.is
 	return;
 }
 
-sub is_allowed_to_view_isolate {
+sub is_allowed_to_view_isolate {	#TODO Rewrite to use Datastore::run_query
 	my ( $self, $isolate_id ) = @_;
 	if ( !$self->{'sql'}->{'allowed_to_view'} ) {
 		$self->{'sql'}->{'allowed_to_view'} =
@@ -1637,8 +1635,6 @@ sub can_modify_table {
 		&& $self->{'permissions'}->{'modify_isolates'}
 	  )
 	{
-		return 1;
-	} elsif ( ( $table eq 'isolate_user_acl' || $table eq 'isolate_usergroup_acl' ) && $self->{'permissions'}->{'modify_isolates_acl'} ) {
 		return 1;
 	} elsif ( ( $table eq 'allele_designations' )
 		&& $self->{'permissions'}->{'designate_alleles'} )
@@ -2051,31 +2047,8 @@ sub initiate_view {
 	my $set_id = $self->get_set_id;
 	if ( defined $self->{'system'}->{'view'} && $set_id ) {
 		if ( $self->{'system'}->{'views'} && BIGSdb::Utils::is_int($set_id) ) {
-			my $view_ref = $self->{'datastore'}->run_simple_query( "SELECT view FROM set_view WHERE set_id=?", $set_id );
-			$self->{'system'}->{'view'} = $view_ref->[0] if ref $view_ref eq 'ARRAY';
-		}
-	}
-	if ( $username && ( $self->{'system'}->{'read_access'} eq 'acl' || ( ( $self->{'system'}->{'write_access'} // '' ) eq 'acl' ) ) ) {
-
-		#create view containing only isolates that are allowed to be viewed by user
-		my $status_ref = $self->{'datastore'}->run_simple_query( "SELECT status FROM users WHERE user_name=?", $username );
-		return if ref $status_ref ne 'ARRAY' || $status_ref->[0] eq 'admin';
-
-		#You need to be able to read and write to a record to view it in the curator's interface
-		my $write_clause = $curate ? ' AND write=true' : '';
-		my $view_clause = << "SQL";
-SELECT * FROM $self->{'system'}->{'view'} WHERE id IN (SELECT isolate_id FROM isolate_user_acl 
-LEFT JOIN users ON isolate_user_acl.user_id = users.id WHERE user_name='$username' AND read$write_clause) OR 
-id IN (SELECT isolate_id FROM isolate_usergroup_acl LEFT JOIN user_group_members 
-ON user_group_members.user_group=isolate_usergroup_acl.user_group_id LEFT JOIN users 
-ON user_group_members.user_id=users.id WHERE users.user_name ='$username' AND read$write_clause)
-SQL
-		eval { $self->{'db'}->do("CREATE TEMP VIEW tmp_userview AS $view_clause") };
-		if ($@) {
-			$logger->error("Can't create user view $@");
-			$self->{'db'}->rollback;
-		} else {
-			$self->{'system'}->{'view'} = 'tmp_userview';
+			my $set_view = $self->{'datastore'}->run_query( "SELECT view FROM set_view WHERE set_id=?", $set_id );
+			$self->{'system'}->{'view'} = $set_view if $set_view;
 		}
 	}
 	return;

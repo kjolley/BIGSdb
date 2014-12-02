@@ -210,17 +210,6 @@ sub _check_data {
 	{
 		say "<div class=\"box\" id=\"statusbad\"><p>Isolate id must be an integer and exist in the isolate table.</p></div>";
 		$continue = 0;
-	} elsif (
-		$q->param('isolate_id')
-		&& ( $self->{'system'}->{'read_access'} eq 'acl'
-			|| ( $self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl' ) )
-		&& $self->{'username'}
-		&& !$self->is_admin
-		&& !$self->is_allowed_to_view_isolate( $q->param('isolate_id') )
-	  )
-	{
-		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to modify this isolate record.</p></div>";
-		$continue = 0;
 	} elsif ( !$q->param('sender')
 		|| !BIGSdb::Utils::is_int( $q->param('sender') )
 		|| !$self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM users WHERE id=?", $q->param('sender') )->[0] )

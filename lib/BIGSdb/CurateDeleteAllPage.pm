@@ -90,35 +90,6 @@ sub _delete {
 	my ( $self, $table, $query ) = @_;
 	my $delete_qry = $query;
 	my $q          = $self->{'cgi'};
-	if (
-		(
-			$self->{'system'}->{'read_access'} eq 'acl'
-			|| ( $self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl' )
-		)
-		&& $self->{'username'}
-		&& !$self->is_admin
-	  )
-	{
-		if ( $table eq 'isolates' ) {
-			$delete_qry =~ s/WHERE/AND/;
-			$delete_qry =~ s/FROM $table/FROM isolates WHERE id IN (SELECT id FROM $self->{'system'}->{'view'})/;
-		} elsif ( $table eq 'allele_designations' || $table eq 'sequence_bin' || $table eq 'isolate_aliases' ) {
-			$delete_qry =~ s/WHERE/AND/;
-			$delete_qry =~ s/FROM $table/FROM $table WHERE isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})/;
-		} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' && ( $table eq 'allele_sequences' || $table eq 'accession' ) ) {
-			$delete_qry =~ s/WHERE/AND/;
-			$delete_qry =~
-s/FROM $table/FROM $table WHERE seqbin_id IN (SELECT seqbin_id FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bin.id WHERE sequence_bin.isolate_id IN (SELECT id FROM $self->{'system'}->{'view'}))/;
-		} elsif ( $table eq 'user_groups' ) {
-
-			#don't delete 'All users' table (id=0)
-			$delete_qry =~ s/WHERE/AND/;
-			$delete_qry =~ s/FROM $table/FROM $table WHERE id>0/;
-		} elsif ( $table eq 'user_group_members' ) {
-			$delete_qry =~ s/WHERE/AND/;
-			$delete_qry =~ s/FROM $table/FROM $table WHERE user_group>0/;
-		}
-	}
 	$delete_qry =~ s/ORDER BY.*//;
 	if ( $table eq 'loci' && $delete_qry =~ /JOIN scheme_members/ && $delete_qry =~ /scheme_id is null/ ) {
 		$delete_qry = "DELETE FROM loci WHERE id IN ($delete_qry)";
@@ -270,24 +241,6 @@ sub _print_interface {
 		  . qq(but any profiles will have to be reloaded.</p></div>);
 	}
 	my $count_qry = $query;
-	if (
-		(
-			$self->{'system'}->{'read_access'} eq 'acl'
-			|| ( $self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl' )
-		)
-		&& $self->{'username'}
-		&& !$self->is_admin
-	  )
-	{
-		if ( $table eq 'allele_designations' || $table eq 'sequence_bin' || $table eq 'isolate_aliases' ) {
-			$count_qry =~ s/WHERE/AND/;
-			$count_qry =~ s/FROM $table/FROM $table WHERE isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})/;
-		} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' && ( $table eq 'allele_sequences' || $table eq 'accession' ) ) {
-			$count_qry =~ s/WHERE/AND/;
-			$count_qry =~
-s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bin.id WHERE sequence_bin.isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})/;
-		}
-	}
 	if ( $table eq 'allele_sequences' ) {    #Query may join the sequence_flags table giving more rows than allele sequences.
 		$count_qry =~ s/SELECT \*/SELECT COUNT(DISTINCT allele_sequences.id)/;
 	} else {

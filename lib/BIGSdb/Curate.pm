@@ -37,7 +37,6 @@ use BIGSdb::CurateDeleteAllPage;
 use BIGSdb::CurateDeletePage;
 use BIGSdb::CurateExportConfig;
 use BIGSdb::CurateIndexPage;
-use BIGSdb::CurateIsolateACLPage;
 use BIGSdb::CurateIsolateAddPage;
 use BIGSdb::CurateIsolateDeletePage;
 use BIGSdb::CurateIsolateUpdatePage;
@@ -100,7 +99,6 @@ sub print_page {
 		profileInfo        => 'ProfileInfoPage',
 		alleleInfo         => 'AlleleInfoPage',
 		alleleQuery        => 'AlleleQueryPage',
-		isolateACL         => 'CurateIsolateACLPage',
 		fieldValues        => 'FieldHelpPage',
 		tableQuery         => 'TableQueryPage',
 		extractedSequence  => 'ExtractedSequencePage',

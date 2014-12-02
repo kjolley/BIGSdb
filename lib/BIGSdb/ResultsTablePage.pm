@@ -221,9 +221,6 @@ sub _print_curate_headerbar_functions {
 	if ( $self->can_modify_table($table) ) {
 		$self->_print_delete_all_function($table);
 		$self->_print_link_seq_to_experiment_function if $table eq 'sequence_bin';
-		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
-			$self->_print_access_control_function;
-		}
 		$self->_print_export_configuration_function($table);
 		if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' && $table eq 'sequences' && $self->can_modify_table('sequences') ) {
 			$self->_print_set_sequence_flags_function;
@@ -272,21 +269,6 @@ sub _print_link_seq_to_experiment_function {
 		$q->param( page => 'linkToExperiment' );
 		print $q->hidden($_) foreach qw (db page query_file list_file datatype);
 		print $q->submit( -name => 'Link to experiment', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
-		print $q->end_form;
-		print "</fieldset>";
-	}
-	return;
-}
-
-sub _print_access_control_function {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	if ( $self->{'system'}->{'read_access'} eq 'acl' && $self->can_modify_table('isolate_user_acl') ) {
-		print "<fieldset><legend>Access control</legend>\n";
-		print $q->start_form;
-		$q->param( page => 'isolateACL' );
-		print $q->hidden($_) foreach qw (db page table query_file list_file datatype);
-		print $q->submit( -name => 'Modify access', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
 		print $q->end_form;
 		print "</fieldset>";
 	}
@@ -460,10 +442,6 @@ sub _print_isolate_table {
 							say qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin&amp;)
 							  . qq(isolate_id=$id" class="action">upload</a></td>);
 						}
-						if ( $self->{'system'}->{'read_access'} eq 'acl' && $self->{'permissions'}->{'modify_isolates_acl'} ) {
-							say qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateACL&amp;)
-							  . qq(id=$id" class="action">Modify</a></td>);
-						}
 						print $data{'new_version'}
 						  ? qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'})
 						  . qq(&amp;page=info&amp;id=$data{'new_version'}">$data{'new_version'}</a></td>)
@@ -610,9 +588,6 @@ sub _print_isolate_table_header {
 		$fieldtype_header .= qq(<th rowspan="2">Delete</th><th rowspan="2">Update</th>);
 		if ( $self->can_modify_table('sequence_bin') ) {
 			$fieldtype_header .= qq(<th rowspan="2">Sequence bin</th>);
-		}
-		if ( $self->{'system'}->{'read_access'} eq 'acl' && $self->{'permissions'}->{'modify_isolates_acl'} ) {
-			$fieldtype_header .= qq(<th rowspan="2">Access control</th>);
 		}
 		$fieldtype_header .= qq(<th rowspan="2">New version</th>);
 	}

@@ -67,4 +67,5 @@ INSERT INTO curator_permissions (user_id,permission,curator,datestamp)
  sample_management;
  
 DROP TABLE user_permissions;
- 
+DROP TABLE isolate_user_acl;
+DROP TABLE isolate_usergroup_acl;

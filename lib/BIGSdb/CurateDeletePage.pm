@@ -58,14 +58,6 @@ sub print_content {
 			  . "table.</p></div>";
 		}
 		return;
-	} elsif ( ( $self->{'system'}->{'read_access'} eq 'acl' || ( ( $self->{'system'}->{'write_access'} // '' ) eq 'acl' ) )
-		&& $self->{'username'}
-		&& !$self->is_admin
-		&& $q->param('isolate_id')
-		&& !$self->is_allowed_to_view_isolate( $q->param('isolate_id') ) )
-	{
-		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to modify this isolate.</p></div>";
-		return;
 	} elsif ( ( $table eq 'sequence_refs' || $table eq 'accession' ) && $q->param('locus') ) {
 		my $locus = $q->param('locus');
 		if ( !$self->is_admin && !$self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $self->get_curator_id ) ) {
@@ -333,29 +325,9 @@ sub _delete {
 			  "Sequence $data->{'locus'}-$data->{'allele_id'} is referenced by $num allelic profile$plural - can not delete!<br />";
 			$proceed = 0;
 		}
-
-		#check isolate ACLs where appropriate
 	} elsif ( $proceed && $table eq 'allele_designations' && !$self->is_allowed_to_view_isolate( $data->{'isolate_id'} ) ) {
 		$nogo_buffer .= "Your user account is not allowed to delete allele designations for this isolate.<br />\n";
 		$proceed = 0;
-	} elsif (
-		$proceed
-		&& ( $self->{'system'}->{'read_access'} eq 'acl'
-			|| ( ( $self->{'system'}->{'write_access'} // '' ) eq 'acl' ) )
-		&& $self->{'username'}
-		&& !$self->is_admin
-		&& ( $table eq 'accession' || $table eq 'allele_sequences' )
-		&& $self->{'system'}->{'dbtype'} eq 'isolates'
-	  )
-	{
-		my $isolate_id =
-		  $self->{'datastore'}->run_simple_query( "SELECT isolate_id FROM sequence_bin WHERE id=?", $data->{'seqbin_id'} )->[0];
-		if ( !$self->is_allowed_to_view_isolate($isolate_id) ) {
-			my $record_type = $self->get_record_name($table);
-			$nogo_buffer .= "The $record_type you are trying to delete belongs to an isolate to which your user account is not "
-			  . "allowed to access.<br />";
-			$proceed = 0;
-		}
 	}
 	if ( !$proceed ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>$nogo_buffer</p><p>"

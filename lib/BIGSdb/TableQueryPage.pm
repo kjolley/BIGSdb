@@ -617,27 +617,6 @@ sub _run_query {
 		print "<div class=\"box\" id=\"statusbad\"><p>Problem with search criteria:</p>\n";
 		print "<p>@errors</p></div>\n";
 	} elsif ( $qry2 !~ /\(\)/ ) {
-		if (
-			(
-				$self->{'system'}->{'read_access'} eq 'acl'
-				|| ( $self->{'system'}->{'write_access'} && $self->{'system'}->{'write_access'} eq 'acl' )
-			)
-			&& $self->{'username'}
-			&& !$self->is_admin
-			&& $self->{'system'}->{'dbtype'} eq 'isolates'
-			&& any { $table eq $_ } qw (allele_designations sequence_bin isolate_aliases accession allele_sequences samples)
-		  )
-		{
-			if ( $table eq 'accession' || $table eq 'allele_sequences' ) {    #TODO should be able to remove allele_sequences here
-				$qry2 =~ s/WHERE/AND/;
-				$qry2 =~
-s/FROM $table/FROM $table LEFT JOIN sequence_bin ON $table.seqbin_id=sequence_bin.id WHERE sequence_bin.isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})/;
-				$logger->error($qry2);
-			} else {
-				$qry2 =~ s/WHERE/WHERE isolate_id IN (SELECT id FROM $self->{'system'}->{'view'}) AND/
-				  || $qry =~ s/FROM $table/FROM $table WHERE $table.isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})/;
-			}
-		}
 		my $args = { table => $table, query => $qry2, hidden_attributes => \@hidden_attributes };
 		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
 		$self->paged_display($args);

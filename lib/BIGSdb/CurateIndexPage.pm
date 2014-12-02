@@ -74,9 +74,6 @@ sub print_content {
 	}
 	if ( $system->{'dbtype'} eq 'isolates' ) {
 		my @tables = qw (isolates);
-		if ( ( $self->{'system'}->{'read_access'} eq 'acl' || ( ( $self->{'system'}->{'write_access'} // '' ) eq 'acl' ) ) ) {
-			push @tables, qw(isolate_user_acl isolate_usergroup_acl);
-		}
 		push @tables, qw (isolate_value_extended_attributes projects project_members isolate_aliases refs
 		  allele_designations sequence_bin accession experiments experiment_sequences allele_sequences samples);
 		foreach (@tables) {
@@ -802,34 +799,6 @@ sub _print_scheme_fields {
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'scheme_fields', $td,
 		{ requires => 'schemes', comments => 'Defines which fields belong to a scheme.', set_string => $set_string } );
-}
-
-sub _print_isolate_user_acl {
-	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table(
-		'isolate_user_acl',
-		$td,
-		{
-			title    => 'isolate user access control list',
-			comments => 'Define which users can access or update specific isolate records.  It is usually easier to modify these '
-			  . 'controls by searching or browsing isolates and selecting the appropriate options.',
-			set_string => $set_string
-		}
-	);
-}
-
-sub _print_isolate_usergroup_acl {
-	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table(
-		'isolate_usergroup_acl',
-		$td,
-		{
-			title    => 'isolate user group access control list',
-			comments => 'Define which usergroups can access or update specific isolate records. It is usually easier to modify these '
-			  . 'controls by searching or browsing isolates and selecting the appropriate options.',
-			set_string => $set_string
-		}
-	);
 }
 
 sub _print_table {
