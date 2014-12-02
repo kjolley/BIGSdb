@@ -34,4 +34,5 @@ INSERT INTO curator_permissions (user_id,permission,curator,datestamp)
  modify_schemes;
 
 DROP TABLE user_permissions;
- 
+DELETE FROM user_group_members WHERE user_group=0;
+DELETE FROM user_groups WHERE id=0;

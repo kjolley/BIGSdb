@@ -193,13 +193,6 @@ sub _insert {
 		}
 		local $" = ',';
 		my $qry = "INSERT INTO $table (@table_fields) VALUES (@placeholders)";
-		if ( $table eq 'users' ) {
-			push @$extra_inserts,
-			  {
-				statement => 'INSERT INTO user_group_members (user_id,user_group,curator,datestamp) VALUES (?,?,?,?)',
-				arguments => [ $newdata->{'id'}, 0, $newdata->{'curator'}, 'now' ]
-			  };
-		}
 		my $continue = 1;
 		eval {
 			$self->{'db'}->do( $qry, undef, @values );

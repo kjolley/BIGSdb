@@ -47,8 +47,6 @@ ON DELETE NO ACTION
 ON UPDATE CASCADE
 );
 
-INSERT INTO user_groups VALUES (0,'All users','today',0);
-
 GRANT SELECT,UPDATE,INSERT,DELETE ON user_groups TO apache;
 
 CREATE TABLE user_group_members (

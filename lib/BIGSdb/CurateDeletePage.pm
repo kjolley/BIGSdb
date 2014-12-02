@@ -267,18 +267,6 @@ sub _delete {
 				}
 			}
 		}
-
-		#don't delete 'All users' group
-	} elsif ( $table eq 'user_groups' ) {
-		if ( defined $data->{'id'} && $data->{'id'} == 0 ) {
-			$nogo_buffer .= "You can not delete the 'All users' group!<br />";
-			$proceed = 0;
-		}
-	} elsif ( $table eq 'user_group_members' ) {
-		if ( defined $data->{'user_group'} && $data->{'user_group'} == 0 ) {
-			$nogo_buffer .= "You can not remove members from the 'All users' group!<br />";
-			$proceed = 0;
-		}
 	}
 
 	#Check if record is a foreign key in another table

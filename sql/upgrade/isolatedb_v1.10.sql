@@ -69,3 +69,5 @@ INSERT INTO curator_permissions (user_id,permission,curator,datestamp)
 DROP TABLE user_permissions;
 DROP TABLE isolate_user_acl;
 DROP TABLE isolate_usergroup_acl;
+DELETE FROM user_group_members WHERE user_group=0;
+DELETE FROM user_groups WHERE id=0;

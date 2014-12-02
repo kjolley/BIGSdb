@@ -1366,10 +1366,6 @@ sub _upload_data {
 					  "INSERT INTO locus_descriptions (locus,curator,datestamp,full_name,product,description) VALUES "
 					  . "('$id',$curator,'now','$full_name','$product','$description')";
 				}
-			} elsif ( $table eq 'users' ) {
-				$qry = "INSERT INTO user_group_members (user_id,user_group,curator,datestamp) VALUES ($id,0,$curator,'today')";
-				push @inserts, $qry;
-				$logger->debug("INSERT: $qry");
 			} elsif ( $table eq 'sequences' ) {
 				( my $cleaned_locus = $locus // $data[ $fieldorder{'locus'} ] ) =~ s/'/\\'/g;
 				( my $allele_id = $data[ $fieldorder{'allele_id'} ] ) =~ s/'/\\'/g;
