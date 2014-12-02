@@ -140,7 +140,7 @@ HTML
 		}
 		if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
 			push @tables, 'sets';
-			my $set_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM sets")->[0];
+			my $set_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM sets");
 			if ($set_count) {
 				push @tables, qw( set_loci set_schemes);
 				if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -236,7 +236,7 @@ sub _print_user_groups {
 
 sub _print_isolates {
 	my ( $self, $td, $set_string ) = @_;
-	my $exists     = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'})")->[0];
+	my $exists     = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'})");
 	my $query_cell = $exists
 	  ? qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query$set_string">query</a> | 
 <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=browse$set_string">browse</a> |
@@ -273,7 +273,7 @@ sub _print_isolate_field_extended_attributes {
 
 sub _print_isolate_value_extended_attributes {
 	my ( $self, $td, $set_string ) = @_;
-	my $count_att = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM isolate_field_extended_attributes")->[0];
+	my $count_att = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM isolate_field_extended_attributes");
 	throw BIGSdb::DataException("No extended attributes") if !$count_att;
 	return $self->_print_table(
 		'isolate_value_extended_attributes',
@@ -294,9 +294,9 @@ sub _print_refs {
 
 sub _print_allele_designations {
 	my ( $self, $td, $set_string ) = @_;
-	my $isolates_exists = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'})")->[0];
+	my $isolates_exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'})");
 	throw BIGSdb::DataException("No isolates") if !$isolates_exists;
-	my $exists = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT isolate_id FROM allele_designations)")->[0];
+	my $exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT isolate_id FROM allele_designations)");
 	my $query_cell =
 	  $exists
 	  ? "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=allele_designations"
@@ -314,9 +314,9 @@ HTML
 
 sub _print_sequence_bin {
 	my ( $self, $td, $set_string ) = @_;
-	my $isolates_exists = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'})")->[0];
+	my $isolates_exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'})");
 	throw BIGSdb::DataException("No isolates") if !$isolates_exists;
-	my $exists = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT id FROM sequence_bin)")->[0];
+	my $exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM sequence_bin)");
 	my $query_cell =
 	  $exists
 	  ? "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=sequence_bin$set_string\">?</a>"
@@ -333,7 +333,7 @@ HTML
 
 sub _print_sequence_attributes {
 	my ( $self, $td, $set_string ) = @_;
-	my $exists = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT key FROM sequence_attributes)")->[0];
+	my $exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT key FROM sequence_attributes)");
 	my $query_cell =
 	  $exists
 	  ? "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=sequence_attributes"
@@ -401,9 +401,9 @@ HTML
 
 sub _print_allele_sequences {
 	my ( $self, $td, $set_string ) = @_;
-	my $seqbin_exists = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT id FROM sequence_bin)")->[0];
+	my $seqbin_exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM sequence_bin)");
 	throw BIGSdb::DataException("No sequences in bin") if !$seqbin_exists;
-	my $exists = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT seqbin_id FROM allele_sequences)")->[0];
+	my $exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT seqbin_id FROM allele_sequences)");
 	my $query_cell =
 	  $exists
 	  ? "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=allele_sequences"
@@ -453,8 +453,7 @@ HTML
 sub _print_locus_descriptions {
 	my ( $self, $td, $set_string ) = @_;
 	if ( !$self->is_admin ) {
-		my $allowed =
-		  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM locus_curators WHERE curator_id=?", $self->get_curator_id )->[0];
+		my $allowed = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM locus_curators WHERE curator_id=?", $self->get_curator_id );
 		return if !$allowed;
 	}
 	return $self->_print_table( 'locus_descriptions', $td, set_string => $set_string );
@@ -501,13 +500,16 @@ sub _print_profiles {
 	my $schemes;
 	my $set_id = $self->get_set_id;
 	if ( $self->is_admin ) {
-		$schemes =
-		  $self->{'datastore'}->run_list_query(
-			    "SELECT DISTINCT id FROM schemes RIGHT JOIN scheme_members ON schemes.id=scheme_members.scheme_id JOIN scheme_fields ON "
-			  . "schemes.id=scheme_fields.scheme_id WHERE primary_key" );
+		$schemes = $self->{'datastore'}->run_query(
+			"SELECT DISTINCT id FROM schemes RIGHT JOIN scheme_members ON schemes.id=scheme_members.scheme_id JOIN scheme_fields ON "
+			  . "schemes.id=scheme_fields.scheme_id WHERE primary_key",
+			undef,
+			{ fetch => 'col_arrayref' }
+		);
 	} else {
 		$schemes =
-		  $self->{'datastore'}->run_list_query( "SELECT scheme_id FROM scheme_curators WHERE curator_id=?", $self->get_curator_id );
+		  $self->{'datastore'}
+		  ->run_query( "SELECT scheme_id FROM scheme_curators WHERE curator_id=?", $self->get_curator_id, { fetch => 'col_arrayref' } );
 	}
 	my $buffer;
 	my %desc;
@@ -565,10 +567,10 @@ sub _print_profile_refs {
 	my ( $self, $td, $set_string ) = @_;
 	my $set_id = $self->get_set_id;
 	if ($set_id) {
-		my $schemes_in_set = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM set_schemes WHERE set_id=?", $set_id )->[0];
+		my $schemes_in_set = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM set_schemes WHERE set_id=?", $set_id );
 		return !$schemes_in_set;
 	} else {
-		my $scheme_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM schemes")->[0];
+		my $scheme_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM schemes");
 		return if !$scheme_count;
 	}
 	return $self->_print_table( 'profile_refs', $td, { title => 'PubMed links (to profiles)', set_string => $set_string } );
@@ -589,7 +591,7 @@ sub _print_project_members {
 
 sub _print_loci {
 	my ( $self, $td, $set_string ) = @_;
-	my $exists = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT id FROM loci)")->[0];
+	my $exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM loci)");
 	my $query_cell =
 	  $exists
 	  ? "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=loci$set_string\">?</a>"
@@ -745,7 +747,7 @@ sub _print_client_dbase_schemes {
 
 sub _print_composite_fields {
 	my ( $self, $td, $set_string ) = @_;
-	my $exists = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT id FROM composite_fields)")->[0];
+	my $exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM composite_fields)");
 	my $query_cell =
 	  $exists
 	  ? "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=compositeQuery$set_string\">?</a>"
@@ -837,7 +839,7 @@ sub _print_table {
 	if ( $values->{'requires'} ) {
 		my @requires = split /,/, $values->{'requires'};
 		foreach my $required (@requires) {
-			my $required_value_exists = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT * FROM $required)")->[0];
+			my $required_value_exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $required)");
 			throw BIGSdb::DataException("Required parent record does not exist.") if !$required_value_exists;
 		}
 	}
@@ -852,7 +854,7 @@ sub _print_table {
 	} else {
 		$buffer .= "<td></td>" x 2;
 	}
-	my $records_exist = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT * FROM $table)")->[0];
+	my $records_exist = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $table)");
 	$buffer .=
 	  $records_exist
 	  ? "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$table$set_string\">?</a></td>"
