@@ -28,6 +28,10 @@ sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say "<h1>Set curator permissions</h1>";
+	if ( !$self->can_modify_table('curator_permissions') ) {
+		say qq(<div class="box" id="statusbad"><p>Your account has insufficient privileges to modify curator permissions.</p></div>);
+		return;	
+	}
 	my $curators =
 	  $self->{'datastore'}
 	  ->run_query( "SELECT * FROM users WHERE status='curator' AND id>0", undef, { fetch => 'all_hashref', key => 'id' } );
