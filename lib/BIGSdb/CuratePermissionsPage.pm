@@ -24,6 +24,11 @@ use parent qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
+sub get_help_url {
+	my ($self) = @_;
+	return "$self->{'config'}->{'doclink'}/administration.html#curator-permissions";
+}
+
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
