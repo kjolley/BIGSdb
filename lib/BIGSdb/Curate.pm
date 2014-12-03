@@ -146,7 +146,7 @@ sub print_page {
 	my $user_status_ref =
 	  $self->{'datastore'}->run_simple_query( "SELECT status FROM users WHERE user_name=?", $page_attributes{'username'} );
 	$user_status = $user_status_ref->[0] if ref $user_status_ref eq 'ARRAY';
-	if ( !defined $user_status || ( $user_status ne 'admin' && $user_status ne 'curator' ) ) {
+	if ( !defined $user_status || ( $user_status eq 'user' ) ) {
 		$page_attributes{'error'} = 'invalidCurator';
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
 		$page->print_page_content;

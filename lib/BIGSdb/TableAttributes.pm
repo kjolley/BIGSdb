@@ -39,12 +39,12 @@ sub get_isolate_aliases_table_attributes {
 sub get_users_table_attributes {
 	my $attributes = [
 		{ name => 'id',          type => 'int',  required => 'yes', length => 6,  unique         => 'yes', primary_key    => 'yes' },
-		{ name => 'user_name',   type => 'text', required => 'yes', length => 12, unique         => 'yes', dropdown_query => 'yes', },
+		{ name => 'user_name',   type => 'text', required => 'yes', length => 12, unique         => 'yes', dropdown_query => 'yes' },
 		{ name => 'surname',     type => 'text', required => 'yes', length => 40, dropdown_query => 'yes' },
 		{ name => 'first_name',  type => 'text', required => 'yes', length => 40, dropdown_query => 'yes' },
 		{ name => 'email',       type => 'text', required => 'yes', length => 50 },
 		{ name => 'affiliation', type => 'text', required => 'yes', length => 120 },
-		{ name => 'status',       type => 'text', required => 'yes', optlist => 'user;curator;admin', default => 'user' },
+		{ name => 'status',       type => 'text', required => 'yes', optlist => 'user;curator;submitter;admin', default => 'user' },
 		{ name => 'date_entered', type => 'date', required => 'yes' },
 		{ name => 'datestamp',    type => 'date', required => 'yes' },
 		{ name => 'curator', type => 'int', required => 'yes', dropdown_query => 'yes' }
@@ -54,8 +54,8 @@ sub get_users_table_attributes {
 
 sub get_user_groups_table_attributes {
 	my $attributes = [
-		{ name => 'id',          type => 'int',  required => 'yes', length => 6,  unique => 'yes', primary_key    => 'yes', },
-		{ name => 'description', type => 'text', required => 'yes', length => 60, unique => 'yes', dropdown_query => 'yes', },
+		{ name => 'id',          type => 'int',  required => 'yes', length => 6,  unique => 'yes', primary_key    => 'yes' },
+		{ name => 'description', type => 'text', required => 'yes', length => 60, unique => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp',   type => 'date', required => 'yes' },
 		{ name => 'curator', type => 'int', required => 'yes', dropdown_query => 'yes' }
 	];
@@ -91,8 +91,8 @@ sub get_curator_permissions_table_attributes {
 	my ($self) = @_;
 	my @optlist = $self->{'system'}->{'dbtype'} eq 'isolates'
 	  ? qw (disable_access modify_users modify_usergroups set_user_passwords modify_isolates modify_projects modify_loci modify_schemes
-	  modify_composites modify_field_attributes modify_value_attributes modify_probes modify_sequences tag_sequences designate_alleles
-	  sample_management)
+	  modify_composites modify_field_attributes modify_value_attributes modify_probes modify_sequences modify_experiments tag_sequences 
+	  designate_alleles sample_management)
 	  : qw(disable_access modify_users modify_usergroups set_user_passwords modify_loci modify_schemes);
 	local $" = ';';
 	my $attributes = [

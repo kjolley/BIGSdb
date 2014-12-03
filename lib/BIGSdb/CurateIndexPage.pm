@@ -110,15 +110,9 @@ sub print_content {
 		}
 	}
 	if ($buffer) {
-		print <<"HTML";
-<div class="box" id="index">
-<img src="/images/icons/64x64/edit.png" alt=\"\" />
-<h2>Add, update or delete records</h2>
-<table style="text-align:center"><tr><th>Record type</th><th>Add</th><th>Batch Add</th><th>Update or delete</th><th>Comments</th></tr>
-$buffer
-</table>
-</div>
-HTML
+		say qq(<div class="box" id="index"><img src="/images/icons/64x64/edit.png" alt="" /><h2>Add, update or delete records</h2>\n)
+		  . qq(<table style="text-align:center"><tr><th>Record type</th><th>Add</th><th>Batch Add</th><th>Update or delete</th>)
+		  . qq(<th>Comments</th></tr>\n$buffer</table></div>);
 	}
 	undef $buffer;
 	$td = 1;
@@ -164,44 +158,37 @@ HTML
 	}
 	my $list_buffer;
 	if ( $self->{'system'}->{'authentication'} eq 'builtin' && ( $self->{'permissions'}->{'set_user_passwords'} || $self->is_admin ) ) {
-		$list_buffer .= "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=setPassword\">"
-		  . "Set user passwords</a> - Set a user password to enable them to log on or change an existing password.</li>\n";
+		$list_buffer .= qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=setPassword">)
+		  . qq(Set user passwords</a> - Set a user password to enable them to log on or change an existing password.</li>\n);
 		$can_do_something = 1;
 	}
 	if ( $self->{'permissions'}->{'modify_loci'} || $self->{'permissions'}->{'modify_schemes'} || $self->is_admin ) {
 		$list_buffer .=
-		    "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configCheck\">"
-		  . "Configuration check</a> - Checks database connectivity for loci and schemes and that required helper "
-		  . "applications are properly installed.</li>\n";
+		    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configCheck">Configuration )
+		  . qq(check</a> - Checks database connectivity for loci and schemes and that required helper applications are properly installed.)
+		  . qq(</li>\n);
 		if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-			$list_buffer .= "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configRepair\">"
-			  . "Configuration repair</a> - Rebuild scheme tables</li>\n";
+			$list_buffer .= qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configRepair">)
+			  . qq(Configuration repair</a> - Rebuild scheme tables</li>\n);
 		}
 		$can_do_something = 1;
 	}
 	if ( $buffer || $list_buffer ) {
-		print <<"HTML";
-<div class="box" id="restricted">
-<img src="/images/icons/64x64/configure.png" alt=\"\" />
-<h2>Database configuration</h2>
-HTML
+		say qq(<div class="box" id="restricted"><img src="/images/icons/64x64/configure.png" alt="" /><h2>Database configuration</h2>);
 	}
 	if ($buffer) {
-		print <<"HTML";
-<table style="text-align:center"><tr><th>Table</th><th>Add</th><th>Batch Add</th><th>Update or delete</th><th>Comments</th></tr>		
-$buffer
-</table>
-HTML
+		say qq(<table style="text-align:center"><tr><th>Table</th><th>Add</th><th>Batch Add</th><th>Update or delete</th><th>Comments</th>)
+		  . qq(</tr>$buffer</table>);
 	}
 	if ($list_buffer) {
 		say "<ul>\n$list_buffer</ul>";
 	}
 	if ( $buffer || $list_buffer ) {
-		say "</div>";
+		say '</div>';
 	}
 	if ( !$can_do_something ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Oh dear.  Although you are set as a curator, you haven't been granted specific "
-		  . "permission to do anything.  Please contact the database administrator to set your appropriate permissions.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Although you are set as a curator/submitter, you haven't been granted specific )
+		  . qq(permission to do anything.  Please contact the database administrator to set your appropriate permissions.</p></div>);
 	}
 	return;
 }
@@ -221,7 +208,7 @@ sub _print_curator_permissions {
 	my ( $self, $td, $set_string ) = @_;
 	return
 	    qq(<tr class="td$td"><td>curator permissions<td></td><td><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'})
-	  . qq(&amp;page=curatorPermissions$set_string">?</td><td class="comment" style="text-align:left">Set curator permissions for )
+	  . qq(&amp;page=curatorPermissions$set_string">?</a></td><td class="comment" style="text-align:left">Set curator permissions for )
 	  . qq(individual users - these are only active for users with a status of 'curator' in the users table.</td></tr>);
 }
 

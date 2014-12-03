@@ -35,11 +35,12 @@ sub print_content {
 	say "<h1>Set curator permissions</h1>";
 	if ( !$self->can_modify_table('curator_permissions') ) {
 		say qq(<div class="box" id="statusbad"><p>Your account has insufficient privileges to modify curator permissions.</p></div>);
-		return;	
+		return;
 	}
 	my $curators =
 	  $self->{'datastore'}
-	  ->run_query( "SELECT * FROM users WHERE status='curator' AND id>0", undef, { fetch => 'all_hashref', key => 'id' } );
+	  ->run_query( "SELECT * FROM users WHERE status IN ('curator','submitter') AND id>0", undef, { fetch => 'all_hashref', key => 'id' } );
+	my $submitter_allowed = { modify_isolates => 1, modify_sequences => 1, tag_sequences => 1, designate_alleles => 1 };
 	if ( !%$curators ) {
 		say qq(<div class="box" id="statusbad"><p>There are no curator defined for this database.</p></div>);
 		return;
@@ -79,6 +80,8 @@ sub print_content {
 		my $curator_count = @curator_list;
 		my %selected = map { $_ => 1 } @curator_list;
 		say qq(<div class="box" id="resultstable"><div class="scrollable">);
+		say qq(<p>Check the boxes for the required permissions.  Users with a status of 'submitter' have a restricted list of allowed )
+		  . qq(permissions that can be selected.</p>);
 		say qq(<fieldset style="float:left"><legend>Update permissions</legend>);
 		say $q->start_form;
 		say qq(<table class="resultstable"><tr><th rowspan="2">Permission</th><th colspan="$curator_count">Curator</th><th rowspan="2">)
@@ -99,12 +102,16 @@ sub print_content {
 			foreach my $user_id ( sort { $curators->{$a}->{'surname'} cmp $curators->{$b}->{'surname'} } keys %$curators ) {
 				next if !$selected{$user_id};
 				print q(<td>);
-				print $q->checkbox(
-					-name    => "$permission\_$user_id",
-					-id      => "$permission\_$user_id",
-					-label   => '',
-					-checked => $permissions->{$user_id}->{$permission}
-				);
+				if ( $curators->{$user_id}->{'status'} eq 'curator'
+					|| ( $curators->{$user_id}->{'status'} eq 'submitter' && $submitter_allowed->{$permission} ) )
+				{
+					print $q->checkbox(
+						-name    => "$permission\_$user_id",
+						-id      => "$permission\_$user_id",
+						-label   => '',
+						-checked => $permissions->{$user_id}->{$permission}
+					);
+				}
 				print q(</td>);
 			}
 			print q(<td>);

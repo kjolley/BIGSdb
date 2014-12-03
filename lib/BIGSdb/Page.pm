@@ -23,7 +23,7 @@ use 5.010;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use Error qw(:try);
-use List::MoreUtils qw(uniq any none);
+use List::MoreUtils qw(uniq none);
 use autouse 'Data::Dumper' => qw(Dumper);
 use Memoize;
 memoize( 'clean_locus', NORMALIZER => '_normalize_clean_locus' );
@@ -1377,7 +1377,7 @@ s/FROM $view/FROM $view LEFT JOIN allele_designations AS ordering ON ordering.is
 	return;
 }
 
-sub is_allowed_to_view_isolate {	#TODO Rewrite to use Datastore::run_query
+sub is_allowed_to_view_isolate {    #TODO Rewrite to use Datastore::run_query
 	my ( $self, $isolate_id ) = @_;
 	if ( !$self->{'sql'}->{'allowed_to_view'} ) {
 		$self->{'sql'}->{'allowed_to_view'} =
@@ -1609,110 +1609,108 @@ sub is_admin {
 		my $status =
 		  $self->{'datastore'}
 		  ->run_query( "SELECT status FROM users WHERE user_name=?", $self->{'username'}, { cache => 'Page::is_admin' } );
-		return 0 if !$status;
+		return if !$status;
 		return 1 if $status eq 'admin';
 	}
-	return 0;
+	return;
 }
 
 sub can_modify_table {
 	my ( $self, $table ) = @_;
-	my $scheme_id = $self->{'cgi'}->param('scheme_id');
-	my $locus     = $self->{'cgi'}->param('locus');
-	return 0 if $table eq 'history' || $table eq 'profile_history';
+	my $q         = $self->{'cgi'};
+	my $scheme_id = $q->param('scheme_id');
+	my $locus     = $q->param('locus');
+	return if $table eq 'history' || $table eq 'profile_history';
 	return 1 if $self->is_admin;
-	if ( $table eq 'users' && $self->{'permissions'}->{'modify_users'} ) {
-		return 1;
-	} elsif ( ( $table eq 'user_groups' || $table eq 'user_group_members' ) && $self->{'permissions'}->{'modify_usergroups'} ) {
-		return 1;
-	} elsif (
-		$self->{'system'}->{'dbtype'} eq 'isolates' && (
-			any {
-				$table eq $_;
-			}
-			qw(isolates isolate_aliases refs)
-		)
-		&& $self->{'permissions'}->{'modify_isolates'}
-	  )
-	{
-		return 1;
-	} elsif ( ( $table eq 'allele_designations' )
-		&& $self->{'permissions'}->{'designate_alleles'} )
-	{
-		return 1;
-	} elsif (
-		(
-			$self->{'system'}->{'dbtype'} eq 'isolates' && (
-				any {
-					$table eq $_;
-				}
-				qw (sequence_bin accession experiments experiment_sequences )
-			)
-		)
-		&& $self->{'permissions'}->{'modify_sequences'}
-	  )
-	{
-		return 1;
-	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' && ( $table eq 'sequences' || $table eq 'locus_descriptions' ) ) {
-		if ( !$locus ) {
-			return 1;
-		} else {
+
+	#Users
+	return 1 if $table eq 'users' && $self->{'permissions'}->{'modify_users'};
+
+	#User groups
+	return 1 if ( $table eq 'user_groups' || $table eq 'user_group_members' ) && $self->{'permissions'}->{'modify_usergroups'};
+
+	#Loci
+	my %locus_tables = map { $_ => 1 } qw (loci locus_aliases client_dbases client_dbase_loci client_dbase_schemes
+	  locus_client_display_fields locus_extended_attributes locus_curators);
+	return 1 if $locus_tables{$table} && $self->{'permissions'}->{'modify_loci'};
+
+	#Schemes
+	my %scheme_tables = map { $_ => 1 } qw(schemes scheme_members scheme_fields scheme_curators);
+	return 1 if $scheme_tables{$table} && $self->{'permissions'}->{'modify_schemes'};
+
+	#Isolate only tables
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+
+		#Isolates
+		my %isolate_tables = map { $_ => 1 } qw (isolates isolate_aliases refs);
+		return 1 if $isolate_tables{$table} && $self->{'permissions'}->{'modify_isolates'};
+
+		#Allele designations
+		return 1 if $table eq 'allele_designations' && $self->{'permissions'}->{'designate_alleles'};
+
+		#Sequence bin
+		my %seq_tables = map { $_ => 1 } qw (sequence_bin sequence_bin);
+		return 1 if $seq_tables{$table} && $self->{'system'}->{'dbtype'} eq 'isolates';
+
+		#Experiments
+		my %exp_tables = map { $_ => 1 } qw (experiments experiment_sequences);
+		return 1 if $exp_tables{$table} && $self->{'permissions'}->{'modify_experiments'};
+
+		#Sequence tags
+		return 1 if $table eq 'allele_sequences' && $self->{'permissions'}->{'tag_sequences'};
+
+		#Composite fields
+		my %comp_tables = map { $_ => 1 } qw (composite_fields composite_field_values);
+		return 1 if $comp_tables{$table} && $self->{'permissions'}->{'modify_composites'};
+
+		#Projects
+		my %project_tables = map { $_ => 1 } qw (projects project_members);
+		return 1 if $project_tables{$table} && $self->{'permissions'}->{'modify_projects'};
+		$logger->error( $self->{'xmlHandler'}->get_sample_field_list );
+
+		#Samples
+		return 1
+		  if $table eq 'samples'
+		  && $self->{'permissions'}->{'sample_management'}
+		  && @{ $self->{'xmlHandler'}->get_sample_field_list };
+
+		#Extended attributes
+		return 1 if $table eq 'isolate_field_extended_attributes' && $self->{'permissions'}->{'modify_field_attributes'};
+		return 1 if $table eq 'isolate_value_extended_attributes' && $self->{'permissions'}->{'modify_value_attributes'};
+
+		#Genome filtering
+		my %filter_tables = map { $_ => 1 } qw (pcr pcr_locus probes probe_locus);
+		return 1 if $filter_tables{$table} && $self->{'permissions'}->{'modify_probes'};
+	} else {
+
+		#Sequence definition database only tables
+		#Alleles and locus descriptions
+		my %seq_tables = map { $_ => 1 } qw (sequences locus_descriptions );
+		if ( $seq_tables{$table} ) {
+			return 1 if !$locus;
 			return $self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $self->get_curator_id );
 		}
-	} elsif ( $table eq 'allele_sequences' && $self->{'permissions'}->{'tag_sequences'} ) {
-		return 1;
-	} elsif ( $table eq 'profile_refs' ) {
-		my $allowed =
-		  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM scheme_curators WHERE curator_id=?)", $self->get_curator_id );
-		return $allowed;
-	} elsif ( ( $table eq 'profiles' || $table eq 'profile_fields' || $table eq 'profile_members' ) ) {
-		return 0 if !$scheme_id;
-		my $allowed = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM scheme_curators WHERE scheme_id=? AND curator_id=?)",
-			[ $scheme_id, $self->get_curator_id ] );
-		return $allowed;
-	} elsif (
-		(
-			any {
-				$table eq $_;
-			}
-			qw (loci locus_aliases client_dbases client_dbase_loci client_dbase_schemes locus_client_display_fields
-			locus_extended_attributes locus_curators)
-		)
-		&& $self->{'permissions'}->{'modify_loci'}
-	  )
-	{
-		return 1;
-	} elsif ( ( $table eq 'composite_fields' || $table eq 'composite_field_values' ) && $self->{'permissions'}->{'modify_composites'} ) {
-		return 1;
-	} elsif ( ( $table eq 'schemes' || $table eq 'scheme_members' || $table eq 'scheme_fields' || $table eq 'scheme_curators' )
-		&& $self->{'permissions'}->{'modify_schemes'} )
-	{
-		return 1;
-	} elsif ( ( $table eq 'projects' || $table eq 'project_members' ) && $self->{'permissions'}->{'modify_projects'} ) {
-		return 1;
-	} elsif ( $table eq 'samples' && $self->{'permissions'}->{'sample_management'} && @{ $self->{'xmlHandler'}->get_sample_field_list } ) {
-		return 1;
-	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' && ( $table eq 'sequence_refs' || $table eq 'accession' ) ) {
-		my $allowed =
-		  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM locus_curators WHERE curator_id=?)", $self->get_curator_id );
-		return $allowed;
-	} elsif ( $table eq 'isolate_field_extended_attributes' && $self->{'permissions'}->{'modify_field_attributes'} ) {
-		return 1;
-	} elsif ( $table eq 'isolate_value_extended_attributes' && $self->{'permissions'}->{'modify_value_attributes'} ) {
-		return 1;
-	} elsif (
-		(
-			any {
-				$table eq $_;
-			}
-			qw (pcr pcr_locus probes probe_locus)
-		)
-		&& $self->{'permissions'}->{'modify_probes'}
-	  )
-	{
-		return 1;
+
+		#Profile refs
+		return $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM scheme_curators WHERE curator_id=?)", $self->get_curator_id )
+		  if $table eq 'profile_refs';
+
+		#Profiles
+		my %profile_tables = map { $_ => 1 } qw (profiles profile_fields profile_members);
+		if ( $profile_tables{$table} ) {
+			return 0 if !$scheme_id;
+			return $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM scheme_curators WHERE scheme_id=? AND curator_id=?)",
+				[ $scheme_id, $self->get_curator_id ] );
+		}
+
+		#Sequence refs
+		my %seq_ref_tables = map { $_ => 1 } qw(sequence_refs accession);
+		return $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM locus_curators WHERE curator_id=?)", $self->get_curator_id )
+		  if ( $seq_ref_tables{$table} );
 	}
-	return 0;
+
+	#Default deny
+	return;
 }
 
 sub print_warning_sign {
@@ -1736,10 +1734,7 @@ sub get_curator_id {
 			my $qry = "SELECT id,status FROM users WHERE user_name=?";
 			my $values = $self->{'datastore'}->run_query( $qry, $self->{'username'}, { fetch => 'row_hashref' } );
 			return 0 if ref $values ne 'HASH';
-			if (   $values->{'status'}
-				&& $values->{'status'} ne 'curator'
-				&& $values->{'status'} ne 'admin' )
-			{
+			if ( ( $values->{'status'} // '' ) eq 'user' ) {
 				$self->{'cache'}->{'curator_id'} = 0;
 			} else {
 				$self->{'cache'}->{'curator_id'} = $values->{'id'};
