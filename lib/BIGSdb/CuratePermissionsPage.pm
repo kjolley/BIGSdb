@@ -23,6 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
+use BIGSdb::Page qw(SUBMITTER_ALLOWED_PERMISSIONS);
 
 sub get_help_url {
 	my ($self) = @_;
@@ -40,7 +41,7 @@ sub print_content {
 	my $curators =
 	  $self->{'datastore'}
 	  ->run_query( "SELECT * FROM users WHERE status IN ('curator','submitter') AND id>0", undef, { fetch => 'all_hashref', key => 'id' } );
-	my $submitter_allowed = { modify_isolates => 1, modify_sequences => 1, tag_sequences => 1, designate_alleles => 1 };
+	my %submitter_allowed = map { $_ => 1 } SUBMITTER_ALLOWED_PERMISSIONS;
 	if ( !%$curators ) {
 		say q(<div class="box" id="statusbad"><p>There are no curator defined for this database.</p></div>);
 		return;
@@ -104,7 +105,7 @@ sub print_content {
 				next if !$selected{$user_id};
 				print q(<td>);
 				if ( $curators->{$user_id}->{'status'} eq 'curator'
-					|| ( $curators->{$user_id}->{'status'} eq 'submitter' && $submitter_allowed->{$permission} ) )
+					|| ( $curators->{$user_id}->{'status'} eq 'submitter' && $submitter_allowed{$permission} ) )
 				{
 					print $q->checkbox(
 						-name    => "$permission\_$user_id",

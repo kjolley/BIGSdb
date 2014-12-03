@@ -58,11 +58,13 @@ use constant SEQ_STATUS => ( 'Sanger trace checked', 'WGS: manual extract', 'WGS
 use constant DIPLOID    => qw(A C G T R Y W S M K);
 use constant HAPLOID    => qw(A C G T);
 use constant DATABANKS  => qw(ENA Genbank);
-use constant FLANKING      => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
-use constant LOCUS_PATTERN => qr/^(?:l|cn|la)_(.+?)(?:\|\|.+)?$/;
-our @EXPORT_OK = qw(SEQ_METHODS SEQ_FLAGS ALLELE_FLAGS SEQ_STATUS DIPLOID HAPLOID DATABANKS FLANKING LOCUS_PATTERN);
+use constant FLANKING                      => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
+use constant LOCUS_PATTERN                 => qr/^(?:l|cn|la)_(.+?)(?:\|\|.+)?$/;
+use constant SUBMITTER_ALLOWED_PERMISSIONS => qw(modify_isolates modify_sequences tag_sequences designate_alleles);
+our @EXPORT_OK = qw(SEQ_METHODS SEQ_FLAGS ALLELE_FLAGS SEQ_STATUS DIPLOID HAPLOID DATABANKS FLANKING LOCUS_PATTERN
+  SUBMITTER_ALLOWED_PERMISSIONS);
 
-sub new {    ## no critic (RequireArgUnpacking)
+sub new {                            ## no critic (RequireArgUnpacking)
 	my $class = shift;
 	my $self  = {@_};
 	$self->{'prefs'} = {};
@@ -1666,7 +1668,6 @@ sub can_modify_table {
 		#Projects
 		my %project_tables = map { $_ => 1 } qw (projects project_members);
 		return 1 if $project_tables{$table} && $self->{'permissions'}->{'modify_projects'};
-		$logger->error( $self->{'xmlHandler'}->get_sample_field_list );
 
 		#Samples
 		return 1

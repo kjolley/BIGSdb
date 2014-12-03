@@ -22,7 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage);
 use List::MoreUtils qw(any none);
-use BIGSdb::Page qw(DATABANKS ALLELE_FLAGS);
+use BIGSdb::Page qw(DATABANKS ALLELE_FLAGS SUBMITTER_ALLOWED_PERMISSIONS);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant FAILURE => 2;
@@ -119,6 +119,7 @@ sub print_content {
 			my $status;
 			if ( $table eq 'users' ) {
 				$status = $self->_check_users( \%newdata );
+				$self->_prepare_extra_inserts_for_users( \%newdata, $extra_inserts );
 			} elsif ( $table eq 'scheme_fields' ) {
 				$status = $self->_check_scheme_fields( \%newdata );
 			} elsif ( $table eq 'sequences' ) {
@@ -593,6 +594,22 @@ HTML
 				  };
 			}
 		}
+	}
+	return;
+}
+
+sub _prepare_extra_inserts_for_users {
+
+	#Remove additional permissions for submitter if downgraded from curator.
+	my ( $self, $newdata, $extra_inserts ) = @_;
+	if ( $newdata->{'status'} eq 'submitter' ) {
+		local $" = "','";
+		my @permissions = SUBMITTER_ALLOWED_PERMISSIONS;
+		push @$extra_inserts,
+		  {
+			statement => "DELETE FROM curator_permissions WHERE user_id=? AND permission NOT IN ('@permissions')",
+			arguments => [ $newdata->{'id'} ]
+		  };
 	}
 	return;
 }
