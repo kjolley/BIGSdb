@@ -34,7 +34,7 @@ sub print_content {
 	my $q = $self->{'cgi'};
 	say "<h1>Set curator permissions</h1>";
 	if ( !$self->can_modify_table('curator_permissions') ) {
-		say qq(<div class="box" id="statusbad"><p>Your account has insufficient privileges to modify curator permissions.</p></div>);
+		say q(<div class="box" id="statusbad"><p>Your account has insufficient privileges to modify curator permissions.</p></div>);
 		return;
 	}
 	my $curators =
@@ -42,7 +42,7 @@ sub print_content {
 	  ->run_query( "SELECT * FROM users WHERE status IN ('curator','submitter') AND id>0", undef, { fetch => 'all_hashref', key => 'id' } );
 	my $submitter_allowed = { modify_isolates => 1, modify_sequences => 1, tag_sequences => 1, designate_alleles => 1 };
 	if ( !%$curators ) {
-		say qq(<div class="box" id="statusbad"><p>There are no curator defined for this database.</p></div>);
+		say q(<div class="box" id="statusbad"><p>There are no curator defined for this database.</p></div>);
 		return;
 	}
 	if ( $q->param('update') ) {
@@ -53,9 +53,9 @@ sub print_content {
 		push @curator_ids, $user_id;
 		$labels{$user_id} = "$curators->{$user_id}->{'surname'}, $curators->{$user_id}->{'first_name'}";
 	}
-	say qq(<div class="box" id="queryform"><div class="scrollable">);
+	say q(<div class="box" id="queryform"><div class="scrollable">);
 	say $q->start_form;
-	say qq(<fieldset style="float:left"><legend>Select curator(s)</legend>);
+	say q(<fieldset style="float:left"><legend>Select curator(s)</legend>);
 	my @curator_list = $q->param('curators');
 	say $self->popup_menu(
 		-name     => 'curators',
@@ -66,33 +66,34 @@ sub print_content {
 		-default  => \@curator_list,
 		-size     => 8
 	);
-	say qq(<div style="text-align:center"><input type="button" onclick='listbox_selectall("curators",true)' value="All" )
-	  . qq(style="margin-top:1em" class="smallbutton" /><input type="button" onclick='listbox_selectall("curators",false)' )
-	  . qq(value="None" style="margin-top:1em" class="smallbutton" /></div>);
-	say qq(</fieldset>);
+	say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("curators",true)' value="All" )
+	  . q(style="margin-top:1em" class="smallbutton" /><input type="button" onclick='listbox_selectall("curators",false)' )
+	  . q(value="None" style="margin-top:1em" class="smallbutton" /></div>);
+	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Select' } );
 	say $q->hidden($_) foreach qw(db page);
 	say $q->end_form;
 	my $permission_list = $self->_get_permission_list;
-	say qq(</div></div>);
+	say q(</div></div>);
 
 	if (@curator_list) {
 		my $curator_count = @curator_list;
 		my %selected = map { $_ => 1 } @curator_list;
-		say qq(<div class="box" id="resultstable"><div class="scrollable">);
-		say qq(<p>Check the boxes for the required permissions.  Users with a status of 'submitter' have a restricted list of allowed )
-		  . qq(permissions that can be selected.</p>);
-		say qq(<fieldset style="float:left"><legend>Update permissions</legend>);
+		say q(<div class="box" id="resultstable"><div class="scrollable">);
+		say q(<p>Check the boxes for the required permissions.  Users with a status of 'submitter' have a restricted list of allowed )
+		  . q(permissions that can be selected.</p>);
 		say $q->start_form;
+		say q(<fieldset style="float:left"><legend>Update permissions</legend>);
 		say qq(<table class="resultstable"><tr><th rowspan="2">Permission</th><th colspan="$curator_count">Curator</th><th rowspan="2">)
-		  . qq(All/None</th></tr><tr>);
+		  . q(All/None</th></tr><tr>);
 		my $permissions = {};
+
 		foreach my $user_id ( sort { $curators->{$a}->{'surname'} cmp $curators->{$b}->{'surname'} } keys %$curators ) {
 			next if !$selected{$user_id};
 			say qq(<th>$labels{$user_id}</th>);
 			$permissions->{$user_id} = $self->{'datastore'}->get_permissions( $curators->{$user_id}->{'user_name'} );
 		}
-		say qq(</tr>);
+		say q(</tr>);
 		my $td            = 1;
 		my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
 		foreach my $permission (@$permission_list) {
@@ -126,13 +127,13 @@ sub print_content {
 			print $q->checkbox( -name => "user_$user_id\_allnone", -id => "user_$user_id\_allnone", -label => '', );
 		}
 		say q(</td><td></td></tr>);
-		say qq(</table>);
-		say qq(</fieldset>);
+		say q(</table>);
+		say q(</fieldset>);
 		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Update' } );
 		$q->param( update => 1 );
 		say $q->hidden($_) foreach (qw(db page curators update));
 		say $q->end_form;
-		say qq(</div></div>);
+		say q(</div></div>);
 	}
 	return;
 }
