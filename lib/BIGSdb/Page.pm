@@ -1617,6 +1617,12 @@ sub is_admin {
 	return;
 }
 
+sub can_delete_all {
+	my ($self) = @_;
+	return 1 if $self->{'permissions'}->{'delete_all'} || $self->is_admin;
+	return;
+}
+
 sub can_modify_table {
 	my ( $self, $table ) = @_;
 	my $q         = $self->{'cgi'};

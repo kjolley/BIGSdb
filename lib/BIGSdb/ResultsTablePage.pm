@@ -241,6 +241,7 @@ sub print_additional_headerbar_functions {
 
 sub _print_delete_all_function {
 	my ( $self, $table ) = @_;
+	return if !$self->can_delete_all;
 	my $q = $self->{'cgi'};
 	print "<fieldset><legend>Delete</legend>\n";
 	print $q->start_form;

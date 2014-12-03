@@ -33,6 +33,10 @@ sub print_content {
 	my $query       = $self->get_query_from_temp_file($query_file);
 	my $record_name = $self->get_record_name($table);
 	say "<h1>Delete multiple $record_name records</h1>";
+	if (!$self->can_delete_all){
+		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to delete all records.</p></div>);
+		return;
+	}
 	if ( $table eq 'profiles' && $query =~ /SELECT \* FROM m?v?_?scheme_(\d+)/ ) {
 		my $scheme_id = $1;
 		my $pk = $self->{'datastore'}->run_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key", $scheme_id );
