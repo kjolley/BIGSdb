@@ -308,7 +308,7 @@ sub _get_form_fields {
 						-name    => $name,
 						-id      => $name,
 						-values  => [@optlist],
-						-default => $newdata{ $att->{'name'} },
+						-default => $options->{'update'} ? $newdata{ $att->{'name'} } : $att->{'default'},
 						-labels  => $labels,
 						%html5_args
 					);

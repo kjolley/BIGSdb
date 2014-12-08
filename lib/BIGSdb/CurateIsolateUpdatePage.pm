@@ -306,8 +306,8 @@ sub _print_interface {
 sub _print_allele_designations {
 	my ( $self, $data ) = @_;
 	my $q = $self->{'cgi'};
-	say "<div class=\"box\" id=\"alleles\" style=\"overflow:auto\">";
-	say "<fieldset style=\"float:left\"><legend>Loci</legend>";
+	say q(<div class="box" id="alleles" style="overflow:auto">);
+	say q(<fieldset style="float:left"><legend>Loci</legend>);
 	my $isolate_record = BIGSdb::IsolateInfoPage->new(
 		(
 			system        => $self->{'system'},
@@ -328,11 +328,11 @@ sub _print_allele_designations {
 	say $q->start_form;
 	my $set_id = $self->get_set_id;
 	my ( $loci, $labels ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
-	say "<label for=\"locus\">Locus: </label>";
+	say q(<label for="locus">Locus: </label>);
 	say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $loci, -labels => $labels );
 	say $q->submit( -label => 'Add/update', -class => 'submit' );
-	$q->param( 'page',       'alleleUpdate' );
-	$q->param( 'isolate_id', $q->param('id') );
+	$q->param( page       => 'alleleUpdate' );
+	$q->param( isolate_id => $q->param('id') );
 	say $q->hidden($_) foreach qw(db page isolate_id);
 	say $q->end_form;
 	say "</fieldset></div>";
