@@ -519,7 +519,7 @@ sub _get_provenance_fields {
 						&& !$self->{'system'}->{'privacy'} )
 				  )
 				{
-					if ( $value > 0 && $userdata->{'email'} ne '' && $userdata->{'email'} ne '-' ) {
+					if ( $value > 0 && $userdata->{'email'} =~ /@/) {
 						$person .= " (E-mail: <a href=\"mailto:$userdata->{'email'}\">$userdata->{'email'}</a>)";
 					}
 				}
