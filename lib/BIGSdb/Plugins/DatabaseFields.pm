@@ -1,6 +1,6 @@
 #DatabaseFields.pm - Database field description plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2014, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -34,7 +34,7 @@ sub get_attributes {
 		description => 'Display description of fields defined for the current database',
 		menutext    => 'Description of database fields',
 		module      => 'DatabaseFields',
-		version     => '1.0.2',
+		version     => '1.0.3',
 		section     => 'miscellaneous',
 		order       => 10,
 		dbtype      => 'isolates'
@@ -50,15 +50,15 @@ sub set_pref_requirements {
 
 sub run {
 	my ($self) = @_;
-	say "<h1>Description of database fields</h1>";
-	say "<div class=\"box\" id=\"resultstable\">";
-	say "<p>Order columns by clicking their headings. <a href=\"$self->{'system'}->{'script_name'}?"
-	  . "db=$self->{'instance'}&amp;page=plugin&amp;name=DatabaseFields\">Reset default order</a>.</p>";
-	say "<table class=\"tablesorter\" id=\"sortTable\">\n<thead>";
-	say "<tr><th>field name</th><th>comments</th><th>data type</th><th class=\"{sorter: false}\">allowed values</th>"
-	  . "<th>required</th></tr></thead>\n<tbody>";
+	say q(<h1>Description of database fields</h1>);
+	say q(<div class="box" id="resultstable"><div class="scrollable">);
+	say qq(<p>Order columns by clicking their headings. <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . qq(page=plugin&amp;name=DatabaseFields">Reset default order</a>.</p>);
+	say qq(<table class="tablesorter" id="sortTable">\n<thead>);
+	say qq(<tr><th>field name</th><th>comments</th><th>data type</th><th class="{sorter: false}">allowed values</th><th>required</th></tr>)
+	  . qq(</thead>\n<tbody>);
 	$self->_print_fields;
-	say "</tbody></table>\n</div>";
+	say qq(</tbody></table>\n</div></div>);
 	return;
 }
 
@@ -78,11 +78,15 @@ sub _print_fields {
 		  . "</td><td>$thisfield->{'comments'}</td><td>$thisfield->{'type'}</td><td>";
 		if ( $thisfield->{'optlist'} ) {
 			my $option_list = $self->{'xmlHandler'}->get_field_option_list($field);
-			say "$_<br />" foreach @$option_list;
-		} elsif ( defined $thisfield->{'min'} || defined $thisfield->{'max'} ){
+			foreach my $option (@$option_list) {
+				$option =~ s/</&lt;/g;
+				$option =~ s/>/&gt;/g;
+				say "$option<br />";
+			}
+		} elsif ( defined $thisfield->{'min'} || defined $thisfield->{'max'} ) {
 			print "min: $thisfield->{'min'}" if defined $thisfield->{'min'};
-			print "; " if defined $thisfield->{'min'} && defined $thisfield->{'max'};
-			say "max: $thisfield->{'max'}" if defined $thisfield->{'max'};
+			print "; "                       if defined $thisfield->{'min'} && defined $thisfield->{'max'};
+			say "max: $thisfield->{'max'}"   if defined $thisfield->{'max'};
 		} elsif ( $field eq 'sender' || $field eq 'sequenced_by' || ( $thisfield->{'userfield'} // '' ) eq 'yes' ) {
 			say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=fieldValues&amp;field=f_sender\" "
 			  . "target=\"_blank\">Click for list of sender ids</a>";
