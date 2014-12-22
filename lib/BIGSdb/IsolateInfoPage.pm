@@ -519,7 +519,7 @@ sub _get_provenance_fields {
 						&& !$self->{'system'}->{'privacy'} )
 				  )
 				{
-					if ( $value > 0 && $userdata->{'email'} =~ /@/) {
+					if ( $value > 0 && $userdata->{'email'} =~ /@/ ) {
 						$person .= " (E-mail: <a href=\"mailto:$userdata->{'email'}\">$userdata->{'email'}</a>)";
 					}
 				}
@@ -576,27 +576,26 @@ sub _get_provenance_fields {
 			my %attributes = map { $_->{'attribute'} => $_->{'value'} } @$attribute_list;
 			if ( keys %attributes ) {
 				my $rows = keys %attributes || 1;
-				foreach ( sort { $order{$a} <=> $order{$b} } keys(%attributes) ) {
-					my $url_ref =
-					  $self->{'datastore'}
-					  ->run_simple_query( "SELECT url FROM isolate_field_extended_attributes WHERE isolate_field=? AND attribute=?",
-						$field, $_ );
+				foreach my $attribute ( sort { $order{$a} <=> $order{$b} } keys(%attributes) ) {
+					my $url = $self->{'datastore'}->run_query(
+						"SELECT url FROM isolate_field_extended_attributes WHERE isolate_field=? AND attribute=?",
+						[ $field, $attribute ]
+					);
 					my $att_web;
-					if ( ref $url_ref eq 'ARRAY' ) {
-						my $url = $url_ref->[0] || '';
-						$url =~ s/\[\?\]/$attributes{$_}/;
+					if ($url) {
+						$url =~ s/\[\?\]/$attributes{$attribute}/;
 						$url =~ s/\&/\&amp;/g;
 						my $domain;
 						if ( ( lc($url) =~ /http:\/\/(.*?)\/+/ ) ) {
 							$domain = $1;
 						}
-						$att_web = "<a href=\"$url\">$attributes{$_}</a>" if $url;
+						$att_web = qq(<a href="$url">$attributes{$attribute}</a>) if $url;
 						if ( $domain && $domain ne $q->virtual_host ) {
-							$att_web .= " <span class=\"link\"><span style=\"font-size:1.2em\">&rarr;</span> $domain</span>";
+							$att_web .= qq( <span class="link"><span style="font-size:1.2em">&rarr;</span> $domain</span>);
 						}
 					}
-					$buffer .= "<dt class=\"dontend\">$_</dt>\n";
-					$buffer .= "<dd>" . ( $att_web || $attributes{$_} ) . "</dd>\n";
+					$buffer .= "<dt class=\"dontend\">$attribute</dt>\n";
+					$buffer .= "<dd>" . ( $att_web || $attributes{$attribute} ) . "</dd>\n";
 				}
 			}
 		}
