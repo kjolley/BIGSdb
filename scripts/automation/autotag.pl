@@ -63,7 +63,7 @@ GetOptions(
 	'q|quiet'              => \$opts{'q'},
 	'r|random'             => \$opts{'r'},
 	'T|already_tagged'     => \$opts{'T'},
-	'v|view=s'			   => \$opts{'v'}
+	'v|view=s'             => \$opts{'v'}
 ) or die("Error in command line arguments\n");
 
 if ( $opts{'h'} ) {
