@@ -201,7 +201,8 @@ sub _print_users {
 sub _print_user_group_members {
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'user_group_members', $td,
-		{ comments => 'Add users to groups for setting access permissions.', set_string => $set_string } );
+		{ requires => 'user_groups', comments => 'Add users to groups for setting access permissions.', set_string => $set_string } )
+	  ;
 }
 
 sub _print_curator_permissions {
