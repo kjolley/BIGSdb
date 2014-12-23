@@ -66,7 +66,7 @@ sub _check {
 	my $loci          = $self->{'datastore'}->get_loci( { query_pref => 1, set_id => $set_id } );
 	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
 	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
-	my $user_info = $self->{'datastore'}->get_user_info_from_username($self->{'username'});
+	my $user_info     = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	@$loci = uniq @$loci;
 	my @bad_field_buffer;
 	my $insert = 1;
@@ -80,7 +80,7 @@ sub _check {
 			if ( $required_field == $required ) {
 				if ( $field eq 'curator' ) {
 					$newdata->{$field} = $self->get_curator_id;
-				} elsif ($field eq 'sender' && $user_info->{'status'} eq 'submitter'){
+				} elsif ( $field eq 'sender' && $user_info->{'status'} eq 'submitter' ) {
 					$newdata->{$field} = $self->get_curator_id;
 				} elsif ( $field eq 'datestamp' || $field eq 'date_entered' ) {
 					$newdata->{$field} = $self->get_datestamp;
@@ -173,7 +173,7 @@ sub _insert {
 			}
 		}
 	}
-	my @inserts;  #TODO Rewrite to use placeholders
+	my @inserts;    #TODO Rewrite to use placeholders
 	local $" = ',';
 	my $qry = "INSERT INTO isolates (@fields_with_values) VALUES (";
 	foreach my $field (@fields_with_values) {
@@ -262,14 +262,19 @@ sub _print_interface {
 sub print_provenance_form_elements {
 	my ( $self, $newdata, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $q = $self->{'cgi'};
-	#TODO Limit sender list if user status is 'submitter'.
-	my $user_info = $self->{'datastore'}->get_user_info_from_username($self->{'username'});
+	my $q         = $self->{'cgi'};
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my ( @users, %usernames );
-	my $user_data =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT id,user_name,first_name,surname FROM users WHERE id>0 ORDER BY surname, first_name, user_name",
-		undef, { fetch => 'all_arrayref', slice => {} } );
+	my $user_data;
+	if ( $user_info->{'status'} eq 'submitter' ) {
+		$user_data = $self->{'datastore'}->run_query( "SELECT id,user_name,first_name,surname FROM users WHERE user_name=?",
+			$self->{'username'}, { fetch => 'all_arrayref', slice => {} } );
+	} else {
+		$user_data = $self->{'datastore'}->run_query(
+			"SELECT id,user_name,first_name,surname FROM users WHERE id>0 ORDER BY surname, first_name, user_name",
+			undef, { fetch => 'all_arrayref', slice => {} }
+		);
+	}
 	foreach (@$user_data) {
 		push @users, $_->{'id'};
 		$usernames{ $_->{'id'} } = "$_->{'surname'}, $_->{'first_name'} ($_->{'user_name'})";
@@ -351,7 +356,7 @@ sub print_provenance_form_elements {
 					}
 				} elsif ( lc($field) eq 'curator' ) {
 					say "<b>" . $self->get_curator_name . ' (' . $self->{'username'} . ")</b>";
-				} elsif (lc($field) eq 'sender' && $user_info->{'status'} eq 'submitter' && !$options->{'update'}){
+				} elsif ( lc($field) eq 'sender' && $user_info->{'status'} eq 'submitter' && !$options->{'update'} ) {
 					say "<b>" . $self->get_curator_name . ' (' . $self->{'username'} . ")</b>";
 				} elsif ( lc($field) eq 'sender' || lc($field) eq 'sequenced_by' || ( $thisfield->{'userfield'} // '' ) eq 'yes' ) {
 					say $q->popup_menu(
