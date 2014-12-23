@@ -66,6 +66,7 @@ sub _check {
 	my $loci          = $self->{'datastore'}->get_loci( { query_pref => 1, set_id => $set_id } );
 	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
 	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $user_info = $self->{'datastore'}->get_user_info_from_username($self->{'username'});
 	@$loci = uniq @$loci;
 	my @bad_field_buffer;
 	my $insert = 1;
@@ -78,6 +79,8 @@ sub _check {
 			$required_field = 0 if !$set_id && defined $metaset;    #Field can't be compulsory if part of a metadata collection.
 			if ( $required_field == $required ) {
 				if ( $field eq 'curator' ) {
+					$newdata->{$field} = $self->get_curator_id;
+				} elsif ($field eq 'sender' && $user_info->{'status'} eq 'submitter'){
 					$newdata->{$field} = $self->get_curator_id;
 				} elsif ( $field eq 'datestamp' || $field eq 'date_entered' ) {
 					$newdata->{$field} = $self->get_datestamp;
@@ -260,6 +263,8 @@ sub print_provenance_form_elements {
 	my ( $self, $newdata, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
+	#TODO Limit sender list if user status is 'submitter'.
+	my $user_info = $self->{'datastore'}->get_user_info_from_username($self->{'username'});
 	my ( @users, %usernames );
 	my $user_data =
 	  $self->{'datastore'}
@@ -345,6 +350,8 @@ sub print_provenance_form_elements {
 						say "<b>" . $self->get_datestamp . "</b>";
 					}
 				} elsif ( lc($field) eq 'curator' ) {
+					say "<b>" . $self->get_curator_name . ' (' . $self->{'username'} . ")</b>";
+				} elsif (lc($field) eq 'sender' && $user_info->{'status'} eq 'submitter' && !$options->{'update'}){
 					say "<b>" . $self->get_curator_name . ' (' . $self->{'username'} . ")</b>";
 				} elsif ( lc($field) eq 'sender' || lc($field) eq 'sequenced_by' || ( $thisfield->{'userfield'} // '' ) eq 'yes' ) {
 					say $q->popup_menu(

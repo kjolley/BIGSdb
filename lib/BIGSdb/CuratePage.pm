@@ -114,15 +114,17 @@ sub _get_form_fields {
 	$options = {} if ref $options ne 'HASH';
 	my $q       = $self->{'cgi'};
 	my %newdata = %{$newdata_ref};
-	my $sql     = $self->{'db'}->prepare("select id,user_name,first_name,surname from users where id>0 order by surname");
-	eval { $sql->execute };
 	$logger->error($@) if $@;
 	my @users;
 	my %usernames;
 	$usernames{''} = ' ';    #Required for HTML5 validation
 	local $" = ' ';
+	my $user_data =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT id,user_name,first_name,surname FROM users WHERE id>0 ORDER BY surname", undef, { fetch => 'all_arrayref' } );
 
-	while ( my ( $user_id, $username, $firstname, $surname ) = $sql->fetchrow_array ) {
+	foreach my $user_data (@$user_data) {
+		my ( $user_id, $username, $firstname, $surname ) = @$user_data;
 		push @users, $user_id;
 		$usernames{$user_id} = "$surname, $firstname ($username)";
 	}
