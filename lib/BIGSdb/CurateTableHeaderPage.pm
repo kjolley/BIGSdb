@@ -138,9 +138,11 @@ sub get_isolate_loci {
 			}
 		}
 	} else {    #Just list MLST loci
-		my $scheme_id_ref = $self->{'datastore'}->run_simple_query("SELECT id FROM schemes WHERE description = 'MLST'");
-		if ( ref $scheme_id_ref eq 'ARRAY' ) {
-			my $scheme_loci = $self->{'datastore'}->get_scheme_loci( $scheme_id_ref->[0] );
+		my $scheme_ids =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT id FROM schemes WHERE description LIKE 'MLST%' ORDER BY display_order", undef, { fetch => 'col_arrayref' } );
+		foreach my $scheme_id (@$scheme_ids) {
+			my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 			foreach my $locus (@$scheme_loci) {
 				my $cleaned_name = $self->clean_locus( $locus, { no_common_name => 1, text_output => 1 } );
 				push @headers, $cleaned_name;

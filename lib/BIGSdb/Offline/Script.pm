@@ -93,9 +93,19 @@ sub initiate {
 		}
 	}
 	$self->set_system_overrides;
+
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
 	$self->db_connect;
-	$self->setup_datastore if $self->{'db'};
+	if ($self->{'db'}){
+		$self->setup_datastore ;
+		if ( defined $self->{'options'}->{'v'} ) {
+			my $view_exists =
+			  $self->{'datastore'}
+			  ->run_query( "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)", $self->{'options'}->{'v'} );
+			die "Invalid view selected.\n" if !$view_exists;
+			$self->{'system'}->{'view'} = $self->{'options'}->{'v'};
+		}
+	}
 	return;
 }
 

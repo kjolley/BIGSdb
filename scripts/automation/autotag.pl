@@ -62,7 +62,8 @@ GetOptions(
 	'o|order'              => \$opts{'o'},
 	'q|quiet'              => \$opts{'q'},
 	'r|random'             => \$opts{'r'},
-	'T|already_tagged'     => \$opts{'T'}
+	'T|already_tagged'     => \$opts{'T'},
+	'v|view=s'             => \$opts{'v'}
 ) or die("Error in command line arguments\n");
 
 if ( $opts{'h'} ) {
@@ -235,6 +236,9 @@ ${bold}--threads$norm ${under}THREADS$norm
 
 ${bold}-T, --already_tagged$norm
     Scan even when sequence tagged (no designation).
+    
+${bold}-v, --view$norm ${under}VIEW$norm
+    Isolate database view (overrides value set in config.xml).
 
 ${bold}-w, --word_size$norm ${under}SIZE$norm
     BLASTN word size.
