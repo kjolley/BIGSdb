@@ -340,7 +340,7 @@ sub print_content {
 		}
 	}
 	$plugin->initiate_prefs;
-	$plugin->initiate_view( $self->{'username'}, $self->{'curate'} );
+	$plugin->initiate_view( $self->{'username'} );
 	$plugin->run;
 	return;
 }

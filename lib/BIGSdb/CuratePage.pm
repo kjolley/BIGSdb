@@ -51,7 +51,11 @@ sub create_record_table {
 	my ( $self, $table, $newdata, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	if ( ref $newdata ne 'HASH' ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Record doesn't exist.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Record doesn't exist.</p></div>);
+		return '';
+	} elsif ( defined $newdata->{'isolate_id'} && !$self->is_allowed_to_view_isolate( $newdata->{'isolate_id'} ) ) {
+		say qq(<div class="box" id="statusbad"><p>Your account is not allowed to modify values for isolate id-$newdata->{'isolate_id'}.)
+		  . qq(</p></div>);
 		return '';
 	}
 	my $q = $self->{'cgi'};
@@ -614,7 +618,7 @@ sub _create_extra_fields_for_loci {
 	my ( $self, $newdata_ref, $width ) = @_;
 	my $q      = $self->{'cgi'};
 	my $buffer = '';
-	if ($self->{'system'}->{'dbtype'} eq 'sequences'){
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $attributes = $self->{'datastore'}->get_table_field_attributes('locus_descriptions');
 		if ( defined $newdata_ref->{'id'} ) {
 			my $desc_ref =
@@ -1082,14 +1086,19 @@ sub _is_field_bad_other {
 
 	#Make sure a foreign key value exists in foreign table
 	if ( $thisfield->{'foreign_key'} ) {
-		my $qry = "SELECT COUNT(*) FROM $thisfield->{'foreign_key'} WHERE id=?";
-		my $sql = $self->{'db'}->prepare($qry);
+		my $qry;
+		if ( $fieldname eq 'isolate_id' ) {
+			$qry = "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)";
+		} else {
+			$qry = "SELECT EXISTS(SELECT * FROM $thisfield->{'foreign_key'} WHERE id=?)";
+		}
 		$value = $self->map_locus_name($value) if $fieldname eq 'locus';
-		eval { $sql->execute($value) };
-		$logger->error($@) if $@;
-		my ($exists) = $sql->fetchrow_array;
+		my $exists = $self->{'datastore'}->run_query( $qry, $value, { cache => "CuratePage::is_field_bad_other:$fieldname" } );
 		if ( !$exists ) {
-			return "value '$value' does not exist in $thisfield->{foreign_key} table";
+			if ( $thisfield->{'foreign_key'} eq 'isolates' && $self->{'system'}->{'view'} ne 'isolates' ) {
+				return "value '$value' does not exist in isolates table or is not accessible to your account";
+			}
+			return "value '$value' does not exist in $thisfield->{'foreign_key'} table";
 		}
 	}
 	return 0;

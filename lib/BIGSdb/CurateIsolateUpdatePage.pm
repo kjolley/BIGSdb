@@ -75,7 +75,13 @@ sub print_content {
 	my $data = $sql->fetchrow_hashref;
 	$self->add_existing_metadata_to_hashref($data);
 	if ( !$data->{'id'} ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No record with id = " . $q->param('id') . " exists.</p></div>";
+		my $exists_in_isolates_table =
+		  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM isolates WHERE id=?)", $q->param('id') );
+		if ($exists_in_isolates_table) {
+			say qq(<div class="box" id="statusbad"><p>Isolate id-) . $q->param('id') . qq( is not accessible from your account.</p></div>);
+		} else {
+			say qq(<div class="box" id="statusbad"><p>No record with id-) . $q->param('id') . qq( exists.</p></div>);
+		}
 		return;
 	}
 	if ( $q->param('sent') ) {

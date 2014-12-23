@@ -45,16 +45,13 @@ sub print_content {
 	}
 	my $data = $self->{'datastore'}->get_isolate_field_values($id);
 	if ( !$data ) {
-		say qq(<div class="box" id="statusbad"><p>No record with id = $id exists.</p></div>);
+		say qq(<div class="box" id="statusbad"><p>No record with id-$id exists or your account is not allowed to delete it.</p></div>);
 		return;
 	}
 	if ( !$self->can_modify_table('isolates') ) {
-		say qq(<div class="box" id="statusbad"><p>Your user account is not allowed to delete records to the isolates table.</p></div>);
+		say qq(<div class="box" id="statusbad"><p>Your user account is not allowed to delete records in the isolates table.</p></div>);
 		return;
-	} elsif ( !$self->is_allowed_to_view_isolate($id) ) {
-		say qq(<div class="box" id="statusbad"><p>Your user account is not allowed to delete this isolate record.</p></div>);
-		return;
-	}
+	} 
 	$buffer .= qq(<div class="box" id="resultstable">\n);
 	$buffer .= "<p>You have selected to delete the following record:</p>";
 	$buffer .= $q->start_form;

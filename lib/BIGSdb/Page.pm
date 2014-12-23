@@ -64,7 +64,7 @@ use constant SUBMITTER_ALLOWED_PERMISSIONS => qw(modify_isolates modify_sequence
 our @EXPORT_OK = qw(SEQ_METHODS SEQ_FLAGS ALLELE_FLAGS SEQ_STATUS DIPLOID HAPLOID DATABANKS FLANKING LOCUS_PATTERN
   SUBMITTER_ALLOWED_PERMISSIONS);
 
-sub new {                            ## no critic (RequireArgUnpacking)
+sub new {    ## no critic (RequireArgUnpacking)
 	my $class = shift;
 	my $self  = {@_};
 	$self->{'prefs'} = {};
@@ -204,7 +204,7 @@ sub print_page_content {
 		}
 	} else {
 		$self->initiate_prefs;
-		$self->initiate_view( $self->{'username'}, $self->{'curate'} );
+		$self->initiate_view( $self->{'username'} );
 	}
 	$q->charset('UTF-8');
 	if ( $self->{'type'} ne 'xhtml' ) {
@@ -598,6 +598,7 @@ sub get_metaset_and_fieldname {
 
 sub add_existing_metadata_to_hashref {
 	my ( $self, $data ) = @_;
+	return if !defined $data->{'id'};
 	my $metadata_list = $self->{'xmlHandler'}->get_metadata_list;
 	foreach my $metadata_set (@$metadata_list) {
 		my $metadata =
@@ -2044,13 +2045,22 @@ sub _initiate_isolatedb_prefs {
 }
 
 sub initiate_view {
-	my ( $self, $username, $curate ) = @_;
+	my ( $self, $username ) = @_;
 	return if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
 	my $set_id = $self->get_set_id;
 	if ( defined $self->{'system'}->{'view'} && $set_id ) {
 		if ( $self->{'system'}->{'views'} && BIGSdb::Utils::is_int($set_id) ) {
 			my $set_view = $self->{'datastore'}->run_query( "SELECT view FROM set_view WHERE set_id=?", $set_id );
 			$self->{'system'}->{'view'} = $set_view if $set_view;
+		}
+	}
+	if ( $self->{'curate'} ) {
+		my $user_info = $self->{'datastore'}->get_user_info_from_username($username);
+		return if !$user_info;
+		if ( $user_info->{'status'} eq 'submitter' ) {
+			$self->{'db'}->do( "CREATE TEMPORARY VIEW temp_view AS SELECT * FROM $self->{'system'}->{'view'} WHERE sender=?",
+				undef, $user_info->{'id'} );
+			$self->{'system'}->{'view'} = 'temp_view';
 		}
 	}
 	return;

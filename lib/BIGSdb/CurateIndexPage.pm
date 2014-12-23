@@ -94,7 +94,7 @@ sub print_content {
 		}
 	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
 		foreach (qw (locus_descriptions scheme_curators locus_curators sequences accession sequence_refs profiles profile_refs)) {
-			if ( $self->can_modify_table($_) || $_ eq 'profiles' ) {    #profile permissions handled by ACL
+			if ( $self->can_modify_table($_) || $_ eq 'profiles' ) {
 				my $function = "_print_$_";
 				try {
 					my ( $temp_buffer, $returned_td ) = $self->$function( $td, $set_string );

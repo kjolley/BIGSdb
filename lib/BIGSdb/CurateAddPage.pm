@@ -172,6 +172,10 @@ sub _insert {
 	my $extra_inserts = [];
 	my @tables        = qw(accession loci locus_aliases locus_descriptions profile_refs scheme_fields scheme_group_group_members
 	  sequences sequence_bin sequence_refs);
+	  
+	if ( defined $newdata->{'isolate_id'} && !$self->is_allowed_to_view_isolate( $newdata->{'isolate_id'} ) ) {
+		return; #Problem will be reported in CuratePage::create_record_table.
+	}
 
 	if ( any { $table eq $_ } @tables ) {
 		my $method = "_check_$table";

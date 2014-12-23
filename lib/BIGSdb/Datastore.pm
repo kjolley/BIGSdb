@@ -99,7 +99,7 @@ sub get_user_string {
 sub get_user_info_from_username {
 	my ( $self, $user_name ) = @_;
 	return if !defined $user_name;
-	return $self->run_query( "SELECT first_name,surname,affiliation,email FROM users WHERE user_name=?",
+	return $self->run_query( "SELECT * FROM users WHERE user_name=?",
 		$user_name, { fetch => 'row_hashref', cache => 'get_user_info_from_username' } );
 }
 
