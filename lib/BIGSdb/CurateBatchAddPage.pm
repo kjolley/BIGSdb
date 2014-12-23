@@ -884,22 +884,6 @@ sub _check_data_duplicates {
 	return;
 }
 
-#sub _check_allowed_to_modify_isolate {
-#	my ( $self, $arg_ref ) = @_;
-#	return if $self->{'system'}->{'dbtype'} ne 'isolates';
-#	my $pk_combination = $arg_ref->{'pk_combination'};
-#	my $value = ${ $arg_ref->{'value'} };
-#	if ($arg_ref->{'field'} eq 'isolate_id'){
-#		if (!$self->is_allowed_to_view_isolate( $value)){
-#			my $problem_text = "isolate id-$value is not accessible.<br />";
-#			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text
-#			  if !defined $arg_ref->{'problems'}->{$pk_combination} || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/;
-#			  ${ $arg_ref->{'special_problem'} } = 1;
-#		}
-#	}
-#	return;
-#}
-
 sub _check_data_allele_designations {
 
 	#special case to check for allele id format and regex which is defined in loci table
