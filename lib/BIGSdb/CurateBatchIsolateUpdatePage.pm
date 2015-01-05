@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -147,12 +147,11 @@ sub _get_match_criteria {
 }
 
 sub _check {
-	my ($self) = @_;
-	my $q      = $self->{'cgi'};
-	my $data   = $q->param('data');
+	my ($self)    = @_;
+	my $q         = $self->{'cgi'};
+	my $data      = $q->param('data');
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my @rows = split /\n/, $data;
-
-	#TODO Prevent submitter from changing sender to anyone outside the usergroup.
 	if ( @rows < 2 ) {
 		say qq(<div class="box" id="statusbad"><p>Nothing entered.  Make sure you include a header line.</p>);
 		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchIsolateUpdate">Back</a></p></div>);
@@ -195,9 +194,10 @@ sub _check {
 		$id2[$i] ||= '';
 		$id2[$i] =~ s/%20/ /g;
 		$value[$i] =~ s/\s*$//g if defined $value[$i];
-		my $display_value = $value[$i];
-		my $display_field = $field[$i];
-		my $bad_field     = 0;
+		my $display_value     = $value[$i];
+		my $display_field     = $field[$i];
+		my $bad_field         = 0;
+		my $not_allowed_field = 0;
 		my $is_locus;
 
 		if ($set_id) {
@@ -223,11 +223,13 @@ sub _check {
 				}
 			}
 			$bad_field = 1 if !$field_is_metafield;
+		} elsif ( $field[$i] eq 'sender' && $user_info->{'status'} eq 'submitter' ) {
+			$not_allowed_field = 1;
 		}
 		$update[$i] = 0;
 		my ( $old_value, $action );
 		if ( $i && defined $value[$i] && $value[$i] ne '' ) {
-			if ( !$bad_field ) {
+			if ( !$bad_field && !$not_allowed_field ) {
 				my $count;
 				my @args;
 				push @args, $id[$i];
@@ -337,8 +339,11 @@ sub _check {
 					}
 				}
 			} else {
-				$old_value = qq(<span class="statusbad">field not recognised</span>);
-				$action    = qq(<span class="statusbad">no action</span>);
+				$old_value =
+				  $not_allowed_field
+				  ? qq(<span class="statusbad">not allowed to modify</span>)
+				  : qq(<span class="statusbad">field not recognised</span>);
+				$action = qq(<span class="statusbad">no action</span>);
 			}
 			$display_value =~ s/<blank>/&lt;blank&gt;/;
 			$display_field =~ s/^meta_.*://;
