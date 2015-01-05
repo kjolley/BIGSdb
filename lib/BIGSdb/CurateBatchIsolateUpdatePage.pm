@@ -151,6 +151,8 @@ sub _check {
 	my $q      = $self->{'cgi'};
 	my $data   = $q->param('data');
 	my @rows = split /\n/, $data;
+
+	#TODO Prevent submitter from changing sender to anyone outside the usergroup.
 	if ( @rows < 2 ) {
 		say qq(<div class="box" id="statusbad"><p>Nothing entered.  Make sure you include a header line.</p>);
 		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchIsolateUpdate">Back</a></p></div>);
@@ -405,7 +407,7 @@ sub _update {
 	my $match       = $self->_get_match_criteria;
 	my $view        = $self->{'system'}->{'view'};
 
-	foreach my $record ( @records ) {
+	foreach my $record (@records) {
 		my ( $id1, $id2, $field, $value ) = @$record;
 		my ( $isolate_id, $old_value );
 		$nochange = 0;

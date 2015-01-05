@@ -192,6 +192,12 @@ HTML
 
 sub _print_interface_sender_field {
 	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	if ( $user_info->{'status'} eq 'submitter' ) {
+		say $q->hidden(sender => $user_info->{'id'});
+		return;	
+	}
 	my $qry    = "select id,user_name,first_name,surname from users WHERE id>0 order by surname";
 	my $sql    = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
@@ -206,7 +212,7 @@ sub _print_interface_sender_field {
 	}
 	say "<div style=\"margin-bottom:1em\"><p>Please select the sender from the list below:</p>";
 	$usernames{-1} = 'Override with sender field';
-	say $self->{'cgi'}->popup_menu( -name => 'sender', -values => [ '', -1, @users ], -labels => \%usernames );
+	say $q->popup_menu( -name => 'sender', -values => [ '', -1, @users ], -labels => \%usernames );
 	say "<span class=\"comment\"> Value will be overridden if you include a sender field in your pasted data.</span>";
 	say "</div>";
 	return;
