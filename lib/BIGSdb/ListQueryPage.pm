@@ -314,7 +314,10 @@ sub _run_isolate_query {
 				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 				$tempqry .= $datatype eq 'text' ? "upper($metafield) = upper(E'$value')" : "$metafield = E'$value'";
 			} elsif ( $fieldtype eq 'extended_isolate' ) {
-				$tempqry .= "$view.$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE "
+				my $parent_field_type = $self->{'xmlHandler'}->get_field_attributes($extended_isolate_field)->{'type'};
+				$tempqry .=
+				  $parent_field_type eq 'int' ? "CAST($view.$extended_isolate_field AS text)" : "$view.$extended_isolate_field";
+				$tempqry .= " IN (SELECT field_value FROM isolate_value_extended_attributes WHERE "
 				  . "isolate_field='$extended_isolate_field' AND attribute='$field' AND upper(value) = upper(E'$value'))";
 				$do_not_use_table = 1;
 			}

@@ -633,6 +633,7 @@ sub _generate_query_for_provenance_fields {
 			my @groupedfields = $self->get_grouped_fields($field);
 			my $thisfield     = $self->{'xmlHandler'}->get_field_attributes($field);
 			my $extended_isolate_field;
+			my $parent_field_type;
 			if ( $field =~ /^e_(.*)\|\|(.*)/ ) {
 				$extended_isolate_field = $1;
 				$field                  = $2;
@@ -641,6 +642,7 @@ sub _generate_query_for_provenance_fields {
 					[ $extended_isolate_field, $field ],
 					{ fetch => 'row_hashref' }
 				);
+				$parent_field_type = $self->{'xmlHandler'}->get_field_attributes( $att_info->{'isolate_field'} )->{'type'};
 				$thisfield->{'type'} = $att_info->{'value_format'};
 				$thisfield->{'type'} = 'int' if $thisfield->{'type'} eq 'integer';
 			}
@@ -680,7 +682,8 @@ sub _generate_query_for_provenance_fields {
 					extended_isolate_field => $extended_isolate_field,
 					text                   => $text,
 					modifier               => $modifier,
-					type                   => $thisfield->{'type'}
+					type                   => $thisfield->{'type'},
+					parent_field_type      => $parent_field_type
 				};
 				if ( $operator eq 'NOT' ) {
 					$args->{'not'} = 1;
@@ -704,7 +707,11 @@ sub _generate_query_for_provenance_fields {
 					my $labelfield = "$view.$self->{'system'}->{'labelfield'}";
 					$qry .= $modifier;
 					if ($extended_isolate_field) {
-						$qry .= "$view.$extended_isolate_field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE "
+						$qry .=
+						  $parent_field_type eq 'int'
+						  ? "CAST($view.$extended_isolate_field AS text) "
+						  : "$view.$extended_isolate_field ";
+						$qry .= "IN (SELECT field_value FROM isolate_value_extended_attributes WHERE "
 						  . "isolate_field='$extended_isolate_field' AND attribute='$field' AND value $operator E'$text')";
 					} elsif ( $field eq $labelfield ) {
 						$qry .= "($field $operator '$text' OR $view.id IN (SELECT isolate_id FROM isolate_aliases WHERE alias "
@@ -826,11 +833,16 @@ sub _provenance_equals_type_operator {
 	my $inv_not    = $values->{'not'} ? '' : 'NOT';
 	if ( $values->{'extended_isolate_field'} ) {
 		$buffer .=
-		  $values->{'text'} eq 'null'
-		  ? "$view.$values->{'extended_isolate_field'} $inv_not IN (SELECT field_value FROM isolate_value_extended_attributes WHERE "
-		  . "isolate_field='$values->{'extended_isolate_field'}' AND attribute='$values->{'field'}')"
-		  : "$view.$values->{'extended_isolate_field'} $not IN (SELECT field_value FROM isolate_value_extended_attributes WHERE "
-		  . "isolate_field='$values->{'extended_isolate_field'}' AND attribute='$values->{'field'}' AND upper(value) = upper(E'$values->{'text'}'))";
+		  $values->{'parent_field_type'} eq 'int'
+		  ? "CAST($view.$values->{'extended_isolate_field'} AS text) "
+		  : "$view.$values->{'extended_isolate_field'} ";
+		if ( $values->{'text'} eq 'null' ) {
+			$buffer .= "$inv_not IN (SELECT field_value FROM isolate_value_extended_attributes "
+			  . "WHERE isolate_field='$values->{'extended_isolate_field'}' AND attribute='$values->{'field'}')";
+		} else {
+			$buffer .= "$not IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field="
+			  . "'$values->{'extended_isolate_field'}' AND attribute='$values->{'field'}' AND upper(value) = upper(E'$values->{'text'}'))";
+		}
 	} elsif ( $values->{'field'} eq $labelfield ) {
 		$buffer .=
 		    "($not upper($values->{'field'}) = upper(E'$values->{'text'}') "
@@ -878,7 +890,11 @@ sub _provenance_like_type_operator {
 	my $not        = $values->{'not'} ? 'NOT' : '';
 	( my $text = $values->{'behaviour'} ) =~ s/text/$values->{'text'}/;
 	if ( $values->{'extended_isolate_field'} ) {
-		$buffer .= "$view.$values->{'extended_isolate_field'} $not IN (SELECT field_value FROM isolate_value_extended_attributes "
+		$buffer .=
+		  $values->{'parent_field_type'} eq 'int'
+		  ? "CAST($view.$values->{'extended_isolate_field'} AS text) "
+		  : "$view.$values->{'extended_isolate_field'} ";
+		$buffer .= "$not IN (SELECT field_value FROM isolate_value_extended_attributes "
 		  . "WHERE isolate_field='$values->{'extended_isolate_field'}' AND attribute='$values->{'field'}' AND value ILIKE E'$text')";
 	} elsif ( $values->{'field'} eq $labelfield ) {
 		my $andor = $values->{'not'} ? 'AND' : 'OR';
