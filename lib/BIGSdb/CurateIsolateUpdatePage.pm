@@ -285,17 +285,10 @@ sub _prepare_metaset_updates {
 sub _print_interface {
 	my ( $self, $data ) = @_;
 	my $q         = $self->{'cgi'};
-	my $qry       = "select id,user_name,first_name,surname from users WHERE id>0 order by surname";
-	my $user_data = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
-	my ( @users, %usernames );
-	foreach my $user_hashref (@$user_data) {
-		push @users, $user_hashref->{'id'};
-		$usernames{ $user_hashref->{'id'} } = "$user_hashref->{'surname'}, $user_hashref->{'first_name'} ($user_hashref->{'user_name'})";
-	}
 	say "<div>";
 	if ( $self->can_modify_table('isolates') ) {
-		say "<div class=\"box queryform\" id=\"isolate_update\" style=\"float:left;margin-right:0.5em\">";
-		say "<div class=\"scrollable\">";
+		say qq(<div class="box queryform" id="isolate_update" style="float:left;margin-right:0.5em">);
+		say qq(<div class="scrollable">);
 		say $q->start_form;
 		$q->param( 'sent', 1 );
 		say $q->hidden($_) foreach qw(page db sent);

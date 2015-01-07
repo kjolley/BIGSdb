@@ -2058,8 +2058,11 @@ sub initiate_view {
 		my $user_info = $self->{'datastore'}->get_user_info_from_username($username);
 		return if !$user_info;
 		if ( $user_info->{'status'} eq 'submitter' ) {
-			$self->{'db'}->do( "CREATE TEMPORARY VIEW temp_view AS SELECT * FROM $self->{'system'}->{'view'} WHERE sender=?",
-				undef, $user_info->{'id'} );
+			$self->{'db'}->do(
+				"CREATE TEMPORARY VIEW temp_view AS SELECT * FROM $self->{'system'}->{'view'} WHERE sender=? OR sender IN "
+				  . "(SELECT user_id FROM user_group_members WHERE user_group IN (SELECT user_group FROM user_group_members WHERE user_id=?))",
+				undef, $user_info->{'id'}, $user_info->{'id'}
+			);
 			$self->{'system'}->{'view'} = 'temp_view';
 		}
 	}

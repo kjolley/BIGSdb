@@ -267,13 +267,17 @@ sub print_provenance_form_elements {
 	my ( @users, %usernames );
 	my $user_data;
 	if ( $user_info->{'status'} eq 'submitter' ) {
-		$user_data = $self->{'datastore'}->run_query( "SELECT id,user_name,first_name,surname FROM users WHERE user_name=?",
-			$self->{'username'}, { fetch => 'all_arrayref', slice => {} } );
-	} else {
 		$user_data = $self->{'datastore'}->run_query(
-			"SELECT id,user_name,first_name,surname FROM users WHERE id>0 ORDER BY surname, first_name, user_name",
-			undef, { fetch => 'all_arrayref', slice => {} }
+			"SELECT id,user_name,first_name,surname FROM users WHERE id=? OR id IN (SELECT user_id FROM user_group_members WHERE "
+			  . "user_group IN (SELECT user_group FROM user_group_members WHERE user_id=?)) ORDER BY surname, first_name, user_name"
+			,
+			[ $user_info->{'id'}, $user_info->{'id'} ], { fetch => 'all_arrayref', slice => {} }
 		);
+	} else {
+		$user_data =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT id,user_name,first_name,surname FROM users WHERE id>0 ORDER BY surname, first_name, user_name",
+			undef, { fetch => 'all_arrayref', slice => {} } );
 	}
 	foreach (@$user_data) {
 		push @users, $_->{'id'};
