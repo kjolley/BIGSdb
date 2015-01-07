@@ -269,9 +269,9 @@ sub print_provenance_form_elements {
 	if ( $user_info->{'status'} eq 'submitter' ) {
 		$user_data = $self->{'datastore'}->run_query(
 			"SELECT id,user_name,first_name,surname FROM users WHERE id=? OR id IN (SELECT user_id FROM user_group_members WHERE "
-			  . "user_group IN (SELECT user_group FROM user_group_members WHERE user_id=?)) ORDER BY surname, first_name, user_name"
-			,
-			[ $user_info->{'id'}, $user_info->{'id'} ], { fetch => 'all_arrayref', slice => {} }
+			  . "user_group IN (SELECT user_group FROM user_group_members WHERE user_id=?)) ORDER BY surname, first_name, user_name",
+			[ $user_info->{'id'}, $user_info->{'id'} ],
+			{ fetch => 'all_arrayref', slice => {} }
 		);
 	} else {
 		$user_data =
@@ -286,10 +286,10 @@ sub print_provenance_form_elements {
 	my $set_id        = $self->get_set_id;
 	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
 	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
-	say "<fieldset style=\"float:left\"><legend>Isolate fields</legend>";
-	say "<div style=\"white-space:nowrap\">";
-	say "<p><span class=\"metaset\">Metadata</span><span class=\"comment\">: These fields are available in the specified "
-	  . "dataset only.</span></p>"
+	say qq(<fieldset style="float:left"><legend>Isolate fields</legend>);
+	say qq(<div style="white-space:nowrap">);
+	say qq(<p><span class="metaset">Metadata</span><span class="comment">: These fields are available in the specified dataset )
+	  . qq(only.</span></p>)
 	  if !$set_id && @$metadata_list;
 	my $longest_name = BIGSdb::Utils::get_largest_string_length($field_list);
 	my $width        = int( 0.5 * $longest_name ) + 2;
