@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -37,6 +37,8 @@ sub get_isolate_aliases_table_attributes {
 }
 
 sub get_users_table_attributes {
+	my ($self) = @_;
+	my $status = ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'user;curator;submitter;admin' : 'user;curator;admin';
 	my $attributes = [
 		{ name => 'id',          type => 'int',  required => 'yes', length => 6,  unique         => 'yes', primary_key    => 'yes' },
 		{ name => 'user_name',   type => 'text', required => 'yes', length => 12, unique         => 'yes', dropdown_query => 'yes' },
@@ -44,7 +46,7 @@ sub get_users_table_attributes {
 		{ name => 'first_name',  type => 'text', required => 'yes', length => 40, dropdown_query => 'yes' },
 		{ name => 'email',       type => 'text', required => 'yes', length => 50 },
 		{ name => 'affiliation', type => 'text', required => 'yes', length => 120 },
-		{ name => 'status',       type => 'text', required => 'yes', optlist => 'user;curator;submitter;admin', default => 'user' },
+		{ name => 'status',       type => 'text', required => 'yes', optlist => $status, default => 'user' },
 		{ name => 'date_entered', type => 'date', required => 'yes' },
 		{ name => 'datestamp',    type => 'date', required => 'yes' },
 		{ name => 'curator', type => 'int', required => 'yes', dropdown_query => 'yes' }
@@ -91,7 +93,7 @@ sub get_curator_permissions_table_attributes {
 	my ($self) = @_;
 	my @optlist = $self->{'system'}->{'dbtype'} eq 'isolates'
 	  ? qw (disable_access modify_users modify_usergroups set_user_passwords modify_isolates modify_projects modify_loci modify_schemes
-	  modify_composites modify_field_attributes modify_value_attributes modify_probes modify_sequences modify_experiments tag_sequences 
+	  modify_composites modify_field_attributes modify_value_attributes modify_probes modify_sequences modify_experiments tag_sequences
 	  designate_alleles delete_all sample_management)
 	  : qw(disable_access modify_users modify_usergroups set_user_passwords modify_loci modify_schemes);
 	local $" = ';';
