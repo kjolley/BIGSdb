@@ -764,7 +764,7 @@ sub _get_provenance_fields {
 				if ( ref $extatt eq 'ARRAY' ) {
 					foreach my $extended_attribute (@$extatt) {
 						push @isolate_list, "e_$field||$extended_attribute";
-						$self->{'cache'}->{'labels'}->{"e_$field||$extended_attribute"} = $extended_attribute;
+						( $self->{'cache'}->{'labels'}->{"e_$field||$extended_attribute"} = $extended_attribute ) =~ tr/_/ /;
 					}
 				}
 			}
