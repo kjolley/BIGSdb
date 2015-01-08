@@ -1,6 +1,6 @@
 #SequenceExport.pm - Export concatenated sequences/XMFA file plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -12,7 +12,7 @@
 #
 #BIGSdb is distributed in the hope that it will be useful,
 #but WITHOUT ANY WARRANTY; without even the implied warranty of
-#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See thef
 #GNU General Public License for more details.
 #
 #You should have received a copy of the GNU General Public License
@@ -32,6 +32,7 @@ use Bio::SeqIO;
 use Bio::AlignIO;
 use BIGSdb::Utils;
 use constant DEFAULT_ALIGN_LIMIT => 200;
+use constant DEFAULT_SEQ_LIMIT   => 1_000_000;
 use BIGSdb::Page qw(LOCUS_PATTERN);
 use BIGSdb::Plugin qw(SEQ_SOURCE);
 
@@ -48,7 +49,7 @@ sub get_attributes {
 		buttontext       => 'Sequences',
 		menutext         => 'Sequences',
 		module           => 'SequenceExport',
-		version          => '1.5.2',
+		version          => '1.5.3',
 		dbtype           => 'isolates,sequences',
 		seqdb_type       => 'schemes',
 		section          => 'export,postquery',
@@ -73,6 +74,8 @@ sub run {
 	my $query_file = $q->param('query_file');
 	my $scheme_id  = $q->param('scheme_id');
 	my $desc       = $self->get_db_description;
+	my $max_seqs = $self->{'system'}->{'seq_export_limit'} // DEFAULT_SEQ_LIMIT;
+	my $commified_max = BIGSdb::Utils::commify($max_seqs);
 	say "<h1>Export allele sequences in XMFA/concatenated FASTA formats - $desc</h1>";
 	return if $self->has_set_changed;
 	my $allow_alignment = 1;
@@ -134,6 +137,13 @@ sub run {
 					@list = @$id_list;
 				}
 			}
+			my $total_seqs = @$loci_selected * @list;
+			if ( $total_seqs > $max_seqs ) {
+				my $commified_total = BIGSdb::Utils::commify($total_seqs);
+				say qq(<div class="box" id="statusbad"><p>Output is limited to a total of $commified_max sequences (records x loci).  You )
+				  . qq(have selected $commified_total.</p></div>);
+				return;
+			}
 			my $list_type = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'isolates' : 'profiles';
 			$q->delete('list');
 			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
@@ -149,38 +159,34 @@ sub run {
 					$list_type   => \@list
 				}
 			);
-			print <<"HTML";
-<div class="box" id="resultstable">
-<p>This analysis has been submitted to the job queue.</p>
-<p>Please be aware that this job may take a long time depending on the number of sequences to align
-and how busy the server is.  Alignment of hundreds of sequences can take many hours!</p>
-<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">
-Follow the progress of this job and view the output.</a></p> 	
-<p>Please note that the % complete value will only update after the alignment of each locus.</p>
-</div>	
-HTML
+			say qq(<div class="box" id="resultstable">);
+			say qq(<p>This analysis has been submitted to the job queue.</p>);
+			say qq(<p>Please be aware that this job may take a long time depending on the number of sequences to align and how busy the )
+			  . qq(server is.  Alignment of hundreds of sequences can take many hours!</p>);
+			say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">Follow the progress )
+			  . qq(of this job and view the output.</a></p>);
+			say qq(<p>Please note that the % complete value will only update after the extraction (and, if selected, alignment) of )
+			  . qq(each locus.</p></div>);
 			return;
 		}
 	}
 	my $limit = $self->{'system'}->{'XMFA_limit'} // $self->{'system'}->{'align_limit'} // DEFAULT_ALIGN_LIMIT;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		print <<"HTML";
-<div class="box" id="queryform">
-<p>This script will export allele sequences in Extended Multi-FASTA (XMFA) format suitable for loading into third-party
-applications, such as ClonalFrame.  It will also produce concatenated FASTA files. Only DNA loci that have a corresponding 
-database containing allele sequence identifiers, or DNA and peptide loci with genome sequences tagged, can be included.  
-Please check the loci that you would like to include.  Alternatively select one or more schemes to include
-all loci that are members of the scheme.  If a sequence does not exist in the remote database, it will be replaced with 
-gap characters. Aligned output is limited to $limit records. Please be aware that if you select the alignment option it may 
-take a long time to generate the output file.</p>
-HTML
+		say qq(<div class="box" id="queryform">);
+		say qq(<p>This script will export allele sequences in Extended Multi-FASTA (XMFA) format suitable for loading into third-party )
+		  . qq(applications, such as ClonalFrame.  It will also produce concatenated FASTA files. Only DNA loci that have a corresponding )
+		  . qq(database containing allele sequence identifiers, or DNA and peptide loci with genome sequences tagged, can be included. )
+		  . qq(Please check the loci that you would like to include.  Alternatively select one or more schemes to include )
+		  . qq(all loci that are members of the scheme.  If a sequence does not exist in the remote database, it will be replaced with )
+		  . qq(gap characters.</p>);
+		say qq(<p>Aligned output is limited to $limit records; total output (records x loci) is limited to $commified_max sequences.</p>);
+		say qq(<p>Please be aware that if you select the alignment option it may take a long time to generate the output file.</p>);
 	} else {
-		print <<"HTML";
-<div class="box" id="queryform">
-<p>This script will export allele sequences in Extended Multi-FASTA (XMFA) format suitable for loading into third-party
-applications, such as ClonalFrame.  Aligned Output is limited to $limit records. Please be aware that if you select the
-alignment option it may take a long time to generate the output file.</p>
-HTML
+		say qq(<div class="box" id="queryform">);
+		say qq(<p>This script will export allele sequences in Extended Multi-FASTA (XMFA) format suitable for loading into third-party )
+		  . qq(applications, such as ClonalFrame.</p>);
+		say qq(<p>Aligned Output is limited to $limit records; total output (records x loci) is limited to $commified_max sequences.</p>);
+		say qq(<p>Please be aware that if you select the alignment option it may take a long time to generate the output file.</p>);
 	}
 	my $list = $self->get_id_list( $pk, $query_file );
 	$self->print_sequence_export_form(
