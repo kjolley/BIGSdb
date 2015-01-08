@@ -392,9 +392,9 @@ sub print_provenance_form_elements {
 						);
 					}
 				}
-				say " <span class=\"metaset\">Metadata: $metaset</span>" if !$set_id && defined $metaset;
+				say qq( <span class="metaset">Metadata: $metaset</span>) if !$set_id && defined $metaset;
 				if ( $thisfield->{'comments'} ) {
-					say "<a class=\"tooltip\" title=\"$thisfield->{'comments'}\">&nbsp;<i>i</i>&nbsp;</a>&nbsp;";
+					say qq(<a class="tooltip" title="$thisfield->{'comments'}">&nbsp;<i>i</i>&nbsp;</a>&nbsp;);
 				}
 				if ( ( none { lc($field) eq $_ } qw(datestamp date_entered) ) && lc( $thisfield->{'type'} ) eq 'date' ) {
 					say " format: yyyy-mm-dd";
@@ -409,7 +409,7 @@ sub print_provenance_form_elements {
 	} else {
 		$aliases = [];
 	}
-	say "<li><label for=\"aliases\" class=\"form\" style=\"width:${width}em\">aliases:&nbsp;</label>";
+	say qq(<li><label for="aliases" class="form" style="width:${width}em">aliases:&nbsp;</label>);
 	local $" = "\n";
 	say $q->textarea( -name => 'aliases', -id => 'aliases', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@$aliases" );
 	say "</li>";
@@ -419,7 +419,7 @@ sub print_provenance_form_elements {
 	} else {
 		$pubmed = [];
 	}
-	say "<li><label for=\"pubmed\" class=\"form\" style=\"width:${width}em\">PubMed ids:&nbsp;</label>";
+	say qq(<li><label for="pubmed" class="form" style="width:${width}em">PubMed ids:&nbsp;</label>);
 	say $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@$pubmed" );
 	say "</li>";
 	say "</ul>";
