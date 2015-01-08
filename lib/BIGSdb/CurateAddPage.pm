@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -172,11 +172,10 @@ sub _insert {
 	my $extra_inserts = [];
 	my @tables        = qw(accession loci locus_aliases locus_descriptions profile_refs scheme_fields scheme_group_group_members
 	  sequences sequence_bin sequence_refs);
-	  
-	if ( defined $newdata->{'isolate_id'} && !$self->is_allowed_to_view_isolate( $newdata->{'isolate_id'} ) ) {
-		return; #Problem will be reported in CuratePage::create_record_table.
-	}
 
+	if ( defined $newdata->{'isolate_id'} && !$self->is_allowed_to_view_isolate( $newdata->{'isolate_id'} ) ) {
+		return;    #Problem will be reported in CuratePage::create_record_table.
+	}
 	if ( any { $table eq $_ } @tables ) {
 		my $method = "_check_$table";
 		$self->$method( $newdata, \@problems, $extra_inserts );
@@ -196,7 +195,7 @@ sub _insert {
 			push @values, $newdata->{ $_->{'name'} };
 		}
 		local $" = ',';
-		my $qry = "INSERT INTO $table (@table_fields) VALUES (@placeholders)";
+		my $qry      = "INSERT INTO $table (@table_fields) VALUES (@placeholders)";
 		my $continue = 1;
 		eval {
 			$self->{'db'}->do( $qry, undef, @values );
@@ -648,31 +647,25 @@ sub next_id {
 	if ( $table eq 'profiles' ) {
 		return $self->_next_id_profiles($scheme_id);
 	}
-	if ( $last_id && !$self->{'sql'}->{'id_unused'}->{$table} ) {
-		my $qry = "SELECT COUNT(id) FROM $table WHERE id=?";
-		$self->{'sql'}->{'id_unused'}->{$table} = $self->{'db'}->prepare($qry);
-	}
 	if ($last_id) {
 		my $next = $last_id + 1;
-		eval { $self->{'sql'}->{'id_unused'}->{$table}->execute($next) };
-		$logger->error($@) if $@;
-		my ($used) = $self->{'sql'}->{'id_unused'}->{$table}->fetchrow_array;
+		my $used =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT EXISTS(SELECT * FROM $table WHERE id=?)", $next, { cache => "CurateAddPage::next_id::used::$table" } );
 		return $next if !$used;
 	}
-	if ( !$self->{'sql'}->{'next_id'}->{$table} ) {
+	my $start_id =
+	  ( $table eq 'isolates' && BIGSdb::Utils::is_int( $self->{'system'}->{'start_id'} ) ) ? $self->{'system'}->{'start_id'} : 1;
+	my $start_id_clause = ( $table eq 'isolates' && $start_id > 1 ) ? " AND l.id >= $start_id" : '';
 
-		#this will find next id except when id 1 is missing
-		my $qry =
-"SELECT l.id + 1 AS start FROM $table AS l left outer join $table AS r on l.id+1=r.id where r.id is null AND l.id>0 ORDER BY l.id LIMIT 1";
-		$self->{'sql'}->{'next_id'}->{$table} = $self->{'db'}->prepare($qry);
-	}
-	eval { $self->{'sql'}->{'next_id'}->{$table}->execute };
-	if ($@) {
-		$logger->error($@);
-		return;
-	}
-	my ($next) = $self->{'sql'}->{'next_id'}->{$table}->fetchrow_array;
-	$next = 1 if !$next;
+	#this will find next id except when id 1 is missing
+	my $next = $self->{'datastore'}->run_query(
+		"SELECT l.id + 1 AS start FROM $table AS l LEFT OUTER JOIN $table AS r ON l.id+1=r.id "
+		  . "WHERE r.id is null AND l.id > 0$start_id_clause ORDER BY l.id LIMIT 1",
+		undef,
+		{ cache => "CurateAddPage::next_id::next::$table" }
+	);
+	$next = $start_id if !$next;
 	return $next;
 }
 
