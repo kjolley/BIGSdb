@@ -1,6 +1,6 @@
 #GenomeComparator.pm - Genome comparison plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.6.7',
+		version     => '1.6.8',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -573,7 +573,8 @@ sub _analyse_by_loci {
 	$self->{'html_buffer'} = "<h3>Analysis against defined loci</h3>\n";
 	$self->{'file_buffer'} = "Analysis against defined loci\n";
 	$self->{'file_buffer'} .= "Time: " . ( localtime(time) ) . "\n\n";
-	$self->{'html_buffer'} .= qq(<p>Allele numbers are used where these have been defined, otherwise sequences will be marked as 'New#1, )
+	$self->{'html_buffer'} .=
+	    qq(<p>Allele numbers are used where these have been defined, otherwise sequences will be marked as 'New#1, )
 	  . qq('New#2' etc. Missing alleles are marked as <span style="background:black; color:white; padding: 0 0.5em">'X'</span>. Incomplete )
 	  . qq(alleles (located at end of contig) are marked as <span style="background:green; color:white; padding: 0 0.5em">'I'</span>.</p>);
 	$self->{'file_buffer'} .= "Allele numbers are used where these have been defined, otherwise sequences will be marked as 'New#1, "
@@ -2172,7 +2173,7 @@ sub _parse_blast_ref {
 	my $params    = $self->{'params'};
 	my $identity  = BIGSdb::Utils::is_int( $params->{'identity'} ) ? $params->{'identity'} : 70;
 	my $alignment = BIGSdb::Utils::is_int( $params->{'alignment'} ) ? $params->{'alignment'} : 50;
-	my $match;
+	my $final_match;
 	my $quality    = 0;                  #simple metric of alignment length x percentage identity
 	my $ref_length = length $$seq_ref;
 	my $required_alignment = $params->{'tblastx'} ? int( $ref_length / 3 ) : $ref_length;
@@ -2180,45 +2181,62 @@ sub _parse_blast_ref {
 	open( my $blast_fh, '<', $blast_file ) || ( $logger->error("Can't open BLAST output file $blast_file. $!"), return \$; );
 	push @blast, $_ foreach <$blast_fh>;    #slurp file to prevent file handle remaining open during database queries.
 	close $blast_fh;
-	$match->{'good_matches'} = 0;
+	my $good_matches = 0;
+	my @existing_match_seqs;
 
 	foreach my $line (@blast) {
 		next if !$line || $line =~ /^#/;
 		my @record = split /\s+/, $line;
 		my $this_quality = $record[3] * $record[2];
-		if ( $this_quality > $quality && $record[3] >= $alignment * 0.01 * $required_alignment && $record[2] >= $identity ) {
-			$match->{'good_matches'}++;
-			$quality              = $this_quality;
-			$match->{'seqbin_id'} = $record[1];
-			$match->{'identity'}  = $record[2];
-			$match->{'alignment'} = $record[3];
-			$match->{'start'}     = $record[8];
-			$match->{'end'}       = $record[9];
+		if ( $record[3] >= $alignment * 0.01 * $required_alignment && $record[2] >= $identity ) {
+			my $this_match;
+			$this_match->{'seqbin_id'} = $record[1];
+			$this_match->{'identity'}  = $record[2];
+			$this_match->{'alignment'} = $record[3];
+			$this_match->{'start'}     = $record[8];
+			$this_match->{'end'}       = $record[9];
 			if ( ( $record[8] > $record[9] && $record[7] > $record[6] ) || ( $record[8] < $record[9] && $record[7] < $record[6] ) ) {
-				$match->{'reverse'} = 1;
+				$this_match->{'reverse'} = 1;
 			} else {
-				$match->{'reverse'} = 0;
+				$this_match->{'reverse'} = 0;
 			}
-			if ( $required_alignment > $match->{'alignment'} ) {
-				if ( $match->{'reverse'} ) {
-					$match->{'predicted_start'} = $match->{'start'} - $ref_length + $record[6];
-					$match->{'predicted_end'}   = $match->{'end'} + $record[7] - 1;
+			if ( $required_alignment > $this_match->{'alignment'} ) {
+				if ( $this_match->{'reverse'} ) {
+					$this_match->{'predicted_start'} = $this_match->{'start'} - $ref_length + $record[6];
+					$this_match->{'predicted_end'}   = $this_match->{'end'} + $record[7] - 1;
 				} else {
-					$match->{'predicted_start'} = $match->{'start'} - $record[6] + 1;
-					$match->{'predicted_end'}   = $match->{'end'} + $ref_length - $record[7];
+					$this_match->{'predicted_start'} = $this_match->{'start'} - $record[6] + 1;
+					$this_match->{'predicted_end'}   = $this_match->{'end'} + $ref_length - $record[7];
 				}
 			} else {
-				if ( $match->{'reverse'} ) {
-					$match->{'predicted_start'} = $match->{'end'};
-					$match->{'predicted_end'}   = $match->{'start'};
+				if ( $this_match->{'reverse'} ) {
+					$this_match->{'predicted_start'} = $this_match->{'end'};
+					$this_match->{'predicted_end'}   = $this_match->{'start'};
 				} else {
-					$match->{'predicted_start'} = $match->{'start'};
-					$match->{'predicted_end'}   = $match->{'end'};
+					$this_match->{'predicted_start'} = $this_match->{'start'};
+					$this_match->{'predicted_end'}   = $this_match->{'end'};
 				}
+			}
+			my $match_seq         = $self->_extract_sequence($this_match);
+			my $seq_already_found = 0;
+			foreach my $existing_match_seq (@existing_match_seqs) {
+				if ( $match_seq eq $existing_match_seq ) {    #Only count different alleles
+					$seq_already_found = 1;
+					last;
+				}
+			}
+			if ( !$seq_already_found ) {
+				push @existing_match_seqs, $match_seq;
+				$good_matches++;
+			}
+			if ( $this_quality > $quality ) {
+				$quality     = $this_quality;
+				$final_match = $this_match;
 			}
 		}
 	}
-	return $match;
+	$final_match->{'good_matches'} = $good_matches;
+	return $final_match;
 }
 
 sub _create_locus_FASTA_db {
