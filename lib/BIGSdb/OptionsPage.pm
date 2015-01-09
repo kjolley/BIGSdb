@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -121,7 +121,7 @@ sub set_options {
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 			foreach (
 				qw (mark_provisional_main mark_provisional sequence_details_main display_seqbin_main display_contig_count locus_alias
-				update_details sequence_details allele_flags sample_details)
+				update_details sequence_details allele_flags sample_details display_publications)
 			  )
 			{
 				$prefstore->set_general( $guid, $dbname, $_, $prefs->{$_} ? 'on' : 'off' );
@@ -246,7 +246,8 @@ sub _print_main_results_options {
 			-label   => 'Display information about sequence bin records tagged with locus information (tooltip).'
 		},
 		{ -name => 'display_seqbin_main',  -checked => $prefs->{'display_seqbin_main'},  -label => 'Display sequence bin size.' },
-		{ -name => 'display_contig_count', -checked => $prefs->{'display_contig_count'}, -label => 'Display contig count.' }
+		{ -name => 'display_contig_count', -checked => $prefs->{'display_contig_count'}, -label => 'Display contig count.' },
+		{ -name => 'display_publications', -checked => $prefs->{'display_publications'}, -label => 'Display publications.'}
 	];
 	say "<ul id=\"main_results\">";
 

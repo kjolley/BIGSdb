@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -248,6 +248,7 @@ sub _print_delete_all_function {
 	$q->param( page => 'deleteAll' );
 	print $q->hidden($_) foreach qw (db page table query_file scheme_id list_file datatype);
 	if ( $table eq 'allele_designations' ) {
+
 		if ( $self->can_modify_table('allele_sequences') ) {
 			say "<ul><li>";
 			say $q->checkbox( -name => 'delete_tags', -label => 'Delete corresponding sequence tags' );
@@ -501,6 +502,16 @@ sub _print_isolate_table {
 			print "<td>$stats->{'total_length'}</td>" if $self->{'prefs'}->{'display_seqbin_main'};
 			print "<td>$stats->{'contigs'}</td>"      if $self->{'prefs'}->{'display_contig_count'};
 		}
+		if ( $self->{'prefs'}->{'display_publications'} ) {
+			my $pmids = $self->{'datastore'}->get_isolate_refs($id);
+			my $citations = $self->{'datastore'}->get_citation_hash( $pmids, { link_pubmed => 1 } );
+			my @formatted_list;
+			foreach my $pmid ( sort { $citations->{$a} cmp $citations->{$b} } @$pmids ) {
+				push @formatted_list, $citations->{$pmid};
+			}
+			local $" = '<br />';
+			print "<td>@formatted_list</td>";
+		}
 
 		#Print loci and scheme fields
 		my @scheme_ids;
@@ -598,6 +609,7 @@ sub _print_isolate_table_header {
 	$fieldtype_header .= "</th>";
 	$fieldtype_header .= qq(<th rowspan="2">Seqbin size (bp)</th>) if $self->{'prefs'}->{'display_seqbin_main'};
 	$fieldtype_header .= qq(<th rowspan="2">Contigs</th>) if $self->{'prefs'}->{'display_contig_count'};
+	$fieldtype_header .= qq(<th rowspan="2">Publications</th>) if $self->{'prefs'}->{'display_publications'};
 	my $alias_sql = $self->{'db'}->prepare("SELECT alias FROM locus_aliases WHERE locus=?");
 	$logger->error($@) if $@;
 	local $" = '; ';
@@ -697,7 +709,8 @@ sub _print_isolate_table_scheme {
 		$self->_initiate_urls_for_loci;
 	}
 	if ( !$self->{'designations_retrieved'}->{$isolate_id} ) {
-		$self->{'designations'}->{$isolate_id}           = $self->{'datastore'}->get_all_allele_designations($isolate_id, {show_ignored => $self->{'curate'}});
+		$self->{'designations'}->{$isolate_id} =
+		  $self->{'datastore'}->get_all_allele_designations( $isolate_id, { show_ignored => $self->{'curate'} } );
 		$self->{'designations_retrieved'}->{$isolate_id} = 1;
 	}
 	my $allele_designations = $self->{'designations'}->{$isolate_id};
@@ -712,9 +725,9 @@ sub _print_isolate_table_scheme {
 		  )
 		{
 			my $status;
-			if (( $allele_designations->{$locus}->{$allele_id} // '' ) eq 'provisional' && $self->{'prefs'}->{'mark_provisional_main'}){
+			if ( ( $allele_designations->{$locus}->{$allele_id} // '' ) eq 'provisional' && $self->{'prefs'}->{'mark_provisional_main'} ) {
 				$status = 'provisional';
-			} elsif (( $allele_designations->{$locus}->{$allele_id} // '' ) eq 'ignore'){
+			} elsif ( ( $allele_designations->{$locus}->{$allele_id} // '' ) eq 'ignore' ) {
 				$status = 'ignore';
 			}
 			my $display = '';
@@ -1317,7 +1330,8 @@ sub _is_scheme_data_present {
 		#because even though the latter is faster, the former will need to be called to display
 		#the data in the table and the results can be cached.
 		if ( !$self->{'designations_retrieved'}->{$isolate_id} ) {
-			$self->{'designations'}->{$isolate_id}           = $self->{'datastore'}->get_all_allele_designations($isolate_id,{show_ignored=>$self->{'curate'}});
+			$self->{'designations'}->{$isolate_id} =
+			  $self->{'datastore'}->get_all_allele_designations( $isolate_id, { show_ignored => $self->{'curate'} } );
 			$self->{'designations_retrieved'}->{$isolate_id} = 1;
 		}
 		my $allele_designations = $self->{'designations'}->{$isolate_id};

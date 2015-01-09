@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1520,7 +1520,10 @@ sub get_citation_hash {
 				$citation .= "<i>$journal</i> <b>$volume</b>$pages";
 				$citation .= "</a>"                                                  if $options->{'link_pubmed'};
 			} else {
-				$citation = "$author $year $journal $volume$pages";
+				$citation = "$author $year ";
+				$citation .= "<a href=\"http://www.ncbi.nlm.nih.gov/pubmed/$pmid\">" if $options->{'link_pubmed'};
+				$citation .= "$journal $volume$pages";
+				$citation .= "</a>"                                                  if $options->{'link_pubmed'};
 			}
 		}
 		if ($citation) {
