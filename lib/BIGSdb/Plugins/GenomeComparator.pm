@@ -83,12 +83,14 @@ function enable_seqs(){
 		\$("#tblastx").prop("disabled", false);
 		\$("#use_tagged").prop("disabled", true);
 		\$("#exclude_paralogous").prop("disabled", false);
+		\$("#paralogous_options").prop("disabled", false);
 	} else {
 		\$("#scheme_fieldset").show(500);
 		\$("#locus_fieldset").show(500);
 		\$("#tblastx").prop("disabled", true);
 		\$("#use_tagged").prop("disabled", false);
 		\$("#exclude_paralogous").prop("disabled", true);
+		\$("#paralogous_options").prop("disabled", true);
 	}
 	if (\$("#calc_distances").prop("checked")){
 		\$("#align").prop("checked", true);
@@ -549,10 +551,19 @@ sub _print_distance_matrix_fieldset {
 	say $q->checkbox(
 		-name    => 'exclude_paralogous',
 		-id      => 'exclude_paralogous',
-		-label   => 'Exclude paralogous alleles',
+		-label   => 'Exclude paralogous loci',
 		-checked => 'checked'
 	);
-	say '</li><li></ul></fieldset>';
+	say '</li><li>';
+	$labels = { all => 'paralogous in all isolates', any => 'paralogous in any isolate' };
+	say $q->radio_group(
+		-name      => 'paralogous_options',
+		-id        => 'paralogous_options',
+		-values    => [qw(all any)],
+		-labels    => $labels,
+		-linebreak => 'true'
+	);
+	say '</li></ul></fieldset>';
 	return;
 }
 
@@ -1527,21 +1538,35 @@ sub _print_paralogous_loci {
 	my ( $self, $ids, $job_file, $loci, $match_count ) = @_;
 	my $td = 1;
 	my ( $table_buffer, $file_table_buffer, %paralogous_loci );
+	my $params = $self->{'params'};
 	foreach my $locus ( sort keys %$loci ) {
-		my $paralogous      = 0;
-		my $row_buffer      = "<tr class=\"td$td\"><td>$locus</td>";
-		my $text_row_buffer = $locus;
+		my $paralogous_in_any = 0;
+		my $paralogous_in_all = 1;
+		my $missing_in_all    = 1;
+		my $row_buffer        = "<tr class=\"td$td\"><td>$locus</td>";
+		my $text_row_buffer   = $locus;
 		foreach my $id (@$ids) {
 			$row_buffer      .= "<td>$match_count->{$id}->{$locus}</td>";
 			$text_row_buffer .= "\t$match_count->{$id}->{$locus}";
-			if ( $match_count->{$id}->{$locus} > 1 ) {
-				$paralogous = 1;
-				$paralogous_loci{$locus} = 1;
+			if ( $match_count->{$id}->{$locus} > 0 ) {
+				$missing_in_all = 0;
 			}
+			if ( $match_count->{$id}->{$locus} == 1 ) {
+				$paralogous_in_all = 0;
+			}
+			if ( $match_count->{$id}->{$locus} > 1 ) {
+				$paralogous_in_any = 1;
+			}
+		}
+		$paralogous_in_all = 0 if $missing_in_all;
+		if ( $params->{'paralogous_options'} eq 'any' ) {
+			$paralogous_loci{$locus} = 1 if $paralogous_in_any;
+		} elsif ( $params->{'paralogous_options'} eq 'all' ) {
+			$paralogous_loci{$locus} = 1 if $paralogous_in_all;
 		}
 		$row_buffer      .= "</tr>\n";
 		$text_row_buffer .= "\n";
-		if ($paralogous) {
+		if ( $paralogous_loci{$locus} ) {
 			$table_buffer      .= $row_buffer;
 			$file_table_buffer .= $text_row_buffer;
 			$td = $td == 1 ? 2 : 1;
@@ -1549,16 +1574,18 @@ sub _print_paralogous_loci {
 	}
 	if ($table_buffer) {
 		$self->{'html_buffer'} .= "<h3>Potentially paralogous loci</h3>\n";
-		$self->{'html_buffer'} .=
-		    "<P>The table shows the number of matches where there was more than one hit matching the BLAST thresholds in "
-		  . "at least one genome.</p>\n";
+		my $msg = $params->{'paralogous_options'} eq 'any'
+		  ? 'The table shows the number of matches where there was more than one hit matching the BLAST thresholds in at least one '
+		  . 'genome. Depending on your BLAST parameters this is likely to overestimate the number of paralogous loci.'
+		  : 'The table shows the number of matches where there was more than one hit matching the BLAST thresholds in all genomes (except '
+		  . 'where the locus was absent).';
+		$self->{'html_buffer'} .= "<p>$msg</p>\n";
 		$self->{'html_buffer'} .= "<p>Paralogous: " . ( keys %paralogous_loci ) . "</p>\n";
 		$self->{'html_buffer'} .= "<table class=\"resultstable\"><tr><th>Locus</th>";
 		my $file_buffer = "\n###\n\n";
 		$file_buffer .= "Potentially paralogous loci\n";
 		$file_buffer .= "---------------------------\n";
-		$file_buffer .= "The table shows the number of matches where there was more than one hit matching the BLAST thresholds in "
-		  . "at least one genome.\n\n";
+		$file_buffer .= "$msg\n\n";
 		$file_buffer .= "Paralogous: " . ( keys %paralogous_loci ) . "\n\n";
 		$file_buffer .= "Locus";
 		my $worksheet = $self->{'workbook'}->add_worksheet('paralogous loci');
