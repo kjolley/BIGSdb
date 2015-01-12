@@ -545,6 +545,7 @@ sub _print_distance_matrix_fieldset {
 		-name      => 'truncated',
 		-values    => [qw (exclude include_as_T pairwise_same)],
 		-labels    => $labels,
+		-default   => 'pairwise_same',
 		-linebreak => 'true'
 	);
 	say qq(</li><li style="border-top:1px dashed #999;padding-top:0.2em">);
