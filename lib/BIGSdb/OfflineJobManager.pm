@@ -328,7 +328,7 @@ sub get_job {
 	if ( !$self->{'sql'}->{'get_job'} ) {
 		$self->{'sql'}->{'get_job'} =
 		  $self->{'db'}->prepare( "SELECT *,extract(epoch FROM now() - start_time) AS elapsed,extract(epoch FROM "
-			  . "stop_time - start_time) AS total_time FROM jobs WHERE id=?" );
+			  . "stop_time - start_time) AS total_time, localtimestamp AS query_time FROM jobs WHERE id=?" );
 	}
 	eval { $self->{'sql'}->{'get_job'}->execute($job_id) };
 	if ($@) {

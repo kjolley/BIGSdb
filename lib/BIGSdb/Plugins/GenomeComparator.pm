@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.6.8',
+		version     => '1.7.0',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -245,6 +245,7 @@ sub run {
 			$error    = "<p>The following isolates in your pasted list are invalid: @$invalid_ids.</p>\n";
 			$continue = 0;
 		}
+		$q->param( upload_filename => $q->param('ref_upload') );
 		my $ref_upload = $q->param('ref_upload') ? $self->_upload_ref_file : undef;
 		my $filtered_ids = $self->filter_ids_by_project( \@ids, $q->param('project_list') );
 		if ( !@$filtered_ids ) {
@@ -280,7 +281,7 @@ sub run {
 		if ($error) {
 			say "<div class=\"box statusbad\">$error</div>";
 		}
-		$q->param( 'ref_upload', $ref_upload ) if $ref_upload;
+		$q->param( ref_upload => $ref_upload ) if $ref_upload;
 		if ( $q->param('calc_distances') ) {
 			$q->param( align       => 'on' );
 			$q->param( align_all   => 'on' );
@@ -1302,6 +1303,7 @@ sub _print_reports {
 		}
 	}
 	$self->_core_analysis( $loci, $args );
+	$self->_report_parameters( $ids, $loci, $args );
 	$self->{'workbook'}->close;
 	my $excel_file = "$self->{'config'}->{'tmp_dir'}/$job_id.xlsx";
 	open( my $excel_fh, '>', $excel_file ) || $logger->error("Can't open $excel_file for writing.");
@@ -1310,6 +1312,112 @@ sub _print_reports {
 	close $excel_fh;
 	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.xlsx", description => '02_Excel format' } )
 	  if -e $excel_file;
+	return;
+}
+
+sub _report_parameters {
+	my ( $self, $ids, $loci, $args ) = @_;
+	my $worksheet = $self->{'workbook'}->add_worksheet('parameters');
+	my $row       = 0;
+	my %excel_format;
+	$excel_format{'heading'} = $self->{'workbook'}->add_format( size  => 14,      align => 'left', bold => 1 );
+	$excel_format{'key'}     = $self->{'workbook'}->add_format( align => 'right', bold  => 1 );
+	$excel_format{'value'}   = $self->{'workbook'}->add_format( align => 'left' );
+	my $job = $self->{'jobManager'}->get_job( $args->{'job_id'} );
+	my $total_time;
+	eval "use Time::Duration;";    ## no critic (ProhibitStringyEval)
+
+	if ($@) {
+		$total_time = int( $job->{'elapsed'} ) . ' s';
+	} else {
+		$total_time = duration( $job->{'elapsed'} );
+		$total_time = '<1 second' if $total_time eq 'just now';
+	}
+	( my $submit_time = $job->{'submit_time'} ) =~ s/\..*?$//;
+	( my $start_time  = $job->{'start_time'} )  =~ s/\..*?$//;
+	( my $stop_time   = $job->{'query_time'} )  =~ s/\..*?$//;
+
+	#Job attributes
+	my @parameters = (
+		{ section => 'Job attributes', nospace => 1 },
+		{ label   => 'Plugin version', value   => $self->get_attributes->{'version'} },
+		{ label   => 'Job',            value   => $args->{'job_id'} },
+		{ label   => 'Database',       value   => $job->{'dbase_config'} },
+		{ label   => 'Submit time',    value   => $submit_time },
+		{ label   => 'Start time',     value   => $start_time },
+		{ label   => 'Stop time',      value   => $stop_time },
+		{ label   => 'Total time',     value   => $total_time },
+		{ label   => 'Isolates',       value   => scalar @$ids },
+		{ label   => 'Analysis type',  value   => $args->{'by_reference'} ? 'against reference genome' : 'against defined loci' },
+	);
+	my $params = $self->{'params'};
+	if ( $args->{'by_reference'} ) {
+		push @parameters,
+		  { label => 'Accession', value => $params->{'annotation'} || $params->{'accession'} || $params->{'upload_filename'} };
+	} else {
+		push @parameters, { label => 'Loci', value => scalar keys %$loci };
+	}
+
+	#Parameters/options
+	push @parameters,
+	  (
+		{ section => 'Parameters' },
+		{ label   => 'Min % identity', value => $params->{'identity'} },
+		{ label   => 'Min % alignment', value => $params->{'alignment'} },
+		{ label   => 'BLASTN word size', value => $params->{'word_size'} },
+		{ label   => 'Use TBLASTX', value => $params->{'tblastx'} ? 'yes' : 'no' }
+	  );
+	if ( !$args->{'by_reference'} ) {
+		push @parameters, ( { label => 'Use tagged designations', value => $params->{'use_tagged'} ? 'yes' : 'no' } );
+	}
+
+	#Distance matrix
+	my $labels = {
+		exclude       => 'Completely exclude from analysis',
+		include_as_T  => 'Treat as distinct allele',
+		pairwise_same => 'Ignore in pairwise comparison'
+	};
+	push @parameters,
+	  ( { section => 'Distance matrix calculation' }, { label => 'Incomplete loci', value => lc( $labels->{ $params->{'truncated'} } ) } );
+	if ( $args->{'by_reference'} ) {
+		push @parameters, { label => 'Exclude paralogous loci', value => $params->{'exclude_paralogous'} ? 'yes' : 'no' };
+		if ( $params->{'exclude_paralogous'} ) {
+			$labels = { all => 'paralogous in all isolates', any => 'paralogous in any isolate' };
+			push @parameters, { label => 'Paralogous locus definitions', value => $labels->{ $params->{'paralogous_options'} } };
+		}
+	}
+
+	#Alignments
+	push @parameters, ( { section => 'Alignments' }, { label => 'Produce alignments', value => $params->{'align'} ? 'yes' : 'no' } );
+	if ( $params->{'align'} ) {
+		push @parameters,
+		  (
+			{ label => 'Align all', value => $params->{'align_all'} ? 'yes' : 'no' },
+			{ label => 'Aligner', value => $params->{'aligner'} }
+		  );
+	}
+
+	#Core genome analysis
+	push @parameters,
+	  (
+		{ section => 'Core genome analysis' },
+		{ label   => 'Core threshold %', value => $params->{'core_threshold'} },
+		{ label   => 'Calculate mean distances', value => $params->{'calc_distances'} ? 'yes' : 'no' }
+	  );
+	my $longest_length = 0;
+	foreach my $parameter (@parameters) {
+		if ( $parameter->{'section'} ) {
+			$row++ if !$parameter->{'nospace'};
+			$worksheet->write( $row, 0, $parameter->{'section'}, $excel_format{'heading'} );
+		} else {
+			$worksheet->write( $row, 0, $parameter->{'label'} . ':', $excel_format{'key'} );
+			$worksheet->write( $row, 1, $parameter->{'value'},       $excel_format{'value'} );
+		}
+		$row++;
+		next if !$parameter->{'label'};
+		$longest_length = length( $parameter->{'label'} ) if length( $parameter->{'label'} ) > $longest_length;
+	}
+	$worksheet->set_column( 0, 0, $self->_excel_col_width($longest_length) );
 	return;
 }
 
@@ -1575,7 +1683,8 @@ sub _print_paralogous_loci {
 	}
 	if ($table_buffer) {
 		$self->{'html_buffer'} .= "<h3>Potentially paralogous loci</h3>\n";
-		my $msg = $params->{'paralogous_options'} eq 'any'
+		my $msg =
+		  $params->{'paralogous_options'} eq 'any'
 		  ? 'The table shows the number of matches where there was more than one hit matching the BLAST thresholds in at least one '
 		  . 'genome. Depending on your BLAST parameters this is likely to overestimate the number of paralogous loci.'
 		  : 'The table shows the number of matches where there was more than one hit matching the BLAST thresholds in all genomes (except '
