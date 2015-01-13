@@ -1,17 +1,18 @@
 Important notes about upgrading
 -------------------------------
 
-Version 1.1: Offline job manager - set up new user account and cron job.
-Version 1.2: Change of isolate database structure. New package 'exonerate'
-             required.
-Version 1.3: Change of isolate and seqdef database structures.  Ensure 
-             jstree.js is upgraded.
-Version 1.4: Change of isolate, seqdef, and job database structures.
-Version 1.5: Change of isolate and seqdef database structures.
-Version 1.6: Change of isolate and seqdef database structures.
-Version 1.7: Change of isolate, seqdef, and job database structures.
-Version 1.8: Change of isolate database structures.
-Version 1.9: Change of isolate database structures.
+Version 1.1:  Offline job manager - set up new user account and cron job.
+Version 1.2:  Change of isolate database structure. New package 'exonerate'
+              required.
+Version 1.3:  Change of isolate and seqdef database structures.  Ensure 
+              jstree.js is upgraded.
+Version 1.4:  Change of isolate, seqdef, and job database structures.
+Version 1.5:  Change of isolate and seqdef database structures.
+Version 1.6:  Change of isolate and seqdef database structures.
+Version 1.7:  Change of isolate, seqdef, and job database structures.
+Version 1.8:  Change of isolate database structures.
+Version 1.9:  Change of isolate database structures.
+Version 1.10: Change of isolate and seqdef database structures.
 
 Details can be found below.
 
@@ -209,3 +210,17 @@ automatically updated by database triggers.
 There is also an additional field, new_version, that needs to be added to
 the isolates table of an isolate database.  This is to support record
 versioning.
+
+Version 1.10
+------------
+There are changes to the isolate and sequence definition database structures.
+Please run the isolatedb_v1.10.sql and seqdefdb_v1.10.sql scripts, found in
+the sql/upgrade directory, against your databases.
+
+The main change to both databases is a modification to the way that curator
+permissions are stored.  The previous user_permissions table is removed and
+is replaced with a new curator_permissions table that uses key/value pairs
+allowing new permissions to be introduced without changes to the database
+structure.
+
+There are also changes to the projects table in the isolates database.
