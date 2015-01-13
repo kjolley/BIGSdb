@@ -1,7 +1,7 @@
 #!/usr/bin/perl -T
 #bigsdb.pl
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,7 +21,7 @@
 package BIGSdb::main;
 use strict;
 use warnings;
-use version; our $VERSION = qv('1.9.1');
+use version; our $VERSION = qv('1.10.0');
 use 5.010;
 
 ###########Local configuration################################
