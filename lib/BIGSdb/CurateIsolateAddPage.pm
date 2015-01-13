@@ -404,7 +404,7 @@ sub print_provenance_form_elements {
 							id        => $field,
 							size      => $thisfield->{'length'},
 							maxlength => $thisfield->{'length'},
-							value     => ( $newdata->{ lc($field) } // $thisfield->{'default'} ),
+							value     => ( $q->param($field) // $newdata->{ lc($field) } // $thisfield->{'default'} ),
 							%html5_args
 						);
 					}
