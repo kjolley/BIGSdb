@@ -124,6 +124,9 @@ sub _check {
 			}
 		}
 	}
+	if ($self->alias_duplicates_name){
+		push @bad_field_buffer, "Aliases: duplicate isolate name - aliases are ALTERNATIVE names for the isolate.";
+	}
 	if (@bad_field_buffer) {
 		say "<div class=\"box\" id=\"statusbad\"><p>There are problems with your record submission.  "
 		  . "Please address the following:</p>";

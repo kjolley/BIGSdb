@@ -94,6 +94,9 @@ sub _check {
 			}
 		}
 	}
+	if ($self->alias_duplicates_name){
+		push @bad_field_buffer, "Aliases: duplicate isolate name - aliases are ALTERNATIVE names for the isolate.";
+	}
 	foreach my $locus (@$loci) {
 		if ( $q->param("locus:$locus") ) {
 			$newdata->{"locus:$locus"}         = $q->param("locus:$locus");
@@ -128,6 +131,20 @@ sub _check {
 			$insert = 0;
 		}
 		return $self->_insert($newdata) if $insert;
+	}
+	return;
+}
+
+sub alias_duplicates_name {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $isolate_name = $q->param($self->{'system'}->{'labelfield'});
+	my @aliases = split /\r?\n/, $q->param('aliases');
+	foreach my $alias (@aliases) {
+		$alias =~ s/\s+$//;
+		$alias =~ s/^\s+//;
+		next if $alias eq '';
+		return 1 if $alias eq $isolate_name;
 	}
 	return;
 }

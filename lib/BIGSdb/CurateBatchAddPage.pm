@@ -191,15 +191,15 @@ HTML
 }
 
 sub _print_interface_sender_field {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my ($self)    = @_;
+	my $q         = $self->{'cgi'};
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	if ( $user_info->{'status'} eq 'submitter' ) {
-		say $q->hidden(sender => $user_info->{'id'});
-		return;	
+		say $q->hidden( sender => $user_info->{'id'} );
+		return;
 	}
-	my $qry    = "select id,user_name,first_name,surname from users WHERE id>0 order by surname";
-	my $sql    = $self->{'db'}->prepare($qry);
+	my $qry = "select id,user_name,first_name,surname from users WHERE id>0 order by surname";
+	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
 	$logger->error($@) if $@;
 	my @users;
@@ -441,8 +441,11 @@ sub _check_data {
 					$self->_check_data_scheme_group_group_members( \%args );
 				} elsif ( $table eq 'isolates' ) {
 					$self->_check_data_refs( \%args );
+					$self->_check_data_aliases( \%args );
 				} elsif ( $table eq 'scheme_fields' ) {
 					$self->_check_data_scheme_fields( \%args );
+				} elsif ( $table eq 'isolate_aliases' ) {
+					$self->_check_data_isolate_aliases( \%args );
 				}
 
 				#Display field - highlight in red if invalid.
@@ -792,6 +795,55 @@ sub _check_data_refs {
 					${ $arg_ref->{'special_problem'} } = 1;
 				}
 			}
+		}
+	}
+	return;
+}
+
+sub _check_data_aliases {
+
+	#special case to check that isolate aliases don't duplicate isolate name when batch uploaded isolates
+	my ( $self, $arg_ref ) = @_;
+	my $field          = $arg_ref->{'field'};
+	my $value          = ${ $arg_ref->{'value'} };
+	my $pk_combination = $arg_ref->{'pk_combination'};
+	if ( $field eq 'aliases' ) {
+		my $isolate_name = $arg_ref->{'data'}->[ $arg_ref->{'file_header_pos'}->{ $self->{'system'}->{'labelfield'} } ];
+		if ( defined $value && defined $isolate_name ) {
+			$value =~ s/\s//g;
+			my @aliases = split /;/, $value;
+			foreach my $alias (@aliases) {
+				$alias =~ s/\s+$//;
+				$alias =~ s/^\s+//;
+				next if $alias eq '';
+				if ( $alias eq $isolate_name ) {
+					my $problem_text = "Aliases are ALTERNATIVE names for the isolate name.<br />";
+					$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
+					${ $arg_ref->{'special_problem'} } = 1;
+					last;
+				}
+			}
+		}
+	}
+	return;
+}
+
+sub _check_data_isolate_aliases {
+
+	#special case to check that isolate aliases don't duplicate isolate name when batch uploading isolate aliases
+	my ( $self, $arg_ref ) = @_;
+	my $field          = $arg_ref->{'field'};
+	my $value          = ${ $arg_ref->{'value'} };
+	my $pk_combination = $arg_ref->{'pk_combination'};
+	my $isolate_id     = $arg_ref->{'data'}->[ $arg_ref->{'file_header_pos'}->{'isolate_id'} ];
+	if ( $field eq 'alias' && BIGSdb::Utils::is_int($isolate_id) ) {
+		my $isolate_name = $self->{'datastore'}->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM isolates WHERE id=?",
+			$isolate_id, { cache => 'CurateBatchAddPage::check_data_isolates_aliases' } );
+		return if !defined $isolate_name;
+		if ( $value eq $isolate_name ) {
+			my $problem_text = "Alias duplicates isolate name.<br />";
+			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
+			${ $arg_ref->{'special_problem'} } = 1;
 		}
 	}
 	return;
@@ -1241,7 +1293,7 @@ sub _upload_data {
 		}
 	}
 	my @history;
-	my $user_info     = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	foreach my $record (@records) {
 		$record =~ s/\r//g;
 		my @profile;
@@ -1257,7 +1309,7 @@ sub _upload_data {
 					push @value_list, "'today'";
 				} elsif ( $field eq 'curator' ) {
 					push @value_list, $self->get_curator_id;
-				} elsif ( $field eq 'sender' && $user_info->{'status'} eq 'submitter'){
+				} elsif ( $field eq 'sender' && $user_info->{'status'} eq 'submitter' ) {
 					push @value_list, $self->get_curator_id;
 				} elsif ( defined $fieldorder{$field}
 					&& defined $data[ $fieldorder{$field} ]
