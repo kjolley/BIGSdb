@@ -706,7 +706,7 @@ sub _next_id_profiles {
 
 sub id_exists {
 	my ( $self, $id ) = @_;
-	my $num = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE id=?", $id )->[0];
+	my $num = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)", $id );
 	return $num;
 }
 
