@@ -35,7 +35,7 @@ sub print_content {
 	my ($self) = @_;
 	say "<h1>Add new isolate</h1>";
 	if ( !$self->can_modify_table('isolates') ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to add records to the isolates table.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Your user account is not allowed to add records to the isolates table.</p></div>);
 		return;
 	}
 	my $q = $self->{'cgi'};
@@ -94,7 +94,7 @@ sub _check {
 			}
 		}
 	}
-	if ($self->alias_duplicates_name){
+	if ( $self->alias_duplicates_name ) {
 		push @bad_field_buffer, "Aliases: duplicate isolate name - aliases are ALTERNATIVE names for the isolate.";
 	}
 	foreach my $locus (@$loci) {
@@ -113,7 +113,7 @@ sub _check {
 		}
 	}
 	if (@bad_field_buffer) {
-		say "<div class=\"box\" id=\"statusbad\"><p>There are problems with your record submission.  Please address the following:</p>";
+		say qq(<div class="box" id="statusbad"><p>There are problems with your record submission.  Please address the following:</p>);
 		local $" = '<br />';
 		say "<p>@bad_field_buffer</p></div>";
 		$insert = 0;
@@ -126,8 +126,8 @@ sub _check {
 	}
 	if ($insert) {
 		if ( $self->id_exists( $newdata->{'id'} ) ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>id-$newdata->{'id'} has already been defined - "
-			  . "please choose a different id number.</p></div>";
+			say qq(<div class="box" id="statusbad"><p>id-$newdata->{'id'} has already been defined - )
+			  . qq(please choose a different id number.</p></div>);
 			$insert = 0;
 		}
 		return $self->_insert($newdata) if $insert;
@@ -136,9 +136,9 @@ sub _check {
 }
 
 sub alias_duplicates_name {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	my $isolate_name = $q->param($self->{'system'}->{'labelfield'});
+	my ($self)       = @_;
+	my $q            = $self->{'cgi'};
+	my $isolate_name = $q->param( $self->{'system'}->{'labelfield'} );
 	my @aliases = split /\r?\n/, $q->param('aliases');
 	foreach my $alias (@aliases) {
 		$alias =~ s/\s+$//;
@@ -155,18 +155,15 @@ sub _prepare_metaset_insert {
 	my @inserts;
 	foreach my $metaset (@metasets) {
 		my @fields = @{ $meta_fields->{$metaset} };
-		my @placeholders = ('?') x (@fields + 1);
+		my @placeholders = ('?') x ( @fields + 1 );
 		local $" = ',';
-		my $qry = "INSERT INTO meta_$metaset (isolate_id,@fields) VALUES (@placeholders)";
-		my @values = ($newdata->{'id'});
+		my $qry    = "INSERT INTO meta_$metaset (isolate_id,@fields) VALUES (@placeholders)";
+		my @values = ( $newdata->{'id'} );
 		foreach my $field (@fields) {
-			my $cleaned = $self->clean_value( $newdata->{"meta_$metaset:$field"}, {no_escape => 1} );
+			my $cleaned = $self->clean_value( $newdata->{"meta_$metaset:$field"}, { no_escape => 1 } );
 			push @values, $cleaned;
 		}
-		push @inserts, {
-			statement => $qry,
-			arguments => \@values
-		}
+		push @inserts, { statement => $qry, arguments => \@values };
 	}
 	return \@inserts;
 }
@@ -193,28 +190,31 @@ sub _insert {
 			}
 		}
 	}
-	my @inserts;    
+	my @inserts;
 	my @placeholders = ('?') x @fields_with_values;
-	local $" = ',';	
+	local $" = ',';
 	my $qry = "INSERT INTO isolates (@fields_with_values) VALUES (@placeholders)";
 	my @values;
 	foreach my $field (@fields_with_values) {
-		my $cleaned = $self->clean_value( $newdata->{$field}, {no_escape => 1} );
+		my $cleaned = $self->clean_value( $newdata->{$field}, { no_escape => 1 } );
 		push @values, $cleaned;
 	}
-	push @inserts, {
-		statement => $qry,
-		arguments => \@values
-	};
+	push @inserts, { statement => $qry, arguments => \@values };
 	my $metadata_inserts = $self->_prepare_metaset_insert( \%meta_fields, $newdata );
 	push @inserts, @$metadata_inserts;
 	foreach my $locus (@$loci) {
 		if ( $q->param("locus:$locus") ) {
-			push @inserts, {
-				statement => 'INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp) '
-			  . 'VALUES (?,?,?,?,?,?,?,?,?)',
-			 	arguments => [$newdata->{'id'},$locus,$newdata->{"locus:$locus"},$newdata->{'sender'},'confirmed','manual',$newdata->{'curator'},'now','now']
-			};
+			push @inserts,
+			  {
+				statement =>
+				  'INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp) '
+				  . 'VALUES (?,?,?,?,?,?,?,?,?)',
+				arguments => [
+					$newdata->{'id'}, $locus,   $newdata->{"locus:$locus"}, $newdata->{'sender'},
+					'confirmed',      'manual', $newdata->{'curator'},      'now',
+					'now'
+				]
+			  };
 		}
 	}
 	my @new_aliases = split /\r?\n/, $q->param('aliases');
@@ -222,23 +222,25 @@ sub _insert {
 		$new =~ s/\s+$//;
 		$new =~ s/^\s+//;
 		next if $new eq '';
-		push @inserts, {
+		push @inserts,
+		  {
 			statement => 'INSERT INTO isolate_aliases (isolate_id,alias,curator,datestamp) VALUES (?,?,?,?)',
-			arguments => [$newdata->{'id'}, $new,$newdata->{'curator'},'now' ]
-		};
+			arguments => [ $newdata->{'id'}, $new, $newdata->{'curator'}, 'now' ]
+		  };
 	}
 	my @new_pubmeds = split /\r?\n/, $q->param('pubmed');
 	foreach my $new (@new_pubmeds) {
 		chomp $new;
 		next if $new eq '';
 		if ( !BIGSdb::Utils::is_int($new) ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>PubMed ids must be integers.</p></div>\n";
+			say qq(<div class="box" id="statusbad"><p>PubMed ids must be integers.</p></div>);
 			$insert = 0;
 		}
-		push @inserts, {
+		push @inserts,
+		  {
 			statement => 'INSERT INTO refs (isolate_id,pubmed_id,curator,datestamp) VALUES (?,?,?,?)',
-			arguments => [$newdata->{'id'},$new,$newdata->{'curator'},'now']
-		};
+			arguments => [ $newdata->{'id'}, $new, $newdata->{'curator'}, 'now' ]
+		  };
 	}
 	if ($insert) {
 		local $" = ';';
@@ -273,9 +275,9 @@ sub _insert {
 sub _print_interface {
 	my ( $self, $newdata ) = @_;
 	my $q = $self->{'cgi'};
-	say "<div class=\"box\" id=\"queryform\"><p>Please fill in the fields below - required fields are "
-	  . "marked with an exclamation mark (!).</p>";
-	say "<div class=\"scrollable\">";
+	say qq(<div class="box" id="queryform"><p>Please fill in the fields below - required fields are marked with an exclamation )
+	  . qq(mark (!).</p>);
+	say qq(<div class="scrollable">);
 	say $q->start_form;
 	$q->param( 'sent', 1 );
 	say $q->hidden($_) foreach qw(page db sent);
@@ -311,6 +313,7 @@ sub print_provenance_form_elements {
 		push @users, $_->{'id'};
 		$usernames{ $_->{'id'} } = "$_->{'surname'}, $_->{'first_name'} ($_->{'user_name'})";
 	}
+	$usernames{''} = ' ';
 	my $set_id        = $self->get_set_id;
 	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
 	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
@@ -367,6 +370,7 @@ sub print_provenance_form_elements {
 						-name    => $field,
 						-id      => $field,
 						-values  => [ '', @$optlist ],
+						-labels  => { '' => ' ' },
 						-default => ( $newdata->{ lc($field) } // $thisfield->{'default'} ),
 						%html5_args
 					);
@@ -482,8 +486,8 @@ sub _print_allele_designation_form_elements {
 		$locus_buffer .= "<p>Too many to display. You can batch add allele designations after entering isolate provenace data.</p>\n";
 	}
 	if (@$loci) {
-		say "<div id=\"scheme_loci_add\" style=\"overflow:auto\">";
-		say "<fieldset style=\"float:left\"><legend>Allele&nbsp;designations</legend>\n$locus_buffer</fieldset>";
+		say qq(<div id="scheme_loci_add" style="overflow:auto">);
+		say qq(<fieldset style="float:left"><legend>Allele&nbsp;designations</legend>\n$locus_buffer</fieldset>);
 		say "</div>";
 	}
 	return;
@@ -498,14 +502,14 @@ sub _print_scheme_form_elements {
 	if ($scheme_id) {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 		$loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-		$buffer = @$loci ? "<h3 class=\"scheme\" style=\"clear:both\">$scheme_info->{'description'}</h3>\n" : '';
+		$buffer = @$loci ? qq(<h3 class="scheme" style="clear:both">$scheme_info->{'description'}</h3>\n) : '';
 	} else {
 		$loci = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
-		$buffer = @$loci ? "<h3 class=\"scheme\" style=\"clear:both\">Loci not in a scheme</h3>\n" : '';
+		$buffer = @$loci ? qq(<h3 class="scheme" style="clear:both">Loci not in a scheme</h3>\n) : '';
 	}
 	foreach my $locus (@$loci) {
 		my $cleaned_name = $self->clean_locus($locus);
-		$buffer .= "<dl class=\"profile\">";
+		$buffer .= qq(<dl class="profile">);
 		$buffer .= "<dt>$cleaned_name</dt><dd>";
 		$buffer .= $q->textfield( -name => "locus:$locus", -id => "locus:$locus", -size => 10, -default => $newdata->{$locus} );
 		$buffer .= "</dd></dl>";
