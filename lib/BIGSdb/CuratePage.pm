@@ -1107,8 +1107,9 @@ sub _is_field_bad_other {
 }
 
 sub clean_value {
-	my ( $self, $value ) = @_;
-	$value =~ s/'/\\'/g;
+	my ( $self, $value, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	$value =~ s/'/\\'/g if !$options->{'no_escape'};
 	$value =~ s/\r//g;
 	$value =~ s/\n/ /g;
 	$value =~ s/^\s*//;

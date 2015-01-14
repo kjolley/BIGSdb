@@ -155,15 +155,18 @@ sub _prepare_metaset_insert {
 	my @inserts;
 	foreach my $metaset (@metasets) {
 		my @fields = @{ $meta_fields->{$metaset} };
+		my @placeholders = ('?') x (@fields + 1);
 		local $" = ',';
-		my $qry = "INSERT INTO meta_$metaset (isolate_id,@fields) VALUES ($newdata->{'id'}";
+		my $qry = "INSERT INTO meta_$metaset (isolate_id,@fields) VALUES (@placeholders)";
+		my @values = ($newdata->{'id'});
 		foreach my $field (@fields) {
-			$qry .= ',';
-			my $cleaned = $self->clean_value( $newdata->{"meta_$metaset:$field"} );
-			$qry .= "E'$cleaned'";
+			my $cleaned = $self->clean_value( $newdata->{"meta_$metaset:$field"}, {no_escape => 1} );
+			push @values, $cleaned;
 		}
-		$qry .= ')';
-		push @inserts, $qry;
+		push @inserts, {
+			statement => $qry,
+			arguments => \@values
+		}
 	}
 	return \@inserts;
 }
@@ -190,25 +193,28 @@ sub _insert {
 			}
 		}
 	}
-	my @inserts;    #TODO Rewrite to use placeholders
-	local $" = ',';
-	my $qry = "INSERT INTO isolates (@fields_with_values) VALUES (";
+	my @inserts;    
+	my @placeholders = ('?') x @fields_with_values;
+	local $" = ',';	
+	my $qry = "INSERT INTO isolates (@fields_with_values) VALUES (@placeholders)";
+	my @values;
 	foreach my $field (@fields_with_values) {
-		$qry .= "," if $field ne $fields_with_values[0];
-		my $cleaned = $self->clean_value( $newdata->{$field} );
-		$qry .= "E'$cleaned'";
+		my $cleaned = $self->clean_value( $newdata->{$field}, {no_escape => 1} );
+		push @values, $cleaned;
 	}
-	$qry .= ')';
-	push @inserts, $qry;
+	push @inserts, {
+		statement => $qry,
+		arguments => \@values
+	};
 	my $metadata_inserts = $self->_prepare_metaset_insert( \%meta_fields, $newdata );
 	push @inserts, @$metadata_inserts;
 	foreach my $locus (@$loci) {
 		if ( $q->param("locus:$locus") ) {
-			$qry =
-			    "INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp) "
-			  . "VALUES ($newdata->{'id'},E'$locus',E'$newdata->{\"locus:$locus\"}',$newdata->{'sender'},'confirmed',"
-			  . "'manual',$newdata->{'curator'},'today','today')";
-			push @inserts, $qry;
+			push @inserts, {
+				statement => 'INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp) '
+			  . 'VALUES (?,?,?,?,?,?,?,?,?)',
+			 	arguments => [$newdata->{'id'},$locus,$newdata->{"locus:$locus"},$newdata->{'sender'},'confirmed','manual',$newdata->{'curator'},'now','now']
+			};
 		}
 	}
 	my @new_aliases = split /\r?\n/, $q->param('aliases');
@@ -216,9 +222,10 @@ sub _insert {
 		$new =~ s/\s+$//;
 		$new =~ s/^\s+//;
 		next if $new eq '';
-		( my $clean_new = $new ) =~ s/'/\\'/g;
-		push @inserts, "INSERT INTO isolate_aliases (isolate_id,alias,curator,datestamp) VALUES ($newdata->{'id'},E'$clean_new',"
-		  . "$newdata->{'curator'},'today')";
+		push @inserts, {
+			statement => 'INSERT INTO isolate_aliases (isolate_id,alias,curator,datestamp) VALUES (?,?,?,?)',
+			arguments => [$newdata->{'id'}, $new,$newdata->{'curator'},'now' ]
+		};
 	}
 	my @new_pubmeds = split /\r?\n/, $q->param('pubmed');
 	foreach my $new (@new_pubmeds) {
@@ -228,14 +235,18 @@ sub _insert {
 			print "<div class=\"box\" id=\"statusbad\"><p>PubMed ids must be integers.</p></div>\n";
 			$insert = 0;
 		}
-		push @inserts,
-		  "INSERT INTO refs (isolate_id,pubmed_id,curator,datestamp) VALUES ($newdata->{'id'},$new,$newdata->{'curator'},'today')";
+		push @inserts, {
+			statement => 'INSERT INTO refs (isolate_id,pubmed_id,curator,datestamp) VALUES (?,?,?,?)',
+			arguments => [$newdata->{'id'},$new,$newdata->{'curator'},'now']
+		};
 	}
 	if ($insert) {
 		local $" = ';';
-		eval { $self->{'db'}->do("@inserts"); };
+		foreach (@inserts) {
+			$self->{'db'}->do( $_->{'statement'}, undef, @{ $_->{'arguments'} } );
+		}
 		if ($@) {
-			print "<div class=\"box\" id=\"statusbad\"><p>Insert failed - transaction cancelled - no records have been touched.</p>\n";
+			say qq(<div class="box" id="statusbad"><p>Insert failed - transaction cancelled - no records have been touched.</p>);
 			if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
 				say "<p>Data entry would have resulted in records with either duplicate ids or another unique field with "
 				  . "duplicate values.</p>";
@@ -243,15 +254,15 @@ sub _insert {
 				say "<p>Error message: $@</p>";
 				$logger->error("Insert failed: $qry  $@");
 			}
-			print "</div>\n";
+			say "</div>";
 			$self->{'db'}->rollback;
 		} else {
 			$self->{'db'}->commit
-			  && say "<div class=\"box\" id=\"resultsheader\"><p>id-$newdata->{'id'} added!</p>";
-			say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateAdd\">Add another</a> | "
-			  . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin&amp;"
-			  . "isolate_id=$newdata->{'id'}\">Upload sequences</a> | "
-			  . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>";
+			  && say qq(<div class="box" id="resultsheader"><p>id-$newdata->{'id'} added!</p>);
+			say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateAdd">Add another</a> | )
+			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin&amp;)
+			  . qq(isolate_id=$newdata->{'id'}">Upload sequences</a> | )
+			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>);
 			$self->update_history( $newdata->{'id'}, "Isolate record added" );
 			return SUCCESS;
 		}
