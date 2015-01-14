@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -231,37 +231,27 @@ sub _upload {
 sub profile_exists {
 	my ( $self, $scheme_id, $primary_key, $newdata ) = @_;
 	my ( $profile_exists, $msg );
-	my $qry = "SELECT profiles.profile_id FROM profiles LEFT JOIN profile_members ON profiles.scheme_id = "
-	  . "profile_members.scheme_id AND profiles.profile_id = profile_members.profile_id WHERE profiles.scheme_id=$scheme_id AND ";
-	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
+	my $qry         = "SELECT $primary_key FROM $scheme_view WHERE ";
+	my $loci        = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my ( @locus_temp, @values );
 	foreach my $locus (@$loci) {
 		next if $newdata->{"locus:$locus"} eq 'N';    #N can be any allele so can not be used to differentiate profiles
-		( my $cleaned = $locus ) =~ s/'/\\'/g;
-		push @locus_temp, "(locus=E'$cleaned' AND (allele_id=? OR allele_id='N'))";
+		( my $cleaned = $locus ) =~ s/'/_PRIME_/g;
+		push @locus_temp, "($cleaned=? OR $cleaned='N')";
 		push @values,     $newdata->{"locus:$locus"};
 	}
-	local $" = ' OR ';
+	local $" = ' AND ';
 	$qry .= "(@locus_temp)";
-	$qry .= ' GROUP BY profiles.profile_id having count(*)=' . scalar @locus_temp;
-
-	#This may be called many times for batch inserts so cache query statements
-	my $qry_hash = Digest::MD5::md5_hex($qry);
-	if ( !$self->{'cache'}->{'sql'}->{$qry_hash} ) {
-		$self->{'cache'}->{'sql'}->{$qry_hash} = $self->{'db'}->prepare($qry);
-	}
 	if (@locus_temp) {
-		eval { $self->{'cache'}->{'sql'}->{$qry_hash}->execute(@values) };
-		$logger->error($@) if $@;
-		my @matching_profiles;
-		while ( my ($match) = $self->{'cache'}->{'sql'}->{$qry_hash}->fetchrow_array ) {
-			push @matching_profiles, $match;
-		}
+		my $matching_profiles =
+		  $self->{'datastore'}
+		  ->run_query( $qry, \@values, { fetch => 'col_arrayref', cache => "CurateProfileAddPage:profile_exists::$scheme_id" } );
 		$newdata->{"field:$primary_key"} //= '';
-		if ( @matching_profiles && !( @matching_profiles == 1 && $matching_profiles[0] eq $newdata->{"field:$primary_key"} ) ) {
+		if ( @$matching_profiles && !( @$matching_profiles == 1 && $matching_profiles->[0] eq $newdata->{"field:$primary_key"} ) ) {
 			if ( @locus_temp < @$loci ) {
 				my $first_match;
-				foreach (@matching_profiles) {
+				foreach (@$matching_profiles) {
 					if ( $_ ne $newdata->{"field:$primary_key"} ) {
 						$first_match = $_;
 						last;
@@ -269,14 +259,14 @@ sub profile_exists {
 				}
 				$msg .= "Profiles containing an arbitrary allele (N) at a particular locus may match profiles with actual values at "
 				  . "that locus and cannot therefore be defined.  This profile matches $primary_key-$first_match";
-				my $other_matches = @matching_profiles - 1;
-				$other_matches-- if ( any { $newdata->{"field:$primary_key"} eq $_ } @matching_profiles );  #if updating don't match to self
+				my $other_matches = @$matching_profiles - 1;
+				$other_matches-- if ( any { $newdata->{"field:$primary_key"} eq $_ } @$matching_profiles ); #if updating don't match to self
 				if ($other_matches) {
 					$msg .= " and $other_matches other" . ( $other_matches > 1 ? 's' : '' );
 				}
 				$msg .= '.';
 			} else {
-				$msg .= "This allelic profile has already been defined as $primary_key-$matching_profiles[0].";
+				$msg .= "This allelic profile has already been defined as $primary_key-$matching_profiles->[0].";
 			}
 			$profile_exists = 1;
 		}
