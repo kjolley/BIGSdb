@@ -1380,16 +1380,11 @@ s/FROM $view/FROM $view LEFT JOIN allele_designations AS ordering ON ordering.is
 	return;
 }
 
-sub is_allowed_to_view_isolate {    #TODO Rewrite to use Datastore::run_query
+sub is_allowed_to_view_isolate {
 	my ( $self, $isolate_id ) = @_;
-	if ( !$self->{'sql'}->{'allowed_to_view'} ) {
-		$self->{'sql'}->{'allowed_to_view'} =
-		  $self->{'db'}->prepare("SELECT EXISTS (SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)");
-	}
-	eval { $self->{'sql'}->{'allowed_to_view'}->execute($isolate_id) };
-	$logger->error($@) if $@;
-	my $allowed_to_view = $self->{'sql'}->{'allowed_to_view'}->fetchrow_array;
-	return $allowed_to_view;
+	my $allowed = $self->{'datastore'}->run_query( "SELECT EXISTS (SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)",
+		$isolate_id, { cache => 'is_allowed_to_view_isolate' } );
+	return $allowed;
 }
 
 sub _create_join_sql_for_locus {
