@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -338,7 +338,7 @@ sub _print_interface {
 		my %html5_args = ( required => 'required' );
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		$html5_args{'type'} = 'number' if $locus_info->{'allele_id_format'} eq 'integer' && !$scheme_info->{'allow_missing_loci'};
-		my $mapped = $self->clean_locus( $locus, { no_common_name => 1 } );
+		my $mapped = $self->clean_locus( $locus, { no_common_name => 1, strip_links => 1 } );
 		( $label, $title ) = $self->get_truncated_label( $mapped, 24 );
 		$title_attribute = $title ? " title=\"$title\"" : '';
 		say qq(<li><label for="locus:$locus" class="form" style="width:${width}em"$title_attribute>$label: !</label>);
