@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -110,10 +110,10 @@ sub print_content {
 	{
 		if ( !$q->param('no_js') ) {
 			my $locus_clause = $locus ? "&amp;locus=$locus" : '';
-			say "<noscript><div class=\"box statusbad\"><p>The dynamic customisation of this interface requires that you enable "
-			  . "Javascript in your browser. Alternatively, you can use a <a href=\"$self->{'system'}->{'script_name'}?db="
-			  . "$self->{'instance'}&amp;page=alleleQuery$locus_clause&amp;no_js=1\">non-Javascript version</a> that has 4 combinations "
-			  . "of fields.</p></div></noscript>";
+			say qq(<noscript><div class="box statusbad"><p>The dynamic customisation of this interface requires that you enable )
+			  . qq(Javascript in your browser. Alternatively, you can use a <a href="$self->{'system'}->{'script_name'}?db=)
+			  . qq($self->{'instance'}&amp;page=alleleQuery$locus_clause&amp;no_js=1">non-Javascript version</a> that has 4 combinations )
+			  . qq(of fields.</p></div></noscript>);
 		}
 		$self->_print_interface;
 	}
@@ -121,9 +121,9 @@ sub print_content {
 		|| defined $q->param('t1') )
 	{
 		if ( $q->param('locus') eq '' ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>Please select locus or use the general "
-			  . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=sequences\">"
-			  . "sequence attribute query</a> page.</p></div>";
+			say qq(<div class="box" id="statusbad"><p>Please select locus or use the general )
+			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=sequences">)
+			  . qq(sequence attribute query</a> page.</p></div>);
 		} else {
 			$self->_run_query;
 		}
@@ -150,7 +150,7 @@ sub _get_select_items {
 		push @order_by, $att->{'name'};
 		if ( $att->{'name'} eq 'sequence' ) {
 			push @select_items, 'sequence_length';
-			push @order_by, 'sequence_length';
+			push @order_by,     'sequence_length';
 		}
 	}
 	my %labels;
@@ -158,13 +158,9 @@ sub _get_select_items {
 		( $labels{$item} = $item ) =~ tr/_/ /;
 	}
 	if ($locus) {
-		my $sql =
-		  $self->{'db'}->prepare(
-"SELECT field,description,value_format,required,length,option_list FROM locus_extended_attributes WHERE locus=? ORDER BY field_order"
-		  );
-		eval { $sql->execute($locus) };
-		$logger->error($@) if $@;
-		while ( my ( $field, $desc, $format, $length, $optlist ) = $sql->fetchrow_array ) {
+		my $ext_atts = $self->{'datastore'}->run_query( "SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order",
+			$locus, { fetch => 'col_arrayref' } );
+		foreach my $field (@$ext_atts) {
 			my $item = "extatt_$field";
 			push @select_items, $item;
 			( $labels{$item} = $item ) =~ s/^extatt_//;
@@ -179,18 +175,18 @@ sub _print_table_fields {
 	#split so single row can be added by AJAX call
 	my ( $self, $locus, $row, $max_rows, $select_items, $labels ) = @_;
 	my $q = $self->{'cgi'};
-	print "<span style=\"white-space:nowrap\">\n";
-	print $q->popup_menu( -name => "s$row", -values => $select_items, -labels => $labels, -class => 'fieldlist' );
-	print $q->popup_menu( -name => "y$row", -values => [OPERATORS] );
-	print $q->textfield( -name => "t$row", -class => 'value_entry' );
+	say qq(<span style="white-space:nowrap">);
+	say $q->popup_menu( -name => "s$row", -values => $select_items, -labels => $labels, -class => 'fieldlist' );
+	say $q->popup_menu( -name => "y$row", -values => [OPERATORS] );
+	say $q->textfield( -name => "t$row", -class => 'value_entry' );
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
-		print "<a id=\"add_table_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
-		  . "page=alleleQuery&amp;row=$next_row&amp;no_header=1\" data-rel=\"ajax\" class=\"button\">+</a>\n";
-		print " <a class=\"tooltip\" title=\"Search values - Empty field values can be searched using the term 'null'. "
-		  . "<h3>Number of fields</h3>Add more fields by clicking the '+' button.\">&nbsp;<i>i</i>&nbsp;</a>";
+		say qq(<a id="add_table_fields" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=alleleQuery&amp;locus=$locus&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>);
+		say qq( <a class="tooltip" title="Search values - Empty field values can be searched using the term 'null'. )
+		  . qq(<h3>Number of fields</h3>Add more fields by clicking the '+' button.">&nbsp;<i>i</i>&nbsp;</a>);
 	}
-	print "</span>\n";
+	say "</span>";
 	return;
 }
 
@@ -199,7 +195,7 @@ sub _print_interface {
 	my $q      = $self->{'cgi'};
 	my $locus  = $q->param('locus');
 	my ( $select_items, $labels, $order_by ) = $self->_get_select_items($locus);
-	say "<div class=\"box\" id=\"queryform\"><div class=\"scrollable\">";
+	say qq(<div class="box" id="queryform"><div class=\"scrollable\">);
 	my $set_id = $self->get_set_id;
 	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
 	unshift @$display_loci, '';
@@ -207,23 +203,23 @@ sub _print_interface {
 	$cleaned->{''} = 'Please select ...';
 	say "<p><b>Locus: </b>";
 	say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $display_loci, -labels => $cleaned );
-	say " <span class=\"comment\">Page will reload when changed</span></p>";
+	say qq( <span class="comment">Page will reload when changed</span></p>);
 	say $q->hidden($_) foreach qw (db page no_js);
 
 	if ( $q->param('locus') ) {
-		my $desc_exists = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM locus_descriptions WHERE locus=?", $locus )->[0];
+		my $desc_exists = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM locus_descriptions WHERE locus=?)", $locus );
 		if ($desc_exists) {
-			say "<ul><li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus\">"
-			  . "Further information</a> is available for this locus.</li></ul>";
+			say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus">)
+			  . qq(Further information</a> is available for this locus.</li></ul>);
 		}
 	}
 	say "<p>Please enter your search criteria below (or leave blank and submit to return all records).</p>";
 	my $table_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields || 1 );
-	say "<fieldset style=\"float:left\">\n<legend>Locus fields</legend>";
+	say qq(<fieldset style="float:left">\n<legend>Locus fields</legend>);
 	my $table_field_heading = $table_fields == 1 ? 'none' : 'inline';
-	say "<span id=\"table_field_heading\" style=\"display:$table_field_heading\"><label for=\"c0\">Combine searches with: </label>";
+	say qq(<span id="table_field_heading" style="display:$table_field_heading"><label for="c0">Combine searches with: </label>);
 	say $q->popup_menu( -name => 'c0', -id => 'c0', -values => [ "AND", "OR" ] );
-	say "</span>\n<ul id=\"table_fields\">";
+	say qq(</span>\n<ul id="table_fields">);
 
 	foreach my $i ( 1 .. $table_fields ) {
 		say "<li>";
@@ -232,14 +228,14 @@ sub _print_interface {
 	}
 	say "</ul>";
 	say "</fieldset>";
-	say "<fieldset style=\"float:left\"><legend>Display</legend>";
-	say "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>";
+	say qq(<fieldset style="float:left"><legend>Display</legend>);
+	say qq(<ul>\n<li><span style="white-space:nowrap">\n<label for="order" class="display">Order by: </label>);
 	say $q->popup_menu( -name => 'order', -id => 'order', -values => $order_by, -labels => $labels );
 	say $q->popup_menu( -name => 'direction', -values => [qw(ascending descending)], -default => 'ascending' );
 	say "</span></li>\n<li>";
 	say $self->get_number_records_control;
 	say "</li></ul></fieldset>";
-	say "<fieldset style=\"float:left\"><legend>Filter query by</legend>";
+	say qq(<fieldset style="float:left"><legend>Filter query by</legend>);
 	say "<ul>\n<li>";
 	say $self->get_filter( 'status', [SEQ_STATUS], { class => 'display' } );
 	say "</li><li>";
@@ -265,14 +261,13 @@ sub _run_query {
 	$locus = $1 if $locus =~ /^cn_(.+)$/;
 	if ( !$self->{'datastore'}->is_locus($locus) ) {
 		$logger->error("Invalid locus $locus");
-		print "<div class=\"box\" id=\"statusbad\"><p>Invalid locus selected.</p></div>\n";
+		say qq(<div class="box" id="statusbad"><p>Invalid locus selected.</p></div>);
 		return;
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( !defined $q->param('query_file') ) {
 		my $andor       = $q->param('c0');
 		my $first_value = 1;
-		my $extatt_sql  = $self->{'db'}->prepare("SELECT * FROM locus_extended_attributes WHERE locus=? AND field=?");
 		foreach my $i ( 1 .. MAX_ROWS ) {
 			if ( defined $q->param("t$i") && $q->param("t$i") ne '' ) {
 				my $field    = $q->param("s$i");
@@ -283,16 +278,19 @@ sub _run_query {
 
 					#search by extended attribute
 					$field = $1;
-					eval { $extatt_sql->execute( $locus, $field ); };
-					$logger->error($@) if $@;
-					my $thisfield = $extatt_sql->fetchrow_hashref;
+					my $thisfield = $self->{'datastore'}->run_query(
+						"SELECT * FROM locus_extended_attributes WHERE locus=? AND field=?",
+						[ $locus, $field ],
+						{ fetch => 'row_hashref', cache => 'AlleleQueryPage::run_query::extended_attributes' }
+					);
 					next
 					  if $self->check_format(
 						{ field => $field, text => $text, type => $thisfield->{'value_format'}, operator => $operator }, \@errors );
 					my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
 					$first_value = 0;
+					( my $cleaned = $locus ) =~ s/'/\\'/g;
 					my $std_clause = "$modifier (allele_id IN (SELECT allele_id FROM sequence_extended_attributes "
-					  . "WHERE locus=E'$locus' AND field='$field' ";
+					  . "WHERE locus=E'$cleaned' AND field='$field' ";
 
 					if ( $operator eq 'NOT' ) {
 						$qry .= $std_clause;
