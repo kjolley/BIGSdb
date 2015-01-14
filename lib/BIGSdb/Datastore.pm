@@ -1668,19 +1668,6 @@ sub run_simple_query {
 	return $data;
 }
 
-sub run_list_query_hashref {
-
-	#Deprecated!  Use run_query instead.
-	#runs query against current database (arrayref of hashrefs returned)
-	my ( $self, $qry, @values ) = @_;
-	$logger->logcarp("Datastore::run_list_query_hashref is deprecated!  Use Datastore::run_query instead.");    #TODO remove method
-	$logger->debug("Query: $qry");
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute(@values) };
-	$logger->logcarp("$qry $@") if $@;
-	return $sql->fetchall_arrayref( {} );
-}
-
 sub run_list_query {
 
 	#Deprecated!  Use run_query instead.
