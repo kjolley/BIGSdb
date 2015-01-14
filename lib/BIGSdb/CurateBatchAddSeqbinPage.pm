@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -166,7 +166,7 @@ HTML
 	say qq(</li>\n</ul>\n</fieldset>\n<fieldset style="float:left">\n<legend>Options</legend>);
 	say "<ul><li>";
 	say $q->checkbox( -name => 'size_filter', -label => "Don't insert sequences shorter than " );
-	say $q->popup_menu( -name => 'size', -values => [qw(25 50 100 250 500 1000)], -default => 250 );
+	say $q->popup_menu( -name => 'size', -values => [qw(25 50 100 200 300 400 500 1000)], -default => 250 );
 	say " bps.</li>";
 	my @experiments = ('');
 	$qry = "SELECT id,description FROM experiments ORDER BY description";
