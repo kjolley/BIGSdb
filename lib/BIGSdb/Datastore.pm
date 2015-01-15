@@ -1641,7 +1641,7 @@ sub run_query {
 	eval { $sql->execute(@$values) };
 	$logger->logcarp($@) if $@;
 	if    ( $options->{'fetch'} eq 'row_arrayref' ) { return $sql->fetchrow_arrayref }    #returns undef when no rows
-	elsif ( $options->{'fetch'} eq 'row_array' )    { return $sql->fetchrow_array }       #returns () when no rows
+	elsif ( $options->{'fetch'} eq 'row_array' )    { return $sql->fetchrow_array }       #returns () when no rows, (undef-scalar context)
 	elsif ( $options->{'fetch'} eq 'row_hashref' )  { return $sql->fetchrow_hashref }     #returns undef when no rows
 	elsif ( $options->{'fetch'} eq 'all_hashref' ) {
 		if ( !defined $options->{'key'} ) {

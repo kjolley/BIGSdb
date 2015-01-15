@@ -345,10 +345,9 @@ sub _check_sequences {
 		push @$problems, "Allele id must not contain spaces - try substituting with underscores (_).<br />";
 	} else {
 		$newdata->{'sequence'} =~ s/\s//g;
-		my $exist_ref =
+		my $exists =
 		  $self->{'datastore'}
-		  ->run_simple_query( "SELECT allele_id FROM sequences WHERE locus=? AND sequence=?", $newdata->{'locus'}, $newdata->{'sequence'} );
-		my $exists = ref $exist_ref eq 'ARRAY' ? $exist_ref->[0] : undef;
+		  ->run_query( "SELECT allele_id FROM sequences WHERE locus=? AND sequence=?", [ $newdata->{'locus'}, $newdata->{'sequence'} ] );
 		if ($exists) {
 			my $cleaned_locus = $self->clean_locus( $newdata->{'locus'} );
 			push @$problems, "Sequence already exists in the database ($cleaned_locus: $exists).<br />";
