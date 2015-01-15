@@ -45,7 +45,7 @@ sub get_users_table_attributes {
 		{ name => 'surname',     type => 'text', required => 'yes', length => 40, dropdown_query => 'yes' },
 		{ name => 'first_name',  type => 'text', required => 'yes', length => 40, dropdown_query => 'yes' },
 		{ name => 'email',       type => 'text', required => 'yes', length => 50 },
-		{ name => 'affiliation', type => 'text', required => 'yes', length => 120 },
+		{ name => 'affiliation', type => 'text', required => 'yes', length => 255 },
 		{ name => 'status',       type => 'text', required => 'yes', optlist => $status, default => 'user' },
 		{ name => 'date_entered', type => 'date', required => 'yes' },
 		{ name => 'datestamp',    type => 'date', required => 'yes' },
