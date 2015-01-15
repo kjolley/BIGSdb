@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -56,25 +56,22 @@ sub get_javascript {
 
 sub _print_tree {
 	my ($self) = @_;
-	print << "HTML";
-<p>Click within the tree to display details of loci belonging to schemes or groups of schemes - 
-clicking a group folder will display the loci for all schemes within the group and any subgroups. 
-Click the nodes to expand/collapse.</p>
-<noscript>
-<p class="highlight">Enable Javascript to enhance your viewing experience.</p>
-</noscript>
-<div id="tree" class="tree">
-HTML
+	say qq(<p>Click within the tree to display details of loci belonging to schemes or groups of schemes - clicking a group folder will )
+	  . qq(display the loci for all schemes within the group and any subgroups. Click the nodes to expand/collapse.</p>\n)
+	  . qq(<noscript><p class="highlight">Enable Javascript to enhance your viewing experience.</p></noscript>)
+	  . qq(<div id="tree" class="tree">);
 	say $self->get_tree(undef);
-	say "</div>\n<div id=\"scheme_table\"></div>";
+	say qq(</div>\n<div id="scheme_table"></div>);
 	return;
 }
 
 sub _print_child_group_scheme_tables {
 	my ( $self, $id, $level, $scheme_shown ) = @_;
-	my $child_groups = $self->{'datastore'}->run_list_query(
-"SELECT id FROM scheme_groups LEFT JOIN scheme_group_group_members ON scheme_groups.id=group_id WHERE parent_group_id=? ORDER BY display_order",
-		$id
+	my $child_groups = $self->{'datastore'}->run_query(
+		"SELECT id FROM scheme_groups LEFT JOIN scheme_group_group_members ON "
+		  . "scheme_groups.id=group_id WHERE parent_group_id=? ORDER BY display_order",
+		$id,
+		{ fetch => 'col_arrayref', cache => 'DownloadAllelesPage::print_child_group_scheme_tables' }
 	);
 	if (@$child_groups) {
 		foreach (@$child_groups) {
@@ -90,11 +87,14 @@ sub _print_child_group_scheme_tables {
 
 sub _print_group_scheme_tables {
 	my ( $self, $id, $scheme_shown ) = @_;
-	my $set_id = $self->get_set_id;
+	my $set_id     = $self->get_set_id;
 	my $set_clause = $set_id ? " AND scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : '';
-	my $qry =
-"SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON schemes.id=scheme_id WHERE group_id=? $set_clause ORDER BY display_order";
-	my $schemes = $self->{'datastore'}->run_list_query( $qry, $id );
+	my $schemes    = $self->{'datastore'}->run_query(
+		"SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON "
+		  . "schemes.id=scheme_id WHERE group_id=? $set_clause ORDER BY display_order",
+		$id,
+		{ fetch => 'col_arrayref', cache => 'DownloadAllelesPage::print_group_scheme_tables' }
+	);
 	if (@$schemes) {
 		foreach my $scheme_id (@$schemes) {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
@@ -174,7 +174,7 @@ sub print_content {
 			my $set_clause = $set_id ? " AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : '';
 			my $qry = "SELECT id FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) "
 			  . "$set_clause ORDER BY display_order";
-			$scheme_ids = $self->{'datastore'}->run_list_query($qry);
+			$scheme_ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 			foreach my $scheme_id (@$scheme_ids) {
 				my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 				$self->_print_scheme_table( $scheme_id, $scheme_info->{'description'} );
@@ -267,32 +267,34 @@ sub _print_scheme_table {
 	my $td = 1;
 	my ( $scheme_descs_exist, $scheme_aliases_exist, $scheme_curators_exist );
 	if ($scheme_id) {
-		$scheme_descs_exist = $self->{'datastore'}->run_simple_query(
-"SELECT COUNT(*) FROM locus_descriptions LEFT JOIN scheme_members ON locus_descriptions.locus=scheme_members.locus WHERE scheme_id=?",
+		$scheme_descs_exist = $self->{'datastore'}->run_query(
+			"SELECT EXISTS(SELECT * FROM locus_descriptions LEFT JOIN scheme_members ON locus_descriptions.locus=scheme_members.locus "
+			  . "WHERE scheme_id=?)",
 			$scheme_id
-		)->[0];
-		$scheme_aliases_exist =
-		  $self->{'datastore'}->run_simple_query(
-			"SELECT COUNT(*) FROM locus_aliases LEFT JOIN scheme_members ON locus_aliases.locus=scheme_members.locus WHERE scheme_id=?",
-			$scheme_id )->[0];
-		$scheme_curators_exist = $self->{'datastore'}->run_simple_query(
-			"SELECT COUNT(*) FROM locus_curators LEFT JOIN scheme_members ON locus_curators.locus=scheme_members.locus "
-			  . "WHERE scheme_id=? AND (hide_public IS NULL OR NOT hide_public)",
+		);
+		$scheme_aliases_exist = $self->{'datastore'}->run_query(
+			"SELECT EXISTS(SELECT * FROM locus_aliases LEFT JOIN scheme_members ON locus_aliases.locus=scheme_members.locus WHERE "
+			  . "scheme_id=?)",
 			$scheme_id
-		)->[0];
+		);
+		$scheme_curators_exist = $self->{'datastore'}->run_query(
+			"SELECT EXISTS(SELECT * FROM locus_curators LEFT JOIN scheme_members ON locus_curators.locus=scheme_members.locus "
+			  . "WHERE scheme_id=? AND (hide_public IS NULL OR NOT hide_public))",
+			$scheme_id
+		);
 	} else {
 		$scheme_descs_exist =
-		  $self->{'datastore'}->run_simple_query(
-			    "SELECT COUNT(*) FROM locus_descriptions LEFT JOIN scheme_members ON locus_descriptions.locus=scheme_members.locus "
-			  . "WHERE scheme_id IS NULL" )->[0];
+		  $self->{'datastore'}->run_query(
+			    "SELECT EXISTS(SELECT * FROM locus_descriptions LEFT JOIN scheme_members ON locus_descriptions.locus=scheme_members.locus "
+			  . "WHERE scheme_id IS NULL)" );
 		$scheme_aliases_exist =
-		  $self->{'datastore'}
-		  ->run_simple_query( "SELECT COUNT(*) FROM locus_aliases LEFT JOIN scheme_members ON locus_aliases.locus=scheme_members.locus "
-			  . "WHERE scheme_id IS NULL" )->[0];
+		  $self->{'datastore'}->run_query(
+			    "SELECT EXISTS(SELECT * FROM locus_aliases LEFT JOIN scheme_members ON locus_aliases.locus=scheme_members.locus WHERE "
+			  . "scheme_id IS NULL)" );
 		$scheme_curators_exist =
-		  $self->{'datastore'}
-		  ->run_simple_query( "SELECT COUNT(*) FROM locus_curators LEFT JOIN scheme_members ON locus_curators.locus=scheme_members.locus "
-			  . "WHERE scheme_id IS NULL AND (hide_public IS NULL OR NOT hide_public)" )->[0];
+		  $self->{'datastore'}->run_query(
+			    "SELECT EXISTS(SELECT * FROM locus_curators LEFT JOIN scheme_members ON locus_curators.locus=scheme_members.locus "
+			  . "WHERE scheme_id IS NULL AND (hide_public IS NULL OR NOT hide_public))" );
 	}
 	if (@$loci) {
 		$desc =~ s/\&/\&amp;/g;
@@ -364,37 +366,18 @@ sub _print_table_header_row {
 sub _print_locus_row {
 	my ( $self, $locus, $display_name, $options ) = @_;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	if ( !$self->{'sql'}->{'count'} ) {
-		$self->{'sql'}->{'count'} = $self->{'db'}->prepare("SELECT allele_count, last_updated FROM allele_count WHERE locus=?");
-	}
-	if ( !$self->{'sql'}->{'desc'} ) {
-		$self->{'sql'}->{'desc'} = $self->{'db'}->prepare("SELECT full_name,product FROM locus_descriptions WHERE locus=?");
-	}
-	if ( !$self->{'sql'}->{'alias'} ) {
-		$self->{'sql'}->{'alias'} = $self->{'db'}->prepare("SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias");
-	}
-	if ( !$self->{'sql'}->{'curator'} ) {
-		$self->{'sql'}->{'curator'} =
-		  $self->{'db'}->prepare("SELECT curator_id FROM locus_curators WHERE locus=? AND (hide_public IS NULL OR NOT hide_public)");
-	}
-	eval { $self->{'sql'}->{'count'}->execute($locus) };
-	$logger->($@) if $@;
-	my ( $count, $last_updated ) = $self->{'sql'}->{'count'}->fetchrow_array;
+	my ( $count, $last_updated ) = $self->{'datastore'}->run_query( "SELECT allele_count, last_updated FROM allele_count WHERE locus=?",
+		$locus, { cache => 'DownloadAllelesPage::print_locus_row::count' } );
 	$count //= 0;
-	print "<tr class=\"td$options->{'td'}\"><td>$display_name ";
-	eval { $self->{'sql'}->{'desc'}->execute($locus) };
-	$logger->($@) if $@;
-	my $desc = $self->{'sql'}->{'desc'}->fetchrow_hashref;
-
-	if ($desc) {
-		print " <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus\" "
-		  . "class=\"info_tooltip\">&nbsp;i&nbsp;</a>";
-	}
+	print qq(<tr class="td$options->{'td'}"><td>$display_name );
+	print qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus" )
+	  . qq(class="info_tooltip">&nbsp;i&nbsp;</a>);
 	print "</td><td>";
-	print "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;locus=$locus\" "
-	  . "class=\"downloadbutton\">&darr;</a>"
+	print qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;locus=$locus" )
+	  . qq(class="downloadbutton">&darr;</a>)
 	  if $count;
 	print "</td><td>$locus_info->{'data_type'}</td><td>$count</td>";
+
 	if ( $locus_info->{'length_varies'} ) {
 		print "<td>Variable: ";
 		if ( $locus_info->{'min_length'} || $locus_info->{'max_length'} ) {
@@ -412,46 +395,42 @@ sub _print_locus_row {
 	}
 	my $products;
 	if ( $options->{'descs_exist'} ) {
+		my $desc = $self->{'datastore'}->run_query( "SELECT full_name,product FROM locus_descriptions WHERE locus=?",
+			$locus, { fetch => 'row_hashref', cache => 'DownloadAllelesPage::print_locus_row::desc' } );
 		my @names_product;
-		push @names_product, $desc->{'full_name'} if $desc->{'full_name'};
-		push @names_product, $desc->{'product'}   if $desc->{'product'};
+		push @names_product, ( $desc->{'full_name'} =~ s/[\r\n]/ /g ) if $desc->{'full_name'};
+		push @names_product, ( $desc->{'product'}   =~ s/[\r\n]/ /g ) if $desc->{'product'};
 		local $" = ' / ';
 		$products = "@names_product";
 		print "<td>$products</td>";
 	}
-	my $aliases;
+	my $aliases = [];
 	if ( $options->{'aliases_exist'} ) {
-		eval { $self->{'sql'}->{'alias'}->execute($locus) };
-		$logger->($@) if $@;
-		my @aliases;
-		while ( my ($alias) = $self->{'sql'}->{'alias'}->fetchrow_array ) {
-			push @aliases, $alias if $display_name !~ /$alias/;
-		}
+		$aliases = $self->{'datastore'}->run_query( "SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias",
+			$locus, { fetch => 'col_arrayref', cache => 'DownloadAllelesPage::print_locus_row::aliases' } );
 		local $" = '; ';
-		$aliases = "@aliases";
-		print "<td>$aliases</td>\n";
+		print "<td>@$aliases</td>\n";
 	}
-	my $curators;
+	my $curator_list;
 	if ( $options->{'curators_exist'} ) {
-		eval { $self->{'sql'}->{'curator'}->execute($locus) };
-		$logger->($@) if $@;
-		my @curators;
+		my $curator_ids =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT curator_id FROM locus_curators WHERE locus=? AND (hide_public IS NULL OR NOT hide_public)",
+			$locus, { fetch => 'col_arrayref', cache => 'DownloadAllelesPage::print_locus_row::curators' } );
 		my $info;
-		while ( my ($curator) = $self->{'sql'}->{'curator'}->fetchrow_array ) {
-			push @curators, $curator;
-			$info->{$curator} = $self->{'datastore'}->get_user_info($curator);
+		foreach my $curator_id (@$curator_ids) {
+			$info->{$curator_id} = $self->{'datastore'}->get_user_info($curator_id);
 		}
-		@curators = sort { $info->{$a}->{'surname'} cmp $info->{$b}->{'surname'} } @curators;
 		my $first = 1;
 		print "<td>";
-		foreach my $curator (@curators) {
+		foreach my $curator_id ( sort { $info->{$a}->{'surname'} cmp $info->{$b}->{'surname'} } @$curator_ids ) {
 			print ', ' if !$first;
-			$curators .= '; ' if !$first;
-			my $first_initial = $info->{$curator}->{'first_name'} ? substr( $info->{$curator}->{'first_name'}, 0, 1 ) . '. ' : '';
-			print "<a href=\"mailto:$info->{$curator}->{'email'}\">" if $info->{$curator}->{'email'};
-			print "$first_initial$info->{$curator}->{'surname'}";
-			$curators .= "$first_initial$info->{$curator}->{'surname'}";
-			print "</a>" if $info->{$curator}->{'email'};
+			$curator_list .= '; ' if !$first;
+			my $first_initial = $info->{$curator_id}->{'first_name'} ? substr( $info->{$curator_id}->{'first_name'}, 0, 1 ) . '. ' : '';
+			print qq(<a href="mailto:$info->{$curator_id}->{'email'}">) if $info->{$curator_id}->{'email'};
+			print "$first_initial$info->{$curator_id}->{'surname'}";
+			$curator_list .= "$first_initial$info->{$curator_id}->{'surname'}";
+			print "</a>" if $info->{$curator_id}->{'email'};
 			$first = 0;
 		}
 		print "</td>";
@@ -461,9 +440,9 @@ sub _print_locus_row {
 	open( my $fh, '>>', $self->{'outfile'} ) || $logger->error("Can't open $self->{'outfile'} for appending");
 	if ( !-s $self->{'outfile'} ) {
 		say $fh ( $options->{'scheme'} ? "scheme\t" : '' )
-		  . "locus\tdata type\talleles\tlength varies\tstandard length\tmin length\t"
-		  . "max length\tfull name/product\taliases\tcurators";
+		  . "locus\tdata type\talleles\tlength varies\tstandard length\tmin length\tmax length\tfull name/product\taliases\tcurators";
 	}
+	local $" = '; ';
 	say $fh ( $options->{'scheme'} ? "$options->{'scheme'}\t" : '' )
 	  . "$locus\t$locus_info->{'data_type'}\t$count\t"
 	  . ( $locus_info->{'length_varies'} ? 'true' : 'false' ) . "\t"
@@ -471,8 +450,8 @@ sub _print_locus_row {
 	  . ( $locus_info->{'min_length'} // '' ) . "\t"
 	  . ( $locus_info->{'max_length'} // '' ) . "\t"
 	  . ( $products                   // '' ) . "\t"
-	  . ( $aliases                    // '' ) . "\t"
-	  . ( $curators                   // '' );
+	  . ( "@$aliases"                 // '' ) . "\t"
+	  . ( $curator_list               // '' );
 	close $fh;
 	return;
 }
@@ -492,19 +471,20 @@ sub _print_alphabetical_list {
 			$names{"l_$_"}                            = $self->clean_locus($_)             foreach @$main;
 			$names{"cn_$_->{'id'}"}                   = "$_->{'common_name'} [$_->{'id'}]" foreach @$common;
 			$names{"la_$_->{'locus'}||$_->{'alias'}"} = "$_->{'alias'} [$_->{'locus'}]"    foreach @$aliases;
-			my $descs_exist = $self->{'datastore'}->run_simple_query(
-				"SELECT 1 WHERE EXISTS(SELECT locus FROM locus_descriptions WHERE locus IN (SELECT id FROM loci WHERE UPPER(id) LIKE ? OR "
+			my $descs_exist = $self->{'datastore'}->run_query(
+				"SELECT EXISTS(SELECT * FROM locus_descriptions WHERE locus IN (SELECT id FROM loci WHERE UPPER(id) LIKE ? OR "
 				  . "upper(common_name) LIKE ?) OR locus IN (SELECT locus FROM locus_aliases WHERE UPPER(alias) LIKE ?))",
-				("$qry_letter%") x 3
+				[ ("$qry_letter%") x 3 ],
+				{ cache => 'DownloadAllelesPage::print_alphabetical_list::descs_exists' }
 			);
-			my $aliases_exist =
-			  $self->{'datastore'}
-			  ->run_simple_query( "SELECT 1 WHERE EXISTS(SELECT locus FROM locus_aliases WHERE alias LIKE ?)", "$qry_letter%" );
-			my $curators_exist = $self->{'datastore'}->run_simple_query(
-				"SELECT 1 WHERE EXISTS(SELECT locus FROM locus_curators WHERE (locus IN (SELECT id FROM loci WHERE UPPER(id) LIKE ? OR "
+			my $aliases_exist = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM locus_aliases WHERE alias LIKE ?)",
+				"$qry_letter%", { cache => 'DownloadAllelesPage::print_alphabetical_list::aliases_exists' } );
+			my $curators_exist = $self->{'datastore'}->run_query(
+				"SELECT EXISTS(SELECT * FROM locus_curators WHERE (locus IN (SELECT id FROM loci WHERE UPPER(id) LIKE ? OR "
 				  . "upper(common_name) LIKE ?) OR locus IN (SELECT locus FROM locus_aliases WHERE UPPER(alias) LIKE ?)) AND NOT "
 				  . "hide_public)",
-				("$qry_letter%") x 3
+				[ ("$qry_letter%") x 3 ],
+				{ cache => 'DownloadAllelesPage::print_alphabetical_list::curators_exists' }
 			);
 			print "<h2>$letter</h2>\n";
 			print "<table class=\"resultstable\">";
@@ -535,12 +515,13 @@ sub _get_loci_by_letter {
 	  ? "AND ( id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
 	  . "set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 	  : '';
-	my $main = $self->{'datastore'}->run_list_query( "SELECT id FROM loci WHERE UPPER(id) LIKE ? $set_clause", "$letter%" );
+	my $main = $self->{'datastore'}->run_query( "SELECT id FROM loci WHERE UPPER(id) LIKE ? $set_clause",
+		"$letter%", { fetch => 'col_arrayref', cache => 'DownloadAllelePage::get_loci_by_letter::main' } );
 	my $common = $self->{'datastore'}->run_query( "SELECT id,common_name FROM loci WHERE UPPER(common_name) LIKE ? $set_clause",
-		"$letter%", { fetch => 'all_arrayref', slice => {} } );
+		"$letter%", { fetch => 'all_arrayref', slice => {}, cache => 'DownloadAllelePage::get_loci_by_letter::common' } );
 	$set_clause =~ s/ id IN/ locus IN/g;
 	my $aliases = $self->{'datastore'}->run_query( "SELECT locus,alias FROM locus_aliases WHERE alias ILIKE ? $set_clause",
-		"$letter%", { fetch => 'all_arrayref', slice => {} } );
+		"$letter%", { fetch => 'all_arrayref', slice => {}, cache => 'DownloadAllelePage::get_loci_by_letter::aliases' } );
 	return ( $main, $common, $aliases );
 }
 
