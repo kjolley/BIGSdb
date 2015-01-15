@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -54,16 +54,16 @@ sub print_content {
 	my $locus      = $q->param('locus');
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( !BIGSdb::Utils::is_int($isolate_id) ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Isolate id must be an integer.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Isolate id must be an integer.</p></div>);
 		return;
 	}
-	my $exists = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id )->[0];
+	my $exists = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)", $isolate_id );
 	if ( !$exists ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>The database contains no record of this isolate.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>The database contains no record of this isolate.</p></div>);
 		return;
 	}
 	if ( !$self->{'datastore'}->is_locus($locus) ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Invalid locus selected.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Invalid locus selected.</p></div>);
 		return;
 	}
 	my @name          = $self->get_name($isolate_id);
@@ -75,35 +75,37 @@ sub print_content {
 	my $qry = "SELECT allele_sequences.id,seqbin_id,start_pos,end_pos,reverse,complete,method,length(sequence) AS seqlength FROM "
 	  . "allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE sequence_bin.isolate_id=? "
 	  . "AND locus=? ORDER BY complete desc,allele_sequences.datestamp";
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute( $isolate_id, $locus ) };
-	$logger->error($@) if $@;
+	my $data = $self->{'datastore'}->run_query($qry,[$isolate_id, $locus],{fetch=>'all_arrayref'});
 	my $buffer;
-	my $update_buffer = '';
+	
 
-	while ( my ( $id, $seqbin_id, $start_pos, $end_pos, $reverse, $complete, $method, $seqlength ) = $sql->fetchrow_array ) {
-		$buffer .= "<dl class=\"data\">";
-		$buffer .= "<dt class=\"dontend\">sequence bin id</dt><dd>$seqbin_id</dd>";
-		$buffer .= "<dt class=\"dontend\">contig length</dt><dd>$seqlength</dd>";
-		if ( $self->{'curate'} ) {
+	foreach my $allele_sequence (@$data) {
+		my ( $id, $seqbin_id, $start_pos, $end_pos, $reverse, $complete, $method, $seqlength )  = @$allele_sequence;
+		my $update_buffer = '';
+				if ( $self->{'curate'} ) {
 			$update_buffer = qq( <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagUpdate&amp;id=)
 			  . qq($id" class="smallbutton">Update</a>\n);
 		}
+		$buffer .= "<h2>Contig position$update_buffer</h2>\n";
+		$buffer .= qq(<dl class="data">);
+		$buffer .= qq(<dt class="dontend">sequence bin id</dt><dd>$seqbin_id</dd>);
+		$buffer .= qq(<dt class="dontend">contig length</dt><dd>$seqlength</dd>);
+
 		my $translate = ( $locus_info->{'coding_sequence'} || $locus_info->{'data_type'} eq 'peptide' ) ? 1 : 0;
 		my $orf = $locus_info->{'orf'} || 1;
-		$buffer .= "<dt class=\"dontend\">start</dt><dd>$start_pos</dd>\n";
-		$buffer .= "<dt class=\"dontend\">end</dt><dd>$end_pos</dd>\n";
+		$buffer .= qq(<dt class="dontend">start</dt><dd>$start_pos</dd>\n);
+		$buffer .= qq(<dt class="dontend">end</dt><dd>$end_pos</dd>\n);
 		my $length = abs( $end_pos - $start_pos + 1 );
-		$buffer .= "<dt class=\"dontend\">length</dt><dd>$length</dd>\n";
+		$buffer .= qq(<dt class="dontend">length</dt><dd>$length</dd>\n);
 		my $orientation = $reverse ? 'reverse' : 'forward';
-		$buffer .= "<dt class=\"dontend\">orientation</dt><dd>$orientation</dd>\n";
-		$buffer .= "<dt class=\"dontend\">complete</dt><dd>" . ( $complete ? 'yes' : 'no' ) . "</dd>\n";
-		$buffer .= "<dt class=\"dontend\">method</dt><dd>$method</dd>\n";
+		$buffer .= qq(<dt class="dontend">orientation</dt><dd>$orientation</dd>\n);
+		$buffer .= qq(<dt class="dontend">complete</dt><dd>) . ( $complete ? 'yes' : 'no' ) . qq(</dd>\n);
+		$buffer .= qq(<dt class="dontend">method</dt><dd>$method</dd>\n);
 		my $display = $self->format_seqbin_sequence(
 			{ seqbin_id => $seqbin_id, reverse => $reverse, start => $start_pos, end => $end_pos, translate => $translate, orf => $orf } );
 		$buffer .= "</dl>";
 		$buffer .= "<h2>Sequence</h2>\n";
-		$buffer .= "<div class=\"seq\">$display->{'seq'}</div>\n";
+		$buffer .= qq(<div class="seq">$display->{'seq'}</div>\n);
 
 		if ($translate) {
 			$buffer .= "<h2>Translation</h2>\n";
@@ -111,21 +113,20 @@ sub print_content {
 			if (@stops) {
 				my $plural = @stops == 1 ? '' : 's';
 				local $" = ', ';
-				$buffer .= "<span class=\"highlight\">Internal stop codon$plural at position$plural: @stops (numbering includes upstream "
-				  . "flanking sequence).</span>\n";
+				$buffer .= qq(<span class="highlight">Internal stop codon$plural at position$plural: @stops (numbering includes upstream )
+				  . qq(flanking sequence).</span>\n);
 			}
-			$buffer .= "<pre class=\"sixpack\">\n";
+			$buffer .= qq(<pre class="sixpack">\n);
 			$buffer .= $display->{'sixpack'};
 			$buffer .= "</pre>\n";
 		}
 	}
 	if ($buffer) {
-		say "<div class=\"box\" id=\"resultspanel\">\n<div class=\"scrollable\">";
-		say "<h2>Contig position$update_buffer</h2>";
+		say qq(<div class="box" id="resultspanel">\n<div class="scrollable">);
 		say $buffer;
 		say "</div></div>";
 	} else {
-		say "<div class=\"box\" id=\"statusbad\"><p>This isolate does not have a sequence defined for locus $display_locus.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>This isolate does not have a sequence defined for locus $display_locus.</p></div>);
 	}
 	return;
 }
