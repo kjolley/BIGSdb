@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -52,7 +52,7 @@ sub print_content {
 	my $desc      = $self->get_db_description;
 	if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
 		say "<h1>Batch profile query - $desc</h1>";
-		say "<div class=\"box\" id=\"statusbad\"><p>This function is only available for sequence definition databases.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>This function is only available for sequence definition databases.</p></div>);
 		return;
 	}
 	say "<h1>Batch profile query - $desc</h1>";
@@ -68,9 +68,9 @@ sub print_content {
 		my $profiles = $q->param('profiles');
 		my @rows = split /\n/, $profiles;
 		local $" = '</th><th>';
-		say "<div class=\"box\" id=\"resultstable\">";
-		say "<div class=\"scrollable\">";
-		say "<table class=\"resultstable\"><tr><th>Isolate</th><th>@cleaned_loci</th>";
+		say qq(<div class="box" id="resultstable">);
+		say qq(<div class="scrollable">);
+		say qq(<table class="resultstable"><tr><th>Isolate</th><th>@cleaned_loci</th>);
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 		foreach my $field (@$scheme_fields) {
 			my $cleaned = $field;
@@ -86,7 +86,6 @@ sub print_content {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 		local $" = $scheme_info->{'allow_missing_loci'} ? " IN (?, 'N')) AND (" : '=?) AND (';
 		$qry .= $scheme_info->{'allow_missing_loci'} ? "(@cleaned_loci_db IN (?, 'N'))" : "(@cleaned_loci_db=?)";
-		my $sql = $self->{'db'}->prepare($qry);
 		say "</tr>";
 		my $td = 1;
 		local $| = 1;
@@ -98,12 +97,12 @@ sub print_content {
 				$allele =~ s/^\s+//g;
 				$allele =~ s/\s+$//g;
 			}
-			say "<tr class=\"td$td\"><td>$isolate</td>";
+			say qq(<tr class="td$td"><td>$isolate</td>);
 			for my $i ( 0 .. @$loci - 1 ) {
 				if ( $profile[$i] ) {
 					print "<td>$profile[$i]</td>";
 				} else {
-					print "<td class=\"statusbad\" style=\"font-size:2em\">-</td>";
+					print qq(<td class="statusbad" style="font-size:2em">-</td>);
 				}
 			}
 			my $incomplete;
@@ -112,9 +111,7 @@ sub print_content {
 				while ( @profile > @$loci ) {
 					pop @profile;
 				}
-				eval { $sql->execute(@profile) };
-				$logger->error($@) if $@;
-				@field_data = $sql->fetchrow_array;
+				@field_data = $self->{'datastore'}->run_query( $qry, \@profile, { catch => 'BatchProfileQueryPage::print_content' } );
 			} else {
 				$incomplete = 1;
 			}
@@ -123,7 +120,7 @@ sub print_content {
 				if ( exists $field_data[$i] ) {
 					print defined $field_data[$i] ? "<td>$field_data[$i]</td>" : '<td></td>';
 				} else {
-					print "<td class=\"statusbad\" style=\"font-size:2em\">-</td>";
+					print qq(<td class="statusbad" style="font-size:2em">-</td>);
 				}
 				$i++;
 			}
@@ -137,18 +134,16 @@ sub print_content {
 		say "</table>\n</div></div>";
 		return;
 	}
-	say "<div class=\"box\" id=\"queryform\">";
+	say qq(<div class="box" id="queryform">);
 	say $q->start_form;
 	say $q->hidden($_) foreach qw (db page scheme_id);
 	local $" = ', ';
-	print <<"HTML";
-<p>Enter allelic profiles below in tab-delimited text format using copy and paste (for example directly from a spreadsheet).  
-Columns can be separated by any amount of whitespace.  The first column should be an isolate identifier and the remaining 
-columns should comprise the allele numbers (order: @cleaned_loci). Click here for 
-<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchProfiles&amp;function=examples&amp;scheme_id=$scheme_id">
-example data</a>.  Non-numerical characters will be stripped out of the query.</p>
-HTML
-	say "<fieldset style=\"float:left\"><legend>Paste in profiles</legend>";
+	say qq[<p>Enter allelic profiles below in tab-delimited text format using copy and paste (for example directly from a spreadsheet).]
+	  . qq[Columns can be separated by any amount of whitespace.  The first column should be an isolate identifier and the remaining ]
+	  . qq[columns should comprise the allele numbers (order: @cleaned_loci). Click here for ]
+	  . qq[<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchProfiles&amp;function=examples&amp;]
+	  . qq[scheme_id=$scheme_id">example data</a>.  Non-numerical characters will be stripped out of the query.</p>];
+	say qq(<fieldset style="float:left"><legend>Paste in profiles</legend>);
 	say $q->textarea( -name => 'profiles', -rows => 10, -columns => 80, -override => 1 );
 	say "</fieldset>";
 	$self->print_action_fieldset( { scheme_id => $scheme_id } );
@@ -176,20 +171,19 @@ sub _print_examples {
 		print "Invalid scheme selected.\n";
 		return;
 	}
-	my $loci =
-	  $self->{'datastore'}->run_list_query( "SELECT locus FROM scheme_members WHERE scheme_id=? ORDER BY field_order", $scheme_id );
+	my $loci         = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my @cleaned_loci = @$loci;
 	$_ =~ s/'/_PRIME_/g foreach @cleaned_loci;
 	local $" = ',';
 	my $scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
-	my $sql = $self->{'db'}->prepare("SELECT @cleaned_loci FROM $scheme_view ORDER BY random() LIMIT 15");
-	eval { $sql->execute };
-	$logger->error($@) if $@;
+	my $data =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT @cleaned_loci FROM $scheme_view ORDER BY random() LIMIT 15", undef, { fetch => 'all_arrayref' } );
 	local $" = "\t";
 	my $i = 1;
 
-	while ( my @profile = $sql->fetchrow_array ) {
-		say "isolate_$i\t@profile";
+	foreach my $profile (@$data) {
+		say "isolate_$i\t@$profile";
 		$i++;
 	}
 	return;

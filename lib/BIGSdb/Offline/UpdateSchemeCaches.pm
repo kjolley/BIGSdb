@@ -2,7 +2,7 @@
 #Create scheme profile caches in an isolate database
 #
 #Written by Keith Jolley
-#Copyright (c) 2014, University of Oxford
+#Copyright (c) 2014-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -30,11 +30,11 @@ sub run_script {
 	die "No connection to database (check logs).\n" if !defined $self->{'db'};
 	die "This script can only be run against an isolate database.\n" if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
 	my $schemes =
-	  $self->{'datastore'}
-	  ->run_list_query( "SELECT id FROM schemes WHERE dbase_name IS NOT NULL AND dbase_table IS NOT NULL ORDER BY id" );
+	  $self->{'datastore'}->run_query( "SELECT id FROM schemes WHERE dbase_name IS NOT NULL AND dbase_table IS NOT NULL ORDER BY id",
+		undef, { fetch => 'col_arrayref' } );
 	foreach my $scheme_id (@$schemes) {
-		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id, {get_pk => 1});
-		if (!defined $scheme_info->{'primary_key'}){
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+		if ( !defined $scheme_info->{'primary_key'} ) {
 			say "Scheme $scheme_id ($scheme_info->{'description'}) does not have a primary key - skipping.";
 			next;
 		}

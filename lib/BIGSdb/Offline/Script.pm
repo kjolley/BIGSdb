@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2014, University of Oxford
+#Copyright (c) 2011-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -93,11 +93,10 @@ sub initiate {
 		}
 	}
 	$self->set_system_overrides;
-
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
 	$self->db_connect;
-	if ($self->{'db'}){
-		$self->setup_datastore ;
+	if ( $self->{'db'} ) {
+		$self->setup_datastore;
 		if ( defined $self->{'options'}->{'v'} ) {
 			my $view_exists =
 			  $self->{'datastore'}
@@ -219,9 +218,9 @@ sub _get_isolates_excluded_by_project {
 	my ($self) = @_;
 	my @projects = split( ',', $self->{'options'}->{'P'} );
 	my @isolates;
-	foreach (@projects) {
-		next if !BIGSdb::Utils::is_int($_);
-		my $list_ref = $self->get_project_isolates($_);
+	foreach my $project_id (@projects) {
+		next if !BIGSdb::Utils::is_int($project_id);
+		my $list_ref = $self->get_project_isolates($project_id);
 		push @isolates, @$list_ref;
 	}
 	@isolates = uniq(@isolates);
@@ -296,7 +295,7 @@ sub get_selected_loci {
 	} else {
 		$qry = "$loci_qry ORDER BY id";
 	}
-	my $loci = $self->{'datastore'}->run_list_query($qry);
+	my $loci = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	@$loci = uniq @$loci;
 	my @filtered_list;
 	foreach my $locus (@$loci) {
@@ -309,7 +308,8 @@ sub get_selected_loci {
 sub get_project_isolates {
 	my ( $self, $project_id ) = @_;
 	return if !BIGSdb::Utils::is_int($project_id);
-	return $self->{'datastore'}->run_list_query( "SELECT isolate_id FROM project_members WHERE project_id=?", $project_id );
+	return $self->{'datastore'}
+	  ->run_query( "SELECT isolate_id FROM project_members WHERE project_id=?", $project_id, { fetch => 'col_arrayref' } );
 }
 
 sub delete_temp_files {

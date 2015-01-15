@@ -230,13 +230,13 @@ sub run_script {
 	my $out_of_time;
 	my $start_time   = time;
 	my $locus_prefix = BIGSdb::Utils::get_random();
-	my @isolates_in_project;
+	my $isolates_in_project;
 	my $file_prefix = BIGSdb::Utils::get_random();
 
 	if ( $options->{'project_id'} && BIGSdb::Utils::is_int( $options->{'project_id'} ) ) {
-		my $list_ref =
-		  $self->{'datastore'}->run_list_query( "SELECT isolate_id FROM project_members WHERE project_id=?", $options->{'project_id'} );
-		@isolates_in_project = @$list_ref;
+		$isolates_in_project =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT isolate_id FROM project_members WHERE project_id=?", $options->{'project_id'}, { fetch => 'col_arrayref' } );
 	}
 	my $match        = 0;
 	my $seq_filename = $self->{'config'}->{'tmp_dir'} . "/$options->{'scan_job'}\_unique_sequences.txt";
@@ -247,10 +247,10 @@ sub run_script {
 	$self->_write_match( $options->{'scan_job'}, undef, { reset => 1 } );
 	$logger->info("Scan $self->{'instance'}:$options->{'scan_job'} ($options->{'curator_name'}) started");
 	my $table_file = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'scan_job'}_table.html";
-	unlink $table_file;    #delete file if scan restarted
+	unlink $table_file;                                                                                    #delete file if scan restarted
 
 	foreach my $isolate_id (@isolate_ids) {
-		next if $options->{'project_id'} && none { $isolate_id == $_ } @isolates_in_project;
+		next if $options->{'project_id'} && none { $isolate_id == $_ } @$isolates_in_project;
 		if ( $match >= $options->{'limit'} ) {
 			$match_limit_reached = 1;
 			$self->_write_status( $options->{'scan_job'}, "match_limit_reached:1" );

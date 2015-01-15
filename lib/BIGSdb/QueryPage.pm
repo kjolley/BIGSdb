@@ -75,7 +75,7 @@ END
 
 sub filters_selected {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my $q      = $self->{'cgi'};
 	my %params = $q->Vars;
 	return 1 if any { $_ =~ /_list$/ && $params{$_} ne '' } keys %params;
 	return 1 if $q->param('include_old');
@@ -118,7 +118,7 @@ sub search_users {
 	elsif ( $operator eq 'NOT contain' ) { $qry .= "NOT $contains" }
 	elsif ( $operator eq '=' )           { $qry .= $equals }
 	else                                 { $qry .= "$suffix $operator '$text'" }
-	my $ids = $self->{'datastore'}->run_list_query($qry);
+	my $ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	$ids = [-999] if !@$ids;    #Need to return an integer but not 0 since this is actually the setup user.
 	local $" = "' OR $table.$field = '";
 	return "($table.$field = '@$ids')";

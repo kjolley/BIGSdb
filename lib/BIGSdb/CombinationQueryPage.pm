@@ -265,7 +265,8 @@ sub _run_query {
 					push @loci, $1;
 					if ( $values{$1} && $q->param($param) && $values{$1} ne $q->param($param) ) {
 						my $aliases =
-						  $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias", $1 );
+						  $self->{'datastore'}
+						  ->run_query( "SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias", $1, { fetch => 'col_arrayref' } );
 						local $" = ', ';
 						push @errors, "Locus $1 has been defined with more than one value (due to an alias for this locus also being "
 						  . "used). The following alias(es) exist for this locus: @$aliases";
@@ -409,7 +410,7 @@ sub _run_query {
 	}
 	if (@errors) {
 		local $" = '<br />';
-		say "<div class=\"box\" id=\"statusbad\"><p>Problem with search criteria:</p>";
+		say qq(<div class="box" id="statusbad"><p>Problem with search criteria:</p>);
 		say "<p>@errors</p></div>";
 	} elsif ( $qry !~ /^ ORDER BY/ ) {
 		my @hidden_attributes;
