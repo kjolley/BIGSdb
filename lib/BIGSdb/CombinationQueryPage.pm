@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -73,13 +73,9 @@ sub _print_query_interface {
 	my ( $self, $scheme_id ) = @_;
 	my $q = $self->{'cgi'};
 	say qq(<div class="box" id="queryform">);
-	my $primary_key;
-	if ($scheme_id) {
-		$primary_key =
-		  $self->{'datastore'}
-		  ->run_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key ORDER BY field_order", $scheme_id );
-	}
-	my $set_id = $self->get_set_id;
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $primary_key = $scheme_info->{'primary_key'};
+	my $set_id      = $self->get_set_id;
 	my $loci =
 	    $scheme_id
 	  ? $self->{'datastore'}->get_scheme_loci($scheme_id)
@@ -87,9 +83,8 @@ sub _print_query_interface {
 	my $scheme_fields;
 	$scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id) if $scheme_id;
 	my @errors;
-	if ( $primary_key && $q->param('Autofill') ) {
 
-		#		my @values;
+	if ( $primary_key && $q->param('Autofill') ) {
 		my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
 		if ( $scheme_field_info->{'type'} eq 'integer' && !BIGSdb::Utils::is_int( $q->param($primary_key) ) ) {
 			push @errors, "$primary_key is an integer field.";
@@ -108,16 +103,16 @@ sub _print_query_interface {
 				};
 			} else {
 				my @cleaned_loci = @$loci;
-				foreach (@cleaned_loci) {
-					$_ =~ s/'/_PRIME_/g;
+				foreach my $locus (@cleaned_loci) {
+					$locus =~ s/'/_PRIME_/g;
 				}
 				local $" = ',';
 				my $scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
 				my $qry         = "SELECT @cleaned_loci FROM $scheme_view WHERE $primary_key=?";
 				my $loci_values = $self->{'datastore'}->run_query( $qry, $pk_value, { fetch => 'row_hashref' } );
-				foreach (@$loci) {
-					( my $cleaned = $_ ) =~ s/'/_PRIME_/g;
-					$q->param( "l_$_", $loci_values->{ lc($cleaned) } );
+				foreach my $locus (@$loci) {
+					( my $cleaned = $locus ) =~ s/'/_PRIME_/g;
+					$q->param( "l_$locus", $loci_values->{ lc($cleaned) } );
 				}
 			}
 		}
@@ -131,8 +126,8 @@ sub _print_query_interface {
 	my ( $header_row, $form_row );
 	my $all_integers = 1;
 
-	foreach (@$loci) {
-		my $locus_info = $self->{'datastore'}->get_locus_info($_);
+	foreach my $locus (@$loci) {
+		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		if ( $locus_info->{'allele_id_format'} ne 'integer' ) {
 			$all_integers = 0;
 			last;
@@ -144,31 +139,23 @@ sub _print_query_interface {
 	} else {
 		$max_per_row = $all_integers ? 14 : 7;
 	}
-	my $alias_sql;
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		$alias_sql = $self->{'db'}->prepare("SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias");
-	}
 	my @display_loci;
 	my (%label);
-	foreach (@$loci) {
-		push @display_loci, "l_$_";
-		my $cleaned_locus = $self->clean_locus($_);
-		$label{"l_$_"} = $cleaned_locus;
+	foreach my $locus (@$loci) {
+		push @display_loci, "l_$locus";
+		my $cleaned_locus = $self->clean_locus($locus);
+		$label{"l_$locus"} = $cleaned_locus;
 		if ( !$scheme_id && $self->{'prefs'}->{'locus_alias'} && $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-			eval { $alias_sql->execute($_); };
-			if ($@) {
-				$logger->error("Can't execute $@");
-			} else {
-				while ( my ($alias) = $alias_sql->fetchrow_array ) {
-					my $value = "la_$_||$alias";
-					push @display_loci, $value;
-					$alias =~ tr/_/ /;
-					$label{$value} = qq($alias<br /><span class="comment">[$cleaned_locus]</span>);
-				}
+			my $locus_aliases = $self->{'datastore'}->get_locus_aliases($locus);
+			foreach my $alias (@$locus_aliases) {
+				my $value = "la_$locus||$alias";
+				push @display_loci, $value;
+				$alias =~ tr/_/ /;
+				$label{$value} = qq($alias<br /><span class="comment">[$cleaned_locus]</span>);
 			}
 		}
 	}
-	foreach (@display_loci) {
+	foreach my $locus (@display_loci) {
 		if ( $i == $max_per_row ) {
 			say "<tr>$header_row</tr>";
 			say "<tr>$form_row</tr>";
@@ -177,9 +164,9 @@ sub _print_query_interface {
 			$i = 0;
 		}
 		my $class = $all_integers ? 'int_entry' : 'allele_entry';
-		$header_row .= qq(<th class="$class">$label{$_}</th>);
+		$header_row .= qq(<th class="$class">$label{$locus}</th>);
 		$form_row   .= "<td>";
-		$form_row   .= $q->textfield( -name => "$_", -class => $class, -style => 'text-align:center' );
+		$form_row   .= $q->textfield( -name => $locus, -class => $class, -style => 'text-align:center' );
 		$form_row   .= "</td>\n";
 		$i++;
 	}
@@ -259,6 +246,7 @@ sub _print_query_interface {
 sub _run_query {
 	my ( $self, $scheme_id ) = @_;
 	my $q = $self->{'cgi'};
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	my $qry;
 	my $msg;
 	my @errors;
@@ -271,11 +259,11 @@ sub _run_query {
 		my @loci;
 		my %values;
 		my $pattern = LOCUS_PATTERN;
-		foreach (@params) {
-			if ( $_ =~ /$pattern/ ) {
-				if ( $q->param($_) ne '' ) {
+		foreach my $param (@params) {
+			if ( $param =~ /$pattern/ ) {
+				if ( $q->param($param) ne '' ) {
 					push @loci, $1;
-					if ( $values{$1} && $q->param($_) && $values{$1} ne $q->param($_) ) {
+					if ( $values{$1} && $q->param($param) && $values{$1} ne $q->param($param) ) {
 						my $aliases =
 						  $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias", $1 );
 						local $" = ', ';
@@ -283,12 +271,11 @@ sub _run_query {
 						  . "used). The following alias(es) exist for this locus: @$aliases";
 						next;
 					}
-					$values{$1} = $q->param($_);
+					$values{$1} = $q->param($param);
 				}
 			}
 		}
 		my @lqry;
-		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 		foreach my $locus (@loci) {
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 			$values{$locus} = defined $values{$locus} ? $values{$locus} : '';
@@ -328,13 +315,10 @@ sub _run_query {
 				$lqry = "(select distinct($view.id) FROM $view LEFT JOIN allele_designations ON "
 				  . "$view.id=allele_designations.isolate_id WHERE @lqry";
 			} else {
-				my $primary_key =
-				  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )
-				  ->[0];
 				$lqry =
 				    "(select distinct(profiles.profile_id) FROM profiles LEFT JOIN profile_members ON profiles.profile_id="
 				  . "profile_members.profile_id AND profiles.scheme_id=profile_members.scheme_id AND profile_members.scheme_id=$scheme_id "
-				  . "WHERE $scheme_view.$primary_key=profiles.profile_id AND (@lqry)";
+				  . "WHERE $scheme_view.$scheme_info->{'primary_key'}=profiles.profile_id AND (@lqry)";
 			}
 			if ( $matches == 0 ) {    #Find out the greatest number of matches
 				my $match_qry;
@@ -398,14 +382,12 @@ sub _run_query {
 			}
 			$qry .= " $dir,$view.id;";
 		} else {
-			my $primary_key =
-			  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )
-			  ->[0];
-			my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
-			my $profile_id_field = $pk_info->{'type'} eq 'integer' ? "lpad($primary_key,20,'0')" : $primary_key;
+			my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
+			my $profile_id_field =
+			  $pk_info->{'type'} eq 'integer' ? "lpad($scheme_info->{'primary_key'},20,'0')" : $scheme_info->{'primary_key'};
 			if ( $q->param('order') =~ /^f_(.*)/ ) {
 				my $order_field = $1;
-				if ( $order_field eq $primary_key ) {
+				if ( $order_field eq $scheme_info->{'primary_key'} ) {
 					$qry .= "$profile_id_field $dir;";
 				} elsif ( $self->{'datastore'}->is_locus($order_field) ) {
 					my $locus_info = $self->{'datastore'}->get_locus_info($order_field);
@@ -440,7 +422,7 @@ sub _run_query {
 		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
 		$self->paged_display($args);
 	} else {
-		say "<div class=\"box\" id=\"statusbad\">Invalid search performed.</div>";
+		say qq(<div class="box" id="statusbad">Invalid search performed.</div>);
 	}
 	return;
 }
