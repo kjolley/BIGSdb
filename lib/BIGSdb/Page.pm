@@ -832,7 +832,7 @@ sub print_file {
 				$qry .= " WHERE id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
 				  . "set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id)";
 			}
-			$loci = $self->{'datastore'}->run_list_query($qry);
+			$loci = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 		} else {
 			my $set_clause =
 			  $set_id
@@ -840,15 +840,16 @@ sub print_file {
 			  . "WHERE set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 			  : '';
 			my $qry = "SELECT locus_curators.locus from locus_curators LEFT JOIN loci ON locus=id LEFT JOIN scheme_members on "
-			  . "loci.id = scheme_members.locus WHERE locus_curators.curator_id=? $set_clause ORDER BY scheme_members.scheme_id,locus_curators.locus";
-			$loci = $self->{'datastore'}->run_list_query( $qry, $self->get_curator_id );
+			  . "loci.id = scheme_members.locus WHERE locus_curators.curator_id=? $set_clause ORDER BY scheme_members.scheme_id,locus_curators.locus"
+			  ;
+			$loci = $self->{'datastore'}->run_query( $qry, $self->get_curator_id, { fetch => 'col_arrayref' } );
 		}
 		my $first = 1;
 		foreach my $locus ( uniq @$loci ) {
 			my $cleaned = $self->clean_locus($locus);
 			$lociAdd .= ' | ' if !$first;
-			$lociAdd .= "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;"
-			  . "table=sequences&amp;locus=$locus\">$cleaned</a>";
+			$lociAdd .= qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;)
+			  . qq(table=sequences&amp;locus=$locus">$cleaned</a>);
 			$first = 0;
 		}
 	}

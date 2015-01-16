@@ -496,9 +496,10 @@ sub _check_locus_aliases {
 
 sub _check_locus_aliases_when_updating_other_table {
 	my ( $self, $locus, $newdata, $problems, $extra_inserts ) = @_;
-	my $q                = $self->{'cgi'};
-	my $existing_aliases = $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=?", $locus );
-	my @new_aliases      = split /\r?\n/, $q->param('aliases');
+	my $q = $self->{'cgi'};
+	my $existing_aliases =
+	  $self->{'datastore'}->run_query( "SELECT alias FROM locus_aliases WHERE locus=?", $locus, { fetch => 'col_arrayref' } );
+	my @new_aliases = split /\r?\n/, $q->param('aliases');
 	foreach my $new (@new_aliases) {
 		chomp $new;
 		next if $new eq '';

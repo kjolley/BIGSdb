@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -29,13 +29,13 @@ sub print_content {
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 	say "<h1>Configuration check - $desc</h1>";
 	if ( !( $self->{'permissions'}->{'modify_loci'} || $self->{'permissions'}->{'modify_schemes'} || $self->is_admin ) ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>You do not have permission to view this page.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>You do not have permission to view this page.</p></div>);
 		return;
 	}
-	say "<div class=\"box\" id=\"resultstable\">";
+	say qq(<div class="box" id="resultstable">);
 	say "<h2>Helper applications</h2>";
-	say "<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Program</th><th>Path</th><th>Installed</th>"
-	  . "<th>Executable</th></tr>";
+	say qq(<div class="scrollable"><table class="resultstable"><tr><th>Program</th><th>Path</th><th>Installed</th>)
+	  . qq(<th>Executable</th></tr>);
 	my %helpers;
 	{
 		no warnings 'uninitialized';
@@ -43,15 +43,15 @@ sub print_content {
 			'EMBOSS infoalign' => $self->{'config'}->{'emboss_path'} . '/infoalign',
 			'EMBOSS sixpack'   => $self->{'config'}->{'emboss_path'} . '/sixpack',
 			'EMBOSS stretcher' => $self->{'config'}->{'emboss_path'} . '/stretcher',
-			'blastn'           => $self->{'config'}->{'blast+_path'} . '/blastn',
-			'blastp'           => $self->{'config'}->{'blast+_path'} . '/blastp',
-			'blastx'           => $self->{'config'}->{'blast+_path'} . '/blastx',
-			'tblastx'          => $self->{'config'}->{'blast+_path'} . '/tblastx',
-			'makeblastdb'      => $self->{'config'}->{'blast+_path'} . '/makeblastdb',
-			'mafft'            => $self->{'config'}->{'mafft_path'},
-			'muscle'           => $self->{'config'}->{'muscle_path'},
-			'ipcress'          => $self->{'config'}->{'ipcress_path'},
-			'mogrify'          => $self->{'config'}->{'mogrify_path'},
+			blastn             => $self->{'config'}->{'blast+_path'} . '/blastn',
+			blastp             => $self->{'config'}->{'blast+_path'} . '/blastp',
+			blastx             => $self->{'config'}->{'blast+_path'} . '/blastx',
+			tblastx            => $self->{'config'}->{'blast+_path'} . '/tblastx',
+			makeblastdb        => $self->{'config'}->{'blast+_path'} . '/makeblastdb',
+			mafft              => $self->{'config'}->{'mafft_path'},
+			muscle             => $self->{'config'}->{'muscle_path'},
+			ipcress            => $self->{'config'}->{'ipcress_path'},
+			mogrify            => $self->{'config'}->{'mogrify_path'},
 		);
 	}
 	my $td = 1;
@@ -73,12 +73,14 @@ sub print_content {
 		  ? "AND (id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes "
 		  . "WHERE set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 		  : '';
-		my $loci = $self->{'datastore'}->run_list_query("SELECT id FROM loci WHERE dbase_name IS NOT null $set_clause ORDER BY id");
+		my $loci =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT id FROM loci WHERE dbase_name IS NOT null $set_clause ORDER BY id", undef, { fetch => 'col_arrayref' } );
 		$td = 1;
 		if (@$loci) {
-			say "<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Locus</th><th>Database</th><th>Host</th><th>Port</th>"
-			  . "<th>Table</th><th>Primary id field</th><th>Secondary id field</th><th>Secondary id field value</th>"
-			  . "<th>Sequence field</th><th>Database accessible</th><th>Sequence query</th><th>Sequences assigned</th></tr>";
+			say qq(<div class="scrollable"><table class="resultstable"><tr><th>Locus</th><th>Database</th><th>Host</th><th>Port</th>)
+			  . qq(<th>Table</th><th>Primary id field</th><th>Secondary id field</th><th>Secondary id field value</th>)
+			  . qq(<th>Sequence field</th><th>Database accessible</th><th>Sequence query</th><th>Sequences assigned</th></tr>);
 			foreach (@$loci) {
 				if ( $ENV{'MOD_PERL'} ) {
 					$self->{'mod_perl_request'}->rflush;
@@ -137,11 +139,13 @@ sub print_content {
 		}
 		print "<h2>Scheme databases</h2>";
 		$set_clause = $set_id ? "AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : '';
-		my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes WHERE dbase_name IS NOT NULL $set_clause ORDER BY id");
+		my $schemes =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT id FROM schemes WHERE dbase_name IS NOT NULL $set_clause ORDER BY id", undef, { fetch => 'col_arrayref' } );
 		$td = 1;
 		if (@$schemes) {
-			say "<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Scheme description</th><th>Database</th>"
-			  . "<th>Host</th><th>Port</th><th>Table</th><th>Database accessible</th><th>Profile query</th></tr>";
+			say qq(<div class="scrollable"><table class="resultstable"><tr><th>Scheme description</th><th>Database</th>)
+			  . qq(<th>Host</th><th>Port</th><th>Table</th><th>Database accessible</th><th>Profile query</th></tr>);
 			foreach my $scheme_id (@$schemes) {
 				my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 				$scheme_info->{'description'} =~ s/&/&amp;/g;
@@ -176,7 +180,7 @@ sub print_content {
 	} else {
 
 		#profiles databases
-		my $client_dbs = $self->{'datastore'}->run_list_query("SELECT id FROM client_dbases ORDER BY id");
+		my $client_dbs = $self->{'datastore'}->run_query( "SELECT id FROM client_dbases ORDER BY id", undef, { fetch => 'col_arrayref' } );
 		my $buffer;
 		foreach (@$client_dbs) {
 			my $client      = $self->{'datastore'}->get_client_db($_);
@@ -199,8 +203,8 @@ sub print_content {
 		}
 		if ($buffer) {
 			say "<h2>Client databases</h2>";
-			say "<div class=\"scrollable\"><table class=\"resultstable\"><tr><th>Name</th><th>Description</th><th>Database</th>"
-			  . "<th>Host</th><th>Port</th><th>Database accessible</th></tr>";
+			say qq(<div class="scrollable"><table class="resultstable"><tr><th>Name</th><th>Description</th><th>Database</th>)
+			  . qq(<th>Host</th><th>Port</th><th>Database accessible</th></tr>);
 			say $buffer;
 			say "</table></div>";
 		}
