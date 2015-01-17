@@ -37,6 +37,7 @@ use constant MAX_UPLOAD_SIZE  => 32 * 1024 * 1024;    #32MB
 use constant MAX_SPLITS_TAXA  => 200;
 use constant MAX_DISPLAY_TAXA => 150;
 use constant MAX_GENOMES      => 1000;
+use constant MAX_REF_LOCI     => 10000;
 use constant MAX_MUSCLE_MB    => 4 * 1024;            #4GB
 
 sub get_attributes {
@@ -51,7 +52,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.7.0',
+		version     => '1.7.1',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -849,6 +850,9 @@ sub _analyse_by_reference {
 	}
 	$self->{'html_buffer'} .= "</table>";
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $self->{'html_buffer'} } );
+	if ( @cds > MAX_REF_LOCI ) {
+		throw BIGSdb::PluginException( "Too many loci in reference genome - limit is set at " . MAX_REF_LOCI . '.' );
+	}
 	$self->{'html_buffer'} .= "<h3>All loci</h3>\n";
 	$self->{'file_buffer'} .= "\n\nAll loci\n--------\n\n";
 	$self->{'html_buffer'} .=
