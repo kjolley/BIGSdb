@@ -398,8 +398,14 @@ sub _print_locus_row {
 		my $desc = $self->{'datastore'}->run_query( "SELECT full_name,product FROM locus_descriptions WHERE locus=?",
 			$locus, { fetch => 'row_hashref', cache => 'DownloadAllelesPage::print_locus_row::desc' } );
 		my @names_product;
-		push @names_product, ( $desc->{'full_name'} =~ s/[\r\n]/ /g ) if $desc->{'full_name'};
-		push @names_product, ( $desc->{'product'}   =~ s/[\r\n]/ /g ) if $desc->{'product'};
+		if ( $desc->{'full_name'} ) {
+			$desc->{'full_name'} =~ s/[\r\n]/ /g;
+			push @names_product, $desc->{'full_name'}
+		}
+		if ( $desc->{'product'} ) {
+			$desc->{'product'} =~ s/[\r\n]/ /g;
+			push @names_product, $desc->{'product'};
+		}
 		local $" = ' / ';
 		$products = "@names_product";
 		print "<td>$products</td>";
