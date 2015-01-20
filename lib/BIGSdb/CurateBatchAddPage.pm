@@ -1311,6 +1311,7 @@ sub _upload_data {
 					push @value_list, $self->get_curator_id;
 				} elsif ( $field eq 'sender' && $user_info->{'status'} eq 'submitter' ) {
 					push @value_list, $self->get_curator_id;
+					$sender = $self->get_curator_id;
 				} elsif ( defined $fieldorder{$field}
 					&& defined $data[ $fieldorder{$field} ]
 					&& $data[ $fieldorder{$field} ] ne 'null'
