@@ -346,6 +346,7 @@ sub text2excel {
 	my %widths;
 
 	while ( my $line = <$text_fh> ) {
+		$line =~ s/[\r\n]/ /g;
 		my $format = !$options->{'no_header'} && $row == 0 ? $header_format : $cell_format;
 		my @values = split /\t/, $line;
 		foreach my $value (@values) {
