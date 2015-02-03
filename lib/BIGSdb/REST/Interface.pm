@@ -124,7 +124,7 @@ hook before => sub {
 #This could be made optional for systems with only a few databases.
 hook after => sub {
 	my $self = setting('self');
-	$self->{'dataConnector'}->drop_connection( { host => $self->{'system'}->{'host'}, dbase_name => $self->{'system'}->{'db'} } );
+	$self->{'dataConnector'}->drop_all_connections;
 };
 
 sub get_set_id {
