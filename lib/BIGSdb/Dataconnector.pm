@@ -33,10 +33,7 @@ sub new {
 
 sub DESTROY {
 	my ($self) = @_;
-	foreach my $db ( keys %{ $self->{'db'} } ) {
-		$self->_finish_active_statement_handles( $self->{'db'}->{$db}, 1 );
-		eval { $self->{'db'}->{$db}->disconnect and $logger->info("Disconnected from database $self->{'db'}->{$db}->{'Name'}") };
-	}
+	$self->drop_all_connections;
 	return;
 }
 
@@ -69,6 +66,16 @@ sub drop_connection {
 		$self->{'db'}->{"$attributes->{'host'}|$attributes->{'dbase_name'}"}->disconnect
 	}
 	undef $self->{'db'}->{"$attributes->{'host'}|$attributes->{'dbase_name'}"};
+	return;
+}
+
+sub drop_all_connections {
+	my ($self) = @_;
+	foreach my $db ( keys %{ $self->{'db'} } ) {
+		$self->_finish_active_statement_handles( $self->{'db'}->{$db}, 1 );
+		eval { $self->{'db'}->{$db}->disconnect and $logger->info("Disconnected from database $self->{'db'}->{$db}->{'Name'}") };
+		delete $self->{'db'}->{$db};
+	}
 	return;
 }
 

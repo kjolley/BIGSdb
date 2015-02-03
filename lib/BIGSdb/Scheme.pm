@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -130,6 +130,7 @@ sub get_field_values_by_designations {
 	while ( my $data = $self->{'sql'}->{"field_values_$query_key"}->fetchrow_hashref ) {
 		push @$field_data, $data;
 	}
+	$self->{'db'}->commit;	#Prevent IDLE in transaction locks in long-running REST process.
 	return $field_data;
 }
 
