@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -268,8 +268,8 @@ sub _get_form_fields {
 					my $values;
 					if ( $att->{'foreign_key'} eq 'users' ) {
 						local $" = ',';
-						$qry    = "SELECT id FROM users WHERE id>0 ORDER BY @fields_to_query";
-						$values = $self->{'datastore'}->run_list_query($qry);
+						$qry = "SELECT id FROM users WHERE id>0 ORDER BY @fields_to_query";
+						$values = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 					} elsif ( $att->{'foreign_key'} eq 'loci' && $table ne 'set_loci' && $set_id ) {
 						( $values, $desc ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, no_list_by_common_name => 1 } );
 					} elsif ( $att->{'foreign_key'} eq 'schemes' && $table ne 'set_schemes' && $set_id ) {
@@ -277,8 +277,8 @@ sub _get_form_fields {
 						push @$values, $_->{'id'} foreach @$scheme_list;
 					} else {
 						local $" = ',';
-						$qry    = "SELECT id FROM $att->{'foreign_key'} ORDER BY @fields_to_query";
-						$values = $self->{'datastore'}->run_list_query($qry);
+						$qry = "SELECT id FROM $att->{'foreign_key'} ORDER BY @fields_to_query";
+						$values = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 					}
 					$values = [] if ref $values ne 'ARRAY';
 					$buffer .= $q->popup_menu(
@@ -429,25 +429,28 @@ sub _create_extra_fields_for_sequences {
 	my @default_pubmed;
 	my $default_databanks;
 	if ( $q->param('page') eq 'update' && $q->param('locus') ) {
-		my $pubmed_list =
-		  $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM sequence_refs WHERE locus=? AND allele_id=? ORDER BY pubmed_id",
-			$q->param('locus'), $q->param('allele_id') );
+		my $pubmed_list = $self->{'datastore'}->run_query(
+			"SELECT pubmed_id FROM sequence_refs WHERE locus=? AND allele_id=? ORDER BY pubmed_id",
+			[ $q->param('locus'), $q->param('allele_id') ],
+			{ fetch => 'col_arrayref' }
+		);
 		@default_pubmed = @$pubmed_list;
-		foreach (@databanks) {
-			my $list =
-			  $self->{'datastore'}
-			  ->run_list_query( "SELECT databank_id FROM accession WHERE locus=? AND allele_id=? AND databank=? ORDER BY databank_id",
-				$q->param('locus'), $q->param('allele_id'), $_ );
-			$default_databanks->{$_} = $list;
+		foreach my $databank (@databanks) {
+			my $list = $self->{'datastore'}->run_query(
+				"SELECT databank_id FROM accession WHERE locus=? AND allele_id=? AND databank=? ORDER BY databank_id",
+				[ $q->param('locus'), $q->param('allele_id'), $databank ],
+				{ fetch => 'col_arrayref' }
+			);
+			$default_databanks->{$databank} = $list;
 		}
 	}
-	$buffer .= "<li><label for=\"pubmed\" class=\"form\" style=\"width:${width}em\">PubMed ids:</label>";
+	$buffer .= qq(<li><label for="pubmed" class="form" style="width:${width}em">PubMed ids:</label>);
 	local $" = "\n";
 	$buffer .=
 	  $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@default_pubmed" );
 	$buffer .= "</li>\n";
 	foreach my $databank (@databanks) {
-		$buffer .= "<li><label for=\"databank_$databank\" class=\"form\" style=\"width:${width}em\">$databank ids:</label>";
+		$buffer .= qq(<li><label for="databank_$databank" class="form" style="width:${width}em">$databank ids:</label>);
 		my @default;
 		if ( ref $default_databanks->{$databank} eq 'ARRAY' ) {
 			@default = @{ $default_databanks->{$databank} };
@@ -463,15 +466,16 @@ sub _create_extra_fields_for_sequences {
 		$buffer .= "</li>\n";
 	}
 	if ( $q->param('locus') ) {
-		my $sql =
-		  $self->{'db'}->prepare( "SELECT field,description,value_format,required,length,option_list FROM "
-			  . "locus_extended_attributes WHERE locus=? ORDER BY field_order" );
-		my $locus = $q->param('locus');
-		eval { $sql->execute($locus) };
-		$logger->error($@) if $@;
-		while ( my ( $field, $desc, $format, $required, $length, $optlist ) = $sql->fetchrow_array ) {
-			$buffer .=
-			  "<li><label for=\"$field\" class=\"form\" style=\"width:${width}em\">$field:" . ( $required ? '!' : '' ) . "</label>\n";
+		my $locus   = $q->param('locus');
+		my $ext_att = $self->{'datastore'}->run_query(
+			"SELECT field,description,value_format,required,length,option_list FROM "
+			  . "locus_extended_attributes WHERE locus=? ORDER BY field_order",
+			$locus,
+			{ fetch => 'all_arrayref' }
+		);
+		foreach my $att (@$ext_att) {
+			my ( $field, $desc, $format, $required, $length, $optlist ) = @$att;
+			$buffer .= qq(<li><label for="$field" class="form" style="width:${width}em">$field:) . ( $required ? '!' : '' ) . "</label>\n";
 			$length = 12 if !$length;
 			my %html5_args;
 			$html5_args{'required'} = 'required' if $required;
@@ -532,10 +536,12 @@ sub _create_extra_fields_for_locus_descriptions {
 	my $buffer;
 	my @default_aliases;
 	if ( $q->param('page') eq 'update' && $locus ) {
-		my $alias_list = $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias", $locus );
+		my $alias_list =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias", $locus, { fetch => 'col_arrayref' } );
 		@default_aliases = @$alias_list;
 	}
-	$buffer .= "<li><label for=\"aliases\" class=\"form\" style=\"width:${width}em\">aliases:&nbsp;</label>";
+	$buffer .= qq(<li><label for="aliases" class="form" style="width:${width}em">aliases:&nbsp;</label>);
 	local $" = "\n";
 	$buffer .= $q->textarea( -name => 'aliases', -id => 'aliases', -rows => 2, -cols => 12, -default => "@default_aliases" );
 	$buffer .= "</li>\n";
@@ -543,22 +549,22 @@ sub _create_extra_fields_for_locus_descriptions {
 	my @default_pubmed;
 	if ( $q->param('page') eq 'update' && $locus ) {
 		my $pubmed_list =
-		  $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM locus_refs WHERE locus=? ORDER BY pubmed_id", $locus );
+		  $self->{'datastore'}
+		  ->run_query( "SELECT pubmed_id FROM locus_refs WHERE locus=? ORDER BY pubmed_id", $locus, { fetch => 'col_arrayref' } );
 		@default_pubmed = @$pubmed_list;
 	}
-	$buffer .= "<li><label for=\"pubmed\" class=\"form\" style=\"width:${width}em\">PubMed ids:&nbsp;</label>";
+	$buffer .= qq(<li><label for="pubmed" class="form" style="width:${width}em">PubMed ids:&nbsp;</label>);
 	$buffer .= $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -default => "@default_pubmed" );
 	$buffer .= "</li>\n";
 	my @default_links;
 	if ( $q->param('page') eq 'update' && $locus ) {
-		my $sql = $self->{'db'}->prepare("SELECT url,description FROM locus_links WHERE locus=? ORDER BY link_order");
-		eval { $sql->execute($locus) };
-		$logger->error($@) if $@;
-		while ( my ( $url, $desc ) = $sql->fetchrow_array ) {
-			push @default_links, "$url|$desc";
+		my $desc_data = $self->{'datastore'}->run_query( "SELECT url,description FROM locus_links WHERE locus=? ORDER BY link_order",
+			$locus, { fetch => 'all_arrayref', slice => {} } );
+		foreach my $data (@$desc_data) {
+			push @default_links, "$data->{'url'}|$data->{'description'}";
 		}
 	}
-	$buffer .= "<li><label for=\"links\" class=\"form\" style = \"width:${width}em\">links: <br /><span class=\"comment\">"
+	$buffer .= qq(<li><label for="links" class="form" style="width:${width}em">links: <br /><span class="comment">)
 	  . "(Format: URL|description)</span></label>";
 	$buffer .= $q->textarea( -name => 'links', -id => 'links', -rows => 3, -cols => 40, -default => "@default_links" );
 	$buffer .= "</li>";
@@ -727,11 +733,12 @@ sub check_record {
 			&& $_->{'name'} eq 'value' )
 		{
 			#special case to check for extended attribute value format and regex which is defined in isolate_field_extended_attributes table
-			my $format = $self->{'datastore'}->run_simple_query(
+			my $format = $self->{'datastore'}->run_query(
 				"SELECT value_format,value_regex,length FROM isolate_field_extended_attributes WHERE isolate_field=? AND attribute=?",
-				$newdata{'isolate_field'},
-				$newdata{'attribute'}
+				[ $newdata{'isolate_field'}, $newdata{'attribute'} ],
+				{ fetch => 'row_arrayref' }
 			);
+			next if !$format;
 			if ( $format->[0] eq 'integer'
 				&& !BIGSdb::Utils::is_int( $newdata{ $_->{'name'} } ) )
 			{
@@ -744,11 +751,11 @@ sub check_record {
 		} elsif ( $table eq 'users' && $_->{'name'} eq 'status' ) {
 
 			#special case to check that changing user status is allowed
-			my ($status) = @{ $self->{'datastore'}->run_simple_query( "SELECT status FROM users WHERE user_name=?", $self->{'username'} ) };
+			my $status = $self->{'datastore'}->run_query( "SELECT status FROM users WHERE user_name=?", $self->{'username'} );
 			my ( $user_status, $user_username );
 			if ($update) {
-				my $user_ref = $self->{'datastore'}->run_simple_query( "SELECT status,user_name FROM users WHERE id=?", $newdata{'id'} );
-				( $user_status, $user_username ) = @$user_ref if ref $user_ref eq 'ARRAY';
+				( $user_status, $user_username ) =
+				  $self->{'datastore'}->run_query( "SELECT status,user_name FROM users WHERE id=?", $newdata{'id'} );
 			}
 			if (   $status ne 'admin'
 				&& !$self->{'permissions'}->{'set_user_permissions'}
@@ -787,15 +794,14 @@ sub check_record {
 				push @problems, "You must have admin rights to change the username of a user.\n";
 			}
 		} elsif ( $table eq 'isolate_value_extended_attributes' && $_->{'name'} eq 'attribute' ) {
-			my $attribute_exists = $self->{'datastore'}->run_simple_query(
-				"SELECT COUNT(*) FROM isolate_field_extended_attributes WHERE isolate_field=? AND attribute=?",
-				$newdata{'isolate_field'},
-				$newdata{'attribute'}
-			)->[0];
+			my $attribute_exists =
+			  $self->{'datastore'}
+			  ->run_query( "SELECT EXISTS(SELECT * FROM isolate_field_extended_attributes WHERE isolate_field=? AND attribute=?)",
+				[ $newdata{'isolate_field'}, $newdata{'attribute'} ] );
 			if ( !$attribute_exists ) {
 				my $fields =
-				  $self->{'datastore'}->run_list_query( "SELECT isolate_field FROM isolate_field_extended_attributes WHERE attribute=?",
-					$newdata{'attribute'} );
+				  $self->{'datastore'}->run_query( "SELECT isolate_field FROM isolate_field_extended_attributes WHERE attribute=?",
+					$newdata{'attribute'}, { fetch => 'col_arrayref' } );
 				my $message = "Attribute $newdata{'attribute'} has not been defined for the $newdata{'isolate_field'} field.\n";
 				if (@$fields) {
 					local $" = ', ';
@@ -1121,7 +1127,9 @@ sub map_locus_name {
 	my ( $self, $locus ) = @_;
 	my $set_id = $self->get_set_id;
 	return $locus if !$set_id;
-	my $locus_list = $self->{'datastore'}->run_list_query( "SELECT locus FROM set_loci WHERE set_id=? AND set_name=?", $set_id, $locus );
+	my $locus_list =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT locus FROM set_loci WHERE set_id=? AND set_name=?", [ $set_id, $locus ], { fetch => 'col_arrayref' } );
 	return $locus if @$locus_list != 1;
 	return $locus_list->[0];
 }

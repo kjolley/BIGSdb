@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,7 @@
 package BIGSdb::CurateCompositeUpdatePage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::CuratePage);
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
@@ -34,27 +35,26 @@ sub print_content {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $id     = $q->param('id');
-	print "<h1>Update composite field - $id</h1>\n";
+	say "<h1>Update composite field - $id</h1>";
 	if ( !$self->can_modify_table('composite_fields') ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update composite fields.</p></div>\n";
+		say qq(<div class="box" id="statusbad"><p>Your user account is not allowed to update composite fields.</p></div>);
 		return;
 	}
-	my $exists = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM composite_fields WHERE id=?", $id )->[0];
+	my $exists = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM composite_fields WHERE id=?)", $id );
 	if ( !$exists ) {
-		print "<div class=\"box\" id=\"statusbad\">Composite field '$id' has not been defined.</div>\n";
+		say qq(<div class="box" id="statusbad">Composite field '$id' has not been defined.</div>);
 		return;
 	}
-	print "<div class=\"box\" id=\"resultstable\">\n";
+	say qq(<div class="box" id="resultstable">);
 	$self->_update_position($id) if $q->param('update');
 	$self->_print_position_form($id);
-	print $q->start_form;
-	print "<table class=\"resultstable\">\n";
+	say $q->start_form;
+	say qq(<table class="resultstable">);
 	my $td = 1;
-	print "<tr class=\"td$td\"><th>field</th><th>empty value</th><th>regex</th><th>curator</th>"
-	  . "<th>datestamp</th><th>delete</th><th>edit</th><th>move</th></tr>\n";
+	say qq(<tr class="td$td"><th>field</th><th>empty value</th><th>regex</th><th>curator</th><th>datestamp</th><th>delete</th>)
+	  . qq(<th>edit</th><th>move</th></tr>);
 	my $data_arrayref = $self->_get_field_data($id);
-	my $highest =
-	  $self->{'datastore'}->run_simple_query( "SELECT max(field_order) FROM composite_field_values WHERE composite_field_id=?", $id )->[0];
+	my $highest = $self->{'datastore'}->run_query( "SELECT max(field_order) FROM composite_field_values WHERE composite_field_id=?", $id );
 	my ( $edit_buffer, $add_buffer );
 
 	foreach my $data (@$data_arrayref) {
@@ -83,15 +83,15 @@ sub print_content {
 	foreach my $data (@$data_arrayref) {
 		my ( $field, $missing );
 		if ( $data->{'field'} =~ /^f_(.+)/ ) {
-			$field = "<span class=\"field\">$1</span> <span class=\"comment\">[isolate field]</span>";
-			$missing = defined $data->{'empty_value'} ? "<span class=\"field\">$data->{'empty_value'}</span>" : '';
+			$field = qq(<span class="field">$1</span> <span class="comment">[isolate field]</span>);
+			$missing = defined $data->{'empty_value'} ? qq(<span class="field">$data->{'empty_value'}</span>) : '';
 		} elsif ( $data->{'field'} =~ /^l_(.+)/ ) {
 			my $locus = $1;
-			$field = "<span class=\"locus\">$locus</span> <span class=\"comment\">[locus]</span>";
+			$field = qq(<span class="locus">$locus</span> <span class="comment">[locus]</span>);
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-			$missing = defined $data->{'empty_value'} ? "<span class=\"locus\">$data->{'empty_value'}</span>" : '';
-			if ( ref $locus_info ne 'HASH' ) {
-				$field .= " <span class=\"statusbad\">(INVALID LOCUS)</span>\n";
+			$missing = defined $data->{'empty_value'} ? qq(<span class="locus">$data->{'empty_value'}</span>) : '';
+			if ( !$locus_info ) {
+				$field .= qq( <span class="statusbad">(INVALID LOCUS)</span>\n);
 			}
 		} elsif ( $data->{'field'} =~ /^s_(\d+)_(.+)/ ) {
 			my $scheme_id         = $1;
@@ -99,85 +99,85 @@ sub print_content {
 			my $scheme_info       = $self->{'datastore'}->get_scheme_info($scheme_id);
 			my $desc              = $scheme_info->{'description'};
 			my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field_value );
-			$field = "<span class=\"scheme\">$field_value</span>";
-			$field .= " <span class=\"comment\">[$desc field]</span>" if $desc;
-			if ( ref $scheme_field_info ne 'HASH' ) {
-				$field .= " <span class=\"statusbad\">(INVALID SCHEME FIELD)</span>\n";
+			$field = qq(<span class="scheme">$field_value</span>);
+			$field .= qq( <span class="comment">[$desc field]</span>) if $desc;
+			if ( !$scheme_field_info ) {
+				$field .= qq( <span class="statusbad">(INVALID SCHEME FIELD)</span>\n);
 			}
-			$missing = defined $data->{'empty_value'} ? "<span class=\"scheme\">$data->{'empty_value'}</span>" : '';
+			$missing = defined $data->{'empty_value'} ? qq(<span class="scheme">$data->{'empty_value'}</span>) : '';
 		} elsif ( $data->{'field'} =~ /^t_(.+)/ ) {
-			$field   = "<span class=\"text\">$1</span>";
-			$missing = "<span class=\"text\">$1</span>";
+			$field   = qq(<span class="text">$1</span>);
+			$missing = qq(<span class="text">$1</span>);
 		}
 		my $curator = $self->{'datastore'}->get_user_info( $data->{'curator'} );
-		print "<tr class=\"td$td\">";
-		print "<td>$field</td>";
-		print defined $data->{'empty_value'} ? "<td>$data->{'empty_value'}</td>"          : '<td></td>';
-		print defined $data->{'regex'}       ? "<td class=\"code\">$data->{'regex'}</td>" : '<td></td>';
-		print "<td>$curator->{'first_name'} $curator->{'surname'}</td><td>$data->{'datestamp'}</td><td>";
-		print $q->submit( -name => "$data->{'field_order'}_delete", -label => 'delete', -class => 'smallbutton' );
-		print "</td><td>";
-		print $q->submit( -name => "$data->{'field_order'}_edit", -label => 'edit', -class => 'smallbutton' );
-		print "</td><td>";
-		print $q->submit( -name => "$data->{'field_order'}_up",   -label => 'up',   -class => 'smallbutton' );
-		print $q->submit( -name => "$data->{'field_order'}_down", -label => 'down', -class => 'smallbutton' );
-		print "</td>";
-		print "</tr>\n";
+		say qq(<tr class="td$td">);
+		say "<td>$field</td>";
+		say defined $data->{'empty_value'} ? "<td>$data->{'empty_value'}</td>"          : '<td></td>';
+		say defined $data->{'regex'}       ? qq(<td class="code">$data->{'regex'}</td>) : '<td></td>';
+		say "<td>$curator->{'first_name'} $curator->{'surname'}</td><td>$data->{'datestamp'}</td><td>";
+		say $q->submit( -name => "$data->{'field_order'}_delete", -label => 'delete', -class => 'smallbutton' );
+		say "</td><td>";
+		say $q->submit( -name => "$data->{'field_order'}_edit", -label => 'edit', -class => 'smallbutton' );
+		say "</td><td>";
+		say $q->submit( -name => "$data->{'field_order'}_up",   -label => 'up',   -class => 'smallbutton' );
+		say $q->submit( -name => "$data->{'field_order'}_down", -label => 'down', -class => 'smallbutton' );
+		say "</td></tr>";
 		$td = $td == 1 ? 2 : 1;    #row stripes
 	}
-	print "</table>\n";
+	say "</table>";
 	print $q->hidden($_) foreach qw (db page id);
 	print $q->end_form;
 	if ( !$edit_buffer ) {
 		$add_buffer = "<h2>Add new field:</h2>\n";
 		$add_buffer .= $q->start_form;
-		$add_buffer .= "<table><tr><td style=\"text-align:right\">";
-		$q->param( 'new_isolate_field_value', '' );
-		$q->param( 'new_text_value',          '' );
-		$q->param( 'new_locus_value',         '' );
-		$q->param( 'new_scheme_field_value',  '' );
+		$add_buffer .= qq(<table><tr><td style="text-align:right">);
+		$q->param( new_isolate_field_value => '' );
+		$q->param( new_text_value          => '' );
+		$q->param( new_locus_value         => '' );
+		$q->param( new_scheme_field_value  => '' );
 		$add_buffer .= $q->textfield( -name => 'new_text_value' );
 		$add_buffer .= "</td><td>";
 		$add_buffer .= $q->submit( -name => 'new_text', -label => 'Add new text field', -class => 'smallbutton' );
-		$add_buffer .= "</td></tr>\n<tr><td style=\"text-align:right\">";
+		$add_buffer .= qq(</td></tr>\n<tr><td style="text-align:right">);
 		my $field_list = $self->{'xmlHandler'}->get_field_list;
 		unshift @$field_list, '';
 		$add_buffer .= $q->popup_menu( -name => 'new_isolate_field_value', -values => $field_list );
 		$add_buffer .= "</td><td>";
 		$add_buffer .= $q->submit( -name => 'new_isolate_field', -label => 'Add new isolate field', -class => 'smallbutton' );
-		$add_buffer .= "</td></tr>\n<tr><td style=\"text-align:right\">";
+		$add_buffer .= qq(</td></tr>\n<tr><td style="text-align:right">);
 		my $locus_list = $self->{'datastore'}->get_loci;
 		unshift @$locus_list, '';
 		$add_buffer .= $q->popup_menu( -name => 'new_locus_value', -values => $locus_list );
 		$add_buffer .= "</td><td>";
 		$add_buffer .= $q->submit( -name => 'new_locus', -label => 'Add new locus field', -class => 'smallbutton' );
-		$add_buffer .= "</td></tr>\n<tr><td style=\"text-align:right\">";
+		$add_buffer .= qq(</td></tr>\n<tr><td style="text-align:right">);
 		my @scheme_field_list = '';
 		my %cleaned;
-		my $scheme_list = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
+		my $scheme_list =
+		  $self->{'datastore'}->run_query( "SELECT id FROM schemes ORDER BY display_order,id", undef, { fetch => 'col_arrayref' } );
 
 		foreach my $scheme_id (@$scheme_list) {
 			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-			foreach (@$scheme_fields) {
-				push @scheme_field_list, "$scheme_id\_$_";
+			foreach my $field (@$scheme_fields) {
+				push @scheme_field_list, "$scheme_id\_$field";
 				my $scheme_info   = $self->{'datastore'}->get_scheme_info($scheme_id);
-				my $cleaned_field = $_;
+				my $cleaned_field = $field;
 				$cleaned_field =~ tr/_/ /;
-				$cleaned{"$scheme_id\_$_"} = "$cleaned_field ($scheme_info->{'description'})";
+				$cleaned{"$scheme_id\_$field"} = "$cleaned_field ($scheme_info->{'description'})";
 			}
 		}
 		$add_buffer .= $q->popup_menu( -name => 'new_scheme_field_value', -values => [@scheme_field_list], -labels => \%cleaned );
 		$add_buffer .= "</td><td>";
 		$add_buffer .= $q->submit( -name => 'new_scheme_field', -label => 'Add new scheme field', -class => 'smallbutton' );
 		my $curator_name = $self->get_curator_name;
-		$add_buffer .= "</td></tr>\n<tr><td style=\"text-align:right\"><b>curator: </b></td><td><b>$curator_name</b></td></tr>\n";
-		$add_buffer .= "<tr><td style=\"text-align:right\"><b>datestamp: </b></td><td><b>" . ( $self->get_datestamp ) . "</b></td></tr>\n";
+		$add_buffer .= qq(</td></tr>\n<tr><td style="text-align:right"><b>curator: </b></td><td><b>$curator_name</b></td></tr>\n);
+		$add_buffer .= qq(<tr><td style="text-align:right"><b>datestamp: </b></td><td><b>) . ( $self->get_datestamp ) . "</b></td></tr>\n";
 		$add_buffer .= "</table>\n";
 		$add_buffer .= $q->hidden($_) foreach qw (db page id);
 		$add_buffer .= $q->end_form;
 	}
-	print $edit_buffer || $add_buffer;
-	print "</div>\n";
+	say $edit_buffer || $add_buffer;
+	say "</div>";
 	return;
 }
 
@@ -206,27 +206,27 @@ sub _update_position {
 sub _print_position_form {
 	my ( $self, $id ) = @_;
 	my $q = $self->{'cgi'};
-	print $q->start_form;
+	say $q->start_form;
 	my $field_info =
-	  $self->{'datastore'}
-	  ->run_simple_query( "SELECT position_after,main_display,curator,datestamp FROM composite_fields WHERE id=?", $id );
-	print "<table><tr><td style=\"text-align:right\">position after: </td><td>";
+	  $self->{'datastore'}->run_query( "SELECT position_after,main_display,curator,datestamp FROM composite_fields WHERE id=?",
+		$id, { fetch => 'row_arrayref' } );
+	say qq(<table><tr><td style="text-align:right">position after: </td><td>);
 	my $field_list = $self->{'xmlHandler'}->get_field_list;
 	print $q->popup_menu( -name => 'position_after', -values => $field_list, -default => $field_info->[0] );
 	if ( !$self->{'xmlHandler'}->is_field( $field_info->[0] ) ) {
-		print "</td><td class=\"statusbad\">Current value '$field_info->[0]' is INVALID!</td></tr>\n";
+		say qq(</td><td class="statusbad">Current value '$field_info->[0]' is INVALID!</td></tr>);
 	}
-	print "</td></tr>\n";
-	print "<tr><td style=\"text-align:right\">main display: </td><td>";
-	print $q->popup_menu( -name => 'main_display', -values => [qw (true false)], -default => $field_info->[1] ? 'true' : 'false' );
-	print "</td></tr>\n";
+	say "</td></tr>";
+	say qq(<tr><td style="text-align:right">main display: </td><td>);
+	say $q->popup_menu( -name => 'main_display', -values => [qw (true false)], -default => $field_info->[1] ? 'true' : 'false' );
+	say "</td></tr>";
 	my $curator_info = $self->{'datastore'}->get_user_info( $field_info->[2] );
-	print "<tr><td style=\"text-align:right\">curator: </td><td>$curator_info->{'first_name'} $curator_info->{'surname'}</td></tr>\n";
-	print "<tr><td style=\"text-align:right\">datestamp: </td><td>$field_info->[3]</td><td>";
-	print $q->submit( -name => 'update', -label => 'Update', -class => 'submit' );
-	print "</td></tr></table>\n";
-	print $q->hidden($_) foreach qw (db page id);
-	print $q->end_form;
+	say qq(<tr><td style="text-align:right">curator: </td><td>$curator_info->{'first_name'} $curator_info->{'surname'}</td></tr>);
+	say qq(<tr><td style="text-align:right">datestamp: </td><td>$field_info->[3]</td><td>);
+	say $q->submit( -name => 'update', -label => 'Update', -class => 'submit' );
+	say "</td></tr></table>";
+	say $q->hidden($_) foreach qw (db page id);
+	say $q->end_form;
 	return;
 }
 
@@ -318,7 +318,7 @@ sub _edit_field {
 	my $invalid = 0;
 	$buffer .= $q->start_form;
 	my $text_field;
-	$buffer .= "<h2>Edit:</h2><table><tr><td style=\"text-align:right\">Field: </td><td>";
+	$buffer .= qq(<h2>Edit:</h2><table><tr><td style="text-align:right">Field: </td><td>);
 	if ( $field =~ /^f_(.+)/ ) {
 		my $field_value      = $1;
 		my $is_isolate_field = 0;
@@ -335,7 +335,7 @@ sub _edit_field {
 			$buffer .=
 			  $q->popup_menu( -name => 'field_value', -values => [@field_list], -default => "f_$field_value", -labels => \%cleaned );
 		} else {
-			$buffer .= "<span class=\"statusbad\">$field_value (INVALID FIELD)</span>\n";
+			$buffer .= qq(<span class="statusbad">$field_value (INVALID FIELD)</span>\n);
 			$invalid = 1;
 		}
 	} elsif ( $field =~ /^t_(.+)/ ) {
@@ -358,7 +358,7 @@ sub _edit_field {
 			$buffer .=
 			  $q->popup_menu( -name => 'field_value', -values => [@locus_list], -default => "l_$field_value", -labels => \%cleaned );
 		} else {
-			$buffer .= "<span class=\"statusbad\">$field_value (INVALID LOCUS)</span>\n";
+			$buffer .= qq(<span class="statusbad">$field_value (INVALID LOCUS)</span>\n);
 			$invalid = 1;
 		}
 	} elsif ( $field =~ /^s_(\d+)_(.+)/ ) {
@@ -367,7 +367,8 @@ sub _edit_field {
 		my $is_scheme_field = 0;
 		my @scheme_field_list;
 		my %cleaned;
-		my $scheme_list = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
+		my $scheme_list =
+		  $self->{'datastore'}->run_query( "SELECT id FROM schemes ORDER BY display_order,id", undef, { fetch => 'col_arrayref' } );
 		foreach my $s_id (@$scheme_list) {
 			foreach ( @{ $self->{'datastore'}->get_scheme_fields($s_id) } ) {
 				if ( $_ eq $field_value && $s_id eq $scheme_id ) {
@@ -388,19 +389,19 @@ sub _edit_field {
 				-labels  => \%cleaned
 			);
 		} else {
-			$buffer .= "<span class=\"statusbad\">$field_value (INVALID SCHEME FIELD)</span>\n";
+			$buffer .= qq(<span class="statusbad">$field_value (INVALID SCHEME FIELD)</span>\n);
 			$invalid = 1;
 		}
 	}
 	if ( !$invalid ) {
-		$buffer .= "</td></tr>\n<tr><td style=\"text-align:right\">Empty value: </td><td>";
+		$buffer .= qq(</td></tr>\n<tr><td style="text-align:right">Empty value: </td><td>);
 		if ($text_field) {
 			$buffer .= $q->textfield( -name => 'empty_value', -default => $data->{'empty_value'}, -disabled => 'disabled' );
 		} else {
 			$buffer .= $q->textfield( -name => 'empty_value', -default => $data->{'empty_value'}, );
 		}
 		$buffer .= "</td></tr>\n";
-		$buffer .= "<tr><td style=\"text-align:right\">Regex: </td><td class=\"code\" colspan=\"2\">";
+		$buffer .= qq(<tr><td style="text-align:right">Regex: </td><td class="code" colspan="2">);
 		if ($text_field) {
 			$buffer .= $q->textfield( -name => 'regex', -size => 50, -disabled => 'disabled' );
 		} else {
@@ -408,11 +409,11 @@ sub _edit_field {
 		}
 		$buffer .= "</td></tr>\n";
 		my $curator = $self->{'datastore'}->get_user_info( $data->{'curator'} );
-		$buffer .= "<tr><td style=\"text-align:right\"><b>Curator: </b></td><td><b>" . ( $self->get_curator_name() ) . "</b></td></tr>\n";
+		$buffer .= qq(<tr><td style="text-align:right"><b>Curator: </b></td><td><b>) . ( $self->get_curator_name() ) . "</b></td></tr>\n";
 		$buffer .=
-		    "<tr><td style=\"text-align:right\"><b>Datestamp: </b></td><td><b>"
+		    qq(<tr><td style="text-align:right"><b>Datestamp: </b></td><td><b>)
 		  . ( $self->get_datestamp() )
-		  . "</b></td><td style=\"text-align:right\">\n";
+		  . qq(</b></td><td style="text-align:right">\n);
 		$buffer .= $q->submit( -name => 'update_field', -label => 'Update', -class => 'submit' );
 	}
 	$buffer .= "</td></tr></table>\n";
@@ -449,9 +450,8 @@ sub _update_field {
 sub _new_field {
 	my ( $self, $id ) = @_;
 	my $q = $self->{'cgi'};
-	my $next_ref =
-	  $self->{'datastore'}->run_simple_query( "SELECT MAX(field_order) FROM composite_field_values WHERE composite_field_id=?", $id );
-	my $next = ref $next_ref eq 'ARRAY' ? $next_ref->[0] : 0;
+	my $next = $self->{'datastore'}->run_query( "SELECT MAX(field_order) FROM composite_field_values WHERE composite_field_id=?", $id );
+	$next //= 0;
 	$next++;
 	my $field_value;
 	my $prefix;

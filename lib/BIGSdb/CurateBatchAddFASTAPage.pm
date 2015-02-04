@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2013-2014, University of Oxford
+#Copyright (c) 2013-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -74,15 +74,15 @@ sub _print_interface {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $set_id = $self->get_set_id;
-	say "<div class=\"box\" id=\"queryform\">";
-	say "<div class=\"scrollable\">";
+	say qq(<div class="box" id="queryform">);
+	say qq(<div class="scrollable">);
 	say "<p>This page allows you to upload allele sequence data in FASTA format.  The identifiers in the FASTA file will be used unless "
 	  . "you select the option to use the next available id (loci with integer ids only).  Do not include the locus name in the "
 	  . "identifier in the FASTA file.</p>";
-	my $extended_attributes = $self->{'datastore'}->run_list_query("SELECT locus FROM locus_extended_attributes");
-	say "<p>Please note that you can not use this page to upload sequences for loci with extended attributes.</p>" if @$extended_attributes;
+	my $extended_attributes = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT locus FROM locus_extended_attributes)");
+	say "<p>Please note that you can not use this page to upload sequences for loci with extended attributes.</p>" if $extended_attributes;
 	say $q->start_form;
-	say "<fieldset style=\"float:left\"><legend>Enter parameters</legend><ul>";
+	say qq(<fieldset style="float:left"><legend>Enter parameters</legend><ul>);
 	my ( $values, $desc ) = $self->{'datastore'}->get_locus_list(
 		{
 			set_id                 => $set_id,
@@ -91,9 +91,9 @@ sub _print_interface {
 			locus_curator          => ( $self->is_admin ? undef : $self->get_curator_id )
 		}
 	);
-	say "<li><label for=\"locus\" class=\"form\" style=\"width:5em\">locus:!</label>";
+	say qq(<li><label for="locus" class="form" style="width:5em">locus:!</label>);
 	say $q->popup_menu( -name => 'locus', -id => 'locus', -values => [ '', @$values ], -labels => $desc, -required => 'required' );
-	say "</li><li><label for=\"status\" class=\"form\" style=\"width:5em\">status:!</label>";
+	say qq(</li><li><label for="status" class="form" style="width:5em">status:!</label>);
 	say $q->popup_menu( -name => 'status', -id => 'status', -values => [ '', SEQ_STATUS ], -required => 'required' );
 	my $sender_data = $self->{'datastore'}->run_query( "SELECT id,user_name,first_name,surname from users WHERE id>0 ORDER BY surname",
 		undef, { fetch => 'all_arrayref', slice => {} } );
@@ -103,9 +103,9 @@ sub _print_interface {
 		push @users, $sender->{'id'};
 		$usernames{ $sender->{'id'} } = "$sender->{'surname'}, $sender->{'first_name'} ($sender->{'user_name'})";
 	}
-	say "<li><label for=\"sender\" class=\"form\" style=\"width:5em\">sender:!</label>";
+	say qq(<li><label for="sender" class="form" style="width:5em">sender:!</label>);
 	say $q->popup_menu( -name => 'sender', -id => 'sender', -values => [ '', @users ], -labels => \%usernames, -required => 'required' );
-	say "<li><label for=\"sequence\" class=\"form\" style=\"width:5em\">sequence<br />(FASTA):!</label>";
+	say qq(<li><label for="sequence" class="form" style="width:5em">sequence<br />(FASTA):!</label>);
 	say $q->textarea( -name => 'sequence', -id => 'sequence', -rows => 10, -cols => 60, -required => 'required' );
 	say "</li><li>";
 	say $q->checkbox(

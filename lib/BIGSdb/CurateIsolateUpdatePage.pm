@@ -124,7 +124,7 @@ sub _check {
 			}
 		}
 	}
-	if ($self->alias_duplicates_name){
+	if ( $self->alias_duplicates_name ) {
 		push @bad_field_buffer, "Aliases: duplicate isolate name - aliases are ALTERNATIVE names for the isolate.";
 	}
 	if (@bad_field_buffer) {
@@ -139,7 +139,7 @@ sub _check {
 }
 
 sub _update {
-	my ( $self, $data, $newdata ) = @_;
+	my ( $self, $data, $newdata ) = @_;    #TODO Use SQL placeholders
 	my $q      = $self->{'cgi'};
 	my $update = 1;
 	my $qry    = '';
@@ -174,10 +174,7 @@ sub _update {
 	$qry = "UPDATE isolates SET $qry WHERE id=$data->{'id'}" if $qry;
 	my $metadata_updates = $self->_prepare_metaset_updates( \%meta_fields, $data, $newdata, \@updated_field );
 	my @alias_update;
-
-	#TODO Use Datastore::get_isolate_aliases instead
-	my $existing_aliases =
-	  $self->{'datastore'}->run_list_query( "SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY isolate_id", $data->{'id'} );
+	my $existing_aliases = $self->{'datastore'}->get_isolate_aliases( $data->{'id'} );
 	my @new_aliases = split /\r?\n/, $q->param('aliases');
 	foreach my $new (@new_aliases) {
 		chomp $new;
@@ -197,9 +194,7 @@ sub _update {
 		}
 	}
 	my @pubmed_update;
-
-	#TODO Use Datastore::get_isolate_refs instead
-	my $existing_pubmeds = $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM refs WHERE isolate_id=?", $data->{'id'} );
+	my $existing_pubmeds = $self->{'datastore'}->get_isolate_refs( $data->{'id'} );
 	my @new_pubmeds = split /\r?\n/, $q->param('pubmed');
 	foreach my $new (@new_pubmeds) {
 		chomp $new;
@@ -207,7 +202,7 @@ sub _update {
 		if ( !@$existing_pubmeds || none { $new eq $_ } @$existing_pubmeds ) {
 			( my $clean_new = $new ) =~ s/'/\\'/g;
 			if ( !BIGSdb::Utils::is_int($clean_new) ) {
-				print "<div class=\"box\" id=\"statusbad\"><p>PubMed ids must be integers.</p></div>\n";
+				say qq(<div class="box" id="statusbad"><p>PubMed ids must be integers.</p></div>);
 				$update = 0;
 			}
 			push @pubmed_update, "INSERT INTO refs (isolate_id,pubmed_id,curator,datestamp) VALUES ($data->{'id'},"
@@ -287,7 +282,7 @@ sub _prepare_metaset_updates {
 
 sub _print_interface {
 	my ( $self, $data ) = @_;
-	my $q         = $self->{'cgi'};
+	my $q = $self->{'cgi'};
 	say "<div>";
 	if ( $self->can_modify_table('isolates') ) {
 		say qq(<div class="box queryform" id="isolate_update" style="float:left;margin-right:0.5em">);

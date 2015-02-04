@@ -67,12 +67,12 @@ sub print_content {
 		$self->{'datastore'}->create_temp_list_table( $q->param('datatype'), $q->param('list_file') );
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
-		my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
-		foreach (@$schemes) {
-			if ( $query =~ /temp_scheme_$_\s/ ) {
+		my $schemes = $self->{'datastore'}->run_query("SELECT id FROM schemes", undef, {fetch=>'col_arrayref'});
+		foreach my $scheme_id (@$schemes) {
+			if ( $query =~ /temp_scheme_$scheme_id\s/ ) {
 				try {
-					$self->{'datastore'}->create_temp_scheme_table($_);
-					$self->{'datastore'}->create_temp_isolate_scheme_loci_view($_);
+					$self->{'datastore'}->create_temp_scheme_table($scheme_id);
+					$self->{'datastore'}->create_temp_isolate_scheme_loci_view($scheme_id);
 				}
 				catch BIGSdb::DatabaseConnectionException with {
 					say qq(<div class="box" id="statusbad"><p>Can't copy data into temporary table - please check scheme configuration )
