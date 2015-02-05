@@ -851,7 +851,13 @@ sub _analyse_by_reference {
 	$self->{'html_buffer'} .= "</table>";
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $self->{'html_buffer'} } );
 	if ( @cds > MAX_REF_LOCI ) {
-		throw BIGSdb::PluginException( "Too many loci in reference genome - limit is set at " . MAX_REF_LOCI . '.' );
+		my $max_upload_size = MAX_UPLOAD_SIZE / ( 1024 * 1024 );
+		throw BIGSdb::PluginException(
+			"Too many loci in reference genome - limit is set at " . MAX_REF_LOCI . '.  Your uploaded reference contains '
+			  . ( scalar @cds )
+			  . " loci.  Please note also that the uploaded reference is limited to $max_upload_size MB (larger uploads will be "
+			  . "truncated)."
+		);
 	}
 	$self->{'html_buffer'} .= "<h3>All loci</h3>\n";
 	$self->{'file_buffer'} .= "\n\nAll loci\n--------\n\n";
