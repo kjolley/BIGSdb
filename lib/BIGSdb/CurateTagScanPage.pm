@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -396,14 +396,14 @@ sub _scan {
 	my $time_limit = ( int( $q->param('limit_time') ) || 5 ) * 60;
 	my @loci       = $q->param('locus');
 	my @ids        = $q->param('isolate_id');
-	my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+	my $scheme_ids = $self->{'datastore'}->run_query("SELECT id FROM schemes",undef,{fetch=>'col_arrayref'});
 	push @$scheme_ids, 0;
 	if ( !@ids ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>You must select one or more isolates.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>You must select one or more isolates.</p></div>);
 		return;
 	}
 	if ( !@loci && none { $q->param("s_$_") } @$scheme_ids ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci or schemes.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>You must select one or more loci or schemes.</p></div>);
 		return;
 	}
 

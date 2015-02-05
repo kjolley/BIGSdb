@@ -229,7 +229,7 @@ sub _print_interface_locus_selection {
 	}
 	$qry .= "ORDER BY locus";
 	my $loci_with_extended = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
-	if ( ref $loci_with_extended eq 'ARRAY' ) {
+	if ( @$loci_with_extended ) {
 		say "<li>Please note, some loci have extended attributes which may be required.  For affected loci please use the batch insert "
 		  . "page specific to that locus: ";
 		if ( @$loci_with_extended > 10 ) {

@@ -158,11 +158,13 @@ sub _update {
 		$field_changed{'sender'} = 1;
 	}
 	my @extra_inserts;
-	(my $cleaned_profile_id = $profile_id) =~ s/'/\\'/g;
-	my $curator_id = $self->get_curator_id;
-	my $existing_pubmeds =
-	  $self->{'datastore'}
-	  ->run_list_query( "SELECT pubmed_id FROM profile_refs WHERE scheme_id=? AND profile_id=?", $scheme_id, $profile_id );
+	( my $cleaned_profile_id = $profile_id ) =~ s/'/\\'/g;
+	my $curator_id       = $self->get_curator_id;
+	my $existing_pubmeds = $self->{'datastore'}->run_query(
+		"SELECT pubmed_id FROM profile_refs WHERE scheme_id=? AND profile_id=?",
+		[ $scheme_id, $profile_id ],
+		{ fetch => 'col_arrayref' }
+	);
 	my @new_pubmeds = split /\r?\n/, $q->param('pubmed');
 	my $pubmed_error = 0;
 	my @updated_field;
@@ -182,7 +184,8 @@ sub _update {
 	}
 	foreach my $existing (@$existing_pubmeds) {
 		if ( !@new_pubmeds || none { $existing eq $_ } @new_pubmeds ) {
-			push @extra_inserts, "DELETE FROM profile_refs WHERE scheme_id=scheme_id AND profile_id=E'$cleaned_profile_id' AND pubmed_id=$existing";
+			push @extra_inserts,
+			  "DELETE FROM profile_refs WHERE scheme_id=scheme_id AND profile_id=E'$cleaned_profile_id' AND pubmed_id=$existing";
 			push @updated_field, "deleted reference: 'Pubmed#$existing'";
 		}
 	}
@@ -383,9 +386,11 @@ sub _print_interface {
 	say "$profile_data->{'date_entered'}</b></li>";
 	say qq(<li><label class="form" style="width:${width}em">datestamp: !</label><b>);
 	say $self->get_datestamp . "</b></li>";
-	my $pubmed_list =
-	  $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM profile_refs WHERE scheme_id=? AND profile_id=? ORDER BY pubmed_id",
-		$scheme_id, $profile_id );
+	my $pubmed_list = $self->{'datastore'}->run_query(
+		"SELECT pubmed_id FROM profile_refs WHERE scheme_id=? AND profile_id=? ORDER BY pubmed_id",
+		[ $scheme_id, $profile_id ],
+		{ fetch => 'col_arrayref' }
+	);
 	say qq(<li><label for="pubmed" class="form" style="width:${width}em">PubMed ids:</label>);
 	local $" = "\n";
 	say $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@$pubmed_list" );

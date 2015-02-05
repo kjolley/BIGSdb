@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -97,9 +97,11 @@ sub get_headers {
 			}
 			if ( $self->{'cgi'}->param('locus') ) {
 				shift @headers;    #don't include 'locus'
-				my $extended_attributes =
-				  $self->{'datastore'}->run_list_query( "SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order",
-					$self->{'cgi'}->param('locus') );
+				my $extended_attributes = $self->{'datastore'}->run_query(
+					"SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order",
+					$self->{'cgi'}->param('locus'),
+					{ fetch => 'col_arrayref' }
+				);
 				if ( ref $extended_attributes eq 'ARRAY' ) {
 					push @headers, @$extended_attributes;
 				}
