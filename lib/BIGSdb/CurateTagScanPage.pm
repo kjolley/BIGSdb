@@ -396,7 +396,7 @@ sub _scan {
 	my $time_limit = ( int( $q->param('limit_time') ) || 5 ) * 60;
 	my @loci       = $q->param('locus');
 	my @ids        = $q->param('isolate_id');
-	my $scheme_ids = $self->{'datastore'}->run_query("SELECT id FROM schemes",undef,{fetch=>'col_arrayref'});
+	my $scheme_ids = $self->{'datastore'}->run_query( "SELECT id FROM schemes", undef, { fetch => 'col_arrayref' } );
 	push @$scheme_ids, 0;
 	if ( !@ids ) {
 		say qq(<div class="box" id="statusbad"><p>You must select one or more isolates.</p></div>);
@@ -737,8 +737,8 @@ sub get_title {
 
 sub _add_scheme_loci {
 	my ( $self, $loci_ref ) = @_;
-	my $q          = $self->{'cgi'};
-	my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY id");
+	my $q = $self->{'cgi'};
+	my $scheme_ids = $self->{'datastore'}->run_query( "SELECT id FROM schemes ORDER BY id", undef, { fetch => 'col_arrayref' } );
 	push @$scheme_ids, 0;    #loci not belonging to a scheme.
 	my %locus_selected = map { $_ => 1 } @$loci_ref;
 	my $set_id = $self->get_set_id;
@@ -759,7 +759,7 @@ sub _add_scheme_loci {
 sub _create_temp_tables {
 	my ( $self, $qry_ref ) = @_;
 	my $qry      = $$qry_ref;
-	my $schemes  = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+	my $schemes  = $self->{'datastore'}->run_query( "SELECT id FROM schemes", undef, { fetch => 'col_arrayref' } );
 	my $continue = 1;
 	try {
 		foreach (@$schemes) {
@@ -781,7 +781,7 @@ sub _get_ids {
 	$qry =~ s/ORDER BY.*$//g;
 	return if !$self->_create_temp_tables( \$qry );
 	$qry =~ s/SELECT \*/SELECT id/;
-	my $ids = $self->{'datastore'}->run_list_query($qry);
+	my $ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	return $ids;
 }
 
