@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -259,10 +259,11 @@ sub _get_history {
 
 sub _get_ref_links {
 	my ( $self, $scheme_id, $profile_id ) = @_;
-	my $pmids =
-	  $self->{'datastore'}
-	  ->run_list_query( "SELECT profile_refs.pubmed_id FROM profile_refs WHERE scheme_id=? AND profile_id=? ORDER BY pubmed_id",
-		$scheme_id, $profile_id );
+	my $pmids = $self->{'datastore'}->run_query(
+		"SELECT profile_refs.pubmed_id FROM profile_refs WHERE scheme_id=? AND profile_id=? ORDER BY pubmed_id",
+		[ $scheme_id, $profile_id ],
+		{ fetch => 'col_arrayref' }
+	);
 	return $self->get_refs($pmids);
 }
 
@@ -294,18 +295,13 @@ sub get_title {
 	my $scheme_id  = $q->param('scheme_id');
 	my $profile_id = $q->param('profile_id');
 	my $scheme_info;
-	my $primary_key;
 	if ( $scheme_id && BIGSdb::Utils::is_int($scheme_id) ) {
 		my $set_id = $self->get_set_id;
-		$scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-		eval {
-			$primary_key =
-			  $self->{'datastore'}->run_list_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )->[0];
-		};
+		$scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 	}
 	my $title = "Profile information";
-	$title .= ": $primary_key-$profile_id" if $primary_key && defined $profile_id;
-	$title .= " ($scheme_info->{'description'})" if defined $scheme_info;
+	$title .= ": $scheme_info->{'primary_key'}-$profile_id" if $scheme_info->{'primary_key'} && defined $profile_id;
+	$title .= " ($scheme_info->{'description'})"            if defined $scheme_info;
 	$title .= ' - ';
 	$title .= "$self->{'system'}->{'description'}";
 	return $title;
@@ -317,19 +313,10 @@ sub get_link_button_to_ref {
 	my $buffer;
 	my $qry = "SELECT COUNT(profile_refs.profile_id) FROM profile_refs RIGHT JOIN profiles on profile_refs.profile_id=profiles.profile_id "
 	  . "AND profile_refs.scheme_id=profiles.scheme_id WHERE pubmed_id=?";
-	$count = $self->{'datastore'}->run_simple_query( $qry, $ref )->[0];
+	$count = $self->{'datastore'}->run_query( $qry, $ref );
 	my $q = $self->{'cgi'};
 	$buffer .= $q->start_form( -style => "display:inline" );
-	$q->param( 'curate', 1 ) if $self->{'curate'};
-	my $scheme_id = $q->param('scheme_id');
-	my $primary_key;
-	eval {
-		$primary_key =
-		  $self->{'datastore'}->run_list_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )->[0];
-	};
-	$logger->error($@) if $@;
-	my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
-	my $order_by = $pk_info->{'type'} eq 'integer' ? "lpad($primary_key,20,'0')" : $primary_key;
+	$q->param( curate => 1 ) if $self->{'curate'};
 	$q->param( pmid => $ref );
 	$q->param( page => 'pubquery' );
 	$buffer .= $q->hidden($_) foreach qw (db pmid page curate scheme_id);

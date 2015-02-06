@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -195,7 +195,7 @@ sub create_temp_tables {
 	my $qry      = $$qry_ref;
 	my $q        = $self->{'cgi'};
 	my $format   = $q->param('format') || 'html';
-	my $schemes  = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+	my $schemes  = $self->{'datastore'}->run_query( "SELECT id FROM schemes", undef, { fetch => 'col_arrayref' } );
 	my $continue = 1;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $view = $self->{'system'}->{'view'};
@@ -425,7 +425,8 @@ sub print_field_export_form {
 	$self->_print_all_none_buttons( \@isolate_js, \@isolate_js2, 'smallbutton' );
 	say "</fieldset>";
 	if ( $options->{'include_composites'} ) {
-		my $composites = $self->{'datastore'}->run_list_query("SELECT id FROM composite_fields ORDER BY id");
+		my $composites =
+		  $self->{'datastore'}->run_query( "SELECT id FROM composite_fields ORDER BY id", undef, { fetch => 'col_arrayref' } );
 		if (@$composites) {
 			my ( @com_js, @com_js2 );
 			foreach (@$composites) {
@@ -484,7 +485,7 @@ sub get_id_list {
 			$$qry_ref =~ s/SELECT ($view\.\*|\*)/SELECT $view\.$pk/;
 			$self->rewrite_query_ref_order_by($qry_ref);
 		}
-		$list = $self->{'datastore'}->run_list_query($$qry_ref);
+		$list = $self->{'datastore'}->run_query( $$qry_ref, undef, { fetch => 'col_arrayref' } );
 	} else {
 		$list = [];
 	}
@@ -511,9 +512,9 @@ sub get_selected_fields {
 			}
 		}
 	}
-	my $loci       = $self->{'datastore'}->get_loci( { set_id => $set_id } );
-	my $composites = $self->{'datastore'}->run_list_query("SELECT id FROM composite_fields");
-	my $schemes    = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
+	my $composites = $self->{'datastore'}->run_query( "SELECT id FROM composite_fields", undef, { fetch => 'col_arrayref' } );
+	my $schemes    = $self->{'datastore'}->run_query( "SELECT id FROM schemes",          undef, { fetch => 'col_arrayref' } );
 	my @fields_selected;
 	foreach (@display_fields) {
 		push @fields_selected, "f_$_" if $q->param("f_$_");
@@ -925,7 +926,9 @@ sub print_sequence_filter_fieldset {
 sub filter_ids_by_project {
 	my ( $self, $ids, $project_id ) = @_;
 	return $ids if !$project_id;
-	my $ids_in_project = $self->{'datastore'}->run_list_query( "SELECT isolate_id FROM project_members WHERE project_id = ?", $project_id );
+	my $ids_in_project =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT isolate_id FROM project_members WHERE project_id=?", $project_id, { fetch => 'col_arrayref' } );
 	my @filtered_ids;
 	foreach my $id (@$ids) {
 		push @filtered_ids, $id if any { $id eq $_ } @$ids_in_project;
@@ -954,8 +957,8 @@ sub add_scheme_loci {
 
 	#Merge scheme loci into locus arrayref.  This deletes CGI params so don't call more than once.
 	my ( $self, $loci ) = @_;
-	my $q          = $self->{'cgi'};
-	my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+	my $q = $self->{'cgi'};
+	my $scheme_ids = $self->{'datastore'}->run_query( "SELECT id FROM schemes", undef, { fetch => 'col_arrayref' } );
 	push @$scheme_ids, 0;
 	my @selected_schemes;
 	foreach my $scheme_id (@$scheme_ids) {
@@ -994,7 +997,7 @@ sub order_loci {
 		$qry = "SELECT id FROM loci INNER JOIN scheme_members ON loci.id=scheme_members.locus AND scheme_id=$options->{'scheme_id'} "
 		  . "ORDER BY field_order,genome_position,id";
 	}
-	my $ordered = $self->{'datastore'}->run_list_query($qry);
+	my $ordered = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	my @list;
 	foreach my $locus (@$ordered) {
 		push @list, $locus if $loci{$locus};
@@ -1005,9 +1008,9 @@ sub order_loci {
 sub set_scheme_param {
 
 	#Set CGI param from scheme tree selections for passing to offline job.
-	my ($self)     = @_;
-	my $q          = $self->{'cgi'};
-	my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $scheme_ids = $self->{'datastore'}->run_query( "SELECT id FROM schemes", undef, { fetch => 'col_arrayref' } );
 	push @$scheme_ids, 0;
 	my @selected_schemes;
 	foreach (@$scheme_ids) {
@@ -1040,7 +1043,7 @@ sub get_ids_from_query {
 	my $view = $self->{'system'}->{'view'};
 	$qry =~ s/SELECT ($view\.\*|\*)/SELECT id/;
 	$qry .= " ORDER BY id";
-	my $ids = $self->{'datastore'}->run_list_query($qry);
+	my $ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	return $ids;
 }
 

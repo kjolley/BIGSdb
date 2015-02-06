@@ -1783,7 +1783,7 @@ sub get_set_metadata {
 	my ( $self, $set_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	if ($set_id) {
-		return $self->run_list_query( "SELECT metadata_id FROM set_metadata WHERE set_id=?", $set_id );
+		return $self->run_query( "SELECT metadata_id FROM set_metadata WHERE set_id=?", $set_id, { fetch => 'col_arrayref' } );
 	} elsif ( $options->{'curate'} ) {
 		return $self->{'xmlHandler'}->get_metadata_list;
 	}

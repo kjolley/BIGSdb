@@ -267,9 +267,12 @@ sub _print_filter_fieldset {
 						$dropdownlabels{'<blank>'} = '<blank>';
 					}
 				} elsif ( defined $metaset ) {
-					my $list =
-					  $self->{'datastore'}->run_list_query( "SELECT DISTINCT($metafield) FROM meta_$metaset WHERE isolate_id "
-						  . "IN (SELECT id FROM $self->{'system'}->{'view'})" );
+					my $list = $self->{'datastore'}->run_query(
+						"SELECT DISTINCT($metafield) FROM meta_$metaset WHERE isolate_id "
+						  . "IN (SELECT id FROM $self->{'system'}->{'view'})",
+						undef,
+						{ fetch => 'col_arrayref' }
+					);
 					push @$dropdownlist, @$list;
 				} else {
 					my $list =
@@ -298,9 +301,10 @@ sub _print_filter_fieldset {
 		if ( ref $extatt eq 'ARRAY' ) {
 			foreach my $extended_attribute (@$extatt) {
 				if ( $self->{'prefs'}->{'dropdownfields'}->{"$field\..$extended_attribute"} ) {
-					my $values = $self->{'datastore'}->run_list_query(
+					my $values = $self->{'datastore'}->run_query(
 						"SELECT DISTINCT value FROM isolate_value_extended_attributes WHERE isolate_field=? AND attribute=? ORDER BY value",
-						$field, $extended_attribute
+						[ $field, $extended_attribute ],
+						{ fetch => 'col_arrayref' }
 					);
 					my $a_or_an = substr( $extended_attribute, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
 					push @filters,
@@ -308,7 +312,8 @@ sub _print_filter_fieldset {
 						"$field\..$extended_attribute",
 						$values,
 						{
-							tooltip => "$field\..$extended_attribute filter - Select $a_or_an $extended_attribute to filter your "
+							text    => $extended_attribute,
+							tooltip => "$extended_attribute filter - Select $a_or_an $extended_attribute to filter your "
 							  . "search to only those isolates that match the selected $field."
 						}
 					  );
@@ -595,7 +600,7 @@ sub _run_query {
 			}
 		}
 		push @hidden_attributes, qw(no_js publication_list project_list linked_sequences_list include_old);
-		my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+		my $schemes = $self->{'datastore'}->run_query( "SELECT id FROM schemes", undef, { fetch => 'col_arrayref' } );
 		foreach my $scheme_id (@$schemes) {
 			push @hidden_attributes, "scheme_$scheme_id\_profile_status_list";
 			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
@@ -984,7 +989,7 @@ sub _modify_query_for_filters {
 			  . "$view.id$size_clause))";
 		}
 	}
-	my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+	my $schemes = $self->{'datastore'}->run_query( "SELECT id FROM schemes", undef, { fetch => 'col_arrayref' } );
 	foreach my $scheme_id (@$schemes) {
 		if ( defined $q->param("scheme_$scheme_id\_profile_status_list") && $q->param("scheme_$scheme_id\_profile_status_list") ne '' ) {
 			my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);

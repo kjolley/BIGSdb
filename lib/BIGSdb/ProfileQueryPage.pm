@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -42,7 +42,7 @@ sub _ajax_content {
 
 sub get_help_url {
 	my ($self) = @_;
-	if ($self->{'curate'}){
+	if ( $self->{'curate'} ) {
 		return "$self->{'config'}->{'doclink'}/curator_guide.html#updating-and-deleting-scheme-profile-definitions";
 	}
 	return;
@@ -121,7 +121,9 @@ sub _print_filter_fieldset {
 	my $set_id = $self->get_set_id;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 	if ( $self->{'config'}->{'ref_db'} ) {
-		my $pmid = $self->{'datastore'}->run_list_query( "SELECT DISTINCT(pubmed_id) FROM profile_refs WHERE scheme_id=?", $scheme_id );
+		my $pmid =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT DISTINCT(pubmed_id) FROM profile_refs WHERE scheme_id=?", $scheme_id, { fetch => 'col_arrayref' } );
 		if (@$pmid) {
 			my $labels = $self->{'datastore'}->get_citation_hash($pmid);
 			my @values = sort { $labels->{$a} cmp $labels->{$b} } keys %$labels;
@@ -143,10 +145,11 @@ sub _print_filter_fieldset {
 		if ( $self->{'prefs'}->{"dropdown\_scheme_fields"}->{$scheme_id}->{$field} ) {
 			my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 			my $value_clause = $scheme_field_info->{'type'} eq 'integer' ? 'CAST(value AS integer)' : 'value';
-			my $values =
-			  $self->{'datastore'}->run_list_query(
+			my $values = $self->{'datastore'}->run_query(
 				"SELECT DISTINCT $value_clause FROM profile_fields WHERE scheme_id=? AND scheme_field=? ORDER BY $value_clause",
-				$scheme_id, $field );
+				[ $scheme_id, $field ],
+				{ fetch => 'col_arrayref' }
+			);
 			next if !@$values;
 			my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
 			push @filters,
@@ -313,9 +316,11 @@ sub _run_query {
 		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )->[0];
 		if ( defined $q->param('publication_list') && $q->param('publication_list') ne '' ) {
 			my $pmid = $q->param('publication_list');
-			my $ids =
-			  $self->{'datastore'}
-			  ->run_list_query( "SELECT profile_id FROM profile_refs WHERE scheme_id=? AND pubmed_id=?", $scheme_id, $pmid );
+			my $ids  = $self->{'datastore'}->run_query(
+				"SELECT profile_id FROM profile_refs WHERE scheme_id=? AND pubmed_id=?",
+				[ $scheme_id, $pmid ],
+				{ fetch => 'col_arrayref' }
+			);
 			if ($pmid) {
 				local $" = "','";
 				if ( $qry !~ /WHERE \(\)\s*$/ ) {

@@ -45,7 +45,7 @@ sub paged_display {
 		$passed_qry_file = $self->make_temp_file($qry);
 		$passed_qry      = $qry;
 	}
-	my $schemes  = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+	my $schemes = $self->{'datastore'}->run_query( "SELECT id FROM schemes", undef, { fetch => 'col_arrayref' } );
 	my $continue = 1;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $view = $self->{'system'}->{'view'};
@@ -980,8 +980,8 @@ sub _get_record_table_info {
 		my $locus = $q->param('locus');
 		if ( $self->{'datastore'}->is_locus($locus) ) {
 			$extended_attributes =
-			  $self->{'datastore'}
-			  ->run_list_query( "SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order", $locus );
+			  $self->{'datastore'}->run_query( "SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order",
+				$locus, { fetch => 'col_arrayref' } );
 			if ( ref $extended_attributes eq 'ARRAY' ) {
 				foreach (@$extended_attributes) {
 					( my $cleaned = $_ ) =~ tr/_/ /;
@@ -992,7 +992,8 @@ sub _get_record_table_info {
 			push @headers, 'linked data values' if $linked_data;
 		}
 	} elsif ( $table eq 'sequence_bin' ) {
-		$extended_attributes = $self->{'datastore'}->run_list_query("SELECT key FROM sequence_attributes ORDER BY key");
+		$extended_attributes =
+		  $self->{'datastore'}->run_query( "SELECT key FROM sequence_attributes ORDER BY key", undef, { fetch => 'col_arrayref' } );
 		my @cleaned = @$extended_attributes;
 		tr/_/ / foreach @cleaned;
 		push @headers, @cleaned;
@@ -1321,7 +1322,7 @@ sub _is_scheme_data_present {
 	my ( $self, $qry, $scheme_id ) = @_;
 	return $self->{'cache'}->{$qry}->{$scheme_id} if defined $self->{'cache'}->{$qry}->{$scheme_id};
 	if ( !$self->{'cache'}->{$qry}->{'ids'} ) {
-		$self->{'cache'}->{$qry}->{'ids'} = $self->{'datastore'}->run_list_query($qry);
+		$self->{'cache'}->{$qry}->{'ids'} = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	}
 	my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	foreach my $isolate_id ( @{ $self->{'cache'}->{$qry}->{'ids'} } ) {
