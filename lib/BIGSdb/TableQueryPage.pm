@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -389,6 +389,8 @@ sub _run_query {
 	my @errors;
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my $set_id     = $self->get_set_id;
+	my ( undef, undef, $order_by, undef ) = $self->_get_select_items($table);
+	$q->delete('order') if none { $q->param('order') eq $_ } @$order_by;    #Sanitize to prevent SQL injection attempts.
 
 	if ( !defined $q->param('query_file') ) {
 		my $andor       = $q->param('c0');
@@ -593,9 +595,10 @@ sub _run_query {
 		}
 		$qry2 .= " ORDER BY $table.";
 		my $default_order;
-		if    ( $table eq 'sequences' ) { $default_order = 'locus' }
-		elsif ( $table eq 'history' )   { $default_order = 'timestamp' }
-		else                            { $default_order = 'id' }
+		if    ( $table eq 'sequences' )       { $default_order = 'locus' }
+		elsif ( $table eq 'history' )         { $default_order = 'timestamp' }
+		elsif ( $table eq 'profile_history' ) { $default_order = 'timestamp' }
+		else                                  { $default_order = 'id' }
 		$qry2 .= $q->param('order') || $default_order;
 		$qry2 =~ s/sequences.sequence_length/length(sequences.sequence)/g if $table eq 'sequences';
 		my $dir = ( $q->param('direction') // '' ) eq 'descending' ? 'desc' : 'asc';
@@ -627,9 +630,10 @@ sub _run_query {
 		}
 		$qry .= " ORDER BY $table.";
 		my $default_order;
-		if    ( $table eq 'sequences' ) { $default_order = 'locus' }
-		elsif ( $table eq 'history' )   { $default_order = 'timestamp' }
-		else                            { $default_order = 'id' }
+		if    ( $table eq 'sequences' )       { $default_order = 'locus' }
+		elsif ( $table eq 'history' )         { $default_order = 'timestamp' }
+		elsif ( $table eq 'profile_history' ) { $default_order = 'timestamp' }
+		else                                  { $default_order = 'id' }
 		$qry .= $q->param('order') || $default_order;
 		my $dir = $q->param('direction') eq 'descending' ? 'desc' : 'asc';
 		my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
