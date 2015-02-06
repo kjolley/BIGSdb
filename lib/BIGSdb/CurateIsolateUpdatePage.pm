@@ -139,10 +139,11 @@ sub _check {
 }
 
 sub _update {
-	my ( $self, $data, $newdata ) = @_;    #TODO Use SQL placeholders
+	my ( $self, $data, $newdata ) = @_;
 	my $q      = $self->{'cgi'};
 	my $update = 1;
 	my $qry    = '';
+	my @values;
 	local $" = ',';
 	my @updated_field;
 	my $set_id = $self->get_set_id;
@@ -158,12 +159,17 @@ sub _update {
 			elsif ( $data->{ lc($field) } eq '0' ) { $data->{ lc($field) } = 'false' }
 		}
 		if ( $data->{ lc($field) } ne $newdata->{$field} ) {
-			my $cleaned = $self->clean_value( $newdata->{$field} ) // '';
+			my $cleaned = $self->clean_value( $newdata->{$field}, { no_escape => 1 } ) // '';
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			if ( defined $metaset ) {
 				push @{ $meta_fields{$metaset} }, $metafield;
 			} else {
-				$qry .= $cleaned ne '' ? "$field=E'$cleaned'," : "$field=null,";
+				if ( $cleaned ne '' ) {
+					$qry .= "$field=?,";
+					push @values, $cleaned;
+				} else {
+					$qry .= "$field=null,";
+				}
 				if ( $field ne 'datestamp' && $field ne 'curator' ) {
 					push @updated_field, "$field: '$data->{lc($field)}' -> '$newdata->{$field}'";
 				}
@@ -171,7 +177,10 @@ sub _update {
 		}
 	}
 	$qry =~ s/,$//;
-	$qry = "UPDATE isolates SET $qry WHERE id=$data->{'id'}" if $qry;
+	if ($qry) {
+		$qry = "UPDATE isolates SET $qry WHERE id=?";
+		push @values, $data->{'id'};
+	}
 	my $metadata_updates = $self->_prepare_metaset_updates( \%meta_fields, $data, $newdata, \@updated_field );
 	my @alias_update;
 	my $existing_aliases = $self->{'datastore'}->get_isolate_aliases( $data->{'id'} );
@@ -180,16 +189,18 @@ sub _update {
 		chomp $new;
 		next if $new eq '';
 		if ( !@$existing_aliases || none { $new eq $_ } @$existing_aliases ) {
-			( my $clean_new = $new ) =~ s/'/\\'/g;
-			push @alias_update, "INSERT INTO isolate_aliases (isolate_id,alias,curator,datestamp) VALUES ($data->{'id'},"
-			  . "'$clean_new',$newdata->{'curator'},'today')";
+			push @alias_update,
+			  {
+				statement => "INSERT INTO isolate_aliases (isolate_id,alias,curator,datestamp) VALUES (?,?,?,?)",
+				arguments => [ $data->{'id'}, $new, $newdata->{'curator'}, 'now' ]
+			  };
 			push @updated_field, "new alias: '$new'";
 		}
 	}
 	foreach my $existing (@$existing_aliases) {
 		if ( !@new_aliases || none { $existing eq $_ } @new_aliases ) {
-			( my $clean_existing = $existing ) =~ s/'/\\'/g;
-			push @alias_update,  "DELETE FROM isolate_aliases WHERE isolate_id=$data->{'id'} AND alias='$clean_existing'";
+			push @alias_update,
+			  { statement => "DELETE FROM isolate_aliases WHERE (isolate_id,alias)=(?,?)", arguments => [ $data->{'id'}, $existing ] };
 			push @updated_field, "deleted alias: '$existing'";
 		}
 	}
@@ -200,33 +211,35 @@ sub _update {
 		chomp $new;
 		next if $new eq '';
 		if ( !@$existing_pubmeds || none { $new eq $_ } @$existing_pubmeds ) {
-			( my $clean_new = $new ) =~ s/'/\\'/g;
-			if ( !BIGSdb::Utils::is_int($clean_new) ) {
+			if ( !BIGSdb::Utils::is_int($new) ) {
 				say qq(<div class="box" id="statusbad"><p>PubMed ids must be integers.</p></div>);
 				$update = 0;
 			}
-			push @pubmed_update, "INSERT INTO refs (isolate_id,pubmed_id,curator,datestamp) VALUES ($data->{'id'},"
-			  . "'$clean_new',$newdata->{'curator'},'today')";
+			push @pubmed_update,
+			  {
+				statement => "INSERT INTO refs (isolate_id,pubmed_id,curator,datestamp) VALUES (?,?,?,?)",
+				arguments => [ $data->{'id'}, $new, $newdata->{'curator'}, 'now' ]
+			  };
 			push @updated_field, "new reference: 'Pubmed#$new'";
 		}
 	}
 	foreach my $existing (@$existing_pubmeds) {
 		if ( !@new_pubmeds || none { $existing eq $_ } @new_pubmeds ) {
-			( my $clean_existing = $existing ) =~ s/'/\\'/g;
-			push @pubmed_update, "DELETE FROM refs WHERE isolate_id=$data->{'id'} AND pubmed_id='$clean_existing'";
+			push @pubmed_update,
+			  { statement => "DELETE FROM refs WHERE (isolate_id,pubmed_id)=(?,?)", arguments => [ $data->{'id'}, $existing ] };
 			push @updated_field, "deleted reference: 'Pubmed#$existing'";
 		}
 	}
 	if ($update) {
 		if (@updated_field) {
 			eval {
-				$self->{'db'}->do($qry);
-				foreach ( @alias_update, @pubmed_update, @$metadata_updates ) {
-					$self->{'db'}->do($_);
+				$self->{'db'}->do( $qry, undef, @values );
+				foreach my $extra_update ( @alias_update, @pubmed_update, @$metadata_updates ) {
+					$self->{'db'}->do( $extra_update->{'statement'}, undef, @{ $extra_update->{'arguments'} } );
 				}
 			};
 			if ($@) {
-				say "<div class=\"box\" id=\"statusbad\"><p>Update failed - transaction cancelled - " . "no records have been touched.</p>";
+				say qq(<div class="box" id="statusbad"><p>Update failed - transaction cancelled - " . "no records have been touched.</p>);
 				if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
 					say "<p>Data update would have resulted in records with either duplicate ids or "
 					  . "another unique field with duplicate values.</p>";
@@ -235,19 +248,19 @@ sub _update {
 				} else {
 					$logger->error($@);
 				}
-				print "</div>\n";
+				say "</div>";
 				$self->{'db'}->rollback;
 			} else {
 				$self->{'db'}->commit
-				  && say "<div class=\"box\" id=\"resultsheader\"><p>Updated!</p>";
-				say "<p><a href=\"" . $q->script_name . "?db=$self->{'instance'}\">Back to main page</a></p></div>";
+				  && say qq(<div class="box" id="resultsheader"><p>Updated!</p>);
+				say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>);
 				local $" = '<br />';
 				$self->update_history( $data->{'id'}, "@updated_field" );
 				return SUCCESS;
 			}
 		} else {
-			say "<div class=\"box\" id=\"resultsheader\"><p>No field changes have been made.</p>";
-			say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>";
+			say qq(<div class="box" id="resultsheader"><p>No field changes have been made.</p>);
+			say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>);
 		}
 	}
 	return;
@@ -259,23 +272,30 @@ sub _prepare_metaset_updates {
 	my @updates;
 	foreach my $metaset (@metasets) {
 		my $metadata_record_exists =
-		  $self->{'datastore'}->run_simple_query( "SELECT EXISTS(SELECT * FROM meta_$metaset WHERE isolate_id=?)", $newdata->{'id'} )->[0];
-		my @fields = @{ $meta_fields->{$metaset} };
+		  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM meta_$metaset WHERE isolate_id=?)", $newdata->{'id'} );
+		my $fields = $meta_fields->{$metaset};
 		local $" = ',';
-		my $qry =
-		  $metadata_record_exists
-		  ? "UPDATE meta_$metaset SET (@fields) = ("
-		  : "INSERT INTO meta_$metaset (isolate_id,@fields) VALUES ($newdata->{'id'},";
-		foreach my $field (@fields) {
-			$qry .= ',' if $field ne $fields[0];
-			my $cleaned = $self->clean_value( $newdata->{"meta_$metaset:$field"} );
-			$qry .= $cleaned eq '' ? 'null' : "E'$cleaned'";
+		my $qry;
+		my @values;
+		if ($metadata_record_exists) {
+			my @placeholders = ('?') x @$fields;
+			$qry = "UPDATE meta_$metaset SET (@$fields) = (@placeholders)";
+		} else {
+			my @placeholders = ('?') x ( @$fields + 1 );
+			$qry = "INSERT INTO meta_$metaset (isolate_id,@$fields) VALUES (@placeholders)";
+			push @values, $newdata->{'id'};
+		}
+		foreach my $field (@$fields) {
+			my $cleaned = $self->clean_value( $newdata->{"meta_$metaset:$field"}, { no_escape => 1 } );
+			push @values, $cleaned;
 			push @$updated_field,
 			  "$field: '" . $existing_data->{ lc("meta_$metaset:$field") } . "' -> '" . $newdata->{"meta_$metaset:$field"} . "'";
 		}
-		$qry .= ')';
-		$qry .= " WHERE isolate_id = $newdata->{'id'}" if $metadata_record_exists;
-		push @updates, $qry;
+		if ($metadata_record_exists) {
+			$qry .= " WHERE isolate_id=?";
+			push @values, $newdata->{'id'};
+		}
+		push @updates, { statement => $qry, arguments => \@values };
 	}
 	return \@updates;
 }
