@@ -1282,7 +1282,8 @@ sub _modify_query_for_designations {
 		} else {
 			$qry .= ( keys %lqry || @lqry_blank ) ? " $andor" : ' AND';
 			$qry .= " ($sqry)";
-			$qry .= ')' if ( scalar keys %lqry or @lqry_blank );
+			$qry .= ')' if keys %lqry;
+			$qry .= ')' if @lqry_blank;
 		}
 	}
 	return $qry;
