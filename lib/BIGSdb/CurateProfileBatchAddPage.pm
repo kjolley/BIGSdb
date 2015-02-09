@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -334,20 +334,21 @@ sub _check {
 		return;
 	}
 	if (%problems) {
-		say "<div class=\"box\" id=\"statusbad\"><h2>Import status</h2>";
-		say "<table class=\"resultstable\">";
+		say qq(<div class="box" id="statusbad"><h2>Import status</h2>);
+		say qq(<div class="scrollable">);
+		say qq(<table class="resultstable">);
 		say "<tr><th>$primary_key</th><th>Problem(s)</th></tr>";
 		$td = 1;
 		{
 			no warnings 'numeric';
 			foreach my $id ( sort { $a <=> $b || $a cmp $b } keys %problems ) {
-				say "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">$problems{$id}</td></tr>";
+				say qq(<tr class="td$td"><td>$id</td><td style="text-align:left">$problems{$id}</td></tr>);
 				$td = $td == 1 ? 2 : 1;    #row stripes
 			}
 		}
-		say "</table></div>";
+		say "</table></div></div>";
 	} else {
-		say "<div class=\"box\" id=\"resultsheader\"><h2>Import status</h2>$sender_message<p>No obvious problems identified so far.</p>";
+		say qq(<div class="box" id="resultsheader"><h2>Import status</h2>$sender_message<p>No obvious problems identified so far.</p>);
 		my $filename = $self->make_temp_file(@checked_buffer);
 		say $q->start_form;
 		say $q->hidden($_) foreach qw (data page table db sender scheme_id);
@@ -356,9 +357,9 @@ sub _check {
 		say $q->endform;
 		say "</div>";
 	}
-	say "<div class=\"box\" id=\"resultstable\"><h2>Data to be imported</h2>";
+	say qq(<div class="box" id="resultstable"><h2>Data to be imported</h2>);
 	say "<p>The following table shows your data.  Any field coloured red has a problem and needs to be checked.</p>";
-	say "<div class=\"scrollable\">";
+	say qq(<div class="scrollable">);
 	say $table_buffer;
 	say "</div></div>";
 	return;
