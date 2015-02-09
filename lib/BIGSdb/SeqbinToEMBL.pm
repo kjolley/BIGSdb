@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -43,7 +43,8 @@ sub print_content {
 		push @$seqbin_ids, $1;
 	} elsif ( ( $q->param('isolate_id') // '' ) =~ /^(\d+)$/ ) {
 		$isolate_id = $1;
-		$seqbin_ids = $self->{'datastore'}->run_list_query( "SELECT id FROM sequence_bin WHERE isolate_id=?", $isolate_id );
+		$seqbin_ids =
+		  $self->{'datastore'}->run_query( "SELECT id FROM sequence_bin WHERE isolate_id=?", $isolate_id, { fetch => 'col_arrayref' } );
 	} else {
 		print "Invalid isolate or sequence bin id.\n";
 		return;
@@ -57,30 +58,29 @@ sub write_embl {
 	$options = {} if ref $options ne 'HASH';
 	my $buffer;
 	foreach my $seqbin_id (@$seqbin_ids) {
-		my $seq =
-		  $self->{'datastore'}->run_simple_query(
-			"SELECT isolate_id,sequence,method,comments,sender,curator,date_entered,datestamp FROM sequence_bin WHERE id=?", $seqbin_id );
-		my $seq_length = length $seq->[1];
-		my $stringfh_in = IO::String->new( ">$seqbin_id\n" . $seq->[1] . "\n" );
+		my $seq = $self->{'datastore'}->run_query( "SELECT sequence,comments FROM sequence_bin WHERE id=?",
+			$seqbin_id, { fetch => 'row_arrayref', cache => 'SeqbinToEMBL::write_embl::seq' } );
+		my $seq_length  = length $seq->[0];
+		my $stringfh_in = IO::String->new( ">$seqbin_id\n" . $seq->[0] . "\n" );
 		my $seqin       = Bio::SeqIO->new( -fh => $stringfh_in, -format => 'fasta' );
 		my $seq_object  = $seqin->next_seq;
-		my $accessions  = $self->{'datastore'}->run_list_query( "SELECT databank_id FROM accession WHERE seqbin_id=?", $seqbin_id );
+		my $accessions  = $self->{'datastore'}->run_query( "SELECT databank_id FROM accession WHERE seqbin_id=?",
+			$seqbin_id, { fetch => 'col_arrayref', cache => 'SeqbinToEMBL::write_embl::databank' } );
 		unshift @$accessions, $seqbin_id;
 		local $" = '; ';
 		$seq_object->accession_number("@$accessions") if @$accessions;
-		$seq_object->desc( $seq->[3] );
-		my $set_id = $self->get_set_id;
-		my $set_clause =
-		  $set_id
+		$seq_object->desc( $seq->[1] );
+		my $set_id     = $self->get_set_id;
+		my $set_clause = $set_id
 		  ? "AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes "
 		  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 		  : '';
-		my $qry = "SELECT * FROM allele_sequences WHERE seqbin_id=? $set_clause";
-		my $sql = $self->{'db'}->prepare($qry);
-		eval { $sql->execute($seqbin_id) };
-		$logger->error($@) if $@;
+		my $qry = "SELECT * FROM allele_sequences WHERE seqbin_id=? $set_clause ORDER BY start_pos";
+		my $allele_sequences =
+		  $self->{'datastore'}
+		  ->run_query( $qry, $seqbin_id, { fetch => 'all_arrayref', slice => {}, cache => 'SeqbinToEMBL::write_embl::allele_sequences' } );
 
-		while ( my $allele_sequence = $sql->fetchrow_hashref ) {
+		foreach my $allele_sequence (@$allele_sequences) {
 			my $locus_info = $self->{'datastore'}->get_locus_info( $allele_sequence->{'locus'} );
 			my $frame;
 

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -43,16 +43,16 @@ sub print_content {
 	my $q          = $self->{'cgi'};
 	my $isolate_id = $q->param('isolate_id');
 	if ( !defined $isolate_id ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Isolate id not specified.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Isolate id not specified.</p></div>);
 		return;
 	}
 	if ( !BIGSdb::Utils::is_int($isolate_id) ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Isolate id must be an integer.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Isolate id must be an integer.</p></div>);
 		return;
 	}
-	my $exists = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id )->[0];
+	my $exists = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)", $isolate_id );
 	if ( !$exists ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>The database contains no record of this isolate.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>The database contains no record of this isolate.</p></div>);
 		return;
 	}
 	my @name = $self->get_name($isolate_id);
@@ -67,23 +67,24 @@ sub print_content {
 	my $length_data = $self->{'datastore'}->run_query( $qry, $isolate_id, { fetch => 'all_arrayref', slice => {} } );
 	my $count = @$length_data;
 	if ( !$count ) {
-		say "<div class=\"box statusbad\"><p>This isolate has no sequence data attached.</p></div>";
+		say qq(<div class="box statusbad"><p>This isolate has no sequence data attached.</p></div>);
 		return;
 	}
-	say "<div class=\"box\" id=\"resultsheader\">";
-	say "<div style=\"float:left\">";
+	say qq(<div class="box" id="resultsheader">);
+	say qq(<div style="float:left">);
 	say "<h2>Contig summary statistics</h2>";
 	say "<ul>\n<li>Number of contigs: $count</li>";
 	my ( $data, $lengths, $n_stats );
 	if ( $count > 1 ) {
-		$data = $self->{'datastore'}->run_simple_query(
+		$data = $self->{'datastore'}->run_query(
 			"SELECT SUM(length(sequence)),MIN(length(sequence)),MAX(length(sequence)),CEIL(AVG(length(sequence))), "
 			  . "CEIL(STDDEV_SAMP(length(sequence))) FROM sequence_bin WHERE isolate_id=?",
-			$isolate_id
+			$isolate_id,
+			{ fetch => 'row_arrayref' }
 		);
 		$lengths =
-		  $self->{'datastore'}
-		  ->run_list_query( "SELECT length(sequence) FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) desc", $isolate_id );
+		  $self->{'datastore'}->run_query( "SELECT length(sequence) FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) desc",
+			$isolate_id, { fetch => 'col_arrayref' } );
 		$n_stats = BIGSdb::Utils::get_N_stats( $data->[0], $lengths );
 		print <<"HTML"
 	<li>Total length: $data->[0]</li>
@@ -97,18 +98,17 @@ sub print_content {
 	</ul>
 HTML
 	} else {
-		my $length =
-		  $self->{'datastore'}->run_simple_query( "SELECT length(sequence) FROM sequence_bin WHERE isolate_id=?", $isolate_id )->[0];
+		my $length = $self->{'datastore'}->run_query( "SELECT length(sequence) FROM sequence_bin WHERE isolate_id=?", $isolate_id );
 		say "<li>Length: $length</li>\n</ul>";
 	}
-	say "<ul><li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadSeqbin&amp;"
-	  . "isolate_id=$isolate_id\">Download sequences (FASTA format)</a></li>";
-	say "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=embl&amp;isolate_id=$isolate_id\">"
-	  . "Download sequences with annotations (EMBL format)</a></li></ul>";
+	say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadSeqbin&amp;)
+	  . qq(isolate_id=$isolate_id">Download sequences (FASTA format)</a></li>);
+	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=embl&amp;isolate_id=$isolate_id">)
+	  . qq(Download sequences with annotations (EMBL format)</a></li></ul>);
 	say "</div>";
 	if ( $count > 1 ) {
-		print "<div style=\"float:left;padding-left:2em\">\n";
-		print "<h2>Contig size distribution</h2>\n";
+		say qq(<div style="float:left;padding-left:2em">);
+		say "<h2>Contig size distribution</h2>";
 		my $temp = BIGSdb::Utils::get_random();
 		open( my $fh_output, '>', "$self->{'config'}->{'tmp_dir'}/$temp.txt" )
 		  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$temp.txt for writing");
@@ -134,14 +134,14 @@ HTML
 			my %prefs = ( 'offset_label' => 1, 'x-title' => 'Contig size (bp)', 'y-title' => 'Frequency' );
 			BIGSdb::Charts::barchart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$temp\_large_histogram.png",
 				'large', \%prefs, { no_transparent => 1 } );
-			say "<a href=\"/tmp/$temp\_large_histogram.png\" data-rel=\"lightbox-1\" class=\"lightbox\" "
-			  . "title=\"Contig size distribution\"><img src=\"/tmp/$temp\_large_histogram.png\" alt=\"Contig size distribution\" "
-			  . "style=\"width:200px;border:1px dashed black\" /></a><br />Click to enlarge";
+			say qq(<a href="/tmp/$temp\_large_histogram.png" data-rel="lightbox-1" class="lightbox" )
+			  . qq(title="Contig size distribution"><img src="/tmp/$temp\_large_histogram.png" alt="Contig size distribution" )
+			  . qq(style="width:200px;border:1px dashed black" /></a><br />Click to enlarge);
 		}
-		say "<ul><li><a href=\"/tmp/$temp.txt\">Download lengths</a></li></ul></div>";
+		say qq(<ul><li><a href="/tmp/$temp.txt">Download lengths</a></li></ul></div>);
 		if ( $self->{'config'}->{'chartdirector'} ) {
-			print "<div style=\"float:left;padding-left:2em\">\n";
-			print "<h2>Cumulative contig length</h2>\n";
+			say qq(<div style="float:left;padding-left:2em">);
+			say "<h2>Cumulative contig length</h2>";
 			my ( @contig_labels, @cumulative );
 			push @contig_labels, $_ foreach ( 1 .. $count );
 			my $total_length = 0;
@@ -152,31 +152,32 @@ HTML
 			my %prefs = ( 'offset_label' => 1, 'x-title' => 'Contig number', 'y-title' => 'Cumulative length' );
 			BIGSdb::Charts::linechart( \@contig_labels, \@cumulative, "$self->{'config'}->{'tmp_dir'}/$temp\_cumulative_length.png",
 				'large', \%prefs, { no_transparent => 1 } );
-			say "<a href=\"/tmp/$temp\_cumulative_length.png\" data-rel=\"lightbox-1\" class=\"lightbox\" "
-			  . "title=\"Cumulative contig length\"><img src=\"/tmp/$temp\_cumulative_length.png\" alt=\"Cumulative contig length\" "
-			  . "style=\"width:200px;border:1px dashed black\" /></a></div>";
+			say qq(<a href="/tmp/$temp\_cumulative_length.png" data-rel="lightbox-1" class="lightbox" )
+			  . qq(title="Cumulative contig length"><img src="/tmp/$temp\_cumulative_length.png" alt="Cumulative contig length" )
+			  . qq(style="width:200px;border:1px dashed black" /></a></div>);
 		}
 	}
-	say "<div style=\"clear:both\"></div>";
-	say "</div><div class=\"box\" id=\"resultstable\">";
-	say "<div class=\"scrollable\">";
-	my $seq_attributes     = $self->{'datastore'}->run_list_query("SELECT key FROM sequence_attributes ORDER BY key");
+	say qq(<div style="clear:both"></div>);
+	say qq(</div><div class="box" id="resultstable">);
+	say qq(<div class="scrollable">);
+	my $seq_attributes =
+	  $self->{'datastore'}->run_query( "SELECT key FROM sequence_attributes ORDER BY key", undef, { fetch => 'col_arrayref' } );
 	my @cleaned_attributes = @$seq_attributes;
 	s/_/ / foreach @cleaned_attributes;
 	local $" = '</th><th>';
 	my $att_headings = @cleaned_attributes ? "<th>@cleaned_attributes</th>" : '';
-	say "<table class=\"resultstable\"><tr><th>Sequence</th><th>Sequencing method</th><th>Original designation</th><th>Length</th>"
-	  . "<th>Comments</th>$att_headings<th>Locus</th><th>Start</th><th>End</th><th>Direction</th><th>EMBL format</th><th>Artemis <a class=\"tooltip\" "
-	  . "title=\"Artemis - This will launch Artemis using Java WebStart.  The contig annotations should open within Artemis but this "
-	  . "may depend on your operating system and version of Java.  If the annotations do not open within Artemis, download the EMBL "
-	  . "file locally and load manually in to Artemis.\">&nbsp;<i>i</i>&nbsp;</a></th>";
+	say qq(<table class="resultstable"><tr><th>Sequence</th><th>Sequencing method</th><th>Original designation</th><th>Length</th>)
+	  . qq(<th>Comments</th>$att_headings<th>Locus</th><th>Start</th><th>End</th><th>Direction</th><th>EMBL format</th><th>Artemis )
+	  . qq(<a class="tooltip" title="Artemis - This will launch Artemis using Java WebStart.  The contig annotations should open within )
+	  . qq(Artemis but this may depend on your operating system and version of Java.  If the annotations do not open within Artemis, )
+	  . qq(download the EMBL file locally and load manually in to Artemis.">&nbsp;<i>i</i>&nbsp;</a></th>);
 
 	if ( $self->{'curate'} && ( $self->{'permissions'}->{'modify_loci'} || $self->is_admin ) ) {
-		say "<th>Renumber <a class=\"tooltip\" title=\"Renumber - You can use the numbering of the sequence tags to automatically "
-		  . "set the genome order position for each locus. This will be used to order the sequences when exporting FASTA or XMFA files."
-		  . "\">&nbsp;<i>i</i>&nbsp;</a></th>";
+		say qq(<th>Renumber <a class="tooltip" title="Renumber - You can use the numbering of the sequence tags to automatically )
+		  . qq(set the genome order position for each locus. This will be used to order the sequences when exporting FASTA or XMFA )
+		  . qq(files.">&nbsp;<i>i</i>&nbsp;</a></th>);
 	}
-	print "</tr>\n";
+	say "</tr>";
 	my $td     = 1;
 	my $set_id = $self->get_set_id;
 	my $set_clause =
@@ -184,16 +185,13 @@ HTML
 	  ? "AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes "
 	  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 	  : '';
-	my $seq_sql = $self->{'db'}->prepare("SELECT * FROM allele_sequences WHERE seqbin_id = ? $set_clause ORDER BY start_pos");
-	my $att_sql = $self->{'db'}->prepare("SELECT key,value FROM sequence_attribute_values WHERE seqbin_id=?");
 	local $| = 1;
-
 	foreach my $data (@$length_data) {
-		eval { $seq_sql->execute( $data->{'id'} ) };
 		$logger->error($@) if $@;
-		my $allele_count =
-		  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM allele_sequences WHERE seqbin_id=? $set_clause", $data->{'id'} )
-		  ->[0];
+		my $allele_count = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM allele_sequences WHERE seqbin_id=? $set_clause",
+			$data->{'id'}, { cache => 'SeqbinPage::print_content::count' } );
+		my $att_values = $self->{'datastore'}->run_query( "SELECT key,value FROM sequence_attribute_values WHERE seqbin_id=?",
+			$data->{'id'}, { fetch => 'all_hashref', key => 'key', cache => 'SeqbinPage::print_content::keyvalue' } );
 		my $first = 1;
 		if ($allele_count) {
 			print "<tr class=\"td$td\">";
@@ -205,14 +203,15 @@ HTML
 			print "$open_td$data->{'length'}</td>";
 			$data->{'comments'} ||= '';
 			print "$open_td$data->{'comments'}</td>";
-			eval { $att_sql->execute( $data->{'id'} ) };
-			my $att_values = $att_sql->fetchall_hashref('key');
 
 			foreach my $att (@$seq_attributes) {
 				$att_values->{$att}->{'value'} //= '';
 				print "$open_td$att_values->{$att}->{'value'}</td>";
 			}
-			while ( my $allele_seq = $seq_sql->fetchrow_hashref ) {
+			my $allele_seqs =
+			  $self->{'datastore'}->run_query( "SELECT * FROM allele_sequences WHERE seqbin_id=? $set_clause ORDER BY start_pos",
+				$data->{'id'}, { fetch => 'all_arrayref', slice => {}, cache => 'SeqbinPage::print_content::allele_sequences' } );
+			foreach my $allele_seq (@$allele_seqs) {
 				print "<tr class=\"td$td\">" if !$first;
 				my $cleaned_locus = $self->clean_locus( $allele_seq->{'locus'} );
 				print "<td>$cleaned_locus "
@@ -254,8 +253,6 @@ HTML
 			print defined $data->{'original_designation'} ? "<td>$data->{'original_designation'}</td>" : '<td></td>';
 			print "<td>$data->{'length'}</td>";
 			print defined $data->{'comments'} ? "<td>$data->{'comments'}</td>" : '<td></td>';
-			eval { $att_sql->execute( $data->{'id'} ) };
-			my $att_values = $att_sql->fetchall_hashref('key');
 			foreach my $att (@$seq_attributes) {
 				$att_values->{$att}->{'value'} //= '';
 				print "<td>$att_values->{$att}->{'value'}</td>";
