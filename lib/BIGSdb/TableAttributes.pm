@@ -1374,7 +1374,8 @@ sub get_isolate_value_extended_attributes_table_attributes {
 		next if any { $field eq $_ } qw (id date_entered datestamp sender curator comments);
 		push @select_fields, $field;
 	}
-	my $attributes = $self->run_list_query("SELECT DISTINCT attribute FROM isolate_field_extended_attributes ORDER BY attribute");
+	my $attributes = $self->run_query( "SELECT DISTINCT attribute FROM isolate_field_extended_attributes ORDER BY attribute",
+		undef, { fetch => 'col_arrayref' } );
 	local $" = ';';
 	$attributes = [
 		{ name => 'isolate_field', type => 'text', required => 'yes', primary_key => 'yes', optlist => "@select_fields" },

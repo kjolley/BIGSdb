@@ -161,7 +161,8 @@ sub _get_select_items {
 			push @select_items, 'sequence_length';
 			push @order_by,     'sequence_length';
 		} elsif ( $table eq 'sequence_bin' && $att->{'name'} eq 'comments' ) {
-			my $seq_attributes = $self->{'datastore'}->run_list_query("SELECT key FROM sequence_attributes ORDER BY key");
+			my $seq_attributes =
+			  $self->{'datastore'}->run_query( "SELECT key FROM sequence_attributes ORDER BY key", undef, { fetch => 'col_arrayref' } );
 			foreach my $key (@$seq_attributes) {
 				push @select_items, "ext_$key";
 				( my $label = $key ) =~ tr/_/ /;
@@ -285,7 +286,7 @@ sub _print_interface {
 					push @filters, $self->get_filter( $att->{'name'}, \@values );
 				} else {
 					my $desc;
-					my @values;
+					my $values;
 					my @fields_to_query;
 					if ( $att->{'foreign_key'} ) {
 						next if $att->{'name'} eq 'scheme_id';
@@ -296,17 +297,17 @@ sub _print_interface {
 							push @fields_to_query, 'id';
 						}
 						local $" = ',';
-						@values =
-						  @{ $self->{'datastore'}->run_list_query("SELECT id FROM $att->{'foreign_key'} ORDER BY @fields_to_query") };
-						next if !@values;
+						$values = $self->{'datastore'}->run_query( "SELECT id FROM $att->{'foreign_key'} ORDER BY @fields_to_query",
+							undef, { fetch => 'col_arrayref' } );
+						next if !@$values;
 					} else {
 						my $order        = $att->{'type'} eq 'text' ? "lower($att->{'name'})"       : $att->{'name'};
 						my $empty_clause = $att->{'type'} eq 'text' ? " WHERE $att->{'name'} <> ''" : '';
-						@values =
-						  @{ $self->{'datastore'}->run_list_query("SELECT $att->{'name'} FROM $table$empty_clause ORDER BY $order") };
-						@values = uniq @values;
+						$values = $self->{'datastore'}->run_query( "SELECT $att->{'name'} FROM $table$empty_clause ORDER BY $order",
+							undef, { fetch => 'col_arrayref' } );
+						@$values = uniq @$values;
 					}
-					push @filters, $self->get_filter( $att->{'name'}, \@values, { labels => $desc } );
+					push @filters, $self->get_filter( $att->{'name'}, $values, { labels => $desc } );
 				}
 			} elsif ( $att->{'optlist'} ) {
 				my @options = split /;/, $att->{'optlist'};
@@ -337,7 +338,9 @@ sub _print_interface {
 		}
 	} elsif ( $table eq 'locus_descriptions' ) {
 		my %labels;
-		my $common_names = $self->{'datastore'}->run_list_query("SELECT DISTINCT common_name FROM loci ORDER BY common_name");
+		my $common_names =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT DISTINCT common_name FROM loci ORDER BY common_name", undef, { fetch => 'col_arrayref' } );
 		push @filters,
 		  $self->get_filter( 'common_name', $common_names,
 			{ tooltip => 'common names filter - Select a name to filter your search to only those loci with the selected common name.' } );

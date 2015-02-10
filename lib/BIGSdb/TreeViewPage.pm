@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2014, University of Oxford
+#Copyright (c) 2011-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -44,7 +44,7 @@ JS
 	}
 	my $check_schemes_js = '';
 	if ( $options->{'check_schemes'} ) {
-		my $scheme_ids = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+		my $scheme_ids = $self->{'datastore'}->run_query( "SELECT id FROM schemes", undef, { fetch => 'col_arrayref' } );
 		push @$scheme_ids, 0;
 		foreach (@$scheme_ids) {
 			if ( $q->param("s_$_") ) {
@@ -105,8 +105,9 @@ sub get_tree {
 	$page = 'info' if any { $page eq $_ } qw (isolateDelete isolateUpdate alleleUpdate);
 	my $isolate_clause = defined $isolate_id ? "&amp;id=$isolate_id" : '';
 	my $groups_with_no_parent =
-	  $self->{'datastore'}->run_list_query(
-		"SELECT id FROM scheme_groups WHERE id NOT IN (SELECT group_id FROM scheme_group_group_members) ORDER BY display_order,name");
+	  $self->{'datastore'}->run_query(
+		"SELECT id FROM scheme_groups WHERE id NOT IN (SELECT group_id FROM scheme_group_group_members) ORDER BY display_order,name",
+		undef, { fetch => 'col_arrayref' } );
 	my $set_id               = $self->get_set_id;
 	my $set_clause           = $set_id ? " AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : '';
 	my $schemes_not_in_group = $self->{'datastore'}->run_query(
@@ -216,10 +217,11 @@ sub _get_group_schemes {
 	my $buffer;
 	my $set_id     = $self->get_set_id;
 	my $set_clause = $set_id ? " AND scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : '';
-	my $schemes    = $self->{'datastore'}->run_list_query(
+	my $schemes    = $self->{'datastore'}->run_query(
 		"SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON schemes.id=scheme_id WHERE group_id=? "
 		  . "$set_clause ORDER BY display_order,description",
-		$group_id
+		$group_id,
+		{ fetch => 'col_arrayref' }
 	);
 	if (@$schemes) {
 
@@ -301,9 +303,11 @@ sub _get_child_groups {
 	my ( $self, $group_id, $isolate_id, $level, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $buffer;
-	my $child_groups = $self->{'datastore'}->run_list_query(
-"SELECT id FROM scheme_groups LEFT JOIN scheme_group_group_members ON scheme_groups.id=group_id WHERE parent_group_id=? ORDER BY display_order,name",
-		$group_id
+	my $child_groups = $self->{'datastore'}->run_query(
+		"SELECT id FROM scheme_groups LEFT JOIN scheme_group_group_members ON "
+		  . "scheme_groups.id=group_id WHERE parent_group_id=? ORDER BY display_order,name",
+		$group_id,
+		{ fetch => 'col_arrayref' }
 	);
 	if (@$child_groups) {
 		foreach (@$child_groups) {
