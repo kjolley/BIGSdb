@@ -842,16 +842,6 @@ sub get_datestamp {
 	return ( sprintf( "%d-%02d-%02d", $year, $mon, $day ) );
 }
 
-sub get_sender_fullname {
-	my ( $self, $id ) = @_;
-	if ($id) {
-		my $qry = "SELECT first_name,surname FROM users WHERE id=?";
-		my $sender_ref = $self->{'datastore'}->run_simple_query( $qry, $id );
-		return if ref $sender_ref ne 'ARRAY';
-		return "$sender_ref->[0] $sender_ref->[1]";
-	}
-}
-
 sub is_field_bad {
 	my ( $self, $table, $fieldname, $value, $flag ) = @_;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
