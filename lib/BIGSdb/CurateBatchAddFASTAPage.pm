@@ -131,9 +131,9 @@ sub _check {
 	my ( $locus, $sender, $sequence ) = ( $q->param('locus'), $q->param('sender'), $q->param('sequence') );
 	if (   !$sender
 		|| !BIGSdb::Utils::is_int($sender)
-		|| !$self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM users WHERE id=?", $sender )->[0] )
+		|| !$self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM users WHERE id=?)", $sender ) )
 	{
-		say "<div class=\"box\" id=\"statusbad\"><p>Sender is required and must exist in the users table.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Sender is required and must exist in the users table.</p></div>);
 		return FAILURE;
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
@@ -151,15 +151,15 @@ sub _check {
 		}
 	}
 	catch Bio::Root::Exception with {
-		say "<div class=\"box\" id=\"statusbad\"><p>Sequence is not in valid FASTA format.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Sequence is not in valid FASTA format.</p></div>);
 		$continue = 0;    #Can't return from inside catch block
 	};
 	return FAILURE if !$continue;
-	say "<div class=\"box\" id=\"resultstable\">";
+	say qq(<div class="box" id="resultstable">);
 	say "<h2>Sequence check</h2>";
-	say "<div class=\"scrollable\">";
-	say
-"<table class=\"resultstable\" style=\"float:left;margin-right:1em\"><tr><th>Original designation</th><th>Allele id</th><th>Status</th></tr>";
+	say qq(<div class="scrollable">);
+	say qq(<table class="resultstable" style="float:left;margin-right:1em"><tr><th>Original designation</th><th>Allele id</th>)
+	  . qq(<th>Status</th></tr>);
 	my $td      = 1;
 	my $temp    = BIGSdb::Utils::get_random();
 	my $outfile = "$self->{'config'}->{'secure_tmp_dir'}/$temp.fas";
@@ -168,7 +168,7 @@ sub _check {
 	foreach my $data (@seq_data) {
 		my ( $status, $id, $message ) = $self->_check_sequence( $locus, $data );
 		my $class = $status == SUCCESS ? 'statusgood' : 'statusbad';
-		say "<tr class=\"td$td\"><td>$data->{'id'}</td><td>$id</td><td class=\"$class\">$message</td></tr>";
+		say qq(<tr class="td$td"><td>$data->{'id'}</td><td>$id</td><td class="$class">$message</td></tr>);
 		$td = $td == 1 ? 2 : 1;
 		if ( $status == SUCCESS ) {
 			open( my $fh, '>>', $outfile ) || $logger->error("Can't open $outfile for writing");
@@ -189,8 +189,8 @@ sub _check {
 		say $q->hidden( 'upload_file', $outfile );
 		say $q->end_form;
 	} else {
-		say "<fieldset style=\"float:left\"><legend>Sequence upload</legend>";
-		say "<p class=\"statusbad\">No valid sequences to upload.</p>";
+		say qq(<fieldset style="float:left"><legend>Sequence upload</legend>);
+		say qq(<p class="statusbad">No valid sequences to upload.</p>);
 		say "</fieldset>";
 	}
 	say "</div></div>";
@@ -270,10 +270,10 @@ sub _check_sequence {
 	}
 
 	#Check seq doesn't already exist
-	my $exists_ref =
-	  $self->{'datastore'}->run_simple_query( "SELECT allele_id FROM sequences WHERE locus=? AND sequence=?", $locus, $data->{'seq'} );
-	if ($exists_ref) {
-		return ( FAILURE, $allele_id, "Sequence has already been defined as $locus-$exists_ref->[0]." );
+	my $exists =
+	  $self->{'datastore'}->run_query( "SELECT allele_id FROM sequences WHERE locus=? AND sequence=?", [ $locus, $data->{'seq'} ] );
+	if ( defined $exists ) {
+		return ( FAILURE, $allele_id, "Sequence has already been defined as $locus-$exists." );
 	}
 
 	#Check sequence isn't already submitted in this submission

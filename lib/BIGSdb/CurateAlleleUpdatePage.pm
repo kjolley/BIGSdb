@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -205,11 +205,11 @@ sub _update {
 	$newdata->{'date_entered'} = $q->param('action') eq 'update' ? $data->{'date_entered'} : $self->get_datestamp;
 	@problems = $self->check_record( 'allele_designations', $newdata, 1, $data );
 	my $existing_designation;
-	if ( $q->param('update_id') ) {                                                                                  #Update existing allele
+	if ( $q->param('update_id') ) {    #Update existing allele
 		$existing_designation =
 		  $self->{'datastore'}
 		  ->run_query( "SELECT * FROM allele_designations WHERE id=?", $q->param('update_id'), { fetch => 'row_hashref' } );
-	} else {                                                                                                         #Add new allele
+	} else {                           #Add new allele
 		$existing_designation = $self->{'datastore'}->run_query(
 			"SELECT * FROM allele_designations WHERE (isolate_id,locus,allele_id)=(?,?,?)",
 			[ $isolate_id, $locus, $newdata->{'allele_id'} ],
@@ -219,8 +219,9 @@ sub _update {
 	if ( $q->param('update_id') && $existing_designation && $newdata->{'allele_id'} ne $existing_designation->{'allele_id'} ) {
 		my $allele_id_exists =
 		  $self->{'datastore'}
-		  ->run_simple_query( "SELECT EXISTS (SELECT * FROM allele_designations WHERE isolate_id=? AND locus=? AND allele_id=?)",
-			$isolate_id, $locus, $newdata->{'allele_id'} )->[0];
+		  ->run_query( "SELECT EXISTS (SELECT * FROM allele_designations WHERE isolate_id=? AND locus=? AND allele_id=?)",
+			[ $isolate_id, $locus, $newdata->{'allele_id'} ] );
+		$logger->error($allele_id_exists);
 		if ($allele_id_exists) {
 			push @problems, "Allele designation '$newdata->{'allele_id'}' already exists.\n";
 		}

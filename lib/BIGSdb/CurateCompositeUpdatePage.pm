@@ -287,8 +287,8 @@ sub _delete_field {
 
 		#close up gaps in field_order numbers
 		my $max =
-		  $self->{'datastore'}->run_simple_query( "SELECT MAX(field_order) FROM composite_field_values WHERE composite_field_id=?", $id )
-		  ->[0];
+		  $self->{'datastore'}->run_query( "SELECT MAX(field_order) FROM composite_field_values WHERE composite_field_id=?", $id )
+		  ;
 		for my $i ( 1 .. $max ) {
 			$sql2->execute( $id, $i );
 			my ($count) = $sql2->fetchrow_array;

@@ -229,7 +229,7 @@ sub _print_interface_locus_selection {
 	}
 	$qry .= "ORDER BY locus";
 	my $loci_with_extended = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
-	if ( @$loci_with_extended ) {
+	if (@$loci_with_extended) {
 		say "<li>Please note, some loci have extended attributes which may be required.  For affected loci please use the batch insert "
 		  . "page specific to that locus: ";
 		if ( @$loci_with_extended > 10 ) {
@@ -954,28 +954,26 @@ sub _check_data_allele_designations {
 	my @data            = @{ $arg_ref->{'data'} };
 	my %file_header_pos = %{ $arg_ref->{'file_header_pos'} };
 	if ( $field eq 'allele_id' ) {
-		my $format;
-		eval {
-			if ( defined $file_header_pos{'locus'} )
-			{
-				$format =
-				  $self->{'datastore'}
-				  ->run_simple_query( "SELECT allele_id_format,allele_id_regex FROM loci WHERE id=?", $data[ $file_header_pos{'locus'} ] );
-			}
-		};
-		$logger->error($@) if $@;
-		if (   defined $format->[0]
-			&& $format->[0] eq 'integer'
-			&& !BIGSdb::Utils::is_int( ${ $arg_ref->{'value'} } ) )
+		if ( defined $file_header_pos{'locus'} )
 		{
-			my $problem_text = "$field must be an integer.<br />";
-			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text
-			  if !defined $arg_ref->{'problems'}->{$pk_combination} || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/;
-			${ $arg_ref->{'special_problem'} } = 1;
-		} elsif ( $format->[1] && ${ $arg_ref->{'value'} } !~ /$format->[1]/ ) {
-			$arg_ref->{'problems'}->{$pk_combination} .=
-			  "$field value is invalid - it must match the regular expression /$format->[1]/.<br />";
-			${ $arg_ref->{'special_problem'} } = 1;
+			my $format = $self->{'datastore'}->run_query(
+				"SELECT allele_id_format,allele_id_regex FROM loci WHERE id=?",
+				$data[ $file_header_pos{'locus'} ],
+				{ fetch => 'row_hashref' }
+			);
+			if (   defined $format->{'allele_id_format'}
+				&& $format->{'allele_id_format'} eq 'integer'
+				&& !BIGSdb::Utils::is_int( ${ $arg_ref->{'value'} } ) )
+			{
+				my $problem_text = "$field must be an integer.<br />";
+				$arg_ref->{'problems'}->{$pk_combination} .= $problem_text
+				  if !defined $arg_ref->{'problems'}->{$pk_combination} || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/;
+				${ $arg_ref->{'special_problem'} } = 1;
+			} elsif ( $format->{'allele_id_regex'} && ${ $arg_ref->{'value'} } !~ /$format->{'allele_id_regex'}/ ) {
+				$arg_ref->{'problems'}->{$pk_combination} .=
+				  "$field value is invalid - it must match the regular expression /$format->{'allele_id_regex'}/.<br />";
+				${ $arg_ref->{'special_problem'} } = 1;
+			}
 		}
 	}
 	return;

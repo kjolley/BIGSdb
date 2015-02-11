@@ -205,16 +205,16 @@ sub _check_data {
 		$q->param('isolate_id')
 		&& (   !BIGSdb::Utils::is_int( $q->param('isolate_id') )
 			|| !$self->{'datastore'}
-			->run_simple_query( "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE id=?", $q->param('isolate_id') )->[0] )
+			->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)", $q->param('isolate_id') ) )
 	  )
 	{
-		say "<div class=\"box\" id=\"statusbad\"><p>Isolate id must be an integer and exist in the isolate table.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Isolate id must be an integer and exist in the isolate table.</p></div>);
 		$continue = 0;
 	} elsif ( !$q->param('sender')
 		|| !BIGSdb::Utils::is_int( $q->param('sender') )
-		|| !$self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM users WHERE id=?", $q->param('sender') )->[0] )
+		|| !$self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM users WHERE id=?)", $q->param('sender') ) )
 	{
-		say "<div class=\"box\" id=\"statusbad\"><p>Sender is required and must exist in the users table.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Sender is required and must exist in the users table.</p></div>);
 		$continue = 0;
 	}
 	my $seq_attributes =

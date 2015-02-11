@@ -38,9 +38,10 @@ sub get_curator_name {
 	my ($self) = @_;
 	if ( $self->{'username'} ) {
 		my $qry = "SELECT first_name, surname FROM users WHERE user_name=?";
-		my $name = $self->{'datastore'}->run_simple_query( $qry, $self->{'username'} );
-		if ( ref $name eq 'ARRAY' ) {
-			return "$name->[0] $name->[1]";
+		my $name =
+		  $self->{'datastore'}->run_query( $qry, $self->{'username'}, { fetch => 'row_hashref', cache => 'CuratePage::get_curator_name' } );
+		if ($name) {
+			return "$name->{'first_name'} $name->{'surname'}";
 		}
 	} else {
 		return "unknown user";
@@ -651,50 +652,53 @@ sub check_record {
 	my ( @problems, @missing );
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my @primary_key_query;
-	foreach (@$attributes) {
-		next if $update && $_->{'user_update'} && $_->{'user_update'} eq 'no';
-		my $original_data = $newdata{ $_->{'name'} };
-		$newdata{ $_->{'name'} }            =~ s/'/\\'/g if defined $newdata{ $_->{'name'} };
-		$$allowed_valuesref{ $_->{'name'} } =~ s/'/\\'/g if defined $$allowed_valuesref{ $_->{'name'} };
-		if ( $_->{'name'} =~ /sequence$/ ) {
-			$newdata{ $_->{'name'} } = uc( $newdata{ $_->{'name'} } // '' );
-			$newdata{ $_->{'name'} } =~ s/\s//g;
+	foreach my $att (@$attributes) {
+		next if $update && $att->{'user_update'} && $att->{'user_update'} eq 'no';
+		my $original_data = $newdata{ $att->{'name'} };
+
+		#		$newdata{ $att->{'name'} }            =~ s/'/\\'/g if defined $newdata{ $att->{'name'} };
+		$$allowed_valuesref{ $att->{'name'} } =~ s/'/\\'/g if defined $$allowed_valuesref{ $att->{'name'} };
+		if ( $att->{'name'} =~ /sequence$/ ) {
+			$newdata{ $att->{'name'} } = uc( $newdata{ $att->{'name'} } // '' );
+			$newdata{ $att->{'name'} } =~ s/\s//g;
 		}
-		if ( $_->{'required'} eq 'yes' && ( !defined $newdata{ $_->{'name'} } || $newdata{ $_->{'name'} } eq '' ) ) {
-			push @missing, $_->{'name'};
-		} elsif ( $newdata{ $_->{'name'} }
-			&& $_->{'type'} eq 'int'
-			&& !BIGSdb::Utils::is_int( $newdata{ $_->{'name'} } ) )
+		if ( $att->{'required'} eq 'yes' && ( !defined $newdata{ $att->{'name'} } || $newdata{ $att->{'name'} } eq '' ) ) {
+			push @missing, $att->{'name'};
+		} elsif ( $newdata{ $att->{'name'} }
+			&& $att->{'type'} eq 'int'
+			&& !BIGSdb::Utils::is_int( $newdata{ $att->{'name'} } ) )
 		{
-			push @problems, "$_->{name} must be an integer.\n";
-		} elsif ( $newdata{ $_->{'name'} }
-			&& $_->{'type'} eq 'float'
-			&& !BIGSdb::Utils::is_float( $newdata{ $_->{'name'} } ) )
+			push @problems, "$att->{name} must be an integer.\n";
+		} elsif ( $newdata{ $att->{'name'} }
+			&& $att->{'type'} eq 'float'
+			&& !BIGSdb::Utils::is_float( $newdata{ $att->{'name'} } ) )
 		{
-			push @problems, "$_->{name} must be a floating point number.\n";
-		} elsif ( $newdata{ $_->{'name'} }
-			&& $_->{'type'} eq 'date'
-			&& !BIGSdb::Utils::is_date( $newdata{ $_->{'name'} } ) )
+			push @problems, "$att->{name} must be a floating point number.\n";
+		} elsif ( $newdata{ $att->{'name'} }
+			&& $att->{'type'} eq 'date'
+			&& !BIGSdb::Utils::is_date( $newdata{ $att->{'name'} } ) )
 		{
-			push @problems, "$newdata{$_->{name}} must be in date format (yyyy-mm-dd or 'today').\n";
-		} elsif ( defined $newdata{ $_->{'name'} }
-			&& $newdata{ $_->{'name'} } ne ''
-			&& $_->{'regex'}
-			&& $newdata{ $_->{'name'} } !~ /$_->{'regex'}/ )
+			push @problems, "$newdata{$att->{name}} must be in date format (yyyy-mm-dd or 'today').\n";
+		} elsif ( defined $newdata{ $att->{'name'} }
+			&& $newdata{ $att->{'name'} } ne ''
+			&& $att->{'regex'}
+			&& $newdata{ $att->{'name'} } !~ /$att->{'regex'}/ )
 		{
-			push @problems, "Field '$_->{name}' does not conform to specified format.\n";
-		} elsif ( $_->{'unique'} ) {
-			my $retval =
-			  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM $table WHERE $_->{name} = ?", $newdata{ $_->{'name'} } );
-			if (   ( $update && $retval->[0] && $newdata{ $_->{'name'} } ne $$allowed_valuesref{ $_->{'name'} } )
-				|| ( $retval->[0] && !$update ) )
+			push @problems, "Field '$att->{name}' does not conform to specified format.\n";
+		} elsif ( $att->{'unique'} ) {
+			my $exists =
+			  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $table WHERE $att->{name} =?)", $newdata{ $att->{'name'} } );
+			if (   ( $update && $exists && $newdata{ $att->{'name'} } ne $$allowed_valuesref{ $att->{'name'} } )
+				|| ( $exists && !$update ) )
 			{
-				if ( $_->{'name'} =~ /sequence/ ) {
+				if ( $att->{'name'} =~ /sequence/ ) {
 					my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
 					local $" = ', ';
-					my $values =
-					  $self->{'datastore'}
-					  ->run_simple_query( "SELECT @primary_keys FROM $table WHERE $_->{'name'}=?", $newdata{ $_->{'name'} } );
+					my $values = $self->{'datastore'}->run_query(
+						"SELECT @primary_keys FROM $table WHERE $att->{'name'}=?",
+						$newdata{ $att->{'name'} },
+						{ fetch => 'row_arrayref' }
+					);
 					my @key;
 					for ( my $i = 0 ; $i < scalar @primary_keys ; $i++ ) {
 						push @key, "$primary_keys[$i]: $values->[$i]";
@@ -702,35 +706,36 @@ sub check_record {
 					push @problems, "This sequence already exists in the database as '@key'.";
 				} else {
 					my $article = $record_name =~ /^[aeio]/ ? 'An' : 'A';
-					push @problems,
-"$article $record_name already exists with $_->{'name'} = '$newdata{$_->{'name'}}', please choose a different $_->{'name'}.";
+					push @problems, "$article $record_name already exists with $att->{'name'} = '$newdata{$att->{'name'}}', "
+					  . "please choose a different $att->{'name'}.";
 				}
 			}
-		} elsif ( $_->{'foreign_key'} ) {
-			my $retval = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM $_->{'foreign_key'} WHERE id=?", $original_data );
-			if ( !$retval->[0] ) {
-				push @problems, "$_->{'name'} should refer to a record within the $_->{'foreign_key'} table, but it doesn't.";
+		} elsif ( $att->{'foreign_key'} ) {
+			my $exists = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $att->{'foreign_key'} WHERE id=?)", $original_data );
+			if ( !$exists ) {
+				push @problems, "$att->{'name'} should refer to a record within the $att->{'foreign_key'} table, but it doesn't.";
 			}
 		} elsif ( ( $table eq 'allele_designations' )
-			&& $_->{'name'} eq 'allele_id' )
+			&& $att->{'name'} eq 'allele_id' )
 		{
 			#special case to check for allele id format and regex which is defined in loci table
 			my $format =
-			  $self->{'datastore'}->run_simple_query("SELECT allele_id_format,allele_id_regex FROM loci WHERE id=E'$newdata{'locus'}'");
-			if ( $format->[0] eq 'integer'
-				&& !BIGSdb::Utils::is_int( $newdata{ $_->{'name'} } ) )
+			  $self->{'datastore'}
+			  ->run_query( "SELECT allele_id_format,allele_id_regex FROM loci WHERE id=?", $newdata{'locus'}, { fetch => 'row_hashref' } );
+			if ( $format->{'allele_id_format'} eq 'integer'
+				&& !BIGSdb::Utils::is_int( $newdata{ $att->{'name'} } ) )
 			{
-				push @problems, "$_->{'name'} must be an integer.\n";
-			} elsif ( $format->[1] && $newdata{ $_->{'name'} } !~ /$format->[1]/ ) {
-				push @problems, "$_->{'name'} value is invalid - it must match the regular expression /$format->[1]/.";
+				push @problems, "$att->{'name'} must be an integer.\n";
+			} elsif ( $format->{'allele_id_regex'} && $newdata{ $att->{'name'} } !~ /$format->{'allele_id_regex'}/ ) {
+				push @problems, "$att->{'name'} value is invalid - it must match the regular expression /$format->{'allele_id_regex'}/.";
 			}
 		} elsif ( ( $table eq 'isolate_field_extended_attributes' )
-			&& $_->{'name'} eq 'attribute'
-			&& $newdata{ $_->{'name'} } =~ /'/ )
+			&& $att->{'name'} eq 'attribute'
+			&& $newdata{ $att->{'name'} } =~ /'/ )
 		{
 			push @problems, "Attribute contains invalid characters.\n";
 		} elsif ( ( $table eq 'isolate_value_extended_attributes' )
-			&& $_->{'name'} eq 'value' )
+			&& $att->{'name'} eq 'value' )
 		{
 			#special case to check for extended attribute value format and regex which is defined in isolate_field_extended_attributes table
 			my $format = $self->{'datastore'}->run_query(
@@ -740,15 +745,15 @@ sub check_record {
 			);
 			next if !$format;
 			if ( $format->[0] eq 'integer'
-				&& !BIGSdb::Utils::is_int( $newdata{ $_->{'name'} } ) )
+				&& !BIGSdb::Utils::is_int( $newdata{ $att->{'name'} } ) )
 			{
-				push @problems, "$_->{'name'} must be an integer.\n";
-			} elsif ( $format->[1] && $newdata{ $_->{'name'} } !~ /$format->[1]/ ) {
-				push @problems, "$_->{'name'} value is invalid - it must match the regular expression /$format->[1]/";
-			} elsif ( $format->[2] && length( $newdata{ $_->{'name'} } ) > $format->[2] ) {
-				push @problems, "$_->{'name'} value is too long - it must be no longer than $format->[2] characters";
+				push @problems, "$att->{'name'} must be an integer.\n";
+			} elsif ( $format->[1] && $newdata{ $att->{'name'} } !~ /$format->[1]/ ) {
+				push @problems, "$att->{'name'} value is invalid - it must match the regular expression /$format->[1]/";
+			} elsif ( $format->[2] && length( $newdata{ $att->{'name'} } ) > $format->[2] ) {
+				push @problems, "$att->{'name'} value is too long - it must be no longer than $format->[2] characters";
 			}
-		} elsif ( $table eq 'users' && $_->{'name'} eq 'status' ) {
+		} elsif ( $table eq 'users' && $att->{'name'} eq 'status' ) {
 
 			#special case to check that changing user status is allowed
 			my $status = $self->{'datastore'}->run_query( "SELECT status FROM users WHERE user_name=?", $self->{'username'} );
@@ -793,7 +798,7 @@ sub check_record {
 			{
 				push @problems, "You must have admin rights to change the username of a user.\n";
 			}
-		} elsif ( $table eq 'isolate_value_extended_attributes' && $_->{'name'} eq 'attribute' ) {
+		} elsif ( $table eq 'isolate_value_extended_attributes' && $att->{'name'} eq 'attribute' ) {
 			my $attribute_exists =
 			  $self->{'datastore'}
 			  ->run_query( "SELECT EXISTS(SELECT * FROM isolate_field_extended_attributes WHERE isolate_field=? AND attribute=?)",
@@ -810,8 +815,9 @@ sub check_record {
 				push @problems, $message;
 			}
 		}
-		if ( $_->{'primary_key'} ) {
-			push @primary_key_query, "$_->{name} = E'$newdata{$_->{name}}'";
+		if ( $att->{'primary_key'} ) {
+			( my $cleaned_name = $newdata{ $att->{name} } ) =~ s/'/\\'/g;
+			push @primary_key_query, "$att->{name} = E'$cleaned_name'";
 		}
 	}
 	if (@missing) {
@@ -819,8 +825,8 @@ sub check_record {
 		push @problems, "Please fill in all required fields. The following fields are missing: @missing";
 	} elsif ( @primary_key_query && !@problems ) {    #only run query if there are no other problems
 		local $" = ' AND ';
-		my $retval = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM $table WHERE @primary_key_query")->[0];
-		if ( $retval && !$update ) {
+		my $exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $table WHERE @primary_key_query)");
+		if ( $exists && !$update ) {
 			my $article = $record_name =~ /^[aeio]/ ? 'An' : 'A';
 			push @problems, "$article $record_name already exists with this primary key.";
 		}

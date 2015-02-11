@@ -124,12 +124,8 @@ sub _display_record {
 	$buffer .= "<div id=\"record\"><dl class=\"data\">";
 	my $primary_key;
 	if ( $table eq 'profiles' ) {
-		eval {
-			$primary_key =
-			  $self->{'datastore'}
-			  ->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $q->param('scheme_id') )->[0];
-		};
-		$logger->error($@) if $@;
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $q->param('scheme_id'), { get_pk => 1 } );
+		$primary_key = $scheme_info->{'primary_key'};
 	}
 	foreach (@$attributes) {
 		next if $_->{'hide_query'} eq 'yes';
@@ -195,7 +191,7 @@ sub _display_record {
 		}
 		if ( $table eq 'profiles' && $_->{'name'} eq 'profile_id' ) {
 			my $scheme_id = $q->param('scheme_id');
-			$buffer .= $self->_get_profile_fields( $scheme_id, $primary_key, $data );
+			$buffer .= $self->_get_profile_fields( $scheme_id, $primary_key, $data->{'profile_id'} );
 		}
 	}
 	if    ( $table eq 'sequences' )    { $buffer .= $self->_get_extra_sequences_fields($data) }
@@ -244,11 +240,10 @@ sub _delete {
 			my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
 			foreach my $table ( $self->{'datastore'}->get_tables_with_curator ) {
 				next if !@$sample_fields && $table eq 'samples';
-				my $num = $self->{'datastore'}->run_simple_query( "SELECT count(*) FROM $table WHERE curator = ?", $data->{'id'} )->[0];
+				my $num = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM $table WHERE curator=?", $data->{'id'} );
 				my $num_senders;
 				if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
-					$num_senders =
-					  $self->{'datastore'}->run_simple_query( "SELECT count(*) FROM $table WHERE sender = ?", $data->{'id'} )->[0];
+					$num_senders = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM $table WHERE sender=?", $data->{'id'} );
 				}
 				if ( $num || $num_senders ) {
 					if ($num) {
@@ -289,7 +284,7 @@ sub _delete {
 			  if $table eq 'scheme_groups' && any { $table_to_check eq $_ } qw ( scheme_group_group_members scheme_group_scheme_members );
 			my $num =
 			  $self->{'datastore'}
-			  ->run_simple_query( "SELECT count(*) FROM $table_to_check WHERE $tables_to_check{$table_to_check} = ?", $data->{'id'} )->[0];
+			  ->run_query( "SELECT COUNT(*) FROM $table_to_check WHERE $tables_to_check{$table_to_check} =?", $data->{'id'} );
 			if ($num) {
 				my $record_name = $self->get_record_name($table);
 				my $plural = $num > 1 ? 's' : '';
@@ -305,8 +300,7 @@ sub _delete {
 	if ( $proceed && $table eq 'sequences' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $num =
 		  $self->{'datastore'}
-		  ->run_simple_query( "SELECT COUNT(*) FROM profile_members WHERE locus=? AND allele_id=?", $data->{'locus'}, $data->{'allele_id'} )
-		  ->[0];
+		  ->run_query( "SELECT COUNT(*) FROM profile_members WHERE locus=? AND allele_id=?", [ $data->{'locus'}, $data->{'allele_id'} ] );
 		if ($num) {
 			my $plural = $num > 1 ? 's' : '';
 			$nogo_buffer .=
@@ -443,7 +437,7 @@ sub _get_extra_seqbin_fields {
 }
 
 sub _get_profile_fields {
-	my ( $self, $scheme_id, $primary_key, $data ) = @_;
+	my ( $self, $scheme_id, $primary_key, $profile_id ) = @_;
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $buffer;
 	foreach my $locus (@$loci) {
@@ -451,7 +445,7 @@ sub _get_profile_fields {
 		$buffer .= "<dt>$mapped&nbsp;</dt>";
 		my $allele_id =
 		  $self->{'datastore'}->run_query( "SELECT allele_id FROM profile_members WHERE scheme_id=? AND locus=? AND profile_id=?",
-			[ $scheme_id, $locus, $data->{ $_->{'name'} } ] );
+			[ $scheme_id, $locus, $profile_id ] );
 		$buffer .= "<dd>$allele_id</dd>\n";
 	}
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
@@ -460,7 +454,7 @@ sub _get_profile_fields {
 		$buffer .= "<dt>$field&nbsp;</dt>";
 		my $value =
 		  $self->{'datastore'}->run_query( "SELECT value FROM profile_fields WHERE scheme_id=? AND scheme_field=? AND profile_id=?",
-			[ $scheme_id, $field, $data->{ $_->{'name'} } ] );
+			[ $scheme_id, $field, $profile_id ] );
 		$buffer .= defined $value ? "<dd>$value</dd>\n" : "<dd>&nbsp;</dd>\n";
 	}
 	return $buffer;
