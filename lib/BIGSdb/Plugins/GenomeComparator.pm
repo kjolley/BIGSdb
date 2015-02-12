@@ -852,12 +852,12 @@ sub _analyse_by_reference {
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $self->{'html_buffer'} } );
 	if ( @cds > MAX_REF_LOCI ) {
 		my $max_upload_size = MAX_UPLOAD_SIZE / ( 1024 * 1024 );
-		throw BIGSdb::PluginException(
-			"Too many loci in reference genome - limit is set at " . MAX_REF_LOCI . '.  Your uploaded reference contains '
+		throw BIGSdb::PluginException( "Too many loci in reference genome - limit is set at "
+			  . MAX_REF_LOCI
+			  . '.  Your uploaded reference contains '
 			  . ( scalar @cds )
 			  . " loci.  Please note also that the uploaded reference is limited to $max_upload_size MB (larger uploads will be "
-			  . "truncated)."
-		);
+			  . "truncated)." );
 	}
 	$self->{'html_buffer'} .= "<h3>All loci</h3>\n";
 	$self->{'file_buffer'} .= "\n\nAll loci\n--------\n\n";
@@ -890,6 +890,7 @@ sub _extract_cds_details {
 	local $" = ' | ';
 	$locus_name = $locus;
 	$locus_name .= " | @aliases" if @aliases;
+	return if $locus_name =~ /^Bio::PrimarySeq=HASH/;    #Invalid entry in reference file.
 	my $seq = $cds->seq->seq;
 	return if !$seq;
 	$$seqs_total_ref++;
