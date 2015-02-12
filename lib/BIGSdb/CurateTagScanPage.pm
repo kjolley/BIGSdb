@@ -204,8 +204,8 @@ sub _print_interface {
 	$self->_print_parameter_fieldset($general_prefs);
 
 	#Only show repetitive loci fields if PCR or probe locus links have been set
-	my $pcr_links   = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM pcr_locus")->[0];
-	my $probe_links = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM probe_locus")->[0];
+	my $pcr_links   = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM pcr_locus)");
+	my $probe_links = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM probe_locus)");
 	if ( $pcr_links + $probe_links ) {
 		say "<fieldset>\n<legend>Repetitive loci</legend>";
 		say "<ul>";

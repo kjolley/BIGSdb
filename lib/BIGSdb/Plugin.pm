@@ -461,8 +461,8 @@ sub set_offline_view {
 	my ( $self, $params ) = @_;
 	my $set_id = $params->{'set_id'};
 	if ( ( $self->{'system'}->{'view'} // '' ) eq 'isolates' && $set_id ) {
-		my $view_ref = $self->{'datastore'}->run_simple_query( "SELECT view FROM set_view WHERE set_id=?", $set_id );
-		$self->{'system'}->{'view'} = $view_ref->[0] if ref $view_ref eq 'ARRAY';
+		my $view = $self->{'datastore'}->run_query( "SELECT view FROM set_view WHERE set_id=?", $set_id );
+		$self->{'system'}->{'view'} = $view if defined $view;
 	}
 	return;
 }

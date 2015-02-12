@@ -767,16 +767,18 @@ sub _should_display_scheme {
 	return 0 if none { $scheme_id eq $_ } @$scheme_ids_ref;
 	my $scheme_fields      = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $loci               = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $designations_exist = $self->{'datastore'}->run_simple_query(
+	my $designations_exist = $self->{'datastore'}->run_query(
 		"SELECT EXISTS(SELECT isolate_id FROM allele_designations LEFT JOIN scheme_members ON scheme_members.locus="
 		  . "allele_designations.locus WHERE isolate_id=? AND scheme_id=?)",
-		$isolate_id, $scheme_id
-	)->[0];
-	my $sequences_exist = $self->{'datastore'}->run_simple_query(
+		[ $isolate_id, $scheme_id ],
+		{ cache => 'IsolateInfoPage::should_display_scheme::designations' }
+	);
+	my $sequences_exist = $self->{'datastore'}->run_query(
 		"SELECT EXISTS(SELECT isolate_id FROM allele_sequences LEFT JOIN scheme_members ON allele_sequences.locus=scheme_members.locus "
 		  . "WHERE isolate_id=? AND scheme_id=?)",
-		$isolate_id, $scheme_id
-	)->[0];
+		[ $isolate_id, $scheme_id ],
+		{ cache => 'IsolateInfoPage::should_display_scheme::sequences' }
+	);
 	my $should_display = ( $designations_exist || $sequences_exist ) ? 1 : 0;
 	return $should_display;
 }

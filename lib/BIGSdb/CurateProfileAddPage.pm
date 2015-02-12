@@ -58,21 +58,17 @@ sub print_content {
 			return;
 		}
 	}
-	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 	say "<h1>Add new $scheme_info->{'description'} profile</h1>";
-	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $primary_key;
-	eval {
-		$primary_key =
-		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )->[0];
-	};
+	my $loci        = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $primary_key = $scheme_info->{'primary_key'};
 	if ( !$primary_key ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>This scheme doesn't have a primary key field defined.  Profiles can not be entered "
-		  . "until this has been done.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>This scheme doesn't have a primary key field defined.  Profiles cannot be entered )
+		  . qq(until this has been done.</p></div>);
 		return;
 	} elsif ( !@$loci ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>This scheme doesn't have any loci belonging to it.  Profiles can not be entered "
-		  . "until there is at least one locus defined.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>This scheme doesn't have any loci belonging to it.  Profiles can not be entered )
+		  . qq(until there is at least one locus defined.</p></div>);
 		return;
 	}
 	my %newdata;
@@ -162,17 +158,16 @@ sub _upload {
 		$insert = 0 if $exists;
 	}
 	if ($insert) {
-		my $pk_exists = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM profiles WHERE scheme_id=? AND profile_id=?",
-			$scheme_id, $newdata->{"field:$primary_key"} )->[0];
+		my $pk_exists = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM profiles WHERE scheme_id=? AND profile_id=?)",
+			[ $scheme_id, $newdata->{"field:$primary_key"} ] );
 		if ($pk_exists) {
-			say "<div class=\"box\" id=\"statusbad\"><p>$primary_key-$newdata->{\"field:$primary_key\"} has already been defined - "
-			  . "please choose a different $primary_key.</p></div>";
+			say qq(<div class="box" id="statusbad"><p>$primary_key-$newdata->{"field:$primary_key"} has already been defined - )
+			  . qq(please choose a different $primary_key.</p></div>);
 			$insert = 0;
 		}
-		my $sender_exists =
-		  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM users WHERE id=?", $newdata->{'field:sender'} )->[0];
+		my $sender_exists = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM users WHERE id=?)", $newdata->{'field:sender'} );
 		if ( !$sender_exists ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>Invalid sender set.</p></div>";
+			say qq(<div class="box" id="statusbad"><p>Invalid sender set.</p></div>);
 			$insert = 0;
 		}
 		( my $cleaned_profile_id = $newdata->{"field:$primary_key"} ) =~ s/'/\\'/g;
@@ -245,8 +240,8 @@ sub profile_exists {
 	if (@locus_temp) {
 		my $locus_count = @locus_temp;
 		my $matching_profiles =
-		  $self->{'datastore'}
-		  ->run_query( $qry, \@values, { fetch => 'col_arrayref', cache => "CurateProfileAddPage:profile_exists::$scheme_id::$locus_count" } );
+		  $self->{'datastore'}->run_query( $qry, \@values,
+			{ fetch => 'col_arrayref', cache => "CurateProfileAddPage:profile_exists::$scheme_id::$locus_count" } );
 		$newdata->{"field:$primary_key"} //= '';
 		if ( @$matching_profiles && !( @$matching_profiles == 1 && $matching_profiles->[0] eq $newdata->{"field:$primary_key"} ) ) {
 			if ( @locus_temp < @$loci ) {
@@ -319,14 +314,13 @@ sub _print_interface {
 	my %html5_args = ( required => 'required' );
 	$html5_args{'type'} = 'number' if $pk_field_info->{'type'} eq 'integer';
 	say $self->textfield(
-		-name  => "field:$primary_key",
-		-id    => "field:$primary_key",
-		-size  => $pk_field_info->{'type'} eq 'integer' ? 10 : 30,
-		-value => $newdata->{$primary_key},
+		-name => "field:$primary_key",
+		-id   => "field:$primary_key",
+		-size => $pk_field_info->{'type'} eq 'integer' ? 10 : 30,
+		-value => $q->param("field:$primary_key") // $newdata->{$primary_key},
 		%html5_args
 	);
 	say "</li>";
-
 	foreach my $locus (@$loci) {
 		%html5_args = ( required => 'required' );
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);

@@ -61,16 +61,9 @@ sub get_headers {
 		push @headers, @$isolate_loci;
 	} elsif ( $table eq 'profiles' ) {
 		my $scheme_id = $self->{'cgi'}->param('scheme') || 0;
-		my $primary_key;
-		eval {
-			my $pk_ref =
-			  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id );
-			return if ref $pk_ref ne 'ARRAY';
-			$primary_key = $pk_ref->[0];
-		};
-		$logger->error($@) if $@;
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 		my $set_id = $self->get_set_id;
-		push @headers, $primary_key;
+		push @headers, $scheme_info->{'primary_key'};
 		my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		foreach my $locus (@$loci) {
 			my $label = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );

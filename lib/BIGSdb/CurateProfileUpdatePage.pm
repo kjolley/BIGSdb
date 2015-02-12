@@ -31,66 +31,54 @@ sub print_content {
 	say "<h1>Update profile</h1>";
 	my ( $scheme_id, $profile_id ) = ( $q->param('scheme_id'), $q->param('profile_id') );
 	if ( !$scheme_id ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No scheme_id passed.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>No scheme_id passed.</p></div>);
 		return;
 	} elsif ( !BIGSdb::Utils::is_int($scheme_id) ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Scheme_id must be an integer.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Scheme_id must be an integer.</p></div>);
 		return;
 	} elsif ( !$profile_id ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No profile_id passed.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>No profile_id passed.</p></div>);
 		return;
 	} elsif ( !$self->can_modify_table('profiles') ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to modify profiles.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Your user account is not allowed to modify profiles.</p></div>);
 		return;
 	}
-	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
-	my $qry         = "SELECT * FROM profiles WHERE scheme_id=? AND profile_id=?";
-	my $sql         = $self->{'db'}->prepare($qry);
-	eval { $sql->execute( $scheme_id, $profile_id ) };
-	$logger->error($@) if $@;
-	my $profile_data = $sql->fetchrow_hashref;
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $primary_key = $scheme_info->{'primary_key'};
+	if ( !$primary_key ) {
+		say "<div class=\"box\" id=\"statusbad\"><p>This scheme doesn't have a primary key field defined.</p></div>";
+		return;
+	}
+	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	if ( !@$loci ) {
+		say qq(<div class="box" id="statusbad"><p>This scheme doesn't have any loci belonging to it.  Profiles can not be entered )
+		  . qq(until there is at least one locus defined.</p></div>);
+		return;
+	}
+	my $profile_data =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT * FROM profiles WHERE scheme_id=? AND profile_id=?", [ $scheme_id, $profile_id ], { fetch => 'row_hashref' } );
 	if ( !$profile_data->{'profile_id'} ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No profile from scheme $scheme_id ($scheme_info->{'description'}) with profile_id "
-		  . "= '$profile_id' exists.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>No profile from scheme $scheme_id ($scheme_info->{'description'}) with profile_id )
+		  . qq(= '$profile_id' exists.</p></div>);
 		return;
 	}
-	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-	my $allele_qry    = "SELECT allele_id FROM profile_members WHERE scheme_id=? AND locus=? AND profile_id=?";
-	my $allele_sql    = $self->{'db'}->prepare($allele_qry);
 	my $allele_data;
 	foreach my $locus (@$loci) {
-		eval { $allele_sql->execute( $scheme_id, $locus, $profile_id ) };
-		if ($@) {
-			$logger->error("Can't execute allele check");
-		} else {
-			( $allele_data->{$locus} ) = $allele_sql->fetchrow_array;
-		}
+		$allele_data->{$locus} = $self->{'datastore'}->run_query(
+			"SELECT allele_id FROM profile_members WHERE scheme_id=? AND locus=? AND profile_id=?",
+			[ $scheme_id, $locus, $profile_id ],
+			{ cache => 'CurateProfileUpdatePage::print_content::alleles' }
+		);
 	}
-	my $field_qry = "SELECT value FROM profile_fields WHERE scheme_id=? AND scheme_field=? AND profile_id=?";
-	my $field_sql = $self->{'db'}->prepare($field_qry);
 	my $field_data;
 	foreach my $field (@$scheme_fields) {
-		eval { $field_sql->execute( $scheme_id, $field, $profile_id ) };
-		if ($@) {
-			$logger->error("Can't execute field check");
-		} else {
-			( $field_data->{$field} ) = $field_sql->fetchrow_array;
-		}
-	}
-	my $primary_key;
-	eval {
-		$primary_key =
-		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )->[0];
-	};
-	if ( !$primary_key ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>This scheme doesn't have a primary key field defined.  Profiles can not be entered "
-		  . "until this has been done.</p></div>";
-		return;
-	} elsif ( !@$loci ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>This scheme doesn't have any loci belonging to it.  Profiles can not be entered "
-		  . "until there is at least one locus defined.</p></div>";
-		return;
+		$field_data->{$field} = $self->{'datastore'}->run_query(
+			"SELECT value FROM profile_fields WHERE scheme_id=? AND scheme_field=? AND profile_id=?",
+			[ $scheme_id, $field, $profile_id ],
+			{ cache => 'CurateProfileUpdatePage::print_content::fields' }
+		);
 	}
 	my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
 	my $args = {

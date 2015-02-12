@@ -101,7 +101,7 @@ sub _print_isolate_field {
 	  defined $metaset
 	  ? "SELECT COUNT(DISTINCT $metafield) FROM meta_$metaset WHERE isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})"
 	  : "SELECT COUNT(DISTINCT $field) FROM $self->{'system'}->{'view'}";
-	my $unique = $self->{'datastore'}->run_simple_query($unique_qry)->[0];
+	my $unique = $self->{'datastore'}->run_query($unique_qry);
 	say qq(<tr class="td1"><th style="text-align:right">Data type</th><td style="text-align:left">)
 	  . ( $type{ $attributes->{'type'} } || $attributes->{'type'} )
 	  . "</td></tr>";

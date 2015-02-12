@@ -1173,11 +1173,9 @@ sub drop_scheme_view {
 	eval {
 		$self->{'db'}->do($qry);
 		if ( $self->{'system'}->{'materialized_views'} && $self->{'system'}->{'materialized_views'} eq 'yes' ) {
-			my $view_exists_ref =
-			  $self->{'datastore'}
-			  ->run_simple_query( "SELECT 1 WHERE EXISTS(SELECT * FROM matviews WHERE v_name = ?)", "scheme_$scheme_id" );
-			$self->{'db'}->do("SELECT drop_matview('mv_scheme_$scheme_id')")
-			  if ref $view_exists_ref eq 'ARRAY' && $view_exists_ref->[0];
+			my $view_exists =
+			  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM matviews WHERE v_name=?)", "scheme_$scheme_id" );
+			$self->{'db'}->do("SELECT drop_matview('mv_scheme_$scheme_id')") if $view_exists;
 		}
 	};
 	$logger->error($@) if $@;

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -150,12 +150,12 @@ sub _print_download_section {
 	my $q                   = $self->{'cgi'};
 	my $seq_download_buffer = '';
 	my $scheme_buffer       = '';
-	my $group_count         = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM scheme_groups")->[0];
+	my $group_count         = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM scheme_groups");
 	if ( !( $self->{'system'}->{'disable_seq_downloads'} && $self->{'system'}->{'disable_seq_downloads'} eq 'yes' ) || $self->is_admin ) {
 		$seq_download_buffer =
-		    "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles"
+		    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles)
 		  . ( $group_count ? '&amp;tree=1' : '' )
-		  . "\">Allele sequences</a></li>\n";
+		  . qq(">Allele sequences</a></li>\n);
 	}
 	my $first = 1;
 	my $i     = 0;
@@ -228,30 +228,28 @@ sub _print_general_info_section {
 		if ( @$scheme_data == 1 ) {
 			foreach (@$scheme_data) {
 				my $profile_count =
-				  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM profiles WHERE scheme_id=?", $scheme_data->[0]->{'id'} )
-				  ->[0];
+				  $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM profiles WHERE scheme_id=?", $scheme_data->[0]->{'id'} );
 				say "<li>Number of profiles ($scheme_data->[0]->{'description'}): $profile_count</li>";
 			}
 		} elsif ( @$scheme_data > 1 ) {
 			say "<li>Number of profiles: <a id=\"toggle1\" class=\"showhide\">Show</a>";
 			say "<a id=\"toggle2\" class=\"hideshow\">Hide</a><div class=\"hideshow\"><ul>";
 			foreach (@$scheme_data) {
-				my $profile_count =
-				  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM profiles WHERE scheme_id=?", $_->{'id'} )->[0];
+				my $profile_count = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM profiles WHERE scheme_id=?", $_->{'id'} );
 				$_->{'description'} =~ s/\&/\&amp;/g;
 				say "<li>$_->{'description'}: $profile_count</li>";
 			}
 			say "</ul></div></li>";
 		}
 	} else {
-		my $isolate_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}")->[0];
+		my $isolate_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
 		my @tables        = qw (isolates isolate_aliases allele_designations allele_sequences refs);
 		$max_date = $self->_get_max_date( \@tables );
 		print "<li>Isolates: $isolate_count</li>";
 	}
 	say "<li>Last updated: $max_date</li>" if $max_date;
 	my $history_table = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'history' : 'profile_history';
-	my $history_exists = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT * FROM $history_table)")->[0];
+	my $history_exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $history_table)");
 	say "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$history_table&amp;"
 	  . "order=timestamp&amp;direction=descending&amp;submit=1$set_string\">"
 	  . ( $self->{'system'}->{'dbtype'} eq 'sequences' ? 'Profile u' : 'U' )
@@ -302,9 +300,9 @@ sub _print_plugin_section {
 sub _get_max_date {
 	my ( $self, $tables ) = @_;
 	local $" = ' UNION SELECT MAX(datestamp) FROM ';
-	my $qry          = "SELECT MAX(max_datestamp) FROM (SELECT MAX(datestamp) AS max_datestamp FROM @$tables) AS v";
-	my $max_date_ref = $self->{'datastore'}->run_simple_query($qry);
-	return ref $max_date_ref eq 'ARRAY' ? $max_date_ref->[0] : undef;
+	my $qry      = "SELECT MAX(max_datestamp) FROM (SELECT MAX(datestamp) AS max_datestamp FROM @$tables) AS v";
+	my $max_date = $self->{'datastore'}->run_query($qry);
+	return $max_date;
 }
 
 sub get_title {
@@ -321,6 +319,6 @@ sub _get_allele_count {
 	  ? " WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
 	  . "set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id)"
 	  : '';
-	return $self->{'datastore'}->run_simple_query("SELECT COUNT (*) FROM sequences$set_clause")->[0];
+	return $self->{'datastore'}->run_query("SELECT COUNT (*) FROM sequences$set_clause");
 }
 1;

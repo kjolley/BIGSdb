@@ -213,17 +213,17 @@ sub _print_allele_status_fieldset {
 sub _print_tag_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	return if !$self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT * FROM allele_sequences)")->[0];
+	return if !$self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM allele_sequences)");
 	my ( $locus_list, $locus_labels ) = $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
 	if (@$locus_list) {
 		my $display = $q->param('no_js') ? 'block' : 'none';
-		say "<fieldset id=\"tag_fieldset\" style=\"float:left;display:$display\">";
+		say qq(<fieldset id="tag_fieldset" style="float:left;display:$display">);
 		say "<legend>Tagged sequence status</legend><div>";
 		my $locus_tag_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('tags') || 1 );
 		my $locus_tags_heading = $locus_tag_fields == 1 ? 'none' : 'inline';
-		say "<span id=\"locus_tags_heading\" style=\"display:$locus_tags_heading\"><label for=\"designation_andor\">Combine with: </label>";
+		say qq(<span id="locus_tags_heading" style="display:$locus_tags_heading"><label for="designation_andor">Combine with: </label>);
 		say $q->popup_menu( -name => 'tag_andor', -id => 'tag_andor', -values => [qw (AND OR)] );
-		say "</span>\n<ul id=\"tags\">";
+		say qq(</span>\n<ul id="tags">);
 
 		for ( 1 .. $locus_tag_fields ) {
 			say "<li>";
@@ -329,7 +329,7 @@ sub _print_filter_fieldset {
 	push @filters, $buffer if $buffer;
 	my $profile_filters = $self->_get_profile_filters;
 	push @filters, @$profile_filters;
-	my $linked_seqs = $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT id FROM sequence_bin)")->[0];
+	my $linked_seqs = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM sequence_bin)");
 	if ($linked_seqs) {
 		my @values = ( 'Any sequence data', 'No sequence data' );
 		if ( $self->{'system'}->{'seqbin_size_threshold'} ) {
