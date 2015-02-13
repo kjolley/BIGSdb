@@ -239,7 +239,7 @@ sub _update {
 				}
 			};
 			if ($@) {
-				say qq(<div class="box" id="statusbad"><p>Update failed - transaction cancelled - " . "no records have been touched.</p>);
+				say qq(<div class="box" id="statusbad"><p>Update failed - transaction cancelled - no records have been touched.</p>);
 				if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
 					say "<p>Data update would have resulted in records with either duplicate ids or "
 					  . "another unique field with duplicate values.</p>";
@@ -287,6 +287,7 @@ sub _prepare_metaset_updates {
 		}
 		foreach my $field (@$fields) {
 			my $cleaned = $self->clean_value( $newdata->{"meta_$metaset:$field"}, { no_escape => 1 } );
+			$cleaned = undef if $cleaned eq '';
 			push @values, $cleaned;
 			push @$updated_field,
 			  "$field: '" . $existing_data->{ lc("meta_$metaset:$field") } . "' -> '" . $newdata->{"meta_$metaset:$field"} . "'";
