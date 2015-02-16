@@ -290,7 +290,7 @@ sub _check {
 					eval { $sql2->execute(@args) };
 					$logger->error($@) if $@;
 					my @old_values;
-					while ( my $value = $sql2->fetchrow_array ) {
+					while ( my ($value) = $sql2->fetchrow_array ) {
 						push @old_values, $value;
 					}
 					no warnings 'numeric';
