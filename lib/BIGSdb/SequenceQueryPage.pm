@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -996,9 +996,12 @@ sub _cleanup_alignment {
 sub _data_linked_to_locus {
 	my ( $self, $locus, $table ) = @_;    #Locus is value defined in drop-down box - may be a scheme or 0 for all loci.
 	my $qry;
-	if ( $locus eq '0' ) { $qry = "SELECT EXISTS (SELECT * FROM $table)" }
-	elsif ( $locus =~ /SCHEME_(\d+)/ ) {
-		$qry = "SELECT EXISTS (SELECT * FROM $table WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id=$1))";
+	my $values = [];
+	if ( $locus eq '0' ) {
+		$qry = "SELECT EXISTS (SELECT * FROM $table)";
+	} elsif ( $locus =~ /SCHEME_(\d+)/ ) {
+		$qry = "SELECT EXISTS (SELECT * FROM $table WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id=?))";
+		push @$values, $1;
 	} elsif ( $locus =~ /GROUP_(\d+)/ ) {
 		my $set_id = $self->get_set_id;
 		my $group_schemes = $self->{'datastore'}->get_schemes_in_group( $1, { set_id => $set_id } );
@@ -1006,9 +1009,9 @@ sub _data_linked_to_locus {
 		$qry = "SELECT EXISTS (SELECT * FROM $table WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id "
 		  . "IN (@$group_schemes)))";
 	} else {
-		$locus =~ s/'/\\'/g;
-		$qry = "SELECT EXISTS (SELECT * FROM $table WHERE locus=E'$locus')";
+		$qry = "SELECT EXISTS (SELECT * FROM $table WHERE locus=?)";
+		push @$values, $locus;
 	}
-	return $self->{'datastore'}->run_simple_query($qry)->[0];
+	return $self->{'datastore'}->run_query( $qry, $values );
 }
 1;

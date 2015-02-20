@@ -250,7 +250,7 @@ sub _get_history {
 		#need to count total
 		$count =
 		  $self->{'datastore'}
-		  ->run_simple_query( "SELECT COUNT(*) FROM profile_history WHERE scheme_id=? AND profile_id=?", $scheme_id, $profile_id )->[0];
+		  ->run_query( "SELECT COUNT(*) FROM profile_history WHERE scheme_id=? AND profile_id=?", [ $scheme_id, $profile_id ] );
 	} else {
 		$count = @history;
 	}
@@ -301,7 +301,7 @@ sub get_title {
 	}
 	my $title = "Profile information";
 	$title .= ": $scheme_info->{'primary_key'}-$profile_id" if $scheme_info->{'primary_key'} && defined $profile_id;
-	$title .= " ($scheme_info->{'description'})"            if defined $scheme_info;
+	$title .= " ($scheme_info->{'description'})"            if $scheme_info->{'description'};
 	$title .= ' - ';
 	$title .= "$self->{'system'}->{'description'}";
 	return $title;
@@ -317,8 +317,8 @@ sub get_link_button_to_ref {
 	my $q = $self->{'cgi'};
 	$buffer .= $q->start_form( -style => "display:inline" );
 	$q->param( curate => 1 ) if $self->{'curate'};
-	$q->param( pmid => $ref );
-	$q->param( page => 'pubquery' );
+	$q->param( pmid   => $ref );
+	$q->param( page   => 'pubquery' );
 	$buffer .= $q->hidden($_) foreach qw (db pmid page curate scheme_id);
 	my $plural = $count == 1 ? '' : 's';
 	$buffer .= $q->submit( -value => "$count profile$plural", -class => 'smallbutton' );

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -158,7 +158,8 @@ sub get_appropriate_plugin_names {
 			&& ( !$q->param('page') || $q->param('page') eq 'index' )
 			&& ( $attr->{'max'} || $attr->{'min'} ) )
 		{
-			my $isolates = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}")->[0];
+			my $isolates = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM $self->{'system'}->{'view'}",
+				undef, { cache => 'PluginManager::get_appropriate_plugin_names' } );
 			next if $attr->{'max'} && $isolates > $attr->{'max'};
 			next if $attr->{'min'} && $isolates < $attr->{'min'};
 		}

@@ -208,13 +208,10 @@ sub _print_scheme_fields {
 sub _get_select_items {
 	my ( $self, $scheme_id ) = @_;
 	my ( @selectitems, @orderitems, %cleaned );
-	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $primary_key;
-	eval {
-		$primary_key =
-		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )->[0];
-	};
-	if ($@) {
+	my $loci        = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $primary_key = $scheme_info->{'primary_key'};
+	if ( !defined $primary_key ) {
 		$logger->error("No primary key - this should not have been called.");
 		return;
 	}
@@ -250,7 +247,7 @@ sub _run_query {
 	my @errors;
 	my $scheme_id   = BIGSdb::Utils::is_int( $q->param('scheme_id') ) ? $q->param('scheme_id') : 0;
 	my $loci        = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	if ( !defined $q->param('query_file') ) {
 		my $scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
 		$qry = "SELECT * FROM $scheme_view WHERE (";
@@ -312,8 +309,7 @@ sub _run_query {
 			}
 		}
 		$qry .= ')';
-		my $primary_key =
-		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )->[0];
+		my $primary_key = $scheme_info->{'primary_key'};
 		if ( defined $q->param('publication_list') && $q->param('publication_list') ne '' ) {
 			my $pmid = $q->param('publication_list');
 			my $ids  = $self->{'datastore'}->run_query(

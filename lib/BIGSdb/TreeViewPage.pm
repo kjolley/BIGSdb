@@ -373,8 +373,7 @@ sub _data_not_in_scheme_present {
 	  : "SELECT locus FROM scheme_members";
 	my $designations =
 	  $self->{'datastore'}
-	  ->run_simple_query( "SELECT EXISTS(SELECT * FROM allele_designations WHERE isolate_id=? AND locus NOT IN ($set_clause))",
-		$isolate_id )->[0];
+	  ->run_query( "SELECT EXISTS(SELECT * FROM allele_designations WHERE isolate_id=? AND locus NOT IN ($set_clause))", $isolate_id );
 	return 1 if $designations;
 	my $sequences =
 	  $self->{'datastore'}

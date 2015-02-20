@@ -97,7 +97,7 @@ s/ORDER BY \S+\.allele_id(.*)/ORDER BY \(case when $table.allele_id ~ '^[0-9]+\$
 		}
 		$qrycount =~ s/SELECT \*/SELECT COUNT \(\*\)/;
 		$qrycount =~ s/ORDER BY.*//;
-		$records = $self->{'datastore'}->run_simple_query($qrycount)->[0];
+		$records = $self->{'datastore'}->run_query($qrycount);
 	}
 	$q->param( query_file  => $passed_qry_file );
 	$q->param( currentpage => $currentpage );
@@ -262,10 +262,10 @@ sub _print_delete_all_function {
 }
 
 sub _print_link_seq_to_experiment_function {
-	my ($self)      = @_;
-	my $q           = $self->{'cgi'};
-	my $experiments = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM experiments")->[0];
-	if ($experiments) {
+	my ($self)            = @_;
+	my $q                 = $self->{'cgi'};
+	my $experiments_exist = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM experiments)");
+	if ($experiments_exist) {
 		print "<fieldset><legend>Experiments</legend>\n";
 		print $q->start_form;
 		$q->param( page => 'linkToExperiment' );
@@ -829,48 +829,45 @@ sub _print_profile_table {
 		$logger->warn("Can't execute query $qry_limit  $@");
 		return;
 	}
-	my $primary_key;
-	eval {
-		$primary_key =
-		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )->[0];
-	};
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $primary_key = $scheme_info->{'primary_key'};
 	if ( !$primary_key ) {
-		print
-"<div class=\"box\" id=\"statusbad\"><p>No primary key field has been set for this scheme.  Profile browsing can not be done until this has been set.</p></div>\n";
+		say qq(<div class="box" id="statusbad"><p>No primary key field has been set for this scheme.  Profile browsing can not be done )
+		  . qq(until this has been set.</p></div>);
 		return;
 	}
-	print "<div class=\"box\" id=\"resultstable\"><div class=\"scrollable\"><table class=\"resultstable\">\n<tr>";
-	print "<th>Delete</th><th>Update</th>" if $self->{'curate'};
-	print "<th>$primary_key</th>";
+	say qq(<div class="box" id="resultstable"><div class="scrollable"><table class="resultstable"><tr>);
+	say "<th>Delete</th><th>Update</th>" if $self->{'curate'};
+	say "<th>$primary_key</th>";
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	foreach (@$loci) {
 		my $cleaned = $self->clean_locus($_);
-		print "<th>$cleaned</th>";
+		say "<th>$cleaned</th>";
 	}
 	foreach (@$scheme_fields) {
 		next if $primary_key eq $_;
 		my $cleaned = $_;
 		$cleaned =~ tr/_/ /;
-		print "<th>$cleaned</th>";
+		say "<th>$cleaned</th>";
 	}
-	print "</tr>";
+	say "</tr>";
 	my $td = 1;
 
 	#Run limited page query for display
 	while ( my $data = $limit_sql->fetchrow_hashref ) {
 		my $pk_value     = $data->{ lc($primary_key) };
 		my $profcomplete = 1;
-		print "<tr class=\"td$td\">";
+		print qq(<tr class="td$td">);
 		if ( $self->{'curate'} ) {
-			print "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=delete&amp;table=profiles&amp;"
-			  . "scheme_id=$scheme_id&amp;profile_id=$pk_value\">Delete</a></td><td><a href=\"$self->{'system'}->{'script_name'}?"
-			  . "db=$self->{'instance'}&amp;page=profileUpdate&amp;scheme_id=$scheme_id&amp;profile_id=$pk_value\">Update</a></td>";
-			print "<td><a href=\"$self->{'system'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;scheme_id=$scheme_id"
-			  . "&amp;profile_id=$pk_value&amp;curate=1\">$pk_value</a></td>";
+			say qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=delete&amp;table=profiles&amp;)
+			  . qq(scheme_id=$scheme_id&amp;profile_id=$pk_value">Delete</a></td><td><a href="$self->{'system'}->{'script_name'}?)
+			  . qq(db=$self->{'instance'}&amp;page=profileUpdate&amp;scheme_id=$scheme_id&amp;profile_id=$pk_value">Update</a></td>);
+			say qq(<td><a href="$self->{'system'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;scheme_id=$scheme_id)
+			  . qq(&amp;profile_id=$pk_value&amp;curate=1">$pk_value</a></td>);
 		} else {
-			print "<td><a href=\"$self->{'system'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;"
-			  . "scheme_id=$scheme_id&amp;profile_id=$pk_value\">$pk_value</a></td>";
+			say qq(<td><a href="$self->{'system'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;)
+			  . qq(scheme_id=$scheme_id&amp;profile_id=$pk_value">$pk_value</a></td>);
 		}
 		foreach (@$loci) {
 			( my $cleaned = $_ ) =~ s/'/_PRIME_/g;
@@ -883,11 +880,11 @@ sub _print_profile_table {
 		print "</tr>\n";
 		$td = $td == 1 ? 2 : 1;
 	}
-	print "</table></div>\n\n";
+	say "</table></div>";
 	if ( !$self->{'curate'} ) {
 		$self->_print_plugin_buttons($records);
 	}
-	print "</div>\n";
+	say "</div>";
 	$sql->finish if $sql;
 	return;
 }
@@ -1363,10 +1360,7 @@ sub _is_scheme_data_present {
 
 sub _data_linked_to_locus {
 	my ( $self, $locus ) = @_;
-	my $qry;
-	$locus =~ s/'/\\'/g;
-	$qry = "SELECT EXISTS (SELECT * FROM client_dbase_loci_fields WHERE locus=E'$locus')";
-	return $self->{'datastore'}->run_simple_query($qry)->[0];
+	return $self->{'datastore'}->run_query( "SELECT EXISTS (SELECT * FROM client_dbase_loci_fields WHERE locus=?)", $locus );
 }
 
 sub _initiate_urls_for_loci {

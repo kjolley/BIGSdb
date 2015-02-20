@@ -1654,11 +1654,12 @@ sub run_query {
 	return;
 }
 
-sub run_simple_query {
+sub run_simple_query {                                                                    #TODO remove method
 
 	#Deprecated!  Use run_query instead.
 	#runs simple query (single row returned) against current database
 	my ( $self, $qry, @values ) = @_;
+	$logger->logcarp("Datastore::run_simple_query is deprecated! Use Datastore::run_query instead.");
 	$logger->debug("Query: $qry");
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute(@values) };
@@ -1667,7 +1668,7 @@ sub run_simple_query {
 	return $data;
 }
 
-sub run_list_query {    #TODO remove method
+sub run_list_query {                                                                                     #TODO remove method
 
 	#Deprecated!  Use run_query instead.
 	#runs query against current database (multiple row of single value returned)
