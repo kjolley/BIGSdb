@@ -877,7 +877,7 @@ sub _extract_cds_details {
 	my ( $locus_name, $length, $start, $desc );
 	my @aliases;
 	my $locus;
-	foreach (qw (gene gene_synonym locus_tag old_locus_tag)) {
+	foreach (qw (locus_tag gene gene_synonym old_locus_tag)) {
 		my @values = $cds->has_tag($_) ? $cds->get_tag_values($_) : ();
 		foreach my $value (@values) {
 			if ($locus) {
