@@ -180,6 +180,7 @@ sub _print_table_fields {
 	say $q->popup_menu( -name => "y$row", -values => [OPERATORS] );
 	say $q->textfield( -name => "t$row", -class => 'value_entry' );
 	if ( $row == 1 ) {
+		$locus //= '';
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_table_fields" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=alleleQuery&amp;locus=$locus&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>);

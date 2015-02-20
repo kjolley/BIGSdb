@@ -393,7 +393,8 @@ sub _run_query {
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my $set_id     = $self->get_set_id;
 	my ( undef, undef, $order_by, undef ) = $self->_get_select_items($table);
-	$q->delete('order') if none { $q->param('order') eq $_ } @$order_by;    #Sanitize to prevent SQL injection attempts.
+	$q->delete('order')
+	  if defined $q->param('order') && none { $q->param('order') eq $_ } @$order_by;   #Sanitize to prevent SQL injection attempts.
 
 	if ( !defined $q->param('query_file') ) {
 		my $andor       = $q->param('c0');
