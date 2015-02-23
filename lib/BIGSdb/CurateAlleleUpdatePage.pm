@@ -221,7 +221,6 @@ sub _update {
 		  $self->{'datastore'}
 		  ->run_query( "SELECT EXISTS (SELECT * FROM allele_designations WHERE isolate_id=? AND locus=? AND allele_id=?)",
 			[ $isolate_id, $locus, $newdata->{'allele_id'} ] );
-		$logger->error($allele_id_exists);
 		if ($allele_id_exists) {
 			push @problems, "Allele designation '$newdata->{'allele_id'}' already exists.\n";
 		}
