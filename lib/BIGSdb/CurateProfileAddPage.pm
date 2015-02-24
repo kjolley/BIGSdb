@@ -241,7 +241,7 @@ sub profile_exists {
 		my $locus_count = @locus_temp;
 		my $matching_profiles =
 		  $self->{'datastore'}->run_query( $qry, \@values,
-			{ fetch => 'col_arrayref', cache => "CurateProfileAddPage:profile_exists::$scheme_id::$locus_count" } );
+			{ fetch => 'col_arrayref', cache => "CurateProfileAddPage:profile_exists::${scheme_id}::$locus_count" } );
 		$newdata->{"field:$primary_key"} //= '';
 		if ( @$matching_profiles && !( @$matching_profiles == 1 && $matching_profiles->[0] eq $newdata->{"field:$primary_key"} ) ) {
 			if ( @locus_temp < @$loci ) {
