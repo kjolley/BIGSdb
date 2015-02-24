@@ -693,7 +693,7 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON set_schemes TO apache;
 -- Snapshot materialized view SQL written by Jonathan Gardner
 -- http://tech.jonathangardner.net/wiki/PostgreSQL/Materialized_Views
 
-CREATE LANGUAGE 'plpgsql';
+CREATE OR REPLACE LANGUAGE 'plpgsql';
 
 CREATE TABLE matviews (
   mv_name NAME NOT NULL PRIMARY KEY,
