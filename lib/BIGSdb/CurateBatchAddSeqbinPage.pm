@@ -24,6 +24,7 @@ use parent qw(BIGSdb::CurateAddPage BIGSdb::SeqbinPage);
 use Log::Log4perl qw(get_logger);
 use constant MAX_UPLOAD_SIZE => 32 * 1024 * 1024;    #32Mb
 my $logger = get_logger('BIGSdb.Page');
+use Bio::DB::GenBank;
 use Error qw(:try);
 use BIGSdb::Page 'SEQ_METHODS';
 
@@ -54,6 +55,23 @@ sub print_content {
 			unlink $full_path;
 			$self->_check_data( \$sequence );
 		}
+	} elsif ( $q->param('accession') ) {
+		try {
+			my $acc_seq_ref = $self->_upload_accession;
+			if ($acc_seq_ref) {
+				$self->_check_data($acc_seq_ref);
+			}
+		}
+		catch BIGSdb::DataException with {
+			my $err = shift;
+			$logger->debug($err);
+			if ( $err eq 'INVALID_ACCESSION' ) {
+				say qq(<div class="box" id="statusbad"><p>Accession is invalid.</p></div>);
+			} elsif ( $err eq 'NO_DATA' ) {
+				say qq(<div class="box" id="statusbad"><p>The accession is valid but it contains no sequence data.</p></div>);
+			}
+			$self->_print_interface;
+		};
 	} else {
 		$self->_print_interface;
 	}
@@ -189,6 +207,11 @@ HTML
 	say "Select FASTA file:<br />";
 	say $q->filefield( -name => 'fasta_upload', -id => 'fasta_upload' );
 	say "</fieldset>";
+	if ( ( $self->{'config'}->{'intranet'} // '' ) ne 'yes' ) {
+		say qq(<fieldset style="float:left"><legend>or enter Genbank accession</legend>);
+		say $q->textfield( -name => 'accession' );
+		say '</fieldset>';
+	}
 	my %args = defined $q->param('isolate_id') ? ( isolate_id => $q->param('isolate_id') ) : ();
 	$self->print_action_fieldset( \%args );
 	say $q->end_form;
@@ -529,6 +552,27 @@ sub _upload_fasta_file {
 	print $fh $buffer;
 	close $fh;
 	return "$temp\_upload.fas";
+}
+
+sub _upload_accession {
+	my ($self)    = @_;
+	my $accession = $self->{'cgi'}->param('accession');
+	my $seq_db    = Bio::DB::GenBank->new;
+	$seq_db->retrieval_type('tempfile');    #prevent forking resulting in duplicate error message on fail.
+	my $sequence;
+	try {
+		my $seq_obj = $seq_db->get_Seq_by_acc($accession);
+		$sequence = $seq_obj->seq;
+	}
+	catch Bio::Root::Exception with {
+		my $err = shift;
+		$logger->debug($err);
+		throw BIGSdb::DataException('INVALID_ACCESSION');
+	};
+	if ( !length($sequence) ) {
+		throw BIGSdb::DataException('NO_DATA');
+	}
+	return \">$accession\n$sequence";
 }
 
 sub get_javascript {
