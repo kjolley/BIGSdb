@@ -52,7 +52,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.7.1',
+		version     => '1.7.2',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -1642,7 +1642,7 @@ sub _scan_by_locus {
 				$args->{'word_size'},
 				$args->{'ref_seq_file'},
 				$args->{'isolate_fasta_ref'}->{$isolate_id},
-				$args->{'out_file'}, 'blastn'
+				$args->{'out_file'}, 'blastn', { max_target_seqs => 500 }
 			);
 		} else {
 			$self->_blast( 3, $args->{'ref_seq_file'}, $args->{'isolate_fasta_ref'}->{$isolate_id}, $args->{'out_file'}, 'blastx' );
@@ -2214,14 +2214,15 @@ sub _extract_sequence {
 }
 
 sub _blast {
-	my ( $self, $word_size, $fasta_file, $in_file, $out_file, $program ) = @_;
+	my ( $self, $word_size, $fasta_file, $in_file, $out_file, $program, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
 	my $filter = $program eq 'blastn' ? 'dust' : 'seg';
 	system(
 		"$self->{'config'}->{'blast+_path'}/$program",
 		(
 			-num_threads     => $blast_threads,
-			-max_target_seqs => 10,
+			-max_target_seqs => $options->{'max_target_seqs'} // 10,
 			-word_size       => $word_size,
 			-db              => $fasta_file,
 			-query           => $in_file,
