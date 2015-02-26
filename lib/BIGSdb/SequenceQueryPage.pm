@@ -23,8 +23,10 @@ use 5.010;
 use parent qw(BIGSdb::BlastPage);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any none);
+use BIGSdb::BIGSException;
 use IO::String;
 use Bio::SeqIO;
+use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
 use constant MAX_UPLOAD_SIZE => 32 * 1024 * 1024;    #32Mb
 
@@ -63,20 +65,17 @@ END
 	return $buffer;
 }
 
-sub print_content {
+sub _print_interface {
 	my ($self) = @_;
-	my $q      = $self->{'cgi'};
-	my $page   = $q->param('page');
+	my $q = $self->{'cgi'};
 	my $locus = $q->param('locus') // 0;
 	$locus =~ s/%27/'/g if $locus;    #Web-escaped locus
-	$q->param( 'locus', $locus );
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>This function is not available in isolate databases.</p></div>";
-		return;
-	}
+	$q->param( locus => $locus );
+	my $page   = $q->param('page');
 	my $desc   = $self->get_db_description;
 	my $set_id = $self->get_set_id;
 	if ( $locus && $q->param('simple') ) {
+
 		if ( $q->param('locus') =~ /^SCHEME_(\d+)$/ ) {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info($1);
 			$desc = $scheme_info->{'description'};
@@ -85,18 +84,18 @@ sub print_content {
 		}
 	}
 	say $page eq 'sequenceQuery' ? "<h1>Sequence query - $desc</h1>\n" : "<h1>Batch sequence query - $desc</h1>";
-	say "<div class=\"box\" id=\"queryform\">";
+	say qq(<div class="box" id="queryform">);
 	say "<p>Please paste in your sequence" . ( $page eq 'batchSequenceQuery' ? 's' : '' ) . " to query against the database.";
 	if ( !$q->param('simple') ) {
 		say " Query sequences will be checked first for an exact match against the chosen "
 		  . "(or all) loci - they do not need to be trimmed. The nearest partial matches will be identified if an exact "
 		  . "match is not found. You can query using either DNA or peptide sequences.";
-		say " <a class=\"tooltip\" title=\"Query sequence - Your query sequence is assumed to be DNA if it contains "
-		  . "90% or more G,A,T,C or N characters.\">&nbsp;<i>i</i>&nbsp;</a>";
+		say qq( <a class="tooltip" title=\"Query sequence - Your query sequence is assumed to be DNA if it contains )
+		  . qq(90% or more G,A,T,C or N characters.">&nbsp;<i>i</i>&nbsp;</a>);
 	}
 	say "</p>";
 	say $q->start_form;
-	say "<div class=\"scrollable\">";
+	say qq(<div class="scrollable">);
 	if ( !$q->param('simple') ) {
 		say "<fieldset><legend>Please select locus/scheme</legend>";
 		my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
@@ -124,24 +123,25 @@ sub print_content {
 		$q->param( 'order', 'locus' );
 		say $q->hidden($_) foreach qw(locus order simple);
 	}
-	say "<div style=\"clear:both\">";
-	say "<fieldset style=\"float:left\"><legend>"
+	say qq(<div style="clear:both">);
+	say qq(<fieldset style="float:left"><legend>)
 	  . (
 		$page eq 'sequenceQuery'
 		? 'Enter query sequence (single or multiple contigs up to whole genome in size)'
 		: 'Enter query sequences (FASTA format)'
 	  ) . "</legend>";
-	my $sequence;
-	if ( $q->param('sequence') ) {
-		$sequence = $q->param('sequence');
-		$q->param( 'sequence', '' );
-	}
 	say $q->textarea( -name => 'sequence', -rows => 6, -cols => 70 );
 	say "</fieldset>";
-	say "<fieldset style=\"float:left\">\n<legend>Alternatively upload FASTA file</legend>";
+	say qq(<fieldset style="float:left"><legend>Alternatively upload FASTA file</legend>);
 	say "Select FASTA file:<br />";
 	say $q->filefield( -name => 'fasta_upload', -id => 'fasta_upload' );
 	say "</fieldset>";
+
+	if ( $page eq 'sequenceQuery' && ( $self->{'config'}->{'intranet'} // '' ) ne 'yes' ) {
+		say qq(<fieldset style="float:left"><legend>or enter Genbank accession</legend>);
+		say $q->textfield( -name => 'accession' );
+		say '</fieldset>';
+	}
 	my $action_args;
 	$action_args->{'simple'} = 1       if $q->param('simple');
 	$action_args->{'set_id'} = $set_id if $set_id;
@@ -150,7 +150,22 @@ sub print_content {
 	say $q->hidden($_) foreach qw (db page word_size);
 	say $q->end_form;
 	say "</div>";
+	return;
+}
 
+sub print_content {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		say qq(<div class="box" id="statusbad"><p>This function is not available in isolate databases.</p></div>);
+		return;
+	}
+	my $sequence;
+	if ( $q->param('sequence') ) {
+		$sequence = $q->param('sequence');
+		$q->delete('sequence');
+	}
+	$self->_print_interface;
 	if ( $q->param('submit') ) {
 		if ($sequence) {
 			$self->_run_query( \$sequence );
@@ -163,6 +178,22 @@ sub print_content {
 				unlink $full_path;
 				$self->_run_query( \$sequence );
 			}
+		} elsif ( $q->param('accession') ) {
+			try {
+				my $acc_seq = $self->_upload_accession;
+				if ($acc_seq) {
+					$self->_run_query( \$acc_seq );
+				}
+			}
+			catch BIGSdb::DataException with {
+				my $err = shift;
+				$logger->debug($err);
+				if ( $err eq 'INVALID_ACCESSION' ) {
+					say qq(<div class="box" id="statusbad"><p>Accession is invalid.</p></div>);
+				} elsif ( $err eq 'NO_DATA' ) {
+					say qq(<div class="box" id="statusbad"><p>The accession is valid but it contains no sequence data.</p></div>);
+				}
+			};
 		}
 	}
 	return;
@@ -181,6 +212,27 @@ sub _upload_fasta_file {
 	print $fh $buffer;
 	close $fh;
 	return "$temp\_upload.fas";
+}
+
+sub _upload_accession {
+	my ($self)    = @_;
+	my $accession = $self->{'cgi'}->param('accession');
+	my $seq_db    = Bio::DB::GenBank->new;
+	$seq_db->retrieval_type('tempfile');    #prevent forking resulting in duplicate error message on fail.
+	my $sequence;
+	try {
+		my $seq_obj = $seq_db->get_Seq_by_acc($accession);
+		$sequence = $seq_obj->seq;
+	}
+	catch Bio::Root::Exception with {
+		my $err = shift;
+		$logger->debug($err);
+		throw BIGSdb::DataException('INVALID_ACCESSION');
+	};
+	if ( !length($sequence) ) {
+		throw BIGSdb::DataException('NO_DATA');
+	}
+	return $sequence;
 }
 
 sub _run_query {
