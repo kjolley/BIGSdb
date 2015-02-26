@@ -24,6 +24,7 @@ use parent qw(BIGSdb::BlastPage);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any none);
 use BIGSdb::BIGSException;
+use Bio::DB::GenBank;
 use IO::String;
 use Bio::SeqIO;
 use Error qw(:try);
