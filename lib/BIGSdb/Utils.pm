@@ -59,8 +59,8 @@ sub is_valid_DNA {
 
 sub sequence_type {
 	my ($seq) = @_;
-	my $AGTC_count = $seq =~ tr/[G|A|T|C|g|a|t|c|N|n]//;
-	return 'DNA' if !length $seq;
+	return 'DNA' if !$seq;
+	my $AGTC_count = $seq =~ tr/[G|A|T|C|g|a|t|c|N|n]//;	
 	return ( $AGTC_count / length $seq ) >= 0.9 ? 'DNA' : 'peptide';
 }
 
