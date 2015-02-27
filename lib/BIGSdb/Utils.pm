@@ -207,7 +207,7 @@ sub read_fasta {
 		throw BIGSdb::DataException("Not valid FASTA format.") if !$header;
 		my $temp_seq = uc($_);
 		$temp_seq =~ s/\s//g;
-		throw BIGSdb::DataException("Not valid DNA $header") if $temp_seq =~ /[^GATCBDHVRYKMSWN]/;
+		throw BIGSdb::DataException("Not valid DNA - $header") if $temp_seq =~ /[^GATCBDHVRYKMSWN]/;
 		$seqs{$header} .= $temp_seq;
 	}
 	return \%seqs;

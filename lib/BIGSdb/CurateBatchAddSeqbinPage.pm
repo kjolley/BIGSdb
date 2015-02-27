@@ -269,7 +269,7 @@ sub _check_data {
 			my $ex = shift;
 			if ( $ex =~ /DNA/ ) {
 				my $header;
-				if ( $ex =~ /DNA (.*)$/ ) {
+				if ( $ex =~ /DNA - (.*)$/ ) {
 					$header = $1;
 				}
 				say "<div class=\"box\" id=\"statusbad\"><p>FASTA data '$header' contains non-valid nucleotide characters.</p></div>";
@@ -447,17 +447,16 @@ sub _upload {
 	my $q        = $self->{'cgi'};
 	my $dir      = $self->{'config'}->{'secure_tmp_dir'};
 	my $tmp_file = $dir . '/' . $q->param('checked_buffer');
-	my @data;
+	my $fasta;
 	if ( -e $tmp_file ) {
 		open( my $file_fh, '<', $tmp_file ) or $logger->error("Can't open $tmp_file");
-		@data = <$file_fh>;
+		$fasta = do { local $/; <$file_fh> };    #slurp
 		close $file_fh;
 	}
-	local $" = "\n";
 	my $seq_ref;
 	my $continue = 1;
 	try {
-		$seq_ref = BIGSdb::Utils::read_fasta( \"@data" );
+		$seq_ref = BIGSdb::Utils::read_fasta( \$fasta );
 	}
 	catch BIGSdb::DataException with {
 		$logger->error("Invalid FASTA file");
