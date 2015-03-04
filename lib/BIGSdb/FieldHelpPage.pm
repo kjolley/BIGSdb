@@ -135,7 +135,7 @@ sub _print_isolate_field {
 	if ( $field eq 'sender' || $field eq 'curator' || ( $attributes->{'userfield'} && $attributes->{'userfield'} eq 'yes' ) ) {
 		my $filter = $field eq 'curator' ? "WHERE (status = 'curator' or status = 'admin') AND id>0" : 'WHERE id>0';
 		my $user_data = $self->{'datastore'}->run_query(
-			"SELECT id, user_name, surname, first_name, affiliation FROM users $filter "
+			"SELECT id, surname, first_name, affiliation FROM users $filter "
 			  . "AND id IN (SELECT $field FROM $self->{'system'}->{'view'}) ORDER BY id",
 			undef,
 			{ fetch => 'all_arrayref' }
@@ -147,15 +147,14 @@ sub _print_isolate_field {
 				$_ =~ s/\&/\&amp;/g;
 			}
 			$buffer .=
-			  qq(<tr><td>$data->[0]</td><td>$data->[1]</td><td>$data->[2]</td><td>$data->[3]</td><td align="left">$data->[4]</td></tr>\n);
+			  qq(<tr><td>$data->[0]</td><td>$data->[1]</td><td>$data->[2]</td><td style="text-align:left">$data->[3]</td></tr>\n);
 		}
 		if ($buffer) {
 			print "<p>The integer stored in this field is the key to the following users";
 			print " (only curators or administrators shown)" if $field eq 'curator';
 			say ". Only users linked to an isolate record are shown.</p>";
 			say qq(<table class="tablesorter" id="sortTable">);
-			say "<thead><tr><th>id</th><th>username</th><th>surname</th><th>first name</th>"
-			  . "<th>affiliation / collaboration</th></tr></thead><tbody>";
+			say "<thead><tr><th>id</th><th>surname</th><th>first name</th><th>affiliation / collaboration</th></tr></thead><tbody>";
 			say $buffer;
 			say "</tbody></table>";
 		} else {
