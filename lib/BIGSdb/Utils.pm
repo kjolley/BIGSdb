@@ -23,6 +23,7 @@ package BIGSdb::Utils;
 use strict;
 use warnings;
 use POSIX qw(ceil);
+use BIGSdb::BIGSException;
 use Bio::SeqIO;
 use Bio::SeqFeature::Generic;
 use Excel::Writer::XLSX;
