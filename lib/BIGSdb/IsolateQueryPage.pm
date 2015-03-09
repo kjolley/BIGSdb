@@ -1017,7 +1017,7 @@ sub _modify_query_for_filters {
 					  . "AND ($allele_clause) GROUP BY isolate_id )))";
 				}
 				if ( $qry !~ /WHERE \(\)\s*$/ ) {
-					$qry .= "AND $clause";
+					$qry .= " AND $clause";
 				} else {
 					$qry = "SELECT * FROM $view WHERE $clause";
 				}
