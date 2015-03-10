@@ -299,7 +299,7 @@ sub _print_scheme_table {
 	if (@$loci) {
 		$desc =~ s/\&/\&amp;/g;
 		say "<h2>$desc</h2>";
-		say "<table class=\"resultstable\">";
+		say qq(<div class="scrollable"><table class="resultstable">);
 		$self->_print_table_header_row(
 			{ descs_exist => $scheme_descs_exist, aliases_exist => $scheme_aliases_exist, curators_exist => $scheme_curators_exist } );
 		foreach my $locus (@$loci) {
@@ -316,7 +316,7 @@ sub _print_scheme_table {
 			);
 			$td = $td == 1 ? 2 : 1;
 		}
-		say "</table>";
+		say "</table></div>";
 	}
 	return;
 }

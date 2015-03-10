@@ -1608,10 +1608,9 @@ sub create_temp_ref_table {
 ##############SQL######################################################################
 sub run_query {
 
-	#Ultimately replace run_simple_query, run_simple_query_hashref, run_list_query_hashref and run_list_query
 	#$options->{'fetch'}: row_arrayref, row_array, row_hashref, col_arrayref, all_arrayref, all_hashref
 	#$options->{'cache'}: Name to cache the statement handle under.  Statement not cached if absent.
-	#$options->{'key'}:   Key field(s) to use for returning all as hashrefs.  Should be an arrayref.
+	#$options->{'key'}:   Key field(s) to use for returning all as hashrefs.  Should be an arrayref if more than one key.
 	#$options->{'slice'}: Slice to return for all_arrayrefs.
 	#$options->{'db}:     Database handle.  Only pass if not accessing the database defined in config.xml (e.g. refs)
 	my ( $self, $qry, $values, $options ) = @_;
@@ -1655,11 +1654,12 @@ sub run_query {
 	return;
 }
 
-sub run_simple_query {
+sub run_simple_query {                                                                    #TODO remove method
 
 	#Deprecated!  Use run_query instead.
 	#runs simple query (single row returned) against current database
 	my ( $self, $qry, @values ) = @_;
+	$logger->logcarp("Datastore::run_simple_query is deprecated! Use Datastore::run_query instead.");
 	$logger->debug("Query: $qry");
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute(@values) };
@@ -1668,18 +1668,19 @@ sub run_simple_query {
 	return $data;
 }
 
-sub run_list_query {
+sub run_list_query {                                                                                     #TODO remove method
 
 	#Deprecated!  Use run_query instead.
 	#runs query against current database (multiple row of single value returned)
 	my ( $self, $qry, @values ) = @_;
+	$logger->logcarp("Datastore::run_list_query is deprecated! Use Datastore::run_query instead.");
 	$logger->debug("Query: $qry");
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute(@values) };
 	$logger->logcarp("$qry $@") if $@;
 	my @list;
-	while ( ( my $data ) = $sql->fetchrow_array ) {
 
+	while ( ( my $data ) = $sql->fetchrow_array ) {
 		if ( defined $data && $data ne '-999' && $data ne '0001-01-01' ) {
 			push @list, $data;
 		}
@@ -1783,7 +1784,7 @@ sub get_set_metadata {
 	my ( $self, $set_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	if ($set_id) {
-		return $self->run_list_query( "SELECT metadata_id FROM set_metadata WHERE set_id=?", $set_id );
+		return $self->run_query( "SELECT metadata_id FROM set_metadata WHERE set_id=?", $set_id, { fetch => 'col_arrayref' } );
 	} elsif ( $options->{'curate'} ) {
 		return $self->{'xmlHandler'}->get_metadata_list;
 	}

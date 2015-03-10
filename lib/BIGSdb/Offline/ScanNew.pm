@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014, University of Oxford
+#Copyright (c) 2014-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -49,7 +49,7 @@ sub run_script {
 	}
 	my $isolates       = $self->get_isolates_with_linked_seqs;
 	my $isolate_list   = $self->filter_and_sort_isolates($isolates);
-	my $isolate_prefix = BIGSdb::Utils::get_random();
+	my $isolate_prefix = $self->{'options'}->{'prefix'} || BIGSdb::Utils::get_random();
 	my $locus_prefix   = BIGSdb::Utils::get_random();
 	$self->{'start_time'} = time;
 	my $first         = 1;
@@ -105,7 +105,8 @@ sub run_script {
 	}
 
 	#Delete isolate working files
-	$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$isolate_prefix*");
+	$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$isolate_prefix*")
+	  if !$self->{'options'}->{'prefix'};    #Only delete if single threaded (we'll delete when all threads finished in multithreaded).
 	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autodefiner stop");
 	return;
 }

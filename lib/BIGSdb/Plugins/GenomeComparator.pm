@@ -52,7 +52,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.7.1',
+		version     => '1.7.2',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -851,7 +851,13 @@ sub _analyse_by_reference {
 	$self->{'html_buffer'} .= "</table>";
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $self->{'html_buffer'} } );
 	if ( @cds > MAX_REF_LOCI ) {
-		throw BIGSdb::PluginException( "Too many loci in reference genome - limit is set at " . MAX_REF_LOCI . '.' );
+		my $max_upload_size = MAX_UPLOAD_SIZE / ( 1024 * 1024 );
+		throw BIGSdb::PluginException( "Too many loci in reference genome - limit is set at "
+			  . MAX_REF_LOCI
+			  . '.  Your uploaded reference contains '
+			  . ( scalar @cds )
+			  . " loci.  Please note also that the uploaded reference is limited to $max_upload_size MB (larger uploads will be "
+			  . "truncated)." );
 	}
 	$self->{'html_buffer'} .= "<h3>All loci</h3>\n";
 	$self->{'file_buffer'} .= "\n\nAll loci\n--------\n\n";
@@ -871,7 +877,7 @@ sub _extract_cds_details {
 	my ( $locus_name, $length, $start, $desc );
 	my @aliases;
 	my $locus;
-	foreach (qw (gene gene_synonym locus_tag old_locus_tag)) {
+	foreach (qw (locus_tag gene gene_synonym old_locus_tag)) {
 		my @values = $cds->has_tag($_) ? $cds->get_tag_values($_) : ();
 		foreach my $value (@values) {
 			if ($locus) {
@@ -884,6 +890,7 @@ sub _extract_cds_details {
 	local $" = ' | ';
 	$locus_name = $locus;
 	$locus_name .= " | @aliases" if @aliases;
+	return if $locus_name =~ /^Bio::PrimarySeq=HASH/;    #Invalid entry in reference file.
 	my $seq = $cds->seq->seq;
 	return if !$seq;
 	$$seqs_total_ref++;
@@ -1635,7 +1642,7 @@ sub _scan_by_locus {
 				$args->{'word_size'},
 				$args->{'ref_seq_file'},
 				$args->{'isolate_fasta_ref'}->{$isolate_id},
-				$args->{'out_file'}, 'blastn'
+				$args->{'out_file'}, 'blastn', { max_target_seqs => 500 }
 			);
 		} else {
 			$self->_blast( 3, $args->{'ref_seq_file'}, $args->{'isolate_fasta_ref'}->{$isolate_id}, $args->{'out_file'}, 'blastx' );
@@ -2207,14 +2214,15 @@ sub _extract_sequence {
 }
 
 sub _blast {
-	my ( $self, $word_size, $fasta_file, $in_file, $out_file, $program ) = @_;
+	my ( $self, $word_size, $fasta_file, $in_file, $out_file, $program, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
 	my $filter = $program eq 'blastn' ? 'dust' : 'seg';
 	system(
 		"$self->{'config'}->{'blast+_path'}/$program",
 		(
 			-num_threads     => $blast_threads,
-			-max_target_seqs => 10,
+			-max_target_seqs => $options->{'max_target_seqs'} // 10,
 			-word_size       => $word_size,
 			-db              => $fasta_file,
 			-query           => $in_file,

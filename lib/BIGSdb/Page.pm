@@ -840,8 +840,7 @@ sub print_file {
 			  . "WHERE set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 			  : '';
 			my $qry = "SELECT locus_curators.locus from locus_curators LEFT JOIN loci ON locus=id LEFT JOIN scheme_members on "
-			  . "loci.id = scheme_members.locus WHERE locus_curators.curator_id=? $set_clause ORDER BY scheme_members.scheme_id,locus_curators.locus"
-			  ;
+			  . "loci.id = scheme_members.locus WHERE locus_curators.curator_id=? $set_clause ORDER BY scheme_members.scheme_id,locus_curators.locus";
 			$loci = $self->{'datastore'}->run_query( $qry, $self->get_curator_id, { fetch => 'col_arrayref' } );
 		}
 		my $first = 1;
@@ -1004,7 +1003,9 @@ sub get_isolate_publication_filter {
 	if ( $self->{'config'}->{'ref_db'} ) {
 		my $view = $self->{'system'}->{'view'};
 		my $pmid =
-		  $self->{'datastore'}->run_list_query("SELECT DISTINCT(pubmed_id) FROM refs RIGHT JOIN $view ON refs.isolate_id = $view.id");
+		  $self->{'datastore'}
+		  ->run_query( "SELECT DISTINCT(pubmed_id) FROM refs RIGHT JOIN $view ON refs.isolate_id=$view.id WHERE pubmed_id IS NOT NULL",
+			undef, { fetch => 'col_arrayref' } );
 		my $buffer;
 		if (@$pmid) {
 			my $labels = $self->{'datastore'}->get_citation_hash($pmid);
@@ -1182,7 +1183,9 @@ sub get_set_id {
 	}
 	if ( ( $self->{'system'}->{'only_sets'} // '' ) eq 'yes' && !$self->{'curate'} ) {
 		if ( !$self->{'cache'}->{'set_list'} ) {
-			$self->{'cache'}->{'set_list'} = $self->{'datastore'}->run_list_query("SELECT id FROM sets ORDER BY display_order,description");
+			$self->{'cache'}->{'set_list'} =
+			  $self->{'datastore'}
+			  ->run_query( "SELECT id FROM sets ORDER BY display_order,description", undef, { fetch => 'col_arrayref' } );
 		}
 		return $self->{'cache'}->{'set_list'}->[0] if @{ $self->{'cache'}->{'set_list'} };
 	}
@@ -1815,7 +1818,7 @@ sub initiate_prefs {
 	#Set dropdown status for scheme fields
 	if ( $self->{'pref_requirements'}->{'query_field'} ) {
 		my $dbname                     = $self->{'system'}->{'db'};
-		my $scheme_ids                 = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+		my $scheme_ids                 = $self->{'datastore'}->run_query( "SELECT id FROM schemes", undef, { fetch => 'col_arrayref' } );
 		my $scheme_fields              = $self->{'datastore'}->get_all_scheme_fields;
 		my $scheme_field_default_prefs = $self->{'datastore'}->get_all_scheme_field_info;
 		foreach my $scheme_id (@$scheme_ids) {
@@ -1873,12 +1876,12 @@ sub _initiate_isolatedb_prefs {
 			}
 		}
 		$self->{'prefs'}->{'maindisplayfields'}->{'aliases'} = $params->{"field_aliases"} ? 1 : 0;
-		my $composites = $self->{'datastore'}->run_list_query("SELECT id FROM composite_fields");
+		my $composites = $self->{'datastore'}->run_query( "SELECT id FROM composite_fields", undef, { fetch => 'col_arrayref' } );
 		foreach (@$composites) {
 			$self->{'prefs'}->{'maindisplayfields'}->{$_} = $params->{"field_$_"} ? 1 : 0;
 		}
-		my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
 		$self->{'prefs'}->{'dropdownfields'}->{'Publications'} = $params->{"dropfield_Publications"} ? 1 : 0;
+		my $schemes = $self->{'datastore'}->run_query( "SELECT id FROM schemes", undef, { fetch => 'col_arrayref' } );
 		foreach (@$schemes) {
 			my $field = "scheme_$_\_profile_status";
 			$self->{'prefs'}->{'dropdownfields'}->{$field} = $params->{"dropfield_$field"} ? 1 : 0;
@@ -2002,7 +2005,7 @@ sub _initiate_isolatedb_prefs {
 			$i++;
 		}
 		return if none { $self->{'pref_requirements'}->{$_} } qw (isolate_display main_display query_field analysis);
-		my $scheme_ids                 = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+		my $scheme_ids = $self->{'datastore'}->run_query( "SELECT id FROM schemes", undef, { fetch => 'col_arrayref' } );
 		my $scheme_values              = $self->{'prefstore'}->get_all_scheme_prefs( $guid, $dbname );
 		my $scheme_field_default_prefs = $self->{'datastore'}->get_all_scheme_field_info;
 		my $scheme_info                = $self->{'datastore'}->get_all_scheme_info;

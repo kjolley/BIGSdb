@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -38,9 +38,10 @@ sub get_curator_name {
 	my ($self) = @_;
 	if ( $self->{'username'} ) {
 		my $qry = "SELECT first_name, surname FROM users WHERE user_name=?";
-		my $name = $self->{'datastore'}->run_simple_query( $qry, $self->{'username'} );
-		if ( ref $name eq 'ARRAY' ) {
-			return "$name->[0] $name->[1]";
+		my $name =
+		  $self->{'datastore'}->run_query( $qry, $self->{'username'}, { fetch => 'row_hashref', cache => 'CuratePage::get_curator_name' } );
+		if ($name) {
+			return "$name->{'first_name'} $name->{'surname'}";
 		}
 	} else {
 		return "unknown user";
@@ -268,8 +269,8 @@ sub _get_form_fields {
 					my $values;
 					if ( $att->{'foreign_key'} eq 'users' ) {
 						local $" = ',';
-						$qry    = "SELECT id FROM users WHERE id>0 ORDER BY @fields_to_query";
-						$values = $self->{'datastore'}->run_list_query($qry);
+						$qry = "SELECT id FROM users WHERE id>0 ORDER BY @fields_to_query";
+						$values = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 					} elsif ( $att->{'foreign_key'} eq 'loci' && $table ne 'set_loci' && $set_id ) {
 						( $values, $desc ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, no_list_by_common_name => 1 } );
 					} elsif ( $att->{'foreign_key'} eq 'schemes' && $table ne 'set_schemes' && $set_id ) {
@@ -277,8 +278,8 @@ sub _get_form_fields {
 						push @$values, $_->{'id'} foreach @$scheme_list;
 					} else {
 						local $" = ',';
-						$qry    = "SELECT id FROM $att->{'foreign_key'} ORDER BY @fields_to_query";
-						$values = $self->{'datastore'}->run_list_query($qry);
+						$qry = "SELECT id FROM $att->{'foreign_key'} ORDER BY @fields_to_query";
+						$values = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 					}
 					$values = [] if ref $values ne 'ARRAY';
 					$buffer .= $q->popup_menu(
@@ -429,25 +430,28 @@ sub _create_extra_fields_for_sequences {
 	my @default_pubmed;
 	my $default_databanks;
 	if ( $q->param('page') eq 'update' && $q->param('locus') ) {
-		my $pubmed_list =
-		  $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM sequence_refs WHERE locus=? AND allele_id=? ORDER BY pubmed_id",
-			$q->param('locus'), $q->param('allele_id') );
+		my $pubmed_list = $self->{'datastore'}->run_query(
+			"SELECT pubmed_id FROM sequence_refs WHERE locus=? AND allele_id=? ORDER BY pubmed_id",
+			[ $q->param('locus'), $q->param('allele_id') ],
+			{ fetch => 'col_arrayref' }
+		);
 		@default_pubmed = @$pubmed_list;
-		foreach (@databanks) {
-			my $list =
-			  $self->{'datastore'}
-			  ->run_list_query( "SELECT databank_id FROM accession WHERE locus=? AND allele_id=? AND databank=? ORDER BY databank_id",
-				$q->param('locus'), $q->param('allele_id'), $_ );
-			$default_databanks->{$_} = $list;
+		foreach my $databank (@databanks) {
+			my $list = $self->{'datastore'}->run_query(
+				"SELECT databank_id FROM accession WHERE locus=? AND allele_id=? AND databank=? ORDER BY databank_id",
+				[ $q->param('locus'), $q->param('allele_id'), $databank ],
+				{ fetch => 'col_arrayref' }
+			);
+			$default_databanks->{$databank} = $list;
 		}
 	}
-	$buffer .= "<li><label for=\"pubmed\" class=\"form\" style=\"width:${width}em\">PubMed ids:</label>";
+	$buffer .= qq(<li><label for="pubmed" class="form" style="width:${width}em">PubMed ids:</label>);
 	local $" = "\n";
 	$buffer .=
 	  $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@default_pubmed" );
 	$buffer .= "</li>\n";
 	foreach my $databank (@databanks) {
-		$buffer .= "<li><label for=\"databank_$databank\" class=\"form\" style=\"width:${width}em\">$databank ids:</label>";
+		$buffer .= qq(<li><label for="databank_$databank" class="form" style="width:${width}em">$databank ids:</label>);
 		my @default;
 		if ( ref $default_databanks->{$databank} eq 'ARRAY' ) {
 			@default = @{ $default_databanks->{$databank} };
@@ -463,15 +467,16 @@ sub _create_extra_fields_for_sequences {
 		$buffer .= "</li>\n";
 	}
 	if ( $q->param('locus') ) {
-		my $sql =
-		  $self->{'db'}->prepare( "SELECT field,description,value_format,required,length,option_list FROM "
-			  . "locus_extended_attributes WHERE locus=? ORDER BY field_order" );
-		my $locus = $q->param('locus');
-		eval { $sql->execute($locus) };
-		$logger->error($@) if $@;
-		while ( my ( $field, $desc, $format, $required, $length, $optlist ) = $sql->fetchrow_array ) {
-			$buffer .=
-			  "<li><label for=\"$field\" class=\"form\" style=\"width:${width}em\">$field:" . ( $required ? '!' : '' ) . "</label>\n";
+		my $locus   = $q->param('locus');
+		my $ext_att = $self->{'datastore'}->run_query(
+			"SELECT field,description,value_format,required,length,option_list FROM "
+			  . "locus_extended_attributes WHERE locus=? ORDER BY field_order",
+			$locus,
+			{ fetch => 'all_arrayref' }
+		);
+		foreach my $att (@$ext_att) {
+			my ( $field, $desc, $format, $required, $length, $optlist ) = @$att;
+			$buffer .= qq(<li><label for="$field" class="form" style="width:${width}em">$field:) . ( $required ? '!' : '' ) . "</label>\n";
 			$length = 12 if !$length;
 			my %html5_args;
 			$html5_args{'required'} = 'required' if $required;
@@ -532,10 +537,12 @@ sub _create_extra_fields_for_locus_descriptions {
 	my $buffer;
 	my @default_aliases;
 	if ( $q->param('page') eq 'update' && $locus ) {
-		my $alias_list = $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias", $locus );
+		my $alias_list =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias", $locus, { fetch => 'col_arrayref' } );
 		@default_aliases = @$alias_list;
 	}
-	$buffer .= "<li><label for=\"aliases\" class=\"form\" style=\"width:${width}em\">aliases:&nbsp;</label>";
+	$buffer .= qq(<li><label for="aliases" class="form" style="width:${width}em">aliases:&nbsp;</label>);
 	local $" = "\n";
 	$buffer .= $q->textarea( -name => 'aliases', -id => 'aliases', -rows => 2, -cols => 12, -default => "@default_aliases" );
 	$buffer .= "</li>\n";
@@ -543,22 +550,22 @@ sub _create_extra_fields_for_locus_descriptions {
 	my @default_pubmed;
 	if ( $q->param('page') eq 'update' && $locus ) {
 		my $pubmed_list =
-		  $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM locus_refs WHERE locus=? ORDER BY pubmed_id", $locus );
+		  $self->{'datastore'}
+		  ->run_query( "SELECT pubmed_id FROM locus_refs WHERE locus=? ORDER BY pubmed_id", $locus, { fetch => 'col_arrayref' } );
 		@default_pubmed = @$pubmed_list;
 	}
-	$buffer .= "<li><label for=\"pubmed\" class=\"form\" style=\"width:${width}em\">PubMed ids:&nbsp;</label>";
+	$buffer .= qq(<li><label for="pubmed" class="form" style="width:${width}em">PubMed ids:&nbsp;</label>);
 	$buffer .= $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -default => "@default_pubmed" );
 	$buffer .= "</li>\n";
 	my @default_links;
 	if ( $q->param('page') eq 'update' && $locus ) {
-		my $sql = $self->{'db'}->prepare("SELECT url,description FROM locus_links WHERE locus=? ORDER BY link_order");
-		eval { $sql->execute($locus) };
-		$logger->error($@) if $@;
-		while ( my ( $url, $desc ) = $sql->fetchrow_array ) {
-			push @default_links, "$url|$desc";
+		my $desc_data = $self->{'datastore'}->run_query( "SELECT url,description FROM locus_links WHERE locus=? ORDER BY link_order",
+			$locus, { fetch => 'all_arrayref', slice => {} } );
+		foreach my $data (@$desc_data) {
+			push @default_links, "$data->{'url'}|$data->{'description'}";
 		}
 	}
-	$buffer .= "<li><label for=\"links\" class=\"form\" style = \"width:${width}em\">links: <br /><span class=\"comment\">"
+	$buffer .= qq(<li><label for="links" class="form" style="width:${width}em">links: <br /><span class="comment">)
 	  . "(Format: URL|description)</span></label>";
 	$buffer .= $q->textarea( -name => 'links', -id => 'links', -rows => 3, -cols => 40, -default => "@default_links" );
 	$buffer .= "</li>";
@@ -645,50 +652,53 @@ sub check_record {
 	my ( @problems, @missing );
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my @primary_key_query;
-	foreach (@$attributes) {
-		next if $update && $_->{'user_update'} && $_->{'user_update'} eq 'no';
-		my $original_data = $newdata{ $_->{'name'} };
-		$newdata{ $_->{'name'} }            =~ s/'/\\'/g if defined $newdata{ $_->{'name'} };
-		$$allowed_valuesref{ $_->{'name'} } =~ s/'/\\'/g if defined $$allowed_valuesref{ $_->{'name'} };
-		if ( $_->{'name'} =~ /sequence$/ ) {
-			$newdata{ $_->{'name'} } = uc( $newdata{ $_->{'name'} } // '' );
-			$newdata{ $_->{'name'} } =~ s/\s//g;
+	foreach my $att (@$attributes) {
+		next if $update && $att->{'user_update'} && $att->{'user_update'} eq 'no';
+		my $original_data = $newdata{ $att->{'name'} };
+
+		#		$newdata{ $att->{'name'} }            =~ s/'/\\'/g if defined $newdata{ $att->{'name'} };
+		$$allowed_valuesref{ $att->{'name'} } =~ s/'/\\'/g if defined $$allowed_valuesref{ $att->{'name'} };
+		if ( $att->{'name'} =~ /sequence$/ ) {
+			$newdata{ $att->{'name'} } = uc( $newdata{ $att->{'name'} } // '' );
+			$newdata{ $att->{'name'} } =~ s/\s//g;
 		}
-		if ( $_->{'required'} eq 'yes' && ( !defined $newdata{ $_->{'name'} } || $newdata{ $_->{'name'} } eq '' ) ) {
-			push @missing, $_->{'name'};
-		} elsif ( $newdata{ $_->{'name'} }
-			&& $_->{'type'} eq 'int'
-			&& !BIGSdb::Utils::is_int( $newdata{ $_->{'name'} } ) )
+		if ( $att->{'required'} eq 'yes' && ( !defined $newdata{ $att->{'name'} } || $newdata{ $att->{'name'} } eq '' ) ) {
+			push @missing, $att->{'name'};
+		} elsif ( $newdata{ $att->{'name'} }
+			&& $att->{'type'} eq 'int'
+			&& !BIGSdb::Utils::is_int( $newdata{ $att->{'name'} } ) )
 		{
-			push @problems, "$_->{name} must be an integer.\n";
-		} elsif ( $newdata{ $_->{'name'} }
-			&& $_->{'type'} eq 'float'
-			&& !BIGSdb::Utils::is_float( $newdata{ $_->{'name'} } ) )
+			push @problems, "$att->{name} must be an integer.\n";
+		} elsif ( $newdata{ $att->{'name'} }
+			&& $att->{'type'} eq 'float'
+			&& !BIGSdb::Utils::is_float( $newdata{ $att->{'name'} } ) )
 		{
-			push @problems, "$_->{name} must be a floating point number.\n";
-		} elsif ( $newdata{ $_->{'name'} }
-			&& $_->{'type'} eq 'date'
-			&& !BIGSdb::Utils::is_date( $newdata{ $_->{'name'} } ) )
+			push @problems, "$att->{name} must be a floating point number.\n";
+		} elsif ( $newdata{ $att->{'name'} }
+			&& $att->{'type'} eq 'date'
+			&& !BIGSdb::Utils::is_date( $newdata{ $att->{'name'} } ) )
 		{
-			push @problems, "$newdata{$_->{name}} must be in date format (yyyy-mm-dd or 'today').\n";
-		} elsif ( defined $newdata{ $_->{'name'} }
-			&& $newdata{ $_->{'name'} } ne ''
-			&& $_->{'regex'}
-			&& $newdata{ $_->{'name'} } !~ /$_->{'regex'}/ )
+			push @problems, "$newdata{$att->{name}} must be in date format (yyyy-mm-dd or 'today').\n";
+		} elsif ( defined $newdata{ $att->{'name'} }
+			&& $newdata{ $att->{'name'} } ne ''
+			&& $att->{'regex'}
+			&& $newdata{ $att->{'name'} } !~ /$att->{'regex'}/ )
 		{
-			push @problems, "Field '$_->{name}' does not conform to specified format.\n";
-		} elsif ( $_->{'unique'} ) {
-			my $retval =
-			  $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM $table WHERE $_->{name} = ?", $newdata{ $_->{'name'} } );
-			if (   ( $update && $retval->[0] && $newdata{ $_->{'name'} } ne $$allowed_valuesref{ $_->{'name'} } )
-				|| ( $retval->[0] && !$update ) )
+			push @problems, "Field '$att->{name}' does not conform to specified format.\n";
+		} elsif ( $att->{'unique'} ) {
+			my $exists =
+			  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $table WHERE $att->{name} =?)", $newdata{ $att->{'name'} } );
+			if (   ( $update && $exists && $newdata{ $att->{'name'} } ne $$allowed_valuesref{ $att->{'name'} } )
+				|| ( $exists && !$update ) )
 			{
-				if ( $_->{'name'} =~ /sequence/ ) {
+				if ( $att->{'name'} =~ /sequence/ ) {
 					my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
 					local $" = ', ';
-					my $values =
-					  $self->{'datastore'}
-					  ->run_simple_query( "SELECT @primary_keys FROM $table WHERE $_->{'name'}=?", $newdata{ $_->{'name'} } );
+					my $values = $self->{'datastore'}->run_query(
+						"SELECT @primary_keys FROM $table WHERE $att->{'name'}=?",
+						$newdata{ $att->{'name'} },
+						{ fetch => 'row_arrayref' }
+					);
 					my @key;
 					for ( my $i = 0 ; $i < scalar @primary_keys ; $i++ ) {
 						push @key, "$primary_keys[$i]: $values->[$i]";
@@ -696,59 +706,61 @@ sub check_record {
 					push @problems, "This sequence already exists in the database as '@key'.";
 				} else {
 					my $article = $record_name =~ /^[aeio]/ ? 'An' : 'A';
-					push @problems,
-"$article $record_name already exists with $_->{'name'} = '$newdata{$_->{'name'}}', please choose a different $_->{'name'}.";
+					push @problems, "$article $record_name already exists with $att->{'name'} = '$newdata{$att->{'name'}}', "
+					  . "please choose a different $att->{'name'}.";
 				}
 			}
-		} elsif ( $_->{'foreign_key'} ) {
-			my $retval = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM $_->{'foreign_key'} WHERE id=?", $original_data );
-			if ( !$retval->[0] ) {
-				push @problems, "$_->{'name'} should refer to a record within the $_->{'foreign_key'} table, but it doesn't.";
+		} elsif ( $att->{'foreign_key'} ) {
+			my $exists = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $att->{'foreign_key'} WHERE id=?)", $original_data );
+			if ( !$exists ) {
+				push @problems, "$att->{'name'} should refer to a record within the $att->{'foreign_key'} table, but it doesn't.";
 			}
 		} elsif ( ( $table eq 'allele_designations' )
-			&& $_->{'name'} eq 'allele_id' )
+			&& $att->{'name'} eq 'allele_id' )
 		{
 			#special case to check for allele id format and regex which is defined in loci table
 			my $format =
-			  $self->{'datastore'}->run_simple_query("SELECT allele_id_format,allele_id_regex FROM loci WHERE id=E'$newdata{'locus'}'");
-			if ( $format->[0] eq 'integer'
-				&& !BIGSdb::Utils::is_int( $newdata{ $_->{'name'} } ) )
+			  $self->{'datastore'}
+			  ->run_query( "SELECT allele_id_format,allele_id_regex FROM loci WHERE id=?", $newdata{'locus'}, { fetch => 'row_hashref' } );
+			if ( $format->{'allele_id_format'} eq 'integer'
+				&& !BIGSdb::Utils::is_int( $newdata{ $att->{'name'} } ) )
 			{
-				push @problems, "$_->{'name'} must be an integer.\n";
-			} elsif ( $format->[1] && $newdata{ $_->{'name'} } !~ /$format->[1]/ ) {
-				push @problems, "$_->{'name'} value is invalid - it must match the regular expression /$format->[1]/.";
+				push @problems, "$att->{'name'} must be an integer.\n";
+			} elsif ( $format->{'allele_id_regex'} && $newdata{ $att->{'name'} } !~ /$format->{'allele_id_regex'}/ ) {
+				push @problems, "$att->{'name'} value is invalid - it must match the regular expression /$format->{'allele_id_regex'}/.";
 			}
 		} elsif ( ( $table eq 'isolate_field_extended_attributes' )
-			&& $_->{'name'} eq 'attribute'
-			&& $newdata{ $_->{'name'} } =~ /'/ )
+			&& $att->{'name'} eq 'attribute'
+			&& $newdata{ $att->{'name'} } =~ /'/ )
 		{
 			push @problems, "Attribute contains invalid characters.\n";
 		} elsif ( ( $table eq 'isolate_value_extended_attributes' )
-			&& $_->{'name'} eq 'value' )
+			&& $att->{'name'} eq 'value' )
 		{
 			#special case to check for extended attribute value format and regex which is defined in isolate_field_extended_attributes table
-			my $format = $self->{'datastore'}->run_simple_query(
+			my $format = $self->{'datastore'}->run_query(
 				"SELECT value_format,value_regex,length FROM isolate_field_extended_attributes WHERE isolate_field=? AND attribute=?",
-				$newdata{'isolate_field'},
-				$newdata{'attribute'}
+				[ $newdata{'isolate_field'}, $newdata{'attribute'} ],
+				{ fetch => 'row_arrayref' }
 			);
+			next if !$format;
 			if ( $format->[0] eq 'integer'
-				&& !BIGSdb::Utils::is_int( $newdata{ $_->{'name'} } ) )
+				&& !BIGSdb::Utils::is_int( $newdata{ $att->{'name'} } ) )
 			{
-				push @problems, "$_->{'name'} must be an integer.\n";
-			} elsif ( $format->[1] && $newdata{ $_->{'name'} } !~ /$format->[1]/ ) {
-				push @problems, "$_->{'name'} value is invalid - it must match the regular expression /$format->[1]/";
-			} elsif ( $format->[2] && length( $newdata{ $_->{'name'} } ) > $format->[2] ) {
-				push @problems, "$_->{'name'} value is too long - it must be no longer than $format->[2] characters";
+				push @problems, "$att->{'name'} must be an integer.\n";
+			} elsif ( $format->[1] && $newdata{ $att->{'name'} } !~ /$format->[1]/ ) {
+				push @problems, "$att->{'name'} value is invalid - it must match the regular expression /$format->[1]/";
+			} elsif ( $format->[2] && length( $newdata{ $att->{'name'} } ) > $format->[2] ) {
+				push @problems, "$att->{'name'} value is too long - it must be no longer than $format->[2] characters";
 			}
-		} elsif ( $table eq 'users' && $_->{'name'} eq 'status' ) {
+		} elsif ( $table eq 'users' && $att->{'name'} eq 'status' ) {
 
 			#special case to check that changing user status is allowed
-			my ($status) = @{ $self->{'datastore'}->run_simple_query( "SELECT status FROM users WHERE user_name=?", $self->{'username'} ) };
+			my $status = $self->{'datastore'}->run_query( "SELECT status FROM users WHERE user_name=?", $self->{'username'} );
 			my ( $user_status, $user_username );
 			if ($update) {
-				my $user_ref = $self->{'datastore'}->run_simple_query( "SELECT status,user_name FROM users WHERE id=?", $newdata{'id'} );
-				( $user_status, $user_username ) = @$user_ref if ref $user_ref eq 'ARRAY';
+				( $user_status, $user_username ) =
+				  $self->{'datastore'}->run_query( "SELECT status,user_name FROM users WHERE id=?", $newdata{'id'} );
 			}
 			if (   $status ne 'admin'
 				&& !$self->{'permissions'}->{'set_user_permissions'}
@@ -786,16 +798,15 @@ sub check_record {
 			{
 				push @problems, "You must have admin rights to change the username of a user.\n";
 			}
-		} elsif ( $table eq 'isolate_value_extended_attributes' && $_->{'name'} eq 'attribute' ) {
-			my $attribute_exists = $self->{'datastore'}->run_simple_query(
-				"SELECT COUNT(*) FROM isolate_field_extended_attributes WHERE isolate_field=? AND attribute=?",
-				$newdata{'isolate_field'},
-				$newdata{'attribute'}
-			)->[0];
+		} elsif ( $table eq 'isolate_value_extended_attributes' && $att->{'name'} eq 'attribute' ) {
+			my $attribute_exists =
+			  $self->{'datastore'}
+			  ->run_query( "SELECT EXISTS(SELECT * FROM isolate_field_extended_attributes WHERE isolate_field=? AND attribute=?)",
+				[ $newdata{'isolate_field'}, $newdata{'attribute'} ] );
 			if ( !$attribute_exists ) {
 				my $fields =
-				  $self->{'datastore'}->run_list_query( "SELECT isolate_field FROM isolate_field_extended_attributes WHERE attribute=?",
-					$newdata{'attribute'} );
+				  $self->{'datastore'}->run_query( "SELECT isolate_field FROM isolate_field_extended_attributes WHERE attribute=?",
+					$newdata{'attribute'}, { fetch => 'col_arrayref' } );
 				my $message = "Attribute $newdata{'attribute'} has not been defined for the $newdata{'isolate_field'} field.\n";
 				if (@$fields) {
 					local $" = ', ';
@@ -804,8 +815,9 @@ sub check_record {
 				push @problems, $message;
 			}
 		}
-		if ( $_->{'primary_key'} ) {
-			push @primary_key_query, "$_->{name} = E'$newdata{$_->{name}}'";
+		if ( $att->{'primary_key'} ) {
+			( my $cleaned_name = $newdata{ $att->{name} } ) =~ s/'/\\'/g;
+			push @primary_key_query, "$att->{name} = E'$cleaned_name'";
 		}
 	}
 	if (@missing) {
@@ -813,8 +825,8 @@ sub check_record {
 		push @problems, "Please fill in all required fields. The following fields are missing: @missing";
 	} elsif ( @primary_key_query && !@problems ) {    #only run query if there are no other problems
 		local $" = ' AND ';
-		my $retval = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM $table WHERE @primary_key_query")->[0];
-		if ( $retval && !$update ) {
+		my $exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $table WHERE @primary_key_query)");
+		if ( $exists && !$update ) {
 			my $article = $record_name =~ /^[aeio]/ ? 'An' : 'A';
 			push @problems, "$article $record_name already exists with this primary key.";
 		}
@@ -828,16 +840,6 @@ sub get_datestamp {
 	my $mon  = $date[4] + 1;
 	my $day  = $date[3];
 	return ( sprintf( "%d-%02d-%02d", $year, $mon, $day ) );
-}
-
-sub get_sender_fullname {
-	my ( $self, $id ) = @_;
-	if ($id) {
-		my $qry = "SELECT first_name,surname FROM users WHERE id=?";
-		my $sender_ref = $self->{'datastore'}->run_simple_query( $qry, $id );
-		return if ref $sender_ref ne 'ARRAY';
-		return "$sender_ref->[0] $sender_ref->[1]";
-	}
 }
 
 sub is_field_bad {
@@ -1121,7 +1123,9 @@ sub map_locus_name {
 	my ( $self, $locus ) = @_;
 	my $set_id = $self->get_set_id;
 	return $locus if !$set_id;
-	my $locus_list = $self->{'datastore'}->run_list_query( "SELECT locus FROM set_loci WHERE set_id=? AND set_name=?", $set_id, $locus );
+	my $locus_list =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT locus FROM set_loci WHERE set_id=? AND set_name=?", [ $set_id, $locus ], { fetch => 'col_arrayref' } );
 	return $locus if @$locus_list != 1;
 	return $locus_list->[0];
 }
@@ -1169,11 +1173,9 @@ sub drop_scheme_view {
 	eval {
 		$self->{'db'}->do($qry);
 		if ( $self->{'system'}->{'materialized_views'} && $self->{'system'}->{'materialized_views'} eq 'yes' ) {
-			my $view_exists_ref =
-			  $self->{'datastore'}
-			  ->run_simple_query( "SELECT 1 WHERE EXISTS(SELECT * FROM matviews WHERE v_name = ?)", "scheme_$scheme_id" );
-			$self->{'db'}->do("SELECT drop_matview('mv_scheme_$scheme_id')")
-			  if ref $view_exists_ref eq 'ARRAY' && $view_exists_ref->[0];
+			my $view_exists =
+			  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM matviews WHERE v_name=?)", "scheme_$scheme_id" );
+			$self->{'db'}->do("SELECT drop_matview('mv_scheme_$scheme_id')") if $view_exists;
 		}
 	};
 	$logger->error($@) if $@;

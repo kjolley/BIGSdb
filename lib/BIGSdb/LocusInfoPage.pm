@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -95,7 +95,7 @@ sub print_content {
 		$desc->{'description'} =~ s/\n/<br \/>/g;
 		say "<p>$desc->{'description'}</p>";
 	}
-	my $aliases = $self->{'datastore'}->run_list_query( "SELECT alias FROM locus_aliases WHERE locus=?", $locus );
+	my $aliases = $self->{'datastore'}->run_query( "SELECT alias FROM locus_aliases WHERE locus=?", $locus, { fetch => 'col_arrayref' } );
 	if (@$aliases) {
 		say "<h2>Aliases</h2>";
 		say "<p>This locus is also known as:</p><ul>";
@@ -104,7 +104,7 @@ sub print_content {
 		}
 		say "</ul>";
 	}
-	my $refs = $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM locus_refs WHERE locus=?", $locus );
+	my $refs = $self->{'datastore'}->run_query( "SELECT pubmed_id FROM locus_refs WHERE locus=?", $locus, { fetch => 'col_arrayref' } );
 	if (@$refs) {
 		say "<h2>References</h2>\n<ul>";
 		my $citations = $self->{'datastore'}->get_citation_hash( $refs, { all_authors => 1, formatted => 1, link_pubmed => 1 } );

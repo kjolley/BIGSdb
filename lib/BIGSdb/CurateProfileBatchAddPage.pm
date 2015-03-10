@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -47,18 +47,18 @@ sub print_content {
 			return;
 		}
 	}
-	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 	print "<h1>Batch insert $scheme_info->{'description'} profiles</h1>\n";
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-	my $primary_key   = $self->_get_primary_key($scheme_id);
+	my $primary_key   = $scheme_info->{'primary_key'};
 	if ( !$primary_key ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>This scheme doesn't have a primary key field defined.  Profiles can not be entered "
-		  . "until this has been done.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>This scheme doesn't have a primary key field defined.  Profiles can not be entered )
+		  . qq(until this has been done.</p></div>);
 		return;
 	} elsif ( !@$loci ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>This scheme doesn't have any loci belonging to it.  Profiles can not be entered "
-		  . "until there is at least one locus defined.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>This scheme doesn't have any loci belonging to it.  Profiles can not be entered )
+		  . qq(until there is at least one locus defined.</p></div>);
 		return;
 	}
 	if ( $q->param('checked_buffer') ) {
@@ -117,10 +117,10 @@ sub _process_fields {
 
 sub _check {
 	my ( $self, $scheme_id ) = @_;
-	my $primary_key   = $self->_get_primary_key($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $scheme_info   = $self->{'datastore'}->get_scheme_info($scheme_id);
+	my $scheme_info   = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $primary_key   = $scheme_info->{'primary_key'};
 	my @mapped_loci;
 	foreach my $locus (@$loci) {
 		my $mapped = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
@@ -135,7 +135,7 @@ sub _check {
 	my %pks_so_far;
 	my %profiles_so_far;
 	local $" = '</th><th>';
-	my $table_buffer = "<table class=\"resultstable\"><tr><th>$primary_key</th><th>@mapped_loci</th>";
+	my $table_buffer = qq(<table class="resultstable"><tr><th>$primary_key</th><th>@mapped_loci</th>);
 
 	foreach my $field (@$scheme_fields) {
 		$is_field{$field} = 1;
@@ -150,9 +150,9 @@ sub _check {
 		push @fieldorder, $field;
 	}
 	$table_buffer .= "</tr>\n";
-	my ( $firstname, $surname, $userid );
 	my $sender_message;
 	my $sender = $q->param('sender');
+	my %problems;
 	if ( !$sender ) {
 		say "<div class=\"box\" id=\"statusbad\"><p>Please enter a sender for this submission.</p></div>";
 		$self->_print_interface($scheme_id);
@@ -161,9 +161,13 @@ sub _check {
 		$sender_message = "<p>Using sender field in pasted data.</p>\n";
 	} else {
 		my $sender_ref = $self->{'datastore'}->get_user_info($sender);
+		if ( !$sender_ref ) {
+			say qq(<div class="box" id="statusbad"><p>Sender is unrecognized.</p></div>);
+			$self->_print_interface($scheme_id);
+			return;
+		}
 		$sender_message = "<p>Sender: $sender_ref->{'first_name'} $sender_ref->{'surname'}</p>\n";
 	}
-	my %problems;
 	my @records   = split /\n/, $q->param('data');
 	my $td        = 1;
 	my $headerRow = shift @records;
@@ -229,7 +233,7 @@ sub _check {
 						$problems{$pk} .= "Sender must be an integer.<br />";
 						$problem = 1;
 					} else {
-						my $sender_exists = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM users WHERE id=?", $value )->[0];
+						my $sender_exists = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM users WHERE id=?)", $value );
 						if ( !$sender_exists ) {
 							$problems{$pk} .= "Sender '$value' does not exist.<br />";
 							$problem = 1;
@@ -334,20 +338,21 @@ sub _check {
 		return;
 	}
 	if (%problems) {
-		say "<div class=\"box\" id=\"statusbad\"><h2>Import status</h2>";
-		say "<table class=\"resultstable\">";
+		say qq(<div class="box" id="statusbad"><h2>Import status</h2>);
+		say qq(<div class="scrollable">);
+		say qq(<table class="resultstable">);
 		say "<tr><th>$primary_key</th><th>Problem(s)</th></tr>";
 		$td = 1;
 		{
 			no warnings 'numeric';
 			foreach my $id ( sort { $a <=> $b || $a cmp $b } keys %problems ) {
-				say "<tr class=\"td$td\"><td>$id</td><td style=\"text-align:left\">$problems{$id}</td></tr>";
+				say qq(<tr class="td$td"><td>$id</td><td style="text-align:left">$problems{$id}</td></tr>);
 				$td = $td == 1 ? 2 : 1;    #row stripes
 			}
 		}
-		say "</table></div>";
+		say "</table></div></div>";
 	} else {
-		say "<div class=\"box\" id=\"resultsheader\"><h2>Import status</h2>$sender_message<p>No obvious problems identified so far.</p>";
+		say qq(<div class="box" id="resultsheader"><h2>Import status</h2>$sender_message<p>No obvious problems identified so far.</p>);
 		my $filename = $self->make_temp_file(@checked_buffer);
 		say $q->start_form;
 		say $q->hidden($_) foreach qw (data page table db sender scheme_id);
@@ -356,9 +361,9 @@ sub _check {
 		say $q->endform;
 		say "</div>";
 	}
-	say "<div class=\"box\" id=\"resultstable\"><h2>Data to be imported</h2>";
+	say qq(<div class="box" id="resultstable"><h2>Data to be imported</h2>);
 	say "<p>The following table shows your data.  Any field coloured red has a problem and needs to be checked.</p>";
-	say "<div class=\"scrollable\">";
+	say qq(<div class="scrollable">);
 	say $table_buffer;
 	say "</div></div>";
 	return;
@@ -367,11 +372,13 @@ sub _check {
 sub _upload {
 	my ( $self, $scheme_id ) = @_;
 	my $q             = $self->{'cgi'};
+	my $scheme_info   = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $dir           = $self->{'config'}->{'secure_tmp_dir'};
 	my $tmp_file      = $dir . '/' . $q->param('checked_buffer');
 	my @records;
+
 	if ( open( my $tmp_fh, '<', $tmp_file ) ) {
 		@records = <$tmp_fh>;
 		close $tmp_fh;
@@ -390,7 +397,7 @@ sub _upload {
 		$fieldorder{ $fieldorder[$i] } = $i;
 	}
 	my @fields_to_include = qw(sender curator date_entered datestamp);
-	my $primary_key       = $self->_get_primary_key($scheme_id);
+	my $primary_key       = $scheme_info->{'primary_key'};
 	my @profile_ids;
 	foreach my $record (@records) {
 		$record =~ s/\r//g;
@@ -493,7 +500,8 @@ sub _upload {
 sub _print_interface {
 	my ( $self, $scheme_id ) = @_;
 	my $q           = $self->{'cgi'};
-	my $primary_key = $self->_get_primary_key($scheme_id);
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $primary_key = $scheme_info->{'primary_key'};
 	print << "HTML";
 <div class="box" id="queryform">
 <p>This page allows you to upload profiles as tab-delimited text or 
@@ -520,33 +528,30 @@ Download submission template (xlsx format)</a></li>
 </ul>
 HTML
 	say $q->start_form;
-	my $qry = "select id,user_name,first_name,surname from users WHERE id> 0 order by surname";
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute };
-	$logger->error($@) if $@;
+	my $user_data = $self->{'datastore'}->run_query( "SELECT id,user_name,first_name,surname FROM users WHERE id>0 ORDER BY surname",
+		undef, { fetch => 'all_arrayref', slice => {} } );
 	my @users;
 	my %usernames;
 	$usernames{''} = 'Select sender ...';
-
-	while ( my ( $userid, $username, $firstname, $surname ) = $sql->fetchrow_array ) {
-		push @users, $userid;
-		$usernames{$userid} = "$surname, $firstname ($username)";
+	foreach my $user (@$user_data) {
+		push @users, $user->{'id'};
+		$usernames{ $user->{'id'} } = "$user->{'surname'}, $user->{'first_name'} ($user->{'user_name'})";
 	}
 	$usernames{-1} = 'Override with sender field';
-	say "<fieldset style=\"float:left\"><legend>Please paste in tab-delimited text (<strong>include a field header line</strong>)</legend>";
+	say qq(<fieldset style="float:left"><legend>Please paste in tab-delimited text (<strong>include a field header line</strong>)</legend>);
 	say $q->hidden($_) foreach qw (page db scheme_id);
 	say $q->textarea( -name => 'data', -rows => 20, -columns => 80, -required => 'required' );
 	say "</fieldset>";
-	say "<fieldset style=\"float:left\"><legend>Parameters</legend>";
-	say "<label for=\"sender\" class=\"form\" style=\"width:5em\">Sender:</label>";
+	say qq(<fieldset style="float:left"><legend>Parameters</legend>);
+	say qq(<label for="sender" class="form" style="width:5em">Sender:</label>);
 	say $q->popup_menu( -name => 'sender', -id => 'sender', -values => [ '', -1, @users ], -labels => \%usernames,
 		-required => 'required' );
-	say "<p class=\"comment\">Value will be overridden if you include a sender field in your pasted data.</p>";
+	say qq(<p class="comment">Value will be overridden if you include a sender field in your pasted data.</p>);
 	say $q->checkbox( -name => 'ignore_duplicates', -label => 'Ignore duplicate profiles' );
 	say "</fieldset>";
 	$self->print_action_fieldset( { scheme_id => $scheme_id } );
 	say $q->end_form;
-	say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back</a></p>";
+	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back</a></p>);
 	say "</div>";
 	return;
 }
@@ -555,14 +560,7 @@ sub _is_integer_primary_key {
 	my ( $self, $scheme_id ) = @_;
 	my $integer_pk =
 	  $self->{'datastore'}
-	  ->run_simple_query( "SELECT COUNT(*) FROM scheme_fields WHERE scheme_id=? AND primary_key AND type=?", $scheme_id, 'integer' )->[0];
+	  ->run_query( "SELECT EXISTS(SELECT * FROM scheme_fields WHERE scheme_id=? AND primary_key AND type=?)", [ $scheme_id, 'integer' ] );
 	return $integer_pk;
-}
-
-sub _get_primary_key {
-	my ( $self, $scheme_id ) = @_;
-	my $primary_key_ref =
-	  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id );
-	return ref $primary_key_ref eq 'ARRAY' ? $primary_key_ref->[0] : undef;
 }
 1;

@@ -228,8 +228,8 @@ sub _print_interface_locus_selection {
 		  . "set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id) ";
 	}
 	$qry .= "ORDER BY locus";
-	my $loci_with_extended = $self->{'datastore'}->run_list_query($qry);
-	if ( ref $loci_with_extended eq 'ARRAY' ) {
+	my $loci_with_extended = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+	if (@$loci_with_extended) {
 		say "<li>Please note, some loci have extended attributes which may be required.  For affected loci please use the batch insert "
 		  . "page specific to that locus: ";
 		if ( @$loci_with_extended > 10 ) {
@@ -247,8 +247,8 @@ sub _print_interface_locus_selection {
 			my $first = 1;
 			foreach my $locus (@$loci_with_extended) {
 				print ' | ' if !$first;
-				say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;"
-				  . "table=sequences&amp;locus=$locus\">$locus</a>";
+				say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=sequences&amp;)
+				  . qq(locus=$locus">$locus</a>);
 				$first = 0;
 			}
 		}
@@ -311,7 +311,8 @@ sub _check_data {
 			}
 		} else {
 			$required_extended_exist =
-			  $self->{'datastore'}->run_list_query("SELECT DISTINCT locus FROM locus_extended_attributes WHERE required");
+			  $self->{'datastore'}
+			  ->run_query( "SELECT DISTINCT locus FROM locus_extended_attributes WHERE required", undef, { fetch => 'col_arrayref' } );
 		}
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' && $table eq 'loci' ) {
 		push @fieldorder, qw(full_name product description);
@@ -321,7 +322,7 @@ sub _check_data {
 	if ( $arg_ref->{'has_sender_field'} ) {
 		my $sender = $q->param('sender');
 		if ( !$sender || !BIGSdb::Utils::is_int($sender) ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>Please go back and select the sender for this submission.</p></div>";
+			say qq(<div class="box" id="statusbad"><p>Please go back and select the sender for this submission.</p></div>);
 			return;
 		} elsif ( $sender == -1 ) {
 			$sender_message = "<p>Using sender field in pasted data.</p>\n";
@@ -332,7 +333,7 @@ sub _check_data {
 	}
 	my %problems;
 	my %advisories;
-	my $tablebuffer = "<div class=\"scrollable\"><table class=\"resultstable\"><tr>" . $self->_get_field_table_header($table) . "</tr>";
+	my $tablebuffer = qq(<div class="scrollable"><table class="resultstable"><tr>) . $self->_get_field_table_header($table) . '</tr>';
 	my @records     = split /\n/, $q->param('data');
 	my $td          = 1;
 	my $header;
@@ -575,7 +576,9 @@ sub _check_data {
 
 sub _get_existing_label_field_values {
 	my ($self) = @_;
-	my $values = $self->{'datastore'}->run_list_query("SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'}");
+	my $values =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'}", undef, { fetch => 'col_arrayref' } );
 	my %hash = map { $_ => 1 } @$values;
 	return \%hash;
 }
@@ -951,28 +954,26 @@ sub _check_data_allele_designations {
 	my @data            = @{ $arg_ref->{'data'} };
 	my %file_header_pos = %{ $arg_ref->{'file_header_pos'} };
 	if ( $field eq 'allele_id' ) {
-		my $format;
-		eval {
-			if ( defined $file_header_pos{'locus'} )
-			{
-				$format =
-				  $self->{'datastore'}
-				  ->run_simple_query( "SELECT allele_id_format,allele_id_regex FROM loci WHERE id=?", $data[ $file_header_pos{'locus'} ] );
-			}
-		};
-		$logger->error($@) if $@;
-		if (   defined $format->[0]
-			&& $format->[0] eq 'integer'
-			&& !BIGSdb::Utils::is_int( ${ $arg_ref->{'value'} } ) )
+		if ( defined $file_header_pos{'locus'} )
 		{
-			my $problem_text = "$field must be an integer.<br />";
-			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text
-			  if !defined $arg_ref->{'problems'}->{$pk_combination} || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/;
-			${ $arg_ref->{'special_problem'} } = 1;
-		} elsif ( $format->[1] && ${ $arg_ref->{'value'} } !~ /$format->[1]/ ) {
-			$arg_ref->{'problems'}->{$pk_combination} .=
-			  "$field value is invalid - it must match the regular expression /$format->[1]/.<br />";
-			${ $arg_ref->{'special_problem'} } = 1;
+			my $format = $self->{'datastore'}->run_query(
+				"SELECT allele_id_format,allele_id_regex FROM loci WHERE id=?",
+				$data[ $file_header_pos{'locus'} ],
+				{ fetch => 'row_hashref' }
+			);
+			if (   defined $format->{'allele_id_format'}
+				&& $format->{'allele_id_format'} eq 'integer'
+				&& !BIGSdb::Utils::is_int( ${ $arg_ref->{'value'} } ) )
+			{
+				my $problem_text = "$field must be an integer.<br />";
+				$arg_ref->{'problems'}->{$pk_combination} .= $problem_text
+				  if !defined $arg_ref->{'problems'}->{$pk_combination} || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/;
+				${ $arg_ref->{'special_problem'} } = 1;
+			} elsif ( $format->{'allele_id_regex'} && ${ $arg_ref->{'value'} } !~ /$format->{'allele_id_regex'}/ ) {
+				$arg_ref->{'problems'}->{$pk_combination} .=
+				  "$field value is invalid - it must match the regular expression /$format->{'allele_id_regex'}/.<br />";
+				${ $arg_ref->{'special_problem'} } = 1;
+			}
 		}
 	}
 	return;
@@ -1289,7 +1290,8 @@ sub _upload_data {
 		push @fields_to_include, $_->{'name'} foreach @$attributes;
 		if ( $table eq 'sequences' && $locus ) {
 			$extended_attributes =
-			  $self->{'datastore'}->run_list_query( "SELECT field FROM locus_extended_attributes WHERE locus=?", $locus );
+			  $self->{'datastore'}
+			  ->run_query( "SELECT field FROM locus_extended_attributes WHERE locus=?", $locus, { fetch => 'col_arrayref' } );
 		}
 	}
 	my @history;
@@ -1610,12 +1612,12 @@ sub _get_field_table_header {
 				push @headers, 'flags';
 			}
 			if ( $self->{'cgi'}->param('locus') ) {
-				my $extended_attributes_ref =
-				  $self->{'datastore'}->run_list_query( "SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order",
-					$self->{'cgi'}->param('locus') );
-				if ( ref $extended_attributes_ref eq 'ARRAY' ) {
-					push @headers, @$extended_attributes_ref;
-				}
+				my $extended_attributes = $self->{'datastore'}->run_query(
+					"SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order",
+					$self->{'cgi'}->param('locus'),
+					{ fetch => 'col_arrayref' }
+				);
+				push @headers, @$extended_attributes;
 			}
 		} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' && $table eq 'loci' ) {
 			push @headers, qw(full_name product description);
@@ -1668,7 +1670,7 @@ sub _convert_query {
 		$data = "project_id\tisolate_id\n";
 		$qry =~ s/SELECT \*/SELECT id/;
 		$qry =~ s/ORDER BY .*/ORDER BY id/;
-		my $ids = $self->{'datastore'}->run_list_query($qry);
+		my $ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 		$data .= "$project_id\t$_\n" foreach (@$ids);
 	}
 	return $data;

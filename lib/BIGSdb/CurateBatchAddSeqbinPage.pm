@@ -24,6 +24,7 @@ use parent qw(BIGSdb::CurateAddPage BIGSdb::SeqbinPage);
 use Log::Log4perl qw(get_logger);
 use constant MAX_UPLOAD_SIZE => 32 * 1024 * 1024;    #32Mb
 my $logger = get_logger('BIGSdb.Page');
+use Bio::DB::GenBank;
 use Error qw(:try);
 use BIGSdb::Page 'SEQ_METHODS';
 
@@ -54,6 +55,23 @@ sub print_content {
 			unlink $full_path;
 			$self->_check_data( \$sequence );
 		}
+	} elsif ( $q->param('accession') ) {
+		try {
+			my $acc_seq_ref = $self->_upload_accession;
+			if ($acc_seq_ref) {
+				$self->_check_data($acc_seq_ref);
+			}
+		}
+		catch BIGSdb::DataException with {
+			my $err = shift;
+			$logger->debug($err);
+			if ( $err eq 'INVALID_ACCESSION' ) {
+				say qq(<div class="box" id="statusbad"><p>Accession is invalid.</p></div>);
+			} elsif ( $err eq 'NO_DATA' ) {
+				say qq(<div class="box" id="statusbad"><p>The accession is valid but it contains no sequence data.</p></div>);
+			}
+			$self->_print_interface;
+		};
 	} else {
 		$self->_print_interface;
 	}
@@ -189,6 +207,11 @@ HTML
 	say "Select FASTA file:<br />";
 	say $q->filefield( -name => 'fasta_upload', -id => 'fasta_upload' );
 	say "</fieldset>";
+	if ( ( $self->{'config'}->{'intranet'} // '' ) ne 'yes' ) {
+		say qq(<fieldset style="float:left"><legend>or enter Genbank accession</legend>);
+		say $q->textfield( -name => 'accession' );
+		say '</fieldset>';
+	}
 	my %args = defined $q->param('isolate_id') ? ( isolate_id => $q->param('isolate_id') ) : ();
 	$self->print_action_fieldset( \%args );
 	say $q->end_form;
@@ -205,16 +228,16 @@ sub _check_data {
 		$q->param('isolate_id')
 		&& (   !BIGSdb::Utils::is_int( $q->param('isolate_id') )
 			|| !$self->{'datastore'}
-			->run_simple_query( "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE id=?", $q->param('isolate_id') )->[0] )
+			->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)", $q->param('isolate_id') ) )
 	  )
 	{
-		say "<div class=\"box\" id=\"statusbad\"><p>Isolate id must be an integer and exist in the isolate table.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Isolate id must be an integer and exist in the isolate table.</p></div>);
 		$continue = 0;
 	} elsif ( !$q->param('sender')
 		|| !BIGSdb::Utils::is_int( $q->param('sender') )
-		|| !$self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM users WHERE id=?", $q->param('sender') )->[0] )
+		|| !$self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM users WHERE id=?)", $q->param('sender') ) )
 	{
-		say "<div class=\"box\" id=\"statusbad\"><p>Sender is required and must exist in the users table.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Sender is required and must exist in the users table.</p></div>);
 		$continue = 0;
 	}
 	my $seq_attributes =
@@ -246,7 +269,7 @@ sub _check_data {
 			my $ex = shift;
 			if ( $ex =~ /DNA/ ) {
 				my $header;
-				if ( $ex =~ /DNA (.*)$/ ) {
+				if ( $ex =~ /DNA - (.*)$/ ) {
 					$header = $1;
 				}
 				say "<div class=\"box\" id=\"statusbad\"><p>FASTA data '$header' contains non-valid nucleotide characters.</p></div>";
@@ -424,17 +447,16 @@ sub _upload {
 	my $q        = $self->{'cgi'};
 	my $dir      = $self->{'config'}->{'secure_tmp_dir'};
 	my $tmp_file = $dir . '/' . $q->param('checked_buffer');
-	my @data;
+	my $fasta;
 	if ( -e $tmp_file ) {
 		open( my $file_fh, '<', $tmp_file ) or $logger->error("Can't open $tmp_file");
-		@data = <$file_fh>;
+		$fasta = do { local $/; <$file_fh> };    #slurp
 		close $file_fh;
 	}
-	local $" = "\n";
 	my $seq_ref;
 	my $continue = 1;
 	try {
-		$seq_ref = BIGSdb::Utils::read_fasta( \"@data" );
+		$seq_ref = BIGSdb::Utils::read_fasta( \$fasta );
 	}
 	catch BIGSdb::DataException with {
 		$logger->error("Invalid FASTA file");
@@ -529,6 +551,27 @@ sub _upload_fasta_file {
 	print $fh $buffer;
 	close $fh;
 	return "$temp\_upload.fas";
+}
+
+sub _upload_accession {
+	my ($self)    = @_;
+	my $accession = $self->{'cgi'}->param('accession');
+	my $seq_db    = Bio::DB::GenBank->new;
+	$seq_db->retrieval_type('tempfile');    #prevent forking resulting in duplicate error message on fail.
+	my $sequence;
+	try {
+		my $seq_obj = $seq_db->get_Seq_by_acc($accession);
+		$sequence = $seq_obj->seq;
+	}
+	catch Bio::Root::Exception with {
+		my $err = shift;
+		$logger->debug($err);
+		throw BIGSdb::DataException('INVALID_ACCESSION');
+	};
+	if ( !length($sequence) ) {
+		throw BIGSdb::DataException('NO_DATA');
+	}
+	return \">$accession\n$sequence";
 }
 
 sub get_javascript {

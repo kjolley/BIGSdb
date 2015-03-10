@@ -23,6 +23,7 @@ package BIGSdb::Utils;
 use strict;
 use warnings;
 use POSIX qw(ceil);
+use BIGSdb::BIGSException;
 use Bio::SeqIO;
 use Bio::SeqFeature::Generic;
 use Excel::Writer::XLSX;
@@ -59,8 +60,8 @@ sub is_valid_DNA {
 
 sub sequence_type {
 	my ($seq) = @_;
-	my $AGTC_count = $seq =~ tr/[G|A|T|C|g|a|t|c|N|n]//;
-	return 'DNA' if !length $seq;
+	return 'DNA' if !$seq;
+	my $AGTC_count = $seq =~ tr/[G|A|T|C|g|a|t|c|N|n]//;	
 	return ( $AGTC_count / length $seq ) >= 0.9 ? 'DNA' : 'peptide';
 }
 
@@ -207,7 +208,7 @@ sub read_fasta {
 		throw BIGSdb::DataException("Not valid FASTA format.") if !$header;
 		my $temp_seq = uc($_);
 		$temp_seq =~ s/\s//g;
-		throw BIGSdb::DataException("Not valid DNA $header") if $temp_seq =~ /[^GATCBDHVRYKMSWN]/;
+		throw BIGSdb::DataException("Not valid DNA - $header") if $temp_seq =~ /[^GATCBDHVRYKMSWN]/;
 		$seqs{$header} .= $temp_seq;
 	}
 	return \%seqs;
@@ -281,7 +282,7 @@ sub xmfa2fasta {
 
 	while ( my $line = <$xmfa_fh> ) {
 		next if $line =~ /^=/;
-		if ( $line =~ /^>\s*([\d\w\s\|\-\\\/\.\(\)]+):/ ) {
+		if ( $line =~ /^>\s*([\d\w\s\|\-\\\/\.\(\),]+):/ ) {
 			$seq{$current_id} .= $temp_seq;
 			if ( $options->{'integer_ids'} ) {
 				my $extracted_id = $1;

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2014, University of Oxford
+#Copyright (c) 2011-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -43,8 +43,8 @@ sub run_script {
 		if ( $self->{'options'}->{'0'} ) {
 			$params->{'word_size'} = 15;                          #More stringent if checking for missing loci
 		} else {
-			$params->{'word_size'} = DEFAULT_WORD_SIZE;
-			$params->{'exact_matches_only'} = 1; 
+			$params->{'word_size'}          = DEFAULT_WORD_SIZE;
+			$params->{'exact_matches_only'} = 1;
 		}
 	}
 	if ( $self->{'options'}->{'0'} ) {
@@ -116,7 +116,10 @@ sub run_script {
 							$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");
 							$problem = 1;
 						};
-						last ISOLATE if $problem;
+						if ($problem) {
+							$self->_update_isolate_history( $isolate_id, $self->{'history'} );
+							last ISOLATE;
+						}
 					}
 				}
 				print "\n" if !$self->{'options'}->{'q'};
@@ -137,22 +140,30 @@ sub run_script {
 					$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");
 					$problem = 1;
 				};
-				last ISOLATE if $problem;
+				if ($problem) {
+					$self->_update_isolate_history( $isolate_id, $self->{'history'} );
+					last ISOLATE;
+				}
 			}
 			last if $EXIT || $self->_is_time_up;
 		}
-		if ( ref $self->{'history'} eq 'ARRAY' && @{ $self->{'history'} } ) {
-			local $" = '<br />';
-			$self->update_history( $isolate_id, "@{$self->{'history'}}" );
-		}
-		$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$isolate_prefix*");    #delete isolate seqbin FASTA
+		$self->_update_isolate_history( $isolate_id, $self->{'history'} );
+		$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$isolate_prefix*");                #delete isolate seqbin FASTA
 		last if $EXIT || $self->_is_time_up;
 	}
-	$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");          #delete locus working files
+	$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");                      #delete locus working files
 	if ( $self->_is_time_up && !$self->{'options'}->{'q'} ) {
 		say "Time limit reached ($self->{'options'}->{'t'} minute" . ( $self->{'options'}->{'t'} == 1 ? '' : 's' ) . ")";
 	}
 	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autotagger stop");
+	return;
+}
+
+sub _update_isolate_history {
+	my ( $self, $isolate_id, $history ) = @_;
+	return if ref $history ne 'ARRAY' || !@$history;
+	local $" = '<br />';
+	$self->update_history( $isolate_id, "@$history" );
 	return;
 }
 

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -161,7 +161,8 @@ sub _get_select_items {
 			push @select_items, 'sequence_length';
 			push @order_by,     'sequence_length';
 		} elsif ( $table eq 'sequence_bin' && $att->{'name'} eq 'comments' ) {
-			my $seq_attributes = $self->{'datastore'}->run_list_query("SELECT key FROM sequence_attributes ORDER BY key");
+			my $seq_attributes =
+			  $self->{'datastore'}->run_query( "SELECT key FROM sequence_attributes ORDER BY key", undef, { fetch => 'col_arrayref' } );
 			foreach my $key (@$seq_attributes) {
 				push @select_items, "ext_$key";
 				( my $label = $key ) =~ tr/_/ /;
@@ -218,17 +219,16 @@ sub _print_interface {
 	$cleaned =~ tr/_/ /;
 
 	if ( $table eq 'sequences' ) {
-		if ( $self->{'datastore'}->run_simple_query("SELECT EXISTS(SELECT * FROM locus_extended_attributes)")->[0] ) {
-			say "<p>Some loci have additional fields which are not searchable from this general page.  Search for these at the "
-			  . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleQuery\">"
-			  . "locus-specific query</a> page.  Use this page also for access to the sequence analysis or export plugins.</p>";
+		if ( $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM locus_extended_attributes)") ) {
+			say qq(<p>Some loci have additional fields which are not searchable from this general page.  Search for these at the )
+			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleQuery">)
+			  . qq(locus-specific query</a> page.  Use this page also for access to the sequence analysis or export plugins.</p>);
 		} else {
-			say "<p>You can also search using the <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
-			  . "page=alleleQuery\">locus-specific query</a> page.  Use this page for access to the sequence analysis or export plugins."
-			  . "</p>";
+			say qq(<p>You can also search using the <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=alleleQuery">locus-specific query</a> page.  Use this page for access to the sequence analysis or export plugins.)
+			  . qq(</p>);
 		}
-		my $any_text_ids_used =
-		  $self->{'datastore'}->run_simple_query( "SELECT EXISTS(SELECT * FROM loci WHERE allele_id_format=?)", 'text' )->[0];
+		my $any_text_ids_used = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM loci WHERE allele_id_format=?)", 'text' );
 		if ($any_text_ids_used) {
 			say "<p>Also note that some loci in this database have allele ids defined as text strings.  Queries using the "
 			  . "'&lt;' or '&gt;' modifiers will work alphabetically rather than numerically unless you filter your search to a locus "
@@ -242,9 +242,9 @@ sub _print_interface {
 	say "</p>";
 	say $q->startform;
 	say $q->hidden($_) foreach qw (db page table no_js);
-	say "<fieldset style=\"float:left\">\n<legend>Search criteria</legend>\n";
+	say qq(<fieldset style="float:left">\n<legend>Search criteria</legend>);
 	my $table_field_heading = $table_fields == 1 ? 'none' : 'inline';
-	say "<span id=\"table_field_heading\" style=\"display:$table_field_heading\"><label for=\"c0\">Combine searches with: </label>";
+	say qq(<span id="table_field_heading" style="display:$table_field_heading"><label for=\"c0\">Combine searches with: </label>);
 	say $q->popup_menu( -name => 'c0', -id => 'c0', -values => [ "AND", "OR" ] );
 	say "</span>";
 	say "<ul id=\"table_fields\">";
@@ -256,14 +256,14 @@ sub _print_interface {
 	}
 	say "</ul>";
 	say "</fieldset>";
-	say "<fieldset style=\"float:left\"><legend>Display</legend>";
-	say "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>";
+	say qq(<fieldset style="float:left"><legend>Display</legend>);
+	say qq(<ul><li><span style="white-space:nowrap"><label for="order" class="display">Order by: </label>);
 	say $q->popup_menu( -name => 'order', -id => 'order', -values => $order_by, -labels => $labels );
 	say $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
 	say "</span></li>\n<li>";
 	say $self->get_number_records_control;
 	say "</li></ul></fieldset>";
-	say "<div style=\"clear:both\"></div>";
+	say qq(<div style="clear:both"></div>);
 	my @filters;
 
 	foreach my $att (@$attributes) {
@@ -285,7 +285,7 @@ sub _print_interface {
 					push @filters, $self->get_filter( $att->{'name'}, \@values );
 				} else {
 					my $desc;
-					my @values;
+					my $values;
 					my @fields_to_query;
 					if ( $att->{'foreign_key'} ) {
 						next if $att->{'name'} eq 'scheme_id';
@@ -296,17 +296,17 @@ sub _print_interface {
 							push @fields_to_query, 'id';
 						}
 						local $" = ',';
-						@values =
-						  @{ $self->{'datastore'}->run_list_query("SELECT id FROM $att->{'foreign_key'} ORDER BY @fields_to_query") };
-						next if !@values;
+						$values = $self->{'datastore'}->run_query( "SELECT id FROM $att->{'foreign_key'} ORDER BY @fields_to_query",
+							undef, { fetch => 'col_arrayref' } );
+						next if !@$values;
 					} else {
 						my $order        = $att->{'type'} eq 'text' ? "lower($att->{'name'})"       : $att->{'name'};
 						my $empty_clause = $att->{'type'} eq 'text' ? " WHERE $att->{'name'} <> ''" : '';
-						@values =
-						  @{ $self->{'datastore'}->run_list_query("SELECT $att->{'name'} FROM $table$empty_clause ORDER BY $order") };
-						@values = uniq @values;
+						$values = $self->{'datastore'}->run_query( "SELECT $att->{'name'} FROM $table$empty_clause ORDER BY $order",
+							undef, { fetch => 'col_arrayref' } );
+						@$values = uniq @$values;
 					}
-					push @filters, $self->get_filter( $att->{'name'}, \@values, { labels => $desc } );
+					push @filters, $self->get_filter( $att->{'name'}, $values, { labels => $desc } );
 				}
 			} elsif ( $att->{'optlist'} ) {
 				my @options = split /;/, $att->{'optlist'};
@@ -337,7 +337,9 @@ sub _print_interface {
 		}
 	} elsif ( $table eq 'locus_descriptions' ) {
 		my %labels;
-		my $common_names = $self->{'datastore'}->run_list_query("SELECT DISTINCT common_name FROM loci ORDER BY common_name");
+		my $common_names =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT DISTINCT common_name FROM loci ORDER BY common_name", undef, { fetch => 'col_arrayref' } );
 		push @filters,
 		  $self->get_filter( 'common_name', $common_names,
 			{ tooltip => 'common names filter - Select a name to filter your search to only those loci with the selected common name.' } );
@@ -389,6 +391,9 @@ sub _run_query {
 	my @errors;
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my $set_id     = $self->get_set_id;
+	my ( undef, undef, $order_by, undef ) = $self->_get_select_items($table);
+	$q->delete('order')
+	  if defined $q->param('order') && none { $q->param('order') eq $_ } @$order_by;    #Sanitize to prevent SQL injection attempts.
 
 	if ( !defined $q->param('query_file') ) {
 		my $andor       = $q->param('c0');
@@ -413,8 +418,8 @@ sub _run_query {
 				my $clean_fieldname;
 				if ( $table eq 'sequence_bin' && $field =~ /^ext_(.*)/ ) {
 					$clean_fieldname = $1;
-					my $type_ref = $self->{'datastore'}->run_simple_query( "SELECT type FROM sequence_attributes WHERE key=?", $1 );
-					$thisfield->{'type'} = ref $type_ref eq 'ARRAY' && @$type_ref ? $type_ref->[0] : 'text';
+					my $type = $self->{'datastore'}->run_query( "SELECT type FROM sequence_attributes WHERE key=?", $1 );
+					$thisfield->{'type'} = $type ? $type : 'text';
 				}
 				if ( $field =~ / \(date\)$/ ) {
 					$thisfield->{'type'} = 'date';    #Timestamps are too awkward to search with so only search on date component
@@ -593,9 +598,10 @@ sub _run_query {
 		}
 		$qry2 .= " ORDER BY $table.";
 		my $default_order;
-		if    ( $table eq 'sequences' ) { $default_order = 'locus' }
-		elsif ( $table eq 'history' )   { $default_order = 'timestamp' }
-		else                            { $default_order = 'id' }
+		if    ( $table eq 'sequences' )       { $default_order = 'locus' }
+		elsif ( $table eq 'history' )         { $default_order = 'timestamp' }
+		elsif ( $table eq 'profile_history' ) { $default_order = 'timestamp' }
+		else                                  { $default_order = 'id' }
 		$qry2 .= $q->param('order') || $default_order;
 		$qry2 =~ s/sequences.sequence_length/length(sequences.sequence)/g if $table eq 'sequences';
 		my $dir = ( $q->param('direction') // '' ) eq 'descending' ? 'desc' : 'asc';
@@ -627,9 +633,10 @@ sub _run_query {
 		}
 		$qry .= " ORDER BY $table.";
 		my $default_order;
-		if    ( $table eq 'sequences' ) { $default_order = 'locus' }
-		elsif ( $table eq 'history' )   { $default_order = 'timestamp' }
-		else                            { $default_order = 'id' }
+		if    ( $table eq 'sequences' )       { $default_order = 'locus' }
+		elsif ( $table eq 'history' )         { $default_order = 'timestamp' }
+		elsif ( $table eq 'profile_history' ) { $default_order = 'timestamp' }
+		else                                  { $default_order = 'id' }
 		$qry .= $q->param('order') || $default_order;
 		my $dir = $q->param('direction') eq 'descending' ? 'desc' : 'asc';
 		my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
@@ -918,7 +925,7 @@ sub _are_only_int_allele_ids_used {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my $any_text_ids_used =
-	  $self->{'datastore'}->run_simple_query( "SELECT EXISTS(SELECT * FROM loci WHERE allele_id_format=?)", 'text' )->[0];
+	  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM loci WHERE allele_id_format=?)", 'text' );
 	return 1 if !$any_text_ids_used;
 	if ( $q->param('locus_list') ) {
 		( my $locus = $q->param('locus_list') ) =~ s/^cn_//;

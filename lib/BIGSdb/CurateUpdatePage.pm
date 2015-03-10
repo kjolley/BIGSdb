@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -248,19 +248,11 @@ sub _check_scheme_fields {
 	#Check that only one primary key field is set for a scheme field
 	my ( $self, $newdata ) = @_;
 	if ( $newdata->{'primary_key'} eq 'true' ) {
-		my $primary_key_ref;
-		eval {
-			$primary_key_ref =
-			  $self->{'datastore'}
-			  ->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $newdata->{'scheme_id'} );
-		};
-		$logger->error($@) if $@;
-		my $primary_key = ref $primary_key_ref eq 'ARRAY' ? $primary_key_ref->[0] : undef;
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $newdata->{'scheme_id'}, { get_pk => 1 } );
+		my $primary_key = $scheme_info->{'primary_key'};
 		if ( $primary_key && $primary_key ne $newdata->{'field'} ) {
-			print <<"HTML";
-<div class="box" id="statusbad"><p>This scheme already has a primary key field set ($primary_key).</p>
-<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
-HTML
+			say qq(<div class="box" id="statusbad"><p>This scheme already has a primary key field set ($primary_key).</p>)
+			  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>);
 			return FAILURE;
 		}
 	}
@@ -273,7 +265,9 @@ sub _check_loci {
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $non_int;
 		if ( $newdata->{'allele_id_format'} eq 'integer' ) {
-			my $ids = $self->{'datastore'}->run_list_query( "SELECT allele_id FROM sequences WHERE locus=?", $newdata->{'id'} );
+			my $ids =
+			  $self->{'datastore'}
+			  ->run_query( "SELECT allele_id FROM sequences WHERE locus=?", $newdata->{'id'}, { fetch => 'col_arrayref' } );
 			foreach (@$ids) {
 				if ( !BIGSdb::Utils::is_int($_) && $_ ne 'N' ) {
 					$non_int = 1;
@@ -431,9 +425,11 @@ HTML
 	}
 	my @databanks = DATABANKS;
 	foreach my $databank (@databanks) {
-		my $existing_accessions =
-		  $self->{'datastore'}->run_list_query( "SELECT databank_id FROM accession WHERE locus=? AND allele_id=? AND databank=?",
-			$newdata->{'locus'}, $newdata->{'allele_id'}, $databank );
+		my $existing_accessions = $self->{'datastore'}->run_query(
+			"SELECT databank_id FROM accession WHERE locus=? AND allele_id=? AND databank=?",
+			[ $newdata->{'locus'}, $newdata->{'allele_id'}, $databank ],
+			{ fetch => 'col_arrayref' }
+		);
 		my @new_accessions = split /\r?\n/, $q->param("databank_$databank");
 		foreach my $new (@new_accessions) {
 			chomp $new;
@@ -526,7 +522,8 @@ sub _check_locus_descriptions {
 	my $q = $self->{'cgi'};
 	$self->_check_locus_aliases_when_updating_other_table( $newdata->{'locus'}, $newdata, $extra_inserts )
 	  if $q->param('table') eq 'locus_descriptions';
-	my $existing_pubmeds = $self->{'datastore'}->run_list_query( "SELECT pubmed_id FROM locus_refs WHERE locus=?", $newdata->{'locus'} );
+	my $existing_pubmeds =
+	  $self->{'datastore'}->run_query( "SELECT pubmed_id FROM locus_refs WHERE locus=?", $newdata->{'locus'}, { fetch => 'col_arrayref' } );
 	my @new_pubmeds = split /\r?\n/, $q->param('pubmed');
 	foreach my $new (@new_pubmeds) {
 		chomp $new;

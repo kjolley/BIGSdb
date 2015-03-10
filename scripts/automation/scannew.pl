@@ -1,7 +1,7 @@
 #!/usr/bin/perl -T
 #Scan genomes for new alleles
 #Written by Keith Jolley
-#Copyright (c) 2013-2014, University of Oxford
+#Copyright (c) 2013-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -50,6 +50,7 @@ GetOptions(
 	'm|min_size=i'         => \$opts{'m'},
 	'p|projects=s'         => \$opts{'p'},
 	'P|exclude_projects=s' => \$opts{'P'},
+	'prefix=s'             => \$opts{'prefix'},
 	'R|locus_regex=s'      => \$opts{'R'},
 	's|schemes=s'          => \$opts{'s'},
 	't|time=i'             => \$opts{'t'},
@@ -76,7 +77,7 @@ if ( !$opts{'d'} ) {
 	say "Help: scannew.pl -h";
 	exit;
 }
-if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
+if ( BIGSdb::Utils::is_int($opts{'threads'}) && $opts{'threads'} > 1 ) {
 	my $script;
 	$script = BIGSdb::Offline::ScanNew->new(    #Create script object to use methods to determine isolate list
 		{
@@ -101,6 +102,7 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 	my $lists = [];
 	my $list  = 0;
 	my $i     = 0;
+	$opts{'prefix'} = BIGSdb::Utils::get_random();    #Reuse isolate file for each thread.
 
 	foreach my $locus (@$loci) {
 		push @{ $lists->[$list] }, $locus;
@@ -110,7 +112,7 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 			$i = 0;
 		}
 	}
-	delete $opts{$_} foreach qw(l L R s);    #Remove options that impact locus list
+	delete $opts{$_} foreach qw(l L R s);             #Remove options that impact locus list
 	$script->{'logger'}->info("$opts{'d'}:Running Autodefiner (up to $opts{'threads'} threads)");
 	my $pm = Parallel::ForkManager->new( $opts{'threads'} );
 	$list = 0;
@@ -121,7 +123,7 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 		}
 	);
 	foreach my $list (@$lists) {
-		$pm->start and next;                 #Forks
+		$pm->start and next;                          #Forks
 		local $" = ',';
 		BIGSdb::Offline::ScanNew->new(
 			{
@@ -139,6 +141,7 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 		$pm->finish;    #Terminates child process
 	}
 	$pm->wait_all_children;
+	$script->delete_temp_files("$script->{'config'}->{'secure_tmp_dir'}/*$opts{'prefix'}*");
 	$script->{'logger'}->info("$opts{'d'}:All Autodefiner threads finished");
 	exit;
 }

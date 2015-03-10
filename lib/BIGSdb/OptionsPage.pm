@@ -145,11 +145,11 @@ sub set_options {
 			}
 			$prefstore->set_field( $guid, $dbname, 'aliases', 'maindisplay',
 				$prefs->{'maindisplayfields'}->{'aliases'} ? 'true' : 'false' );
-			my $composites = $self->{'datastore'}->run_list_query("SELECT id FROM composite_fields");
+			my $composites = $self->{'datastore'}->run_query( "SELECT id FROM composite_fields", undef, { fetch => 'col_arrayref' } );
 			foreach (@$composites) {
 				$prefstore->set_field( $guid, $dbname, $_, 'maindisplay', $prefs->{'maindisplayfields'}->{$_} ? 'true' : 'false' );
 			}
-			my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes");
+			my $schemes = $self->{'datastore'}->run_query( "SELECT id FROM schemes", undef, { fetch => 'col_arrayref' } );
 			foreach (@$schemes) {
 				my $field = "scheme_$_\_profile_status";
 				$prefstore->set_field( $guid, $dbname, $field, 'dropdown', $prefs->{'dropdownfields'}->{$field} ? 'true' : 'false' );
@@ -247,10 +247,9 @@ sub _print_main_results_options {
 		},
 		{ -name => 'display_seqbin_main',  -checked => $prefs->{'display_seqbin_main'},  -label => 'Display sequence bin size.' },
 		{ -name => 'display_contig_count', -checked => $prefs->{'display_contig_count'}, -label => 'Display contig count.' },
-		{ -name => 'display_publications', -checked => $prefs->{'display_publications'}, -label => 'Display publications.'}
+		{ -name => 'display_publications', -checked => $prefs->{'display_publications'}, -label => 'Display publications.' }
 	];
 	say "<ul id=\"main_results\">";
-
 	foreach my $option (@$options) {
 		say "<li>";
 		say $q->checkbox(%$option);

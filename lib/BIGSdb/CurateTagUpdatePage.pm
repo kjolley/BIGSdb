@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -35,8 +35,7 @@ sub print_content {
 		say qq(<div class="box" id="statusbad"><p>Tag id must be an integer.</p></div>);
 		return;
 	}
-	my $existing_tag =
-	  $self->{'datastore'}->run_query( "SELECT * FROM allele_sequences WHERE id=?", $id, { fetch => 'row_hashref' } );
+	my $existing_tag = $self->{'datastore'}->run_query( "SELECT * FROM allele_sequences WHERE id=?", $id, { fetch => 'row_hashref' } );
 	if ( !$existing_tag ) {
 		say qq(<div class="box" id="statusbad"><p>Tag does not exist.</p></div>);
 		return;
@@ -128,12 +127,12 @@ sub print_content {
 			say qq(<div class="box" id="resultsheader"><p>Sequence tag updated!</p><p><a href="$self->{'system'}->{'script_name'}?)
 			  . qq(db=$self->{'instance'}">Back to main page</a></p></div>);
 			local $" = '<br />';
-			my $isolate_id_ref = $self->{'datastore'}->run_simple_query( "SELECT isolate_id FROM sequence_bin WHERE id=?", $seqbin_id );
-			if ( ref $isolate_id_ref eq 'ARRAY' ) {
-				$self->update_history( $isolate_id_ref->[0], "$locus: sequence tag updated. Seqbin id: $seqbin_id; $start-$end" );
+			my $isolate_id = $self->{'datastore'}->run_query( "SELECT isolate_id FROM sequence_bin WHERE id=?", $seqbin_id );
+			if ( defined $isolate_id ) {
+				$self->update_history( $isolate_id, "$locus: sequence tag updated. Seqbin id: $seqbin_id; $start-$end" );
 			}
-			$q->param( 'start_pos' => $q->param('new_start') );
-			$q->param( 'end_pos'   => $q->param('new_end') );
+			$q->param( start_pos => $q->param('new_start') );
+			$q->param( end_pos   => $q->param('new_end') );
 			$orig_start = $q->param('new_start');
 			$orig_end   = $q->param('new_end');
 		}
@@ -189,8 +188,8 @@ sub print_content {
 		if (@stops) {
 			local $" = ', ';
 			my $plural = @stops == 1 ? '' : 's';
-			print "<span class=\"highlight\">Internal stop codon$plural at position$plural: @stops (numbering includes upstream "
-			  . "flanking sequence).</span>";
+			print qq[<span class="highlight">Internal stop codon$plural at position$plural: @stops (numbering includes upstream ]
+			  . qq[flanking sequence).</span>];
 		}
 		say "<pre class=\"sixpack\">";
 		say $display->{'sixpack'};

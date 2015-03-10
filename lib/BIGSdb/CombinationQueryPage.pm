@@ -366,7 +366,7 @@ sub _run_query {
 				my $project_id = $q->param('project_list');
 				if ($project_id) {
 					local $" = "','";
-					$qry .= " AND id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id')";
+					$qry .= " AND $view.id IN (SELECT isolate_id FROM project_members WHERE project_id='$project_id')";
 				}
 			}
 			if ( $qry && !$q->param('include_old') ) {

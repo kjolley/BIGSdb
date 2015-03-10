@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -26,11 +26,11 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
 sub print_content {
-	my ($self)    = @_;
-	my $system    = $self->{'system'};
-	my $q         = $self->{'cgi'};
+	my ($self) = @_;
+	my $system = $self->{'system'};
+	my $q      = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id') // 0;
-	my %att       = (
+	my %att = (
 		dbase_name => $self->{'config'}->{'ref_db'},
 		host       => $system->{'host'},
 		port       => $system->{'port'},
@@ -44,28 +44,26 @@ sub print_content {
 		$dbr = $self->{'dataConnector'}->get_connection( \%att );
 	}
 	catch BIGSdb::DatabaseConnectionException with {
-		say "<div class=\"box\" id=\"statusbad\"><p>No connection to reference database</p></div>";
+		say qq(<div class="box" id="statusbad"><p>No connection to reference database</p></div>);
 		$continue = 0;
 	};
 	return if !$continue;
 	if ( $system->{'dbtype'} eq 'isolates' ) {
-		my $ref_count = $self->{'datastore'}->run_simple_query("SELECT COUNT (DISTINCT pubmed_id) FROM refs")->[0];
-		if ( !$ref_count ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>No isolates have been linked to PubMed records.</p></div>";
+		my $refs_exist = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM refs)");
+		if ( !$refs_exist ) {
+			say qq(<div class="box" id="statusbad"><p>No isolates have been linked to PubMed records.</p></div>);
 			return;
 		}
 	} else {
-		my $ref_count =
-		  $self->{'datastore'}->run_simple_query( "SELECT COUNT (DISTINCT pubmed_id) FROM profile_refs WHERE scheme_id=?", $scheme_id )
-		  ->[0];
-		if ( !$ref_count ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>No profiles have been linked to PubMed records.</p></div>";
+		my $refs_exist = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM profile_refs WHERE scheme_id=?)", $scheme_id );
+		if ( !$refs_exist ) {
+			say qq(<div class="box" id="statusbad"><p>No profiles have been linked to PubMed records.</p></div>);
 			return;
 		}
 	}
 	my $pmid = $q->param('pmid');
 	if ( !$pmid ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No pmid passed.</p>";
+		say qq(<div class="box" id="statusbad"><p>No pmid passed.</p>);
 		return;
 	}
 	my $qry;

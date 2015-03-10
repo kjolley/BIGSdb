@@ -90,18 +90,20 @@ sub _print_interface {
 				$set_clause = "AND ( id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id))";
 			}
 		}
-		my $available = $self->{'datastore'}->run_list_query(
+		my $available = $self->{'datastore'}->run_query(
 			"SELECT id FROM $table_data->{'parent'} WHERE id NOT IN (SELECT $table_data->{'foreign'} FROM $table WHERE "
 			  . "$table_data->{'user_field'}=?) $set_clause ORDER BY $table_data->{'order'}",
-			$user_id
+			$user_id,
+			{ fetch => 'col_arrayref' }
 		);
 		push @$available, '' if !@$available;
 		$set_clause =~ s/id IN/$table_data->{'foreign'} IN/;
-		my $selected = $self->{'datastore'}->run_list_query(
+		my $selected = $self->{'datastore'}->run_query(
 			"SELECT $table_data->{'foreign'} FROM $table LEFT JOIN $table_data->{'parent'} ON $table_data->{'foreign'} = "
 			  . "$table_data->{'id'} WHERE $table_data->{'user_field'}=? $set_clause ORDER BY $table_data->{'parent'}."
 			  . "$table_data->{'order'}",
-			$user_id
+			$user_id,
+			{ fetch => 'col_arrayref' }
 		);
 		push @$selected, '' if !@$selected;
 		my $labels = $self->_get_labels($table);
@@ -246,8 +248,7 @@ sub _get_table_data {
 			user_field => 'user_id'
 		);
 	} elsif ( $table eq 'locus_curators' ) {
-		%values =
-		  ( parent => 'loci', plural => 'loci', id => 'id', foreign => 'locus', order => 'id', user_field => 'curator_id' );
+		%values = ( parent => 'loci', plural => 'loci', id => 'id', foreign => 'locus', order => 'id', user_field => 'curator_id' );
 	} elsif ( $table eq 'scheme_curators' ) {
 		%values = (
 			parent     => 'schemes',

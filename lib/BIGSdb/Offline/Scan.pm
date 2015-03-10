@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -25,6 +25,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Scan');
 use List::MoreUtils qw( any none);
 use Error qw(:try);
+use Fcntl qw(:flock);
 use BIGSdb::Page qw(SEQ_METHODS SEQ_FLAGS LOCUS_PATTERN);
 
 sub blast {
@@ -37,14 +38,14 @@ sub blast {
 		$program = 'blastx';
 	}
 	my $temp_infile  = "$self->{'config'}->{'secure_tmp_dir'}/$file_prefix\_file.txt";
-	my $temp_outfile = "$self->{'config'}->{'secure_tmp_dir'}/$file_prefix\_outfile.txt";
+	my $temp_outfile = "$self->{'config'}->{'secure_tmp_dir'}/$file_prefix\_$$\_outfile.txt";
 	my $clean_locus  = $locus;
 	$clean_locus =~ s/\W/_/g;
 	$clean_locus = $1 if $clean_locus =~ /(\w*)/;    #avoid taint check
 	my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$locus_prefix\_fastafile_$clean_locus.txt";
 	$temp_fastafile =~ s/\\/\\\\/g;
 	$temp_fastafile =~ s/'/__prime__/g;
-	my $outfile_url = "$file_prefix\_outfile.txt";
+	my $outfile_url = "$file_prefix\_$$\_outfile.txt";
 
 	#create fasta index
 	#only need to create this once for each locus (per run), so check if file exists first
@@ -114,6 +115,7 @@ sub blast {
 		}
 		my $contigs = $self->{'datastore'}->run_query( $qry, \@criteria, { fetch => 'all_arrayref', cache => 'Scan::blast_create_fasta' } );
 		open( my $infile_fh, '>', $temp_infile ) or $logger->error("Can't open temp file $temp_infile for writing");
+		flock( $infile_fh, LOCK_EX ) or $logger->error("Can't flock $temp_infile: $!");
 		foreach (@$contigs) {
 			say $infile_fh ">$_->[0]\n$_->[1]";
 		}
@@ -162,7 +164,12 @@ sub blast {
 			-$filter         => 'no'
 		);
 		$params{'-comp_based_stats'} = 0 if $program ne 'blastn';    #Will not return some matches with low-complexity regions otherwise.
+		open( my $infile_fh, '<', $temp_infile ) or $logger->error("Can't open temp file $temp_infile for reading");
+
+		#Make sure query file has finished writing (it may be another thread doing it).
+		flock( $infile_fh, LOCK_SH ) or $logger->error("Can't flock $temp_infile: $!");
 		system( "$self->{'config'}->{'blast+_path'}/$program", %params );
+		close $infile_fh;
 		my ( $exact_matches, $matched_regions, $partial_matches );
 		my $pcr_filter   = !$params->{'pcr_filter'}   ? 0 : $locus_info->{'pcr_filter'};
 		my $probe_filter = !$params->{'probe_filter'} ? 0 : $locus_info->{'probe_filter'};
@@ -247,7 +254,7 @@ sub run_script {
 	$self->_write_match( $options->{'scan_job'}, undef, { reset => 1 } );
 	$logger->info("Scan $self->{'instance'}:$options->{'scan_job'} ($options->{'curator_name'}) started");
 	my $table_file = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'scan_job'}_table.html";
-	unlink $table_file;                                                                                    #delete file if scan restarted
+	unlink $table_file;    #delete file if scan restarted
 
 	foreach my $isolate_id (@isolate_ids) {
 		next if $options->{'project_id'} && none { $isolate_id == $_ } @$isolates_in_project;

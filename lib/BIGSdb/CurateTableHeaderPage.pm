@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -61,16 +61,9 @@ sub get_headers {
 		push @headers, @$isolate_loci;
 	} elsif ( $table eq 'profiles' ) {
 		my $scheme_id = $self->{'cgi'}->param('scheme') || 0;
-		my $primary_key;
-		eval {
-			my $pk_ref =
-			  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id );
-			return if ref $pk_ref ne 'ARRAY';
-			$primary_key = $pk_ref->[0];
-		};
-		$logger->error($@) if $@;
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 		my $set_id = $self->get_set_id;
-		push @headers, $primary_key;
+		push @headers, $scheme_info->{'primary_key'};
 		my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		foreach my $locus (@$loci) {
 			my $label = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
@@ -97,9 +90,11 @@ sub get_headers {
 			}
 			if ( $self->{'cgi'}->param('locus') ) {
 				shift @headers;    #don't include 'locus'
-				my $extended_attributes =
-				  $self->{'datastore'}->run_list_query( "SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order",
-					$self->{'cgi'}->param('locus') );
+				my $extended_attributes = $self->{'datastore'}->run_query(
+					"SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order",
+					$self->{'cgi'}->param('locus'),
+					{ fetch => 'col_arrayref' }
+				);
 				if ( ref $extended_attributes eq 'ARRAY' ) {
 					push @headers, @$extended_attributes;
 				}

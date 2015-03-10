@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -31,25 +31,25 @@ sub print_content {
 	my $query      = $self->get_query_from_temp_file($query_file);
 	say "<h1>Link sequences to experiment</h1>";
 	if ( !$query ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No selection query passed!</p></div>";
+		say qq(<div class="box" id="statusbad"><p>No selection query passed!</p></div>);
 		return;
 	} elsif ( $query !~ /SELECT \* FROM sequence_bin/ ) {
 		$logger->error("Query:$query");
-		say "<div class=\"box\" id=\"statusbad\"><p>Invalid query passed!</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Invalid query passed!</p></div>);
 		return;
 	} elsif ( !$self->can_modify_table('sequence_bin') ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to link sequences to experiments.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Your user account is not allowed to link sequences to experiments.</p></div>);
 		return;
 	}
 	$query =~ s/SELECT \*/SELECT id/;
-	my $ids = $self->{'datastore'}->run_list_query($query);
+	my $ids = $self->{'datastore'}->run_query( $query, undef, { fetch => 'col_arrayref' } );
 	if ( $q->param('Link') ) {
 		my $experiment = $q->param('experiment');
 		if ( !$experiment ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>No experiment selected.</p></div>";
+			say qq(<div class="box" id="statusbad"><p>No experiment selected.</p></div>);
 			return;
 		} elsif ( !BIGSdb::Utils::is_int($experiment) ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>Invalid experiment selected.</p></div>";
+			say qq(<div class="box" id="statusbad"><p>Invalid experiment selected.</p></div>);
 			return;
 		}
 		my $qry = "SELECT COUNT(*) FROM experiment_sequences WHERE experiment_id=? AND seqbin_id=?";
@@ -69,27 +69,26 @@ sub print_content {
 		};
 		if ($@) {
 			$logger->error("Can't execute $@");
-			say "<div class=\"box\" id=\"statusbad\"><p>Error encountered linking experiments. There should be more details of "
-			  . "this error in the server log.</p></div>";
+			say qq(<div class="box" id="statusbad"><p>Error encountered linking experiments. There should be more details of )
+			  . qq(this error in the server log.</p></div>);
 			$self->{'db'}->rollback;
 		} else {
 			$self->{'db'}->commit;
-			say "<div class=\"box\" id=\"resultsheader\"><p>Sequences linked!</p></div>";
+			say qq(<div class="box" id="resultsheader"><p>Sequences linked!</p></div>);
 		}
 		return;
 	}
-	say "<div class=\"box\" id=\"queryform\">";
+	say qq(<div class="box" id="queryform">);
 	say "<p>" . @$ids . " sequence" . ( @$ids == 1 ? '' : 's' ) . " selected.</p>";
 	say "<p>Please select the experiment to link these sequences to:</p>";
-	my $sql = $self->{'db'}->prepare("SELECT id,description FROM experiments ORDER BY description");
-	eval { $sql->execute };
-	$logger->error($@) if $@;
+	my $exp_data =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT id,description FROM experiments ORDER BY description", undef, { fetch => 'all_arrayref', slice => {} } );
 	my @ids = (0);
 	my %desc = ( 0 => '' );
-
-	while ( my ( $id, $desc ) = $sql->fetchrow_array ) {
-		push @ids, $id;
-		$desc{$id} = $desc;
+	foreach my $data (@$exp_data) {
+		push @ids, $data->{'id'};
+		$desc{ $data->{'id'} } = $data->{'description'};
 	}
 	say $q->start_form;
 	say $q->popup_menu( -name => 'experiment', -values => \@ids, -labels => \%desc );

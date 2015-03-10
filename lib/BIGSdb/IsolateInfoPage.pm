@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -288,7 +288,8 @@ sub print_content {
 		if (@$loci) {
 			say "<h2>Schemes and loci$tree_button$aliases_button</h2>";
 			if ( @$scheme_data < 3 && @$loci <= 100 ) {
-				my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
+				my $schemes =
+				  $self->{'datastore'}->run_query( "SELECT id FROM schemes ORDER BY display_order,id", undef, { fetch => 'col_arrayref' } );
 				my $values_present;
 				foreach ( @$schemes, 0 ) {
 					next if $_ && !$self->{'prefs'}->{'isolate_display_schemes'}->{$_};
@@ -325,8 +326,9 @@ sub _close_divs {
 sub _print_other_schemes {
 	my ( $self, $isolate_id ) = @_;
 	my $scheme_ids =
-	  $self->{'datastore'}->run_list_query(
-		"SELECT id FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) ORDER BY display_order,description");
+	  $self->{'datastore'}->run_query(
+		"SELECT id FROM schemes WHERE id NOT IN (SELECT scheme_id FROM scheme_group_scheme_members) ORDER BY display_order,description",
+		undef, { fetch => 'col_arrayref' } );
 	foreach my $scheme_id (@$scheme_ids) {
 		next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};
 		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
@@ -353,7 +355,8 @@ sub _print_all_loci {
 			say '</div>';
 		}
 	} else {
-		my $schemes = $self->{'datastore'}->run_list_query("SELECT id FROM schemes ORDER BY display_order,id");
+		my $schemes =
+		  $self->{'datastore'}->run_query( "SELECT id FROM schemes ORDER BY display_order,id", undef, { fetch => 'col_arrayref' } );
 		foreach (@$schemes) {
 			next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$_};
 			say $self->_get_scheme( $_, $isolate_id, $self->{'curate'} );
@@ -472,7 +475,8 @@ sub _get_provenance_fields {
 	my $field_with_extended_attributes;
 	if ( !$summary_view ) {
 		$field_with_extended_attributes =
-		  $self->{'datastore'}->run_list_query("SELECT DISTINCT isolate_field FROM isolate_field_extended_attributes");
+		  $self->{'datastore'}
+		  ->run_query( "SELECT DISTINCT isolate_field FROM isolate_field_extended_attributes", undef, { fetch => 'col_arrayref' } );
 	}
 	foreach my $field (@$field_list) {
 		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
@@ -577,10 +581,10 @@ sub _get_provenance_fields {
 			if ( keys %attributes ) {
 				my $rows = keys %attributes || 1;
 				foreach my $attribute ( sort { $order{$a} <=> $order{$b} } keys(%attributes) ) {
-					my $url = $self->{'datastore'}->run_query(
-						"SELECT url FROM isolate_field_extended_attributes WHERE isolate_field=? AND attribute=?",
-						[ $field, $attribute ]
-					);
+					my $url =
+					  $self->{'datastore'}
+					  ->run_query( "SELECT url FROM isolate_field_extended_attributes WHERE isolate_field=? AND attribute=?",
+						[ $field, $attribute ] );
 					my $att_web;
 					if ($url) {
 						$url =~ s/\[\?\]/$attributes{$attribute}/;
@@ -741,9 +745,11 @@ sub _get_loci_not_in_schemes {
 	my $loci;
 	my $loci_in_no_scheme = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 	my $loci_with_designations =
-	  $self->{'datastore'}->run_list_query( "SELECT locus FROM allele_designations WHERE isolate_id=?", $isolate_id );
+	  $self->{'datastore'}
+	  ->run_query( "SELECT locus FROM allele_designations WHERE isolate_id=?", $isolate_id, { fetch => 'col_arrayref' } );
 	my %designations = map { $_ => 1 } @$loci_with_designations;
-	my $loci_with_tags = $self->{'datastore'}->run_list_query( "SELECT locus FROM allele_sequences WHERE isolate_id=?", $isolate_id );
+	my $loci_with_tags =
+	  $self->{'datastore'}->run_query( "SELECT locus FROM allele_sequences WHERE isolate_id=?", $isolate_id, { fetch => 'col_arrayref' } );
 	my %tags = map { $_ => 1 } @$loci_with_tags;
 
 	foreach my $locus (@$loci_in_no_scheme) {
@@ -761,16 +767,18 @@ sub _should_display_scheme {
 	return 0 if none { $scheme_id eq $_ } @$scheme_ids_ref;
 	my $scheme_fields      = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $loci               = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $designations_exist = $self->{'datastore'}->run_simple_query(
+	my $designations_exist = $self->{'datastore'}->run_query(
 		"SELECT EXISTS(SELECT isolate_id FROM allele_designations LEFT JOIN scheme_members ON scheme_members.locus="
 		  . "allele_designations.locus WHERE isolate_id=? AND scheme_id=?)",
-		$isolate_id, $scheme_id
-	)->[0];
-	my $sequences_exist = $self->{'datastore'}->run_simple_query(
+		[ $isolate_id, $scheme_id ],
+		{ cache => 'IsolateInfoPage::should_display_scheme::designations' }
+	);
+	my $sequences_exist = $self->{'datastore'}->run_query(
 		"SELECT EXISTS(SELECT isolate_id FROM allele_sequences LEFT JOIN scheme_members ON allele_sequences.locus=scheme_members.locus "
 		  . "WHERE isolate_id=? AND scheme_id=?)",
-		$isolate_id, $scheme_id
-	)->[0];
+		[ $isolate_id, $scheme_id ],
+		{ cache => 'IsolateInfoPage::should_display_scheme::sequences' }
+	);
 	my $should_display = ( $designations_exist || $sequences_exist ) ? 1 : 0;
 	return $should_display;
 }

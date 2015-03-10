@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -42,7 +42,7 @@ sub _ajax_content {
 
 sub get_help_url {
 	my ($self) = @_;
-	if ($self->{'curate'}){
+	if ( $self->{'curate'} ) {
 		return "$self->{'config'}->{'doclink'}/curator_guide.html#updating-and-deleting-scheme-profile-definitions";
 	}
 	return;
@@ -121,7 +121,9 @@ sub _print_filter_fieldset {
 	my $set_id = $self->get_set_id;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 	if ( $self->{'config'}->{'ref_db'} ) {
-		my $pmid = $self->{'datastore'}->run_list_query( "SELECT DISTINCT(pubmed_id) FROM profile_refs WHERE scheme_id=?", $scheme_id );
+		my $pmid =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT DISTINCT(pubmed_id) FROM profile_refs WHERE scheme_id=?", $scheme_id, { fetch => 'col_arrayref' } );
 		if (@$pmid) {
 			my $labels = $self->{'datastore'}->get_citation_hash($pmid);
 			my @values = sort { $labels->{$a} cmp $labels->{$b} } keys %$labels;
@@ -143,10 +145,11 @@ sub _print_filter_fieldset {
 		if ( $self->{'prefs'}->{"dropdown\_scheme_fields"}->{$scheme_id}->{$field} ) {
 			my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 			my $value_clause = $scheme_field_info->{'type'} eq 'integer' ? 'CAST(value AS integer)' : 'value';
-			my $values =
-			  $self->{'datastore'}->run_list_query(
+			my $values = $self->{'datastore'}->run_query(
 				"SELECT DISTINCT $value_clause FROM profile_fields WHERE scheme_id=? AND scheme_field=? ORDER BY $value_clause",
-				$scheme_id, $field );
+				[ $scheme_id, $field ],
+				{ fetch => 'col_arrayref' }
+			);
 			next if !@$values;
 			my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
 			push @filters,
@@ -205,13 +208,10 @@ sub _print_scheme_fields {
 sub _get_select_items {
 	my ( $self, $scheme_id ) = @_;
 	my ( @selectitems, @orderitems, %cleaned );
-	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $primary_key;
-	eval {
-		$primary_key =
-		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )->[0];
-	};
-	if ($@) {
+	my $loci        = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $primary_key = $scheme_info->{'primary_key'};
+	if ( !defined $primary_key ) {
 		$logger->error("No primary key - this should not have been called.");
 		return;
 	}
@@ -247,7 +247,7 @@ sub _run_query {
 	my @errors;
 	my $scheme_id   = BIGSdb::Utils::is_int( $q->param('scheme_id') ) ? $q->param('scheme_id') : 0;
 	my $loci        = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	if ( !defined $q->param('query_file') ) {
 		my $scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
 		$qry = "SELECT * FROM $scheme_view WHERE (";
@@ -309,13 +309,14 @@ sub _run_query {
 			}
 		}
 		$qry .= ')';
-		my $primary_key =
-		  $self->{'datastore'}->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $scheme_id )->[0];
+		my $primary_key = $scheme_info->{'primary_key'};
 		if ( defined $q->param('publication_list') && $q->param('publication_list') ne '' ) {
 			my $pmid = $q->param('publication_list');
-			my $ids =
-			  $self->{'datastore'}
-			  ->run_list_query( "SELECT profile_id FROM profile_refs WHERE scheme_id=? AND pubmed_id=?", $scheme_id, $pmid );
+			my $ids  = $self->{'datastore'}->run_query(
+				"SELECT profile_id FROM profile_refs WHERE scheme_id=? AND pubmed_id=?",
+				[ $scheme_id, $pmid ],
+				{ fetch => 'col_arrayref' }
+			);
 			if ($pmid) {
 				local $" = "','";
 				if ( $qry !~ /WHERE \(\)\s*$/ ) {

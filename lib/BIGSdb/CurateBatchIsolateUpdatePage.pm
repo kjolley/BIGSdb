@@ -290,7 +290,7 @@ sub _check {
 					eval { $sql2->execute(@args) };
 					$logger->error($@) if $@;
 					my @old_values;
-					while ( my $value = $sql2->fetchrow_array ) {
+					while ( my ($value) = $sql2->fetchrow_array ) {
 						push @old_values, $value;
 					}
 					no warnings 'numeric';
@@ -422,11 +422,11 @@ sub _update {
 		if ($is_locus) {
 			my @id_args = ($id1);
 			push @id_args, $id2 if $id->{'field2'} ne '<none>';
-			$isolate_id = $self->{'datastore'}->run_simple_query( "SELECT $view.id FROM $match_table WHERE $match", @id_args )->[0];
-			my $isolate_ref = $self->{'datastore'}->run_simple_query( "SELECT sender FROM $view WHERE id=?", $isolate_id );
+			$isolate_id = $self->{'datastore'}->run_query( "SELECT $view.id FROM $match_table WHERE $match", @id_args );
+			my $sender = $self->{'datastore'}->run_query( "SELECT sender FROM $view WHERE id=?", $isolate_id );
 			$qry = "INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp) "
 			  . "VALUES (?,?,?,?,?,?,?,?,?)";
-			push @args, ( $isolate_id, $field, $value, $isolate_ref->[0], 'confirmed', 'manual', $curator_id, 'now', 'now' );
+			push @args, ( $isolate_id, $field, $value, $sender, 'confirmed', 'manual', $curator_id, 'now', 'now' );
 			if ( $q->param('designations') eq 'replace' ) {
 
 				#Prepare allele deletion query
@@ -446,19 +446,17 @@ sub _update {
 			push @args, ( ( $value // '' ) eq '' ? undef : $value );
 			if ( defined $metaset ) {
 				my $record_exists =
-				  $self->{'datastore'}->run_simple_query(
+				  $self->{'datastore'}->run_query(
 					"SELECT EXISTS(SELECT * FROM meta_$metaset WHERE isolate_id IN (SELECT $view.id FROM $match_table WHERE $match))",
-					@id_args )->[0];
-				$isolate_id = $self->{'datastore'}->run_simple_query( "SELECT $view.id FROM $match_table WHERE $match", @id_args )->[0];
+					@id_args );
+				$isolate_id = $self->{'datastore'}->run_query( "SELECT $view.id FROM $match_table WHERE $match", @id_args );
 				if ($record_exists) {
 					$qry = "UPDATE meta_$metaset SET $metafield=? WHERE isolate_id=?";
 				} else {
 					$qry = "INSERT INTO meta_$metaset ($metafield, isolate_id) VALUES (?,?)";
 				}
 				push @args, $isolate_id;
-				my $old_value_ref =
-				  $self->{'datastore'}->run_simple_query( "SELECT $metafield FROM meta_$metaset WHERE isolate_id=?", $isolate_id );
-				$old_value = ref $old_value_ref eq 'ARRAY' ? $old_value_ref->[0] : undef;
+				$old_value= $self->{'datastore'}->run_query( "SELECT $metafield FROM meta_$metaset WHERE isolate_id=?", $isolate_id );
 			} else {
 				$qry = "UPDATE isolates SET $field=?,datestamp=?,curator=? WHERE id IN (SELECT $view.id FROM $match_table WHERE $match)";
 				push @args, ( 'now', $curator_id, @id_args );

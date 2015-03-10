@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,7 @@
 package BIGSdb::CurateCompositeQueryPage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -38,60 +39,53 @@ sub print_content {
 
 sub _create_query_table {
 	my ($self)      = @_;
-	my $q           = $self->{'cgi'};
-	my $field_count = $self->{'datastore'}->run_simple_query("SELECT COUNT(*) FROM composite_fields")->[0];
+	my $field_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM composite_fields");
 	if ($field_count) {
 		my $plural = $field_count > 1 ? 's' : '';
-		print "<div class=\"box\" id=\"resultsheader\">$field_count composite field$plural defined.</div>\n";
+		say qq(<div class="box" id="resultsheader">$field_count composite field$plural defined.</div>);
 	} else {
-		print "<div class=\"box\" id=\"statusbad\">No composite fields have been defined.</div>\n";
+		say qq(<div class="box" id="statusbad">No composite fields have been defined.</div>);
 		return;
 	}
-	my $qry = "SELECT * FROM composite_fields ORDER BY position_after";
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute };
-	$logger->error($@) if $@;
-	print "<div class=\"box\" id=\"resultstable\">";
-	print
-"<table class=\"resultstable\"><tr><th>Delete</th><th>Update</th><th>field name</th><th>position after</th><th>main display</th><th>definition</th><th>missing data</th></tr>\n";
+	print qq(<div class="box" id="resultstable">);
+	say qq(<table class="resultstable"><tr><th>Delete</th><th>Update</th><th>field name</th><th>position after</th><th>main display</th>)
+	  . qq(<th>definition</th><th>missing data</th></tr>);
 	my $td = 1;
-	$qry = "SELECT * FROM composite_field_values WHERE composite_field_id = ? ORDER BY field_order";
-	my $sql2 = $self->{'db'}->prepare($qry);
-
-	while ( my $data = $sql->fetchrow_hashref ) {
-		print "<tr class=\"td$td\"><td><a href=\""
-		  . $q->script_name
-		  . "?db=$self->{'instance'}&amp;page=delete&amp;&amp;table=composite_fields&amp;id=$data->{'id'}\">Delete</a></td><td><a href=\""
-		  . $q->script_name
-		  . "?db=$self->{'instance'}&amp;page=compositeUpdate&amp;id=$data->{'id'}\">Update</a></td>";
-		print "<td>$data->{'id'}</td><td>$data->{'position_after'}</td><td>" . ( $data->{'main_display'} ? 'true' : 'false' ) . "</td>";
-		eval { $sql2->execute( $data->{'id'} ) };
-		$logger->error($@) if $@;
+	my $composite_fields =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT * FROM composite_fields ORDER BY position_after", undef, { fetch => 'all_arrayref', slice => {} } );
+	foreach my $data (@$composite_fields) {
+		say qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=delete&amp;&amp;)
+		  . qq(table=composite_fields&amp;id=$data->{'id'}">Delete</a></td><td><a href="$self->{'system'}->{'script_name'}?)
+		  . qq(db=$self->{'instance'}&amp;page=compositeUpdate&amp;id=$data->{'id'}">Update</a></td>);
+		say qq(<td>$data->{'id'}</td><td>$data->{'position_after'}</td><td>) . ( $data->{'main_display'} ? 'true' : 'false' ) . "</td>";
 		my ( $value, $missing );
+		my $values =
+		  $self->{'datastore'}->run_query( "SELECT * FROM composite_field_values WHERE composite_field_id=? ORDER BY field_order",
+			$data->{'id'}, { fetch => 'all_arrayref', slice => {}, cache => 'CurateCompositeQueryPage::create_query_table_values' } );
 
 		#TODO check for invalid values
-		while ( my $field_value = $sql2->fetchrow_hashref ) {
+		foreach my $field_value (@$values) {
 			if ( $field_value->{'field'} =~ /^f_(.+)/ ) {
-				$value   .= "<span class=\"field\">[$1]</span>";
+				$value .= "<span class=\"field\">[$1]</span>";
 				$missing .= "<span class=\"field\">$field_value->{'empty_value'}</span>" if defined $field_value->{'empty_value'};
 			} elsif ( $field_value->{'field'} =~ /^l_(.+)/ ) {
-				$value   .= "<span class=\"locus\">[$1]</span>";
+				$value .= "<span class=\"locus\">[$1]</span>";
 				$missing .= "<span class=\"locus\">$field_value->{'empty_value'}</span>" if defined $field_value->{'empty_value'};
 			} elsif ( $field_value->{'field'} =~ /^s_(\d+)_(.+)/ ) {
-				$value   .= "<span class=\"scheme\">[scheme $1:$2]</span>";
+				$value .= "<span class=\"scheme\">[scheme $1:$2]</span>";
 				$missing .= "<span class=\"scheme\">$field_value->{'empty_value'}</span>" if defined $field_value->{'empty_value'};
 			} elsif ( $field_value->{'field'} =~ /^t_(.+)/ ) {
 				$value   .= "<span class=\"text\">$1</span>";
 				$missing .= "<span class=\"text\">$1</span>";
 			}
 		}
-		print defined $value ? "<td>$value</td>" : "<td></td>";
-		print defined $missing ? "<td>$missing</td>" : "<td></td>";
-		print "</tr>\n";
+		say defined $value   ? "<td>$value</td>"   : "<td></td>";
+		say defined $missing ? "<td>$missing</td>" : "<td></td>";
+		say "</tr>";
 		$td = $td == 1 ? 2 : 1;    #row stripes
 	}
-	print "</table>\n";
-	print "</div>\n";
+	say "</table></div>";
 	return;
 }
 1;

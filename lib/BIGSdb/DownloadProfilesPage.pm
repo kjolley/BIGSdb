@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -46,19 +46,13 @@ sub print_content {
 		say "Scheme $scheme_id is not available.";
 		return;
 	}
-	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	if ( !$scheme_info ) {
 		say "Scheme does not exist.";
 		return;
 	}
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-	my $primary_key;
-	eval {
-		$primary_key =
-		  $self->{'datastore'}
-		  ->run_simple_query( "SELECT field FROM scheme_fields WHERE primary_key AND scheme_id=?", $q->param('scheme_id') )->[0];
-	};
-	my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
+	my $primary_key   = $scheme_info->{'primary_key'};
 	if ( !$primary_key ) {
 		say "This scheme has no primary key set.";
 		return;
@@ -82,20 +76,15 @@ sub print_content {
 	print "\n";
 	local $" = ',';
 	my $scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
-	my $sql =
-	  $self->{'db'}->prepare( "SELECT @fields FROM $scheme_view ORDER BY "
-		  . ( $pk_info->{'type'} eq 'integer' ? "CAST($primary_key AS int)" : $primary_key ) );
-	eval { $sql->execute };
-	if ($@) {
-		$logger->error("Can't execute $@");
-		say "Can't retrieve data.";
-		return;
-	}
+	my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
+	my $qry =
+	  "SELECT @fields FROM $scheme_view ORDER BY " . ( $pk_info->{'type'} eq 'integer' ? "CAST($primary_key AS int)" : $primary_key );
+	my $data = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref' } );
 	local $" = "\t";
 	{
-		no warnings 'uninitialized';
-		while ( my @data = $sql->fetchrow_array ) {
-			say "@data";
+		no warnings 'uninitialized';    #scheme field values may be undefined
+		foreach my $profile (@$data) {
+			say "@$profile";
 		}
 	}
 	return;

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -37,23 +37,22 @@ sub print_content {
 	my $orf          = $q->param('orf');
 	my $no_highlight = $q->param('no_highlight');
 	if ( !BIGSdb::Utils::is_int($seqbin_id) ) {
-		say "<h1>Extracted sequence</h1>\n<div class=\"box\" id=\"statusbad\"><p>Sequence bin id must be an integer.</p></div>";
+		say qq(<h1>Extracted sequence</h1><div class="box" id="statusbad"><p>Sequence bin id must be an integer.</p></div>);
 		return;
 	}
 	if ( !BIGSdb::Utils::is_int($start) || !BIGSdb::Utils::is_int($end) ) {
-		say "<h1>Extracted sequence</h1>\n<div class=\"box\" id=\"statusbad\"><p>Start and end values must be integers.</p></div>";
+		say qq(<h1>Extracted sequence</h1><div class="box" id="statusbad"><p>Start and end values must be integers.</p></div>);
 		return;
 	}
-	my $exists = $self->{'datastore'}->run_simple_query( "SELECT COUNT(*) FROM sequence_bin WHERE id=?", $seqbin_id )->[0];
+	my $exists = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM sequence_bin WHERE id=?)", $seqbin_id );
 	if ( !$exists ) {
-		say "<h1>Extracted sequence</h1>\n<div class=\"box\" id=\"statusbad\"><p>There is no sequence with sequence bin "
-		  . "id#$seqbin_id.</p></div>";
+		say qq(<h1>Extracted sequence</h1><div class="box" id="statusbad"><p>There is no sequence with sequence bin )
+		  . qq(id#$seqbin_id.</p></div>);
 		return;
 	}
 	say "<h1>Extracted sequence: Seqbin id#:$seqbin_id ($start-$end)</h1>";
-	my $length = abs( $end - $start + 1 );
-	my $method_ref = $self->{'datastore'}->run_simple_query( "SELECT method FROM sequence_bin WHERE id=?", $seqbin_id );
-	$logger->error("No method") if ref $method_ref ne 'ARRAY';
+	my $length  = abs( $end - $start + 1 );
+	my $method  = $self->{'datastore'}->run_query( "SELECT method FROM sequence_bin WHERE id=?", $seqbin_id );
 	my $display = $self->format_seqbin_sequence(
 		{ seqbin_id => $seqbin_id, reverse => $reverse, start => $start, end => $end, translate => $translate, orf => $orf } );
 	my $orientation = $reverse ? '&larr;' : '&rarr;';
@@ -62,7 +61,7 @@ sub print_content {
 <div class="scrollable">
 <table class="resultstable">
 <tr><th colspan="3">sequence bin id#$seqbin_id</th></tr>
-<tr class="td1"><th>sequence method</th><td>$method_ref->[0]</td><td rowspan="5" class="seq" style="text-align:left">
+<tr class="td1"><th>sequence method</th><td>$method</td><td rowspan="5" class="seq" style="text-align:left">
 $display->{'seq'}
 </td></tr>
 <tr class="td1"><th>start</th><td>$start</td></tr>
@@ -70,7 +69,6 @@ $display->{'seq'}
 <tr class="td1"><th>length</th><td>$length</td></tr>
 <tr class="td1"><th>orientation</th><td style="font-size:2em">$orientation</td></tr>
 HTML
-
 	if ($translate) {
 		print "<tr class=\"td1\"><th>translation</th><td colspan=\"2\" style=\"text-align:left\">";
 		my @stops = @{ $display->{'internal_stop'} };
@@ -93,7 +91,7 @@ sub format_seqbin_sequence {
 	my ( $self, $args ) = @_;
 	$args->{'start'} = 1 if $args->{'start'} < 1;
 	my $contig_length =
-	  $self->{'datastore'}->run_simple_query( "SELECT length(sequence) FROM sequence_bin WHERE id=?", $args->{'seqbin_id'} )->[0];
+	  $self->{'datastore'}->run_query( "SELECT length(sequence) FROM sequence_bin WHERE id=?", $args->{'seqbin_id'} );
 	$args->{'end'} = $contig_length if $args->{'end'} > $contig_length;
 	my $flanking = $self->{'cgi'}->param('flanking') || $self->{'prefs'}->{'flanking'};
 	$flanking = ( BIGSdb::Utils::is_int($flanking) && $flanking >= 0 ) ? $flanking : 100;
