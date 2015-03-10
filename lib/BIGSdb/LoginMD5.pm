@@ -301,7 +301,7 @@ END_OF_JAVASCRIPT
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { 'general' => 0, 'main_display' => 0, 'isolate_display' => 0, 'analysis' => 0, 'query_field' => 0 };
+	$self->{'pref_requirements'} = { general => 0, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
 	return;
 }
 
@@ -312,7 +312,7 @@ sub print_content {
 	print "</h1>";
 	$self->print_banner;
 	if ( $self->{'authenticate_error'} ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>$self->{'authenticate_error'}</p></div>\n";
+		say qq(<div class="box" id="statusbad"><p>$self->{'authenticate_error'}</p></div>);
 	}
 	$self->_print_entry_form;
 	return;

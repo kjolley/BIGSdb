@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -36,14 +36,14 @@ sub print_content {
 	my $continue = 1;
 	say $q->param('page') eq 'changePassword' ? "<h1>Change password</h1>" : "<h1>Set user password</h1>";
 	if ( $self->{'system'}->{'authentication'} ne 'builtin' ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>This database uses external means of authentication and the password "
-		  . "can not be changed	from within the web application.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>This database uses external means of authentication and the password )
+		  . qq(cannot be changed from within the web application.</p></div>);
 		return;
 	} elsif ( $q->param('page') eq 'setPassword' && !$self->{'permissions'}->{'set_user_passwords'} && !$self->is_admin ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>You are not allowed to change other users' passwords.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>You are not allowed to change other users' passwords.</p></div>);
 		return;
 	} elsif ( $q->param('sent') && $q->param('page') eq 'setPassword' && !$q->param('user') ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Please select a user.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>Please select a user.</p></div>);
 		$continue = 0;
 	}
 	if ( $continue && $q->param('sent') && $q->param('existing_password') ) {
@@ -53,85 +53,85 @@ sub print_content {
 			#make sure user is only attempting to change their own password (user parameter is passed as a hidden
 			#parameter and could be changed)
 			if ( $self->{'username'} ne $q->param('user') ) {
-				say "<div class=\"box\" id=\"statusbad\"><p>You are attempting to change another user's password.  You are not "
-				  . "allowed to do that!</p></div>";
+				say qq(<div class="box" id="statusbad"><p>You are attempting to change another user's password.  You are not )
+				  . qq(allowed to do that!</p></div>);
 				$further_checks = 0;
 			} else {
 
 				#existing password not set when admin setting user passwords
 				my $stored_hash = $self->get_password_hash( $self->{'username'} );
 				if ( $stored_hash ne $q->param('existing_password') ) {
-					say "<div class=\"box\" id=\"statusbad\"><p>Your existing password was entered incorrectly. The password has not "
-					  . "been updated.</p></div>";
+					say qq(<div class="box" id="statusbad"><p>Your existing password was entered incorrectly. The password has not )
+					  . qq(been updated.</p></div>);
 					$further_checks = 0;
 				}
 			}
 		}
 		if ($further_checks) {
 			if ( $q->param('new_length') < 6 ) {
-				say "<div class=\"box\" id=\"statusbad\"><p>The password is too short and has not been updated.  It must be at least 6 "
-				  . "characters long.</p></div>";
+				say qq(<div class="box" id="statusbad"><p>The password is too short and has not been updated.  It must be at least 6 )
+				  . qq(characters long.</p></div>);
 			} elsif ( $q->param('new_password1') ne $q->param('new_password2') ) {
-				say "<div class=\"box\" id=\"statusbad\"><p>The password was not re-typed the same as the first time.</p></div>";
+				say qq(<div class="box" id="statusbad"><p>The password was not re-typed the same as the first time.</p></div>);
 			} else {
 				my $username = $q->param('page') eq 'changePassword' ? $self->{'username'} : $q->param('user');
 				if ( $self->set_password_hash( $username, $q->param('new_password1') ) ) {
-					say "<div class=\"box\" id=\"resultsheader\"><p>"
-					  . ( $q->param('page') eq 'changePassword' ? "Password updated ok." : "Password set for user '$username'." )
-					  . "</p>";
+					say qq(<div class="box" id="resultsheader"><p>)
+					  . ( $q->param('page') eq 'changePassword' ? "Password updated ok." : "Password set for user '$username'." ) . "</p>";
 				} else {
-					say "<div class=\"box\" id=\"resultsheader\"><p>Password not updated.  Please check with the system administrator.</p>";
+					say qq(<div class="box" id="resultsheader"><p>Password not updated.  Please check with the system administrator.</p>);
 				}
-				say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Return to index</a></p>\n</div>";
+				say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Return to index</a></p></div>);
 				return;
 			}
 		}
 	}
-	say "<div class=\"box\" id=\"queryform\">";
-	say "<p>Please enter your existing and new passwords.</p>\n" if $q->param('page') eq 'changePassword';
-	say "<noscript><p class=\"highlight\">Please note that Javascript must be enabled in order to login.  Passwords are encrypted using "
-	  . "Javascript prior to transmitting to the server.</p></noscript>";
+	say qq(<div class="box" id="queryform">);
+	say "<p>Please enter your existing and new passwords.</p>" if $q->param('page') eq 'changePassword';
+	say qq(<noscript><p class="highlight">Please note that Javascript must be enabled in order to login.  Passwords are encrypted using )
+	  . qq(Javascript prior to transmitting to the server.</p></noscript>);
 	say $q->start_form( -onSubmit => "existing_password.value=existing.value; existing.value='';new_length.value=new1.value.length;"
-	  . "var username;"
-	  . "if (\$('#user').length){username=document.getElementById('user').value} else {username=user.value}"
-	  . "new_password1.value=new1.value;new1.value='';new_password2.value=new2.value;new2.value='';"
-	  . "existing_password.value=calcMD5(existing_password.value+username);"
-	  . "new_password1.value=calcMD5(new_password1.value+username);"
-	  . "new_password2.value=calcMD5(new_password2.value+username);"
-	  . "return true"
-	);
-	say "<table>";
+		  . "var username;"
+		  . "if (\$('#user').length){username=document.getElementById('user').value} else {username=user.value}"
+		  . "new_password1.value=new1.value;new1.value='';new_password2.value=new2.value;new2.value='';"
+		  . "existing_password.value=calcMD5(existing_password.value+username);"
+		  . "new_password1.value=calcMD5(new_password1.value+username);"
+		  . "new_password2.value=calcMD5(new_password2.value+username);"
+		  . "return true" );
+	say qq(<fieldset style="float:left"><legend>Passwords</legend>);
+	say "<ul>";
 	if ( $q->param('page') eq 'changePassword' ) {
-		say "<tr><td style=\"text-align:right\">Existing password: </td><td>";
-		say $q->password_field( -name => 'existing' );
+		say qq(<li><label for="existing" class="form" style="width:10em">Existing password:</label>);
+		say $q->password_field( -name => 'existing', -id => 'existing' );
+		say '</li>';
 	} else {
-		my $sql = $self->{'db'}->prepare("SELECT user_name, first_name, surname FROM users WHERE id>0 ORDER BY lower(surname)");
-		eval { $sql->execute };
-		$logger->error($@) if $@;
+		my $user_data =
+		  $self->{'datastore'}->run_query( "SELECT user_name, first_name, surname FROM users WHERE id>0 ORDER BY lower(surname)",
+			undef, { fetch => 'all_arrayref', slice => {} } );
 		my ( @users, %labels );
 		push @users, '';
-		while ( my ( $username, $first_name, $surname ) = $sql->fetchrow_array ) {
-			push @users, $username;
-			$labels{$username} = "$surname, $first_name ($username)";
+		foreach my $user (@$user_data) {
+			push @users, $user->{'user_name'};
+			$labels{ $user->{'user_name'} } = "$user->{'surname'}, $user->{'first_name'} ($user->{'user_name'})";
 		}
-		say "<tr><td style=\"text-align:right\">User: </td><td>";
+		say qq(<li><label for="user" class="form" style="width:10em">User:</label>);
 		say $q->popup_menu( -name => 'user', -id => 'user', -values => [@users], -labels => \%labels );
-		say $q->hidden( 'existing', '' );
+		say $q->hidden( existing => '' );
+		say '</li>';
 	}
-	say "</td></tr>\n<tr><td style=\"text-align:right\">New password: </td><td>";
+	say qq(<li><label for="new1" class="form" style="width:10em">New password:</label>);
 	say $q->password_field( -name => 'new1', -id => 'new1' );
-	say "</td></tr>\n<tr><td style=\"text-align:right\">Retype password: </td><td>";
+	say '</li>';
+	say qq(<li><label for="new2" class="form" style="width:10em">Retype password:</label>);
 	say $q->password_field( -name => 'new2', -id => 'new2' );
-	say "</td></tr>\n<tr><td colspan=\"2\" style=\"text-align:right\">";
-	say $q->submit( -class => 'submit', -label => 'Set password' );
-	say "</td></tr>";
-	say "</table>";
-	$q->param( $_, '' ) foreach qw (existing_password new_password1 new_password2 new_length);
-	$q->param( 'user', $self->{'username'} ) if $q->param('page') eq 'changePassword';
-	$q->param( 'sent', 1 );
+	say '</li></ul></fieldset>';
+	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Set password' } );
+	$q->param( $_ => '' ) foreach qw (existing_password new_password1 new_password2 new_length);
+	$q->param( user => $self->{'username'} ) if $q->param('page') eq 'changePassword';
+	$q->param( sent => 1 );
 	say $q->hidden($_) foreach qw (db page existing_password new_password1 new_password2 new_length user sent);
 	say $q->end_form;
-	say "</div>\n";
+	say "</div>";
 	return;
 }
 1;
