@@ -22,7 +22,7 @@
 # Neil Winton <N.Winton@axion.bt.co.uk> and is maintained by
 # Gisle Aas <gisle@ActiveState.com>
 #
-# Modified extensively by Keith Jolley for use in BIGSdb, 2009-2014
+# Modified extensively by Keith Jolley for use in BIGSdb, 2009-2015
 # Uses DBI rather than DB_FILE
 # IP address set in sub initiate rather than at head of file as
 # this wasn't being seen after the first mod_perl iteration.
@@ -48,6 +48,7 @@ package BIGSdb::LoginMD5;
 use Digest::MD5;
 use strict;
 use warnings;
+use 5.010;
 use Log::Log4perl qw(get_logger);
 use parent qw(BIGSdb::Page);
 use List::MoreUtils qw(any);
@@ -69,7 +70,6 @@ my $screen_timeout = 600;
 # This is psuedo-random, but only controls the sessionID value, which
 # is also hashed with the ip address and your $uniqueString
 my $randomNumber = int( rand(4294967296) );
-
 #
 # The names of your cookies for this application
 #
@@ -395,10 +395,10 @@ sub _MD5_login {
 	$self->{'$sessionID'} = Digest::MD5::md5_hex( $self->{'ip_addr'} . $randomNumber . $uniqueString );
 	my $current_time = time();
 	$self->_create_session( $self->{'$sessionID'}, $current_time );
-	if ( $self->{'vars'}->{'Submit'} ) {
+	if ( $self->{'vars'}->{'submit'} ) {
 		my $log_buffer;
 		foreach my $key ( keys %{ $self->{'vars'} } ) {
-			$log_buffer .= ' | ' . $key . "=" . $self->{'vars'}->{$key} if $key ne 'password_field' && $key ne 'Submit';
+			$log_buffer .= ' | ' . $key . "=" . $self->{'vars'}->{$key} if $key ne 'password_field' && $key ne 'submit';
 		}
 		$logger->info($log_buffer);
 		if ( my $session = $self->_check_password() ) {
@@ -437,38 +437,37 @@ sub _check_password {
 sub _print_entry_form {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	print "<div class=\"box\" id=\"queryform\">\n";
+	say qq(<div class="box" id="queryform">);
 	my $reg_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/registration.html";
 	$self->print_file($reg_file) if -e $reg_file;
-	print <<"HTML";
+	say <<"HTML";
 <p>Please enter your log-in details.  Part of your IP address is used along with your username to set up your session. 
 If you have a session opened on a different computer, where the first three parts of the IP address vary, it will be 
 closed when you log in here. </p>
 <noscript><p class="highlight">Please note that Javascript must be enabled in order to login.  Passwords are encrypted 
 using Javascript prior to transmitting to the server.</p></noscript>
 HTML
-	print $q->start_form( -onSubmit => "password.value=password_field.value; password_field.value=''; "
+	say $q->start_form( -onSubmit => "password.value=password_field.value; password_field.value=''; "
 		  . "password.value=calcMD5(password.value+user.value); hash.value=calcMD5(password.value+session.value); return true" );
-	print "<fieldset><legend>Log in details</legend>\n";
-	print "<ul><li><label for=\"user\" class=\"display\">Username: </label>\n";
-	print $q->textfield( -name => 'user', -id => 'user', -size => 20, -maxlength => 20, -style => 'width:12em' );
-	print "</li><li><label for=\"password_field\" class=\"display\">Password: </label>\n";
-	print $q->password_field( -name => 'password_field', -id => 'password_field', -size => 20, -maxlength => 20, -style => 'width:12em' );
-	print "</li><li><span style=\"float:right\">";
-	print $q->submit( -name => 'Submit', value => 'Log in', -label => 'Log in', -class => 'submit' );
-	print "</span></li></ul></fieldset>\n";
-	$q->param( 'session',  $self->{'$sessionID'} );
-	$q->param( 'hash',     '' );
-	$q->param( 'password', '' );
+	say qq(<fieldset style="float:left"><legend>Log in details</legend>);
+	say qq(<ul><li><label for="user" class="display">Username: </label>);
+	say $q->textfield( -name => 'user', -id => 'user', -size => 20, -maxlength => 20, -style => 'width:12em' );
+	say qq(</li><li><label for="password_field" class="display">Password: </label>);
+	say $q->password_field( -name => 'password_field', -id => 'password_field', -size => 20, -maxlength => 20, -style => 'width:12em' );
+	say '</li></ul></fieldset>';
+	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Log in' } );
+	$q->param( session  => $self->{'$sessionID'} );
+	$q->param( hash     => '' );
+	$q->param( password => '' );
 
 	#Pass all parameters in case page has timed out from an internal page
 	my @params = $q->param;
 	foreach my $param (@params) {
 		next if any { $param eq $_ } qw(password_field user Submit);
-		print $q->hidden($param);
+		say $q->hidden($param);
 	}
-	print $q->end_form;
-	print "</div>\n";
+	say $q->end_form;
+	say "</div>";
 	return;
 }
 
@@ -485,27 +484,29 @@ sub _error_exit {
 sub get_password_hash {
 	my ( $self, $name ) = @_;
 	return if !$name;
-	my $sql = $self->{'auth_db'}->prepare("SELECT password FROM users WHERE dbase=? AND name=?");
-	eval { $sql->execute( $self->{'system'}->{'db'}, $name ) };
-	$logger->error($@) if $@;
-	my ($password) = $sql->fetchrow_array;
+	my $password = $self->{'datastore'}->run_query(
+		"SELECT password FROM users WHERE dbase=? AND name=?",
+		[ $self->{'system'}->{'db'}, $name ],
+		{ db => $self->{'auth_db'} }
+	);
 	return $password;
 }
 
 sub set_password_hash {
 	my ( $self, $name, $hash ) = @_;
 	return if !$name;
-
-	#check if named record already exists
-	my $sql = $self->{'auth_db'}->prepare("SELECT COUNT(*) FROM users WHERE dbase=? AND name=?");
-	eval { $sql->execute( $self->{'system'}->{'db'}, $name ) };
-	$logger->error($@) if $@;
-	my ($exists) = $sql->fetchrow_array;
+	my $exists = $self->{'datastore'}->run_query(
+		"SELECT EXISTS(SELECT * FROM users WHERE dbase=? AND name=?)",
+		[ $self->{'system'}->{'db'}, $name ],
+		{ db => $self->{'auth_db'} }
+	);
+	my $qry;
 	if ( !$exists ) {
-		$sql = $self->{'auth_db'}->prepare("INSERT INTO users (password,dbase,name) VALUES (?,?,?)");
+		$qry = "INSERT INTO users (password,dbase,name) VALUES (?,?,?)";
 	} else {
-		$sql = $self->{'auth_db'}->prepare("UPDATE users SET password=? WHERE dbase=? AND name=?");
+		$qry = "UPDATE users SET password=? WHERE dbase=? AND name=?";
 	}
+	my $sql = $self->{'auth_db'}->prepare($qry);
 	eval { $sql->execute( $hash, $self->{'system'}->{'db'}, $name ); };
 	if ($@) {
 		$logger->error($@);
@@ -520,10 +521,11 @@ sub set_password_hash {
 sub _get_IP_address {
 	my ( $self, $name ) = @_;
 	return if !$name;
-	my $sql = $self->{'auth_db'}->prepare("SELECT ip_address FROM users WHERE dbase=? AND name=?");
-	eval { $sql->execute( $self->{'system'}->{'db'}, $name ) };
-	$logger->error($@) if $@;
-	my ($ip_address) = $sql->fetchrow_array;
+	my $ip_address = $self->{'datastore'}->run_query(
+		"SELECT ip_address FROM users WHERE dbase=? AND name=?",
+		[ $self->{'system'}->{'db'}, $name ],
+		{ db => $self->{'auth_db'} }
+	);
 	return $ip_address;
 }
 
@@ -543,14 +545,14 @@ sub _set_current_user_IP_address {
 
 sub _create_session {
 	my ( $self, $session, $time ) = @_;
-	my $sql = $self->{'auth_db'}->prepare("SELECT COUNT(*) FROM sessions WHERE dbase=? AND session=?");
-	eval { $sql->execute( $self->{'system'}->{'db'}, $session ) };
-	$logger->error($@) if $@;
-	my ($exists) = $sql->fetchrow_array;
+	my $exists = $self->{'datastore'}->run_query(
+		"SELECT EXISTS(SELECT * FROM sessions WHERE dbase=? AND session=?)",
+		[ $self->{'system'}->{'db'}, $session ],
+		{ db => $self->{'auth_db'} }
+	);
 	return if $exists;
-	$sql = $self->{'auth_db'}->prepare("INSERT INTO sessions (dbase,session,start_time) VALUES (?,?,?)");
+	my $sql = $self->{'auth_db'}->prepare("INSERT INTO sessions (dbase,session,start_time) VALUES (?,?,?)");
 	eval { $sql->execute( $self->{'system'}->{'db'}, $session, $time ) };
-
 	if ($@) {
 		$logger->error($@);
 		$self->{'auth_db'}->rollback;
@@ -595,7 +597,7 @@ sub _get_cookies {
 }
 
 sub _clear_cookies {
-	my ($self, @entries) = @_;
+	my ( $self, @entries ) = @_;
 	my @cookies;
 	foreach my $entry (@entries) {
 		push( @cookies, $entry );
@@ -614,9 +616,9 @@ sub _set_cookies {
 	return \@Cookie_objects;
 }
 
-sub _shift2 { 
+sub _shift2 {
 	my ($cookie_ref) = @_;
-	return splice( @$cookie_ref, 0, 2 ); 
+	return splice( @$cookie_ref, 0, 2 );
 }
 
 sub _make_cookie {
