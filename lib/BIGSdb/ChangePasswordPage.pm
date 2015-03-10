@@ -23,6 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::LoginMD5);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
+use constant MIN_PASSWORD_LENGTH => 8;
 
 sub get_title {
 	my ($self) = @_;
@@ -68,11 +69,14 @@ sub print_content {
 			}
 		}
 		if ($further_checks) {
-			if ( $q->param('new_length') < 6 ) {
-				say qq(<div class="box" id="statusbad"><p>The password is too short and has not been updated.  It must be at least 6 )
-				  . qq(characters long.</p></div>);
+			if ( $q->param('new_length') < MIN_PASSWORD_LENGTH ) {
+				say qq(<div class="box" id="statusbad"><p>The password is too short and has not been updated.  It must be at least )
+				  . MIN_PASSWORD_LENGTH
+				  . qq( characters long.</p></div>);
 			} elsif ( $q->param('new_password1') ne $q->param('new_password2') ) {
 				say qq(<div class="box" id="statusbad"><p>The password was not re-typed the same as the first time.</p></div>);
+			} elsif ( $q->param('username_as_password') eq $q->param('new_password1') ) {
+				say qq(<div class="box" id="statusbad"><p>You can't use your username as your password!</p></div>);
 			} else {
 				my $username = $q->param('page') eq 'changePassword' ? $self->{'username'} : $q->param('user');
 				if ( $self->set_password_hash( $username, $q->param('new_password1') ) ) {
@@ -88,7 +92,8 @@ sub print_content {
 	}
 	say qq(<div class="box" id="queryform">);
 	say "<p>Please enter your existing and new passwords.</p>" if $q->param('page') eq 'changePassword';
-	say qq(<noscript><p class="highlight">Please note that Javascript must be enabled in order to login.  Passwords are encrypted using )
+	say
+	  qq(<noscript><p class="highlight">Please note that Javascript must be enabled in order to login.  Passwords are encrypted using )
 	  . qq(Javascript prior to transmitting to the server.</p></noscript>);
 	say $q->start_form( -onSubmit => "existing_password.value=existing.value; existing.value='';new_length.value=new1.value.length;"
 		  . "var username;"
@@ -97,9 +102,11 @@ sub print_content {
 		  . "existing_password.value=calcMD5(existing_password.value+username);"
 		  . "new_password1.value=calcMD5(new_password1.value+username);"
 		  . "new_password2.value=calcMD5(new_password2.value+username);"
+		  . "username_as_password.value=calcMD5(username+username);"
 		  . "return true" );
 	say qq(<fieldset style="float:left"><legend>Passwords</legend>);
 	say "<ul>";
+
 	if ( $q->param('page') eq 'changePassword' ) {
 		say qq(<li><label for="existing" class="form" style="width:10em">Existing password:</label>);
 		say $q->password_field( -name => 'existing', -id => 'existing' );
@@ -126,10 +133,10 @@ sub print_content {
 	say $q->password_field( -name => 'new2', -id => 'new2' );
 	say '</li></ul></fieldset>';
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Set password' } );
-	$q->param( $_ => '' ) foreach qw (existing_password new_password1 new_password2 new_length);
+	$q->param( $_ => '' ) foreach qw (existing_password new_password1 new_password2 new_length username_as_password);
 	$q->param( user => $self->{'username'} ) if $q->param('page') eq 'changePassword';
 	$q->param( sent => 1 );
-	say $q->hidden($_) foreach qw (db page existing_password new_password1 new_password2 new_length user sent);
+	say $q->hidden($_) foreach qw (db page existing_password new_password1 new_password2 new_length user sent username_as_password);
 	say $q->end_form;
 	say "</div>";
 	return;
