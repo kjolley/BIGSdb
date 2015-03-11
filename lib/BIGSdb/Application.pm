@@ -518,7 +518,7 @@ sub authenticate {
 			$page_attributes->{'username'} = $page->login_from_cookie;
 		}
 		catch BIGSdb::AuthenticationException with {
-			$logger->info("No cookie set - asking for log in");
+			$logger->debug("No cookie set - asking for log in");
 			try {
 				( $page_attributes->{'username'}, $auth_cookies_ref ) = $page->secure_login;
 			}
