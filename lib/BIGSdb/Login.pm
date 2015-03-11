@@ -1,3 +1,23 @@
+#Written by Keith Jolley
+#(c) 2010-2015, University of Oxford
+#E-mail: keith.jolley@zoo.ox.ac.uk
+#
+#This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
+#
+#BIGSdb is free software: you can redistribute it and/or modify
+#it under the terms of the GNU General Public License as published by
+#the Free Software Foundation, either version 3 of the License, or
+#(at your option) any later version.
+#
+#BIGSdb is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+#
+#You should have received a copy of the GNU General Public License
+#along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Uses perl-md5-login as basis.  Copyright for this module is below.
 ########################################################################
 #
 # perl-md5-login: a Perl/CGI + JavaScript user authorization
@@ -22,10 +42,6 @@
 # Neil Winton <N.Winton@axion.bt.co.uk> and is maintained by
 # Gisle Aas <gisle@ActiveState.com>
 #
-# Modified extensively by Keith Jolley for use in BIGSdb, 2009-2015
-# Uses DBI rather than DB_FILE
-# IP address set in sub initiate rather than at head of file as
-# this wasn't being seen after the first mod_perl iteration.
 #########################################################################
 #
 # The MD5 algorithm is defined in RFC 1321. The basic C code implementing
@@ -44,7 +60,7 @@
 # the derived work.
 #
 #########################################################################
-package BIGSdb::LoginMD5;
+package BIGSdb::Login;
 use Digest::MD5;
 use strict;
 use warnings;
@@ -374,10 +390,8 @@ sub login_from_cookie {
 	# we allow access.
 	##############################################################
 	if (   $savedPasswordHash
-		&& $Cookies{$passString}
-		&& $saved_IP_address
-		&& $saved_IP_address eq $self->{'ip_addr'}
-		&& $Cookies{$passString} eq $cookieString )
+		&& ( $saved_IP_address // '' ) eq $self->{'ip_addr'}
+		&& ( $Cookies{$passString} // '' ) eq $cookieString )
 	{
 		$logger->debug("User cookie validated, allowing access.");
 
@@ -391,18 +405,11 @@ sub login_from_cookie {
 
 sub _MD5_login {
 	my ($self) = @_;
-	$self->_clean_session_database();    # remove entries older than current_time + $timeout
-	$self->{'$sessionID'} = Digest::MD5::md5_hex( $self->{'ip_addr'} . $randomNumber . $uniqueString );
-	my $current_time = time();
-	$self->_create_session( $self->{'$sessionID'}, $current_time );
+	$self->_timout_logins;    # remove entries older than current_time + $timeout
 	if ( $self->{'vars'}->{'submit'} ) {
-		my $log_buffer;
-		foreach my $key ( keys %{ $self->{'vars'} } ) {
-			$log_buffer .= ' | ' . $key . "=" . $self->{'vars'}->{$key} if $key ne 'password_field' && $key ne 'submit';
-		}
-		$logger->info($log_buffer);
-		if ( my $session = $self->_check_password() ) {
-			$logger->info("User $self->{'vars'}->{'user'} logged in successfully");
+		if ( my $session = $self->_check_password ) {
+			$logger->info("User $self->{'vars'}->{'user'} logged in to $self->{'instance'}.");
+			$self->_delete_login_session( $self->{'cgi'}->param('session') );
 			return ( $self->{'vars'}->{'user'}, $session );    # return user name and session
 		}
 	}
@@ -414,8 +421,10 @@ sub _MD5_login {
 ####################  END OF MAIN PROGRAM  #######################
 sub _check_password {
 	my ($self) = @_;
-	if ( !$self->{'vars'}->{'user'} )     { $self->_error_exit("The name field was missing."); }
-	if ( !$self->{'vars'}->{'password'} ) { $self->_error_exit("The password field was missing."); }
+	if ( !$self->{'vars'}->{'user'} )     { $self->_error_exit("The name field was missing.") }
+	if ( !$self->{'vars'}->{'password'} ) { $self->_error_exit("The password field was missing.") }
+	my $login_session_exists = $self->_login_session_exists( $self->{'vars'}->{'session'} );
+	if ( !$login_session_exists ) { $self->_error_exit("The login window has expired - please resubmit credentials.") }
 	my $savedPasswordHash = $self->get_password_hash( $self->{'vars'}->{'user'} ) || '';
 	my $hashedPassSession = Digest::MD5::md5_hex( $savedPasswordHash . $self->{'vars'}->{'session'} );
 	$logger->debug("using session ID = $self->{'vars'}->{'session'}");
@@ -427,6 +436,7 @@ sub _check_password {
 	# Compare the calculated hash based on the saved password to
 	# the hash returned by the CGI form submission: they must match
 	if ( $hashedPassSession ne $self->{'vars'}->{'hash'} ) {
+		$self->_delete_login_session( $self->{'cgi'}->param('session') );
 		$self->_error_exit("Invalid username or password entered.  Please try again.");
 	} else {
 		return $savedPasswordHash;
@@ -437,6 +447,10 @@ sub _check_password {
 sub _print_entry_form {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
+	$self->{'sessionID'} = 'login:' . Digest::MD5::md5_hex( $self->{'ip_addr'} . $randomNumber . $uniqueString );
+	if ( !$q->param('session') || !$self->_login_session_exists( $q->param('session') ) ) {
+		$self->_create_login_session( $self->{'sessionID'}, time );
+	}
 	say qq(<div class="box" id="queryform">);
 	my $reg_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/registration.html";
 	$self->print_file($reg_file) if -e $reg_file;
@@ -456,7 +470,7 @@ HTML
 	say $q->password_field( -name => 'password_field', -id => 'password_field', -size => 20, -maxlength => 20, -style => 'width:12em' );
 	say '</li></ul></fieldset>';
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Log in' } );
-	$q->param( session  => $self->{'$sessionID'} );
+	$q->param( session  => $self->{'sessionID'} );
 	$q->param( hash     => '' );
 	$q->param( password => '' );
 
@@ -481,6 +495,12 @@ sub _error_exit {
 #############################################################################
 # Authentication Database Code
 #############################################################################
+sub _login_session_exists {
+	my ( $self, $session ) = @_;
+	return $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM sessions WHERE session=?)",
+		$session, { db => $self->{'auth_db'}, cache => 'Login::login_session_exists' } );
+}
+
 sub get_password_hash {
 	my ( $self, $name ) = @_;
 	return if !$name;
@@ -543,7 +563,7 @@ sub _set_current_user_IP_address {
 	return;
 }
 
-sub _create_session {
+sub _create_login_session {
 	my ( $self, $session, $time ) = @_;
 	my $exists = $self->{'datastore'}->run_query(
 		"SELECT EXISTS(SELECT * FROM sessions WHERE dbase=? AND session=?)",
@@ -557,21 +577,34 @@ sub _create_session {
 		$logger->error($@);
 		$self->{'auth_db'}->rollback;
 	} else {
-		$logger->debug("Session created: $session");
+		$logger->debug("Login session created: $session");
 		$self->{'auth_db'}->commit;
 	}
 	return;
 }
 
-sub _clean_session_database {
-	my ($self) = @_;
-	my $sql = $self->{'auth_db'}->prepare("DELETE FROM sessions WHERE dbase=? AND start_time<?");
-	eval { $sql->execute( $self->{'system'}->{'db'}, ( time - $screen_timeout ) ); };
+sub _delete_login_session {
+	my ( $self, $session_id ) = @_;
+	eval { $self->{'auth_db'}->do( "DELETE FROM sessions WHERE session=?", undef, $session_id ); };
 	if ($@) {
 		$logger->error($@);
 		$self->{'auth_db'}->rollback;
 	} else {
-		$logger->debug("Session database cleaned");
+		$self->{'auth_db'}->commit;
+	}
+	return;
+}
+
+sub _timout_logins {
+	my ($self) = @_;
+	eval {
+		$self->{'auth_db'}
+		  ->do( "DELETE FROM sessions WHERE dbase=? AND start_time<?", undef, $self->{'system'}->{'db'}, ( time - $screen_timeout ) );
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'auth_db'}->rollback;
+	} else {
 		$self->{'auth_db'}->commit;
 	}
 	return;

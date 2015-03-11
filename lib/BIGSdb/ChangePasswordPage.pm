@@ -20,7 +20,7 @@ package BIGSdb::ChangePasswordPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::LoginMD5);
+use parent qw(BIGSdb::Login);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant MIN_PASSWORD_LENGTH => 8;

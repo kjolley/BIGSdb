@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2010-2014, University of Oxford
+#(c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -44,7 +44,7 @@ use BIGSdb::JobsListPage;
 use BIGSdb::JobViewerPage;
 use BIGSdb::ListQueryPage;
 use BIGSdb::LocusInfoPage;
-use BIGSdb::LoginMD5;
+use BIGSdb::Login;
 use BIGSdb::OptionsPage;
 use BIGSdb::Parser;
 use BIGSdb::PluginManager;
@@ -505,7 +505,7 @@ sub authenticate {
 		my $logger = get_logger('BIGSdb.Application_Authentication');
 		$page_attributes->{'auth_db'} = $self->{'auth_db'};
 		$page_attributes->{'vars'}    = $self->{'cgi'}->Vars;
-		my $page = BIGSdb::LoginMD5->new(%$page_attributes);
+		my $page = BIGSdb::Login->new(%$page_attributes);
 		my $logging_out;
 		if ( $self->{'page'} eq 'logout' ) {
 			$auth_cookies_ref = $page->logout;
