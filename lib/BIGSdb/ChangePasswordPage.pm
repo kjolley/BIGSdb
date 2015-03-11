@@ -99,10 +99,10 @@ sub print_content {
 		  . "var username;"
 		  . "if (\$('#user').length){username=document.getElementById('user').value} else {username=user.value}"
 		  . "new_password1.value=new1.value;new1.value='';new_password2.value=new2.value;new2.value='';"
-		  . "existing_password.value=calcMD5(existing_password.value+username);"
-		  . "new_password1.value=calcMD5(new_password1.value+username);"
-		  . "new_password2.value=calcMD5(new_password2.value+username);"
-		  . "username_as_password.value=calcMD5(username+username);"
+		  . "existing_password.value=CryptoJS.MD5(existing_password.value+username);"
+		  . "new_password1.value=CryptoJS.MD5(new_password1.value+username);"
+		  . "new_password2.value=CryptoJS.MD5(new_password2.value+username);"
+		  . "username_as_password.value=CryptoJS.MD5(username+username);"
 		  . "return true" );
 	say qq(<fieldset style="float:left"><legend>Passwords</legend>);
 	say "<ul>";

@@ -278,6 +278,9 @@ sub print_page_content {
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/modernizr.js" } );
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.multiselect.js" } );
 			}
+			if ($self->{'CryptoJS.MD5'}){
+				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/md5.js" } );
+			}
 			push @javascript, { 'language' => 'Javascript', 'code' => $page_js } if $page_js;
 		}
 
