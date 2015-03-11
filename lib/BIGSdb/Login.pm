@@ -18,12 +18,14 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
 #perl-md5-login used as basis.  Extensively modified for BIGSdb.
-#Copyright for this module is below.
+#Javascript md5 now provided by CryptoJS (code.google.com/p/crypto-js)
+#as a separate file.
+#
+#Copyright for perl-md5-login is below.
 ########################################################################
 #
 # perl-md5-login: a Perl/CGI + JavaScript user authorization
 #
-########################################################################
 # This software is provided 'as-is' and without warranty. Use it at
 # your own risk.
 #
@@ -36,24 +38,6 @@
 # Neil Winton <N.Winton@axion.bt.co.uk> and is maintained by
 # Gisle Aas <gisle@ActiveState.com>
 #
-#########################################################################
-#
-# The MD5 algorithm is defined in RFC 1321. The basic C code implementing
-# the algorithm is derived from that in the RFC and is covered by the
-# following copyright:
-#
-# Copyright (C) 1991-2, RSA Data Security, Inc. Created 1991. All rights
-# reserved. License to copy and use this software is granted provided that
-# it is identified as the "RSA Data Security, Inc. MD5 Message-Digest
-# Algorithm" in all material mentioning or referencing this software or
-# this function.
-#
-# License is also granted to make and use derivative works provided that
-# such works are identified as "derived from the RSA Data Security, Inc.
-# MD5 Message-Digest Algorithm" in all material mentioning or referencing
-# the derived work.
-#
-#########################################################################
 package BIGSdb::Login;
 use Digest::MD5;
 use strict;
@@ -420,11 +404,10 @@ sub _timout_logins {
 sub logout {
 	my ($self) = @_;
 	my %cookies = $self->_get_cookies( $self->{'session_cookie'}, $self->{'user_cookie'} );
-	$logger->info("User $cookies{$self->{'user_cookie'}} logged out of $self->{'instance'}.") if $cookies{$self->{'user_cookie'}};
+	$logger->info("User $cookies{$self->{'user_cookie'}} logged out of $self->{'instance'}.") if $cookies{ $self->{'user_cookie'} };
 	$self->_delete_session( $cookies{ $self->{'session_cookie'} } );
 	my $cookies_ref = $self->_clear_cookies( $self->{'session_cookie'}, $self->{'pass_cookie'}, $self->{'user_cookie'} );
 	$self->{'logged_out'} = 1;
-	
 	return $cookies_ref;
 }
 
