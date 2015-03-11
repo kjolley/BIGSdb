@@ -17,7 +17,8 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-# Uses perl-md5-login as basis.  Copyright for this module is below.
+#perl-md5-login used as basis.  Extensively modified for BIGSdb.
+#Copyright for this module is below.
 ########################################################################
 #
 # perl-md5-login: a Perl/CGI + JavaScript user authorization
@@ -68,30 +69,20 @@ use 5.010;
 use Log::Log4perl qw(get_logger);
 use parent qw(BIGSdb::Page);
 use List::MoreUtils qw(any);
-my $logger       = get_logger('BIGSdb.Application_Authentication');
-my $uniqueString = 'bigsdbJolley';
+my $logger = get_logger('BIGSdb.Application_Authentication');
+use constant UNIQUE_STRING => 'bigsdbJolley';
 ############################################################################
 #
-# Cookie timeout parameter, default is 1 day
+# Cookie and session timeout parameters, default is 1 day
 #
-my $cookie_timeout = '+1d';    # or '+12h' for 12 hours, etc.
+use constant COOKIE_TIMEOUT  => '+1d';           #or '+12h' for 12 hours, etc.
+use constant SESSION_TIMEOUT => 24 * 60 * 60;    #Should be the same as cookie timeout
 
 # When a CGI response is received, the sessionID
 # is used to retrieve the time of the request. If the sessionID
 # does not index a timestamp, or if the timestamp is older than
-# $screen_timeout, the password login fails and exits.
-my $screen_timeout = 600;
-
-# Each CGI call has it's own seed, using Perl's built-in seed generator.
-# This is psuedo-random, but only controls the sessionID value, which
-# is also hashed with the ip address and your $uniqueString
-my $randomNumber = int( rand(4294967296) );
-#
-# The names of your cookies for this application
-#
-my $pass_cookie     = 'bigsdb_auth';
-my $user_cookie = 'bigsdb_user';
-my $session_cookie  = 'bigsdb_session';
+# screen_timeout, the password login fails and exits.
+use constant LOGIN_TIMEOUT => 600;
 
 sub get_javascript {
 	return <<END_OF_JAVASCRIPT;
@@ -350,7 +341,15 @@ sub initiate {
 	$ip_addr =~ s/\.\d+$//;
 
 	#don't use last part of IP address - due to problems with load-balancing proxies
-	$self->{'ip_addr'} = $ip_addr;
+	$self->{'ip_addr'}        = $ip_addr;
+	$self->{'session_cookie'} = "$self->{'system'}->{'db'}_session";
+	$self->{'pass_cookie'}    = "$self->{'system'}->{'db'}_auth";
+	$self->{'user_cookie'}    = "$self->{'system'}->{'db'}_user";
+
+	# Each CGI call has it's own seed, using Perl's built-in seed generator.
+	# This is psuedo-random, but only controls the sessionID value, which
+	# is also hashed with the ip address and your UNIQUE_STRING
+	$self->{'random_number'} = int( rand(4294967296) );
 	return;
 }
 
@@ -367,27 +366,27 @@ sub secure_login {
 	######################################################
 	# Set Cookie information with a session timeout
 	######################################################
-	my $setCookieString = Digest::MD5::md5_hex( $self->{'ip_addr'} . $passwordHash . $uniqueString );
-	
+	my $setCookieString = Digest::MD5::md5_hex( $self->{'ip_addr'} . $passwordHash . UNIQUE_STRING );
 	( my $active_session = $self->{'vars'}->{'session'} ) =~ s/login://;
-	my @cookies = ( $session_cookie => $active_session, $pass_cookie => $setCookieString, $user_cookie => $user );
+	my @cookies =
+	  ( $self->{'session_cookie'} => $active_session, $self->{'pass_cookie'} => $setCookieString, $self->{'user_cookie'} => $user );
 	$self->_create_session("active:$user:$active_session");
-	
-	my $cookies_ref = $self->_set_cookies( \@cookies, $cookie_timeout );
+	my $cookies_ref = $self->_set_cookies( \@cookies, COOKIE_TIMEOUT );
 	return ( $user, $cookies_ref );    # SUCCESS, w/cookie header
 }
 
 sub login_from_cookie {
 	( my $self ) = @_;
 	throw BIGSdb::AuthenticationException("No valid session") if $self->{'logged_out'};
-	my %cookies = $self->_get_cookies( $session_cookie, $pass_cookie, $user_cookie );
+	$self->_timout_sessions;
+	my %cookies = $self->_get_cookies( $self->{'session_cookie'}, $self->{'pass_cookie'}, $self->{'user_cookie'} );
 	foreach ( keys %cookies ) {
 		$logger->debug("cookie $_ = $cookies{$_}") if defined $cookies{$_};
 	}
-	my $saved_password_hash = $self->get_password_hash( $cookies{$user_cookie} ) || '';
-	my $saved_IP_address  = $self->_get_IP_address( $cookies{$user_cookie} );
-	my $cookie_string      = Digest::MD5::md5_hex( $self->{'ip_addr'} . $saved_password_hash . $uniqueString );
-	my $session = "active:$cookies{$user_cookie}:$cookies{$session_cookie}";
+	my $saved_password_hash = $self->get_password_hash( $cookies{ $self->{'user_cookie'} } ) || '';
+	my $saved_IP_address    = $self->_get_IP_address( $cookies{ $self->{'user_cookie'} } );
+	my $cookie_string       = Digest::MD5::md5_hex( $self->{'ip_addr'} . $saved_password_hash . UNIQUE_STRING );
+	my $session             = "active:$cookies{$self->{'user_cookie'}}:$cookies{$self->{'session_cookie'}}";
 	##############################################################
 	# Test the cookies against the current database
 	##############################################################
@@ -397,16 +396,16 @@ sub login_from_cookie {
 	##############################################################
 	if (   $saved_password_hash
 		&& ( $saved_IP_address // '' ) eq $self->{'ip_addr'}
-		&& ( $cookies{$pass_cookie} // '' ) eq $cookie_string 
-		&& $self->_session_exists($session))
+		&& ( $cookies{ $self->{'pass_cookie'} } // '' ) eq $cookie_string
+		&& $self->_session_exists($session) )
 	{
 		$logger->debug("User cookie validated, allowing access.");
 
 		# good cookie, allow access
-		return $cookies{$user_cookie};
+		return $cookies{ $self->{'user_cookie'} };
 	}
-	$cookies{$pass_cookie} ||= '';
-	$logger->debug("Cookie not validated. cookie:$cookies{$pass_cookie} string:$cookie_string");
+	$cookies{ $self->{'pass_cookie'} } ||= '';
+	$logger->debug("Cookie not validated. cookie:$cookies{$self->{'pass_cookie'}} string:$cookie_string");
 	throw BIGSdb::AuthenticationException("No valid session");
 }
 
@@ -421,7 +420,7 @@ sub _MD5_login {
 		}
 	}
 
-	# This sessionID will be valid for only $screen_timeout seconds
+	# This sessionID will be valid for only LOGIN_TIMEOUT seconds
 	$self->print_page_content;
 	throw BIGSdb::AuthenticationException;
 }
@@ -454,7 +453,7 @@ sub _check_password {
 sub _print_entry_form {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	$self->{'sessionID'} = 'login:' . Digest::MD5::md5_hex( $self->{'ip_addr'} . $randomNumber . $uniqueString );
+	$self->{'sessionID'} = 'login:' . Digest::MD5::md5_hex( $self->{'ip_addr'} . $self->{'random_number'} . UNIQUE_STRING );
 	if ( !$q->param('session') || !$self->_session_exists( $q->param('session') ) ) {
 		$self->_create_session( $self->{'sessionID'} );
 	}
@@ -504,8 +503,11 @@ sub _error_exit {
 #############################################################################
 sub _session_exists {
 	my ( $self, $session ) = @_;
-	return $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM sessions WHERE session=?)",
-		$session, { db => $self->{'auth_db'}, cache => 'Login::login_session_exists' } );
+	return $self->{'datastore'}->run_query(
+		"SELECT EXISTS(SELECT * FROM sessions WHERE dbase=? AND session=?)",
+		[ $self->{'system'}->{'db'}, $session ],
+		{ db => $self->{'auth_db'}, cache => 'Login::login_session_exists' }
+	);
 }
 
 sub get_password_hash {
@@ -602,14 +604,30 @@ sub _delete_session {
 	return;
 }
 
+sub _timout_sessions {
+
+	#Do this for all databases and for both login and active sessions since active session timeout is longer than login timeout.
+	my ($self) = @_;
+	eval { $self->{'auth_db'}->do( "DELETE FROM sessions WHERE start_time<?", undef, ( time - SESSION_TIMEOUT ) ); };
+	if ($@) {
+		$logger->error($@);
+		$self->{'auth_db'}->rollback;
+	} else {
+		$self->{'auth_db'}->commit;
+	}
+	return;
+}
+
 sub _timout_logins {
+
+	#Do this for all databases
 	my ($self) = @_;
 	eval {
 		$self->{'auth_db'}->do(
-			"DELETE FROM sessions WHERE dbase=? AND start_time<? AND session LIKE 'login%'",
+			"DELETE FROM sessions WHERE start_time<? AND session LIKE 'login%'",
 			undef,
 			$self->{'system'}->{'db'},
-			( time - $screen_timeout )
+			( time - LOGIN_TIMEOUT )
 		);
 	};
 	if ($@) {
@@ -625,10 +643,9 @@ sub _timout_logins {
 #############################################################################
 sub logout {
 	my ($self) = @_;
-	my %Cookies = $self->_get_cookies( $session_cookie, $user_cookie );
-	$self->_delete_session("active:$Cookies{$user_cookie}:$Cookies{$session_cookie}");
-	
-	my $cookies_ref = $self->_clear_cookies( $session_cookie, $pass_cookie, $user_cookie );
+	my %cookies = $self->_get_cookies( $self->{'session_cookie'}, $self->{'user_cookie'} );
+	$self->_delete_session("active:$cookies{$self->{'user_cookie'}}:$cookies{$self->{'session_cookie'}}");
+	my $cookies_ref = $self->_clear_cookies( $self->{'session_cookie'}, $self->{'pass_cookie'}, $self->{'user_cookie'} );
 	$self->{'logged_out'} = 1;
 	return $cookies_ref;
 }
