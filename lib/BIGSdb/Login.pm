@@ -89,8 +89,9 @@ my $randomNumber = int( rand(4294967296) );
 #
 # The names of your cookies for this application
 #
-my $passString     = 'cdAuth';
-my $userCookieName = 'wtUser';
+my $pass_cookie     = 'bigsdb_auth';
+my $user_cookie = 'bigsdb_user';
+my $session_cookie  = 'bigsdb_session';
 
 sub get_javascript {
 	return <<END_OF_JAVASCRIPT;
@@ -367,21 +368,26 @@ sub secure_login {
 	# Set Cookie information with a session timeout
 	######################################################
 	my $setCookieString = Digest::MD5::md5_hex( $self->{'ip_addr'} . $passwordHash . $uniqueString );
-	my @cookies         = ( $passString, $setCookieString, $userCookieName, $user );
-	my $cookies_ref     = $self->_set_cookies( \@cookies, $cookie_timeout );
+	
+	( my $active_session = $self->{'vars'}->{'session'} ) =~ s/login://;
+	my @cookies = ( $session_cookie => $active_session, $pass_cookie => $setCookieString, $user_cookie => $user );
+	$self->_create_session("active:$user:$active_session");
+	
+	my $cookies_ref = $self->_set_cookies( \@cookies, $cookie_timeout );
 	return ( $user, $cookies_ref );    # SUCCESS, w/cookie header
 }
 
 sub login_from_cookie {
 	( my $self ) = @_;
 	throw BIGSdb::AuthenticationException("No valid session") if $self->{'logged_out'};
-	my %Cookies = $self->_get_cookies( $passString, $userCookieName );
-	foreach ( keys %Cookies ) {
-		$logger->debug("cookie $_ = $Cookies{$_}") if defined $Cookies{$_};
+	my %cookies = $self->_get_cookies( $session_cookie, $pass_cookie, $user_cookie );
+	foreach ( keys %cookies ) {
+		$logger->debug("cookie $_ = $cookies{$_}") if defined $cookies{$_};
 	}
-	my $savedPasswordHash = $self->get_password_hash( $Cookies{$userCookieName} ) || '';
-	my $saved_IP_address  = $self->_get_IP_address( $Cookies{$userCookieName} );
-	my $cookieString      = Digest::MD5::md5_hex( $self->{'ip_addr'} . $savedPasswordHash . $uniqueString );
+	my $saved_password_hash = $self->get_password_hash( $cookies{$user_cookie} ) || '';
+	my $saved_IP_address  = $self->_get_IP_address( $cookies{$user_cookie} );
+	my $cookie_string      = Digest::MD5::md5_hex( $self->{'ip_addr'} . $saved_password_hash . $uniqueString );
+	my $session = "active:$cookies{$user_cookie}:$cookies{$session_cookie}";
 	##############################################################
 	# Test the cookies against the current database
 	##############################################################
@@ -389,17 +395,18 @@ sub login_from_cookie {
 	# and the current cookie hash matches the saved cookie hash
 	# we allow access.
 	##############################################################
-	if (   $savedPasswordHash
+	if (   $saved_password_hash
 		&& ( $saved_IP_address // '' ) eq $self->{'ip_addr'}
-		&& ( $Cookies{$passString} // '' ) eq $cookieString )
+		&& ( $cookies{$pass_cookie} // '' ) eq $cookie_string 
+		&& $self->_session_exists($session))
 	{
 		$logger->debug("User cookie validated, allowing access.");
 
 		# good cookie, allow access
-		return $Cookies{$userCookieName};
+		return $cookies{$user_cookie};
 	}
-	$Cookies{$passString} ||= '';
-	$logger->debug("Cookie not validated. cookie:$Cookies{$passString} string:$cookieString");
+	$cookies{$pass_cookie} ||= '';
+	$logger->debug("Cookie not validated. cookie:$cookies{$pass_cookie} string:$cookie_string");
 	throw BIGSdb::AuthenticationException("No valid session");
 }
 
@@ -407,10 +414,10 @@ sub _MD5_login {
 	my ($self) = @_;
 	$self->_timout_logins;    # remove entries older than current_time + $timeout
 	if ( $self->{'vars'}->{'submit'} ) {
-		if ( my $session = $self->_check_password ) {
+		if ( my $passwordHash = $self->_check_password ) {
 			$logger->info("User $self->{'vars'}->{'user'} logged in to $self->{'instance'}.");
-			$self->_delete_login_session( $self->{'cgi'}->param('session') );
-			return ( $self->{'vars'}->{'user'}, $session );    # return user name and session
+			$self->_delete_session( $self->{'cgi'}->param('session') );
+			return ( $self->{'vars'}->{'user'}, $passwordHash );    # return user name and password hash
 		}
 	}
 
@@ -423,12 +430,12 @@ sub _check_password {
 	my ($self) = @_;
 	if ( !$self->{'vars'}->{'user'} )     { $self->_error_exit("The name field was missing.") }
 	if ( !$self->{'vars'}->{'password'} ) { $self->_error_exit("The password field was missing.") }
-	my $login_session_exists = $self->_login_session_exists( $self->{'vars'}->{'session'} );
+	my $login_session_exists = $self->_session_exists( $self->{'vars'}->{'session'} );
 	if ( !$login_session_exists ) { $self->_error_exit("The login window has expired - please resubmit credentials.") }
-	my $savedPasswordHash = $self->get_password_hash( $self->{'vars'}->{'user'} ) || '';
-	my $hashedPassSession = Digest::MD5::md5_hex( $savedPasswordHash . $self->{'vars'}->{'session'} );
+	my $saved_password_hash = $self->get_password_hash( $self->{'vars'}->{'user'} ) || '';
+	my $hashedPassSession = Digest::MD5::md5_hex( $saved_password_hash . $self->{'vars'}->{'session'} );
 	$logger->debug("using session ID = $self->{'vars'}->{'session'}");
-	$logger->debug("Saved password hash for $self->{'vars'}->{'user'} = $savedPasswordHash");
+	$logger->debug("Saved password hash for $self->{'vars'}->{'user'} = $saved_password_hash");
 	$logger->debug("Submitted password hash for $self->{'vars'}->{'user'} = $self->{'vars'}->{'password'}");
 	$logger->debug("hashed stored pass + session string = $hashedPassSession");
 	$logger->debug("hashed submitted pass + session string = $self->{'vars'}->{'hash'}");
@@ -436,10 +443,10 @@ sub _check_password {
 	# Compare the calculated hash based on the saved password to
 	# the hash returned by the CGI form submission: they must match
 	if ( $hashedPassSession ne $self->{'vars'}->{'hash'} ) {
-		$self->_delete_login_session( $self->{'cgi'}->param('session') );
+		$self->_delete_session( $self->{'cgi'}->param('session') );
 		$self->_error_exit("Invalid username or password entered.  Please try again.");
 	} else {
-		return $savedPasswordHash;
+		return $saved_password_hash;
 	}
 	return;
 }
@@ -448,8 +455,8 @@ sub _print_entry_form {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	$self->{'sessionID'} = 'login:' . Digest::MD5::md5_hex( $self->{'ip_addr'} . $randomNumber . $uniqueString );
-	if ( !$q->param('session') || !$self->_login_session_exists( $q->param('session') ) ) {
-		$self->_create_login_session( $self->{'sessionID'}, time );
+	if ( !$q->param('session') || !$self->_session_exists( $q->param('session') ) ) {
+		$self->_create_session( $self->{'sessionID'} );
 	}
 	say qq(<div class="box" id="queryform">);
 	my $reg_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/registration.html";
@@ -477,7 +484,7 @@ HTML
 	#Pass all parameters in case page has timed out from an internal page
 	my @params = $q->param;
 	foreach my $param (@params) {
-		next if any { $param eq $_ } qw(password_field user Submit);
+		next if any { $param eq $_ } qw(password_field user submit);
 		say $q->hidden($param);
 	}
 	say $q->end_form;
@@ -495,7 +502,7 @@ sub _error_exit {
 #############################################################################
 # Authentication Database Code
 #############################################################################
-sub _login_session_exists {
+sub _session_exists {
 	my ( $self, $session ) = @_;
 	return $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM sessions WHERE session=?)",
 		$session, { db => $self->{'auth_db'}, cache => 'Login::login_session_exists' } );
@@ -563,8 +570,8 @@ sub _set_current_user_IP_address {
 	return;
 }
 
-sub _create_login_session {
-	my ( $self, $session, $time ) = @_;
+sub _create_session {
+	my ( $self, $session ) = @_;
 	my $exists = $self->{'datastore'}->run_query(
 		"SELECT EXISTS(SELECT * FROM sessions WHERE dbase=? AND session=?)",
 		[ $self->{'system'}->{'db'}, $session ],
@@ -572,7 +579,7 @@ sub _create_login_session {
 	);
 	return if $exists;
 	my $sql = $self->{'auth_db'}->prepare("INSERT INTO sessions (dbase,session,start_time) VALUES (?,?,?)");
-	eval { $sql->execute( $self->{'system'}->{'db'}, $session, $time ) };
+	eval { $sql->execute( $self->{'system'}->{'db'}, $session, time ) };
 	if ($@) {
 		$logger->error($@);
 		$self->{'auth_db'}->rollback;
@@ -583,7 +590,7 @@ sub _create_login_session {
 	return;
 }
 
-sub _delete_login_session {
+sub _delete_session {
 	my ( $self, $session_id ) = @_;
 	eval { $self->{'auth_db'}->do( "DELETE FROM sessions WHERE session=?", undef, $session_id ); };
 	if ($@) {
@@ -598,8 +605,12 @@ sub _delete_login_session {
 sub _timout_logins {
 	my ($self) = @_;
 	eval {
-		$self->{'auth_db'}
-		  ->do( "DELETE FROM sessions WHERE dbase=? AND start_time<?", undef, $self->{'system'}->{'db'}, ( time - $screen_timeout ) );
+		$self->{'auth_db'}->do(
+			"DELETE FROM sessions WHERE dbase=? AND start_time<? AND session LIKE 'login%'",
+			undef,
+			$self->{'system'}->{'db'},
+			( time - $screen_timeout )
+		);
 	};
 	if ($@) {
 		$logger->error($@);
@@ -614,19 +625,22 @@ sub _timout_logins {
 #############################################################################
 sub logout {
 	my ($self) = @_;
-	my $cookies_ref = $self->_clear_cookies( $passString, $userCookieName );
+	my %Cookies = $self->_get_cookies( $session_cookie, $user_cookie );
+	$self->_delete_session("active:$Cookies{$user_cookie}:$Cookies{$session_cookie}");
+	
+	my $cookies_ref = $self->_clear_cookies( $session_cookie, $pass_cookie, $user_cookie );
 	$self->{'logged_out'} = 1;
 	return $cookies_ref;
 }
 
 sub _get_cookies {
-	my ( $self, @cookieList ) = @_;
+	my ( $self, @cookie_list ) = @_;
 	my $query = $self->{'cgi'};
-	my %Cookies;
-	foreach my $name (@cookieList) {
-		$Cookies{$name} = $query->cookie($name);
+	my %cookies;
+	foreach my $name (@cookie_list) {
+		$cookies{$name} = $query->cookie($name);
 	}
-	return %Cookies;
+	return %cookies;
 }
 
 sub _clear_cookies {
@@ -640,13 +654,13 @@ sub _clear_cookies {
 }
 
 sub _set_cookies {
-	my ( $self, $cookieRef, $expires ) = @_;
-	my @Cookie_objects;
+	my ( $self, $cookie_ref, $expires ) = @_;
+	my @cookie_objects;
 	my $query = CGI->new;
-	while ( my ( $cookie, $value ) = _shift2($cookieRef) ) {
-		push( @Cookie_objects, $self->_make_cookie( $query, $cookie, $value, $expires ) );
+	while ( my ( $cookie, $value ) = _shift2($cookie_ref) ) {
+		push( @cookie_objects, $self->_make_cookie( $query, $cookie, $value, $expires ) );
 	}
-	return \@Cookie_objects;
+	return \@cookie_objects;
 }
 
 sub _shift2 {
