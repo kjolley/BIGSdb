@@ -145,7 +145,8 @@ sub login_from_cookie {
 	foreach ( keys %cookies ) {
 		$logger->debug("cookie $_ = $cookies{$_}") if defined $cookies{$_};
 	}
-	my $stored_hash      = $self->get_password_hash( $cookies{ $self->{'user_cookie'} } ) || '';
+	my $stored_hash = $self->get_password_hash( $cookies{ $self->{'user_cookie'} } ) || '';
+	throw BIGSdb::AuthenticationException("No valid session") if !$stored_hash;
 	my $saved_IP_address = $self->_get_IP_address( $cookies{ $self->{'user_cookie'} } );
 	my $cookie_string    = Digest::MD5::md5_hex( $self->{'ip_addr'} . $stored_hash->{'password'} . UNIQUE_STRING );
 	##############################################################
@@ -193,6 +194,10 @@ sub _check_password {
 	my $login_session_exists = $self->_login_session_exists( $self->{'vars'}->{'session'} );
 	if ( !$login_session_exists ) { $self->_error_exit("The login window has expired - please resubmit credentials.") }
 	my $stored_hash = $self->get_password_hash( $self->{'vars'}->{'user'} ) // '';
+	if ( !$stored_hash ) {
+		$self->_delete_session( $self->{'cgi'}->param('session') );
+		$self->_error_exit("Invalid username or password entered.  Please try again.");
+	}
 	$logger->debug("using session ID = $self->{'vars'}->{'session'}");
 	$logger->debug("Saved password hash for $self->{'vars'}->{'user'} = $stored_hash->{'password'}");
 	$logger->debug("Submitted password hash for $self->{'vars'}->{'user'} = $self->{'vars'}->{'password'}");
