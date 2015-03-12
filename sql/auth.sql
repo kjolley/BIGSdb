@@ -3,6 +3,8 @@ dbase text NOT NULL,
 name text NOT NULL,
 password text NOT NULL,
 algorithm text NOT NULL,
+cost int,
+salt text,
 ip_address text,
 reset_password boolean,
 PRIMARY KEY (dbase,name)
