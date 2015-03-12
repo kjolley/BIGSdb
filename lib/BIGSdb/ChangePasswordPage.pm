@@ -185,8 +185,6 @@ sub _set_password_hash {
 
 sub _generate_salt {
 	my ($self) = @_;
-	## Use the Process id & time to generate the salt.
-	srand( $$ | time );    # random seed
 	my @saltchars = ( 'a' .. 'z', 'A' .. 'Z', 0 .. 9, '.', '/' );
 	my $salt;
 	for ( 1 .. 16 ) {

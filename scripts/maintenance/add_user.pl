@@ -33,6 +33,7 @@ getopts( 'ad:n:p:', \%opts );
 
 if ( !$opts{'d'} || !$opts{'n'} || !$opts{'n'} ) {
 	say "Usage: add_user.pl [-a] -d <dbase> -n <username> -p <password>";
+	say "Use -a option to add a new user.";
 	exit;
 }
 main();
@@ -65,8 +66,6 @@ sub main {
 }
 
 sub generate_salt {
-	## Use the Process id & time to generate the salt.
-	srand( $$ | time );    # random seed
 	my @saltchars = ( 'a' .. 'z', 'A' .. 'Z', 0 .. 9, '.', '/' );
 	my $salt;
 	for ( 1 .. 16 ) {
