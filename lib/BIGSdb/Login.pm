@@ -52,7 +52,7 @@ use constant UNIQUE_STRING => 'bigsdbJolley';
 #
 # Cookie and session timeout parameters, default is 1 day
 #
-use constant COOKIE_TIMEOUT  => '+12h';          
+use constant COOKIE_TIMEOUT  => '+12h';
 use constant SESSION_TIMEOUT => 12 * 60 * 60;    #Should be the same as cookie timeout (in seconds)
 
 # When a CGI response is received, the sessionID
@@ -262,7 +262,7 @@ sub _error_exit {
 sub _active_session_exists {
 	my ( $self, $session, $username ) = @_;
 	return $self->{'datastore'}->run_query(
-		"SELECT EXISTS(SELECT * FROM sessions WHERE (dbase,session,state,username)=(?,?,?,?))",
+		"SELECT EXISTS(SELECT * FROM sessions WHERE (dbase,session,state,username)=(?,md5(?),?,?))",
 		[ $self->{'system'}->{'db'}, $session, 'active', $username ],
 		{ db => $self->{'auth_db'}, cache => 'Login::active_session_exists' }
 	);
@@ -271,7 +271,7 @@ sub _active_session_exists {
 sub _login_session_exists {
 	my ( $self, $session ) = @_;
 	return $self->{'datastore'}->run_query(
-		"SELECT EXISTS(SELECT * FROM sessions WHERE (dbase,session,state)=(?,?,?))",
+		"SELECT EXISTS(SELECT * FROM sessions WHERE (dbase,session,state)=(?,md5(?),?))",
 		[ $self->{'system'}->{'db'}, $session, 'login' ],
 		{ db => $self->{'auth_db'}, cache => 'Login::login_session_exists' }
 	);
@@ -302,8 +302,7 @@ sub set_password_hash {
 	} else {
 		$qry = "UPDATE users SET password=? WHERE dbase=? AND name=?";
 	}
-	my $sql = $self->{'auth_db'}->prepare($qry);
-	eval { $sql->execute( $hash, $self->{'system'}->{'db'}, $name ); };
+	eval { $self->{'auth_db'}->do( $qry, undef, $hash, $self->{'system'}->{'db'}, $name ); };
 	if ($@) {
 		$logger->error($@);
 		$self->{'auth_db'}->rollback;
@@ -327,8 +326,10 @@ sub _get_IP_address {
 
 sub _set_current_user_IP_address {
 	my ( $self, $userName, $ip_address ) = @_;
-	my $sql = $self->{'auth_db'}->prepare("UPDATE users SET ip_address=? WHERE dbase=? AND name=?");
-	eval { $sql->execute( $ip_address, $self->{'system'}->{'db'}, $userName ); };
+	eval {
+		$self->{'auth_db'}
+		  ->do( "UPDATE users SET ip_address=? WHERE dbase=? AND name=?", undef, $ip_address, $self->{'system'}->{'db'}, $userName );
+	};
 	if ($@) {
 		$logger->error($@);
 		$self->{'auth_db'}->rollback;
@@ -340,15 +341,23 @@ sub _set_current_user_IP_address {
 }
 
 sub _create_session {
+
+	#Store session as a MD5 hash of passed session.  This should prevent someone with access to the auth database
+	#from easily using active session tokens.
 	my ( $self, $session, $state, $username ) = @_;
 	my $exists = $self->{'datastore'}->run_query(
-		"SELECT EXISTS(SELECT * FROM sessions WHERE dbase=? AND session=?)",
+		"SELECT EXISTS(SELECT * FROM sessions WHERE dbase=? AND session=md5(?))",
 		[ $self->{'system'}->{'db'}, $session ],
 		{ db => $self->{'auth_db'} }
 	);
 	return if $exists;
-	my $sql = $self->{'auth_db'}->prepare("INSERT INTO sessions (dbase,session,start_time,state,username) VALUES (?,?,?,?,?)");
-	eval { $sql->execute( $self->{'system'}->{'db'}, $session, time, $state, $username ) };
+	eval {
+		$self->{'auth_db'}->do(
+			"INSERT INTO sessions (dbase,session,start_time,state,username) VALUES (?,md5(?),?,?,?)",
+			undef, $self->{'system'}->{'db'},
+			$session, time, $state, $username
+		);
+	};
 	if ($@) {
 		$logger->error($@);
 		$self->{'auth_db'}->rollback;
@@ -361,7 +370,7 @@ sub _create_session {
 
 sub _delete_session {
 	my ( $self, $session_id ) = @_;
-	eval { $self->{'auth_db'}->do( "DELETE FROM sessions WHERE session=?", undef, $session_id ); };
+	eval { $self->{'auth_db'}->do( "DELETE FROM sessions WHERE session=md5(?)", undef, $session_id ); };
 	if ($@) {
 		$logger->error($@);
 		$self->{'auth_db'}->rollback;
