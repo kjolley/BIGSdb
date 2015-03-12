@@ -21,9 +21,11 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Login);
+use Crypt::Eksblowfish::Bcrypt qw(bcrypt_hash en_base64);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant MIN_PASSWORD_LENGTH => 8;
+use BIGSdb::Login 'BCRYPT_COST';
 
 sub get_title {
 	my ($self) = @_;
@@ -60,8 +62,21 @@ sub print_content {
 			} else {
 
 				#existing password not set when admin setting user passwords
-				my $stored_hash = $self->get_password_hash( $self->{'username'} );
-				if ( $stored_hash ne $q->param('existing_password') ) {
+				my $stored_hash      = $self->get_password_hash( $self->{'username'} );
+				my $password_matches = 1;
+				if ( !$stored_hash->{'algorithm'} || $stored_hash->{'algorithm'} eq 'md5' ) {
+					if ( $stored_hash->{'password'} ne $q->param('existing_password') ) {
+						$password_matches = 0;
+					}
+				} elsif ( $stored_hash->{'algorithm'} eq 'bcrypt' ) {
+					my $hashed_submitted_password =
+					  en_base64(bcrypt_hash( { key_nul => 1, cost => $stored_hash->{'cost'}, salt => $stored_hash->{'salt'} },
+						$q->param('existing_password') ));
+					if ( $stored_hash->{'password'} ne $hashed_submitted_password ) {
+						$password_matches = 0;
+					}
+				}
+				if ( !$password_matches ) {
 					say qq(<div class="box" id="statusbad"><p>Your existing password was entered incorrectly. The password has not )
 					  . qq(been updated.</p></div>);
 					$further_checks = 0;
@@ -79,7 +94,7 @@ sub print_content {
 				say qq(<div class="box" id="statusbad"><p>You can't use your username as your password!</p></div>);
 			} else {
 				my $username = $q->param('page') eq 'changePassword' ? $self->{'username'} : $q->param('user');
-				if ( $self->set_password_hash( $username, $q->param('new_password1') ) ) {
+				if ( $self->_set_password_hash( $username, $q->param('new_password1') ) ) {
 					say qq(<div class="box" id="resultsheader"><p>)
 					  . ( $q->param('page') eq 'changePassword' ? "Password updated ok." : "Password set for user '$username'." ) . "</p>";
 				} else {
@@ -92,8 +107,7 @@ sub print_content {
 	}
 	say qq(<div class="box" id="queryform">);
 	say "<p>Please enter your existing and new passwords.</p>" if $q->param('page') eq 'changePassword';
-	say
-	  qq(<noscript><p class="highlight">Please note that Javascript must be enabled in order to login.  Passwords are encrypted using )
+	say qq(<noscript><p class="highlight">Please note that Javascript must be enabled in order to login.  Passwords are encrypted using )
 	  . qq(Javascript prior to transmitting to the server.</p></noscript>);
 	say $q->start_form( -onSubmit => "existing_password.value=existing.value; existing.value='';new_length.value=new1.value.length;"
 		  . "var username;"
@@ -106,7 +120,6 @@ sub print_content {
 		  . "return true" );
 	say qq(<fieldset style="float:left"><legend>Passwords</legend>);
 	say "<ul>";
-
 	if ( $q->param('page') eq 'changePassword' ) {
 		say qq(<li><label for="existing" class="form" style="width:10em">Existing password:</label>);
 		say $q->password_field( -name => 'existing', -id => 'existing' );
@@ -140,5 +153,45 @@ sub print_content {
 	say $q->end_form;
 	say "</div>";
 	return;
+}
+
+sub _set_password_hash {
+	my ( $self, $name, $hash ) = @_;
+	return if !$name;
+	my $bcrypt_cost = BIGSdb::Utils::is_int($self->{'config'}->{'bcrypt_cost'}) ?  $self->{'config'}->{'bcrypt_cost'} : BCRYPT_COST;
+	my $salt        = $self->_generate_salt;
+	my $bcrypt_hash = en_base64( bcrypt_hash( { key_nul => 1, cost => $bcrypt_cost, salt => $salt }, $hash ) );
+	my $exists      = $self->{'datastore'}->run_query(
+		"SELECT EXISTS(SELECT * FROM users WHERE dbase=? AND name=?)",
+		[ $self->{'system'}->{'db'}, $name ],
+		{ db => $self->{'auth_db'} }
+	);
+	my $qry;
+	if ( !$exists ) {
+		$qry = "INSERT INTO users (password,algorithm,cost,salt,dbase,name) VALUES (?,?,?,?,?,?)";
+	} else {
+		$qry = "UPDATE users SET (password,algorithm,cost,salt)=(?,?,?,?) WHERE (dbase,name)=(?,?)";
+	}
+	eval { $self->{'auth_db'}->do( $qry, undef, $bcrypt_hash, 'bcrypt', $bcrypt_cost, $salt, $self->{'system'}->{'db'}, $name ) };
+	if ($@) {
+		$logger->error($@);
+		$self->{'auth_db'}->rollback;
+		return 0;
+	} else {
+		$self->{'auth_db'}->commit;
+		return 1;
+	}
+}
+
+sub _generate_salt {
+	my ($self) = @_;
+	## Use the Process id & time to generate the salt.
+	srand( $$ | time );    # random seed
+	my @saltchars = ( 'a' .. 'z', 'A' .. 'Z', 0 .. 9, '.', '/' );
+	my $salt;
+	for ( 1 .. 16 ) {
+		$salt .= $saltchars[ int( rand($#saltchars) ) ];
+	}
+	return $salt;
 }
 1;

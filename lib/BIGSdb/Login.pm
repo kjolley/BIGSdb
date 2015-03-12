@@ -40,6 +40,7 @@
 #
 package BIGSdb::Login;
 use Digest::MD5;
+use Crypt::Eksblowfish::Bcrypt qw(bcrypt_hash en_base64);
 use strict;
 use warnings;
 use 5.010;
@@ -48,6 +49,8 @@ use parent qw(BIGSdb::Page);
 use List::MoreUtils qw(any);
 my $logger = get_logger('BIGSdb.Application_Authentication');
 use constant UNIQUE_STRING => 'bigsdbJolley';
+use constant BCRYPT_COST   => 12;
+our @EXPORT_OK = qw(BCRYPT_COST);
 ############################################################################
 #
 # Cookie and session timeout parameters, default is 1 day
@@ -142,9 +145,9 @@ sub login_from_cookie {
 	foreach ( keys %cookies ) {
 		$logger->debug("cookie $_ = $cookies{$_}") if defined $cookies{$_};
 	}
-	my $saved_password_hash = $self->get_password_hash( $cookies{ $self->{'user_cookie'} } ) || '';
-	my $saved_IP_address    = $self->_get_IP_address( $cookies{ $self->{'user_cookie'} } );
-	my $cookie_string       = Digest::MD5::md5_hex( $self->{'ip_addr'} . $saved_password_hash . UNIQUE_STRING );
+	my $stored_hash      = $self->get_password_hash( $cookies{ $self->{'user_cookie'} } ) || '';
+	my $saved_IP_address = $self->_get_IP_address( $cookies{ $self->{'user_cookie'} } );
+	my $cookie_string    = Digest::MD5::md5_hex( $self->{'ip_addr'} . $stored_hash->{'password'} . UNIQUE_STRING );
 	##############################################################
 	# Test the cookies against the current database
 	##############################################################
@@ -152,7 +155,7 @@ sub login_from_cookie {
 	# and the current cookie hash matches the saved cookie hash
 	# we allow access.
 	##############################################################
-	if (   $saved_password_hash
+	if (   $stored_hash->{'password'}
 		&& ( $saved_IP_address // '' ) eq $self->{'ip_addr'}
 		&& ( $cookies{ $self->{'pass_cookie'} } // '' ) eq $cookie_string
 		&& $self->_active_session_exists( $cookies{ $self->{'session_cookie'} }, $cookies{ $self->{'user_cookie'} } ) )
@@ -171,10 +174,10 @@ sub _MD5_login {
 	my ($self) = @_;
 	$self->_timout_logins;    # remove entries older than current_time + $timeout
 	if ( $self->{'vars'}->{'submit'} ) {
-		if ( my $password_hash = $self->_check_password ) {
+		if ( my $password = $self->_check_password ) {
 			$logger->info("User $self->{'vars'}->{'user'} logged in to $self->{'instance'}.");
 			$self->_delete_session( $self->{'cgi'}->param('session') );
-			return ( $self->{'vars'}->{'user'}, $password_hash );    # return user name and password hash
+			return ( $self->{'vars'}->{'user'}, $password );    # return user name and password hash
 		}
 	}
 
@@ -189,21 +192,35 @@ sub _check_password {
 	if ( !$self->{'vars'}->{'password'} ) { $self->_error_exit("The password field was missing.") }
 	my $login_session_exists = $self->_login_session_exists( $self->{'vars'}->{'session'} );
 	if ( !$login_session_exists ) { $self->_error_exit("The login window has expired - please resubmit credentials.") }
-	my $saved_password_hash = $self->get_password_hash( $self->{'vars'}->{'user'} ) || '';
-	my $hashedPassSession = Digest::MD5::md5_hex( $saved_password_hash . $self->{'vars'}->{'session'} );
+	my $stored_hash = $self->get_password_hash( $self->{'vars'}->{'user'} ) // '';
 	$logger->debug("using session ID = $self->{'vars'}->{'session'}");
-	$logger->debug("Saved password hash for $self->{'vars'}->{'user'} = $saved_password_hash");
+	$logger->debug("Saved password hash for $self->{'vars'}->{'user'} = $stored_hash->{'password'}");
 	$logger->debug("Submitted password hash for $self->{'vars'}->{'user'} = $self->{'vars'}->{'password'}");
-	$logger->debug("hashed stored pass + session string = $hashedPassSession");
 	$logger->debug("hashed submitted pass + session string = $self->{'vars'}->{'hash'}");
 
 	# Compare the calculated hash based on the saved password to
 	# the hash returned by the CGI form submission: they must match
-	if ( $hashedPassSession ne $self->{'vars'}->{'hash'} ) {
+	my $password_matches = 1;
+	if ( !$stored_hash->{'algorithm'} || $stored_hash->{'algorithm'} eq 'md5' ) {
+		if ( $stored_hash->{'password'} ne $self->{'vars'}->{'password'} ) {
+			$password_matches = 0;
+		}
+	} elsif ( $stored_hash->{'algorithm'} eq 'bcrypt' ) {
+		my $hashed_submitted_password =
+		  en_base64(
+			bcrypt_hash( { key_nul => 1, cost => $stored_hash->{'cost'}, salt => $stored_hash->{'salt'} }, $self->{'vars'}->{'password'} )
+		  );
+		if ( $stored_hash->{'password'} ne $hashed_submitted_password ) {
+			$password_matches = 0;
+		}
+	} else {
+		$password_matches = 0;
+	}
+	if ( !$password_matches ) {
 		$self->_delete_session( $self->{'cgi'}->param('session') );
 		$self->_error_exit("Invalid username or password entered.  Please try again.");
 	} else {
-		return $saved_password_hash;
+		return $stored_hash->{'password'};
 	}
 	return;
 }
@@ -226,7 +243,7 @@ closed when you log in here. </p>
 using Javascript prior to transmitting to the server.</p></noscript>
 HTML
 	say $q->start_form( -onSubmit => "password.value=password_field.value; password_field.value=''; "
-		  . "password.value=CryptoJS.MD5(password.value+user.value); hash.value=CryptoJS.MD5(password.value+session.value); return true" );
+		  . "password.value=CryptoJS.MD5(password.value+user.value); return true" );
 	say qq(<fieldset style="float:left"><legend>Log in details</legend>);
 	say qq(<ul><li><label for="user" class="display">Username: </label>);
 	say $q->textfield( -name => 'user', -id => 'user', -size => 20, -maxlength => 20, -style => 'width:12em' );
@@ -251,7 +268,7 @@ HTML
 
 sub _error_exit {
 	my ( $self, $msg ) = @_;
-	$self->{'cgi'}->param( 'password', '' );
+	$self->{'cgi'}->param( password => '' );
 	$self->{'authenticate_error'} = $msg;
 	$self->print_page_content;
 	throw BIGSdb::AuthenticationException($msg);
@@ -281,36 +298,11 @@ sub get_password_hash {
 	my ( $self, $name ) = @_;
 	return if !$name;
 	my $password = $self->{'datastore'}->run_query(
-		"SELECT password FROM users WHERE dbase=? AND name=?",
+		"SELECT password,algorithm,salt,cost FROM users WHERE dbase=? AND name=?",
 		[ $self->{'system'}->{'db'}, $name ],
-		{ db => $self->{'auth_db'} }
+		{ db => $self->{'auth_db'}, fetch => 'row_hashref' }
 	);
 	return $password;
-}
-
-sub set_password_hash {
-	my ( $self, $name, $hash ) = @_;
-	return if !$name;
-	my $exists = $self->{'datastore'}->run_query(
-		"SELECT EXISTS(SELECT * FROM users WHERE dbase=? AND name=?)",
-		[ $self->{'system'}->{'db'}, $name ],
-		{ db => $self->{'auth_db'} }
-	);
-	my $qry;
-	if ( !$exists ) {
-		$qry = "INSERT INTO users (password,dbase,name) VALUES (?,?,?)";
-	} else {
-		$qry = "UPDATE users SET password=? WHERE dbase=? AND name=?";
-	}
-	eval { $self->{'auth_db'}->do( $qry, undef, $hash, $self->{'system'}->{'db'}, $name ); };
-	if ($@) {
-		$logger->error($@);
-		$self->{'auth_db'}->rollback;
-		return 0;
-	} else {
-		$self->{'auth_db'}->commit;
-		return 1;
-	}
 }
 
 sub _get_IP_address {
@@ -413,7 +405,8 @@ sub _timout_logins {
 sub logout {
 	my ($self) = @_;
 	my %cookies = $self->_get_cookies( $self->{'session_cookie'}, $self->{'user_cookie'} );
-	$logger->info("User $cookies{$self->{'user_cookie'}} logged out of $self->{'instance'}.") if $cookies{ $self->{'user_cookie'} };
+	$logger->info("User $cookies{$self->{'user_cookie'}} logged out of $self->{'instance'}.")
+	  if $cookies{ $self->{'user_cookie'} } && $cookies{ $self->{'user_cookie'} } ne 'x';
 	$self->_delete_session( $cookies{ $self->{'session_cookie'} } );
 	my $cookies_ref = $self->_clear_cookies( $self->{'session_cookie'}, $self->{'pass_cookie'}, $self->{'user_cookie'} );
 	$self->{'logged_out'} = 1;
