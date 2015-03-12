@@ -52,8 +52,8 @@ use constant UNIQUE_STRING => 'bigsdbJolley';
 #
 # Cookie and session timeout parameters, default is 1 day
 #
-use constant COOKIE_TIMEOUT  => '+1d';           #or '+12h' for 12 hours, etc.
-use constant SESSION_TIMEOUT => 24 * 60 * 60;    #Should be the same as cookie timeout (in seconds)
+use constant COOKIE_TIMEOUT  => '+12h';          
+use constant SESSION_TIMEOUT => 12 * 60 * 60;    #Should be the same as cookie timeout (in seconds)
 
 # When a CGI response is received, the sessionID
 # is used to retrieve the time of the request. If the sessionID
