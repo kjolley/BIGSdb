@@ -1,6 +1,7 @@
 DELETE FROM sessions;
 ALTER TABLE sessions ADD state text NOT NULL;
 ALTER TABLE sessions ADD username text;
+ALTER TABLE sessions ADD reset_password boolean;
 
 ALTER TABLE users ADD algorithm text;
 UPDATE users SET algorithm = 'md5';

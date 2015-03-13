@@ -25,7 +25,7 @@ use Crypt::Eksblowfish::Bcrypt qw(bcrypt_hash en_base64);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant MIN_PASSWORD_LENGTH => 8;
-use BIGSdb::Login 'BCRYPT_COST';
+use BIGSdb::Login qw(BCRYPT_COST UNIQUE_STRING);
 
 sub get_title {
 	my ($self) = @_;
@@ -51,7 +51,7 @@ sub print_content {
 	}
 	if ( $continue && $q->param('sent') && $q->param('existing_password') ) {
 		my $further_checks = 1;
-		if ( $q->param('page') eq 'changePassword' ) {
+		if ( $q->param('page') eq 'changePassword' || $self->{'system'}->{'password_update_required'} ) {
 
 			#make sure user is only attempting to change their own password (user parameter is passed as a hidden
 			#parameter and could be changed)
@@ -69,9 +69,12 @@ sub print_content {
 						$password_matches = 0;
 					}
 				} elsif ( $stored_hash->{'algorithm'} eq 'bcrypt' ) {
-					my $hashed_submitted_password =
-					  en_base64(bcrypt_hash( { key_nul => 1, cost => $stored_hash->{'cost'}, salt => $stored_hash->{'salt'} },
-						$q->param('existing_password') ));
+					my $hashed_submitted_password = en_base64(
+						bcrypt_hash(
+							{ key_nul => 1, cost => $stored_hash->{'cost'}, salt => $stored_hash->{'salt'} },
+							$q->param('existing_password')
+						)
+					);
 					if ( $stored_hash->{'password'} ne $hashed_submitted_password ) {
 						$password_matches = 0;
 					}
@@ -93,7 +96,10 @@ sub print_content {
 			} elsif ( $q->param('username_as_password') eq $q->param('new_password1') ) {
 				say qq(<div class="box" id="statusbad"><p>You can't use your username as your password!</p></div>);
 			} else {
-				my $username = $q->param('page') eq 'changePassword' ? $self->{'username'} : $q->param('user');
+				my $username =
+				  ( $q->param('page') eq 'changePassword' || $self->{'system'}->{'password_update_required'} )
+				  ? $self->{'username'}
+				  : $q->param('user');
 				if ( $self->_set_password_hash( $username, $q->param('new_password1') ) ) {
 					say qq(<div class="box" id="resultsheader"><p>)
 					  . ( $q->param('page') eq 'changePassword' ? "Password updated ok." : "Password set for user '$username'." ) . "</p>";
@@ -106,6 +112,9 @@ sub print_content {
 		}
 	}
 	say qq(<div class="box" id="queryform">);
+	if ( $self->{'system'}->{'password_update_required'} ) {
+		say "<p>The system requires that you update your password.  This may be due to a security upgrade or alert.</p>";
+	}
 	say "<p>Please enter your existing and new passwords.</p>" if $q->param('page') eq 'changePassword';
 	say qq(<noscript><p class="highlight">Please note that Javascript must be enabled in order to login.  Passwords are encrypted using )
 	  . qq(Javascript prior to transmitting to the server.</p></noscript>);
@@ -120,7 +129,7 @@ sub print_content {
 		  . "return true" );
 	say qq(<fieldset style="float:left"><legend>Passwords</legend>);
 	say "<ul>";
-	if ( $q->param('page') eq 'changePassword' ) {
+	if ( $q->param('page') eq 'changePassword' || $self->{'system'}->{'password_update_required'} ) {
 		say qq(<li><label for="existing" class="form" style="width:10em">Existing password:</label>);
 		say $q->password_field( -name => 'existing', -id => 'existing' );
 		say '</li>';
@@ -147,9 +156,9 @@ sub print_content {
 	say '</li></ul></fieldset>';
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Set password' } );
 	$q->param( $_ => '' ) foreach qw (existing_password new_password1 new_password2 new_length username_as_password);
-	$q->param( user => $self->{'username'} ) if $q->param('page') eq 'changePassword';
+	$q->param( user => $self->{'username'} ) if $q->param('page') eq 'changePassword' || $self->{'system'}->{'password_update_required'};
 	$q->param( sent => 1 );
-	say $q->hidden($_) foreach qw (db page existing_password new_password1 new_password2 new_length user sent username_as_password);
+	say $q->hidden($_) foreach qw (db page session existing_password new_password1 new_password2 new_length user sent username_as_password);
 	say $q->end_form;
 	say "</div>";
 	return;
@@ -158,7 +167,7 @@ sub print_content {
 sub _set_password_hash {
 	my ( $self, $name, $hash ) = @_;
 	return if !$name;
-	my $bcrypt_cost = BIGSdb::Utils::is_int($self->{'config'}->{'bcrypt_cost'}) ?  $self->{'config'}->{'bcrypt_cost'} : BCRYPT_COST;
+	my $bcrypt_cost = BIGSdb::Utils::is_int( $self->{'config'}->{'bcrypt_cost'} ) ? $self->{'config'}->{'bcrypt_cost'} : BCRYPT_COST;
 	my $salt        = $self->_generate_salt;
 	my $bcrypt_hash = en_base64( bcrypt_hash( { key_nul => 1, cost => $bcrypt_cost, salt => $salt }, $hash ) );
 	my $exists      = $self->{'datastore'}->run_query(
@@ -168,11 +177,11 @@ sub _set_password_hash {
 	);
 	my $qry;
 	if ( !$exists ) {
-		$qry = "INSERT INTO users (password,algorithm,cost,salt,dbase,name) VALUES (?,?,?,?,?,?)";
+		$qry = "INSERT INTO users (password,algorithm,cost,salt,reset_password,dbase,name) VALUES (?,?,?,?,?,?,?)";
 	} else {
-		$qry = "UPDATE users SET (password,algorithm,cost,salt)=(?,?,?,?) WHERE (dbase,name)=(?,?)";
+		$qry = "UPDATE users SET (password,algorithm,cost,salt,reset_password)=(?,?,?,?,?) WHERE (dbase,name)=(?,?)";
 	}
-	eval { $self->{'auth_db'}->do( $qry, undef, $bcrypt_hash, 'bcrypt', $bcrypt_cost, $salt, $self->{'system'}->{'db'}, $name ) };
+	eval { $self->{'auth_db'}->do( $qry, undef, $bcrypt_hash, 'bcrypt', $bcrypt_cost, $salt, undef, $self->{'system'}->{'db'}, $name ) };
 	if ($@) {
 		$logger->error($@);
 		$self->{'auth_db'}->rollback;

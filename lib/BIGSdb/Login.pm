@@ -39,6 +39,7 @@
 # Gisle Aas <gisle@ActiveState.com>
 #
 package BIGSdb::Login;
+use BIGSdb::BIGSException;
 use Digest::MD5;
 use Crypt::Eksblowfish::Bcrypt qw(bcrypt_hash en_base64);
 use strict;
@@ -50,7 +51,7 @@ use List::MoreUtils qw(any);
 my $logger = get_logger('BIGSdb.Application_Authentication');
 use constant UNIQUE_STRING => 'bigsdbJolley';
 use constant BCRYPT_COST   => 12;
-our @EXPORT_OK = qw(BCRYPT_COST);
+our @EXPORT_OK = qw(BCRYPT_COST UNIQUE_STRING);
 ############################################################################
 #
 # Cookie and session timeout parameters, default is 1 day
@@ -132,9 +133,9 @@ sub secure_login {
 		$self->{'pass_cookie'}    => $setCookieString,
 		$self->{'user_cookie'}    => $user
 	);
-	$self->_create_session( $self->{'vars'}->{'session'}, 'active', $user );
+	$self->_create_session( $self->{'vars'}->{'session'}, 'active', $user, $self->{'reset_password'} );
 	my $cookies_ref = $self->_set_cookies( \@cookies, COOKIE_TIMEOUT );
-	return ( $user, $cookies_ref );    # SUCCESS, w/cookie header
+	return ( $user, $cookies_ref, $self->{'reset_password'} );    # SUCCESS, w/cookie header
 }
 
 sub login_from_cookie {
@@ -162,6 +163,9 @@ sub login_from_cookie {
 		&& $self->_active_session_exists( $cookies{ $self->{'session_cookie'} }, $cookies{ $self->{'user_cookie'} } ) )
 	{
 		$logger->debug("User cookie validated, allowing access.");
+		if ( $self->_password_reset_required( $cookies{ $self->{'session_cookie'} }, $cookies{ $self->{'user_cookie'} } ) ) {
+			$self->{'system'}->{'password_update_required'} = 1;
+		}
 
 		# good cookie, allow access
 		return $cookies{ $self->{'user_cookie'} };
@@ -225,17 +229,21 @@ sub _check_password {
 		$self->_delete_session( $self->{'cgi'}->param('session') );
 		$self->_error_exit("Invalid username or password entered.  Please try again.");
 	} else {
+		if ( $stored_hash->{'reset_password'} ) {
+			$logger->info('Password reset required.');
+			$self->{'reset_password'} = 1;
+		}
 		return $stored_hash->{'password'};
 	}
 	return;
 }
 
 sub _print_entry_form {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	$self->{'sessionID'} = Digest::MD5::md5_hex( $self->{'ip_addr'} . $self->{'random_number'} . UNIQUE_STRING );
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
+	my $session_id = Digest::MD5::md5_hex( $self->{'ip_addr'} . $self->{'random_number'} . UNIQUE_STRING );
 	if ( !$q->param('session') || !$self->_login_session_exists( $q->param('session') ) ) {
-		$self->_create_session( $self->{'sessionID'}, 'login', undef );
+		$self->_create_session( $session_id, 'login', undef );
 	}
 	say qq(<div class="box" id="queryform">);
 	my $reg_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/registration.html";
@@ -256,7 +264,7 @@ HTML
 	say $q->password_field( -name => 'password_field', -id => 'password_field', -size => 20, -maxlength => 20, -style => 'width:12em' );
 	say '</li></ul></fieldset>';
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Log in' } );
-	$q->param( session  => $self->{'sessionID'} );
+	$q->param( session  => $session_id );
 	$q->param( hash     => '' );
 	$q->param( password => '' );
 
@@ -290,6 +298,15 @@ sub _active_session_exists {
 	);
 }
 
+sub _password_reset_required {
+	my ( $self, $session, $username ) = @_;
+	return $self->{'datastore'}->run_query(
+		"SELECT EXISTS(SELECT * FROM sessions WHERE (dbase,session,state,username)=(?,md5(?),?,?) AND reset_password)",
+		[ $self->{'system'}->{'db'}, $session, 'active', $username ],
+		{ db => $self->{'auth_db'}, cache => 'Login::password_update_required' }
+	);
+}
+
 sub _login_session_exists {
 	my ( $self, $session ) = @_;
 	return $self->{'datastore'}->run_query(
@@ -303,7 +320,7 @@ sub get_password_hash {
 	my ( $self, $name ) = @_;
 	return if !$name;
 	my $password = $self->{'datastore'}->run_query(
-		"SELECT password,algorithm,salt,cost FROM users WHERE dbase=? AND name=?",
+		"SELECT password,algorithm,salt,cost,reset_password FROM users WHERE dbase=? AND name=?",
 		[ $self->{'system'}->{'db'}, $name ],
 		{ db => $self->{'auth_db'}, fetch => 'row_hashref' }
 	);
@@ -341,7 +358,7 @@ sub _create_session {
 
 	#Store session as a MD5 hash of passed session.  This should prevent someone with access to the auth database
 	#from easily using active session tokens.
-	my ( $self, $session, $state, $username ) = @_;
+	my ( $self, $session, $state, $username, $reset_password ) = @_;
 	my $exists = $self->{'datastore'}->run_query(
 		"SELECT EXISTS(SELECT * FROM sessions WHERE dbase=? AND session=md5(?))",
 		[ $self->{'system'}->{'db'}, $session ],
@@ -350,9 +367,9 @@ sub _create_session {
 	return if $exists;
 	eval {
 		$self->{'auth_db'}->do(
-			"INSERT INTO sessions (dbase,session,start_time,state,username) VALUES (?,md5(?),?,?,?)",
+			"INSERT INTO sessions (dbase,session,start_time,state,username,reset_password) VALUES (?,md5(?),?,?,?,?)",
 			undef, $self->{'system'}->{'db'},
-			$session, time, $state, $username
+			$session, time, $state, $username, $reset_password
 		);
 	};
 	if ($@) {

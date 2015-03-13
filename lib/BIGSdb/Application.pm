@@ -454,6 +454,7 @@ sub print_page {
 	} elsif ( $self->{'system'}->{'read_access'} ne 'public' ) {
 		( $continue, $auth_cookies_ref ) = $self->authenticate( \%page_attributes );
 	}
+	warn $self->{'page'};
 	return if !$continue;
 	if ( $self->{'page'} eq 'options'
 		&& ( $self->{'cgi'}->param('set') || $self->{'cgi'}->param('reset') ) )
@@ -462,7 +463,7 @@ sub print_page {
 		$page->initiate_prefs;
 		$page->set_options;
 		$self->{'page'} = 'index';
-		$self->{'cgi'}->param( 'page', 'index' );    #stop prefs initiating twice
+		$self->{'cgi'}->param( page => 'index' );    #stop prefs initiating twice
 		$set_options = 1;
 	}
 	if ( !$self->{'db'} ) {
@@ -492,6 +493,7 @@ sub print_page {
 sub authenticate {
 	my ( $self, $page_attributes ) = @_;
 	my $auth_cookies_ref;
+	my $reset_password;
 	my $authenticated = 1;
 	if ( $self->{'system'}->{'authentication'} eq 'apache' ) {
 		if ( $self->{'cgi'}->remote_user ) {
@@ -509,19 +511,22 @@ sub authenticate {
 		my $page = BIGSdb::Login->new(%$page_attributes);
 		my $logging_out;
 		if ( $self->{'page'} eq 'logout' ) {
+			
 			$auth_cookies_ref = $page->logout;
 			$page->set_cookie_attributes($auth_cookies_ref);
 			$self->{'page'} = 'index';
+#			delete $page_attributes->{'vars'}->{'page'} if $page_attributes->{'vars'}->{'page'} eq 'logout';
 			$logging_out = 1;
 		}
 		try {
 			throw BIGSdb::AuthenticationException('logging out') if $logging_out;
 			$page_attributes->{'username'} = $page->login_from_cookie;
+			$self->{'page'} = 'changePassword' if $self->{'system'}->{'password_update_required'};
 		}
 		catch BIGSdb::AuthenticationException with {
 			$logger->debug("No cookie set - asking for log in");
 			try {
-				( $page_attributes->{'username'}, $auth_cookies_ref ) = $page->secure_login;
+				( $page_attributes->{'username'}, $auth_cookies_ref, $reset_password ) = $page->secure_login;
 			}
 			catch BIGSdb::CannotOpenFileException with {
 				$page_attributes->{'error'} = 'userAuthenticationFiles';
@@ -534,6 +539,10 @@ sub authenticate {
 				$authenticated = 0;
 			};
 		};
+	}
+	if ($reset_password) {
+		$self->{'system'}->{'password_update_required'} = 1;
+		$self->{'cgi'}->{'page'}                        = 'changePassword';
 	}
 	if ($authenticated) {
 		my $config_access = $self->{'system'}->{'default_access'} ? $self->_user_allowed_access( $page_attributes->{'username'} ) : 1;

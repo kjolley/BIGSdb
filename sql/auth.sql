@@ -18,6 +18,7 @@ username text,
 session text NOT NULL,
 state text NOT NULL,
 start_time int NOT NULL,
+reset_password boolean,
 PRIMARY KEY (dbase,session)
 );
 
