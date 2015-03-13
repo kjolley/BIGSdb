@@ -454,7 +454,6 @@ sub print_page {
 	} elsif ( $self->{'system'}->{'read_access'} ne 'public' ) {
 		( $continue, $auth_cookies_ref ) = $self->authenticate( \%page_attributes );
 	}
-	warn $self->{'page'};
 	return if !$continue;
 	if ( $self->{'page'} eq 'options'
 		&& ( $self->{'cgi'}->param('set') || $self->{'cgi'}->param('reset') ) )
@@ -515,7 +514,6 @@ sub authenticate {
 			$auth_cookies_ref = $page->logout;
 			$page->set_cookie_attributes($auth_cookies_ref);
 			$self->{'page'} = 'index';
-#			delete $page_attributes->{'vars'}->{'page'} if $page_attributes->{'vars'}->{'page'} eq 'logout';
 			$logging_out = 1;
 		}
 		try {

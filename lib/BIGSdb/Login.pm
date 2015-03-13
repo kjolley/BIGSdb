@@ -303,7 +303,7 @@ sub _password_reset_required {
 	return $self->{'datastore'}->run_query(
 		"SELECT EXISTS(SELECT * FROM sessions WHERE (dbase,session,state,username)=(?,md5(?),?,?) AND reset_password)",
 		[ $self->{'system'}->{'db'}, $session, 'active', $username ],
-		{ db => $self->{'auth_db'}, cache => 'Login::password_update_required' }
+		{ db => $self->{'auth_db'}, cache => 'Login::password_reset_required' }
 	);
 }
 
