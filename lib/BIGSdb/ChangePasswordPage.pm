@@ -93,6 +93,8 @@ sub print_content {
 				  . qq( characters long.</p></div>);
 			} elsif ( $q->param('new_password1') ne $q->param('new_password2') ) {
 				say qq(<div class="box" id="statusbad"><p>The password was not re-typed the same as the first time.</p></div>);
+			} elsif ( $q->param('existing_password') eq $q->param('new_password1') ) {
+				say qq(<div class="box" id="statusbad"><p>You must use a new password!</p></div>);
 			} elsif ( $q->param('username_as_password') eq $q->param('new_password1') ) {
 				say qq(<div class="box" id="statusbad"><p>You can't use your username as your password!</p></div>);
 			} else {
