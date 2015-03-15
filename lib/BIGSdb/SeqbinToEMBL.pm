@@ -62,7 +62,7 @@ sub write_embl {
 			$seqbin_id, { fetch => 'row_arrayref', cache => 'SeqbinToEMBL::write_embl::seq' } );
 		my $seq_length   = length $seq->[0];
 		my $fasta_string = ">$seqbin_id\n" . $seq->[0] . "\n";
-		open( my $stringfh_in, "<:encoding(utf8)", \$fasta_string ) or die "Could not open string for writing: $!";
+		open( my $stringfh_in, "<:encoding(utf8)", \$fasta_string ) or die "Could not open string for reading: $!";
 		$stringfh_in->untaint;
 		my $seqin      = Bio::SeqIO->new( -fh => $stringfh_in, -format => 'fasta' );
 		my $seq_object = $seqin->next_seq;
