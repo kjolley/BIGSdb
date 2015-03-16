@@ -118,6 +118,7 @@ sub print_content {
 		say "<p>The system requires that you update your password.  This may be due to a security upgrade or alert.</p>";
 	}
 	say "<p>Please enter your existing and new passwords.</p>" if $q->param('page') eq 'changePassword';
+	say "<p>Passwords must be at least " . MIN_PASSWORD_LENGTH . " characters long.</p>";
 	say qq(<noscript><p class="highlight">Please note that Javascript must be enabled in order to login.  Passwords are encrypted using )
 	  . qq(Javascript prior to transmitting to the server.</p></noscript>);
 	say $q->start_form( -onSubmit => "existing_password.value=existing.value; existing.value='';new_length.value=new1.value.length;"
