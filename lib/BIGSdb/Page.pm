@@ -1660,8 +1660,7 @@ sub can_modify_table {
 		return 1 if $table eq 'allele_designations' && $self->{'permissions'}->{'designate_alleles'};
 
 		#Sequence bin
-		my %seq_tables = map { $_ => 1 } qw (sequence_bin sequence_bin);
-		return 1 if $seq_tables{$table} && $self->{'system'}->{'dbtype'} eq 'isolates';
+		return 1 if $table eq 'sequence_bin' && $self->{'permissions'}->{'modify_sequences'};
 
 		#Experiments
 		my %exp_tables = map { $_ => 1 } qw (experiments experiment_sequences);

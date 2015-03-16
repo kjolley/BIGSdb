@@ -363,7 +363,7 @@ sub _check {
 	if ($table_rows) {
 		say $buffer;
 		say "</table>";
-		open( my $fh, '>', $file ) or $logger->error("Can't open temp file $file for writing");
+		open( my $fh, '>:encoding(utf8)', $file ) or $logger->error("Can't open temp file $file for writing");
 		foreach my $i ( 0 .. @rows - 1 ) {
 			if ( $update[$i] ) {
 				say $fh "$id[$i]\t$id2[$i]\t$field[$i]\t$value[$i]";
@@ -391,7 +391,7 @@ sub _update {
 	my $id     = $self->_get_id_fields;
 	my $file   = $q->param('file');
 	my @records;
-	open( my $fh, '<', "$self->{'config'}->{'secure_tmp_dir'}/$file" ) or $logger->error("Can't open $file for reading");
+	open( my $fh, '<:encoding(utf8)', "$self->{'config'}->{'secure_tmp_dir'}/$file" ) or $logger->error("Can't open $file for reading");
 	while ( my $line = <$fh> ) {
 		chomp $line;
 		my @record = split /\t/, $line;

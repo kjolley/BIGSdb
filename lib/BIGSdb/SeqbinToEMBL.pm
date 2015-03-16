@@ -20,7 +20,7 @@ package BIGSdb::SeqbinToEMBL;
 use strict;
 use warnings;
 use 5.010;
-use IO::String;
+use IO::Handle;
 use Bio::SeqIO;
 use Bio::SeqFeature::Generic;
 use parent qw(BIGSdb::Page);
@@ -60,18 +60,21 @@ sub write_embl {
 	foreach my $seqbin_id (@$seqbin_ids) {
 		my $seq = $self->{'datastore'}->run_query( "SELECT sequence,comments FROM sequence_bin WHERE id=?",
 			$seqbin_id, { fetch => 'row_arrayref', cache => 'SeqbinToEMBL::write_embl::seq' } );
-		my $seq_length  = length $seq->[0];
-		my $stringfh_in = IO::String->new( ">$seqbin_id\n" . $seq->[0] . "\n" );
-		my $seqin       = Bio::SeqIO->new( -fh => $stringfh_in, -format => 'fasta' );
-		my $seq_object  = $seqin->next_seq;
-		my $accessions  = $self->{'datastore'}->run_query( "SELECT databank_id FROM accession WHERE seqbin_id=?",
+		my $seq_length   = length $seq->[0];
+		my $fasta_string = ">$seqbin_id\n" . $seq->[0] . "\n";
+		open( my $stringfh_in, "<:encoding(utf8)", \$fasta_string ) or die "Could not open string for reading: $!";
+		$stringfh_in->untaint;
+		my $seqin      = Bio::SeqIO->new( -fh => $stringfh_in, -format => 'fasta' );
+		my $seq_object = $seqin->next_seq;
+		my $accessions = $self->{'datastore'}->run_query( "SELECT databank_id FROM accession WHERE seqbin_id=?",
 			$seqbin_id, { fetch => 'col_arrayref', cache => 'SeqbinToEMBL::write_embl::databank' } );
 		unshift @$accessions, $seqbin_id;
 		local $" = '; ';
 		$seq_object->accession_number("@$accessions") if @$accessions;
 		$seq_object->desc( $seq->[1] );
-		my $set_id     = $self->get_set_id;
-		my $set_clause = $set_id
+		my $set_id = $self->get_set_id;
+		my $set_clause =
+		  $set_id
 		  ? "AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes "
 		  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 		  : '';
@@ -111,11 +114,14 @@ sub write_embl {
 			);
 			$seq_object->add_SeqFeature($feature);
 		}
+		close $stringfh_in;
 		my $str;
-		my $stringfh_out = IO::String->new( \$str );
+		open( my $stringfh_out, '>:encoding(utf8)', \$str ) or $logger->error("Could not open string for writing: $!");
 		my $seq_out = Bio::SeqIO->new( -fh => $stringfh_out, -format => 'embl' );
 		$seq_out->verbose(-1);    #Otherwise apache error log can fill rapidly on old version of BioPerl.
 		$seq_out->write_seq($seq_object);
+		close $stringfh_out;
+
 		if ( $options->{'get_buffer'} ) {
 			$buffer .= $str;
 		} else {
