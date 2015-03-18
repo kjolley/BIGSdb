@@ -23,3 +23,14 @@ PRIMARY KEY (dbase,session)
 );
 
 GRANT SELECT,UPDATE,DELETE,INSERT ON sessions TO apache;
+
+CREATE TABLE clients (
+application text NOT NULL,
+version text NOT NULL,
+client_id text NOT NULL,
+client_secret text NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY (application, version)
+);
+
+GRANT SELECT ON clients TO apache;

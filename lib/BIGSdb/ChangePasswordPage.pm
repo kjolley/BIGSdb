@@ -171,7 +171,7 @@ sub _set_password_hash {
 	my ( $self, $name, $hash ) = @_;
 	return if !$name;
 	my $bcrypt_cost = BIGSdb::Utils::is_int( $self->{'config'}->{'bcrypt_cost'} ) ? $self->{'config'}->{'bcrypt_cost'} : BCRYPT_COST;
-	my $salt        = $self->_generate_salt;
+	my $salt        = $self->_random_string(16);
 	my $bcrypt_hash = en_base64( bcrypt_hash( { key_nul => 1, cost => $bcrypt_cost, salt => $salt }, $hash ) );
 	my $exists      = $self->{'datastore'}->run_query(
 		"SELECT EXISTS(SELECT * FROM users WHERE dbase=? AND name=?)",
@@ -195,11 +195,12 @@ sub _set_password_hash {
 	}
 }
 
-sub _generate_salt {
-	my ($self) = @_;
+sub _random_string {
+	my ( $self, $length ) = @_;
+	$length //= 16;
 	my @saltchars = ( 'a' .. 'z', 'A' .. 'Z', 0 .. 9, '.', '/' );
 	my $salt;
-	for ( 1 .. 16 ) {
+	for ( 1 .. $length ) {
 		$salt .= $saltchars[ int( rand($#saltchars) ) ];
 	}
 	return $salt;
