@@ -23,6 +23,7 @@ use 5.010;
 use BIGSdb::AlleleInfoPage;
 use BIGSdb::AlleleQueryPage;
 use BIGSdb::AlleleSequencePage;
+use BIGSdb::AuthorizeClientPage;
 use BIGSdb::BatchProfileQueryPage;
 use BIGSdb::BIGSException;
 use BIGSdb::BrowsePage;
@@ -391,6 +392,7 @@ sub print_page {
 		alleleInfo         => 'AlleleInfoPage',
 		alleleQuery        => 'AlleleQueryPage',
 		alleleSequence     => 'AlleleSequencePage',
+		authorizeClient    => 'AuthorizeClientPage',
 		batchProfiles      => 'BatchProfileQueryPage',
 		batchSequenceQuery => 'SequenceQueryPage',
 		browse             => 'BrowsePage',
@@ -451,7 +453,8 @@ sub print_page {
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
 		$page->print_page_content;
 		return;
-	} elsif ( $self->{'system'}->{'read_access'} ne 'public' ) {
+	}
+	if ( $self->{'system'}->{'read_access'} ne 'public' || $self->{'page'} eq 'authorizeClient' || $self->{'page'} eq 'logout' ) {
 		( $continue, $auth_cookies_ref ) = $self->authenticate( \%page_attributes );
 	}
 	return if !$continue;
@@ -510,39 +513,40 @@ sub authenticate {
 		my $page = BIGSdb::Login->new(%$page_attributes);
 		my $logging_out;
 		if ( $self->{'page'} eq 'logout' ) {
-			
 			$auth_cookies_ref = $page->logout;
 			$page->set_cookie_attributes($auth_cookies_ref);
 			$self->{'page'} = 'index';
 			$logging_out = 1;
 		}
-		try {
-			throw BIGSdb::AuthenticationException('logging out') if $logging_out;
-			$page_attributes->{'username'} = $page->login_from_cookie;
-			$self->{'page'} = 'changePassword' if $self->{'system'}->{'password_update_required'};
-		}
-		catch BIGSdb::AuthenticationException with {
-			$logger->debug("No cookie set - asking for log in");
+		if ( $self->{'curate'} || !$self->{'system'}->{'read_access'} eq 'public' || $self->{'page'} eq 'authorizeClient' ) {
 			try {
-				( $page_attributes->{'username'}, $auth_cookies_ref, $reset_password ) = $page->secure_login;
-			}
-			catch BIGSdb::CannotOpenFileException with {
-				$page_attributes->{'error'} = 'userAuthenticationFiles';
-				$page = BIGSdb::ErrorPage->new(%$page_attributes);
-				$page->print_page_content;
+				throw BIGSdb::AuthenticationException('logging out') if $logging_out;
+				$page_attributes->{'username'} = $page->login_from_cookie;
+				$self->{'page'} = 'changePassword' if $self->{'system'}->{'password_update_required'};
 			}
 			catch BIGSdb::AuthenticationException with {
+				$logger->debug("No cookie set - asking for log in");
+				try {
+					( $page_attributes->{'username'}, $auth_cookies_ref, $reset_password ) = $page->secure_login;
+				}
+				catch BIGSdb::CannotOpenFileException with {
+					$page_attributes->{'error'} = 'userAuthenticationFiles';
+					$page = BIGSdb::ErrorPage->new(%$page_attributes);
+					$page->print_page_content;
+				}
+				catch BIGSdb::AuthenticationException with {
 
-				#failed again
-				$authenticated = 0;
+					#failed again
+					$authenticated = 0;
+				};
 			};
-		};
+		} 
 	}
 	if ($reset_password) {
 		$self->{'system'}->{'password_update_required'} = 1;
 		$self->{'cgi'}->{'page'}                        = 'changePassword';
 	}
-	if ($authenticated) {
+	if ($authenticated && $page_attributes->{'username'}) {
 		my $config_access = $self->{'system'}->{'default_access'} ? $self->_user_allowed_access( $page_attributes->{'username'} ) : 1;
 		$page_attributes->{'permissions'} = $self->{'datastore'}->get_permissions( $page_attributes->{'username'} );
 		if ( $page_attributes->{'permissions'}->{'disable_access'} ) {

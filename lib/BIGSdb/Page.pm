@@ -278,7 +278,7 @@ sub print_page_content {
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/modernizr.js" } );
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/jquery.multiselect.js" } );
 			}
-			if ($self->{'CryptoJS.MD5'}){
+			if ( $self->{'CryptoJS.MD5'} ) {
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/md5.js" } );
 			}
 			push @javascript, { 'language' => 'Javascript', 'code' => $page_js } if $page_js;
@@ -333,7 +333,9 @@ sub print_page_content {
 		say $head;
 		$self->_print_header;
 		$self->_print_login_details
-		  if ( defined $self->{'system'}->{'read_access'} && $self->{'system'}->{'read_access'} ne 'public' ) || $self->{'curate'};
+		  if ( defined $self->{'system'}->{'read_access'} && $self->{'system'}->{'read_access'} ne 'public' )
+		  || $self->{'curate'}
+		  || $q->param('page') eq 'authorizeClient';
 		$self->_print_help_panel;
 		$self->print_content;
 		$self->_print_footer;

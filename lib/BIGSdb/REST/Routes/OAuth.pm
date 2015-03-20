@@ -75,10 +75,10 @@ any [qw(get post)] => '/db/:db/oauth/get_request_token' => sub {
 	eval {
 		$self->{'auth_db'}->do("DELETE FROM request_tokens WHERE start_time<?",undef, time - REQUEST_TOKEN_EXPIRES);
 		$self->{'auth_db'}->do(
-			"INSERT INTO request_tokens (token,secret,client_id,nonce,timestamp,start_time,valid) VALUES (?,?,?,?,?,?,?)",
+			"INSERT INTO request_tokens (token,secret,client_id,nonce,timestamp,start_time) VALUES (?,?,?,?,?,?)",
 			undef, $token, $token_secret, param('oauth_consumer_key'),
 			param('oauth_nonce'), param('oauth_timestamp'),
-			time, 'true'
+			time
 		);
 	};
 	if ($@) {

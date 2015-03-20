@@ -28,10 +28,15 @@ client_id text NOT NULL,
 nonce text NOT NULL,
 timestamp int NOT NULL,
 start_time int NOT NULL,
-valid boolean NOT NULL,
+name text,
+dbase text,
+verifier text,
 PRIMARY KEY (token),
 UNIQUE (nonce, timestamp),
 CONSTRAINT rt_client_id FOREIGN KEY (client_id) REFERENCES clients(client_id)
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT rt_name_dbase FOREIGN KEY (name,dbase) REFERENCES users(name,dbase)
 ON DELETE CASCADE
 ON UPDATE CASCADE
 );

@@ -20,6 +20,7 @@ package BIGSdb::Curate;
 use strict;
 use warnings;
 use parent qw(BIGSdb::Application);
+use BIGSdb::AuthorizeClientPage;
 use BIGSdb::ConfigCheckPage;
 use BIGSdb::ConfigRepairPage;
 use BIGSdb::CurateAddPage;
@@ -61,6 +62,7 @@ my $logger = get_logger('BIGSdb.Page');
 sub print_page {
 	my ($self) = @_;
 	my %classes = (
+		authorizeClient    => 'AuthorizeClientPage',
 		index              => 'CurateIndexPage',
 		add                => 'CurateAddPage',
 		delete             => 'CurateDeletePage',
