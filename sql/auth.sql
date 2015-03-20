@@ -30,7 +30,7 @@ version text NOT NULL,
 client_id text NOT NULL,
 client_secret text NOT NULL,
 datestamp date NOT NULL,
-PRIMARY KEY (application, version)
+PRIMARY KEY (application,version)
 );
 
 GRANT SELECT ON clients TO apache;

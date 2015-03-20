@@ -460,4 +460,16 @@ sub commify {
 	$text =~ s/(\d\d\d)(?=\d)(?!\d*\.)/$1,/g;
 	return scalar reverse $text;
 }
+
+sub random_string {
+	my ( $length, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my @chars = ( 'a' .. 'z', 'A' .. 'Z', 0 .. 9 );
+	push @chars, qw(! @ $ % ^ & * \( \)_+ ~) if $options->{'extended_chars'};
+	my $string;
+	for ( 1 .. $length ) {
+		$string .= $chars[ int( rand($#chars) ) ];
+	}
+	return $string;
+}
 1;

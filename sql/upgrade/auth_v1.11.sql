@@ -13,10 +13,27 @@ ALTER TABLE users ADD reset_password boolean;
 CREATE TABLE clients (
 application text NOT NULL,
 version text NOT NULL,
-client_id text NOT NULL,
+client_id text NOT NULL UNIQUE,
 client_secret text NOT NULL,
 datestamp date NOT NULL,
-PRIMARY KEY (application, version)
+PRIMARY KEY (application,version)
 );
 
 GRANT SELECT ON clients TO apache;
+
+CREATE TABLE request_tokens (
+token text NOT NULL,
+secret text NOT NULL,
+client_id text NOT NULL,
+nonce text NOT NULL,
+timestamp int NOT NULL,
+start_time int NOT NULL,
+valid boolean NOT NULL,
+PRIMARY KEY (token),
+UNIQUE (nonce, timestamp),
+CONSTRAINT rt_client_id FOREIGN KEY (client_id) REFERENCES clients(client_id)
+ON DELETE CASCADE
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,DELETE,INSERT ON request_tokens TO apache;

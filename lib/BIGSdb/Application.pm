@@ -106,7 +106,7 @@ sub new {
 				$logger->logdie( "No authentication attribute set - set to either 'apache' or 'builtin' in the system tag of the XML "
 					  . "database description." );
 			}
-			$self->_initiate_authdb if $self->{'system'}->{'authentication'} eq 'builtin';
+			$self->initiate_authdb if $self->{'system'}->{'authentication'} eq 'builtin';
 			$self->_initiate_jobmanager( $config_dir, $dbase_config_dir )
 			  if !$self->{'curate'}
 			  && ( any { $q->param('page') eq $_ } qw (plugin job jobs index logout options) )
@@ -218,7 +218,7 @@ sub set_system_overrides {
 	return;
 }
 
-sub _initiate_authdb {
+sub initiate_authdb {
 	my ($self) = @_;
 	my $logger = get_logger('BIGSdb.Application_Initiate');
 	my %att    = (

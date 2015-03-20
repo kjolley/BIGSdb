@@ -31,6 +31,7 @@ use BIGSdb::REST::Routes::Alleles;
 use BIGSdb::REST::Routes::Contigs;
 use BIGSdb::REST::Routes::Isolates;
 use BIGSdb::REST::Routes::Loci;
+use BIGSdb::REST::Routes::OAuth;
 use BIGSdb::REST::Routes::Profiles;
 use BIGSdb::REST::Routes::Resources;
 use BIGSdb::REST::Routes::Schemes;
@@ -66,6 +67,7 @@ sub _initiate {
 	my ( $self, ) = @_;
 	$self->read_config_file( $self->{'config_dir'} );
 	$self->read_host_mapping_file( $self->{'config_dir'} );
+	$self->{'logger'} = $logger;
 	return;
 }
 
@@ -99,6 +101,7 @@ hook before => sub {
 	$self->{'system'}->{'port'}        ||= $self->{'port'} || 5432;
 	$self->{'system'}->{'user'}        ||= $self->{'user'} || 'apache';
 	$self->{'system'}->{'password'}    ||= $self->{'password'} || 'remote';
+
 	if ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ) {
 		$self->{'system'}->{'view'}       ||= 'isolates';
 		$self->{'system'}->{'labelfield'} ||= 'isolate';
@@ -114,6 +117,7 @@ hook before => sub {
 	}
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
 	$self->db_connect;
+	$self->initiate_authdb if $self->{'system'}->{'authentication'} eq 'builtin';
 	$self->setup_datastore;
 	$self->_initiate_view;
 	$self->{'page_size'} = ( BIGSdb::Utils::is_int( param('page_size') ) && param('page_size') > 0 ) ? param('page_size') : PAGE_SIZE;
