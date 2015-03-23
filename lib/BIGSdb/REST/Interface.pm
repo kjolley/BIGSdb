@@ -39,7 +39,7 @@ use BIGSdb::REST::Routes::Resources;
 use BIGSdb::REST::Routes::Schemes;
 use BIGSdb::REST::Routes::Users;
 use constant SESSION_EXPIRES => 3600 * 12;
-use constant PAGE_SIZE => 100;
+use constant PAGE_SIZE       => 100;
 
 sub new {
 	my ( $class, $options ) = @_;
@@ -115,11 +115,12 @@ hook before => sub {
 	}
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
 	$self->db_connect;
-	$self->initiate_authdb if ($self->{'system'}->{'authentication'} // '') eq 'builtin';
+	$self->initiate_authdb if ( $self->{'system'}->{'authentication'} // '' ) eq 'builtin';
 	$self->setup_datastore;
 	$self->_initiate_view;
 	$self->{'page_size'} = ( BIGSdb::Utils::is_int( param('page_size') ) && param('page_size') > 0 ) ? param('page_size') : PAGE_SIZE;
 	if ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' || ( $self->{'system'}->{'dbtype'} // '' ) eq 'sequences' ) {
+
 		if ( ( $self->{'system'}->{'read_access'} // '' ) ne 'public' && $request_uri !~ /^\/db\/$self->{'instance'}\/oauth\// ) {
 			send_error( 'Unauthorized', 401 ) if !$self->_is_authorized;
 		}
@@ -141,17 +142,19 @@ sub _is_authorized {
 	if ( !param('oauth_consumer_key') ) {
 		send_error( "Unauthorized - Generate new session token.", 401 );
 	}
-	my $consumer_secret =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT client_secret FROM clients WHERE client_id=?", param('oauth_consumer_key'), { db => $self->{'auth_db'} } );
+	my $consumer_secret = $self->{'datastore'}->run_query(
+		"SELECT client_secret FROM clients WHERE client_id=?",
+		param('oauth_consumer_key'),
+		{ db => $self->{'auth_db'}, cache => 'REST::get_client_secret' }
+	);
 	if ( !$consumer_secret ) {
 		send_error( "Unrecognized client", 403 );
 	}
-	
+	$self->delete_old_sessions;
 	my $session_token = $self->{'datastore'}->run_query(
 		"SELECT * FROM api_sessions WHERE (session,dbase)=(?,?)",
 		[ param('oauth_token'), $self->{'system'}->{'db'} ],
-		{ fetch => 'row_hashref', db => $self->{'auth_db'} }
+		{ fetch => 'row_hashref', db => $self->{'auth_db'}, cache => 'REST::Interface::is_authorized' }
 	);
 	if ( !$session_token->{'secret'} ) {
 		send_error( "Invalid session token.  Generate new request token (/get_access_token).", 401 );
@@ -166,12 +169,6 @@ sub _is_authorized {
 	  oauth_timestamp
 	  oauth_nonce
 	);
-	$self->{'logger'}->error("Session: ". param('oauth_token'));
-	$self->{'logger'}->error("Path: ". request->path); 
-	use Data::Dumper qw(Dumper);
-	$self->{'logger'}->error(Dumper($request_params));
-	
-	
 	my $request = eval {
 		Net::OAuth->request('protected resource')->from_hash(
 			$request_params,
@@ -181,7 +178,6 @@ sub _is_authorized {
 			token_secret    => $session_token->{'secret'},
 		);
 	};
-
 	if ($@) {
 		warn $@;
 		if ( $@ =~ /Missing required parameter \'(\w+?)\'/ ) {
@@ -194,9 +190,20 @@ sub _is_authorized {
 	if ( !$request->verify ) {
 		$self->{'logger'}->debug( "Request string: " . $request->signature_base_string );
 		send_error( "Signature verification failed.", 401 );
-		
 	}
 	return 1;
+}
+
+sub delete_old_sessions {
+	my ($self) = @_;
+		eval {$self->{'auth_db'}->do( "DELETE FROM api_sessions WHERE start_time<?", undef, time - SESSION_EXPIRES )};
+	if ($@){
+		$self->{'auth_db'}->rollback;
+		$self->{'logger'}->error($@);
+	} else {
+		$self->{'auth_db'}->commit;
+	}
+	return;
 }
 
 sub get_set_id {

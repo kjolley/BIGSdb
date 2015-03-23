@@ -29,12 +29,14 @@ use constant ACCESS_TOKEN_TIMEOUT  => 600;
 
 #get_request_token
 any [qw(get post)] => '/db/:db/oauth/get_request_token' => sub {
-	my $self   = setting('self');
-	my $params = params;
-	my $db     = param('db');
-	my $consumer_secret =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT client_secret FROM clients WHERE client_id=?", param('oauth_consumer_key'), { db => $self->{'auth_db'} } );
+	my $self            = setting('self');
+	my $params          = params;
+	my $db              = param('db');
+	my $consumer_secret = $self->{'datastore'}->run_query(
+		"SELECT client_secret FROM clients WHERE client_id=?",
+		param('oauth_consumer_key'),
+		{ db => $self->{'auth_db'}, cache => 'REST::get_client_secret' }
+	);
 	if ( !$consumer_secret ) {
 		send_error( "Unrecognized client", 403 );
 	}
@@ -102,12 +104,14 @@ any [qw(get post)] => '/db/:db/oauth/get_request_token' => sub {
 
 #get_access_token
 any [qw(get post)] => '/db/:db/oauth/get_access_token' => sub {
-	my $self   = setting('self');
-	my $params = params;
-	my $db     = param('db');
-	my $consumer_secret =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT client_secret FROM clients WHERE client_id=?", param('oauth_consumer_key'), { db => $self->{'auth_db'} } );
+	my $self            = setting('self');
+	my $params          = params;
+	my $db              = param('db');
+	my $consumer_secret = $self->{'datastore'}->run_query(
+		"SELECT client_secret FROM clients WHERE client_id=?",
+		param('oauth_consumer_key'),
+		{ db => $self->{'auth_db'}, cache => 'REST::get_client_secret' }
+	);
 	if ( !$consumer_secret ) {
 		send_error( "Unrecognized client", 403 );
 	}
@@ -188,18 +192,20 @@ any [qw(get post)] => '/db/:db/oauth/get_access_token' => sub {
 
 #get_session_token
 any [qw(get post)] => '/db/:db/oauth/get_session_token' => sub {
-	my $self   = setting('self');
-	my $params = params;
-	my $db     = param('db');
-	my $consumer_secret =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT client_secret FROM clients WHERE client_id=?", param('oauth_consumer_key'), { db => $self->{'auth_db'} } );
+	my $self            = setting('self');
+	my $params          = params;
+	my $db              = param('db');
+	my $consumer_secret = $self->{'datastore'}->run_query(
+		"SELECT client_secret FROM clients WHERE client_id=?",
+		param('oauth_consumer_key'),
+		{ db => $self->{'auth_db'}, cache => 'REST::get_client_secret' }
+	);
 	if ( !$consumer_secret ) {
 		send_error( "Unrecognized client", 403 );
 	}
-	my $access_token =
-	  $self->{'datastore'}->run_query( "SELECT * FROM access_tokens WHERE token=?",
-		param('oauth_token'), { fetch => 'row_hashref', db => $self->{'auth_db'} } );
+	my $access_token = $self->{'datastore'}->run_query( "SELECT * FROM access_tokens WHERE token=?",
+		param('oauth_token'),
+		{ fetch => 'row_hashref', db => $self->{'auth_db'}, cache => 'REST::Routes::OAuth::get_session_token::access_token' } );
 	if ( !$access_token->{'secret'} ) {
 		send_error( "Invalid access token.  Generate new request token (/get_access_token).", 401 );
 	}
@@ -239,7 +245,7 @@ any [qw(get post)] => '/db/:db/oauth/get_session_token' => sub {
 	my $request_repeated = $self->{'datastore'}->run_query(
 		"SELECT EXISTS(SELECT * FROM api_sessions WHERE (nonce,timestamp)=(?,?))",
 		[ param('oauth_nonce'), param('oauth_timestamp') ],
-		{ db => $self->{'auth_db'} }
+		{ db => $self->{'auth_db'}, cache => 'REST::Routes::OAuth::get_session_token::session_exists' }
 	);
 	if ($request_repeated) {
 		send_error( "Request with same nonce and timestamp already made", 401 );
@@ -248,6 +254,7 @@ any [qw(get post)] => '/db/:db/oauth/get_session_token' => sub {
 	}
 	my $session_token        = BIGSdb::Utils::random_string(32);
 	my $session_token_secret = BIGSdb::Utils::random_string(32);
+	$self->delete_old_sessions;
 	eval {
 		$self->{'auth_db'}->do(
 			"INSERT INTO api_sessions (dbase,username,session,secret,nonce,timestamp,start_time) VALUES (?,?,?,?,?,?,?)",
