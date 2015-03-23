@@ -478,6 +478,7 @@ sub print_action_fieldset {
 	$options = {} if ref $options ne 'HASH';
 	my $page         = $options->{'page'}         // $q->param('page');
 	my $submit_label = $options->{'submit_label'} // 'Submit';
+	my $reset_label  = $options->{'reset_label'}  // 'Reset';
 	my $buffer       = "<fieldset style=\"float:left\"><legend>Action</legend>\n";
 	my $url          = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page";
 	my @fields       = qw (isolate_id id scheme_id table name ruleset locus profile_id simple set_id);
@@ -491,8 +492,8 @@ sub print_action_fieldset {
 
 	#use jquery-ui button classes to ensure consistent formatting of reset link and submit button across browsers
 	if ( !$options->{'no_reset'} ) {
-		$buffer .= "<a href=\"$url\" class=\"resetbutton ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only \">"
-		  . "<span class=\"ui-button-text\">Reset</span>";
+		$buffer .= qq(<a href="$url" class="resetbutton ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only ">)
+		  . qq(<span class="ui-button-text">$reset_label</span>);
 		$buffer .= "</a>\n";
 	}
 	$buffer .=

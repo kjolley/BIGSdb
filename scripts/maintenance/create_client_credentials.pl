@@ -31,6 +31,7 @@ use constant DBASE => 'bigsdb_auth';
 my %opts;
 GetOptions(
 	'a|application=s' => \$opts{'a'},
+	'd|deny'          => \$opts{'d'},
 	'h|help'          => \$opts{'h'},
 	'i|insert'        => \$opts{'i'},
 	'u|update'        => \$opts{'u'},
@@ -67,14 +68,18 @@ sub main {
 		eval { $sql->execute( $opts{'a'}, $opts{'v'} ) };
 		my $exists = $sql->fetchrow_array;
 		die $@ if $@;
+		my $permission = $opts{'d'} ? 'deny' : 'allow';
 		if ( $opts{'i'} && $exists ) {
 			say "\nCredentials for this application/version already exist\n(use --update option to update).";
 		} elsif ( $opts{'u'} && !$exists ) {
 			say "\nCredentials for this application/version do not already exist\n(use --insert option to add).";
 		} elsif ( $opts{'i'} ) {
 			eval {
-				$db->do( "INSERT INTO clients (application,version,client_id,client_secret,datestamp) VALUES (?,?,?,?,?)",
-					undef, $opts{'a'}, $opts{'v'}, $client_id, $client_secret, 'now' );
+				$db->do(
+					"INSERT INTO clients (application,version,client_id,client_secret,default_permission,datestamp) VALUES "
+					  . "(?,?,?,?,?,?)",
+					undef, $opts{'a'}, $opts{'v'}, $client_id, $client_secret, $permission, 'now'
+				);
 			};
 			if ($@) {
 				$db->rollback;
@@ -84,8 +89,11 @@ sub main {
 			say "\nCredentials added to authentication database.";
 		} elsif ( $opts{'u'} ) {
 			eval {
-				$db->do( "UPDATE clients SET (client_id,client_secret,datestamp)=(?,?,?) WHERE (application,version)=(?,?)",
-					undef, $client_id, $client_secret, 'now', $opts{'a'}, $opts{'v'} );
+				$db->do(
+					"UPDATE clients SET (client_id,client_secret,default_permission,datestamp)=(?,?,?,?) WHERE (application,version)=(?,?)"
+					,
+					undef, $client_id, $client_secret, $permission, 'now', $opts{'a'}, $opts{'v'}
+				);
 			};
 			if ($@) {
 				$db->rollback;
@@ -130,6 +138,11 @@ ${bold}SYNOPSIS$norm
 ${bold}OPTIONS$norm
 ${bold}-a, --application ${under}NAME$norm  
     Name of application.
+    
+${bold}-d, --deny$norm
+    Set default permission to 'deny'.  Permissions for access to specific 
+    database configurations will have to be set.  If not included, the default
+    permission will allow access to all resources by the client.
     
 ${bold}-h, --help$norm
     This help page.

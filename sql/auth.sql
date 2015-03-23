@@ -27,10 +27,12 @@ GRANT SELECT,UPDATE,DELETE,INSERT ON sessions TO apache;
 CREATE TABLE clients (
 application text NOT NULL,
 version text NOT NULL,
-client_id text NOT NULL,
+client_id text NOT NULL UNIQUE,
 client_secret text NOT NULL,
+default_permission text NOT NULL,
 datestamp date NOT NULL,
-PRIMARY KEY (application,version)
+PRIMARY KEY (application,version),
+CONSTRAINT c_default_permission CHECK (default_permission IN ( 'allow', 'deny'))
 );
 
 GRANT SELECT ON clients TO apache;
