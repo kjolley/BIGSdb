@@ -96,14 +96,21 @@ GRANT SELECT,UPDATE,DELETE,INSERT ON access_tokens TO apache;
 
 CREATE TABLE api_sessions (
 dbase text NOT NULL,
-username text,
+username text NOT NULL,
+client_id text NOT NULL,
 session text NOT NULL,
 secret text NOT NULL,
 nonce text NOT NULL,
 timestamp int NOT NULL,
 start_time int NOT NULL,
 UNIQUE (nonce, timestamp),
-PRIMARY KEY (dbase,session)
+PRIMARY KEY (dbase,session),
+CONSTRAINT as_client_id FOREIGN KEY (client_id) REFERENCES clients(client_id)
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT as_username_dbase FOREIGN KEY (username,dbase) REFERENCES users(name,dbase)
+ON DELETE CASCADE
+ON UPDATE CASCADE
 );
 
 GRANT SELECT,UPDATE,DELETE,INSERT ON api_sessions TO apache;

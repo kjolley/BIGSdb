@@ -257,10 +257,11 @@ any [qw(get post)] => '/db/:db/oauth/get_session_token' => sub {
 	$self->delete_old_sessions;
 	eval {
 		$self->{'auth_db'}->do(
-			"INSERT INTO api_sessions (dbase,username,session,secret,nonce,timestamp,start_time) VALUES (?,?,?,?,?,?,?)",
+			"INSERT INTO api_sessions (dbase,username,client_id,session,secret,nonce,timestamp,start_time) VALUES (?,?,?,?,?,?,?,?)",
 			undef,
 			$access_token->{'dbase'},
 			$access_token->{'username'},
+			param('oauth_consumer_key'),
 			$session_token, $session_token_secret, param('oauth_nonce'), param('oauth_timestamp'), time
 		);
 	};
