@@ -178,6 +178,7 @@ sub _is_authorized {
 			token_secret    => $session_token->{'secret'},
 		);
 	};
+
 	if ($@) {
 		warn $@;
 		if ( $@ =~ /Missing required parameter \'(\w+?)\'/ ) {
@@ -191,13 +192,15 @@ sub _is_authorized {
 		$self->{'logger'}->debug( "Request string: " . $request->signature_base_string );
 		send_error( "Signature verification failed.", 401 );
 	}
+
+	#TODO Check client permissions
 	return 1;
 }
 
 sub delete_old_sessions {
 	my ($self) = @_;
-		eval {$self->{'auth_db'}->do( "DELETE FROM api_sessions WHERE start_time<?", undef, time - SESSION_EXPIRES )};
-	if ($@){
+	eval { $self->{'auth_db'}->do( "DELETE FROM api_sessions WHERE start_time<?", undef, time - SESSION_EXPIRES ) };
+	if ($@) {
 		$self->{'auth_db'}->rollback;
 		$self->{'logger'}->error($@);
 	} else {
