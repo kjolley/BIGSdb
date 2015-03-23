@@ -68,7 +68,7 @@ sub print_content {
 		say qq(<div class="box" id="statusbad"><p>The client does not have permission to access this resource.</p></div>);
 		return;
 	}
-	if ( $q->param('submit') ) {
+	if ( $q->param('authorize') ) {
 		$self->_authorize_token($client);
 		return;
 	}
@@ -85,8 +85,9 @@ sub print_content {
 		say qq(</fieldset>);
 	}
 	say $q->start_form;
+	$q->param( authorize => 1 );
 	$self->print_action_fieldset( { submit_label => 'Authorize', reset_label => 'Cancel', page => 'index' } );
-	say $q->hidden($_) foreach qw(db page oauth_token);
+	say $q->hidden($_) foreach qw(db page oauth_token authorize);
 	say $q->end_form;
 	say qq(<p>You will be able to revoke access for this application at any time.</p>);
 
