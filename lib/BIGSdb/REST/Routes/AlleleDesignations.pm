@@ -24,7 +24,7 @@ use POSIX qw(ceil);
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Allele designation routes
-get '/db/:db/isolates/:id/allele_designations' => sub {
+any [qw(get post)] => '/db/:db/isolates/:id/allele_designations' => sub {
 	my $self = setting('self');
 	my ( $db, $isolate_id ) = ( params->{'db'}, params->{'id'} );
 	$self->check_isolate_is_valid($isolate_id);
@@ -59,7 +59,7 @@ get '/db/:db/isolates/:id/allele_designations' => sub {
 	$values->{'allele_designations'} = $designation_links;
 	return $values;
 };
-get '/db/:db/isolates/:id/allele_designations/:locus' => sub {
+any [qw(get post)] => '/db/:db/isolates/:id/allele_designations/:locus' => sub {
 	my $self = setting('self');
 	my ( $db, $isolate_id, $locus ) = ( params->{'db'}, params->{'id'}, params->{'locus'} );
 	$self->check_isolate_is_valid($isolate_id);
@@ -98,7 +98,7 @@ get '/db/:db/isolates/:id/allele_designations/:locus' => sub {
 	}
 	return $values;
 };
-get '/db/:db/isolates/:id/allele_ids' => sub {
+any [qw(get post)] => '/db/:db/isolates/:id/allele_ids' => sub {
 	my $self = setting('self');
 	my ( $db, $isolate_id ) = ( params->{'db'}, params->{'id'} );
 	$self->check_isolate_is_valid($isolate_id);
@@ -146,7 +146,7 @@ get '/db/:db/isolates/:id/allele_ids' => sub {
 	$values->{'allele_ids'} = $designations;
 	return $values;
 };
-get '/db/:db/isolates/:id/schemes/:scheme/allele_ids' => sub {
+any [qw(get post)] => '/db/:db/isolates/:id/schemes/:scheme/allele_ids' => sub {
 	my $self = setting('self');
 	my ( $db, $isolate_id, $scheme_id ) = ( params->{'db'}, params->{'id'}, params->{'scheme'} );
 	$self->check_isolate_is_valid($isolate_id);
@@ -180,7 +180,7 @@ get '/db/:db/isolates/:id/schemes/:scheme/allele_ids' => sub {
 	$values->{'allele_ids'} = $designations;
 	return $values;
 };
-get '/db/:db/isolates/:id/schemes/:scheme/allele_designations' => sub {
+any [qw(get post)] => '/db/:db/isolates/:id/schemes/:scheme/allele_designations' => sub {
 	my $self = setting('self');
 	my ( $db, $isolate_id, $scheme_id ) = ( params->{'db'}, params->{'id'}, params->{'scheme'} );
 	$self->check_isolate_is_valid($isolate_id);

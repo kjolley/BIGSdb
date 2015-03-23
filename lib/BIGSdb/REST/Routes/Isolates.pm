@@ -26,7 +26,7 @@ use Dancer2 appname => 'BIGSdb::REST::Interface';
 use BIGSdb::Utils;
 
 #Isolate database routes
-get '/db/:db/isolates' => sub {
+any [qw(get post)] => '/db/:db/isolates' => sub {
 	my $self = setting('self');
 	$self->check_isolate_database;
 	my ($db) = params->{'db'};
@@ -48,7 +48,7 @@ get '/db/:db/isolates' => sub {
 	}
 	return $values;
 };
-get '/db/:db/isolates/:id' => sub {
+any [qw(get post)] => '/db/:db/isolates/:id' => sub {
 	my $self = setting('self');
 	my ( $db, $id ) = ( params->{'db'}, params->{'id'} );
 	$self->check_isolate_is_valid($id);
@@ -148,7 +148,7 @@ get '/db/:db/isolates/:id' => sub {
 	#TODO versions
 	return $values;
 };
-get '/db/:db/fields' => sub {
+any [qw(get post)] => '/db/:db/fields' => sub {
 	my $self = setting('self');
 	$self->check_isolate_database;
 	my $fields = $self->{'xmlHandler'}->get_field_list;

@@ -23,7 +23,7 @@ use 5.010;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Resource description routes
-get '/' => sub {
+any [qw(get post)] => '/' => sub {
 	my $self      = setting('self');
 	my $resources = $self->get_resources;
 	my $values    = [];
@@ -38,10 +38,10 @@ get '/' => sub {
 	}
 	return $values;
 };
-get qr{^/db/?+$} => sub {
+any [qw(get post)] => qr{^/db/?+$} => sub {
 	redirect '/';
 };
-get '/db/:db' => sub {
+any [qw(get post)] => '/db/:db' => sub {
 	my $self = setting('self');
 	my $db   = params->{'db'};
 	if ( !$self->{'system'}->{'db'} ) {

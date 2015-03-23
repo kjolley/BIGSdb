@@ -25,7 +25,7 @@ use JSON;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Locus routes
-get '/db/:db/loci' => sub {
+any [qw(get post)] => '/db/:db/loci' => sub {
 	my $self   = setting('self');
 	my ($db)   = params->{'db'};
 	my $page   = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
@@ -54,7 +54,7 @@ get '/db/:db/loci' => sub {
 	}
 	return $values;
 };
-get '/db/:db/loci/:locus' => sub {
+any [qw(get post)] => '/db/:db/loci/:locus' => sub {
 	my $self = setting('self');
 	my ( $db, $locus ) = ( params->{'db'}, params->{'locus'} );
 	my $set_id     = $self->get_set_id;

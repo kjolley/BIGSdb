@@ -24,7 +24,7 @@ use POSIX qw(ceil);
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Profile routes
-get '/db/:db/schemes/:scheme_id/profiles' => sub {
+any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles' => sub {
 	my $self = setting('self');
 	$self->check_seqdef_database;
 	my $params = params;
@@ -64,7 +64,7 @@ get '/db/:db/schemes/:scheme_id/profiles' => sub {
 	$values->{'profiles'} = $profile_links;
 	return $values;
 };
-get '/db/:db/schemes/:scheme_id/profiles/:profile_id' => sub {
+any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles/:profile_id' => sub {
 	my $self = setting('self');
 	$self->check_seqdef_database;
 	my $params = params;

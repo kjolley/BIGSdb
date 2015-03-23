@@ -24,7 +24,7 @@ use JSON;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Scheme routes
-get '/db/:db/schemes' => sub {
+any [qw(get post)] => '/db/:db/schemes' => sub {
 	my $self    = setting('self');
 	my ($db)    = params->{'db'};
 	my $set_id  = $self->get_set_id;
@@ -36,7 +36,7 @@ get '/db/:db/schemes' => sub {
 	}
 	return $values;
 };
-get '/db/:db/schemes/:scheme' => sub {
+any [qw(get post)] => '/db/:db/schemes/:scheme' => sub {
 	my $self = setting('self');
 	my ( $db, $scheme_id ) = ( params->{'db'}, params->{'scheme'} );
 	$self->check_scheme($scheme_id);
@@ -70,7 +70,7 @@ get '/db/:db/schemes/:scheme' => sub {
 	}
 	return $values;
 };
-get '/db/:db/schemes/:scheme/fields/:field' => sub {
+any [qw(get post)] => '/db/:db/schemes/:scheme/fields/:field' => sub {
 	my $self   = setting('self');
 	my $params = params;
 	my ( $db, $scheme_id, $field ) = @{$params}{qw(db scheme field)};

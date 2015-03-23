@@ -23,6 +23,8 @@ use 5.010;
 use parent qw(BIGSdb::Application);
 use Dancer2;
 use Error qw(:try);
+use Net::OAuth;
+$Net::OAuth::PROTOCOL_VERSION = Net::OAuth::PROTOCOL_VERSION_1_0A;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Application_Initiate');
 use BIGSdb::Utils;
@@ -36,6 +38,7 @@ use BIGSdb::REST::Routes::Profiles;
 use BIGSdb::REST::Routes::Resources;
 use BIGSdb::REST::Routes::Schemes;
 use BIGSdb::REST::Routes::Users;
+use constant SESSION_EXPIRES => 3600 * 12;
 use constant PAGE_SIZE => 100;
 
 sub new {
@@ -110,17 +113,17 @@ hook before => sub {
 				  . "Please set the labelfield attribute in the system tag of the database XML file." );
 		}
 	}
-	if ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' || ( $self->{'system'}->{'dbtype'} // '' ) eq 'sequences' ) {
-		if ( ( $self->{'system'}->{'read_access'} // '' ) ne 'public' ) {
-			send_error( 'Unauthorized', 401 );
-		}
-	}
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
 	$self->db_connect;
-	$self->initiate_authdb if $self->{'system'}->{'authentication'} eq 'builtin';
+	$self->initiate_authdb if ($self->{'system'}->{'authentication'} // '') eq 'builtin';
 	$self->setup_datastore;
 	$self->_initiate_view;
 	$self->{'page_size'} = ( BIGSdb::Utils::is_int( param('page_size') ) && param('page_size') > 0 ) ? param('page_size') : PAGE_SIZE;
+	if ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' || ( $self->{'system'}->{'dbtype'} // '' ) eq 'sequences' ) {
+		if ( ( $self->{'system'}->{'read_access'} // '' ) ne 'public' && $request_uri !~ /^\/db\/$self->{'instance'}\/oauth\// ) {
+			send_error( 'Unauthorized', 401 ) if !$self->_is_authorized;
+		}
+	}
 	return;
 };
 
@@ -130,6 +133,71 @@ hook after => sub {
 	my $self = setting('self');
 	$self->{'dataConnector'}->drop_all_connections;
 };
+
+sub _is_authorized {
+	my ($self) = @_;
+	my $params = params;
+	my $db     = param('db');
+	if ( !param('oauth_consumer_key') ) {
+		send_error( "Unauthorized - Generate new session token.", 401 );
+	}
+	my $consumer_secret =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT client_secret FROM clients WHERE client_id=?", param('oauth_consumer_key'), { db => $self->{'auth_db'} } );
+	if ( !$consumer_secret ) {
+		send_error( "Unrecognized client", 403 );
+	}
+	
+	my $session_token = $self->{'datastore'}->run_query(
+		"SELECT * FROM api_sessions WHERE (session,dbase)=(?,?)",
+		[ param('oauth_token'), $self->{'system'}->{'db'} ],
+		{ fetch => 'row_hashref', db => $self->{'auth_db'} }
+	);
+	if ( !$session_token->{'secret'} ) {
+		send_error( "Invalid session token.  Generate new request token (/get_access_token).", 401 );
+	}
+	my $request_params = {};
+	$request_params->{$_} = param($_) foreach qw(
+	  oauth_consumer_key
+	  oauth_signature
+	  oauth_signature_method
+	  oauth_version
+	  oauth_token
+	  oauth_timestamp
+	  oauth_nonce
+	);
+	$self->{'logger'}->error("Session: ". param('oauth_token'));
+	$self->{'logger'}->error("Path: ". request->path); 
+	use Data::Dumper qw(Dumper);
+	$self->{'logger'}->error(Dumper($request_params));
+	
+	
+	my $request = eval {
+		Net::OAuth->request('protected resource')->from_hash(
+			$request_params,
+			request_method  => request->method,
+			request_url     => request->uri_base . request->path,
+			consumer_secret => $consumer_secret,
+			token_secret    => $session_token->{'secret'},
+		);
+	};
+
+	if ($@) {
+		warn $@;
+		if ( $@ =~ /Missing required parameter \'(\w+?)\'/ ) {
+			send_error( "Invalid token request. Missing required parameter: $1.", 400 );
+		} else {
+			$self->{'logger'}->error($@);
+			send_error( "Invalid token request.", 400 );
+		}
+	}
+	if ( !$request->verify ) {
+		$self->{'logger'}->debug( "Request string: " . $request->signature_base_string );
+		send_error( "Signature verification failed.", 401 );
+		
+	}
+	return 1;
+}
 
 sub get_set_id {
 	my ($self) = @_;

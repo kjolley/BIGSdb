@@ -22,7 +22,7 @@ use warnings;
 use 5.010;
 use POSIX qw(ceil);
 use Dancer2 appname                => 'BIGSdb::REST::Interface';
-get '/db/:db/isolates/:id/contigs' => sub {
+any [qw(get post)] => '/db/:db/isolates/:id/contigs' => sub {
 	my $self = setting('self');
 	my ( $db, $isolate_id ) = ( params->{'db'}, params->{'id'} );
 	$self->check_isolate_is_valid($isolate_id);
@@ -48,7 +48,7 @@ get '/db/:db/isolates/:id/contigs' => sub {
 	$values->{'contigs'} = $contig_links;
 	return $values;
 };
-get '/db/:db/contigs/:contig' => sub {
+any [qw(get post)] => '/db/:db/contigs/:contig' => sub {
 	my $self = setting('self');
 	$self->check_isolate_database;
 	my ( $db, $contig_id ) = ( params->{'db'}, params->{'contig'} );
