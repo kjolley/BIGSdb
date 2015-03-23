@@ -25,6 +25,7 @@ $Net::OAuth::PROTOCOL_VERSION = Net::OAuth::PROTOCOL_VERSION_1_0A;
 use Dancer2 appname                => 'BIGSdb::REST::Interface';
 use constant REQUEST_TOKEN_EXPIRES => 3600;
 use constant REQUEST_TOKEN_TIMEOUT => 600;
+use constant ACCESS_TOKEN_TIMEOUT  => 600;
 
 #get_request_token
 any [qw(get post)] => '/db/:db/oauth/get_request_token' => sub {
@@ -242,6 +243,8 @@ any [qw(get post)] => '/db/:db/oauth/get_session_token' => sub {
 	);
 	if ($request_repeated) {
 		send_error( "Request with same nonce and timestamp already made", 401 );
+	} elsif ( abs( $request->timestamp - time ) > ACCESS_TOKEN_TIMEOUT ) {
+		send_error( "Request timestamp more than " . ACCESS_TOKEN_TIMEOUT . " seconds from current time.", 401 );
 	}
 	my $session_token        = BIGSdb::Utils::random_string(32);
 	my $session_token_secret = BIGSdb::Utils::random_string(32);
