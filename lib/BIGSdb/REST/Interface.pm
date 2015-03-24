@@ -247,9 +247,18 @@ sub _initiate_view {
 #Get the contents of the rest_db database.
 sub get_resources {
 	my ($self) = @_;
-	my $dbases =
-	  $self->{'datastore'}->run_query( "SELECT * FROM resources ORDER BY name", undef, { fetch => 'all_arrayref', slice => {} } );
-	return $dbases;
+	my $resource_groups = $self->{'datastore'}->run_query( "SELECT * FROM resource_groups ORDER BY name",
+		undef, { fetch => 'all_arrayref', slice => {}, cache => 'REST::Interface::get_resources::resource_groups' } );
+	my $resources = [];
+	foreach my $group (@$resource_groups) {
+		my $members = $self->{'datastore'}->run_query( "SELECT * FROM resources WHERE group_name=? ORDER BY description",
+			$group->{'name'}, { fetch => 'all_arrayref', slice => {}, cache => 'REST::Interface::get_resources::resources' } );
+		push @$resources, {name => $group->{'name'}, description => $group->{'description'}, databases => $members} if @$members;
+	}
+	
+	use Data::Dumper qw(Dumper);
+	warn Dumper($resources);
+	return $resources;
 }
 
 sub get_paging {

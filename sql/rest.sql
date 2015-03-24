@@ -1,9 +1,14 @@
-CREATE TABLE resources (
+CREATE TABLE resource_groups (
 	name text NOT NULL,
 	description text NOT NULL,
-	seqdef_config text,
-	isolates_config text,
 	PRIMARY KEY (name)
 );
 
-GRANT SELECT ON resources TO apache;
+CREATE TABLE resources (
+	group_name text NOT NULL,
+	dbase_config text NOT NULL,
+	description text NOT NULL,
+	PRIMARY KEY (group_name,dbase_config)
+);
+
+GRANT SELECT ON resources,resource_groups TO apache;

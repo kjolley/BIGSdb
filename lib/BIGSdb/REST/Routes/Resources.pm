@@ -24,17 +24,19 @@ use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Resource description routes
 any [qw(get post)] => '/' => sub {
-	my $self      = setting('self');
-	my $resources = $self->get_resources;
-	my $values    = [];
-	foreach my $resource (@$resources) {
-		my $databases = [];
-		push @$databases,
-		  { name => 'Sequence/profile definitions', href => request->uri_for("/db/$resource->{'seqdef_config'}")->as_string }
-		  if defined $resource->{'seqdef_config'};
-		push @$databases, { name => 'Isolates', href => request->uri_for("/db/$resource->{'isolates_config'}")->as_string }
-		  if defined $resource->{'isolates_config'};
-		push @$values, { name => $resource->{'name'}, description => $resource->{'description'}, databases => $databases };
+	my $self            = setting('self');
+	my $resource_groups = $self->get_resources;
+	my $values          = [];
+	foreach my $resource_group (@$resource_groups) {
+		if ( $resource_group->{'databases'} ) {
+			my @databases;
+			foreach my $database ( @{ $resource_group->{'databases'} } ) {
+				push @databases,
+				  { description => $database->{'description'}, href => request->uri_for("/db/$database->{'dbase_config'}")->as_string };
+			}
+			push @$values, { name => $resource_group->{'name'}, description => $resource_group->{'description'}, databases => \@databases }
+			  if @databases;
+		}
 	}
 	return $values;
 };
