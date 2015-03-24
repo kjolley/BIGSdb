@@ -518,7 +518,7 @@ sub authenticate {
 			$self->{'page'} = 'index';
 			$logging_out = 1;
 		}
-		if ( $self->{'curate'} || !$self->{'system'}->{'read_access'} eq 'public' || $self->{'page'} eq 'authorizeClient' ) {
+		if ( $self->{'curate'} || $self->{'system'}->{'read_access'} ne 'public' || $self->{'page'} eq 'authorizeClient' ) {
 			try {
 				throw BIGSdb::AuthenticationException('logging out') if $logging_out;
 				$page_attributes->{'username'} = $page->login_from_cookie;
@@ -540,13 +540,13 @@ sub authenticate {
 					$authenticated = 0;
 				};
 			};
-		} 
+		}
 	}
 	if ($reset_password) {
 		$self->{'system'}->{'password_update_required'} = 1;
 		$self->{'cgi'}->{'page'}                        = 'changePassword';
 	}
-	if ($authenticated && $page_attributes->{'username'}) {
+	if ( $authenticated && $page_attributes->{'username'} ) {
 		my $config_access = $self->{'system'}->{'default_access'} ? $self->_user_allowed_access( $page_attributes->{'username'} ) : 1;
 		$page_attributes->{'permissions'} = $self->{'datastore'}->get_permissions( $page_attributes->{'username'} );
 		if ( $page_attributes->{'permissions'}->{'disable_access'} ) {
