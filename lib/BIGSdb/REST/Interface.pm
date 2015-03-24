@@ -142,12 +142,12 @@ sub _is_authorized {
 	if ( !param('oauth_consumer_key') ) {
 		send_error( "Unauthorized - Generate new session token.", 401 );
 	}
-	my $consumer_secret = $self->{'datastore'}->run_query(
-		"SELECT client_secret FROM clients WHERE client_id=?",
+	my $client = $self->{'datastore'}->run_query(
+		"SELECT * FROM clients WHERE client_id=?",
 		param('oauth_consumer_key'),
-		{ db => $self->{'auth_db'}, cache => 'REST::get_client_secret' }
+		{ db => $self->{'auth_db'}, fetch => 'row_hashref', cache => 'REST::get_client_secret' }
 	);
-	if ( !$consumer_secret ) {
+	if ( !$client->{'client_secret'} ) {
 		send_error( "Unrecognized client", 403 );
 	}
 	$self->delete_old_sessions;
@@ -174,7 +174,7 @@ sub _is_authorized {
 			$request_params,
 			request_method  => request->method,
 			request_url     => request->uri_base . request->path,
-			consumer_secret => $consumer_secret,
+			consumer_secret => $client->{'client_secret'},
 			token_secret    => $session_token->{'secret'},
 		);
 	};
@@ -192,8 +192,20 @@ sub _is_authorized {
 		$self->{'logger'}->debug( "Request string: " . $request->signature_base_string );
 		send_error( "Signature verification failed.", 401 );
 	}
-
-	#TODO Check client permissions
+	my $authorize = $self->{'datastore'}->run_query(
+		"SELECT authorize FROM client_permissions WHERE (client_id,dbase)=(?,?)",
+		[ param('oauth_consumer_key'), $self->{'system'}->{'db'} ],
+		{ db => $self->{'auth_db'} }
+	);
+	my $client_authorized;
+	if ( $client->{'default_permission'} eq 'allow' ) {
+		$client_authorized = ( !$authorize || $authorize eq 'allow' ) ? 1 : 0;
+	} else {    #default deny
+		$client_authorized = ( !$authorize || $authorize eq 'deny' ) ? 0 : 1;
+	}
+	if ( !$client_authorized ) {
+		send_error( "Client is unauthorized to access this database.", 401 );
+	}
 	return 1;
 }
 
