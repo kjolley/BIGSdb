@@ -154,7 +154,7 @@ sub _is_authorized {
 	my $session_token = $self->{'datastore'}->run_query(
 		"SELECT * FROM api_sessions WHERE (session,dbase)=(?,?)",
 		[ param('oauth_token'), $self->{'system'}->{'db'} ],
-		{ fetch => 'row_hashref', db => $self->{'auth_db'}, cache => 'REST::Interface::is_authorized' }
+		{ fetch => 'row_hashref', db => $self->{'auth_db'}, cache => 'REST::Interface::is_authorized::api_sessions' }
 	);
 	if ( !$session_token->{'secret'} ) {
 		send_error( "Invalid session token.  Generate new request token (/get_access_token).", 401 );
@@ -195,7 +195,7 @@ sub _is_authorized {
 	my $authorize = $self->{'datastore'}->run_query(
 		"SELECT authorize FROM client_permissions WHERE (client_id,dbase)=(?,?)",
 		[ param('oauth_consumer_key'), $self->{'system'}->{'db'} ],
-		{ db => $self->{'auth_db'} }
+		{ db => $self->{'auth_db'}, cache => 'REST::Interface::is_authorized::client_permissions' }
 	);
 	my $client_authorized;
 	if ( $client->{'default_permission'} eq 'allow' ) {
