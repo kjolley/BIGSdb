@@ -247,17 +247,23 @@ sub _initiate_view {
 #Get the contents of the rest_db database.
 sub get_resources {
 	my ($self) = @_;
-	my $resource_groups = $self->{'datastore'}->run_query( "SELECT * FROM resource_groups ORDER BY name",
-		undef, { fetch => 'all_arrayref', slice => {}, cache => 'REST::Interface::get_resources::resource_groups' } );
+	my $groups = $self->{'datastore'}->run_query( "SELECT * FROM groups ORDER BY name",
+		undef, { fetch => 'all_arrayref', slice => {}, cache => 'REST::Interface::get_resources::groups' } );
 	my $resources = [];
-	foreach my $group (@$resource_groups) {
-		my $members = $self->{'datastore'}->run_query( "SELECT * FROM resources WHERE group_name=? ORDER BY description",
-			$group->{'name'}, { fetch => 'all_arrayref', slice => {}, cache => 'REST::Interface::get_resources::resources' } );
-		push @$resources, {name => $group->{'name'}, description => $group->{'description'}, databases => $members} if @$members;
+	foreach my $group (@$groups) {
+		my $group_resources =
+		  $self->{'datastore'}->run_query( "SELECT dbase_config FROM group_resources WHERE group_name=? ORDER BY dbase_config",
+			$group->{'name'}, { fetch => 'col_arrayref', cache => 'REST::Interface::get_resources::resources' } );
+		my @databases;
+		foreach my $dbase_config (@$group_resources) {
+			my $desc = $self->{'datastore'}->run_query( "SELECT description FROM resources WHERE dbase_config=?",
+				$dbase_config, { cache => 'REST::Interface::get_resources::desc' } );
+			push @databases, { dbase_config => $dbase_config, description => $desc };
+		}
+		delete $group->{'long_description'} if !defined $group->{'long_description'};
+		$group->{'databases'} = \@databases;
+		push @$resources, $group if @databases;
 	}
-	
-	use Data::Dumper qw(Dumper);
-	warn Dumper($resources);
 	return $resources;
 }
 

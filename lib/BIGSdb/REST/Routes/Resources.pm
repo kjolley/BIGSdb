@@ -34,8 +34,8 @@ any [qw(get post)] => '/' => sub {
 				push @databases,
 				  { description => $database->{'description'}, href => request->uri_for("/db/$database->{'dbase_config'}")->as_string };
 			}
-			push @$values, { name => $resource_group->{'name'}, description => $resource_group->{'description'}, databases => \@databases }
-			  if @databases;
+			$resource_group->{'databases'} = \@databases if @databases;
+			push @$values, $resource_group if @databases;
 		}
 	}
 	return $values;
