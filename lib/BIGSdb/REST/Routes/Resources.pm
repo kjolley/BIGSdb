@@ -22,6 +22,11 @@ use warnings;
 use 5.010;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
+get '/robots.txt' => sub {
+  content_type "text/plain";
+  return "User-agent: *\nDisallow: /";
+};
+
 #Resource description routes
 any [qw(get post)] => '/' => sub {
 	my $self            = setting('self');
