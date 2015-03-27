@@ -117,9 +117,7 @@ any [qw(get post)] => '/db/:db/loci/:locus' => sub {
 		my $pubmed_ids =
 		  $self->{'datastore'}
 		  ->run_query( "SELECT pubmed_id FROM locus_refs WHERE locus=? ORDER BY pubmed_id", $locus_name, { fetch => 'col_arrayref' } );
-		my @refs;
-		push @refs, $self->get_pubmed_link($_) foreach @$pubmed_ids;
-		$values->{'publications'} = \@refs if @refs;
+		$values->{'publications'} = $pubmed_ids if @$pubmed_ids;
 
 		#Curators
 		my $curators =

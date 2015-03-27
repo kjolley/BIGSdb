@@ -76,11 +76,7 @@ any [qw(get post)] => '/db/:db/isolates/:id' => sub {
 	my $pubmed_ids =
 	  $self->{'datastore'}
 	  ->run_query( "SELECT pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id", $id, { fetch => 'col_arrayref' } );
-	if (@$pubmed_ids) {
-		my @refs;
-		push @refs, $self->get_pubmed_link($_) foreach @$pubmed_ids;
-		$values->{'publications'} = \@refs;
-	}
+	$values->{'publications'} = $pubmed_ids if @$pubmed_ids;
 	my $seqbin_stats = $self->{'datastore'}->run_query( "SELECT * FROM seqbin_stats WHERE isolate_id=?", $id, { fetch => 'row_hashref' } );
 	if ($seqbin_stats) {
 		my $seqbin = {
@@ -112,8 +108,8 @@ any [qw(get post)] => '/db/:db/isolates/:id' => sub {
 			my $scheme_object = {
 				description           => $scheme->{'description'},
 				loci_designated_count => scalar keys %$allele_designations,
-				full_designations => request->uri_for("/db/$db/isolates/$id/schemes/$scheme->{'id'}/allele_designations")->as_string,
-				allele_ids        => request->uri_for("/db/$db/isolates/$id/schemes/$scheme->{'id'}/allele_ids")->as_string
+				full_designations     => request->uri_for("/db/$db/isolates/$id/schemes/$scheme->{'id'}/allele_designations")->as_string,
+				allele_ids            => request->uri_for("/db/$db/isolates/$id/schemes/$scheme->{'id'}/allele_ids")->as_string
 			};
 			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'}, { set_id => $set_id, get_pk => 1 } );
 			my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $scheme->{'id'} );
@@ -123,7 +119,7 @@ any [qw(get post)] => '/db/:db/isolates/:id' => sub {
 				$field_values = {};
 				foreach my $field (@$scheme_fields) {
 					if ( defined $scheme_field_values->{ lc $field } ) {
-						my @field_values = keys %{$scheme_field_values->{ lc $field }};
+						my @field_values = keys %{ $scheme_field_values->{ lc $field } };
 						my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme->{'id'}, $field );
 						if ( $scheme_field_info->{'type'} eq 'integer' ) {
 							foreach (@field_values) {
