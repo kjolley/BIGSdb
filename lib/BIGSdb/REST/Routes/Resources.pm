@@ -29,13 +29,19 @@ any [qw(get post)] => '/' => sub {
 	my $values          = [];
 	foreach my $resource_group (@$resource_groups) {
 		if ( $resource_group->{'databases'} ) {
-			my @databases;
+			my $databases = [];
 			foreach my $database ( @{ $resource_group->{'databases'} } ) {
-				push @databases,
-				  { description => $database->{'description'}, href => request->uri_for("/db/$database->{'dbase_config'}")->as_string };
+				push @$databases,
+				  {
+					name        => $database->{'dbase_config'},
+					description => $database->{'description'},
+					href        => request->uri_for("/db/$database->{'dbase_config'}")->as_string
+				  };
 			}
-			$resource_group->{'databases'} = \@databases if @databases;
-			push @$values, $resource_group if @databases;
+			if ($databases) {
+				$resource_group->{'databases'} = $databases;
+				push @$values, $resource_group;
+			}
 		}
 	}
 	return $values;

@@ -13,6 +13,9 @@ Version 1.7:  Change of isolate, seqdef, and job database structures.
 Version 1.8:  Change of isolate database structures.
 Version 1.9:  Change of isolate database structures.
 Version 1.10: Change of isolate and seqdef database structures.
+Version 1.11: Change of authentication database structure.  New md5.js
+              Javascript file required.  New Perl modules: Net::Oauth and
+              Crypt::Eksblowfish::Bcrypt required.
 
 Details can be found below.
 
