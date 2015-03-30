@@ -144,7 +144,6 @@ sub run_job {
 		$self->{'jobManager'}->update_job_status(
 			$job_id,
 			{
-				status       => 'failed',
 				message_html => "<p class=\"statusbad\">You must include one or more isolates. Make "
 				  . "sure your selected isolates haven't been filtered to none by selecting a project.</p>"
 			}
@@ -155,7 +154,6 @@ sub run_job {
 		$self->{'jobManager'}->update_job_status(
 			$job_id,
 			{
-				status       => 'failed',
 				message_html => "<p class=\"statusbad\">You must either select one or more loci or schemes, "
 				  . "provide a genome accession number, or upload an annotated genome.</p>"
 			}
@@ -577,7 +575,6 @@ sub _analyse_by_loci {
 		$self->{'jobManager'}->update_job_status(
 			$job_id,
 			{
-				status       => 'failed',
 				message_html => "<p class=\"statusbad\">You must select at least two isolates for comparison against defined loci. "
 				  . "Make sure your selected isolates haven't been filtered to fewer than two by selecting a project.</p>"
 			}
