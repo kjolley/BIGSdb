@@ -35,7 +35,6 @@ use constant {
 use lib (LIB_DIR);
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
-use POSIX;
 use Parallel::ForkManager;
 use BIGSdb::Offline::AutoTag;
 my %opts;
@@ -96,30 +95,18 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 	my $isolates = $script->get_isolates_with_linked_seqs;
 	$isolates = $script->filter_and_sort_isolates($isolates);
 	$script->{'db'}->commit;    #Prevent idle in transaction table locks
-	my $ids_per_list = floor( @$isolates / $opts{'threads'} );
-	$ids_per_list++ if @$isolates % $opts{'threads'};
 	my $lists = [];
-	my $list  = 0;
 	my $i     = 0;
-
 	foreach my $id (@$isolates) {
-		push @{ $lists->[$list] }, $id;
+		push @{ $lists->[$i] }, $id;
 		$i++;
-		if ( $i == $ids_per_list ) {
-			$list++;
+		if ( $i == $opts{'threads'} ) {
 			$i = 0;
 		}
 	}
 	delete $opts{$_} foreach qw(i I p P x y);    #Remove options that impact isolate list
 	$script->{'logger'}->info("$opts{'d'}:Running Autotagger (up to $opts{'threads'} threads)");
 	my $pm = Parallel::ForkManager->new( $opts{'threads'} );
-	$list = 0;
-	$pm->run_on_start(
-		sub {
-			my ( $pid, $ident ) = @_;
-			$list++;
-		}
-	);
 	foreach my $list (@$lists) {
 		$pm->start and next;                     #Forks
 		local $" = ',';

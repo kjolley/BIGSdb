@@ -34,7 +34,6 @@ use constant {
 #######End Local configuration################################
 use lib (LIB_DIR);
 use Getopt::Long qw(:config no_ignore_case);
-use POSIX;
 use Term::Cap;
 use Parallel::ForkManager;
 use BIGSdb::Offline::ScanNew;
@@ -77,7 +76,7 @@ if ( !$opts{'d'} ) {
 	say "Help: scannew.pl -h";
 	exit;
 }
-if ( BIGSdb::Utils::is_int($opts{'threads'}) && $opts{'threads'} > 1 ) {
+if ( BIGSdb::Utils::is_int( $opts{'threads'} ) && $opts{'threads'} > 1 ) {
 	my $script;
 	$script = BIGSdb::Offline::ScanNew->new(    #Create script object to use methods to determine isolate list
 		{
@@ -97,31 +96,19 @@ if ( BIGSdb::Utils::is_int($opts{'threads'}) && $opts{'threads'} > 1 ) {
 	die "Script initialization failed - check logs (authentication problems or server too busy?).\n" if !defined $script->{'db'};
 	my $loci = $script->get_loci_with_ref_db;
 	$script->{'db'}->commit;    #Prevent idle in transaction table locks
-	my $loci_per_list = floor( @$loci / $opts{'threads'} );
-	$loci_per_list++ if @$loci % $opts{'threads'};
 	my $lists = [];
-	my $list  = 0;
 	my $i     = 0;
 	$opts{'prefix'} = BIGSdb::Utils::get_random();    #Reuse isolate file for each thread.
-
 	foreach my $locus (@$loci) {
-		push @{ $lists->[$list] }, $locus;
+		push @{ $lists->[$i] }, $locus;
 		$i++;
-		if ( $i == $loci_per_list ) {
-			$list++;
+		if ( $i == $opts{'threads'} ) {
 			$i = 0;
 		}
 	}
 	delete $opts{$_} foreach qw(l L R s);             #Remove options that impact locus list
 	$script->{'logger'}->info("$opts{'d'}:Running Autodefiner (up to $opts{'threads'} threads)");
 	my $pm = Parallel::ForkManager->new( $opts{'threads'} );
-	$list = 0;
-	$pm->run_on_start(
-		sub {
-			my ( $pid, $ident ) = @_;
-			$list++;
-		}
-	);
 	foreach my $list (@$lists) {
 		$pm->start and next;                          #Forks
 		local $" = ',';
