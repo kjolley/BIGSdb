@@ -29,7 +29,7 @@ use constant FAILURE => 2;
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (tooltips jQuery noCache);
+	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.multiselect noCache);
 	return;
 }
 
@@ -666,6 +666,17 @@ sub _prepare_extra_inserts_for_seqbin {
 		return FAILURE;
 	}
 	return;
+}
+
+sub get_javascript {
+	my $buffer = << "END";
+\$(function () {
+  	if (Modernizr.touch){
+  	 	\$(".no_touch").css("display","none");
+  	}
+});
+END
+	return $buffer;
 }
 
 sub get_title {

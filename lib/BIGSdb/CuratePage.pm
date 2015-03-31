@@ -415,7 +415,7 @@ sub _create_extra_fields_for_sequences {
 	my $buffer;
 	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
 		my $list = $self->{'datastore'}->get_allele_flags( $q->param('locus'), $q->param('allele_id') );
-		$buffer .= "<li><label for=\"flags\" class=\"form\" style=\"width:${width}em\">Flags:</label>\n";
+		$buffer .= qq(<li><label for="flags" class="form" style="width:${width}em">Flags:</label>\n);
 		$buffer .= $q->scrolling_list(
 			-name     => 'flags',
 			-id       => 'flags',
@@ -424,6 +424,7 @@ sub _create_extra_fields_for_sequences {
 			-multiple => 'true',
 			-default  => $list
 		);
+		$buffer .= qq( <span class="comment no_touch">Use Ctrl click to select/deselect multiple choices</span>);
 		$buffer .= "</li>\n";
 	}
 	my @databanks = DATABANKS;
