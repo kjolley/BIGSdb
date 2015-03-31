@@ -109,4 +109,32 @@ any [qw(get post)] => '/db/:db/alleles/:locus/:allele_id' => sub {
 	#TODO scheme members
 	return $values;
 };
+any [qw(get post)] => '/db/:db/alleles_fasta/:locus' => sub {
+	my $self = setting('self');
+	$self->check_seqdef_database;
+	my $params = params;
+	my ( $db, $locus ) = @{$params}{qw(db locus)};
+	my $set_id     = $self->get_set_id;
+	my $locus_name = $locus;
+	if ($set_id) {
+		$locus_name = $self->{'datastore'}->get_set_locus_real_id( $locus, $set_id );
+	}
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
+	if ( !$locus_info ) {
+		send_error( "Locus $locus does not exist.", 404 );
+	}
+	my $qry =
+	  "SELECT allele_id,sequence FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N') ORDER BY "
+	  . ( $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id' );
+	my $alleles = $self->{'datastore'}->run_query( $qry, $locus, { fetch => 'all_arrayref', slice => {} } );
+	if ( !@$alleles ) {
+		send_error( "No alleles for locus $locus are defined.", 404 );
+	}
+	content_type "text/plain";
+	my $buffer = '';
+	foreach my $allele (@$alleles) {
+		$buffer .= ">$locus\_$allele->{'allele_id'}\n$allele->{'sequence'}\n";
+	}
+	return $buffer;
+};
 1;

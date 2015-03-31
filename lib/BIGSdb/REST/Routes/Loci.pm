@@ -165,6 +165,7 @@ any [qw(get post)] => '/db/:db/loci/:locus' => sub {
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		if ( $self->{'datastore'}->sequences_exist($locus_name) ) {
 			$values->{'alleles'} = request->uri_for("/db/$db/alleles/$locus_name")->as_string;
+			$values->{'alleles_fasta'} = request->uri_for("/db/$db/alleles_fasta/$locus_name")->as_string;
 		}
 	}
 	return $values;
