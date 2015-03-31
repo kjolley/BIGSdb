@@ -29,8 +29,7 @@ use Error qw(:try);
 use BIGSdb::Page qw(SEQ_METHODS);
 use List::MoreUtils qw(any uniq);
 
-#use constant MAX_INSTANT_RUN => 100;
-use constant MAX_INSTANT_RUN => 1;
+use constant MAX_INSTANT_RUN => 100;
 use constant MAX_HTML_OUTPUT => 2000;
 
 sub get_attributes {

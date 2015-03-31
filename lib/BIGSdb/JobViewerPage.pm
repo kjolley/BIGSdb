@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2013, University of Oxford
+#Copyright (c) 2011-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -104,16 +104,16 @@ sub print_content {
 	}
 	print "<h1>Job status viewer</h1>";
 	if ( !defined $id || $id !~ /BIGSdb_\d+/ ) {
-		print "<div class=\"box\" id=\"statusbad\">\n";
-		print "<p>The submitted job id is invalid.</p>\n";
+		say qq(<div class="box" id="statusbad">);
+		say qq(<p>The submitted job id is invalid.</p>);
 		print "</div>";
 		return;
 	}
 	my $job = $self->{'jobManager'}->get_job($id);
 	if ( ref $job ne 'HASH' || !$job->{'id'} ) {
-		print "<div class=\"box\" id=\"statusbad\">\n";
-		print "<p>The submitted job does not exist.</p>\n";
-		print "</div>\n";
+		say qq(<div class="box" id="statusbad">);
+		say qq(<p>The submitted job does not exist.</p>);
+		say "</div>";
 		return;
 	}
 	if ( $q->param('cancel') ) {
@@ -140,7 +140,7 @@ sub print_content {
 	print << "HTML";
 <div class="box" id="resultstable">
 <h2>Status</h2>
-<table class="resultstable">
+<div class="scrollable"><table class="resultstable">
 <tr class="td1"><th style="text-align:right">Job id: </th><td style="text-align:left">$id</td></tr>
 <tr class="td2"><th style="text-align:right">Submit time: </th><td style="text-align:left">$submit_time</td></tr>
 <tr class="td1"><th style="text-align:right">Status: </th><td style="text-align:left">$job->{'status'}</td></tr>
@@ -151,11 +151,11 @@ sub print_content {
 HTML
 	my $td = 2;
 	if ( $job->{'stage'} ) {
-		print "<tr class=\"td$td\"><th style=\"text-align:right\">Stage: </th><td style=\"text-align:left\">$job->{'stage'}</td></tr>\n";
+		say qq(<tr class="td$td"><th style="text-align:right">Stage: </th><td style="text-align:left">$job->{'stage'}</td></tr>);
 		$td = $td == 1 ? 2 : 1;
 	}
 	if ($stop_time) {
-		print "<tr class=\"td$td\"><th style=\"text-align:right\">Stop time: </th><td style=\"text-align:left\">$stop_time</td></tr>\n";
+		say qq(<tr class="td$td"><th style="text-align:right">Stop time: </th><td style="text-align:left">$stop_time</td></tr>);
 		$td = $td == 1 ? 2 : 1;
 	}
 	my ( $field, $value, $refresh );
@@ -177,9 +177,9 @@ HTML
 		}
 		$refresh = duration( $self->{'refresh'} );
 	}
-	print "<tr class=\"td$td\"><th style=\"text-align:right\">$field: </th><td style=\"text-align:left\">$value</td></tr>\n"
+	say qq(<tr class="td$td"><th style="text-align:right">$field: </th><td style="text-align:left">$value</td></tr>)
 	  if $field && $value;
-	print "</table><h2>Output</h2>";
+	say "</table></div><h2>Output</h2>";
 	my $output = $self->{'jobManager'}->get_job_output($id);
 	if ( !( $job->{'message_html'} || ref $output eq 'HASH' ) ) {
 		print "<p>No output yet.</p>\n";
@@ -217,22 +217,22 @@ HTML
 		}
 		if (@buffer) {
 			local $" = "\n";
-			print "<ul>\n@buffer</ul>\n";
+			say "<ul>\n@buffer</ul>";
 		}
 	}
-	print "</div><div class=\"box\" id=\"resultsfooter\">";
+	say qq(</div><div class="box" id="resultsfooter">);
 	if ( $job->{'status'} eq 'started' ) {
 		say "<p>Progress: $job->{'percent_complete'}%";
 		say "<br />Stage: $job->{'stage'}" if $job->{'stage'};
 		say "</p>";
 	}
 	$self->_print_cancel_button($job) if $job->{'status'} eq 'started' || $job->{'status'} =~ /^submitted/;
-	print "<p>This page will reload in $refresh. You can refresh it any time, or bookmark it and close your browser if you wish.</p>"
+	say "<p>This page will reload in $refresh. You can refresh it any time, or bookmark it and close your browser if you wish.</p>"
 	  if $self->{'refresh'};
 	if ( $self->{'config'}->{'results_deleted_days'} && BIGSdb::Utils::is_int( $self->{'config'}->{'results_deleted_days'} ) ) {
-		print "<p>Please note that job results will remain on the server for $self->{'config'}->{'results_deleted_days'} days.</p></div>";
+		say "<p>Please note that job results will remain on the server for $self->{'config'}->{'results_deleted_days'} days.</p></div>";
 	} else {
-		print "<p>Please note that job results will not be stored on the server indefinitely.</p></div>";
+		say "<p>Please note that job results will not be stored on the server indefinitely.</p></div>";
 	}
 	return;
 }
