@@ -28,7 +28,9 @@ my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 use BIGSdb::Page qw(SEQ_METHODS);
 use List::MoreUtils qw(any uniq);
-use constant MAX_INSTANT_RUN => 100;
+
+#use constant MAX_INSTANT_RUN => 100;
+use constant MAX_INSTANT_RUN => 1;
 use constant MAX_HTML_OUTPUT => 2000;
 
 sub get_attributes {
@@ -156,7 +158,7 @@ sub run_job {
 		$text_buffer .= $self->_get_text_table_row( $id, $contig_info ) . "\n";
 		$td = $td == 1 ? 2 : 1;
 		$self->_update_totals( $data, $contig_info );
-		my $html_message = $self->_get_html_table_header . $html_buffer . "</tbody></table>";
+		my $html_message = qq(<div class="scrollable">) . $self->_get_html_table_header . $html_buffer . "</tbody></table></div>";
 		my $complete     = int( $row * 100 / @$isolate_ids );
 
 		if ( $row % 20 == 0 || $row == @$isolate_ids ) {
