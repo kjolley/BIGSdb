@@ -335,7 +335,7 @@ sub print_page_content {
 		$self->_print_login_details
 		  if ( defined $self->{'system'}->{'read_access'} && $self->{'system'}->{'read_access'} ne 'public' )
 		  || $self->{'curate'}
-		  || $q->param('page') eq 'authorizeClient';
+		  || ($q->param('page') // '') eq 'authorizeClient';
 		$self->_print_help_panel;
 		$self->print_content;
 		$self->_print_footer;
