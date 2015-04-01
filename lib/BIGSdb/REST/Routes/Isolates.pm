@@ -80,9 +80,10 @@ any [qw(get post)] => '/db/:db/isolates/:id' => sub {
 	my $seqbin_stats = $self->{'datastore'}->run_query( "SELECT * FROM seqbin_stats WHERE isolate_id=?", $id, { fetch => 'row_hashref' } );
 	if ($seqbin_stats) {
 		my $seqbin = {
-			contig_count => $seqbin_stats->{'contigs'},
-			total_length => $seqbin_stats->{'total_length'},
-			contigs      => request->uri_for("/db/$db/isolates/$id/contigs")->as_string
+			contig_count  => $seqbin_stats->{'contigs'},
+			total_length  => $seqbin_stats->{'total_length'},
+			contigs       => request->uri_for("/db/$db/isolates/$id/contigs")->as_string,
+			contigs_fasta => request->uri_for("/db/$db/isolates/$id/contigs_fasta")->as_string
 		};
 		$values->{'sequence_bin'} = $seqbin;
 	}

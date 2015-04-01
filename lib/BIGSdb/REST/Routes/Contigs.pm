@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use POSIX qw(ceil);
-use Dancer2 appname                => 'BIGSdb::REST::Interface';
+use Dancer2 appname => 'BIGSdb::REST::Interface';
 any [qw(get post)] => '/db/:db/isolates/:id/contigs' => sub {
 	my $self = setting('self');
 	my ( $db, $isolate_id ) = ( params->{'db'}, params->{'id'} );
@@ -47,6 +47,26 @@ any [qw(get post)] => '/db/:db/isolates/:id/contigs' => sub {
 	}
 	$values->{'contigs'} = $contig_links;
 	return $values;
+};
+any [qw(get post)] => '/db/:db/isolates/:id/contigs_fasta' => sub {
+	my $self = setting('self');
+	my ( $db, $isolate_id ) = ( params->{'db'}, params->{'id'} );
+	$self->check_isolate_is_valid($isolate_id);
+	my $values = {};
+	my $contigs =
+	  $self->{'datastore'}->run_query( "SELECT id,original_designation,sequence FROM sequence_bin WHERE isolate_id=? ORDER BY id",
+		$isolate_id, { fetch => 'all_arrayref', slice => {} } );
+	if ( !@$contigs ) {
+		send_error( "No contigs for isolate id-$isolate_id are defined.", 404 );
+	}
+	my $buffer = '';
+	my $header_field = ( param('header') // '' ) eq 'original_designation' ? 'original_designation' : 'id';
+	foreach my $contig (@$contigs) {
+		my $header = $contig->{$header_field} // $contig->{'id'};
+		$buffer .= ">$header\n$contig->{'sequence'}\n";
+	}
+	content_type "text/plain";
+	return $buffer;
 };
 any [qw(get post)] => '/db/:db/contigs/:contig' => sub {
 	my $self = setting('self');
