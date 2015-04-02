@@ -24,7 +24,7 @@ use POSIX qw(ceil);
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Allele routes
-any [qw(get post)] => '/db/:db/alleles/:locus' => sub {
+any [qw(get post)] => '/db/:db/loci/:locus/alleles' => sub {
 	my $self = setting('self');
 	$self->check_seqdef_database;
 	my $params = params;
@@ -60,7 +60,7 @@ any [qw(get post)] => '/db/:db/alleles/:locus' => sub {
 	$values->{'alleles'} = $allele_links;
 	return $values;
 };
-any [qw(get post)] => '/db/:db/alleles/:locus/:allele_id' => sub {
+any [qw(get post)] => '/db/:db/loci/:locus/alleles/:allele_id' => sub {
 	my $self = setting('self');
 	$self->check_seqdef_database;
 	my $params = params;
@@ -109,7 +109,7 @@ any [qw(get post)] => '/db/:db/alleles/:locus/:allele_id' => sub {
 	#TODO scheme members
 	return $values;
 };
-any [qw(get post)] => '/db/:db/alleles_fasta/:locus' => sub {
+any [qw(get post)] => '/db/:db/loci/:locus/alleles_fasta' => sub {
 	my $self = setting('self');
 	$self->check_seqdef_database;
 	my $params = params;
