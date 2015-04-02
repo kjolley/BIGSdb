@@ -64,6 +64,60 @@ any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles' => sub {
 	$values->{'profiles'} = $profile_links;
 	return $values;
 };
+any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles_csv' => sub {
+	my $self = setting('self');
+	$self->check_seqdef_database;
+	my $params = params;
+	my ( $db, $scheme_id ) = @{$params}{qw(db scheme_id)};
+	my $set_id = $self->get_set_id;
+	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
+		send_error( 'Scheme id must be an integer.', 400 );
+	}
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
+	my $primary_key = $scheme_info->{'primary_key'};
+	if ( !$scheme_info ) {
+		send_error( "Scheme $scheme_id does not exist.", 404 );
+	} elsif ( !$primary_key ) {
+		send_error( "Scheme $scheme_id does not have a primary key field.", 404 );
+	}
+	my @heading       = ( $scheme_info->{'primary_key'} );
+	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+	my @fields        = ( $scheme_info->{'primary_key'} );
+	foreach my $locus (@$loci) {
+		my $locus_info = $self->{'datastore'}->get_locus_info( $locus, { set_id => $set_id } );
+		my $header_value = $locus_info->{'set_name'} // $locus;
+		push @heading, $header_value;
+		( my $cleaned = $locus ) =~ s/'/_PRIME_/g;
+		push @fields, $cleaned;
+	}
+	foreach my $field (@$scheme_fields) {
+		next if $field eq $scheme_info->{'primary_key'};
+		push @heading, $field;
+		push @fields,  $field;
+	}
+	local $" = "\t";
+	my $buffer = "@heading\n";
+	local $" = ',';
+	my $scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
+	my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
+	my $qry =
+	  "SELECT @fields FROM $scheme_view ORDER BY " . ( $pk_info->{'type'} eq 'integer' ? "CAST($primary_key AS int)" : $primary_key );
+	my $data = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref' } );
+
+	if ( !@$data ) {
+		send_error( "No profiles for scheme $scheme_id are defined.", 404 );
+	}
+	local $" = "\t";
+	{
+		no warnings 'uninitialized';    #scheme field values may be undefined
+		foreach my $profile (@$data) {
+			$buffer .= "@$profile\n";
+		}
+	}
+	content_type "text/plain";
+	return $buffer;
+};
 any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles/:profile_id' => sub {
 	my $self = setting('self');
 	$self->check_seqdef_database;
