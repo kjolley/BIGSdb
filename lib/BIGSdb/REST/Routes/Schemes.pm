@@ -43,9 +43,10 @@ any [qw(get post)] => '/db/:db/schemes/:scheme' => sub {
 	my $values      = {};
 	my $set_id      = $self->get_set_id;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
+	$values->{'id'}                    = int($scheme_id);
 	$values->{'description'}           = $scheme_info->{'description'};
 	$values->{'has_primary_key_field'} = $scheme_info->{'primary_key'} ? JSON::true : JSON::false;
-	$values->{'primary_key_field'}     = request->uri_for("/db/$db/schemes/$scheme_id/fields/$scheme_info->{'primary_key'}")->as_string
+	$values->{'primary_key_field'} = request->uri_for("/db/$db/schemes/$scheme_id/fields/$scheme_info->{'primary_key'}")->as_string
 	  if $scheme_info->{'primary_key'};
 	my $scheme_fields      = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $scheme_field_links = [];
