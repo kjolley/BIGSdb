@@ -79,7 +79,7 @@ any [qw(get post)] => '/db/:db/isolates/:id/allele_designations/:locus' => sub {
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
 	foreach my $designation (@$designations) {
 		my $returned_designation = {};
-		foreach my $attribute (qw(locus allele_id status method comments sender curator)) {
+		foreach my $attribute (qw(locus allele_id status method comments sender curator datestamp)) {
 			next if !defined $designation->{$attribute} || $designation->{$attribute} eq '';
 			if ( $attribute eq 'locus' ) {
 				$returned_designation->{'locus'} = request->uri_for("/db/$db/loci/$locus")->as_string;
@@ -151,7 +151,6 @@ any [qw(get post)] => '/db/:db/isolates/:id/schemes/:scheme/allele_ids' => sub {
 	my ( $db, $isolate_id, $scheme_id ) = ( params->{'db'}, params->{'id'}, params->{'scheme'} );
 	$self->check_isolate_is_valid($isolate_id);
 	$self->check_scheme($scheme_id);
-	my $values              = {};
 	my $set_id              = $self->get_set_id;
 	my $allele_designations = $self->{'datastore'}->get_scheme_allele_designations( $isolate_id, $scheme_id, { set_id => $set_id } );
 	if ( !$allele_designations ) {
@@ -177,8 +176,7 @@ any [qw(get post)] => '/db/:db/isolates/:id/schemes/:scheme/allele_ids' => sub {
 			}
 		}
 	}
-	$values->{'allele_ids'} = $designations;
-	return $values;
+	return $designations;
 };
 any [qw(get post)] => '/db/:db/isolates/:id/schemes/:scheme/allele_designations' => sub {
 	my $self = setting('self');
