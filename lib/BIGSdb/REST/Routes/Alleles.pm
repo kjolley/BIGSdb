@@ -55,7 +55,7 @@ any [qw(get post)] => '/db/:db/loci/:locus/alleles' => sub {
 	$values->{'paging'} = $paging if $pages > 1;
 	my $allele_links = [];
 	foreach my $allele_id (@$allele_ids) {
-		push @$allele_links, request->uri_for("/db/$db/alleles/$locus_name/$allele_id")->as_string;
+		push @$allele_links, request->uri_for("/db/$db/loci/$locus_name/alleles/$allele_id")->as_string;
 	}
 	$values->{'alleles'} = $allele_links;
 	return $values;

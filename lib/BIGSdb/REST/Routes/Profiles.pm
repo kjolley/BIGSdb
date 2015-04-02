@@ -145,7 +145,7 @@ any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles/:profile_id' => sub {
 		my $cleaned_locus = $self->clean_locus($locus);
 		( my $profile_name = $locus ) =~ s/'/_PRIME_/g;
 		my $allele_id = $profile->{ lc($profile_name) };
-		push @$allele_links, request->uri_for("/db/$db/alleles/$cleaned_locus/$allele_id")->as_string;
+		push @$allele_links, request->uri_for("/db/$db/loci/$cleaned_locus/alleles/$allele_id")->as_string;
 	}
 	$values->{'alleles'} = $allele_links;
 	my $fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
