@@ -46,7 +46,7 @@ any [qw(get post)] => '/db/:db/schemes/:scheme' => sub {
 	$values->{'id'}                    = int($scheme_id);
 	$values->{'description'}           = $scheme_info->{'description'};
 	$values->{'has_primary_key_field'} = $scheme_info->{'primary_key'} ? JSON::true : JSON::false;
-	$values->{'primary_key_field'} = request->uri_for("/db/$db/schemes/$scheme_id/fields/$scheme_info->{'primary_key'}")->as_string
+	$values->{'primary_key_field'}     = request->uri_for("/db/$db/schemes/$scheme_id/fields/$scheme_info->{'primary_key'}")->as_string
 	  if $scheme_info->{'primary_key'};
 	my $scheme_fields      = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $scheme_field_links = [];
@@ -64,10 +64,12 @@ any [qw(get post)] => '/db/:db/schemes/:scheme' => sub {
 	}
 	$values->{'loci'} = $locus_links if @$locus_links;
 	if ( $scheme_info->{'primary_key'} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		my $profile_view = ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
+		my $profile_view =
+		  ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
 		my $profile_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $profile_view");
 		$values->{'profile_count'} = int($profile_count);                                                 #Force integer output (non-quoted)
 		$values->{'profiles'}      = request->uri_for("/db/$db/schemes/$scheme_id/profiles")->as_string;
+		$values->{'profiles_csv'} = request->uri_for("/db/$db/schemes/$scheme_id/profiles_csv")->as_string;
 	}
 	return $values;
 };
