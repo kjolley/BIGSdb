@@ -40,6 +40,9 @@ sub print_content {
 		say qq(<div class="box" id="statusbad"><p>This database does not use built-in authentication.  You cannot )
 		  . qq(currently authorize third-party applications.</p></div>);
 		return;
+	} elsif ( $q->param('modify') ) {
+		$self->_modify_authorization;
+		return;
 	} elsif ( !$token_id ) {
 		say qq(<div class="box" id="statusbad"><p>No request token specified.</p></div>);
 		return;
@@ -89,9 +92,9 @@ sub print_content {
 	$self->print_action_fieldset( { submit_label => 'Authorize', reset_label => 'Cancel', page => 'index' } );
 	say $q->hidden($_) foreach qw(db page oauth_token authorize);
 	say $q->end_form;
-	say qq(<p>You will be able to revoke access for this application at any time.</p>);
-
-	#TODO Add revocation information.
+	say
+	  qq(<p>You will be able to <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=authorizeClient&amp;modify=1">)
+	  . qq(revoke access for this application</a> at any time.</p>);
 	say qq(</div></div>);
 	return;
 }
@@ -139,6 +142,65 @@ sub _can_client_access_database {
 	} else {    #default deny
 		return ( !$authorize || $authorize eq 'deny' ) ? 0 : 1;
 	}
+}
+
+sub _modify_authorization {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( $q->param('submit') ) {
+		my $known_clients = $self->{'datastore'}->run_query( "SELECT * FROM clients ORDER BY application,version",
+			undef, { db => $self->{'auth_db'}, fetch => 'all_arrayref', slice => {} } );
+		my @revoked;
+		foreach my $client (@$known_clients) {
+			next if !$q->param( $client->{'client_id'} );
+			eval {
+				$self->{'auth_db'}
+				  ->do( "DELETE FROM access_tokens WHERE username=? AND client_id=?", undef, $self->{'username'}, $client->{'client_id'} );
+			};
+			if ($@) {
+				$logger->error($@);
+				$self->{'auth_db'}->rollback;
+			} else {
+				$client->{'version'} //= '';
+				push @revoked, "$client->{'application'} $client->{'version'}";
+				$self->{'auth_db'}->commit;
+			}
+		}
+		if (@revoked) {
+			my $plural = @revoked == 1 ? '' : 's';
+			local $" = '</li><li>';
+			say
+qq(<div class="box" id="resultsheader"><p>You have revoked access to the following application$plural:</p><ul><li>@revoked</li></ul></div>);
+		}
+	}
+	my $clients = $self->{'datastore'}->run_query(
+		"SELECT * FROM clients WHERE client_id IN (SELECT client_id FROM access_tokens WHERE username=? AND dbase=?) ORDER BY application",
+		[ $self->{'username'}, $self->{'system'}->{'db'} ],
+		{ db => $self->{'auth_db'}, fetch => 'all_arrayref', slice => {} }
+	);
+	if ( !@$clients ) {
+		say qq(<div class="box" id="resultspanel"><p>You have not authorized any application to access your resources.</p></div> );
+		return;
+	}
+	say qq(<div class="box" id="resultstable"><div class="scrollable">);
+	say "<p>You have authorized the following applications to access resources on your behalf.  Select any whose permissions "
+	  . "you would like to revoke.</p>";
+	say $q->start_form;
+	say qq(<fieldset style="float:left"><legend>Applications</legend>);
+	say qq(<table class="resultstable"><tr><th>Application</th><th>Version</th><th>Revoke</th></tr>);
+	my $td = 1;
+	foreach my $client (@$clients) {
+		$client->{'version'} //= '-';
+		say qq(<tr class="td$td"><td>$client->{'application'}</td><td>$client->{'version'}</td><td>);
+		say $q->checkbox( -name => $client->{'client_id'}, -label => '' );
+		say '</td></tr>';
+	}
+	say '</table></fieldset>';
+	$self->print_action_fieldset( { modify => 1, submit_label => 'Revoke' } );
+	say $q->hidden($_) foreach qw(db page modify);
+	say $q->end_form;
+	say '</div></div>';
+	return;
 }
 
 sub get_title {

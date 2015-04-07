@@ -208,6 +208,17 @@ OPTIONS
 		  . qq(<a href="${url_root}table=schemes$set_string">schemes</a> or )
 		  . qq(<a href="${url_root}table=scheme_fields$set_string">scheme fields</a>.</li>);
 	}
+	if ( $self->{'system'}->{'authentication'} eq 'builtin' && $self->{'username'} ) {
+		my $clients_authorized = $self->{'datastore'}->run_query(
+			"SELECT EXISTS(SELECT * FROM access_tokens WHERE (username,dbase)=(?,?))",
+			[ $self->{'username'}, $self->{'system'}->{'db'} ],
+			{ db => $self->{'auth_db'} }
+		);
+		if ($clients_authorized) {
+			say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=authorizeClient&amp;modify=1">)
+			  . qq(View/modify client software permissions</a></li>);
+		}
+	}
 	say "</ul>\n</div>";
 	return;
 }
