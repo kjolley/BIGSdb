@@ -92,9 +92,8 @@ sub print_content {
 	$self->print_action_fieldset( { submit_label => 'Authorize', reset_label => 'Cancel', page => 'index' } );
 	say $q->hidden($_) foreach qw(db page oauth_token authorize);
 	say $q->end_form;
-	say
-	  qq(<p>You will be able to <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=authorizeClient&amp;modify=1">)
-	  . qq(revoke access for this application</a> at any time.</p>);
+	say qq(<p>You will be able to <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=authorizeClient&amp;)
+	  . qq(modify=1">revoke access for this application</a> at any time.</p>);
 	say qq(</div></div>);
 	return;
 }
@@ -122,8 +121,8 @@ sub _authorize_token {
 		say qq(<p>Enter the following verification code when asked by $client->{'application'}.</p>);
 		say qq(<p><b>Verification code: $verifier</b></p>);
 		say qq(<p>This code is valid for ) . ( REQUEST_TOKEN_EXPIRES / 60 ) . qq( minutes.</p>);
-
-		#TODO Add revocation information.
+		say qq(<p>You will be able to <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=authorizeClient&amp;)
+		  . qq(modify=1">revoke access for this application</a> at any time.</p>);
 		say qq(</div>);
 		$self->{'auth_db'}->commit;
 	}
