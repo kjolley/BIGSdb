@@ -282,7 +282,7 @@ sub xmfa2fasta {
 
 	while ( my $line = <$xmfa_fh> ) {
 		next if $line =~ /^=/;
-		if ( $line =~ /^>\s*([\d\w\s\|\-\\\/\.\(\),]+):/ ) {
+		if ( $line =~ /^>\s*([\d\w\s\|\-\\\/\.\(\),#]+):/ ) {
 			$seq{$current_id} .= $temp_seq;
 			if ( $options->{'integer_ids'} ) {
 				my $extracted_id = $1;
