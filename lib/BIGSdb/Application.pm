@@ -60,6 +60,7 @@ use BIGSdb::SeqbinPage;
 use BIGSdb::SeqbinToEMBL;
 use BIGSdb::SequenceQueryPage;
 use BIGSdb::SequenceTranslatePage;
+use BIGSdb::SubmitPage;
 use BIGSdb::TableQueryPage;
 use BIGSdb::VersionPage;
 use BIGSdb::CGI::as_utf8;
@@ -422,6 +423,7 @@ sub print_page {
 		seqbin             => 'SeqbinPage',
 		sequenceQuery      => 'SequenceQueryPage',
 		sequenceTranslate  => 'SequenceTranslatePage',
+		submit             => 'SubmitPage',
 		tableQuery         => 'TableQueryPage',
 		version            => 'VersionPage'
 	);
@@ -454,7 +456,7 @@ sub print_page {
 		$page->print_page_content;
 		return;
 	}
-	if ( $self->{'system'}->{'read_access'} ne 'public' || $self->{'page'} eq 'authorizeClient' || $self->{'page'} eq 'logout' ) {
+	if ( $self->{'system'}->{'read_access'} ne 'public' || $self->{'page'} eq 'authorizeClient' || $self->{'page'} eq 'submit'|| $self->{'page'} eq 'logout' ) {
 		( $continue, $auth_cookies_ref ) = $self->authenticate( \%page_attributes );
 	}
 	return if !$continue;
@@ -518,7 +520,7 @@ sub authenticate {
 			$self->{'page'} = 'index';
 			$logging_out = 1;
 		}
-		if ( $self->{'curate'} || $self->{'system'}->{'read_access'} ne 'public' || $self->{'page'} eq 'authorizeClient' ) {
+		if ( $self->{'curate'} || $self->{'system'}->{'read_access'} ne 'public' || $self->{'page'} eq 'authorizeClient' || $self->{'page'} eq 'submit') {
 			try {
 				throw BIGSdb::AuthenticationException('logging out') if $logging_out;
 				$page_attributes->{'username'} = $page->login_from_cookie;

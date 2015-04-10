@@ -107,9 +107,11 @@ sub print_content {
 	say "</ul></div>";
 	$self->_print_download_section($scheme_data) if $system->{'dbtype'} eq 'sequences';
 	$self->_print_options_section;
+	$self->_print_submissions_section;
 	$self->_print_general_info_section($scheme_data);
 	say "</div></div>";
 	$self->_print_plugin_section($scheme_data);
+	
 	return;
 }
 
@@ -220,6 +222,16 @@ OPTIONS
 		}
 	}
 	say "</ul>\n</div>";
+	return;
+}
+
+sub _print_submissions_section {
+	my ($self) = @_;
+	return if $self->{'system'}->{'dbtype'} eq 'isolates' || ($self->{'system'}->{'submissions'} // '') ne 'yes';
+	say qq(<div style="float:left; margin-right:1em">);
+	say qq(<h2>Submissions</h2><ul class="toplevel">);
+	say qq(<li><a href="$self->{'system'}->{'script-name'}?db=$self->{'instance'}&amp;page=submit">Manage submissions</a></li>);
+	say '</ul></div>';
 	return;
 }
 

@@ -1018,6 +1018,10 @@ sub get_locus_list {
 	#analysis_pref: only the loci for which the user has an analysis preference selected will be returned
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
+	my %only_include;
+	if ( $options->{'only_include'} ) {
+		%only_include = map { $_ => 1 } @{ $options->{'only_include'} };
+	}
 	my $qry;
 	if ( $options->{'set_id'} ) {
 		$qry =
@@ -1040,7 +1044,8 @@ sub get_locus_list {
 	my $display_loci;
 	foreach my $locus (@$loci) {
 		next if $options->{'analysis_pref'} && !$self->{'prefs'}->{'analysis_loci'}->{ $locus->{'id'} };
-		next if $options->{'set_id'} && $locus->{'set_id'} && $locus->{'set_id'} != $options->{'set_id'};
+		next if $options->{'set_id'}        && $locus->{'set_id'} && $locus->{'set_id'} != $options->{'set_id'};
+		next if $options->{'only_include'}  && !$only_include{ $locus->{'id'} };
 		push @$display_loci, $locus->{'id'};
 		if ( $locus->{'set_name'} ) {
 			$cleaned->{ $locus->{'id'} } = $locus->{'set_name'};
@@ -1668,7 +1673,7 @@ sub run_simple_query {                                                          
 	return $data;
 }
 
-sub run_list_query {                                                                                     #TODO remove method
+sub run_list_query {    #TODO remove method
 
 	#Deprecated!  Use run_query instead.
 	#runs query against current database (multiple row of single value returned)

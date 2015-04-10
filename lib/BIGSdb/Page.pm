@@ -29,7 +29,8 @@ use Memoize;
 memoize( 'clean_locus', NORMALIZER => '_normalize_clean_locus' );
 memoize('get_seq_detail_tooltips');
 use parent 'Exporter';
-use constant SEQ_METHODS => ( '454', 'Illumina', 'Ion Torrent', 'PacBio', 'Sanger', 'Solexa', 'SOLiD', 'other', 'unknown' );
+use constant SEQ_METHODS =>
+  ( '454', 'Illumina', 'Ion Torrent', 'PacBio', 'Oxford Nanopore', 'Sanger', 'Solexa', 'SOLiD', 'other', 'unknown' );
 use constant SEQ_FLAGS => (
 	'ambiguous read',
 	'apparent misassembly',
@@ -335,7 +336,8 @@ sub print_page_content {
 		$self->_print_login_details
 		  if ( defined $self->{'system'}->{'read_access'} && $self->{'system'}->{'read_access'} ne 'public' )
 		  || $self->{'curate'}
-		  || ($q->param('page') // '') eq 'authorizeClient';
+		  || ( $q->param('page') // '' ) eq 'authorizeClient'
+		  || ( $q->param('page') // '' ) eq 'submit';
 		$self->_print_help_panel;
 		$self->print_content;
 		$self->_print_footer;
@@ -479,7 +481,8 @@ sub print_action_fieldset {
 	my $page         = $options->{'page'}         // $q->param('page');
 	my $submit_label = $options->{'submit_label'} // 'Submit';
 	my $reset_label  = $options->{'reset_label'}  // 'Reset';
-	my $buffer       = "<fieldset style=\"float:left\"><legend>Action</legend>\n";
+	my $legend       = $options->{'legend'}       // 'Action';
+	my $buffer       = "<fieldset style=\"float:left\"><legend>$legend</legend>\n";
 	my $url          = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page";
 	my @fields       = qw (isolate_id id scheme_id table name ruleset locus profile_id simple set_id modify);
 	if ( $options->{'table'} ) {
