@@ -230,7 +230,7 @@ sub _print_submissions_section {
 	return if $self->{'system'}->{'dbtype'} eq 'isolates' || ($self->{'system'}->{'submissions'} // '') ne 'yes';
 	say qq(<div style="float:left; margin-right:1em">);
 	say qq(<h2>Submissions</h2><ul class="toplevel">);
-	say qq(<li><a href="$self->{'system'}->{'script-name'}?db=$self->{'instance'}&amp;page=submit">Manage submissions</a></li>);
+	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit">Manage submissions</a></li>);
 	say '</ul></div>';
 	return;
 }

@@ -21,6 +21,9 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::TreeViewPage);
+use Error qw(:try);
+use IO::Handle;
+use Bio::SeqIO;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Page 'SEQ_METHODS';
@@ -35,7 +38,7 @@ sub get_javascript {
 \$(function () {
 	\$("fieldset#scheme_fieldset").css("display","block");
 	\$("#filter").click(function() {	
-		var fields = ["technology", "assembly", "software", "read_length", "coverage"];
+		var fields = ["technology", "assembly", "software", "read_length", "coverage", "locus", "fasta"];
 		for (i=0; i<fields.length; i++){
 			\$("#" + fields[i]).prop("required",false);
 		}
@@ -51,10 +54,10 @@ function check_technology() {
 	for (i=0; i<fields.length; i++){
 		if (\$("#technology").val() == 'Illumina'){			
 			\$("#" + fields[i]).prop("required",true);
-			\$("#" + fields[i] + "_label").text((fields[i]+"!").replace("_", " "));	
+			\$("#" + fields[i] + "_label").text((fields[i]+":!").replace("_", " "));	
 		} else {
 			\$("#" + fields[i]).prop("required",false);
-			\$("#" + fields[i] + "_label").text((fields[i]).replace("_", " "));
+			\$("#" + fields[i] + "_label").text((fields[i]+":").replace("_", " "));
 		}
 	}	
 }
@@ -106,6 +109,13 @@ sub print_content {
 sub _submit_alleles {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
+	if ( $q->param('submit') ) {
+		my $ret = $self->_check_new_alleles;
+		if ( $ret->{'err'} ) {
+			say qq(<div class="box" id="statusbad"><p>$ret->{'err'}</p></div>);
+		} else {
+		}
+	}
 	say qq(<div class="box" id="queryform"><div class="scrollable">);
 	say qq(<h2>Submit new alleles</h2>);
 	say qq(<p>You need to make a separate submission for each locus for which you have new alleles - this is because different loci may )
@@ -135,33 +145,94 @@ sub _submit_alleles {
 	} else {
 		( $loci, $labels ) = $self->{'datastore'}->get_locus_list;
 	}
-	local $" = ', ';
-	say $q->start_form;
 	say qq(<fieldset style="float:left"><legend>Select locus</legend>);
-	say $self->popup_menu( -name => 'locus', -id => 'locus', -values => $loci, -labels => $labels, -size => 9 );
+	say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $loci, -labels => $labels, -size => 9, -required => 'required' );
 	say qq(</fieldset>);
 	say qq(<fieldset style="float:left"><legend>Sequence details</legend>);
 	say qq(<ul><li><label for="technology" class="parameter">technology:!</label>);
-	say $q->popup_menu( -name => 'technology', -id => 'technology', -values => [ '', SEQ_METHODS ], -required => 'required' );
+	my $att_labels = { '' => ' ' };    #Required for HTML5 validation
+	say $q->popup_menu(
+		-name     => 'technology',
+		-id       => 'technology',
+		-values   => [ '', SEQ_METHODS ],
+		-labels   => $att_labels,
+		-required => 'required'
+	);
 	say qq(<li><label for="read_length" id="read_length_label" class="parameter">read length:</label>);
-	say $q->popup_menu( -name => 'read_length', -id => 'read_length', -values => [ '', READ_LENGTH ] );
+	say $q->popup_menu( -name => 'read_length', -id => 'read_length', -values => [ '', READ_LENGTH ], -labels => $att_labels );
 	say qq(</li><li><label for="coverage" id="coverage_label" class="parameter">coverage:</label>);
-	say $q->popup_menu( -name => 'coverage', -id => 'coverage', -values => [ '', COVERAGE ] );
+	say $q->popup_menu( -name => 'coverage', -id => 'coverage', -values => [ '', COVERAGE ], -labels => $att_labels );
 	say qq(</li><li><label for="assembly" class="parameter">assembly:!</label>);
-	say $q->popup_menu( -name => 'assembly', -id => 'assembly', -values => [ '', ASSEMBLY ], -required => 'required' );
-	say qq(</li><li><label for="software" class="parameter">software:!</label>);
+	say $q->popup_menu(
+		-name     => 'assembly',
+		-id       => 'assembly',
+		-values   => [ '', ASSEMBLY ],
+		-labels   => $att_labels,
+		-required => 'required'
+	);
+	say qq(</li><li><label for="software" class="parameter">assembly software:!</label>);
 	say $q->textfield( -name => 'software', -id => 'software', -required => 'required' );
 	say qq(</li><li><label for="comments" class="parameter">comments/notes:</label>);
 	say $q->textarea( -name => 'comments', -id => 'comments' );
 	say qq(</li></ul>);
 	say qq(</fieldset>);
 	say qq(<fieldset style="float:left"><legend>FASTA or single sequence</legend>);
-	say $q->textarea( -name => 'fasta', -cols => 30, -rows => 5, -id => 'fasta' );
+	say $q->textarea( -name => 'fasta', -cols => 30, -rows => 5, -id => 'fasta', -required => 'required' );
 	say qq(</fieldset>);
 	say $q->hidden($_) foreach qw(db page alleles);
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say $q->end_form;
 	say qq(</div></div>);
+	return;
+}
+
+sub _check_new_alleles {
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $locus  = $q->param('locus');
+	if ( !$locus ) {
+		return { err => 'No locus is selected.' };
+	}
+	$locus =~ s/^cn_//;
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	if ( !$locus_info ) {
+		return { err => 'Locus $locus is not recognized.' };
+	}
+	my $seqs = {};
+	if ( $q->param('fasta') ) {
+		my $fasta_string = $q->param('fasta');
+		$fasta_string = ">seq\n$fasta_string" if $fasta_string !~ /^\s*>/;
+		open( my $stringfh_in, "<:encoding(utf8)", \$fasta_string ) or die "Could not open string for reading: $!";
+		$stringfh_in->untaint;
+		my $seqin = Bio::SeqIO->new( -fh => $stringfh_in, -format => 'fasta' );
+		while ( my $sequence = $seqin->next_seq ) {
+			my $seq_id   = $sequence->id;
+			my $sequence = $sequence->seq;
+			$sequence =~ s/[\-\.\s]//g;
+			if ( $locus_info->{'data_type'} eq 'DNA' ) {
+				my $diploid = ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? 1 : 0;
+				if ( !BIGSdb::Utils::is_valid_DNA( $sequence, { diploid => $diploid } ) ) {
+					return { err => "Sequence '$seq_id' is not a valid unambiguous DNA sequence." };
+				}
+			} else {
+				if ( !BIGSdb::Utils::is_valid_peptide($sequence) ) {
+					return { err => "Sequence '$seq_id' is not a valid unambiguous peptide sequence." };
+				}
+			}
+			my $seq_length = length $sequence;
+			my $units = $locus_info->{'data_type'} eq 'DNA' ? 'bp' : 'residues';
+			if ( !$locus_info->{'length_varies'} && $seq_length != $locus_info->{'length'} ) {
+				return { err => "Sequence '$seq_id' has a length of $seq_length $units while this locus has a non-variable length of "
+					  . "$locus_info->{'length'} $units." };
+			} elsif ( $locus_info->{'min_length'} && $seq_length < $locus_info->{'min_length'} ) {
+				return { err => "Sequence '$seq_id' has a length of $seq_length $units while this locus has a minimum length of "
+					  . "$locus_info->{'min_length'} $units." };
+			} elsif ( $locus_info->{'max_length'} && $seq_length > $locus_info->{'max_length'} ) {
+				return { err => "Sequence '$seq_id' has a length of $seq_length $units while this locus has a maximum length of "
+					  . "$locus_info->{'max_length'} $units." };
+			}
+		}
+	}
 	return;
 }
 
@@ -175,7 +246,7 @@ sub _get_scheme_loci {
 		  $_ ? $self->{'datastore'}->get_scheme_loci($_) : $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 		foreach my $locus (@$scheme_loci) {
 			if ( !$locus_selected{$locus} ) {
-				push @loci, "$locus";
+				push @loci, $locus;
 				$locus_selected{$locus} = 1;
 			}
 		}
@@ -186,6 +257,6 @@ sub _get_scheme_loci {
 sub get_title {
 	my ($self) = @_;
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Manage submissions - $desc";
+	return " Manage submissions - $desc ";
 }
 1;
