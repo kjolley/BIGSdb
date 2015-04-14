@@ -148,9 +148,9 @@ sub _submit_alleles {
 			push @selected_schemes, $_ if $q->param("s_$_");
 		}
 		my $scheme_loci = @selected_schemes ? $self->_get_scheme_loci( \@selected_schemes ) : undef;
-		( $loci, $labels ) = $self->{'datastore'}->get_locus_list( { only_include => $scheme_loci } );
+		( $loci, $labels ) = $self->{'datastore'}->get_locus_list( { only_include => $scheme_loci, set_id => $set_id } );
 	} else {
-		( $loci, $labels ) = $self->{'datastore'}->get_locus_list;
+		( $loci, $labels ) = $self->{'datastore'}->get_locus_list({ set_id => $set_id});
 	}
 	say qq(<fieldset style="float:left"><legend>Select locus</legend>);
 	say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $loci, -labels => $labels, -size => 9, -required => 'required' );
