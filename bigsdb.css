@@ -606,6 +606,11 @@ div#statusbad, div.statusbad {
 	color:#800000
 }
 
+div#statuswarn, div.statuswarn {
+	background:#e0e0d5;
+	color:#404000
+}
+
 div.statusbad_no_resize {
 	background:#e0d5d5;
 	color:#800000

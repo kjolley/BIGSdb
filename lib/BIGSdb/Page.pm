@@ -351,7 +351,7 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system    = $self->{'system'};
-	my $version   = '20141114';
+	my $version   = '20150414';
 	my @filenames = qw(bigsdb.css jquery-ui.css);
 	my @paths;
 	foreach my $filename (@filenames) {
@@ -1591,25 +1591,6 @@ sub get_query_from_temp_file {
 		my $qry = <$fh>;
 		close $fh;
 		return $qry;
-	}
-	return;
-}
-
-sub mark_cache_stale {
-
-	#Mark all cache subdirectories as stale (each locus set will use a different directory)
-	my ($self) = @_;
-	my $dir = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}";
-	if ( -d $dir ) {
-		foreach my $subdir ( glob "$dir/*" ) {
-			next if !-d $subdir;    #skip if not a dirctory
-			if ( $subdir =~ /\/(all|\d+)$/ ) {
-				$subdir = $1;
-				my $stale_flag_file = "$dir/$subdir/stale";
-				open( my $fh, '>', $stale_flag_file ) || $logger->error("Can't mark BLAST db stale.");
-				close $fh;
-			}
-		}
 	}
 	return;
 }

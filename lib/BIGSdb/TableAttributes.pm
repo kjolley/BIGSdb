@@ -377,6 +377,16 @@ sub get_loci_table_attributes {
 				tooltip  => 'analysis - Sets whether to include this locus in analysis functions (can be overridden by user preference).'
 			}
 		  );
+	} else {    #Seqdef database
+		push @$attributes,
+		  {
+			name        => 'complete_cds',
+			type        => 'bool',
+			hide_public => 'yes',
+			tooltip     => 'complete cds - Sequences should be complete reading frames with a start and stop codon and no internal stop '
+			  . 'codons.'
+		  },
+		  ;
 	}
 	push @$attributes,
 	  (

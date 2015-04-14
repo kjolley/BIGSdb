@@ -24,6 +24,7 @@ use strict;
 use warnings;
 use POSIX qw(ceil);
 use BIGSdb::BIGSException;
+use List::MoreUtils qw(any none);
 use Bio::SeqIO;
 use Bio::SeqFeature::Generic;
 use Excel::Writer::XLSX;
@@ -63,6 +64,35 @@ sub is_valid_peptide {
 	my $check_seq = ref $seq eq 'SCALAR' ? uc($$seq) : uc($seq);
 	$check_seq =~ s/[\-\.\s]//g;
 	return $check_seq =~ /[^GALMFWKQESPVICYHRNDT]/ ? 0 : 1;
+}
+
+sub is_complete_cds {
+	my ($seq) = @_;
+	my $check_seq = ref $seq eq 'SCALAR' ? uc($$seq) : uc($seq);
+	$check_seq =~ s/[\-\.\s]//g;
+	my $first_codon = substr( $check_seq, 0, 3 );
+	if ( none { $first_codon eq $_ } qw (ATG GTG TTG) ) {
+		return { cds => 0, err => 'not a complete CDS - no start codon.' };
+	}
+	my $end_codon = substr( $check_seq, -3 );
+	if ( none { $end_codon eq $_ } qw (TAA TGA TAG) ) {
+		return { cds => 0, err => 'not a complete CDS - no stop codon.' };
+	}
+	my $multiple_of_3 = ( length($check_seq) / 3 ) == int( length($check_seq) / 3 ) ? 1 : 0;
+	if ( !$multiple_of_3 ) {
+		return { cds => 0, err => 'not a complete CDS - length not a multiple of 3.' };
+	}
+	my $internal_stop;
+	for ( my $pos = 0 ; $pos < length($check_seq) - 3 ; $pos += 3 ) {
+		my $codon = substr( $check_seq, $pos, 3 );
+		if ( any { $codon eq $_ } qw (TAA TGA TAG) ) {
+			$internal_stop = 1;
+		}
+	}
+	if ($internal_stop) {
+		return { cds => 0, err => 'not a complete CDS - internal stop codon.' };
+	}
+	return { cds => 1 };
 }
 
 sub sequence_type {

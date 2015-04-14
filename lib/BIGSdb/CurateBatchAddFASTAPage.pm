@@ -286,7 +286,7 @@ sub _check_sequence {
 	if (   $self->{'locus_info'}->{'data_type'} eq 'DNA'
 		&& !$q->param('ignore_similarity')
 		&& $self->{'datastore'}->sequences_exist($locus)
-		&& !$self->sequence_similar_to_others( $locus, \$data->{'seq'} ) )
+		&& !$self->{'datastore'}->is_sequence_similar_to_others( $locus, \$data->{'seq'} ) )
 	{
 		return ( FAILURE, $allele_id,
 			    "Sequence is too dissimilar to existing alleles (less than 70% identical or an alignment of "
@@ -296,6 +296,7 @@ sub _check_sequence {
 	}
 
 	#Check if allele is complete coding sequence
+	#TODO Use BIGSdb::Utils::is_complete_cds
 	if ( $self->{'locus_info'}->{'data_type'} eq 'DNA' && $q->param('complete_CDS') ) {
 		my $first_codon = substr( $data->{'seq'}, 0, 3 );
 		if ( none { $first_codon eq $_ } qw (ATG GTG TTG) ) {
@@ -353,7 +354,7 @@ sub _upload {
 	  . " | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p>";
 	say "</div>";
 	$self->{'db'}->commit;
-	$self->mark_cache_stale;
+	$self->{'datastore'}->mark_cache_stale;
 	return;
 }
 

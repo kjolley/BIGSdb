@@ -37,3 +37,5 @@ ON UPDATE CASCADE
 );
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON allele_submissions TO apache;
+
+ALTER TABLE loci ADD complete_cds boolean;

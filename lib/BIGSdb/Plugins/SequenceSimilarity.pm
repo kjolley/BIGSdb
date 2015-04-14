@@ -22,7 +22,7 @@ package BIGSdb::Plugins::SequenceSimilarity;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugin BIGSdb::BlastPage);
+use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
@@ -105,8 +105,8 @@ sub run {
 	}
 	my $cleanlocus = $self->clean_locus($locus);
 	my $seq_ref = $self->{'datastore'}->get_sequence( $locus, $allele );
-	my ( $blast_file, undef ) = $self->run_blast(
-		{ 'locus' => $locus, 'seq_ref' => $seq_ref, 'qry_type' => $locus_info->{'data_type'}, 'num_results' => $num_results + 1 } );
+	my ( $blast_file, undef ) = $self->{'datastore'}->run_blast(
+		{ 'locus' => $locus, 'seq_ref' => $seq_ref, 'qry_type' => $locus_info->{'data_type'}, 'num_results' => $num_results + 1, set_id => $set_id } );
 	my $matches_ref = $self->_parse_blast_partial($blast_file);
 	say qq(<div class="box" id="resultsheader">);
 	say "<h2>$cleanlocus-$allele</h2>";

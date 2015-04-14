@@ -372,7 +372,7 @@ sub _confirm {
 		my $deltags = $q->param('delete_tags') ? "<br />$data->{'locus'}: sequence tag(s) deleted" : '';
 		$self->update_history( $data->{'isolate_id'}, "$data->{'locus'}: designation '$data->{'allele_id'}' deleted$deltags" );
 	} elsif ( $table eq 'sequences' ) {
-		$self->mark_cache_stale;
+		$self->{'datastore'}->mark_cache_stale;
 	}
 	return;
 }

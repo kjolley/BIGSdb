@@ -178,7 +178,7 @@ sub _delete {
 				$self->drop_scheme_view($_);
 			}
 		} elsif ( $table eq 'sequences' ) {
-			$self->mark_cache_stale;
+			$self->{'datastore'}->mark_cache_stale;
 		} elsif ( $table eq 'profiles' ) {
 			my $scheme_id = $q->param('scheme_id');
 			$self->refresh_material_view($scheme_id);

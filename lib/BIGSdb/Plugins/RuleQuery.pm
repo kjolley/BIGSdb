@@ -258,8 +258,10 @@ sub _scan_locus {
 		$logger->error("Invalid locus $locus");
 		return;
 	}
+	my $set_id = $self->get_set_id;
 	( my $blast_file, undef ) =
-	  $self->run_blast( { locus => $locus, seq_ref => $self->{'sequence'}, qry_type => 'DNA', num_results => 5, cache => 0 } );
+	  $self->{'datastore'}->run_blast(
+		{ locus => $locus, seq_ref => $self->{'sequence'}, qry_type => 'DNA', num_results => 5, cache => 0, set_id => $set_id } );
 	my $exact_matches = $self->parse_blast_exact( $locus, $blast_file );
 	$self->{'results'}->{'locus'}->{$locus} = $exact_matches->[0]->{'allele'} if @$exact_matches;    #only use first match
 	unlink "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
@@ -268,13 +270,23 @@ sub _scan_locus {
 
 sub _scan_scheme {
 	my ( $self, $scheme_id ) = @_;
-	( my $blast_file, undef ) = $self->run_blast(
-		{ locus => "SCHEME_$scheme_id", seq_ref => $self->{'sequence'}, qry_type => 'DNA', num_results => 50000, cache => 0 } );
+	my $set_id = $self->get_set_id;
+	( my $blast_file, undef ) = $self->{'datastore'}->run_blast(
+		{
+			locus       => "SCHEME_$scheme_id",
+			seq_ref     => $self->{'sequence'},
+			qry_type    => 'DNA',
+			num_results => 50000,
+			cache       => 0,
+			set_id      => $set_id
+		}
+	);
 	my $exact_matches = $self->parse_blast_exact( "SCHEME_$scheme_id", $blast_file );
 	unlink "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 	my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my ( %locus_assigned, %allele );
 	foreach my $match (@$exact_matches) {
+
 		foreach my $locus (@$scheme_loci) {
 			next if $locus_assigned{$locus};
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);

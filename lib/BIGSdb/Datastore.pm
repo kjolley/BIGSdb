@@ -28,6 +28,8 @@ use BIGSdb::ClientDB;
 use BIGSdb::Locus;
 use BIGSdb::Scheme;
 use BIGSdb::TableAttributes;
+use IO::Handle;
+use Bio::SeqIO;
 use Memoize;
 memoize('get_locus_info');
 
@@ -1457,6 +1459,288 @@ sub get_allele_attributes {
 		}
 	}
 	return $self->_format_list_values($values);
+}
+
+#Validate new allele submissions
+sub check_new_alleles_fasta {
+	my ( $self, $locus, $fasta_ref ) = @_;
+	my $locus_info = $self->get_locus_info($locus);
+	$logger->error("Locus $locus is not defined") if !$locus_info;
+	open( my $stringfh_in, "<:encoding(utf8)", $fasta_ref ) or die "Could not open string for reading: $!";
+	$stringfh_in->untaint;
+	my $seqin = Bio::SeqIO->new( -fh => $stringfh_in, -format => 'fasta' );
+	my (@err, @info);
+	
+	while ( my $seq_object = $seqin->next_seq ) {
+		my $seq_id   = $seq_object->id;
+		my $sequence = $seq_object->seq;
+		$sequence =~ s/[\-\.\s]//g;
+		if ( $locus_info->{'data_type'} eq 'DNA' ) {
+			my $diploid = ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? 1 : 0;
+			if ( !BIGSdb::Utils::is_valid_DNA( $sequence, { diploid => $diploid } ) ) {
+				push @err, "Sequence '$seq_id' is not a valid unambiguous DNA sequence." ;
+			}
+		} else {
+			if ( !BIGSdb::Utils::is_valid_peptide($sequence) ) {
+				push @err,"Sequence '$seq_id' is not a valid unambiguous peptide sequence." ;
+			}
+		}
+		my $seq_length = length $sequence;
+		my $units = $locus_info->{'data_type'} eq 'DNA' ? 'bp' : 'residues';
+		if ( !$locus_info->{'length_varies'} && $seq_length != $locus_info->{'length'} ) {
+			push @err,  "Sequence '$seq_id' has a length of $seq_length $units while this locus has a non-variable length of "
+				  . "$locus_info->{'length'} $units." ;
+		} elsif ( $locus_info->{'min_length'} && $seq_length < $locus_info->{'min_length'} ) {
+			push @err, "Sequence '$seq_id' has a length of $seq_length $units while this locus has a minimum length of "
+				  . "$locus_info->{'min_length'} $units." ;
+		} elsif ( $locus_info->{'max_length'} && $seq_length > $locus_info->{'max_length'} ) {
+			push @err, "Sequence '$seq_id' has a length of $seq_length $units while this locus has a maximum length of "
+				  . "$locus_info->{'max_length'} $units." ;
+		}
+		my $existing_allele = $self->run_query(
+			"SELECT allele_id FROM sequences WHERE (locus,UPPER(sequence))=(?,UPPER(?))",
+			[ $locus, $sequence ],
+			{ cache => 'check_new_alleles_fasta' }
+		);
+		if ($existing_allele) {
+			push @err,"Sequence '$seq_id' has already been defined as $locus-$existing_allele." ;
+		}
+		if ($locus_info->{'complete_cds'} && $locus_info->{'data_type'} eq 'DNA'){
+			 my $check =  BIGSdb::Utils::is_complete_cds(\$sequence);
+			 if (!$check->{'cds'}){
+				push @info, "Sequence '$seq_id' is $check->{'err'}";
+			 }
+		}
+		if (!$self->is_sequence_similar_to_others( $locus, \$sequence ) ){
+			push @info, "Sequence '$seq_id' is dissimilar to other $locus sequences.";
+		}
+	}
+	close $stringfh_in;
+	my $ret = {};
+	$ret->{'err'} = \@err if @err;
+	$ret->{'info'} = \@info if @info;
+	return $ret;
+}
+
+sub run_blast {
+	my ( $self, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+
+	#Options are locus, seq_ref, qry_type, num_results, alignment, cache, job
+	#if parameter cache=1, the previously generated FASTA database will be used.
+	#The calling function should clean up the temporary files.
+	my $locus_info = $self->get_locus_info( $options->{'locus'} );
+	my $already_generated = $options->{'job'} ? 1 : 0;
+	$options->{'job'} = BIGSdb::Utils::get_random() if !$options->{'job'};
+	my $temp_infile  = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'job'}.txt";
+	my $temp_outfile = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'job'}\_outfile.txt";
+	my $outfile_url  = "$options->{'job'}\_outfile.txt";
+
+	#create fasta index
+	my @runs;
+	if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_\d+/ && $options->{'locus'} !~ /GROUP_\d+/ ) {
+		if ( $options->{'locus'} =~ /^((?:(?!\.\.).)*)$/ ) {    #untaint - check for directory traversal
+			$options->{'locus'} = $1;
+		}
+		@runs = ( $options->{'locus'} );
+	} else {
+		@runs = qw (DNA peptide);
+	}
+	foreach my $run (@runs) {
+		( my $cleaned_run = $run ) =~ s/'/_prime_/g;
+		my $temp_fastafile;
+		if ( !$options->{'locus'} ) {                           # 'All loci'
+			if ( $run eq 'DNA' && defined $self->{'config'}->{'cache_days'} ) {
+				my $cache_age = $self->_get_cache_age;
+				if ( $cache_age > $self->{'config'}->{'cache_days'} ) {
+					$self->mark_cache_stale;
+				}
+			}
+
+			#Create file and BLAST db of all sequences in a cache directory so can be reused.
+			my $set_id = $options->{'set_id'} // 'all';
+			$set_id = 'all' if ( $self->{'system'}->{'sets'} // '' ) ne 'yes';
+			$temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$set_id/$cleaned_run\_fastafile.txt";
+			my $stale_flag_file = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$set_id/stale";
+			if ( -e $temp_fastafile && !-e $stale_flag_file ) {
+				$already_generated = 1;
+			} else {
+				my $new_path = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$set_id";
+				if ( -f $new_path ) {
+					$logger->error("Can't create directory $new_path for cache files - a filename exists with this name.");
+				} else {
+					eval { mkpath($new_path) };
+					$logger->error($@) if $@;
+					unlink $stale_flag_file if $run eq $runs[-1];    #only remove stale flag when creating last BLAST databases
+				}
+			}
+		} else {
+			$temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'job'}\_$cleaned_run\_fastafile.txt";
+		}
+		if ( !$already_generated ) {
+			my ( $qry, $sql );
+			if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_\d+/ && $options->{'locus'} !~ /GROUP_\d+/ ) {
+				$qry = "SELECT locus,allele_id,sequence from sequences WHERE locus=?";
+			} else {
+				my $set_id = $options->{'set_id'} // 'all';
+				if ( $options->{'locus'} =~ /SCHEME_(\d+)/ ) {
+					my $scheme_id = $1;
+					$qry = "SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT locus FROM scheme_members WHERE "
+					  . "scheme_id=$scheme_id) AND locus IN (SELECT id FROM loci WHERE data_type=?) AND allele_id != 'N'";
+				} elsif ( $options->{'locus'} =~ /GROUP_(\d+)/ ) {
+					my $group_id = $1;
+					my $group_schemes = $self->get_schemes_in_group( $group_id, { set_id => $set_id } );
+					local $" = ',';
+					$qry = "SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT locus FROM scheme_members WHERE "
+					  . "scheme_id IN (@$group_schemes)) AND locus IN (SELECT id FROM loci WHERE data_type=?) AND allele_id != 'N'";
+				} else {
+					$qry = "SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT id FROM loci WHERE data_type=?)";
+					if ($set_id) {
+						$qry .=
+						    " AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
+						  . "set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id)) AND allele_id != 'N'";
+					}
+				}
+			}
+			$sql = $self->{'db'}->prepare($qry);
+			eval { $sql->execute($run) };
+			$logger->error($@) if $@;
+			open( my $fasta_fh, '>', $temp_fastafile ) || $logger->error("Can't open $temp_fastafile for writing");
+			my $seqs_ref = $sql->fetchall_arrayref;
+			foreach (@$seqs_ref) {
+				my ( $returned_locus, $id, $seq ) = @$_;
+				next if !length $seq;
+				print $fasta_fh ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_\d+/ && $options->{'locus'} !~ /GROUP_\d+/ )
+				  ? ">$id\n$seq\n"
+				  : ">$returned_locus:$id\n$seq\n";
+			}
+			close $fasta_fh;
+			if ( !-z $temp_fastafile ) {
+				my $dbtype;
+				if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_\d+/ && $options->{'locus'} !~ /GROUP_\d+/ ) {
+					$dbtype = $locus_info->{'data_type'} eq 'DNA' ? 'nucl' : 'prot';
+				} else {
+					$dbtype = $run eq 'DNA' ? 'nucl' : 'prot';
+				}
+				system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
+					( -in => $temp_fastafile, -logfile => '/dev/null', -dbtype => $dbtype ) );
+			}
+		}
+		if ( !-z $temp_fastafile ) {
+
+			#create query fasta file
+			open( my $infile_fh, '>', $temp_infile ) || $logger->error("Can't open $temp_infile for writing");
+			print $infile_fh ">Query\n";
+			print $infile_fh "${$options->{'seq_ref'}}\n";
+			close $infile_fh;
+			my $program;
+			if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_\d+/ && $options->{'locus'} !~ /GROUP_\d+/ ) {
+				if ( $options->{'qry_type'} eq 'DNA' ) {
+					$program = $locus_info->{'data_type'} eq 'DNA' ? 'blastn' : 'blastx';
+				} else {
+					$program = $locus_info->{'data_type'} eq 'DNA' ? 'tblastn' : 'blastp';
+				}
+			} else {
+				if ( $run eq 'DNA' ) {
+					$program = $options->{'qry_type'} eq 'DNA' ? 'blastn' : 'tblastn';
+				} else {
+					$program = $options->{'qry_type'} eq 'DNA' ? 'blastx' : 'blastp';
+				}
+			}
+			my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
+			my $filter = $program eq 'blastn' ? 'dust' : 'seg';
+			my $word_size = $program eq 'blastn' ? ( $options->{'word_size'} // 15 ) : 3;
+			my $format = $options->{'alignment'} ? 0 : 6;
+			$options->{'num_results'} //= 1000000;    #effectively return all results
+			my %params = (
+				-num_threads => $blast_threads,
+				-word_size   => $word_size,
+				-db          => $temp_fastafile,
+				-query       => $temp_infile,
+				-out         => $temp_outfile,
+				-outfmt      => $format,
+				-$filter     => 'no'
+			);
+			if ( $options->{'alignment'} ) {
+				$params{'-num_alignments'} = $options->{'num_results'};
+			} else {
+				$params{'-max_target_seqs'} = $options->{'num_results'};
+			}
+			$params{'-comp_based_stats'} = 0 if $program ne 'blastn';   #Will not return some matches with low-complexity regions otherwise.
+			system( "$self->{'config'}->{'blast+_path'}/$program", %params );
+			if ( $run eq 'DNA' ) {
+				rename( $temp_outfile, "$temp_outfile\.1" );
+			}
+		}
+	}
+	if ( !$options->{'locus'} || $options->{'locus'} =~ /SCHEME_\d+/ || $options->{'locus'} =~ /GROUP_\d+/ ) {
+		my $outfile1 = "$temp_outfile\.1";
+		BIGSdb::Utils::append( $outfile1, $temp_outfile ) if -e $outfile1;
+		unlink $outfile1 if -e $outfile1;
+	}
+
+	#delete all working files
+	if ( !$options->{'cache'} ) {
+		unlink $temp_infile;
+		my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/$options->{'job'}*");
+		foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/ && !/outfile.txt/ }
+	}
+	return ( $outfile_url, $options->{'job'} );
+}
+
+sub mark_cache_stale {
+
+	#Mark all cache subdirectories as stale (each locus set will use a different directory)
+	my ($self) = @_;
+	my $dir = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}";
+	if ( -d $dir ) {
+		foreach my $subdir ( glob "$dir/*" ) {
+			next if !-d $subdir;    #skip if not a dirctory
+			if ( $subdir =~ /\/(all|\d+)$/ ) {
+				$subdir = $1;
+				my $stale_flag_file = "$dir/$subdir/stale";
+				open( my $fh, '>', $stale_flag_file ) || $logger->error("Can't mark BLAST db stale.");
+				close $fh;
+			}
+		}
+	}
+	return;
+}
+
+sub _get_cache_age {
+	my ($self) = @_;
+	my $set_id = $self->get_set_id // 'all';
+	$set_id = 'all' if ( $self->{'system'}->{'sets'} // '' ) ne 'yes';
+	my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$set_id/DNA_fastafile.txt";
+	return 0 if !-e $temp_fastafile;
+	return -M $temp_fastafile;
+}
+
+sub is_sequence_similar_to_others {
+
+	#returns true if sequence is at least 70% identical over an alignment length of 90% or more.
+	my ( $self, $locus, $seq_ref ) = @_;
+	my $locus_info = $self->get_locus_info($locus);
+	my ( $blast_file, undef ) =
+	  $self->run_blast( { locus => $locus, seq_ref => $seq_ref, qry_type => $locus_info->{'data_type'}, num_results => 1 } );
+	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
+	my $length    = length $$seq_ref;
+	open( my $blast_fh, '<', $full_path ) || ( $logger->error("Can't open BLAST output file $full_path. $!"), return 0 );
+	my ( $identity, $alignment );
+
+	while ( my $line = <$blast_fh> ) {
+		next if !$line || $line =~ /^#/;
+		my @record = split /\s+/, $line;
+		$identity  = $record[2];
+		$alignment = $record[3];
+		last;
+	}
+	close $blast_fh;
+	unlink $full_path;
+	if ( defined $identity && $identity >= 70 && $alignment >= 0.9 * $length ) {
+		return 1;
+	}
+	return;
 }
 ##############REFERENCES###############################################################
 sub get_citation_hash {

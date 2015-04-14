@@ -954,8 +954,7 @@ sub _check_data_allele_designations {
 	my @data            = @{ $arg_ref->{'data'} };
 	my %file_header_pos = %{ $arg_ref->{'file_header_pos'} };
 	if ( $field eq 'allele_id' ) {
-		if ( defined $file_header_pos{'locus'} )
-		{
+		if ( defined $file_header_pos{'locus'} ) {
 			my $format = $self->{'datastore'}->run_query(
 				"SELECT allele_id_format,allele_id_regex FROM loci WHERE id=?",
 				$data[ $file_header_pos{'locus'} ],
@@ -1126,7 +1125,7 @@ sub _check_data_sequences {
 					$buffer .= "Sequence already exists in the database ($locus: $exists).<br />";
 				}
 			}
-			if ( $q->param('complete_CDS') ) {
+			if ( $q->param('complete_CDS') ) {    #TODO Use BIGSdb::Utils::is_complete_cds
 				my $first_codon = substr( ${ $arg_ref->{'value'} }, 0, 3 );
 				${ $arg_ref->{'continue'} } = 0 if none { $first_codon eq $_ } qw (ATG GTG TTG);
 				my $end_codon = substr( ${ $arg_ref->{'value'} }, -3 );
@@ -1162,7 +1161,7 @@ sub _check_data_sequences {
 			} elsif ( ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' )
 				&& $self->{'datastore'}->sequences_exist($locus)
 				&& !$q->param('ignore_similarity')
-				&& !$self->sequence_similar_to_others( $locus, $arg_ref->{'value'} ) )
+				&& !$self->{'datastore'}->is_sequence_similar_to_others( $locus, $arg_ref->{'value'} ) )
 			{
 				$buffer .=
 				    "Sequence is too dissimilar to existing alleles (less than 70% identical or an alignment of "
@@ -1457,7 +1456,7 @@ sub _upload_data {
 						  . "(E'$cleaned_locus',E'$allele_id','$_','today',$curator)";
 					}
 				}
-				$self->mark_cache_stale;
+				$self->{'datastore'}->mark_cache_stale;
 			}
 			local $" = ';';
 			eval { $self->{'db'}->do("@inserts"); };

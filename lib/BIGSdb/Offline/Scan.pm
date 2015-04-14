@@ -925,7 +925,7 @@ sub _get_designation_tooltip {
 	return " <a class=\"$class\" title=\"$buffer\">$text</a>";
 }
 
-sub is_complete_gene {
+sub is_complete_gene {    #TODO Use BIGSdb::Utils::is_complete_cds
 	my ( $self, $seq, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $status;

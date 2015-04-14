@@ -22,8 +22,6 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::TreeViewPage);
 use Error qw(:try);
-use IO::Handle;
-use Bio::SeqIO;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Page 'SEQ_METHODS';
@@ -112,8 +110,17 @@ sub _submit_alleles {
 	if ( $q->param('submit') ) {
 		my $ret = $self->_check_new_alleles;
 		if ( $ret->{'err'} ) {
-			say qq(<div class="box" id="statusbad"><p>$ret->{'err'}</p></div>);
-		} else {
+			my @err = @{ $ret->{'err'} };
+			local $" = "<br />";
+			my $plural = @err == 1 ? '' : 's';
+			say qq(<div class="box" id="statusbad"><h2>Error$plural:</h2><p>@err</p></div>);
+		}
+		if ( $ret->{'info'} ) {
+			my @info = @{ $ret->{'info'} };
+			local $" = "<br />";
+			my $plural = @info == 1 ? '' : 's';
+			say qq(<div class="box" id="statuswarn"><h2>Warning$plural:</h2><p>@info</p><p>Warnings do not prevent submission )
+			  . qq(but may result in the submission being rejected depending on curation criteria.</p></div>);
 		}
 	}
 	say qq(<div class="box" id="queryform"><div class="scrollable">);
@@ -202,36 +209,7 @@ sub _check_new_alleles {
 	if ( $q->param('fasta') ) {
 		my $fasta_string = $q->param('fasta');
 		$fasta_string = ">seq\n$fasta_string" if $fasta_string !~ /^\s*>/;
-		open( my $stringfh_in, "<:encoding(utf8)", \$fasta_string ) or die "Could not open string for reading: $!";
-		$stringfh_in->untaint;
-		my $seqin = Bio::SeqIO->new( -fh => $stringfh_in, -format => 'fasta' );
-		while ( my $sequence = $seqin->next_seq ) {
-			my $seq_id   = $sequence->id;
-			my $sequence = $sequence->seq;
-			$sequence =~ s/[\-\.\s]//g;
-			if ( $locus_info->{'data_type'} eq 'DNA' ) {
-				my $diploid = ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? 1 : 0;
-				if ( !BIGSdb::Utils::is_valid_DNA( $sequence, { diploid => $diploid } ) ) {
-					return { err => "Sequence '$seq_id' is not a valid unambiguous DNA sequence." };
-				}
-			} else {
-				if ( !BIGSdb::Utils::is_valid_peptide($sequence) ) {
-					return { err => "Sequence '$seq_id' is not a valid unambiguous peptide sequence." };
-				}
-			}
-			my $seq_length = length $sequence;
-			my $units = $locus_info->{'data_type'} eq 'DNA' ? 'bp' : 'residues';
-			if ( !$locus_info->{'length_varies'} && $seq_length != $locus_info->{'length'} ) {
-				return { err => "Sequence '$seq_id' has a length of $seq_length $units while this locus has a non-variable length of "
-					  . "$locus_info->{'length'} $units." };
-			} elsif ( $locus_info->{'min_length'} && $seq_length < $locus_info->{'min_length'} ) {
-				return { err => "Sequence '$seq_id' has a length of $seq_length $units while this locus has a minimum length of "
-					  . "$locus_info->{'min_length'} $units." };
-			} elsif ( $locus_info->{'max_length'} && $seq_length > $locus_info->{'max_length'} ) {
-				return { err => "Sequence '$seq_id' has a length of $seq_length $units while this locus has a maximum length of "
-					  . "$locus_info->{'max_length'} $units." };
-			}
-		}
+		return $self->{'datastore'}->check_new_alleles_fasta( $locus, \$fasta_string );
 	}
 	return;
 }

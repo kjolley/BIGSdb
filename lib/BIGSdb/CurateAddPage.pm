@@ -20,7 +20,7 @@ package BIGSdb::CurateAddPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::CuratePage BIGSdb::BlastPage);
+use parent qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(any none uniq);
@@ -221,7 +221,7 @@ sub _insert {
 					$self->create_scheme_view( $newdata->{'scheme_id'} );
 				}
 			} elsif ( $table eq 'sequences' ) {
-				$self->mark_cache_stale;
+				$self->{'datastore'}->mark_cache_stale;
 			}
 		};
 		return if !$continue;
@@ -369,7 +369,7 @@ sub _check_sequences {
 		&& $locus_info->{'data_type'} eq 'DNA'
 		&& !$q->param('ignore_similarity')
 		&& $self->{'datastore'}->sequences_exist( $newdata->{'locus'} )
-		&& !$self->sequence_similar_to_others( $newdata->{'locus'}, \( $newdata->{'sequence'} ) ) )
+		&& !$self->{'datastore'}->is_sequence_similar_to_others( $newdata->{'locus'}, \( $newdata->{'sequence'} ) ) )
 	{
 		push @$problems,
 		    "Sequence is too dissimilar to existing alleles (less than 70% identical or an alignment of less "
@@ -708,33 +708,6 @@ sub id_exists {
 	my ( $self, $id ) = @_;
 	my $num = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)", $id );
 	return $num;
-}
-
-sub sequence_similar_to_others {
-
-	#returns true if sequence is at least 70% identical over an alignment length of 90% or more.
-	my ( $self, $locus, $seq_ref ) = @_;
-	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	my ( $blast_file, undef ) =
-	  $self->run_blast( { locus => $locus, seq_ref => $seq_ref, qry_type => $locus_info->{'data_type'}, num_results => 1 } );
-	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
-	my $length    = length $$seq_ref;
-	open( my $blast_fh, '<', $full_path ) || ( $logger->error("Can't open BLAST output file $full_path. $!"), return 0 );
-	my ( $identity, $alignment );
-
-	while ( my $line = <$blast_fh> ) {
-		next if !$line || $line =~ /^#/;
-		my @record = split /\s+/, $line;
-		$identity  = $record[2];
-		$alignment = $record[3];
-		last;
-	}
-	close $blast_fh;
-	unlink $full_path;
-	if ( defined $identity && $identity >= 70 && $alignment >= 0.9 * $length ) {
-		return 1;
-	}
-	return;
 }
 
 sub _print_copy_locus_record_form {

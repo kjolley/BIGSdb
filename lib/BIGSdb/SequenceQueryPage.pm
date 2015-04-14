@@ -20,7 +20,7 @@ package BIGSdb::SequenceQueryPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::BlastPage);
+use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any none);
 use BIGSdb::BIGSException;
@@ -276,9 +276,10 @@ sub _run_query {
 			$seq = uc($seq);
 		}
 		my $qry_type = BIGSdb::Utils::sequence_type($seq);
+		my $set_id = $self->get_set_id;
 		( my $blast_file, $job ) =
-		  $self->run_blast(
-			{ locus => $locus, seq_ref => \$seq, qry_type => $qry_type, cache => 1, job => $job, word_size => $word_size } );
+		  $self->{'datastore'}->run_blast(
+			{ locus => $locus, seq_ref => \$seq, qry_type => $qry_type, cache => 1, job => $job, word_size => $word_size,set_id => $set_id } );
 		my $exact_matches;
 		if ( ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ) {
 			$exact_matches = $self->parse_blast_diploid_exact( \$seq, $locus, $blast_file );
@@ -596,8 +597,9 @@ sub _output_batch_query_exact {
 
 sub _output_single_query_nonexact_mismatched {
 	my ( $self, $data ) = @_;
-	my ( $blast_file, undef ) = $self->run_blast(
-		{ locus => $data->{'locus'}, seq_ref => $data->{'seq_ref'}, qry_type => $data->{'qry_type'}, num_results => 5, alignment => 1 } );
+	my $set_id = $self->get_set_id;
+	my ( $blast_file, undef ) = $self->{'datastore'}->run_blast(
+		{ locus => $data->{'locus'}, seq_ref => $data->{'seq_ref'}, qry_type => $data->{'qry_type'}, num_results => 5, alignment => 1,set_id => $set_id } );
 	say "<div class=\"box\" id=\"resultsheader\">";
 	if ( -e "$self->{'config'}->{'secure_tmp_dir'}/$blast_file" ) {
 		say "<p>Your query is a $data->{'qry_type'} sequence whereas this locus is defined with $data->{'locus_info'}->{'data_type'} "
@@ -747,7 +749,8 @@ sub _output_single_query_nonexact {
 			foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/ }
 		}
 	} else {
-		my ( $blast_file, undef ) = $self->run_blast(
+		my $set_id = $self->get_set_id;
+		my ( $blast_file, undef ) = $self->{'datastore'}->run_blast(
 			{
 				locus       => $locus,
 				seq_ref     => $seq_ref,
@@ -755,7 +758,8 @@ sub _output_single_query_nonexact {
 				num_results => 5,
 				alignment   => 1,
 				cache       => 1,
-				job         => $data->{'job'}
+				job         => $data->{'job'},
+				set_id => $set_id
 			}
 		);
 		if ( -e "$self->{'config'}->{'secure_tmp_dir'}/$blast_file" ) {
