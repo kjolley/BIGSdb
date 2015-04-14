@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -104,7 +104,7 @@ sub print_content {
 					}
 					$td = $returned_td || ( $td == 1 ? 2 : 1 );
 				}
-				catch BIGSdb::DataException with {                      #Do nothing
+				catch BIGSdb::DataException with {    #Do nothing
 				};
 			}
 		}
@@ -201,8 +201,7 @@ sub _print_users {
 sub _print_user_group_members {
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'user_group_members', $td,
-		{ requires => 'user_groups', comments => 'Add users to groups for setting access permissions.', set_string => $set_string } )
-	  ;
+		{ requires => 'user_groups', comments => 'Add users to groups for setting access permissions.', set_string => $set_string } );
 }
 
 sub _print_curator_permissions {
@@ -415,7 +414,8 @@ sub _print_sequences {
 HTML
 	my $locus_curator = $self->is_admin ? undef : $self->get_curator_id;
 	my $set_id = $self->get_set_id;
-	my ( $loci, undef ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, locus_curator => $locus_curator } );
+	my ( $loci, undef ) =
+	  $self->{'datastore'}->get_locus_list( { set_id => $set_id, locus_curator => $locus_curator, no_list_by_common_name => 1 } );
 	return ( '', $td ) if !@$loci;
 	$td = $td == 1 ? 2 : 1;
 	if ( scalar @$loci < 15 ) {
