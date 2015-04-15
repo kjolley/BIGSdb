@@ -276,10 +276,18 @@ sub _run_query {
 			$seq = uc($seq);
 		}
 		my $qry_type = BIGSdb::Utils::sequence_type($seq);
-		my $set_id = $self->get_set_id;
-		( my $blast_file, $job ) =
-		  $self->{'datastore'}->run_blast(
-			{ locus => $locus, seq_ref => \$seq, qry_type => $qry_type, cache => 1, job => $job, word_size => $word_size,set_id => $set_id } );
+		my $set_id   = $self->get_set_id;
+		( my $blast_file, $job ) = $self->{'datastore'}->run_blast(
+			{
+				locus     => $locus,
+				seq_ref   => \$seq,
+				qry_type  => $qry_type,
+				cache     => 1,
+				job       => $job,
+				word_size => $word_size,
+				set_id    => $set_id
+			}
+		);
 		my $exact_matches;
 		if ( ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ) {
 			$exact_matches = $self->parse_blast_diploid_exact( \$seq, $locus, $blast_file );
@@ -599,7 +607,15 @@ sub _output_single_query_nonexact_mismatched {
 	my ( $self, $data ) = @_;
 	my $set_id = $self->get_set_id;
 	my ( $blast_file, undef ) = $self->{'datastore'}->run_blast(
-		{ locus => $data->{'locus'}, seq_ref => $data->{'seq_ref'}, qry_type => $data->{'qry_type'}, num_results => 5, alignment => 1,set_id => $set_id } );
+		{
+			locus       => $data->{'locus'},
+			seq_ref     => $data->{'seq_ref'},
+			qry_type    => $data->{'qry_type'},
+			num_results => 5,
+			alignment   => 1,
+			set_id      => $set_id
+		}
+	);
 	say "<div class=\"box\" id=\"resultsheader\">";
 	if ( -e "$self->{'config'}->{'secure_tmp_dir'}/$blast_file" ) {
 		say "<p>Your query is a $data->{'qry_type'} sequence whereas this locus is defined with $data->{'locus_info'}->{'data_type'} "
@@ -759,7 +775,7 @@ sub _output_single_query_nonexact {
 				alignment   => 1,
 				cache       => 1,
 				job         => $data->{'job'},
-				set_id => $set_id
+				set_id      => $set_id
 			}
 		);
 		if ( -e "$self->{'config'}->{'secure_tmp_dir'}/$blast_file" ) {

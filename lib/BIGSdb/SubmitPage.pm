@@ -81,6 +81,7 @@ sub print_content {
 	}
 	if ( $q->param('alleles') ) {
 		if ( $q->param('submit') ) {
+			$self->_update_allele_prefs;
 		}
 		$self->_submit_alleles;
 		return;
@@ -150,7 +151,7 @@ sub _submit_alleles {
 		my $scheme_loci = @selected_schemes ? $self->_get_scheme_loci( \@selected_schemes ) : undef;
 		( $loci, $labels ) = $self->{'datastore'}->get_locus_list( { only_include => $scheme_loci, set_id => $set_id } );
 	} else {
-		( $loci, $labels ) = $self->{'datastore'}->get_locus_list({ set_id => $set_id});
+		( $loci, $labels ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
 	}
 	say qq(<fieldset style="float:left"><legend>Select locus</legend>);
 	say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $loci, -labels => $labels, -size => 9, -required => 'required' );
@@ -163,22 +164,41 @@ sub _submit_alleles {
 		-id       => 'technology',
 		-values   => [ '', SEQ_METHODS ],
 		-labels   => $att_labels,
-		-required => 'required'
+		-required => 'required',
+		-default  => $self->{'prefs'}->{'submit_allele_technology'}
 	);
 	say qq(<li><label for="read_length" id="read_length_label" class="parameter">read length:</label>);
-	say $q->popup_menu( -name => 'read_length', -id => 'read_length', -values => [ '', READ_LENGTH ], -labels => $att_labels );
+	say $q->popup_menu(
+		-name    => 'read_length',
+		-id      => 'read_length',
+		-values  => [ '', READ_LENGTH ],
+		-labels  => $att_labels,
+		-default => $self->{'prefs'}->{'submit_allele_read_length'}
+	);
 	say qq(</li><li><label for="coverage" id="coverage_label" class="parameter">coverage:</label>);
-	say $q->popup_menu( -name => 'coverage', -id => 'coverage', -values => [ '', COVERAGE ], -labels => $att_labels );
+	say $q->popup_menu(
+		-name    => 'coverage',
+		-id      => 'coverage',
+		-values  => [ '', COVERAGE ],
+		-labels  => $att_labels,
+		-default => $self->{'prefs'}->{'submit_allele_coverage'}
+	);
 	say qq(</li><li><label for="assembly" class="parameter">assembly:!</label>);
 	say $q->popup_menu(
 		-name     => 'assembly',
 		-id       => 'assembly',
 		-values   => [ '', ASSEMBLY ],
 		-labels   => $att_labels,
-		-required => 'required'
+		-required => 'required',
+		-default  => $self->{'prefs'}->{'submit_allele_assembly'}
 	);
 	say qq(</li><li><label for="software" class="parameter">assembly software:!</label>);
-	say $q->textfield( -name => 'software', -id => 'software', -required => 'required' );
+	say $q->textfield(
+		-name     => 'software',
+		-id       => 'software',
+		-required => 'required',
+		-default  => $self->{'prefs'}->{'submit_allele_software'}
+	);
 	say qq(</li><li><label for="comments" class="parameter">comments/notes:</label>);
 	say $q->textarea( -name => 'comments', -id => 'comments' );
 	say qq(</li></ul>);
@@ -214,6 +234,20 @@ sub _check_new_alleles {
 	return;
 }
 
+sub _update_allele_prefs {
+	my ($self) = @_;
+	my $guid = $self->get_guid;
+	return if !$guid;
+	my $q = $self->{'cgi'};
+	foreach my $param (qw(technology read_length coverage assembly software)) {
+		my $field = "submit_allele_$param";
+		my $value = $q->param($param);
+		next if !$value;
+		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, $field, $value );
+	}
+	return;
+}
+
 sub _get_scheme_loci {
 	my ( $self, $scheme_ids ) = @_;
 	my @loci;
@@ -230,6 +264,12 @@ sub _get_scheme_loci {
 		}
 	}
 	return \@loci;
+}
+
+sub set_pref_requirements {
+	my ($self) = @_;
+	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
+	return;
 }
 
 sub get_title {

@@ -105,16 +105,10 @@ sub get_javascript {
 
 sub get_guid {
 
-	#If this is a non-public database, use a combination of database and user names as the
+	#If the user is logged in, use a combination of database and user names as the
 	#GUID for preference storage, otherwise use a random GUID which is stored as a browser cookie.
 	my ($self) = @_;
-	if ( $self->{'system'}->{'read_access'} ne 'public' ) {
-		if ( !defined $self->{'username'} ) {
-
-			#This can happen if a not logged in user tries to access a plugin.
-			$logger->debug("No logged in user; Database $self->{'system'}->{'db'}");
-			$self->{'username'} = '';
-		}
+	if ( defined $self->{'username'} ) {
 		return "$self->{'system'}->{'db'}\|$self->{'username'}";
 	} elsif ( $self->{'cgi'}->cookie( -name => 'guid' ) ) {
 		return $self->{'cgi'}->cookie( -name => 'guid' );
@@ -1785,7 +1779,13 @@ sub initiate_prefs {
 			$self->{'prefs'}->{'pagebar'}     = $general_prefs->{'pagebar'}     || 'top and bottom';
 			$self->{'prefs'}->{'alignwidth'}  = $general_prefs->{'alignwidth'}  || 100;
 			$self->{'prefs'}->{'flanking'}    = $general_prefs->{'flanking'}    || 100;
-			$self->{'prefs'}->{'set_id'}      = $general_prefs->{'set_id'};
+			foreach (
+				qw(set_id submit_allele_technology submit_allele_read_length
+				submit_allele_coverage submit_allele_assembly submit_allele_software)
+			  )
+			{
+				$self->{'prefs'}->{$_} = $general_prefs->{$_};
+			}
 
 			#default off
 			foreach (qw (hyperlink_loci )) {
