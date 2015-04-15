@@ -300,7 +300,7 @@ sub run_job {
 						if ( defined $metaset ) {
 							$value = $self->{'datastore'}->get_metadata_value( $id, $metaset, $metafield );
 						} else {
-							$value = $isolate_data->{$field} // '';
+							$value = $isolate_data->{lc($field)} // '';
 						}
 						$value =~ tr/ /_/;
 						push @include_values, $value;
