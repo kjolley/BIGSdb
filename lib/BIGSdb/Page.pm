@@ -276,6 +276,7 @@ sub print_page_content {
 			if ( $self->{'CryptoJS.MD5'} ) {
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/md5.js" } );
 			}
+
 			push @javascript, { 'language' => 'Javascript', 'code' => $page_js } if $page_js;
 		}
 
@@ -305,12 +306,15 @@ sub print_page_content {
 		}
 		my $tooltip_display = $self->{'prefs'}->{'tooltips'} ? 'inline' : 'none';
 		my $stylesheets     = $self->get_stylesheets;
+		my @styles;
+		foreach my $stylesheet (@$stylesheets){
+			push @styles, { -src  => $stylesheet, -media => 'Screen' } ; 
+		}
 		my @args            = (
 			-title => $title,
 			-meta  => {%meta_content},
 			-style => [
-				{ -src  => $stylesheets->[0], -media => 'Screen' },
-				{ -src  => $stylesheets->[1], -media => 'Screen' },
+				@styles,
 				{ -code => ".tooltip{display:$tooltip_display}" }
 			],
 			-script   => \@javascript,
@@ -1704,15 +1708,18 @@ sub can_modify_table {
 }
 
 sub print_warning_sign {
-	my ($self) = @_;
+	my ($self, $options) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $image = "$ENV{'DOCUMENT_ROOT'}$self->{'system'}->{'webroot'}/images/warning_sign.gif";
-	if ( -e $image ) {
-		say qq(<div style="text-align:center"><img src="$self->{'system'}->{'webroot'}/images/warning_sign.gif" alt="Warning!" /></div>);
-	} else {
+	my $image_src = "$self->{'system'}->{'webroot'}/images/warning_sign.gif";
+	if ( !-e $image ) {
 		$image = "$ENV{'DOCUMENT_ROOT'}/images/warning_sign.gif";
-		if ( -e $image ) {
-			say qq(<div style="text-align:center"><img src="/images/warning_sign.gif" alt="Warning!" /></div>);
-		}
+		$image_src = "/images/warning_sign.gif";		
+	}
+	if (-e $image){
+		say qq(<div style="text-align:center">) if !$options->{'no_div'};
+		say qq(<img src="$image_src" alt="Warning!" />);
+		say qq(</div>) if !$options->{'no_div'};
 	}
 	return;
 }

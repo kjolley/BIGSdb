@@ -1465,7 +1465,10 @@ sub get_allele_attributes {
 sub check_new_alleles_fasta {
 	my ( $self, $locus, $fasta_ref ) = @_;
 	my $locus_info = $self->get_locus_info($locus);
-	$logger->error("Locus $locus is not defined") if !$locus_info;
+	if ( !$locus_info ) {
+		$logger->error("Locus $locus is not defined");
+		return;
+	}
 	open( my $stringfh_in, "<:encoding(utf8)", $fasta_ref ) or die "Could not open string for reading: $!";
 	$stringfh_in->untaint;
 	my $seqin = Bio::SeqIO->new( -fh => $stringfh_in, -format => 'fasta' );
