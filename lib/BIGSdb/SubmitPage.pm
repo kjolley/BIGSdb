@@ -24,6 +24,7 @@ use parent qw(BIGSdb::TreeViewPage);
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
+use BIGSdb::Utils;
 use BIGSdb::Page 'SEQ_METHODS';
 use constant COVERAGE    => qw(<20x 20-49x 50-99x +100x);
 use constant READ_LENGTH => qw(<100 100-199 200-299 300-499 +500);
@@ -115,13 +116,16 @@ sub _submit_alleles {
 			local $" = "<br />";
 			my $plural = @err == 1 ? '' : 's';
 			say qq(<div class="box" id="statusbad"><h2>Error$plural:</h2><p>@err</p></div>);
-		}
-		if ( $ret->{'info'} ) {
-			my @info = @{ $ret->{'info'} };
-			local $" = "<br />";
-			my $plural = @info == 1 ? '' : 's';
-			say qq(<div class="box" id="statuswarn"><h2>Warning$plural:</h2><p>@info</p><p>Warnings do not prevent submission )
-			  . qq(but may result in the submission being rejected depending on curation criteria.</p></div>);
+		} else {
+			if ( $ret->{'info'} ) {
+				my @info = @{ $ret->{'info'} };
+				local $" = "<br />";
+				my $plural = @info == 1 ? '' : 's';
+				say qq(<div class="box" id="statuswarn"><h2>Warning$plural:</h2><p>@info</p><p>Warnings do not prevent submission )
+				  . qq(but may result in the submission being rejected depending on curation criteria.</p></div>);
+			}
+			$self->_presubmit_alleles( $ret->{'seqs'} );
+			return;
 		}
 	}
 	say qq(<div class="box" id="queryform"><div class="scrollable">);
@@ -231,6 +235,36 @@ sub _check_new_alleles {
 		$fasta_string = ">seq\n$fasta_string" if $fasta_string !~ /^\s*>/;
 		return $self->{'datastore'}->check_new_alleles_fasta( $locus, \$fasta_string );
 	}
+	return;
+}
+
+sub _presubmit_alleles {
+	my ( $self, $seqs ) = @_;
+	return if ref $seqs ne 'ARRAY' || !@$seqs;
+	my $q          = $self->{'cgi'};
+	my $locus      = $q->param('locus');
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	say qq(<div class="box" id="resultstable"><div class="scrollable">);
+	my $plural = @$seqs == 1 ? '' : 's';
+	say qq(<p>You have uploaded the following $locus sequence$plural:</p>);
+	say qq(<table class="resultstable">);
+	my $cds = $locus_info->{'data_type'} eq 'DNA' && $locus_info->{'complete_cds'} ? '<th>Complete CDS</th>' : '';
+	say qq(<tr><th>Identifier</th><th>Length</th><th>Sequence</th>$cds</tr>);
+	my $td = 1;
+
+	foreach my $seq (@$seqs) {
+		my $id       = $seq->id;
+		my $length   = length $seq->seq;
+		my $sequence = BIGSdb::Utils::truncate_seq( \$seq->seq, 40 );
+		$cds = '';
+		if ( $locus_info->{'data_type'} eq 'DNA' && $locus_info->{'complete_cds'} ) {
+			$cds = BIGSdb::Utils::is_complete_cds( \$seq->seq )->{'cds'} ? '<td>yes</td>' : '<td>no</td>';
+		}
+		say qq(<tr class="td$td"><td>$id</td><td>$length</td><td class="seq">$sequence</td>$cds</tr>);
+		$td = $td == 1 ? 2 : 1;
+	}
+	say qq(</table>);
+	say qq(</div></div>);
 	return;
 }
 

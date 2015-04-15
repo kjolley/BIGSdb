@@ -1469,33 +1469,33 @@ sub check_new_alleles_fasta {
 	open( my $stringfh_in, "<:encoding(utf8)", $fasta_ref ) or die "Could not open string for reading: $!";
 	$stringfh_in->untaint;
 	my $seqin = Bio::SeqIO->new( -fh => $stringfh_in, -format => 'fasta' );
-	my (@err, @info);
-	
+	my ( @err, @info, @seqs );
 	while ( my $seq_object = $seqin->next_seq ) {
+		push @seqs, $seq_object;
 		my $seq_id   = $seq_object->id;
 		my $sequence = $seq_object->seq;
 		$sequence =~ s/[\-\.\s]//g;
 		if ( $locus_info->{'data_type'} eq 'DNA' ) {
 			my $diploid = ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? 1 : 0;
 			if ( !BIGSdb::Utils::is_valid_DNA( $sequence, { diploid => $diploid } ) ) {
-				push @err, "Sequence '$seq_id' is not a valid unambiguous DNA sequence." ;
+				push @err, "Sequence '$seq_id' is not a valid unambiguous DNA sequence.";
 			}
 		} else {
 			if ( !BIGSdb::Utils::is_valid_peptide($sequence) ) {
-				push @err,"Sequence '$seq_id' is not a valid unambiguous peptide sequence." ;
+				push @err, "Sequence '$seq_id' is not a valid unambiguous peptide sequence.";
 			}
 		}
 		my $seq_length = length $sequence;
 		my $units = $locus_info->{'data_type'} eq 'DNA' ? 'bp' : 'residues';
 		if ( !$locus_info->{'length_varies'} && $seq_length != $locus_info->{'length'} ) {
-			push @err,  "Sequence '$seq_id' has a length of $seq_length $units while this locus has a non-variable length of "
-				  . "$locus_info->{'length'} $units." ;
+			push @err, "Sequence '$seq_id' has a length of $seq_length $units while this locus has a non-variable length of "
+			  . "$locus_info->{'length'} $units.";
 		} elsif ( $locus_info->{'min_length'} && $seq_length < $locus_info->{'min_length'} ) {
 			push @err, "Sequence '$seq_id' has a length of $seq_length $units while this locus has a minimum length of "
-				  . "$locus_info->{'min_length'} $units." ;
+			  . "$locus_info->{'min_length'} $units.";
 		} elsif ( $locus_info->{'max_length'} && $seq_length > $locus_info->{'max_length'} ) {
 			push @err, "Sequence '$seq_id' has a length of $seq_length $units while this locus has a maximum length of "
-				  . "$locus_info->{'max_length'} $units." ;
+			  . "$locus_info->{'max_length'} $units.";
 		}
 		my $existing_allele = $self->run_query(
 			"SELECT allele_id FROM sequences WHERE (locus,UPPER(sequence))=(?,UPPER(?))",
@@ -1503,22 +1503,23 @@ sub check_new_alleles_fasta {
 			{ cache => 'check_new_alleles_fasta' }
 		);
 		if ($existing_allele) {
-			push @err,"Sequence '$seq_id' has already been defined as $locus-$existing_allele." ;
+			push @err, "Sequence '$seq_id' has already been defined as $locus-$existing_allele.";
 		}
-		if ($locus_info->{'complete_cds'} && $locus_info->{'data_type'} eq 'DNA'){
-			 my $check =  BIGSdb::Utils::is_complete_cds(\$sequence);
-			 if (!$check->{'cds'}){
+		if ( $locus_info->{'complete_cds'} && $locus_info->{'data_type'} eq 'DNA' ) {
+			my $check = BIGSdb::Utils::is_complete_cds( \$sequence );
+			if ( !$check->{'cds'} ) {
 				push @info, "Sequence '$seq_id' is $check->{'err'}";
-			 }
+			}
 		}
-		if (!$self->is_sequence_similar_to_others( $locus, \$sequence ) ){
+		if ( !$self->is_sequence_similar_to_others( $locus, \$sequence ) ) {
 			push @info, "Sequence '$seq_id' is dissimilar to other $locus sequences.";
 		}
 	}
 	close $stringfh_in;
 	my $ret = {};
-	$ret->{'err'} = \@err if @err;
+	$ret->{'err'}  = \@err  if @err;
 	$ret->{'info'} = \@info if @info;
+	$ret->{'seqs'} = \@seqs if @seqs;
 	return $ret;
 }
 
@@ -1725,6 +1726,7 @@ sub is_sequence_similar_to_others {
 	  $self->run_blast( { locus => $locus, seq_ref => $seq_ref, qry_type => $locus_info->{'data_type'}, num_results => 1 } );
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 	my $length    = length $$seq_ref;
+	return if !-s $full_path;
 	open( my $blast_fh, '<', $full_path ) || ( $logger->error("Can't open BLAST output file $full_path. $!"), return 0 );
 	my ( $identity, $alignment );
 
