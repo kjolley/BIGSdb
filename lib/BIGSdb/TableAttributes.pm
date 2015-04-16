@@ -759,10 +759,10 @@ sub get_allele_designations_table_attributes {
 	my $attributes = [
 		{ name => 'isolate_id', type => 'int',  required => 'yes', primary_key => 'yes', foreign_key => 'isolates' },
 		{ name => 'locus',      type => 'text', required => 'yes', primary_key => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
-		{ name => 'allele_id', type => 'text', required => 'yes' },
+		{ name => 'allele_id', type => 'text', required => 'yes', primary_key => 'yes' },
 		{ name => 'sender',    type => 'int',  required => 'yes', foreign_key => 'users', dropdown_query => 'yes' },
-		{ name => 'status',    type => 'text', required => 'yes', optlist => 'confirmed;provisional;ignore', default => 'confirmed' },
-		{ name => 'method',    type => 'text', required => 'yes', optlist => 'manual;automatic', default => 'manual' },
+		{ name => 'status', type => 'text', required => 'yes', optlist => 'confirmed;provisional;ignore', default => 'confirmed' },
+		{ name => 'method',       type => 'text', required => 'yes', optlist        => 'manual;automatic', default => 'manual' },
 		{ name => 'curator',      type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp',    type => 'date', required => 'yes' },
 		{ name => 'date_entered', type => 'date', required => 'yes' },
