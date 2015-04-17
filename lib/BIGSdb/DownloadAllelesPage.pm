@@ -443,7 +443,7 @@ sub _print_locus_row {
 	}
 	$last_updated //= '';
 	say "<td>$last_updated</td></tr>";
-	open( my $fh, '>>', $self->{'outfile'} ) || $logger->error("Can't open $self->{'outfile'} for appending");
+	open( my $fh, '>>:encoding(utf8)', $self->{'outfile'} ) || $logger->error("Can't open $self->{'outfile'} for appending");
 	if ( !-s $self->{'outfile'} ) {
 		say $fh ( $options->{'scheme'} ? "scheme\t" : '' )
 		  . "locus\tdata type\talleles\tlength varies\tstandard length\tmin length\tmax length\tfull name/product\taliases\tcurators";

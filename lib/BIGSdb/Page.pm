@@ -221,6 +221,7 @@ sub print_page_content {
 			$atts{'attachment'} = $self->{'attachment'};
 		} elsif ( $self->{'type'} eq 'no_header' ) {
 			$atts{'type'} = 'text/html';
+			binmode STDOUT, ":encoding(utf8)";
 		} else {
 			$atts{'type'}       = 'text/plain';
 			$atts{'attachment'} = $self->{'attachment'};
