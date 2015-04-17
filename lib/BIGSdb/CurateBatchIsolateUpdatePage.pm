@@ -191,7 +191,7 @@ sub _check {
 			( $id[$i], $id2[$i], $field[$i], $value[$i] ) = split /\t/, $row;
 		}
 		$id[$i] =~ s/%20/ /g;
-		$id2[$i] ||= '';
+		$id2[$i] //= '';
 		$id2[$i] =~ s/%20/ /g;
 		$value[$i] =~ s/\s*$//g if defined $value[$i];
 		my $display_value     = $value[$i];
@@ -291,7 +291,7 @@ sub _check {
 					$logger->error($@) if $@;
 					my @old_values;
 					while ( my ($value) = $sql2->fetchrow_array ) {
-						push @old_values, $value;
+						push @old_values, $value // '';
 					}
 					no warnings 'numeric';
 					@old_values = sort { $a <=> $b || $a cmp $b } @old_values;
