@@ -1,3 +1,6 @@
+UPDATE sequences SET status='WGS: manual extract (BIGSdb)' WHERE status='WGS: manual extract';
+UPDATE sequences SET status='WGS: automated extract (BIGSdb)' WHERE status='WGS: automated extract';
+
 CREATE TABLE submissions (
 id text NOT NULL,
 type text NOT NULL,

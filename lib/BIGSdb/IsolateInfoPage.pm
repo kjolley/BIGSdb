@@ -1153,7 +1153,15 @@ sub _get_seqbin_link {
 			$buffer .= qq(<dt class="dontend">total length</dt><dd>$total_length bp</dd>\n);
 			$buffer .= qq(<dt class="dontend">max length</dt><dd>$max_length bp</dd>\n);
 			$buffer .= qq(<dt class="dontend">mean length</dt><dd>$mean_length bp</dd>\n);
-			$buffer .= qq(<dt class="dontend">$_</dt><dd>$n_stats->{$_}</dd>\n) foreach qw(N50 N90 N95);
+			my %stats_labels = (
+				N50 => 'N50 contig number',
+				L50 => 'N50 length (L50)',
+				N90 => 'N90 contig number',
+				L90 => 'N90 length (L90)',
+				N95 => 'N95 contig number',
+				L95 => 'N95 length (L95)',
+			);
+			$buffer .= qq(<dt class="dontend">$stats_labels{$_}</dt><dd>$n_stats->{$_}</dd>\n) foreach qw(N50 L50 N90 L90 N95 L95);
 		} else {
 			$buffer .= qq(<dt class="dontend">length</dt><dd>$total_length bp</dd>);
 		}

@@ -55,10 +55,17 @@ use constant ALLELE_FLAGS => (
 	'truncated',
 	'upstream fusion'
 );
-use constant SEQ_STATUS => ( 'Sanger trace checked', 'WGS: manual extract', 'WGS: automated extract', 'unchecked' );
-use constant DIPLOID    => qw(A C G T R Y W S M K);
-use constant HAPLOID    => qw(A C G T);
-use constant DATABANKS  => qw(ENA Genbank);
+use constant SEQ_STATUS => (
+	'Sanger trace checked',
+	'WGS: manual extract (BIGSdb)',
+	'WGS: automated extract (BIGSdb)',
+	'WGS: visually checked',
+	'WGS: automatically checked',
+	'unchecked'
+);
+use constant DIPLOID                       => qw(A C G T R Y W S M K);
+use constant HAPLOID                       => qw(A C G T);
+use constant DATABANKS                     => qw(ENA Genbank);
 use constant FLANKING                      => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
 use constant LOCUS_PATTERN                 => qr/^(?:l|cn|la)_(.+?)(?:\|\|.+)?$/;
 use constant SUBMITTER_ALLOWED_PERMISSIONS => qw(modify_isolates modify_sequences tag_sequences designate_alleles);
@@ -216,6 +223,7 @@ sub print_page_content {
 			$atts{'attachment'} = $self->{'attachment'};
 		} elsif ( $self->{'type'} eq 'no_header' ) {
 			$atts{'type'} = 'text/html';
+			binmode STDOUT, ":encoding(utf8)";
 		} else {
 			$atts{'type'}       = 'text/plain';
 			$atts{'attachment'} = $self->{'attachment'};

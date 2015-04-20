@@ -86,17 +86,21 @@ sub print_content {
 		  $self->{'datastore'}->run_query( "SELECT length(sequence) FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) desc",
 			$isolate_id, { fetch => 'col_arrayref' } );
 		$n_stats = BIGSdb::Utils::get_N_stats( $data->[0], $lengths );
-		print <<"HTML"
-	<li>Total length: $data->[0]</li>
-	<li>Minimum length: $data->[1]</li>
-	<li>Maximum length: $data->[2]</li>
-	<li>Mean length: $data->[3]</li>
-	<li>&sigma; length: $data->[4]</li>
-	<li>N50: $n_stats->{'N50'}</li>
-	<li>N90: $n_stats->{'N90'}</li>
-	<li>N95: $n_stats->{'N95'}</li>
-	</ul>
-HTML
+		my %stats_labels = (
+			N50 => 'N50 contig number',
+			L50 => 'N50 contig length (L50)',
+			N90 => 'N90 contig number',
+			L90 => 'N90 contig length (L90)',
+			N95 => 'N95 contig number',
+			L95 => 'N95 contig length (L95)',
+		);
+		say "<li>Total length: $data->[0]</li>";
+		say "<li>Minimum length: $data->[1]</li>";
+		say "<li>Maximum length: $data->[2]</li>";
+		say "<li>Mean length: $data->[3]</li>";
+		say "<li>&sigma; length: $data->[4]</li>";
+		say "<li>$stats_labels{$_}: $n_stats->{$_}</li>" foreach qw(N50 L50 N90 L90 N95 L95);
+		say "</ul>";
 	} else {
 		my $length = $self->{'datastore'}->run_query( "SELECT length(sequence) FROM sequence_bin WHERE isolate_id=?", $isolate_id );
 		say "<li>Length: $length</li>\n</ul>";

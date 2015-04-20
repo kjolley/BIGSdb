@@ -53,7 +53,7 @@ sub print_content {
 	my ($self) = @_;
 	say "<h1>Allowed/submitted field values</h1>";
 	my $q     = $self->{'cgi'};
-	my $field = $q->param('field');
+	my $field = $q->param('field') // '';
 	my $scheme_id;
 	my $field_type;
 	if ( $field =~ /^([f|l])_(.*)$/ ) {
@@ -305,7 +305,7 @@ sub _print_locus {
 sub get_title {
 	my ($self) = @_;
 	my $desc    = $self->{'system'}->{'description'} || 'BIGSdb';
-	my $field   = $self->{'cgi'}->param('field');
+	my $field   = $self->{'cgi'}->param('field') // '';
 	my $pattern = LOCUS_PATTERN;
 	if ( $field =~ /$pattern/ ) {
 		$field = $self->clean_locus($1);

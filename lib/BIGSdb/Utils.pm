@@ -470,11 +470,22 @@ sub get_N_stats {
 	my $n95_target = 0.05 * $total_length;
 	my $stats;
 	my $running_total = $total_length;
+	my $count         = 0;
 	foreach my $length (@$contig_length_arrayref) {
 		$running_total -= $length;
-		$stats->{'N50'} = $length if !defined $stats->{'N50'} && $running_total <= $n50_target;
-		$stats->{'N90'} = $length if !defined $stats->{'N90'} && $running_total <= $n90_target;
-		$stats->{'N95'} = $length if !defined $stats->{'N95'} && $running_total <= $n95_target;
+		$count++;
+		if (!defined $stats->{'L50'} && $running_total <= $n50_target){
+			$stats->{'L50'} = $length;
+			$stats->{'N50'} = $count;
+		}
+		if (!defined $stats->{'L90'} && $running_total <= $n90_target){
+			$stats->{'L90'} = $length;
+			$stats->{'N90'} = $count;
+		}
+		if (!defined $stats->{'L95'} && $running_total <= $n95_target){
+			$stats->{'L95'} = $length;
+			$stats->{'N95'} = $count;
+		}
 	}
 	return $stats;
 }
