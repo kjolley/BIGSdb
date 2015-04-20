@@ -174,6 +174,7 @@ sub _abort_submission {
 	} else {
 		$self->{'db'}->commit;
 	}
+	#TODO Delete uploaded files.
 	return;
 }
 
@@ -479,8 +480,22 @@ sub _presubmit_alleles {
 		$self->{'db'}->commit;
 	}
 	if ( $q->param('file_upload') ) {
-		$logger->error('upload');
-		my $upload_file = $self->_upload_files;
+		my $upload_file = $self->_upload_files($submission_id);
+	}
+	if ($q->param('delete')){
+		my $files = $self->_get_submission_files($submission_id);
+		my $i = 0;
+		foreach my $file (@$files){
+			my $dir       = "$self->{'config'}->{'submission_dir'}/$submission_id";
+			if ($q->param("file$i")){
+				if ($file->{'filename'} =~ /^([^\/]+)$/){
+					my $filename = $1;
+					unlink "$dir/$filename" || $logger->error("Cannot delete $dir/$filename.");
+				}
+				$q->delete("file$i");
+			}
+			$i++;
+		}
 	}
 	say qq(<div class="box" id="resultstable"><div class="scrollable">);
 	if ( $q->param('abort') ) {
@@ -528,31 +543,71 @@ sub _presubmit_alleles {
 	say $q->end_form;
 	say qq(<fieldset style="float:left"><legend>Supporting files</legend>);
 	say qq(<p>Please upload any supporting files required for curation.  Ensure that these are named unambiguously or add an explanatory )
-	  . qq(note so that they can be linked to the appropriate sequence.</p>);
+	  . qq(note so that they can be linked to the appropriate sequence.  Individual filesize is limited to )
+	  . BIGSdb::Utils::get_nice_size(MAX_UPLOAD_SIZE)
+	  . qq(.</p>);
 	say $q->start_form;
 	print $q->filefield( -name => 'file_upload', -id => 'file_upload', -multiple );
 	say $q->submit( -name => 'Upload files', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
 	say $q->hidden($_) foreach qw(db page alleles locus submit submission_id);
 	say $q->end_form;
+	my $files = $self->_get_submission_files($submission_id);
+
+	if (@$files) {
+		say $q->start_form;
+		say qq(<table class="resultstable"><tr><th>Filename</th><th>Size</th><th>Delete</th></tr>);
+		$td = 1;
+		my $i = 0;
+		foreach my $file (@$files) {
+			say qq(<tr class="td$td"><td>$file->{'filename'}</td><td>$file->{'size'}</td><td>);
+			say $q->checkbox(-name => "file$i", -label => '');
+			$i++;
+			say qq(</td></tr>);
+			$td = $td == 2 ? 1 : 2;
+		}
+		say qq(</table>);
+		$q->param(delete => 1);
+		say $q->hidden($_) foreach qw(db page alleles delete);
+		say $q->submit(-label => 'Delete selected files', -class=>'submitbutton ui-button ui-widget ui-state-default ui-corner-all');
+		say $q->end_form;
+	}
 	say qq(</fieldset>);
 	say qq(</div></div>);
 	return;
 }
 
+sub _get_submission_files {
+	my ( $self, $submission_id ) = @_;
+	my $dir = "$self->{'config'}->{'submission_dir'}/$submission_id";
+	return [] if !-e $dir;
+	my @files;
+	opendir( my $dh, $dir ) || $logger->error("Can't open directory $dir");
+	while ( my $filename = readdir $dh ) {
+		next if $filename =~ /^\./;
+		push @files, { filename => $filename, size => BIGSdb::Utils::get_nice_size( -s "$dir/$filename" ) };
+	}
+	closedir $dh;
+	return \@files;
+}
+
 sub _upload_files {
-	my ($self)    = @_;
+	my ( $self, $submission_id ) = @_;
 	my $q         = $self->{'cgi'};
 	my @filenames = $q->param('file_upload');
 	my $i         = 0;
+	my $dir       = "$self->{'config'}->{'submission_dir'}/$submission_id";
+	if ( !-e $dir ) {
+		mkdir $dir || $logger->error("Cannot create $dir directory.");
+	}
 	foreach my $fh2 ( $q->upload('file_upload') ) {
-		if ( $filenames[$i] =~ /([A-z0-9_\-\.]+)/ ) {
+		if ( $filenames[$i] =~ /([A-z0-9_\-\.'\ ]+)/ ) {
 			$filenames[$i] = $1;
 		} else {
 			$filenames[$i] = 'file';
 		}
-		my $filename = "$self->{'config'}->{'submission_dir'}/$filenames[$i]";
+		my $filename = "$dir/$filenames[$i]";
 		$i++;
-		$logger->error($filename);
+		next if -e $filename;    #Don't reupload if already done.
 		my $buffer;
 		open( my $fh, '>', $filename ) || $logger->error("Could not open $filename for writing.");
 		binmode $fh2;

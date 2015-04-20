@@ -474,15 +474,15 @@ sub get_N_stats {
 	foreach my $length (@$contig_length_arrayref) {
 		$running_total -= $length;
 		$count++;
-		if (!defined $stats->{'L50'} && $running_total <= $n50_target){
+		if ( !defined $stats->{'L50'} && $running_total <= $n50_target ) {
 			$stats->{'L50'} = $length;
 			$stats->{'N50'} = $count;
 		}
-		if (!defined $stats->{'L90'} && $running_total <= $n90_target){
+		if ( !defined $stats->{'L90'} && $running_total <= $n90_target ) {
 			$stats->{'L90'} = $length;
 			$stats->{'N90'} = $count;
 		}
-		if (!defined $stats->{'L95'} && $running_total <= $n95_target){
+		if ( !defined $stats->{'L95'} && $running_total <= $n95_target ) {
 			$stats->{'L95'} = $length;
 			$stats->{'N95'} = $count;
 		}
@@ -519,5 +519,21 @@ sub random_string {
 		$string .= $chars[ int( rand($#chars) ) ];
 	}
 	return $string;
+}
+
+sub get_nice_size {
+
+	#http://www.jb.man.ac.uk/~slowe/perl/filesize.html
+	my ( $size, $decimal_places ) = @_;    # First variable is the size in bytes
+	$decimal_places //= 1;
+	my @units = ( 'bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB' );
+	my $u = 0;
+	$decimal_places = ( $decimal_places > 0 ) ? 10**$decimal_places : 1;
+	while ( $size > 1024 ) {
+		$size /= 1024;
+		$u++;
+	}
+	if   ( $units[$u] ) { return ( int( $size * $decimal_places ) / $decimal_places ) . " " . $units[$u]; }
+	else                { return int($size); }
 }
 1;
