@@ -1,6 +1,6 @@
 #LocusExplorer.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -43,7 +43,7 @@ sub get_attributes {
 		menutext         => 'Locus Explorer',
 		module           => 'LocusExplorer',
 		url              => "$self->{'config'}->{'doclink'}/data_analysis.html#locus-explorer",
-		version          => '1.2.1',
+		version          => '1.2.2',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		input            => 'query',
@@ -222,7 +222,7 @@ sub run_job {
 	if ( $locus =~ /^cn_(.+)/ ) {
 		$locus = $1;
 	}
-	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => -1 } );                   #indeterminate length of time
+	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => -1 } );    #indeterminate length of time
 	if ( $params->{'snp'} ) {
 		my @allele_ids = split /\|\|/, $params->{'allele_ids'};
 		my ( $seqs, undef, $prefix ) = $self->_get_seqs( $params->{'locus'}, \@allele_ids );
@@ -249,7 +249,7 @@ sub run_job {
 
 sub _print_interface {
 	my ( $self, $locus, $display_loci, $cleaned, $list_ref ) = @_;
-	my $q = $self->{'cgi'};
+	my $q    = $self->{'cgi'};
 	my $desc = $self->get_db_description;
 	say qq(<h1>Locus Explorer - $desc</h1>\n<div class="box" id="queryform">);
 	say $q->start_form;
@@ -788,7 +788,7 @@ sub _translate {
 	}
 	my $seq_count = keys %seqs_hash;
 	my $plural = $seq_count != 1 ? 's' : '';
-	say "<p>The width of the alignment can be varied by going to the options page.</p>";
+	say "<p>The width of the alignment can be varied by going to the options page.</p>" if $seq_count > 1;
 	say "<p>$seq_count allele$plural included in analysis.</p>";
 	my $temp      = BIGSdb::Utils::get_random();
 	my $tempfile  = "$self->{'config'}->{'secure_tmp_dir'}/$temp.txt";
@@ -807,19 +807,23 @@ sub _translate {
 	}
 	close $fh;
 	system("$self->{'config'}->{'emboss_path'}/transeq -sequence $tempfile -outseq $outfile -frame $orf -trim -clean 2> /dev/null");
-	if ( $locus_info->{'length_varies'} ) {
-		my $aligned_file = "$self->{'config'}->{secure_tmp_dir}/$temp.aligned";
-		if ( -x $self->{'config'}->{'mafft_path'} ) {
-			system("$self->{'config'}->{'mafft_path'} --quiet --preservecase $outfile > $aligned_file");
-		} elsif ( -x $self->{'config'}->{'muscle_path'} ) {
-			system( $self->{'config'}->{'muscle_path'}, '-quiet', ( -in => $outfile, -out => $aligned_file ) );
+	if ( $seq_count > 1 ) {
+		if ( $locus_info->{'length_varies'} ) {
+			my $aligned_file = "$self->{'config'}->{secure_tmp_dir}/$temp.aligned";
+			if ( -x $self->{'config'}->{'mafft_path'} ) {
+				system("$self->{'config'}->{'mafft_path'} --quiet --preservecase $outfile > $aligned_file");
+			} elsif ( -x $self->{'config'}->{'muscle_path'} ) {
+				system( $self->{'config'}->{'muscle_path'}, '-quiet', ( -in => $outfile, -out => $aligned_file ) );
+			}
+			unlink $outfile;
+			$outfile = $aligned_file;
 		}
-		unlink $outfile;
-		$outfile = $aligned_file;
+		system( "$self->{'config'}->{'emboss_path'}/showalign -nosimilarcase -width $self->{'prefs'}->{'alignwidth'} -sequence $outfile "
+			  . "-outfile $finalfile 2> /dev/null" );
+		unlink $tempfile;
+	} else {
+		$finalfile = $outfile;
 	}
-	system( "$self->{'config'}->{'emboss_path'}/showalign -nosimilarcase -width $self->{'prefs'}->{'alignwidth'} -sequence $outfile "
-		  . "-outfile $finalfile 2> /dev/null" );
-	unlink $tempfile;
 	say "<pre style=\"font-size:1.2em\">";
 	$self->print_file($finalfile);
 	say "</pre></div>";
