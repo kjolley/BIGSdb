@@ -338,8 +338,9 @@ sub _get_html_table_header {
 <table class="tablesorter" id="sortTable">
 <thead>
 <tr><th>Isolate id</th><th>$labelfield</th><th>Contigs</th><th>Total length</th><th>Min</th><th>Max</th><th>Mean</th><th>&sigma;</th>
-<th>N50</th><th>N90</th><th>N95</th>$gc<th>Alleles designated</th><th>% Alleles designated</th><th>Loci tagged</th><th>% Loci tagged</th>
-<th>Sequence bin</th></tr>
+<th>N50 contig number</th><th>N50 contig length (L50)</th><th>N90 contig number</th><th>N90 contig length (L90)</th>
+<th>N95 contig number</th><th>N95 contig length (L95)</th>$gc
+<th>Alleles designated</th><th>% Alleles designated</th><th>Loci tagged</th><th>% Loci tagged</th><th>Sequence bin</th></tr>
 </thead>
 <tbody>
 HTML
@@ -357,7 +358,8 @@ sub _get_html_table_row {
 	my $buffer = "<tr class=\"td$td\"><td>$isolate_id</td><td>$isolate_name</td><td>$contigs</td><td>$sum</td><td>$min</td>"
 	  . "<td>$max</td><td>$mean</td>";
 	$buffer .= defined $stddev ? "<td>$stddev</td>" : '<td></td>';
-	$buffer .= "<td>$n_stats->{'N50'}</td><td>$n_stats->{'N90'}</td><td>$n_stats->{'N95'}</td>";
+	$buffer .= "<td>$n_stats->{'N50'}</td><td>$n_stats->{'L50'}</td><td>$n_stats->{'N90'}</td><td>$n_stats->{'L90'}</td>"
+	  . "<td>$n_stats->{'N95'}</td><td>$n_stats->{'L95'}</td>";
 	$buffer .= "<td>$gc</td>" if $options->{'gc'};
 	$buffer .=
 	    "<td>$allele_designations</td>"
@@ -372,7 +374,8 @@ sub _get_text_table_header {
 	$options = {} if ref $options ne 'HASH';
 	my $labelfield = ucfirst( $self->{'system'}->{'labelfield'} );
 	my $gc = $options->{'gc'} ? "%GC\t" : '';
-	return "Isolate id\t$labelfield\tContigs\tTotal length\tMin\tMax\tMean\tStdDev\tN50\tN90\tN95\t${gc}Alleles designated\t"
+	return "Isolate id\t$labelfield\tContigs\tTotal length\tMin\tMax\tMean\tStdDev\tN50 contig number\tN50 contig length (L50)\t"
+	  . "N90 contig number\tN90 contig length (L90)\tN95 contig number\tN95 contig length (L95)\t${gc}Alleles designated\t"
 	  . "%Alleles designated\tLoci tagged\t%Loci tagged";
 }
 
@@ -385,7 +388,7 @@ sub _get_text_table_row {
 	  {qw(isolate_name contigs sum min max mean stddev lengths gc allele_designations percent_alleles tagged percent_tagged n_stats)};
 	my $buffer = "$isolate_id\t$isolate_name\t$contigs\t$sum\t$min\t$max\t$mean\t";
 	$buffer .= "$stddev" if defined $stddev;
-	$buffer .= "\t$n_stats->{'N50'}\t$n_stats->{'N90'}\t$n_stats->{'N95'}\t";
+	$buffer .= "\t$n_stats->{'N50'}\t$n_stats->{'L50'}\t$n_stats->{'N90'}\t$n_stats->{'L90'}\t$n_stats->{'N95'}\t$n_stats->{'L95'}\t";
 	$buffer .= "$gc\t"   if $options->{'gc'};
 	$buffer .= "$allele_designations\t$percent_alleles\t$tagged\t" . "$percent_tagged";
 	return $buffer;

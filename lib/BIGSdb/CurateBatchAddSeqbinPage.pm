@@ -340,9 +340,12 @@ sub _check_data {
 <li>Maximum length: $max</li>
 <li>Total length: $total</li>
 <li>Mean length: $mean</li>
-<li>N50: $n_stats->{'N50'}</li>
-<li>N90: $n_stats->{'N90'}</li>
-<li>N95: $n_stats->{'N95'}</li></ul>
+<li>N50 contig number: $n_stats->{'N50'}</li>
+<li>N50 contig length (L50): $n_stats->{'L50'}</li>
+<li>N90 contig number: $n_stats->{'N90'}</li>
+<li>N90 contig length (L50): $n_stats->{'L90'}</li>
+<li>N95 contig number: $n_stats->{'N95'}</li>
+<li>N95 contig length (L50): $n_stats->{'L95'}</li></ul>
 STATS
 			say $q->start_form;
 			say $q->submit( -name => 'Upload', -class => 'submit' );
