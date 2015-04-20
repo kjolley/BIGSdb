@@ -92,7 +92,7 @@ sub run_script {
 						say "locus\tallele_id\tstatus\tsequence";
 						$first = 0;
 					}
-					say "$locus\t\tWGS: automated extract\t$seq";
+					say "$locus\t\tWGS: automated extract (BIGSdb)\t$seq";
 				}
 			}
 			last if $EXIT || $self->_is_time_up;
@@ -131,7 +131,7 @@ sub _define_allele {
 		eval {
 			$locus_db->do(
 				"INSERT INTO sequences (locus,allele_id,sequence,status,date_entered,datestamp,sender,curator) VALUES (?,?,?,?,?,?,?,?)",
-				undef, $locus, $allele_id, $seq, 'WGS: automated extract',
+				undef, $locus, $allele_id, $seq, 'WGS: automated extract (BIGSdb)',
 				'now', 'now', DEFINER_USER, DEFINER_USER
 			);
 		};
