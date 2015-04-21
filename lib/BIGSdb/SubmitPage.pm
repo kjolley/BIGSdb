@@ -92,6 +92,9 @@ sub print_content {
 	} elsif ( $q->param('download_fasta') ) {
 		$self->_download_fasta;
 		return;
+	} elsif ( $q->param('view') ) {
+		$self->_view_submission( $q->param('submission_id') );
+		return;
 	}
 	say "<h1>Manage submissions</h1>";
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
@@ -108,7 +111,7 @@ sub print_content {
 	}
 	say qq(<div class="box" id="resultstable"><div class="scrollable">);
 	my $incomplete = $self->{'datastore'}->run_query(
-		"SELECT * FROM submissions WHERE (submitter,status)=(?,?)",
+		"SELECT * FROM submissions WHERE (submitter,status)=(?,?) ORDER BY datestamp asc",
 		[ $user_info->{'id'}, 'started' ],
 		{ fetch => 'all_arrayref', slice => {}, cache => 'SubmitPage::print_content' }
 	);
@@ -141,12 +144,31 @@ sub print_content {
 		say qq(</ul>);
 	}
 	my $pending = $self->{'datastore'}->run_query(
-		"SELECT * FROM submissions WHERE (submitter,status)=(?,?)",
+		"SELECT * FROM submissions WHERE (submitter,status)=(?,?) ORDER BY datestamp asc",
 		[ $user_info->{'id'}, 'pending' ],
 		{ fetch => 'all_arrayref', slice => {}, cache => 'SubmitPage::print_content' }
 	);
 	if (@$pending) {
 		say qq(<h2>Pending submissions</h2>);
+		say qq(<p>You have the following submissions pending curation:</p>);
+		say qq(<table class="resultstable"><tr><th>Submission id</th><th>Datestamp</th><th>Type</th><th>Details</th></tr>);
+		my $td = 1;
+		foreach my $submission (@$pending) {
+			my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
+			  . qq(submission_id=$submission->{'id'}&amp;view=1);
+			say qq(<tr class="td$td"><td><a href="$url">$submission->{'id'}</a></td>);
+			say qq(<td>$submission->{'datestamp'}</td><td>$submission->{'type'}</td>);
+			my $details = '';
+			if ( $submission->{'type'} eq 'alleles' ) {
+				my $allele_submission = $self->_get_allele_submission( $submission->{'id'} );
+				my $allele_count      = @{ $allele_submission->{'seqs'} };
+				my $plural            = $allele_count == 1 ? '' : 's';
+				$details = "$allele_count $allele_submission->{'locus'} sequence$plural";
+			}
+			say qq(<td>$details</td></tr>);
+			$td = $td == 1 ? 2 : 1;
+		}
+		say qq(</table>);
 	}
 	say qq(</div></div>);
 	return;
@@ -424,12 +446,18 @@ sub _get_started_submission {
 	);
 }
 
+sub _get_submission {
+	my ( $self, $submission_id ) = @_;
+	$logger->logcarp("No submission_id passed") if !$submission_id;
+	return $self->{'datastore'}->run_query( "SELECT * FROM submissions WHERE id=?",
+		$submission_id, { fetch => 'row_hashref', cache => 'SubmitPage::get_submission' } );
+}
+
 sub _get_allele_submission {
 	my ( $self, $submission_id ) = @_;
 	$logger->logcarp("No submission_id passed") if !$submission_id;
-	my $submission =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT * FROM allele_submissions WHERE submission_id=?", $submission_id, { fetch => 'row_hashref' } );
+	my $submission = $self->{'datastore'}->run_query( "SELECT * FROM allele_submissions WHERE submission_id=?",
+		$submission_id, { fetch => 'row_hashref', cache => 'SubmitPage::get_allele_submission' } );
 	return if !$submission;
 	my $seq_data = $self->{'datastore'}->run_query( "SELECT * FROM allele_submission_sequences WHERE submission_id=?",
 		$submission_id, { fetch => 'all_arrayref', slice => {} } );
@@ -566,17 +594,7 @@ sub _presubmit_alleles {
 
 	if (@$files) {
 		say $q->start_form;
-		say qq(<table class="resultstable"><tr><th>Filename</th><th>Size</th><th>Delete</th></tr>);
-		$td = 1;
-		my $i = 0;
-		foreach my $file (@$files) {
-			say qq(<tr class="td$td"><td>$file->{'filename'}</td><td>$file->{'size'}</td><td>);
-			say $q->checkbox( -name => "file$i", -label => '' );
-			$i++;
-			say qq(</td></tr>);
-			$td = $td == 2 ? 1 : 2;
-		}
-		say qq(</table>);
+		$self->_print_submission_file_table( $submission_id, { delete_checkbox => 1 } );
 		$q->param( delete => 1 );
 		say $q->hidden($_) foreach qw(db page alleles delete no_check);
 		say $q->submit( -label => 'Delete selected files', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
@@ -584,6 +602,33 @@ sub _presubmit_alleles {
 	}
 	say qq(</fieldset>);
 	say qq(</div></div>);
+	return;
+}
+
+sub _print_submission_file_table {
+	my ( $self, $submission_id, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $q     = $self->{'cgi'};
+	my $files = $self->_get_submission_files($submission_id);
+	return if !@$files;
+	say qq(<table class="resultstable"><tr><th>Filename</th><th>Size</th>);
+	say qq(<th>Delete</th>) if $options->{'delete_checkbox'};
+	say qq(</tr>);
+	my $td = 1;
+	my $i  = 0;
+
+	foreach my $file (@$files) {
+		say qq(<tr class="td$td"><td>$file->{'filename'}</td><td>$file->{'size'}</td>);
+		if ( $options->{'delete_checkbox'} ) {
+			say qq(<td>);
+			say $q->checkbox( -name => "file$i", -label => '' );
+			say qq(</td>);
+		}
+		$i++;
+		say qq(</tr>);
+		$td = $td == 2 ? 1 : 2;
+	}
+	say qq(</table>);
 	return;
 }
 
@@ -633,6 +678,36 @@ sub _upload_files {
 		close $fh;
 	}
 	return \@filenames;
+}
+
+sub _view_submission {
+	my ( $self, $submission_id ) = @_;
+	my $submission = $self->_get_submission($submission_id);
+	if ( !$submission ) {
+		say qq(<div class="box" id="statusbad"><p>Invalid submission passed.</p></div>);
+		return;
+	}
+	say qq(<h1>Submission details</h1>);
+	say qq(<div class="box" id="resultstable"><div class="scrollable">);
+	say qq(<h2>Submission: $submission_id</h2>);
+	say qq(<dl class="data"><dt>type</dt><dd>$submission->{'type'}</dd>);
+	my $user_string = $self->{'datastore'}->get_user_string( $submission->{'submitter'}, { email => 1, affiliation => 1 } );
+	say qq(<dt>submitter</dt><dd>$user_string</dd>);
+	say qq(<dt>datestamp</dt><dd>$submission->{'datestamp'}</dd>);
+	say qq(<dt>status</dt><dd>$submission->{'status'}</dd>);
+	say qq(<dt>comments</dt><dd>$submission->{'comments'}</dd>) if $submission->{'comments'};
+
+	if ( $submission->{'type'} eq 'alleles' ) {
+		my $allele_submission = $self->_get_allele_submission($submission_id);
+		say qq(<dt>locus</dt><dd>$allele_submission->{'locus'}</dd>);
+		my $allele_count = @{ $allele_submission->{'seqs'} };
+		say qq(<dt>sequences</dt><dd>$allele_count [<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit)
+		  . qq(&amp;submission_id=$submission_id&amp;download_fasta=1">FASTA</a>]</dd>);
+	}
+	say qq(</dl>);
+	$self->_print_submission_file_table($submission_id);
+	say qq(</div>);
+	return;
 }
 
 sub _update_allele_prefs {
