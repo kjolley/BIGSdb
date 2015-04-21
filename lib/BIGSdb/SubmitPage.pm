@@ -37,8 +37,7 @@ use constant MAX_UPLOAD_SIZE => 32 * 1024 * 1024;                        #32Mb
 sub get_javascript {
 	my ($self) = @_;
 	my $tree_js = $self->get_tree_javascript( { checkboxes => 1, check_schemes => 1 } );
-	my $url     = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;alleles=1";
-	my $buffer  = << "END";
+	my $buffer = << "END";
 \$(function () {
 	\$("fieldset#scheme_fieldset").css("display","block");
 	\$("#filter").click(function() {	
@@ -126,7 +125,7 @@ sub print_content {
 				my $seq_count = @{ $allele_submission->{'seqs'} };
 				say qq(<dt>Sequences</dt><dd>$seq_count</dd>);
 				say qq(<dt>Action</dt><dd><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
-				  . qq($submission->{'type'}=1&amp;abort=1">Abort</a> | )
+				  . qq($submission->{'type'}=1&amp;abort=1&amp;no_check=1">Abort</a> | )
 				  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;$submission->{'type'}=1&amp;)
 				  . qq(continue=1">Continue</a>);
 			}
@@ -173,8 +172,17 @@ sub _abort_submission {
 		$self->{'db'}->rollback;
 	} else {
 		$self->{'db'}->commit;
+		$self->_delete_submission_files($submission_id);
 	}
-	#TODO Delete uploaded files.
+	return;
+}
+
+sub _delete_submission_files {
+	my ( $self, $submission_id ) = @_;
+	my $dir   = $self->_get_submission_dir($submission_id);
+	my @files = glob("$dir/*");
+	foreach (@files) { unlink $1 if /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+\/[^\/]+)$/ }
+	rmdir $1 if $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/;
 	return;
 }
 
@@ -226,8 +234,10 @@ sub _submit_alleles {
 			$fasta_string .= '>' . $seq->id . "\n";
 			$fasta_string .= $seq->seq . "\n";
 		}
-		$ret = $self->{'datastore'}->check_new_alleles_fasta( $allele_submission->{'locus'}, \$fasta_string );
-		$self->_print_allele_warnings( $ret->{'info'} );
+		if ( !$q->param('no_check') ) {
+			$ret = $self->{'datastore'}->check_new_alleles_fasta( $allele_submission->{'locus'}, \$fasta_string );
+			$self->_print_allele_warnings( $ret->{'info'} );
+		}
 		$self->_presubmit_alleles( $submission_id, undef );
 		return;
 	} elsif ( $q->param('submit') || $q->param('continue') || $q->param('abort') ) {
@@ -482,13 +492,13 @@ sub _presubmit_alleles {
 	if ( $q->param('file_upload') ) {
 		my $upload_file = $self->_upload_files($submission_id);
 	}
-	if ($q->param('delete')){
+	if ( $q->param('delete') ) {
 		my $files = $self->_get_submission_files($submission_id);
-		my $i = 0;
-		foreach my $file (@$files){
-			my $dir       = "$self->{'config'}->{'submission_dir'}/$submission_id";
-			if ($q->param("file$i")){
-				if ($file->{'filename'} =~ /^([^\/]+)$/){
+		my $i     = 0;
+		my $dir   = $self->_get_submission_dir($submission_id);
+		foreach my $file (@$files) {
+			if ( $q->param("file$i") ) {
+				if ( $file->{'filename'} =~ /^([^\/]+)$/ ) {
 					my $filename = $1;
 					unlink "$dir/$filename" || $logger->error("Cannot delete $dir/$filename.");
 				}
@@ -549,7 +559,8 @@ sub _presubmit_alleles {
 	say $q->start_form;
 	print $q->filefield( -name => 'file_upload', -id => 'file_upload', -multiple );
 	say $q->submit( -name => 'Upload files', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
-	say $q->hidden($_) foreach qw(db page alleles locus submit submission_id);
+	$q->param( no_check => 1 );
+	say $q->hidden($_) foreach qw(db page alleles locus submit submission_id no_check);
 	say $q->end_form;
 	my $files = $self->_get_submission_files($submission_id);
 
@@ -560,15 +571,15 @@ sub _presubmit_alleles {
 		my $i = 0;
 		foreach my $file (@$files) {
 			say qq(<tr class="td$td"><td>$file->{'filename'}</td><td>$file->{'size'}</td><td>);
-			say $q->checkbox(-name => "file$i", -label => '');
+			say $q->checkbox( -name => "file$i", -label => '' );
 			$i++;
 			say qq(</td></tr>);
 			$td = $td == 2 ? 1 : 2;
 		}
 		say qq(</table>);
-		$q->param(delete => 1);
-		say $q->hidden($_) foreach qw(db page alleles delete);
-		say $q->submit(-label => 'Delete selected files', -class=>'submitbutton ui-button ui-widget ui-state-default ui-corner-all');
+		$q->param( delete => 1 );
+		say $q->hidden($_) foreach qw(db page alleles delete no_check);
+		say $q->submit( -label => 'Delete selected files', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
 		say $q->end_form;
 	}
 	say qq(</fieldset>);
@@ -578,7 +589,7 @@ sub _presubmit_alleles {
 
 sub _get_submission_files {
 	my ( $self, $submission_id ) = @_;
-	my $dir = "$self->{'config'}->{'submission_dir'}/$submission_id";
+	my $dir = $self->_get_submission_dir($submission_id);
 	return [] if !-e $dir;
 	my @files;
 	opendir( my $dh, $dir ) || $logger->error("Can't open directory $dir");
@@ -590,12 +601,17 @@ sub _get_submission_files {
 	return \@files;
 }
 
+sub _get_submission_dir {
+	my ( $self, $submission_id ) = @_;
+	return "$self->{'config'}->{'submission_dir'}/$submission_id";
+}
+
 sub _upload_files {
 	my ( $self, $submission_id ) = @_;
 	my $q         = $self->{'cgi'};
 	my @filenames = $q->param('file_upload');
 	my $i         = 0;
-	my $dir       = "$self->{'config'}->{'submission_dir'}/$submission_id";
+	my $dir       = $self->_get_submission_dir($submission_id);
 	if ( !-e $dir ) {
 		mkdir $dir || $logger->error("Cannot create $dir directory.");
 	}
