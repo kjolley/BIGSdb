@@ -227,6 +227,7 @@ sub _print_submissions_section {
 	my ($self) = @_;
 	return if $self->{'system'}->{'dbtype'} eq 'isolates' || ($self->{'system'}->{'submissions'} // '') ne 'yes';
 	say qq(<div style="float:left; margin-right:1em">);
+	say qq(<span class="main_icon fa fa-upload fa-3x pull-left"></span>);
 	say qq(<h2>Submissions</h2><ul class="toplevel">);
 	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit">Manage submissions</a></li>);
 	say '</ul></div>';
@@ -235,7 +236,7 @@ sub _print_submissions_section {
 
 sub _print_general_info_section {
 	my ( $self, $scheme_data ) = @_;
-	say "<div style=\"float:left; margin-right:1em\">";
+	say qq(<div style="float:left; margin-right:1em">);
 	say qq(<span class="main_icon fa fa-info-circle fa-3x pull-left"></span>);
 	say "<h2>General information</h2>\n<ul class=\"toplevel\">";
 	my $set_id = $self->get_set_id;
