@@ -594,6 +594,11 @@ div#restricted {
 	background:#e0d5d5;
 }
 
+div#statuswarn, div.statuswarn {
+	background:#e0e0d5;
+	color:#404000
+}
+
 div#statusbad, div.statusbad {
 	background:#e0d5d5;
 	color:#800000
