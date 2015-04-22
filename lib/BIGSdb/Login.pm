@@ -249,6 +249,7 @@ sub _print_entry_form {
 	my $reg_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/registration.html";
 	$self->print_file($reg_file) if -e $reg_file;
 	say <<"HTML";
+<span class="main_icon fa fa-sign-in fa-3x pull-left"></span>
 <p>Please enter your log-in details.  Part of your IP address is used along with your username to set up your session. 
 If you have a session opened on a different computer, where the first three parts of the IP address vary, it will be 
 closed when you log in here. </p>

@@ -449,9 +449,9 @@ sub _print_provenance_fields {
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		if ( !$q->param('no_js') ) {
-			say "<a id=\"add_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;"
-			  . "fields=provenance&amp;row=$next_row&amp;no_header=1\" data-rel=\"ajax\" class=\"button\">+</a>";
-			say "<a class=\"tooltip\" id=\"prov_tooltip\" title=\"\">&nbsp;<i>i</i>&nbsp;</a>";
+			say qq(<a id="add_fields" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
+			  . qq(fields=provenance&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>)
+			  . qq(<a class="tooltip" id="prov_tooltip" title=""><span class="fa fa-info-circle"></span></a>);
 		}
 	}
 	say "</span>\n";
@@ -480,9 +480,9 @@ sub _print_allele_status_fields {
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		if ( !$q->param('no_js') ) {
-			say "<a id=\"add_allele_status\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;"
-			  . "fields=allele_status&amp;row=$next_row&amp;no_header=1\" data-rel=\"ajax\" class=\"button\">+</a>"
-			  . " <a class=\"tooltip\" id=\"allele_status_tooltip\" title=\"\">&nbsp;<i>i</i>&nbsp;</a>";
+			say qq(<a id="add_allele_status" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
+			  . qq(fields=allele_status&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>)
+			  . qq( <a class="tooltip" id="allele_status_tooltip" title=""><span class="fa fa-info-circle"></span></a>);
 		}
 	}
 	say "</span>";
@@ -513,9 +513,9 @@ sub _print_loci_fields {
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		if ( !$q->param('no_js') ) {
-			say "<a id=\"add_loci\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;"
-			  . "fields=loci&amp;row=$next_row&amp;no_header=1\" data-rel=\"ajax\" class=\"button\">+</a>"
-			  . " <a class=\"tooltip\" id=\"loci_tooltip\" title=\"\">&nbsp;<i>i</i>&nbsp;</a>";
+			say qq(<a id="add_loci" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
+			  . qq(fields=loci&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>)
+			  . qq( <a class="tooltip" id="loci_tooltip" title=""><span class="fa fa-info-circle"></span></a>);
 		}
 	}
 	say "</span>";
@@ -545,9 +545,9 @@ sub _print_locus_tag_fields {
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		if ( !$q->param('no_js') ) {
-			say "<a id=\"add_tags\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;"
-			  . "fields=tags&amp;row=$next_row&amp;no_header=1\" data-rel=\"ajax\" class=\"button\">+</a>"
-			  . " <a class=\"tooltip\" id=\"tag_tooltip\" title=\"\">&nbsp;<i>i</i>&nbsp;</a>";
+			say qq(<a id="add_tags" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
+			  . qq(fields=tags&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>)
+			  . qq( <a class="tooltip" id="tag_tooltip" title=""><span class="fa fa-info-circle"></span></a>);
 		}
 	}
 	say "</span>";

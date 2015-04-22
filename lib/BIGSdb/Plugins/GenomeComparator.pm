@@ -404,8 +404,8 @@ sub _print_reference_genome_fieldset {
 	say qq(<fieldset style="float:left; height:12em"><legend>Reference genome</legend>);
 	say "Enter accession number:<br />";
 	say $q->textfield( -name => 'accession', -id => 'accession', -size => 10, -maxlength => 20 );
-	say " <a class=\"tooltip\" title=\"Reference genome - Use of a reference genome will override any locus "
-	  . "or scheme settings.\">&nbsp;<i>i</i>&nbsp;</a><br />";
+	say qq( <a class="tooltip" title="Reference genome - Use of a reference genome will override any locus )
+	  . qq(or scheme settings."><span class="fa fa-info-circle"></span></a><br />);
 	my $set_id = $self->get_set_id;
 	my $set_annotation =
 	  ( $set_id && $self->{'system'}->{"set_$set_id\_annotation"} ) ? $self->{'system'}->{"set_$set_id\_annotation"} : '';
@@ -436,10 +436,10 @@ sub _print_reference_genome_fieldset {
 		}
 		say "<br />";
 	}
-	say "or upload Genbank/EMBL/FASTA file:<br />";
+	say qq(or upload Genbank/EMBL/FASTA file:<br />);
 	say $q->filefield( -name => 'ref_upload', -id => 'ref_upload', -onChange => 'enable_seqs()' );
 	say qq( <a class="tooltip" title="Reference upload - File format is recognised by the extension in the )
-	  . qq(name.  Make sure your file has a standard extension, e.g. .gb, .embl, .fas.">&nbsp;<i>i</i>&nbsp;</a>);
+	  . qq(name.  Make sure your file has a standard extension, e.g. .gb, .embl, .fas."><span class="fa fa-info-circle"></span></a>);
 	say "</fieldset>";
 	return;
 }
@@ -450,28 +450,29 @@ sub _print_parameters_fieldset {
 	say qq(<fieldset style="float:left;height:12em">\n<legend>Parameters / options</legend>);
 	say qq(<ul><li><label for ="identity" class="parameter">Min % identity:</label>);
 	say $q->popup_menu( -name => 'identity', -id => 'identity', -values => [ 30 .. 100 ], -default => 70 );
-	say qq( <a class="tooltip" title="Minimum % identity - Match required for partial matching.">&nbsp;<i>i</i>&nbsp;</a></li>);
+	say qq( <a class="tooltip" title="Minimum % identity - Match required for partial matching."><span class="fa fa-info-circle">)
+	  . qq(</span></a></li>);
 	say qq(<li><label for="alignment" class="parameter">Min % alignment:</label>);
 	say $q->popup_menu( -name => 'alignment', -id => 'alignment', -values => [ 10 .. 100 ], -default => 50 );
 	say qq( <a class="tooltip" title="Minimum % alignment - Percentage of allele sequence length required to be aligned for )
-	  . qq(partial matching.">&nbsp;<i>i</i>&nbsp;</a></li>);
+	  . qq(partial matching."><span class="fa fa-info-circle"></span></a></li>);
 	say qq(<li><label for="word_size" class="parameter">BLASTN word size:</label>);
 	say $q->popup_menu( -name => 'word_size', -id => 'word_size', -values => [ 7 .. 30 ], -default => 15 );
 	say qq( <a class="tooltip" title="BLASTN word size - This is the length of an exact match required to initiate an extension. )
-	  . qq(Larger values increase speed at the expense of sensitivity.">&nbsp;<i>i</i>&nbsp;</a></li>);
+	  . qq(Larger values increase speed at the expense of sensitivity."><span class="fa fa-info-circle"></span></a></li>);
 	say qq(<li><span class="warning">);
 	say $q->checkbox( -name => 'tblastx', -id => 'tblastx', -label => 'Use TBLASTX' );
 	say qq[ <a class="tooltip" title="TBLASTX (analysis by reference genome only) - Compares the six-frame translation of your nucleotide ]
 	  . qq[query against the six-frame translation of the sequences in the sequence bin (sequences will be classed as identical if they ]
 	  . qq[result in the same translated sequence even if the nucleotide sequence is different).  This is SLOWER than BLASTN. Use with ]
-	  . qq[caution.">&nbsp;<i>i</i>&nbsp;</a></span></li><li>];
+	  . qq[caution."><span class="fa fa-info-circle"></span></a></span></li><li>];
 	say $q->checkbox( -name => 'use_tagged', -id => 'use_tagged', -label => 'Use tagged designations if available', -checked => 1 );
 	say qq( <a class="tooltip" title="Tagged desginations - Allele sequences will be extracted from the definition database based on )
 	  . qq(allele designation rather than by BLAST.  This should be much quicker. Peptide loci, however, are always extracted using )
-	  . qq(BLAST.">&nbsp;<i>i</i>&nbsp;</a></li><li>);
+	  . qq(BLAST."><span class="fa fa-info-circle"></span></a></li><li>);
 	say $q->checkbox( -name => 'disable_html', -id => 'disable_html', -label => 'Disable HTML output' );
 	say qq( <a class="tooltip" title="Disable HTML - Select this option if you are analysing very large numbers of loci which may cause )
-	  . qq(your browser problems in rendering the output table.">&nbsp;<i>i</i>&nbsp;</a></li></ul></fieldset>);
+	  . qq(your browser problems in rendering the output table."><span class="fa fa-info-circle"></span></a></li></ul></fieldset>);
 	return;
 }
 
@@ -481,7 +482,8 @@ sub _print_alignment_fieldset {
 	say qq(<fieldset style="float:left;height:12em"><legend>Alignments</legend><ul><li>);
 	say $q->checkbox( -name => 'align', -id => 'align', -label => 'Produce alignments', -onChange => 'enable_seqs()' );
 	say qq( <a class="tooltip" title="Alignments - Alignments will be produced in clustal format using the selected aligner for )
-	  . qq(any loci that vary between isolates. This may slow the analysis considerably.">&nbsp;<i>i</i>&nbsp;</a></li><li>);
+	  . qq(any loci that vary between isolates. This may slow the analysis considerably."><span class="fa fa-info-circle">)
+	  . qq(</span></a></li><li>);
 	say $q->checkbox(
 		-name     => 'include_ref',
 		-id       => 'include_ref',
@@ -518,7 +520,7 @@ sub _print_core_genome_fieldset {
 	say qq(<li><label for="core_threshold">Core threshold (%):</label>);
 	say $q->popup_menu( -name => 'core_threshold', -id => 'core_threshold', -values => [ 80 .. 100 ], -default => 90 );
 	say qq( <a class="tooltip" title="Core threshold - Percentage of isolates that locus must be present in to be considered part )
-	  . qq(of the core genome.">&nbsp;<i>i</i>&nbsp;</a></li><li>);
+	  . qq(of the core genome."><span class="fa fa-info-circle"></span></a></li><li>);
 	say $q->checkbox(
 		-name     => 'calc_distances',
 		-id       => 'calc_distances',
@@ -526,7 +528,7 @@ sub _print_core_genome_fieldset {
 		-onChange => 'enable_seqs()'
 	);
 	say qq( <a class="tooltip" title="Mean distance - This requires performing alignments of sequences so will take longer to perform.">)
-	  . qq(&nbsp;<i>i</i>&nbsp;</a></li></ul></fieldset>);
+	  . qq(<span class="fa fa-info-circle"></span></a></li></ul></fieldset>);
 	return;
 }
 

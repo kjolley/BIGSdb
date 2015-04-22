@@ -907,7 +907,7 @@ sub _get_locus_value {
 
 	if ( $locus_info->{'description_url'} ) {
 		$locus_info->{'description_url'} =~ s/\&/\&amp;/g;
-		$buffer .= qq(&nbsp;<a href="$locus_info->{'description_url'}" class="info_tooltip"><i>i</i></a>);
+		$buffer .= qq(&nbsp;<a href="$locus_info->{'description_url'}" class="info_tooltip"><span class="fa fa-info-circle"></span></a>);
 	}
 	$buffer .= "</dt><dd>";
 	my $first = 1;

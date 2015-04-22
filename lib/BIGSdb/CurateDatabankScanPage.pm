@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -146,8 +146,8 @@ sub _print_results {
 			( $tags{$_} ) = $cds->get_tag_values($_) if $cds->has_tag($_);
 		}
 		$tags{'product'} //= '';
-		print "<tr class=\"td$td\"><td>$locus</td><td>@aliases</td><td>$tags{'product'} ";
-		print "<a class=\"tooltip\" title=\"$locus - $tags{'note'}\">&nbsp;<i>i</i>&nbsp;</a>" if $tags{'note'};
+		print qq(<tr class="td$td"><td>$locus</td><td>@aliases</td><td>$tags{'product'} );
+		print qq(<a class="tooltip" title="$locus - $tags{'note'}"><span class="fa fa-info-circle"></span></a>) if $tags{'note'};
 		say "</td><td>" . ( $cds->length ) . "</td></tr>";
 		$td = $td == 1 ? 2 : 1;
 		my %type_lookup = ( dna => 'DNA', rna => 'RNA', protein => 'peptide' );

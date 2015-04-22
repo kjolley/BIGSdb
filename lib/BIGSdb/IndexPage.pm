@@ -62,7 +62,8 @@ sub print_content {
 		$self->print_set_section;
 	}
 	say qq(<div class="box" id="index"><div class="scrollable"><div style="float:left;margin-right:1em">);
-	say qq(<img src="/images/icons/64x64/search.png" alt="" /><h2>Query database</h2><ul class="toplevel">);
+	say qq(<span class="main_icon fa fa-search fa-3x pull-left"></span>);
+	say qq(<h2>Query database</h2><ul class="toplevel">);
 	my $scheme_data =
 	  $self->{'datastore'}->get_scheme_list( { with_pk => ( $self->{'system'}->{'dbtype'} eq 'sequences' ? 1 : 0 ), set_id => $set_id } );
 	my $url_root = "$self->{'system'}->{'script_name'}?db=$instance$set_string&amp;";
@@ -173,16 +174,13 @@ sub _print_download_section {
 		  . "$scheme_data->[0]->{'id'}\">$scheme_data->[0]->{'description'} profiles</a></li>";
 	}
 	if ( $seq_download_buffer || $scheme_buffer ) {
-		print << "DOWNLOADS";
-<div style="float:left; margin-right:1em">
-<img src="/images/icons/64x64/download.png" alt="" />
-<h2>Downloads</h2>
-<ul class="toplevel">
-$seq_download_buffer
-$scheme_buffer
-</ul>	
-</div>
-DOWNLOADS
+	say qq(<div style="float:left; margin-right:1em">);
+	say qq(<span class="main_icon fa fa-download fa-3x pull-left"></span>);
+	say qq(<h2>Downloads</h2>);
+	say qq(<ul class="toplevel">);
+	say $seq_download_buffer;
+	say $scheme_buffer;
+	say qq(</ul></div>);
 	}
 	return;
 }
@@ -191,14 +189,14 @@ sub _print_options_section {
 	my ($self) = @_;
 	my $set_id = $self->get_set_id;
 	my $set_string = $set_id ? "&amp;set_id=$set_id" : '';
-	print << "OPTIONS";
-<div style="float:left; margin-right:1em">
-<img src="/images/icons/64x64/preferences.png" alt="" />
-<h2>Option settings</h2>
-<ul class="toplevel">
-<li><a href="$self->{'system'}->{'script_name'}?page=options&amp;db=$self->{'instance'}$set_string">
-Set general options</a>
-OPTIONS
+
+	say qq(<div style="float:left; margin-right:1em">);
+	say qq(<span class="main_icon fa fa-cogs fa-3x pull-left"></span>);
+	say qq(<h2>Option settings</h2>);
+	say qq(<ul class="toplevel">);
+	say qq(<li><a href="$self->{'system'}->{'script_name'}?page=options&amp;db=$self->{'instance'}$set_string">)
+	  . qq(Set general options</a>);
+
 	say " - including isolate table field handling." if $self->{'system'}->{'dbtype'} eq 'isolates';
 	say "</li>";
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -226,7 +224,7 @@ OPTIONS
 sub _print_general_info_section {
 	my ( $self, $scheme_data ) = @_;
 	say "<div style=\"float:left; margin-right:1em\">";
-	say "<img src=\"/images/icons/64x64/information.png\" alt=\"\" />";
+	say qq(<span class="main_icon fa fa-info-circle fa-3x pull-left"></span>);
 	say "<h2>General information</h2>\n<ul class=\"toplevel\">";
 	my $set_id = $self->get_set_id;
 	my $set_string = $set_id ? "&amp;set_id=$set_id" : '';    #append to URLs to ensure unique caching.
@@ -282,12 +280,13 @@ sub _print_plugin_section {
 	  ->get_appropriate_plugin_names( 'breakdown|export|analysis|miscellaneous', $self->{'system'}->{'dbtype'}, { set_id => $set_id } );
 	if (@$plugins) {
 		print "<div class=\"box\" id=\"plugins\"><div class=\"scrollable\">\n";
+		my %icon = (breakdown => 'pie-chart', export => 'save', analysis=>'line-chart',miscellaneous => 'file-text-o');
 		foreach (qw (breakdown export analysis miscellaneous)) {
 			$q->param( 'page', 'index' );
 			$plugins = $self->{'pluginManager'}->get_appropriate_plugin_names( $_, $self->{'system'}->{'dbtype'}, { set_id => $set_id } );
 			next if !@$plugins;
 			say "<div style=\"float:left; margin-right:1em\">";
-			say "<img src=\"/images/icons/64x64/$_.png\" alt=\"\" />";
+			say qq(<span class="plugin_icon fa fa-$icon{$_} fa-3x pull-left"></span>);
 			say "<h2>" . ucfirst($_) . "</h2>\n<ul class=\"toplevel\">";
 			foreach (@$plugins) {
 				my $att      = $self->{'pluginManager'}->get_plugin_attributes($_);

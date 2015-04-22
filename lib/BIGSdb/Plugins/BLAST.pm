@@ -279,9 +279,9 @@ sub run {
 		say "</table>";
 		say "<p style=\"margin-top:1em\">Download <a href=\"/tmp/$out_file\">FASTA</a> | "
 		  . "<a href=\"/tmp/$out_file_flanking\">FASTA with flanking</a>";
-		say " <a class=\"tooltip\" title=\"Flanking sequence - You can change the amount of flanking sequence exported by selecting "
-		  . "the appropriate length in the options page.\">&nbsp;<i>i</i>&nbsp;</a> | ";
-		say "<a href=\"/tmp/$out_file_table\">Table (tab-delimited text)</a>";
+		say qq( <a class="tooltip" title="Flanking sequence - You can change the amount of flanking sequence exported by selecting )
+		  . qq(the appropriate length in the options page."><span class="fa fa-info-circle"></span></a> | );
+		say qq(<a href="/tmp/$out_file_table">Table (tab-delimited text)</a>);
 		my $excel =
 		  BIGSdb::Utils::text2excel( $out_file_table_full_path,
 			{ worksheet => 'BLAST', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
@@ -339,13 +339,13 @@ sub _print_interface {
 		-size     => 10,
 		-multiple => 'true'
 	);
-	say "</fieldset>";
-	say "<fieldset style=\"float:left\">\n<legend>Parameters</legend>";
-	say "<ul><li><label for=\"word_size\" class=\"parameter\">BLASTN word size:</label>";
+	say qq(</fieldset>);
+	say qq(<fieldset style="float:left"><legend>Parameters</legend>);
+	say qq(<ul><li><label for="word_size" class="parameter">BLASTN word size:</label>);
 	say $q->popup_menu( -name => 'word_size', -id => 'word_size', -values => [ 7 .. 28 ], -default => 11 );
-	say " <a class=\"tooltip\" title=\"BLASTN word size - This is the length of an exact match required to initiate an "
-	  . "extension. Larger values increase speed at the expense of sensitivity.\">&nbsp;<i>i</i>&nbsp;</a></li>";
-	say "<li><label for=\"scores\" class=\"parameter\">BLASTN scoring:</label>";
+	say qq( <a class="tooltip" title="BLASTN word size - This is the length of an exact match required to initiate an )
+	  . qq(extension. Larger values increase speed at the expense of sensitivity."><span class="fa fa-info-circle"></span></a></li>);
+	say qq(<li><label for="scores" class="parameter">BLASTN scoring:</label>);
 	my %labels;
 
 	foreach (BLASTN_SCORES) {
@@ -353,41 +353,38 @@ sub _print_interface {
 		$labels{$_} = "reward:$values[0]; penalty:$values[1]; gap open:$values[2]; gap extend:$values[3]";
 	}
 	say $q->popup_menu( -name => 'scores', -id => 'scores', -values => [BLASTN_SCORES], -labels => \%labels, -default => '2,-3,5,2' );
-	say " <a class=\"tooltip\" title=\"BLASTN scoring - This is a combination of rewards for identically matched nucleotides, "
-	  . "penalties for mismatching nucleotides, gap opening costs and gap extension costs. Only the listed combinations are "
-	  . "supported by the BLASTN algorithm.\">&nbsp;<i>i</i>&nbsp;</a>";
-	say "</li><li><label for=\"hits\" class=\"parameter\">Hits per isolate:</label>";
+	say qq( <a class="tooltip" title="BLASTN scoring - This is a combination of rewards for identically matched nucleotides, )
+	  . qq(penalties for mismatching nucleotides, gap opening costs and gap extension costs. Only the listed combinations are )
+	  . qq(supported by the BLASTN algorithm."><span class="fa fa-info-circle"></span></a>);
+	say qq(</li><li><label for="hits" class="parameter">Hits per isolate:</label>);
 	say $q->popup_menu( -name => 'hits', -id => 'hits', -values => [qw(1 2 3 4 5 6 7 8 9 10 20 30 40 50)], -default => 1 );
-	say "</li><li><label for=\"flanking\" class=\"parameter\">Flanking length (bp):</label>";
+	say qq(</li><li><label for="flanking" class="parameter">Flanking length (bp):</label>);
 	say $q->popup_menu( -name => 'flanking', -id => 'flanking', -values => [FLANKING], -default => $self->{'prefs'}->{'flanking'} );
-	say " <a class=\"tooltip\" title=\"Flanking length - This is the length of flanking sequence (if present) that will be output "
-	  . "in the secondary FASTA file.  The default value can be changed in the options page.\">&nbsp;<i>i</i>&nbsp;</a></li>";
-	say "<li>";
+	say qq( <a class="tooltip" title="Flanking length - This is the length of flanking sequence (if present) that will be output in the )
+	  . qq(secondary FASTA file.  The default value can be changed in the options page."><span class="fa fa-info-circle"></span></a></li>);
+	say qq(<li>);
 	say $q->checkbox( -name => 'tblastx', label => 'Use TBLASTX' );
-	say " <a class=\"tooltip\" title=\"TBLASTX - Compares the six-frame translation of your nucleotide query against the "
-	  . "six-frame translation of the sequences in the sequence bin.\">&nbsp;<i>i</i>&nbsp;</a></li>";
-	say "</ul>";
-	say "</fieldset>";
-	say "<fieldset style=\"float:left\">";
-	say "<legend>Options</legend>";
-	say "<ul><li>";
+	say qq( <a class="tooltip" title="TBLASTX - Compares the six-frame translation of your nucleotide query against the )
+	  . qq(six-frame translation of the sequences in the sequence bin."><span class="fa fa-info-circle"></span></a></li>);
+	say qq(</ul></fieldset>);
+	say qq(<fieldset style="float:left"><legend>Options</legend>);
+	say qq(<ul><li>);
 	say $q->checkbox( -name => 'show_no_match', label => 'Show 0% matches in table' );
-	say "</li></ul>";
-	say "</fieldset>";
-	say "<fieldset style=\"float:left\">\n<legend>Restrict included sequences by</legend>";
-	say "<ul>";
+	say qq(</li></ul></fieldset>);
+	say qq(<fieldset style="float:left"><legend>Restrict included sequences by</legend>);
+	say qq(<ul>);
 	my $buffer = $self->get_sequence_method_filter( { 'class' => 'parameter' } );
-	say "<li>$buffer</li>" if $buffer;
+	say qq(<li>$buffer</li>) if $buffer;
 	$buffer = $self->get_project_filter( { 'class' => 'parameter' } );
-	say "<li>$buffer</li>" if $buffer;
+	say qq(<li>$buffer</li>) if $buffer;
 	$buffer = $self->get_experiment_filter( { 'class' => 'parameter' } );
-	say "<li>$buffer</li>" if $buffer;
-	say "</ul>\n</fieldset>";
+	say qq(<li>$buffer</li>) if $buffer;
+	say qq(</ul></fieldset>);
 	$self->print_action_fieldset( { name => 'BLAST' } );
 	say $q->hidden($_) foreach qw (db page name);
-	say "</div>";
+	say qq(</div>);
 	say $q->end_form;
-	say "</div>";
+	say qq(</div>);
 	return;
 }
 

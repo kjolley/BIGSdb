@@ -354,7 +354,7 @@ sub _get_form_fields {
 					}
 				}
 				if ( $att->{'tooltip'} ) {
-					$buffer .= "&nbsp;<a class=\"tooltip\" title=\"$att->{'tooltip'}\">&nbsp;<i>i</i>&nbsp;</a>&nbsp;";
+					$buffer .= qq(&nbsp;<a class="tooltip" title="$att->{'tooltip'}"><span class="fa fa-info-circle"></span></a>);
 				}
 				if ( $att->{'comments'} ) {
 					my $padding = $att->{'type'} eq 'bool' ? '3em' : '0';
@@ -617,7 +617,8 @@ sub _create_extra_fields_for_seqbin {
 			$buffer .=
 			  $q->textfield( -name => $attribute->{'key'}, -id => $attribute->{'key'}, -value => $newdata_ref->{ $attribute->{'key'} } );
 			if ( $attribute->{'description'} ) {
-				$buffer .= qq( <a class="tooltip" title="$attribute->{'key'} - $attribute->{'description'}">&nbsp;<i>i</i>&nbsp;</a>);
+				$buffer .= qq( <a class="tooltip" title="$attribute->{'key'} - $attribute->{'description'}">)
+				  . qq(<span class="fa fa-info-circle"></span></a>);
 			}
 		}
 	}
