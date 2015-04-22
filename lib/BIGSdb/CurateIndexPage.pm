@@ -110,7 +110,9 @@ sub print_content {
 		}
 	}
 	if ($buffer) {
-		say qq(<div class="box" id="index"><img src="/images/icons/64x64/edit.png" alt="" /><h2>Add, update or delete records</h2>\n)
+		say qq(<div class="box" id="index">);
+		say qq(<span class="main_icon fa fa-edit fa-3x pull-left"></span>);
+		say qq(<h2>Add, update or delete records</h2>\n)
 		  . qq(<table style="text-align:center"><tr><th>Record type</th><th>Add</th><th>Batch Add</th><th>Update or delete</th>)
 		  . qq(<th>Comments</th></tr>\n$buffer</table></div>);
 	}
@@ -174,7 +176,9 @@ sub print_content {
 		$can_do_something = 1;
 	}
 	if ( $buffer || $list_buffer ) {
-		say qq(<div class="box" id="restricted"><img src="/images/icons/64x64/configure.png" alt="" /><h2>Database configuration</h2>);
+		say qq(<div class="box" id="restricted">);
+		say qq(<span class="config_icon fa fa-wrench fa-3x pull-left"></span>);
+		say qq(<h2>Database configuration</h2>);
 	}
 	if ($buffer) {
 		say qq(<table style="text-align:center"><tr><th>Table</th><th>Add</th><th>Batch Add</th><th>Update or delete</th><th>Comments</th>)

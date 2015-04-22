@@ -92,7 +92,7 @@ sub _print_interface {
 		  . "(or all) loci - they do not need to be trimmed. The nearest partial matches will be identified if an exact "
 		  . "match is not found. You can query using either DNA or peptide sequences.";
 		say qq( <a class="tooltip" title=\"Query sequence - Your query sequence is assumed to be DNA if it contains )
-		  . qq(90% or more G,A,T,C or N characters.">&nbsp;<i>i</i>&nbsp;</a>);
+		  . qq(90% or more G,A,T,C or N characters."><span class="fa fa-info-circle"></span></a>);
 	}
 	say "</p>";
 	say $q->start_form;
@@ -728,9 +728,9 @@ sub _output_single_query_nonexact {
 				if (@$diffs) {
 					my $plural = @$diffs > 1 ? 's' : '';
 					say "<p>" . @$diffs . " difference$plural found. ";
-					say "<a class=\"tooltip\" title=\"differences - The information to the left of the arrow$plural shows the identity "
-					  . "and position on the reference sequence and the information to the right shows the corresponding identity and "
-					  . "position on your query sequence.\">&nbsp;<i>i</i>&nbsp;</a>";
+					say qq(<a class="tooltip" title="differences - The information to the left of the arrow$plural shows the identity )
+					  . qq(and position on the reference sequence and the information to the right shows the corresponding identity and )
+					  . qq(position on your query sequence."><span class="fa fa-info-circle"></span></a>);
 					say "</p><p>";
 					foreach (@$diffs) {
 						if ( !$_->{'qbase'} ) {
@@ -746,8 +746,9 @@ sub _output_single_query_nonexact {
 						say "$cleaned_match.</p>";
 					} else {
 						say "<p>The locus start point is at position " . ( $qstart - $sstart + 1 ) . " of your query sequence.";
-						say " <a class=\"tooltip\" title=\"start position - This may be approximate if there are gaps near the beginning "
-						  . "of the alignment between your query and the reference sequence.\">&nbsp;<i>i</i>&nbsp;</a></p>";
+						say qq( <a class="tooltip" title="start position - This may be approximate if there are gaps near the beginning )
+						  . qq(of the alignment between your query and the reference sequence."><span class="fa fa-info-circle"></span>)
+						  . qq(</a></p>);
 					}
 				} else {
 					print "<p>Your query sequence only starts at position $sstart of sequence ";

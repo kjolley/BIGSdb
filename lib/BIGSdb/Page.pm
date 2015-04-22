@@ -313,18 +313,13 @@ sub print_page_content {
 			$http_equiv .= "<meta http-equiv=\"refresh\" content=\"$self->{'refresh'}$refresh_page\" />";
 		}
 		my $tooltip_display = $self->{'prefs'}->{'tooltips'} ? 'inline' : 'none';
-		my $stylesheets     = $self->get_stylesheets;
+		my $stylesheets = $self->get_stylesheets;
 		my @styles;
-		foreach my $stylesheet (@$stylesheets){
-			push @styles, { -src  => $stylesheet, -media => 'Screen' } ; 
-		}
-		my @args            = (
-			-title => $title,
-			-meta  => {%meta_content},
-			-style => [
-				@styles,
-				{ -code => ".tooltip{display:$tooltip_display}" }
-			],
+		push @styles, { -src => $_, -media => 'Screen' } foreach @$stylesheets;
+		my @args = (
+			-title    => $title,
+			-meta     => {%meta_content},
+			-style    => [ @styles, { -code => ".tooltip{display:$tooltip_display}" } ],
 			-script   => \@javascript,
 			-encoding => 'utf-8'
 		);
@@ -357,17 +352,23 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system    = $self->{'system'};
-	my $version   = '20150414';
-	my @filenames = qw(bigsdb.css jquery-ui.css);
+	my $version   = '20150421';
+	my @filenames = qw(bigsdb.css jquery-ui.css font-awesome.css);
 	my @paths;
 	foreach my $filename (@filenames) {
 		my $vfilename = "$filename?v=$version";
 		if ( !$system->{'db'} ) {
-			$stylesheet = "/$filename";
+			if ( -e "$ENV{'DOCUMENT_ROOT'}/css/$filename" ) {
+				$stylesheet = "/css/$filename";
+			} else {
+				$stylesheet = "/$filename";
+			}
 		} elsif ( -e "$ENV{'DOCUMENT_ROOT'}$system->{'webroot'}/$system->{'db'}/$filename" ) {
 			$stylesheet = "$system->{'webroot'}/$system->{'db'}/$vfilename";
 		} elsif ( -e "$ENV{'DOCUMENT_ROOT'}$system->{'webroot'}/$filename" ) {
 			$stylesheet = "$system->{'webroot'}/$vfilename";
+		} elsif ( -e "$ENV{'DOCUMENT_ROOT'}/css/$filename" ) {
+			$stylesheet = "/css/$vfilename";
 		} else {
 			$stylesheet = "/$vfilename";
 		}
@@ -388,14 +389,12 @@ sub print_set_section {
 	my $sets = $self->{'datastore'}->run_query( "SELECT * FROM sets WHERE NOT hidden OR hidden IS NULL ORDER BY display_order,description",
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	return if !@$sets || ( @$sets == 1 && ( $self->{'system'}->{'only_sets'} // '' ) eq 'yes' );
-	say "<div class=\"box\" id=\"sets\">";
-	print << "SETS";
-<div class="scrollable">	
-<div style="float:left; margin-right:1em">
-<img src="/images/icons/64x64/choose.png" alt="" />
-<h2>Datasets</h2>
-<p>This database contains multiple datasets.  
-SETS
+	say qq(<div class="box" id="sets">);
+	say qq(<div class="scrollable">);
+	say qq(<div style="float:left; margin-right:1em">);
+	say qq(<span class="dataset_icon fa fa-database fa-3x pull-left"></span>);
+	say qq(<h2>Datasets</h2>);
+	say qq(<p>This database contains multiple datasets.);
 	print(
 		( $self->{'system'}->{'only_sets'} // '' ) eq 'yes'
 		? '</p>'
@@ -544,7 +543,8 @@ sub _print_login_details {
 	}
 	if ( $self->{'system'}->{'authentication'} eq 'builtin' ) {
 		if ( $self->{'username'} ) {
-			say qq( <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=logout">Log out</a> | );
+			say qq( <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=logout"><span class="fa fa-sign-out">)
+			  . qq(</span>Log out</a> | );
 			say qq( <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=changePassword">Change password</a>);
 		}
 	}
@@ -565,8 +565,8 @@ sub _print_help_panel {
 		my $plugin_att = $self->{'pluginManager'}->get_plugin_attributes( $q->param('name') );
 		if ( ref $plugin_att eq 'HASH' ) {
 			if ( $plugin_att->{'url'} && ( $self->{'config'}->{'intranet'} // '' ) ne 'yes' ) {
-				say qq(<span class="context_help"><a href="$plugin_att->{'url'}" target="_blank">Help )
-				  . qq(<img src="/images/external_link.png" alt="" title="Open help in new window" /></a></span>);
+				say qq(<span class="context_help"><a href="$plugin_att->{'url'}" target="_blank" title="Open help in new window">Help )
+				  . qq(<span class="fa fa-external-link"></span></a></span>);
 			}
 			if ( ( $plugin_att->{'help'} // '' ) =~ /tooltips/ ) {
 				$self->{'tooltips'} = 1;
@@ -575,14 +575,14 @@ sub _print_help_panel {
 	} else {
 		my $url = $self->get_help_url;
 		if ( $url && ( $self->{'config'}->{'intranet'} // '' ) ne 'yes' ) {
-			say qq(<span class="context_help"><a href="$url" target="_blank">Help )
-			  . qq(<img src="/images/external_link.png" alt="" title="Open help in new window" /></a></span>);
+			say qq(<span class="context_help"><a href="$url" target="_blank" title="Open help in new window" >Help )
+			  . qq(<span class="fa fa-external-link"></span></a></span>);
 		}
 	}
 	if ( $self->{'tooltips'} ) {
-		print "<span id=\"toggle\" style=\"display:none\">Toggle: </span><a id=\"toggle_tooltips\" href=\""
-		  . "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=options&amp;toggle_tooltips=1\" style=\"display:none; "
-		  . "margin-right:1em;\">&nbsp;<i>i</i>&nbsp;</a> ";
+		print qq(<span id="toggle" style="display:none">Toggle: </span><a id="toggle_tooltips" href="$self->{'system'}->{'script_name'}?)
+		  . qq(db=$self->{'instance'}&amp;page=options&amp;toggle_tooltips=1" style="display:none;margin-right:1em;">)
+		  . qq(<span class="fa fa-info-circle fa-lg"></span></a>);
 	}
 	if ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' && $self->{'field_help'} ) {
 
@@ -924,7 +924,7 @@ sub get_filter {
 	#Page::popup_menu faster than CGI::popup_menu as it doesn't escape values.
 	$buffer .= ( $args{'-class'} // '' ) eq 'multiselect' ? $q->popup_menu(%args) : $self->popup_menu(%args);
 	$options->{'tooltip'} =~ tr/_/ / if $options->{'tooltip'};
-	$buffer .= " <a class=\"tooltip\" title=\"$options->{'tooltip'}\">&nbsp;<i>i</i>&nbsp;</a>" if $options->{'tooltip'};
+	$buffer .= qq( <a class="tooltip" title="$options->{'tooltip'}\"><span class="fa fa-info-circle"></span></a>) if $options->{'tooltip'};
 	return $buffer;
 }
 
@@ -961,15 +961,15 @@ sub get_number_records_control {
 	if ( $self->{'cgi'}->param('displayrecs') ) {
 		$self->{'prefs'}->{'displayrecs'} = $self->{'cgi'}->param('displayrecs');
 	}
-	my $buffer = "<span style=\"white-space:nowrap\"><label for=\"displayrecs\" class=\"display\">Display: </label>\n"
-	  . $self->{'cgi'}->popup_menu(
+	my $buffer = qq(<span style="white-space:nowrap"><label for="displayrecs" class="display">Display: </label>);
+	$buffer .= $self->{'cgi'}->popup_menu(
 		-name   => 'displayrecs',
 		-id     => 'displayrecs',
 		-values => [ '10', '25', '50', '100', '200', '500', 'all' ],
 		-default => $self->{'cgi'}->param('displayrecs') || $self->{'prefs'}->{'displayrecs'}
-	  )
-	  . " records per page <a class=\"tooltip\" title=\"Records per page - Analyses use the full query dataset, rather "
-	  . "than just the page shown.\">&nbsp;<i>i</i>&nbsp;</a>&nbsp;&nbsp;</span>";
+	);
+	$buffer .= qq( records per page <a class="tooltip" title="Records per page - Analyses use the full query dataset, rather )
+	  . qq(than just the page shown.\"><span class="fa fa-info-circle"></span></a></span>);
 	return $buffer;
 }
 

@@ -177,7 +177,8 @@ HTML
 			say qq(<li><label for="$attribute->{'key'}" class="parameter">$label:</label>\n);
 			say $q->textfield( -name => $attribute->{'key'}, -id => $attribute->{'key'} );
 			if ( $attribute->{'description'} ) {
-				say qq( <a class="tooltip" title="$attribute->{'key'} - $attribute->{'description'}">&nbsp;<i>i</i>&nbsp;</a>);
+				say qq( <a class="tooltip" title="$attribute->{'key'} - $attribute->{'description'}">)
+				  . qq(<span class="fa fa-info-circle"></span></a>);
 			}
 		}
 	}

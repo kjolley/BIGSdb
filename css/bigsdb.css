@@ -87,7 +87,7 @@ a.downloadbutton:hover {
 	background:#fa3030
 }
 
-#tooltip,#toggle_tooltips,a.tooltip,a.update_tooltip {
+#tooltip,a.update_tooltip {
 	background:#fafad2;
 	color:black;
 	opacity:0.9
@@ -103,10 +103,7 @@ a.sequence_tooltip_incomplete {
 	color:black	
 }
 
-a.tooltip {border:1px solid black}
-a.tooltip,a.info_tooltip {font:600 0.8em serif; padding: 0 0.2em}
-
-a.tooltip,a.update_tooltip,a.existing_tooltip,a.clashing_tooltip {
+a.update_tooltip,a.existing_tooltip,a.clashing_tooltip {
 	cursor:help;
 	text-decoration:none;
 	padding: 0 0.2em
@@ -117,11 +114,10 @@ a.sequence_tooltip,a.sequence_tooltip_incomplete,a.extract_tooltip,a.info_toolti
 	text-decoration:none;	
 }
 
-a#toggle_tooltips {
+a#toggle_tooltips,a.tooltip {
 	cursor:pointer;
 	text-decoration:none;
-	border:1px solid #c0c0c0;
-	font: 300 1em serif;
+	color:#66f;
 }
 
 a.update_tooltip,a.sequence_tooltip,a.sequence_tooltip_incomplete {
@@ -144,10 +140,7 @@ a.extract_tooltip {
 }
 
 a.info_tooltip {
-	background:#d2fafa;
-	color:black;
-	border:1px solid #c0c0c0;	
-	font-size:0.8em	
+	color:#d2fafa;
 }
 
 span.seqflag {
@@ -606,11 +599,6 @@ div#statusbad, div.statusbad {
 	color:#800000
 }
 
-div#statuswarn, div.statuswarn {
-	background:#e0e0d5;
-	color:#404000
-}
-
 div.statusbad_no_resize {
 	background:#e0d5d5;
 	color:#800000
@@ -929,6 +917,11 @@ h3.group3 {color:white;background:#408040}
 h3.group4 {color:white;background:#60A060}
 h3.group5 {background:#80C080}
 h3.group6 {background:#A0E0A0}
+
+.main_icon {color:#66a;text-shadow: 3px 3px 3px #999}
+.plugin_icon {color:#a6a;text-shadow: 3px 3px 3px #999}
+.dataset_icon {color:#6a6;text-shadow: 3px 3px 3px #999}
+.config_icon {color:#a66;text-shadow: 3px 3px 3px #999}
 
 @media (max-width: 800px) {
 	div#scheme_loci_add {float:left}

@@ -195,10 +195,9 @@ sub _print_scheme_fields {
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		if ( !$q->param('no_js') ) {
-			print "<a id=\"add_scheme_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;"
-			  . "fields=scheme_fields&amp;scheme_id=$scheme_id&amp;row=$next_row&amp;no_header=1\" data-rel=\"ajax\" "
-			  . "class=\"button\">+</a>";
-			say " <a class=\"tooltip\" id=\"scheme_field_tooltip\" title=\"\">&nbsp;<i>i</i>&nbsp;</a>";
+			print qq(<a id="add_scheme_fields" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
+			  . qq(fields=scheme_fields&amp;scheme_id=$scheme_id&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>);
+			say qq( <a class="tooltip" id="scheme_field_tooltip" title=""><span class="fa fa-info-circle"></span></a>);
 		}
 	}
 	say "</span>";

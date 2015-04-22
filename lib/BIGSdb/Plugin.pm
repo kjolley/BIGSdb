@@ -435,9 +435,10 @@ sub print_field_export_form {
 				push @com_js,  "\$(\"#c_$_\").prop(\"checked\",true)";
 				push @com_js2, "\$(\"#c_$_\").prop(\"checked\",false)";
 			}
-			print "<fieldset style=\"float:left\"><legend>Composite fields";
-			print " <a class=\"tooltip\" title=\"Composite fields - These are constructed from combinations of other fields "
-			  . "(some of which may come from external databases).  Including composite fields will slow down the processing.\">&nbsp;<i>i</i>&nbsp;</a>";
+			say qq(<fieldset style="float:left"><legend>Composite fields);
+			say qq( <a class="tooltip" title="Composite fields - These are constructed from combinations of other fields )
+			  . qq[(some of which may come from external databases).  Including composite fields will slow down the processing.">]
+			  . qq(<span class="fa fa-info-circle"></span></a>);
 			say "</legend>";
 			$self->_print_fields( { fields => $composites, prefix => 'c', num_columns => 1, labels => \%labels, default_select => 0 } );
 			$self->_print_all_none_buttons( \@com_js, \@com_js2, 'smallbutton' );
@@ -450,7 +451,7 @@ sub print_field_export_form {
 	$self->print_options;
 	$self->print_extra_options;
 	$self->print_action_fieldset( { no_reset => 1 } );
-	say "<div style=\"clear:both\"></div>";
+	say qq(<div style="clear:both"></div>);
 	$q->param( set_id => $set_id );
 	say $q->hidden($_) foreach qw (db page name query_file set_id list_file datatype);
 	say $q->end_form;
@@ -617,11 +618,11 @@ sub print_sequence_export_form {
 	}
 	if ( !$options->{'no_options'} ) {
 		my $options_heading = $options->{'options_heading'} || 'Options';
-		say "<fieldset style=\"float:left\">\n<legend>$options_heading</legend>";
+		say qq(<fieldset style="float:left"><legend>$options_heading</legend>);
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-			say "If both allele designations and tagged sequences<br />exist for a locus, choose how you want these handled: ";
-			say " <a class=\"tooltip\" title=\"Sequence retrieval - Peptide loci will only be retrieved from the sequence bin "
-			  . "(as nucleotide sequences).\">&nbsp;<i>i</i>&nbsp;</a>";
+			say qq(If both allele designations and tagged sequences<br />exist for a locus, choose how you want these handled: );
+			say qq( <a class="tooltip" title="Sequence retrieval - Peptide loci will only be retrieved from the sequence bin )
+			  . qq[(as nucleotide sequences)."><span class="fa fa-info-circle"></span></a>];
 			say "<br /><br />";
 			my %labels = (
 				seqbin             => 'Use sequences tagged from the bin',
@@ -650,8 +651,8 @@ sub print_sequence_export_form {
 				say "Include ";
 				say $q->popup_menu( -name => 'flanking', -values => [FLANKING], -default => 0 );
 				say " bp flanking sequence";
-				say " <a class=\"tooltip\" title=\"Flanking sequence - This can only be included if you select to retrieve sequences "
-				  . "from the sequence bin rather than from an external database.\">&nbsp;<i>i</i>&nbsp;</a>";
+				say qq( <a class="tooltip" title="Flanking sequence - This can only be included if you select to retrieve sequences )
+				  . qq(from the sequence bin rather than from an external database."><span class="fa fa-info-circle"></span></a>);
 				say "<br />";
 			}
 		}

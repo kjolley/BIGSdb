@@ -185,7 +185,7 @@ sub _print_table_fields {
 		say qq(<a id="add_table_fields" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=alleleQuery&amp;locus=$locus&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>);
 		say qq( <a class="tooltip" title="Search values - Empty field values can be searched using the term 'null'. )
-		  . qq(<h3>Number of fields</h3>Add more fields by clicking the '+' button.">&nbsp;<i>i</i>&nbsp;</a>);
+		  . qq(<h3>Number of fields</h3>Add more fields by clicking the '+' button."><span class="fa fa-info-circle"></span></a>);
 	}
 	say "</span>";
 	return;

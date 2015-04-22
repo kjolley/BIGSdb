@@ -426,7 +426,7 @@ sub print_provenance_form_elements {
 				}
 				say qq( <span class="metaset">Metadata: $metaset</span>) if !$set_id && defined $metaset;
 				if ( $thisfield->{'comments'} ) {
-					say qq(<a class="tooltip" title="$thisfield->{'comments'}">&nbsp;<i>i</i>&nbsp;</a>&nbsp;);
+					say qq(<a class="tooltip" title="$thisfield->{'comments'}"><span class="fa fa-info-circle"></span></a>);
 				}
 				if ( ( none { lc($field) eq $_ } qw(datestamp date_entered) ) && lc( $thisfield->{'type'} ) eq 'date' ) {
 					say " format: yyyy-mm-dd";

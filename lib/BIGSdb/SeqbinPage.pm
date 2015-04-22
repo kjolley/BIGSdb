@@ -174,12 +174,13 @@ sub print_content {
 	  . qq(<th>Comments</th>$att_headings<th>Locus</th><th>Start</th><th>End</th><th>Direction</th><th>EMBL format</th><th>Artemis )
 	  . qq(<a class="tooltip" title="Artemis - This will launch Artemis using Java WebStart.  The contig annotations should open within )
 	  . qq(Artemis but this may depend on your operating system and version of Java.  If the annotations do not open within Artemis, )
-	  . qq(download the EMBL file locally and load manually in to Artemis.">&nbsp;<i>i</i>&nbsp;</a></th>);
+	  . qq(download the EMBL file locally and load manually in to Artemis."><span class="fa fa-info-circle" style="color:white"></span>)
+	  . qq(</a></th>);
 
 	if ( $self->{'curate'} && ( $self->{'permissions'}->{'modify_loci'} || $self->is_admin ) ) {
 		say qq(<th>Renumber <a class="tooltip" title="Renumber - You can use the numbering of the sequence tags to automatically )
 		  . qq(set the genome order position for each locus. This will be used to order the sequences when exporting FASTA or XMFA )
-		  . qq(files.">&nbsp;<i>i</i>&nbsp;</a></th>);
+		  . qq(files."><span class="fa fa-info-circle" style="color:white"></span></a></th>);
 	}
 	say "</tr>";
 	my $td     = 1;

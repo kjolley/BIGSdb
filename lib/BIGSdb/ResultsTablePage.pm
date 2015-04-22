@@ -605,7 +605,7 @@ sub _print_isolate_table_header {
 	}
 	$fieldtype_header .= qq(<th colspan="$col_count">Isolate fields);
 	$fieldtype_header .= qq( <a class="tooltip" title="Isolate fields - You can select the isolate fields that are displayed here )
-	  . qq(by going to the options page.">&nbsp;<i>i</i>&nbsp;</a>);
+	  . qq(by going to the options page."><span class="fa fa-info-circle" style="color:white"></span></a>);
 	$fieldtype_header .= "</th>";
 	$fieldtype_header .= qq(<th rowspan="2">Seqbin size (bp)</th>) if $self->{'prefs'}->{'display_seqbin_main'};
 	$fieldtype_header .= qq(<th rowspan="2">Contigs</th>) if $self->{'prefs'}->{'display_contig_count'};
@@ -928,7 +928,7 @@ sub _print_plugin_buttons {
 				}
 				if ($plugin_buffer) {
 					$_ = 'Miscellaneous' if !$_;
-					$cat_buffer .= "<tr><td style=\"text-align:right\">$_: </td><td>\n<table><tr>\n";
+					$cat_buffer .= qq(<tr><td style=\"text-align:right\">$_: </td><td>\n<table><tr>\n);
 					$cat_buffer .= $plugin_buffer;
 					$cat_buffer .= "</tr>\n";
 				}

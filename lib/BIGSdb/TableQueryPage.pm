@@ -187,9 +187,9 @@ sub _print_table_fields {
 	say $q->textfield( -name => "t$row", -class => 'value_entry' );
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
-		print "<a id=\"add_table_fields\" href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;"
-		  . "fields=table_fields&amp;table=$table&amp;row=$next_row&amp;no_header=1\" data-rel=\"ajax\" class=\"button\">+</a>"
-		  . " <a class=\"tooltip\" id=\"field_tooltip\" title=\"\">&nbsp;<i>i</i>&nbsp;</a>";
+		print qq(<a id="add_table_fields" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;)
+		  . qq(fields=table_fields&amp;table=$table&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>)
+		  . qq( <a class="tooltip" id="field_tooltip" title=""><span class="fa fa-info-circle"></span></a>);
 	}
 	say "</span>";
 	return;
@@ -924,8 +924,7 @@ sub _are_only_int_allele_ids_used {
 	#If not the query has to be treated as text
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my $any_text_ids_used =
-	  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM loci WHERE allele_id_format=?)", 'text' );
+	my $any_text_ids_used = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM loci WHERE allele_id_format=?)", 'text' );
 	return 1 if !$any_text_ids_used;
 	if ( $q->param('locus_list') ) {
 		( my $locus = $q->param('locus_list') ) =~ s/^cn_//;

@@ -1,6 +1,6 @@
 #Contigs.pm - Contig export and analysis plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2013-2014, University of Oxford
+#Copyright (c) 2013-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -309,22 +309,20 @@ sub _print_options_fieldset {
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
 	my @pc_values = ( 0 .. 100 );
-	say "<fieldset style=\"float:left\">\n<legend>Options</legend>";
-	say "<ul>";
-	say "<li><label for=\"pc_untagged\">Identify contigs with >= </label>";
+	say qq(<fieldset style="float:left"><legend>Options</legend>);
+	say qq(<ul><li><label for="pc_untagged">Identify contigs with >= </label>);
 	say $q->popup_menu( -name => 'pc_untagged', -id => 'pc_untagged', -values => \@pc_values );
-	say "% of sequence untagged</li>";
-	say "<li><label for=\"header_list\">FASTA header line: </label>";
+	say qq(% of sequence untagged</li>);
+	say qq(<li><label for="header_list">FASTA header line: </label>);
 	say $q->popup_menu(
 		-name   => 'header_list',
 		-id     => 'header_list',
 		-values => [qw (1 2)],
 		-labels => { 1 => 'original designation', 2 => 'seqbin id' }
 	);
-	say " <a class=\"tooltip\" title=\"FASTA header line - Seqbin id will be used if the original designation has not been stored.\">"
-	  . "&nbsp;<i>i</i>&nbsp;</a>";
-	say "</li></ul>";
-	say "</fieldset>";
+	say qq( <a class="tooltip" title="FASTA header line - Seqbin id will be used if the original designation has not been stored.">)
+	  . qq(<span class="fa fa-info-circle"></span></a>);
+	say qq(</li></ul></fieldset>);
 	return;
 }
 

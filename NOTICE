@@ -1,6 +1,6 @@
 Bacterial Isolate Genome Sequence Database (BIGSdb)
 Written by Keith Jolley
-Copyright (c) 2010-2012, University of Oxford
+Copyright (c) 2010-2015, University of Oxford
 E-mail: keith.jolley@zoo.ox.ac.uk
 
 See also the file LICENSE.
@@ -21,23 +21,7 @@ This product includes perl-md5-login Perl/CGI + JavaScript user authorization
 (https://sourceforge.net/projects/perl-md5-login/). This has been released 
 under the GNU Lesser General Public License (LGPL).
 
-This product includes image files developed for Oxygen 
-(http://www.oxygen-icons.org/).  These are licensed under the GNU Lesser 
-General Public License (LGPL).
-
-This product includes image files developed for Tango Icon Library 
-(http://tango.freedesktop.org/Tango_Icon_Library).  These are in the public 
-domain.
-
-This product includes image files from the Crystal Clear icon set 
-(http://commons.wikimedia.org/wiki/Crystal_Clear). These are licensed under
-the GNU Lesser General Public License (LGPL).
-
-This product includes image files from the gnome-colors icon set 
-(http://code.google.com/p/gnome-colors/). These are licensed under the GNU 
-General Public License version 2 (GPL).
-
-
+This products uses Font Awesome Icons by Dave Gandy - http://fontawesome.io.
 -------------------------------------------------------------------------------
                    GNU GENERAL PUBLIC LICENSE
                        Version 2, June 1991

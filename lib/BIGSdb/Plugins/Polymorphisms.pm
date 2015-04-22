@@ -1,6 +1,6 @@
 #Polymorphisms.pm - Plugin for BIGSdb (requires LocusExplorer plugin)
 #Written by Keith Jolley
-#Copyright (c) 2011-2014, University of Oxford
+#Copyright (c) 2011-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -312,38 +312,38 @@ sub _print_interface {
 	my $set_id = $self->get_set_id;
 	my ( $loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, analysis_pref => 1 } );
 	if ( !@$loci ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No loci have been defined for this database.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>No loci have been defined for this database.</p></div>);
 		return;
 	}
-	say "<div class=\"box\" id=\"queryform\">";
-	say "<p>This tool will analyse the polymorphic sites in the selected locus for the current isolate dataset.</p>";
-	say "<p>If more than 50 sequences have been selected, the job will be run by the offline job manager which may "
-	  . "take a few minutes (or longer depending on the queue).  This is because sequences may have gaps in them and "
-	  . "consequently need to be aligned which is a processor- and memory- intensive operation.</p>";
-	say "<div class=\"scrollable\">";
+	say qq(<div class="box" id="queryform">);
+	say qq(<p>This tool will analyse the polymorphic sites in the selected locus for the current isolate dataset.</p>);
+	say qq(<p>If more than 50 sequences have been selected, the job will be run by the offline job manager which may )
+	  . qq(take a few minutes (or longer depending on the queue).  This is because sequences may have gaps in them and )
+	  . qq(consequently need to be aligned which is a processor- and memory- intensive operation.</p>);
+	say qq(<div class="scrollable">);
 	say $q->start_form;
-	say "<fieldset style=\"float:left\">\n<legend>Loci</legend>";
+	say qq(<fieldset style="float:left"><legend>Loci</legend>);
 	say $q->scrolling_list( -name => 'locus', -id => 'locus', -values => $loci, -labels => $cleaned, -size => 8 );
-	say "</fieldset>";
-	say "<fieldset style=\"float:left\">\n<legend>Options</legend>";
-	say "If both allele designations and tagged sequences<br />exist for a locus, choose how you want these handled: ";
-	say " <a class=\"tooltip\" title=\"Sequence retrieval - Peptide loci will only be retrieved from the sequence bin (as nucleotide "
-	  . "sequences).\">&nbsp;<i>i</i>&nbsp;</a>";
-	say "<br /><br />";
-	say "<ul>\n<li>";
+	say qq(</fieldset>);
+	say qq(<fieldset style="float:left"><legend>Options</legend>);
+	say qq(If both allele designations and tagged sequences<br />exist for a locus, choose how you want these handled: );
+	say qq( <a class="tooltip" title=\"Sequence retrieval - Peptide loci will only be retrieved from the sequence bin (as nucleotide )
+	  . qq(sequences)."><span class="fa fa-info-circle"></span></a>);
+	say qq(<br /><br />);
+	say qq(<ul><li>);
 	my %labels =
 	  ( seqbin => 'Use sequences tagged from the bin', allele_designation => 'Use allele sequence retrieved from external database' );
 	say $q->radio_group( -name => 'chooseseq', -values => [qw(allele_designation seqbin)], -labels => \%labels, -linebreak => 'true' );
-	say "</li>\n<li style=\"margin-top:1em\">";
+	say qq(</li><li style="margin-top:1em">);
 	say $q->checkbox( -name => 'unique', -label => 'Analyse single example of each unique sequence', -checked => 'checked' );
-	say "</li>\n<li>";
+	say qq(</li><li>);
 	say $q->checkbox( -name => 'exclude_incompletes', -label => 'Exclude incomplete sequences', -checked => 'checked' );
-	say "</li></ul>";
-	say "</fieldset>";
+	say qq(</li></ul>);
+	say qq(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Analyse' } );
 	say $q->hidden($_) foreach qw (page name db query_file list_file datatype);
 	say $q->end_form;
-	say "</div>\n</div>";
+	say qq(</div></div>);
 	return;
 }
 1;

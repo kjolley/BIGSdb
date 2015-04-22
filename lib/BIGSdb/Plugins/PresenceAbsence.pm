@@ -1,6 +1,6 @@
 #PresenceAbsence.pm - Presence/Absence export plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -194,9 +194,9 @@ sub get_extra_form_elements {
 	say "</li><li>";
 	say $q->checkbox( -name => 'dismat', -id => 'dismat', -label => 'Generate distance matrix' );
 	my $max = MAX_DISMAT_TAXA;
-	say " <a class=\"tooltip\" title=\"Distance matrix - This is limited to $max isolates and is disabled if more are selected\">"
-	  . "&nbsp;<i>i</i>&nbsp;</a>";
-	say "</li></ul></fieldset>";
+	say qq( <a class="tooltip" title="Distance matrix - This is limited to $max isolates and is disabled if more are selected">)
+	  . qq(<span class="fa fa-info-circle"></span></a>);
+	say qq(</li></ul></fieldset>);
 	return;
 }
 

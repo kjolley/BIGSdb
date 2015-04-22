@@ -1,6 +1,6 @@
 #TagStatus.pm - Tag status plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2011-2014, University of Oxford
+#Copyright (c) 2011-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -231,12 +231,12 @@ sub _print_schematic {
 	  . "it will appear more than once in this graphic.  Click on the id hyperlink for a detailed breakdown for an isolate.</p>";
 	my @colours = COLOURS;
 	say "<h2>Key</h2>";
-	say "<p><span style=\"color: #$colours[1]; font-weight:600\">Allele designated only</span> | "
-	  . "<span style=\"color: #$colours[2]; font-weight:600\">Sequence tagged only</span> | "
-	  . "<span style=\"color: #$colours[3]; font-weight:600\">Allele designated + sequence tagged</span> | "
-	  . "<span style=\"color: #$colours[4]; font-weight:600\">Flagged</span> "
-	  . "<a class=\"tooltip\" title=\"Flags - Sequences may be flagged to indicate problems, e.g. ambiguous reads, internal stop "
-	  . "codons etc.\">&nbsp;<i>i</i>&nbsp;</a></p>";
+	say qq(<p><span style="color: #$colours[1]; font-weight:600">Allele designated only</span> | )
+	  . qq(<span style="color: #$colours[2]; font-weight:600">Sequence tagged only</span> | )
+	  . qq(<span style="color: #$colours[3]; font-weight:600">Allele designated + sequence tagged</span> | )
+	  . qq(<span style="color: #$colours[4]; font-weight:600\">Flagged</span> )
+	  . qq(<a class="tooltip" title="Flags - Sequences may be flagged to indicate problems, e.g. ambiguous reads, internal stop )
+	  . qq(codons etc."><span class="fa fa-info-circle"></span></a></p>);
 	my $plural = $locus_count == 1 ? 'us' : 'i';
 	say "<p><b>$locus_count loc$plural selected:</b></p>";
 	say "<map id=\"schemes\" name=\"schemes\">\n@image_map</map>";
