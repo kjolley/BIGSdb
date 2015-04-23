@@ -581,14 +581,73 @@ sub _presubmit_alleles {
 		say $q->end_form;
 	}
 	say qq(</fieldset>);
+	$self->_print_message_fieldset($submission_id);
 	say qq(</div></div>);
 	return;
 }
 
 sub _print_message_fieldset {
-	my ($self, $submission_id) = @_;
-	
-	
+	my ( $self, $submission_id ) = @_;
+	my $q = $self->{'cgi'};
+	if ( $q->param('message') ) {
+		my $user = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+		if ( !$user ) {
+			$logger->error("Invalid user.");
+			return;
+		}
+		eval {
+			$self->{'db'}->do( "INSERT INTO messages (submission_id,timestamp,user_id,message) VALUES (?,?,?,?)",
+				undef, $submission_id, 'now', $user->{'id'}, $q->param('message') );
+		};
+		if ($@) {
+			$logger->error($@);
+			$self->{'db'}->rollback;
+		} else {
+			$self->{'db'}->commit;
+			$self->_append_message( $submission_id, $user->{'id'}, $q->param('message') );
+			$q->delete('message');
+		}
+	}
+	say qq(<fieldset style="float:left"><legend>Messages</legend>);
+	my $messages =
+	  $self->{'datastore'}->run_query(
+		"SELECT date_trunc('second',timestamp) AS timestamp,user,message FROM messages WHERE submission_id=? ORDER BY timestamp asc",
+		$submission_id, { fetch => 'all_arrayref', slice => {} } );
+	if (@$messages) {
+		say qq(<table class="resultstable"><tr><th>Timestamp</th><th>User</th><th>Message</th></tr>);
+		my $td = 1;
+		foreach my $message (@$messages) {
+			my $user_string = $self->{'datastore'}->get_user_string( $message->{'user_id'} );
+			say qq(<tr class="td$td"><td>$message->{'timestamp'}</td><td>$user_string</td><td style="text-align:left">)
+			  . qq($message->{'message'}</td></tr>);
+			$td = $td == 1 ? 2 : 1;
+		}
+		say qq(</table>);
+	}
+	say $q->start_form;
+	say $q->textarea( -name => 'message', -id => 'message' );
+	say $q->submit( -name => 'Add message', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
+	say $q->hidden($_) foreach qw(db page alleles locus submit continue view abort submission_id no_check);
+	say $q->end_form;
+	say qq(</fieldset>);
+	return;
+}
+
+sub _append_message {
+	my ( $self, $submission_id, $user_id, $message ) = @_;
+	my $dir = $self->_get_submission_dir($submission_id);
+	$dir = $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/ ? $1 : undef;    #Untaint
+	make_path $dir;
+	my $filename = 'messages.txt';
+	open( my $fh, '>>', "$dir/$filename" ) || $logger->error("Can't open $dir/$filename for appending");
+	my $user_string = $self->{'datastore'}->get_user_string($user_id);
+	say $fh $user_string;
+	my $timestamp = localtime(time);
+	say $fh $timestamp;
+	say $fh $message;
+	say $fh '';
+	close $fh;
+	return;
 }
 
 sub _print_submission_file_table {
@@ -613,7 +672,7 @@ sub _print_submission_file_table {
 		}
 		$i++;
 		$buffer .= qq(</tr>\n);
-		$td = $td == 2 ? 1 : 2;
+		$td = $td == 1 ? 2 : 1;
 	}
 	$buffer .= qq(</table>);
 	return $buffer if $options->{'get_only'};
@@ -701,6 +760,7 @@ sub _view_submission {
 		say $file_table;
 		say qq(</fieldset>);
 	}
+	$self->_print_message_fieldset($submission_id);
 	say qq(<fieldset style="float:left"><legend>Archive</legend>);
 	say qq(<p>Archive of submission and any supporting files:</p>);
 	my $tar_icon = $self->get_file_icon('TAR');
