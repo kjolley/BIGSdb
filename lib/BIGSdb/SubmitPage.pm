@@ -28,6 +28,7 @@ use Bio::Seq;
 use BIGSdb::Utils;
 use BIGSdb::BIGSException;
 use List::MoreUtils qw(none);
+use File::Path qw(make_path remove_tree);
 use BIGSdb::Page 'SEQ_METHODS';
 use constant COVERAGE        => qw(<20x 20-49x 50-99x +100x);
 use constant READ_LENGTH     => qw(<100 100-199 200-299 300-499 +500);
@@ -71,11 +72,13 @@ END
 }
 
 sub initiate {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	if ( $q->param('download_fasta') ) {
-		$self->{'type'}    = 'text';
-		$self->{'noCache'} = 1;
+	my ($self)        = @_;
+	my $q             = $self->{'cgi'};
+	my $submission_id = $q->param('submission_id');
+	if ( $q->param('tar') && $q->param('submission_id') ) {
+		$self->{'type'}       = 'tar';
+		$self->{'attachment'} = "$submission_id\.tar";
+		$self->{'noCache'}    = 1;
 		return;
 	}
 	$self->{$_} = 1 foreach qw (jQuery jQuery.jstree noCache);
@@ -89,8 +92,8 @@ sub print_content {
 		$self->_abort_submission( $q->param('submission_id') );
 	} elsif ( $q->param('finalize') ) {
 		$self->_finalize_submission( $q->param('submission_id') );
-	} elsif ( $q->param('download_fasta') ) {
-		$self->_download_fasta;
+	} elsif ( $q->param('tar') ) {
+		$self->_tar_archive( $q->param('submission_id') );
 		return;
 	} elsif ( $q->param('view') ) {
 		$self->_view_submission( $q->param('submission_id') );
@@ -201,10 +204,8 @@ sub _abort_submission {
 
 sub _delete_submission_files {
 	my ( $self, $submission_id ) = @_;
-	my $dir   = $self->_get_submission_dir($submission_id);
-	my @files = glob("$dir/*");
-	foreach (@files) { unlink $1 if /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+\/[^\/]+)$/ }
-	rmdir $1 if $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/;
+	my $dir = $self->_get_submission_dir($submission_id);
+	remove_tree $1 if $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/;
 	return;
 }
 
@@ -394,30 +395,6 @@ sub _check_new_alleles {
 	return;
 }
 
-sub _download_fasta {
-	my ($self)        = @_;
-	my $q             = $self->{'cgi'};
-	my $submission_id = $q->param('submission_id');
-	if ( !$submission_id ) {
-		say "Submission id not passed.";
-	}
-	my $allele_submission = $self->_get_allele_submission($submission_id);
-	if ( !$allele_submission ) {
-		say "Submission does not exist or is not for new alleles.";
-		return;
-	}
-	my $seqs = $allele_submission->{'seqs'};
-	if ( !@$seqs ) {
-		say "Submission contains no sequences.";
-		return;
-	}
-	foreach my $seq (@$seqs) {
-		say '>' . $seq->id;
-		say $seq->seq;
-	}
-	return;
-}
-
 sub _start_submission {
 	my ( $self, $type ) = @_;
 	$logger->logdie("Invalid submission type '$type'") if none { $type eq $_ } qw (alleles);
@@ -514,6 +491,7 @@ sub _presubmit_alleles {
 					return;
 				}
 			}
+			$self->_write_allele_FASTA($submission_id);
 		}
 		$self->{'db'}->commit;
 	}
@@ -523,7 +501,7 @@ sub _presubmit_alleles {
 	if ( $q->param('delete') ) {
 		my $files = $self->_get_submission_files($submission_id);
 		my $i     = 0;
-		my $dir   = $self->_get_submission_dir($submission_id);
+		my $dir   = $self->_get_submission_dir($submission_id) . '/supporting_files';
 		foreach my $file (@$files) {
 			if ( $q->param("file$i") ) {
 				if ( $file->{'filename'} =~ /^([^\/]+)$/ ) {
@@ -552,7 +530,9 @@ sub _presubmit_alleles {
 	$self->_print_sequence_details_fieldset($submission_id);
 	my $plural = @$seqs == 1 ? '' : 's';
 	say qq(<fieldset style="float:left"><legend>Sequences</legend>);
-	say qq(<p>You are submitting the following $locus sequence$plural:</p>);
+	my $fasta_icon = $self->get_file_icon('FAS');
+	say qq(<p>You are submitting the following $locus sequence$plural: <a href="/submissions/$submission_id/sequences.fas">)
+	  . qq(Download$fasta_icon</a></p>);
 	say qq(<table class="resultstable">);
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	my $cds = $locus_info->{'data_type'} eq 'DNA' && $locus_info->{'complete_cds'} ? '<th>Complete CDS</th>' : '';
@@ -571,8 +551,6 @@ sub _presubmit_alleles {
 		$td = $td == 1 ? 2 : 1;
 	}
 	say qq(</table>);
-	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;submission_id=$submission_id&amp;)
-	  . qq(download_fasta=1">Download FASTA file</a></p>);
 	say qq(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Finalize submission!' } );
 	$q->param( finalize      => 1 );
@@ -611,35 +589,39 @@ sub _print_submission_file_table {
 	my $q     = $self->{'cgi'};
 	my $files = $self->_get_submission_files($submission_id);
 	return if !@$files;
-	say qq(<table class="resultstable"><tr><th>Filename</th><th>Size</th>);
-	say qq(<th>Delete</th>) if $options->{'delete_checkbox'};
-	say qq(</tr>);
+	my $buffer = qq(<table class="resultstable"><tr><th>Filename</th><th>Size</th>);
+	$buffer .= qq(<th>Delete</th>) if $options->{'delete_checkbox'};
+	$buffer .= qq(</tr>\n);
 	my $td = 1;
 	my $i  = 0;
 
 	foreach my $file (@$files) {
-		say qq(<tr class="td$td"><td>$file->{'filename'}</td><td>$file->{'size'}</td>);
+		$buffer .= qq(<tr class="td$td"><td><a href="/submissions/$submission_id/supporting_files/$file->{'filename'}">)
+		  . qq($file->{'filename'}</a></td><td>$file->{'size'}</td>);
 		if ( $options->{'delete_checkbox'} ) {
-			say qq(<td>);
-			say $q->checkbox( -name => "file$i", -label => '' );
-			say qq(</td>);
+			$buffer .= qq(<td>);
+			$buffer .= $q->checkbox( -name => "file$i", -label => '' );
+			$buffer .= qq(</td>);
 		}
 		$i++;
-		say qq(</tr>);
+		$buffer .= qq(</tr>\n);
 		$td = $td == 2 ? 1 : 2;
 	}
-	say qq(</table>);
+	$buffer .= qq(</table>);
+	return $buffer if $options->{'get_only'};
+	say $buffer;
 	return;
 }
 
 sub _get_submission_files {
 	my ( $self, $submission_id ) = @_;
-	my $dir = $self->_get_submission_dir($submission_id);
+	my $dir = $self->_get_submission_dir($submission_id) . "/supporting_files";
 	return [] if !-e $dir;
 	my @files;
 	opendir( my $dh, $dir ) || $logger->error("Can't open directory $dir");
 	while ( my $filename = readdir $dh ) {
 		next if $filename =~ /^\./;
+		next if $filename =~ /^submission/;    #Temp file created by script
 		push @files, { filename => $filename, size => BIGSdb::Utils::get_nice_size( -s "$dir/$filename" ) };
 	}
 	closedir $dh;
@@ -656,9 +638,9 @@ sub _upload_files {
 	my $q         = $self->{'cgi'};
 	my @filenames = $q->param('file_upload');
 	my $i         = 0;
-	my $dir       = $self->_get_submission_dir($submission_id);
+	my $dir       = $self->_get_submission_dir($submission_id) . '/supporting_files';
 	if ( !-e $dir ) {
-		mkdir $dir || $logger->error("Cannot create $dir directory.");
+		make_path $dir || $logger->error("Cannot create $dir directory.");
 	}
 	foreach my $fh2 ( $q->upload('file_upload') ) {
 		if ( $filenames[$i] =~ /([A-z0-9_\-\.'\ ]+)/ ) {
@@ -687,9 +669,10 @@ sub _view_submission {
 		say qq(<div class="box" id="statusbad"><p>Invalid submission passed.</p></div>);
 		return;
 	}
-	say qq(<h1>Submission details</h1>);
+	say qq(<h1>Submission summary</h1>);
 	say qq(<div class="box" id="resultstable"><div class="scrollable">);
 	say qq(<h2>Submission: $submission_id</h2>);
+	say qq(<fieldset style="float:left"><legend>Summary</legend>);
 	say qq(<dl class="data"><dt>type</dt><dd>$submission->{'type'}</dd>);
 	my $user_string = $self->{'datastore'}->get_user_string( $submission->{'submitter'}, { email => 1, affiliation => 1 } );
 	say qq(<dt>submitter</dt><dd>$user_string</dd>);
@@ -701,12 +684,61 @@ sub _view_submission {
 		my $allele_submission = $self->_get_allele_submission($submission_id);
 		say qq(<dt>locus</dt><dd>$allele_submission->{'locus'}</dd>);
 		my $allele_count = @{ $allele_submission->{'seqs'} };
-		say qq(<dt>sequences</dt><dd>$allele_count [<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit)
-		  . qq(&amp;submission_id=$submission_id&amp;download_fasta=1">FASTA</a>]</dd>);
+		my $fasta_icon   = $self->get_file_icon('FAS');
+		say qq(<dt>sequences</dt><dd><a href="/submissions/$submission_id/sequences.fas">$allele_count$fasta_icon</a></dd>);
 	}
-	say qq(</dl>);
-	$self->_print_submission_file_table($submission_id);
-	say qq(</div>);
+	say qq(</dl></fieldset>);
+	my $file_table = $self->_print_submission_file_table( $submission_id, { get_only => 1 } );
+	if ($file_table) {
+		say qq(<fieldset style="float:left"><legend>Supporting files</legend>);
+		say $file_table;
+		say qq(</fieldset>);
+	}
+	say qq(<fieldset style="float:left"><legend>Archive</legend>);
+	say qq(<p>Archive of submission and any supporting files:</p>);
+	my $tar_icon = $self->get_file_icon('TAR');
+	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;submission_id=$submission_id&amp;)
+	  . qq(tar=1">Download$tar_icon</a></p>);
+	say qq(</fieldset>);
+	say qq(</div></div>);
+	return;
+}
+
+sub _write_allele_FASTA {
+	my ( $self, $submission_id ) = @_;
+	my $allele_submission = $self->_get_allele_submission($submission_id);
+	my $seqs              = $allele_submission->{'seqs'};
+	return if !@$seqs;
+	my $dir = $self->_get_submission_dir($submission_id);
+	$dir = $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/ ? $1 : undef;    #Untaint
+	make_path $dir;
+	my $filename = 'sequences.fas';
+	open( my $fh, '>', "$dir/$filename" ) || $logger->error("Can't open $dir/$filename for writing");
+
+	foreach my $seq (@$seqs) {
+		say $fh '>' . $seq->id;
+		say $fh $seq->seq;
+	}
+	close $fh;
+	return $filename;
+}
+
+sub _tar_archive {
+	my ( $self, $submission_id ) = @_;
+	return if !defined $submission_id || $submission_id !~ /BIGSdb_\d+/;
+	my $submission = $self->_get_submission($submission_id);
+	return if !$submission;
+	my $submission_dir = $self->_get_submission_dir($submission_id);
+	$submission_dir = $submission_dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+)$/ ? $1 : undef;    #Untaint
+	binmode STDOUT;
+	local $" = ' ';
+	my $command = "cd $submission_dir && tar -cf - *";
+
+	if ( $ENV{'MOD_PERL'} ) {
+		print `$command`;    # http://modperlbook.org/html/6-4-8-Output-from-System-Calls.html
+	} else {
+		system $command || $logger->error("Can't create tar: $?");
+	}
 	return;
 }
 

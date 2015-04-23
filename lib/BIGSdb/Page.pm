@@ -182,6 +182,15 @@ sub _initiate_plugin {
 	return;
 }
 
+sub get_file_icon {
+	my ( $self, $type ) = @_;
+	my $buffer =  qq(<span class="file_icon fa-stack" style="padding-left:0.5em">);
+	$buffer .= qq(<span class="fa-stack-1x filetype-text">$type</span>);
+	$buffer .= qq(<span class="fa fa-file-o fa-stack-2x"></span>);
+	$buffer .= qq(</span>);
+	return $buffer;
+}
+
 sub print_page_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
@@ -284,7 +293,6 @@ sub print_page_content {
 			if ( $self->{'CryptoJS.MD5'} ) {
 				push @javascript, ( { 'language' => 'Javascript', 'src' => "/javascript/md5.js" } );
 			}
-
 			push @javascript, { 'language' => 'Javascript', 'code' => $page_js } if $page_js;
 		}
 
@@ -1716,15 +1724,15 @@ sub can_modify_table {
 }
 
 sub print_warning_sign {
-	my ($self, $options) = @_;
+	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $image = "$ENV{'DOCUMENT_ROOT'}$self->{'system'}->{'webroot'}/images/warning_sign.gif";
+	my $image     = "$ENV{'DOCUMENT_ROOT'}$self->{'system'}->{'webroot'}/images/warning_sign.gif";
 	my $image_src = "$self->{'system'}->{'webroot'}/images/warning_sign.gif";
 	if ( !-e $image ) {
-		$image = "$ENV{'DOCUMENT_ROOT'}/images/warning_sign.gif";
-		$image_src = "/images/warning_sign.gif";		
+		$image     = "$ENV{'DOCUMENT_ROOT'}/images/warning_sign.gif";
+		$image_src = "/images/warning_sign.gif";
 	}
-	if (-e $image){
+	if ( -e $image ) {
 		say qq(<div style="text-align:center">) if !$options->{'no_div'};
 		say qq(<img src="$image_src" alt="Warning!" />);
 		say qq(</div>) if !$options->{'no_div'};
