@@ -930,8 +930,7 @@ span.config_icon {color:#a66;text-shadow: 3px 3px 3px #999}
 span.file_icon {color:#44d}
 
 .fa-stack-1x { top: .25em; }
-
-.filetype-text {font-size:0.7em;font-weight:700;font-family: 'Oswald'}
+.filetype-text {font-size:0.7em;font-weight:700;font-family:'Oswald'}
 
 @media (max-width: 800px) {
 	div#scheme_loci_add {float:left}

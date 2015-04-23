@@ -1472,10 +1472,14 @@ sub check_new_alleles_fasta {
 	open( my $stringfh_in, "<:encoding(utf8)", $fasta_ref ) or die "Could not open string for reading: $!";
 	$stringfh_in->untaint;
 	my $seqin = Bio::SeqIO->new( -fh => $stringfh_in, -format => 'fasta' );
-	my ( @err, @info, @seqs );
+	my ( @err, @info, @seqs, %used_ids );
 	while ( my $seq_object = $seqin->next_seq ) {
 		push @seqs, $seq_object;
 		my $seq_id   = $seq_object->id;
+		if ($used_ids{$seq_id}){
+			push @err, "Sequence identifier '$seq_id' is used more than once in submission.";
+		}
+		$used_ids{$seq_id} = 1;
 		my $sequence = $seq_object->seq;
 		$sequence =~ s/[\-\.\s]//g;
 		if ( $locus_info->{'data_type'} eq 'DNA' ) {

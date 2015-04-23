@@ -27,9 +27,10 @@ my $logger = get_logger('BIGSdb.Page');
 use Bio::Seq;
 use BIGSdb::Utils;
 use BIGSdb::BIGSException;
+use BIGSdb::Page 'SEQ_METHODS';
 use List::MoreUtils qw(none);
 use File::Path qw(make_path remove_tree);
-use BIGSdb::Page 'SEQ_METHODS';
+use POSIX;
 use constant COVERAGE        => qw(<20x 20-49x 50-99x +100x);
 use constant READ_LENGTH     => qw(<100 100-199 200-299 300-499 +500);
 use constant ASSEMBLY        => ( 'de novo', 'mapped' );
@@ -127,9 +128,11 @@ sub print_content {
 			say qq(<dt>Type</dt><dd>$submission->{'type'}</dd>);
 			if ( $submission->{'type'} eq 'alleles' ) {
 				my $allele_submission = $self->_get_allele_submission( $submission->{'id'} );
-				say qq(<dt>Locus</dt><dd>$allele_submission->{'locus'}</dd>);
-				my $seq_count = @{ $allele_submission->{'seqs'} };
-				say qq(<dt>Sequences</dt><dd>$seq_count</dd>);
+				if ($allele_submission) {
+					say qq(<dt>Locus</dt><dd>$allele_submission->{'locus'}</dd>);
+					my $seq_count = @{ $allele_submission->{'seqs'} };
+					say qq(<dt>Sequences</dt><dd>$seq_count</dd>);
+				}
 				say qq(<dt>Action</dt><dd><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
 				  . qq($submission->{'type'}=1&amp;abort=1&amp;no_check=1">Abort</a> | )
 				  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;$submission->{'type'}=1&amp;)
@@ -219,7 +222,7 @@ sub _finalize_submission {
 		if ( $type eq 'alleles' )
 		{
 			$self->{'db'}->do(
-				"UPDATE allele_submissions SET (technology,read_length,coverage,assembly,software,comments)=(?,?,?,?,?,?) "
+				"UPDATE allele_submissions SET (technology,read_length,coverage,assembly,software)=(?,?,?,?,?) "
 				  . "WHERE submission_id=? AND submission_id IN (SELECT id FROM submissions WHERE submitter=?)",
 				undef,
 				$q->param('technology'),
@@ -227,7 +230,6 @@ sub _finalize_submission {
 				$q->param('coverage'),
 				$q->param('assembly'),
 				$q->param('software'),
-				$q->param('comments'),
 				$submission_id,
 				$user_info->{'id'}
 			);
@@ -366,8 +368,6 @@ sub _print_sequence_details_fieldset {
 		-required => 'required',
 		-default  => $allele_submission->{'software'} // $self->{'prefs'}->{'submit_allele_software'}
 	);
-	say qq(</li><li><label for="comments" class="parameter">comments/notes:</label>);
-	say $q->textarea( -name => 'comments', -id => 'comments', -default => $allele_submission->{'comments'} );
 	say qq(</li></ul>);
 	say qq(</fieldset>);
 	return;
@@ -398,8 +398,8 @@ sub _check_new_alleles {
 sub _start_submission {
 	my ( $self, $type ) = @_;
 	$logger->logdie("Invalid submission type '$type'") if none { $type eq $_ } qw (alleles);
-	my $submission_id = BIGSdb::Utils::get_random();
-	my $user_info     = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $submission_id = 'BIGSdb_' . strftime( "%Y%m%d%H%M%S", localtime ) . "_$$\_" . int( rand(99999) );
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	eval {
 		$self->{'db'}->do( "INSERT INTO submissions (id,type,submitter,datestamp,status) VALUES (?,?,?,?,?)",
 			undef, $submission_id, $type, $user_info->{'id'}, 'now', 'started' );
@@ -454,16 +454,16 @@ sub _presubmit_alleles {
 	my $q = $self->{'cgi'};
 	my $locus;
 	if ($submission_id) {
-		my $submission = $self->_get_allele_submission($submission_id);
-		$locus = $submission->{'locus'};
-		$seqs  = $submission->{'seqs'};
+		my $allele_submission = $self->_get_allele_submission($submission_id);
+		$locus = $allele_submission->{'locus'} // '';
+		$seqs  = $allele_submission->{'seqs'}  // [];
 	} else {
 		$locus         = $q->param('locus');
 		$submission_id = $self->_start_submission('alleles');
 		eval {
 			$self->{'db'}->do(
 				"INSERT INTO allele_submissions (submission_id,locus,technology,read_length,coverage,assembly,"
-				  . "software,comments) VALUES (?,?,?,?,?,?,?,?)",
+				  . "software) VALUES (?,?,?,?,?,?,?)",
 				undef,
 				$submission_id,
 				$locus,
@@ -472,7 +472,6 @@ sub _presubmit_alleles {
 				$q->param('coverage'),
 				$q->param('assembly'),
 				$q->param('software'),
-				$q->param('comments')
 			);
 		};
 		if ($@) {
@@ -529,29 +528,32 @@ sub _presubmit_alleles {
 	say $q->start_form;
 	$self->_print_sequence_details_fieldset($submission_id);
 	my $plural = @$seqs == 1 ? '' : 's';
-	say qq(<fieldset style="float:left"><legend>Sequences</legend>);
-	my $fasta_icon = $self->get_file_icon('FAS');
-	say qq(<p>You are submitting the following $locus sequence$plural: <a href="/submissions/$submission_id/sequences.fas">)
-	  . qq(Download$fasta_icon</a></p>);
-	say qq(<table class="resultstable">);
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	my $cds = $locus_info->{'data_type'} eq 'DNA' && $locus_info->{'complete_cds'} ? '<th>Complete CDS</th>' : '';
-	say qq(<tr><th>Identifier</th><th>Length</th><th>Sequence</th>$cds</tr>);
-	my $td = 1;
-
-	foreach my $seq (@$seqs) {
-		my $id       = $seq->id;
-		my $length   = length $seq->seq;
-		my $sequence = BIGSdb::Utils::truncate_seq( \$seq->seq, 40 );
-		$cds = '';
-		if ( $locus_info->{'data_type'} eq 'DNA' && $locus_info->{'complete_cds'} ) {
-			$cds = BIGSdb::Utils::is_complete_cds( \$seq->seq )->{'cds'} ? '<td>yes</td>' : '<td>no</td>';
+	if ($locus_info) {
+		say qq(<fieldset style="float:left"><legend>Sequences</legend>);
+		my $fasta_icon = $self->get_file_icon('FAS');
+		say qq(<p>You are submitting the following $locus sequence$plural: <a href="/submissions/$submission_id/sequences.fas">)
+		  . qq(Download$fasta_icon</a></p>);
+		say qq(<table class="resultstable">);
+		my $cds = $locus_info->{'data_type'} eq 'DNA' && $locus_info->{'complete_cds'} ? '<th>Complete CDS</th>' : '';
+		say qq(<tr><th>Identifier</th><th>Length</th><th>Sequence</th>$cds</tr>);
+		my $td = 1;
+		foreach my $seq (@$seqs) {
+			my $id       = $seq->id;
+			my $length   = length $seq->seq;
+			my $sequence = BIGSdb::Utils::truncate_seq( \$seq->seq, 40 );
+			$cds = '';
+			if ( $locus_info->{'data_type'} eq 'DNA' && $locus_info->{'complete_cds'} ) {
+				$cds = BIGSdb::Utils::is_complete_cds( \$seq->seq )->{'cds'} ? '<td>yes</td>' : '<td>no</td>';
+			}
+			say qq(<tr class="td$td"><td>$id</td><td>$length</td><td class="seq">$sequence</td>$cds</tr>);
+			$td = $td == 1 ? 2 : 1;
 		}
-		say qq(<tr class="td$td"><td>$id</td><td>$length</td><td class="seq">$sequence</td>$cds</tr>);
-		$td = $td == 1 ? 2 : 1;
+		say qq(</table>);
+		say qq(</fieldset>);
+	} else {
+		$logger->error("Invalid submission $submission_id - no locus info.");
 	}
-	say qq(</table>);
-	say qq(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Finalize submission!' } );
 	$q->param( finalize      => 1 );
 	$q->param( submission_id => $submission_id );
@@ -581,6 +583,12 @@ sub _presubmit_alleles {
 	say qq(</fieldset>);
 	say qq(</div></div>);
 	return;
+}
+
+sub _print_message_fieldset {
+	my ($self, $submission_id) = @_;
+	
+	
 }
 
 sub _print_submission_file_table {
@@ -643,7 +651,7 @@ sub _upload_files {
 		make_path $dir || $logger->error("Cannot create $dir directory.");
 	}
 	foreach my $fh2 ( $q->upload('file_upload') ) {
-		if ( $filenames[$i] =~ /([A-z0-9_\-\.'\ ]+)/ ) {
+		if ( $filenames[$i] =~ /([A-z0-9_\-\.'\ \(\)]+)/ ) {
 			$filenames[$i] = $1;
 		} else {
 			$filenames[$i] = 'file';
@@ -678,7 +686,6 @@ sub _view_submission {
 	say qq(<dt>submitter</dt><dd>$user_string</dd>);
 	say qq(<dt>datestamp</dt><dd>$submission->{'datestamp'}</dd>);
 	say qq(<dt>status</dt><dd>$submission->{'status'}</dd>);
-	say qq(<dt>comments</dt><dd>$submission->{'comments'}</dd>) if $submission->{'comments'};
 
 	if ( $submission->{'type'} eq 'alleles' ) {
 		my $allele_submission = $self->_get_allele_submission($submission_id);
