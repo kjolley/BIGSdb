@@ -639,7 +639,7 @@ sub _append_message {
 	$dir = $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/ ? $1 : undef;    #Untaint
 	make_path $dir;
 	my $filename = 'messages.txt';
-	open( my $fh, '>>', "$dir/$filename" ) || $logger->error("Can't open $dir/$filename for appending");
+	open( my $fh, '>>:encoding(utf8)', "$dir/$filename" ) || $logger->error("Can't open $dir/$filename for appending");
 	my $user_string = $self->{'datastore'}->get_user_string($user_id);
 	say $fh $user_string;
 	my $timestamp = localtime(time);
@@ -732,11 +732,11 @@ sub _upload_files {
 sub _view_submission {
 	my ( $self, $submission_id ) = @_;
 	my $submission = $self->_get_submission($submission_id);
-	if ( !$submission ) {
-		say qq(<div class="box" id="statusbad"><p>Invalid submission passed.</p></div>);
-		return;
-	}
 	say qq(<h1>Submission summary</h1>);
+	if ( !$submission ) {
+		say qq(<div class="box" id="statusbad"><p>The submission does not exist.</p></div>);
+		return;
+	}	
 	say qq(<div class="box" id="resultstable"><div class="scrollable">);
 	say qq(<h2>Submission: $submission_id</h2>);
 	say qq(<fieldset style="float:left"><legend>Summary</legend>);
@@ -751,7 +751,12 @@ sub _view_submission {
 		say qq(<dt>locus</dt><dd>$allele_submission->{'locus'}</dd>);
 		my $allele_count = @{ $allele_submission->{'seqs'} };
 		my $fasta_icon   = $self->get_file_icon('FAS');
-		say qq(<dt>sequences</dt><dd><a href="/submissions/$submission_id/sequences.fas">$allele_count$fasta_icon</a></dd>);
+		my $submission_dir = $self->_get_submission_dir($submission_id);
+		if (-e "$submission_dir/sequences.fas"){
+			say qq(<dt>sequences</dt><dd><a href="/submissions/$submission_id/sequences.fas">$allele_count$fasta_icon</a></dd>);
+		} else {
+			$logger->error("No submission FASTA file for allele submission $submission_id.");
+		}
 	}
 	say qq(</dl></fieldset>);
 	my $file_table = $self->_print_submission_file_table( $submission_id, { get_only => 1 } );
