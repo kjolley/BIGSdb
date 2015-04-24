@@ -1475,12 +1475,16 @@ sub check_new_alleles_fasta {
 	my ( @err, @info, @seqs, %used_ids );
 	while ( my $seq_object = $seqin->next_seq ) {
 		push @seqs, $seq_object;
-		my $seq_id   = $seq_object->id;
-		if ($used_ids{$seq_id}){
+		my $seq_id = $seq_object->id;
+		if ( $used_ids{$seq_id} ) {
 			push @err, "Sequence identifier '$seq_id' is used more than once in submission.";
 		}
 		$used_ids{$seq_id} = 1;
 		my $sequence = $seq_object->seq;
+		if ( !defined $sequence ) {
+			push @err, "Sequence identifier '$seq_id' does not have a valid sequence.";
+			next;
+		}
 		$sequence =~ s/[\-\.\s]//g;
 		if ( $locus_info->{'data_type'} eq 'DNA' ) {
 			my $diploid = ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? 1 : 0;

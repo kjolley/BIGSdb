@@ -114,11 +114,7 @@ sub print_content {
 		return;
 	}
 	say qq(<div class="box" id="resultstable"><div class="scrollable">);
-	my $incomplete = $self->{'datastore'}->run_query(
-		"SELECT * FROM submissions WHERE (submitter,status)=(?,?) ORDER BY datestamp asc",
-		[ $user_info->{'id'}, 'started' ],
-		{ fetch => 'all_arrayref', slice => {}, cache => 'SubmitPage::print_content' }
-	);
+	my $incomplete = $self->_get_submissions_by_status('started');
 	if (@$incomplete) {
 		say qq(<h2>Submission in process</h2>);
 		say qq(<p>Please note that you must either proceed with or abort the in process submission before you can start another.</p>);
@@ -149,11 +145,25 @@ sub print_content {
 		  . qq(</li>);
 		say qq(</ul>);
 	}
-	my $pending = $self->{'datastore'}->run_query(
+	$self->_print_pending_submissions_table;
+	say qq(</div></div>);
+	return;
+}
+
+sub _get_submissions_by_status {
+	my ($self, $status) = @_;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $submissions = $self->{'datastore'}->run_query(
 		"SELECT * FROM submissions WHERE (submitter,status)=(?,?) ORDER BY datestamp asc",
-		[ $user_info->{'id'}, 'pending' ],
-		{ fetch => 'all_arrayref', slice => {}, cache => 'SubmitPage::print_content' }
+		[ $user_info->{'id'}, $status ],
+		{ fetch => 'all_arrayref', slice => {}, cache => 'SubmitPage::get_submissions_by_status' }
 	);
+	return $submissions;
+}
+
+sub _print_pending_submissions_table {
+	my ($self) = @_;
+	my $pending = $self->_get_submissions_by_status('pending');
 	if (@$pending) {
 		say qq(<h2>Pending submissions</h2>);
 		say qq(<p>You have the following submissions pending curation:</p>);
@@ -176,7 +186,6 @@ sub print_content {
 		}
 		say qq(</table>);
 	}
-	say qq(</div></div>);
 	return;
 }
 
@@ -266,7 +275,7 @@ sub _submit_alleles {
 		$self->_presubmit_alleles( $submission_id, undef );
 		return;
 	} elsif ( $q->param('submit') || $q->param('continue') || $q->param('abort') ) {
-		$ret = $self->_check_new_alleles;
+		$ret = $self->_check_new_alleles;	
 		if ( $ret->{'err'} ) {
 			my @err = @{ $ret->{'err'} };
 			local $" = "<br />";
