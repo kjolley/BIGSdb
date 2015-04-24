@@ -52,7 +52,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.7.3',
+		version     => '1.7.4',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -1986,7 +1986,8 @@ sub _run_alignment {
 	return if $seq_count <= 1;
 	my $params = $self->{'params'};
 	if ( $params->{'aligner'} eq 'MAFFT' && $self->{'config'}->{'mafft_path'} && -e $fasta_file && -s $fasta_file ) {
-		system("$self->{'config'}->{'mafft_path'} --quiet --preservecase --clustalout $fasta_file > $aligned_out");
+		my $threads = BIGSdb::Utils::is_int($self->{'config'}->{'mafft_threads'}) ? $self->{'config'}->{'mafft_threads'} : 1;
+		system("$self->{'config'}->{'mafft_path'} --thread $threads --quiet --preservecase --clustalout $fasta_file > $aligned_out");
 	} elsif ( $params->{'aligner'} eq 'MUSCLE' && $self->{'config'}->{'muscle_path'} && -e $fasta_file && -s $fasta_file ) {
 		my $max_mb = $self->{'config'}->{'max_muscle_mb'} // MAX_MUSCLE_MB;
 		system( $self->{'config'}->{'muscle_path'}, -in => $fasta_file, -out => $aligned_out, -maxmb => $max_mb, '-quiet', '-clwstrict' );
