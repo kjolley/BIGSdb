@@ -103,10 +103,15 @@ sub print_content {
 	say "<h1>Manage submissions</h1>";
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	if ( !$user_info ) {
-		say qq(<div class="box" id="queryform"><p>You are not a recognized user.  Submissions are disabled.</p></div>);
+		say qq(<div class="box" id="statusbad"><p>You are not a recognized user.  Submissions are disabled.</p></div>);
 		return;
 	}
 	if ( $q->param('alleles') ) {
+		if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
+			say qq(<div class="box" id="statusbad"><p>You cannot submit new allele sequences for definition in an isolate )
+			  . qq(database.<p></div>);
+			return;
+		}
 		if ( $q->param('submit') ) {
 			$self->_update_allele_prefs;
 		}
@@ -114,6 +119,41 @@ sub print_content {
 		return;
 	}
 	say qq(<div class="box" id="resultstable"><div class="scrollable">);
+	if ( !$self->_print_started_submissions ) {    #Returns true if submissions in process
+		say qq(<h2>Submit new data</h2>);
+		say qq(<p>Data submitted here will go in to a queue for handling by a curator or by an automated script.  You will be able to )
+		  . qq(track the status of any submission.</p>);
+		say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;alleles=1">Submit alleles</a>)
+		  . qq(</li></ul>);
+	}
+	$self->_print_pending_submissions_table;
+	$self->_print_submissions_for_curation;
+	say qq(</div></div>);
+	return;
+}
+
+sub _get_submissions_by_status {
+	my ( $self, $status, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my ( $qry, $get_all, @args );
+	if ( $options->{'get_all'} ) {
+		$qry     = "SELECT * FROM submissions WHERE status=? ORDER BY datestamp asc";
+		$get_all = 1;
+		push @args, $status;
+	} else {
+		$qry     = "SELECT * FROM submissions WHERE (submitter,status)=(?,?) ORDER BY datestamp asc";
+		$get_all = 0;
+		push @args, ( $user_info->{'id'}, $status );
+	}
+	my $submissions =
+	  $self->{'datastore'}
+	  ->run_query( $qry, \@args, { fetch => 'all_arrayref', slice => {}, cache => "SubmitPage::get_submissions_by_status$get_all" } );
+	return $submissions;
+}
+
+sub _print_started_submissions {
+	my ($self) = @_;
 	my $incomplete = $self->_get_submissions_by_status('started');
 	if (@$incomplete) {
 		say qq(<h2>Submission in process</h2>);
@@ -136,29 +176,9 @@ sub print_content {
 			}
 			say qq(</dl>);
 		}
-	} else {
-		say qq(<h2>Submit new data</h2>);
-		say
-		  qq(<p>Data submitted here will go in to a queue for handling by a curator or by an automated script.  You will be able to track )
-		  . qq(the status of any submission.</p>);
-		say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;alleles=1">Submit alleles</a>)
-		  . qq(</li>);
-		say qq(</ul>);
+		return 1;
 	}
-	$self->_print_pending_submissions_table;
-	say qq(</div></div>);
 	return;
-}
-
-sub _get_submissions_by_status {
-	my ($self, $status) = @_;
-	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	my $submissions = $self->{'datastore'}->run_query(
-		"SELECT * FROM submissions WHERE (submitter,status)=(?,?) ORDER BY datestamp asc",
-		[ $user_info->{'id'}, $status ],
-		{ fetch => 'all_arrayref', slice => {}, cache => 'SubmitPage::get_submissions_by_status' }
-	);
-	return $submissions;
 }
 
 sub _print_pending_submissions_table {
@@ -166,7 +186,7 @@ sub _print_pending_submissions_table {
 	my $pending = $self->_get_submissions_by_status('pending');
 	if (@$pending) {
 		say qq(<h2>Pending submissions</h2>);
-		say qq(<p>You have the following submissions pending curation:</p>);
+		say qq(<p>You have submitted the following submissions that are pending curation:</p>);
 		say qq(<table class="resultstable"><tr><th>Submission id</th><th>Datestamp</th><th>Type</th><th>Details</th></tr>);
 		my $td = 1;
 		foreach my $submission (@$pending) {
@@ -184,6 +204,47 @@ sub _print_pending_submissions_table {
 			say qq(<td>$details</td></tr>);
 			$td = $td == 1 ? 2 : 1;
 		}
+		say qq(</table>);
+	}
+	return;
+}
+
+sub _print_submissions_for_curation {
+	my ($self) = @_;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return if !$user_info || ( $user_info->{'status'} ne 'admin' && $user_info->{'status'} ne 'curator' );
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		$self->_print_allele_submissions_for_curation;
+	}
+	return;
+}
+
+sub _print_allele_submissions_for_curation {
+	my ($self) = @_;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $submissions = $self->_get_submissions_by_status( 'pending', { get_all => 1 } );
+	my $buffer;
+	my $td = 1;
+	foreach my $submission (@$submissions) {
+		next if $submission->{'type'} ne 'alleles';
+		my $allele_submission = $self->_get_allele_submission( $submission->{'id'} );
+		next
+		  if !($self->is_admin
+			|| $self->{'datastore'}->is_allowed_to_modify_locus_sequences( $allele_submission->{'locus'}, $user_info->{'id'} ) );
+		my $submitter_string = $self->{'datastore'}->get_user_string( $submission->{'submitter'}, { email => 1 } );
+		my $row = qq(<tr class="td$td"><td>$submission->{'id'}</td><td>$submission->{'datestamp'}</td><td>$submitter_string</td>);
+		$row .= qq(<td>$allele_submission->{'locus'}</td>);
+		my $seq_count = @{ $allele_submission->{'seqs'} };
+		$row .= qq(<td>$seq_count</td></tr>\n);
+		$td = $td == 1 ? 2 : 1;
+		$buffer .= $row;
+	}
+	if ($buffer) {
+		say qq(<h2>New allele sequence submissions waiting for curation</h2>);
+		say qq(<p>You account is authorized to handle the following submissions:<p>);
+		say qq(<table class="resultstable"><tr><th>Submission id</th><th>Datestamp</th><th>Submitter</th><th>Locus</th>)
+		  . qq(<th>Sequences</th></tr>);
+		say $buffer;
 		say qq(</table>);
 	}
 	return;
@@ -275,7 +336,7 @@ sub _submit_alleles {
 		$self->_presubmit_alleles( $submission_id, undef );
 		return;
 	} elsif ( $q->param('submit') || $q->param('continue') || $q->param('abort') ) {
-		$ret = $self->_check_new_alleles;	
+		$ret = $self->_check_new_alleles;
 		if ( $ret->{'err'} ) {
 			my @err = @{ $ret->{'err'} };
 			local $" = "<br />";
@@ -745,7 +806,7 @@ sub _view_submission {
 	if ( !$submission ) {
 		say qq(<div class="box" id="statusbad"><p>The submission does not exist.</p></div>);
 		return;
-	}	
+	}
 	say qq(<div class="box" id="resultstable"><div class="scrollable">);
 	say qq(<h2>Submission: $submission_id</h2>);
 	say qq(<fieldset style="float:left"><legend>Summary</legend>);
@@ -758,10 +819,10 @@ sub _view_submission {
 	if ( $submission->{'type'} eq 'alleles' ) {
 		my $allele_submission = $self->_get_allele_submission($submission_id);
 		say qq(<dt>locus</dt><dd>$allele_submission->{'locus'}</dd>);
-		my $allele_count = @{ $allele_submission->{'seqs'} };
-		my $fasta_icon   = $self->get_file_icon('FAS');
+		my $allele_count   = @{ $allele_submission->{'seqs'} };
+		my $fasta_icon     = $self->get_file_icon('FAS');
 		my $submission_dir = $self->_get_submission_dir($submission_id);
-		if (-e "$submission_dir/sequences.fas"){
+		if ( -e "$submission_dir/sequences.fas" ) {
 			say qq(<dt>sequences</dt><dd><a href="/submissions/$submission_id/sequences.fas">$allele_count$fasta_icon</a></dd>);
 		} else {
 			$logger->error("No submission FASTA file for allele submission $submission_id.");
