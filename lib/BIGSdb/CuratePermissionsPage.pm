@@ -100,7 +100,9 @@ sub print_content {
 		foreach my $permission (@$permission_list) {
 			next if $permission eq 'sample_management' && !@$sample_fields;
 			( my $cleaned_permission = $permission ) =~ tr/_/ /;
-			say qq(<tr class="td$td"><th>$cleaned_permission</th>);
+			say $permission eq 'disable_access' ? qq(<tr class="warning">) : qq(<tr class="td$td">);
+			say qq(<th>$cleaned_permission</th>);
+			
 			foreach my $user_id ( sort { $curators->{$a}->{'surname'} cmp $curators->{$b}->{'surname'} } keys %$curators ) {
 				next if !$selected{$user_id};
 				print q(<td>);
@@ -109,7 +111,7 @@ sub print_content {
 				{
 					print $q->checkbox(
 						-name    => "$permission\_$user_id",
-						-id      => "$permission\_$user_id",
+						-id      => $permission eq 'disable_access' ? undef : "$permission\_$user_id",
 						-label   => '',
 						-checked => $permissions->{$user_id}->{$permission}
 					);
@@ -117,7 +119,7 @@ sub print_content {
 				print q(</td>);
 			}
 			print q(<td>);
-			print $q->checkbox( -name => "$permission\_allnone", -id => "$permission\_allnone", -label => '', );
+			print $q->checkbox( -name => "$permission\_allnone", -id => "$permission\_allnone", -label => '' ) if $permission ne 'disable_access';
 			say q(</td></tr>);
 			$td = $td == 1 ? 2 : 1;
 		}

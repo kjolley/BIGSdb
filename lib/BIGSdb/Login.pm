@@ -248,14 +248,13 @@ sub _print_entry_form {
 	say qq(<div class="box" id="queryform">);
 	my $reg_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/registration.html";
 	$self->print_file($reg_file) if -e $reg_file;
-	say <<"HTML";
-<span class="main_icon fa fa-sign-in fa-3x pull-left"></span>
-<p>Please enter your log-in details.  Part of your IP address is used along with your username to set up your session. 
-If you have a session opened on a different computer, where the first three parts of the IP address vary, it will be 
-closed when you log in here. </p>
-<noscript><p class="highlight">Please note that Javascript must be enabled in order to login.  Passwords are encrypted 
-using Javascript prior to transmitting to the server.</p></noscript>
-HTML
+	say qq(<span class="main_icon fa fa-sign-in fa-3x pull-left"></span>);
+	say qq(<p>Please enter your log-in details.  Part of your IP address is used along with your username to set up your session. )
+	  . qq(If you have a session opened on a different computer, where the first three parts of the IP address vary, it will be ) 
+	  . qq(closed when you log in here. </p>);
+	say qq(<noscript><p class="highlight">Please note that Javascript must be enabled in order to login.  Passwords are hashed ) 
+	  . qq(using Javascript prior to transmitting to the server.</p></noscript>);
+
 	say $q->start_form( -onSubmit => "password.value=password_field.value; password_field.value=''; "
 		  . "password.value=CryptoJS.MD5(password.value+user.value); return true" );
 	say qq(<fieldset style="float:left"><legend>Log in details</legend>);

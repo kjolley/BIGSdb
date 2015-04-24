@@ -32,6 +32,7 @@ sub set_pref_requirements {
 
 sub initiate {
 	my ($self) = @_;
+	my $q = $self->{'cgi'};
 	$self->{'jQuery'} = 1;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $self->{'system'}->{'read_access'} ne 'public' ) {
 		$self->{'noCache'} = 1;    #Page will display user's queued/running jobs so should not be cached.
@@ -42,6 +43,7 @@ sub initiate {
 		my $scheme_data = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
 		$self->{'tooltips'} = 1 if @$scheme_data > 1;
 	}
+	$self->{'noCache'} = 1 if ( $q->param('page') // '' ) eq 'logout';
 	return;
 }
 
@@ -112,7 +114,6 @@ sub print_content {
 	$self->_print_general_info_section($scheme_data);
 	say "</div></div>";
 	$self->_print_plugin_section($scheme_data);
-	
 	return;
 }
 
@@ -176,13 +177,13 @@ sub _print_download_section {
 		  . "$scheme_data->[0]->{'id'}\">$scheme_data->[0]->{'description'} profiles</a></li>";
 	}
 	if ( $seq_download_buffer || $scheme_buffer ) {
-	say qq(<div style="float:left; margin-right:1em">);
-	say qq(<span class="main_icon fa fa-download fa-3x pull-left"></span>);
-	say qq(<h2>Downloads</h2>);
-	say qq(<ul class="toplevel">);
-	say $seq_download_buffer;
-	say $scheme_buffer;
-	say qq(</ul></div>);
+		say qq(<div style="float:left; margin-right:1em">);
+		say qq(<span class="main_icon fa fa-download fa-3x pull-left"></span>);
+		say qq(<h2>Downloads</h2>);
+		say qq(<ul class="toplevel">);
+		say $seq_download_buffer;
+		say $scheme_buffer;
+		say qq(</ul></div>);
 	}
 	return;
 }
@@ -191,16 +192,15 @@ sub _print_options_section {
 	my ($self) = @_;
 	my $set_id = $self->get_set_id;
 	my $set_string = $set_id ? "&amp;set_id=$set_id" : '';
-
 	say qq(<div style="float:left; margin-right:1em">);
 	say qq(<span class="main_icon fa fa-cogs fa-3x pull-left"></span>);
 	say qq(<h2>Option settings</h2>);
 	say qq(<ul class="toplevel">);
 	say qq(<li><a href="$self->{'system'}->{'script_name'}?page=options&amp;db=$self->{'instance'}$set_string">)
 	  . qq(Set general options</a>);
-
 	say " - including isolate table field handling." if $self->{'system'}->{'dbtype'} eq 'isolates';
 	say "</li>";
+
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $url_root = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;";
 		say qq(<li>Set display and query options for )
@@ -225,7 +225,7 @@ sub _print_options_section {
 
 sub _print_submissions_section {
 	my ($self) = @_;
-	return if $self->{'system'}->{'dbtype'} eq 'isolates' || ($self->{'system'}->{'submissions'} // '') ne 'yes';
+	return if $self->{'system'}->{'dbtype'} eq 'isolates' || ( $self->{'system'}->{'submissions'} // '' ) ne 'yes';
 	say qq(<div style="float:left; margin-right:1em">);
 	say qq(<span class="main_icon fa fa-upload fa-3x pull-left"></span>);
 	say qq(<h2>Submissions</h2><ul class="toplevel">);
@@ -293,7 +293,7 @@ sub _print_plugin_section {
 	  ->get_appropriate_plugin_names( 'breakdown|export|analysis|miscellaneous', $self->{'system'}->{'dbtype'}, { set_id => $set_id } );
 	if (@$plugins) {
 		print "<div class=\"box\" id=\"plugins\"><div class=\"scrollable\">\n";
-		my %icon = (breakdown => 'pie-chart', export => 'save', analysis=>'line-chart',miscellaneous => 'file-text-o');
+		my %icon = ( breakdown => 'pie-chart', export => 'save', analysis => 'line-chart', miscellaneous => 'file-text-o' );
 		foreach (qw (breakdown export analysis miscellaneous)) {
 			$q->param( 'page', 'index' );
 			$plugins = $self->{'pluginManager'}->get_appropriate_plugin_names( $_, $self->{'system'}->{'dbtype'}, { set_id => $set_id } );
