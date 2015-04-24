@@ -43,7 +43,7 @@ sub get_attributes {
 		category    => 'Breakdown',
 		menutext    => 'Polymorphic sites',
 		module      => 'Polymorphisms',
-		version     => '1.1.0',
+		version     => '1.1.1',
 		dbtype      => 'isolates',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#polymorphisms",
 		section     => 'breakdown,postquery',
@@ -287,7 +287,8 @@ sub _get_seqs {
 	my $aligned_file = "$self->{'config'}->{secure_tmp_dir}/$temp.aligned";
 	if ( $i > 1 ) {
 		if ( -x $self->{'config'}->{'mafft_path'} ) {
-			system("$self->{'config'}->{'mafft_path'} --quiet --preservecase $tempfile > $aligned_file");
+			my $threads = BIGSdb::Utils::is_int($self->{'config'}->{'mafft_threads'}) ? $self->{'config'}->{'mafft_threads'} : 1;
+			system("$self->{'config'}->{'mafft_path'} --thread $threads --quiet --preservecase $tempfile > $aligned_file");
 		} elsif ( -x $self->{'config'}->{'muscle_path'} ) {
 			system( $self->{'config'}->{'muscle_path'}, '-quiet', ( -in => $tempfile, -fastaout => $aligned_file ) );
 		}

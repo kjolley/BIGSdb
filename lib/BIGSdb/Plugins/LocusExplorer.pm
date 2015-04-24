@@ -43,7 +43,7 @@ sub get_attributes {
 		menutext         => 'Locus Explorer',
 		module           => 'LocusExplorer',
 		url              => "$self->{'config'}->{'doclink'}/data_analysis.html#locus-explorer",
-		version          => '1.2.2',
+		version          => '1.2.3',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		input            => 'query',
@@ -348,7 +348,8 @@ sub _get_seqs {
 	if ( $locus_info->{'length_varies'} && @seqs > 1 ) {
 		say "<p>Please wait - aligning (do not refresh) ...</p>" if $options->{'print_status'};
 		if ( -x $self->{'config'}->{'mafft_path'} ) {
-			system("$self->{'config'}->{'mafft_path'} --quiet --preservecase $tempfile > $aligned_file");
+			my $threads = BIGSdb::Utils::is_int($self->{'config'}->{'mafft_threads'}) ? $self->{'config'}->{'mafft_threads'} : 1;
+			system("$self->{'config'}->{'mafft_path'} --thread $threads --quiet --preservecase $tempfile > $aligned_file");
 		} elsif ( -x $self->{'config'}->{'muscle_path'} ) {
 			system( $self->{'config'}->{'muscle_path'}, '-in', $tempfile, '-fastaout', $aligned_file, '-quiet' );
 		} else {
@@ -811,7 +812,8 @@ sub _translate {
 		if ( $locus_info->{'length_varies'} ) {
 			my $aligned_file = "$self->{'config'}->{secure_tmp_dir}/$temp.aligned";
 			if ( -x $self->{'config'}->{'mafft_path'} ) {
-				system("$self->{'config'}->{'mafft_path'} --quiet --preservecase $outfile > $aligned_file");
+				my $threads = BIGSdb::Utils::is_int($self->{'config'}->{'mafft_threads'}) ? $self->{'config'}->{'mafft_threads'} : 1;
+				system("$self->{'config'}->{'mafft_path'} --thread $threads --quiet --preservecase $outfile > $aligned_file");
 			} elsif ( -x $self->{'config'}->{'muscle_path'} ) {
 				system( $self->{'config'}->{'muscle_path'}, '-quiet', ( -in => $outfile, -out => $aligned_file ) );
 			}
