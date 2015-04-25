@@ -113,8 +113,8 @@ sub print_content {
 			if (@stops) {
 				my $plural = @stops == 1 ? '' : 's';
 				local $" = ', ';
-				$buffer .= qq(<span class="highlight">Internal stop codon$plural at position$plural: @stops (numbering includes upstream )
-				  . qq(flanking sequence).</span>\n);
+				$buffer .= qq[<span class="highlight">Internal stop codon$plural at position$plural: @stops (numbering includes upstream ]
+				  . qq[flanking sequence).</span>\n];
 			}
 			$buffer .= qq(<pre class="sixpack">\n);
 			$buffer .= $display->{'sixpack'};
