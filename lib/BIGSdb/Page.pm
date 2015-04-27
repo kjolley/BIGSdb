@@ -184,7 +184,7 @@ sub _initiate_plugin {
 
 sub get_file_icon {
 	my ( $self, $type ) = @_;
-	my $buffer =  qq(<span class="file_icon fa-stack" style="padding-left:0.5em">);
+	my $buffer = qq(<span class="file_icon fa-stack" style="padding-left:0.5em">);
 	$buffer .= qq(<span class="fa-stack-1x filetype-text">$type</span>);
 	$buffer .= qq(<span class="fa fa-file-o fa-stack-2x"></span>);
 	$buffer .= qq(</span>);
@@ -604,10 +604,10 @@ sub _print_help_panel {
 		print $self->popup_menu( -name => 'field', -values => $values, -labels => $labels );
 		print $q->submit( -name => 'Go', -class => 'fieldvaluebutton' );
 		my $refer_page = $q->param('page');
-		$q->param( 'page', 'fieldValues' );
+		$q->param( page => 'fieldValues' );
 		print $q->hidden($_) foreach qw (db page);
 		print $q->end_form;
-		$q->param( 'page', $refer_page );
+		$q->param( page => $refer_page );
 	}
 	print "</div>\n";
 	return;

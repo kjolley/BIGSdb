@@ -703,6 +703,17 @@ sub _print_message_fieldset {
 	return;
 }
 
+sub _print_archive_fieldset {
+	my ($self, $submission_id) = @_;
+	say qq(<fieldset style="float:left"><legend>Archive</legend>);
+	say qq(<p>Archive of submission and any supporting files:</p>);
+	my $tar_icon = $self->get_file_icon('TAR');
+	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;submission_id=$submission_id&amp;)
+	  . qq(tar=1">Download$tar_icon</a></p>);
+	say qq(</fieldset>);
+	return;
+}
+
 sub _append_message {
 	my ( $self, $submission_id, $user_id, $message ) = @_;
 	my $dir = $self->_get_submission_dir($submission_id);
@@ -836,12 +847,7 @@ sub _view_submission {
 		say qq(</fieldset>);
 	}
 	$self->_print_message_fieldset($submission_id);
-	say qq(<fieldset style="float:left"><legend>Archive</legend>);
-	say qq(<p>Archive of submission and any supporting files:</p>);
-	my $tar_icon = $self->get_file_icon('TAR');
-	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;submission_id=$submission_id&amp;)
-	  . qq(tar=1">Download$tar_icon</a></p>);
-	say qq(</fieldset>);
+	$self->_print_archive_fieldset($submission_id);
 	say qq(</div></div>);
 	return;
 }
