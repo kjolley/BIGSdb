@@ -99,6 +99,9 @@ sub print_content {
 	} elsif ( $q->param('view') ) {
 		$self->_view_submission( $q->param('submission_id') );
 		return;
+	} elsif ( $q->param('curate') ) {
+		$self->_curate_submission( $q->param('submission_id') );
+		return;
 	}
 	say "<h1>Manage submissions</h1>";
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
@@ -232,8 +235,10 @@ sub _print_allele_submissions_for_curation {
 		  if !($self->is_admin
 			|| $self->{'datastore'}->is_allowed_to_modify_locus_sequences( $allele_submission->{'locus'}, $user_info->{'id'} ) );
 		my $submitter_string = $self->{'datastore'}->get_user_string( $submission->{'submitter'}, { email => 1 } );
-		my $row = qq(<tr class="td$td"><td>$submission->{'id'}</td><td>$submission->{'datestamp'}</td><td>$submitter_string</td>);
-		$row .= qq(<td>$allele_submission->{'locus'}</td>);
+		my $row =
+		    qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
+		  . qq(submission_id=$submission->{'id'}&amp;curate=1">$submission->{'id'}</a></td><td>$submission->{'datestamp'}</td>)
+		  . qq(<td>$submitter_string</td><td>$allele_submission->{'locus'}</td>);
 		my $seq_count = @{ $allele_submission->{'seqs'} };
 		$row .= qq(<td>$seq_count</td></tr>\n);
 		$td = $td == 1 ? 2 : 1;
@@ -704,7 +709,7 @@ sub _print_message_fieldset {
 }
 
 sub _print_archive_fieldset {
-	my ($self, $submission_id) = @_;
+	my ( $self, $submission_id ) = @_;
 	say qq(<fieldset style="float:left"><legend>Archive</legend>);
 	say qq(<p>Archive of submission and any supporting files:</p>);
 	my $tar_icon = $self->get_file_icon('TAR');
@@ -849,6 +854,26 @@ sub _view_submission {
 	$self->_print_message_fieldset($submission_id);
 	$self->_print_archive_fieldset($submission_id);
 	say qq(</div></div>);
+	return;
+}
+
+sub _curate_submission {
+	my ( $self, $submission_id ) = @_;
+	say qq(<h1>Curate submission</h2>);
+	if ( !$submission_id ) {
+		say qq(<div class="box" id="statusbad"><p>No submission id passed.</p></div>);
+		return;
+	}
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	if ( !$user_info || ( $user_info->{'status'} ne 'admin' && $user_info->{'status'} ne 'curator' ) ) {
+		say qq(<div class="box" id="statusbad"><p>Your account does not have the required permissions to curate this submission.</p></div>);
+		return;
+	}
+	my $submission = $self->_get_submission($submission_id);
+	if ( !$submission ) {
+		say qq(<div class="box" id="statusbad"><p>There is no submission '$submission_id' available for curation.</p></div>);
+		return;
+	}
 	return;
 }
 
