@@ -42,6 +42,7 @@ CREATE TABLE allele_submission_sequences (
 submission_id text NOT NULL,
 seq_id text NOT NULL,
 sequence text NOT NULL,
+status text NOT NULL,
 assigned_id text,
 PRIMARY KEY(submission_id,seq_id),
 CONSTRAINT ass_submission_id FOREIGN KEY (submission_id) REFERENCES allele_submissions

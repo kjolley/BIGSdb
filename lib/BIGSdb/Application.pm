@@ -164,7 +164,9 @@ sub _initiate {
 	}
 	$self->{'error'} = 'noAuthenticationSet' if !$self->{'system'}->{'authentication'};
 	$self->{'system'}->{'script_name'} = $self->{'script_name'};
-	$ENV{'PATH'} = '/bin:/usr/bin';    ## no critic (RequireLocalizedPunctuationVars) #so we don't foul taint check
+	$self->{'system'}->{'query_script'}  //= $self->{'config'}->{'query_script'}  // 'bigsdb.pl';
+	$self->{'system'}->{'curate_script'} //= $self->{'config'}->{'curate_script'} // 'bigscurate.pl';
+	$ENV{'PATH'} = '/bin:/usr/bin';              ## no critic (RequireLocalizedPunctuationVars) #so we don't foul taint check
 	delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};    # Make %ENV safer
 	$q->param( 'page', 'index' ) if !defined $q->param('page');
 	$self->{'page'} = $q->param('page');
@@ -285,7 +287,7 @@ sub read_config_file {
 		qw ( prefs_db auth_db jobs_db rest_db max_load emboss_path tmp_dir secure_tmp_dir submission_dir blast+_path blast_threads
 		muscle_path	max_muscle_mb mafft_path mafft_threads mogrify_path ipcress_path splitstree_path reference refdb ref_db chartdirector
 		disable_updates disable_update_message intranet debug results_deleted_days cache_days doclink rest_behind_proxy
-		bcrypt_cost)
+		bcrypt_cost curate_script query_script)
 	  )
 	{
 		$self->{'config'}->{$_} = $config->{_}->{$_};
@@ -456,7 +458,11 @@ sub print_page {
 		$page->print_page_content;
 		return;
 	}
-	if ( $self->{'system'}->{'read_access'} ne 'public' || $self->{'page'} eq 'authorizeClient' || $self->{'page'} eq 'submit'|| $self->{'page'} eq 'logout' ) {
+	if (   $self->{'system'}->{'read_access'} ne 'public'
+		|| $self->{'page'} eq 'authorizeClient'
+		|| $self->{'page'} eq 'submit'
+		|| $self->{'page'} eq 'logout' )
+	{
 		( $continue, $auth_cookies_ref ) = $self->authenticate( \%page_attributes );
 	}
 	return if !$continue;
@@ -520,7 +526,11 @@ sub authenticate {
 			$self->{'page'} = 'index';
 			$logging_out = 1;
 		}
-		if ( $self->{'curate'} || $self->{'system'}->{'read_access'} ne 'public' || $self->{'page'} eq 'authorizeClient' || $self->{'page'} eq 'submit') {
+		if (   $self->{'curate'}
+			|| $self->{'system'}->{'read_access'} ne 'public'
+			|| $self->{'page'} eq 'authorizeClient'
+			|| $self->{'page'} eq 'submit' )
+		{
 			try {
 				throw BIGSdb::AuthenticationException('logging out') if $logging_out;
 				$page_attributes->{'username'} = $page->login_from_cookie;

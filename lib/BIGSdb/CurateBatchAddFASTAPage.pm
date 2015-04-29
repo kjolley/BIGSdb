@@ -20,7 +20,7 @@ package BIGSdb::CurateBatchAddFASTAPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::CurateAddPage);
+use parent qw(BIGSdb::CurateAddPage BIGSdb::SubmitPage);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
 use List::MoreUtils qw(any none);
@@ -119,7 +119,7 @@ sub _print_interface {
 	say $q->checkbox( -name => 'use_next_id', -label => 'Use next available id (only for loci with integer ids)', -checked => 'checked' );
 	say "</li></ul></fieldset>";
 	$self->print_action_fieldset( { 'submit_label' => 'Check' } );
-	say $q->hidden($_) foreach qw(db page set_id);
+	say $q->hidden($_) foreach qw(db page set_id submission_id);
 	say $q->end_form;
 	say "</div></div>";
 	return;
@@ -185,7 +185,7 @@ sub _check {
 	if ( -e $outfile && !-z $outfile ) {
 		say $q->start_form;
 		$self->print_action_fieldset( { submit_label => 'Upload valid sequences', no_reset => 1 } );
-		say $q->hidden($_) foreach qw(db page locus status sender);
+		say $q->hidden($_) foreach qw(db page locus status sender submission_id);
 		say $q->hidden( 'upload_file', $outfile );
 		say $q->end_form;
 	} else {
@@ -335,13 +335,25 @@ sub _upload {
 	}
 	my $seqin = Bio::SeqIO->new( -file => $upload_file, -format => 'fasta' );
 	my $sql =
-	  $self->{'db'}->prepare(
-		"INSERT INTO sequences (locus,allele_id,sequence,status,date_entered,datestamp,sender,curator) " . "VALUES (?,?,?,?,?,?,?,?)" );
+	  $self->{'db'}
+	  ->prepare("INSERT INTO sequences (locus,allele_id,sequence,status,date_entered,datestamp,sender,curator) VALUES (?,?,?,?,?,?,?,?)");
+	my $submission_id     = $q->param('submission_id');
+	my $allele_submission = $self->get_allele_submission($submission_id);
+	my $sql_submission =
+	  $self->{'db'}->prepare("UPDATE allele_submission_sequences SET (status,assigned_id)=(?,?) WHERE (submission_id,seq_id)=(?,?)");
 	eval {
 		while ( my $seq_object = $seqin->next_seq )
 		{
 			$sql->execute( $q->param('locus'), $seq_object->id, $seq_object->seq, $q->param('status'), 'now', 'now', $q->param('sender'),
 				$self->get_curator_id );
+			if ( $allele_submission && $allele_submission->{'locus'} eq $q->param('locus') ) {
+				my $submission_seqs = $allele_submission->{'seqs'};
+				foreach my $seq (@$submission_seqs) {
+					if ( uc( $seq->{'sequence'} ) eq uc( $seq_object->seq ) ) {
+						$sql_submission->execute( 'assigned', $seq_object->id, $submission_id, $seq->{'seq_id'} );
+					}
+				}
+			}
 		}
 	};
 	if ($@) {
@@ -349,8 +361,12 @@ sub _upload {
 		$self->{'db'}->rollback;
 		return;
 	}
-	say "<div class=\"box\" id=\"resultsheader\"><p>Upload succeeded.</p>";
-	say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddFasta\">Upload more</a>"
+	say "<div class=\"box\" id=\"resultsheader\"><p>Upload succeeded.</p><p>";
+	if ($allele_submission){
+		say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=submit&amp;submission_id=$submission_id&amp;)
+		  . qq(curate=1">Return to submission</a> | );
+	}
+	say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddFasta\">Upload more</a>"
 	  . " | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p>";
 	say "</div>";
 	$self->{'db'}->commit;
