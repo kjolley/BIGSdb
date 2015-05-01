@@ -1474,7 +1474,7 @@ sub check_new_alleles_fasta {
 	my $seqin = Bio::SeqIO->new( -fh => $stringfh_in, -format => 'fasta' );
 	my ( @err, @info, @seqs, %used_ids );
 	while ( my $seq_object = $seqin->next_seq ) {
-		push @seqs, $seq_object;
+		push @seqs, {seq_id => $seq_object->id, sequence => $seq_object->seq};
 		my $seq_id = $seq_object->id;
 		if ( $used_ids{$seq_id} ) {
 			push @err, "Sequence identifier '$seq_id' is used more than once in submission.";

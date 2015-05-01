@@ -24,7 +24,6 @@ use parent qw(BIGSdb::TreeViewPage);
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-#use Bio::Seq;
 use BIGSdb::Utils;
 use BIGSdb::BIGSException;
 use BIGSdb::Page 'SEQ_METHODS';
@@ -103,16 +102,16 @@ sub print_content {
 		$self->_curate_submission( $q->param('submission_id') );
 		return;
 	}
-	say "<h1>Manage submissions</h1>";
+	say q(<h1>Manage submissions</h1>);
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	if ( !$user_info ) {
-		say qq(<div class="box" id="statusbad"><p>You are not a recognized user.  Submissions are disabled.</p></div>);
+		say q(<div class="box" id="statusbad"><p>You are not a recognized user.  Submissions are disabled.</p></div>);
 		return;
 	}
 	if ( $q->param('alleles') ) {
 		if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
-			say qq(<div class="box" id="statusbad"><p>You cannot submit new allele sequences for definition in an isolate )
-			  . qq(database.<p></div>);
+			say q(<div class="box" id="statusbad"><p>You cannot submit new allele sequences for definition in an isolate )
+			  . q(database.<p></div>);
 			return;
 		}
 		if ( $q->param('submit') ) {
@@ -121,17 +120,17 @@ sub print_content {
 		$self->_submit_alleles;
 		return;
 	}
-	say qq(<div class="box" id="resultstable"><div class="scrollable">);
+	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	if ( !$self->_print_started_submissions ) {    #Returns true if submissions in process
-		say qq(<h2>Submit new data</h2>);
-		say qq(<p>Data submitted here will go in to a queue for handling by a curator or by an automated script.  You will be able to )
-		  . qq(track the status of any submission.</p>);
+		say q(<h2>Submit new data</h2>);
+		say q(<p>Data submitted here will go in to a queue for handling by a curator or by an automated script.  You will be able to )
+		  . q(track the status of any submission.</p>);
 		say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;alleles=1">Submit alleles</a>)
-		  . qq(</li></ul>);
+		  . q(</li></ul>);
 	}
 	$self->_print_pending_submissions_table;
 	$self->_print_submissions_for_curation;
-	say qq(</div></div>);
+	say q(</div></div>);
 	return;
 }
 
@@ -141,11 +140,11 @@ sub _get_submissions_by_status {
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my ( $qry, $get_all, @args );
 	if ( $options->{'get_all'} ) {
-		$qry     = "SELECT * FROM submissions WHERE status=? ORDER BY datestamp asc";
+		$qry     = 'SELECT * FROM submissions WHERE status=? ORDER BY datestamp asc';
 		$get_all = 1;
 		push @args, $status;
 	} else {
-		$qry     = "SELECT * FROM submissions WHERE (submitter,status)=(?,?) ORDER BY datestamp asc";
+		$qry     = 'SELECT * FROM submissions WHERE (submitter,status)=(?,?) ORDER BY datestamp asc';
 		$get_all = 0;
 		push @args, ( $user_info->{'id'}, $status );
 	}
@@ -332,7 +331,7 @@ sub _submit_alleles {
 		my $fasta_string;
 		foreach my $seq ( @{ $allele_submission->{'seqs'} } ) {
 			$fasta_string .= ">$seq->{'seq_id'}\n";
-			$fasta_string .= "$seq->{'sequnece'}\n";
+			$fasta_string .= "$seq->{'sequence'}\n";
 		}
 		if ( !$q->param('no_check') ) {
 			$ret = $self->{'datastore'}->check_new_alleles_fasta( $allele_submission->{'locus'}, \$fasta_string );
@@ -344,7 +343,7 @@ sub _submit_alleles {
 		$ret = $self->_check_new_alleles;
 		if ( $ret->{'err'} ) {
 			my @err = @{ $ret->{'err'} };
-			local $" = "<br />";
+			local $" = '<br />';
 			my $plural = @err == 1 ? '' : 's';
 			say qq(<div class="box" id="statusbad"><h2>Error$plural:</h2><p>@err</p></div>);
 		} else {
@@ -443,8 +442,8 @@ sub _print_sequence_details_fieldset {
 		-required => 'required',
 		-default  => $allele_submission->{'software'} // $self->{'prefs'}->{'submit_allele_software'}
 	);
-	say qq(</li></ul>);
-	say qq(</fieldset>);
+	say q(</li></ul>);
+	say q(</fieldset>);
 	return;
 }
 
@@ -506,19 +505,13 @@ sub _get_submission {
 
 sub get_allele_submission {
 	my ( $self, $submission_id ) = @_;
-	$logger->logcarp("No submission_id passed") if !$submission_id;
+	$logger->logcarp('No submission_id passed') if !$submission_id;
 	my $submission = $self->{'datastore'}->run_query( "SELECT * FROM allele_submissions WHERE submission_id=?",
 		$submission_id, { fetch => 'row_hashref', cache => 'SubmitPage::get_allele_submission' } );
 	return if !$submission;
 	my $seq_data = $self->{'datastore'}->run_query( "SELECT * FROM allele_submission_sequences WHERE submission_id=?",
 		$submission_id, { fetch => 'all_arrayref', slice => {} } );
 	$submission->{'seqs'} = $seq_data;
-#	my @seqs;
-#	foreach my $seq (@$seq_data) {
-#		my $seq_obj = Bio::PrimarySeq->new( -id => $seq->{'seq_id'}, -seq => $seq->{'sequence'} );
-#		push @seqs, $seq_obj;
-#	}
-#	$submission->{'seqs'} = \@seqs;
 	return $submission;
 }
 
@@ -537,8 +530,8 @@ sub _presubmit_alleles {
 		$submission_id = $self->_start_submission('alleles');
 		eval {
 			$self->{'db'}->do(
-				"INSERT INTO allele_submissions (submission_id,locus,technology,read_length,coverage,assembly,"
-				  . "software) VALUES (?,?,?,?,?,?,?)",
+				'INSERT INTO allele_submissions (submission_id,locus,technology,read_length,coverage,assembly,'
+				  . 'software) VALUES (?,?,?,?,?,?,?)',
 				undef,
 				$submission_id,
 				$locus,
@@ -556,7 +549,7 @@ sub _presubmit_alleles {
 		}
 		if (@$seqs) {
 			my $insert_sql =
-			  $self->{'db'}->prepare("INSERT INTO allele_submission_sequences (submission_id,seq_id,sequence,status) VALUES (?,?,?,?)");
+			  $self->{'db'}->prepare('INSERT INTO allele_submission_sequences (submission_id,seq_id,sequence,status) VALUES (?,?,?,?)');
 			foreach my $seq (@$seqs) {
 				eval { $insert_sql->execute( $submission_id, $seq->{'seq_id'}, $seq->{'sequence'}, 'pending' ) };
 				if ($@) {
@@ -587,11 +580,11 @@ sub _presubmit_alleles {
 			$i++;
 		}
 	}
-	say qq(<div class="box" id="resultstable"><div class="scrollable">);
+	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	if ( $q->param('abort') ) {
-		say qq(<div style="float:left">);
+		say q(<div style="float:left">);
 		$self->print_warning_sign( { no_div => 1 } );
-		say qq(</div>);
+		say q(</div>);
 		say $q->start_form;
 		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Abort submission!' } );
 		$q->param( confirm       => 1 );
@@ -602,17 +595,17 @@ sub _presubmit_alleles {
 	say qq(<h2>Submission: $submission_id</h2>);
 	say $q->start_form;
 	$self->_print_sequence_details_fieldset($submission_id);
-	$self->_print_sequence_table_fieldset($submission_id, {download_link=>1});
+	$self->_print_sequence_table_fieldset( $submission_id, { download_link => 1 } );
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Finalize submission!' } );
 	$q->param( finalize      => 1 );
 	$q->param( submission_id => $submission_id );
 	say $q->hidden($_) foreach qw(db page locus submit finalize submission_id);
 	say $q->end_form;
-	say qq(<fieldset style="float:left"><legend>Supporting files</legend>);
-	say qq(<p>Please upload any supporting files required for curation.  Ensure that these are named unambiguously or add an explanatory )
-	  . qq(note so that they can be linked to the appropriate sequence.  Individual filesize is limited to )
+	say q(<fieldset style="float:left"><legend>Supporting files</legend>);
+	say q(<p>Please upload any supporting files required for curation.  Ensure that these are named unambiguously or add an explanatory )
+	  . q(note so that they can be linked to the appropriate sequence.  Individual filesize is limited to )
 	  . BIGSdb::Utils::get_nice_size(MAX_UPLOAD_SIZE)
-	  . qq(.</p>);
+	  . q(.</p>);
 	say $q->start_form;
 	print $q->filefield( -name => 'file_upload', -id => 'file_upload', -multiple );
 	say $q->submit( -name => 'Upload files', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
@@ -649,7 +642,8 @@ sub _print_sequence_table_fieldset {
 	my $fasta_icon = $self->get_file_icon('FAS');
 	my $plural = @$seqs == 1 ? '' : 's';
 	say qq(<p>You are submitting the following $allele_submission->{'locus'} sequence$plural: )
-	 . qq(<a href="/submissions/$submission_id/sequences.fas">Download$fasta_icon</a></p>) if ($options->{'download_link'});
+	  . qq(<a href="/submissions/$submission_id/sequences.fas">Download$fasta_icon</a></p>)
+	  if ( $options->{'download_link'} );
 	say qq(<table class="resultstable">);
 	my $cds = $locus_info->{'data_type'} eq 'DNA' && $locus_info->{'complete_cds'} ? '<th>Complete CDS</th>' : '';
 	say qq(<tr><th>Identifier</th><th>Length</th><th>Sequence</th>$cds<th>Status</th><th>Assigned allele</th></tr>);
@@ -661,7 +655,10 @@ sub _print_sequence_table_fieldset {
 		my $sequence = BIGSdb::Utils::truncate_seq( \$seq->{'sequence'}, 40 );
 		$cds = '';
 		if ( $locus_info->{'data_type'} eq 'DNA' && $locus_info->{'complete_cds'} ) {
-			$cds = BIGSdb::Utils::is_complete_cds( \$seq->{'sequence'} )->{'cds'} ? '<td>yes</td>' : '<td>no</td>';
+			$cds =
+			  BIGSdb::Utils::is_complete_cds( \$seq->{'sequence'} )->{'cds'}
+			  ? '<td><span class="fa fa-check fa-lg" style="color:green"></span></td>'
+			  : '<td><span class="fa fa-times fa-lg" style="color:red"></span></td>';
 		}
 		my $assigned = $seq->{'assigned_id'} // '';
 		say qq(<tr class="td$td"><td>$id</td><td>$length</td><td class="seq">$sequence</td>$cds);

@@ -17,3 +17,9 @@ severity = stern
 
 [Variables::ProhibitUnusedVariables]
 severity = stern
+
+[Variables::ProhibitReusedNames]
+severity = stern
+
+[Miscellanea::ProhibitUselessNoCritic]
+severity = stern
