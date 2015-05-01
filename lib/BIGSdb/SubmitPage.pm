@@ -509,7 +509,7 @@ sub get_allele_submission {
 	my $submission = $self->{'datastore'}->run_query( "SELECT * FROM allele_submissions WHERE submission_id=?",
 		$submission_id, { fetch => 'row_hashref', cache => 'SubmitPage::get_allele_submission' } );
 	return if !$submission;
-	my $seq_data = $self->{'datastore'}->run_query( "SELECT * FROM allele_submission_sequences WHERE submission_id=?",
+	my $seq_data = $self->{'datastore'}->run_query( "SELECT * FROM allele_submission_sequences WHERE submission_id=? ORDER BY seq_id",
 		$submission_id, { fetch => 'all_arrayref', slice => {} } );
 	$submission->{'seqs'} = $seq_data;
 	return $submission;
@@ -631,23 +631,48 @@ sub _presubmit_alleles {
 sub _print_sequence_table_fieldset {
 	my ( $self, $submission_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
+	my $q          = $self->{'cgi'};
 	my $submission = $self->_get_submission($submission_id);
 	return if !$submission;
 	return if $submission->{'type'} ne 'alleles';
 	my $allele_submission = $self->get_allele_submission($submission_id);
 	return if !$allele_submission;
+	my $seqs = $allele_submission->{'seqs'};
+
+	if ( $q->param('curate') ) {
+		if ( $q->param('update') ) {
+			foreach my $seq (@$seqs) {
+				my $status = $q->param("status_$seq->{'seq_id'}");
+				eval {
+					$self->{'db'}->do( 'UPDATE allele_submission_sequences SET status=? WHERE (submission_id,seq_id)=(?,?)',
+						undef, $status, $submission_id, $seq->{'seq_id'} );
+				};
+				if ($@) {
+					$logger->error($@);
+					$self->{'db'}->rollback;
+				} else {
+					$self->{'db'}->commit;
+				}
+			}
+			$allele_submission = $self->get_allele_submission($submission_id);
+			$seqs              = $allele_submission->{'seqs'};
+		}
+	}
 	my $locus_info = $self->{'datastore'}->get_locus_info( $allele_submission->{'locus'} );
-	my $seqs       = $allele_submission->{'seqs'};
 	say qq(<fieldset style="float:left"><legend>Sequences</legend>);
 	my $fasta_icon = $self->get_file_icon('FAS');
 	my $plural = @$seqs == 1 ? '' : 's';
 	say qq(<p>You are submitting the following $allele_submission->{'locus'} sequence$plural: )
 	  . qq(<a href="/submissions/$submission_id/sequences.fas">Download$fasta_icon</a></p>)
 	  if ( $options->{'download_link'} );
+	say $q->start_form;
 	say qq(<table class="resultstable">);
 	my $cds = $locus_info->{'data_type'} eq 'DNA' && $locus_info->{'complete_cds'} ? '<th>Complete CDS</th>' : '';
 	say qq(<tr><th>Identifier</th><th>Length</th><th>Sequence</th>$cds<th>Status</th><th>Assigned allele</th></tr>);
-	my $td = 1;
+	my $all_assigned_or_rejected = 1;
+	my $all_assigned             = 1;
+	my $td                       = 1;
+	my $pending_seqs             = [];
 
 	foreach my $seq (@$seqs) {
 		my $id       = $seq->{'seq_id'};
@@ -660,12 +685,52 @@ sub _print_sequence_table_fieldset {
 			  ? '<td><span class="fa fa-check fa-lg" style="color:green"></span></td>'
 			  : '<td><span class="fa fa-times fa-lg" style="color:red"></span></td>';
 		}
-		my $assigned = $seq->{'assigned_id'} // '';
-		say qq(<tr class="td$td"><td>$id</td><td>$length</td><td class="seq">$sequence</td>$cds);
-		say qq(<td>$seq->{'status'}</td><td>$assigned</td></tr>);
+		say qq(<tr class="td$td"><td>$id</td><td>$length</td>);
+		say qq(<td class="seq">$sequence</td>$cds);
+		my $assigned = $self->{'datastore'}->run_query(
+			"SELECT allele_id FROM sequences WHERE (locus,sequence)=(?,?)",
+			[ $allele_submission->{'locus'}, $seq->{'sequence'} ],
+			{ cache => 'SubmitPage::print_sequence_table_fieldset' }
+		);
+		push @$pending_seqs, $seq if !defined $assigned && $seq->{'status'} ne 'rejected';
+		$assigned //= '';
+		if ( $options->{'curate'} ) {
+			if ($assigned) {
+				say qq(<td>$seq->{'status'}</td>);
+			} else {
+				say q(<td>);
+				say $q->popup_menu( -name => "status_$seq->{'seq_id'}", -values => [qw(pending rejected)], -default => $seq->{'status'} );
+				say q(</td>);
+				$all_assigned_or_rejected = 0 if $seq->{'status'} ne 'rejected';
+				$all_assigned = 0;
+			}
+		} else {
+			say qq(<td>$seq->{'status'}</td>);
+		}
+		say qq(<td>$assigned</td>);
+		say q(</tr>);
 		$td = $td == 1 ? 2 : 1;
 	}
 	say qq(</table>);
+	if ( $options->{'curate'} && !$all_assigned ) {
+		say q(<div style="float:right">);
+		say $q->submit( -name => 'update', -label => 'Update',
+			-class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
+		say q(</div>);
+	}
+	say $q->hidden($_) foreach qw(db page submission_id curate);
+	say $q->end_form;
+	if ( $options->{'curate'} && !$all_assigned_or_rejected ) {
+		say $q->start_form( -action => $self->{'system'}->{'curate_script'} );
+		say $q->submit( -name => 'Batch curate', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
+		$q->param( page         => 'batchAddFasta' );
+		$q->param( locus        => $allele_submission->{'locus'} );
+		$q->param( sender       => $submission->{'submitter'} );
+		$q->param( sequence     => $self->_get_fasta_string($pending_seqs) );
+		$q->param( complete_CDS => $locus_info->{'complete_cds'} ? 'on' : 'off' );
+		say $q->hidden($_) foreach qw( db page submission_id locus sender sequence complete_CDS);
+		say $q->end_form;
+	}
 	say qq(</fieldset>);
 	return;
 }
@@ -711,8 +776,11 @@ sub _print_message_fieldset {
 	}
 	if ( !$options->{'no_add'} ) {
 		$buffer .= $q->start_form;
-		$buffer .= $q->textarea( -name => 'message', -id => 'message' );
+		$buffer .= q(<div>);
+		$buffer .= $q->textarea( -name => 'message', -id => 'message', -style => 'width:100%' );
+		$buffer .= q(</div><div style="float:right">);
 		$buffer .= $q->submit( -name => 'Add message', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
+		$buffer .= q(</div>);
 		$buffer .= $q->hidden($_) foreach qw(db page alleles locus submit continue view curate abort submission_id no_check);
 		$buffer .= $q->end_form;
 	}
@@ -890,7 +958,7 @@ sub _print_summary {
 
 sub _curate_submission {
 	my ( $self, $submission_id ) = @_;
-	say qq(<h1>Curate submission</h2>);
+	say qq(<h1>Curate submission</h1>);
 	if ( !$submission_id ) {
 		say qq(<div class="box" id="statusbad"><p>No submission id passed.</p></div>);
 		return;
@@ -908,40 +976,11 @@ sub _curate_submission {
 	say qq(<div class="box" id="resultstable"><div class="scrollable">);
 	say qq(<h2>Submission: $submission_id</h2>);
 	$self->_print_summary($submission_id);
-	$self->_print_sequence_table_fieldset($submission_id);
+	$self->_print_sequence_table_fieldset( $submission_id, { curate => 1 } );
 	$self->_print_file_fieldset($submission_id);
 	$self->_print_message_fieldset($submission_id);
 	$self->_print_archive_fieldset($submission_id);
-	$self->_print_curate_fieldset($submission_id);
 	say qq(</div></div>);
-	return;
-}
-
-sub _print_curate_fieldset {
-	my ( $self, $submission_id ) = @_;
-	my $submission = $self->_get_submission($submission_id);
-	return if !$submission;
-	my $q = $self->{'cgi'};
-	say qq(<fieldset style="float:left"><legend>Curate</legend>);
-	if ( $submission->{'type'} eq 'alleles' ) {
-		my $files             = $self->_get_submission_files($submission_id);
-		my $allele_submission = $self->get_allele_submission($submission_id);
-		if ( !$allele_submission ) {
-			say qq(<p class="statusbad">Invalid allele submission.</p>);
-		} else {
-			my $locus_info = $self->{'datastore'}->get_locus_info( $allele_submission->{'locus'} );
-			say $q->start_form( -action => $self->{'system'}->{'curate_script'} );
-			say $q->submit( -name => 'Batch curate', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
-			$q->param( page         => 'batchAddFasta' );
-			$q->param( locus        => $allele_submission->{'locus'} );
-			$q->param( sender       => $submission->{'submitter'} );
-			$q->param( sequence     => $self->_get_fasta_string( $allele_submission->{'seqs'} ) );
-			$q->param( complete_CDS => $locus_info->{'complete_cds'} ? 'on' : 'off' );
-			say $q->hidden($_) foreach qw( db page submission_id locus sender sequence complete_CDS);
-			say $q->end_form;
-		}
-	}
-	say qq(</fieldset>);
 	return;
 }
 

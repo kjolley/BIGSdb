@@ -343,6 +343,8 @@ a.smallbutton {padding: 0 0.5em}
 
 input.submitbutton {border:1px solid #ada; color:#333; background:#eee}
 input.submitbutton:hover {border:1px solid #696}
+input.updatebutton {border:1px solid #aad; color:#333; background:#eee}
+input.updatebutton:hover {border:1px solid #669}
 
 a.resetbutton:hover, input.submitbutton:hover {
 	background: #fff;
