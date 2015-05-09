@@ -23,3 +23,6 @@ severity = stern
 
 [Miscellanea::ProhibitUselessNoCritic]
 severity = stern
+
+[ValuesAndExpressions::ProhibitInterpolationOfLiterals]
+severity = harsh
