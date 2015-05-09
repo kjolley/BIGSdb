@@ -63,9 +63,9 @@ sub create_record_table {
 	my $buffer;
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	$buffer .= $q->start_form;
-	$q->param( 'action', $options->{'update'} ? 'update' : 'add' );
-	$q->param( 'table', $table );
-	$buffer .= $q->hidden($_) foreach qw(page table db action );
+	$q->param( action => $options->{'update'} ? 'update' : 'add' );
+	$q->param( table => $table );
+	$buffer .= $q->hidden($_) foreach qw(page table db action submission_id);
 
 	if ( $table eq 'allele_designations' ) {
 		$buffer .= $q->hidden( locus => $newdata->{'locus'} );
@@ -110,12 +110,26 @@ sub create_record_table {
 	return $buffer;
 }
 
+sub _get_allele_submission_sequence {
+	my ( $self, $submission_id, $seq_id ) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'sequences';
+	return $self->{'datastore'}
+	  ->run_query( 'SELECT sequence FROM allele_submission_sequences WHERE (submission_id,seq_id)=(?,?)', [ $submission_id, $seq_id ] );
+}
+
 sub _get_form_fields {
 	my ( $self, $attributes, $table, $newdata_ref, $options, $width ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $q       = $self->{'cgi'};
 	my %newdata = %{$newdata_ref};
-	$logger->error($@) if $@;
+	if (   $q->param('page') eq 'add'
+		&& $q->param('table') eq 'sequences'
+		&& $q->param('submission_id')
+		&& $q->param('seq_id')
+		&& !$q->param('sequence') )
+	{
+		$q->param( sequence => $self->_get_allele_submission_sequence( $q->param('submission_id'), $q->param('seq_id') ) );
+	}
 	my @users;
 	my %usernames;
 	$usernames{''} = ' ';    #Required for HTML5 validation
@@ -123,7 +137,6 @@ sub _get_form_fields {
 	my $user_data =
 	  $self->{'datastore'}
 	  ->run_query( "SELECT id,user_name,first_name,surname FROM users WHERE id>0 ORDER BY surname", undef, { fetch => 'all_arrayref' } );
-
 	foreach my $user_data (@$user_data) {
 		my ( $user_id, $username, $firstname, $surname ) = @$user_data;
 		push @users, $user_id;

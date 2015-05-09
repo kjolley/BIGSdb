@@ -30,8 +30,8 @@ use BIGSdb::Page 'SEQ_METHODS';
 use List::MoreUtils qw(none);
 use File::Path qw(make_path remove_tree);
 use POSIX;
-use constant COVERAGE        => qw(<20x 20-49x 50-99x +100x);
-use constant READ_LENGTH     => qw(<100 100-199 200-299 300-499 +500);
+use constant COVERAGE        => qw(<20x 20-49x 50-99x >100x);
+use constant READ_LENGTH     => qw(<100 100-199 200-299 300-499 >500);
 use constant ASSEMBLY        => ( 'de novo', 'mapped' );
 use constant MAX_UPLOAD_SIZE => 32 * 1024 * 1024;                        #32Mb
 
@@ -643,6 +643,7 @@ sub _print_sequence_table_fieldset {
 		if ( $q->param('update') ) {
 			foreach my $seq (@$seqs) {
 				my $status = $q->param("status_$seq->{'seq_id'}");
+				next if !defined $status;
 				eval {
 					$self->{'db'}->do( 'UPDATE allele_submission_sequences SET status=? WHERE (submission_id,seq_id)=(?,?)',
 						undef, $status, $submission_id, $seq->{'seq_id'} );
@@ -658,7 +659,8 @@ sub _print_sequence_table_fieldset {
 			$seqs              = $allele_submission->{'seqs'};
 		}
 	}
-	my $locus_info = $self->{'datastore'}->get_locus_info( $allele_submission->{'locus'} );
+	my $locus      = $allele_submission->{'locus'};
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	say qq(<fieldset style="float:left"><legend>Sequences</legend>);
 	my $fasta_icon = $self->get_file_icon('FAS');
 	my $plural = @$seqs == 1 ? '' : 's';
@@ -692,6 +694,12 @@ sub _print_sequence_table_fieldset {
 			[ $allele_submission->{'locus'}, $seq->{'sequence'} ],
 			{ cache => 'SubmitPage::print_sequence_table_fieldset' }
 		);
+		if ( !defined $assigned && defined $seq->{'assigned_id'} ) {
+			$self->_clear_assigned_id( $submission_id, $seq->{'seq_id'} );
+		}
+		if ( !defined $assigned && $seq->{'status'} eq 'assigned' ) {
+			$self->_set_allele_status( $submission_id, $seq->{'seq_id'}, 'pending' );
+		}
 		push @$pending_seqs, $seq if !defined $assigned && $seq->{'status'} ne 'rejected';
 		$assigned //= '';
 		if ( $options->{'curate'} ) {
@@ -707,7 +715,13 @@ sub _print_sequence_table_fieldset {
 		} else {
 			say qq(<td>$seq->{'status'}</td>);
 		}
-		say qq(<td>$assigned</td>);
+		if ( $options->{'curate'} && $seq->{'status'} ne 'rejected' && $assigned eq '' ) {
+			say qq(<td><a href="$self->{'system'}->{'curate_script'}?db=$self->{'instance'}&amp;page=add&amp;table=sequences&amp;)
+			  . qq(locus=$locus&amp;submission_id=$submission_id&seq_id=$seq->{'seq_id'}&amp;sender=$submission->{'submitter'}">)
+			  . qq(<span class="fa fa-lg fa-edit"></span>Curate</a></td>);
+		} else {
+			say qq(<td>$assigned</td>);
+		}
 		say q(</tr>);
 		$td = $td == 1 ? 2 : 1;
 	}
@@ -723,15 +737,48 @@ sub _print_sequence_table_fieldset {
 	if ( $options->{'curate'} && !$all_assigned_or_rejected ) {
 		say $q->start_form( -action => $self->{'system'}->{'curate_script'} );
 		say $q->submit( -name => 'Batch curate', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
+		my $page = $q->param('page');
 		$q->param( page         => 'batchAddFasta' );
-		$q->param( locus        => $allele_submission->{'locus'} );
+		$q->param( locus        => $locus );
 		$q->param( sender       => $submission->{'submitter'} );
 		$q->param( sequence     => $self->_get_fasta_string($pending_seqs) );
 		$q->param( complete_CDS => $locus_info->{'complete_cds'} ? 'on' : 'off' );
 		say $q->hidden($_) foreach qw( db page submission_id locus sender sequence complete_CDS);
 		say $q->end_form;
+		$q->param( page => $page );    #Restore value
 	}
 	say qq(</fieldset>);
+	$self->{'all_assigned_or_rejected'} = $all_assigned_or_rejected;
+	return;
+}
+
+sub _clear_assigned_id {
+	my ( $self, $submission_id, $seq_id ) = @_;
+	eval {
+		$self->{'db'}->do( 'UPDATE allele_submission_sequences SET assigned_id=NULL WHERE (submission_id,seq_id)=(?,?)',
+			undef, $submission_id, $seq_id );
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+	return;
+}
+
+sub _set_allele_status {
+	my ( $self, $submission_id, $seq_id, $status ) = @_;
+	eval {
+		$self->{'db'}->do( 'UPDATE allele_submission_sequences SET status=? WHERE (submission_id,seq_id)=(?,?)',
+			undef, $status, $submission_id, $seq_id )
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
 	return;
 }
 
@@ -796,6 +843,18 @@ sub _print_archive_fieldset {
 	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;submission_id=$submission_id&amp;)
 	  . qq(tar=1">Download$tar_icon</a></p>);
 	say qq(</fieldset>);
+	return;
+}
+
+sub _print_finalize_fieldset {
+	my ( $self, $submission_id ) = @_;
+	return if !$self->{'all_assigned_or_rejected'};
+	my $q = $self->{'cgi'};
+	say $q->start_form;
+	$q->param( finalize => 1 );
+	say $q->hidden($_) foreach qw( db page submission_id finalize );
+	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Finalize submission' } );
+	say $q->end_form;
 	return;
 }
 
@@ -980,6 +1039,7 @@ sub _curate_submission {
 	$self->_print_file_fieldset($submission_id);
 	$self->_print_message_fieldset($submission_id);
 	$self->_print_archive_fieldset($submission_id);
+	$self->_print_finalize_fieldset($submission_id);
 	say qq(</div></div>);
 	return;
 }

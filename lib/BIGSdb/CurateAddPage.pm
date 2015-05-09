@@ -274,6 +274,11 @@ sub _insert {
 					  . "user=$newdata->{'user_name'}\">Set password</a>";
 				}
 			}
+			if ( $q->param('submission_id') ) {
+				my $submission_id = $q->param('submission_id');
+				say qq( | <a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=submit&amp;)
+				  . qq(submission_id=$submission_id&amp;curate=1">Return to submission</a>);
+			}
 			say " | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>\n";
 			return SUCCESS;
 		}
@@ -464,6 +469,12 @@ sub _check_sequences {
 				arguments => [ $newdata->{'locus'}, $newdata->{'allele_id'}, $databank, $new, $newdata->{'curator'}, 'now' ]
 			  };
 		}
+	}
+	if ( $q->param('submission_id') && $q->param('sequence') ) {
+		push @$extra_inserts, {
+			statement => 'UPDATE allele_submission_sequences SET (status,assigned_id)=(?,?) WHERE (submission_id,UPPER(sequence))=(?,?)',
+			arguments => [ 'assigned', $newdata->{'allele_id'}, $q->param('submission_id'), uc($q->param('sequence')) ]
+		};
 	}
 	return;
 }
