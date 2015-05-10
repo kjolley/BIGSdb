@@ -8,6 +8,12 @@ severity = stern
 [InputOutput::RequireCheckedOpen]
 severity = stern
 
+[InputOutput::ProhibitBacktickOperators]
+only_in_void_context = 1
+
+[Miscellanea::ProhibitUselessNoCritic]
+severity = stern
+
 [Subroutines::ProhibitManyArgs]
 severity = stern
 max_arguments = 6
@@ -15,14 +21,12 @@ max_arguments = 6
 [Subroutines::ProtectPrivateSubs]
 severity = stern
 
+[ValuesAndExpressions::ProhibitInterpolationOfLiterals]
+severity = harsh
+
 [Variables::ProhibitUnusedVariables]
 severity = stern
 
 [Variables::ProhibitReusedNames]
 severity = stern
 
-[Miscellanea::ProhibitUselessNoCritic]
-severity = stern
-
-[ValuesAndExpressions::ProhibitInterpolationOfLiterals]
-severity = harsh
