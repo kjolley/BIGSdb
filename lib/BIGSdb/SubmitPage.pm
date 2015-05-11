@@ -1150,8 +1150,13 @@ sub _view_submission {
 sub _close_submission {
 	my ( $self, $submission_id ) = @_;
 	return if !$self->_is_submission_valid( $submission_id, { curate => 1, no_message => 1 } );
-	my $q         = $self->{'cgi'};
-	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	eval { $self->{'db'}->do( 'UPDATE submissions SET status=? WHERE id=?', undef, 'closed', $submission_id ) };
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
 	return;
 }
 
