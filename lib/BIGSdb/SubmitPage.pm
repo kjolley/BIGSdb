@@ -228,7 +228,7 @@ sub _get_own_submissions {
 				$buffer .=
 				    qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 				  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;remove=1">)
-				  . q(<span class="fa fa-lg fa-remove"></span></a>);
+				  . q(<span class="fa fa-lg fa-remove"></span></a></td>);
 			}
 			$buffer .= q(</tr>);
 			$td = $td == 1 ? 2 : 1;
