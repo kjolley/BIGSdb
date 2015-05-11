@@ -5,6 +5,7 @@ CREATE TABLE submissions (
 id text NOT NULL,
 type text NOT NULL,
 submitter int NOT NULL,
+date_submitted date NOT NULL,
 datestamp date NOT NULL,
 status text NOT NULL,
 curator int,

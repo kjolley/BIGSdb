@@ -134,8 +134,9 @@ sub print_content {
 		say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
 		  . q(alleles=1">Submit alleles</a></li></ul>);
 	}
-	$self->_print_pending_submissions_table;
+	$self->_print_pending_submissions;
 	$self->_print_submissions_for_curation;
+	$self->_print_closed_submissions;
 	say q(</div></div>);
 	return;
 }
@@ -146,11 +147,11 @@ sub _get_submissions_by_status {
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my ( $qry, $get_all, @args );
 	if ( $options->{'get_all'} ) {
-		$qry     = 'SELECT * FROM submissions WHERE status=? ORDER BY datestamp asc';
+		$qry     = 'SELECT * FROM submissions WHERE status=? ORDER BY datestamp desc';
 		$get_all = 1;
 		push @args, $status;
 	} else {
-		$qry     = 'SELECT * FROM submissions WHERE (submitter,status)=(?,?) ORDER BY datestamp asc';
+		$qry     = 'SELECT * FROM submissions WHERE (submitter,status)=(?,?) ORDER BY datestamp desc';
 		$get_all = 0;
 		push @args, ( $user_info->{'id'}, $status );
 	}
@@ -190,20 +191,21 @@ sub _print_started_submissions {
 	return;
 }
 
-sub _print_pending_submissions_table {
-	my ($self) = @_;
-	my $pending = $self->_get_submissions_by_status('pending');
-	if (@$pending) {
-		say q(<h2>Pending submissions</h2>);
-		say q(<p>You have submitted the following submissions that are pending curation:</p>);
-		say q(<table class="resultstable"><tr><th>Submission id</th><th>Datestamp</th><th>Type</th>)
-		  . q(<th>Details</th></tr>);
+sub _get_own_submissions {
+	my ( $self, $status ) = @_;
+	my $submissions = $self->_get_submissions_by_status( $status, { get_all => 0 } );
+	my $buffer;
+	if (@$submissions) {
+		$buffer .= q(<table class="resultstable"><tr><th>Submission id</th><th>Submitted</th><th>Updated</th>)
+		  . q(<th>Type</th><th>Details</th></tr>);
 		my $td = 1;
-		foreach my $submission (@$pending) {
+		foreach my $submission (@$submissions) {
 			my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
 			  . qq(submission_id=$submission->{'id'}&amp;view=1);
-			say qq(<tr class="td$td"><td><a href="$url">$submission->{'id'}</a></td>);
-			say qq(<td>$submission->{'datestamp'}</td><td>$submission->{'type'}</td>);
+			$buffer .=
+			    qq(<tr class="td$td"><td><a href="$url">$submission->{'id'}</a></td>)
+			  . qq(<td>$submission->{'date_submitted'}</td><td>$submission->{'datestamp'}</td>)
+			  . qq(<td>$submission->{'type'}</td>);
 			my $details = '';
 			if ( $submission->{'type'} eq 'alleles' ) {
 				my $allele_submission = $self->get_allele_submission( $submission->{'id'} );
@@ -211,10 +213,21 @@ sub _print_pending_submissions_table {
 				my $plural            = $allele_count == 1 ? '' : 's';
 				$details = "$allele_count $allele_submission->{'locus'} sequence$plural";
 			}
-			say qq(<td>$details</td></tr>);
+			$buffer .= qq(<td>$details</td></tr>);
 			$td = $td == 1 ? 2 : 1;
 		}
-		say q(</table>);
+		$buffer .= q(</table>);
+	}
+	return $buffer;
+}
+
+sub _print_pending_submissions {
+	my ($self) = @_;
+	my $buffer = $self->_get_own_submissions('pending');
+	if ($buffer) {
+		say q(<h2>Pending submissions</h2>);
+		say q(<p>You have submitted the following submissions that are pending curation:</p>);
+		say $buffer;
 	}
 	return;
 }
@@ -246,7 +259,7 @@ sub _print_allele_submissions_for_curation {
 		my $row =
 		    qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;curate=1">$submission->{'id'}</a></td>)
-		  . qq(<td>$submission->{'datestamp'}</td><td>$submitter_string</td>)
+		  . qq(<td>$submission->{'date_submitted'}</td><td>$submission->{'datestamp'}</td><td>$submitter_string</td>)
 		  . qq(<td>$allele_submission->{'locus'}</td>);
 		my $seq_count = @{ $allele_submission->{'seqs'} };
 		$row .= qq(<td>$seq_count</td></tr>\n);
@@ -255,11 +268,22 @@ sub _print_allele_submissions_for_curation {
 	}
 	if ($buffer) {
 		say q(<h2>New allele sequence submissions waiting for curation</h2>);
-		say q(<p>You account is authorized to handle the following submissions:<p>);
-		say q(<table class="resultstable"><tr><th>Submission id</th><th>Datestamp</th><th>Submitter</th><th>Locus</th>)
-		  . q(<th>Sequences</th></tr>);
+		say q(<p>Your account is authorized to handle the following submissions:<p>);
+		say q(<table class="resultstable"><tr><th>Submission id</th><th>Submitted</th><th>Updated</th>)
+		  . q(<th>Submitter</th><th>Locus</th><th>Sequences</th></tr>);
 		say $buffer;
 		say q(</table>);
+	}
+	return;
+}
+
+sub _print_closed_submissions {
+	my ($self) = @_;
+	my $buffer = $self->_get_own_submissions('closed');
+	if ($buffer) {
+		say q(<h2>Recently closed submissions</h2>);
+		say q(<p>You have submitted the following submissions which are now closed:</p>);
+		say $buffer;
 	}
 	return;
 }
@@ -322,12 +346,12 @@ sub _delete_selected_submission_files {
 
 sub _finalize_submission {
 	my ( $self, $submission_id ) = @_;
-	my $q = $self->{'cgi'};
-	my $type = $self->{'datastore'}->run_query( 'SELECT type FROM submissions WHERE id=?', $submission_id );
-	return if !$type;
+	my $q          = $self->{'cgi'};
+	my $submission = $self->_get_submission($submission_id);
+	return if !$submission;
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	eval {
-		if ( $type eq 'alleles' )
+		if ( $submission->{'type'} eq 'alleles' )
 		{
 			$self->{'db'}->do(
 				'UPDATE allele_submissions SET (technology,read_length,coverage,assembly,software)=(?,?,?,?,?) '
@@ -342,8 +366,8 @@ sub _finalize_submission {
 				$user_info->{'id'}
 			);
 		}
-		$self->{'db'}->do( 'UPDATE submissions SET status=? WHERE (id,submitter)=(?,?)',
-			undef, 'pending', $submission_id, $user_info->{'id'} );
+		$self->{'db'}->do( 'UPDATE submissions SET (status,datestamp)=(?,?) WHERE (id,submitter)=(?,?)',
+			undef, 'pending', 'now', $submission_id, $user_info->{'id'} );
 	};
 	if ($@) {
 		$logger->error($@);
@@ -517,8 +541,9 @@ sub _start_submission {
 	my $submission_id = 'BIGSdb_' . strftime( '%Y%m%d%H%M%S', localtime ) . "_$$\_" . int( rand(99999) );
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	eval {
-		$self->{'db'}->do( 'INSERT INTO submissions (id,type,submitter,datestamp,status) VALUES (?,?,?,?,?)',
-			undef, $submission_id, $type, $user_info->{'id'}, 'now', 'started' );
+		$self->{'db'}
+		  ->do( 'INSERT INTO submissions (id,type,submitter,date_submitted,datestamp,status) VALUES (?,?,?,?,?,?)',
+			undef, $submission_id, $type, $user_info->{'id'}, 'now', 'now', 'started' );
 	};
 	if ($@) {
 		$logger->error($@);
@@ -555,7 +580,8 @@ sub get_allele_submission {
 	my $seq_data =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT * FROM allele_submission_sequences WHERE submission_id=? ORDER BY seq_id',
-		$submission_id, { fetch => 'all_arrayref', slice => {} } );
+		$submission_id,
+		{ fetch => 'all_arrayref', slice => {}, cache => 'SubmitPage::get_allele_submission::sequences' } );
 	$submission->{'seqs'} = $seq_data;
 	return $submission;
 }
@@ -840,6 +866,7 @@ sub _clear_assigned_id {
 		$self->{'db'}->rollback;
 	} else {
 		$self->{'db'}->commit;
+		$self->_update_submission_datestamp($submission_id);
 	}
 	return;
 }
@@ -850,6 +877,19 @@ sub _set_allele_status {
 		$self->{'db'}->do( 'UPDATE allele_submission_sequences SET status=? WHERE (submission_id,seq_id)=(?,?)',
 			undef, $status, $submission_id, $seq_id );
 	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+		$self->_update_submission_datestamp($submission_id);
+	}
+	return;
+}
+
+sub _update_submission_datestamp {
+	my ( $self, $submission_id ) = @_;
+	eval { $self->{'db'}->do( 'UPDATE submissions SET datestamp=?', undef, 'now' ) };
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
@@ -880,12 +920,14 @@ sub _print_message_fieldset {
 			$self->{'db'}->commit;
 			$self->_append_message( $submission_id, $user->{'id'}, $q->param('message') );
 			$q->delete('message');
+			$self->_update_submission_datestamp($submission_id);
 		}
 	}
 	my $buffer;
 	my $qry = q(SELECT date_trunc('second',timestamp) AS timestamp,user,message FROM messages )
 	  . q(WHERE submission_id=? ORDER BY timestamp asc);
-	my $messages = $self->{'datastore'}->run_query( $qry, $submission_id, { fetch => 'all_arrayref', slice => {} } );
+	my $messages =
+	  $self->{'datastore'}->run_query( $qry, $submission_id, { fetch => 'all_arrayref', slice => {} } );
 	if (@$messages) {
 		$buffer .= q(<table class="resultstable"><tr><th>Timestamp</th><th>User</th><th>Message</th></tr>);
 		my $td = 1;
@@ -1136,12 +1178,13 @@ sub _view_submission {
 	my ( $self, $submission_id ) = @_;
 	say q(<h1>Submission summary</h1>);
 	return if !$self->_is_submission_valid($submission_id);
+	my $submission = $self->_get_submission($submission_id);
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	say qq(<h2>Submission: $submission_id</h2>);
 	$self->_print_summary($submission_id);
 	$self->_print_sequence_table_fieldset($submission_id);
 	$self->_print_file_fieldset($submission_id);
-	$self->_print_message_fieldset($submission_id);
+	$self->_print_message_fieldset( $submission_id, { no_add => $submission->{'status'} eq 'closed' ? 1 : 0 } );
 	$self->_print_archive_fieldset($submission_id);
 	say q(</div></div>);
 	return;
@@ -1150,7 +1193,10 @@ sub _view_submission {
 sub _close_submission {
 	my ( $self, $submission_id ) = @_;
 	return if !$self->_is_submission_valid( $submission_id, { curate => 1, no_message => 1 } );
-	eval { $self->{'db'}->do( 'UPDATE submissions SET status=? WHERE id=?', undef, 'closed', $submission_id ) };
+	eval {
+		$self->{'db'}
+		  ->do( 'UPDATE submissions SET (status,datestamp)=(?,?) WHERE id=?', undef, 'closed', 'now', $submission_id );
+	};
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
