@@ -192,12 +192,15 @@ sub _print_started_submissions {
 }
 
 sub _get_own_submissions {
-	my ( $self, $status ) = @_;
+	my ( $self, $status, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $submissions = $self->_get_submissions_by_status( $status, { get_all => 0 } );
 	my $buffer;
 	if (@$submissions) {
 		$buffer .= q(<table class="resultstable"><tr><th>Submission id</th><th>Submitted</th><th>Updated</th>)
-		  . q(<th>Type</th><th>Details</th></tr>);
+		  . q(<th>Type</th><th>Details</th>);
+		$buffer .= q(<th>Outcome</th>) if $options->{'show_outcome'};
+		$buffer .= q(</tr>);
 		my $td = 1;
 		foreach my $submission (@$submissions) {
 			my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
@@ -207,13 +210,28 @@ sub _get_own_submissions {
 			  . qq(<td>$submission->{'date_submitted'}</td><td>$submission->{'datestamp'}</td>)
 			  . qq(<td>$submission->{'type'}</td>);
 			my $details = '';
+			my ( $all_assigned, $all_rejected ) = ( 1, 1 );
 			if ( $submission->{'type'} eq 'alleles' ) {
 				my $allele_submission = $self->get_allele_submission( $submission->{'id'} );
 				my $allele_count      = @{ $allele_submission->{'seqs'} };
 				my $plural            = $allele_count == 1 ? '' : 's';
 				$details = "$allele_count $allele_submission->{'locus'} sequence$plural";
+				foreach my $seq ( @{ $allele_submission->{'seqs'} } ) {
+					$all_assigned = 0 if $seq->{'status'} ne 'assigned';
+					$all_rejected = 0 if $seq->{'status'} ne 'rejected';
+				}
 			}
-			$buffer .= qq(<td>$details</td></tr>);
+			$buffer .= qq(<td>$details</td>);
+			if ( $options->{'show_outcome'} ) {
+				if ($all_assigned) {
+					$buffer .= q(<td><span class="fa fa-lg fa-smile-o" style="color:green"</span></td>);
+				} elsif ($all_rejected) {
+					$buffer .= q(<td><span class="fa fa-lg fa-frown-o" style="color:red"</span></td>);
+				} else {
+					$buffer .= q(<td><span class="fa fa-lg fa-meh-o" style="color:blue"></span></td>);
+				}
+			}
+			$buffer .= q(</tr>);
 			$td = $td == 1 ? 2 : 1;
 		}
 		$buffer .= q(</table>);
@@ -279,7 +297,7 @@ sub _print_allele_submissions_for_curation {
 
 sub _print_closed_submissions {
 	my ($self) = @_;
-	my $buffer = $self->_get_own_submissions('closed');
+	my $buffer = $self->_get_own_submissions( 'closed', { show_outcome => 1 } );
 	if ($buffer) {
 		say q(<h2>Recently closed submissions</h2>);
 		say q(<p>You have submitted the following submissions which are now closed:</p>);
@@ -926,8 +944,7 @@ sub _print_message_fieldset {
 	my $buffer;
 	my $qry = q(SELECT date_trunc('second',timestamp) AS timestamp,user,message FROM messages )
 	  . q(WHERE submission_id=? ORDER BY timestamp asc);
-	my $messages =
-	  $self->{'datastore'}->run_query( $qry, $submission_id, { fetch => 'all_arrayref', slice => {} } );
+	my $messages = $self->{'datastore'}->run_query( $qry, $submission_id, { fetch => 'all_arrayref', slice => {} } );
 	if (@$messages) {
 		$buffer .= q(<table class="resultstable"><tr><th>Timestamp</th><th>User</th><th>Message</th></tr>);
 		my $td = 1;
