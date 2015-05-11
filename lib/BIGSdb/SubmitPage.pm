@@ -90,22 +90,14 @@ sub print_content {
 	my $q             = $self->{'cgi'};
 	my $submission_id = $q->param('submission_id');
 	if ($submission_id) {
-		if ( $q->param('abort') && $q->param('confirm') ) {
-			$self->_abort_submission($submission_id);
-		} elsif ( $q->param('finalize') ) {
-			$self->_finalize_submission($submission_id);
-		} elsif ( $q->param('close') ) {
-			$self->_close_submission($submission_id);
-		}
-		if ( $q->param('tar') ) {
-			$self->_tar_archive($submission_id);
-			return;
-		} elsif ( $q->param('view') ) {
-			$self->_view_submission($submission_id);
-			return;
-		} elsif ( $q->param('curate') ) {
-			$self->_curate_submission($submission_id);
-			return;
+		my %return_after = map { $_ => 1 } qw (tar view curate);
+		foreach my $action (qw (abort finalize close remove tar view curate)) {
+			if ( $q->param($action) ) {
+				my $method = "_$action\_submission";
+				$self->$method($submission_id);
+				return if $return_after{$action};
+				last;
+			}
 		}
 	}
 	say q(<h1>Manage submissions</h1>);
@@ -200,6 +192,7 @@ sub _get_own_submissions {
 		$buffer .= q(<table class="resultstable"><tr><th>Submission id</th><th>Submitted</th><th>Updated</th>)
 		  . q(<th>Type</th><th>Details</th>);
 		$buffer .= q(<th>Outcome</th>) if $options->{'show_outcome'};
+		$buffer .= q(<th>Remove</th>)  if $options->{'allow_remove'};
 		$buffer .= q(</tr>);
 		my $td = 1;
 		foreach my $submission (@$submissions) {
@@ -224,12 +217,18 @@ sub _get_own_submissions {
 			$buffer .= qq(<td>$details</td>);
 			if ( $options->{'show_outcome'} ) {
 				if ($all_assigned) {
-					$buffer .= q(<td><span class="fa fa-lg fa-smile-o" style="color:green"</span></td>);
+					$buffer .= q(<td><span class="fa fa-lg fa-smile-o" style="color:green"></span></td>);
 				} elsif ($all_rejected) {
-					$buffer .= q(<td><span class="fa fa-lg fa-frown-o" style="color:red"</span></td>);
+					$buffer .= q(<td><span class="fa fa-lg fa-frown-o" style="color:red"></span></td>);
 				} else {
 					$buffer .= q(<td><span class="fa fa-lg fa-meh-o" style="color:blue"></span></td>);
 				}
+			}
+			if ( $options->{'allow_remove'} ) {
+				$buffer .=
+				    qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;remove=1">)
+				  . q(<span class="fa fa-lg fa-remove"></span></a>);
 			}
 			$buffer .= q(</tr>);
 			$td = $td == 1 ? 2 : 1;
@@ -297,7 +296,7 @@ sub _print_allele_submissions_for_curation {
 
 sub _print_closed_submissions {
 	my ($self) = @_;
-	my $buffer = $self->_get_own_submissions( 'closed', { show_outcome => 1 } );
+	my $buffer = $self->_get_own_submissions( 'closed', { show_outcome => 1, allow_remove => 1 } );
 	if ($buffer) {
 		say q(<h2>Recently closed submissions</h2>);
 		say q(<p>You have submitted the following submissions which are now closed:</p>);
@@ -317,8 +316,9 @@ sub _print_allele_warnings {
 	return;
 }
 
-sub _abort_submission {
+sub _abort_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
 	my ( $self, $submission_id ) = @_;
+	return if !$self->{'cgi'}->param('confirm');
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	eval {
 		$self->{'db'}
@@ -362,7 +362,7 @@ sub _delete_selected_submission_files {
 	return;
 }
 
-sub _finalize_submission {
+sub _finalize_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
 	my ( $self, $submission_id ) = @_;
 	my $q          = $self->{'cgi'};
 	my $submission = $self->_get_submission($submission_id);
@@ -1151,8 +1151,8 @@ sub _is_submission_valid {
 		  if !$options->{'no_message'};
 		return;
 	}
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	if ( $options->{'curate'} ) {
-		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		if ( !$user_info || ( $user_info->{'status'} ne 'admin' && $user_info->{'status'} ne 'curator' ) ) {
 			say q(<div class="box" id="statusbad"><p>Your account does not have the required )
 			  . q(permissions to curate this submission.</p></div>)
@@ -1172,10 +1172,13 @@ sub _is_submission_valid {
 			}
 		}
 	}
+	if ( $options->{'user_owns'} ) {
+		return if $submission->{'submitter'} != $user_info->{'id'};
+	}
 	return 1;
 }
 
-sub _curate_submission {
+sub _curate_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
 	my ( $self, $submission_id ) = @_;
 	say q(<h1>Curate submission</h1>);
 	return if !$self->_is_submission_valid( $submission_id, { curate => 1 } );
@@ -1191,7 +1194,7 @@ sub _curate_submission {
 	return;
 }
 
-sub _view_submission {
+sub _view_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
 	my ( $self, $submission_id ) = @_;
 	say q(<h1>Submission summary</h1>);
 	return if !$self->_is_submission_valid($submission_id);
@@ -1207,7 +1210,7 @@ sub _view_submission {
 	return;
 }
 
-sub _close_submission {
+sub _close_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
 	my ( $self, $submission_id ) = @_;
 	return if !$self->_is_submission_valid( $submission_id, { curate => 1, no_message => 1 } );
 	eval {
@@ -1219,6 +1222,20 @@ sub _close_submission {
 		$self->{'db'}->rollback;
 	} else {
 		$self->{'db'}->commit;
+	}
+	return;
+}
+
+sub _remove_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+	my ( $self, $submission_id ) = @_;
+	return if !$self->_is_submission_valid( $submission_id, { no_message => 1, user_owns => 1 } );
+	eval { $self->{'db'}->do( 'DELETE FROM submissions WHERE id=?', undef, $submission_id ) };
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+		$self->_delete_submission_files($submission_id);
 	}
 	return;
 }
@@ -1252,7 +1269,7 @@ sub _write_allele_FASTA {
 	return $filename;
 }
 
-sub _tar_archive {
+sub _tar_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
 	my ( $self, $submission_id ) = @_;
 	return if !defined $submission_id || $submission_id !~ /BIGSdb_\d+/x;
 	my $submission = $self->_get_submission($submission_id);
