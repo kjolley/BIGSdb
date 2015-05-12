@@ -20,7 +20,7 @@ package BIGSdb::CurateIndexPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::CuratePage BIGSdb::IndexPage);
+use parent qw(BIGSdb::CuratePage BIGSdb::IndexPage BIGSdb::SubmitPage);
 use Error qw(:try);
 use List::MoreUtils qw(uniq none);
 use Log::Log4perl qw(get_logger);
@@ -28,7 +28,8 @@ my $logger = get_logger('BIGSdb.Page');
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
+	$self->{'pref_requirements'} =
+	  { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
 	return;
 }
 
@@ -58,7 +59,7 @@ sub print_content {
 	my $set_id = $self->get_set_id;
 	my $set_string = $set_id ? "&amp;set_id=$set_id" : '';    #append to URLs to ensure unique caching.
 
-	#Display links for updating database records. Most curators will have access to most of these (but not curator permissions).
+#Display links for updating database records. Most curators will have access to most of these (but not curator permissions).
 	foreach (qw (users user_groups user_group_members curator_permissions)) {
 		if ( $self->can_modify_table($_) ) {
 			my $function = "_print_$_";
@@ -93,7 +94,10 @@ sub print_content {
 			}
 		}
 	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
-		foreach (qw (locus_descriptions scheme_curators locus_curators sequences accession sequence_refs profiles profile_refs)) {
+		foreach (
+			qw (locus_descriptions scheme_curators locus_curators sequences accession sequence_refs profiles profile_refs)
+		  )
+		{
 			if ( $self->can_modify_table($_) || $_ eq 'profiles' ) {
 				my $function = "_print_$_";
 				try {
@@ -116,6 +120,9 @@ sub print_content {
 		  . qq(<table style="text-align:center"><tr><th>Record type</th><th>Add</th><th>Batch Add</th><th>Update or delete</th>)
 		  . qq(<th>Comments</th></tr>\n$buffer</table></div>);
 	}
+	if ( ( $self->{'system'}->{'submissions'} // '' ) eq 'yes' ) {
+		$self->_print_submission_section;
+	}
 	undef $buffer;
 	$td = 1;
 
@@ -125,10 +132,12 @@ sub print_content {
 		my @tables = qw (loci);
 		my @skip_table;
 		if ( $system->{'dbtype'} eq 'isolates' ) {
-			push @tables, qw(locus_aliases pcr pcr_locus probes probe_locus isolate_field_extended_attributes composite_fields
+			push @tables,
+			  qw(locus_aliases pcr pcr_locus probes probe_locus isolate_field_extended_attributes composite_fields
 			  sequence_attributes);
 		} elsif ( $system->{'dbtype'} eq 'sequences' ) {
-			push @tables, qw(locus_aliases locus_extended_attributes client_dbases client_dbase_loci client_dbase_schemes
+			push @tables,
+			  qw(locus_aliases locus_extended_attributes client_dbases client_dbase_loci client_dbase_schemes
 			  client_dbase_loci_fields);
 		}
 		if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
@@ -143,7 +152,8 @@ sub print_content {
 				}
 			}
 		}
-		push @tables, qw (schemes scheme_members scheme_fields scheme_groups scheme_group_scheme_members scheme_group_group_members);
+		push @tables,
+		  qw (schemes scheme_members scheme_fields scheme_groups scheme_group_scheme_members scheme_group_group_members);
 		foreach my $table (@tables) {
 			if ( $self->can_modify_table($table) && ( !@skip_table || none { $table eq $_ } @skip_table ) ) {
 				my $function = "_print_$table";
@@ -159,18 +169,22 @@ sub print_content {
 		}
 	}
 	my $list_buffer;
-	if ( $self->{'system'}->{'authentication'} eq 'builtin' && ( $self->{'permissions'}->{'set_user_passwords'} || $self->is_admin ) ) {
-		$list_buffer .= qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=setPassword">)
+	if ( $self->{'system'}->{'authentication'} eq 'builtin'
+		&& ( $self->{'permissions'}->{'set_user_passwords'} || $self->is_admin ) )
+	{
+		$list_buffer .=
+		    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=setPassword">)
 		  . qq(Set user passwords</a> - Set a user password to enable them to log on or change an existing password.</li>\n);
 		$can_do_something = 1;
 	}
 	if ( $self->{'permissions'}->{'modify_loci'} || $self->{'permissions'}->{'modify_schemes'} || $self->is_admin ) {
 		$list_buffer .=
-		    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configCheck">Configuration )
+qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configCheck">Configuration )
 		  . qq(check</a> - Checks database connectivity for loci and schemes and that required helper applications are properly installed.)
 		  . qq(</li>\n);
 		if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-			$list_buffer .= qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configRepair">)
+			$list_buffer .=
+			    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configRepair">)
 			  . qq(Configuration repair</a> - Rebuild scheme tables</li>\n);
 		}
 		$can_do_something = 1;
@@ -181,7 +195,8 @@ sub print_content {
 		say qq(<h2>Database configuration</h2>);
 	}
 	if ($buffer) {
-		say qq(<table style="text-align:center"><tr><th>Table</th><th>Add</th><th>Batch Add</th><th>Update or delete</th><th>Comments</th>)
+		say
+qq(<table style="text-align:center"><tr><th>Table</th><th>Add</th><th>Batch Add</th><th>Update or delete</th><th>Comments</th>)
 		  . qq(</tr>$buffer</table>);
 	}
 	if ($list_buffer) {
@@ -191,7 +206,8 @@ sub print_content {
 		say '</div>';
 	}
 	if ( !$can_do_something ) {
-		say qq(<div class="box" id="statusbad"><p>Although you are set as a curator/submitter, you haven't been granted specific )
+		say
+qq(<div class="box" id="statusbad"><p>Although you are set as a curator/submitter, you haven't been granted specific )
 		  . qq(permission to do anything.  Please contact the database administrator to set your appropriate permissions.</p></div>);
 	}
 	return;
@@ -204,22 +220,35 @@ sub _print_users {
 
 sub _print_user_group_members {
 	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table( 'user_group_members', $td,
-		{ requires => 'user_groups', comments => 'Add users to groups for setting access permissions.', set_string => $set_string } );
+	return $self->_print_table(
+		'user_group_members',
+		$td,
+		{
+			requires   => 'user_groups',
+			comments   => 'Add users to groups for setting access permissions.',
+			set_string => $set_string
+		}
+	);
 }
 
 sub _print_curator_permissions {
 	my ( $self, $td, $set_string ) = @_;
 	return
-	    qq(<tr class="td$td"><td>curator permissions<td></td><td><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'})
+qq(<tr class="td$td"><td>curator permissions<td></td><td><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'})
 	  . qq(&amp;page=curatorPermissions$set_string">?</a></td><td class="comment" style="text-align:left">Set curator permissions for )
 	  . qq(individual users - these are only active for users with a status of 'curator' in the users table.</td></tr>);
 }
 
 sub _print_user_groups {
 	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table( 'user_groups', $td,
-		{ comments => 'Users can be members of these groups - use for setting access permissions.', set_string => $set_string } );
+	return $self->_print_table(
+		'user_groups',
+		$td,
+		{
+			comments   => 'Users can be members of these groups - use for setting access permissions.',
+			set_string => $set_string
+		}
+	);
 }
 
 sub _print_isolates {
@@ -243,8 +272,15 @@ HTML
 
 sub _print_isolate_aliases {
 	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table( 'isolate_aliases', $td,
-		{ comments => 'Add alternative names for isolates.', set_string => $set_string, requires => $self->{'system'}->{'view'} } );
+	return $self->_print_table(
+		'isolate_aliases',
+		$td,
+		{
+			comments   => 'Add alternative names for isolates.',
+			set_string => $set_string,
+			requires   => $self->{'system'}->{'view'}
+		}
+	);
 }
 
 sub _print_isolate_field_extended_attributes {
@@ -419,7 +455,8 @@ HTML
 	my $locus_curator = $self->is_admin ? undef : $self->get_curator_id;
 	my $set_id = $self->get_set_id;
 	my ( $loci, undef ) =
-	  $self->{'datastore'}->get_locus_list( { set_id => $set_id, locus_curator => $locus_curator, no_list_by_common_name => 1 } );
+	  $self->{'datastore'}
+	  ->get_locus_list( { set_id => $set_id, locus_curator => $locus_curator, no_list_by_common_name => 1 } );
 	return ( '', $td ) if !@$loci;
 	$td = $td == 1 ? 2 : 1;
 	if ( scalar @$loci < 15 ) {
@@ -442,7 +479,9 @@ HTML
 sub _print_locus_descriptions {
 	my ( $self, $td, $set_string ) = @_;
 	if ( !$self->is_admin ) {
-		my $allowed = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM locus_curators WHERE curator_id=?", $self->get_curator_id );
+		my $allowed =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT COUNT(*) FROM locus_curators WHERE curator_id=?", $self->get_curator_id );
 		return if !$allowed;
 	}
 	return $self->_print_table( 'locus_descriptions', $td, set_string => $set_string );
@@ -453,7 +492,8 @@ sub _print_sets {
 	return $self->_print_table(
 		'sets', $td,
 		{
-			comments   => 'Sets describe a collection of loci and schemes that can be treated like a stand-alone database.',
+			comments =>
+			  'Sets describe a collection of loci and schemes that can be treated like a stand-alone database.',
 			set_string => $set_string
 		}
 	);
@@ -471,17 +511,20 @@ sub _print_set_schemes {
 
 sub _print_set_metadata {
 	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table( 'set_metadata', $td, { comments => 'Add metadata collection to sets.', set_string => $set_string } );
+	return $self->_print_table( 'set_metadata', $td,
+		{ comments => 'Add metadata collection to sets.', set_string => $set_string } );
 }
 
 sub _print_set_view {
 	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table( 'set_view', $td, { comments => 'Set database views linked to sets.', set_string => $set_string } );
+	return $self->_print_table( 'set_view', $td,
+		{ comments => 'Set database views linked to sets.', set_string => $set_string } );
 }
 
 sub _print_sequence_refs {
 	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table( 'sequence_refs', $td, { title => 'PubMed links (to sequences)', set_string => $set_string } );
+	return $self->_print_table( 'sequence_refs', $td,
+		{ title => 'PubMed links (to sequences)', set_string => $set_string } );
 }
 
 sub _print_profiles {
@@ -490,19 +533,19 @@ sub _print_profiles {
 	my $set_id = $self->get_set_id;
 	if ( $self->is_admin ) {
 		$schemes = $self->{'datastore'}->run_query(
-			"SELECT DISTINCT id FROM schemes RIGHT JOIN scheme_members ON schemes.id=scheme_members.scheme_id JOIN scheme_fields ON "
+"SELECT DISTINCT id FROM schemes RIGHT JOIN scheme_members ON schemes.id=scheme_members.scheme_id JOIN scheme_fields ON "
 			  . "schemes.id=scheme_fields.scheme_id WHERE primary_key",
 			undef,
 			{ fetch => 'col_arrayref' }
 		);
 	} else {
-		$schemes =
-		  $self->{'datastore'}
-		  ->run_query( "SELECT scheme_id FROM scheme_curators WHERE curator_id=?", $self->get_curator_id, { fetch => 'col_arrayref' } );
+		$schemes = $self->{'datastore'}->run_query( "SELECT scheme_id FROM scheme_curators WHERE curator_id=?",
+			$self->get_curator_id, { fetch => 'col_arrayref' } );
 	}
 	my $buffer;
 	my %desc;
-	foreach my $scheme_id (@$schemes) {    #Can only order schemes after retrieval since some can be renamed by set membership
+	foreach my $scheme_id (@$schemes)
+	{    #Can only order schemes after retrieval since some can be renamed by set membership
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 		$desc{$scheme_id} = $scheme_info->{'description'};
 	}
@@ -556,19 +599,27 @@ sub _print_profile_refs {
 	my ( $self, $td, $set_string ) = @_;
 	my $set_id = $self->get_set_id;
 	if ($set_id) {
-		my $schemes_in_set = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM set_schemes WHERE set_id=?", $set_id );
+		my $schemes_in_set =
+		  $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM set_schemes WHERE set_id=?", $set_id );
 		return !$schemes_in_set;
 	} else {
 		my $scheme_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM schemes");
 		return if !$scheme_count;
 	}
-	return $self->_print_table( 'profile_refs', $td, { title => 'PubMed links (to profiles)', set_string => $set_string } );
+	return $self->_print_table( 'profile_refs', $td,
+		{ title => 'PubMed links (to profiles)', set_string => $set_string } );
 }
 
 sub _print_projects {
 	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table( 'projects', $td,
-		{ comments => 'Set up projects to which isolates can belong.', set_string => $set_string, requires => $self->{'system'}->{'view'} }
+	return $self->_print_table(
+		'projects',
+		$td,
+		{
+			comments   => 'Set up projects to which isolates can belong.',
+			set_string => $set_string,
+			requires   => $self->{'system'}->{'view'}
+		}
 	);
 }
 
@@ -670,8 +721,9 @@ sub _print_client_dbases {
 		'client_dbases',
 		$td,
 		{
-			title    => 'client databases',
-			comments => 'Add isolate databases that use locus allele or scheme profile definitions defined in this database - this '
+			title => 'client databases',
+			comments =>
+'Add isolate databases that use locus allele or scheme profile definitions defined in this database - this '
 			  . 'enables backlinks and searches of these databases when you query sequences or profiles in this database.',
 			set_string => $set_string
 		}
@@ -684,9 +736,10 @@ sub _print_client_dbase_loci_fields {
 		'client_dbase_loci_fields',
 		$td,
 		{
-			requires   => 'loci,client_dbases',
-			title      => 'client database fields linked to loci',
-			comments   => 'Define fields in client database whose value can be displayed when isolate has matching allele.',
+			requires => 'loci,client_dbases',
+			title    => 'client database fields linked to loci',
+			comments =>
+			  'Define fields in client database whose value can be displayed when isolate has matching allele.',
 			set_string => $set_string
 		}
 	);
@@ -727,7 +780,8 @@ sub _print_client_dbase_schemes {
 		{
 			requires => 'schemes,client_dbases',
 			title    => 'client database schemes',
-			comments => 'Define schemes that are used in client databases. You will need to add the appropriate loci to the '
+			comments =>
+			  'Define schemes that are used in client databases. You will need to add the appropriate loci to the '
 			  . 'client database loci table.',
 			set_string => $set_string
 		}
@@ -771,20 +825,35 @@ sub _print_scheme_groups {
 
 sub _print_scheme_group_scheme_members {
 	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table( 'scheme_group_scheme_members', $td,
-		{ requires => 'scheme_groups,schemes', comments => 'Defines which schemes belong to a group.', set_string => $set_string } );
+	return $self->_print_table(
+		'scheme_group_scheme_members',
+		$td,
+		{
+			requires   => 'scheme_groups,schemes',
+			comments   => 'Defines which schemes belong to a group.',
+			set_string => $set_string
+		}
+	);
 }
 
 sub _print_scheme_group_group_members {
 	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table( 'scheme_group_group_members', $td,
-		{ requires => 'scheme_groups', comments => 'Defines which scheme groups belong to a parent group.', set_string => $set_string } );
+	return $self->_print_table(
+		'scheme_group_group_members',
+		$td,
+		{
+			requires   => 'scheme_groups',
+			comments   => 'Defines which scheme groups belong to a parent group.',
+			set_string => $set_string
+		}
+	);
 }
 
 sub _print_scheme_members {
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'scheme_members', $td,
-		{ requires => 'schemes,loci', comments => 'Defines which loci belong to a scheme.', set_string => $set_string } );
+		{ requires => 'schemes,loci', comments => 'Defines which loci belong to a scheme.', set_string => $set_string }
+	);
 }
 
 sub _print_scheme_fields {
@@ -809,7 +878,8 @@ sub _print_table {
 	my $comments = $values->{'comments'} // '';
 	my $buffer = "<tr class=\"td$td\"><td>$title</td>";
 	if ( !$values->{'no_add'} ) {
-		$buffer .= qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=$table$set_string">
+		$buffer .=
+qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=$table$set_string">
 		+</a></td>
 		<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=$table$set_string">++</a></td>);
 	} else {
@@ -822,6 +892,18 @@ sub _print_table {
 	  : '<td></td>';
 	$buffer .= "<td style=\"text-align:left\" class=\"comment\">$comments</td></tr>";
 	return $buffer;
+}
+
+sub _print_submission_section {
+	my ($self) = @_;
+	my $buffer = $self->print_submissions_for_curation( { get_only => 1 } );
+	if ($buffer) {
+		say q(<div class="box" id="submissions"><div class="scrollable">);
+		say q(<span class="main_icon fa fa-upload fa-3x pull-left"></span>);
+		say $buffer;
+		say q(</div></div>);
+	}
+	return;
 }
 
 sub get_title {

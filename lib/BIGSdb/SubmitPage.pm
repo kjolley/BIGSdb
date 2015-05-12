@@ -129,8 +129,10 @@ sub print_content {
 		  . q(alleles=1">Submit alleles</a></li></ul>);
 	}
 	$self->_print_pending_submissions;
-	$self->_print_submissions_for_curation;
+	$self->print_submissions_for_curation;
 	$self->_print_closed_submissions;
+	say qq(<p style="margin-top:1em"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
+	  . q(Return to index page</a></p>);
 	say q(</div></div>);
 	return;
 }
@@ -279,17 +281,21 @@ sub _print_pending_submissions {
 	return;
 }
 
-sub _print_submissions_for_curation {
-	my ($self) = @_;
+sub print_submissions_for_curation {
+	my ( $self, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	return if !$user_info || ( $user_info->{'status'} ne 'admin' && $user_info->{'status'} ne 'curator' );
+	my $buffer;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		$self->_print_allele_submissions_for_curation;
+		$buffer .= $self->_get_allele_submissions_for_curation;
 	}
+	return $buffer if $options->{'get_only'};
+	say $buffer if $buffer;
 	return;
 }
 
-sub _print_allele_submissions_for_curation {
+sub _get_allele_submissions_for_curation {
 	my ($self) = @_;
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my $submissions = $self->_get_submissions_by_status( 'pending', { get_all => 1 } );
@@ -313,15 +319,16 @@ sub _print_allele_submissions_for_curation {
 		$td = $td == 1 ? 2 : 1;
 		$buffer .= $row;
 	}
+	my $return_buffer = '';
 	if ($buffer) {
-		say q(<h2>New allele sequence submissions waiting for curation</h2>);
-		say q(<p>Your account is authorized to handle the following submissions:<p>);
-		say q(<table class="resultstable"><tr><th>Submission id</th><th>Submitted</th><th>Updated</th>)
-		  . q(<th>Submitter</th><th>Locus</th><th>Sequences</th></tr>);
-		say $buffer;
-		say q(</table>);
+		$return_buffer .= qq(<h2>New allele sequence submissions waiting for curation</h2>\n);
+		$return_buffer .= qq(<p>Your account is authorized to handle the following submissions:<p>\n);
+		$return_buffer .= q(<table class="resultstable"><tr><th>Submission id</th><th>Submitted</th><th>Updated</th>)
+		  . qq(<th>Submitter</th><th>Locus</th><th>Sequences</th></tr>\n);
+		$return_buffer .= $buffer;
+		$return_buffer .= qq(</table>\n);
 	}
-	return;
+	return $return_buffer;
 }
 
 sub _print_closed_submissions {
@@ -765,6 +772,7 @@ sub _update_allele_submission_sequence_status {
 
 sub _print_sequence_table {
 	my ( $self, $submission_id, $options ) = @_;
+	my $q                 = $self->{'cgi'};
 	my $submission        = $self->_get_submission($submission_id);
 	my $allele_submission = $self->get_allele_submission($submission_id);
 	my $seqs              = $allele_submission->{'seqs'};
@@ -808,7 +816,7 @@ sub _print_sequence_table {
 		$assigned //= '';
 		if ( $options->{'curate'} && !$assigned ) {
 			say q(<td>);
-			say $self->popup_menu(
+			say $q->popup_menu(
 				-name    => "status_$seq->{'seq_id'}",
 				-values  => [qw(pending rejected)],
 				-default => $seq->{'status'}
@@ -887,7 +895,7 @@ sub _print_sequence_table_fieldset {
 		$q->param( sender       => $submission->{'submitter'} );
 		$q->param( sequence     => $self->_get_fasta_string( $status->{'pending_seqs'} ) );
 		$q->param( complete_CDS => $locus_info->{'complete_cds'} ? 'on' : 'off' );
-		say $q->hidden($_) foreach qw( db page submission_id locus sender sequence complete_CDS);
+		say $q->hidden($_) foreach qw( db page submission_id locus sender sequence complete_CDS );
 		say $q->end_form;
 		$q->param( page => $page );    #Restore value
 	}
@@ -990,7 +998,7 @@ sub _print_message_fieldset {
 		);
 		$buffer .= q(</div>);
 		$buffer .= $q->hidden($_)
-		  foreach qw(db page alleles locus submit continue view curate abort submission_id no_check);
+		  foreach qw(db page alleles locus submit continue view curate abort submission_id no_check );
 		$buffer .= $q->end_form;
 	}
 	say qq(<fieldset style="float:left"><legend>Messages</legend>$buffer</fieldset>) if $buffer;

@@ -55,6 +55,7 @@ use BIGSdb::CurateTableHeaderPage;
 use BIGSdb::CurateTagScanPage;
 use BIGSdb::CurateTagUpdatePage;
 use BIGSdb::CurateUpdatePage;
+use BIGSdb::SubmitPage;
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
@@ -113,7 +114,8 @@ sub print_page {
 		memberUpdate       => 'CurateMembersPage',
 		excelTemplate      => 'CurateSubmissionExcelPage',
 		newVersion         => 'CurateNewVersionPage',
-		curatorPermissions => 'CuratePermissionsPage'
+		curatorPermissions => 'CuratePermissionsPage',
+		submit => 'SubmitPage'
 	);
 	my %page_attributes = (
 		system           => $self->{'system'},
