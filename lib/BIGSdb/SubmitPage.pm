@@ -30,10 +30,11 @@ use BIGSdb::Page 'SEQ_METHODS';
 use List::MoreUtils qw(none);
 use File::Path qw(make_path remove_tree);
 use POSIX;
-use constant COVERAGE        => qw(<20x 20-49x 50-99x >100x);
-use constant READ_LENGTH     => qw(<100 100-199 200-299 300-499 >500);
-use constant ASSEMBLY        => ( 'de novo', 'mapped' );
-use constant MAX_UPLOAD_SIZE => 32 * 1024 * 1024;                        #32Mb
+use constant COVERAGE                 => qw(<20x 20-49x 50-99x >100x);
+use constant READ_LENGTH              => qw(<100 100-199 200-299 300-499 >500);
+use constant ASSEMBLY                 => ( 'de novo', 'mapped' );
+use constant MAX_UPLOAD_SIZE          => 32 * 1024 * 1024;                        #32Mb
+use constant SUBMISSIONS_DELETED_DAYS => 90;
 
 sub get_javascript {
 	my ($self) = @_;
@@ -118,6 +119,7 @@ sub print_content {
 		$self->_submit_alleles;
 		return;
 	}
+	$self->_delete_old_closed_submissions;
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	if ( !$self->_print_started_submissions ) {    #Returns true if submissions in process
 		say q(<h2>Submit new data</h2>);
@@ -130,6 +132,34 @@ sub print_content {
 	$self->_print_submissions_for_curation;
 	$self->_print_closed_submissions;
 	say q(</div></div>);
+	return;
+}
+
+sub _delete_old_closed_submissions {
+	my ($self) = @_;
+	my $days = $self->{'system'}->{'submissions_deleted_days'} // $self->{'config'}->{'submissions_deleted_days'}
+	  // SUBMISSIONS_DELETED_DAYS;
+	$days = SUBMISSIONS_DELETED_DAYS if !BIGSdb::Utils::is_int($days);
+	my $submissions =
+	  $self->{'datastore'}
+	  ->run_query( qq(SELECT id FROM submissions WHERE status=? AND datestamp<now()-interval '$days days'),
+		'closed', { fetch => 'col_arrayref' } );
+	foreach my $submission_id (@$submissions) {
+		$self->_delete_submission($submission_id);
+	}
+	return;
+}
+
+sub _delete_submission {
+	my ( $self, $submission_id ) = @_;
+	eval { $self->{'db'}->do( 'DELETE FROM submissions WHERE id=?', undef, $submission_id ) };
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+		$self->_delete_submission_files($submission_id);
+	}
 	return;
 }
 
@@ -320,17 +350,10 @@ sub _abort_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Cal
 	my ( $self, $submission_id ) = @_;
 	return if !$self->{'cgi'}->param('confirm');
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	eval {
-		$self->{'db'}
-		  ->do( 'DELETE FROM submissions WHERE (id,submitter)=(?,?)', undef, $submission_id, $user_info->{'id'} );
-	};
-	if ($@) {
-		$logger->error($@);
-		$self->{'db'}->rollback;
-	} else {
-		$self->{'db'}->commit;
-		$self->_delete_submission_files($submission_id);
-	}
+	my $submission =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT id FROM submissions WHERE (id,submitter)=(?,?)', [ $submission_id, $user_info->{'id'} ] );
+	$self->_delete_submission($submission_id) if $submission_id;
 	return;
 }
 
@@ -1229,14 +1252,7 @@ sub _close_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Cal
 sub _remove_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
 	my ( $self, $submission_id ) = @_;
 	return if !$self->_is_submission_valid( $submission_id, { no_message => 1, user_owns => 1 } );
-	eval { $self->{'db'}->do( 'DELETE FROM submissions WHERE id=?', undef, $submission_id ) };
-	if ($@) {
-		$logger->error($@);
-		$self->{'db'}->rollback;
-	} else {
-		$self->{'db'}->commit;
-		$self->_delete_submission_files($submission_id);
-	}
+	$self->_delete_submission($submission_id);
 	return;
 }
 
