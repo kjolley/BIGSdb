@@ -502,7 +502,8 @@ sub print_action_fieldset {
 
 	#use jquery-ui button classes to ensure consistent formatting of reset link and submit button across browsers
 	if ( !$options->{'no_reset'} ) {
-		$buffer .= qq(<a href="$url" class="resetbutton ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only ">)
+		$buffer .=
+		    qq(<a href="$url" class="resetbutton ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only ">)
 		  . qq(<span class="ui-button-text">$reset_label</span>);
 		$buffer .= "</a>\n";
 	}
@@ -729,7 +730,8 @@ sub get_field_selection_list {
 					}
 				}
 			}
-			@locus_list = sort { lc( $self->{'cache'}->{'labels'}->{$a} ) cmp lc( $self->{'cache'}->{'labels'}->{$b} ) } @locus_list;
+			@locus_list =
+			  sort { lc( $self->{'cache'}->{'labels'}->{$a} ) cmp lc( $self->{'cache'}->{'labels'}->{$b} ) } @locus_list;
 			@locus_list = uniq @locus_list;
 			$self->{'cache'}->{'loci'} = \@locus_list;
 		}
@@ -838,7 +840,7 @@ sub _print_footer {
 
 sub print_file {
 	my ( $self, $file, $ignore_hashlines ) = @_;
-	my $lociAdd;
+	my $lociAdd = '';
 	my $loci;
 	my $set_id = $self->get_set_id;
 	my $set_string = $set_id ? "&amp;set_id=$set_id" : '';
@@ -846,8 +848,8 @@ sub print_file {
 		if ( $self->is_admin ) {
 			my $qry = "SELECT id FROM loci";
 			if ($set_id) {
-				$qry .= " WHERE id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE "
-				  . "set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id)";
+				$qry .= ' WHERE id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM '
+				  . "set_schemes WHERE set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id)";
 			}
 			$loci = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 		} else {
@@ -856,39 +858,43 @@ sub print_file {
 			  ? "AND (id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes "
 			  . "WHERE set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 			  : '';
-			my $qry = "SELECT locus_curators.locus from locus_curators LEFT JOIN loci ON locus=id LEFT JOIN scheme_members on "
+			my $qry =
+			    "SELECT locus_curators.locus from locus_curators LEFT JOIN loci ON locus=id LEFT JOIN scheme_members on "
 			  . "loci.id = scheme_members.locus WHERE locus_curators.curator_id=? $set_clause ORDER BY scheme_members.scheme_id,locus_curators.locus";
 			$loci = $self->{'datastore'}->run_query( $qry, $self->get_curator_id, { fetch => 'col_arrayref' } );
 		}
 		my $first = 1;
-		foreach my $locus ( uniq @$loci ) {
-			my $cleaned = $self->clean_locus($locus);
-			$lociAdd .= ' | ' if !$first;
-			$lociAdd .= qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;)
-			  . qq(table=sequences&amp;locus=$locus">$cleaned</a>);
-			$first = 0;
+		if ( @$loci < 30 ) {
+			foreach my $locus ( uniq @$loci ) {
+				my $cleaned = $self->clean_locus($locus);
+				$lociAdd .= ' | ' if !$first;
+				$lociAdd .= qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;)
+				  . qq(table=sequences&amp;locus=$locus">$cleaned</a>);
+				$first = 0;
+			}
 		}
 	}
 	if ( -e $file ) {
 		my $system = $self->{'system'};
 		open( my $fh, '<', $file ) or return;
 		while (<$fh>) {
-			next if /^#/ && $ignore_hashlines;
-			s/\$instance/$self->{'instance'}/;
-			s/\$webroot/$system->{'webroot'}/;
-			s/\$dbase/$system->{'db'}/;
-			s/\$indexpage/$system->{'indexpage'}/;
+			next if /^#/x && $ignore_hashlines;
+			s/\$instance/$self->{'instance'}/x;
+			s/\$webroot/$system->{'webroot'}/x;
+			s/\$dbase/$system->{'db'}/x;
+			s/\$indexpage/$system->{'indexpage'}/x;
 			if ( $self->{'curate'} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-				if ( @$loci && @$loci < 30 ) {
-					s/\$lociAdd/$lociAdd/;
+				if ( @$loci < 30 ) {
+					s/\$lociAdd/$lociAdd/x;
 				} else {
-s/\$lociAdd/<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=sequences">Add<\/a>/;
+					s/\$lociAdd/<a\ href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;
+					page=add&amp;table=sequences">Add<\/a>/x;
 				}
 			}
 			if ( !$self->{'curate'} && $set_id ) {
-				s/(bigsdb\.pl.*page=.+?)"/$1$set_string"/g;
-				if ( ~/bigsdb\.pl/ && !/page=/ ) {
-					s/(bigsdb\.pl.*)"/$1$set_string"/g;
+				s/(bigsdb\.pl.*page=.+?)"/$1$set_string"/gx;
+				if ( ~/bigsdb\.pl/x && !/page=/x ) {
+					s/(bigsdb\.pl.*)"/$1$set_string"/gx;
 				}
 			}
 			print;
@@ -926,7 +932,8 @@ sub get_filter {
 	#Page::popup_menu faster than CGI::popup_menu as it doesn't escape values.
 	$buffer .= ( $args{'-class'} // '' ) eq 'multiselect' ? $q->popup_menu(%args) : $self->popup_menu(%args);
 	$options->{'tooltip'} =~ tr/_/ / if $options->{'tooltip'};
-	$buffer .= qq( <a class="tooltip" title="$options->{'tooltip'}\"><span class="fa fa-info-circle"></span></a>) if $options->{'tooltip'};
+	$buffer .= qq( <a class="tooltip" title="$options->{'tooltip'}\"><span class="fa fa-info-circle"></span></a>)
+	  if $options->{'tooltip'};
 	return $buffer;
 }
 
@@ -970,7 +977,8 @@ sub get_number_records_control {
 		-values => [ '10', '25', '50', '100', '200', '500', 'all' ],
 		-default => $self->{'cgi'}->param('displayrecs') || $self->{'prefs'}->{'displayrecs'}
 	);
-	$buffer .= qq( records per page <a class="tooltip" title="Records per page - Analyses use the full query dataset, rather )
+	$buffer .=
+	    qq( records per page <a class="tooltip" title="Records per page - Analyses use the full query dataset, rather )
 	  . qq(than just the page shown.\"><span class="fa fa-info-circle"></span></a></span>);
 	return $buffer;
 }
@@ -1159,7 +1167,8 @@ sub clean_locus {
 		  ->run_query( "SELECT * FROM set_loci WHERE set_id=? AND locus=?", [ $set_id, $locus ], { fetch => 'row_hashref' } );
 		if ( $set_locus->{'set_name'} ) {
 			$locus = $set_locus->{'set_name'};
-			$locus = $set_locus->{'formatted_set_name'} if !$options->{'text_output'} && $set_locus->{'formatted_set_name'};
+			$locus = $set_locus->{'formatted_set_name'}
+			  if !$options->{'text_output'} && $set_locus->{'formatted_set_name'};
 			if ( !$options->{'no_common_name'} ) {
 				my $common_name = '';
 				$common_name = " ($set_locus->{'set_common_name'})" if $set_locus->{'set_common_name'};
@@ -1289,7 +1298,8 @@ sub get_isolates_with_seqbin {
 	if ( $options->{'use_all'} ) {
 		$qry = "SELECT $view.id,$view.$self->{'system'}->{'labelfield'},new_version FROM $view ORDER BY $view.id";
 	} else {
-		$qry = "SELECT $view.id,$view.$self->{'system'}->{'labelfield'},new_version FROM $view WHERE EXISTS (SELECT * FROM seqbin_stats "
+		$qry =
+		    "SELECT $view.id,$view.$self->{'system'}->{'labelfield'},new_version FROM $view WHERE EXISTS (SELECT * FROM seqbin_stats "
 		  . "WHERE $view.id=seqbin_stats.isolate_id) ORDER BY $view.id";
 	}
 	my $data = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref' } );
@@ -1413,7 +1423,8 @@ sub _create_join_sql_for_locus {
 	( my $clean_locus_name = $locus ) =~ s/'/_PRIME_/g;
 	$clean_locus_name =~ s/-/_/g;
 	( my $escaped_locus = $locus ) =~ s/'/\\'/g;
-	my $qry = " LEFT JOIN allele_designations AS l_$clean_locus_name ON l_$clean_locus_name\.isolate_id=$self->{'system'}->{'view'}.id "
+	my $qry =
+	    " LEFT JOIN allele_designations AS l_$clean_locus_name ON l_$clean_locus_name\.isolate_id=$self->{'system'}->{'view'}.id "
 	  . "AND l_$clean_locus_name.locus=E'$escaped_locus'";
 	return $qry;
 }
@@ -1652,7 +1663,8 @@ sub can_modify_table {
 	return 1 if $table eq 'users' && $self->{'permissions'}->{'modify_users'};
 
 	#User groups
-	return 1 if ( $table eq 'user_groups' || $table eq 'user_group_members' ) && $self->{'permissions'}->{'modify_usergroups'};
+	return 1
+	  if ( $table eq 'user_groups' || $table eq 'user_group_members' ) && $self->{'permissions'}->{'modify_usergroups'};
 
 	#Loci
 	my %locus_tables = map { $_ => 1 } qw (loci locus_aliases client_dbases client_dbase_loci client_dbase_schemes
@@ -1698,8 +1710,10 @@ sub can_modify_table {
 		  && @{ $self->{'xmlHandler'}->get_sample_field_list };
 
 		#Extended attributes
-		return 1 if $table eq 'isolate_field_extended_attributes' && $self->{'permissions'}->{'modify_field_attributes'};
-		return 1 if $table eq 'isolate_value_extended_attributes' && $self->{'permissions'}->{'modify_value_attributes'};
+		return 1
+		  if $table eq 'isolate_field_extended_attributes' && $self->{'permissions'}->{'modify_field_attributes'};
+		return 1
+		  if $table eq 'isolate_value_extended_attributes' && $self->{'permissions'}->{'modify_value_attributes'};
 
 		#Genome filtering
 		my %filter_tables = map { $_ => 1 } qw (pcr pcr_locus probes probe_locus);
