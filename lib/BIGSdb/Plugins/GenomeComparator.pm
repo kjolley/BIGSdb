@@ -457,7 +457,7 @@ sub _print_parameters_fieldset {
 	say qq( <a class="tooltip" title="Minimum % alignment - Percentage of allele sequence length required to be aligned for )
 	  . qq(partial matching."><span class="fa fa-info-circle"></span></a></li>);
 	say qq(<li><label for="word_size" class="parameter">BLASTN word size:</label>);
-	say $q->popup_menu( -name => 'word_size', -id => 'word_size', -values => [ 7 .. 30 ], -default => 15 );
+	say $q->popup_menu( -name => 'word_size', -id => 'word_size', -values => [ 7 .. 30 ], -default => 20 );
 	say qq( <a class="tooltip" title="BLASTN word size - This is the length of an exact match required to initiate an extension. )
 	  . qq(Larger values increase speed at the expense of sensitivity."><span class="fa fa-info-circle"></span></a></li>);
 	say qq(<li><span class="warning">);

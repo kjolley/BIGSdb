@@ -589,8 +589,8 @@ sub _print_help_panel {
 	}
 	if ( $self->{'tooltips'} ) {
 		print qq(<span id="toggle" style="display:none">Toggle: </span><a id="toggle_tooltips" href="$self->{'system'}->{'script_name'}?)
-		  . qq(db=$self->{'instance'}&amp;page=options&amp;toggle_tooltips=1" style="display:none;margin-right:1em;">)
-		  . qq(<span class="fa fa-info-circle fa-lg"></span></a>);
+		  . qq(db=$self->{'instance'}&amp;page=options&amp;toggle_tooltips=1" title="Toggle tooltips" )
+		  . qq(style="display:none;margin-right:1em"><span class="fa fa-info-circle fa-lg"></span></a>);
 	}
 	if ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' && $self->{'field_help'} ) {
 
@@ -939,7 +939,7 @@ sub get_filter {
 sub get_user_filter {
 	my ( $self, $field ) = @_;
 	my $qry = "SELECT id,first_name,surname FROM users ";
-	$qry .= $field eq 'curator' ? "WHERE (status = 'curator' OR status = 'admin') AND " : 'WHERE ';
+	$qry .= $field eq 'curator' ? "WHERE (status='curator' OR status='admin' OR status='submitter') AND " : 'WHERE ';
 	$qry .= 'id > 0';
 	my $sql = $self->{'db'}->prepare($qry);
 	my ( @usernames, %labels );
