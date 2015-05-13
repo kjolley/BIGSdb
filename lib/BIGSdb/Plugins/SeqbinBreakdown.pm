@@ -44,7 +44,7 @@ sub get_attributes {
 		menutext    => 'Sequence bin',
 		module      => 'SeqbinBreakdown',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#sequence-bin-breakdown",
-		version     => '1.2.0',
+		version     => '1.2.1',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -64,7 +64,7 @@ sub set_pref_requirements {
 
 sub run {
 	my ($self) = @_;
-	say "<h1>Breakdown of sequence bin contig properties</h1>";
+	say q(<h1>Breakdown of sequence bin contig properties</h1>);
 	return if $self->has_set_changed;
 	my $q = $self->{'cgi'};
 	if ( $q->param('submit') ) {
@@ -75,13 +75,12 @@ sub run {
 		my $error;
 		my $filtered_ids = $self->filter_ids_by_project( \@ids, $q->param('project_list') );
 		if ( !@$filtered_ids ) {
-			$error .=
-"<p>You must include one or more isolates. Make sure your selected isolates haven't been filtered to none by "
-			  . "selecting a project.</p>\n";
+			$error .= q(<p>You must include one or more isolates. Make sure your selected isolates haven't )
+			  . q(been filtered to none by selecting a project.</p>);
 		}
 		if (@$invalid_ids) {
 			local $" = ', ';
-			$error .= "<p>The following isolates in your pasted list are invalid: @$invalid_ids.</p>";
+			$error .= qq(<p>The following isolates in your pasted list are invalid: @$invalid_ids.</p>);
 		}
 		if ($error) {
 			say qq(<div class="box statusbad">$error</div>);
@@ -147,7 +146,7 @@ sub run_job {
 
 	if ($disabled_html) {
 		$self->{'jobManager'}->update_job_status( $job_id,
-			{ message_html => "HTML output disabled as more than " . MAX_HTML_OUTPUT . " records selected." } );
+			{ message_html => 'HTML output disabled as more than ' . MAX_HTML_OUTPUT . ' records selected.' } );
 	}
 	foreach my $id (@$isolate_ids) {
 		my $contig_info = $self->_get_isolate_contig_data( $id, { gc => $params->{'gc'} } );
@@ -159,10 +158,10 @@ sub run_job {
 		$td = $td == 1 ? 2 : 1;
 		$self->_update_totals( $data, $contig_info );
 		my $html_message =
-		    qq(<div class="scrollable">)
+		    q(<div class="scrollable">)
 		  . $self->_get_html_table_header( { gc => $params->{'gc'} } )
 		  . $html_buffer
-		  . "</tbody></table></div>";
+		  . q(</tbody></table></div>);
 		my $complete = int( $row * 100 / @$isolate_ids );
 
 		if ( $row % 20 == 0 || $row == @$isolate_ids ) {
@@ -233,15 +232,15 @@ sub _print_interface {
 	my $query_file = $q->param('query_file');
 	my $qry_ref    = $self->get_query($query_file);
 	if ( ref $qry_ref ne 'SCALAR' ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Error retrieving query.</p></div>";
+		say q(<div class="box" id="statusbad"><p>Error retrieving query.</p></div>);
 		return;
 	}
 	my $qry = $$qry_ref;
-	$qry =~ s/ORDER BY.*$//g;
+	$qry =~ s/ORDER\ BY.*$//gx;
 	$logger->debug("Breakdown query: $qry");
 	my $view = $self->{'system'}->{'view'};
-	$qry =~ s/SELECT ($view\.\*|\*)/SELECT id/;
-	$qry .= " ORDER BY id";
+	$qry =~ s/SELECT\ ($view\.\*|\*)/SELECT id/x;
+	$qry .= ' ORDER BY id';
 	my $selected_ids;
 
 	if ( $q->param('isolate_id') ) {
@@ -255,14 +254,14 @@ sub _print_interface {
 	my $seqbin_exists =
 	  $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM sequence_bin WHERE isolate_id IN ($qry))");
 	if ( !$seqbin_exists ) {
-		say
-qq(<div class="box" id="statusbad"><p>There are no available sequences stored for any of the selected isolates.</p></div>);
+		say q(<div class="box" id="statusbad"><p>There are no available sequences stored )
+		  . q(for any of the selected isolates.</p></div>);
 		return;
 	}
-	say qq(<div class="box" id="queryform">);
-	say
-	  qq(<p>Please select the required isolate ids for comparison - use Ctrl or Shift to make multiple selections.</p>);
-	say qq(<div class="scrollable">);
+	say q(<div class="box" id="queryform">);
+	say q(<p>Please select the required isolate ids for comparison - )
+	  . q(use Ctrl or Shift to make multiple selections.</p>);
+	say q(<div class="scrollable">);
 	say $q->start_form;
 	$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids, isolate_paste_list => 1 } );
 	$self->_print_options_fieldset;
@@ -270,16 +269,16 @@ qq(<div class="box" id="statusbad"><p>There are no available sequences stored fo
 	$self->print_action_fieldset( { name => 'SeqbinBreakdown' } );
 	say $q->hidden($_) foreach qw (page name db set_id);
 	say $q->end_form;
-	say "</div></div>";
+	say q(</div></div>);
 	return;
 }
 
 sub _print_options_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say qq(<fieldset style="float:left"><legend>Options</legend>);
+	say q(<fieldset style="float:left"><legend>Options</legend>);
 	say $q->checkbox( -name => 'gc', -label => 'Calculate %GC' );
-	say qq(</fieldset>);
+	say q(</fieldset>);
 	return;
 }
 
@@ -293,7 +292,7 @@ sub _print_table {
 	local $| = 1;
 	my $data             = {};
 	my $header_displayed = 0;
-	say qq(<div class="box" id="resultstable"><div class="scrollable">);
+	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	my $text_file = "$self->{'config'}->{'tmp_dir'}/$temp.txt";
 	open( my $fh, '>', $text_file ) or $logger->error("Can't open temp file $text_file for writing");
 
@@ -316,7 +315,7 @@ sub _print_table {
 	}
 	close $fh;
 	if ($header_displayed) {
-		say "</tbody></table>";
+		say q(</tbody></table>);
 		say qq(<ul><li><a href="/tmp/$temp.txt">Download in tab-delimited text format</a></li>);
 		my $excel_file =
 		  BIGSdb::Utils::text2excel( $text_file,
@@ -324,11 +323,11 @@ sub _print_table {
 		if ( -e $excel_file ) {
 			say qq(<li><a href="/tmp/$temp.xlsx">Download in Excel format</a></li>);
 		}
-		say "</ul>";
+		say q(</ul>);
 	} else {
-		say "<p>There are no records with contigs matching your criteria.</p>";
+		say q(<p>There are no records with contigs matching your criteria.</p>);
 	}
-	say "</div></div>";
+	say q(</div></div>);
 	$self->_print_charts( $data, $temp ) if $self->{'config'}->{'chartdirector'} && $header_displayed;
 	return;
 }
@@ -379,10 +378,9 @@ sub _get_html_table_row {
 	  . "<td>$n_stats->{'N95'}</td><td>$n_stats->{'L95'}</td>";
 	$buffer .= "<td>$gc</td>" if $options->{'gc'};
 	$buffer .=
-	    "<td>$allele_designations</td>"
-	  . "<td>$percent_alleles</td><td>$tagged</td><td>$percent_tagged</td><td>"
-	  . "<a href=\"$self->{'system'}->{'script_name'}?page=seqbin&amp;db=$self->{'instance'}&amp;isolate_id=$isolate_id\" "
-	  . "class=\"extract_tooltip\" target=\"_blank\">Display &rarr;</a></td></tr>";
+	    qq(<td>$allele_designations</td><td>$percent_alleles</td><td>$tagged</td><td>$percent_tagged</td><td>)
+	  . qq(<a href="$self->{'system'}->{'script_name'}?page=seqbin&amp;db=$self->{'instance'}&amp;)
+	  . qq(isolate_id=$isolate_id" class="extract_tooltip" target="_blank">Display &rarr;</a></td></tr>);
 	return $buffer;
 }
 
@@ -392,9 +390,9 @@ sub _get_text_table_header {
 	my $labelfield = ucfirst( $self->{'system'}->{'labelfield'} );
 	my $gc = $options->{'gc'} ? "%GC\t" : '';
 	return
-"Isolate id\t$labelfield\tContigs\tTotal length\tMin\tMax\tMean\tStdDev\tN50 contig number\tN50 contig length (L50)\t"
-	  . "N90 contig number\tN90 contig length (L90)\tN95 contig number\tN95 contig length (L95)\t${gc}Alleles designated\t"
-	  . "%Alleles designated\tLoci tagged\t%Loci tagged";
+	    qq(Isolate id\t$labelfield\tContigs\tTotal length\tMin\tMax\tMean\tStdDev\tN50 contig number\t)
+	  . qq(N50 contig length (L50)\tN90 contig number\tN90 contig length (L90)\tN95 contig number\t)
+	  . qq(N95 contig length (L95)\t${gc}Alleles designated\t%Alleles designated\tLoci tagged\t%Loci tagged);
 }
 
 sub _get_text_table_row {
@@ -403,14 +401,15 @@ sub _get_text_table_row {
 	my ( $isolate_name, $contigs, $sum, $min, $max, $mean, $stddev, $single_isolate_lengths, $gc, $allele_designations,
 		$percent_alleles, $tagged, $percent_tagged, $n_stats )
 	  = @{$contig_info}{
-		qw(isolate_name contigs sum min max mean stddev lengths gc allele_designations percent_alleles tagged percent_tagged n_stats)
+		qw(isolate_name contigs sum min max mean stddev lengths gc allele_designations
+		  percent_alleles tagged percent_tagged n_stats)
 	  };
-	my $buffer = "$isolate_id\t$isolate_name\t$contigs\t$sum\t$min\t$max\t$mean\t";
-	$buffer .= "$stddev" if defined $stddev;
-	$buffer .=
-"\t$n_stats->{'N50'}\t$n_stats->{'L50'}\t$n_stats->{'N90'}\t$n_stats->{'L90'}\t$n_stats->{'N95'}\t$n_stats->{'L95'}\t";
-	$buffer .= "$gc\t" if $options->{'gc'};
-	$buffer .= "$allele_designations\t$percent_alleles\t$tagged\t" . "$percent_tagged";
+	my $buffer = qq($isolate_id\t$isolate_name\t$contigs\t$sum\t$min\t$max\t$mean\t);
+	$buffer .= $stddev if defined $stddev;
+	$buffer .= qq(\t$n_stats->{'N50'}\t$n_stats->{'L50'}\t$n_stats->{'N90'}\t$n_stats->{'L90'}\t)
+	  . qq($n_stats->{'N95'}\t$n_stats->{'L95'}\t);
+	$buffer .= qq($gc\t) if $options->{'gc'};
+	$buffer .= qq($allele_designations\t$percent_alleles\t$tagged\t$percent_tagged);
 	return $buffer;
 }
 
@@ -476,7 +475,7 @@ sub _initiate_statement_handles {
 			$logger->error("Invalid method $method");
 			return;
 		}
-		$exclusion_clause .= " AND method=?";
+		$exclusion_clause .= ' AND method=?';
 		push @{ $self->{'criteria'} }, $method;
 	}
 	if ($experiment) {
@@ -484,17 +483,17 @@ sub _initiate_statement_handles {
 			$logger->error("Invalid experiment $experiment");
 			return;
 		}
-		$exclusion_clause .= " AND experiment_id=?";
+		$exclusion_clause .= ' AND experiment_id=?';
 		push @{ $self->{'criteria'} }, $experiment;
 	}
 	$self->{'sql'}->{'contig_info'} =
-	  $self->{'db'}->prepare(
-"SELECT COUNT(sequence) AS contigs, SUM(length(sequence)) AS sum,MIN(length(sequence)) AS min,MAX(length(sequence)) AS max, "
-		  . "CEIL(AVG(length(sequence))) AS mean, CEIL(STDDEV_SAMP(length(sequence))) AS stddev FROM sequence_bin LEFT JOIN "
-		  . "experiment_sequences ON sequence_bin.id=seqbin_id WHERE isolate_id=?$exclusion_clause" );
+	  $self->{'db'}->prepare( q[SELECT COUNT(sequence) AS contigs, SUM(length(sequence)) AS sum,MIN(length(sequence)) ]
+		  . q[AS min,MAX(length(sequence)) AS max, CEIL(AVG(length(sequence))) AS mean, ]
+		  . q[CEIL(STDDEV_SAMP(length(sequence))) AS stddev FROM sequence_bin LEFT JOIN ]
+		  . qq[experiment_sequences ON sequence_bin.id=seqbin_id WHERE isolate_id=?$exclusion_clause] );
 	$self->{'sql'}->{'contig_lengths'} =
-	  $self->{'db'}->prepare( "SELECT length(sequence) FROM sequence_bin LEFT JOIN experiment_sequences "
-		  . "ON sequence_bin.id=seqbin_id WHERE isolate_id=?$exclusion_clause ORDER BY length(sequence) DESC" );
+	  $self->{'db'}->prepare( q[SELECT length(sequence) FROM sequence_bin LEFT JOIN experiment_sequences ]
+		  . qq[ON sequence_bin.id=seqbin_id WHERE isolate_id=?$exclusion_clause ORDER BY length(sequence) DESC] );
 	$self->{'sql'}->{'gc'} =
 	  $self->{'db'}->prepare( q[select SUM(CAST(length(regexp_replace(sequence,'[^GCgc]+','','g')) AS float))/]
 		  . q[SUM(length(sequence)) AS gc FROM sequence_bin LEFT JOIN experiment_sequences ON ]
@@ -502,9 +501,9 @@ sub _initiate_statement_handles {
 	my $set_id = $self->get_set_id;
 	my $set_clause =
 	  $set_id
-	  ? "AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes "
-	  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
-	  : '';
+	  ? q[AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes ]
+	  . qq[WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))]
+	  : q();
 	$self->{'sql'}->{'tagged'} =
 	  $self->{'db'}->prepare("SELECT COUNT(DISTINCT locus) FROM allele_sequences WHERE isolate_id=? $set_clause");
 	return;
@@ -555,7 +554,7 @@ sub _make_chart {
 		BIGSdb::Charts::barchart( \@labels, \@values, $full_filename, 'large', \%prefs, { no_transparent => 1 } );
 		$chart_data->{'mean'} =
 		    BIGSdb::Utils::decimal_place( $stats->{'mean'}, 1 )
-		  . "; &sigma;: "
+		  . '; &sigma;: '
 		  . BIGSdb::Utils::decimal_place( $stats->{'std'}, 1 );
 		if ( $type eq 'lengths' ) {
 			my $filename  = "$prefix\_lengths.txt";
@@ -576,24 +575,24 @@ sub _make_chart {
 
 sub _print_charts {
 	my ( $self, $data, $prefix ) = @_;
-	say "<div class=\"box\" id=\"resultsfooter\">";
-	say "<p>Click on the following charts to enlarge</p>";
+	say q(<div class="box" id="resultsfooter">);
+	say q(<p>Click on the following charts to enlarge</p>);
 	foreach my $type (qw (contigs sum mean lengths)) {
 		my $chart_data = $self->_make_chart( $data, $prefix, $type );
-		say "<div style=\"float:left;padding-right:1em\">";
-		say "<h2>$chart_data->{'title'}</h2>";
-		say "Overall mean: $chart_data->{'mean'}<br />";
-		say
-"<a href=\"/tmp/$prefix\_histogram_$type.png\" data-rel=\"lightbox-1\" class=\"lightbox\" title=\"$chart_data->{'title'}\">"
-		  . "<img src=\"/tmp/$prefix\_histogram_$type.png\" alt=\"$type histogram\" style=\"width:200px; border:1px dashed black\" /></a>";
+		say q(<div style="float:left;padding-right:1em">);
+		say qq(<h2>$chart_data->{'title'}</h2>);
+		say qq(Overall mean: $chart_data->{'mean'}<br />);
+		say qq(<a href="/tmp/$prefix\_histogram_$type.png" data-rel="lightbox-1" class="lightbox" )
+		  . qq(title="$chart_data->{'title'}"><img src="/tmp/$prefix\_histogram_$type.png" alt="$type histogram" )
+		  . q(style="width:200px; border:1px dashed black" /></a>);
 		if ( $chart_data->{'lengths_file'} ) {
 			my $lengths_full_path = "$self->{'config'}->{'tmp_dir'}/$chart_data->{'lengths_file'}";
-			say "<p><a href=\"/tmp/$chart_data->{'lengths_file'}\">Download lengths</a></p>"
+			say qq(<p><a href="/tmp/$chart_data->{'lengths_file'}">Download lengths</a></p>)
 			  if -e $lengths_full_path && !-z $lengths_full_path;
 		}
-		say "</div>";
+		say q(</div>);
 	}
-	say "<div style=\"clear:both\"></div></div>";
+	say q(<div style="clear:both"></div></div>);
 	return;
 }
 1;
