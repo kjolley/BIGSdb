@@ -57,7 +57,8 @@ sub get_attributes {
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
+	$self->{'pref_requirements'} =
+	  { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
 	return;
 }
 
@@ -74,7 +75,8 @@ sub run {
 		my $error;
 		my $filtered_ids = $self->filter_ids_by_project( \@ids, $q->param('project_list') );
 		if ( !@$filtered_ids ) {
-			$error .= "<p>You must include one or more isolates. Make sure your selected isolates haven't been filtered to none by "
+			$error .=
+"<p>You must include one or more isolates. Make sure your selected isolates haven't been filtered to none by "
 			  . "selecting a project.</p>\n";
 		}
 		if (@$invalid_ids) {
@@ -130,7 +132,7 @@ HTML
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	$self->{'exit'} = 0;
-	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3;    #Allow temp files to be cleaned on kill signals
+	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3; #Allow temp files to be cleaned on kill signals
 	my $method     = $params->{'seq_method_list'};
 	my $experiment = $params->{'experiment_list'};
 	$self->_initiate_statement_handles( { method => $method, experiment => $experiment } );
@@ -144,8 +146,8 @@ sub run_job {
 	my $disabled_html = @$isolate_ids > MAX_HTML_OUTPUT ? 1 : 0;
 
 	if ($disabled_html) {
-		$self->{'jobManager'}
-		  ->update_job_status( $job_id, { message_html => "HTML output disabled as more than " . MAX_HTML_OUTPUT . " records selected." } );
+		$self->{'jobManager'}->update_job_status( $job_id,
+			{ message_html => "HTML output disabled as more than " . MAX_HTML_OUTPUT . " records selected." } );
 	}
 	foreach my $id (@$isolate_ids) {
 		my $contig_info = $self->_get_isolate_contig_data( $id, { gc => $params->{'gc'} } );
@@ -167,7 +169,8 @@ sub run_job {
 			if ($disabled_html) {
 				$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete } );
 			} else {
-				$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete, message_html => $html_message } );
+				$self->{'jobManager'}
+				  ->update_job_status( $job_id, { percent_complete => $complete, message_html => $html_message } );
 			}
 		}
 		if ( $self->{'exit'} ) {
@@ -179,20 +182,22 @@ sub run_job {
 		}
 	}
 	if ( !$row_with_data ) {
-		$self->{'jobManager'}
-		  ->update_job_status( $job_id, { message_html => 'There are no records with contigs matching your criteria.' } );
+		$self->{'jobManager'}->update_job_status( $job_id,
+			{ message_html => 'There are no records with contigs matching your criteria.' } );
 	} else {
 		my $job_file = "$self->{'config'}->{'tmp_dir'}/$job_id\.txt";
 		open( my $job_fh, '>', $job_file ) || $logger->error("Can't open $job_file for writing");
 		say $job_fh $self->_get_text_table_header( { gc => $params->{'gc'} } );
 		print $job_fh $text_buffer;
 		close $job_fh;
-		$self->{'jobManager'}
-		  ->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Output in tab-delimited text format' } );
+		$self->{'jobManager'}->update_job_output( $job_id,
+			{ filename => "$job_id.txt", description => '01_Output in tab-delimited text format' } );
 		my $excel_file =
-		  BIGSdb::Utils::text2excel( $job_file, { worksheet => 'sequence bin stats', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
+		  BIGSdb::Utils::text2excel( $job_file,
+			{ worksheet => 'sequence bin stats', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
 		if ( -e $excel_file ) {
-			$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.xlsx", description => '02_Output in Excel format' } );
+			$self->{'jobManager'}->update_job_output( $job_id,
+				{ filename => "$job_id.xlsx", description => '02_Output in Excel format' } );
 		}
 		my $file_order = 10;
 		foreach my $type (qw (contigs sum mean lengths)) {
@@ -201,8 +206,13 @@ sub run_job {
 			if ( $chart_data->{'file_name'} ) {
 				my $full_filename = "$self->{'config'}->{'tmp_dir'}/$chart_data->{'file_name'}";
 				if ( -e $full_filename ) {
-					$self->{'jobManager'}->update_job_output( $job_id,
-						{ filename => $chart_data->{'file_name'}, description => "$file_order\_$chart_data->{'title'}" } );
+					$self->{'jobManager'}->update_job_output(
+						$job_id,
+						{
+							filename    => $chart_data->{'file_name'},
+							description => "$file_order\_$chart_data->{'title'}"
+						}
+					);
 				}
 			}
 			$file_order++;
@@ -242,13 +252,16 @@ sub _print_interface {
 	} else {
 		$selected_ids = [];
 	}
-	my $seqbin_exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM sequence_bin WHERE isolate_id IN ($qry))");
+	my $seqbin_exists =
+	  $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM sequence_bin WHERE isolate_id IN ($qry))");
 	if ( !$seqbin_exists ) {
-		say qq(<div class="box" id="statusbad"><p>There are no available sequences stored for any of the selected isolates.</p></div>);
+		say
+qq(<div class="box" id="statusbad"><p>There are no available sequences stored for any of the selected isolates.</p></div>);
 		return;
 	}
 	say qq(<div class="box" id="queryform">);
-	say qq(<p>Please select the required isolate ids for comparison - use Ctrl or Shift to make multiple selections.</p>);
+	say
+	  qq(<p>Please select the required isolate ids for comparison - use Ctrl or Shift to make multiple selections.</p>);
 	say qq(<div class="scrollable">);
 	say $q->start_form;
 	$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids, isolate_paste_list => 1 } );
@@ -306,7 +319,8 @@ sub _print_table {
 		say "</tbody></table>";
 		say qq(<ul><li><a href="/tmp/$temp.txt">Download in tab-delimited text format</a></li>);
 		my $excel_file =
-		  BIGSdb::Utils::text2excel( $text_file, { worksheet => 'sequence bin stats', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
+		  BIGSdb::Utils::text2excel( $text_file,
+			{ worksheet => 'sequence bin stats', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
 		if ( -e $excel_file ) {
 			say qq(<li><a href="/tmp/$temp.xlsx">Download in Excel format</a></li>);
 		}
@@ -350,15 +364,18 @@ HTML
 sub _get_html_table_row {
 	my ( $self, $isolate_id, $contig_info, $td, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my ( $isolate_name, $contigs, $sum, $min, $max, $mean, $stddev, $single_isolate_lengths, $gc, $allele_designations, $percent_alleles,
-		$tagged, $percent_tagged, $n_stats )
-	  = @{$contig_info}
-	  {qw(isolate_name contigs sum min max mean stddev lengths gc allele_designations percent_alleles tagged percent_tagged n_stats)};
-	my $q      = $self->{'cgi'};
-	my $buffer = "<tr class=\"td$td\"><td>$isolate_id</td><td>$isolate_name</td><td>$contigs</td><td>$sum</td><td>$min</td>"
+	my ( $isolate_name, $contigs, $sum, $min, $max, $mean, $stddev, $single_isolate_lengths, $gc, $allele_designations,
+		$percent_alleles, $tagged, $percent_tagged, $n_stats )
+	  = @{$contig_info}{
+		qw(isolate_name contigs sum min max mean stddev lengths gc allele_designations percent_alleles tagged percent_tagged n_stats)
+	  };
+	my $q = $self->{'cgi'};
+	my $buffer =
+	    "<tr class=\"td$td\"><td>$isolate_id</td><td>$isolate_name</td><td>$contigs</td><td>$sum</td><td>$min</td>"
 	  . "<td>$max</td><td>$mean</td>";
 	$buffer .= defined $stddev ? "<td>$stddev</td>" : '<td></td>';
-	$buffer .= "<td>$n_stats->{'N50'}</td><td>$n_stats->{'L50'}</td><td>$n_stats->{'N90'}</td><td>$n_stats->{'L90'}</td>"
+	$buffer .=
+	    "<td>$n_stats->{'N50'}</td><td>$n_stats->{'L50'}</td><td>$n_stats->{'N90'}</td><td>$n_stats->{'L90'}</td>"
 	  . "<td>$n_stats->{'N95'}</td><td>$n_stats->{'L95'}</td>";
 	$buffer .= "<td>$gc</td>" if $options->{'gc'};
 	$buffer .=
@@ -374,7 +391,8 @@ sub _get_text_table_header {
 	$options = {} if ref $options ne 'HASH';
 	my $labelfield = ucfirst( $self->{'system'}->{'labelfield'} );
 	my $gc = $options->{'gc'} ? "%GC\t" : '';
-	return "Isolate id\t$labelfield\tContigs\tTotal length\tMin\tMax\tMean\tStdDev\tN50 contig number\tN50 contig length (L50)\t"
+	return
+"Isolate id\t$labelfield\tContigs\tTotal length\tMin\tMax\tMean\tStdDev\tN50 contig number\tN50 contig length (L50)\t"
 	  . "N90 contig number\tN90 contig length (L90)\tN95 contig number\tN95 contig length (L95)\t${gc}Alleles designated\t"
 	  . "%Alleles designated\tLoci tagged\t%Loci tagged";
 }
@@ -382,14 +400,16 @@ sub _get_text_table_header {
 sub _get_text_table_row {
 	my ( $self, $isolate_id, $contig_info, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my ( $isolate_name, $contigs, $sum, $min, $max, $mean, $stddev, $single_isolate_lengths, $gc, $allele_designations, $percent_alleles,
-		$tagged, $percent_tagged, $n_stats )
-	  = @{$contig_info}
-	  {qw(isolate_name contigs sum min max mean stddev lengths gc allele_designations percent_alleles tagged percent_tagged n_stats)};
+	my ( $isolate_name, $contigs, $sum, $min, $max, $mean, $stddev, $single_isolate_lengths, $gc, $allele_designations,
+		$percent_alleles, $tagged, $percent_tagged, $n_stats )
+	  = @{$contig_info}{
+		qw(isolate_name contigs sum min max mean stddev lengths gc allele_designations percent_alleles tagged percent_tagged n_stats)
+	  };
 	my $buffer = "$isolate_id\t$isolate_name\t$contigs\t$sum\t$min\t$max\t$mean\t";
 	$buffer .= "$stddev" if defined $stddev;
-	$buffer .= "\t$n_stats->{'N50'}\t$n_stats->{'L50'}\t$n_stats->{'N90'}\t$n_stats->{'L90'}\t$n_stats->{'N95'}\t$n_stats->{'L95'}\t";
-	$buffer .= "$gc\t"   if $options->{'gc'};
+	$buffer .=
+"\t$n_stats->{'N50'}\t$n_stats->{'L50'}\t$n_stats->{'N90'}\t$n_stats->{'L90'}\t$n_stats->{'N95'}\t$n_stats->{'L95'}\t";
+	$buffer .= "$gc\t" if $options->{'gc'};
 	$buffer .= "$allele_designations\t$percent_alleles\t$tagged\t" . "$percent_tagged";
 	return $buffer;
 }
@@ -411,16 +431,19 @@ sub _get_isolate_contig_data {
 		my $allele_designations = $self->{'datastore'}->get_all_allele_ids( $isolate_id, { set_id => $set_id } );
 		$data->{'allele_designations'} = scalar keys %$allele_designations;
 		$data->{'percent_alleles'} =
-		  BIGSdb::Utils::decimal_place( 100 * ( scalar keys %$allele_designations ) / @{ $self->{'cache'}->{'loci'} }, 1 );
+		  BIGSdb::Utils::decimal_place( 100 * ( scalar keys %$allele_designations ) / @{ $self->{'cache'}->{'loci'} },
+			1 );
 		my $tagged = $self->_get_tagged($isolate_id);
-		$data->{'tagged'}         = $tagged;
-		$data->{'percent_tagged'} = BIGSdb::Utils::decimal_place( 100 * ( $tagged / @{ $self->{'cache'}->{'loci'} } ), 1 );
-		$data->{'n_stats'}        = BIGSdb::Utils::get_N_stats( $data->{'sum'}, $data->{'lengths'} );
+		$data->{'tagged'} = $tagged;
+		$data->{'percent_tagged'} =
+		  BIGSdb::Utils::decimal_place( 100 * ( $tagged / @{ $self->{'cache'}->{'loci'} } ), 1 );
+		$data->{'n_stats'} = BIGSdb::Utils::get_N_stats( $data->{'sum'}, $data->{'lengths'} );
 	}
 	if ( $options->{'gc'} ) {
 		eval { $self->{'sql'}->{'gc'}->execute( $isolate_id, @{ $self->{'criteria'} } ) };
 		$logger->error($@) if $@;
-		( $data->{'gc'} ) = BIGSdb::Utils::decimal_place( ( $self->{'sql'}->{'gc'}->fetchrow_array ) * 100, 1 );
+		( $data->{'gc'} ) =
+		  BIGSdb::Utils::decimal_place( ( ( $self->{'sql'}->{'gc'}->fetchrow_array ) // 0 ) * 100, 1 );
 	}
 	return $data;
 }
@@ -466,15 +489,16 @@ sub _initiate_statement_handles {
 	}
 	$self->{'sql'}->{'contig_info'} =
 	  $self->{'db'}->prepare(
-		    "SELECT COUNT(sequence) AS contigs, SUM(length(sequence)) AS sum,MIN(length(sequence)) AS min,MAX(length(sequence)) AS max, "
+"SELECT COUNT(sequence) AS contigs, SUM(length(sequence)) AS sum,MIN(length(sequence)) AS min,MAX(length(sequence)) AS max, "
 		  . "CEIL(AVG(length(sequence))) AS mean, CEIL(STDDEV_SAMP(length(sequence))) AS stddev FROM sequence_bin LEFT JOIN "
 		  . "experiment_sequences ON sequence_bin.id=seqbin_id WHERE isolate_id=?$exclusion_clause" );
 	$self->{'sql'}->{'contig_lengths'} =
 	  $self->{'db'}->prepare( "SELECT length(sequence) FROM sequence_bin LEFT JOIN experiment_sequences "
 		  . "ON sequence_bin.id=seqbin_id WHERE isolate_id=?$exclusion_clause ORDER BY length(sequence) DESC" );
 	$self->{'sql'}->{'gc'} =
-	  $self->{'db'}->prepare( "select SUM(CAST(length(regexp_replace(sequence,'[^GCgc]+','','g')) AS float))/"
-		  . "SUM(length(sequence)) AS gc FROM sequence_bin WHERE isolate_id=?$exclusion_clause GROUP BY isolate_id " );
+	  $self->{'db'}->prepare( q[select SUM(CAST(length(regexp_replace(sequence,'[^GCgc]+','','g')) AS float))/]
+		  . q[SUM(length(sequence)) AS gc FROM sequence_bin LEFT JOIN experiment_sequences ON ]
+		  . qq[sequence_bin.id=seqbin_id WHERE isolate_id=?$exclusion_clause GROUP BY isolate_id ] );
 	my $set_id = $self->get_set_id;
 	my $set_clause =
 	  $set_id
@@ -488,7 +512,12 @@ sub _initiate_statement_handles {
 
 sub _make_chart {
 	my ( $self, $data, $prefix, $type ) = @_;
-	my %title      = ( contigs => 'Number of contigs', sum => 'Total length', mean => 'Mean contig length', lengths => 'Contig lengths' );
+	my %title = (
+		contigs => 'Number of contigs',
+		sum     => 'Total length',
+		mean    => 'Mean contig length',
+		lengths => 'Contig lengths'
+	);
 	my $stats      = BIGSdb::Utils::stats( $data->{$type} );
 	my $chart_data = {};
 	if ( $stats->{'count'} ) {
@@ -525,7 +554,9 @@ sub _make_chart {
 		$chart_data->{'title'} = $title{$type};
 		BIGSdb::Charts::barchart( \@labels, \@values, $full_filename, 'large', \%prefs, { no_transparent => 1 } );
 		$chart_data->{'mean'} =
-		  BIGSdb::Utils::decimal_place( $stats->{'mean'}, 1 ) . "; &sigma;: " . BIGSdb::Utils::decimal_place( $stats->{'std'}, 1 );
+		    BIGSdb::Utils::decimal_place( $stats->{'mean'}, 1 )
+		  . "; &sigma;: "
+		  . BIGSdb::Utils::decimal_place( $stats->{'std'}, 1 );
 		if ( $type eq 'lengths' ) {
 			my $filename  = "$prefix\_lengths.txt";
 			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
@@ -552,7 +583,8 @@ sub _print_charts {
 		say "<div style=\"float:left;padding-right:1em\">";
 		say "<h2>$chart_data->{'title'}</h2>";
 		say "Overall mean: $chart_data->{'mean'}<br />";
-		say "<a href=\"/tmp/$prefix\_histogram_$type.png\" data-rel=\"lightbox-1\" class=\"lightbox\" title=\"$chart_data->{'title'}\">"
+		say
+"<a href=\"/tmp/$prefix\_histogram_$type.png\" data-rel=\"lightbox-1\" class=\"lightbox\" title=\"$chart_data->{'title'}\">"
 		  . "<img src=\"/tmp/$prefix\_histogram_$type.png\" alt=\"$type histogram\" style=\"width:200px; border:1px dashed black\" /></a>";
 		if ( $chart_data->{'lengths_file'} ) {
 			my $lengths_full_path = "$self->{'config'}->{'tmp_dir'}/$chart_data->{'lengths_file'}";
