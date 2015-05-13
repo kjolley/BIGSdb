@@ -26,7 +26,8 @@ my $logger = get_logger('BIGSdb.Page');
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
+	$self->{'pref_requirements'} =
+	  { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
 	return;
 }
 
@@ -67,7 +68,8 @@ sub print_content {
 	say qq(<span class="main_icon fa fa-search fa-3x pull-left"></span>);
 	say qq(<h2>Query database</h2><ul class="toplevel">);
 	my $scheme_data =
-	  $self->{'datastore'}->get_scheme_list( { with_pk => ( $self->{'system'}->{'dbtype'} eq 'sequences' ? 1 : 0 ), set_id => $set_id } );
+	  $self->{'datastore'}
+	  ->get_scheme_list( { with_pk => ( $self->{'system'}->{'dbtype'} eq 'sequences' ? 1 : 0 ), set_id => $set_id } );
 	my $url_root = "$self->{'system'}->{'script_name'}?db=$instance$set_string&amp;";
 	if ( $system->{'dbtype'} eq 'isolates' ) {
 		say qq(<li><a href="${url_root}page=query">Search database</a> - advanced queries.</li>);
@@ -79,7 +81,8 @@ sub print_content {
 		}
 	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
 		say qq(<li><a href="${url_root}page=sequenceQuery">Sequence query</a> - query an allele sequence.</li>);
-		say qq(<li><a href="${url_root}page=batchSequenceQuery">Batch sequence query</a> - query multiple sequences in FASTA format.</li>);
+		say
+qq(<li><a href="${url_root}page=batchSequenceQuery">Batch sequence query</a> - query multiple sequences in FASTA format.</li>);
 		say qq(<li><a href="${url_root}page=tableQuery&amp;table=sequences">Sequence attribute search</a> - )
 		  . qq(find alleles by matching attributes.</li>);
 		if (@$scheme_data) {
@@ -87,10 +90,13 @@ sub print_content {
 			my $scheme_desc = @$scheme_data == 1 ? $scheme_data->[0]->{'description'}         : '';
 			say qq(<li><a href="${url_root}page=browse$scheme_arg">Browse $scheme_desc profiles</a></li>);
 			say qq(<li><a href="${url_root}page=query$scheme_arg">Search $scheme_desc profiles</a></li>);
-			say qq(<li><a href="${url_root}page=listQuery$scheme_arg">List</a> - find $scheme_desc profiles matched to entered list.</li>);
-			say qq(<li><a href="${url_root}page=profiles$scheme_arg">Search by combinations of $scheme_desc alleles</a> - )
+			say
+qq(<li><a href="${url_root}page=listQuery$scheme_arg">List</a> - find $scheme_desc profiles matched to entered list.</li>);
+			say
+qq(<li><a href="${url_root}page=profiles$scheme_arg">Search by combinations of $scheme_desc alleles</a> - )
 			  . qq(including partial matching.</li>);
-			say qq(<li><a href="${url_root}page=batchProfiles$scheme_arg">Batch profile query</a> - lookup 	$scheme_desc profiles copied )
+			say
+qq(<li><a href="${url_root}page=batchProfiles$scheme_arg">Batch profile query</a> - lookup 	$scheme_desc profiles copied )
 			  . qq(from a spreadsheet.</li>);
 		}
 	}
@@ -99,12 +105,14 @@ sub print_content {
 		$self->print_file($query_html_file) if -e $query_html_file;
 	}
 	if ( $system->{'dbtype'} eq 'isolates' ) {
-		say qq(<li><a href="${url_root}page=listQuery">List query</a> - find isolates by matching a field to an entered list.</li>);
+		say
+qq(<li><a href="${url_root}page=listQuery">List query</a> - find isolates by matching a field to an entered list.</li>);
 		my $projects = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM projects WHERE list");
 		say qq(<li><a href="${url_root}page=projects">Projects</a> - main projects defined in database.) if $projects;
 		my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
 		if (@$sample_fields) {
-			say qq(<li><a href="${url_root}page=tableQuery&amp;table=samples">Sample management</a> - culture/DNA storage tracking</li>);
+			say
+qq(<li><a href="${url_root}page=tableQuery&amp;table=samples">Sample management</a> - culture/DNA storage tracking</li>);
 		}
 	}
 	say "</ul></div>";
@@ -155,7 +163,9 @@ sub _print_download_section {
 	my $seq_download_buffer = '';
 	my $scheme_buffer       = '';
 	my $group_count         = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM scheme_groups");
-	if ( !( $self->{'system'}->{'disable_seq_downloads'} && $self->{'system'}->{'disable_seq_downloads'} eq 'yes' ) || $self->is_admin ) {
+	if ( !( $self->{'system'}->{'disable_seq_downloads'} && $self->{'system'}->{'disable_seq_downloads'} eq 'yes' )
+		|| $self->is_admin )
+	{
 		$seq_download_buffer =
 		    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles)
 		  . ( $group_count ? '&amp;tree=1' : '' )
@@ -169,11 +179,12 @@ sub _print_download_section {
 		$scheme_buffer .= $q->popup_menu( -name => 'scheme_id', -values => $scheme_ids_ref, -labels => $desc_ref );
 		$scheme_buffer .= $q->hidden('db');
 		$scheme_buffer .=
-		  " <button type=\"submit\" name=\"page\" value=\"downloadProfiles\" class=\"smallbutton\">Download profiles</button>\n";
+" <button type=\"submit\" name=\"page\" value=\"downloadProfiles\" class=\"smallbutton\">Download profiles</button>\n";
 		$scheme_buffer .= $q->end_form;
 		$scheme_buffer .= "</li>";
 	} elsif ( @$scheme_data == 1 ) {
-		$scheme_buffer .= "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadProfiles&amp;scheme_id="
+		$scheme_buffer .=
+"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadProfiles&amp;scheme_id="
 		  . "$scheme_data->[0]->{'id'}\">$scheme_data->[0]->{'description'} profiles</a></li>";
 	}
 	if ( $seq_download_buffer || $scheme_buffer ) {
@@ -215,7 +226,8 @@ sub _print_options_section {
 			{ db => $self->{'auth_db'} }
 		);
 		if ($clients_authorized) {
-			say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=authorizeClient&amp;modify=1">)
+			say
+qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=authorizeClient&amp;modify=1">)
 			  . qq(View/modify client software permissions</a></li>);
 		}
 	}
@@ -226,10 +238,14 @@ sub _print_options_section {
 sub _print_submissions_section {
 	my ($self) = @_;
 	return if $self->{'system'}->{'dbtype'} eq 'isolates' || ( $self->{'system'}->{'submissions'} // '' ) ne 'yes';
-	say qq(<div style="float:left; margin-right:1em">);
-	say qq(<span class="main_icon fa fa-upload fa-3x pull-left"></span>);
-	say qq(<h2>Submissions</h2><ul class="toplevel">);
-	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit">Manage submissions</a></li>);
+	say q(<div style="float:left; margin-right:1em">);
+	say q(<span class="main_icon fa fa-upload fa-3x pull-left"></span>);
+	say q(<h2>Submissions</h2><ul class="toplevel">);
+	my $set_id = $self->get_set_id // 0;
+	my $set_string =
+	  ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ? "&amp;choose_set=1&amp;sets_list=$set_id" : q();
+	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit$set_string">)
+	  . q(Manage submissions</a></li>);
 	say '</ul></div>';
 	return;
 }
@@ -250,14 +266,16 @@ sub _print_general_info_section {
 		if ( @$scheme_data == 1 ) {
 			foreach (@$scheme_data) {
 				my $profile_count =
-				  $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM profiles WHERE scheme_id=?", $scheme_data->[0]->{'id'} );
+				  $self->{'datastore'}
+				  ->run_query( "SELECT COUNT(*) FROM profiles WHERE scheme_id=?", $scheme_data->[0]->{'id'} );
 				say "<li>Number of profiles ($scheme_data->[0]->{'description'}): $profile_count</li>";
 			}
 		} elsif ( @$scheme_data > 1 ) {
 			say "<li>Number of profiles: <a id=\"toggle1\" class=\"showhide\">Show</a>";
 			say "<a id=\"toggle2\" class=\"hideshow\">Hide</a><div class=\"hideshow\"><ul>";
 			foreach (@$scheme_data) {
-				my $profile_count = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM profiles WHERE scheme_id=?", $_->{'id'} );
+				my $profile_count =
+				  $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM profiles WHERE scheme_id=?", $_->{'id'} );
 				$_->{'description'} =~ s/\&/\&amp;/g;
 				say "<li>$_->{'description'}: $profile_count</li>";
 			}
@@ -272,12 +290,14 @@ sub _print_general_info_section {
 	say "<li>Last updated: $max_date</li>" if $max_date;
 	my $history_table = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'history' : 'profile_history';
 	my $history_exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $history_table)");
-	say "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$history_table&amp;"
+	say
+"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$history_table&amp;"
 	  . "order=timestamp&amp;direction=descending&amp;submit=1$set_string\">"
 	  . ( $self->{'system'}->{'dbtype'} eq 'sequences' ? 'Profile u' : 'U' )
 	  . "pdate history</a></li>"
 	  if $history_exists;
-	say "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=version\">About BIGSdb</a></li>";
+	say
+"<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=version\">About BIGSdb</a></li>";
 	say "</ul>\n</div>";
 	return;
 }
@@ -288,15 +308,20 @@ sub _print_plugin_section {
 	my $q          = $self->{'cgi'};
 	my $set_id     = $self->get_set_id;
 	my $set_string = $set_id ? "&amp;set_id=$set_id" : '';
-	my $plugins =
-	  $self->{'pluginManager'}
-	  ->get_appropriate_plugin_names( 'breakdown|export|analysis|miscellaneous', $self->{'system'}->{'dbtype'}, { set_id => $set_id } );
+	my $plugins    = $self->{'pluginManager'}->get_appropriate_plugin_names(
+		'breakdown|export|analysis|miscellaneous',
+		$self->{'system'}->{'dbtype'},
+		{ set_id => $set_id }
+	);
 	if (@$plugins) {
 		print "<div class=\"box\" id=\"plugins\"><div class=\"scrollable\">\n";
-		my %icon = ( breakdown => 'pie-chart', export => 'save', analysis => 'line-chart', miscellaneous => 'file-text-o' );
+		my %icon =
+		  ( breakdown => 'pie-chart', export => 'save', analysis => 'line-chart', miscellaneous => 'file-text-o' );
 		foreach (qw (breakdown export analysis miscellaneous)) {
 			$q->param( 'page', 'index' );
-			$plugins = $self->{'pluginManager'}->get_appropriate_plugin_names( $_, $self->{'system'}->{'dbtype'}, { set_id => $set_id } );
+			$plugins =
+			  $self->{'pluginManager'}
+			  ->get_appropriate_plugin_names( $_, $self->{'system'}->{'dbtype'}, { set_id => $set_id } );
 			next if !@$plugins;
 			say "<div style=\"float:left; margin-right:1em\">";
 			say qq(<span class="plugin_icon fa fa-$icon{$_} fa-3x pull-left"></span>);
@@ -305,7 +330,9 @@ sub _print_plugin_section {
 				my $att      = $self->{'pluginManager'}->get_plugin_attributes($_);
 				my $menuitem = $att->{'menutext'};
 				my $scheme_arg =
-				  ( $self->{'system'}->{'dbtype'} eq 'sequences' && $att->{'seqdb_type'} eq 'schemes' && @$scheme_data == 1 )
+				  (      $self->{'system'}->{'dbtype'} eq 'sequences'
+					  && $att->{'seqdb_type'} eq 'schemes'
+					  && @$scheme_data == 1 )
 				  ? "&amp;scheme_id=$scheme_data->[0]->{'id'}"
 				  : '';
 				say "<li><a href=\"$self->{'system'}->{'script_name'}?page=plugin&amp;name=$att->{'module'}&amp;"

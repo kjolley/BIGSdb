@@ -87,8 +87,9 @@ sub initiate {
 }
 
 sub print_content {
-	my ($self)        = @_;
-	my $q             = $self->{'cgi'};
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	$self->choose_set;
 	my $submission_id = $q->param('submission_id');
 	if ($submission_id) {
 		my %return_after = map { $_ => 1 } qw (tar view curate);
