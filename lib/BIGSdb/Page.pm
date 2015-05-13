@@ -1209,30 +1209,27 @@ sub clean_locus {
 	my ( $self, $locus, $options ) = @_;
 	return if !defined $locus;
 	$options = {} if ref $options ne 'HASH';
-	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	my $set_id     = $self->get_set_id;
+	my $set_id = $self->get_set_id;
+	my $locus_info = $self->{'datastore'}->get_locus_info( $locus, { set_id => $set_id } );
 	if ($set_id) {
-		my $set_locus = $self->{'datastore'}->run_query(
-			'SELECT * FROM set_loci WHERE set_id=? AND locus=?',
-			[ $set_id, $locus ],
-			{ fetch => 'row_hashref' }
-		);
-		if ( $set_locus->{'set_name'} ) {
-			$locus = $set_locus->{'set_name'};
-			$locus = $set_locus->{'formatted_set_name'}
-			  if !$options->{'text_output'} && $set_locus->{'formatted_set_name'};
+		if ( $locus_info->{'set_name'} ) {
+			$locus = $locus_info->{'set_name'};
+			$locus = $locus_info->{'formatted_set_name'}
+			  if !$options->{'text_output'} && $locus_info->{'formatted_set_name'};
 			if ( !$options->{'no_common_name'} ) {
 				my $common_name = '';
-				$common_name = " ($set_locus->{'set_common_name'})" if $set_locus->{'set_common_name'};
-				$common_name = " ($set_locus->{'formatted_set_common_name'})"
-				  if !$options->{'text_output'} && $set_locus->{'formatted_set_common_name'};
+				$common_name = " ($locus_info->{'set_common_name'})" if $locus_info->{'set_common_name'};
+				$common_name = " ($locus_info->{'formatted_set_common_name'})"
+				  if !$options->{'text_output'} && $locus_info->{'formatted_set_common_name'};
 				$locus .= $common_name;
 			}
 		}
 	} else {
 		$locus = $locus_info->{'formatted_name'} if !$options->{'text_output'} && $locus_info->{'formatted_name'};
-		$locus =~ s/^_//x
-		  ; #locus names can't begin with a digit, so people can use an underscore, but this looks untidy in the interface.
+
+		#Locus names can't begin with a digit, so people can use an underscore,
+		#but this looks untidy in the interface.
+		$locus =~ s/^_//x;
 		if ( !$options->{'no_common_name'} ) {
 			my $common_name = '';
 			$common_name = " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};

@@ -1087,15 +1087,16 @@ sub get_locus_list {
 sub get_locus_info {
 	my ( $self, $locus, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $locus_info = $self->run_query( "SELECT * FROM loci WHERE id=?", $locus, { fetch => 'row_hashref', cache => 'get_locus_info' } );
+	my $locus_info = $self->run_query( 'SELECT * FROM loci WHERE id=?', $locus, { fetch => 'row_hashref', cache => 'get_locus_info' } );
 	if ( $options->{'set_id'} ) {
 		my $set_locus = $self->run_query(
-			"SELECT * FROM set_loci WHERE set_id=? AND locus=?",
+			'SELECT * FROM set_loci WHERE set_id=? AND locus=?',
 			[ $options->{'set_id'}, $locus ],
 			{ fetch => 'row_hashref', cache => 'get_locus_info_set_loci' }
 		);
-		$locus_info->{'set_name'}        = $set_locus->{'set_name'};
-		$locus_info->{'set_common_name'} = $set_locus->{'set_common_name'};
+		foreach (qw(set_name set_common_name formatted_set_name formatted_set_common_name)){
+			$locus_info->{$_} = $set_locus->{$_};
+		}
 	}
 	return $locus_info;
 }
