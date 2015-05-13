@@ -1447,7 +1447,6 @@ sub rewrite_query_ref_order_by {
 		my $join = qq(LEFT JOIN allele_designations AS ordering ON ordering.isolate_id=$view.id )
 		  . qq(AND ordering.locus=E'$cleaned_locus');
 		$$qry_ref =~ s/FROM\ $view/FROM $view $join/x;
-		$logger->error($$qry_ref);
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
 			$$qry_ref =~ s/ORDER\ BY\ l_\S+\s/ORDER BY CAST(ordering.allele_id AS int) /x;
