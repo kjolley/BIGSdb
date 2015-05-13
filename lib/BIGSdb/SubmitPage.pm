@@ -21,7 +21,6 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::TreeViewPage);
-use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Utils;
@@ -108,26 +107,17 @@ sub print_content {
 		say q(<div class="box" id="statusbad"><p>You are not a recognized user.  Submissions are disabled.</p></div>);
 		return;
 	}
-	if ( $q->param('alleles') ) {
-		if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
-			say q(<div class="box" id="statusbad"><p>You cannot submit new allele sequences for definition in an )
-			  . q(isolate database.<p></div>);
+	foreach my $type (qw (alleles profiles)) {
+		if ( $q->param($type) ) {
+			my $method = "_handle_$type";
+			$self->$method;
 			return;
 		}
-		if ( $q->param('submit') ) {
-			$self->_update_allele_prefs;
-		}
-		$self->_submit_alleles;
-		return;
 	}
 	$self->_delete_old_closed_submissions;
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	if ( !$self->_print_started_submissions ) {    #Returns true if submissions in process
-		say q(<h2>Submit new data</h2>);
-		say q(<p>Data submitted here will go in to a queue for handling by a curator or by an automated script. You )
-		  . q(will be able to track the status of any submission.</p>);
-		say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
-		  . q(alleles=1">Submit alleles</a></li></ul>);
+		$self->_print_new_submission_links;
 	}
 	$self->_print_pending_submissions;
 	$self->print_submissions_for_curation;
@@ -135,6 +125,54 @@ sub print_content {
 	say qq(<p style="margin-top:1em"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
 	  . q(Return to index page</a></p>);
 	say q(</div></div>);
+	return;
+}
+
+sub _handle_alleles {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
+		say q(<div class="box" id="statusbad"><p>You cannot submit new allele sequences for definition in an )
+		  . q(isolate database.<p></div>);
+		return;
+	}
+	if ( $q->param('submit') ) {
+		$self->_update_allele_prefs;
+	}
+	$self->_submit_alleles;
+	return;
+}
+
+sub _handle_profiles {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
+		say q(<div class="box" id="statusbad"><p>You cannot submit new profiles for definition in an )
+		  . q(isolate database.<p></div>);
+		return;
+	}
+	$self->_submit_profiles;
+	return;
+}
+
+sub _print_new_submission_links {
+	my ($self) = @_;
+	say q(<h2>Submit new data</h2>);
+	say q(<p>Data submitted here will go in to a queue for handling by a curator or by an automated script. You )
+	  . q(will be able to track the status of any submission.</p>);
+	say q(<h3>Submission type:</h3>);
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		say q(<ul>);
+		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
+		  . q(alleles=1">alleles</a></li>);
+		my $set_id = $self->get_set_id;
+		my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
+		foreach my $scheme (@$schemes) {
+			say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit)
+			  . qq(&amp;profiles=1&amp;scheme_id=$scheme->{'id'}">$scheme->{'description'} profiles</a></li>);
+		}
+		say q(</ul>);
+	}
 	return;
 }
 
@@ -430,7 +468,7 @@ sub _finalize_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #
 sub _submit_alleles {
 	my ($self)        = @_;
 	my $q             = $self->{'cgi'};
-	my $submission_id = $self->_get_started_submission;
+	my $submission_id = $self->_get_started_submission_id;
 	$q->param( submission_id => $submission_id );
 	my $ret;
 	if ($submission_id) {
@@ -511,13 +549,36 @@ sub _submit_alleles {
 	return;
 }
 
+sub _submit_profiles {
+	my ($self)        = @_;
+	my $q             = $self->{'cgi'};
+	my $submission_id = $self->_get_started_submission_id;
+	$q->param( submission_id => $submission_id );
+	my $scheme_id   = $q->param('scheme_id');
+	my $set_id      = $self->get_set_id;
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1, set_id => $set_id } );
+	if ( !$scheme_info || !$scheme_info->{'primary_key'} ) {
+		say q(<div class="box" id="statusbad"><p>Invalid scheme passed.</p></div>);
+		return;
+	}
+	say q(<div class="box" id="queryform"><div class="scrollable">);
+	say qq(<h2>Submit new $scheme_info->{'description'} profiles</h2>);
+	say q(<p>Paste in your profiles for assignment using the template available below.</p>);
+	say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;)
+	  . qq(table=profiles&amp;scheme=$scheme_id">Download tab-delimited header for your spreadsheet</a> - use )
+	  . q(Paste special &rarr; text to paste the data.</li>);
+	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;)
+	  . qq[table=profiles&amp;scheme_id=$scheme_id">Download submission template (xlsx format)</a></li></ul>];
+	return;
+}
+
 sub _print_sequence_details_fieldset {
 	my ( $self, $submission_id ) = @_;
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left"><legend>Sequence details</legend>);
 	say q(<ul><li><label for="technology" class="parameter">technology:!</label>);
 	my $allele_submission = $submission_id ? $self->get_allele_submission($submission_id) : undef;
-	my $att_labels = { '' => ' ' };    #Required for HTML5 validation
+	my $att_labels = { '' => ' ' };                              #Required for HTML5 validation
 	say $q->popup_menu(
 		-name     => 'technology',
 		-id       => 'technology',
@@ -603,7 +664,7 @@ sub _start_submission {
 	return $submission_id;
 }
 
-sub _get_started_submission {
+sub _get_started_submission_id {
 	my ($self) = @_;
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	return $self->{'datastore'}->run_query(
