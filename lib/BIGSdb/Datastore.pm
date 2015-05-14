@@ -28,6 +28,7 @@ use BIGSdb::ClientDB;
 use BIGSdb::Locus;
 use BIGSdb::Scheme;
 use BIGSdb::TableAttributes;
+use File::Path qw(make_path);
 use IO::Handle;
 use Bio::SeqIO;
 use Memoize;
@@ -1562,17 +1563,18 @@ sub run_blast {
 	foreach my $run (@runs) {
 		( my $cleaned_run = $run ) =~ s/'/_prime_/g;
 		my $temp_fastafile;
-		if ( !$options->{'locus'} ) {                           # 'All loci'
+		if ( !$options->{'locus'} ) {    
+			my $set_id = $options->{'set_id'} // 'all';
+			$set_id = 'all' if ( $self->{'system'}->{'sets'} // '' ) ne 'yes';                       # 'All loci'
 			if ( $run eq 'DNA' && defined $self->{'config'}->{'cache_days'} ) {
-				my $cache_age = $self->_get_cache_age;
+				my $cache_age = $self->_get_cache_age($set_id);
 				if ( $cache_age > $self->{'config'}->{'cache_days'} ) {
 					$self->mark_cache_stale;
 				}
 			}
 
 			#Create file and BLAST db of all sequences in a cache directory so can be reused.
-			my $set_id = $options->{'set_id'} // 'all';
-			$set_id = 'all' if ( $self->{'system'}->{'sets'} // '' ) ne 'yes';
+			
 			$temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$set_id/$cleaned_run\_fastafile.txt";
 			my $stale_flag_file = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$set_id/stale";
 			if ( -e $temp_fastafile && !-e $stale_flag_file ) {
@@ -1582,7 +1584,7 @@ sub run_blast {
 				if ( -f $new_path ) {
 					$logger->error("Can't create directory $new_path for cache files - a filename exists with this name.");
 				} else {
-					eval { mkpath($new_path) };
+					eval { make_path($new_path) };
 					$logger->error($@) if $@;
 					unlink $stale_flag_file if $run eq $runs[-1];    #only remove stale flag when creating last BLAST databases
 				}
@@ -1595,7 +1597,7 @@ sub run_blast {
 			if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_\d+/ && $options->{'locus'} !~ /GROUP_\d+/ ) {
 				$qry = "SELECT locus,allele_id,sequence from sequences WHERE locus=?";
 			} else {
-				my $set_id = $options->{'set_id'} // 'all';
+				my $set_id = $options->{'set_id'};
 				if ( $options->{'locus'} =~ /SCHEME_(\d+)/ ) {
 					my $scheme_id = $1;
 					$qry = "SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT locus FROM scheme_members WHERE "
@@ -1721,8 +1723,8 @@ sub mark_cache_stale {
 }
 
 sub _get_cache_age {
-	my ($self) = @_;
-	my $set_id = $self->get_set_id // 'all';
+	my ($self, $set_id) = @_;
+	$set_id //= 'all';
 	$set_id = 'all' if ( $self->{'system'}->{'sets'} // '' ) ne 'yes';
 	my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$set_id/DNA_fastafile.txt";
 	return 0 if !-e $temp_fastafile;
