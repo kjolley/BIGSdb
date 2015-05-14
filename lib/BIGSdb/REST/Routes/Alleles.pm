@@ -51,7 +51,7 @@ any [qw(get post)] => '/db/:db/loci/:locus/alleles' => sub {
 		send_error( "No alleles for locus $locus are defined.", 404 );
 	}
 	my $values = {};
-	my $paging = $self->get_paging( "/db/$db/alleles/$locus_name", $pages, $page );
+	my $paging = $self->get_paging( "/db/$db/loci/$locus_name/alleles", $pages, $page );
 	$values->{'paging'} = $paging if $pages > 1;
 	my $allele_links = [];
 	foreach my $allele_id (@$allele_ids) {
