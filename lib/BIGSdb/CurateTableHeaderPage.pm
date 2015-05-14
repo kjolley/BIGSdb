@@ -38,14 +38,17 @@ sub print_content {
 		say "Table $table does not exist!";
 		return;
 	}
-	my $headers = $self->get_headers($table);
+	my $q         = $self->{'cgi'};
+	my $no_fields = $q->param('no_fields') ? 1 : 0;                              #For profile submissions
+	my $headers   = $self->get_headers( $table, { no_fields => $no_fields } );
 	local $" = "\t";
 	say "@$headers";
 	return;
 }
 
 sub get_headers {
-	my ( $self, $table ) = @_;
+	my ( $self, $table, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my @headers;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		my $set_id        = $self->get_set_id;
@@ -63,22 +66,25 @@ sub get_headers {
 		my $scheme_id = $self->{'cgi'}->param('scheme_id') || 0;
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 		my $set_id = $self->get_set_id;
-		push @headers, $scheme_info->{'primary_key'};
+		push @headers, $scheme_info->{'primary_key'} if ( !$options->{'no_fields'} );
 		my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		foreach my $locus (@$loci) {
 			my $label = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
 			push @headers, $label // $locus;
 		}
-		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-		foreach (@$scheme_fields) {
-			my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $_ );
-			push @headers, $_ if !$scheme_field_info->{'primary_key'};
+		if ( !$options->{'no_fields'} ) {
+			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+			foreach my $field (@$scheme_fields) {
+				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+				push @headers, $field if !$scheme_field_info->{'primary_key'};
+			}
 		}
 	} else {
 		my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 		foreach my $att (@$attributes) {
 			if ( !( $att->{'name'} eq 'id' && $att->{'type'} eq 'int' ) ) {
-				push @headers, $att->{'name'} if none { $att->{'name'} eq $_ } qw (curator sender date_entered datestamp);
+				push @headers, $att->{'name'}
+				  if none { $att->{'name'} eq $_ } qw (curator sender date_entered datestamp);
 			}
 			if ( $table eq 'loci' && $self->{'system'}->{'dbtype'} eq 'isolates' && $att->{'name'} eq 'id' ) {
 				push @headers, 'aliases';
@@ -135,7 +141,8 @@ sub get_isolate_loci {
 	} else {    #Just list MLST loci
 		my $scheme_ids =
 		  $self->{'datastore'}
-		  ->run_query( "SELECT id FROM schemes WHERE description LIKE 'MLST%' ORDER BY display_order", undef, { fetch => 'col_arrayref' } );
+		  ->run_query( "SELECT id FROM schemes WHERE description LIKE 'MLST%' ORDER BY display_order",
+			undef, { fetch => 'col_arrayref' } );
 		foreach my $scheme_id (@$scheme_ids) {
 			my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 			foreach my $locus (@$scheme_loci) {

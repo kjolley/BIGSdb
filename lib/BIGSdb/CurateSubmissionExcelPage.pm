@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014, University of Oxford
+#Copyright (c) 2014-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -52,25 +52,26 @@ sub print_content {
 		if ( $self->{'system'}->{'dbtype'} eq 'sequences' && BIGSdb::Utils::is_int($scheme_id) ) {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 			if ($scheme_info) {
-				push @$headers, $scheme_info->{'primary_key'} if $scheme_info->{'primary_key'};
+				push @$headers, $scheme_info->{'primary_key'}
+				  if $scheme_info->{'primary_key'} && !$q->param('no_fields');
 				my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 				push @$headers, @$loci;
 				my $fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 				foreach my $field (@$fields) {
-					push @$headers, $field if $field ne $scheme_info->{'primary_key'};
+					push @$headers, $field if $field ne $scheme_info->{'primary_key'} && !$q->param('no_fields');
 				}
 			} else {
-				$worksheet->write( 'A1', "Invalid scheme!" );
+				$worksheet->write( 'A1', 'Invalid scheme!' );
 				return;
 			}
 		} else {
-			$worksheet->write( 'A1', "Invalid scheme!" );
+			$worksheet->write( 'A1', 'Invalid scheme!' );
 			return;
 		}
 	} else {
 		$headers = $self->get_headers($table);
 		if ( $table eq 'isolates' && $q->param('addCols') ) {
-			my @cols = split /,/, $q->param('addCols');
+			my @cols = split /,/x, $q->param('addCols');
 			push @$headers, @cols;
 		}
 	}
@@ -92,10 +93,12 @@ sub print_content {
 		}
 		my $col_width = $self->_get_col_width($field);
 		if ( $field eq 'aliases' ) {
-			$worksheet->write_comment( 0, $col, "Aliases:\nEnter semi-colon (;) separated list of alternative names for this item." );
+			$worksheet->write_comment( 0, $col,
+				"Aliases:\nEnter semi-colon (;) separated list of alternative names for this item." );
 		} elsif ( $field eq 'references' ) {
 			$worksheet->write_comment( 0, $col,
-				"References:\nEnter semi-colon (;) separated list of PubMed ids of papers to associate with this item." );
+				"References:\nEnter semi-colon (;) separated list of PubMed ids of papers to associate with this item."
+			);
 		}
 		$worksheet->set_column( $col, $col, $col_width );
 		$col++;
@@ -121,8 +124,10 @@ sub _set_isolate_validation {
 		my $options = $self->{'xmlHandler'}->get_field_option_list($field);
 		if (@$options) {
 			my $range_top = xl_rowcol_to_cell( 1, $self->{'allowed'}->{$field}->{'col'}, 1, 1 );
-			my $range_bottom = xl_rowcol_to_cell( $self->{'allowed'}->{$field}->{'row'}, $self->{'allowed'}->{$field}->{'col'}, 1, 1 );
-			$worksheet->data_validation( 1, $col, 500, $col, { validate => 'list', source => "allowed_values!$range_top:$range_bottom" } );
+			my $range_bottom =
+			  xl_rowcol_to_cell( $self->{'allowed'}->{$field}->{'row'}, $self->{'allowed'}->{$field}->{'col'}, 1, 1 );
+			$worksheet->data_validation( 1, $col, 500, $col,
+				{ validate => 'list', source => "allowed_values!$range_top:$range_bottom" } );
 		}
 	}
 	return;

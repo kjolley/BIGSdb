@@ -561,14 +561,37 @@ sub _submit_profiles {
 		say q(<div class="box" id="statusbad"><p>Invalid scheme passed.</p></div>);
 		return;
 	}
+	my $ret;
+	if ($submission_id) {
+#		my $profile_submission = $self->get_profile_submission($submission_id);
+
+
+#		$self->_presubmit_profiles( $submission_id, undef );
+		return;
+	} elsif ( $q->param('submit') || $q->param('continue') || $q->param('abort') ) {
+		$ret = $self->_check_new_profiles($scheme_id);
+	}
+	
 	say q(<div class="box" id="queryform"><div class="scrollable">);
 	say qq(<h2>Submit new $scheme_info->{'description'} profiles</h2>);
 	say q(<p>Paste in your profiles for assignment using the template available below.</p>);
 	say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;)
-	  . qq(table=profiles&amp;scheme=$scheme_id">Download tab-delimited header for your spreadsheet</a> - use )
-	  . q(Paste special &rarr; text to paste the data.</li>);
-	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;)
-	  . qq[table=profiles&amp;scheme_id=$scheme_id">Download submission template (xlsx format)</a></li></ul>];
+	  . qq(table=profiles&amp;scheme_id=$scheme_id&amp;no_fields=1">Download tab-delimited header for your )
+	  . q(spreadsheet</a> - use 'Paste Special <span class="fa fa-arrow-circle-right"></span> Text' to paste )
+	  . q(the data.</li>);
+	say qq[<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;]
+	  . qq[table=profiles&amp;scheme_id=$scheme_id&amp;no_fields=1">Download submission template (xlsx format)</a>]
+	  . q[</li></ul>];
+	  say $q->start_form;
+	say q[<fieldset style="float:left"><legend>Please paste in tab-delimited text <b>include a field header line)</b>]
+	  . q(</legend>);
+	say $q->textarea( -name => 'data', -rows => 20, -columns => 80, -required => 'required' );
+	
+	say q(</fieldset>);
+	say $q->hidden($_) foreach qw(db page profiles scheme_id);
+	$self->print_action_fieldset({no_reset=>1});
+	say $q->end_form;
+	say q(</div></div>);
 	return;
 }
 
@@ -578,7 +601,7 @@ sub _print_sequence_details_fieldset {
 	say q(<fieldset style="float:left"><legend>Sequence details</legend>);
 	say q(<ul><li><label for="technology" class="parameter">technology:!</label>);
 	my $allele_submission = $submission_id ? $self->get_allele_submission($submission_id) : undef;
-	my $att_labels = { '' => ' ' };                              #Required for HTML5 validation
+	my $att_labels = { '' => ' ' };    #Required for HTML5 validation
 	say $q->popup_menu(
 		-name     => 'technology',
 		-id       => 'technology',
@@ -642,6 +665,12 @@ sub _check_new_alleles {
 		$fasta_string = ">seq\n$fasta_string" if $fasta_string !~ /^\s*>/x;
 		return $self->{'datastore'}->check_new_alleles_fasta( $locus, \$fasta_string );
 	}
+	return;
+}
+
+sub _check_new_profiles {
+	my ($self, $scheme_id) = @_;
+	
 	return;
 }
 

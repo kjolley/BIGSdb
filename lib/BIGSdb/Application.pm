@@ -105,7 +105,8 @@ sub new {
 			$self->_setup_prefstore;
 			if ( !$self->{'system'}->{'authentication'} ) {
 				my $logger = get_logger('BIGSdb.Application_Authentication');
-				$logger->logdie( "No authentication attribute set - set to either 'apache' or 'builtin' in the system tag of the XML "
+				$logger->logdie(
+"No authentication attribute set - set to either 'apache' or 'builtin' in the system tag of the XML "
 					  . "database description." );
 			}
 			$self->initiate_authdb if $self->{'system'}->{'authentication'} eq 'builtin';
@@ -166,7 +167,7 @@ sub _initiate {
 	$self->{'system'}->{'script_name'} = $self->{'script_name'};
 	$self->{'system'}->{'query_script'}  //= $self->{'config'}->{'query_script'}  // 'bigsdb.pl';
 	$self->{'system'}->{'curate_script'} //= $self->{'config'}->{'curate_script'} // 'bigscurate.pl';
-	$ENV{'PATH'} = '/bin:/usr/bin';              ## no critic (RequireLocalizedPunctuationVars) #so we don't foul taint check
+	$ENV{'PATH'} = '/bin:/usr/bin';    ## no critic (RequireLocalizedPunctuationVars) #so we don't foul taint check
 	delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};    # Make %ENV safer
 	$q->param( 'page', 'index' ) if !defined $q->param('page');
 	$self->{'page'} = $q->param('page');
@@ -184,16 +185,18 @@ sub _initiate {
 		$self->{'system'}->{'view'}       ||= 'isolates';
 		$self->{'system'}->{'labelfield'} ||= 'isolate';
 		if ( !$self->{'xmlHandler'}->is_field( $self->{'system'}->{'labelfield'} ) ) {
-			$logger->error( "The defined labelfield '$self->{'system'}->{'labelfield'}' does not exist in the database.  "
+			$logger->error(
+				    "The defined labelfield '$self->{'system'}->{'labelfield'}' does not exist in the database.  "
 				  . "Please set the labelfield attribute in the system tag of the database XML file." );
 		}
 	}
 
 	#Allow individual database configs to override system auth and pref databases and tmp directories
-	$self->{'config'}->{'prefs_db'}       = $self->{'system'}->{'prefs_db'}       if defined $self->{'system'}->{'prefs_db'};
-	$self->{'config'}->{'auth_db'}        = $self->{'system'}->{'auth_db'}        if defined $self->{'system'}->{'auth_db'};
-	$self->{'config'}->{'tmp_dir'}        = $self->{'system'}->{'tmp_dir'}        if defined $self->{'system'}->{'tmp_dir'};
-	$self->{'config'}->{'secure_tmp_dir'} = $self->{'system'}->{'secure_tmp_dir'} if defined $self->{'system'}->{'secure_tmp_dir'};
+	$self->{'config'}->{'prefs_db'} = $self->{'system'}->{'prefs_db'} if defined $self->{'system'}->{'prefs_db'};
+	$self->{'config'}->{'auth_db'}  = $self->{'system'}->{'auth_db'}  if defined $self->{'system'}->{'auth_db'};
+	$self->{'config'}->{'tmp_dir'}  = $self->{'system'}->{'tmp_dir'}  if defined $self->{'system'}->{'tmp_dir'};
+	$self->{'config'}->{'secure_tmp_dir'} = $self->{'system'}->{'secure_tmp_dir'}
+	  if defined $self->{'system'}->{'secure_tmp_dir'};
 
 	#refdb attribute has been renamed ref_db for consistency with other databases (refdb still works)
 	$self->{'config'}->{'ref_db'} //= $self->{'config'}->{'refdb'};
@@ -208,7 +211,8 @@ sub set_system_overrides {
 	my ($self) = @_;
 	my $override_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/system.overrides";
 	if ( -e $override_file ) {
-		open( my $fh, '<', $override_file ) || get_logger('BIGSdb.Application_Initiate')->error("Can't open $override_file for reading");
+		open( my $fh, '<', $override_file )
+		  || get_logger('BIGSdb.Application_Initiate')->error("Can't open $override_file for reading");
 		while ( my $line = <$fh> ) {
 			next if $line =~ /^#/;
 			$line =~ s/^\s+//;
@@ -315,7 +319,8 @@ sub read_host_mapping_file {
 	my ( $self, $config_dir ) = @_;
 	my $mapping_file = "$config_dir/host_mapping.conf";
 	if ( -e $mapping_file ) {
-		open( my $fh, '<', $mapping_file ) || get_logger('BIGSdb.Application_Initiate')->error("Can't open $mapping_file for reading");
+		open( my $fh, '<', $mapping_file )
+		  || get_logger('BIGSdb.Application_Initiate')->error("Can't open $mapping_file for reading");
 		while (<$fh>) {
 			next if /^\s+$/ || /^#/;
 			my ( $host, $mapped ) = split /\s+/, $_;
@@ -391,6 +396,7 @@ sub print_page {
 	my ($self) = @_;
 	my $set_options = 0;
 	my $cookies;
+	my $query_page = ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage';
 	my %classes = (
 		alleleInfo         => 'AlleleInfoPage',
 		alleleQuery        => 'AlleleQueryPage',
@@ -416,7 +422,7 @@ sub print_page {
 		locusInfo          => 'LocusInfoPage',
 		options            => 'OptionsPage',
 		pubquery           => 'PubQueryPage',
-		query              => ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage' ),
+		query              => $query_page,
 		plugin             => 'Plugin',
 		profileInfo        => 'ProfileInfoPage',
 		profiles           => 'CombinationQueryPage',
@@ -426,6 +432,7 @@ sub print_page {
 		sequenceQuery      => 'SequenceQueryPage',
 		sequenceTranslate  => 'SequenceTranslatePage',
 		submit             => 'SubmitPage',
+		tableHeader        => 'CurateTableHeaderPage',
 		tableQuery         => 'TableQueryPage',
 		version            => 'VersionPage'
 	);
@@ -451,7 +458,6 @@ sub print_page {
 	);
 	my $continue = 1;
 	my $auth_cookies_ref;
-
 	if ( $self->{'error'} ) {
 		$page_attributes{'error'} = $self->{'error'};
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
@@ -559,7 +565,8 @@ sub authenticate {
 		$self->{'cgi'}->{'page'}                        = 'changePassword';
 	}
 	if ( $authenticated && $page_attributes->{'username'} ) {
-		my $config_access = $self->{'system'}->{'default_access'} ? $self->_user_allowed_access( $page_attributes->{'username'} ) : 1;
+		my $config_access =
+		  $self->{'system'}->{'default_access'} ? $self->_user_allowed_access( $page_attributes->{'username'} ) : 1;
 		$page_attributes->{'permissions'} = $self->{'datastore'}->get_permissions( $page_attributes->{'username'} );
 		if ( $page_attributes->{'permissions'}->{'disable_access'} ) {
 			$page_attributes->{'error'} = 'accessDisabled';
