@@ -60,7 +60,7 @@ sub get_headers {
 		my $isolate_loci = $self->get_isolate_loci;
 		push @headers, @$isolate_loci;
 	} elsif ( $table eq 'profiles' ) {
-		my $scheme_id = $self->{'cgi'}->param('scheme') || 0;
+		my $scheme_id = $self->{'cgi'}->param('scheme_id') || 0;
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 		my $set_id = $self->get_set_id;
 		push @headers, $scheme_info->{'primary_key'};

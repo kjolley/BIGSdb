@@ -521,7 +521,7 @@ HTML
 	print << "HTML";
 </ul>
 <ul>
-<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;table=profiles&amp;scheme=$scheme_id">
+<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;table=profiles&amp;scheme_id=$scheme_id">
 Download tab-delimited header for your spreadsheet</a> - use Paste special &rarr; text to paste the data.</li>
 <li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;table=profiles&amp;scheme_id=$scheme_id">
 Download submission template (xlsx format)</a></li>
