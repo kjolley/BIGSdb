@@ -563,15 +563,13 @@ sub _submit_profiles {
 	}
 	my $ret;
 	if ($submission_id) {
-#		my $profile_submission = $self->get_profile_submission($submission_id);
 
-
-#		$self->_presubmit_profiles( $submission_id, undef );
+		#		my $profile_submission = $self->get_profile_submission($submission_id);
+		#		$self->_presubmit_profiles( $submission_id, undef );
 		return;
 	} elsif ( $q->param('submit') || $q->param('continue') || $q->param('abort') ) {
-		$ret = $self->_check_new_profiles($scheme_id);
+		$ret = $self->_check_new_profiles( $scheme_id, \$q->param('data') );
 	}
-	
 	say q(<div class="box" id="queryform"><div class="scrollable">);
 	say qq(<h2>Submit new $scheme_info->{'description'} profiles</h2>);
 	say q(<p>Paste in your profiles for assignment using the template available below.</p>);
@@ -582,14 +580,13 @@ sub _submit_profiles {
 	say qq[<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;]
 	  . qq[table=profiles&amp;scheme_id=$scheme_id&amp;no_fields=1">Download submission template (xlsx format)</a>]
 	  . q[</li></ul>];
-	  say $q->start_form;
+	say $q->start_form;
 	say q[<fieldset style="float:left"><legend>Please paste in tab-delimited text <b>include a field header line)</b>]
 	  . q(</legend>);
 	say $q->textarea( -name => 'data', -rows => 20, -columns => 80, -required => 'required' );
-	
 	say q(</fieldset>);
 	say $q->hidden($_) foreach qw(db page profiles scheme_id);
-	$self->print_action_fieldset({no_reset=>1});
+	$self->print_action_fieldset( { no_reset => 1 } );
 	say $q->end_form;
 	say q(</div></div>);
 	return;
@@ -669,9 +666,37 @@ sub _check_new_alleles {
 }
 
 sub _check_new_profiles {
-	my ($self, $scheme_id) = @_;
-	
+	my ( $self, $scheme_id, $profiles_csv_ref ) = @_;
+	return { err => ['No data submitted'] } if ref $profiles_csv_ref ne 'SCALAR' || !$$profiles_csv_ref;
+	my ( @err, @info );
+	my @rows = split /\n/x, $$profiles_csv_ref;
+	my $header_row = shift @rows;
+	foreach my $row (@rows) {
+		$logger->error($row);
+	}
+	my $ret = {};
+	$ret->{'err'}  = \@err  if @err;
+	$ret->{'info'} = \@info if @info;
 	return;
+}
+
+sub _get_loci_positions_in_header {
+	my ( $self, $header_row, $scheme_id ) = @_;
+	my (@missing, @duplicates, %positions);
+	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my @header = split /\t/x, $header_row;
+	foreach my $locus (@$loci) {
+		for my $i ( 0 .. @$loci - 1 ) {
+			if ( $locus eq $header[$i] ) {
+				push @duplicates,$locus if defined $positions{$locus};
+				$positions{$locus} = $i;
+			}
+		}
+	}
+	foreach my $locus (@$loci) {
+		push @missing, $locus if !defined $positions{$locus};
+	}
+	return { positions => \%positions, missing => \@missing, duplicates => \@duplicates };
 }
 
 sub _start_submission {
