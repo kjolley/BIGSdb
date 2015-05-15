@@ -43,6 +43,7 @@ GetOptions(
 	'B|identity=i'         => \$opts{'B'},
 	'd|database=s'         => \$opts{'d'},
 	'i|isolates=s'         => \$opts{'i'},
+	'isolate_list_file=s'  => \$opts{'isolate_list_file'},
 	'I|exclude_isolates=s' => \$opts{'I'},
 	'l|loci=s'             => \$opts{'l'},
 	'L|exclude_loci=s'     => \$opts{'L'},
@@ -73,7 +74,7 @@ if ( $opts{'h'} ) {
 }
 if ( !$opts{'d'} ) {
 	say "\nUsage: scannew.pl -d <database configuration>\n";
-	say "Help: scannew.pl -h";
+	say 'Help: scannew.pl -h';
 	exit;
 }
 if ( BIGSdb::Utils::is_int( $opts{'threads'} ) && $opts{'threads'} > 1 ) {
@@ -182,6 +183,9 @@ ${bold}-h, --help$norm
 
 ${bold}-i, --isolates$norm ${under}LIST$norm
     Comma-separated list of isolate ids to scan (ignored if -p used).
+    
+${bold}--isolate_list_file$norm ${under}FILE$norm  
+    File containing list of isolate ids (ignored if -i or -p used).
            
 ${bold}-I, --exclude_isolates$norm ${under}LIST$norm
     Comma-separated list of isolate ids to ignore.

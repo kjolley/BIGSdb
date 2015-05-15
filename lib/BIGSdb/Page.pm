@@ -919,7 +919,7 @@ sub print_file {
 		my $system = $self->{'system'};
 		open( my $fh, '<', $file ) or return;
 		while (<$fh>) {
-			next if /^#/x && $ignore_hashlines;
+			next if /^\#/x && $ignore_hashlines;
 			s/\$instance/$self->{'instance'}/x;
 			s/\$webroot/$system->{'webroot'}/x;
 			s/\$dbase/$system->{'db'}/x;
