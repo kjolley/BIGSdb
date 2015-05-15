@@ -1,7 +1,7 @@
 #!/usr/bin/perl -T
 #Automatically tag scan genomes for exactly matching alleles
 #Written by Keith Jolley
-#Copyright (c) 2011-2014, University of Oxford
+#Copyright (c) 2011-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -41,6 +41,7 @@ my %opts;
 GetOptions(
 	'd|database=s'         => \$opts{'d'},
 	'i|isolates=s'         => \$opts{'i'},
+	'isolate_list_file=s'  => \$opts{'isolate_list_file'},
 	'I|exclude_isolates=s' => \$opts{'I'},
 	'l|loci=s'             => \$opts{'l'},
 	'L|exclude_loci=s'     => \$opts{'L'},
@@ -71,7 +72,7 @@ if ( $opts{'h'} ) {
 }
 if ( !$opts{'d'} ) {
 	say "\nUsage: autotag.pl -d <database configuration>\n";
-	say "Help: autotag.pl -h";
+	say 'Help: autotag.pl -h';
 	exit;
 }
 if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
@@ -170,6 +171,9 @@ ${bold}-h, --help$norm
 
 ${bold}-i, --isolates$norm ${under}LIST$norm  
     Comma-separated list of isolate ids to scan (ignored if -p used).
+    
+${bold}--isolate_list_file$norm ${under}FILE$norm  
+    File containing list of isolate ids (ignored if -i or -p used).
            
 ${bold}-I, --exclude_isolates$norm ${under}LIST$norm
     Comma-separated list of isolate ids to ignore.

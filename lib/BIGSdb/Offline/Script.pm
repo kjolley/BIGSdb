@@ -31,8 +31,8 @@ use BIGSdb::Datastore;
 use BIGSdb::BIGSException;
 use BIGSdb::Parser;
 use BIGSdb::Utils;
-$ENV{'PATH'} = '/bin:/usr/bin';              ## no critic (RequireLocalizedPunctuationVars) #so we don't foul taint check
-delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};    # Make %ENV safer
+$ENV{'PATH'} = '/bin:/usr/bin';             ## no critic (RequireLocalizedPunctuationVars) #so we don't foul taint check
+delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};   # Make %ENV safer
 
 sub new {
 	my ( $class, $options ) = @_;
@@ -88,7 +88,8 @@ sub initiate {
 		$self->{'system'}->{'view'}       ||= 'isolates';
 		$self->{'system'}->{'labelfield'} ||= 'isolate';
 		if ( !$self->{'xmlHandler'}->is_field( $self->{'system'}->{'labelfield'} ) ) {
-			$self->{'logger'}->error( "The defined labelfield '$self->{'system'}->{'labelfield'}' does not exist in the database.  "
+			$self->{'logger'}
+			  ->error( "The defined labelfield '$self->{'system'}->{'labelfield'}' does not exist in the database.  "
 				  . "Please set the labelfield attribute in the system tag of the database XML file." );
 		}
 	}
@@ -100,7 +101,8 @@ sub initiate {
 		if ( defined $self->{'options'}->{'v'} ) {
 			my $view_exists =
 			  $self->{'datastore'}
-			  ->run_query( "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)", $self->{'options'}->{'v'} );
+			  ->run_query( "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)",
+				$self->{'options'}->{'v'} );
 			die "Invalid view selected.\n" if !$view_exists;
 			$self->{'system'}->{'view'} = $self->{'options'}->{'v'};
 		}
@@ -161,7 +163,8 @@ sub get_isolates_with_linked_seqs {
 	my ($self) = @_;
 	local $" = ',';
 	my $view = $self->{'system'}->{'view'};
-	my $qry  = "SELECT $view.id FROM $view WHERE EXISTS(SELECT * FROM seqbin_stats WHERE $view.id=seqbin_stats.isolate_id)";
+	my $qry =
+	  "SELECT $view.id FROM $view WHERE EXISTS(SELECT * FROM seqbin_stats WHERE $view.id=seqbin_stats.isolate_id)";
 	if ( $self->{'options'}->{'p'} ) {
 		my @projects = split( ',', $self->{'options'}->{'p'} );
 		die "Invalid project list.\n" if any { !BIGSdb::Utils::is_int($_) } @projects;
@@ -170,9 +173,28 @@ sub get_isolates_with_linked_seqs {
 		my @ids = split( ',', $self->{'options'}->{'i'} );
 		die "Invalid isolate id list.\n" if any { !BIGSdb::Utils::is_int($_) } @ids;
 		$qry .= " AND $view.id IN (@ids)";
+	} elsif ( $self->{'options'}->{'isolate_list_file'} ) {
+		my $ids = $self->_read_ids_from_file( $self->{'options'}->{'isolate_list_file'} );
+		die "No valid isolate ids in list file.\n" if !@$ids;
+		$qry .= " AND $view.id IN (@$ids)";
 	}
 	$qry .= " ORDER BY $view.id";
 	return $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+}
+
+sub _read_ids_from_file {
+	my ( $self, $filepath ) = @_;
+	die "File $filepath does not exist.\n" if !-e $filepath;
+	my @list;
+	open( my $fh, '<', $filepath ) || die "File $filepath cannot be opened for reading.\n";
+	while ( my $line = <$fh> ) {
+		next if $line =~ /^\#/x;
+		$line =~ s/\s//gx;
+		next if !BIGSdb::Utils::is_int($line);
+		push @list, $line;
+	}
+	close $fh;
+	return \@list;
 }
 
 sub filter_and_sort_isolates {
@@ -195,13 +217,19 @@ sub filter_and_sort_isolates {
 	my @list;
 	foreach my $isolate_id (@$isolates) {
 		next if $exclude{$isolate_id};
-		next if $self->{'options'}->{'n'} && $self->_is_previously_tagged( $isolate_id, $self->{'options'}->{'new_max_alleles'} // 0 );
+		next
+		  if $self->{'options'}->{'n'}
+		  && $self->_is_previously_tagged( $isolate_id, $self->{'options'}->{'new_max_alleles'} // 0 );
 		if ( $self->{'options'}->{'m'} && BIGSdb::Utils::is_int( $self->{'options'}->{'m'} ) ) {
 			my $size = $self->_get_size_of_seqbin($isolate_id);
 			next if $size < $self->{'options'}->{'m'};
 		}
 		if (
-			( $self->{'options'}->{'x'} && BIGSdb::Utils::is_int( $self->{'options'}->{'x'} ) && $self->{'options'}->{'x'} > $isolate_id )
+			(
+				   $self->{'options'}->{'x'}
+				&& BIGSdb::Utils::is_int( $self->{'options'}->{'x'} )
+				&& $self->{'options'}->{'x'} > $isolate_id
+			)
 			|| (   $self->{'options'}->{'y'}
 				&& BIGSdb::Utils::is_int( $self->{'options'}->{'y'} )
 				&& $self->{'options'}->{'y'} < $isolate_id )
@@ -240,7 +268,8 @@ sub _get_last_tagged_date {
 
 sub _is_previously_tagged {
 	my ( $self, $isolate_id, $max_alleles ) = @_;
-	my $designations_set = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM allele_designations WHERE isolate_id=?",
+	my $designations_set =
+	  $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM allele_designations WHERE isolate_id=?",
 		$isolate_id, { cache => 'Script::is_previously_tagged_designations' } );
 	my $tagged = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM allele_sequences WHERE isolate_id=?",
 		$isolate_id, { cache => 'Script::is_previously_tagged_tags' } );
@@ -250,9 +279,8 @@ sub _is_previously_tagged {
 
 sub _get_size_of_seqbin {
 	my ( $self, $isolate_id ) = @_;
-	my $size =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT total_length FROM seqbin_stats WHERE isolate_id=?", $isolate_id, { cache => 'Script::get_size_of_seqbin' } );
+	my $size = $self->{'datastore'}->run_query( "SELECT total_length FROM seqbin_stats WHERE isolate_id=?",
+		$isolate_id, { cache => 'Script::get_size_of_seqbin' } );
 	return $size || 0;
 }
 
@@ -283,7 +311,7 @@ sub get_selected_loci {
 		die "Invalid scheme list.\n" if any { !BIGSdb::Utils::is_int($_) } @schemes;
 		local $" = ',';
 		$qry =
-		  "SELECT locus FROM scheme_members WHERE scheme_id IN (@schemes) AND locus IN ($loci_qry) ORDER BY scheme_id,field_order,locus";
+"SELECT locus FROM scheme_members WHERE scheme_id IN (@schemes) AND locus IN ($loci_qry) ORDER BY scheme_id,field_order,locus";
 	} elsif ( $self->{'options'}->{'l'} ) {
 		my @loci = split( ',', $self->{'options'}->{'l'} );
 		foreach (@loci) {
@@ -308,8 +336,8 @@ sub get_selected_loci {
 sub get_project_isolates {
 	my ( $self, $project_id ) = @_;
 	return if !BIGSdb::Utils::is_int($project_id);
-	return $self->{'datastore'}
-	  ->run_query( "SELECT isolate_id FROM project_members WHERE project_id=?", $project_id, { fetch => 'col_arrayref' } );
+	return $self->{'datastore'}->run_query( "SELECT isolate_id FROM project_members WHERE project_id=?",
+		$project_id, { fetch => 'col_arrayref' } );
 }
 
 sub delete_temp_files {
