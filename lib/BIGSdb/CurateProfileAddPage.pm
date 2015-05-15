@@ -222,6 +222,7 @@ sub _upload {
 	return;
 }
 
+#TODO Migrate to Datastore::check_new_profile so we don't have to subclass.
 sub profile_exists {
 	my ( $self, $scheme_id, $primary_key, $newdata ) = @_;
 	my ( $profile_exists, $msg );

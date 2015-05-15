@@ -20,7 +20,7 @@ package BIGSdb::SubmitPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::TreeViewPage);
+use parent qw(BIGSdb::TreeViewPage BIGSdb::CurateProfileAddPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Utils;
@@ -679,7 +679,7 @@ sub _check_new_alleles {
 sub _check_new_profiles {
 	my ( $self, $scheme_id, $profiles_csv_ref ) = @_;
 	return { err => ['No data submitted'] } if ref $profiles_csv_ref ne 'SCALAR' || !$$profiles_csv_ref;
-	my ( @err, @info );
+	my @err;
 	my @rows          = split /\n/x, $$profiles_csv_ref;
 	my $header_row    = shift @rows;
 	my $header_status = $self->_get_loci_positions_in_header( $header_row, $scheme_id );
@@ -695,14 +695,48 @@ sub _check_new_profiles {
 			}
 		}
 	}
+	my $scheme = $self->{'datastore'}->get_scheme($scheme_id);
 	if ( !@err ) {
+		my $loci       = $self->{'datastore'}->get_scheme_loci($scheme_id);
+		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id, {get_pk=>1});
+		my $row_number = 1;
 		foreach my $row (@rows) {
-			$logger->error($row);
+			$row =~ s/\s*$//x;
+			next if !$row;
+			my @values      = split /\t/x, $row;
+			my $locus_count = @$loci;
+			my $value_count = @values;
+			my $plural      = $value_count == 1 ? '' : 's';
+			if ( @values != @$loci ) {
+				push @err, "Row $row_number: Has $value_count column$plural while there should be $locus_count.";
+				$row_number++;
+				next;
+			}
+			my $designations = {};
+			for my $i ( 0 .. $locus_count - 1 ) {
+				if ($values[$i] eq q(N) && !$scheme_info->{'allow_missing_loci'}){
+					push @err, "Row $row_number: Arbitrary values (N) are not allowed for locus $loci->[$i].";
+				} elsif ( $values[$i] eq q() ) {
+					push @err, "Row $row_number: No value for locus $loci->[$i].";
+				} else {
+					$values[$i] =~ s/^\s*//x;
+					$values[$i] =~ s/\s*$//x;
+					my $allele_exists = $self->{'datastore'}->sequence_exists( $loci->[$i], $values[$i] );
+					push @err, "Row $row_number: $loci->[$i]:$values[$i] has not been defined." if !$allele_exists;
+					$designations->{$loci->[$i]} = $values[$i];
+				}
+			}
+			my $pk = $scheme_info->{'primary_key'};
+			my ($profile_exists, $msg) = $self->{'datastore'}->check_new_profile($scheme_id,$designations);
+			
+			if ($profile_exists){
+				push @err, "Row $row_number: $msg";
+			}
+			$row_number++;
 		}
 	}
 	my $ret = {};
-	$ret->{'err'}  = \@err  if @err;
-	$ret->{'info'} = \@info if @info;
+	$ret->{'err'} = \@err if @err;
 	return $ret;
 }
 
@@ -710,11 +744,13 @@ sub _get_loci_positions_in_header {
 	my ( $self, $header_row, $scheme_id ) = @_;
 	$header_row =~ s/\s*$//x;
 	my ( @missing, @duplicates, %positions );
-	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my @header = split /\t/x, $header_row;
+	my $set_id = $self->get_set_id;
 	foreach my $locus (@$loci) {
 		for my $i ( 0 .. @header - 1 ) {
 			$header[$i] =~ s/\s//gx;
+			$header[$i] = $self->{'datastore'}->get_set_locus_real_id( $header[$i], $set_id ) if $set_id;
 			if ( $locus eq $header[$i] ) {
 				push @duplicates, $locus if defined $positions{$locus};
 				$positions{$locus} = $i;

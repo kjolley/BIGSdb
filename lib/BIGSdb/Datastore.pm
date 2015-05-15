@@ -404,6 +404,60 @@ sub profile_exists {
 		{ fetch => 'row_array' }
 	);
 }
+
+sub check_new_profile {
+	#pk_value is optional and can be used to check if updating an existing profile matches another definition.
+	my ( $self, $scheme_id, $designations, $pk_value  ) = @_;
+	my ( $profile_exists, $msg );
+	my $scheme_view = $self->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
+	my $scheme_info = $self->get_scheme_info($scheme_id,{get_pk=>1});
+	my $pk = $scheme_info->{'primary_key'};
+	my $qry         = "SELECT $pk FROM $scheme_view WHERE ";
+	my $loci        = $self->get_scheme_loci($scheme_id);
+	my ( @locus_temp, @values );
+	foreach my $locus (@$loci) {
+		next if ($designations->{$locus} // '') eq 'N';    #N can be any allele so can not be used to differentiate profiles
+		( my $cleaned = $locus ) =~ s/'/_PRIME_/gx;
+		push @locus_temp, "($cleaned=? OR $cleaned='N')";
+		push @values,     $designations->{$locus};
+	}
+	local $" = ' AND ';
+	$qry .= "(@locus_temp)";
+	if (@locus_temp) {
+		my $locus_count = @locus_temp;
+		my $matching_profiles =
+		  $self->run_query( $qry, \@values,
+			{ fetch => 'col_arrayref', cache => "check_new_profile::${scheme_id}::$locus_count" } );
+		$pk_value //= '';
+		if ( @$matching_profiles && !( @$matching_profiles == 1 && $matching_profiles->[0] eq $pk_value ) ) {
+			if ( @locus_temp < @$loci ) {
+				my $first_match;
+				foreach (@$matching_profiles) {
+					if ( $_ ne $pk_value ) {
+						$first_match = $_;
+						last;
+					}
+				}
+				$msg .= q(Profiles containing an arbitrary allele (N) at a particular locus may match profiles )
+				  . q(with actual values at that locus and cannot therefore be defined.  This profile matches )
+				  . qq($pk-$first_match);
+				my $other_matches = @$matching_profiles - 1;
+				$other_matches-- if ( any { $pk_value eq $_ } @$matching_profiles ); #if updating don't match to self
+				if ($other_matches) {
+					$msg .= " and $other_matches other" . ( $other_matches > 1 ? 's' : '' );
+				}
+				$msg .= q(.);
+			} else {
+				$msg .= qq(Profile has already been defined as $pk-$matching_profiles->[0].);
+			}
+			$profile_exists = 1;
+		}
+	} else {
+		$msg .= 'You cannot define a profile with every locus set to be an arbitrary value (N).';
+		$profile_exists = 1;
+	}
+	return ( $profile_exists, $msg );
+}
 ##############ISOLATE CLIENT DATABASE ACCESS FROM SEQUENCE DATABASE####################
 sub get_client_db_info {
 	my ( $self, $id ) = @_;
@@ -1301,12 +1355,11 @@ sub sequences_exist {
 		$locus, { fetch => 'row_array', cache => 'sequences_exist' } );
 }
 
+#used for profile/sequence definitions databases
 sub sequence_exists {
-
-	#used for profile/sequence definitions databases
 	my ( $self, $locus, $allele_id ) = @_;
 	return $self->run_query(
-		"SELECT COUNT(*) FROM sequences WHERE locus=? AND allele_id=?",
+		'SELECT EXISTS(SELECT * FROM sequences WHERE (locus,allele_id)=(?,?))',
 		[ $locus, $allele_id ],
 		{ fetch => 'row_array', cache => 'sequence_exists' }
 	);
