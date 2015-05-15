@@ -165,11 +165,16 @@ sub _print_new_submission_links {
 		say q(<ul>);
 		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
 		  . q(alleles=1">alleles</a></li>);
-		my $set_id = $self->get_set_id;
-		my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
-		foreach my $scheme (@$schemes) {
-			say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit)
-			  . qq(&amp;profiles=1&amp;scheme_id=$scheme->{'id'}">$scheme->{'description'} profiles</a></li>);
+
+		#Don't allow profile submissions by default - normally new isolate data should be submitted and they
+		#can be extracted from those records.  This ensures that every new profile has accompanying isolate data.
+		if ( ( $self->{'system'}->{'profile_submissions'} // '' ) eq 'yes' ) {
+			my $set_id = $self->get_set_id;
+			my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
+			foreach my $scheme (@$schemes) {
+				say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit)
+				  . qq(&amp;profiles=1&amp;scheme_id=$scheme->{'id'}">$scheme->{'description'} profiles</a></li>);
+			}
 		}
 		say q(</ul>);
 	}
@@ -569,6 +574,12 @@ sub _submit_profiles {
 		return;
 	} elsif ( $q->param('submit') || $q->param('continue') || $q->param('abort') ) {
 		$ret = $self->_check_new_profiles( $scheme_id, \$q->param('data') );
+		if ( $ret->{'err'} ) {
+			my $err = $ret->{'err'};
+			local $" = '<br />';
+			my $plural = @$err == 1 ? '' : 's';
+			say qq(<div class="box" id="statusbad"><h2>Error$plural:</h2><p>@$err</p></div>);
+		}
 	}
 	say q(<div class="box" id="queryform"><div class="scrollable">);
 	say qq(<h2>Submit new $scheme_info->{'description'} profiles</h2>);
@@ -581,7 +592,7 @@ sub _submit_profiles {
 	  . qq[table=profiles&amp;scheme_id=$scheme_id&amp;no_fields=1">Download submission template (xlsx format)</a>]
 	  . q[</li></ul>];
 	say $q->start_form;
-	say q[<fieldset style="float:left"><legend>Please paste in tab-delimited text <b>include a field header line)</b>]
+	say q[<fieldset style="float:left"><legend>Please paste in tab-delimited text <b>(include a field header line)</b>]
 	  . q(</legend>);
 	say $q->textarea( -name => 'data', -rows => 20, -columns => 80, -required => 'required' );
 	say q(</fieldset>);
@@ -669,26 +680,43 @@ sub _check_new_profiles {
 	my ( $self, $scheme_id, $profiles_csv_ref ) = @_;
 	return { err => ['No data submitted'] } if ref $profiles_csv_ref ne 'SCALAR' || !$$profiles_csv_ref;
 	my ( @err, @info );
-	my @rows = split /\n/x, $$profiles_csv_ref;
-	my $header_row = shift @rows;
-	foreach my $row (@rows) {
-		$logger->error($row);
+	my @rows          = split /\n/x, $$profiles_csv_ref;
+	my $header_row    = shift @rows;
+	my $header_status = $self->_get_loci_positions_in_header( $header_row, $scheme_id );
+	foreach my $status (qw(missing duplicates)) {
+		if ( $header_status->{$status} ) {
+			my $list = $header_status->{$status};
+			my $plural = @$list == 1 ? 'us' : 'i';
+			local $" = q(, );
+			if ( $status eq 'missing' ) {
+				push @err, "The header is missing a column for loc$plural: @$list.";
+			} elsif ( $status eq 'duplicates' ) {
+				push @err, "The header has duplicate columns for loc$plural: @$list.";
+			}
+		}
+	}
+	if ( !@err ) {
+		foreach my $row (@rows) {
+			$logger->error($row);
+		}
 	}
 	my $ret = {};
 	$ret->{'err'}  = \@err  if @err;
 	$ret->{'info'} = \@info if @info;
-	return;
+	return $ret;
 }
 
 sub _get_loci_positions_in_header {
 	my ( $self, $header_row, $scheme_id ) = @_;
-	my (@missing, @duplicates, %positions);
+	$header_row =~ s/\s*$//x;
+	my ( @missing, @duplicates, %positions );
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my @header = split /\t/x, $header_row;
 	foreach my $locus (@$loci) {
-		for my $i ( 0 .. @$loci - 1 ) {
+		for my $i ( 0 .. @header - 1 ) {
+			$header[$i] =~ s/\s//gx;
 			if ( $locus eq $header[$i] ) {
-				push @duplicates,$locus if defined $positions{$locus};
+				push @duplicates, $locus if defined $positions{$locus};
 				$positions{$locus} = $i;
 			}
 		}
@@ -696,7 +724,10 @@ sub _get_loci_positions_in_header {
 	foreach my $locus (@$loci) {
 		push @missing, $locus if !defined $positions{$locus};
 	}
-	return { positions => \%positions, missing => \@missing, duplicates => \@duplicates };
+	my $ret = { positions => \%positions };
+	$ret->{'missing'}    = \@missing    if @missing;
+	$ret->{'duplicated'} = \@duplicates if @duplicates;
+	return $ret;
 }
 
 sub _start_submission {
