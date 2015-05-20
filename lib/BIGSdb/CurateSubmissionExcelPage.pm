@@ -52,6 +52,7 @@ sub print_content {
 		if ( $self->{'system'}->{'dbtype'} eq 'sequences' && BIGSdb::Utils::is_int($scheme_id) ) {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 			if ($scheme_info) {
+				push @$headers, 'id' if $q->param('id_field');
 				push @$headers, $scheme_info->{'primary_key'}
 				  if $scheme_info->{'primary_key'} && !$q->param('no_fields');
 				my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);

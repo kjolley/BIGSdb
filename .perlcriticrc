@@ -14,6 +14,9 @@ only_in_void_context = 1
 [Miscellanea::ProhibitUselessNoCritic]
 severity = stern
 
+[Subroutines::ProhibitExcessComplexity]
+max_mccabe = 25
+
 [Subroutines::ProhibitManyArgs]
 severity = stern
 max_arguments = 6

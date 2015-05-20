@@ -247,11 +247,24 @@ sub _print_started_submissions {
 					my $seq_count = @{ $allele_submission->{'seqs'} };
 					say qq(<dt>Sequences</dt><dd>$seq_count</dd>);
 				}
-				say qq(<dt>Action</dt><dd><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-				  . qq(page=submit&amp;$submission->{'type'}=1&amp;abort=1&amp;no_check=1">Abort</a> | )
-				  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
-				  . qq($submission->{'type'}=1&amp;continue=1">Continue</a>);
+			} elsif ( $submission->{'type'} eq 'profiles' ) {
+				my $profile_submission = $self->get_profile_submission( $submission->{'id'} );
+				if ($profile_submission) {
+					my $scheme_id   = $profile_submission->{'scheme_id'};
+					my $set_id      = $self->get_set_id;
+					my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
+					say qq(<dt>Scheme</dt><dd>$scheme_info->{'description'}</dd>);
+					my $profile_count = @{ $profile_submission->{'profiles'} };
+					say qq(<dt>Profiles</dt><dd>$profile_count</dd>);
+
+					#					use Data::Dumper;
+					#					$logger->error( Dumper $profile_submission);
+				}
 			}
+			say qq(<dt>Action</dt><dd><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=submit&amp;$submission->{'type'}=1&amp;abort=1&amp;no_check=1">Abort</a> | )
+			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
+			  . qq($submission->{'type'}=1&amp;continue=1">Continue</a>);
 			say q(</dl>);
 		}
 		return 1;
@@ -559,38 +572,39 @@ sub _submit_profiles {
 	my $q             = $self->{'cgi'};
 	my $submission_id = $self->_get_started_submission_id;
 	$q->param( submission_id => $submission_id );
-	my $scheme_id   = $q->param('scheme_id');
-	my $set_id      = $self->get_set_id;
-	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1, set_id => $set_id } );
-	if ( !$scheme_info || !$scheme_info->{'primary_key'} ) {
-		say q(<div class="box" id="statusbad"><p>Invalid scheme passed.</p></div>);
-		return;
-	}
 	my $ret;
 	if ($submission_id) {
-
-		#		my $profile_submission = $self->get_profile_submission($submission_id);
-		#		$self->_presubmit_profiles( $submission_id, undef );
+		$self->_presubmit_profiles( $submission_id, undef );
 		return;
-	} elsif ( $q->param('submit') || $q->param('continue') || $q->param('abort') ) {
+	} elsif ( ( $q->param('submit') && $q->param('data') ) || $q->param('continue') || $q->param('abort') ) {
+		my $scheme_id = $q->param('scheme_id');
 		$ret = $self->_check_new_profiles( $scheme_id, \$q->param('data') );
 		if ( $ret->{'err'} ) {
 			my $err = $ret->{'err'};
 			local $" = '<br />';
 			my $plural = @$err == 1 ? '' : 's';
 			say qq(<div class="box" id="statusbad"><h2>Error$plural:</h2><p>@$err</p></div>);
+		} else {
+			$self->_presubmit_profiles( undef, $ret->{'profiles'} );
+			return;
 		}
+	}
+	my $scheme_id   = $q->param('scheme_id');
+	my $set_id      = $self->get_set_id;
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1, set_id => $set_id } );
+	if ( !$scheme_info || !$scheme_info->{'primary_key'} ) {
+		say q(<div class="box" id="statusbad"><p>Invalid scheme passed.</p></div>);
 	}
 	say q(<div class="box" id="queryform"><div class="scrollable">);
 	say qq(<h2>Submit new $scheme_info->{'description'} profiles</h2>);
 	say q(<p>Paste in your profiles for assignment using the template available below.</p>);
 	say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;)
-	  . qq(table=profiles&amp;scheme_id=$scheme_id&amp;no_fields=1">Download tab-delimited header for your )
-	  . q(spreadsheet</a> - use 'Paste Special <span class="fa fa-arrow-circle-right"></span> Text' to paste )
-	  . q(the data.</li>);
+	  . qq(table=profiles&amp;scheme_id=$scheme_id&amp;no_fields=1&amp;id_field=1">Download tab-delimited )
+	  . q(header for your spreadsheet</a> - use 'Paste Special <span class="fa fa-arrow-circle-right"></span> Text' )
+	  . q(to paste the data.</li>);
 	say qq[<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;]
-	  . qq[table=profiles&amp;scheme_id=$scheme_id&amp;no_fields=1">Download submission template (xlsx format)</a>]
-	  . q[</li></ul>];
+	  . qq[table=profiles&amp;scheme_id=$scheme_id&amp;no_fields=1&amp;id_field=1">Download submission template ]
+	  . q[(xlsx format)</a></li></ul>];
 	say $q->start_form;
 	say q[<fieldset style="float:left"><legend>Please paste in tab-delimited text <b>(include a field header line)</b>]
 	  . q(</legend>);
@@ -678,69 +692,71 @@ sub _check_new_alleles {
 
 sub _check_new_profiles {
 	my ( $self, $scheme_id, $profiles_csv_ref ) = @_;
-	return { err => ['No data submitted'] } if ref $profiles_csv_ref ne 'SCALAR' || !$$profiles_csv_ref;
 	my @err;
+	my @profiles;
 	my @rows          = split /\n/x, $$profiles_csv_ref;
 	my $header_row    = shift @rows;
-	my $header_status = $self->_get_loci_positions_in_header( $header_row, $scheme_id );
+	my $header_status = $self->_get_profile_header_positions( $header_row, $scheme_id );
+	my $positions     = $header_status->{'positions'};
+	my %field_by_pos  = reverse %$positions;
+	my %err_message =
+	  ( missing => 'The header is missing a column for', duplicates => 'The header has duplicate columns for' );
+
 	foreach my $status (qw(missing duplicates)) {
 		if ( $header_status->{$status} ) {
 			my $list = $header_status->{$status};
 			my $plural = @$list == 1 ? 'us' : 'i';
 			local $" = q(, );
-			if ( $status eq 'missing' ) {
-				push @err, "The header is missing a column for loc$plural: @$list.";
-			} elsif ( $status eq 'duplicates' ) {
-				push @err, "The header has duplicate columns for loc$plural: @$list.";
-			}
+			push @err, "$err_message{$status} loc$plural: @$list.";
 		}
 	}
 	my $scheme = $self->{'datastore'}->get_scheme($scheme_id);
 	if ( !@err ) {
-		my $loci       = $self->{'datastore'}->get_scheme_loci($scheme_id);
-		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id, {get_pk=>1});
-		my $row_number = 1;
+		my $loci        = $self->{'datastore'}->get_scheme_loci($scheme_id);
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+		my $row_number  = 1;
+		my %id_exists;
 		foreach my $row (@rows) {
 			$row =~ s/\s*$//x;
 			next if !$row;
-			my @values      = split /\t/x, $row;
-			my $locus_count = @$loci;
-			my $value_count = @values;
-			my $plural      = $value_count == 1 ? '' : 's';
-			if ( @values != @$loci ) {
-				push @err, "Row $row_number: Has $value_count column$plural while there should be $locus_count.";
-				$row_number++;
-				next;
-			}
+			my @values = split /\t/x, $row;
+			my $row_id =
+			  defined $positions->{'id'} ? ( $values[ $positions->{'id'} ] || "Row $row_number" ) : "Row $row_number";
+			$id_exists{$row_id}++;
+			push @err, "$row_id: Identifier exists more than once in submission." if $id_exists{$row_id} == 2;
+			my $locus_count  = @$loci;
+			my $value_count  = @values;
+			my $plural       = $value_count == 1 ? '' : 's';
 			my $designations = {};
-			for my $i ( 0 .. $locus_count - 1 ) {
-				if ($values[$i] eq q(N) && !$scheme_info->{'allow_missing_loci'}){
-					push @err, "Row $row_number: Arbitrary values (N) are not allowed for locus $loci->[$i].";
+
+			for my $i ( 0 .. @values - 1 ) {
+				$values[$i] //= '';
+				$values[$i] =~ s/^\s*//x;
+				$values[$i] =~ s/\s*$//x;
+				next if !$field_by_pos{$i} || $field_by_pos{$i} eq 'id';
+				if ( $values[$i] eq q(N) && !$scheme_info->{'allow_missing_loci'} ) {
+					push @err, "$row_id: Arbitrary values (N) are not allowed for locus $field_by_pos{$i}.";
 				} elsif ( $values[$i] eq q() ) {
-					push @err, "Row $row_number: No value for locus $loci->[$i].";
+					push @err, "$row_id: No value for locus $field_by_pos{$i}.";
 				} else {
-					$values[$i] =~ s/^\s*//x;
-					$values[$i] =~ s/\s*$//x;
-					my $allele_exists = $self->{'datastore'}->sequence_exists( $loci->[$i], $values[$i] );
-					push @err, "Row $row_number: $loci->[$i]:$values[$i] has not been defined." if !$allele_exists;
-					$designations->{$loci->[$i]} = $values[$i];
+					my $allele_exists = $self->{'datastore'}->sequence_exists( $field_by_pos{$i}, $values[$i] );
+					push @err, "$row_id: $field_by_pos{$i}:$values[$i] has not been defined." if !$allele_exists;
+					$designations->{ $field_by_pos{$i} } = $values[$i];
 				}
 			}
 			my $pk = $scheme_info->{'primary_key'};
-			my ($profile_exists, $msg) = $self->{'datastore'}->check_new_profile($scheme_id,$designations);
-			
-			if ($profile_exists){
-				push @err, "Row $row_number: $msg";
-			}
+			my ( $profile_exists, $msg ) = $self->{'datastore'}->check_new_profile( $scheme_id, $designations );
+			push @err, "$row_id: $msg" if $profile_exists;
+			push @profiles, { id => $row_id, %$designations };
 			$row_number++;
 		}
 	}
-	my $ret = {};
+	my $ret = { profiles => \@profiles };
 	$ret->{'err'} = \@err if @err;
 	return $ret;
 }
 
-sub _get_loci_positions_in_header {
+sub _get_profile_header_positions {
 	my ( $self, $header_row, $scheme_id ) = @_;
 	$header_row =~ s/\s*$//x;
 	my ( @missing, @duplicates, %positions );
@@ -757,18 +773,21 @@ sub _get_loci_positions_in_header {
 			}
 		}
 	}
+	for my $i ( 0 .. @header - 1 ) {
+		$positions{'id'} = $i if ( $header[$i] eq 'id' );
+	}
 	foreach my $locus (@$loci) {
 		push @missing, $locus if !defined $positions{$locus};
 	}
 	my $ret = { positions => \%positions };
 	$ret->{'missing'}    = \@missing    if @missing;
-	$ret->{'duplicated'} = \@duplicates if @duplicates;
+	$ret->{'duplicates'} = \@duplicates if @duplicates;
 	return $ret;
 }
 
 sub _start_submission {
 	my ( $self, $type ) = @_;
-	$logger->logdie("Invalid submission type '$type'") if none { $type eq $_ } qw (alleles);
+	$logger->logdie("Invalid submission type '$type'") if none { $type eq $_ } qw (alleles profiles);
 	my $submission_id = 'BIGSdb_' . strftime( '%Y%m%d%H%M%S', localtime ) . "_$$\_" . int( rand(99999) );
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	eval {
@@ -817,6 +836,31 @@ sub get_allele_submission {
 	return $submission;
 }
 
+sub get_profile_submission {
+	my ( $self, $submission_id ) = @_;
+	$logger->logcarp('No submission_id passed') if !$submission_id;
+	my $submission = $self->{'datastore'}->run_query( 'SELECT * FROM profile_submissions WHERE submission_id=?',
+		$submission_id, { fetch => 'row_hashref', cache => 'SubmitPage::get_profile_submission' } );
+	return if !$submission;
+	my $profiles =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT profile_id,status,assigned_id FROM profile_submission_profiles WHERE submission_id=?',
+		$submission_id,
+		{ fetch => 'all_arrayref', slice => {}, cache => 'SubmitPage::get_profile_submission::profiles' } );
+	$submission->{'profiles'} = [];
+	foreach my $profile (@$profiles) {
+		my $designations = $self->{'datastore'}->run_query(
+			'SELECT locus,allele_id FROM '
+			  . 'profile_submission_designations WHERE (submission_id,profile_id)=(?,?) ORDER BY locus',
+			[ $submission_id, $profile->{'profile_id'} ],
+			{ fetch => 'all_arrayref', slice => {}, cache => 'SubmitPage::get_profile_submission::designations' }
+		);
+		$profile->{'designations'}->{ $_->{'locus'} } = $_->{'allele_id'} foreach @$designations;
+		push @{ $submission->{'profiles'} }, $profile;
+	}
+	return $submission;
+}
+
 sub _start_allele_submission {
 	my ( $self, $submission_id, $locus, $seqs ) = @_;
 	my $q = $self->{'cgi'};
@@ -857,6 +901,96 @@ sub _start_allele_submission {
 	return;
 }
 
+sub _start_profile_submission {
+	my ( $self, $submission_id, $scheme_id, $profiles ) = @_;
+	my $q = $self->{'cgi'};
+	eval {
+		$self->{'db'}->do( 'INSERT INTO profile_submissions (submission_id,scheme_id) VALUES (?,?)',
+			undef, $submission_id, $scheme_id, );
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+		return;
+	}
+	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	if (@$profiles) {
+		foreach my $profile (@$profiles) {
+			eval {
+				$self->{'db'}
+				  ->do( 'INSERT INTO profile_submission_profiles (submission_id,profile_id,status) VALUES (?,?,?)',
+					undef, $submission_id, $profile->{'id'}, 'pending' );
+				foreach my $locus (@$loci) {
+					$self->{'db'}->do(
+						'INSERT INTO profile_submission_designations (submission_id,profile_id,locus,'
+						  . 'allele_id) VALUES (?,?,?,?)',
+						undef, $submission_id, $profile->{'id'}, $locus, $profile->{$locus}
+					);
+				}
+			};
+			if ($@) {
+				$logger->error($@);
+				$self->{'db'}->rollback;
+				return;
+			}
+		}
+
+		#		$self->_write_allele_FASTA($submission_id);
+	}
+	$self->{'db'}->commit;
+	return;
+}
+
+sub _print_abort_form {
+	my ( $self, $submission_id ) = @_;
+	my $q = $self->{'cgi'};
+	say q(<div style="float:left">);
+	$self->print_warning_sign( { no_div => 1 } );
+	say q(</div>);
+	say $q->start_form;
+	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Abort submission!' } );
+	$q->param( confirm       => 1 );
+	$q->param( submission_id => $submission_id );
+	say $q->hidden($_) foreach qw(db page submission_id abort confirm);
+	say $q->end_form;
+	return;
+}
+
+sub _print_file_upload_fieldset {
+	my ( $self, $submission_id ) = @_;
+	my $q = $self->{'cgi'};
+	say q(<fieldset style="float:left"><legend>Supporting files</legend>);
+	say q(<p>Please upload any supporting files required for curation.  Ensure that these are named unambiguously or )
+	  . q(add an explanatory note so that they can be linked to the appropriate sequence.  Individual filesize is )
+	  . q(limited to )
+	  . BIGSdb::Utils::get_nice_size(MAX_UPLOAD_SIZE)
+	  . q(.</p>);
+	say $q->start_form;
+	print $q->filefield( -name => 'file_upload', -id => 'file_upload', -multiple );
+	say $q->submit(
+		-name  => 'Upload files',
+		-class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all'
+	);
+	$q->param( no_check => 1 );
+	say $q->hidden($_) foreach qw(db page alleles profiles locus submit submission_id no_check);
+	say $q->end_form;
+	my $files = $self->_get_submission_files($submission_id);
+
+	if (@$files) {
+		say $q->start_form;
+		$self->_print_submission_file_table( $submission_id, { delete_checkbox => 1 } );
+		$q->param( delete => 1 );
+		say $q->hidden($_) foreach qw(db page alleles profiles delete no_check);
+		say $q->submit(
+			-label => 'Delete selected files',
+			-class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all'
+		);
+		say $q->end_form;
+	}
+	say q(</fieldset>);
+	return;
+}
+
 sub _presubmit_alleles {
 	my ( $self, $submission_id, $seqs ) = @_;
 	$seqs //= [];
@@ -880,18 +1014,11 @@ sub _presubmit_alleles {
 	}
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	if ( $q->param('abort') ) {
-		say q(<div style="float:left">);
-		$self->print_warning_sign( { no_div => 1 } );
-		say q(</div>);
-		say $q->start_form;
-		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Abort submission!' } );
-		$q->param( confirm       => 1 );
-		$q->param( submission_id => $submission_id );
-		say $q->hidden($_) foreach qw(db page submission_id abort confirm);
-		say $q->end_form;
+		$self->_print_abort_form($submission_id);
 	}
 	say qq(<h2>Submission: $submission_id</h2>);
 	$self->_print_sequence_table_fieldset( $submission_id, { download_link => 1 } );
+	$self->_print_finalize_form;
 	say $q->start_form;
 	$self->_print_sequence_details_fieldset($submission_id);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Finalize submission!' } );
@@ -899,35 +1026,38 @@ sub _presubmit_alleles {
 	$q->param( submission_id => $submission_id );
 	say $q->hidden($_) foreach qw(db page locus submit finalize submission_id);
 	say $q->end_form;
-	say q(<fieldset style="float:left"><legend>Supporting files</legend>);
-	say q(<p>Please upload any supporting files required for curation.  Ensure that these are named unambiguously or )
-	  . q(add an explanatory note so that they can be linked to the appropriate sequence.  Individual filesize is )
-	  . q(limited to )
-	  . BIGSdb::Utils::get_nice_size(MAX_UPLOAD_SIZE)
-	  . q(.</p>);
-	say $q->start_form;
-	print $q->filefield( -name => 'file_upload', -id => 'file_upload', -multiple );
-	say $q->submit(
-		-name  => 'Upload files',
-		-class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all'
-	);
-	$q->param( no_check => 1 );
-	say $q->hidden($_) foreach qw(db page alleles locus submit submission_id no_check);
-	say $q->end_form;
-	my $files = $self->_get_submission_files($submission_id);
+	$self->_print_file_upload_fieldset($submission_id);
+	$self->_print_message_fieldset($submission_id);
+	say q(</div></div>);
+	return;
+}
 
-	if (@$files) {
-		say $q->start_form;
-		$self->_print_submission_file_table( $submission_id, { delete_checkbox => 1 } );
-		$q->param( delete => 1 );
-		say $q->hidden($_) foreach qw(db page alleles delete no_check);
-		say $q->submit(
-			-label => 'Delete selected files',
-			-class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all'
-		);
-		say $q->end_form;
+sub _presubmit_profiles {
+	my ( $self, $submission_id, $profiles ) = @_;
+	$profiles //= [];
+	return if !$submission_id && !@$profiles;
+	my $scheme_id;
+	my $q = $self->{'cgi'};
+	if ($submission_id) {
+		my $profile_submission = $self->get_profile_submission($submission_id);
+		$profiles = $profile_submission->{'profiles'} // [];
+	} else {
+		$scheme_id     = $q->param('scheme_id');
+		$submission_id = $self->_start_submission('profiles');
+		$self->_start_profile_submission( $submission_id, $scheme_id, $profiles );
 	}
-	say q(</fieldset>);
+	if ( $q->param('file_upload') ) {
+		$self->_upload_files($submission_id);
+	}
+	if ( $q->param('delete') ) {
+		$self->_delete_selected_submission_files($submission_id);
+	}
+	say q(<div class="box" id="resultstable"><div class="scrollable">);
+	if ( $q->param('abort') ) {
+		$self->_print_abort_form($submission_id);
+	}
+	say qq(<h2>Submission: $submission_id</h2>);
+	$self->_print_file_upload_fieldset($submission_id);
 	$self->_print_message_fieldset($submission_id);
 	say q(</div></div>);
 	return;
@@ -1156,7 +1286,7 @@ sub _print_message_fieldset {
 		}
 	}
 	my $buffer;
-	my $qry = q(SELECT date_trunc('second',timestamp) AS timestamp,user,message FROM messages )
+	my $qry = q(SELECT date_trunc('second',timestamp) AS timestamp,user_id,message FROM messages )
 	  . q(WHERE submission_id=? ORDER BY timestamp asc);
 	my $messages = $self->{'datastore'}->run_query( $qry, $submission_id, { fetch => 'all_arrayref', slice => {} } );
 	if (@$messages) {
@@ -1181,7 +1311,7 @@ sub _print_message_fieldset {
 		);
 		$buffer .= q(</div>);
 		$buffer .= $q->hidden($_)
-		  foreach qw(db page alleles locus submit continue view curate abort submission_id no_check );
+		  foreach qw(db page alleles profiles locus submit continue view curate abort submission_id no_check );
 		$buffer .= $q->end_form;
 	}
 	say qq(<fieldset style="float:left"><legend>Messages</legend>$buffer</fieldset>) if $buffer;
@@ -1217,7 +1347,8 @@ sub _append_message {
 	$dir = $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/x ? $1 : undef;    #Untaint
 	make_path $dir;
 	my $filename = 'messages.txt';
-	open( my $fh, '>>:encoding(utf8)', "$dir/$filename" ) || $logger->error("Can't open $dir/$filename for appending");
+	open( my $fh, '>>:encoding(utf8)', "$dir/$filename" )
+	  || $logger->error("Can't open $dir/$filename for appending");
 	my $user_string = $self->{'datastore'}->get_user_string($user_id);
 	say $fh $user_string;
 	my $timestamp = localtime(time);
@@ -1241,7 +1372,8 @@ sub _print_submission_file_table {
 	my $i  = 0;
 
 	foreach my $file (@$files) {
-		$buffer .= qq(<tr class="td$td"><td><a href="/submissions/$submission_id/supporting_files/$file->{'filename'}">)
+		$buffer .=
+		    qq(<tr class="td$td"><td><a href="/submissions/$submission_id/supporting_files/$file->{'filename'}">)
 		  . qq($file->{'filename'}</a></td><td>$file->{'size'}</td>);
 		if ( $options->{'delete_checkbox'} ) {
 			$buffer .= q(<td>);
@@ -1342,8 +1474,9 @@ sub _print_summary {
 			$logger->error("No submission FASTA file for allele submission $submission_id.");
 		}
 		say qq(<dt>technology</dt><dd>$allele_submission->{'technology'}</dd>);
-		say qq(<dt>read length</dt><dd>$allele_submission->{'read_length'}</dd>) if $allele_submission->{'read_length'};
-		say qq(<dt>coverage</dt><dd>$allele_submission->{'coverage'}</dd>)       if $allele_submission->{'coverage'};
+		say qq(<dt>read length</dt><dd>$allele_submission->{'read_length'}</dd>)
+		  if $allele_submission->{'read_length'};
+		say qq(<dt>coverage</dt><dd>$allele_submission->{'coverage'}</dd>) if $allele_submission->{'coverage'};
 		say qq(<dt>assembly</dt><dd>$allele_submission->{'assembly'}</dd>);
 		say qq(<dt>assembly software</dt><dd>$allele_submission->{'software'}</dd>);
 	}

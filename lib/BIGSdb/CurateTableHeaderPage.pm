@@ -38,9 +38,10 @@ sub print_content {
 		say "Table $table does not exist!";
 		return;
 	}
-	my $q         = $self->{'cgi'};
-	my $no_fields = $q->param('no_fields') ? 1 : 0;                              #For profile submissions
-	my $headers   = $self->get_headers( $table, { no_fields => $no_fields } );
+	my $q                = $self->{'cgi'};
+	my $no_fields        = $q->param('no_fields') ? 1 : 0;           #For profile submissions
+	my $id_field = $q->param('id_field') ? 1 : 0;    #Ditto
+	my $headers = $self->get_headers( $table, { no_fields => $no_fields, id_field => $id_field } );
 	local $" = "\t";
 	say "@$headers";
 	return;
@@ -66,6 +67,7 @@ sub get_headers {
 		my $scheme_id = $self->{'cgi'}->param('scheme_id') || 0;
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 		my $set_id = $self->get_set_id;
+		push @headers, 'id' if $options->{'id_field'};
 		push @headers, $scheme_info->{'primary_key'} if ( !$options->{'no_fields'} );
 		my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		foreach my $locus (@$loci) {

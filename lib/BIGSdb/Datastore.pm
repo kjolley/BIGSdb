@@ -1524,7 +1524,7 @@ sub check_new_alleles_fasta {
 		$logger->error("Locus $locus is not defined");
 		return;
 	}
-	open( my $stringfh_in, "<:encoding(utf8)", $fasta_ref ) or die "Could not open string for reading: $!";
+	open( my $stringfh_in, '<:encoding(utf8)', $fasta_ref ) || $logger->error("Could not open string for reading: $!");
 	$stringfh_in->untaint;
 	my $seqin = Bio::SeqIO->new( -fh => $stringfh_in, -format => 'fasta' );
 	my ( @err, @info, @seqs, %used_ids );
@@ -1540,7 +1540,7 @@ sub check_new_alleles_fasta {
 			push @err, "Sequence identifier '$seq_id' does not have a valid sequence.";
 			next;
 		}
-		$sequence =~ s/[\-\.\s]//g;
+		$sequence =~ s/[\-\.\s]//gx;
 		if ( $locus_info->{'data_type'} eq 'DNA' ) {
 			my $diploid = ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? 1 : 0;
 			if ( !BIGSdb::Utils::is_valid_DNA( $sequence, { diploid => $diploid } ) ) {
@@ -1564,7 +1564,7 @@ sub check_new_alleles_fasta {
 			  . "$locus_info->{'max_length'} $units.";
 		}
 		my $existing_allele = $self->run_query(
-			"SELECT allele_id FROM sequences WHERE (locus,UPPER(sequence))=(?,UPPER(?))",
+			'SELECT allele_id FROM sequences WHERE (locus,UPPER(sequence))=(?,UPPER(?))',
 			[ $locus, $sequence ],
 			{ cache => 'check_new_alleles_fasta' }
 		);

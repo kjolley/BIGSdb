@@ -69,4 +69,47 @@ ON UPDATE CASCADE
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON messages TO apache;
 
+CREATE TABLE profile_submissions (
+submission_id text NOT NULL,
+scheme_id int NOT NULL,
+PRIMARY KEY(submission_id),
+CONSTRAINT as_submission_id FOREIGN KEY (submission_id) REFERENCES submissions
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT ps_scheme_id FOREIGN KEY (scheme_id) REFERENCES schemes
+ON DELETE CASCADE
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON profile_submissions TO apache;
+
+CREATE TABLE profile_submission_profiles (
+submission_id text NOT NULL,
+profile_id text NOT NULL,
+status text NOT NULL,
+assigned_id text,
+PRIMARY KEY(submission_id,profile_id),
+CONSTRAINT ass_submission_id FOREIGN KEY (submission_id) REFERENCES profile_submissions
+ON DELETE CASCADE
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON profile_submission_profiles TO apache;
+
+CREATE TABLE profile_submission_designations (
+submission_id text NOT NULL,
+profile_id text NOT NULL,
+locus text NOT NULL,
+allele_id text NOT NULL,
+PRIMARY KEY(submission_id,profile_id,locus),
+CONSTRAINT psd_submission_id FOREIGN KEY (submission_id,profile_id) REFERENCES profile_submission_profiles(submission_id,profile_id)
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT psd_locus FOREIGN KEY (locus) REFERENCES loci
+ON DELETE CASCADE
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON profile_submission_designations TO apache;
+
 ALTER TABLE loci ADD complete_cds boolean;
