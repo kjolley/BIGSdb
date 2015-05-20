@@ -176,7 +176,7 @@ sub run {
 						$values->{ $data{'id'} }->{$field} = @$scheme_field_values ? $scheme_field_values : ['-'];
 					} elsif ( $field =~ /^c_(.*)/ ) {
 						my $value = $self->{'datastore'}->get_composite_value( $data{'id'}, $1, \%data );
-						$values->{ $data{'id'} }->{$field} = $value;
+						$values->{ $data{'id'} }->{$field} = [$value];
 					}
 				}
 				$i++;
