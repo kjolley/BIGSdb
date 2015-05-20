@@ -2244,6 +2244,7 @@ sub popup_menu {
 	$buffer .= ">\n";
 
 	foreach (@$values) {
+		next if !defined;
 		s/"/&quot;/gx;
 		$labels->{$_} //= $_;
 		my $select = $default{$_} ? q( selected="selected") : '';
