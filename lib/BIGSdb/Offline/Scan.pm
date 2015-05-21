@@ -163,7 +163,7 @@ sub blast {
 			-outfmt          => 6,
 			-$filter         => 'no'
 		);
-		$params{'-comp_based_stats'} = 0 if $program ne 'blastn';    #Will not return some matches with low-complexity regions otherwise.
+		$params{'-comp_based_stats'} = 0 if $program ne 'blastn' && $program ne 'tblastx';    #Will not return some matches with low-complexity regions otherwise.
 		open( my $infile_fh, '<', $temp_infile ) or $logger->error("Can't open temp file $temp_infile for reading");
 
 		#Make sure query file has finished writing (it may be another thread doing it).

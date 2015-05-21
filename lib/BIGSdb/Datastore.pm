@@ -1734,7 +1734,7 @@ sub run_blast {
 			} else {
 				$params{'-max_target_seqs'} = $options->{'num_results'};
 			}
-			$params{'-comp_based_stats'} = 0 if $program ne 'blastn';   #Will not return some matches with low-complexity regions otherwise.
+			$params{'-comp_based_stats'} = 0 if $program ne 'blastn' && $program ne 'tblastx';   #Will not return some matches with low-complexity regions otherwise.
 			system( "$self->{'config'}->{'blast+_path'}/$program", %params );
 			if ( $run eq 'DNA' ) {
 				rename( $temp_outfile, "$temp_outfile\.1" );

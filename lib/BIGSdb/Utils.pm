@@ -36,40 +36,38 @@ my $logger = get_logger('BIGSdb.Page');
 sub reverse_complement {
 	my ($seq) = @_;
 	my $reversed = reverse $seq;
-	$reversed =~ tr/GATCgatc/CTAGctag/;    #complement
+	$reversed =~ tr/GATCgatc/CTAGctag/;    
 	return $reversed;
 }
 
 sub is_valid_DNA {
-
-	# checks if a valid DNA sequence
 	my ( $seq, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $check_seq = ref $seq eq 'SCALAR' ? uc($$seq) : uc($seq);
-	$check_seq =~ s/[\-\.\s]//g;
+	$check_seq =~ s/[\-\.\s]//gx;
 
 	#check it's a sequence - allow codes for two bases to
 	#accommodate diploid sequence types
 	if ( $options->{'allow_ambiguous'} ) {
-		return $check_seq =~ /[^ACGTRYWSMKVHDBXN]/ ? 0 : 1;
+		return $check_seq =~ /[^ACGTRYWSMKVHDBXN]/x ? 0 : 1;
 	} elsif ( $options->{'diploid'} ) {
-		return $check_seq =~ /[^ACGTRYWSMK]/ ? 0 : 1;
+		return $check_seq =~ /[^ACGTRYWSMK]/x ? 0 : 1;
 	} else {
-		return $check_seq =~ /[^ACGT]/ ? 0 : 1;
+		return $check_seq =~ /[^ACGT]/x ? 0 : 1;
 	}
 }
 
 sub is_valid_peptide {
 	my ($seq) = @_;
 	my $check_seq = ref $seq eq 'SCALAR' ? uc($$seq) : uc($seq);
-	$check_seq =~ s/[\-\.\s]//g;
-	return $check_seq =~ /[^GALMFWKQESPVICYHRNDT]/ ? 0 : 1;
+	$check_seq =~ s/[\-\.\s]//gx;
+	return $check_seq =~ /[^GALMFWKQESPVICYHRNDT]/x ? 0 : 1;
 }
 
 sub is_complete_cds {
 	my ($seq) = @_;
 	my $check_seq = ref $seq eq 'SCALAR' ? uc($$seq) : uc($seq);
-	$check_seq =~ s/[\-\.\s]//g;
+	$check_seq =~ s/[\-\.\s]//gx;
 	my $first_codon = substr( $check_seq, 0, 3 );
 	if ( none { $first_codon eq $_ } qw (ATG GTG TTG) ) {
 		return { cds => 0, err => 'not a complete CDS - no start codon.' };
@@ -114,9 +112,8 @@ sub truncate_seq {
 	}
 }
 
+#chop sequence so that it is in a particular open reading frame
 sub chop_seq {
-
-	#chop sequence so that it is in a particular open reading frame
 	my ( $seq, $orf ) = @_;
 	return '' if !defined $seq;
 	my $returnseq;
@@ -149,29 +146,27 @@ sub split_line {
 	return $seq;
 }
 
+#Pass string either as a scalar or as a reference to a scalar.  It will be returned the same way.
 sub break_line {
-
-	#Pass string either as a scalar or as a reference to a scalar.  It will be returned the same way.
 	my ( $string, $length ) = @_;
 	my $orig_string = ref $string eq 'SCALAR' ? $$string : $string;
 	my $seq = '';
 	my $s;
 	$seq .= "$s\n" while $s = substr $orig_string, 0, $length, '';
-	$seq =~ s/\n$//;
+	$seq =~ s/\n$//x;
 	return ref $string eq 'SCALAR' ? \$seq : $seq;
 }
 
 sub decimal_place {
 	my ( $number, $decimals ) = @_;
-	return substr( $number + ( "0." . "0" x $decimals . "5" ), 0, $decimals + length( int($number) ) + 1 );
+	return substr( $number + ( '0.' . '0' x $decimals . '5' ), 0, $decimals + length( int($number) ) + 1 );
 }
 
+#returns true if string is an acceptable date format
 sub is_date {
-
-	#returns true if string is an acceptable date format
 	my ($qry) = @_;
 	return 1 if $qry eq 'today' || $qry eq 'yesterday';
-	if ( $qry =~ /^(\d{4})-(\d{2})-(\d{2})$/ ) {
+	if ( $qry =~ /^(\d{4})-(\d{2})-(\d{2})$/x ) {
 		my ( $y, $m, $d ) = ( $1, $2, $3 );
 		eval { timelocal 0, 0, 0, $d, $m - 1, $y - 1900 };
 		return $@ ? 0 : 1;
@@ -202,12 +197,12 @@ sub is_int {
 	return;
 }
 
+#Modified from Data::Types (c) 2002-2008 David Wheeler
 sub is_float {
 	my ($value) = @_;
-
-	#From Data::Types (c) 2002-2008 David Wheeler
-	return unless defined $value && $value ne '';
-	return unless $value =~ /^([+-]?)(?=\d|\.\d)\d*(\.\d*)?([Ee]([+-]?\d+))?$/;
+	return if !defined $value;
+	## no critic (ProhibitUnusedCapture)
+	return if $value !~ /^([+-]?)(?=\d|\.\d)\d*(\.\d*)?([Ee]([+-]?\d+))?$/x;
 	return 1;
 }
 
@@ -233,19 +228,19 @@ sub round_up {
 
 sub read_fasta {
 	my $data_ref = shift;
-	my @lines = split /\n/, $$data_ref;
+	my @lines = split /\n/x, $$data_ref;
 	my %seqs;
 	my $header;
 	foreach (@lines) {
-		$_ =~ s/\r//g;
-		if ( $_ =~ /^>/ ) {
+		$_ =~ s/\r//gx;
+		if ( $_ =~ /^>/x ) {
 			$header = substr( $_, 1 );
 			next;
 		}
-		throw BIGSdb::DataException("Not valid FASTA format.") if !$header;
+		throw BIGSdb::DataException('Not valid FASTA format.') if !$header;
 		my $temp_seq = uc($_);
-		$temp_seq =~ s/\s//g;
-		throw BIGSdb::DataException("Not valid DNA - $header") if $temp_seq =~ /[^GATCBDHVRYKMSWN]/;
+		$temp_seq =~ s/\s//gx;
+		throw BIGSdb::DataException("Not valid DNA - $header") if $temp_seq =~ /[^GATCBDHVRYKMSWN]/x;
 		$seqs{$header} .= $temp_seq;
 	}
 	return \%seqs;
@@ -265,9 +260,8 @@ sub histogram {
 	return ( \%histogram, $min, $max );
 }
 
+#Return simple stats for values in array ref
 sub stats {
-
-	#Return simple stats for values in array ref
 	my ($list_ref) = @_;
 	return if ref $list_ref ne 'ARRAY';
 	my $stats;
@@ -318,12 +312,12 @@ sub xmfa2fasta {
 	my %labels;
 
 	while ( my $line = <$xmfa_fh> ) {
-		next if $line =~ /^=/;
-		if ( $line =~ /^>\s*([\d\w\s\|\-\\\/\.\(\),#]+):/ ) {
+		next if $line =~ /^=/x;
+		if ( $line =~ /^>\s*([\d\w\s\|\-\\\/\.\(\),\#]+):/x ) {
 			$seq{$current_id} .= $temp_seq;
 			if ( $options->{'integer_ids'} ) {
 				my $extracted_id = $1;
-				if ( $extracted_id =~ /^(\d+)/ ) {
+				if ( $extracted_id =~ /^(\d+)/x ) {
 					$current_id = $1;
 					$labels{$current_id} = $extracted_id
 					  if !defined $labels{$current_id} || length $extracted_id > length $labels{$current_id};
@@ -338,14 +332,15 @@ sub xmfa2fasta {
 			}
 			$temp_seq = '';
 		} else {
-			$line =~ s/[\r\n]//g;
+			$line =~ s/[\r\n]//gx;
 			$temp_seq .= $line;
 		}
 	}
 	$seq{$current_id} .= $temp_seq;
 	close $xmfa_fh;
-	( my $fasta_file = $xmfa_file ) =~ s/xmfa$/fas/;
-	open( my $fasta_fh, '>', $fasta_file ) || throw BIGSdb::CannotOpenFileException("Can't open $fasta_file for writing");
+	( my $fasta_file = $xmfa_file ) =~ s/xmfa$/fas/x;
+	open( my $fasta_fh, '>', $fasta_file )
+	  || throw BIGSdb::CannotOpenFileException("Can't open $fasta_file for writing");
 	foreach my $id (@ids) {
 		my $label = $labels{$id} // $id;
 		say $fasta_fh ">$label";
@@ -363,7 +358,7 @@ sub text2excel {
 		binmode(STDOUT);
 		$excel_file = \*STDOUT;
 	} else {
-		( $excel_file = $text_file ) =~ s/txt$/xlsx/;
+		( $excel_file = $text_file ) =~ s/txt$/xlsx/x;
 	}
 	my $workbook = Excel::Writer::XLSX->new($excel_file);
 	$workbook->set_tempdir( $options->{'tmp_dir'} ) if $options->{'tmp_dir'};
@@ -379,14 +374,16 @@ sub text2excel {
 	$header_format->set_bold;
 	my $cell_format = $workbook->add_format;
 	$cell_format->set_align('center');
-	open( my $text_fh, '<:encoding(utf8)', $text_file ) || throw BIGSdb::CannotOpenFileException("Can't open $text_file for reading");
+	open( my $text_fh, '<:encoding(utf8)', $text_file )
+	  || throw BIGSdb::CannotOpenFileException("Can't open $text_file for reading");
 	my ( $row, $col ) = ( 0, 0 );
 	my %widths;
 
 	while ( my $line = <$text_fh> ) {
-		$line =~ s/[\r\n]/ /g;
+		$line =~ s/\r?\n$//x;      #Remove terminal newline
+		$line =~ s/[\r\n]/ /gx;    #Replace internal newlines with spaces.
 		my $format = !$options->{'no_header'} && $row == 0 ? $header_format : $cell_format;
-		my @values = split /\t/, $line;
+		my @values = split /\t/x, $line;
 		foreach my $value (@values) {
 			$worksheet->write( $row, $col, $value, $format );
 			$widths{$col} = length $value if length $value > ( $widths{$col} // 0 );
@@ -409,7 +406,7 @@ sub text2excel {
 
 sub fasta2genbank {
 	my ($fasta_file) = @_;
-	( my $genbank_file = $fasta_file ) =~ s/\.(fas|fasta)$/.gb/;
+	( my $genbank_file = $fasta_file ) =~ s/\.(fas|fasta)$/.gb/x;
 	my $in  = Bio::SeqIO->new( -file => $fasta_file,      -format => 'fasta' );
 	my $out = Bio::SeqIO->new( -file => ">$genbank_file", -format => 'genbank' );
 	my $start      = 1;
@@ -417,8 +414,8 @@ sub fasta2genbank {
 	my @features;
 	while ( my $seq_obj = $in->next_seq ) {
 		my $id = $seq_obj->primary_id;
-		my $seq = ( $seq_obj->primary_seq->seq =~ /(.*)/ ) ? $1 : undef;    #untaint
-		$seq =~ s/-//g;
+		my $seq = ( $seq_obj->primary_seq->seq =~ /(.*)/x ) ? $1 : undef;    #untaint
+		$seq =~ s/-//gx;
 		$concat_seq .= $seq;
 		my $length = length($seq);
 		my $end    = $start + $length - 1;
@@ -438,13 +435,15 @@ sub fasta2genbank {
 	return $genbank_file;
 }
 
+#Heatmap colour given value and max value
 sub get_heatmap_colour_style {
-
-	#Heatmap colour given value and max value
 	my ( $value, $max_value, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $normalised = $max_value ? ( $value / $max_value ) : 0;    #Don't divide by zero.
-	my $colour = sprintf( "#%02x%02x%02x", $normalised * 201 + 54, abs( 0.5 - $normalised ) * 201 + 54, ( 1 - $normalised ) * 201 + 54 );
+	my $colour = sprintf( '#%02x%02x%02x',
+		$normalised * 201 + 54,
+		abs( 0.5 - $normalised ) * 201 + 54,
+		( 1 - $normalised ) * 201 + 54 );
 	if ( $options->{'excel'} ) {
 		return { bg_color => $colour, color => 'white', align => 'center', border => 1, border_color => 'white' };
 	}
@@ -461,9 +460,8 @@ sub get_largest_string_length {
 	return $length;
 }
 
+#Array of lengths must be in descending length order.
 sub get_N_stats {
-
-	#Array of lengths must be in descending length order.
 	my ( $total_length, $contig_length_arrayref ) = @_;
 	my $n50_target = 0.5 * $total_length;
 	my $n90_target = 0.1 * $total_length;
@@ -493,19 +491,18 @@ sub get_N_stats {
 sub escape_html {
 	my ($string) = @_;
 	return if !defined $string;
-	$string =~ s/"/\&quot;/g;
-	$string =~ s/</\&lt;/g;
-	$string =~ s/>/\&gt;/g;
+	$string =~ s/"/\&quot;/gx;
+	$string =~ s/</\&lt;/gx;
+	$string =~ s/>/\&gt;/gx;
 	return $string;
 }
 
+#Put commas in numbers
+#Perl Cookbook 2.16
 sub commify {
-
-	#Put commas in numbers
-	#Perl Cookbook 2.16
 	my ($text) = @_;
 	$text = reverse $text;
-	$text =~ s/(\d\d\d)(?=\d)(?!\d*\.)/$1,/g;
+	$text =~ s/(\d\d\d)(?=\d)(?!\d*\.)/$1,/gx;
 	return scalar reverse $text;
 }
 
@@ -521,9 +518,8 @@ sub random_string {
 	return $string;
 }
 
+#From http://www.jb.man.ac.uk/~slowe/perl/filesize.html
 sub get_nice_size {
-
-	#http://www.jb.man.ac.uk/~slowe/perl/filesize.html
 	my ( $size, $decimal_places ) = @_;    # First variable is the size in bytes
 	$decimal_places //= 1;
 	my @units = ( 'bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB' );
@@ -533,7 +529,7 @@ sub get_nice_size {
 		$size /= 1024;
 		$u++;
 	}
-	if   ( $units[$u] ) { return ( int( $size * $decimal_places ) / $decimal_places ) . " " . $units[$u]; }
+	if   ( $units[$u] ) { return ( int( $size * $decimal_places ) / $decimal_places ) . ' ' . $units[$u]; }
 	else                { return int($size); }
 }
 1;
