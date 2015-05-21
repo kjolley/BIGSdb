@@ -345,7 +345,8 @@ sub xmfa2fasta {
 	$seq{$current_id} .= $temp_seq;
 	close $xmfa_fh;
 	( my $fasta_file = $xmfa_file ) =~ s/xmfa$/fas/;
-	open( my $fasta_fh, '>', $fasta_file ) || throw BIGSdb::CannotOpenFileException("Can't open $fasta_file for writing");
+	open( my $fasta_fh, '>', $fasta_file )
+	  || throw BIGSdb::CannotOpenFileException("Can't open $fasta_file for writing");
 	foreach my $id (@ids) {
 		my $label = $labels{$id} // $id;
 		say $fasta_fh ">$label";
@@ -363,7 +364,7 @@ sub text2excel {
 		binmode(STDOUT);
 		$excel_file = \*STDOUT;
 	} else {
-		( $excel_file = $text_file ) =~ s/txt$/xlsx/;
+		( $excel_file = $text_file ) =~ s/txt$/xlsx/x;
 	}
 	my $workbook = Excel::Writer::XLSX->new($excel_file);
 	$workbook->set_tempdir( $options->{'tmp_dir'} ) if $options->{'tmp_dir'};
@@ -379,14 +380,16 @@ sub text2excel {
 	$header_format->set_bold;
 	my $cell_format = $workbook->add_format;
 	$cell_format->set_align('center');
-	open( my $text_fh, '<:encoding(utf8)', $text_file ) || throw BIGSdb::CannotOpenFileException("Can't open $text_file for reading");
+	open( my $text_fh, '<:encoding(utf8)', $text_file )
+	  || throw BIGSdb::CannotOpenFileException("Can't open $text_file for reading");
 	my ( $row, $col ) = ( 0, 0 );
 	my %widths;
 
 	while ( my $line = <$text_fh> ) {
-		$line =~ s/[\r\n]/ /g;
+		$line =~ s/\r?\n$//x;     #Remove terminal newline
+		$line =~ s/[\r\n]/ /gx;    #Replace internal newlines with spaces.
 		my $format = !$options->{'no_header'} && $row == 0 ? $header_format : $cell_format;
-		my @values = split /\t/, $line;
+		my @values = split /\t/x, $line;
 		foreach my $value (@values) {
 			$worksheet->write( $row, $col, $value, $format );
 			$widths{$col} = length $value if length $value > ( $widths{$col} // 0 );
@@ -444,7 +447,10 @@ sub get_heatmap_colour_style {
 	my ( $value, $max_value, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $normalised = $max_value ? ( $value / $max_value ) : 0;    #Don't divide by zero.
-	my $colour = sprintf( "#%02x%02x%02x", $normalised * 201 + 54, abs( 0.5 - $normalised ) * 201 + 54, ( 1 - $normalised ) * 201 + 54 );
+	my $colour = sprintf( "#%02x%02x%02x",
+		$normalised * 201 + 54,
+		abs( 0.5 - $normalised ) * 201 + 54,
+		( 1 - $normalised ) * 201 + 54 );
 	if ( $options->{'excel'} ) {
 		return { bg_color => $colour, color => 'white', align => 'center', border => 1, border_color => 'white' };
 	}
