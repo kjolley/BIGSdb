@@ -283,7 +283,8 @@ sub _get_own_submissions {
 		$buffer .= q(<th>Outcome</th>) if $options->{'show_outcome'};
 		$buffer .= q(<th>Remove</th>)  if $options->{'allow_remove'};
 		$buffer .= q(</tr>);
-		my $td = 1;
+		my $td     = 1;
+		my $set_id = $self->get_set_id;
 		foreach my $submission (@$submissions) {
 			my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
 			  . qq(submission_id=$submission->{'id'}&amp;view=1);
@@ -297,10 +298,23 @@ sub _get_own_submissions {
 				my $allele_submission = $self->get_allele_submission( $submission->{'id'} );
 				my $allele_count      = @{ $allele_submission->{'seqs'} };
 				my $plural            = $allele_count == 1 ? '' : 's';
+				my $clean_locus       = $self->clean_locus( $allele_submission->{'locus'} );
 				$details = "$allele_count $allele_submission->{'locus'} sequence$plural";
 				foreach my $seq ( @{ $allele_submission->{'seqs'} } ) {
 					$all_assigned = 0 if $seq->{'status'} ne 'assigned';
 					$all_rejected = 0 if $seq->{'status'} ne 'rejected';
+				}
+			} elsif ( $submission->{'type'} eq 'profiles' ) {
+				my $profile_submission = $self->get_profile_submission( $submission->{'id'} );
+				my $profile_count      = @{ $profile_submission->{'profiles'} };
+				my $plural             = $profile_count == 1 ? '' : 's';
+				my $scheme_info =
+				  $self->{'datastore'}
+				  ->get_scheme_info( $profile_submission->{'scheme_id'}, { get_pk => 1, set_id => $set_id } );
+				$details = "$profile_count $scheme_info->{'description'} profile$plural";
+				foreach my $profile ( @{ $profile_submission->{'profiles'} } ) {
+					$all_assigned = 0 if $profile->{'status'} ne 'assigned';
+					$all_rejected = 0 if $profile->{'status'} ne 'rejected';
 				}
 			}
 			$buffer .= qq(<td>$details</td>);
@@ -669,6 +683,30 @@ sub _print_sequence_details_fieldset {
 	return;
 }
 
+sub _print_profile_table_fieldset {
+	my ( $self, $submission_id, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $q          = $self->{'cgi'};
+	my $submission = $self->_get_submission($submission_id);
+	return if !$submission;
+	return if $submission->{'type'} ne 'profiles';
+	my $profile_submission = $self->get_profile_submission($submission_id);
+	return if !$profile_submission;
+	my $profiles    = $profile_submission->{'profiles'};
+	my $scheme_id   = $profile_submission->{'scheme_id'};
+	my $set_id      = $self->get_set_id;
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
+	say q(<fieldset style="float:left"><legend>Profiles</legend>);
+	my $csv_icon = $self->get_file_icon('CSV');
+	my $plural = @$profiles == 1 ? '' : 's';
+	say qq(<p>You are submitting the following $scheme_info->{'description'} profile$plural: )
+	  . qq(<a href="/submissions/$submission_id/profiles.txt">Download$csv_icon</a></p>)
+	  if ( $options->{'download_link'} );
+	$self->_print_profile_table( $submission_id, $options );
+	say q(</fieldset>);
+	return;
+}
+
 sub _check_new_alleles {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
@@ -710,7 +748,6 @@ sub _check_new_profiles {
 			push @err, "$err_message{$status} loc$plural: @$list.";
 		}
 	}
-	my $scheme = $self->{'datastore'}->get_scheme($scheme_id);
 	if ( !@err ) {
 		my $loci        = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
@@ -744,9 +781,8 @@ sub _check_new_profiles {
 					$designations->{ $field_by_pos{$i} } = $values[$i];
 				}
 			}
-			my $pk = $scheme_info->{'primary_key'};
-			my ( $profile_exists, $msg ) = $self->{'datastore'}->check_new_profile( $scheme_id, $designations );
-			push @err, "$row_id: $msg" if $profile_exists;
+			my $profile_status = $self->{'datastore'}->check_new_profile( $scheme_id, $designations );
+			push @err, "$row_id: $profile_status->{'msg'}" if $profile_status->{'exists'};
 			push @profiles, { id => $row_id, %$designations };
 			$row_number++;
 		}
@@ -934,8 +970,7 @@ sub _start_profile_submission {
 				return;
 			}
 		}
-
-		#		$self->_write_allele_FASTA($submission_id);
+		$self->_write_profile_csv($submission_id);
 	}
 	$self->{'db'}->commit;
 	return;
@@ -961,8 +996,8 @@ sub _print_file_upload_fieldset {
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left"><legend>Supporting files</legend>);
 	say q(<p>Please upload any supporting files required for curation.  Ensure that these are named unambiguously or )
-	  . q(add an explanatory note so that they can be linked to the appropriate sequence.  Individual filesize is )
-	  . q(limited to )
+	  . q(add an explanatory note so that they can be linked to the appropriate submission item.  Individual filesize )
+	  . q(is limited to )
 	  . BIGSdb::Utils::get_nice_size(MAX_UPLOAD_SIZE)
 	  . q(.</p>);
 	say $q->start_form;
@@ -1018,7 +1053,6 @@ sub _presubmit_alleles {
 	}
 	say qq(<h2>Submission: $submission_id</h2>);
 	$self->_print_sequence_table_fieldset( $submission_id, { download_link => 1 } );
-	$self->_print_finalize_form;
 	say $q->start_form;
 	$self->_print_sequence_details_fieldset($submission_id);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Finalize submission!' } );
@@ -1057,6 +1091,13 @@ sub _presubmit_profiles {
 		$self->_print_abort_form($submission_id);
 	}
 	say qq(<h2>Submission: $submission_id</h2>);
+	$self->_print_profile_table_fieldset( $submission_id, { download_link => 1 } );
+	say $q->start_form;
+	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Finalize submission!' } );
+	$q->param( finalize      => 1 );
+	$q->param( submission_id => $submission_id );
+	say $q->hidden($_) foreach qw(db page submit finalize submission_id);
+	say $q->end_form;
 	$self->_print_file_upload_fieldset($submission_id);
 	$self->_print_message_fieldset($submission_id);
 	say q(</div></div>);
@@ -1085,6 +1126,7 @@ sub _update_allele_submission_sequence_status {
 
 sub _print_sequence_table {
 	my ( $self, $submission_id, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $q                 = $self->{'cgi'};
 	my $submission        = $self->_get_submission($submission_id);
 	my $allele_submission = $self->get_allele_submission($submission_id);
@@ -1119,7 +1161,7 @@ sub _print_sequence_table {
 		);
 		if ( !defined $assigned ) {
 			if ( defined $seq->{'assigned_id'} ) {
-				$self->_clear_assigned_id( $submission_id, $seq->{'seq_id'} );
+				$self->_clear_assigned_seq_id( $submission_id, $seq->{'seq_id'} );
 			}
 			if ( $seq->{'status'} eq 'assigned' ) {
 				$self->_set_allele_status( $submission_id, $seq->{'seq_id'}, 'pending' );
@@ -1155,6 +1197,80 @@ sub _print_sequence_table {
 		all_assigned_or_rejected => $all_assigned_or_rejected,
 		all_assigned             => $all_assigned,
 		pending_seqs             => $pending_seqs
+	};
+}
+
+sub _print_profile_table {
+	my ( $self, $submission_id, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $q                        = $self->{'cgi'};
+	my $submission               = $self->_get_submission($submission_id);
+	my $profile_submission       = $self->get_profile_submission($submission_id);
+	my $profiles                 = $profile_submission->{'profiles'};
+	my $scheme_id                = $profile_submission->{'scheme_id'};
+	my $scheme_info              = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $all_assigned_or_rejected = 1;
+	my $all_assigned             = 1;
+	my $pending_profiles         = [];
+	my $loci                     = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	say q(<table class="resultstable">);
+	say q(<tr><th>Identifier</th>);
+
+	foreach my $locus (@$loci) {
+		my $clean_locus = $self->clean_locus($locus);
+		print qq(<th>$clean_locus</th>);
+	}
+	say qq(<th>Status</th><th>Assigned $scheme_info->{'primary_key'}</th></tr>);
+	my $td = 1;
+	foreach my $profile ( @{ $profile_submission->{'profiles'} } ) {
+		say qq(<tr class="td$td"><td>$profile->{'profile_id'}</td>);
+		foreach my $locus (@$loci) {
+			say qq(<td>$profile->{'designations'}->{$locus}</td>);
+		}
+		my $scheme = $self->{'datastore'}->get_scheme($scheme_id);
+		my $profile_status = $self->{'datastore'}->check_new_profile( $scheme_id, $profile->{'designations'} );
+		my $assigned;
+		if ( !$profile_status->{'exists'} ) {
+			if ( defined $profile->{'assigned_id'} ) {
+				$self->_clear_assigned_profile_id( $submission_id, $profile->{'profile_id'} );
+			}
+			if ( $profile->{'status'} eq 'assigned' ) {
+				$self->_set_profile_status( $submission_id, $profile->{'profile_id'}, 'pending' );
+			}
+			push @$pending_profiles, $profile if $profile->{'status'} ne 'rejected';
+		} else {
+			$assigned = $profile_status->{'matching_profiles'}->[0];
+		}
+		$assigned //= '';
+		if ( $options->{'curate'} && !$assigned ) {
+			say q(<td>);
+			say $q->popup_menu(
+				-name    => "status_$profile->{'profile_id'}",
+				-values  => [qw(pending rejected)],
+				-default => $profile->{'status'}
+			);
+			say q(</td>);
+			$all_assigned_or_rejected = 0 if $profile->{'status'} ne 'rejected';
+			$all_assigned = 0;
+		} else {
+			say qq(<td>$profile->{'status'}</td>);
+		}
+		if ( $options->{'curate'} && $profile->{'status'} ne 'rejected' && $assigned eq '' ) {
+			say qq(<td><a href="$self->{'system'}->{'curate_script'}?db=$self->{'instance'}&amp;page=add&amp;)
+			  . qq(table=profiles&amp;scheme_id=$scheme_id&amp;submission_id=$submission_id&amp;profile_id=)
+			  . qq(profile->{'profile_id'}&amp;sender=$submission->{'submitter'}"><span class="fa fa-lg fa-edit">)
+			  . q(</span>Curate</a></td>);
+		} else {
+			say qq(<td>$assigned</td>);
+		}
+		say q(</tr>);
+		$td = $td == 1 ? 2 : 1;
+	}
+	say q(</table>);
+	return {
+		all_assigned_or_rejected => $all_assigned_or_rejected,
+		all_assigned             => $all_assigned,
+		pending_profiles         => $pending_profiles
 	};
 }
 
@@ -1217,7 +1333,7 @@ sub _print_sequence_table_fieldset {
 	return;
 }
 
-sub _clear_assigned_id {
+sub _clear_assigned_seq_id {
 	my ( $self, $submission_id, $seq_id ) = @_;
 	eval {
 		$self->{'db'}->do( 'UPDATE allele_submission_sequences SET assigned_id=NULL WHERE (submission_id,seq_id)=(?,?)',
@@ -1604,6 +1720,33 @@ sub _write_allele_FASTA {
 	foreach my $seq (@$seqs) {
 		say $fh ">$seq->{'seq_id'}";
 		say $fh $seq->{'sequence'};
+	}
+	close $fh;
+	return $filename;
+}
+
+sub _write_profile_csv {
+	my ( $self, $submission_id ) = @_;
+	my $profile_submission = $self->get_profile_submission($submission_id);
+	my $profiles           = $profile_submission->{'profiles'};
+	return if !@$profiles;
+	my $dir = $self->_get_submission_dir($submission_id);
+	$dir = $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/x ? $1 : undef;    #Untaint
+	make_path $dir;
+	my $filename  = 'profiles.txt';
+	my $scheme_id = $self->{'datastore'}->get_scheme_info( $profile_submission->{'scheme_id'} );
+	my $loci      = $self->{'datastore'}->get_scheme_loci( $profile_submission->{'scheme_id'} );
+	open( my $fh, '>', "$dir/$filename" ) || $logger->error("Can't open $dir/$filename for writing");
+	local $" = qq(\t);
+	say $fh qq(id\t@$loci);
+
+	foreach my $profile (@$profiles) {
+		print $fh $profile->{'profile_id'};
+		foreach my $locus (@$loci) {
+			$profile->{'designations'}->{$locus} //= q();
+			print $fh qq(\t$profile->{'designations'}->{$locus});
+		}
+		print $fh qq(\n);
 	}
 	close $fh;
 	return $filename;
