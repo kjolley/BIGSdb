@@ -2260,8 +2260,7 @@ sub get_profile_submission {
 		$submission_id, { fetch => 'row_hashref', cache => 'get_profile_submission' } );
 	return if !$submission;
 	my $profiles = $self->run_query(
-		'SELECT profile_id,status,assigned_id FROM profile_submission_profiles '
-		  . 'WHERE submission_id=? ORDER BY index',
+		'SELECT * FROM profile_submission_profiles WHERE submission_id=? ORDER BY index',
 		$submission_id,
 		{ fetch => 'all_arrayref', slice => {}, cache => 'get_profile_submission::profiles' }
 	);

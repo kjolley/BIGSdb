@@ -732,14 +732,44 @@ sub _print_profile_table_fieldset {
 	my $scheme_id   = $profile_submission->{'scheme_id'};
 	my $set_id      = $self->get_set_id;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
+
+	if ( $q->param('curate') && $q->param('update') ) {
+		$self->_update_profile_submission_profile_status( $submission_id, $profiles );
+		$profile_submission = $self->{'datastore'}->get_profile_submission($submission_id);
+		$profiles           = $profile_submission->{'profiles'};
+	}
 	say q(<fieldset style="float:left"><legend>Profiles</legend>);
 	my $csv_icon = $self->get_file_icon('CSV');
 	my $plural = @$profiles == 1 ? '' : 's';
 	say qq(<p>You are submitting the following $scheme_info->{'description'} profile$plural: )
 	  . qq(<a href="/submissions/$submission_id/profiles.txt">Download$csv_icon</a></p>)
 	  if ( $options->{'download_link'} );
-	$self->_print_profile_table( $submission_id, $options );
+	say $q->start_form;
+	my $status = $self->_print_profile_table( $submission_id, $options );
+	$self->_print_update_button if $options->{'curate'} && !$status->{'all_assigned'};
+	say $q->hidden($_) foreach qw(db page submission_id curate);
+	say $q->end_form;
+	local $" = ',';
+	my $pending_profiles_string = "@{$status->{'pending_profiles'}}";
+
+	if ( $options->{'curate'} && !$status->{'all_assigned_or_rejected'} ) {
+		say $q->start_form( -action => $self->{'system'}->{'curate_script'} );
+		say $q->submit(
+			-name  => 'Batch curate',
+			-class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all'
+		);
+		my $page = $q->param('page');
+		$q->param( page            => 'profileBatchAdd' );
+		$q->param( scheme_id       => $scheme_id );
+		$q->param( profile_indexes => $pending_profiles_string );
+		say $q->hidden($_) foreach qw( db page submission_id scheme_id profile_indexes  );
+		say $q->end_form;
+
+		#Restore value
+		$q->param( page => $page );
+	}
 	say q(</fieldset>);
+	$self->{'all_assigned_or_rejected'} = $status->{'all_assigned_or_rejected'};
 	return;
 }
 
@@ -1102,11 +1132,31 @@ sub _update_allele_submission_sequence_status {
 	my ( $self, $submission_id, $seqs ) = @_;
 	my $q = $self->{'cgi'};
 	foreach my $seq (@$seqs) {
-		my $status = $q->param("status_$seq->{'seq_id'}");
+		my $status = $q->param("status_$seq->{'index'}");
 		next if !defined $status;
 		eval {
 			$self->{'db'}->do( 'UPDATE allele_submission_sequences SET status=? WHERE (submission_id,seq_id)=(?,?)',
 				undef, $status, $submission_id, $seq->{'seq_id'} );
+		};
+		if ($@) {
+			$logger->error($@);
+			$self->{'db'}->rollback;
+		} else {
+			$self->{'db'}->commit;
+		}
+	}
+	return;
+}
+
+sub _update_profile_submission_profile_status {
+	my ( $self, $submission_id, $profiles ) = @_;
+	my $q = $self->{'cgi'};
+	foreach my $profile (@$profiles) {
+		my $status = $q->param("status_$profile->{'index'}");
+		next if !defined $status;
+		eval {
+			$self->{'db'}->do( 'UPDATE profile_submission_profiles SET status=? WHERE (submission_id,index)=(?,?)',
+				undef, $status, $submission_id, $profile->{'index'} );
 		};
 		if ($@) {
 			$logger->error($@);
@@ -1166,7 +1216,7 @@ sub _print_sequence_table {
 		if ( $options->{'curate'} && !$assigned ) {
 			say q(<td>);
 			say $q->popup_menu(
-				-name    => "status_$seq->{'seq_id'}",
+				-name    => "status_$seq->{'index'}",
 				-values  => [qw(pending rejected)],
 				-default => $seq->{'status'}
 			);
@@ -1224,8 +1274,6 @@ sub _print_profile_table {
 		}
 		my $scheme = $self->{'datastore'}->get_scheme($scheme_id);
 		my $profile_status = $self->{'datastore'}->check_new_profile( $scheme_id, $profile->{'designations'} );
-		use Data::Dumper;
-		$logger->error( Dumper $profile);
 		my $assigned;
 		if ( !$profile_status->{'exists'} ) {
 			if ( defined $profile->{'assigned_id'} ) {
@@ -1236,12 +1284,12 @@ sub _print_profile_table {
 				$self->_set_profile_status( $submission_id, $profile->{'profile_id'}, 'pending', undef );
 				$profile->{'status'} = 'pending';
 			}
-			push @$pending_profiles, $profile if $profile->{'status'} ne 'rejected';
+			push @$pending_profiles, $profile->{'index'} if $profile->{'status'} ne 'rejected';
 		} else {
 			$assigned = $profile_status->{'assigned'}->[0];
 			if ( $profile->{'status'} ne 'assigned' || ( $profile->{'assigned_id'} // '' ) ne $assigned ) {
 				$self->_set_profile_status( $submission_id, $profile->{'profile_id'}, 'assigned', $assigned );
-				$profile->{'status'} = 'assigned';
+				$profile->{'status'}      = 'assigned';
 				$profile->{'assigned_id'} = $assigned;
 			}
 		}
@@ -1249,7 +1297,7 @@ sub _print_profile_table {
 		if ( $options->{'curate'} && !$assigned ) {
 			say q(<td>);
 			say $q->popup_menu(
-				-name    => "status_$profile->{'profile_id'}",
+				-name    => "status_$profile->{'index'}",
 				-values  => [qw(pending rejected)],
 				-default => $profile->{'status'}
 			);
@@ -1304,18 +1352,10 @@ sub _print_sequence_table_fieldset {
 	  if ( $options->{'download_link'} );
 	say $q->start_form;
 	my $status = $self->_print_sequence_table( $submission_id, $options );
-
-	if ( $options->{'curate'} && !$status->{'all_assigned'} ) {
-		say q(<div style="float:right">);
-		say $q->submit(
-			-name  => 'update',
-			-label => 'Update',
-			-class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all'
-		);
-		say q(</div>);
-	}
+	$self->_print_update_button if $options->{'curate'} && !$status->{'all_assigned'};
 	say $q->hidden($_) foreach qw(db page submission_id curate);
 	say $q->end_form;
+
 	if ( $options->{'curate'} && !$status->{'all_assigned_or_rejected'} ) {
 		say $q->start_form( -action => $self->{'system'}->{'curate_script'} );
 		say $q->submit(
@@ -1334,6 +1374,19 @@ sub _print_sequence_table_fieldset {
 	}
 	say q(</fieldset>);
 	$self->{'all_assigned_or_rejected'} = $status->{'all_assigned_or_rejected'};
+	return;
+}
+
+sub _print_update_button {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say q(<div style="float:right">);
+	say $q->submit(
+		-name  => 'update',
+		-label => 'Update',
+		-class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all'
+	);
+	say q(</div>);
 	return;
 }
 
@@ -1356,7 +1409,8 @@ sub _clear_assigned_seq_id {
 sub _clear_assigned_profile_id {
 	my ( $self, $submission_id, $profile_id ) = @_;
 	eval {
-		$self->{'db'}->do( 'UPDATE profile_submission_profiles SET assigned_id=NULL WHERE (submission_id,profile_id)=(?,?)',
+		$self->{'db'}
+		  ->do( 'UPDATE profile_submission_profiles SET assigned_id=NULL WHERE (submission_id,profile_id)=(?,?)',
 			undef, $submission_id, $profile_id );
 	};
 	if ($@) {
