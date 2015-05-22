@@ -1215,7 +1215,7 @@ sub _print_profile_table {
 		print qq(<th>$clean_locus</th>);
 	}
 	say qq(<th>Status</th><th>Assigned $scheme_info->{'primary_key'}</th></tr>);
-	my $td            = 1;
+	my $td    = 1;
 	my $index = 1;
 	foreach my $profile ( @{ $profile_submission->{'profiles'} } ) {
 		say qq(<tr class="td$td"><td>$profile->{'profile_id'}</td>);
@@ -1224,17 +1224,26 @@ sub _print_profile_table {
 		}
 		my $scheme = $self->{'datastore'}->get_scheme($scheme_id);
 		my $profile_status = $self->{'datastore'}->check_new_profile( $scheme_id, $profile->{'designations'} );
+		use Data::Dumper;
+		$logger->error( Dumper $profile);
 		my $assigned;
 		if ( !$profile_status->{'exists'} ) {
 			if ( defined $profile->{'assigned_id'} ) {
 				$self->_clear_assigned_profile_id( $submission_id, $profile->{'profile_id'} );
+				$profile->{'assigned_id'} = undef;
 			}
 			if ( $profile->{'status'} eq 'assigned' ) {
-				$self->_set_profile_status( $submission_id, $profile->{'profile_id'}, 'pending' );
+				$self->_set_profile_status( $submission_id, $profile->{'profile_id'}, 'pending', undef );
+				$profile->{'status'} = 'pending';
 			}
 			push @$pending_profiles, $profile if $profile->{'status'} ne 'rejected';
 		} else {
-			$assigned = $profile_status->{'matching_profiles'}->[0];
+			$assigned = $profile_status->{'assigned'}->[0];
+			if ( $profile->{'status'} ne 'assigned' || ( $profile->{'assigned_id'} // '' ) ne $assigned ) {
+				$self->_set_profile_status( $submission_id, $profile->{'profile_id'}, 'assigned', $assigned );
+				$profile->{'status'} = 'assigned';
+				$profile->{'assigned_id'} = $assigned;
+			}
 		}
 		$assigned //= '';
 		if ( $options->{'curate'} && !$assigned ) {
@@ -1344,11 +1353,45 @@ sub _clear_assigned_seq_id {
 	return;
 }
 
+sub _clear_assigned_profile_id {
+	my ( $self, $submission_id, $profile_id ) = @_;
+	eval {
+		$self->{'db'}->do( 'UPDATE profile_submission_profiles SET assigned_id=NULL WHERE (submission_id,profile_id)=(?,?)',
+			undef, $submission_id, $profile_id );
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+		$self->_update_submission_datestamp($submission_id);
+	}
+	return;
+}
+
 sub _set_allele_status {
 	my ( $self, $submission_id, $seq_id, $status ) = @_;
 	eval {
 		$self->{'db'}->do( 'UPDATE allele_submission_sequences SET status=? WHERE (submission_id,seq_id)=(?,?)',
 			undef, $status, $submission_id, $seq_id );
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+		$self->_update_submission_datestamp($submission_id);
+	}
+	return;
+}
+
+sub _set_profile_status {
+	my ( $self, $submission_id, $profile_id, $status, $assigned_id ) = @_;
+	eval {
+		$self->{'db'}->do(
+			'UPDATE profile_submission_profiles SET (status,assigned_id)=(?,?) WHERE (submission_id,profile_id)=(?,?)',
+			undef, $status, $assigned_id, $submission_id, $profile_id
+		);
 	};
 	if ($@) {
 		$logger->error($@);
