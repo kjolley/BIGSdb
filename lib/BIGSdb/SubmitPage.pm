@@ -241,14 +241,14 @@ sub _print_started_submissions {
 			say qq(<dt>Datestamp</dt><dd>$submission->{'datestamp'}</dd>);
 			say qq(<dt>Type</dt><dd>$submission->{'type'}</dd>);
 			if ( $submission->{'type'} eq 'alleles' ) {
-				my $allele_submission = $self->get_allele_submission( $submission->{'id'} );
+				my $allele_submission = $self->{'datastore'}->get_allele_submission( $submission->{'id'} );
 				if ($allele_submission) {
 					say qq(<dt>Locus</dt><dd>$allele_submission->{'locus'}</dd>);
 					my $seq_count = @{ $allele_submission->{'seqs'} };
 					say qq(<dt>Sequences</dt><dd>$seq_count</dd>);
 				}
 			} elsif ( $submission->{'type'} eq 'profiles' ) {
-				my $profile_submission = $self->get_profile_submission( $submission->{'id'} );
+				my $profile_submission = $self->{'datastore'}->get_profile_submission( $submission->{'id'} );
 				if ($profile_submission) {
 					my $scheme_id   = $profile_submission->{'scheme_id'};
 					my $set_id      = $self->get_set_id;
@@ -256,9 +256,6 @@ sub _print_started_submissions {
 					say qq(<dt>Scheme</dt><dd>$scheme_info->{'description'}</dd>);
 					my $profile_count = @{ $profile_submission->{'profiles'} };
 					say qq(<dt>Profiles</dt><dd>$profile_count</dd>);
-
-					#					use Data::Dumper;
-					#					$logger->error( Dumper $profile_submission);
 				}
 			}
 			say qq(<dt>Action</dt><dd><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
@@ -295,7 +292,7 @@ sub _get_own_submissions {
 			my $details = '';
 			my ( $all_assigned, $all_rejected ) = ( 1, 1 );
 			if ( $submission->{'type'} eq 'alleles' ) {
-				my $allele_submission = $self->get_allele_submission( $submission->{'id'} );
+				my $allele_submission = $self->{'datastore'}->get_allele_submission( $submission->{'id'} );
 				my $allele_count      = @{ $allele_submission->{'seqs'} };
 				my $plural            = $allele_count == 1 ? '' : 's';
 				my $clean_locus       = $self->clean_locus( $allele_submission->{'locus'} );
@@ -305,7 +302,7 @@ sub _get_own_submissions {
 					$all_rejected = 0 if $seq->{'status'} ne 'rejected';
 				}
 			} elsif ( $submission->{'type'} eq 'profiles' ) {
-				my $profile_submission = $self->get_profile_submission( $submission->{'id'} );
+				my $profile_submission = $self->{'datastore'}->get_profile_submission( $submission->{'id'} );
 				my $profile_count      = @{ $profile_submission->{'profiles'} };
 				my $plural             = $profile_count == 1 ? '' : 's';
 				my $scheme_info =
@@ -360,6 +357,7 @@ sub print_submissions_for_curation {
 	my $buffer;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		$buffer .= $self->_get_allele_submissions_for_curation;
+		$buffer .= $self->_get_profile_submissions_for_curation;
 	}
 	return $buffer if $options->{'get_only'};
 	say $buffer if $buffer;
@@ -374,7 +372,7 @@ sub _get_allele_submissions_for_curation {
 	my $td = 1;
 	foreach my $submission (@$submissions) {
 		next if $submission->{'type'} ne 'alleles';
-		my $allele_submission = $self->get_allele_submission( $submission->{'id'} );
+		my $allele_submission = $self->{'datastore'}->get_allele_submission( $submission->{'id'} );
 		next
 		  if !($self->is_admin
 			|| $self->{'datastore'}
@@ -396,6 +394,44 @@ sub _get_allele_submissions_for_curation {
 		$return_buffer .= qq(<p>Your account is authorized to handle the following submissions:<p>\n);
 		$return_buffer .= q(<table class="resultstable"><tr><th>Submission id</th><th>Submitted</th><th>Updated</th>)
 		  . qq(<th>Submitter</th><th>Locus</th><th>Sequences</th></tr>\n);
+		$return_buffer .= $buffer;
+		$return_buffer .= qq(</table>\n);
+	}
+	return $return_buffer;
+}
+
+sub _get_profile_submissions_for_curation {
+	my ($self) = @_;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $submissions = $self->_get_submissions_by_status( 'pending', { get_all => 1 } );
+	my $buffer;
+	my $td     = 1;
+	my $set_id = $self->get_set_id;
+	foreach my $submission (@$submissions) {
+		next if $submission->{'type'} ne 'profiles';
+		my $profile_submission = $self->{'datastore'}->get_profile_submission( $submission->{'id'} );
+		next
+		  if !($self->is_admin
+			|| $self->{'datastore'}->is_scheme_curator( $profile_submission->{'scheme_id'}, $user_info->{'id'} ) );
+		my $submitter_string = $self->{'datastore'}->get_user_string( $submission->{'submitter'}, { email => 1 } );
+		my $scheme_info =
+		  $self->{'datastore'}->get_scheme_info( $profile_submission->{'scheme_id'}, { set_id => $set_id } );
+		my $row =
+		    qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;curate=1">$submission->{'id'}</a></td>)
+		  . qq(<td>$submission->{'date_submitted'}</td><td>$submission->{'datestamp'}</td><td>$submitter_string</td>)
+		  . qq(<td>$scheme_info->{'description'}</td>);
+		my $seq_count = @{ $profile_submission->{'profiles'} };
+		$row .= qq(<td>$seq_count</td></tr>\n);
+		$td = $td == 1 ? 2 : 1;
+		$buffer .= $row;
+	}
+	my $return_buffer = '';
+	if ($buffer) {
+		$return_buffer .= qq(<h2>New allelic profile submissions waiting for curation</h2>\n);
+		$return_buffer .= qq(<p>Your account is authorized to handle the following submissions:<p>\n);
+		$return_buffer .= q(<table class="resultstable"><tr><th>Submission id</th><th>Submitted</th><th>Updated</th>)
+		  . qq(<th>Submitter</th><th>Scheme</th><th>Profiles</th></tr>\n);
 		$return_buffer .= $buffer;
 		$return_buffer .= qq(</table>\n);
 	}
@@ -466,7 +502,7 @@ sub _delete_selected_submission_files {
 sub _finalize_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
 	my ( $self, $submission_id ) = @_;
 	my $q          = $self->{'cgi'};
-	my $submission = $self->_get_submission($submission_id);
+	my $submission = $self->{'datastore'}->get_submission($submission_id);
 	return if !$submission;
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	eval {
@@ -504,7 +540,7 @@ sub _submit_alleles {
 	$q->param( submission_id => $submission_id );
 	my $ret;
 	if ($submission_id) {
-		my $allele_submission = $self->get_allele_submission($submission_id);
+		my $allele_submission = $self->{'datastore'}->get_allele_submission($submission_id);
 		my $fasta_string;
 		foreach my $seq ( @{ $allele_submission->{'seqs'} } ) {
 			$fasta_string .= ">$seq->{'seq_id'}\n";
@@ -636,7 +672,7 @@ sub _print_sequence_details_fieldset {
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left"><legend>Sequence details</legend>);
 	say q(<ul><li><label for="technology" class="parameter">technology:!</label>);
-	my $allele_submission = $submission_id ? $self->get_allele_submission($submission_id) : undef;
+	my $allele_submission = $submission_id ? $self->{'datastore'}->get_allele_submission($submission_id) : undef;
 	my $att_labels = { '' => ' ' };    #Required for HTML5 validation
 	say $q->popup_menu(
 		-name     => 'technology',
@@ -687,10 +723,10 @@ sub _print_profile_table_fieldset {
 	my ( $self, $submission_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $q          = $self->{'cgi'};
-	my $submission = $self->_get_submission($submission_id);
+	my $submission = $self->{'datastore'}->get_submission($submission_id);
 	return if !$submission;
 	return if $submission->{'type'} ne 'profiles';
-	my $profile_submission = $self->get_profile_submission($submission_id);
+	my $profile_submission = $self->{'datastore'}->get_profile_submission($submission_id);
 	return if !$profile_submission;
 	my $profiles    = $profile_submission->{'profiles'};
 	my $scheme_id   = $profile_submission->{'scheme_id'};
@@ -850,53 +886,6 @@ sub _get_started_submission_id {
 	);
 }
 
-sub _get_submission {
-	my ( $self, $submission_id ) = @_;
-	$logger->logcarp('No submission_id passed') if !$submission_id;
-	return $self->{'datastore'}->run_query( 'SELECT * FROM submissions WHERE id=?',
-		$submission_id, { fetch => 'row_hashref', cache => 'SubmitPage::get_submission' } );
-}
-
-sub get_allele_submission {
-	my ( $self, $submission_id ) = @_;
-	$logger->logcarp('No submission_id passed') if !$submission_id;
-	my $submission = $self->{'datastore'}->run_query( 'SELECT * FROM allele_submissions WHERE submission_id=?',
-		$submission_id, { fetch => 'row_hashref', cache => 'SubmitPage::get_allele_submission' } );
-	return if !$submission;
-	my $seq_data =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT * FROM allele_submission_sequences WHERE submission_id=? ORDER BY seq_id',
-		$submission_id,
-		{ fetch => 'all_arrayref', slice => {}, cache => 'SubmitPage::get_allele_submission::sequences' } );
-	$submission->{'seqs'} = $seq_data;
-	return $submission;
-}
-
-sub get_profile_submission {
-	my ( $self, $submission_id ) = @_;
-	$logger->logcarp('No submission_id passed') if !$submission_id;
-	my $submission = $self->{'datastore'}->run_query( 'SELECT * FROM profile_submissions WHERE submission_id=?',
-		$submission_id, { fetch => 'row_hashref', cache => 'SubmitPage::get_profile_submission' } );
-	return if !$submission;
-	my $profiles =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT profile_id,status,assigned_id FROM profile_submission_profiles WHERE submission_id=?',
-		$submission_id,
-		{ fetch => 'all_arrayref', slice => {}, cache => 'SubmitPage::get_profile_submission::profiles' } );
-	$submission->{'profiles'} = [];
-	foreach my $profile (@$profiles) {
-		my $designations = $self->{'datastore'}->run_query(
-			'SELECT locus,allele_id FROM '
-			  . 'profile_submission_designations WHERE (submission_id,profile_id)=(?,?) ORDER BY locus',
-			[ $submission_id, $profile->{'profile_id'} ],
-			{ fetch => 'all_arrayref', slice => {}, cache => 'SubmitPage::get_profile_submission::designations' }
-		);
-		$profile->{'designations'}->{ $_->{'locus'} } = $_->{'allele_id'} foreach @$designations;
-		push @{ $submission->{'profiles'} }, $profile;
-	}
-	return $submission;
-}
-
 sub _start_allele_submission {
 	my ( $self, $submission_id, $locus, $seqs ) = @_;
 	my $q = $self->{'cgi'};
@@ -920,16 +909,18 @@ sub _start_allele_submission {
 		return;
 	}
 	if (@$seqs) {
+		my $index = 1;
 		my $insert_sql =
-		  $self->{'db'}
-		  ->prepare('INSERT INTO allele_submission_sequences (submission_id,seq_id,sequence,status) VALUES (?,?,?,?)');
+		  $self->{'db'}->prepare(
+			'INSERT INTO allele_submission_sequences (submission_id,index,seq_id,sequence,status) VALUES (?,?,?,?,?)');
 		foreach my $seq (@$seqs) {
-			eval { $insert_sql->execute( $submission_id, $seq->{'seq_id'}, $seq->{'sequence'}, 'pending' ) };
+			eval { $insert_sql->execute( $submission_id, $index, $seq->{'seq_id'}, $seq->{'sequence'}, 'pending' ) };
 			if ($@) {
 				$logger->error($@);
 				$self->{'db'}->rollback;
 				return;
 			}
+			$index++;
 		}
 		$self->_write_allele_FASTA($submission_id);
 	}
@@ -951,11 +942,13 @@ sub _start_profile_submission {
 	}
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	if (@$profiles) {
+		my $index = 1;
 		foreach my $profile (@$profiles) {
 			eval {
-				$self->{'db'}
-				  ->do( 'INSERT INTO profile_submission_profiles (submission_id,profile_id,status) VALUES (?,?,?)',
-					undef, $submission_id, $profile->{'id'}, 'pending' );
+				$self->{'db'}->do(
+					'INSERT INTO profile_submission_profiles (index,submission_id,profile_id,status) VALUES (?,?,?,?)',
+					undef, $index, $submission_id, $profile->{'id'}, 'pending'
+				);
 				foreach my $locus (@$loci) {
 					$self->{'db'}->do(
 						'INSERT INTO profile_submission_designations (submission_id,profile_id,locus,'
@@ -969,6 +962,7 @@ sub _start_profile_submission {
 				$self->{'db'}->rollback;
 				return;
 			}
+			$index++;
 		}
 		$self->_write_profile_csv($submission_id);
 	}
@@ -1033,7 +1027,7 @@ sub _presubmit_alleles {
 	my $q = $self->{'cgi'};
 	my $locus;
 	if ($submission_id) {
-		my $allele_submission = $self->get_allele_submission($submission_id);
+		my $allele_submission = $self->{'datastore'}->get_allele_submission($submission_id);
 		$locus = $allele_submission->{'locus'} // '';
 		$seqs  = $allele_submission->{'seqs'}  // [];
 	} else {
@@ -1073,7 +1067,7 @@ sub _presubmit_profiles {
 	my $scheme_id;
 	my $q = $self->{'cgi'};
 	if ($submission_id) {
-		my $profile_submission = $self->get_profile_submission($submission_id);
+		my $profile_submission = $self->{'datastore'}->get_profile_submission($submission_id);
 		$profiles = $profile_submission->{'profiles'} // [];
 	} else {
 		$scheme_id     = $q->param('scheme_id');
@@ -1128,8 +1122,8 @@ sub _print_sequence_table {
 	my ( $self, $submission_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $q                 = $self->{'cgi'};
-	my $submission        = $self->_get_submission($submission_id);
-	my $allele_submission = $self->get_allele_submission($submission_id);
+	my $submission        = $self->{'datastore'}->get_submission($submission_id);
+	my $allele_submission = $self->{'datastore'}->get_allele_submission($submission_id);
 	my $seqs              = $allele_submission->{'seqs'};
 	my $locus             = $allele_submission->{'locus'};
 	my $locus_info        = $self->{'datastore'}->get_locus_info($locus);
@@ -1184,7 +1178,7 @@ sub _print_sequence_table {
 		}
 		if ( $options->{'curate'} && $seq->{'status'} ne 'rejected' && $assigned eq '' ) {
 			say qq(<td><a href="$self->{'system'}->{'curate_script'}?db=$self->{'instance'}&amp;page=add&amp;)
-			  . qq(table=sequences&amp;locus=$locus&amp;submission_id=$submission_id&amp;seq_id=$seq->{'seq_id'}&amp;)
+			  . qq(table=sequences&amp;locus=$locus&amp;submission_id=$submission_id&amp;index=$seq->{'index'}&amp;)
 			  . qq(sender=$submission->{'submitter'}"><span class="fa fa-lg fa-edit"></span>Curate</a></td>);
 		} else {
 			say qq(<td>$assigned</td>);
@@ -1204,8 +1198,8 @@ sub _print_profile_table {
 	my ( $self, $submission_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $q                        = $self->{'cgi'};
-	my $submission               = $self->_get_submission($submission_id);
-	my $profile_submission       = $self->get_profile_submission($submission_id);
+	my $submission               = $self->{'datastore'}->get_submission($submission_id);
+	my $profile_submission       = $self->{'datastore'}->get_profile_submission($submission_id);
 	my $profiles                 = $profile_submission->{'profiles'};
 	my $scheme_id                = $profile_submission->{'scheme_id'};
 	my $scheme_info              = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
@@ -1221,7 +1215,8 @@ sub _print_profile_table {
 		print qq(<th>$clean_locus</th>);
 	}
 	say qq(<th>Status</th><th>Assigned $scheme_info->{'primary_key'}</th></tr>);
-	my $td = 1;
+	my $td            = 1;
+	my $index = 1;
 	foreach my $profile ( @{ $profile_submission->{'profiles'} } ) {
 		say qq(<tr class="td$td"><td>$profile->{'profile_id'}</td>);
 		foreach my $locus (@$loci) {
@@ -1256,15 +1251,15 @@ sub _print_profile_table {
 			say qq(<td>$profile->{'status'}</td>);
 		}
 		if ( $options->{'curate'} && $profile->{'status'} ne 'rejected' && $assigned eq '' ) {
-			say qq(<td><a href="$self->{'system'}->{'curate_script'}?db=$self->{'instance'}&amp;page=add&amp;)
-			  . qq(table=profiles&amp;scheme_id=$scheme_id&amp;submission_id=$submission_id&amp;profile_id=)
-			  . qq(profile->{'profile_id'}&amp;sender=$submission->{'submitter'}"><span class="fa fa-lg fa-edit">)
-			  . q(</span>Curate</a></td>);
+			say qq(<td><a href="$self->{'system'}->{'curate_script'}?db=$self->{'instance'}&amp;page=profileAdd&amp;)
+			  . qq(scheme_id=$scheme_id&amp;submission_id=$submission_id&amp;index=$index">)
+			  . q(<span class="fa fa-lg fa-edit"></span>Curate</a></td>);
 		} else {
 			say qq(<td>$assigned</td>);
 		}
 		say q(</tr>);
 		$td = $td == 1 ? 2 : 1;
+		$index++;
 	}
 	say q(</table>);
 	return {
@@ -1278,16 +1273,16 @@ sub _print_sequence_table_fieldset {
 	my ( $self, $submission_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $q          = $self->{'cgi'};
-	my $submission = $self->_get_submission($submission_id);
+	my $submission = $self->{'datastore'}->get_submission($submission_id);
 	return if !$submission;
 	return if $submission->{'type'} ne 'alleles';
-	my $allele_submission = $self->get_allele_submission($submission_id);
+	my $allele_submission = $self->{'datastore'}->get_allele_submission($submission_id);
 	return if !$allele_submission;
 	my $seqs = $allele_submission->{'seqs'};
 
 	if ( $q->param('curate') && $q->param('update') ) {
 		$self->_update_allele_submission_sequence_status( $submission_id, $seqs );
-		$allele_submission = $self->get_allele_submission($submission_id);
+		$allele_submission = $self->{'datastore'}->get_allele_submission($submission_id);
 		$seqs              = $allele_submission->{'seqs'};
 	}
 	my $locus      = $allele_submission->{'locus'};
@@ -1568,7 +1563,7 @@ sub _print_file_fieldset {
 
 sub _print_summary {
 	my ( $self, $submission_id ) = @_;
-	my $submission = $self->_get_submission($submission_id);
+	my $submission = $self->{'datastore'}->get_submission($submission_id);
 	say q(<fieldset style="float:left"><legend>Summary</legend>);
 	say qq(<dl class="data"><dt>type</dt><dd>$submission->{'type'}</dd>);
 	my $user_string =
@@ -1578,7 +1573,7 @@ sub _print_summary {
 	say qq(<dt>status</dt><dd>$submission->{'status'}</dd>);
 
 	if ( $submission->{'type'} eq 'alleles' ) {
-		my $allele_submission = $self->get_allele_submission($submission_id);
+		my $allele_submission = $self->{'datastore'}->get_allele_submission($submission_id);
 		say qq(<dt>locus</dt><dd>$allele_submission->{'locus'}</dd>);
 		my $allele_count   = @{ $allele_submission->{'seqs'} };
 		my $fasta_icon     = $self->get_file_icon('FAS');
@@ -1608,7 +1603,7 @@ sub _is_submission_valid {
 		say q(<div class="box" id="statusbad"><p>No submission id passed.</p></div>) if !$options->{'no_message'};
 		return;
 	}
-	my $submission = $self->_get_submission($submission_id);
+	my $submission = $self->{'datastore'}->get_submission($submission_id);
 	if ( !$submission ) {
 		say qq(<div class="box" id="statusbad"><p>Submission '$submission_id' does not exist.</p></div>)
 		  if !$options->{'no_message'};
@@ -1623,7 +1618,7 @@ sub _is_submission_valid {
 			return;
 		}
 		if ( $submission->{'type'} eq 'alleles' ) {
-			my $allele_submission = $self->get_allele_submission( $submission->{'id'} );
+			my $allele_submission = $self->{'datastore'}->get_allele_submission( $submission->{'id'} );
 			my $curator_allowed =
 			  $self->{'datastore'}
 			  ->is_allowed_to_modify_locus_sequences( $allele_submission->{'locus'}, $user_info->{'id'} );
@@ -1649,6 +1644,7 @@ sub _curate_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Ca
 	say qq(<h2>Submission: $submission_id</h2>);
 	$self->_print_summary($submission_id);
 	$self->_print_sequence_table_fieldset( $submission_id, { curate => 1 } );
+	$self->_print_profile_table_fieldset( $submission_id, { curate => 1 } );
 	$self->_print_file_fieldset($submission_id);
 	$self->_print_message_fieldset($submission_id);
 	$self->_print_archive_fieldset($submission_id);
@@ -1661,11 +1657,12 @@ sub _view_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Call
 	my ( $self, $submission_id ) = @_;
 	say q(<h1>Submission summary</h1>);
 	return if !$self->_is_submission_valid($submission_id);
-	my $submission = $self->_get_submission($submission_id);
+	my $submission = $self->{'datastore'}->get_submission($submission_id);
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	say qq(<h2>Submission: $submission_id</h2>);
 	$self->_print_summary($submission_id);
 	$self->_print_sequence_table_fieldset($submission_id);
+	$self->_print_profile_table_fieldset($submission_id);
 	$self->_print_file_fieldset($submission_id);
 	$self->_print_message_fieldset( $submission_id, { no_add => $submission->{'status'} eq 'closed' ? 1 : 0 } );
 	$self->_print_archive_fieldset($submission_id);
@@ -1708,7 +1705,7 @@ sub _get_fasta_string {
 
 sub _write_allele_FASTA {
 	my ( $self, $submission_id ) = @_;
-	my $allele_submission = $self->get_allele_submission($submission_id);
+	my $allele_submission = $self->{'datastore'}->get_allele_submission($submission_id);
 	my $seqs              = $allele_submission->{'seqs'};
 	return if !@$seqs;
 	my $dir = $self->_get_submission_dir($submission_id);
@@ -1727,7 +1724,7 @@ sub _write_allele_FASTA {
 
 sub _write_profile_csv {
 	my ( $self, $submission_id ) = @_;
-	my $profile_submission = $self->get_profile_submission($submission_id);
+	my $profile_submission = $self->{'datastore'}->get_profile_submission($submission_id);
 	my $profiles           = $profile_submission->{'profiles'};
 	return if !@$profiles;
 	my $dir = $self->_get_submission_dir($submission_id);
@@ -1755,7 +1752,7 @@ sub _write_profile_csv {
 sub _tar_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
 	my ( $self, $submission_id ) = @_;
 	return if !defined $submission_id || $submission_id !~ /BIGSdb_\d+/x;
-	my $submission = $self->_get_submission($submission_id);
+	my $submission = $self->{'datastore'}->get_submission($submission_id);
 	return if !$submission;
 	my $submission_dir = $self->_get_submission_dir($submission_id);
 	$submission_dir =

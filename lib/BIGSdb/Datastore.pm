@@ -1437,6 +1437,15 @@ sub is_allowed_to_modify_locus_sequences {
 	);
 }
 
+sub is_scheme_curator {
+	my ( $self, $scheme_id, $curator_id ) = @_;
+	return $self->run_query(
+		'SELECT EXISTS(SELECT * FROM scheme_curators WHERE (scheme_id,curator_id)=(?,?))',
+		[ $scheme_id, $curator_id ],
+		{ cache => 'is_scheme_curator' }
+	);
+}
+
 sub get_next_allele_id {
 
 	#used for profile/sequence definitions databases
@@ -2223,5 +2232,50 @@ sub materialized_view_exists {
 	return 0 if ( ( $self->{'system'}->{'materialized_views'} // '' ) ne 'yes' );
 	return $self->run_query( "SELECT EXISTS(SELECT * FROM matviews WHERE mv_name=?)",
 		"mv_scheme_$scheme_id", { cache => 'materialized_view_exists' } );
+}
+
+sub get_submission {
+	my ( $self, $submission_id ) = @_;
+	$logger->logcarp('No submission_id passed') if !$submission_id;
+	return $self->run_query( 'SELECT * FROM submissions WHERE id=?',
+		$submission_id, { fetch => 'row_hashref', cache => 'get_submission' } );
+}
+
+sub get_allele_submission {
+	my ( $self, $submission_id ) = @_;
+	$logger->logcarp('No submission_id passed') if !$submission_id;
+	my $submission = $self->run_query( 'SELECT * FROM allele_submissions WHERE submission_id=?',
+		$submission_id, { fetch => 'row_hashref', cache => 'get_allele_submission' } );
+	return if !$submission;
+	my $seq_data = $self->run_query( 'SELECT * FROM allele_submission_sequences WHERE submission_id=? ORDER BY index',
+		$submission_id, { fetch => 'all_arrayref', slice => {}, cache => 'get_allele_submission::sequences' } );
+	$submission->{'seqs'} = $seq_data;
+	return $submission;
+}
+
+sub get_profile_submission {
+	my ( $self, $submission_id ) = @_;
+	$logger->logcarp('No submission_id passed') if !$submission_id;
+	my $submission = $self->run_query( 'SELECT * FROM profile_submissions WHERE submission_id=?',
+		$submission_id, { fetch => 'row_hashref', cache => 'get_profile_submission' } );
+	return if !$submission;
+	my $profiles = $self->run_query(
+		'SELECT profile_id,status,assigned_id FROM profile_submission_profiles '
+		  . 'WHERE submission_id=? ORDER BY index',
+		$submission_id,
+		{ fetch => 'all_arrayref', slice => {}, cache => 'get_profile_submission::profiles' }
+	);
+	$submission->{'profiles'} = [];
+	foreach my $profile (@$profiles) {
+		my $designations = $self->run_query(
+			'SELECT locus,allele_id FROM '
+			  . 'profile_submission_designations WHERE (submission_id,profile_id)=(?,?) ORDER BY locus',
+			[ $submission_id, $profile->{'profile_id'} ],
+			{ fetch => 'all_arrayref', slice => {}, cache => 'get_profile_submission::designations' }
+		);
+		$profile->{'designations'}->{ $_->{'locus'} } = $_->{'allele_id'} foreach @$designations;
+		push @{ $submission->{'profiles'} }, $profile;
+	}
+	return $submission;
 }
 1;

@@ -111,10 +111,10 @@ sub create_record_table {
 }
 
 sub _get_allele_submission_sequence {
-	my ( $self, $submission_id, $seq_id ) = @_;
+	my ( $self, $submission_id, $index ) = @_;
 	return if $self->{'system'}->{'dbtype'} ne 'sequences';
 	return $self->{'datastore'}
-	  ->run_query( 'SELECT sequence FROM allele_submission_sequences WHERE (submission_id,seq_id)=(?,?)', [ $submission_id, $seq_id ] );
+	  ->run_query( 'SELECT sequence FROM allele_submission_sequences WHERE (submission_id,index)=(?,?)', [ $submission_id, $index ] );
 }
 
 sub _get_form_fields {
@@ -125,10 +125,10 @@ sub _get_form_fields {
 	if (   $q->param('page') eq 'add'
 		&& $q->param('table') eq 'sequences'
 		&& $q->param('submission_id')
-		&& $q->param('seq_id')
+		&& $q->param('index')
 		&& !$q->param('sequence') )
 	{
-		$q->param( sequence => $self->_get_allele_submission_sequence( $q->param('submission_id'), $q->param('seq_id') ) );
+		$q->param( sequence => $self->_get_allele_submission_sequence( $q->param('submission_id'), $q->param('index') ) );
 	}
 	my @users;
 	my %usernames;

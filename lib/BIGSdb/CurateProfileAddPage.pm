@@ -63,11 +63,13 @@ sub print_content {
 	my $loci        = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $primary_key = $scheme_info->{'primary_key'};
 	if ( !$primary_key ) {
-		say qq(<div class="box" id="statusbad"><p>This scheme doesn't have a primary key field defined.  Profiles cannot be entered )
+		say
+qq(<div class="box" id="statusbad"><p>This scheme doesn't have a primary key field defined.  Profiles cannot be entered )
 		  . qq(until this has been done.</p></div>);
 		return;
 	} elsif ( !@$loci ) {
-		say qq(<div class="box" id="statusbad"><p>This scheme doesn't have any loci belonging to it.  Profiles can not be entered )
+		say
+qq(<div class="box" id="statusbad"><p>This scheme doesn't have any loci belonging to it.  Profiles can not be entered )
 		  . qq(until there is at least one locus defined.</p></div>);
 		return;
 	}
@@ -82,6 +84,9 @@ sub print_content {
 			$newdata{$primary_key} = $self->next_id( 'profiles', $scheme_id );
 		}
 	}
+	if ( $q->param('submission_id') ) {
+		$self->_set_submission_params( $q->param('submission_id') );
+	}
 	if ( $q->param('sent') ) {
 		return if $self->_upload( $scheme_id, $primary_key, \%newdata );
 	}
@@ -89,12 +94,32 @@ sub print_content {
 	return;
 }
 
+sub _set_submission_params {
+	my ( $self, $submission_id ) = @_;
+	my $submission = $self->{'datastore'}->get_submission($submission_id);
+	return if !$submission;
+	my $profile_submission = $self->{'datastore'}->get_profile_submission($submission_id);
+	return if !$profile_submission;
+	my $q = $self->{'cgi'};
+	$q->param( 'field:sender' => $submission->{'submitter'} );
+	return if !BIGSdb::Utils::is_int( $q->param('index') );
+	my $profile_index = 1;
+
+	foreach my $profile ( @{ $profile_submission->{'profiles'} } ) {
+		if ( $q->param('index') == $profile_index ) {
+			my $designations = $profile->{'designations'};
+			$q->param( "locus:$_" => $designations->{$_} ) foreach keys %$designations;
+			last;
+		}
+		$profile_index++;
+	}
+	return;
+}
+
 sub _clean_field {
 	my ( $self, $value_ref ) = @_;
-	$$value_ref =~ s/\\/\\\\/g;
-	$$value_ref =~ s/'/\\'/g;
-	$$value_ref =~ s/^\s*//;
-	$$value_ref =~ s/\s*$//;
+	$$value_ref =~ s/^\s*//x;
+	$$value_ref =~ s/\s*$//x;
 	return;
 }
 
@@ -114,12 +139,12 @@ sub _upload {
 			push @bad_field_buffer, $field_bad if $field_bad;
 		}
 	}
-	$newdata->{"field:curator"} = $self->get_curator_id;
-	$newdata->{"field:sender"}  = $q->param("field:sender");
-	if ( !$newdata->{"field:sender"} ) {
-		push @bad_field_buffer, "Field 'sender' requires a value.";
+	$newdata->{'field:curator'} = $self->get_curator_id;
+	$newdata->{'field:sender'}  = $q->param('field:sender');
+	if ( !$newdata->{'field:sender'} ) {
+		push @bad_field_buffer, q(Field 'sender' requires a value.);
 	} elsif ( !BIGSdb::Utils::is_int( $newdata->{'field:sender'} ) ) {
-		push @bad_field_buffer, "Field 'sender' is invalid.";
+		push @bad_field_buffer, q(Field 'sender' is invalid.);
 	}
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	foreach my $locus (@$loci) {
@@ -129,92 +154,126 @@ sub _upload {
 		push @bad_field_buffer, $field_bad if $field_bad;
 	}
 	my @extra_inserts;
-	my @new_pubmeds = split /\r?\n/, $q->param('pubmed');
+	my @new_pubmeds = split /\r?\n/x, $q->param('pubmed');
 	my $pubmed_error = 0;
 	foreach my $new (@new_pubmeds) {
 		chomp $new;
 		next if $new eq '';
 		if ( !BIGSdb::Utils::is_int($new) ) {
-			push @bad_field_buffer, "PubMed ids must be integers" if !$pubmed_error;
+			push @bad_field_buffer, 'PubMed ids must be integers' if !$pubmed_error;
 			$pubmed_error = 1;
 		} else {
 			my $profile_id = $newdata->{"field:$primary_key"};
-			$profile_id =~ s/'/\\'/g;
-			push @extra_inserts, "INSERT INTO profile_refs (scheme_id,profile_id,pubmed_id,curator,datestamp) VALUES "
-			  . "($scheme_id,E'$profile_id',$new,$newdata->{'field:curator'},'today')";
+			push @extra_inserts,
+			  {
+				statement => 'INSERT INTO profile_refs (scheme_id,profile_id,pubmed_id,curator,datestamp) VALUES '
+				  . '(?,?,?,?,?)',
+				arguments => [ $scheme_id, $profile_id, $new, $newdata->{'field:curator'}, 'now' ]
+			  };
 		}
 	}
 	if (@bad_field_buffer) {
-		say "<div class=\"box\" id=\"statusbad\"><p>There are problems with your record submission.  Please address the following:</p>";
+		say q(<div class="box" id="statusbad"><p>There are problems with your record submission.  Please address the )
+		  . q(following:</p>);
 		local $" = '<br />';
-		say "<p>@bad_field_buffer</p></div>";
+		say qq(<p>@bad_field_buffer</p></div>);
 		$insert = 0;
 	}
 
 	#Make sure profile not already entered
 	if ($insert) {
 		my ( $exists, $msg ) = $self->profile_exists( $scheme_id, $primary_key, $newdata );
-		say "<div class=\"box\" id=\"statusbad\"><p>$msg</p></div>" if $msg;
+		say qq(<div class="box" id="statusbad"><p>$msg</p></div>) if $msg;
 		$insert = 0 if $exists;
 	}
 	if ($insert) {
-		my $pk_exists = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM profiles WHERE scheme_id=? AND profile_id=?)",
+		my $pk_exists =
+		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM profiles WHERE (scheme_id,profile_id)=(?,?))',
 			[ $scheme_id, $newdata->{"field:$primary_key"} ] );
 		if ($pk_exists) {
-			say qq(<div class="box" id="statusbad"><p>$primary_key-$newdata->{"field:$primary_key"} has already been defined - )
-			  . qq(please choose a different $primary_key.</p></div>);
+			say qq(<div class="box" id="statusbad"><p>$primary_key-$newdata->{"field:$primary_key"} has already been )
+			  . qq(defined - please choose a different $primary_key.</p></div>);
 			$insert = 0;
 		}
-		my $sender_exists = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM users WHERE id=?)", $newdata->{'field:sender'} );
+		my $sender_exists =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE id=?)', $newdata->{'field:sender'} );
 		if ( !$sender_exists ) {
-			say qq(<div class="box" id="statusbad"><p>Invalid sender set.</p></div>);
+			say q(<div class="box" id="statusbad"><p>Invalid sender set.</p></div>);
 			$insert = 0;
 		}
-		( my $cleaned_profile_id = $newdata->{"field:$primary_key"} ) =~ s/'/\\'/g;
 		if ($insert) {
 			my @inserts;
-			my $qry;
-			$qry = "INSERT INTO profiles (scheme_id,profile_id,sender,curator,date_entered,datestamp) VALUES "
-			  . "($scheme_id,E'$cleaned_profile_id',$newdata->{'field:sender'},$newdata->{'field:curator'},'today','today')";
-			push @inserts, $qry;
+			push @inserts,
+			  {
+				statement => 'INSERT INTO profiles (scheme_id,profile_id,sender,curator,date_entered,datestamp) '
+				  . 'VALUES (?,?,?,?,?,?)',
+				arguments => [
+					$scheme_id,                 $newdata->{"field:$primary_key"},
+					$newdata->{'field:sender'}, $newdata->{'field:curator'},
+					'now',                      'now'
+				]
+			  };
 			foreach my $locus (@$loci) {
-				( my $cleaned = $locus ) =~ s/'/\\'/g;
-				$qry =
-				    "INSERT INTO profile_members (scheme_id,locus,profile_id,allele_id,curator,datestamp) VALUES "
-				  . "($scheme_id,E'$cleaned',E'$cleaned_profile_id',E'$newdata->{\"locus:$locus\"}',"
-				  . "$newdata->{'field:curator'},'today')";
-				push @inserts, $qry;
+				push @inserts,
+				  {
+					statement => 'INSERT INTO profile_members (scheme_id,locus,profile_id,allele_id,curator,datestamp) '
+					  . 'VALUES (?,?,?,?,?,?)',
+					arguments => [
+						$scheme_id,                       $locus,
+						$newdata->{"field:$primary_key"}, $newdata->{"locus:$locus"},
+						$newdata->{'field:curator'},      'now'
+					]
+				  };
 			}
 			foreach my $field (@fields_with_values) {
-				$qry =
-				    "INSERT INTO profile_fields(scheme_id,scheme_field,profile_id,value,curator,datestamp) VALUES "
-				  . "($scheme_id,E'$field',E'$cleaned_profile_id',E'$newdata->{\"field:$field\"}',"
-				  . "$newdata->{'field:curator'},'today')";
-				push @inserts, $qry;
+				push @inserts,
+				  {
+					statement => 'INSERT INTO profile_fields(scheme_id,scheme_field,profile_id,value,curator,'
+					  . 'datestamp) VALUES (?,?,?,?,?,?)',
+					arguments => [
+						$scheme_id,                       $field,
+						$newdata->{"field:$primary_key"}, $newdata->{"field:$field"},
+						$newdata->{'field:curator'},      'now'
+					]
+				  };
 			}
 			push @inserts, @extra_inserts;
 			local $" = ';';
 			eval {
-				$self->{'db'}->do("@inserts");
+				foreach my $insert (@inserts)
+				{
+					$self->{'db'}->do( $insert->{'statement'}, undef, @{ $insert->{'arguments'} } );
+				}
 				$self->refresh_material_view($scheme_id);
 			};
 			if ($@) {
-				say "<div class=\"box\" id=\"statusbad\"><p>Insert failed - transaction cancelled - no records have been touched.</p>";
+				say q(<div class="box" id="statusbad"><p>Insert failed - transaction cancelled - )
+				  . q(no records have been touched.</p>);
 				if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
-					say "<p>Data entry would have resulted in records with either duplicate ids or another unique field with "
-					  . "duplicate values.</p>";
+					say q(<p>Data entry would have resulted in records with either duplicate ids or another )
+					  . q(unique field with duplicate values.</p>);
 				} else {
 					$logger->error("Insert failed: @inserts  $@");
 				}
-				say "</div>";
+				say q(</div>);
 				$self->{'db'}->rollback;
 			} else {
 				$self->{'db'}->commit
-				  && say "<div class=\"box\" id=\"resultsheader\"><p>$primary_key-$cleaned_profile_id added!</p>";
-				say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileAdd&amp;scheme_id="
-				  . "$scheme_id\">Add another</a> | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">"
-				  . "Back to main page</a></p></div>";
-				$self->update_profile_history( $scheme_id, $newdata->{"field:$primary_key"}, "Profile added" );
+				  && say qq(<div class="box" id="resultsheader"><p>$primary_key-$newdata->{"field:$primary_key"} )
+				    . q(added!</p><p>);
+				if ( $q->param('submission_id') ) {
+					my $submission = $self->{'datastore'}->get_submission( $q->param('submission_id') );
+					if ($submission) {
+						say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;)
+						  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;curate=1">Return to )
+						  . q(submission</a> | );
+					}
+				}
+				say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileAdd&amp;)
+				  . qq(scheme_id=$scheme_id\">Add another</a> | <a href="$self->{'system'}->{'script_name'}?)
+				  . qq(db=$self->{'instance'}">Back to main page</a></p></div>);
+				$self->update_profile_history( $scheme_id, $newdata->{"field:$primary_key"}, 'Profile added' );
 				return SUCCESS;
 			}
 		}
@@ -226,9 +285,10 @@ sub _upload {
 sub profile_exists {
 	my ( $self, $scheme_id, $primary_key, $newdata ) = @_;
 	my ( $profile_exists, $msg );
-	my $scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
-	my $qry         = "SELECT $primary_key FROM $scheme_view WHERE ";
-	my $loci        = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $scheme_view =
+	  $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
+	my $qry  = "SELECT $primary_key FROM $scheme_view WHERE ";
+	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my ( @locus_temp, @values );
 	foreach my $locus (@$loci) {
 		next if $newdata->{"locus:$locus"} eq 'N';    #N can be any allele so can not be used to differentiate profiles
@@ -244,7 +304,9 @@ sub profile_exists {
 		  $self->{'datastore'}->run_query( $qry, \@values,
 			{ fetch => 'col_arrayref', cache => "CurateProfileAddPage:profile_exists::${scheme_id}::$locus_count" } );
 		$newdata->{"field:$primary_key"} //= '';
-		if ( @$matching_profiles && !( @$matching_profiles == 1 && $matching_profiles->[0] eq $newdata->{"field:$primary_key"} ) ) {
+		if ( @$matching_profiles
+			&& !( @$matching_profiles == 1 && $matching_profiles->[0] eq $newdata->{"field:$primary_key"} ) )
+		{
 			if ( @locus_temp < @$loci ) {
 				my $first_match;
 				foreach (@$matching_profiles) {
@@ -253,10 +315,13 @@ sub profile_exists {
 						last;
 					}
 				}
-				$msg .= "Profiles containing an arbitrary allele (N) at a particular locus may match profiles with actual values at "
+				$msg .=
+"Profiles containing an arbitrary allele (N) at a particular locus may match profiles with actual values at "
 				  . "that locus and cannot therefore be defined.  This profile matches $primary_key-$first_match";
 				my $other_matches = @$matching_profiles - 1;
-				$other_matches-- if ( any { $newdata->{"field:$primary_key"} eq $_ } @$matching_profiles ); #if updating don't match to self
+				$other_matches--
+				  if ( any { $newdata->{"field:$primary_key"} eq $_ } @$matching_profiles )
+				  ;    #if updating don't match to self
 				if ($other_matches) {
 					$msg .= " and $other_matches other" . ( $other_matches > 1 ? 's' : '' );
 				}
@@ -306,7 +371,7 @@ sub _print_interface {
 	$usernames{''} = ' ';    #Required for HTML5 validation.
 	print $q->start_form;
 	$q->param( sent => 1 );
-	say $q->hidden($_) foreach qw (page db sent scheme_id);
+	say $q->hidden($_) foreach qw (page db sent scheme_id submission_id);
 	say qq(<ul style="white-space:nowrap">);
 	my ( $label, $title ) = $self->get_truncated_label( $primary_key, 24 );
 	my $title_attribute = $title ? " title=\"$title\"" : '';
@@ -322,10 +387,12 @@ sub _print_interface {
 		%html5_args
 	);
 	say "</li>";
+
 	foreach my $locus (@$loci) {
 		%html5_args = ( required => 'required' );
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-		$html5_args{'type'} = 'number' if $locus_info->{'allele_id_format'} eq 'integer' && !$scheme_info->{'allow_missing_loci'};
+		$html5_args{'type'} = 'number'
+		  if $locus_info->{'allele_id_format'} eq 'integer' && !$scheme_info->{'allow_missing_loci'};
 		my $cleaned = $self->clean_locus( $locus, { strip_links => 1 } );
 		( $label, $title ) = $self->get_truncated_label( $cleaned, 24 );
 		$title_attribute = $title ? " title=\"$title\"" : '';
@@ -334,7 +401,7 @@ sub _print_interface {
 			-name  => "locus:$locus",
 			-id    => "locus:$locus",
 			-size  => 10,
-			-value => $newdata->{"locus:$locus"},
+			-value => $q->param("locus:$locus") // $newdata->{"locus:$locus"},
 			%html5_args
 		);
 		say "</li>";
@@ -369,8 +436,12 @@ sub _print_interface {
 	  . $self->get_curator_name . ' ('
 	  . $self->{'username'}
 	  . ")</b></li>";
-	say qq(<li><label class="form" style="width:${width}em">date_entered: !</label><b>) . $self->get_datestamp . "</b></li>";
-	say qq(<li><label class="form" style="width:${width}em">datestamp: !</label><b>) . $self->get_datestamp . "</b></li>";
+	say qq(<li><label class="form" style="width:${width}em">date_entered: !</label><b>)
+	  . $self->get_datestamp
+	  . "</b></li>";
+	say qq(<li><label class="form" style="width:${width}em">datestamp: !</label><b>)
+	  . $self->get_datestamp
+	  . "</b></li>";
 	say qq(<li><label for="pubmed" class="form" style="width:${width}em">PubMed ids:</label>);
 	say $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em' );
 	say "</li></ul>";
@@ -398,7 +469,7 @@ sub _is_scheme_field_bad {
 
 sub is_locus_field_bad {
 	my ( $self, $scheme_id, $locus, $value ) = @_;
-	if ( !$self->{'cache'}->{'locus_info'}->{$locus} ) {    #may be called thousands of time during a batch add so cache.
+	if ( !$self->{'cache'}->{'locus_info'}->{$locus} ) {   #may be called thousands of time during a batch add so cache.
 		$self->{'cache'}->{'locus_info'}->{$locus} = $self->{'datastore'}->get_locus_info($locus);
 	}
 	my $locus_info = $self->{'cache'}->{'locus_info'}->{$locus};
@@ -414,7 +485,8 @@ sub is_locus_field_bad {
 			}
 			return;
 		} else {
-			return "Allele id value is invalid - this scheme does not allow missing (0) or arbitrary alleles (N) in the profile.";
+			return
+"Allele id value is invalid - this scheme does not allow missing (0) or arbitrary alleles (N) in the profile.";
 		}
 	} elsif ( $locus_info->{'allele_id_format'} eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
 		return "Locus '$mapped' must be an integer.";
@@ -422,7 +494,8 @@ sub is_locus_field_bad {
 		return "Allele id value is invalid - it must match the regular expression /$locus_info->{'allele_id_regex'}/.";
 	} else {
 		if ( !defined $self->{'cache'}->{'seq_exists'}->{$locus}->{$value} ) {
-			$self->{'cache'}->{'seq_exists'}->{$locus}->{$value} = $self->{'datastore'}->sequence_exists( $locus, $value );
+			$self->{'cache'}->{'seq_exists'}->{$locus}->{$value} =
+			  $self->{'datastore'}->sequence_exists( $locus, $value );
 		}
 		if ( !$self->{'cache'}->{'seq_exists'}->{$locus}->{$value} ) {
 			return "Allele $mapped $value has not been defined.";
@@ -438,7 +511,8 @@ sub define_missing_allele {
 	elsif ( $allele eq 'N' ) { $seq = 'arbitrary allele' }
 	else                     { return }
 	my $sql =
-	  $self->{'db'}->prepare( "INSERT INTO sequences (locus, allele_id, sequence, sender, curator, date_entered, datestamp, "
+	  $self->{'db'}
+	  ->prepare( "INSERT INTO sequences (locus, allele_id, sequence, sender, curator, date_entered, datestamp, "
 		  . "status) VALUES (?,?,?,?,?,?,?,?)" );
 	eval { $sql->execute( $locus, $allele, $seq, 0, 0, 'now', 'now', '' ) };
 	if ($@) {

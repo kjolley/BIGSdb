@@ -41,6 +41,7 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON allele_submissions TO apache;
 
 CREATE TABLE allele_submission_sequences (
 submission_id text NOT NULL,
+index int NOT NULL,
 seq_id text NOT NULL,
 sequence text NOT NULL,
 status text NOT NULL,
@@ -85,6 +86,7 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON profile_submissions TO apache;
 
 CREATE TABLE profile_submission_profiles (
 submission_id text NOT NULL,
+index int NOT NULL,
 profile_id text NOT NULL,
 status text NOT NULL,
 assigned_id text,
